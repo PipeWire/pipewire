@@ -34,10 +34,10 @@ extern "C" {
  * \{
  */
 
-#include <spa/debug/log.h>
+#include <spa/debug/context.h>
 #include <spa/utils/dict.h>
 
-static inline int spa_debugc_dict(void *ctx, int indent, const struct spa_dict *dict)
+static inline int spa_debugc_dict(struct spa_debug_context *ctx, int indent, const struct spa_dict *dict)
 {
 	const struct spa_dict_item *item;
 	spa_debugc(ctx, "%*sflags:%08x n_items:%d", indent, "", dict->flags, dict->n_items);

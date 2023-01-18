@@ -33,47 +33,64 @@ extern "C" {
 #include <stdarg.h>
 
 #include <spa/utils/defs.h>
+#include <spa/support/log.h>
+#include <spa/debug/context.h>
+
 /**
  * \addtogroup spa_debug
  * \{
  */
 
-#ifndef spa_debugn
-#define spa_debugn(_fmt,...)	printf((_fmt), ## __VA_ARGS__)
-#endif
-#ifndef spa_debug
-#define spa_debug(_fmt,...)	spa_debugn(_fmt"\n", ## __VA_ARGS__)
-#endif
-#ifndef spa_debugc
-#define spa_debugc(_c,_fmt,...)	spa_debug(_fmt, ## __VA_ARGS__)
-#endif
-
-struct spa_debug_buffer {
-	char *buffer;
-	size_t maxsize;
-	size_t pos;
+struct spa_debug_log_ctx {
+	struct spa_debug_context ctx;
+	struct spa_log *log;
+	enum spa_log_level level;
+	const struct spa_log_topic *topic;
+	const char *file;
+	int line;
+	const char *func;
 };
 
-static inline void spa_debug_buffer_init(struct spa_debug_buffer *buf, char *buffer, size_t maxsize)
+SPA_PRINTF_FUNC(2,3)
+static inline void spa_debug_log_log(struct spa_debug_context *ctx, const char *fmt, ...)
 {
-	buf->buffer = buffer;
-	buf->maxsize = maxsize;
-	buf->pos = 0;
-}
-
-SPA_PRINTF_FUNC(2, 3)
-static inline int spa_debug_buffer_append(struct spa_debug_buffer *buf, const char *fmt, ...)
-{
-	size_t remain = buf->maxsize - buf->pos;
-	ssize_t written;
+	struct spa_debug_log_ctx *c = (struct spa_debug_log_ctx*)ctx;
 	va_list args;
 	va_start(args, fmt);
-	written = vsnprintf(&buf->buffer[buf->pos], remain, fmt, args);
+	spa_log_logtv(c->log, c->level, c->topic, c->file, c->line, c->func, fmt, args);
 	va_end(args);
-	if (written > 0)
-		buf->pos += SPA_MIN(remain, (size_t)written);
-	return written;
 }
+
+#define SPA_LOGF_DEBUG_INIT(_l,_lev,_t,_file,_line,_func)			\
+	(struct spa_debug_log_ctx){ { spa_debug_log_log }, _l, _lev, _t,	\
+		_file, _line, _func }
+
+#define SPA_LOGT_DEBUG_INIT(_l,_lev,_t)						\
+	SPA_LOGF_DEBUG_INIT(_l,_lev,_t,__FILE__,__LINE__,__func__)
+
+#define SPA_LOG_DEBUG_INIT(l,lev) 	\
+	SPA_LOGT_DEBUG_INIT(l,lev,SPA_LOG_TOPIC_DEFAULT)
+
+#define spa_debug_log_pod(l,lev,indent,info,pod) 				\
+({										\
+ 	struct spa_debug_log_ctx c = SPA_LOG_DEBUG_INIT(l,lev);			\
+	if (SPA_UNLIKELY(spa_log_level_topic_enabled(c.log, c.topic, c.level)))	\
+		spa_debugc_pod(&c.ctx, indent, info, pod);			\
+})
+
+#define spa_debug_log_format(l,lev,indent,info,format) 				\
+({										\
+ 	struct spa_debug_log_ctx c = SPA_LOG_DEBUG_INIT(l,lev);			\
+	if (SPA_UNLIKELY(spa_log_level_topic_enabled(c.log, c.topic, c.level)))	\
+		spa_debugc_format(&c.ctx, indent, info, format);		\
+})
+
+#define spa_debug_log_mem(l,lev,indent,data,len)				\
+({										\
+ 	struct spa_debug_log_ctx c = SPA_LOG_DEBUG_INIT(l,lev);			\
+	if (SPA_UNLIKELY(spa_log_level_topic_enabled(c.log, c.topic, c.level)))	\
+		spa_debugc_mem(&c.ctx, indent, data, len);			\
+})
 
 /**
  * \}
@@ -83,4 +100,4 @@ static inline int spa_debug_buffer_append(struct spa_debug_buffer *buf, const ch
 }  /* extern "C" */
 #endif
 
-#endif /* SPA_DEBUG_LOGH */
+#endif /* SPA_DEBUG_LOG_H */

@@ -34,7 +34,6 @@
 #include <pipewire/log.h>
 
 #include "log.h"
-#define spa_debug pw_log_debug
 
 #include <spa/support/cpu.h>
 #include <spa/utils/result.h>

@@ -35,6 +35,8 @@
 
 #include <dbus/dbus.h>
 
+#include <spa/debug/mem.h>
+#include <spa/debug/log.h>
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
 #include <spa/support/dbus.h>
@@ -563,7 +565,7 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 	spa_log_info(monitor->log, "%p: %s select conf %d", monitor, path, size);
-	spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, 2, cap, (size_t)size);
+	spa_debug_log_mem(monitor->log, SPA_LOG_LEVEL_DEBUG, 2, cap, (size_t)size);
 
 	/* For codecs sharing the same endpoint, BlueZ-initiated connections
 	 * always pick the default one. The session manager will
@@ -592,7 +594,7 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 		goto exit_send;
 	}
-	spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, 2, pconf, (size_t)size);
+	spa_debug_log_mem(monitor->log, SPA_LOG_LEVEL_DEBUG, 2, pconf, (size_t)size);
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -696,7 +698,7 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 			memcpy(caps, buf, caps_size);
 
 			spa_log_info(monitor->log, "%p: %s %s size:%d", monitor, path, key, caps_size);
-			spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', caps, (size_t)caps_size);
+			spa_debug_log_mem(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', caps, (size_t)caps_size);
 		} else if (spa_streq(key, "Endpoint")) {
 			if (type != DBUS_TYPE_OBJECT_PATH) {
 				spa_log_error(monitor->log, "Property %s of wrong type %c", key, (char)type);
@@ -776,7 +778,7 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 		goto error_invalid;
 	}
 	spa_log_info(monitor->log, "%p: selected conf %d", monitor, conf_size);
-	spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', (uint8_t *)config, (size_t)conf_size);
+	spa_debug_log_mem(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', (uint8_t *)config, (size_t)conf_size);
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -2064,7 +2066,7 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 			dbus_message_iter_get_fixed_array(&iter, &value, &len);
 
 			spa_log_debug(monitor->log, "remote_endpoint %p: %s=%d", remote_endpoint, key, len);
-			spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, 2, value, (size_t)len);
+			spa_debug_log_mem(monitor->log, SPA_LOG_LEVEL_DEBUG, 2, value, (size_t)len);
 
 			free(remote_endpoint->capabilities);
 			remote_endpoint->capabilities_len = 0;
@@ -2616,7 +2618,7 @@ static int transport_update_props(struct spa_bt_transport *transport,
 			dbus_message_iter_get_fixed_array(&iter, &value, &len);
 
 			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, len);
-			spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, 2, value, (size_t)len);
+			spa_debug_log_mem(monitor->log, SPA_LOG_LEVEL_DEBUG, 2, value, (size_t)len);
 
 			free(transport->configuration);
 			transport->configuration_len = 0;

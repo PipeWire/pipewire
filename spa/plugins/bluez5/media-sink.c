@@ -48,6 +48,8 @@
 #include <spa/param/audio/format.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/pod/filter.h>
+#include <spa/debug/mem.h>
+#include <spa/debug/log.h>
 
 #include <sbc/sbc.h>
 
@@ -949,7 +951,7 @@ static int do_start(struct impl *this)
 	size = this->transport->configuration_len;
 
 	spa_log_debug(this->log, "Transport configuration:");
-	spa_log_hexdump(this->log, SPA_LOG_LEVEL_DEBUG, 2, conf, (size_t)size);
+	spa_debug_log_mem(this->log, SPA_LOG_LEVEL_DEBUG, 2, conf, (size_t)size);
 
 	flags = this->is_duplex ? MEDIA_CODEC_FLAG_SINK : 0;
 

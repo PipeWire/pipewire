@@ -38,12 +38,12 @@ extern "C" {
  * \{
  */
 
-#include <spa/debug/log.h>
+#include <spa/debug/context.h>
 #include <spa/debug/mem.h>
 #include <spa/debug/types.h>
 #include <spa/buffer/type-info.h>
 
-static inline int spa_debugc_buffer(void *ctx, int indent, const struct spa_buffer *buffer)
+static inline int spa_debugc_buffer(struct spa_debug_context *ctx, int indent, const struct spa_buffer *buffer)
 {
 	uint32_t i;
 

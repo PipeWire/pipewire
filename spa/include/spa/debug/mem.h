@@ -36,9 +36,9 @@ extern "C" {
  * \{
  */
 
-#include <spa/debug/log.h>
+#include <spa/debug/context.h>
 
-static inline int spa_debugc_mem(void *ctx, int indent, const void *data, size_t size)
+static inline int spa_debugc_mem(struct spa_debug_context *ctx, int indent, const void *data, size_t size)
 {
 	const uint8_t *t = (const uint8_t*)data;
 	char buffer[512];

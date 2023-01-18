@@ -34,14 +34,14 @@ extern "C" {
  * \{
  */
 
-#include <spa/debug/log.h>
+#include <spa/debug/context.h>
 #include <spa/debug/mem.h>
 #include <spa/debug/types.h>
 #include <spa/pod/pod.h>
 #include <spa/pod/iter.h>
 
 static inline int
-spa_debugc_pod_value(void *ctx, int indent, const struct spa_type_info *info,
+spa_debugc_pod_value(struct spa_debug_context *ctx, int indent, const struct spa_type_info *info,
 		uint32_t type, void *body, uint32_t size)
 {
 	switch (type) {
@@ -194,7 +194,7 @@ spa_debugc_pod_value(void *ctx, int indent, const struct spa_type_info *info,
 	return 0;
 }
 
-static inline int spa_debugc_pod(void *ctx, int indent,
+static inline int spa_debugc_pod(struct spa_debug_context *ctx, int indent,
 		const struct spa_type_info *info, const struct spa_pod *pod)
 {
 	return spa_debugc_pod_value(ctx, indent, info ? info : SPA_TYPE_ROOT,

@@ -40,15 +40,13 @@
 #include <spa/param/param.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/latency-utils.h>
+#include <spa/debug/format.h>
+#include <spa/debug/pod.h>
+#include <spa/debug/log.h>
 
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT log_topic
 static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.audioadapter");
-
-#undef spa_debugc
-#define spa_debugc(l,...) spa_log_debug(l, __VA_ARGS__)
-#include <spa/debug/format.h>
-#include <spa/debug/pod.h>
 
 #define DEFAULT_ALIGN	16
 
@@ -336,7 +334,7 @@ static int debug_params(struct impl *this, struct spa_node *node,
 
 	if (filter) {
 		spa_log_error(this->log, "with this filter:");
-		spa_debugc_pod(this->log, 2, NULL, filter);
+		spa_debug_log_pod(this->log, SPA_LOG_LEVEL_DEBUG, 2, NULL, filter);
 	} else {
 		spa_log_error(this->log, "there was no filter");
 	}
@@ -354,7 +352,7 @@ static int debug_params(struct impl *this, struct spa_node *node,
 			break;
 		}
 		spa_log_error(this->log, "unmatched %s %d:", debug, count);
-		spa_debugc_pod(this->log, 2, NULL, param);
+		spa_debug_log_pod(this->log, SPA_LOG_LEVEL_DEBUG, 2, NULL, param);
 		count++;
 	}
 	if (count == 0)
@@ -483,8 +481,8 @@ static int configure_format(struct impl *this, uint32_t flags, const struct spa_
 		return 0;
 
 	spa_log_debug(this->log, "%p: configure format:", this);
-	if (format && spa_log_level_enabled(this->log, SPA_LOG_LEVEL_DEBUG))
-		spa_debugc_format(this->log, 0, NULL, format);
+	if (format)
+		spa_debug_log_format(this->log, SPA_LOG_LEVEL_DEBUG, 0, NULL, format);
 
 	if ((res = spa_node_port_set_param(this->follower,
 					   this->direction, 0,

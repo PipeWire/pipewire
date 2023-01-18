@@ -232,35 +232,21 @@ pw_log_log(enum spa_log_level level,
  * realtime threads
  */
 
-struct log_ctx {
-	enum spa_log_level level;
-	const char *file;
-	int line;
-	const char *func;
-};
-
-#undef spa_debugc
-#define spa_debugc(_ctx,_fmt,...) 				\
-({ 	struct log_ctx *_c = _ctx;				\
- 	pw_log_log(_c->level, _c->file, _c->line, _c->func,	\
-		_fmt, ## __VA_ARGS__);				\
-})
-
 #include <spa/debug/pod.h>
+#include <spa/debug/log.h>
 
 void pw_log_log_object(enum spa_log_level level,
-	   const char *file,
-	   int line,
-	   const char *func,
-	   uint32_t flags, const void *object)
+	const struct spa_log_topic *topic, const char *file,
+	int line, const char *func, uint32_t flags, const void *object)
 {
-	struct log_ctx ctx = { level, file, line, func, };
+	struct spa_debug_log_ctx ctx = SPA_LOGF_DEBUG_INIT(global_log, level,
+			topic, file, line, func );
 	if (flags & PW_LOG_OBJECT_POD) {
 		const struct spa_pod *pod = object;
 		if (pod == NULL) {
-			pw_log_log(level, file, line, func, "NULL");
+			pw_log_logt(level, topic, file, line, func, "NULL");
 		} else {
-			spa_debugc_pod(&ctx, 0, SPA_TYPE_ROOT, pod);
+			spa_debugc_pod(&ctx.ctx, 0, SPA_TYPE_ROOT, pod);
 		}
 	}
 }

@@ -45,10 +45,6 @@ struct ucred {
 };
 #endif
 
-#ifndef spa_debug
-#define spa_debug(...) pw_log_trace(__VA_ARGS__)
-#endif
-
 #define MAX_RATES				32u
 #define CLOCK_MIN_QUANTUM			4u
 #define CLOCK_MAX_QUANTUM			65536u
@@ -1282,17 +1278,19 @@ void pw_control_destroy(struct pw_control *control);
 void pw_impl_client_unref(struct pw_impl_client *client);
 
 #define PW_LOG_OBJECT_POD	(1<<0)
-void pw_log_log_object(enum spa_log_level level, const char *file, int line,
-	   const char *func, uint32_t flags, const void *object);
+void pw_log_log_object(enum spa_log_level level, const struct spa_log_topic *topic,
+		const char *file, int line, const char *func, uint32_t flags,
+		const void *object);
 
-#define pw_log_object(lev,fl,obj)						\
-({										\
-	if (SPA_UNLIKELY(pw_log_level_enabled (lev)))				\
-		pw_log_log_object(lev,__FILE__,__LINE__,__func__,(fl),(obj));	\
+#define pw_log_object(lev,t,fl,obj)				\
+({								\
+	if (SPA_UNLIKELY(pw_log_topic_enabled(lev,t)))		\
+		pw_log_log_object(lev,t,__FILE__,__LINE__,	\
+				__func__,(fl),(obj));		\
 })
 
-#define pw_log_pod(lev,pod) pw_log_object(lev,PW_LOG_OBJECT_POD,pod)
-#define pw_log_format(lev,pod) pw_log_object(lev,PW_LOG_OBJECT_POD,pod)
+#define pw_log_pod(lev,pod) pw_log_object(lev,PW_LOG_TOPIC_DEFAULT,PW_LOG_OBJECT_POD,pod)
+#define pw_log_format(lev,pod) pw_log_object(lev,PW_LOG_TOPIC_DEFAULT,PW_LOG_OBJECT_POD,pod)
 
 bool pw_log_is_default(void);
 

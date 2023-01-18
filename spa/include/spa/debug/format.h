@@ -41,12 +41,13 @@ extern "C" {
 #include <spa/param/format-utils.h>
 
 static inline int
-spa_debug_format_value(const struct spa_type_info *info,
+spa_debug_buffer_format_value(struct spa_debug_buffer *buffer, const struct spa_type_info *info,
 		uint32_t type, void *body, uint32_t size)
 {
+
 	switch (type) {
 	case SPA_TYPE_Bool:
-		spa_debugn("%s", *(int32_t *) body ? "true" : "false");
+		spa_debug_buffer_append(buffer, "%s", *(int32_t *) body ? "true" : "false");
 		break;
 	case SPA_TYPE_Id:
 	{
@@ -56,41 +57,41 @@ spa_debug_format_value(const struct spa_type_info *info,
 			snprintf(tmp, sizeof(tmp), "%d", *(int32_t*)body);
 			str = tmp;
 		}
-		spa_debugn("%s", str);
+		spa_debug_buffer_append(buffer, "%s", str);
 		break;
 	}
 	case SPA_TYPE_Int:
-		spa_debugn("%d", *(int32_t *) body);
+		spa_debug_buffer_append(buffer, "%d", *(int32_t *) body);
 		break;
 	case SPA_TYPE_Long:
-		spa_debugn("%" PRIi64, *(int64_t *) body);
+		spa_debug_buffer_append(buffer, "%" PRIi64, *(int64_t *) body);
 		break;
 	case SPA_TYPE_Float:
-		spa_debugn("%f", *(float *) body);
+		spa_debug_buffer_append(buffer, "%f", *(float *) body);
 		break;
 	case SPA_TYPE_Double:
-		spa_debugn("%f", *(double *) body);
+		spa_debug_buffer_append(buffer, "%f", *(double *) body);
 		break;
 	case SPA_TYPE_String:
-		spa_debugn("%s", (char *) body);
+		spa_debug_buffer_append(buffer, "%s", (char *) body);
 		break;
 	case SPA_TYPE_Rectangle:
 	{
 		struct spa_rectangle *r = (struct spa_rectangle *)body;
-		spa_debugn("%" PRIu32 "x%" PRIu32, r->width, r->height);
+		spa_debug_buffer_append(buffer, "%" PRIu32 "x%" PRIu32, r->width, r->height);
 		break;
 	}
 	case SPA_TYPE_Fraction:
 	{
 		struct spa_fraction *f = (struct spa_fraction *)body;
-		spa_debugn("%" PRIu32 "/%" PRIu32, f->num, f->denom);
+		spa_debug_buffer_append(buffer, "%" PRIu32 "/%" PRIu32, f->num, f->denom);
 		break;
 	}
 	case SPA_TYPE_Bitmap:
-		spa_debugn("Bitmap");
+		spa_debug_buffer_append(buffer, "Bitmap");
 		break;
 	case SPA_TYPE_Bytes:
-		spa_debugn("Bytes");
+		spa_debug_buffer_append(buffer, "Bytes");
 		break;
 	case SPA_TYPE_Array:
 	{
@@ -98,19 +99,31 @@ spa_debug_format_value(const struct spa_type_info *info,
 		struct spa_pod_array_body *b = (struct spa_pod_array_body *)body;
 		int i = 0;
 		info = info && info->values ? info->values : info;
-		spa_debugn("< ");
+		spa_debug_buffer_append(buffer, "< ");
 		SPA_POD_ARRAY_BODY_FOREACH(b, size, p) {
 			if (i++ > 0)
-				spa_debugn(", ");
-			spa_debug_format_value(info, b->child.type, p, b->child.size);
+				spa_debug_buffer_append(buffer, ", ");
+			spa_debug_buffer_format_value(buffer, info, b->child.type, p, b->child.size);
 		}
-		spa_debugn(" >");
+		spa_debug_buffer_append(buffer, " >");
 		break;
 	}
 	default:
-		spa_debugn("INVALID type %d", type);
+		spa_debug_buffer_append(buffer, "INVALID type %d", type);
 		break;
 	}
+	return 0;
+}
+
+static inline int
+spa_debug_format_value(const struct spa_type_info *info,
+		uint32_t type, void *body, uint32_t size)
+{
+	char buffer[1024];
+	struct spa_debug_buffer buf;
+	spa_debug_buffer_init(&buf, buffer, sizeof(buffer));
+	spa_debug_buffer_format_value(&buf, info, type, body, size);
+	spa_debugn("%s", buffer);
 	return 0;
 }
 
@@ -144,6 +157,8 @@ static inline int spa_debug_format(int indent,
 		uint32_t i, type, size, n_vals, choice;
 		const struct spa_pod *val;
 		void *vals;
+		char buffer[1024];
+		struct spa_debug_buffer buf;
 
 		if (prop->key == SPA_FORMAT_mediaType ||
 		    prop->key == SPA_FORMAT_mediaSubtype)
@@ -161,12 +176,13 @@ static inline int spa_debug_format(int indent,
 		ti = spa_debug_type_find(info, prop->key);
 		key = ti ? ti->name : NULL;
 
-		spa_debugn("%*s %16s : (%s) ", indent, "",
+		spa_debug_buffer_init(&buf, buffer, sizeof(buffer));
+		spa_debug_buffer_append(&buf, "%*s %16s : (%s) ", indent, "",
 			key ? spa_debug_type_short_name(key) : "unknown",
 			spa_debug_type_short_name(spa_types[type].name));
 
 		if (choice == SPA_CHOICE_None) {
-			spa_debug_format_value(ti ? ti->values : NULL, type, vals, size);
+			spa_debug_buffer_format_value(&buf, ti ? ti->values : NULL, type, vals, size);
 		} else {
 			const char *ssep, *esep, *sep;
 
@@ -186,17 +202,17 @@ static inline int spa_debug_format(int indent,
 				break;
 			}
 
-			spa_debugn("%s", ssep);
+			spa_debug_buffer_append(&buf, "%s", ssep);
 
 			for (i = 1; i < n_vals; i++) {
 				vals = SPA_PTROFF(vals, size, void);
 				if (i > 1)
-					spa_debugn("%s", sep);
-				spa_debug_format_value(ti ? ti->values : NULL, type, vals, size);
+					spa_debug_buffer_append(&buf, "%s", sep);
+				spa_debug_buffer_format_value(&buf, ti ? ti->values : NULL, type, vals, size);
 			}
-			spa_debugn("%s", esep);
+			spa_debug_buffer_append(&buf, "%s", esep);
 		}
-		spa_debugn("\n");
+		spa_debug("%s", buffer);
 	}
 	return 0;
 }

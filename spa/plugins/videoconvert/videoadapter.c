@@ -40,12 +40,17 @@
 #include <spa/param/param.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/latency-utils.h>
-#include <spa/debug/format.h>
-#include <spa/debug/pod.h>
 
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT log_topic
 static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.videoadapter");
+
+static struct spa_log *global_log;
+
+#undef spa_debug
+#define spa_debug(...) spa_log_debug(global_log, __VA_ARGS__)
+#include <spa/debug/format.h>
+#include <spa/debug/pod.h>
 
 #define DEFAULT_ALIGN	16
 
@@ -1574,6 +1579,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	spa_log_topic_init(this->log, log_topic);
+	global_log = this->log;
 
 	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 

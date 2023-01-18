@@ -30,6 +30,9 @@ extern "C" {
 #endif
 
 #include <stdio.h>
+#include <stdarg.h>
+
+#include <spa/utils/defs.h>
 /**
  * \addtogroup spa_debug
  * \{
@@ -41,6 +44,33 @@ extern "C" {
 #ifndef spa_debugn
 #define spa_debugn(fmt,...)	({ printf((fmt), ## __VA_ARGS__); })
 #endif
+
+struct spa_debug_buffer {
+	char *buffer;
+	size_t maxsize;
+	size_t pos;
+};
+
+static inline void spa_debug_buffer_init(struct spa_debug_buffer *buf, char *buffer, size_t maxsize)
+{
+	buf->buffer = buffer;
+	buf->maxsize = maxsize;
+	buf->pos = 0;
+}
+
+SPA_PRINTF_FUNC(2, 3)
+static inline int spa_debug_buffer_append(struct spa_debug_buffer *buf, const char *fmt, ...)
+{
+	size_t remain = buf->maxsize - buf->pos;
+	ssize_t written;
+	va_list args;
+	va_start(args, fmt);
+	written = vsnprintf(&buf->buffer[buf->pos], remain, fmt, args);
+	va_end(args);
+	if (written > 0)
+		buf->pos += SPA_MIN(remain, (size_t)written);
+	return written;
+}
 
 /**
  * \}

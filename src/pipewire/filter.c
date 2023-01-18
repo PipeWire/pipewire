@@ -36,9 +36,7 @@
 #include <spa/utils/string.h>
 #include <spa/pod/filter.h>
 #include <spa/pod/dynamic.h>
-#include <spa/debug/format.h>
 #include <spa/debug/types.h>
-#include <spa/debug/pod.h>
 
 #include "pipewire/pipewire.h"
 #include "pipewire/filter.h"

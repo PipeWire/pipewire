@@ -39,7 +39,7 @@
 #include <spa/pod/builder.h>
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
-#include <spa/debug/pod.h>
+#include <spa/param/param.h>
 
 #include "v4l2.h"
 

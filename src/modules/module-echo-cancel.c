@@ -38,7 +38,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <spa/debug/pod.h>
+#include <spa/debug/types.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/raw.h>
 #include <spa/param/profiler.h>

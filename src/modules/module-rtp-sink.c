@@ -39,7 +39,7 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/json.h>
-#include <spa/debug/pod.h>
+#include <spa/debug/types.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>

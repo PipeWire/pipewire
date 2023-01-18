@@ -46,7 +46,6 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/debug/types.h>
-#include <spa/debug/pod.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/i18n.h>

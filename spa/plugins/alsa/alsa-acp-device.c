@@ -31,11 +31,12 @@
 
 #include <alsa/asoundlib.h>
 
-#include <spa/utils/type.h>
 #include <spa/node/node.h>
+#include <spa/utils/type.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
+#include <spa/support/log.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
 #include <spa/support/i18n.h>

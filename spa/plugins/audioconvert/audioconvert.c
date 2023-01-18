@@ -44,7 +44,6 @@
 #include <spa/param/latency-utils.h>
 #include <spa/pod/filter.h>
 #include <spa/debug/types.h>
-#include <spa/debug/pod.h>
 
 #include "volume-ops.h"
 #include "fmt-ops.h"

@@ -41,7 +41,7 @@
 #include <spa/support/cpu.h>
 #include <spa/param/profiler.h>
 #include <spa/pod/dynamic.h>
-#include <spa/debug/pod.h>
+#include <spa/debug/types.h>
 
 #include <pipewire/utils.h>
 #include <pipewire/private.h>

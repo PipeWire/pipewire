@@ -27,7 +27,7 @@
 
 #include "spa/pod/parser.h"
 #include "spa/pod/builder.h"
-#include "spa/debug/pod.h"
+#include "spa/debug/types.h"
 #include "spa/utils/string.h"
 
 #include "pipewire/pipewire.h"

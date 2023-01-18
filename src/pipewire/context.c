@@ -38,7 +38,6 @@
 #include <spa/node/utils.h>
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
-#include <spa/debug/format.h>
 #include <spa/debug/types.h>
 
 #include <pipewire/impl.h>

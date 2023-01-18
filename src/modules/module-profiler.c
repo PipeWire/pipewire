@@ -35,7 +35,6 @@
 #include <spa/utils/result.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/param/profiler.h>
-#include <spa/debug/pod.h>
 
 #include <pipewire/private.h>
 #include <pipewire/impl.h>

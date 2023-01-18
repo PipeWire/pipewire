@@ -27,10 +27,6 @@
 #include <spa/param/param.h>
 #include <spa/buffer/alloc.h>
 
-#include <spa/debug/node.h>
-#include <spa/debug/pod.h>
-#include <spa/debug/format.h>
-
 #include "pipewire/keys.h"
 #include "pipewire/private.h"
 

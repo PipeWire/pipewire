@@ -45,7 +45,7 @@
 #include <spa/param/param.h>
 #include <spa/param/latency-utils.h>
 #include <spa/pod/filter.h>
-#include <spa/debug/pod.h>
+#include <spa/control/control.h>
 
 #include "v4l2.h"
 

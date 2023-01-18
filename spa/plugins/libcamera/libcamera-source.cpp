@@ -49,8 +49,8 @@
 #include <spa/node/keys.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/param.h>
+#include <spa/control/control.h>
 #include <spa/pod/filter.h>
-#include <spa/debug/pod.h>
 
 #include <libcamera/camera.h>
 #include <libcamera/stream.h>

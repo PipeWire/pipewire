@@ -30,14 +30,13 @@
 
 #include <spa/buffer/alloc.h>
 #include <spa/param/props.h>
+#include <spa/param/format-utils.h>
 #include <spa/node/io.h>
 #include <spa/node/utils.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/pod/filter.h>
 #include <spa/pod/dynamic.h>
-#include <spa/debug/format.h>
 #include <spa/debug/types.h>
-#include <spa/debug/pod.h>
 
 #define PW_ENABLE_DEPRECATED
 

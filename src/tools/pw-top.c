@@ -31,7 +31,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/pod/parser.h>
-#include <spa/debug/pod.h>
+#include <spa/debug/types.h>
 #include <spa/param/format-utils.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/video/format-utils.h>

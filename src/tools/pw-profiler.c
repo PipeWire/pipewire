@@ -30,7 +30,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/pod/parser.h>
-#include <spa/debug/pod.h>
+#include <spa/debug/types.h>
 
 #include <pipewire/impl.h>
 #include <pipewire/extensions/profiler.h>

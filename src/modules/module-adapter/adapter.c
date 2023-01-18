@@ -42,7 +42,6 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/format-utils.h>
 #include <spa/debug/types.h>
-#include <spa/debug/pod.h>
 #include <spa/utils/json-pod.h>
 
 #include "pipewire/pipewire.h"

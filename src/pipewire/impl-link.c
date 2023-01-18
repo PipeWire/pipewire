@@ -31,13 +31,10 @@
 #include <spa/pod/parser.h>
 #include <spa/pod/compare.h>
 #include <spa/param/param.h>
+#include <spa/debug/types.h>
 
 #include "pipewire/impl-link.h"
 #include "pipewire/private.h"
-
-#include <spa/debug/node.h>
-#include <spa/debug/pod.h>
-#include <spa/debug/format.h>
 
 PW_LOG_TOPIC_EXTERN(log_link);
 #define PW_LOG_TOPIC_DEFAULT log_link

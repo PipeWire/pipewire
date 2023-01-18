@@ -33,7 +33,6 @@
 #include <spa/utils/string.h>
 #include <spa/param/audio/format.h>
 #include <spa/pod/filter.h>
-#include <spa/debug/pod.h>
 
 #include "avb-pcm.h"
 

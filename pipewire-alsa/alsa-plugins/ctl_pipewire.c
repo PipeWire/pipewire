@@ -1380,7 +1380,7 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 
 	str = getenv("PIPEWIRE_ALSA");
 	if (str != NULL)
-		pw_properties_update_string(pw->props, str, strlen(str));
+		pw_properties_update_string(ctl->props, str, strlen(str));
 
 	str = getenv("PIPEWIRE_REMOTE");
 	if (str != NULL && str[0] != '\0')

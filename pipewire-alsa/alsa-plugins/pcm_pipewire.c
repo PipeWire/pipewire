@@ -1160,7 +1160,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
 
 	str = getenv("PIPEWIRE_REMOTE");
 	if (str != NULL && str[0])
-		pw_properties_set(ctl->props, PW_KEY_REMOTE_NAME, str);
+		pw_properties_set(pw->props, PW_KEY_REMOTE_NAME, str);
 
 	node_name = pw_properties_get(pw->props, PW_KEY_NODE_NAME);
 	if (pw_properties_get(pw->props, PW_KEY_MEDIA_NAME) == NULL)

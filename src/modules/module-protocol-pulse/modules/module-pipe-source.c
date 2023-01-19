@@ -96,8 +96,9 @@ static int module_pipe_source_load(struct module *module)
 			fprintf(f, " ],");
 		}
 	}
+	fprintf(f, " \"stream.props\": {");
 	pw_properties_serialize_dict(f, &data->playback_props->dict, 0);
-	fprintf(f, " }");
+	fprintf(f, " } }");
 	fclose(f);
 
 	data->mod = pw_context_load_module(module->impl->context,
@@ -181,6 +182,12 @@ static int module_pipe_source_prepare(struct module * const module)
 		filename = strdup(str);
 		pw_properties_set(props, "file", NULL);
 	}
+	if ((str = pw_properties_get(playback_props, PW_KEY_DEVICE_ICON_NAME)) == NULL)
+		pw_properties_set(playback_props, PW_KEY_DEVICE_ICON_NAME,
+				"audio-input-microphone");
+	if ((str = pw_properties_get(playback_props, PW_KEY_NODE_NAME)) == NULL)
+		pw_properties_set(playback_props, PW_KEY_NODE_NAME,
+				"fifo_input");
 
 	d->module = module;
 	d->playback_props = playback_props;

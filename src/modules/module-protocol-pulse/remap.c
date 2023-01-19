@@ -53,5 +53,6 @@ const struct str_map props_key_map[] = {
 	{ PW_KEY_APP_PROCESS_MACHINE_ID, "application.process.machine_id" },
 	{ PW_KEY_APP_PROCESS_SESSION_ID, "application.process.session_id" },
 	{ PW_KEY_MEDIA_ROLE, "media.role", media_role_map },
+	{ "pipe.filename", "device.string" },
 	{ NULL, NULL },
 };

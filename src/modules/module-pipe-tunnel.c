@@ -665,6 +665,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
 	copy_props(impl, props, PW_KEY_MEDIA_CLASS);
 	copy_props(impl, props, PW_KEY_TARGET_OBJECT);
+	copy_props(impl, props, "pipe.filename");
 
 	parse_audio_info(impl->stream_props, &impl->info);
 

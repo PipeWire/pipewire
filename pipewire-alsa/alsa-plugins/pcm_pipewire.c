@@ -598,6 +598,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	if (pw->stream != NULL) {
 		pw_stream_update_properties(pw->stream, &props->dict);
 		pw_stream_update_params(pw->stream, params, 1);
+		pw_properties_free(props);
 		goto done;
 	}
 

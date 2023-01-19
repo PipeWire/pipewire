@@ -1125,13 +1125,17 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
 	if ((pw->context = pw_context_new(loop,
 					pw_properties_new(
 						PW_KEY_CONFIG_NAME, "client-rt.conf",
+						PW_KEY_CLIENT_API, "alsa",
 						NULL),
 					0)) == NULL) {
 		err = -errno;
 		goto error;
 	}
 
-	pw_properties_set(pw->props, PW_KEY_CLIENT_API, "alsa");
+	pw_context_conf_update_props(pw->context, "alsa.properties", pw->props);
+
+	pw_context_conf_section_match_rules(pw->context, "alsa.rules",
+			&pw_context_get_properties(pw->context)->dict, execute_match, pw);
 
 	if (pw_properties_get(pw->props, PW_KEY_APP_NAME) == NULL)
 		pw_properties_setf(pw->props, PW_KEY_APP_NAME, "PipeWire ALSA [%s]",
@@ -1146,18 +1150,17 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
 				stream == SND_PCM_STREAM_PLAYBACK ?
 				"Playback" : "Capture");
 
-	pw_context_conf_update_props(pw->context, "alsa.properties", pw->props);
-
-	pw_context_conf_section_match_rules(pw->context, "alsa.rules",
-			&pw->props->dict, execute_match, pw);
-
 	str = getenv("PIPEWIRE_ALSA");
 	if (str != NULL)
 		pw_properties_update_string(pw->props, str, strlen(str));
 
 	str = getenv("PIPEWIRE_NODE");
-	if (str != NULL)
+	if (str != NULL && str[0])
 		pw_properties_set(pw->props, PW_KEY_TARGET_OBJECT, str);
+
+	str = getenv("PIPEWIRE_REMOTE");
+	if (str != NULL && str[0])
+		pw_properties_set(ctl->props, PW_KEY_REMOTE_NAME, str);
 
 	node_name = pw_properties_get(pw->props, PW_KEY_NODE_NAME);
 	if (pw_properties_get(pw->props, PW_KEY_MEDIA_NAME) == NULL)

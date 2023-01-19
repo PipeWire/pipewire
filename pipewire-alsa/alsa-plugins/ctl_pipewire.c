@@ -47,6 +47,8 @@ struct volume {
 typedef struct {
 	snd_ctl_ext_t ext;
 
+	struct pw_properties *props;
+
 	struct spa_system *system;
 	struct pw_thread_loop *mainloop;
 
@@ -761,6 +763,7 @@ static void snd_ctl_pipewire_free(snd_ctl_pipewire_t *ctl)
 		spa_system_close(ctl->system, ctl->fd);
 	if (ctl->mainloop)
 		pw_thread_loop_destroy(ctl->mainloop);
+	pw_properties_free(ctl->props);
 	free(ctl);
 }
 
@@ -1230,6 +1233,14 @@ static const struct pw_core_events core_events = {
         .done = on_core_done,
 };
 
+static int execute_match(void *data, const char *location, const char *action,
+                const char *val, size_t len)
+{
+	snd_ctl_pipewire_t *ctl = data;
+	if (spa_streq(action, "update-props"))
+		pw_properties_update_string(ctl->props, val, len);
+	return 1;
+}
 
 SPA_EXPORT
 SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
@@ -1242,7 +1253,6 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 	const char *fallback_name = NULL;
 	int err;
 	const char *str;
-	struct pw_properties *props = NULL;
 	snd_ctl_pipewire_t *ctl;
 	struct pw_loop *loop;
 
@@ -1305,10 +1315,6 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 		return -EINVAL;
 	}
 
-	str = getenv("PIPEWIRE_REMOTE");
-	if (str != NULL && str[0] != '\0')
-		server = str;
-
 	if (fallback_name && name && spa_streq(name, fallback_name))
 		fallback_name = NULL; /* no fallback for the same name */
 
@@ -1343,30 +1349,48 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 		goto error;
 	}
 
-	ctl->context = pw_context_new(loop, NULL, 0);
+	ctl->context = pw_context_new(loop,
+					pw_properties_new(
+						PW_KEY_CLIENT_API, "alsa",
+						NULL),
+					0);
 	if (ctl->context == NULL) {
 		err = -errno;
 		goto error;
 	}
 
-	props = pw_properties_new(NULL, NULL);
-	if (props == NULL) {
+	ctl->props = pw_properties_new(NULL, NULL);
+	if (ctl->props == NULL) {
 		err = -errno;
 		goto error;
 	}
 
-	pw_properties_setf(props, PW_KEY_APP_NAME, "PipeWire ALSA [%s]",
-			pw_get_prgname());
-
 	if (server)
-		pw_properties_set(props, PW_KEY_REMOTE_NAME, server);
+		pw_properties_set(ctl->props, PW_KEY_REMOTE_NAME, server);
+
+	pw_context_conf_update_props(ctl->context, "alsa.properties", ctl->props);
+
+	pw_context_conf_section_match_rules(ctl->context, "alsa.rules",
+			&pw_context_get_properties(ctl->context)->dict,
+			execute_match, ctl);
+
+	if (pw_properties_get(ctl->props, PW_KEY_APP_NAME) == NULL)
+		pw_properties_setf(ctl->props, PW_KEY_APP_NAME, "PipeWire ALSA [%s]",
+				pw_get_prgname());
+
+	str = getenv("PIPEWIRE_ALSA");
+	if (str != NULL)
+		pw_properties_update_string(pw->props, str, strlen(str));
+
+	str = getenv("PIPEWIRE_REMOTE");
+	if (str != NULL && str[0] != '\0')
+		pw_properties_set(ctl->props, PW_KEY_REMOTE_NAME, str);
 
 	if ((err = pw_thread_loop_start(ctl->mainloop)) < 0)
 		goto error;
 
 	pw_thread_loop_lock(ctl->mainloop);
-	ctl->core = pw_context_connect(ctl->context, props, 0);
-	props = NULL;
+	ctl->core = pw_context_connect(ctl->context, pw_properties_copy(ctl->props), 0);
 	if (ctl->core == NULL) {
 		err = -errno;
 		goto error_unlock;

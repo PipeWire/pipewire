@@ -636,8 +636,10 @@ static int impl_send_command(void *object, const struct spa_command *command)
 		if (stream->state == PW_STREAM_STATE_PAUSED) {
 			pw_log_debug("%p: start %d", stream, impl->direction);
 
-			if (impl->direction == SPA_DIRECTION_INPUT)
-				impl->io->status = SPA_STATUS_NEED_DATA;
+			if (impl->direction == SPA_DIRECTION_INPUT) {
+				if (impl->io != NULL)
+					impl->io->status = SPA_STATUS_NEED_DATA;
+			}
 			else if (!impl->process_rt && !impl->driving) {
 				copy_position(impl, impl->queued.incount);
 				call_process(impl);
@@ -997,6 +999,9 @@ static int impl_node_process_input(void *object)
 	struct spa_io_buffers *io = impl->io;
 	struct buffer *b;
 
+	if (io == NULL)
+		return -EIO;
+
 	pw_log_trace_fp("%p: process in status:%d id:%d ticks:%"PRIu64" delay:%"PRIi64,
 			stream, io->status, io->buffer_id, impl->time.ticks, impl->time.delay);
 
@@ -1036,6 +1041,9 @@ static int impl_node_process_output(void *object)
 	struct buffer *b;
 	int res;
 	bool ask_more;
+
+	if (io == NULL)
+		return -EIO;
 
 again:
 	pw_log_trace_fp("%p: process out status:%d id:%d", stream,
@@ -1396,7 +1404,8 @@ static void context_drained(void *data, struct pw_impl_node *node)
 		return;
 	if (impl->draining && impl->drained) {
 		impl->draining = false;
-		impl->io->status = SPA_STATUS_NEED_DATA;
+		if (impl->io != NULL)
+			impl->io->status = SPA_STATUS_NEED_DATA;
 		call_drained(impl);
 	}
 }

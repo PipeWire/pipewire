@@ -806,7 +806,7 @@ do_port_use_buffers(struct impl *impl,
 			endptr = SPA_PTROFF(endptr, SPA_ROUND_UP_N(buffers[i]->metas[j].size, 8), void);
 		}
 		for (j = 0; j < buffers[i]->n_datas; j++) {
-			struct spa_data *d = buffers[i]->datas;
+			struct spa_data *d = &buffers[i]->datas[j];
 			if (d->type == SPA_DATA_MemPtr) {
 				if ((m = pw_mempool_find_ptr(impl->context->pool, d->data)) == NULL ||
 				    m != mem)

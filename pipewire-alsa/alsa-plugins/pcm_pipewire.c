@@ -70,29 +70,11 @@ PW_LOG_TOPIC_STATIC(alsa_log_topic, "alsa.pcm");
 #define MIN_BUFFER_BYTES	(2*MIN_PERIOD_BYTES)
 #define MAX_BUFFER_BYTES	(2*MAX_PERIOD_BYTES)
 
-struct params {
-	const char *node_name;
-	const char *server_name;
-	const char *playback_node;
-	const char *capture_node;
-	const char *role;
-	snd_pcm_format_t format;
-	int rate;
-	int channels;
-	int period_bytes;
-	int buffer_bytes;
-	uint32_t flags;
-};
-
 typedef struct {
 	snd_pcm_ioplug_t io;
 
 	snd_output_t *output;
 	FILE *log_file;
-
-	char *node_name;
-	char *target;
-	char *role;
 
 	int fd;
 	int error;
@@ -113,12 +95,12 @@ typedef struct {
 	struct spa_system *system;
 	struct pw_thread_loop *main_loop;
 
+	struct pw_properties *props;
 	struct pw_context *context;
 
 	struct pw_core *core;
 	struct spa_hook core_listener;
 
-	uint32_t flags;
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 
@@ -192,9 +174,7 @@ static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
 		spa_system_close(pw->system, pw->fd);
 	if (pw->main_loop)
 		pw_thread_loop_destroy(pw->main_loop);
-	free(pw->node_name);
-	free(pw->target);
-	free(pw->role);
+	pw_properties_free(pw->props);
 	snd_output_close(pw->output);
 	fclose(pw->log_file);
 	free(pw);
@@ -541,7 +521,6 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	const struct spa_pod *params[1];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	struct pw_properties *props;
 	uint32_t min_period;
 
 	pw_thread_loop_lock(pw->main_loop);
@@ -568,41 +547,18 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 		goto done;
 	pw->hw_params_changed = false;
 
-	props = pw_properties_new(NULL, NULL);
-	if (props == NULL)
-		goto error;
-
-	pw_properties_set(props, PW_KEY_CLIENT_API, "alsa");
-	pw_properties_setf(props, PW_KEY_APP_NAME, "%s", pw_get_prgname());
-
-	if (pw_properties_get(props, PW_KEY_NODE_LATENCY) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%lu/%u", pw->min_avail, io->rate);
-	if (pw_properties_get(props, PW_KEY_NODE_RATE) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", io->rate);
-	if (pw->target != NULL && !spa_streq(pw->target, "-1") &&
-	    pw_properties_get(props, PW_KEY_TARGET_OBJECT) == NULL)
-		pw_properties_setf(props, PW_KEY_TARGET_OBJECT, "%s", pw->target);
-
-	if (pw_properties_get(props, PW_KEY_MEDIA_TYPE) == NULL)
-		pw_properties_set(props, PW_KEY_MEDIA_TYPE, "Audio");
-	if (pw_properties_get(props, PW_KEY_MEDIA_CATEGORY) == NULL)
-		pw_properties_set(props, PW_KEY_MEDIA_CATEGORY,
-				io->stream == SND_PCM_STREAM_PLAYBACK ?
-				"Playback" : "Capture");
-	if (pw->role != NULL &&
-		pw_properties_get(props, PW_KEY_MEDIA_ROLE) == NULL)
-		pw_properties_setf(props, PW_KEY_MEDIA_ROLE, "%s", pw->role);
+	pw_properties_setf(pw->props, PW_KEY_NODE_LATENCY, "%lu/%u", pw->min_avail, io->rate);
+	pw_properties_setf(pw->props, PW_KEY_NODE_RATE, "1/%u", io->rate);
 
 	params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &pw->format);
 
 	if (pw->stream != NULL) {
-		pw_stream_update_properties(pw->stream, &props->dict);
+		pw_stream_update_properties(pw->stream, &pw->props->dict);
 		pw_stream_update_params(pw->stream, params, 1);
-		pw_properties_free(props);
 		goto done;
 	}
 
-	pw->stream = pw_stream_new(pw->core, pw->node_name, props);
+	pw->stream = pw_stream_new(pw->core, NULL, pw_properties_copy(pw->props));
 	if (pw->stream == NULL)
 		goto error;
 
@@ -615,7 +571,6 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 				PW_DIRECTION_OUTPUT :
 				PW_DIRECTION_INPUT,
 				PW_ID_ANY,
-				pw->flags |
 				PW_STREAM_FLAG_AUTOCONNECT |
 				PW_STREAM_FLAG_MAP_BUFFERS |
 				PW_STREAM_FLAG_RT_PROCESS,
@@ -970,7 +925,7 @@ static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 	.query_chmaps = snd_pcm_pipewire_query_chmaps,
 };
 
-static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, struct params *p)
+static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
 {
 	unsigned int access_list[] = {
 		SND_PCM_ACCESS_MMAP_INTERLEAVED,
@@ -996,6 +951,7 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, struct params *p)
 #endif
 		SND_PCM_FORMAT_U8,
 	};
+	int val;
 	int min_rate;
 	int max_rate;
 	int min_channels;
@@ -1004,29 +960,35 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, struct params *p)
 	int max_period_bytes;
 	int min_buffer_bytes;
 	int max_buffer_bytes;
+	const char *str;
+	snd_pcm_format_t format;
 	int err;
 
-	if (p->rate > 0) {
-		min_rate = max_rate = SPA_CLAMP(p->rate, 1, MAX_RATE);
+	val = pw_properties_get_uint32(pw->props, "alsa.rate", 0);
+	if (val > 0) {
+		min_rate = max_rate = SPA_CLAMP(val, 1, MAX_RATE);
 	} else {
 		min_rate = 1;
 		max_rate = MAX_RATE;
 	}
-	if (p->channels > 0) {
-		min_channels = max_channels = SPA_CLAMP(p->channels, 1, MAX_CHANNELS);
+	val = pw_properties_get_uint32(pw->props, "alsa.channels", 0);
+	if (val > 0) {
+		min_channels = max_channels = SPA_CLAMP(val, 1, MAX_CHANNELS);
 	} else {
 		min_channels = 1;
 		max_channels = MAX_CHANNELS;
 	}
-	if (p->period_bytes > 0) {
-		min_period_bytes = max_period_bytes = SPA_CLAMP(p->period_bytes,
+	val = pw_properties_get_uint32(pw->props, "alsa.period-bytes", 0);
+	if (val > 0) {
+		min_period_bytes = max_period_bytes = SPA_CLAMP(val,
 				MIN_PERIOD_BYTES, MAX_PERIOD_BYTES);
 	} else {
 		min_period_bytes = MIN_PERIOD_BYTES;
 		max_period_bytes = MAX_PERIOD_BYTES;
 	}
-	if (p->buffer_bytes > 0) {
-		min_buffer_bytes = max_buffer_bytes = SPA_CLAMP(p->buffer_bytes,
+	val = pw_properties_get_uint32(pw->props, "alsa.buffer-bytes", 0);
+	if (val > 0) {
+		min_buffer_bytes = max_buffer_bytes = SPA_CLAMP(val,
 				MIN_BUFFER_BYTES, MAX_BUFFER_BYTES);
 	} else {
 		min_buffer_bytes = MIN_BUFFER_BYTES;
@@ -1053,11 +1015,14 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, struct params *p)
 		pw_log_warn("Can't set param list: %s", snd_strerror(err));
 		return err;
 	}
+	format = SND_PCM_FORMAT_UNKNOWN;
+	if ((str = pw_properties_get(pw->props, "alsa.format")))
+		format = snd_pcm_format_value(str);
 
-	if (p->format != SND_PCM_FORMAT_UNKNOWN) {
+	if (format != SND_PCM_FORMAT_UNKNOWN) {
 		err = snd_pcm_ioplug_set_param_list(&pw->io,
 				SND_PCM_IOPLUG_HW_FORMAT,
-				1, (unsigned int *)&p->format);
+				1, (unsigned int *)&format);
 		if (err < 0) {
 			pw_log_warn("Can't set param list: %s", snd_strerror(err));
 			return err;
@@ -1114,61 +1079,31 @@ static cookie_io_functions_t io_funcs = {
 	.write = log_write,
 };
 
+static int execute_match(void *data, const char *location, const char *action,
+                const char *val, size_t len)
+{
+	snd_pcm_pipewire_t *pw = data;
+	if (spa_streq(action, "update-props"))
+		pw_properties_update_string(pw->props, val, len);
+	return 1;
+}
+
 static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
-		struct params *p, snd_pcm_stream_t stream, int mode)
+		struct pw_properties *props, snd_pcm_stream_t stream, int mode)
 {
 	snd_pcm_pipewire_t *pw;
 	int err;
-	const char *str;
-	struct pw_properties *props = NULL;
+	const char *str, *node_name = NULL;
 	struct pw_loop *loop;
-	uint32_t val;
 
 	assert(pcmp);
 	pw = calloc(1, sizeof(*pw));
 	if (!pw)
 		return -ENOMEM;
 
-	props = pw_properties_new(NULL, NULL);
-	if (props == NULL) {
-		err = -errno;
-		goto error;
-	}
-
-	str = getenv("PIPEWIRE_ALSA");
-	if (str != NULL) {
-		pw_properties_update_string(props, str, strlen(str));
-		if ((str = pw_properties_get(props, "alsa.format")))
-			p->format = snd_pcm_format_value(str);
-		if ((str = pw_properties_get(props, "alsa.rate")) &&
-		    spa_atou32(str, &val, 0))
-			p->rate = val;
-		if ((str = pw_properties_get(props, "alsa.channels")) &&
-		    spa_atou32(str, &val, 0))
-			p->channels = val;
-		if ((str = pw_properties_get(props, "alsa.period-bytes")) &&
-		    spa_atou32(str, &val, 0))
-			p->period_bytes = val;
-		if ((str = pw_properties_get(props, "alsa.buffer-bytes")) &&
-		    spa_atou32(str, &val, 0))
-			p->buffer_bytes = val;
-	}
-
-	str = getenv("PIPEWIRE_REMOTE");
-	if (str != NULL && str[0] != '\0')
-		p->server_name = str;
-
-	str = getenv("PIPEWIRE_NODE");
-
-	pw_log_debug("%p: open name:%s stream:%s mode:%d flags:%08x rate:%d format:%s "
-			"channels:%d period-bytes:%d buffer-bytes:%d target:'%s'", pw, p->node_name,
-			snd_pcm_stream_name(stream), mode, p->flags, p->rate,
-			snd_pcm_format_name(p->format), p->channels, p->period_bytes,
-			p->buffer_bytes, str);
-
+	pw->props = props;
 	pw->fd = -1;
 	pw->io.poll_fd = -1;
-	pw->flags = p->flags;
 	pw->log_file = fopencookie(pw, "w", io_funcs);
 	if (pw->log_file == NULL) {
 		pw_log_error("can't create log file: %m");
@@ -1179,29 +1114,6 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
 		pw_log_error("can't attach log file: %s", snd_strerror(err));
 		goto error;
 	}
-
-	if (p->node_name == NULL)
-		pw->node_name = spa_aprintf("ALSA %s",
-			       stream == SND_PCM_STREAM_PLAYBACK ? "Playback" : "Capture");
-	else
-		pw->node_name = strdup(p->node_name);
-
-	if (pw->node_name == NULL) {
-		err = -errno;
-		goto error;
-	}
-
-	pw->target = NULL;
-	if (str != NULL)
-		pw->target = strdup(str);
-	else {
-		if (stream == SND_PCM_STREAM_PLAYBACK)
-			pw->target = p->playback_node ? strdup(p->playback_node) : NULL;
-		else
-			pw->target = p->capture_node ? strdup(p->capture_node) : NULL;
-	}
-
-	pw->role = (p->role && *p->role) ? strdup(p->role) : NULL;
 
 	pw->main_loop = pw_thread_loop_new("alsa-pipewire", NULL);
 	if (pw->main_loop == NULL) {
@@ -1219,18 +1131,43 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
 		goto error;
 	}
 
-	pw_properties_setf(props, PW_KEY_APP_NAME, "PipeWire ALSA [%s]",
-			pw_get_prgname());
+	pw_properties_set(pw->props, PW_KEY_CLIENT_API, "alsa");
 
-	if (p->server_name)
-		pw_properties_set(props, PW_KEY_REMOTE_NAME, p->server_name);
+	if (pw_properties_get(pw->props, PW_KEY_APP_NAME) == NULL)
+		pw_properties_setf(pw->props, PW_KEY_APP_NAME, "PipeWire ALSA [%s]",
+				pw_get_prgname());
+	if (pw_properties_get(pw->props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_setf(pw->props, PW_KEY_NODE_NAME, "ALSA %s",
+			       stream == SND_PCM_STREAM_PLAYBACK ? "Playback" : "Capture");
+	if (pw_properties_get(pw->props, PW_KEY_MEDIA_TYPE) == NULL)
+		pw_properties_set(pw->props, PW_KEY_MEDIA_TYPE, "Audio");
+	if (pw_properties_get(pw->props, PW_KEY_MEDIA_CATEGORY) == NULL)
+		pw_properties_set(pw->props, PW_KEY_MEDIA_CATEGORY,
+				stream == SND_PCM_STREAM_PLAYBACK ?
+				"Playback" : "Capture");
+
+	pw_context_conf_update_props(pw->context, "alsa.properties", pw->props);
+
+	pw_context_conf_section_match_rules(pw->context, "alsa.rules",
+			&pw->props->dict, execute_match, pw);
+
+	str = getenv("PIPEWIRE_ALSA");
+	if (str != NULL)
+		pw_properties_update_string(pw->props, str, strlen(str));
+
+	str = getenv("PIPEWIRE_NODE");
+	if (str != NULL)
+		pw_properties_set(pw->props, PW_KEY_TARGET_OBJECT, str);
+
+	node_name = pw_properties_get(pw->props, PW_KEY_NODE_NAME);
+	if (pw_properties_get(pw->props, PW_KEY_MEDIA_NAME) == NULL)
+		pw_properties_set(pw->props, PW_KEY_MEDIA_NAME, node_name);
 
 	if ((err = pw_thread_loop_start(pw->main_loop)) < 0)
 		goto error;
 
 	pw_thread_loop_lock(pw->main_loop);
-	pw->core = pw_context_connect(pw->context, props, 0);
-	props = NULL;
+	pw->core = pw_context_connect(pw->context, pw_properties_copy(pw->props), 0);
 	if (pw->core == NULL) {
 		err = -errno;
 		pw_thread_loop_unlock(pw->main_loop);
@@ -1255,13 +1192,13 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
 #endif
 	pw->io.flags |= SND_PCM_IOPLUG_FLAG_MONOTONIC;
 
-	if ((err = snd_pcm_ioplug_create(&pw->io, p->node_name, stream, mode)) < 0)
+	if ((err = snd_pcm_ioplug_create(&pw->io, node_name, stream, mode)) < 0)
 		goto error;
 
-	if ((err = pipewire_set_hw_constraint(pw, p)) < 0)
+	if ((err = pipewire_set_hw_constraint(pw)) < 0)
 		goto error;
 
-	pw_log_debug("%p: opened name:%s stream:%s mode:%d", pw, p->node_name,
+	pw_log_debug("%p: opened name:%s stream:%s mode:%d", pw, node_name,
 			snd_pcm_stream_name(pw->io.stream), mode);
 
 	*pcmp = pw->io.pcm;
@@ -1269,8 +1206,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
 	return 0;
 
 error:
-	pw_log_debug("%p: failed to open %s :%s", pw, p->node_name, spa_strerror(err));
-	pw_properties_free(props);
+	pw_log_debug("%p: failed to open %s :%s", pw, node_name, spa_strerror(err));
 	snd_pcm_pipewire_free(pw);
 	return err;
 }
@@ -1280,16 +1216,20 @@ SPA_EXPORT
 SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 {
 	snd_config_iterator_t i, next;
-	struct params params;
+	struct pw_properties *props;
+	const char *str;
+	long val;
 	int err;
 
 	pw_init(NULL, NULL);
 	if (strstr(pw_get_library_version(), "0.2") != NULL)
 		return -ENOTSUP;
 
+	props = pw_properties_new(NULL, NULL);
+	if (props == NULL)
+		return -errno;
+
 	PW_LOG_TOPIC_INIT(alsa_log_topic);
-	spa_zero(params);
-	params.format = SND_PCM_FORMAT_UNKNOWN;
 
 	snd_config_for_each(i, next, conf) {
 		snd_config_t *n = snd_config_iterator_entry(i);
@@ -1299,83 +1239,93 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 		if (spa_streq(id, "comment") || spa_streq(id, "type") || spa_streq(id, "hint"))
 			continue;
 		if (spa_streq(id, "name")) {
-			snd_config_get_string(n, &params.node_name);
+			if (snd_config_get_string(n, &str) == 0)
+				pw_properties_set(props, PW_KEY_NODE_NAME, str);
 			continue;
 		}
 		if (spa_streq(id, "server")) {
-			snd_config_get_string(n, &params.server_name);
+			if (snd_config_get_string(n, &str) == 0)
+				pw_properties_set(props, PW_KEY_REMOTE_NAME, str);
 			continue;
 		}
 		if (spa_streq(id, "playback_node")) {
-			snd_config_get_string(n, &params.playback_node);
+			if (stream == SND_PCM_STREAM_PLAYBACK &&
+			    snd_config_get_string(n, &str) == 0)
+				if (str != NULL && !spa_streq(str, "-1"))
+					pw_properties_set(props, PW_KEY_TARGET_OBJECT, str);
 			continue;
 		}
 		if (spa_streq(id, "capture_node")) {
-			snd_config_get_string(n, &params.capture_node);
+			if (stream == SND_PCM_STREAM_CAPTURE &&
+			    snd_config_get_string(n, &str) == 0)
+				if (str != NULL && !spa_streq(str, "-1"))
+					pw_properties_set(props, PW_KEY_TARGET_OBJECT, str);
 			continue;
 		}
 		if (spa_streq(id, "role")) {
-			snd_config_get_string(n, &params.role);
+			if (snd_config_get_string(n, &str) == 0)
+				if (str != NULL && *str)
+					pw_properties_set(props, PW_KEY_MEDIA_ROLE, str);
 			continue;
 		}
 		if (spa_streq(id, "exclusive")) {
 			if (snd_config_get_bool(n))
-				params.flags |= PW_STREAM_FLAG_EXCLUSIVE;
+				pw_properties_set(props, PW_KEY_NODE_EXCLUSIVE, "true");
 			continue;
 		}
 		if (spa_streq(id, "rate")) {
-			long val;
-
-			if (snd_config_get_integer(n, &val) == 0)
-				params.rate = val;
-			else
+			if (snd_config_get_integer(n, &val) == 0) {
+				if (val != 0)
+					pw_properties_setf(props, "alsa.rate", "%ld", val);
+			} else {
 				SNDERR("%s: invalid type", id);
+			}
 			continue;
 		}
 		if (spa_streq(id, "format")) {
-			const char *str;
-
 			if (snd_config_get_string(n, &str) == 0) {
-				params.format = snd_pcm_format_value(str);
-				if (*str && params.format == SND_PCM_FORMAT_UNKNOWN)
-					SNDERR("%s: invalid value %s", id, str);
+				if (str != NULL && *str)
+					pw_properties_set(props, "alsa.format", str);
 			} else {
 				SNDERR("%s: invalid type", id);
 			}
 			continue;
 		}
 		if (spa_streq(id, "channels")) {
-			long val;
-
-			if (snd_config_get_integer(n, &val) == 0)
-				params.channels = val;
-			else
+			if (snd_config_get_integer(n, &val) == 0) {
+				if (val != 0)
+					pw_properties_setf(props, "alsa.channels", "%ld", val);
+			} else {
 				SNDERR("%s: invalid type", id);
+			}
 			continue;
 		}
 		if (spa_streq(id, "period_bytes")) {
-			long val;
-
-			if (snd_config_get_integer(n, &val) == 0)
-				params.period_bytes = val;
-			else
+			if (snd_config_get_integer(n, &val) == 0) {
+				if (val != 0)
+					pw_properties_setf(props, "alsa.period-bytes", "%ld", val);
+			} else {
 				SNDERR("%s: invalid type", id);
+			}
 			continue;
 		}
 		if (spa_streq(id, "buffer_bytes")) {
 			long val;
 
-			if (snd_config_get_integer(n, &val) == 0)
-				params.buffer_bytes = val;
-			else
+			if (snd_config_get_integer(n, &val) == 0) {
+				if (val != 0)
+					pw_properties_setf(props, "alsa.buffer-bytes", "%ld", val);
+			} else {
 				SNDERR("%s: invalid type", id);
+			}
 			continue;
 		}
 		SNDERR("Unknown field %s", id);
+		pw_properties_free(props);
 		return -EINVAL;
 	}
 
-	err = snd_pcm_pipewire_open(pcmp, &params, stream, mode);
+	err = snd_pcm_pipewire_open(pcmp, props, stream, mode);
 
 	return err;
 }

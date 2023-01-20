@@ -873,7 +873,7 @@ static void port_event_info(void *data, const struct pw_port_info *info)
 {
 	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
-	if (pd->info)
+	if (pd->info && rd->data->monitoring)
 		printf("remote %d port %d changed\n", rd->id, info->id);
 	pd->info = pw_port_info_update(pd->info, info);
 	if (pd->global == NULL)

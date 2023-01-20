@@ -271,7 +271,8 @@ static bool do_load_module(struct data *data, const char *cmd, char *args, char 
 	}
 
 	id = pw_map_insert_new(&data->vars, module);
-	printf("%d = @module:%d\n", id, pw_global_get_id(pw_impl_module_get_global(module)));
+	if (data->interactive)
+		printf("%d = @module:%d\n", id, pw_global_get_id(pw_impl_module_get_global(module)));
 
 	return true;
 }
@@ -796,7 +797,7 @@ static void core_event_info(void *data, const struct pw_core_info *info)
 {
 	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
-	if (pd->info)
+	if (pd->info && rd->data->monitoring)
 		printf("remote %d core %d changed\n", rd->id, info->id);
 	pd->info = pw_core_info_update(pd->info, info);
 	if (pd->global == NULL)
@@ -817,7 +818,7 @@ static void module_event_info(void *data, const struct pw_module_info *info)
 {
 	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
-	if (pd->info)
+	if (pd->info && rd->data->monitoring)
 		printf("remote %d module %d changed\n", rd->id, info->id);
 	pd->info = pw_module_info_update(pd->info, info);
 	if (pd->global == NULL)
@@ -837,7 +838,7 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 {
 	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
-	if (pd->info)
+	if (pd->info && rd->data->monitoring)
 		printf("remote %d node %d changed\n", rd->id, info->id);
 	pd->info = pw_node_info_update(pd->info, info);
 	if (pd->global == NULL)
@@ -893,7 +894,7 @@ static void factory_event_info(void *data, const struct pw_factory_info *info)
 {
 	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
-	if (pd->info)
+	if (pd->info && rd->data->monitoring)
 		printf("remote %d factory %d changed\n", rd->id, info->id);
 	pd->info = pw_factory_info_update(pd->info, info);
 	if (pd->global == NULL)
@@ -913,7 +914,7 @@ static void client_event_info(void *data, const struct pw_client_info *info)
 {
 	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
-	if (pd->info)
+	if (pd->info && rd->data->monitoring)
 		printf("remote %d client %d changed\n", rd->id, info->id);
 	pd->info = pw_client_info_update(pd->info, info);
 	if (pd->global == NULL)
@@ -954,7 +955,7 @@ static void link_event_info(void *data, const struct pw_link_info *info)
 {
 	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
-	if (pd->info)
+	if (pd->info && rd->data->monitoring)
 		printf("remote %d link %d changed\n", rd->id, info->id);
 	pd->info = pw_link_info_update(pd->info, info);
 	if (pd->global == NULL)
@@ -975,7 +976,7 @@ static void device_event_info(void *data, const struct pw_device_info *info)
 {
 	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
-	if (pd->info)
+	if (pd->info && rd->data->monitoring)
 		printf("remote %d device %d changed\n", rd->id, info->id);
 	pd->info = pw_device_info_update(pd->info, info);
 	if (pd->global == NULL)
@@ -1422,7 +1423,8 @@ static bool do_create_device(struct data *data, const char *cmd, char *args, cha
 	pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
 	id = pw_map_insert_new(&data->vars, proxy);
-	printf("%d = @proxy:%d\n", id, pw_proxy_get_id(proxy));
+	if (rd->data->interactive)
+		printf("%d = @proxy:%d\n", id, pw_proxy_get_id(proxy));
 
 	return true;
 }
@@ -1461,7 +1463,8 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
         pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
 	id = pw_map_insert_new(&data->vars, proxy);
-	printf("%d = @proxy:%d\n", id, pw_proxy_get_id(proxy));
+	if (rd->data->interactive)
+		printf("%d = @proxy:%d\n", id, pw_proxy_get_id(proxy));
 
 	return true;
 }
@@ -1541,7 +1544,8 @@ static void create_link_with_properties(struct data *data, struct pw_properties 
 	pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
 	id = pw_map_insert_new(&data->vars, proxy);
-	printf("%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
+	if (rd->data->interactive)
+		printf("%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
 }
 
 static bool do_create_link(struct data *data, const char *cmd, char *args, char **error)
@@ -1657,7 +1661,8 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 	proxy = pw_core_export(rd->core, PW_TYPE_INTERFACE_Node, NULL, node, 0);
 
 	id = pw_map_insert_new(&data->vars, proxy);
-	printf("%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
+	if (rd->data->interactive)
+		printf("%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
 
 	return true;
 
@@ -1810,8 +1815,9 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 	}
 
 	p = strtol(a[2], NULL, 0);
-	printf("setting permissions: "PW_PERMISSION_FORMAT"\n",
-			PW_PERMISSION_ARGS(p));
+	if (rd->data->interactive)
+		printf("setting permissions: "PW_PERMISSION_FORMAT"\n",
+				PW_PERMISSION_ARGS(p));
 
 	permissions[0] = PW_PERMISSION_INIT(atoi(a[1]), p);
 	pw_client_update_permissions((struct pw_client*)global->proxy,

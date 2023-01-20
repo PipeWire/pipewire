@@ -1299,8 +1299,6 @@ void pw_settings_init(struct pw_context *context);
 int pw_settings_expose(struct pw_context *context);
 void pw_settings_clean(struct pw_context *context);
 
-void pw_impl_module_schedule_destroy(struct pw_impl_module *module);
-
 pthread_attr_t *pw_thread_fill_attr(const struct spa_dict *props, pthread_attr_t *attr);
 
 /** \endcond */

@@ -106,6 +106,9 @@ void pw_impl_module_add_listener(struct pw_impl_module *module,
 /** Destroy a module */
 void pw_impl_module_destroy(struct pw_impl_module *module);
 
+/** Schedule a destroy later on the main thread */
+void pw_impl_module_schedule_destroy(struct pw_impl_module *module);
+
 /**
  * \}
  */

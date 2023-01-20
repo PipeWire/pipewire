@@ -54,6 +54,9 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/pod/filter.h>
 
+#include <spa/debug/mem.h>
+#include <spa/debug/log.h>
+
 #include "midi.h"
 
 #include "bluez5-interface-gen.h"
@@ -544,8 +547,7 @@ again:
 	}
 
 	spa_log_trace(this->log, "%p: port:%d recv data size:%d", this, port->direction, size);
-	if (SPA_UNLIKELY(spa_log_level_topic_enabled(this->log, SPA_LOG_TOPIC_DEFAULT, SPA_LOG_LEVEL_TRACE)))
-		spa_log_hexdump(this->log, SPA_LOG_LEVEL_DEBUG, 4, this->read_buffer, size);
+	spa_debug_log_mem(this->log, SPA_LOG_LEVEL_TRACE, 4, this->read_buffer, size);
 
 	if (port->direction != SPA_DIRECTION_OUTPUT) {
 		/* Just monitor errors for the input port */
@@ -646,8 +648,7 @@ again:
 		spa_bt_midi_parser_init(&this->parser);
 
 		spa_log_info(this->log, "BLE MIDI data packet parsing failed: %d", res);
-		if (spa_log_level_topic_enabled(this->log, SPA_LOG_TOPIC_DEFAULT, SPA_LOG_LEVEL_DEBUG))
-			spa_log_hexdump(this->log, SPA_LOG_LEVEL_DEBUG, 4, this->read_buffer, size);
+		spa_debug_log_mem(this->log, SPA_LOG_LEVEL_DEBUG, 4, this->read_buffer, size);
 	}
 
 	return;
@@ -757,7 +758,6 @@ static int process_output(struct impl *this)
 static int flush_packet(struct impl *this)
 {
 	struct port *port = &this->ports[PORT_IN];
-	bool log_enabled = spa_log_level_topic_enabled(this->log, SPA_LOG_TOPIC_DEFAULT, SPA_LOG_LEVEL_TRACE);
 	int res;
 
 	if (this->writer.size == 0)
@@ -769,9 +769,7 @@ static int flush_packet(struct impl *this)
 		return -errno;
 
 	spa_log_trace(this->log, "%p: send packet size:%d", this, this->writer.size);
-	if (log_enabled)
-		spa_log_hexdump(this->log, SPA_LOG_LEVEL_TRACE, 4,
-				this->writer.buf, this->writer.size);
+	spa_debug_log_mem(this->log, SPA_LOG_LEVEL_TRACE, 4, this->writer.buf, this->writer.size);
 
 	return 0;
 }

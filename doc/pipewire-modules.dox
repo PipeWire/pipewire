@@ -54,6 +54,7 @@ List of known modules:
 - \subpage page_module_avb
 - \subpage page_module_client_device
 - \subpage page_module_client_node
+- \subpage page_module_combine_stream
 - \subpage page_module_echo_cancel
 - \subpage page_module_example_sink
 - \subpage page_module_example_source

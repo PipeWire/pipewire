@@ -8,6 +8,7 @@ module_sources = [
   'module-avb.c',
   'module-client-device.c',
   'module-client-node.c',
+  'module-combine-stream.c',
   'module-echo-cancel.c',
   'module-example-sink.c',
   'module-example-source.c',
@@ -134,6 +135,15 @@ pipewire_module_filter_chain = shared_library('pipewire-module-filter-chain',
 pipewire_module_echo_cancel_sources = [
   'module-echo-cancel.c',
 ]
+
+pipewire_module_combine_stream = shared_library('pipewire-module-combine-stream',
+  [ 'module-combine-stream.c' ],
+  include_directories : [configinc],
+  install : false,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [spa_dep, dl_lib, pipewire_dep],
+)
 
 pipewire_module_echo_cancel = shared_library('pipewire-module-echo-cancel',
   pipewire_module_echo_cancel_sources,

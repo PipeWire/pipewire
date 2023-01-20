@@ -37,24 +37,23 @@
 PW_LOG_TOPIC_STATIC(alsa_log_topic, "alsa.ctl");
 #define PW_LOG_TOPIC_DEFAULT alsa_log_topic
 
-#define VOLUME_MAX 65536
-#define VOLUME_MUTED ((uint32_t) 0U)
-#define VOLUME_NORM ((uint32_t) 0x10000U)
+#define VOLUME_MIN ((uint32_t) 0U)
+#define VOLUME_MAX ((uint32_t) 0x10000U)
 
 static inline uint32_t volume_from_linear(float vol)
 {
 	uint32_t v;
 	if (vol <= 0.0f)
-		v = VOLUME_MUTED;
+		v = VOLUME_MIN;
 	else
-		v = SPA_CLAMP((uint64_t) lround(cbrt(vol) * VOLUME_NORM),
-				VOLUME_MUTED, VOLUME_MAX);
+		v = SPA_CLAMP((uint64_t) lround(cbrt(vol) * VOLUME_MAX),
+				VOLUME_MIN, VOLUME_MAX);
 	return v;
 }
 
 static inline float volume_to_linear(uint32_t vol)
 {
-	float v = ((float)vol) / VOLUME_NORM;
+	float v = ((float)vol) / VOLUME_MAX;
 	return v * v * v;
 }
 
@@ -437,7 +436,7 @@ static int pipewire_get_integer_info(snd_ctl_ext_t * ext,
 				  long *imax, long *istep)
 {
 	*istep = 1;
-	*imin = 0;
+	*imin = VOLUME_MIN;
 	*imax = VOLUME_MAX;
 
 	return 0;

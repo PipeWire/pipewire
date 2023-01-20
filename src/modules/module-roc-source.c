@@ -29,16 +29,18 @@
 
 #include "config.h"
 
-#include <pipewire/pipewire.h>
-#include <pipewire/private.h>
-#include <spa/param/audio/format-utils.h>
 #include <spa/utils/hook.h>
+#include <spa/utils/result.h>
+#include <spa/param/audio/format-utils.h>
 
 #include <roc/config.h>
 #include <roc/log.h>
 #include <roc/context.h>
 #include <roc/log.h>
 #include <roc/receiver.h>
+
+#include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 
 #include "module-roc/common.h"
 

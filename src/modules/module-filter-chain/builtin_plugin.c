@@ -23,7 +23,6 @@
  */
 
 #include "config.h"
-#include "pipewire/private.h"
 
 #include <float.h>
 #include <math.h>
@@ -44,6 +43,8 @@
 #include "pffft.h"
 #include "convolver.h"
 #include "dsp-ops.h"
+
+#define MAX_RATES	32u
 
 static struct dsp_ops *dsp_ops;
 

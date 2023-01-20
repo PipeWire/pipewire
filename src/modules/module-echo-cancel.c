@@ -41,7 +41,7 @@
 #include <spa/debug/types.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/raw.h>
-#include <spa/param/profiler.h>
+#include <spa/param/latency-utils.h>
 #include <spa/pod/builder.h>
 #include <spa/pod/dynamic.h>
 #include <spa/support/plugin.h>
@@ -53,7 +53,6 @@
 #include <spa/support/plugin-loader.h>
 #include <spa/interfaces/audio/aec.h>
 
-#include <pipewire/private.h>
 #include <pipewire/impl.h>
 #include <pipewire/pipewire.h>
 
@@ -1186,16 +1185,20 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if ((path = pw_properties_get(props, "library.name")) == NULL)
 		path = "aec/libspa-aec-webrtc";
 
-	struct spa_dict_item info_items[] = {
-		{ SPA_KEY_LIBRARY_NAME, path },
-	};
-	struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
+	const struct spa_support *support;
+	uint32_t n_support;
 
-	impl->loader = spa_support_find(context->support, context->n_support, SPA_TYPE_INTERFACE_PluginLoader);
+	support = pw_context_get_support(context, &n_support);
+	impl->loader = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_PluginLoader);
 	if (impl->loader == NULL) {
 		pw_log_error("a plugin loader is needed");
 		return -EINVAL;
 	}
+
+	struct spa_dict_item info_items[] = {
+		{ SPA_KEY_LIBRARY_NAME, path },
+	};
+	struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
 	handle = spa_plugin_loader_load(impl->loader, SPA_NAME_AEC, &info);
 	if (handle == NULL) {

@@ -34,14 +34,15 @@
 #include <net/if.h>
 #include <ctype.h>
 
-#include <spa/param/audio/format-utils.h>
 #include <spa/utils/hook.h>
+#include <spa/utils/result.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/dll.h>
+#include <spa/param/audio/format-utils.h>
 #include <spa/debug/mem.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/private.h>
+#include <pipewire/impl.h>
 
 #include <module-rtp/sap.h>
 #include <module-rtp/rtp.h>

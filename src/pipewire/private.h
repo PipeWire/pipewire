@@ -1245,8 +1245,6 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port);
 /** Change the state of the node */
 int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state);
 
-int pw_impl_node_set_param(struct pw_impl_node *node,
-		uint32_t id, uint32_t flags, const struct spa_pod *param);
 
 int pw_impl_node_update_ports(struct pw_impl_node *node);
 

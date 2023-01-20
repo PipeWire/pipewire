@@ -39,12 +39,11 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/support/cpu.h>
-#include <spa/param/profiler.h>
+#include <spa/param/latency-utils.h>
 #include <spa/pod/dynamic.h>
 #include <spa/debug/types.h>
 
 #include <pipewire/utils.h>
-#include <pipewire/private.h>
 #include <pipewire/impl.h>
 #include <pipewire/extensions/profiler.h>
 

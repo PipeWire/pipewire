@@ -36,6 +36,7 @@
 #include <dbus/dbus.h>
 
 #include <spa/utils/string.h>
+#include <spa/utils/result.h>
 #include <spa/support/dbus.h>
 
 #include "pipewire/context.h"
@@ -43,7 +44,6 @@
 #include "pipewire/log.h"
 #include "pipewire/module.h"
 #include "pipewire/utils.h"
-#include "pipewire/private.h"
 
 /** \page page_module_portal PipeWire Module: Portal
  *

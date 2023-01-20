@@ -28,7 +28,6 @@
 #include <unistd.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/private.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/utils/hook.h>
 

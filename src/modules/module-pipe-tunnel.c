@@ -50,7 +50,6 @@
 
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
-#include <pipewire/private.h>
 
 /** \page page_module_pipe_tunnel PipeWire Module: Unix Pipe Tunnel
  *

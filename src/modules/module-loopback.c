@@ -36,10 +36,9 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/utils/ringbuffer.h>
-#include <spa/param/profiler.h>
+#include <spa/param/latency-utils.h>
 #include <spa/debug/types.h>
 
-#include <pipewire/private.h>
 #include <pipewire/impl.h>
 #include <pipewire/extensions/profiler.h>
 

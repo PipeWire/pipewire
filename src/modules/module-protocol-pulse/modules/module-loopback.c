@@ -27,7 +27,6 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/json.h>
 #include <pipewire/pipewire.h>
-#include <pipewire/private.h>
 
 #include "../defs.h"
 #include "../module.h"

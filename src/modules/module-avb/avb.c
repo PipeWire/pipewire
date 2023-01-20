@@ -75,8 +75,6 @@ struct pw_avb *pw_avb_new(struct pw_context *context,
 		goto error_free;
 	}
 
-	impl->work_queue = pw_context_get_work_queue(context);
-
 	spa_list_init(&impl->servers);
 
 	avdecc_server_new(impl, &props->dict);

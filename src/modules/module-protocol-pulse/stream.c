@@ -31,7 +31,6 @@
 #include <pipewire/log.h>
 #include <pipewire/loop.h>
 #include <pipewire/map.h>
-#include <pipewire/private.h>
 #include <pipewire/properties.h>
 #include <pipewire/stream.h>
 #include <pipewire/work-queue.h>

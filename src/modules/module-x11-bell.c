@@ -46,7 +46,6 @@
 
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
-#include <pipewire/private.h>
 
 /** \page page_module_x11_bell PipeWire Module: X11 Bell
  *

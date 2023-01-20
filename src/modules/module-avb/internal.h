@@ -45,7 +45,6 @@ struct impl {
 	unsigned do_disconnect:1;
 
 	struct pw_properties *props;
-	struct pw_work_queue *work_queue;
 
 	struct spa_list servers;
 };

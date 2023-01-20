@@ -44,7 +44,6 @@
 #include <spa/utils/json.h>
 
 #include <pipewire/impl.h>
-#include <pipewire/private.h>
 
 #include "flatpak-utils.h"
 

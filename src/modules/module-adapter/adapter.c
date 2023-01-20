@@ -45,7 +45,6 @@
 #include <spa/utils/json-pod.h>
 
 #include "pipewire/pipewire.h"
-#include "pipewire/private.h"
 
 #include "modules/spa/spa-node.h"
 

@@ -27,7 +27,6 @@
 #include <spa/utils/json.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/private.h>
 #include <pipewire/i18n.h>
 
 #include "../defs.h"

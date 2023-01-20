@@ -175,6 +175,10 @@ bool pw_impl_node_is_active(struct pw_impl_node *node);
 
 /** Check if a node is active, Since 0.3.39 */
 int pw_impl_node_send_command(struct pw_impl_node *node, const struct spa_command *command);
+
+/** Set a param on the node, Since 0.3.65 */
+int pw_impl_node_set_param(struct pw_impl_node *node,
+		uint32_t id, uint32_t flags, const struct spa_pod *param);
 /**
  * \}
  */

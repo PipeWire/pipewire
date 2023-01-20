@@ -49,7 +49,6 @@
 #include <spa/utils/json.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/private.h>
 #include <pipewire/extensions/metadata.h>
 
 #include "pulse-server.h"

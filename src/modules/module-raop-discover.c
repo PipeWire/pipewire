@@ -37,7 +37,6 @@
 #include <spa/utils/json.h>
 
 #include <pipewire/impl.h>
-#include <pipewire/private.h>
 #include <pipewire/i18n.h>
 
 #include <avahi-client/lookup.h>

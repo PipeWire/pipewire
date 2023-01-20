@@ -37,25 +37,10 @@
 PW_LOG_TOPIC_STATIC(alsa_log_topic, "alsa.ctl");
 #define PW_LOG_TOPIC_DEFAULT alsa_log_topic
 
+#define DEFAULT_VOLUME_METHOD	"cubic"
+
 #define VOLUME_MIN ((uint32_t) 0U)
 #define VOLUME_MAX ((uint32_t) 0x10000U)
-
-static inline uint32_t volume_from_linear(float vol)
-{
-	uint32_t v;
-	if (vol <= 0.0f)
-		v = VOLUME_MIN;
-	else
-		v = SPA_CLAMP((uint64_t) lround(cbrt(vol) * VOLUME_MAX),
-				VOLUME_MIN, VOLUME_MAX);
-	return v;
-}
-
-static inline float volume_to_linear(uint32_t vol)
-{
-	float v = ((float)vol) / VOLUME_MAX;
-	return v * v * v;
-}
 
 struct volume {
 	uint32_t channels;
@@ -94,6 +79,9 @@ typedef struct {
 	struct volume source_volume;
 
 	int subscribed;
+#define VOLUME_METHOD_LINEAR	(0)
+#define VOLUME_METHOD_CUBIC	(1)
+	int volume_method;
 
 #define UPDATE_SINK_VOL     (1<<0)
 #define UPDATE_SINK_MUTE    (1<<1)
@@ -103,6 +91,32 @@ typedef struct {
 
 	struct spa_list globals;
 } snd_ctl_pipewire_t;
+
+static inline uint32_t volume_from_linear(float vol, int method)
+{
+	if (vol <= 0.0f)
+		vol = 0.0f;
+
+	switch (method) {
+	case VOLUME_METHOD_CUBIC:
+		vol = cbrtf(vol);
+		break;
+	}
+	return SPA_CLAMP((uint64_t)lroundf(vol * VOLUME_MAX),
+			VOLUME_MIN, VOLUME_MAX);
+}
+
+static inline float volume_to_linear(uint32_t vol, int method)
+{
+	float v = ((float)vol) / VOLUME_MAX;
+
+	switch (method) {
+	case VOLUME_METHOD_CUBIC:
+		v = v * v * v;
+		break;
+	}
+	return v;
+}
 
 struct global;
 
@@ -496,7 +510,8 @@ finish:
 	return err;
 }
 
-static struct spa_pod *build_volume_mute(struct spa_pod_builder *b, struct volume *volume, int *mute)
+static struct spa_pod *build_volume_mute(struct spa_pod_builder *b, struct volume *volume,
+		int *mute, int volume_method)
 {
 	struct spa_pod_frame f[1];
 
@@ -508,7 +523,7 @@ static struct spa_pod *build_volume_mute(struct spa_pod_builder *b, struct volum
 
 		n_volumes = volume->channels;
 		for (i = 0; i < n_volumes; i++)
-			volumes[i] = volume_to_linear(volume->values[i]);
+			volumes[i] = volume_to_linear(volume->values[i], volume_method);
 
 		spa_pod_builder_prop(b, SPA_PROP_channelVolumes, 0);
 		spa_pod_builder_array(b, sizeof(float),
@@ -556,7 +571,7 @@ static int set_volume_mute(snd_ctl_pipewire_t *ctl, const char *name, struct vol
 			0);
 
 		spa_pod_builder_prop(&b, SPA_PARAM_ROUTE_props, 0);
-		build_volume_mute(&b, volume, mute);
+		build_volume_mute(&b, volume, mute, ctl->volume_method);
 		param = spa_pod_builder_pop(&b, &f[0]);
 
 		pw_log_debug("set device %d mute/volume for node %d", dg->id, g->id);
@@ -566,7 +581,7 @@ static int set_volume_mute(snd_ctl_pipewire_t *ctl, const char *name, struct vol
 		if (!SPA_FLAG_IS_SET(g->permissions, PW_PERM_W | PW_PERM_X))
 			return -EPERM;
 
-		param = build_volume_mute(&b, volume, mute);
+		param = build_volume_mute(&b, volume, mute, ctl->volume_method);
 
 		pw_log_debug("set node %d mute/volume", g->id);
 		pw_node_set_param((struct pw_node*)g->proxy,
@@ -837,6 +852,7 @@ static void parse_props(struct global *g, const struct spa_pod *param, bool devi
 {
 	struct spa_pod_prop *prop;
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
+	snd_ctl_pipewire_t *ctl = g->ctl;
 
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
@@ -862,7 +878,8 @@ static void parse_props(struct global *g, const struct spa_pod *param, bool devi
 
 			g->node.channel_volume.channels = n_volumes;
 			for (i = 0; i < n_volumes; i++)
-				g->node.channel_volume.values[i] = volume_from_linear(volumes[i]);
+				g->node.channel_volume.values[i] =
+					volume_from_linear(volumes[i], ctl->volume_method);
 
 			SPA_FLAG_UPDATE(g->node.flags, NODE_FLAG_DEVICE_VOLUME, device);
 			pw_log_debug("update node %d channelVolumes", g->id);
@@ -1404,6 +1421,18 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 	str = getenv("PIPEWIRE_REMOTE");
 	if (str != NULL && str[0] != '\0')
 		pw_properties_set(ctl->props, PW_KEY_REMOTE_NAME, str);
+
+	if ((str = pw_properties_get(ctl->props, "alsa.volume-method")) == NULL)
+		str = DEFAULT_VOLUME_METHOD;
+
+	if (spa_streq(str, "cubic"))
+		ctl->volume_method = VOLUME_METHOD_CUBIC;
+	else if (spa_streq(str, "linear"))
+		ctl->volume_method = VOLUME_METHOD_LINEAR;
+	else {
+		ctl->volume_method = VOLUME_METHOD_CUBIC;
+		SNDERR("unknown alsa.volume-method %s, using cubic", str);
+	}
 
 	if ((err = pw_thread_loop_start(ctl->mainloop)) < 0)
 		goto error;

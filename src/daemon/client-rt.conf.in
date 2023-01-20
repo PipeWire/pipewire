@@ -92,3 +92,12 @@ stream.properties = {
     #channelmix.hilbert-taps = 0
     #dither.noise = 0
 }
+
+alsa.properties = {
+    #alsa.format = 0
+    #alsa.rate = 0
+    #alsa.channels = 0
+    #alsa.period-bytes = 0
+    #alsa.buffer-bytes = 0
+    #alsa.volume-method = cubic		# linear, cubic
+}

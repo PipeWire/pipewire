@@ -691,11 +691,6 @@ again:
 		spa_log_trace(this->log, "%p: written %u frames", this, total_frames);
 	}
 
-	if (written > 0 && this->buffer_used == this->header_size) {
-		enable_flush_timer(this, false);
-		return 0;
-	}
-
 	if (this->flush_pending) {
 		spa_log_trace(this->log, "%p: wait for flush timer", this);
 		return 0;
@@ -794,6 +789,9 @@ again:
 				this->next_flush_time, this->process_time);
 		reset_buffer(this);
 		enable_flush_timer(this, true);
+
+		/* Encode next packet already now; it will be flushed later on timer */
+		goto again;
 	}
 	else {
 		/* Don't want to flush yet, or failed to write anything */

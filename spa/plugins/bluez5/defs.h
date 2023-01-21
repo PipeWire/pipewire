@@ -161,12 +161,13 @@ extern "C" {
 #define HFP_AUDIO_CODEC_CVSD    0x01
 #define HFP_AUDIO_CODEC_MSBC    0x02
 
-#define MEDIA_OBJECT_MANAGER_PATH "/MediaEndpoint"
-#define A2DP_SINK_ENDPOINT	MEDIA_OBJECT_MANAGER_PATH "/A2DPSink"
-#define A2DP_SOURCE_ENDPOINT	MEDIA_OBJECT_MANAGER_PATH "/A2DPSource"
+#define A2DP_OBJECT_MANAGER_PATH "/MediaEndpoint"
+#define A2DP_SINK_ENDPOINT	A2DP_OBJECT_MANAGER_PATH "/A2DPSink"
+#define A2DP_SOURCE_ENDPOINT	A2DP_OBJECT_MANAGER_PATH "/A2DPSource"
 
-#define BAP_SINK_ENDPOINT	MEDIA_OBJECT_MANAGER_PATH "/BAPSink"
-#define BAP_SOURCE_ENDPOINT	MEDIA_OBJECT_MANAGER_PATH "/BAPSource"
+#define BAP_OBJECT_MANAGER_PATH "/MediaEndpointLE"
+#define BAP_SINK_ENDPOINT	BAP_OBJECT_MANAGER_PATH "/BAPSink"
+#define BAP_SOURCE_ENDPOINT	BAP_OBJECT_MANAGER_PATH "/BAPSource"
 
 #define SPA_BT_UNKNOWN_DELAY			0
 
@@ -358,8 +359,9 @@ struct spa_bt_adapter {
 	int powered;
 	unsigned int has_msbc:1;
 	unsigned int msbc_probed:1;
-	unsigned int endpoints_registered:1;
-	unsigned int application_registered:1;
+	unsigned int legacy_endpoints_registered:1;
+	unsigned int a2dp_application_registered:1;
+	unsigned int bap_application_registered:1;
 	unsigned int player_registered:1;
 	unsigned int has_battery_provider:1;
 	unsigned int battery_provider_unavailable:1;

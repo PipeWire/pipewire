@@ -1887,10 +1887,12 @@ bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const stru
 	if (!is_media_codec_enabled(device->monitor, codec))
 		return false;
 
-	if (!device->adapter->application_registered) {
+	if (!device->adapter->a2dp_application_registered && !codec->bap) {
 		/* Codec switching not supported: only plain SBC allowed */
 		return (codec->codec_id == A2DP_CODEC_SBC && spa_streq(codec->name, "sbc"));
 	}
+	if (!device->adapter->bap_application_registered && codec->bap)
+		return false;
 
 	/* Check codec quirks */
 	for (i = 0; i < SPA_N_ELEMENTS(quirks); ++i) {
@@ -3355,7 +3357,8 @@ int spa_bt_device_ensure_media_codec(struct spa_bt_device *device, const struct 
 	const struct media_codec *preferred_codec = NULL;
 	size_t i, j, num_codecs, num_eps;
 
-	if (!device->adapter->application_registered) {
+	if (!device->adapter->a2dp_application_registered &&
+			!device->adapter->bap_application_registered) {
 		/* Codec switching not supported */
 		return -ENOTSUP;
 	}
@@ -3690,7 +3693,7 @@ static DBusHandlerResult endpoint_handler(DBusConnection *c, DBusMessage *m, voi
 	return res;
 }
 
-static void bluez_register_endpoint_reply(DBusPendingCall *pending, void *user_data)
+static void bluez_register_endpoint_legacy_reply(DBusPendingCall *pending, void *user_data)
 {
 	struct spa_bt_monitor *monitor = user_data;
 	DBusMessage *r;
@@ -3739,7 +3742,7 @@ static void append_basic_array_variant_dict_entry(DBusMessageIter *dict, const c
 	dbus_message_iter_close_container(dict, &dict_entry_it);
 }
 
-static int bluez_register_endpoint(struct spa_bt_monitor *monitor,
+static int bluez_register_endpoint_legacy(struct spa_bt_monitor *monitor,
 				   const char *path, enum spa_bt_media_direction direction,
 				   const char *uuid, const struct media_codec *codec)
 {
@@ -3783,7 +3786,7 @@ static int bluez_register_endpoint(struct spa_bt_monitor *monitor,
 	dbus_message_iter_close_container(&object_it, &dict_it);
 
 	dbus_connection_send_with_reply(monitor->conn, m, &call, -1);
-	dbus_pending_call_set_notify(call, bluez_register_endpoint_reply, monitor, NULL);
+	dbus_pending_call_set_notify(call, bluez_register_endpoint_legacy_reply, monitor, NULL);
 	dbus_message_unref(m);
 
 	free(object_path);
@@ -3795,14 +3798,14 @@ error:
 	return ret;
 }
 
-static int adapter_register_endpoints(struct spa_bt_adapter *a)
+static int adapter_register_endpoints_legacy(struct spa_bt_adapter *a)
 {
 	struct spa_bt_monitor *monitor = a->monitor;
 	const struct media_codec * const * const media_codecs = monitor->media_codecs;
 	int i;
 	int err = 0;
 
-	if (a->endpoints_registered)
+	if (a->legacy_endpoints_registered)
 	    return err;
 
 	/* The legacy bluez5 api doesn't support codec switching
@@ -3813,9 +3816,7 @@ static int adapter_register_endpoints(struct spa_bt_adapter *a)
 	 * */
 	spa_log_warn(monitor->log,
 		     "Using legacy bluez5 API for A2DP - only SBC will be supported. "
-		     "No LE Audio. Please upgrade bluez5.");
-
-	monitor->le_audio_supported = false;
+		     "Please upgrade bluez5.");
 
 	for (i = 0; media_codecs[i]; i++) {
 		const struct media_codec *codec = media_codecs[i];
@@ -3824,7 +3825,7 @@ static int adapter_register_endpoints(struct spa_bt_adapter *a)
 			continue;
 
 		if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE)) {
-			if ((err = bluez_register_endpoint(monitor, a->path,
+			if ((err = bluez_register_endpoint_legacy(monitor, a->path,
 									SPA_BT_MEDIA_SOURCE,
 									SPA_BT_UUID_A2DP_SOURCE,
 									codec)))
@@ -3832,18 +3833,18 @@ static int adapter_register_endpoints(struct spa_bt_adapter *a)
 		}
 
 		if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SINK)) {
-			if ((err = bluez_register_endpoint(monitor, a->path,
+			if ((err = bluez_register_endpoint_legacy(monitor, a->path,
 									SPA_BT_MEDIA_SINK,
 									SPA_BT_UUID_A2DP_SINK,
 									codec)))
 				goto out;
 		}
 
-		a->endpoints_registered = true;
+		a->legacy_endpoints_registered = true;
 		break;
 	}
 
-	if (!a->endpoints_registered) {
+	if (!a->legacy_endpoints_registered) {
 		/* Should never happen as SBC support is always enabled */
 		spa_log_error(monitor->log, "Broken PipeWire build - unable to locate SBC codec");
 		err = -ENOSYS;
@@ -3887,7 +3888,7 @@ static void append_media_object(DBusMessageIter *iter, const char *endpoint,
 	dbus_message_iter_close_container(iter, &object);
 }
 
-static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *m, void *user_data)
+static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *m, void *user_data, bool is_bap)
 {
 	struct spa_bt_monitor *monitor = user_data;
 	const struct media_codec * const * const media_codecs = monitor->media_codecs;
@@ -3930,20 +3931,11 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 			int caps_size, ret;
 			uint16_t codec_id = codec->codec_id;
 
-			if (!is_media_codec_enabled(monitor, codec))
+			if (codec->bap != is_bap)
 				continue;
 
-			if (codec->bap && !monitor->le_audio_supported) {
-				/* The legacy bluez5 api doesn't support LE Audio
-				 * It doesn't make sense to register unsupported codecs as it prevents
-				 * registration of A2DP codecs
-				 * let's incentivize users to upgrade their bluez5 daemon
-				 * if they want proper media codec support
-				 * */
-				spa_log_warn(monitor->log, "Trying to use legacy bluez5 API for LE Audio - only A2DP will be supported. "
-										"Please upgrade bluez5.");
+			if (!is_media_codec_enabled(monitor, codec))
 				continue;
-			}
 
 			if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SINK)) {
 				caps_size = codec->fill_caps(codec, MEDIA_CODEC_FLAG_SINK, caps);
@@ -3987,7 +3979,17 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 	return res;
 }
 
-static void bluez_register_application_reply(DBusPendingCall *pending, void *user_data)
+static DBusHandlerResult object_manager_handler_a2dp(DBusConnection *c, DBusMessage *m, void *user_data)
+{
+	return object_manager_handler(c, m, user_data, false);
+}
+
+static DBusHandlerResult object_manager_handler_bap(DBusConnection *c, DBusMessage *m, void *user_data)
+{
+	return object_manager_handler(c, m, user_data, true);
+}
+
+static void bluez_register_application_a2dp_reply(DBusPendingCall *pending, void *user_data)
 {
 	struct spa_bt_adapter *adapter = user_data;
 	struct spa_bt_monitor *monitor = adapter->monitor;
@@ -4012,13 +4014,37 @@ static void bluez_register_application_reply(DBusPendingCall *pending, void *use
 	}
 
 	fallback = false;
-	adapter->application_registered = true;
+	adapter->a2dp_application_registered = true;
 
 finish:
 	dbus_message_unref(r);
 
 	if (fallback)
-		adapter_register_endpoints(adapter);
+		adapter_register_endpoints_legacy(adapter);
+}
+
+static void bluez_register_application_bap_reply(DBusPendingCall *pending, void *user_data)
+{
+	struct spa_bt_adapter *adapter = user_data;
+	struct spa_bt_monitor *monitor = adapter->monitor;
+	DBusMessage *r;
+
+	r = dbus_pending_call_steal_reply(pending);
+	dbus_pending_call_unref(pending);
+
+	if (r == NULL)
+		return;
+
+	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
+		spa_log_error(monitor->log, "RegisterApplication() failed: %s",
+		        dbus_message_get_error_name(r));
+		goto finish;
+	}
+
+	adapter->bap_application_registered = true;
+
+finish:
+	dbus_message_unref(r);
 }
 
 static int register_media_endpoint(struct spa_bt_monitor *monitor,
@@ -4037,7 +4063,7 @@ static int register_media_endpoint(struct spa_bt_monitor *monitor,
 	if (ret < 0)
 		return ret;
 
-	spa_log_info(monitor->log, "registering endpoint: %s", object_path);
+	spa_log_info(monitor->log, "Registering DBus media endpoint: %s", object_path);
 
 	if (!dbus_connection_register_object_path(monitor->conn,
 						  object_path,
@@ -4053,15 +4079,27 @@ static int register_media_endpoint(struct spa_bt_monitor *monitor,
 static int register_media_application(struct spa_bt_monitor * monitor)
 {
 	const struct media_codec * const * const media_codecs = monitor->media_codecs;
-	const DBusObjectPathVTable vtable_object_manager = {
-		.message_function = object_manager_handler,
+	const DBusObjectPathVTable vtable_object_manager_a2dp = {
+		.message_function = object_manager_handler_a2dp,
+	};
+	const DBusObjectPathVTable vtable_object_manager_bap = {
+		.message_function = object_manager_handler_bap,
 	};
 
-	spa_log_info(monitor->log, "Registering media application object: " MEDIA_OBJECT_MANAGER_PATH);
+	spa_log_info(monitor->log, "Registering DBus media object manager: %s",
+			A2DP_OBJECT_MANAGER_PATH);
 
 	if (!dbus_connection_register_object_path(monitor->conn,
-	                                          MEDIA_OBJECT_MANAGER_PATH,
-	                                          &vtable_object_manager, monitor))
+	                                          A2DP_OBJECT_MANAGER_PATH,
+	                                          &vtable_object_manager_a2dp, monitor))
+		return -EIO;
+
+	spa_log_info(monitor->log, "Registering DBus media object manager: %s",
+			BAP_OBJECT_MANAGER_PATH);
+
+	if (!dbus_connection_register_object_path(monitor->conn,
+	                                          BAP_OBJECT_MANAGER_PATH,
+	                                          &vtable_object_manager_bap, monitor))
 		return -EIO;
 
 	for (int i = 0; media_codecs[i]; i++) {
@@ -4105,20 +4143,25 @@ static void unregister_media_application(struct spa_bt_monitor * monitor)
 		unregister_media_endpoint(monitor, codec, SPA_BT_MEDIA_SINK);
 	}
 
-	dbus_connection_unregister_object_path(monitor->conn, MEDIA_OBJECT_MANAGER_PATH);
+	dbus_connection_unregister_object_path(monitor->conn, BAP_OBJECT_MANAGER_PATH);
+	dbus_connection_unregister_object_path(monitor->conn, A2DP_OBJECT_MANAGER_PATH);
 }
 
-static int adapter_register_application(struct spa_bt_adapter *a) {
-	const char *object_manager_path = MEDIA_OBJECT_MANAGER_PATH;
+static int adapter_register_application(struct spa_bt_adapter *a, bool bap)
+{
+	const char *object_manager_path = bap ? BAP_OBJECT_MANAGER_PATH : A2DP_OBJECT_MANAGER_PATH;
 	struct spa_bt_monitor *monitor = a->monitor;
 	DBusMessage *m;
 	DBusMessageIter i, d;
 	DBusPendingCall *call;
 
-	if (a->application_registered)
+	if (bap && a->bap_application_registered)
+		return 0;
+	if (!bap && a->a2dp_application_registered)
 		return 0;
 
-	spa_log_debug(monitor->log, "Registering bluez5 media application on adapter %s", a->path);
+	spa_log_debug(monitor->log, "Registering bluez5 %s media application on adapter %s",
+			(bap ? "LE Audio" : "A2DP"), a->path);
 
 	m = dbus_message_new_method_call(BLUEZ_SERVICE,
 	                                 a->path,
@@ -4133,7 +4176,9 @@ static int adapter_register_application(struct spa_bt_adapter *a) {
 	dbus_message_iter_close_container(&i, &d);
 
 	dbus_connection_send_with_reply(monitor->conn, m, &call, -1);
-	dbus_pending_call_set_notify(call, bluez_register_application_reply, a, NULL);
+	dbus_pending_call_set_notify(call,
+			bap ? bluez_register_application_bap_reply : bluez_register_application_a2dp_reply,
+			a, NULL);
 	dbus_message_unref(m);
 
 	return 0;
@@ -4267,7 +4312,8 @@ static void interface_added(struct spa_bt_monitor *monitor,
 			}
 		}
 		adapter_update_props(a, props_iter, NULL);
-		adapter_register_application(a);
+		adapter_register_application(a, false);
+		adapter_register_application(a, true);
 		adapter_register_player(a);
 		adapter_update_devices(a);
 	}

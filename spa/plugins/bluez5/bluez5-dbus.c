@@ -134,8 +134,6 @@ struct spa_bt_monitor {
 
 	/* A reference audio info for A2DP codec configuration. */
 	struct media_codec_audio_info default_audio_info;
-
-	bool le_audio_supported;
 };
 
 /* Stream endpoints owned by BlueZ for each device */
@@ -1001,6 +999,52 @@ static int adapter_update_props(struct spa_bt_adapter *adapter,
 		}
 		else
 			spa_log_debug(monitor->log, "adapter %p: unhandled key %s", adapter, key);
+
+next:
+		dbus_message_iter_next(props_iter);
+	}
+	return 0;
+}
+
+static int adapter_media_update_props(struct spa_bt_adapter *adapter,
+				DBusMessageIter *props_iter,
+				DBusMessageIter *invalidated_iter)
+{
+	/* Handle org.bluez.Media1 interface properties of .Adapter1 objects */
+	struct spa_bt_monitor *monitor = adapter->monitor;
+
+	while (dbus_message_iter_get_arg_type(props_iter) != DBUS_TYPE_INVALID) {
+		DBusMessageIter it[2];
+		const char *key;
+
+		dbus_message_iter_recurse(props_iter, &it[0]);
+		dbus_message_iter_get_basic(&it[0], &key);
+		dbus_message_iter_next(&it[0]);
+		dbus_message_iter_recurse(&it[0], &it[1]);
+
+		if (spa_streq(key, "SupportedUUIDs")) {
+			DBusMessageIter iter;
+
+			if (!check_iter_signature(&it[1], "as"))
+				goto next;
+
+			dbus_message_iter_recurse(&it[1], &iter);
+
+			while (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_INVALID) {
+				const char *uuid;
+
+				dbus_message_iter_get_basic(&iter, &uuid);
+
+				if (spa_streq(uuid, SPA_BT_UUID_BAP_SINK)) {
+					adapter->le_audio_supported = true;
+					spa_log_info(monitor->log, "Adapter %s: LE Audio supported",
+							adapter->path);
+				}
+				dbus_message_iter_next(&iter);
+			}
+		}
+		else
+			spa_log_debug(monitor->log, "media: unhandled key %s", key);
 
 next:
 		dbus_message_iter_next(props_iter);
@@ -4160,6 +4204,12 @@ static int adapter_register_application(struct spa_bt_adapter *a, bool bap)
 	if (!bap && a->a2dp_application_registered)
 		return 0;
 
+	if (bap && !a->le_audio_supported) {
+		spa_log_info(monitor->log, "Adapter %s indicates LE Audio unsupported: not registering application",
+				a->path);
+		return -ENOTSUP;
+	}
+
 	spa_log_debug(monitor->log, "Registering bluez5 %s media application on adapter %s",
 			(bap ? "LE Audio" : "A2DP"), a->path);
 
@@ -4250,48 +4300,6 @@ static void reselect_backend(struct spa_bt_monitor *monitor, bool silent)
 				backend ? backend->name : "none");
 }
 
-static int media_update_props(struct spa_bt_monitor *monitor,
-				DBusMessageIter *props_iter,
-				DBusMessageIter *invalidated_iter)
-{
-	while (dbus_message_iter_get_arg_type(props_iter) != DBUS_TYPE_INVALID) {
-		DBusMessageIter it[2];
-		const char *key;
-
-		dbus_message_iter_recurse(props_iter, &it[0]);
-		dbus_message_iter_get_basic(&it[0], &key);
-		dbus_message_iter_next(&it[0]);
-		dbus_message_iter_recurse(&it[0], &it[1]);
-
-		if (spa_streq(key, "SupportedUUIDs")) {
-			DBusMessageIter iter;
-
-			if (!check_iter_signature(&it[1], "as"))
-				goto next;
-
-			dbus_message_iter_recurse(&it[1], &iter);
-
-			while (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_INVALID) {
-				const char *uuid;
-
-				dbus_message_iter_get_basic(&iter, &uuid);
-
-				if (spa_streq(uuid, SPA_BT_UUID_BAP_SINK)) {
-					monitor->le_audio_supported = true;
-					spa_log_info(monitor->log, "LE Audio supported");
-				}
-				dbus_message_iter_next(&iter);
-			}
-		}
-		else
-			spa_log_debug(monitor->log, "media: unhandled key %s", key);
-
-next:
-		dbus_message_iter_next(props_iter);
-	}
-	return 0;
-}
-
 static void interface_added(struct spa_bt_monitor *monitor,
 			    DBusConnection *conn,
 			    const char *object_path,
@@ -4300,7 +4308,8 @@ static void interface_added(struct spa_bt_monitor *monitor,
 {
 	spa_log_debug(monitor->log, "Found object %s, interface %s", object_path, interface_name);
 
-	if (spa_streq(interface_name, BLUEZ_ADAPTER_INTERFACE)) {
+	if (spa_streq(interface_name, BLUEZ_ADAPTER_INTERFACE) ||
+			spa_streq(interface_name, BLUEZ_MEDIA_INTERFACE)) {
 		struct spa_bt_adapter *a;
 
 		a = adapter_find(monitor, object_path);
@@ -4311,11 +4320,21 @@ static void interface_added(struct spa_bt_monitor *monitor,
 				return;
 			}
 		}
-		adapter_update_props(a, props_iter, NULL);
-		adapter_register_application(a, false);
-		adapter_register_application(a, true);
-		adapter_register_player(a);
-		adapter_update_devices(a);
+
+		if (spa_streq(interface_name, BLUEZ_ADAPTER_INTERFACE)) {
+			adapter_update_props(a, props_iter, NULL);
+			a->has_adapter1_interface = true;
+		} else {
+			adapter_media_update_props(a, props_iter, NULL);
+			a->has_media1_interface = true;
+		}
+
+		if (a->has_adapter1_interface && a->has_media1_interface) {
+			adapter_register_application(a, false);
+			adapter_register_application(a, true);
+			adapter_register_player(a);
+			adapter_update_devices(a);
+		}
 	}
 	else if (spa_streq(interface_name, BLUEZ_PROFILE_MANAGER_INTERFACE)) {
 		if (monitor->backends[BACKEND_NATIVE])
@@ -4366,9 +4385,6 @@ static void interface_added(struct spa_bt_monitor *monitor,
 		if (d)
 			spa_bt_device_emit_profiles_changed(d, d->profiles, d->connected_profiles);
 	}
-	else if (spa_streq(interface_name, BLUEZ_MEDIA_INTERFACE)) {
-		media_update_props(monitor, props_iter, NULL);
-	}
 }
 
 static void interfaces_added(struct spa_bt_monitor *monitor, DBusMessageIter *arg_iter)
@@ -4417,7 +4433,8 @@ static void interfaces_removed(struct spa_bt_monitor *monitor, DBusMessageIter *
 			d = spa_bt_device_find(monitor, object_path);
 			if (d != NULL)
 				device_free(d);
-		} else if (spa_streq(interface_name, BLUEZ_ADAPTER_INTERFACE)) {
+		} else if (spa_streq(interface_name, BLUEZ_ADAPTER_INTERFACE) ||
+				spa_streq(interface_name, BLUEZ_MEDIA_INTERFACE)) {
 			struct spa_bt_adapter *a;
 			a = adapter_find(monitor, object_path);
 			if (a != NULL)
@@ -4621,7 +4638,8 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 		dbus_message_iter_next(&it[0]);
 		dbus_message_iter_recurse(&it[0], &it[1]);
 
-		if (spa_streq(iface, BLUEZ_ADAPTER_INTERFACE)) {
+		if (spa_streq(iface, BLUEZ_ADAPTER_INTERFACE) ||
+				spa_streq(iface, BLUEZ_MEDIA_INTERFACE)) {
 			struct spa_bt_adapter *a;
 
 			a = adapter_find(monitor, path);
@@ -4632,7 +4650,10 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 			}
 			spa_log_debug(monitor->log, "Properties changed in adapter %s", path);
 
-			adapter_update_props(a, &it[1], NULL);
+			if (spa_streq(iface, BLUEZ_ADAPTER_INTERFACE))
+				adapter_update_props(a, &it[1], NULL);
+			else
+				adapter_media_update_props(a, &it[1], NULL);
 		}
 		else if (spa_streq(iface, BLUEZ_DEVICE_INTERFACE)) {
 			struct spa_bt_device *d;
@@ -4734,6 +4755,10 @@ static void add_filters(struct spa_bt_monitor *this)
 			"type='signal',sender='" BLUEZ_SERVICE "',"
 			"interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',"
 			"arg0='" BLUEZ_ADAPTER_INTERFACE "'", &err);
+	dbus_bus_add_match(this->conn,
+			"type='signal',sender='" BLUEZ_SERVICE "',"
+			"interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',"
+			"arg0='" BLUEZ_MEDIA_INTERFACE "'", &err);
 	dbus_bus_add_match(this->conn,
 			"type='signal',sender='" BLUEZ_SERVICE "',"
 			"interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',"

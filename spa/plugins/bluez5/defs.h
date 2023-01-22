@@ -365,6 +365,9 @@ struct spa_bt_adapter {
 	unsigned int player_registered:1;
 	unsigned int has_battery_provider:1;
 	unsigned int battery_provider_unavailable:1;
+	unsigned int le_audio_supported:1;
+	unsigned int has_adapter1_interface:1;
+	unsigned int has_media1_interface:1;
 };
 
 enum spa_bt_form_factor {

@@ -407,9 +407,24 @@ static void stream_input_process(void *d)
 	}
 }
 
+static void stream_state_changed(void *d, enum pw_stream_state old,
+		enum pw_stream_state state, const char *error)
+{
+	struct stream *s = d;
+	switch (state) {
+	case PW_STREAM_STATE_ERROR:
+	case PW_STREAM_STATE_UNCONNECTED:
+		stream_destroy(s);
+		break;
+	default:
+		break;
+	}
+}
+
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = stream_destroy,
+	.state_changed = stream_state_changed,
 };
 
 struct stream_info {

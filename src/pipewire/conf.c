@@ -1013,12 +1013,6 @@ int pw_context_conf_update_props(struct pw_context *context,
 	return res == 0 ? data.count : res;
 }
 
-struct match {
-	const struct spa_dict *props;
-	int (*matched) (void *data, const char *location, const char *action,
-			const char *val, size_t len);
-	void *data;
-};
 
 /*
  * {
@@ -1080,7 +1074,7 @@ static bool find_match(struct spa_json *arr, const struct spa_dict *props)
 }
 
 /**
- * rules = [
+ * [
  *     {
  *         matches = [
  *             # any of the items in matches needs to match, if one does,
@@ -1099,11 +1093,13 @@ static bool find_match(struct spa_json *arr, const struct spa_dict *props)
  *     }
  * ]
  */
-static int match_rules(void *data, const char *location, const char *section,
-		const char *str, size_t len)
+SPA_EXPORT
+int pw_conf_match_rules(const char *str, size_t len, const char *location,
+		const struct spa_dict *props,
+		int (*callback) (void *data, const char *location, const char *action,
+			const char *str, size_t len),
+		void *data)
 {
-	struct match *match = data;
-	const struct spa_dict *props = match->props;
 	const char *val;
 	struct spa_json it[4], actions;
 
@@ -1142,11 +1138,26 @@ static int match_rules(void *data, const char *location, const char *section,
 			if (spa_json_is_container(val, len))
 				len = spa_json_container_len(&actions, val, len);
 
-			if ((res = match->matched(match->data, location, key, val, len)) < 0)
+			if ((res = callback(data, location, key, val, len)) < 0)
 				return res;
 		}
 	}
 	return 0;
+}
+
+struct match {
+	const struct spa_dict *props;
+	int (*matched) (void *data, const char *location, const char *action,
+			const char *val, size_t len);
+	void *data;
+};
+
+static int match_rules(void *data, const char *location, const char *section,
+		const char *str, size_t len)
+{
+	struct match *match = data;
+	return pw_conf_match_rules(str, len, location,
+		match->props, match->matched, match->data);
 }
 
 SPA_EXPORT

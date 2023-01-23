@@ -239,6 +239,7 @@ static const struct spa_dict_item module_props[] = {
 
 struct impl {
 	struct pw_context *context;
+	struct pw_data_loop *data_loop;
 
 	struct pw_properties *props;
 
@@ -271,6 +272,7 @@ struct impl {
 	unsigned int do_disconnect:1;
 
 	struct spa_list streams;
+	uint32_t n_streams;
 };
 
 struct stream {
@@ -287,6 +289,7 @@ struct stream {
 	uint32_t remap[SPA_AUDIO_MAX_CHANNELS];
 
 	unsigned int ready:1;
+	unsigned int added:1;
 };
 
 static uint32_t channel_from_name(const char *name)
@@ -338,10 +341,37 @@ static struct stream *find_stream(struct impl *impl, uint32_t id)
 	return NULL;
 }
 
+static int do_add_stream(struct spa_loop *loop, bool async, uint32_t seq,
+                const void *data, size_t size, void *user_data)
+{
+	struct stream *s = user_data;
+	struct impl *impl = s->impl;
+	if (!s->added) {
+		spa_list_append(&impl->streams, &s->link);
+		impl->n_streams++;
+		s->added = true;
+	}
+	return 0;
+}
+
+static int do_remove_stream(struct spa_loop *loop, bool async, uint32_t seq,
+                const void *data, size_t size, void *user_data)
+{
+	struct stream *s = user_data;
+	if (s->added) {
+		spa_list_remove(&s->link);
+		s->impl->n_streams--;
+		s->added = false;
+	}
+	return 0;
+}
+
 static void destroy_stream(struct stream *s)
 {
 	pw_log_debug("destroy stream %d", s->id);
-	spa_list_remove(&s->link);
+
+	pw_data_loop_invoke(s->impl->data_loop, do_remove_stream, 0, NULL, 0, true, s);
+
 	if (s->stream) {
 		spa_hook_remove(&s->stream_listener);
 		pw_stream_destroy(s->stream);
@@ -417,7 +447,6 @@ static int create_stream(struct stream_info *info)
 
 	s->id = info->id;
 	s->impl = impl;
-	spa_list_append(&impl->streams, &s->link);
 
 	s->info = impl->info;
 	if ((str = pw_properties_get(info->stream_props, SPA_KEY_AUDIO_POSITION)) != NULL)
@@ -498,6 +527,7 @@ static int create_stream(struct stream_info *info)
 			direction, PW_ID_ANY, flags, params, n_params)) < 0)
 		goto error;
 
+	pw_data_loop_invoke(impl->data_loop, do_add_stream, 0, NULL, 0, true, s);
 	return 0;
 
 error_errno:
@@ -875,6 +905,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		return -errno;
 
 	pw_log_debug("module %p: new %s", impl, args);
+	impl->data_loop = pw_context_get_data_loop(context);
 
 	spa_list_init(&impl->streams);
 

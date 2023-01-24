@@ -495,10 +495,10 @@ static int create_stream(struct stream_info *info)
 
 	if (pw_properties_get(info->stream_props, PW_KEY_MEDIA_NAME) == NULL)
 		pw_properties_setf(info->stream_props, PW_KEY_MEDIA_NAME,
-				"%s combined output", str);
+				"%s output", str);
 	if (pw_properties_get(info->stream_props, PW_KEY_NODE_DESCRIPTION) == NULL)
 		pw_properties_setf(info->stream_props, PW_KEY_NODE_DESCRIPTION,
-				"%s combined output", str);
+				"%s output", str);
 
 	str = pw_properties_get(impl->props, PW_KEY_NODE_NAME);
 	if (str == NULL)
@@ -1019,6 +1019,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(props, PW_KEY_MEDIA_ROLE, "filter");
 	if (pw_properties_get(impl->stream_props, PW_KEY_NODE_PASSIVE) == NULL)
 		pw_properties_set(impl->stream_props, PW_KEY_NODE_PASSIVE, "true");
+	if (pw_properties_get(impl->stream_props, PW_KEY_NODE_DONT_RECONNECT) == NULL)
+		pw_properties_set(impl->stream_props, PW_KEY_NODE_DONT_RECONNECT, "true");
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

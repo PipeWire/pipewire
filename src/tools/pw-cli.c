@@ -2237,7 +2237,8 @@ static void show_help(struct data *data, const char *name, bool error)
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -d, --daemon                          Start as daemon (Default false)\n"
-		"  -r, --remote                          Remote daemon name\n\n"),
+		"  -r, --remote                          Remote daemon name\n"
+		"  -m, --monitor                         Monitor activity\n\n"),
 		name);
 
 	do_help(data, "help", "", NULL);

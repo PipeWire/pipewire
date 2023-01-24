@@ -237,7 +237,7 @@ static void check_writer(struct test_info *info, unsigned int mtu)
 	spa_assert_se(info->events[info->i].size == 0);
 }
 
-static void test_midi_parser_1()
+static void test_midi_parser_1(void)
 {
 	struct test_info info = {
 		.packets = midi_1_packets,
@@ -247,7 +247,7 @@ static void test_midi_parser_1()
 	check_parser(&info);
 }
 
-static void test_midi_parser_2()
+static void test_midi_parser_2(void)
 {
 	struct test_info info = {
 		.packets = midi_2_packets,
@@ -257,7 +257,7 @@ static void test_midi_parser_2()
 	check_parser(&info);
 }
 
-static void test_midi_writer_1()
+static void test_midi_writer_1(void)
 {
 	struct test_info info = {
 		.packets = midi_1_packets_mtu14,
@@ -267,7 +267,7 @@ static void test_midi_writer_1()
 	check_writer(&info, 14);
 }
 
-static void test_midi_writer_2()
+static void test_midi_writer_2(void)
 {
 	struct test_info info = {
 		.packets = midi_2_packets,
@@ -278,7 +278,7 @@ static void test_midi_writer_2()
 	check_writer(&info, 12);
 }
 
-static void test_midi_writer_3()
+static void test_midi_writer_3(void)
 {
 	struct test_info info = {
 		.packets = midi_2_packets_mtu11,
@@ -288,7 +288,7 @@ static void test_midi_writer_3()
 	check_writer(&info, 11);
 }
 
-int main()
+int main(void)
 {
 	test_midi_parser_1();
 	test_midi_parser_2();

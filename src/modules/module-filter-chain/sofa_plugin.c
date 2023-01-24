@@ -220,6 +220,13 @@ static void spatializer_run(void * Instance, unsigned long SampleCount)
 		free(r1);
 		free(l2);
 		free(r2);
+
+		if (impl->l_conv1)
+			convolver_free(impl->l_conv1);
+		impl->l_conv1 = NULL;
+		if (impl->r_conv1)
+			convolver_free(impl->r_conv1);
+		impl->r_conv1 = NULL;
 	} else {
 		convolver_run(impl->l_conv2, impl->port[2], impl->port[0], SampleCount);
 		convolver_run(impl->r_conv2, impl->port[2], impl->port[1], SampleCount);

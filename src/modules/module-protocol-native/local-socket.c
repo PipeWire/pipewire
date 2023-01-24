@@ -49,12 +49,11 @@ PW_LOG_TOPIC_EXTERN(mod_topic);
 static const char *
 get_remote(const struct spa_dict *props)
 {
-	const char *name = NULL;
+	const char *name;
 
-	if (props)
+	name = getenv("PIPEWIRE_REMOTE");
+	if ((name == NULL || name[0] == '\0') && props)
 		name = spa_dict_lookup(props, PW_KEY_REMOTE_NAME);
-	if (name == NULL || name[0] == '\0')
-		name = getenv("PIPEWIRE_REMOTE");
 	if (name == NULL || name[0] == '\0')
 		name = PW_DEFAULT_REMOTE;
 	return name;

@@ -1418,10 +1418,6 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 	if (str != NULL)
 		pw_properties_update_string(ctl->props, str, strlen(str));
 
-	str = getenv("PIPEWIRE_REMOTE");
-	if (str != NULL && str[0] != '\0')
-		pw_properties_set(ctl->props, PW_KEY_REMOTE_NAME, str);
-
 	if ((str = pw_properties_get(ctl->props, "alsa.volume-method")) == NULL)
 		str = DEFAULT_VOLUME_METHOD;
 

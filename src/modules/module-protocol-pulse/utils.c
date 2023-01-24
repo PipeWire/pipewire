@@ -171,10 +171,9 @@ const char *get_server_name(struct pw_context *context)
 	const char *name = NULL;
 	const struct pw_properties *props = pw_context_get_properties(context);
 
-	if (props)
+	name = getenv("PIPEWIRE_REMOTE");
+	if ((name == NULL || name[0] == '\0') && props != NULL)
 		name = pw_properties_get(props, PW_KEY_REMOTE_NAME);
-	if (name == NULL || name[0] == '\0')
-		name = getenv("PIPEWIRE_REMOTE");
 	if (name == NULL || name[0] == '\0')
 		name = PW_DEFAULT_REMOTE;
 	return name;

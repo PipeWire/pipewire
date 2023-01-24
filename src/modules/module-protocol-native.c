@@ -1287,10 +1287,9 @@ get_server_name(const struct spa_dict *props)
 {
 	const char *name = NULL;
 
-	if (props)
+	name = getenv("PIPEWIRE_CORE");
+	if (name == NULL && props != NULL)
 		name = spa_dict_lookup(props, PW_KEY_CORE_NAME);
-	if (name == NULL)
-		name = getenv("PIPEWIRE_CORE");
 	if (name == NULL)
 		name = PW_DEFAULT_REMOTE;
 	return name;
@@ -1466,10 +1465,9 @@ static int need_server(struct pw_context *context, const struct spa_dict *props)
 {
 	const char *val = NULL;
 
-	if (props)
+	val = getenv("PIPEWIRE_DAEMON");
+	if (val == NULL && props != NULL)
 		val = spa_dict_lookup(props, PW_KEY_CORE_DAEMON);
-	if (val == NULL)
-		val = getenv("PIPEWIRE_DAEMON");
 	if (val && pw_properties_parse_bool(val))
 		return 1;
 	return 0;

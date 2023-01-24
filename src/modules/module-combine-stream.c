@@ -867,9 +867,9 @@ static void impl_destroy(struct impl *impl)
 		impl->registry = NULL;
 	}
 	if (impl->core) {
+		spa_hook_remove(&impl->core_listener);
 		if (impl->do_disconnect)
 			pw_core_disconnect(impl->core);
-		spa_hook_remove(&impl->core_listener);
 		impl->core = NULL;
 	}
 

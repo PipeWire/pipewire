@@ -31,8 +31,10 @@ struct spatializer_impl {
 	struct MYSOFA_EASY *sofa;
 #endif
 
-	struct convolver *l_conv;
-	struct convolver *r_conv;
+	struct convolver *l_conv1;
+	struct convolver *r_conv1;
+	struct convolver *l_conv2;
+	struct convolver *r_conv2;
 };
 
 static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
@@ -136,7 +138,7 @@ static void spatializer_run(void * Instance, unsigned long SampleCount)
 #ifdef HAVE_LIBMYSOFA
 	struct spatializer_impl *impl = Instance;
 
-	bool reload = false;
+	bool reload = false, interpolate = false;
 	for (uint8_t i = 0; i < 3; i++) {
 		if ((impl->port[3 + i] && impl->old_coords[i] != impl->port[3 + i][0])
 			|| isnan(impl->old_coords[i])) {
@@ -169,27 +171,59 @@ static void spatializer_run(void * Instance, unsigned long SampleCount)
 			pw_log_warn("delay dropped l: %f, r: %f", left_delay, right_delay);
 		}
 
-		if (impl->l_conv)
-			convolver_free(impl->l_conv);
-		impl->l_conv = convolver_new(dsp_ops, impl->blocksize, impl->tailsize, left_ir, impl->n_samples);
+		if (impl->l_conv1)
+			convolver_free(impl->l_conv1);
+		impl->l_conv1 = impl->l_conv2;
+		impl->l_conv2 = convolver_new(dsp_ops, impl->blocksize, impl->tailsize, left_ir, impl->n_samples);
 		free(left_ir);
-		if (impl->l_conv == NULL) {
+		if (impl->l_conv2 == NULL) {
 			pw_log_error("reloading left convolver failed");
 			return;
 		}
 
-		if (impl->r_conv)
-			convolver_free(impl->r_conv);
-		impl->r_conv = convolver_new(dsp_ops, impl->blocksize, impl->tailsize, right_ir, impl->n_samples);
+		if (impl->r_conv1)
+			convolver_free(impl->r_conv1);
+		impl->r_conv1 = impl->r_conv2;
+		impl->r_conv2 = convolver_new(dsp_ops, impl->blocksize, impl->tailsize, right_ir, impl->n_samples);
 		free(right_ir);
-		if (impl->r_conv == NULL) {
+		if (impl->r_conv2 == NULL) {
 			pw_log_error("reloading right convolver failed");
 			return;
 		}
+
+		// Don't interpolate on initial load
+		interpolate = impl->l_conv1 && impl->r_conv1;
 	}
 
-	convolver_run(impl->l_conv, impl->port[2], impl->port[0], SampleCount);
-	convolver_run(impl->r_conv, impl->port[2], impl->port[1], SampleCount);
+	if (interpolate) {
+		// Convolver requires buffer of power of two size
+		// FIXME: actually +1 shouldn't be necessary
+		uint32_t len = powl(2, ceilf(log2f(SampleCount)) + 1);
+
+		float *l1 = calloc(len, sizeof(float));
+		float *r1 = calloc(len, sizeof(float));
+		float *l2 = calloc(len, sizeof(float));
+		float *r2 = calloc(len, sizeof(float));
+
+		convolver_run(impl->l_conv1, impl->port[2], l1, SampleCount);
+		convolver_run(impl->r_conv1, impl->port[2], r1, SampleCount);
+		convolver_run(impl->l_conv2, impl->port[2], l2, SampleCount);
+		convolver_run(impl->r_conv2, impl->port[2], r2, SampleCount);
+
+		for (uint32_t i = 0; i < SampleCount; i++) {
+			float t = (float)i / SampleCount;
+			impl->port[0][i] = l1[i] * (1.0f - t) + l2[i] * t;
+			impl->port[1][i] = r1[i] * (1.0f - t) + r2[i] * t;
+		}
+
+		free(l1);
+		free(r1);
+		free(l2);
+		free(r2);
+	} else {
+		convolver_run(impl->l_conv2, impl->port[2], impl->port[0], SampleCount);
+		convolver_run(impl->r_conv2, impl->port[2], impl->port[1], SampleCount);
+	}
 #endif
 }
 
@@ -203,10 +237,16 @@ static void spatializer_connect_port(void * Instance, unsigned long Port,
 static void spatializer_cleanup(void * Instance)
 {
 	struct spatializer_impl *impl = Instance;
-	if (impl->l_conv)
-		convolver_free(impl->l_conv);
-	if (impl->r_conv)
-		convolver_free(impl->r_conv);
+
+	if (impl->l_conv1)
+		convolver_free(impl->l_conv1);
+	if (impl->r_conv1)
+		convolver_free(impl->r_conv1);
+
+	if (impl->l_conv2)
+		convolver_free(impl->l_conv2);
+	if (impl->r_conv2)
+		convolver_free(impl->r_conv2);
 
 #ifdef HAVE_LIBMYSOFA
 	if (impl->sofa) {
@@ -222,10 +262,10 @@ static void spatializer_cleanup(void * Instance)
 static void spatializer_deactivate(void * Instance)
 {
 	struct spatializer_impl *impl = Instance;
-	if (impl->l_conv)
-		convolver_reset(impl->l_conv);
-	if (impl->r_conv)
-		convolver_reset(impl->r_conv);
+	if (impl->l_conv2)
+		convolver_reset(impl->l_conv2);
+	if (impl->r_conv2)
+		convolver_reset(impl->r_conv2);
 }
 
 static struct fc_port spatializer_ports[] = {

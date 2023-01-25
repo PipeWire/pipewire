@@ -880,6 +880,9 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 				rfcomm_emit_volume_changed(rfcomm, -1, SPA_BT_VOLUME_INVALID);
 			}
 		}
+	} else if (strspn(buf, " ") == strlen(buf)) {
+		/* No commands, reply OK (ITU-T Rec. V.250 Sec. 5.2.1 & 5.6) */
+		rfcomm_send_reply(rfcomm, "OK");
 	} else if (!rfcomm->slc_configured) {
 		spa_log_warn(backend->log, "RFCOMM receive command before SLC completed: %s", buf);
 		rfcomm_send_error(rfcomm, CMEE_AG_FAILURE);

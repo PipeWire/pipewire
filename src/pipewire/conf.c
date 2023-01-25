@@ -361,7 +361,7 @@ found:
 }
 
 SPA_EXPORT
-int pw_conf_save_state(const char *prefix, const char *name, struct pw_properties *conf)
+int pw_conf_save_state(const char *prefix, const char *name, const struct pw_properties *conf)
 {
 	char path[PATH_MAX];
 	char *tmp_name;

@@ -46,7 +46,6 @@
 #include <spa/param/audio/raw.h>
 
 #include <pipewire/impl.h>
-#include <pipewire/conf.h>
 #include <pipewire/i18n.h>
 
 /** \page page_module_combine_stream PipeWire Module: Combine Stream

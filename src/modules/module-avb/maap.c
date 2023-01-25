@@ -27,7 +27,6 @@
 #include <spa/utils/json.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/conf.h>
 
 #include "utils.h"
 #include "maap.h"

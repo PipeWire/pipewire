@@ -283,10 +283,10 @@ static void stream_process(void *data)
 		}
 	} else {
 		float error, corr;
-		if (avail > (int32_t)SPA_MIN(target_buffer * 3, BUFFER_SIZE)) {
+		if (avail > (int32_t)SPA_MIN(target_buffer * 8, BUFFER_SIZE)) {
+			pw_log_warn("overrun %u > %u", avail, target_buffer * 8);
 			index += avail - target_buffer;
 			avail = target_buffer;
-			pw_log_warn("overrun %u > %u", avail, target_buffer * 3);
 		} else {
 			if (sess->first) {
 				if ((uint32_t)avail > target_buffer) {

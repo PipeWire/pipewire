@@ -70,7 +70,7 @@ jack.properties = {
      #node.lock-quantum  = true
      #node.force-quantum = 0
      #jack.show-monitor  = true
-     #jack.merge-monitor = false
+     #jack.merge-monitor = true
      #jack.short-name    = false
      #jack.filter-name   = false
      #jack.filter-char   = " "
@@ -89,8 +89,7 @@ jack.properties = {
 
 # client specific properties
 jack.rules = [
-    {
-        matches = [
+    {   matches = [
             {
                 # all keys must match the value. ~ starts regex.
                 #client.name                = "Carla"
@@ -104,22 +103,25 @@ jack.rules = [
             }
         }
     }
-    { matches = [
-            { application.process.binary = "jack_bufsize" }
-        ]
+    {   matches = [ { application.process.binary = "jack_bufsize" } ]
         actions = {
             update-props = {
                 jack.global-buffer-size = true   # quantum set globally using metadata
             }
         }
     }
-    { matches = [
-            { application.process.binary = "qsynth" }
-        ]
+    {   matches = [ { application.process.binary = "qsynth" } ]
         actions = {
             update-props = {
                 node.pause-on-idle = false  # makes audio fade out when idle
                 node.passive = true         # makes the sink and qsynth suspend
+            }
+        }
+    }
+    {   matches = [ { client.name = "Mixxx" } ]
+        actions = {
+            update-props = {
+                jack.merge-monitor = false
             }
         }
     }

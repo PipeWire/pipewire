@@ -3480,7 +3480,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->info.change_mask = 0;
 
 	client->show_monitor = pw_properties_get_bool(client->props, "jack.show-monitor", true);
-	client->merge_monitor = pw_properties_get_bool(client->props, "jack.merge-monitor", false);
+	client->merge_monitor = pw_properties_get_bool(client->props, "jack.merge-monitor", true);
 	client->short_name = pw_properties_get_bool(client->props, "jack.short-name", false);
 	client->filter_name = pw_properties_get_bool(client->props, "jack.filter-name", false);
 	client->filter_char = ' ';

@@ -78,19 +78,38 @@
  * ## Example configuration
  *\code{.unparsed}
  * context.modules = [
- *  {   name = libpipewire-module-rtp-source
- *      args = {
- *          #sap.ip = 224.0.0.56
- *          #sap.port = 9875
- *          #local.ifname = eth0
- *          sess.latency.msec = 100
- *          stream.props = {
- *             node.name = "rtp-source"
- *             #media.class = "Audio/Source"
- *          }
- *      }
- *  }
- *]
+ * {   name = libpipewire-module-rtp-source
+ *     args = {
+ *         #sap.ip = 224.0.0.56
+ *         #sap.port = 9875
+ *         #local.ifname = eth0
+ *         sess.latency.msec = 100
+ *         stream.props = {
+ *            #media.class = "Audio/Source"
+ *            #node.name = "rtp-source"
+ *         }
+ *         stream.rules = [
+ *             {   matches = [
+ *                     # any of the items in matches needs to match, if one does,
+ *                     # actions are emited.
+ *                     {   # all keys must match the value. ~ in value starts regex.
+ *                         #rtp.origin = "wim 3883629975 0 IN IP4 0.0.0.0"
+ *                         #rtp.payload = "127"
+ *                         #rtp.fmt = "L16/48000/2"
+ *                         #rtp.session = "PipeWire RTP Stream on fedora"
+ *                     }
+ *                 ]
+ *                 actions = {
+ *                     create-stream = {
+ *                         #sess.latency.msec = 100
+ *                         #target.object = ""
+ *                     }
+ *                 }
+ *             }
+ *         ]
+ *     }
+ * }
+ * ]
  *\endcode
  *
  * \since 0.3.60
@@ -118,7 +137,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 		"sap.port=<SAP port to listen on, default "SPA_STRINGIFY(DEFAULT_SAP_PORT)"> "			\
 		"local.ifname=<local interface name to use> "							\
 		"sess.latency.msec=<target network latency, default "SPA_STRINGIFY(DEFAULT_SESS_LATENCY)"> "	\
-		"stream.props= { key=value ... }"
+		"stream.props= { key=value ... } "								\
+		"stream.rules=<rules> "
 
 static const struct spa_dict_item module_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
@@ -531,8 +551,8 @@ static void session_touch(struct session *sess)
 
 static void session_free(struct session *sess)
 {
-	pw_log_info("free session %s %s", sess->info.origin, sess->info.session);
 	if (sess->impl) {
+		pw_log_info("free session %s %s", sess->info.origin, sess->info.session);
 		sess->impl->n_sessions--;
 		spa_list_remove(&sess->link);
 	}
@@ -543,6 +563,25 @@ static void session_free(struct session *sess)
 	free(sess);
 }
 
+struct session_info {
+	struct session *session;
+	struct pw_properties *props;
+	bool matched;
+};
+
+static int rule_matched(void *data, const char *location, const char *action,
+                        const char *str, size_t len)
+{
+	struct session_info *i = data;
+	int res = 0;
+
+	i->matched = true;
+	if (spa_streq(action, "create-stream")) {
+		pw_properties_update_string(i->props, str, len);
+	}
+	return res;
+}
+
 static int session_new(struct impl *impl, struct sdp_info *info)
 {
 	struct session *session;
@@ -551,7 +590,8 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 	uint32_t n_params;
 	uint8_t buffer[1024];
 	struct pw_properties *props;
-	int res, fd;
+	int res, fd, sess_latency_msec;
+	const char *str;
 
 	if (impl->n_sessions >= MAX_SESSIONS) {
 		pw_log_warn("too many sessions (%u >= %u)", impl->n_sessions, MAX_SESSIONS);
@@ -564,21 +604,12 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 
 	session->info = *info;
 
-	session->target_buffer = msec_to_bytes(info, impl->sess_latency_msec);
-	session->max_error = msec_to_bytes(info, ERROR_MSEC);
-
-	spa_dll_init(&session->dll);
-	spa_dll_set_bw(&session->dll, SPA_DLL_BW_MIN, 128, session->info.info.rate);
-
 	props = pw_properties_copy(impl->stream_props);
 	if (props == NULL) {
 		res = -errno;
 		goto error;
 	}
 
-	pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%d", info->info.rate);
-	pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%d/%d",
-			session->target_buffer / (2 * info->stride), info->info.rate);
 	pw_properties_set(props, "rtp.origin", info->origin);
 	pw_properties_setf(props, "rtp.payload", "%u", info->payload);
 	pw_properties_setf(props, "rtp.fmt", "%s/%u/%u", info->format_info->mime,
@@ -593,7 +624,35 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 		pw_properties_set(props, PW_KEY_MEDIA_NAME, "RTP Stream");
 	}
 
+	if ((str = pw_properties_get(impl->props, "stream.rules")) != NULL) {
+		struct session_info sinfo = {
+			.session = session,
+			.props = props,
+		};
+		pw_conf_match_rules(str, strlen(str), NAME, &props->dict,
+				rule_matched, &sinfo);
+
+		if (!sinfo.matched) {
+			res = 0;
+			pw_log_info("session '%s' was not matched", info->session);
+			goto error;
+		}
+	}
+
 	pw_log_info("new session %s %s", info->origin, info->session);
+
+	sess_latency_msec = pw_properties_get_uint32(props,
+			"sess.latency.msec", impl->sess_latency_msec);
+
+	session->target_buffer = msec_to_bytes(info, sess_latency_msec);
+	session->max_error = msec_to_bytes(info, ERROR_MSEC);
+
+	pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%d", info->info.rate);
+	pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%d/%d",
+			session->target_buffer / (2 * info->stride), info->info.rate);
+
+	spa_dll_init(&session->dll);
+	spa_dll_set_bw(&session->dll, SPA_DLL_BW_MIN, 128, session->info.info.rate);
 
 	session->stream = pw_stream_new(impl->core,
 			"rtp-source playback", props);

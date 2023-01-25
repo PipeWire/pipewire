@@ -580,16 +580,20 @@ static void send_sap(struct impl *impl, bool bye)
 			"c=IN %s %s%s\n"
 			"t=%u 0\n"
 			"a=recvonly\n"
+			"a=tool:PipeWire %s\n"
 			"m=audio %u RTP/AVP %i\n"
 			"a=rtpmap:%i %s/%u/%u\n"
-			"a=type:broadcast\n",
+			"a=type:broadcast\n"
+			"a=ptime:%d\n",
 			user_name, impl->ntp, af, src_addr,
 			impl->session_name,
 			af, dst_addr, dst_ttl,
 			impl->ntp,
+			pw_get_library_version(),
 			impl->port, impl->payload,
 			impl->payload, impl->format_info->mime,
-			impl->info.rate, impl->info.channels);
+			impl->info.rate, impl->info.channels,
+			(impl->mtu / impl->frame_size) * 1000 / impl->info.rate);
 
 	iov[3].iov_base = buffer;
 	iov[3].iov_len = strlen(buffer);

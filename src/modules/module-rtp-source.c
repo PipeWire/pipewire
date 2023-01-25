@@ -342,6 +342,13 @@ static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size
 	}
 }
 
+static void session_touch(struct session *sess)
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	sess->timestamp = SPA_TIMESPEC_TO_NSEC(&ts);
+}
+
 static void
 on_rtp_io(void *data, int fd, uint32_t mask)
 {
@@ -437,6 +444,7 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 			}
 		}
 	}
+	session_touch(sess);
 	return;
 
 receive_error:
@@ -537,13 +545,6 @@ error:
 static uint32_t msec_to_bytes(struct sdp_info *info, uint32_t msec)
 {
 	return msec * info->stride * info->info.rate / 1000;
-}
-
-static void session_touch(struct session *sess)
-{
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	sess->timestamp = SPA_TIMESPEC_TO_NSEC(&ts);
 }
 
 static void session_free(struct session *sess)

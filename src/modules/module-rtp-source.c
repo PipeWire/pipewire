@@ -1022,7 +1022,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct impl *impl;
-	struct pw_properties *props = NULL, *stream_props = NULL;
 	const char *str;
 	struct timespec value, interval;
 	int res = 0;
@@ -1033,54 +1032,47 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (impl == NULL)
 		return -errno;
 
+	spa_list_init(&impl->sessions);
+
 	if (args == NULL)
 		args = "";
 
-	props = pw_properties_new_string(args);
-	if (props == NULL) {
+	impl->props = pw_properties_new_string(args);
+	impl->stream_props = pw_properties_new(NULL, NULL);
+	if (impl->props == NULL || impl->stream_props == NULL) {
 		res = -errno;
 		pw_log_error( "can't create properties: %m");
 		goto out;
 	}
-	spa_list_init(&impl->sessions);
-	impl->props = props;
-
-	stream_props = pw_properties_new(NULL, NULL);
-	if (stream_props == NULL) {
-		res = -errno;
-		pw_log_error( "can't create properties: %m");
-		goto out;
-	}
-	impl->stream_props = stream_props;
 
 	impl->module = module;
 	impl->module_context = context;
 	impl->loop = pw_context_get_main_loop(context);
 	impl->data_loop = pw_data_loop_get_loop(pw_context_get_data_loop(context));
 
-	if (pw_properties_get(stream_props, PW_KEY_NODE_VIRTUAL) == NULL)
-		pw_properties_set(stream_props, PW_KEY_NODE_VIRTUAL, "true");
-	if (pw_properties_get(stream_props, PW_KEY_NODE_NETWORK) == NULL)
-		pw_properties_set(stream_props, PW_KEY_NODE_NETWORK, "true");
+	if (pw_properties_get(impl->stream_props, PW_KEY_NODE_VIRTUAL) == NULL)
+		pw_properties_set(impl->stream_props, PW_KEY_NODE_VIRTUAL, "true");
+	if (pw_properties_get(impl->stream_props, PW_KEY_NODE_NETWORK) == NULL)
+		pw_properties_set(impl->stream_props, PW_KEY_NODE_NETWORK, "true");
 
-	if ((str = pw_properties_get(props, "stream.props")) != NULL)
-		pw_properties_update_string(stream_props, str, strlen(str));
+	if ((str = pw_properties_get(impl->props, "stream.props")) != NULL)
+		pw_properties_update_string(impl->stream_props, str, strlen(str));
 
-	str = pw_properties_get(props, "local.ifname");
+	str = pw_properties_get(impl->props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;
 
-	str = pw_properties_get(props, "sap.ip");
+	str = pw_properties_get(impl->props, "sap.ip");
 	impl->sap_ip = strdup(str ? str : DEFAULT_SAP_IP);
-	impl->sap_port = pw_properties_get_uint32(props,
+	impl->sap_port = pw_properties_get_uint32(impl->props,
 			"sap.port", DEFAULT_SAP_PORT);
-	impl->sess_latency_msec = pw_properties_get_uint32(props,
+	impl->sess_latency_msec = pw_properties_get_uint32(impl->props,
 			"sess.latency.msec", DEFAULT_SESS_LATENCY);
-	impl->cleanup_interval = pw_properties_get_uint32(props,
+	impl->cleanup_interval = pw_properties_get_uint32(impl->props,
 			"sap.interval.sec", DEFAULT_CLEANUP_INTERVAL_SEC);
 
 	impl->core = pw_context_get_object(impl->module_context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {
-		str = pw_properties_get(props, PW_KEY_REMOTE_NAME);
+		str = pw_properties_get(impl->props, PW_KEY_REMOTE_NAME);
 		impl->core = pw_context_connect(impl->module_context,
 				pw_properties_new(
 					PW_KEY_REMOTE_NAME, str,

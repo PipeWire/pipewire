@@ -101,3 +101,14 @@ alsa.properties = {
     #alsa.buffer-bytes = 0
     #alsa.volume-method = cubic		# linear, cubic
 }
+
+# client specific properties
+alsa.rules = [
+    {   matches = [ { application.process.binary = "resolve" } ]
+        actions = {
+            update-props = {
+		alsa.buffer-bytes = 131072
+            }
+        }
+    }
+]

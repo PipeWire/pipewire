@@ -25,6 +25,7 @@
 #include "config.h"
 
 #include <limits.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -202,6 +203,7 @@ struct sdp_info {
 
 	char origin[128];
 	char session[256];
+	char channelmap[512];
 
 	struct sockaddr_storage sa;
 	socklen_t salen;
@@ -674,6 +676,11 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 	spa_dll_init(&session->dll);
 	spa_dll_set_bw(&session->dll, SPA_DLL_BW_MIN, 128, session->info.info.rate);
 
+	if (info->channelmap[0]) {
+		pw_properties_set(props, PW_KEY_NODE_CHANNELNAMES, info->channelmap);
+		pw_log_info("channelmap: %s", info->channelmap);
+	}
+
 	session->stream = pw_stream_new(impl->core,
 			"rtp-source playback", props);
 	if (session->stream == NULL) {
@@ -801,6 +808,31 @@ static int parse_sdp_m(struct impl *impl, char *c, struct sdp_info *info)
 	return 0;
 }
 
+// some AES67 devices have channelmap encoded in i=*
+// if `i` record is found, it matches the template
+// and channel count matches, name the channels respectively
+// `i=2 channels: 01, 08` is the format
+static int parse_sdp_i(struct impl *impl, char *c, struct sdp_info *info)
+{
+	if (!strstr(c, " channels: ")) {
+		return 0;
+	}
+
+	c += strlen("i=");
+	c[strcspn(c, " ")] = '\0';
+
+	uint32_t channels;
+	if (sscanf(c, "%u", &channels) != 1 || channels <= 0 || channels > SPA_AUDIO_MAX_CHANNELS)
+		return 0;
+
+	c += strcspn(c, "\0");
+	c += strlen(" channels: ");
+
+	strncpy(info->channelmap, c, sizeof(info->channelmap) - 1);
+
+	return 0;
+}
+
 static int parse_sdp_a(struct impl *impl, char *c, struct sdp_info *info)
 {
 	int payload, len, rate, channels;
@@ -833,6 +865,7 @@ static int parse_sdp_a(struct impl *impl, char *c, struct sdp_info *info)
 	if (sscanf(c, "%u/%u", &rate, &channels) == 2) {
 		info->info.rate = rate;
 		info->info.channels = channels;
+		pw_log_info("rate: %d, ch: %d", rate, channels);
 		if (channels == 2) {
 			info->info.position[0] = SPA_AUDIO_CHANNEL_FL;
 			info->info.position[1] = SPA_AUDIO_CHANNEL_FR;
@@ -874,6 +907,8 @@ static int parse_sdp(struct impl *impl, char *sdp, struct sdp_info *info)
 			res = parse_sdp_m(impl, s, info);
 		else if (spa_strstartswith(s, "a="))
 			res = parse_sdp_a(impl, s, info);
+		else if (spa_strstartswith(s, "i="))
+			res = parse_sdp_i(impl, s, info);
 
 		if (res < 0)
 			goto error;

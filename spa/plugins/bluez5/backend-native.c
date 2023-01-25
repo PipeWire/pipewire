@@ -36,6 +36,8 @@
 
 #include <dbus/dbus.h>
 
+#include <spa/debug/mem.h>
+#include <spa/debug/log.h>
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
 #include <spa/support/dbus.h>
@@ -779,6 +781,12 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 	int xapl_product;
 	int xapl_features;
 
+	spa_debug_log_mem(backend->log, SPA_LOG_LEVEL_DEBUG, 2, buf, strlen(buf));
+
+	/* Some devices send initial \n: be permissive */
+	while (*buf == '\n')
+		++buf;
+
 	if (sscanf(buf, "AT+BRSF=%u", &features) == 1) {
 		unsigned int ag_features = SPA_BT_HFP_AG_FEATURE_NONE;
 
@@ -880,7 +888,7 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 				rfcomm_emit_volume_changed(rfcomm, -1, SPA_BT_VOLUME_INVALID);
 			}
 		}
-	} else if (strspn(buf, " ") == strlen(buf)) {
+	} else if (spa_streq(buf, "\r")) {
 		/* No commands, reply OK (ITU-T Rec. V.250 Sec. 5.2.1 & 5.6) */
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (!rfcomm->slc_configured) {

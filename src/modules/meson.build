@@ -139,7 +139,7 @@ pipewire_module_echo_cancel_sources = [
 pipewire_module_combine_stream = shared_library('pipewire-module-combine-stream',
   [ 'module-combine-stream.c' ],
   include_directories : [configinc],
-  install : false,
+  install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
   dependencies : [spa_dep, dl_lib, pipewire_dep],

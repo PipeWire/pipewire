@@ -1834,7 +1834,7 @@ static int impl_node_process(void *object)
 		if (this->position) {
 			this->current_time = this->position->clock.nsec;
 		} else {
-			struct timespec now;
+			struct timespec now = { 0 };
 			spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &now);
 			this->current_time = SPA_TIMESPEC_TO_NSEC(&now);
 		}

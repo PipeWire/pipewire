@@ -1201,10 +1201,12 @@ again:
 			running = true;
 
 		current_rate = n->current_rate.denom;
-		if (lock_rate || n->reconfigure ||
+		if (lock_rate || n->reconfigure || !running ||
 		    (!force_rate &&
 		    (n->info.state > PW_NODE_STATE_IDLE)))
 			/* when someone wants us to lock the rate of this driver or
+			 * when we are in the process of reconfiguring the driver or
+			 * when we are not running any followers or
 			 * when the driver is busy and we don't need to force a rate,
 			 * keep the current rate */
 			target_rate = current_rate;

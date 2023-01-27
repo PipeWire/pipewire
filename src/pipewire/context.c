@@ -1001,10 +1001,16 @@ static inline void update_nearest_gcd(struct rate_info *best, struct rate_info *
 	    (best->gcd == current->gcd && best->diff > current->diff))
 		*best = *current;
 }
-
-static uint32_t find_best_rate(const uint32_t *rates, uint32_t n_rates, uint32_t rate, uint32_t current)
+static inline void update_nearest_rate(struct rate_info *best, struct rate_info *current)
 {
-	uint32_t i;
+	/* find nearest rate */
+	if (best->rate == 0 || best->diff > current->diff)
+		*best = *current;
+}
+
+static uint32_t find_best_rate(const uint32_t *rates, uint32_t n_rates, uint32_t rate, uint32_t def)
+{
+	uint32_t i, limit;
 	struct rate_info best;
 	struct rate_info info[n_rates];
 
@@ -1021,18 +1027,36 @@ static uint32_t find_best_rate(const uint32_t *rates, uint32_t n_rates, uint32_t
 	 * 44100 and [ 32000 56000 88200 96000 ]  -> 88200
 	 * 48000 and [ 32000 56000 88200 96000 ]  -> 96000
 	 * 88200 and [ 44100 48000 96000 192000 ]  -> 96000
+	 * 32000 and [ 44100 192000 ] -> 44100
+	 * 8000 and [ 44100 48000 ] -> 48000
+	 * 8000 and [ 44100 192000 ] -> 44100
+	 * 11025 and [ 44100 48000 ] -> 44100
+	 * 44100 and [ 48000 176400 ] -> 48000
 	 */
+	spa_zero(best);
+	/* Don't try to do excessive upsampling by limiting the max rate
+	 * for desired < default to default*2. For other rates allow
+	 * a x3 upsample rate max */
+	limit = rate < def ? def*2 : rate*3;
+	for (i = 0; i < n_rates; i++) {
+		if (info[i].rate >= rate && info[i].rate <= limit)
+			update_nearest_gcd(&best, &info[i]);
+	}
+	if (best.rate != 0)
+		return best.rate;
+
+	/* we would need excessive upsampling, pick a nearest higher rate */
 	spa_zero(best);
 	for (i = 0; i < n_rates; i++) {
 		if (info[i].rate >= rate)
-			update_nearest_gcd(&best, &info[i]);
+			update_nearest_rate(&best, &info[i]);
 	}
 	if (best.rate != 0)
 		return best.rate;
 
 	/* There is nothing above the rate, we need to downsample. Try to downsample
 	 * but only to something that is from a common rate family. Also don't
-	 * try to downsample to something that will sound worse.
+	 * try to downsample to something that will sound worse (< 44100).
 	 *
 	 * 88200 and [ 22050 44100 48000 ] -> 44100
 	 * 88200 and [ 22050 48000 ] -> 48000
@@ -1053,7 +1077,7 @@ static uint32_t find_best_rate(const uint32_t *rates, uint32_t n_rates, uint32_t
 	if (best.rate != 0)
 		return best.rate;
 
-	return current;
+	return def;
 }
 
 /* here we evaluate the complete state of the graph.

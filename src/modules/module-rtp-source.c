@@ -247,6 +247,7 @@ struct session {
 	float max_error;
 	unsigned buffering:1;
 	unsigned first:1;
+	unsigned receiving:1;
 };
 
 static void stream_destroy(void *d)
@@ -443,8 +444,8 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 					filled, target_buffer);
 			}
 		}
+		sess->receiving = true;
 	}
-	session_touch(sess);
 	return;
 
 receive_error:
@@ -1100,10 +1101,16 @@ static void on_timer_event(void *data, uint64_t expirations)
 
 	spa_list_for_each_safe(sess, tmp, &impl->sessions, link) {
 		if (sess->timestamp + interval < timestamp) {
-			pw_log_debug("More than %lu elapsed from last advertisement at %lu", interval, sess->timestamp);
-			pw_log_info("No advertisement packets found for timeout, closing RTP source");
-			session_free(sess);
+			pw_log_debug("More than %lu elapsed from last advertisement at %lu",
+					interval, sess->timestamp);
+			if (!sess->receiving) {
+				pw_log_info("SAP timeout, closing inactive RTP source");
+				session_free(sess);
+			} else {
+				pw_log_info("SAP timeout, keeping active RTP source");
+			}
 		}
+		sess->receiving = false;
 	}
 }
 

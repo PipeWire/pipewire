@@ -1919,6 +1919,8 @@ bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const stru
 {
 	struct spa_bt_monitor *monitor = device->monitor;
 	struct spa_bt_remote_endpoint *ep;
+	enum spa_bt_profile codec_profile;
+	struct spa_bt_transport *t;
 	const struct { enum spa_bluetooth_audio_codec codec; uint32_t mask; } quirks[] = {
 		{ SPA_BLUETOOTH_AUDIO_CODEC_SBC_XQ, SPA_BT_FEATURE_SBC_XQ },
 		{ SPA_BLUETOOTH_AUDIO_CODEC_FASTSTREAM, SPA_BT_FEATURE_FASTSTREAM },
@@ -1952,20 +1954,34 @@ bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const stru
 			return false;
 	}
 
+	if (codec->bap)
+		codec_profile = sink ? SPA_BT_PROFILE_BAP_SINK : SPA_BT_PROFILE_BAP_SOURCE;
+	else
+		codec_profile = sink ? SPA_BT_PROFILE_A2DP_SINK : SPA_BT_PROFILE_A2DP_SOURCE;
+
 	spa_list_for_each(ep, &device->remote_endpoint_list, device_link) {
 		const enum spa_bt_profile profile = spa_bt_profile_from_uuid(ep->uuid);
-		enum spa_bt_profile expected;
 
-		if (codec->bap)
-			expected = sink ? SPA_BT_PROFILE_BAP_SINK : SPA_BT_PROFILE_BAP_SOURCE;
-		else
-			expected = sink ? SPA_BT_PROFILE_A2DP_SINK : SPA_BT_PROFILE_A2DP_SOURCE;
-
-		if (profile != expected)
+		if (profile != codec_profile)
 			continue;
 
 		if (media_codec_check_caps(codec, ep->codec, ep->capabilities, ep->capabilities_len,
 						&ep->monitor->default_audio_info, &monitor->global_settings))
+			return true;
+	}
+
+	/* Codecs on configured transports are always supported.
+	 *
+	 * Remote BAP endpoints correspond to capabilities of the remote
+	 * BAP Server, not to remote BAP Client, and need not be the same.
+	 * BAP Clients may not have any remote endpoints. In this case we
+	 * can only know that the currently configured codec is supported.
+	 */
+	spa_list_for_each(t, &device->transport_list, device_link) {
+		if (t->profile != codec_profile)
+			continue;
+
+		if (codec == t->media_codec)
 			return true;
 	}
 

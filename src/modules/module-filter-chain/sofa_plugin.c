@@ -11,10 +11,8 @@
 
 #ifdef HAVE_LIBMYSOFA
 #include <mysofa.h>
-#include <pthread.h>
 
 #define MAX_SAMPLES	8192u
-
 #endif
 
 static struct dsp_ops *dsp_ops;
@@ -56,7 +54,7 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL) {
 		errno = ENOMEM;
-		goto error;
+		return NULL;
 	}
 
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
@@ -95,7 +93,7 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 	impl->sofa = mysofa_open_cached(filename, SampleRate, &impl->n_samples, &ret);
 
 	if (ret != MYSOFA_OK) {
-		pw_log_error("Unable to load HRTF from %s: %d %m", filename, ret);
+		pw_log_error("Unable to load HRTF from %s: %d", filename, ret);
 		errno = ENOENT;
 		goto error;
 	}
@@ -174,21 +172,19 @@ static void spatializer_reload(void * Instance)
 
 	if (impl->l_conv[2])
 		convolver_free(impl->l_conv[2]);
-	impl->l_conv[2] = convolver_new(dsp_ops, impl->blocksize, impl->tailsize,
-			left_ir, impl->n_samples);
-	free(left_ir);
-	if (impl->l_conv[2] == NULL) {
-		pw_log_error("reloading left convolver failed");
-		return;
-	}
-
 	if (impl->r_conv[2])
 		convolver_free(impl->r_conv[2]);
+
+	impl->l_conv[2] = convolver_new(dsp_ops, impl->blocksize, impl->tailsize,
+			left_ir, impl->n_samples);
 	impl->r_conv[2] = convolver_new(dsp_ops, impl->blocksize, impl->tailsize,
 			right_ir, impl->n_samples);
+
+	free(left_ir);
 	free(right_ir);
-	if (impl->r_conv[2] == NULL) {
-		pw_log_error("reloading right convolver failed");
+
+	if (impl->l_conv[2] == NULL || impl->r_conv[2] == NULL) {
+		pw_log_error("reloading left or right convolver failed");
 		return;
 	}
 	spa_loop_invoke(data_loop, do_switch, 1, NULL, 0, true, impl);

@@ -445,7 +445,7 @@ static float discard_data[MAX_SAMPLES];
 struct plugin {
 	struct spa_list link;
 	int ref;
-	char type[64];
+	char type[256];
 	char path[PATH_MAX];
 
 	struct fc_plugin *plugin;

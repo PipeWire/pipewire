@@ -15,11 +15,6 @@
 
 #define MAX_SAMPLES	8192u
 
-// > If your program is using several threads, you must use
-// > appropriate synchronisation mechanisms so only
-// > a single thread can access the mysofa_open_cached
-// > and mysofa_close_cached functions at a given time.
-static pthread_mutex_t libmysofa_mutex = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
 static struct dsp_ops *dsp_ops;
@@ -97,9 +92,7 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 
 	int ret = MYSOFA_OK;
 
-	pthread_mutex_lock(&libmysofa_mutex);
 	impl->sofa = mysofa_open_cached(filename, SampleRate, &impl->n_samples, &ret);
-	pthread_mutex_unlock(&libmysofa_mutex);
 
 	if (ret != MYSOFA_OK) {
 		pw_log_error("Unable to load HRTF from %s: %d %m", filename, ret);
@@ -120,11 +113,8 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 	impl->rate = SampleRate;
 	return impl;
 error:
-	if (impl->sofa) {
-		pthread_mutex_lock(&libmysofa_mutex);
+	if (impl->sofa)
 		mysofa_close_cached(impl->sofa);
-		pthread_mutex_unlock(&libmysofa_mutex);
-	}
 	free(impl);
 	return NULL;
 #else
@@ -274,11 +264,8 @@ static void spatializer_cleanup(void * Instance)
 			convolver_free(impl->r_conv[i]);
 	}
 #ifdef HAVE_LIBMYSOFA
-	if (impl->sofa) {
-		pthread_mutex_lock(&libmysofa_mutex);
+	if (impl->sofa)
 		mysofa_close_cached(impl->sofa);
-		pthread_mutex_unlock(&libmysofa_mutex);
-	}
 #endif
 	free(impl->tmp[0]);
 	free(impl->tmp[1]);

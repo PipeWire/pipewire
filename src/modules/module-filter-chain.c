@@ -1696,6 +1696,7 @@ static void node_free(struct node *node)
 	free(node->output_port);
 	free(node->control_port);
 	free(node->notify_port);
+	free(node->config);
 	free(node);
 }
 

@@ -506,6 +506,7 @@ struct node {
 	unsigned int n_deps;
 	unsigned int visited:1;
 	unsigned int disabled:1;
+	unsigned int control_changed:1;
 };
 
 struct link {
@@ -878,7 +879,8 @@ static int set_control_value(struct node *node, const char *name, float *value)
 	old = port->control_data;
 	port->control_data = value ? *value : desc->default_control[port->idx];
 	pw_log_info("control %d ('%s') from %f to %f", port->idx, name, old, port->control_data);
-	return old == port->control_data ? 0 : 1;
+	node->control_changed = old != port->control_data;
+	return node->control_changed ? 1 : 0;
 }
 
 static int parse_params(struct graph *graph, const struct spa_pod *pod)
@@ -938,6 +940,24 @@ static void graph_reset(struct graph *graph)
 			d->activate(*hndl->hndl);
 	}
 }
+
+static void node_control_changed(struct node *node)
+{
+	const struct fc_descriptor *d = node->desc->desc;
+	uint32_t i;
+
+	if (!node->control_changed)
+		return;
+
+	for (i = 0; i < node->n_hndl; i++) {
+		if (node->hndl[i] == NULL)
+			continue;
+		if (d->control_changed)
+			d->control_changed(node->hndl[i]);
+	}
+	node->control_changed = false;
+}
+
 static void param_props_changed(struct impl *impl, const struct spa_pod *param)
 {
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
@@ -953,6 +973,10 @@ static void param_props_changed(struct impl *impl, const struct spa_pod *param)
 		uint8_t buffer[1024];
 		struct spa_pod_dynamic_builder b;
 		const struct spa_pod *params[1];
+		struct node *node;
+
+		spa_list_for_each(node, &graph->node_list, link)
+			node_control_changed(node);
 
 		spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
 		params[0] = get_props_param(graph, &b.b);
@@ -1771,6 +1795,8 @@ static int graph_instantiate(struct graph *graph)
 			}
 			if (d->activate)
 				d->activate(node->hndl[i]);
+			if (node->control_changed && d->control_changed)
+				d->control_changed(node->hndl[i]);
 		}
 	}
 	return 0;

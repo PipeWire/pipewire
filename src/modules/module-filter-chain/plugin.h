@@ -83,6 +83,7 @@ struct fc_descriptor {
 	void (*cleanup) (void *instance);
 
 	void (*connect_port) (void *instance, unsigned long port, float *data);
+	void (*control_changed) (void *instance);
 
 	void (*activate) (void *instance);
 	void (*deactivate) (void *instance);

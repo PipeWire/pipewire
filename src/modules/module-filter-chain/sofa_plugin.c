@@ -1,6 +1,8 @@
 #include "config.h"
 
 #include <spa/utils/json.h>
+#include <spa/support/loop.h>
+
 #include <pipewire/log.h>
 #include "plugin.h"
 #include "convolver.h"
@@ -11,6 +13,8 @@
 #include <mysofa.h>
 #include <pthread.h>
 
+#define MAX_SAMPLES	8192u
+
 // > If your program is using several threads, you must use
 // > appropriate synchronisation mechanisms so only
 // > a single thread can access the mysofa_open_cached
@@ -19,22 +23,21 @@ static pthread_mutex_t libmysofa_mutex = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
 static struct dsp_ops *dsp_ops;
+static struct spa_loop *data_loop;
+static struct spa_loop *main_loop;
 
 struct spatializer_impl {
-  unsigned long rate;
-	float *port[64];
-	float old_coords[3];
-	float coords[3];
+	unsigned long rate;
+	float *port[6];
 	int n_samples, blocksize, tailsize;
+	float *tmp[2];
 
 #ifdef HAVE_LIBMYSOFA
 	struct MYSOFA_EASY *sofa;
 #endif
-
-	struct convolver *l_conv1;
-	struct convolver *r_conv1;
-	struct convolver *l_conv2;
-	struct convolver *r_conv2;
+	unsigned int interpolate:1;
+	struct convolver *l_conv[3];
+	struct convolver *r_conv[3];
 };
 
 static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
@@ -104,10 +107,6 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 		goto error;
 	}
 
-	for (uint8_t i = 0; i < 3; i++) {
-		impl->old_coords[i] = impl->coords[i] = NAN;
-	}
-
 	if (impl->blocksize <= 0)
 		impl->blocksize = SPA_CLAMP(impl->n_samples, 64, 256);
 	if (impl->tailsize <= 0)
@@ -116,6 +115,8 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 	pw_log_info("using n_samples:%u %d:%d blocksize sofa:%s", impl->n_samples,
 		impl->blocksize, impl->tailsize, filename);
 
+	impl->tmp[0] = calloc(MAX_SAMPLES, sizeof(float));
+	impl->tmp[1] = calloc(MAX_SAMPLES, sizeof(float));
 	impl->rate = SampleRate;
 	return impl;
 error:
@@ -133,103 +134,122 @@ error:
 #endif
 }
 
+static int
+do_switch(struct spa_loop *loop, bool async, uint32_t seq, const void *data,
+		size_t size, void *user_data)
+{
+	struct spatializer_impl *impl = user_data;
+
+	if (impl->l_conv[0] == NULL) {
+		SPA_SWAP(impl->l_conv[0], impl->l_conv[2]);
+		SPA_SWAP(impl->r_conv[0], impl->r_conv[2]);
+	} else {
+		SPA_SWAP(impl->l_conv[1], impl->l_conv[2]);
+		SPA_SWAP(impl->r_conv[1], impl->r_conv[2]);
+	}
+	impl->interpolate = impl->l_conv[0] && impl->l_conv[1];
+
+	return 0;
+}
+
+static void spatializer_reload(void * Instance)
+{
+	struct spatializer_impl *impl = Instance;
+	float *left_ir = calloc(impl->n_samples, sizeof(float));
+	float *right_ir = calloc(impl->n_samples, sizeof(float));
+	float left_delay;
+	float right_delay;
+	float coords[3];
+
+	for (uint8_t i = 0; i < 3; i++)
+		coords[i] = impl->port[3 + i][0];
+
+	mysofa_s2c(coords);
+	mysofa_getfilter_float(
+		impl->sofa,
+		coords[0],
+		coords[1],
+		coords[2],
+		left_ir,
+		right_ir,
+		&left_delay,
+		&right_delay
+	);
+
+	// TODO: make use of delay
+	if ((left_delay || right_delay) && (!isnan(left_delay) || !isnan(right_delay))) {
+		pw_log_warn("delay dropped l: %f, r: %f", left_delay, right_delay);
+	}
+
+	if (impl->l_conv[2])
+		convolver_free(impl->l_conv[2]);
+	impl->l_conv[2] = convolver_new(dsp_ops, impl->blocksize, impl->tailsize,
+			left_ir, impl->n_samples);
+	free(left_ir);
+	if (impl->l_conv[2] == NULL) {
+		pw_log_error("reloading left convolver failed");
+		return;
+	}
+
+	if (impl->r_conv[2])
+		convolver_free(impl->r_conv[2]);
+	impl->r_conv[2] = convolver_new(dsp_ops, impl->blocksize, impl->tailsize,
+			right_ir, impl->n_samples);
+	free(right_ir);
+	if (impl->r_conv[2] == NULL) {
+		pw_log_error("reloading right convolver failed");
+		return;
+	}
+	spa_loop_invoke(data_loop, do_switch, 1, NULL, 0, true, impl);
+}
+
+struct free_data {
+	void *item[2];
+};
+
+static int
+do_free(struct spa_loop *loop, bool async, uint32_t seq, const void *data,
+		size_t size, void *user_data)
+{
+	const struct free_data *fd = data;
+	if (fd->item[0])
+		convolver_free(fd->item[0]);
+	if (fd->item[1])
+		convolver_free(fd->item[1]);
+	return 0;
+}
+
 static void spatializer_run(void * Instance, unsigned long SampleCount)
 {
 #ifdef HAVE_LIBMYSOFA
 	struct spatializer_impl *impl = Instance;
 
-	bool reload = false, interpolate = false;
-	for (uint8_t i = 0; i < 3; i++) {
-		if ((impl->port[3 + i] && impl->old_coords[i] != impl->port[3 + i][0])
-			|| isnan(impl->old_coords[i])) {
-			reload = true;
-		}
-		impl->old_coords[i] = impl->coords[i] =
-				impl->port[3 + i][0];
-	}
+	if (impl->interpolate) {
+		uint32_t len = SPA_MIN(SampleCount, MAX_SAMPLES);
+		struct free_data free_data;
+		float *l = impl->tmp[0], *r = impl->tmp[1];
 
-	if (reload) {
-		float *left_ir = calloc(impl->n_samples, sizeof(float));
-		float *right_ir = calloc(impl->n_samples, sizeof(float));
-		float left_delay;
-		float right_delay;
-
-		mysofa_s2c(impl->coords);
-		mysofa_getfilter_float(
-			impl->sofa,
-			impl->coords[0],
-			impl->coords[1],
-			impl->coords[2],
-			left_ir,
-			right_ir,
-			&left_delay,
-			&right_delay
-		);
-
-		// TODO: make use of delay
-		if ((left_delay || right_delay) && (!isnan(left_delay) || !isnan(right_delay))) {
-			pw_log_warn("delay dropped l: %f, r: %f", left_delay, right_delay);
-		}
-
-		if (impl->l_conv1)
-			convolver_free(impl->l_conv1);
-		impl->l_conv1 = impl->l_conv2;
-		impl->l_conv2 = convolver_new(dsp_ops, impl->blocksize, impl->tailsize, left_ir, impl->n_samples);
-		free(left_ir);
-		if (impl->l_conv2 == NULL) {
-			pw_log_error("reloading left convolver failed");
-			return;
-		}
-
-		if (impl->r_conv1)
-			convolver_free(impl->r_conv1);
-		impl->r_conv1 = impl->r_conv2;
-		impl->r_conv2 = convolver_new(dsp_ops, impl->blocksize, impl->tailsize, right_ir, impl->n_samples);
-		free(right_ir);
-		if (impl->r_conv2 == NULL) {
-			pw_log_error("reloading right convolver failed");
-			return;
-		}
-
-		// Don't interpolate on initial load
-		interpolate = impl->l_conv1 && impl->r_conv1;
-	}
-
-	if (interpolate) {
-		// Convolver requires buffer of power of two size
-		// FIXME: actually +1 shouldn't be necessary
-		uint32_t len = powl(2, ceilf(log2f(SampleCount)) + 1);
-
-		float *l1 = calloc(len, sizeof(float));
-		float *r1 = calloc(len, sizeof(float));
-		float *l2 = calloc(len, sizeof(float));
-		float *r2 = calloc(len, sizeof(float));
-
-		convolver_run(impl->l_conv1, impl->port[2], l1, SampleCount);
-		convolver_run(impl->r_conv1, impl->port[2], r1, SampleCount);
-		convolver_run(impl->l_conv2, impl->port[2], l2, SampleCount);
-		convolver_run(impl->r_conv2, impl->port[2], r2, SampleCount);
+		convolver_run(impl->l_conv[0], impl->port[2], impl->port[0], len);
+		convolver_run(impl->l_conv[1], impl->port[2], l, len);
+		convolver_run(impl->r_conv[0], impl->port[2], impl->port[1], len);
+		convolver_run(impl->r_conv[1], impl->port[2], r, len);
 
 		for (uint32_t i = 0; i < SampleCount; i++) {
 			float t = (float)i / SampleCount;
-			impl->port[0][i] = l1[i] * (1.0f - t) + l2[i] * t;
-			impl->port[1][i] = r1[i] * (1.0f - t) + r2[i] * t;
+			impl->port[0][i] = impl->port[0][i] * (1.0f - t) + l[i] * t;
+			impl->port[1][i] = impl->port[1][i] * (1.0f - t) + r[i] * t;
 		}
+		free_data.item[0] = impl->l_conv[0];
+		free_data.item[1] = impl->r_conv[0];
+		impl->l_conv[0] = impl->l_conv[1];
+		impl->r_conv[0] = impl->r_conv[1];
+		impl->l_conv[1] = impl->r_conv[1] = NULL;
+		impl->interpolate = false;
 
-		free(l1);
-		free(r1);
-		free(l2);
-		free(r2);
-
-		if (impl->l_conv1)
-			convolver_free(impl->l_conv1);
-		impl->l_conv1 = NULL;
-		if (impl->r_conv1)
-			convolver_free(impl->r_conv1);
-		impl->r_conv1 = NULL;
+		spa_loop_invoke(main_loop, do_free, 1, &free_data, sizeof(free_data), false, impl);
 	} else {
-		convolver_run(impl->l_conv2, impl->port[2], impl->port[0], SampleCount);
-		convolver_run(impl->r_conv2, impl->port[2], impl->port[1], SampleCount);
+		convolver_run(impl->l_conv[0], impl->port[2], impl->port[0], SampleCount);
+		convolver_run(impl->r_conv[0], impl->port[2], impl->port[1], SampleCount);
 	}
 #endif
 }
@@ -238,6 +258,8 @@ static void spatializer_connect_port(void * Instance, unsigned long Port,
                         float * DataLocation)
 {
 	struct spatializer_impl *impl = Instance;
+	if (Port > 5)
+		return;
 	impl->port[Port] = DataLocation;
 }
 
@@ -245,16 +267,12 @@ static void spatializer_cleanup(void * Instance)
 {
 	struct spatializer_impl *impl = Instance;
 
-	if (impl->l_conv1)
-		convolver_free(impl->l_conv1);
-	if (impl->r_conv1)
-		convolver_free(impl->r_conv1);
-
-	if (impl->l_conv2)
-		convolver_free(impl->l_conv2);
-	if (impl->r_conv2)
-		convolver_free(impl->r_conv2);
-
+	for (uint8_t i = 0; i < 3; i++) {
+		if (impl->l_conv[i])
+			convolver_free(impl->l_conv[i]);
+		if (impl->r_conv[i])
+			convolver_free(impl->r_conv[i]);
+	}
 #ifdef HAVE_LIBMYSOFA
 	if (impl->sofa) {
 		pthread_mutex_lock(&libmysofa_mutex);
@@ -262,17 +280,26 @@ static void spatializer_cleanup(void * Instance)
 		pthread_mutex_unlock(&libmysofa_mutex);
 	}
 #endif
+	free(impl->tmp[0]);
+	free(impl->tmp[1]);
 
 	free(impl);
+}
+
+static void spatializer_control_changed(void * Instance)
+{
+	pw_log_info("control changed");
+	spatializer_reload(Instance);
 }
 
 static void spatializer_deactivate(void * Instance)
 {
 	struct spatializer_impl *impl = Instance;
-	if (impl->l_conv2)
-		convolver_reset(impl->l_conv2);
-	if (impl->r_conv2)
-		convolver_reset(impl->r_conv2);
+	if (impl->l_conv[0])
+		convolver_reset(impl->l_conv[0]);
+	if (impl->r_conv[0])
+		convolver_reset(impl->r_conv[0]);
+	impl->interpolate = false;
 }
 
 static struct fc_port spatializer_ports[] = {
@@ -314,6 +341,7 @@ static const struct fc_descriptor spatializer_desc = {
 
 	.instantiate = spatializer_instantiate,
 	.connect_port = spatializer_connect_port,
+	.control_changed = spatializer_control_changed,
 	.deactivate = spatializer_deactivate,
 	.run = spatializer_run,
 	.cleanup = spatializer_cleanup,
@@ -351,6 +379,10 @@ struct fc_plugin *load_sofa_plugin(const struct spa_support *support, uint32_t n
 {
 	dsp_ops = dsp;
 	pffft_select_cpu(dsp->cpu_flags);
+
+	data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
+	main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
+
 	return &builtin_plugin;
 }
 

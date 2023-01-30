@@ -235,7 +235,7 @@ static void spatializer_run(void * Instance, unsigned long SampleCount)
 		impl->interpolate = false;
 
 		spa_loop_invoke(main_loop, do_free, 1, &free_data, sizeof(free_data), false, impl);
-	} else {
+	} else if (impl->l_conv[0] && impl->r_conv[0]) {
 		convolver_run(impl->l_conv[0], impl->port[2], impl->port[0], SampleCount);
 		convolver_run(impl->r_conv[0], impl->port[2], impl->port[1], SampleCount);
 	}

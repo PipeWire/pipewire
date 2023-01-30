@@ -124,6 +124,7 @@ error:
 #endif
 }
 
+#ifdef HAVE_LIBMYSOFA
 static int
 do_switch(struct spa_loop *loop, bool async, uint32_t seq, const void *data,
 		size_t size, void *user_data)
@@ -208,6 +209,7 @@ do_free(struct spa_loop *loop, bool async, uint32_t seq, const void *data,
 		convolver_free(fd->item[1]);
 	return 0;
 }
+#endif
 
 static void spatializer_run(void * Instance, unsigned long SampleCount)
 {
@@ -275,8 +277,10 @@ static void spatializer_cleanup(void * Instance)
 
 static void spatializer_control_changed(void * Instance)
 {
+#ifdef HAVE_LIBMYSOFA
 	pw_log_info("control changed");
 	spatializer_reload(Instance);
+#endif
 }
 
 static void spatializer_deactivate(void * Instance)

@@ -315,7 +315,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 
 	ss.format = PA_SAMPLE_S32LE;
 	ss.rate = impl->rate;
-	ss.channels = 64;
+	ss.channels = impl->pro_channels;
 
 	ap = pa_xnew0(pa_alsa_profile, 1);
 	ap->profile_set = ps;
@@ -1564,6 +1564,7 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	impl->auto_port = true;
 	impl->ignore_dB = false;
 	impl->rate = DEFAULT_RATE;
+	impl->pro_channels = 64;
 
 	if (props) {
 		if ((s = acp_dict_lookup(props, "api.alsa.use-ucm")) != NULL)
@@ -1582,6 +1583,8 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 			impl->auto_port = spa_atob(s);
 		if ((s = acp_dict_lookup(props, "api.acp.probe-rate")) != NULL)
 			impl->rate = atoi(s);
+		if ((s = acp_dict_lookup(props, "api.acp.pro-channels")) != NULL)
+			impl->pro_channels = atoi(s);
 	}
 
 	impl->ucm.default_sample_spec.format = PA_SAMPLE_S16NE;

@@ -48,6 +48,7 @@ struct pa_card {
 	bool auto_port;
 	bool ignore_dB;
 	uint32_t rate;
+	uint32_t pro_channels;
 
 	pa_alsa_ucm_config ucm;
 	pa_alsa_profile_set *profile_set;

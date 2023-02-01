@@ -18,7 +18,7 @@ endif
 spa_support_lib = shared_library('spa-support',
   spa_support_sources,
   c_args : [ simd_cargs ],
-  dependencies : [ spa_dep, pthread_lib, epoll_shim_dep ],
+  dependencies : [ spa_dep, pthread_lib, epoll_shim_dep, mathlib ],
   install : true,
   install_dir : spa_plugindir / 'support')
 spa_support_dep = declare_dependency(link_with: spa_support_lib)

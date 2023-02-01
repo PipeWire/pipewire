@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
+#include <fcntl.h>
 
 #include <spa/support/plugin.h>
 #include <spa/support/log.h>
@@ -34,6 +35,7 @@
 #include <spa/utils/names.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
+#include <spa/utils/dll.h>
 #include <spa/node/node.h>
 #include <spa/node/keys.h>
 #include <spa/node/io.h>
@@ -43,11 +45,20 @@
 #define NAME "driver"
 
 #define DEFAULT_FREEWHEEL	false
-#define DEFAULT_CLOCK_NAME	"clock.system.monotonic"
+#define DEFAULT_CLOCK_PREFIX	"clock.system"
+#define DEFAULT_CLOCK_ID	CLOCK_MONOTONIC
+
+#define CLOCKFD 3
+#define FD_TO_CLOCKID(fd)	((~(clockid_t) (fd) << 3) | CLOCKFD)
+#define CLOCKID_TO_FD(clk)	((unsigned int) ~((clk) >> 3))
+
+#define BW_PERIOD	(3 * SPA_NSEC_PER_SEC)
+#define MAX_ERROR_MS	1
 
 struct props {
 	bool freewheel;
 	char clock_name[64];
+	clockid_t clock_id;
 };
 
 struct impl {
@@ -72,18 +83,52 @@ struct impl {
 
 	struct spa_source timer_source;
 	struct itimerspec timerspec;
+	int clock_fd;
 
 	bool started;
 	bool following;
 	uint64_t next_time;
+	uint64_t last_time;
+	uint64_t base_time;
+	struct spa_dll dll;
+	double max_error;
 };
 
 static void reset_props(struct props *props)
 {
 	props->freewheel = DEFAULT_FREEWHEEL;
-	spa_scnprintf(props->clock_name, sizeof(props->clock_name),
-			"%s", DEFAULT_CLOCK_NAME);
+	spa_zero(props->clock_name);
+	props->clock_id = CLOCK_MONOTONIC;
 }
+
+static const struct clock_info {
+	const char *name;
+	clockid_t id;
+} clock_info[] = {
+	{ "realtime", CLOCK_REALTIME },
+	{ "tai", CLOCK_TAI },
+	{ "monotonic", CLOCK_MONOTONIC },
+	{ "monotonic-raw", CLOCK_MONOTONIC_RAW },
+	{ "boottime", CLOCK_BOOTTIME },
+};
+
+static clockid_t clock_name_to_id(const char *name)
+{
+	SPA_FOR_EACH_ELEMENT_VAR(clock_info, i) {
+		if (spa_streq(i->name, name))
+			return i->id;
+	}
+	return -1;
+}
+static const char *clock_id_to_name(clockid_t id)
+{
+	SPA_FOR_EACH_ELEMENT_VAR(clock_info, i) {
+		if (i->id == id)
+			return i->name;
+	}
+	return "custom";
+}
+
 
 static void set_timeout(struct impl *this, uint64_t next_time)
 {
@@ -94,14 +139,22 @@ static void set_timeout(struct impl *this, uint64_t next_time)
 			this->timer_source.fd, SPA_FD_TIMER_ABSTIME, &this->timerspec, NULL);
 }
 
+static inline uint64_t gettime_nsec(struct impl *this, clockid_t clock_id)
+{
+	struct timespec now = { 0 };
+	uint64_t nsec;
+	if (spa_system_clock_gettime(this->data_system, clock_id, &now) < 0)
+		return 0;
+	nsec = SPA_TIMESPEC_TO_NSEC(&now);
+	spa_log_trace(this->log, "%p now:%"PRIu64, this, nsec);
+	return nsec;
+}
+
 static int set_timers(struct impl *this)
 {
-	struct timespec now;
-	int res;
+	this->next_time = gettime_nsec(this, CLOCK_MONOTONIC);
 
-	if ((res = spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &now)) < 0)
-	    return res;
-	this->next_time = SPA_TIMESPEC_TO_NSEC(&now);
+	spa_log_debug(this->log, "%p now:%"PRIu64, this, this->next_time);
 
 	if (this->following) {
 		set_timeout(this, 0);
@@ -176,14 +229,23 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	return 0;
 }
 
+static inline uint64_t scale_u64(uint64_t val, uint32_t num, uint32_t denom)
+{
+#if 0
+	return ((__uint128_t)val * num) / denom;
+#else
+	return (double)val / denom * num;
+#endif
+}
+
 static void on_timeout(struct spa_source *source)
 {
 	struct impl *this = source->data;
-	uint64_t expirations, nsec, duration;
+	uint64_t expirations, nsec, duration, current_time, current_position, position;
 	uint32_t rate;
+	double corr = 1.0, err = 0.0;
 	int res;
-
-	spa_log_trace(this->log, "timeout");
+	bool following;
 
 	if ((res = spa_system_timerfd_read(this->data_system,
 				this->timer_source.fd, &expirations)) < 0) {
@@ -192,9 +254,6 @@ static void on_timeout(struct spa_source *source)
 					this, spa_strerror(res));
 		return;
 	}
-
-	nsec = this->next_time;
-
 	if (SPA_LIKELY(this->position)) {
 		duration = this->position->clock.duration;
 		rate = this->position->clock.rate.denom;
@@ -202,15 +261,63 @@ static void on_timeout(struct spa_source *source)
 		duration = 1024;
 		rate = 48000;
 	}
+	following = (this->props.clock_id != CLOCK_MONOTONIC);
 
-	this->next_time = nsec + duration * SPA_NSEC_PER_SEC / rate;
+	nsec = this->next_time;
+
+	if (following)
+		/* we are actually following another clock */
+		current_time = gettime_nsec(this, this->props.clock_id);
+	else
+		current_time = nsec;
+
+	current_position = scale_u64(current_time, rate, SPA_NSEC_PER_SEC);
+
+	if (SPA_LIKELY(this->clock))
+		position = this->clock->position;
+	else
+		position = current_position;
+
+	if (this->last_time == 0) {
+		spa_dll_set_bw(&this->dll, SPA_DLL_BW_MIN, duration, rate);
+		this->max_error = rate * MAX_ERROR_MS / 1000;
+		position = current_position;
+	}
+
+	/* check the elapsed time of the other clock against
+	 * the graph clock elapsed time, feed this error into the
+	 * dll and adjust the timeout of our MONOTONIC clock. */
+	err = (double)position - (double)current_position;
+	if (err > this->max_error)
+		err = this->max_error;
+	else if (err < -this->max_error)
+		err = -this->max_error;
+
+	position += duration;
+	this->last_time = current_time;
+
+	if (following) {
+		corr = spa_dll_update(&this->dll, err);
+		this->next_time = nsec + duration / corr * 1e9 / rate;
+	} else {
+		corr = 1.0;
+		this->next_time = scale_u64(position, SPA_NSEC_PER_SEC, rate);
+	}
+
+	if (SPA_UNLIKELY((this->next_time - this->base_time) > BW_PERIOD)) {
+		this->base_time = this->next_time;
+		spa_log_info(this->log, "%p: rate:%f "
+			"bw:%f dur:%"PRIu64" max:%f drift:%f",
+				this, corr, this->dll.bw, duration,
+				this->max_error, err);
+	}
 
 	if (SPA_LIKELY(this->clock)) {
 		this->clock->nsec = nsec;
-		this->clock->position += duration;
+		this->clock->position = position;
 		this->clock->duration = duration;
 		this->clock->delay = 0;
-		this->clock->rate_diff = 1.0;
+		this->clock->rate_diff = corr;
 		this->clock->next_nsec = this->next_time;
 	}
 
@@ -228,6 +335,7 @@ static int do_start(struct impl *this)
 	this->following = is_following(this);
 	set_timers(this);
 	this->started = true;
+	this->last_time = 0;
 	return 0;
 }
 
@@ -262,17 +370,19 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	return 0;
 }
 
-static const struct spa_dict_item node_info_items[] = {
-	{ SPA_KEY_NODE_DRIVER, "true" },
-};
-
 static void emit_node_info(struct impl *this, bool full)
 {
 	uint64_t old = full ? this->info.change_mask : 0;
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
-		this->info.props = &SPA_DICT_INIT_ARRAY(node_info_items);
+		struct spa_dict_item items[3];
+
+		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, "true");
+		items[1] = SPA_DICT_ITEM_INIT("clock.id", clock_id_to_name(this->props.clock_id));
+		items[2] = SPA_DICT_ITEM_INIT("clock.name", this->props.clock_name);
+
+		this->info.props = &SPA_DICT_INIT(items, 3);
 		spa_node_emit_info(&this->hooks, &this->info);
 		this->info.change_mask = old;
 	}
@@ -314,14 +424,12 @@ impl_node_set_callbacks(void *object,
 static int impl_node_process(void *object)
 {
 	struct impl *this = object;
-	struct timespec now;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_log_trace(this->log, "process %d", this->props.freewheel);
 
 	if (this->props.freewheel) {
-		clock_gettime(CLOCK_MONOTONIC, &now);
-		this->next_time = SPA_TIMESPEC_TO_NSEC(&now);
+		this->next_time = gettime_nsec(this, CLOCK_MONOTONIC);
 		set_timeout(this, this->next_time);
 	}
 	return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
@@ -371,6 +479,9 @@ static int impl_clear(struct spa_handle *handle)
 	spa_loop_invoke(this->data_loop, do_remove_timer, 0, NULL, 0, true, this);
 	spa_system_close(this->data_system, this->timer_source.fd);
 
+	if (this->clock_fd != -1)
+		close(this->clock_fd);
+
 	return 0;
 }
 
@@ -402,6 +513,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
+	this->clock_fd = -1;
+	spa_dll_init(&this->dll);
 
 	if (this->data_loop == NULL) {
 		spa_log_error(this->log, "a data_loop is needed");
@@ -430,17 +543,6 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.params = this->params;
 	this->info.n_params = 0;
 
-	this->timer_source.func = on_timeout;
-	this->timer_source.data = this;
-	this->timer_source.fd = spa_system_timerfd_create(this->data_system, CLOCK_MONOTONIC,
-							  SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	this->timer_source.mask = SPA_IO_IN;
-	this->timer_source.rmask = 0;
-	this->timerspec.it_value.tv_sec = 0;
-	this->timerspec.it_value.tv_nsec = 0;
-	this->timerspec.it_interval.tv_sec = 0;
-	this->timerspec.it_interval.tv_nsec = 0;
-
 	reset_props(&this->props);
 
 	for (i = 0; info && i < info->n_items; i++) {
@@ -451,8 +553,41 @@ impl_init(const struct spa_handle_factory *factory,
 		} else if (spa_streq(k, "clock.name")) {
 			spa_scnprintf(this->props.clock_name,
 				sizeof(this->props.clock_name), "%s", s);
+		} else if (spa_streq(k, "clock.id")) {
+			this->props.clock_id = clock_name_to_id(s);
+			if (this->props.clock_id == -1) {
+				spa_log_warn(this->log, "unknown clock id '%s'", s);
+				this->props.clock_id = DEFAULT_CLOCK_ID;
+			}
+		} else if (spa_streq(k, "clock.device")) {
+			this->clock_fd = open(s, O_RDWR);
+			if (this->clock_fd == -1) {
+				spa_log_warn(this->log, "failed to open clock device '%s'", s);
+			} else {
+				this->props.clock_id = FD_TO_CLOCKID(this->clock_fd);
+			}
 		}
 	}
+	if (this->props.clock_name[0] == '\0') {
+		spa_scnprintf(this->props.clock_name, sizeof(this->props.clock_name),
+				"%s.%s", DEFAULT_CLOCK_PREFIX,
+				clock_id_to_name(this->props.clock_id));
+	}
+
+	this->max_error = 128;
+
+	this->timer_source.func = on_timeout;
+	this->timer_source.data = this;
+	this->timer_source.fd = spa_system_timerfd_create(this->data_system,
+			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+
+	this->timer_source.mask = SPA_IO_IN;
+	this->timer_source.rmask = 0;
+	this->timerspec.it_value.tv_sec = 0;
+	this->timerspec.it_value.tv_nsec = 0;
+	this->timerspec.it_interval.tv_sec = 0;
+	this->timerspec.it_interval.tv_nsec = 0;
+
 	spa_loop_add_source(this->data_loop, &this->timer_source);
 
 	return 0;

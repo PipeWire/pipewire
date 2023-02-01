@@ -87,6 +87,8 @@ struct impl {
 
 	bool started;
 	bool following;
+	bool tracking;
+	clockid_t timer_clockid;
 	uint64_t next_time;
 	uint64_t last_time;
 	uint64_t base_time;
@@ -111,6 +113,13 @@ static const struct clock_info {
 	{ "monotonic-raw", CLOCK_MONOTONIC_RAW },
 	{ "boottime", CLOCK_BOOTTIME },
 };
+
+static bool clock_for_timerfd(clockid_t id)
+{
+	return id == CLOCK_REALTIME ||
+		id == CLOCK_MONOTONIC ||
+		id == CLOCK_BOOTTIME;
+}
 
 static clockid_t clock_name_to_id(const char *name)
 {
@@ -152,7 +161,7 @@ static inline uint64_t gettime_nsec(struct impl *this, clockid_t clock_id)
 
 static int set_timers(struct impl *this)
 {
-	this->next_time = gettime_nsec(this, CLOCK_MONOTONIC);
+	this->next_time = gettime_nsec(this, this->timer_clockid);
 
 	spa_log_debug(this->log, "%p now:%"PRIu64, this, this->next_time);
 
@@ -245,7 +254,6 @@ static void on_timeout(struct spa_source *source)
 	uint32_t rate;
 	double corr = 1.0, err = 0.0;
 	int res;
-	bool following;
 
 	if ((res = spa_system_timerfd_read(this->data_system,
 				this->timer_source.fd, &expirations)) < 0) {
@@ -261,11 +269,9 @@ static void on_timeout(struct spa_source *source)
 		duration = 1024;
 		rate = 48000;
 	}
-	following = (this->props.clock_id != CLOCK_MONOTONIC);
-
 	nsec = this->next_time;
 
-	if (following)
+	if (this->tracking)
 		/* we are actually following another clock */
 		current_time = gettime_nsec(this, this->props.clock_id);
 	else
@@ -296,7 +302,7 @@ static void on_timeout(struct spa_source *source)
 	position += duration;
 	this->last_time = current_time;
 
-	if (following) {
+	if (this->tracking) {
 		corr = spa_dll_update(&this->dll, err);
 		this->next_time = nsec + duration / corr * 1e9 / rate;
 	} else {
@@ -306,7 +312,7 @@ static void on_timeout(struct spa_source *source)
 
 	if (SPA_UNLIKELY((this->next_time - this->base_time) > BW_PERIOD)) {
 		this->base_time = this->next_time;
-		spa_log_info(this->log, "%p: rate:%f "
+		spa_log_debug(this->log, "%p: rate:%f "
 			"bw:%f dur:%"PRIu64" max:%f drift:%f",
 				this, corr, this->dll.bw, duration,
 				this->max_error, err);
@@ -429,7 +435,7 @@ static int impl_node_process(void *object)
 	spa_log_trace(this->log, "process %d", this->props.freewheel);
 
 	if (this->props.freewheel) {
-		this->next_time = gettime_nsec(this, CLOCK_MONOTONIC);
+		this->next_time = gettime_nsec(this, this->timer_clockid);
 		set_timeout(this, this->next_time);
 	}
 	return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
@@ -574,12 +580,14 @@ impl_init(const struct spa_handle_factory *factory,
 				clock_id_to_name(this->props.clock_id));
 	}
 
+	this->tracking = !clock_for_timerfd(this->props.clock_id);
+	this->timer_clockid = this->tracking ? CLOCK_MONOTONIC : this->props.clock_id;
 	this->max_error = 128;
 
 	this->timer_source.func = on_timeout;
 	this->timer_source.data = this;
 	this->timer_source.fd = spa_system_timerfd_create(this->data_system,
-			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+			this->timer_clockid, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 
 	this->timer_source.mask = SPA_IO_IN;
 	this->timer_source.rmask = 0;

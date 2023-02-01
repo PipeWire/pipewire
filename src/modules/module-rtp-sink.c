@@ -70,6 +70,8 @@
  * - `sess.min-ptime = <int>`: minimum packet time in milliseconds, default 2
  * - `sess.max-ptime = <int>`: maximum packet time in milliseconds, default 20
  * - `sess.name = <str>`: a session name
+ * - `sess.ts-offset = <int>`: an offset to apply to the timestamp, default -1 = random offset
+ * - `sess.ts-refclk = <string>`: the name of a reference clock
  * - `stream.props = {}`: properties to be passed to the stream
  *
  * ## General options
@@ -149,6 +151,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define DEFAULT_MIN_PTIME	2
 #define DEFAULT_MAX_PTIME	20
+#define DEFAULT_TS_OFFSET	-1
 
 #define USAGE	"sap.ip=<SAP IP address to send announce, default:"DEFAULT_SAP_IP"> "		\
 		"sap.port=<SAP port to send on, default:"SPA_STRINGIFY(DEFAULT_SAP_PORT)"> "	\
@@ -212,6 +215,8 @@ struct impl {
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 
+	struct spa_io_position *io_position;
+
 	unsigned int do_disconnect:1;
 
 	char *ifname;
@@ -220,8 +225,8 @@ struct impl {
 	int mtu;
 	bool ttl;
 	bool mcast_loop;
-	uint32_t min_ptime;
-	uint32_t max_ptime;
+	float min_ptime;
+	float max_ptime;
 	uint32_t pbytes;
 
 	struct sockaddr_storage src_addr;
@@ -243,8 +248,9 @@ struct impl {
 	uint32_t frame_size;
 	int payload;
 	uint16_t seq;
-	uint32_t timestamp;
 	uint32_t ssrc;
+	uint32_t ts_offset;
+	char ts_refclk[64];
 
 	struct spa_ringbuffer ring;
 	uint8_t buffer[BUFFER_SIZE];
@@ -306,13 +312,14 @@ static void flush_packets(struct impl *impl)
 
 	while (avail >= tosend) {
 		header.sequence_number = htons(impl->seq);
-		header.timestamp = htonl(impl->timestamp);
+		header.timestamp = htonl(impl->ts_offset + index / impl->frame_size);
 
 		set_iovec(&impl->ring,
 			impl->buffer, BUFFER_SIZE,
 			index & BUFFER_MASK,
 			&iov[1], tosend);
 
+		pw_log_trace("sending %d index:%d", tosend, index);
 		n = sendmsg(impl->rtp_fd, &msg, MSG_NOSIGNAL);
 		if (n < 0) {
 			switch (errno) {
@@ -327,7 +334,6 @@ static void flush_packets(struct impl *impl)
 		}
 
 		impl->seq++;
-		impl->timestamp += tosend / impl->frame_size;
 
 		index += tosend;
 		avail -= tosend;
@@ -352,6 +358,11 @@ static void stream_process(void *data)
 	wanted = d[0].chunk->size;
 
 	filled = spa_ringbuffer_get_write_index(&impl->ring, &index);
+	if (filled == 0 && impl->io_position) {
+		index = impl->ring.readindex = impl->ring.writeindex =
+			impl->io_position->clock.position * impl->frame_size;
+	}
+
 
 	if (filled + wanted > (int32_t)BUFFER_SIZE) {
 		pw_log_warn("overrun %u + %u > %u", filled, wanted, BUFFER_SIZE);
@@ -368,6 +379,16 @@ static void stream_process(void *data)
 	pw_stream_queue_buffer(impl->stream, buf);
 
 	flush_packets(impl);
+}
+
+static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size)
+{
+	struct impl *impl = data;
+	switch (id) {
+	case SPA_IO_Position:
+		impl->io_position = area;
+		break;
+	}
 }
 
 static void on_stream_state_changed(void *d, enum pw_stream_state old,
@@ -391,6 +412,7 @@ static void on_stream_state_changed(void *d, enum pw_stream_state old,
 static const struct pw_stream_events in_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = stream_destroy,
+	.io_changed = stream_io_changed,
 	.state_changed = on_stream_state_changed,
 	.process = stream_process
 };
@@ -548,6 +570,7 @@ static void send_sap(struct impl *impl, bool bye)
 	struct sap_header header;
 	struct iovec iov[4];
 	struct msghdr msg;
+	struct spa_strbuf buf;
 
 	spa_zero(header);
 	header.v = 1;
@@ -580,7 +603,8 @@ static void send_sap(struct impl *impl, bool bye)
 	if (is_multicast((struct sockaddr*)&impl->dst_addr, impl->dst_len))
 		snprintf(dst_ttl, sizeof(dst_ttl), "/%d", impl->ttl);
 
-	snprintf(buffer, sizeof(buffer),
+	spa_strbuf_init(&buf, buffer, sizeof(buffer));
+	spa_strbuf_append(&buf,
 			"v=0\n"
 			"o=%s %u 0 IN %s %s\n"
 			"s=%s\n"
@@ -601,6 +625,16 @@ static void send_sap(struct impl *impl, bool bye)
 			impl->payload, impl->format_info->mime,
 			impl->info.rate, impl->info.channels,
 			(impl->pbytes / impl->frame_size) * 1000 / impl->info.rate);
+
+	if (impl->ts_refclk[0] != '\0') {
+		spa_strbuf_append(&buf,
+				"a=ts-refclk:%s\n"
+				"a=mediaclk:direct=%u\n",
+				impl->ts_refclk,
+				impl->ts_offset);
+	} else {
+		spa_strbuf_append(&buf, "a=mediaclk:sender\n");
+	}
 
 	iov[3].iov_base = buffer;
 	iov[3].iov_len = strlen(buffer);
@@ -794,6 +828,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_properties *props = NULL, *stream_props = NULL;
 	uint32_t id = pw_global_get_id(pw_impl_module_get_global(module));
 	uint32_t pid = getpid(), port, min_bytes, max_bytes;
+	int64_t ts_offset;
 	char addr[64];
 	const char *str;
 	int res = 0;
@@ -873,7 +908,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->payload = 127;
 	impl->seq = rand();
-	impl->timestamp = rand();
 	impl->ssrc = rand();
 
 	str = pw_properties_get(props, "local.ifname");
@@ -907,8 +941,19 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->ttl = pw_properties_get_uint32(props, "net.ttl", DEFAULT_TTL);
 	impl->mcast_loop = pw_properties_get_bool(props, "net.loop", DEFAULT_LOOP);
 
-	impl->min_ptime = pw_properties_get_uint32(props, "sess.min-ptime", DEFAULT_MIN_PTIME);
-	impl->max_ptime = pw_properties_get_uint32(props, "sess.max-ptime", DEFAULT_MAX_PTIME);
+	ts_offset = pw_properties_get_int64(props, "sess.ts-offset", DEFAULT_TS_OFFSET);
+	impl->ts_offset = ts_offset < 0 ? rand() : ts_offset;
+
+	str = pw_properties_get(props, "sess.ts-refclk");
+	if (str != NULL)
+		snprintf(impl->ts_refclk, sizeof(impl->ts_refclk), "%s", str);
+
+	str = pw_properties_get(props, "sess.min-ptime");
+	if (!spa_atof(str, &impl->min_ptime))
+		impl->min_ptime = DEFAULT_MIN_PTIME;
+	str = pw_properties_get(props, "sess.max-ptime");
+	if (!spa_atof(str, &impl->max_ptime))
+		impl->max_ptime = DEFAULT_MAX_PTIME;
 
 	min_bytes = (impl->min_ptime * impl->info.rate / 1000) * impl->frame_size;
 	max_bytes = (impl->max_ptime * impl->info.rate / 1000) * impl->frame_size;

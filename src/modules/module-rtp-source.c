@@ -99,11 +99,14 @@
  *                         #rtp.payload = "127"
  *                         #rtp.fmt = "L16/48000/2"
  *                         #rtp.session = "PipeWire RTP Stream on fedora"
+ *                         #rtp.ts-offset = 0
+ *                         #rtp.ts-refclk = "private"
  *                     }
  *                 ]
  *                 actions = {
  *                     create-stream = {
  *                         #sess.latency.msec = 100
+ *                         #sess.ts-direct = false
  *                         #target.object = ""
  *                     }
  *                 }
@@ -216,6 +219,9 @@ struct sdp_info {
 	const struct format_info *format_info;
 	struct spa_audio_info_raw info;
 	uint32_t stride;
+
+	uint32_t ts_offset;
+	char refclk[64];
 };
 
 struct session {
@@ -241,6 +247,7 @@ struct session {
 	uint8_t buffer[BUFFER_SIZE];
 
 	struct spa_io_rate_match *rate_match;
+	struct spa_io_position *position;
 	struct spa_dll dll;
 	uint32_t target_buffer;
 	uint32_t last_packet_size;
@@ -248,6 +255,7 @@ struct session {
 	unsigned buffering:1;
 	unsigned first:1;
 	unsigned receiving:1;
+	unsigned direct_timestamp:1;
 };
 
 static void stream_destroy(void *d)
@@ -275,6 +283,10 @@ static void stream_process(void *data)
 		SPA_MIN(buf->requested * sess->info.stride, d[0].maxsize)
 		: d[0].maxsize;
 
+	if (sess->position && sess->direct_timestamp) {
+		spa_ringbuffer_read_update(&sess->ring,
+				sess->position->clock.position * sess->info.stride);
+	}
 	avail = spa_ringbuffer_get_read_index(&sess->ring, &index);
 
 	target_buffer = sess->target_buffer + sess->last_packet_size / 2;
@@ -311,7 +323,7 @@ static void stream_process(void *data)
 			pw_log_debug("avail:%u target:%u error:%f corr:%f", avail,
 					target_buffer, error, corr);
 
-			if (sess->rate_match) {
+			if (sess->rate_match && !sess->direct_timestamp) {
 				SPA_FLAG_SET(sess->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE);
 				sess->rate_match->rate = 1.0f / corr;
 			}
@@ -339,6 +351,9 @@ static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size
 	switch (id) {
 	case SPA_IO_RateMatch:
 		sess->rate_match = area;
+		break;
+	case SPA_IO_Position:
+		sess->position = area;
 		break;
 	}
 }
@@ -395,8 +410,11 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 
 		filled = spa_ringbuffer_get_write_index(&sess->ring, &index);
 
-		timestamp = ntohl(hdr->timestamp);
+		timestamp = ntohl(hdr->timestamp) - sess->info.ts_offset;
 		expected_index = timestamp * sess->info.stride;
+
+		if (sess->direct_timestamp)
+			expected_index += sess->target_buffer;
 
 		if (!sess->have_sync) {
 			pw_log_trace("got rtp, no sync");
@@ -695,6 +713,8 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 	} else {
 		pw_properties_set(props, PW_KEY_MEDIA_NAME, "RTP Stream");
 	}
+	pw_properties_setf(props, "rtp.ts-offset", "%u", info->ts_offset);
+	pw_properties_set(props, "rtp.ts-refclk", info->refclk);
 
 	if ((str = pw_properties_get(impl->props, "stream.rules")) != NULL) {
 		struct session_info sinfo = {
@@ -710,8 +730,10 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 			goto error;
 		}
 	}
+	session->direct_timestamp = pw_properties_get_bool(props, "sess.ts-direct", false);
 
-	pw_log_info("new session %s %s", info->origin, info->session);
+	pw_log_info("new session %s %s direct:%d", info->origin, info->session,
+			session->direct_timestamp);
 
 	sess_latency_msec = pw_properties_get_uint32(props,
 			"sess.latency.msec", impl->sess_latency_msec);
@@ -872,7 +894,7 @@ static int parse_sdp_i(struct impl *impl, char *c, struct sdp_info *info)
 	return 0;
 }
 
-static int parse_sdp_a(struct impl *impl, char *c, struct sdp_info *info)
+static int parse_sdp_a_rtpmap(struct impl *impl, char *c, struct sdp_info *info)
 {
 	int payload, len, rate, channels;
 
@@ -904,7 +926,7 @@ static int parse_sdp_a(struct impl *impl, char *c, struct sdp_info *info)
 	if (sscanf(c, "%u/%u", &rate, &channels) == 2) {
 		info->info.rate = rate;
 		info->info.channels = channels;
-		pw_log_info("rate: %d, ch: %d", rate, channels);
+		pw_log_debug("rate: %d, ch: %d", rate, channels);
 		if (channels == 2) {
 			info->info.position[0] = SPA_AUDIO_CHANNEL_FL;
 			info->info.position[1] = SPA_AUDIO_CHANNEL_FR;
@@ -917,6 +939,35 @@ static int parse_sdp_a(struct impl *impl, char *c, struct sdp_info *info)
 
 	info->stride *= info->info.channels;
 
+	return 0;
+}
+
+static int parse_sdp_a_mediaclk(struct impl *impl, char *c, struct sdp_info *info)
+{
+	if (!spa_strstartswith(c, "a=mediaclk:"))
+		return 0;
+
+	c += strlen("a=mediaclk:");
+
+	if (spa_strstartswith(c, "direct=")) {
+		int offset;
+		c += strlen("direct=");
+		if (sscanf(c, "%i", &offset) != 1)
+			return -EINVAL;
+		info->ts_offset = offset;
+	} else if (spa_strstartswith(c, "sender")) {
+		info->ts_offset = 0;
+	}
+	return 0;
+}
+
+static int parse_sdp_a_ts_refclk(struct impl *impl, char *c, struct sdp_info *info)
+{
+	if (!spa_strstartswith(c, "a=ts-refclk:"))
+		return 0;
+
+	c += strlen("a=ts-refclk:");
+	snprintf(info->refclk, sizeof(info->refclk), "%s", c);
 	return 0;
 }
 
@@ -944,8 +995,12 @@ static int parse_sdp(struct impl *impl, char *sdp, struct sdp_info *info)
 			res = parse_sdp_c(impl, s, info);
 		else if (spa_strstartswith(s, "m="))
 			res = parse_sdp_m(impl, s, info);
-		else if (spa_strstartswith(s, "a="))
-			res = parse_sdp_a(impl, s, info);
+		else if (spa_strstartswith(s, "a=rtpmap:"))
+			res = parse_sdp_a_rtpmap(impl, s, info);
+		else if (spa_strstartswith(s, "a=mediaclk:"))
+			res = parse_sdp_a_mediaclk(impl, s, info);
+		else if (spa_strstartswith(s, "a=ts-refclk:"))
+			res = parse_sdp_a_ts_refclk(impl, s, info);
 		else if (spa_strstartswith(s, "i="))
 			res = parse_sdp_i(impl, s, info);
 

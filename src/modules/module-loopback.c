@@ -111,6 +111,32 @@
  * ]
  *\endcode
  *
+ * ## Example configuration of a virtual source
+ *
+ * This Virtual source routes the front-left channel of a multi-channel input to a mono channel.
+ * This is useful for splitting up multi-channel inputs from USB audio interfaces that are not yet fully supported by alsa.
+ *
+ *\code{.unparsed}
+ * context.modules = [
+ * {   name = libpipewire-module-loopback
+ *     args = {
+ *       node.description = "Scarlett Focusrite Line 1"
+ *       capture.props = {
+ *           audio.position = [ FL ]
+ *           stream.dont-remix = true
+ *           node.target = "alsa_input.usb-Focusrite_Scarlett_Solo_USB_Y7ZD17C24495BC-00.analog-stereo"
+ *           node.passive = true
+ *       }
+ *       playback.props = {
+ *           node.name = "SF_mono_in_1"
+ *           media.class = "Audio/Source"
+ *           audio.position = [ MONO ]
+ *       }
+ *     }
+ * }
+ * ]
+ *\endcode
+ *
  * ## See also
  *
  * `pw-loopback` : a tool that loads the loopback module with given parameters.

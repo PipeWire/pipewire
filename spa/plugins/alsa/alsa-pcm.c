@@ -1879,6 +1879,8 @@ static int get_status(struct state *state, uint64_t current_time,
 	} else {
 		*delay = avail;
 		*target = SPA_MAX(*target, state->read_size);
+		if (state->matching)
+			*target += 32;
 	}
 	*target = SPA_CLAMP(*target, state->min_delay, state->buffer_frames);
 	return 0;

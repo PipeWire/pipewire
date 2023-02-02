@@ -417,7 +417,6 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 			expected_index += sess->target_buffer;
 
 		if (!sess->have_sync) {
-			pw_log_trace("got rtp, no sync");
 			sess->ring.readindex = sess->ring.writeindex =
 				index = expected_index;
 			filled = 0;
@@ -429,7 +428,6 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 			spa_dll_set_bw(&sess->dll, SPA_DLL_BW_MIN, 128, sess->info.info.rate);
 
 		} else if (expected_index != index) {
-			pw_log_trace("got rtp, wrong timestamp");
 			pw_log_debug("unexpected timestamp (%u != %u)",
 					index / sess->info.stride,
 					expected_index / sess->info.stride);

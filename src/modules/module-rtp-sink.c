@@ -350,8 +350,8 @@ static void stream_process(void *data)
 	struct impl *impl = data;
 	struct pw_buffer *buf;
 	struct spa_data *d;
-	uint32_t timestamp, expected_timestamp, stride;
-        int32_t filled, wanted;
+	uint32_t offs, size, timestamp, expected_timestamp, stride;
+	int32_t filled, wanted;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
 		pw_log_debug("Out of stream buffers: %m");
@@ -359,8 +359,10 @@ static void stream_process(void *data)
 	}
 	d = buf->buffer->datas;
 
+	offs = SPA_MIN(d[0].chunk->offset, d[0].maxsize);
+	size = SPA_MIN(d[0].chunk->size, d[0].maxsize - offs);
 	stride = impl->stride;
-	wanted = d[0].chunk->size / stride;
+	wanted = size / stride;
 
 	filled = spa_ringbuffer_get_write_index(&impl->ring, &expected_timestamp);
 	if (SPA_LIKELY(impl->io_position))
@@ -372,7 +374,7 @@ static void stream_process(void *data)
 		if (expected_timestamp != timestamp) {
 			pw_log_warn("expected %u != timestamp %u", expected_timestamp, timestamp);
 			impl->sync = false;
-		} else if ((filled + wanted) * stride > (int32_t)BUFFER_SIZE) {
+		} else if (filled + wanted > (int32_t)(BUFFER_SIZE / stride)) {
 			pw_log_warn("overrun %u + %u > %u", filled, wanted, BUFFER_SIZE / stride);
 			impl->sync = false;
 		}
@@ -387,7 +389,7 @@ static void stream_process(void *data)
 			impl->buffer,
 			BUFFER_SIZE,
 			(timestamp * stride) & BUFFER_MASK,
-			d[0].data, wanted * stride);
+			SPA_PTROFF(d[0].data, offs, void), wanted * stride);
 	timestamp += wanted;
 	spa_ringbuffer_write_update(&impl->ring, timestamp);
 

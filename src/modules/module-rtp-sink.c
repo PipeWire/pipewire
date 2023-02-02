@@ -227,7 +227,7 @@ struct impl {
 	bool mcast_loop;
 	float min_ptime;
 	float max_ptime;
-	uint32_t pbytes;
+	uint32_t psamples;
 
 	struct sockaddr_storage src_addr;
 	socklen_t src_len;
@@ -245,7 +245,7 @@ struct impl {
 
 	struct spa_audio_info_raw info;
 	const struct format_info *format_info;
-	uint32_t frame_size;
+	uint32_t stride;
 	int payload;
 	uint16_t seq;
 	uint32_t ssrc;
@@ -282,19 +282,20 @@ set_iovec(struct spa_ringbuffer *rbuf, void *buffer, uint32_t size,
 static void flush_packets(struct impl *impl)
 {
 	int32_t avail;
-	uint32_t index;
+	uint32_t stride, timestamp;
 	struct iovec iov[3];
 	struct msghdr msg;
 	ssize_t n;
 	struct rtp_header header;
 	int32_t tosend;
 
-	avail = spa_ringbuffer_get_read_index(&impl->ring, &index);
-
-	tosend = impl->pbytes;
+	avail = spa_ringbuffer_get_read_index(&impl->ring, &timestamp);
+	tosend = impl->psamples;
 
 	if (avail < tosend)
 		return;
+
+	stride = impl->stride;
 
 	spa_zero(header);
 	header.v = 2;
@@ -314,14 +315,14 @@ static void flush_packets(struct impl *impl)
 
 	while (avail >= tosend) {
 		header.sequence_number = htons(impl->seq);
-		header.timestamp = htonl(impl->ts_offset + index / impl->frame_size);
+		header.timestamp = htonl(impl->ts_offset + timestamp);
 
 		set_iovec(&impl->ring,
 			impl->buffer, BUFFER_SIZE,
-			index & BUFFER_MASK,
-			&iov[1], tosend);
+			(timestamp * stride) & BUFFER_MASK,
+			&iov[1], tosend * stride);
 
-		pw_log_trace("sending %d index:%d", tosend, index);
+		pw_log_trace("sending %d timestamp:%d", tosend, timestamp);
 		n = sendmsg(impl->rtp_fd, &msg, MSG_NOSIGNAL);
 		if (n < 0) {
 			switch (errno) {
@@ -338,10 +339,10 @@ static void flush_packets(struct impl *impl)
 
 		impl->seq++;
 
-		index += tosend;
+		timestamp += tosend;
 		avail -= tosend;
 	}
-	spa_ringbuffer_read_update(&impl->ring, index);
+	spa_ringbuffer_read_update(&impl->ring, timestamp);
 }
 
 static void stream_process(void *data)
@@ -349,7 +350,7 @@ static void stream_process(void *data)
 	struct impl *impl = data;
 	struct pw_buffer *buf;
 	struct spa_data *d;
-	uint32_t index, expected_index;
+	uint32_t timestamp, expected_timestamp, stride;
         int32_t filled, wanted;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
@@ -358,33 +359,37 @@ static void stream_process(void *data)
 	}
 	d = buf->buffer->datas;
 
-	wanted = d[0].chunk->size;
+	stride = impl->stride;
+	wanted = d[0].chunk->size / stride;
 
-	filled = spa_ringbuffer_get_write_index(&impl->ring, &expected_index);
-	if (impl->io_position)
-		index = impl->io_position->clock.position * impl->frame_size;
+	filled = spa_ringbuffer_get_write_index(&impl->ring, &expected_timestamp);
+	if (SPA_LIKELY(impl->io_position))
+		timestamp = impl->io_position->clock.position;
 	else
-		index = expected_index;
+		timestamp = expected_timestamp;
 
+	if (impl->sync) {
+		if (expected_timestamp != timestamp) {
+			pw_log_warn("expected %u != timestamp %u", expected_timestamp, timestamp);
+			impl->sync = false;
+		} else if ((filled + wanted) * stride > (int32_t)BUFFER_SIZE) {
+			pw_log_warn("overrun %u + %u > %u", filled, wanted, BUFFER_SIZE / stride);
+			impl->sync = false;
+		}
+	}
 	if (!impl->sync) {
-		pw_log_info("sync %u", index);
-		impl->ring.readindex = impl->ring.writeindex = index;
+		pw_log_info("sync to timestamp %u", timestamp);
+		impl->ring.readindex = impl->ring.writeindex = timestamp;
 		impl->sync = true;
-	} else if (expected_index != index) {
-		pw_log_warn("expected %u != index %u", expected_index, index);
-		impl->ring.readindex = impl->ring.writeindex = index;
-	} else if (filled + wanted > (int32_t)BUFFER_SIZE) {
-		pw_log_warn("overrun %u + %u > %u", filled, wanted, BUFFER_SIZE);
-		impl->ring.readindex = impl->ring.writeindex = index;
 	}
 
 	spa_ringbuffer_write_data(&impl->ring,
 			impl->buffer,
 			BUFFER_SIZE,
-			index & BUFFER_MASK,
-			d[0].data, wanted);
-	index += wanted;
-	spa_ringbuffer_write_update(&impl->ring, index);
+			(timestamp * stride) & BUFFER_MASK,
+			d[0].data, wanted * stride);
+	timestamp += wanted;
+	spa_ringbuffer_write_update(&impl->ring, timestamp);
 
 	pw_stream_queue_buffer(impl->stream, buf);
 
@@ -521,8 +526,7 @@ static int setup_stream(struct impl *impl)
 
 	if (pw_properties_get(props, PW_KEY_NODE_LATENCY) == NULL) {
 		pw_properties_setf(props, PW_KEY_NODE_LATENCY,
-				"%d/%d", impl->pbytes / impl->frame_size,
-				impl->info.rate);
+				"%d/%d", impl->psamples, impl->info.rate);
 	}
 	pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%d", impl->info.rate);
 
@@ -634,7 +638,7 @@ static void send_sap(struct impl *impl, bool bye)
 			impl->port, impl->payload,
 			impl->payload, impl->format_info->mime,
 			impl->info.rate, impl->info.channels,
-			(impl->pbytes / impl->frame_size) * 1000 / impl->info.rate);
+			impl->psamples * 1000 / impl->info.rate);
 
 	if (impl->ts_refclk[0] != '\0') {
 		spa_strbuf_append(&buf,
@@ -837,7 +841,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct impl *impl;
 	struct pw_properties *props = NULL, *stream_props = NULL;
 	uint32_t id = pw_global_get_id(pw_impl_module_get_global(module));
-	uint32_t pid = getpid(), port, min_bytes, max_bytes;
+	uint32_t pid = getpid(), port, min_samples, max_samples;
 	int64_t ts_offset;
 	char addr[64];
 	const char *str;
@@ -912,7 +916,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		res = -EINVAL;
 		goto out;
 	}
-	impl->frame_size = impl->format_info->size * impl->info.channels;
+	impl->stride = impl->format_info->size * impl->info.channels;
 	impl->msg_id_hash = rand();
 	impl->ntp = (uint32_t) time(NULL) + 2208988800U;
 
@@ -965,11 +969,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (!spa_atof(str, &impl->max_ptime))
 		impl->max_ptime = DEFAULT_MAX_PTIME;
 
-	min_bytes = (impl->min_ptime * impl->info.rate / 1000) * impl->frame_size;
-	max_bytes = (impl->max_ptime * impl->info.rate / 1000) * impl->frame_size;
+	min_samples = impl->min_ptime * impl->info.rate / 1000;
+	max_samples = impl->max_ptime * impl->info.rate / 1000;
 
-	impl->pbytes = SPA_ROUND_DOWN(impl->mtu, impl->frame_size);
-	impl->pbytes = SPA_CLAMP(impl->pbytes, min_bytes, max_bytes);
+	impl->psamples = impl->mtu / impl->stride;
+	impl->psamples = SPA_CLAMP(impl->psamples, min_samples, max_samples);
 
 	if ((str = pw_properties_get(props, "sess.name")) == NULL)
 		pw_properties_setf(props, "sess.name", "PipeWire RTP Stream on %s",
@@ -986,7 +990,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_properties_setf(stream_props, "rtp.mtu", "%u", impl->mtu);
 	pw_properties_setf(stream_props, "rtp.ttl", "%u", impl->ttl);
 	pw_properties_setf(stream_props, "rtp.ptime", "%u",
-			(impl->pbytes / impl->frame_size) * 1000 / impl->info.rate);
+			impl->psamples * 1000 / impl->info.rate);
 
 	impl->core = pw_context_get_object(impl->module_context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

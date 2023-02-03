@@ -153,7 +153,7 @@ int pw_thread_loop_get_time(struct pw_thread_loop *loop, struct timespec *abstim
 /** Release the lock and wait up to \a abstime until some thread calls
  * \ref pw_thread_loop_signal. Use \ref pw_thread_loop_get_time to make a timeout.
  * Since: 0.3.7 */
-int pw_thread_loop_timed_wait_full(struct pw_thread_loop *loop, struct timespec *abstime);
+int pw_thread_loop_timed_wait_full(struct pw_thread_loop *loop, const struct timespec *abstime);
 
 /** Signal all threads waiting with \ref pw_thread_loop_wait */
 void pw_thread_loop_signal(struct pw_thread_loop *loop, bool wait_for_accept);

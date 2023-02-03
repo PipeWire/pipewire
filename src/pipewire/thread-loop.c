@@ -435,7 +435,7 @@ int pw_thread_loop_get_time(struct pw_thread_loop *loop, struct timespec *abstim
  *
  */
 SPA_EXPORT
-int pw_thread_loop_timed_wait_full(struct pw_thread_loop *loop, struct timespec *abstime)
+int pw_thread_loop_timed_wait_full(struct pw_thread_loop *loop, const struct timespec *abstime)
 {
 	int ret;
 	loop->n_waiting++;

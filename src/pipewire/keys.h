@@ -342,8 +342,13 @@ extern "C" {
 								  * and object name or object.serial */
 
 #ifndef PW_REMOVE_DEPRECATED
-#define PW_KEY_PRIORITY_MASTER		PW_DEPRECATED("priority.master")	/**< deprecated, use priority.driver */
-#define PW_KEY_NODE_TARGET		PW_DEPRECATED("node.target")		/**< deprecated since 0.3.64, use target.object. */
+# ifdef PW_ENABLE_DEPRECATED
+#  define PW_KEY_PRIORITY_MASTER	"priority.master"	/**< deprecated, use priority.driver */
+#  define PW_KEY_NODE_TARGET		"node.target"		/**< deprecated since 0.3.64, use target.object. */
+# else
+#  define PW_KEY_PRIORITY_MASTER	PW_DEPRECATED("priority.master")
+#  define PW_KEY_NODE_TARGET		PW_DEPRECATED("node.target")
+# endif /* PW_ENABLE_DEPRECATED */
 #endif /* PW_REMOVE_DEPRECATED */
 
 /** \}

@@ -109,6 +109,16 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
       gst_buffer_insert_memory (buf, i, gmem);
   }
 
+  if (pool->add_metavideo) {
+    gst_buffer_add_video_meta_full (buf, GST_VIDEO_FRAME_FLAG_NONE,
+        GST_VIDEO_INFO_FORMAT (&pool->video_info),
+        GST_VIDEO_INFO_WIDTH (&pool->video_info),
+        GST_VIDEO_INFO_HEIGHT (&pool->video_info),
+        GST_VIDEO_INFO_N_PLANES (&pool->video_info),
+        pool->video_info.offset,
+        pool->video_info.stride);
+  }
+
   data->pool = gst_object_ref (pool);
   data->owner = NULL;
   data->header = spa_buffer_find_meta_data (b->buffer, SPA_META_Header, sizeof(*data->header));
@@ -208,6 +218,41 @@ no_more_buffers:
   }
 }
 
+static const gchar **
+get_options (GstBufferPool * pool)
+{
+  static const gchar *options[] = { GST_BUFFER_POOL_OPTION_VIDEO_META, NULL };
+  return options;
+}
+
+static gboolean
+set_config (GstBufferPool * pool, GstStructure * config)
+{
+  GstPipeWirePool *p = GST_PIPEWIRE_POOL (pool);
+  GstCaps *caps;
+  guint size, min_buffers, max_buffers;
+  gboolean has_video;
+
+  if (!gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers)) {
+    GST_WARNING_OBJECT (pool, "invalid config");
+    return FALSE;
+  }
+
+  if (caps == NULL) {
+    GST_WARNING_OBJECT (pool, "no caps in config");
+    return FALSE;
+  }
+
+  has_video = gst_video_info_from_caps (&p->video_info, caps);
+
+  p->add_metavideo = has_video && gst_buffer_pool_config_has_option (config,
+      GST_BUFFER_POOL_OPTION_VIDEO_META);
+
+  gst_buffer_pool_config_set_params (config, caps, p->video_info.size, min_buffers, max_buffers);
+
+  return GST_BUFFER_POOL_CLASS (gst_pipewire_pool_parent_class)->set_config (pool, config);
+}
+
 static void
 flush_start (GstBufferPool * pool)
 {
@@ -252,6 +297,8 @@ gst_pipewire_pool_class_init (GstPipeWirePoolClass * klass)
 
   gobject_class->finalize = gst_pipewire_pool_finalize;
 
+  bufferpool_class->get_options = get_options;
+  bufferpool_class->set_config = set_config;
   bufferpool_class->start = do_start;
   bufferpool_class->flush_start = flush_start;
   bufferpool_class->acquire_buffer = acquire_buffer;

@@ -142,6 +142,7 @@ gst_pipewire_sink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
   GstPipeWireSink *pwsink = GST_PIPEWIRE_SINK (bsink);
 
   gst_query_add_allocation_pool (query, GST_BUFFER_POOL_CAST (pwsink->pool), 0, 0, 0);
+  gst_query_add_allocation_meta (query, GST_VIDEO_META_API_TYPE, NULL);
   return TRUE;
 }
 
@@ -502,6 +503,19 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
     d->chunk->offset = mem->offset;
     d->chunk->size = mem->size;
     d->chunk->stride = 0;
+  }
+
+  GstVideoMeta *meta = gst_buffer_get_video_meta (buffer);
+  if (meta) {
+    if (meta->n_planes == b->n_datas) {
+      for (i = 0; i < meta->n_planes; i++) {
+        struct spa_data *d = &b->datas[i];
+        d->chunk->offset = meta->offset[i];
+        d->chunk->stride = meta->stride[i];
+      }
+    } else {
+      GST_ERROR ("plane num not matching, meta:%d buffer:%d", meta->n_planes, b->n_datas);
+    }
   }
 
   if ((res = pw_stream_queue_buffer (pwsink->stream, data->b)) < 0) {

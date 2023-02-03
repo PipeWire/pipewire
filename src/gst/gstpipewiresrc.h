@@ -28,6 +28,8 @@
 #include <gst/gst.h>
 #include <gst/base/gstpushsrc.h>
 
+#include <gst/video/video.h>
+
 #include <pipewire/pipewire.h>
 #include <gst/gstpipewirepool.h>
 #include <gst/gstpipewirecore.h>
@@ -70,6 +72,9 @@ struct _GstPipeWireSrc {
   gint keepalive_time;
 
   GstCaps *caps;
+
+  gboolean is_video;
+  GstVideoInfo video_info;
 
   gboolean negotiated;
   gboolean flushing;

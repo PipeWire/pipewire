@@ -27,6 +27,8 @@
 
 #include <gst/gst.h>
 
+#include <gst/video/video.h>
+
 #include <pipewire/pipewire.h>
 
 G_BEGIN_DECLS
@@ -65,6 +67,9 @@ struct _GstPipeWirePool {
 
   struct pw_stream *stream;
   struct pw_type *t;
+
+  gboolean add_metavideo;
+  GstVideoInfo video_info;
 
   GstAllocator *fd_allocator;
   GstAllocator *dmabuf_allocator;

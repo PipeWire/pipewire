@@ -508,13 +508,16 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
   GstVideoMeta *meta = gst_buffer_get_video_meta (buffer);
   if (meta) {
     if (meta->n_planes == b->n_datas) {
+      gsize video_size = 0;
       for (i = 0; i < meta->n_planes; i++) {
         struct spa_data *d = &b->datas[i];
-        d->chunk->offset = meta->offset[i];
+        d->chunk->offset += meta->offset[i] - video_size;
         d->chunk->stride = meta->stride[i];
+
+        video_size += d->chunk->size;
       }
     } else {
-      GST_ERROR ("plane num not matching, meta:%d buffer:%d", meta->n_planes, b->n_datas);
+      GST_ERROR ("plane num not matching, meta:%u buffer:%u", meta->n_planes, b->n_datas);
     }
   }
 

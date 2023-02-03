@@ -33,6 +33,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/syscall.h>
+#include <sys/stat.h>
 
 #include <spa/utils/list.h>
 #include <spa/buffer/buffer.h>
@@ -363,6 +364,23 @@ struct pw_memmap * pw_memblock_map(struct pw_memblock *block,
 	struct mapping *m;
 	struct memmap *mm;
 	struct pw_map_range range;
+	struct stat sb;
+
+	if (fstat(b->this.fd, &sb) != 0)
+		return NULL;
+
+	const bool valid = (int64_t) offset + size <= (int64_t) sb.st_size;
+	pw_log(valid ? SPA_LOG_LEVEL_DEBUG : SPA_LOG_LEVEL_ERROR,
+		"%p: block %p[%u] mapping %" PRIu32 "+%" PRIu32 " of file=%d/%" PRIu64 ":%" PRIu64 " with size=%" PRId64,
+		block->pool, block, block->id,
+		offset, size,
+		block->fd, (uint64_t) sb.st_dev, (uint64_t) sb.st_ino,
+		(int64_t) sb.st_size);
+
+	if (!valid) {
+		errno = -EINVAL;
+		return NULL;
+	}
 
 	pw_map_range_init(&range, offset, size, p->pagesize);
 

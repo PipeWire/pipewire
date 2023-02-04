@@ -41,14 +41,23 @@ if get_option('spa-plugins').allowed()
   # plugin-specific dependencies
   alsa_dep = dependency('alsa', required: get_option('alsa'))
   summary({'ALSA': alsa_dep.found()}, bool_yn: true, section: 'Backend')
+
   bluez_dep = dependency('bluez', version : '>= 4.101', required: get_option('bluez5'))
   gio_dep = dependency('gio-2.0', required : get_option('bluez5'))
   gio_unix_dep = dependency('gio-unix-2.0', required : get_option('bluez5'))
-  bluez_deps_found = bluez_dep.found() and gio_dep.found() and gio_unix_dep.found()
+  bluez_glib2_dep = dependency('glib-2.0', required : get_option('bluez5'))
+  sbc_dep = dependency('sbc', required: get_option('bluez5'))
+  summary({'SBC': sbc_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
+  bluez5_deps = [ mathlib, dbus_dep, sbc_dep, bluez_dep, bluez_glib2_dep, gio_dep, gio_unix_dep ]
+  bluez_deps_found = get_option('bluez5').allowed()
+  foreach dep: bluez5_deps
+      if get_option('bluez5').enabled() and not dep.found()
+        error('bluez5 enabled, but dependency not found: ' + dep.name())
+      endif
+      bluez_deps_found = bluez_deps_found and dep.found()
+  endforeach
   summary({'Bluetooth audio': bluez_deps_found}, bool_yn: true, section: 'Backend')
   if bluez_deps_found
-    sbc_dep = dependency('sbc', required: get_option('bluez5'))
-    summary({'SBC': sbc_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
     ldac_dep = dependency('ldacBT-enc', required : get_option('bluez5-codec-ldac'))
     summary({'LDAC': ldac_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
     ldac_abr_dep = dependency('ldacBT-abr', required : get_option('bluez5-codec-ldac'))

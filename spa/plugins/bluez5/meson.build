@@ -1,12 +1,5 @@
 gnome = import('gnome')
 
-bluez5_deps = [ mathlib, dbus_dep, glib2_dep, sbc_dep, bluez_dep, gio_dep, gio_unix_dep ]
-foreach dep: bluez5_deps
-  if not dep.found()
-    subdir_done()
-  endif
-endforeach
-
 cdata.set('HAVE_BLUEZ_5_BACKEND_NATIVE',
           get_option('bluez5-backend-hsp-native').allowed() or
           get_option('bluez5-backend-hfp-native').allowed())

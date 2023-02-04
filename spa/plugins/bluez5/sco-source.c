@@ -622,8 +622,9 @@ static void sco_on_timeout(struct spa_source *source)
 	}
 
 	if (port->io) {
+		int io_status = port->io->status;
 		int status = produce_buffer(this);
-		spa_log_trace(this->log, "%p: io:%d status:%d", this, port->io->status, status);
+		spa_log_trace(this->log, "%p: io:%d->%d status:%d", this, io_status, port->io->status, status);
 	}
 
 	spa_node_call_ready(&this->callbacks, SPA_STATUS_HAVE_DATA);
@@ -1258,7 +1259,7 @@ static void process_buffering(struct impl *this)
 	buf = spa_bt_decode_buffer_get_read(&port->buffer, &avail);
 
 	/* copy data to buffers */
-	if (!spa_list_is_empty(&port->free) && avail > 0) {
+	if (!spa_list_is_empty(&port->free)) {
 		struct buffer *buffer;
 		struct spa_data *datas;
 		uint32_t data_size;
@@ -1279,12 +1280,17 @@ static void process_buffering(struct impl *this)
 		spa_assert(datas[0].maxsize >= data_size);
 
 		datas[0].chunk->offset = 0;
-		datas[0].chunk->size = avail;
+		datas[0].chunk->size = data_size;
 		datas[0].chunk->stride = port->frame_size;
+
 		memcpy(datas[0].data, buf, avail);
 
+		/* pad with silence */
+		if (avail < data_size)
+			memset(SPA_PTROFF(datas[0].data, avail, void), 0, data_size - avail);
+
 		/* ready buffer if full */
-		spa_log_trace(this->log, "queue %d frames:%d", buffer->id, (int)avail / port->frame_size);
+		spa_log_trace(this->log, "queue %d frames:%d", buffer->id, (int)samples);
 		spa_list_append(&port->ready, &buffer->link);
 	}
 }
@@ -1299,7 +1305,8 @@ static int produce_buffer(struct impl *this)
 		return -EIO;
 
 	/* Return if we already have a buffer */
-	if (io->status == SPA_STATUS_HAVE_DATA)
+	if (io->status == SPA_STATUS_HAVE_DATA &&
+			(this->following || port->rate_match == NULL))
 		return SPA_STATUS_HAVE_DATA;
 
 	/* Recycle */
@@ -1339,6 +1346,8 @@ static int impl_node_process(void *object)
 	port = &this->port;
 	if ((io = port->io) == NULL)
 		return -EIO;
+
+	spa_log_trace(this->log, "%p status:%d", this, io->status);
 
 	/* Return if we already have a buffer */
 	if (io->status == SPA_STATUS_HAVE_DATA)

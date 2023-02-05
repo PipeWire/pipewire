@@ -142,7 +142,7 @@ struct spa_fraction {
 	for ((ptr) = arr; (void*)(ptr) < SPA_PTROFF(arr, sizeof(arr), void); (ptr)++)
 
 #define SPA_FOR_EACH_ELEMENT_VAR(arr, var) \
-	for (__typeof__((arr)[0])* (var) = arr; (void*)(var) < SPA_PTROFF(arr, sizeof(arr), void); (var)++)
+	for (__typeof__((arr)[0])* var = arr; (void*)(var) < SPA_PTROFF(arr, sizeof(arr), void); (var)++)
 
 #define SPA_ABS(a)			\
 ({					\

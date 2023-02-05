@@ -204,6 +204,33 @@ static const struct media_codec *get_supported_media_codec(struct impl *this, en
 	return media_codec;
 }
 
+static bool is_bap_client(struct impl *this)
+{
+	struct spa_bt_device *device = this->bt_dev;
+	struct spa_bt_transport *t;
+
+	spa_list_for_each(t, &device->transport_list, device_link) {
+		if (t->bap_initiator)
+			return true;
+	}
+
+	return false;
+}
+
+static bool can_bap_codec_switch(struct impl *this)
+{
+	if (!is_bap_client(this))
+		return false;
+
+	/* XXX: codec switching for source/duplex is not currently
+	 * XXX: implemented properly. TODO: fix this
+	 */
+	if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_BAP_SOURCE)
+		return false;
+
+	return true;
+}
+
 static unsigned int get_hfp_codec(enum spa_bluetooth_audio_codec id)
 {
 	switch (id) {
@@ -873,9 +900,15 @@ static int set_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_a
 	 * A2DP/BAP: ensure there's a transport with the selected codec (0 means any).
 	 * Don't try to switch codecs when the device is in the A2DP source role, since
 	 * devices do not appear to like that.
+	 *
+	 * For BAP, only BAP client can configure the codec.
+	 *
+	 * XXX: codec switching also currently does not work in the duplex or
+	 * XXX: source-only case, as it will only switch the sink, and we only
+	 * XXX: list the sink codecs here. TODO: fix this
 	 */
-	if ((profile == DEVICE_PROFILE_A2DP || profile == DEVICE_PROFILE_BAP)
-	    && !(this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE)) {
+	if ((profile == DEVICE_PROFILE_A2DP || (profile == DEVICE_PROFILE_BAP && can_bap_codec_switch(this)))
+			&& !(this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE)) {
 		int ret;
 		const struct media_codec *codecs[64];
 
@@ -1332,11 +1365,6 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		if (profile == 0)
 			return NULL;
 
-		if (!codec) {
-			errno = EINVAL;
-			return NULL;
-		}
-
 		if (profile & (SPA_BT_PROFILE_BAP_SINK))
 			n_sink++;
 		if (profile & (SPA_BT_PROFILE_BAP_SOURCE))
@@ -1344,28 +1372,48 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 
 		name = spa_bt_profile_name(profile);
 
-		media_codec = get_supported_media_codec(this, codec, &idx);
-		if (media_codec == NULL) {
-			errno = EINVAL;
+		/* If we can't codec switch, emit codecless profile */
+		if ((codec != 0) != can_bap_codec_switch(this)) {
+			errno = -EINVAL;
 			return NULL;
 		}
-		name_and_codec = spa_aprintf("%s-%s", name, media_codec->name);
-		name = name_and_codec;
-		switch (profile) {
-		case SPA_BT_PROFILE_BAP_SINK:
-			desc_and_codec = spa_aprintf(_("High Fidelity Playback (BAP Sink, codec %s)"),
-						     media_codec->description);
-			break;
-		case SPA_BT_PROFILE_BAP_SOURCE:
-			desc_and_codec = spa_aprintf(_("High Fidelity Input (BAP Source, codec %s)"),
-						     media_codec->description);
-			break;
-		default:
-			desc_and_codec = spa_aprintf(_("High Fidelity Duplex (BAP Source/Sink, codec %s)"),
-						     media_codec->description);
+
+		if (codec) {
+			media_codec = get_supported_media_codec(this, codec, &idx);
+			if (media_codec == NULL) {
+				errno = EINVAL;
+				return NULL;
+			}
+			name_and_codec = spa_aprintf("%s-%s", name, media_codec->name);
+			name = name_and_codec;
+			switch (profile) {
+			case SPA_BT_PROFILE_BAP_SINK:
+				desc_and_codec = spa_aprintf(_("High Fidelity Playback (BAP Sink, codec %s)"),
+						media_codec->description);
+				break;
+			case SPA_BT_PROFILE_BAP_SOURCE:
+				desc_and_codec = spa_aprintf(_("High Fidelity Input (BAP Source, codec %s)"),
+						media_codec->description);
+				break;
+			default:
+				desc_and_codec = spa_aprintf(_("High Fidelity Duplex (BAP Source/Sink, codec %s)"),
+						media_codec->description);
+			}
+			desc = desc_and_codec;
+			priority = 128 + this->supported_codec_count - idx;  /* order as in codec list */
+		} else {
+			switch (profile) {
+			case SPA_BT_PROFILE_BAP_SINK:
+				desc = _("High Fidelity Playback (BAP Sink)");
+				break;
+			case SPA_BT_PROFILE_BAP_SOURCE:
+				desc = _("High Fidelity Input (BAP Source)");
+				break;
+			default:
+				desc = _("High Fidelity Duplex (BAP Source/Sink)");
+			}
+			priority = 128;
 		}
-		desc = desc_and_codec;
-		priority = 128 + this->supported_codec_count - idx;  /* order as in codec list */
 		break;
 	}
 	case DEVICE_PROFILE_HSP_HFP:

@@ -175,27 +175,25 @@ pipewire_module_rt = shared_library('pipewire-module-rt', [ 'module-rt.c' ],
 
 build_module_rtkit = dbus_dep.found() and (get_option('legacy-rtkit') == true)
 if build_module_rtkit
-# TODO: This serves as a temporary alias to prevent breaking existing setups
-#       while `module-rtkit` is being migrated to `module-rt`
-pipewire_module_rtkit = shared_library('pipewire-module-rtkit', [ 'module-rt.c' ],
-  include_directories : [configinc],
-  install : true,
-  install_dir : modules_install_dir,
-  install_rpath: modules_install_dir,
-  dependencies : [dbus_dep, mathlib, dl_lib, pipewire_dep],
-)
+  pipewire_module_rtkit = shared_library('pipewire-module-rtkit', [ 'module-rt.c' ],
+    include_directories : [configinc],
+    install : true,
+    install_dir : modules_install_dir,
+    install_rpath: modules_install_dir,
+    dependencies : [dbus_dep, mathlib, dl_lib, pipewire_dep],
+  )
 endif
 summary({'rt': '@0@ RTKit'.format(build_module_rtkit ? 'with' : 'without')}, section: 'Optional Modules')
 
 build_module_portal = dbus_dep.found()
 if build_module_portal
-pipewire_module_portal = shared_library('pipewire-module-portal', [ 'module-portal.c' ],
-  include_directories : [configinc],
-  install : true,
-  install_dir : modules_install_dir,
-  install_rpath: modules_install_dir,
-  dependencies : [dbus_dep, mathlib, dl_lib, pipewire_dep],
-)
+  pipewire_module_portal = shared_library('pipewire-module-portal', [ 'module-portal.c' ],
+    include_directories : [configinc],
+    install : true,
+    install_dir : modules_install_dir,
+    install_rpath: modules_install_dir,
+    dependencies : [dbus_dep, mathlib, dl_lib, pipewire_dep],
+  )
 endif
 summary({'portal': build_module_portal}, bool_yn: true, section: 'Optional Modules')
 
@@ -333,16 +331,16 @@ pipewire_module_protocol_pulse = shared_library('pipewire-module-protocol-pulse'
 )
 
 build_module_pulse_tunnel = pulseaudio_dep.found()
-if build_module_pulse_tunnel
-  pipewire_module_pulse_tunnel = shared_library('pipewire-module-pulse-tunnel',
-  [ 'module-pulse-tunnel.c',
-    'module-protocol-pulse/format.c' ],
-  include_directories : [configinc],
-  install : true,
-  install_dir : modules_install_dir,
-  install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep, pulseaudio_dep],
-)
+  if build_module_pulse_tunnel
+    pipewire_module_pulse_tunnel = shared_library('pipewire-module-pulse-tunnel',
+    [ 'module-pulse-tunnel.c',
+      'module-protocol-pulse/format.c' ],
+    include_directories : [configinc],
+    install : true,
+    install_dir : modules_install_dir,
+    install_rpath: modules_install_dir,
+    dependencies : [mathlib, dl_lib, pipewire_dep, pulseaudio_dep],
+  )
 endif
 summary({'pulse-tunnel': build_module_pulse_tunnel}, bool_yn: true, section: 'Optional Modules')
 
@@ -475,44 +473,44 @@ pipewire_module_session_manager = shared_library('pipewire-module-session-manage
 
 build_module_zeroconf_discover = avahi_dep.found()
 if build_module_zeroconf_discover
-pipewire_module_zeroconf_discover = shared_library('pipewire-module-zeroconf-discover',
-  [ 'module-zeroconf-discover.c',
-    'module-protocol-pulse/format.c',
-    'module-zeroconf-discover/avahi-poll.c' ],
-  include_directories : [configinc],
-  install : true,
-  install_dir : modules_install_dir,
-  install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, avahi_dep],
-)
+  pipewire_module_zeroconf_discover = shared_library('pipewire-module-zeroconf-discover',
+    [ 'module-zeroconf-discover.c',
+      'module-protocol-pulse/format.c',
+      'module-zeroconf-discover/avahi-poll.c' ],
+    include_directories : [configinc],
+    install : true,
+    install_dir : modules_install_dir,
+    install_rpath: modules_install_dir,
+    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, avahi_dep],
+  )
 endif
 summary({'zeroconf-discover': build_module_zeroconf_discover}, bool_yn: true, section: 'Optional Modules')
 
 build_module_raop_discover = avahi_dep.found()
 if build_module_raop_discover
-pipewire_module_raop_discover = shared_library('pipewire-module-raop-discover',
-  [ 'module-raop-discover.c',
-    'module-zeroconf-discover/avahi-poll.c' ],
-  include_directories : [configinc],
-  install : true,
-  install_dir : modules_install_dir,
-  install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, avahi_dep],
-)
+  pipewire_module_raop_discover = shared_library('pipewire-module-raop-discover',
+    [ 'module-raop-discover.c',
+      'module-zeroconf-discover/avahi-poll.c' ],
+    include_directories : [configinc],
+    install : true,
+    install_dir : modules_install_dir,
+    install_rpath: modules_install_dir,
+    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, avahi_dep],
+  )
 endif
 summary({'raop-discover (needs Avahi)': build_module_raop_discover}, bool_yn: true, section: 'Optional Modules')
 
 build_module_raop = openssl_lib.found()
 if build_module_raop
-pipewire_module_raop_sink = shared_library('pipewire-module-raop-sink',
-  [ 'module-raop-sink.c',
-    'module-raop/rtsp-client.c' ],
-  include_directories : [configinc],
-  install : true,
-  install_dir : modules_install_dir,
-  install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, openssl_lib],
-)
+  pipewire_module_raop_sink = shared_library('pipewire-module-raop-sink',
+    [ 'module-raop-sink.c',
+      'module-raop/rtsp-client.c' ],
+    include_directories : [configinc],
+    install : true,
+    install_dir : modules_install_dir,
+    install_rpath: modules_install_dir,
+    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, openssl_lib],
+  )
 endif
 summary({'raop-sink (requires OpenSSL)': build_module_raop}, bool_yn: true, section: 'Optional Modules')
 
@@ -539,37 +537,37 @@ pipewire_module_rtp_sink = shared_library('pipewire-module-rtp-sink',
 
 build_module_roc = roc_dep.found()
 if build_module_roc
-pipewire_module_roc_sink = shared_library('pipewire-module-roc-sink',
-  [ 'module-roc-sink.c' ],
-  include_directories : [configinc],
-  install : true,
-  install_dir : modules_install_dir,
-  install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, roc_dep],
-)
+  pipewire_module_roc_sink = shared_library('pipewire-module-roc-sink',
+    [ 'module-roc-sink.c' ],
+    include_directories : [configinc],
+    install : true,
+    install_dir : modules_install_dir,
+    install_rpath: modules_install_dir,
+    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, roc_dep],
+  )
 
-pipewire_module_roc_source = shared_library('pipewire-module-roc-source',
-  [ 'module-roc-source.c' ],
-  include_directories : [configinc],
-  install : true,
-  install_dir : modules_install_dir,
-  install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, roc_dep],
-)
+  pipewire_module_roc_source = shared_library('pipewire-module-roc-source',
+    [ 'module-roc-source.c' ],
+    include_directories : [configinc],
+    install : true,
+    install_dir : modules_install_dir,
+    install_rpath: modules_install_dir,
+    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, roc_dep],
+  )
 endif
 summary({'roc-sink': build_module_roc}, bool_yn: true, section: 'Optional Modules')
 summary({'roc-source': build_module_roc}, bool_yn: true, section: 'Optional Modules')
 
 build_module_x11_bell = x11_dep.found() and canberra_dep.found()
 if build_module_x11_bell
-pipewire_module_x11_bell = shared_library('pipewire-module-x11-bell',
-  [ 'module-x11-bell.c' ],
-  include_directories : [configinc],
-  install : true,
-  install_dir : modules_install_dir,
-  install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, x11_dep, xfixes_dep, canberra_dep],
-)
+  pipewire_module_x11_bell = shared_library('pipewire-module-x11-bell',
+    [ 'module-x11-bell.c' ],
+    include_directories : [configinc],
+    install : true,
+    install_dir : modules_install_dir,
+    install_rpath: modules_install_dir,
+    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, x11_dep, xfixes_dep, canberra_dep],
+  )
 endif
 summary({'x11-bell': build_module_x11_bell}, bool_yn: true, section: 'Optional Modules')
 
@@ -584,27 +582,27 @@ pipewire_module_fallback_sink = shared_library('pipewire-module-fallback-sink',
 
 build_module_avb = get_option('avb').require(host_machine.system() == 'linux', error_message: 'AVB support is only available on Linux').allowed()
 if build_module_avb
-pipewire_module_avb = shared_library('pipewire-module-avb',
-  [ 'module-avb.c',
-    'module-avb/avb.c',
-    'module-avb/adp.c',
-    'module-avb/acmp.c',
-    'module-avb/aecp.c',
-    'module-avb/aecp-aem.c',
-    'module-avb/avdecc.c',
-    'module-avb/maap.c',
-    'module-avb/mmrp.c',
-    'module-avb/mrp.c',
-    'module-avb/msrp.c',
-    'module-avb/mvrp.c',
-    'module-avb/srp.c',
-    'module-avb/stream.c'
-    ],
-  include_directories : [configinc],
-  install : true,
-  install_dir : modules_install_dir,
-  install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
-)
+  pipewire_module_avb = shared_library('pipewire-module-avb',
+    [ 'module-avb.c',
+      'module-avb/avb.c',
+      'module-avb/adp.c',
+      'module-avb/acmp.c',
+      'module-avb/aecp.c',
+      'module-avb/aecp-aem.c',
+      'module-avb/avdecc.c',
+      'module-avb/maap.c',
+      'module-avb/mmrp.c',
+      'module-avb/mrp.c',
+      'module-avb/msrp.c',
+      'module-avb/mvrp.c',
+      'module-avb/srp.c',
+      'module-avb/stream.c'
+      ],
+    include_directories : [configinc],
+    install : true,
+    install_dir : modules_install_dir,
+    install_rpath: modules_install_dir,
+    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
+  )
 endif
 summary({'avb': build_module_avb}, bool_yn: true, section: 'Optional Modules')

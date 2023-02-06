@@ -847,6 +847,7 @@ static void core_removed(void *d)
 }
 
 static const struct pw_proxy_events core_proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
 	.removed = core_removed,
 };
 

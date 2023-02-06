@@ -38,6 +38,7 @@
 #include <spa/node/node.h>
 #include <spa/node/io.h>
 #include <spa/debug/mem.h>
+#include <spa/debug/log.h>
 #include <spa/support/log-impl.h>
 
 SPA_LOG_IMPL(logger);
@@ -682,8 +683,10 @@ static int run_convert(struct context *ctx, struct data *in_data,
 			res = memcmp(b->datas[j].data, out_data->data[k], out_data->size);
 			if (res != 0) {
 				fprintf(stderr, "error port %d plane %d\n", i, j);
-				spa_debug_mem(0, b->datas[j].data, out_data->size);
-				spa_debug_mem(0, out_data->data[k], out_data->size);
+				spa_debug_log_mem(&logger.log, SPA_LOG_LEVEL_WARN,
+						0, b->datas[j].data, out_data->size);
+				spa_debug_log_mem(&logger.log, SPA_LOG_LEVEL_WARN,
+						2, out_data->data[k], out_data->size);
 			}
 			spa_assert_se(res == 0);
 

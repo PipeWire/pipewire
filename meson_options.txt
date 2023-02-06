@@ -285,3 +285,36 @@ option('compress-offload',
        description: 'Enable ALSA Compress-Offload support',
        type: 'feature',
        value: 'disabled')
+option('pam-defaults-install',
+       description: 'Install limits.d file modifying defaults for all PAM users. Only for old kernels/systemd!',
+       type: 'boolean',
+       value: 'false')
+option('pam-memlock-default',
+       description : 'The default memlock value for any PAM user in kilobytes. Multiples of 64 recommended.',
+       type : 'integer',
+       min: 640,
+       value: 8192)
+option('rlimits-install',
+       description: 'Install PAM limits.d file. Voids all following rlimits-* options, if false',
+       type: 'boolean',
+       value: 'true')
+option('rlimits-match',
+       description : 'PAM match rule for the generated limits.d file. @<name> denotes matching a group.',
+       type : 'string',
+       value: '@pipewire')
+option('rlimits-rtprio',
+       description : 'RR and FIFO scheduler priority permitted for realtime threads of the matching user(s)',
+       type : 'integer',
+       min: 11,
+       max: 99,
+       value: 95)
+option('rlimits-memlock',
+       description : 'kB of memory each process of the user matched by the rule can lock. Can be unlimited .',
+       type : 'string',
+       value: '4194304')
+option('rlimits-nice',
+       description : 'Not niceness permitted for non-realtime threads of the matching user(s)',
+       type : 'integer',
+       min: -20,
+       max: -1,
+       value: -19)

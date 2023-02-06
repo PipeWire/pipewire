@@ -1,0 +1,8 @@
+# This file was installed by PipeWire project for its libpipewire-module-rt.so
+
+# It's believed to be acceptable to have match rules that will never be true
+# i.e. a group that does not exist.
+#
+@MATCH@   - rtprio  @RTPRIO@
+@MATCH@   - nice    @NICE@
+@MATCH@   - memlock @MEMLOCK@

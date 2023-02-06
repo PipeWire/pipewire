@@ -1,0 +1,20 @@
+# This file was installed by PipeWire project for buffer locking to always work
+
+# Required to memlock audio buffers for all client types
+#
+# This will match all PAM users i.e. those going through the login procedure but
+# it should not get applied to system daemons, since they are run bypassing PAM.
+#
+# While at first glance this might appear very relevant, in fact abusing this
+# can at most allow for either more rapid OOM or enhance malicious system memory
+# thrashing while evading systemd-oomd limits that are based on the requirement
+# that swap utilization must be high before issues arise. As such it's perfectly
+# reasonable to just set a limit where each client can lock a few megabytes with
+# nearly no impact on regular systems. Meanwhile malicious attackers can OOM
+# just as they could. And instead tooling for OOM and resource abuse should be
+# improved, if such denial of service attacks are a serious consideration at all.
+#
+# Starting with Linux 5.16 or systemd v253 the default is 8192 which is plenty
+# good enough and this file should not be installed on such systems.
+#
+*         - memlock @PAM_MEMLOCK@

@@ -1,3 +1,4 @@
+subdir('module-rt')
 subdir('spa')
 
 # The list of "main" source files for modules, the ones that have the

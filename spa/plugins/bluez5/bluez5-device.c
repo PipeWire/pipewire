@@ -1373,7 +1373,10 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		name = spa_bt_profile_name(profile);
 
 		/* If we can't codec switch, emit codecless profile */
-		if ((codec != 0) != can_bap_codec_switch(this)) {
+		if (current && !can_bap_codec_switch(this)) {
+			codec = 0;
+			index = get_index_from_profile(this, profile_index, codec);
+		} else if ((codec != 0) != can_bap_codec_switch(this)) {
 			errno = -EINVAL;
 			return NULL;
 		}

@@ -1938,6 +1938,8 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 					pw_log_error("input port %s not found", v);
 					goto error;
 				} else {
+					bool disabled = false;
+
 					desc = port->node->desc;
 					d = desc->desc;
 					if (i == 0 && port->external != SPA_ID_INVALID) {
@@ -1972,12 +1974,14 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 								gp->hndl = &peer->node->hndl[i];
 								gp->port = peer->p;
 								gp->next = true;
+								disabled = true;
 							}
 							if (gp != NULL)
 								gp->next = false;
 						}
-						port->node->disabled = true;
-					} else {
+						port->node->disabled = disabled;
+					}
+					if (!disabled) {
 						pw_log_info("input port %s[%d]:%s",
 							port->node->name, i, d->ports[port->p].name);
 						port->external = graph->n_input;

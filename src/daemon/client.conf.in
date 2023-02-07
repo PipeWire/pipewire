@@ -31,8 +31,9 @@ context.spa-libs = {
 
 context.modules = [
     #{ name = <module-name>
-    #    [ args  = { <key> = <value> ... } ]
-    #    [ flags = [ [ ifexists ] [ nofail ] ]
+    #    ( args  = { <key> = <value> ... } )
+    #    ( flags = [ ( ifexists ) ( nofail ) ] )
+    #    ( condition = [ { <key> = <value> ... } ... ] )
     #}
     #
     # Loads a module with the given parameters.

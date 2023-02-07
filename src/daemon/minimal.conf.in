@@ -60,8 +60,9 @@ context.spa-libs = {
 
 context.modules = [
     #{ name = <module-name>
-    #    [ args  = { <key> = <value> ... } ]
-    #    [ flags = [ [ ifexists ] [ nofail ] ]
+    #    ( args  = { <key> = <value> ... } )
+    #    ( flags = [ ( ifexists ) ( nofail ) ] )
+    #    ( condition = [ { <key> = <value> ... } ... ] )
     #}
     #
     # Loads a module with the given parameters.
@@ -135,8 +136,9 @@ context.modules = [
 
 context.objects = [
     #{ factory = <factory-name>
-    #    [ args  = { <key> = <value> ... } ]
-    #    [ flags = [ [ nofail ] ]
+    #    ( args  = { <key> = <value> ... } )
+    #    ( flags = [ ( nofail ) ] )
+    #    ( condition = [ { <key> = <value> ... } ... ] )
     #}
     #
     # Creates an object from a PipeWire factory with the given parameters.
@@ -339,7 +341,10 @@ context.objects = [
 ]
 
 context.exec = [
-    #{ path = <program-name> [ args = "<arguments>" ] }
+    #{   path = <program-name>
+    #    ( args = "<arguments>" )
+    #    ( condition = [ { <key> = <value> ... } ... ] )
+    #}
     #
     # Execute the given program with arguments.
     #

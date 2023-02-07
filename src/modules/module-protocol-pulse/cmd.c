@@ -76,7 +76,10 @@ static int do_cmd(struct impl *impl, const char *cmd, char *args, const char *fl
 
 /*
  * pulse.cmd = [
- *   { cmd = <command> [ args = "<arguments>" ] }
+ *   {   cmd = <command>
+ *       ( args = "<arguments>" )
+ *       ( flags = [ ( nofail ) ] )
+ *   }
  *   ...
  * ]
  */

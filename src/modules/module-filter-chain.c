@@ -273,6 +273,12 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * - `max-delay` the maximum delay in seconds. The "Delay (s)" parameter will
  *              be clamped to this value.
  *
+ * ### Invert
+ *
+ * The invert plugin can be used to invert the phase of the signal.
+ *
+ * It has an input port "In" and an output port "Out".
+ *
  * ## General options
  *
  * Options with well-known behavior. Most options can be added to the global

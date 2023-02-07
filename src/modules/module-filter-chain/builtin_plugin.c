@@ -978,6 +978,38 @@ static const struct fc_descriptor delay_desc = {
 	.cleanup = delay_cleanup,
 };
 
+static void invert_run(void * Instance, unsigned long SampleCount)
+{
+	struct builtin *impl = Instance;
+	float *in = impl->port[1], *out = impl->port[0];
+	unsigned long n;
+	for (n = 0; n < SampleCount; n++)
+		out[n] = -in[n];
+}
+
+static struct fc_port invert_ports[] = {
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "In",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+};
+
+static const struct fc_descriptor invert_desc = {
+	.name = "invert",
+
+	.n_ports = 2,
+	.ports = invert_ports,
+
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = invert_run,
+	.cleanup = builtin_cleanup,
+};
+
 static const struct fc_descriptor * builtin_descriptor(unsigned long Index)
 {
 	switch(Index) {
@@ -1005,6 +1037,8 @@ static const struct fc_descriptor * builtin_descriptor(unsigned long Index)
 		return &convolve_desc;
 	case 11:
 		return &delay_desc;
+	case 12:
+		return &invert_desc;
 	}
 	return NULL;
 }

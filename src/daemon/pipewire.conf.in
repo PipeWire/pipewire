@@ -44,6 +44,9 @@ context.properties = {
     vm.overrides = {
         default.clock.min-quantum = 1024
     }
+
+    # keys checked below to disable module loading
+    module.x11.bell = true
 }
 
 context.spa-libs = {
@@ -68,13 +71,16 @@ context.spa-libs = {
 
 context.modules = [
     #{ name = <module-name>
-    #    [ args  = { <key> = <value> ... } ]
-    #    [ flags = [ [ ifexists ] [ nofail ] ]
+    #    ( args  = { <key> = <value> ... } )
+    #    ( flags = [ ( ifexists ) ( nofail ) ] )
+    #    ( condition = [ { <key> = <value> ... } ... ] )
     #}
     #
     # Loads a module with the given parameters.
     # If ifexists is given, the module is ignored when it is not found.
     # If nofail is given, module initialization failures are ignored.
+    # If condition is given, the module is loaded only when the context
+    # properties all match the match rules.
     #
 
     # Uses realtime scheduling to boost the audio thread priorities. This uses
@@ -167,17 +173,21 @@ context.modules = [
             #x11.xauthority = null
         }
         flags = [ ifexists nofail ]
+        condition = [ { module.x11.bell = true } ]
     }
 ]
 
 context.objects = [
     #{ factory = <factory-name>
-    #    [ args  = { <key> = <value> ... } ]
-    #    [ flags = [ [ nofail ] ]
+    #    ( args  = { <key> = <value> ... } )
+    #    ( flags = [ ( nofail ) ] )
+    #    ( condition = [ { <key> = <value> ... } ... ] )
     #}
     #
     # Creates an object from a PipeWire factory with the given parameters.
     # If nofail is given, errors are ignored (and no object is created).
+    # If condition is given, the object is created only when the context properties
+    # all match the match rules.
     #
     #{ factory = spa-node-factory   args = { factory.name = videotestsrc node.name = videotestsrc Spa:Pod:Object:Param:Props:patternType = 1 } }
     #{ factory = spa-device-factory args = { factory.name = api.jack.device foo=bar } flags = [ nofail ] }
@@ -256,9 +266,14 @@ context.objects = [
 ]
 
 context.exec = [
-    #{ path = <program-name> [ args = "<arguments>" ] }
+    #{   path = <program-name>
+    #    ( args = "<arguments>" )
+    #    ( condition = [ { <key> = <value> ... } ... ] )
+    #}
     #
     # Execute the given program with arguments.
+    # If condition is given, the program is executed only when the context
+    # properties all match the match rules.
     #
     # You can optionally start the session manager here,
     # but it is better to start it as a systemd service.

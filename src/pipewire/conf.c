@@ -605,10 +605,70 @@ static int load_module(struct pw_context *context, const char *key, const char *
 }
 
 /*
+ * {
+ *     # all keys must match the value. ~ in value starts regex.
+ *     <key> = <value>
+ *     ...
+ * }
+ */
+static bool find_match(struct spa_json *arr, const struct spa_dict *props)
+{
+	struct spa_json it[1];
+
+	while (spa_json_enter_object(arr, &it[0]) > 0) {
+		char key[256], val[1024];
+		const char *str, *value;
+		int match = 0, fail = 0;
+		int len;
+
+		while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
+			bool success = false;
+
+			if ((len = spa_json_next(&it[0], &value)) <= 0)
+				break;
+
+			str = spa_dict_lookup(props, key);
+
+			if (spa_json_is_null(value, len)) {
+				success = str == NULL;
+			} else {
+				if (spa_json_parse_stringn(value, len, val, sizeof(val)) < 0)
+					continue;
+				value = val;
+				len = strlen(val);
+			}
+			if (str != NULL) {
+				if (value[0] == '~') {
+					regex_t preg;
+					if (regcomp(&preg, value+1, REG_EXTENDED | REG_NOSUB) == 0) {
+						if (regexec(&preg, str, 0, NULL, 0) == 0)
+							success = true;
+						regfree(&preg);
+					}
+				} else if (strncmp(str, value, len) == 0 &&
+				    strlen(str) == (size_t)len) {
+					success = true;
+				}
+			}
+			if (success) {
+				match++;
+				pw_log_debug("'%s' match '%s' < > '%.*s'", key, str, len, value);
+			}
+			else
+				fail++;
+		}
+		if (match > 0 && fail == 0)
+			return true;
+	}
+	return false;
+}
+
+/*
  * context.modules = [
  *   {   name = <module-name>
- *       [ args = { <key> = <value> ... } ]
- *       [ flags = [ [ ifexists ] [ nofail ] ]
+ *       ( args = { <key> = <value> ... } )
+ *       ( flags = [ ( ifexists ) ( nofail ) ]
+ *       ( condition = [ { key = value, .. } .. ] )
  *   }
  * ]
  */
@@ -617,7 +677,7 @@ static int parse_modules(void *user_data, const char *location,
 {
 	struct data *d = user_data;
 	struct pw_context *context = d->context;
-	struct spa_json it[3];
+	struct spa_json it[4];
 	char key[512], *s;
 	int res = 0;
 
@@ -631,6 +691,7 @@ static int parse_modules(void *user_data, const char *location,
 
 	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
 		char *name = NULL, *args = NULL, *flags = NULL;
+		bool have_match = true;
 
 		while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
 			const char *val;
@@ -653,8 +714,16 @@ static int parse_modules(void *user_data, const char *location,
 					len = spa_json_container_len(&it[2], val, len);
 				flags = (char*)val;
 				spa_json_parse_stringn(val, len, flags, len+1);
+			} else if (spa_streq(key, "condition")) {
+				if (!spa_json_is_array(val, len))
+					break;
+				spa_json_enter(&it[2], &it[3]);
+				have_match = find_match(&it[3], &context->properties->dict);
 			}
 		}
+		if (!have_match)
+			continue;
+
 		if (name != NULL)
 			res = load_module(context, name, args, flags);
 
@@ -698,8 +767,9 @@ static int create_object(struct pw_context *context, const char *key, const char
 /*
  * context.objects = [
  *   {   factory = <factory-name>
- *       [ args  = { <key> = <value> ... } ]
- *       [ flags = [ [ nofail ] ] ]
+ *       ( args  = { <key> = <value> ... } )
+ *       ( flags = [ ( nofail ) ] )
+ *       ( condition = [ { key = value, .. } .. ] )
  *   }
  * ]
  */
@@ -708,7 +778,7 @@ static int parse_objects(void *user_data, const char *location,
 {
 	struct data *d = user_data;
 	struct pw_context *context = d->context;
-	struct spa_json it[3];
+	struct spa_json it[4];
 	char key[512], *s;
 	int res = 0;
 
@@ -722,6 +792,7 @@ static int parse_objects(void *user_data, const char *location,
 
 	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
 		char *factory = NULL, *args = NULL, *flags = NULL;
+		bool have_match = true;
 
 		while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
 			const char *val;
@@ -745,8 +816,16 @@ static int parse_objects(void *user_data, const char *location,
 
 				flags = (char*)val;
 				spa_json_parse_stringn(val, len, flags, len+1);
+			} else if (spa_streq(key, "condition")) {
+				if (!spa_json_is_array(val, len))
+					break;
+				spa_json_enter(&it[2], &it[3]);
+				have_match = find_match(&it[3], &context->properties->dict);
 			}
 		}
+		if (!have_match)
+			continue;
+
 		if (factory != NULL)
 			res = create_object(context, factory, args, flags);
 
@@ -807,8 +886,9 @@ static int do_exec(struct pw_context *context, const char *key, const char *args
 
 /*
  * context.exec = [
- *   { path = <program-name>
- *     [ args = "<arguments>" ]
+ *   {   path = <program-name>
+ *       ( args = "<arguments>" )
+ *       ( condition = [ { key = value, .. } .. ] )
  *   }
  * ]
  */
@@ -817,7 +897,7 @@ static int parse_exec(void *user_data, const char *location,
 {
 	struct data *d = user_data;
 	struct pw_context *context = d->context;
-	struct spa_json it[3];
+	struct spa_json it[4];
 	char key[512], *s;
 	int res = 0;
 
@@ -831,6 +911,7 @@ static int parse_exec(void *user_data, const char *location,
 
 	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
 		char *path = NULL, *args = NULL;
+		bool have_match = true;
 
 		while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
 			const char *val;
@@ -845,8 +926,16 @@ static int parse_exec(void *user_data, const char *location,
 			} else if (spa_streq(key, "args")) {
 				args = (char*)val;
 				spa_json_parse_stringn(val, len, args, len+1);
+			} else if (spa_streq(key, "condition")) {
+				if (!spa_json_is_array(val, len))
+					break;
+				spa_json_enter(&it[2], &it[3]);
+				have_match = find_match(&it[3], &context->properties->dict);
 			}
 		}
+		if (!have_match)
+			continue;
+
 		if (path != NULL)
 			res = do_exec(context, path, args);
 
@@ -1013,65 +1102,6 @@ int pw_context_conf_update_props(struct pw_context *context,
 	return res == 0 ? data.count : res;
 }
 
-
-/*
- * {
- *     # all keys must match the value. ~ in value starts regex.
- *     <key> = <value>
- *     ...
- * }
- */
-static bool find_match(struct spa_json *arr, const struct spa_dict *props)
-{
-	struct spa_json it[1];
-
-	while (spa_json_enter_object(arr, &it[0]) > 0) {
-		char key[256], val[1024];
-		const char *str, *value;
-		int match = 0, fail = 0;
-		int len;
-
-		while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
-			bool success = false;
-
-			if ((len = spa_json_next(&it[0], &value)) <= 0)
-				break;
-
-			str = spa_dict_lookup(props, key);
-
-			if (spa_json_is_null(value, len)) {
-				success = str == NULL;
-			} else {
-				if (spa_json_parse_stringn(value, len, val, sizeof(val)) < 0)
-					continue;
-				value = val;
-				len = strlen(val);
-			}
-			if (str != NULL) {
-				if (value[0] == '~') {
-					regex_t preg;
-					if (regcomp(&preg, value+1, REG_EXTENDED | REG_NOSUB) == 0) {
-						if (regexec(&preg, str, 0, NULL, 0) == 0)
-							success = true;
-						regfree(&preg);
-					}
-				} else if (strncmp(str, value, len) == 0 &&
-				    strlen(str) == (size_t)len) {
-					success = true;
-				}
-			}
-			if (success) {
-				match++;
-				pw_log_debug("'%s' match '%s' < > '%.*s'", key, str, len, value);
-			}
-			else
-				fail++;
-		}
-		if (match > 0 && fail == 0)
-			return true;
-	}
-	return false;
-}
 
 /**
  * [

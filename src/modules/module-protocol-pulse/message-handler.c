@@ -1,3 +1,7 @@
+/* PipeWire */
+/* SPDX-FileCopyrightText: Copyright © 2021 Pauli Virtanen */
+/* SPDX-License-Identifier: MIT */
+
 #include <stdint.h>
 
 #include <regex.h>

@@ -1,3 +1,7 @@
+/* PipeWire */
+/* SPDX-FileCopyrightText: Copyright © 2021 Pauli Virtanen */
+/* SPDX-License-Identifier: MIT */
+
 #ifndef PULSE_SERVER_MESSAGE_HANDLER_H
 #define PULSE_SERVER_MESSAGE_HANDLER_H
 

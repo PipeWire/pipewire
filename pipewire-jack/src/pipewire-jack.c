@@ -5784,15 +5784,17 @@ jack_time_t jack_frames_to_time(const jack_client_t *client, jack_nframes_t fram
 {
 	struct client *c = (struct client *) client;
 	struct spa_io_position *pos;
-	double df;
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 
-	if (SPA_UNLIKELY((pos = c->rt.position) == NULL))
+	if (SPA_UNLIKELY((pos = c->rt.position) == NULL) || c->buffer_frames == 0)
 		return 0;
 
-	df = (frames - pos->clock.position) * (double)SPA_NSEC_PER_SEC / c->sample_rate;
-	return (pos->clock.nsec + (int64_t)rint(df)) / SPA_NSEC_PER_USEC;
+	uint64_t w = pos->clock.nsec/SPA_NSEC_PER_USEC;
+	uint64_t nw = pos->clock.next_nsec/SPA_NSEC_PER_USEC;
+	int64_t df = (uint64_t)frames - pos->clock.position;
+	int64_t dp = nw - w;
+	return w + (int64_t)rint((double) df * (double) dp / c->buffer_frames);
 }
 
 SPA_EXPORT
@@ -5800,15 +5802,17 @@ jack_nframes_t jack_time_to_frames(const jack_client_t *client, jack_time_t usec
 {
 	struct client *c = (struct client *) client;
 	struct spa_io_position *pos;
-	double du;
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 
 	if (SPA_UNLIKELY((pos = c->rt.position) == NULL))
 		return 0;
 
-	du = (usecs - pos->clock.nsec/SPA_NSEC_PER_USEC) * (double)c->sample_rate / SPA_USEC_PER_SEC;
-	return pos->clock.position + (int32_t)rint(du);
+	uint64_t w = pos->clock.nsec/SPA_NSEC_PER_USEC;
+	uint64_t nw = pos->clock.next_nsec/SPA_NSEC_PER_USEC;
+	int64_t du = usecs - w;
+	int64_t dp = nw - w;
+	return pos->clock.position + (int64_t)rint((double)du / (double)dp * c->buffer_frames);
 }
 
 SPA_EXPORT

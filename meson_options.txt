@@ -284,7 +284,7 @@ option('gsettings',
 option('compress-offload',
        description: 'Enable ALSA Compress-Offload support',
        type: 'feature',
-       value: 'disabled')
+       value: 'auto')
 option('pam-defaults-install',
        description: 'Install limits.d file modifying defaults for all PAM users. Only for old kernels/systemd!',
        type: 'boolean',

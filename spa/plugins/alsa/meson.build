@@ -14,9 +14,8 @@ spa_alsa_sources = ['alsa.c',
                 'alsa-seq-bridge.c',
                 'alsa-seq.c']
 
-if tinycompress_dep.found()
-  spa_alsa_sources += [ 'alsa-compress-offload-sink.c' ]
-  spa_alsa_dependencies += tinycompress_dep
+if compress_offload_option.allowed()
+  spa_alsa_sources += [ 'alsa-compress-offload-sink.c', 'compress-offload-api.c' ]
 endif
 
 spa_alsa = shared_library(

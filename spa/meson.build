@@ -92,9 +92,9 @@ if get_option('spa-plugins').allowed()
   libcamera_dep = dependency('libcamera', required: get_option('libcamera'))
   summary({'libcamera': libcamera_dep.found()}, bool_yn: true, section: 'Backend')
 
-  tinycompress_dep = cc.find_library('tinycompress', has_headers: ['tinycompress/tinycompress.h' ], required: get_option('compress-offload'))
-  summary({'Compress-Offload': tinycompress_dep.found()}, bool_yn: true, section: 'Backend')
-  cdata.set('HAVE_ALSA_COMPRESS_OFFLOAD', tinycompress_dep.found())
+  compress_offload_option = get_option('compress-offload')
+  summary({'Compress-Offload': compress_offload_option.allowed()}, bool_yn: true, section: 'Backend')
+  cdata.set('HAVE_ALSA_COMPRESS_OFFLOAD', compress_offload_option.allowed())
 
   # common dependencies
   libudev_dep = dependency('libudev', required: alsa_dep.found() or get_option('udev').enabled() or get_option('v4l2').enabled())

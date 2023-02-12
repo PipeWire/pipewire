@@ -38,9 +38,8 @@ pwcat_deps = [ sndfile_dep ]
 if get_option('pw-cat').allowed() and sndfile_dep.found()
   build_pw_cat = true
 
-  if pw_cat_ffmpeg.allowed() and avcodec_dep.found() and avformat_dep.found()
-    pwcat_deps += avcodec_dep
-    pwcat_deps += avformat_dep
+  if pw_cat_ffmpeg.allowed() and avcodec_dep.found() and avformat_dep.found() and avutil_dep.found()
+    pwcat_deps += [avcodec_dep, avformat_dep, avutil_dep]
     build_pw_cat_with_ffmpeg = true
   endif
 

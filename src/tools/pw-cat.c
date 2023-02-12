@@ -35,6 +35,7 @@
 #ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
+#include <libavutil/log.h>
 #endif
 
 #include "midifile.h"
@@ -1495,6 +1496,10 @@ int main(int argc, char *argv[])
 
 	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
+
+#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
+	av_log_set_level(AV_LOG_DEBUG);
+#endif
 
 	flags |= PW_STREAM_FLAG_AUTOCONNECT;
 

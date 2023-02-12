@@ -269,13 +269,14 @@ if not readline_dep.found()
 endif
 
 # Both the FFmpeg SPA plugin and the pw-cat FFmpeg integration use libavcodec.
-# But only the latter also needs libavformat.
+# But only the latter also needs libavformat and libavutil.
 # Search for these libraries here, globally, so both of these subprojects can reuse the results.
 pw_cat_ffmpeg = get_option('pw-cat-ffmpeg')
 ffmpeg = get_option('ffmpeg')
 if pw_cat_ffmpeg.allowed() or ffmpeg.allowed()
   avcodec_dep = dependency('libavcodec', required: pw_cat_ffmpeg.enabled() or ffmpeg.enabled())
   avformat_dep = dependency('libavformat', required: pw_cat_ffmpeg.enabled())
+  avutil_dep = dependency('libavutil', required: pw_cat_ffmpeg.enabled())
 else
   avcodec_dep = dependency('', required: false)
 endif

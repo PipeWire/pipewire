@@ -239,6 +239,16 @@ int pw_filter_set_active(struct pw_filter *filter, bool active);
  * be called when all data is played or recorded */
 int pw_filter_flush(struct pw_filter *filter, bool drain);
 
+/** Check if the filter is driving. The filter needs to have the
+ * PW_FILTER_FLAG_DRIVER set. When the filter is driving,
+ * pw_filter_trigger_process() needs to be called when data is
+ * available (output) or needed (input). Since 0.3.66 */
+bool pw_filter_is_driving(struct pw_filter *filter);
+
+/** Trigger a push/pull on the filter. One iteration of the graph will
+ * be scheduled and process() will be called. Since 0.3.66 */
+int pw_filter_trigger_process(struct pw_filter *filter);
+
 /**
  * \}
  */

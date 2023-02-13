@@ -98,12 +98,12 @@ struct port {
 	uint32_t change_mask_all;
 	struct spa_port_info info;
 	struct spa_list param_list;
-#define IDX_EnumFormat	0
-#define IDX_Meta	1
-#define IDX_IO		2
-#define IDX_Format	3
-#define IDX_Buffers	4
-#define IDX_Latency	5
+#define PORT_EnumFormat	0
+#define PORT_Meta	1
+#define PORT_IO		2
+#define PORT_Format	3
+#define PORT_Buffers	4
+#define PORT_Latency	5
 #define N_PORT_PARAMS	6
 	struct spa_param_info params[N_PORT_PARAMS];
 
@@ -145,9 +145,9 @@ struct filter {
 	uint32_t change_mask_all;
 	struct spa_node_info info;
 	struct spa_list param_list;
-#define IDX_PropInfo		0
-#define IDX_Props		1
-#define IDX_ProcessLatency	2
+#define NODE_PropInfo		0
+#define NODE_Props		1
+#define NODE_ProcessLatency	2
 #define N_NODE_PARAMS		3
 	struct spa_param_info params[N_NODE_PARAMS];
 
@@ -174,11 +174,11 @@ static int get_param_index(uint32_t id)
 {
 	switch (id) {
 	case SPA_PARAM_PropInfo:
-		return IDX_PropInfo;
+		return NODE_PropInfo;
 	case SPA_PARAM_Props:
-		return IDX_Props;
+		return NODE_Props;
 	case SPA_PARAM_ProcessLatency:
-		return IDX_ProcessLatency;
+		return NODE_ProcessLatency;
 	default:
 		return -1;
 	}
@@ -188,17 +188,17 @@ static int get_port_param_index(uint32_t id)
 {
 	switch (id) {
 	case SPA_PARAM_EnumFormat:
-		return IDX_EnumFormat;
+		return PORT_EnumFormat;
 	case SPA_PARAM_Meta:
-		return IDX_Meta;
+		return PORT_Meta;
 	case SPA_PARAM_IO:
-		return IDX_IO;
+		return PORT_IO;
 	case SPA_PARAM_Format:
-		return IDX_Format;
+		return PORT_Format;
 	case SPA_PARAM_Buffers:
-		return IDX_Buffers;
+		return PORT_Buffers;
 	case SPA_PARAM_Latency:
-		return IDX_Latency;
+		return PORT_Latency;
 	default:
 		return -1;
 	}
@@ -1530,9 +1530,9 @@ pw_filter_connect(struct pw_filter *filter,
 	impl->info.max_output_ports = UINT32_MAX;
 	impl->info.flags = impl->process_rt ? SPA_NODE_FLAG_RT : 0;
 	impl->info.props = &filter->properties->dict;
-	impl->params[IDX_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, 0);
-	impl->params[IDX_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_WRITE);
-	impl->params[IDX_ProcessLatency] = SPA_PARAM_INFO(SPA_PARAM_ProcessLatency, 0);
+	impl->params[NODE_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, 0);
+	impl->params[NODE_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_WRITE);
+	impl->params[NODE_ProcessLatency] = SPA_PARAM_INFO(SPA_PARAM_ProcessLatency, 0);
 	impl->info.params = impl->params;
 	impl->info.n_params = N_NODE_PARAMS;
 	impl->info.change_mask = impl->change_mask_all;
@@ -1712,12 +1712,12 @@ void *pw_filter_add_port(struct pw_filter *filter,
 		p->info.flags |= SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
 	p->info.props = &p->props->dict;
 	p->change_mask_all |= SPA_PORT_CHANGE_MASK_PARAMS;
-	p->params[IDX_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
-	p->params[IDX_Meta] = SPA_PARAM_INFO(SPA_PARAM_Meta, 0);
-	p->params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
-	p->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-	p->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
-	p->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_WRITE);
+	p->params[PORT_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
+	p->params[PORT_Meta] = SPA_PARAM_INFO(SPA_PARAM_Meta, 0);
+	p->params[PORT_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
+	p->params[PORT_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	p->params[PORT_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	p->params[PORT_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_WRITE);
 	p->info.params = p->params;
 	p->info.n_params = N_PORT_PARAMS;
 

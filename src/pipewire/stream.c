@@ -123,7 +123,7 @@ struct stream {
 		struct spa_io_position *position;
 	} rt;
 
-	uint32_t port_change_mask_all;
+	uint64_t port_change_mask_all;
 	struct spa_port_info port_info;
 	struct pw_properties *port_props;
 #define PORT_EnumFormat	0
@@ -137,7 +137,7 @@ struct stream {
 
 	struct spa_list param_list;
 
-	uint32_t change_mask_all;
+	uint64_t change_mask_all;
 	struct spa_node_info info;
 #define NODE_PropInfo	0
 #define NODE_Props	1

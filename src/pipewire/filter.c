@@ -95,7 +95,7 @@ struct port {
 
 	struct pw_properties *props;
 
-	uint32_t change_mask_all;
+	uint64_t change_mask_all;
 	struct spa_port_info info;
 	struct spa_list param_list;
 #define PORT_EnumFormat	0
@@ -142,7 +142,7 @@ struct filter {
 	struct spa_list port_list;
 	struct pw_map ports[2];
 
-	uint32_t change_mask_all;
+	uint64_t change_mask_all;
 	struct spa_node_info info;
 	struct spa_list param_list;
 #define NODE_PropInfo		0

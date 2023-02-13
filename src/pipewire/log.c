@@ -29,6 +29,7 @@
 
 #include <spa/pod/pod.h>
 #include <spa/debug/types.h>
+#include <spa/debug/format.h>
 #include <spa/pod/iter.h>
 #include <spa/utils/list.h>
 
@@ -241,13 +242,14 @@ void pw_log_log_object(enum spa_log_level level,
 {
 	struct spa_debug_log_ctx ctx = SPA_LOGF_DEBUG_INIT(global_log, level,
 			topic, file, line, func );
-	if (flags & PW_LOG_OBJECT_POD) {
+	if (object == NULL) {
+		pw_log_logt(level, topic, file, line, func, "NULL");
+	} else {
 		const struct spa_pod *pod = object;
-		if (pod == NULL) {
-			pw_log_logt(level, topic, file, line, func, "NULL");
-		} else {
+		if (flags & PW_LOG_OBJECT_POD)
 			spa_debugc_pod(&ctx.ctx, 0, SPA_TYPE_ROOT, pod);
-		}
+		else if (flags & PW_LOG_OBJECT_FORMAT)
+			spa_debugc_format(&ctx.ctx, 0, NULL, pod);
 	}
 }
 

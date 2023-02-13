@@ -1276,6 +1276,7 @@ void pw_control_destroy(struct pw_control *control);
 void pw_impl_client_unref(struct pw_impl_client *client);
 
 #define PW_LOG_OBJECT_POD	(1<<0)
+#define PW_LOG_OBJECT_FORMAT	(1<<1)
 void pw_log_log_object(enum spa_log_level level, const struct spa_log_topic *topic,
 		const char *file, int line, const char *func, uint32_t flags,
 		const void *object);
@@ -1288,7 +1289,7 @@ void pw_log_log_object(enum spa_log_level level, const struct spa_log_topic *top
 })
 
 #define pw_log_pod(lev,pod) pw_log_object(lev,PW_LOG_TOPIC_DEFAULT,PW_LOG_OBJECT_POD,pod)
-#define pw_log_format(lev,pod) pw_log_object(lev,PW_LOG_TOPIC_DEFAULT,PW_LOG_OBJECT_POD,pod)
+#define pw_log_format(lev,pod) pw_log_object(lev,PW_LOG_TOPIC_DEFAULT,PW_LOG_OBJECT_FORMAT,pod)
 
 bool pw_log_is_default(void);
 

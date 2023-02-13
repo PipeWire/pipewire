@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "config.h"
+
 #include <stddef.h>
 #include <unistd.h>
 #include <string.h>
@@ -114,6 +116,9 @@ impl_log_logtv(void *object,
 	sd_journal_send_with_location(file_buffer, line_buffer, func,
 				      "MESSAGE=%s", message_buffer,
 				      "PRIORITY=%i", priority,
+#ifdef HAVE_GETTID
+				      "TID=%jd", (intmax_t) gettid(),
+#endif
 				      NULL);
 }
 

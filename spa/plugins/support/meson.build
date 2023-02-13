@@ -61,6 +61,7 @@ if systemd_dep.found()
 
   spa_journal_lib = shared_library('spa-journal',
     spa_journal_sources,
+    include_directories : [ configinc ],
     dependencies : [ spa_dep, systemd_dep ],
     install : true,
     install_dir : spa_plugindir / 'support')

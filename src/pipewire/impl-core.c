@@ -351,7 +351,7 @@ core_create_object(void *object,
 	if (obj == NULL)
 		goto error_create_failed;
 
-	return 0;
+	return obj;
 
 error_no_factory:
 	res = -ENOENT;

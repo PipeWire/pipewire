@@ -785,31 +785,6 @@ static void on_process(void *userdata)
 		n_frames = d->maxsize / data->stride;
 		n_frames = SPA_MIN(n_frames, (int)b->requested);
 
-#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
-		n_fill_frames = data->fill(data, p, n_frames);
-
-		if (n_fill_frames > 0 || n_frames == 0) {
-			d->chunk->offset = 0;
-			if (data->data_type == TYPE_ENCODED) {
-				d->chunk->stride = 0;
-				// encoded_playback_fill returns number of bytes
-				// read and not number of frames like other
-				// functions for raw audio.
-				d->chunk->size = n_fill_frames;
-				b->size = n_fill_frames;
-			} else {
-				d->chunk->stride = data->stride;
-				d->chunk->size = n_fill_frames * data->stride;
-				b->size = n_frames;
-			}
-			have_data = true;
-		} else if (n_fill_frames < 0) {
-			fprintf(stderr, "fill error %d\n", n_fill_frames);
-		} else {
-			if (data->verbose)
-				printf("drain start\n");
-		}
-#else
 		n_fill_frames = data->fill(data, p, n_frames);
 
 		if (n_fill_frames > 0 || n_frames == 0) {
@@ -824,7 +799,6 @@ static void on_process(void *userdata)
 			if (data->verbose)
 				printf("drain start\n");
 		}
-#endif
 	} else {
 		offset = SPA_MIN(d->chunk->offset, d->maxsize);
 		size = SPA_MIN(d->chunk->size, d->maxsize - offset);

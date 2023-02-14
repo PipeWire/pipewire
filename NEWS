@@ -1,3 +1,81 @@
+# PipeWire 0.3.66 (2023-02-16)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Fix a regression in the pulseaudio module-combine-stream because the new
+    module-combine-stream was not installed.
+  - PipeWire can now generate a limits.d config file with our recommended
+    settings for priorities and memlock.
+
+
+## PipeWire
+  - Avoid rate switches when the graph is idle.
+  - The rate selection algorithm was improved. This ensures minimal performance
+    and quality loss when resampling.
+  - The default min.quantum was set to 32 again after it got erronously changed
+    to (the too low) 16 in version 0.3.45.
+  - Fix compilation issues with rust bindings because of macros in defines.
+    Work around it for now. (#2952)
+  - Invalid file mappings are now refused (#2617 #2914 #3007)
+  - Modules, exec and objects can now be loaded depending on conditions. One
+    example is the X11-bell module that can now be disabled with a custom
+    property override.
+  - Filter now also supports _trigger_process() to drive the graph.
+  - TID is now added to the journald log.
+  - PipeWire generates and installs */etc/security/limits.d/25-pw-rlimits.conf*
+    that by default contains project's recommended settings. Creation of the
+    pipewire group is left to the distro or user ( `groupadd -r pipewire` ).
+    See the rlimits-* Meson options for controlling this behavior.
+  - Additionally there is now by default disabled Meson option that will
+    install */etc/security/limits.d/20-pw-defaults.conf* with the current Linux
+    default memlock value. Distros with only kernels >=5.16 or always using
+    systemd v251 or newer do not need this. But all other builds should set the
+    `-Dpam-defaults-install=true` Meson option to ensure that the memlock value
+    is always large enough. Thanks to Rickie Schroeder for pointing out that
+    the default Linux memlock value has been somewhat recently increased.
+
+## modules
+  - Install module-combine-stream.
+  - RTP source now has support for custom channel names.
+  - RTP source will now stop when inactive.
+  - There is now
+  - Filter-chain has a new mysofa based spacializer plugin.
+  - The RTP modules can now use direct clock timestamps to send and receive
+    packets. This makes it possible to synchronize sender and receiver with
+    a PTP clock, for example.
+  - Filter-chain now has an invert plugin to invert the polarity of a
+    signal. (#3008)
+
+## SPA
+  - There is now an option to set the channels used for probing Pro Audio
+    devices. This could unlock more samplerates for some devices when they are
+    probed with fewer channels. (#2990)
+  - Support was added for other clocks than the MONOTONIC clock in the
+    driver nodes. This can be used to synchronize the graph to a PTP clock,
+    for example.
+  - The ALSA source has some more headroom when rate matching to avoid
+    stuttering when following another driver.
+  - libcamera controls are now mapped to standard PipeWire property values.
+  - The channelmixer has seen some improvements. MONO and undefined channel
+    layouts are now upmixed and downmixed more correctly. (#3010)
+
+## Bluetooth
+  - Many BAP support fixes.
+
+## GStreamer
+  - The gstreamer elements now support buffer video metadata so that strides
+    are correctly handled.
+  - pipewiresrc will now error out correctly in more cases. (#2935)
+
+## JACK
+  - The frame to/from time functions are improved to also work with negative
+    time and frame offsets.
+
+Older versions:
+
+
 # PipeWire 0.3.65 (2023-01-26)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -108,9 +186,6 @@ This is a bugfix release that is API and ABI compatible with previous
   - pipewiresrc will now advertize DMABUF support if the pipeline suports
     this.
   - pipewiresrc will now always be a live source unless told otherwise.
-
-Older versions:
-
 
 # PipeWire 0.3.64 (2023-01-12)
 

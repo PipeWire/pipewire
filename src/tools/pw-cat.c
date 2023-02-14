@@ -255,14 +255,13 @@ static int sf_playback_fill_f64(struct data *d, void *dest, unsigned int n_frame
 static int encoded_playback_fill(struct data *d, void *dest, unsigned int n_frames)
 {
 	int ret, size = 0;
-	uint8_t buffer[16384] = { 0 };
+	uint8_t buffer[16384];
 
-	ret = fread(buffer, 1, 16384, d->encoded_file);
+	ret = fread(buffer, 1, SPA_MIN(n_frames, sizeof(buffer)), d->encoded_file);
 	if (ret > 0) {
 		memcpy(dest, buffer, ret);
 		size = ret;
 	}
-
 	return (int)size;
 }
 

@@ -133,6 +133,39 @@ static void test_N_1(void)
 			       0.083333, 0.083333, 0.083333, 0.083333, 0.083333, 0.0833333));
 }
 
+static void test_2_N(void)
+{
+	test_mix(2, _M(FL)|_M(FR), 1, _M(MONO), 0, MATRIX(0.5, 0.5));
+	test_mix(2, _M(FL)|_M(FR), 1, 0, 0, MATRIX(0.5, 0.5));
+	test_mix(2, _M(FL)|_M(FR), 2, 0, 0, MATRIX(1.0, 0.0, 0.0, 1.0));
+	test_mix(2, _M(FL)|_M(FR), 2, _M(MONO), 0, MATRIX(1.0, 0.0, 0.0, 1.0));
+	test_mix(2, _M(FL)|_M(FR), 2, _M(FL)|_M(FR), 0, MATRIX(1.0, 0.0, 0.0, 1.0));
+	test_mix(2, _M(FL)|_M(FR), 4, _M(FL)|_M(FR)|_M(LFE)|_M(FC), 0,
+			MATRIX(1.0, 0.0,
+			       0.0, 1.0,
+			       0.0, 0.0,
+			       0.0, 0.0));
+	test_mix(2, _M(FL)|_M(FR), 4, _M(FL)|_M(FR)|_M(LFE)|_M(FC), CHANNELMIX_OPTION_UPMIX,
+			MATRIX(1.0, 0.0,
+			       0.0, 1.0,
+			       0.707107, 0.707107,
+			       0.5, 0.5));
+	test_mix(2, _M(FL)|_M(FR), 6, _M(FL)|_M(FR)|_M(LFE)|_M(FC)|_M(SL)|_M(SR), 0,
+			MATRIX(1.0, 0.0,
+			       0.0, 1.0,
+			       0.0, 0.0,
+			       0.0, 0.0,
+			       0.0, 0.0,
+			       0.0, 0.0));
+	test_mix(2, _M(FL)|_M(FR), 6, _M(FL)|_M(FR)|_M(LFE)|_M(FC)|_M(SL)|_M(SR), CHANNELMIX_OPTION_UPMIX,
+			MATRIX(1.0, 0.0,
+			       0.0, 1.0,
+			       0.707107, 0.707107,
+			       0.5, 0.5,
+			       0.0, 0.0,
+			       0.0, 0.0));
+}
+
 static void test_3p1_N(void)
 {
 	test_mix(4, _M(FL)|_M(FR)|_M(LFE)|_M(FC), 1, _M(MONO), 0,
@@ -370,6 +403,7 @@ int main(int argc, char *argv[])
 	test_1_N_MONO();
 	test_1_N_FC();
 	test_N_1();
+	test_2_N();
 	test_3p1_N();
 	test_4_N();
 	test_5p1_N();

@@ -150,11 +150,59 @@ static const struct channelmix_info *find_channelmix_info(uint32_t src_chan, uin
 #define REAR		(_MASK(RL)|_MASK(RR))
 #define SIDE		(_MASK(SL)|_MASK(SR))
 
+static uint32_t mask_to_ch(struct channelmix *mix, uint64_t mask)
+{
+	uint32_t ch = 0;
+	while (mask > 1) {
+		ch++;
+		mask >>= 1;
+	}
+	return ch;
+}
+
+static void distribute_mix(struct channelmix *mix,
+		float matrix[SPA_AUDIO_MAX_CHANNELS][SPA_AUDIO_MAX_CHANNELS],
+		uint64_t mask)
+{
+	uint32_t i, ch = mask_to_ch(mix, mask);
+	for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
+		matrix[i][ch]= 1.0f;
+}
+static void average_mix(struct channelmix *mix,
+		float matrix[SPA_AUDIO_MAX_CHANNELS][SPA_AUDIO_MAX_CHANNELS],
+		uint64_t mask)
+{
+	uint32_t i, ch = mask_to_ch(mix, mask);
+	for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
+		matrix[ch][i]= 1.0f;
+}
+static void pair_mix(float matrix[SPA_AUDIO_MAX_CHANNELS][SPA_AUDIO_MAX_CHANNELS])
+{
+	uint32_t i;
+	for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
+		matrix[i][i]= 1.0f;
+}
+static bool match_mix(struct channelmix *mix,
+		float matrix[SPA_AUDIO_MAX_CHANNELS][SPA_AUDIO_MAX_CHANNELS],
+		uint64_t src_mask, uint64_t dst_mask)
+{
+	bool matched = false;
+	uint32_t i;
+	for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++) {
+		if ((src_mask & dst_mask & (1ULL << i))) {
+			spa_log_info(mix->log, "matched channel %u (%f)", i, 1.0f);
+			matrix[i][i] = 1.0f;
+			matched = true;
+		}
+	}
+	return matched;
+}
+
 static int make_matrix(struct channelmix *mix)
 {
 	float matrix[SPA_AUDIO_MAX_CHANNELS][SPA_AUDIO_MAX_CHANNELS] = {{ 0.0f }};
-	uint64_t src_mask = mix->src_mask;
-	uint64_t dst_mask = mix->dst_mask;
+	uint64_t src_mask = mix->src_mask, src_paired;
+	uint64_t dst_mask = mix->dst_mask, dst_paired;
 	uint32_t src_chan = mix->src_chan;
 	uint32_t dst_chan = mix->dst_chan;
 	uint64_t unassigned, keep;
@@ -175,39 +223,38 @@ static int make_matrix(struct channelmix *mix)
 	src_mask >>= _SH;
 	dst_mask >>= _SH;
 
-	if (src_mask == 0)
-		src_mask = _MASK(MONO);
-	if (dst_mask == 0)
-		dst_mask = _MASK(MONO);
+	if (src_chan > 1 && (src_mask & _MASK(MONO)))
+		src_mask = 0;
+	if (dst_chan > 1 && (dst_mask & _MASK(MONO)))
+		dst_mask = 0;
 
-	/* unknown channels or just mono channels */
-	if (src_mask & _MASK(MONO) && dst_mask & _MASK(MONO)) {
+	src_paired = src_mask;
+	dst_paired = dst_mask;
+
+	/* unknown channels */
+	if (src_mask == 0 || dst_mask == 0) {
 		if (src_chan == 1) {
-			/* one MONO src goes everywhere */
-			spa_log_info(mix->log, "distribute MONO (%f)", 1.0f);
-			for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
-				matrix[i][0]= 1.0f;
+			/* one src channel goes everywhere */
+			spa_log_info(mix->log, "distribute UNK (%f) %"PRIu64, 1.0f, src_mask);
+			distribute_mix(mix, matrix, src_mask);
 		} else if (dst_chan == 1) {
-			/* one MONO dst get average of everything */
-			spa_log_info(mix->log, "average MONO (%f)", 1.0f / src_chan);
-			for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
-				matrix[0][i]= 1.0f / src_chan;
+			/* one dst channel get average of everything */
+			spa_log_info(mix->log, "average UNK (%f) %"PRIu64, 1.0f / src_chan, dst_mask);
+			average_mix(mix, matrix, dst_mask);
+			normalize = true;
 		} else {
 			/* just pair channels */
-			spa_log_info(mix->log, "pairing channels (%f)", 1.0f);
-			for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
-				matrix[i][i]= 1.0f;
+			spa_log_info(mix->log, "pairing UNK channels (%f)", 1.0f);
+			if (src_mask == 0)
+				src_paired = dst_mask;
+			else if (dst_mask == 0)
+				dst_paired = src_mask;
+			pair_mix(matrix);
 		}
 		goto done;
 	} else {
 		spa_log_debug(mix->log, "matching channels");
-		for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++) {
-			if ((src_mask & dst_mask & (1ULL << i))) {
-				spa_log_info(mix->log, "matched channel %u (%f)", i, 1.0f);
-				matrix[i][i]= 1.0f;
-				matched = true;
-			}
-		}
+		matched = match_mix(mix, matrix, src_mask, dst_mask);
 	}
 
 	unassigned = src_mask & ~dst_mask;
@@ -284,7 +331,7 @@ static int make_matrix(struct channelmix *mix)
 			}
 			keep &= ~FRONT;
 		} else if ((dst_mask & _MASK(MONO))){
-			spa_log_info(mix->log, "assign STEREO to MONO (%f)", 0.5f);
+			spa_log_info(mix->log, "assign STEREO to MONO (%f)", 1.0f);
 			for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++) {
 				matrix[i][_CH(FL)]= 1.0f;
 				matrix[i][_CH(FR)]= 1.0f;
@@ -463,7 +510,7 @@ static int make_matrix(struct channelmix *mix)
 			_MATRIX(FL,LFE) += llev * SQRT1_2;
 			_MATRIX(FR,LFE) += llev * SQRT1_2;
 		} else if ((dst_mask & _MASK(MONO))){
-			spa_log_info(mix->log, "assign LFE to MONO (%f)", 0.5f);
+			spa_log_info(mix->log, "assign LFE to MONO (%f)", 1.0f);
 			for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
 				matrix[i][_CH(LFE)]= 1.0f;
 			normalize = true;
@@ -595,26 +642,26 @@ static int make_matrix(struct channelmix *mix)
 	}
 
 done:
-	if (dst_mask & _MASK(MONO))
-		dst_mask = ~0LU;
-	if (src_mask & _MASK(MONO))
-		src_mask = ~0LU;
+	if (dst_paired == 0)
+		dst_paired = ~0LU;
+	if (src_paired == 0)
+		src_paired = ~0LU;
 
 	for (jc = 0, ic = 0, i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++) {
 		float sum = 0.0f;
 		char str[1024], str2[1024];
 		int idx = 0, idx2 = 0;
-		if ((dst_mask & (1UL << i)) == 0)
+		if ((dst_paired & (1UL << i)) == 0)
 			continue;
 		for (jc = 0, j = 0; j < SPA_AUDIO_MAX_CHANNELS; j++) {
-			if ((src_mask & (1UL << j)) == 0)
+			if ((src_paired & (1UL << j)) == 0)
 				continue;
 			if (ic >= dst_chan || jc >= src_chan)
 				continue;
 
 			if (ic == 0)
 				idx2 += snprintf(str2 + idx2, sizeof(str2) - idx2, "%-4.4s  ",
-						src_mask == ~0LU ? "MONO" :
+						src_mask == 0 ? "UNK" :
 						spa_debug_type_find_short_name(spa_type_audio_channel, j + _SH));
 
 			mix->matrix_orig[ic][jc++] = matrix[i][j];
@@ -629,7 +676,7 @@ done:
 			spa_log_info(mix->log, "     %s", str2);
 		if (idx > 0) {
 			spa_log_info(mix->log, "%-4.4s %s   %f",
-					dst_mask == ~0LU ? "MONO" :
+					dst_mask == 0 ? "UNK" :
 					spa_debug_type_find_short_name(spa_type_audio_channel, i + _SH),
 					str, sum);
 		}

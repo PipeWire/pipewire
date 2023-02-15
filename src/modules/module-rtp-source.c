@@ -435,6 +435,7 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 
 			spa_dll_init(&sess->dll);
 			spa_dll_set_bw(&sess->dll, SPA_DLL_BW_MIN, 128, sess->info.info.rate);
+			memset(sess->buffer, 0, BUFFER_SIZE);
 			sess->have_sync = true;
 		} else if (expected_timestamp != timestamp) {
 			pw_log_debug("unexpected timestamp (%u != %u)",

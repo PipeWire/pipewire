@@ -382,6 +382,7 @@ static void stream_process(void *data)
 	if (!impl->sync) {
 		pw_log_info("sync to timestamp %u", timestamp);
 		impl->ring.readindex = impl->ring.writeindex = timestamp;
+		memset(impl->buffer, 0, BUFFER_SIZE);
 		impl->sync = true;
 	}
 
@@ -420,6 +421,9 @@ static void on_stream_state_changed(void *d, enum pw_stream_state old,
 		break;
 	case PW_STREAM_STATE_ERROR:
 		pw_log_error("stream error: %s", error);
+		break;
+	case PW_STREAM_STATE_PAUSED:
+		impl->sync = false;
 		break;
 	default:
 		break;
@@ -502,6 +506,7 @@ static int make_socket(struct sockaddr_storage *src, socklen_t src_len,
 	if (setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
 		pw_log_warn("setsockopt(SO_PRIORITY) failed: %m");
 #endif
+	/* FIXME AES67 wants IPTOS_DSCP_AF41 */
 	val = IPTOS_LOWDELAY;
 	if (setsockopt(fd, IPPROTO_IP, IP_TOS, &val, sizeof(val)) < 0)
 		pw_log_warn("setsockopt(IP_TOS) failed: %m");

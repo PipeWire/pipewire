@@ -8,6 +8,13 @@ This is a bugfix release that is API and ABI compatible with previous
     module-combine-stream was not installed.
   - PipeWire can now generate a limits.d config file with our recommended
     settings for priorities and memlock.
+  - Modules, exec and objects can now be loaded depending on conditions. One
+    example is the X11-bell module that can now be disabled with a custom
+    property override.
+  - Filter-chain has a new mysofa based spacializer plugin.
+  - Suport was added for different clocks that allow the RTP modules to work
+    with a PTP clock, for example.
+  - Many bugfixes and improvements.
 
 
 ## PipeWire
@@ -40,7 +47,6 @@ This is a bugfix release that is API and ABI compatible with previous
   - Install module-combine-stream.
   - RTP source now has support for custom channel names.
   - RTP source will now stop when inactive.
-  - There is now
   - Filter-chain has a new mysofa based spacializer plugin.
   - The RTP modules can now use direct clock timestamps to send and receive
     packets. This makes it possible to synchronize sender and receiver with

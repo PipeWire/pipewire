@@ -77,7 +77,7 @@ include:
 .ubuntu:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2022-01-27.0'
+    FDO_DISTRIBUTION_TAG: '2023-02-16.0'
     FDO_DISTRIBUTION_VERSION: '20.04'
     FDO_DISTRIBUTION_PACKAGES: >-
       debhelper-compat
@@ -88,6 +88,7 @@ include:
       libavfilter-dev
       libavformat-dev
       libdbus-1-dev
+      libbluetooth-dev
       libglib2.0-dev
       libgstreamer1.0-dev
       libgstreamer-plugins-base1.0-dev

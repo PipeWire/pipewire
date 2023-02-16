@@ -91,6 +91,8 @@ cc_flags = common_flags + [
   '-D_GNU_SOURCE',
   '-DFASTPATH',
 # '-DSPA_DEBUG_MEMCPY',
+  '-Werror=implicit-function-declaration',
+  '-Werror=int-conversion',
 ]
 add_project_arguments(cc.get_supported_arguments(cc_flags), language: 'c')
 

@@ -10,6 +10,7 @@
 #include <stdbool.h>
 
 #include <gio/gio.h>
+#include <gio/gunixfdlist.h>
 
 #include <spa/utils/defs.h>
 #include <spa/support/log.h>

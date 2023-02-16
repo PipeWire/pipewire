@@ -20,7 +20,7 @@
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/dll.h>
 #include <spa/param/audio/format-utils.h>
-#include <spa/debug/mem.h>
+#include <spa/control/control.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
@@ -117,6 +117,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define BUFFER_SIZE			(1u<<22)
 #define BUFFER_MASK			(BUFFER_SIZE-1)
+#define BUFFER_SIZE2			(BUFFER_SIZE>>1)
+#define BUFFER_MASK2			(BUFFER_SIZE2-1)
 
 #define USAGE	"sap.ip=<SAP IP address to listen on, default "DEFAULT_SAP_IP"> "				\
 		"sap.port=<SAP port to listen on, default "SPA_STRINGIFY(DEFAULT_SAP_PORT)"> "			\
@@ -163,21 +165,26 @@ struct impl {
 	uint32_t n_sessions;
 };
 
-static const struct format_info {
+struct format_info {
+	uint32_t media_subtype;
 	uint32_t format;
 	uint32_t size;
 	const char *mime;
-} format_info[] = {
-	{ SPA_AUDIO_FORMAT_U8, 1, "L8" },
-	{ SPA_AUDIO_FORMAT_ALAW, 1, "PCMA" },
-	{ SPA_AUDIO_FORMAT_ULAW, 1, "PCMU" },
-	{ SPA_AUDIO_FORMAT_S16_BE, 2, "L16" },
-	{ SPA_AUDIO_FORMAT_S24_BE, 3, "L24" },
+	const char *media_type;
+};
+
+static const struct format_info audio_format_info[] = {
+	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_U8, 1, "L8", "audio" },
+	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_ALAW, 1, "PCMA", "audio" },
+	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_ULAW, 1, "PCMU", "audio" },
+	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S16_BE, 2, "L16", "audio" },
+	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S24_BE, 3, "L24", "audio" },
+	{ SPA_MEDIA_SUBTYPE_control, 0, 1, "rtp-midi", "audio" },
 };
 
 static const struct format_info *find_format_info(const char *mime)
 {
-	SPA_FOR_EACH_ELEMENT_VAR(format_info, f)
+	SPA_FOR_EACH_ELEMENT_VAR(audio_format_info, f)
 		if (spa_streq(f->mime, mime))
 			return f;
 	return NULL;
@@ -197,7 +204,8 @@ struct sdp_info {
 	uint8_t payload;
 
 	const struct format_info *format_info;
-	struct spa_audio_info_raw info;
+	struct spa_audio_info info;
+	uint32_t rate;
 	uint32_t stride;
 
 	uint32_t ts_offset;
@@ -236,16 +244,15 @@ struct session {
 	unsigned direct_timestamp:1;
 };
 
-static void stream_destroy(void *d)
+static void session_touch(struct session *sess)
 {
-	struct session *sess = d;
-	spa_hook_remove(&sess->stream_listener);
-	sess->stream = NULL;
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	sess->timestamp = SPA_TIMESPEC_TO_NSEC(&ts);
 }
 
-static void stream_process(void *data)
+static void process_audio(struct session *sess)
 {
-	struct session *sess = data;
 	struct pw_buffer *buf;
 	struct spa_data *d;
 	uint32_t wanted, timestamp, target_buffer, stride, maxsize;
@@ -265,7 +272,7 @@ static void stream_process(void *data)
 	if (sess->position && sess->direct_timestamp) {
 		/* in direct mode, read directly from the timestamp index,
 		 * because sender and receiver are in sync, this would keep
-		 * target_buffer of bytes available. */
+		 * target_buffer of samples available. */
 		spa_ringbuffer_read_update(&sess->ring,
 				sess->position->clock.position);
 	}
@@ -286,11 +293,7 @@ static void stream_process(void *data)
 					avail, target_buffer, wanted);
 	} else {
 		float error, corr;
-		if (avail > (int32_t)SPA_MIN(target_buffer * 8, BUFFER_SIZE / stride)) {
-			pw_log_warn("overrun %u > %u", avail, target_buffer * 8);
-			timestamp += avail - target_buffer;
-			avail = target_buffer;
-		} else if (sess->first) {
+		if (sess->first) {
 			if ((uint32_t)avail > target_buffer) {
 				uint32_t skip = avail - target_buffer;
 				pw_log_debug("first: avail:%d skip:%u target:%u",
@@ -299,6 +302,10 @@ static void stream_process(void *data)
 				avail = target_buffer;
 			}
 			sess->first = false;
+		} else if (avail > (int32_t)SPA_MIN(target_buffer * 8, BUFFER_SIZE / stride)) {
+			pw_log_warn("overrun %u > %u", avail, target_buffer * 8);
+			timestamp += avail - target_buffer;
+			avail = target_buffer;
 		}
 		if (!sess->direct_timestamp) {
 			/* when not using direct timestamp and clocks are not
@@ -335,6 +342,244 @@ static void stream_process(void *data)
 	pw_stream_queue_buffer(sess->stream, buf);
 }
 
+static void receive_audio(struct session *sess, uint8_t *packet,
+		uint32_t timestamp, uint32_t payload_offset, uint32_t len)
+{
+	uint32_t plen = len - payload_offset;
+	uint8_t *payload = &packet[payload_offset];
+	uint32_t stride = sess->info.stride;
+	uint32_t samples = plen / stride;
+	uint32_t write, expected_write;
+	int32_t filled;
+
+	filled = spa_ringbuffer_get_write_index(&sess->ring, &expected_write);
+
+	/* we always write to timestamp + delay */
+	write = timestamp + sess->target_buffer;
+
+	if (!sess->have_sync) {
+		pw_log_info("sync to timestamp %u direct:%d", write, sess->direct_timestamp);
+		/* we read from timestamp, keeping target_buffer of data
+		 * in the ringbuffer. */
+		sess->ring.readindex = timestamp;
+		sess->ring.writeindex = write;
+		filled = sess->target_buffer;
+
+		spa_dll_init(&sess->dll);
+		spa_dll_set_bw(&sess->dll, SPA_DLL_BW_MIN, 128, sess->info.rate);
+		memset(sess->buffer, 0, BUFFER_SIZE);
+		sess->have_sync = true;
+	} else if (expected_write != write) {
+		pw_log_debug("unexpected write (%u != %u)",
+				write, expected_write);
+	}
+
+	if (filled + samples > BUFFER_SIZE / stride) {
+		pw_log_debug("capture overrun %u + %u > %u", filled, samples,
+				BUFFER_SIZE / stride);
+		sess->have_sync = false;
+	} else {
+		pw_log_debug("got samples:%u", samples);
+		spa_ringbuffer_write_data(&sess->ring,
+				sess->buffer,
+				BUFFER_SIZE,
+				(write * stride) & BUFFER_MASK,
+				payload, (samples * stride));
+		write += samples;
+		spa_ringbuffer_write_update(&sess->ring, write);
+	}
+}
+
+static void process_midi(struct session *sess)
+{
+	struct pw_buffer *buf;
+	struct spa_data *d;
+	uint32_t timestamp, duration, maxsize, read;
+	struct spa_pod_builder b;
+	struct spa_pod_frame f[1];
+	void *ptr;
+	struct spa_pod *pod;
+	struct spa_pod_control *c;
+
+	if ((buf = pw_stream_dequeue_buffer(sess->stream)) == NULL) {
+		pw_log_debug("Out of stream buffers: %m");
+		return;
+	}
+	d = buf->buffer->datas;
+
+	maxsize = d[0].maxsize;
+
+	duration = sess->position->clock.duration;
+	if (sess->position && sess->direct_timestamp)
+		timestamp = sess->position->clock.position;
+	else
+		timestamp = 0;
+
+	/* we copy events into the buffer based on the rtp timestamp + delay.
+	 * With direct timestamp we lock them to the graph position. Otherwise
+	 * we fill the current cycle with events we have. The first event offset
+	 * might be wrong, in this case. */
+	spa_pod_builder_init(&b, d[0].data, maxsize);
+	spa_pod_builder_push_sequence(&b, &f[0], 0);
+
+	while (true) {
+		int32_t avail = spa_ringbuffer_get_read_index(&sess->ring, &read);
+		if (avail <= 0)
+			break;
+
+		ptr = SPA_PTROFF(sess->buffer, read & BUFFER_MASK2, void);
+
+		if ((pod = spa_pod_from_data(ptr, avail, 0, avail)) == NULL)
+			goto done;
+		if (!spa_pod_is_sequence(pod))
+			goto done;
+
+		/* the ringbuffer contains series of sequences, one for each
+		 * received packet */
+		SPA_POD_SEQUENCE_FOREACH((struct spa_pod_sequence*)pod, c) {
+			/* try to render with given delay */
+			uint32_t target = c->offset + sess->target_buffer;
+			if (timestamp != 0) {
+				/* skip old packets */
+				if (target < timestamp)
+					continue;
+				/* event for next cycle */
+				if (target >= timestamp + duration)
+					goto complete;
+			} else {
+				timestamp = target;
+			}
+			spa_pod_builder_control(&b, target - timestamp, SPA_CONTROL_Midi);
+			spa_pod_builder_bytes(&b,
+					SPA_POD_BODY(&c->value),
+					SPA_POD_BODY_SIZE(&c->value));
+		}
+		/* we completed a sequence (one RTP packet), advance ringbuffer
+		 * and go to the next packet */
+		read += SPA_PTRDIFF(c, ptr);
+		spa_ringbuffer_read_update(&sess->ring, read);
+	}
+complete:
+	spa_pod_builder_pop(&b, &f[0]);
+
+	if (b.state.offset > maxsize) {
+		pw_log_warn("overflow buffer %u %u", b.state.offset, maxsize);
+		b.state.offset = 0;
+	}
+	d[0].chunk->size = b.state.offset;
+	d[0].chunk->stride = 1;
+	d[0].chunk->offset = 0;
+done:
+	pw_stream_queue_buffer(sess->stream, buf);
+}
+
+static int parse_varlen(uint8_t *p, uint32_t avail, uint32_t *result)
+{
+	uint32_t value = 0, offs = 0;
+	while (offs < avail) {
+		uint8_t b = p[offs++];
+		value = (value << 7) | (b & 0x7f);
+		if ((b & 0x80) == 0)
+			break;
+	}
+	*result = value;
+	return offs;
+}
+
+static int get_midi_size(uint8_t *p, uint32_t avail)
+{
+	int size;
+	uint32_t offs = 0, value;
+
+	switch (p[offs++]) {
+	case 0xc0 ... 0xdf:
+		size = 2;
+		break;
+	case 0x80 ... 0xbf:
+	case 0xe0 ... 0xef:
+		size = 3;
+		break;
+	case 0xff:
+	case 0xf0:
+	case 0xf7:
+		size = parse_varlen(&p[offs], avail - offs, &value);
+		size += value + 1;
+		break;
+	default:
+		return -EINVAL;
+	}
+	return size;
+}
+
+static void receive_midi(struct session *sess, uint8_t *packet,
+		uint32_t timestamp, uint32_t payload_offset, uint32_t plen)
+{
+	uint32_t write;
+	struct rtp_midi_header *hdr;
+	int32_t filled;
+	struct spa_pod_builder b;
+	struct spa_pod_frame f[1];
+	void *ptr;
+	uint32_t offs = payload_offset, len, end;
+	bool first = true;
+
+	if (!sess->have_sync) {
+		pw_log_info("sync to timestamp %u direct:%d", timestamp, sess->direct_timestamp);
+		sess->have_sync = true;
+	}
+
+	filled = spa_ringbuffer_get_write_index(&sess->ring, &write);
+	if (filled > (int32_t)BUFFER_SIZE2)
+		return;
+
+	hdr = (struct rtp_midi_header *)&packet[offs++];
+	len = hdr->len;
+	if (hdr->b) {
+		len = (len << 8) | hdr->len_b;
+		offs++;
+	}
+	end = len + offs;
+	if (end > plen)
+		return;
+
+	ptr = SPA_PTROFF(sess->buffer, write & BUFFER_MASK2, void);
+
+	/* each packet is written as a sequence of events. The offset is
+	 * the RTP timestamp */
+	spa_pod_builder_init(&b, ptr, BUFFER_SIZE2 - filled);
+	spa_pod_builder_push_sequence(&b, &f[0], 0);
+
+	while (offs < end) {
+		uint32_t delta;
+		int size;
+
+		if (first && !hdr->z)
+			delta = 0;
+		else
+			offs += parse_varlen(&packet[offs], end - offs, &delta);
+
+		timestamp += delta;
+		spa_pod_builder_control(&b, timestamp, SPA_CONTROL_Midi);
+
+		size = get_midi_size(&packet[offs], end - offs);
+
+		if (size <= 0 || offs + size > end) {
+			pw_log_warn("invalid size (%08x) %d (%u %u)",
+					packet[offs], size, offs, end);
+			break;
+		}
+
+		spa_pod_builder_bytes(&b, &packet[offs], size);
+
+		offs += size;
+		first = false;
+	}
+	spa_pod_builder_pop(&b, &f[0]);
+
+	write += b.state.offset;
+	spa_ringbuffer_write_update(&sess->ring, write);
+}
+
 static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size)
 {
 	struct session *sess = data;
@@ -348,11 +593,24 @@ static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size
 	}
 }
 
-static void session_touch(struct session *sess)
+static void stream_destroy(void *d)
 {
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	sess->timestamp = SPA_TIMESPEC_TO_NSEC(&ts);
+	struct session *sess = d;
+	spa_hook_remove(&sess->stream_listener);
+	sess->stream = NULL;
+}
+
+static void stream_process(void *data)
+{
+	struct session *sess = data;
+	switch (sess->info.info.media_type) {
+	case SPA_MEDIA_TYPE_audio:
+		process_audio(sess);
+		break;
+	case SPA_MEDIA_TYPE_application:
+		process_midi(sess);
+		break;
+	}
 }
 
 static void
@@ -361,12 +619,11 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 	struct session *sess = data;
 	struct rtp_header *hdr;
 	ssize_t len, hlen;
-	uint8_t buffer[2048], *payload;
+	uint8_t buffer[2048];
 
 	if (mask & SPA_IO_IN) {
-		uint32_t stride, read, timestamp, expected_timestamp, samples;
 		uint16_t seq;
-		int32_t filled;
+		uint32_t timestamp;
 
 		if ((len = recv(fd, buffer, sizeof(buffer), 0)) < 0)
 			goto receive_error;
@@ -395,46 +652,14 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 		sess->expected_seq = seq + 1;
 		sess->have_seq = true;
 
-		stride = sess->info.stride;
-		samples = (len - hlen) / stride;
-		payload = &buffer[hlen];
+		timestamp = ntohl(hdr->timestamp) - sess->info.ts_offset;
 
-		filled = spa_ringbuffer_get_write_index(&sess->ring, &expected_timestamp);
-
-		read = ntohl(hdr->timestamp) - sess->info.ts_offset;
-		/* we always write to timestamp + delay */
-		timestamp = read + sess->target_buffer;
-
-		if (!sess->have_sync) {
-			pw_log_info("sync to timestamp %u", read);
-			/* we read from timestamp, keeping target_buffer of data
-			 * in the ringbuffer. */
-			sess->ring.readindex = read;
-			sess->ring.writeindex = timestamp;
-			filled = sess->target_buffer;
-
-			spa_dll_init(&sess->dll);
-			spa_dll_set_bw(&sess->dll, SPA_DLL_BW_MIN, 128, sess->info.info.rate);
-			memset(sess->buffer, 0, BUFFER_SIZE);
-			sess->have_sync = true;
-		} else if (expected_timestamp != timestamp) {
-			pw_log_debug("unexpected timestamp (%u != %u)",
-					timestamp, expected_timestamp);
-		}
-
-		if (filled + samples > BUFFER_SIZE / stride) {
-			pw_log_debug("capture overrun %u + %u > %u", filled, samples,
-					BUFFER_SIZE / stride);
-			sess->have_sync = false;
-		} else {
-			pw_log_trace("got samples:%u", samples);
-			spa_ringbuffer_write_data(&sess->ring,
-					sess->buffer,
-					BUFFER_SIZE,
-					(timestamp * stride) & BUFFER_MASK,
-					payload, (samples * stride));
-			timestamp += samples;
-			spa_ringbuffer_write_update(&sess->ring, timestamp);
+		switch (sess->info.info.media_type) {
+		case SPA_MEDIA_TYPE_audio:
+			receive_audio(sess, buffer, timestamp, hlen, len);
+			break;
+		case SPA_MEDIA_TYPE_application:
+			receive_midi(sess, buffer, timestamp, hlen, len);
 		}
 		sess->receiving = true;
 	}
@@ -537,7 +762,7 @@ error:
 
 static uint32_t msec_to_samples(struct sdp_info *info, uint32_t msec)
 {
-	return msec * info->info.rate / 1000;
+	return msec * info->rate / 1000;
 }
 
 static void session_free(struct session *sess)
@@ -677,7 +902,7 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 	pw_properties_set(props, "rtp.origin", info->origin);
 	pw_properties_setf(props, "rtp.payload", "%u", info->payload);
 	pw_properties_setf(props, "rtp.fmt", "%s/%u/%u", info->format_info->mime,
-			info->info.rate, info->info.channels);
+			info->rate, info->info.info.raw.channels);
 	if (info->session[0]) {
 		pw_properties_set(props, "rtp.session", info->session);
 		pw_properties_setf(props, PW_KEY_MEDIA_NAME, "RTP Stream (%s)",
@@ -715,12 +940,12 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 	session->target_buffer = msec_to_samples(info, sess_latency_msec);
 	session->max_error = msec_to_samples(info, ERROR_MSEC);
 
-	pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%d", info->info.rate);
+	pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%d", info->rate);
 	pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%d/%d",
-			session->target_buffer / 2, info->info.rate);
+			session->target_buffer / 2, info->rate);
 
 	spa_dll_init(&session->dll);
-	spa_dll_set_bw(&session->dll, SPA_DLL_BW_MIN, 128, session->info.info.rate);
+	spa_dll_set_bw(&session->dll, SPA_DLL_BW_MIN, 128, info->rate);
 
 	if (info->channelmap[0]) {
 		pw_properties_set(props, PW_KEY_NODE_CHANNELNAMES, info->channelmap);
@@ -741,8 +966,21 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 
 	n_params = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-			&info->info);
+
+	switch (info->info.media_type) {
+	case SPA_MEDIA_TYPE_audio:
+		params[n_params++] = spa_format_audio_build(&b,
+				SPA_PARAM_EnumFormat, &info->info);
+		break;
+	case SPA_MEDIA_TYPE_application:
+		params[n_params++] = spa_pod_builder_add_object(&b,
+                                SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+                                SPA_FORMAT_mediaType,           SPA_POD_Id(SPA_MEDIA_TYPE_application),
+                                SPA_FORMAT_mediaSubtype,        SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	if ((res = pw_stream_connect(session->stream,
 			PW_DIRECTION_OUTPUT,
@@ -893,26 +1131,43 @@ static int parse_sdp_a_rtpmap(struct impl *impl, char *c, struct sdp_info *info)
 	if (info->format_info == NULL)
 		return -EINVAL;
 
-	info->info.format = info->format_info->format;
 	info->stride = info->format_info->size;
 
+	info->info.media_subtype = info->format_info->media_subtype;
+
 	c += strlen(c) + 1;
-	if (sscanf(c, "%u/%u", &rate, &channels) == 2) {
-		info->info.rate = rate;
-		info->info.channels = channels;
+
+	switch (info->info.media_subtype) {
+	case SPA_MEDIA_SUBTYPE_raw:
+		info->info.media_type = SPA_MEDIA_TYPE_audio;
+		info->info.info.raw.format = info->format_info->format;
+		if (sscanf(c, "%u/%u", &rate, &channels) == 2) {
+			info->info.info.raw.channels = channels;
+		} else if (sscanf(c, "%u", &rate) == 1) {
+			info->info.info.raw.channels = 1;
+		} else
+			return -EINVAL;
+
+		info->info.info.raw.rate = rate;
+
 		pw_log_debug("rate: %d, ch: %d", rate, channels);
-		if (channels == 2) {
-			info->info.position[0] = SPA_AUDIO_CHANNEL_FL;
-			info->info.position[1] = SPA_AUDIO_CHANNEL_FR;
+
+		if (channels == 1) {
+			info->info.info.raw.position[0] = SPA_AUDIO_CHANNEL_MONO;
+		} else if (channels == 2) {
+			info->info.info.raw.position[0] = SPA_AUDIO_CHANNEL_FL;
+			info->info.info.raw.position[1] = SPA_AUDIO_CHANNEL_FR;
 		}
-	} else if (sscanf(c, "%u", &rate) == 1) {
-		info->info.rate = rate;
-		info->info.channels = 1;
-	} else
-		return -EINVAL;
-
-	info->stride *= info->info.channels;
-
+		info->stride *= channels;
+		info->rate = rate;
+		break;
+	case SPA_MEDIA_SUBTYPE_control:
+		info->info.media_type = SPA_MEDIA_TYPE_application;
+		if (sscanf(c, "%u", &rate) != 1)
+			return -EINVAL;
+		info->rate = rate;
+		break;
+	}
 	return 0;
 }
 

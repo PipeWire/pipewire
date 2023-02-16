@@ -51,6 +51,24 @@ struct rtp_payload {
 #endif
 } __attribute__ ((packed));
 
+struct rtp_midi_header {
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+	unsigned len:4;
+	unsigned p:1;
+	unsigned z:1;
+	unsigned j:1;
+	unsigned b:1;
+	uint8_t len_b;
+#elif __BYTE_ORDER == __BIG_ENDIAN
+	unsigned b:1;
+	unsigned j:1;
+	unsigned z:1;
+	unsigned p:1;
+	unsigned len:4;
+	uint8_t len_b;
+#endif
+} __attribute__ ((packed));
+
 #ifdef __cplusplus
 }
 #endif

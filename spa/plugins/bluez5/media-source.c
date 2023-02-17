@@ -641,20 +641,28 @@ static int transport_start(struct impl *this)
 	spa_log_info(this->log, "%p: using %s codec %s", this,
 	             this->codec->bap ? "BAP" : "A2DP", this->codec->description);
 
-	val = fcntl(this->transport->fd, F_GETFL);
-	if (fcntl(this->transport->fd, F_SETFL, val | O_NONBLOCK) < 0)
+	/*
+	 * If the link is bidirectional, media-sink may also be polling the same FD,
+	 * and this won't work properly with epoll. Always dup to avoid problems.
+	 */
+	this->fd = dup(this->transport->fd);
+	if (this->fd < 0)
+		return -errno;
+
+	val = fcntl(this->fd, F_GETFL);
+	if (fcntl(this->fd, F_SETFL, val | O_NONBLOCK) < 0)
 		spa_log_warn(this->log, "%p: fcntl %u %m", this, val | O_NONBLOCK);
 
 	val = FILL_FRAMES * this->transport->write_mtu;
-	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val)) < 0)
+	if (setsockopt(this->fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val)) < 0)
 		spa_log_warn(this->log, "%p: SO_SNDBUF %m", this);
 
 	val = FILL_FRAMES * this->transport->read_mtu;
-	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val)) < 0)
+	if (setsockopt(this->fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val)) < 0)
 		spa_log_warn(this->log, "%p: SO_RCVBUF %m", this);
 
 	val = 6;
-	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
+	if (setsockopt(this->fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
 		spa_log_warn(this->log, "SO_PRIORITY failed: %m");
 
 	reset_buffers(port);
@@ -665,12 +673,10 @@ static int transport_start(struct impl *this)
 			this->quantum_limit, this->quantum_limit)) < 0)
 		return res;
 
-	this->fd = this->transport->fd;
-
 	this->source.data = this;
 
 	if (!this->use_duplex_source) {
-		this->source.fd = this->transport->fd;
+		this->source.fd = this->fd;
 		this->source.func = media_on_ready_read;
 		this->source.mask = SPA_IO_IN;
 		this->source.rmask = 0;
@@ -772,6 +778,11 @@ static int transport_stop(struct impl *this)
 	spa_log_debug(this->log, "%p: transport stop", this);
 
 	spa_loop_invoke(this->data_loop, do_remove_source, 0, NULL, 0, true, this);
+
+	if (this->fd >= 0) {
+		close(this->fd);
+		this->fd = -1;
+	}
 
 	if (this->transport && this->transport_acquired)
 		res = spa_bt_transport_release(this->transport);
@@ -1632,6 +1643,8 @@ impl_init(const struct spa_handle_factory *factory,
 	} else {
 		this->duplex_timerfd = -1;
 	}
+
+	this->fd = -1;
 
 	return 0;
 }

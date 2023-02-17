@@ -568,6 +568,7 @@ static void receive_midi(struct session *sess, uint8_t *packet,
 			pw_log_info("sync to timestamp %u/%f direct:%d", timestamp, t,
 					sess->direct_timestamp);
 			sess->have_sync = true;
+			sess->ring.readindex = sess->ring.writeindex;
 		} else {
 			/* update our new rate correction */
 			sess->corr = spa_dll_update(&sess->dll, diff);

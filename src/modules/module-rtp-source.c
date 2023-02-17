@@ -237,11 +237,15 @@ struct session {
 	struct spa_io_rate_match *rate_match;
 	struct spa_io_position *position;
 	struct spa_dll dll;
+	double corr;
 	uint32_t target_buffer;
 	float max_error;
 	unsigned first:1;
 	unsigned receiving:1;
 	unsigned direct_timestamp:1;
+
+	float last_timestamp;
+	float last_time;
 };
 
 static void session_touch(struct session *sess)
@@ -409,16 +413,15 @@ static void process_midi(struct session *sess)
 
 	maxsize = d[0].maxsize;
 
+	/* we always use the graph position to select events, the receiver side is
+	 * responsible for smoothing out the RTP timestamps to graph time */
 	duration = sess->position->clock.duration;
-	if (sess->position && sess->direct_timestamp)
+	if (sess->position)
 		timestamp = sess->position->clock.position;
 	else
 		timestamp = 0;
 
-	/* we copy events into the buffer based on the rtp timestamp + delay.
-	 * With direct timestamp we lock them to the graph position. Otherwise
-	 * we fill the current cycle with events we have. The first event offset
-	 * might be wrong, in this case. */
+	/* we copy events into the buffer based on the rtp timestamp + delay. */
 	spa_pod_builder_init(&b, d[0].data, maxsize);
 	spa_pod_builder_push_sequence(&b, &f[0], 0);
 
@@ -511,6 +514,16 @@ static int get_midi_size(uint8_t *p, uint32_t avail)
 	return size;
 }
 
+static double get_time(struct session *sess)
+{
+	struct timespec ts;
+	double t;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	t = sess->position->clock.position / (double) sess->position->clock.rate.denom;
+	t += (SPA_TIMESPEC_TO_NSEC(&ts) - sess->position->clock.nsec) / (double)SPA_NSEC_PER_SEC;
+	return t;
+}
+
 static void receive_midi(struct session *sess, uint8_t *packet,
 		uint32_t timestamp, uint32_t payload_offset, uint32_t plen)
 {
@@ -523,9 +536,50 @@ static void receive_midi(struct session *sess, uint8_t *packet,
 	uint32_t offs = payload_offset, len, end;
 	bool first = true;
 
-	if (!sess->have_sync) {
-		pw_log_info("sync to timestamp %u direct:%d", timestamp, sess->direct_timestamp);
-		sess->have_sync = true;
+	if (sess->direct_timestamp) {
+		/* in direct timestamp we attach the RTP timestamp directly on the
+		 * midi events and render them in the corresponding cycle */
+		if (!sess->have_sync) {
+			pw_log_info("sync to timestamp %u/ direct:%d", timestamp,
+					sess->direct_timestamp);
+			sess->have_sync = true;
+		}
+	} else {
+		/* in non-direct timestamp mode, we relate the graph clock against
+		 * the RTP timestamps */
+		double ts = timestamp / (float) sess->info.rate;
+		double t = get_time(sess);
+		double elapsed, estimated, diff;
+
+		/* the elapsed time between RTP timestamps */
+		elapsed = ts - sess->last_timestamp;
+		/* for that elapsed time, our clock should have advanced
+		 * by this amount since the last estimation */
+		estimated = sess->last_time + elapsed * sess->corr;
+		/* calculate the diff between estimated and current clock time in
+		 * samples */
+		diff = (estimated - t) * sess->info.rate;
+
+		/* no sync or we drifted too far, resync */
+		if (!sess->have_sync || fabs(diff) > sess->target_buffer) {
+			sess->corr = 1.0;
+			spa_dll_set_bw(&sess->dll, SPA_DLL_BW_MIN, 256, sess->info.rate);
+
+			pw_log_info("sync to timestamp %u/%f direct:%d", timestamp, t,
+					sess->direct_timestamp);
+			sess->have_sync = true;
+		} else {
+			/* update our new rate correction */
+			sess->corr = spa_dll_update(&sess->dll, diff);
+			/* our current time is now the estimated time */
+			t = estimated;
+		}
+		pw_log_debug("%f %f %f %f", t, estimated, diff, sess->corr);
+
+		timestamp = t * sess->info.rate;
+
+		sess->last_timestamp = ts;
+		sess->last_time = t;
 	}
 
 	filled = spa_ringbuffer_get_write_index(&sess->ring, &write);
@@ -558,7 +612,7 @@ static void receive_midi(struct session *sess, uint8_t *packet,
 		else
 			offs += parse_varlen(&packet[offs], end - offs, &delta);
 
-		timestamp += delta;
+		timestamp += delta * sess->corr;
 		spa_pod_builder_control(&b, timestamp, SPA_CONTROL_Midi);
 
 		size = get_midi_size(&packet[offs], end - offs);
@@ -946,6 +1000,7 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 
 	spa_dll_init(&session->dll);
 	spa_dll_set_bw(&session->dll, SPA_DLL_BW_MIN, 128, info->rate);
+	session->corr = 1.0;
 
 	if (info->channelmap[0]) {
 		pw_properties_set(props, PW_KEY_NODE_CHANNELNAMES, info->channelmap);

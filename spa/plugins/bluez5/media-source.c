@@ -123,7 +123,6 @@ struct impl {
 	unsigned int is_input:1;
 	unsigned int is_duplex:1;
 	unsigned int is_internal:1;
-	unsigned int use_duplex_source:1;
 
 	unsigned int node_latency;
 
@@ -148,9 +147,6 @@ struct impl {
 	uint8_t buffer_read[4096];
 	struct timespec now;
 	uint64_t sample_count;
-
-	int duplex_timerfd;
-	uint64_t duplex_timeout;
 };
 
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
@@ -532,34 +528,6 @@ stop:
 		spa_loop_remove_source(this->data_loop, &this->source);
 }
 
-static int set_duplex_timeout(struct impl *this, uint64_t timeout)
-{
-	struct itimerspec ts;
-	ts.it_value.tv_sec = timeout / SPA_NSEC_PER_SEC;
-	ts.it_value.tv_nsec = timeout % SPA_NSEC_PER_SEC;
-	ts.it_interval.tv_sec = 0;
-	ts.it_interval.tv_nsec = 0;
-	return spa_system_timerfd_settime(this->data_system,
-			this->duplex_timerfd, 0, &ts, NULL);
-}
-
-static void media_on_duplex_timeout(struct spa_source *source)
-{
-	struct impl *this = source->data;
-	uint64_t exp;
-	int res;
-
-	if ((res = spa_system_timerfd_read(this->data_system, this->duplex_timerfd, &exp)) < 0) {
-		if (res != -EAGAIN)
-			spa_log_warn(this->log, "error reading timerfd: %s", spa_strerror(res));
-		return;
-	}
-
-	set_duplex_timeout(this, this->duplex_timeout);
-
-	media_on_ready_read(source);
-}
-
 static int setup_matching(struct impl *this)
 {
 	struct port *port = &this->port;
@@ -703,33 +671,13 @@ static int transport_start(struct impl *this)
 
 	this->source.data = this;
 
-	if (!this->use_duplex_source) {
-		this->source.fd = this->fd;
-		this->source.func = media_on_ready_read;
-		this->source.mask = SPA_IO_IN;
-		this->source.rmask = 0;
-		spa_loop_add_source(this->data_loop, &this->source);
-	} else {
-		/*
-		 * XXX: For an unknown reason (on Linux 5.13.10), the socket when working with
-		 * XXX: "duplex" stream sometimes stops waking up from the poll, even though
-		 * XXX: you can recv() from the socket with no problem.
-		 * XXX:
-		 * XXX: The reason for this should be found and fixed.
-		 * XXX: To work around this, for now we just do the stupid thing and poll
-		 * XXX: on a timer, chosen so that it's fast enough for the aptX-LL codec
-		 * XXX: we currently support (which sends mSBC data), and also for Opus
-		 * XXX: forward stream.
-		 */
-		this->source.fd = this->duplex_timerfd;
-		this->source.func = media_on_duplex_timeout;
-		this->source.mask = SPA_IO_IN;
-		this->source.rmask = 0;
-		spa_loop_add_source(this->data_loop, &this->source);
-
-		this->duplex_timeout = SPA_NSEC_PER_MSEC * 25/10;
-		set_duplex_timeout(this, this->duplex_timeout);
-	}
+	this->source.fd = this->fd;
+	this->source.func = media_on_ready_read;
+	this->source.mask = SPA_IO_IN;
+	this->source.rmask = 0;
+	if ((res = spa_loop_add_source(this->data_loop, &this->source)) < 0)
+		spa_log_error(this->log, "%p: failed to add poll source: %s", this,
+				spa_strerror(res));
 
 	this->sample_count = 0;
 
@@ -806,8 +754,6 @@ static int do_remove_transport_source(struct spa_loop *loop,
 	spa_log_debug(this->log, "%p: remove transport source", this);
 
 	this->transport_started = false;
-
-	set_duplex_timeout(this, 0);
 
 	if (this->source.loop)
 		spa_loop_remove_source(this->data_loop, &this->source);
@@ -1633,10 +1579,6 @@ static int impl_clear(struct spa_handle *handle)
 	if (this->transport)
 		spa_hook_remove(&this->transport_listener);
 	spa_system_close(this->data_system, this->timerfd);
-	if (this->duplex_timerfd >= 0) {
-		spa_system_close(this->data_system, this->duplex_timerfd);
-		this->duplex_timerfd = -1;
-	}
 	spa_bt_decode_buffer_clear(&port->buffer);
 	return 0;
 }
@@ -1762,7 +1704,6 @@ impl_init(const struct spa_handle_factory *factory,
 		this->codec = this->codec->duplex_codec;
 		this->is_input = true;
 	}
-	this->use_duplex_source = this->is_duplex || (this->codec->duplex_codec != NULL);
 
 	if (this->codec->bap)
 		this->is_input = this->transport->bap_initiator;
@@ -1777,13 +1718,6 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->timerfd = spa_system_timerfd_create(this->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-
-	if (this->use_duplex_source) {
-		this->duplex_timerfd = spa_system_timerfd_create(this->data_system,
-				CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	} else {
-		this->duplex_timerfd = -1;
-	}
 
 	this->node_latency = 512;
 

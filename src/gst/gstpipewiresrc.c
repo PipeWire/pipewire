@@ -46,6 +46,7 @@ GST_DEBUG_CATEGORY_STATIC (pipewire_src_debug);
 #define DEFAULT_MAX_BUFFERS     INT32_MAX
 #define DEFAULT_RESEND_LAST     false
 #define DEFAULT_KEEPALIVE_TIME  0
+#define DEFAULT_AUTOCONNECT     true
 
 enum
 {
@@ -61,6 +62,7 @@ enum
   PROP_FD,
   PROP_RESEND_LAST,
   PROP_KEEPALIVE_TIME,
+  PROP_AUTOCONNECT,
 };
 
 
@@ -150,6 +152,10 @@ gst_pipewire_src_set_property (GObject * object, guint prop_id,
       pwsrc->keepalive_time = g_value_get_int (value);
       break;
 
+    case PROP_AUTOCONNECT:
+      pwsrc->autoconnect = g_value_get_boolean (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -205,6 +211,10 @@ gst_pipewire_src_get_property (GObject * object, guint prop_id,
 
     case PROP_KEEPALIVE_TIME:
       g_value_set_int (value, pwsrc->keepalive_time);
+      break;
+
+    case PROP_AUTOCONNECT:
+      g_value_set_boolean (value, pwsrc->autoconnect);
       break;
 
     default:
@@ -376,6 +386,15 @@ gst_pipewire_src_class_init (GstPipeWireSrcClass * klass)
                                                      G_PARAM_READWRITE |
                                                      G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (gobject_class,
+                                   PROP_AUTOCONNECT,
+                                   g_param_spec_boolean ("autoconnect",
+                                                         "Connect automatically",
+                                                         "Attempt to find a peer to connect to",
+                                                         DEFAULT_AUTOCONNECT,
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_STATIC_STRINGS));
+
   gstelement_class->provide_clock = gst_pipewire_src_provide_clock;
   gstelement_class->change_state = gst_pipewire_src_change_state;
   gstelement_class->send_event = gst_pipewire_src_send_event;
@@ -419,6 +438,7 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
   src->fd = -1;
   src->resend_last = DEFAULT_RESEND_LAST;
   src->keepalive_time = DEFAULT_KEEPALIVE_TIME;
+  src->autoconnect = DEFAULT_AUTOCONNECT;
 
   src->client_name = g_strdup(pw_get_client_name ());
 
@@ -870,10 +890,13 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   GST_DEBUG_OBJECT (basesrc, "connect capture with path %s, target-object %s",
                     pwsrc->path, pwsrc->target_object);
   pwsrc->negotiated = FALSE;
+  enum pw_stream_flags flags = PW_STREAM_FLAG_DONT_RECONNECT;
+  if (pwsrc->autoconnect)
+    flags |= PW_STREAM_FLAG_AUTOCONNECT;
   pw_stream_connect (pwsrc->stream,
                      PW_DIRECTION_INPUT,
                      target_id,
-                     PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_DONT_RECONNECT,
+                     flags,
                      (const struct spa_pod **)possible->pdata,
                      possible->len);
   g_ptr_array_free (possible, TRUE);

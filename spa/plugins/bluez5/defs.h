@@ -603,7 +603,8 @@ struct spa_bt_transport {
 	int fd;
 	uint16_t read_mtu;
 	uint16_t write_mtu;
-	uint16_t delay;
+	unsigned int delay_us;
+	unsigned int latency_us;
 
 	struct spa_bt_sco_io *sco_io;
 

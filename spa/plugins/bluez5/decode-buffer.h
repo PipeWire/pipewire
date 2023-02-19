@@ -217,6 +217,8 @@ struct spa_bt_decode_buffer
 	uint32_t underrun;
 	uint32_t pos;
 
+	uint32_t target;		/**< target buffer (0: automatic) */
+
 	uint8_t received:1;
 	uint8_t buffering:1;
 };
@@ -266,6 +268,7 @@ static int spa_bt_decode_buffer_init(struct spa_bt_decode_buffer *this, struct s
 	this->buffer_size = this->frame_size * quantum_limit * 2;
 	this->buffer_size += this->buffer_reserve;
 	this->corr = 1.0;
+	this->target = 0;
 	this->buffering = true;
 
 	spa_bt_rate_control_init(&this->ctl, 0);
@@ -366,6 +369,12 @@ static void spa_bt_decode_buffer_recover(struct spa_bt_decode_buffer *this)
 	spa_bt_rate_control_init(&this->ctl, level);
 }
 
+static SPA_UNUSED
+void spa_bt_decode_buffer_set_target_latency(struct spa_bt_decode_buffer *this, uint32_t samples)
+{
+	this->target = samples;
+}
+
 static void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint32_t samples, uint32_t duration)
 {
 	const uint32_t data_size = samples * this->frame_size;
@@ -409,13 +418,16 @@ static void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint
 		spa_bt_ptp_update(&this->spike, this->ctl.avg - level, this->prev_consumed);
 
 		/* Update target level */
-		target = BUFFERING_TARGET(this->spike.max, packet_size);
+		if (this->target)
+			target = this->target;
+		else
+			target = BUFFERING_TARGET(this->spike.max, packet_size);
 
 		if (level > SPA_MAX(4 * target, 2*(int32_t)duration) &&
 				avail > data_size) {
 			/* Lagging too much: drop data */
 			uint32_t size = SPA_MIN(avail - data_size,
-					(level - target*5/2) * this->frame_size);
+					(level - target) * this->frame_size);
 
 			spa_bt_decode_buffer_read(this, size);
 			spa_log_trace(this->log, "%p overrun samples:%d level:%d target:%d",

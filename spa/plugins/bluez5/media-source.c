@@ -124,6 +124,8 @@ struct impl {
 	unsigned int is_duplex:1;
 	unsigned int use_duplex_source:1;
 
+	unsigned int node_latency;
+
 	int fd;
 	struct spa_source source;
 
@@ -299,6 +301,31 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 }
 
 static void emit_node_info(struct impl *this, bool full);
+
+static void set_latency(struct impl *this, bool emit_latency)
+{
+	if (this->codec->bap && !this->is_input && this->transport &&
+			this->transport->delay_us != SPA_BT_UNKNOWN_DELAY) {
+		unsigned int node_latency = 2048;
+		unsigned int target = this->transport->delay_us*48000ll/SPA_USEC_PER_SEC * 1/2;
+
+		/* Adjust requested node latency to be somewhat (~1/2) smaller
+		 * than presentation delay. The difference functions as room
+		 * for buffering rate control.
+		 */
+		while (node_latency > 64 && node_latency > target)
+			node_latency /= 2;
+
+		if (this->node_latency != node_latency) {
+			this->node_latency = node_latency;
+			if (emit_latency)
+				emit_node_info(this, false);
+		}
+
+		spa_log_info(this->log, "BAP presentation delay %d us, node latency %u/48000",
+				(int)this->transport->delay_us, node_latency);
+	}
+}
 
 static int apply_props(struct impl *this, const struct spa_pod *param)
 {
@@ -851,15 +878,18 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 static void emit_node_info(struct impl *this, bool full)
 {
 	uint64_t old = full ? this->info.change_mask : 0;
+	char latency[64];
 
 	struct spa_dict_item node_info_items[] = {
 		{ SPA_KEY_DEVICE_API, "bluez5" },
 		{ SPA_KEY_MEDIA_CLASS, this->is_input ? "Audio/Source" : "Stream/Output/Audio" },
-		{ SPA_KEY_NODE_LATENCY, this->is_input ? "" : "512/48000" },
+		{ SPA_KEY_NODE_LATENCY, this->is_input ? "" : latency },
 		{ "media.name", ((this->transport && this->transport->device->name) ?
 					this->transport->device->name : this->codec->bap ? "BAP" : "A2DP") },
 		{ SPA_KEY_NODE_DRIVER, this->is_input ? "true" : "false" },
 	};
+
+	spa_scnprintf(latency, sizeof(latency), "%d/48000", this->node_latency);
 
 	if (full)
 		this->info.change_mask = this->info_all;
@@ -1297,6 +1327,48 @@ static uint32_t get_samples(struct impl *this, uint32_t *duration)
 	return samples;
 }
 
+static void update_target_latency(struct impl *this)
+{
+	struct port *port = &this->port;
+	uint32_t samples, duration;
+
+	if (this->transport == NULL || !port->have_format)
+		return;
+
+	if (!this->codec->bap || this->is_input ||
+			this->transport->delay_us == SPA_BT_UNKNOWN_DELAY)
+		return;
+
+	get_samples(this, &duration);
+
+	/* Presentation delay for BAP server
+	 *
+	 * This assumes the time when we receive the packet is (on average)
+	 * the SDU synchronization reference (see Core v5.3 Vol 6/G Sec 3.2.2 Fig. 3.2,
+	 * BAP v1.0 Sec 7.1.1).
+	 *
+	 * XXX: This is not exactly true, there might be some latency in between,
+	 * XXX: but currently kernel does not provide us any better information.
+	 * XXX: Some controllers (e.g. Intel AX210) also do not seem to set timestamps
+	 * XXX: to the HCI ISO data packets, so it's not clear what we can do here
+	 * XXX: better.
+	 */
+	samples = (uint64_t)this->transport->delay_us *
+		port->current_format.info.raw.rate / SPA_USEC_PER_SEC;
+
+	if (samples > duration)
+		samples -= duration;
+	else
+		samples = 1;
+
+	/* Too small target latency might not produce working audio.
+	 * The minimum (Presentation_Delay_Min) is configured in endpoint
+	 * DBus properties, with some default value on BlueZ side if unspecified.
+	 */
+
+	spa_bt_decode_buffer_set_target_latency(&port->buffer, samples);
+}
+
 static void process_buffering(struct impl *this)
 {
 	struct port *port = &this->port;
@@ -1304,6 +1376,8 @@ static void process_buffering(struct impl *this)
 	const uint32_t samples = get_samples(this, &duration);
 	uint32_t avail;
 	void *buf;
+
+	update_target_latency(this);
 
 	spa_bt_decode_buffer_process(&port->buffer, samples, duration);
 
@@ -1441,6 +1515,14 @@ static const struct spa_node_methods impl_node = {
 	.process = impl_node_process,
 };
 
+static void transport_delay_changed(void *data)
+{
+	struct impl *this = data;
+
+	spa_log_debug(this->log, "transport %p delay changed", this->transport);
+	set_latency(this, true);
+}
+
 static int do_transport_destroy(struct spa_loop *loop,
 				bool async,
 				uint32_t seq,
@@ -1463,6 +1545,7 @@ static void transport_destroy(void *data)
 
 static const struct spa_bt_transport_events transport_events = {
 	SPA_VERSION_BT_TRANSPORT_EVENTS,
+	.delay_changed = transport_delay_changed,
         .destroy = transport_destroy,
 };
 
@@ -1643,6 +1726,10 @@ impl_init(const struct spa_handle_factory *factory,
 	} else {
 		this->duplex_timerfd = -1;
 	}
+
+	this->node_latency = 512;
+
+	set_latency(this, false);
 
 	this->fd = -1;
 

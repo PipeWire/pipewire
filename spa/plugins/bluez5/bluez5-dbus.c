@@ -2197,7 +2197,8 @@ struct spa_bt_transport *spa_bt_transport_create(struct spa_bt_monitor *monitor,
 	t->path = path;
 	t->fd = -1;
 	t->sco_io = NULL;
-	t->delay = SPA_BT_UNKNOWN_DELAY;
+	t->delay_us = SPA_BT_UNKNOWN_DELAY;
+	t->latency_us = SPA_BT_UNKNOWN_DELAY;
 	t->user_data = SPA_PTROFF(t, sizeof(struct spa_bt_transport), void);
 	spa_hook_list_init(&t->listener_list);
 	spa_list_init(&t->bap_transport_linked);
@@ -2536,8 +2537,17 @@ int spa_bt_transport_ensure_sco_io(struct spa_bt_transport *t, struct spa_loop *
 
 int64_t spa_bt_transport_get_delay_nsec(struct spa_bt_transport *t)
 {
-	if (t->delay != SPA_BT_UNKNOWN_DELAY)
-		return (int64_t)t->delay * 100 * SPA_NSEC_PER_USEC;
+	if (t->delay_us != SPA_BT_UNKNOWN_DELAY) {
+		/* end-to-end delay = (presentation) delay + transport latency
+		 *
+		 * For BAP, see Core v5.3 Vol 6/G Sec 3.2.2 Fig. 3.2 &
+		 * BAP v1.0 Sec 7.1.1.
+		 */
+		int64_t delay = t->delay_us;
+		if (t->latency_us != SPA_BT_UNKNOWN_DELAY)
+			delay += t->latency_us;
+		return delay * SPA_NSEC_PER_USEC;
+	}
 
 	/* Fallback values when device does not provide information */
 
@@ -2698,27 +2708,40 @@ static int transport_update_props(struct spa_bt_transport *transport,
 				spa_bt_transport_volume_changed(transport);
 		}
 		else if (spa_streq(key, "Delay")) {
+			if (transport->profile & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE)) {
+				uint32_t value;
+
+				if (type != DBUS_TYPE_UINT32)
+					goto next;
+				dbus_message_iter_get_basic(&it[1], &value);
+
+				spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
+
+				transport->delay_us = value;
+			} else {
+				uint16_t value;
+
+				if (type != DBUS_TYPE_UINT16)
+					goto next;
+				dbus_message_iter_get_basic(&it[1], &value);
+
+				spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
+
+				transport->delay_us = value * 100;
+			}
+
+			spa_bt_transport_emit_delay_changed(transport);
+		}
+		else if (spa_streq(key, "Latency")) {
 			uint16_t value;
 
 			if (type != DBUS_TYPE_UINT16)
 				goto next;
 			dbus_message_iter_get_basic(&it[1], &value);
 
-			spa_log_debug(monitor->log, "transport %p: %s=%02x", transport, key, value);
+			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
 
-			transport->delay = value;
-			spa_bt_transport_emit_delay_changed(transport);
-		}
-		else if (spa_streq(key, "PresentationDelay")) {
-			uint32_t value;
-
-			if (type != DBUS_TYPE_UINT32)
-				goto next;
-			dbus_message_iter_get_basic(&it[1], &value);
-
-			spa_log_debug(monitor->log, "transport %p: %s=%02x", transport, key, value);
-
-			transport->delay = value / 100;
+			transport->latency_us = value * 1000;
 			spa_bt_transport_emit_delay_changed(transport);
 		}
 		else if (spa_streq(key, "Links")) {
@@ -2749,6 +2772,42 @@ static int transport_update_props(struct spa_bt_transport *transport,
 
 				dbus_message_iter_next(&iter);
 			}
+		}
+		else if (spa_streq(key, "Interval")) {
+			uint32_t value;
+
+			if (type != DBUS_TYPE_UINT32)
+				goto next;
+			dbus_message_iter_get_basic(&it[1], &value);
+
+			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
+		}
+		else if (spa_streq(key, "Framing")) {
+			dbus_bool_t value;
+
+			if (type != DBUS_TYPE_BOOLEAN)
+				goto next;
+			dbus_message_iter_get_basic(&it[1], &value);
+
+			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
+		}
+		else if (spa_streq(key, "SDU")) {
+			uint16_t value;
+
+			if (type != DBUS_TYPE_UINT16)
+				goto next;
+			dbus_message_iter_get_basic(&it[1], &value);
+
+			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
+		}
+		else if (spa_streq(key, "Retransmissions")) {
+			uint8_t value;
+
+			if (type != DBUS_TYPE_BYTE)
+				goto next;
+			dbus_message_iter_get_basic(&it[1], &value);
+
+			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
 		}
 next:
 		dbus_message_iter_next(props_iter);

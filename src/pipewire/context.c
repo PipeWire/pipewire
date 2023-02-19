@@ -180,6 +180,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL) {
+		pw_properties_free(properties);
 		res = -errno;
 		goto error_cleanup;
 	}

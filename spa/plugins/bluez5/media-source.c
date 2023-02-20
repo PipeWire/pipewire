@@ -700,6 +700,12 @@ static int transport_start(struct impl *this)
 			this->quantum_limit, this->quantum_limit)) < 0)
 		return res;
 
+	if (this->is_duplex) {
+		/* 80 ms max buffer */
+		spa_bt_decode_buffer_set_max_latency(&port->buffer,
+				port->current_format.info.raw.rate * 80 / 1000);
+	}
+
 	this->source.data = this;
 
 	if (!this->use_duplex_source) {

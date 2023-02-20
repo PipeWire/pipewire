@@ -679,6 +679,10 @@ static int do_start(struct impl *this)
 			this->quantum_limit, this->quantum_limit)) < 0)
 		return res;
 
+	/* 40 ms max buffer */
+	spa_bt_decode_buffer_set_max_latency(&port->buffer,
+			port->current_format.info.raw.rate * 40 / 1000);
+
 	/* Init mSBC if needed */
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
 		sbc_init_msbc(&this->msbc, 0);

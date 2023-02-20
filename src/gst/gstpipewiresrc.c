@@ -626,8 +626,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
                              info->offset,
                              info->stride);
 
-    meta->n_planes = MIN(meta->n_planes, b->buffer->n_datas);
-    for (i = 0; i < meta->n_planes; i++) {
+    for (i = 0; i < MIN (b->buffer->n_datas, GST_VIDEO_MAX_PLANES); i++) {
       struct spa_data *d = &b->buffer->datas[i];
       meta->offset[i] = video_size;
       meta->stride[i] = d->chunk->stride;

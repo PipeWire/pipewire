@@ -25,7 +25,6 @@
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
 
-#include <module-rtp/sap.h>
 #include <module-rtp/rtp.h>
 
 
@@ -38,8 +37,6 @@
  *
  * Options specific to the behavior of this module
  *
- * - `sap.ip = <str>`: IP address of the SAP messages, default "224.0.0.56"
- * - `sap.port = <int>`: port of the SAP messages, default 9875
  * - `source.ip =<str>`: source IP address, default "0.0.0.0"
  * - `destination.ip =<str>`: destination IP address, default "224.0.0.56"
  * - `destination.port =<int>`: destination port, default random beteen 46000 and 47024
@@ -77,8 +74,6 @@
  * context.modules = [
  * {   name = libpipewire-module-rtp-sink
  *     args = {
- *         #sap.ip = "224.0.0.56"
- *         #sap.port = 9875
  *         #source.ip = "0.0.0.0"
  *         #destination.ip = "224.0.0.56"
  *         #destination.port = 46000
@@ -138,9 +133,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_MAX_PTIME	20
 #define DEFAULT_TS_OFFSET	-1
 
-#define USAGE	"sap.ip=<SAP IP address to send announce, default:"DEFAULT_SAP_IP"> "		\
-		"sap.port=<SAP port to send on, default:"SPA_STRINGIFY(DEFAULT_SAP_PORT)"> "	\
-		"source.ip=<source IP address, default:"DEFAULT_SOURCE_IP"> "			\
+#define USAGE	"source.ip=<source IP address, default:"DEFAULT_SOURCE_IP"> "			\
 		"destination.ip=<destination IP address, default:"DEFAULT_DESTINATION_IP"> "	\
 		"local.ifname=<local interface name to use> "					\
 		"net.mtu=<desired MTU, default:"SPA_STRINGIFY(DEFAULT_MTU)"> "			\
@@ -201,16 +194,9 @@ struct impl {
 	struct sockaddr_storage src_addr;
 	socklen_t src_len;
 
-	uint16_t port;
+	uint16_t dst_port;
 	struct sockaddr_storage dst_addr;
 	socklen_t dst_len;
-
-	uint16_t sap_port;
-	struct sockaddr_storage sap_addr;
-	socklen_t sap_len;
-
-	uint16_t msg_id_hash;
-	uint32_t ntp;
 
 	struct spa_audio_info info;
 	const struct format_info *format_info;
@@ -226,10 +212,8 @@ struct impl {
 	uint8_t buffer[BUFFER_SIZE];
 
 	int rtp_fd;
-	int sap_fd;
 
 	unsigned sync:1;
-	unsigned has_sent_sap:1;
 };
 
 
@@ -447,13 +431,9 @@ static void flush_midi_packets(struct impl *impl, struct spa_pod_sequence *seque
 	iov[2].iov_base = impl->buffer;
 	iov[2].iov_len = 0;
 
-	msg.msg_name = NULL;
-	msg.msg_namelen = 0;
+	spa_zero(msg);
 	msg.msg_iov = iov;
 	msg.msg_iovlen = 3;
-	msg.msg_control = NULL;
-	msg.msg_controllen = 0;
-	msg.msg_flags = 0;
 
 	prev_offset = len = base = 0;
 
@@ -505,6 +485,29 @@ static void flush_midi_packets(struct impl *impl, struct spa_pod_sequence *seque
 	}
 }
 
+static void send_cmd(struct impl *impl)
+{
+//	struct rtp_header header;
+	uint8_t buffer[16];
+	struct iovec iov[3];
+	struct msghdr msg;
+
+	spa_zero(buffer);
+	buffer[0] = 0xff;
+	buffer[1] = 0xff;
+	buffer[2] = 'I';
+	buffer[3] = 'N';
+
+	iov[0].iov_base = buffer;
+	iov[0].iov_len = sizeof(buffer);
+
+	spa_zero(msg);
+	msg.msg_iov = iov;
+	msg.msg_iovlen = 1;
+
+	send_packet(impl, &msg);
+}
+
 static void stream_midi_process(void *data)
 {
 	struct impl *impl = data;
@@ -538,6 +541,8 @@ static void stream_midi_process(void *data)
 	if (!impl->sync) {
 		pw_log_info("sync to timestamp %u", timestamp);
 		impl->sync = true;
+
+		send_cmd(impl);
 	}
 
 	flush_midi_packets(impl, (struct spa_pod_sequence*)pod, timestamp);
@@ -759,152 +764,6 @@ static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len)
 		return -EIO;
 	return 0;
 }
-static void send_sap(struct impl *impl, bool bye)
-{
-	char buffer[2048], src_addr[64], dst_addr[64], dst_ttl[8];
-	const char *user_name, *af;
-	struct sockaddr *sa = (struct sockaddr*)&impl->src_addr;
-	struct sap_header header;
-	struct iovec iov[4];
-	struct msghdr msg;
-	struct spa_strbuf buf;
-
-	if (!impl->has_sent_sap && bye)
-		return;
-
-	spa_zero(header);
-	header.v = 1;
-	header.t = bye;
-	header.msg_id_hash = impl->msg_id_hash;
-
-	iov[0].iov_base = &header;
-	iov[0].iov_len = sizeof(header);
-
-	if (sa->sa_family == AF_INET) {
-		iov[1].iov_base = &((struct sockaddr_in*) sa)->sin_addr;
-		iov[1].iov_len = 4U;
-		af = "IP4";
-	} else {
-		iov[1].iov_base = &((struct sockaddr_in6*) sa)->sin6_addr;
-		iov[1].iov_len = 16U;
-		header.a = 1;
-		af = "IP6";
-	}
-	iov[2].iov_base = SAP_MIME_TYPE;
-	iov[2].iov_len = sizeof(SAP_MIME_TYPE);
-
-	get_ip(&impl->src_addr, src_addr, sizeof(src_addr));
-	get_ip(&impl->dst_addr, dst_addr, sizeof(dst_addr));
-
-	if ((user_name = pw_get_user_name()) == NULL)
-		user_name = "-";
-
-	spa_zero(dst_ttl);
-	if (is_multicast((struct sockaddr*)&impl->dst_addr, impl->dst_len))
-		snprintf(dst_ttl, sizeof(dst_ttl), "/%d", impl->ttl);
-
-	spa_strbuf_init(&buf, buffer, sizeof(buffer));
-	spa_strbuf_append(&buf,
-			"v=0\n"
-			"o=%s %u 0 IN %s %s\n"
-			"s=%s\n"
-			"c=IN %s %s%s\n"
-			"t=%u 0\n"
-			"a=recvonly\n"
-			"a=tool:PipeWire %s\n"
-			"a=type:broadcast\n",
-			user_name, impl->ntp, af, src_addr,
-			impl->session_name,
-			af, dst_addr, dst_ttl,
-			impl->ntp,
-			pw_get_library_version());
-	spa_strbuf_append(&buf,
-			"m=%s %u RTP/AVP %i\n",
-			impl->format_info->media_type,
-			impl->port, impl->payload);
-
-	switch (impl->info.media_type) {
-	case SPA_MEDIA_TYPE_audio:
-		spa_strbuf_append(&buf,
-				"a=rtpmap:%i %s/%u/%u\n"
-				"a=ptime:%d\n",
-				impl->payload, impl->format_info->mime,
-				impl->info.info.raw.rate,
-				impl->info.info.raw.channels,
-				impl->psamples * 1000 / impl->info.info.raw.rate);
-		break;
-	case SPA_MEDIA_TYPE_application:
-		spa_strbuf_append(&buf,
-				"a=rtpmap:%i %s/%u\n",
-				impl->payload, impl->format_info->mime,
-				impl->rate);
-		break;
-
-	}
-
-	if (impl->ts_refclk[0] != '\0') {
-		spa_strbuf_append(&buf,
-				"a=ts-refclk:%s\n"
-				"a=mediaclk:direct=%u\n",
-				impl->ts_refclk,
-				impl->ts_offset);
-	} else {
-		spa_strbuf_append(&buf, "a=mediaclk:sender\n");
-	}
-
-	iov[3].iov_base = buffer;
-	iov[3].iov_len = strlen(buffer);
-
-	msg.msg_name = NULL;
-	msg.msg_namelen = 0;
-	msg.msg_iov = iov;
-	msg.msg_iovlen = 4;
-	msg.msg_control = NULL;
-	msg.msg_controllen = 0;
-	msg.msg_flags = 0;
-
-	sendmsg(impl->sap_fd, &msg, MSG_NOSIGNAL);
-
-	impl->has_sent_sap = true;
-}
-
-static void on_timer_event(void *data, uint64_t expirations)
-{
-	struct impl *impl = data;
-	send_sap(impl, 0);
-}
-
-static int start_sap_announce(struct impl *impl)
-{
-	int fd, res;
-	struct timespec value, interval;
-
-	if ((fd = make_socket(&impl->src_addr, impl->src_len,
-					&impl->sap_addr, impl->sap_len,
-					impl->mcast_loop, impl->ttl, 0)) < 0)
-		return fd;
-
-	impl->sap_fd = fd;
-
-	pw_log_info("starting SAP timer");
-	impl->timer = pw_loop_add_timer(impl->loop, on_timer_event, impl);
-	if (impl->timer == NULL) {
-		res = -errno;
-		pw_log_error("can't create timer source: %m");
-		goto error;
-	}
-	value.tv_sec = 0;
-	value.tv_nsec = 1;
-	interval.tv_sec = SAP_INTERVAL_SEC;
-	interval.tv_nsec = 0;
-	pw_loop_update_timer(impl->loop, impl->timer, &value, &interval, false);
-
-	return 0;
-error:
-	close(fd);
-	return res;
-
-}
 
 static void core_destroy(void *d)
 {
@@ -920,8 +779,6 @@ static const struct pw_proxy_events core_proxy_events = {
 
 static void impl_destroy(struct impl *impl)
 {
-	send_sap(impl, 1);
-
 	if (impl->stream)
 		pw_stream_destroy(impl->stream);
 
@@ -933,8 +790,6 @@ static void impl_destroy(struct impl *impl)
 
 	if (impl->rtp_fd != -1)
 		close(impl->rtp_fd);
-	if (impl->sap_fd != -1)
-		close(impl->sap_fd);
 
 	pw_properties_free(impl->stream_props);
 	pw_properties_free(impl->props);
@@ -1045,7 +900,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct impl *impl;
 	struct pw_properties *props = NULL, *stream_props = NULL;
 	uint32_t id = pw_global_get_id(pw_impl_module_get_global(module));
-	uint32_t pid = getpid(), port;
+	uint32_t pid = getpid();
 	int64_t ts_offset;
 	char addr[64];
 	const char *str;
@@ -1058,7 +913,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		return -errno;
 
 	impl->rtp_fd = -1;
-	impl->sap_fd = -1;
 
 	if (args == NULL)
 		args = "";
@@ -1155,23 +1009,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		spa_assert_not_reached();
 		break;
 	}
-	impl->msg_id_hash = rand();
-	impl->ntp = (uint32_t) time(NULL) + 2208988800U;
-
 	impl->payload = 127;
 	impl->seq = rand();
 	impl->ssrc = rand();
 
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;
-
-	if ((str = pw_properties_get(props, "sap.ip")) == NULL)
-		str = DEFAULT_SAP_IP;
-	port = pw_properties_get_uint32(props, "sap.port", DEFAULT_SAP_PORT);
-	if ((res = parse_address(str, port, &impl->sap_addr, &impl->sap_len)) < 0) {
-		pw_log_error("invalid sap.ip %s: %s", str, spa_strerror(res));
-		goto out;
-	}
 
 	if ((str = pw_properties_get(props, "source.ip")) == NULL)
 		str = DEFAULT_SOURCE_IP;
@@ -1180,11 +1023,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto out;
 	}
 
-	impl->port = DEFAULT_PORT + ((uint32_t) (rand() % 512) << 1);
-	impl->port = pw_properties_get_uint32(props, "destination.port", impl->port);
+	impl->dst_port = DEFAULT_PORT + ((uint32_t) (rand() % 512) << 1);
+	impl->dst_port = pw_properties_get_uint32(props, "destination.port", impl->dst_port);
 	if ((str = pw_properties_get(props, "destination.ip")) == NULL)
 		str = DEFAULT_DESTINATION_IP;
-	if ((res = parse_address(str, impl->port, &impl->dst_addr, &impl->dst_len)) < 0) {
+	if ((res = parse_address(str, impl->dst_port, &impl->dst_addr, &impl->dst_len)) < 0) {
 		pw_log_error("invalid destination.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}
@@ -1225,12 +1068,21 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_properties_set(stream_props, "rtp.source.ip", addr);
 	get_ip(&impl->dst_addr, addr, sizeof(addr));
 	pw_properties_set(stream_props, "rtp.destination.ip", addr);
-	pw_properties_setf(stream_props, "rtp.destination.port", "%u", impl->port);
+	pw_properties_setf(stream_props, "rtp.destination.port", "%u", impl->dst_port);
 	pw_properties_setf(stream_props, "rtp.mtu", "%u", impl->mtu);
 	pw_properties_setf(stream_props, "rtp.ttl", "%u", impl->ttl);
 	pw_properties_setf(stream_props, "rtp.ptime", "%u",
 			impl->psamples * 1000 / impl->rate);
 	pw_properties_setf(stream_props, "rtp.dscp", "%u", impl->dscp);
+	pw_properties_setf(stream_props, "rtp.media", "%s", impl->format_info->media_type);
+	pw_properties_setf(stream_props, "rtp.mime", "%s", impl->format_info->mime);
+	pw_properties_setf(stream_props, "rtp.payload", "%u", impl->payload);
+	pw_properties_setf(stream_props, "rtp.rate", "%u", impl->rate);
+	if (impl->info.info.raw.channels > 0)
+		pw_properties_setf(stream_props, "rtp.channels", "%u", impl->info.info.raw.channels);
+	pw_properties_setf(stream_props, "rtp.ts-offset", "%u", impl->ts_offset);
+	if (impl->ts_refclk[0])
+		pw_properties_set(stream_props, "rtp.ts-refclk", impl->ts_refclk);
 
 	impl->core = pw_context_get_object(impl->module_context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {
@@ -1256,9 +1108,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			&core_events, impl);
 
 	if ((res = setup_stream(impl)) < 0)
-		goto out;
-
-	if ((res = start_sap_announce(impl)) < 0)
 		goto out;
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);

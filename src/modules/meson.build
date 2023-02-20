@@ -550,6 +550,15 @@ if build_module_rtp_session
   )
 endif
 
+pipewire_module_rtp_sap = shared_library('pipewire-module-rtp-sap',
+  [ 'module-rtp-sap.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
+)
+
 build_module_roc = roc_dep.found()
 if build_module_roc
   pipewire_module_roc_sink = shared_library('pipewire-module-roc-sink',

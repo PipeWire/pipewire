@@ -152,10 +152,11 @@ static const struct spa_dict_item module_info[] = {
 };
 
 struct impl {
+	struct pw_context *context;
+
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
 	struct pw_properties *props;
-	struct pw_context *module_context;
 
 	struct pw_loop *loop;
 
@@ -200,7 +201,7 @@ struct impl {
 	uint16_t seq;
 	uint32_t ssrc;
 	uint32_t ts_offset;
-	char ts_refclk[64];
+	char *ts_refclk;
 
 	struct spa_ringbuffer ring;
 	uint8_t buffer[BUFFER_SIZE];
@@ -790,6 +791,7 @@ static void impl_destroy(struct impl *impl)
 	pw_properties_free(impl->props);
 
 	free(impl->ifname);
+	free(impl->ts_refclk);
 	free(impl->session_name);
 	free(impl);
 }
@@ -929,7 +931,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->stream_props = stream_props;
 
 	impl->module = module;
-	impl->module_context = context;
+	impl->context = context;
 	impl->loop = pw_context_get_main_loop(context);
 
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
@@ -1037,8 +1039,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->ts_offset = ts_offset < 0 ? rand() : ts_offset;
 
 	str = pw_properties_get(props, "sess.ts-refclk");
-	if (str != NULL)
-		snprintf(impl->ts_refclk, sizeof(impl->ts_refclk), "%s", str);
+	impl->ts_refclk = str ? strdup(str) : NULL;
 
 	str = pw_properties_get(props, "sess.min-ptime");
 	if (!spa_atof(str, &impl->min_ptime))
@@ -1077,13 +1078,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (impl->info.info.raw.channels > 0)
 		pw_properties_setf(stream_props, "rtp.channels", "%u", impl->info.info.raw.channels);
 	pw_properties_setf(stream_props, "rtp.ts-offset", "%u", impl->ts_offset);
-	if (impl->ts_refclk[0])
+	if (impl->ts_refclk != NULL)
 		pw_properties_set(stream_props, "rtp.ts-refclk", impl->ts_refclk);
 
-	impl->core = pw_context_get_object(impl->module_context, PW_TYPE_INTERFACE_Core);
+	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {
 		str = pw_properties_get(props, PW_KEY_REMOTE_NAME);
-		impl->core = pw_context_connect(impl->module_context,
+		impl->core = pw_context_connect(impl->context,
 				pw_properties_new(
 					PW_KEY_REMOTE_NAME, str,
 					NULL),

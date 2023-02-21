@@ -135,7 +135,7 @@ struct impl {
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
 	struct pw_properties *props;
-	struct pw_context *module_context;
+	struct pw_context *context;
 
 	struct pw_loop *loop;
 	struct pw_loop *data_loop;
@@ -1122,7 +1122,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 
 	impl->module = module;
-	impl->module_context = context;
+	impl->context = context;
 	impl->loop = pw_context_get_main_loop(context);
 	impl->data_loop = pw_data_loop_get_loop(pw_context_get_data_loop(context));
 
@@ -1241,10 +1241,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_properties_setf(stream_props, PW_KEY_NODE_LATENCY, "%d/%d",
 			impl->target_buffer / 2, impl->rate);
 
-	impl->core = pw_context_get_object(impl->module_context, PW_TYPE_INTERFACE_Core);
+	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {
 		str = pw_properties_get(props, PW_KEY_REMOTE_NAME);
-		impl->core = pw_context_connect(impl->module_context,
+		impl->core = pw_context_connect(impl->context,
 				pw_properties_new(
 					PW_KEY_REMOTE_NAME, str,
 					NULL),

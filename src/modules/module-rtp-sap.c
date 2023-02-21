@@ -203,7 +203,6 @@ struct node {
 	struct session *session;
 };
 
-
 struct impl {
 	struct pw_properties *props;
 
@@ -295,6 +294,9 @@ static void session_free(struct session *sess)
 		spa_list_remove(&sess->link);
 		impl->n_sessions++;
 	}
+	if (sess->node && sess->node->session != NULL)
+		sess->node->session = NULL;
+
 	pw_properties_free(sess->props);
 	clear_sdp_info(&sess->info);
 	free(sess);
@@ -513,7 +515,7 @@ static void send_sap(struct impl *impl, struct session *sess, bool bye)
 		spa_strbuf_append(&buf, "a=mediaclk:sender\n");
 	}
 
-	pw_log_debug("sending SAP for %u", sess->node->id);
+	pw_log_debug("sending SAP for %u %s", sess->node->id, buffer);
 
 	iov[3].iov_base = buffer;
 	iov[3].iov_len = strlen(buffer);
@@ -732,7 +734,7 @@ static int rule_matched(void *data, const char *location, const char *action,
 	return res;
 }
 
-static struct session *session_new(struct impl *impl, const struct sdp_info *info)
+static struct session *session_new(struct impl *impl, struct sdp_info *info)
 {
 	struct session *session;
 	struct pw_properties *props;
@@ -749,8 +751,10 @@ static struct session *session_new(struct impl *impl, const struct sdp_info *inf
 	if (session == NULL)
 		return NULL;
 
-	session->info = *info;
 	session->announce = false;
+	session->info = *info;
+	spa_zero(*info);
+	info = &session->info;
 
 	props = pw_properties_new(NULL, NULL);
 	if (props == NULL)
@@ -1067,6 +1071,7 @@ static int parse_sap(struct impl *impl, void *data, size_t len)
 		else
 			session_touch(sess);
 	}
+	clear_sdp_info(&info);
 	return res;
 }
 
@@ -1165,9 +1170,7 @@ static void
 proxy_removed(void *data)
 {
 	struct node *n = data;
-	pw_log_info("node %d removed", n->id);
-	if (n->session != NULL)
-		session_free(n->session);
+	pw_log_debug("node %d removed", n->id);
 	pw_proxy_destroy(n->proxy);
 }
 
@@ -1175,12 +1178,18 @@ static void
 proxy_destroy(void *data)
 {
 	struct node *n = data;
-	pw_log_info("node %d destroy", n->id);
+	pw_log_debug("node %d destroy", n->id);
 	spa_hook_remove(&n->node_listener);
 	spa_hook_remove(&n->proxy_listener);
 	n->proxy = NULL;
-	if (n->info)
+	if (n->session != NULL) {
+		session_free(n->session);
+		n->session = NULL;
+	}
+	if (n->info) {
 		pw_node_info_free(n->info);
+		n->info = NULL;
+	}
 }
 
 static const struct pw_proxy_events proxy_events = {

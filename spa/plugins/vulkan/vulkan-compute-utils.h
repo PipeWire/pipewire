@@ -5,6 +5,7 @@
 #include <vulkan/vulkan.h>
 
 #include <spa/buffer/buffer.h>
+#include <spa/param/video/format.h>
 #include <spa/node/node.h>
 
 #include "vulkan-utils.h"
@@ -59,7 +60,7 @@ int spa_vulkan_init_stream(struct vulkan_compute_state *s, struct vulkan_stream 
 
 int spa_vulkan_prepare(struct vulkan_compute_state *s);
 int spa_vulkan_use_buffers(struct vulkan_compute_state *s, struct vulkan_stream *stream, uint32_t flags,
-		uint32_t n_buffers, struct spa_buffer **buffers);
+		struct spa_video_info_dsp *dsp_info, uint32_t n_buffers, struct spa_buffer **buffers);
 int spa_vulkan_unprepare(struct vulkan_compute_state *s);
 
 int spa_vulkan_start(struct vulkan_compute_state *s);

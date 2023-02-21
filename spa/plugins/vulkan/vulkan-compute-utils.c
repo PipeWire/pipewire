@@ -332,10 +332,14 @@ static void clear_streams(struct vulkan_compute_state *s)
 }
 
 int spa_vulkan_use_buffers(struct vulkan_compute_state *s, struct vulkan_stream *p, uint32_t flags,
-		uint32_t n_buffers, struct spa_buffer **buffers)
+		struct spa_video_info_dsp *dsp_info, uint32_t n_buffers, struct spa_buffer **buffers)
 {
 	uint32_t i;
 	VULKAN_INSTANCE_FUNCTION(vkGetMemoryFdKHR);
+
+	VkFormat format = vulkan_id_to_vkformat(dsp_info->format);
+	if (format == VK_FORMAT_UNDEFINED)
+		return -1;
 
 	clear_buffers(s, p);
 
@@ -344,7 +348,7 @@ int spa_vulkan_use_buffers(struct vulkan_compute_state *s, struct vulkan_stream 
 		VkImageCreateInfo imageCreateInfo = {
 			.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 			.imageType = VK_IMAGE_TYPE_2D,
-			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+			.format = format,
 			.extent.width = s->constants.width,
 			.extent.height = s->constants.height,
 			.extent.depth = 1,
@@ -425,7 +429,7 @@ int spa_vulkan_use_buffers(struct vulkan_compute_state *s, struct vulkan_stream 
 			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 			.image = p->buffers[i].image,
 			.viewType = VK_IMAGE_VIEW_TYPE_2D,
-			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+			.format = format,
 			.components.r = VK_COMPONENT_SWIZZLE_R,
 			.components.g = VK_COMPONENT_SWIZZLE_G,
 			.components.b = VK_COMPONENT_SWIZZLE_B,

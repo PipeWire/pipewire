@@ -21,6 +21,7 @@
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
+#include <spa/param/video/format.h>
 #include <spa/support/log.h>
 #include <spa/debug/mem.h>
 
@@ -91,6 +92,13 @@ static int vkresult_to_errno(VkResult result)
 		return EIO;
 	}
 }
+
+static struct {
+	VkFormat format;
+	uint32_t id;
+} vk_video_format_convs[] = {
+	{ VK_FORMAT_R32G32B32A32_SFLOAT, SPA_VIDEO_FORMAT_RGBA_F32 },
+};
 
 static int createInstance(struct vulkan_base *s)
 {
@@ -272,6 +280,24 @@ int vulkan_stream_init(struct vulkan_stream *stream, enum spa_direction directio
 	stream->busy_buffer_id = SPA_ID_INVALID;
 	stream->ready_buffer_id = SPA_ID_INVALID;
 	return 0;
+}
+
+uint32_t vulkan_vkformat_to_id(VkFormat format)
+{
+	SPA_FOR_EACH_ELEMENT_VAR(vk_video_format_convs, f) {
+		if (f->format == format)
+			return f->id;
+	}
+	return SPA_VIDEO_FORMAT_UNKNOWN;
+}
+
+VkFormat vulkan_id_to_vkformat(uint32_t id)
+{
+	SPA_FOR_EACH_ELEMENT_VAR(vk_video_format_convs, f) {
+		if (f->id == id)
+			return f->format;
+	}
+	return VK_FORMAT_UNDEFINED;
 }
 
 int vulkan_vkresult_to_errno(VkResult result)

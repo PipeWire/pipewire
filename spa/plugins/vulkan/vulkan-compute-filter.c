@@ -390,7 +390,7 @@ static int clear_buffers(struct impl *this, struct port *port)
 	if (port->n_buffers > 0) {
 		spa_log_debug(this->log, NAME " %p: clear buffers", this);
 		spa_vulkan_stop(&this->state);
-		spa_vulkan_use_buffers(&this->state, &this->state.streams[port->stream_id], 0, 0, NULL);
+		spa_vulkan_use_buffers(&this->state, &this->state.streams[port->stream_id], 0, &port->current_format.info.dsp, 0, NULL);
 		port->n_buffers = 0;
 		spa_list_init(&port->empty);
 		spa_list_init(&port->ready);
@@ -504,7 +504,7 @@ impl_node_port_use_buffers(void *object,
 		spa_log_info(this->log, "%p: %d:%d add buffer %p", port, direction, port_id, b);
 		spa_list_append(&port->empty, &b->link);
 	}
-	spa_vulkan_use_buffers(&this->state, &this->state.streams[port->stream_id], flags, n_buffers, buffers);
+	spa_vulkan_use_buffers(&this->state, &this->state.streams[port->stream_id], flags, &port->current_format.info.dsp, n_buffers, buffers);
 	port->n_buffers = n_buffers;
 
 	return 0;

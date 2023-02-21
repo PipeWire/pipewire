@@ -36,6 +36,9 @@ void vulkan_buffer_clear(struct vulkan_base *s, struct vulkan_buffer *buffer);
 int vulkan_stream_init(struct vulkan_stream *stream, enum spa_direction direction,
 		struct spa_dict *props);
 
+uint32_t vulkan_vkformat_to_id(VkFormat vkFormat);
+VkFormat vulkan_id_to_vkformat(uint32_t id);
+
 int vulkan_vkresult_to_errno(VkResult result);
 
 int vulkan_base_init(struct vulkan_base *s, struct vulkan_base_info *info);

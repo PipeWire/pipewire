@@ -27,7 +27,6 @@
 
 #include <module-rtp/rtp.h>
 
-
 /** \page page_module_rtp_sink PipeWire Module: RTP sink
  *
  * The `rtp-sink` module creates a PipeWire sink that sends audio
@@ -74,10 +73,10 @@
  * context.modules = [
  * {   name = libpipewire-module-rtp-sink
  *     args = {
+ *         #local.ifname = "eth0"
  *         #source.ip = "0.0.0.0"
  *         #destination.ip = "224.0.0.56"
  *         #destination.port = 46000
- *         #local.ifname = "eth0"
  *         #net.mtu = 1280
  *         #net.ttl = 1
  *         #net.loop = false
@@ -105,14 +104,8 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define SAP_INTERVAL_SEC	5
-#define SAP_MIME_TYPE		"application/sdp"
-
 #define BUFFER_SIZE		(1u<<20)
 #define BUFFER_MASK		(BUFFER_SIZE-1)
-
-#define DEFAULT_SAP_IP		"224.0.0.56"
-#define DEFAULT_SAP_PORT	9875
 
 #define DEFAULT_SESS_MEDIA	"audio"
 
@@ -135,6 +128,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define USAGE	"source.ip=<source IP address, default:"DEFAULT_SOURCE_IP"> "			\
 		"destination.ip=<destination IP address, default:"DEFAULT_DESTINATION_IP"> "	\
+ 		"destination.port=<int, default random beteen 46000 and 47024> "		\
 		"local.ifname=<local interface name to use> "					\
 		"net.mtu=<desired MTU, default:"SPA_STRINGIFY(DEFAULT_MTU)"> "			\
 		"net.ttl=<desired TTL, default:"SPA_STRINGIFY(DEFAULT_TTL)"> "			\
@@ -214,8 +208,8 @@ struct impl {
 	int rtp_fd;
 
 	unsigned sync:1;
+	unsigned apple_midi:1;
 };
-
 
 static void stream_destroy(void *d)
 {
@@ -366,7 +360,7 @@ static void stream_audio_process(struct impl *impl)
 		}
 	}
 	if (!impl->sync) {
-		pw_log_info("sync to timestamp %u", timestamp);
+		pw_log_info("sync to timestamp %u ts_offset:%u", timestamp, impl->ts_offset);
 		impl->ring.readindex = impl->ring.writeindex = timestamp;
 		memset(impl->buffer, 0, BUFFER_SIZE);
 		impl->sync = true;
@@ -487,7 +481,6 @@ static void flush_midi_packets(struct impl *impl, struct spa_pod_sequence *seque
 
 static void send_cmd(struct impl *impl)
 {
-//	struct rtp_header header;
 	uint8_t buffer[16];
 	struct iovec iov[3];
 	struct msghdr msg;
@@ -541,8 +534,8 @@ static void stream_midi_process(void *data)
 	if (!impl->sync) {
 		pw_log_info("sync to timestamp %u", timestamp);
 		impl->sync = true;
-
-		send_cmd(impl);
+		if (impl->apple_midi)
+			send_cmd(impl);
 	}
 
 	flush_midi_packets(impl, (struct spa_pod_sequence*)pod, timestamp);
@@ -962,6 +955,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_LATENCY);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
+	copy_props(impl, props, PW_KEY_NODE_CHANNELNAMES);
 	copy_props(impl, props, PW_KEY_MEDIA_NAME);
 	copy_props(impl, props, PW_KEY_MEDIA_CLASS);
 

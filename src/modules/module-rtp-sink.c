@@ -685,6 +685,7 @@ static int setup_stream(struct impl *impl)
 	uint32_t n_params;
 	uint8_t buffer[1024];
 	struct pw_properties *props;
+	enum pw_stream_flags flags;
 	int res, fd;
 
 	props = pw_properties_copy(impl->stream_props);
@@ -709,10 +710,13 @@ static int setup_stream(struct impl *impl)
 	n_params = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
+	flags = PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_RT_PROCESS;
+
 	switch (impl->info.media_type) {
 	case SPA_MEDIA_TYPE_audio:
 		params[n_params++] = spa_format_audio_build(&b,
 				SPA_PARAM_EnumFormat, &impl->info);
+		flags |= PW_STREAM_FLAG_AUTOCONNECT;
 		break;
 	case SPA_MEDIA_TYPE_application:
 		params[n_params++] = spa_pod_builder_add_object(&b,
@@ -727,9 +731,7 @@ static int setup_stream(struct impl *impl)
 	if ((res = pw_stream_connect(impl->stream,
 			PW_DIRECTION_INPUT,
 			PW_ID_ANY,
-			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_AUTOCONNECT |
-			PW_STREAM_FLAG_RT_PROCESS,
+			flags,
 			params, n_params)) < 0)
 		return res;
 

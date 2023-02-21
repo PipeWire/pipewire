@@ -885,6 +885,7 @@ static int setup_stream(struct impl *impl)
 	const struct spa_pod *params[1];
 	struct spa_pod_builder b;
 	uint32_t n_params;
+	enum pw_stream_flags flags;
 	uint8_t buffer[1024];
 	struct pw_properties *props;
 	int res;
@@ -916,10 +917,13 @@ static int setup_stream(struct impl *impl)
 	n_params = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
+	flags = PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_RT_PROCESS;
+
 	switch (impl->info.media_type) {
 	case SPA_MEDIA_TYPE_audio:
 		params[n_params++] = spa_format_audio_build(&b,
 				SPA_PARAM_EnumFormat, &impl->info);
+		flags |= PW_STREAM_FLAG_AUTOCONNECT;
 		break;
 	case SPA_MEDIA_TYPE_application:
 		params[n_params++] = spa_pod_builder_add_object(&b,
@@ -934,9 +938,7 @@ static int setup_stream(struct impl *impl)
 	if ((res = pw_stream_connect(impl->stream,
 			PW_DIRECTION_OUTPUT,
 			PW_ID_ANY,
-			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_AUTOCONNECT |
-			PW_STREAM_FLAG_RT_PROCESS,
+			flags,
 			params, n_params)) < 0) {
 		pw_log_error("can't connect stream: %s", spa_strerror(res));
 		goto error;
@@ -956,8 +958,8 @@ static void on_timer_event(void *data, uint64_t expirations)
 	struct impl *impl = data;
 
 	if (!impl->receiving) {
-		pw_log_info("timeout, closing inactive RTP source");
-		pw_impl_module_schedule_destroy(impl->module);
+		pw_log_info("timeout, inactive RTP source");
+		//pw_impl_module_schedule_destroy(impl->module);
 	} else {
 		pw_log_debug("timeout, keeping active RTP source");
 	}

@@ -51,13 +51,16 @@ static int module_rtp_recv_load(struct module *module)
 
 	fprintf(f, "{");
 	pw_properties_serialize_dict(f, &data->global_props->dict, 0);
-	fprintf(f, " stream.props = {");
+	fprintf(f, " stream.rules = ");
+	fprintf(f, "[ { matches = [ { rtp.session = \"~.*\" } ] "),
+	fprintf(f, "    actions = { create-stream = { ");
 	pw_properties_serialize_dict(f, &data->stream_props->dict, 0);
-	fprintf(f, " } }");
+	fprintf(f, "    } } } ] ");
+	fprintf(f, " }");
 	fclose(f);
 
 	data->mod = pw_context_load_module(module->impl->context,
-			"libpipewire-module-rtp-source",
+			"libpipewire-module-rtp-sap",
 			args, NULL);
 
 	free(args);
@@ -113,14 +116,13 @@ static int module_rtp_recv_prepare(struct module * const module)
 		res = -errno;
 		goto out;
 	}
-	if ((str = pw_properties_get(props, "sink")) != NULL)
-		pw_properties_set(stream_props, PW_KEY_TARGET_OBJECT, str);
-
 	if ((str = pw_properties_get(props, "sap_address")) != NULL)
 		pw_properties_set(global_props, "sap.ip", str);
 
+	if ((str = pw_properties_get(props, "sink")) != NULL)
+		pw_properties_set(stream_props, PW_KEY_TARGET_OBJECT, str);
 	if ((str = pw_properties_get(props, "latency_msec")) != NULL)
-		pw_properties_set(global_props, "sess.latency.msec", str);
+		pw_properties_set(stream_props, "sess.latency.msec", str);
 
 	d->module = module;
 	d->stream_props = stream_props;

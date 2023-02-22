@@ -134,7 +134,7 @@ uint32_t format_name2id(const char *name)
 		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_format[i].name)))
 			return spa_type_audio_format[i].type;
 	}
-	return SPA_AUDIO_CHANNEL_UNKNOWN;
+	return SPA_AUDIO_FORMAT_UNKNOWN;
 }
 
 uint32_t format_paname2id(const char *name, size_t size)

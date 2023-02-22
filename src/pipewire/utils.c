@@ -197,8 +197,10 @@ ssize_t pw_getrandom(void *buf, size_t buflen, unsigned int flags)
 	return res;
 }
 
+#ifdef HAVE_RANDOM_R
 static char statebuf[256];
 static struct random_data random_state;
+#endif
 
 /** Fill a buffer with random data
  * \param buf a buffer to fill
@@ -215,7 +217,11 @@ void pw_random(void *buf, size_t buflen)
 		uint8_t *p = buf;
 		while (buflen-- > 0) {
 			int32_t val;
+#ifdef HAVE_RANDOM_R
 			random_r(&random_state, &val);
+#else
+			val = rand();
+#endif
 			*p++ = (uint8_t) val;;
 		}
 	}
@@ -229,7 +235,11 @@ void pw_random_init()
 		clock_gettime(CLOCK_REALTIME, &ts);
 		seed = (unsigned int) SPA_TIMESPEC_TO_NSEC(&ts);
 	}
+#ifdef HAVE_RANDOM_R
 	initstate_r(seed, statebuf, sizeof(statebuf), &random_state);
+#else
+	srand(seed);
+#endif
 }
 
 SPA_EXPORT

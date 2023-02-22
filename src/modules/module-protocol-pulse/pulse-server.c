@@ -1693,26 +1693,33 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 		}
 	}
 	if (sample_spec_valid(&ss)) {
-		if (fix_format || fix_rate || fix_channels) {
-			struct sample_spec sfix = ss;
-			if (fix_format)
+		struct sample_spec sfix = ss;
+		const char *str;
+
+		rate = ss.rate;
+
+		if (fix_format) {
+			if ((str = pw_properties_get(props, SPA_KEY_AUDIO_FORMAT)) != NULL)
+				sfix.format = format_name2id(str);
+			else
 				sfix.format = SPA_AUDIO_FORMAT_UNKNOWN;
-			if (fix_rate)
-				sfix.rate = 0;
-			if (fix_channels)
-				sfix.channels = 0;
-			if (n_params < MAX_FORMATS &&
-			    (params[n_params] = format_build_param(&b,
-					SPA_PARAM_EnumFormat, &sfix,
-					sfix.channels > 0 ? &map : NULL)) != NULL) {
-				n_params++;
-				n_valid_formats++;
-			}
 		}
-		else if (n_params < MAX_FORMATS &&
+		if (fix_rate) {
+			if ((str = pw_properties_get(props, SPA_KEY_AUDIO_RATE)) != NULL)
+				sfix.rate = atoi(str);
+			else
+				sfix.rate = 0;
+		}
+		if (fix_channels) {
+			if ((str = pw_properties_get(props, SPA_KEY_AUDIO_CHANNELS)) != NULL)
+				sfix.channels = atoi(str);
+			else
+				sfix.channels = 0;
+		}
+		if (n_params < MAX_FORMATS &&
 		    (params[n_params] = format_build_param(&b,
-				SPA_PARAM_EnumFormat, &ss,
-				ss.channels > 0 ? &map : NULL)) != NULL) {
+				SPA_PARAM_EnumFormat, &sfix,
+				sfix.channels > 0 ? &map : NULL)) != NULL) {
 			n_params++;
 			n_valid_formats++;
 		} else {
@@ -1720,7 +1727,6 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 					impl, format_id2name(ss.format), ss.rate,
 					ss.channels);
 		}
-		rate = ss.rate;
 	}
 
 	if (m->offset != m->length)
@@ -1950,26 +1956,33 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 		volume_set = false;
 	}
 	if (sample_spec_valid(&ss)) {
-		if (fix_format || fix_rate || fix_channels) {
-			struct sample_spec sfix = ss;
-			if (fix_format)
+		struct sample_spec sfix = ss;
+		const char *str;
+
+		rate = ss.rate;
+
+		if (fix_format) {
+			if ((str = pw_properties_get(props, SPA_KEY_AUDIO_FORMAT)) != NULL)
+				sfix.format = format_name2id(str);
+			else
 				sfix.format = SPA_AUDIO_FORMAT_UNKNOWN;
-			if (fix_rate)
-				sfix.rate = 0;
-			if (fix_channels)
-				sfix.channels = 0;
-			if (n_params < MAX_FORMATS &&
-			    (params[n_params] = format_build_param(&b,
-					SPA_PARAM_EnumFormat, &sfix,
-					sfix.channels > 0 ? &map : NULL)) != NULL) {
-				n_params++;
-				n_valid_formats++;
-			}
 		}
-		else if (n_params < MAX_FORMATS &&
+		if (fix_rate) {
+			if ((str = pw_properties_get(props, SPA_KEY_AUDIO_RATE)) != NULL)
+				sfix.rate = atoi(str);
+			else
+				sfix.rate = 0;
+		}
+		if (fix_channels) {
+			if ((str = pw_properties_get(props, SPA_KEY_AUDIO_CHANNELS)) != NULL)
+				sfix.channels = atoi(str);
+			else
+				sfix.channels = 0;
+		}
+		if (n_params < MAX_FORMATS &&
 		    (params[n_params] = format_build_param(&b,
-				SPA_PARAM_EnumFormat, &ss,
-				ss.channels > 0 ? &map : NULL)) != NULL) {
+				SPA_PARAM_EnumFormat, &sfix,
+				sfix.channels > 0 ? &map : NULL)) != NULL) {
 			n_params++;
 			n_valid_formats++;
 		} else {
@@ -1977,7 +1990,6 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 					impl, format_id2name(ss.format), ss.rate,
 					ss.channels);
 		}
-		rate = ss.rate;
 	}
 	if (m->offset != m->length)
 		goto error_protocol;

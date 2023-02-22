@@ -32,6 +32,10 @@
  * It will create source RTP streams that are announced with SAP when they
  * match the rule with the create-stream action.
  *
+ * If no stream.rules are given, it will announce all streams with
+ * sess.sap.announce = true and it will create a receiver for all announced
+ * streams.
+ *
  * ## Module Options
  *
  * Options specific to the behavior of this module
@@ -93,6 +97,7 @@
  *                         #rtp.session = "PipeWire RTP Stream on fedora"
  *                         #rtp.ts-offset = 0
  *                         #rtp.ts-refclk = "private"
+ *                         rtp.session = "~.*"
  *                     }
  *                 ]
  *                 actions = {
@@ -118,6 +123,11 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
 #define MAX_SESSIONS		64
+
+#define DEFAULT_ANNOUNCE_RULES	\
+	"[ { matches = [ { sess.sap.announce = true } ] actions = { announce-stream = { } } } ]"
+#define DEFAULT_CREATE_RULES	\
+        "[ { matches = [ { rtp.session = \"~.*\" } ] actions = { create-stream = { } } } ] "
 
 #define DEFAULT_CLEANUP_SEC	90
 #define SAP_INTERVAL_SEC	5
@@ -829,7 +839,9 @@ static struct session *session_new(struct impl *impl, struct sdp_info *info)
 	if (info->channelmap[0])
 		pw_properties_set(props, PW_KEY_NODE_CHANNELNAMES, info->channelmap);
 
-	if ((str = pw_properties_get(impl->props, "stream.rules")) != NULL) {
+	if ((str = pw_properties_get(impl->props, "stream.rules")) == NULL)
+		str = DEFAULT_CREATE_RULES;
+	if (str != NULL) {
 		struct match_info minfo = {
 			.impl = impl,
 			.session = session,
@@ -1192,7 +1204,9 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 
 	pw_log_debug("node %d changed", n->id);
 
-	if ((str = pw_properties_get(impl->props, "stream.rules")) != NULL) {
+	if ((str = pw_properties_get(impl->props, "stream.rules")) == NULL)
+		str = DEFAULT_ANNOUNCE_RULES;
+	if (str != NULL) {
 		struct match_info minfo = {
 			.impl = impl,
 			.node = n,

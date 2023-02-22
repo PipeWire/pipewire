@@ -19,8 +19,13 @@ struct module_rtp_send_data {
 	struct spa_hook mod_listener;
 	struct pw_impl_module *mod;
 
+	struct spa_hook sap_listener;
+	struct pw_impl_module *sap;
+
 	struct pw_properties *stream_props;
 	struct pw_properties *global_props;
+	struct pw_properties *sap_props;
+
 	struct spa_audio_info_raw info;
 };
 
@@ -35,6 +40,19 @@ static void module_destroy(void *data)
 static const struct pw_impl_module_events module_events = {
 	PW_VERSION_IMPL_MODULE_EVENTS,
 	.destroy = module_destroy
+};
+
+static void sap_module_destroy(void *data)
+{
+	struct module_rtp_send_data *d = data;
+	spa_hook_remove(&d->sap_listener);
+	d->sap = NULL;
+	module_schedule_unload(d->module);
+}
+
+static const struct pw_impl_module_events sap_module_events = {
+	PW_VERSION_IMPL_MODULE_EVENTS,
+	.destroy = sap_module_destroy
 };
 
 static int module_rtp_send_load(struct module *module)
@@ -75,7 +93,6 @@ static int module_rtp_send_load(struct module *module)
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-rtp-sink",
 			args, NULL);
-
 	free(args);
 
 	if (data->mod == NULL)
@@ -85,6 +102,29 @@ static int module_rtp_send_load(struct module *module)
 			&data->mod_listener,
 			&module_events, data);
 
+	if ((f = open_memstream(&args, &size)) == NULL)
+		return -errno;
+
+	fprintf(f, "{");
+	pw_properties_serialize_dict(f, &data->sap_props->dict, 0);
+	fprintf(f, " stream.rules = [");
+	fprintf(f, "   { matches = [ { pulse.module.id = %u } ] ", module->index);
+	fprintf(f, "     actions = { announce-stream = { } } ");
+	fprintf(f, "   } ] }");
+	fclose(f);
+
+	data->sap = pw_context_load_module(module->impl->context,
+			"libpipewire-module-rtp-sap",
+			args, NULL);
+	free(args);
+
+	if (data->sap == NULL)
+		return -errno;
+
+	pw_impl_module_add_listener(data->sap,
+			&data->sap_listener,
+			&sap_module_events, data);
+
 	return 0;
 }
 
@@ -92,6 +132,11 @@ static int module_rtp_send_unload(struct module *module)
 {
 	struct module_rtp_send_data *d = module->user_data;
 
+	if (d->sap) {
+		spa_hook_remove(&d->sap_listener);
+		pw_impl_module_destroy(d->sap);
+		d->sap = NULL;
+	}
 	if (d->mod) {
 		spa_hook_remove(&d->mod_listener);
 		pw_impl_module_destroy(d->mod);
@@ -100,6 +145,7 @@ static int module_rtp_send_unload(struct module *module)
 
 	pw_properties_free(d->global_props);
 	pw_properties_free(d->stream_props);
+	pw_properties_free(d->sap_props);
 
 	return 0;
 }
@@ -127,7 +173,7 @@ static int module_rtp_send_prepare(struct module * const module)
 {
 	struct module_rtp_send_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
-	struct pw_properties *stream_props = NULL, *global_props = NULL;
+	struct pw_properties *stream_props = NULL, *global_props = NULL, *sap_props = NULL;
 	struct spa_audio_info_raw info = { 0 };
 	const char *str;
 	int res;
@@ -136,7 +182,8 @@ static int module_rtp_send_prepare(struct module * const module)
 
 	stream_props = pw_properties_new(NULL, NULL);
 	global_props = pw_properties_new(NULL, NULL);
-	if (!stream_props || !global_props) {
+	sap_props = pw_properties_new(NULL, NULL);
+	if (!stream_props || !global_props || !sap_props) {
 		res = -errno;
 		goto out;
 	}
@@ -165,31 +212,41 @@ static int module_rtp_send_prepare(struct module * const module)
 		}
 	}
 
-	if ((str = pw_properties_get(props, "destination_ip")) != NULL)
-		pw_properties_set(global_props, "destination.ip", str);
-	if ((str = pw_properties_get(props, "source_ip")) != NULL)
+	if ((str = pw_properties_get(props, "source_ip")) != NULL) {
 		pw_properties_set(global_props, "source.ip", str);
+		pw_properties_set(sap_props, "source.ip", str);
+	}
+	if ((str = pw_properties_get(props, "destination_ip")) != NULL) {
+		pw_properties_set(global_props, "destination.ip", str);
+		pw_properties_set(sap_props, "sap.ip", str);
+	}
 	if ((str = pw_properties_get(props, "port")) != NULL)
 		pw_properties_set(global_props, "destination.port", str);
 	if ((str = pw_properties_get(props, "mtu")) != NULL)
 		pw_properties_set(global_props, "net.mtu", str);
-	if ((str = pw_properties_get(props, "loop")) != NULL)
-		pw_properties_set(global_props, "net.loop",
-				module_args_parse_bool(str) ? "true" : "false");
-	if ((str = pw_properties_get(props, "ttl")) != NULL)
+	if ((str = pw_properties_get(props, "loop")) != NULL) {
+		const char *b = module_args_parse_bool(str) ? "true" : "false";
+		pw_properties_set(global_props, "net.loop", b);
+		pw_properties_set(sap_props, "net.loop", b);
+	}
+	if ((str = pw_properties_get(props, "ttl")) != NULL) {
 		pw_properties_set(global_props, "net.ttl", str);
+		pw_properties_set(sap_props, "net.ttl", str);
+	}
 	if ((str = pw_properties_get(props, "stream_name")) != NULL)
 		pw_properties_set(global_props, "sess.name", str);
 
 	d->module = module;
 	d->stream_props = stream_props;
 	d->global_props = global_props;
+	d->sap_props = sap_props;
 	d->info = info;
 
 	return 0;
 out:
 	pw_properties_free(stream_props);
 	pw_properties_free(global_props);
+	pw_properties_free(sap_props);
 
 	return res;
 }

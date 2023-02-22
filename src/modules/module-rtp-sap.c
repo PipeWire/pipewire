@@ -265,7 +265,7 @@ static const struct format_info *find_audio_format_info(const char *mime)
 	return NULL;
 }
 
-static void send_sap(struct impl *impl, struct session *sess, bool bye);
+static int send_sap(struct impl *impl, struct session *sess, bool bye);
 
 
 static void clear_sdp_info(struct sdp_info *info)
@@ -335,14 +335,43 @@ static bool is_multicast(struct sockaddr *sa, socklen_t salen)
 	return false;
 }
 
-static int make_socket(struct sockaddr_storage *src, socklen_t src_len,
-		struct sockaddr_storage *dst, socklen_t dst_len,
+static int make_send_socket(struct sockaddr_storage *sa, socklen_t salen,
 		bool loop, int ttl, char *ifname)
+{
+	int af, fd, val, res;
+
+	af = sa->ss_family;
+	if ((fd = socket(af, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
+		pw_log_error("socket failed: %m");
+		return -errno;
+	}
+	if (connect(fd, (struct sockaddr*)sa, salen) < 0) {
+		res = -errno;
+		pw_log_error("connect() failed: %m");
+		goto error;
+	}
+	if (is_multicast((struct sockaddr*)sa, salen)) {
+		val = loop;
+		if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &val, sizeof(val)) < 0)
+			pw_log_warn("setsockopt(IP_MULTICAST_LOOP) failed: %m");
+
+		val = ttl;
+		if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &val, sizeof(val)) < 0)
+			pw_log_warn("setsockopt(IP_MULTICAST_TTL) failed: %m");
+	}
+	return fd;
+error:
+	close(fd);
+	return res;
+}
+
+static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
+		char *ifname)
 {
 	int af, fd, val, res;
 	struct ifreq req;
 
-	af = src->ss_family;
+	af = sa->ss_family;
 	if ((fd = socket(af, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		pw_log_error("socket failed: %m");
 		return -errno;
@@ -361,44 +390,43 @@ static int make_socket(struct sockaddr_storage *src, socklen_t src_len,
 	                pw_log_warn("SIOCGIFINDEX %s failed: %m", ifname);
 	}
 	res = 0;
-	if (is_multicast((struct sockaddr*)dst, dst_len)) {
-		val = loop;
-		if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &val, sizeof(val)) < 0)
-			pw_log_warn("setsockopt(IP_MULTICAST_LOOP) failed: %m");
-
-		val = ttl;
-		if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &val, sizeof(val)) < 0)
-			pw_log_warn("setsockopt(IP_MULTICAST_TTL) failed: %m");
-
-		if (af == AF_INET) {
-			struct sockaddr_in *sa4 = (struct sockaddr_in*)dst;
+	if (af == AF_INET) {
+		static const uint32_t ipv4_mcast_mask = 0xe0000000;
+		struct sockaddr_in *sa4 = (struct sockaddr_in*)sa;
+		if ((ntohl(sa4->sin_addr.s_addr) & ipv4_mcast_mask) == ipv4_mcast_mask) {
 			struct ip_mreqn mr4;
 			memset(&mr4, 0, sizeof(mr4));
 			mr4.imr_multiaddr = sa4->sin_addr;
 			mr4.imr_ifindex = req.ifr_ifindex;
 			res = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr4, sizeof(mr4));
-		} else if (af == AF_INET6) {
-			struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)dst;
+		} else {
+			sa4->sin_addr.s_addr = INADDR_ANY;
+		}
+	} else if (af == AF_INET6) {
+		struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)sa;
+		if (sa6->sin6_addr.s6_addr[0] == 0xff) {
 			struct ipv6_mreq mr6;
 			memset(&mr6, 0, sizeof(mr6));
 			mr6.ipv6mr_multiaddr = sa6->sin6_addr;
 			mr6.ipv6mr_interface = req.ifr_ifindex;
 			res = setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mr6, sizeof(mr6));
+		} else {
+		        sa6->sin6_addr = in6addr_any;
 		}
-		if (res < 0) {
-			res = -errno;
-			pw_log_error("join mcast failed: %m");
-			goto error;
-		}
-	}
-	if (bind(fd, (struct sockaddr*)src, src_len) < 0) {
-		res = -errno;
-		pw_log_error("bind() failed: %m");
+	} else {
+		res = -EINVAL;
 		goto error;
 	}
-	if (connect(fd, (struct sockaddr*)dst, dst_len) < 0) {
+
+	if (res < 0) {
 		res = -errno;
-		pw_log_error("connect() failed: %m");
+		pw_log_error("join mcast failed: %m");
+		goto error;
+	}
+
+	if (bind(fd, (struct sockaddr*)sa, salen) < 0) {
+		res = -errno;
+		pw_log_error("bind() failed: %m");
 		goto error;
 	}
 	return fd;
@@ -407,7 +435,7 @@ error:
 	return res;
 }
 
-static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len)
+static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len, bool *ip4)
 {
 	if (sa->ss_family == AF_INET) {
 		struct sockaddr_in *in = (struct sockaddr_in*)sa;
@@ -415,25 +443,31 @@ static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len)
 	} else if (sa->ss_family == AF_INET6) {
 		struct sockaddr_in6 *in = (struct sockaddr_in6*)sa;
 		inet_ntop(sa->ss_family, &in->sin6_addr, ip, len);
+		*ip4 = false;
 	} else
 		return -EIO;
+	if (ip4)
+		*ip4 = sa->ss_family == AF_INET;
 	return 0;
 }
-static void send_sap(struct impl *impl, struct session *sess, bool bye)
+
+static int send_sap(struct impl *impl, struct session *sess, bool bye)
 {
 	char buffer[2048], src_addr[64], dst_addr[64], dst_ttl[8];
-	const char *user_name, *af;
+	const char *user_name;
 	struct sockaddr *sa = (struct sockaddr*)&impl->src_addr;
 	struct sap_header header;
 	struct iovec iov[4];
 	struct msghdr msg;
 	struct spa_strbuf buf;
 	struct sdp_info *sdp = &sess->info;
+	bool src_ip4, dst_ip4;
+	int res;
 
 	if (!sess->announce)
-		return;
+		return 0;
 	if (!sess->has_sent_sap && bye)
-		return;
+		return 0;
 
 	spa_zero(header);
 	header.v = 1;
@@ -443,21 +477,22 @@ static void send_sap(struct impl *impl, struct session *sess, bool bye)
 	iov[0].iov_base = &header;
 	iov[0].iov_len = sizeof(header);
 
-	if (sa->sa_family == AF_INET) {
+	if ((res = get_ip(&impl->src_addr, src_addr, sizeof(src_addr), &src_ip4)) < 0)
+		return res;
+
+	if (src_ip4) {
 		iov[1].iov_base = &((struct sockaddr_in*) sa)->sin_addr;
 		iov[1].iov_len = 4U;
-		af = "IP4";
 	} else {
 		iov[1].iov_base = &((struct sockaddr_in6*) sa)->sin6_addr;
 		iov[1].iov_len = 16U;
 		header.a = 1;
-		af = "IP6";
 	}
 	iov[2].iov_base = SAP_MIME_TYPE;
 	iov[2].iov_len = sizeof(SAP_MIME_TYPE);
 
-	get_ip(&impl->src_addr, src_addr, sizeof(src_addr));
-	get_ip(&sdp->dst_addr, dst_addr, sizeof(dst_addr));
+	if ((res = get_ip(&sdp->dst_addr, dst_addr, sizeof(dst_addr), &dst_ip4)) < 0)
+		return res;
 
 	if ((user_name = pw_get_user_name()) == NULL)
 		user_name = "-";
@@ -476,9 +511,9 @@ static void send_sap(struct impl *impl, struct session *sess, bool bye)
 			"a=recvonly\n"
 			"a=tool:PipeWire %s\n"
 			"a=type:broadcast\n",
-			user_name, sdp->ntp, af, src_addr,
+			user_name, sdp->ntp, src_ip4 ? "IP4" : "IP6", src_addr,
 			sdp->session_name,
-			af, dst_addr, dst_ttl,
+			dst_ip4 ? "IP4" : "IP6", dst_addr, dst_ttl,
 			sdp->ntp,
 			pw_get_library_version());
 	spa_strbuf_append(&buf,
@@ -528,9 +563,13 @@ static void send_sap(struct impl *impl, struct session *sess, bool bye)
 	msg.msg_controllen = 0;
 	msg.msg_flags = 0;
 
-	sendmsg(impl->sap_fd, &msg, MSG_NOSIGNAL);
+	res = sendmsg(impl->sap_fd, &msg, MSG_NOSIGNAL);
+	if (res < 0)
+		res = -errno;
+	else
+		sess->has_sent_sap = true;
 
-	sess->has_sent_sap = true;
+	return res;
 }
 
 static void on_timer_event(void *data, uint64_t expirations)
@@ -775,7 +814,7 @@ static struct session *session_new(struct impl *impl, struct sdp_info *info)
 		pw_properties_set(props, PW_KEY_MEDIA_NAME, "RTP Stream");
 	}
 
-	get_ip(&info->dst_addr, dst_addr, sizeof(dst_addr));
+	get_ip(&info->dst_addr, dst_addr, sizeof(dst_addr), NULL);
 	pw_properties_setf(props, "rtp.destination.ip", "%s", dst_addr);
 	pw_properties_setf(props, "rtp.destination.port", "%u", info->dst_port);
 	pw_properties_setf(props, "rtp.payload", "%u", info->payload);
@@ -1101,8 +1140,7 @@ static int start_sap_announce(struct impl *impl)
 	int fd, res;
 	struct timespec value, interval;
 
-	if ((fd = make_socket(&impl->src_addr, impl->src_len,
-					&impl->sap_addr, impl->sap_len,
+	if ((fd = make_send_socket(&impl->sap_addr, impl->sap_len,
 					impl->mcast_loop, impl->ttl,
 					impl->ifname)) < 0)
 		return fd;
@@ -1122,9 +1160,12 @@ static int start_sap_announce(struct impl *impl)
 	interval.tv_nsec = 0;
 	pw_loop_update_timer(impl->loop, impl->timer, &value, &interval, false);
 
+	if ((fd = make_recv_socket(&impl->sap_addr, impl->sap_len, impl->ifname)) < 0)
+		return fd;
+
 	pw_log_info("starting SAP listener");
 	impl->sap_source = pw_loop_add_io(impl->loop, fd,
-				SPA_IO_IN, false, on_sap_io, impl);
+				SPA_IO_IN, true, on_sap_io, impl);
 	if (impl->sap_source == NULL) {
 		res = -errno;
 		goto error;

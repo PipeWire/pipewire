@@ -892,16 +892,6 @@ static void copy_props(struct impl *impl, struct pw_properties *props, const cha
 	}
 }
 
-static uint32_t make_random(void)
-{
-	int res;
-	uint32_t val;
-	do {
-		res = pw_getrandom(&val, sizeof(val), 0);
-	} while ((res == -1) && (errno == EINTR));
-	return val;
-}
-
 SPA_EXPORT
 int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
@@ -1020,8 +1010,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		break;
 	}
 	impl->payload = 127;
-	impl->seq = make_random();
-	impl->ssrc = make_random();
+	impl->seq = pw_rand32();
+	impl->ssrc = pw_rand32();
 
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;
@@ -1033,7 +1023,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto out;
 	}
 
-	impl->dst_port = DEFAULT_PORT + ((uint32_t) (make_random() % 512) << 1);
+	impl->dst_port = DEFAULT_PORT + ((uint32_t) (pw_rand32() % 512) << 1);
 	impl->dst_port = pw_properties_get_uint32(props, "destination.port", impl->dst_port);
 	if ((str = pw_properties_get(props, "destination.ip")) == NULL)
 		str = DEFAULT_DESTINATION_IP;
@@ -1048,7 +1038,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->dscp = pw_properties_get_uint32(props, "net.dscp", DEFAULT_DSCP);
 
 	ts_offset = pw_properties_get_int64(props, "sess.ts-offset", DEFAULT_TS_OFFSET);
-	impl->ts_offset = ts_offset < 0 ? make_random() : ts_offset;
+	impl->ts_offset = ts_offset < 0 ? pw_rand32() : ts_offset;
 
 	str = pw_properties_get(props, "sess.ts-refclk");
 	impl->ts_refclk = str ? strdup(str) : NULL;

@@ -361,7 +361,8 @@ static void stream_audio_process(struct impl *impl)
 		}
 	}
 	if (!impl->sync) {
-		pw_log_info("sync to timestamp %u ts_offset:%u", timestamp, impl->ts_offset);
+		pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u",
+				timestamp, impl->seq, impl->ts_offset, impl->ssrc);
 		impl->ring.readindex = impl->ring.writeindex = timestamp;
 		memset(impl->buffer, 0, BUFFER_SIZE);
 		impl->sync = true;
@@ -533,7 +534,8 @@ static void stream_midi_process(void *data)
 		goto done;
 
 	if (!impl->sync) {
-		pw_log_info("sync to timestamp %u", timestamp);
+		pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u",
+				timestamp, impl->seq, impl->ts_offset, impl->ssrc);
 		impl->sync = true;
 		if (impl->apple_midi)
 			send_cmd(impl);
@@ -890,6 +892,16 @@ static void copy_props(struct impl *impl, struct pw_properties *props, const cha
 	}
 }
 
+static uint32_t make_random(void)
+{
+	int res;
+	uint32_t val;
+	do {
+		res = pw_getrandom(&val, sizeof(val), 0);
+	} while ((res == -1) && (errno == EINTR));
+	return val;
+}
+
 SPA_EXPORT
 int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
@@ -1008,8 +1020,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		break;
 	}
 	impl->payload = 127;
-	impl->seq = rand();
-	impl->ssrc = rand();
+	impl->seq = make_random();
+	impl->ssrc = make_random();
 
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;
@@ -1021,7 +1033,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto out;
 	}
 
-	impl->dst_port = DEFAULT_PORT + ((uint32_t) (rand() % 512) << 1);
+	impl->dst_port = DEFAULT_PORT + ((uint32_t) (make_random() % 512) << 1);
 	impl->dst_port = pw_properties_get_uint32(props, "destination.port", impl->dst_port);
 	if ((str = pw_properties_get(props, "destination.ip")) == NULL)
 		str = DEFAULT_DESTINATION_IP;
@@ -1036,7 +1048,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->dscp = pw_properties_get_uint32(props, "net.dscp", DEFAULT_DSCP);
 
 	ts_offset = pw_properties_get_int64(props, "sess.ts-offset", DEFAULT_TS_OFFSET);
-	impl->ts_offset = ts_offset < 0 ? rand() : ts_offset;
+	impl->ts_offset = ts_offset < 0 ? make_random() : ts_offset;
 
 	str = pw_properties_get(props, "sess.ts-refclk");
 	impl->ts_refclk = str ? strdup(str) : NULL;

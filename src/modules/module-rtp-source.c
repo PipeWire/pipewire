@@ -330,8 +330,10 @@ static void receive_audio(struct impl *impl, uint8_t *packet,
 	write = timestamp + impl->target_buffer;
 
 	if (!impl->have_sync) {
-		pw_log_info("sync to timestamp %u direct:%d ts_offset:%u",
-				write, impl->direct_timestamp, impl->ts_offset);
+		pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u direct:%d",
+				write, impl->expected_seq-1, impl->ts_offset, impl->expected_ssrc,
+				impl->direct_timestamp);
+
 		/* we read from timestamp, keeping target_buffer of data
 		 * in the ringbuffer. */
 		impl->ring.readindex = timestamp;
@@ -509,8 +511,9 @@ static void receive_midi(struct impl *impl, uint8_t *packet,
 		/* in direct timestamp we attach the RTP timestamp directly on the
 		 * midi events and render them in the corresponding cycle */
 		if (!impl->have_sync) {
-			pw_log_info("sync to timestamp %u/ direct:%d", timestamp,
-					impl->direct_timestamp);
+			pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u direct:%d",
+				timestamp, impl->expected_seq-1, impl->ts_offset, impl->expected_ssrc,
+				impl->direct_timestamp);
 			impl->have_sync = true;
 		}
 	} else {
@@ -534,8 +537,9 @@ static void receive_midi(struct impl *impl, uint8_t *packet,
 			impl->corr = 1.0;
 			spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 256, impl->rate);
 
-			pw_log_info("sync to timestamp %u/%f direct:%d", timestamp, t,
-					impl->direct_timestamp);
+			pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u direct:%d",
+				timestamp, impl->expected_seq-1, impl->ts_offset, impl->expected_ssrc,
+				impl->direct_timestamp);
 			impl->have_sync = true;
 			impl->ring.readindex = impl->ring.writeindex;
 		} else {
@@ -670,7 +674,8 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 
 		seq = ntohs(hdr->sequence_number);
 		if (impl->have_seq && impl->expected_seq != seq) {
-			pw_log_info("unexpected seq (%d != %d)", seq, impl->expected_seq);
+			pw_log_info("unexpected seq (%d != %d) SSRC:%u",
+					seq, impl->expected_seq, hdr->ssrc);
 			impl->have_sync = false;
 		}
 		impl->expected_seq = seq + 1;

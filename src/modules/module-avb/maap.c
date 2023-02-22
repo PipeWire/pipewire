@@ -400,10 +400,8 @@ struct avb_maap *avb_maap_register(struct server *server)
 	maap->server = server;
 	pw_log_info("0x%"PRIx64" %d", server->entity_id, server->ifindex);
 
-	if (pw_getrandom(maap->xsubi, sizeof(maap->xsubi), 0) != sizeof(maap->xsubi)) {
-		res = -errno;
-		goto error_free;
-	}
+	pw_random(maap->xsubi, sizeof(maap->xsubi));
+
 	load_state(maap);
 
 	maap->source = pw_loop_add_io(server->impl->loop, fd, SPA_IO_IN, true, on_socket_data, maap);

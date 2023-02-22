@@ -72,6 +72,10 @@ pw_strip(char *str, const char *whitespace);
 SPA_WARN_UNUSED_RESULT
 ssize_t pw_getrandom(void *buf, size_t buflen, unsigned int flags);
 
+void pw_random(void *buf, size_t buflen);
+
+#define pw_rand32() ({ uint32_t val; pw_random(&val, sizeof(val)); val; })
+
 void* pw_reallocarray(void *ptr, size_t nmemb, size_t size);
 
 #ifdef PW_ENABLE_DEPRECATED

@@ -11,6 +11,7 @@
 #include <sys/random.h>
 #endif
 #include <string.h>
+#include <time.h>
 
 #include <pipewire/array.h>
 #include <pipewire/log.h>
@@ -153,16 +154,7 @@ char *pw_strip(char *str, const char *whitespace)
 	return str;
 }
 
-/** Fill a buffer with random data
- * \param buf a buffer to fill
- * \param buflen the number of bytes to fill
- * \param flags optional flags
- * \return the number of bytes filled
- *
- * Fill \a buf with \a buflen random bytes.
- */
-SPA_EXPORT
-ssize_t pw_getrandom(void *buf, size_t buflen, unsigned int flags)
+static inline ssize_t make_random(void *buf, size_t buflen, unsigned int flags)
 {
 	ssize_t bytes;
 	int read_errno;
@@ -181,6 +173,63 @@ ssize_t pw_getrandom(void *buf, size_t buflen, unsigned int flags)
 	close(fd);
 	errno = read_errno;
 	return bytes;
+}
+
+/** Fill a buffer with random data
+ * \param buf a buffer to fill
+ * \param buflen the number of bytes to fill
+ * \param flags optional flags
+ * \return the number of bytes filled
+ *
+ * Fill \a buf with \a buflen random bytes.
+ */
+SPA_EXPORT
+ssize_t pw_getrandom(void *buf, size_t buflen, unsigned int flags)
+{
+	ssize_t res;
+	do {
+		res = make_random(buf, buflen, flags);
+	} while ((res == -1) && (errno == EINTR));
+	if (res == -1)
+		return -errno;
+	if ((size_t)res != buflen)
+		return -ENODATA;
+	return res;
+}
+
+static char statebuf[256];
+static struct random_data random_state;
+
+/** Fill a buffer with random data
+ * \param buf a buffer to fill
+ * \param buflen the number of bytes to fill
+ *
+ * Fill \a buf with \a buflen random bytes. This functions uses
+ * pw_getrandom() but falls back to a pseudo random number
+ * generator in case of failure.
+ */
+SPA_EXPORT
+void pw_random(void *buf, size_t buflen)
+{
+	if (pw_getrandom(buf, buflen, 0) < 0) {
+		uint8_t *p = buf;
+		while (buflen-- > 0) {
+			int32_t val;
+			random_r(&random_state, &val);
+			*p++ = (uint8_t) val;;
+		}
+	}
+}
+
+void pw_random_init()
+{
+	unsigned int seed;
+	if (pw_getrandom(&seed, sizeof(seed), 0) < 0) {
+		struct timespec ts;
+		clock_gettime(CLOCK_REALTIME, &ts);
+		seed = (unsigned int) SPA_TIMESPEC_TO_NSEC(&ts);
+	}
+	initstate_r(seed, statebuf, sizeof(statebuf), &random_state);
 }
 
 SPA_EXPORT

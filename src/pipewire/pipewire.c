@@ -569,6 +569,8 @@ void pw_init(int *argc, char **argv[])
 	if (support->init_count > 0)
 		goto done;
 
+	pw_random_init();
+
 	pthread_mutex_lock(&support_lock);
 	support->in_valgrind = RUNNING_ON_VALGRIND;
 

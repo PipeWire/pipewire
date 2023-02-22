@@ -72,7 +72,7 @@ enum unit {
 
 struct data;
 
-typedef int (*fill_fn)(struct data *d, void *dest, unsigned int n_frames);
+typedef int (*fill_fn)(struct data *d, void *dest, unsigned int n_frames, bool *null_frame);
 
 struct channelmap {
 	int n_channels;
@@ -189,7 +189,7 @@ static const struct format_info *format_info_by_sf_format(int format)
 	return NULL;
 }
 
-static int sf_playback_fill_x8(struct data *d, void *dest, unsigned int n_frames)
+static int sf_playback_fill_x8(struct data *d, void *dest, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -197,7 +197,7 @@ static int sf_playback_fill_x8(struct data *d, void *dest, unsigned int n_frames
 	return (int)rn / d->stride;
 }
 
-static int sf_playback_fill_s16(struct data *d, void *dest, unsigned int n_frames)
+static int sf_playback_fill_s16(struct data *d, void *dest, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -206,7 +206,7 @@ static int sf_playback_fill_s16(struct data *d, void *dest, unsigned int n_frame
 	return (int)rn;
 }
 
-static int sf_playback_fill_s32(struct data *d, void *dest, unsigned int n_frames)
+static int sf_playback_fill_s32(struct data *d, void *dest, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -215,7 +215,7 @@ static int sf_playback_fill_s32(struct data *d, void *dest, unsigned int n_frame
 	return (int)rn;
 }
 
-static int sf_playback_fill_f32(struct data *d, void *dest, unsigned int n_frames)
+static int sf_playback_fill_f32(struct data *d, void *dest, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -224,7 +224,7 @@ static int sf_playback_fill_f32(struct data *d, void *dest, unsigned int n_frame
 	return (int)rn;
 }
 
-static int sf_playback_fill_f64(struct data *d, void *dest, unsigned int n_frames)
+static int sf_playback_fill_f64(struct data *d, void *dest, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -234,11 +234,62 @@ static int sf_playback_fill_f64(struct data *d, void *dest, unsigned int n_frame
 }
 
 #ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
-static int encoded_playback_fill(struct data *d, void *dest, unsigned int n_frames)
+static int encoded_playback_fill(struct data *d, void *dest, unsigned int n_frames, bool *null_frame)
 {
 	AVPacket *packet = d->encoded.packet;
 	int ret;
+	struct pw_time time;
+	int64_t quantum_duration;
+	int64_t excess_playtime;
+	int64_t cycle_length;
+	int64_t av_time_base_num, av_time_base_denom;
 
+	pw_stream_get_time_n(d->stream, &time, sizeof(time));
+	cycle_length = n_frames;
+	av_time_base_num = d->encoded.audio_stream->time_base.num;
+	av_time_base_denom = d->encoded.audio_stream->time_base.den;
+
+	/* When playing compressed/encoded frames, it is important to watch
+	 * the length of the frames (that is, how long one frame plays)
+	 * and compare this with the requested playtime length (which is
+	 * n_frames). If an encoded frame's playtime length is greater than
+	 * the playtime length that n_frames corresponds to, then we are
+	 * effectively sending more data to be played than what was requested.
+	 * If this is not taken into account, we eventually get an overrun,
+	 * since at each cycle, the sink ultimately gets more data than what
+	 * was originally requested.
+	 *
+	 * To solve this, we need to check how much excess playtime we sent
+	 * and accumulate that. When the accumulated length exceeds the requested
+	 * playtime, we send a "null frame", that is, we set the chunk size
+	 * to 0, and queue that empty buffer. At that point, the sink has
+	 * enough excess data to fully cover a cycle without extra input data.
+	 *
+	 * To do this excess playtime calculation, we first must convert
+	 *  the quantum size from PW ticks to FFmpeg time_base units
+	 * to be able to directly accumulate FFmpeg packet durations and
+	 * compare that with the quantum length. */
+	quantum_duration = cycle_length *
+		(time.rate.num * av_time_base_denom) /
+		(time.rate.denom * av_time_base_num);
+
+	/* If we reached the point where the excess playtime fully covers
+	 * the amount of requested playtime, produce the null frame. */
+	if (d->encoded.accumulated_excess_playtime >= quantum_duration) {
+		fprintf(
+			stderr, "skipping cycle to compensate excess playtime by producing null frame "
+			"(excess playtime: %" PRId64 " quantum duration: %" PRId64 ")\n",
+			d->encoded.accumulated_excess_playtime, quantum_duration);
+
+		d->encoded.accumulated_excess_playtime -= quantum_duration;
+		*null_frame = true;
+
+		return 0;
+	}
+
+	/* Keep reading packets until we get one from the stream we are
+	 * interested in. This is relevant when playing data that contains
+	 * several multiplexed streams. */
 	while (true) {
 		if ((ret = av_read_frame(d->encoded.format_context, packet) < 0))
 			break;
@@ -248,6 +299,12 @@ static int encoded_playback_fill(struct data *d, void *dest, unsigned int n_fram
 	}
 
 	memcpy(dest, packet->data, packet->size);
+
+	if (packet->duration > quantum_duration)
+		excess_playtime = packet->duration - quantum_duration;
+	else
+		excess_playtime = 0;
+	d->encoded.accumulated_excess_playtime += excess_playtime;
 
 	return packet->size;
 }
@@ -390,7 +447,7 @@ playback_fill_fn(uint32_t fmt)
 	return NULL;
 }
 
-static int sf_record_fill_x8(struct data *d, void *src, unsigned int n_frames)
+static int sf_record_fill_x8(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -398,7 +455,7 @@ static int sf_record_fill_x8(struct data *d, void *src, unsigned int n_frames)
 	return (int)rn / d->stride;
 }
 
-static int sf_record_fill_s16(struct data *d, void *src, unsigned int n_frames)
+static int sf_record_fill_s16(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -407,7 +464,7 @@ static int sf_record_fill_s16(struct data *d, void *src, unsigned int n_frames)
 	return (int)rn;
 }
 
-static int sf_record_fill_s32(struct data *d, void *src, unsigned int n_frames)
+static int sf_record_fill_s32(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -416,7 +473,7 @@ static int sf_record_fill_s32(struct data *d, void *src, unsigned int n_frames)
 	return (int)rn;
 }
 
-static int sf_record_fill_f32(struct data *d, void *src, unsigned int n_frames)
+static int sf_record_fill_f32(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -425,7 +482,7 @@ static int sf_record_fill_f32(struct data *d, void *src, unsigned int n_frames)
 	return (int)rn;
 }
 
-static int sf_record_fill_f64(struct data *d, void *src, unsigned int n_frames)
+static int sf_record_fill_f64(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -769,17 +826,32 @@ static void on_process(void *userdata)
 		return;
 
 	if (data->mode == mode_playback) {
+		bool null_frame = false;
+
 		n_frames = d->maxsize / data->stride;
 		n_frames = SPA_MIN(n_frames, (int)b->requested);
 
-		n_fill_frames = data->fill(data, p, n_frames);
+		/* Note that when playing encoded audio, the encoded_playback_fill()
+		 * fill callback actually returns number of bytes, not frames, since
+		 * this is encoded data. However, the calculations below still work
+		 * out because the stride is set to 1 in setup_encodedfile(). */
+		n_fill_frames = data->fill(data, p, n_frames, &null_frame);
 
-		if (n_fill_frames > 0 || n_frames == 0) {
+		if (null_frame) {
+			/* A null frame is not to be confused with the drain scenario.
+			 * In this case, we want to continue streaming, but in this
+			 * cycle, we need to queue a buffer with an empty chunk. */
+			d->chunk->offset = 0;
+			d->chunk->stride = data->stride;
+			d->chunk->size = 0;
+			have_data = true;
+			b->size = 0;
+		} else if (n_fill_frames > 0 || n_frames == 0) {
 			d->chunk->offset = 0;
 			d->chunk->stride = data->stride;
 			d->chunk->size = n_fill_frames * data->stride;
 			have_data = true;
-			b->size = n_frames;
+			b->size = n_fill_frames;
 		} else if (n_fill_frames < 0) {
 			fprintf(stderr, "fill error %d\n", n_fill_frames);
 		} else {
@@ -787,6 +859,8 @@ static void on_process(void *userdata)
 				printf("drain start\n");
 		}
 	} else {
+		bool null_frame = false;
+
 		offset = SPA_MIN(d->chunk->offset, d->maxsize);
 		size = SPA_MIN(d->chunk->size, d->maxsize - offset);
 
@@ -794,7 +868,7 @@ static void on_process(void *userdata)
 
 		n_frames = size / data->stride;
 
-		n_fill_frames = data->fill(data, p, n_frames);
+		n_fill_frames = data->fill(data, p, n_frames, &null_frame);
 
 		have_data = true;
 	}
@@ -950,7 +1024,7 @@ static void show_usage(const char *name, bool is_error)
 	}
 }
 
-static int midi_play(struct data *d, void *src, unsigned int n_frames)
+static int midi_play(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
 {
 	int res;
 	struct spa_pod_builder b;
@@ -1003,7 +1077,7 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames)
 	return b.state.offset;
 }
 
-static int midi_record(struct data *d, void *src, unsigned int n_frames)
+static int midi_record(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
 {
 	struct spa_pod *pod;
 	struct spa_pod_control *c;
@@ -1079,7 +1153,7 @@ static const struct dsd_layout_info dsd_layouts[] = {
 	{ 7, { SPA_AUDIO_LAYOUT_5_1R }, },
 };
 
-static int dsf_play(struct data *d, void *src, unsigned int n_frames)
+static int dsf_play(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
 {
 	return dsf_file_read(d->dsf.file, src, n_frames, &d->dsf.layout);
 }
@@ -1107,12 +1181,12 @@ static int setup_dsffile(struct data *data)
 	return 0;
 }
 
-static int stdout_record(struct data *d, void *src, unsigned int n_frames)
+static int stdout_record(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
 {
 	return fwrite(src, d->stride, n_frames, stdout);
 }
 
-static int stdin_play(struct data *d, void *src, unsigned int n_frames)
+static int stdin_play(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
 {
 	return fread(src, d->stride, n_frames, stdin);
 }

@@ -55,6 +55,7 @@ if get_option('pw-cat').allowed() and sndfile_dep.found()
     'pw-midiplay',
     'pw-midirecord',
     'pw-dsdplay',
+    'pw-encplay',
   ]
 
   executable('pw-cat',

@@ -944,18 +944,26 @@ no_nego_needed:
   }
 no_caps:
   {
+    const gchar * error_string = "No supported formats found";
+
     GST_ELEMENT_ERROR (basesrc, STREAM, FORMAT,
-        ("No supported formats found"),
+        ("%s", error_string),
         ("This element did not produce valid caps"));
+    pw_stream_set_error (pwsrc->stream, -EINVAL, "%s", error_string);
+
     if (thiscaps)
       gst_caps_unref (thiscaps);
     return FALSE;
   }
 no_common_caps:
   {
+    const gchar * error_string = "No supported formats found";
+
     GST_ELEMENT_ERROR (basesrc, STREAM, FORMAT,
-        ("No supported formats found"),
+        ("%s", error_string),
         ("This element does not have formats in common with the peer"));
+    pw_stream_set_error (pwsrc->stream, -EPIPE, "%s", error_string);
+
     if (caps)
       gst_caps_unref (caps);
     return FALSE;

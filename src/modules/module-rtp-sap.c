@@ -83,9 +83,6 @@
  *                 ]
  *                 actions = {
  *                     announce-stream = {
- *                         #sess.latency.msec = 100
- *                         #sess.ts-direct = false
- *                         #target.object = ""
  *                     }
  *                 }
  *             }

@@ -197,7 +197,9 @@ struct session {
 	unsigned has_sent_sap:1;
 
 	struct pw_properties *props;
+
 	struct pw_impl_module *module;
+	struct spa_hook module_listener;
 };
 
 struct node {
@@ -300,12 +302,18 @@ static void session_free(struct session *sess)
 	struct impl *impl = sess->impl;
 
 	if (sess->impl) {
-		send_sap(impl, sess, 1);
+		if (sess->announce)
+			send_sap(impl, sess, 1);
 		spa_list_remove(&sess->link);
 		impl->n_sessions++;
 	}
 	if (sess->node && sess->node->session != NULL)
 		sess->node->session = NULL;
+
+	if (sess->module) {
+		spa_hook_remove(&sess->module_listener);
+		pw_impl_module_destroy(sess->module);
+	}
 
 	pw_properties_free(sess->props);
 	clear_sdp_info(&sess->info);
@@ -474,8 +482,6 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 	bool src_ip4, dst_ip4;
 	int res;
 
-	if (!sess->announce)
-		return 0;
 	if (!sess->has_sent_sap && bye)
 		return 0;
 
@@ -585,10 +591,26 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 static void on_timer_event(void *data, uint64_t expirations)
 {
 	struct impl *impl = data;
-	struct session *sess;
+	struct session *sess, *tmp;
+	struct timespec ts;
+	uint64_t timestamp, interval;
 
-	spa_list_for_each(sess, &impl->sessions, link)
-		send_sap(impl, sess, 0);
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	timestamp = SPA_TIMESPEC_TO_NSEC(&ts);
+	interval = impl->cleanup_interval * SPA_NSEC_PER_SEC;
+
+	spa_list_for_each_safe(sess, tmp, &impl->sessions, link) {
+		if (sess->announce) {
+			send_sap(impl, sess, 0);
+		} else {
+			if (sess->timestamp + interval < timestamp) {
+				pw_log_info("session %s timeout",
+						sess->info.session_name);
+				session_free(sess);
+			}
+
+		}
+	}
 }
 
 static struct session *session_find(struct impl *impl, const struct sdp_info *info)
@@ -670,6 +692,8 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 	spa_list_append(&impl->sessions, &sess->link);
 	impl->n_sessions++;
 
+	send_sap(impl, sess, 0);
+
 	return sess;
 
 error_free:
@@ -677,6 +701,19 @@ error_free:
 	session_free(sess);
 	return NULL;
 }
+
+static void session_module_destroy(void *d)
+{
+	struct session *sess = d;
+	spa_hook_remove(&sess->module_listener);
+	sess->module = NULL;
+	session_free(sess);
+}
+
+static const struct pw_impl_module_events session_module_events = {
+	PW_VERSION_IMPL_MODULE_EVENTS,
+	.destroy = session_module_destroy,
+};
 
 static int session_load_source(struct session *session, struct pw_properties *props)
 {
@@ -747,6 +784,11 @@ static int session_load_source(struct session *session, struct pw_properties *pr
 		pw_log_error("Can't load module: %m");
 		return -errno;
 	}
+
+	pw_impl_module_add_listener(session->module,
+			&session->module_listener,
+			&session_module_events, session);
+
 	return 0;
 }
 
@@ -851,6 +893,7 @@ static struct session *session_new(struct impl *impl, struct sdp_info *info)
 				rule_matched, &minfo);
 	}
 	session->props = props;
+	session_touch(session);
 
 	return NULL;
 error:
@@ -1147,7 +1190,7 @@ on_sap_io(void *data, int fd, uint32_t mask)
 	}
 }
 
-static int start_sap_announce(struct impl *impl)
+static int start_sap(struct impl *impl)
 {
 	int fd, res;
 	struct timespec value, interval;
@@ -1432,7 +1475,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			&impl->core_listener,
 			&core_events, impl);
 
-	if ((res = start_sap_announce(impl)) < 0)
+	if ((res = start_sap(impl)) < 0)
 		goto out;
 
 	impl->registry = pw_core_get_registry(impl->core, PW_VERSION_REGISTRY, 0);

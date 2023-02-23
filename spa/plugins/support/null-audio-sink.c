@@ -34,6 +34,7 @@
 #define DEFAULT_CLOCK_NAME	"clock.system.monotonic"
 
 struct props {
+	uint32_t format;
 	uint32_t channels;
 	uint32_t rate;
 	uint32_t n_pos;
@@ -44,6 +45,7 @@ struct props {
 
 static void reset_props(struct props *props)
 {
+	props->format = 0;
 	props->channels = 0;
 	props->rate = 0;
 	props->n_pos = 0;
@@ -432,11 +434,19 @@ port_enum_formats(struct impl *this,
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(3,
-								SPA_AUDIO_FORMAT_F32P,
-								SPA_AUDIO_FORMAT_F32P,
-								SPA_AUDIO_FORMAT_F32),
 			0);
+		if (this->props.format != 0) {
+			spa_pod_builder_add(builder,
+				SPA_FORMAT_AUDIO_format,   SPA_POD_Id(this->props.format),
+				0);
+		} else {
+			spa_pod_builder_add(builder,
+				SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(3,
+									SPA_AUDIO_FORMAT_F32P,
+									SPA_AUDIO_FORMAT_F32P,
+									SPA_AUDIO_FORMAT_F32),
+				0);
+		}
 
 		if (this->props.rate != 0) {
 			spa_pod_builder_add(builder,
@@ -813,6 +823,16 @@ impl_get_size(const struct spa_handle_factory *factory,
 	return sizeof(struct impl);
 }
 
+static uint32_t format_from_name(const char *name)
+{
+	int i;
+	for (i = 0; spa_type_audio_format[i].name; i++) {
+		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_format[i].name)))
+			return spa_type_audio_format[i].type;
+	}
+	return SPA_AUDIO_FORMAT_UNKNOWN;
+}
+
 static uint32_t channel_from_name(const char *name)
 {
 	int i;
@@ -919,6 +939,8 @@ impl_init(const struct spa_handle_factory *factory,
 		const char *s = info->items[i].value;
 		if (spa_streq(k, "clock.quantum-limit")) {
 			spa_atou32(s, &this->quantum_limit, 0);
+		} else if (spa_streq(k, SPA_KEY_AUDIO_FORMAT)) {
+			this->props.format = format_from_name(s);
 		} else if (spa_streq(k, SPA_KEY_AUDIO_CHANNELS)) {
 			this->props.channels = atoi(s);
 		} else if (spa_streq(k, SPA_KEY_AUDIO_RATE)) {

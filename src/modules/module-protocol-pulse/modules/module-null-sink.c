@@ -163,6 +163,15 @@ static int module_null_sink_prepare(struct module * const module)
 	if (module_args_to_audioinfo(module->impl, props, &info) < 0)
 		return -EINVAL;
 
+	info.format = module->impl->defs.sample_spec.format;
+	if ((str = pw_properties_get(props, "format")) != NULL) {
+		info.format = format_paname2id(str, strlen(str));
+		pw_properties_set(props, "format", NULL);
+	}
+
+	if (info.format)
+		pw_properties_setf(props, SPA_KEY_AUDIO_FORMAT, "%s",
+					format_id2name(info.format));
 	if (info.rate)
 		pw_properties_setf(props, SPA_KEY_AUDIO_RATE, "%u", info.rate);
 	if (info.channels) {

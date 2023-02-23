@@ -754,13 +754,16 @@ again:
 						/ port->current_format.info.raw.rate);
 
 			/*
-			 * We could delay the output by one packet to avoid waiting
+			 * We can delay the output by one packet to avoid waiting
 			 * for the next buffer and so make send intervals exactly regular.
 			 * However, this is not needed for A2DP or BAP. The controller
 			 * will do the scheduling for us, and there's also the socket buffer
 			 * in between.
+			 *
+			 * Although in principle this should not be needed, we
+			 * do it regardless in case it helps.
 			 */
-#if 0
+#if 1
 			this->next_flush_time += SPA_MIN(packet_time,
 					duration_ns * (port->n_buffers - 1));
 #endif

@@ -225,6 +225,30 @@ bool sample_spec_valid(const struct sample_spec *ss)
 	    ss->channels > 0 && ss->channels <= CHANNELS_MAX);
 }
 
+void sample_spec_fix(struct sample_spec *ss, struct spa_dict *props,
+		bool fix_format, bool fix_rate, bool fix_channels)
+{
+	const char *str;
+	if (fix_format) {
+		if ((str = spa_dict_lookup(props, "pulse.fix.format")) != NULL)
+			ss->format = format_name2id(str);
+		else
+			ss->format = SPA_AUDIO_FORMAT_UNKNOWN;
+	}
+	if (fix_rate) {
+		if ((str = spa_dict_lookup(props, "pulse.fix.rate")) != NULL)
+			ss->rate = atoi(str);
+		else
+			ss->rate = 0;
+	}
+	if (fix_channels) {
+		if ((str = spa_dict_lookup(props, "pulse.fix.channels")) != NULL)
+			ss->channels = atoi(str);
+		else
+			ss->channels = 0;
+	}
+}
+
 uint32_t channel_pa2id(enum channel_position channel)
 {
 	if (channel < 0 || (size_t)channel >= SPA_N_ELEMENTS(audio_channels))

@@ -1699,19 +1699,19 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 		rate = ss.rate;
 
 		if (fix_format) {
-			if ((str = pw_properties_get(props, SPA_KEY_AUDIO_FORMAT)) != NULL)
+			if ((str = pw_properties_get(props, "pulse.fix.format")) != NULL)
 				sfix.format = format_name2id(str);
 			else
 				sfix.format = SPA_AUDIO_FORMAT_UNKNOWN;
 		}
 		if (fix_rate) {
-			if ((str = pw_properties_get(props, SPA_KEY_AUDIO_RATE)) != NULL)
+			if ((str = pw_properties_get(props, "pulse.fix.rate")) != NULL)
 				sfix.rate = atoi(str);
 			else
 				sfix.rate = 0;
 		}
 		if (fix_channels) {
-			if ((str = pw_properties_get(props, SPA_KEY_AUDIO_CHANNELS)) != NULL)
+			if ((str = pw_properties_get(props, "pulse.fix.channels")) != NULL)
 				sfix.channels = atoi(str);
 			else
 				sfix.channels = 0;
@@ -1962,19 +1962,19 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 		rate = ss.rate;
 
 		if (fix_format) {
-			if ((str = pw_properties_get(props, SPA_KEY_AUDIO_FORMAT)) != NULL)
+			if ((str = pw_properties_get(props, "pulse.fix.format")) != NULL)
 				sfix.format = format_name2id(str);
 			else
 				sfix.format = SPA_AUDIO_FORMAT_UNKNOWN;
 		}
 		if (fix_rate) {
-			if ((str = pw_properties_get(props, SPA_KEY_AUDIO_RATE)) != NULL)
+			if ((str = pw_properties_get(props, "pulse.fix.rate")) != NULL)
 				sfix.rate = atoi(str);
 			else
 				sfix.rate = 0;
 		}
 		if (fix_channels) {
-			if ((str = pw_properties_get(props, SPA_KEY_AUDIO_CHANNELS)) != NULL)
+			if ((str = pw_properties_get(props, "pulse.fix.channels")) != NULL)
 				sfix.channels = atoi(str);
 			else
 				sfix.channels = 0;

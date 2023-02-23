@@ -225,27 +225,35 @@ bool sample_spec_valid(const struct sample_spec *ss)
 	    ss->channels > 0 && ss->channels <= CHANNELS_MAX);
 }
 
-void sample_spec_fix(struct sample_spec *ss, struct spa_dict *props,
-		bool fix_format, bool fix_rate, bool fix_channels)
+void sample_spec_fix(struct sample_spec *ss, struct channel_map *map,
+		const struct sample_spec *fix_ss, const struct channel_map *fix_map,
+		struct spa_dict *props)
 {
 	const char *str;
-	if (fix_format) {
+	if (fix_ss->format != 0) {
 		if ((str = spa_dict_lookup(props, "pulse.fix.format")) != NULL)
 			ss->format = format_name2id(str);
 		else
-			ss->format = SPA_AUDIO_FORMAT_UNKNOWN;
+			ss->format = fix_ss->format;
+		/* convert back and forth to convert potential planar to packed */
+		ss->format = format_pa2id(format_id2pa(ss->format));
 	}
-	if (fix_rate) {
+	if (fix_ss->rate != 0) {
 		if ((str = spa_dict_lookup(props, "pulse.fix.rate")) != NULL)
 			ss->rate = atoi(str);
 		else
-			ss->rate = 0;
+			ss->rate = fix_ss->rate;
+		ss->rate = SPA_CLAMP(ss->rate, 0u, RATE_MAX);
 	}
-	if (fix_channels) {
-		if ((str = spa_dict_lookup(props, "pulse.fix.channels")) != NULL)
-			ss->channels = atoi(str);
-		else
-			ss->channels = 0;
+	if (fix_ss->channels != 0) {
+		if ((str = spa_dict_lookup(props, "pulse.fix.position")) != NULL) {
+			channel_map_parse_position(str, map);
+			ss->channels = map->channels;
+		} else {
+			ss->channels = fix_ss->channels;
+			*map = *fix_map;
+		}
+		ss->channels = SPA_CLAMP(ss->channels, 0u, CHANNELS_MAX);
 	}
 }
 

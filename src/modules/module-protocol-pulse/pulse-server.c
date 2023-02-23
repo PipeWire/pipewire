@@ -1549,8 +1549,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	struct impl *impl = client->impl;
 	const char *name = NULL;
 	int res;
-	struct sample_spec ss;
-	struct channel_map map;
+	struct sample_spec ss, fix_ss;
+	struct channel_map map, fix_map;
 	uint32_t sink_index, syncid, rate = 0;
 	const char *sink_name;
 	struct buffer_attr attr = { 0 };
@@ -1625,6 +1625,24 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 				TAG_INVALID) < 0)
 			goto error_protocol;
 	}
+
+	spa_zero(fix_ss);
+	spa_zero(fix_map);
+	if (fix_format || fix_rate || fix_channels) {
+		struct pw_manager_object *o;
+		bool is_monitor;
+
+		o = find_device(client, sink_index, sink_name, true, &is_monitor);
+		if (o != NULL) {
+			struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_OUTPUT);
+			collect_device_info(o, NULL, &dev_info, is_monitor, &impl->defs);
+			fix_ss.format = fix_format ? dev_info.ss.format : 0;
+			fix_ss.rate = fix_rate ? dev_info.ss.rate : 0;
+			fix_ss.channels = fix_channels ? dev_info.ss.channels : 0;
+			fix_map = dev_info.map;
+		}
+	}
+
 	if (client->version >= 13) {
 		if (message_get(m,
 				TAG_BOOLEAN, &muted,
@@ -1694,15 +1712,16 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	}
 	if (sample_spec_valid(&ss)) {
 		struct sample_spec sfix = ss;
+		struct channel_map mfix = map;
 
 		rate = ss.rate;
 
-		sample_spec_fix(&sfix, &props->dict, fix_format, fix_rate, fix_channels);
+		sample_spec_fix(&sfix, &mfix, &fix_ss, &fix_map, &props->dict);
 
 		if (n_params < MAX_FORMATS &&
 		    (params[n_params] = format_build_param(&b,
 				SPA_PARAM_EnumFormat, &sfix,
-				sfix.channels > 0 ? &map : NULL)) != NULL) {
+				sfix.channels > 0 ? &mfix : NULL)) != NULL) {
 			n_params++;
 			n_valid_formats++;
 		} else {
@@ -1800,8 +1819,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	struct impl *impl = client->impl;
 	const char *name = NULL;
 	int res;
-	struct sample_spec ss;
-	struct channel_map map;
+	struct sample_spec ss, fix_ss;
+	struct channel_map map, fix_map;
 	uint32_t source_index;
 	const char *source_name;
 	struct buffer_attr attr = { 0 };
@@ -1896,6 +1915,24 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 				TAG_INVALID) < 0)
 			goto error_protocol;
 	}
+
+	spa_zero(fix_ss);
+	spa_zero(fix_map);
+	if (fix_format || fix_rate || fix_channels) {
+		struct pw_manager_object *o;
+		bool is_monitor;
+
+		o = find_device(client, source_index, source_name, false, &is_monitor);
+		if (o != NULL) {
+			struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_INPUT);
+			collect_device_info(o, NULL, &dev_info, is_monitor, &impl->defs);
+			fix_ss.format = fix_format ? dev_info.ss.format : 0;
+			fix_ss.rate = fix_rate ? dev_info.ss.rate : 0;
+			fix_ss.channels = fix_channels ? dev_info.ss.channels : 0;
+			fix_map = dev_info.map;
+		}
+	}
+
 	if (client->version >= 22) {
 		if (message_get(m,
 				TAG_U8, &n_formats,
@@ -1940,15 +1977,16 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	}
 	if (sample_spec_valid(&ss)) {
 		struct sample_spec sfix = ss;
+		struct channel_map mfix = map;
 
 		rate = ss.rate;
 
-		sample_spec_fix(&sfix, &props->dict, fix_format, fix_rate, fix_channels);
+		sample_spec_fix(&sfix, &mfix, &fix_ss, &fix_map, &props->dict);
 
 		if (n_params < MAX_FORMATS &&
 		    (params[n_params] = format_build_param(&b,
 				SPA_PARAM_EnumFormat, &sfix,
-				sfix.channels > 0 ? &map : NULL)) != NULL) {
+				sfix.channels > 0 ? &mfix : NULL)) != NULL) {
 			n_params++;
 			n_valid_formats++;
 		} else {

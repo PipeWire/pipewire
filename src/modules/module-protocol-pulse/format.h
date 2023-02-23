@@ -174,8 +174,9 @@ uint32_t format_encoding2id(enum encoding enc);
 uint32_t sample_spec_frame_size(const struct sample_spec *ss);
 bool sample_spec_valid(const struct sample_spec *ss);
 
-void sample_spec_fix(struct sample_spec *ss, struct spa_dict *props,
-		bool fix_format, bool fix_rate, bool fix_channels);
+void sample_spec_fix(struct sample_spec *ss, struct channel_map *map,
+		const struct sample_spec *fix_ss, const struct channel_map *fix_map,
+		struct spa_dict *props);
 
 uint32_t channel_pa2id(enum channel_position channel);
 const char *channel_id2name(uint32_t channel);

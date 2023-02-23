@@ -5471,22 +5471,13 @@ static int parse_position(struct pw_properties *props, const char *key, const ch
 		struct channel_map *res)
 {
 	const char *str;
-	struct spa_json it[2];
-	char v[256];
 
 	if (props == NULL ||
 	    (str = pw_properties_get(props, key)) == NULL)
 		str = def;
 
-	spa_json_init(&it[0], str, strlen(str));
-	if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-		spa_json_init(&it[1], str, strlen(str));
+	channel_map_parse_position(str, res);
 
-	res->channels = 0;
-	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
-	    res->channels < SPA_AUDIO_MAX_CHANNELS) {
-		res->map[res->channels++] = channel_name2id(v);
-	}
 	pw_log_info(": defaults: %s = %s", key, str);
 	return 0;
 }

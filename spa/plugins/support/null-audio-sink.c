@@ -577,6 +577,33 @@ static int clear_buffers(struct impl *this, struct port *port)
 	return 0;
 }
 
+static int calc_width(struct spa_audio_info *info)
+{
+	switch (info->info.raw.format) {
+	case SPA_AUDIO_FORMAT_U8:
+	case SPA_AUDIO_FORMAT_U8P:
+	case SPA_AUDIO_FORMAT_S8:
+	case SPA_AUDIO_FORMAT_S8P:
+	case SPA_AUDIO_FORMAT_ULAW:
+	case SPA_AUDIO_FORMAT_ALAW:
+		return 1;
+	case SPA_AUDIO_FORMAT_S16P:
+	case SPA_AUDIO_FORMAT_S16:
+	case SPA_AUDIO_FORMAT_S16_OE:
+		return 2;
+	case SPA_AUDIO_FORMAT_S24P:
+	case SPA_AUDIO_FORMAT_S24:
+	case SPA_AUDIO_FORMAT_S24_OE:
+		return 3;
+	case SPA_AUDIO_FORMAT_F64P:
+	case SPA_AUDIO_FORMAT_F64:
+	case SPA_AUDIO_FORMAT_F64_OE:
+		return 8;
+	default:
+		return 4;
+	}
+}
+
 static int
 port_set_format(struct impl *this,
 		enum spa_direction direction,
@@ -608,15 +635,21 @@ port_set_format(struct impl *this,
 		    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
 			return -EINVAL;
 
-		if (info.info.raw.format == SPA_AUDIO_FORMAT_F32) {
-			port->bpf = 4 * info.info.raw.channels;
-			port->blocks = 1;
-		} else if (info.info.raw.format == SPA_AUDIO_FORMAT_F32P) {
-			port->bpf = 4;
-			port->blocks = info.info.raw.channels;
-		} else
+		if (this->props.format != 0) {
+			if (this->props.format != info.info.raw.format)
+				return -EINVAL;
+		} else if (info.info.raw.format != SPA_AUDIO_FORMAT_F32P &&
+		    info.info.raw.format != SPA_AUDIO_FORMAT_F32) {
 			return -EINVAL;
+		}
 
+		port->bpf = calc_width(&info);
+		if (SPA_AUDIO_FORMAT_IS_PLANAR(info.info.raw.format)) {
+			port->blocks = info.info.raw.channels;
+		} else {
+			port->blocks = 1;
+			port->bpf *= info.info.raw.channels;
+		}
 		port->current_format = info;
 		port->have_format = true;
 	}

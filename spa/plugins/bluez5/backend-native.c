@@ -920,6 +920,15 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		rfcomm_send_reply(rfcomm, "OK");
 		if (was_switching_codec)
 			spa_bt_device_emit_codec_switched(rfcomm->device, 0);
+	} else if (spa_strstartswith(buf, "AT+BCC")) {
+		if (!rfcomm->codec_negotiation_supported)
+			return false;
+
+		rfcomm_send_reply(rfcomm, "OK");
+		rfcomm_send_reply(rfcomm, "+BCS: %u", rfcomm->codec);
+		rfcomm->hfp_ag_switching_codec = true;
+		rfcomm->hfp_ag_initial_codec_setup = HFP_AG_INITIAL_CODEC_SETUP_NONE;
+		codec_switch_start_timer(rfcomm, HFP_CODEC_SWITCH_TIMEOUT_MSEC);
 	} else if (spa_strstartswith(buf, "AT+BIA=")) {
 		/* retrieve indicators activation
 		 * form: AT+BIA=[indrep1],[indrep2],[indrepx] */

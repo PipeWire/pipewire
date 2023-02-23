@@ -314,7 +314,7 @@ static int debug_params(struct impl *this, struct spa_node *node,
 
 	if (filter) {
 		spa_log_error(this->log, "with this filter:");
-		spa_debug_log_pod(this->log, SPA_LOG_LEVEL_DEBUG, 2, NULL, filter);
+		spa_debug_log_pod(this->log, SPA_LOG_LEVEL_ERROR, 2, NULL, filter);
 	} else {
 		spa_log_error(this->log, "there was no filter");
 	}
@@ -332,7 +332,7 @@ static int debug_params(struct impl *this, struct spa_node *node,
 			break;
 		}
 		spa_log_error(this->log, "unmatched %s %d:", debug, count);
-		spa_debug_log_pod(this->log, SPA_LOG_LEVEL_DEBUG, 2, NULL, param);
+		spa_debug_log_pod(this->log, SPA_LOG_LEVEL_ERROR, 2, NULL, param);
 		count++;
 	}
 	if (count == 0)

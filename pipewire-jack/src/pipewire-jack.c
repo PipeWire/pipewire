@@ -6276,9 +6276,9 @@ int jack_client_stop_thread(jack_client_t* client, jack_native_thread_t thread)
 
 	spa_return_val_if_fail(client != NULL, -EINVAL);
 
-	pw_log_debug("join thread %lu", thread);
+	pw_log_debug("join thread %p", (void *) thread);
 	spa_thread_utils_join(&c->context.thread_utils, (struct spa_thread*)thread, &status);
-	pw_log_debug("stopped thread %lu", thread);
+	pw_log_debug("stopped thread %p", (void *) thread);
 	return 0;
 }
 
@@ -6293,11 +6293,11 @@ int jack_client_kill_thread(jack_client_t* client, jack_native_thread_t thread)
 
 	spa_return_val_if_fail(client != NULL, -EINVAL);
 
-	pw_log_debug("cancel thread %lu", thread);
+	pw_log_debug("cancel thread %p", (void *) thread);
 	pthread_cancel(thread);
-	pw_log_debug("join thread %lu", thread);
+	pw_log_debug("join thread %p", (void *) thread);
 	spa_thread_utils_join(&c->context.thread_utils, (struct spa_thread*)thread, &status);
-	pw_log_debug("stopped thread %lu", thread);
+	pw_log_debug("stopped thread %p", (void *) thread);
 	return 0;
 }
 

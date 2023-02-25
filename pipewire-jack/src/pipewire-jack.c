@@ -2926,7 +2926,7 @@ static void registry_event_global(void *data, uint32_t id,
 			goto exit;
 
 		spa_dict_for_each(item, props) {
-	                if (spa_streq(item->key, PW_KEY_PORT_DIRECTION)) {
+			if (spa_streq(item->key, PW_KEY_PORT_DIRECTION)) {
 				if (spa_streq(item->value, "in"))
 					flags |= JackPortIsInput;
 				else if (spa_streq(item->value, "out"))

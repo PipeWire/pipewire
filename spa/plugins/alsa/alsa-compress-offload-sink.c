@@ -728,7 +728,7 @@ static void on_driver_timeout(struct spa_source *source)
 
 		if (SPA_LIKELY(io != NULL)) {
 			spa_log_trace_fp(this->log, "%p: ran out of buffers to output, "
-			                 "need more; IO status: %d", io->status);
+			                 "need more; IO status: %d", this, io->status);
 			io->status = SPA_STATUS_NEED_DATA;
 			spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_DATA);
 		} else {
@@ -756,7 +756,7 @@ static inline void check_position_and_clock_config(struct impl *this)
 		this->cycle_rate = this->node_position_io->clock.rate.denom;
 	} else {
 		/* This can happen at the very beginning if node_position_io
-		 * isn't passed to this node in time. */ 
+		 * isn't passed to this node in time. */
 		this->cycle_duration = 1024;
 		this->cycle_rate = 48000;
 	}

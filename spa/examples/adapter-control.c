@@ -95,7 +95,8 @@ struct data {
 	pthread_t thread;
 };
 
-static int load_handle(struct data *data, struct spa_handle **handle, const char *lib, const char *name)
+static int load_handle (struct data *data, struct spa_handle **handle, const
+	char *lib, const char *name, struct spa_dict *info)
 {
 	int res;
 	void *hnd;
@@ -134,7 +135,7 @@ static int load_handle(struct data *data, struct spa_handle **handle, const char
 
 		*handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
 		if ((res = spa_handle_factory_init(factory, *handle,
-						NULL, data->support,
+						info, data->support,
 						data->n_support)) < 0) {
 			printf("can't make factory instance: %d\n", res);
 			goto exit_cleanup;
@@ -153,6 +154,8 @@ int init_data(struct data *data)
 	int res;
 	const char *str;
 	struct spa_handle *handle = NULL;
+	struct spa_dict_item items [2];
+	struct spa_dict info;
 	void *iface;
 
 	if ((str = getenv("SPA_PLUGIN_DIR")) == NULL)
@@ -167,14 +170,23 @@ int init_data(struct data *data)
 	/* init the graph */
 	spa_graph_init(&data->graph, &data->graph_state);
 
-	/* set the default log */
-	data->log = &default_log.log;
+	/* enable the debug messages in SPA */
+	items [0] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_TIMESTAMP, "true");
+	info = SPA_DICT_INIT(items, 1);
+	if ((res = load_handle (data, &handle, "support/libspa-support.so",
+			SPA_NAME_SUPPORT_LOG, &info)) < 0)
+		return res;
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Log, &iface)) < 0) {
+		printf ("can't get System interface %d\n", res);
+		return res;
+	}
+	data->log = iface;
 	data->support[data->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, data->log);
 
 	/* load and set support system */
 	if ((res = load_handle(data, &handle,
 			"support/libspa-support.so",
-			SPA_NAME_SUPPORT_SYSTEM)) < 0)
+			SPA_NAME_SUPPORT_SYSTEM, NULL)) < 0)
 		return res;
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_System, &iface)) < 0) {
 		printf("can't get System interface %d\n", res);
@@ -187,7 +199,7 @@ int init_data(struct data *data)
 	/* load and set support loop and loop control */
 	if ((res = load_handle(data, &handle,
 			"support/libspa-support.so",
-			SPA_NAME_SUPPORT_LOOP)) < 0)
+			SPA_NAME_SUPPORT_LOOP, NULL)) < 0)
 		return res;
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Loop, &iface)) < 0) {

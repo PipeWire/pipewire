@@ -47,6 +47,7 @@ struct props {
 };
 
 #define MAX_BUFFERS 32
+#define MAX_POLL 16
 
 struct buffer {
 	uint32_t id;
@@ -131,6 +132,7 @@ struct state {
 	struct channel_map default_pos;
 	unsigned int disable_mmap;
 	unsigned int disable_batch;
+	unsigned int disable_tsched;
 	char clock_name[64];
 	uint32_t quantum_limit;
 
@@ -171,8 +173,11 @@ struct state {
 	size_t ready_offset;
 
 	bool started;
-	struct spa_source source;
+	/* Either a single source for tsched, or a set of pollfds from ALSA */
+	struct spa_source source[MAX_POLL];
 	int timerfd;
+	struct pollfd pfds[MAX_POLL];
+	int n_fds;
 	uint32_t threshold;
 	uint32_t last_threshold;
 	uint32_t headroom;

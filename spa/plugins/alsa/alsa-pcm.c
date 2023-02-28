@@ -122,6 +122,8 @@ static int alsa_set_param(struct state *state, const char *k, const char *s)
 		state->disable_mmap = spa_atob(s);
 	} else if (spa_streq(k, "api.alsa.disable-batch")) {
 		state->disable_batch = spa_atob(s);
+	} else if (spa_streq(k, "api.alsa.disable-tsched")) {
+		state->disable_tsched = spa_atob(s);
 	} else if (spa_streq(k, "api.alsa.use-chmap")) {
 		state->props.use_chmap = spa_atob(s);
 	} else if (spa_streq(k, "api.alsa.multi-rate")) {
@@ -557,11 +559,16 @@ int spa_alsa_open(struct state *state, const char *params)
 			device_name,
 			state->stream == SND_PCM_STREAM_CAPTURE ? "capture" : "playback");
 
-	if ((err = spa_system_timerfd_create(state->data_system,
-			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
-		goto error_exit_close;
+	if (!state->disable_tsched) {
+		if ((err = spa_system_timerfd_create(state->data_system,
+				CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
+			goto error_exit_close;
 
-	state->timerfd = err;
+		state->timerfd = err;
+	} else {
+		/* ALSA pollfds may only be ready after setting swparams, so
+		 * these are initialised in spa_alsa_start() */
+	}
 
 	if (state->clock)
 		spa_scnprintf(state->clock->name, sizeof(state->clock->name),
@@ -593,7 +600,10 @@ int spa_alsa_close(struct state *state)
 		spa_log_warn(state->log, "%s: close failed: %s", state->props.device,
 				snd_strerror(err));
 
-	spa_system_close(state->data_system, state->timerfd);
+	if (!state->disable_tsched)
+		spa_system_close(state->data_system, state->timerfd);
+	else
+		state->n_fds = 0;
 
 	if (state->have_format)
 		state->card->format_ref--;
@@ -1561,8 +1571,8 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	} else {
 		if (period_size == 0)
 			period_size = DEFAULT_PERIOD;
-		/* disable ALSA wakeups, we use a timer */
-		if (snd_pcm_hw_params_can_disable_period_wakeup(params))
+		/* disable ALSA wakeups, if we use a timer */
+		if (!state->disable_tsched && snd_pcm_hw_params_can_disable_period_wakeup(params))
 			CHECK(snd_pcm_hw_params_set_period_wakeup(hndl, params, 0), "set_period_wakeup");
 	}
 
@@ -1594,7 +1604,9 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	}
 
 	state->headroom = state->default_headroom;
-	if (is_batch)
+	/* If tsched is disabled, we know the pointers are updated when we wake
+	 * up, so we don't need the additional headroom */
+	if (is_batch && !state->disable_tsched)
 		state->headroom += period_size;
 
 	state->max_delay = state->buffer_frames / 2;
@@ -1653,7 +1665,21 @@ static int set_swparams(struct state *state)
 	/* start the transfer */
 	CHECK(snd_pcm_sw_params_set_start_threshold(hndl, params, LONG_MAX), "set_start_threshold");
 
-	CHECK(snd_pcm_sw_params_set_period_event(hndl, params, 0), "set_period_event");
+	CHECK(snd_pcm_sw_params_set_period_event(hndl, params, state->disable_tsched), "set_period_event");
+
+	if (state->disable_tsched) {
+		snd_pcm_uframes_t avail_min;
+
+		if (state->stream == SND_PCM_STREAM_PLAYBACK) {
+			/* wake up when buffer has target frames or less data (will underrun soon) */
+			avail_min = state->buffer_frames - state->threshold;
+		} else {
+			/* wake up when there's target frames or more (enough for us to read and push a buffer) */
+			avail_min = state->threshold;
+		}
+
+		CHECK(snd_pcm_sw_params_set_avail_min(hndl, params, avail_min), "set_avail_min");
+	}
 
 	/* write the parameters to the playback device */
 	CHECK(snd_pcm_sw_params(hndl, params), "sw_params");
@@ -1670,6 +1696,9 @@ static int set_swparams(struct state *state)
 static int set_timeout(struct state *state, uint64_t time)
 {
 	struct itimerspec ts;
+
+	if (state->disable_tsched)
+		return 0;
 
 	ts.it_value.tv_sec = time / SPA_NSEC_PER_SEC;
 	ts.it_value.tv_nsec = time % SPA_NSEC_PER_SEC;
@@ -2459,14 +2488,37 @@ static int handle_capture(struct state *state, uint64_t current_time,
 	return 0;
 }
 
-static void alsa_on_timeout_event(struct spa_source *source)
+static void alsa_wakeup_event(struct spa_source *source)
 {
 	struct state *state = source->data;
 	snd_pcm_uframes_t delay, target;
 	uint64_t expire, current_time;
 	int res;
 
-	if (SPA_LIKELY(state->started)) {
+	if (SPA_UNLIKELY(state->disable_tsched)) {
+		/* ALSA poll fds need to be "demangled" to know whether it's a real wakeup */
+		int err;
+		unsigned short revents;
+
+		for (int i = 0; i < state->n_fds; i++) {
+			state->pfds[i].revents = state->source[i].rmask;
+			/* Reset so that we only handle all our sources' events once */
+			state->source[i].rmask = 0;
+		}
+
+		if (SPA_UNLIKELY(err = snd_pcm_poll_descriptors_revents(state->hndl, state->pfds, state->n_fds, &revents))) {
+			spa_log_error(state->log, "Could not look up revents: %s",
+					snd_strerror(err));
+			return;
+		}
+
+		if (!revents) {
+			spa_log_trace_fp(state->log, "Woken up with no work to do");
+			return;
+		}
+	}
+
+	if (SPA_LIKELY(state->started && !state->disable_tsched)) {
 		if (SPA_UNLIKELY((res = spa_system_timerfd_read(state->data_system,
 						state->timerfd, &expire)) < 0)) {
 			/* we can get here when the timer is changed since the last
@@ -2500,7 +2552,7 @@ static void alsa_on_timeout_event(struct spa_source *source)
 		if (spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &now) < 0)
 		    return;
 		nsec = SPA_TIMESPEC_TO_NSEC(&now);
-		spa_log_trace_fp(state->log, "%p: timeout %lu %lu %"PRIu64" %"PRIu64" %"PRIi64
+		spa_log_trace_fp(state->log, "%p: wakeup %lu %lu %"PRIu64" %"PRIu64" %"PRIi64
 				" %d %"PRIi64, state, delay, target, nsec, nsec,
 				nsec - current_time, state->threshold, state->sample_count);
 	}
@@ -2512,8 +2564,9 @@ static void alsa_on_timeout_event(struct spa_source *source)
 		handle_capture(state, current_time, delay, target);
 
 done:
-	if (state->next_time > current_time + SPA_NSEC_PER_SEC ||
-	    current_time > state->next_time + SPA_NSEC_PER_SEC) {
+	if (!state->disable_tsched &&
+			(state->next_time > current_time + SPA_NSEC_PER_SEC ||
+			 current_time > state->next_time + SPA_NSEC_PER_SEC)) {
 		spa_log_error(state->log, "%s: impossible timeout %lu %lu %"PRIu64" %"PRIu64" %"PRIi64
 				" %d %"PRIi64, state->props.device, delay, target, current_time, state->next_time,
 				state->next_time - current_time, state->threshold, state->sample_count);
@@ -2541,19 +2594,53 @@ static void reset_buffers(struct state *this)
 	}
 }
 
-static int set_timers(struct state *state)
+static void clear_period_sources(struct state *state) {
+	/* This check is to make sure we've actually added the sources
+	 * previously */
+	if (state->source[0].data) {
+		for (int i = 0; i < state->n_fds; i++) {
+			spa_loop_remove_source(state->data_loop, &state->source[i]);
+			state->source[i].func = NULL;
+			state->source[i].data = NULL;
+			state->source[i].fd = -1;
+			state->source[i].mask = 0;
+			state->source[i].rmask = 0;
+		}
+	}
+}
+
+static int setup_sources(struct state *state)
 {
 	struct timespec now;
 	int res;
 
-	if ((res = spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &now)) < 0)
-	    return res;
-	state->next_time = SPA_TIMESPEC_TO_NSEC(&now);
+	if (!state->disable_tsched) {
+		if ((res = spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &now)) < 0)
+			return res;
+		state->next_time = SPA_TIMESPEC_TO_NSEC(&now);
+	}
 
 	if (state->following) {
-		set_timeout(state, 0);
+		/* Disable wakeups from this node */
+		if (!state->disable_tsched) {
+			set_timeout(state, 0);
+		} else {
+			clear_period_sources(state);
+		}
 	} else {
-		set_timeout(state, state->next_time);
+		/* We're driving, so let's wake up when data is ready/needed */
+		if (!state->disable_tsched) {
+			set_timeout(state, state->next_time);
+		} else {
+			for (int i = 0; i < state->n_fds; i++) {
+				state->source[i].func = alsa_wakeup_event;
+				state->source[i].data = state;
+				state->source[i].fd = state->pfds[i].fd;
+				state->source[i].mask = state->pfds[i].events;
+				state->source[i].rmask = 0;
+				spa_loop_add_source(state->data_loop, &state->source[i]);
+			}
+		}
 	}
 	return 0;
 }
@@ -2589,12 +2676,44 @@ int spa_alsa_start(struct state *state)
 		return err;
 	}
 
-	state->source.func = alsa_on_timeout_event;
-	state->source.data = state;
-	state->source.fd = state->timerfd;
-	state->source.mask = SPA_IO_IN;
-	state->source.rmask = 0;
-	spa_loop_add_source(state->data_loop, &state->source);
+	if (!state->disable_tsched) {
+		/* Timer-based scheduling */
+		state->source[0].func = alsa_wakeup_event;
+		state->source[0].data = state;
+		state->source[0].fd = state->timerfd;
+		state->source[0].mask = SPA_IO_IN;
+		state->source[0].rmask = 0;
+		spa_loop_add_source(state->data_loop, &state->source[0]);
+	} else {
+		/* ALSA period-based scheduling */
+		err = snd_pcm_poll_descriptors_count(state->hndl);
+		if (err < 0) {
+			spa_log_error(state->log, "Could not get poll descriptor count: %s",
+					snd_strerror(err));
+			return err;
+		}
+		if (err > MAX_POLL) {
+			spa_log_error(state->log, "Unsupported poll descriptor count: %d", err);
+			return -EIO;
+		}
+		state->n_fds = err;
+
+		if ((err = snd_pcm_poll_descriptors(state->hndl, state->pfds, state->n_fds)) < 0) {
+			spa_log_error(state->log, "Could not get poll descriptors: %s",
+					snd_strerror(err));
+			return err;
+		}
+
+		/* We only add the source to the data loop if we're driving.
+		 * This is done in setup_sources() */
+		for (int i = 0; i < state->n_fds; i++) {
+			state->source[i].func = NULL;
+			state->source[i].data = NULL;
+			state->source[i].fd = -1;
+			state->source[i].mask = 0;
+			state->source[i].rmask = 0;
+		}
+	}
 
 	reset_buffers(state);
 	state->alsa_sync = true;
@@ -2608,7 +2727,7 @@ int spa_alsa_start(struct state *state)
 	else if ((err = do_start(state)) < 0)
 		return err;
 
-	set_timers(state);
+	setup_sources(state);
 
 	state->started = true;
 
@@ -2624,7 +2743,7 @@ static int do_reassign_follower(struct spa_loop *loop,
 {
 	struct state *state = user_data;
 	spa_dll_init(&state->dll);
-	set_timers(state);
+	setup_sources(state);
 	return 0;
 }
 
@@ -2668,8 +2787,12 @@ static int do_remove_source(struct spa_loop *loop,
 {
 	struct state *state = user_data;
 
-	spa_loop_remove_source(state->data_loop, &state->source);
-	set_timeout(state, 0);
+	if (!state->disable_tsched) {
+		spa_loop_remove_source(state->data_loop, &state->source[0]);
+		set_timeout(state, 0);
+	} else {
+		clear_period_sources(state);
+	}
 
 	return 0;
 }

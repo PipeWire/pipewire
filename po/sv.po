@@ -1,9 +1,9 @@
 # Swedish translation for pipewire.
-# Copyright © 2008-2022 Free Software Foundation, Inc.
+# Copyright © 2008-2023 Free Software Foundation, Inc.
 # This file is distributed under the same license as the pipewire package.
 # Daniel Nylander <po@danielnylander.se>, 2008, 2012.
 # Josef Andersson <josef.andersson@fripost.org>, 2014, 2017.
-# Anders Jonsson <anders.jonsson@norsjovallen.se>, 2021, 2022.
+# Anders Jonsson <anders.jonsson@norsjovallen.se>, 2021, 2022, 2023.
 #
 # Termer:
 # input/output: ingång/utgång (det handlar om ljud)
@@ -19,8 +19,8 @@ msgstr ""
 "Project-Id-Version: pipewire\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/"
 "issues\n"
-"POT-Creation-Date: 2022-10-20 15:27+0000\n"
-"PO-Revision-Date: 2022-09-16 12:58+0200\n"
+"POT-Creation-Date: 2023-02-26 15:27+0000\n"
+"PO-Revision-Date: 2023-02-26 17:32+0100\n"
 "Last-Translator: Anders Jonsson <anders.jonsson@norsjovallen.se>\n"
 "Language-Team: Swedish <tp-sv@listor.tp-sv.se>\n"
 "Language: sv\n"
@@ -28,9 +28,9 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Poedit 3.1.1\n"
+"X-Generator: Poedit 3.2.2\n"
 
-#: src/daemon/pipewire.c:46
+#: src/daemon/pipewire.c:26
 #, c-format
 msgid ""
 "%s [options]\n"
@@ -51,36 +51,36 @@ msgstr "PipeWire mediasystem"
 msgid "Start the PipeWire Media System"
 msgstr "Starta mediasystemet PipeWire"
 
-#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:180
-#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:180
+#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:159
+#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:159
 #, c-format
 msgid "Tunnel to %s/%s"
 msgstr "Tunnel till %s/%s"
 
-#: src/modules/module-fallback-sink.c:51
+#: src/modules/module-fallback-sink.c:31
 msgid "Dummy Output"
 msgstr "Attrapputgång"
 
-#: src/modules/module-pulse-tunnel.c:681
+#: src/modules/module-pulse-tunnel.c:675
 #, c-format
 msgid "Tunnel for %s@%s"
 msgstr "Tunnel för %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:335
+#: src/modules/module-zeroconf-discover.c:315
 msgid "Unknown device"
 msgstr "Okänd enhet"
 
-#: src/modules/module-zeroconf-discover.c:347
+#: src/modules/module-zeroconf-discover.c:327
 #, c-format
 msgid "%s on %s@%s"
 msgstr "%s på %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:351
+#: src/modules/module-zeroconf-discover.c:331
 #, c-format
 msgid "%s on %s"
 msgstr "%s på %s"
 
-#: src/tools/pw-cat.c:782
+#: src/tools/pw-cat.c:974
 #, c-format
 msgid ""
 "%s [options] [<file>|-]\n"
@@ -95,14 +95,15 @@ msgstr ""
 "  -v, --verbose                         Aktivera utförliga operationer\n"
 "\n"
 
-#: src/tools/pw-cat.c:789
+#: src/tools/pw-cat.c:981
 #, c-format
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
 "      --media-type                      Set media type (default %s)\n"
 "      --media-category                  Set media category (default %s)\n"
 "      --media-role                      Set media role (default %s)\n"
-"      --target                          Set node target (default %s)\n"
+"      --target                          Set node target serial or name "
+"(default %s)\n"
 "                                          0 means don't link\n"
 "      --latency                         Set node latency (default %s)\n"
 "                                          Xunit (unit = s, ms, us, ns)\n"
@@ -116,8 +117,9 @@ msgstr ""
 "      --media-type                      Sätt mediatyp (standard %s)\n"
 "      --media-category                  Sätt mediakategori (standard %s)\n"
 "      --media-role                      Sätt mediaroll (standard %s)\n"
-"      --target                          Sätt nodmål (standard %s)\n"
-"                                          0 betyder länka inte\n"
+"      --target                          Sätt nodmåls serienummer eller namn\n"
+"                                          (standard %s), 0 betyder länka "
+"inte\n"
 "      --latency                         Sätt nodlatens (standard %s)\n"
 "                                          Xenhet (enhet = s, ms, us, ns)\n"
 "                                          eller direkta samplar (256)\n"
@@ -125,7 +127,7 @@ msgstr ""
 "  -P  --properties                      Sätt nodegenskaper\n"
 "\n"
 
-#: src/tools/pw-cat.c:807
+#: src/tools/pw-cat.c:999
 #, c-format
 msgid ""
 "      --rate                            Sample rate (req. for rec) (default "
@@ -160,21 +162,23 @@ msgstr ""
 "%d)\n"
 "\n"
 
-#: src/tools/pw-cat.c:824
+#: src/tools/pw-cat.c:1016
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"
 "  -m, --midi                            Midi mode\n"
 "  -d, --dsd                             DSD mode\n"
+"  -o, --encoded                         Encoded mode\n"
 "\n"
 msgstr ""
 "  -p, --playback                        Uppspelningsläge\n"
 "  -r, --record                          Inspelningsläge\n"
 "  -m, --midi                            Midiläge\n"
 "  -d, --dsd                             DSD-läge\n"
+"  -o, --encoded                         Kodat läge\n"
 "\n"
 
-#: src/tools/pw-cli.c:2250
+#: src/tools/pw-cli.c:2216
 #, c-format
 msgid ""
 "%s [options] [command]\n"
@@ -182,6 +186,7 @@ msgid ""
 "      --version                         Show version\n"
 "  -d, --daemon                          Start as daemon (Default false)\n"
 "  -r, --remote                          Remote daemon name\n"
+"  -m, --monitor                         Monitor activity\n"
 "\n"
 msgstr ""
 "%s [flaggor] [kommando]\n"
@@ -189,14 +194,15 @@ msgstr ""
 "      --version                         Show version\n"
 "  -d, --daemon                          Starta som demon (Standard false)\n"
 "  -r, --remote                          Fjärrdemonnamn\n"
+"  -m, --monitor                         Övervaka aktivitet\n"
 "\n"
 
-#: spa/plugins/alsa/acp/acp.c:321
+#: spa/plugins/alsa/acp/acp.c:303
 msgid "Pro Audio"
 msgstr "Professionellt ljud"
 
-#: spa/plugins/alsa/acp/acp.c:444 spa/plugins/alsa/acp/alsa-mixer.c:4648
-#: spa/plugins/bluez5/bluez5-device.c:1237
+#: spa/plugins/alsa/acp/acp.c:427 spa/plugins/alsa/acp/alsa-mixer.c:4648
+#: spa/plugins/bluez5/bluez5-device.c:1283
 msgid "Off"
 msgstr "Av"
 
@@ -223,7 +229,7 @@ msgstr "Linje in"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2657
 #: spa/plugins/alsa/acp/alsa-mixer.c:2741
-#: spa/plugins/bluez5/bluez5-device.c:1455
+#: spa/plugins/bluez5/bluez5-device.c:1519
 msgid "Microphone"
 msgstr "Mikrofon"
 
@@ -289,7 +295,7 @@ msgid "No Bass Boost"
 msgstr "Ingen basökning"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2672
-#: spa/plugins/bluez5/bluez5-device.c:1461
+#: spa/plugins/bluez5/bluez5-device.c:1525
 msgid "Speaker"
 msgstr "Högtalare"
 
@@ -404,7 +410,7 @@ msgstr "Stereo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4484
 #: spa/plugins/alsa/acp/alsa-mixer.c:4642
-#: spa/plugins/bluez5/bluez5-device.c:1443
+#: spa/plugins/bluez5/bluez5-device.c:1507
 msgid "Headset"
 msgstr "Headset"
 
@@ -554,13 +560,13 @@ msgstr[1] ""
 #: spa/plugins/alsa/acp/alsa-util.c:1253
 #, c-format
 msgid ""
-"snd_pcm_delay() returned a value that is exceptionally large: %li byte (%s"
-"%lu ms).\n"
+"snd_pcm_delay() returned a value that is exceptionally large: %li byte "
+"(%s%lu ms).\n"
 "Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
 "to the ALSA developers."
 msgid_plural ""
-"snd_pcm_delay() returned a value that is exceptionally large: %li bytes (%s"
-"%lu ms).\n"
+"snd_pcm_delay() returned a value that is exceptionally large: %li bytes "
+"(%s%lu ms).\n"
 "Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
 "to the ALSA developers."
 msgstr[0] ""
@@ -622,92 +628,104 @@ msgstr "Inbyggt ljud"
 msgid "Modem"
 msgstr "Modem"
 
-#: spa/plugins/bluez5/bluez5-device.c:1248
+#: spa/plugins/bluez5/bluez5-device.c:1294
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr "Audio gateway (A2DP-källa & HSP/HFP AG)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1273
+#: spa/plugins/bluez5/bluez5-device.c:1319
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr "High fidelity-uppspelning (A2DP-utgång, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1276
+#: spa/plugins/bluez5/bluez5-device.c:1322
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr "High fidelity duplex (A2DP-källa/utgång, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1284
+#: spa/plugins/bluez5/bluez5-device.c:1330
 msgid "High Fidelity Playback (A2DP Sink)"
 msgstr "High fidelity-uppspelning (A2DP-utgång)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1286
+#: spa/plugins/bluez5/bluez5-device.c:1332
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
 msgstr "High fidelity duplex (A2DP-källa/utgång)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1323
+#: spa/plugins/bluez5/bluez5-device.c:1374
 #, c-format
 msgid "High Fidelity Playback (BAP Sink, codec %s)"
 msgstr "High fidelity-uppspelning (BAP-utgång, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1327
+#: spa/plugins/bluez5/bluez5-device.c:1378
 #, c-format
 msgid "High Fidelity Input (BAP Source, codec %s)"
 msgstr "High fidelity-ingång (BAP-källa, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1331
+#: spa/plugins/bluez5/bluez5-device.c:1382
 #, c-format
 msgid "High Fidelity Duplex (BAP Source/Sink, codec %s)"
 msgstr "High fidelity duplex (BAP-källa/utgång, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1360
+#: spa/plugins/bluez5/bluez5-device.c:1390
+msgid "High Fidelity Playback (BAP Sink)"
+msgstr "High fidelity-uppspelning (BAP-utgång)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1393
+msgid "High Fidelity Input (BAP Source)"
+msgstr "High fidelity-ingång (BAP-källa)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1396
+msgid "High Fidelity Duplex (BAP Source/Sink)"
+msgstr "High fidelity duplex (BAP-källa/utgång)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1424
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
 msgstr "Headset-huvudenhet (HSP/HFP, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1365
+#: spa/plugins/bluez5/bluez5-device.c:1429
 msgid "Headset Head Unit (HSP/HFP)"
 msgstr "Headset-huvudenhet (HSP/HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1444
-#: spa/plugins/bluez5/bluez5-device.c:1449
-#: spa/plugins/bluez5/bluez5-device.c:1456
-#: spa/plugins/bluez5/bluez5-device.c:1462
-#: spa/plugins/bluez5/bluez5-device.c:1468
-#: spa/plugins/bluez5/bluez5-device.c:1474
-#: spa/plugins/bluez5/bluez5-device.c:1480
-#: spa/plugins/bluez5/bluez5-device.c:1486
-#: spa/plugins/bluez5/bluez5-device.c:1492
+#: spa/plugins/bluez5/bluez5-device.c:1508
+#: spa/plugins/bluez5/bluez5-device.c:1513
+#: spa/plugins/bluez5/bluez5-device.c:1520
+#: spa/plugins/bluez5/bluez5-device.c:1526
+#: spa/plugins/bluez5/bluez5-device.c:1532
+#: spa/plugins/bluez5/bluez5-device.c:1538
+#: spa/plugins/bluez5/bluez5-device.c:1544
+#: spa/plugins/bluez5/bluez5-device.c:1550
+#: spa/plugins/bluez5/bluez5-device.c:1556
 msgid "Handsfree"
 msgstr "Handsfree"
 
-#: spa/plugins/bluez5/bluez5-device.c:1450
+#: spa/plugins/bluez5/bluez5-device.c:1514
 msgid "Handsfree (HFP)"
 msgstr "Handsfree (HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1467
+#: spa/plugins/bluez5/bluez5-device.c:1531
 msgid "Headphone"
 msgstr "Hörlurar"
 
-#: spa/plugins/bluez5/bluez5-device.c:1473
+#: spa/plugins/bluez5/bluez5-device.c:1537
 msgid "Portable"
 msgstr "Bärbar"
 
-#: spa/plugins/bluez5/bluez5-device.c:1479
+#: spa/plugins/bluez5/bluez5-device.c:1543
 msgid "Car"
 msgstr "Bil"
 
-#: spa/plugins/bluez5/bluez5-device.c:1485
+#: spa/plugins/bluez5/bluez5-device.c:1549
 msgid "HiFi"
 msgstr "HiFi"
 
-#: spa/plugins/bluez5/bluez5-device.c:1491
+#: spa/plugins/bluez5/bluez5-device.c:1555
 msgid "Phone"
 msgstr "Telefon"
 
-#: spa/plugins/bluez5/bluez5-device.c:1498
+#: spa/plugins/bluez5/bluez5-device.c:1562
 msgid "Bluetooth"
 msgstr "Bluetooth"
 
-#: spa/plugins/bluez5/bluez5-device.c:1499
+#: spa/plugins/bluez5/bluez5-device.c:1563
 msgid "Bluetooth (HFP)"
 msgstr "Bluetooth (HFP)"

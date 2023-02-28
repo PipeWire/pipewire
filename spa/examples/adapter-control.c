@@ -177,7 +177,7 @@ int init_data(struct data *data)
 			SPA_NAME_SUPPORT_LOG, &info)) < 0)
 		return res;
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Log, &iface)) < 0) {
-		printf ("can't get System interface %d\n", res);
+		printf("can't get System interface %d\n", res);
 		return res;
 	}
 	data->log = iface;
@@ -290,7 +290,7 @@ static int fade_in(struct data *data)
 	uint32_t buffer_size = data->control_buffer->datas[0].maxsize;
 	data->control_buffer->datas[0].chunk[0].size = buffer_size;
 
-	printf ("fading in\n");
+	printf("fading in\n");
 
 	spa_pod_builder_init(&b, buffer, buffer_size);
 	spa_pod_builder_push_sequence(&b, &f[0], 0);
@@ -316,7 +316,7 @@ static int fade_out(struct data *data)
 	uint32_t buffer_size = data->control_buffer->datas[0].maxsize;
 	data->control_buffer->datas[0].chunk[0].size = buffer_size;
 
-	printf ("fading out\n");
+	printf("fading out\n");
 
 	spa_pod_builder_init(&b, buffer, buffer_size);
 	spa_pod_builder_push_sequence(&b, &f[0], 0);
@@ -403,6 +403,7 @@ static int make_nodes(struct data *data, const char *device)
 		printf("can't create source follower node (audiotestsrc): %d\n", res);
 		return res;
 	}
+	printf("created source follower node %p\n", data->source_follower_node);
 
 	/* set the format on the source */
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -418,7 +419,7 @@ static int make_nodes(struct data *data, const char *device)
 		return res;
 	}
 
-	/* make the sink adapter node */
+	/* make the source adapter node */
 	snprintf(value, sizeof(value), "pointer:%p", data->source_follower_node);
 	items[1] = SPA_DICT_ITEM_INIT("audio.adapt.follower", value);
 	if ((res = make_node(data, &data->source_node,
@@ -428,6 +429,7 @@ static int make_nodes(struct data *data, const char *device)
 		printf("can't create source adapter node: %d\n", res);
 		return res;
 	}
+	printf("created source adapter node %p\n", data->source_node);
 
 	/* setup the source node props */
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -467,6 +469,7 @@ static int make_nodes(struct data *data, const char *device)
 		printf("can't create sink follower node (alsa-pcm-sink): %d\n", res);
 		return res;
 	}
+	printf("created sink follower node %p\n", data->sink_follower_node);
 
 	/* make the sink adapter node */
 	snprintf(value, sizeof(value), "pointer:%p", data->sink_follower_node);
@@ -478,6 +481,7 @@ static int make_nodes(struct data *data, const char *device)
 		printf("can't create sink adapter node: %d\n", res);
 		return res;
 	}
+	printf("created sink adapter node %p\n", data->sink_node);
 
 	/* add sink follower node callbacks */
 	spa_node_set_callbacks(data->sink_node, &sink_node_callbacks, data);
@@ -492,6 +496,8 @@ static int make_nodes(struct data *data, const char *device)
 		printf("can't setup sink follower node %d\n", res);
 		return res;
 	}
+	printf("Selected (%s) Sound card\n", (device ? device : "hw:0"));
+
 
 	/* setup the sink node port config */
 	spa_zero(info);
@@ -521,6 +527,9 @@ static int make_nodes(struct data *data, const char *device)
 		printf("can't set io buffers on port 0 of source node: %d\n", res);
 		return res;
 	}
+	printf("set io buffers on port 0 of source node %p\n", data->source_node);
+
+
 	if ((res = spa_node_port_set_io(data->sink_node,
 			  SPA_DIRECTION_INPUT, 0,
 			  SPA_IO_Buffers,
@@ -528,6 +537,8 @@ static int make_nodes(struct data *data, const char *device)
 		printf("can't set io buffers on port 0 of sink node: %d\n", res);
 		return res;
 	}
+	printf("set io buffers on port 0 of sink node %p\n", data->sink_node);
+
 	/* set io position and clock on source and sink nodes */
 	data->position.clock.target_rate = SPA_FRACTION(1, 48000);
 	data->position.clock.target_duration = 1024;
@@ -669,15 +680,18 @@ static int negotiate_formats(struct data *data)
 	if ((res = spa_node_port_use_buffers(data->source_node,
 		SPA_DIRECTION_OUTPUT, 0, 0, data->source_buffers, 1)) < 0)
 		return res;
+	printf("allocated and assigned buffer(%ld) to source node %p\n", buffer_size, data->source_node);
 	if ((res = spa_node_port_use_buffers(data->sink_node,
 		SPA_DIRECTION_INPUT, 0, 0, data->source_buffers, 1)) < 0)
 		return res;
+	printf("allocated and assigned buffers to sink node %p\n", data->sink_node);
 
 	/* Set the control buffers */
 	init_buffer(data, data->control_buffers, data->control_buffer, 1, CONTROL_BUFFER_SIZE);
 	if ((res = spa_node_port_use_buffers(data->sink_node,
 		SPA_DIRECTION_INPUT, 1, 0, data->control_buffers, 1)) < 0)
 		return res;
+	printf("allocated and assigned control buffers(%d) to sink node %p\n", CONTROL_BUFFER_SIZE, data->sink_node);
 
 	return 0;
 }
@@ -708,8 +722,10 @@ static void run_async_sink(struct data *data)
 	cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start);
 	if ((res = spa_node_send_command(data->source_node, &cmd)) < 0)
 		printf("got error %d\n", res);
+	printf("Source node started\n");
 	if ((res = spa_node_send_command(data->sink_node, &cmd)) < 0)
 		printf("got error %d\n", res);
+	printf("sink node started\n");
 
 	spa_loop_control_leave(data->control);
 

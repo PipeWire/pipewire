@@ -432,36 +432,29 @@ static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len, uint1
 	return 0;
 }
 
-static struct session *make_session(struct impl *impl, const char *name)
+static struct session *make_session(struct impl *impl, struct pw_properties *props)
 {
 	struct session *sess;
-	char addr[64];
-	struct pw_properties *props;
-	uint16_t port = 0;
+	const char *str;
 
 	sess = calloc(1, sizeof(struct session));
 	if (sess == NULL)
-		return NULL;
+		goto error;
 
 	spa_list_append(&impl->sessions, &sess->link);
 	impl->n_sessions++;
 
 	sess->impl = impl;
-	sess->initiator = pw_rand32();
+	sess->initiator = pw_properties_get_uint32(props, "rtp.initiator", pw_rand32());
 	sess->ssrc = pw_rand32();
+	sess->remote_ssrc = pw_properties_get_uint32(props, "rtp.receiver-ssrc", 0);
 	sess->ts_offset = impl->ts_offset < 0 ? pw_rand32() : impl->ts_offset;
-	sess->name = strdup(name);
 
-	props = pw_properties_copy(impl->stream_props);
-	if (props == NULL)
-		return NULL;
+	str = pw_properties_get(props, "sess.name");
+	sess->name = str ? strdup(str) : "unknown";
 
-	get_ip(&sess->ctrl_addr, addr, sizeof(addr), &port);
-	pw_properties_set(props, "rtp.destination.ip", addr);
-	pw_properties_setf(props, "rtp.destination.port", "%u", port);
 	pw_properties_setf(props, "rtp.ts-offset", "%u", sess->ts_offset);
 	pw_properties_setf(props, "rtp.sender-ssrc", "%u", sess->ssrc);
-	pw_properties_setf(props, "rtp.receiver-ssrc", "%u", sess->remote_ssrc);
 
 	sess->send = rtp_stream_new(impl->core,
 			PW_DIRECTION_INPUT, pw_properties_copy(props),
@@ -470,7 +463,12 @@ static struct session *make_session(struct impl *impl, const char *name)
 			PW_DIRECTION_OUTPUT, pw_properties_copy(props),
 			&recv_stream_events, sess);
 
+	pw_properties_free(props);
+
 	return sess;
+error:
+	pw_properties_free(props);
+	return NULL;
 }
 
 static struct session *find_session_by_addr_name(struct impl *impl,
@@ -532,15 +530,18 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 			}
 		} else {
 			pw_log_info("got control IN request %08x", initiator);
-			sess = make_session(impl, hdr->name);
+			sess = make_session(impl,
+					pw_properties_new(
+						"sess.name", hdr->name,
+						"rtp.initiator", initiator,
+						"rtp.receiver-ssrc", ntohl(hdr->ssrc),
+						NULL));
 			if (sess == NULL) {
 				pw_log_warn("failed to make session: %m");
 				success = false;
 			}
 		}
 		if (success) {
-			sess->initiator = initiator;
-			sess->remote_ssrc = ntohl(hdr->ssrc);
 			sess->ctrl_addr = *sa;
 			sess->ctrl_len = salen;
 			sess->ctrl_ready = true;
@@ -960,6 +961,20 @@ static int parse_address(const char *address, uint16_t port,
 	return 0;
 }
 
+static void free_service(struct service *s)
+{
+	spa_list_remove(&s->link);
+
+	if (s->sess)
+		free_session(s->sess);
+
+	free((char *) s->info.name);
+	free((char *) s->info.type);
+	free((char *) s->info.domain);
+	free((char *) s->info.host_name);
+	free(s);
+}
+
 static struct service *make_service(struct impl *impl, const struct service_info *info,
 		AvahiStringList *txt)
 {
@@ -967,10 +982,21 @@ static struct service *make_service(struct impl *impl, const struct service_info
 	char at[AVAHI_ADDRESS_STR_MAX];
 	struct session *sess;
 	int res;
+	struct pw_properties *props = NULL;
+	const char *str;
 
 	s = calloc(1, sizeof(*s));
 	if (s == NULL)
 		return NULL;
+
+	s->impl = impl;
+	spa_list_append(&impl->service_list, &s->link);
+
+	props = pw_properties_new(NULL, NULL);
+	if (props == NULL) {
+		res = -errno;
+		goto error;
+	}
 
 	s->info.interface = info->interface;
 	s->info.protocol = info->protocol;
@@ -981,13 +1007,28 @@ static struct service *make_service(struct impl *impl, const struct service_info
 	s->info.address = info->address;
 	s->info.port = info->port;
 
-	s->impl = impl;
-	spa_list_append(&impl->service_list, &s->link);
-
 	avahi_address_snprint(at, sizeof(at), &s->info.address);
 	pw_log_info("create session: %s %s:%u", s->info.name, at, s->info.port);
 
-	sess = make_session(impl, s->info.name);
+	pw_properties_set(props, "sess.name", s->info.name);
+	pw_properties_setf(props, "node.name", "%s (%s IP%d)",
+			s->info.name, s->info.host_name,
+			s->info.protocol == AVAHI_PROTO_INET ? 4 : 6);
+	pw_properties_setf(props, "destination.ip", "%s", at);
+	pw_properties_setf(props, "destination.port", "%u", s->info.port);
+	pw_properties_set(props, "rtp.media", "midi");
+
+	if ((str = strstr(s->info.name, "@"))) {
+		str++;
+		if (strlen(str) > 0)
+			pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, str);
+		else
+			pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
+					"rtp-midi on %s", s->info.host_name);
+	}
+
+	sess = make_session(impl, props);
+	props = NULL;
 	if (sess == NULL) {
 		res = -errno;
 		pw_log_error("can't create session: %m");
@@ -1002,6 +1043,11 @@ static struct service *make_service(struct impl *impl, const struct service_info
 		pw_log_error("invalid address %s: %s", at, spa_strerror(res));
 	}
 	return s;
+error:
+	pw_properties_free(props);
+	free_service(s);
+	errno = -res;
+	return NULL;
 }
 
 static struct service *find_service(struct impl *impl, const struct service_info *info)
@@ -1016,19 +1062,6 @@ static struct service *find_service(struct impl *impl, const struct service_info
 			return s;
 	}
 	return NULL;
-}
-
-static void free_service(struct service *s)
-{
-	spa_list_remove(&s->link);
-
-	free_session(s->sess);
-
-	free((char *) s->info.name);
-	free((char *) s->info.type);
-	free((char *) s->info.domain);
-	free((char *) s->info.host_name);
-	free(s);
 }
 
 static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiProtocol protocol,

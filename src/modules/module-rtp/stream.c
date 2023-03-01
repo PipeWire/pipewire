@@ -332,7 +332,6 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		break;
 	}
 
-	pw_properties_setf(props, "rtp.media", "%s", impl->format_info->media_type);
 	pw_properties_setf(props, "rtp.mime", "%s", impl->format_info->mime);
 
 	if (direction == PW_DIRECTION_INPUT)
@@ -341,6 +340,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		impl->ssrc = pw_properties_get_uint32(props, "rtp.receiver-ssrc", pw_rand32());
 	impl->payload = pw_properties_get_uint32(props, "rtp.payload", impl->payload);
 	impl->mtu = pw_properties_get_uint32(props, "rtp.mtu", DEFAULT_MTU);
+	impl->ts_offset = pw_properties_get_uint32(props, "rtp.ts-offset", 0);
 
 	str = pw_properties_get(props, "rtp.min-ptime");
 	if (!spa_atof(str, &min_ptime))

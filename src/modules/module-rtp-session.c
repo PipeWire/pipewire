@@ -116,8 +116,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define BUFFER_MASK		(BUFFER_SIZE-1)
 
 #define DEFAULT_FORMAT		"S16BE"
-#define DEFAULT_RATE		48000
-#define DEFAULT_CHANNELS	2
+#define DEFAULT_RATE		"48000"
+#define DEFAULT_CHANNELS	"2"
 #define DEFAULT_POSITION	"[ FL FR ]"
 
 #define DEFAULT_CONTROL_IP	"0.0.0.0"
@@ -1052,15 +1052,33 @@ static void free_service(struct service *s)
 	free(s);
 }
 
+static const char *get_service_name(struct impl *impl)
+{
+	const char *str;
+	str = pw_properties_get(impl->props, "rtp.media");
+	if (spa_streq(str, "midi"))
+		return "_apple-midi._udp";
+	else if (spa_streq(str, "audio"))
+		return "_pipewire-audio._udp";
+	return NULL;
+}
+
 static struct service *make_service(struct impl *impl, const struct service_info *info,
 		AvahiStringList *txt)
 {
-	struct service *s;
+	struct service *s = NULL;
 	char at[AVAHI_ADDRESS_STR_MAX];
 	struct session *sess;
 	int res;
 	struct pw_properties *props = NULL;
-	const char *str;
+	const char *service_name, *str;
+
+	/* check for compatible session */
+	service_name = get_service_name(impl);
+	if (!spa_streq(service_name, info->type)) {
+		res = 0;
+		goto error;
+	}
 
 	s = calloc(1, sizeof(*s));
 	if (s == NULL)
@@ -1069,7 +1087,7 @@ static struct service *make_service(struct impl *impl, const struct service_info
 	s->impl = impl;
 	spa_list_append(&impl->service_list, &s->link);
 
-	props = pw_properties_new(NULL, NULL);
+	props = pw_properties_copy(impl->stream_props);
 	if (props == NULL) {
 		res = -errno;
 		goto error;
@@ -1093,16 +1111,6 @@ static struct service *make_service(struct impl *impl, const struct service_info
 			s->info.protocol == AVAHI_PROTO_INET ? 4 : 6);
 	pw_properties_setf(props, "destination.ip", "%s", at);
 	pw_properties_setf(props, "destination.port", "%u", s->info.port);
-
-	if (spa_streq(s->info.type, "_apple-midi._udp"))
-		pw_properties_set(props, "rtp.media", "midi");
-	else if (spa_streq(s->info.type, "_pipewire-audio._udp"))
-		pw_properties_set(props, "rtp.media", "audio");
-	else {
-		pw_log_error("unknown type %s", s->info.type);
-		res = -EINVAL;
-		goto error;
-	}
 
 	if ((str = strstr(s->info.name, "@"))) {
 		str++;
@@ -1131,7 +1139,8 @@ static struct service *make_service(struct impl *impl, const struct service_info
 	return s;
 error:
 	pw_properties_free(props);
-	free_service(s);
+	if (s != NULL)
+		free_service(s);
 	errno = -res;
 	return NULL;
 }
@@ -1156,7 +1165,6 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	AvahiLookupResultFlags flags, void *userdata)
 {
 	struct impl *impl = userdata;
-	struct service *s;
 	struct service_info sinfo;
 
 	if (event != AVAHI_RESOLVER_FOUND) {
@@ -1174,12 +1182,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 			.address = *a,
 			.port = port);
 
-	s = make_service(impl, &sinfo, txt);
-	if (s == NULL) {
-		pw_log_error("Can't make service: %m");
-		goto done;
-	}
-
+	make_service(impl, &sinfo, txt);
 done:
 	avahi_service_resolver_free(r);
 }
@@ -1223,17 +1226,6 @@ static void browser_cb(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProt
 	default:
 		break;
 	}
-}
-
-static const char *get_service_name(struct impl *impl)
-{
-	const char *str;
-	str = pw_properties_get(impl->props, "rtp.media");
-	if (spa_streq(str, "midi"))
-		return "_apple-midi._udp";
-	else if (spa_streq(str, "audio"))
-		return "_pipewire-audio._udp";
-	return NULL;
 }
 
 static int make_browser(struct impl *impl)
@@ -1280,7 +1272,8 @@ static void entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupState state,
 static int make_announce(struct impl *impl)
 {
 	int res;
-	const char *service_name;
+	const char *service_name, *str;
+	AvahiStringList *txt = NULL;
 
 	if ((service_name = get_service_name(impl)) == NULL)
 		return -ENOTSUP;
@@ -1296,11 +1289,28 @@ static int make_announce(struct impl *impl)
 	}
 	avahi_entry_group_reset(impl->group);
 
-	res = avahi_entry_group_add_service(impl->group,
+	if (spa_streq(service_name, "_pipewire-audio._udp")) {
+		if ((str = pw_properties_get(impl->stream_props, "audio.format")) == NULL)
+			str = DEFAULT_FORMAT;
+		txt = avahi_string_list_add_pair(txt, "audio.format", str);
+		if ((str = pw_properties_get(impl->stream_props, "audio.rate")) == NULL)
+			str = DEFAULT_RATE;
+		txt = avahi_string_list_add_pair(txt, "audio.rate", str);
+		if ((str = pw_properties_get(impl->stream_props, "audio.channels")) == NULL)
+			str = DEFAULT_CHANNELS;
+		txt = avahi_string_list_add_pair(txt, "audio.channels", str);
+		if ((str = pw_properties_get(impl->stream_props, "audio.position")) == NULL)
+			str = DEFAULT_POSITION;
+		txt = avahi_string_list_add_pair(txt, "audio.position", str);
+	}
+
+	res = avahi_entry_group_add_service_strlst(impl->group,
 			AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
 			(AvahiPublishFlags)0, impl->session_name,
 			service_name, NULL, NULL,
-			impl->ctrl_port, NULL);
+			impl->ctrl_port, txt);
+
+	avahi_string_list_free(txt);
 
 	if (res < 0) {
 		pw_log_error("can't add service: %s",
@@ -1416,6 +1426,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_CHANNELNAMES);
 	copy_props(impl, props, PW_KEY_MEDIA_NAME);
 	copy_props(impl, props, PW_KEY_MEDIA_CLASS);
+	copy_props(impl, props, "rtp.media");
 
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;

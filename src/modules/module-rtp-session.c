@@ -1101,7 +1101,16 @@ static struct service *make_service(struct impl *impl, const struct service_info
 			s->info.protocol == AVAHI_PROTO_INET ? 4 : 6);
 	pw_properties_setf(props, "destination.ip", "%s", at);
 	pw_properties_setf(props, "destination.port", "%u", s->info.port);
-	pw_properties_set(props, "rtp.media", "midi");
+
+	if (spa_streq(s->info.type, "_apple-midi._udp"))
+		pw_properties_set(props, "rtp.media", "midi");
+	else if (spa_streq(s->info.type, "_pipewire-audio._udp"))
+		pw_properties_set(props, "rtp.media", "audio");
+	else {
+		pw_log_error("unknown type %s", s->info.type);
+		res = -EINVAL;
+		goto error;
+	}
 
 	if ((str = strstr(s->info.name, "@"))) {
 		str++;
@@ -1117,7 +1126,7 @@ static struct service *make_service(struct impl *impl, const struct service_info
 	if (sess == NULL) {
 		res = -errno;
 		pw_log_error("can't create session: %m");
-		return s;
+		goto error;
 	}
 	s->sess = sess;
 
@@ -1239,13 +1248,15 @@ static int make_browser(struct impl *impl)
 {
 	const char *service_name;
 
-	if ((service_name = get_service_name(impl)) == NULL)
-		return -ENOTSUP;
-
 	if (impl->browser == NULL) {
 		impl->browser = avahi_service_browser_new(impl->client,
 				AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
-				service_name, NULL, 0,
+				"_apple-midi._udp", NULL, 0,
+				browser_cb, impl);
+
+		avahi_service_browser_new(impl->client,
+				AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
+				"_pipewire-audio._udp", NULL, 0,
 				browser_cb, impl);
 	}
 	if (impl->browser == NULL) {

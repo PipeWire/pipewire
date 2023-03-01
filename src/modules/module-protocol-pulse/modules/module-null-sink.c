@@ -166,6 +166,10 @@ static int module_null_sink_prepare(struct module * const module)
 	info.format = module->impl->defs.sample_spec.format;
 	if ((str = pw_properties_get(props, "format")) != NULL) {
 		info.format = format_paname2id(str, strlen(str));
+		if (info.format == SPA_AUDIO_FORMAT_UNKNOWN) {
+			pw_log_error("invalid format '%s'", str);
+			return -EINVAL;
+		}
 		pw_properties_set(props, "format", NULL);
 	}
 

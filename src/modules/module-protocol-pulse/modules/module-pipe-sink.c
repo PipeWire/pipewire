@@ -148,6 +148,11 @@ static int module_pipe_sink_prepare(struct module * const module)
 	info.format = SPA_AUDIO_FORMAT_S16;
 	if ((str = pw_properties_get(props, "format")) != NULL) {
 		info.format = format_paname2id(str, strlen(str));
+		if (info.format == SPA_AUDIO_FORMAT_UNKNOWN) {
+			pw_log_error("invalid format '%s'", str);
+			res = -EINVAL;
+			goto out;
+		}
 		pw_properties_set(props, "format", NULL);
 	}
 	if ((str = pw_properties_get(props, "sink_name")) != NULL) {

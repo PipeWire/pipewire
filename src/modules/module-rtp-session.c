@@ -1248,15 +1248,14 @@ static int make_browser(struct impl *impl)
 {
 	const char *service_name;
 
+	service_name = get_service_name(impl);
+	if (service_name == NULL)
+		return -EINVAL;
+
 	if (impl->browser == NULL) {
 		impl->browser = avahi_service_browser_new(impl->client,
 				AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
-				"_apple-midi._udp", NULL, 0,
-				browser_cb, impl);
-
-		avahi_service_browser_new(impl->client,
-				AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
-				"_pipewire-audio._udp", NULL, 0,
+				service_name, NULL, 0,
 				browser_cb, impl);
 	}
 	if (impl->browser == NULL) {

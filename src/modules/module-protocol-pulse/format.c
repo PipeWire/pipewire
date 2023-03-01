@@ -316,10 +316,21 @@ const char *channel_id2paname(uint32_t id, uint32_t *aux)
 	return audio_channels[CHANNEL_POSITION_AUX0 + ((*aux)++ & 31)].name;
 }
 
+#define spa_streqn(a,s,b) (strlen(b) == (s) && strncmp((a),(b),(s)) == 0)
+
 uint32_t channel_paname2id(const char *name, size_t size)
 {
+	if (spa_streqn(name, size, "left"))
+		return SPA_AUDIO_CHANNEL_FL;
+	else if (spa_streqn(name, size, "right"))
+		return SPA_AUDIO_CHANNEL_FR;
+	else if (spa_streqn(name, size, "center"))
+		return SPA_AUDIO_CHANNEL_FC;
+	else if (spa_streqn(name, size, "subwoofer"))
+		return SPA_AUDIO_CHANNEL_LFE;
+
 	SPA_FOR_EACH_ELEMENT_VAR(audio_channels, i) {
-		if (strncmp(name, i->name, size) == 0)
+		if (spa_streqn(name, size, i->name))
 			return i->channel;
 	}
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
@@ -337,6 +348,7 @@ void channel_map_parse(const char *str, struct channel_map *map)
 {
 	const char *p = str;
 	size_t len;
+	uint32_t channels = 0;
 
 	if (spa_streq(p, "stereo")) {
 		*map = (struct channel_map) {
@@ -400,13 +412,19 @@ void channel_map_parse(const char *str, struct channel_map *map)
 			.map[7] = SPA_AUDIO_CHANNEL_SR,
 		};
 	} else {
-		map->channels = 0;
-		while (*p && map->channels < SPA_AUDIO_MAX_CHANNELS) {
+		channels = map->channels = 0;
+		while (*p && channels < SPA_AUDIO_MAX_CHANNELS) {
+			uint32_t chname;
+
 			if ((len = strcspn(p, ",")) == 0)
 				break;
-			map->map[map->channels++] = channel_paname2id(p, len);
+			chname = channel_paname2id(p, len);
+			if (chname == SPA_AUDIO_CHANNEL_UNKNOWN)
+				return;
+			map->map[channels++] = chname;
 			p += len + strspn(p+len, ",");
 		}
+		map->channels = channels;
 	}
 }
 

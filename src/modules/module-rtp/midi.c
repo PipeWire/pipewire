@@ -337,7 +337,7 @@ static int write_event(uint8_t *p, uint32_t value, void *ev, uint32_t size)
 }
 
 static void flush_midi_packets(struct impl *impl,
-		struct spa_pod_sequence *sequence, uint32_t timestamp)
+		struct spa_pod_sequence *sequence, uint32_t timestamp, uint32_t rate)
 {
 	struct spa_pod_control *c;
 	struct rtp_header header;
@@ -363,7 +363,7 @@ static void flush_midi_packets(struct impl *impl,
 
 	SPA_POD_SEQUENCE_FOREACH(sequence, c) {
 		void *ev;
-		uint32_t size, delta;
+		uint32_t size, delta, offset;
 
 		if (c->type != SPA_CONTROL_Midi)
 			continue;
@@ -371,8 +371,10 @@ static void flush_midi_packets(struct impl *impl,
 		ev = SPA_POD_BODY(&c->value),
                 size = SPA_POD_BODY_SIZE(&c->value);
 
+		offset = c->offset * impl->rate / rate;
+
 		if (len > 0 && (len + size > impl->mtu ||
-		    c->offset - base > impl->psamples)) {
+		    offset - base > impl->psamples)) {
 			/* flush packet when we have one and when it's either
 			 * too large or has too much data. */
 			if (len < 16) {
@@ -389,7 +391,7 @@ static void flush_midi_packets(struct impl *impl,
 
 			pw_log_debug("sending %d timestamp:%d %u %u",
 					len, timestamp + base,
-					c->offset, impl->psamples);
+					offset, impl->psamples);
 			rtp_stream_emit_send_packet(impl, iov, 3);
 
 			impl->seq++;
@@ -397,15 +399,15 @@ static void flush_midi_packets(struct impl *impl,
 		}
 		if (len == 0) {
 			/* start new packet */
-			base = prev_offset = c->offset;
+			base = prev_offset = offset;
 			header.sequence_number = htons(impl->seq);
 			header.timestamp = htonl(impl->ts_offset + timestamp + base);
 
 			memcpy(&impl->buffer[len], ev, size);
 			len += size;
 		} else {
-			delta = c->offset - prev_offset;
-			prev_offset = c->offset;
+			delta = offset - prev_offset;
+			prev_offset = offset;
 			len += write_event(&impl->buffer[len], delta, ev, size);
 		}
 	}
@@ -434,7 +436,7 @@ static void process_midi_capture(void *data)
 	struct impl *impl = data;
 	struct pw_buffer *buf;
 	struct spa_data *d;
-	uint32_t offs, size, timestamp;
+	uint32_t offs, size, timestamp, rate;
 	struct spa_pod *pod;
 	void *ptr;
 
@@ -447,10 +449,13 @@ static void process_midi_capture(void *data)
 	offs = SPA_MIN(d[0].chunk->offset, d[0].maxsize);
 	size = SPA_MIN(d[0].chunk->size, d[0].maxsize - offs);
 
-	if (SPA_LIKELY(impl->io_position))
-		timestamp = impl->io_position->clock.position;
-	else
+	if (SPA_LIKELY(impl->io_position)) {
+		rate = impl->io_position->clock.rate.denom;
+		timestamp = impl->io_position->clock.position * impl->rate / rate;
+	} else {
+		rate = 10000;
 		timestamp = 0;
+	}
 
 	ptr = SPA_PTROFF(d[0].data, offs, void);
 
@@ -465,7 +470,7 @@ static void process_midi_capture(void *data)
 		impl->have_sync = true;
 	}
 
-	flush_midi_packets(impl, (struct spa_pod_sequence*)pod, timestamp);
+	flush_midi_packets(impl, (struct spa_pod_sequence*)pod, timestamp, rate);
 
 done:
 	pw_stream_queue_buffer(impl->stream, buf);

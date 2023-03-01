@@ -279,8 +279,8 @@ static void send_apple_midi_cmd_in(struct session *sess, bool ctrl)
 
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof(hdr);
-	iov[1].iov_base = sess->name;
-	iov[1].iov_len = strlen(sess->name);
+	iov[1].iov_base = impl->session_name;
+	iov[1].iov_len = strlen(impl->session_name)+1;
 
 	spa_zero(msg);
 	msg.msg_name = ctrl ? &sess->ctrl_addr : &sess->data_addr;
@@ -476,6 +476,7 @@ static struct session *find_session_by_addr_name(struct impl *impl,
 {
 	struct session *sess;
 	spa_list_for_each(sess, &impl->sessions, link) {
+		pw_log_info("'%s' '%s'", sess->name, name);
 		if (cmp_ip(sa, &sess->ctrl_addr) &&
 		    spa_streq(sess->name, name))
 			return sess;
@@ -511,9 +512,12 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 	struct rtp_apple_midi reply;
 	struct session *sess;
 	bool success = true;
-	uint32_t initiator = ntohl(hdr->initiator);
+	uint32_t initiator, ssrc;
 	char addr[128];
 	uint16_t port = 0;
+
+	initiator = ntohl(hdr->initiator);
+	ssrc = ntohl(hdr->ssrc);
 
 	get_ip(sa, addr, sizeof(addr), &port);
 	pw_log_info("IN from %s:%d %s", addr, port, hdr->name);
@@ -529,13 +533,14 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 				success = false;
 			}
 		} else {
+			struct pw_properties *props;
+
+			props = pw_properties_new("sess.name", hdr->name, NULL);
+			pw_properties_setf(props, "rtp.initiator", "%u", initiator);
+			pw_properties_setf(props, "rtp.receiver-ssrc", "%u", ssrc);
+
 			pw_log_info("got control IN request %08x", initiator);
-			sess = make_session(impl,
-					pw_properties_new(
-						"sess.name", hdr->name,
-						"rtp.initiator", initiator,
-						"rtp.receiver-ssrc", ntohl(hdr->ssrc),
-						NULL));
+			sess = make_session(impl, props);
 			if (sess == NULL) {
 				pw_log_warn("failed to make session: %m");
 				success = false;
@@ -553,6 +558,7 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 			success = false;
 		} else {
 			pw_log_info("got data IN request %08x", initiator);
+			sess->remote_ssrc = ssrc;
 			sess->data_addr = *sa;
 			sess->data_len = salen;
 			sess->data_ready = true;
@@ -568,8 +574,8 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 
 	iov[0].iov_base = &reply;
 	iov[0].iov_len = sizeof(reply);
-	iov[1].iov_base = sess->name;
-	iov[1].iov_len = strlen(sess->name);
+	iov[1].iov_base = impl->session_name;
+	iov[1].iov_len = strlen(impl->session_name)+1;
 
 	spa_zero(msg);
 	msg.msg_name = sa;
@@ -602,6 +608,7 @@ static void parse_apple_midi_cmd_ok(struct impl *impl, bool ctrl, uint8_t *buffe
 			send_apple_midi_cmd_in(sess, false);
 	} else {
 		pw_log_info("got data OK %08x", initiator);
+		sess->remote_ssrc = ntohl(hdr->ssrc);
 		sess->data_ready = true;
 	}
 }

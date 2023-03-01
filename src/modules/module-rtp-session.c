@@ -1072,10 +1072,48 @@ static struct service *make_service(struct impl *impl, const struct service_info
 	int res;
 	struct pw_properties *props = NULL;
 	const char *service_name, *str;
+	AvahiStringList *l;
+	bool compatible = true;
 
 	/* check for compatible session */
 	service_name = get_service_name(impl);
-	if (!spa_streq(service_name, info->type)) {
+	compatible = spa_streq(service_name, info->type);
+
+	if (spa_streq(service_name, "_pipewire-audio._udp")) {
+		uint32_t mask = 0;
+		for (l = txt; l && compatible; l = l->next) {
+			char *key, *value, *k;
+
+			if (avahi_string_list_get_pair(l, &key, &value, NULL) != 0)
+				break;
+
+			if (spa_streq(key, "format")) {
+				k = "audio.format";
+				mask |= 1<<0;
+			} else if (spa_streq(key, "rate")) {
+				k = "audio.rate";
+				mask |= 1<<1;
+			} else if (spa_streq(key, "channels")) {
+				k = "audio.channels";
+				mask |= 1<<2;
+			} else {
+				k = NULL;
+			}
+			if (k != NULL) {
+				str = pw_properties_get(impl->stream_props, k);
+				if (str == NULL || !spa_streq(str, value))
+					compatible = false;
+			}
+			avahi_free(key);
+			avahi_free(value);
+		}
+		if (mask != 0x7)
+			compatible = false;
+	}
+	if (!compatible) {
+		pw_log_info("found incompatible session IP%d:%s",
+				info->protocol == AVAHI_PROTO_INET ? 4 : 6,
+				info->name);
 		res = 0;
 		goto error;
 	}
@@ -1290,20 +1328,15 @@ static int make_announce(struct impl *impl)
 	avahi_entry_group_reset(impl->group);
 
 	if (spa_streq(service_name, "_pipewire-audio._udp")) {
-		if ((str = pw_properties_get(impl->stream_props, "audio.format")) == NULL)
-			str = DEFAULT_FORMAT;
-		txt = avahi_string_list_add_pair(txt, "audio.format", str);
-		if ((str = pw_properties_get(impl->stream_props, "audio.rate")) == NULL)
-			str = DEFAULT_RATE;
-		txt = avahi_string_list_add_pair(txt, "audio.rate", str);
-		if ((str = pw_properties_get(impl->stream_props, "audio.channels")) == NULL)
-			str = DEFAULT_CHANNELS;
-		txt = avahi_string_list_add_pair(txt, "audio.channels", str);
-		if ((str = pw_properties_get(impl->stream_props, "audio.position")) == NULL)
-			str = DEFAULT_POSITION;
-		txt = avahi_string_list_add_pair(txt, "audio.position", str);
+		if ((str = pw_properties_get(impl->stream_props, "audio.format")) != NULL)
+			txt = avahi_string_list_add_pair(txt, "format", str);
+		if ((str = pw_properties_get(impl->stream_props, "audio.rate")) != NULL)
+			txt = avahi_string_list_add_pair(txt, "rate", str);
+		if ((str = pw_properties_get(impl->stream_props, "audio.channels")) != NULL)
+			txt = avahi_string_list_add_pair(txt, "channels", str);
+		if ((str = pw_properties_get(impl->stream_props, "audio.position")) != NULL)
+			txt = avahi_string_list_add_pair(txt, "position", str);
 	}
-
 	res = avahi_entry_group_add_service_strlst(impl->group,
 			AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
 			(AvahiPublishFlags)0, impl->session_name,
@@ -1427,6 +1460,19 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_MEDIA_NAME);
 	copy_props(impl, props, PW_KEY_MEDIA_CLASS);
 	copy_props(impl, props, "rtp.media");
+
+	if ((str = pw_properties_get(stream_props, "rtp.media")) == NULL) {
+		str = "midi";
+		pw_properties_set(stream_props, "rtp.media", str);
+	}
+	if (spa_streq(str, "audio")) {
+		struct spa_dict_item items[] = {
+			{ "audio.format", DEFAULT_FORMAT },
+			{ "audio.rate", DEFAULT_RATE },
+			{ "audio.channels", DEFAULT_CHANNELS },
+			{ "audio.position", DEFAULT_POSITION } };
+		pw_properties_add(stream_props, &SPA_DICT_INIT_ARRAY(items));
+	}
 
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;

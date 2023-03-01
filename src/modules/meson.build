@@ -536,15 +536,19 @@ pipewire_module_rtp_sink = shared_library('pipewire-module-rtp-sink',
   dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
 )
 
-pipewire_module_rtp_sink = shared_library('pipewire-module-rtp-session',
-  [ 'module-rtp/stream.c',
-    'module-rtp-session.c' ],
-  include_directories : [configinc],
-  install : true,
-  install_dir : modules_install_dir,
-  install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
-)
+build_module_rtp_session = avahi_dep.found()
+if build_module_rtp_session
+  pipewire_module_rtp_session = shared_library('pipewire-module-rtp-session',
+    [ 'module-rtp/stream.c',
+      'module-zeroconf-discover/avahi-poll.c',
+     'module-rtp-session.c' ],
+    include_directories : [configinc],
+    install : true,
+    install_dir : modules_install_dir,
+    install_rpath: modules_install_dir,
+    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, avahi_dep],
+  )
+endif
 
 build_module_roc = roc_dep.found()
 if build_module_roc

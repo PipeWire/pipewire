@@ -189,11 +189,23 @@ struct session {
 
 	char *name;
 
+	unsigned we_initiated:1;
+
+#define SESSION_STATE_INIT		0
+#define SESSION_STATE_SENDING_CTRL_IN	1
+#define SESSION_STATE_SENDING_DATA_IN	2
+#define SESSION_STATE_ESTABLISHING	3
+#define SESSION_STATE_ESTABLISHED	4
+	int state;
+
 	uint32_t initiator;
 	uint32_t remote_ssrc;
 
 	uint32_t ssrc;
 	uint32_t ts_offset;
+
+	unsigned sending:1;
+	unsigned receiving:1;
 
 	unsigned ctrl_ready:1;
 	unsigned data_ready:1;
@@ -270,6 +282,7 @@ static void send_apple_midi_cmd_in(struct session *sess, bool ctrl)
 	struct iovec iov[3];
 	struct msghdr msg;
 	struct rtp_apple_midi hdr;
+	int fd;
 
 	spa_zero(hdr);
 	hdr.cmd = htonl(APPLE_MIDI_CMD_IN);
@@ -283,12 +296,21 @@ static void send_apple_midi_cmd_in(struct session *sess, bool ctrl)
 	iov[1].iov_len = strlen(impl->session_name)+1;
 
 	spa_zero(msg);
-	msg.msg_name = ctrl ? &sess->ctrl_addr : &sess->data_addr;
-	msg.msg_namelen = ctrl ? sess->ctrl_len : sess->data_len;
+	if (ctrl) {
+		msg.msg_name = &sess->ctrl_addr;
+		msg.msg_namelen = sess->ctrl_len;
+		fd = impl->ctrl_source->fd;
+		sess->state = SESSION_STATE_SENDING_CTRL_IN;
+	} else {
+		msg.msg_name = &sess->data_addr;
+		msg.msg_namelen = sess->data_len;
+		fd = impl->data_source->fd;
+		sess->state = SESSION_STATE_SENDING_DATA_IN;
+	}
 	msg.msg_iov = iov;
 	msg.msg_iovlen = 2;
 
-	send_packet(ctrl ? impl->ctrl_source->fd : impl->data_source->fd, &msg);
+	send_packet(fd, &msg);
 }
 
 static void send_apple_midi_cmd_by(struct session *sess, bool ctrl)
@@ -316,6 +338,39 @@ static void send_apple_midi_cmd_by(struct session *sess, bool ctrl)
 	send_packet(ctrl ? impl->ctrl_source->fd : impl->data_source->fd, &msg);
 }
 
+static void session_establish(struct session *sess)
+{
+	switch (sess->state) {
+	case SESSION_STATE_INIT:
+		/* we initiate */
+		sess->we_initiated = true;
+		if (!sess->ctrl_ready)
+			send_apple_midi_cmd_in(sess, true);
+		else if (!sess->data_ready)
+			send_apple_midi_cmd_in(sess, false);
+		break;
+	case SESSION_STATE_ESTABLISHING:
+	case SESSION_STATE_ESTABLISHED:
+		/* we're done or waiting for other initiator */
+		break;
+	case SESSION_STATE_SENDING_CTRL_IN:
+	case SESSION_STATE_SENDING_DATA_IN:
+		/* we're busy initiating */
+		break;
+	}
+}
+
+static void session_stop(struct session *sess)
+{
+	if (!sess->we_initiated)
+		return;
+	if (sess->ctrl_ready)
+		send_apple_midi_cmd_by(sess, true);
+	if (sess->data_ready)
+		send_apple_midi_cmd_by(sess, false);
+	sess->state = SESSION_STATE_INIT;
+}
+
 static void send_destroy(void *data)
 {
 }
@@ -327,15 +382,12 @@ static void send_state_changed(void *data, bool started, const char *error)
 	pw_log_info("send initiator:%08x state %d", sess->initiator, started);
 
 	if (started) {
-		if (!sess->ctrl_ready)
-			send_apple_midi_cmd_in(sess, true);
-		else if (!sess->data_ready)
-			send_apple_midi_cmd_in(sess, false);
+		sess->sending = true;
+		session_establish(sess);
 	} else {
-		if (sess->ctrl_ready)
-			send_apple_midi_cmd_by(sess, true);
-		if (sess->data_ready)
-			send_apple_midi_cmd_by(sess, false);
+		sess->sending = false;
+		if (!sess->receiving)
+			session_stop(sess);
 	}
 }
 
@@ -366,15 +418,12 @@ static void recv_state_changed(void *data, bool started, const char *error)
 	pw_log_info("send initiator:%08x state %d", sess->initiator, started);
 
 	if (started) {
-		if (!sess->ctrl_ready)
-			send_apple_midi_cmd_in(sess, true);
-		else if (!sess->data_ready)
-			send_apple_midi_cmd_in(sess, false);
+		sess->receiving = true;
+		session_establish(sess);
 	} else {
-		if (sess->ctrl_ready)
-			send_apple_midi_cmd_by(sess, true);
-		if (sess->data_ready)
-			send_apple_midi_cmd_by(sess, false);
+		sess->receiving = false;
+		if (!sess->sending)
+			session_stop(sess);
 	}
 }
 
@@ -550,6 +599,7 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 			sess->ctrl_addr = *sa;
 			sess->ctrl_len = salen;
 			sess->ctrl_ready = true;
+			sess->state = SESSION_STATE_ESTABLISHING;
 		}
 	}
 	else {
@@ -562,6 +612,7 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 			sess->data_addr = *sa;
 			sess->data_len = salen;
 			sess->data_ready = true;
+			sess->state = SESSION_STATE_ESTABLISHED;
 		}
 	}
 
@@ -596,7 +647,7 @@ static void parse_apple_midi_cmd_ok(struct impl *impl, bool ctrl, uint8_t *buffe
 	struct session *sess;
 
 	sess = find_session_by_initiator(impl, initiator);
-	if (sess == NULL) {
+	if (sess == NULL || !sess->we_initiated) {
 		pw_log_warn("received OK from nonexisting session %u", initiator);
 		return;
 	}
@@ -610,6 +661,7 @@ static void parse_apple_midi_cmd_ok(struct impl *impl, bool ctrl, uint8_t *buffe
 		pw_log_info("got data OK %08x", initiator);
 		sess->remote_ssrc = ntohl(hdr->ssrc);
 		sess->data_ready = true;
+		sess->state = SESSION_STATE_ESTABLISHED;
 	}
 }
 
@@ -665,6 +717,28 @@ static void parse_apple_midi_cmd_ck(struct impl *impl, bool ctrl, uint8_t *buffe
 	send_packet(ctrl ? impl->ctrl_source->fd : impl->data_source->fd, &msg);
 }
 
+static void parse_apple_midi_cmd_by(struct impl *impl, bool ctrl, uint8_t *buffer,
+		ssize_t len, struct sockaddr_storage *sa, socklen_t salen)
+{
+	struct rtp_apple_midi *hdr = (struct rtp_apple_midi*)buffer;
+	uint32_t initiator = ntohl(hdr->initiator);
+	struct session *sess;
+
+	sess = find_session_by_initiator(impl, initiator);
+	if (sess == NULL) {
+		pw_log_warn("received BY from nonexisting initiator %08x", initiator);
+		return;
+	}
+
+	if (ctrl) {
+		pw_log_info("got ctrl BY %08x %d", initiator, sess->data_ready);
+		sess->ctrl_ready = false;
+	} else {
+		pw_log_info("got data BY %08x", initiator);
+		sess->data_ready = false;
+	}
+}
+
 static void parse_apple_midi_cmd(struct impl *impl, bool ctrl, uint8_t *buffer,
 		ssize_t len, struct sockaddr_storage *sa, socklen_t salen)
 {
@@ -678,6 +752,9 @@ static void parse_apple_midi_cmd(struct impl *impl, bool ctrl, uint8_t *buffer,
 		break;
 	case APPLE_MIDI_CMD_CK:
 		parse_apple_midi_cmd_ck(impl, ctrl, buffer, len, sa, salen);
+		break;
+	case APPLE_MIDI_CMD_BY:
+		parse_apple_midi_cmd_by(impl, ctrl, buffer, len, sa, salen);
 		break;
 	default:
 		break;

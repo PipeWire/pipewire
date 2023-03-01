@@ -496,7 +496,6 @@ static struct session *make_session(struct impl *impl, struct pw_properties *pro
 	sess->impl = impl;
 	sess->initiator = pw_properties_get_uint32(props, "rtp.initiator", pw_rand32());
 	sess->ssrc = pw_rand32();
-	sess->remote_ssrc = pw_properties_get_uint32(props, "rtp.receiver-ssrc", 0);
 	sess->ts_offset = impl->ts_offset < 0 ? pw_rand32() : impl->ts_offset;
 
 	str = pw_properties_get(props, "sess.name");
@@ -525,7 +524,6 @@ static struct session *find_session_by_addr_name(struct impl *impl,
 {
 	struct session *sess;
 	spa_list_for_each(sess, &impl->sessions, link) {
-		pw_log_info("'%s' '%s'", sess->name, name);
 		if (cmp_ip(sa, &sess->ctrl_addr) &&
 		    spa_streq(sess->name, name))
 			return sess;
@@ -569,29 +567,19 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 	ssrc = ntohl(hdr->ssrc);
 
 	get_ip(sa, addr, sizeof(addr), &port);
-	pw_log_info("IN from %s:%d %s", addr, port, hdr->name);
+	pw_log_info("IN from %s:%d %s %08x", addr, port, hdr->name, ssrc);
 
 	sess = find_session_by_initiator(impl, initiator);
 	if (sess == NULL)
 		sess = find_session_by_addr_name(impl, sa, hdr->name);
 
 	if (ctrl) {
-		if (sess != NULL) {
+		if (sess == NULL) {
+			pw_log_warn("receive ctrl IN from nonexisting session %08x", initiator);
+			success = false;
+		} else {
 			if (sess->ctrl_ready) {
 				pw_log_warn("receive ctrl IN from existing session %08x", initiator);
-				success = false;
-			}
-		} else {
-			struct pw_properties *props;
-
-			props = pw_properties_new("sess.name", hdr->name, NULL);
-			pw_properties_setf(props, "rtp.initiator", "%u", initiator);
-			pw_properties_setf(props, "rtp.receiver-ssrc", "%u", ssrc);
-
-			pw_log_info("got control IN request %08x", initiator);
-			sess = make_session(impl, props);
-			if (sess == NULL) {
-				pw_log_warn("failed to make session: %m");
 				success = false;
 			}
 		}
@@ -802,6 +790,7 @@ on_data_io(void *data, int fd, uint32_t mask)
 	struct impl *impl = data;
 	ssize_t len;
 	uint8_t buffer[2048];
+	uint32_t ssrc;
 
 	if (mask & SPA_IO_IN) {
 		struct sockaddr_storage sa;
@@ -818,7 +807,10 @@ on_data_io(void *data, int fd, uint32_t mask)
 			parse_apple_midi_cmd(impl, false, buffer, len, &sa, salen);
 		} else {
 			struct rtp_header *hdr = (struct rtp_header*)buffer;
-			struct session *sess = find_session_by_ssrc(impl, ntohl(hdr->ssrc));
+			struct session *sess;
+
+			ssrc = ntohl(hdr->ssrc);
+			sess = find_session_by_ssrc(impl, ssrc);
 			if (sess == NULL)
 				goto unknown_ssrc;
 
@@ -834,7 +826,7 @@ short_packet:
 	pw_log_warn("short packet received");
 	return;
 unknown_ssrc:
-	pw_log_warn("unknown SSRC");
+	pw_log_warn("unknown SSRC %08x", ssrc);
 	return;
 }
 

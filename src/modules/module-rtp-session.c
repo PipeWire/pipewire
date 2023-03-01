@@ -344,6 +344,7 @@ static void session_establish(struct session *sess)
 	case SESSION_STATE_INIT:
 		/* we initiate */
 		sess->we_initiated = true;
+		pw_log_info("start session initiator:%08x", sess->initiator);
 		if (!sess->ctrl_ready)
 			send_apple_midi_cmd_in(sess, true);
 		else if (!sess->data_ready)
@@ -364,6 +365,7 @@ static void session_stop(struct session *sess)
 {
 	if (!sess->we_initiated)
 		return;
+	pw_log_info("stop session initiator:%08x", sess->initiator);
 	if (sess->ctrl_ready)
 		send_apple_midi_cmd_by(sess, true);
 	if (sess->data_ready)
@@ -378,8 +380,6 @@ static void send_destroy(void *data)
 static void send_state_changed(void *data, bool started, const char *error)
 {
 	struct session *sess = data;
-
-	pw_log_info("send initiator:%08x state %d", sess->initiator, started);
 
 	if (started) {
 		sess->sending = true;
@@ -607,7 +607,7 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 			pw_log_warn("receive data IN from nonexisting session %08x", initiator);
 			success = false;
 		} else {
-			pw_log_info("got data IN request %08x", initiator);
+			pw_log_info("got data IN request %08x, session established", initiator);
 			sess->remote_ssrc = ssrc;
 			sess->data_addr = *sa;
 			sess->data_len = salen;
@@ -658,7 +658,7 @@ static void parse_apple_midi_cmd_ok(struct impl *impl, bool ctrl, uint8_t *buffe
 		if (!sess->data_ready)
 			send_apple_midi_cmd_in(sess, false);
 	} else {
-		pw_log_info("got data OK %08x", initiator);
+		pw_log_info("got data OK %08x, session established", initiator);
 		sess->remote_ssrc = ntohl(hdr->ssrc);
 		sess->data_ready = true;
 		sess->state = SESSION_STATE_ESTABLISHED;
@@ -725,7 +725,7 @@ static void parse_apple_midi_cmd_by(struct impl *impl, bool ctrl, uint8_t *buffe
 	struct session *sess;
 
 	sess = find_session_by_initiator(impl, initiator);
-	if (sess == NULL) {
+	if (sess == NULL || sess->we_initiated) {
 		pw_log_warn("received BY from nonexisting initiator %08x", initiator);
 		return;
 	}
@@ -734,8 +734,9 @@ static void parse_apple_midi_cmd_by(struct impl *impl, bool ctrl, uint8_t *buffe
 		pw_log_info("got ctrl BY %08x %d", initiator, sess->data_ready);
 		sess->ctrl_ready = false;
 	} else {
-		pw_log_info("got data BY %08x", initiator);
+		pw_log_info("got data BY %08x, session init", initiator);
 		sess->data_ready = false;
+		sess->state = SESSION_STATE_INIT;
 	}
 }
 
@@ -1092,7 +1093,7 @@ static struct service *make_service(struct impl *impl, const struct service_info
 	s->info.port = info->port;
 
 	avahi_address_snprint(at, sizeof(at), &s->info.address);
-	pw_log_info("create session: %s %s:%u", s->info.name, at, s->info.port);
+	pw_log_info("create session: %s %s:%u %s", s->info.name, at, s->info.port, s->info.type);
 
 	pw_properties_set(props, "sess.name", s->info.name);
 	pw_properties_setf(props, "node.name", "%s (%s IP%d)",
@@ -1223,13 +1224,29 @@ static void browser_cb(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProt
 	}
 }
 
+static const char *get_service_name(struct impl *impl)
+{
+	const char *str;
+	str = pw_properties_get(impl->props, "rtp.media");
+	if (spa_streq(str, "midi"))
+		return "_apple-midi._udp";
+	else if (spa_streq(str, "audio"))
+		return "_pipewire-audio._udp";
+	return NULL;
+}
+
 static int make_browser(struct impl *impl)
 {
+	const char *service_name;
+
+	if ((service_name = get_service_name(impl)) == NULL)
+		return -ENOTSUP;
+
 	if (impl->browser == NULL) {
 		impl->browser = avahi_service_browser_new(impl->client,
-                              AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
-                              "_apple-midi._udp", NULL, 0,
-                              browser_cb, impl);
+				AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
+				service_name, NULL, 0,
+				browser_cb, impl);
 	}
 	if (impl->browser == NULL) {
 		pw_log_error("can't make browser: %s",
@@ -1261,6 +1278,10 @@ static void entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupState state,
 static int make_announce(struct impl *impl)
 {
 	int res;
+	const char *service_name;
+
+	if ((service_name = get_service_name(impl)) == NULL)
+		return -ENOTSUP;
 
 	if (impl->group == NULL) {
 		impl->group = avahi_entry_group_new(impl->client,
@@ -1274,10 +1295,11 @@ static int make_announce(struct impl *impl)
 	avahi_entry_group_reset(impl->group);
 
 	res = avahi_entry_group_add_service(impl->group,
-				AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
-				(AvahiPublishFlags)0, impl->session_name,
-				"_apple-midi._udp", NULL, NULL,
-				impl->ctrl_port, NULL);
+			AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
+			(AvahiPublishFlags)0, impl->session_name,
+			service_name, NULL, NULL,
+			impl->ctrl_port, NULL);
+
 	if (res < 0) {
 		pw_log_error("can't add service: %s",
 			avahi_strerror(avahi_client_errno(impl->client)));
@@ -1327,7 +1349,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_properties *props = NULL, *stream_props = NULL;
 	uint32_t id = pw_global_get_id(pw_impl_module_get_global(module));
 	uint32_t pid = getpid();
-	char addr[64];
 	uint16_t port;
 	const char *str;
 	int res = 0;
@@ -1427,22 +1448,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				pw_get_host_name());
 	str = pw_properties_get(props, "sess.name");
 	impl->session_name = str ? strdup(str) : NULL;
-
-	pw_properties_set(stream_props, "rtp.session", impl->session_name);
-	get_ip(&impl->ctrl_addr, addr, sizeof(addr), &impl->ctrl_port);
-	pw_properties_set(stream_props, "rtp.control.ip", addr);
-	pw_properties_setf(stream_props, "rtp.control.port", "%u", impl->ctrl_port);
-	pw_properties_setf(stream_props, "rtp.mtu", "%u", impl->mtu);
-	pw_properties_setf(stream_props, "rtp.ttl", "%u", impl->ttl);
-
-	if ((str = pw_properties_get(props, "rtp.media")) != NULL)
-		pw_properties_set(stream_props, "rtp.media", str);
-	if ((str = pw_properties_get(props, "sess.min-ptime")) != NULL)
-		pw_properties_set(stream_props, "rtp.min-ptime", str);
-	if ((str = pw_properties_get(props, "sess.max-ptime")) != NULL)
-		pw_properties_set(stream_props, "rtp.max-ptime", str);
-	if (impl->ts_refclk != NULL)
-		pw_properties_set(stream_props, "rtp.ts-refclk", impl->ts_refclk);
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

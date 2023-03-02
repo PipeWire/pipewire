@@ -338,15 +338,21 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 
 	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
 		pw_properties_set(props, PW_KEY_MEDIA_CLASS, media_class);
+	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
+		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
+	if (pw_properties_get(props, PW_KEY_NODE_NETWORK) == NULL)
+		pw_properties_set(props, PW_KEY_NODE_NETWORK, "true");
 
-	if (direction == PW_DIRECTION_INPUT)
+	if (direction == PW_DIRECTION_INPUT) {
 		impl->ssrc = pw_properties_get_uint32(props, "rtp.sender-ssrc", pw_rand32());
-	else
+		impl->ts_offset = pw_properties_get_uint32(props, "rtp.sender-ts-offset", pw_rand32());
+	} else {
 		impl->ssrc = pw_properties_get_uint32(props, "rtp.receiver-ssrc", pw_rand32());
+		impl->ts_offset = pw_properties_get_uint32(props, "rtp.receiver-ts-offset", pw_rand32());
+	}
 
 	impl->payload = pw_properties_get_uint32(props, "rtp.payload", impl->payload);
 	impl->mtu = pw_properties_get_uint32(props, "rtp.mtu", DEFAULT_MTU);
-	impl->ts_offset = pw_properties_get_uint32(props, "rtp.ts-offset", 0);
 
 	str = pw_properties_get(props, "rtp.min-ptime");
 	if (!spa_atof(str, &min_ptime))

@@ -126,8 +126,6 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_MTU		1280
 #define DEFAULT_LOOP		false
 
-#define DEFAULT_TS_OFFSET	-1
-
 #define USAGE	"control.ip=<destination IP address, default:"DEFAULT_CONTROL_IP"> "	\
  		"control.port=<int, default:"SPA_STRINGIFY(DEFAULT_CONTROL_PORT)"> "		\
 		"local.ifname=<local interface name to use> "					\
@@ -202,7 +200,6 @@ struct session {
 	uint32_t remote_ssrc;
 
 	uint32_t ssrc;
-	uint32_t ts_offset;
 
 	unsigned sending:1;
 	unsigned receiving:1;
@@ -244,7 +241,7 @@ struct impl {
 	uint32_t mtu;
 	bool ttl;
 	bool mcast_loop;
-	int64_t ts_offset;
+	int32_t ts_offset;
 	char *ts_refclk;
 	int payload;
 
@@ -501,12 +498,12 @@ static struct session *make_session(struct impl *impl, struct pw_properties *pro
 	sess->impl = impl;
 	sess->initiator = pw_properties_get_uint32(props, "rtp.initiator", pw_rand32());
 	sess->ssrc = pw_rand32();
-	sess->ts_offset = impl->ts_offset < 0 ? pw_rand32() : impl->ts_offset;
 
 	str = pw_properties_get(props, "sess.name");
 	sess->name = str ? strdup(str) : "unknown";
 
-	pw_properties_setf(props, "rtp.ts-offset", "%u", sess->ts_offset);
+	if (impl->ts_refclk != NULL)
+		pw_properties_setf(props, "rtp.sender-ts-offset", "%u", impl->ts_offset);
 	pw_properties_setf(props, "rtp.sender-ssrc", "%u", sess->ssrc);
 
 	sess->send = rtp_stream_new(impl->core,
@@ -1085,28 +1082,43 @@ static struct service *make_service(struct impl *impl, const struct service_info
 	service_name = get_service_name(impl);
 	compatible = spa_streq(service_name, info->type);
 
+	props = pw_properties_copy(impl->stream_props);
+	if (props == NULL) {
+		res = -errno;
+		goto error;
+	}
+
 	if (spa_streq(service_name, "_pipewire-audio._udp")) {
 		uint32_t mask = 0;
 		for (l = txt; l && compatible; l = l->next) {
-			char *key, *value, *k;
+			char *key, *value, *k = NULL;
 
 			if (avahi_string_list_get_pair(l, &key, &value, NULL) != 0)
 				break;
 
 			if (spa_streq(key, "format")) {
-				k = "audio.format";
+				k = PW_KEY_AUDIO_FORMAT;
 				mask |= 1<<0;
 			} else if (spa_streq(key, "rate")) {
-				k = "audio.rate";
+				k = PW_KEY_AUDIO_RATE;
 				mask |= 1<<1;
 			} else if (spa_streq(key, "channels")) {
-				k = "audio.channels";
+				k = PW_KEY_AUDIO_CHANNELS;
 				mask |= 1<<2;
-			} else {
-				k = NULL;
+			} else if (spa_streq(key, "channelnames")) {
+				pw_properties_set(props,
+						PW_KEY_NODE_CHANNELNAMES, value);
+			} else if (spa_streq(key, "ts-refclk")) {
+				pw_properties_set(props,
+					"sess.ts-refclk", value);
+			} else if (spa_streq(key, "ts-offset")) {
+				uint32_t v;
+				if (spa_atou32(value, &v, 0))
+					pw_properties_setf(props,
+						"rtp.receiver-ts-offset", "%u", v);
 			}
 			if (k != NULL) {
-				str = pw_properties_get(impl->stream_props, k);
+				str = pw_properties_get(props, k);
 				if (str == NULL || !spa_streq(str, value))
 					compatible = false;
 			}
@@ -1125,17 +1137,14 @@ static struct service *make_service(struct impl *impl, const struct service_info
 	}
 
 	s = calloc(1, sizeof(*s));
-	if (s == NULL)
-		return NULL;
+	if (s == NULL) {
+		res = -errno;
+		goto error;
+	}
 
 	s->impl = impl;
 	spa_list_append(&impl->service_list, &s->link);
 
-	props = pw_properties_copy(impl->stream_props);
-	if (props == NULL) {
-		res = -errno;
-		goto error;
-	}
 
 	s->info.interface = info->interface;
 	s->info.protocol = info->protocol;
@@ -1151,12 +1160,18 @@ static struct service *make_service(struct impl *impl, const struct service_info
 
 	ipv = s->info.protocol == AVAHI_PROTO_INET ? 4 : 6;
 	pw_properties_set(props, "sess.name", s->info.name);
-	pw_properties_setf(props, PW_KEY_NODE_NAME, "rtp_session.%s.%s.ipv%d",
-			s->info.name, s->info.host_name, ipv);
-	pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION, "%s (IPv%d)",
-			s->info.name, ipv);
 	pw_properties_setf(props, "destination.ip", "%s", at);
 	pw_properties_setf(props, "destination.port", "%u", s->info.port);
+
+	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_setf(props, PW_KEY_NODE_NAME, "rtp_session.%s.%s.ipv%d",
+				s->info.name, s->info.host_name, ipv);
+	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
+		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION, "%s (IPv%d)",
+				s->info.name, ipv);
+	if (pw_properties_get(props, PW_KEY_MEDIA_NAME) == NULL)
+		pw_properties_setf(props, PW_KEY_MEDIA_NAME, "RTP Session with %s (IPv%d)",
+				s->info.name, ipv);
 
 	sess = make_session(impl, props);
 	props = NULL;
@@ -1327,14 +1342,20 @@ static int make_announce(struct impl *impl)
 	avahi_entry_group_reset(impl->group);
 
 	if (spa_streq(service_name, "_pipewire-audio._udp")) {
-		if ((str = pw_properties_get(impl->stream_props, "audio.format")) != NULL)
+		if ((str = pw_properties_get(impl->stream_props, PW_KEY_AUDIO_FORMAT)) != NULL)
 			txt = avahi_string_list_add_pair(txt, "format", str);
-		if ((str = pw_properties_get(impl->stream_props, "audio.rate")) != NULL)
+		if ((str = pw_properties_get(impl->stream_props, PW_KEY_AUDIO_RATE)) != NULL)
 			txt = avahi_string_list_add_pair(txt, "rate", str);
-		if ((str = pw_properties_get(impl->stream_props, "audio.channels")) != NULL)
+		if ((str = pw_properties_get(impl->stream_props, PW_KEY_AUDIO_CHANNELS)) != NULL)
 			txt = avahi_string_list_add_pair(txt, "channels", str);
-		if ((str = pw_properties_get(impl->stream_props, "audio.position")) != NULL)
+		if ((str = pw_properties_get(impl->stream_props, SPA_KEY_AUDIO_POSITION)) != NULL)
 			txt = avahi_string_list_add_pair(txt, "position", str);
+		if ((str = pw_properties_get(impl->stream_props, PW_KEY_NODE_CHANNELNAMES)) != NULL)
+			txt = avahi_string_list_add_pair(txt, "channelnames", str);
+		if (impl->ts_refclk != NULL) {
+			txt = avahi_string_list_add_pair(txt, "ts-refclk", impl->ts_refclk);
+			txt = avahi_string_list_add_printf(txt, "ts-offset=%u", impl->ts_offset);
+		}
 	}
 	res = avahi_entry_group_add_service_strlst(impl->group,
 			AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
@@ -1391,8 +1412,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct impl *impl;
 	struct pw_properties *props = NULL, *stream_props = NULL;
-	uint32_t id = pw_global_get_id(pw_impl_module_get_global(module));
-	uint32_t pid = getpid();
 	uint16_t port;
 	const char *str;
 	int res = 0;
@@ -1429,19 +1448,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->context = context;
 	impl->loop = pw_context_get_main_loop(context);
 	impl->data_loop = pw_data_loop_get_loop(pw_context_get_data_loop(context));
-
-	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
-		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
-	if (pw_properties_get(stream_props, PW_KEY_NODE_NETWORK) == NULL)
-		pw_properties_set(stream_props, PW_KEY_NODE_NETWORK, "true");
-
-	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_NAME, "rtp-session-%u-%u", pid, id);
-	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
-		pw_properties_set(props, PW_KEY_NODE_DESCRIPTION,
-				pw_properties_get(props, PW_KEY_NODE_NAME));
-	if (pw_properties_get(props, PW_KEY_MEDIA_NAME) == NULL)
-		pw_properties_set(props, PW_KEY_MEDIA_NAME, "RTP Session Stream");
 
 	if ((str = pw_properties_get(props, "stream.props")) != NULL)
 		pw_properties_update_string(stream_props, str, strlen(str));
@@ -1496,14 +1502,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->mcast_loop = pw_properties_get_bool(props, "net.loop", DEFAULT_LOOP);
 
 	impl->ts_offset = pw_properties_get_int64(props,
-			"sess.ts-offset", DEFAULT_TS_OFFSET);
-
+			"sess.ts-offset", pw_rand32());
 	str = pw_properties_get(props, "sess.ts-refclk");
 	impl->ts_refclk = str ? strdup(str) : NULL;
 
 	if ((str = pw_properties_get(props, "sess.name")) == NULL)
-		pw_properties_setf(props, "sess.name", "PipeWire RTP Stream on %s",
-				pw_get_host_name());
+		pw_properties_setf(props, "sess.name", "%s", pw_get_host_name());
 	str = pw_properties_get(props, "sess.name");
 	impl->session_name = str ? strdup(str) : NULL;
 

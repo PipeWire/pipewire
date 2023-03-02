@@ -12,6 +12,7 @@
 #include <spa/node/utils.h>
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
+#include <spa/utils/json.h>
 #include <spa/debug/types.h>
 #include <spa/pod/filter.h>
 #include <spa/pod/dynamic.h>
@@ -953,8 +954,11 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 	struct spa_list *ports;
 	struct pw_map *portmap;
 	struct pw_impl_port *find;
-	bool control;
-	const char *str, *dir;
+	bool is_control, is_network, is_monitor, is_device, is_duplex, is_virtual;
+	const char *media_class, *override_device_prefix, *channel_names;
+	const char *str, *dir, *prefix, *path, *desc, *nick, *name;
+	const struct pw_properties *nprops;
+	char position[256];
 	int res;
 
 	if (port->node != NULL)
@@ -982,43 +986,115 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 	pw_impl_port_for_each_param(port, 0, SPA_PARAM_IO, 0, 0, NULL, check_param_io, port);
 	pw_impl_port_for_each_param(port, 0, SPA_PARAM_Latency, 0, 0, NULL, process_latency_param, port);
 
-	control = PW_IMPL_PORT_IS_CONTROL(port);
-	if (control) {
+	nprops = pw_impl_node_get_properties(node);
+	media_class = pw_properties_get(nprops, PW_KEY_MEDIA_CLASS);
+	is_network = pw_properties_get_bool(nprops, PW_KEY_NODE_NETWORK, false);
+
+	is_monitor = pw_properties_get_bool(port->properties, PW_KEY_PORT_MONITOR, false);
+
+	is_control = PW_IMPL_PORT_IS_CONTROL(port);
+	if (is_control) {
 		dir = port->direction == PW_DIRECTION_INPUT ?  "control" : "notify";
 		pw_properties_set(port->properties, PW_KEY_PORT_CONTROL, "true");
 	}
 	else {
-		dir = port->direction == PW_DIRECTION_INPUT ?  "in" : "out";
+		dir = port->direction == PW_DIRECTION_INPUT ? "in" : "out";
+
 	}
 	pw_properties_set(port->properties, PW_KEY_PORT_DIRECTION, dir);
 
+	if (media_class != NULL &&
+	    (strstr(media_class, "Sink") != NULL ||
+	     strstr(media_class, "Source") != NULL))
+		is_device = true;
+	else
+		is_device = false;
+
+	is_duplex = media_class != NULL && strstr(media_class, "Duplex") != NULL;
+	is_virtual = media_class != NULL && strstr(media_class, "Virtual") != NULL;
+
+	override_device_prefix = pw_properties_get(nprops, PW_KEY_NODE_DEVICE_PORT_NAME_PREFIX);
+
+	if (is_network) {
+		prefix = port->direction == PW_DIRECTION_INPUT ?
+			"send" : is_monitor ? "monitor" : "receive";
+	} else if (is_duplex) {
+		prefix = port->direction == PW_DIRECTION_INPUT ?
+			"playback" : "capture";
+	} else if (is_virtual) {
+		prefix = port->direction == PW_DIRECTION_INPUT ?
+			"input" : "capture";
+	} else if (is_device) {
+		if (override_device_prefix != NULL)
+			prefix = is_monitor ? "monitor" : override_device_prefix;
+		else
+			prefix = port->direction == PW_DIRECTION_INPUT ?
+				"playback" : is_monitor ? "monitor" : "capture";
+	} else {
+		prefix = port->direction == PW_DIRECTION_INPUT ?
+			"input" : is_monitor ? "monitor" : "output";
+	}
+
+	path = pw_properties_get(nprops, PW_KEY_OBJECT_PATH);
+	desc = pw_properties_get(nprops, PW_KEY_NODE_DESCRIPTION);
+	nick = pw_properties_get(nprops, PW_KEY_NODE_NICK);
+	name = pw_properties_get(nprops, PW_KEY_NODE_NAME);
+
+	if (pw_properties_get(port->properties, PW_KEY_OBJECT_PATH) == NULL) {
+		if ((str = name) == NULL && (str = nick) == NULL && (str = desc) == NULL)
+			str = "node";
+
+		pw_properties_setf(port->properties, PW_KEY_OBJECT_PATH, "%s:%s_%d",
+			path ? path : str, prefix, pw_impl_port_get_id(port));
+	}
+
+	str = pw_properties_get(port->properties, PW_KEY_AUDIO_CHANNEL);
+	if (str ==  NULL || spa_streq(str, "UNK"))
+		snprintf(position, sizeof(position), "%d", port->port_id + 1);
+	else if (str != NULL)
+		snprintf(position, sizeof(position), "%s", str);
+
+	channel_names = pw_properties_get(nprops, PW_KEY_NODE_CHANNELNAMES);
+	if (channel_names != NULL) {
+		struct spa_json it[2];
+		char v[256];
+                uint32_t i;
+
+		spa_json_init(&it[0], channel_names, strlen(channel_names));
+		if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+			spa_json_init(&it[1], channel_names, strlen(channel_names));
+
+		for (i = 0; i < port->port_id + 1; i++)
+			if (spa_json_get_string(&it[1], v, sizeof(v)) <= 0)
+				break;
+
+		if (i == port->port_id + 1 && strlen(v) > 0)
+			snprintf(position, sizeof(position), "%s", v);
+	}
+
 	if (pw_properties_get(port->properties, PW_KEY_PORT_NAME) == NULL) {
-		if ((str = pw_properties_get(port->properties, PW_KEY_AUDIO_CHANNEL)) != NULL &&
-		    !spa_streq(str, "UNK")) {
-			pw_properties_setf(port->properties, PW_KEY_PORT_NAME, "%s_%s", dir, str);
-		}
-		else {
-			pw_properties_setf(port->properties, PW_KEY_PORT_NAME, "%s_%d", dir, port->port_id);
-		}
+		if (is_control)
+			pw_properties_setf(port->properties, PW_KEY_PORT_NAME, "%s", prefix);
+		else if (prefix == NULL || strlen(prefix) == 0)
+			pw_properties_setf(port->properties, PW_KEY_PORT_NAME, "%s", position);
+		else
+			pw_properties_setf(port->properties, PW_KEY_PORT_NAME, "%s_%s", prefix, position);
 	}
 	if (pw_properties_get(port->properties, PW_KEY_PORT_ALIAS) == NULL) {
-		const struct pw_properties *nprops;
-		const char *node_name;
+		if ((str = nick) == NULL && (str = desc) == NULL && (str = name) == NULL)
+			str = "node";
 
-		nprops = pw_impl_node_get_properties(node);
-		if ((node_name = pw_properties_get(nprops, PW_KEY_NODE_NICK)) == NULL &&
-		    (node_name = pw_properties_get(nprops, PW_KEY_NODE_DESCRIPTION)) == NULL &&
-		    (node_name = pw_properties_get(nprops, PW_KEY_NODE_NAME)) == NULL)
-			node_name = "node";
-
-		pw_properties_setf(port->properties, PW_KEY_PORT_ALIAS, "%s:%s",
-				node_name,
-				pw_properties_get(port->properties, PW_KEY_PORT_NAME));
+		if (is_control)
+			pw_properties_setf(port->properties, PW_KEY_PORT_ALIAS, "%s:%s",
+				str, prefix);
+		else
+			pw_properties_setf(port->properties, PW_KEY_PORT_ALIAS, "%s:%s",
+				str, pw_properties_get(port->properties, PW_KEY_PORT_NAME));
 	}
 
 	port->info.props = &port->properties->dict;
 
-	if (control) {
+	if (is_control) {
 		pw_log_debug("%p: setting node control", port);
 	} else {
 		pw_log_debug("%p: setting mixer io", port);

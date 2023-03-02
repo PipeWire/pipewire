@@ -648,7 +648,7 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 	sdp->ntp = (uint32_t) time(NULL) + 2208988800U;
 	sess->props = props;
 
-	if ((str = pw_properties_get(props, "rtp.session")) != NULL)
+	if ((str = pw_properties_get(props, "sess.name")) != NULL)
 		sdp->session_name = strdup(str);
 
 	if ((str = pw_properties_get(props, "rtp.destination.port")) == NULL)

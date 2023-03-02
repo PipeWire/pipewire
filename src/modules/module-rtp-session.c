@@ -113,18 +113,9 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define BUFFER_SIZE		(1u<<20)
-#define BUFFER_MASK		(BUFFER_SIZE-1)
-
-#define DEFAULT_FORMAT		"S16BE"
-#define DEFAULT_RATE		"48000"
-#define DEFAULT_CHANNELS	"2"
-#define DEFAULT_POSITION	"[ FL FR ]"
-
 #define DEFAULT_CONTROL_IP	"0.0.0.0"
 #define DEFAULT_CONTROL_PORT	0
 #define DEFAULT_TTL		1
-#define DEFAULT_MTU		1280
 #define DEFAULT_LOOP		false
 
 #define USAGE	"control.ip=<destination IP address, default:"DEFAULT_CONTROL_IP"> "	\
@@ -1474,6 +1465,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, "sess.min-ptime");
 	copy_props(impl, props, "sess.max-ptime");
 	copy_props(impl, props, "sess.latency.msec");
+	copy_props(impl, props, "sess.ts-refclk");
 
 	impl->ttl = pw_properties_get_uint32(props, "net.ttl", DEFAULT_TTL);
 	impl->mcast_loop = pw_properties_get_bool(props, "net.loop", DEFAULT_LOOP);
@@ -1485,8 +1477,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (spa_streq(str, "audio")) {
 		struct spa_dict_item items[] = {
 			{ "audio.format", DEFAULT_FORMAT },
-			{ "audio.rate", DEFAULT_RATE },
-			{ "audio.channels", DEFAULT_CHANNELS },
+			{ "audio.rate", SPA_STRINGIFY(DEFAULT_RATE) },
+			{ "audio.channels", SPA_STRINGIFY(DEFAULT_CHANNELS) },
 			{ "audio.position", DEFAULT_POSITION } };
 		pw_properties_add(stream_props, &SPA_DICT_INIT_ARRAY(items));
 	}

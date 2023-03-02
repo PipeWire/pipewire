@@ -21,22 +21,10 @@
 #include <module-rtp/stream.h>
 #include <module-rtp/apple-midi.h>
 
-#define DEFAULT_FORMAT			"S16BE"
-#define DEFAULT_RATE			48000
-#define DEFAULT_CHANNELS		2
-#define DEFAULT_POSITION		"[ FL FR ]"
-
 #define BUFFER_SIZE			(1u<<22)
 #define BUFFER_MASK			(BUFFER_SIZE-1)
 #define BUFFER_SIZE2			(BUFFER_SIZE>>1)
 #define BUFFER_MASK2			(BUFFER_SIZE2-1)
-
-#define DEFAULT_MTU			1280
-#define DEFAULT_MIN_PTIME		2
-#define DEFAULT_MAX_PTIME		20
-
-#define ERROR_MSEC			2
-#define DEFAULT_SESS_LATENCY		100
 
 #define rtp_stream_emit(s,m,v,...)		spa_hook_list_call(&s->listener_list, \
 							struct rtp_stream_events, m, v, ##__VA_ARGS__)
@@ -357,6 +345,8 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	impl->payload = pw_properties_get_uint32(props, "rtp.payload", impl->payload);
 	impl->mtu = pw_properties_get_uint32(props, "net.mtu", DEFAULT_MTU);
 
+	impl->seq = pw_rand32();
+
 	str = pw_properties_get(props, "sess.min-ptime");
 	if (!spa_atof(str, &min_ptime))
 		min_ptime = DEFAULT_MIN_PTIME;
@@ -382,6 +372,16 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	pw_properties_setf(props, "net.mtu", "%u", impl->mtu);
 	pw_properties_setf(props, "rtp.ptime", "%u",
 			impl->psamples * 1000 / impl->rate);
+	pw_properties_setf(props, "rtp.media", "%s", impl->format_info->media_type);
+	pw_properties_setf(props, "rtp.mime", "%s", impl->format_info->mime);
+	pw_properties_setf(props, "rtp.payload", "%u", impl->payload);
+	pw_properties_setf(props, "rtp.rate", "%u", impl->rate);
+	if (impl->info.info.raw.channels > 0)
+		pw_properties_setf(props, "rtp.channels", "%u", impl->info.info.raw.channels);
+	if ((str = pw_properties_get(props, "sess.ts-refclk")) != NULL) {
+		pw_properties_setf(props, "rtp.ts-offset", "%u", impl->ts_offset);
+		pw_properties_set(props, "rtp.ts-refclk", str);
+	}
 
 	spa_dll_init(&impl->dll);
 	spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 128, impl->rate);

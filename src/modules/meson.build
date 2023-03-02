@@ -519,7 +519,8 @@ roc_dep = dependency('roc', required: get_option('roc'))
 summary({'ROC': roc_dep.found()}, bool_yn: true, section: 'Streaming between daemons')
 
 pipewire_module_rtp_source = shared_library('pipewire-module-rtp-source',
-  [ 'module-rtp-source.c' ],
+  [ 'module-rtp-source.c',
+    'module-rtp/stream.c' ],
   include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
@@ -528,7 +529,8 @@ pipewire_module_rtp_source = shared_library('pipewire-module-rtp-source',
 )
 
 pipewire_module_rtp_sink = shared_library('pipewire-module-rtp-sink',
-  [ 'module-rtp-sink.c' ],
+  [ 'module-rtp-sink.c',
+    'module-rtp/stream.c' ],
   include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,

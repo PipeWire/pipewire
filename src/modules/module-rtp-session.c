@@ -107,7 +107,7 @@
  * \since 0.3.60
  */
 
-#define NAME "rtp-sink"
+#define NAME "rtp-session"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
@@ -366,10 +366,14 @@ static void session_stop(struct session *sess)
 	if (!sess->we_initiated)
 		return;
 	pw_log_info("stop session initiator:%08x", sess->initiator);
-	if (sess->ctrl_ready)
+	if (sess->ctrl_ready) {
 		send_apple_midi_cmd_by(sess, true);
-	if (sess->data_ready)
+		sess->ctrl_ready = false;
+	}
+	if (sess->data_ready) {
 		send_apple_midi_cmd_by(sess, false);
+		sess->data_ready = false;
+	}
 	sess->state = SESSION_STATE_INIT;
 }
 
@@ -397,6 +401,9 @@ static void send_send_packet(void *data, struct iovec *iov, size_t iovlen)
 	struct impl *impl = sess->impl;
 	struct msghdr msg;
 
+	if (!sess->data_ready || !sess->sending)
+		return;
+
 	spa_zero(msg);
 	msg.msg_name = &sess->data_addr;
 	msg.msg_namelen = sess->data_len;
@@ -415,8 +422,6 @@ static void recv_destroy(void *data)
 static void recv_state_changed(void *data, bool started, const char *error)
 {
 	struct session *sess = data;
-	pw_log_info("send initiator:%08x state %d", sess->initiator, started);
-
 	if (started) {
 		sess->receiving = true;
 		session_establish(sess);
@@ -814,7 +819,8 @@ on_data_io(void *data, int fd, uint32_t mask)
 			if (sess == NULL)
 				goto unknown_ssrc;
 
-			rtp_stream_receive_packet(sess->recv, buffer, len);
+			if (sess->data_ready && sess->receiving)
+				rtp_stream_receive_packet(sess->recv, buffer, len);
 		}
 	}
 	return;

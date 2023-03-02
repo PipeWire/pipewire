@@ -94,7 +94,7 @@ static void process_audio_playback(void *data)
 	pw_stream_queue_buffer(impl->stream, buf);
 }
 
-static void receive_rtp_audio(struct impl *impl, uint8_t *buffer, ssize_t len)
+static int receive_rtp_audio(struct impl *impl, uint8_t *buffer, ssize_t len)
 {
 	struct rtp_header *hdr;
 	ssize_t hlen, plen;
@@ -109,7 +109,6 @@ static void receive_rtp_audio(struct impl *impl, uint8_t *buffer, ssize_t len)
 	hdr = (struct rtp_header*)buffer;
 	if (hdr->v != 2)
 		goto invalid_version;
-
 
 	hlen = 12 + hdr->cc * 4;
 	if (hlen > len)
@@ -175,22 +174,22 @@ static void receive_rtp_audio(struct impl *impl, uint8_t *buffer, ssize_t len)
 		write += samples;
 		spa_ringbuffer_write_update(&impl->ring, write);
 	}
-	return;
+	return 0;
 
 short_packet:
 	pw_log_warn("short packet received");
-	return;
+	return -EINVAL;
 invalid_version:
 	pw_log_warn("invalid RTP version");
 	spa_debug_mem(0, buffer, len);
-	return;
+	return -EPROTO;
 invalid_len:
 	pw_log_warn("invalid RTP length");
-	return;
+	return -EINVAL;
 unexpected_ssrc:
 	pw_log_warn("unexpected SSRC (expected %u != %u)",
 		impl->ssrc, hdr->ssrc);
-	return;
+	return -EINVAL;
 }
 
 static inline void

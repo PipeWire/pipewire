@@ -87,7 +87,7 @@ struct impl {
 	unsigned receiving:1;
 	unsigned first:1;
 
-	void (*receive_rtp)(struct impl *impl, uint8_t *buffer, ssize_t len);
+	int (*receive_rtp)(struct impl *impl, uint8_t *buffer, ssize_t len);
 };
 
 #include "module-rtp/audio.c"
@@ -343,21 +343,24 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	if (pw_properties_get(props, PW_KEY_NODE_NETWORK) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_NETWORK, "true");
 
+	impl->direct_timestamp = pw_properties_get_bool(props, "sess.ts-direct", false);
+
 	if (direction == PW_DIRECTION_INPUT) {
 		impl->ssrc = pw_properties_get_uint32(props, "rtp.sender-ssrc", pw_rand32());
 		impl->ts_offset = pw_properties_get_uint32(props, "rtp.sender-ts-offset", pw_rand32());
 	} else {
-		impl->ssrc = pw_properties_get_uint32(props, "rtp.receiver-ssrc", pw_rand32());
-		impl->ts_offset = pw_properties_get_uint32(props, "rtp.receiver-ts-offset", pw_rand32());
+		impl->have_ssrc = pw_properties_fetch_uint32(props, "rtp.receiver-ssrc", &impl->ssrc);
+		if (!pw_properties_fetch_uint32(props, "rtp.receiver-ts-offset", &impl->ts_offset))
+			impl->direct_timestamp = false;
 	}
 
 	impl->payload = pw_properties_get_uint32(props, "rtp.payload", impl->payload);
-	impl->mtu = pw_properties_get_uint32(props, "rtp.mtu", DEFAULT_MTU);
+	impl->mtu = pw_properties_get_uint32(props, "net.mtu", DEFAULT_MTU);
 
-	str = pw_properties_get(props, "rtp.min-ptime");
+	str = pw_properties_get(props, "sess.min-ptime");
 	if (!spa_atof(str, &min_ptime))
 		min_ptime = DEFAULT_MIN_PTIME;
-	str = pw_properties_get(props, "rtp.max-ptime");
+	str = pw_properties_get(props, "sess.max-ptime");
 	if (!spa_atof(str, &max_ptime))
 		max_ptime = DEFAULT_MAX_PTIME;
 
@@ -375,6 +378,10 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%d", impl->rate);
 	pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%d/%d",
 			impl->target_buffer / 2, impl->rate);
+
+	pw_properties_setf(props, "net.mtu", "%u", impl->mtu);
+	pw_properties_setf(props, "rtp.ptime", "%u",
+			impl->psamples * 1000 / impl->rate);
 
 	spa_dll_init(&impl->dll);
 	spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 128, impl->rate);
@@ -462,6 +469,5 @@ void rtp_stream_destroy(struct rtp_stream *s)
 int rtp_stream_receive_packet(struct rtp_stream *s, uint8_t *buffer, size_t len)
 {
 	struct impl *impl = (struct impl*)s;
-	impl->receive_rtp(impl, buffer, len);
-	return 0;
+	return impl->receive_rtp(impl, buffer, len);
 }

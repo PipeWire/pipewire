@@ -54,6 +54,7 @@
  * - `net.loop = <bool>`: loopback multicast, default false
  * - `sess.min-ptime = <int>`: minimum packet time in milliseconds, default 2
  * - `sess.max-ptime = <int>`: maximum packet time in milliseconds, default 20
+ * - `sess.latency.msec = <int>`: receiver latency in milliseconds, default 100
  * - `sess.name = <str>`: a session name
  * - `sess.ts-offset = <int>`: an offset to apply to the timestamp, default -1 = random offset
  * - `sess.ts-refclk = <string>`: the name of a reference clock
@@ -238,8 +239,7 @@ struct impl {
 
 	char *ifname;
 	char *session_name;
-	uint32_t mtu;
-	bool ttl;
+	uint32_t ttl;
 	bool mcast_loop;
 	int32_t ts_offset;
 	char *ts_refclk;
@@ -451,6 +451,7 @@ static void free_session(struct session *sess)
 		rtp_stream_destroy(sess->send);
 	if (sess->recv)
 		rtp_stream_destroy(sess->recv);
+	free(sess->name);
 	free(sess);
 }
 
@@ -500,11 +501,12 @@ static struct session *make_session(struct impl *impl, struct pw_properties *pro
 	sess->ssrc = pw_rand32();
 
 	str = pw_properties_get(props, "sess.name");
-	sess->name = str ? strdup(str) : "unknown";
+	sess->name = str ? strdup(str) : strdup("RTP Session");
 
 	if (impl->ts_refclk != NULL)
 		pw_properties_setf(props, "rtp.sender-ts-offset", "%u", impl->ts_offset);
 	pw_properties_setf(props, "rtp.sender-ssrc", "%u", sess->ssrc);
+	pw_properties_set(props, "rtp.session", sess->name);
 
 	sess->send = rtp_stream_new(impl->core,
 			PW_DIRECTION_INPUT, pw_properties_copy(props),
@@ -1111,6 +1113,9 @@ static struct service *make_service(struct impl *impl, const struct service_info
 			} else if (spa_streq(key, "ts-refclk")) {
 				pw_properties_set(props,
 					"sess.ts-refclk", value);
+				if (spa_streq(value, impl->ts_refclk))
+					pw_properties_set(props,
+						"sess.ts-direct", "true");
 			} else if (spa_streq(key, "ts-offset")) {
 				uint32_t v;
 				if (spa_atou32(value, &v, 0))
@@ -1464,7 +1469,14 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_CHANNELNAMES);
 	copy_props(impl, props, PW_KEY_MEDIA_NAME);
 	copy_props(impl, props, PW_KEY_MEDIA_CLASS);
+	copy_props(impl, props, "net.mtu");
 	copy_props(impl, props, "rtp.media");
+	copy_props(impl, props, "sess.min-ptime");
+	copy_props(impl, props, "sess.max-ptime");
+	copy_props(impl, props, "sess.latency.msec");
+
+	impl->ttl = pw_properties_get_uint32(props, "net.ttl", DEFAULT_TTL);
+	impl->mcast_loop = pw_properties_get_bool(props, "net.loop", DEFAULT_LOOP);
 
 	if ((str = pw_properties_get(stream_props, "rtp.media")) == NULL) {
 		str = "midi";
@@ -1496,10 +1508,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_log_error("invalid data.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}
-
-	impl->mtu = pw_properties_get_uint32(props, "net.mtu", DEFAULT_MTU);
-	impl->ttl = pw_properties_get_uint32(props, "net.ttl", DEFAULT_TTL);
-	impl->mcast_loop = pw_properties_get_bool(props, "net.loop", DEFAULT_LOOP);
 
 	impl->ts_offset = pw_properties_get_int64(props,
 			"sess.ts-offset", pw_rand32());

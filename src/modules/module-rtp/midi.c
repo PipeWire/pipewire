@@ -143,7 +143,7 @@ static double get_time(struct impl *impl)
 	return t;
 }
 
-static void receive_midi(struct impl *impl, uint8_t *packet,
+static int receive_midi(struct impl *impl, uint8_t *packet,
 		uint32_t timestamp, uint32_t payload_offset, uint32_t plen)
 {
 	uint32_t write;
@@ -207,7 +207,7 @@ static void receive_midi(struct impl *impl, uint8_t *packet,
 	filled = spa_ringbuffer_get_write_index(&impl->ring, &write);
 	if (filled > (int32_t)BUFFER_SIZE2) {
 		pw_log_warn("overflow");
-		return;
+		return -ENOSPC;
 	}
 
 	hdr = (struct rtp_midi_header *)&packet[offs++];
@@ -219,7 +219,7 @@ static void receive_midi(struct impl *impl, uint8_t *packet,
 	end = len + offs;
 	if (end > plen) {
 		pw_log_warn("invalid packet %d > %d", end, plen);
-		return;
+		return -EINVAL;
 	}
 
 	ptr = SPA_PTROFF(impl->buffer, write & BUFFER_MASK2, void);
@@ -258,9 +258,10 @@ static void receive_midi(struct impl *impl, uint8_t *packet,
 
 	write += b.state.offset;
 	spa_ringbuffer_write_update(&impl->ring, write);
+	return 0;
 }
 
-static void receive_rtp_midi(struct impl *impl, uint8_t *buffer, ssize_t len)
+static int receive_rtp_midi(struct impl *impl, uint8_t *buffer, ssize_t len)
 {
 	struct rtp_header *hdr;
 	ssize_t hlen;
@@ -296,23 +297,22 @@ static void receive_rtp_midi(struct impl *impl, uint8_t *buffer, ssize_t len)
 
 	impl->receiving = true;
 
-	receive_midi(impl, buffer, timestamp, hlen, len);
-	return;
+	return receive_midi(impl, buffer, timestamp, hlen, len);
 
 short_packet:
 	pw_log_warn("short packet received");
-	return;
+	return -EINVAL;
 invalid_version:
 	pw_log_warn("invalid RTP version");
 	spa_debug_mem(0, buffer, len);
-	return;
+	return -EPROTO;
 invalid_len:
 	pw_log_warn("invalid RTP length");
-	return;
+	return -EINVAL;
 unexpected_ssrc:
 	pw_log_warn("unexpected SSRC (expected %u != %u)",
 		impl->ssrc, hdr->ssrc);
-	return;
+	return -EINVAL;
 }
 
 static int write_event(uint8_t *p, uint32_t value, void *ev, uint32_t size)

@@ -826,7 +826,7 @@ short_packet:
 	pw_log_warn("short packet received");
 	return;
 unknown_ssrc:
-	pw_log_warn("unknown SSRC %08x", ssrc);
+	pw_log_debug("unknown SSRC %08x", ssrc);
 	return;
 }
 
@@ -1069,7 +1069,7 @@ static struct service *make_service(struct impl *impl, const struct service_info
 	struct service *s = NULL;
 	char at[AVAHI_ADDRESS_STR_MAX];
 	struct session *sess;
-	int res;
+	int res, ipv;
 	struct pw_properties *props = NULL;
 	const char *service_name, *str;
 	AvahiStringList *l;
@@ -1143,21 +1143,14 @@ static struct service *make_service(struct impl *impl, const struct service_info
 	avahi_address_snprint(at, sizeof(at), &s->info.address);
 	pw_log_info("create session: %s %s:%u %s", s->info.name, at, s->info.port, s->info.type);
 
+	ipv = s->info.protocol == AVAHI_PROTO_INET ? 4 : 6;
 	pw_properties_set(props, "sess.name", s->info.name);
-	pw_properties_setf(props, "node.name", "%s (%s IP%d)",
-			s->info.name, s->info.host_name,
-			s->info.protocol == AVAHI_PROTO_INET ? 4 : 6);
+	pw_properties_setf(props, PW_KEY_NODE_NAME, "rtp_session.%s.%s.ipv%d",
+			s->info.name, s->info.host_name, ipv);
+	pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION, "%s (IPv%d)",
+			s->info.name, ipv);
 	pw_properties_setf(props, "destination.ip", "%s", at);
 	pw_properties_setf(props, "destination.port", "%u", s->info.port);
-
-	if ((str = strstr(s->info.name, "@"))) {
-		str++;
-		if (strlen(str) > 0)
-			pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, str);
-		else
-			pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
-					"rtp-midi on %s", s->info.host_name);
-	}
 
 	sess = make_session(impl, props);
 	props = NULL;

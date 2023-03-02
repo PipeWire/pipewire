@@ -385,7 +385,6 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	case SPA_MEDIA_TYPE_audio:
 		params[n_params++] = spa_format_audio_build(&b,
 				SPA_PARAM_EnumFormat, &impl->info);
-		flags |= PW_STREAM_FLAG_AUTOCONNECT;
 		if (direction == SPA_DIRECTION_INPUT)
 			impl->stream_events.process = process_audio_capture;
 		else

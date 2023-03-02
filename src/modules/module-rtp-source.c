@@ -46,7 +46,7 @@
  * - `local.ifname = <str>`: interface name to use
  * - `node.always-process = <bool>`: true to receive even when not running
  * - `sess.latency.msec = <str>`: target network latency in milliseconds, default 100
- * - `rtp.media = <string>`: the media type audio|midi, default audio
+ * - `sess.media = <string>`: the media type audio|midi, default audio
  * - `stream.props = {}`: properties to be passed to the stream
  *
  * ## General options
@@ -74,7 +74,7 @@
  *         #local.ifname = eth0
  *         sess.latency.msec = 100
  *         #node.always-process = false
- *         #rtp.media = "audio"
+ *         #sess.media = "audio"
  *         #audio.format = "S16BE"
  *         #audio.rate = 48000
  *         #audio.channels = 2
@@ -103,7 +103,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 		"source.ip=<source IP address, default:"DEFAULT_SOURCE_IP"> "				\
  		"source.port=<int, source port> "							\
 		"sess.latency.msec=<target network latency, default "SPA_STRINGIFY(DEFAULT_SESS_LATENCY)"> "	\
- 		"rtp.media=<string, the media type audio|midi, default audio> "		\
+ 		"sess.media=<string, the media type audio|midi, default audio> "		\
 		"audio.format=<format, default:"DEFAULT_FORMAT"> "				\
 		"audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> "		\
 		"audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> "\
@@ -478,7 +478,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_MEDIA_NAME);
 	copy_props(impl, props, PW_KEY_MEDIA_CLASS);
 	copy_props(impl, props, "net.mtu");
-	copy_props(impl, props, "rtp.media");
+	copy_props(impl, props, "sess.media");
 	copy_props(impl, props, "sess.name");
 	copy_props(impl, props, "sess.min-ptime");
 	copy_props(impl, props, "sess.max-ptime");
@@ -487,12 +487,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;
 
-	impl->src_port = pw_properties_get_uint32(stream_props, "source.port", 0);
+	impl->src_port = pw_properties_get_uint32(props, "source.port", 0);
 	if (impl->src_port == 0) {
 		pw_log_error("invalid source.port");
 		goto out;
 	}
-	if ((str = pw_properties_get(stream_props, "source.ip")) == NULL ||
+	if ((str = pw_properties_get(props, "source.ip")) == NULL ||
 	    (res = parse_address(str, impl->src_port, &impl->src_addr, &impl->src_len)) < 0) {
 		pw_log_error("invalid source.ip %s: %s", str, spa_strerror(res));
 		goto out;

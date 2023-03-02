@@ -48,7 +48,7 @@
  * - `sess.name = <str>`: a session name
  * - `sess.ts-offset = <int>`: an offset to apply to the timestamp, default -1 = random offset
  * - `sess.ts-refclk = <string>`: the name of a reference clock
- * - `sess.media = <string>`: the session media type audio|midi, default audio
+ * - `sess.media = <string>`: the media type audio|midi, default audio
  * - `stream.props = {}`: properties to be passed to the stream
  *
  * ## General options
@@ -83,7 +83,7 @@
  *         #sess.min-ptime = 2
  *         #sess.max-ptime = 20
  *         #sess.name = "PipeWire RTP stream"
- *         #sess.media = audio
+ *         #sess.media = "audio"
  *         #audio.format = "S16BE"
  *         #audio.rate = 48000
  *         #audio.channels = 2
@@ -122,7 +122,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 		"sess.name=<a name for the session> "						\
 		"sess.min-ptime=<minimum packet time in milliseconds, default:2> "		\
 		"sess.max-ptime=<maximum packet time in milliseconds, default:20> "		\
-		"sess.media=<media type, audio or midi, default:audio> "			\
+ 		"sess.media=<string, the media type audio|midi, default audio> "		\
 		"audio.format=<format, default:"DEFAULT_FORMAT"> "				\
 		"audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> "		\
 		"audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> "\
@@ -455,7 +455,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_MEDIA_NAME);
 	copy_props(impl, props, PW_KEY_MEDIA_CLASS);
 	copy_props(impl, props, "net.mtu");
-	copy_props(impl, props, "rtp.media");
+	copy_props(impl, props, "sess.media");
 	copy_props(impl, props, "sess.name");
 	copy_props(impl, props, "sess.min-ptime");
 	copy_props(impl, props, "sess.max-ptime");

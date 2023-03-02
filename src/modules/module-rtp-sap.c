@@ -734,7 +734,7 @@ static int session_load_source(struct session *session, struct pw_properties *pr
 	if ((str = pw_properties_get(props, "rtp.session")) != NULL)
 		fprintf(f, "\"sess.name\" = \"%s\", ", str);
 
-	if ((media = pw_properties_get(props, "rtp.media")) == NULL)
+	if ((media = pw_properties_get(props, "sess.media")) == NULL)
 		media = "audio";
 
 	if (spa_streq(media, "audio")) {
@@ -750,7 +750,7 @@ static int session_load_source(struct session *session, struct pw_properties *pr
 			pw_log_error("unknown rtp.mime type %s", mime);
 			return -EINVAL;
 		}
-		fprintf(f, "\"rtp.media\" = \"%s\", ", format_info->media_type);
+		fprintf(f, "\"sess.media\" = \"%s\", ", format_info->media_type);
 		if (format_info->format_str != NULL) {
 			pw_properties_set(props, "audio.format", format_info->format_str);
 			if ((str = pw_properties_get(props, "rtp.rate")) != NULL)

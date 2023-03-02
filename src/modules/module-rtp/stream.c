@@ -270,24 +270,23 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	spa_hook_list_init(&impl->listener_list);
 	impl->stream_events = stream_events;
 
-	impl->info.media_type = SPA_MEDIA_TYPE_audio;
-	impl->info.media_subtype = SPA_MEDIA_SUBTYPE_raw;
-	if ((str = pw_properties_get(props, "rtp.media")) != NULL) {
-		if (spa_streq(str, "audio")) {
-			impl->info.media_type = SPA_MEDIA_TYPE_audio;
-			impl->info.media_subtype = SPA_MEDIA_SUBTYPE_raw;
-			impl->payload = 127;
-		}
-		else if (spa_streq(str, "midi")) {
-			impl->info.media_type = SPA_MEDIA_TYPE_application;
-			impl->info.media_subtype = SPA_MEDIA_SUBTYPE_control;
-			impl->payload = 0x61;
-		}
-		else {
-			pw_log_error("unsupported media type:%s", str);
-			res = -EINVAL;
-			goto out;
-		}
+	if ((str = pw_properties_get(props, "sess.media")) == NULL)
+		str = "audio";
+
+	if (spa_streq(str, "audio")) {
+		impl->info.media_type = SPA_MEDIA_TYPE_audio;
+		impl->info.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+		impl->payload = 127;
+	}
+	else if (spa_streq(str, "midi")) {
+		impl->info.media_type = SPA_MEDIA_TYPE_application;
+		impl->info.media_subtype = SPA_MEDIA_SUBTYPE_control;
+		impl->payload = 0x61;
+	}
+	else {
+		pw_log_error("unsupported media type:%s", str);
+		res = -EINVAL;
+		goto out;
 	}
 
 	switch (impl->info.media_type) {

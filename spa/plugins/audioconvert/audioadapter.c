@@ -48,14 +48,14 @@ struct impl {
 
 	struct spa_node *follower;
 	struct spa_hook follower_listener;
-	uint32_t follower_flags;
+	uint64_t follower_flags;
 	struct spa_audio_info follower_current_format;
 	struct spa_audio_info default_format;
 
 	struct spa_handle *hnd_convert;
 	struct spa_node *convert;
 	struct spa_hook convert_listener;
-	uint32_t convert_flags;
+	uint64_t convert_flags;
 
 	uint32_t n_buffers;
 	struct spa_buffer **buffers;
@@ -78,6 +78,7 @@ struct impl {
 	struct spa_param_info params[N_NODE_PARAMS];
 	uint32_t convert_params_flags[N_NODE_PARAMS];
 	uint32_t follower_params_flags[N_NODE_PARAMS];
+	uint64_t follower_port_flags;
 
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
@@ -352,7 +353,7 @@ static int negotiate_buffers(struct impl *this)
 	uint32_t i, size, buffers, blocks, align, flags, stride = 0;
 	uint32_t *aligns;
 	struct spa_data *datas;
-	uint32_t follower_flags, conv_flags;
+	uint64_t follower_flags, conv_flags;
 
 	spa_log_debug(this->log, "%p: n_buffers:%d", this, this->n_buffers);
 
@@ -932,12 +933,19 @@ static void convert_port_info(void *data,
 		const struct spa_port_info *info)
 {
 	struct impl *this = data;
+	struct spa_port_info pi;
 
 	if (direction != this->direction) {
+		/* skip the converter output port into the follower */
 		if (port_id == 0)
 			return;
 		else
+			/* the monitor ports are exposed */
 			port_id--;
+	} else if (info) {
+		pi = *info;
+		pi.flags = this->follower_port_flags;
+		info = &pi;
 	}
 
 	spa_log_debug(this->log, "%p: port info %d:%d", this,
@@ -1085,6 +1093,11 @@ static void follower_port_info(void *data,
 	      spa_node_emit_port_info(&this->hooks, direction, port_id, NULL);
 	      return;
 	}
+
+	this->follower_port_flags = info->flags &
+		(SPA_PORT_FLAG_LIVE |
+		 SPA_PORT_FLAG_PHYSICAL |
+		 SPA_PORT_FLAG_TERMINAL);
 
 	spa_log_debug(this->log, "%p: follower port info %s %p %08"PRIx64, this,
 			this->direction == SPA_DIRECTION_INPUT ?

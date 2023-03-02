@@ -262,7 +262,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		const struct rtp_stream_events *events, void *data)
 {
 	struct impl *impl;
-	const char *str;
+	const char *str, *media_class;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	uint32_t n_params, min_samples, max_samples;
@@ -314,6 +314,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		}
 		impl->stride = impl->format_info->size * impl->info.info.raw.channels;
 		impl->rate = impl->info.info.raw.rate;
+		media_class = direction == PW_DIRECTION_INPUT ? "Audio/Sink" : "Audio/Source";
 		break;
 	case SPA_MEDIA_TYPE_application:
 		impl->format_info = find_audio_format_info(&impl->info);
@@ -326,6 +327,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		impl->rate = pw_properties_get_uint32(props, "midi.rate", 10000);
 		if (impl->rate == 0)
 			impl->rate = 10000;
+		media_class = direction == PW_DIRECTION_INPUT ? "Midi/Sink" : "Midi/Source";
 		break;
 	default:
 		spa_assert_not_reached();
@@ -334,10 +336,14 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 
 	pw_properties_setf(props, "rtp.mime", "%s", impl->format_info->mime);
 
+	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
+		pw_properties_set(props, PW_KEY_MEDIA_CLASS, media_class);
+
 	if (direction == PW_DIRECTION_INPUT)
 		impl->ssrc = pw_properties_get_uint32(props, "rtp.sender-ssrc", pw_rand32());
 	else
 		impl->ssrc = pw_properties_get_uint32(props, "rtp.receiver-ssrc", pw_rand32());
+
 	impl->payload = pw_properties_get_uint32(props, "rtp.payload", impl->payload);
 	impl->mtu = pw_properties_get_uint32(props, "rtp.mtu", DEFAULT_MTU);
 	impl->ts_offset = pw_properties_get_uint32(props, "rtp.ts-offset", 0);
@@ -390,6 +396,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		else
 			impl->stream_events.process = process_audio_playback;
 		impl->receive_rtp = receive_rtp_audio;
+		flags |= PW_STREAM_FLAG_AUTOCONNECT;
 		break;
 	case SPA_MEDIA_TYPE_application:
 		params[n_params++] = spa_pod_builder_add_object(&b,

@@ -129,6 +129,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_TTL		1
 #define DEFAULT_MTU		1280
 #define DEFAULT_LOOP		false
+#define DEFAULT_DSCP		34 /* Default to AES-67 AF41 (34) */
 
 #define DEFAULT_MIN_PTIME	2
 #define DEFAULT_MAX_PTIME	20
@@ -142,6 +143,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 		"net.mtu=<desired MTU, default:"SPA_STRINGIFY(DEFAULT_MTU)"> "			\
 		"net.ttl=<desired TTL, default:"SPA_STRINGIFY(DEFAULT_TTL)"> "			\
 		"net.loop=<desired loopback, default:"SPA_STRINGIFY(DEFAULT_LOOP)"> "		\
+		"net.dscp=<desired DSCP, default:"SPA_STRINGIFY(DEFAULT_DSCP)"> "		\
 		"sess.name=<a name for the session> "						\
 		"sess.min-ptime=<minimum packet time in milliseconds, default:2> "		\
 		"sess.max-ptime=<maximum packet time in milliseconds, default:20> "		\
@@ -185,6 +187,7 @@ struct impl {
 	uint32_t mtu;
 	bool ttl;
 	bool mcast_loop;
+	uint32_t dscp;
 	float min_ptime;
 	float max_ptime;
 	uint32_t psamples;
@@ -627,7 +630,7 @@ static bool is_multicast(struct sockaddr *sa, socklen_t salen)
 
 static int make_socket(struct sockaddr_storage *src, socklen_t src_len,
 		struct sockaddr_storage *dst, socklen_t dst_len,
-		bool loop, int ttl)
+		bool loop, int ttl, int dscp)
 {
 	int af, fd, val, res;
 
@@ -660,10 +663,11 @@ static int make_socket(struct sockaddr_storage *src, socklen_t src_len,
 	if (setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
 		pw_log_warn("setsockopt(SO_PRIORITY) failed: %m");
 #endif
-	/* FIXME AES67 wants IPTOS_DSCP_AF41 */
-	val = IPTOS_LOWDELAY;
-	if (setsockopt(fd, IPPROTO_IP, IP_TOS, &val, sizeof(val)) < 0)
-		pw_log_warn("setsockopt(IP_TOS) failed: %m");
+	if (dscp > 0) {
+		val = IPTOS_DSCP(dscp << 2);
+		if (setsockopt(fd, IPPROTO_IP, IP_TOS, &val, sizeof(val)) < 0)
+			pw_log_warn("setsockopt(IP_TOS) failed: %m");
+	}
 
 
 	return fd;
@@ -730,7 +734,8 @@ static int setup_stream(struct impl *impl)
 
 	if ((fd = make_socket(&impl->src_addr, impl->src_len,
 					&impl->dst_addr, impl->dst_len,
-					impl->mcast_loop, impl->ttl)) < 0)
+					impl->mcast_loop, impl->ttl,
+					impl->dscp)) < 0)
 		return fd;
 
 	impl->rtp_fd = fd;
@@ -872,7 +877,7 @@ static int start_sap_announce(struct impl *impl)
 
 	if ((fd = make_socket(&impl->src_addr, impl->src_len,
 					&impl->sap_addr, impl->sap_len,
-					impl->mcast_loop, impl->ttl)) < 0)
+					impl->mcast_loop, impl->ttl, 0)) < 0)
 		return fd;
 
 	impl->sap_fd = fd;
@@ -1184,6 +1189,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->mtu = pw_properties_get_uint32(props, "net.mtu", DEFAULT_MTU);
 	impl->ttl = pw_properties_get_uint32(props, "net.ttl", DEFAULT_TTL);
 	impl->mcast_loop = pw_properties_get_bool(props, "net.loop", DEFAULT_LOOP);
+	impl->dscp = pw_properties_get_uint32(props, "net.dscp", DEFAULT_DSCP);
 
 	ts_offset = pw_properties_get_int64(props, "sess.ts-offset", DEFAULT_TS_OFFSET);
 	impl->ts_offset = ts_offset < 0 ? rand() : ts_offset;
@@ -1221,6 +1227,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_properties_setf(stream_props, "rtp.ttl", "%u", impl->ttl);
 	pw_properties_setf(stream_props, "rtp.ptime", "%u",
 			impl->psamples * 1000 / impl->rate);
+	pw_properties_setf(stream_props, "rtp.dscp", "%u", impl->dscp);
 
 	impl->core = pw_context_get_object(impl->module_context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

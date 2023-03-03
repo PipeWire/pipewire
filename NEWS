@@ -1,3 +1,100 @@
+# PipeWire 0.3.67 (2023-03-09)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - The loopback module and other couples streams will now not randomly
+    fail in some cases. (#3028)
+  - The RTP module now has support for sending and receiving MIDI as
+    well.
+  - The compress offload sink has seen many improvements. It now uses
+    ioctls directly to bypass limitations of tinycompress (to be able
+    to detect the available codecs, for example).
+  - Pulse server compatibility was improved for some apps by improving
+    the format parsing and FIX_ stream flag handling.
+  - The min quantum in the pulse server was changed from 256/48000 to
+    128/48000 to fix some issues with games that expect 5ms or less of
+    latency.
+  - The Bluetooth plugin has seen many improvements in packet scheduling
+    to attempt to reduce stuttering on some devices.
+  - The ALSA plugin now handles some impossible cases better. This fixes
+    recording in QEMU again. (#2971)
+
+## PipeWire
+  - SPDX tags were added to the code for copyright information.
+  - The random number functions were made more usable.
+  - The port property code was moved from the adapter to the port
+    implementation itself to make it more useful and unified for the
+    cases where no adapter is used (midi and video).
+  - Fix a potential overflow in mixer areas.
+  - Improve runnable state calculations of nodes. This is part of
+    ongoing work to avoid running nodes that should not need to run.
+  - The stream will now always call the process function when using
+    trigger, even if there are no buffers. This avoids stalls of the
+    processing graph in some cases. (#3028)
+  - Links are now marked as passive by PipeWire itself so that
+    the right thing happens in all cases.
+  - Implement the in/out/true values for the node.passive property.
+    Place a passive state on ports to make passive links on a port
+    by port basis.
+
+## Tools
+  - pw-cat has seen improvements in the encoded file playback case.
+
+## Modules
+  - The rtp module has support for MIDI now.
+  - DSCP is now configurable in the RTP module.
+  - The loopback module doesn't randomly fail to work anymore. (#3028)
+
+## SPA
+  - The null-audio sink can now be given a format and it will return this
+    instead of the default float ones. This makes it possible to make a
+    null-sink that has a given format.
+  - The compress offload sink has seen many improvements. It now no longer
+    uses tinycompress to be able to detect the available codecs.
+  - The ALSA plugin now handles some impossible cases better. (#2971)
+  - Fix compilation on older compilers. (#3050)
+
+## Pulse-server
+  - The FIX_ flags are now implemented more correctly by fixating the
+    stream to the format of the sink/source they ask to be connected to.
+    There is now also an option to override the fixation based on rules.
+  - Format parsing was improved and should now support all format strings
+    supported by pulseaudio including upper and lower case variants
+    and shortcuts.
+  - Channelmap parsing was improved and should now reject invalid
+    channelmaps as well as support the shortcuts supported by pulseaudio.
+  - Escape codes in module arguments now work as it does in pulseaudio. (#3071)
+  - The min quantum was changed from 256/48000 to 128/48000 to fix some
+    issues with games that expect 5ms or less of latency.
+
+## JACK
+  - jack.passive-links can now be used to have a JACK client make passive
+    links and the node.passive property is no longer used for this because
+    it has a different function.
+  - The qsynth rule was updated to the new node.passive features. It is now
+    only passive on the output side.
+
+## Bluetooth
+  - BAP delay and transport latency are handled now.
+  - A2DP and SCO can now use bigger buffers to improve quality when the
+    reception is jittery.
+  - The AT+BCC command is now implemented.
+  - Packet encoding now happens ahead of time when possible to avoid delays
+    before sending it.
+  - Source should now always produce complete (padded) buffers to avoid sync
+    problems.
+  - Don't set unnecessary socket options.
+
+## GStreamer
+  - The pipewiresrc now has an autoconnect argument.
+  - The metadata plane count is now handled correctly in more cases.
+  - Stream errors are now handled correctly to stop the GStreamer elements.
+
+Older versions:
+
+
 # PipeWire 0.3.66 (2023-02-16)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -78,9 +175,6 @@ This is a bugfix release that is API and ABI compatible with previous
 ## JACK
   - The frame to/from time functions are improved to also work with negative
     time and frame offsets.
-
-Older versions:
-
 
 # PipeWire 0.3.65 (2023-01-26)
 

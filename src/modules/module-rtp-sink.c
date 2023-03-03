@@ -517,7 +517,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if ((res = make_socket(&impl->src_addr, impl->src_len,
 					&impl->dst_addr, impl->dst_len,
-					impl->mcast_loop, impl->ttl)) < 0) {
+					impl->mcast_loop, impl->ttl, impl->dscp)) < 0) {
 		pw_log_error("can't make socket: %s", spa_strerror(res));
 		goto out;
 	}

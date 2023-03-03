@@ -37,10 +37,16 @@
 #include <module-rtp/apple-midi.h>
 #include <module-rtp/stream.h>
 
-/** \page page_module_rtp_sink PipeWire Module: RTP sink
+/** \page page_module_rtp_session PipeWire Module: RTP session
  *
- * The `rtp-sink` module creates a PipeWire sink that sends audio
- * RTP packets.
+ * The `rtp-session` module creates a media session that is announced
+ * with avahi/mDNS/Bonjour.
+ *
+ * Other machines on the network that run a compatible session will see
+ * eachother and will be able to send audio/midi between eachother.
+ *
+ * The session setup is based on apple-midi and is compatible with
+ * apple-midi when the session is using midi.
  *
  * ## Module Options
  *
@@ -58,7 +64,7 @@
  * - `sess.name = <str>`: a session name
  * - `sess.ts-offset = <int>`: an offset to apply to the timestamp, default -1 = random offset
  * - `sess.ts-refclk = <string>`: the name of a reference clock
- * - `rtp.media = <string>`: the media type audio|midi, default audio
+ * - `sess.media = <string>`: the media type audio|midi, default audio
  * - `stream.props = {}`: properties to be passed to the stream
  *
  * ## General options
@@ -81,7 +87,7 @@
  * ## Example configuration
  *\code{.unparsed}
  * context.modules = [
- * {   name = libpipewire-module-rtp-sink
+ * {   name = libpipewire-module-rtp-session
  *     args = {
  *         #local.ifname = "eth0"
  *         #control.ip = "0.0.0.0"
@@ -92,7 +98,7 @@
  *         #sess.min-ptime = 2
  *         #sess.max-ptime = 20
  *         #sess.name = "PipeWire RTP stream"
- *         #rtp.media = "audio"
+ *         #sess.media = "audio"
  *         stream.props = {
  *             node.name = "rtp-sink"
  *             #audio.format = "S16BE"
@@ -119,7 +125,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_LOOP		false
 
 #define USAGE	"control.ip=<destination IP address, default:"DEFAULT_CONTROL_IP"> "	\
- 		"control.port=<int, default:"SPA_STRINGIFY(DEFAULT_CONTROL_PORT)"> "		\
+		"control.port=<int, default:"SPA_STRINGIFY(DEFAULT_CONTROL_PORT)"> "		\
 		"local.ifname=<local interface name to use> "					\
 		"net.mtu=<desired MTU, default:"SPA_STRINGIFY(DEFAULT_MTU)"> "			\
 		"net.ttl=<desired TTL, default:"SPA_STRINGIFY(DEFAULT_TTL)"> "			\
@@ -127,7 +133,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 		"sess.name=<a name for the session> "						\
 		"sess.min-ptime=<minimum packet time in milliseconds, default:2> "		\
 		"sess.max-ptime=<maximum packet time in milliseconds, default:20> "		\
- 		"rtp.media=<string, the media type audio|midi, default audio> "		\
+		"sess.media=<string, the media type audio|midi, default audio> "		\
 		"audio.format=<format, default:"DEFAULT_FORMAT"> "				\
 		"audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> "		\
 		"audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> "\
@@ -1051,7 +1057,7 @@ static void free_service(struct service *s)
 static const char *get_service_name(struct impl *impl)
 {
 	const char *str;
-	str = pw_properties_get(impl->props, "rtp.media");
+	str = pw_properties_get(impl->props, "sess.media");
 	if (spa_streq(str, "midi"))
 		return "_apple-midi._udp";
 	else if (spa_streq(str, "audio"))
@@ -1461,7 +1467,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_MEDIA_NAME);
 	copy_props(impl, props, PW_KEY_MEDIA_CLASS);
 	copy_props(impl, props, "net.mtu");
-	copy_props(impl, props, "rtp.media");
+	copy_props(impl, props, "sess.media");
 	copy_props(impl, props, "sess.min-ptime");
 	copy_props(impl, props, "sess.max-ptime");
 	copy_props(impl, props, "sess.latency.msec");
@@ -1470,9 +1476,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->ttl = pw_properties_get_uint32(props, "net.ttl", DEFAULT_TTL);
 	impl->mcast_loop = pw_properties_get_bool(props, "net.loop", DEFAULT_LOOP);
 
-	if ((str = pw_properties_get(stream_props, "rtp.media")) == NULL) {
+	if ((str = pw_properties_get(stream_props, "sess.media")) == NULL) {
 		str = "midi";
-		pw_properties_set(stream_props, "rtp.media", str);
+		pw_properties_set(stream_props, "sess.media", str);
 	}
 	if (spa_streq(str, "audio")) {
 		struct spa_dict_item items[] = {

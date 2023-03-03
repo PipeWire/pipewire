@@ -77,6 +77,7 @@ List of known modules:
 - \subpage page_module_rtp_sap
 - \subpage page_module_rtp_sink
 - \subpage page_module_rtp_source
+- \subpage page_module_rtp_session
 - \subpage page_module_rt
 - \subpage page_module_session_manager
 - \subpage page_module_x11_bell

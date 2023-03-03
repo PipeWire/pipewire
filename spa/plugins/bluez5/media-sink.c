@@ -38,6 +38,7 @@
 #include "defs.h"
 #include "rtp.h"
 #include "media-codecs.h"
+#include "rate-control.h"
 
 static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.sink.media");
 #undef SPA_LOG_TOPIC_DEFAULT
@@ -54,6 +55,7 @@ struct props {
 #define MIN_BUFFERS 2
 #define MAX_BUFFERS 32
 #define BUFFER_SIZE	(8192*8)
+#define RATE_CTL_DIFF_MAX 0.005
 
 struct buffer {
 	uint32_t id;
@@ -72,6 +74,7 @@ struct port {
 	uint64_t info_all;
 	struct spa_port_info info;
 	struct spa_io_buffers *io;
+	struct spa_io_rate_match *rate_match;
 	struct spa_latency_info latency;
 #define IDX_EnumFormat	0
 #define IDX_Meta	1
@@ -89,6 +92,8 @@ struct port {
 	struct spa_list ready;
 
 	size_t ready_offset;
+
+	struct spa_bt_rate_control ratectl;
 };
 
 struct impl {
@@ -474,6 +479,22 @@ static int reset_buffer(struct impl *this)
 			this->buffer, sizeof(this->buffer),
 			++this->seqnum, this->timestamp);
 	this->header_size = this->buffer_used;
+	return 0;
+}
+
+static int setup_matching(struct impl *this)
+{
+	struct port *port = &this->port;
+
+	if (!this->transport_started)
+		port->ratectl.corr = 1.0;
+
+	if (port->rate_match) {
+		port->rate_match->rate = 1 / port->ratectl.corr;
+
+		SPA_FLAG_UPDATE(port->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE, this->following);
+	}
+
 	return 0;
 }
 
@@ -996,7 +1017,9 @@ static void media_on_timeout(struct spa_source *source)
 		rate = 48000;
 	}
 
-	this->next_time = now_time + duration * SPA_NSEC_PER_SEC / rate;
+	setup_matching(this);
+
+	this->next_time = now_time + duration * SPA_NSEC_PER_SEC / rate * port->ratectl.corr;
 
 	if (SPA_LIKELY(this->clock)) {
 		int64_t delay_nsec = 0;
@@ -1005,7 +1028,7 @@ static void media_on_timeout(struct spa_source *source)
 		this->clock->rate = this->clock->target_rate;
 		this->clock->position += this->clock->duration;
 		this->clock->duration = duration;
-		this->clock->rate_diff = 1.0f;
+		this->clock->rate_diff = 1 / port->ratectl.corr;
 		this->clock->next_nsec = this->next_time;
 
 		if (this->transport)
@@ -1109,6 +1132,8 @@ static int transport_start(struct impl *this)
 
 	reset_buffer(this);
 
+	spa_bt_rate_control_init(&port->ratectl, 0);
+
 	this->flush_timer_source.data = this;
 	this->flush_timer_source.fd = this->flush_timerfd;
 	this->flush_timer_source.func = media_on_flush_timeout;
@@ -1156,6 +1181,8 @@ static int do_start(struct impl *this)
 	this->source.mask = SPA_IO_IN;
 	this->source.rmask = 0;
 	spa_loop_add_source(this->data_loop, &this->source);
+
+	setup_matching(this);
 
 	set_timers(this);
 
@@ -1451,6 +1478,14 @@ impl_node_port_enum_params(void *object, int seq,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
 			break;
+		case 1:
+			if (!this->codec->bap)
+				return 0;
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_RateMatch),
+				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_rate_match)));
+			break;
 		default:
 			return 0;
 		}
@@ -1647,6 +1682,11 @@ impl_node_port_set_io(void *object,
 	case SPA_IO_Buffers:
 		port->io = data;
 		break;
+	case SPA_IO_RateMatch:
+		if (!this->codec->bap)
+			return -ENOENT;
+		port->rate_match = data;
+		break;
 	default:
 		return -ENOENT;
 	}
@@ -1710,6 +1750,8 @@ static int impl_node_process(void *object)
 		this->process_position = this->position->clock.position;
 
 	this->process_time = this->current_time;
+
+	setup_matching(this);
 
 	if (!spa_list_is_empty(&port->ready)) {
 		int res;

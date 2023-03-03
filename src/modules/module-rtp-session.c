@@ -338,7 +338,8 @@ static void session_establish(struct session *sess)
 	case SESSION_STATE_INIT:
 		/* we initiate */
 		sess->we_initiated = true;
-		pw_log_info("start session initiator:%08x", sess->initiator);
+		pw_log_info("start session initiator:%08x %u %u", sess->initiator,
+				sess->ctrl_ready, sess->data_ready);
 		if (!sess->ctrl_ready)
 			send_apple_midi_cmd_in(sess, true);
 		else if (!sess->data_ready)
@@ -359,7 +360,8 @@ static void session_stop(struct session *sess)
 {
 	if (!sess->we_initiated)
 		return;
-	pw_log_info("stop session initiator:%08x", sess->initiator);
+	pw_log_info("stop session initiator:%08x %u %u", sess->initiator,
+			sess->ctrl_ready, sess->data_ready);
 	if (sess->ctrl_ready) {
 		send_apple_midi_cmd_by(sess, true);
 		sess->ctrl_ready = false;
@@ -585,6 +587,7 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 			}
 		}
 		if (success) {
+			sess->initiator = initiator;
 			sess->ctrl_addr = *sa;
 			sess->ctrl_len = salen;
 			sess->ctrl_ready = true;
@@ -642,15 +645,17 @@ static void parse_apple_midi_cmd_ok(struct impl *impl, bool ctrl, uint8_t *buffe
 	}
 
 	if (ctrl) {
-		pw_log_info("got ctrl OK %08x %d", initiator, sess->data_ready);
+		pw_log_info("got ctrl OK %08x %u", initiator, sess->data_ready);
 		sess->ctrl_ready = true;
 		if (!sess->data_ready)
 			send_apple_midi_cmd_in(sess, false);
 	} else {
-		pw_log_info("got data OK %08x, session established", initiator);
+		pw_log_info("got data OK %08x %u, session established", initiator,
+				sess->ctrl_ready);
 		sess->remote_ssrc = ntohl(hdr->ssrc);
 		sess->data_ready = true;
-		sess->state = SESSION_STATE_ESTABLISHED;
+		if (sess->ctrl_ready)
+			sess->state = SESSION_STATE_ESTABLISHED;
 	}
 }
 
@@ -720,12 +725,15 @@ static void parse_apple_midi_cmd_by(struct impl *impl, bool ctrl, uint8_t *buffe
 	}
 
 	if (ctrl) {
-		pw_log_info("got ctrl BY %08x %d", initiator, sess->data_ready);
+		pw_log_info("%p: got ctrl BY %08x %u", sess, initiator, sess->data_ready);
 		sess->ctrl_ready = false;
+		if (!sess->data_ready)
+			sess->state = SESSION_STATE_INIT;
 	} else {
-		pw_log_info("got data BY %08x, session init", initiator);
+		pw_log_info("%p: got data BY %08x %u", sess, initiator, sess->ctrl_ready);
 		sess->data_ready = false;
-		sess->state = SESSION_STATE_INIT;
+		if (!sess->ctrl_ready)
+			sess->state = SESSION_STATE_INIT;
 	}
 }
 

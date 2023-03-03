@@ -587,6 +587,7 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 			}
 		}
 		if (success) {
+			sess->we_initiated = false;
 			sess->initiator = initiator;
 			sess->ctrl_addr = *sa;
 			sess->ctrl_len = salen;

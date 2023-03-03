@@ -1597,6 +1597,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	if (is_batch)
 		state->headroom += period_size;
 
+	state->max_delay = state->buffer_frames / 2;
 	if (spa_strstartswith(state->props.device, "a52") ||
 	    spa_strstartswith(state->props.device, "dca"))
 		state->min_delay = SPA_MIN(2048u, state->buffer_frames);
@@ -1608,7 +1609,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 
 	state->latency[state->port_direction].min_rate =
 		state->latency[state->port_direction].max_rate =
-			SPA_MAX(state->min_delay, state->headroom);
+			SPA_MAX(state->min_delay, SPA_MIN(state->max_delay, state->headroom));
 
 	spa_log_info(state->log, "%s (%s): format:%s access:%s-%s rate:%d channels:%d "
 			"buffer frames %lu, period frames %lu, periods %u, frame_size %zd "
@@ -1882,7 +1883,7 @@ static int get_status(struct state *state, uint64_t current_time,
 		if (state->matching)
 			*target += 32;
 	}
-	*target = SPA_CLAMP(*target, state->min_delay, state->buffer_frames);
+	*target = SPA_CLAMP(*target, state->min_delay, state->max_delay);
 	return 0;
 }
 

@@ -8,18 +8,21 @@
 #ifdef __cplusplus
 extern "C" {
 # if __cplusplus >= 201103L
-#  define SPA_STATIC_ASSERT static_assert
+#  define SPA_STATIC_ASSERT_IMPL(expr, msg, ...) static_assert(expr, msg)
 # endif
 #else
 # include <stdbool.h>
 # if __STDC_VERSION__ >= 201112L
-#  define SPA_STATIC_ASSERT _Static_assert
+#  define SPA_STATIC_ASSERT_IMPL(expr, msg, ...) _Static_assert(expr, msg)
 # endif
 #endif
-#ifndef SPA_STATIC_ASSERT
-#define SPA_STATIC_ASSERT(a, b)						\
-	((void)sizeof(struct { int spa_static_assertion_failed : 2 * !!(a) - 1; }))
+#ifndef SPA_STATIC_ASSERT_IMPL
+#define SPA_STATIC_ASSERT_IMPL(expr, ...) \
+	((void)sizeof(struct { int spa_static_assertion_failed : 2 * !!(expr) - 1; }))
 #endif
+
+#define SPA_STATIC_ASSERT(expr, ...) SPA_STATIC_ASSERT_IMPL(expr, ## __VA_ARGS__, "`" #expr "` evaluated to false")
+
 #include <inttypes.h>
 #include <signal.h>
 #include <stdlib.h>

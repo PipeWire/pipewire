@@ -1354,7 +1354,7 @@ static int port_init_mix(void *data, struct pw_impl_port_mix *mix)
 		m->valid = false;
 		return -errno;
 	}
-	if (mix->id > MAX_AREAS) {
+	if (mix->id >= MAX_AREAS) {
 		pw_map_remove(&impl->io_map, mix->id);
 		m->valid = false;
 		return -ENOMEM;

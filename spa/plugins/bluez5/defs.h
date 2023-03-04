@@ -27,6 +27,7 @@ extern "C" {
 #define BLUEZ_PROFILE_INTERFACE BLUEZ_SERVICE ".Profile1"
 #define BLUEZ_ADAPTER_INTERFACE BLUEZ_SERVICE ".Adapter1"
 #define BLUEZ_DEVICE_INTERFACE BLUEZ_SERVICE ".Device1"
+#define BLUEZ_DEVICE_SET_INTERFACE BLUEZ_SERVICE ".DeviceSet1"
 #define BLUEZ_MEDIA_INTERFACE BLUEZ_SERVICE ".Media1"
 #define BLUEZ_MEDIA_ENDPOINT_INTERFACE BLUEZ_SERVICE ".MediaEndpoint1"
 #define BLUEZ_MEDIA_TRANSPORT_INTERFACE BLUEZ_SERVICE ".MediaTransport1"
@@ -440,11 +441,26 @@ struct spa_bt_device_events {
 	/** Profile configuration changed */
 	void (*profiles_changed) (void *data, uint32_t prev_profiles, uint32_t prev_connected);
 
+	/** Device set configuration changed */
+	void (*device_set_changed) (void *data);
+
 	/** Device freed */
 	void (*destroy) (void *data);
 };
 
 struct media_codec;
+
+struct spa_bt_set_membership {
+	struct spa_list link;
+	struct spa_list others;
+	struct spa_bt_device *device;
+	char *path;
+	uint8_t rank;
+	bool leader;
+};
+
+#define spa_bt_for_each_set_member(s, set) \
+	for ((s) = (set); (s); (s) = spa_list_next((s), others), (s) = (s) != (set) ? (s) : NULL)
 
 struct spa_bt_device {
 	struct spa_list link;
@@ -477,6 +493,7 @@ struct spa_bt_device {
 	struct spa_list remote_endpoint_list;
 	struct spa_list transport_list;
 	struct spa_list codec_switch_list;
+	struct spa_list set_membership_list;
 	uint8_t battery;
 	int has_battery;
 
@@ -518,6 +535,7 @@ void spa_bt_device_update_last_bluez_action_time(struct spa_bt_device *device);
 #define spa_bt_device_emit_connected(d,...)	        spa_bt_device_emit(d, connected, 0, __VA_ARGS__)
 #define spa_bt_device_emit_codec_switched(d,...)	spa_bt_device_emit(d, codec_switched, 0, __VA_ARGS__)
 #define spa_bt_device_emit_profiles_changed(d,...)	spa_bt_device_emit(d, profiles_changed, 0, __VA_ARGS__)
+#define spa_bt_device_emit_device_set_changed(d)	spa_bt_device_emit(d, device_set_changed, 0)
 #define spa_bt_device_emit_destroy(d)			spa_bt_device_emit(d, destroy, 0)
 #define spa_bt_device_add_listener(d,listener,events,data)           \
 	spa_hook_list_append(&(d)->listener_list, listener, events, data)

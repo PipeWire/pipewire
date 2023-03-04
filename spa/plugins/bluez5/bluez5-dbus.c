@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #include <bluetooth/bluetooth.h>
 
@@ -1268,6 +1269,7 @@ static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const
 	spa_list_init(&d->remote_endpoint_list);
 	spa_list_init(&d->transport_list);
 	spa_list_init(&d->codec_switch_list);
+	spa_list_init(&d->set_membership_list);
 
 	spa_hook_list_init(&d->listener_list);
 
@@ -1294,6 +1296,7 @@ static void device_free(struct spa_bt_device *device)
 	struct spa_bt_media_codec_switch *sw;
 	struct spa_bt_transport *t, *tt;
 	struct spa_bt_monitor *monitor = device->monitor;
+	struct spa_bt_set_membership *s;
 
 	spa_log_debug(monitor->log, "%p", device);
 
@@ -1323,6 +1326,13 @@ static void device_free(struct spa_bt_device *device)
 	spa_list_consume(sw, &device->codec_switch_list, device_link)
 		media_codec_switch_free(sw);
 
+	spa_list_consume(s, &device->set_membership_list, link) {
+		spa_list_remove(&s->link);
+		spa_list_remove(&s->others);
+		free(s->path);
+		free(s);
+	}
+
 	spa_list_remove(&device->link);
 	free(device->path);
 	free(device->alias);
@@ -1332,6 +1342,84 @@ static void device_free(struct spa_bt_device *device)
 	free(device->name);
 	free(device->icon);
 	free(device);
+}
+
+static struct spa_bt_set_membership *device_set_find(struct spa_bt_monitor *monitor, const char *path)
+{
+	struct spa_bt_device *d;
+
+	spa_list_for_each(d, &monitor->device_list, link) {
+		struct spa_bt_set_membership *s;
+
+		spa_list_for_each(s, &d->set_membership_list, link) {
+			if (spa_streq(s->path, path))
+				return s;
+		}
+	}
+
+	return NULL;
+}
+
+static int device_add_device_set(struct spa_bt_device *device, const char *path, uint8_t rank)
+{
+	struct spa_bt_monitor *monitor = device->monitor;
+	struct spa_bt_set_membership *s, *set;
+
+	spa_list_for_each(s, &device->set_membership_list, link) {
+		if (spa_streq(s->path, path)) {
+			if (rank)
+				s->rank = rank;
+			return 0;
+		}
+	}
+
+	s = calloc(1, sizeof(struct spa_bt_set_membership));
+	if (s == NULL)
+		return -ENOMEM;
+
+	s->path = strdup(path);
+	if (!s->path) {
+		free(s);
+		return -ENOMEM;
+	}
+
+	s->device = device;
+	s->rank = rank;
+
+	spa_list_init(&s->others);
+
+	/* Join with other set members, if any */
+	set = device_set_find(monitor, path);
+	if (set)
+		spa_list_append(&set->others, &s->others);
+
+	spa_list_append(&device->set_membership_list, &s->link);
+
+	spa_log_debug(monitor->log, "device %p: add %s to device set %s", device,
+			device->path, path);
+
+	return 1;
+}
+
+static bool device_remove_device_set(struct spa_bt_device *device, const char *path)
+{
+	struct spa_bt_monitor *monitor = device->monitor;
+	struct spa_bt_set_membership *s;
+
+	spa_list_for_each(s, &device->set_membership_list, link) {
+		if (spa_streq(s->path, path)) {
+			spa_log_debug(monitor->log,
+					"device %p: remove %s from device set %s", device,
+					device->path, path);
+			spa_list_remove(&s->link);
+			spa_list_remove(&s->others);
+			free(s->path);
+			free(s);
+			return true;
+		}
+	}
+
+	return false;
 }
 
 int spa_bt_format_vendor_product_id(uint16_t source_id, uint16_t vendor_id, uint16_t product_id,
@@ -1736,10 +1824,14 @@ static void device_set_connected(struct spa_bt_device *device, int connected)
 	}
 }
 
+static void device_update_set_status(struct spa_bt_device *device, bool force, const char *path);
+
 int spa_bt_device_connect_profile(struct spa_bt_device *device, enum spa_bt_profile profile)
 {
 	uint32_t prev_connected = device->connected_profiles;
 	device->connected_profiles |= profile;
+	if ((prev_connected ^ device->connected_profiles) & SPA_BT_PROFILE_BAP_DUPLEX)
+		device_update_set_status(device, true, NULL);
 	spa_bt_device_check_profiles(device, false);
 	if (device->connected_profiles != prev_connected)
 		spa_bt_device_emit_profiles_changed(device, device->profiles, prev_connected);
@@ -1761,6 +1853,212 @@ static void device_update_hw_volume_profiles(struct spa_bt_device *device)
 		device->hw_volume_profiles = 0;
 
 	spa_log_debug(monitor->log, "hw-volume-profiles:%08x", (int)device->hw_volume_profiles);
+}
+
+static bool device_set_update_leader(struct spa_bt_set_membership *set)
+{
+	struct spa_bt_set_membership *s, *leader;
+	int min_rank = INT_MAX;
+	int leader_rank = INT_MAX;
+
+	leader = NULL;
+
+	spa_bt_for_each_set_member(s, set) {
+		min_rank = SPA_MIN(min_rank, s->rank);
+		if (s->leader) {
+			leader_rank = s->rank;
+			leader = s;
+		}
+	}
+
+	if (min_rank >= leader_rank && leader)
+		return false;
+
+	spa_bt_for_each_set_member(s, set) {
+		if (leader == NULL && s->rank == min_rank &&
+				(s->device->connected_profiles & SPA_BT_PROFILE_BAP_DUPLEX)) {
+			s->leader = true;
+			leader = s;
+		} else {
+			s->leader = false;
+		}
+	}
+
+	if (leader) {
+		struct spa_bt_monitor *monitor = leader->device->monitor;
+
+		spa_log_debug(monitor->log, "device set %s: leader is %s",
+				leader->path, leader->device->path);
+	}
+
+	return true;
+}
+
+static void device_update_set_status(struct spa_bt_device *device, bool force, const char *path)
+{
+	struct spa_bt_set_membership *s, *set;
+
+	spa_list_for_each(set, &device->set_membership_list, link) {
+		if (path && !spa_streq(set->path, path))
+			continue;
+
+		if (device_set_update_leader(set) || force) {
+			spa_bt_for_each_set_member(s, set)
+				if (!s->leader)
+					spa_bt_device_emit_device_set_changed(s->device);
+			spa_bt_for_each_set_member(s, set)
+				if (s->leader)
+					spa_bt_device_emit_device_set_changed(s->device);
+		}
+	}
+}
+
+static int device_set_update_props(struct spa_bt_monitor *monitor,
+		const char *path, DBusMessageIter *props_iter, DBusMessageIter *invalidated_iter)
+{
+	struct spa_bt_device *old[256];
+	struct spa_bt_device *new[256];
+	struct spa_bt_set_membership *set;
+	size_t num_old = 0, num_new = 0;
+	size_t i;
+
+	if (!props_iter)
+		goto done;
+
+	/* Find current devices */
+	while (dbus_message_iter_get_arg_type(props_iter) != DBUS_TYPE_INVALID) {
+		DBusMessageIter it[2];
+		const char *key;
+
+		dbus_message_iter_recurse(props_iter, &it[0]);
+		dbus_message_iter_get_basic(&it[0], &key);
+		dbus_message_iter_next(&it[0]);
+		dbus_message_iter_recurse(&it[0], &it[1]);
+
+		if (spa_streq(key, "Devices")) {
+			DBusMessageIter iter;
+			int i = 0;
+
+			if (!check_iter_signature(&it[1], "ao"))
+				goto next;
+
+			dbus_message_iter_recurse(&it[1], &iter);
+
+			while (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_INVALID) {
+				struct spa_bt_device *d;
+				const char *dev_path;
+
+				dbus_message_iter_get_basic(&iter, &dev_path);
+
+				spa_log_debug(monitor->log, "device set %s: Devices[%d]=%s",
+						path, i++, dev_path);
+
+				if (num_new >= SPA_N_ELEMENTS(new))
+					break;
+				d = spa_bt_device_find(monitor, dev_path);
+				if (d)
+					new[num_new++] = d;
+
+				dbus_message_iter_next(&iter);
+			}
+
+		}
+		else
+			spa_log_debug(monitor->log, "device set %s: unhandled key %s",
+					path, key);
+
+next:
+		dbus_message_iter_next(props_iter);
+	}
+
+done:
+	/* Find devices to remove */
+	set = device_set_find(monitor, path);
+	if (set) {
+		struct spa_bt_set_membership *s;
+
+		spa_bt_for_each_set_member(s, set) {
+			for (i = 0; i < num_new; ++i)
+				if (s->device == new[i])
+					break;
+			if (i == num_new) {
+				if (num_old >= SPA_N_ELEMENTS(old))
+					break;
+				old[num_old++] = s->device;
+			}
+		}
+	}
+
+	/* Remove old devices */
+	for (i = 0; i < num_old; ++i)
+		device_remove_device_set(old[i], path);
+
+	/* Add new devices */
+	for (i = 0; i < num_new; ++i)
+		device_add_device_set(new[i], path, 0);
+
+	/* Emit signals & update set leader */
+	for (i = 0; i < num_old; ++i)
+		spa_bt_device_emit_device_set_changed(old[i]);
+
+	if (num_new > 0)
+		device_update_set_status(new[0], true, path);
+
+	return 0;
+}
+
+static int device_update_device_sets_prop(struct spa_bt_device *device,
+		DBusMessageIter *iter)
+{
+	struct spa_bt_monitor *monitor = device->monitor;
+	DBusMessageIter it[5];
+	bool changed = false;
+
+	if (!check_iter_signature(iter, "a{oa{sv}}"))
+		return -EINVAL;
+
+	dbus_message_iter_recurse(iter, &it[0]);
+
+	while (dbus_message_iter_get_arg_type(&it[0]) != DBUS_TYPE_INVALID) {
+		uint8_t rank = 0;
+		const char *set_path;
+
+		dbus_message_iter_recurse(&it[0], &it[1]);
+		dbus_message_iter_get_basic(&it[1], &set_path);
+		dbus_message_iter_next(&it[1]);
+		dbus_message_iter_recurse(&it[1], &it[2]);
+
+		while (dbus_message_iter_get_arg_type(&it[2]) != DBUS_TYPE_INVALID) {
+			const char *key;
+			int type;
+
+			dbus_message_iter_recurse(&it[2], &it[3]);
+			dbus_message_iter_get_basic(&it[3], &key);
+			dbus_message_iter_next(&it[3]);
+			dbus_message_iter_recurse(&it[3], &it[4]);
+
+			type = dbus_message_iter_get_arg_type(&it[4]);
+
+			if (spa_streq(key, "Rank") && type == DBUS_TYPE_BYTE)
+				dbus_message_iter_get_basic(&it[4], &rank);
+
+			dbus_message_iter_next(&it[2]);
+		}
+
+		spa_log_debug(monitor->log, "device %p: path %s device set %s rank %d",
+				device, device->path, set_path, (int)rank);
+
+		/* Only add. Removals are handled in device set updates. */
+		if (device_add_device_set(device, set_path, rank) == 1)
+			changed = true;
+
+		dbus_message_iter_next(&it[0]);
+	}
+
+	/* Emit change signals */
+	device_update_set_status(device, changed, NULL);
+
+	return 0;
 }
 
 static int device_update_props(struct spa_bt_device *device,
@@ -1910,6 +2208,9 @@ static int device_update_props(struct spa_bt_device *device,
 			if (device->profiles != prev_profiles)
 				spa_bt_device_emit_profiles_changed(
 					device, prev_profiles, device->connected_profiles);
+		}
+		else if (spa_streq(key, "Sets")) {
+			device_update_device_sets_prop(device, &it[1]);
 		}
 		else
 			spa_log_debug(monitor->log, "device %p: unhandled key %s type %d", device, key, type);
@@ -2334,8 +2635,11 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 		spa_list_remove(&transport->device_link);
 	}
 
-	if (device && device->connected_profiles != prev_connected)
+	if (device && device->connected_profiles != prev_connected) {
+		if ((prev_connected ^ device->connected_profiles) & SPA_BT_PROFILE_BAP_DUPLEX)
+			device_update_set_status(device, true, NULL);
 		spa_bt_device_emit_profiles_changed(device, device->profiles, prev_connected);
+	}
 
 	spa_list_remove(&transport->bap_transport_linked);
 
@@ -4774,6 +5078,9 @@ static void interface_added(struct spa_bt_monitor *monitor,
 		 * profile connection handlers can receive per-device settings during profile negotiation. */
 		spa_bt_device_add_profile(d, SPA_BT_PROFILE_NULL);
 	}
+	else if (spa_streq(interface_name, BLUEZ_DEVICE_SET_INTERFACE)) {
+		device_set_update_props(monitor, object_path, props_iter, NULL);
+	}
 	else if (spa_streq(interface_name, BLUEZ_MEDIA_ENDPOINT_INTERFACE)) {
 		struct spa_bt_remote_endpoint *ep;
 		struct spa_bt_device *d;
@@ -4841,6 +5148,8 @@ static void interfaces_removed(struct spa_bt_monitor *monitor, DBusMessageIter *
 			d = spa_bt_device_find(monitor, object_path);
 			if (d != NULL)
 				device_free(d);
+		} else if (spa_streq(interface_name, BLUEZ_DEVICE_SET_INTERFACE)) {
+			device_set_update_props(monitor, object_path, NULL, NULL);
 		} else if (spa_streq(interface_name, BLUEZ_ADAPTER_INTERFACE) ||
 				spa_streq(interface_name, BLUEZ_MEDIA_INTERFACE)) {
 			struct spa_bt_adapter *a;
@@ -5083,6 +5392,9 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 
 			spa_bt_device_add_profile(d, SPA_BT_PROFILE_NULL);
 		}
+		else if (spa_streq(iface, BLUEZ_DEVICE_SET_INTERFACE)) {
+			device_set_update_props(monitor, path, &it[1], NULL);
+		}
 		else if (spa_streq(iface, BLUEZ_MEDIA_ENDPOINT_INTERFACE)) {
 			struct spa_bt_remote_endpoint *ep;
 			struct spa_bt_device *d;
@@ -5171,6 +5483,10 @@ static void add_filters(struct spa_bt_monitor *this)
 			"type='signal',sender='" BLUEZ_SERVICE "',"
 			"interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',"
 			"arg0='" BLUEZ_DEVICE_INTERFACE "'", &err);
+	dbus_bus_add_match(this->conn,
+			"type='signal',sender='" BLUEZ_SERVICE "',"
+			"interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',"
+			"arg0='" BLUEZ_DEVICE_SET_INTERFACE "'", &err);
 	dbus_bus_add_match(this->conn,
 			"type='signal',sender='" BLUEZ_SERVICE "',"
 			"interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',"

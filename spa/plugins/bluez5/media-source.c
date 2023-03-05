@@ -48,7 +48,6 @@ struct props {
 	char clock_name[64];
 };
 
-#define FILL_FRAMES 2
 #define MAX_BUFFERS 32
 
 struct buffer {
@@ -676,18 +675,6 @@ static int transport_start(struct impl *this)
 	this->fd = dup(this->transport->fd);
 	if (this->fd < 0)
 		return -errno;
-
-	val = fcntl(this->fd, F_GETFL);
-	if (fcntl(this->fd, F_SETFL, val | O_NONBLOCK) < 0)
-		spa_log_warn(this->log, "%p: fcntl %u %m", this, val | O_NONBLOCK);
-
-	val = FILL_FRAMES * this->transport->write_mtu;
-	if (setsockopt(this->fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val)) < 0)
-		spa_log_warn(this->log, "%p: SO_SNDBUF %m", this);
-
-	val = FILL_FRAMES * this->transport->read_mtu;
-	if (setsockopt(this->fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val)) < 0)
-		spa_log_warn(this->log, "%p: SO_RCVBUF %m", this);
 
 	val = 6;
 	if (setsockopt(this->fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)

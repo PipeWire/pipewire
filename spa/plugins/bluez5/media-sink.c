@@ -977,10 +977,6 @@ static int do_start(struct impl *this)
 	}
 	this->fd_buffer_size = val;
 
-	val = FILL_FRAMES * this->transport->read_mtu;
-	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val)) < 0)
-		spa_log_warn(this->log, "%p: SO_RCVBUF %m", this);
-
 	val = 6;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
 		spa_log_warn(this->log, "SO_PRIORITY failed: %m");

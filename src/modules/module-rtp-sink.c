@@ -52,7 +52,7 @@
  * - `sess.name = <str>`: a session name
  * - `sess.ts-offset = <int>`: an offset to apply to the timestamp, default -1 = random offset
  * - `sess.ts-refclk = <string>`: the name of a reference clock
- * - `media.type = <string>`: the media type audio|midi, default audio
+ * - `sess.media = <string>`: the session media type audio|midi, default audio
  * - `stream.props = {}`: properties to be passed to the stream
  *
  * ## General options
@@ -89,6 +89,7 @@
  *         #sess.min-ptime = 2
  *         #sess.max-ptime = 20
  *         #sess.name = "PipeWire RTP stream"
+ *         #sess.media = audio
  *         #audio.format = "S16BE"
  *         #audio.rate = 48000
  *         #audio.channels = 2
@@ -117,6 +118,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define DEFAULT_SAP_IP		"224.0.0.56"
 #define DEFAULT_SAP_PORT	9875
+
+#define DEFAULT_SESS_MEDIA	"audio"
 
 #define DEFAULT_FORMAT		"S16BE"
 #define DEFAULT_RATE		48000
@@ -147,6 +150,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 		"sess.name=<a name for the session> "						\
 		"sess.min-ptime=<minimum packet time in milliseconds, default:2> "		\
 		"sess.max-ptime=<maximum packet time in milliseconds, default:20> "		\
+		"sess.media=<media type, audio or midi, default:audio> "			\
 		"audio.format=<format, default:"DEFAULT_FORMAT"> "				\
 		"audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> "		\
 		"audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> "\
@@ -1107,22 +1111,21 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_MEDIA_NAME);
 	copy_props(impl, props, PW_KEY_MEDIA_CLASS);
 
-	impl->info.media_type = SPA_MEDIA_TYPE_audio;
-	impl->info.media_subtype = SPA_MEDIA_SUBTYPE_raw;
-	if ((str = pw_properties_get(props, "media.type")) != NULL) {
-		if (spa_streq(str, "audio")) {
-			impl->info.media_type = SPA_MEDIA_TYPE_audio;
-			impl->info.media_subtype = SPA_MEDIA_SUBTYPE_raw;
-		}
-		else if (spa_streq(str, "midi")) {
-			impl->info.media_type = SPA_MEDIA_TYPE_application;
-			impl->info.media_subtype = SPA_MEDIA_SUBTYPE_control;
-		}
-		else {
-			pw_log_error("unsupported media type:%s", str);
-			res = -EINVAL;
-			goto out;
-		}
+	if ((str = pw_properties_get(props, "sess.media")) == NULL)
+		str = DEFAULT_SESS_MEDIA;
+
+	if (spa_streq(str, "audio")) {
+		impl->info.media_type = SPA_MEDIA_TYPE_audio;
+		impl->info.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+	}
+	else if (spa_streq(str, "midi")) {
+		impl->info.media_type = SPA_MEDIA_TYPE_application;
+		impl->info.media_subtype = SPA_MEDIA_SUBTYPE_control;
+	}
+	else {
+		pw_log_error("unsupported media type:%s", str);
+		res = -EINVAL;
+		goto out;
 	}
 
 	switch (impl->info.media_type) {

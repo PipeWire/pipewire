@@ -111,6 +111,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_LOOP		false
 #define DEFAULT_DSCP		34 /* Default to AES-67 AF41 (34) */
 
+#define DEFAULT_TS_OFFSET	-1
+
 #define USAGE	"source.ip=<source IP address, default:"DEFAULT_SOURCE_IP"> "			\
 		"destination.ip=<destination IP address, default:"DEFAULT_DESTINATION_IP"> "	\
  		"destination.port=<int, default random beteen 46000 and 47024> "		\
@@ -395,6 +397,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_properties *props = NULL, *stream_props = NULL;
 	char addr[64];
 	const char *str, *sess_name;
+	int64_t ts_offset;
 	int res = 0;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -460,6 +463,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, "sess.min-ptime");
 	copy_props(impl, props, "sess.max-ptime");
 	copy_props(impl, props, "sess.latency.msec");
+	copy_props(impl, props, "sess.ts-refclk");
 
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;
@@ -483,6 +487,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->ttl = pw_properties_get_uint32(props, "net.ttl", DEFAULT_TTL);
 	impl->mcast_loop = pw_properties_get_bool(props, "net.loop", DEFAULT_LOOP);
 	impl->dscp = pw_properties_get_uint32(props, "net.dscp", DEFAULT_DSCP);
+
+	ts_offset = pw_properties_get_int64(props, "sess.ts-offset", DEFAULT_TS_OFFSET);
+	if (ts_offset == -1)
+		ts_offset = pw_rand32();
+	pw_properties_setf(stream_props, "rtp.sender-ts-offset", "%u", (uint32_t)ts_offset);
 
 	get_ip(&impl->src_addr, addr, sizeof(addr));
 	pw_properties_set(stream_props, "rtp.source.ip", addr);

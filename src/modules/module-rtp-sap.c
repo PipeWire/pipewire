@@ -648,8 +648,9 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 	sdp->ntp = (uint32_t) time(NULL) + 2208988800U;
 	sess->props = props;
 
-	if ((str = pw_properties_get(props, "sess.name")) != NULL)
-		sdp->session_name = strdup(str);
+	if ((str = pw_properties_get(props, "sess.name")) == NULL)
+		str = pw_get_host_name();
+	sdp->session_name = strdup(str);
 
 	if ((str = pw_properties_get(props, "rtp.destination.port")) == NULL)
 		goto error_free;
@@ -763,7 +764,7 @@ static int session_load_source(struct session *session, struct pw_properties *pr
 		return -EINVAL;
 	}
 	if ((str = pw_properties_get(props, "rtp.ts-offset")) != NULL)
-		pw_properties_set(props, "sess.ts-offset", str);
+		fprintf(f, "\"sess.ts-offset\" = %s, ", str);
 
 	fprintf(f, " stream.props = {");
 	pw_properties_serialize_dict(f, &props->dict, 0);

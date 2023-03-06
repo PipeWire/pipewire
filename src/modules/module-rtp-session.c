@@ -64,7 +64,7 @@
  * - `sess.name = <str>`: a session name
  * - `sess.ts-offset = <int>`: an offset to apply to the timestamp, default -1 = random offset
  * - `sess.ts-refclk = <string>`: the name of a reference clock
- * - `sess.media = <string>`: the media type audio|midi, default audio
+ * - `sess.media = <string>`: the media type audio|midi, default midi
  * - `stream.props = {}`: properties to be passed to the stream
  *
  * ## General options
@@ -487,6 +487,7 @@ static struct session *make_session(struct impl *impl, struct pw_properties *pro
 {
 	struct session *sess;
 	const char *str;
+	struct pw_properties *copy;
 
 	sess = calloc(1, sizeof(struct session));
 	if (sess == NULL)
@@ -507,14 +508,28 @@ static struct session *make_session(struct impl *impl, struct pw_properties *pro
 	pw_properties_setf(props, "rtp.sender-ssrc", "%u", sess->ssrc);
 	pw_properties_set(props, "rtp.session", sess->name);
 
+	copy = pw_properties_copy(props);
+
+	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL) {
+		const char *media = NULL;
+
+		str = pw_properties_get(props, "sess.media");
+		if (spa_streq(str, "midi"))
+			media = "Midi";
+		else if (spa_streq(str, "audio"))
+			media = "Audio";
+
+		if (media != NULL) {
+			pw_properties_setf(copy, PW_KEY_MEDIA_CLASS, "%s/Sink", media);
+			pw_properties_setf(props, PW_KEY_MEDIA_CLASS, "%s/Source", media);
+		}
+	}
 	sess->send = rtp_stream_new(impl->core,
-			PW_DIRECTION_INPUT, pw_properties_copy(props),
+			PW_DIRECTION_INPUT, copy,
 			&send_stream_events, sess);
 	sess->recv = rtp_stream_new(impl->core,
-			PW_DIRECTION_OUTPUT, pw_properties_copy(props),
+			PW_DIRECTION_OUTPUT, props,
 			&recv_stream_events, sess);
-
-	pw_properties_free(props);
 
 	return sess;
 error:

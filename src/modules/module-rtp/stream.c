@@ -250,7 +250,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		const struct rtp_stream_events *events, void *data)
 {
 	struct impl *impl;
-	const char *str, *media_class;
+	const char *str;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	uint32_t n_params, min_samples, max_samples;
@@ -301,7 +301,6 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		}
 		impl->stride = impl->format_info->size * impl->info.info.raw.channels;
 		impl->rate = impl->info.info.raw.rate;
-		media_class = direction == PW_DIRECTION_INPUT ? "Audio/Sink" : "Audio/Source";
 		break;
 	case SPA_MEDIA_TYPE_application:
 		impl->format_info = find_audio_format_info(&impl->info);
@@ -314,7 +313,6 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		impl->rate = pw_properties_get_uint32(props, "midi.rate", 10000);
 		if (impl->rate == 0)
 			impl->rate = 10000;
-		media_class = direction == PW_DIRECTION_INPUT ? "Midi/Sink" : "Midi/Source";
 		break;
 	default:
 		spa_assert_not_reached();
@@ -323,8 +321,6 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 
 	pw_properties_setf(props, "rtp.mime", "%s", impl->format_info->mime);
 
-	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
-		pw_properties_set(props, PW_KEY_MEDIA_CLASS, media_class);
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 	if (pw_properties_get(props, PW_KEY_NODE_NETWORK) == NULL)
@@ -337,7 +333,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		impl->ts_offset = pw_properties_get_uint32(props, "rtp.sender-ts-offset", pw_rand32());
 	} else {
 		impl->have_ssrc = pw_properties_fetch_uint32(props, "rtp.receiver-ssrc", &impl->ssrc);
-		if (!pw_properties_fetch_uint32(props, "rtp.receiver-ts-offset", &impl->ts_offset))
+		if (pw_properties_fetch_uint32(props, "rtp.receiver-ts-offset", &impl->ts_offset) < 0)
 			impl->direct_timestamp = false;
 	}
 

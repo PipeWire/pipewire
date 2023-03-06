@@ -99,6 +99,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_CLEANUP_SEC		60
 #define DEFAULT_SOURCE_IP		"224.0.0.56"
 
+#define DEFAULT_TS_OFFSET		-1
+
 #define USAGE   "local.ifname=<local interface name to use> "						\
 		"source.ip=<source IP address, default:"DEFAULT_SOURCE_IP"> "				\
  		"source.port=<int, source port> "							\
@@ -427,6 +429,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	const char *str, *sess_name;
 	struct timespec value, interval;
 	struct pw_properties *props, *stream_props;
+	int64_t ts_offset;
 	int res = 0;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -483,6 +486,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, "sess.min-ptime");
 	copy_props(impl, props, "sess.max-ptime");
 	copy_props(impl, props, "sess.latency.msec");
+	copy_props(impl, props, "sess.ts-direct");
 
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;
@@ -498,6 +502,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_log_error("invalid source.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}
+
+	ts_offset = pw_properties_get_int64(props, "sess.ts-offset", DEFAULT_TS_OFFSET);
+	if (ts_offset == -1)
+		ts_offset = pw_rand32();
+	pw_properties_setf(stream_props, "rtp.receiver-ts-offset", "%u", (uint32_t)ts_offset);
 
 	impl->always_process = pw_properties_get_bool(stream_props,
 			PW_KEY_NODE_ALWAYS_PROCESS, true);

@@ -141,9 +141,9 @@ static int receive_rtp_audio(struct impl *impl, uint8_t *buffer, ssize_t len)
 	write = timestamp + impl->target_buffer;
 
 	if (!impl->have_sync) {
-		pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u direct:%d",
+		pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u target:%u direct:%u",
 				write, impl->seq-1, impl->ts_offset, impl->ssrc,
-				impl->direct_timestamp);
+				impl->target_buffer, impl->direct_timestamp);
 
 		/* we read from timestamp, keeping target_buffer of data
 		 * in the ringbuffer. */

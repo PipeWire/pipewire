@@ -113,6 +113,8 @@ struct impl {
 	struct port port;
 
 	unsigned int started:1;
+	unsigned int start_ready:1;
+	unsigned int transport_started:1;
 	unsigned int following:1;
 	unsigned int matching:1;
 	unsigned int resampling:1;
@@ -231,7 +233,8 @@ static int do_reassign_follower(struct spa_loop *loop,
 	struct port *port = &this->port;
 
 	set_timers(this);
-	spa_bt_decode_buffer_recover(&port->buffer);
+	if (this->transport_started)
+		spa_bt_decode_buffer_recover(&port->buffer);
 	return 0;
 }
 
@@ -496,6 +499,10 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 	uint32_t decoded;
 	uint64_t dt;
 
+	/* Drop data when not started */
+	if (!this->started)
+		return 0;
+
 	if (this->transport == NULL) {
 		spa_log_debug(this->log, "no transport, stop reading");
 		goto stop;
@@ -556,6 +563,9 @@ stop:
 static int setup_matching(struct impl *this)
 {
 	struct port *port = &this->port;
+
+	if (!this->transport_started)
+		port->buffer.corr = 1.0;
 
 	if (this->position && port->rate_match) {
 		port->rate_match->rate = 1 / port->buffer.corr;
@@ -645,30 +655,21 @@ static int do_add_source(struct spa_loop *loop,
 	return 0;
 }
 
-static int do_start(struct impl *this)
+static int transport_start(struct impl *this)
 {
 	struct port *port = &this->port;
-	bool do_accept;
 	int res;
 
 	/* Don't do anything if the node has already started */
-	if (this->started)
+	if (this->transport_started)
 		return 0;
+	if (!this->start_ready)
+		return -EIO;
 
-	this->following = is_following(this);
-
-	spa_log_debug(this->log, "%p: start following:%d",
-			this, this->following);
+	spa_log_debug(this->log, "%p: start transport", this);
 
 	/* Make sure the transport is valid */
 	spa_return_val_if_fail (this->transport != NULL, -EIO);
-
-	/* Do accept if Gateway; otherwise do connect for Head Unit */
-	do_accept = this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY;
-
-	/* acquire the socket fd (false -> connect | true -> accept) */
-	if ((res = spa_bt_transport_acquire(this->transport, do_accept)) < 0)
-		return res;
 
 	/* Reset the buffers and sample count */
 	reset_buffers(port);
@@ -700,6 +701,40 @@ static int do_start(struct impl *this)
 		goto fail;
 	spa_loop_invoke(this->data_loop, do_add_source, 0, NULL, 0, true, this);
 
+	/* Set the started flag */
+	this->transport_started = true;
+
+	return 0;
+
+fail:
+	return res;
+}
+
+static int do_start(struct impl *this)
+{
+	bool do_accept;
+	int res;
+
+	if (this->started)
+		return 0;
+
+	spa_return_val_if_fail(this->transport, -EIO);
+
+	this->following = is_following(this);
+
+	this->start_ready = true;
+
+	spa_log_debug(this->log, "%p: start following:%d", this, this->following);
+
+	/* Do accept if Gateway; otherwise do connect for Head Unit */
+	do_accept = this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY;
+
+	/* acquire the socket fd (false -> connect | true -> accept) */
+	if ((res = spa_bt_transport_acquire(this->transport, do_accept)) < 0) {
+		this->start_ready = false;
+		return res;
+	}
+
 	/* Start timer */
 	this->timer_source.data = this;
 	this->timer_source.fd = this->timerfd;
@@ -709,16 +744,12 @@ static int do_start(struct impl *this)
 	spa_loop_add_source(this->data_loop, &this->timer_source);
 
 	setup_matching(this);
+
 	set_timers(this);
 
-	/* Set the started flag */
 	this->started = true;
 
 	return 0;
-
-fail:
-	spa_bt_transport_release(this->transport);
-	return res;
 }
 
 static int do_remove_source(struct spa_loop *loop,
@@ -731,9 +762,6 @@ static int do_remove_source(struct spa_loop *loop,
 	struct impl *this = user_data;
 	struct itimerspec ts;
 
-	if (this->transport && this->transport->sco_io)
-		spa_bt_sco_io_set_source_cb(this->transport->sco_io, NULL, NULL);
-
 	if (this->timer_source.loop)
 		spa_loop_remove_source(this->data_loop, &this->timer_source);
 	ts.it_value.tv_sec = 0;
@@ -745,26 +773,58 @@ static int do_remove_source(struct spa_loop *loop,
 	return 0;
 }
 
-static int do_stop(struct impl *this)
+static int do_remove_transport_source(struct spa_loop *loop,
+			    bool async,
+			    uint32_t seq,
+			    const void *data,
+			    size_t size,
+			    void *user_data)
+{
+	struct impl *this = user_data;
+
+	this->transport_started = false;
+
+	if (this->transport && this->transport->sco_io)
+		spa_bt_sco_io_set_source_cb(this->transport->sco_io, NULL, NULL);
+
+	return 0;
+}
+
+static void transport_stop(struct impl *this)
 {
 	struct port *port = &this->port;
-	int res = 0;
+
+	if (!this->transport_started)
+		return;
+
+	spa_log_debug(this->log, "sco-source %p: transport stop", this);
+
+	spa_loop_invoke(this->data_loop, do_remove_transport_source, 0, NULL, 0, true, this);
+
+	spa_bt_decode_buffer_clear(&port->buffer);
+}
+
+static int do_stop(struct impl *this)
+{
+	int res;
 
 	if (!this->started)
 		return 0;
 
-	spa_log_debug(this->log, "sco-source %p: stop", this);
+	spa_log_debug(this->log, "%p: stop", this);
+
+	this->start_ready = false;
 
 	spa_loop_invoke(this->data_loop, do_remove_source, 0, NULL, 0, true, this);
 
-	this->started = false;
+	transport_stop(this);
 
-	if (this->transport) {
-		/* Release the transport; it is responsible for closing the fd */
+	if (this->transport)
 		res = spa_bt_transport_release(this->transport);
-	}
+	else
+		res = 0;
 
-	spa_bt_decode_buffer_clear(&port->buffer);
+	this->started = false;
 
 	return res;
 }
@@ -1322,7 +1382,7 @@ static int produce_buffer(struct impl *this)
 	}
 
 	/* Handle buffering */
-	if (this->started)
+	if (this->transport_started)
 		process_buffering(this);
 
 	/* Return if there are no buffers ready to be processed */
@@ -1353,6 +1413,9 @@ static int impl_node_process(void *object)
 	port = &this->port;
 	if ((io = port->io) == NULL)
 		return -EIO;
+
+	if (!this->started || !this->transport_started)
+		return SPA_STATUS_OK;
 
 	spa_log_trace(this->log, "%p status:%d", this, io->status);
 
@@ -1392,6 +1455,30 @@ static const struct spa_node_methods impl_node = {
 	.process = impl_node_process,
 };
 
+static void transport_state_changed(void *data,
+	enum spa_bt_transport_state old,
+	enum spa_bt_transport_state state)
+{
+	struct impl *this = data;
+
+	spa_log_debug(this->log, "%p: transport %p state %d->%d", this, this->transport, old, state);
+
+	if (state == SPA_BT_TRANSPORT_STATE_ACTIVE)
+		transport_start(this);
+	else if (state < SPA_BT_TRANSPORT_STATE_ACTIVE)
+		transport_stop(this);
+
+	if (state == SPA_BT_TRANSPORT_STATE_ERROR) {
+		uint8_t buffer[1024];
+		struct spa_pod_builder b = { 0 };
+
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		spa_node_emit_event(&this->hooks,
+				spa_pod_builder_add_object(&b,
+						SPA_TYPE_EVENT_Node, SPA_NODE_EVENT_Error));
+	}
+}
+
 static int do_transport_destroy(struct spa_loop *loop,
 				bool async,
 				uint32_t seq,
@@ -1413,6 +1500,7 @@ static void transport_destroy(void *data)
 
 static const struct spa_bt_transport_events transport_events = {
 	SPA_VERSION_BT_TRANSPORT_EVENTS,
+	.state_changed = transport_state_changed,
 	.destroy = transport_destroy,
 };
 

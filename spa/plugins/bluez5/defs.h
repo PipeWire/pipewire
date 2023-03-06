@@ -539,9 +539,10 @@ int spa_bt_sco_io_write(struct spa_bt_sco_io *io, uint8_t *data, int size);
 #define SPA_BT_VOLUME_A2DP_MAX	127
 
 enum spa_bt_transport_state {
-        SPA_BT_TRANSPORT_STATE_IDLE,
-        SPA_BT_TRANSPORT_STATE_PENDING,
-        SPA_BT_TRANSPORT_STATE_ACTIVE,
+        SPA_BT_TRANSPORT_STATE_ERROR = -1,
+        SPA_BT_TRANSPORT_STATE_IDLE = 0,
+        SPA_BT_TRANSPORT_STATE_PENDING = 1,
+        SPA_BT_TRANSPORT_STATE_ACTIVE = 2,
 };
 
 struct spa_bt_transport_events {

@@ -122,7 +122,7 @@ extern "C" {
  * metadata of the buffer.
  *
  * The buffer is owned by the stream and stays alive until the
- * remove_buffer event is emitted or the stream is destroyed.
+ * remove_buffer callback has returned or the stream is destroyed.
  *
  * When the buffer has been processed, call \ref pw_stream_queue_buffer()
  * to let PipeWire reuse the buffer.

@@ -196,7 +196,8 @@ struct session {
 	int ck_count;
 	uint64_t next_time;
 
-	uint32_t initiator;
+	uint32_t ctrl_initiator;
+	uint32_t data_initiator;
 	uint32_t remote_ssrc;
 
 	uint32_t ssrc;
@@ -344,7 +345,7 @@ static void session_update_state(struct session *sess, int state)
 	if (sess->state == state)
 		return;
 
-	pw_log_info("session initiator:%08x state:%d", sess->initiator, state);
+	pw_log_info("session ssrc:%08x state:%d", sess->ssrc, state);
 
 	sess->state = state;
 	switch (state) {
@@ -375,7 +376,7 @@ static void send_apple_midi_cmd_in(struct session *sess, bool ctrl)
 	spa_zero(hdr);
 	hdr.cmd = htonl(APPLE_MIDI_CMD_IN);
 	hdr.protocol = htonl(2);
-	hdr.initiator = htonl(sess->initiator);
+	hdr.initiator = htonl(ctrl ? sess->ctrl_initiator : sess->data_initiator);
 	hdr.ssrc = htonl(sess->ssrc);
 
 	iov[0].iov_base = &hdr;
@@ -411,7 +412,7 @@ static void send_apple_midi_cmd_by(struct session *sess, bool ctrl)
 	spa_zero(hdr);
 	hdr.cmd = htonl(APPLE_MIDI_CMD_BY);
 	hdr.protocol = htonl(2);
-	hdr.initiator = htonl(sess->initiator);
+	hdr.initiator = htonl(ctrl ? sess->ctrl_initiator : sess->data_initiator);
 	hdr.ssrc = htonl(sess->ssrc);
 
 	iov[0].iov_base = &hdr;
@@ -432,8 +433,12 @@ static void session_establish(struct session *sess)
 	case SESSION_STATE_INIT:
 		/* we initiate */
 		sess->we_initiated = true;
-		pw_log_info("start session initiator:%08x %u %u", sess->initiator,
+		sess->ctrl_initiator = pw_rand32();
+		sess->data_initiator = pw_rand32();
+
+		pw_log_info("start session SSRC:%08x %u %u", sess->ssrc,
 				sess->ctrl_ready, sess->data_ready);
+
 		if (!sess->ctrl_ready)
 			send_apple_midi_cmd_in(sess, true);
 		else if (!sess->data_ready)
@@ -454,7 +459,7 @@ static void session_stop(struct session *sess)
 {
 	if (!sess->we_initiated)
 		return;
-	pw_log_info("stop session initiator:%08x %u %u", sess->initiator,
+	pw_log_info("stop session SSRC:%08x %u %u", sess->ssrc,
 			sess->ctrl_ready, sess->data_ready);
 	if (sess->ctrl_ready) {
 		send_apple_midi_cmd_by(sess, true);
@@ -591,7 +596,6 @@ static struct session *make_session(struct impl *impl, struct pw_properties *pro
 	impl->n_sessions++;
 
 	sess->impl = impl;
-	sess->initiator = pw_properties_get_uint32(props, "rtp.initiator", pw_rand32());
 	sess->ssrc = pw_rand32();
 
 	str = pw_properties_get(props, "sess.name");
@@ -640,17 +644,19 @@ static struct session *find_session_by_addr_name(struct impl *impl,
 {
 	struct session *sess;
 	spa_list_for_each(sess, &impl->sessions, link) {
+		pw_log_info("%p '%s' '%s'", sess, name, sess->name);
 		if (cmp_ip(sa, &sess->ctrl_addr) &&
 		    spa_streq(sess->name, name))
 			return sess;
 	}
 	return NULL;
 }
-static struct session *find_session_by_initiator(struct impl *impl, uint32_t initiator)
+static struct session *find_session_by_initiator(struct impl *impl, uint32_t initiator, bool ctrl)
 {
 	struct session *sess;
 	spa_list_for_each(sess, &impl->sessions, link) {
-		if (sess->initiator == initiator)
+		uint32_t target = ctrl ? sess->ctrl_initiator : sess->data_initiator;
+		if (target == initiator)
 			return sess;
 	}
 	return NULL;
@@ -683,25 +689,24 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 	ssrc = ntohl(hdr->ssrc);
 
 	get_ip(sa, addr, sizeof(addr), &port);
-	pw_log_info("IN from %s:%d %s %08x", addr, port, hdr->name, ssrc);
-
-	sess = find_session_by_initiator(impl, initiator);
-	if (sess == NULL)
-		sess = find_session_by_addr_name(impl, sa, hdr->name);
+	pw_log_info("IN from %s:%d %s ssrc:%08x initiator:%08x",
+			addr, port, hdr->name, ssrc, initiator);
 
 	if (ctrl) {
+		sess = find_session_by_addr_name(impl, sa, hdr->name);
 		if (sess == NULL) {
-			pw_log_warn("receive ctrl IN from nonexisting session %08x", initiator);
+			pw_log_warn("receive ctrl IN from nonexisting session %s", hdr->name);
 			success = false;
 		} else {
-			if (sess->ctrl_ready) {
-				pw_log_warn("receive ctrl IN from existing session %08x", initiator);
-				success = false;
+			if (sess->ctrl_ready &&
+			    (sess->remote_ssrc != ssrc || sess->ctrl_initiator != initiator)) {
+				pw_log_warn("receive ctrl IN from existing initiator:%08x", initiator);
 			}
 		}
 		if (success) {
 			sess->we_initiated = false;
-			sess->initiator = initiator;
+			sess->remote_ssrc = ssrc;
+			sess->ctrl_initiator = initiator;
 			sess->ctrl_addr = *sa;
 			sess->ctrl_len = salen;
 			sess->ctrl_ready = true;
@@ -709,12 +714,18 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 		}
 	}
 	else {
+		sess = find_session_by_ssrc(impl, ssrc);
 		if (sess == NULL) {
-			pw_log_warn("receive data IN from nonexisting session %08x", initiator);
+			pw_log_warn("receive data IN from nonexisting ssrc:%08x", ssrc);
 			success = false;
 		} else {
-			pw_log_info("got data IN request %08x, session established", initiator);
-			sess->remote_ssrc = ssrc;
+			if (sess->data_ready) {
+				pw_log_warn("receive data IN from existing initiator:%08x", initiator);
+			}
+		}
+		if (success) {
+			pw_log_info("got data IN initiator:%08x, session established", initiator);
+			sess->data_initiator = initiator;
 			sess->data_addr = *sa;
 			sess->data_len = salen;
 			sess->data_ready = true;
@@ -752,7 +763,7 @@ static void parse_apple_midi_cmd_ok(struct impl *impl, bool ctrl, uint8_t *buffe
 	uint32_t initiator = ntohl(hdr->initiator);
 	struct session *sess;
 
-	sess = find_session_by_initiator(impl, initiator);
+	sess = find_session_by_initiator(impl, initiator, ctrl);
 	if (sess == NULL || !sess->we_initiated) {
 		pw_log_warn("received OK from nonexisting session %u", initiator);
 		return;
@@ -848,7 +859,7 @@ static void parse_apple_midi_cmd_by(struct impl *impl, bool ctrl, uint8_t *buffe
 	uint32_t initiator = ntohl(hdr->initiator);
 	struct session *sess;
 
-	sess = find_session_by_initiator(impl, initiator);
+	sess = find_session_by_initiator(impl, initiator, ctrl);
 	if (sess == NULL || sess->we_initiated) {
 		pw_log_warn("received BY from nonexisting initiator %08x", initiator);
 		return;
@@ -920,6 +931,7 @@ receive_error:
 	return;
 short_packet:
 	pw_log_warn("short packet received");
+	spa_debug_mem(0, buffer, len);
 	return;
 }
 
@@ -964,6 +976,7 @@ receive_error:
 	return;
 short_packet:
 	pw_log_warn("short packet received");
+	spa_debug_mem(0, buffer, len);
 	return;
 unknown_ssrc:
 	pw_log_debug("unknown SSRC %08x", ssrc);
@@ -1284,7 +1297,6 @@ static struct service *make_service(struct impl *impl, const struct service_info
 
 	s->impl = impl;
 	spa_list_append(&impl->service_list, &s->link);
-
 
 	s->info.interface = info->interface;
 	s->info.protocol = info->protocol;

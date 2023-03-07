@@ -796,7 +796,7 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 
 		spa_list_remove(&n->sort_link);
 		spa_list_append(collect, &n->sort_link);
-		n->passive = true;
+		n->passive = !n->always_process;
 
 		if (!n->active)
 			continue;
@@ -814,7 +814,7 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 					continue;
 
 				if (!l->passive)
-					node->passive = n->passive = false;
+					n->passive = false;
 
 				if (!t->visited) {
 					t->visited = true;
@@ -835,7 +835,7 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 					continue;
 
 				if (!l->passive)
-					node->passive = n->passive = false;
+					n->passive = false;
 
 				if (!t->visited) {
 					t->visited = true;
@@ -868,7 +868,10 @@ static void move_to_driver(struct pw_context *context, struct spa_list *nodes,
 	pw_log_debug("driver: %p %s", driver, driver->name);
 	spa_list_consume(n, nodes, sort_link) {
 		spa_list_remove(&n->sort_link);
-		pw_log_debug(" follower: %p %s", n, n->name);
+		if (!n->passive)
+			driver->passive = false;
+		pw_log_debug(" follower: %p %s passive:%u driver-passive:%u", n, n->name,
+				n->passive, driver->passive);
 		pw_impl_node_set_driver(n, driver);
 	}
 }
@@ -1175,14 +1178,14 @@ again:
 
 		driver = NULL;
 		spa_list_for_each(t, &collect, sort_link) {
-			/* is any active and want a driver or it want process */
-			if ((t->want_driver && t->active && !n->passive) ||
-			    t->always_process)
+			/* is any active and want a driver */
+			if (t->want_driver && t->active && !t->passive) {
 				driver = target;
+				break;
+			}
 		}
 		if (driver != NULL) {
 			/* driver needed for this group */
-			driver->passive = false;
 			move_to_driver(context, &collect, driver);
 		} else {
 			/* no driver, make sure the nodes stops */

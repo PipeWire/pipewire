@@ -466,3 +466,16 @@ int rtp_stream_receive_packet(struct rtp_stream *s, uint8_t *buffer, size_t len)
 	struct impl *impl = (struct impl*)s;
 	return impl->receive_rtp(impl, buffer, len);
 }
+
+uint64_t rtp_stream_get_time(struct rtp_stream *s, uint64_t *rate)
+{
+	struct impl *impl = (struct impl*)s;
+	struct spa_io_position *pos = impl->io_position;
+
+	if (pos == NULL)
+		return -EIO;
+
+	*rate = impl->rate;
+	return pos->clock.position * impl->rate *
+		pos->clock.rate.num / pos->clock.rate.denom;
+}

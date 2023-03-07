@@ -42,6 +42,8 @@ void rtp_stream_destroy(struct rtp_stream *s);
 
 int rtp_stream_receive_packet(struct rtp_stream *s, uint8_t *buffer, size_t len);
 
+uint64_t rtp_stream_get_time(struct rtp_stream *s, uint64_t *rate);
+
 
 #ifdef __cplusplus
 }

@@ -151,8 +151,6 @@ struct impl {
 	struct spa_hook core_listener;
 	struct spa_hook core_proxy_listener;
 
-	struct spa_source *timer;
-
 	struct pw_properties *stream_props;
 	struct rtp_stream *stream;
 
@@ -337,9 +335,6 @@ static void impl_destroy(struct impl *impl)
 
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
-
-	if (impl->timer)
-		pw_loop_destroy_source(impl->loop, impl->timer);
 
 	if (impl->rtp_fd != -1)
 		close(impl->rtp_fd);

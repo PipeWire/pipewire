@@ -266,13 +266,14 @@ static void process_audio_capture(void *data)
 	wanted = size / stride;
 
 	filled = spa_ringbuffer_get_write_index(&impl->ring, &expected_timestamp);
-	if (SPA_LIKELY(impl->io_position))
-		timestamp = impl->io_position->clock.position;
-	else
+	if (SPA_LIKELY(impl->io_position)) {
+		uint32_t rate = impl->io_position->clock.rate.denom;
+		timestamp = impl->io_position->clock.position * impl->rate / rate;
+	} else
 		timestamp = expected_timestamp;
 
 	if (impl->have_sync) {
-		if (expected_timestamp != timestamp) {
+		if (SPA_ABS((int32_t)expected_timestamp - (int32_t)timestamp) > 32) {
 			pw_log_warn("expected %u != timestamp %u", expected_timestamp, timestamp);
 			impl->have_sync = false;
 		} else if (filled + wanted > (int32_t)(BUFFER_SIZE / stride)) {

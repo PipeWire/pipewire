@@ -388,8 +388,10 @@ static inline uint32_t update_requested(struct stream *impl)
 	struct buffer *buffer;
 	struct spa_io_rate_match *r = impl->rate_match;
 
-	if (spa_ringbuffer_get_read_index(&impl->dequeued.ring, &index) < 1)
-		return 0;
+	if (spa_ringbuffer_get_read_index(&impl->dequeued.ring, &index) < 1) {
+		pw_log_debug("%p: no free buffers %d", impl, impl->n_buffers);
+		return impl->using_trigger ? 1 : 0;
+	}
 
 	id = impl->dequeued.ids[index & MASK_BUFFERS];
 	buffer = &impl->buffers[id];

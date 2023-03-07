@@ -1993,12 +1993,15 @@ static struct buffer *peek_buffer(struct impl *this, struct port *port)
 {
 	struct buffer *b;
 
-	if (spa_list_is_empty(&port->queue))
+	if (spa_list_is_empty(&port->queue)) {
+		spa_log_trace_fp(this->log, "%p: out of buffers on port %d %d",
+			this, port->id, port->n_buffers);
 		return NULL;
+	}
 
 	b = spa_list_first(&port->queue, struct buffer, link);
-	spa_log_trace_fp(this->log, "%p: peek buffer %d on port %d %u",
-			this, b->id, port->id, b->flags);
+	spa_log_trace_fp(this->log, "%p: peek buffer %d/%d on port %d %u",
+			this, b->id, port->n_buffers, port->id, b->flags);
 	return b;
 }
 

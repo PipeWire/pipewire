@@ -1108,7 +1108,7 @@ static inline int process_node(void *data)
 	a->status = PW_NODE_ACTIVATION_AWAKE;
 	a->awake_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
-	pw_log_trace_fp("%p: process %"PRIu64, this, a->awake_time);
+	pw_log_trace_fp("%p: %s process %"PRIu64, this, this->name, a->awake_time);
 
 	/* when transport sync is not supported, just clear the flag */
 	if (!this->transport_sync)

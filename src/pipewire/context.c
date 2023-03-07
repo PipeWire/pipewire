@@ -792,11 +792,11 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 	/* now follow all the links from the nodes in the queue
 	 * and add the peers to the queue. */
 	spa_list_consume(n, &queue, sort_link) {
-		pw_log_debug(" next node %p: '%s'", n, n->name);
-
 		spa_list_remove(&n->sort_link);
 		spa_list_append(collect, &n->sort_link);
 		n->passive = !n->always_process;
+
+		pw_log_debug(" next node %p: '%s' passive:%u", n, n->name, n->passive);
 
 		if (!n->active)
 			continue;

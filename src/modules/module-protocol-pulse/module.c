@@ -141,14 +141,14 @@ void module_args_add_props(struct pw_properties *props, const char *str)
 			f = ' ';
 		}
 		v = p;
-		for (e = p; *e ; e++) {
-			if (*e == f)
+		for (e = p; *p ;) {
+			if (*p == f)
 				break;
-			if (*e == '\\')
-				e++;
+			if (*p == '\\')
+				p++;
+			*e++ = *p++;
 		}
-		p = e;
-		if (*e != '\0')
+		if (*p != '\0')
 			p++;
 		*e = '\0';
 

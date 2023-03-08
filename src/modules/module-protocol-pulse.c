@@ -194,6 +194,23 @@
  * VMs usually can't support the low latency settings that are possible on real
  * hardware.
  *
+ * ## Command execution
+ *
+ * As part of the server startup sequence, a set of commands can be executed.
+ * Currently, this can be used to load additional modules into the server.
+ *
+ *\code{.unparsed}
+ * # Extra commands can be executed here.
+ * #   load-module : loads a module with args and flags
+ * #      args = "<module-name> <module-args>"
+ * #      flags = [ "no-fail" ]
+ * pulse.cmd = [
+ *     { cmd = "load-module" args = "module-always-sink" flags = [ ] }
+ *     #{ cmd = "load-module" args = "module-switch-on-connect" }
+ *     #{ cmd = "load-module" args = "module-gsettings" flags = [ "nofail" ] }
+ * ]
+ *\endcode
+ *
  * ## Stream settings and rules
  *
  * Streams created by module-protocol-pulse will use the stream.properties

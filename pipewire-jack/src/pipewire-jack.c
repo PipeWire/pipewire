@@ -384,6 +384,7 @@ struct client {
 	int rt_max;
 	unsigned int fix_midi_events:1;
 	unsigned int global_buffer_size:1;
+	unsigned int passive_links:1;
 	char filter_char;
 
 	jack_position_t jack_position;
@@ -3406,7 +3407,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	if ((str = getenv("PIPEWIRE_RATE")) != NULL)
 		pw_properties_set(client->props, PW_KEY_NODE_RATE, str);
 	if ((str = getenv("PIPEWIRE_LINK_PASSIVE")) != NULL)
-		pw_properties_set(client->props, PW_KEY_NODE_PASSIVE, str);
+		pw_properties_set(client->props, "jack.passive-links", str);
 
 	if ((str = pw_properties_get(client->props, PW_KEY_NODE_LATENCY)) != NULL) {
 		uint32_t num, denom;
@@ -3463,6 +3464,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->merge_monitor = pw_properties_get_bool(client->props, "jack.merge-monitor", true);
 	client->short_name = pw_properties_get_bool(client->props, "jack.short-name", false);
 	client->filter_name = pw_properties_get_bool(client->props, "jack.filter-name", false);
+	client->passive_links = pw_properties_get_bool(client->props, "jack.passive-links", false);
 	client->filter_char = ' ';
 	if ((str = pw_properties_get(client->props, "jack.filter-char")) != NULL && str[0] != '\0')
 		client->filter_char = str[0];
@@ -5155,7 +5157,6 @@ int jack_connect (jack_client_t *client,
 	struct pw_proxy *proxy;
 	struct spa_hook listener;
 	char val[4][16];
-	const char *str;
 	int res, link_res = 0;
 
 	spa_return_val_if_fail(c != NULL, EINVAL);
@@ -5190,8 +5191,7 @@ int jack_connect (jack_client_t *client,
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_INPUT_NODE, val[2]);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_INPUT_PORT, val[3]);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_OBJECT_LINGER, "true");
-	if ((str = pw_properties_get(c->props, PW_KEY_NODE_PASSIVE)) != NULL &&
-	    pw_properties_parse_bool(str))
+	if (c->passive_links)
 		items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_PASSIVE, "true");
 
 	proxy = pw_core_create_object(c->core,

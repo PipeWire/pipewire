@@ -114,8 +114,9 @@ jack.rules = [
     {   matches = [ { application.process.binary = "qsynth" } ]
         actions = {
             update-props = {
+                node.always-process = false # makes qsynth idle
                 node.pause-on-idle = false  # makes audio fade out when idle
-                node.passive = true         # makes the sink and qsynth suspend
+                node.passive = out          # makes the sink and qsynth suspend
             }
         }
     }

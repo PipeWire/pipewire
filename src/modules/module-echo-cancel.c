@@ -44,6 +44,40 @@
  * virtual `echo-cancel-capture` source and `echo-cancel-playback` sink
  * nodes and the associated streams.
  *
+ * The echo-cancel module is mostly used in video or audio conference
+ * applications. When the other participants talk and the audio is going out to
+ * the speakers, the signal will be picked up again by the microphone and sent
+ * back to the other participants (along with your talking), resulting in an
+ * echo. This is annoying because the other participants will hear their own
+ * echo from you.
+ *
+ * Conceptually the echo-canceler is composed of 4 streams:
+ *
+ *\code{.unparsed}
+ * .--------.     .---------.     .--------.     .----------.     .-------.
+ * |  mic   | --> | capture | --> |        | --> |  source  | --> |  app  |
+ * '--------'     '---------'     | echo   |     '----------'     '-------'
+ *                                | cancel |
+ * .--------.     .---------.     |        |     .----------.     .---------.
+ * |  app   | --> |  sink   | --> |        | --> | playback | --> | speaker |
+ * '--------'     '---------'     '--------'     '----------'     '---------'
+ *\endcode
+
+ * - A capture stream that captures audio from a microphone.
+ * - A Sink that takes the signal containing the data that should be canceled
+ *   out from the capture stream. This is where the application (video conference
+ *   application) send the audio to and it contains the signal from the other
+ *   participants that are speaking and that needs to be cancelled out.
+ * - A playback stream that just passes the signal from the Sink to the speaker.
+ *   This is so that you can hear the other participants. It is also the signal
+ *   that gets picked up by the microphone and that eventually needs to be
+ *   removed again.
+ * - A Source that exposes the echo-canceled data captured from the capture
+ *   stream. The data from the sink stream and capture stream are correlated and
+ *   the signal from the sink stream is removed from the capture stream data.
+ *   This data then goes into the application (the conference application) and
+ *   does not contain the echo from the other participants anymore.
+ *
  * ## Module Options
  *
  * Options specific to the behavior of this module
@@ -103,13 +137,6 @@
  */
 
 /**
- * .--------.     .---------.     .--------.     .----------.     .-------.
- * | source | --> | capture | --> |        | --> |  source  | --> |  app  |
- * '--------'     '---------'     | echo   |     '----------'     '-------'
- *                                | cancel |
- * .--------.     .---------.     |        |     .----------.     .--------.
- * |  app   | --> |  sink   | --> |        | --> | playback | --> |  sink  |
- * '--------'     '---------'     '--------'     '----------'     '--------'
  */
 #define NAME "echo-cancel"
 

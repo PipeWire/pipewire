@@ -461,6 +461,8 @@ static int suspend_node(struct pw_impl_node *this)
 static void
 clear_info(struct pw_impl_node *this)
 {
+	free(this->group);
+	free(this->link_group);
 	free(this->name);
 	free((char*)this->info.error);
 }
@@ -927,16 +929,23 @@ static void check_properties(struct pw_impl_node *node)
 		node->rt.activation->state[0].required++;
 
 	/* group defines what nodes are scheduled together */
-	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_GROUP)) == NULL)
-		str = "";
-
+	str = pw_properties_get(node->properties, PW_KEY_NODE_GROUP);
 	if (!spa_streq(str, node->group)) {
 		pw_log_info("%p: group '%s'->'%s'", node, node->group, str);
-		snprintf(node->group, sizeof(node->group), "%s", str);
+		free(node->group);
+		node->group = str ? strdup(str) : NULL;
 		node->freewheel = spa_streq(node->group, "pipewire.freewheel");
 		recalc_reason = "group changed";
 	}
 
+	/* link group defines what nodes are logically linked together */
+	str = pw_properties_get(node->properties, PW_KEY_NODE_LINK_GROUP);
+	if (!spa_streq(str, node->link_group)) {
+		pw_log_info("%p: link group '%s'->'%s'", node, node->link_group, str);
+		free(node->link_group);
+		node->link_group = str ? strdup(str) : NULL;
+		recalc_reason = "link group changed";
+	}
 
 	node->want_driver = pw_properties_get_bool(node->properties, PW_KEY_NODE_WANT_DRIVER, false);
 	node->always_process = pw_properties_get_bool(node->properties, PW_KEY_NODE_ALWAYS_PROCESS, false);

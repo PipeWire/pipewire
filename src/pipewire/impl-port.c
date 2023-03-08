@@ -999,9 +999,17 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 	}
 	else {
 		dir = port->direction == PW_DIRECTION_INPUT ? "in" : "out";
-
 	}
 	pw_properties_set(port->properties, PW_KEY_PORT_DIRECTION, dir);
+
+	/* inherit passive state from parent node */
+	if (port->direction == PW_DIRECTION_INPUT)
+		port->passive = node->in_passive;
+	else
+		port->passive = node->out_passive;
+	/* override with specific port property if available */
+	port->passive = pw_properties_get_bool(port->properties, PW_KEY_PORT_PASSIVE,
+			port->passive);
 
 	if (media_class != NULL &&
 	    (strstr(media_class, "Sink") != NULL ||

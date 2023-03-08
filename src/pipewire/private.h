@@ -686,7 +686,8 @@ struct pw_impl_node {
 					  *  is selected to drive the graph */
 	unsigned int visited:1;		/**< for sorting */
 	unsigned int want_driver:1;	/**< this node wants to be assigned to a driver */
-	unsigned int passive:1;		/**< node links should be passive */
+	unsigned int in_passive:1;	/**< node input links should be passive */
+	unsigned int out_passive:1;	/**< node output links should be passive */
 	unsigned int runnable:1;	/**< node is runnable */
 	unsigned int freewheel:1;	/**< if this is the freewheel driver */
 	unsigned int loopchecked:1;	/**< for feedback loop checking */
@@ -859,6 +860,7 @@ struct pw_impl_port {
 	} rt;					/**< data only accessed from the data thread */
 	unsigned int added:1;
 	unsigned int destroying:1;
+	unsigned int passive:1;
 	int busy_count;
 
 	struct spa_latency_info latency[2];	/**< latencies */

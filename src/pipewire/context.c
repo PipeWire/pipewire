@@ -794,9 +794,9 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 	spa_list_consume(n, &queue, sort_link) {
 		spa_list_remove(&n->sort_link);
 		spa_list_append(collect, &n->sort_link);
-		n->passive = !n->always_process;
+		n->runnable = n->always_process;
 
-		pw_log_debug(" next node %p: '%s' passive:%u", n, n->name, n->passive);
+		pw_log_debug(" next node %p: '%s' runnable:%u", n, n->name, n->runnable);
 
 		if (!n->active)
 			continue;
@@ -814,7 +814,7 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 					continue;
 
 				if (!l->passive)
-					n->passive = false;
+					n->runnable = true;
 
 				if (!t->visited) {
 					t->visited = true;
@@ -835,7 +835,7 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 					continue;
 
 				if (!l->passive)
-					n->passive = false;
+					n->runnable = true;
 
 				if (!t->visited) {
 					t->visited = true;
@@ -865,13 +865,13 @@ static void move_to_driver(struct pw_context *context, struct spa_list *nodes,
 		struct pw_impl_node *driver)
 {
 	struct pw_impl_node *n;
-	pw_log_debug("driver: %p %s", driver, driver->name);
+	pw_log_debug("driver: %p %s runnable:%u", driver, driver->name, driver->runnable);
 	spa_list_consume(n, nodes, sort_link) {
 		spa_list_remove(&n->sort_link);
-		if (!n->passive)
-			driver->passive = false;
-		pw_log_debug(" follower: %p %s passive:%u driver-passive:%u", n, n->name,
-				n->passive, driver->passive);
+		if (n->runnable)
+			driver->runnable = true;
+		pw_log_debug(" follower: %p %s runnable:%u driver-runnable:%u", n, n->name,
+				n->runnable, driver->runnable);
 		pw_impl_node_set_driver(n, driver);
 	}
 }
@@ -1133,7 +1133,7 @@ again:
 		if (fallback == NULL)
 			fallback = n;
 
-		if (n->passive)
+		if (!n->runnable)
 			continue;
 
 		spa_list_for_each(s, &n->follower_list, follower_link) {
@@ -1179,7 +1179,7 @@ again:
 		driver = NULL;
 		spa_list_for_each(t, &collect, sort_link) {
 			/* is any active and want a driver */
-			if (t->want_driver && t->active && !t->passive) {
+			if (t->want_driver && t->active && t->runnable) {
 				driver = target;
 				break;
 			}
@@ -1267,10 +1267,10 @@ again:
 				rate = s->rate;
 
 			if (s->active)
-				running = !n->passive;
+				running = n->runnable;
 
-			pw_log_debug("%p: follower %p running:%d passive:%d rate:%u/%u latency %u/%u '%s'",
-				context, s, running, s->passive, rate.num, rate.denom,
+			pw_log_debug("%p: follower %p running:%d runnable:%d rate:%u/%u latency %u/%u '%s'",
+				context, s, running, s->runnable, rate.num, rate.denom,
 				latency.num, latency.denom, s->name);
 
 			s->moved = false;
@@ -1379,8 +1379,8 @@ again:
 			n->current_pending = false;
 		}
 
-		pw_log_debug("%p: driver %p running:%d passive:%d quantum:%u '%s'",
-				context, n, running, n->passive, quantum, n->name);
+		pw_log_debug("%p: driver %p running:%d runnable:%d quantum:%u '%s'",
+				context, n, running, n->runnable, quantum, n->name);
 
 		/* first change the node states of the followers to the new target */
 		spa_list_for_each(s, &n->follower_list, follower_link) {

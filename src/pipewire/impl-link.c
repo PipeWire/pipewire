@@ -759,9 +759,9 @@ int pw_impl_link_prepare(struct pw_impl_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
-	pw_log_debug("%p: prepared:%d preparing:%d in_active:%d out_active:%d",
+	pw_log_debug("%p: prepared:%d preparing:%d in_active:%d out_active:%d passive:%u",
 			this, this->prepared, this->preparing,
-			impl->inode->active, impl->onode->active);
+			impl->inode->active, impl->onode->active, this->passive);
 
 	if (!impl->inode->active || !impl->onode->active)
 		return 0;

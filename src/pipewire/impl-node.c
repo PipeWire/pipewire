@@ -947,6 +947,7 @@ static void check_properties(struct pw_impl_node *node)
 		recalc_reason = "link group changed";
 	}
 
+	node->passive = pw_properties_get_bool(node->properties, PW_KEY_NODE_PASSIVE, false);
 	node->want_driver = pw_properties_get_bool(node->properties, PW_KEY_NODE_WANT_DRIVER, false);
 	node->always_process = pw_properties_get_bool(node->properties, PW_KEY_NODE_ALWAYS_PROCESS, false);
 

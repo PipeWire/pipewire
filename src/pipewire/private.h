@@ -686,6 +686,7 @@ struct pw_impl_node {
 					  *  is selected to drive the graph */
 	unsigned int visited:1;		/**< for sorting */
 	unsigned int want_driver:1;	/**< this node wants to be assigned to a driver */
+	unsigned int passive:1;		/**< node links should be passive */
 	unsigned int runnable:1;	/**< node is runnable */
 	unsigned int freewheel:1;	/**< if this is the freewheel driver */
 	unsigned int loopchecked:1;	/**< for feedback loop checking */

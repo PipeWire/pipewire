@@ -95,12 +95,12 @@ pulse.properties = {
         #  client.access = "restricted"     # permissions for clients
         #}
     ]
-    #pulse.min.req          = 128/48000     # 2.6ms
+    #pulse.min.req          = 128/48000     # 2.7ms
     #pulse.default.req      = 960/48000     # 20 milliseconds
-    #pulse.min.frag         = 128/48000     # 2.6ms
+    #pulse.min.frag         = 128/48000     # 2.7ms
     #pulse.default.frag     = 96000/48000   # 2 seconds
     #pulse.default.tlength  = 96000/48000   # 2 seconds
-    #pulse.min.quantum      = 128/48000     # 5ms
+    #pulse.min.quantum      = 128/48000     # 2.7ms
     #pulse.idle.timeout     = 0             # don't pause after underruns
     #pulse.default.format   = F32
     #pulse.default.position = [ FL FR ]

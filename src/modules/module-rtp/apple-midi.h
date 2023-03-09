@@ -32,11 +32,11 @@ struct rtp_apple_midi_ck {
 	uint32_t ts3_l;
 } __attribute__ ((packed));
 
-#define APPLE_MIDI_CMD_IN	((0xffff << 16) | 'I'<<8 | 'N')
-#define APPLE_MIDI_CMD_NO	((0xffff << 16) | 'N'<<8 | 'O')
-#define APPLE_MIDI_CMD_OK	((0xffff << 16) | 'O'<<8 | 'K')
-#define APPLE_MIDI_CMD_CK	((0xffff << 16) | 'C'<<8 | 'K')
-#define APPLE_MIDI_CMD_BY	((0xffff << 16) | 'B'<<8 | 'Y')
+#define APPLE_MIDI_CMD_IN	(0xffff0000 | 'I'<<8 | 'N')
+#define APPLE_MIDI_CMD_NO	(0xffff0000 | 'N'<<8 | 'O')
+#define APPLE_MIDI_CMD_OK	(0xffff0000 | 'O'<<8 | 'K')
+#define APPLE_MIDI_CMD_CK	(0xffff0000 | 'C'<<8 | 'K')
+#define APPLE_MIDI_CMD_BY	(0xffff0000 | 'B'<<8 | 'Y')
 
 #ifdef __cplusplus
 }

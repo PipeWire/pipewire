@@ -768,7 +768,8 @@ error:
 static int ensure_state(struct pw_impl_node *node, bool running)
 {
 	enum pw_node_state state = node->info.state;
-	if (node->active && !SPA_FLAG_IS_SET(node->spa_flags, SPA_NODE_FLAG_NEED_CONFIGURE) && running)
+	if (node->active && node->runnable &&
+	    !SPA_FLAG_IS_SET(node->spa_flags, SPA_NODE_FLAG_NEED_CONFIGURE) && running)
 		state = PW_NODE_STATE_RUNNING;
 	else if (state > PW_NODE_STATE_IDLE)
 		state = PW_NODE_STATE_IDLE;
@@ -840,6 +841,31 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 					t->visited = true;
 					spa_list_append(&queue, &t->sort_link);
 				}
+			}
+		}
+		/* go through all the nodes that are linked together in some way.
+		 * They inherit the runnable flag and are moved to the same driver. */
+		if (n->link_group != NULL) {
+			spa_list_for_each(t, &context->node_list, link) {
+				if (t->exported || !t->active)
+					continue;
+				/* don't care if our state won't change below. */
+				if ((t->runnable || !n->runnable) && t->visited)
+					continue;
+				if (!spa_streq(t->link_group, n->link_group))
+					continue;
+
+				/* All nodes from the same link group inherit the runnable
+				 * flag. */
+				t->runnable |= n->runnable;
+				if (!t->visited) {
+					/* if we did not visit this node, add it to the same
+					 * driver */
+					t->visited = true;
+					spa_list_append(&queue, &t->sort_link);
+				}
+				pw_log_debug("%p: %s join link group %s runnable:%u",
+						t, t->name, t->link_group, t->runnable);
 			}
 		}
 		/* now go through all the nodes that have the same group and

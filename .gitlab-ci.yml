@@ -179,7 +179,7 @@ include:
     - echo "Building with meson options $MESON_OPTIONS"
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
     - ninja $NINJA_ARGS -C "$BUILD_DIR"
-    - ninja $NINJA_ARGS -C "$BUILD_DIR" test
+    - meson test -C "$BUILD_DIR" --no-rebuild
     - ninja $NINJA_ARGS -C "$BUILD_DIR" install
   artifacts:
     name: pipewire-$CI_COMMIT_SHA
@@ -314,7 +314,7 @@ build_with_custom_options:
     - echo "Building with -D$MESON_OPTION=$MESON_OPTION_VALUE"
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" "-D$MESON_OPTION=$MESON_OPTION_VALUE" -Dsession-managers=[]
     - ninja $NINJA_ARGS -C "$BUILD_DIR"
-    - ninja $NINJA_ARGS -C "$BUILD_DIR" test
+    - meson test -C "$BUILD_DIR" --no-rebuild
 
 # A release build with NDEBUG, all options on auto() but tests explicitly
 # enabled. This should show issues with tests failing due to different

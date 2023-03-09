@@ -25,7 +25,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2023-01-18.0'
+    FDO_DISTRIBUTION_TAG: '2023-03-09.0'
     FDO_DISTRIBUTION_VERSION: '35'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
@@ -44,10 +44,12 @@ include:
       gstreamer1-devel
       gstreamer1-plugins-base-devel
       jack-audio-connection-kit-devel
+      libasan
       libcanberra-devel
       libldac-devel
       libmysofa-devel
       libsndfile-devel
+      libubsan
       libusb-devel
       lilv-devel
       libv4l-devel
@@ -313,6 +315,15 @@ build_with_custom_options:
   script:
     - echo "Building with -D$MESON_OPTION=$MESON_OPTION_VALUE"
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" "-D$MESON_OPTION=$MESON_OPTION_VALUE" -Dsession-managers=[]
+    - meson compile -C "$BUILD_DIR" $COMPILE_ARGS
+    - meson test -C "$BUILD_DIR" --no-rebuild
+
+build_with_asan_ubsan:
+  extends:
+    - .build_on_fedora
+  script:
+    - echo "Building with ASan and UBSan"
+    - meson setup "$BUILD_DIR" --prefix="$PREFIX" -D debug=true -D optimization=g -D b_sanitize=address,undefined -D session-managers=[]
     - meson compile -C "$BUILD_DIR" $COMPILE_ARGS
     - meson test -C "$BUILD_DIR" --no-rebuild
 

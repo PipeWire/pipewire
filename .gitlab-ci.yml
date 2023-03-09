@@ -177,7 +177,7 @@ include:
       fi
   script:
     - echo "Building with meson options $MESON_OPTIONS"
-    - meson "$BUILD_DIR" . --prefix="$PREFIX" $MESON_OPTIONS
+    - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
     - ninja $NINJA_ARGS -C "$BUILD_DIR"
     - ninja $NINJA_ARGS -C "$BUILD_DIR" test
     - ninja $NINJA_ARGS -C "$BUILD_DIR" install
@@ -312,7 +312,7 @@ build_with_custom_options:
         MESON_OPTION_VALUE: [enabled, disabled]
   script:
     - echo "Building with -D$MESON_OPTION=$MESON_OPTION_VALUE"
-    - meson "$BUILD_DIR" . --prefix="$PREFIX" "-D$MESON_OPTION=$MESON_OPTION_VALUE" -Dsession-managers=[]
+    - meson setup "$BUILD_DIR" --prefix="$PREFIX" "-D$MESON_OPTION=$MESON_OPTION_VALUE" -Dsession-managers=[]
     - ninja $NINJA_ARGS -C "$BUILD_DIR"
     - ninja $NINJA_ARGS -C "$BUILD_DIR" test
 
@@ -333,7 +333,7 @@ build_session_managers:
     - .build_on_fedora
   script:
     - echo "Building with meson options $MESON_OPTIONS"
-    - meson "$BUILD_DIR" . --prefix="$PREFIX" $MESON_OPTIONS
+    - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
     - ninja $NINJA_ARGS -C "$BUILD_DIR"
     - ninja $NINJA_ARGS -C "$BUILD_DIR" install
   variables:
@@ -349,7 +349,7 @@ build_meson_prerelease:
   script:
     - pip3 install --upgrade --pre meson
     - echo "Building with meson options $MESON_OPTIONS"
-    - meson "$BUILD_DIR" . --prefix="$PREFIX" $MESON_OPTIONS
+    - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
     - ninja $NINJA_ARGS -C "$BUILD_DIR"
     - ninja $NINJA_ARGS -C "$BUILD_DIR" install
   variables:
@@ -366,7 +366,7 @@ build_meson_exact_release:
     - pip3 uninstall --yes meson
     - pip3 install "meson==$meson_version"
     - echo "Building with meson options $MESON_OPTIONS"
-    - meson "$BUILD_DIR" . --prefix="$PREFIX" $MESON_OPTIONS
+    - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
     - ninja $NINJA_ARGS -C "$BUILD_DIR"
     - ninja $NINJA_ARGS -C "$BUILD_DIR" install
   variables:
@@ -377,7 +377,7 @@ valgrind:
     - .build_on_fedora
   script:
     - echo "Building with meson options $MESON_OPTIONS"
-    - meson "$BUILD_DIR" . --prefix="$PREFIX" $MESON_OPTIONS
+    - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
     - meson test -C "$BUILD_DIR" --setup=valgrind
   variables:
     MESON_OPTIONS: "-Dsession-managers=[]"
@@ -391,7 +391,7 @@ build_with_coverity:
   stage: analysis
   script:
     - export PATH=/opt/coverity/bin:$PATH
-    - meson "$BUILD_DIR" . --prefix="$PREFIX"
+    - meson setup "$BUILD_DIR" --prefix="$PREFIX"
         -Ddocs=disabled
         -Dbluez5-backend-hsphfpd=enabled
         -Daudiotestsrc=enabled

@@ -172,13 +172,13 @@ include:
     - export XDG_RUNTIME_DIR="$(mktemp -p $PWD -d xdg-runtime-XXXXXX)"
     - |
       if [ -n "$FDO_CI_CONCURRENT" ]; then
-         NINJA_ARGS="-j$FDO_CI_CONCURRENT $NINJA_ARGS"
-         export NINJA_ARGS
+         COMPILE_ARGS="-j$FDO_CI_CONCURRENT"
+         export COMPILE_ARGS
       fi
   script:
     - echo "Building with meson options $MESON_OPTIONS"
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
-    - ninja $NINJA_ARGS -C "$BUILD_DIR"
+    - meson compile -C "$BUILD_DIR" $COMPILE_ARGS
     - meson test -C "$BUILD_DIR" --no-rebuild
     - meson install -C "$BUILD_DIR" --no-rebuild
   artifacts:
@@ -313,7 +313,7 @@ build_with_custom_options:
   script:
     - echo "Building with -D$MESON_OPTION=$MESON_OPTION_VALUE"
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" "-D$MESON_OPTION=$MESON_OPTION_VALUE" -Dsession-managers=[]
-    - ninja $NINJA_ARGS -C "$BUILD_DIR"
+    - meson compile -C "$BUILD_DIR" $COMPILE_ARGS
     - meson test -C "$BUILD_DIR" --no-rebuild
 
 # A release build with NDEBUG, all options on auto() but tests explicitly
@@ -334,7 +334,7 @@ build_session_managers:
   script:
     - echo "Building with meson options $MESON_OPTIONS"
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
-    - ninja $NINJA_ARGS -C "$BUILD_DIR"
+    - meson compile -C "$BUILD_DIR" $COMPILE_ARGS
     - meson install -C "$BUILD_DIR" --no-rebuild
   variables:
     MESON_OPTIONS: "-Dsession-managers=$SESSION_MANAGERS"
@@ -350,7 +350,7 @@ build_meson_prerelease:
     - pip3 install --upgrade --pre meson
     - echo "Building with meson options $MESON_OPTIONS"
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
-    - ninja $NINJA_ARGS -C "$BUILD_DIR"
+    - meson compile -C "$BUILD_DIR" $COMPILE_ARGS
     - meson install -C "$BUILD_DIR" --no-rebuild
   variables:
     MESON_OPTIONS: "-Dsession-managers=wireplumber,media-session"
@@ -367,7 +367,7 @@ build_meson_exact_release:
     - pip3 install "meson==$meson_version"
     - echo "Building with meson options $MESON_OPTIONS"
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
-    - ninja $NINJA_ARGS -C "$BUILD_DIR"
+    - meson compile -C "$BUILD_DIR" $COMPILE_ARGS
     - meson install -C "$BUILD_DIR" --no-rebuild
   variables:
     MESON_OPTIONS: "-Dsession-managers=[]"
@@ -410,7 +410,7 @@ build_with_coverity:
         --xml-option=append_arg@C:"replace/GLIB_(DEPRECATED|AVAILABLE)_ENUMERATOR_IN_\d_\d\d(_FOR\(\w+\)|)\s+=/ ="
         --xml-option=append_arg@C:--ppp_translator
         --xml-option=append_arg@C:"replace/(__has_builtin|_GLIBCXX_HAS_BUILTIN)\(\w+\)/1"
-    - cov-build --dir cov-int --config coverity_conf.xml ninja $NINJA_ARGS -C "$BUILD_DIR"
+    - cov-build --dir cov-int --config coverity_conf.xml meson compile -C "$BUILD_DIR" $COMPILE_ARGS
     - tar czf cov-int.tar.gz cov-int
     - curl https://scan.coverity.com/builds?project=$COVERITY_SCAN_PROJECT_NAME
         --form token=$COVERITY_SCAN_TOKEN --form email=$GITLAB_USER_EMAIL

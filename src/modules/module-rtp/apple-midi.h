@@ -5,6 +5,8 @@
 #ifndef PIPEWIRE_APPLE_MIDI_H
 #define PIPEWIRE_APPLE_MIDI_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

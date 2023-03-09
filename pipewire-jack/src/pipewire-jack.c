@@ -5414,6 +5414,8 @@ void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_
 	latency = SPA_LATENCY_INFO(direction);
 
 	nframes = jack_get_buffer_size((jack_client_t*)c);
+	if (nframes == 0)
+		n_frames = 1;
 
 	latency.min_rate = range->min;
 	if (latency.min_rate >= nframes) {

@@ -180,7 +180,7 @@ include:
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
     - ninja $NINJA_ARGS -C "$BUILD_DIR"
     - meson test -C "$BUILD_DIR" --no-rebuild
-    - ninja $NINJA_ARGS -C "$BUILD_DIR" install
+    - meson install -C "$BUILD_DIR" --no-rebuild
   artifacts:
     name: pipewire-$CI_COMMIT_SHA
     when: always
@@ -335,7 +335,7 @@ build_session_managers:
     - echo "Building with meson options $MESON_OPTIONS"
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
     - ninja $NINJA_ARGS -C "$BUILD_DIR"
-    - ninja $NINJA_ARGS -C "$BUILD_DIR" install
+    - meson install -C "$BUILD_DIR" --no-rebuild
   variables:
     MESON_OPTIONS: "-Dsession-managers=$SESSION_MANAGERS"
   parallel:
@@ -351,7 +351,7 @@ build_meson_prerelease:
     - echo "Building with meson options $MESON_OPTIONS"
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
     - ninja $NINJA_ARGS -C "$BUILD_DIR"
-    - ninja $NINJA_ARGS -C "$BUILD_DIR" install
+    - meson install -C "$BUILD_DIR" --no-rebuild
   variables:
     MESON_OPTIONS: "-Dsession-managers=wireplumber,media-session"
   allow_failure: true
@@ -368,7 +368,7 @@ build_meson_exact_release:
     - echo "Building with meson options $MESON_OPTIONS"
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
     - ninja $NINJA_ARGS -C "$BUILD_DIR"
-    - ninja $NINJA_ARGS -C "$BUILD_DIR" install
+    - meson install -C "$BUILD_DIR" --no-rebuild
   variables:
     MESON_OPTIONS: "-Dsession-managers=[]"
 

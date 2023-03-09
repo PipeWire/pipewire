@@ -22,8 +22,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <stdio.h>
-
 #include <spa/utils/defs.h>
 #include <spa/param/audio/format.h>
 

@@ -527,6 +527,34 @@ static void recv_state_changed(void *data, bool started, const char *error)
 	}
 }
 
+static void recv_send_feedback(void *data, uint32_t seqnum)
+{
+	struct session *sess = data;
+	struct impl *impl = sess->impl;
+	struct iovec iov[1];
+	struct msghdr msg;
+	struct rtp_apple_midi_rs hdr;
+
+	if (!sess->ctrl_ready || !sess->receiving)
+		return;
+
+	spa_zero(hdr);
+	hdr.cmd = htonl(APPLE_MIDI_CMD_RS);
+	hdr.ssrc = htonl(sess->ssrc);
+	hdr.seqnum = htonl(seqnum);
+
+	iov[0].iov_base = &hdr;
+	iov[0].iov_len = sizeof(hdr);
+
+	spa_zero(msg);
+	msg.msg_name = &sess->ctrl_addr;
+	msg.msg_namelen = sess->ctrl_len;
+	msg.msg_iov = iov;
+	msg.msg_iovlen = 1;
+
+	send_packet(impl->ctrl_source->fd, &msg);
+}
+
 static const struct rtp_stream_events send_stream_events = {
 	RTP_VERSION_STREAM_EVENTS,
 	.destroy = send_destroy,
@@ -538,6 +566,7 @@ static const struct rtp_stream_events recv_stream_events = {
 	RTP_VERSION_STREAM_EVENTS,
 	.destroy = recv_destroy,
 	.state_changed = recv_state_changed,
+	.send_feedback = recv_send_feedback,
 };
 
 static void free_session(struct session *sess)
@@ -784,6 +813,31 @@ static void parse_apple_midi_cmd_ok(struct impl *impl, bool ctrl, uint8_t *buffe
 	}
 }
 
+static void parse_apple_midi_cmd_no(struct impl *impl, bool ctrl, uint8_t *buffer,
+		ssize_t len, struct sockaddr_storage *sa, socklen_t salen)
+{
+	struct rtp_apple_midi *hdr = (struct rtp_apple_midi*)buffer;
+	uint32_t initiator = ntohl(hdr->initiator);
+	struct session *sess;
+
+	sess = find_session_by_initiator(impl, initiator, ctrl);
+	if (sess == NULL || !sess->we_initiated) {
+		pw_log_warn("received NO from nonexisting session %u", initiator);
+		return;
+	}
+
+	if (ctrl) {
+		pw_log_info("got ctrl NO %08x %u", initiator, sess->data_ready);
+		sess->ctrl_ready = false;
+	} else {
+		pw_log_info("got data NO %08x %u, session canceled", initiator,
+				sess->ctrl_ready);
+		sess->data_ready = false;
+		if (!sess->ctrl_ready)
+			session_update_state(sess, SESSION_STATE_INIT);
+	}
+}
+
 static void parse_apple_midi_cmd_ck(struct impl *impl, bool ctrl, uint8_t *buffer,
 		ssize_t len, struct sockaddr_storage *sa, socklen_t salen)
 {
@@ -878,6 +932,24 @@ static void parse_apple_midi_cmd_by(struct impl *impl, bool ctrl, uint8_t *buffe
 	}
 }
 
+static void parse_apple_midi_cmd_rs(struct impl *impl, bool ctrl, uint8_t *buffer,
+		ssize_t len, struct sockaddr_storage *sa, socklen_t salen)
+{
+	struct rtp_apple_midi_rs *hdr = (struct rtp_apple_midi_rs*)buffer;
+	struct session *sess;
+	uint32_t ssrc, seqnum;
+
+	ssrc = ntohl(hdr->ssrc);
+	sess = find_session_by_ssrc(impl, ssrc);
+	if (sess == NULL) {
+		pw_log_warn("unknown SSRC %u", ssrc);
+		return;
+	}
+
+	seqnum = ntohl(hdr->seqnum);
+	pw_log_debug("got RS seqnum %u", seqnum);
+}
+
 static void parse_apple_midi_cmd(struct impl *impl, bool ctrl, uint8_t *buffer,
 		ssize_t len, struct sockaddr_storage *sa, socklen_t salen)
 {
@@ -889,11 +961,17 @@ static void parse_apple_midi_cmd(struct impl *impl, bool ctrl, uint8_t *buffer,
 	case APPLE_MIDI_CMD_OK:
 		parse_apple_midi_cmd_ok(impl, ctrl, buffer, len, sa, salen);
 		break;
+	case APPLE_MIDI_CMD_NO:
+		parse_apple_midi_cmd_no(impl, ctrl, buffer, len, sa, salen);
+		break;
 	case APPLE_MIDI_CMD_CK:
 		parse_apple_midi_cmd_ck(impl, ctrl, buffer, len, sa, salen);
 		break;
 	case APPLE_MIDI_CMD_BY:
 		parse_apple_midi_cmd_by(impl, ctrl, buffer, len, sa, salen);
+		break;
+	case APPLE_MIDI_CMD_RS:
+		parse_apple_midi_cmd_rs(impl, ctrl, buffer, len, sa, salen);
 		break;
 	default:
 		break;

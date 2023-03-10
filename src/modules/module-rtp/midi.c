@@ -126,6 +126,13 @@ static int get_midi_size(uint8_t *p, uint32_t avail)
 	}
 	return size;
 }
+static int parse_journal(struct impl *impl, uint8_t *packet, uint16_t seq, uint32_t len)
+{
+	struct rtp_midi_journal *j = (struct rtp_midi_journal*)packet;
+	uint16_t seqnum = ntohs(j->checkpoint_seqnum);
+	rtp_stream_emit_send_feedback(impl, seqnum);
+	return 0;
+}
 
 static double get_time(struct impl *impl)
 {
@@ -143,8 +150,8 @@ static double get_time(struct impl *impl)
 	return t;
 }
 
-static int receive_midi(struct impl *impl, uint8_t *packet,
-		uint32_t timestamp, uint32_t payload_offset, uint32_t plen)
+static int receive_midi(struct impl *impl, uint8_t *packet, uint32_t timestamp,
+		uint16_t seq, uint32_t payload_offset, uint32_t plen)
 {
 	uint32_t write;
 	struct rtp_midi_header *hdr;
@@ -160,7 +167,7 @@ static int receive_midi(struct impl *impl, uint8_t *packet,
 		 * midi events and render them in the corresponding cycle */
 		if (!impl->have_sync) {
 			pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u direct:%d",
-				timestamp, impl->seq-1, impl->ts_offset, impl->ssrc,
+				timestamp, seq, impl->ts_offset, impl->ssrc,
 				impl->direct_timestamp);
 			impl->have_sync = true;
 		}
@@ -186,7 +193,7 @@ static int receive_midi(struct impl *impl, uint8_t *packet,
 			spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 256, impl->rate);
 
 			pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u direct:%d",
-				timestamp, impl->seq-1, impl->ts_offset, impl->ssrc,
+				timestamp, seq, impl->ts_offset, impl->ssrc,
 				impl->direct_timestamp);
 			impl->have_sync = true;
 			impl->ring.readindex = impl->ring.writeindex;
@@ -221,6 +228,8 @@ static int receive_midi(struct impl *impl, uint8_t *packet,
 		pw_log_warn("invalid packet %d > %d", end, plen);
 		return -EINVAL;
 	}
+	if (hdr->j)
+		parse_journal(impl, &packet[end], seq, plen - end);
 
 	ptr = SPA_PTROFF(impl->buffer, write & BUFFER_MASK2, void);
 
@@ -258,6 +267,8 @@ static int receive_midi(struct impl *impl, uint8_t *packet,
 
 	write += b.state.offset;
 	spa_ringbuffer_write_update(&impl->ring, write);
+
+
 	return 0;
 }
 
@@ -297,7 +308,7 @@ static int receive_rtp_midi(struct impl *impl, uint8_t *buffer, ssize_t len)
 
 	impl->receiving = true;
 
-	return receive_midi(impl, buffer, timestamp, hlen, len);
+	return receive_midi(impl, buffer, timestamp, seq, hlen, len);
 
 short_packet:
 	pw_log_warn("short packet received");

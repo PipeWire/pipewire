@@ -58,16 +58,33 @@ struct rtp_midi_header {
 	unsigned z:1;
 	unsigned j:1;
 	unsigned b:1;
-	uint8_t len_b;
 #elif __BYTE_ORDER == __BIG_ENDIAN
 	unsigned b:1;
 	unsigned j:1;
 	unsigned z:1;
 	unsigned p:1;
 	unsigned len:4;
-	uint8_t len_b;
 #endif
+	uint8_t len_b;
 } __attribute__ ((packed));
+
+struct rtp_midi_journal {
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+	unsigned totchan:4;
+	unsigned H:1;
+	unsigned A:1;
+	unsigned Y:1;
+	unsigned S:1;
+#elif __BYTE_ORDER == __BIG_ENDIAN
+	unsigned S:1;
+	unsigned Y:1;
+	unsigned A:1;
+	unsigned H:1;
+	unsigned totchan:4;
+#endif
+	uint16_t checkpoint_seqnum;
+} __attribute__ ((packed));
+
 
 #ifdef __cplusplus
 }

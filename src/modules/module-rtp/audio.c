@@ -2,7 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
-static void process_audio_playback(void *data)
+static void rtp_audio_process_playback(void *data)
 {
 	struct impl *impl = data;
 	struct pw_buffer *buf;
@@ -94,7 +94,7 @@ static void process_audio_playback(void *data)
 	pw_stream_queue_buffer(impl->stream, buf);
 }
 
-static int receive_rtp_audio(struct impl *impl, uint8_t *buffer, ssize_t len)
+static int rtp_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 {
 	struct rtp_header *hdr;
 	ssize_t hlen, plen;
@@ -202,13 +202,12 @@ set_iovec(struct spa_ringbuffer *rbuf, void *buffer, uint32_t size,
 	iov[1].iov_base = buffer;
 }
 
-static void flush_audio_packets(struct impl *impl)
+static void rtp_audio_flush_packets(struct impl *impl)
 {
-	int32_t avail;
+	int32_t avail, tosend;
 	uint32_t stride, timestamp;
 	struct iovec iov[3];
 	struct rtp_header header;
-	int32_t tosend;
 
 	avail = spa_ringbuffer_get_read_index(&impl->ring, &timestamp);
 	tosend = impl->psamples;
@@ -246,7 +245,7 @@ static void flush_audio_packets(struct impl *impl)
 	spa_ringbuffer_read_update(&impl->ring, timestamp);
 }
 
-static void process_audio_capture(void *data)
+static void rtp_audio_process_capture(void *data)
 {
 	struct impl *impl = data;
 	struct pw_buffer *buf;
@@ -299,5 +298,15 @@ static void process_audio_capture(void *data)
 
 	pw_stream_queue_buffer(impl->stream, buf);
 
-	flush_audio_packets(impl);
+	rtp_audio_flush_packets(impl);
+}
+
+static int rtp_audio_init(struct impl *impl, enum spa_direction direction)
+{
+	if (direction == SPA_DIRECTION_INPUT)
+		impl->stream_events.process = rtp_audio_process_capture;
+	else
+		impl->stream_events.process = rtp_audio_process_playback;
+	impl->receive_rtp = rtp_audio_receive;
+	return 0;
 }

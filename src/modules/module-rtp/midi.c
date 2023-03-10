@@ -2,7 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
-static void process_midi_playback(void *data)
+static void rtp_midi_process_playback(void *data)
 {
 	struct impl *impl = data;
 	struct pw_buffer *buf;
@@ -150,7 +150,7 @@ static double get_time(struct impl *impl)
 	return t;
 }
 
-static int receive_midi(struct impl *impl, uint8_t *packet, uint32_t timestamp,
+static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t timestamp,
 		uint16_t seq, uint32_t payload_offset, uint32_t plen)
 {
 	uint32_t write;
@@ -268,11 +268,10 @@ static int receive_midi(struct impl *impl, uint8_t *packet, uint32_t timestamp,
 	write += b.state.offset;
 	spa_ringbuffer_write_update(&impl->ring, write);
 
-
 	return 0;
 }
 
-static int receive_rtp_midi(struct impl *impl, uint8_t *buffer, ssize_t len)
+static int rtp_midi_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 {
 	struct rtp_header *hdr;
 	ssize_t hlen;
@@ -308,7 +307,7 @@ static int receive_rtp_midi(struct impl *impl, uint8_t *buffer, ssize_t len)
 
 	impl->receiving = true;
 
-	return receive_midi(impl, buffer, timestamp, seq, hlen, len);
+	return rtp_midi_receive_midi(impl, buffer, timestamp, seq, hlen, len);
 
 short_packet:
 	pw_log_warn("short packet received");
@@ -347,7 +346,7 @@ static int write_event(uint8_t *p, uint32_t value, void *ev, uint32_t size)
         return count + size;
 }
 
-static void flush_midi_packets(struct impl *impl,
+static void rtp_midi_flush_packets(struct impl *impl,
 		struct spa_pod_sequence *sequence, uint32_t timestamp, uint32_t rate)
 {
 	struct spa_pod_control *c;
@@ -442,7 +441,7 @@ static void flush_midi_packets(struct impl *impl,
 	}
 }
 
-static void process_midi_capture(void *data)
+static void rtp_midi_process_capture(void *data)
 {
 	struct impl *impl = data;
 	struct pw_buffer *buf;
@@ -481,8 +480,18 @@ static void process_midi_capture(void *data)
 		impl->have_sync = true;
 	}
 
-	flush_midi_packets(impl, (struct spa_pod_sequence*)pod, timestamp, rate);
+	rtp_midi_flush_packets(impl, (struct spa_pod_sequence*)pod, timestamp, rate);
 
 done:
 	pw_stream_queue_buffer(impl->stream, buf);
+}
+
+static int rtp_midi_init(struct impl *impl, enum spa_direction direction)
+{
+	if (direction == SPA_DIRECTION_INPUT)
+		impl->stream_events.process = rtp_midi_process_capture;
+	else
+		impl->stream_events.process = rtp_midi_process_playback;
+	impl->receive_rtp = rtp_midi_receive;
+	return 0;
 }

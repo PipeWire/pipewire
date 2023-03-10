@@ -35,6 +35,7 @@
 
 struct impl {
 	struct spa_audio_info info;
+	struct spa_audio_info stream_info;
 
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
@@ -290,20 +291,23 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		goto out;
 	}
 
-	switch (impl->info.media_type) {
-	case SPA_MEDIA_TYPE_audio:
+	switch (impl->info.media_subtype) {
+	case SPA_MEDIA_SUBTYPE_raw:
 		parse_audio_info(props, &impl->info.info.raw);
+		impl->stream_info = impl->info;
 		impl->format_info = find_audio_format_info(&impl->info);
 		if (impl->format_info == NULL) {
 			pw_log_error("unsupported audio format:%d channels:%d",
-					impl->info.info.raw.format, impl->info.info.raw.channels);
+					impl->stream_info.info.raw.format,
+					impl->stream_info.info.raw.channels);
 			res = -EINVAL;
 			goto out;
 		}
-		impl->stride = impl->format_info->size * impl->info.info.raw.channels;
-		impl->rate = impl->info.info.raw.rate;
+		impl->stride = impl->format_info->size * impl->stream_info.info.raw.channels;
+		impl->rate = impl->stream_info.info.raw.rate;
 		break;
-	case SPA_MEDIA_TYPE_application:
+	case SPA_MEDIA_SUBTYPE_control:
+		impl->stream_info = impl->info;
 		impl->format_info = find_audio_format_info(&impl->info);
 		if (impl->format_info == NULL) {
 			res = -EINVAL;
@@ -401,27 +405,19 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 
 	flags = PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_RT_PROCESS;
 
-	switch (impl->info.media_type) {
-	case SPA_MEDIA_TYPE_audio:
+	switch (impl->info.media_subtype) {
+	case SPA_MEDIA_SUBTYPE_raw:
 		params[n_params++] = spa_format_audio_build(&b,
-				SPA_PARAM_EnumFormat, &impl->info);
-		if (direction == SPA_DIRECTION_INPUT)
-			impl->stream_events.process = process_audio_capture;
-		else
-			impl->stream_events.process = process_audio_playback;
-		impl->receive_rtp = receive_rtp_audio;
+				SPA_PARAM_EnumFormat, &impl->stream_info);
 		flags |= PW_STREAM_FLAG_AUTOCONNECT;
+		rtp_audio_init(impl, direction);
 		break;
-	case SPA_MEDIA_TYPE_application:
+	case SPA_MEDIA_SUBTYPE_control:
 		params[n_params++] = spa_pod_builder_add_object(&b,
                                 SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
                                 SPA_FORMAT_mediaType,           SPA_POD_Id(SPA_MEDIA_TYPE_application),
                                 SPA_FORMAT_mediaSubtype,        SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
-		if (direction == SPA_DIRECTION_INPUT)
-			impl->stream_events.process = process_midi_capture;
-		else
-			impl->stream_events.process = process_midi_playback;
-		impl->receive_rtp = receive_rtp_midi;
+		rtp_midi_init(impl, direction);
 		break;
 	default:
 		res = -EINVAL;

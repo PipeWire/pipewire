@@ -31,6 +31,7 @@
 #define rtp_stream_emit_destroy(s)		rtp_stream_emit(s, destroy, 0)
 #define rtp_stream_emit_state_changed(s,n,e)	rtp_stream_emit(s, state_changed,0,n,e)
 #define rtp_stream_emit_send_packet(s,i,l)	rtp_stream_emit(s, send_packet,0,i,l)
+#define rtp_stream_emit_send_feedback(s,seq)	rtp_stream_emit(s, send_feedback,0,seq)
 
 struct impl {
 	struct spa_audio_info info;

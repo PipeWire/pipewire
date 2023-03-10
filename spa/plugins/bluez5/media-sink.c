@@ -617,7 +617,7 @@ static int flush_data(struct impl *this, uint64_t now_time)
 	struct port *port = &this->port;
 	int unused_buffer;
 
-	if (!this->flush_source.loop) {
+	if (this->transport == NULL || !this->flush_source.loop || !this->flush_timer_source.loop) {
 		/* I/O in error state */
 		return -EIO;
 	}
@@ -814,6 +814,9 @@ static void media_on_flush_error(struct spa_source *source)
 		spa_log_warn(this->log, "%p: error %d", this, source->rmask);
 		if (this->flush_source.loop)
 			spa_loop_remove_source(this->data_loop, &this->flush_source);
+		enable_flush_timer(this, false);
+		if (this->flush_timer_source.loop)
+			spa_loop_remove_source(this->data_loop, &this->flush_timer_source);
 		return;
 	}
 }
@@ -853,9 +856,6 @@ static void media_on_timeout(struct spa_source *source)
 	uint64_t prev_time, now_time;
 	int res;
 
-	if (this->transport == NULL)
-		return;
-
 	if (this->started) {
 		if ((res = spa_system_timerfd_read(this->data_system, this->timerfd, &exp)) < 0) {
 			if (res != -EAGAIN)
@@ -882,7 +882,7 @@ static void media_on_timeout(struct spa_source *source)
 	this->next_time = now_time + duration * SPA_NSEC_PER_SEC / rate;
 
 	if (SPA_LIKELY(this->clock)) {
-		int64_t delay_nsec;
+		int64_t delay_nsec = 0;
 
 		this->clock->nsec = now_time;
 		this->clock->position += duration;
@@ -890,7 +890,8 @@ static void media_on_timeout(struct spa_source *source)
 		this->clock->rate_diff = 1.0f;
 		this->clock->next_nsec = this->next_time;
 
-		delay_nsec = spa_bt_transport_get_delay_nsec(this->transport);
+		if (this->transport)
+			delay_nsec = spa_bt_transport_get_delay_nsec(this->transport);
 
 		/* Negative delay doesn't work properly, so disallow it */
 		delay_nsec += SPA_CLAMP(this->props.latency_offset, -delay_nsec, INT64_MAX / 2);
@@ -1536,8 +1537,12 @@ static int impl_node_process(void *object)
 	this->process_time = this->current_time;
 
 	if (!spa_list_is_empty(&port->ready)) {
+		int res;
 		spa_log_trace(this->log, "%p: flush on process", this);
-		flush_data(this, this->current_time);
+		if ((res = flush_data(this, this->current_time)) < 0) {
+			io->status = res;
+			return SPA_STATUS_STOPPED;
+		}
 	}
 
 	return SPA_STATUS_HAVE_DATA;

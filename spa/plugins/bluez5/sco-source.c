@@ -116,6 +116,7 @@ struct impl {
 	unsigned int following:1;
 	unsigned int matching:1;
 	unsigned int resampling:1;
+	unsigned int io_error:1;
 
 	struct spa_source timer_source;
 	int timerfd;
@@ -548,6 +549,7 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 	return 0;
 
 stop:
+	this->io_error = true;
 	return 1;
 }
 
@@ -582,9 +584,6 @@ static void sco_on_timeout(struct spa_source *source)
 	uint32_t rate;
 	uint64_t prev_time, now_time;
 	int res;
-
-	if (this->transport == NULL)
-		return;
 
 	if (this->started) {
 		if ((res = spa_system_timerfd_read(this->data_system, this->timerfd, &exp)) < 0) {
@@ -693,6 +692,8 @@ static int do_start(struct impl *this)
 
 		this->msbc_buffer_pos = 0;
 	}
+
+	this->io_error = false;
 
 	/* Start socket i/o */
 	if ((res = spa_bt_transport_ensure_sco_io(this->transport, this->data_loop)) < 0)
@@ -1315,8 +1316,14 @@ static int produce_buffer(struct impl *this)
 		io->buffer_id = SPA_ID_INVALID;
 	}
 
+	if (this->io_error) {
+		io->status = -EIO;
+		return SPA_STATUS_STOPPED;
+	}
+
 	/* Handle buffering */
-	process_buffering(this);
+	if (this->started)
+		process_buffering(this);
 
 	/* Return if there are no buffers ready to be processed */
 	if (spa_list_is_empty(&port->ready))

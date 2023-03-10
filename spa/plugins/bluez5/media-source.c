@@ -1444,8 +1444,14 @@ static int produce_buffer(struct impl *this)
 		io->buffer_id = SPA_ID_INVALID;
 	}
 
+	if (!this->source.loop) {
+		io->status = -EIO;
+		return SPA_STATUS_STOPPED;
+	}
+
 	/* Handle buffering */
-	process_buffering(this);
+	if (this->started)
+		process_buffering(this);
 
 	/* Return if there are no buffers ready to be processed */
 	if (spa_list_is_empty(&port->ready))

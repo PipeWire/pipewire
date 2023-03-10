@@ -360,9 +360,15 @@ static uint32_t get_queued_frames(struct impl *this)
 	return bytes / port->frame_size;
 }
 
-static void flush_data(struct impl *this)
+static int flush_data(struct impl *this)
 {
 	struct port *port = &this->port;
+	int processed = 0;
+	int written;
+
+	if (this->transport == NULL || this->transport->sco_io == NULL || !this->flush_timer_source.loop)
+		return -EIO;
+
 	const uint32_t min_in_size =
 		(this->transport->codec == HFP_AUDIO_CODEC_MSBC) ?
 		MSBC_DECODED_SIZE : this->transport->write_mtu;
@@ -372,18 +378,13 @@ static void flush_data(struct impl *this)
 	const uint32_t packet_samples = min_in_size / port->frame_size;
 	const uint64_t packet_time = (uint64_t)packet_samples * SPA_NSEC_PER_SEC
 		/ port->current_format.info.raw.rate;
-	int processed = 0;
-	int written;
-
-	if (this->transport == NULL || this->transport->sco_io == NULL)
-		return;
 
 	while (!spa_list_is_empty(&port->ready) && port->write_buffer_size < min_in_size) {
 		struct spa_data *datas;
 
 		/* get buffer */
 		if (!port->current_buffer) {
-			spa_return_if_fail(!spa_list_is_empty(&port->ready));
+			spa_return_val_if_fail(!spa_list_is_empty(&port->ready), -EIO);
 			port->current_buffer = spa_list_first(&port->ready, struct buffer, link);
 			port->ready_offset = 0;
 		}
@@ -418,14 +419,14 @@ static void flush_data(struct impl *this)
 
 	if (this->flush_pending) {
 		spa_log_trace(this->log, "%p: wait for flush timer", this);
-		return;
+		return 0;
 	}
 
 	if (port->write_buffer_size < min_in_size) {
 		/* wait for more data */
 		spa_log_trace(this->log, "%p: skip flush", this);
 		enable_flush_timer(this, false);
-		return;
+		return 0;
 	}
 
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
@@ -445,7 +446,7 @@ static void flush_data(struct impl *this)
 				this->buffer_next + 2, MSBC_ENCODED_SIZE - 3, &out_encoded);
 		if (processed < 0) {
 			spa_log_warn(this->log, "sbc_encode failed: %d", processed);
-			return;
+			return -EINVAL;
 		}
 		this->buffer_next += out_encoded + 3;
 		port->write_buffer_size = 0;
@@ -539,12 +540,13 @@ static void flush_data(struct impl *this)
 	}
 
 	enable_flush_timer(this, true);
-	return;
+	return 0;
 
 stop:
-	if (this->source.loop)
-		spa_loop_remove_source(this->data_loop, &this->source);
 	enable_flush_timer(this, false);
+	if (this->flush_timer_source.loop)
+		spa_loop_remove_source(this->data_loop, &this->flush_timer_source);
+	return -EIO;
 }
 
 static void sco_on_flush_timeout(struct spa_source *source)
@@ -581,9 +583,6 @@ static void sco_on_timeout(struct spa_source *source)
 	struct spa_io_buffers *io = port->io;
 	uint64_t prev_time, now_time;
 	int res;
-
-	if (this->transport == NULL)
-		return;
 
 	if (this->started) {
 		if ((res = spa_system_timerfd_read(this->data_system, this->timerfd, &exp)) < 0) {
@@ -1272,8 +1271,12 @@ static int impl_node_process(void *object)
 	this->process_time = this->current_time;
 
 	if (!spa_list_is_empty(&port->ready)) {
+		int res;
 		spa_log_trace(this->log, "%p: flush on process", this);
-		flush_data(this);
+		if ((res = flush_data(this)) < 0) {
+			io->status = res;
+			return SPA_STATUS_STOPPED;
+		}
 	}
 
 	return SPA_STATUS_HAVE_DATA;

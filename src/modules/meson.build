@@ -525,7 +525,7 @@ pipewire_module_rtp_source = shared_library('pipewire-module-rtp-source',
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
+  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, opus_dep],
 )
 
 pipewire_module_rtp_sink = shared_library('pipewire-module-rtp-sink',
@@ -535,7 +535,7 @@ pipewire_module_rtp_sink = shared_library('pipewire-module-rtp-sink',
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
+  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, opus_dep],
 )
 
 build_module_rtp_session = avahi_dep.found()
@@ -548,7 +548,7 @@ if build_module_rtp_session
     install : true,
     install_dir : modules_install_dir,
     install_rpath: modules_install_dir,
-    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, avahi_dep],
+    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, avahi_dep, opus_dep],
   )
 endif
 

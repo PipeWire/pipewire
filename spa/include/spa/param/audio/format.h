@@ -28,6 +28,7 @@ extern "C" {
 #include <spa/param/audio/alac.h>
 #include <spa/param/audio/flac.h>
 #include <spa/param/audio/ape.h>
+#include <spa/param/audio/opus.h>
 
 struct spa_audio_info {
 	uint32_t media_type;
@@ -46,6 +47,7 @@ struct spa_audio_info {
 		struct spa_audio_info_alac alac;
 		struct spa_audio_info_flac flac;
 		struct spa_audio_info_ape ape;
+		struct spa_audio_info_ape opus;
 	} info;
 };
 

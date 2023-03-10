@@ -51,6 +51,7 @@ enum spa_media_subtype {
 	SPA_MEDIA_SUBTYPE_alac,		/** since 0.3.65 */
 	SPA_MEDIA_SUBTYPE_flac,		/** since 0.3.65 */
 	SPA_MEDIA_SUBTYPE_ape,		/** since 0.3.65 */
+	SPA_MEDIA_SUBTYPE_opus,		/** since 0.3.68 */
 
 	SPA_MEDIA_SUBTYPE_START_Video	= 0x20000,
 	SPA_MEDIA_SUBTYPE_h264,

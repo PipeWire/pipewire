@@ -74,7 +74,9 @@ if get_option('spa-plugins').allowed()
       endif
     endif
     summary({'LC3plus': lc3plus_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
-    opus_dep = dependency('opus', required : get_option('bluez5-codec-opus'))
+    if get_option('bluez5-codec-opus').enabled() and not opus_dep.found()
+        error('bluez5-codec-opus enabled, but opus dependency not found')
+    endif
     summary({'Opus': opus_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
     lc3_dep = dependency('lc3', required : get_option('bluez5-codec-lc3'))
     summary({'LC3': lc3_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')

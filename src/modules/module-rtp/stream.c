@@ -5,6 +5,9 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+#include <opus/opus.h>
+#include <opus/opus_multistream.h>
+
 #include <spa/utils/result.h>
 #include <spa/utils/json.h>
 #include <spa/utils/ringbuffer.h>
@@ -46,6 +49,8 @@ struct impl {
 
 	const struct format_info *format_info;
 
+	void *stream_data;
+
 	uint32_t rate;
 	uint32_t stride;
 	uint8_t payload;
@@ -82,6 +87,7 @@ struct impl {
 
 #include "module-rtp/audio.c"
 #include "module-rtp/midi.c"
+#include "module-rtp/opus.c"
 
 struct format_info {
 	uint32_t media_subtype;
@@ -98,6 +104,7 @@ static const struct format_info audio_format_info[] = {
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S16_BE, 2, "L16", "audio" },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S24_BE, 3, "L24", "audio" },
 	{ SPA_MEDIA_SUBTYPE_control, 0, 1, "rtp-midi", "audio" },
+	{ SPA_MEDIA_SUBTYPE_opus, 0, 4, "opus", "audio" },
 };
 
 static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size)
@@ -285,6 +292,11 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		impl->info.media_subtype = SPA_MEDIA_SUBTYPE_control;
 		impl->payload = 0x61;
 	}
+	else if (spa_streq(str, "opus")) {
+		impl->info.media_type = SPA_MEDIA_TYPE_audio;
+		impl->info.media_subtype = SPA_MEDIA_SUBTYPE_opus;
+		impl->payload = 127;
+	}
 	else {
 		pw_log_error("unsupported media type:%s", str);
 		res = -EINVAL;
@@ -318,6 +330,25 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		impl->rate = pw_properties_get_uint32(props, "midi.rate", 10000);
 		if (impl->rate == 0)
 			impl->rate = 10000;
+		break;
+	case SPA_MEDIA_SUBTYPE_opus:
+		impl->stream_info.media_type = SPA_MEDIA_TYPE_audio;
+		impl->stream_info.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+		parse_audio_info(props, &impl->stream_info.info.raw);
+		impl->stream_info.info.raw.format = SPA_AUDIO_FORMAT_F32;
+		impl->info.info.opus.rate = impl->stream_info.info.raw.rate;
+		impl->info.info.opus.channels = impl->stream_info.info.raw.channels;
+
+		impl->format_info = find_audio_format_info(&impl->info);
+		if (impl->format_info == NULL) {
+			pw_log_error("unsupported audio format:%d channels:%d",
+					impl->stream_info.info.raw.format,
+					impl->stream_info.info.raw.channels);
+			res = -EINVAL;
+			goto out;
+		}
+		impl->stride = impl->format_info->size * impl->stream_info.info.raw.channels;
+		impl->rate = impl->stream_info.info.raw.rate;
 		break;
 	default:
 		spa_assert_not_reached();
@@ -418,6 +449,12 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
                                 SPA_FORMAT_mediaType,           SPA_POD_Id(SPA_MEDIA_TYPE_application),
                                 SPA_FORMAT_mediaSubtype,        SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		rtp_midi_init(impl, direction);
+		break;
+	case SPA_MEDIA_SUBTYPE_opus:
+		params[n_params++] = spa_format_audio_build(&b,
+				SPA_PARAM_EnumFormat, &impl->stream_info);
+		flags |= PW_STREAM_FLAG_AUTOCONNECT;
+		rtp_opus_init(impl, direction);
 		break;
 	default:
 		res = -EINVAL;

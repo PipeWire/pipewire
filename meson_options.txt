@@ -318,3 +318,7 @@ option('rlimits-nice',
        min: -20,
        max: -1,
        value: -19)
+option('opus',
+       description: 'Enable code that depends on opus',
+       type: 'feature',
+       value: 'auto')

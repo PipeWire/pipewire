@@ -58,16 +58,26 @@ if get_option('pw-cat').allowed() and sndfile_dep.found()
     'pw-encplay',
   ]
 
-  executable('pw-cat',
+  pw_cat = executable('pw-cat',
     pwcat_sources,
     install: true,
     dependencies : [pwcat_deps, pipewire_dep, mathlib],
   )
 
   foreach alias : pwcat_aliases
-    dst = pipewire_bindir / alias
-    cmd = 'ln -fs @0@ $DESTDIR@1@'.format('pw-cat', dst)
-    meson.add_install_script('sh', '-c', cmd)
+    custom_target(
+      alias,
+      build_by_default: true,
+      install: false,
+      command: [ln, '-sf', meson.project_build_root() + '/@INPUT@', '@OUTPUT@'],
+      input: pw_cat,
+      output: alias,
+    )
+    install_symlink(
+      alias,
+      pointing_to: pw_cat.name(),
+      install_dir: pipewire_bindir,
+    )
   endforeach
 elif not sndfile_dep.found() and get_option('pw-cat').enabled()
   error('pw-cat is enabled but required dependency `sndfile` was not found.')

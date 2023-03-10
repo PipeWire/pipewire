@@ -89,36 +89,29 @@ configure_file(input : 'pipewire.conf.in',
 pipewire_exec = executable('pipewire',
   pipewire_daemon_sources,
   install: true,
-  c_args : pipewire_c_args,
-  include_directories : [ configinc ],
-  dependencies : [ spa_dep, pipewire_dep, ],
-)
-
-executable('pipewire-pulse',
-  pipewire_daemon_sources,
-  install: true,
-  c_args : pipewire_c_args,
-  include_directories : [ configinc ],
-  dependencies : [ spa_dep, pipewire_dep, ],
-)
-
-executable('pipewire-avb',
-  pipewire_daemon_sources,
-  install: true,
-  c_args : pipewire_c_args,
-  include_directories : [ configinc ],
-  dependencies : [ spa_dep, pipewire_dep, ],
-)
-
-executable('pipewire-aes67',
-  pipewire_daemon_sources,
-  install: true,
+  install_dir: pipewire_bindir,
   c_args : pipewire_c_args,
   include_directories : [ configinc ],
   dependencies : [ spa_dep, pipewire_dep, ],
 )
 
 ln = find_program('ln')
+
+foreach alias : ['pipewire-pulse', 'pipewire-avb', 'pipewire-aes67']
+  custom_target(
+    alias,
+    build_by_default: true,
+    install: false,
+    command: [ln, '-sf', meson.project_build_root() + '/@INPUT@', '@OUTPUT@'],
+    input: pipewire_exec,
+    output: alias,
+  )
+  install_symlink(
+    alias,
+    pointing_to: pipewire_exec.name(),
+    install_dir: pipewire_bindir,
+  )
+endforeach
 
 custom_target('pipewire-uninstalled',
   build_by_default: true,

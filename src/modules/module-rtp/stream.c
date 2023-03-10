@@ -362,8 +362,13 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	impl->max_error = msec_to_samples(impl, ERROR_MSEC);
 
 	pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%d", impl->rate);
-	pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%d/%d",
-			impl->target_buffer / 2, impl->rate);
+	if (direction == PW_DIRECTION_INPUT) {
+		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%d/%d",
+				impl->psamples, impl->rate);
+	} else {
+		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%d/%d",
+				impl->target_buffer / 2, impl->rate);
+	}
 
 	pw_properties_setf(props, "net.mtu", "%u", impl->mtu);
 	pw_properties_setf(props, "rtp.ptime", "%u",

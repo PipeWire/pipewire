@@ -39,6 +39,7 @@ struct _GstPipeWireDevice {
   uint64_t            serial;
   int                 fd;
   const gchar        *element;
+  int                 priority;
 };
 
 struct _GstPipeWireDeviceClass {

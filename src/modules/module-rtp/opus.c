@@ -2,11 +2,10 @@
 /* SPDX-FileCopyrightText: Copyright © 2023 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
+#ifdef HAVE_OPUS
+
 #include <opus/opus.h>
 #include <opus/opus_multistream.h>
-
-struct rtp_opus_data {
-};
 
 static void rtp_opus_process_playback(void *data)
 {
@@ -367,3 +366,9 @@ static int rtp_opus_init(struct impl *impl, enum spa_direction direction)
 		pw_log_error("opus error: %d", err);
 	return impl->stream_data ? 0 : err;
 }
+#else
+static int rtp_opus_init(struct impl *impl, enum spa_direction direction)
+{
+	return -ENOTSUP;
+}
+#endif

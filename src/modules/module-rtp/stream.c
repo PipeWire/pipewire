@@ -5,9 +5,6 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#include <opus/opus.h>
-#include <opus/opus_multistream.h>
-
 #include <spa/utils/result.h>
 #include <spa/utils/json.h>
 #include <spa/utils/ringbuffer.h>
@@ -292,11 +289,13 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		impl->info.media_subtype = SPA_MEDIA_SUBTYPE_control;
 		impl->payload = 0x61;
 	}
+#ifdef HAVE_OPUS
 	else if (spa_streq(str, "opus")) {
 		impl->info.media_type = SPA_MEDIA_TYPE_audio;
 		impl->info.media_subtype = SPA_MEDIA_SUBTYPE_opus;
 		impl->payload = 127;
 	}
+#endif
 	else {
 		pw_log_error("unsupported media type:%s", str);
 		res = -EINVAL;

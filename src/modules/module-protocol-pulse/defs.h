@@ -116,6 +116,44 @@ static inline int res_to_err(int res)
 	return ERR_UNKNOWN;
 }
 
+static inline int err_to_res(int err)
+{
+	switch (err) {
+	case ERR_OK: return 0;
+	case ERR_ACCESS: return -EACCES;
+	case ERR_COMMAND: return -ENOTTY;
+	case ERR_INVALID: return -EINVAL;
+	case ERR_EXIST: return -EEXIST;
+	case ERR_NOENTITY: return -ENOENT;
+	case ERR_CONNECTIONREFUSED: return -ECONNREFUSED;
+	case ERR_PROTOCOL: return -EPROTO;
+	case ERR_TIMEOUT: return -ETIMEDOUT;
+#ifdef ENOKEY
+	case ERR_AUTHKEY: return -ENOKEY;
+#endif
+	case ERR_INTERNAL: return -ENFILE;
+	case ERR_CONNECTIONTERMINATED: return -ECONNRESET;
+	case ERR_KILLED: return -EFAULT;
+	case ERR_INVALIDSERVER: return -EINVAL;
+	case ERR_MODINITFAILED: return -EIO;
+#ifdef EBADFD
+	case ERR_BADSTATE: return -EBADFD;
+#endif
+	case ERR_NODATA: return -ENODATA;
+	case ERR_VERSION: return -EPROTO;
+	case ERR_TOOLARGE: return -E2BIG;
+	case ERR_NOTSUPPORTED: return -ENOTSUP;
+	case ERR_UNKNOWN: return -EIO;
+	case ERR_NOEXTENSION: return -ENOTTY;
+	case ERR_OBSOLETE: return -ENOTSUP;
+	case ERR_NOTIMPLEMENTED: return -ENOSYS;
+	case ERR_FORKED: return -EIO;
+	case ERR_IO: return -EIO;
+	case ERR_BUSY: return -EBUSY;
+	}
+	return -EIO;
+}
+
 enum {
 	SUBSCRIPTION_MASK_NULL = 0x0000U,
 	SUBSCRIPTION_MASK_SINK = 0x0001U,

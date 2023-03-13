@@ -32,6 +32,7 @@
 #include <pipewire/private.h>
 
 #include <pulse/pulseaudio.h>
+#include "module-protocol-pulse/defs.h"
 #include "module-protocol-pulse/format.h"
 
 /** \page page_module_pulse_tunnel PipeWire Module: Pulse Tunnel
@@ -753,7 +754,7 @@ error_unlock:
 	pa_threaded_mainloop_unlock(impl->pa_mainloop);
 error:
 	pw_log_error("failed to connect: %s", pa_strerror(res));
-	return -res;
+	return err_to_res(res);
 }
 
 

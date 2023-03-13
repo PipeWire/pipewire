@@ -122,6 +122,7 @@ struct impl {
 
 	unsigned int is_input:1;
 	unsigned int is_duplex:1;
+	unsigned int is_internal:1;
 	unsigned int use_duplex_source:1;
 
 	unsigned int node_latency;
@@ -901,7 +902,8 @@ static void emit_node_info(struct impl *this, bool full)
 
 	struct spa_dict_item node_info_items[] = {
 		{ SPA_KEY_DEVICE_API, "bluez5" },
-		{ SPA_KEY_MEDIA_CLASS, this->is_input ? "Audio/Source" : "Stream/Output/Audio" },
+		{ SPA_KEY_MEDIA_CLASS, this->is_internal ? "Audio/Source/Internal" :
+		  this->is_input ? "Audio/Source" : "Stream/Output/Audio" },
 		{ SPA_KEY_NODE_LATENCY, this->is_input ? "" : latency },
 		{ "media.name", ((this->transport && this->transport->device->name) ?
 					this->transport->device->name : this->codec->bap ? "BAP" : "A2DP") },
@@ -1738,6 +1740,8 @@ impl_init(const struct spa_handle_factory *factory,
 			this->is_input = spa_streq(str, "input");
 		if ((str = spa_dict_lookup(info, "api.bluez5.a2dp-duplex")) != NULL)
 			this->is_duplex = spa_atob(str);
+		if ((str = spa_dict_lookup(info, "api.bluez5.internal")) != NULL)
+			this->is_internal = spa_atob(str);
 	}
 
 	if (this->transport == NULL) {

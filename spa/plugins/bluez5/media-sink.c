@@ -131,6 +131,7 @@ struct impl {
 	unsigned int flush_pending:1;
 
 	unsigned int is_duplex:1;
+	unsigned int is_internal:1;
 
 	struct spa_source source;
 	int timerfd;
@@ -1375,7 +1376,8 @@ static void emit_node_info(struct impl *this, bool full)
 {
 	struct spa_dict_item node_info_items[] = {
 		{ SPA_KEY_DEVICE_API, "bluez5" },
-		{ SPA_KEY_MEDIA_CLASS, this->is_output ? "Audio/Sink" : "Stream/Input/Audio" },
+		{ SPA_KEY_MEDIA_CLASS, this->is_internal ? "Audio/Sink/Internal" :
+		  this->is_output ? "Audio/Sink" : "Stream/Input/Audio" },
 		{ "media.name", ((this->transport && this->transport->device->name) ?
 					this->transport->device->name : this->codec->bap ? "BAP" : "A2DP" ) },
 		{ SPA_KEY_NODE_DRIVER, this->is_output ? "true" : "false" },
@@ -2058,6 +2060,9 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (info && (str = spa_dict_lookup(info, "api.bluez5.a2dp-duplex")) != NULL)
 		this->is_duplex = spa_atob(str);
+
+	if (info && (str = spa_dict_lookup(info, "api.bluez5.internal")) != NULL)
+		this->is_internal = spa_atob(str);
 
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_TRANSPORT)))
 		sscanf(str, "pointer:%p", &this->transport);

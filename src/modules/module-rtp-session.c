@@ -64,7 +64,7 @@
  * - `sess.name = <str>`: a session name
  * - `sess.ts-offset = <int>`: an offset to apply to the timestamp, default -1 = random offset
  * - `sess.ts-refclk = <string>`: the name of a reference clock
- * - `sess.media = <string>`: the media type audio|midi, default midi
+ * - `sess.media = <string>`: the media type audio|midi|opus, default midi
  * - `stream.props = {}`: properties to be passed to the stream
  *
  * ## General options
@@ -133,7 +133,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 		"sess.name=<a name for the session> "						\
 		"sess.min-ptime=<minimum packet time in milliseconds, default:2> "		\
 		"sess.max-ptime=<maximum packet time in milliseconds, default:20> "		\
-		"sess.media=<string, the media type audio|midi, default audio> "		\
+		"sess.media=<string, the media type audio|midi|opus, default audio> "		\
 		"audio.format=<format, default:"DEFAULT_FORMAT"> "				\
 		"audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> "		\
 		"audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> "\
@@ -646,7 +646,7 @@ static struct session *make_session(struct impl *impl, struct pw_properties *pro
 		str = pw_properties_get(props, "sess.media");
 		if (spa_streq(str, "midi"))
 			media = "Midi";
-		else if (spa_streq(str, "audio"))
+		else if (spa_streq(str, "audio") || spa_streq(str, "opus"))
 			media = "Audio";
 
 		if (media != NULL) {
@@ -1289,7 +1289,7 @@ static const char *get_service_name(struct impl *impl)
 	str = pw_properties_get(impl->props, "sess.media");
 	if (spa_streq(str, "midi"))
 		return "_apple-midi._udp";
-	else if (spa_streq(str, "audio"))
+	else if (spa_streq(str, "audio") || spa_streq(str, "opus"))
 		return "_pipewire-audio._udp";
 	return NULL;
 }
@@ -1324,15 +1324,18 @@ static struct service *make_service(struct impl *impl, const struct service_info
 			if (avahi_string_list_get_pair(l, &key, &value, NULL) != 0)
 				break;
 
-			if (spa_streq(key, "format")) {
-				k = PW_KEY_AUDIO_FORMAT;
+			if (spa_streq(key, "subtype")) {
+				k = "sess.media";
 				mask |= 1<<0;
+			} else if (spa_streq(key, "format")) {
+				k = PW_KEY_AUDIO_FORMAT;
+				mask |= 1<<1;
 			} else if (spa_streq(key, "rate")) {
 				k = PW_KEY_AUDIO_RATE;
-				mask |= 1<<1;
+				mask |= 1<<2;
 			} else if (spa_streq(key, "channels")) {
 				k = PW_KEY_AUDIO_CHANNELS;
-				mask |= 1<<2;
+				mask |= 1<<3;
 			} else if (spa_streq(key, "channelnames")) {
 				pw_properties_set(props,
 						PW_KEY_NODE_CHANNELNAMES, value);
@@ -1356,7 +1359,10 @@ static struct service *make_service(struct impl *impl, const struct service_info
 			avahi_free(key);
 			avahi_free(value);
 		}
-		if (mask != 0x7)
+		str = pw_properties_get(props, "sess.media");
+		if (spa_streq(str, "opus") && mask != 0xd)
+			compatible = false;
+		if (spa_streq(str, "audio") && mask != 0xf)
 			compatible = false;
 	}
 	if (!compatible) {
@@ -1572,6 +1578,8 @@ static int make_announce(struct impl *impl)
 	avahi_entry_group_reset(impl->group);
 
 	if (spa_streq(service_name, "_pipewire-audio._udp")) {
+		str = pw_properties_get(impl->props, "sess.media");
+		txt = avahi_string_list_add_pair(txt, "subtype", str);
 		if ((str = pw_properties_get(impl->stream_props, PW_KEY_AUDIO_FORMAT)) != NULL)
 			txt = avahi_string_list_add_pair(txt, "format", str);
 		if ((str = pw_properties_get(impl->stream_props, PW_KEY_AUDIO_RATE)) != NULL)
@@ -1730,6 +1738,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (spa_streq(str, "audio")) {
 		struct spa_dict_item items[] = {
 			{ "audio.format", DEFAULT_FORMAT },
+			{ "audio.rate", SPA_STRINGIFY(DEFAULT_RATE) },
+			{ "audio.channels", SPA_STRINGIFY(DEFAULT_CHANNELS) },
+			{ "audio.position", DEFAULT_POSITION } };
+		pw_properties_add(stream_props, &SPA_DICT_INIT_ARRAY(items));
+	}
+	else if (spa_streq(str, "opus")) {
+		struct spa_dict_item items[] = {
 			{ "audio.rate", SPA_STRINGIFY(DEFAULT_RATE) },
 			{ "audio.channels", SPA_STRINGIFY(DEFAULT_CHANNELS) },
 			{ "audio.position", DEFAULT_POSITION } };

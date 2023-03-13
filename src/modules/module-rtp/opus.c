@@ -288,7 +288,13 @@ static void rtp_opus_process_capture(void *data)
 	} else
 		timestamp = expected_timestamp;
 
-	if (impl->have_sync) {
+	if (!impl->have_sync) {
+		pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u",
+				timestamp, impl->seq, impl->ts_offset, impl->ssrc);
+		impl->ring.readindex = impl->ring.writeindex = expected_timestamp = timestamp;
+		memset(impl->buffer, 0, BUFFER_SIZE);
+		impl->have_sync = true;
+	} else {
 		if (SPA_ABS((int32_t)expected_timestamp - (int32_t)timestamp) > 32) {
 			pw_log_warn("expected %u != timestamp %u", expected_timestamp, timestamp);
 			impl->have_sync = false;
@@ -297,21 +303,14 @@ static void rtp_opus_process_capture(void *data)
 			impl->have_sync = false;
 		}
 	}
-	if (!impl->have_sync) {
-		pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u",
-				timestamp, impl->seq, impl->ts_offset, impl->ssrc);
-		impl->ring.readindex = impl->ring.writeindex = timestamp;
-		memset(impl->buffer, 0, BUFFER_SIZE);
-		impl->have_sync = true;
-	}
 
 	spa_ringbuffer_write_data(&impl->ring,
 			impl->buffer,
 			BUFFER_SIZE,
 			(filled * stride) & BUFFER_MASK,
 			SPA_PTROFF(d[0].data, offs, void), wanted * stride);
-	timestamp += wanted;
-	spa_ringbuffer_write_update(&impl->ring, timestamp);
+	expected_timestamp += wanted;
+	spa_ringbuffer_write_update(&impl->ring, expected_timestamp);
 
 	pw_stream_queue_buffer(impl->stream, buf);
 

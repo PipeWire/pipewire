@@ -14,6 +14,8 @@
 #include <spa/debug/types.h>
 #include <spa/debug/mem.h>
 
+#include "config.h"
+
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
 

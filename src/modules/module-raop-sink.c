@@ -53,6 +53,7 @@
  *
  * Options specific to the behavior of this module
  *
+ * - `raop.ip`: The ip address of the remote end.
  * - `raop.hostname`: The hostname of the remote end.
  * - `raop.port`: The port of the remote end.
  * - `raop.transport`: The data transport to use, one of "udp" or "tcp". Defaults
@@ -84,6 +85,7 @@
  * {   name = libpipewire-module-raop-sink
  *     args = {
  *         # Set the remote address to tunnel to
+ *         raop.ip = "127.0.0.1"
  *         raop.hostname = "my-raop-device"
  *         raop.port = 8190
  *         #raop.transport = "udp"
@@ -138,7 +140,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define DEFAULT_LATENCY 22050
 
-#define MODULE_USAGE	"[ raop.hostname=<name of host> ] "					\
+#define MODULE_USAGE	"[ raop.ip=<ip address of host> ] "					\
+			"[ raop.hostname=<name of host> ] "					\
 			"[ raop.port=<remote port> ] "						\
 			"[ raop.transport=<transport, default:udp> ] "				\
 			"[ raop.encryption.type=<encryption, default:none> ] "			\
@@ -587,7 +590,7 @@ static int connect_socket(struct impl *impl, int type, int fd, uint16_t port)
 	size_t salen;
 	int res, af;
 
-	host = pw_properties_get(impl->props, "raop.hostname");
+	host = pw_properties_get(impl->props, "raop.ip");
 	if (host == NULL)
 		return -EINVAL;
 
@@ -1052,7 +1055,7 @@ static int rtsp_do_announce(struct impl *impl)
 	char local_ip[256];
 	int min_latency;
 	min_latency = DEFAULT_LATENCY;
-	host = pw_properties_get(impl->props, "raop.hostname");
+	host = pw_properties_get(impl->props, "raop.ip");
 
 	if (impl->protocol == PROTO_TCP)
 		frames = FRAMES_PER_TCP_PACKET;
@@ -1406,7 +1409,7 @@ static int rtsp_do_connect(struct impl *impl)
 		return 0;
 	}
 
-	hostname = pw_properties_get(impl->props, "raop.hostname");
+	hostname = pw_properties_get(impl->props, "raop.ip");
 	port = pw_properties_get(impl->props, "raop.port");
 	if (hostname == NULL || port == NULL)
 		return -EINVAL;
@@ -1673,8 +1676,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_properties *props = NULL;
-	uint32_t id = pw_global_get_id(pw_impl_module_get_global(module));
-	uint32_t pid = getpid();
 	struct impl *impl;
 	const char *str;
 	int res;
@@ -1719,7 +1720,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 
 	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_NAME, "raop-sink-%u-%u", pid, id);
+		pw_properties_setf(props, PW_KEY_NODE_NAME, "raop_output.%s",
+				pw_properties_get(props, "raop.hostname"));
+
 	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_DESCRIPTION,
 				pw_properties_get(props, PW_KEY_NODE_NAME));

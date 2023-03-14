@@ -282,6 +282,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	struct pw_impl_module *mod;
 	struct pw_properties *props = NULL;
 	char at[AVAHI_ADDRESS_STR_MAX];
+	int ipv;
 
 	if (event != AVAHI_RESOLVER_FOUND) {
 		pw_log_error("Resolving of '%s' failed: %s", name,
@@ -302,17 +303,20 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 
 	avahi_address_snprint(at, sizeof(at), a);
 
-	pw_properties_setf(props, "raop.hostname", "%s", at);
+	pw_properties_setf(props, "raop.ip", "%s", at);
 	pw_properties_setf(props, "raop.port", "%u", port);
+	pw_properties_setf(props, "raop.hostname", "%s", host_name);
 
+	ipv = protocol == AVAHI_PROTO_INET ? 4 : 6;
 	if ((str = strstr(name, "@"))) {
 		str++;
 		if (strlen(str) > 0)
-			pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, str);
-		else
-			pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
-					"RAOP on %s", host_name);
+			name = str;
 	}
+	pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
+				"RAOP on %s (IPv%d)", name, ipv);
+	pw_properties_setf(props, PW_KEY_NODE_NAME, "raop_sink.%s.%s.ipv%d",
+				name, host_name, ipv);
 
 	for (l = txt; l; l = l->next) {
 		char *key, *value;

@@ -1539,9 +1539,11 @@ static int sco_acquire_cb(void *data, bool optional)
 	}
 	spa_log_debug(backend->log, "transport %p: read_mtu=%u, write_mtu=%u", t, t->read_mtu, t->write_mtu);
 
+	spa_bt_transport_set_state(t, SPA_BT_TRANSPORT_STATE_ACTIVE);
 	return 0;
 
 fail:
+	spa_bt_transport_set_state(t, SPA_BT_TRANSPORT_STATE_ERROR);
 	return -1;
 }
 
@@ -1552,6 +1554,8 @@ static int sco_release_cb(void *data)
 	struct impl *backend = SPA_CONTAINER_OF(t->backend, struct impl, this);
 
 	spa_log_info(backend->log, "Transport %s released", t->path);
+
+	spa_bt_transport_set_state(t, SPA_BT_TRANSPORT_STATE_IDLE);
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
 	rfcomm_hfp_ag_set_cind(td->rfcomm, false);

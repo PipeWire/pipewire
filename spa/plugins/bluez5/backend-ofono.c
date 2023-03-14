@@ -231,7 +231,9 @@ static int ofono_audio_acquire(void *data, bool optional)
 		ts.tv_nsec = 1;
 		spa_loop_utils_update_timer(backend->loop_utils, backend->timer,
 				&ts, NULL, false);
-		return -EIO;
+
+		ret = -EIO;
+		goto finish;
 	}
 
 	td->broken = false;
@@ -243,6 +245,11 @@ static int ofono_audio_acquire(void *data, bool optional)
 	ret = 0;
 
 finish:
+	if (ret < 0)
+		spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ERROR);
+	else
+		spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ACTIVE);
+
 	return ret;
 }
 
@@ -253,6 +260,8 @@ static int ofono_audio_release(void *data)
 
 	spa_log_debug(backend->log, "transport %p: Release %s",
 			transport, transport->path);
+
+	spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_IDLE);
 
 	if (transport->sco_io) {
 		spa_bt_sco_io_destroy(transport->sco_io);

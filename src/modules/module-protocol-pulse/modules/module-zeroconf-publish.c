@@ -5,6 +5,7 @@
 
 #include <sys/utsname.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 
 #include <pipewire/pipewire.h>
 

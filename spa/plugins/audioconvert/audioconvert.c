@@ -63,14 +63,20 @@ static void init_volumes(struct volumes *vol)
 
 struct props {
 	float volume;
+	float prev_volume;
 	uint32_t n_channels;
 	uint32_t channel_map[SPA_AUDIO_MAX_CHANNELS];
 	struct volumes channel;
 	struct volumes soft;
 	struct volumes monitor;
+	unsigned int volume_ramp_samples;
+	unsigned int volume_ramp_step_samples;
+	unsigned int volume_ramp_time;
+	unsigned int volume_ramp_step_time;
 	unsigned int have_soft_volume:1;
 	unsigned int mix_disabled:1;
 	unsigned int resample_disabled:1;
+	unsigned int volume_ramp_enabled:1;
 	unsigned int resample_quality;
 	double rate;
 	char wav_path[512];
@@ -89,6 +95,7 @@ static void props_reset(struct props *props)
 	props->have_soft_volume = false;
 	props->mix_disabled = false;
 	props->resample_disabled = false;
+	props->volume_ramp_enabled = false;
 	props->resample_quality = RESAMPLE_DEFAULT_QUALITY;
 	props->rate = 1.0;
 	spa_zero(props->wav_path);
@@ -195,6 +202,8 @@ struct impl {
 	struct resample resample;
 	struct volume volume;
 	double rate_scale;
+	struct spa_pod_sequence *vol_ramp_sequence;
+	uint32_t vol_ramp_offset;
 
 	uint32_t in_offset;
 	uint32_t out_offset;
@@ -202,6 +211,7 @@ struct impl {
 	unsigned int setup:1;
 	unsigned int resample_peaks:1;
 	unsigned int is_passthrough:1;
+	unsigned int ramp_volume:1;
 	unsigned int drained:1;
 	unsigned int rate_adjust:1;
 
@@ -855,6 +865,63 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 	}
 	return changed;
 }
+static struct spa_pod *generate_vol_ramp_up_sequence(struct impl *this, const struct props *p)
+{
+	uint8_t buffer[64 * 1024 * 10];
+	struct spa_pod_builder b;
+	struct spa_pod_frame f[1];
+	double volume_accum = p->prev_volume;
+	double volume_step = (p->volume - p->prev_volume) / (p->volume_ramp_samples / p->volume_ramp_step_samples);
+	uint32_t volume_offs = 0;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_push_sequence(&b, &f[0], 0);
+	spa_log_debug(this->log, "generating ramp up sequence from %f to %f with a step value %f",
+				p->volume, p->prev_volume, volume_step);
+	do {
+		spa_pod_builder_control(&b, volume_offs, SPA_CONTROL_Properties);
+		spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_Props, 0,
+				SPA_PROP_volume, SPA_POD_Float(volume_accum));
+		volume_accum += volume_step;
+		volume_offs += p->volume_ramp_step_samples;
+	} while (volume_accum < p->volume);
+	spa_pod_builder_pop(&b, &f[0]);
+	return spa_pod_builder_pop(&b, &f[0]);
+}
+
+static struct spa_pod *generate_vol_ramp_down_sequence(struct impl *this, const struct props *p)
+{
+	uint8_t buffer[64 * 1024 * 10];
+	struct spa_pod_builder b;
+	struct spa_pod_frame f[1];
+	double volume_accum = p->prev_volume;
+	double volume_step = (p->prev_volume - p->volume) / (p->volume_ramp_samples / p->volume_ramp_step_samples);
+	uint32_t volume_offs = 0;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_push_sequence(&b, &f[0], 0);
+	spa_log_debug(this->log, "generating ramp up sequence from %f to %f with a step value %f",
+			p->prev_volume, p->volume, volume_step);
+	do {
+		spa_pod_builder_control(&b, volume_offs, SPA_CONTROL_Properties);
+		spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_Props, 0,
+				SPA_PROP_volume, SPA_POD_Float(volume_accum));
+		volume_accum -= volume_step;
+		volume_offs += p->volume_ramp_step_samples;
+	} while (volume_accum > p->volume);
+	spa_pod_builder_pop(&b, &f[0]);
+	return spa_pod_builder_pop(&b, &f[0]);
+}
+
+static struct spa_pod *generate_vol_ramp_sequence(struct impl *this, const struct props *p)
+{
+	if (p->volume > p->prev_volume)
+		return generate_vol_ramp_up_sequence(this, p);
+	else
+		return generate_vol_ramp_down_sequence(this, p);
+}
 
 static int apply_props(struct impl *this, const struct spa_pod *param)
 {
@@ -865,17 +932,83 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	bool have_soft_volume = false;
 	int changed = 0;
 	uint32_t n;
+	int32_t value;
 
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
 		case SPA_PROP_volume:
-			if (spa_pod_get_float(&prop->value, &p->volume) == 0)
-				changed++;
+			p->prev_volume = p->volume;
+			spa_log_debug(this->log, "previous volume %f", p->prev_volume);
+
+			if (spa_pod_get_float(&prop->value, &p->volume) == 0) {
+				spa_log_debug(this->log, "current volume %f", p->volume);
+				if (p->volume_ramp_enabled && !this->vol_ramp_sequence) {
+					this->vol_ramp_sequence = (struct spa_pod_sequence *) generate_vol_ramp_sequence (this, p);
+					if (!this->vol_ramp_sequence) {
+						spa_log_error(this->log, "unable to generate sequence");
+						return EIO;
+					}
+					this->vol_ramp_offset = 0;
+				}
+				else
+					changed++;
+			}
 			break;
 		case SPA_PROP_mute:
 			if (spa_pod_get_bool(&prop->value, &p->channel.mute) == 0) {
 				have_channel_volume = true;
 				changed++;
+			}
+			break;
+		case SPA_PROP_volumeRampSamples:
+
+			if (p->volume_ramp_enabled && this->vol_ramp_sequence) {
+				spa_log_error(this->log,"volume ramp sequence is being applied try again");
+				return EAGAIN;
+			}
+
+			if (spa_pod_get_int(&prop->value, &value) == 0) {
+				p->volume_ramp_samples = value;
+				spa_log_debug(this->log, "volume ramp samples %d", p->volume_ramp_samples);
+				p->volume_ramp_enabled = true;
+			}
+			break;
+		case SPA_PROP_volumeRampStepSamples:
+			if (p->volume_ramp_enabled && this->vol_ramp_sequence) {
+				spa_log_error(this->log, "volume ramp sequence is being applied try again");
+				return EAGAIN;
+			}
+
+			if (spa_pod_get_int(&prop->value, &value) == 0) {
+				p->volume_ramp_step_samples = value;
+				spa_log_info(this->log, "here_we_are  volume ramp step time is %d",
+						p->volume_ramp_step_samples);
+				p->volume_ramp_enabled = true;
+			}
+			break;
+		case SPA_PROP_volumeRampTime:
+			if (p->volume_ramp_enabled && this->vol_ramp_sequence) {
+				spa_log_error(this->log, "volume ramp sequence is being applied try again");
+				return EAGAIN;
+			}
+
+			if (spa_pod_get_int(&prop->value, &value) == 0) {
+				p->volume_ramp_time = value;
+				spa_log_debug(this->log, "volume ramp time %d", p->volume_ramp_time);
+				p->volume_ramp_enabled = true;
+			}
+			break;
+		case SPA_PROP_volumeRampStepTime:
+			if (p->volume_ramp_enabled && this->vol_ramp_sequence) {
+				spa_log_error(this->log, "volume ramp sequence is being applied try again");
+				return EAGAIN;
+			}
+
+			if (spa_pod_get_int(&prop->value, &value) == 0) {
+				spa_log_debug(this->log, "volume ramp step time %d",
+						p->volume_ramp_step_time);
+				p->volume_ramp_step_time = value;
+				p->volume_ramp_enabled = true;
 			}
 			break;
 		case SPA_PROP_channelVolumes:

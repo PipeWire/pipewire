@@ -88,9 +88,13 @@ static const struct clock_info {
 	clockid_t id;
 } clock_info[] = {
 	{ "realtime", CLOCK_REALTIME },
+#ifdef CLOCK_TAI
 	{ "tai", CLOCK_TAI },
+#endif
 	{ "monotonic", CLOCK_MONOTONIC },
+#ifdef CLOCK_MONOTONIC_RAW
 	{ "monotonic-raw", CLOCK_MONOTONIC_RAW },
+#endif
 	{ "boottime", CLOCK_BOOTTIME },
 };
 

@@ -1093,7 +1093,7 @@ static int rsa_encrypt(uint8_t *data, int len, uint8_t *enc)
 {
 	uint8_t modulus[256];
 	uint8_t exponent[8];
-	size_t size, msize, esize;
+	size_t msize, esize;
 	int res = 0;
 	char n[] =
 		"59dE8qLieItsH1WgjrcFRKj6eUWqi+bGLOX1HL3U3GhC/j0Qg90u3sG/1CUtwC"
@@ -1112,6 +1112,7 @@ static int rsa_encrypt(uint8_t *data, int len, uint8_t *enc)
 	EVP_PKEY_CTX *ctx = NULL;
 	OSSL_PARAM params[5];
 	int err = 0;
+	size_t size;
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 	swap_bytes(modulus, msize);
@@ -1150,8 +1151,9 @@ done:
 	BIGNUM *n_bn = BN_bin2bn(modulus, msize, NULL);
 	BIGNUM *e_bn = BN_bin2bn(exponent, esize, NULL);
 	RSA_set0_key(rsa, n_bn, e_bn, NULL);
-	size = RSA_public_encrypt(len, data, res, rsa, RSA_PKCS1_OAEP_PADDING);
-	res = size <= 0 ? -EIO : size;
+	res = RSA_public_encrypt(len, data, enc, rsa, RSA_PKCS1_OAEP_PADDING);
+	if (res <= 0)
+		goto error;
 done:
 	if (rsa != NULL)
 		RSA_free(rsa);

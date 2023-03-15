@@ -1,4 +1,4 @@
-if alsa_dep.found()
+if alsa_dep.found() and host_machine.system() == 'linux'
   subdir('alsa')
 endif
 if get_option('avb').require(host_machine.system() == 'linux', error_message: 'AVB support is only available on Linux').allowed()

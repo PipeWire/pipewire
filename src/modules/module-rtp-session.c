@@ -37,6 +37,10 @@
 #include <module-rtp/apple-midi.h>
 #include <module-rtp/stream.h>
 
+#ifdef __FreeBSD__
+#define ifr_ifindex ifr_index
+#endif
+
 /** \page page_module_rtp_session PipeWire Module: RTP session
  *
  * The `rtp-session` module creates a media session that is announced

@@ -27,6 +27,11 @@
 
 #include <module-rtp/stream.h>
 
+#ifndef IPTOS_DSCP
+#define IPTOS_DSCP_MASK 0xfc
+#define IPTOS_DSCP(x) ((x) & IPTOS_DSCP_MASK)
+#endif
+
 /** \page page_module_rtp_sink PipeWire Module: RTP sink
  *
  * The `rtp-sink` module creates a PipeWire sink that sends audio

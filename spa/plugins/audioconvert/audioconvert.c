@@ -1237,7 +1237,7 @@ static void set_volume(struct impl *this)
 	float volumes[SPA_AUDIO_MAX_CHANNELS];
 	struct dir *dir = &this->dir[this->direction];
 
-	spa_log_debug(this->log, "%p have_format:%d", this, dir->have_format);
+	spa_log_debug(this->log, "%p set volume %f have_format:%d", this, this->props.volume, dir->have_format);
 
 	if (dir->have_format)
 		remap_volumes(this, &dir->format);
@@ -2183,17 +2183,18 @@ static void handle_wav(struct impl *this, const void **src, uint32_t n_samples)
 	}
 }
 
-static int channelmix_process_control(struct impl *this, struct port *ctrlport,
-				      void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
-				      uint32_t n_samples)
+static int channelmix_process_apply_sequence (struct impl *this,
+			const struct spa_pod_sequence *sequence, uint32_t *processed_offset,
+			void *SPA_RESTRICT dst[], const void *SPA_RESTRICT src[],
+			uint32_t n_samples)
 {
 	struct spa_pod_control *c, *prev = NULL;
 	uint32_t avail_samples = n_samples;
 	uint32_t i;
 	const float *s[MAX_PORTS], **ss = (const float**) src;
 	float *d[MAX_PORTS], **sd = (float **) dst;
-	const struct spa_pod_sequence_body *body = &(ctrlport->ctrl)->body;
-	uint32_t size = SPA_POD_BODY_SIZE(ctrlport->ctrl);
+	const struct spa_pod_sequence_body *body = &(sequence)->body;
+	uint32_t size = SPA_POD_BODY_SIZE(sequence);
 	bool end = false;
 
 	c = spa_pod_control_first(body);
@@ -2209,15 +2210,15 @@ static int channelmix_process_control(struct impl *this, struct port *ctrlport,
 
 		/* ignore old control offsets */
 		if (c != NULL) {
-			if (c->offset <= ctrlport->ctrl_offset) {
+			if (c->offset <= *processed_offset) {
 				prev = c;
 				if (c != NULL)
 					c = spa_pod_control_next(c);
 				continue;
 			}
-			chunk = SPA_MIN(avail_samples, c->offset - ctrlport->ctrl_offset);
+			chunk = SPA_MIN(avail_samples, c->offset - *processed_offset);
 			spa_log_trace_fp(this->log, "%p: process %d-%d %d/%d", this,
-					ctrlport->ctrl_offset, c->offset, chunk, avail_samples);
+					*processed_offset, c->offset, chunk, avail_samples);
 		} else {
 			chunk = avail_samples;
 			spa_log_trace_fp(this->log, "%p: process remain %d", this, chunk);
@@ -2253,7 +2254,7 @@ static int channelmix_process_control(struct impl *this, struct port *ctrlport,
 				sd[i] += chunk;
 		}
 		avail_samples -= chunk;
-		ctrlport->ctrl_offset += chunk;
+		*processed_offset += chunk;
 	}
 	return end ? 1 : 0;
 }
@@ -2559,7 +2560,7 @@ static int impl_node_process(void *object)
 	}
 
 	mix_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY) &&
-		(ctrlport == NULL || ctrlport->ctrl == NULL);
+		(ctrlport == NULL || ctrlport->ctrl == NULL) && (this->vol_ramp_sequence == NULL);
 
 	out_passthrough = dir->conv.is_passthrough;
 	if (in_passthrough && mix_passthrough && resample_passthrough)
@@ -2620,12 +2621,18 @@ static int impl_node_process(void *object)
 		spa_log_trace_fp(this->log, "%p: channelmix %d %d %d", this, n_samples,
 				resample_passthrough, out_passthrough);
 		if (ctrlport != NULL && ctrlport->ctrl != NULL) {
-			if (channelmix_process_control(this, ctrlport, out_datas,
-						in_datas, n_samples) == 1) {
+			if (channelmix_process_apply_sequence (this, ctrlport->ctrl,
+						&ctrlport->ctrl_offset, out_datas, in_datas, n_samples) == 1) {
 				ctrlio->status = SPA_STATUS_OK;
 				ctrlport->ctrl = NULL;
 			}
-		} else {
+		} else if (this->vol_ramp_sequence) {
+			if (channelmix_process_apply_sequence (this, this->vol_ramp_sequence,
+					&this->vol_ramp_offset, out_datas, in_datas, n_samples) == 1) {
+				this->vol_ramp_sequence = NULL;
+			}
+		}
+		else {
 			channelmix_process(&this->mix, out_datas, in_datas, n_samples);
 		}
 	}
@@ -2802,6 +2809,7 @@ static int impl_clear(struct spa_handle *handle)
 		convert_free(&this->dir[1].conv);
 	if (this->wav_file != NULL)
 		wav_file_close(this->wav_file);
+	free (this->vol_ramp_sequence);
 	return 0;
 }
 

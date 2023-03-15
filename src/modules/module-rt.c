@@ -574,6 +574,7 @@ static bool check_realtime_privileges(struct impl *impl)
 			return false;
 		}
 		if (try == 2) {
+#ifdef RLIMIT_RTPRIO
 			struct rlimit rlim;
 			/* second try, try to clamp to RLIMIT_RTPRIO */
 			if (getrlimit(RLIMIT_RTPRIO, &rlim) == 0 && max > (int)rlim.rlim_max) {
@@ -581,6 +582,7 @@ static bool check_realtime_privileges(struct impl *impl)
 				max = (int)rlim.rlim_max;
 			}
 			else
+#endif
 				break;
 		}
 		if (max < DEFAULT_RT_PRIO_MIN) {

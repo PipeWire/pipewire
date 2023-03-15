@@ -28,6 +28,8 @@ module_sources = [
   'module-rt.c',
   'module-raop-discover.c',
   'module-raop-sink.c',
+  'module-rtp-sap.c',
+  'module-rtp-session.c',
   'module-rtp-source.c',
   'module-rtp-sink.c',
   'module-session-manager.c',

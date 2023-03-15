@@ -2999,9 +2999,8 @@ finish:
 	}
 }
 
-static int transport_acquire(void *data, bool optional)
+static int do_transport_acquire(struct spa_bt_transport *transport)
 {
-	struct spa_bt_transport *transport = data;
 	struct spa_bt_monitor *monitor = transport->monitor;
 	DBusMessage *m;
 	DBusError err;
@@ -3045,6 +3044,65 @@ static int transport_acquire(void *data, bool optional)
 	return 0;
 }
 
+static bool transport_in_same_cig(struct spa_bt_transport *transport, struct spa_bt_transport *other)
+{
+	return (other->profile & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE)) &&
+		other->bap_cig == transport->bap_cig &&
+		other->bap_initiator;
+}
+
+static bool another_cig_transport_active(struct spa_bt_transport *transport)
+{
+	struct spa_bt_monitor *monitor = transport->monitor;
+	struct spa_bt_transport *t;
+
+	spa_list_for_each(t, &monitor->transport_list, link) {
+		if (!transport_in_same_cig(transport, t) || t == transport)
+			continue;
+		if (t->acquired)
+			return true;
+	}
+
+	return false;
+}
+
+static int transport_acquire(void *data, bool optional)
+{
+	struct spa_bt_transport *transport = data;
+	struct spa_bt_monitor *monitor = transport->monitor;
+
+	/*
+	 * XXX: When as BAP Central, all CIS in a CIG must be acquired at the same time.
+	 * XXX: This is because of kernel ISO socket limitations, which does not handle
+	 * XXX: currently starting streams in the group one by one.
+	 */
+	if (transport->bap_initiator && !another_cig_transport_active(transport)) {
+		struct spa_bt_transport *t;
+
+		spa_list_for_each(t, &monitor->transport_list, link) {
+			if (!transport_in_same_cig(transport, t) || t == transport)
+				continue;
+
+			spa_log_debug(monitor->log, "Acquire CIG %d: transport %s",
+					transport->bap_cig, t->path);
+
+			do_transport_acquire(t);
+		}
+
+		spa_log_debug(monitor->log, "Acquire CIG %d: transport %s",
+				transport->bap_cig, transport->path);
+	}
+	if (transport->bap_initiator &&
+			(transport->fd >= 0 || transport->acquire_call)) {
+		/* Already acquired/acquiring */
+		spa_log_debug(monitor->log, "Acquiring %s: was in acquired CIG", transport->path);
+		spa_bt_transport_emit_state_changed(transport, transport->state, transport->state);
+		return 0;
+	}
+
+	return do_transport_acquire(data);
+}
+
 static void transport_release_reply(DBusPendingCall *pending, void *user_data)
 {
 	struct spa_bt_transport *transport = user_data;
@@ -3085,9 +3143,8 @@ static void transport_release_reply(DBusPendingCall *pending, void *user_data)
 	dbus_message_unref(r);
 }
 
-static int transport_release(void *data)
+static int do_transport_release(struct spa_bt_transport *transport)
 {
-	struct spa_bt_transport *transport = data;
 	struct spa_bt_monitor *monitor = transport->monitor;
 	DBusMessage *m;
 	struct spa_bt_transport *t_linked;
@@ -3146,6 +3203,44 @@ static int transport_release(void *data)
 
 	return 0;
 }
+
+static int transport_release(void *data)
+{
+	struct spa_bt_transport *transport = data;
+	struct spa_bt_monitor *monitor = transport->monitor;
+	struct spa_bt_transport *t;
+
+	/*
+	 * XXX: When as BAP Central, release CIS in a CIG when the last transport
+	 * XXX: goes away.
+	 */
+	if (transport->bap_initiator) {
+		/* Check if another transport is alive */
+		if (another_cig_transport_active(transport)) {
+			spa_log_debug(monitor->log, "Releasing %s: wait for CIG %d",
+					transport->path, transport->bap_cig);
+			return 0;
+		}
+
+		/* Release remaining transports in CIG */
+		spa_list_for_each(t, &monitor->transport_list, link) {
+			if (!transport_in_same_cig(transport, t) || t == transport)
+				continue;
+
+			spa_log_debug(monitor->log, "Release CIG %d: transport %s",
+					transport->bap_cig, t->path);
+
+			if (t->fd >= 0)
+				do_transport_release(t);
+		}
+
+		spa_log_debug(monitor->log, "Release CIG %d: transport %s",
+				transport->bap_cig, transport->path);
+	}
+
+	return do_transport_release(data);
+}
+
 
 static const struct spa_bt_transport_implementation transport_impl = {
 	SPA_VERSION_BT_TRANSPORT_IMPLEMENTATION,

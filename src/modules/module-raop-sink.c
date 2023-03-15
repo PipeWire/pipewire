@@ -20,6 +20,7 @@
 #include <openssl/err.h>
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
+#include <openssl/core_names.h>
 #include <openssl/engine.h>
 #include <openssl/aes.h>
 #include <openssl/md5.h>
@@ -210,12 +211,15 @@ struct impl {
 
 	char session_id[32];
 	char *password;
+	char *auth_method;
+	char *realm;
+	char *nonce;
 
 	unsigned int do_disconnect:1;
 
 	uint8_t key[AES_CHUNK_SIZE]; /* Key for aes-cbc */
 	uint8_t iv[AES_CHUNK_SIZE];  /* Initialization vector for cbc */
-	AES_KEY aes;                 /* AES encryption */
+	EVP_CIPHER_CTX *ctx;
 
 	uint16_t control_port;
 	int control_fd;
@@ -269,21 +273,10 @@ static inline void bit_writer(uint8_t **p, int *pos, uint8_t data, int len)
 
 static int aes_encrypt(struct impl *impl, uint8_t *data, int len)
 {
-    uint8_t nv[AES_CHUNK_SIZE];
-    uint8_t *buffer;
-    int i, j;
-
-    memcpy(nv, impl->iv, AES_CHUNK_SIZE);
-    for (i = 0; i + AES_CHUNK_SIZE <= len; i += AES_CHUNK_SIZE) {
-        buffer = data + i;
-        for (j = 0; j < AES_CHUNK_SIZE; j++)
-            buffer[j] ^= nv[j];
-
-        AES_encrypt(buffer, buffer, &impl->aes);
-
-        memcpy(nv, buffer, AES_CHUNK_SIZE);
-    }
-    return i;
+	int i = len & ~0xf, clen = i;
+	EVP_EncryptInit(impl->ctx, EVP_aes_128_cbc(), impl->key, impl->iv);
+	EVP_EncryptUpdate(impl->ctx, data, &clen, data, i);
+	return i;
 }
 
 static inline uint64_t timespec_to_ntp(struct timespec *ts)
@@ -706,6 +699,126 @@ on_control_source_io(void *data, int fd, uint32_t mask)
 	}
 }
 
+static void base64_encode(const uint8_t *data, size_t len, char *enc, char pad)
+{
+	static const char tab[] =
+	    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	size_t i;
+	for (i = 0; i < len; i += 3) {
+		uint32_t v;
+		v  =              data[i+0]      << 16;
+		v |= (i+1 < len ? data[i+1] : 0) << 8;
+		v |= (i+2 < len ? data[i+2] : 0);
+		*enc++ =             tab[(v >> (3*6)) & 0x3f];
+		*enc++ =             tab[(v >> (2*6)) & 0x3f];
+		*enc++ = i+1 < len ? tab[(v >> (1*6)) & 0x3f] : pad;
+		*enc++ = i+2 < len ? tab[(v >> (0*6)) & 0x3f] : pad;
+	}
+	*enc = '\0';
+}
+
+static size_t base64_decode(const char *data, size_t len, uint8_t *dec)
+{
+	uint8_t tab[] = {
+		62, -1, -1, -1, 63, 52, 53, 54, 55, 56,
+		57, 58, 59, 60, 61, -1, -1, -1, -1, -1,
+		-1, -1,  0,  1,  2,  3,  4,  5,  6,  7,
+		 8,  9, 10, 11, 12, 13, 14, 15, 16, 17,
+		18, 19, 20, 21, 22, 23, 24, 25, -1, -1,
+		-1, -1, -1, -1, 26, 27, 28, 29, 30, 31,
+		32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
+		42, 43, 44, 45, 46, 47, 48, 49, 50, 51 };
+	size_t i, j;
+	for (i = 0, j = 0; i < len; i += 4) {
+		uint32_t v;
+		v =                          tab[data[i+0]-43]  << (3*6);
+		v |=                         tab[data[i+1]-43]  << (2*6);
+		v |= (data[i+2] == '=' ? 0 : tab[data[i+2]-43]) << (1*6);
+		v |= (data[i+3] == '=' ? 0 : tab[data[i+3]-43]);
+		                      dec[j++] = (v >> 16) & 0xff;
+		if (data[i+2] != '=') dec[j++] = (v >> 8)  & 0xff;
+		if (data[i+3] != '=') dec[j++] =  v        & 0xff;
+	}
+	return j;
+}
+
+SPA_PRINTF_FUNC(2,3)
+static int MD5_hash(char hash[MD5_HASH_LENGTH+1], const char *fmt, ...)
+{
+	unsigned char d[MD5_DIGEST_LENGTH];
+	int i;
+	va_list args;
+	char buffer[1024];
+	unsigned int size;
+
+	va_start(args, fmt);
+	vsnprintf(buffer, sizeof(buffer), fmt, args);
+	va_end(args);
+
+	size = MD5_DIGEST_LENGTH;
+	EVP_Digest(buffer, strlen(buffer), d, &size, EVP_md5(), NULL);
+	for (i = 0; i < MD5_DIGEST_LENGTH; i++)
+		sprintf(&hash[2*i], "%02x", (uint8_t) d[i]);
+	hash[MD5_HASH_LENGTH] = '\0';
+	return 0;
+}
+
+static int rtsp_add_auth(struct impl *impl, const char *method)
+{
+	char auth[1024];
+
+	if (impl->auth_method == NULL)
+		return 0;
+
+	if (spa_streq(impl->auth_method, "Basic")) {
+		char buf[256];
+		char enc[512];
+		spa_scnprintf(buf, sizeof(buf), "%s:%s", DEFAULT_USER_NAME, impl->password);
+		base64_encode((uint8_t*)buf, strlen(buf), enc, '=');
+		spa_scnprintf(auth, sizeof(auth), "Basic %s", enc);
+	}
+	else if (spa_streq(impl->auth_method, "Digest")) {
+		const char *url;
+		char h1[MD5_HASH_LENGTH+1];
+		char h2[MD5_HASH_LENGTH+1];
+		char resp[MD5_HASH_LENGTH+1];
+
+		url = pw_rtsp_client_get_url(impl->rtsp);
+
+		MD5_hash(h1, "%s:%s:%s", DEFAULT_USER_NAME, impl->realm, impl->password);
+		MD5_hash(h2, "%s:%s", method, url);
+		MD5_hash(resp, "%s:%s:%s", h1, impl->nonce, h2);
+
+		pw_log_warn("%s:%s", method, url);
+		spa_scnprintf(auth, sizeof(auth),
+				"username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\"",
+				DEFAULT_USER_NAME, impl->realm, impl->nonce, url, resp);
+	}
+	else
+		goto error;
+
+	pw_properties_setf(impl->headers, "Authorization", "%s %s",
+			impl->auth_method, auth);
+
+	return 0;
+error:
+	pw_log_error("error adding auth");
+	return -EINVAL;
+}
+
+static int rtsp_send(struct impl *impl, const char *method,
+		const char *content_type, const char *content,
+		int (*reply) (void *data, int status, const struct spa_dict *headers))
+{
+	int res;
+
+	rtsp_add_auth(impl, method);
+
+	res = pw_rtsp_client_send(impl->rtsp, method, &impl->headers->dict,
+			content_type, content, reply, impl);
+	return res;
+}
+
 static int rtsp_flush_reply(void *data, int status, const struct spa_dict *headers)
 {
 	pw_log_info("reply %d", status);
@@ -725,8 +838,7 @@ static int rtsp_do_flush(struct impl *impl)
 
 	impl->recording = false;
 
-	res = pw_rtsp_client_send(impl->rtsp, "FLUSH", &impl->headers->dict,
-			NULL, NULL, rtsp_flush_reply, impl);
+	res = rtsp_send(impl, "FLUSH", NULL, NULL, rtsp_flush_reply);
 
 	pw_properties_set(impl->headers, "Range", NULL);
 	pw_properties_set(impl->headers, "RTP-Info", NULL);
@@ -770,8 +882,7 @@ static int rtsp_record_reply(void *data, int status, const struct spa_dict *head
 	impl->recording = true;
 
 	snprintf(progress, sizeof(progress), "progress: %s/%s/%s\r\n", "0", "0", "0");
-	return pw_rtsp_client_send(impl->rtsp, "SET_PARAMETER", NULL,
-			"text/parameters", progress, NULL, NULL);
+	return rtsp_send(impl, "SET_PARAMETER", "text/parameters", progress, NULL);
 }
 
 static int rtsp_do_record(struct impl *impl)
@@ -785,8 +896,7 @@ static int rtsp_do_record(struct impl *impl)
 	pw_properties_setf(impl->headers, "RTP-Info",
 			"seq=%u;rtptime=%u", impl->seq, impl->rtptime);
 
-	res = pw_rtsp_client_send(impl->rtsp, "RECORD", &impl->headers->dict,
-			NULL, NULL, rtsp_record_reply, impl);
+	res = rtsp_send(impl, "RECORD", NULL, NULL, rtsp_record_reply);
 
 	pw_properties_set(impl->headers, "Range", NULL);
 	pw_properties_set(impl->headers, "RTP-Info", NULL);
@@ -942,8 +1052,7 @@ static int rtsp_do_setup(struct impl *impl)
 		return -ENOTSUP;
 	}
 
-	res = pw_rtsp_client_send(impl->rtsp, "SETUP", &impl->headers->dict,
-			NULL, NULL, rtsp_setup_reply, impl);
+	res = rtsp_send(impl, "SETUP", NULL, NULL, rtsp_setup_reply);
 
 	pw_properties_set(impl->headers, "Transport", NULL);
 
@@ -967,49 +1076,6 @@ static int rtsp_announce_reply(void *data, int status, const struct spa_dict *he
 	pw_properties_set(impl->headers, "Apple-Challenge", NULL);
 
 	return rtsp_do_setup(impl);
-}
-
-static void base64_encode(const uint8_t *data, size_t len, char *enc, char pad)
-{
-	static const char tab[] =
-	    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	size_t i;
-	for (i = 0; i < len; i += 3) {
-		uint32_t v;
-		v  =              data[i+0]      << 16;
-		v |= (i+1 < len ? data[i+1] : 0) << 8;
-		v |= (i+2 < len ? data[i+2] : 0);
-		*enc++ =             tab[(v >> (3*6)) & 0x3f];
-		*enc++ =             tab[(v >> (2*6)) & 0x3f];
-		*enc++ = i+1 < len ? tab[(v >> (1*6)) & 0x3f] : pad;
-		*enc++ = i+2 < len ? tab[(v >> (0*6)) & 0x3f] : pad;
-	}
-	*enc = '\0';
-}
-
-static size_t base64_decode(const char *data, size_t len, uint8_t *dec)
-{
-	uint8_t tab[] = {
-		62, -1, -1, -1, 63, 52, 53, 54, 55, 56,
-		57, 58, 59, 60, 61, -1, -1, -1, -1, -1,
-		-1, -1,  0,  1,  2,  3,  4,  5,  6,  7,
-		 8,  9, 10, 11, 12, 13, 14, 15, 16, 17,
-		18, 19, 20, 21, 22, 23, 24, 25, -1, -1,
-		-1, -1, -1, -1, 26, 27, 28, 29, 30, 31,
-		32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
-		42, 43, 44, 45, 46, 47, 48, 49, 50, 51 };
-	size_t i, j;
-	for (i = 0, j = 0; i < len; i += 4) {
-		uint32_t v;
-		v =                          tab[data[i+0]-43]  << (3*6);
-		v |=                         tab[data[i+1]-43]  << (2*6);
-		v |= (data[i+2] == '=' ? 0 : tab[data[i+2]-43]) << (1*6);
-		v |= (data[i+3] == '=' ? 0 : tab[data[i+3]-43]);
-		                      dec[j++] = (v >> 16) & 0xff;
-		if (data[i+2] != '=') dec[j++] = (v >> 8)  & 0xff;
-		if (data[i+3] != '=') dec[j++] =  v        & 0xff;
-	}
-	return j;
 }
 
 static int rsa_encrypt(uint8_t *data, int len, uint8_t *res)
@@ -1100,8 +1166,6 @@ static int rtsp_do_announce(struct impl *impl)
 		    pw_getrandom(impl->iv, sizeof(impl->iv), 0) < 0)
 			return -errno;
 
-		AES_set_encrypt_key(impl->key, 128, &impl->aes);
-
 		i = rsa_encrypt(impl->key, 16, rsakey);
 	        base64_encode(rsakey, i, key, '=');
 	        base64_encode(impl->iv, 16, iv, '=');
@@ -1122,8 +1186,7 @@ static int rtsp_do_announce(struct impl *impl)
 	default:
 		return -ENOTSUP;
 	}
-	res = pw_rtsp_client_send(impl->rtsp, "ANNOUNCE", &impl->headers->dict,
-			"application/sdp", sdp, rtsp_announce_reply, impl);
+	res = rtsp_send(impl, "ANNOUNCE", "application/sdp", sdp, rtsp_announce_reply);
 	free(sdp);
 
 	return res;
@@ -1150,24 +1213,6 @@ static int rtsp_do_auth_setup(struct impl *impl)
 				       rtsp_auth_setup_reply, impl);
 }
 
-static const char *find_attr(char **tokens, const char *key)
-{
-	int i;
-	char *p, *s;
-	for (i = 0; tokens[i]; i++) {
-		if (!spa_strstartswith(tokens[i], key))
-			continue;
-		p = tokens[i] + strlen(key);
-		if ((s = rindex(p, '"')) == NULL)
-			continue;
-		*s = '\0';
-		if ((s = index(p, '"')) == NULL)
-			continue;
-		return s+1;
-	}
-	return NULL;
-}
-
 static int rtsp_auth_reply(void *data, int status, const struct spa_dict *headers)
 {
 	struct impl *impl = data;
@@ -1186,37 +1231,37 @@ static int rtsp_auth_reply(void *data, int status, const struct spa_dict *header
 	return res;
 }
 
-SPA_PRINTF_FUNC(2,3)
-static int MD5_hash(char hash[MD5_HASH_LENGTH+1], const char *fmt, ...)
+static const char *find_attr(char **tokens, const char *key)
 {
-	unsigned char d[MD5_DIGEST_LENGTH];
 	int i;
-	va_list args;
-	char buffer[1024];
-
-	va_start(args, fmt);
-	vsnprintf(buffer, sizeof(buffer), fmt, args);
-	va_end(args);
-
-	MD5((unsigned char*) buffer, strlen(buffer), d);
-	for (i = 0; i < MD5_DIGEST_LENGTH; i++)
-		sprintf(&hash[2*i], "%02x", (uint8_t) d[i]);
-	hash[MD5_HASH_LENGTH] = '\0';
-	return 0;
+	char *p, *s;
+	for (i = 0; tokens[i]; i++) {
+		if (!spa_strstartswith(tokens[i], key))
+			continue;
+		p = tokens[i] + strlen(key);
+		if ((s = rindex(p, '"')) == NULL)
+			continue;
+		*s = '\0';
+		if ((s = index(p, '"')) == NULL)
+			continue;
+		return s+1;
+	}
+	return NULL;
 }
 
 static int rtsp_do_auth(struct impl *impl, const struct spa_dict *headers)
 {
-	const char *str;
+	const char *str, *realm, *nonce;
 	char **tokens;
 	int n_tokens;
-	char auth[1024];
-
-	if (impl->password == NULL)
-		return -ENOTSUP;
 
 	if ((str = spa_dict_lookup(headers, "WWW-Authenticate")) == NULL)
-		return -ENOENT;
+		return -EINVAL;
+
+	if (impl->password == NULL) {
+		pw_log_warn("authentication required but no raop.password property was given");
+		return -ENOTSUP;
+	}
 
 	pw_log_info("Auth: %s", str);
 
@@ -1224,45 +1269,23 @@ static int rtsp_do_auth(struct impl *impl, const struct spa_dict *headers)
 	if (tokens == NULL || tokens[0] == NULL)
 		goto error;
 
-	if (spa_streq(tokens[0], "Basic")) {
-		char buf[256];
-		char enc[512];
-		spa_scnprintf(buf, sizeof(buf), "%s:%s", DEFAULT_USER_NAME, impl->password);
-		base64_encode((uint8_t*)buf, strlen(buf), enc, '=');
-		spa_scnprintf(auth, sizeof(auth), "Basic %s", enc);
-	}
-	else if (spa_streq(tokens[0], "Digest")) {
-		const char *realm, *nonce, *url;
-		char h1[MD5_HASH_LENGTH+1];
-		char h2[MD5_HASH_LENGTH+1];
-		char resp[MD5_HASH_LENGTH+1];
+	impl->auth_method = strdup(tokens[0]);
 
+	if (spa_streq(impl->auth_method, "Digest")) {
 		realm = find_attr(tokens, "realm");
 		nonce = find_attr(tokens, "nonce");
 		if (realm == NULL || nonce == NULL)
 			goto error;
 
-		url = pw_rtsp_client_get_url(impl->rtsp);
-
-		MD5_hash(h1, "%s:%s:%s", DEFAULT_USER_NAME, realm, impl->password);
-		MD5_hash(h2, "OPTIONS:%s", url);
-		MD5_hash(resp, "%s:%s:%s", h1, nonce, h2);
-
-		spa_scnprintf(auth, sizeof(auth),
-				"username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\"",
-				DEFAULT_USER_NAME, realm, nonce, url, resp);
+		impl->realm = strdup(realm);
+		impl->nonce = strdup(nonce);
 	}
-	else
-		goto error;
 
-	pw_properties_setf(impl->headers, "Authorization", "%s %s",
-			tokens[0], auth);
 	pw_free_strv(tokens);
 
-	pw_rtsp_client_send(impl->rtsp, "OPTIONS", &impl->headers->dict,
-			NULL, NULL, rtsp_auth_reply, impl);
-
+	rtsp_send(impl, "OPTIONS", NULL, NULL, rtsp_auth_reply);
 	return 0;
+
 error:
 	pw_free_strv(tokens);
 	return -EINVAL;
@@ -1345,6 +1368,12 @@ static void connection_cleanup(struct impl *impl)
 		close(impl->timing_fd);
 		impl->timing_fd = -1;
 	}
+	free(impl->auth_method);
+	impl->auth_method = NULL;
+	free(impl->realm);
+	impl->realm = NULL;
+	free(impl->nonce);
+	impl->nonce = NULL;
 }
 
 static void rtsp_disconnected(void *data)
@@ -1690,7 +1719,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->server_fd = -1;
 	impl->control_fd = -1;
 	impl->timing_fd = -1;
-
+	impl->ctx = EVP_CIPHER_CTX_new();
+	if (impl->ctx == NULL) {
+		res = -errno;
+		pw_log_error( "can't create cipher context: %m");
+		goto error;
+	}
 	if (args == NULL)
 		args = "";
 

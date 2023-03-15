@@ -2215,6 +2215,8 @@ struct spa_bt_transport *spa_bt_transport_create(struct spa_bt_monitor *monitor,
 	t->sco_io = NULL;
 	t->delay_us = SPA_BT_UNKNOWN_DELAY;
 	t->latency_us = SPA_BT_UNKNOWN_DELAY;
+	t->bap_cig = 0xff;
+	t->bap_cis = 0xff;
 	t->user_data = SPA_PTROFF(t, sizeof(struct spa_bt_transport), void);
 	spa_hook_list_init(&t->listener_list);
 	spa_list_init(&t->bap_transport_linked);
@@ -2831,6 +2833,20 @@ static int transport_update_props(struct spa_bt_transport *transport,
 			dbus_message_iter_get_basic(&it[1], &value);
 
 			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
+		}
+		else if (spa_streq(key, "CIG") || spa_streq(key, "CIS")) {
+			uint8_t value;
+
+			if (type != DBUS_TYPE_BYTE)
+				goto next;
+			dbus_message_iter_get_basic(&it[1], &value);
+
+			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
+
+			if (spa_streq(key, "CIG"))
+				transport->bap_cig = value;
+			else
+				transport->bap_cis = value;
 		}
 next:
 		dbus_message_iter_next(props_iter);

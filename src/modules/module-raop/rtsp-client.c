@@ -530,6 +530,8 @@ int pw_rtsp_client_connect(struct pw_rtsp_client *client,
 
 int pw_rtsp_client_disconnect(struct pw_rtsp_client *client)
 {
+	struct message *msg;
+
 	if (client->source == NULL)
 		return 0;
 
@@ -539,6 +541,11 @@ int pw_rtsp_client_disconnect(struct pw_rtsp_client *client)
 	client->url = NULL;
 	free(client->session_id);
 	client->session_id = NULL;
+
+	spa_list_consume(msg, &client->messages, link) {
+		spa_list_remove(&msg->link);
+		free(msg);
+	}
 	pw_rtsp_client_emit_disconnected(client);
 	return 0;
 }

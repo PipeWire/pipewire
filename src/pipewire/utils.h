@@ -16,6 +16,10 @@ extern "C" {
 # include <sys/mount.h>
 #endif
 
+#ifndef ENODATA
+#define ENODATA 9919
+#endif
+
 #include <spa/utils/defs.h>
 #include <spa/pod/pod.h>
 

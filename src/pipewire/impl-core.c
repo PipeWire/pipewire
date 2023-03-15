@@ -5,9 +5,6 @@
 #include "config.h"
 
 #include <unistd.h>
-#ifndef ENODATA
-#define ENODATA 9919
-#endif
 
 #include <spa/debug/types.h>
 #include <spa/utils/string.h>

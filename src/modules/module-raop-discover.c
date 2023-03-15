@@ -31,19 +31,56 @@
  * Automatically creates RAOP (Airplay) sink devices based on zeroconf
  * information.
  *
- * This module will load module-raop-sink for each discovered sink
- * with the right parameters.
+ * This module will load module-raop-sink for each announced stream that matches
+ * the rule with the create-stream action.
+ *
+ * If no stream.rules are given, it will create a sink for all announced
+ * streams.
  *
  * ## Module Options
  *
- * This module has no options.
+ * Options specific to the behavior of this module
+ *
+ * - `stream.rules` = <rules>: match rules, use create-stream actions. See
+ *   \ref page_module_raop_sink for module properties.
  *
  * ## Example configuration
  *
  *\code{.unparsed}
  * context.modules = [
  * {   name = libpipewire-raop-discover
- *     args = { }
+ *     args = {
+ *         stream.rules = [
+ *             {   matches = [
+ *                     {    raop.ip = "~.*"
+ *                          #raop.ip.version = 4 | 6
+ *                          #raop.ip.version = 4
+ *                          #raop.port = 1000
+ *                          #raop.name = ""
+ *                          #raop.hostname = ""
+ *                          #raop.domain = ""
+ *                          #raop.device = ""
+ *                          #raop.transport = "udp" | "tcp"
+ *                          #raop.encryption.type = "RSA" | "auth_setup" | "none"
+ *                          #raop.audio.codec = "PCM" | "ALAC" | "AAC" | "AAC-ELD"
+ *                          #audio.channels = 2
+ *                          #audio.format = "S16" | "S24" | "S32"
+ *                          #audio.rate = 44100
+ *                          #device.model = ""
+ *                     }
+ *                 ]
+ *                 actions = {
+ *                     create-stream = {
+ *                         #raop.password = ""
+ *                         stream.props = {
+ *                             #target.object = ""
+ *                             #media.class = "Audio/Sink"
+ *                         }
+ *                     }
+ *                 }
+ *             }
+ *         ]
+ *     }
  * }
  * ]
  *\endcode
@@ -58,7 +95,10 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define MODULE_USAGE	" "
+#define MODULE_USAGE "stream.rules=<rules>, use create-stream actions "
+
+#define DEFAULT_CREATE_RULES	\
+        "[ { matches = [ { raop.ip = \"~.*\" } ] actions = { create-stream = { } } } ] "
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
@@ -88,6 +128,7 @@ struct tunnel_info {
 	AvahiIfIndex interface;
 	AvahiProtocol protocol;
 	const char *name;
+	const char *host_name;
 	const char *type;
 	const char *domain;
 };
@@ -114,6 +155,7 @@ static struct tunnel *make_tunnel(struct impl *impl, const struct tunnel_info *i
 	t->info.interface = info->interface;
 	t->info.protocol = info->protocol;
 	t->info.name = strdup(info->name);
+	t->info.host_name = strdup(info->host_name);
 	t->info.type = strdup(info->type);
 	t->info.domain = strdup(info->domain);
 	spa_list_append(&impl->tunnel_list, &t->link);
@@ -255,6 +297,7 @@ static void submodule_destroy(void *data)
 	spa_hook_remove(&t->module_listener);
 
 	free((char *) t->info.name);
+	free((char *) t->info.host_name);
 	free((char *) t->info.type);
 	free((char *) t->info.domain);
 
@@ -266,20 +309,84 @@ static const struct pw_impl_module_events submodule_events = {
 	.destroy = submodule_destroy,
 };
 
+struct match_info {
+	struct impl *impl;
+	struct pw_properties *props;
+	struct tunnel_info *tinfo;
+	bool matched;
+};
+
+static int create_stream(struct impl *impl, struct pw_properties *props,
+		struct tunnel_info *tinfo)
+{
+	FILE *f;
+	char *args;
+	size_t size;
+	int res = 0;
+	struct pw_impl_module *mod;
+	struct tunnel *t;
+
+	if ((f = open_memstream(&args, &size)) == NULL) {
+		res = -errno;
+		pw_log_error("Can't open memstream: %m");
+		goto done;
+	}
+
+	fprintf(f, "{");
+	pw_properties_serialize_dict(f, &props->dict, 0);
+	fprintf(f, "}");
+        fclose(f);
+
+	pw_log_info("loading module args:'%s'", args);
+	mod = pw_context_load_module(impl->context,
+			"libpipewire-module-raop-sink",
+			args, NULL);
+	free(args);
+
+	if (mod == NULL) {
+		res = -errno;
+		pw_log_error("Can't load module: %m");
+                goto done;
+	}
+
+	t = make_tunnel(impl, tinfo);
+	if (t == NULL) {
+		res = -errno;
+		pw_log_error("Can't make tunnel: %m");
+		pw_impl_module_destroy(mod);
+		goto done;
+	}
+
+	pw_impl_module_add_listener(mod, &t->module_listener, &submodule_events, t);
+
+	t->module = mod;
+done:
+	return res;
+}
+
+static int rule_matched(void *data, const char *location, const char *action,
+                        const char *str, size_t len)
+{
+	struct match_info *i = data;
+	int res = 0;
+
+	i->matched = true;
+	if (spa_streq(action, "create-stream")) {
+		pw_properties_update_string(i->props, str, len);
+		create_stream(i->impl, i->props, i->tinfo);
+	}
+	return res;
+}
+
 static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiProtocol protocol,
 	AvahiResolverEvent event, const char *name, const char *type, const char *domain,
 	const char *host_name, const AvahiAddress *a, uint16_t port, AvahiStringList *txt,
 	AvahiLookupResultFlags flags, void *userdata)
 {
 	struct impl *impl = userdata;
-	struct tunnel *t;
 	struct tunnel_info tinfo;
 	const char *str;
 	AvahiStringList *l;
-	FILE *f;
-	char *args;
-	size_t size;
-	struct pw_impl_module *mod;
 	struct pw_properties *props = NULL;
 	char at[AVAHI_ADDRESS_STR_MAX];
 	int ipv;
@@ -291,6 +398,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	}
 	tinfo = TUNNEL_INFO(.interface = interface,
 			.protocol = protocol,
+			.host_name = host_name,
 			.name = name,
 			.type = type,
 			.domain = domain);
@@ -302,21 +410,14 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	}
 
 	avahi_address_snprint(at, sizeof(at), a);
+	ipv = protocol == AVAHI_PROTO_INET ? 4 : 6;
 
 	pw_properties_setf(props, "raop.ip", "%s", at);
+	pw_properties_setf(props, "raop.ip.version", "%d", ipv);
 	pw_properties_setf(props, "raop.port", "%u", port);
+	pw_properties_setf(props, "raop.name", "%s", name);
 	pw_properties_setf(props, "raop.hostname", "%s", host_name);
-
-	ipv = protocol == AVAHI_PROTO_INET ? 4 : 6;
-	if ((str = strstr(name, "@"))) {
-		str++;
-		if (strlen(str) > 0)
-			name = str;
-	}
-	pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
-				"RAOP on %s (IPv%d)", name, ipv);
-	pw_properties_setf(props, PW_KEY_NODE_NAME, "raop_sink.%s.%s.ipv%d",
-				name, host_name, ipv);
+	pw_properties_setf(props, "raop.domain", "%s", domain);
 
 	for (l = txt; l; l = l->next) {
 		char *key, *value;
@@ -329,45 +430,24 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		avahi_free(value);
 	}
 
+	if ((str = pw_properties_get(impl->properties, "stream.rules")) == NULL)
+		str = DEFAULT_CREATE_RULES;
+	if (str != NULL) {
+		struct match_info minfo = {
+			.impl = impl,
+			.props = props,
+			.tinfo = &tinfo,
+		};
+		pw_conf_match_rules(str, strlen(str), NAME, &props->dict,
+				rule_matched, &minfo);
 
-	if ((f = open_memstream(&args, &size)) == NULL) {
-		pw_log_error("Can't open memstream: %m");
-		goto done;
+		if (!minfo.matched)
+			pw_log_info("unmatched service found %s", str);
 	}
-
-	fprintf(f, "{");
-	pw_properties_serialize_dict(f, &props->dict, 0);
-	fprintf(f, " stream.props = {");
-	fprintf(f, " }");
-	fprintf(f, "}");
-        fclose(f);
-
-	pw_properties_free(props);
-
-	pw_log_info("loading module args:'%s'", args);
-	mod = pw_context_load_module(impl->context,
-			"libpipewire-module-raop-sink",
-			args, NULL);
-	free(args);
-
-	if (mod == NULL) {
-		pw_log_error("Can't load module: %m");
-                goto done;
-	}
-
-	t = make_tunnel(impl, &tinfo);
-	if (t == NULL) {
-		pw_log_error("Can't make tunnel: %m");
-		pw_impl_module_destroy(mod);
-		goto done;
-	}
-
-	pw_impl_module_add_listener(mod, &t->module_listener, &submodule_events, t);
-
-	t->module = mod;
 
 done:
 	avahi_service_resolver_free(r);
+	pw_properties_free(props);
 }
 
 

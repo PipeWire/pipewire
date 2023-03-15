@@ -57,8 +57,9 @@
  * Options specific to the behavior of this module
  *
  * - `raop.ip`: The ip address of the remote end.
- * - `raop.hostname`: The hostname of the remote end.
  * - `raop.port`: The port of the remote end.
+ * - `raop.name`: The name of the remote end.
+ * - `raop.hostname`: The hostname of the remote end.
  * - `raop.transport`: The data transport to use, one of "udp" or "tcp". Defaults
  *                    to "udp".
  * - `raop.encryption.type`: The encryption type to use. One of "none", "RSA" or
@@ -89,8 +90,9 @@
  *     args = {
  *         # Set the remote address to tunnel to
  *         raop.ip = "127.0.0.1"
- *         raop.hostname = "my-raop-device"
  *         raop.port = 8190
+ *         raop.name = "my-raop-device"
+ *         raop.hostname = "My Service"
  *         #raop.transport = "udp"
  *         raop.encryption.type = "RSA"
  *         #raop.audio.codec = "PCM"
@@ -144,8 +146,9 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_LATENCY 22050
 
 #define MODULE_USAGE	"[ raop.ip=<ip address of host> ] "					\
-			"[ raop.hostname=<name of host> ] "					\
 			"[ raop.port=<remote port> ] "						\
+			"[ raop.name=<name of host> ] "						\
+			"[ raop.hostname=<hostname of host> ] "					\
 			"[ raop.transport=<transport, default:udp> ] "				\
 			"[ raop.encryption.type=<encryption, default:none> ] "			\
 			"[ raop.audio.codec=PCM ] "						\
@@ -1522,8 +1525,7 @@ static int rtsp_do_teardown(struct impl *impl)
 	if (!impl->ready)
 		return 0;
 
-	return pw_rtsp_client_send(impl->rtsp, "TEARDOWN", NULL,
-			NULL, NULL, rtsp_teardown_reply, impl);
+	return rtsp_send(impl, "TEARDOWN", NULL, NULL, rtsp_teardown_reply);
 }
 
 static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *param)
@@ -1759,7 +1761,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_properties *props = NULL;
 	struct impl *impl;
-	const char *str;
+	const char *str, *name, *hostname, *ipv;
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -1806,13 +1808,25 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
 		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 
-	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_NAME, "raop_output.%s",
-				pw_properties_get(props, "raop.hostname"));
+	if ((name = pw_properties_get(props, "raop.name")) == NULL)
+		name = "RAOP";
+
+	if ((str = strstr(name, "@"))) {
+		str++;
+		if (strlen(str) > 0)
+			name = str;
+	}
+	if ((ipv = pw_properties_get(props, "raop.ip.version")) == NULL)
+		ipv = "4";
+	if ((hostname = pw_properties_get(props, "raop.hostname")) == NULL)
+		hostname = name;
 
 	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
-		pw_properties_set(props, PW_KEY_NODE_DESCRIPTION,
-				pw_properties_get(props, PW_KEY_NODE_NAME));
+		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
+					"%s (IPv%s)", name, ipv);
+	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_setf(props, PW_KEY_NODE_NAME, "raop_sink.%s.ipv%s",
+				hostname, ipv);
 	if (pw_properties_get(props, PW_KEY_NODE_LATENCY) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_LATENCY, "352/44100");
 

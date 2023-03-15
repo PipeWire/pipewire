@@ -1197,9 +1197,9 @@ static int rtsp_do_announce(struct impl *impl)
 				"t=0 0\r\n"
 				"m=audio 0 RTP/AVP 96\r\n"
 				"a=rtpmap:96 AppleLossless\r\n"
-				"a=fmtp:96 %d 0 16 40 10 14 2 255 0 0 44100\r\n",
+				"a=fmtp:96 %d 0 16 40 10 14 2 255 0 0 %u\r\n",
 				impl->session_id, ip_version, local_ip,
-				ip_version, host, frames);
+				ip_version, host, frames, impl->info.rate);
 		break;
 
 	case CRYPTO_AUTH_SETUP:
@@ -1210,10 +1210,11 @@ static int rtsp_do_announce(struct impl *impl)
 				"t=0 0\r\n"
 				"m=audio 0 RTP/AVP 96\r\n"
 				"a=rtpmap:96 AppleLossless\r\n"
-				"a=fmtp:96 %d 0 16 40 10 14 2 255 0 0 44100\r\n"
+				"a=fmtp:96 %d 0 16 40 10 14 2 255 0 0 %u\r\n"
 				"a=min-latency:%d",
 				impl->session_id, ip_version, local_ip,
-				ip_version, host, frames, min_latency);
+				ip_version, host, frames, impl->info.rate,
+				min_latency);
 		break;
 
 	case CRYPTO_RSA:
@@ -1232,11 +1233,12 @@ static int rtsp_do_announce(struct impl *impl)
 				"t=0 0\r\n"
 				"m=audio 0 RTP/AVP 96\r\n"
 				"a=rtpmap:96 AppleLossless\r\n"
-				"a=fmtp:96 %d 0 16 40 10 14 2 255 0 0 44100\r\n"
+				"a=fmtp:96 %d 0 16 40 10 14 2 255 0 0 %u\r\n"
 				"a=rsaaeskey:%s\r\n"
 				"a=aesiv:%s\r\n",
 				impl->session_id, ip_version, local_ip,
-				ip_version, host, frames, key, iv);
+				ip_version, host, frames, impl->info.rate,
+				key, iv);
 		break;
 	default:
 		return -ENOTSUP;

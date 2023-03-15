@@ -18,6 +18,9 @@
 #include <netinet/in.h>
 
 #include <openssl/err.h>
+#if OPENSSL_API_LEVEL >= 30000
+#include <openssl/core_names.h>
+#endif
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
 #include <openssl/engine.h>
@@ -788,7 +791,6 @@ static int rtsp_add_auth(struct impl *impl, const char *method)
 		MD5_hash(h2, "%s:%s", method, url);
 		MD5_hash(resp, "%s:%s:%s", h1, impl->nonce, h2);
 
-		pw_log_warn("%s:%s", method, url);
 		spa_scnprintf(auth, sizeof(auth),
 				"username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\"",
 				DEFAULT_USER_NAME, impl->realm, impl->nonce, url, resp);
@@ -1077,14 +1079,19 @@ static int rtsp_announce_reply(void *data, int status, const struct spa_dict *he
 	return rtsp_do_setup(impl);
 }
 
-static int rsa_encrypt(uint8_t *data, int len, uint8_t *res)
+static inline void swap_bytes(uint8_t *data, size_t size)
 {
-	RSA *rsa;
+	int i, j;
+	for (i = 0, j = size-1; i < j; i++, j--)
+		SPA_SWAP(data[i], data[j]);
+}
+
+static int rsa_encrypt(uint8_t *data, int len, uint8_t *enc)
+{
 	uint8_t modulus[256];
 	uint8_t exponent[8];
-	size_t size;
-	BIGNUM *n_bn = NULL;
-	BIGNUM *e_bn = NULL;
+	size_t size, msize, esize;
+	int res = 0;
 	char n[] =
 		"59dE8qLieItsH1WgjrcFRKj6eUWqi+bGLOX1HL3U3GhC/j0Qg90u3sG/1CUtwC"
 		"5vOYvfDmFI6oSFXi5ELabWJmT2dKHzBJKa3k9ok+8t9ucRqMd6DZHJ2YCCLlDR"
@@ -1094,19 +1101,63 @@ static int rsa_encrypt(uint8_t *data, int len, uint8_t *res)
 		"imNVvYFZeCXg/IdTQ+x4IRdiXNv5hEew==";
 	char e[] = "AQAB";
 
-	rsa = RSA_new();
+	msize = base64_decode(n, strlen(n), modulus);
+	esize = base64_decode(e, strlen(e), exponent);
 
-	size = base64_decode(n, strlen(n), modulus);
-	n_bn = BN_bin2bn(modulus, size, NULL);
+#if OPENSSL_API_LEVEL >= 30000
+	EVP_PKEY *pkey = NULL;
+	EVP_PKEY_CTX *ctx = NULL;
+	OSSL_PARAM params[5];
+	int err = 0;
 
-	size = base64_decode(e, strlen(e), exponent);
-	e_bn = BN_bin2bn(exponent, size, NULL);
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+	swap_bytes(modulus, msize);
+	swap_bytes(exponent, esize);
+#endif
+	params[0] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_N, modulus, msize);
+	params[1] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_E, exponent, esize);
+	params[2] = OSSL_PARAM_construct_end();
 
+	ctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
+	if (ctx == NULL ||
+	    (err = EVP_PKEY_fromdata_init(ctx)) <= 0 ||
+	    (err = EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, params)) <= 0)
+		goto error;
+
+	EVP_PKEY_CTX_free(ctx);
+
+	params[0] = OSSL_PARAM_construct_utf8_string(OSSL_ASYM_CIPHER_PARAM_PAD_MODE,
+                                            OSSL_PKEY_RSA_PAD_MODE_OAEP, 0);
+	params[1] = OSSL_PARAM_construct_end();
+
+	if ((ctx = EVP_PKEY_CTX_new_from_pkey(NULL, pkey, NULL)) == NULL ||
+	    (err = EVP_PKEY_encrypt_init_ex(ctx, params)) <= 0 ||
+	    (err = EVP_PKEY_encrypt(ctx, enc, &size, data, len)) <= 0)
+		goto error;
+
+	res = size;
+done:
+	if (ctx)
+		EVP_PKEY_CTX_free(ctx);
+	if (pkey)
+		EVP_PKEY_free(pkey);
+	return res;
+#else
+	RSA *rsa = RSA_new();
+	BIGNUM *n_bn = BN_bin2bn(modulus, msize, NULL);
+	BIGNUM *e_bn = BN_bin2bn(exponent, esize, NULL);
 	RSA_set0_key(rsa, n_bn, e_bn, NULL);
-
 	size = RSA_public_encrypt(len, data, res, rsa, RSA_PKCS1_OAEP_PADDING);
-	RSA_free(rsa);
-	return size;
+	res = size <= 0 ? -EIO : size;
+done:
+	if (rsa != NULL)
+		RSA_free(rsa);
+	return res;
+#endif
+error:
+	ERR_print_errors_fp(stdout);
+	res = -EIO;
+	goto done;
 }
 
 static int rtsp_do_announce(struct impl *impl)
@@ -1579,6 +1630,9 @@ static void impl_destroy(struct impl *impl)
 
 	if (impl->rtsp)
 		pw_rtsp_client_destroy(impl->rtsp);
+
+	if (impl->ctx)
+		EVP_CIPHER_CTX_free(impl->ctx);
 
 	pw_properties_free(impl->headers);
 	pw_properties_free(impl->stream_props);

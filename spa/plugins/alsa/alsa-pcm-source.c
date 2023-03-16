@@ -630,6 +630,7 @@ impl_node_port_set_param(void *object,
 		this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 		this->port_params[PORT_Latency].user++;
 		emit_port_info(this, false);
+		res = 0;
 		break;
 	}
 	default:

@@ -2336,8 +2336,10 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "Error: \"%s\"\n", error);
 			free(error);
 		}
-		data.current->prompt_pending = pw_core_sync(data.current->core, 0, 0);
-		while (!data.quit && data.current) {
+		if (data.current != NULL)
+			data.current->prompt_pending = pw_core_sync(data.current->core, 0, 0);
+
+		while (!data.quit && data.current != NULL) {
 			pw_main_loop_run(data.loop);
 			if (!monitor)
 				break;

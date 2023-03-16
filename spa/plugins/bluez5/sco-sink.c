@@ -552,7 +552,7 @@ stop:
 static void sco_on_flush_timeout(struct spa_source *source)
 {
 	struct impl *this = source->data;
-	uint64_t exp;
+	uint64_t exp = 0;
 	int res;
 
 	spa_log_trace(this->log, "%p: flush on timeout", this);

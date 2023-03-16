@@ -1152,7 +1152,7 @@ done:
 	BIGNUM *e_bn = BN_bin2bn(exponent, esize, NULL);
 	if (rsa == NULL || n_bn == NULL || e_bn == NULL)
 		goto error;
-	RSA_set0_key(rsa, n_bn, e_bn NULL);
+	RSA_set0_key(rsa, n_bn, e_bn, NULL);
 	n_bn = e_bn = NULL;
 	if ((res = RSA_public_encrypt(len, data, enc, rsa, RSA_PKCS1_OAEP_PADDING)) <= 0)
 		goto error;

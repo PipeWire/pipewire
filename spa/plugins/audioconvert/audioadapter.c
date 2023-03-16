@@ -177,6 +177,7 @@ next:
 					SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(
 						SPA_PARAM_PORT_CONFIG_MODE_passthrough));
 				result.next++;
+				res = 1;
 				break;
 			default:
 				return 0;

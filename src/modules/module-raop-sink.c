@@ -1150,13 +1150,19 @@ done:
 	RSA *rsa = RSA_new();
 	BIGNUM *n_bn = BN_bin2bn(modulus, msize, NULL);
 	BIGNUM *e_bn = BN_bin2bn(exponent, esize, NULL);
-	RSA_set0_key(rsa, n_bn, e_bn, NULL);
-	res = RSA_public_encrypt(len, data, enc, rsa, RSA_PKCS1_OAEP_PADDING);
-	if (res <= 0)
+	if (rsa == NULL || n_bn == NULL || e_bn == NULL)
+		goto error;
+	RSA_set0_key(rsa, n_bn, e_bn NULL);
+	n_bn = e_bn = NULL;
+	if ((res = RSA_public_encrypt(len, data, enc, rsa, RSA_PKCS1_OAEP_PADDING)) <= 0)
 		goto error;
 done:
 	if (rsa != NULL)
 		RSA_free(rsa);
+	if (n_bn != NULL)
+		BN_free(n_bn);
+	if (e_bn != NULL)
+		BN_free(e_bn);
 	return res;
 #endif
 error:
@@ -1171,7 +1177,7 @@ static int rtsp_do_announce(struct impl *impl)
 	uint8_t rsakey[512];
 	char key[512*2];
 	char iv[16*2];
-	int res, frames, i, ip_version;
+	int res, frames, rsa_len, ip_version;
 	char *sdp;
 	char local_ip[256];
 	int min_latency;
@@ -1222,8 +1228,11 @@ static int rtsp_do_announce(struct impl *impl)
 		    pw_getrandom(impl->iv, sizeof(impl->iv), 0) < 0)
 			return -errno;
 
-		i = rsa_encrypt(impl->key, 16, rsakey);
-	        base64_encode(rsakey, i, key, '=');
+		rsa_len = rsa_encrypt(impl->key, 16, rsakey);
+		if (rsa_len < 0)
+			return -rsa_len;
+
+	        base64_encode(rsakey, rsa_len, key, '=');
 	        base64_encode(impl->iv, 16, iv, '=');
 
 		asprintf(&sdp, "v=0\r\n"

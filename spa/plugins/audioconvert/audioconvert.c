@@ -919,8 +919,8 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			}
 			break;
 		case SPA_PROP_rate:
-			spa_pod_get_double(&prop->value, &p->rate);
-			if (!this->rate_adjust && p->rate != 1.0) {
+			if (spa_pod_get_double(&prop->value, &p->rate) == 0 &&
+			    !this->rate_adjust && p->rate != 1.0) {
 				this->rate_adjust = true;
 				spa_log_info(this->log, "%p: activating adaptive resampler",
 						this);

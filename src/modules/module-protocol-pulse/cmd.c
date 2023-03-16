@@ -17,9 +17,9 @@ static int do_load_module(struct impl *impl, char *args, const char *flags)
 	struct module *module;
 	char *a[2] = { NULL };
 
-	n = pw_split_ip(args, WHITESPACE, 2, a);
+	n = args != NULL ? pw_split_ip(args, WHITESPACE, 2, a) : 0;
 	if (n < 1) {
-		pw_log_info("load-module expects module name");
+		pw_log_info("load-module expects module name got '%s'", args);
 		return -EINVAL;
 	}
 

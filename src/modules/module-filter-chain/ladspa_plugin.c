@@ -214,7 +214,7 @@ struct fc_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t
 	struct fc_plugin *pl = NULL;
 
 	if (plugin[0] != '/') {
-		const char *search_dirs, *p;
+		const char *search_dirs, *p, *state = NULL;
 		char path[PATH_MAX];
 		size_t len;
 
@@ -229,7 +229,7 @@ struct fc_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t
 		 */
 		errno = ENAMETOOLONG;
 
-		while ((p = pw_split_walk(NULL, ":", &len, &search_dirs))) {
+		while ((p = pw_split_walk(search_dirs, ":", &len, &state))) {
 			int pathlen;
 
 			if (len >= sizeof(path))

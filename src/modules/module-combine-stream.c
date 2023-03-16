@@ -576,7 +576,7 @@ static void registry_event_global(void *data, uint32_t id,
 		if (impl->mode == MODE_CAPTURE || impl->mode == MODE_SINK)
 			str = "[ { matches = [ { media.class = \"Audio/Sink\" } ] "
 				"  actions = { create-stream = {} } } ]";
-		else if (impl->mode == MODE_PLAYBACK || impl->mode == MODE_SOURCE)
+		else
 			str = "[ { matches = [ { media.class = \"Audio/Source\" } ] "
 				"  actions = { create-stream = {} } } ]";
 	}

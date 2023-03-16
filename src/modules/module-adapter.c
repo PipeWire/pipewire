@@ -203,7 +203,7 @@ static void *create_object(void *_data,
 
 		handle = pw_context_load_spa_handle(d->context,
 				factory_name,
-				properties ? &properties->dict : NULL);
+				&properties->dict);
 		if (handle == NULL)
 			goto error_errno;
 

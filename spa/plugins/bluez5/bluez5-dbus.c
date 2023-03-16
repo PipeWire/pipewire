@@ -103,6 +103,8 @@ struct spa_bt_monitor {
 
 	struct spa_dict enabled_codecs;
 
+	enum spa_bt_profile enabled_profiles;
+
 	unsigned int connection_info_supported:1;
 	unsigned int dummy_avrcp_player:1;
 
@@ -508,6 +510,19 @@ static bool codec_has_direction(const struct media_codec *codec, enum spa_bt_med
 	}
 }
 
+static enum spa_bt_profile get_codec_profile(const struct media_codec *codec,
+		enum spa_bt_media_direction direction)
+{
+	switch (direction) {
+	case SPA_BT_MEDIA_SOURCE:
+		return codec->bap ? SPA_BT_PROFILE_BAP_SOURCE : SPA_BT_PROFILE_A2DP_SOURCE;
+	case SPA_BT_MEDIA_SINK:
+		return codec->bap ? SPA_BT_PROFILE_BAP_SINK : SPA_BT_PROFILE_A2DP_SINK;
+	default:
+		spa_assert_not_reached();
+	}
+}
+
 static bool endpoint_should_be_registered(struct spa_bt_monitor *monitor,
 					  const struct media_codec *codec,
 					  enum spa_bt_media_direction direction)
@@ -517,7 +532,8 @@ static bool endpoint_should_be_registered(struct spa_bt_monitor *monitor,
 	 */
 	return is_media_codec_enabled(monitor, codec) &&
 		codec_has_direction(codec, direction) &&
-		codec->fill_caps;
+		codec->fill_caps &&
+		(get_codec_profile(codec, direction) & monitor->enabled_profiles);
 }
 
 static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBusMessage *m, void *userdata)
@@ -5000,6 +5016,30 @@ int spa_bt_profiles_from_json_array(const char *str)
 	return profiles;
 }
 
+static int parse_roles(struct spa_bt_monitor *monitor, const struct spa_dict *info)
+{
+	const char *str;
+	int res = 0;
+	int profiles = SPA_BT_PROFILE_MEDIA_SINK | SPA_BT_PROFILE_MEDIA_SOURCE;
+
+	/* HSP/HFP backends parse this property separately */
+	if (info && (str = spa_dict_lookup(info, "bluez5.roles"))) {
+		res = spa_bt_profiles_from_json_array(str);
+		if (res < 0) {
+			spa_log_warn(monitor->log, "malformed bluez5.roles setting ignored");
+			goto done;
+		}
+
+		profiles &= res;
+	}
+
+	res = 0;
+
+done:
+	monitor->enabled_profiles = profiles;
+	return res;
+}
+
 static int parse_codec_array(struct spa_bt_monitor *this, const struct spa_dict *info)
 {
 	const struct media_codec * const * const media_codecs = this->media_codecs;
@@ -5184,6 +5224,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if ((res = parse_codec_array(this, info)) < 0)
 		goto fail;
+
+	parse_roles(this, info);
 
 	this->default_audio_info.rate = A2DP_CODEC_DEFAULT_RATE;
 	this->default_audio_info.channels = A2DP_CODEC_DEFAULT_CHANNELS;

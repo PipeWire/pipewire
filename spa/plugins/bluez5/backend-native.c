@@ -40,6 +40,7 @@ static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.native");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 
+#define PROP_KEY_ROLES "bluez5.roles"
 #define PROP_KEY_HEADSET_ROLES "bluez5.headset-roles"
 
 #define HFP_CODEC_SWITCH_INITIAL_TIMEOUT_MSEC 5000
@@ -2706,8 +2707,11 @@ static int parse_headset_roles(struct impl *backend, const struct spa_dict *info
 	const char *str;
 	int profiles = SPA_BT_PROFILE_NULL;
 
-	if (info == NULL ||
-	    (str = spa_dict_lookup(info, PROP_KEY_HEADSET_ROLES)) == NULL)
+	if (!info)
+		goto fallback;
+
+	if ((str = spa_dict_lookup(info, PROP_KEY_ROLES)) == NULL &&
+			(str = spa_dict_lookup(info, PROP_KEY_HEADSET_ROLES)) == NULL)
 		goto fallback;
 
 	profiles = spa_bt_profiles_from_json_array(str);

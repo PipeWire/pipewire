@@ -1038,13 +1038,16 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 
 static void set_initial_profile(struct impl *this);
 
-static void device_connected(void *userdata, bool connected) {
+static void device_connected(void *userdata, bool connected)
+{
 	struct impl *this = userdata;
 
 	spa_log_debug(this->log, "connected: %d", connected);
 
-	if (connected ^ (this->profile != DEVICE_PROFILE_OFF))
+	if (connected ^ (this->profile != DEVICE_PROFILE_OFF)) {
+		emit_remove_nodes(this);
 		set_initial_profile(this);
+	}
 }
 
 static const struct spa_bt_device_events bt_dev_events = {

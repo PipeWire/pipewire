@@ -272,6 +272,7 @@ static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname)
 	}
 	return fd;
 error:
+	close(fd);
 	return res;
 }
 

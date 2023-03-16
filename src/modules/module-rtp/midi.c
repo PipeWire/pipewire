@@ -24,11 +24,12 @@ static void rtp_midi_process_playback(void *data)
 
 	/* we always use the graph position to select events, the receiver side is
 	 * responsible for smoothing out the RTP timestamps to graph time */
-	duration = impl->io_position->clock.duration;
 	if (impl->io_position) {
+		duration = impl->io_position->clock.duration;
 		timestamp = impl->io_position->clock.position;
 		rate = impl->io_position->clock.rate.denom;
 	} else {
+		duration = 8192;
 		timestamp = 0;
 		rate = impl->rate;
 	}

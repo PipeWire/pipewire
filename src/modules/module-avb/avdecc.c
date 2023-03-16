@@ -240,6 +240,7 @@ error_no_source:
 struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
 {
 	struct server *server;
+	const char *str;
 	int res = 0;
 
 	server = calloc(1, sizeof(*server));
@@ -248,7 +249,8 @@ struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
 
 	server->impl = impl;
 	spa_list_append(&impl->servers, &server->link);
-	server->ifname = strdup(spa_dict_lookup(props, "ifname"));
+	str = spa_dict_lookup(props, "ifname");
+	server->ifname = str ? strdup(str) : NULL;
 	spa_hook_list_init(&server->listener_list);
 	spa_list_init(&server->descriptors);
 	spa_list_init(&server->streams);

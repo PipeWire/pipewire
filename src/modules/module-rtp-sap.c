@@ -721,14 +721,16 @@ static int session_load_source(struct session *session, struct pw_properties *pr
 {
 	struct impl *impl = session->impl;
 	struct pw_context *context = pw_impl_module_get_context(impl->module);
-	FILE *f;
-	char *args;
+	FILE *f = NULL;
+	char *args = NULL;
 	size_t size;
 	const char *str, *media;
+	int res;
 
 	if ((f = open_memstream(&args, &size)) == NULL) {
+		res = -errno;
 		pw_log_error("Can't open memstream: %m");
-		return -errno;
+		goto done;
 	}
 	fprintf(f, "{");
 
@@ -748,12 +750,14 @@ static int session_load_source(struct session *session, struct pw_properties *pr
 
 		if ((mime = pw_properties_get(props, "rtp.mime")) == NULL) {
 			pw_log_error("missing rtp.mime property");
-			return -EINVAL;
+			res = -EINVAL;
+			goto done;
 		}
 		format_info = find_audio_format_info(mime);
 		if (format_info == NULL) {
 			pw_log_error("unknown rtp.mime type %s", mime);
-			return -EINVAL;
+			res = -ENOTSUP;
+			goto done;
 		}
 		fprintf(f, "\"sess.media\" = \"%s\", ", format_info->media_type);
 		if (format_info->format_str != NULL) {
@@ -765,7 +769,8 @@ static int session_load_source(struct session *session, struct pw_properties *pr
 		}
 	} else {
 		pw_log_error("Unhandled media %s", media);
-		return -EINVAL;
+		res = -EINVAL;
+		goto done;
 	}
 	if ((str = pw_properties_get(props, "rtp.ts-offset")) != NULL)
 		fprintf(f, "\"sess.ts-offset\" = %s, ", str);
@@ -775,23 +780,29 @@ static int session_load_source(struct session *session, struct pw_properties *pr
 	fprintf(f, " }");
 	fprintf(f, "}");
         fclose(f);
+	f = NULL;
 
 	pw_log_info("loading new RTP source");
 	session->module = pw_context_load_module(context,
 				"libpipewire-module-rtp-source",
 				args, NULL);
-	free(args);
 
 	if (session->module == NULL) {
+		res = -errno;
 		pw_log_error("Can't load module: %m");
-		return -errno;
+		goto done;
 	}
 
 	pw_impl_module_add_listener(session->module,
 			&session->module_listener,
 			&session_module_events, session);
 
-	return 0;
+	res = 0;
+done:
+	if (f != NULL)
+		fclose(f);
+	free(args);
+	return res;
 }
 
 struct match_info {

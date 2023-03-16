@@ -1502,7 +1502,7 @@ obj_global_port(struct remote_data *rd, struct global *global, const char *port_
 	return global_port_found;
 }
 
-static void create_link_with_properties(struct data *data, struct pw_properties *props)
+static void create_link_with_properties(struct data *data, const struct pw_properties *props)
 {
 	struct remote_data *rd = data->current;
 	uint32_t id;
@@ -1534,6 +1534,7 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 	char *a[5];
 	int n;
 	struct pw_properties *props = NULL;
+	bool res = false;
 
 	n = pw_split_ip(args, WHITESPACE, 5, a);
 	if (n < 4) {
@@ -1562,12 +1563,12 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 		global_out = find_global(rd, a[0]);
 		if (global_out == NULL) {
 			*error = spa_aprintf("%s: unknown global '%s'", cmd, a[0]);
-			return false;
+			goto done;
 		}
 		global_in = find_global(rd, a[2]);
 		if (global_in == NULL) {
 			*error = spa_aprintf("%s: unknown global '%s'", cmd, a[2]);
-			return false;
+			goto done;
 		}
 
 		pd_out = pw_proxy_get_user_data(global_out->proxy);
@@ -1578,7 +1579,7 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 
 		if (n_output_ports != n_input_ports) {
 			*error = spa_aprintf("%s: Number of ports don't match (%u != %u)", cmd, n_output_ports, n_input_ports);
-			return false;
+			goto done;
 		}
 
 		for (uint32_t i = 0; i < n_output_ports; i++) {
@@ -1601,9 +1602,12 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 	} else
 		create_link_with_properties(data, props);
 
+	res = true;
+
+done:
 	pw_properties_free(props);
 
-	return true;
+	return res;
 }
 
 static bool do_export_node(struct data *data, const char *cmd, char *args, char **error)

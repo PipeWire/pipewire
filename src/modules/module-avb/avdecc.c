@@ -311,7 +311,7 @@ void avdecc_server_free(struct server *server)
 	if (server->source)
 		pw_loop_destroy_source(impl->loop, server->source);
 	if (server->timer)
-		pw_loop_destroy_source(impl->loop, server->source);
+		pw_loop_destroy_source(impl->loop, server->timer);
 	spa_hook_list_clean(&server->listener_list);
 	free(server);
 }

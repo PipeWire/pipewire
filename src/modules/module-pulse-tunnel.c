@@ -232,20 +232,22 @@ static void stream_state_changed(void *d, enum pw_stream_state old,
 	}
 }
 
-static void update_rate(struct impl *impl)
+static void update_rate(struct impl *impl, uint32_t filled)
 {
 	float error, corr;
+	uint32_t current_latency;
 
 	if (impl->rate_match == NULL)
 		return;
 
-	error = (float)impl->target_latency - (float)impl->current_latency;
+	current_latency = impl->current_latency + filled;
+	error = (float)impl->target_latency - (float)(current_latency);
 	error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
 
 	corr = spa_dll_update(&impl->dll, error);
 	pw_log_debug("error:%f corr:%f current:%u target:%u",
 			error, corr,
-			impl->current_latency, impl->target_latency);
+			current_latency, impl->target_latency);
 
 	SPA_FLAG_SET(impl->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE);
 	impl->rate_match->rate = 1.0f / corr;
@@ -280,7 +282,7 @@ static void playback_stream_process(void *d)
                                         size, RINGBUFFER_SIZE);
 		impl->resync = true;
 	} else {
-		update_rate(impl);
+		update_rate(impl, filled / impl->frame_size);
 	}
 	spa_ringbuffer_write_data(&impl->ring,
 				impl->buffer, RINGBUFFER_SIZE,
@@ -321,7 +323,7 @@ static void capture_stream_process(void *d)
 			avail = impl->target_buffer;
 			index += avail - impl->target_buffer;
 		} else {
-			update_rate(impl);
+			update_rate(impl, avail / impl->frame_size);
 		}
 		spa_ringbuffer_read_data(&impl->ring,
 				impl->buffer, RINGBUFFER_SIZE,
@@ -509,7 +511,6 @@ static void stream_read_request_cb(pa_stream *s, size_t length, void *userdata)
 
 	pa_stream_get_latency(impl->pa_stream, &latency, &negative);
 	impl->current_latency = latency * impl->info.rate / SPA_USEC_PER_SEC;
-	impl->current_latency += filled / impl->frame_size;
 
 	spa_ringbuffer_write_update(&impl->ring, index);
 }
@@ -534,7 +535,6 @@ static void stream_write_request_cb(pa_stream *s, size_t length, void *userdata)
 
 	pa_stream_get_latency(impl->pa_stream, &latency, &negative);
 	impl->current_latency = latency * impl->info.rate / SPA_USEC_PER_SEC;
-	impl->current_latency += avail / impl->frame_size;
 
 	while (avail < (int32_t)length) {
 		uint32_t maxsize = SPA_ROUND_DOWN(sizeof(impl->empty), impl->frame_size);

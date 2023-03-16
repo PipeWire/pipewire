@@ -232,17 +232,14 @@ static void stream_state_changed(void *d, enum pw_stream_state old,
 	}
 }
 
-static void update_rate(struct impl *impl, bool playback)
+static void update_rate(struct impl *impl)
 {
 	float error, corr;
 
 	if (impl->rate_match == NULL)
 		return;
 
-	if (playback)
-		error = (float)impl->target_latency - (float)impl->current_latency;
-	else
-		error = (float)impl->current_latency - (float)impl->target_latency;
+	error = (float)impl->target_latency - (float)impl->current_latency;
 	error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
 
 	corr = spa_dll_update(&impl->dll, error);
@@ -283,7 +280,7 @@ static void playback_stream_process(void *d)
                                         size, RINGBUFFER_SIZE);
 		impl->resync = true;
 	} else {
-		update_rate(impl, true);
+		update_rate(impl);
 	}
 	spa_ringbuffer_write_data(&impl->ring,
 				impl->buffer, RINGBUFFER_SIZE,
@@ -324,7 +321,7 @@ static void capture_stream_process(void *d)
 			avail = impl->target_buffer;
 			index += avail - impl->target_buffer;
 		} else {
-			update_rate(impl, false);
+			update_rate(impl);
 		}
 		spa_ringbuffer_read_data(&impl->ring,
 				impl->buffer, RINGBUFFER_SIZE,

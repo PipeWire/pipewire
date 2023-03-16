@@ -800,8 +800,10 @@ static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 	if ((file = find_file_by_dev(dev_id)) != NULL) {
 		res = do_dup(file->fd, 0);
 		unref_file(file);
-		if (res >= 0)
-			fcntl(res, F_SETFL, oflag);
+		if (res < 0)
+			return res;
+		if (fcntl(res, F_SETFL, oflag) < 0)
+			pw_log_warn("fd:%d failed to set flags: %m", res);
 		return res;
 	}
 

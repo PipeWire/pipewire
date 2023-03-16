@@ -171,7 +171,8 @@ static void node_param(void *data, int seq,
 	{
 		uint32_t media_type, media_subtype;
 
-		spa_format_parse(param, &media_type, &media_subtype);
+		if (spa_format_parse(param, &media_type, &media_subtype) < 0)
+			goto done;
 
 		switch(media_type) {
 		case SPA_MEDIA_TYPE_audio:

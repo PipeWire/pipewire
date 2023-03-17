@@ -112,6 +112,8 @@ struct impl {
 struct transport_data {
 	struct rfcomm *rfcomm;
 	struct spa_source sco;
+	int err;
+	bool requesting;
 };
 
 enum hfp_hf_state {
@@ -1362,7 +1364,7 @@ static int sco_create_socket(struct impl *backend, struct spa_bt_adapter *adapte
 	bdaddr_t src;
 	int sock = -1;
 
-	sock = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_SCO);
+	sock = socket(PF_BLUETOOTH, SOCK_SEQPACKET | SOCK_NONBLOCK, BTPROTO_SCO);
 	if (sock < 0) {
 		spa_log_error(backend->log, "socket(SEQPACKET, SCO) %s", strerror(errno));
 		goto fail;
@@ -1415,6 +1417,8 @@ static int sco_do_connect(struct spa_bt_transport *t)
 	spa_log_debug(backend->log, "transport %p: enter sco_do_connect, codec=%u",
 			t, t->codec);
 
+	td->err = -EIO;
+
 	if (d->adapter == NULL)
 		return -EIO;
 
@@ -1457,6 +1461,8 @@ again:
 		goto fail_close;
 	}
 
+	td->err = -EINPROGRESS;
+
 	return sock;
 
 fail_close:
@@ -1466,37 +1472,75 @@ fail_close:
 
 static int rfcomm_ag_sync_volume(struct rfcomm *rfcomm, bool later);
 
-static void wait_for_socket(int fd)
+static void sco_ready(struct spa_bt_transport *t)
 {
-	struct pollfd fds[1];
-	const int timeout_ms = 500;
-
-	fds[0].fd = fd;
-	fds[0].events = POLLIN | POLLERR | POLLHUP;
-	poll(fds, 1, timeout_ms);
-}
-
-static int sco_acquire_cb(void *data, bool optional)
-{
-	struct spa_bt_transport *t = data;
-	struct transport_data *td = t->user_data;
 	struct impl *backend = SPA_CONTAINER_OF(t->backend, struct impl, this);
-	int sock;
+	struct transport_data *td = t->user_data;
+	struct sco_options sco_opt;
 	socklen_t len;
+	int err;
 
-	spa_log_debug(backend->log, "transport %p: enter sco_acquire_cb", t);
+	spa_log_debug(backend->log, "transport %p: ready", t);
 
-	if (optional || t->fd > 0)
-		sock = t->fd;
-	else
-		sock = sco_do_connect(t);
+	/* Read socket error status */
+	if (t->fd >= 0) {
+		if (td->err == -EINPROGRESS) {
+			len = sizeof(err);
+			memset(&err, 0, len);
+			td->err = getsockopt(t->fd, SOL_SOCKET, SO_ERROR, &err, &len);
+			if (td->err >= 0)
+				td->err = -err;
+		}
+	} else {
+		td->err = -EIO;
+	}
 
-	if (sock < 0)
-		goto fail;
+	if (!td->requesting)
+		return;
 
-#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
-	rfcomm_hfp_ag_set_cind(td->rfcomm, true);
-#endif
+	td->requesting = false;
+
+	if (td->err < 0)
+		goto done;
+
+	/* XXX: The MTU as currently reported by kernel (6.2) here is not a valid packet size,
+	 * XXX: for USB adapters, see sco-io.
+	 */
+	len = sizeof(sco_opt);
+	memset(&sco_opt, 0, len);
+	if ((err = getsockopt(t->fd, SOL_SCO, SCO_OPTIONS, &sco_opt, &len)) < 0) {
+		spa_log_warn(backend->log, "getsockopt(SCO_OPTIONS) failed, using defaults");
+		t->read_mtu = 48;
+		t->write_mtu = 48;
+	} else {
+		spa_log_debug(backend->log, "autodetected mtu = %u", sco_opt.mtu);
+		t->read_mtu = sco_opt.mtu;
+		t->write_mtu = sco_opt.mtu;
+	}
+
+	/* Clear nonblocking flag we set for connect() */
+	err = fcntl(t->fd, F_GETFL, O_NONBLOCK);
+	if (err < 0) {
+		td->err = err;
+		goto done;
+	}
+	err &= ~O_NONBLOCK;
+	err = fcntl(t->fd, F_SETFL, O_NONBLOCK, err);
+	if (err < 0) {
+		td->err = err;
+		goto done;
+	}
+
+done:
+	if (td->err < 0) {
+		spa_log_debug(backend->log, "transport %p: acquire failed: %s (%d)",
+				t, strerror(-td->err), td->err);
+		spa_bt_transport_set_state(t, SPA_BT_TRANSPORT_STATE_ERROR);
+		return;
+	}
+
+	spa_log_debug(backend->log, "transport %p: acquire complete, read_mtu=%u, write_mtu=%u",
+			t, t->read_mtu, t->write_mtu);
 
 	/*
 	 * Send RFCOMM volume after connection is ready, and also after
@@ -1513,38 +1557,73 @@ static int sco_acquire_cb(void *data, bool optional)
 	 * volume buttons, which is updated by an +VGS event only after
 	 * sufficient time is elapsed from the connection.
 	 */
-	wait_for_socket(sock);
 	rfcomm_ag_sync_volume(td->rfcomm, false);
 	rfcomm_ag_sync_volume(td->rfcomm, true);
 
+	spa_bt_transport_set_state(t, SPA_BT_TRANSPORT_STATE_ACTIVE);
+}
+
+static void sco_start_source(struct spa_bt_transport *t);
+
+static int sco_acquire_cb(void *data, bool optional)
+{
+	struct spa_bt_transport *t = data;
+	struct transport_data *td = t->user_data;
+	struct impl *backend = SPA_CONTAINER_OF(t->backend, struct impl, this);
+	int sock;
+
+	spa_log_debug(backend->log, "transport %p: enter sco_acquire_cb", t);
+
+	if (optional || t->fd > 0)
+		sock = t->fd;
+	else
+		sock = sco_do_connect(t);
+
+	if (sock < 0)
+		goto fail;
+
+#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
+	rfcomm_hfp_ag_set_cind(td->rfcomm, true);
+#endif
+
 	t->fd = sock;
 
-	/* Fallback value */
-	t->read_mtu = 48;
-	t->write_mtu = 48;
+	td->requesting = true;
 
-	if (true) {
-		struct sco_options sco_opt;
+	sco_start_source(t);
 
-		len = sizeof(sco_opt);
-		memset(&sco_opt, 0, len);
+	if (td->err != -EINPROGRESS)
+		sco_ready(t);
 
-		if (getsockopt(sock, SOL_SCO, SCO_OPTIONS, &sco_opt, &len) < 0)
-			spa_log_warn(backend->log, "getsockopt(SCO_OPTIONS) failed, loading defaults");
-		else {
-			spa_log_debug(backend->log, "autodetected mtu = %u", sco_opt.mtu);
-			t->read_mtu = sco_opt.mtu;
-			t->write_mtu = sco_opt.mtu;
-		}
-	}
-	spa_log_debug(backend->log, "transport %p: read_mtu=%u, write_mtu=%u", t, t->read_mtu, t->write_mtu);
-
-	spa_bt_transport_set_state(t, SPA_BT_TRANSPORT_STATE_ACTIVE);
 	return 0;
 
 fail:
 	spa_bt_transport_set_state(t, SPA_BT_TRANSPORT_STATE_ERROR);
 	return -1;
+}
+
+static int sco_destroy_cb(void *data)
+{
+	struct spa_bt_transport *t = data;
+	struct transport_data *td = t->user_data;
+	struct impl *backend = SPA_CONTAINER_OF(t->backend, struct impl, this);
+
+	if (t->sco_io) {
+		spa_bt_sco_io_destroy(t->sco_io);
+		t->sco_io = NULL;
+	}
+
+	if (td->sco.loop)
+		spa_loop_remove_source(backend->main_loop, &td->sco);
+
+	if (t->fd > 0) {
+		/* Shutdown and close the socket */
+		shutdown(t->fd, SHUT_RDWR);
+		close(t->fd);
+		t->fd = -1;
+	}
+
+	return 0;
 }
 
 static int sco_release_cb(void *data)
@@ -1561,17 +1640,7 @@ static int sco_release_cb(void *data)
 	rfcomm_hfp_ag_set_cind(td->rfcomm, false);
 #endif
 
-	if (t->sco_io) {
-		spa_bt_sco_io_destroy(t->sco_io);
-		t->sco_io = NULL;
-	}
-
-	if (t->fd > 0) {
-		/* Shutdown and close the socket */
-		shutdown(t->fd, SHUT_RDWR);
-		close(t->fd);
-		t->fd = -1;
-	}
+	sco_destroy_cb(t);
 
 	return 0;
 }
@@ -1583,15 +1652,44 @@ static void sco_event(struct spa_source *source)
 
 	if (source->rmask & (SPA_IO_HUP | SPA_IO_ERR)) {
 		spa_log_debug(backend->log, "transport %p: error on SCO socket: %s", t, strerror(errno));
+		sco_ready(t);
+		if (source->loop)
+			spa_loop_remove_source(source->loop, source);
 		if (t->fd >= 0) {
-			if (source->loop)
-				spa_loop_remove_source(source->loop, source);
-			shutdown(t->fd, SHUT_RDWR);
-			close (t->fd);
-			t->fd = -1;
 			spa_bt_transport_set_state(t, SPA_BT_TRANSPORT_STATE_IDLE);
+			shutdown(t->fd, SHUT_RDWR);
+			close(t->fd);
+			t->fd = -1;
 		}
 	}
+
+	if (source->rmask & SPA_IO_IN) {
+		SPA_FLAG_UPDATE(source->mask, SPA_IO_IN, false);
+		spa_loop_update_source(backend->main_loop, source);
+		sco_ready(t);
+	}
+}
+
+static void sco_start_source(struct spa_bt_transport *t)
+{
+	struct impl *backend = SPA_CONTAINER_OF(t->backend, struct impl, this);
+	struct transport_data *td = t->user_data;
+
+	if (td->sco.loop)
+		return;
+
+	td->err = -EINPROGRESS;
+
+	/*
+	 * We on purpose wait for POLLIN when connecting (not POLLOUT as usual), to
+	 * indicate ready only after we are sure the device is sending data.
+	 */
+	td->sco.func = sco_event;
+	td->sco.data = t;
+	td->sco.fd = t->fd;
+	td->sco.mask = SPA_IO_HUP | SPA_IO_ERR | SPA_IO_IN;
+	td->sco.rmask = 0;
+	spa_loop_add_source(backend->main_loop, &td->sco);
 }
 
 static void sco_listen_event(struct spa_source *source)
@@ -1603,7 +1701,6 @@ static void sco_listen_event(struct spa_source *source)
 	char local_address[18], remote_address[18];
 	struct rfcomm *rfcomm;
 	struct spa_bt_transport *t = NULL;
-	struct transport_data *td;
 
 	if (source->rmask & (SPA_IO_HUP | SPA_IO_ERR)) {
 		spa_log_error(backend->log, "error listening SCO connection: %s", strerror(errno));
@@ -1686,13 +1783,7 @@ static void sco_listen_event(struct spa_source *source)
 
 	t->fd = sock;
 
-	td = t->user_data;
-	td->sco.func = sco_event;
-	td->sco.data = t;
-	td->sco.fd = sock;
-	td->sco.mask = SPA_IO_HUP | SPA_IO_ERR;
-	td->sco.rmask = 0;
-	spa_loop_add_source(backend->main_loop, &td->sco);
+	sco_start_source(t);
 
 	spa_log_debug(backend->log, "transport %p: audio connected", t);
 
@@ -1828,6 +1919,7 @@ static const struct spa_bt_transport_implementation sco_transport_impl = {
 	.acquire = sco_acquire_cb,
 	.release = sco_release_cb,
 	.set_volume = sco_set_volume_cb,
+	.destroy = sco_destroy_cb,
 };
 
 static struct rfcomm *device_find_rfcomm(struct impl *backend, struct spa_bt_device *device)

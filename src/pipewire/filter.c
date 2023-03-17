@@ -144,7 +144,6 @@ struct filter {
 
 	unsigned int disconnecting:1;
 	unsigned int disconnect_core:1;
-	unsigned int subscribe:1;
 	unsigned int draining:1;
 	unsigned int allow_mlock:1;
 	unsigned int warn_mlock:1;
@@ -1497,6 +1496,9 @@ pw_filter_connect(struct pw_filter *filter,
 	uint32_t i;
 	struct spa_dict_item items[1];
 
+	if (filter->proxy != NULL || filter->state != PW_FILTER_STATE_UNCONNECTED)
+		return -EBUSY;
+
 	pw_log_debug("%p: connect", filter);
 	impl->flags = flags;
 
@@ -1532,6 +1534,8 @@ pw_filter_connect(struct pw_filter *filter,
 	}
 
 	impl->disconnecting = false;
+	impl->draining = false;
+	impl->driving = false;
 	filter_set_state(filter, PW_FILTER_STATE_CONNECTING, NULL);
 
 	if (flags & PW_FILTER_FLAG_DRIVER)
@@ -1587,6 +1591,10 @@ int pw_filter_disconnect(struct pw_filter *filter)
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
 
 	pw_log_debug("%p: disconnect", filter);
+
+	if (impl->disconnecting)
+		return -EBUSY;
+
 	impl->disconnecting = true;
 
 	if (filter->proxy) {

@@ -89,7 +89,7 @@ static void sco_io_on_ready(struct spa_source *source)
 		int res;
 
 	read_again:
-		res = read(io->fd, io->read_buffer, SPA_MIN(io->read_mtu, MAX_MTU));
+		res = recv(io->fd, io->read_buffer, SPA_MIN(io->read_mtu, MAX_MTU), MSG_DONTWAIT);
 		if (res <= 0) {
 			if (errno == EINTR) {
 				/* retry if interrupted */
@@ -165,7 +165,7 @@ int spa_bt_sco_io_write(struct spa_bt_sco_io *io, uint8_t *buf, int size)
 	do {
 		int written;
 
-		written = write(io->fd, buf, packet_size);
+		written = send(io->fd, buf, packet_size, MSG_DONTWAIT | MSG_NOSIGNAL);
 		if (written < 0) {
 			if (errno == EINTR) {
 				/* retry if interrupted */

@@ -601,6 +601,8 @@ struct spa_bt_transport {
 	int acquire_refcount;
 	bool acquired;
 	bool keepalive;
+	int error_count;
+	uint64_t last_error_time;
 	int fd;
 	uint16_t read_mtu;
 	uint16_t write_mtu;

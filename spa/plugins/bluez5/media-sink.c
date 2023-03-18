@@ -1672,12 +1672,15 @@ static void transport_state_changed(void *data,
 		 * the transport, we won't get a write error, but instead see a transport
 		 * state change.
 		 *
-		 * Emit a node error, to let upper levels handle it.
+		 * Treat this as a transport error, so that upper levels don't try to
+		 * retry too often.
 		 */
 
 		spa_log_debug(this->log, "%p: transport %p becomes inactive: stop and indicate error",
 				this, this->transport);
-		state = SPA_BT_TRANSPORT_STATE_ERROR;
+
+		spa_bt_transport_set_state(this->transport, SPA_BT_TRANSPORT_STATE_ERROR);
+		return;
 	}
 
 	if (state == SPA_BT_TRANSPORT_STATE_ERROR) {

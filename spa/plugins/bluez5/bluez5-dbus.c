@@ -65,6 +65,12 @@ enum backend_selection {
 
 #define CODEC_SWITCH_RETRIES	1
 
+/* How many times to retry acquire on errors, and how long delay to require before we can
+ * try again.
+ */
+#define TRANSPORT_ERROR_MAX_RETRY	3
+#define TRANSPORT_ERROR_TIMEOUT		(2*BLUEZ_ACTION_RATE_MSEC*SPA_NSEC_PER_MSEC)
+
 
 struct spa_bt_monitor {
 	struct spa_handle handle;
@@ -1225,11 +1231,17 @@ struct spa_bt_device *spa_bt_device_find_by_address(struct spa_bt_monitor *monit
 	return NULL;
 }
 
-void spa_bt_device_update_last_bluez_action_time(struct spa_bt_device *device)
+static uint64_t get_time_now(struct spa_bt_monitor *monitor)
 {
 	struct timespec ts;
-	spa_system_clock_gettime(device->monitor->main_system, CLOCK_MONOTONIC, &ts);
-	device->last_bluez_action_time = SPA_TIMESPEC_TO_NSEC(&ts);
+
+	spa_system_clock_gettime(monitor->main_system, CLOCK_MONOTONIC, &ts);
+	return SPA_TIMESPEC_TO_NSEC(&ts);
+}
+
+void spa_bt_device_update_last_bluez_action_time(struct spa_bt_device *device)
+{
+	device->last_bluez_action_time = get_time_now(device->monitor);
 }
 
 static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const char *path)
@@ -2254,6 +2266,18 @@ void spa_bt_transport_set_state(struct spa_bt_transport *transport, enum spa_bt_
 		spa_bt_transport_emit_state_changed(transport, old, state);
 		if (state >= SPA_BT_TRANSPORT_STATE_PENDING && old < SPA_BT_TRANSPORT_STATE_PENDING)
 			transport_sync_volume(transport);
+
+		if (state == SPA_BT_TRANSPORT_STATE_ERROR) {
+			uint64_t now = get_time_now(monitor);
+
+			if (now > transport->last_error_time + TRANSPORT_ERROR_TIMEOUT) {
+				spa_log_error(monitor->log, "Failure in Bluetooth audio transport %s",
+						transport->path);
+			}
+
+			transport->last_error_time = now;
+			++transport->error_count;
+		}
 	}
 }
 
@@ -2340,6 +2364,12 @@ int spa_bt_transport_acquire(struct spa_bt_transport *transport, bool optional)
 		return 0;
 	}
 	spa_assert(transport->acquire_refcount == 0);
+
+	/* If we are getting into error state too often, stop trying */
+	if (get_time_now(monitor) > transport->last_error_time + TRANSPORT_ERROR_TIMEOUT)
+		transport->error_count = 0;
+	if (transport->error_count >= TRANSPORT_ERROR_MAX_RETRY)
+		return -EIO;
 
 	if (!transport->acquired)
 		res = spa_bt_transport_impl(transport, acquire, 0, optional);
@@ -3444,12 +3474,10 @@ next:
 static void media_codec_switch_process(struct spa_bt_media_codec_switch *sw)
 {
 	while (*sw->codec_iter != NULL && *sw->path_iter != NULL) {
-		struct timespec ts;
 		uint64_t now, threshold;
 
 		/* Rate limit BlueZ calls */
-		spa_system_clock_gettime(sw->device->monitor->main_system, CLOCK_MONOTONIC, &ts);
-		now = SPA_TIMESPEC_TO_NSEC(&ts);
+		now = get_time_now(sw->device->monitor);
 		threshold = sw->device->last_bluez_action_time + BLUEZ_ACTION_RATE_MSEC * SPA_NSEC_PER_MSEC;
 		if (now < threshold) {
 			/* Wait for timeout */

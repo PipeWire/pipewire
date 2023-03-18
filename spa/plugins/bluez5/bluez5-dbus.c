@@ -2648,7 +2648,16 @@ static int transport_update_props(struct spa_bt_transport *transport,
 				}
 			}
 			else if (spa_streq(key, "State")) {
-				spa_bt_transport_set_state(transport, spa_bt_transport_state_from_string(value));
+				enum spa_bt_transport_state state  = spa_bt_transport_state_from_string(value);
+
+				/* Emit transition to active only for transports with
+				 * acquired fd. If the acquire completes after prop
+				 * update, we set the state in acquire completion.  BlueZ
+				 * currently sends events in the order where this never
+				 * happens, but let's not rely on that.
+				 */
+				if (state != SPA_BT_TRANSPORT_STATE_ACTIVE || transport->fd >= 0)
+					spa_bt_transport_set_state(transport, state);
 			}
 			else if (spa_streq(key, "Device")) {
 				struct spa_bt_device *device = spa_bt_device_find(monitor, value);
@@ -2979,6 +2988,8 @@ finish:
 		dbus_message_unref(r);
 	if (ret < 0)
 		spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ERROR);
+	else
+		spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ACTIVE);
 
 	/* For LE Audio, multiple transport from the same device may share the same
 	 * stream (CIS) and group (CIG) but for different direction, e.g. a speaker and
@@ -2996,6 +3007,8 @@ finish:
 		t_linked->write_mtu = transport->write_mtu;
 		spa_log_debug(monitor->log, "transport %p: linked Acquired %s, fd %d MTU %d:%d", t_linked,
 				t_linked->path, t_linked->fd, t_linked->read_mtu, t_linked->write_mtu);
+
+		spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ACTIVE);
 	}
 }
 

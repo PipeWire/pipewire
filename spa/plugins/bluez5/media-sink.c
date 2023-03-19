@@ -31,6 +31,8 @@
 #include <spa/debug/mem.h>
 #include <spa/debug/log.h>
 
+#include <bluetooth/bluetooth.h>
+
 #include <sbc/sbc.h>
 
 #include "defs.h"
@@ -137,6 +139,7 @@ struct impl {
 	uint64_t next_time;
 	uint64_t last_error;
 	uint64_t process_time;
+	uint64_t process_position;
 
 	uint64_t prev_flush_time;
 	uint64_t next_flush_time;
@@ -160,6 +163,10 @@ struct impl {
 	uint8_t tmp_buffer[BUFFER_SIZE];
 	uint32_t tmp_buffer_used;
 	uint32_t fd_buffer_size;
+
+#ifdef HAVE_BLUETOOTH_BAP
+	struct bt_iso_qos qos;
+#endif
 };
 
 #define CHECK_PORT(this,d,p)	((d) == SPA_DIRECTION_INPUT && (p) == 0)
@@ -397,6 +404,61 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	return 0;
 }
 
+static uint32_t get_queued_frames(struct impl *this)
+{
+	struct port *port = &this->port;
+	uint32_t bytes = 0;
+	struct buffer *b;
+
+	spa_list_for_each(b, &port->ready, link) {
+		struct spa_data *d = b->buf->datas;
+
+		bytes += d[0].chunk->size;
+	}
+
+	if (bytes > port->ready_offset)
+		bytes -= port->ready_offset;
+	else
+		bytes = 0;
+
+	/* Count (partially) encoded packet */
+	bytes += this->tmp_buffer_used;
+	bytes += this->block_count * this->block_size;
+
+	return bytes / port->frame_size;
+}
+
+static uint64_t get_reference_time(struct impl *this, uint64_t *duration_ns)
+{
+	struct port *port = &this->port;
+
+	spa_assert(this->position);
+
+	/* Time at the first sample in the current packet. */
+	*duration_ns = ((uint64_t)this->position->clock.duration * SPA_NSEC_PER_SEC
+			/ this->position->clock.rate.denom);
+	return this->process_time + *duration_ns
+		- ((uint64_t)get_queued_frames(this) * SPA_NSEC_PER_SEC
+				/ port->current_format.info.raw.rate);
+}
+
+static uint64_t get_reference_position(struct impl *this)
+{
+	struct port *port = &this->port;
+	uint64_t position;
+
+	/* Sample position at the first sample in the current packet.
+	 * If resampling, may be rounded down by one sample.
+	 */
+
+	if (!this->position)
+		return this->sample_count;
+
+	position = this->process_position * port->current_format.info.raw.rate /
+		this->position->clock.rate.denom;
+	return position - get_queued_frames(this);
+}
+
 static int reset_buffer(struct impl *this)
 {
 	if (this->codec_props_changed && this->codec_props
@@ -407,11 +469,11 @@ static int reset_buffer(struct impl *this)
 	this->need_flush = 0;
 	this->block_count = 0;
 	this->fragment = false;
+	this->timestamp = this->codec->bap ? get_reference_position(this) : this->sample_count;
 	this->buffer_used = this->codec->start_encode(this->codec_data,
 			this->buffer, sizeof(this->buffer),
-			this->seqnum++, this->timestamp);
+			++this->seqnum, this->timestamp);
 	this->header_size = this->buffer_used;
-	this->timestamp = this->sample_count;
 	return 0;
 }
 
@@ -592,25 +654,78 @@ static void enable_flush_timer(struct impl *this, bool enabled)
 	this->flush_pending = enabled;
 }
 
-static uint32_t get_queued_frames(struct impl *this)
+#ifdef HAVE_BLUETOOTH_BAP
+static void sync_iso_frame_start(struct impl *this)
 {
 	struct port *port = &this->port;
-	uint32_t bytes = 0;
-	struct buffer *b;
+	uint64_t position;
+	uint32_t interval_frames;
+	uint32_t req;
 
-	spa_list_for_each(b, &port->ready, link) {
-		struct spa_data *d = b->buf->datas;
+	if (!this->codec->bap || !this->qos.out.interval || !this->position)
+		return;
 
-		bytes += d[0].chunk->size;
+	/* Synchronize packet start sample position to a multiple of the ISO interval.
+	 *
+	 * This ensures that different nodes in the graph create packets containing audio
+	 * aligned at commensurate ISO intervals. This will then also align their flush
+	 * reference times.
+	 *
+	 * The ISO interval generally consists of an integer number of frames, so we
+	 * should do this calculation in frames.
+	 */
+	position = get_reference_position(this);
+	interval_frames = (uint64_t)port->current_format.info.raw.rate * this->qos.out.interval
+		/ SPA_USEC_PER_SEC;
+
+	/* Skip frames: generally, this should only occur once when the node starts. */
+	req = position % interval_frames;
+
+	if (this->position->clock.rate.denom != port->current_format.info.raw.rate) {
+		/* if resampling, the count may be rounded down by one */
+		if (req == interval_frames - 1)
+			req = 0;
 	}
+	if (req > 0)
+		req = interval_frames - req;
 
-	if (bytes > port->ready_offset)
-		bytes -= port->ready_offset;
-	else
-		bytes = 0;
+	if (req > 0) {
+		spa_log_debug(this->log, "node %p: ISO sync %"PRIu64"->%"PRIu64": skipping %d frames",
+				this, position, SPA_ROUND_UP(position, interval_frames), req);
+	}
+	while (req > 0 && !spa_list_is_empty(&port->ready)) {
+		struct buffer *b;
+		struct spa_data *d;
+		uint32_t avail;
 
-	return bytes / port->frame_size;
+		b = spa_list_first(&port->ready, struct buffer, link);
+		d = b->buf->datas;
+
+		avail = d[0].chunk->size - port->ready_offset;
+		avail /= port->frame_size;
+
+		avail = SPA_MIN(avail, req);
+		port->ready_offset += avail * port->frame_size;
+		req -= avail;
+
+		if (port->ready_offset >= d[0].chunk->size) {
+			spa_list_remove(&b->link);
+			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
+			spa_log_trace(this->log, "%p: reuse buffer %u", this, b->id);
+			this->port.io->buffer_id = b->id;
+
+			spa_node_call_reuse_buffer(&this->callbacks, 0, b->id);
+			port->ready_offset = 0;
+		}
+
+		spa_log_trace(this->log, "%p: skipped %u frames", this, avail);
+	}
 }
+#else
+static void sync_iso_frame_start(struct impl *this)
+{
+}
+#endif
 
 static int flush_data(struct impl *this, uint64_t now_time)
 {
@@ -744,18 +859,16 @@ again:
 		uint64_t packet_time = (uint64_t)packet_samples * SPA_NSEC_PER_SEC
 			/ port->current_format.info.raw.rate;
 
+		sync_iso_frame_start(this);
+
 		if (SPA_LIKELY(this->position)) {
-			uint32_t frames = get_queued_frames(this);
 			uint64_t duration_ns;
 
 			/*
 			 * Flush at the time position of the next buffered sample.
 			 */
-			duration_ns = ((uint64_t)this->position->clock.duration * SPA_NSEC_PER_SEC
-					/ this->position->clock.rate.denom);
-			this->next_flush_time = this->process_time + duration_ns
-				- ((uint64_t)frames * SPA_NSEC_PER_SEC
-						/ port->current_format.info.raw.rate);
+			this->next_flush_time = get_reference_time(this, &duration_ns)
+				+ packet_time;
 
 			/*
 			 * We can delay the output by one packet to avoid waiting
@@ -952,7 +1065,7 @@ static int transport_start(struct impl *this)
 			this->codec->bap ? "BAP" : "A2DP", this->codec->description,
 			(int64_t)(spa_bt_transport_get_delay_nsec(this->transport) / SPA_NSEC_PER_MSEC));
 
-	this->seqnum = 0;
+	this->seqnum = UINT16_MAX;
 
 	this->block_size = this->codec->get_block_size(this->codec_data);
 	if (this->block_size > sizeof(this->tmp_buffer)) {
@@ -982,6 +1095,16 @@ static int transport_start(struct impl *this)
 	val = 6;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
 		spa_log_warn(this->log, "SO_PRIORITY failed: %m");
+
+#ifdef HAVE_BLUETOOTH_BAP
+	if (this->codec->bap) {
+		len = sizeof(this->qos);
+		if (getsockopt(this->transport->fd, SOL_BLUETOOTH, BT_ISO_QOS, &this->qos, &len) < 0) {
+			memset(&this->qos, 0, sizeof(this->qos));
+			spa_log_warn(this->log, "BT_ISO_QOS failed: %m");
+		}
+	}
+#endif
 
 	reset_buffer(this);
 
@@ -1593,6 +1716,9 @@ static int impl_node_process(void *object)
 		}
 	}
 
+	if (this->position)
+		this->process_position = this->position->clock.position;
+
 	this->process_time = this->current_time;
 
 	if (!spa_list_is_empty(&port->ready)) {
@@ -1602,6 +1728,8 @@ static int impl_node_process(void *object)
 			io->status = res;
 			return SPA_STATUS_STOPPED;
 		}
+	} else {
+		spa_log_trace(this->log, "%p: no flush on process", this);
 	}
 
 	return SPA_STATUS_HAVE_DATA;

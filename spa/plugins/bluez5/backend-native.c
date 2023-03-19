@@ -1487,8 +1487,9 @@ static void sco_ready(struct spa_bt_transport *t)
 		if (td->err == -EINPROGRESS) {
 			len = sizeof(err);
 			memset(&err, 0, len);
-			td->err = getsockopt(t->fd, SOL_SOCKET, SO_ERROR, &err, &len);
-			if (td->err >= 0)
+			if (getsockopt(t->fd, SOL_SOCKET, SO_ERROR, &err, &len) < 0)
+				td->err = -errno;
+			else
 				td->err = -err;
 		}
 	} else {
@@ -1500,7 +1501,7 @@ static void sco_ready(struct spa_bt_transport *t)
 
 	td->requesting = false;
 
-	if (td->err < 0)
+	if (td->err)
 		goto done;
 
 	/* XXX: The MTU as currently reported by kernel (6.2) here is not a valid packet size,
@@ -1508,7 +1509,7 @@ static void sco_ready(struct spa_bt_transport *t)
 	 */
 	len = sizeof(sco_opt);
 	memset(&sco_opt, 0, len);
-	if ((err = getsockopt(t->fd, SOL_SCO, SCO_OPTIONS, &sco_opt, &len)) < 0) {
+	if (getsockopt(t->fd, SOL_SCO, SCO_OPTIONS, &sco_opt, &len) < 0) {
 		spa_log_warn(backend->log, "getsockopt(SCO_OPTIONS) failed, using defaults");
 		t->read_mtu = 48;
 		t->write_mtu = 48;
@@ -1521,18 +1522,18 @@ static void sco_ready(struct spa_bt_transport *t)
 	/* Clear nonblocking flag we set for connect() */
 	err = fcntl(t->fd, F_GETFL, O_NONBLOCK);
 	if (err < 0) {
-		td->err = err;
+		td->err = -errno;
 		goto done;
 	}
 	err &= ~O_NONBLOCK;
 	err = fcntl(t->fd, F_SETFL, O_NONBLOCK, err);
 	if (err < 0) {
-		td->err = err;
+		td->err = -errno;
 		goto done;
 	}
 
 done:
-	if (td->err < 0) {
+	if (td->err) {
 		spa_log_debug(backend->log, "transport %p: acquire failed: %s (%d)",
 				t, strerror(-td->err), td->err);
 		spa_bt_transport_set_state(t, SPA_BT_TRANSPORT_STATE_ERROR);

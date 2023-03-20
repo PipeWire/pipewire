@@ -1034,6 +1034,109 @@ fail:
     }
 }
 
+static char *devset_name(pa_idxset *devices, const char *sep) {
+    int i = 0;
+    int num = pa_idxset_size(devices);
+    pa_alsa_ucm_device *sorted[num], *dev;
+    char *dev_names = NULL;
+    char *tmp = NULL;
+    uint32_t idx;
+
+    PA_IDXSET_FOREACH(dev, devices, idx) {
+        sorted[i] = dev;
+        i++;
+    }
+
+    /* Sort by alphabetical order so as to have a deterministic naming scheme */
+    qsort(&sorted[0], num, sizeof(pa_alsa_ucm_device *), pa_alsa_ucm_device_cmp);
+
+    for (i = 0; i < num; i++) {
+        dev = sorted[i];
+        const char *dev_name = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME);
+
+        if (!dev_names) {
+            dev_names = pa_xstrdup(dev_name);
+        } else {
+            tmp = pa_sprintf_malloc("%s%s%s", dev_names, sep, dev_name);
+            pa_xfree(dev_names);
+            dev_names = tmp;
+        }
+    }
+
+    return dev_names;
+}
+
+static char *devset_description(pa_idxset *devices, const char *sep) {
+    int i = 0;
+    int num = pa_idxset_size(devices);
+    pa_alsa_ucm_device *sorted[num], *dev;
+    char *dev_descs = NULL;
+    char *tmp = NULL;
+    uint32_t idx;
+
+    PA_IDXSET_FOREACH(dev, devices, idx) {
+        sorted[i] = dev;
+        i++;
+    }
+
+    /* Sort by alphabetical order to match devset_name() */
+    qsort(&sorted[0], num, sizeof(pa_alsa_ucm_device *), pa_alsa_ucm_device_cmp);
+
+    for (i = 0; i < num; i++) {
+        dev = sorted[i];
+        const char *dev_desc = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_DESCRIPTION);
+
+        if (!dev_descs) {
+            dev_descs = pa_xstrdup(dev_desc);
+        } else {
+            tmp = pa_sprintf_malloc("%s%s%s", dev_descs, sep, dev_desc);
+            pa_xfree(dev_descs);
+            dev_descs = tmp;
+        }
+    }
+
+    return dev_descs;
+}
+
+/* If invert is true, uses the formula 1/p = 1/p1 + 1/p2 + ... 1/pn.
+ * This way, the result will always be less than the individual components,
+ * yet higher components will lead to higher result. */
+static unsigned devset_playback_priority(pa_idxset *devices, bool invert) {
+    pa_alsa_ucm_device *dev;
+    uint32_t idx;
+    double priority = 0;
+
+    PA_IDXSET_FOREACH(dev, devices, idx) {
+        if (dev->playback_priority > 0 && invert)
+            priority += 1.0 / dev->playback_priority;
+        else
+            priority += dev->playback_priority;
+    }
+
+    if (priority > 0 && invert)
+        return 1.0 / priority;
+
+    return (unsigned) priority;
+}
+
+static unsigned devset_capture_priority(pa_idxset *devices, bool invert) {
+    pa_alsa_ucm_device *dev;
+    uint32_t idx;
+    double priority = 0;
+
+    PA_IDXSET_FOREACH(dev, devices, idx) {
+        if (dev->capture_priority > 0 && invert)
+            priority += 1.0 / dev->capture_priority;
+        else
+            priority += dev->capture_priority;
+    }
+
+    if (priority > 0 && invert)
+        return 1.0 / priority;
+
+    return (unsigned) priority;
+}
+
 static void ucm_add_port_combination(
         pa_hashmap *hash,
         pa_alsa_ucm_mapping_context *context,
@@ -1048,9 +1151,7 @@ static void ucm_add_port_combination(
     int num = pa_idxset_size(devices);
     uint32_t idx;
     unsigned priority;
-    double prio2;
-    char *name, *desc;
-    const char *dev_name;
+    char *name, *desc, *tmp;
     const char *direction;
     const char *profile;
     pa_alsa_ucm_device *sorted[num], *dev;
@@ -1070,36 +1171,26 @@ static void ucm_add_port_combination(
      * for combination ports */
     qsort(&sorted[0], num, sizeof(pa_alsa_ucm_device *), pa_alsa_ucm_device_cmp);
 
+    name = devset_name(devices, "+");
+    tmp = pa_sprintf_malloc("%s%s", is_sink ? PA_UCM_PRE_TAG_OUTPUT : PA_UCM_PRE_TAG_INPUT, name);
+    pa_xfree(name);
+    name = tmp;
+
+    desc = devset_description(devices, ", ");
+    if (pa_idxset_size(devices) > 1) {
+        tmp = pa_sprintf_malloc("Combination port for %s", desc);
+        pa_xfree(desc);
+        desc = tmp;
+    }
+
+    /* Make combination ports always have lower priority */
+    priority = is_sink ? devset_playback_priority(devices, true) : devset_capture_priority(devices, true);
+
     dev = sorted[0];
-    dev_name = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME);
-
-    name = pa_sprintf_malloc("%s%s", is_sink ? PA_UCM_PRE_TAG_OUTPUT : PA_UCM_PRE_TAG_INPUT, dev_name);
-    desc = num == 1 ? pa_xstrdup(pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_DESCRIPTION))
-            : pa_sprintf_malloc("Combination port for %s", dev_name);
-
-    priority = is_sink ? dev->playback_priority : dev->capture_priority;
-    prio2 = (priority == 0 ? 0 : 1.0/priority);
     jack = ucm_get_jack(context->ucm, dev);
     type = dev->type;
 
     for (i = 1; i < num; i++) {
-        char *tmp;
-
-        dev = sorted[i];
-        dev_name = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME);
-
-        tmp = pa_sprintf_malloc("%s+%s", name, dev_name);
-        pa_xfree(name);
-        name = tmp;
-
-        tmp = pa_sprintf_malloc("%s,%s", desc, dev_name);
-        pa_xfree(desc);
-        desc = tmp;
-
-        priority = is_sink ? dev->playback_priority : dev->capture_priority;
-        if (priority != 0 && prio2 > 0)
-            prio2 += 1.0/priority;
-
         jack2 = ucm_get_jack(context->ucm, dev);
         if (jack2) {
             if (jack && jack != jack2)
@@ -1114,14 +1205,6 @@ static void ucm_add_port_combination(
             type = type2;
         }
     }
-
-    /* Make combination ports always have lower priority, and use the formula
-       1/p = 1/p1 + 1/p2 + ... 1/pn.
-       This way, the result will always be less than the individual components,
-       yet higher components will lead to higher result. */
-
-    if (num > 1)
-        priority = prio2 > 0 ? 1.0/prio2 : 0;
 
     port = pa_hashmap_get(ports, name);
     if (!port) {

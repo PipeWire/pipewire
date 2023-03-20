@@ -1485,15 +1485,28 @@ int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, pa_alsa_prof
         }
 
     } else if (ucm->active_verb) {
-        /* Disable devices not in new profile */
+        /* Disable modifiers not in new profile. Has to be done before
+         * devices, because _dismod fails if a modifier's supported
+         * devices are disabled. */
         PA_IDXSET_FOREACH(map, old_profile->input_mappings, idx)
             if (new_profile && !pa_idxset_contains(new_profile->input_mappings, map))
-                if (ucm_device_disable(ucm, map->ucm_context.ucm_device) < 0)
+                if (map->ucm_context.ucm_modifier && ucm_modifier_disable(ucm, map->ucm_context.ucm_modifier) < 0)
                     ret = -1;
 
         PA_IDXSET_FOREACH(map, old_profile->output_mappings, idx)
             if (new_profile && !pa_idxset_contains(new_profile->output_mappings, map))
-                if (ucm_device_disable(ucm, map->ucm_context.ucm_device) < 0)
+                if (map->ucm_context.ucm_modifier && ucm_modifier_disable(ucm, map->ucm_context.ucm_modifier) < 0)
+                    ret = -1;
+
+        /* Disable devices not in new profile */
+        PA_IDXSET_FOREACH(map, old_profile->input_mappings, idx)
+            if (new_profile && !pa_idxset_contains(new_profile->input_mappings, map))
+                if (map->ucm_context.ucm_device && ucm_device_disable(ucm, map->ucm_context.ucm_device) < 0)
+                    ret = -1;
+
+        PA_IDXSET_FOREACH(map, old_profile->output_mappings, idx)
+            if (new_profile && !pa_idxset_contains(new_profile->output_mappings, map))
+                if (map->ucm_context.ucm_device && ucm_device_disable(ucm, map->ucm_context.ucm_device) < 0)
                     ret = -1;
     }
     ucm->active_verb = verb;

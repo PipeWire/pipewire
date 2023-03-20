@@ -354,7 +354,7 @@ struct pa_alsa_mapping {
     pa_alsa_device output;
     pa_alsa_device input;
 
-    /* ucm device context*/
+    /* ucm device context */
     pa_alsa_ucm_mapping_context ucm_context;
 };
 
@@ -380,6 +380,9 @@ struct pa_alsa_profile {
 
     pa_idxset *input_mappings;
     pa_idxset *output_mappings;
+
+    /* ucm device context */
+    pa_alsa_ucm_profile_context ucm_context;
 
     struct {
 	pa_dynarray devices;

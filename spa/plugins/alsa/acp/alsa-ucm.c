@@ -713,7 +713,7 @@ static void add_media_role(pa_alsa_ucm_device *dev, const char *role_name, const
 }
 
 static char *modifier_name_to_role(const char *mod_name, bool *is_sink) {
-    char *sub = NULL, *tmp;
+    char *sub = NULL, *tmp, *pos;
 
     *is_sink = false;
 
@@ -723,19 +723,24 @@ static char *modifier_name_to_role(const char *mod_name, bool *is_sink) {
     } else if (pa_startswith(mod_name, "Capture"))
         sub = pa_xstrdup(mod_name + 7);
 
-    if (!sub || !*sub) {
+    pos = sub;
+    while (pos && *pos == ' ') pos++;
+
+    if (!pos || !*pos) {
         pa_xfree(sub);
         pa_log_warn("Can't match media roles for modifier %s", mod_name);
         return NULL;
     }
 
-    tmp = sub;
+    tmp = pos;
 
     do {
         *tmp = tolower(*tmp);
     } while (*(++tmp));
 
-    return sub;
+    tmp = pa_xstrdup(pos);
+    pa_xfree(sub);
+    return tmp;
 }
 
 static void ucm_set_media_roles(pa_alsa_ucm_modifier *modifier, const char *mod_name) {

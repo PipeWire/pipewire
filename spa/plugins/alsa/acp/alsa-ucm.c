@@ -1267,6 +1267,7 @@ void pa_alsa_ucm_add_port(
 }
 
 static bool devset_supports_device(pa_idxset *devices, pa_alsa_ucm_device *dev) {
+    const char *sink, *sink2, *source, *source2;
     pa_alsa_ucm_device *d;
     uint32_t idx;
 
@@ -1290,11 +1291,25 @@ static bool devset_supports_device(pa_idxset *devices, pa_alsa_ucm_device *dev) 
         if (!pa_idxset_issubset(devices, dev->supported_devices))
            return false;
 
-    /* Must not be unsupported by any selected device */
-    PA_IDXSET_FOREACH(d, devices, idx)
+    sink = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_SINK);
+    source = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_SOURCE);
+
+    PA_IDXSET_FOREACH(d, devices, idx) {
+        /* Must not be unsupported by any selected device */
         if (!pa_idxset_isempty(d->supported_devices))
             if (!pa_idxset_contains(d->supported_devices, dev))
                 return false;
+
+        /* PlaybackPCM must not be the same as any selected device */
+        sink2 = pa_proplist_gets(d->proplist, PA_ALSA_PROP_UCM_SINK);
+        if (sink && sink2 && pa_streq(sink, sink2))
+            return false;
+
+        /* CapturePCM must not be the same as any selected device */
+        source2 = pa_proplist_gets(d->proplist, PA_ALSA_PROP_UCM_SOURCE);
+        if (source && source2 && pa_streq(source, source2))
+            return false;
+    }
 
     return true;
 }

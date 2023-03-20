@@ -1958,7 +1958,7 @@ static snd_pcm_t* mapping_open_pcm(pa_alsa_ucm_config *ucm, pa_alsa_mapping *m, 
     try_buffer_size = ucm->default_n_fragments * try_period_size;
 
     pcm = pa_alsa_open_by_device_string(m->device_strings[0], NULL, &try_ss,
-            &try_map, mode, &try_period_size, &try_buffer_size, 0, NULL, NULL, exact_channels);
+            &try_map, mode, &try_period_size, &try_buffer_size, 0, NULL, NULL, NULL, NULL, exact_channels);
 
     if (pcm) {
         if (!exact_channels)

@@ -362,7 +362,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 							devstr, NULL, &m->sample_spec,
 							&m->channel_map, SND_PCM_STREAM_PLAYBACK,
 							&try_period_size, &try_buffer_size,
-							0, NULL, NULL, false))) {
+							0, NULL, NULL, NULL, NULL, false))) {
 				pa_alsa_init_proplist_pcm(NULL, m->output_proplist, m->output_pcm);
 				pa_proplist_setf(m->output_proplist, "clock.name", "api.alsa.%u", index);
 				pa_alsa_close(&m->output_pcm);
@@ -392,7 +392,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 							devstr, NULL, &m->sample_spec,
 							&m->channel_map, SND_PCM_STREAM_CAPTURE,
 							&try_period_size, &try_buffer_size,
-							0, NULL, NULL, false))) {
+							0, NULL, NULL, NULL, NULL, false))) {
 				pa_alsa_init_proplist_pcm(NULL, m->input_proplist, m->input_pcm);
 				pa_proplist_setf(m->input_proplist, "clock.name", "api.alsa.%u", index);
 				pa_alsa_close(&m->input_pcm);

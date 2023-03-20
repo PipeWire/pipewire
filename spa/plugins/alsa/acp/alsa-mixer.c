@@ -5012,7 +5012,7 @@ static snd_pcm_t* mapping_open_pcm(pa_alsa_mapping *m,
     handle = pa_alsa_open_by_template(
                               m->device_strings, dev_id, NULL, &try_ss,
                               &try_map, mode, &try_period_size,
-                              &try_buffer_size, 0, NULL, NULL, exact_channels);
+                              &try_buffer_size, 0, NULL, NULL, NULL, NULL, exact_channels);
     if (handle && !exact_channels && m->channel_map.channels != try_map.channels) {
         char buf[PA_CHANNEL_MAP_SNPRINT_MAX];
         pa_log_debug("Channel map for mapping '%s' permanently changed to '%s'", m->name,

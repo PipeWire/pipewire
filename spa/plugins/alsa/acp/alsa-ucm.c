@@ -1008,7 +1008,7 @@ fail:
     }
 }
 
-PA_UNUSED static char *devset_name(pa_idxset *devices, const char *sep) {
+static char *devset_name(pa_idxset *devices, const char *sep) {
     int i = 0;
     int num = pa_idxset_size(devices);
     pa_alsa_ucm_device *sorted[num], *dev;
@@ -1075,7 +1075,7 @@ PA_UNUSED static char *devset_description(pa_idxset *devices, const char *sep) {
 /* If invert is true, uses the formula 1/p = 1/p1 + 1/p2 + ... 1/pn.
  * This way, the result will always be less than the individual components,
  * yet higher components will lead to higher result. */
-PA_UNUSED static unsigned devset_playback_priority(pa_idxset *devices, bool invert) {
+static unsigned devset_playback_priority(pa_idxset *devices, bool invert) {
 
     pa_alsa_ucm_device *dev;
     uint32_t idx;
@@ -1094,7 +1094,7 @@ PA_UNUSED static unsigned devset_playback_priority(pa_idxset *devices, bool inve
     return (unsigned) priority;
 }
 
-PA_UNUSED static unsigned devset_capture_priority(pa_idxset *devices, bool invert) {
+static unsigned devset_capture_priority(pa_idxset *devices, bool invert) {
     pa_alsa_ucm_device *dev;
     uint32_t idx;
     double priority = 0;
@@ -1248,7 +1248,7 @@ static bool devset_supports_device(pa_idxset *devices, pa_alsa_ucm_device *dev) 
  * *state should be NULL. It's not safe to modify the devices argument
  * until iteration ends. The returned idxsets must be freed by the
  * caller. */
-PA_UNUSED static pa_idxset *iterate_device_subsets(pa_idxset *devices, void **state) {
+static pa_idxset *iterate_device_subsets(pa_idxset *devices, void **state) {
     uint32_t idx;
     pa_alsa_ucm_device *dev;
 
@@ -1282,6 +1282,33 @@ PA_UNUSED static pa_idxset *iterate_device_subsets(pa_idxset *devices, void **st
         return NULL;
     }
     return pa_idxset_copy(*state, NULL);
+}
+
+/* This a wrapper around iterate_device_subsets() that only returns the
+ * biggest possible groups and not any of their subsets. */
+static pa_idxset *iterate_maximal_device_subsets(pa_idxset *devices, void **state) {
+    uint32_t idx;
+    pa_alsa_ucm_device *dev;
+    pa_idxset *subset;
+
+    pa_assert(devices);
+    pa_assert(state);
+
+    subset = iterate_device_subsets(devices, state);
+    if (!subset)
+        return subset;
+
+    /* Skip this group if it's incomplete, by checking if we can add any
+     * other device. If we can, this iteration is a subset of another
+     * group that we already returned or eventually return. */
+    PA_IDXSET_FOREACH(dev, devices, idx) {
+        if (!pa_idxset_contains(subset, dev) && devset_supports_device(subset, dev)) {
+            pa_idxset_free(subset, NULL);
+            return iterate_maximal_device_subsets(devices, state);
+        }
+    }
+
+    return subset;
 }
 
 static char* merge_roles(const char *cur, const char *add) {
@@ -1774,13 +1801,16 @@ static int ucm_create_verb_profiles(
         const char *verb_name,
         const char *verb_desc) {
 
-    pa_idxset *mappings;
+    pa_idxset *verb_devices, *p_devices, *p_mappings;
     pa_alsa_ucm_device *dev;
     pa_alsa_ucm_modifier *mod;
     int i = 0;
-    int ret = 0;
+    int n_profiles = 0;
     const char *name, *sink, *source;
-    unsigned int verb_priority;
+    char *p_name, *p_desc, *tmp;
+    unsigned int verb_priority, p_priority;
+    uint32_t idx;
+    void *state = NULL;
 
     /* TODO: get profile priority from policy management */
     verb_priority = verb->priority;
@@ -1801,8 +1831,6 @@ static int ucm_create_verb_profiles(
         pa_xfree(verb_cmp);
     }
 
-    mappings = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
-
     PA_LLIST_FOREACH(dev, verb->devices) {
         pa_alsa_jack *jack;
         const char *jack_hw_mute;
@@ -1813,11 +1841,6 @@ static int ucm_create_verb_profiles(
         source = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_SOURCE);
 
         ucm_create_mapping(ucm, ps, dev, verb_name, name, sink, source);
-
-        if (dev->playback_mapping)
-            pa_idxset_put(mappings, dev->playback_mapping, NULL);
-        if (dev->capture_mapping)
-            pa_idxset_put(mappings, dev->capture_mapping, NULL);
 
         jack = ucm_get_jack(ucm, dev);
         if (jack)
@@ -1871,18 +1894,72 @@ static int ucm_create_verb_profiles(
             ucm_create_mapping_for_modifier(ucm, ps, mod, verb_name, name, sink, true);
         else if (source)
             ucm_create_mapping_for_modifier(ucm, ps, mod, verb_name, name, source, false);
-
-        if (mod->playback_mapping)
-            pa_idxset_put(mappings, mod->playback_mapping, NULL);
-        if (mod->capture_mapping)
-            pa_idxset_put(mappings, mod->capture_mapping, NULL);
     }
 
-    ret = ucm_create_profile(ucm, ps, verb, mappings, verb_name, verb_desc, verb_priority);
+    verb_devices = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
+    PA_LLIST_FOREACH(dev, verb->devices)
+        pa_idxset_put(verb_devices, dev, NULL);
 
-    pa_idxset_free(mappings, NULL);
+    while ((p_devices = iterate_maximal_device_subsets(verb_devices, &state))) {
+        p_mappings = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
 
-    return ret;
+        /* Add the mappings that include our selected devices */
+        PA_IDXSET_FOREACH(dev, p_devices, idx) {
+            if (dev->playback_mapping)
+                pa_idxset_put(p_mappings, dev->playback_mapping, NULL);
+            if (dev->capture_mapping)
+                pa_idxset_put(p_mappings, dev->capture_mapping, NULL);
+        }
+        /* Add mappings only for the modifiers that can work with our
+         * device selection */
+        PA_LLIST_FOREACH(mod, verb->modifiers)
+            if (pa_idxset_isempty(mod->supported_devices) || pa_idxset_issubset(mod->supported_devices, p_devices))
+                if (pa_idxset_isdisjoint(mod->conflicting_devices, p_devices)) {
+                    if (mod->playback_mapping)
+                        pa_idxset_put(p_mappings, mod->playback_mapping, NULL);
+                    if (mod->capture_mapping)
+                        pa_idxset_put(p_mappings, mod->capture_mapping, NULL);
+                }
+
+        /* If we'll have multiple profiles for this verb, their names
+         * must be unique. Use a list of chosen devices to disambiguate
+         * them. If the profile contains all devices of a verb, we'll
+         * generate only onle profile whose name should be the verb
+         * name. GUIs usually show the profile description instead of
+         * the name, add the device names to those as well. */
+        tmp = devset_name(p_devices, ", ");
+        if (pa_idxset_equals(p_devices, verb_devices)) {
+            p_name = pa_xstrdup(verb_name);
+            p_desc = pa_xstrdup(verb_desc);
+        } else {
+            p_name = pa_sprintf_malloc("%s (%s)", verb_name, tmp);
+            p_desc = pa_sprintf_malloc("%s (%s)", verb_desc, tmp);
+        }
+
+        /* Make sure profiles with higher-priority devices are
+         * prioritized. */
+        p_priority = verb_priority + devset_playback_priority(p_devices, false) + devset_capture_priority(p_devices, false);
+
+        if (ucm_create_profile(ucm, ps, verb, p_mappings, p_name, p_desc, p_priority) == 0) {
+            pa_log_debug("Created profile %s for UCM verb %s", p_name, verb_name);
+            n_profiles++;
+        }
+
+        pa_xfree(tmp);
+        pa_xfree(p_name);
+        pa_xfree(p_desc);
+        pa_idxset_free(p_mappings, NULL);
+        pa_idxset_free(p_devices, NULL);
+    }
+
+    pa_idxset_free(verb_devices, NULL);
+
+    if (n_profiles == 0) {
+        pa_log("UCM verb %s created no profiles", verb_name);
+        return -1;
+    }
+
+    return 0;
 }
 
 static void mapping_init_eld(pa_alsa_mapping *m, snd_pcm_t *pcm)

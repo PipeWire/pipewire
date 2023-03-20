@@ -1429,8 +1429,7 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index, uint32_t fla
 	/* if UCM is available for this card then update the verb */
 	if (impl->use_ucm && !(np->profile.flags & ACP_PROFILE_PRO)) {
 		if ((res = pa_alsa_ucm_set_profile(&impl->ucm, impl,
-		    np->profile.flags & ACP_PROFILE_OFF ? NULL : np->profile.name,
-		    op ? op->profile.name : NULL)) < 0) {
+		    np->profile.flags & ACP_PROFILE_OFF ? NULL : np, op)) < 0) {
 			return res;
 		}
 	}

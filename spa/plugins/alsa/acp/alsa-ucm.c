@@ -1322,7 +1322,6 @@ void pa_alsa_ucm_add_ports(
         snd_pcm_t *pcm_handle,
         bool ignore_dB) {
 
-    uint32_t idx;
     char *merged_roles;
     const char *role_name = is_sink ? PA_ALSA_PROP_UCM_PLAYBACK_ROLES : PA_ALSA_PROP_UCM_CAPTURE_ROLES;
     pa_alsa_ucm_device *dev;
@@ -1357,12 +1356,12 @@ void pa_alsa_ucm_add_ports(
         merged_roles = tmp;
     }
 
-    if (context->ucm_modifiers)
-        PA_IDXSET_FOREACH(mod, context->ucm_modifiers, idx) {
-            tmp = merge_roles(merged_roles, mod->media_role);
-            pa_xfree(merged_roles);
-            merged_roles = tmp;
-        }
+    mod = context->ucm_modifier;
+    if (mod) {
+        tmp = merge_roles(merged_roles, mod->media_role);
+        pa_xfree(merged_roles);
+        merged_roles = tmp;
+    }
 
     if (merged_roles)
         pa_proplist_sets(proplist, PA_PROP_DEVICE_INTENDED_ROLES, merged_roles);
@@ -1481,7 +1480,7 @@ static void alsa_mapping_add_ucm_modifier(pa_alsa_mapping *m, pa_alsa_ucm_modifi
     const char *new_desc, *mod_name, *channel_str;
     uint32_t channels = 0;
 
-    pa_idxset_put(m->ucm_context.ucm_modifiers, modifier, NULL);
+    m->ucm_context.ucm_modifier = modifier;
 
     new_desc = pa_proplist_gets(modifier->proplist, PA_ALSA_PROP_UCM_DESCRIPTION);
     cur_desc = m->description;
@@ -1605,8 +1604,7 @@ static int ucm_create_mapping_for_modifier(
 
     pa_log_info("UCM mapping: %s modifier %s", m->name, mod_name);
 
-    if (!m->ucm_context.ucm_device && !m->ucm_context.ucm_modifiers) {   /* new mapping */
-        m->ucm_context.ucm_modifiers = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
+    if (!m->ucm_context.ucm_device && !m->ucm_context.ucm_modifier) {   /* new mapping */
         m->ucm_context.ucm = ucm;
         m->ucm_context.direction = is_sink ? PA_DIRECTION_OUTPUT : PA_DIRECTION_INPUT;
 
@@ -1615,8 +1613,7 @@ static int ucm_create_mapping_for_modifier(
         m->direction = is_sink ? PA_ALSA_DIRECTION_OUTPUT : PA_ALSA_DIRECTION_INPUT;
         /* Modifier sinks should not be routed to by default */
         m->priority = 0;
-    } else if (!m->ucm_context.ucm_modifiers) /* share pcm with device */
-        m->ucm_context.ucm_modifiers = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
+    }
 
     alsa_mapping_add_ucm_modifier(m, modifier);
 
@@ -2162,7 +2159,6 @@ void pa_alsa_ucm_free(pa_alsa_ucm_config *ucm) {
 void pa_alsa_ucm_mapping_context_free(pa_alsa_ucm_mapping_context *context) {
     pa_alsa_ucm_device *dev;
     pa_alsa_ucm_modifier *mod;
-    uint32_t idx;
 
     dev = context->ucm_device;
     if (dev) {
@@ -2173,15 +2169,12 @@ void pa_alsa_ucm_mapping_context_free(pa_alsa_ucm_mapping_context *context) {
             dev->capture_mapping = NULL;
     }
 
-    if (context->ucm_modifiers) {
-        PA_IDXSET_FOREACH(mod, context->ucm_modifiers, idx) {
-            if (context->direction == PA_DIRECTION_OUTPUT)
-                mod->playback_mapping = NULL;
-            else
-                mod->capture_mapping = NULL;
-        }
-
-        pa_idxset_free(context->ucm_modifiers, NULL);
+    mod = context->ucm_modifier;
+    if (mod) {
+        if (context->direction == PA_DIRECTION_OUTPUT)
+            mod->playback_mapping = NULL;
+        else
+            mod->capture_mapping = NULL;
     }
 }
 

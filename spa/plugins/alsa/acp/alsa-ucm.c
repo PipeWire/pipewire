@@ -885,7 +885,7 @@ int pa_alsa_ucm_query_profiles(pa_alsa_ucm_config *ucm, int card_index) {
         free((void *)value);
     }
 
-    /* get a list of all UCM verbs (profiles) for this card */
+    /* get a list of all UCM verbs for this card */
     num_verbs = snd_use_case_verb_list(ucm->ucm_mgr, &verb_list);
     if (num_verbs < 0) {
         pa_log("UCM verb list not found for %s", card_name);
@@ -1009,16 +1009,16 @@ static void set_eld_devices(pa_hashmap *hash)
     }
 }
 
-static void update_mixer_paths(pa_hashmap *ports, const char *profile_name) {
+static void update_mixer_paths(pa_hashmap *ports, const char *verb_name) {
     pa_device_port *port;
     pa_alsa_ucm_port_data *data;
     void *state;
 
     /* select volume controls on ports */
     PA_HASHMAP_FOREACH(port, ports, state) {
-        pa_log_info("Updating mixer path for %s: %s", profile_name, port->name);
+        pa_log_info("Updating mixer path for %s: %s", verb_name, port->name);
         data = PA_DEVICE_PORT_DATA(port);
-        data->path = pa_hashmap_get(data->paths, profile_name);
+        data->path = pa_hashmap_get(data->paths, verb_name);
     }
 }
 
@@ -1028,7 +1028,7 @@ static void probe_volumes(pa_hashmap *hash, bool is_sink, snd_pcm_t *pcm_handle,
     pa_alsa_ucm_port_data *data;
     pa_alsa_ucm_device *dev;
     snd_mixer_t *mixer_handle;
-    const char *profile, *mdev;
+    const char *verb_name, *mdev;
     void *state, *state2;
 
     PA_HASHMAP_FOREACH(port, hash, state) {
@@ -1041,16 +1041,16 @@ static void probe_volumes(pa_hashmap *hash, bool is_sink, snd_pcm_t *pcm_handle,
             goto fail;
         }
 
-        PA_HASHMAP_FOREACH_KV(profile, path, data->paths, state2) {
+        PA_HASHMAP_FOREACH_KV(verb_name, path, data->paths, state2) {
             if (pa_alsa_path_probe(path, NULL, mixer_handle, ignore_dB) < 0) {
                 pa_log_warn("Could not probe path: %s, using s/w volume", path->name);
-                pa_hashmap_remove(data->paths, profile);
+                pa_hashmap_remove(data->paths, verb_name);
             } else if (!path->has_volume && !path->has_mute) {
                 pa_log_warn("Path %s is not a volume or mute control", path->name);
-                pa_hashmap_remove(data->paths, profile);
+                pa_hashmap_remove(data->paths, verb_name);
             } else
                 pa_log_debug("Set up h/w %s using '%s' for %s:%s", path->has_volume ? "volume" : "mute",
-                                path->name, profile, port->name);
+                                path->name, verb_name, port->name);
         }
     }
 
@@ -1181,7 +1181,7 @@ void pa_alsa_ucm_add_port(
     char *name, *desc;
     const char *dev_name;
     const char *direction;
-    const char *profile;
+    const char *verb_name;
     pa_alsa_ucm_device *dev;
     pa_alsa_ucm_port_data *data;
     pa_alsa_ucm_volume *vol;
@@ -1221,7 +1221,7 @@ void pa_alsa_ucm_add_port(
 
         pa_hashmap_put(ports, port->name, port);
         pa_log_debug("Add port %s: %s", port->name, port->description);
-        PA_HASHMAP_FOREACH_KV(profile, vol, is_sink ? dev->playback_volumes : dev->capture_volumes, state) {
+        PA_HASHMAP_FOREACH_KV(verb_name, vol, is_sink ? dev->playback_volumes : dev->capture_volumes, state) {
             pa_alsa_path *path = pa_alsa_path_synthesize(vol->mixer_elem,
                                                          is_sink ? PA_ALSA_DIRECTION_OUTPUT : PA_ALSA_DIRECTION_INPUT);
 
@@ -1234,7 +1234,7 @@ void pa_alsa_ucm_add_port(
                     e->volume_use = PA_ALSA_VOLUME_MERGE;
                 }
 
-                pa_hashmap_put(data->paths, pa_xstrdup(profile), path);
+                pa_hashmap_put(data->paths, pa_xstrdup(verb_name), path);
 
                 /* Add path also to already created empty path set */
                 if (is_sink)
@@ -1435,8 +1435,8 @@ void pa_alsa_ucm_add_ports(
     /* now set up volume paths if any */
     probe_volumes(*p, is_sink, pcm_handle, context->ucm->mixers, ignore_dB);
 
-    /* probe_volumes() removes per-profile paths from ports if probing them
-     * fails. The path for the current profile is cached in
+    /* probe_volumes() removes per-verb paths from ports if probing them
+     * fails. The path for the current verb is cached in
      * pa_alsa_ucm_port_data.path, which is not cleared by probe_volumes() if
      * the path gets removed, so we have to call update_mixer_paths() here to
      * unset the cached path if needed. */
@@ -1526,7 +1526,7 @@ int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, pa_alsa_prof
     }
     ucm->active_verb = verb;
 
-    update_mixer_paths(card->ports, profile_name);
+    update_mixer_paths(card->ports, verb_name);
     return ret;
 }
 
@@ -2237,7 +2237,7 @@ pa_alsa_profile_set* pa_alsa_ucm_add_profile_set(pa_alsa_ucm_config *ucm, pa_cha
                                        (pa_free_cb_t) pa_alsa_profile_free);
     ps->decibel_fixes = pa_hashmap_new(pa_idxset_string_hash_func, pa_idxset_string_compare_func);
 
-    /* create a profile for each verb */
+    /* create profiles for each verb */
     PA_LLIST_FOREACH(verb, ucm->verbs) {
         const char *verb_name;
         const char *verb_desc;

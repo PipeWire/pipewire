@@ -1459,19 +1459,18 @@ void pa_alsa_ucm_add_ports(
 }
 
 /* Change UCM verb and device to match selected card profile */
-int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, const char *new_profile, const char *old_profile) {
+int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, pa_alsa_profile *new_profile, pa_alsa_profile *old_profile) {
     int ret = 0;
     const char *profile;
     pa_alsa_ucm_verb *verb;
 
     if (new_profile == old_profile)
-        return ret;
-    else if (new_profile == NULL || old_profile == NULL)
-        profile = new_profile ? new_profile : SND_USE_CASE_VERB_INACTIVE;
-    else if (!pa_streq(new_profile, old_profile))
-        profile = new_profile;
+        return 0;
+
+    if (new_profile == NULL)
+        profile = SND_USE_CASE_VERB_INACTIVE;
     else
-        return ret;
+        profile = new_profile->name;
 
     /* change verb */
     pa_log_info("Set UCM verb to %s", profile);
@@ -2461,7 +2460,7 @@ pa_alsa_profile_set* pa_alsa_ucm_add_profile_set(pa_alsa_ucm_config *ucm, pa_cha
     return NULL;
 }
 
-int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, const char *new_profile, const char *old_profile) {
+int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, pa_alsa_profile *new_profile, pa_alsa_profile *old_profile) {
     return -1;
 }
 

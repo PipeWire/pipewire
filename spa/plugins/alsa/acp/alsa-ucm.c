@@ -1440,8 +1440,11 @@ void pa_alsa_ucm_add_ports(
      * pa_alsa_ucm_port_data.path, which is not cleared by probe_volumes() if
      * the path gets removed, so we have to call update_mixer_paths() here to
      * unset the cached path if needed. */
-    if (card->card.active_profile_index < card->card.n_profiles)
-        update_mixer_paths(*p, card->card.profiles[card->card.active_profile_index]->name);
+    if (context->ucm->active_verb) {
+        const char *verb_name;
+        verb_name = pa_proplist_gets(context->ucm->active_verb->proplist, PA_ALSA_PROP_UCM_NAME);
+        update_mixer_paths(*p, verb_name);
+    }
 
     /* then set property PA_PROP_DEVICE_INTENDED_ROLES */
     merged_roles = pa_xstrdup(pa_proplist_gets(proplist, PA_PROP_DEVICE_INTENDED_ROLES));

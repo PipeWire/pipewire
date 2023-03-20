@@ -72,9 +72,8 @@ static pa_alsa_ucm_device *verb_find_device(pa_alsa_ucm_verb *verb, const char *
 
 
 static void ucm_port_data_init(pa_alsa_ucm_port_data *port, pa_alsa_ucm_config *ucm, pa_device_port *core_port,
-                               pa_alsa_ucm_device **devices, unsigned n_devices);
+                               pa_alsa_ucm_device *device);
 static void ucm_port_data_free(pa_device_port *port);
-static void ucm_port_update_available(pa_alsa_ucm_port_data *port);
 
 static struct ucm_type types[] = {
     {"None", PA_DEVICE_PORT_TYPE_UNKNOWN},
@@ -942,30 +941,15 @@ static void set_eld_devices(pa_hashmap *hash)
     pa_device_port *port;
     pa_alsa_ucm_port_data *data;
     pa_alsa_ucm_device *dev;
-    const char *eld_mixer_device_name;
     void *state;
-    int idx, eld_device;
 
     PA_HASHMAP_FOREACH(port, hash, state) {
         data = PA_DEVICE_PORT_DATA(port);
-        eld_mixer_device_name = NULL;
-        eld_device = -1;
-        PA_DYNARRAY_FOREACH(dev, data->devices, idx) {
-            if (dev->eld_device >= 0 && dev->eld_mixer_device_name) {
-                if (eld_device >= 0 && eld_device != dev->eld_device) {
-                    pa_log_error("The ELD device is already set!");
-                } else if (eld_mixer_device_name && pa_streq(dev->eld_mixer_device_name, eld_mixer_device_name)) {
-                    pa_log_error("The ELD mixer device is already set (%s, %s)!", dev->eld_mixer_device_name, dev->eld_mixer_device_name);
-                } else {
-                    eld_mixer_device_name = dev->eld_mixer_device_name;
-                    eld_device = dev->eld_device;
-                }
-            }
-        }
-        data->eld_device = eld_device;
+        dev = data->device;
+        data->eld_device = dev->eld_device;
         if (data->eld_mixer_device_name)
             pa_xfree(data->eld_mixer_device_name);
-        data->eld_mixer_device_name = pa_xstrdup(eld_mixer_device_name);
+        data->eld_mixer_device_name = pa_xstrdup(dev->eld_mixer_device_name);
     }
 }
 
@@ -988,24 +972,14 @@ static void probe_volumes(pa_hashmap *hash, bool is_sink, snd_pcm_t *pcm_handle,
     pa_alsa_ucm_port_data *data;
     pa_alsa_ucm_device *dev;
     snd_mixer_t *mixer_handle;
-    const char *profile, *mdev, *mdev2;
+    const char *profile, *mdev;
     void *state, *state2;
-    int idx;
 
     PA_HASHMAP_FOREACH(port, hash, state) {
         data = PA_DEVICE_PORT_DATA(port);
 
-        mdev = NULL;
-        PA_DYNARRAY_FOREACH(dev, data->devices, idx) {
-            mdev2 = get_mixer_device(dev, is_sink);
-            if (mdev && mdev2 && !pa_streq(mdev, mdev2)) {
-                pa_log_error("Two mixer device names found ('%s', '%s'), using s/w volume", mdev, mdev2);
-                goto fail;
-            }
-            if (mdev2)
-                mdev = mdev2;
-        }
-
+        dev = data->device;
+        mdev = get_mixer_device(dev, is_sink);
         if (mdev == NULL || !(mixer_handle = pa_alsa_open_mixer_by_name(mixers, mdev, true))) {
             pa_log_error("Failed to find a working mixer device (%s).", mdev);
             goto fail;
@@ -1190,7 +1164,7 @@ void pa_alsa_ucm_add_port(
         pa_device_port_new_data_done(&port_data);
 
         data = PA_DEVICE_PORT_DATA(port);
-        ucm_port_data_init(data, context->ucm, port, &dev, 1);
+        ucm_port_data_init(data, context->ucm, port, dev);
         port->impl_free = ucm_port_data_free;
 
         pa_hashmap_put(ports, port->name, port);
@@ -1238,27 +1212,6 @@ void pa_alsa_ucm_add_port(
 
     /* ELD devices */
     set_eld_devices(ports);
-}
-
-static int ucm_port_contains(const char *port_name, const char *dev_name, bool is_sink) {
-    int ret = 0;
-    const char *r;
-    const char *state = NULL;
-    size_t len;
-
-    if (!port_name || !dev_name)
-        return false;
-
-    port_name += is_sink ? strlen(PA_UCM_PRE_TAG_OUTPUT) : strlen(PA_UCM_PRE_TAG_INPUT);
-
-    while ((r = pa_split_in_place(port_name, "+", &len, &state))) {
-        if (strlen(dev_name) == len && !strncmp(r, dev_name, len)) {
-            ret = 1;
-            break;
-        }
-    }
-
-    return ret;
 }
 
 static bool devset_supports_device(pa_idxset *devices, pa_alsa_ucm_device *dev) {
@@ -1451,7 +1404,7 @@ int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, pa_alsa_prof
     return ret;
 }
 
-int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *port, bool is_sink) {
+int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *port) {
     int i;
     int ret = 0;
     pa_alsa_ucm_config *ucm;
@@ -1459,19 +1412,20 @@ int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *p
     int enable_num = 0;
     uint32_t idx;
     pa_alsa_ucm_device *dev;
+    pa_alsa_ucm_port_data *data;
 
     pa_assert(context && context->ucm);
 
     ucm = context->ucm;
     pa_assert(ucm->ucm_mgr);
 
+    data = PA_DEVICE_PORT_DATA(port);
+
     enable_devs = pa_xnew(pa_alsa_ucm_device *, pa_idxset_size(context->ucm_devices));
 
     /* first disable then enable */
     PA_IDXSET_FOREACH(dev, context->ucm_devices, idx) {
-        const char *dev_name = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME);
-
-        if (ucm_port_contains(port->name, dev_name, is_sink))
+        if (dev == data->device)
             enable_devs[enable_num++] = dev;
         else
             ret = ucm_device_disable(ucm, dev);
@@ -2313,13 +2267,6 @@ void pa_alsa_ucm_roled_stream_end(pa_alsa_ucm_config *ucm, const char *role, pa_
     }
 }
 
-static void device_add_ucm_port(pa_alsa_ucm_device *device, pa_alsa_ucm_port_data *port) {
-    pa_assert(device);
-    pa_assert(port);
-
-    pa_dynarray_append(device->ucm_ports, port);
-}
-
 static void device_set_jack(pa_alsa_ucm_device *device, pa_alsa_jack *jack) {
     pa_assert(device);
     pa_assert(jack);
@@ -2352,7 +2299,7 @@ static void device_set_available(pa_alsa_ucm_device *device, pa_available_t avai
     device->available = available;
 
     PA_DYNARRAY_FOREACH(port, device->ucm_ports, idx)
-        ucm_port_update_available(port);
+        pa_device_port_set_available(port->core_port, port->device->available);
 }
 
 void pa_alsa_ucm_device_update_available(pa_alsa_ucm_device *device) {
@@ -2376,26 +2323,21 @@ void pa_alsa_ucm_device_update_available(pa_alsa_ucm_device *device) {
 }
 
 static void ucm_port_data_init(pa_alsa_ucm_port_data *port, pa_alsa_ucm_config *ucm, pa_device_port *core_port,
-                               pa_alsa_ucm_device **devices, unsigned n_devices) {
-    unsigned i;
-
+                               pa_alsa_ucm_device *device) {
     pa_assert(ucm);
     pa_assert(core_port);
-    pa_assert(devices);
+    pa_assert(device);
 
     port->ucm = ucm;
     port->core_port = core_port;
-    port->devices = pa_dynarray_new(NULL);
     port->eld_device = -1;
 
-    for (i = 0; i < n_devices; i++) {
-        pa_dynarray_append(port->devices, devices[i]);
-        device_add_ucm_port(devices[i], port);
-    }
+    port->device = device;
+    pa_dynarray_append(device->ucm_ports, port);
 
     port->paths = pa_hashmap_new_full(pa_idxset_string_hash_func, pa_idxset_string_compare_func, pa_xfree, NULL);
 
-    ucm_port_update_available(port);
+    pa_device_port_set_available(port->core_port, port->device->available);
 }
 
 static void ucm_port_data_free(pa_device_port *port) {
@@ -2405,32 +2347,10 @@ static void ucm_port_data_free(pa_device_port *port) {
 
     ucm_port = PA_DEVICE_PORT_DATA(port);
 
-    if (ucm_port->devices)
-        pa_dynarray_free(ucm_port->devices);
-
     if (ucm_port->paths)
         pa_hashmap_free(ucm_port->paths);
 
     pa_xfree(ucm_port->eld_mixer_device_name);
-}
-
-static void ucm_port_update_available(pa_alsa_ucm_port_data *port) {
-    pa_alsa_ucm_device *device;
-    unsigned idx;
-    pa_available_t available = PA_AVAILABLE_YES;
-
-    pa_assert(port);
-
-    PA_DYNARRAY_FOREACH(device, port->devices, idx) {
-        if (device->available == PA_AVAILABLE_UNKNOWN)
-            available = PA_AVAILABLE_UNKNOWN;
-        else if (device->available == PA_AVAILABLE_NO) {
-            available = PA_AVAILABLE_NO;
-            break;
-        }
-    }
-
-    pa_device_port_set_available(port->core_port, available);
 }
 
 #else /* HAVE_ALSA_UCM */
@@ -2473,7 +2393,7 @@ void pa_alsa_ucm_add_port(
         pa_core *core) {
 }
 
-int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *port, bool is_sink) {
+int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *port) {
     return -1;
 }
 

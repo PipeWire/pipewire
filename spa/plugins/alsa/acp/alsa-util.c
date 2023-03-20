@@ -1412,13 +1412,31 @@ char *pa_alsa_get_reserve_name(const char *device) {
     return pa_sprintf_malloc("Audio%i", i);
 }
 
+static void dump_supported_rates(unsigned int* values)
+{
+    pa_strbuf *buf;
+    char *str;
+    int i;
+
+    buf = pa_strbuf_new();
+
+    for (i = 0; values[i]; i++) {
+        pa_strbuf_printf(buf, " %u", values[i]);
+    }
+
+    str = pa_strbuf_to_string_free(buf);
+    pa_log_debug("Supported rates:%s", str);
+    pa_xfree(str);
+}
+
 unsigned int *pa_alsa_get_supported_rates(snd_pcm_t *pcm, unsigned int fallback_rate) {
     static unsigned int all_rates[] = { 8000, 11025, 12000,
                                         16000, 22050, 24000,
                                         32000, 44100, 48000,
                                         64000, 88200, 96000,
                                         128000, 176400, 192000,
-                                        384000 };
+                                        352800, 384000,
+                                        705600, 768000 };
     bool supported[PA_ELEMENTSOF(all_rates)] = { false, };
     snd_pcm_hw_params_t *hwparams;
     unsigned int i, j, n, *rates = NULL;

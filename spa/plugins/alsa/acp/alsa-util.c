@@ -1600,7 +1600,8 @@ static snd_mixer_elem_t *pa_alsa_mixer_find(snd_mixer_t *mixer,
                                             snd_ctl_elem_iface_t iface,
                                             const char *name,
                                             unsigned int index,
-                                            unsigned int device) {
+                                            unsigned int device,
+                                            unsigned int subdevice) {
     snd_mixer_elem_t *elem;
 
     for (elem = snd_mixer_first_elem(mixer); elem; elem = snd_mixer_elem_next(elem)) {
@@ -1617,17 +1618,19 @@ static snd_mixer_elem_t *pa_alsa_mixer_find(snd_mixer_t *mixer,
             continue;
         if (snd_hctl_elem_get_device(helem) != device)
             continue;
+        if (snd_hctl_elem_get_subdevice(helem) != subdevice)
+            continue;
         return elem;
     }
     return NULL;
 }
 
 snd_mixer_elem_t *pa_alsa_mixer_find_card(snd_mixer_t *mixer, struct pa_alsa_mixer_id *alsa_id, unsigned int device) {
-    return pa_alsa_mixer_find(mixer, SND_CTL_ELEM_IFACE_CARD, alsa_id->name, alsa_id->index, device);
+    return pa_alsa_mixer_find(mixer, SND_CTL_ELEM_IFACE_CARD, alsa_id->name, alsa_id->index, device, 0);
 }
 
 snd_mixer_elem_t *pa_alsa_mixer_find_pcm(snd_mixer_t *mixer, const char *name, unsigned int device) {
-    return pa_alsa_mixer_find(mixer, SND_CTL_ELEM_IFACE_PCM, name, 0, device);
+    return pa_alsa_mixer_find(mixer, SND_CTL_ELEM_IFACE_PCM, name, 0, device, 0);
 }
 
 static int mixer_class_compare(const snd_mixer_elem_t *c1, const snd_mixer_elem_t *c2)
@@ -1664,11 +1667,12 @@ static int mixer_class_event(snd_mixer_class_t *class, unsigned int mask,
             const char *name = snd_hctl_elem_get_name(helem);
             const int index = snd_hctl_elem_get_index(helem);
             const int device = snd_hctl_elem_get_device(helem);
+            const int subdevice = snd_hctl_elem_get_subdevice(helem);
             snd_mixer_elem_t *new_melem;
 
             bool found = true;
 
-            new_melem = pa_alsa_mixer_find(mixer, iface, name, index, device);
+            new_melem = pa_alsa_mixer_find(mixer, iface, name, index, device, subdevice);
             if (!new_melem) {
                 _helem = pa_xmalloc(sizeof(snd_hctl_elem_t *));
                 *_helem = helem;

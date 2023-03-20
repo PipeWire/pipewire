@@ -1131,13 +1131,9 @@ void pa_alsa_ucm_add_port(
     pa_alsa_ucm_volume *vol;
     pa_alsa_jack *jack;
     pa_device_port_type_t type;
-    uint32_t idx;
     void *state;
 
-    pa_assert(context->ucm_devices);
-    pa_assert(pa_idxset_size(context->ucm_devices) <= 1);
-
-    dev = pa_idxset_first(context->ucm_devices, &idx);
+    dev = context->ucm_device;
     if (!dev)
         return;
 
@@ -1352,7 +1348,9 @@ void pa_alsa_ucm_add_ports(
 
     /* then set property PA_PROP_DEVICE_INTENDED_ROLES */
     merged_roles = pa_xstrdup(pa_proplist_gets(proplist, PA_PROP_DEVICE_INTENDED_ROLES));
-    PA_IDXSET_FOREACH(dev, context->ucm_devices, idx) {
+
+    dev = context->ucm_device;
+    if (dev) {
         const char *roles = pa_proplist_gets(dev->proplist, role_name);
         tmp = merge_roles(merged_roles, roles);
         pa_xfree(merged_roles);
@@ -1405,12 +1403,7 @@ int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, pa_alsa_prof
 }
 
 int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *port) {
-    int i;
-    int ret = 0;
     pa_alsa_ucm_config *ucm;
-    pa_alsa_ucm_device **enable_devs;
-    int enable_num = 0;
-    uint32_t idx;
     pa_alsa_ucm_device *dev;
     pa_alsa_ucm_port_data *data;
 
@@ -1420,27 +1413,10 @@ int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *p
     pa_assert(ucm->ucm_mgr);
 
     data = PA_DEVICE_PORT_DATA(port);
+    dev = context->ucm_device;
+    pa_assert(dev == data->device);
 
-    enable_devs = pa_xnew(pa_alsa_ucm_device *, pa_idxset_size(context->ucm_devices));
-
-    /* first disable then enable */
-    PA_IDXSET_FOREACH(dev, context->ucm_devices, idx) {
-        if (dev == data->device)
-            enable_devs[enable_num++] = dev;
-        else
-            ret = ucm_device_disable(ucm, dev);
-
-	if (ret < 0)
-            break;
-    }
-
-    for (i = 0; i < enable_num && ret == 0; i++) {
-        ret = ucm_device_enable(ucm, enable_devs[i]);
-    }
-
-    pa_xfree(enable_devs);
-
-    return ret;
+    return ucm_device_enable(ucm, dev);
 }
 
 static void ucm_add_mapping(pa_alsa_profile *p, pa_alsa_mapping *m) {
@@ -1476,7 +1452,7 @@ static void alsa_mapping_add_ucm_device(pa_alsa_mapping *m, pa_alsa_ucm_device *
     const char *new_desc, *mdev;
     bool is_sink = m->direction == PA_ALSA_DIRECTION_OUTPUT;
 
-    pa_idxset_put(m->ucm_context.ucm_devices, device, NULL);
+    m->ucm_context.ucm_device = device;
 
     new_desc = pa_proplist_gets(device->proplist, PA_ALSA_PROP_UCM_DESCRIPTION);
     cur_desc = m->description;
@@ -1585,8 +1561,7 @@ static int ucm_create_mapping_direction(
     rate = is_sink ? device->playback_rate : device->capture_rate;
     channels = is_sink ? device->playback_channels : device->capture_channels;
 
-    if (!m->ucm_context.ucm_devices) {   /* new mapping */
-        m->ucm_context.ucm_devices = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
+    if (!m->ucm_context.ucm_device) {   /* new mapping */
         m->ucm_context.ucm = ucm;
         m->ucm_context.direction = is_sink ? PA_DIRECTION_OUTPUT : PA_DIRECTION_INPUT;
 
@@ -1630,8 +1605,7 @@ static int ucm_create_mapping_for_modifier(
 
     pa_log_info("UCM mapping: %s modifier %s", m->name, mod_name);
 
-    if (!m->ucm_context.ucm_devices && !m->ucm_context.ucm_modifiers) {   /* new mapping */
-        m->ucm_context.ucm_devices = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
+    if (!m->ucm_context.ucm_device && !m->ucm_context.ucm_modifiers) {   /* new mapping */
         m->ucm_context.ucm_modifiers = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
         m->ucm_context.ucm = ucm;
         m->ucm_context.direction = is_sink ? PA_DIRECTION_OUTPUT : PA_DIRECTION_INPUT;
@@ -1900,7 +1874,6 @@ static void mapping_init_eld(pa_alsa_mapping *m, snd_pcm_t *pcm)
 {
     pa_alsa_ucm_mapping_context *context = &m->ucm_context;
     pa_alsa_ucm_device *dev;
-    uint32_t idx;
     char *mdev, *alib_prefix;
     snd_pcm_info_t *info;
     int pcm_card, pcm_device;
@@ -1916,13 +1889,12 @@ static void mapping_init_eld(pa_alsa_mapping *m, snd_pcm_t *pcm)
 
     alib_prefix = context->ucm->alib_prefix;
 
-    PA_IDXSET_FOREACH(dev, context->ucm_devices, idx) {
-       mdev = pa_sprintf_malloc("%shw:%i", alib_prefix ? alib_prefix : "", pcm_card);
-       if (mdev == NULL)
-           continue;
-       dev->eld_mixer_device_name = mdev;
-       dev->eld_device = pcm_device;
-    }
+    dev = context->ucm_device;
+    mdev = pa_sprintf_malloc("%shw:%i", alib_prefix ? alib_prefix : "", pcm_card);
+    if (mdev == NULL)
+        return;
+    dev->eld_mixer_device_name = mdev;
+    dev->eld_device = pcm_device;
 }
 
 static snd_pcm_t* mapping_open_pcm(pa_alsa_ucm_config *ucm, pa_alsa_mapping *m, int mode) {
@@ -1986,24 +1958,22 @@ static void ucm_mapping_jack_probe(pa_alsa_mapping *m, pa_hashmap *mixers) {
     snd_mixer_t *mixer_handle;
     pa_alsa_ucm_mapping_context *context = &m->ucm_context;
     pa_alsa_ucm_device *dev;
-    uint32_t idx;
 
-    PA_IDXSET_FOREACH(dev, context->ucm_devices, idx) {
-        bool has_control;
+    bool has_control;
 
-        if (!dev->jack || !dev->jack->mixer_device_name)
-            continue;
+    dev = context->ucm_device;
+    if (!dev->jack || !dev->jack->mixer_device_name)
+        return;
 
-        mixer_handle = pa_alsa_open_mixer_by_name(mixers, dev->jack->mixer_device_name, true);
-        if (!mixer_handle) {
-            pa_log_error("Unable to determine open mixer device '%s' for jack %s", dev->jack->mixer_device_name, dev->jack->name);
-            continue;
-        }
-
-        has_control = pa_alsa_mixer_find_card(mixer_handle, &dev->jack->alsa_id, 0) != NULL;
-        pa_alsa_jack_set_has_control(dev->jack, has_control);
-        pa_log_info("UCM jack %s has_control=%d", dev->jack->name, dev->jack->has_control);
+    mixer_handle = pa_alsa_open_mixer_by_name(mixers, dev->jack->mixer_device_name, true);
+    if (!mixer_handle) {
+        pa_log_error("Unable to determine open mixer device '%s' for jack %s", dev->jack->mixer_device_name, dev->jack->name);
+        return;
     }
+
+    has_control = pa_alsa_mixer_find_card(mixer_handle, &dev->jack->alsa_id, 0) != NULL;
+    pa_alsa_jack_set_has_control(dev->jack, has_control);
+    pa_log_info("UCM jack %s has_control=%d", dev->jack->name, dev->jack->has_control);
 }
 
 static void ucm_probe_profile_set(pa_alsa_ucm_config *ucm, pa_alsa_profile_set *ps) {
@@ -2194,16 +2164,13 @@ void pa_alsa_ucm_mapping_context_free(pa_alsa_ucm_mapping_context *context) {
     pa_alsa_ucm_modifier *mod;
     uint32_t idx;
 
-    if (context->ucm_devices) {
+    dev = context->ucm_device;
+    if (dev) {
         /* clear ucm device pointer to mapping */
-        PA_IDXSET_FOREACH(dev, context->ucm_devices, idx) {
-            if (context->direction == PA_DIRECTION_OUTPUT)
-                dev->playback_mapping = NULL;
-            else
-                dev->capture_mapping = NULL;
-        }
-
-        pa_idxset_free(context->ucm_devices, NULL);
+        if (context->direction == PA_DIRECTION_OUTPUT)
+            dev->playback_mapping = NULL;
+        else
+            dev->capture_mapping = NULL;
     }
 
     if (context->ucm_modifiers) {

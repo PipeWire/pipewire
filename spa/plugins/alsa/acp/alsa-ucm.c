@@ -614,6 +614,59 @@ static int ucm_get_devices(pa_alsa_ucm_verb *verb, snd_use_case_mgr_t *uc_mgr) {
     return 0;
 };
 
+static long ucm_device_status(pa_alsa_ucm_config *ucm, pa_alsa_ucm_device *dev) {
+    const char *dev_name = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME);
+    char *devstatus;
+    long status = 0;
+
+    devstatus = pa_sprintf_malloc("_devstatus/%s", dev_name);
+    if (snd_use_case_geti(ucm->ucm_mgr, devstatus, &status) < 0) {
+        pa_log_debug("Failed to get status for UCM device %s", dev_name);
+        status = -1;
+    }
+    pa_xfree(devstatus);
+
+    return status;
+}
+
+static int ucm_device_disable(pa_alsa_ucm_config *ucm, pa_alsa_ucm_device *dev) {
+    const char *dev_name = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME);
+
+    /* If any of dev's conflicting devices is enabled, trying to disable
+     * dev gives an error despite the fact that it's already disabled.
+     * Check that dev is enabled to avoid this error. */
+    if (ucm_device_status(ucm, dev) == 0) {
+        pa_log_debug("UCM device %s is already disabled", dev_name);
+        return 0;
+    }
+
+    pa_log_debug("Disabling UCM device %s", dev_name);
+    if (snd_use_case_set(ucm->ucm_mgr, "_disdev", dev_name) < 0) {
+        pa_log("Failed to disable UCM device %s", dev_name);
+        return -1;
+    }
+
+    return 0;
+}
+
+static int ucm_device_enable(pa_alsa_ucm_config *ucm, pa_alsa_ucm_device *dev) {
+    const char *dev_name = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME);
+
+    /* We don't need to enable devices that are already enabled */
+    if (ucm_device_status(ucm, dev) > 0) {
+        pa_log_debug("UCM device %s is already enabled", dev_name);
+        return 0;
+    }
+
+    pa_log_debug("Enabling UCM device %s", dev_name);
+    if (snd_use_case_set(ucm->ucm_mgr, "_enadev", dev_name) < 0) {
+        pa_log("Failed to enable UCM device %s", dev_name);
+        return -1;
+    }
+
+    return 0;
+}
+
 static int ucm_get_modifiers(pa_alsa_ucm_verb *verb, snd_use_case_mgr_t *uc_mgr) {
     const char **mod_list;
     int num_mod, i;
@@ -1404,7 +1457,7 @@ int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *p
     int i;
     int ret = 0;
     pa_alsa_ucm_config *ucm;
-    const char **enable_devs;
+    pa_alsa_ucm_device **enable_devs;
     int enable_num = 0;
     uint32_t idx;
     pa_alsa_ucm_device *dev;
@@ -1414,31 +1467,23 @@ int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *p
     ucm = context->ucm;
     pa_assert(ucm->ucm_mgr);
 
-    enable_devs = pa_xnew(const char *, pa_idxset_size(context->ucm_devices));
+    enable_devs = pa_xnew(pa_alsa_ucm_device *, pa_idxset_size(context->ucm_devices));
 
     /* first disable then enable */
     PA_IDXSET_FOREACH(dev, context->ucm_devices, idx) {
         const char *dev_name = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME);
 
         if (ucm_port_contains(port->name, dev_name, is_sink))
-            enable_devs[enable_num++] = dev_name;
-        else {
-            pa_log_debug("Disable ucm device %s", dev_name);
-            if (snd_use_case_set(ucm->ucm_mgr, "_disdev", dev_name) > 0) {
-                pa_log("Failed to disable ucm device %s", dev_name);
-                ret = -1;
-                break;
-            }
-        }
+            enable_devs[enable_num++] = dev;
+        else
+            ret = ucm_device_disable(ucm, dev);
+
+	if (ret < 0)
+            break;
     }
 
-    for (i = 0; i < enable_num; i++) {
-        pa_log_debug("Enable ucm device %s", enable_devs[i]);
-        if (snd_use_case_set(ucm->ucm_mgr, "_enadev", enable_devs[i]) < 0) {
-            pa_log("Failed to enable ucm device %s", enable_devs[i]);
-            ret = -1;
-            break;
-        }
+    for (i = 0; i < enable_num && ret == 0; i++) {
+        ret = ucm_device_enable(ucm, enable_devs[i]);
     }
 
     pa_xfree(enable_devs);

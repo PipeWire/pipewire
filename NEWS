@@ -1,3 +1,143 @@
+# PipeWire 0.3.68 (2023-04-06)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+This release contains a huge number of changes, some of which might cause
+regressions. Please report anything that seems to fail after the upgrade.
+UCM devices in particular might have changed names, profiles and ports that
+might require changes in custom scripts.
+
+## Highlights
+  - Symbolic links to the pipewire binary are now used instead of recompiling
+    the same binary multiple times.
+  - Changes to the graph scheduler related to quantum/rate updates and
+    calculation of the node states. Things should start and switch between
+    quantums and rates more smoothly now and especially virtual devices should
+    now only run when required.
+  - A new RTP session module was added. This uses the Apple MIDI protocol
+    to configure low-latency bidirectional MIDI (and with a PipeWire specific
+    extension, also audio) between machines. OPUS encoding was added to the
+    RTP formats. The SAP module was separated from the rtp-sink/source module
+    to make it more usable.
+  - A new runtime debug property was added to all streams and nodes to trigger
+    a save of the raw samples to a wav file. Support for this has also been
+    added to the echo-canceler to debug potential issues.
+  - Module pulse-tunnel has improved rate matching and synchronization
+    support. It should also not drift anymore for capture devices.
+  - The link-factory now ignores by default the link.passive property. This means
+    that tools like pw-link or jack clients and wireplumber can't make passive
+    links anymore. The reason is that there is now much more advanced logic in
+    PipeWire itself to handle passive links based on node and port properties.
+  - The RAOP sink was ported to new OpenSSL functions. Digest passwords are
+    handled correctly now and support for more devices was added.
+  - The ACP code was updated with new PulseAudio UCM code: "Create multiple
+    profiles per verb for conflicting devices". This might change the names
+    of devices, profiles and ports so scripts might need to be updated.
+  - Upmixing is disabled again by default. We now ship config files that
+    distros can install to enable upmixing again. The reason being that PipeWire
+    should not apply fancy DSP processing to audio by default.
+  - Many cleanups and bugfixes, including some crashes and memory corruption
+    bugs.
+
+## PipeWire
+  - Various FreeBSD compilation fixes.
+  - Don't crash when calling _connect twice in stream/filter. (#3091)
+  - Links are now installed instead of compiling the pipewire binary
+    multiple times.
+  - There is now a new core event bound_props that augments the bound_id event
+    with the global properties. This can be used to get the global.serial among
+    other global properties. It also makes it possible in the future to let the
+    server allocate unique names or uuids.
+  - Fix a bug where the server could go into an infinite reconfigure loop when
+    the samplerate of a driver would change.
+  - When a samplerate was forced, restore the previous best samplerate when the
+    samplerate is no longer forced. (#2133)
+  - Rework how the states of the nodes in the graph are calculated. A more
+    refined algorithm is now used that only runs nodes that need to run.
+  - Rework how the quantum change is applied to the graph. Drivers are now
+    responsible for using the new updated rate/quantum before starting a new
+    cycle. This avoids starting a cycle with an old quantum first.
+  - pw-stream and pw-filter will now ensure that the Trigger event is called
+    from the main thread.
+  - node.force-rate=0 will now force the node.rate on the graph, forcefully
+    switching the hardware into the new rate if possible. (#3026)
+  - Additional checks were added to the thread-loop to check locking order.
+  - Additional checks were added to pw-stream and pw-filter to check if methods
+    are called from the right thread context.
+
+## modules
+  - A new RTP session module was added. This uses the Apple MIDI protocol
+    to configure bidirectional MIDI (or audio) between machines.
+  - SAP support was removed from module-rtp-source and module-rtp-sink and
+    moved to a separate module. This makes it possible to use the RTP modules
+    without SAP support as well.
+  - The echo-cancel module now has support to save the signals to a wav
+    file for debugging purposes.
+  - The RTP modules now have support for the OPUS codec.
+  - The RAOP module was ported to new openssl encryption functions and handles
+    digest passwords correctly now.
+  - module-raop-discover now has match rules to be able to select the streams
+    and set properties.
+  - Module pulse-tunnel has improved rate matching and synchronization
+    support. (#3093)
+  - Fix potential memory corruption and infinite loops because
+    module-pulse-tunnel was unloaded from the wrong thread. 
+  - The link-factory now ignores by default the link.passive property. This means
+    that tools like pw-link or jack clients and wireplumber can't make passive
+    links anymore. The reason is that there is now much more advanced logic in
+    PipeWire itself to handle passive links based on node and port properties.
+  - module-echo-cancel will now clear its buffers after a suspend to avoid
+    playing stray samples.
+  - module-raop-sink will now handle 0 timing_port replies. (#3133)
+
+## SPA
+  - The adapter module now has support for saving the raw audio to a wav
+    file for debugging purposes.
+  - The ACP code was updated with new PulseAudio UCM code: "Create multiple
+    profiles per verb for conflicting devices". This might change the names
+    of devices, profiles and ports so scripts might need to be updated.
+  - Upmixing was disabled again by default. We now ship config files that
+    distros can install to enable upmixing again. (#3081)
+  - audioadapter and audioconvert have seen improvements in the experimental
+    non-DSP/passthrough mode.
+  - Fix a potential race where the dummy drivers could fail to stop a timer
+    and cause endless warnings in the logs.
+  - The ALSA plugin has experimental support for IRQ based scheduling. This
+    should decrease latency for some (mostly USB) drivers. This should bring
+    latency within JACK latency. More work on this will be done before the
+    1.0 release later this year.
+  - Audioconvert now has support for volume ramping. (#3046)
+  - A new loop method was added the check if a thread is currently running the
+    loop.
+  - channelmix.disable and resample.disable now generate an error when true
+    and channelmixing or resampling is required in the converter.
+
+## Bluetooth
+  - Fix a crash in some cases when a device was disconnected.
+  - Support async transport state changes. This avoids some lockups when the
+    bluetooth backend is having issues. (#3023)
+  - Align BAP sinks. This improves synchronization between earpieces.
+
+## ALSA
+  - Improve properties in pw-top and pavucontrol.
+
+## pulse-server
+  - Improve error handling from pulse-tunnel.
+  - Generate silence correctly for unsigned formats as well.
+  - Review buffer params. The streams should now just work with 1 or 2
+    buffers.
+  - module-rtp-send and module-rtp-recv now have support for the OPUS codec.
+
+# JACK
+  - Make sure we don't call any callbacks anymore when deactivating. (#2781)
+
+## GStreamer
+  - Sort the device by priority in deviceprovider. (#3072)
+
+
+Older versions:
+
 # PipeWire 0.3.67 (2023-03-09)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -91,9 +231,6 @@ This is a bugfix release that is API and ABI compatible with previous
   - The pipewiresrc now has an autoconnect argument.
   - The metadata plane count is now handled correctly in more cases.
   - Stream errors are now handled correctly to stop the GStreamer elements.
-
-Older versions:
-
 
 # PipeWire 0.3.66 (2023-02-16)
 

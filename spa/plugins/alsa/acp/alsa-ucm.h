@@ -160,7 +160,7 @@ void pa_alsa_ucm_add_ports(
         pa_card *card,
         snd_pcm_t *pcm_handle,
         bool ignore_dB);
-void pa_alsa_ucm_add_ports_combination(
+void pa_alsa_ucm_add_port(
         pa_hashmap *hash,
         pa_alsa_ucm_mapping_context *context,
         bool is_sink,

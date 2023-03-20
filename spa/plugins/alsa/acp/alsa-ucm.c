@@ -1034,7 +1034,7 @@ fail:
     }
 }
 
-static char *devset_name(pa_idxset *devices, const char *sep) {
+PA_UNUSED static char *devset_name(pa_idxset *devices, const char *sep) {
     int i = 0;
     int num = pa_idxset_size(devices);
     pa_alsa_ucm_device *sorted[num], *dev;
@@ -1066,7 +1066,7 @@ static char *devset_name(pa_idxset *devices, const char *sep) {
     return dev_names;
 }
 
-static char *devset_description(pa_idxset *devices, const char *sep) {
+PA_UNUSED static char *devset_description(pa_idxset *devices, const char *sep) {
     int i = 0;
     int num = pa_idxset_size(devices);
     pa_alsa_ucm_device *sorted[num], *dev;
@@ -1101,7 +1101,8 @@ static char *devset_description(pa_idxset *devices, const char *sep) {
 /* If invert is true, uses the formula 1/p = 1/p1 + 1/p2 + ... 1/pn.
  * This way, the result will always be less than the individual components,
  * yet higher components will lead to higher result. */
-static unsigned devset_playback_priority(pa_idxset *devices, bool invert) {
+PA_UNUSED static unsigned devset_playback_priority(pa_idxset *devices, bool invert) {
+
     pa_alsa_ucm_device *dev;
     uint32_t idx;
     double priority = 0;
@@ -1119,7 +1120,7 @@ static unsigned devset_playback_priority(pa_idxset *devices, bool invert) {
     return (unsigned) priority;
 }
 
-static unsigned devset_capture_priority(pa_idxset *devices, bool invert) {
+PA_UNUSED static unsigned devset_capture_priority(pa_idxset *devices, bool invert) {
     pa_alsa_ucm_device *dev;
     uint32_t idx;
     double priority = 0;
@@ -1137,74 +1138,41 @@ static unsigned devset_capture_priority(pa_idxset *devices, bool invert) {
     return (unsigned) priority;
 }
 
-static void ucm_add_port_combination(
+void pa_alsa_ucm_add_port(
         pa_hashmap *hash,
         pa_alsa_ucm_mapping_context *context,
         bool is_sink,
-        pa_idxset *devices,
         pa_hashmap *ports,
         pa_card_profile *cp,
         pa_core *core) {
 
     pa_device_port *port;
-    int i;
-    int num = pa_idxset_size(devices);
-    uint32_t idx;
     unsigned priority;
-    char *name, *desc, *tmp;
+    char *name, *desc;
+    const char *dev_name;
     const char *direction;
     const char *profile;
-    pa_alsa_ucm_device *sorted[num], *dev;
+    pa_alsa_ucm_device *dev;
     pa_alsa_ucm_port_data *data;
     pa_alsa_ucm_volume *vol;
-    pa_alsa_jack *jack, *jack2;
-    pa_device_port_type_t type, type2;
+    pa_alsa_jack *jack;
+    pa_device_port_type_t type;
+    uint32_t idx;
     void *state;
 
-    i = 0;
-    PA_IDXSET_FOREACH(dev, devices, idx) {
-        sorted[i] = dev;
-        i++;
-    }
+    pa_assert(context->ucm_devices);
+    pa_assert(pa_idxset_size(context->ucm_devices) <= 1);
 
-    /* Sort by alphabetical order so as to have a deterministic naming scheme
-     * for combination ports */
-    qsort(&sorted[0], num, sizeof(pa_alsa_ucm_device *), pa_alsa_ucm_device_cmp);
+    dev = pa_idxset_first(context->ucm_devices, &idx);
+    if (!dev)
+        return;
 
-    name = devset_name(devices, "+");
-    tmp = pa_sprintf_malloc("%s%s", is_sink ? PA_UCM_PRE_TAG_OUTPUT : PA_UCM_PRE_TAG_INPUT, name);
-    pa_xfree(name);
-    name = tmp;
-
-    desc = devset_description(devices, ", ");
-    if (pa_idxset_size(devices) > 1) {
-        tmp = pa_sprintf_malloc("Combination port for %s", desc);
-        pa_xfree(desc);
-        desc = tmp;
-    }
-
-    /* Make combination ports always have lower priority */
-    priority = is_sink ? devset_playback_priority(devices, true) : devset_capture_priority(devices, true);
-
-    dev = sorted[0];
+    dev_name = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME);
+    name = pa_sprintf_malloc("%s%s", is_sink ? PA_UCM_PRE_TAG_OUTPUT : PA_UCM_PRE_TAG_INPUT, dev_name);
+    desc = pa_xstrdup(pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_DESCRIPTION));
+    priority = is_sink ? dev->playback_priority : dev->capture_priority;
     jack = ucm_get_jack(context->ucm, dev);
     type = dev->type;
-
-    for (i = 1; i < num; i++) {
-        jack2 = ucm_get_jack(context->ucm, dev);
-        if (jack2) {
-            if (jack && jack != jack2)
-                pa_log_warn("Multiple jacks per combined device '%s': '%s' '%s'", name, jack->name, jack2->name);
-            jack = jack2;
-        }
-
-        type2 = dev->type;
-        if (type2 != PA_DEVICE_PORT_TYPE_UNKNOWN) {
-            if (type != PA_DEVICE_PORT_TYPE_UNKNOWN && type != type2)
-                pa_log_warn("Multiple device types per combined device '%s': %d %d", name, type, type2);
-            type = type2;
-        }
-    }
 
     port = pa_hashmap_get(ports, name);
     if (!port) {
@@ -1222,37 +1190,31 @@ static void ucm_add_port_combination(
         pa_device_port_new_data_done(&port_data);
 
         data = PA_DEVICE_PORT_DATA(port);
-        ucm_port_data_init(data, context->ucm, port, sorted, num);
+        ucm_port_data_init(data, context->ucm, port, &dev, 1);
         port->impl_free = ucm_port_data_free;
 
         pa_hashmap_put(ports, port->name, port);
         pa_log_debug("Add port %s: %s", port->name, port->description);
+        PA_HASHMAP_FOREACH_KV(profile, vol, is_sink ? dev->playback_volumes : dev->capture_volumes, state) {
+            pa_alsa_path *path = pa_alsa_path_synthesize(vol->mixer_elem,
+                                                         is_sink ? PA_ALSA_DIRECTION_OUTPUT : PA_ALSA_DIRECTION_INPUT);
 
-        if (num == 1) {
-            /* To keep things simple and not worry about stacking controls, we only support hardware volumes on non-combination
-             * ports. */
-            PA_HASHMAP_FOREACH_KV(profile, vol, is_sink ? dev->playback_volumes : dev->capture_volumes, state) {
-                pa_alsa_path *path = pa_alsa_path_synthesize(vol->mixer_elem,
-                                                             is_sink ? PA_ALSA_DIRECTION_OUTPUT : PA_ALSA_DIRECTION_INPUT);
-
-                if (!path)
-                    pa_log_warn("Failed to set up volume control: %s", vol->mixer_elem);
-                else {
-                    if (vol->master_elem) {
-                        pa_alsa_element *e = pa_alsa_element_get(path, vol->master_elem, false);
-                        e->switch_use = PA_ALSA_SWITCH_MUTE;
-                        e->volume_use = PA_ALSA_VOLUME_MERGE;
-                    }
-
-                    pa_hashmap_put(data->paths, pa_xstrdup(profile), path);
-
-                    /* Add path also to already created empty path set */
-                    dev = sorted[0];
-                    if (is_sink)
-                        pa_hashmap_put(dev->playback_mapping->output_path_set->paths, pa_xstrdup(vol->mixer_elem), path);
-                    else
-                        pa_hashmap_put(dev->capture_mapping->input_path_set->paths, pa_xstrdup(vol->mixer_elem), path);
+            if (!path)
+                pa_log_warn("Failed to set up volume control: %s", vol->mixer_elem);
+            else {
+                if (vol->master_elem) {
+                    pa_alsa_element *e = pa_alsa_element_get(path, vol->master_elem, false);
+                    e->switch_use = PA_ALSA_SWITCH_MUTE;
+                    e->volume_use = PA_ALSA_VOLUME_MERGE;
                 }
+
+                pa_hashmap_put(data->paths, pa_xstrdup(profile), path);
+
+                /* Add path also to already created empty path set */
+                if (is_sink)
+                    pa_hashmap_put(dev->playback_mapping->output_path_set->paths, pa_xstrdup(vol->mixer_elem), path);
+                else
+                    pa_hashmap_put(dev->capture_mapping->input_path_set->paths, pa_xstrdup(vol->mixer_elem), path);
             }
         }
     }
@@ -1273,6 +1235,9 @@ static void ucm_add_port_combination(
     if (hash) {
         pa_hashmap_put(hash, port->name, port);
     }
+
+    /* ELD devices */
+    set_eld_devices(ports);
 }
 
 static int ucm_port_contains(const char *port_name, const char *dev_name, bool is_sink) {
@@ -1334,7 +1299,7 @@ static bool devset_supports_device(pa_idxset *devices, pa_alsa_ucm_device *dev) 
  * *state should be NULL. It's not safe to modify the devices argument
  * until iteration ends. The returned idxsets must be freed by the
  * caller. */
-static pa_idxset *iterate_device_subsets(pa_idxset *devices, void **state) {
+PA_UNUSED static pa_idxset *iterate_device_subsets(pa_idxset *devices, void **state) {
     uint32_t idx;
     pa_alsa_ucm_device *dev;
 
@@ -1399,28 +1364,6 @@ static char* merge_roles(const char *cur, const char *add) {
     return ret;
 }
 
-void pa_alsa_ucm_add_ports_combination(
-        pa_hashmap *p,
-        pa_alsa_ucm_mapping_context *context,
-        bool is_sink,
-        pa_hashmap *ports,
-        pa_card_profile *cp,
-        pa_core *core) {
-
-    pa_idxset *devices;
-    void *state = NULL;
-
-    pa_assert(context->ucm_devices);
-
-    while ((devices = iterate_device_subsets(context->ucm_devices, &state))) {
-        ucm_add_port_combination(p, context, is_sink, devices, ports, cp, core);
-        pa_idxset_free(devices, NULL);
-    }
-
-    /* ELD devices */
-    set_eld_devices(ports);
-}
-
 void pa_alsa_ucm_add_ports(
         pa_hashmap **p,
         pa_proplist *proplist,
@@ -1441,7 +1384,7 @@ void pa_alsa_ucm_add_ports(
     pa_assert(*p);
 
     /* add ports first */
-    pa_alsa_ucm_add_ports_combination(*p, context, is_sink, card->ports, NULL, card->core);
+    pa_alsa_ucm_add_port(*p, context, is_sink, card->ports, NULL, card->core);
 
     /* now set up volume paths if any */
     probe_volumes(*p, is_sink, pcm_handle, context->ucm->mixers, ignore_dB);
@@ -2521,7 +2464,7 @@ void pa_alsa_ucm_add_ports(
         bool ignore_dB) {
 }
 
-void pa_alsa_ucm_add_ports_combination(
+void pa_alsa_ucm_add_port(
         pa_hashmap *hash,
         pa_alsa_ucm_mapping_context *context,
         bool is_sink,

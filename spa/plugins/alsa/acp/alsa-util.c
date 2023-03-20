@@ -1508,35 +1508,35 @@ unsigned int *pa_alsa_get_supported_rates(snd_pcm_t *pcm, unsigned int fallback_
 }
 
 pa_sample_format_t *pa_alsa_get_supported_formats(snd_pcm_t *pcm, pa_sample_format_t fallback_format) {
-    static const snd_pcm_format_t format_trans_to_pa[] = {
-        [SND_PCM_FORMAT_U8] = PA_SAMPLE_U8,
-        [SND_PCM_FORMAT_A_LAW] = PA_SAMPLE_ALAW,
-        [SND_PCM_FORMAT_MU_LAW] = PA_SAMPLE_ULAW,
-        [SND_PCM_FORMAT_S16_LE] = PA_SAMPLE_S16LE,
-        [SND_PCM_FORMAT_S16_BE] = PA_SAMPLE_S16BE,
-        [SND_PCM_FORMAT_FLOAT_LE] = PA_SAMPLE_FLOAT32LE,
-        [SND_PCM_FORMAT_FLOAT_BE] = PA_SAMPLE_FLOAT32BE,
-        [SND_PCM_FORMAT_S32_LE] = PA_SAMPLE_S32LE,
-        [SND_PCM_FORMAT_S32_BE] = PA_SAMPLE_S32BE,
-        [SND_PCM_FORMAT_S24_3LE] = PA_SAMPLE_S24LE,
-        [SND_PCM_FORMAT_S24_3BE] = PA_SAMPLE_S24BE,
-        [SND_PCM_FORMAT_S24_LE] = PA_SAMPLE_S24_32LE,
-        [SND_PCM_FORMAT_S24_BE] = PA_SAMPLE_S24_32BE,
+    static const snd_pcm_format_t format_trans_to_pcm[] = {
+        [PA_SAMPLE_U8] = SND_PCM_FORMAT_U8,
+        [PA_SAMPLE_ALAW] = SND_PCM_FORMAT_A_LAW,
+        [PA_SAMPLE_ULAW] = SND_PCM_FORMAT_MU_LAW,
+        [PA_SAMPLE_S16LE] = SND_PCM_FORMAT_S16_LE,
+        [PA_SAMPLE_S16BE] = SND_PCM_FORMAT_S16_BE,
+        [PA_SAMPLE_FLOAT32LE] = SND_PCM_FORMAT_FLOAT_LE,
+        [PA_SAMPLE_FLOAT32BE] = SND_PCM_FORMAT_FLOAT_BE,
+        [PA_SAMPLE_S32LE] = SND_PCM_FORMAT_S32_LE,
+        [PA_SAMPLE_S32BE] = SND_PCM_FORMAT_S32_BE,
+        [PA_SAMPLE_S24LE] = SND_PCM_FORMAT_S24_3LE,
+        [PA_SAMPLE_S24BE] = SND_PCM_FORMAT_S24_3BE,
+        [PA_SAMPLE_S24_32LE] = SND_PCM_FORMAT_S24_LE,
+        [PA_SAMPLE_S24_32BE] = SND_PCM_FORMAT_S24_BE,
     };
-    static const snd_pcm_format_t all_formats[] = {
-        SND_PCM_FORMAT_U8,
-        SND_PCM_FORMAT_A_LAW,
-        SND_PCM_FORMAT_MU_LAW,
-        SND_PCM_FORMAT_S16_LE,
-        SND_PCM_FORMAT_S16_BE,
-        SND_PCM_FORMAT_FLOAT_LE,
-        SND_PCM_FORMAT_FLOAT_BE,
-        SND_PCM_FORMAT_S32_LE,
-        SND_PCM_FORMAT_S32_BE,
-        SND_PCM_FORMAT_S24_3LE,
-        SND_PCM_FORMAT_S24_3BE,
-        SND_PCM_FORMAT_S24_LE,
-        SND_PCM_FORMAT_S24_BE,
+    static const pa_sample_format_t all_formats[] = {
+        PA_SAMPLE_U8,
+        PA_SAMPLE_ALAW,
+        PA_SAMPLE_ULAW,
+        PA_SAMPLE_S16LE,
+        PA_SAMPLE_S16BE,
+        PA_SAMPLE_FLOAT32LE,
+        PA_SAMPLE_FLOAT32BE,
+        PA_SAMPLE_S32LE,
+        PA_SAMPLE_S32BE,
+        PA_SAMPLE_S24LE,
+        PA_SAMPLE_S24BE,
+        PA_SAMPLE_S24_32LE,
+        PA_SAMPLE_S24_32BE,
     };
     bool supported[PA_ELEMENTSOF(all_formats)] = {
         false,
@@ -1554,7 +1554,7 @@ pa_sample_format_t *pa_alsa_get_supported_formats(snd_pcm_t *pcm, pa_sample_form
     }
 
     for (i = 0, n = 0; i < PA_ELEMENTSOF(all_formats); i++) {
-        if (snd_pcm_hw_params_test_format(pcm, hwparams, all_formats[i]) == 0) {
+        if (snd_pcm_hw_params_test_format(pcm, hwparams, format_trans_to_pcm[all_formats[i]]) == 0) {
             supported[i] = true;
             n++;
         }
@@ -1565,7 +1565,7 @@ pa_sample_format_t *pa_alsa_get_supported_formats(snd_pcm_t *pcm, pa_sample_form
 
         for (i = 0, j = 0; i < PA_ELEMENTSOF(all_formats); i++) {
             if (supported[i])
-                formats[j++] = format_trans_to_pa[all_formats[i]];
+                formats[j++] = all_formats[i];
         }
 
         formats[j] = PA_SAMPLE_MAX;
@@ -1573,7 +1573,7 @@ pa_sample_format_t *pa_alsa_get_supported_formats(snd_pcm_t *pcm, pa_sample_form
         formats = pa_xnew(pa_sample_format_t, 2);
 
         formats[0] = fallback_format;
-        if ((ret = snd_pcm_hw_params_set_format(pcm, hwparams, format_trans_to_pa[formats[0]])) < 0) {
+        if ((ret = snd_pcm_hw_params_set_format(pcm, hwparams, format_trans_to_pcm[formats[0]])) < 0) {
             pa_log_debug("snd_pcm_hw_params_set_format() failed: %s", pa_alsa_strerror(ret));
             pa_xfree(formats);
             return NULL;

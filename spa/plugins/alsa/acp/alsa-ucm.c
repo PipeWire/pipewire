@@ -1375,6 +1375,8 @@ int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, pa_alsa_prof
     int ret = 0;
     const char *verb_name, *profile_name;
     pa_alsa_ucm_verb *verb;
+    pa_alsa_mapping *map;
+    uint32_t idx;
 
     if (new_profile == old_profile)
         return 0;
@@ -1389,11 +1391,27 @@ int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, pa_alsa_prof
         verb_name = pa_proplist_gets(verb->proplist, PA_ALSA_PROP_UCM_NAME);
     }
 
-    /* change verb */
     pa_log_info("Set profile to %s", profile_name);
-    pa_log_info("Set UCM verb to %s", verb_name);
-    if ((ret = snd_use_case_set(ucm->ucm_mgr, "_verb", verb_name)) < 0) {
-        pa_log("Failed to set verb %s: %s", verb_name, snd_strerror(ret));
+
+    if (ucm->active_verb != verb) {
+        /* change verb */
+        pa_log_info("Set UCM verb to %s", verb_name);
+        if ((snd_use_case_set(ucm->ucm_mgr, "_verb", verb_name)) < 0) {
+            pa_log("Failed to set verb %s", verb_name);
+            ret = -1;
+        }
+
+    } else if (ucm->active_verb) {
+        /* Disable devices not in new profile */
+        PA_IDXSET_FOREACH(map, old_profile->input_mappings, idx)
+            if (new_profile && !pa_idxset_contains(new_profile->input_mappings, map))
+                if (ucm_device_disable(ucm, map->ucm_context.ucm_device) < 0)
+                    ret = -1;
+
+        PA_IDXSET_FOREACH(map, old_profile->output_mappings, idx)
+            if (new_profile && !pa_idxset_contains(new_profile->output_mappings, map))
+                if (ucm_device_disable(ucm, map->ucm_context.ucm_device) < 0)
+                    ret = -1;
     }
     ucm->active_verb = verb;
 

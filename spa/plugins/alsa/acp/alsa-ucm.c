@@ -1649,17 +1649,11 @@ static void alsa_mapping_add_ucm_modifier(pa_alsa_mapping *m, pa_alsa_ucm_modifi
         pa_channel_map_init(&m->channel_map);
 }
 
-static pa_alsa_mapping* ucm_alsa_mapping_get(pa_alsa_ucm_config *ucm, pa_alsa_profile_set *ps, const char *verb_name, const char *device_str, bool is_sink) {
+static pa_alsa_mapping* ucm_alsa_mapping_get(pa_alsa_ucm_config *ucm, pa_alsa_profile_set *ps, const char *verb_name, const char *ucm_name, bool is_sink) {
     pa_alsa_mapping *m;
     char *mapping_name;
-    size_t ucm_alibpref_len = 0;
 
-    /* find private alsa-lib's configuration device prefix */
-
-    if (ucm->alib_prefix && pa_startswith(device_str, ucm->alib_prefix))
-        ucm_alibpref_len = strlen(ucm->alib_prefix);
-
-    mapping_name = pa_sprintf_malloc("Mapping %s: %s: %s", verb_name, device_str + ucm_alibpref_len, is_sink ? "sink" : "source");
+    mapping_name = pa_sprintf_malloc("Mapping %s: %s: %s", verb_name, ucm_name, is_sink ? "sink" : "source");
 
     m = pa_alsa_mapping_get(ps, mapping_name);
 
@@ -1683,7 +1677,7 @@ static int ucm_create_mapping_direction(
     pa_alsa_mapping *m;
     unsigned priority, rate, channels;
 
-    m = ucm_alsa_mapping_get(ucm, ps, verb_name, device_str, is_sink);
+    m = ucm_alsa_mapping_get(ucm, ps, verb_name, device_name, is_sink);
 
     if (!m)
         return -1;
@@ -1732,7 +1726,7 @@ static int ucm_create_mapping_for_modifier(
 
     pa_alsa_mapping *m;
 
-    m = ucm_alsa_mapping_get(ucm, ps, verb_name, device_str, is_sink);
+    m = ucm_alsa_mapping_get(ucm, ps, verb_name, mod_name, is_sink);
 
     if (!m)
         return -1;

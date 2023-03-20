@@ -1604,10 +1604,11 @@ static snd_mixer_elem_t *pa_alsa_mixer_find(snd_mixer_t *mixer,
     snd_mixer_elem_t *elem;
 
     for (elem = snd_mixer_first_elem(mixer); elem; elem = snd_mixer_elem_next(elem)) {
-        snd_hctl_elem_t *helem;
+        snd_hctl_elem_t **_helem, *helem;
         if (snd_mixer_elem_get_type(elem) != SND_MIXER_ELEM_PULSEAUDIO)
             continue;
-        helem = snd_mixer_elem_get_private(elem);
+        _helem = snd_mixer_elem_get_private(elem);
+        helem = *_helem;
         if (snd_hctl_elem_get_interface(helem) != iface)
             continue;
         if (!pa_streq(snd_hctl_elem_get_name(helem), name))
@@ -1635,15 +1636,25 @@ static int mixer_class_compare(const snd_mixer_elem_t *c1, const snd_mixer_elem_
     return c1 == c2 ? 0 : (c1 > c2 ? 1 : -1);
 }
 
+static void mixer_melem_free(snd_mixer_elem_t *elem)
+{
+    snd_hctl_elem_t **_helem;
+    _helem = snd_mixer_elem_get_private(elem);
+    pa_xfree(_helem);
+}
+
 static int mixer_class_event(snd_mixer_class_t *class, unsigned int mask,
 			snd_hctl_elem_t *helem, snd_mixer_elem_t *melem)
 {
     int err;
     const char *name = snd_hctl_elem_get_name(helem);
+    snd_hctl_elem_t **_helem;
     // NOTE: The remove event defined as '~0U`.
     if (mask == SND_CTL_EVENT_MASK_REMOVE) {
         // NOTE: unless remove pointer to melem from link-list at private_data of helem, hits
 	// assersion in alsa-lib since the list is not empty.
+        _helem = snd_mixer_elem_get_private(melem);
+        *_helem = NULL;
         snd_mixer_elem_detach(melem, helem);
     } else if (mask & SND_CTL_EVENT_MASK_ADD) {
         snd_ctl_elem_iface_t iface = snd_hctl_elem_get_interface(helem);
@@ -1655,24 +1666,48 @@ static int mixer_class_event(snd_mixer_class_t *class, unsigned int mask,
             const int device = snd_hctl_elem_get_device(helem);
             snd_mixer_elem_t *new_melem;
 
+            bool found = true;
+
             new_melem = pa_alsa_mixer_find(mixer, iface, name, index, device);
             if (!new_melem) {
+                _helem = pa_xmalloc(sizeof(snd_hctl_elem_t *));
+                *_helem = helem;
                 /* Put the hctl pointer as our private data - it will be useful for callbacks */
-                if ((err = snd_mixer_elem_new(&new_melem, SND_MIXER_ELEM_PULSEAUDIO, 0, helem, NULL)) < 0) {
+                if ((err = snd_mixer_elem_new(&new_melem, SND_MIXER_ELEM_PULSEAUDIO, 0, _helem, mixer_melem_free)) < 0) {
                     pa_log_warn("snd_mixer_elem_new failed: %s", pa_alsa_strerror(err));
                     return 0;
                 }
+                found = false;
+            } else {
+                _helem = snd_mixer_elem_get_private(new_melem);
+                if (_helem) {
+                    char *s1, *s2;
+                    snd_ctl_elem_id_t *id1, *id2;
+                    snd_ctl_elem_id_alloca(&id1);
+                    snd_ctl_elem_id_alloca(&id2);
+                    snd_hctl_elem_get_id(helem, id1);
+                    snd_hctl_elem_get_id(*_helem, id2);
+                    s1 = snd_ctl_ascii_elem_id_get(id1);
+                    s2 = snd_ctl_ascii_elem_id_get(id2);
+                    pa_log_warn("mixer_class_event - duplicate mixer controls: %s | %s", s1, s2);
+                    free(s2);
+                    free(s1);
+                    return 0;
+                }
+                *_helem = helem;
             }
 
             if ((err = snd_mixer_elem_attach(new_melem, helem)) < 0) {
                 pa_log_warn("snd_mixer_elem_attach failed: %s", pa_alsa_strerror(err));
-		snd_mixer_elem_free(melem);
+                snd_mixer_elem_free(melem);
                 return 0;
             }
 
-            if ((err = snd_mixer_elem_add(new_melem, class)) < 0) {
-                pa_log_warn("snd_mixer_elem_add failed: %s", pa_alsa_strerror(err));
-                return 0;
+            if (!found) {
+                if ((err = snd_mixer_elem_add(new_melem, class)) < 0) {
+                    pa_log_warn("snd_mixer_elem_add failed: %s", pa_alsa_strerror(err));
+                    return 0;
+                }
             }
         }
     }

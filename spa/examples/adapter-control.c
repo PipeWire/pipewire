@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <poll.h>
+#include <getopt.h>
 
 #include <spa/control/control.h>
 #include <spa/graph/graph.h>
@@ -45,6 +46,13 @@ static SPA_LOG_IMPL(default_log);
 #define MIN_LATENCY	    1024
 #define CONTROL_BUFFER_SIZE 32768
 
+#define DEFAULT_SAMPLES (64*1*1024)
+#define DEFAULT_STEP_SAMPLES 200
+#define DEFAULT_DEVICE "hw:0,0"
+
+#define NON_NATIVE "non-native"
+#define NATIVE "native"
+#define DEFAULT_MODE NON_NATIVE
 
 struct buffer {
 	struct spa_buffer buffer;
@@ -90,6 +98,15 @@ struct data {
 	bool start_fade_in;
 	double volume_accum;
 	uint32_t volume_offs;
+
+	const char *alsa_device;
+
+	const char *mode;
+
+	uint32_t volume_ramp_samples;
+	uint32_t volume_ramp_step_samples;
+	uint32_t volume_ramp_time;
+	uint32_t volume_ramp_step_time;
 
 	bool running;
 	pthread_t thread;
@@ -282,130 +299,125 @@ exit_cleanup:
 	return res;
 }
 
-#define SAMPLES (64*1*1024)
-#define STEP_SAMPLES 200
-
-#define USE_NATIVE_VOLUME_RAMPER
-
 static int fade_in(struct data *data)
 {
-#ifndef USE_NATIVE_VOLUME_RAMPER
-	struct spa_pod_builder b;
-	struct spa_pod_frame f[1];
-	void *buffer = data->control_buffer->datas[0].data;
-	uint32_t buffer_size = data->control_buffer->datas[0].maxsize;
-	data->control_buffer->datas[0].chunk[0].size = buffer_size;
-
 	printf("fading in\n");
+	if (spa_streq (data->mode, NON_NATIVE)) {
+		struct spa_pod_builder b;
+		struct spa_pod_frame f[1];
+		void *buffer = data->control_buffer->datas[0].data;
+		double step_size = ((double) data->volume_ramp_step_samples / (double) data->volume_ramp_samples);
+		uint32_t buffer_size = data->control_buffer->datas[0].maxsize;
+		data->control_buffer->datas[0].chunk[0].size = buffer_size;
 
-	spa_pod_builder_init(&b, buffer, buffer_size);
-	spa_pod_builder_push_sequence(&b, &f[0], 0);
-	data->volume_offs = 0;
-	do {
-		printf("volume_accum is %f\n", data->volume_accum);
-		spa_pod_builder_control(&b, data->volume_offs, SPA_CONTROL_Properties);
-			spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_Props, 0,
-			SPA_PROP_volume, SPA_POD_Float(data->volume_accum));
-		data->volume_accum += 0.003;
-		data->volume_offs += 200;
-	} while (data->volume_accum < 1.0);
-	spa_pod_builder_pop(&b, &f[0]);
-#else
-	struct spa_pod_builder b;
-	struct spa_pod *props;
-	int res = 0;
-	uint8_t buffer[1024];
-	printf("fading in\n");
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	props = spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_Props, 0,
-		SPA_PROP_volume, SPA_POD_Float(1.0));
-	if ((res = spa_node_set_param(data->sink_node, SPA_PARAM_Props, 0, props)) < 0) {
-		printf("can't call volramp set params %d\n", res);
-		return res;
+		spa_pod_builder_init(&b, buffer, buffer_size);
+		spa_pod_builder_push_sequence(&b, &f[0], 0);
+		data->volume_offs = 0;
+		do {
+			spa_pod_builder_control(&b, data->volume_offs, SPA_CONTROL_Properties);
+				spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_Props, 0,
+				SPA_PROP_volume, SPA_POD_Float(data->volume_accum));
+			data->volume_accum += step_size;
+			data->volume_offs += data->volume_ramp_step_samples;
+		} while (data->volume_accum < 1.0);
+		spa_pod_builder_pop(&b, &f[0]);
 	}
-#endif
+	else {
+		struct spa_pod_builder b;
+		struct spa_pod *props;
+		int res = 0;
+		uint8_t buffer[1024];
+		printf("fading in\n");
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		props = spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_Props, 0,
+			SPA_PROP_volume, SPA_POD_Float(1.0));
+		if ((res = spa_node_set_param(data->sink_node, SPA_PARAM_Props, 0, props)) < 0) {
+			printf("can't call volramp set params %d\n", res);
+			return res;
+		}
+	}
 
 	return 0;
 }
 
 static int fade_out(struct data *data)
 {
-#ifndef USE_NATIVE_VOLUME_RAMPER
-	struct spa_pod_builder b;
-	struct spa_pod_frame f[1];
-	void *buffer = data->control_buffer->datas[0].data;
-	uint32_t buffer_size = data->control_buffer->datas[0].maxsize;
-	data->control_buffer->datas[0].chunk[0].size = buffer_size;
-
 	printf("fading out\n");
+	if (spa_streq (data->mode, NON_NATIVE)) {
+		struct spa_pod_builder b;
+		struct spa_pod_frame f[1];
+		double step_size = ((double) data->volume_ramp_step_samples / (double) data->volume_ramp_samples);
 
-	spa_pod_builder_init(&b, buffer, buffer_size);
-	spa_pod_builder_push_sequence(&b, &f[0], 0);
-	data->volume_offs = 200;
-	do {
-		printf("volume_accum is %f\n", data->volume_accum);
-		spa_pod_builder_control(&b, data->volume_offs, SPA_CONTROL_Properties);
+		void *buffer = data->control_buffer->datas[0].data;
+		uint32_t buffer_size = data->control_buffer->datas[0].maxsize;
+		data->control_buffer->datas[0].chunk[0].size = buffer_size;
+
+		spa_pod_builder_init(&b, buffer, buffer_size);
+		spa_pod_builder_push_sequence(&b, &f[0], 0);
+		data->volume_offs = data->volume_ramp_step_samples;
+		do {
+			spa_pod_builder_control(&b, data->volume_offs, SPA_CONTROL_Properties);
 			spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_Props, 0,
-			SPA_PROP_volume, SPA_POD_Float(data->volume_accum));
-		data->volume_accum -= 0.003;
-		data->volume_offs += 200;
-	} while (data->volume_accum > 0.0);
-	spa_pod_builder_pop(&b, &f[0]);
-#else
-	struct spa_pod_builder b;
-	uint8_t buffer[1024];
-	struct spa_pod *props;
-	int res = 0;
-	printf("fading out\n");
+				SPA_TYPE_OBJECT_Props, 0,
+				SPA_PROP_volume, SPA_POD_Float(data->volume_accum));
+			data->volume_accum -= step_size;
+			data->volume_offs += data->volume_ramp_step_samples;
+		} while (data->volume_accum > 0.0);
+		spa_pod_builder_pop(&b, &f[0]);
+	} else {
+		struct spa_pod_builder b;
+		uint8_t buffer[1024];
+		struct spa_pod *props;
+		int res = 0;
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	props = spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_Props, 0,
-		SPA_PROP_volume, SPA_POD_Float(0.0));
-	if ((res = spa_node_set_param(data->sink_node, SPA_PARAM_Props, 0, props)) < 0) {
-		printf("can't call volramp set params %d\n", res);
-		return res;
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		props = spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_Props, 0,
+			SPA_PROP_volume, SPA_POD_Float(0.0));
+		if ((res = spa_node_set_param(data->sink_node, SPA_PARAM_Props, 0, props)) < 0) {
+			printf("can't call volramp set params %d\n", res);
+			return res;
+		}
 	}
-#endif
 
 	return 0;
 }
 
 static void do_fade(struct data *data)
 {
-#ifndef	USE_NATIVE_VOLUME_RAMPER
-	switch (data->control_io.status) {
-	case SPA_STATUS_OK:
-	case SPA_STATUS_NEED_DATA:
-		break;
-	case SPA_STATUS_HAVE_DATA:
-	case SPA_STATUS_STOPPED:
-	default:
-		return;
+	if (spa_streq (data->mode, NON_NATIVE)) {
+		switch (data->control_io.status) {
+		case SPA_STATUS_OK:
+		case SPA_STATUS_NEED_DATA:
+			break;
+		case SPA_STATUS_HAVE_DATA:
+		case SPA_STATUS_STOPPED:
+		default:
+			return;
+		}
 	}
-#endif
+
 	/* fade */
 	if (data->start_fade_in)
 		fade_in(data);
 	else
 		fade_out(data);
 
-#ifndef	USE_NATIVE_VOLUME_RAMPER
-	data->control_io.status = SPA_STATUS_HAVE_DATA;
-	data->control_io.buffer_id = 0;
-#endif
+	if (spa_streq (data->mode, NON_NATIVE)) {
+		data->control_io.status = SPA_STATUS_HAVE_DATA;
+		data->control_io.buffer_id = 0;
+	}
 
 	/* alternate */
 	data->start_fade_in = !data->start_fade_in;
 }
 
-
 static int on_sink_node_ready(void *_data, int status)
 {
 	struct data *data = _data;
+	int runway = (data->volume_ramp_samples / 1024);
 
 	/* only do fade in/out when buffer count is 0 */
 	if (data->buffer_count == 0)
@@ -413,7 +425,7 @@ static int on_sink_node_ready(void *_data, int status)
 
 	/* update buffer count */
 	data->buffer_count++;
-	if (data->buffer_count > 64)
+	if (data->buffer_count > (runway * 2))
 		  data->buffer_count = 0;
 
 	spa_graph_node_process(&data->graph_source_node);
@@ -426,7 +438,7 @@ static const struct spa_node_callbacks sink_node_callbacks = {
 	.ready = on_sink_node_ready,
 };
 
-static int make_nodes(struct data *data, const char *device)
+static int make_nodes(struct data *data)
 {
 	int res = 0;
 	struct spa_pod *props;
@@ -535,13 +547,13 @@ static int make_nodes(struct data *data, const char *device)
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	props = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_Props, 0,
-		SPA_PROP_device,     SPA_POD_String(device ? device : "hw:0"),
+		SPA_PROP_device, SPA_POD_String(data->alsa_device),
 		SPA_PROP_minLatency, SPA_POD_Int(MIN_LATENCY));
 	if ((res = spa_node_set_param(data->sink_follower_node, SPA_PARAM_Props, 0, props)) < 0) {
 		printf("can't setup sink follower node %d\n", res);
 		return res;
 	}
-	printf("Selected (%s) Sound card\n", (device ? device : "hw:0"));
+	printf("Selected (%s) alsa device\n", data->alsa_device);
 
 	if (!data->start_fade_in)
 		initial_volume = 1.0;
@@ -554,14 +566,22 @@ static int make_nodes(struct data *data, const char *device)
 	info.position[0] = SPA_AUDIO_CHANNEL_MONO;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info);
-	param = spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_ParamPortConfig,	SPA_PARAM_PortConfig,
-		SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(SPA_DIRECTION_INPUT),
-		SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
-#ifndef USE_NATIVE_VOLUME_RAMPER
-		SPA_PARAM_PORT_CONFIG_control,	SPA_POD_Bool(true),
-#endif
-		SPA_PARAM_PORT_CONFIG_format, SPA_POD_Pod(param));
+
+	if (spa_streq (data->mode, NON_NATIVE))
+		param = spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
+			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(SPA_DIRECTION_INPUT),
+			SPA_PARAM_PORT_CONFIG_mode, SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
+			SPA_PARAM_PORT_CONFIG_control, SPA_POD_Bool(true),
+			SPA_PARAM_PORT_CONFIG_format, SPA_POD_Pod(param));
+	else
+		param = spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
+			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(SPA_DIRECTION_INPUT),
+			SPA_PARAM_PORT_CONFIG_mode, SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
+			SPA_PARAM_PORT_CONFIG_format, SPA_POD_Pod(param));
+
+
 	if ((res = spa_node_set_param(data->sink_node, SPA_PARAM_PortConfig, 0, param) < 0)) {
 		printf("can't setup sink node %d\n", res);
 		return res;
@@ -576,16 +596,17 @@ static int make_nodes(struct data *data, const char *device)
 		return res;
 	}
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	props = spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_Props, 0,
-		SPA_PROP_volumeRampSamples, SPA_POD_Int(SAMPLES),
-		SPA_PROP_volumeRampStepSamples, SPA_POD_Int(STEP_SAMPLES));
-	if ((res = spa_node_set_param(data->sink_node, SPA_PARAM_Props, 0, props)) < 0) {
-		printf("can't call volramp set params %d\n", res);
-		return res;
+	if (spa_streq (data->mode, NATIVE)) {
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		props = spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_Props, 0,
+			SPA_PROP_volumeRampSamples, SPA_POD_Int(data->volume_ramp_samples),
+			SPA_PROP_volumeRampStepSamples, SPA_POD_Int(data->volume_ramp_step_samples));
+		if ((res = spa_node_set_param(data->sink_node, SPA_PARAM_Props, 0, props)) < 0) {
+			printf("can't call volramp set params %d\n", res);
+			return res;
+		}
 	}
-
 	/* set io buffers on source and sink nodes */
 	data->source_sink_io[0] = SPA_IO_BUFFERS_INIT;
 	if ((res = spa_node_port_set_io(data->source_node,
@@ -637,16 +658,16 @@ static int make_nodes(struct data *data, const char *device)
 		return res;
 	}
 
-#ifndef USE_NATIVE_VOLUME_RAMPER
-	/* set io buffers on control port of sink node */
-	if ((res = spa_node_port_set_io(data->sink_node,
+	if (spa_streq (data->mode, NON_NATIVE)) {
+		/* set io buffers on control port of sink node */
+		if ((res = spa_node_port_set_io(data->sink_node,
 			SPA_DIRECTION_INPUT, 1,
 			SPA_IO_Buffers,
 			&data->control_io, sizeof(data->control_io))) < 0) {
-		printf("can't set io buffers on control port 1 of sink node\n");
-		return res;
+			printf("can't set io buffers on control port 1 of sink node\n");
+			return res;
+		}
 	}
-#endif
 	/* add source node to the graph */
 	spa_graph_node_init(&data->graph_source_node, &data->graph_source_state);
 	spa_graph_node_set_callbacks(&data->graph_source_node, &spa_graph_node_impl_default, data->source_node);
@@ -728,18 +749,18 @@ static int negotiate_formats(struct data *data)
 		return res;
 	}
 
-#ifndef USE_NATIVE_VOLUME_RAMPER
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	param = spa_pod_builder_add_object(&b,
+	if (spa_streq (data->mode, NON_NATIVE)) {
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
-			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
-	if ((res = spa_node_port_set_param(data->sink_node,
+			SPA_FORMAT_mediaType, SPA_POD_Id(SPA_MEDIA_TYPE_application),
+			SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
+		if ((res = spa_node_port_set_param(data->sink_node,
 			SPA_DIRECTION_INPUT, 1, SPA_PARAM_Format, 0, param)) < 0) {
-		printf("can't set format on control port of source node: %d\n", res);
-		return res;
+			printf("can't set format on control port of source node: %d\n", res);
+			return res;
+		}
 	}
-#endif
 
 	/* get the source node buffer size */
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -763,14 +784,14 @@ static int negotiate_formats(struct data *data)
 		return res;
 	printf("allocated and assigned buffers to sink node %p\n", data->sink_node);
 
-#ifndef USE_NATIVE_VOLUME_RAMPER
-	/* Set the control buffers */
-	init_buffer(data, data->control_buffers, data->control_buffer, 1, CONTROL_BUFFER_SIZE);
-	if ((res = spa_node_port_use_buffers(data->sink_node,
-		SPA_DIRECTION_INPUT, 1, 0, data->control_buffers, 1)) < 0)
-		return res;
-	printf("allocated and assigned control buffers(%d) to sink node %p\n", CONTROL_BUFFER_SIZE, data->sink_node);
-#endif
+	if (spa_streq (data->mode, NON_NATIVE)) {
+		/* Set the control buffers */
+		init_buffer(data, data->control_buffers, data->control_buffer, 1, CONTROL_BUFFER_SIZE);
+		if ((res = spa_node_port_use_buffers(data->sink_node,
+			SPA_DIRECTION_INPUT, 1, 0, data->control_buffers, 1)) < 0)
+			return res;
+		printf("allocated and assigned control buffers(%d) to sink node %p\n", CONTROL_BUFFER_SIZE, data->sink_node);
+	}
 
 	return 0;
 }
@@ -831,10 +852,82 @@ static void run_async_sink(struct data *data)
 		printf("got error %d\n", res);
 }
 
+static void show_help(struct data *data, const char *name, bool error)
+{
+	fprintf(error ? stderr : stdout, "%s [options] [command]\n"
+		"  -h, --help              Show this help\n"
+		"  -d, --alsa-device       ALSA device(\"aplay -l\" for more info) to play the samples on(default %s)\n"
+		"  -m, --mode              Volume Ramp Mode(\"NonNative\"(via Control Port) \"Native\" (via Volume Ramp Params of AudioAdapter plugin)) (default %s)\n"
+		"  -s, --ramp-samples      SPA_PROP_volumeRampSamples(Samples to ramp the volume over)(default %d)\n"
+		"  -a, --ramp-step-samples SPA_PROP_volumeRampStepSamples(Step or incremental Samples to ramp the volume over)(default %d)\n"
+		"  -t, --ramp-time         SPA_PROP_volumeRampTime(Time to ramp the volume over)\n"
+		"  -i, --ramp-step-time    SPA_PROP_volumeRampStepTime(Step or incremental Time to ramp the volume over)\n"
+		"  -c, --ramp-scale        SPA_PROP_volumeRampScale(the scale or graph to used to ramp the volume)\n",
+		name,
+		DEFAULT_DEVICE,
+		DEFAULT_MODE,
+		DEFAULT_SAMPLES,
+		DEFAULT_STEP_SAMPLES);
+}
+
 int main(int argc, char *argv[])
 {
 	struct data data = { 0 };
 	int res = 0;
+	char c;
+
+	/* default values*/
+	data.volume_ramp_samples = DEFAULT_SAMPLES;
+	data.volume_ramp_step_samples = DEFAULT_STEP_SAMPLES;
+	data.alsa_device = DEFAULT_DEVICE;
+	data.mode = DEFAULT_MODE;
+
+	static const struct option long_options[] = {
+	{ "help",		no_argument,		NULL, 'h' },
+	{ "alsa-device",	required_argument,	NULL, 'd' },
+	{ "mode",		required_argument,	NULL, 'm' },
+	{ "ramp-samples",	required_argument,	NULL, 's' },
+	{ "ramp-time",		required_argument,	NULL, 't' },
+	{ "ramp-step-samples",	required_argument,	NULL, 'a' },
+	{ "ramp-step-time",	required_argument,	NULL, 'i' },
+	{ NULL,	0, NULL, 0}
+	};
+
+	setlocale(LC_ALL, "");
+
+	while ((c = getopt_long(argc, argv, "hdmstia:", long_options, NULL)) != -1) {
+		printf("\nhere_we_are %s %s(%u) c=%c \n",__FILE__,__func__,__LINE__, c);
+		switch (c) {
+		case 'h':
+			show_help(&data, argv[0], false);
+			return 0;
+		case 'm':
+			if (!spa_streq (optarg, NATIVE) && !spa_streq (optarg, NON_NATIVE))
+				printf("Invalid Mode(\"%s\"), using default(\"%s\")\n", optarg, DEFAULT_MODE);
+			else
+				data.mode = optarg;
+			break;
+		case 'd':
+			data.alsa_device = optarg;
+			break;
+		case 's':
+			data.volume_ramp_samples = atoi(optarg);
+			break;
+		case 't':
+			data.volume_ramp_time = atoi(optarg);
+			break;
+		case 'a':
+			data.volume_ramp_step_samples = atoi(optarg);
+			break;
+		case 'i':
+			data.volume_ramp_step_time = atoi(optarg);
+			break;
+		default:
+			show_help(&data, argv[0], true);
+			return -1;
+		}
+	}
+
 
 	/* init data */
 	if ((res = init_data(&data)) < 0) {
@@ -843,7 +936,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* make the nodes (audiotestsrc and adapter with alsa-pcm-sink as follower) */
-	if ((res = make_nodes(&data, argc > 1 ? argv[1] : NULL)) < 0) {
+	if ((res = make_nodes(&data)) < 0) {
 	  printf("can't make nodes: %d (%s)\n", res, spa_strerror(res));
 		return -1;
 	}
@@ -853,6 +946,10 @@ int main(int argc, char *argv[])
 		printf("can't negotiate nodes: %d (%s)\n", res, spa_strerror(res));
 		return -1;
 	}
+
+	printf("using %s mode\n", data.mode);
+	printf("using %d samples with a step size of %d samples\n",
+		data.volume_ramp_samples, data.volume_ramp_step_samples);
 
 	spa_loop_control_enter(data.control);
 	run_async_sink(&data);

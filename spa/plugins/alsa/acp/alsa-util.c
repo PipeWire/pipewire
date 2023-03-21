@@ -1695,10 +1695,11 @@ static int mixer_class_event(snd_mixer_class_t *class, unsigned int mask,
     int err;
     const char *name = snd_hctl_elem_get_name(helem);
     snd_hctl_elem_t **_helem;
-    // NOTE: The remove event defined as '~0U`.
+    /* NOTE: The remove event is defined as '~0U`. */
     if (mask == SND_CTL_EVENT_MASK_REMOVE) {
-        // NOTE: unless remove pointer to melem from link-list at private_data of helem, hits
-	// assersion in alsa-lib since the list is not empty.
+        /* NOTE: Unless we remove the pointer to melem from the linked-list at
+         * private_data of helem, an assertion will be hit in alsa-lib since
+         * the list is not empty. */
         _helem = snd_mixer_elem_get_private(melem);
         *_helem = NULL;
         snd_mixer_elem_detach(melem, helem);
@@ -1712,7 +1713,6 @@ static int mixer_class_event(snd_mixer_class_t *class, unsigned int mask,
             const int device = snd_hctl_elem_get_device(helem);
             const int subdevice = snd_hctl_elem_get_subdevice(helem);
             snd_mixer_elem_t *new_melem;
-
             bool found = true;
 
             new_melem = pa_alsa_mixer_find(mixer, iface, name, index, device, subdevice);

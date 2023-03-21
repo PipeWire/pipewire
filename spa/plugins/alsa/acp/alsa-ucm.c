@@ -821,19 +821,17 @@ static void append_lost_relationship(pa_alsa_ucm_device *dev) {
     uint32_t idx;
     pa_alsa_ucm_device *d;
 
-    PA_IDXSET_FOREACH(d, dev->conflicting_devices, idx) {
+    PA_IDXSET_FOREACH(d, dev->conflicting_devices, idx)
         if (pa_idxset_put(d->conflicting_devices, dev, NULL) == 0)
             pa_log_warn("Add lost conflicting device %s to %s",
                     pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME),
                     pa_proplist_gets(d->proplist, PA_ALSA_PROP_UCM_NAME));
-    }
 
-    PA_IDXSET_FOREACH(d, dev->supported_devices, idx) {
+    PA_IDXSET_FOREACH(d, dev->supported_devices, idx)
         if (pa_idxset_put(d->supported_devices, dev, NULL) == 0)
             pa_log_warn("Add lost supported device %s to %s",
                     pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME),
                     pa_proplist_gets(d->proplist, PA_ALSA_PROP_UCM_NAME));
-    }
 }
 
 int pa_alsa_ucm_query_profiles(pa_alsa_ucm_config *ucm, int card_index) {
@@ -1003,8 +1001,7 @@ static void set_eld_devices(pa_hashmap *hash)
         data = PA_DEVICE_PORT_DATA(port);
         dev = data->device;
         data->eld_device = dev->eld_device;
-        if (data->eld_mixer_device_name)
-            pa_xfree(data->eld_mixer_device_name);
+        pa_xfree(data->eld_mixer_device_name);
         data->eld_mixer_device_name = pa_xstrdup(dev->eld_mixer_device_name);
     }
 }
@@ -1132,7 +1129,6 @@ PA_UNUSED static char *devset_description(pa_idxset *devices, const char *sep) {
  * This way, the result will always be less than the individual components,
  * yet higher components will lead to higher result. */
 static unsigned devset_playback_priority(pa_idxset *devices, bool invert) {
-
     pa_alsa_ucm_device *dev;
     uint32_t idx;
     double priority = 0;
@@ -1221,6 +1217,7 @@ void pa_alsa_ucm_add_port(
 
         pa_hashmap_put(ports, port->name, port);
         pa_log_debug("Add port %s: %s", port->name, port->description);
+
         PA_HASHMAP_FOREACH_KV(verb_name, vol, is_sink ? dev->playback_volumes : dev->capture_volumes, state) {
             pa_alsa_path *path = pa_alsa_path_synthesize(vol->mixer_elem,
                                                          is_sink ? PA_ALSA_DIRECTION_OUTPUT : PA_ALSA_DIRECTION_INPUT);
@@ -1330,6 +1327,7 @@ static pa_idxset *iterate_device_subsets(pa_idxset *devices, void **state) {
         /* First iteration, start adding from first device */
         *state = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
         dev = pa_idxset_first(devices, &idx);
+
     } else {
         /* Backtrack the most recent device we added and skip it */
         dev = pa_idxset_steal_last(*state, NULL);
@@ -1352,6 +1350,7 @@ static pa_idxset *iterate_device_subsets(pa_idxset *devices, void **state) {
         *state = NULL;
         return NULL;
     }
+
     return pa_idxset_copy(*state, NULL);
 }
 
@@ -1483,7 +1482,7 @@ int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, pa_alsa_prof
         return 0;
 
     if (new_profile == NULL) {
-	verb = NULL;
+        verb = NULL;
         profile_name = SND_USE_CASE_VERB_INACTIVE;
         verb_name = SND_USE_CASE_VERB_INACTIVE;
     } else {
@@ -1493,7 +1492,6 @@ int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, pa_alsa_prof
     }
 
     pa_log_info("Set profile to %s", profile_name);
-
     if (ucm->active_verb != verb) {
         /* change verb */
         pa_log_info("Set UCM verb to %s", verb_name);
@@ -1530,6 +1528,7 @@ int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, pa_alsa_prof
     ucm->active_verb = verb;
 
     update_mixer_paths(card->ports, verb_name);
+
     return ret;
 }
 
@@ -1997,6 +1996,7 @@ static int ucm_create_verb_profiles(
             if (dev->capture_mapping)
                 pa_idxset_put(p_mappings, dev->capture_mapping, NULL);
         }
+
         /* Add mappings only for the modifiers that can work with our
          * device selection */
         PA_LLIST_FOREACH(mod, verb->modifiers)
@@ -2137,7 +2137,6 @@ static void ucm_mapping_jack_probe(pa_alsa_mapping *m, pa_hashmap *mixers) {
     snd_mixer_t *mixer_handle;
     pa_alsa_ucm_mapping_context *context = &m->ucm_context;
     pa_alsa_ucm_device *dev;
-
     bool has_control;
 
     dev = context->ucm_device;

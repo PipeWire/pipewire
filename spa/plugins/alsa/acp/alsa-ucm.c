@@ -1543,8 +1543,7 @@ int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *p
     pa_assert(ucm->ucm_mgr);
 
     data = PA_DEVICE_PORT_DATA(port);
-    dev = context->ucm_device;
-    pa_assert(dev == data->device);
+    dev = data->device;
 
     return ucm_device_enable(ucm, dev);
 }

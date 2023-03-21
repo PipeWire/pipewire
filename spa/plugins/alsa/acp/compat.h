@@ -373,6 +373,17 @@ static PA_PRINTF_FUNC(2,3) inline size_t pa_strbuf_printf(pa_strbuf *sb, const c
 	return ret > 0 ? ret : 0;
 }
 
+static inline void pa_strbuf_puts(pa_strbuf *sb, const char *t)
+{
+	fputs(t, sb->f);
+}
+
+static inline bool pa_strbuf_isempty(pa_strbuf *sb)
+{
+	fflush(sb->f);
+	return sb->size == 0;
+}
+
 static inline char *pa_strbuf_to_string_free(pa_strbuf *sb)
 {
 	char *ptr;

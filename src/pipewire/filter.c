@@ -1132,10 +1132,12 @@ static void proxy_error(void *_data, int seq, int res, const char *message)
 			PW_FILTER_STATE_ERROR, message);
 }
 
-static void proxy_bound(void *_data, uint32_t global_id)
+static void proxy_bound_props(void *_data, uint32_t global_id, const struct spa_dict *props)
 {
 	struct pw_filter *filter = _data;
 	filter->node_id = global_id;
+	if (props)
+		pw_properties_update(filter->properties, props);
 	filter_set_state(filter, PW_FILTER_STATE_PAUSED, NULL);
 }
 
@@ -1144,7 +1146,7 @@ static const struct pw_proxy_events proxy_events = {
 	.removed = proxy_removed,
 	.destroy = proxy_destroy,
 	.error = proxy_error,
-	.bound = proxy_bound,
+	.bound_props = proxy_bound_props,
 };
 
 static void on_core_error(void *_data, uint32_t id, int seq, int res, const char *message)

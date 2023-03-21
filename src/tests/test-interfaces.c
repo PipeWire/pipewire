@@ -42,6 +42,7 @@ static void test_core_abi(void)
 		void (*bound_id) (void *data, uint32_t id, uint32_t global_id);
 		void (*add_mem) (void *data, uint32_t id, uint32_t type, int fd, uint32_t flags);
 		void (*remove_mem) (void *data, uint32_t id);
+		void (*bound_props) (void *data, uint32_t id, uint32_t global_id, const struct spa_dict *props);
 	} events = { PW_VERSION_CORE_EVENTS, };
 
 	struct pw_core_events e;
@@ -68,7 +69,8 @@ static void test_core_abi(void)
 	TEST_FUNC(e, events, bound_id);
 	TEST_FUNC(e, events, add_mem);
 	TEST_FUNC(e, events, remove_mem);
-	spa_assert_se(PW_VERSION_CORE_EVENTS == 0);
+	TEST_FUNC(e, events, bound_props);
+	spa_assert_se(PW_VERSION_CORE_EVENTS == 1);
 	spa_assert_se(sizeof(e) == sizeof(events));
 }
 

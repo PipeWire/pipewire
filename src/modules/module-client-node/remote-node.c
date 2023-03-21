@@ -1143,18 +1143,20 @@ static void client_node_destroy(void *_data)
 	client_node_removed(_data);
 }
 
-static void client_node_bound(void *_data, uint32_t global_id)
+static void client_node_bound_props(void *_data, uint32_t global_id, const struct spa_dict *props)
 {
 	struct node_data *data = _data;
 	pw_log_debug("%p: bound %u", data, global_id);
 	data->remote_id = global_id;
+	if (props)
+		pw_properties_update(data->node->properties, props);
 }
 
 static const struct pw_proxy_events proxy_client_node_events = {
 	PW_VERSION_PROXY_EVENTS,
 	.removed = client_node_removed,
 	.destroy = client_node_destroy,
-	.bound = client_node_bound,
+	.bound_props = client_node_bound_props,
 };
 
 static int node_ready(void *d, int status)

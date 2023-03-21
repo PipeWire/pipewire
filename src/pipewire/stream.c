@@ -17,6 +17,7 @@
 #include <spa/pod/filter.h>
 #include <spa/pod/dynamic.h>
 #include <spa/debug/types.h>
+#include <spa/debug/dict.h>
 
 #define PW_ENABLE_DEPRECATED
 
@@ -1137,10 +1138,12 @@ static void proxy_error(void *_data, int seq, int res, const char *message)
 			PW_STREAM_STATE_ERROR, message);
 }
 
-static void proxy_bound(void *data, uint32_t global_id)
+static void proxy_bound_props(void *data, uint32_t global_id, const struct spa_dict *props)
 {
 	struct pw_stream *stream = data;
 	stream->node_id = global_id;
+	if (props)
+		pw_properties_update(stream->properties, props);
 	stream_set_state(stream, PW_STREAM_STATE_PAUSED, NULL);
 }
 
@@ -1149,7 +1152,7 @@ static const struct pw_proxy_events proxy_events = {
 	.removed = proxy_removed,
 	.destroy = proxy_destroy,
 	.error = proxy_error,
-	.bound = proxy_bound,
+	.bound_props = proxy_bound_props,
 };
 
 static struct control *find_control(struct pw_stream *stream, uint32_t id)

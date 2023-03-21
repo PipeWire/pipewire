@@ -40,7 +40,7 @@ static void module_null_sink_proxy_destroy(void *data)
 	module_schedule_unload(module);
 }
 
-static void module_null_sink_proxy_bound(void *data, uint32_t global_id)
+static void module_null_sink_proxy_bound_props(void *data, uint32_t global_id, const struct spa_dict *props)
 {
 	struct module *module = data;
 	struct module_null_sink_data *d = module->user_data;
@@ -63,7 +63,7 @@ static void module_null_sink_proxy_error(void *data, int seq, int res, const cha
 static const struct pw_proxy_events proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
 	.removed = module_null_sink_proxy_removed,
-	.bound = module_null_sink_proxy_bound,
+	.bound_props = module_null_sink_proxy_bound_props,
 	.error = module_null_sink_proxy_error,
 	.destroy = module_null_sink_proxy_destroy,
 };

@@ -36,7 +36,7 @@ struct data {
 	uint32_t id;
 };
 
-static void proxy_event_bound(void *_data, uint32_t global_id)
+static void proxy_event_bound_props(void *_data, uint32_t global_id, const struct spa_dict *props)
 {
 	struct data *data = _data;
 	if (data->id != global_id) {
@@ -47,7 +47,7 @@ static void proxy_event_bound(void *_data, uint32_t global_id)
 
 static const struct pw_proxy_events proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
-	.bound = proxy_event_bound,
+	.bound_props = proxy_event_bound_props,
 };
 
 static int make_node(struct data *data)

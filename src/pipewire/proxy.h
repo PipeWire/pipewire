@@ -89,7 +89,7 @@ struct pw_proxy;
 
 /** Proxy events, use \ref pw_proxy_add_listener */
 struct pw_proxy_events {
-#define PW_VERSION_PROXY_EVENTS		0
+#define PW_VERSION_PROXY_EVENTS		1
         uint32_t version;
 
 	/** The proxy is destroyed */
@@ -107,6 +107,8 @@ struct pw_proxy_events {
 
 	/** an error occurred on the proxy */
         void (*error) (void *data, int seq, int res, const char *message);
+
+        void (*bound_props) (void *data, uint32_t global_id, const struct spa_dict *props);
 };
 
 /* Make a new proxy object. The id can be used to bind to a remote object and

@@ -34,7 +34,7 @@ extern "C" {
 #define PW_TYPE_INTERFACE_Core		PW_TYPE_INFO_INTERFACE_BASE "Core"
 #define PW_TYPE_INTERFACE_Registry	PW_TYPE_INFO_INTERFACE_BASE "Registry"
 
-#define PW_VERSION_CORE		3
+#define PW_VERSION_CORE		4
 struct pw_core;
 #define PW_VERSION_REGISTRY	3
 struct pw_registry;
@@ -80,21 +80,22 @@ void pw_core_info_free(struct pw_core_info *info);
 
 /** Core */
 
-#define PW_CORE_EVENT_INFO	0
-#define PW_CORE_EVENT_DONE	1
-#define PW_CORE_EVENT_PING	2
-#define PW_CORE_EVENT_ERROR	3
-#define PW_CORE_EVENT_REMOVE_ID	4
-#define PW_CORE_EVENT_BOUND_ID	5
-#define PW_CORE_EVENT_ADD_MEM	6
+#define PW_CORE_EVENT_INFO		0
+#define PW_CORE_EVENT_DONE		1
+#define PW_CORE_EVENT_PING		2
+#define PW_CORE_EVENT_ERROR		3
+#define PW_CORE_EVENT_REMOVE_ID		4
+#define PW_CORE_EVENT_BOUND_ID		5
+#define PW_CORE_EVENT_ADD_MEM		6
 #define PW_CORE_EVENT_REMOVE_MEM	7
-#define PW_CORE_EVENT_NUM		8
+#define PW_CORE_EVENT_BOUND_PROPS	8
+#define PW_CORE_EVENT_NUM		9
 
 /** \struct pw_core_events
  *  \brief Core events
  */
 struct pw_core_events {
-#define PW_VERSION_CORE_EVENTS	0
+#define PW_VERSION_CORE_EVENTS	1
 	uint32_t version;
 
 	/**
@@ -188,6 +189,8 @@ struct pw_core_events {
 	 * \param id the memory id to remove
 	 */
 	void (*remove_mem) (void *data, uint32_t id);
+
+	void (*bound_props) (void *data, uint32_t id, uint32_t global_id, const struct spa_dict *props);
 };
 
 #define PW_CORE_METHOD_ADD_LISTENER	0

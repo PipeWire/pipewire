@@ -63,7 +63,7 @@ static void core_event_remove_id(void *data, uint32_t id)
 		pw_proxy_remove(proxy);
 }
 
-static void core_event_bound_id(void *data, uint32_t id, uint32_t global_id)
+static void bound_props(void *data, uint32_t id, uint32_t global_id, const struct spa_dict *props)
 {
 	struct pw_core *this = data;
 	struct pw_proxy *proxy;
@@ -71,7 +71,18 @@ static void core_event_bound_id(void *data, uint32_t id, uint32_t global_id)
 	pw_log_debug("%p: proxy id %u bound %u", this, id, global_id);
 	if ((proxy = pw_map_lookup(&this->objects, id)) != NULL) {
 		pw_proxy_set_bound_id(proxy, global_id);
+		pw_proxy_emit_bound_props(proxy, global_id, props);
 	}
+}
+
+static void core_event_bound_props(void *data, uint32_t id, uint32_t global_id, const struct spa_dict *props)
+{
+	bound_props(data, id, global_id, props);
+}
+
+static void core_event_bound_id(void *data, uint32_t id, uint32_t global_id)
+{
+	bound_props(data, id, global_id, NULL);
 }
 
 static void core_event_add_mem(void *data, uint32_t id, uint32_t type, int fd, uint32_t flags)
@@ -106,6 +117,7 @@ static const struct pw_core_events core_events = {
 	.bound_id = core_event_bound_id,
 	.add_mem = core_event_add_mem,
 	.remove_mem = core_event_remove_mem,
+	.bound_props = core_event_bound_props,
 };
 
 SPA_EXPORT

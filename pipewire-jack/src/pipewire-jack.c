@@ -898,17 +898,19 @@ static void on_node_destroy(void *data)
 	spa_hook_remove(&client->node_listener);
 }
 
-static void on_node_bound(void *data, uint32_t global_id)
+static void on_node_bound_props(void *data, uint32_t global_id, const struct spa_dict *props)
 {
 	struct client *client = data;
 	client->node_id = global_id;
+	if (props)
+		pw_properties_update(client->props, props);
 }
 
 static const struct pw_proxy_events node_proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
 	.removed = on_node_removed,
 	.destroy = on_node_destroy,
-	.bound = on_node_bound,
+	.bound_props = on_node_bound_props,
 };
 
 static struct link *find_activation(struct spa_list *links, uint32_t node_id)

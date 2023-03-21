@@ -194,9 +194,19 @@ int pw_resource_set_bound_id(struct pw_resource *resource, uint32_t global_id)
 	struct pw_impl_client *client = resource->client;
 
 	resource->bound_id = global_id;
+
 	if (client->core_resource != NULL) {
-		pw_log_debug("%p: %u global_id:%u", resource, resource->id, global_id);
-		pw_core_resource_bound_id(client->core_resource, resource->id, global_id);
+		struct pw_global *global = pw_map_lookup(&resource->context->globals, global_id);
+		const struct spa_dict *dict = global ? &global->properties->dict : NULL;
+
+		pw_log_debug("%p: %u global_id:%u %d", resource, resource->id, global_id,
+				client->core_resource->version);
+
+		if (client->core_resource->version >= 4)
+			pw_core_resource_bound_props(client->core_resource, resource->id, global_id,
+					dict);
+		else
+			pw_core_resource_bound_id(client->core_resource, resource->id, global_id);
 	}
 	return 0;
 }

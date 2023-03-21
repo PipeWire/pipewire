@@ -395,6 +395,27 @@ static int core_event_demarshal_bound_id(void *data, const struct pw_protocol_na
 	return pw_proxy_notify(proxy, struct pw_core_events, bound_id, 0, id, global_id);
 }
 
+static int core_event_demarshal_bound_props(void *data, const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = data;
+	struct spa_pod_parser prs;
+	uint32_t id, global_id;
+	struct spa_pod_frame f[2];
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0)
+		return -EINVAL;
+	if (spa_pod_parser_get(&prs,
+				SPA_POD_Int(&id),
+				SPA_POD_Int(&global_id), NULL) < 0)
+		return -EINVAL;
+
+	parse_dict_struct(&prs, &f[1], &props);
+
+	return pw_proxy_notify(proxy, struct pw_core_events, bound_props, 1, id, global_id, &props);
+}
+
 static int core_event_demarshal_add_mem(void *data, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = data;
@@ -522,6 +543,25 @@ static void core_event_marshal_bound_id(void *data, uint32_t id, uint32_t global
 	spa_pod_builder_add_struct(b,
 			SPA_POD_Int(id),
 			SPA_POD_Int(global_id));
+
+	pw_protocol_native_end_resource(resource, b);
+}
+
+static void core_event_marshal_bound_props(void *data, uint32_t id, uint32_t global_id, const struct spa_dict *props)
+{
+	struct pw_resource *resource = data;
+	struct spa_pod_builder *b;
+	struct spa_pod_frame f;
+
+	b = pw_protocol_native_begin_resource(resource, PW_CORE_EVENT_BOUND_PROPS, NULL);
+
+	spa_pod_builder_push_struct(b, &f);
+	spa_pod_builder_add(b,
+			SPA_POD_Int(id),
+			SPA_POD_Int(global_id),
+			NULL);
+	push_dict(b, props);
+	spa_pod_builder_pop(b, &f);
 
 	pw_protocol_native_end_resource(resource, b);
 }
@@ -1863,6 +1903,7 @@ static const struct pw_core_events pw_protocol_native_core_event_marshal = {
 	.bound_id = &core_event_marshal_bound_id,
 	.add_mem = &core_event_marshal_add_mem,
 	.remove_mem = &core_event_marshal_remove_mem,
+	.bound_props = &core_event_marshal_bound_props,
 };
 
 static const struct pw_protocol_native_demarshal
@@ -1876,6 +1917,7 @@ pw_protocol_native_core_event_demarshal[PW_CORE_EVENT_NUM] =
 	[PW_CORE_EVENT_BOUND_ID] = { &core_event_demarshal_bound_id, 0, },
 	[PW_CORE_EVENT_ADD_MEM] = { &core_event_demarshal_add_mem, 0, },
 	[PW_CORE_EVENT_REMOVE_MEM] = { &core_event_demarshal_remove_mem, 0, },
+	[PW_CORE_EVENT_BOUND_PROPS] = { &core_event_demarshal_bound_props, 0, },
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_core_marshal = {

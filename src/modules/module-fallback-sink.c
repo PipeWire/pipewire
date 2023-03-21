@@ -162,7 +162,7 @@ static void sink_proxy_removed(void *data)
 	pw_proxy_destroy(impl->sink);
 }
 
-static void sink_proxy_bound(void *data, uint32_t id)
+static void sink_proxy_bound_props(void *data, uint32_t id, const struct spa_dict *props)
 {
 	struct impl *impl = data;
 
@@ -186,7 +186,7 @@ static void sink_proxy_destroy(void *data)
 static const struct pw_proxy_events sink_proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
 	.removed = sink_proxy_removed,
-	.bound = sink_proxy_bound,
+	.bound_props = sink_proxy_bound_props,
 	.destroy = sink_proxy_destroy,
 };
 

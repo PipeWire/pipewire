@@ -666,7 +666,8 @@ static void input_param_changed(void *data, uint32_t id, const struct spa_pod* p
 			params[0] = get_props_param(impl, &b.b);
 			if (params[0]) {
 				pw_stream_update_params(impl->capture, params, 1);
-				pw_stream_update_params(impl->playback, params, 1);
+				if (impl->playback != NULL)
+					pw_stream_update_params(impl->playback, params, 1);
 			}
 			spa_pod_dynamic_builder_clean(&b);
 		} else {
@@ -767,7 +768,8 @@ static void output_param_changed(void *data, uint32_t id, const struct spa_pod *
 			params[0] = get_props_param(impl, &b.b);
 			if (params[0] != NULL) {
 				pw_stream_update_params(impl->capture, params, 1);
-				pw_stream_update_params(impl->playback, params, 1);
+				if (impl->playback != NULL)
+					pw_stream_update_params(impl->playback, params, 1);
 			}
 			spa_pod_dynamic_builder_clean(&b);
 		}

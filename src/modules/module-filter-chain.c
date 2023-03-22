@@ -89,18 +89,18 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * Nodes describe the processing filters in the graph. Use a tool like lv2ls
  * or listplugins to get a list of available plugins, labels and the port names.
  *
- * - `type` is one of `ladspa`, `lv2` or `builtin`
+ * - `type` is one of `ladspa`, `lv2`, `builtin` or `sofa`.
  * - `name` is the name for this node, you might need this later to refer to this node
  *    and its ports when setting controls or making links.
  * - `plugin` is the type specific plugin name.
  *    - For LADSPA plugins it will append `.so` to find the shared object with that
  *       name in the LADSPA plugin path.
  *    - For LV2, this is the plugin URI obtained with lv2ls.
- *    - For builtin this is ignored
+ *    - For builtin and sofa this is ignored
  * - `label` is the type specific filter inside the plugin.
  *    - For LADSPA this is the label
  *    - For LV2 this is unused
- *    - For builtin this is the name of the filter to use
+ *    - For builtin and sofa this is the name of the filter to use
  *
  * - `config` contains a filter specific configuration section. The convolver
  *            plugin needs this.
@@ -196,6 +196,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *                 offset = ...
  *                 length = ...
  *                 channel = ...
+ *                 resample_quality = ...
  *             }
  *             ...
  *         }
@@ -218,9 +219,13 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *                 can be used as gain.
  *     - A filename to load as the IR. This needs to be a file format supported
  *               by sndfile.
+ *     - [ filename, ... ] an array of filenames. The file with the closest samplerate match
+ *               with the graph samplerate will be used.
  * - `offset`  The sample offset in the file as the start of the IR.
  * - `length`  The number of samples to use as the IR.
  * - `channel` The channel to use from the file as the IR.
+ * - `resample_quality` The resample quality in case the IR does not match the graph
+ *                      samplerate.
  *
  * ### Delay
  *
@@ -258,6 +263,61 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * The invert plugin can be used to invert the phase of the signal.
  *
  * It has an input port "In" and an output port "Out".
+ *
+ * ## SOFA filter
+ *
+ * There is an optional builtin SOFA filter available.
+ *
+ * ### Spatializer
+ *
+ * The spatializer can be used to place the sound in a 3D space.
+ *
+ * The spatializer has an input port "In" and a stereo pair of output ports
+ * called "Out L" and "Out R". It requires a config section in the node
+ * declaration in this format:
+ *
+ * The control can be changed at runtime to move the sounds around in the
+ * 3D space.
+ *
+ *\code{.unparsed}
+ * filter.graph = {
+ *     nodes = [
+ *         {
+ *             type   = sofa
+ *             name   = ...
+ *             label  = spatializer
+ *             config = {
+ *                 blocksize = ...
+ *                 tailsize = ...
+ *                 filename = ...
+ *             }
+ *             control = {
+ *                 "Azimuth" = ...
+ *                 "Elevation" = ...
+ *                 "Radius" = ...
+ *             }
+ *             ...
+ *         }
+ *     }
+ *     ...
+ * }
+ *\endcode
+ *
+ * - `blocksize` specifies the size of the blocks to use in the FFT. It is a value
+ *               between 64 and 256. When not specified, this value is
+ *               computed automatically from the number of samples in the file.
+ * - `tailsize` specifies the size of the tail blocks to use in the FFT.
+ * - `filename` The SOFA file to load. SOFA files usually end in the .sofa extension
+ *              and contain the HRTF for the various spatial positions.
+ *
+ * - `Azimuth`   controls the azimuth, this is the direction the sound is coming from
+ *               in degrees between 0 and 360. 0 is straight ahead. 90 is left, 180
+ *               behind, 270 right.
+ * - `Elevation` controls the elevation, this is how high/low the signal is in degrees
+ *               between -90 and 90. 0 is straight in front, 90 is directly above
+ *               and -90 directly below.
+ * - `Radius`    controls how far away the signal is as a value between 0 and 100.
+ *               default is 1.0.
  *
  * ## General options
  *

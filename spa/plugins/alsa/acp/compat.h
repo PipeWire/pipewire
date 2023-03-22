@@ -368,7 +368,7 @@ static PA_PRINTF_FUNC(2,3) inline size_t pa_strbuf_printf(pa_strbuf *sb, const c
 	int ret;
 	va_list args;
 	va_start(args, format);
-	ret = fprintf(sb->f, format, args);
+	ret = vfprintf(sb->f, format, args);
 	va_end(args);
 	return ret > 0 ? ret : 0;
 }

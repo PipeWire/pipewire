@@ -141,14 +141,14 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_TTL		1
 #define DEFAULT_LOOP		false
 
-#define USAGE	"local.ifname=<local interface name to use> "					\
-		"sap.ip=<SAP IP address to send announce, default:"DEFAULT_SAP_IP"> "		\
-		"sap.port=<SAP port to send on, default:"SPA_STRINGIFY(DEFAULT_SAP_PORT)"> "	\
- 		"sap.cleanup.sec=<cleanup interval in seconds, default 90> "			\
-		"source.ip=<source IP address, default:"DEFAULT_SOURCE_IP"> "			\
-		"net.ttl=<desired TTL, default:"SPA_STRINGIFY(DEFAULT_TTL)"> "			\
-		"net.loop=<desired loopback, default:"SPA_STRINGIFY(DEFAULT_LOOP)"> "		\
-		"stream.rules=<rules>, use announce-stream and create-stream actions "
+#define USAGE	"( local.ifname=<local interface name to use> ) "					\
+		"( sap.ip=<SAP IP address to send announce, default:"DEFAULT_SAP_IP"> ) "		\
+		"( sap.port=<SAP port to send on, default:"SPA_STRINGIFY(DEFAULT_SAP_PORT)"> ) "	\
+ 		"( sap.cleanup.sec=<cleanup interval in seconds, default 90> ) "			\
+		"( source.ip=<source IP address, default:"DEFAULT_SOURCE_IP"> ) "			\
+		"( net.ttl=<desired TTL, default:"SPA_STRINGIFY(DEFAULT_TTL)"> ) "			\
+		"( net.loop=<desired loopback, default:"SPA_STRINGIFY(DEFAULT_LOOP)"> ) "		\
+		"( stream.rules=<rules>, use announce-stream and create-stream actions )"
 
 static const struct spa_dict_item module_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },

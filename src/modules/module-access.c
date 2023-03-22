@@ -111,10 +111,10 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define MODULE_USAGE	"[ access.force=flatpak ] "		\
-			"[ access.allowed=<cmd-line> ] "	\
-			"[ access.rejected=<cmd-line> ] "	\
-			"[ access.restricted=<cmd-line> ] "	\
+#define MODULE_USAGE	"( access.force=flatpak ) "		\
+			"( access.allowed= [ <cmd-line>,.. ] ) "	\
+			"( access.rejected= [ <cmd-line>,.. ] ) "	\
+			"( access.restricted= [ <cmd-line>,.. ] ) "	\
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },

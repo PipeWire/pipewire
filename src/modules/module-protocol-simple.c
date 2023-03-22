@@ -49,7 +49,7 @@
  *  - `capture.node`: an optional node serial or name to use for capture.
  *  - `playback.node`: an optional node serial or name to use for playback.
  *  - `server.address = []`: an array of server addresses to listen on as
- *                            tcp:<ip>:<port>.
+ *                            tcp:(<ip>:)<port>.
  *
  * ## General options
  *
@@ -119,18 +119,18 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define MAX_CLIENTS	10
 
-#define MODULE_USAGE	"[ capture=<bool> ] "						\
-			"[ playback=<bool> ] "						\
-			"[ remote.name=<remote> ] "					\
-			"[ node.latency=<num/denom, default:"DEFAULT_LATENCY"> ] "	\
-			"[ node.rate=<1/rate, default:1/"SPA_STRINGIFY(DEFAULT_RATE)"> ] "	\
-			"[ capture.node=<source-target> [ stream.capture.sink=true ]] "	\
-			"[ playback.node=<sink-target> ] "				\
-			"[ audio.rate=<sample-rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> ] "		\
-			"[ audio.format=<format, default:"DEFAULT_FORMAT"> ] "		\
-			"[ audio.channels=<channels, default: "SPA_STRINGIFY(DEFAULT_CHANNELS)"> ] "	\
-			"[ audio.position=<position, default:"DEFAULT_POSITION"> ] "	\
-			"[ server.address=<[ tcp:[<ip>:]<port>[,...] ], default:"DEFAULT_SERVER">"	\
+#define MODULE_USAGE	"( capture=<bool> ) "						\
+			"( playback=<bool> ) "						\
+			"( remote.name=<remote> ) "					\
+			"( node.latency=<num/denom, default:"DEFAULT_LATENCY"> ) "	\
+			"( node.rate=<1/rate, default:1/"SPA_STRINGIFY(DEFAULT_RATE)"> ) "	\
+			"( capture.node=<source-target> ( stream.capture.sink=true )) "	\
+			"( playback.node=<sink-target> ) "				\
+			"( audio.rate=<sample-rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> ) "		\
+			"( audio.format=<format, default:"DEFAULT_FORMAT"> ) "		\
+			"( audio.channels=<channels, default: "SPA_STRINGIFY(DEFAULT_CHANNELS)"> ) "	\
+			"( audio.position=<position, default:"DEFAULT_POSITION"> ) "	\
+			"( server.address=<[ tcp:(<ip>:)<port>(,...) ], default:"DEFAULT_SERVER"> )"	\
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },

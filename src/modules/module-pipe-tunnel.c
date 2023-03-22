@@ -114,18 +114,18 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define MODULE_USAGE	"[ remote.name=<remote> ] "				\
-			"[ node.latency=<latency as fraction> ] "		\
-			"[ node.name=<name of the nodes> ] "			\
-			"[ node.description=<description of the nodes> ] "	\
-			"[ target.object=<remote node target name or serial> ] "\
-			"[ audio.format=<sample format> ] "			\
-			"[ audio.rate=<sample rate> ] "				\
-			"[ audio.channels=<number of channels> ] "		\
-			"[ audio.position=<channel map> ] "			\
-			"[ tunnel.mode=capture|playback|sink|source "		\
-			"[ pipe.filename=<filename> ]"				\
-			"[ stream.props=<properties> ] "
+#define MODULE_USAGE	"( remote.name=<remote> ) "				\
+			"( node.latency=<latency as fraction> ) "		\
+			"( node.name=<name of the nodes> ) "			\
+			"( node.description=<description of the nodes> ) "	\
+			"( target.object=<remote node target name or serial> ) "\
+			"( audio.format=<sample format> ) "			\
+			"( audio.rate=<sample rate> ) "				\
+			"( audio.channels=<number of channels> ) "		\
+			"( audio.position=<channel map> ) "			\
+			"( tunnel.mode=capture|playback|sink|source )"		\
+			"( pipe.filename=<filename> )"				\
+			"( stream.props=<properties> ) "
 
 
 static const struct spa_dict_item module_props[] = {

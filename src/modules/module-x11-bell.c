@@ -230,10 +230,10 @@ static const struct pw_impl_module_events module_events = {
 static const struct spa_dict_item module_x11_bell_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "X11 Bell interceptor" },
-	{ PW_KEY_MODULE_USAGE,	"sink.name=<name for the sink> "
-				"sample.name=<the sample name> "
-				"x11.display=<the X11 display> "
-				"x11.xauthority=<the X11 XAuthority> " },
+	{ PW_KEY_MODULE_USAGE,	"( sink.name=<name for the sink> ) "
+				"( sample.name=<the sample name> ) "
+				"( x11.display=<the X11 display> ) "
+				".x11.xauthority=<the X11 XAuthority> )" },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 SPA_EXPORT

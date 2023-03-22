@@ -95,7 +95,7 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define MODULE_USAGE "stream.rules=<rules>, use create-stream actions "
+#define MODULE_USAGE "( stream.rules=<rules>, use create-stream actions )"
 
 #define DEFAULT_CREATE_RULES	\
         "[ { matches = [ { raop.ip = \"~.*\" } ] actions = { create-stream = { } } } ] "

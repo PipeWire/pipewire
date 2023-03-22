@@ -62,7 +62,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *     filter.graph = {
  *         nodes = [
  *             {
- *                 type = <ladspa | lv2 | builtin>
+ *                 type = <ladspa | lv2 | builtin | sofa>
  *                 name = <name>
  *                 plugin = <plugin>
  *                 label = <label>
@@ -102,9 +102,11 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *    - For LV2 this is unused
  *    - For builtin and sofa this is the name of the filter to use
  *
- * - `config` contains a filter specific configuration section. The convolver
- *            plugin needs this.
+ * - `config` contains a filter specific configuration section. Some plugins need
+ *            this. (convolver, sofa, delay, ...)
  * - `control` contains the initial values for the control ports of the filter.
+ *            normally these are given with the port name but it is also possible
+ *            to give the control index as the key.
  *
  * ### Links
  *
@@ -435,16 +437,16 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Create filter chain streams" },
-	{ PW_KEY_MODULE_USAGE, " [ remote.name=<remote> ] "
-				"[ node.latency=<latency as fraction> ] "
-				"[ node.description=<description of the nodes> ] "
-				"[ audio.rate=<sample rate> ] "
-				"[ audio.channels=<number of channels> ] "
-				"[ audio.position=<channel map> ] "
+	{ PW_KEY_MODULE_USAGE, " ( remote.name=<remote> ) "
+				"( node.latency=<latency as fraction> ) "
+				"( node.description=<description of the nodes> ) "
+				"( audio.rate=<sample rate> ) "
+				"( audio.channels=<number of channels> ) "
+				"( audio.position=<channel map> ) "
 				"filter.graph = [ "
 				"    nodes = [ "
 				"        { "
-				"          type = <ladspa | lv2 | builtin> "
+				"          type = <ladspa | lv2 | builtin | sofa> "
 				"          name = <name> "
 				"          plugin = <plugin> "
 				"          label = <label> "
@@ -462,8 +464,8 @@ static const struct spa_dict_item module_props[] = {
 				"    inputs = [ <portname> ... ] "
 				"    outputs = [ <portname> ... ] "
 				"] "
-				"[ capture.props=<properties> ] "
-				"[ playback.props=<properties> ] " },
+				"( capture.props=<properties> ) "
+				"( playback.props=<properties> ) " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

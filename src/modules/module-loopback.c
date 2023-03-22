@@ -130,15 +130,15 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Create loopback streams" },
-	{ PW_KEY_MODULE_USAGE, " [ remote.name=<remote> ] "
-				"[ node.latency=<latency as fraction> ] "
-				"[ node.description=<description of the nodes> ] "
-				"[ audio.rate=<sample rate> ] "
-				"[ audio.channels=<number of channels> ] "
-				"[ audio.position=<channel map> ] "
-				"[ target.delay.sec=<delay as seconds in float> ] "
-				"[ capture.props=<properties> ] "
-				"[ playback.props=<properties> ] " },
+	{ PW_KEY_MODULE_USAGE, " ( remote.name=<remote> ) "
+				"( node.latency=<latency as fraction> ) "
+				"( node.description=<description of the nodes> ) "
+				"( audio.rate=<sample rate> ) "
+				"( audio.channels=<number of channels> ) "
+				"( audio.position=<channel map> ) "
+				"( target.delay.sec=<delay as seconds in float> ) "
+				"( capture.props=<properties> ) "
+				"( playback.props=<properties> ) " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

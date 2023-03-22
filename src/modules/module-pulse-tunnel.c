@@ -106,19 +106,19 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_CHANNELS 2
 #define DEFAULT_POSITION "[ FL FR ]"
 
-#define MODULE_USAGE	"[ remote.name=<remote> ] "				\
-			"[ node.latency=<latency as fraction> ] "		\
-			"[ node.name=<name of the nodes> ] "			\
-			"[ node.description=<description of the nodes> ] "	\
-			"[ node.target=<remote node target name or serial> ] "	\
-			"[ audio.format=<sample format> ] "			\
-			"[ audio.rate=<sample rate> ] "				\
-			"[ audio.channels=<number of channels> ] "		\
-			"[ audio.position=<channel map> ] "			\
+#define MODULE_USAGE	"( remote.name=<remote> ] "				\
+			"( node.latency=<latency as fraction> ] "		\
+			"( node.name=<name of the nodes> ] "			\
+			"( node.description=<description of the nodes> ] "	\
+			"( node.target=<remote node target name or serial> ] "	\
+			"( audio.format=<sample format> ] "			\
+			"( audio.rate=<sample rate> ] "				\
+			"( audio.channels=<number of channels> ] "		\
+			"( audio.position=<channel map> ] "			\
 			"pulse.server.address=<address> "			\
-			"pulse.latency=<latency in msec> "			\
-			"[ tunnel.mode=source|sink "				\
-			"[ stream.props=<properties> ] "
+			"( pulse.latency=<latency in msec, default 200> ) "	\
+			"( tunnel.mode=source|sink, default sink ) "				\
+			"( stream.props=<properties> ) "
 
 
 static const struct spa_dict_item module_props[] = {

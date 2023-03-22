@@ -118,23 +118,23 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define DEFAULT_TS_OFFSET	-1
 
-#define USAGE	"source.ip=<source IP address, default:"DEFAULT_SOURCE_IP"> "			\
-		"destination.ip=<destination IP address, default:"DEFAULT_DESTINATION_IP"> "	\
- 		"destination.port=<int, default random beteen 46000 and 47024> "		\
-		"local.ifname=<local interface name to use> "					\
-		"net.mtu=<desired MTU, default:"SPA_STRINGIFY(DEFAULT_MTU)"> "			\
-		"net.ttl=<desired TTL, default:"SPA_STRINGIFY(DEFAULT_TTL)"> "			\
-		"net.loop=<desired loopback, default:"SPA_STRINGIFY(DEFAULT_LOOP)"> "		\
-		"net.dscp=<desired DSCP, default:"SPA_STRINGIFY(DEFAULT_DSCP)"> "		\
-		"sess.name=<a name for the session> "						\
-		"sess.min-ptime=<minimum packet time in milliseconds, default:2> "		\
-		"sess.max-ptime=<maximum packet time in milliseconds, default:20> "		\
- 		"sess.media=<string, the media type audio|midi, default audio> "		\
-		"audio.format=<format, default:"DEFAULT_FORMAT"> "				\
-		"audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> "		\
-		"audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> "\
-		"audio.position=<channel map, default:"DEFAULT_POSITION"> "			\
-		"stream.props= { key=value ... }"
+#define USAGE	"( source.ip=<source IP address, default:"DEFAULT_SOURCE_IP"> ) "			\
+		"( destination.ip=<destination IP address, default:"DEFAULT_DESTINATION_IP"> ) "	\
+ 		"( destination.port=<int, default random beteen 46000 and 47024> ) "			\
+		"( local.ifname=<local interface name to use> ) "					\
+		"( net.mtu=<desired MTU, default:"SPA_STRINGIFY(DEFAULT_MTU)"> ) "			\
+		"( net.ttl=<desired TTL, default:"SPA_STRINGIFY(DEFAULT_TTL)"> ) "			\
+		"( net.loop=<desired loopback, default:"SPA_STRINGIFY(DEFAULT_LOOP)"> ) "		\
+		"( net.dscp=<desired DSCP, default:"SPA_STRINGIFY(DEFAULT_DSCP)"> ) "			\
+		"( sess.name=<a name for the session> ) "						\
+		"( sess.min-ptime=<minimum packet time in milliseconds, default:2> ) "			\
+		"( sess.max-ptime=<maximum packet time in milliseconds, default:20> ) "			\
+ 		"( sess.media=<string, the media type audio|midi, default audio> ) "			\
+		"( audio.format=<format, default:"DEFAULT_FORMAT"> ) "					\
+		"( audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> ) "			\
+		"( audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> ) "	\
+		"( audio.position=<channel map, default:"DEFAULT_POSITION"> ) "				\
+		"( stream.props= { key=value ... } ) "
 
 static const struct spa_dict_item module_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },

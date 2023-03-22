@@ -371,14 +371,14 @@ static int roc_source_setup(struct module_roc_source_data *data)
 static const struct spa_dict_item module_roc_source_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "roc source" },
-	{ PW_KEY_MODULE_USAGE,	"source.name=<name for the source> "
-				"resampler.profile=<empty>|disable|high|medium|low "
-				"fec.code=<empty>|disable|rs8m|ldpc "
-				"sess.latency.msec=<target network latency in milliseconds> "
-				"local.ip=<local receiver ip> "
-				"local.source.port=<local receiver port for source packets> "
-				"local.repair.port=<local receiver port for repair packets> "
-				"source.props= { key=value ... }" },
+	{ PW_KEY_MODULE_USAGE,	"( source.name=<name for the source> ) "
+				"( resampler.profile=<empty>|disable|high|medium|low ) "
+				"( fec.code=<empty>|disable|rs8m|ldpc ) "
+				"( sess.latency.msec=<target network latency in milliseconds> ) "
+				"( local.ip=<local receiver ip> ) "
+				"( local.source.port=<local receiver port for source packets> ) "
+				"( local.repair.port=<local receiver port for repair packets> ) "
+				"( source.props= { key=value ... } ) " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

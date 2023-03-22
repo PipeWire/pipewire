@@ -83,14 +83,14 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_CHANNELS 2
 #define DEFAULT_POSITION "[ FL FR ]"
 
-#define MODULE_USAGE	"[ node.latency=<latency as fraction> ] "				\
-			"[ node.name=<name of the nodes> ] "					\
-			"[ node.description=<description of the nodes> ] "			\
-			"[ audio.format=<format, default:"DEFAULT_FORMAT"> ] "			\
-			"[ audio.rate=<sample rate, default: "SPA_STRINGIFY(DEFAULT_RATE)"> ] "			\
-			"[ audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS) "> ] "	\
-			"[ audio.position=<channel map, default:"DEFAULT_POSITION"> ] "		\
-			"[ stream.props=<properties> ] "
+#define MODULE_USAGE	"( node.latency=<latency as fraction> ) "				\
+			"( node.name=<name of the nodes> ) "					\
+			"( node.description=<description of the nodes> ) "			\
+			"( audio.format=<format, default:"DEFAULT_FORMAT"> ) "			\
+			"( audio.rate=<sample rate, default: "SPA_STRINGIFY(DEFAULT_RATE)"> ) "			\
+			"( audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS) "> ) "	\
+			"( audio.position=<channel map, default:"DEFAULT_POSITION"> ] "		\
+			"( stream.props=<properties> ) "
 
 
 static const struct spa_dict_item module_props[] = {

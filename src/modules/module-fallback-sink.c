@@ -33,8 +33,8 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define MODULE_USAGE	("[ sink.name=<str> ] " \
-			"[ sink.description=<str> ] ")
+#define MODULE_USAGE	("( sink.name=<str> ) " \
+			"( sink.description=<str> ) ")
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Pauli Virtanen <pav@iki.fi>" },

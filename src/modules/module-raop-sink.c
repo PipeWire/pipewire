@@ -145,22 +145,22 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define DEFAULT_LATENCY 22050
 
-#define MODULE_USAGE	"[ raop.ip=<ip address of host> ] "					\
-			"[ raop.port=<remote port> ] "						\
-			"[ raop.name=<name of host> ] "						\
-			"[ raop.hostname=<hostname of host> ] "					\
-			"[ raop.transport=<transport, default:udp> ] "				\
-			"[ raop.encryption.type=<encryption, default:none> ] "			\
-			"[ raop.audio.codec=PCM ] "						\
-			"[ raop.password=<password for auth> ] "				\
-			"[ node.latency=<latency as fraction> ] "				\
-			"[ node.name=<name of the nodes> ] "					\
-			"[ node.description=<description of the nodes> ] "			\
-			"[ audio.format=<format, default:"DEFAULT_FORMAT"> ] "			\
-			"[ audio.rate=<sample rate, default: "SPA_STRINGIFY(DEFAULT_RATE)"> ] "			\
-			"[ audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> ] "	\
-			"[ audio.position=<channel map, default:"DEFAULT_POSITION"> ] "		\
-			"[ stream.props=<properties> ] "
+#define MODULE_USAGE	"( raop.ip=<ip address of host> ) "					\
+			"( raop.port=<remote port> ) "						\
+			"( raop.name=<name of host> ) "						\
+			"( raop.hostname=<hostname of host> ) "					\
+			"( raop.transport=<transport, default:udp> ) "				\
+			"( raop.encryption.type=<encryption, default:none> ) "			\
+			"( raop.audio.codec=PCM ) "						\
+			"( raop.password=<password for auth> ) "				\
+			"( node.latency=<latency as fraction> ) "				\
+			"( node.name=<name of the nodes> ) "					\
+			"( node.description=<description of the nodes> ) "			\
+			"( audio.format=<format, default:"DEFAULT_FORMAT"> ) "			\
+			"( audio.rate=<sample rate, default: "SPA_STRINGIFY(DEFAULT_RATE)"> ) "			\
+			"( audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> ) "	\
+			"( audio.position=<channel map, default:"DEFAULT_POSITION"> ) "		\
+			"( stream.props=<properties> ) "
 
 
 static const struct spa_dict_item module_props[] = {

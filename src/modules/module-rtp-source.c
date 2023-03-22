@@ -101,16 +101,16 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define DEFAULT_TS_OFFSET		-1
 
-#define USAGE   "local.ifname=<local interface name to use> "						\
-		"source.ip=<source IP address, default:"DEFAULT_SOURCE_IP"> "				\
- 		"source.port=<int, source port> "							\
-		"sess.latency.msec=<target network latency, default "SPA_STRINGIFY(DEFAULT_SESS_LATENCY)"> "	\
- 		"sess.media=<string, the media type audio|midi, default audio> "		\
-		"audio.format=<format, default:"DEFAULT_FORMAT"> "				\
-		"audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> "		\
-		"audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> "\
-		"audio.position=<channel map, default:"DEFAULT_POSITION"> "			\
-		"stream.props= { key=value ... } "
+#define USAGE   "( local.ifname=<local interface name to use> ) "						\
+		"( source.ip=<source IP address, default:"DEFAULT_SOURCE_IP"> ) "				\
+ 		"source.port=<int, source port> "								\
+		"( sess.latency.msec=<target network latency, default "SPA_STRINGIFY(DEFAULT_SESS_LATENCY)"> ) "	\
+ 		"( sess.media=<string, the media type audio|midi, default audio> ) "				\
+		"( audio.format=<format, default:"DEFAULT_FORMAT"> ) "						\
+		"( audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> ) "				\
+		"( audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> ) "		\
+		"( audio.position=<channel map, default:"DEFAULT_POSITION"> ) "					\
+		"( stream.props= { key=value ... } ) "
 
 static const struct spa_dict_item module_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },

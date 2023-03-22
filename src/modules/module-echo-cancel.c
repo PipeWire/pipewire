@@ -157,19 +157,19 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Echo Cancellation" },
-	{ PW_KEY_MODULE_USAGE, " [ remote.name=<remote> ] "
-				"[ node.latency=<latency as fraction> ] "
-				"[ audio.rate=<sample rate> ] "
-				"[ audio.channels=<number of channels> ] "
-				"[ audio.position=<channel map> ] "
-				"[ buffer.max_size=<max buffer size in ms> ] "
-				"[ buffer.play_delay=<delay as fraction> ] "
-				"[ library.name =<library name> ] "
-				"[ aec.args=<aec arguments> ] "
-				"[ capture.props=<properties> ] "
-				"[ source.props=<properties> ] "
-				"[ sink.props=<properties> ] "
-				"[ playback.props=<properties> ] " },
+	{ PW_KEY_MODULE_USAGE, " ( remote.name=<remote> ) "
+				"( node.latency=<latency as fraction> ) "
+				"( audio.rate=<sample rate> ) "
+				"( audio.channels=<number of channels> ) "
+				"( audio.position=<channel map> ) "
+				"( buffer.max_size=<max buffer size in ms> ) "
+				"( buffer.play_delay=<delay as fraction> ) "
+				"( library.name =<library name> ) "
+				"( aec.args=<aec arguments> ) "
+				"( capture.props=<properties> ) "
+				"( source.props=<properties> ) "
+				"( sink.props=<properties> ) "
+				"( playback.props=<properties> ) " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

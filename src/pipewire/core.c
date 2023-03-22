@@ -63,26 +63,14 @@ static void core_event_remove_id(void *data, uint32_t id)
 		pw_proxy_remove(proxy);
 }
 
-static void bound_props(void *data, uint32_t id, uint32_t global_id, const struct spa_dict *props)
+static void core_event_bound_id(void *data, uint32_t id, uint32_t global_id)
 {
 	struct pw_core *this = data;
 	struct pw_proxy *proxy;
 
 	pw_log_debug("%p: proxy id %u bound %u", this, id, global_id);
-	if ((proxy = pw_map_lookup(&this->objects, id)) != NULL) {
+	if ((proxy = pw_map_lookup(&this->objects, id)) != NULL)
 		pw_proxy_set_bound_id(proxy, global_id);
-		pw_proxy_emit_bound_props(proxy, global_id, props);
-	}
-}
-
-static void core_event_bound_props(void *data, uint32_t id, uint32_t global_id, const struct spa_dict *props)
-{
-	bound_props(data, id, global_id, props);
-}
-
-static void core_event_bound_id(void *data, uint32_t id, uint32_t global_id)
-{
-	bound_props(data, id, global_id, NULL);
 }
 
 static void core_event_add_mem(void *data, uint32_t id, uint32_t type, int fd, uint32_t flags)
@@ -99,6 +87,16 @@ static void core_event_add_mem(void *data, uint32_t id, uint32_t type, int fd, u
 		pw_proxy_errorf(&this->proxy, -EINVAL, "invalid mem id %u, expected %u", id, m->id);
 		pw_memblock_unref(m);
 	}
+}
+
+static void core_event_bound_props(void *data, uint32_t id, uint32_t global_id, const struct spa_dict *props)
+{
+	struct pw_core *this = data;
+	struct pw_proxy *proxy;
+
+	pw_log_debug("%p: proxy id %u bound %u", this, id, global_id);
+	if ((proxy = pw_map_lookup(&this->objects, id)) != NULL)
+		pw_proxy_emit_bound_props(proxy, global_id, props);
 }
 
 static void core_event_remove_mem(void *data, uint32_t id)

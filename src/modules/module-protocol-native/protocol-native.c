@@ -385,6 +385,7 @@ static int core_event_demarshal_bound_id(void *data, const struct pw_protocol_na
 	struct pw_proxy *proxy = data;
 	struct spa_pod_parser prs;
 	uint32_t id, global_id;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
@@ -392,7 +393,10 @@ static int core_event_demarshal_bound_id(void *data, const struct pw_protocol_na
 				SPA_POD_Int(&global_id)) < 0)
 		return -EINVAL;
 
-	return pw_proxy_notify(proxy, struct pw_core_events, bound_id, 0, id, global_id);
+	/* old client / old/new server -> bound_id
+	 * new client / old server     -> bound_id + bound_props (in case it's using bound_props only) */
+	pw_proxy_notify(proxy, struct pw_core_events, bound_id, 0, id, global_id);
+	return pw_proxy_notify(proxy, struct pw_core_events, bound_props, 1, id, global_id, &props);
 }
 
 static int core_event_demarshal_bound_props(void *data, const struct pw_protocol_native_message *msg)
@@ -413,6 +417,8 @@ static int core_event_demarshal_bound_props(void *data, const struct pw_protocol
 
 	parse_dict_struct(&prs, &f[1], &props);
 
+	/* new client / new server -> bound_props + bound_id (in case it's not using bound_props yet) */
+	pw_proxy_notify(proxy, struct pw_core_events, bound_id, 0, id, global_id);
 	return pw_proxy_notify(proxy, struct pw_core_events, bound_props, 1, id, global_id, &props);
 }
 

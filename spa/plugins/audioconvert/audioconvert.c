@@ -2870,11 +2870,11 @@ impl_init(const struct spa_handle_factory *factory,
 	props_reset(&this->props);
 
 	this->mix.options = CHANNELMIX_OPTION_UPMIX | CHANNELMIX_OPTION_MIX_LFE;
-	this->mix.upmix = CHANNELMIX_UPMIX_PSD;
+	this->mix.upmix = CHANNELMIX_UPMIX_NONE;
 	this->mix.log = this->log;
-	this->mix.lfe_cutoff = 150.0f;
-	this->mix.fc_cutoff = 12000.0f;
-	this->mix.rear_delay = 12.0f;
+	this->mix.lfe_cutoff = 0.0f;
+	this->mix.fc_cutoff = 0.0f;
+	this->mix.rear_delay = 0.0f;
 	this->mix.widen = 0.0f;
 
 	for (i = 0; info && i < info->n_items; i++) {

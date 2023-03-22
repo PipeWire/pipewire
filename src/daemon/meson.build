@@ -86,6 +86,17 @@ configure_file(input : 'pipewire.conf.in',
                output : 'pipewire-uninstalled.conf',
                configuration : conf_config_uninstalled)
 
+conf_d_files = [
+  'pipewire.conf.d',
+  'client.conf.d',
+  'client-rt.conf.d',
+  'pipewire-pulse.conf.d',
+]
+
+foreach c : conf_d_files
+  subdir(c)
+endforeach
+
 pipewire_exec = executable('pipewire',
   pipewire_daemon_sources,
   install: true,

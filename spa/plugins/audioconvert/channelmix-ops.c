@@ -629,8 +629,12 @@ done:
 
 	for (jc = 0, ic = 0, i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++) {
 		float sum = 0.0f;
-		char str[1024], str2[1024];
-		int idx = 0, idx2 = 0;
+		char str1[1024], str2[1024];
+		struct spa_strbuf sb1, sb2;
+
+		spa_strbuf_init(&sb1, str1, sizeof(str1));
+		spa_strbuf_init(&sb2, str2, sizeof(str2));
+
 		if ((dst_paired & (1UL << i)) == 0)
 			continue;
 		for (jc = 0, j = 0; j < SPA_AUDIO_MAX_CHANNELS; j++) {
@@ -640,7 +644,7 @@ done:
 				continue;
 
 			if (ic == 0)
-				idx2 += snprintf(str2 + idx2, sizeof(str2) - idx2, "%-4.4s  ",
+				spa_strbuf_append(&sb2, "%-4.4s  ",
 						src_mask == 0 ? "UNK" :
 						spa_debug_type_find_short_name(spa_type_audio_channel, j + _SH));
 
@@ -648,17 +652,17 @@ done:
 			sum += fabs(matrix[i][j]);
 
 			if (matrix[i][j] == 0.0f)
-				idx += snprintf(str + idx, sizeof(str) - idx, "      ");
+				spa_strbuf_append(&sb1, "      ");
 			else
-				idx += snprintf(str + idx, sizeof(str) - idx, "%1.3f ", matrix[i][j]);
+				spa_strbuf_append(&sb1, "%1.3f ", matrix[i][j]);
 		}
-		if (idx2 > 0)
+		if (sb2.pos > 0)
 			spa_log_info(mix->log, "     %s", str2);
-		if (idx > 0) {
+		if (sb1.pos > 0) {
 			spa_log_info(mix->log, "%-4.4s %s   %f",
 					dst_mask == 0 ? "UNK" :
 					spa_debug_type_find_short_name(spa_type_audio_channel, i + _SH),
-					str, sum);
+					str1, sum);
 		}
 
 		maxsum = SPA_MAX(maxsum, sum);

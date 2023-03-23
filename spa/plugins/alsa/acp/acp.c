@@ -1593,7 +1593,7 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 
 	res = impl->use_ucm ? pa_alsa_ucm_query_profiles(&impl->ucm, card->index) : -1;
 	if (res == -PA_ALSA_ERR_UCM_LINKED) {
-		res = -ENOENT;
+		res = -EEXIST;
 		goto error;
 	}
 	if (res == 0) {

@@ -1121,7 +1121,15 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
 		pw_properties_setf(pw->props, PW_KEY_APP_NAME, "PipeWire ALSA [%s]",
 				pw_get_prgname());
 	if (pw_properties_get(pw->props, PW_KEY_NODE_NAME) == NULL)
-		pw_properties_setf(pw->props, PW_KEY_NODE_NAME, "ALSA %s",
+		pw_properties_setf(pw->props, PW_KEY_NODE_NAME, "alsa_%s.%s",
+			       stream == SND_PCM_STREAM_PLAYBACK ? "playback" : "capture",
+			       pw_get_prgname());
+	if (pw_properties_get(pw->props, PW_KEY_NODE_DESCRIPTION) == NULL)
+		pw_properties_setf(pw->props, PW_KEY_NODE_DESCRIPTION, "ALSA %s [%s]",
+			       stream == SND_PCM_STREAM_PLAYBACK ? "Playback" : "Capture",
+			       pw_get_prgname());
+	if (pw_properties_get(pw->props, PW_KEY_MEDIA_NAME) == NULL)
+		pw_properties_setf(pw->props, PW_KEY_MEDIA_NAME, "ALSA %s",
 			       stream == SND_PCM_STREAM_PLAYBACK ? "Playback" : "Capture");
 	if (pw_properties_get(pw->props, PW_KEY_MEDIA_TYPE) == NULL)
 		pw_properties_set(pw->props, PW_KEY_MEDIA_TYPE, "Audio");

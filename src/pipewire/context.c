@@ -1291,7 +1291,7 @@ again:
 		if (n->reconfigure)
 			running = true;
 
-		current_rate = n->current_rate.denom;
+		current_rate = n->target_rate.denom;
 		if (!restore_rate &&
 		   (lock_rate || n->reconfigure || !running ||
 		    (!force_rate && (n->info.state > PW_NODE_STATE_IDLE))))
@@ -1318,23 +1318,23 @@ again:
 			pw_log_info("(%s-%u) state:%s new rate:%u/(%u)->%u",
 					n->name, n->info.id,
 					pw_node_state_as_string(n->info.state),
-					n->current_rate.denom, current_rate,
+					n->target_rate.denom, current_rate,
 					target_rate);
 
 			if (force_rate) {
 				if (settings->clock_rate_update_mode == CLOCK_RATE_UPDATE_MODE_HARD)
-					do_reconfigure = !n->current_pending;
+					do_reconfigure = !n->target_pending;
 			} else {
 				if (n->info.state >= PW_NODE_STATE_SUSPENDED)
-					do_reconfigure = !n->current_pending;
+					do_reconfigure = !n->target_pending;
 			}
 			if (do_reconfigure)
 				reconfigure_driver(context, n);
 
 			/* we're setting the pending rate. This will become the new
 			 * current rate in the next iteration of the graph. */
-			n->current_rate = SPA_FRACTION(1, target_rate);
-			n->current_pending = true;
+			n->target_rate = SPA_FRACTION(1, target_rate);
+			n->target_pending = true;
 			n->forced_rate = force_rate;
 			current_rate = target_rate;
 			/* we might be suspended now and the links need to be prepared again */
@@ -1365,27 +1365,27 @@ again:
 		if (settings->clock_power_of_two_quantum)
 			quantum = flp2(quantum);
 
-		if (running && quantum != n->current_quantum && !lock_quantum) {
+		if (running && quantum != n->target_quantum && !lock_quantum) {
 			pw_log_info("(%s-%u) new quantum:%"PRIu64"->%u",
 					n->name, n->info.id,
-					n->current_quantum,
+					n->target_quantum,
 					quantum);
 			/* this is the new pending quantum */
-			n->current_quantum = quantum;
-			n->current_pending = true;
+			n->target_quantum = quantum;
+			n->target_pending = true;
 		}
 
-		if (n->info.state < PW_NODE_STATE_RUNNING && n->current_pending) {
+		if (n->info.state < PW_NODE_STATE_RUNNING && n->target_pending) {
 			/* the driver node is not actually running and we have a
 			 * pending change. Apply the change to the position now so
 			 * that we have the right values when we change the node
 			 * states of the driver and followers to RUNNING below */
 			pw_log_debug("%p: apply duration:%"PRIu64" rate:%u/%u", context,
-					n->current_quantum, n->current_rate.num,
-					n->current_rate.denom);
-			n->rt.position->clock.duration = n->current_quantum;
-			n->rt.position->clock.rate = n->current_rate;
-			n->current_pending = false;
+					n->target_quantum, n->target_rate.num,
+					n->target_rate.denom);
+			n->rt.position->clock.duration = n->target_quantum;
+			n->rt.position->clock.rate = n->target_rate;
+			n->target_pending = false;
 		}
 
 		pw_log_debug("%p: driver %p running:%d runnable:%d quantum:%u '%s'",

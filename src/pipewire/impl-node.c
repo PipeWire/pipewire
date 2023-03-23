@@ -688,8 +688,8 @@ static void update_io(struct pw_impl_node *node)
 		pw_log_debug("%p: set position %p", node, &node->rt.activation->position);
 		node->rt.position = &node->rt.activation->position;
 
-		node->current_rate = node->rt.position->clock.rate;
-		node->current_quantum = node->rt.position->clock.duration;
+		node->target_rate = node->rt.position->clock.rate;
+		node->target_quantum = node->rt.position->clock.duration;
 	} else if (node->driver) {
 		pw_log_warn("%p: can't set position on driver", node);
 	}
@@ -804,8 +804,8 @@ do_move_nodes(struct spa_loop *loop,
 	pw_log_trace("%p: set position %p", node, &driver->rt.activation->position);
 	node->rt.position = &driver->rt.activation->position;
 
-	node->current_rate = node->rt.position->clock.rate;
-	node->current_quantum = node->rt.position->clock.duration;
+	node->target_rate = node->rt.position->clock.rate;
+	node->target_quantum = node->rt.position->clock.duration;
 
 	if (node->source.loop != NULL) {
 		remove_node(node);
@@ -842,15 +842,15 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 
 	if (old != node && old->driving && driver->info.state < PW_NODE_STATE_RUNNING) {
 		pw_log_info("move quantum:%"PRIu64"->%"PRIu64" rate:%d->%d (%s-%d -> %s-%d)",
-				driver->current_quantum,
-				old->current_quantum,
-				driver->current_rate.denom,
-				old->current_rate.denom,
+				driver->target_quantum,
+				old->target_quantum,
+				driver->target_rate.denom,
+				old->target_rate.denom,
 				old->name, old->info.id,
 				driver->name, driver->info.id);
-		driver->current_rate = old->current_rate;
-		driver->current_quantum = old->current_quantum;
-		driver->current_pending = true;
+		driver->target_rate = old->target_rate;
+		driver->target_quantum = old->target_quantum;
+		driver->target_pending = true;
 	}
 	was_driving = node->driving;
 	node->driving = node->driver && driver == node;
@@ -1220,11 +1220,11 @@ static void reset_position(struct pw_impl_node *this, struct spa_io_position *po
 	uint32_t quantum = s->clock_force_quantum == 0 ? s->clock_quantum : s->clock_force_quantum;
 	uint32_t rate = s->clock_force_rate == 0 ? s->clock_rate : s->clock_force_rate;
 
-	this->current_rate = SPA_FRACTION(1, rate);
-	this->current_quantum = quantum;
+	this->target_rate = SPA_FRACTION(1, rate);
+	this->target_quantum = quantum;
 
-	pos->clock.rate = this->current_rate;
-	pos->clock.duration = this->current_quantum;
+	pos->clock.rate = this->target_rate;
+	pos->clock.duration = this->target_quantum;
 	pos->video.flags = SPA_IO_VIDEO_SIZE_VALID;
 	pos->video.size = s->video_size;
 	pos->video.stride = pos->video.size.width * 16;
@@ -1683,15 +1683,15 @@ static int node_ready(void *data, int status)
 			node->rt.target.signal_func(node->rt.target.data);
 		}
 
-		if (node->current_pending) {
+		if (node->target_pending) {
 			pw_log_debug("apply quantum %"PRIu64"->%"PRIu64" %d->%d",
 					node->rt.position->clock.duration,
-					node->current_quantum,
+					node->target_quantum,
 					node->rt.position->clock.rate.denom,
-					node->current_rate.denom);
-			node->rt.position->clock.duration = node->current_quantum;
-			node->rt.position->clock.rate = node->current_rate;
-			node->current_pending = false;
+					node->target_rate.denom);
+			node->rt.position->clock.duration = node->target_quantum;
+			node->rt.position->clock.rate = node->target_rate;
+			node->target_pending = false;
 		}
 
 		sync_type = check_updates(node, &reposition_owner);

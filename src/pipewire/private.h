@@ -696,7 +696,7 @@ struct pw_impl_node {
 	unsigned int lock_quantum:1;	/**< don't change graph quantum */
 	unsigned int lock_rate:1;	/**< don't change graph rate */
 	unsigned int transport_sync:1;	/**< supports transport sync */
-	unsigned int current_pending:1;	/**< a quantum/rate update is pending */
+	unsigned int target_pending:1;	/**< a quantum/rate update is pending */
 	unsigned int moved:1;		/**< the node was moved drivers */
 	unsigned int added:1;		/**< the node was add to graph */
 	unsigned int pause_on_idle:1;	/**< Pause processing when IDLE */
@@ -750,10 +750,10 @@ struct pw_impl_node {
 
 		struct ratelimit rate_limit;
 	} rt;
-	struct spa_fraction current_rate;
-	uint64_t current_quantum;
+	struct spa_fraction target_rate;
+	uint64_t target_quantum;
 
-        void *user_data;                /**< extra user data */
+	void *user_data;                /**< extra user data */
 };
 
 struct pw_impl_port_mix {

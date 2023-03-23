@@ -1386,6 +1386,11 @@ again:
 			n->rt.position->clock.target_duration = n->target_quantum;
 			n->rt.position->clock.target_rate = n->target_rate;
 			SEQ_WRITE(n->rt.position->clock.target_seq);
+
+			if (n->info.state < PW_NODE_STATE_RUNNING) {
+				n->rt.position->clock.duration = n->target_quantum;
+				n->rt.position->clock.rate = n->target_rate;
+			}
 			n->target_pending = false;
 		}
 

@@ -2466,6 +2466,8 @@ static void alsa_on_timeout_event(struct spa_source *source)
 			return;
 		}
 	}
+	state->position->clock.duration = state->position->clock.target_duration;
+	state->position->clock.rate = state->position->clock.target_rate;
 
 	check_position_config(state);
 
@@ -2550,6 +2552,8 @@ int spa_alsa_start(struct state *state)
 		return 0;
 
 	if (state->position) {
+		state->position->clock.duration = state->position->clock.target_duration;
+		state->position->clock.rate = state->position->clock.target_rate;
 		state->duration = state->position->clock.duration;
 		state->rate_denom = state->position->clock.rate.denom;
 	}

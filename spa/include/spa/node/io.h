@@ -124,7 +124,13 @@ struct spa_io_clock {
 					  *  positive for capture, negative for playback */
 	double rate_diff;		/**< rate difference between clock and monotonic time */
 	uint64_t next_nsec;		/**< estimated next wakeup time in nanoseconds */
-	uint32_t padding[8];
+
+	struct spa_fraction target_rate;	/**< target rate of next cycle */
+	uint64_t target_duration;		/**< target duration of next cycle */
+	uint32_t target_seq;			/**< seq counter. must be equal at start and
+						  *  end of read and lower bit must be 0 */
+
+	uint32_t padding[3];
 };
 
 /* the size of the video in this cycle */

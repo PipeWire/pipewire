@@ -1375,16 +1375,17 @@ again:
 			n->target_pending = true;
 		}
 
-		if (n->info.state < PW_NODE_STATE_RUNNING && n->target_pending) {
-			/* the driver node is not actually running and we have a
-			 * pending change. Apply the change to the position now so
-			 * that we have the right values when we change the node
-			 * states of the driver and followers to RUNNING below */
+		if (n->target_pending) {
+			/* we have a pending change. We place the new values in the
+			 * pending fields so that they are picked up by the driver in
+			 * the next cycle */
 			pw_log_debug("%p: apply duration:%"PRIu64" rate:%u/%u", context,
 					n->target_quantum, n->target_rate.num,
 					n->target_rate.denom);
-			n->rt.position->clock.duration = n->target_quantum;
-			n->rt.position->clock.rate = n->target_rate;
+			SEQ_WRITE(n->rt.position->clock.target_seq);
+			n->rt.position->clock.target_duration = n->target_quantum;
+			n->rt.position->clock.target_rate = n->target_rate;
+			SEQ_WRITE(n->rt.position->clock.target_seq);
 			n->target_pending = false;
 		}
 

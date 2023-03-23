@@ -688,8 +688,9 @@ static void update_io(struct pw_impl_node *node)
 		pw_log_debug("%p: set position %p", node, &node->rt.activation->position);
 		node->rt.position = &node->rt.activation->position;
 
-		node->target_rate = node->rt.position->clock.rate;
-		node->target_quantum = node->rt.position->clock.duration;
+		node->target_rate = node->rt.position->clock.target_rate;
+		node->target_quantum = node->rt.position->clock.target_duration;
+		node->target_pending = false;
 	} else if (node->driver) {
 		pw_log_warn("%p: can't set position on driver", node);
 	}
@@ -804,8 +805,8 @@ do_move_nodes(struct spa_loop *loop,
 	pw_log_trace("%p: set position %p", node, &driver->rt.activation->position);
 	node->rt.position = &driver->rt.activation->position;
 
-	node->target_rate = node->rt.position->clock.rate;
-	node->target_quantum = node->rt.position->clock.duration;
+	node->target_rate = node->rt.position->clock.target_rate;
+	node->target_quantum = node->rt.position->clock.target_duration;
 
 	if (node->source.loop != NULL) {
 		remove_node(node);
@@ -1223,8 +1224,8 @@ static void reset_position(struct pw_impl_node *this, struct spa_io_position *po
 	this->target_rate = SPA_FRACTION(1, rate);
 	this->target_quantum = quantum;
 
-	pos->clock.rate = this->target_rate;
-	pos->clock.duration = this->target_quantum;
+	pos->clock.rate = pos->clock.target_rate = this->target_rate;
+	pos->clock.duration = pos->clock.target_duration = this->target_quantum;
 	pos->video.flags = SPA_IO_VIDEO_SIZE_VALID;
 	pos->video.size = s->video_size;
 	pos->video.stride = pos->video.size.width * 16;
@@ -1683,15 +1684,15 @@ static int node_ready(void *data, int status)
 			node->rt.target.signal_func(node->rt.target.data);
 		}
 
-		if (node->target_pending) {
-			pw_log_debug("apply quantum %"PRIu64"->%"PRIu64" %d->%d",
-					node->rt.position->clock.duration,
-					node->target_quantum,
-					node->rt.position->clock.rate.denom,
-					node->target_rate.denom);
-			node->rt.position->clock.duration = node->target_quantum;
-			node->rt.position->clock.rate = node->target_rate;
-			node->target_pending = false;
+		/* This update is done too late, the driver should do this
+		 * before calling the ready callback so that it can use the new target
+		 * duration and rate to schedule the next update. We do this here to
+		 * help drivers that don't support this yet */
+		if (node->rt.position->clock.duration != node->rt.position->clock.target_duration ||
+		    node->rt.position->clock.rate.denom != node->rt.position->clock.target_rate.denom) {
+			pw_log_warn("driver %s did not update duration/rate", node->name);
+			node->rt.position->clock.duration = node->rt.position->clock.target_duration;
+			node->rt.position->clock.rate = node->rt.position->clock.target_rate;
 		}
 
 		sync_type = check_updates(node, &reposition_owner);

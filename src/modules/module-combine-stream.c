@@ -35,6 +35,10 @@
  * - a new virtual sink that forwards audio to other sinks
  * - a new virtual source that combines audio from other sources
  *
+ * The sources and sink that need to be combined can be selected using generic match
+ * rules. This makes it possible to combine static nodes or nodes based on certain
+ * properties.
+ *
  * ## Module Options
  *
  * - `node.name`: a unique name for the stream
@@ -42,6 +46,7 @@
  * - `combine.mode` = capture | playback | sink | source, default sink
  * - `combine.props = {}`: properties to be passed to the sink/source
  * - `stream.props = {}`: properties to be passed to the streams
+ * - `stream.rules = {}`: rules for matching streams, use create-stream actions
  *
  * ## General options
  *

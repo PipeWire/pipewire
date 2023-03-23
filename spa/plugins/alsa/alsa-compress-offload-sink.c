@@ -702,6 +702,10 @@ static void on_driver_timeout(struct spa_source *source)
 			return;
 		}
 	}
+	if (SPA_LIKELY(this->node_position_io != NULL)) {
+		this->node_position_io->clock.duration = this->node_position_io->clock.target_duration;
+		this->node_position_io->clock.rate = this->node_position_io->clock.target_rate;
+	}
 
 	check_position_and_clock_config(this);
 

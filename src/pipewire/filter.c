@@ -951,6 +951,15 @@ static int impl_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffe
 	return 0;
 }
 
+static inline void update_target(struct filter *impl)
+{
+	struct spa_io_position *p = impl->rt.position;
+	if (SPA_LIKELY(p != NULL)) {
+		p->clock.duration = p->clock.target_duration;
+		p->clock.rate = p->clock.target_rate;
+	}
+}
+
 static inline void copy_position(struct filter *impl)
 {
 	struct spa_io_position *p = impl->rt.position;
@@ -1954,7 +1963,10 @@ do_trigger_process(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct filter *impl = user_data;
-	int res = impl_node_process(impl);
+	int res;
+
+	update_target(impl);
+	res = impl_node_process(impl);
 	return spa_node_call_ready(&impl->callbacks, res);
 }
 

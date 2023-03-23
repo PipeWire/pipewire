@@ -682,9 +682,18 @@ static int process_write(struct seq_state *state)
 	return res;
 }
 
+static void update_target(struct seq_state *state)
+{
+	if (SPA_LIKELY(state->position)) {
+		struct spa_io_clock *clock = &state->position->clock;
+		clock->duration = clock->target_duration;
+		clock->rate = clock->target_rate;
+	}
+}
+
 static void update_position(struct seq_state *state)
 {
-	if (state->position) {
+	if (SPA_LIKELY(state->position)) {
 		struct spa_io_clock *clock = &state->position->clock;
 		state->rate = clock->rate;
 		if (state->rate.num == 0 || state->rate.denom == 0)
@@ -788,6 +797,8 @@ static void alsa_on_timeout_event(struct spa_source *source)
 			return;
 		}
 	}
+
+	update_target(state);
 
 	state->current_time = state->next_time;
 

@@ -345,6 +345,14 @@ static int read_timer(struct impl *this)
 	return 0;
 }
 
+static void update_target(struct impl *this)
+{
+	if (this->position) {
+		this->position->clock.duration = this->position->clock.target_duration;
+		this->position->clock.rate = this->position->clock.target_rate;
+	}
+}
+
 static int make_buffer(struct impl *this)
 {
 	struct buffer *b;
@@ -423,6 +431,8 @@ static void on_output(struct spa_source *source)
 {
 	struct impl *this = source->data;
 	int res;
+
+	update_target(this);
 
 	res = make_buffer(this);
 

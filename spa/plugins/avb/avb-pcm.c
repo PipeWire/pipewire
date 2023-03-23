@@ -1042,6 +1042,9 @@ static void avb_on_timeout_event(struct spa_source *source)
 
 	current_time = state->next_time;
 	if (SPA_LIKELY(state->position)) {
+		state->position->clock.duration = state->position->clock.target_duration;
+		state->position->clock.rate = state->position->clock.target_rate;
+
 		duration = state->position->clock.duration;
 		rate = state->position->clock.rate.denom;
 	} else {

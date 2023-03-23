@@ -841,14 +841,16 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 	remove_segment_owner(old, node->info.id);
 
 	if (old != node && old->driving && driver->info.state < PW_NODE_STATE_RUNNING) {
+		pw_log_info("move quantum:%"PRIu64"->%"PRIu64" rate:%d->%d (%s-%d -> %s-%d)",
+				driver->current_quantum,
+				old->current_quantum,
+				driver->current_rate.denom,
+				old->current_rate.denom,
+				old->name, old->info.id,
+				driver->name, driver->info.id);
 		driver->current_rate = old->current_rate;
 		driver->current_quantum = old->current_quantum;
 		driver->current_pending = true;
-		pw_log_info("move quantum:%"PRIu64" rate:%d (%s-%d -> %s-%d)",
-				driver->current_quantum,
-				driver->current_rate.denom,
-				old->name, old->info.id,
-				driver->name, driver->info.id);
 	}
 	was_driving = node->driving;
 	node->driving = node->driver && driver == node;
@@ -1682,6 +1684,11 @@ static int node_ready(void *data, int status)
 		}
 
 		if (node->current_pending) {
+			pw_log_debug("apply quantum %"PRIu64"->%"PRIu64" %d->%d",
+					node->rt.position->clock.duration,
+					node->current_quantum,
+					node->rt.position->clock.rate.denom,
+					node->current_rate.denom);
 			node->rt.position->clock.duration = node->current_quantum;
 			node->rt.position->clock.rate = node->current_rate;
 			node->current_pending = false;

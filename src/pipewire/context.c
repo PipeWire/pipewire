@@ -1307,18 +1307,18 @@ again:
 		if (target_rate != current_rate) {
 			bool do_reconfigure = false;
 			/* we doing a rate switch */
-			pw_log_info("(%s-%u) state:%s new rate:%u->%u",
+			pw_log_info("(%s-%u) state:%s new rate:%u/(%u)->%u",
 					n->name, n->info.id,
 					pw_node_state_as_string(n->info.state),
-					n->current_rate.denom,
+					n->current_rate.denom, current_rate,
 					target_rate);
 
 			if (force_rate) {
 				if (settings->clock_rate_update_mode == CLOCK_RATE_UPDATE_MODE_HARD)
-					do_reconfigure = true;
+					do_reconfigure = !n->current_pending;
 			} else {
 				if (n->info.state >= PW_NODE_STATE_SUSPENDED)
-					do_reconfigure = true;
+					do_reconfigure = !n->current_pending;
 			}
 			if (do_reconfigure)
 				reconfigure_driver(context, n);

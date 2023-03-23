@@ -1993,20 +1993,23 @@ static int setup_matching(struct state *state)
 	return 0;
 }
 
-static inline void check_position_config(struct state *state)
+static inline int check_position_config(struct state *state)
 {
 	if (SPA_UNLIKELY(state->position  == NULL))
-		return;
+		return 0;
 
 	if (SPA_UNLIKELY((state->duration != state->position->clock.duration) ||
 	    (state->rate_denom != state->position->clock.rate.denom))) {
 		state->duration = state->position->clock.duration;
 		state->rate_denom = state->position->clock.rate.denom;
+		if (state->rate_denom == 0 || state->duration == 0)
+			return -EIO;
 		state->threshold = SPA_SCALE32_UP(state->duration, state->rate, state->rate_denom);
 		state->max_error = SPA_MAX(256.0f, state->threshold / 2.0f);
 		state->resample = ((uint32_t)state->rate != state->rate_denom) || state->matching;
 		state->alsa_sync = true;
 	}
+	return 0;
 }
 
 int spa_alsa_write(struct state *state)
@@ -2015,10 +2018,11 @@ int spa_alsa_write(struct state *state)
 	const snd_pcm_channel_area_t *my_areas;
 	snd_pcm_uframes_t written, frames, offset, off, to_write, total_written, max_write;
 	snd_pcm_sframes_t commitres;
-	int res = 0, missed;
+	int res, missed;
 	size_t frame_size = state->frame_size;
 
-	check_position_config(state);
+	if ((res = check_position_config(state)) < 0)
+		return res;
 
 	max_write = state->buffer_frames;
 
@@ -2248,9 +2252,10 @@ int spa_alsa_read(struct state *state)
 	const snd_pcm_channel_area_t *my_areas;
 	snd_pcm_uframes_t read, frames, offset;
 	snd_pcm_sframes_t commitres;
-	int res = 0, missed;
+	int res, missed;
 
-	check_position_config(state);
+	if ((res = check_position_config(state)) < 0)
+		return res;
 
 	max_read = state->buffer_frames;
 
@@ -2447,6 +2452,17 @@ static int handle_capture(struct state *state, uint64_t current_time,
 	return 0;
 }
 
+static void update_target(struct state *state)
+{
+	struct spa_io_position *pos;
+
+	if (SPA_UNLIKELY((pos = state->position) == NULL))
+		return;
+
+	pos->clock.duration = pos->clock.target_duration;
+	pos->clock.rate = pos->clock.target_rate;
+}
+
 static void alsa_on_timeout_event(struct spa_source *source)
 {
 	struct state *state = source->data;
@@ -2466,10 +2482,14 @@ static void alsa_on_timeout_event(struct spa_source *source)
 			return;
 		}
 	}
-	state->position->clock.duration = state->position->clock.target_duration;
-	state->position->clock.rate = state->position->clock.target_rate;
 
-	check_position_config(state);
+	update_target(state);
+
+	if (SPA_UNLIKELY((res = check_position_config(state)) < 0)) {
+		spa_log_warn(state->log, "%p: error invalid position: %s",
+						state, spa_strerror(res));
+		return;
+	}
 
 	current_time = state->next_time;
 
@@ -2551,34 +2571,20 @@ int spa_alsa_start(struct state *state)
 	if (state->started)
 		return 0;
 
-	if (state->position) {
-		state->position->clock.duration = state->position->clock.target_duration;
-		state->position->clock.rate = state->position->clock.target_rate;
-		state->duration = state->position->clock.duration;
-		state->rate_denom = state->position->clock.rate.denom;
-	}
-	else {
-		spa_log_warn(state->log, "%s: no position set, using defaults",
-				state->props.device);
-		state->duration = 1024;
-		state->rate_denom = state->rate;
-	}
-	if (state->rate_denom == 0) {
-		spa_log_error(state->log, "%s: unset rate_denom", state->props.device);
-		return -EIO;
-	}
-	if (state->duration == 0) {
-		spa_log_error(state->log, "%s: unset duration", state->props.device);
+	state->following = is_following(state);
+
+	if (!state->following)
+		update_target(state);
+
+	if (check_position_config(state) < 0) {
+		spa_log_error(state->log, "%s: invalid position config", state->props.device);
 		return -EIO;
 	}
 
-	state->following = is_following(state);
 	setup_matching(state);
 
 	spa_dll_init(&state->dll);
-	state->threshold = SPA_SCALE32_UP(state->duration, state->rate, state->rate_denom);
 	state->last_threshold = state->threshold;
-	state->max_error = SPA_MAX(256.0f, state->threshold / 2.0f);
 
 	spa_log_debug(state->log, "%p: start %d duration:%d rate:%d follower:%d match:%d resample:%d",
 			state, state->threshold, state->duration, state->rate_denom,

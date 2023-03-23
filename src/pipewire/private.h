@@ -702,6 +702,7 @@ struct pw_impl_node {
 	unsigned int pause_on_idle:1;	/**< Pause processing when IDLE */
 	unsigned int suspend_on_idle:1;
 	unsigned int reconfigure:1;
+	unsigned int forced_rate:1;
 
 	uint32_t port_user_data_size;	/**< extra size for port user data */
 

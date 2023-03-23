@@ -1204,7 +1204,7 @@ again:
 		struct spa_fraction rate = SPA_FRACTION(0, 0);
 		uint32_t quantum, target_rate, current_rate;
 		uint64_t quantum_stamp = 0, rate_stamp = 0;
-		bool force_rate, force_quantum;
+		bool force_rate, force_quantum, restore_rate = false;
 		const uint32_t *node_rates;
 		uint32_t node_n_rates, node_def_rate;
 		uint32_t node_max_quantum, node_min_quantum, node_def_quantum, node_rate_quantum;
@@ -1276,6 +1276,13 @@ again:
 			s->moved = false;
 		}
 
+		if (n->forced_rate && !force_rate) {
+			/* A node that was forced to a rate but is no longer being
+			 * forced can restore its rate */
+			pw_log_info("(%s-%u) restore rate", n->name, n->info.id);
+			restore_rate = true;
+		}
+
 		if (force_quantum)
 			lock_quantum = false;
 		if (force_rate)
@@ -1285,10 +1292,11 @@ again:
 			running = true;
 
 		current_rate = n->current_rate.denom;
-		if (lock_rate || n->reconfigure || !running ||
-		    (!force_rate &&
-		    (n->info.state > PW_NODE_STATE_IDLE)))
-			/* when someone wants us to lock the rate of this driver or
+		if (!restore_rate &&
+		   (lock_rate || n->reconfigure || !running ||
+		    (!force_rate && (n->info.state > PW_NODE_STATE_IDLE))))
+			/* when we don't need to restore or rate and
+			 * when someone wants us to lock the rate of this driver or
 			 * when we are in the process of reconfiguring the driver or
 			 * when we are not running any followers or
 			 * when the driver is busy and we don't need to force a rate,
@@ -1327,6 +1335,7 @@ again:
 			 * current rate in the next iteration of the graph. */
 			n->current_rate = SPA_FRACTION(1, target_rate);
 			n->current_pending = true;
+			n->forced_rate = force_rate;
 			current_rate = target_rate;
 			/* we might be suspended now and the links need to be prepared again */
 			if (do_reconfigure)

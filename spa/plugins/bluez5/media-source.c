@@ -571,7 +571,7 @@ static int setup_matching(struct impl *this)
 
 		this->matching = this->following;
 		this->resampling = this->matching ||
-			(port->current_format.info.raw.rate != this->position->clock.rate.denom);
+			(port->current_format.info.raw.rate != this->position->clock.target_rate.denom);
 	} else {
 		this->matching = false;
 		this->resampling = false;
@@ -619,6 +619,8 @@ static void media_on_timeout(struct spa_source *source)
 		rate = 48000;
 	}
 
+	setup_matching(this);
+
 	this->next_time = now_time + duration * SPA_NSEC_PER_SEC / port->buffer.corr / rate;
 
 	if (SPA_LIKELY(this->clock)) {
@@ -629,8 +631,6 @@ static void media_on_timeout(struct spa_source *source)
 		this->clock->rate_diff = port->buffer.corr;
 		this->clock->next_nsec = this->next_time;
 	}
-
-	setup_matching(this);
 
 	if (port->io) {
 		int io_status = port->io->status;

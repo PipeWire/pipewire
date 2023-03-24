@@ -46,6 +46,8 @@ static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.audioconvert");
 #define DEFAULT_MUTE	false
 #define DEFAULT_VOLUME	VOLUME_NORM
 
+#define INVALID	-1
+
 struct volumes {
 	bool mute;
 	uint32_t n_volumes;
@@ -69,10 +71,10 @@ struct props {
 	struct volumes channel;
 	struct volumes soft;
 	struct volumes monitor;
-	unsigned int volume_ramp_samples;
-	unsigned int volume_ramp_step_samples;
-	unsigned int volume_ramp_time;
-	unsigned int volume_ramp_step_time;
+	int volume_ramp_samples;
+	int volume_ramp_step_samples;
+	int volume_ramp_time;
+	int volume_ramp_step_time;
 	unsigned int have_soft_volume:1;
 	unsigned int mix_disabled:1;
 	unsigned int resample_disabled:1;
@@ -865,26 +867,62 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 	}
 	return changed;
 }
+
+static unsigned int get_ramp_samples(struct impl *this)
+{
+	struct props p = this->props;
+	if (p.volume_ramp_samples != INVALID)
+		return p.volume_ramp_samples;
+	else if (p.volume_ramp_time != INVALID) {
+		struct dir *d = &this->dir[SPA_DIRECTION_OUTPUT];
+		unsigned int sample_rate = d->format.info.raw.rate;
+		unsigned int samples = (p.volume_ramp_time * sample_rate) / 1000;
+		spa_log_info(this->log, "volume ramp samples calculated from time is %d", samples);
+		return samples;
+	}
+	return 0;
+}
+
+static unsigned int get_ramp_step_samples(struct impl *this)
+{
+	struct props p = this->props;
+	if (p.volume_ramp_step_samples != INVALID)
+		return p.volume_ramp_step_samples;
+	else if (p.volume_ramp_step_time != INVALID) {
+		struct dir *d = &this->dir[SPA_DIRECTION_OUTPUT];
+		int sample_rate = d->format.info.raw.rate;
+		/* convert the step time which is in nano seconds to seconds */
+		unsigned int samples = (p.volume_ramp_step_time/1000) * (sample_rate/1000);
+		spa_log_info(this->log, "volume ramp step samples calculated from time is %d", samples);
+		return samples;
+	}
+	return 0;
+}
+
 static struct spa_pod *generate_vol_ramp_up_sequence(struct impl *this, const struct props *p)
 {
 	uint8_t buffer[64 * 1024 * 10];
 	struct spa_pod_builder b;
 	struct spa_pod_frame f[1];
 	double volume_accum = p->prev_volume;
-	double volume_step = (p->volume - p->prev_volume) / (p->volume_ramp_samples / p->volume_ramp_step_samples);
+	unsigned int ramp_samples = get_ramp_samples(this);
+	unsigned int ramp_step_samples = get_ramp_step_samples(this);
+	double volume_step = ((p->volume - p->prev_volume) / (ramp_samples / ramp_step_samples));
 	uint32_t volume_offs = 0;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_pod_builder_push_sequence(&b, &f[0], 0);
-	spa_log_debug(this->log, "generating ramp up sequence from %f to %f with a step value %f",
-				p->volume, p->prev_volume, volume_step);
+	spa_log_info(this->log, "generating volume ramp up sequence from %f to %f with a step value %f",
+			p->prev_volume,p->volume, volume_step);
 	do {
+		// spa_log_info(this->log, "volume level %f offset %d", volume_accum, volume_offs);
+
 		spa_pod_builder_control(&b, volume_offs, SPA_CONTROL_Properties);
 		spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Props, 0,
 				SPA_PROP_volume, SPA_POD_Float(volume_accum));
 		volume_accum += volume_step;
-		volume_offs += p->volume_ramp_step_samples;
+		volume_offs += ramp_step_samples;
 	} while (volume_accum < p->volume);
 	spa_pod_builder_pop(&b, &f[0]);
 	return spa_pod_builder_pop(&b, &f[0]);
@@ -895,21 +933,24 @@ static struct spa_pod *generate_vol_ramp_down_sequence(struct impl *this, const 
 	uint8_t buffer[64 * 1024 * 10];
 	struct spa_pod_builder b;
 	struct spa_pod_frame f[1];
+	unsigned int ramp_samples = get_ramp_samples(this);
+	unsigned int ramp_step_samples = get_ramp_step_samples(this);
 	double volume_accum = p->prev_volume;
-	double volume_step = (p->prev_volume - p->volume) / (p->volume_ramp_samples / p->volume_ramp_step_samples);
+	double volume_step = ((p->prev_volume - p->volume) / (ramp_samples / ramp_step_samples));
 	uint32_t volume_offs = 0;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_pod_builder_push_sequence(&b, &f[0], 0);
-	spa_log_debug(this->log, "generating ramp up sequence from %f to %f with a step value %f",
+	spa_log_info(this->log, "generating volume ramp down sequence from %f to %f with a step value %f",
 			p->prev_volume, p->volume, volume_step);
 	do {
+		// spa_log_info(this->log, "volume level %f offset %d", volume_accum, volume_offs);
 		spa_pod_builder_control(&b, volume_offs, SPA_CONTROL_Properties);
 		spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Props, 0,
 				SPA_PROP_volume, SPA_POD_Float(volume_accum));
 		volume_accum -= volume_step;
-		volume_offs += p->volume_ramp_step_samples;
+		volume_offs += ramp_step_samples;
 	} while (volume_accum > p->volume);
 	spa_pod_builder_pop(&b, &f[0]);
 	return spa_pod_builder_pop(&b, &f[0]);
@@ -967,9 +1008,10 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 				return EAGAIN;
 			}
 
-			if (spa_pod_get_int(&prop->value, &value) == 0) {
+			if (spa_pod_get_int(&prop->value, &value) == 0 && value != INVALID) {
 				p->volume_ramp_samples = value;
-				spa_log_debug(this->log, "volume ramp samples %d", p->volume_ramp_samples);
+				p->volume_ramp_time = INVALID;
+				spa_log_info(this->log, "volume ramp samples %d", p->volume_ramp_samples);
 				p->volume_ramp_enabled = true;
 			}
 			break;
@@ -979,9 +1021,10 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 				return EAGAIN;
 			}
 
-			if (spa_pod_get_int(&prop->value, &value) == 0) {
+			if (spa_pod_get_int(&prop->value, &value) == 0 && value != INVALID) {
 				p->volume_ramp_step_samples = value;
-				spa_log_info(this->log, "here_we_are  volume ramp step time is %d",
+				p->volume_ramp_step_time = INVALID;
+				spa_log_info(this->log, "volume ramp step samples is %d",
 						p->volume_ramp_step_samples);
 				p->volume_ramp_enabled = true;
 			}
@@ -992,9 +1035,10 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 				return EAGAIN;
 			}
 
-			if (spa_pod_get_int(&prop->value, &value) == 0) {
+			if (spa_pod_get_int(&prop->value, &value) == 0 && value != INVALID) {
 				p->volume_ramp_time = value;
-				spa_log_debug(this->log, "volume ramp time %d", p->volume_ramp_time);
+				p->volume_ramp_samples = INVALID;
+				spa_log_info(this->log, "volume ramp time %d", p->volume_ramp_time);
 				p->volume_ramp_enabled = true;
 			}
 			break;
@@ -1004,10 +1048,11 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 				return EAGAIN;
 			}
 
-			if (spa_pod_get_int(&prop->value, &value) == 0) {
-				spa_log_debug(this->log, "volume ramp step time %d",
-						p->volume_ramp_step_time);
+			if (spa_pod_get_int(&prop->value, &value) == 0 && value != INVALID) {
 				p->volume_ramp_step_time = value;
+				spa_log_info(this->log, "volume ramp step time %d",
+						p->volume_ramp_step_time);
+				p->volume_ramp_step_samples = INVALID;
 				p->volume_ramp_enabled = true;
 			}
 			break;
@@ -2316,7 +2361,7 @@ static void handle_wav(struct impl *this, const void **src, uint32_t n_samples)
 	}
 }
 
-static int channelmix_process_apply_sequence (struct impl *this,
+static int channelmix_process_apply_sequence(struct impl *this,
 			const struct spa_pod_sequence *sequence, uint32_t *processed_offset,
 			void *SPA_RESTRICT dst[], const void *SPA_RESTRICT src[],
 			uint32_t n_samples)
@@ -2754,13 +2799,13 @@ static int impl_node_process(void *object)
 		spa_log_trace_fp(this->log, "%p: channelmix %d %d %d", this, n_samples,
 				resample_passthrough, out_passthrough);
 		if (ctrlport != NULL && ctrlport->ctrl != NULL) {
-			if (channelmix_process_apply_sequence (this, ctrlport->ctrl,
+			if (channelmix_process_apply_sequence(this, ctrlport->ctrl,
 						&ctrlport->ctrl_offset, out_datas, in_datas, n_samples) == 1) {
 				ctrlio->status = SPA_STATUS_OK;
 				ctrlport->ctrl = NULL;
 			}
 		} else if (this->vol_ramp_sequence) {
-			if (channelmix_process_apply_sequence (this, this->vol_ramp_sequence,
+			if (channelmix_process_apply_sequence(this, this->vol_ramp_sequence,
 					&this->vol_ramp_offset, out_datas, in_datas, n_samples) == 1) {
 				this->vol_ramp_sequence = NULL;
 			}

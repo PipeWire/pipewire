@@ -46,13 +46,18 @@ static SPA_LOG_IMPL(default_log);
 #define MIN_LATENCY	    1024
 #define CONTROL_BUFFER_SIZE 32768
 
-#define DEFAULT_SAMPLES (64*1*1024)
-#define DEFAULT_STEP_SAMPLES 200
+#define DEFAULT_RAMP_SAMPLES (64*1*1024)
+#define DEFAULT_RAMP_STEP_SAMPLES 200
+
+#define DEFAULT_RAMP_TIME 2000 // 2 seconds
+#define DEFAULT_RAMP_STEP_TIME 5000 // 5 milli seconds
+
 #define DEFAULT_DEVICE "hw:0,0"
 
 #define NON_NATIVE "non-native"
 #define NATIVE "native"
 #define DEFAULT_MODE NON_NATIVE
+#define INVALID	-1
 
 struct buffer {
 	struct spa_buffer buffer;
@@ -103,10 +108,10 @@ struct data {
 
 	const char *mode;
 
-	uint32_t volume_ramp_samples;
-	uint32_t volume_ramp_step_samples;
-	uint32_t volume_ramp_time;
-	uint32_t volume_ramp_step_time;
+	int32_t volume_ramp_samples;
+	int32_t volume_ramp_step_samples;
+	int32_t volume_ramp_time;
+	int32_t volume_ramp_step_time;
 
 	bool running;
 	pthread_t thread;
@@ -298,6 +303,30 @@ exit_cleanup:
 	dlclose(hnd);
 	return res;
 }
+static unsigned int get_ramp_samples(struct data *data)
+{
+	if (data->volume_ramp_samples != INVALID)
+		return data->volume_ramp_samples;
+	else if (data->volume_ramp_time != INVALID) {
+		unsigned int samples = (data->volume_ramp_time * 48000) / 1000;
+		printf("volume ramp samples calculated from time %d\n", samples);
+		return samples;
+	}
+	return 0;
+}
+
+static unsigned int get_ramp_step_samples(struct data *data)
+{
+	if (data->volume_ramp_step_samples != INVALID)
+		return data->volume_ramp_step_samples;
+	else if (data->volume_ramp_step_time != INVALID) {
+		/* convert the step time which is in nano seconds to seconds */
+		unsigned int samples = (data->volume_ramp_step_time / 1000) * (48000 / 1000);
+		// printf("volume ramp samples calculated from time %d\n", samples);
+		return samples;
+	}
+	return 0;
+}
 
 static int fade_in(struct data *data)
 {
@@ -306,7 +335,9 @@ static int fade_in(struct data *data)
 		struct spa_pod_builder b;
 		struct spa_pod_frame f[1];
 		void *buffer = data->control_buffer->datas[0].data;
-		double step_size = ((double) data->volume_ramp_step_samples / (double) data->volume_ramp_samples);
+		unsigned int ramp_samples = get_ramp_samples(data);
+		unsigned int ramp_step_samples = get_ramp_step_samples(data);
+		double step_size = ((double) ramp_step_samples / (double) ramp_samples);
 		uint32_t buffer_size = data->control_buffer->datas[0].maxsize;
 		data->control_buffer->datas[0].chunk[0].size = buffer_size;
 
@@ -314,12 +345,13 @@ static int fade_in(struct data *data)
 		spa_pod_builder_push_sequence(&b, &f[0], 0);
 		data->volume_offs = 0;
 		do {
+			// printf("volume level %f offset %d\n", data->volume_accum, data->volume_offs);
 			spa_pod_builder_control(&b, data->volume_offs, SPA_CONTROL_Properties);
-				spa_pod_builder_add_object(&b,
+			spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Props, 0,
 				SPA_PROP_volume, SPA_POD_Float(data->volume_accum));
 			data->volume_accum += step_size;
-			data->volume_offs += data->volume_ramp_step_samples;
+			data->volume_offs += ramp_step_samples;
 		} while (data->volume_accum < 1.0);
 		spa_pod_builder_pop(&b, &f[0]);
 	}
@@ -328,7 +360,6 @@ static int fade_in(struct data *data)
 		struct spa_pod *props;
 		int res = 0;
 		uint8_t buffer[1024];
-		printf("fading in\n");
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		props = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props, 0,
@@ -348,7 +379,10 @@ static int fade_out(struct data *data)
 	if (spa_streq (data->mode, NON_NATIVE)) {
 		struct spa_pod_builder b;
 		struct spa_pod_frame f[1];
-		double step_size = ((double) data->volume_ramp_step_samples / (double) data->volume_ramp_samples);
+		unsigned int ramp_samples = get_ramp_samples(data);
+		unsigned int ramp_step_samples = get_ramp_step_samples(data);
+		double step_size = ((double) ramp_step_samples / (double) ramp_samples);
+
 
 		void *buffer = data->control_buffer->datas[0].data;
 		uint32_t buffer_size = data->control_buffer->datas[0].maxsize;
@@ -356,14 +390,15 @@ static int fade_out(struct data *data)
 
 		spa_pod_builder_init(&b, buffer, buffer_size);
 		spa_pod_builder_push_sequence(&b, &f[0], 0);
-		data->volume_offs = data->volume_ramp_step_samples;
+		data->volume_offs = ramp_step_samples;
 		do {
+			// printf("volume level %f offset %d\n", data->volume_accum, data->volume_offs);
 			spa_pod_builder_control(&b, data->volume_offs, SPA_CONTROL_Properties);
 			spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Props, 0,
 				SPA_PROP_volume, SPA_POD_Float(data->volume_accum));
 			data->volume_accum -= step_size;
-			data->volume_offs += data->volume_ramp_step_samples;
+			data->volume_offs += ramp_step_samples;
 		} while (data->volume_accum > 0.0);
 		spa_pod_builder_pop(&b, &f[0]);
 	} else {
@@ -417,11 +452,11 @@ static void do_fade(struct data *data)
 static int on_sink_node_ready(void *_data, int status)
 {
 	struct data *data = _data;
-	int runway = (data->volume_ramp_samples / 1024);
+	int runway = (get_ramp_samples(data) / 1024);
 
 	/* only do fade in/out when buffer count is 0 */
 	if (data->buffer_count == 0)
-		  do_fade(data);
+		do_fade(data);
 
 	/* update buffer count */
 	data->buffer_count++;
@@ -601,11 +636,14 @@ static int make_nodes(struct data *data)
 		props = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props, 0,
 			SPA_PROP_volumeRampSamples, SPA_POD_Int(data->volume_ramp_samples),
-			SPA_PROP_volumeRampStepSamples, SPA_POD_Int(data->volume_ramp_step_samples));
+			SPA_PROP_volumeRampStepSamples, SPA_POD_Int(data->volume_ramp_step_samples),
+			SPA_PROP_volumeRampTime, SPA_POD_Int(data->volume_ramp_time),
+			SPA_PROP_volumeRampStepTime, SPA_POD_Int(data->volume_ramp_step_time));
 		if ((res = spa_node_set_param(data->sink_node, SPA_PARAM_Props, 0, props)) < 0) {
 			printf("can't call volramp set params %d\n", res);
 			return res;
 		}
+		printf("updated volume ramp params\n");
 	}
 	/* set io buffers on source and sink nodes */
 	data->source_sink_io[0] = SPA_IO_BUFFERS_INIT;
@@ -860,14 +898,31 @@ static void show_help(struct data *data, const char *name, bool error)
 		"  -m, --mode              Volume Ramp Mode(\"NonNative\"(via Control Port) \"Native\" (via Volume Ramp Params of AudioAdapter plugin)) (default %s)\n"
 		"  -s, --ramp-samples      SPA_PROP_volumeRampSamples(Samples to ramp the volume over)(default %d)\n"
 		"  -a, --ramp-step-samples SPA_PROP_volumeRampStepSamples(Step or incremental Samples to ramp the volume over)(default %d)\n"
-		"  -t, --ramp-time         SPA_PROP_volumeRampTime(Time to ramp the volume over)\n"
-		"  -i, --ramp-step-time    SPA_PROP_volumeRampStepTime(Step or incremental Time to ramp the volume over)\n"
-		"  -c, --ramp-scale        SPA_PROP_volumeRampScale(the scale or graph to used to ramp the volume)\n",
+		"  -t, --ramp-time         SPA_PROP_volumeRampTime(Time to ramp the volume over in  msec)(default %d)\n"
+		"  -i, --ramp-step-time    SPA_PROP_volumeRampStepTime(Step or incremental Time to ramp the volume over in nano sec)(default %d)\n"
+		"  -c, --ramp-scale        SPA_PROP_volumeRampScale(the scale or graph to used to ramp the volume)\n"
+		"examples:\n"
+		"adapter-control\n"
+		"-->when invoked with out any params, ramps volume with default values\n"
+		"adapter-control --ramp-samples=70000, rest of the parameters are defaults\n"
+		"-->ramps volume over 70000 samples(it is 1.45 seconds)\n"
+		"adapter-control --alsa-device=hw:0,0 --ramp-samples=70000\n"
+		"-->ramps volume on \"hw:0,0\" alsa device over 70000 samples\n"
+		"adapter-control --alsa-device=hw:0,0 --ramp-samples=70000 --mode=native\n"
+		"-->ramps volume on \"hw:0,0\" alsa device over 70000 samples in native mode\n"
+		"make;./builddir/spa/examples/adapter-control --alsa-device=hw:0,0 --ramp-time=1000 --mode=native\n"
+		"-->ramps volume on \"hw:0,0\" alsa device over 1000 msec in native mode\n"
+		"make;./builddir/spa/examples/adapter-control --alsa-device=hw:0,0 --ramp-time=1000 --ramp-step-time=5000 --mode=native\n"
+		"-->ramps volume on \"hw:0,0\" alsa device over 1000 msec in steps of 5000 nano seconds(5 msec)in native mode\n"
+		"make;./builddir/spa/examples/adapter-control --alsa-device=hw:0,0 --ramp-samples=70000 --ramp-step-samples=200 --mode=native\n"
+		"-->ramps volume on \"hw:0,0\" alsa device over 70000 samples with a step size of 200 samples in native mode\n",
 		name,
 		DEFAULT_DEVICE,
 		DEFAULT_MODE,
-		DEFAULT_SAMPLES,
-		DEFAULT_STEP_SAMPLES);
+		DEFAULT_RAMP_SAMPLES,
+		DEFAULT_RAMP_STEP_SAMPLES,
+		DEFAULT_RAMP_TIME,
+		DEFAULT_RAMP_STEP_TIME);
 }
 
 int main(int argc, char *argv[])
@@ -877,8 +932,10 @@ int main(int argc, char *argv[])
 	char c;
 
 	/* default values*/
-	data.volume_ramp_samples = DEFAULT_SAMPLES;
-	data.volume_ramp_step_samples = DEFAULT_STEP_SAMPLES;
+	data.volume_ramp_samples = DEFAULT_RAMP_SAMPLES;
+	data.volume_ramp_step_samples = DEFAULT_RAMP_STEP_SAMPLES;
+	data.volume_ramp_time = DEFAULT_RAMP_TIME;
+	data.volume_ramp_step_time = DEFAULT_RAMP_STEP_TIME;
 	data.alsa_device = DEFAULT_DEVICE;
 	data.mode = DEFAULT_MODE;
 
@@ -912,15 +969,23 @@ int main(int argc, char *argv[])
 			break;
 		case 's':
 			data.volume_ramp_samples = atoi(optarg);
+			data.volume_ramp_time = INVALID;
+			data.volume_ramp_step_time = INVALID;
 			break;
 		case 't':
 			data.volume_ramp_time = atoi(optarg);
+			data.volume_ramp_samples = INVALID;
+			data.volume_ramp_step_samples = INVALID;
 			break;
 		case 'a':
 			data.volume_ramp_step_samples = atoi(optarg);
+			data.volume_ramp_step_time = INVALID;
+			data.volume_ramp_time = INVALID;
 			break;
 		case 'i':
 			data.volume_ramp_step_time = atoi(optarg);
+			data.volume_ramp_samples = INVALID;
+			data.volume_ramp_step_samples = INVALID;
 			break;
 		default:
 			show_help(&data, argv[0], true);
@@ -948,8 +1013,12 @@ int main(int argc, char *argv[])
 	}
 
 	printf("using %s mode\n", data.mode);
-	printf("using %d samples with a step size of %d samples\n",
-		data.volume_ramp_samples, data.volume_ramp_step_samples);
+	if ((data.volume_ramp_samples != INVALID) && (data.volume_ramp_step_samples != INVALID))
+		printf("using %d samples with a step size of %d samples to ramp volume\n",
+			data.volume_ramp_samples, data.volume_ramp_step_samples);
+	else if ((data.volume_ramp_time != INVALID) && (data.volume_ramp_step_time != INVALID))
+		printf("using %d msec with a step size of %d msec to ramp volume\n",
+			data.volume_ramp_time, (data.volume_ramp_step_time/1000));
 
 	spa_loop_control_enter(data.control);
 	run_async_sink(&data);

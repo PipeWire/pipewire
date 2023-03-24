@@ -2623,8 +2623,8 @@ static int do_reassign_follower(struct spa_loop *loop,
 			    void *user_data)
 {
 	struct state *state = user_data;
-	set_timers(state);
 	spa_dll_init(&state->dll);
+	set_timers(state);
 	return 0;
 }
 
@@ -2667,14 +2667,9 @@ static int do_remove_source(struct spa_loop *loop,
 			    void *user_data)
 {
 	struct state *state = user_data;
-	struct itimerspec ts;
 
 	spa_loop_remove_source(state->data_loop, &state->source);
-	ts.it_value.tv_sec = 0;
-	ts.it_value.tv_nsec = 0;
-	ts.it_interval.tv_sec = 0;
-	ts.it_interval.tv_nsec = 0;
-	spa_system_timerfd_settime(state->data_system, state->timerfd, 0, &ts, NULL);
+	set_timeout(state, 0);
 
 	return 0;
 }

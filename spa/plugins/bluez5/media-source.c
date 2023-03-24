@@ -783,17 +783,12 @@ static int do_remove_source(struct spa_loop *loop,
 			    void *user_data)
 {
 	struct impl *this = user_data;
-	struct itimerspec ts;
 
 	spa_log_debug(this->log, "%p: remove source", this);
 
 	if (this->timer_source.loop)
 		spa_loop_remove_source(this->data_loop, &this->timer_source);
-	ts.it_value.tv_sec = 0;
-	ts.it_value.tv_nsec = 0;
-	ts.it_interval.tv_sec = 0;
-	ts.it_interval.tv_nsec = 0;
-	spa_system_timerfd_settime(this->data_system, this->timerfd, 0, &ts, NULL);
+	set_timeout(this, 0);
 
 	return 0;
 }

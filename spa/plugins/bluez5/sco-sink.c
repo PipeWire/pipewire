@@ -777,9 +777,9 @@ static int do_remove_source(struct spa_loop *loop,
 {
 	struct impl *this = user_data;
 
-	set_timeout(this, 0);
 	if (this->source.loop)
 		spa_loop_remove_source(this->data_loop, &this->source);
+	set_timeout(this, 0);
 
 	return 0;
 }
@@ -792,17 +792,12 @@ static int do_remove_transport_source(struct spa_loop *loop,
 			    void *user_data)
 {
 	struct impl *this = user_data;
-	struct itimerspec ts;
 
 	this->transport_started = false;
 
 	if (this->flush_timer_source.loop)
 		spa_loop_remove_source(this->data_loop, &this->flush_timer_source);
-	ts.it_value.tv_sec = 0;
-	ts.it_value.tv_nsec = 0;
-	ts.it_interval.tv_sec = 0;
-	ts.it_interval.tv_nsec = 0;
-	spa_system_timerfd_settime(this->data_system, this->flush_timerfd, 0, &ts, NULL);
+	enable_flush_timer(this, false);
 
 	/* Drop buffered data in the ready queue. Ideally there shouldn't be any. */
 	drop_port_output(this);

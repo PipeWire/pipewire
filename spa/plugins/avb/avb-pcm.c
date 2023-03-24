@@ -1192,10 +1192,11 @@ static int do_remove_source(struct spa_loop *loop,
 	struct state *state = user_data;
 
 	spa_loop_remove_source(state->data_loop, &state->timer_source);
+	set_timeout(state, 0);
 
-	if (state->ports[0].direction == SPA_DIRECTION_OUTPUT) {
+	if (state->ports[0].direction == SPA_DIRECTION_OUTPUT)
 		spa_loop_remove_source(state->data_loop, &state->sock_source);
-	}
+
 	return 0;
 }
 
@@ -1209,7 +1210,6 @@ int spa_avb_pause(struct state *state)
 	spa_loop_invoke(state->data_loop, do_remove_source, 0, NULL, 0, true, state);
 
 	state->started = false;
-	set_timeout(state, 0);
 
 	return 0;
 }

@@ -280,11 +280,8 @@ static void on_timeout(struct spa_source *source)
 	nsec = this->next_time;
 
 	if (SPA_LIKELY(this->position)) {
-		this->position->clock.duration = this->position->clock.target_duration;
-		this->position->clock.rate = this->position->clock.target_rate;
-
-		duration = this->position->clock.duration;
-		rate = this->position->clock.rate.denom;
+		duration = this->position->clock.target_duration;
+		rate = this->position->clock.target_rate.denom;
 	} else {
 		duration = 1024;
 		rate = 48000;
@@ -294,7 +291,8 @@ static void on_timeout(struct spa_source *source)
 
 	if (SPA_LIKELY(this->clock)) {
 		this->clock->nsec = nsec;
-		this->clock->position += duration;
+		this->clock->rate = this->clock->target_rate;
+		this->clock->position += this->clock->duration;
 		this->clock->duration = duration;
 		this->clock->delay = 0;
 		this->clock->rate_diff = 1.0;

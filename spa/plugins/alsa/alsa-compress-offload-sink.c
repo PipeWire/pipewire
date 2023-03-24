@@ -702,19 +702,24 @@ static void on_driver_timeout(struct spa_source *source)
 			return;
 		}
 	}
-	if (SPA_LIKELY(this->node_position_io != NULL)) {
-		this->node_position_io->clock.duration = this->node_position_io->clock.target_duration;
-		this->node_position_io->clock.rate = this->node_position_io->clock.target_rate;
-	}
 
-	check_position_and_clock_config(this);
+	if (SPA_LIKELY(this->node_position_io != NULL)) {
+		this->cycle_duration = this->node_position_io->clock.target_duration;
+		this->cycle_rate = this->node_position_io->clock.target_rate.denom;
+	} else {
+		/* This can happen at the very beginning if node_position_io
+		 * isn't passed to this node in time. */
+		this->cycle_duration = 1024;
+		this->cycle_rate = 48000;
+	}
 
 	current_time = this->next_driver_time;
 
 	this->next_driver_time += ((uint64_t)(this->cycle_duration)) * 1000000000ULL / this->cycle_rate;
 	if (this->node_clock_io != NULL) {
 		this->node_clock_io->nsec = current_time;
-		this->node_clock_io->position += this->cycle_duration;
+		this->node_clock_io->rate = this->node_clock_io->target_rate;
+		this->node_clock_io->position += this->node_clock_io->duration;
 		this->node_clock_io->duration = this->cycle_duration;
 		this->node_clock_io->delay = 0;
 		this->node_clock_io->rate_diff = 1.0;

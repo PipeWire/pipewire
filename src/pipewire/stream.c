@@ -576,8 +576,9 @@ static inline void update_target(struct stream *impl)
 {
 	struct spa_io_position *p = impl->rt.position;
 	if (SPA_LIKELY(p != NULL)) {
-		p->clock.duration = p->clock.target_duration;
 		p->clock.rate = p->clock.target_rate;
+		p->clock.position += p->clock.duration;
+		p->clock.duration = p->clock.target_duration;
 	}
 }
 

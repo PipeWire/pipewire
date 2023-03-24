@@ -247,11 +247,8 @@ static void on_timeout(struct spa_source *source)
 		return;
 	}
 	if (SPA_LIKELY(this->position)) {
-		this->position->clock.duration = this->position->clock.target_duration;
-		this->position->clock.rate = this->position->clock.target_rate;
-
-		duration = this->position->clock.duration;
-		rate = this->position->clock.rate.denom;
+		duration = this->position->clock.target_duration;
+		rate = this->position->clock.target_rate.denom;
 	} else {
 		duration = 1024;
 		rate = 48000;
@@ -286,7 +283,6 @@ static void on_timeout(struct spa_source *source)
 	else if (err < -this->max_error)
 		err = -this->max_error;
 
-	position += duration;
 	this->last_time = current_time;
 
 	if (this->tracking) {
@@ -294,7 +290,7 @@ static void on_timeout(struct spa_source *source)
 		this->next_time = nsec + duration / corr * 1e9 / rate;
 	} else {
 		corr = 1.0;
-		this->next_time = scale_u64(position, SPA_NSEC_PER_SEC, rate);
+		this->next_time = scale_u64(position + duration, SPA_NSEC_PER_SEC, rate);
 	}
 
 	if (SPA_UNLIKELY((this->next_time - this->base_time) > BW_PERIOD)) {
@@ -307,7 +303,8 @@ static void on_timeout(struct spa_source *source)
 
 	if (SPA_LIKELY(this->clock)) {
 		this->clock->nsec = nsec;
-		this->clock->position = position;
+		this->clock->rate = this->clock->target_rate;
+		this->clock->position += this->clock->duration;
 		this->clock->duration = duration;
 		this->clock->delay = 0;
 		this->clock->rate_diff = corr;

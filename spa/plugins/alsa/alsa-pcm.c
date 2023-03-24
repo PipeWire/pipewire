@@ -1952,7 +1952,8 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 
 	if (SPA_LIKELY(!follower && state->clock)) {
 		state->clock->nsec = current_time;
-		state->clock->position += state->duration;
+		state->clock->rate = state->clock->target_rate;
+		state->clock->position += state->clock->duration;
 		state->clock->duration = state->duration;
 		state->clock->delay = delay + state->delay;
 		state->clock->rate_diff = corr;
@@ -1995,13 +1996,19 @@ static int setup_matching(struct state *state)
 
 static inline int check_position_config(struct state *state)
 {
+	uint64_t target_duration;
+	struct spa_fraction target_rate;
+
 	if (SPA_UNLIKELY(state->position  == NULL))
 		return 0;
 
-	if (SPA_UNLIKELY((state->duration != state->position->clock.duration) ||
-	    (state->rate_denom != state->position->clock.rate.denom))) {
-		state->duration = state->position->clock.duration;
-		state->rate_denom = state->position->clock.rate.denom;
+	target_duration = state->position->clock.target_duration;
+	target_rate = state->position->clock.target_rate;
+
+	if (SPA_UNLIKELY((state->duration != target_duration) ||
+	    (state->rate_denom != target_rate.denom))) {
+		state->duration = target_duration;
+		state->rate_denom = target_rate.denom;
 		if (state->rate_denom == 0 || state->duration == 0)
 			return -EIO;
 		state->threshold = SPA_SCALE32_UP(state->duration, state->rate, state->rate_denom);
@@ -2452,17 +2459,6 @@ static int handle_capture(struct state *state, uint64_t current_time,
 	return 0;
 }
 
-static void update_target(struct state *state)
-{
-	struct spa_io_position *pos;
-
-	if (SPA_UNLIKELY((pos = state->position) == NULL))
-		return;
-
-	pos->clock.duration = pos->clock.target_duration;
-	pos->clock.rate = pos->clock.target_rate;
-}
-
 static void alsa_on_timeout_event(struct spa_source *source)
 {
 	struct state *state = source->data;
@@ -2482,8 +2478,6 @@ static void alsa_on_timeout_event(struct spa_source *source)
 			return;
 		}
 	}
-
-	update_target(state);
 
 	if (SPA_UNLIKELY((res = check_position_config(state)) < 0)) {
 		spa_log_warn(state->log, "%p: error invalid position: %s",
@@ -2572,9 +2566,6 @@ int spa_alsa_start(struct state *state)
 		return 0;
 
 	state->following = is_following(state);
-
-	if (!state->following)
-		update_target(state);
 
 	if (check_position_config(state) < 0) {
 		spa_log_error(state->log, "%s: invalid position config", state->props.device);

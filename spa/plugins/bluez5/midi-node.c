@@ -838,14 +838,6 @@ static int process_input(struct impl *this)
 	return SPA_STATUS_HAVE_DATA;
 }
 
-static void update_target(struct impl *this)
-{
-	if (SPA_LIKELY(this->position)) {
-		this->position->clock.duration = this->position->clock.target_duration;
-		this->position->clock.rate = this->position->clock.target_rate;
-	}
-}
-
 static void update_position(struct impl *this)
 {
 	if (SPA_LIKELY(this->position)) {
@@ -876,15 +868,20 @@ static void on_timeout(struct spa_source *source)
 	spa_log_trace(this->log, "%p: timer %"PRIu64" %"PRIu64"", this,
 			now_time, now_time - prev_time);
 
-	update_target(this);
-
-	update_position(this);
+	if (SPA_LIKELY(this->position)) {
+		this->duration = this->position->clock.target_duration;
+		this->rate = this->position->clock.target_rate.denom;
+	} else {
+		this->duration = 1024;
+		this->rate = 48000;
+	}
 
 	this->next_time = now_time + this->duration * SPA_NSEC_PER_SEC / this->rate;
 
 	if (SPA_LIKELY(this->clock)) {
 		this->clock->nsec = now_time;
-		this->clock->position += this->duration;
+		this->clock->rate = this->clock->target_rate;
+		this->clock->position += this->clock->duration;
 		this->clock->duration = this->duration;
 		this->clock->rate_diff = 1.0f;
 		this->clock->next_nsec = this->next_time;
@@ -1170,9 +1167,6 @@ static int do_start(struct impl *this)
 		return 0;
 
 	this->following = is_following(this);
-
-	if (!this->following)
-		update_target(this);
 
 	update_position(this);
 

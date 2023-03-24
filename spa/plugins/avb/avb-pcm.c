@@ -832,6 +832,17 @@ static void set_timeout(struct state *state, uint64_t next_time)
 			state->timer_source.fd, SPA_FD_TIMER_ABSTIME, &ts, NULL);
 }
 
+static void update_position(struct state *state)
+{
+	if (state->position) {
+		state->duration = state->position->clock.duration;
+		state->rate_denom = state->position->clock.rate.denom;
+	} else {
+		state->duration = 1024;
+		state->rate_denom = state->rate;
+	}
+}
+
 static int flush_write(struct state *state, uint64_t current_time)
 {
 	int32_t avail, wanted;
@@ -884,6 +895,8 @@ int spa_avb_write(struct state *state)
 	uint32_t index, to_write;
 	struct port *port = &state->ports[0];
 
+	update_position(state);
+
 	filled = spa_ringbuffer_get_write_index(&state->ring, &index);
 	if (filled < 0) {
 		spa_log_warn(state->log, "underrun %d", filled);
@@ -933,14 +946,16 @@ int spa_avb_write(struct state *state)
 	}
 	spa_ringbuffer_write_update(&state->ring, index);
 
-	if (state->following) {
+	if (state->following)
 		flush_write(state, state->position->clock.nsec);
-	}
+
 	return 0;
 }
 
 static int handle_play(struct state *state, uint64_t current_time)
 {
+	update_position(state);
+
 	flush_write(state, current_time);
 	spa_node_call_ready(&state->callbacks, SPA_STATUS_NEED_DATA);
 	return 0;
@@ -955,8 +970,7 @@ int spa_avb_read(struct state *state)
 	struct spa_data *d;
 	uint32_t n_bytes;
 
-	if (state->position)
-		state->duration = state->position->clock.duration;
+	update_position(state);
 
 	avail = spa_ringbuffer_get_read_index(&state->ring, &index);
 	wanted = state->duration * state->stride;
@@ -1028,7 +1042,7 @@ static void avb_on_timeout_event(struct spa_source *source)
 {
 	struct state *state = source->data;
 	uint64_t expirations, current_time, duration;
-	uint32_t rate;
+	struct spa_fraction rate;
 	int res;
 
 	spa_log_trace(state->log, "timeout");
@@ -1042,27 +1056,24 @@ static void avb_on_timeout_event(struct spa_source *source)
 
 	current_time = state->next_time;
 	if (SPA_LIKELY(state->position)) {
-		state->position->clock.duration = state->position->clock.target_duration;
-		state->position->clock.rate = state->position->clock.target_rate;
-
-		duration = state->position->clock.duration;
-		rate = state->position->clock.rate.denom;
+		duration = state->position->clock.target_duration;
+		rate = state->position->clock.target_rate;
 	} else {
 		duration = 1024;
-		rate = 48000;
+		rate = SPA_FRACTION(1, 48000);
 	}
-	state->duration = duration;
+
+	state->next_time = current_time + duration * SPA_NSEC_PER_SEC / rate.denom;
 
 	if (state->ports[0].direction == SPA_DIRECTION_INPUT)
 		handle_play(state, current_time);
 	else
 		handle_capture(state, current_time);
 
-	state->next_time = current_time + duration * SPA_NSEC_PER_SEC / rate;
-
 	if (SPA_LIKELY(state->clock)) {
 		state->clock->nsec = current_time;
-		state->clock->position += duration;
+		state->clock->rate = rate;
+		state->clock->position += state->clock->duration;
 		state->clock->duration = duration;
 		state->clock->delay = 0;
 		state->clock->rate_diff = 1.0;
@@ -1137,13 +1148,7 @@ int spa_avb_start(struct state *state)
 	if (state->started)
 		return 0;
 
-	if (state->position) {
-		state->duration = state->position->clock.duration;
-		state->rate_denom = state->position->clock.rate.denom;
-	} else {
-		state->duration = 1024;
-		state->rate_denom = state->rate;
-	}
+	update_position(state);
 
 	spa_dll_init(&state->dll);
 	state->max_error = (256.0 * state->rate) / state->rate_denom;

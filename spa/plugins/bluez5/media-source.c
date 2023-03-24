@@ -612,27 +612,25 @@ static void media_on_timeout(struct spa_source *source)
 			now_time, now_time - prev_time);
 
 	if (SPA_LIKELY(this->position)) {
-		this->position->clock.duration = this->position->clock.target_duration;
-		this->position->clock.rate = this->position->clock.target_rate;
-
-		duration = this->position->clock.duration;
-		rate = this->position->clock.rate.denom;
+		duration = this->position->clock.target_duration;
+		rate = this->position->clock.target_rate.denom;
 	} else {
 		duration = 1024;
 		rate = 48000;
 	}
 
-	setup_matching(this);
-
 	this->next_time = now_time + duration * SPA_NSEC_PER_SEC / port->buffer.corr / rate;
 
 	if (SPA_LIKELY(this->clock)) {
 		this->clock->nsec = now_time;
-		this->clock->position += duration;
+		this->clock->rate = this->clock->target_rate;
+		this->clock->position += this->clock->duration;
 		this->clock->duration = duration;
 		this->clock->rate_diff = port->buffer.corr;
 		this->clock->next_nsec = this->next_time;
 	}
+
+	setup_matching(this);
 
 	if (port->io) {
 		int io_status = port->io->status;
@@ -1326,30 +1324,27 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 	return 0;
 }
 
-static uint32_t get_samples(struct impl *this, uint32_t *duration)
+static uint32_t get_samples(struct impl *this, uint32_t *result_duration)
 {
 	struct port *port = &this->port;
-	uint32_t samples;
+	uint32_t samples, rate_denom;
+	uint64_t duration;
+
+	if (SPA_LIKELY(this->position)) {
+		duration = this->position->clock.duration;
+		rate_denom = this->position->clock.rate.denom;
+	} else {
+		duration = 1024;
+		rate_denom = port->current_format.info.raw.rate;
+	}
+
+	*result_duration = duration * port->current_format.info.raw.rate / rate_denom;
 
 	if (SPA_LIKELY(port->rate_match) && this->resampling) {
 		samples = port->rate_match->size;
 	} else {
-		if (SPA_LIKELY(this->position))
-			samples = this->position->clock.duration * port->current_format.info.raw.rate
-				/ this->position->clock.rate.denom;
-		else
-			samples = 1024;
+		samples = *result_duration;
 	}
-
-	if (SPA_LIKELY(this->position))
-		*duration = this->position->clock.duration * port->current_format.info.raw.rate
-			/ this->position->clock.rate.denom;
-	else if (SPA_LIKELY(this->clock))
-		*duration = this->clock->duration * port->current_format.info.raw.rate
-			/ this->clock->rate.denom;
-	else
-		*duration = 1024 * port->current_format.info.raw.rate / 48000;
-
 	return samples;
 }
 

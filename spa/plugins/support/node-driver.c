@@ -263,14 +263,13 @@ static void on_timeout(struct spa_source *source)
 
 	current_position = scale_u64(current_time, rate, SPA_NSEC_PER_SEC);
 
-	if (SPA_LIKELY(this->clock))
-		position = this->clock->position;
-	else
-		position = current_position;
-
 	if (this->last_time == 0) {
 		spa_dll_set_bw(&this->dll, SPA_DLL_BW_MIN, duration, rate);
 		this->max_error = rate * MAX_ERROR_MS / 1000;
+		position = current_position;
+	} else if (SPA_LIKELY(this->clock)) {
+		position = this->clock->position + this->clock->duration;
+	} else {
 		position = current_position;
 	}
 
@@ -304,7 +303,7 @@ static void on_timeout(struct spa_source *source)
 	if (SPA_LIKELY(this->clock)) {
 		this->clock->nsec = nsec;
 		this->clock->rate = this->clock->target_rate;
-		this->clock->position += this->clock->duration;
+		this->clock->position = position;
 		this->clock->duration = duration;
 		this->clock->delay = 0;
 		this->clock->rate_diff = corr;

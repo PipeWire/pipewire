@@ -86,14 +86,14 @@ configure_file(input : 'pipewire.conf.in',
                output : 'pipewire-uninstalled.conf',
                configuration : conf_config_uninstalled)
 
-conf_d_files = [
-  'pipewire.conf.d',
-  'client.conf.d',
-  'client-rt.conf.d',
-  'pipewire-pulse.conf.d',
+conf_avail_folders = [
+  'pipewire.conf.avail',
+  'client.conf.avail',
+  'client-rt.conf.avail',
+  'pipewire-pulse.conf.avail',
 ]
 
-foreach c : conf_d_files
+foreach c : conf_avail_folders
   subdir(c)
 endforeach
 

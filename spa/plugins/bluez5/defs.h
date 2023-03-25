@@ -522,6 +522,8 @@ void spa_bt_device_update_last_bluez_action_time(struct spa_bt_device *device);
 #define spa_bt_device_add_listener(d,listener,events,data)           \
 	spa_hook_list_append(&(d)->listener_list, listener, events, data)
 
+struct spa_bt_iso_io;
+
 struct spa_bt_sco_io;
 
 struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_loop *data_loop, int fd, uint16_t read_mtu, uint16_t write_mtu);
@@ -611,6 +613,7 @@ struct spa_bt_transport {
 	uint8_t bap_cig;
 	uint8_t bap_cis;
 
+	struct spa_bt_iso_io *iso_io;
 	struct spa_bt_sco_io *sco_io;
 
 	struct spa_source volume_timer;

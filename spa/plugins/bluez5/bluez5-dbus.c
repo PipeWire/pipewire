@@ -35,6 +35,7 @@
 #include "config.h"
 #include "codec-loader.h"
 #include "player.h"
+#include "iso-io.h"
 #include "defs.h"
 
 static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5");
@@ -78,7 +79,9 @@ struct spa_bt_monitor {
 
 	struct spa_log *log;
 	struct spa_loop *main_loop;
+	struct spa_loop *data_loop;
 	struct spa_system *main_system;
+	struct spa_system *data_system;
 	struct spa_plugin_loader *plugin_loader;
 	struct spa_dbus *dbus;
 	struct spa_dbus_connection *dbus_connection;
@@ -2304,6 +2307,9 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 		transport->sco_io = NULL;
 	}
 
+	if (transport->iso_io)
+		spa_bt_iso_io_destroy(transport->iso_io);
+
 	spa_bt_transport_destroy(transport);
 
 	if (transport->acquire_call) {
@@ -2951,6 +2957,48 @@ static int transport_set_volume(void *data, int id, float volume)
 	return 0;
 }
 
+static int transport_create_iso_io(struct spa_bt_transport *transport)
+{
+	struct spa_bt_monitor *monitor = transport->monitor;
+	struct spa_bt_transport *t;
+	bool sink = (transport->profile & SPA_BT_PROFILE_BAP_SINK) != 0;
+
+	if (!(transport->profile & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE)))
+		return 0;
+
+	if (transport->bap_cig == 0xff || transport->bap_cis == 0xff)
+		return -EINVAL;
+
+	if (transport->iso_io) {
+		spa_log_debug(monitor->log, "transport %p: remove ISO IO", transport);
+		spa_bt_iso_io_destroy(transport->iso_io);
+		transport->iso_io = NULL;
+	}
+
+	/* Transports in same connected iso group share the same i/o */
+	spa_list_for_each(t, &monitor->transport_list, link) {
+		if (!(t->profile & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE)))
+			continue;
+		if (t->bap_cig != transport->bap_cig)
+			continue;
+
+		if (t->iso_io) {
+			spa_log_debug(monitor->log, "transport %p: attach ISO IO to %p",
+					transport, t);
+			transport->iso_io = spa_bt_iso_io_attach(t->iso_io, transport->fd, sink);
+			return 0;
+		}
+	}
+
+	spa_log_debug(monitor->log, "transport %p: new ISO IO", transport);
+	transport->iso_io = spa_bt_iso_io_create(transport->fd, sink,
+			monitor->log, monitor->data_loop, monitor->data_system);
+	if (transport->iso_io == NULL)
+		return -errno;
+
+	return 0;
+}
+
 static void transport_acquire_reply(DBusPendingCall *pending, void *user_data)
 {
 	struct spa_bt_transport *transport = user_data;
@@ -2979,6 +3027,12 @@ static void transport_acquire_reply(DBusPendingCall *pending, void *user_data)
 
 	dbus_error_init(&err);
 
+	if (transport->fd >= 0) {
+		spa_log_error(monitor->log, "transport %p: invalid duplicate acquire", transport);
+		ret = -EINVAL;
+		goto finish;
+	}
+
 	if (!dbus_message_get_args(r, &err,
 				   DBUS_TYPE_UNIX_FD, &transport->fd,
 				   DBUS_TYPE_UINT16, &transport->read_mtu,
@@ -3003,8 +3057,13 @@ finish:
 		dbus_message_unref(r);
 	if (ret < 0)
 		spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ERROR);
-	else
+	else {
+		if (transport_create_iso_io(transport) < 0)
+			spa_log_error(monitor->log, "transport %p: transport_create_iso_io failed",
+					transport);
+
 		spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ACTIVE);
+	}
 
 	/* For LE Audio, multiple transport from the same device may share the same
 	 * stream (CIS) and group (CIG) but for different direction, e.g. a speaker and
@@ -3022,6 +3081,10 @@ finish:
 		t_linked->write_mtu = transport->write_mtu;
 		spa_log_debug(monitor->log, "transport %p: linked Acquired %s, fd %d MTU %d:%d", t_linked,
 				t_linked->path, t_linked->fd, t_linked->read_mtu, t_linked->write_mtu);
+
+		if (transport_create_iso_io(t_linked) < 0)
+			spa_log_error(monitor->log, "transport %p: transport_create_iso_io failed",
+					t_linked);
 
 		spa_bt_transport_set_state(t_linked, SPA_BT_TRANSPORT_STATE_ACTIVE);
 	}
@@ -3146,9 +3209,17 @@ static int do_transport_release(struct spa_bt_transport *transport)
 
 	spa_bt_player_set_state(transport->device->adapter->dummy_player, SPA_BT_PLAYER_STOPPED);
 
+	spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_IDLE);
+
 	if (transport->acquire_call) {
 		dbus_pending_call_cancel(transport->acquire_call);
 		transport->acquire_call = NULL;
+	}
+
+	if (transport->iso_io) {
+		spa_log_debug(monitor->log, "transport %p: remove ISO IO", transport);
+		spa_bt_iso_io_destroy(transport->iso_io);
+		transport->iso_io = NULL;
 	}
 
 	/* For LE Audio, multiple transport stream (CIS) can be linked together (CIG).
@@ -5344,7 +5415,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	this->dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
 	this->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
+	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	this->main_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_System);
+	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
 	this->plugin_loader = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_PluginLoader);
 
 	spa_log_topic_init(this->log, &log_topic);

@@ -3146,53 +3146,15 @@ static int transport_acquire(void *data, bool optional)
 	return do_transport_acquire(data);
 }
 
-static void transport_release_reply(DBusPendingCall *pending, void *user_data)
-{
-	struct spa_bt_transport *transport = user_data;
-	struct spa_bt_monitor *monitor = transport->monitor;
-	struct spa_bt_device *device = transport->device;
-	bool is_idle = (transport->state == SPA_BT_TRANSPORT_STATE_IDLE);
-	DBusError err;
-	DBusMessage *r;
-
-	r = dbus_pending_call_steal_reply(pending);
-
-	spa_assert(transport->acquire_call == pending);
-	dbus_pending_call_unref(pending);
-	transport->acquire_call = NULL;
-
-	spa_bt_device_update_last_bluez_action_time(device);
-
-	dbus_error_init(&err);
-
-	if (dbus_set_error_from_message(&err, r))  {
-		if (is_idle) {
-			/* XXX: The fd always needs to be closed. However, Release()
-			 * XXX: apparently doesn't need to be called on idle transports
-			 * XXX: and fails. We call it just to be sure (e.g. in case
-			 * XXX: there's a race with updating the property), but tone down the error.
-			 */
-			spa_log_debug(monitor->log, "Failed to release idle transport %s: %s",
-			              transport->path, err.message);
-		} else {
-			spa_log_error(monitor->log, "Failed to release transport %s: %s",
-			              transport->path, err.message);
-		}
-		dbus_error_free(&err);
-	}
-	else
-		spa_log_info(monitor->log, "Transport %s released", transport->path);
-
-	dbus_message_unref(r);
-}
-
 static int do_transport_release(struct spa_bt_transport *transport)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
 	DBusMessage *m;
 	struct spa_bt_transport *t_linked;
+	bool is_idle = (transport->state == SPA_BT_TRANSPORT_STATE_IDLE);
+	DBusMessage *r;
+	DBusError err;
 	bool linked = false;
-	dbus_bool_t ret;
 
 	spa_log_debug(monitor->log, "transport %p: Release %s",
 			transport, transport->path);
@@ -3234,15 +3196,30 @@ static int do_transport_release(struct spa_bt_transport *transport)
 	if (m == NULL)
 		return -ENOMEM;
 
-	ret = dbus_connection_send_with_reply(monitor->conn, m, &transport->acquire_call, -1);
+	dbus_error_init(&err);
+	r = dbus_connection_send_with_reply_and_block(monitor->conn, m, -1, &err);
 	dbus_message_unref(m);
 
-	if (!ret || transport->acquire_call == NULL)
-		return -EIO;
+	spa_bt_device_update_last_bluez_action_time(transport->device);
 
-	ret = dbus_pending_call_set_notify(transport->acquire_call, transport_release_reply, transport, NULL);
-	if (!ret)
-		return -EIO;
+	if (r == NULL)  {
+		if (is_idle) {
+			/* XXX: The fd always needs to be closed. However, Release()
+			 * XXX: apparently doesn't need to be called on idle transports
+			 * XXX: and fails. We call it just to be sure (e.g. in case
+			 * XXX: there's a race with updating the property), but tone down the error.
+			 */
+			spa_log_debug(monitor->log, "Failed to release idle transport %s: %s",
+			              transport->path, err.message);
+		} else {
+			spa_log_error(monitor->log, "Failed to release transport %s: %s",
+			              transport->path, err.message);
+		}
+		dbus_error_free(&err);
+	} else {
+		spa_log_info(monitor->log, "Transport %s released", transport->path);
+		dbus_message_unref(r);
+	}
 
 	return 0;
 }

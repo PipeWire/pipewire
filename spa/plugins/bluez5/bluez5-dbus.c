@@ -3038,7 +3038,7 @@ finish:
 		spa_log_debug(monitor->log, "transport %p: linked Acquired %s, fd %d MTU %d:%d", t_linked,
 				t_linked->path, t_linked->fd, t_linked->read_mtu, t_linked->write_mtu);
 
-		spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ACTIVE);
+		spa_bt_transport_set_state(t_linked, SPA_BT_TRANSPORT_STATE_ACTIVE);
 	}
 }
 

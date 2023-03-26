@@ -186,11 +186,12 @@ struct spa_bt_media_codec_switch {
  * SCO socket connect may fail with ECONNABORTED if it is done too soon after
  * previous close. To avoid this in cases where nodes are toggled between
  * stopped/started rapidly, postpone release until the transport has remained
- * unused for a time. Since this appears common to multiple SCO backends, we do
- * it for all SCO backends here.
+ * unused for a time.
+ *
+ * Avoiding unnecessary release+reacquire also makes sense for other transports,
+ * so we use the release timeout for all of them.
  */
-#define SCO_TRANSPORT_RELEASE_TIMEOUT_MSEC 1000
-#define SPA_BT_TRANSPORT_IS_SCO(transport) (transport->backend != NULL)
+#define TRANSPORT_RELEASE_TIMEOUT_MSEC 1000
 
 #define TRANSPORT_VOLUME_TIMEOUT_MSEC 200
 
@@ -2387,7 +2388,6 @@ int spa_bt_transport_acquire(struct spa_bt_transport *transport, bool optional)
 int spa_bt_transport_release(struct spa_bt_transport *transport)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
-	int res;
 
 	if (transport->acquire_refcount > 1) {
 		spa_log_debug(monitor->log, "transport %p: decref %s", transport, transport->path);
@@ -2402,23 +2402,8 @@ int spa_bt_transport_release(struct spa_bt_transport *transport)
 	spa_assert(transport->acquire_refcount == 1);
 	spa_assert(transport->acquired);
 
-	if (SPA_BT_TRANSPORT_IS_SCO(transport)) {
-		/* Postpone SCO transport releases, since we might need it again soon */
-		res = spa_bt_transport_start_release_timer(transport);
-	} else if (transport->keepalive) {
-		res = 0;
-		transport->acquire_refcount = 0;
-		spa_log_debug(monitor->log, "transport %p: keepalive %s on release",
-				transport, transport->path);
-	} else {
-		res = spa_bt_transport_impl(transport, release, 0);
-		if (res >= 0) {
-			transport->acquire_refcount = 0;
-			transport->acquired = false;
-		}
-	}
-
-	return res;
+	/* Postpone transport releases, since we might need it again soon */
+	return spa_bt_transport_start_release_timer(transport);
 }
 
 static int spa_bt_transport_release_now(struct spa_bt_transport *transport)
@@ -2515,7 +2500,7 @@ static int spa_bt_transport_start_release_timer(struct spa_bt_transport *transpo
 	return start_timeout_timer(transport->monitor,
 		&transport->release_timer,
 		spa_bt_transport_release_timer_event,
-		SCO_TRANSPORT_RELEASE_TIMEOUT_MSEC, transport);
+		TRANSPORT_RELEASE_TIMEOUT_MSEC, transport);
 }
 
 static int spa_bt_transport_stop_release_timer(struct spa_bt_transport *transport)

@@ -1156,6 +1156,8 @@ static int make_socket(const struct sockaddr_storage* sa, socklen_t salen,
 	if (setsockopt(fd, IPPROTO_IP, IP_TOS, &val, sizeof(val)) < 0)
 		pw_log_warn("setsockopt(IP_TOS) failed: %m");
 
+	pw_log_debug("new socket fd:%d", fd);
+
 	return fd;
 error:
 	close(fd);
@@ -1219,6 +1221,9 @@ static void impl_destroy(struct impl *impl)
 		pw_loop_destroy_source(impl->loop, impl->ctrl_source);
 	if (impl->data_source)
 		pw_loop_destroy_source(impl->data_loop, impl->data_source);
+
+	if (impl->client)
+		avahi_client_free(impl->client);
 
 	pw_properties_free(impl->stream_props);
 	pw_properties_free(impl->props);

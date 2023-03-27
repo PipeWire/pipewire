@@ -885,9 +885,12 @@ void impl::requestComplete(libcamera::Request *request)
 	}
 	const FrameMetadata &fmd = buffer->metadata();
 
-
-
 	if (impl->clock) {
+		/* FIXME, we should follow the driver clock and target_ values.
+		 * for now we ignore and use our own. */
+		impl->clock->target_rate = port->rate;
+		impl->clock->target_duration = 1;
+
 		impl->clock->nsec = fmd.timestamp;
 		impl->clock->rate = port->rate;
 		impl->clock->position = fmd.sequence;

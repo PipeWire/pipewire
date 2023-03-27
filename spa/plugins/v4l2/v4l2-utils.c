@@ -1289,6 +1289,11 @@ static int mmap_read(struct impl *this)
 	spa_log_trace(this->log, "v4l2 %p: have output %d", this, buf.index);
 
 	if (this->clock) {
+		/* FIXME, we should follow the driver clock and target_ values.
+		 * for now we ignore and use our own. */
+		this->clock->target_rate = port->rate;
+		this->clock->target_duration = 1;
+
 		this->clock->nsec = pts;
 		this->clock->rate = port->rate;
 		this->clock->position = buf.sequence;

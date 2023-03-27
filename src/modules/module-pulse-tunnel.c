@@ -135,6 +135,7 @@ static const struct spa_dict_item module_props[] = {
 
 struct impl {
 	struct pw_context *context;
+	struct pw_loop *main_loop;
 
 #define MODE_SINK	0
 #define MODE_SOURCE	1
@@ -415,6 +416,20 @@ static int create_stream(struct impl *impl)
 	return 0;
 }
 
+static int
+do_schedule_destroy(struct spa_loop *loop,
+	bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct impl *impl = user_data;
+	pw_impl_module_schedule_destroy(impl->module);
+	return 0;
+}
+
+void module_schedule_destroy(struct impl *impl)
+{
+	pw_loop_invoke(impl->main_loop, do_schedule_destroy, 1, NULL, 0, false, impl);
+}
+
 static void context_state_cb(pa_context *c, void *userdata)
 {
 	struct impl *impl = userdata;
@@ -436,7 +451,7 @@ static void context_state_cb(pa_context *c, void *userdata)
 		break;
 	}
 	if (do_destroy)
-		pw_impl_module_schedule_destroy(impl->module);
+		module_schedule_destroy(impl);
 }
 
 static void stream_state_cb(pa_stream *s, void * userdata)
@@ -458,7 +473,7 @@ static void stream_state_cb(pa_stream *s, void * userdata)
 		break;
 	}
 	if (do_destroy)
-		pw_impl_module_schedule_destroy(impl->module);
+		module_schedule_destroy(impl);
 }
 
 static void stream_read_request_cb(pa_stream *s, size_t length, void *userdata)
@@ -958,6 +973,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->module = module;
 	impl->context = context;
+	impl->main_loop = pw_context_get_main_loop(context);
 
 	spa_ringbuffer_init(&impl->ring);
 	impl->buffer = calloc(1, RINGBUFFER_SIZE);

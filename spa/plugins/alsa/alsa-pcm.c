@@ -286,12 +286,20 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 	case 11:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.disable-tsched"),
+			SPA_PROP_INFO_description, SPA_POD_String("Disable timer based scheduling"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(state->disable_tsched),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 12:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.use-chmap"),
 			SPA_PROP_INFO_description, SPA_POD_String("Use the driver channelmap"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(state->props.use_chmap),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 12:
+	case 13:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.multi-rate"),
@@ -299,7 +307,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(state->multi_rate),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 13:
+	case 14:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("latency.internal.rate"),
@@ -308,7 +316,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 				0, 65536),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 14:
+	case 15:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("latency.internal.ns"),
@@ -317,7 +325,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 				0LL, 2 * SPA_NSEC_PER_SEC),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 15:
+	case 16:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("clock.name"),
@@ -376,6 +384,9 @@ int spa_alsa_add_prop_params(struct state *state, struct spa_pod_builder *b)
 
 	spa_pod_builder_string(b, "api.alsa.disable-batch");
 	spa_pod_builder_bool(b, state->disable_batch);
+
+	spa_pod_builder_string(b, "api.alsa.disable-tsched");
+	spa_pod_builder_bool(b, state->disable_tsched);
 
 	spa_pod_builder_string(b, "api.alsa.use-chmap");
 	spa_pod_builder_bool(b, state->props.use_chmap);

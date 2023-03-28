@@ -1203,7 +1203,7 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 
 	/* passive means that this link does not make the nodes active */
 	str = pw_properties_get(properties, PW_KEY_LINK_PASSIVE);
-	this->passive = str ? spa_atob(str) : output->passive && input->passive;
+	this->passive = str ? spa_atob(str) : output->passive | input->passive;
 	if (this->passive && str == NULL)
 		 pw_properties_set(properties, PW_KEY_LINK_PASSIVE, "true");
 

@@ -895,7 +895,7 @@ static void check_properties(struct pw_impl_node *node)
 	const char *str, *recalc_reason = NULL;
 	struct spa_fraction frac;
 	uint32_t value;
-	bool driver;
+	bool driver, trigger;
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_PRIORITY_DRIVER))) {
 		node->priority_driver = pw_properties_parse_int(str);
@@ -928,8 +928,14 @@ static void check_properties(struct pw_impl_node *node)
 	}
 
 	/* not scheduled automatically so we add an additional required trigger */
-	if (pw_properties_get_bool(node->properties, PW_KEY_NODE_TRIGGER, false))
-		node->rt.activation->state[0].required++;
+	trigger = pw_properties_get_bool(node->properties, PW_KEY_NODE_TRIGGER, false);
+	if (trigger != node->trigger) {
+		node->trigger = trigger;
+		if (trigger)
+			node->rt.activation->state[0].required++;
+		else
+			node->rt.activation->state[0].required--;
+	}
 
 	/* group defines what nodes are scheduled together */
 	str = pw_properties_get(node->properties, PW_KEY_NODE_GROUP);

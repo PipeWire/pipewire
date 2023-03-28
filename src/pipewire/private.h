@@ -703,6 +703,8 @@ struct pw_impl_node {
 	unsigned int suspend_on_idle:1;
 	unsigned int reconfigure:1;
 	unsigned int forced_rate:1;
+	unsigned int trigger:1;		/**< has the TRIGGER property and needs an extra
+					  *  trigger to start processing. */
 
 	uint32_t port_user_data_size;	/**< extra size for port user data */
 

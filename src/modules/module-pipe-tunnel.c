@@ -294,7 +294,7 @@ static const struct pw_stream_events capture_stream_events = {
 	.process = capture_stream_process
 };
 
-static int  create_stream(struct impl *impl)
+static int create_stream(struct impl *impl)
 {
 	int res;
 	uint32_t n_params;

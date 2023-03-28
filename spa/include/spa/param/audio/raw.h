@@ -261,6 +261,11 @@ enum spa_audio_channel {
 	SPA_AUDIO_CHANNEL_START_Custom	= 0x10000,
 };
 
+enum spa_audio_volume_ramp_scale {
+	SPA_AUDIO_VOLUME_RAMP_LINEAR,
+	SPA_AUDIO_VOLUME_RAMP_CUBIC,
+};
+
 /** Extra audio flags */
 #define SPA_AUDIO_FLAG_NONE		(0)		/*< no valid flag */
 #define SPA_AUDIO_FLAG_UNPOSITIONED	(1 << 0)	/*< the position array explicitly

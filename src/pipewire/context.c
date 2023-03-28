@@ -794,7 +794,6 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 	spa_list_consume(n, &queue, sort_link) {
 		spa_list_remove(&n->sort_link);
 		spa_list_append(collect, &n->sort_link);
-		n->runnable = n->always_process;
 
 		pw_log_debug(" next node %p: '%s' runnable:%u", n, n->name, n->runnable);
 
@@ -1104,6 +1103,12 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 again:
 	impl->recalc = true;
 
+	/* clean up the flags first */
+	spa_list_for_each(n, &context->node_list, link) {
+		n->visited = false;
+		n->runnable = n->always_process;
+	}
+
 	get_quantums(context, &def_quantum, &min_quantum, &max_quantum, &lim_quantum, &rate_quantum);
 	rates = get_rates(context, &def_rate, &n_rates, &global_force_rate);
 
@@ -1192,9 +1197,6 @@ again:
 			remove_from_driver(context, &collect);
 		}
 	}
-	/* clean up the visited flag now */
-	spa_list_for_each(n, &context->node_list, link)
-		n->visited = false;
 
 	/* assign final quantum and set state for followers and drivers */
 	spa_list_for_each(n, &context->driver_list, driver_link) {

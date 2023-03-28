@@ -956,8 +956,14 @@ static void check_properties(struct pw_impl_node *node)
 		recalc_reason = "link group changed";
 	}
 
-	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_PASSIVE)) == NULL)
-		str = "false";
+	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_PASSIVE)) == NULL) {
+		if ((str = pw_properties_get(node->properties, PW_KEY_MEDIA_CLASS)) != NULL &&
+		    (strstr(str, "/Sink") != NULL || strstr(str, "/Source") != NULL)) {
+			str = "true";
+		} else {
+			str = "false";
+		}
+	}
 	if (spa_streq(str, "out"))
 		node->out_passive = true;
 	else if (spa_streq(str, "in"))

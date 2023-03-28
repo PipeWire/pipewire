@@ -23,6 +23,7 @@
 #include <spa/param/param.h>
 #include <spa/param/latency-utils.h>
 #include <spa/pod/filter.h>
+#include <spa/pod/dynamic.h>
 #include <spa/debug/types.h>
 
 #include "volume-ops.h"
@@ -911,8 +912,8 @@ static double get_volume_at_scale(struct impl *this, double value)
 
 static struct spa_pod *generate_vol_ramp_up_sequence(struct impl *this, const struct props *p)
 {
-	uint8_t buffer[64 * 1024 * 10];
-	struct spa_pod_builder b;
+	uint8_t buffer[64 * 1024];
+	struct spa_pod_dynamic_builder b;
 	struct spa_pod_frame f[1];
 	double volume_accum = p->prev_volume;
 	unsigned int ramp_samples = get_ramp_samples(this);
@@ -920,29 +921,31 @@ static struct spa_pod *generate_vol_ramp_up_sequence(struct impl *this, const st
 	double volume_step = ((p->volume - p->prev_volume) / (ramp_samples / ramp_step_samples));
 	uint32_t volume_offs = 0;
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_pod_builder_push_sequence(&b, &f[0], 0);
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+
+	spa_pod_builder_push_sequence(&b.b, &f[0], 0);
 	spa_log_info(this->log, "generating ramp up sequence from %f to %f with a step value %f at scale %d",
 			p->prev_volume,p->volume, volume_step, p->scale);
 	do {
 		// spa_log_info(this->log, "volume level %f offset %d", get_volume_at_scale(this, volume_accum), volume_offs);
 
-		spa_pod_builder_control(&b, volume_offs, SPA_CONTROL_Properties);
-		spa_pod_builder_add_object(&b,
+		spa_pod_builder_control(&b.b, volume_offs, SPA_CONTROL_Properties);
+		spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_Props, 0,
 				SPA_PROP_volume,
 				SPA_POD_Float(get_volume_at_scale(this, volume_accum)));
 		volume_accum += volume_step;
 		volume_offs += ramp_step_samples;
 	} while (volume_accum < p->volume);
-	spa_pod_builder_pop(&b, &f[0]);
-	return spa_pod_builder_pop(&b, &f[0]);
+	spa_pod_builder_pop(&b.b, &f[0]);
+	return spa_pod_builder_pop(&b.b, &f[0]);
 }
 
 static struct spa_pod *generate_vol_ramp_down_sequence(struct impl *this, const struct props *p)
 {
-	uint8_t buffer[64 * 1024 * 10];
-	struct spa_pod_builder b;
+	uint8_t buffer[64 * 1024];
+	struct spa_pod_dynamic_builder b;
+
 	struct spa_pod_frame f[1];
 	unsigned int ramp_samples = get_ramp_samples(this);
 	unsigned int ramp_step_samples = get_ramp_step_samples(this);
@@ -950,14 +953,15 @@ static struct spa_pod *generate_vol_ramp_down_sequence(struct impl *this, const 
 	double volume_step = ((p->prev_volume - p->volume) / (ramp_samples / ramp_step_samples));
 	uint32_t volume_offs = 0;
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_pod_builder_push_sequence(&b, &f[0], 0);
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+
+	spa_pod_builder_push_sequence(&b.b, &f[0], 0);
 	spa_log_info(this->log, "generating ramp down sequence from %f to %f with a step value %f at scale %d",
 			p->prev_volume, p->volume, volume_step, p->scale);
 	do {
 		// spa_log_info(this->log, "volume level %f offset %d", get_volume_at_scale(this, volume_accum), volume_offs);
-		spa_pod_builder_control(&b, volume_offs, SPA_CONTROL_Properties);
-		spa_pod_builder_add_object(&b,
+		spa_pod_builder_control(&b.b, volume_offs, SPA_CONTROL_Properties);
+		spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_Props, 0,
 				SPA_PROP_volume,
 				SPA_POD_Float(get_volume_at_scale(this, volume_accum)));
@@ -965,8 +969,8 @@ static struct spa_pod *generate_vol_ramp_down_sequence(struct impl *this, const 
 		volume_accum -= volume_step;
 		volume_offs += ramp_step_samples;
 	} while (volume_accum > p->volume);
-	spa_pod_builder_pop(&b, &f[0]);
-	return spa_pod_builder_pop(&b, &f[0]);
+	spa_pod_builder_pop(&b.b, &f[0]);
+	return spa_pod_builder_pop(&b.b, &f[0]);
 }
 
 static struct spa_pod *generate_vol_ramp_sequence(struct impl *this, const struct props *p)
@@ -2837,6 +2841,7 @@ static int impl_node_process(void *object)
 		} else if (this->vol_ramp_sequence) {
 			if (channelmix_process_apply_sequence(this, this->vol_ramp_sequence,
 					&this->vol_ramp_offset, out_datas, in_datas, n_samples) == 1) {
+				free(this->vol_ramp_sequence);
 				this->vol_ramp_sequence = NULL;
 			}
 		}

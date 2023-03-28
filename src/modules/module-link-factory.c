@@ -29,14 +29,21 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"("PW_KEY_OBJECT_LINGER"=<bool>) "		\
 			"("PW_KEY_LINK_PASSIVE"=<bool>)"
 
+#define MODULE_USAGE	"( allow.link.passive=<bool, default false> ) "
+
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Allow clients to create links" },
+	{ PW_KEY_MODULE_USAGE, MODULE_USAGE },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
 struct factory_data {
 	struct pw_context *context;
+
+	struct pw_properties *props;
+
+	unsigned int allow_passive:1;
 
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
@@ -396,6 +403,8 @@ static void *create_object(void *_data,
 		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
 				pw_impl_client_get_info(client)->id);
 
+	if (!d->allow_passive)
+		pw_properties_set(properties, PW_KEY_LINK_PASSIVE, NULL);
 
 	link = pw_context_create_link(context, outport, inport, NULL, properties, sizeof(struct link_data));
 	properties = NULL;
@@ -462,6 +471,7 @@ static void factory_destroy(void *data)
 	d->factory = NULL;
 	if (d->module)
 		pw_impl_module_destroy(d->module);
+	pw_properties_free(d->props);
 }
 
 static const struct pw_impl_factory_events factory_events = {
@@ -527,6 +537,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	data->module = module;
 	data->context = context;
 	data->work = pw_context_get_work_queue(context);
+	data->props = args ? pw_properties_new_string(args) : NULL;
+
+	if (data->props) {
+		data->allow_passive = pw_properties_get_bool(data->props,
+				"allow.link.passive", false);
+	}
 
 	spa_list_init(&data->link_list);
 

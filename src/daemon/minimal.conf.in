@@ -326,7 +326,6 @@ context.objects = [
     #        link.output.port = capture_1
     #        link.input.node  = my-mic
     #        link.input.port  = input_FL
-    #        link.passive     = true
     #    }
     #}
     #{ factory = link-factory
@@ -335,7 +334,6 @@ context.objects = [
     #        link.output.port = capture_2
     #        link.input.node  = my-mic
     #        link.input.port  = input_FR
-    #        link.passive     = true
     #    }
     #}
 ]

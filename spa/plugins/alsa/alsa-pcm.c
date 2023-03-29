@@ -2542,9 +2542,7 @@ static void alsa_wakeup_event(struct spa_source *source)
 			spa_log_trace_fp(state->log, "Woken up with no work to do");
 			return;
 		}
-	}
-
-	if (SPA_LIKELY(state->started && !state->disable_tsched)) {
+	} else if (SPA_LIKELY(state->started)) {
 		if (SPA_UNLIKELY((res = spa_system_timerfd_read(state->data_system,
 						state->timerfd, &expire)) < 0)) {
 			/* we can get here when the timer is changed since the last
@@ -2640,11 +2638,9 @@ static int setup_sources(struct state *state)
 	struct timespec now;
 	int res;
 
-	if (!state->disable_tsched) {
-		if ((res = spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &now)) < 0)
-			return res;
-		state->next_time = SPA_TIMESPEC_TO_NSEC(&now);
-	}
+	if ((res = spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &now)) < 0)
+		return res;
+	state->next_time = SPA_TIMESPEC_TO_NSEC(&now);
 
 	if (state->following) {
 		/* Disable wakeups from this node */
@@ -2668,6 +2664,19 @@ static int setup_sources(struct state *state)
 			}
 		}
 	}
+	return 0;
+}
+
+static int do_setup_sources(struct spa_loop *loop,
+			    bool async,
+			    uint32_t seq,
+			    const void *data,
+			    size_t size,
+			    void *user_data)
+{
+	struct state *state = user_data;
+	spa_dll_init(&state->dll);
+	setup_sources(state);
 	return 0;
 }
 
@@ -2753,23 +2762,10 @@ int spa_alsa_start(struct state *state)
 	else if ((err = do_start(state)) < 0)
 		return err;
 
-	setup_sources(state);
+	spa_loop_invoke(state->data_loop, do_setup_sources, 0, NULL, 0, true, state);
 
 	state->started = true;
 
-	return 0;
-}
-
-static int do_reassign_follower(struct spa_loop *loop,
-			    bool async,
-			    uint32_t seq,
-			    const void *data,
-			    size_t size,
-			    void *user_data)
-{
-	struct state *state = user_data;
-	spa_dll_init(&state->dll);
-	setup_sources(state);
 	return 0;
 }
 
@@ -2784,7 +2780,7 @@ int spa_alsa_reassign_follower(struct state *state)
 	if (following != state->following) {
 		spa_log_debug(state->log, "%p: reassign follower %d->%d", state, state->following, following);
 		state->following = following;
-		spa_loop_invoke(state->data_loop, do_reassign_follower, 0, NULL, 0, true, state);
+		spa_loop_invoke(state->data_loop, do_setup_sources, 0, NULL, 0, true, state);
 	}
 	setup_matching(state);
 
@@ -2819,7 +2815,6 @@ static int do_remove_source(struct spa_loop *loop,
 	} else {
 		clear_period_sources(state);
 	}
-
 	return 0;
 }
 

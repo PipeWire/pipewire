@@ -3800,6 +3800,8 @@ int jack_deactivate (jack_client_t *client)
 		return 0;
 
 	pw_thread_loop_lock(c->context.loop);
+	c->active = false;
+
 	pw_data_loop_stop(c->loop);
 
 	pw_client_node_set_active(c->node, false);
@@ -3818,12 +3820,7 @@ int jack_deactivate (jack_client_t *client)
 
 	pw_thread_loop_unlock(c->context.loop);
 
-	if (res < 0)
-		return res;
-
-	c->active = false;
-
-	return 0;
+	return res;
 }
 
 SPA_EXPORT

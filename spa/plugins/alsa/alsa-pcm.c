@@ -2035,6 +2035,16 @@ static int setup_matching(struct state *state)
 	return 0;
 }
 
+static void update_sources(struct state *state, bool active)
+{
+	if (state->disable_tsched) {
+		for (int i = 0; i < state->n_fds; i++) {
+			state->source[i].mask = active ? state->pfds[i].events : 0;
+			spa_loop_update_source(state->data_loop, &state->source[i]);
+		}
+	}
+}
+
 static inline int check_position_config(struct state *state)
 {
 	uint64_t target_duration;
@@ -2206,6 +2216,8 @@ again:
 
 	if (SPA_UNLIKELY(!state->alsa_started && (total_written > 0 || frames == 0)))
 		do_start(state);
+
+	update_sources(state, true);
 
 	return 0;
 }
@@ -2448,8 +2460,9 @@ static int handle_play(struct state *state, uint64_t current_time,
 
 		spa_log_trace_fp(state->log, "%p: %d", state, io->status);
 
-		io->status = SPA_STATUS_NEED_DATA;
+		update_sources(state, false);
 
+		io->status = SPA_STATUS_NEED_DATA;
 		res = spa_node_call_ready(&state->callbacks, SPA_STATUS_NEED_DATA);
 	}
 	else {
@@ -2518,7 +2531,8 @@ static void alsa_wakeup_event(struct spa_source *source)
 			state->source[i].rmask = 0;
 		}
 
-		if (SPA_UNLIKELY(err = snd_pcm_poll_descriptors_revents(state->hndl, state->pfds, state->n_fds, &revents))) {
+		if (SPA_UNLIKELY(err = snd_pcm_poll_descriptors_revents(state->hndl,
+						state->pfds, state->n_fds, &revents))) {
 			spa_log_error(state->log, "Could not look up revents: %s",
 					snd_strerror(err));
 			return;

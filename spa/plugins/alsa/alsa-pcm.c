@@ -2037,7 +2037,7 @@ static int setup_matching(struct state *state)
 
 static void update_sources(struct state *state, bool active)
 {
-	if (state->disable_tsched) {
+	if (state->disable_tsched && state->source[0].data != NULL) {
 		for (int i = 0; i < state->n_fds; i++) {
 			state->source[i].mask = active ? state->pfds[i].events : 0;
 			spa_loop_update_source(state->data_loop, &state->source[i]);

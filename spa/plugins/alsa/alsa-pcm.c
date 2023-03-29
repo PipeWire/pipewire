@@ -2756,9 +2756,13 @@ int spa_alsa_start(struct state *state)
 	state->alsa_recovering = false;
 	state->alsa_started = false;
 
-	/* start capture now, playback will start after first write */
-	if (state->stream == SND_PCM_STREAM_PLAYBACK)
+	/* start capture now, playback will start after first write. Without tsched, we start
+	 * right away so that the fds become active in poll right away. */
+	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
 		spa_alsa_silence(state, state->start_delay + state->threshold + state->headroom);
+		if (state->disable_tsched)
+			do_start(state);
+	}
 	else if ((err = do_start(state)) < 0)
 		return err;
 

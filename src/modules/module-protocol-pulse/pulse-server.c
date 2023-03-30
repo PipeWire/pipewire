@@ -1154,30 +1154,25 @@ static const struct spa_pod *get_buffers_param(struct stream *s,
 		struct buffer_attr *attr, struct spa_pod_builder *b)
 {
 	const struct spa_pod *param;
-	uint32_t blocks, buffers, size, maxsize, stride;
+	uint32_t blocks, size, stride;
 	struct defs *defs = &s->impl->defs;
 
 	blocks = 1;
 	stride = s->frame_size;
 
-	maxsize = defs->quantum_limit * 32 * s->frame_size;
-	if (s->direction == PW_DIRECTION_OUTPUT) {
-		size = attr->minreq;
-	} else {
-		size = attr->fragsize;
-	}
-	buffers = SPA_CLAMP(maxsize / size, MIN_BUFFERS, MAX_BUFFERS);
+	size = defs->quantum_limit * s->frame_size;
 
-	pw_log_info("[%s] stride %d maxsize %d size %u buffers %d", s->client->name,
-			stride, maxsize, size, buffers);
+	pw_log_info("[%s] stride %d size %u", s->client->name, stride, size);
 
 	param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(buffers,
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2,
 				MIN_BUFFERS, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
-								size, size, maxsize),
+								size,
+								16 * s->frame_size,
+								INT32_MAX),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(stride));
 	return param;
 }

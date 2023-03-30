@@ -2130,7 +2130,7 @@ again:
 					state->props.device, snd_strerror(res));
 			return res;
 		}
-		spa_log_trace_fp(state->log, "%p: begin %ld %ld %d",
+		spa_log_trace_fp(state->log, "%p: begin offset:%ld avail:%ld threshold:%d",
 				state, offset, frames, state->threshold);
 		off = offset;
 	} else {
@@ -2192,7 +2192,7 @@ again:
 		to_write -= n_frames;
 	}
 
-	spa_log_trace_fp(state->log, "%p: commit %ld %ld %"PRIi64,
+	spa_log_trace_fp(state->log, "%p: commit offset:%ld written:%ld sample_count:%"PRIi64,
 			state, offset, written, state->sample_count);
 	total_written += written;
 

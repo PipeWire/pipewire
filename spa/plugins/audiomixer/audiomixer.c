@@ -770,9 +770,9 @@ static int impl_node_process(void *object)
 		size = SPA_MIN(bd->maxsize - offs, bd->chunk->size);
 		maxsize = SPA_MIN(size, maxsize);
 
-		spa_log_trace_fp(this->log, "%p: mix input %d %p->%p %d %d %d:%d", this,
+		spa_log_trace_fp(this->log, "%p: mix input %d %p->%p %d %d %d:%d/%d", this,
 				i, inio, outio, inio->status, inio->buffer_id,
-				offs, size);
+				offs, size, this->stride);
 
 		if (!SPA_FLAG_IS_SET(bd->chunk->flags, SPA_CHUNK_FLAG_EMPTY)) {
 			datas[n_buffers] = SPA_PTROFF(bd->data, offs, void);
@@ -783,7 +783,8 @@ static int impl_node_process(void *object)
 
 	outb = dequeue_buffer(this, outport);
         if (SPA_UNLIKELY(outb == NULL)) {
-                spa_log_trace(this->log, "%p: out of buffers", this);
+                spa_log_trace(this->log, "%p: out of buffers (%d)", this,
+				outport->n_buffers);
                 return -EPIPE;
         }
 

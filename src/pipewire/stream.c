@@ -1045,7 +1045,6 @@ again:
 			impl->drained = false;
 			io->buffer_id = b->id;
 			res = io->status = SPA_STATUS_HAVE_DATA;
-			pw_log_trace_fp("%p: pop %d %p", stream, b->id, io);
 			/* we have a buffer, if we are not rt and don't follow
 			 * any rate matching and there are no more
 			 * buffers queued and there is a buffer to dequeue, ask for
@@ -1056,6 +1055,8 @@ again:
 			ask_more = !impl->process_rt && impl->rate_match == NULL &&
 				queue_is_empty(impl, &impl->queued) &&
 				!queue_is_empty(impl, &impl->dequeued);
+			pw_log_trace_fp("%p: pop %d %p ask_more:%u %p", stream, b->id, io,
+					ask_more, impl->rate_match);
 		} else if (impl->draining || impl->drained) {
 			impl->draining = true;
 			impl->drained = true;

@@ -315,7 +315,6 @@ static unsigned int get_ramp_samples(struct data *data)
 		return data->volume_ramp_samples;
 	else if (data->volume_ramp_time) {
 		unsigned int samples = (data->volume_ramp_time * 48000) / 1000;
-		// printf("volume ramp samples calculated from time %d\n", samples);
 		return samples;
 	}
 	return 0;
@@ -378,7 +377,12 @@ static int fade_in(struct data *data)
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		props = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props, 0,
-			SPA_PROP_volume, SPA_POD_Float(1.0));
+			SPA_PROP_volume, SPA_POD_Float(1.0),
+			SPA_PROP_volumeRampSamples, SPA_POD_Int(data->volume_ramp_samples),
+			SPA_PROP_volumeRampStepSamples, SPA_POD_Int(data->volume_ramp_step_samples),
+			SPA_PROP_volumeRampTime, SPA_POD_Int(data->volume_ramp_time),
+			SPA_PROP_volumeRampStepTime, SPA_POD_Int(data->volume_ramp_step_time),
+			SPA_PROP_volumeRampScale, SPA_POD_Id(data->scale));
 		if ((res = spa_node_set_param(data->sink_node, SPA_PARAM_Props, 0, props)) < 0) {
 			printf("can't call volramp set params %d\n", res);
 			return res;
@@ -425,7 +429,12 @@ static int fade_out(struct data *data)
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		props = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props, 0,
-			SPA_PROP_volume, SPA_POD_Float(0.0));
+			SPA_PROP_volume, SPA_POD_Float(0.0),
+			SPA_PROP_volumeRampSamples, SPA_POD_Int(data->volume_ramp_samples),
+			SPA_PROP_volumeRampStepSamples, SPA_POD_Int(data->volume_ramp_step_samples),
+			SPA_PROP_volumeRampTime, SPA_POD_Int(data->volume_ramp_time),
+			SPA_PROP_volumeRampStepTime, SPA_POD_Int(data->volume_ramp_step_time),
+			SPA_PROP_volumeRampScale, SPA_POD_Id(data->scale));
 		if ((res = spa_node_set_param(data->sink_node, SPA_PARAM_Props, 0, props)) < 0) {
 			printf("can't call volramp set params %d\n", res);
 			return res;
@@ -646,21 +655,6 @@ static int make_nodes(struct data *data)
 		return res;
 	}
 
-	if (spa_streq (data->mode, NATIVE)) {
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		props = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_Props, 0,
-			SPA_PROP_volumeRampSamples, SPA_POD_Int(data->volume_ramp_samples),
-			SPA_PROP_volumeRampStepSamples, SPA_POD_Int(data->volume_ramp_step_samples),
-			SPA_PROP_volumeRampTime, SPA_POD_Int(data->volume_ramp_time),
-			SPA_PROP_volumeRampStepTime, SPA_POD_Int(data->volume_ramp_step_time),
-			SPA_PROP_volumeRampScale, SPA_POD_Id(data->scale));
-		if ((res = spa_node_set_param(data->sink_node, SPA_PARAM_Props, 0, props)) < 0) {
-			printf("can't call volramp set params %d\n", res);
-			return res;
-		}
-		printf("updated volume ramp params\n");
-	}
 	/* set io buffers on source and sink nodes */
 	data->source_sink_io[0] = SPA_IO_BUFFERS_INIT;
 	if ((res = spa_node_port_set_io(data->source_node,

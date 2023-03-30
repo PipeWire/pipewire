@@ -1574,9 +1574,12 @@ static int negotiate_mixer_buffers(struct pw_impl_port *port, uint32_t flags,
 
 		/* try dynamic data */
 		alloc_flags = PW_BUFFERS_FLAG_DYNAMIC;
+		if (SPA_FLAG_IS_SET(node->spa_flags, SPA_NODE_FLAG_ASYNC))
+			alloc_flags |= PW_BUFFERS_FLAG_ASYNC;
 
-		pw_log_debug("%p: %d.%d negotiate %d buffers on node: %p",
-				port, port->direction, port->port_id, n_buffers, node->node);
+		pw_log_debug("%p: %d.%d negotiate %d buffers on node: %p flags:%08x",
+				port, port->direction, port->port_id, n_buffers, node->node,
+				alloc_flags);
 
 		if (port->added) {
 			pw_loop_invoke(node->data_loop, do_remove_port, SPA_ID_INVALID, NULL, 0, true, port);

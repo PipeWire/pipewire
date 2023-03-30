@@ -292,6 +292,9 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		align = SPA_MAX(align, qalign);
 		types = qtypes;
 
+		if (SPA_FLAG_IS_SET(flags, PW_BUFFERS_FLAG_ASYNC))
+			max_buffers = SPA_MAX(2u, max_buffers);
+
 		pw_log_debug("%p: %d %d %d %d %d %d -> %d %zd %zd %d %zd %d", result,
 				qblocks, qminsize, qstride, qmax_buffers, qalign, qtypes,
 				blocks, minsize, stride, max_buffers, align, types);
@@ -300,6 +303,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		minsize = 8192;
 		max_buffers = 2;
 	}
+
 	if (SPA_FLAG_IS_SET(flags, PW_BUFFERS_FLAG_SHARED_MEM)) {
 		if (types != SPA_ID_INVALID)
 			SPA_FLAG_CLEAR(types, 1<<SPA_DATA_MemPtr);

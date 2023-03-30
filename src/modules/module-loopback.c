@@ -638,7 +638,7 @@ static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_
 	const char *str;
 
 	*info = SPA_AUDIO_INFO_RAW_INIT(
-			.format = SPA_AUDIO_FORMAT_F32P);
+			.format = SPA_AUDIO_FORMAT_S32_LE);
 	info->rate = pw_properties_get_int32(props, PW_KEY_AUDIO_RATE, 0);
 	info->channels = pw_properties_get_uint32(props, PW_KEY_AUDIO_CHANNELS, 0);
 	info->channels = SPA_MIN(info->channels, SPA_AUDIO_MAX_CHANNELS);

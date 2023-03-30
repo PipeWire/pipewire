@@ -366,10 +366,10 @@ static int negotiate_buffers(struct impl *this)
 	struct spa_data *datas;
 	uint64_t follower_flags, conv_flags;
 
-	spa_log_debug(this->log, "%p: n_buffers:%d", this, this->n_buffers);
-
 	if (this->target == this->follower)
 		return 0;
+
+	spa_log_debug(this->log, "%p: n_buffers:%d", this, this->n_buffers);
 
 	if (this->n_buffers > 0)
 		return 0;
@@ -579,9 +579,10 @@ static int reconfigure_mode(struct impl *this, bool passthrough,
 		}
 		link_io(this);
 	}
-
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS | SPA_NODE_CHANGE_MASK_PARAMS;
-	this->info.flags &= ~SPA_NODE_FLAG_NEED_CONFIGURE;
+	SPA_FLAG_CLEAR(this->info.flags, SPA_NODE_FLAG_NEED_CONFIGURE);
+	SPA_FLAG_UPDATE(this->info.flags, SPA_NODE_FLAG_ASYNC,
+			this->async && this->follower == this->target);
 	this->params[IDX_Props].user++;
 
 	emit_node_info(this, false);
@@ -757,16 +758,15 @@ static int negotiate_format(struct impl *this)
 	struct spa_pod_builder b = { 0 };
 	int res;
 
+	if (this->target == this->follower)
+		return 0;
+
 	spa_log_debug(this->log, "%p: have_format:%d", this, this->have_format);
 
 	if (this->have_format)
 		return 0;
 
-	if (this->target == this->follower)
-		return 0;
-
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-
 
 	spa_node_send_command(this->follower,
 			&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_ParamBegin));
@@ -1007,6 +1007,8 @@ static void follower_info(void *data, const struct spa_node_info *info)
 		this->info.flags |= SPA_NODE_FLAG_OUT_PORT_CONFIG;
 		this->info.max_output_ports = MAX_PORTS;
 	}
+	SPA_FLAG_UPDATE(this->info.flags, SPA_NODE_FLAG_ASYNC,
+			this->async && this->follower == this->target);
 
 	spa_log_debug(this->log, "%p: follower info %s", this,
 			this->direction == SPA_DIRECTION_INPUT ?

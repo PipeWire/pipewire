@@ -517,8 +517,10 @@ static int make_nodes(struct data *data, const char *device)
 		return res;
 	}
 	/* set io position and clock on source and sink nodes */
-	data->position.clock.rate = SPA_FRACTION(1, 48000);
-	data->position.clock.duration = 1024;
+	data->position.clock.target_rate = SPA_FRACTION(1, 48000);
+	data->position.clock.target_duration = 1024;
+	data->position.clock.rate = data->position.clock.target_rate;
+	data->position.clock.duration = data->position.clock.target_duration;
 	if ((res = spa_node_set_io(data->source_node,
 			SPA_IO_Position,
 			&data->position, sizeof(data->position))) < 0) {

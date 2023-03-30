@@ -227,29 +227,39 @@ next:
 static int link_io(struct impl *this)
 {
 	int res;
-
-	if (this->convert == NULL)
-		return 0;
+	struct spa_io_rate_match *rate_match;
+	size_t rate_match_size;
 
 	spa_log_debug(this->log, "%p: controls", this);
 
 	spa_zero(this->io_rate_match);
 	this->io_rate_match.rate = 1.0;
 
+	if (this->follower == this->target) {
+		rate_match = NULL;
+		rate_match_size = 0;
+	} else {
+		rate_match = &this->io_rate_match;
+		rate_match_size = sizeof(this->io_rate_match);
+	}
+
 	if ((res = spa_node_port_set_io(this->follower,
 			this->direction, 0,
 			SPA_IO_RateMatch,
-			&this->io_rate_match, sizeof(this->io_rate_match))) < 0) {
+			rate_match, rate_match_size)) < 0) {
 		spa_log_debug(this->log, "%p: set RateMatch on follower disabled %d %s", this,
 			res, spa_strerror(res));
 	}
 	else if ((res = spa_node_port_set_io(this->convert,
 			SPA_DIRECTION_REVERSE(this->direction), 0,
 			SPA_IO_RateMatch,
-			&this->io_rate_match, sizeof(this->io_rate_match))) < 0) {
+			rate_match, rate_match_size)) < 0) {
 		spa_log_warn(this->log, "%p: set RateMatch on convert failed %d %s", this,
 			res, spa_strerror(res));
 	}
+
+	if (this->follower == this->target)
+		return 0;
 
 	this->io_buffers = SPA_IO_BUFFERS_INIT;
 
@@ -488,7 +498,7 @@ static int configure_format(struct impl *this, uint32_t flags, const struct spa_
 		format = fmt;
 	}
 
-	if (this->target != this->follower && this->convert) {
+	if (this->target != this->follower) {
 		if ((res = spa_node_port_set_param(this->convert,
 					   SPA_DIRECTION_REVERSE(this->direction), 0,
 					   SPA_PARAM_Format, flags,
@@ -566,8 +576,8 @@ static int reconfigure_mode(struct impl *this, bool passthrough,
 		} else {
 			/* add converter ports */
 			configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_dsp);
-			link_io(this);
 		}
+		link_io(this);
 	}
 
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS | SPA_NODE_CHANGE_MASK_PARAMS;
@@ -775,18 +785,16 @@ static int negotiate_format(struct impl *this)
 			goto done;
 		}
 	}
-	if (this->convert) {
-		state = 0;
-		if ((res = spa_node_port_enum_params_sync(this->convert,
-					SPA_DIRECTION_REVERSE(this->direction), 0,
-					SPA_PARAM_EnumFormat, &state,
-					format, &format, &b)) != 1) {
-			debug_params(this, this->convert,
-					SPA_DIRECTION_REVERSE(this->direction), 0,
-					SPA_PARAM_EnumFormat, format, "convert format", res);
-			res = -ENOTSUP;
-			goto done;
-		}
+	state = 0;
+	if ((res = spa_node_port_enum_params_sync(this->convert,
+				SPA_DIRECTION_REVERSE(this->direction), 0,
+				SPA_PARAM_EnumFormat, &state,
+				format, &format, &b)) != 1) {
+		debug_params(this, this->convert,
+				SPA_DIRECTION_REVERSE(this->direction), 0,
+				SPA_PARAM_EnumFormat, format, "convert format", res);
+		res = -ENOTSUP;
+		goto done;
 	}
 	if (format == NULL) {
 		res = -ENOTSUP;
@@ -1230,7 +1238,7 @@ static int follower_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_i
 	int res;
 	struct impl *this = data;
 
-	if (this->target != this->follower && this->convert)
+	if (this->target != this->follower)
 		res = spa_node_port_reuse_buffer(this->convert, port_id, buffer_id);
 	else
 		res = spa_node_call_reuse_buffer(&this->callbacks, port_id, buffer_id);
@@ -1273,11 +1281,10 @@ static int impl_node_add_listener(void *object,
 		spa_node_add_listener(this->follower, &l, &follower_node_events, this);
 		spa_hook_remove(&l);
 
-		if (this->convert) {
-			spa_zero(l);
-			spa_node_add_listener(this->convert, &l, &convert_node_events, this);
-			spa_hook_remove(&l);
-		}
+		spa_zero(l);
+		spa_node_add_listener(this->convert, &l, &convert_node_events, this);
+		spa_hook_remove(&l);
+
 		this->add_listener = false;
 
 		emit_node_info(this, true);
@@ -1467,7 +1474,7 @@ static int impl_node_process(void *object)
 		 * First we run the converter to process the input for the follower
 		 * then if it produced data, we run the follower. */
 		while (retry--) {
-			status = this->convert ? spa_node_process(this->convert) : 0;
+			status = spa_node_process(this->convert);
 			/* schedule the follower when the converter needed
 			 * a recycled buffer */
 			if (status == -EPIPE || status == 0)
@@ -1499,7 +1506,7 @@ static int impl_node_process(void *object)
 			/* output node (source). First run the converter to make
 			 * sure we push out any queued data. Then when it needs
 			 * more data, schedule the follower. */
-			status = this->convert ? spa_node_process(this->convert) : 0;
+			status = spa_node_process(this->convert);
 			if (status == 0)
 				status = SPA_STATUS_NEED_DATA;
 			else if (status < 0)
@@ -1661,6 +1668,9 @@ impl_init(const struct spa_handle_factory *factory,
 				info, support, n_support);
 
 	spa_handle_get_interface(this->hnd_convert, SPA_TYPE_INTERFACE_Node, &iface);
+	if (iface == NULL)
+		return -EINVAL;
+
 	this->convert = iface;
 	this->target = this->convert;
 

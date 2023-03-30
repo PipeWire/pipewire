@@ -60,11 +60,6 @@ enum spa_prop {
 	SPA_PROP_waveType,
 	SPA_PROP_frequency,
 	SPA_PROP_volume,				/**< a volume (Float), 0.0 silence, 1.0 normal */
-	SPA_PROP_volumeRampSamples,		/**< Samples to ramp the volume over */
-	SPA_PROP_volumeRampStepSamples,	/**< Step or incremental Samples to ramp the volume over */
-	SPA_PROP_volumeRampTime,		/**< Time in millisec to ramp the volume over */
-	SPA_PROP_volumeRampStepTime,	/**< Step or incremental Time in nano seconds to ramp the */
-	SPA_PROP_volumeRampScale,		/**< the scale or graph to used to ramp the volume */
 	SPA_PROP_mute,				/**< mute (Bool) */
 	SPA_PROP_patternType,
 	SPA_PROP_ditherType,
@@ -95,6 +90,11 @@ enum spa_prop {
 	SPA_PROP_exposure,
 	SPA_PROP_gain,
 	SPA_PROP_sharpness,
+	SPA_PROP_volumeRampSamples,		/**< Samples to ramp the volume over */
+	SPA_PROP_volumeRampStepSamples,	/**< Step or incremental Samples to ramp the volume over */
+	SPA_PROP_volumeRampTime,		/**< Time in millisec to ramp the volume over */
+	SPA_PROP_volumeRampStepTime,	/**< Step or incremental Time in nano seconds to ramp the */
+	SPA_PROP_volumeRampScale,		/**< the scale or graph to used to ramp the volume */
 
 	SPA_PROP_START_Other	= 0x80000,	/**< other properties */
 	SPA_PROP_params,			/**< simple control params

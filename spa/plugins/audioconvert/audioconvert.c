@@ -904,7 +904,7 @@ static unsigned int get_ramp_step_samples(struct impl *this)
 static double get_volume_at_scale(struct impl *this, double value)
 {
 	struct volume_ramp_params *vrp = &this->props.vrp;
-	if (vrp->scale == SPA_AUDIO_VOLUME_RAMP_LINEAR)
+	if (vrp->scale == SPA_AUDIO_VOLUME_RAMP_LINEAR || vrp->scale == SPA_AUDIO_VOLUME_RAMP_INVALID)
 		return value;
 	else if (vrp->scale == SPA_AUDIO_VOLUME_RAMP_CUBIC)
 		return (value * value * value);
@@ -926,10 +926,10 @@ static struct spa_pod *generate_ramp_up_seq(struct impl *this)
 	spa_pod_dynamic_builder_init(&b, NULL, 0, 4096);
 
 	spa_pod_builder_push_sequence(&b.b, &f[0], 0);
-	spa_log_info(this->log, "generating ramp up sequence from %f to %f with a step value %f at scale %d",
-			p->prev_volume,p->volume, volume_step, p->scale);
+	spa_log_info(this->log, "generating ramp up sequence from %f to %f with a"
+		" step value %f at scale %d", p->prev_volume, p->volume, volume_step, p->vrp.scale);
 	do {
-		spa_log_info(this->log, "volume accum %f", get_volume_at_scale(this, volume_accum));
+		// spa_log_debug(this->log, "volume accum %f", get_volume_at_scale(this, volume_accum));
 		spa_pod_builder_control(&b.b, volume_offs, SPA_CONTROL_Properties);
 		spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_Props, 0,
@@ -955,10 +955,10 @@ static struct spa_pod *generate_ramp_down_seq(struct impl *this)
 	spa_pod_dynamic_builder_init(&b, NULL, 0, 4096);
 
 	spa_pod_builder_push_sequence(&b.b, &f[0], 0);
-	spa_log_info(this->log, "generating ramp down sequence from %f to %f with a step value %f at scale %d",
-			p->prev_volume, p->volume, volume_step, p->vrp.scale);
+	spa_log_info(this->log, "generating ramp down sequence from %f to %f with a"
+		" step value %f at scale %d", p->prev_volume, p->volume, volume_step, p->vrp.scale);
 	do {
-		spa_log_info(this->log, "volume accum %f", get_volume_at_scale(this, volume_accum));
+		// spa_log_debug(this->log, "volume accum %f", get_volume_at_scale(this, volume_accum));
 		spa_pod_builder_control(&b.b, volume_offs, SPA_CONTROL_Properties);
 		spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_Props, 0,
@@ -1069,7 +1069,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 					return -EAGAIN;
 			}
 
-			if (spa_pod_get_id(&prop->value, &id) == 0) {
+			if (spa_pod_get_id(&prop->value, &id) == 0 && id) {
 				vrp->scale = id;
 				spa_log_info(this->log, "%p volume ramp scale %d", this, id);
 			}
@@ -1451,7 +1451,7 @@ static void set_volume(struct impl *this)
 	float volumes[SPA_AUDIO_MAX_CHANNELS];
 	struct dir *dir = &this->dir[this->direction];
 
-	spa_log_info(this->log, "%p set volume %f have_format:%d", this, this->props.volume, dir->have_format);
+	spa_log_debug(this->log, "%p set volume %f have_format:%d", this, this->props.volume, dir->have_format);
 
 	if (dir->have_format)
 		remap_volumes(this, &dir->format);

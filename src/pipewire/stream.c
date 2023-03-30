@@ -2389,8 +2389,10 @@ do_trigger_process(struct spa_loop *loop,
 	return spa_node_call_ready(&impl->callbacks, res);
 }
 
-static int trigger_request_process(struct stream *impl)
+static int do_trigger_request_process(struct spa_loop *loop,
+                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
+	struct stream *impl = user_data;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { 0 };
 
@@ -2413,7 +2415,8 @@ int pw_stream_trigger_process(struct pw_stream *stream)
 	impl->using_trigger = true;
 
 	if (!impl->driving && !impl->trigger) {
-		res = trigger_request_process(impl);
+		res = pw_loop_invoke(impl->context->main_loop,
+			do_trigger_request_process, 1, NULL, 0, false, impl);
 	} else {
 		if (!impl->process_rt)
 			call_process(impl);

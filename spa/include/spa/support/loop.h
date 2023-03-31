@@ -28,7 +28,7 @@ extern "C" {
 struct spa_loop { struct spa_interface iface; };
 
 #define SPA_TYPE_INTERFACE_LoopControl	SPA_TYPE_INFO_INTERFACE_BASE "LoopControl"
-#define SPA_VERSION_LOOP_CONTROL	0
+#define SPA_VERSION_LOOP_CONTROL	1
 struct spa_loop_control { struct spa_interface iface; };
 
 #define SPA_TYPE_INTERFACE_LoopUtils	SPA_TYPE_INFO_INTERFACE_BASE "LoopUtils"
@@ -140,7 +140,7 @@ struct spa_loop_control_hooks {
 struct spa_loop_control_methods {
 	/* the version of this structure. This can be used to expand this
 	 * structure in the future */
-#define SPA_VERSION_LOOP_CONTROL_METHODS	0
+#define SPA_VERSION_LOOP_CONTROL_METHODS	1
 	uint32_t version;
 
 	int (*get_fd) (void *object);
@@ -182,6 +182,16 @@ struct spa_loop_control_methods {
 	 * The number of dispatched fds is returned.
 	 */
 	int (*iterate) (void *object, int timeout);
+
+	/** Check context of the loop
+	 * \param ctrl the control
+	 *
+	 * This function will check if the current thread is currently the
+	 * one that did the enter call. Since version 1:1.
+	 *
+	 * returns 1 on success, 0 or negative errno value on error.
+	 */
+	int (*check) (void *object);
 };
 
 #define spa_loop_control_method_v(o,method,version,...)			\
@@ -207,6 +217,7 @@ struct spa_loop_control_methods {
 #define spa_loop_control_enter(l)		spa_loop_control_method_v(l,enter,0)
 #define spa_loop_control_leave(l)		spa_loop_control_method_v(l,leave,0)
 #define spa_loop_control_iterate(l,...)		spa_loop_control_method_r(l,iterate,0,__VA_ARGS__)
+#define spa_loop_control_check(l)		spa_loop_control_method_r(l,check,1)
 
 typedef void (*spa_source_io_func_t) (void *data, int fd, uint32_t mask);
 typedef void (*spa_source_idle_func_t) (void *data);

@@ -374,6 +374,29 @@ pw_core_resource_errorf(struct pw_resource *resource, uint32_t id, int seq,
 	va_end(args);
 }
 
+struct pw_loop_callbacks {
+#define PW_VERSION_LOOP_CALLBACKS	0
+	uint32_t version;
+
+	int (*check) (void *data, struct pw_loop *loop);
+};
+
+void
+pw_loop_set_callbacks(struct pw_loop *loop, const struct pw_loop_callbacks *cb, void *data);
+
+int pw_loop_check(struct pw_loop *loop);
+
+#define ensure_loop(loop,...) ({							\
+	int res = pw_loop_check(loop);							\
+	if (res != 1) {									\
+		pw_log_error("%s called from wrong context, check locking: %s",		\
+				__func__, spa_strerror(res));				\
+		fprintf(stderr, "*** %s called from wrong context, check locking: %s\n",\
+				__func__, spa_strerror(res));				\
+		__VA_ARGS__;								\
+	}										\
+})
+
 #define pw_context_driver_emit(c,m,v,...) spa_hook_list_call_simple(&c->driver_listener_list, struct pw_context_driver_events, m, v, ##__VA_ARGS__)
 #define pw_context_driver_emit_start(c,n)	pw_context_driver_emit(c, start, 0, n)
 #define pw_context_driver_emit_xrun(c,n)	pw_context_driver_emit(c, xrun, 0, n)

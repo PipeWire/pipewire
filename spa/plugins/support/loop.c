@@ -356,6 +356,13 @@ static void loop_leave(void *object)
 	}
 }
 
+static int loop_check(void *object)
+{
+	struct impl *impl = object;
+	pthread_t thread_id = pthread_self();
+	return (impl->thread == 0 || pthread_equal(impl->thread, thread_id)) ? 1 : 0;
+}
+
 static inline void free_source(struct source_impl *s)
 {
 	detach_source(&s->source);
@@ -826,6 +833,7 @@ static const struct spa_loop_control_methods impl_loop_control = {
 	.enter = loop_enter,
 	.leave = loop_leave,
 	.iterate = loop_iterate,
+	.check = loop_check,
 };
 
 static const struct spa_loop_utils_methods impl_loop_utils = {

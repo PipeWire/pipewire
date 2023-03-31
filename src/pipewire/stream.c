@@ -1436,6 +1436,8 @@ stream_new(struct pw_context *context, const char *name,
 	struct match match;
 	int res;
 
+	ensure_loop(context->main_loop, return NULL);
+
 	impl = calloc(1, sizeof(struct stream));
 	if (impl == NULL) {
 		res = -errno;
@@ -1647,6 +1649,8 @@ void pw_stream_destroy(struct pw_stream *stream)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct control *c;
 
+	ensure_loop(impl->context->main_loop, return);
+
 	pw_log_debug("%p: destroy", stream);
 
 	pw_stream_emit_destroy(stream);
@@ -1701,6 +1705,9 @@ void pw_stream_add_listener(struct pw_stream *stream,
 			    void *data)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+
+	ensure_loop(impl->context->main_loop);
+
 	spa_hook_list_append(&stream->listener_list, listener, events, data);
 
 	if (events->process && impl->rt_callbacks.funcs == NULL) {
@@ -1736,6 +1743,8 @@ int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict 
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int changed, res = 0;
 	struct match match;
+
+	ensure_loop(impl->context->main_loop, return -EIO);
 
 	changed = pw_properties_update(stream->properties, dict);
 	if (!changed)
@@ -1845,6 +1854,8 @@ pw_stream_connect(struct pw_stream *stream,
 	const char *str;
 	uint32_t i;
 	int res;
+
+	ensure_loop(impl->context->main_loop, return -EIO);
 
 	pw_log_debug("%p: connect target:%d", stream, target_id);
 
@@ -2075,6 +2086,7 @@ SPA_EXPORT
 int pw_stream_disconnect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	ensure_loop(impl->context->main_loop, return -EIO);
 	return stream_disconnect(impl);
 }
 
@@ -2082,6 +2094,10 @@ SPA_EXPORT
 int pw_stream_set_error(struct pw_stream *stream,
 			int res, const char *error, ...)
 {
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+
+	ensure_loop(impl->context->main_loop, return -EIO);
+
 	if (res < 0) {
 		va_list args;
 		char *value;
@@ -2110,6 +2126,8 @@ int pw_stream_update_params(struct pw_stream *stream,
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int res;
 
+	ensure_loop(impl->context->main_loop, return -EIO);
+
 	pw_log_debug("%p: update params", stream);
 	if ((res = update_params(impl, SPA_ID_INVALID, params, n_params)) < 0)
 		return res;
@@ -2130,6 +2148,8 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 	struct spa_pod_frame f[1];
 	struct spa_pod *pod;
 	struct control *c;
+
+	ensure_loop(impl->context->main_loop, return -EIO);
 
 	if (impl->node == NULL)
 		return -EIO;
@@ -2199,6 +2219,8 @@ SPA_EXPORT
 int pw_stream_set_active(struct pw_stream *stream, bool active)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+
+	ensure_loop(impl->context->main_loop, return -EIO);
 
 	pw_log_debug("%p: active:%d", stream, active);
 

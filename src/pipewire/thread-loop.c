@@ -9,6 +9,7 @@
 #include <spa/support/thread.h>
 #include <spa/utils/result.h>
 
+#include "private.h"
 #include "log.h"
 #include "thread.h"
 #include "thread-loop.h"
@@ -85,6 +86,33 @@ static const struct spa_loop_control_hooks impl_hooks = {
 	.after = impl_after,
 };
 
+static int impl_check(void *data, struct pw_loop *loop)
+{
+	struct pw_thread_loop *this = data;
+	int res;
+
+	/* we are in the thread running the loop */
+	if (spa_loop_control_check(this->loop->control) == 1)
+		return 1;
+
+	/* if lock taken by something else, error */
+	if ((res = pthread_mutex_trylock(&this->lock)) != 0) {
+		pw_log_debug("%p: thread:%lu: %s", this, pthread_self(), strerror(res));
+		return -res;
+	}
+	/* we could take the lock, check if we actually locked it somewhere */
+	res = this->recurse > 0 ? 1 : -EPERM;
+	if (res < 0)
+		pw_log_debug("%p: thread:%lu: recurse:%d", this, pthread_self(), this->recurse);
+	pthread_mutex_unlock(&this->lock);
+	return res;
+}
+
+static const struct pw_loop_callbacks impl_callbacks = {
+	PW_VERSION_LOOP_CALLBACKS,
+	.check = impl_check,
+};
+
 static void do_stop(void *data, uint64_t count)
 {
 	struct pw_thread_loop *this = data;
@@ -144,6 +172,7 @@ static struct pw_thread_loop *loop_new(struct pw_loop *loop,
 		goto clean_acceptcond;
 	}
 
+	pw_loop_set_callbacks(loop, &impl_callbacks, this);
 	pw_loop_add_hook(loop, &this->hook, &impl_hooks, this);
 
 	return this;

@@ -9,6 +9,7 @@
 #include <spa/utils/result.h>
 
 #include <pipewire/pipewire.h>
+#include <pipewire/private.h>
 #include <pipewire/loop.h>
 #include <pipewire/log.h>
 #include <pipewire/type.h>
@@ -23,6 +24,9 @@ struct impl {
 
 	struct spa_handle *system_handle;
 	struct spa_handle *loop_handle;
+
+	void *user_data;
+	const struct pw_loop_callbacks *cb;
 };
 /** \endcond */
 
@@ -139,4 +143,25 @@ void pw_loop_destroy(struct pw_loop *loop)
 	pw_unload_spa_handle(impl->loop_handle);
 	pw_unload_spa_handle(impl->system_handle);
 	free(impl);
+}
+
+void
+pw_loop_set_callbacks(struct pw_loop *loop, const struct pw_loop_callbacks *cb, void *data)
+{
+	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
+
+	impl->user_data = data;
+	impl->cb = cb;
+}
+
+SPA_EXPORT
+int pw_loop_check(struct pw_loop *loop)
+{
+	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
+	int res;
+	if (impl->cb && impl->cb->check)
+		res = impl->cb->check(impl->user_data, loop);
+	else
+		res = spa_loop_control_check(loop->control);
+	return res;
 }

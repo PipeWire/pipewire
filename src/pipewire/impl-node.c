@@ -1024,13 +1024,16 @@ static void check_properties(struct pw_impl_node *node)
 	node->lock_rate = pw_properties_get_bool(node->properties, PW_KEY_NODE_LOCK_RATE, false);
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_FORCE_RATE))) {
-		if (spa_atou32(str, &value, 0) &&
-		    node->force_rate != value) {
-			pw_log_info("(%s-%u) force-rate:%u -> %u", node->name,
-						node->info.id, node->force_rate, value);
-			node->force_rate = value;
-			node->stamp = ++context->stamp;
-			recalc_reason = "force rate changed";
+		if (spa_atou32(str, &value, 0)) {
+			if (value == 0)
+				value = node->rate.denom;
+			if (node->force_rate != value) {
+				pw_log_info("(%s-%u) force-rate:%u -> %u", node->name,
+							node->info.id, node->force_rate, value);
+				node->force_rate = value;
+				node->stamp = ++context->stamp;
+				recalc_reason = "force rate changed";
+			}
 		}
 	}
 

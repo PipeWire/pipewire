@@ -1304,7 +1304,7 @@ again:
 			s->moved = false;
 		}
 
-		if (n->forced_rate && !force_rate) {
+		if (n->forced_rate && !force_rate && n->runnable) {
 			/* A node that was forced to a rate but is no longer being
 			 * forced can restore its rate */
 			pw_log_info("(%s-%u) restore rate", n->name, n->info.id);

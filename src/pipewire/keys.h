@@ -149,7 +149,8 @@ extern "C" {
 #define PW_KEY_NODE_LOCK_RATE		"node.lock-rate"	/**< don't change rate when this node
 								  *  is active */
 #define PW_KEY_NODE_FORCE_RATE		"node.force-rate"	/**< force a rate while the node is
-								  *  active */
+								  *  active. A value of 0 takes the denominator
+								  *  of node.rate */
 
 #define PW_KEY_NODE_DONT_RECONNECT	"node.dont-reconnect"	/**< don't reconnect this node. The node is
 								  *  initially linked to target.object or the

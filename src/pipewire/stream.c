@@ -2135,8 +2135,9 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 		pw_log_debug("%p: set control %d %d %f", stream, id, n_values, values[0]);
 
 		if ((c = find_control(stream, id))) {
+			uint32_t container = n_values > 0 ? c->container : SPA_TYPE_None;
 			spa_pod_builder_prop(&b, id, 0);
-			switch (c->container) {
+			switch (container) {
 			case SPA_TYPE_Float:
 				spa_pod_builder_float(&b, values[0]);
 				break;

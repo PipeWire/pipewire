@@ -1758,6 +1758,7 @@ static int device_stop_timer(struct spa_bt_device *device)
 int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 {
 	struct spa_bt_monitor *monitor = device->monitor;
+	struct spa_bt_set_membership *s, *set;
 	uint32_t connected_profiles = device->connected_profiles;
 	uint32_t connectable_profiles =
 		device->adapter ? adapter_connectable_profiles(device->adapter) : 0;
@@ -1767,6 +1768,7 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 		SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY,
 	};
 	bool direction_connected = false;
+	bool set_connected = true;
 	bool all_connected;
 	size_t i;
 
@@ -1783,14 +1785,19 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 
 	all_connected = (device->profiles & connected_profiles) == device->profiles;
 
-	spa_log_debug(monitor->log, "device %p: profiles %08x %08x connectable:%08x added:%d all:%d dir:%d",
+	spa_list_for_each(set, &device->set_membership_list, link)
+		spa_bt_for_each_set_member(s, set)
+			if ((s->device->connected_profiles & s->device->profiles) != s->device->profiles)
+				set_connected = false;
+
+	spa_log_debug(monitor->log, "device %p: profiles %08x %08x connectable:%08x added:%d all:%d dir:%d set:%d",
 			device, device->profiles, connected_profiles, connectable_profiles,
-			device->added, all_connected, direction_connected);
+			device->added, all_connected, direction_connected, set_connected);
 
 	if (connected_profiles == 0 && spa_list_is_empty(&device->codec_switch_list)) {
 		device_stop_timer(device);
 		device_connected(monitor, device, BT_DEVICE_DISCONNECTED);
-	} else if (force || direction_connected || all_connected) {
+	} else if (force || ((direction_connected || all_connected) && set_connected)) {
 		device_stop_timer(device);
 		device_connected(monitor, device, BT_DEVICE_CONNECTED);
 	} else {

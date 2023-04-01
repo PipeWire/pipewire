@@ -45,6 +45,14 @@ struct pac_data {
 	size_t size;
 };
 
+typedef struct {
+	uint8_t rate;
+	uint8_t frame_duration;
+	uint32_t channels;
+	uint16_t framelen;
+	uint8_t n_blks;
+} bap_lc3_t;
+
 static int write_ltv(uint8_t *dest, uint8_t type, void* value, size_t len)
 {
 	struct ltv *ltv = (struct ltv *)dest;
@@ -82,6 +90,7 @@ static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 	data += write_ltv_uint8(data, LC3_TYPE_DUR, LC3_DUR_ANY);
 	data += write_ltv_uint8(data, LC3_TYPE_CHAN, LC3_CHAN_1 | LC3_CHAN_2);
 	data += write_ltv(data, LC3_TYPE_FRAMELEN, framelen, sizeof(framelen));
+	/* XXX: we support only one frame block -> max 2 frames per SDU */
 	data += write_ltv_uint8(data, LC3_TYPE_BLKS, 2);
 
 	return data - caps;
@@ -119,15 +128,35 @@ static int parse_bluez_pacs(const uint8_t *data, size_t data_size, struct pac_da
 	return pac + 1;
 }
 
-static bool parse_capabilities(bap_lc3_t *conf, const uint8_t *data, size_t data_size)
+static uint8_t get_num_channels(uint32_t channels)
 {
+	uint8_t num;
+
+	if (channels == 0)
+		return 1;  /* MONO */
+
+	for (num = 0; channels; channels >>= 1)
+		if (channels & 0x1)
+			++num;
+
+	return num;
+}
+
+static bool select_config(bap_lc3_t *conf, const struct pac_data *pac)
+{
+	const uint8_t *data = pac->data;
+	size_t data_size = pac->size;
 	uint16_t framelen_min = 0, framelen_max = 0;
+	int max_frames = -1;
 
 	if (!data_size)
 		return false;
 	memset(conf, 0, sizeof(*conf));
 
 	conf->frame_duration = 0xFF;
+
+	/* XXX: we always use one frame block */
+	conf->n_blks = 1;
 
 	while (data_size > 0) {
 		struct ltv *ltv = (struct ltv *)data;
@@ -168,12 +197,11 @@ static bool parse_capabilities(bap_lc3_t *conf, const uint8_t *data, size_t data
 			spa_return_val_if_fail(ltv->len == 2, false);
 			{
 				uint8_t channels = ltv->value[0];
-				/* Only mono or stereo streams are currently supported,
-				 * in both case Audio location is defined as both Front Left
-				 * and Front Right, difference is done by the n_blks parameter.
-				 */
-				if ((channels & LC3_CHAN_2) || (channels & LC3_CHAN_1))
+				/* XXX: we hardcode mono or stereo stream */
+				if (channels & LC3_CHAN_2)
 					conf->channels = LC3_CONFIG_CHNL_FR | LC3_CONFIG_CHNL_FL;
+				else if (channels & LC3_CHAN_1)
+					conf->channels = 0;   /* mono (omit Audio_Channel_Allocation) */
 				else
 					return false;
 			}
@@ -185,9 +213,7 @@ static bool parse_capabilities(bap_lc3_t *conf, const uint8_t *data, size_t data
 			break;
 		case LC3_TYPE_BLKS:
 			spa_return_val_if_fail(ltv->len == 2, false);
-			conf->n_blks = ltv->value[0];
-			if (!conf->n_blks)
-				return false;
+			max_frames = ltv->value[0];
 			break;
 		default:
 			return false;
@@ -196,12 +222,16 @@ static bool parse_capabilities(bap_lc3_t *conf, const uint8_t *data, size_t data
 		data += ltv->len + 1;
 	}
 
+	/* Default: 1 per channel (BAP v1.0.1 Sec 4.3.1) */
+	if (max_frames < 0)
+		max_frames = get_num_channels(conf->channels);
+	if (max_frames < get_num_channels(conf->channels))
+		return false;
+
 	if (framelen_min < LC3_MIN_FRAME_BYTES || framelen_max > LC3_MAX_FRAME_BYTES)
 		return false;
 	if (conf->frame_duration == 0xFF || !conf->rate)
 		return false;
-	if (!conf->channels)
-		conf->channels = LC3_CONFIG_CHNL_FL;
 
 	switch (conf->rate) {
 	case LC3_CONFIG_FREQ_48KHZ:
@@ -243,6 +273,9 @@ static bool parse_conf(bap_lc3_t *conf, const uint8_t *data, size_t data_size)
 
 	conf->frame_duration = 0xFF;
 
+	/* Absent Codec_Frame_Blocks_Per_SDU means 0x1 (BAP v1.0.1 Sec 4.3.2) */
+	conf->n_blks = 1;
+
 	while (data_size > 0) {
 		struct ltv *ltv = (struct ltv *)data;
 
@@ -269,7 +302,8 @@ static bool parse_conf(bap_lc3_t *conf, const uint8_t *data, size_t data_size)
 		case LC3_TYPE_BLKS:
 			spa_return_val_if_fail(ltv->len == 2, false);
 			conf->n_blks = ltv->value[0];
-			if (!conf->n_blks)
+			/* XXX: we only support 1 frame block for now */
+			if (conf->n_blks != 1)
 				return false;
 			break;
 		default:
@@ -325,8 +359,8 @@ static int pac_cmp(const void *p1, const void *p2)
 	bap_lc3_t conf1, conf2;
 	int res1, res2;
 
-	res1 = parse_capabilities(&conf1, pac1->data, pac1->size) ? (int)sizeof(bap_lc3_t) : -EINVAL;
-	res2 = parse_capabilities(&conf2, pac2->data, pac2->size) ? (int)sizeof(bap_lc3_t) : -EINVAL;
+	res1 = select_config(&conf1, pac1) ? (int)sizeof(bap_lc3_t) : -EINVAL;
+	res2 = select_config(&conf2, pac2) ? (int)sizeof(bap_lc3_t) : -EINVAL;
 
 	return conf_cmp(&conf1, res1, &conf2, res2);
 }
@@ -353,12 +387,16 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 
 	qsort(pacs, npacs, sizeof(struct pac_data), pac_cmp);
 
-	if (!parse_capabilities(&conf, pacs[0].data, pacs[0].size))
+	if (!select_config(&conf, &pacs[0]))
 		return -ENOTSUP;
 
 	data += write_ltv_uint8(data, LC3_TYPE_FREQ, conf.rate);
 	data += write_ltv_uint8(data, LC3_TYPE_DUR, conf.frame_duration);
-	data += write_ltv_uint32(data, LC3_TYPE_CHAN, htobl(conf.channels));
+
+	/* Indicate MONO with absent Audio_Channel_Allocation (BAP v1.0.1 Sec. 4.3.2) */
+	if (conf.channels != 0)
+		data += write_ltv_uint32(data, LC3_TYPE_CHAN, htobl(conf.channels));
+
 	data += write_ltv_uint16(data, LC3_TYPE_FRAMELEN, htobs(conf.framelen));
 	data += write_ltv_uint8(data, LC3_TYPE_BLKS, conf.n_blks);
 
@@ -378,19 +416,14 @@ static int codec_caps_preference_cmp(const struct media_codec *codec, uint32_t f
 	return conf_cmp(&conf1, res1, &conf2, res2);
 }
 
-static uint8_t channels_to_positions(uint32_t channels, uint8_t n_channels, uint32_t *position)
+static uint8_t channels_to_positions(uint32_t channels, uint32_t *position)
 {
+	uint8_t n_channels = get_num_channels(channels);
 	uint8_t n_positions = 0;
 
 	spa_assert(n_channels <= SPA_AUDIO_MAX_CHANNELS);
 
-	/* First check if stream is configure for Mono, i.e. 1 block for both Front
-	 * Left anf Front Right,
-	 * else map LE Audio locations to PipeWire locations in the ascending order
-	 * which will be used as block order in stream.
-	 */
-	if ((channels & (LC3_CONFIG_CHNL_FR | LC3_CONFIG_CHNL_FL)) == (LC3_CONFIG_CHNL_FR | LC3_CONFIG_CHNL_FL) &&
-	     n_channels == 1) {
+	if (channels == 0) {
 		position[0] = SPA_AUDIO_CHANNEL_MONO;
 		n_positions = 1;
 	} else {
@@ -427,6 +460,9 @@ static uint8_t channels_to_positions(uint32_t channels, uint8_t n_channels, uint
 
 #undef CHANNEL_2_SPACHANNEL
 	}
+
+	if (n_positions != n_channels)
+		return 0;  /* error */
 
 	return n_positions;
 }
@@ -485,7 +521,7 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 		choice->body.type = SPA_CHOICE_Enum;
 	spa_pod_builder_pop(b, &f[1]);
 
-	res = channels_to_positions(conf.channels, conf.n_blks, position);
+	res = channels_to_positions(conf.channels, position);
 	if (res == 0)
 		return -EINVAL;
 	spa_pod_builder_add(b,
@@ -533,7 +569,7 @@ static int codec_validate_config(const struct media_codec *codec, uint32_t flags
 		return -EINVAL;
 	}
 
-	res = channels_to_positions(conf.channels, conf.n_blks, info->info.raw.position);
+	res = channels_to_positions(conf.channels, info->info.raw.position);
 	if (res == 0)
 		return -EINVAL;
 	info->info.raw.channels = res;
@@ -569,7 +605,7 @@ static int codec_get_qos(const struct media_codec *codec,
 	else
 		qos->phy = 0x2;
 	qos->retransmission = 2; /* default */
-	qos->sdu = conf.framelen * conf.n_blks;
+	qos->sdu = conf.framelen * conf.n_blks * get_num_channels(conf.channels);
 	qos->latency = 20; /* default */
 	qos->delay = 40000U;
 	qos->interval = (conf.frame_duration == LC3_CONFIG_DURATION_7_5 ? 7500 : 10000);
@@ -651,7 +687,7 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		res = -EINVAL;
 		goto error;
 	}
-	this->codesize = this->samples * this->channels * sizeof(int32_t);
+	this->codesize = this->samples * this->channels * conf.n_blks * sizeof(int32_t);
 
 	if (!(flags & MEDIA_CODEC_FLAG_SINK)) {
 		for (ich = 0; ich < this->channels; ich++) {

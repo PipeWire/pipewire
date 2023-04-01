@@ -83,14 +83,6 @@
 
 #define LC3_MAX_CHANNELS 28
 
-typedef struct {
-    uint8_t rate;
-	uint8_t frame_duration;
-	uint32_t channels;
-	uint16_t framelen;
-	uint8_t n_blks;
-} __attribute__ ((packed)) bap_lc3_t;
-
 #define BT_ISO_QOS_CIG_UNSET    0xff
 #define BT_ISO_QOS_CIS_UNSET    0xff
 

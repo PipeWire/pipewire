@@ -3185,8 +3185,6 @@ static int do_transport_release(struct spa_bt_transport *transport)
 	r = dbus_connection_send_with_reply_and_block(monitor->conn, m, -1, &err);
 	dbus_message_unref(m);
 
-	spa_bt_device_update_last_bluez_action_time(transport->device);
-
 	if (r == NULL)  {
 		if (is_idle) {
 			/* XXX: The fd always needs to be closed. However, Release()

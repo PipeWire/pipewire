@@ -38,6 +38,8 @@
 #include "iso-io.h"
 #include "defs.h"
 
+#include "bap-codec-caps.h"
+
 static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
@@ -2878,6 +2880,16 @@ static int transport_update_props(struct spa_bt_transport *transport,
 			else
 				transport->bap_cis = value;
 		}
+		else if (spa_streq(key, "Location")) {
+			uint32_t value;
+
+			if (type != DBUS_TYPE_UINT32)
+				goto next;
+			dbus_message_iter_get_basic(&it[1], &value);
+
+			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
+			transport->bap_location = value;
+		}
 next:
 		dbus_message_iter_next(props_iter);
 	}
@@ -3845,6 +3857,64 @@ int spa_bt_device_supports_hfp_codec(struct spa_bt_device *device, unsigned int 
 	return spa_bt_backend_supports_codec(monitor->backend, device, codec);
 }
 
+static void bap_update_codec_location(struct spa_bt_transport *t)
+{
+	uint8_t *data = t->configuration;
+	size_t size = t->configuration_len;
+	struct ltv *ltv;
+	uint32_t location;
+	int i;
+
+	if (!t->bap_location)
+		return;
+
+	/*
+	 * Append channel location from BAP transport location, if no channel
+	 * configuration is present in the configuration.
+	 *
+	 * XXX: The codec select_configuration should set the location
+	 * XXX: for mono channels from the device location. We have to do
+	 * XXX: this here because transport location is not know
+	 * XXX: in SelectProperties (TODO: should be fixed in bluez).
+	 */
+
+	while (size > 0) {
+		ltv = (struct ltv *)data;
+
+		if (ltv->len < sizeof(struct ltv) || ltv->len >= size)
+			return;
+
+		if (ltv->type == LC3_TYPE_CHAN)
+			return;  /* already has the channel info */
+
+		size -= ltv->len + 1;
+		data += ltv->len + 1;
+	}
+
+	/* Pick the first location bit set */
+	location = t->bap_location;
+	for (i = 0; i < 32; ++i) {
+		if (location & (1 << i)) {
+			location = (1 << i);
+			break;
+		}
+	}
+
+	/* Append LTV value to transport configuration */
+	size = t->configuration_len + sizeof(struct ltv) + sizeof(uint32_t);
+	data = realloc(t->configuration, size);
+	if (!data)
+		return;
+
+	ltv = SPA_PTROFF(data, t->configuration_len, struct ltv);
+	ltv->len = 5;
+	ltv->type = LC3_TYPE_CHAN;
+	memcpy(ltv->value, &location, sizeof(uint32_t));
+
+	t->configuration = data;
+	t->configuration_len = size;
+}
+
 static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		const char *path, DBusMessage *m, void *userdata)
 {
@@ -3928,6 +3998,9 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		transport->volumes[SPA_BT_VOLUME_ID_TX].active
 			|= transport->device->a2dp_volume_active[SPA_BT_VOLUME_ID_TX];
 	}
+
+	if (codec->bap)
+		bap_update_codec_location(transport);
 
 	if (codec->validate_config) {
 		struct spa_audio_info info;

@@ -34,12 +34,6 @@ struct impl {
 	unsigned int codesize;
 };
 
-struct __attribute__((packed)) ltv {
-	uint8_t  len;
-	uint8_t  type;
-	uint8_t  value[];
-};
-
 struct pac_data {
 	const uint8_t *data;
 	size_t size;

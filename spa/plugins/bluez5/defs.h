@@ -612,6 +612,7 @@ struct spa_bt_transport {
 	unsigned int latency_us;
 	uint8_t bap_cig;
 	uint8_t bap_cis;
+	uint32_t bap_location;
 
 	struct spa_bt_iso_io *iso_io;
 	struct spa_bt_sco_io *sco_io;

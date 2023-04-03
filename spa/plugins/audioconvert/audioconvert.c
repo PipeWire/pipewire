@@ -1142,7 +1142,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 		void *sequence = NULL;
 		if (p->volume == p->prev_volume) {
 			spa_log_error(this->log, "no change in volume, cannot ramp volume");
-			return EIO;
+			return -EIO;
 		} else if (p->volume > p->prev_volume)
 			sequence = generate_ramp_up_seq(this);
 		else
@@ -1150,7 +1150,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 
 		if (!sequence) {
 			spa_log_error(this->log, "unable to generate sequence");
-			return EIO;
+			return -EIO;
 		}
 		this->vol_ramp_sequence = (struct spa_pod_sequence *) sequence;
 		this->vol_ramp_offset = 0;

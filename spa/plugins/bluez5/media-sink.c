@@ -1796,6 +1796,8 @@ static int impl_node_process(void *object)
 
 	if (io->status == SPA_STATUS_HAVE_DATA && io->buffer_id < port->n_buffers) {
 		struct buffer *b = &port->buffers[io->buffer_id];
+		struct spa_data *d = b->buf->datas;
+		unsigned int frames;
 
 		if (!SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
 			spa_log_warn(this->log, "%p: buffer %u in use", this, io->buffer_id);
@@ -1803,7 +1805,8 @@ static int impl_node_process(void *object)
 			return -EINVAL;
 		}
 
-		spa_log_trace(this->log, "%p: queue buffer %u", this, io->buffer_id);
+		frames = d ? d[0].chunk->size / port->frame_size : 0;
+		spa_log_trace(this->log, "%p: queue buffer %u frames:%u", this, io->buffer_id, frames);
 
 		spa_list_append(&port->ready, &b->link);
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);

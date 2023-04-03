@@ -844,14 +844,15 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 		}
 		/* now go through all the nodes that have the same group and
 		 * that are not yet visited */
-		if (n->group != NULL) {
+		if (n->group != NULL || n->link_group != NULL) {
 			spa_list_for_each(t, &context->node_list, link) {
 				if (t->exported || !t->active || t->visited)
 					continue;
-				if (!spa_streq(t->group, n->group))
+				if ((t->group == NULL || !spa_streq(t->group, n->group)) &&
+				    (t->link_group == NULL || !spa_streq(t->link_group, n->link_group)))
 					continue;
-				pw_log_debug("%p: %s join group %s",
-						t, t->name, t->group);
+				pw_log_debug("%p: %s join group:%s link-group:%s",
+						t, t->name, n->group, n->link_group);
 				t->visited = true;
 				spa_list_append(&queue, &t->sort_link);
 			}
@@ -1193,7 +1194,7 @@ again:
 			/* driver needed for this group */
 			move_to_driver(context, &collect, driver);
 		} else {
-			/* no driver, make sure the nodes stops */
+			/* no driver, make sure the nodes stop */
 			remove_from_driver(context, &collect);
 		}
 	}

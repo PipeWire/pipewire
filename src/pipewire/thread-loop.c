@@ -480,5 +480,5 @@ void pw_thread_loop_accept(struct pw_thread_loop *loop)
 SPA_EXPORT
 bool pw_thread_loop_in_thread(struct pw_thread_loop *loop)
 {
-	return loop->running && pthread_self() == loop->thread;
+	return loop->running && pthread_equal(loop->thread, pthread_self());
 }

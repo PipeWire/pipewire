@@ -333,7 +333,7 @@ static void loop_enter(void *object)
 		impl->enter_count = 1;
 	} else {
 		spa_return_if_fail(impl->enter_count > 0);
-		spa_return_if_fail(impl->thread == thread_id);
+		spa_return_if_fail(pthread_equal(impl->thread, thread_id));
 		impl->enter_count++;
 	}
 	spa_log_trace(impl->log, "%p: enter %p", impl, (void *) impl->thread);
@@ -345,7 +345,7 @@ static void loop_leave(void *object)
 	pthread_t thread_id = pthread_self();
 
 	spa_return_if_fail(impl->enter_count > 0);
-	spa_return_if_fail(impl->thread == thread_id);
+	spa_return_if_fail(pthread_equal(impl->thread, thread_id));
 
 	spa_log_trace(impl->log, "%p: leave %p", impl, (void *) impl->thread);
 

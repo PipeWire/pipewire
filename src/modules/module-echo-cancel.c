@@ -564,6 +564,27 @@ static void source_state_changed(void *data, enum pw_stream_state old,
 	}
 }
 
+static void reset_buffers(struct impl *impl)
+{
+	uint32_t index, i;
+
+	spa_ringbuffer_init(&impl->rec_ring);
+	spa_ringbuffer_init(&impl->play_ring);
+	spa_ringbuffer_init(&impl->play_delayed_ring);
+	spa_ringbuffer_init(&impl->out_ring);
+
+	for (i = 0; i < impl->info.channels; i++) {
+		memset(impl->rec_buffer[i], 0, impl->rec_ringsize);
+		memset(impl->play_buffer[i], 0, impl->play_ringsize);
+		memset(impl->out_buffer[i], 0, impl->out_ringsize);
+	}
+
+	spa_ringbuffer_get_write_index(&impl->play_ring, &index);
+	spa_ringbuffer_write_update(&impl->play_ring, index + (sizeof(float) * (impl->buffer_delay)));
+	spa_ringbuffer_get_read_index(&impl->play_ring, &index);
+	spa_ringbuffer_read_update(&impl->play_ring, index + (sizeof(float) * (impl->buffer_delay)));
+}
+
 static void input_param_latency_changed(struct impl *impl, const struct spa_pod *param)
 {
 	struct spa_latency_info latency;
@@ -647,7 +668,12 @@ static void input_param_changed(void *data, uint32_t id, const struct spa_pod* p
 	struct spa_pod_object* obj = (struct spa_pod_object*)param;
 	const struct spa_pod_prop* prop;
 	struct impl* impl = data;
+
 	switch (id) {
+	case SPA_PARAM_Format:
+		if (param == NULL)
+			reset_buffers(impl);
+		break;
 	case SPA_PARAM_Latency:
 		input_param_latency_changed(impl, param);
 		break;
@@ -748,7 +774,12 @@ static void output_param_changed(void *data, uint32_t id, const struct spa_pod *
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
 	const struct spa_pod_prop *prop;
 	struct impl *impl = data;
+
 	switch (id) {
+	case SPA_PARAM_Format:
+		if (param == NULL)
+			reset_buffers(impl);
+		break;
 	case SPA_PARAM_Latency:
 		output_param_latency_changed(impl, param);
 		break;
@@ -877,7 +908,6 @@ static int setup_streams(struct impl *impl)
 	uint32_t offsets[512];
 	const struct spa_pod *params[512];
 	struct spa_pod_dynamic_builder b;
-	uint32_t index;
 
 	impl->capture = pw_stream_new(impl->core,
 			"Echo-Cancel Capture", impl->capture_props);
@@ -1012,15 +1042,8 @@ static int setup_streams(struct impl *impl)
 		impl->play_buffer[i] = malloc(impl->play_ringsize);
 		impl->out_buffer[i] = malloc(impl->out_ringsize);
 	}
-	spa_ringbuffer_init(&impl->rec_ring);
-	spa_ringbuffer_init(&impl->play_ring);
-	spa_ringbuffer_init(&impl->play_delayed_ring);
-	spa_ringbuffer_init(&impl->out_ring);
 
-	spa_ringbuffer_get_write_index(&impl->play_ring, &index);
-	spa_ringbuffer_write_update(&impl->play_ring, index + (sizeof(float) * (impl->buffer_delay)));
-	spa_ringbuffer_get_read_index(&impl->play_ring, &index);
-	spa_ringbuffer_read_update(&impl->play_ring, index + (sizeof(float) * (impl->buffer_delay)));
+	reset_buffers(impl);
 
 	return 0;
 }

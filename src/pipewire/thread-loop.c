@@ -44,13 +44,13 @@ struct pw_thread_loop {
 };
 /** \endcond */
 
-static void before(void *data)
+static void impl_before(void *data)
 {
 	struct pw_thread_loop *this = data;
 	pthread_mutex_unlock(&this->lock);
 }
 
-static void after(void *data)
+static void impl_after(void *data)
 {
 	struct pw_thread_loop *this = data;
 	pthread_mutex_lock(&this->lock);
@@ -58,8 +58,8 @@ static void after(void *data)
 
 static const struct spa_loop_control_hooks impl_hooks = {
 	SPA_VERSION_LOOP_CONTROL_HOOKS,
-	before,
-	after,
+	.before = impl_before,
+	.after = impl_after,
 };
 
 static void do_stop(void *data, uint64_t count)

@@ -995,7 +995,7 @@ static int rtsp_setup_reply(void *data, int status, const struct spa_dict *heade
 		break;
 
 	case PROTO_UDP:
-		if (control_port == 0 || timing_port == 0) {
+		if (control_port == 0) {
 			pw_log_error("missing UDP ports in Transport");
 			return 0;
 		}
@@ -1005,11 +1005,17 @@ static int rtsp_setup_reply(void *data, int status, const struct spa_dict *heade
 			return impl->server_fd;
 		if ((impl->control_fd = connect_socket(impl, SOCK_DGRAM, impl->control_fd, control_port)) < 0)
 			return impl->control_fd;
-		if ((impl->timing_fd = connect_socket(impl, SOCK_DGRAM, impl->timing_fd, timing_port)) < 0)
-			return impl->timing_fd;
+		if (timing_port != 0) {
+			/* it is possible that there is no timing_port. We simply don't
+			 * connect then and don't send an initial timing packet.
+			 * We will reply to received timing packets on the same address we
+			 * received the packet from so we don't really need this. */
+			if ((impl->timing_fd = connect_socket(impl, SOCK_DGRAM, impl->timing_fd, timing_port)) < 0)
+				return impl->timing_fd;
 
-		ntp = ntp_now(CLOCK_MONOTONIC);
-		send_udp_timing_packet(impl, ntp, ntp, NULL, 0);
+			ntp = ntp_now(CLOCK_MONOTONIC);
+			send_udp_timing_packet(impl, ntp, ntp, NULL, 0);
+		}
 
 		impl->control_source = pw_loop_add_io(impl->loop, impl->control_fd,
 				SPA_IO_IN, false, on_control_source_io, impl);

@@ -60,10 +60,10 @@ static int do_unlock(struct pw_thread_loop *this)
 	int res;
 	spa_return_val_if_fail(this->recurse > 0, -EIO);
 	this->recurse--;
-	if ((res = pthread_mutex_unlock(&this->lock)) != 0)
+	if ((res = pthread_mutex_unlock(&this->lock)) != 0) {
 		pw_log_error("%p: thread:%lu: %s", this, pthread_self(), strerror(res));
-	else
 		this->recurse++;
+	}
 	return -res;
 }
 

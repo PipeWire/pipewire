@@ -1356,6 +1356,41 @@ const char *pw_filter_state_as_string(enum pw_filter_state state)
 	return "invalid-state";
 }
 
+static int filter_disconnect(struct filter *impl)
+{
+	struct pw_filter *filter = &impl->this;
+	pw_log_debug("%p: disconnect", impl);
+
+	if (impl->disconnecting)
+		return -EBUSY;
+
+	impl->disconnecting = true;
+
+	if (filter->proxy) {
+		pw_proxy_destroy(filter->proxy);
+		filter->proxy = NULL;
+	}
+	if (impl->disconnect_core) {
+		impl->disconnect_core = false;
+		spa_hook_remove(&filter->core_listener);
+		spa_list_remove(&filter->link);
+		pw_core_disconnect(filter->core);
+		filter->core = NULL;
+	}
+	return 0;
+}
+
+static void free_port(struct filter *impl, struct port *port)
+{
+	spa_list_remove(&port->link);
+	spa_node_emit_port_info(&impl->hooks, port->direction, port->id, NULL);
+	pw_map_remove(&impl->ports[port->direction], port->id);
+	clear_buffers(port);
+	clear_params(impl, port, SPA_ID_INVALID);
+	pw_properties_free(port->props);
+	free(port);
+}
+
 SPA_EXPORT
 void pw_filter_destroy(struct pw_filter *filter)
 {
@@ -1367,10 +1402,10 @@ void pw_filter_destroy(struct pw_filter *filter)
 	pw_filter_emit_destroy(filter);
 
 	if (!impl->disconnecting)
-		pw_filter_disconnect(filter);
+		filter_disconnect(impl);
 
 	spa_list_consume(p, &impl->port_list, link)
-		pw_filter_remove_port(p->user_data);
+		free_port(impl, p);
 
 	if (filter->core) {
 		spa_hook_remove(&filter->core_listener);
@@ -1591,26 +1626,7 @@ SPA_EXPORT
 int pw_filter_disconnect(struct pw_filter *filter)
 {
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
-
-	pw_log_debug("%p: disconnect", filter);
-
-	if (impl->disconnecting)
-		return -EBUSY;
-
-	impl->disconnecting = true;
-
-	if (filter->proxy) {
-		pw_proxy_destroy(filter->proxy);
-		filter->proxy = NULL;
-	}
-	if (impl->disconnect_core) {
-		impl->disconnect_core = false;
-		spa_hook_remove(&filter->core_listener);
-		spa_list_remove(&filter->link);
-		pw_core_disconnect(filter->core);
-		filter->core = NULL;
-	}
-	return 0;
+	return filter_disconnect(impl);
 }
 
 static void add_port_params(struct filter *impl, struct port *port)
@@ -1746,17 +1762,6 @@ error_free:
 error_cleanup:
 	pw_properties_free(props);
 	return NULL;
-}
-
-static inline void free_port(struct filter *impl, struct port *port)
-{
-	spa_list_remove(&port->link);
-	spa_node_emit_port_info(&impl->hooks, port->direction, port->id, NULL);
-	pw_map_remove(&impl->ports[port->direction], port->id);
-	clear_buffers(port);
-	clear_params(impl, port, SPA_ID_INVALID);
-	pw_properties_free(port->props);
-	free(port);
 }
 
 SPA_EXPORT

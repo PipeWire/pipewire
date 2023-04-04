@@ -1609,6 +1609,38 @@ const char *pw_stream_state_as_string(enum pw_stream_state state)
 	return "invalid-state";
 }
 
+static int stream_disconnect(struct stream *impl)
+{
+	struct pw_stream *stream = &impl->this;
+
+	pw_log_debug("%p: disconnect", stream);
+
+	if (impl->disconnecting)
+		return -EBUSY;
+
+	impl->disconnecting = true;
+
+	if (impl->node)
+		pw_impl_node_set_active(impl->node, false);
+
+	if (stream->proxy) {
+		pw_proxy_destroy(stream->proxy);
+		stream->proxy = NULL;
+	}
+
+	if (impl->node)
+		pw_impl_node_destroy(impl->node);
+
+	if (impl->disconnect_core) {
+		impl->disconnect_core = false;
+		spa_hook_remove(&stream->core_listener);
+		spa_list_remove(&stream->link);
+		pw_core_disconnect(stream->core);
+		stream->core = NULL;
+	}
+	return 0;
+}
+
 SPA_EXPORT
 void pw_stream_destroy(struct pw_stream *stream)
 {
@@ -1620,7 +1652,7 @@ void pw_stream_destroy(struct pw_stream *stream)
 	pw_stream_emit_destroy(stream);
 
 	if (!impl->disconnecting)
-		pw_stream_disconnect(stream);
+		stream_disconnect(impl);
 
 	if (stream->core) {
 		spa_hook_remove(&stream->core_listener);
@@ -2043,33 +2075,7 @@ SPA_EXPORT
 int pw_stream_disconnect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-
-	pw_log_debug("%p: disconnect", stream);
-
-	if (impl->disconnecting)
-		return -EBUSY;
-
-	impl->disconnecting = true;
-
-	if (impl->node)
-		pw_impl_node_set_active(impl->node, false);
-
-	if (stream->proxy) {
-		pw_proxy_destroy(stream->proxy);
-		stream->proxy = NULL;
-	}
-
-	if (impl->node)
-		pw_impl_node_destroy(impl->node);
-
-	if (impl->disconnect_core) {
-		impl->disconnect_core = false;
-		spa_hook_remove(&stream->core_listener);
-		spa_list_remove(&stream->link);
-		pw_core_disconnect(stream->core);
-		stream->core = NULL;
-	}
-	return 0;
+	return stream_disconnect(impl);
 }
 
 SPA_EXPORT

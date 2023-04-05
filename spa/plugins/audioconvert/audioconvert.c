@@ -1512,7 +1512,6 @@ static int setup_channelmix(struct impl *this)
 		p = out->format.info.raw.position[i];
 		dst_mask |= 1ULL << (p < 64 ? p : 0);
 	}
-
 	spa_log_info(this->log, "in  %s (%016"PRIx64")", format_position(str, sizeof(str),
 				src_chan, in->format.info.raw.position), src_mask);
 	spa_log_info(this->log, "out %s (%016"PRIx64")", format_position(str, sizeof(str),
@@ -1526,6 +1525,10 @@ static int setup_channelmix(struct impl *this)
 			dst_chan,
 			in->format.info.raw.rate,
 			src_mask, dst_mask);
+
+	if (this->props.mix_disable &&
+	    (src_chan != dst_chan || src_mask != dst_mask)
+		return -EPERM;
 
 	this->mix.src_chan = src_chan;
 	this->mix.src_mask = src_mask;
@@ -1559,6 +1562,10 @@ static int setup_resample(struct impl *this)
 			spa_debug_type_find_name(spa_type_audio_format, SPA_AUDIO_FORMAT_DSP_F32),
 			out->format.info.raw.channels,
 			out->format.info.raw.rate);
+
+	if (this->props.resample_disable &&
+	    in->format.info.raw.rate != out->format.info.raw.rate)
+		return -EPERM;
 
 	if (this->resample.free)
 		resample_free(&this->resample);
@@ -2517,9 +2524,18 @@ static uint32_t resample_update_rate_match(struct impl *this, bool passthrough, 
 
 static inline bool resample_is_passthrough(struct impl *this)
 {
-	return this->resample.i_rate == this->resample.o_rate && this->rate_scale == 1.0 &&
-		!this->rate_adjust && (this->io_rate_match == NULL ||
-		 !SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE));
+	if (this->props.resample_disabled)
+		return true;
+	if (this->resample.i_rate != this->resample.o_rate)
+		return false;
+	if (this->rate_scale != 1.0)
+		return false;
+	if (this->rate_adjust)
+		return false;
+	if (this->io_rate_match != NULL &&
+	    SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE))
+		return false;
+	return true;
 }
 
 static int impl_node_process(void *object)

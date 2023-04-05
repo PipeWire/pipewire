@@ -1526,8 +1526,8 @@ static int setup_channelmix(struct impl *this)
 			in->format.info.raw.rate,
 			src_mask, dst_mask);
 
-	if (this->props.mix_disable &&
-	    (src_chan != dst_chan || src_mask != dst_mask)
+	if (this->props.mix_disabled &&
+	    (src_chan != dst_chan || src_mask != dst_mask))
 		return -EPERM;
 
 	this->mix.src_chan = src_chan;
@@ -1563,7 +1563,7 @@ static int setup_resample(struct impl *this)
 			out->format.info.raw.channels,
 			out->format.info.raw.rate);
 
-	if (this->props.resample_disable &&
+	if (this->props.resample_disabled &&
 	    in->format.info.raw.rate != out->format.info.raw.rate)
 		return -EPERM;
 

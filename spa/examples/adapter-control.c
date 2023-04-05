@@ -309,27 +309,33 @@ exit_cleanup:
 	return res;
 }
 
-static unsigned int get_ramp_samples(struct data *data)
+static int get_ramp_samples(struct data *data)
 {
+	int samples = -1;
 	if (data->volume_ramp_samples)
-		return data->volume_ramp_samples;
+		samples = data->volume_ramp_samples;
 	else if (data->volume_ramp_time) {
-		unsigned int samples = (data->volume_ramp_time * 48000) / 1000;
-		return samples;
+		samples = (data->volume_ramp_time * 48000) / 1000;
 	}
-	return 0;
+	if (!samples)
+		samples = -1;
+
+	return samples;
 }
 
-static unsigned int get_ramp_step_samples(struct data *data)
+static int get_ramp_step_samples(struct data *data)
 {
+	int samples = -1;
 	if (data->volume_ramp_step_samples)
-		return data->volume_ramp_step_samples;
+		samples = data->volume_ramp_step_samples;
 	else if (data->volume_ramp_step_time) {
 		/* convert the step time which is in nano seconds to seconds */
-		unsigned int samples = (data->volume_ramp_step_time / 1000) * (48000 / 1000);
-		return samples;
+		samples = (data->volume_ramp_step_time / 1000) * (48000 / 1000);
 	}
-	return 0;
+	if (!samples)
+		samples = -1;
+
+	return samples;
 }
 
 static double get_volume_at_scale(struct data *data)
@@ -349,8 +355,8 @@ static int fade_in(struct data *data)
 		struct spa_pod_builder b;
 		struct spa_pod_frame f[1];
 		void *buffer = data->control_buffer->datas[0].data;
-		unsigned int ramp_samples = get_ramp_samples(data);
-		unsigned int ramp_step_samples = get_ramp_step_samples(data);
+		int ramp_samples = get_ramp_samples(data);
+		int ramp_step_samples = get_ramp_step_samples(data);
 		double step_size = ((double) ramp_step_samples / (double) ramp_samples);
 		uint32_t buffer_size = data->control_buffer->datas[0].maxsize;
 		data->control_buffer->datas[0].chunk[0].size = buffer_size;
@@ -398,8 +404,8 @@ static int fade_out(struct data *data)
 	if (spa_streq (data->mode, NON_NATIVE)) {
 		struct spa_pod_builder b;
 		struct spa_pod_frame f[1];
-		unsigned int ramp_samples = get_ramp_samples(data);
-		unsigned int ramp_step_samples = get_ramp_step_samples(data);
+		int ramp_samples = get_ramp_samples(data);
+		int ramp_step_samples = get_ramp_step_samples(data);
 		double step_size = ((double) ramp_step_samples / (double) ramp_samples);
 
 

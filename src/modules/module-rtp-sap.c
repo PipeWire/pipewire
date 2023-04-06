@@ -268,6 +268,7 @@ static const struct format_info audio_format_info[] = {
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S16_BE, 2, "L16", "audio", "S16BE" },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S24_BE, 3, "L24", "audio", "S16LE" },
 	{ SPA_MEDIA_SUBTYPE_control, 0, 1, "rtp-midi", "midi", NULL },
+	{ SPA_MEDIA_SUBTYPE_opus, 0, 1, "opus", "opus", NULL },
 };
 
 static const struct format_info *find_audio_format_info(const char *mime)

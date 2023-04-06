@@ -286,6 +286,7 @@ struct stream *stream_create(int fd, bool sink, struct group *group)
 	stream->fd = fd;
 	stream->sink = sink;
 	stream->group = group;
+	stream->idle = true;
 	stream->this.duration = group->duration;
 
 	stream_link(group, stream);
@@ -365,6 +366,8 @@ void spa_bt_iso_io_set_cb(struct spa_bt_iso_io *this, spa_bt_iso_io_pull_t pull,
 		set_timeout(stream->group, 0);
 	else if (enabled && !was_enabled)
 		set_timers(stream->group);
+
+	stream->idle = true;
 
 	if (pull == NULL) {
 		stream->this.size = 0;

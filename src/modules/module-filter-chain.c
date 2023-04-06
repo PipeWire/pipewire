@@ -162,7 +162,11 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *
  * All biquad filters have an input port "In" and an output port "Out". They have
  * a "Freq", "Q" and "Gain" control. Their meaning depends on the particular biquad that
- * is used. The following labels can be used:
+ * is used. The biquads also have "b0", "b1", "b2", "a0", "a1" and "a2" ports that
+ * are read-only except for the bq_raw biquad, which can configure default values
+ * depending on the graph rate and change those at runtime.
+ *
+ * The following labels can be used:
  *
  * - `bq_lowpass` a lowpass filter.
  * - `bq_highpass` a highpass filter.
@@ -172,6 +176,30 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * - `bq_peaking` a peaking filter.
  * - `bq_notch` a notch filter.
  * - `bq_allpass` an allpass filter.
+ * - `bq_raw` a raw biquad filter. You need a config section to specify coefficients
+ *   		per sample rate. The coefficients of the sample rate closest to the
+ *   		graph rate are selected:
+ *
+ *\code{.unparsed}
+ * filter.graph = {
+ *     nodes = [
+ *         {
+ *             type   = builtin
+ *             name   = ...
+ *             label  = bq_raw
+ *             config = {
+ *                 coefficients = [
+ *                     { rate =  44100, b0=.., b1=.., b2=.., a0=.., a1=.., a2=.. },
+ *                     { rate =  48000, b0=.., b1=.., b2=.., a0=.., a1=.., a2=.. },
+ *                     { rate = 192000, b0=.., b1=.., b2=.., a0=.., a1=.., a2=.. }
+ *                 ]
+ *             }
+ *             ...
+ *         }
+ *     }
+ *     ...
+ * }
+ *\endcode
  *
  * ### Convolver
  *
@@ -1006,6 +1034,20 @@ static void node_control_changed(struct node *node)
 	node->control_changed = false;
 }
 
+static void update_props_param(struct impl *impl)
+{
+	struct graph *graph = &impl->graph;
+	uint8_t buffer[1024];
+	struct spa_pod_dynamic_builder b;
+	const struct spa_pod *params[1];
+
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+	params[0] = get_props_param(graph, &b.b);
+
+	pw_stream_update_params(impl->capture, params, 1);
+	spa_pod_dynamic_builder_clean(&b);
+}
+
 static void param_props_changed(struct impl *impl, const struct spa_pod *param)
 {
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
@@ -1018,19 +1060,12 @@ static void param_props_changed(struct impl *impl, const struct spa_pod *param)
 			changed += parse_params(graph, &prop->value);
 	}
 	if (changed > 0) {
-		uint8_t buffer[1024];
-		struct spa_pod_dynamic_builder b;
-		const struct spa_pod *params[1];
 		struct node *node;
 
 		spa_list_for_each(node, &graph->node_list, link)
 			node_control_changed(node);
 
-		spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
-		params[0] = get_props_param(graph, &b.b);
-
-		pw_stream_update_params(impl->capture, params, 1);
-		spa_pod_dynamic_builder_clean(&b);
+		update_props_param(impl);
 	}
 }
 
@@ -1847,6 +1882,7 @@ static int graph_instantiate(struct graph *graph)
 				d->control_changed(node->hndl[i]);
 		}
 	}
+	update_props_param(impl);
 	return 0;
 error:
 	graph_cleanup(graph);

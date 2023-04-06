@@ -32,10 +32,13 @@ struct builtin {
 	unsigned long rate;
 	float *port[64];
 
+	int type;
 	struct biquad bq;
 	float freq;
 	float Q;
 	float gain;
+	float b0, b1, b2;
+	float a0, a1, a2;
 };
 
 static void *builtin_instantiate(const struct fc_descriptor * Descriptor,
@@ -215,6 +218,159 @@ static const struct fc_descriptor mixer_desc = {
 	.cleanup = builtin_cleanup,
 };
 
+/** biquads */
+static int bq_type_from_name(const char *name)
+{
+	if (spa_streq(name, "bq_lowpass"))
+		return BQ_LOWPASS;
+	if (spa_streq(name, "bq_highpass"))
+		return BQ_HIGHPASS;
+	if (spa_streq(name, "bq_bandpass"))
+		return BQ_BANDPASS;
+	if (spa_streq(name, "bq_lowshelf"))
+		return BQ_LOWSHELF;
+	if (spa_streq(name, "bq_highshelf"))
+		return BQ_HIGHSHELF;
+	if (spa_streq(name, "bq_peaking"))
+		return BQ_PEAKING;
+	if (spa_streq(name, "bq_notch"))
+		return BQ_NOTCH;
+	if (spa_streq(name, "bq_allpass"))
+		return BQ_ALLPASS;
+	if (spa_streq(name, "bq_raw"))
+		return BQ_NONE;
+	return BQ_NONE;
+}
+
+static void bq_raw_update(struct builtin *impl, float b0, float b1, float b2,
+		float a0, float a1, float a2)
+{
+	struct biquad *bq = &impl->bq;
+	impl->b0 = b0;
+	impl->b1 = b1;
+	impl->b2 = b2;
+	impl->a0 = a0;
+	impl->a1 = a1;
+	impl->a2 = a2;
+	if (a0 != 0.0f)
+		a0 = 1.0f / a0;
+	bq->b0 = impl->b0 * a0;
+	bq->b1 = impl->b1 * a0;
+	bq->b2 = impl->b2 * a0;
+	bq->a1 = impl->a1 * a0;
+	bq->a2 = impl->a2 * a0;
+	bq->x1 = bq->x2 = bq->y1 = bq->y2 = 0.0;
+}
+
+/*
+ * config = {
+ *     coefficients = [
+ *         { rate =  44100, b0=.., b1=.., b2=.., a0=.., a1=.., a2=.. },
+ *         { rate =  48000, b0=.., b1=.., b2=.., a0=.., a1=.., a2=.. },
+ *         { rate = 192000, b0=.., b1=.., b2=.., a0=.., a1=.., a2=.. }
+ *     ]
+ * }
+ */
+static void *bq_instantiate(const struct fc_descriptor * Descriptor,
+		unsigned long SampleRate, int index, const char *config)
+{
+	struct builtin *impl;
+	struct spa_json it[4];
+	const char *val;
+	char key[256];
+	uint32_t best_rate = 0;
+
+	impl = calloc(1, sizeof(*impl));
+	if (impl == NULL)
+		return NULL;
+
+	impl->rate = SampleRate;
+	impl->b0 = impl->a0 = 1.0f;
+	impl->type = bq_type_from_name(Descriptor->name);
+
+	if (config == NULL)
+		goto error;
+
+	spa_json_init(&it[0], config, strlen(config));
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+		goto error;
+
+	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+		if (spa_streq(key, "coefficients")) {
+			if (spa_json_enter_array(&it[1], &it[2]) <= 0) {
+				pw_log_error("biquads:coefficients require an array");
+				goto error;
+			}
+			while (spa_json_enter_object(&it[2], &it[3]) > 0) {
+				int32_t rate = 0;
+				float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f;
+				float a0 = 1.0f, a1 = 0.0f, a2 = 0.0f;
+
+				while (spa_json_get_string(&it[3], key, sizeof(key)) > 0) {
+					if (spa_streq(key, "rate")) {
+						if (spa_json_get_int(&it[3], &rate) <= 0) {
+							pw_log_error("biquads:rate requires a number");
+							goto error;
+						}
+					}
+					else if (spa_streq(key, "b0")) {
+						if (spa_json_get_float(&it[3], &b0) <= 0) {
+							pw_log_error("biquads:b0 requires a float");
+							goto error;
+						}
+					}
+					else if (spa_streq(key, "b1")) {
+						if (spa_json_get_float(&it[3], &b1) <= 0) {
+							pw_log_error("biquads:b1 requires a float");
+							goto error;
+						}
+					}
+					else if (spa_streq(key, "b2")) {
+						if (spa_json_get_float(&it[3], &b2) <= 0) {
+							pw_log_error("biquads:b2 requires a float");
+							goto error;
+						}
+					}
+					else if (spa_streq(key, "a0")) {
+						if (spa_json_get_float(&it[3], &a0) <= 0) {
+							pw_log_error("biquads:a0 requires a float");
+							goto error;
+						}
+					}
+					else if (spa_streq(key, "a1")) {
+						if (spa_json_get_float(&it[3], &a1) <= 0) {
+							pw_log_error("biquads:a1 requires a float");
+							goto error;
+						}
+					}
+					else if (spa_streq(key, "a2")) {
+						if (spa_json_get_float(&it[3], &a2) <= 0) {
+							pw_log_error("biquads:a0 requires a float");
+							goto error;
+						}
+					}
+					else if (spa_json_next(&it[1], &val) < 0)
+						break;
+				}
+				if (labs((long)rate - (long)SampleRate) <
+				    labs((long)best_rate - (long)SampleRate)) {
+					best_rate = rate;
+					bq_raw_update(impl, b0, b1, b2, a0, a1, a2);
+				}
+			}
+		}
+		else if (spa_json_next(&it[1], &val) < 0)
+			break;
+	}
+
+	return impl;
+error:
+	free(impl);
+	errno = EINVAL;
+	return NULL;
+}
+
+#define BQ_NUM_PORTS		11
 static struct fc_port bq_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
@@ -240,176 +396,227 @@ static struct fc_port bq_ports[] = {
 	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
 	  .def = 0.0f, .min = -120.0f, .max = 20.0f,
 	},
+	{ .index = 5,
+	  .name = "b0",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 1.0f, .min = -10.0f, .max = 10.0f,
+	},
+	{ .index = 6,
+	  .name = "b1",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 0.0f, .min = -10.0f, .max = 10.0f,
+	},
+	{ .index = 7,
+	  .name = "b2",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 0.0f, .min = -10.0f, .max = 10.0f,
+	},
+	{ .index = 8,
+	  .name = "a0",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 1.0f, .min = -10.0f, .max = 10.0f,
+	},
+	{ .index = 9,
+	  .name = "a1",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 0.0f, .min = -10.0f, .max = 10.0f,
+	},
+	{ .index = 10,
+	  .name = "a2",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 0.0f, .min = -10.0f, .max = 10.0f,
+	},
+
 };
 
-static void bq_run(struct builtin *impl, unsigned long samples, int type)
+static void bq_freq_update(struct builtin *impl, int type, float freq, float Q, float gain)
 {
+	struct biquad *bq = &impl->bq;
+	impl->freq = freq;
+	impl->Q = Q;
+	impl->gain = gain;
+	biquad_set(bq, type, freq * 2 / impl->rate, Q, gain);
+	impl->port[5][0] = impl->b0 = bq->b0;
+	impl->port[6][0] = impl->b1 = bq->b1;
+	impl->port[7][0] = impl->b2 = bq->b2;
+	impl->port[8][0] = impl->a0 = 1.0f;
+	impl->port[9][0] = impl->a1 = bq->a1;
+	impl->port[10][0] = impl->a2 = bq->a2;
+}
+
+static void bq_activate(void * Instance)
+{
+	struct builtin *impl = Instance;
+	if (impl->type == BQ_NONE) {
+		float b0, b1, b2, a0, a1, a2;
+		b0 = impl->port[5][0];
+		b1 = impl->port[6][0];
+		b2 = impl->port[7][0];
+		a0 = impl->port[8][0];
+		a1 = impl->port[9][0];
+		a2 = impl->port[10][0];
+		bq_raw_update(impl, b0, b1, b2, a0, a1, a2);
+	} else {
+		float freq = impl->port[2][0];
+		float Q = impl->port[3][0];
+		float gain = impl->port[4][0];
+		bq_freq_update(impl, impl->type, freq, Q, gain);
+	}
+}
+
+static void bq_run(void *Instance, unsigned long samples)
+{
+	struct builtin *impl = Instance;
 	struct biquad *bq = &impl->bq;
 	float *out = impl->port[0];
 	float *in = impl->port[1];
-	float freq = impl->port[2][0];
-	float Q = impl->port[3][0];
-	float gain = impl->port[4][0];
 
-	if (impl->freq != freq || impl->Q != Q || impl->gain != gain) {
-		impl->freq = freq;
-		impl->Q = Q;
-		impl->gain = gain;
-		biquad_set(bq, type, freq * 2 / impl->rate, Q, gain);
+	if (impl->type == BQ_NONE) {
+		float b0, b1, b2, a0, a1, a2;
+		b0 = impl->port[5][0];
+		b1 = impl->port[6][0];
+		b2 = impl->port[7][0];
+		a0 = impl->port[8][0];
+		a1 = impl->port[9][0];
+		a2 = impl->port[10][0];
+		if (impl->b0 != b0 || impl->b1 != b1 || impl->b2 != b2 ||
+		    impl->a0 != a0 || impl->a1 != a1 || impl->a2 != a2) {
+			bq_raw_update(impl, b0, b1, b2, a0, a1, a2);
+		}
+	} else {
+		float freq = impl->port[2][0];
+		float Q = impl->port[3][0];
+		float gain = impl->port[4][0];
+		if (impl->freq != freq || impl->Q != Q || impl->gain != gain)
+			bq_freq_update(impl, impl->type, freq, Q, gain);
 	}
 	dsp_ops_biquad_run(dsp_ops, bq, out, in, samples);
 }
 
 /** bq_lowpass */
-static void bq_lowpass_run(void * Instance, unsigned long SampleCount)
-{
-	struct builtin *impl = Instance;
-	bq_run(impl, SampleCount, BQ_LOWPASS);
-}
-
 static const struct fc_descriptor bq_lowpass_desc = {
 	.name = "bq_lowpass",
 
-	.n_ports = 5,
+	.n_ports = BQ_NUM_PORTS,
 	.ports = bq_ports,
 
-	.instantiate = builtin_instantiate,
+	.instantiate = bq_instantiate,
 	.connect_port = builtin_connect_port,
-	.run = bq_lowpass_run,
+	.activate = bq_activate,
+	.run = bq_run,
 	.cleanup = builtin_cleanup,
 };
 
 /** bq_highpass */
-static void bq_highpass_run(void * Instance, unsigned long SampleCount)
-{
-	struct builtin *impl = Instance;
-	bq_run(impl, SampleCount, BQ_HIGHPASS);
-}
-
 static const struct fc_descriptor bq_highpass_desc = {
 	.name = "bq_highpass",
 
-	.n_ports = 5,
+	.n_ports = BQ_NUM_PORTS,
 	.ports = bq_ports,
 
-	.instantiate = builtin_instantiate,
+	.instantiate = bq_instantiate,
 	.connect_port = builtin_connect_port,
-	.run = bq_highpass_run,
+	.activate = bq_activate,
+	.run = bq_run,
 	.cleanup = builtin_cleanup,
 };
 
 /** bq_bandpass */
-static void bq_bandpass_run(void * Instance, unsigned long SampleCount)
-{
-	struct builtin *impl = Instance;
-	bq_run(impl, SampleCount, BQ_BANDPASS);
-}
-
 static const struct fc_descriptor bq_bandpass_desc = {
 	.name = "bq_bandpass",
 
-	.n_ports = 5,
+	.n_ports = BQ_NUM_PORTS,
 	.ports = bq_ports,
 
-	.instantiate = builtin_instantiate,
+	.instantiate = bq_instantiate,
 	.connect_port = builtin_connect_port,
-	.run = bq_bandpass_run,
+	.activate = bq_activate,
+	.run = bq_run,
 	.cleanup = builtin_cleanup,
 };
 
 /** bq_lowshelf */
-static void bq_lowshelf_run(void * Instance, unsigned long SampleCount)
-{
-	struct builtin *impl = Instance;
-	bq_run(impl, SampleCount, BQ_LOWSHELF);
-}
-
 static const struct fc_descriptor bq_lowshelf_desc = {
 	.name = "bq_lowshelf",
 
-	.n_ports = 5,
+	.n_ports = BQ_NUM_PORTS,
 	.ports = bq_ports,
 
-	.instantiate = builtin_instantiate,
+	.instantiate = bq_instantiate,
 	.connect_port = builtin_connect_port,
-	.run = bq_lowshelf_run,
+	.activate = bq_activate,
+	.run = bq_run,
 	.cleanup = builtin_cleanup,
 };
 
 /** bq_highshelf */
-static void bq_highshelf_run(void * Instance, unsigned long SampleCount)
-{
-	struct builtin *impl = Instance;
-	bq_run(impl, SampleCount, BQ_HIGHSHELF);
-}
-
 static const struct fc_descriptor bq_highshelf_desc = {
 	.name = "bq_highshelf",
 
-	.n_ports = 5,
+	.n_ports = BQ_NUM_PORTS,
 	.ports = bq_ports,
 
-	.instantiate = builtin_instantiate,
+	.instantiate = bq_instantiate,
 	.connect_port = builtin_connect_port,
-	.run = bq_highshelf_run,
+	.activate = bq_activate,
+	.run = bq_run,
 	.cleanup = builtin_cleanup,
 };
 
 /** bq_peaking */
-static void bq_peaking_run(void * Instance, unsigned long SampleCount)
-{
-	struct builtin *impl = Instance;
-	bq_run(impl, SampleCount, BQ_PEAKING);
-}
-
 static const struct fc_descriptor bq_peaking_desc = {
 	.name = "bq_peaking",
 
-	.n_ports = 5,
+	.n_ports = BQ_NUM_PORTS,
 	.ports = bq_ports,
 
-	.instantiate = builtin_instantiate,
+	.instantiate = bq_instantiate,
 	.connect_port = builtin_connect_port,
-	.run = bq_peaking_run,
+	.activate = bq_activate,
+	.run = bq_run,
 	.cleanup = builtin_cleanup,
 };
 
 /** bq_notch */
-static void bq_notch_run(void * Instance, unsigned long SampleCount)
-{
-	struct builtin *impl = Instance;
-	bq_run(impl, SampleCount, BQ_NOTCH);
-}
-
 static const struct fc_descriptor bq_notch_desc = {
 	.name = "bq_notch",
 
-	.n_ports = 5,
+	.n_ports = BQ_NUM_PORTS,
 	.ports = bq_ports,
 
-	.instantiate = builtin_instantiate,
+	.instantiate = bq_instantiate,
 	.connect_port = builtin_connect_port,
-	.run = bq_notch_run,
+	.activate = bq_activate,
+	.run = bq_run,
 	.cleanup = builtin_cleanup,
 };
 
 
 /** bq_allpass */
-static void bq_allpass_run(void * Instance, unsigned long SampleCount)
-{
-	struct builtin *impl = Instance;
-	bq_run(impl, SampleCount, BQ_ALLPASS);
-}
-
 static const struct fc_descriptor bq_allpass_desc = {
 	.name = "bq_allpass",
 
-	.n_ports = 5,
+	.n_ports = BQ_NUM_PORTS,
 	.ports = bq_ports,
 
-	.instantiate = builtin_instantiate,
+	.instantiate = bq_instantiate,
 	.connect_port = builtin_connect_port,
-	.run = bq_allpass_run,
+	.activate = bq_activate,
+	.run = bq_run,
+	.cleanup = builtin_cleanup,
+};
+
+/* bq_raw */
+static const struct fc_descriptor bq_raw_desc = {
+	.name = "bq_raw",
+
+	.n_ports = BQ_NUM_PORTS,
+	.ports = bq_ports,
+
+	.instantiate = bq_instantiate,
+	.connect_port = builtin_connect_port,
+	.activate = bq_activate,
+	.run = bq_run,
 	.cleanup = builtin_cleanup,
 };
 
@@ -958,6 +1165,7 @@ static const struct fc_descriptor delay_desc = {
 	.cleanup = delay_cleanup,
 };
 
+/* invert */
 static void invert_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
@@ -1019,6 +1227,8 @@ static const struct fc_descriptor * builtin_descriptor(unsigned long Index)
 		return &delay_desc;
 	case 12:
 		return &invert_desc;
+	case 13:
+		return &bq_raw_desc;
 	}
 	return NULL;
 }

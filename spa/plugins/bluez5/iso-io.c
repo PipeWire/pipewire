@@ -16,8 +16,6 @@
 #include <spa/utils/result.h>
 #include <spa/node/io.h>
 
-#include <bluetooth/bluetooth.h>
-
 #include "config.h"
 #include "iso-io.h"
 
@@ -195,19 +193,12 @@ static void group_on_timeout(struct spa_source *source)
 	set_timeout(group, group->next);
 }
 
-static struct group *group_create(int fd, struct spa_log *log, struct spa_loop *data_loop,
-		struct spa_system *data_system)
+static struct group *group_create(uint8_t cig, uint32_t interval,
+		struct spa_log *log, struct spa_loop *data_loop, struct spa_system *data_system)
 {
-#if defined(HAVE_BLUETOOTH_BAP) && defined(BT_ISO_QOS)
 	struct group *group;
-	struct bt_iso_qos qos;
-	socklen_t len;
 
-	len = sizeof(qos);
-	if (getsockopt(fd, SOL_BLUETOOTH, BT_ISO_QOS, &qos, &len) < 0)
-		return NULL;
-
-	if (qos.out.interval <= 5000) {
+	if (interval <= 5000) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -218,11 +209,11 @@ static struct group *group_create(int fd, struct spa_log *log, struct spa_loop *
 
 	spa_log_topic_init(log, &log_topic);
 
-	group->cig = qos.cig;
+	group->cig = cig;
 	group->log = log;
 	group->data_loop = data_loop;
 	group->data_system = data_system;
-	group->duration = qos.out.interval * SPA_NSEC_PER_USEC;
+	group->duration = interval * SPA_NSEC_PER_USEC;
 
 	spa_list_init(&group->streams);
 
@@ -243,10 +234,6 @@ static struct group *group_create(int fd, struct spa_log *log, struct spa_loop *
 	spa_loop_add_source(group->data_loop, &group->source);
 
 	return group;
-#else
-	errno = EOPNOTSUPP;
-	return NULL;
-#endif
 }
 
 static int do_remove_source(struct spa_loop *loop, bool async, uint32_t seq,
@@ -294,13 +281,13 @@ struct stream *stream_create(int fd, bool sink, struct group *group)
 	return stream;
 }
 
-struct spa_bt_iso_io *spa_bt_iso_io_create(int fd, bool sink, struct spa_log *log,
-		struct spa_loop *data_loop, struct spa_system *data_system)
+struct spa_bt_iso_io *spa_bt_iso_io_create(int fd, bool sink, uint8_t cig, uint32_t interval,
+		struct spa_log *log, struct spa_loop *data_loop, struct spa_system *data_system)
 {
 	struct stream *stream;
 	struct group *group;
 
-	group = group_create(fd, log, data_loop, data_system);
+	group = group_create(cig, interval, log, data_loop, data_system);
 	if (group == NULL)
 		return NULL;
 

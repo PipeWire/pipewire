@@ -30,8 +30,8 @@ struct spa_bt_iso_io
 
 typedef void (*spa_bt_iso_io_pull_t)(struct spa_bt_iso_io *io);
 
-struct spa_bt_iso_io *spa_bt_iso_io_create(int fd, bool sink, struct spa_log *log,
-		struct spa_loop *data_loop, struct spa_system *data_system);
+struct spa_bt_iso_io *spa_bt_iso_io_create(int fd, bool sink, uint8_t cig, uint32_t interval,
+		struct spa_log *log, struct spa_loop *data_loop, struct spa_system *data_system);
 struct spa_bt_iso_io *spa_bt_iso_io_attach(struct spa_bt_iso_io *io, int fd, bool sink);
 void spa_bt_iso_io_destroy(struct spa_bt_iso_io *io);
 void spa_bt_iso_io_set_cb(struct spa_bt_iso_io *io, spa_bt_iso_io_pull_t pull, void *user_data);

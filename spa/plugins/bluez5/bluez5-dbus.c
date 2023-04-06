@@ -2838,6 +2838,7 @@ static int transport_update_props(struct spa_bt_transport *transport,
 			dbus_message_iter_get_basic(&it[1], &value);
 
 			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
+			transport->bap_interval = value;
 		}
 		else if (spa_streq(key, "Framing")) {
 			dbus_bool_t value;
@@ -3004,6 +3005,7 @@ static int transport_create_iso_io(struct spa_bt_transport *transport)
 
 	spa_log_debug(monitor->log, "transport %p: new ISO IO", transport);
 	transport->iso_io = spa_bt_iso_io_create(transport->fd, sink,
+			transport->bap_cig, transport->bap_interval,
 			monitor->log, monitor->data_loop, monitor->data_system);
 	if (transport->iso_io == NULL)
 		return -errno;

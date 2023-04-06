@@ -212,6 +212,11 @@ static int module_rtp_send_prepare(struct module * const module)
 		}
 	}
 
+	pw_properties_set(global_props, "sess.media", "audio");
+	if ((str = pw_properties_get(props, "enable_opus")) != NULL) {
+		if (module_args_parse_bool(str))
+			pw_properties_set(global_props, "sess.media", "opus");
+	}
 	if ((str = pw_properties_get(props, "source_ip")) != NULL) {
 		pw_properties_set(global_props, "source.ip", str);
 		pw_properties_set(sap_props, "source.ip", str);

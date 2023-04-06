@@ -198,7 +198,7 @@ static void group_on_timeout(struct spa_source *source)
 static struct group *group_create(int fd, struct spa_log *log, struct spa_loop *data_loop,
 		struct spa_system *data_system)
 {
-#ifdef HAVE_BLUETOOTH_BAP
+#if defined(HAVE_BLUETOOTH_BAP) && defined(BT_ISO_QOS)
 	struct group *group;
 	struct bt_iso_qos qos;
 	socklen_t len;

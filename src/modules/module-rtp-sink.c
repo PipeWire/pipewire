@@ -53,7 +53,7 @@
  * - `sess.name = <str>`: a session name
  * - `sess.ts-offset = <int>`: an offset to apply to the timestamp, default -1 = random offset
  * - `sess.ts-refclk = <string>`: the name of a reference clock
- * - `sess.media = <string>`: the media type audio|midi, default audio
+ * - `sess.media = <string>`: the media type audio|midi|opus, default audio
  * - `stream.props = {}`: properties to be passed to the stream
  *
  * ## General options
@@ -129,7 +129,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 		"( sess.name=<a name for the session> ) "						\
 		"( sess.min-ptime=<minimum packet time in milliseconds, default:2> ) "			\
 		"( sess.max-ptime=<maximum packet time in milliseconds, default:20> ) "			\
- 		"( sess.media=<string, the media type audio|midi, default audio> ) "			\
+ 		"( sess.media=<string, the media type audio|midi|opus, default audio> ) "		\
 		"( audio.format=<format, default:"DEFAULT_FORMAT"> ) "					\
 		"( audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> ) "			\
 		"( audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> ) "	\

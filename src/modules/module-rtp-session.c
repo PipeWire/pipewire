@@ -137,7 +137,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 		"( sess.name=<a name for the session> ) "					\
 		"( sess.min-ptime=<minimum packet time in milliseconds, default:2> ) "		\
 		"( sess.max-ptime=<maximum packet time in milliseconds, default:20> ) "		\
-		"( sess.media=<string, the media type audio|midi|opus, default audio> ) "	\
+		"( sess.media=<string, the media type audio|midi|opus, default midi> ) "	\
 		"( audio.format=<format, default:"DEFAULT_FORMAT"> ) "				\
 		"( audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> ) "		\
 		"( audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> ) "\

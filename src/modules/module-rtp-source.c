@@ -46,7 +46,7 @@
  * - `local.ifname = <str>`: interface name to use
  * - `node.always-process = <bool>`: true to receive even when not running
  * - `sess.latency.msec = <str>`: target network latency in milliseconds, default 100
- * - `sess.media = <string>`: the media type audio|midi, default audio
+ * - `sess.media = <string>`: the media type audio|midi|opus, default audio
  * - `stream.props = {}`: properties to be passed to the stream
  *
  * ## General options
@@ -104,8 +104,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define USAGE   "( local.ifname=<local interface name to use> ) "						\
 		"( source.ip=<source IP address, default:"DEFAULT_SOURCE_IP"> ) "				\
  		"source.port=<int, source port> "								\
-		"( sess.latency.msec=<target network latency, default "SPA_STRINGIFY(DEFAULT_SESS_LATENCY)"> ) "	\
- 		"( sess.media=<string, the media type audio|midi, default audio> ) "				\
+		"( sess.latency.msec=<target network latency, default "SPA_STRINGIFY(DEFAULT_SESS_LATENCY)"> ) "\
+ 		"( sess.media=<string, the media type audio|midi|opus, default audio> ) "			\
 		"( audio.format=<format, default:"DEFAULT_FORMAT"> ) "						\
 		"( audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> ) "				\
 		"( audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> ) "		\

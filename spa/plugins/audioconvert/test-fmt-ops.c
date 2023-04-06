@@ -546,13 +546,17 @@ static void test_lossless_u8(void)
 }
 static void test_lossless_s16(void)
 {
-	int16_t i;
+	int32_t i;
 
 	fprintf(stderr, "test %s:\n", __func__);
-	for (i = S16_MIN; i < S16_MAX; i+=3) {
-		float v = S16_TO_F32(i);
+	for (i = S16_MIN; i <= S16_MAX; i+=3) {
+		float v = S16_TO_F32((int16_t)i);
 		int16_t t = F32_TO_S16(v);
 		spa_assert_se(i == t);
+
+		int32_t t2 = F32_TO_S32(v);
+		spa_assert_se(i<<16 == t2);
+		spa_assert_se(i == t2>>16);
 	}
 }
 
@@ -561,10 +565,14 @@ static void test_lossless_u16(void)
 	uint32_t i;
 
 	fprintf(stderr, "test %s:\n", __func__);
-	for (i = U16_MIN; i < U16_MAX; i+=3) {
-		float v = U16_TO_F32(i);
+	for (i = U16_MIN; i <= U16_MAX; i+=3) {
+		float v = U16_TO_F32((uint16_t)i);
 		uint16_t t = F32_TO_U16(v);
 		spa_assert_se(i == t);
+
+		uint32_t t2 = F32_TO_U32(v);
+		spa_assert_se(i<<16 == t2);
+		spa_assert_se(i == t2>>16);
 	}
 }
 

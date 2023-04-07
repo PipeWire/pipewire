@@ -1062,6 +1062,7 @@ next_indicator:
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (sscanf(buf, "AT+BIEV=%u,%u", &indicator, &indicator_value) == 2) {
 		process_hfp_hf_indicator(rfcomm, indicator, indicator_value);
+		rfcomm_send_reply(rfcomm, "OK");
 	} else if (sscanf(buf, "AT+XAPL=%04x-%04x-%*[^,],%u", &xapl_vendor, &xapl_product, &xapl_features) == 3) {
 		if (xapl_features & SPA_BT_HFP_HF_XAPL_FEATURE_BATTERY_REPORTING) {
 			/* claim, that we support battery status reports */
@@ -1083,6 +1084,7 @@ next_indicator:
 			process_iphoneaccev_indicator(rfcomm, key, value);
 			buf += r;
 		}
+		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+APLSIRI?")) {
 		// This command is sent when we activate Apple extensions
 		rfcomm_send_reply(rfcomm, "OK");

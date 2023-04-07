@@ -448,14 +448,12 @@ static void bq_activate(void * Instance)
 {
 	struct builtin *impl = Instance;
 	if (impl->type == BQ_NONE) {
-		float b0, b1, b2, a0, a1, a2;
-		b0 = impl->port[5][0];
-		b1 = impl->port[6][0];
-		b2 = impl->port[7][0];
-		a0 = impl->port[8][0];
-		a1 = impl->port[9][0];
-		a2 = impl->port[10][0];
-		bq_raw_update(impl, b0, b1, b2, a0, a1, a2);
+		impl->port[5][0] = impl->b0;
+		impl->port[6][0] = impl->b1;
+		impl->port[7][0] = impl->b2;
+		impl->port[8][0] = impl->a0;
+		impl->port[9][0] = impl->a1;
+		impl->port[10][0] = impl->a2;
 	} else {
 		float freq = impl->port[2][0];
 		float Q = impl->port[3][0];

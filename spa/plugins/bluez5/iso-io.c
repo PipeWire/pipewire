@@ -157,9 +157,8 @@ static void group_on_timeout(struct spa_source *source)
 
 		if (!stream->sink)
 			continue;
-		if (stream->idle)
-			continue;
-		if (group->paused) {
+		if (stream->idle || group->paused) {
+			stream->this.resync = true;
 			stream->this.size = 0;
 			continue;
 		}
@@ -355,13 +354,10 @@ void spa_bt_iso_io_set_cb(struct spa_bt_iso_io *this, spa_bt_iso_io_pull_t pull,
 		set_timers(stream->group);
 
 	stream->idle = true;
+	stream->this.resync = true;
 
 	if (pull == NULL) {
 		stream->this.size = 0;
 		return;
 	}
-
-	/* Pull data now for the next interval */
-	stream->this.now = stream->group->next;
-	stream->pull(&stream->this);
 }

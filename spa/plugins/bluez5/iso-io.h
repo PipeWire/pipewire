@@ -18,12 +18,14 @@
  */
 struct spa_bt_iso_io
 {
-	uint64_t now;
-	uint64_t duration;
+	uint64_t now;		/**< Reference time position of next packet (read-only) */
+	uint64_t duration;	/**< ISO interval duration in ns (read-only) */
+	bool resync;		/**< Resync position for next packet; (pull callback sets to
+				 * false when done) */
 
-	uint32_t timestamp;
-	uint8_t buf[4096];
-	size_t size;
+	uint32_t timestamp;	/**< Packet timestamp (set by pull callback) */
+	uint8_t buf[4096];	/**< Packet data (set by pull callback) */
+	size_t size;		/**< Packet size (set by pull callback) */
 
 	void *user_data;
 };

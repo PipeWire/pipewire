@@ -58,6 +58,10 @@ struct props {
 #define BUFFER_SIZE	(8192*8)
 #define RATE_CTL_DIFF_MAX 0.005
 
+/* Wait for two cycles before trying to sync ISO. On start/driver reassign,
+ * first cycle may have strange number of samples. */
+#define RESYNC_CYCLES 2
+
 struct buffer {
 	uint32_t id;
 #define BUFFER_FLAG_OUT	(1<<0)
@@ -129,6 +133,7 @@ struct impl {
 	unsigned int following:1;
 	unsigned int is_output:1;
 	unsigned int flush_pending:1;
+	unsigned int iso_pending:1;
 
 	unsigned int is_duplex:1;
 	unsigned int is_internal:1;
@@ -160,8 +165,7 @@ struct impl {
 
 	int need_flush;
 	bool fragment;
-	bool resync;
-	bool have_iso_packet;
+	uint32_t resync;
 	uint32_t block_size;
 	uint8_t buffer[BUFFER_SIZE];
 	uint32_t buffer_used;
@@ -308,7 +312,7 @@ static int do_reassign_io(struct spa_loop *loop,
 	bool following;
 
 	if (this->position != info->position || this->clock != info->clock)
-		this->resync = true;
+		this->resync = RESYNC_CYCLES;
 
 	this->position = info->position;
 	this->clock = info->clock;
@@ -716,6 +720,9 @@ static int flush_data(struct impl *this, uint64_t now_time)
 	if (!this->flush_timer_source.loop && !this->transport->iso_io)
 		return -EIO;
 
+	if (this->transport->iso_io && !this->iso_pending)
+		return 0;
+
 	total_frames = 0;
 again:
 	written = 0;
@@ -788,7 +795,7 @@ again:
 	if (this->transport->iso_io) {
 		struct spa_bt_iso_io *iso_io = this->transport->iso_io;
 
-		if (this->need_flush && !this->have_iso_packet) {
+		if (this->need_flush) {
 			size_t avail = SPA_MIN(this->buffer_used, sizeof(iso_io->buf));
 
 			spa_log_trace(this->log, "%p: ISO put fd:%d size:%u sn:%u ts:%u now:%"PRIu64,
@@ -799,7 +806,7 @@ again:
 			memcpy(iso_io->buf, this->buffer, avail);
 			iso_io->size = avail;
 			iso_io->timestamp = this->timestamp;
-			this->have_iso_packet = true;
+			this->iso_pending = false;
 
 			reset_buffer(this);
 		}
@@ -954,9 +961,7 @@ static void media_iso_pull(struct spa_bt_iso_io *iso_io)
 	struct port *port = &this->port;
 	const double period = 0.1 * SPA_NSEC_PER_SEC;
 	uint64_t duration_ns;
-	double value, target, err;
-
-	this->have_iso_packet = false;
+	double value, target, err, max_err;
 
 	if (this->resync || !this->position) {
 		spa_bt_rate_control_init(&port->ratectl, 0);
@@ -979,19 +984,28 @@ static void media_iso_pull(struct spa_bt_iso_io *iso_io)
 	value = (int64_t)iso_io->now - (int64_t)get_reference_time(this, &duration_ns);
 	target = iso_io->duration * 3/2;
 	err = value - target;
+	max_err = iso_io->duration;
 
-	if (err > iso_io->duration) {
-		uint32_t req = err * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC;
+	if (err > max_err || (iso_io->resync && err > 0)) {
+		unsigned int req = err * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC;
 
-		spa_log_debug(this->log, "%p: ISO sync reset frames:%u", this, (unsigned int)req);
+		if (req > 0) {
+			spa_bt_rate_control_init(&port->ratectl, 0);
+			drop_frames(this, req);
+			spa_log_debug(this->log, "%p: ISO sync skip frames:%u resync:%d",
+					this, req, iso_io->resync);
+		}
+	} else if (-err > max_err || (iso_io->resync && -err > 0)) {
+		unsigned int req = -err * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC;
+		static const uint8_t empty[8192] = {0};
 
-		spa_bt_rate_control_init(&port->ratectl, 0);
-		drop_frames(this, req);
-	} else if (-err > iso_io->duration) {
-		uint32_t req = -err * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC;
-
-		spa_log_debug(this->log, "%p: ISO sync skip flush frames:%u", this, (unsigned int)req);
-		return;
+		if (req > 0) {
+			spa_bt_rate_control_init(&port->ratectl, 0);
+			req = SPA_MIN(req, sizeof(empty) / port->frame_size);
+			add_data(this, empty, req * port->frame_size);
+			spa_log_debug(this->log, "%p: ISO sync pad frames:%u resync:%d",
+					this, req, iso_io->resync);
+		}
 	} else {
 		spa_bt_rate_control_update(&port->ratectl, err, 0,
 				iso_io->duration, period, RATE_CTL_DIFF_MAX);
@@ -1003,7 +1017,10 @@ static void media_iso_pull(struct spa_bt_iso_io *iso_io)
 				port->ratectl.corr);
 	}
 
+	iso_io->resync = false;
+
 done:
+	this->iso_pending = true;
 	flush_data(this, this->current_time);
 }
 
@@ -1216,9 +1233,9 @@ static int transport_start(struct impl *this)
 	this->flush_source.rmask = 0;
 	spa_loop_add_source(this->data_loop, &this->flush_source);
 
-	this->resync = true;
-
+	this->resync = RESYNC_CYCLES;
 	this->flush_pending = false;
+	this->iso_pending = false;
 
 	this->transport_started = true;
 
@@ -1836,7 +1853,8 @@ static int impl_node_process(void *object)
 	}
 
 	this->process_time = this->current_time;
-	this->resync = false;
+	if (this->resync)
+		--this->resync;
 
 	setup_matching(this);
 

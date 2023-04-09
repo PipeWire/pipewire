@@ -3282,7 +3282,6 @@ static int transport_create_iso_io(struct spa_bt_transport *transport)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
 	struct spa_bt_transport *t;
-	bool sink = (transport->profile & SPA_BT_PROFILE_BAP_SINK) != 0;
 
 	if (!(transport->profile & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE)))
 		return 0;
@@ -3306,7 +3305,7 @@ static int transport_create_iso_io(struct spa_bt_transport *transport)
 		if (t->iso_io) {
 			spa_log_debug(monitor->log, "transport %p: attach ISO IO to %p",
 					transport, t);
-			transport->iso_io = spa_bt_iso_io_attach(t->iso_io, transport->fd, sink);
+			transport->iso_io = spa_bt_iso_io_attach(t->iso_io, transport);
 			if (transport->iso_io == NULL)
 				return -errno;
 			return 0;
@@ -3314,9 +3313,7 @@ static int transport_create_iso_io(struct spa_bt_transport *transport)
 	}
 
 	spa_log_debug(monitor->log, "transport %p: new ISO IO", transport);
-	transport->iso_io = spa_bt_iso_io_create(transport->fd, sink,
-			transport->bap_cig, transport->bap_interval,
-			monitor->log, monitor->data_loop, monitor->data_system);
+	transport->iso_io = spa_bt_iso_io_create(transport, monitor->log, monitor->data_loop, monitor->data_system);
 	if (transport->iso_io == NULL)
 		return -errno;
 

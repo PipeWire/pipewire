@@ -134,6 +134,7 @@ struct impl {
 	unsigned int is_output:1;
 	unsigned int flush_pending:1;
 	unsigned int iso_pending:1;
+	unsigned int own_codec_data:1;
 
 	unsigned int is_duplex:1;
 	unsigned int is_internal:1;
@@ -990,16 +991,15 @@ static void media_iso_pull(struct spa_bt_iso_io *iso_io)
 	err = value - target;
 	max_err = iso_io->duration;
 
-	if (err > max_err || (iso_io->resync && err > 0)) {
+	if (iso_io->resync && err >= 0) {
 		unsigned int req = err * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC;
 
 		if (req > 0) {
 			spa_bt_rate_control_init(&port->ratectl, 0);
 			drop_frames(this, req);
-			spa_log_debug(this->log, "%p: ISO sync skip frames:%u resync:%d",
-					this, req, iso_io->resync);
 		}
-	} else if (-err > max_err || (iso_io->resync && -err > 0)) {
+		spa_log_debug(this->log, "%p: ISO sync skip frames:%u", this, req);
+	} else if (iso_io->resync && -err >= 0) {
 		unsigned int req = -err * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC;
 		static const uint8_t empty[8192] = {0};
 
@@ -1007,9 +1007,12 @@ static void media_iso_pull(struct spa_bt_iso_io *iso_io)
 			spa_bt_rate_control_init(&port->ratectl, 0);
 			req = SPA_MIN(req, sizeof(empty) / port->frame_size);
 			add_data(this, empty, req * port->frame_size);
-			spa_log_debug(this->log, "%p: ISO sync pad frames:%u resync:%d",
-					this, req, iso_io->resync);
 		}
+		spa_log_debug(this->log, "%p: ISO sync pad frames:%u", this, req);
+	} else if (err > max_err || -err > max_err) {
+		iso_io->need_resync = true;
+		spa_log_debug(this->log, "%p: ISO sync need resync err:%+.3f",
+				this, err / SPA_NSEC_PER_MSEC);
 	} else {
 		spa_bt_rate_control_update(&port->ratectl, err, 0,
 				iso_io->duration, period, RATE_CTL_DIFF_MAX);
@@ -1172,15 +1175,22 @@ static int transport_start(struct impl *this)
 
 	flags = this->is_duplex ? MEDIA_CODEC_FLAG_SINK : 0;
 
-	this->codec_data = this->codec->init(this->codec,
-			flags,
-			this->transport->configuration,
-			this->transport->configuration_len,
-			&port->current_format,
-			this->codec_props,
-			this->transport->write_mtu);
-	if (this->codec_data == NULL)
-		return -EIO;
+	if (!this->transport->iso_io) {
+		this->own_codec_data = true;
+		this->codec_data = this->codec->init(this->codec,
+				flags,
+				this->transport->configuration,
+				this->transport->configuration_len,
+				&port->current_format,
+				this->codec_props,
+				this->transport->write_mtu);
+		if (this->codec_data == NULL)
+			return -EIO;
+	} else {
+		this->own_codec_data = false;
+		this->codec_data = this->transport->iso_io->codec_data;
+		this->codec_props_changed = true;
+	}
 
 	spa_log_info(this->log, "%p: using %s codec %s, delay:%"PRIi64" ms", this,
 			this->codec->bap ? "BAP" : "A2DP", this->codec->description,
@@ -1333,7 +1343,7 @@ static void transport_stop(struct impl *this)
 
 	spa_loop_invoke(this->data_loop, do_remove_transport_source, 0, NULL, 0, true, this);
 
-	if (this->codec_data)
+	if (this->codec_data && this->own_codec_data)
 		this->codec->deinit(this->codec_data);
 	this->codec_data = NULL;
 }
@@ -1651,6 +1661,15 @@ static int port_set_format(struct impl *this, struct port *port,
 		    info.info.raw.channels == 0 ||
 		    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
 			return -EINVAL;
+
+		if (this->transport && this->transport->iso_io) {
+			if (memcmp(&info.info.raw, &this->transport->iso_io->format.info.raw,
+							sizeof(info.info.raw))) {
+				spa_log_error(this->log, "unexpected incompatible "
+						"BAP audio format");
+				return -EINVAL;
+			}
+		}
 
 		port->frame_size = info.info.raw.channels;
 		switch (info.info.raw.format) {

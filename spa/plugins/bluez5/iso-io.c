@@ -19,11 +19,15 @@
 #include "config.h"
 #include "iso-io.h"
 
+#include "media-codecs.h"
+#include "defs.h"
+
 static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.iso");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 
-#define IDLE_TIME	(200 * SPA_NSEC_PER_MSEC)
+#define IDLE_TIME	(500 * SPA_NSEC_PER_MSEC)
+#define EMPTY_BUF_SIZE	65536
 
 struct group {
 	struct spa_log *log;
@@ -37,6 +41,7 @@ struct group {
 	uint64_t next;
 	uint64_t duration;
 	uint32_t paused;
+	bool started;
 };
 
 struct stream {
@@ -48,6 +53,9 @@ struct stream {
 	bool idle;
 
 	spa_bt_iso_io_pull_t pull;
+
+	const struct media_codec *codec;
+	uint32_t block_size;
 };
 
 struct modify_info
@@ -86,6 +94,33 @@ static void stream_unlink(struct stream *stream)
 	spa_assert_se(res == 0);
 }
 
+static int stream_silence(struct stream *stream)
+{
+	static uint8_t empty[EMPTY_BUF_SIZE] = {0};
+	const size_t max_size = sizeof(stream->this.buf);
+	int res, used, need_flush;
+	size_t encoded;
+
+	stream->idle = true;
+
+	res = used = stream->codec->start_encode(stream->this.codec_data, stream->this.buf, max_size, 0, 0);
+	if (res < 0)
+		return res;
+
+	res = stream->codec->encode(stream->this.codec_data, empty, stream->block_size,
+			SPA_PTROFF(stream->this.buf, used, void), max_size - used, &encoded, &need_flush);
+	if (res < 0)
+		return res;
+
+	used += encoded;
+
+	if (!need_flush)
+		return -EINVAL;
+
+	stream->this.size = used;
+	return 0;
+}
+
 static int set_timeout(struct group *group, uint64_t time)
 {
 	struct itimerspec ts;
@@ -112,9 +147,10 @@ static void group_on_timeout(struct spa_source *source)
 {
 	struct group *group = source->data;
 	struct stream *stream;
+	bool resync = false;
+	bool fail = false;
 	uint64_t exp;
 	int res;
-	bool active = false;
 
 	if ((res = spa_system_timerfd_read(group->data_system, group->timerfd, &exp)) < 0) {
 		if (res != -EAGAIN)
@@ -124,26 +160,20 @@ static void group_on_timeout(struct spa_source *source)
 	}
 
 	/*
-	 * If an idle stream activates when another stream is already active,
-	 * pause output of all streams for a while to avoid desynchronization.
+	 * If a stream failed, pause output of all streams for a while to avoid
+	 * desynchronization.
 	 */
 	spa_list_for_each(stream, &group->streams, link) {
 		if (!stream->sink)
 			continue;
-		if (!stream->idle) {
-			active = true;
-			break;
+
+		if (stream->this.need_resync) {
+			resync = true;
+			stream->this.need_resync = false;
 		}
-	}
 
-	spa_list_for_each(stream, &group->streams, link) {
-		if (!stream->sink)
-			continue;
-
-		if (stream->idle && stream->this.size > 0 && active && !group->paused)
-			group->paused = 1u + IDLE_TIME / group->duration;
-
-		stream->idle = (stream->this.size == 0);
+		if (!group->started && !stream->idle && stream->this.size > 0)
+			group->started = true;
 	}
 
 	if (group->paused) {
@@ -157,22 +187,35 @@ static void group_on_timeout(struct spa_source *source)
 
 		if (!stream->sink)
 			continue;
-		if (stream->idle || group->paused) {
+		if (group->paused || !group->started) {
 			stream->this.resync = true;
 			stream->this.size = 0;
 			continue;
 		}
+		if (stream->this.size == 0) {
+			spa_log_debug(group->log, "%p: ISO group:%u miss fd:%d",
+					group, group->cig, stream->fd);
+			if (stream_silence(stream) < 0) {
+				fail = true;
+				continue;
+			}
+		}
 
 		res = send(stream->fd, stream->this.buf, stream->this.size, MSG_DONTWAIT | MSG_NOSIGNAL);
-		if (res < 0)
+		if (res < 0) {
 			res = -errno;
+			fail = true;
+		}
 
-		spa_log_trace(group->log, "%p: ISO group:%u sent fd:%d size:%u ts:%u res:%d",
+		spa_log_trace(group->log, "%p: ISO group:%u sent fd:%d size:%u ts:%u idle:%d res:%d",
 				group, group->cig, stream->fd, (unsigned)stream->this.size,
-				(unsigned)stream->this.timestamp, res);
+				(unsigned)stream->this.timestamp, stream->idle, res);
 
 		stream->this.size = 0;
 	}
+
+	if (fail)
+		group->paused = 1u + IDLE_TIME / group->duration;
 
 	/* Pull data for the next interval */
 	group->next += exp * group->duration;
@@ -181,23 +224,27 @@ static void group_on_timeout(struct spa_source *source)
 		if (!stream->sink)
 			continue;
 
+		if (resync)
+			stream->this.resync = true;
+
 		if (stream->pull) {
+			stream->idle = false;
 			stream->this.now = group->next;
 			stream->pull(&stream->this);
 		} else {
-			stream->this.size = 0;
+			stream_silence(stream);
 		}
 	}
 
 	set_timeout(group, group->next);
 }
 
-static struct group *group_create(uint8_t cig, uint32_t interval,
+static struct group *group_create(struct spa_bt_transport *t,
 		struct spa_log *log, struct spa_loop *data_loop, struct spa_system *data_system)
 {
 	struct group *group;
 
-	if (interval <= 5000) {
+	if (t->bap_interval <= 5000) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -208,11 +255,11 @@ static struct group *group_create(uint8_t cig, uint32_t interval,
 
 	spa_log_topic_init(log, &log_topic);
 
-	group->cig = cig;
+	group->cig = t->bap_cig;
 	group->log = log;
 	group->data_loop = data_loop;
 	group->data_system = data_system;
-	group->duration = interval * SPA_NSEC_PER_USEC;
+	group->duration = t->bap_interval * SPA_NSEC_PER_USEC;
 
 	spa_list_init(&group->streams);
 
@@ -261,36 +308,80 @@ static void group_destroy(struct group *group)
 	free(group);
 }
 
-struct stream *stream_create(int fd, bool sink, struct group *group)
+struct stream *stream_create(struct spa_bt_transport *t, struct group *group)
 {
 	struct stream *stream;
+	void *codec_data = NULL;
+	int block_size = 0;
+	struct spa_audio_info format = { 0 };
+	int res;
+	bool sink = (t->profile & SPA_BT_PROFILE_BAP_SINK) != 0;
+
+	if (!t->media_codec->bap) {
+		res = -EINVAL;
+		goto fail;
+	}
+
+	if (sink) {
+		res = t->media_codec->validate_config(t->media_codec, 0, t->configuration, t->configuration_len, &format);
+		if (res < 0)
+			goto fail;
+
+		codec_data = t->media_codec->init(t->media_codec, 0, t->configuration, t->configuration_len,
+				&format, NULL, t->write_mtu);
+		if (!codec_data) {
+			res = -EINVAL;
+			goto fail;
+		}
+
+		block_size = t->media_codec->get_block_size(codec_data);
+		if (block_size < 0 || block_size > EMPTY_BUF_SIZE) {
+			res = -EINVAL;
+			goto fail;
+		}
+	}
 
 	stream = calloc(1, sizeof(struct stream));
 	if (stream == NULL)
-		return NULL;
+		goto fail_errno;
 
-	stream->fd = fd;
+	stream->fd = t->fd;
 	stream->sink = sink;
 	stream->group = group;
-	stream->idle = true;
 	stream->this.duration = group->duration;
+
+	stream->codec = t->media_codec;
+	stream->this.codec_data = codec_data;
+	stream->this.format = format;
+	stream->block_size = block_size;
+
+	if (sink)
+		stream_silence(stream);
 
 	stream_link(group, stream);
 
 	return stream;
+
+fail_errno:
+	res = -errno;
+fail:
+	if (codec_data)
+		t->media_codec->deinit(codec_data);
+	errno = -res;
+	return NULL;
 }
 
-struct spa_bt_iso_io *spa_bt_iso_io_create(int fd, bool sink, uint8_t cig, uint32_t interval,
+struct spa_bt_iso_io *spa_bt_iso_io_create(struct spa_bt_transport *t,
 		struct spa_log *log, struct spa_loop *data_loop, struct spa_system *data_system)
 {
 	struct stream *stream;
 	struct group *group;
 
-	group = group_create(cig, interval, log, data_loop, data_system);
+	group = group_create(t, log, data_loop, data_system);
 	if (group == NULL)
 		return NULL;
 
-	stream = stream_create(fd, sink, group);
+	stream = stream_create(t, group);
 	if (stream == NULL) {
 		int err = errno;
 		group_destroy(group);
@@ -301,11 +392,11 @@ struct spa_bt_iso_io *spa_bt_iso_io_create(int fd, bool sink, uint8_t cig, uint3
 	return &stream->this;
 }
 
-struct spa_bt_iso_io *spa_bt_iso_io_attach(struct spa_bt_iso_io *this, int fd, bool sink)
+struct spa_bt_iso_io *spa_bt_iso_io_attach(struct spa_bt_iso_io *this, struct spa_bt_transport *t)
 {
 	struct stream *stream = SPA_CONTAINER_OF(this, struct stream, this);
 
-	stream = stream_create(fd, sink, stream->group);
+	stream = stream_create(t, stream->group);
 	if (stream == NULL)
 		return NULL;
 
@@ -320,6 +411,10 @@ void spa_bt_iso_io_destroy(struct spa_bt_iso_io *this)
 
 	if (spa_list_is_empty(&stream->group->streams))
 		group_destroy(stream->group);
+
+	if (stream->this.codec_data)
+		stream->codec->deinit(stream->this.codec_data);
+	stream->this.codec_data = NULL;
 
 	free(stream);
 }
@@ -348,10 +443,12 @@ void spa_bt_iso_io_set_cb(struct spa_bt_iso_io *this, spa_bt_iso_io_pull_t pull,
 
 	enabled = group_is_enabled(stream->group);
 
-	if (!enabled && was_enabled)
+	if (!enabled && was_enabled) {
+		stream->group->started = false;
 		set_timeout(stream->group, 0);
-	else if (enabled && !was_enabled)
+	} else if (enabled && !was_enabled) {
 		set_timers(stream->group);
+	}
 
 	stream->idle = true;
 	stream->this.resync = true;

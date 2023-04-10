@@ -174,10 +174,6 @@ COMMAND MANAGEMENT
 send-command *object-id*
   Send a command to an object.
 
-
-EXAMPLES
-========
-
 AUTHORS
 =======
 

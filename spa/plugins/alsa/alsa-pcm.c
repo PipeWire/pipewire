@@ -1616,10 +1616,17 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	}
 
 	state->headroom = state->default_headroom;
-	/* If tsched is disabled, we know the pointers are updated when we wake
-	 * up, so we don't need the additional headroom */
-	if (is_batch && !state->disable_tsched)
-		state->headroom += period_size;
+	if (!state->disable_tsched) {
+		/* If tsched is disabled, we know the pointers are updated when we wake
+		 * up, so we don't need the additional headroom */
+		if (is_batch)
+			state->headroom += period_size;
+		/* add 32 extra samples of headroom to handle jitter in capture */
+		if (state->stream == SND_PCM_STREAM_CAPTURE)
+			state->headroom = SPA_MAX(state->headroom, 32u);
+	}
+
+
 
 	state->max_delay = state->buffer_frames / 2;
 	if (spa_strstartswith(state->props.device, "a52") ||
@@ -1921,9 +1928,7 @@ static int get_status(struct state *state, uint64_t current_time,
 		*delay = state->buffer_frames - avail;
 	} else {
 		*delay = avail;
-		*target = SPA_MAX(*target, state->read_size);
-		if (state->matching)
-			*target += 32;
+		*target = SPA_MAX(*target, state->read_size + state->headroom);
 	}
 	*target = SPA_CLAMP(*target, state->min_delay, state->max_delay);
 	return 0;
@@ -2007,8 +2012,8 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 		state->clock->next_nsec = state->next_time;
 	}
 
-	spa_log_trace_fp(state->log, "%p: follower:%d %"PRIu64" %f %ld %f %f %u",
-			state, follower, current_time, corr, delay, err, state->threshold * corr,
+	spa_log_trace_fp(state->log, "%p: follower:%d %"PRIu64" %f %ld %ld %f %f %u",
+			state, follower, current_time, corr, delay, target, err, state->threshold * corr,
 			state->threshold);
 
 	return 0;
@@ -2483,14 +2488,15 @@ static int handle_capture(struct state *state, uint64_t current_time,
 	int res;
 	struct spa_io_buffers *io;
 
-	if (SPA_UNLIKELY(delay < target)) {
-		spa_log_trace(state->log, "%p: early wakeup %ld %ld", state, delay, target);
+	if (SPA_UNLIKELY(delay < state->read_size)) {
+		spa_log_trace(state->log, "%p: early wakeup %ld %ld %d", state, delay, target,
+				state->read_size);
 		state->next_time = current_time + (target - delay) * SPA_NSEC_PER_SEC /
 			state->rate;
 		return -EAGAIN;
 	}
 
-	if (SPA_UNLIKELY(res = update_time(state, current_time, delay, target, false)) < 0)
+	if (SPA_UNLIKELY((res = update_time(state, current_time, delay, target, false)) < 0))
 		return res;
 
 	if ((res = spa_alsa_read(state)) < 0)

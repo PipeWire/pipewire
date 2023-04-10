@@ -1567,9 +1567,12 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	is_batch = snd_pcm_hw_params_is_batch(params) &&
 		!state->disable_batch;
 
+	/* no period size specified. If we are batch or not using timers,
+	 * use the graph duration as the period */
+	if (period_size == 0 && (is_batch || state->disable_tsched))
+		period_size = state->position ? state->position->clock.duration : DEFAULT_PERIOD;
+
 	if (is_batch) {
-		if (period_size == 0)
-			period_size = state->position ? state->position->clock.duration : DEFAULT_PERIOD;
 		if (period_size == 0)
 			period_size = DEFAULT_PERIOD;
 		/* batch devices get their hw pointers updated every period. Make
@@ -1617,16 +1620,17 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 
 	state->headroom = state->default_headroom;
 	if (!state->disable_tsched) {
-		/* If tsched is disabled, we know the pointers are updated when we wake
-		 * up, so we don't need the additional headroom */
+		/* When using timers, we might miss the pointer update for batch
+		 * devices so add some extra headroom. With IRQ, we know the pointers
+		 * are updated when we wake up and we don't need the headroom. */
 		if (is_batch)
 			state->headroom += period_size;
-		/* add 32 extra samples of headroom to handle jitter in capture */
+		/* Add 32 extra samples of headroom to handle jitter in capture.
+		 * For IRQ, we don't need this because when we wake up, we have
+		 * exactly enough samples to read or write. */
 		if (state->stream == SND_PCM_STREAM_CAPTURE)
 			state->headroom = SPA_MAX(state->headroom, 32u);
 	}
-
-
 
 	state->max_delay = state->buffer_frames / 2;
 	if (spa_strstartswith(state->props.device, "a52") ||

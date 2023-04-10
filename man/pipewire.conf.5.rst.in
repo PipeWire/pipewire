@@ -69,8 +69,7 @@ The configuration files can be expressed in full JSON syntax but for ease
 of use, a relaxed format may be used where:
 
  * ``:`` to delimit keys and values can be substuted by ``=`` or a space.
- * ``"`` around keys and string can be omited as long as no special characters
-         are used in the strings.
+ * ``"`` around keys and string can be omited as long as no special characters are used in the strings.
  * ``,`` to separate objects can be replaced with a whitespace character.
  * ``#`` can be used to start a comment until the line end
 

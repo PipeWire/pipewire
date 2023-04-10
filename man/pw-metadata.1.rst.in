@@ -51,6 +51,9 @@ OPTIONS
   Delete all metadata for *id* or for the specified *key* of object *id*.
   Without any option, all metadata is removed.
 
+-n | --name
+  Metadata name (Default: "default").
+
 AUTHORS
 =======
 

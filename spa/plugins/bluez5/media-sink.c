@@ -465,6 +465,7 @@ static uint64_t get_reference_time(struct impl *this, uint64_t *duration_ns_ret)
 {
 	struct port *port = &this->port;
 	uint64_t t, duration_ns;
+	bool resampling;
 
 	if (!this->process_rate || !this->process_duration) {
 		if (this->position) {
@@ -486,9 +487,12 @@ static uint64_t get_reference_time(struct impl *this, uint64_t *duration_ns_ret)
 			/ port->current_format.info.raw.rate);
 
 	/* Account for resampling delay */
-	if (port->rate_match && this->clock && SPA_FLAG_IS_SET(port->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE))
+	resampling = (port->current_format.info.raw.rate != this->process_rate) || this->following;
+	if (port->rate_match && this->clock && resampling) {
 		t -= (uint64_t)port->rate_match->delay * SPA_NSEC_PER_SEC
 			/ this->clock->rate.denom;
+		t += SPA_NSEC_PER_SEC / port->current_format.info.raw.rate;
+	}
 
 	return t;
 }

@@ -54,6 +54,18 @@ OPTIONS
 -n | --name
   Metadata name (Default: "default").
 
+EXAMPLES
+========
+
+**pw-metadata**
+  Show metadata in default name.
+
+**pw-metadata** -n settings 0
+  Display settings.
+
+**pw-metadata** -n settings 0 clock.quantum 1024
+  Change clock.quantum to 1024.
+
 AUTHORS
 =======
 

@@ -48,11 +48,8 @@ OPTIONS
   Keeps running and log the changes to the metadata.
 
 -d | --delete
-
-  Delete all metadata for *id* or for the
-  specified *key* of object *id*
-
-  Without any option, all metadata is removed
+  Delete all metadata for *id* or for the specified *key* of object *id*.
+  Without any option, all metadata is removed.
 
 AUTHORS
 =======

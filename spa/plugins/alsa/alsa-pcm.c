@@ -1969,12 +1969,14 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 		state->alsa_sync = true;
 		state->alsa_sync_warning = false;
 	}
-	if (err > state->max_error) {
-		err = state->max_error;
+	if (err > state->max_resync) {
 		state->alsa_sync = true;
-	} else if (err < -state->max_error) {
-		err = -state->max_error;
+		if (err > state->max_error)
+			err = state->max_error;
+	} else if (err < -state->max_resync) {
 		state->alsa_sync = true;
+		if (err < -state->max_error)
+			err = -state->max_error;
 	}
 
 	if (!follower || state->matching)
@@ -2079,6 +2081,7 @@ static inline int check_position_config(struct state *state)
 			return -EIO;
 		state->threshold = SPA_SCALE32_UP(state->duration, state->rate, state->rate_denom);
 		state->max_error = SPA_MAX(256.0f, state->threshold / 2.0f);
+		state->max_resync = SPA_MIN(state->threshold, state->max_error);
 		state->resample = ((uint32_t)state->rate != state->rate_denom) || state->matching;
 		state->alsa_sync = true;
 	}

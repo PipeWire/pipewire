@@ -213,6 +213,7 @@ struct state {
 
 	struct spa_dll dll;
 	double max_error;
+	double max_resync;
 
 	struct spa_latency_info latency[2];
 	struct spa_process_latency_info process_latency;

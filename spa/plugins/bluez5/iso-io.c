@@ -23,7 +23,7 @@ static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.iso");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 
-#define IDLE_TIME	(100 * SPA_NSEC_PER_MSEC)
+#define IDLE_TIME	(200 * SPA_NSEC_PER_MSEC)
 
 struct group {
 	struct spa_log *log;

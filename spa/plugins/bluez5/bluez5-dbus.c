@@ -1871,6 +1871,8 @@ static bool device_set_update_leader(struct spa_bt_set_membership *set)
 	leader = NULL;
 
 	spa_bt_for_each_set_member(s, set) {
+		if (!(s->device->connected_profiles & SPA_BT_PROFILE_BAP_DUPLEX))
+			continue;
 		min_rank = SPA_MIN(min_rank, s->rank);
 		if (s->leader) {
 			leader_rank = s->rank;

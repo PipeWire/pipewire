@@ -2986,13 +2986,8 @@ static int transport_update_props(struct spa_bt_transport *transport,
 			else if (spa_streq(key, "State")) {
 				enum spa_bt_transport_state state  = spa_bt_transport_state_from_string(value);
 
-				/* Emit transition to active only for transports with
-				 * acquired fd. If the acquire completes after prop
-				 * update, we set the state in acquire completion.  BlueZ
-				 * currently sends events in the order where this never
-				 * happens, but let's not rely on that.
-				 */
-				if (state != SPA_BT_TRANSPORT_STATE_ACTIVE || transport->fd >= 0)
+				/* Transition to active emitted only from acquire callback. */
+				if (state != SPA_BT_TRANSPORT_STATE_ACTIVE)
 					spa_bt_transport_set_state(transport, state);
 			}
 			else if (spa_streq(key, "Device")) {
@@ -3312,6 +3307,8 @@ static int transport_create_iso_io(struct spa_bt_transport *transport)
 			spa_log_debug(monitor->log, "transport %p: attach ISO IO to %p",
 					transport, t);
 			transport->iso_io = spa_bt_iso_io_attach(t->iso_io, transport->fd, sink);
+			if (transport->iso_io == NULL)
+				return -errno;
 			return 0;
 		}
 	}
@@ -3326,6 +3323,13 @@ static int transport_create_iso_io(struct spa_bt_transport *transport)
 	return 0;
 }
 
+static bool transport_in_same_cig(struct spa_bt_transport *transport, struct spa_bt_transport *other)
+{
+	return (other->profile & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE)) &&
+		other->bap_cig == transport->bap_cig &&
+		other->bap_initiator;
+}
+
 static void transport_acquire_reply(DBusPendingCall *pending, void *user_data)
 {
 	struct spa_bt_transport *transport = user_data;
@@ -3334,7 +3338,7 @@ static void transport_acquire_reply(DBusPendingCall *pending, void *user_data)
 	int ret = 0;
 	DBusError err;
 	DBusMessage *r;
-	struct spa_bt_transport *t_linked;
+	struct spa_bt_transport *t, *t_linked;
 
 	r = dbus_pending_call_steal_reply(pending);
 
@@ -3389,7 +3393,8 @@ finish:
 			spa_log_error(monitor->log, "transport %p: transport_create_iso_io failed",
 					transport);
 
-		spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ACTIVE);
+		if (!transport->bap_initiator)
+			spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ACTIVE);
 	}
 
 	/* For LE Audio, multiple transport from the same device may share the same
@@ -3413,7 +3418,27 @@ finish:
 			spa_log_error(monitor->log, "transport %p: transport_create_iso_io failed",
 					t_linked);
 
-		spa_bt_transport_set_state(t_linked, SPA_BT_TRANSPORT_STATE_ACTIVE);
+		if (!transport->bap_initiator)
+			spa_bt_transport_set_state(t_linked, SPA_BT_TRANSPORT_STATE_ACTIVE);
+	}
+
+	/*
+	 * Transports in same CIG emit state change events at the same time,
+	 * after all pending acquires complete.
+	 */
+	if (transport->bap_initiator) {
+		spa_list_for_each(t, &monitor->transport_list, link) {
+			if (!transport_in_same_cig(transport, t))
+				continue;
+			if (t->acquire_call)
+				return;
+		}
+		spa_list_for_each(t, &monitor->transport_list, link) {
+			if (!transport_in_same_cig(transport, t))
+				continue;
+			if (t->fd >= 0)
+				spa_bt_transport_set_state(t, SPA_BT_TRANSPORT_STATE_ACTIVE);
+		}
 	}
 }
 
@@ -3460,13 +3485,6 @@ static int do_transport_acquire(struct spa_bt_transport *transport)
 		return -EIO;
 
 	return 0;
-}
-
-static bool transport_in_same_cig(struct spa_bt_transport *transport, struct spa_bt_transport *other)
-{
-	return (other->profile & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE)) &&
-		other->bap_cig == transport->bap_cig &&
-		other->bap_initiator;
 }
 
 static bool another_cig_transport_active(struct spa_bt_transport *transport)

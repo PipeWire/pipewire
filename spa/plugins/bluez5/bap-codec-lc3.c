@@ -227,30 +227,31 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac)
 	if (conf->frame_duration == 0xFF || !conf->rate)
 		return false;
 
+	/* BAP v1.0.1 Table 5.2; high-reliability */
 	switch (conf->rate) {
 	case LC3_CONFIG_FREQ_48KHZ:
 		if (conf->frame_duration == LC3_CONFIG_DURATION_7_5)
-			conf->framelen = 117;
+			conf->framelen = 117;	/* 48_5_2 */
 		else
-			conf->framelen = 120;
+			conf->framelen = 120;	/* 48_4_2 */
 		break;
 	case LC3_CONFIG_FREQ_24KHZ:
 		if (conf->frame_duration == LC3_CONFIG_DURATION_7_5)
-			conf->framelen = 45;
+			conf->framelen = 45;	/* 24_1_2 */
 		else
-			conf->framelen = 60;
+			conf->framelen = 60;	/* 24_2_2 */
 		break;
 	case LC3_CONFIG_FREQ_16KHZ:
 		if (conf->frame_duration == LC3_CONFIG_DURATION_7_5)
-			conf->framelen = 30;
+			conf->framelen = 30;	/* 16_1_2 */
 		else
-			conf->framelen = 40;
+			conf->framelen = 40;	/* 16_2_2 */
 		break;
 	case LC3_CONFIG_FREQ_8KHZ:
 		if (conf->frame_duration == LC3_CONFIG_DURATION_7_5)
-			conf->framelen = 26;
+			conf->framelen = 26;	/* 8_1_2 */
 		else
-			conf->framelen = 30;
+			conf->framelen = 30;	/* 8_2_2 */
 		break;
 	default:
 			return false;
@@ -598,32 +599,35 @@ static int codec_get_qos(const struct media_codec *codec,
 		qos->phy = 0x1;
 	else
 		qos->phy = 0x2;
-	qos->retransmission = 2; /* default */
 	qos->sdu = conf.framelen * conf.n_blks * get_num_channels(conf.channels);
-	qos->latency = 20; /* default */
-	qos->delay = 40000U;
 	qos->interval = (conf.frame_duration == LC3_CONFIG_DURATION_7_5 ? 7500 : 10000);
-	qos->target_latency = BT_ISO_QOS_TARGET_LATENCY_BALANCED;
+	qos->target_latency = BT_ISO_QOS_TARGET_LATENCY_RELIABILITY;
+
+	/* Default values from BAP v1.0.1 Table 5.2; high-reliability */
+	qos->delay = 40000U;
+	qos->retransmission = 13;
 
 	switch (conf.rate) {
-		case LC3_CONFIG_FREQ_8KHZ:
-		case LC3_CONFIG_FREQ_16KHZ:
-		case LC3_CONFIG_FREQ_24KHZ:
-		case LC3_CONFIG_FREQ_32KHZ:
-			qos->retransmission = 2;
-			qos->latency = (conf.frame_duration == LC3_CONFIG_DURATION_7_5 ? 8 : 10);
-			break;
-		case LC3_CONFIG_FREQ_48KHZ:
-			qos->retransmission = 5;
-			qos->latency = (conf.frame_duration == LC3_CONFIG_DURATION_7_5 ? 15 : 20);
-			break;
+	case LC3_CONFIG_FREQ_8KHZ:
+	case LC3_CONFIG_FREQ_16KHZ:
+	case LC3_CONFIG_FREQ_24KHZ:
+	case LC3_CONFIG_FREQ_32KHZ:
+		/* F_1_2, F_2_2 */
+		qos->latency = (conf.frame_duration == LC3_CONFIG_DURATION_7_5 ? 75 : 95);
+		break;
+	case LC3_CONFIG_FREQ_48KHZ:
+		/* 48_5_2, 48_4_2 */
+		qos->latency = (conf.frame_duration == LC3_CONFIG_DURATION_7_5 ? 75 : 100);
+		break;
+	default:
+		qos->latency = 100;
+		break;
 	}
 
-	/* Clamp to ASE values */
+	/* Clamp to ASE values (if known) */
 	if (endpoint_qos->latency >= 0x0005 && endpoint_qos->latency <= 0x0FA0)
 		/* Values outside the range are RFU */
-		qos->latency = SPA_MAX(qos->latency, endpoint_qos->latency);
-
+		qos->latency = endpoint_qos->latency;
 	if (endpoint_qos->delay_min)
 		qos->delay = SPA_MAX(qos->delay, endpoint_qos->delay_min);
 	if (endpoint_qos->delay_max)

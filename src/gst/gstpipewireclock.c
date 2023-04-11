@@ -91,6 +91,7 @@ gst_pipewire_clock_init (GstPipeWireClock * clock)
 void
 gst_pipewire_clock_reset (GstPipeWireClock * clock, GstClockTime time)
 {
+#if 0
   GstClockTimeDiff time_offset;
 
   if (clock->last_time >= time)
@@ -104,4 +105,5 @@ gst_pipewire_clock_reset (GstPipeWireClock * clock, GstClockTime time)
       "reset clock to %" GST_TIME_FORMAT ", last %" GST_TIME_FORMAT
       ", offset %" GST_STIME_FORMAT, GST_TIME_ARGS (time),
       GST_TIME_ARGS (clock->last_time), GST_STIME_ARGS (time_offset));
+#endif
 }

@@ -22,7 +22,9 @@ struct impl_data {
 
 	struct spa_log *log;
 	std::unique_ptr<webrtc::AudioProcessing> apm;
-	spa_audio_info_raw info;
+	spa_audio_info_raw rec_info;
+	spa_audio_info_raw out_info;
+	spa_audio_info_raw play_info;
 	std::unique_ptr<float *[]> play_buffer, rec_buffer, out_buffer;
 };
 
@@ -38,9 +40,12 @@ static bool webrtc_get_spa_bool(const struct spa_dict *args, const char *key, bo
 	return default_value;
 }
 
-static int webrtc_init(void *object, const struct spa_dict *args, const struct spa_audio_info_raw *info)
+static int webrtc_init2(void *object, const struct spa_dict *args,
+		struct spa_audio_info_raw *rec_info, struct spa_audio_info_raw *out_info,
+		struct spa_audio_info_raw *play_info)
 {
 	auto impl = static_cast<struct impl_data*>(object);
+	int res;
 
 	bool extended_filter = webrtc_get_spa_bool(args, "webrtc.extended_filter", true);
 	bool delay_agnostic = webrtc_get_spa_bool(args, "webrtc.delay_agnostic", true);
@@ -67,16 +72,16 @@ static int webrtc_init(void *object, const struct spa_dict *args, const struct s
 	config.Set<webrtc::ExperimentalNs>(new webrtc::ExperimentalNs(experimental_ns));
 
 	webrtc::ProcessingConfig pconfig = {{
-		webrtc::StreamConfig(info->rate, info->channels, false), /* input stream */
-		webrtc::StreamConfig(info->rate, info->channels, false), /* output stream */
-		webrtc::StreamConfig(info->rate, info->channels, false), /* reverse input stream */
-		webrtc::StreamConfig(info->rate, info->channels, false), /* reverse output stream */
+		webrtc::StreamConfig(rec_info->rate, rec_info->channels, false), /* input stream */
+		webrtc::StreamConfig(out_info->rate, out_info->channels, false), /* output stream */
+		webrtc::StreamConfig(play_info->rate, play_info->channels, false), /* reverse input stream */
+		webrtc::StreamConfig(play_info->rate, play_info->channels, false), /* reverse output stream */
 	}};
 
 	auto apm = std::unique_ptr<webrtc::AudioProcessing>(webrtc::AudioProcessing::Create(config));
-	if (apm->Initialize(pconfig) != webrtc::AudioProcessing::kNoError) {
-		spa_log_error(impl->log, "Error initialising webrtc audio processing module");
-		return -1;
+	if ((res = apm->Initialize(pconfig)) != webrtc::AudioProcessing::kNoError) {
+		spa_log_error(impl->log, "Error initialising webrtc audio processing module: %d", res);
+		return -EINVAL;
 	}
 
 	apm->high_pass_filter()->Enable(high_pass_filter);
@@ -94,48 +99,72 @@ static int webrtc_init(void *object, const struct spa_dict *args, const struct s
 	apm->gain_control()->set_mode(webrtc::GainControl::kAdaptiveDigital);
 	apm->gain_control()->Enable(gain_control);
 	impl->apm = std::move(apm);
-	impl->info = *info;
-	impl->play_buffer = std::make_unique<float *[]>(info->channels);
-	impl->rec_buffer = std::make_unique<float *[]>(info->channels);
-	impl->out_buffer = std::make_unique<float *[]>(info->channels);
+	impl->rec_info = *rec_info;
+	impl->out_info = *out_info;
+	impl->play_info = *play_info;
+	impl->play_buffer = std::make_unique<float *[]>(play_info->channels);
+	impl->rec_buffer = std::make_unique<float *[]>(rec_info->channels);
+	impl->out_buffer = std::make_unique<float *[]>(out_info->channels);
 	return 0;
+}
+
+static int webrtc_init(void *object, const struct spa_dict *args,
+		const struct spa_audio_info_raw *info)
+{
+	int res;
+	struct spa_audio_info_raw rec_info = *info;
+	struct spa_audio_info_raw out_info = *info;
+	struct spa_audio_info_raw play_info = *info;
+	res = webrtc_init2(object, args, &rec_info, &out_info, &play_info);
+	if (rec_info.channels != out_info.channels)
+		res = -EINVAL;
+	return res;
 }
 
 static int webrtc_run(void *object, const float *rec[], const float *play[], float *out[], uint32_t n_samples)
 {
 	auto impl = static_cast<struct impl_data*>(object);
-	webrtc::StreamConfig config =
-		webrtc::StreamConfig(impl->info.rate, impl->info.channels, false);
-	unsigned int num_blocks = n_samples * 1000 / impl->info.rate / 10;
+	int res;
 
-	if (n_samples * 1000 / impl->info.rate % 10 != 0) {
+	webrtc::StreamConfig play_config =
+		webrtc::StreamConfig(impl->play_info.rate, impl->play_info.channels, false);
+	webrtc::StreamConfig rec_config =
+		webrtc::StreamConfig(impl->rec_info.rate, impl->rec_info.channels, false);
+	webrtc::StreamConfig out_config =
+		webrtc::StreamConfig(impl->out_info.rate, impl->out_info.channels, false);
+	unsigned int num_blocks = n_samples * 1000 / impl->play_info.rate / 10;
+
+	if (n_samples * 1000 / impl->play_info.rate % 10 != 0) {
 		spa_log_error(impl->log, "Buffers must be multiples of 10ms in length (currently %u samples)", n_samples);
-		return -1;
+		return -EINVAL;
 	}
 
 	for (size_t i = 0; i < num_blocks; i ++) {
-		for (size_t j = 0; j < impl->info.channels; j++) {
-			impl->play_buffer[j] = const_cast<float *>(play[j]) + config.num_frames() * i;
-			impl->rec_buffer[j] = const_cast<float *>(rec[j]) + config.num_frames() * i;
-			impl->out_buffer[j] = out[j] + config.num_frames() * i;
-		}
+		for (size_t j = 0; j < impl->play_info.channels; j++)
+			impl->play_buffer[j] = const_cast<float *>(play[j]) + play_config.num_frames() * i;
+		for (size_t j = 0; j < impl->rec_info.channels; j++)
+			impl->rec_buffer[j] = const_cast<float *>(rec[j]) + rec_config.num_frames() * i;
+		for (size_t j = 0; j < impl->out_info.channels; j++)
+			impl->out_buffer[j] = out[j] + out_config.num_frames() * i;
+
 		/* FIXME: ProcessReverseStream may change the playback buffer, in which
 		* case we should use that, if we ever expose the intelligibility
 		* enhancer */
-		if (impl->apm->ProcessReverseStream(impl->play_buffer.get(), config, config, impl->play_buffer.get()) !=
+		if ((res = impl->apm->ProcessReverseStream(impl->play_buffer.get(),
+					play_config, play_config, impl->play_buffer.get())) !=
 				webrtc::AudioProcessing::kNoError) {
-			spa_log_error(impl->log, "Processing reverse stream failed");
+			spa_log_error(impl->log, "Processing reverse stream failed: %d", res);
 		}
 
 		// Extra delay introduced by multiple frames
 		impl->apm->set_stream_delay_ms((num_blocks - 1) * 10);
 
-		if (impl->apm->ProcessStream(impl->rec_buffer.get(), config, config, impl->out_buffer.get()) !=
+		if ((res = impl->apm->ProcessStream(impl->rec_buffer.get(),
+					rec_config, out_config, impl->out_buffer.get())) !=
 				webrtc::AudioProcessing::kNoError) {
-			spa_log_error(impl->log, "Processing stream failed");
+			spa_log_error(impl->log, "Processing stream failed: %d", res);
 		}
 	}
-
 	return 0;
 }
 
@@ -144,6 +173,7 @@ static const struct spa_audio_aec_methods impl_aec = {
 	.add_listener = NULL,
 	.init = webrtc_init,
 	.run = webrtc_run,
+	.init2 = webrtc_init2,
 };
 
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)

@@ -40,7 +40,7 @@ struct spa_audio_aec_events {
 };
 
 struct spa_audio_aec_methods {
-#define SPA_VERSION_AUDIO_AEC_METHODS	2
+#define SPA_VERSION_AUDIO_AEC_METHODS	3
         uint32_t version;
 
 	int (*add_listener) (void *object,
@@ -60,6 +60,12 @@ struct spa_audio_aec_methods {
 	int (*enum_props) (void* object, int index, struct spa_pod_builder* builder);
 	int (*get_params) (void* object, struct spa_pod_builder* builder);
 	int (*set_params) (void *object, const struct spa_pod *args);
+
+	/* version 1:3 */
+	int (*init2) (void *object, const struct spa_dict *args,
+			struct spa_audio_info_raw *play_info,
+			struct spa_audio_info_raw *rec_info,
+			struct spa_audio_info_raw *out_info);
 };
 
 #define spa_audio_aec_method(o,method,version,...)			\
@@ -81,6 +87,7 @@ struct spa_audio_aec_methods {
 #define spa_audio_aec_enum_props(o,...)		spa_audio_aec_method(o, enum_props, 2, __VA_ARGS__)
 #define spa_audio_aec_get_params(o,...)		spa_audio_aec_method(o, get_params, 2, __VA_ARGS__)
 #define spa_audio_aec_set_params(o,...)		spa_audio_aec_method(o, set_params, 2, __VA_ARGS__)
+#define spa_audio_aec_init2(o,...)		spa_audio_aec_method(o, init2, 3, __VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

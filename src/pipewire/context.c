@@ -943,6 +943,8 @@ static void move_to_driver(struct pw_context *context, struct spa_list *nodes,
 	spa_list_consume(n, nodes, sort_link) {
 		spa_list_remove(&n->sort_link);
 
+		driver->runnable |= n->runnable;
+
 		pw_log_debug(" follower: %p %s runnable:%u driver-runnable:%u", n, n->name,
 				n->runnable, driver->runnable);
 		pw_impl_node_set_driver(n, driver);

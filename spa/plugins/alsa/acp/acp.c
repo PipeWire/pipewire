@@ -362,7 +362,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 							devstr, NULL, &m->sample_spec,
 							&m->channel_map, SND_PCM_STREAM_PLAYBACK,
 							&try_period_size, &try_buffer_size,
-							0, NULL, NULL, NULL, NULL, false))) {
+							0, NULL, NULL, false))) {
 				pa_alsa_init_proplist_pcm(NULL, m->output_proplist, m->output_pcm);
 				pa_proplist_setf(m->output_proplist, "clock.name", "api.alsa.%u", index);
 				pa_alsa_close(&m->output_pcm);
@@ -392,7 +392,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 							devstr, NULL, &m->sample_spec,
 							&m->channel_map, SND_PCM_STREAM_CAPTURE,
 							&try_period_size, &try_buffer_size,
-							0, NULL, NULL, NULL, NULL, false))) {
+							0, NULL, NULL, false))) {
 				pa_alsa_init_proplist_pcm(NULL, m->input_proplist, m->input_pcm);
 				pa_proplist_setf(m->input_proplist, "clock.name", "api.alsa.%u", index);
 				pa_alsa_close(&m->input_pcm);
@@ -449,8 +449,8 @@ static void add_profiles(pa_card *impl)
 					pa_dynarray_append(&impl->out.devices, dev);
 				}
 				if (impl->use_ucm) {
-					if (m->ucm_context.ucm_device) {
-						pa_alsa_ucm_add_port(NULL, &m->ucm_context,
+					if (m->ucm_context.ucm_devices) {
+						pa_alsa_ucm_add_ports_combination(NULL, &m->ucm_context,
 							true, impl->ports, ap, NULL);
 						pa_alsa_ucm_add_ports(&dev->ports, m->proplist, &m->ucm_context,
 							true, impl, dev->pcm_handle, impl->profile_set->ignore_dB);
@@ -473,8 +473,8 @@ static void add_profiles(pa_card *impl)
 				}
 
 				if (impl->use_ucm) {
-					if (m->ucm_context.ucm_device) {
-						pa_alsa_ucm_add_port(NULL, &m->ucm_context,
+					if (m->ucm_context.ucm_devices) {
+						pa_alsa_ucm_add_ports_combination(NULL, &m->ucm_context,
 							false, impl->ports, ap, NULL);
 						pa_alsa_ucm_add_ports(&dev->ports, m->proplist, &m->ucm_context,
 							false, impl, dev->pcm_handle, impl->profile_set->ignore_dB);
@@ -608,7 +608,7 @@ struct temp_port_avail {
 static int report_jack_state(snd_mixer_elem_t *melem, unsigned int mask)
 {
 	pa_card *impl = snd_mixer_elem_get_callback_private(melem);
-	snd_hctl_elem_t **_elem = snd_mixer_elem_get_private(melem), *elem;
+	snd_hctl_elem_t *elem = snd_mixer_elem_get_private(melem);
 	snd_ctl_elem_value_t *elem_value;
 	bool plugged_in, any_input_port_available;
 	void *state;
@@ -618,8 +618,6 @@ static int report_jack_state(snd_mixer_elem_t *melem, unsigned int mask)
 	enum acp_available active_available = ACP_AVAILABLE_UNKNOWN;
 	size_t size;
 
-	pa_assert(_elem);
-	elem = *_elem;
 #if 0
 	/* Changing the jack state may cause a port change, and a port change will
 	 * make the sink or source change the mixer settings. If there are multiple
@@ -888,16 +886,12 @@ static pa_device_port* find_port_with_eld_device(pa_card *impl, int device)
 static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 {
 	pa_card *impl = snd_mixer_elem_get_callback_private(melem);
-	snd_hctl_elem_t **_elem = snd_mixer_elem_get_private(melem), *elem;
-	int device;
+	snd_hctl_elem_t *elem = snd_mixer_elem_get_private(melem);
+	int device = snd_hctl_elem_get_device(elem);
 	const char *old_monitor_name;
 	pa_device_port *p;
 	pa_hdmi_eld eld;
 	bool changed = false;
-
-	pa_assert(_elem);
-	elem = *_elem;
-	device = snd_hctl_elem_get_device(elem);
 
 	if (mask == SND_CTL_EVENT_MASK_REMOVE)
 		return 0;
@@ -1259,7 +1253,8 @@ static int setup_mixer(pa_card *impl, pa_alsa_device *dev, bool ignore_dB)
 	* will be NULL, but the UCM device enable sequence will still need to be
 	* executed. */
 	if (dev->active_port && dev->ucm_context) {
-		if ((res = pa_alsa_ucm_set_port(dev->ucm_context, dev->active_port)) < 0)
+		if ((res = pa_alsa_ucm_set_port(dev->ucm_context, dev->active_port,
+					dev->direction == PA_ALSA_DIRECTION_OUTPUT)) < 0)
 			return res;
 	}
 
@@ -1434,7 +1429,8 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index, uint32_t fla
 	/* if UCM is available for this card then update the verb */
 	if (impl->use_ucm && !(np->profile.flags & ACP_PROFILE_PRO)) {
 		if ((res = pa_alsa_ucm_set_profile(&impl->ucm, impl,
-		    np->profile.flags & ACP_PROFILE_OFF ? NULL : np, op)) < 0) {
+		    np->profile.flags & ACP_PROFILE_OFF ? NULL : np->profile.name,
+		    op ? op->profile.name : NULL)) < 0) {
 			return res;
 		}
 	}
@@ -1443,8 +1439,8 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index, uint32_t fla
 		PA_IDXSET_FOREACH(am, np->output_mappings, idx) {
 			if (impl->use_ucm) {
 				/* Update ports priorities */
-				if (am->ucm_context.ucm_device) {
-					pa_alsa_ucm_add_port(am->output.ports, &am->ucm_context,
+				if (am->ucm_context.ucm_devices) {
+					pa_alsa_ucm_add_ports_combination(am->output.ports, &am->ucm_context,
 						true, impl->ports, np, NULL);
 				}
 			}
@@ -1456,8 +1452,8 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index, uint32_t fla
 		PA_IDXSET_FOREACH(am, np->input_mappings, idx) {
 			if (impl->use_ucm) {
 				/* Update ports priorities */
-				if (am->ucm_context.ucm_device) {
-					pa_alsa_ucm_add_port(am->input.ports, &am->ucm_context,
+				if (am->ucm_context.ucm_devices) {
+					pa_alsa_ucm_add_ports_combination(am->input.ports, &am->ucm_context,
 						false, impl->ports, np, NULL);
 				}
 			}
@@ -1848,7 +1844,8 @@ int acp_device_set_port(struct acp_device *dev, uint32_t port_index, uint32_t fl
 		mixer_volume_init(impl, d);
 
 		sync_mixer(d, p);
-		res = pa_alsa_ucm_set_port(d->ucm_context, p);
+		res = pa_alsa_ucm_set_port(d->ucm_context, p,
+					dev->direction == ACP_DIRECTION_PLAYBACK);
 	} else {
 		pa_alsa_port_data *data;
 

@@ -142,13 +142,12 @@ typedef struct pa_alsa_ucm_modifier pa_alsa_ucm_modifier;
 typedef struct pa_alsa_ucm_device pa_alsa_ucm_device;
 typedef struct pa_alsa_ucm_config pa_alsa_ucm_config;
 typedef struct pa_alsa_ucm_mapping_context pa_alsa_ucm_mapping_context;
-typedef struct pa_alsa_ucm_profile_context pa_alsa_ucm_profile_context;
 typedef struct pa_alsa_ucm_port_data pa_alsa_ucm_port_data;
 typedef struct pa_alsa_ucm_volume pa_alsa_ucm_volume;
 
 int pa_alsa_ucm_query_profiles(pa_alsa_ucm_config *ucm, int card_index);
 pa_alsa_profile_set* pa_alsa_ucm_add_profile_set(pa_alsa_ucm_config *ucm, pa_channel_map *default_channel_map);
-int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, pa_alsa_profile *new_profile, pa_alsa_profile *old_profile);
+int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, const char *new_profile, const char *old_profile);
 
 int pa_alsa_ucm_get_verb(snd_use_case_mgr_t *uc_mgr, const char *verb_name, const char *verb_desc, pa_alsa_ucm_verb **p_verb);
 
@@ -160,14 +159,14 @@ void pa_alsa_ucm_add_ports(
         pa_card *card,
         snd_pcm_t *pcm_handle,
         bool ignore_dB);
-void pa_alsa_ucm_add_port(
+void pa_alsa_ucm_add_ports_combination(
         pa_hashmap *hash,
         pa_alsa_ucm_mapping_context *context,
         bool is_sink,
         pa_hashmap *ports,
         pa_card_profile *cp,
         pa_core *core);
-int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *port);
+int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *port, bool is_sink);
 
 void pa_alsa_ucm_free(pa_alsa_ucm_config *ucm);
 void pa_alsa_ucm_mapping_context_free(pa_alsa_ucm_mapping_context *context);
@@ -224,8 +223,11 @@ struct pa_alsa_ucm_modifier {
 
     pa_proplist *proplist;
 
-    pa_idxset *conflicting_devices;
-    pa_idxset *supported_devices;
+    int n_confdev;
+    int n_suppdev;
+
+    const char **conflicting_devices;
+    const char **supported_devices;
 
     pa_direction_t action_direction;
 
@@ -268,23 +270,21 @@ struct pa_alsa_ucm_mapping_context {
     pa_alsa_ucm_config *ucm;
     pa_direction_t direction;
 
-    pa_alsa_ucm_device *ucm_device;
-    pa_alsa_ucm_modifier *ucm_modifier;
-};
-
-struct pa_alsa_ucm_profile_context {
-    pa_alsa_ucm_verb *verb;
+    pa_idxset *ucm_devices;
+    pa_idxset *ucm_modifiers;
 };
 
 struct pa_alsa_ucm_port_data {
     pa_alsa_ucm_config *ucm;
     pa_device_port *core_port;
 
-    pa_alsa_ucm_device *device;
+    /* A single port will be associated with multiple devices if it represents
+     * a combination of devices. */
+    pa_dynarray *devices; /* pa_alsa_ucm_device */
 
-    /* verb name -> pa_alsa_path for volume control */
+    /* profile name -> pa_alsa_path for volume control */
     pa_hashmap *paths;
-    /* Current path, set when activating verb */
+    /* Current path, set when activating profile */
     pa_alsa_path *path;
 
     /* ELD info */

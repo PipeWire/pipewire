@@ -47,12 +47,10 @@ typedef void (*pa_free_cb_t)(void *p);
 #define PA_LIKELY(x) (__builtin_expect(!!(x),1))
 #define PA_UNLIKELY(x) (__builtin_expect(!!(x),0))
 #define PA_PRINTF_FUNC(fmt, arg1) __attribute__((format(printf, fmt, arg1)))
-#define PA_UNUSED __attribute__ ((unused))
 #else
 #define PA_LIKELY(x) (x)
 #define PA_UNLIKELY(x) (x)
 #define PA_PRINTF_FUNC(fmt, arg1)
-#define PA_UNUSED
 #endif
 
 #define PA_MIN(a,b)                    \
@@ -98,7 +96,7 @@ typedef enum pa_available {
 	PA_AVAILABLE_YES = 2,
 } pa_available_t;
 
-#define PA_RATE_MAX (48000U*16U)
+#define PA_RATE_MAX (48000U*8U)
 
 typedef enum pa_sample_format {
 	PA_SAMPLE_U8,		/**< Unsigned 8 Bit PCM */

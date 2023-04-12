@@ -240,6 +240,7 @@ void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 
 	pw_thread_loop_stop(loop);
 
+	pw_loop_set_callbacks(loop->loop, NULL, NULL);
 	spa_hook_remove(&loop->hook);
 
 	spa_hook_list_clean(&loop->listener_list);

@@ -91,6 +91,8 @@ static gboolean gst_pipewire_src_start (GstBaseSrc * basesrc);
 static gboolean gst_pipewire_src_stop (GstBaseSrc * basesrc);
 static gboolean gst_pipewire_src_event (GstBaseSrc * src, GstEvent * event);
 static gboolean gst_pipewire_src_query (GstBaseSrc * src, GstQuery * query);
+static void gst_pipewire_src_get_times (GstBaseSrc * basesrc, GstBuffer * buffer,
+    GstClockTime * start, GstClockTime * end);
 
 static void
 gst_pipewire_src_set_property (GObject * object, guint prop_id,
@@ -413,6 +415,7 @@ gst_pipewire_src_class_init (GstPipeWireSrcClass * klass)
   gstbasesrc_class->stop = gst_pipewire_src_stop;
   gstbasesrc_class->event = gst_pipewire_src_event;
   gstbasesrc_class->query = gst_pipewire_src_query;
+  gstbasesrc_class->get_times = gst_pipewire_src_get_times;
   gstpushsrc_class->create = gst_pipewire_src_create;
 
   GST_DEBUG_CATEGORY_INIT (pipewire_src_debug, "pipewiresrc", 0,
@@ -578,7 +581,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
     GST_LOG_OBJECT (pwsrc, "pts %" G_GUINT64_FORMAT ", dts_offset %" G_GUINT64_FORMAT, h->pts, h->dts_offset);
 
     if (GST_CLOCK_TIME_IS_VALID (h->pts)) {
-      GST_BUFFER_PTS (buf) = h->pts + GST_PIPEWIRE_CLOCK (pwsrc->clock)->time_offset;
+      GST_BUFFER_PTS (buf) = h->pts;
       if (GST_BUFFER_PTS (buf) + h->dts_offset > 0)
         GST_BUFFER_DTS (buf) = GST_BUFFER_PTS (buf) + h->dts_offset;
     }
@@ -1126,11 +1129,39 @@ gst_pipewire_src_query (GstBaseSrc * src, GstQuery * query)
   return res;
 }
 
+static void
+gst_pipewire_src_get_times (GstBaseSrc * basesrc, GstBuffer * buffer,
+    GstClockTime * start, GstClockTime * end)
+{
+  GstPipeWireSrc *pwsrc = GST_PIPEWIRE_SRC (basesrc);
+
+  /* for live sources, sync on the timestamp of the buffer */
+  if (gst_base_src_is_live (basesrc)) {
+    GstClockTime timestamp = GST_BUFFER_PTS (buffer);
+
+    if (GST_CLOCK_TIME_IS_VALID (timestamp)) {
+      /* get duration to calculate end time */
+      GstClockTime duration = GST_BUFFER_DURATION (buffer);
+
+      if (GST_CLOCK_TIME_IS_VALID (duration)) {
+        *end = timestamp + duration;
+      }
+      *start = timestamp;
+    }
+  } else {
+    *start = GST_CLOCK_TIME_NONE;
+    *end = GST_CLOCK_TIME_NONE;
+  }
+
+  GST_LOG_OBJECT (pwsrc, "start %" GST_TIME_FORMAT " (%" G_GUINT64_FORMAT
+      "), end %" GST_TIME_FORMAT " (%" G_GUINT64_FORMAT ")",
+      GST_TIME_ARGS (*start), *start, GST_TIME_ARGS (*end), *end);
+}
+
 static GstFlowReturn
 gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 {
   GstPipeWireSrc *pwsrc;
-  GstClockTime pts, dts, base_time;
   const char *error = NULL;
   GstBuffer *buf;
   gboolean update_time = FALSE, timeout = FALSE;
@@ -1209,37 +1240,24 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 
   *buffer = buf;
 
-  if (pwsrc->is_live)
-    base_time = GST_ELEMENT_CAST (psrc)->base_time;
-  else
-    base_time = 0;
-
   if (update_time) {
-    GstClock *clock = gst_element_get_clock (GST_ELEMENT_CAST (pwsrc));
+    GstClock *clock;
+    GstClockTime pts, dts;
+
+    clock = gst_element_get_clock (GST_ELEMENT_CAST (pwsrc));
     if (clock != NULL) {
       pts = dts = gst_clock_get_time (clock);
       gst_object_unref (clock);
     } else {
       pts = dts = GST_CLOCK_TIME_NONE;
     }
-  } else {
-    pts = GST_BUFFER_PTS (*buffer);
-    dts = GST_BUFFER_DTS (*buffer);
+
+    GST_BUFFER_PTS (*buffer) = pts;
+    GST_BUFFER_DTS (*buffer) = dts;
+
+    GST_LOG_OBJECT (pwsrc, "Sending keepalive buffer pts/dts: %" GST_TIME_FORMAT
+      " (%" G_GUINT64_FORMAT ")", GST_TIME_ARGS (pts), pts);
   }
-
-  if (GST_CLOCK_TIME_IS_VALID (pts))
-    pts = (pts >= base_time ? pts - base_time : 0);
-  if (GST_CLOCK_TIME_IS_VALID (dts))
-    dts = (dts >= base_time ? dts - base_time : 0);
-
-  GST_LOG_OBJECT (pwsrc,
-      "pts %" G_GUINT64_FORMAT ", dts %" G_GUINT64_FORMAT
-      ", base-time %" GST_TIME_FORMAT " -> %" GST_TIME_FORMAT ", %" GST_TIME_FORMAT,
-      GST_BUFFER_PTS (*buffer), GST_BUFFER_DTS (*buffer), GST_TIME_ARGS (base_time),
-      GST_TIME_ARGS (pts), GST_TIME_ARGS (dts));
-
-  GST_BUFFER_PTS (*buffer) = pts;
-  GST_BUFFER_DTS (*buffer) = dts;
 
   return GST_FLOW_OK;
 

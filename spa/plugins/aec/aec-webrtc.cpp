@@ -10,6 +10,7 @@
 #include <spa/support/log.h>
 #include <spa/utils/string.h>
 #include <spa/utils/names.h>
+#include <spa/utils/json.h>
 #include <spa/support/plugin.h>
 
 #include <webrtc/modules/audio_processing/include/audio_processing.h>
@@ -40,6 +41,53 @@ static bool webrtc_get_spa_bool(const struct spa_dict *args, const char *key, bo
 	return default_value;
 }
 
+
+/* [ f0 f1 f2 ] */
+static int parse_point(struct spa_json *it, float (&f)[3])
+{
+	struct spa_json arr;
+	int i, res;
+
+	if (spa_json_enter_array(it, &arr) <= 0)
+		return -EINVAL;
+
+	for (i = 0; i < 3; i++) {
+		if ((res = spa_json_get_float(&arr, &f[i])) <= 0)
+			return -EINVAL;
+	}
+	return 0;
+}
+
+/* [ point1 point2 ... ] */
+static int parse_mic_geometry(struct impl_data *impl, const char *mic_geometry,
+		std::vector<webrtc::Point>& geometry)
+{
+	int res;
+	size_t i;
+	struct spa_json it[2];
+
+	spa_json_init(&it[0], mic_geometry, strlen(mic_geometry));
+	if (spa_json_enter_array(&it[0], &it[1]) <= 0) {
+		spa_log_error(impl->log, "Error: webrtc.mic-geometry expects an array");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < geometry.size(); i++) {
+		float f[3];
+
+		if ((res = parse_point(&it[1], f)) < 0) {
+			spa_log_error(impl->log, "Error: can't parse webrtc.mic-geometry points: %d", res);
+			return res;
+		}
+
+		spa_log_info(impl->log, "mic %zd position: (%g %g %g)", i, f[0], f[1], f[2]);
+		geometry[i].c[0] = f[0];
+		geometry[i].c[1] = f[1];
+		geometry[i].c[2] = f[2];
+	}
+	return 0;
+}
+
 static int webrtc_init2(void *object, const struct spa_dict *args,
 		struct spa_audio_info_raw *rec_info, struct spa_audio_info_raw *out_info,
 		struct spa_audio_info_raw *play_info)
@@ -61,6 +109,8 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 	bool experimental_agc = webrtc_get_spa_bool(args, "webrtc.experimental_agc", false);
 	bool experimental_ns = webrtc_get_spa_bool(args, "webrtc.experimental_ns", false);
 
+	bool beamforming = webrtc_get_spa_bool(args, "webrtc.beamforming", false);
+
 	// FIXME: Intelligibility enhancer is not currently supported
 	// This filter will modify playback buffer (when calling ProcessReverseStream), but now
 	// playback buffer modifications are discarded.
@@ -70,6 +120,44 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 	config.Set<webrtc::DelayAgnostic>(new webrtc::DelayAgnostic(delay_agnostic));
 	config.Set<webrtc::ExperimentalAgc>(new webrtc::ExperimentalAgc(experimental_agc));
 	config.Set<webrtc::ExperimentalNs>(new webrtc::ExperimentalNs(experimental_ns));
+
+	if (beamforming) {
+		std::vector<webrtc::Point> geometry(rec_info->channels);
+		const char *mic_geometry, *target_direction;
+
+		/* The beamformer gives a single mono channel */
+		out_info->channels = 1;
+		out_info->position[0] = SPA_AUDIO_CHANNEL_MONO;
+
+		if ((mic_geometry = spa_dict_lookup(args, "webrtc.mic-geometry")) == NULL) {
+			spa_log_error(impl->log, "Error: webrtc.beamforming requires webrtc.mic-geometry");
+			return -EINVAL;
+		}
+
+		if ((res = parse_mic_geometry(impl, mic_geometry, geometry)) < 0)
+			return res;
+
+		if ((target_direction = spa_dict_lookup(args, "webrtc.target-direction")) != NULL) {
+			webrtc::SphericalPointf direction(0.0f, 0.0f, 0.0f);
+			struct spa_json it;
+			float f[3];
+
+			spa_json_init(&it, target_direction, strlen(target_direction));
+			if (parse_point(&it, f) < 0) {
+				spa_log_error(impl->log, "Error: can't parse target-direction %s",
+						target_direction);
+				return -EINVAL;
+			}
+
+			direction.s[0] = f[0];
+			direction.s[1] = f[1];
+			direction.s[2] = f[2];
+
+			config.Set<webrtc::Beamforming>(new webrtc::Beamforming(true, geometry, direction));
+		} else {
+			config.Set<webrtc::Beamforming>(new webrtc::Beamforming(true, geometry));
+		}
+	}
 
 	webrtc::ProcessingConfig pconfig = {{
 		webrtc::StreamConfig(rec_info->rate, rec_info->channels, false), /* input stream */

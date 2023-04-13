@@ -46,9 +46,10 @@ static const struct pw_impl_module_events module_events = {
 
 static int module_echo_cancel_load(struct module *module)
 {
+	struct pw_properties * const props = module->props;
 	struct module_echo_cancel_data *data = module->user_data;
+	const char *method;
 	FILE *f;
-	const char *str;
 	char *args;
 	size_t size;
 	uint32_t i;
@@ -57,12 +58,14 @@ static int module_echo_cancel_load(struct module *module)
 		return -errno;
 
 	fprintf(f, "{");
-	/* Can't just serialise this dict because the "null" method gets
-	 * interpreted as a JSON null */
-	if ((str = pw_properties_get(data->props, "aec.method")))
-		fprintf(f, " aec.method = \"%s\"", str);
-	if ((str = pw_properties_get(data->props, "aec.args")))
-		fprintf(f, " aec.args = \"%s\"", str);
+	if ((method = pw_properties_get(props, "aec_method")) == NULL)
+		method = "webrtc";
+
+	fprintf(f, " library.name = \"aec/libspa-aec-%s\"", method);
+
+	fprintf(f, " aec.args = {");
+	pw_properties_serialize_dict(f, &data->props->dict, 0);
+	fprintf(f, " }");
 	if (data->info.rate != 0)
 		fprintf(f, " audio.rate = %u", data->info.rate);
 	if (data->info.channels != 0) {
@@ -149,13 +152,86 @@ static const struct spa_dict_item module_echo_cancel_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
+static void rename_bool_prop(struct pw_properties *props, const char *pa_key, const char *pw_key)
+{
+	const char *str;
+	if ((str = pw_properties_get(props, pa_key)) != NULL) {
+		pw_properties_set(props, pw_key, module_args_parse_bool(str) ? "true" : "false");
+		pw_properties_set(props, pa_key, NULL);
+	}
+}
+static int parse_point(const char **point, float f[3])
+{
+	int length;
+	if (sscanf(*point, "%g,%g,%g%n", &f[0], &f[1], &f[2], &length) != 3)
+		return -EINVAL;
+	return length;
+}
+
+static int rename_geometry(struct pw_properties *props, const char *pa_key, const char *pw_key)
+{
+	const char *str;
+	int len;
+	char *args;
+	size_t size;
+	FILE *f;
+
+	if ((str = pw_properties_get(props, pa_key)) == NULL)
+		return 0;
+
+	pw_log_info("geometry: %s", str);
+
+	if ((f = open_memstream(&args, &size)) == NULL)
+		return -errno;
+
+	fprintf(f, "[ ");
+	while (true) {
+		float p[3];
+		if ((len = parse_point(&str, p)) < 0)
+			break;
+
+		fprintf(f, "[ %f %f %f ] ", p[0], p[1], p[2]);
+		str += len;
+		if (*str != ',')
+			break;
+		str++;
+	}
+	fprintf(f, "]");
+	fclose(f);
+
+	pw_properties_set(props, pw_key, args);
+	free(args);
+
+	pw_properties_set(props, pa_key, NULL);
+	return 0;
+}
+
+static int rename_direction(struct pw_properties *props, const char *pa_key, const char *pw_key)
+{
+	const char *str;
+	int res;
+	float f[3];
+
+	if ((str = pw_properties_get(props, pa_key)) == NULL)
+		return 0;
+
+	pw_log_info("direction: %s", str);
+
+	if ((res = parse_point(&str, f)) < 0)
+		return res;
+
+	pw_properties_setf(props, pw_key, "[ %f %f %f ]", f[0], f[1], f[2]);
+	pw_properties_set(props, pa_key, NULL);
+	return 0;
+}
+
 static int module_echo_cancel_prepare(struct module * const module)
 {
 	struct module_echo_cancel_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
 	struct pw_properties *aec_props = NULL, *sink_props = NULL, *source_props = NULL;
 	struct pw_properties *playback_props = NULL, *capture_props = NULL;
-	const char *str;
+	const char *str, *method;
 	struct spa_audio_info_raw info = { 0 };
 	int res;
 
@@ -217,13 +293,23 @@ static int module_echo_cancel_prepare(struct module * const module)
 		pw_properties_set(props, "sink_properties", NULL);
 	}
 
-	if ((str = pw_properties_get(props, "aec_method")) != NULL) {
-		pw_properties_set(aec_props, "aec.method", str);
-		pw_properties_set(props, "aec_method", NULL);
-	}
+	if ((method = pw_properties_get(props, "aec_method")) == NULL)
+		method = "webrtc";
 
 	if ((str = pw_properties_get(props, "aec_args")) != NULL) {
-		pw_properties_set(aec_props, "aec.args", str);
+		module_args_add_props(aec_props, str);
+		if (spa_streq(method, "webrtc")) {
+			rename_bool_prop(aec_props, "high_pass_filter", "webrtc.high_pass_filter");
+			rename_bool_prop(aec_props, "noise_suppression", "webrtc.noise_suppression");
+			rename_bool_prop(aec_props, "analog_gain_control", "webrtc.gain_control");
+			rename_bool_prop(aec_props, "digital_gain_control", "webrtc.gain_control");
+			rename_bool_prop(aec_props, "voice_detection", "webrtc.voice_detection");
+			rename_bool_prop(aec_props, "extended_filter", "webrtc.extended_filter");
+			rename_bool_prop(aec_props, "experimental_agc", "webrtc.experimental_agc");
+			rename_bool_prop(aec_props, "beamforming", "webrtc.beamforming");
+			rename_geometry(aec_props, "mic_geometry", "webrtc.mic-geometry");
+			rename_direction(aec_props, "target_direction", "webrtc.target-direction");
+		}
 		pw_properties_set(props, "aec_args", NULL);
 	}
 

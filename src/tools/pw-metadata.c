@@ -21,6 +21,7 @@ struct data {
 
 	const char *opt_remote;
 	const char *opt_name;
+	bool opt_list;
 	bool opt_monitor;
 	bool opt_delete;
 	uint32_t opt_id;
@@ -48,6 +49,9 @@ static int metadata_property(void *data, uint32_t id,
 {
 	struct data *d = data;
 
+	if (d->opt_list)
+		return 0;
+
 	if ((d->opt_id == SPA_ID_INVALID || d->opt_id == id) &&
 	    (d->opt_key == NULL || spa_streq(d->opt_key, key))) {
 		if (key == NULL) {
@@ -72,22 +76,30 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 				  const struct spa_dict *props)
 {
 	struct data *d = data;
-	const char *str;
+	const char *name;
 
 	if (!spa_streq(type, PW_TYPE_INTERFACE_Metadata))
 		return;
 
-	if (props != NULL &&
-	    (str = spa_dict_lookup(props, PW_KEY_METADATA_NAME)) != NULL &&
-	    !spa_streq(str, d->opt_name))
+	if (props == NULL)
 		return;
 
-	if (d->metadata != NULL) {
+	name = spa_dict_lookup(props, PW_KEY_METADATA_NAME);
+	if (name == NULL)
+		return;
+
+	if (d->opt_name && !spa_streq(name, d->opt_name))
+		return;
+
+	if (!d->opt_list && d->metadata != NULL) {
 		pw_log_warn("Multiple metadata: ignoring metadata %d", id);
 		return;
 	}
 
-	printf("Found \"%s\" metadata %d\n", d->opt_name, id);
+	printf("Found \"%s\" metadata %d\n", name, id);
+	if (d->opt_list)
+		return;
+
 	d->metadata = pw_registry_bind(d->registry,
 			id, type, PW_VERSION_METADATA, 0);
 
@@ -157,6 +169,7 @@ static void show_help(struct data *data, const char *name, bool error)
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n"
+		"  -l, --list                            List available metadata\n"
 		"  -m, --monitor                         Monitor metadata\n"
 		"  -d, --delete                          Delete metadata\n"
 		"  -n, --name                            Metadata name (default: \"%s\")\n",
@@ -171,6 +184,7 @@ int main(int argc, char *argv[])
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
 		{ "remote",	required_argument,	NULL, 'r' },
+		{ "list",	no_argument,		NULL, 'l' },
 		{ "monitor",	no_argument,		NULL, 'm' },
 		{ "delete",	no_argument,		NULL, 'd' },
 		{ "name",	required_argument,	NULL, 'n' },
@@ -184,7 +198,7 @@ int main(int argc, char *argv[])
 
 	data.opt_name = "default";
 
-	while ((c = getopt_long(argc, argv, "hVr:mdn:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:lmdn:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(&data, argv[0], false);
@@ -199,6 +213,10 @@ int main(int argc, char *argv[])
 			return 0;
 		case 'r':
 			data.opt_remote = optarg;
+			break;
+		case 'l':
+			data.opt_name = NULL;
+			data.opt_list = true;
 			break;
 		case 'm':
 			data.opt_monitor = true;

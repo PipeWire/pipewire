@@ -44,6 +44,9 @@ OPTIONS
 --version
   Show version information.
 
+-l | --list
+  List available metadata objects
+
 -m | --monitor
   Keeps running and log the changes to the metadata.
 

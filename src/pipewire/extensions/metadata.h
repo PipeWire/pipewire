@@ -80,6 +80,7 @@ struct pw_metadata_methods {
 #define pw_metadata_clear(c)			pw_metadata_method(c,clear,0)
 
 #define PW_KEY_METADATA_NAME		"metadata.name"
+#define PW_KEY_METADATA_VALUES		"metadata.values"
 
 /**
  * \}

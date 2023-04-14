@@ -152,7 +152,15 @@ context.objects = [
     #{ factory = spa-node-factory   args = { factory.name = api.vulkan.compute.source node.name = my-compute-source } }
 
     # Make a default metadata store
-    { factory = metadata            args = { metadata.name = default } }
+    { factory = metadata
+        args = {
+            metadata.name = default
+    #       metadata.values = [
+    #            { key = default.audio.sink   value = { name = somesink } }
+    #            { key = default.audio.source value = { name = somesource } }
+    #        ]
+        }
+    }
 
     # A default dummy driver. This handles nodes marked with the "node.always-driver"
     # property when no other driver is currently active. JACK clients need this.

@@ -263,6 +263,17 @@ context.objects = [
     #        audio.position         = "FL,FR"
     #    }
     #}
+
+    # Use the metadata factory to create metadata and some default values.
+    #{ factory = metadata
+    #    args = {
+    #        metadata.name = my-metadata
+    #        metadata.values = [
+    #            { key = default.audio.sink   value = { name = somesink } }
+    #            { key = default.audio.source value = { name = somesource } }
+    #        ]
+    #    }
+    #}
 ]
 
 context.exec = [

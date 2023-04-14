@@ -10,6 +10,7 @@
 #include "config.h"
 
 #include <spa/utils/result.h>
+#include <spa/utils/json.h>
 
 #include <pipewire/impl.h>
 #include <pipewire/extensions/metadata.h>
@@ -18,6 +19,12 @@
  */
 
 #define NAME "metadata"
+
+#define FACTORY_USAGE   "("PW_KEY_METADATA_NAME" = <name> ) "						\
+                        "("PW_KEY_METADATA_VALUES" = [ "						\
+                        "   { ( id = <int> ) key = <string> ( type = <string> ) value = <json> } "	\
+                        "   ..."									\
+                        "  ] )"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
@@ -47,6 +54,56 @@ struct factory_data {
 	struct pw_export_type export_metadata;
 };
 
+/*
+ * [
+ *     { ( "id" = <int>, ) "key" = <string> ("type" = <string>) "value" = <json> }
+ *     ....
+ * ]
+ */
+static int fill_metadata(struct pw_metadata *metadata, const char *str)
+{
+	struct spa_json it[3];
+
+	spa_json_init(&it[0], str, strlen(str));
+	if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+		return -EINVAL;
+
+	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
+		char key[256], *k = NULL, *v = NULL, *t = NULL;
+		int id = 0;
+
+		while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
+			int len;
+			const char *val;
+
+			if ((len = spa_json_next(&it[2], &val)) <= 0)
+				return -EINVAL;
+
+			if (spa_streq(key, "id")) {
+				if (spa_json_parse_int(val, len, &id) <= 0)
+					return -EINVAL;
+			} else if (spa_streq(key, "key")) {
+				if ((k = malloc(len+1)) != NULL)
+					spa_json_parse_stringn(val, len, k, len+1);
+			} else if (spa_streq(key, "type")) {
+				if ((t = malloc(len+1)) != NULL)
+					spa_json_parse_stringn(val, len, t, len+1);
+			} else if (spa_streq(key, "value")) {
+				if (spa_json_is_container(val, len))
+					len = spa_json_container_len(&it[2], val, len);
+				if ((v = malloc(len+1)) != NULL)
+					spa_json_parse_stringn(val, len, v, len+1);
+			}
+		}
+		if (k != NULL && v != NULL)
+			pw_metadata_set_property(metadata, id, k, t, v);
+		free(k);
+		free(v);
+		free(t);
+	}
+	return 0;
+}
+
 static void *create_object(void *_data,
 			   struct pw_resource *resource,
 			   const char *type,
@@ -59,6 +116,7 @@ static void *create_object(void *_data,
 	struct pw_metadata *result;
 	struct pw_resource *metadata_resource = NULL;
 	struct pw_impl_client *client = resource ? pw_resource_get_client(resource) : NULL;
+	const char *str;
 	int res;
 
 	if (properties == NULL)
@@ -102,6 +160,9 @@ static void *create_object(void *_data,
 		pw_impl_metadata_register(impl, NULL);
 		result = pw_impl_metadata_get_implementation(impl);
 	}
+	if ((str = pw_properties_get(properties, PW_KEY_METADATA_VALUES)) != NULL)
+		fill_metadata(result, str);
+
 	return result;
 
 error_resource:
@@ -192,7 +253,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				 "metadata",
 				 PW_TYPE_INTERFACE_Metadata,
 				 PW_VERSION_METADATA,
-				 NULL,
+				 pw_properties_new(
+                                         PW_KEY_FACTORY_USAGE, FACTORY_USAGE,
+                                         NULL),
 				 sizeof(*data));
 	if (factory == NULL)
 		return -errno;

@@ -75,7 +75,7 @@ static void on_interface_removed(GDBusObjectManager *manager, GDBusObject *objec
 			monitor, g_dbus_object_get_object_path(object), name ? name : "<null>");
 
 	if (g_object_get_data(G_OBJECT(iface), "dbus-monitor-signals-connected")) {
-		g_object_disconnect(G_OBJECT(iface), "g-properties-changed",
+		g_object_disconnect(G_OBJECT(iface), "any_signal",
 				G_CALLBACK(on_g_properties_changed),
 				monitor, NULL);
 		g_object_set_data(G_OBJECT(iface), "dbus-monitor-signals-connected", NULL);

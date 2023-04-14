@@ -64,8 +64,8 @@ for configuration files are:
 
 The first configuration file found is loaded as the base configuration.
 
-Next, configuration sections are collected in the directories in this
-order:
+Next, configuration sections (from files ending with a .conf extension) are collected
+in the directories in this order:
 
 - `$datadir/pipewire/pipewire.conf.d/` (usually `/usr/share/pipewire/pipewire.conf.d/`)
 - `$sysconfdir/pipewire/pipewire.conf.d/` (usually `/etc/pipewire/pipewire.conf.d/`)

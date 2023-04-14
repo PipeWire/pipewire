@@ -13,6 +13,7 @@ extern "C" {
 #include <math.h>
 
 #include <alsa/asoundlib.h>
+#include <alsa/version.h>
 #include <alsa/use-case.h>
 
 #include <spa/support/plugin.h>

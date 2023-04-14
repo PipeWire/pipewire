@@ -788,9 +788,6 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
 	struct pw_impl_port *p;
 	struct pw_impl_link *l;
 
-	if (!node->runnable)
-		return 0;
-
 	pw_log_debug("node %p: '%s'", node, node->name);
 
 	spa_list_for_each(p, &node->input_ports, link) {
@@ -885,7 +882,7 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 
 				pw_impl_link_prepare(l);
 
-				if (!l->prepared || (t != n && t->visited))
+				if (!l->prepared)
 					continue;
 
 				if (!l->passive)
@@ -906,7 +903,7 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 
 				pw_impl_link_prepare(l);
 
-				if (!l->prepared || (t != n && t->visited))
+				if (!l->prepared)
 					continue;
 
 				if (!l->passive)
@@ -936,7 +933,8 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 		pw_log_debug(" next node %p: '%s' runnable:%u", n, n->name, n->runnable);
 	}
 	spa_list_for_each(n, collect, sort_link)
-		run_nodes(context, n, collect);
+		if (!n->driver && n->runnable)
+			run_nodes(context, n, collect);
 
 	return 0;
 }

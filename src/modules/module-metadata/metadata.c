@@ -234,7 +234,7 @@ static const struct pw_resource_events global_resource_events = {
 	.destroy = global_resource_destroy,
 };
 
-void *
+struct pw_metadata *
 pw_metadata_new(struct pw_context *context, struct pw_resource *resource,
 		   struct pw_properties *properties)
 {
@@ -292,5 +292,5 @@ pw_metadata_new(struct pw_context *context, struct pw_resource *resource,
 			&impl->resource_listener,
 			&global_resource_events, impl);
 
-	return impl;
+	return impl->metadata;
 }

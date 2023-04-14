@@ -2179,7 +2179,7 @@ again:
 
 		if (SPA_LIKELY(state->use_mmap)) {
 			for (i = 0; i < b->buf->n_datas; i++) {
-				spa_memcpy(SPA_PTROFF(my_areas[i].addr, off * frame_size, void),
+				spa_memcpy(snd_pcm_channel_area_addr(&my_areas[i], off),
 						SPA_PTROFF(d[i].data, offs, void), n_bytes);
 			}
 		} else {
@@ -2290,11 +2290,11 @@ push_frames(struct state *state,
 
 			for (i = 0; i < b->buf->n_datas; i++) {
 				spa_memcpy(d[i].data,
-						SPA_PTROFF(my_areas[i].addr, offset * frame_size, void),
+						snd_pcm_channel_area_addr(&my_areas[i], offset),
 						l0);
 				if (SPA_UNLIKELY(l1 > 0))
 					spa_memcpy(SPA_PTROFF(d[i].data, l0, void),
-							my_areas[i].addr,
+							snd_pcm_channel_area_addr(&my_areas[i], 0),
 							l1);
 				d[i].chunk->offset = 0;
 				d[i].chunk->size = n_bytes;

@@ -354,15 +354,13 @@ static inline int ratelimit_test(struct ratelimit *r, uint64_t now)
 	return missed;
 }
 
-#if defined(SND_LIB_VER)
-#if SND_LIB_VERSION >= SND_LIB_VER(1, 2, 6)
+#if defined(SND_LIB_VER) && SND_LIB_VERSION >= SND_LIB_VER(1, 2, 6)
 #define channel_area_addr snd_pcm_channel_area_addr
 #else
 static inline void *channel_area_addr(const snd_pcm_channel_area_t *area, snd_pcm_uframes_t offset)
 {
         return (char *)area->addr + (area->first + area->step * offset) / 8;
 }
-#endif
 #endif
 
 #ifdef __cplusplus

@@ -1134,6 +1134,7 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
   const char *error = NULL;
   GstBuffer *buf;
   gboolean update_time = FALSE, timeout = FALSE;
+  GstCaps *caps = NULL;
 
   pwsrc = GST_PIPEWIRE_SRC (psrc);
 
@@ -1156,6 +1157,18 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 
     if (state != PW_STREAM_STATE_STREAMING)
       goto streaming_stopped;
+
+    if ((caps = pwsrc->caps) != NULL) {
+      pwsrc->caps = NULL;
+      pw_thread_loop_unlock (pwsrc->core->loop);
+
+      GST_DEBUG_OBJECT (pwsrc, "set format %" GST_PTR_FORMAT, caps);
+      gst_base_src_set_caps (GST_BASE_SRC (pwsrc), caps);
+      gst_caps_unref (caps);
+
+      pw_thread_loop_lock (pwsrc->core->loop);
+      continue;
+    }
 
     if (pwsrc->eos) {
       if (pwsrc->last_buffer == NULL)

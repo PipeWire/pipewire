@@ -290,12 +290,16 @@ static void *bq_instantiate(const struct fc_descriptor * Descriptor,
 	if (impl->type != BQ_NONE)
 		return impl;
 
-	if (config == NULL)
+	if (config == NULL) {
+		pw_log_error("biquads:bq_raw requires a config section");
 		goto error;
+	}
 
 	spa_json_init(&it[0], config, strlen(config));
-	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0) {
+		pw_log_error("biquads:config section must be an object");
 		goto error;
+	}
 
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 		if (spa_streq(key, "coefficients")) {
@@ -351,8 +355,11 @@ static void *bq_instantiate(const struct fc_descriptor * Descriptor,
 							goto error;
 						}
 					}
-					else if (spa_json_next(&it[1], &val) < 0)
-						break;
+					else {
+						pw_log_warn("biquads: ignoring coefficients key: '%s'", key);
+						if (spa_json_next(&it[3], &val) < 0)
+							break;
+					}
 				}
 				if (labs((long)rate - (long)SampleRate) <
 				    labs((long)best_rate - (long)SampleRate)) {
@@ -361,8 +368,11 @@ static void *bq_instantiate(const struct fc_descriptor * Descriptor,
 				}
 			}
 		}
-		else if (spa_json_next(&it[1], &val) < 0)
-			break;
+		else {
+			pw_log_warn("biquads: ignoring config key: '%s'", key);
+			if (spa_json_next(&it[1], &val) < 0)
+				break;
+		}
 	}
 
 	return impl;
@@ -844,12 +854,16 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	unsigned long rate;
 
 	errno = EINVAL;
-	if (config == NULL)
+	if (config == NULL) {
+		pw_log_error("convolver: requires a config section");
 		return NULL;
+	}
 
 	spa_json_init(&it[0], config, strlen(config));
-	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0) {
+		pw_log_error("convolver:config must be an object");
 		return NULL;
+	}
 
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 		if (spa_streq(key, "blocksize")) {
@@ -920,8 +934,11 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 				return NULL;
 			}
 		}
-		else if (spa_json_next(&it[1], &val) < 0)
-			break;
+		else {
+			pw_log_warn("convolver: ignoring config key: '%s'", key);
+			if (spa_json_next(&it[1], &val) < 0)
+				break;
+		}
 	}
 	if (filenames[0] == NULL) {
 		pw_log_error("convolver:filename was not given");
@@ -1063,13 +1080,16 @@ static void *delay_instantiate(const struct fc_descriptor * Descriptor,
 	float max_delay = 1.0f;
 
 	if (config == NULL) {
+		pw_log_error("delay: requires a config section");
 		errno = EINVAL;
 		return NULL;
 	}
 
 	spa_json_init(&it[0], config, strlen(config));
-	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0) {
+		pw_log_error("delay:config must be an object");
 		return NULL;
+	}
 
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 		if (spa_streq(key, "max-delay")) {
@@ -1077,9 +1097,11 @@ static void *delay_instantiate(const struct fc_descriptor * Descriptor,
 				pw_log_error("delay:max-delay requires a number");
 				return NULL;
 			}
+		} else {
+			pw_log_warn("delay: ignoring config key: '%s'", key);
+			if (spa_json_next(&it[1], &val) < 0)
+				break;
 		}
-		else if (spa_json_next(&it[1], &val) < 0)
-			break;
 	}
 	if (max_delay <= 0.0f)
 		max_delay = 1.0f;

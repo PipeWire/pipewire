@@ -287,6 +287,8 @@ static void *bq_instantiate(const struct fc_descriptor * Descriptor,
 	impl->rate = SampleRate;
 	impl->b0 = impl->a0 = 1.0f;
 	impl->type = bq_type_from_name(Descriptor->name);
+	if (impl->type != BQ_NONE)
+		return impl;
 
 	if (config == NULL)
 		goto error;

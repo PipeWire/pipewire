@@ -51,6 +51,7 @@ struct impl {
 	uint64_t follower_flags;
 	struct spa_audio_info follower_current_format;
 	struct spa_audio_info default_format;
+	int in_set_param;
 
 	struct spa_handle *hnd_convert;
 	struct spa_node *convert;
@@ -675,13 +676,16 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	}
 
 	case SPA_PARAM_Props:
-		if (this->target != this->follower)
-			res = spa_node_set_param(this->target, id, flags, param);
-		res2 = spa_node_set_param(this->follower, id, flags, param);
+	{
+		int in_set_param = ++this->in_set_param;
+		res = spa_node_set_param(this->follower, id, flags, param);
+		if (this->target != this->follower && this->in_set_param == in_set_param)
+			res2 = spa_node_set_param(this->target, id, flags, param);
 		if (res < 0 && res2 < 0)
 			return res;
 		res = 0;
 		break;
+	}
 	case SPA_PARAM_ProcessLatency:
 		res = spa_node_set_param(this->follower, id, flags, param);
 		break;

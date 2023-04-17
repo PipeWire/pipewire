@@ -447,18 +447,21 @@ int pw_stream_set_error(struct pw_stream *stream,	/**< a \ref pw_stream */
 			const char *error,		/**< an error message */
 			...) SPA_PRINTF_FUNC(3, 4);
 
-/** Complete the negotiation process with result code \a res
- *
- * This function should be called after notification of the format.
-
- * When \a res indicates success, \a params contain the parameters for the
- * allocation state.  */
+/** Update the param exposed on the stream. */
 int
 pw_stream_update_params(struct pw_stream *stream,	/**< a \ref pw_stream */
 			const struct spa_pod **params,	/**< an array of params. The params should
 							  *  ideally contain parameters for doing
 							  *  buffer allocation. */
 			uint32_t n_params		/**< number of elements in \a params */);
+
+/**
+ * Set a parameter on the stream. This is like pw_stream_set_control() but with
+ * a complete spa_pod param. It can also be called from the param_changed event handler
+ * to intercept and modify the param for the adapter. Since 0.3.70 */
+int pw_stream_set_param(struct pw_stream *stream,	/**< a \ref pw_stream */
+			uint32_t id,			/**< the id of the param */
+			const struct spa_pod *param	/**< the params to set */);
 
 /** Get control values */
 const struct pw_stream_control *pw_stream_get_control(struct pw_stream *stream, uint32_t id);

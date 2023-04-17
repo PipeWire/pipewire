@@ -162,9 +162,13 @@ struct impl {
 	void *buffer;
 	uint8_t empty[8192];
 
+	bool mute;
+	pa_cvolume volume;
+
 	pa_threaded_mainloop *pa_mainloop;
 	pa_context *pa_context;
 	pa_stream *pa_stream;
+	uint32_t pa_index;
 
 	struct ratelimit rate_limit;
 
@@ -231,6 +235,79 @@ static void stream_state_changed(void *d, enum pw_stream_state old,
 	default:
 		break;
 	}
+}
+
+static void stream_param_changed(void *d, uint32_t id, const struct spa_pod *param)
+{
+	struct impl *impl = d;
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+	struct spa_pod_frame f[1];
+	struct spa_pod_object *obj = (struct spa_pod_object *) param;
+	struct spa_pod_prop *prop;
+
+	if (param == NULL || id != SPA_PARAM_Props)
+		return;
+
+	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
+
+	SPA_POD_OBJECT_FOREACH(obj, prop) {
+		switch (prop->key) {
+		case SPA_PROP_mute:
+		{
+			bool mute;
+			if (spa_pod_get_bool(&prop->value, &mute) == 0) {
+				pa_threaded_mainloop_lock(impl->pa_mainloop);
+				if (impl->mode == MODE_SOURCE) {
+					pa_context_set_source_output_mute(impl->pa_context,
+							impl->pa_index, mute,
+							NULL, impl);
+				} else {
+					pa_context_set_sink_input_mute(impl->pa_context,
+							impl->pa_index, mute,
+							NULL, impl);
+				}
+				pa_threaded_mainloop_unlock(impl->pa_mainloop);
+                        }
+			break;
+		}
+		case SPA_PROP_channelVolumes:
+		{
+			struct pa_cvolume volume;
+			uint32_t n;
+			float vols[SPA_AUDIO_MAX_CHANNELS];
+
+			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
+					vols, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+				volume.channels = n;
+				for (n = 0; n < volume.channels; n++)
+					volume.values[n] = pa_sw_volume_from_linear(vols[n]);
+
+				pa_threaded_mainloop_lock(impl->pa_mainloop);
+				if (impl->mode == MODE_SOURCE) {
+					pa_context_set_source_output_volume(impl->pa_context,
+							impl->pa_index, &volume,
+							NULL, impl);
+				} else {
+					pa_context_set_sink_input_volume(impl->pa_context,
+							impl->pa_index, &volume,
+							NULL, impl);
+				}
+				pa_threaded_mainloop_unlock(impl->pa_mainloop);
+			}
+			break;
+		}
+		case SPA_PROP_softVolumes:
+		case SPA_PROP_softMute:
+			break;
+		default:
+			spa_pod_builder_raw_padded(&b, prop, SPA_POD_PROP_SIZE(prop));
+			break;
+		}
+	}
+	param = spa_pod_builder_pop(&b, &f[0]);
+
+	pw_stream_set_param(impl->stream, id, param);
 }
 
 static void update_rate(struct impl *impl, uint32_t filled)
@@ -356,6 +433,7 @@ static const struct pw_stream_events playback_stream_events = {
 	.destroy = stream_destroy,
 	.state_changed = stream_state_changed,
 	.io_changed = stream_io_changed,
+	.param_changed = stream_param_changed,
 	.process = playback_stream_process
 };
 
@@ -364,6 +442,7 @@ static const struct pw_stream_events capture_stream_events = {
 	.destroy = stream_destroy,
 	.state_changed = stream_state_changed,
 	.io_changed = stream_io_changed,
+	.param_changed = stream_param_changed,
 	.process = capture_stream_process
 };
 
@@ -464,6 +543,7 @@ static void stream_state_cb(pa_stream *s, void * userdata)
 		do_destroy = true;
 		SPA_FALLTHROUGH;
 	case PA_STREAM_READY:
+		impl->pa_index = pa_stream_get_index(impl->pa_stream);
 		pa_threaded_mainloop_signal(impl->pa_mainloop, 0);
 		break;
 	case PA_STREAM_UNCONNECTED:
@@ -615,6 +695,78 @@ static void stream_latency_update_cb(pa_stream *s, void *userdata)
 	pa_threaded_mainloop_signal(impl->pa_mainloop, 0);
 }
 
+static int
+do_stream_sync_volumes(struct spa_loop *loop,
+	bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct impl *impl = user_data;
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+	struct spa_pod_frame f[1];
+	struct spa_pod *param;
+	uint32_t i;
+	float vols[SPA_AUDIO_MAX_CHANNELS];
+	float soft_vols[SPA_AUDIO_MAX_CHANNELS];
+
+	for (i = 0; i < impl->volume.channels; i++) {
+		vols[i] = pa_sw_volume_to_linear(impl->volume.values[i]);
+		soft_vols[i] = 1.0f;
+	}
+
+	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
+	spa_pod_builder_prop(&b, SPA_PROP_softMute, 0);
+	spa_pod_builder_bool(&b, impl->mute);
+	spa_pod_builder_prop(&b, SPA_PROP_mute, 0);
+	spa_pod_builder_bool(&b, impl->mute);
+
+	spa_pod_builder_prop(&b, SPA_PROP_channelVolumes, 0);
+	spa_pod_builder_array(&b, sizeof(float), SPA_TYPE_Float,
+			impl->volume.channels, vols);
+	spa_pod_builder_prop(&b, SPA_PROP_softVolumes, 0);
+	spa_pod_builder_array(&b, sizeof(float), SPA_TYPE_Float,
+			impl->volume.channels, soft_vols);
+	param = spa_pod_builder_pop(&b, &f[0]);
+
+	pw_stream_set_param(impl->stream, SPA_PARAM_Props, param);
+	return 0;
+}
+
+static void stream_sync_volumes(struct impl *impl, const struct pa_cvolume *volume, bool mute)
+{
+	impl->mute = mute;
+	impl->volume = *volume;
+	pw_loop_invoke(impl->main_loop, do_stream_sync_volumes, 1, NULL, 0, false, impl);
+}
+
+static void source_output_info_cb(pa_context *c, const pa_source_output_info *i, int eol, void *userdata)
+{
+	struct impl *impl = userdata;
+	if (i != NULL)
+		stream_sync_volumes(impl, &i->volume, i->mute);
+}
+
+static void sink_input_info_cb(pa_context *c, const pa_sink_input_info *i, int eol, void *userdata)
+{
+	struct impl *impl = userdata;
+	if (i != NULL)
+		stream_sync_volumes(impl, &i->volume, i->mute);
+}
+
+static void context_subscribe_cb(pa_context *c, pa_subscription_event_type_t t,
+		uint32_t idx, void *userdata)
+{
+	struct impl *impl = userdata;
+	if (idx != impl->pa_index)
+		return;
+
+	if (impl->mode == MODE_SOURCE)
+		pa_context_get_source_output_info(impl->pa_context,
+				idx, source_output_info_cb, impl);
+	else
+		pa_context_get_sink_input_info(impl->pa_context,
+				idx, sink_input_info_cb, impl);
+}
+
 static pa_proplist* tunnel_new_proplist(struct impl *impl)
 {
 	pa_proplist *proplist = pa_proplist_new();
@@ -658,6 +810,8 @@ static int create_pulse_stream(struct impl *impl)
 	}
 
 	pa_threaded_mainloop_lock(impl->pa_mainloop);
+
+	pa_context_set_subscribe_callback(impl->pa_context, context_subscribe_cb, impl);
 
 	if (pa_threaded_mainloop_start(impl->pa_mainloop) < 0)
 		goto error_unlock;
@@ -717,6 +871,9 @@ static int create_pulse_stream(struct impl *impl)
 	if (impl->mode == MODE_SOURCE) {
 		bufferattr.fragsize = latency_bytes / 2;
 
+		pa_context_subscribe(impl->pa_context,
+				PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT, NULL, impl);
+
 		res = pa_stream_connect_record(impl->pa_stream,
 				remote_node_target, &bufferattr,
 				PA_STREAM_DONT_MOVE |
@@ -727,6 +884,9 @@ static int create_pulse_stream(struct impl *impl)
 		bufferattr.tlength = latency_bytes / 2;
 		bufferattr.minreq = bufferattr.tlength / 4;
 		bufferattr.prebuf = bufferattr.tlength;
+
+		pa_context_subscribe(impl->pa_context,
+				PA_SUBSCRIPTION_MASK_SINK_INPUT, NULL, impl);
 
 		res = pa_stream_connect_playback(impl->pa_stream,
 				remote_node_target, &bufferattr,

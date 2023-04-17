@@ -159,8 +159,8 @@ static int x11_connect(struct impl *impl, const char *name)
 	unsigned int auto_ctrls, auto_values;
 
 	if (!(impl->display = XOpenDisplay(name))) {
-		pw_log_error("XOpenDisplay() failed");
-		return -EIO;
+		pw_log_info("XOpenDisplay() failed. Uninstall or disable the module-x11-bell module");
+		return -EHOSTDOWN;
 	}
 
 	impl->source = pw_loop_add_io(impl->loop,

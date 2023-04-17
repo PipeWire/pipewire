@@ -79,8 +79,8 @@ include:
 .ubuntu:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2023-02-16.0'
-    FDO_DISTRIBUTION_VERSION: '20.04'
+    FDO_DISTRIBUTION_TAG: '2023-04-17.0'
+    FDO_DISTRIBUTION_VERSION: '22.04'
     FDO_DISTRIBUTION_PACKAGES: >-
       debhelper-compat
       findutils
@@ -104,9 +104,15 @@ include:
       pkg-config
       python3-docutils
       systemd
-      python3-pip
-    FDO_DISTRIBUTION_EXEC: >-
-      pip3 install meson
+      meson
+# Uncommentating the following three lines and removing the meson entry above
+# will re-enable use of Meson via pip but please consider using a newer distro
+# image first or making the build system compatible instead! This is because
+# using pip or another 3rd party repo defeats the point testing the particular
+# distro for regressions.
+#      python3-pip
+#    FDO_DISTRIBUTION_EXEC: >-
+#      pip3 install meson
 
 .alpine:
   variables:

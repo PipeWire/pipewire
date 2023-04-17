@@ -117,8 +117,8 @@ include:
 .alpine:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2022-09-07.0'
-    FDO_DISTRIBUTION_VERSION: '3.15'
+    FDO_DISTRIBUTION_TAG: '2023-04-17.0'
+    FDO_DISTRIBUTION_VERSION: '3.17'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-dev
       avahi-dev

@@ -25,8 +25,8 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2023-03-09.0'
-    FDO_DISTRIBUTION_VERSION: '35'
+    FDO_DISTRIBUTION_TAG: '2023-04-17.0'
+    FDO_DISTRIBUTION_VERSION: '37'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
       avahi-devel
@@ -50,12 +50,13 @@ include:
       libmysofa-devel
       libsndfile-devel
       libubsan
-      libusb-devel
+      libusb1-devel
       lilv-devel
       libv4l-devel
       libva-devel
       libX11-devel
       ModemManager-devel
+      meson
       openssl-devel
       pulseaudio-libs-devel
       python3-docutils
@@ -69,12 +70,17 @@ include:
       valgrind
       ninja-build
       pkgconf
-      python3-pip
       pulseaudio-utils
       openal-soft
       readline-devel
-    FDO_DISTRIBUTION_EXEC: >-
-      pip3 install meson
+# Uncommenting the following three lines and disabling the meson entry above
+# will re-enable use of Meson via pip but please consider using a newer distro
+# image first or making the build system compatible instead! This is because
+# using pip or another 3rd party repo defeats the point testing the particular
+# distro for regressions.
+#      python3-pip
+#    FDO_DISTRIBUTION_EXEC: >-
+#      pip3 install meson
 
 .ubuntu:
   variables:
@@ -100,12 +106,12 @@ include:
       libva-dev
       libv4l-dev
       libx11-dev
+      meson
       ninja-build
       pkg-config
       python3-docutils
       systemd
-      meson
-# Uncommentating the following three lines and removing the meson entry above
+# Uncommenting the following three lines and disabling the meson entry above
 # will re-enable use of Meson via pip but please consider using a newer distro
 # image first or making the build system compatible instead! This is because
 # using pip or another 3rd party repo defeats the point testing the particular

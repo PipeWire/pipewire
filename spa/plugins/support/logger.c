@@ -348,14 +348,15 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	if (this->file == NULL)
 		this->file = stderr;
+	else
+		setlinebuf(this->file);
+
 	if (!isatty(fileno(this->file)))
 		this->colors = false;
 
 	spa_ringbuffer_init(&this->trace_rb);
 
 	spa_log_debug(&this->log, NAME " %p: initialized", this);
-
-	setlinebuf(this->file);
 
 	return 0;
 }

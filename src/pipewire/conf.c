@@ -634,8 +634,10 @@ static bool find_match(struct spa_json *arr, const struct spa_dict *props)
 				match++;
 				pw_log_debug("'%s' match '%s' < > '%.*s'", key, str, len, value);
 			}
-			else
+			else {
 				fail++;
+				break;
+			}
 		}
 		if (match > 0 && fail == 0)
 			return true;

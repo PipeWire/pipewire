@@ -145,6 +145,10 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define DEFAULT_LATENCY 22050
 
+#define VOLUME_MAX  0.0
+#define VOLUME_DEF -30.0
+#define VOLUME_MIN -144.0
+
 #define MODULE_USAGE	"( raop.ip=<ip address of host> ) "					\
 			"( raop.port=<remote port> ) "						\
 			"( raop.name=<name of host> ) "						\
@@ -251,6 +255,9 @@ struct impl {
 	unsigned int connected:1;
 	unsigned int ready:1;
 	unsigned int recording:1;
+
+	bool mute;
+	float volume;
 
 	uint8_t buffer[FRAMES_PER_TCP_PACKET * 4];
 	uint32_t filled;
@@ -1547,6 +1554,70 @@ static int rtsp_do_teardown(struct impl *impl)
 	return rtsp_send(impl, "TEARDOWN", NULL, NULL, rtsp_teardown_reply);
 }
 
+static void stream_props_changed(struct impl *impl, uint32_t id, const struct spa_pod *param)
+{
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+	struct spa_pod_frame f[1];
+	struct spa_pod_object *obj = (struct spa_pod_object *) param;
+	struct spa_pod_prop *prop;
+
+	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
+
+	SPA_POD_OBJECT_FOREACH(obj, prop) {
+		switch (prop->key) {
+		case SPA_PROP_mute:
+		{
+			bool mute;
+			if (spa_pod_get_bool(&prop->value, &mute) == 0) {
+				impl->mute = mute;
+                        }
+			spa_pod_builder_prop(&b, SPA_PROP_softMute, 0);
+			spa_pod_builder_bool(&b, impl->mute);
+			spa_pod_builder_raw_padded(&b, prop, SPA_POD_PROP_SIZE(prop));
+			break;
+		}
+		case SPA_PROP_channelVolumes:
+		{
+			uint32_t i, n_vols;
+			float vols[SPA_AUDIO_MAX_CHANNELS], volume;
+			float soft_vols[SPA_AUDIO_MAX_CHANNELS];
+			char header[128], volstr[64];
+
+			if ((n_vols = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
+					vols, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+				volume = 0.0f;
+				for (i = 0; i < n_vols; i++) {
+					volume += vols[i];
+					soft_vols[i] = 1.0f;
+				}
+				volume /= n_vols;
+				volume = SPA_CLAMPF(20.0 * log10(volume), VOLUME_MIN, VOLUME_MAX);
+				impl->volume = volume;
+
+				snprintf(header, sizeof(header), "volume: %s\r\n",
+						spa_dtoa(volstr, sizeof(volstr), volume));
+				rtsp_send(impl, "SET_PARAMETER", "text/parameters", header, NULL);
+			}
+			spa_pod_builder_prop(&b, SPA_PROP_softVolumes, 0);
+			spa_pod_builder_array(&b, sizeof(float), SPA_TYPE_Float,
+					n_vols, soft_vols);
+			spa_pod_builder_raw_padded(&b, prop, SPA_POD_PROP_SIZE(prop));
+			break;
+		}
+		case SPA_PROP_softVolumes:
+		case SPA_PROP_softMute:
+			break;
+		default:
+			spa_pod_builder_raw_padded(&b, prop, SPA_POD_PROP_SIZE(prop));
+			break;
+		}
+	}
+	param = spa_pod_builder_pop(&b, &f[0]);
+
+	pw_stream_set_param(impl->stream, id, param);
+}
+
 static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *param)
 {
 	struct impl *impl = data;
@@ -1558,6 +1629,9 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 		else
 			rtsp_do_connect(impl);
 		break;
+	case SPA_PARAM_Props:
+		if (param != NULL)
+			stream_props_changed(impl, id, param);
 	default:
 		break;
 	}

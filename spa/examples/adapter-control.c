@@ -964,8 +964,7 @@ static void show_help(struct data *data, const char *name, bool error)
 int main(int argc, char *argv[])
 {
 	struct data data = { 0 };
-	int res = 0;
-	char c;
+	int res = 0, c;
 
 	/* default values*/
 	data.volume_ramp_samples = DEFAULT_RAMP_SAMPLES;

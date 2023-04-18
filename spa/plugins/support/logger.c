@@ -293,7 +293,8 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	struct spa_loop *loop = NULL;
-	const char *str;
+	const char *str, *dest = "";
+	bool linebuf = false;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -337,18 +338,29 @@ impl_init(const struct spa_handle_factory *factory,
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_LEVEL)) != NULL)
 			this->log.level = atoi(str);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_FILE)) != NULL) {
-			this->file = fopen(str, "we");
-			if (this->file == NULL)
-				fprintf(stderr, "Warning: failed to open file %s: (%m)", str);
-			else
-				this->close_file = true;
+			dest = str;
+			if (spa_streq(str, "stderr"))
+				this->file = stderr;
+			else if (spa_streq(str, "stdout"))
+				this->file = stdout;
+			else {
+				this->file = fopen(str, "we");
+				if (this->file == NULL)
+					fprintf(stderr, "Warning: failed to open file %s: (%m)", str);
+				else
+					this->close_file = true;
+			}
 		}
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_PATTERNS)) != NULL)
 			support_log_parse_patterns(&this->patterns, str);
 	}
-	if (this->file == NULL)
+	if (this->file == NULL) {
 		this->file = stderr;
-	else
+		dest = "stderr";
+	} else {
+		linebuf = true;
+	}
+	if (linebuf)
 		setlinebuf(this->file);
 
 	if (!isatty(fileno(this->file)))
@@ -356,7 +368,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_ringbuffer_init(&this->trace_rb);
 
-	spa_log_debug(&this->log, NAME " %p: initialized", this);
+	spa_log_debug(&this->log, NAME " %p: initialized to %s linebuf:%u", this, dest, linebuf);
 
 	return 0;
 }

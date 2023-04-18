@@ -1,3 +1,70 @@
+# PipeWire 0.3.70 (2023-04-20)
+
+This is a quick bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Fix a regression in the scheduler that could keep some nodes IDLE.
+  - Fix a regression in the biquad filters in filter-chain.
+  - Fix a regression and potential crash in the ALSA mixer probing.
+  - Fix a regression in pipewiresrc with timestamps that could cause cheese
+    to record video with wrong timestamps.
+  - Beamforming support was enabled in the echo-canceler.
+  - pulse-tunnel and raop-sink will now proxy local volume changes to the
+    remote end.
+  - More bugfixes and improvements.
+
+
+## PipeWire
+  - Fix a bug in the graph scheduler where some nodes might stay IDLE in
+    some cases (like when connecting the source of the echo-canceler to the
+    sink).
+  - pw-metadata can now be created from the factory with initial values for
+    the metadata. (#3076)
+  - Conditions were added to the pipewire config file to make it possible to
+    configure the access module and the exec sections.
+  - Support was added in pw-stream to intercept and override properties for
+    the adapter. This can be used to implement custom volume control, for
+    example.
+
+## Tools
+  - pw-metadata can now list all available metadata objects with the -l
+    option.
+  - A new pw-config tool was added to debug configuration file loading and
+    parsing.
+
+## Modules
+  - The webrtc echo canceler now supports beamforming. You can provide the
+    coordinates of the microphones and let webrtc perform beamforming on
+    the captured samples to improve quality and remove noise.
+  - Fix a regression in the filter-chain with biquad filters. (#3161) and
+    improve error reporting.
+  - The pulse-tunnel will now proxy the volume changes to the remote end.
+  - The RAOP sink will now send volume parameters to control the volume
+    remotely. (#2061)
+
+## SPA
+  - One ALSA commit was not correctly reverted and might cause crashes.
+  - The ALSA sink and source now calculate the ALSA ringbuffer memory
+    location more correctly wich might improve compatibility with some
+    hardware.
+  - v4l2 now sets the values of the controls in the Props param.
+
+## Pulse-server
+  - The echo-canceler aec_args are now parsed like they would be under
+    pulseaudio.
+
+## Bluetooth
+  - More work on synchronizing BAP devices.
+
+## GStreamer
+  - The GStreamer source can now renegotiate the format when it changes.
+  - The GStreamer source now uses the BaseSrc clocking code to implement
+    the clock and timing code.
+
+
+Older versions:
+
 # PipeWire 0.3.69 (2023-04-13)
 
 This is a quick bugfix release that is API and ABI compatible with previous
@@ -50,9 +117,6 @@ This is a quick bugfix release that is API and ABI compatible with previous
 
 ## GStreamer
   - Fix the GStreamer clock to make cheese video recording work again. (#3149)
-
-
-Older versions:
 
 # PipeWire 0.3.68 (2023-04-06)
 

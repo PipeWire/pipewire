@@ -1949,7 +1949,7 @@ static void transport_state_changed(void *data,
 	else
 		transport_stop(this);
 
-	if (state < SPA_BT_TRANSPORT_STATE_ACTIVE && was_started) {
+	if (state < SPA_BT_TRANSPORT_STATE_ACTIVE && was_started && !this->is_duplex && this->is_output) {
 		/*
 		 * If establishing connection fails due to remote end not activating
 		 * the transport, we won't get a write error, but instead see a transport

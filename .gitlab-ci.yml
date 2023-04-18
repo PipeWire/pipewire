@@ -25,7 +25,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2023-04-17.0'
+    FDO_DISTRIBUTION_TAG: '2023-04-18.0'
     FDO_DISTRIBUTION_VERSION: '37'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
@@ -60,6 +60,7 @@ include:
       openssl-devel
       pulseaudio-libs-devel
       python3-docutils
+      python3-pip
       sbc-devel
       ShellCheck
       SDL2-devel
@@ -73,19 +74,21 @@ include:
       pulseaudio-utils
       openal-soft
       readline-devel
-# Uncommenting the following three lines and disabling the meson entry above
+# Uncommenting the following two lines and disabling the meson entry above
 # will re-enable use of Meson via pip but please consider using a newer distro
 # image first or making the build system compatible instead! This is because
 # using pip or another 3rd party repo defeats the point testing the particular
 # distro for regressions.
-#      python3-pip
+# NOTE: If you do end up using pip3 for meson, be sure to also update the
+# build_meson_prerelease and build_meson_exact_release build instructions
+# to uninstall the pip3 version again and probably to not call dnf remove
 #    FDO_DISTRIBUTION_EXEC: >-
 #      pip3 install meson
 
 .ubuntu:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2023-04-17.0'
+    FDO_DISTRIBUTION_TAG: '2023-04-18.0'
     FDO_DISTRIBUTION_VERSION: '22.04'
     FDO_DISTRIBUTION_PACKAGES: >-
       debhelper-compat
@@ -370,6 +373,7 @@ build_meson_prerelease:
   extends:
     - .build_on_fedora
   script:
+    - dnf remove --assumeyes meson
     - pip3 install --upgrade --pre meson
     - echo "Building with meson options $MESON_OPTIONS"
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
@@ -386,7 +390,8 @@ build_meson_exact_release:
     - meson_version=$(head -n 5 meson.build | grep 'meson_version' | sed -e 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/')
     - echo "Requiring meson version $meson_version"
     - test -n "$meson_version" || (echo "Meson version parser failed" && exit 1)
-    - pip3 uninstall --yes meson
+    - dnf remove --assumeyes meson
+#    - pip3 uninstall --yes meson
     - pip3 install "meson==$meson_version"
     - echo "Building with meson options $MESON_OPTIONS"
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS

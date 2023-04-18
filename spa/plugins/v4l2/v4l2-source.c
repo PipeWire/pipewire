@@ -63,7 +63,8 @@ struct buffer {
 struct control {
 	uint32_t id;
 	uint32_t ctrl_id;
-	double value;
+	uint32_t type;
+	int32_t value;
 };
 
 struct port {
@@ -147,6 +148,37 @@ struct impl {
 #define GET_PORT(this,d,p)           GET_OUT_PORT(this,p)
 
 #include "v4l2-utils.c"
+
+static const struct spa_dict_item info_items[] = {
+	{ SPA_KEY_DEVICE_API, "v4l2" },
+	{ SPA_KEY_MEDIA_CLASS, "Video/Source" },
+	{ SPA_KEY_MEDIA_ROLE, "Camera" },
+	{ SPA_KEY_NODE_DRIVER, "true" },
+};
+
+static void emit_node_info(struct impl *this, bool full)
+{
+	uint64_t old = full ? this->info.change_mask : 0;
+	if (full)
+		this->info.change_mask = this->info_all;
+	if (this->info.change_mask) {
+		this->info.props = &SPA_DICT_INIT_ARRAY(info_items);
+		spa_node_emit_info(&this->hooks, &this->info);
+		this->info.change_mask = old;
+	}
+}
+
+static void emit_port_info(struct impl *this, struct port *port, bool full)
+{
+	uint64_t old = full ? port->info.change_mask : 0;
+	if (full)
+		port->info.change_mask = port->info_all;
+	if (port->info.change_mask) {
+		spa_node_emit_port_info(&this->hooks,
+				SPA_DIRECTION_OUTPUT, 0, &port->info);
+		port->info.change_mask = old;
+	}
+}
 
 static int port_get_format(struct port *port,
 			   uint32_t index,
@@ -255,14 +287,40 @@ static int impl_node_enum_params(void *object, int seq,
 	case SPA_PARAM_Props:
 	{
 		struct props *p = &this->props;
+		struct spa_pod_frame f;
+		struct port *port = &this->out_ports[0];
+		uint32_t i;
+
+		if ((res = spa_v4l2_update_controls(this)) < 0) {
+			spa_log_error(this->log, "error: %s", spa_strerror(res));
+			return res;
+		}
 
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_Props, id,
+			spa_pod_builder_push_object(&b, &f, SPA_TYPE_OBJECT_Props, id);
+			spa_pod_builder_add(&b,
 				SPA_PROP_device,     SPA_POD_String(p->device),
 				SPA_PROP_deviceName, SPA_POD_String(p->device_name),
-				SPA_PROP_deviceFd,   SPA_POD_Int(p->device_fd));
+				SPA_PROP_deviceFd,   SPA_POD_Int(p->device_fd),
+				0);
+			for (i = 0; i < port->n_controls; i++) {
+				struct control *c = &port->controls[i];
+
+				spa_pod_builder_prop(&b, c->id, 0);
+				switch (c->type) {
+				case SPA_TYPE_Int:
+					spa_pod_builder_int(&b, c->value);
+					break;
+				case SPA_TYPE_Bool:
+					spa_pod_builder_bool(&b, c->value);
+					break;
+				default:
+					spa_pod_builder_int(&b, c->value);
+					break;
+				}
+			}
+			param = spa_pod_builder_pop(&b, &f);
 			break;
 		default:
 			return 0;
@@ -322,7 +380,9 @@ static int impl_node_set_param(void *object,
 				break;
 			}
 		}
-
+		this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+		this->params[NODE_Props].flags ^= SPA_PARAM_INFO_SERIAL;
+		emit_node_info(this, true);
 		break;
 	}
 	default:
@@ -397,37 +457,6 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	}
 
 	return 0;
-}
-
-static const struct spa_dict_item info_items[] = {
-	{ SPA_KEY_DEVICE_API, "v4l2" },
-	{ SPA_KEY_MEDIA_CLASS, "Video/Source" },
-	{ SPA_KEY_MEDIA_ROLE, "Camera" },
-	{ SPA_KEY_NODE_DRIVER, "true" },
-};
-
-static void emit_node_info(struct impl *this, bool full)
-{
-	uint64_t old = full ? this->info.change_mask : 0;
-	if (full)
-		this->info.change_mask = this->info_all;
-	if (this->info.change_mask) {
-		this->info.props = &SPA_DICT_INIT_ARRAY(info_items);
-		spa_node_emit_info(&this->hooks, &this->info);
-		this->info.change_mask = old;
-	}
-}
-
-static void emit_port_info(struct impl *this, struct port *port, bool full)
-{
-	uint64_t old = full ? port->info.change_mask : 0;
-	if (full)
-		port->info.change_mask = port->info_all;
-	if (port->info.change_mask) {
-		spa_node_emit_port_info(&this->hooks,
-				SPA_DIRECTION_OUTPUT, 0, &port->info);
-		port->info.change_mask = old;
-	}
 }
 
 static int

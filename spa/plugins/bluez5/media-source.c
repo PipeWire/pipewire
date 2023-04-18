@@ -1468,7 +1468,7 @@ static int produce_buffer(struct impl *this)
 		io->buffer_id = SPA_ID_INVALID;
 	}
 
-	if (!this->source.loop) {
+	if (this->transport_started && !this->source.loop) {
 		io->status = -EIO;
 		return SPA_STATUS_STOPPED;
 	}

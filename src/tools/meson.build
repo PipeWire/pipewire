@@ -1,5 +1,6 @@
 tools_sources = [
   [ 'pw-mon', [ 'pw-mon.c' ] ],
+  [ 'pw-config', [ 'pw-config.c' ] ],
   [ 'pw-dot', [ 'pw-dot.c' ] ],
   [ 'pw-dump', [ 'pw-dump.c' ] ],
   [ 'pw-profiler', [ 'pw-profiler.c' ] ],

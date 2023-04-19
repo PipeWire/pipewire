@@ -933,17 +933,16 @@ exit:
 
 
 SPA_EXPORT
-int pw_context_conf_section_for_each(struct pw_context *context, const char *section,
+int pw_conf_section_for_each(const struct spa_dict *conf, const char *section,
 		int (*callback) (void *data, const char *location, const char *section,
 			const char *str, size_t len),
 		void *data)
 {
-	struct pw_properties *conf = context->conf;
 	const char *path = NULL;
 	const struct spa_dict_item *it;
 	int res = 0;
 
-	spa_dict_for_each(it, &conf->dict) {
+	spa_dict_for_each(it, conf) {
 		if (spa_strendswith(it->key, "config.path")) {
 			path = it->value;
 			continue;
@@ -963,37 +962,33 @@ int pw_context_conf_section_for_each(struct pw_context *context, const char *sec
 	return res;
 }
 
-SPA_EXPORT
-int pw_context_parse_conf_section(struct pw_context *context,
-		struct pw_properties *conf, const char *section)
-{
-	struct data data = { .context = context };
-	int res;
-
-	if (spa_streq(section, "context.spa-libs"))
-		res = pw_context_conf_section_for_each(context, section,
-				parse_spa_libs, &data);
-	else if (spa_streq(section, "context.modules"))
-		res = pw_context_conf_section_for_each(context, section,
-				parse_modules, &data);
-	else if (spa_streq(section, "context.objects"))
-		res = pw_context_conf_section_for_each(context, section,
-				parse_objects, &data);
-	else if (spa_streq(section, "context.exec"))
-		res = pw_context_conf_section_for_each(context, section,
-				parse_exec, &data);
-	else
-		res = -EINVAL;
-
-	return res == 0 ? data.count : res;
-}
-
 static int update_props(void *user_data, const char *location, const char *key,
 			const char *val, size_t len)
 {
 	struct data *data = user_data;
 	data->count += pw_properties_update_string(data->props, val, len);
 	return 0;
+}
+
+SPA_EXPORT
+int pw_conf_section_update_props(const struct spa_dict *conf,
+		const char *section, struct pw_properties *props)
+{
+	struct data data = { .props = props };
+	int res;
+	const char *str;
+
+	res = pw_conf_section_for_each(conf, section,
+			update_props, &data);
+
+	str = pw_properties_get(props, "config.ext");
+	if (res == 0 && str != NULL) {
+		char key[128];
+		snprintf(key, sizeof(key), "%s.%s", section, str);
+		res = pw_conf_section_for_each(conf, key,
+				update_props, &data);
+	}
+	return res == 0 ? data.count : res;
 }
 
 static int try_load_conf(const char *conf_prefix, const char *conf_name,
@@ -1063,26 +1058,6 @@ int pw_conf_load_conf_for_context(struct pw_properties *props, struct pw_propert
 
 	return res;
 }
-
-SPA_EXPORT
-int pw_context_conf_update_props(struct pw_context *context,
-		const char *section, struct pw_properties *props)
-{
-	struct data data = { .context = context, .props = props };
-	int res;
-	const char *str = pw_properties_get(props, "config.ext");
-
-	res = pw_context_conf_section_for_each(context, section,
-			update_props, &data);
-	if (res == 0 && str != NULL) {
-		char key[128];
-		snprintf(key, sizeof(key), "%s.%s", section, str);
-		res = pw_context_conf_section_for_each(context, key,
-				update_props, &data);
-	}
-	return res == 0 ? data.count : res;
-}
-
 
 /**
  * [
@@ -1172,7 +1147,7 @@ static int match_rules(void *data, const char *location, const char *section,
 }
 
 SPA_EXPORT
-int pw_context_conf_section_match_rules(struct pw_context *context, const char *section,
+int pw_conf_section_match_rules(const struct spa_dict *conf, const char *section,
 		const struct spa_dict *props,
 		int (*callback) (void *data, const char *location, const char *action,
 			const char *str, size_t len),
@@ -1183,15 +1158,71 @@ int pw_context_conf_section_match_rules(struct pw_context *context, const char *
 		.matched = callback,
 		.data = data };
 	int res;
-	const char *str = spa_dict_lookup(props, "config.ext");
+	const char *str;
 
-	res = pw_context_conf_section_for_each(context, section,
+	res = pw_conf_section_for_each(conf, section,
 			match_rules, &match);
+
+	str = spa_dict_lookup(props, "config.ext");
 	if (res == 0 && str != NULL) {
 		char key[128];
 		snprintf(key, sizeof(key), "%s.%s", section, str);
-		res = pw_context_conf_section_for_each(context, key,
+		res = pw_conf_section_for_each(conf, key,
 				match_rules, &match);
 	}
 	return res;
+}
+
+SPA_EXPORT
+int pw_context_conf_update_props(struct pw_context *context,
+		const char *section, struct pw_properties *props)
+{
+	return pw_conf_section_update_props(&context->conf->dict,
+			section, props);
+}
+
+SPA_EXPORT
+int pw_context_conf_section_for_each(struct pw_context *context, const char *section,
+		int (*callback) (void *data, const char *location, const char *section,
+			const char *str, size_t len),
+		void *data)
+{
+	return pw_conf_section_for_each(&context->conf->dict, section, callback, data);
+}
+
+
+SPA_EXPORT
+int pw_context_parse_conf_section(struct pw_context *context,
+		struct pw_properties *conf, const char *section)
+{
+	struct data data = { .context = context };
+	int res;
+
+	if (spa_streq(section, "context.spa-libs"))
+		res = pw_context_conf_section_for_each(context, section,
+				parse_spa_libs, &data);
+	else if (spa_streq(section, "context.modules"))
+		res = pw_context_conf_section_for_each(context, section,
+				parse_modules, &data);
+	else if (spa_streq(section, "context.objects"))
+		res = pw_context_conf_section_for_each(context, section,
+				parse_objects, &data);
+	else if (spa_streq(section, "context.exec"))
+		res = pw_context_conf_section_for_each(context, section,
+				parse_exec, &data);
+	else
+		res = -EINVAL;
+
+	return res == 0 ? data.count : res;
+}
+
+SPA_EXPORT
+int pw_context_conf_section_match_rules(struct pw_context *context, const char *section,
+		const struct spa_dict *props,
+		int (*callback) (void *data, const char *location, const char *action,
+			const char *str, size_t len),
+		void *data)
+{
+	return pw_conf_section_match_rules(&context->conf->dict, section,
+			props, callback, data);
 }

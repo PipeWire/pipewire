@@ -1028,13 +1028,12 @@ int pw_conf_load_conf_for_context(struct pw_properties *props, struct pw_propert
 	conf_name = getenv("PIPEWIRE_CONFIG_NAME");
 	if ((res = try_load_conf(conf_prefix, conf_name, conf)) < 0) {
 		conf_name = pw_properties_get(props, PW_KEY_CONFIG_NAME);
-		if ((res = try_load_conf(conf_prefix, conf_name, conf)) < 0) {
+		if (conf_name == NULL)
 			conf_name = "client.conf";
-			if ((res = try_load_conf(conf_prefix, conf_name, conf)) < 0) {
-				pw_log_error("can't load default config %s: %s",
-					conf_name, spa_strerror(res));
-				return res;
-			}
+		if ((res = try_load_conf(conf_prefix, conf_name, conf)) < 0) {
+			pw_log_error("can't load config %s: %s",
+				conf_name, spa_strerror(res));
+			return res;
 		}
 	}
 

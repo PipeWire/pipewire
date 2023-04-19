@@ -197,17 +197,8 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 	msg.msg_flags = 0;
 
 	n = sendmsg(impl->rtp_fd, &msg, MSG_NOSIGNAL);
-	if (n < 0) {
-		switch (errno) {
-		case ECONNREFUSED:
-		case ECONNRESET:
-			pw_log_debug("remote end not listening");
-			break;
-		default:
-			pw_log_warn("sendmsg() failed: %m");
-			break;
-		}
-	}
+	if (n < 0)
+		pw_log_debug("sendmsg() failed: %m");
 }
 
 static void stream_state_changed(void *data, bool started, const char *error)

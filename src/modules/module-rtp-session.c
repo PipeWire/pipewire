@@ -264,17 +264,8 @@ static ssize_t send_packet(int fd, struct msghdr *msg)
 {
 	ssize_t n;
 	n = sendmsg(fd, msg, MSG_NOSIGNAL);
-	if (n < 0) {
-		switch (errno) {
-		case ECONNREFUSED:
-		case ECONNRESET:
-			pw_log_debug("remote end not listening");
-			break;
-		default:
-			pw_log_debug("sendmsg() failed: %m");
-			break;
-		}
-	}
+	if (n < 0)
+		pw_log_debug("sendmsg() failed: %m");
 	return n;
 }
 

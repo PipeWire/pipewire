@@ -640,12 +640,13 @@ const char *pw_properties_iterate(const struct pw_properties *properties, void *
 	return pw_array_get_unchecked(&impl->items, index, struct spa_dict_item)->key;
 }
 
-static int encode_string(FILE *f, const char *val)
+static int encode_string(FILE *f, const char *val, int size)
 {
-	int len = 0;
+	int i, len = 0;
 	len += fprintf(f, "\"");
-	while (*val) {
-		switch (*val) {
+	for (i = 0; i < size; i++) {
+		char v = val[i];
+		switch (v) {
 		case '\n':
 			len += fprintf(f, "\\n");
 			break;
@@ -661,43 +662,114 @@ static int encode_string(FILE *f, const char *val)
 		case '\f':
 			len += fprintf(f, "\\f");
 			break;
-		case '\\':
-		case '"':
-			len += fprintf(f, "\\%c", *val);
-		break;
+		case '\\': case '"':
+			len += fprintf(f, "\\%c", v);
+			break;
 		default:
-			if (*val > 0 && *val < 0x20)
-				len += fprintf(f, "\\u%04x", *val);
+			if (v > 0 && v < 0x20)
+				len += fprintf(f, "\\u%04x", v);
 			else
-				len += fprintf(f, "%c", *val);
+				len += fprintf(f, "%c", v);
 			break;
 		}
-		val++;
 	}
 	len += fprintf(f, "\"");
 	return len-1;
 }
+
+struct dump_config {
+	FILE *file;
+	int indent;
+	const char *sep;
+};
+
+static int dump(struct dump_config *c, int indent, struct spa_json *it, const char *value, int len)
+{
+	FILE *file = c->file;
+	struct spa_json sub;
+	int count = 0;
+	char key[1024];
+
+	if (value == NULL) {
+		fprintf(file, "null");
+	} else if (spa_json_is_array(value, len)) {
+		fprintf(file, "[");
+		spa_json_enter(it, &sub);
+		indent += c->indent;
+		while ((len = spa_json_next(&sub, &value)) > 0) {
+			fprintf(file, "%s%s%*s", count++ > 0 ? "," : "",
+					c->sep, indent, "");
+			dump(c, indent, &sub, value, len);
+		}
+		indent -= c->indent;
+		fprintf(file, "%s%*s]", count > 0 ? c->sep : "",
+				count > 0 ? indent : 0, "");
+	} else if (spa_json_is_object(value, len)) {
+		fprintf(file, "{");
+		spa_json_enter(it, &sub);
+		indent += c->indent;
+		while (spa_json_get_string(&sub, key, sizeof(key)) > 0) {
+			fprintf(file, "%s%s%*s",
+					count++ > 0 ? "," : "",
+					c->sep, indent, "");
+			encode_string(file, key, strlen(key));
+			fprintf(file, ": ");
+			if ((len = spa_json_next(&sub, &value)) <= 0)
+				break;
+			dump(c, indent, &sub, value, len);
+		}
+		indent -= c->indent;
+		fprintf(file, "%s%*s}", count > 0 ? c->sep : "",
+				count > 0 ? indent : 0, "");
+	} else if (spa_json_is_string(value, len) ||
+	    spa_json_is_null(value, len) ||
+	    spa_json_is_bool(value, len) ||
+	    spa_json_is_int(value, len) ||
+	    spa_json_is_float(value, len)) {
+		fprintf(file, "%.*s", len, value);
+	} else {
+		encode_string(file, value, len);
+	}
+	return 0;
+}
+
 
 SPA_EXPORT
 int pw_properties_serialize_dict(FILE *f, const struct spa_dict *dict, uint32_t flags)
 {
 	const struct spa_dict_item *it;
 	int count = 0;
-	char key[1024];
+	struct dump_config cfg = {
+		.file = f,
+		.indent = flags & PW_PROPERTIES_FLAG_NL ? 2 : 0,
+		.sep = flags & PW_PROPERTIES_FLAG_NL ? "\n" : " "
+	};
+	const char *enc = flags & PW_PROPERTIES_FLAG_ARRAY ? "[]" : "{}";
+
+	if (SPA_FLAG_IS_SET(flags, PW_PROPERTIES_FLAG_ENCLOSE))
+		fprintf(f, "%c", enc[0]);
 
 	spa_dict_for_each(it, dict) {
-		size_t len = it->value ? strlen(it->value) : 0;
+		char key[1024];
+		int len = it->value ? strlen(it->value) : 0;
+		const char *value;
 
-		if (spa_json_encode_string(key, sizeof(key)-1, it->key) >= (int)sizeof(key)-1)
-			continue;
+		fprintf(f, "%s%s%*s", count == 0 ? "" : ",", cfg.sep, cfg.indent, "");
 
-		fprintf(f, "%s%s %s: ",
-				count == 0 ? "" : ",",
-				flags & PW_PROPERTIES_FLAG_NL ? "\n" : "",
-				key);
+		if (!(flags & PW_PROPERTIES_FLAG_ARRAY)) {
+			if (spa_json_encode_string(key, sizeof(key)-1, it->key) >= (int)sizeof(key)-1)
+				continue;
+			fprintf(f, "%s: ", key);
+		}
 
 		if (it->value == NULL) {
 			fprintf(f, "null");
+		} else if (SPA_FLAG_IS_SET(flags, PW_PROPERTIES_FLAG_RECURSE)) {
+			struct spa_json sub;
+			spa_json_init(&sub, it->value, len);
+			if ((len = spa_json_next(&sub, &value)) <= 0)
+				break;
+			dump(&cfg, cfg.indent, &sub, value, len);
 		} else if (spa_json_is_null(it->value, len) ||
 		    spa_json_is_float(it->value, len) ||
 		    spa_json_is_bool(it->value, len) ||
@@ -705,9 +777,11 @@ int pw_properties_serialize_dict(FILE *f, const struct spa_dict *dict, uint32_t 
 		    spa_json_is_string(it->value, len)) {
 			fprintf(f, "%s", it->value);
 		} else {
-			encode_string(f, it->value);
+			encode_string(f, it->value, len);
 		}
 		count++;
 	}
+	if (SPA_FLAG_IS_SET(flags, PW_PROPERTIES_FLAG_ENCLOSE))
+		fprintf(f, "%s%c", cfg.sep, enc[1]);
 	return count;
 }

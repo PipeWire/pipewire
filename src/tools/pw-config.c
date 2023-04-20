@@ -23,6 +23,7 @@ struct data {
 	const char *opt_cmd;
 	bool opt_recurse;
 	bool opt_newline;
+	bool opt_colors;
 	struct pw_properties *conf;
 	struct pw_properties *assemble;
 	int count;
@@ -35,6 +36,7 @@ static void print_all_properties(struct data *d, struct pw_properties *props)
 			&props->dict,
 			(d->opt_newline ? PW_PROPERTIES_FLAG_NL : 0) |
 			(d->opt_recurse ? PW_PROPERTIES_FLAG_RECURSE : 0) |
+			(d->opt_colors ? PW_PROPERTIES_FLAG_COLORS : 0) |
 			(d->array ? PW_PROPERTIES_FLAG_ARRAY : 0) |
 			PW_PROPERTIES_FLAG_ENCLOSE);
 	fprintf(stdout, "\n");
@@ -124,7 +126,9 @@ static void show_help(const char *name, bool error)
 		"  -n, --name                            Config Name (default '%2$s')\n"
 		"  -p, --prefix                          Config Prefix (default '%3$s')\n"
 		"  -L, --no-newline                      Omit newline after values\n"
-		"  -r, --recurse                         Dump values recursively\n",
+		"  -r, --recurse                         Dump values recursively\n"
+		"  -N, --no-colors                       disable color output\n"
+		"  -C, --color[=WHEN]                    whether to enable color support. WHEN is `never`, `always`, or `auto`\n",
 		name, DEFAULT_NAME, DEFAULT_PREFIX);
 }
 
@@ -140,6 +144,8 @@ int main(int argc, char *argv[])
 		{ "prefix",	required_argument,	NULL, 'p' },
 		{ "no-newline",	no_argument,		NULL, 'L' },
 		{ "recurse",	no_argument,		NULL, 'r' },
+		{ "no-colors",	no_argument,		NULL, 'N' },
+		{ "color",	optional_argument,	NULL, 'C' },
 		{ NULL, 0, NULL, 0}
 	};
 
@@ -147,11 +153,13 @@ int main(int argc, char *argv[])
 	d.opt_prefix = NULL;
 	d.opt_recurse = false;
 	d.opt_newline = true;
+	if (isatty(fileno(stdout)) && getenv("NO_COLOR") == NULL)
+		d.opt_colors = true;
 	d.opt_cmd = "paths";
 
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hVn:p:Lr", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVn:p:LrNC", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(argv[0], false);
@@ -175,6 +183,23 @@ int main(int argc, char *argv[])
 			break;
 		case 'r':
 			d.opt_recurse = true;
+			break;
+		case 'N' :
+			d.opt_colors = false;
+			break;
+		case 'C' :
+			if (optarg == NULL || !strcmp(optarg, "auto"))
+				break; /* nothing to do, tty detection was done
+					  before parsing options */
+			else if (!strcmp(optarg, "never"))
+				d.opt_colors = false;
+			else if (!strcmp(optarg, "always"))
+				d.opt_colors = true;
+			else {
+				fprintf(stderr, "Unknown color: %s\n", optarg);
+				show_help(argv[0], true);
+				return -1;
+			}
 			break;
 		default:
 			show_help(argv[0], true);

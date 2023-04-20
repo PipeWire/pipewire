@@ -4,6 +4,8 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+
+#include <spa/utils/ansi.h>
 #include <spa/utils/json.h>
 #include <spa/utils/string.h>
 
@@ -640,10 +642,27 @@ const char *pw_properties_iterate(const struct pw_properties *properties, void *
 	return pw_array_get_unchecked(&impl->items, index, struct spa_dict_item)->key;
 }
 
-static int encode_string(FILE *f, const char *val, int size)
+#define NORMAL(c)	((c)->colors ? SPA_ANSI_RESET : "")
+#define LITERAL(c)	((c)->colors ? SPA_ANSI_BRIGHT_MAGENTA : "")
+#define NUMBER(c)	((c)->colors ? SPA_ANSI_BRIGHT_CYAN : "")
+#define STRING(c)	((c)->colors ? SPA_ANSI_BRIGHT_GREEN : "")
+#define KEY(c)		((c)->colors ? SPA_ANSI_BRIGHT_BLUE : "")
+#define CONTAINER(c)	((c)->colors ? SPA_ANSI_BRIGHT_YELLOW : "")
+
+struct dump_config {
+	FILE *file;
+	int indent;
+	const char *sep;
+	bool colors;
+	bool recurse;
+};
+
+static int encode_string(struct dump_config *c, const char *before,
+		const char *val, int size, const char *after)
 {
+	FILE *f = c->file;
 	int i, len = 0;
-	len += fprintf(f, "\"");
+	len += fprintf(f, "%s\"", before);
 	for (i = 0; i < size; i++) {
 		char v = val[i];
 		switch (v) {
@@ -673,15 +692,9 @@ static int encode_string(FILE *f, const char *val, int size)
 			break;
 		}
 	}
-	len += fprintf(f, "\"");
+	len += fprintf(f, "\"%s", after);
 	return len-1;
 }
-
-struct dump_config {
-	FILE *file;
-	int indent;
-	const char *sep;
-};
 
 static int dump(struct dump_config *c, int indent, struct spa_json *it, const char *value, int len)
 {
@@ -690,8 +703,11 @@ static int dump(struct dump_config *c, int indent, struct spa_json *it, const ch
 	int count = 0;
 	char key[1024];
 
-	if (value == NULL) {
-		fprintf(file, "null");
+	if (value == NULL || len == 0) {
+		fprintf(file, "%snull%s", LITERAL(c), NORMAL(c));
+	} else if (spa_json_is_container(value, len) && !c->recurse) {
+		len = spa_json_container_len(it, value, len);
+		fprintf(file, "%s%.*s%s", CONTAINER(c), len, value, NORMAL(c));
 	} else if (spa_json_is_array(value, len)) {
 		fprintf(file, "[");
 		spa_json_enter(it, &sub);
@@ -712,7 +728,7 @@ static int dump(struct dump_config *c, int indent, struct spa_json *it, const ch
 			fprintf(file, "%s%s%*s",
 					count++ > 0 ? "," : "",
 					c->sep, indent, "");
-			encode_string(file, key, strlen(key));
+			encode_string(c, KEY(c), key, strlen(key), NORMAL(c));
 			fprintf(file, ": ");
 			if ((len = spa_json_next(&sub, &value)) <= 0)
 				break;
@@ -721,18 +737,19 @@ static int dump(struct dump_config *c, int indent, struct spa_json *it, const ch
 		indent -= c->indent;
 		fprintf(file, "%s%*s}", count > 0 ? c->sep : "",
 				count > 0 ? indent : 0, "");
-	} else if (spa_json_is_string(value, len) ||
-	    spa_json_is_null(value, len) ||
-	    spa_json_is_bool(value, len) ||
-	    spa_json_is_int(value, len) ||
+	} else if (spa_json_is_null(value, len) ||
+	    spa_json_is_bool(value, len)) {
+		fprintf(file, "%s%.*s%s", LITERAL(c), len, value, NORMAL(c));
+	} else if (spa_json_is_int(value, len) ||
 	    spa_json_is_float(value, len)) {
-		fprintf(file, "%.*s", len, value);
+		fprintf(file, "%s%.*s%s", NUMBER(c), len, value, NORMAL(c));
+	} else if (spa_json_is_string(value, len)) {
+		fprintf(file, "%s%.*s%s", STRING(c), len, value, NORMAL(c));
 	} else {
-		encode_string(file, value, len);
+		encode_string(c, STRING(c), value, len, NORMAL(c));
 	}
 	return 0;
 }
-
 
 SPA_EXPORT
 int pw_properties_serialize_dict(FILE *f, const struct spa_dict *dict, uint32_t flags)
@@ -742,8 +759,10 @@ int pw_properties_serialize_dict(FILE *f, const struct spa_dict *dict, uint32_t 
 	struct dump_config cfg = {
 		.file = f,
 		.indent = flags & PW_PROPERTIES_FLAG_NL ? 2 : 0,
-		.sep = flags & PW_PROPERTIES_FLAG_NL ? "\n" : " "
-	};
+		.sep = flags & PW_PROPERTIES_FLAG_NL ? "\n" : " ",
+		.colors = SPA_FLAG_IS_SET(flags, PW_PROPERTIES_FLAG_COLORS),
+		.recurse = SPA_FLAG_IS_SET(flags, PW_PROPERTIES_FLAG_RECURSE),
+	}, *c = &cfg;
 	const char *enc = flags & PW_PROPERTIES_FLAG_ARRAY ? "[]" : "{}";
 
 	if (SPA_FLAG_IS_SET(flags, PW_PROPERTIES_FLAG_ENCLOSE))
@@ -751,37 +770,28 @@ int pw_properties_serialize_dict(FILE *f, const struct spa_dict *dict, uint32_t 
 
 	spa_dict_for_each(it, dict) {
 		char key[1024];
-		int len = it->value ? strlen(it->value) : 0;
+		int len;
 		const char *value;
+		struct spa_json sub;
 
-		fprintf(f, "%s%s%*s", count == 0 ? "" : ",", cfg.sep, cfg.indent, "");
+		fprintf(f, "%s%s%*s", count == 0 ? "" : ",", c->sep, c->indent, "");
 
 		if (!(flags & PW_PROPERTIES_FLAG_ARRAY)) {
 			if (spa_json_encode_string(key, sizeof(key)-1, it->key) >= (int)sizeof(key)-1)
 				continue;
-			fprintf(f, "%s: ", key);
+			fprintf(f, "%s%s%s: ", KEY(c), key, NORMAL(c));
 		}
+		value = it->value;
 
-		if (it->value == NULL) {
-			fprintf(f, "null");
-		} else if (SPA_FLAG_IS_SET(flags, PW_PROPERTIES_FLAG_RECURSE)) {
-			struct spa_json sub;
-			spa_json_init(&sub, it->value, len);
-			if ((len = spa_json_next(&sub, &value)) <= 0)
-				break;
-			dump(&cfg, cfg.indent, &sub, value, len);
-		} else if (spa_json_is_null(it->value, len) ||
-		    spa_json_is_float(it->value, len) ||
-		    spa_json_is_bool(it->value, len) ||
-		    spa_json_is_container(it->value, len) ||
-		    spa_json_is_string(it->value, len)) {
-			fprintf(f, "%s", it->value);
-		} else {
-			encode_string(f, it->value, len);
-		}
+		len = value ? strlen(value) : 0;
+		spa_json_init(&sub, value, len);
+		if ((len = spa_json_next(&sub, &value)) < 0)
+			break;
+
+		dump(c, c->indent, &sub, value, len);
 		count++;
 	}
 	if (SPA_FLAG_IS_SET(flags, PW_PROPERTIES_FLAG_ENCLOSE))
-		fprintf(f, "%s%c", cfg.sep, enc[1]);
+		fprintf(f, "%s%c", c->sep, enc[1]);
 	return count;
 }

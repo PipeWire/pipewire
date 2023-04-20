@@ -125,8 +125,8 @@ static void show_help(const char *name, bool error)
 		"      --version                         Show version\n"
 		"  -n, --name                            Config Name (default '%2$s')\n"
 		"  -p, --prefix                          Config Prefix (default '%3$s')\n"
-		"  -L, --no-newline                      Omit newline after values\n"
-		"  -r, --recurse                         Dump values recursively\n"
+		"  -L, --no-newline                      Omit newlines after values\n"
+		"  -r, --recurse                         Reformat config sections recursively\n"
 		"  -N, --no-colors                       disable color output\n"
 		"  -C, --color[=WHEN]                    whether to enable color support. WHEN is `never`, `always`, or `auto`\n",
 		name, DEFAULT_NAME, DEFAULT_PREFIX);

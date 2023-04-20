@@ -7,6 +7,7 @@
 #include <getopt.h>
 #include <signal.h>
 #include <locale.h>
+#include <unistd.h>
 
 #include <spa/utils/result.h>
 #include <spa/utils/json.h>

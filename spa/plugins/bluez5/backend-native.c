@@ -684,16 +684,19 @@ static bool device_supports_required_mSBC_transport_modes(
 
 static int codec_switch_start_timer(struct rfcomm *rfcomm, int timeout_msec);
 
-static void process_xevent_indicator(struct rfcomm *rfcomm, unsigned int batt_p1, unsigned int batt_p2)
+static void process_xevent_indicator(struct rfcomm *rfcomm, unsigned int level, unsigned int nlevels)
 {
 	struct impl *backend = rfcomm->backend;
+	uint8_t perc;
 
-	spa_log_debug(backend->log, "batt_p1:%u batt_p2:%u", batt_p1, batt_p2);
+	spa_log_debug(backend->log, "AT+XEVENT level:%u nlevels:%u", level, nlevels);
 
-	uint8_t level =  (batt_p1 * 100) / batt_p2;
-	spa_log_debug(backend->log, "battery level: %d%%", (int) level);
-	// TODO: report without Battery Provider (using props)
-	spa_bt_device_report_battery_level(rfcomm->device, level);
+	if (nlevels == 0)
+		return;
+
+	/* 0 <= level < nlevels; doesn't make much sense to report 0% so bump range up */
+	perc = SPA_MIN(level + 1, nlevels) * 100 / nlevels;
+	spa_bt_device_report_battery_level(rfcomm->device, perc);
 }
 
 static void process_iphoneaccev_indicator(struct rfcomm *rfcomm, unsigned int key, unsigned int value)
@@ -772,8 +775,8 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 	unsigned int indicator;
 	unsigned int indicator_value;
 	unsigned int value;
-	unsigned int xevent_batt_p1;
-	unsigned int xevent_batt_p2;
+	unsigned int xevent_level;
+	unsigned int xevent_nlevels;
 	int xapl_vendor;
 	int xapl_product;
 	int xapl_features;
@@ -1085,8 +1088,12 @@ next_indicator:
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+XEVENT=USER-AGENT")) {
 		rfcomm_send_reply(rfcomm, "OK");
-	} else if (sscanf(buf, "AT+XEVENT=BATTERY,%u,%u,%*u,%*u", &xevent_batt_p1, &xevent_batt_p2) == 2) {
-		process_xevent_indicator(rfcomm, xevent_batt_p1, xevent_batt_p2);
+	} else if (sscanf(buf, "AT+XEVENT=BATTERY,%u,%u,%*u,%*u", &xevent_level, &xevent_nlevels) == 2) {
+		process_xevent_indicator(rfcomm, xevent_level, xevent_nlevels);
+		rfcomm_send_reply(rfcomm, "OK");
+	} else if (sscanf(buf, "AT+XEVENT=BATTERY,%u", &xevent_level) == 1) {
+		process_xevent_indicator(rfcomm, xevent_level, 10);
+		rfcomm_send_reply(rfcomm, "OK");
 	} else if (sscanf(buf, "AT+IPHONEACCEV=%u%n", &count, &r) == 1) {
 		if (count < 1 || count > 100)
 			return false;

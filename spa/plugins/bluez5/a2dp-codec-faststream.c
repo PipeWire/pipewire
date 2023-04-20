@@ -148,11 +148,11 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 			spa_pod_builder_int(b, 44100);
 		spa_pod_builder_int(b, 44100);
 	}
-	if (i == 0)
-		return -EINVAL;
 	if (i > 1)
 		choice->body.type = SPA_CHOICE_Enum;
 	spa_pod_builder_pop(b, &f[1]);
+	if (i == 0)
+		return -EINVAL;
 
 	position[0] = SPA_AUDIO_CHANNEL_FL;
 	position[1] = SPA_AUDIO_CHANNEL_FR;

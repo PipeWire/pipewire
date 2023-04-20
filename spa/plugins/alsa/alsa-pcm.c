@@ -1062,6 +1062,10 @@ static int enum_pcm_formats(struct state *state, uint32_t index, uint32_t *next,
 			}
 		}
 	}
+	if (j > 1)
+		choice->body.type = SPA_CHOICE_Enum;
+	spa_pod_builder_pop(b, &f[1]);
+
 	if (j == 0) {
 		char buf[1024];
 		int i, r, offs;
@@ -1090,9 +1094,6 @@ static int enum_pcm_formats(struct state *state, uint32_t index, uint32_t *next,
 		spa_log_warn(state->log, "%s: access:%s", state->props.device, buf);
 		return -ENOTSUP;
 	}
-	if (j > 1)
-		choice->body.type = SPA_CHOICE_Enum;
-	spa_pod_builder_pop(b, &f[1]);
 
 	if ((res = add_rate(state, 1, 1, false, index & 0xffff, next, 0, params, b)) != 1)
 		return res;

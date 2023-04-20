@@ -247,11 +247,12 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 			spa_pod_builder_int(b, 16000);
 		spa_pod_builder_int(b, 16000);
 	}
-	if (i == 0)
-		return -EINVAL;
 	if (i > 1)
 		choice->body.type = SPA_CHOICE_Enum;
 	spa_pod_builder_pop(b, &f[1]);
+
+	if (i == 0)
+		return -EINVAL;
 
 	if (SPA_FLAG_IS_SET(conf.channel_mode, APTX_CHANNEL_MODE_MONO | APTX_CHANNEL_MODE_STEREO)) {
 		spa_pod_builder_add(b,

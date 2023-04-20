@@ -193,12 +193,12 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 			spa_pod_builder_int(b, f->value);
 		}
 	}
-	if (i == 0)
-		return -EINVAL;
 	if (i > 1)
 		choice->body.type = SPA_CHOICE_Enum;
 	spa_pod_builder_pop(b, &f[1]);
 
+	if (i == 0)
+		return -EINVAL;
 
 	if (SPA_FLAG_IS_SET(conf.channels, AAC_CHANNELS_1 | AAC_CHANNELS_2)) {
 		spa_pod_builder_add(b,

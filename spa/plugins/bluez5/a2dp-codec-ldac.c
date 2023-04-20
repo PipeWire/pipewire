@@ -184,11 +184,12 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 			spa_pod_builder_int(b, 96000);
 		spa_pod_builder_int(b, 96000);
 	}
-	if (i == 0)
-		return -EINVAL;
 	if (i > 1)
 		choice->body.type = SPA_CHOICE_Enum;
 	spa_pod_builder_pop(b, &f[1]);
+
+	if (i == 0)
+		return -EINVAL;
 
 	if (conf.channel_mode & LDACBT_CHANNEL_MODE_MONO &&
 	    conf.channel_mode & (LDACBT_CHANNEL_MODE_STEREO |

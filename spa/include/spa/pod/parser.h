@@ -455,7 +455,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser, va_list arg
 		const struct spa_pod *pod = NULL;
 		const char *format;
 
-		if (ftype == SPA_TYPE_Object) {
+		if (f && ftype == SPA_TYPE_Object) {
 			uint32_t key = va_arg(args, uint32_t);
 			const struct spa_pod_object *object;
 

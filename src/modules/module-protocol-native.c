@@ -285,6 +285,7 @@ process_messages(struct client_data *data)
 			break;
 
 		if (client->core_resource == NULL) {
+			pw_log_debug("%p: no core resource", client);
 			res = -EPROTO;
 			goto error;
 		}

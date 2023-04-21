@@ -258,10 +258,12 @@ recv_error:
 	return -errno;
 
 cmsgs_truncated:
+	pw_log_debug("connection %p: cmsg truncated", conn);
 	close_all_fds(&msg, CMSG_FIRSTHDR(&msg));
 	return -EPROTO;
 
 too_many_fds:
+	pw_log_debug("connection %p: too many fds", conn);
 	close_all_fds(&msg, cmsg);
 	return -EPROTO;
 }

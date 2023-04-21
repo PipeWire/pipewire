@@ -50,6 +50,8 @@
 #define MAX_MIX				1024
 #define MAX_BUFFER_FRAMES		8192
 
+#define MAX_CLIENT_PORTS		768
+
 #define MAX_ALIGN			16
 #define MAX_BUFFERS			2
 #define MAX_BUFFER_DATAS		1u
@@ -345,6 +347,7 @@ struct client {
 
 	struct spa_list free_ports;
 	struct pw_map ports[2];
+	uint32_t n_ports;
 
 	struct spa_list links;
 	uint32_t driver_id;
@@ -387,6 +390,7 @@ struct client {
 	unsigned int global_buffer_size:1;
 	unsigned int passive_links:1;
 	char filter_char;
+	uint32_t max_ports;
 
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
@@ -557,6 +561,11 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 	struct object *o;
 	uint32_t i;
 
+	if (c->n_ports >= c->max_ports) {
+		errno = ENOSPC;
+		return NULL;
+	}
+
 	if (spa_list_is_empty(&c->free_ports)) {
 		p = calloc(OBJECT_CHUNK, sizeof(struct port));
 		if (p == NULL)
@@ -568,6 +577,9 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 	spa_list_remove(&p->link);
 
 	o = alloc_object(c, INTERFACE_Port);
+	if (o == NULL)
+		return NULL;
+
 	o->id = SPA_ID_INVALID;
 	o->port.node_id = c->node_id;
 	o->port.port = p;
@@ -584,6 +596,7 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 	p->direction = direction;
 	p->emptyptr = SPA_PTR_ALIGN(p->empty, MAX_ALIGN, float);
 	p->port_id = pw_map_insert_new(&c->ports[direction], p);
+	c->n_ports++;
 
 	pthread_mutex_lock(&c->context.lock);
 	spa_list_append(&c->context.objects, &o->link);
@@ -599,6 +612,7 @@ static void free_port(struct client *c, struct port *p)
 	spa_list_consume(m, &p->mix, port_link)
 		free_mix(c, m);
 
+	c->n_ports--;
 	pw_map_remove(&c->ports[p->direction], p->port_id);
 	free_object(c, p->object);
 	pw_properties_free(p->props);
@@ -2850,6 +2864,8 @@ static void registry_event_global(void *data, uint32_t id,
 		char tmp[JACK_CLIENT_NAME_SIZE+1];
 
 		o = alloc_object(c, INTERFACE_Node);
+		if (o == NULL)
+			goto exit;
 
 		if ((str = spa_dict_lookup(props, PW_KEY_CLIENT_ID)) != NULL)
 			o->node.client_id = atoi(str);
@@ -3042,6 +3058,8 @@ static void registry_event_global(void *data, uint32_t id,
 		struct object *p;
 
 		o = alloc_object(c, INTERFACE_Link);
+		if (o == NULL)
+			goto exit;
 
 		pthread_mutex_lock(&c->context.lock);
 		spa_list_append(&c->context.objects, &o->link);
@@ -3481,6 +3499,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->default_as_system = pw_properties_get_bool(client->props, "jack.default-as-system", false);
 	client->fix_midi_events = pw_properties_get_bool(client->props, "jack.fix-midi-events", true);
 	client->global_buffer_size = pw_properties_get_bool(client->props, "jack.global-buffer-size", false);
+	client->max_ports = pw_properties_get_uint32(client->props, "jack.max-client-ports", MAX_CLIENT_PORTS);
 
 	client->self_connect_mode = SELF_CONNECT_ALLOW;
 	if ((str = pw_properties_get(client->props, "jack.self-connect-mode")) != NULL) {

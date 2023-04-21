@@ -87,6 +87,7 @@ jack.properties = {
      #jack.default-as-system = false
      #jack.fix-midi-events   = true
      #jack.global-buffer-size = false
+     #jack.max-client-ports   = 768
 }
 
 # client specific properties

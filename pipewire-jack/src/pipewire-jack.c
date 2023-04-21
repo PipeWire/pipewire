@@ -3846,7 +3846,9 @@ jack_native_thread_t jack_client_thread_id (jack_client_t *client)
 SPA_EXPORT
 int jack_is_realtime (jack_client_t *client)
 {
-	return 1;
+	struct client *c = (struct client *) client;
+	spa_return_val_if_fail(c != NULL, 0);
+	return !c->freewheeling;
 }
 
 SPA_EXPORT
@@ -4315,7 +4317,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	int res;
 
 	spa_return_val_if_fail(c != NULL, NULL);
-	spa_return_val_if_fail(port_name != NULL, NULL);
+	spa_return_val_if_fail(port_name != NULL && strlen(port_name) != 0, NULL);
 	spa_return_val_if_fail(port_type != NULL, NULL);
 
 	pw_log_info("%p: port register \"%s:%s\" \"%s\" %08lx %ld",
@@ -4665,6 +4667,8 @@ static const char *port_name(struct object *o)
 {
 	const char *name;
 	struct client *c = o->client;
+	if (c == NULL)
+		return NULL;
 	if (c->default_as_system && is_port_default(c, o))
 		name = o->port.system;
 	else

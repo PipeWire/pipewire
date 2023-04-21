@@ -374,6 +374,7 @@ struct client {
 	unsigned int warn_mlock:1;
 	unsigned int timeowner_conditional:1;
 	unsigned int show_monitor:1;
+	unsigned int show_midi:1;
 	unsigned int merge_monitor:1;
 	unsigned int short_name:1;
 	unsigned int filter_name:1;
@@ -2956,6 +2957,8 @@ static void registry_event_global(void *data, uint32_t id,
 		}
 		if (is_monitor && !c->show_monitor)
 			goto exit;
+		if (type_id == TYPE_ID_MIDI && !c->show_midi)
+			goto exit;
 
 		o = NULL;
 		if (node_id == c->node_id) {
@@ -3466,6 +3469,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->info.change_mask = 0;
 
 	client->show_monitor = pw_properties_get_bool(client->props, "jack.show-monitor", true);
+	client->show_midi = pw_properties_get_bool(client->props, "jack.show-midi", true);
 	client->merge_monitor = pw_properties_get_bool(client->props, "jack.merge-monitor", true);
 	client->short_name = pw_properties_get_bool(client->props, "jack.short-name", false);
 	client->filter_name = pw_properties_get_bool(client->props, "jack.filter-name", false);
@@ -5223,7 +5227,7 @@ int jack_connect (jack_client_t *client,
 
 	pw_proxy_destroy(proxy);
 
-      exit:
+exit:
 	pw_thread_loop_unlock(c->context.loop);
 
 	return -res;

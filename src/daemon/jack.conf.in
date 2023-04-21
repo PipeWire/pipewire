@@ -72,6 +72,7 @@ jack.properties = {
      #node.force-quantum = 0
      #jack.show-monitor  = true
      #jack.merge-monitor = true
+     #jack.show-midi     = true
      #jack.short-name    = false
      #jack.filter-name   = false
      #jack.filter-char   = " "

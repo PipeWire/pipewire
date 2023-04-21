@@ -699,7 +699,7 @@ static float *read_closest(char **filenames, float gain, int delay, int offset,
 		}
 	}
 
-	pw_log_debug("loading %s", filenames[best]);
+	pw_log_info("loading best rate:%u %s", infos[best].samplerate, filenames[best]);
 	float *samples = read_samples_from_sf(fs[best], infos[best], gain, delay,
 		offset, length, channel, rate, n_samples);
 

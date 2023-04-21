@@ -850,7 +850,7 @@ static void on_error(void *data, uint32_t id, int seq, int res, const char *mess
 
 	if (id == PW_ID_CORE) {
 		client->last_res = res;
-		if (!client->destroyed)
+		if (res == -EPIPE && !client->destroyed)
 			do_callback(client, shutdown_callback, client->shutdown_arg);
 	}
 	pw_thread_loop_signal(client->context.loop, false);

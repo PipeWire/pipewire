@@ -1429,9 +1429,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 		res = spa_audio_aec_init(impl->aec, &aec_props->dict, &info);
 
-		impl->rec_info.channels = info.channels;
-		impl->out_info.channels = info.channels;
-		impl->play_info.channels = info.channels;
+		impl->rec_info = info;
+		impl->out_info = info;
+		impl->play_info = info;
 	}
 
 	pw_properties_free(aec_props);

@@ -31,7 +31,8 @@ PW_LOG_TOPIC_EXTERN(mod_topic);
 #define MAX_BUFFERS	64
 #define MAX_METAS	16u
 #define MAX_DATAS	64u
-#define MAX_AREAS	2048
+#define AREA_SIZE	(4096u / sizeof(struct spa_io_buffers))
+#define MAX_AREAS	32
 
 #define CHECK_FREE_PORT(this,d,p)	(p <= pw_map_get_size(&this->ports[d]) && !CHECK_PORT(this,d,p))
 #define CHECK_PORT(this,d,p)		(pw_map_lookup(&this->ports[d], p) != NULL)
@@ -115,7 +116,7 @@ struct impl {
 	struct node node;
 
 	struct pw_map io_map;
-	struct pw_memblock *io_areas;
+	struct pw_array io_areas;
 
 	struct pw_memblock *activation;
 
@@ -1267,6 +1268,29 @@ void pw_impl_client_node_registered(struct pw_impl_client_node *this, struct pw_
 	}
 }
 
+static int add_area(struct impl *impl)
+{
+	size_t size;
+	struct pw_memblock *area;
+
+	size = sizeof(struct spa_io_buffers) * AREA_SIZE;
+
+	area = pw_mempool_alloc(impl->context->pool,
+			PW_MEMBLOCK_FLAG_READWRITE |
+			PW_MEMBLOCK_FLAG_MAP |
+			PW_MEMBLOCK_FLAG_SEAL,
+			SPA_DATA_MemFd, size);
+	if (area == NULL)
+                return -errno;
+
+	pw_log_debug("%p: io area %u %p", impl,
+			(unsigned)pw_array_get_len(&impl->io_areas, struct pw_memblock*),
+			area->map->ptr);
+
+	pw_array_add_ptr(&impl->io_areas, area);
+	return 0;
+}
+
 static void node_initialized(void *data)
 {
 	struct impl *impl = data;
@@ -1274,7 +1298,6 @@ static void node_initialized(void *data)
 	struct node *node = &impl->node;
 	struct pw_global *global;
 	struct spa_system *data_system = impl->node.data_system;
-	size_t size;
 
 	impl->fds[0] = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	impl->fds[1] = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
@@ -1286,17 +1309,8 @@ static void node_initialized(void *data)
 	spa_loop_add_source(node->data_loop, &node->data_source);
 	pw_log_debug("%p: transport read-fd:%d write-fd:%d", node, impl->fds[0], impl->fds[1]);
 
-	size = sizeof(struct spa_io_buffers) * MAX_AREAS;
-
-	impl->io_areas = pw_mempool_alloc(impl->context->pool,
-			PW_MEMBLOCK_FLAG_READWRITE |
-			PW_MEMBLOCK_FLAG_MAP |
-			PW_MEMBLOCK_FLAG_SEAL,
-			SPA_DATA_MemFd, size);
-	if (impl->io_areas == NULL)
-                return;
-
-	pw_log_debug("%p: io areas %p", node, impl->io_areas->map->ptr);
+	if (add_area(impl) < 0)
+		return;
 
 	if ((global = pw_impl_node_get_global(this->node)) != NULL)
 		pw_impl_client_node_registered(this, global);
@@ -1310,6 +1324,7 @@ static void node_free(void *data)
 	struct spa_system *data_system = node->data_system;
 	uint32_t tag[5] = { impl->node_id, };
 	struct pw_memmap *mm;
+	struct pw_memblock **area;
 
 	this->node = NULL;
 
@@ -1326,8 +1341,12 @@ static void node_free(void *data)
 
 	if (impl->activation)
 		pw_memblock_unref(impl->activation);
-	if (impl->io_areas)
-		pw_memblock_unref(impl->io_areas);
+
+	pw_array_for_each(area, &impl->io_areas) {
+		if (*area)
+			pw_memblock_unref(*area);
+	}
+	pw_array_clear(&impl->io_areas);
 
 	pw_map_clear(&impl->node.ports[0]);
 	pw_map_clear(&impl->node.ports[1]);
@@ -1345,6 +1364,8 @@ static int port_init_mix(void *data, struct pw_impl_port_mix *mix)
 	struct port *port = data;
 	struct impl *impl = port->impl;
 	struct mix *m;
+	uint32_t idx, pos, len;
+	struct pw_memblock *area;
 
 	if ((m = ensure_mix(impl, port, mix->port.port_id)) == NULL)
 		return -ENOMEM;
@@ -1354,22 +1375,34 @@ static int port_init_mix(void *data, struct pw_impl_port_mix *mix)
 		m->valid = false;
 		return -errno;
 	}
-	if (mix->id >= MAX_AREAS) {
-		pw_map_remove(&impl->io_map, mix->id);
-		m->valid = false;
-		return -ENOMEM;
-	}
 
-	mix->io = SPA_PTROFF(impl->io_areas->map->ptr,
-			mix->id * sizeof(struct spa_io_buffers), void);
+	idx = mix->id / AREA_SIZE;
+	pos = mix->id % AREA_SIZE;
+
+	len = pw_array_get_len(&impl->io_areas, struct pw_memblock *);
+	if (idx > len)
+		goto no_mem;
+	if (idx == len) {
+		pw_log_debug("%p: extend area idx:%u pos:%u", impl, idx, pos);
+		if (add_area(impl) < 0)
+			goto no_mem;
+	}
+	area = *pw_array_get_unchecked(&impl->io_areas, idx, struct pw_memblock*);
+
+	mix->io = SPA_PTROFF(area->map->ptr,
+			pos * sizeof(struct spa_io_buffers), void);
 	*mix->io = SPA_IO_BUFFERS_INIT;
 
 	m->peer_id = mix->peer_id;
 
 	pw_log_debug("%p: init mix id:%d io:%p base:%p", impl,
-			mix->id, mix->io, impl->io_areas->map->ptr);
+			mix->id, mix->io, area->map->ptr);
 
 	return 0;
+no_mem:
+	pw_map_remove(&impl->io_map, mix->id);
+	m->valid = false;
+	return -ENOMEM;
 }
 
 static int port_release_mix(void *data, struct pw_impl_port_mix *mix)
@@ -1379,8 +1412,8 @@ static int port_release_mix(void *data, struct pw_impl_port_mix *mix)
 	struct node *this = &impl->node;
 	struct mix *m;
 
-	pw_log_debug("%p: remove mix id:%d io:%p base:%p",
-			this, mix->id, mix->io, impl->io_areas->map->ptr);
+	pw_log_debug("%p: remove mix id:%d io:%p",
+			this, mix->id, mix->io);
 
 	if ((m = find_mix(port, mix->port.port_id)) == NULL || !m->valid)
 		return -EINVAL;
@@ -1701,6 +1734,7 @@ struct pw_impl_client_node *pw_impl_client_node_new(struct pw_resource *resource
 	pw_map_init(&impl->node.ports[0], 64, 64);
 	pw_map_init(&impl->node.ports[1], 64, 64);
 	pw_map_init(&impl->io_map, 64, 64);
+	pw_array_init(&impl->io_areas, 64 * sizeof(struct pw_memblock*));
 
 	this->resource = resource;
 	this->node = pw_spa_node_new(context,

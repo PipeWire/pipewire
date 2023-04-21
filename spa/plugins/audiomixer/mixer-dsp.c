@@ -26,7 +26,7 @@
 static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.mixer-dsp");
 
 #define MAX_BUFFERS	64
-#define MAX_PORTS	128
+#define MAX_PORTS	512
 #define MAX_ALIGN	MIX_OPS_MAX_ALIGN
 
 #define PORT_DEFAULT_VOLUME	1.0
@@ -99,6 +99,9 @@ struct impl {
 	uint32_t last_port;
 	struct port *in_ports[MAX_PORTS];
 	struct port out_ports[1];
+
+	struct buffer *mix_buffers[MAX_PORTS];
+	const void *mix_datas[MAX_PORTS];
 
 	int n_formats;
 	struct spa_audio_info format;
@@ -673,8 +676,8 @@ static int impl_node_process(void *object)
 		outio->buffer_id = SPA_ID_INVALID;
 	}
 
-	buffers = alloca(MAX_PORTS * sizeof(struct buffer *));
-	datas = alloca(MAX_PORTS * sizeof(void *));
+	buffers = this->mix_buffers;
+	datas = this->mix_datas;
 	n_buffers = 0;
 
 	maxsize = UINT32_MAX;

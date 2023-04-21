@@ -23,7 +23,7 @@
 #define NAME "control-mixer"
 
 #define MAX_BUFFERS     64
-#define MAX_PORTS       128
+#define MAX_PORTS       512
 
 struct buffer {
 	uint32_t id;
@@ -69,6 +69,9 @@ struct impl {
 	uint32_t last_port;
 	struct port *in_ports[MAX_PORTS];
 	struct port out_ports[1];
+
+	struct spa_pod_control *mix_ctrl[MAX_PORTS];
+	struct spa_pod_sequence *mix_seq[MAX_PORTS];
 
 	int n_formats;
 
@@ -624,9 +627,9 @@ static int impl_node_process(void *object)
                 return -EPIPE;
         }
 
-	ctrl = alloca(MAX_PORTS * sizeof(struct spa_pod_control *));
-	seq = alloca(MAX_PORTS * sizeof(struct spa_pod_sequence *));
-        n_seq = 0;
+	ctrl = this->mix_ctrl;
+	seq = this->mix_seq;
+	n_seq = 0;
 
 	/* collect all sequence pod on input ports */
 	for (i = 0; i < this->last_port; i++) {

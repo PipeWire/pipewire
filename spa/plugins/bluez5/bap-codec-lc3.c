@@ -13,6 +13,7 @@
 
 #include <spa/param/audio/format.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/utils/string.h>
 
 #include <lc3.h>
 
@@ -37,6 +38,7 @@ struct impl {
 struct pac_data {
 	const uint8_t *data;
 	size_t size;
+	uint32_t locations;
 };
 
 typedef struct {
@@ -46,6 +48,40 @@ typedef struct {
 	uint16_t framelen;
 	uint8_t n_blks;
 } bap_lc3_t;
+
+static const struct {
+	uint32_t bit;
+	enum spa_audio_channel channel;
+} channel_bits[] = {
+	{ LC3_CONFIG_CHNL_FL,   SPA_AUDIO_CHANNEL_FL },
+	{ LC3_CONFIG_CHNL_FR,   SPA_AUDIO_CHANNEL_FR },
+	{ LC3_CONFIG_CHNL_FC,   SPA_AUDIO_CHANNEL_FC },
+	{ LC3_CONFIG_CHNL_LFE,  SPA_AUDIO_CHANNEL_LFE },
+	{ LC3_CONFIG_CHNL_BL,   SPA_AUDIO_CHANNEL_RL },
+	{ LC3_CONFIG_CHNL_BR,   SPA_AUDIO_CHANNEL_RR },
+	{ LC3_CONFIG_CHNL_FLC,  SPA_AUDIO_CHANNEL_FLC },
+	{ LC3_CONFIG_CHNL_FRC,  SPA_AUDIO_CHANNEL_FRC },
+	{ LC3_CONFIG_CHNL_BC,   SPA_AUDIO_CHANNEL_BC },
+	{ LC3_CONFIG_CHNL_LFE2, SPA_AUDIO_CHANNEL_LFE2 },
+	{ LC3_CONFIG_CHNL_SL,   SPA_AUDIO_CHANNEL_SL },
+	{ LC3_CONFIG_CHNL_SR,   SPA_AUDIO_CHANNEL_SR },
+	{ LC3_CONFIG_CHNL_TFL,  SPA_AUDIO_CHANNEL_TFL },
+	{ LC3_CONFIG_CHNL_TFR,  SPA_AUDIO_CHANNEL_TFR },
+	{ LC3_CONFIG_CHNL_TFC,  SPA_AUDIO_CHANNEL_TFC },
+	{ LC3_CONFIG_CHNL_TC,   SPA_AUDIO_CHANNEL_TC },
+	{ LC3_CONFIG_CHNL_TBL,  SPA_AUDIO_CHANNEL_TRL },
+	{ LC3_CONFIG_CHNL_TBR,  SPA_AUDIO_CHANNEL_TRR },
+	{ LC3_CONFIG_CHNL_TSL,  SPA_AUDIO_CHANNEL_TSL },
+	{ LC3_CONFIG_CHNL_TSR,  SPA_AUDIO_CHANNEL_TSR },
+	{ LC3_CONFIG_CHNL_TBC,  SPA_AUDIO_CHANNEL_TRC },
+	{ LC3_CONFIG_CHNL_BFC,  SPA_AUDIO_CHANNEL_BC },
+	{ LC3_CONFIG_CHNL_BFL,  SPA_AUDIO_CHANNEL_BLC },
+	{ LC3_CONFIG_CHNL_BFR,  SPA_AUDIO_CHANNEL_BRC },
+	{ LC3_CONFIG_CHNL_FLW,  SPA_AUDIO_CHANNEL_FLW },
+	{ LC3_CONFIG_CHNL_FRW,  SPA_AUDIO_CHANNEL_FRW },
+	{ LC3_CONFIG_CHNL_LS,   SPA_AUDIO_CHANNEL_SL }, /* is it the right mapping? */
+	{ LC3_CONFIG_CHNL_RS,   SPA_AUDIO_CHANNEL_SR }, /* is it the right mapping? */
+};
 
 static int write_ltv(uint8_t *dest, uint8_t type, void* value, size_t len)
 {
@@ -136,6 +172,36 @@ static uint8_t get_num_channels(uint32_t channels)
 	return num;
 }
 
+static int select_channels(uint8_t channels, uint32_t locations, uint32_t *mapping)
+{
+	unsigned int i, num;
+
+	if (channels & LC3_CHAN_2)
+		num = 2;
+	else if (channels & LC3_CHAN_1)
+		num = 1;
+	else
+		return -1;
+
+	if (!locations) {
+		*mapping = 0;  /* mono (omit Audio_Channel_Allocation) */
+		return 0;
+	}
+
+	/* XXX: select some channels, but upper level should tell us what */
+	*mapping = 0;
+	for (i = 0; i < SPA_N_ELEMENTS(channel_bits); ++i) {
+		if (locations & channel_bits[i].bit) {
+			*mapping |= channel_bits[i].bit;
+			--num;
+			if (num == 0)
+				break;
+		}
+	}
+
+	return 0;
+}
+
 static bool select_config(bap_lc3_t *conf, const struct pac_data *pac)
 {
 	const uint8_t *data = pac->data;
@@ -191,12 +257,8 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac)
 			spa_return_val_if_fail(ltv->len == 2, false);
 			{
 				uint8_t channels = ltv->value[0];
-				/* XXX: we hardcode mono or stereo stream */
-				if (channels & LC3_CHAN_2)
-					conf->channels = LC3_CONFIG_CHNL_FR | LC3_CONFIG_CHNL_FL;
-				else if (channels & LC3_CHAN_1)
-					conf->channels = 0;   /* mono (omit Audio_Channel_Allocation) */
-				else
+
+				if (select_channels(channels, pac->locations, &conf->channels) < 0)
 					return false;
 			}
 			break;
@@ -369,9 +431,17 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	int npacs;
 	bap_lc3_t conf;
 	uint8_t *data = config;
+	uint32_t locations = 0;
+	int i;
 
 	if (caps == NULL)
 		return -EINVAL;
+
+	if (settings) {
+		for (i = 0; i < (int)settings->n_items; ++i)
+			if (spa_streq(settings->items[i].key, "bluez5.bap.locations"))
+				sscanf(settings->items[i].value, "%"PRIu32, &locations);
+	}
 
 	/* Select best conf from those possible */
 	npacs = parse_bluez_pacs(caps, caps_size, pacs);
@@ -379,6 +449,9 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 		return npacs;
 	else if (npacs == 0)
 		return -EINVAL;
+
+	for (i = 0; i < npacs; ++i)
+		pacs[i].locations = locations;
 
 	qsort(pacs, npacs, sizeof(struct pac_data), pac_cmp);
 
@@ -405,8 +478,8 @@ static int codec_caps_preference_cmp(const struct media_codec *codec, uint32_t f
 	int res1, res2;
 
 	/* Order selected configurations by preference */
-	res1 = codec->select_config(codec, 0, caps1, caps1_size, info, NULL, (uint8_t *)&conf1);
-	res2 = codec->select_config(codec, 0, caps2, caps2_size, info , NULL, (uint8_t *)&conf2);
+	res1 = codec->select_config(codec, 0, caps1, caps1_size, info, global_settings, (uint8_t *)&conf1);
+	res2 = codec->select_config(codec, 0, caps2, caps2_size, info, global_settings, (uint8_t *)&conf2);
 
 	return conf_cmp(&conf1, res1, &conf2, res2);
 }
@@ -422,38 +495,11 @@ static uint8_t channels_to_positions(uint32_t channels, uint32_t *position)
 		position[0] = SPA_AUDIO_CHANNEL_MONO;
 		n_positions = 1;
 	} else {
-#define CHANNEL_2_SPACHANNEL(channel,spa_channel)	if (channels & channel) position[n_positions++] = spa_channel;
+		unsigned int i;
 
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_FL,   SPA_AUDIO_CHANNEL_FL);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_FR,   SPA_AUDIO_CHANNEL_FR);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_FC,   SPA_AUDIO_CHANNEL_FC);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_LFE,  SPA_AUDIO_CHANNEL_LFE);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_BL,   SPA_AUDIO_CHANNEL_RL);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_BR,   SPA_AUDIO_CHANNEL_RR);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_FLC,  SPA_AUDIO_CHANNEL_FLC);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_FRC,  SPA_AUDIO_CHANNEL_FRC);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_BC,   SPA_AUDIO_CHANNEL_BC);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_LFE2, SPA_AUDIO_CHANNEL_LFE2);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_SL,   SPA_AUDIO_CHANNEL_SL);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_SR,   SPA_AUDIO_CHANNEL_SR);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_TFL,  SPA_AUDIO_CHANNEL_TFL);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_TFR,  SPA_AUDIO_CHANNEL_TFR);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_TFC,  SPA_AUDIO_CHANNEL_TFC);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_TC,   SPA_AUDIO_CHANNEL_TC);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_TBL,  SPA_AUDIO_CHANNEL_TRL);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_TBR,  SPA_AUDIO_CHANNEL_TRR);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_TSL,  SPA_AUDIO_CHANNEL_TSL);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_TSR,  SPA_AUDIO_CHANNEL_TSR);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_TBC,  SPA_AUDIO_CHANNEL_TRC);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_BFC,  SPA_AUDIO_CHANNEL_BC);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_BFL,  SPA_AUDIO_CHANNEL_BLC);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_BFR,  SPA_AUDIO_CHANNEL_BRC);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_FLW,  SPA_AUDIO_CHANNEL_FLW);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_FRW,  SPA_AUDIO_CHANNEL_FRW);
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_LS,   SPA_AUDIO_CHANNEL_LLFE); /* is it the right mapping? */
-		CHANNEL_2_SPACHANNEL(LC3_CONFIG_CHNL_RS,   SPA_AUDIO_CHANNEL_RLFE); /* is it the right mapping? */
-
-#undef CHANNEL_2_SPACHANNEL
+		for (i = 0; i < SPA_N_ELEMENTS(channel_bits); ++i)
+			if (channels & channel_bits[i].bit)
+				position[n_positions++] = channel_bits[i].channel;
 	}
 
 	if (n_positions != n_channels)

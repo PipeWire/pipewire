@@ -867,6 +867,7 @@ static int rtsp_record_reply(void *data, int status, const struct spa_dict *head
 	struct spa_pod_builder b;
 	struct spa_latency_info latency;
 	char progress[128];
+	char header[128], volstr[64];
 
 	pw_log_info("reply %d", status);
 
@@ -891,6 +892,10 @@ static int rtsp_record_reply(void *data, int status, const struct spa_dict *head
 	impl->sync = 0;
 	impl->sync_period = impl->info.rate / (impl->block_size / impl->frame_size);
 	impl->recording = true;
+
+	snprintf(header, sizeof(header), "volume: %s\r\n",
+			spa_dtoa(volstr, sizeof(volstr), impl->volume));
+	rtsp_send(impl, "SET_PARAMETER", "text/parameters", header, NULL);
 
 	snprintf(progress, sizeof(progress), "progress: %s/%s/%s\r\n", "0", "0", "0");
 	return rtsp_send(impl, "SET_PARAMETER", "text/parameters", progress, NULL);
@@ -1597,8 +1602,10 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 
 				snprintf(header, sizeof(header), "volume: %s\r\n",
 						spa_dtoa(volstr, sizeof(volstr), volume));
-				rtsp_send(impl, "SET_PARAMETER", "text/parameters", header, NULL);
+				if (impl->connected)
+					rtsp_send(impl, "SET_PARAMETER", "text/parameters", header, NULL);
 			}
+
 			spa_pod_builder_prop(&b, SPA_PROP_softVolumes, 0);
 			spa_pod_builder_array(&b, sizeof(float), SPA_TYPE_Float,
 					n_vols, soft_vols);

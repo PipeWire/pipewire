@@ -691,11 +691,11 @@ static void process_xevent_indicator(struct rfcomm *rfcomm, unsigned int level, 
 
 	spa_log_debug(backend->log, "AT+XEVENT level:%u nlevels:%u", level, nlevels);
 
-	if (nlevels == 0)
+	if (nlevels <= 1)
 		return;
 
-	/* 0 <= level < nlevels; doesn't make much sense to report 0% so bump range up */
-	perc = SPA_MIN(level + 1, nlevels) * 100 / nlevels;
+	/* 0 <= level < nlevels */
+	perc = SPA_MIN(level, nlevels - 1) * 100 / (nlevels - 1);
 	spa_bt_device_report_battery_level(rfcomm->device, perc);
 }
 
@@ -1092,7 +1092,7 @@ next_indicator:
 		process_xevent_indicator(rfcomm, xevent_level, xevent_nlevels);
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (sscanf(buf, "AT+XEVENT=BATTERY,%u", &xevent_level) == 1) {
-		process_xevent_indicator(rfcomm, xevent_level, 10);
+		process_xevent_indicator(rfcomm, xevent_level + 1, 11);
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (sscanf(buf, "AT+IPHONEACCEV=%u%n", &count, &r) == 1) {
 		if (count < 1 || count > 100)

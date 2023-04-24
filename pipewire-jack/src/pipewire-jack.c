@@ -4337,7 +4337,8 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	struct spa_pod *params[6];
 	uint32_t n_params = 0;
 	struct port *p;
-	int res;
+	int res, len;
+	char name[REAL_JACK_PORT_NAME_SIZE+1];
 
 	spa_return_val_if_fail(c != NULL, NULL);
 	spa_return_val_if_fail(port_name != NULL && strlen(port_name) != 0, NULL);
@@ -4359,6 +4360,19 @@ jack_port_t * jack_port_register (jack_client_t *client,
 		pw_log_warn("unknown port type %s", port_type);
 		return NULL;
 	}
+	len = snprintf(name, sizeof(name), "%s:%s", c->name, port_name);
+	if (len < 0 || (size_t)len >= sizeof(name)) {
+		pw_log_warn("%p: name \"%s:%s\" too long", c,
+				c->name, port_name);
+		return NULL;
+	}
+	pthread_mutex_lock(&c->context.lock);
+	o = find_port_by_name(c, name);
+	pthread_mutex_unlock(&c->context.lock);
+	if (o != NULL) {
+		pw_log_warn("%p: name \"%s\" already exists", c, name);
+		return NULL;
+	}
 
 	if ((p = alloc_port(c, direction)) == NULL) {
 		pw_log_warn("can't allocate port %s: %m", port_name);
@@ -4367,7 +4381,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 
 	o = p->object;
 	o->port.flags = flags;
-	snprintf(o->port.name, sizeof(o->port.name), "%s:%s", c->name, port_name);
+	strcpy(o->port.name, name);
 	o->port.type_id = type_id;
 
 	init_buffer(p);
@@ -4455,10 +4469,14 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	if (res < 0) {
 		pw_log_warn("can't create port %s: %s", port_name,
 				spa_strerror(res));
-		return NULL;
+		goto error_free;
 	}
 
 	return (jack_port_t *) o;
+
+error_free:
+	free_port(c, p);
+	return NULL;
 }
 
 static int

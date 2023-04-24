@@ -4799,8 +4799,6 @@ int jack_port_connected (const jack_port_t *port)
 	spa_list_for_each(l, &c->context.objects, link) {
 		if (l->type != INTERFACE_Link || l->removed)
 			continue;
-		if (!l->port_link.is_complete)
-			continue;
 		if (l->port_link.src_serial == o->serial ||
 		    l->port_link.dst_serial == o->serial)
 			res++;
@@ -4842,8 +4840,7 @@ int jack_port_connected_to (const jack_port_t *port,
 		p = o;
 		o = l;
 	}
-	if ((l = find_link(c, o->id, p->id)) != NULL &&
-	    l->port_link.is_complete)
+	if ((l = find_link(c, o->id, p->id)) != NULL)
 		res = 1;
 
      exit:

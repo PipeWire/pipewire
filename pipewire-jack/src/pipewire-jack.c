@@ -3780,6 +3780,7 @@ SPA_EXPORT
 int jack_activate (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
+	struct object *o;
 	int res = 0;
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
@@ -3800,8 +3801,13 @@ int jack_activate (jack_client_t *client)
 
 	c->active = true;
 
+	spa_list_for_each(o, &c->context.objects, link) {
+		if (o->type != INTERFACE_Port || o->port.port == NULL ||
+		    o->port.port->client != c || !o->port.port->valid)
+			continue;
+		do_callback(c, portregistration_callback, o->serial, 1, c->portregistration_arg);
+	}
 	do_callback(c, graph_callback, c->graph_arg);
-
 done:
 	if (res < 0)
 		pw_data_loop_stop(c->loop);
@@ -3814,7 +3820,7 @@ done:
 SPA_EXPORT
 int jack_deactivate (jack_client_t *client)
 {
-	struct object *l;
+	struct object *o;
 	struct client *c = (struct client *) client;
 	int res;
 
@@ -3835,13 +3841,21 @@ int jack_deactivate (jack_client_t *client)
 	c->activation->pending_new_pos = false;
 	c->activation->pending_sync = false;
 
-	spa_list_for_each(l, &c->context.objects, link) {
-		if (l->type != INTERFACE_Link || l->removed)
+	spa_list_for_each(o, &c->context.objects, link) {
+		if (o->type != INTERFACE_Link || o->removed)
 			continue;
-		if (l->port_link.src_ours || l->port_link.dst_ours)
-			pw_registry_destroy(c->registry, l->id);
+		if (o->port_link.src_ours || o->port_link.dst_ours)
+			pw_registry_destroy(c->registry, o->id);
 	}
 
+	spa_list_for_each(o, &c->context.objects, link) {
+		if (o->type != INTERFACE_Port || o->port.port == NULL ||
+		    o->port.port->client != c || !o->port.port->valid)
+			continue;
+		pw_thread_loop_unlock(c->context.loop);
+		c->portregistration_callback(o->serial, 0, c->portregistration_arg);
+		pw_thread_loop_lock(c->context.loop);
+	}
 	res = do_sync(c);
 
 	pw_thread_loop_unlock(c->context.loop);

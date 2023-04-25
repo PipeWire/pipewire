@@ -87,6 +87,7 @@ struct impl {
 	unsigned int add_listener:1;
 	unsigned int have_format:1;
 	unsigned int started:1;
+	unsigned int ready:1;
 	unsigned int driver:1;
 	unsigned int async:1;
 	unsigned int passthrough:1;
@@ -842,14 +843,16 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 			return res;
 		if ((res = negotiate_buffers(this)) < 0)
 			return res;
-		this->started = true;
+		this->ready = true;
 		break;
 	case SPA_NODE_COMMAND_Suspend:
 		this->started = false;
+		this->ready = false;
 		spa_log_debug(this->log, "%p: suspending", this);
 		break;
 	case SPA_NODE_COMMAND_Pause:
 		this->started = false;
+		this->ready = false;
 		spa_log_debug(this->log, "%p: pausing", this);
 		break;
 	case SPA_NODE_COMMAND_Flush:
@@ -877,6 +880,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	}
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
+		this->started = true;
 		spa_log_debug(this->log, "%p: started", this);
 		break;
 	case SPA_NODE_COMMAND_Suspend:
@@ -1211,7 +1215,7 @@ static int follower_ready(void *data, int status)
 
 	spa_log_trace_fp(this->log, "%p: ready %d", this, status);
 
-	if (!this->started) {
+	if (!this->ready) {
 		spa_log_info(this->log, "%p: ready stopped node", this);
 		return -EIO;
 	}

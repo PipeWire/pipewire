@@ -393,6 +393,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	this->client.log = this->log;
 
 	this->device.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Device,

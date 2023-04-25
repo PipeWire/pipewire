@@ -18,6 +18,8 @@ static int jack_process(jack_nframes_t nframes, void *arg)
 
 	client->buffer_size = nframes;
 
+	spa_log_trace_fp(client->log, "frames %u", nframes);
+
 	spa_jack_client_emit_process(client);
 
 	return 0;
@@ -26,6 +28,8 @@ static int jack_process(jack_nframes_t nframes, void *arg)
 static void jack_shutdown(void* arg)
 {
 	struct spa_jack_client *client = arg;
+
+	spa_log_warn(client->log, "%p", client);
 
 	spa_jack_client_emit_shutdown(client);
 
@@ -67,6 +71,8 @@ int spa_jack_client_open(struct spa_jack_client *client,
 
 	spa_hook_list_init(&client->listener_list);
 
+	spa_log_info(client->log, "%p: %s", client, client_name);
+
 	jack_set_process_callback(client->client, jack_process, client);
 	jack_on_shutdown(client->client, jack_shutdown, client);
 	client->frame_rate = jack_get_sample_rate(client->client);
@@ -80,6 +86,8 @@ int spa_jack_client_close(struct spa_jack_client *client)
 {
 	if (client->client == NULL)
 		return 0;
+
+	spa_log_info(client->log, "%p:", client);
 
 	spa_jack_client_emit_destroy(client);
 

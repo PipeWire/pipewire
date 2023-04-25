@@ -69,7 +69,6 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
-	struct spa_loop *data_loop;
 
 	uint64_t info_all;
 	struct spa_node_info info;
@@ -263,15 +262,18 @@ static void emit_node_info(struct impl *this, bool full)
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
-		struct spa_dict_item items[5];
+		struct spa_dict_item items[8];
 		char latency[64];
 		snprintf(latency, sizeof(latency), "%d/%d",
 				this->client->buffer_size, this->client->frame_rate);
 		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Source");
-		items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_NAME, "JACK System");
+		items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_NAME, "JACK Source");
 		items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, "true");
 		items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_PAUSE_ON_IDLE, "false");
-		items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_LATENCY, latency);
+		items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_ALWAYS_PROCESS, "true");
+		items[5] = SPA_DICT_ITEM_INIT("priority.driver", "30000");
+		items[6] = SPA_DICT_ITEM_INIT("node.group", "jack-group");
+		items[7] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_LATENCY, latency);
 		this->info.props = &SPA_DICT_INIT_ARRAY(items);
 		spa_node_emit_info(&this->hooks, &this->info);
 		this->info.change_mask = old;
@@ -342,15 +344,24 @@ impl_node_set_callbacks(void *object,
 	return 0;
 }
 
+static inline bool is_following(struct impl *impl)
+{
+	return impl->position && impl->clock && impl->position->clock.id != impl->clock->id;
+}
+
 static void client_process(void *data)
 {
 	struct impl *this = data;
 	int res;
 
+	if (is_following(this))
+		return;
+
+	spa_log_trace_fp(this->log, "%p, process", this);
+
 	res = spa_node_process(&this->node);
 
-	if (res != SPA_STATUS_OK)
-		spa_node_call_ready(&this->callbacks, res);
+	spa_node_call_ready(&this->callbacks, res);
 }
 
 static const struct spa_jack_client_events client_events = {
@@ -780,7 +791,7 @@ static int impl_node_process(void *object)
 
 		res |= SPA_STATUS_HAVE_DATA;
 	}
-	return res;
+	return res | SPA_STATUS_HAVE_DATA;
 }
 
 static const struct spa_node_methods impl_node = {

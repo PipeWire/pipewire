@@ -841,18 +841,6 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 
 	remove_segment_owner(old, node->info.id);
 
-	if (old != node && old->driving && driver->info.state < PW_NODE_STATE_RUNNING) {
-		pw_log_info("move quantum:%"PRIu64"->%"PRIu64" rate:%d->%d (%s-%d -> %s-%d)",
-				driver->target_quantum,
-				old->target_quantum,
-				driver->target_rate.denom,
-				old->target_rate.denom,
-				old->name, old->info.id,
-				driver->name, driver->info.id);
-		driver->target_rate = old->target_rate;
-		driver->target_quantum = old->target_quantum;
-		driver->target_pending = true;
-	}
 	was_driving = node->driving;
 	node->driving = node->driver && driver == node;
 

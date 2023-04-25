@@ -64,6 +64,7 @@ typedef struct {
 	unsigned int xrun_detected:1;
 	unsigned int hw_params_changed:1;
 	unsigned int active:1;
+	unsigned int negotiated:1;
 
 	snd_pcm_uframes_t hw_ptr;
 	snd_pcm_uframes_t boundary;
@@ -385,6 +386,20 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(pw->stride));
 
 	pw_stream_update_params(pw->stream, params, n_params);
+
+	pw->negotiated = true;
+	pw_thread_loop_signal(pw->main_loop, false);
+}
+
+static void on_stream_state_changed(void *data, enum pw_stream_state old, enum pw_stream_state state, const char *error)
+{
+	snd_pcm_pipewire_t *pw = data;
+
+	if (state == PW_STREAM_STATE_ERROR) {
+		pw_log_warn("%s", error);
+		pw->error = -EIO;
+		update_active(&pw->io);
+	}
 }
 
 static void on_stream_drained(void *data)
@@ -463,6 +478,7 @@ done:
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.param_changed = on_stream_param_changed,
+	.state_changed = on_stream_state_changed,
 	.process = on_stream_process,
 	.drained = on_stream_drained,
 };
@@ -546,6 +562,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 
 	pw->error = 0;
 
+	pw->negotiated = false;
 	pw_stream_connect(pw->stream,
 				io->stream == SND_PCM_STREAM_PLAYBACK ?
 				PW_DIRECTION_OUTPUT :
@@ -563,13 +580,18 @@ done:
 	pw->drained = false;
 	pw->draining = false;
 
+	while (!pw->negotiated && pw->error >= 0)
+		pw_thread_loop_wait(pw->main_loop);
+	if (pw->error < 0)
+		goto error;
+
 	pw_thread_loop_unlock(pw->main_loop);
 
 	return 0;
 
 error:
 	pw_thread_loop_unlock(pw->main_loop);
-	return -ENOMEM;
+	return pw->error < 0 ? pw->error : -ENOMEM;
 }
 
 static int snd_pcm_pipewire_start(snd_pcm_ioplug_t *io)

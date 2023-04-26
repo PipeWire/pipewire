@@ -1189,8 +1189,9 @@ static int node_ready(void *d, int status)
 			spa_node_process(p->mix);
 	}
 
-	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
+	a->state[0].status = status;
 	a->status = PW_NODE_ACTIVATION_TRIGGERED;
+	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
 	a->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
 	if (SPA_UNLIKELY(spa_system_eventfd_write(data_system, data->rtwritefd, 1) < 0))

@@ -1078,16 +1078,21 @@ static void dump_states(struct pw_impl_node *driver)
 	}
 }
 
+static inline uint64_t get_time_ns(struct spa_system *system)
+{
+	struct timespec ts;
+	spa_system_clock_gettime(system, CLOCK_MONOTONIC, &ts);
+	return SPA_TIMESPEC_TO_NSEC(&ts);
+}
+
 static inline int resume_node(struct pw_impl_node *this, int status)
 {
 	struct pw_node_target *t;
-	struct timespec ts;
 	struct pw_node_activation *activation = this->rt.activation;
 	struct spa_system *data_system = this->context->data_system;
 	uint64_t nsec;
 
-	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
-	nsec = SPA_TIMESPEC_TO_NSEC(&ts);
+	nsec = get_time_ns(data_system);
 	activation->status = PW_NODE_ACTIVATION_FINISHED;
 	activation->finish_time = nsec;
 
@@ -1124,15 +1129,13 @@ static inline void calculate_stats(struct pw_impl_node *this,  struct pw_node_ac
 static inline int process_node(void *data)
 {
 	struct pw_impl_node *this = data;
-	struct timespec ts;
-        struct pw_impl_port *p;
+	struct pw_impl_port *p;
 	struct pw_node_activation *a = this->rt.activation;
 	struct spa_system *data_system = this->context->data_system;
 	int status;
 
-	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
 	a->status = PW_NODE_ACTIVATION_AWAKE;
-	a->awake_time = SPA_TIMESPEC_TO_NSEC(&ts);
+	a->awake_time = get_time_ns(data_system);
 
 	pw_log_trace_fp("%p: %s process %"PRIu64, this, this->name, a->awake_time);
 
@@ -1160,10 +1163,9 @@ static inline int process_node(void *data)
 	a->state[0].status = status;
 
 	if (SPA_UNLIKELY(this == this->driver_node && !this->exported)) {
-		spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
 		a->status = PW_NODE_ACTIVATION_FINISHED;
 		a->signal_time = a->finish_time;
-		a->finish_time = SPA_TIMESPEC_TO_NSEC(&ts);
+		a->finish_time = get_time_ns(data_system);
 
 		/* calculate CPU time */
 		calculate_stats(this, a);
@@ -1655,6 +1657,8 @@ static int node_ready(void *data, int status)
 {
 	struct pw_impl_node *node = data, *reposition_node = NULL;
 	struct pw_impl_node *driver = node->driver_node;
+	struct pw_node_activation *a = node->rt.activation;
+	struct spa_system *data_system = node->context->data_system;
 	struct pw_node_target *t;
 	struct pw_impl_port *p;
 
@@ -1671,7 +1675,6 @@ static int node_ready(void *data, int status)
 	}
 
 	if (SPA_UNLIKELY(node == driver)) {
-		struct pw_node_activation *a = node->rt.activation;
 		struct pw_node_activation_state *state = &a->state[0];
 		int sync_type, all_ready, update_sync, target_sync;
 		uint32_t owner[2], reposition_owner;
@@ -1756,13 +1759,8 @@ again:
 		return 0;
 
 	if (!node->driver) {
-		struct timespec ts;
-		struct pw_node_activation *a = node->rt.activation;
-		struct spa_system *data_system = node->context->data_system;
-
-		spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
 		a->status = PW_NODE_ACTIVATION_AWAKE;
-		a->signal_time = a->awake_time = SPA_TIMESPEC_TO_NSEC(&ts);
+		a->signal_time = a->awake_time = get_time_ns(data_system);
 	}
 
 	if (status & SPA_STATUS_HAVE_DATA) {

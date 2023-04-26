@@ -1341,7 +1341,7 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 
 	this->driver_node = this;
 	spa_list_append(&this->follower_list, &this->follower_link);
-	this->driving = true;
+	this->driving = this->driver;
 
 	return this;
 

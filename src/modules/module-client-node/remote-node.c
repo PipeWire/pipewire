@@ -69,6 +69,9 @@ struct node_data {
 	struct spa_hook proxy_client_node_listener;
 
 	struct spa_list links;
+
+	struct spa_io_clock *clock;
+	struct spa_io_position *position;
 };
 
 struct link {
@@ -465,6 +468,16 @@ client_node_set_io(void *_data,
 
 	pw_log_debug("node %p: set io %s %p", proxy,
 			spa_debug_type_find_name(spa_type_io, id), ptr);
+
+	switch(id) {
+	case SPA_IO_Clock:
+		data->clock = size >= sizeof(*data->clock) ? ptr : NULL;
+		break;
+	case SPA_IO_Position:
+		data->position = size >= sizeof(*data->position) ? ptr : NULL;
+		break;
+	}
+	data->node->driving = data->clock && data->position && data->position->clock.id == data->clock->id;
 
 	res =  spa_node_set_io(data->node->node, id, ptr, size);
 

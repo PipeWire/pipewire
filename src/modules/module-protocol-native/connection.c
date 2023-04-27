@@ -271,16 +271,22 @@ too_many_fds:
 static void clear_buffer(struct buffer *buf, bool fds)
 {
 	uint32_t i;
+
+	pw_log_debug("clear fds:%d", fds);
 	if (fds) {
 		for (i = 0; i < buf->n_fds; i++) {
 			pw_log_debug("%p: close fd:%d", buf, buf->fds[i]);
 			close(buf->fds[i]);
 		}
+		buf->n_fds = 0;
+		buf->fds_offset = 0;
+	} else {
+		buf->n_fds -= SPA_MIN(buf->fds_offset, buf->n_fds);
+		memmove(buf->fds, &buf->fds[buf->fds_offset], buf->n_fds * sizeof(int));
+		buf->fds_offset = 0;
 	}
-	buf->n_fds = 0;
 	buf->buffer_size = 0;
 	buf->offset = 0;
-	buf->fds_offset = 0;
 }
 
 /** Prepare connection for calling from reentered context.
@@ -711,8 +717,9 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 
 	if (mod_topic_connection->level >= SPA_LOG_LEVEL_DEBUG) {
 		pw_logt_debug(mod_topic_connection,
-			">>>>>>>>> out: id:%d op:%d size:%d seq:%d",
-				buf->msg.id, buf->msg.opcode, size, buf->msg.seq);
+			">>>>>>>>> out: id:%d op:%d size:%d seq:%d fds:%d",
+				buf->msg.id, buf->msg.opcode, size, buf->msg.seq,
+				buf->msg.n_fds);
 	        spa_debug_pod(0, NULL, SPA_PTROFF(p, impl->hdr_size, struct spa_pod));
 		pw_logt_debug(mod_topic_connection,
 			">>>>>>>>> out: done");

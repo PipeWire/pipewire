@@ -46,7 +46,7 @@
  * ## Module Options
  *
  * - `jack.server`: the name of the JACK server to tunnel to.
- * - `tunnel.mode`: the tunnel mode, sink|source|duplex
+ * - `tunnel.mode`: the tunnel mode, sink|source|duplex, default duplex
  * - `source.props`: Extra properties for the source stream.
  * - `sink.props`: Extra properties for the sink stream.
  *
@@ -55,11 +55,8 @@
  * Options with well-known behavior.
  *
  * - \ref PW_KEY_REMOTE_NAME
- * - \ref PW_KEY_AUDIO_FORMAT
- * - \ref PW_KEY_AUDIO_RATE
  * - \ref PW_KEY_AUDIO_CHANNELS
  * - \ref SPA_KEY_AUDIO_POSITION
- * - \ref PW_KEY_NODE_LATENCY
  * - \ref PW_KEY_NODE_NAME
  * - \ref PW_KEY_NODE_DESCRIPTION
  * - \ref PW_KEY_NODE_GROUP
@@ -73,9 +70,10 @@
  * context.modules = [
  * {   name = libpipewire-module-jack-tunnel
  *     args = {
- *         #audio.channels=2
- *         #audio.position= [ FL FR ]
- *         tunnel.mode = duplex
+ *         #jack.server    = null
+ *         #tunnel.mode    = duplex
+ *         #audio.channels = 2
+ *         #audio.position = [ FL FR ]
  *         source.props = {
  *             # extra sink properties
  *         }
@@ -892,9 +890,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, SPA_KEY_AUDIO_POSITION);
 	copy_props(impl, props, PW_KEY_NODE_ALWAYS_PROCESS);
 	copy_props(impl, props, PW_KEY_NODE_GROUP);
-	copy_props(impl, props, PW_KEY_NODE_LATENCY);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
-	copy_props(impl, props, PW_KEY_NODE_NETWORK);
 
 	parse_audio_info(impl->source_props, &impl->source_info);
 	parse_audio_info(impl->sink_props, &impl->sink_info);

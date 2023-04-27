@@ -158,6 +158,20 @@ pipewire_module_echo_cancel = shared_library('pipewire-module-echo-cancel',
   dependencies : [mathlib, dl_lib, pipewire_dep, audioconvert_dep],
 )
 
+build_module_jack_tunnel = jack_dep.found()
+  if build_module_jack_tunnel
+    pipewire_module_jack_tunnel = shared_library('pipewire-module-jack-tunnel',
+    [ 'module-jack-tunnel.c' ],
+    include_directories : [configinc],
+    install : true,
+    install_dir : modules_install_dir,
+    install_rpath: modules_install_dir,
+    dependencies : [mathlib, dl_lib, pipewire_dep, jack_dep],
+  )
+endif
+
+summary({'jack-tunnel': build_module_jack_tunnel}, bool_yn: true, section: 'Optional Modules')
+
 pipewire_module_profiler = shared_library('pipewire-module-profiler',
   [ 'module-profiler.c',
     'module-profiler/protocol-native.c', ],

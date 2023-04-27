@@ -875,13 +875,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_properties_set(impl->sink_props, PW_KEY_PRIORITY_DRIVER, "30001");
 	pw_properties_set(impl->sink_props, PW_KEY_NODE_NAME, "jack_sink");
 	pw_properties_set(impl->sink_props, PW_KEY_NODE_DESCRIPTION, "JACK Sink");
-	pw_properties_set(impl->source_props, "resample.disabled", "true");
+	pw_properties_set(impl->source_props, "resample.disable", "true");
 
 	pw_properties_set(impl->source_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 	pw_properties_set(impl->source_props, PW_KEY_PRIORITY_DRIVER, "30000");
 	pw_properties_set(impl->source_props, PW_KEY_NODE_NAME, "jack_source");
 	pw_properties_set(impl->source_props, PW_KEY_NODE_DESCRIPTION, "JACK Source");
-	pw_properties_set(impl->source_props, "resample.disabled", "true");
+	pw_properties_set(impl->source_props, "resample.disable", "true");
 
 	if ((str = pw_properties_get(props, "sink.props")) != NULL)
 		pw_properties_update_string(impl->sink_props, str, strlen(str));

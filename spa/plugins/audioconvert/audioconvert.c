@@ -1563,7 +1563,7 @@ static int setup_resample(struct impl *this)
 			out->format.info.raw.channels,
 			out->format.info.raw.rate);
 
-	if (this->props.resample_disabled &&
+	if (this->props.resample_disabled && !this->resample_peaks &&
 	    in->format.info.raw.rate != out->format.info.raw.rate)
 		return -EPERM;
 

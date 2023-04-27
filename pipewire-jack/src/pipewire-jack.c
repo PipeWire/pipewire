@@ -1746,7 +1746,7 @@ static int client_node_set_io(void *data,
 		mm = pw_mempool_map_id(c->pool, mem_id,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
 		if (mm == NULL) {
-                        pw_log_warn("%p: can't map memory id %u", c, mem_id);
+                        pw_log_warn("%p: can't map memory id %u: %m", c, mem_id);
 			return -errno;
 		}
 		ptr = mm->ptr;
@@ -2392,7 +2392,7 @@ static int client_node_port_set_io(void *data,
 		mm = pw_mempool_map_id(c->pool, mem_id,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
                 if (mm == NULL) {
-                        pw_log_warn("%p: can't map memory id %u", c, mem_id);
+                        pw_log_warn("%p: can't map memory id %u: %m", c, mem_id);
 			res = -EINVAL;
                         goto exit_free;
                 }
@@ -2456,7 +2456,7 @@ static int client_node_set_activation(void *data,
 		mm = pw_mempool_map_id(c->pool, mem_id,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, NULL);
 		if (mm == NULL) {
-			pw_log_warn("%p: can't map memory id %u", c, mem_id);
+			pw_log_warn("%p: can't map memory id %u: %m", c, mem_id);
 			res = -EINVAL;
 			goto exit;
 		}

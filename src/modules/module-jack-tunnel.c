@@ -158,9 +158,14 @@ struct impl {
 
 	jack_nframes_t frames;
 
+	uint32_t pw_xrun;
+	uint32_t jack_xrun;
+
 	unsigned int do_disconnect:1;
 	unsigned int source_running:1;
 	unsigned int sink_running:1;
+	unsigned int done:1;
+	unsigned int new_xrun:1;
 };
 
 static void source_stream_destroy(void *d)
@@ -225,6 +230,7 @@ static void sink_stream_process(void *d)
 	pw_stream_queue_buffer(impl->sink, buf);
 done:
 	pw_log_trace_fp("done %u", impl->frames);
+	impl->done = true;
 	sem_post(&impl->sem);
 }
 
@@ -458,9 +464,18 @@ static int jack_process(jack_nframes_t nframes, void *arg)
 
 		while (sem_trywait(&impl->sem) == 0);
 
+		impl->done = false;
 		pw_stream_trigger_process(impl->sink);
 
 		sem_wait(&impl->sem);
+		if (!impl->done) {
+			impl->pw_xrun++;
+			impl->new_xrun = true;
+		}
+		if (impl->new_xrun) {
+			pw_log_warn("Xrun JACK:%u PipeWire:%u", impl->jack_xrun, impl->pw_xrun);
+			impl->new_xrun = false;
+		}
 	}
 	pw_log_trace_fp("done %u", impl->frames);
 
@@ -470,7 +485,10 @@ static int jack_process(jack_nframes_t nframes, void *arg)
 static int jack_xrun(void *arg)
 {
 	struct impl *impl = arg;
-	pw_log_warn("xrun");
+	if (impl->done) {
+		impl->jack_xrun++;
+		impl->new_xrun = true;
+	}
 	sem_post(&impl->sem);
 	return 0;
 }

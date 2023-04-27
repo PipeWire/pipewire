@@ -1190,7 +1190,6 @@ static int node_ready(void *d, int status)
 	}
 
 	a->state[0].status = status;
-	a->status = PW_NODE_ACTIVATION_TRIGGERED;
 	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
 	a->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
 

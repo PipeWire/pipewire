@@ -42,8 +42,7 @@ struct impl {
 	unsigned int cache_params:1;
 	unsigned int pending_play:1;
 
-	uint64_t driver_start;
-	uint64_t prev_driver_start;
+	uint64_t prev_signal_time;
 };
 
 #define pw_node_resource(r,m,v,...)	pw_resource_call(r,struct pw_node_events,m,v,__VA_ARGS__)
@@ -1125,19 +1124,16 @@ static inline void calculate_stats(struct pw_impl_node *this,  struct pw_node_ac
 static inline int process_node(void *data)
 {
 	struct pw_impl_node *this = data;
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct pw_impl_port *p;
 	struct pw_node_activation *a = this->rt.activation;
 	struct spa_system *data_system = this->context->data_system;
 	int status;
 	uint64_t nsec;
 
-	if (!this->exported || !this->driving) {
-		nsec = get_time_ns(data_system);
-		pw_log_trace_fp("%p: %s process %"PRIu64, this, this->name, nsec);
-		a->status = PW_NODE_ACTIVATION_AWAKE;
-		a->awake_time = nsec;
-	}
+	nsec = get_time_ns(data_system);
+	pw_log_trace_fp("%p: %s process %"PRIu64, this, this->name, nsec);
+	a->status = PW_NODE_ACTIVATION_AWAKE;
+	a->awake_time = nsec;
 
 	/* when transport sync is not supported, just clear the flag */
 	if (!this->transport_sync)
@@ -1164,33 +1160,14 @@ static inline int process_node(void *data)
 
 	nsec = get_time_ns(data_system);
 
-	if (SPA_UNLIKELY(this == this->driver_node && !this->exported)) {
+	if (!this->remote) {
+		pw_log_trace_fp("%p: finished", this);
 		a->status = PW_NODE_ACTIVATION_FINISHED;
 		a->finish_time = nsec;
-
-		a->signal_time = impl->driver_start;
-		a->prev_signal_time = impl->prev_driver_start;
-
-		/* calculate CPU time */
-		calculate_stats(this, a);
-
-		pw_log_trace_fp("%p: graph completed wait:%"PRIu64" run:%"PRIu64
-				" busy:%"PRIu64" period:%"PRIu64" cpu:%f:%f:%f", this,
-				a->awake_time - a->signal_time,
-				a->finish_time - a->awake_time,
-				a->finish_time - a->signal_time,
-				a->signal_time - a->prev_signal_time,
-				a->cpu_load[0], a->cpu_load[1], a->cpu_load[2]);
-
-		pw_context_driver_emit_complete(this->context, this);
-
-	} else if (status == SPA_STATUS_OK) {
-		pw_log_trace_fp("%p: async continue", this);
-	} else {
-		a->status = PW_NODE_ACTIVATION_FINISHED;
-		a->finish_time = nsec;
-		resume_node(this, status, nsec);
 	}
+	if (!this->driving && status != SPA_STATUS_OK)
+		resume_node(this, status, nsec);
+
 	if (status & SPA_STATUS_DRAINED) {
 		pw_context_driver_emit_drained(this->context, this);
 	}
@@ -1700,6 +1677,27 @@ static int node_ready(void *data, int status)
 				dump_states(node);
 			}
 			node->rt.target.signal_func(node->rt.target.data);
+		} else {
+			/* calculate CPU time */
+			uint64_t new_signal = a->signal_time;
+
+			a->signal_time = a->prev_signal_time;
+			a->prev_signal_time = impl->prev_signal_time;
+
+			calculate_stats(node, a);
+
+			pw_log_trace_fp("%p: graph completed wait:%"PRIu64" run:%"PRIu64
+					" busy:%"PRIu64" period:%"PRIu64" cpu:%f:%f:%f", node,
+					a->awake_time - a->signal_time,
+					a->finish_time - a->awake_time,
+					a->finish_time - a->signal_time,
+					a->signal_time - a->prev_signal_time,
+					a->cpu_load[0], a->cpu_load[1], a->cpu_load[2]);
+
+			pw_context_driver_emit_complete(node->context, node);
+
+			a->prev_signal_time = a->signal_time;
+			a->signal_time = new_signal;
 		}
 
 		/* This update is done too late, the driver should do this
@@ -1750,13 +1748,12 @@ again:
 				all_ready &= ta->pending_sync == false;
 			}
 		}
-		if (!node->exported) {
-			a->status = PW_NODE_ACTIVATION_TRIGGERED;
-			a->signal_time = nsec;
-		}
 
-		impl->prev_driver_start = impl->driver_start;
-		impl->driver_start = a->signal_time;
+		a->status = PW_NODE_ACTIVATION_TRIGGERED;
+		if (!node->exported)
+			a->signal_time = nsec;
+
+		impl->prev_signal_time = a->prev_signal_time;
 		a->prev_signal_time = a->signal_time;
 		a->sync_timeout = SPA_MIN(min_timeout, DEFAULT_SYNC_TIMEOUT);
 
@@ -1772,13 +1769,8 @@ again:
 
 		pw_context_driver_emit_start(node->context, node);
 	}
-	if (SPA_UNLIKELY(node->driver && !node->driving))
+	if (SPA_UNLIKELY(!node->driving))
 		return 0;
-
-	if (!node->driver) {
-		a->status = PW_NODE_ACTIVATION_FINISHED;
-		a->finish_time = nsec;
-	}
 
 	if (status & SPA_STATUS_HAVE_DATA) {
 		spa_list_for_each(p, &node->rt.output_mix, rt.node_link)

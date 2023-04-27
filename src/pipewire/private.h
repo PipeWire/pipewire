@@ -389,10 +389,10 @@ int pw_loop_check(struct pw_loop *loop);
 #define ensure_loop(loop,...) ({							\
 	int res = pw_loop_check(loop);							\
 	if (res != 1) {									\
-		pw_log_warn("%s called from wrong context, check thread and locking: %s",		\
-				__func__, spa_strerror(res));				\
+		pw_log_warn("%s called from wrong context, check thread and locking: %s",	\
+				__func__, res < 0 ? spa_strerror(res) : "Not in loop");	\
 		fprintf(stderr, "*** %s called from wrong context, check thread and locking: %s\n",\
-				__func__, spa_strerror(res));				\
+				__func__, res < 0 ? spa_strerror(res) : "Not in loop");	\
 		/* __VA_ARGS__ */							\
 	}										\
 })

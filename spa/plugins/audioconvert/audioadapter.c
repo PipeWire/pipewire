@@ -867,21 +867,25 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		spa_log_error(this->log, "%p: can't send command %d: %s",
 				this, SPA_NODE_COMMAND_ID(command),
 				spa_strerror(res));
-		return res;
 	}
 
-	if (this->target != this->follower) {
+	if (res >= 0 && this->target != this->follower) {
 		if ((res = spa_node_send_command(this->follower, command)) < 0) {
 			spa_log_error(this->log, "%p: can't send command %d: %s",
 					this, SPA_NODE_COMMAND_ID(command),
 					spa_strerror(res));
-			return res;
 		}
 	}
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
-		this->started = true;
-		spa_log_debug(this->log, "%p: started", this);
+		if (res < 0) {
+			spa_log_debug(this->log, "%p: start failed", this);
+			this->ready = false;
+			configure_format(this, 0, NULL);
+		} else {
+			this->started = true;
+			spa_log_debug(this->log, "%p: started", this);
+		}
 		break;
 	case SPA_NODE_COMMAND_Suspend:
 		configure_format(this, 0, NULL);

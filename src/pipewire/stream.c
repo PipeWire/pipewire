@@ -91,8 +91,6 @@ struct stream {
 	enum spa_direction direction;
 	enum pw_stream_flags flags;
 
-	struct pw_impl_node *node;
-
 	struct spa_node impl_node;
 	struct spa_node_methods node_methods;
 	struct spa_hook_list hooks;
@@ -1342,15 +1340,13 @@ static int node_event_param(void *object, int seq,
 static void node_event_destroy(void *data)
 {
 	struct pw_stream *stream = data;
-	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	spa_hook_remove(&stream->node_listener);
-	impl->node = NULL;
+	stream->node = NULL;
 }
 
 static void node_event_info(void *data, const struct pw_node_info *info)
 {
 	struct pw_stream *stream = data;
-	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	uint32_t i;
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
@@ -1358,7 +1354,7 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 			switch (info->params[i].id) {
 			case SPA_PARAM_PropInfo:
 			case SPA_PARAM_Props:
-				pw_impl_node_for_each_param(impl->node,
+				pw_impl_node_for_each_param(stream->node,
 						0, info->params[i].id,
 						0, UINT32_MAX,
 						NULL,
@@ -1398,7 +1394,7 @@ static const struct pw_core_events core_events = {
 static void context_drained(void *data, struct pw_impl_node *node)
 {
 	struct stream *impl = data;
-	if (impl->node != node)
+	if (impl->this.node != node)
 		return;
 	if (impl->draining && impl->drained) {
 		impl->draining = false;
@@ -1626,16 +1622,16 @@ static int stream_disconnect(struct stream *impl)
 
 	impl->disconnecting = true;
 
-	if (impl->node)
-		pw_impl_node_set_active(impl->node, false);
+	if (stream->node)
+		pw_impl_node_set_active(stream->node, false);
 
 	if (stream->proxy) {
 		pw_proxy_destroy(stream->proxy);
 		stream->proxy = NULL;
 	}
 
-	if (impl->node)
-		pw_impl_node_destroy(impl->node);
+	if (stream->node)
+		pw_impl_node_destroy(stream->node);
 
 	if (impl->disconnect_core) {
 		impl->disconnect_core = false;
@@ -1758,8 +1754,8 @@ int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict 
 	pw_context_conf_section_match_rules(impl->context, "stream.rules",
 			&stream->properties->dict, execute_match, &match);
 
-	if (impl->node)
-		res = pw_impl_node_update_properties(impl->node,
+	if (stream->node)
+		res = pw_impl_node_update_properties(stream->node,
 				match.count == 0 ?
 					dict :
 					&stream->properties->dict);
@@ -1863,7 +1859,7 @@ pw_stream_connect(struct pw_stream *stream,
 
 	pw_log_debug("%p: connect target:%d", stream, target_id);
 
-	if (impl->node != NULL || stream->state != PW_STREAM_STATE_UNCONNECTED)
+	if (stream->node != NULL || stream->state != PW_STREAM_STATE_UNCONNECTED)
 		return -EBUSY;
 
 	impl->direction =
@@ -2028,34 +2024,34 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_setf(props, "adapt.follower.spa-node", "pointer:%p",
 				&impl->impl_node);
 		pw_properties_set(props, "object.register", "false");
-		impl->node = pw_impl_factory_create_object(factory,
+		stream->node = pw_impl_factory_create_object(factory,
 				NULL,
 				PW_TYPE_INTERFACE_Node,
 				PW_VERSION_NODE,
 				props,
 				0);
 		props = NULL;
-		if (impl->node == NULL) {
+		if (stream->node == NULL) {
 			res = -errno;
 			goto error_node;
 		}
 	} else {
-		impl->node = pw_context_create_node(impl->context, props, 0);
+		stream->node = pw_context_create_node(impl->context, props, 0);
 		props = NULL;
-		if (impl->node == NULL) {
+		if (stream->node == NULL) {
 			res = -errno;
 			goto error_node;
 		}
-		pw_impl_node_set_implementation(impl->node, &impl->impl_node);
+		pw_impl_node_set_implementation(stream->node, &impl->impl_node);
 	}
-	pw_impl_node_set_active(impl->node,
+	pw_impl_node_set_active(stream->node,
 			!SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_INACTIVE));
 
-	impl->data_loop = impl->node->data_loop;
+	impl->data_loop = stream->node->data_loop;
 
-	pw_log_debug("%p: export node %p", stream, impl->node);
+	pw_log_debug("%p: export node %p", stream, stream->node);
 	stream->proxy = pw_core_export(stream->core,
-			PW_TYPE_INTERFACE_Node, NULL, impl->node, 0);
+			PW_TYPE_INTERFACE_Node, NULL, stream->node, 0);
 	if (stream->proxy == NULL) {
 		res = -errno;
 		goto error_proxy;
@@ -2063,7 +2059,7 @@ pw_stream_connect(struct pw_stream *stream,
 
 	pw_proxy_add_listener(stream->proxy, &stream->proxy_listener, &proxy_events, stream);
 
-	pw_impl_node_add_listener(impl->node, &stream->node_listener, &node_events, stream);
+	pw_impl_node_add_listener(stream->node, &stream->node_listener, &node_events, stream);
 
 	return 0;
 
@@ -2148,7 +2144,7 @@ static inline int stream_set_param(struct stream *impl, uint32_t id, const struc
 {
 	int res = 0;
 	impl->in_set_param++;
-	res = pw_impl_node_set_param(impl->node, id, 0, param);
+	res = pw_impl_node_set_param(impl->this.node, id, 0, param);
 	impl->in_set_param--;
 	return res;
 }
@@ -2159,7 +2155,7 @@ int pw_stream_set_param(struct pw_stream *stream, uint32_t id, const struct spa_
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	ensure_loop(impl->main_loop, return -EIO);
 
-	if (impl->node == NULL)
+	if (stream->node == NULL)
 		return -EIO;
 
 	return stream_set_param(impl, id, param);
@@ -2178,7 +2174,7 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 
 	ensure_loop(impl->main_loop, return -EIO);
 
-	if (impl->node == NULL)
+	if (stream->node == NULL)
 		return -EIO;
 
 	va_start(varargs, values);
@@ -2249,10 +2245,10 @@ int pw_stream_set_active(struct pw_stream *stream, bool active)
 
 	pw_log_debug("%p: active:%d", stream, active);
 
-	if (impl->node == NULL)
+	if (stream->node == NULL)
 		return -EIO;
 
-	pw_impl_node_set_active(impl->node, active);
+	pw_impl_node_set_active(stream->node, active);
 
 	if (!active || impl->drained)
 		impl->drained = impl->draining = false;
@@ -2408,14 +2404,14 @@ int pw_stream_flush(struct pw_stream *stream, bool drain)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
-	if (impl->node == NULL)
+	if (stream->node == NULL)
 		return -EIO;
 
 	pw_loop_invoke(impl->data_loop,
 			drain ? do_drain : do_flush, 1, NULL, 0, true, impl);
 
 	if (!drain)
-		spa_node_send_command(impl->node->node,
+		spa_node_send_command(stream->node->node,
 				&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Flush));
 	return 0;
 }

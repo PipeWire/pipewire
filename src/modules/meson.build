@@ -21,6 +21,7 @@ module_sources = [
   'module-jackdbus-detect.c',
   'module-link-factory.c',
   'module-loopback.c',
+  'module-loopback-filter.c',
   'module-metadata.c',
   'module-netjack2-driver.c',
   'module-netjack2-manager.c',
@@ -62,6 +63,15 @@ pipewire_module_access = shared_library('pipewire-module-access', [ 'module-acce
 
 pipewire_module_loopback = shared_library('pipewire-module-loopback',
   [ 'module-loopback.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
+)
+
+pipewire_module_loopback_filter = shared_library('pipewire-module-loopback-filter',
+  [ 'module-loopback-filter.c' ],
   include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,

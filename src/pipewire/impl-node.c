@@ -146,7 +146,7 @@ do_node_add(struct spa_loop *loop, bool async, uint32_t seq, const void *data, s
 
 	this->added = true;
 	if (this->source.loop == NULL) {
-		struct spa_system *data_system = this->data_loop->system;
+		struct spa_system *data_system = this->data_system;
 		uint64_t dummy;
 		int res;
 
@@ -1126,7 +1126,7 @@ static inline int process_node(void *data)
 	struct pw_impl_node *this = data;
 	struct pw_impl_port *p;
 	struct pw_node_activation *a = this->rt.activation;
-	struct spa_system *data_system = this->data_loop->system;
+	struct spa_system *data_system = this->data_system;
 	int status;
 	uint64_t nsec;
 

@@ -38,6 +38,8 @@ struct impl {
 	struct spa_plugin_loader plugin_loader;
 	unsigned int recalc:1;
 	unsigned int recalc_pending:1;
+
+	struct pw_data_loop *data_loop_impl;
 };
 
 
@@ -83,10 +85,11 @@ static void fill_properties(struct pw_context *context)
 
 static int context_set_freewheel(struct pw_context *context, bool freewheel)
 {
+	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
 	struct spa_thread *thr;
 	int res = 0;
 
-	if ((thr = pw_data_loop_get_thread(context->data_loop_impl)) == NULL)
+	if ((thr = pw_data_loop_get_thread(impl->data_loop_impl)) == NULL)
 		return -EIO;
 
 	if (freewheel) {
@@ -274,9 +277,9 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	if ((str = pw_properties_get(pr, "context.data-loop." PW_KEY_LIBRARY_NAME_SYSTEM)))
 		pw_properties_set(pr, PW_KEY_LIBRARY_NAME_SYSTEM, str);
 
-	this->data_loop_impl = pw_data_loop_new(&pr->dict);
+	impl->data_loop_impl = pw_data_loop_new(&pr->dict);
 	pw_properties_free(pr);
-	if (this->data_loop_impl == NULL)  {
+	if (impl->data_loop_impl == NULL)  {
 		res = -errno;
 		goto error_free;
 	}
@@ -287,7 +290,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 		goto error_free;
 	}
 
-	this->data_loop = pw_data_loop_get_loop(this->data_loop_impl);
+	this->data_loop = pw_data_loop_get_loop(impl->data_loop_impl);
 	this->data_system = this->data_loop->system;
 	this->main_loop = main_loop;
 
@@ -353,10 +356,10 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 		goto error_free;
 	pw_log_info("%p: parsed %d context.exec items", this, res);
 
-	if ((res = pw_data_loop_start(this->data_loop_impl)) < 0)
+	if ((res = pw_data_loop_start(impl->data_loop_impl)) < 0)
 		goto error_free;
 
-	pw_data_loop_invoke(this->data_loop_impl,
+	pw_data_loop_invoke(impl->data_loop_impl,
 			do_data_loop_setup, 0, NULL, 0, false, this);
 
 	pw_settings_expose(this);
@@ -409,8 +412,8 @@ void pw_context_destroy(struct pw_context *context)
 	spa_list_consume(resource, &context->registry_resource_list, link)
 		pw_resource_destroy(resource);
 
-	if (context->data_loop_impl)
-		pw_data_loop_stop(context->data_loop_impl);
+	if (impl->data_loop_impl)
+		pw_data_loop_stop(impl->data_loop_impl);
 
 	spa_list_consume(module, &context->module_list, link)
 		pw_impl_module_destroy(module);
@@ -427,8 +430,8 @@ void pw_context_destroy(struct pw_context *context)
 	pw_log_debug("%p: free", context);
 	pw_context_emit_free(context);
 
-	if (context->data_loop_impl)
-		pw_data_loop_destroy(context->data_loop_impl);
+	if (impl->data_loop_impl)
+		pw_data_loop_destroy(impl->data_loop_impl);
 
 	if (context->pool)
 		pw_mempool_destroy(context->pool);
@@ -491,7 +494,8 @@ struct pw_loop *pw_context_get_main_loop(struct pw_context *context)
 SPA_EXPORT
 struct pw_data_loop *pw_context_get_data_loop(struct pw_context *context)
 {
-	return context->data_loop_impl;
+	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
+	return impl->data_loop_impl;
 }
 
 SPA_EXPORT
@@ -1609,6 +1613,7 @@ SPA_EXPORT
 int pw_context_set_object(struct pw_context *context, const char *type, void *value)
 {
 	struct object_entry *entry;
+	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
 
 	entry = find_object(context, type);
 
@@ -1626,8 +1631,8 @@ int pw_context_set_object(struct pw_context *context, const char *type, void *va
 	}
 	if (spa_streq(type, SPA_TYPE_INTERFACE_ThreadUtils)) {
 		context->thread_utils = value;
-		if (context->data_loop_impl)
-			pw_data_loop_set_thread_utils(context->data_loop_impl,
+		if (impl->data_loop_impl)
+			pw_data_loop_set_thread_utils(impl->data_loop_impl,
 					context->thread_utils);
 	}
 	return 0;

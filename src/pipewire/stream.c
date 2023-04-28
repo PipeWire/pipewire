@@ -85,6 +85,9 @@ struct stream {
 	struct pw_context *context;
 	struct spa_hook context_listener;
 
+	struct pw_loop *main_loop;
+	struct pw_loop *data_loop;
+
 	enum spa_direction direction;
 	enum pw_stream_flags flags;
 
@@ -426,7 +429,7 @@ static inline void call_process(struct stream *impl)
 	if (impl->process_rt)
 		spa_callbacks_call(&impl->rt_callbacks, struct pw_stream_events, process, 0);
 	else
-		pw_loop_invoke(impl->context->main_loop,
+		pw_loop_invoke(impl->main_loop,
 			do_call_process, 1, NULL, 0, false, impl);
 }
 
@@ -443,7 +446,7 @@ do_call_drained(struct spa_loop *loop,
 
 static void call_drained(struct stream *impl)
 {
-	pw_loop_invoke(impl->context->main_loop,
+	pw_loop_invoke(impl->main_loop,
 		do_call_drained, 1, NULL, 0, false, impl);
 }
 
@@ -460,7 +463,7 @@ do_call_trigger_done(struct spa_loop *loop,
 
 static void call_trigger_done(struct stream *impl)
 {
-	pw_loop_invoke(impl->context->main_loop,
+	pw_loop_invoke(impl->main_loop,
 		do_call_trigger_done, 1, NULL, 0, false, impl);
 }
 
@@ -494,7 +497,7 @@ static int impl_set_io(void *object, uint32_t id, void *data, size_t size)
 		else
 			impl->position = NULL;
 
-		pw_loop_invoke(impl->context->data_loop,
+		pw_loop_invoke(impl->data_loop,
 				do_set_position, 1, NULL, 0, true, impl);
 		break;
 	default:
@@ -607,7 +610,7 @@ static int impl_send_command(void *object, const struct spa_command *command)
 	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Flush:
 	case SPA_NODE_COMMAND_Pause:
-		pw_loop_invoke(impl->context->main_loop,
+		pw_loop_invoke(impl->main_loop,
 			NULL, 0, NULL, 0, false, impl);
 		if (stream->state == PW_STREAM_STATE_STREAMING) {
 
@@ -1448,6 +1451,7 @@ stream_new(struct pw_context *context, const char *name,
 		res = -errno;
 		goto error_properties;
 	}
+	impl->main_loop = pw_context_get_main_loop(context);
 
 	this = &impl->this;
 	pw_log_debug("%p: new \"%s\"", impl, name);
@@ -1649,7 +1653,7 @@ void pw_stream_destroy(struct pw_stream *stream)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct control *c;
 
-	ensure_loop(impl->context->main_loop, return);
+	ensure_loop(impl->main_loop, return);
 
 	pw_log_debug("%p: destroy", stream);
 
@@ -1706,7 +1710,7 @@ void pw_stream_add_listener(struct pw_stream *stream,
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
-	ensure_loop(impl->context->main_loop);
+	ensure_loop(impl->main_loop);
 
 	spa_hook_list_append(&stream->listener_list, listener, events, data);
 
@@ -1744,7 +1748,7 @@ int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict 
 	int changed, res = 0;
 	struct match match;
 
-	ensure_loop(impl->context->main_loop, return -EIO);
+	ensure_loop(impl->main_loop, return -EIO);
 
 	changed = pw_properties_update(stream->properties, dict);
 	if (!changed)
@@ -1855,7 +1859,7 @@ pw_stream_connect(struct pw_stream *stream,
 	uint32_t i;
 	int res;
 
-	ensure_loop(impl->context->main_loop, return -EIO);
+	ensure_loop(impl->main_loop, return -EIO);
 
 	pw_log_debug("%p: connect target:%d", stream, target_id);
 
@@ -2047,6 +2051,8 @@ pw_stream_connect(struct pw_stream *stream,
 	pw_impl_node_set_active(impl->node,
 			!SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_INACTIVE));
 
+	impl->data_loop = impl->node->data_loop;
+
 	pw_log_debug("%p: export node %p", stream, impl->node);
 	stream->proxy = pw_core_export(stream->core,
 			PW_TYPE_INTERFACE_Node, NULL, impl->node, 0);
@@ -2086,7 +2092,7 @@ SPA_EXPORT
 int pw_stream_disconnect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	ensure_loop(impl->context->main_loop, return -EIO);
+	ensure_loop(impl->main_loop, return -EIO);
 	return stream_disconnect(impl);
 }
 
@@ -2096,7 +2102,7 @@ int pw_stream_set_error(struct pw_stream *stream,
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
-	ensure_loop(impl->context->main_loop, return -EIO);
+	ensure_loop(impl->main_loop, return -EIO);
 
 	if (res < 0) {
 		va_list args;
@@ -2126,7 +2132,7 @@ int pw_stream_update_params(struct pw_stream *stream,
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int res;
 
-	ensure_loop(impl->context->main_loop, return -EIO);
+	ensure_loop(impl->main_loop, return -EIO);
 
 	pw_log_debug("%p: update params", stream);
 	if ((res = update_params(impl, SPA_ID_INVALID, params, n_params)) < 0)
@@ -2151,7 +2157,7 @@ SPA_EXPORT
 int pw_stream_set_param(struct pw_stream *stream, uint32_t id, const struct spa_pod *param)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	ensure_loop(impl->context->main_loop, return -EIO);
+	ensure_loop(impl->main_loop, return -EIO);
 
 	if (impl->node == NULL)
 		return -EIO;
@@ -2170,7 +2176,7 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 	struct spa_pod *pod;
 	struct control *c;
 
-	ensure_loop(impl->context->main_loop, return -EIO);
+	ensure_loop(impl->main_loop, return -EIO);
 
 	if (impl->node == NULL)
 		return -EIO;
@@ -2239,7 +2245,7 @@ int pw_stream_set_active(struct pw_stream *stream, bool active)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
-	ensure_loop(impl->context->main_loop, return -EIO);
+	ensure_loop(impl->main_loop, return -EIO);
 
 	pw_log_debug("%p: active:%d", stream, active);
 
@@ -2360,7 +2366,7 @@ int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 	if (impl->direction == SPA_DIRECTION_OUTPUT &&
 	    impl->driving && !impl->using_trigger) {
 		pw_log_debug("deprecated: use pw_stream_trigger_process() to drive the stream.");
-		res = pw_loop_invoke(impl->context->data_loop,
+		res = pw_loop_invoke(impl->data_loop,
 			do_trigger_deprecated, 1, NULL, 0, false, impl);
 	}
 	return res;
@@ -2405,7 +2411,7 @@ int pw_stream_flush(struct pw_stream *stream, bool drain)
 	if (impl->node == NULL)
 		return -EIO;
 
-	pw_loop_invoke(impl->context->data_loop,
+	pw_loop_invoke(impl->data_loop,
 			drain ? do_drain : do_flush, 1, NULL, 0, true, impl);
 
 	if (!drain)
@@ -2463,13 +2469,13 @@ int pw_stream_trigger_process(struct pw_stream *stream)
 	impl->using_trigger = true;
 
 	if (!impl->driving && !impl->trigger) {
-		res = pw_loop_invoke(impl->context->main_loop,
+		res = pw_loop_invoke(impl->main_loop,
 			do_trigger_request_process, 1, NULL, 0, false, impl);
 	} else {
 		if (!impl->process_rt)
 			call_process(impl);
 
-		res = pw_loop_invoke(impl->context->data_loop,
+		res = pw_loop_invoke(impl->data_loop,
 			do_trigger_process, 1, NULL, 0, false, impl);
 	}
 	return res;

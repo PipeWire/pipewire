@@ -74,6 +74,8 @@ struct impl {
 	struct pw_context *context;
 	struct pw_properties *properties;
 
+	struct pw_loop *data_loop;
+
 	struct spa_hook context_listener;
 	struct spa_hook module_listener;
 
@@ -284,7 +286,7 @@ static int do_stop(struct spa_loop *loop,
 static void stop_listener(struct impl *impl)
 {
 	if (impl->listening) {
-		pw_loop_invoke(impl->context->data_loop,
+		pw_loop_invoke(impl->data_loop,
                        do_stop, SPA_ID_INVALID, NULL, 0, true, impl);
 		impl->listening = false;
 	}
@@ -338,7 +340,7 @@ global_bind(void *object, struct pw_impl_client *client, uint32_t permissions,
 
 	if (++impl->busy == 1) {
 		pw_log_info("%p: starting profiler", impl);
-		pw_loop_invoke(impl->context->data_loop,
+		pw_loop_invoke(impl->data_loop,
                        do_start, SPA_ID_INVALID, NULL, 0, false, impl);
 		impl->listening = true;
 	}
@@ -411,6 +413,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->context = context;
 	impl->properties = props;
+	impl->data_loop = pw_context_get_data_loop(impl->context)->loop;
 
 	spa_ringbuffer_init(&impl->buffer);
 

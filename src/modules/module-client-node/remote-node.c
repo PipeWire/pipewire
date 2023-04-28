@@ -47,6 +47,8 @@ struct mix {
 
 struct node_data {
 	struct pw_context *context;
+	struct pw_loop *data_loop;
+	struct spa_system *data_system;
 
 	struct pw_mempool *pool;
 
@@ -108,12 +110,11 @@ do_deactivate_link(struct spa_loop *loop,
 
 static void clear_link(struct node_data *data, struct link *link)
 {
-	struct pw_context *context = data->context;
 	pw_log_debug("link %p", link);
-	pw_loop_invoke(context->data_loop,
+	pw_loop_invoke(data->data_loop,
 		do_deactivate_link, SPA_ID_INVALID, NULL, 0, true, link);
 	pw_memmap_free(link->map);
-	spa_system_close(context->data_system, link->signalfd);
+	spa_system_close(data->data_system, link->signalfd);
 	spa_list_remove(&link->link);
 	free(link);
 }
@@ -140,7 +141,7 @@ static void clean_transport(struct node_data *data)
 	pw_memmap_free(data->activation);
 	data->node->rt.activation = data->node->activation->map->ptr;
 
-	spa_system_close(data->context->data_system, data->rtwritefd);
+	spa_system_close(data->data_system, data->rtwritefd);
 	data->have_transport = false;
 }
 
@@ -169,7 +170,7 @@ deactivate_mix(struct node_data *data, struct mix *mix)
 {
 	if (mix->active) {
 		pw_log_debug("node %p: mix %p deactivate", data, mix);
-		pw_loop_invoke(data->context->data_loop,
+		pw_loop_invoke(data->data_loop,
                        do_deactivate_mix, SPA_ID_INVALID, NULL, 0, true, mix);
 		mix->active = false;
 	}
@@ -191,7 +192,7 @@ activate_mix(struct node_data *data, struct mix *mix)
 {
 	if (!mix->active) {
 		pw_log_debug("node %p: mix %p activate", data, mix);
-		pw_loop_invoke(data->context->data_loop,
+		pw_loop_invoke(data->data_loop,
                        do_activate_mix, SPA_ID_INVALID, NULL, 0, false, mix);
 		mix->active = true;
 	}
@@ -263,7 +264,7 @@ static int client_node_transport(void *_data,
 		proxy, readfd, writefd, data->remote_id, data->activation->ptr);
 
 	data->rtwritefd = writefd;
-	spa_system_close(data->context->data_system, data->node->source.fd);
+	spa_system_close(data->data_system, data->node->source.fd);
 	data->node->source.fd = readfd;
 
 	data->have_transport = true;
@@ -849,7 +850,7 @@ exit:
 static int link_signal_func(void *user_data)
 {
 	struct link *link = user_data;
-	struct spa_system *data_system = link->data->context->data_system;
+	struct spa_system *data_system = link->data->data_system;
 
 	pw_log_trace_fp("link %p: signal %p", link, link->target.activation);
 	if (SPA_UNLIKELY(spa_system_eventfd_write(data_system, link->signalfd, 1) < 0))
@@ -888,7 +889,7 @@ client_node_set_activation(void *_data,
 	if (data->remote_id == node_id) {
 		pw_log_debug("node %p: our activation %u: %u %u %u", node, node_id,
 				memid, offset, size);
-		spa_system_close(data->context->data_system, signalfd);
+		spa_system_close(data->data_system, signalfd);
 		return 0;
 	}
 
@@ -922,7 +923,7 @@ client_node_set_activation(void *_data,
 		link->target.node = NULL;
 		spa_list_append(&data->links, &link->link);
 
-		pw_loop_invoke(data->context->data_loop,
+		pw_loop_invoke(data->data_loop,
                        do_activate_link, SPA_ID_INVALID, NULL, 0, false, link);
 
 		pw_log_debug("node %p: link %p: fd:%d id:%u state %p required %d, pending %d",
@@ -1177,7 +1178,7 @@ static int node_ready(void *d, int status)
 	struct node_data *data = d;
 	struct pw_impl_node *node = data->node;
 	struct pw_node_activation *a = node->rt.activation;
-	struct spa_system *data_system = data->context->data_system;
+	struct spa_system *data_system = data->data_system;
 	struct timespec ts;
 	struct pw_impl_port *p;
 
@@ -1254,6 +1255,8 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 	data->node = node;
 	data->do_free = do_free;
 	data->context = pw_impl_node_get_context(node);
+	data->data_loop = node->data_loop;
+	data->data_system = data->data_loop->system;
 	data->client_node = (struct pw_client_node *)client_node;
 	data->remote_id = SPA_ID_INVALID;
 

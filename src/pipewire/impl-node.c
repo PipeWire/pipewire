@@ -146,7 +146,7 @@ do_node_add(struct spa_loop *loop, bool async, uint32_t seq, const void *data, s
 
 	this->added = true;
 	if (this->source.loop == NULL) {
-		struct spa_system *data_system = this->context->data_system;
+		struct spa_system *data_system = this->data_loop->system;
 		uint64_t dummy;
 		int res;
 
@@ -1126,7 +1126,7 @@ static inline int process_node(void *data)
 	struct pw_impl_node *this = data;
 	struct pw_impl_port *p;
 	struct pw_node_activation *a = this->rt.activation;
-	struct spa_system *data_system = this->context->data_system;
+	struct spa_system *data_system = this->data_loop->system;
 	int status;
 	uint64_t nsec;
 
@@ -1177,7 +1177,7 @@ static inline int process_node(void *data)
 static void node_on_fd_events(struct spa_source *source)
 {
 	struct pw_impl_node *this = source->data;
-	struct spa_system *data_system = this->context->data_system;
+	struct spa_system *data_system = this->data_system;
 
 	if (SPA_UNLIKELY(source->rmask & (SPA_IO_ERR | SPA_IO_HUP))) {
 		pw_log_warn("%p: got socket error %08x", this, source->rmask);
@@ -1235,7 +1235,6 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	struct impl *impl;
 	struct pw_impl_node *this;
 	size_t size;
-	struct spa_system *data_system = context->data_system;
 	int res;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
@@ -1251,6 +1250,9 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	this->context = context;
 	this->name = strdup("node");
 
+	this->data_loop = pw_context_get_data_loop(context)->loop;
+	this->data_system = this->data_loop->system;
+
 	if (user_data_size > 0)
                 this->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
 
@@ -1263,7 +1265,8 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 
 	this->properties = properties;
 
-	if ((res = spa_system_eventfd_create(data_system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
+	if ((res = spa_system_eventfd_create(this->data_system,
+					SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
 		goto error_clean;
 
 	pw_log_debug("%p: new fd:%d", this, res);
@@ -1288,8 +1291,6 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 
 	impl->work = pw_context_get_work_queue(this->context);
 	impl->pending_id = SPA_ID_INVALID;
-
-	this->data_loop = context->data_loop;
 
 	spa_list_init(&this->follower_list);
 
@@ -1334,7 +1335,7 @@ error_clean:
 	if (this->activation)
 		pw_memblock_unref(this->activation);
 	if (this->source.fd != -1)
-		spa_system_close(this->context->data_system, this->source.fd);
+		spa_system_close(this->data_system, this->source.fd);
 	free(impl);
 error_exit:
 	pw_properties_free(properties);
@@ -1642,7 +1643,7 @@ static int node_ready(void *data, int status)
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_impl_node *driver = node->driver_node;
 	struct pw_node_activation *a = node->rt.activation;
-	struct spa_system *data_system = node->context->data_system;
+	struct spa_system *data_system = node->data_system;
 	struct pw_node_target *t;
 	struct pw_impl_port *p;
 	uint64_t nsec;
@@ -1961,7 +1962,7 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 
 	clear_info(node);
 
-	spa_system_close(context->data_system, node->source.fd);
+	spa_system_close(node->data_system, node->source.fd);
 	free(impl);
 }
 

@@ -107,6 +107,8 @@ struct filter {
 	const char *path;
 
 	struct pw_context *context;
+	struct pw_loop *main_loop;
+	struct pw_loop *data_loop;
 
 	enum pw_filter_flags flags;
 
@@ -467,7 +469,7 @@ static int impl_set_io(void *object, uint32_t id, void *data, size_t size)
 			impl->position = data;
 		else
 			impl->position = NULL;
-		pw_loop_invoke(impl->context->data_loop,
+		pw_loop_invoke(impl->data_loop,
 			do_set_position, 1, NULL, 0, true, impl);
 		break;
 	}
@@ -486,7 +488,7 @@ static int impl_send_command(void *object, const struct spa_command *command)
 	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Flush:
 	case SPA_NODE_COMMAND_Pause:
-		pw_loop_invoke(impl->context->main_loop,
+		pw_loop_invoke(impl->main_loop,
 			NULL, 0, NULL, 0, false, impl);
 		if (filter->state == PW_FILTER_STATE_STREAMING) {
 			pw_log_debug("%p: pause", filter);
@@ -987,7 +989,7 @@ static void call_process(struct filter *impl)
 				process, 0, impl->rt.position);
 	}
 	else {
-		pw_loop_invoke(impl->context->main_loop,
+		pw_loop_invoke(impl->main_loop,
 			do_call_process, 1, NULL, 0, false, impl);
 	}
 }
@@ -1006,7 +1008,7 @@ do_call_drained(struct spa_loop *loop,
 
 static void call_drained(struct filter *impl)
 {
-	pw_loop_invoke(impl->context->main_loop,
+	pw_loop_invoke(impl->main_loop,
 		do_call_drained, 1, NULL, 0, false, impl);
 }
 
@@ -1199,6 +1201,10 @@ filter_new(struct pw_context *context, const char *name,
 		res = -errno;
 		goto error_cleanup;
 	}
+
+	impl->main_loop = pw_context_get_main_loop(context);
+	impl->data_loop = pw_data_loop_get_loop(
+			pw_context_get_data_loop(context));
 
 	this = &impl->this;
 	pw_log_debug("%p: new", impl);
@@ -1399,7 +1405,7 @@ void pw_filter_destroy(struct pw_filter *filter)
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
 	struct port *p;
 
-	ensure_loop(impl->context->main_loop, return);
+	ensure_loop(impl->main_loop, return);
 
 	pw_log_debug("%p: destroy", filter);
 
@@ -1453,7 +1459,7 @@ void pw_filter_add_listener(struct pw_filter *filter,
 {
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
 
-	ensure_loop(impl->context->main_loop);
+	ensure_loop(impl->main_loop);
 
 	spa_hook_list_append(&filter->listener_list, listener, events, data);
 	if (events->process && impl->rt_callbacks.funcs == NULL) {
@@ -1503,7 +1509,7 @@ int pw_filter_update_properties(struct pw_filter *filter, void *port_data, const
 	struct port *port = SPA_CONTAINER_OF(port_data, struct port, user_data);
 	int changed = 0;
 
-	ensure_loop(impl->context->main_loop, return -EIO);
+	ensure_loop(impl->main_loop, return -EIO);
 
 	if (port_data) {
 		changed = pw_properties_update(port->props, dict);
@@ -1542,7 +1548,7 @@ pw_filter_connect(struct pw_filter *filter,
 	uint32_t i;
 	struct spa_dict_item items[1];
 
-	ensure_loop(impl->context->main_loop, return -EIO);
+	ensure_loop(impl->main_loop, return -EIO);
 
 	if (filter->proxy != NULL || filter->state != PW_FILTER_STATE_UNCONNECTED)
 		return -EBUSY;
@@ -1637,7 +1643,7 @@ SPA_EXPORT
 int pw_filter_disconnect(struct pw_filter *filter)
 {
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
-	ensure_loop(impl->context->main_loop, return -EIO);
+	ensure_loop(impl->main_loop, return -EIO);
 	return filter_disconnect(impl);
 }
 
@@ -1720,7 +1726,7 @@ void *pw_filter_add_port(struct pw_filter *filter,
 	struct port *p;
 	const char *str;
 
-	ensure_loop(impl->context->main_loop, return NULL);
+	ensure_loop(impl->main_loop, return NULL);
 
 	if (props == NULL)
 		props = pw_properties_new(NULL, NULL);
@@ -1784,7 +1790,7 @@ int pw_filter_remove_port(void *port_data)
 	struct port *port = SPA_CONTAINER_OF(port_data, struct port, user_data);
 	struct filter *impl = port->filter;
 
-	ensure_loop(impl->context->main_loop, return -EIO);
+	ensure_loop(impl->main_loop, return -EIO);
 
 	free_port(impl, port);
 	return 0;
@@ -1796,7 +1802,7 @@ int pw_filter_set_error(struct pw_filter *filter,
 {
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
 
-	ensure_loop(impl->context->main_loop, return -EIO);
+	ensure_loop(impl->main_loop, return -EIO);
 
 	if (res < 0) {
 		va_list args;
@@ -1828,7 +1834,7 @@ int pw_filter_update_params(struct pw_filter *filter,
 	struct port *port;
 	int res;
 
-	ensure_loop(impl->context->main_loop, return -EIO);
+	ensure_loop(impl->main_loop, return -EIO);
 
 	pw_log_debug("%p: update params", filter);
 
@@ -1851,7 +1857,7 @@ int pw_filter_set_active(struct pw_filter *filter, bool active)
 {
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
 
-	ensure_loop(impl->context->main_loop, return -EIO);
+	ensure_loop(impl->main_loop, return -EIO);
 
 	pw_log_debug("%p: active:%d", filter, active);
 	return 0;
@@ -1969,7 +1975,7 @@ SPA_EXPORT
 int pw_filter_flush(struct pw_filter *filter, bool drain)
 {
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
-	pw_loop_invoke(impl->context->data_loop,
+	pw_loop_invoke(impl->data_loop,
 			drain ? do_drain : do_flush, 1, NULL, 0, true, impl);
 	return 0;
 }
@@ -2013,10 +2019,10 @@ int pw_filter_trigger_process(struct pw_filter *filter)
 	pw_log_trace_fp("%p", impl);
 
 	if (!impl->driving) {
-		res = pw_loop_invoke(impl->context->main_loop,
+		res = pw_loop_invoke(impl->main_loop,
 			do_trigger_request_process, 1, NULL, 0, false, impl);
 	} else {
-		res = pw_loop_invoke(impl->context->data_loop,
+		res = pw_loop_invoke(impl->data_loop,
 			do_trigger_process, 1, NULL, 0, false, impl);
 	}
 	return res;

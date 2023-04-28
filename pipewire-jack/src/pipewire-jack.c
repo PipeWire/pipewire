@@ -3406,7 +3406,7 @@ jack_client_t * jack_client_open (const char *client_name,
 			SPA_VERSION_THREAD_UTILS,
 			&thread_utils_impl, client);
 
-	client->loop = client->context.context->data_loop_impl;
+	client->loop = pw_context_get_data_loop(client->context.context);
 	pw_data_loop_stop(client->loop);
 
 	pw_context_set_object(client->context.context,

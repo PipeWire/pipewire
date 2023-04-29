@@ -125,12 +125,10 @@ struct impl {
 };
 
 struct tunnel_info {
-	AvahiIfIndex interface;
-	AvahiProtocol protocol;
 	const char *name;
 	const char *host_name;
-	const char *type;
-	const char *domain;
+	const char *ip;
+	const char *port;
 };
 
 #define TUNNEL_INFO(...) ((struct tunnel_info){ __VA_ARGS__ })
@@ -152,12 +150,10 @@ static struct tunnel *make_tunnel(struct impl *impl, const struct tunnel_info *i
 	if (t == NULL)
 		return NULL;
 
-	t->info.interface = info->interface;
-	t->info.protocol = info->protocol;
 	t->info.name = strdup(info->name);
 	t->info.host_name = strdup(info->host_name);
-	t->info.type = strdup(info->type);
-	t->info.domain = strdup(info->domain);
+	t->info.ip = strdup(info->ip);
+	t->info.port = strdup(info->port);
 	spa_list_append(&impl->tunnel_list, &t->link);
 
 	return t;
@@ -167,11 +163,7 @@ static struct tunnel *find_tunnel(struct impl *impl, const struct tunnel_info *i
 {
 	struct tunnel *t;
 	spa_list_for_each(t, &impl->tunnel_list, link) {
-		if (t->info.interface == info->interface &&
-		    t->info.protocol == info->protocol &&
-		    spa_streq(t->info.name, info->name) &&
-		    spa_streq(t->info.type, info->type) &&
-		    spa_streq(t->info.domain, info->domain))
+		if (spa_streq(t->info.name, info->name))
 			return t;
 	}
 	return NULL;
@@ -298,8 +290,8 @@ static void submodule_destroy(void *data)
 
 	free((char *) t->info.name);
 	free((char *) t->info.host_name);
-	free((char *) t->info.type);
-	free((char *) t->info.domain);
+	free((char *) t->info.ip);
+	free((char *) t->info.port);
 
 	free(t);
 }
@@ -385,23 +377,18 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 {
 	struct impl *impl = userdata;
 	struct tunnel_info tinfo;
-	const char *str;
+	const char *str, *port_str;
 	AvahiStringList *l;
 	struct pw_properties *props = NULL;
 	char at[AVAHI_ADDRESS_STR_MAX];
-	int ipv;
 
 	if (event != AVAHI_RESOLVER_FOUND) {
 		pw_log_error("Resolving of '%s' failed: %s", name,
 				avahi_strerror(avahi_client_errno(impl->client)));
 		goto done;
 	}
-	tinfo = TUNNEL_INFO(.interface = interface,
-			.protocol = protocol,
-			.host_name = host_name,
-			.name = name,
-			.type = type,
-			.domain = domain);
+
+	avahi_address_snprint(at, sizeof(at), a);
 
 	props = pw_properties_new(NULL, NULL);
 	if (props == NULL) {
@@ -409,11 +396,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		goto done;
 	}
 
-	avahi_address_snprint(at, sizeof(at), a);
-	ipv = protocol == AVAHI_PROTO_INET ? 4 : 6;
-
 	pw_properties_setf(props, "raop.ip", "%s", at);
-	pw_properties_setf(props, "raop.ip.version", "%d", ipv);
 	pw_properties_setf(props, "raop.port", "%u", port);
 	pw_properties_setf(props, "raop.name", "%s", name);
 	pw_properties_setf(props, "raop.hostname", "%s", host_name);
@@ -429,6 +412,13 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		avahi_free(key);
 		avahi_free(value);
 	}
+
+	port_str = pw_properties_get(props, "raop.port");
+
+	tinfo = TUNNEL_INFO(.name = name,
+			.host_name = host_name,
+			.ip = at,
+			.port = port_str);
 
 	if ((str = pw_properties_get(impl->properties, "stream.rules")) == NULL)
 		str = DEFAULT_CREATE_RULES;
@@ -462,18 +452,16 @@ static void browser_cb(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProt
 	if (flags & AVAHI_LOOKUP_RESULT_LOCAL)
 		return;
 
-	info = TUNNEL_INFO(.interface = interface,
-			.protocol = protocol,
-			.name = name,
-			.type = type,
-			.domain = domain);
+	info = TUNNEL_INFO(.name = name);
 
 	t = find_tunnel(impl, &info);
 
 	switch (event) {
 	case AVAHI_BROWSER_NEW:
-		if (t != NULL)
+		if (t != NULL) {
+			pw_log_debug("found duplicate mdns entry - skipping tunnel creation");
 			return;
+		}
 		if (!(avahi_service_resolver_new(impl->client,
 						interface, protocol,
 						name, type, domain,

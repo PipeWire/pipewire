@@ -1861,7 +1861,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_properties *props = NULL;
 	struct impl *impl;
-	const char *str, *name, *hostname, *ipv;
+	const char *str, *name, *hostname, *ip, *port;
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -1902,6 +1902,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->context = context;
 	impl->loop = pw_context_get_main_loop(context);
 
+	if ((ip = pw_properties_get(props, "raop.ip")) == NULL)
+		goto error;
+	if ((port = pw_properties_get(props, "raop.port")) == NULL)
+		goto error;
+
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 
@@ -1916,17 +1921,15 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		if (strlen(str) > 0)
 			name = str;
 	}
-	if ((ipv = pw_properties_get(props, "raop.ip.version")) == NULL)
-		ipv = "4";
 	if ((hostname = pw_properties_get(props, "raop.hostname")) == NULL)
 		hostname = name;
 
+	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_setf(props, PW_KEY_NODE_NAME, "raop_sink.%s.%s.%s",
+				hostname, ip, port);		
 	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
-					"%s (IPv%s)", name, ipv);
-	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_NAME, "raop_sink.%s.ipv%s",
-				hostname, ipv);
+					"%s", name);
 	if (pw_properties_get(props, PW_KEY_NODE_LATENCY) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_LATENCY, "352/44100");
 

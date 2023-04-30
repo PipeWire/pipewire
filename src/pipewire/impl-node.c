@@ -914,6 +914,8 @@ static void check_properties(struct pw_impl_node *node)
 			else
 				spa_list_remove(&node->driver_link);
 		}
+		if (driver && node->driver_node == node)
+			node->driving = true;
 		recalc_reason = "driver changed";
 	}
 

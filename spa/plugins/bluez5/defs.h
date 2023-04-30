@@ -638,6 +638,7 @@ struct spa_bt_transport {
 	struct spa_source volume_timer;
 	struct spa_source release_timer;
 	DBusPendingCall *acquire_call;
+	DBusPendingCall *volume_call;
 
 	struct spa_hook_list listener_list;
 	struct spa_callbacks impl;

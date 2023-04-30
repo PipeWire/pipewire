@@ -2636,6 +2636,12 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 		transport->acquire_call = NULL;
 	}
 
+	if (transport->volume_call) {
+		dbus_pending_call_cancel(transport->volume_call);
+		dbus_pending_call_unref(transport->volume_call);
+		transport->volume_call = NULL;
+	}
+
 	if (transport->fd >= 0) {
 		spa_bt_player_set_state(transport->device->adapter->dummy_player, SPA_BT_PLAYER_STOPPED);
 
@@ -3202,22 +3208,56 @@ next:
 	return 0;
 }
 
-static int transport_set_property_volume(struct spa_bt_transport *transport, uint16_t value)
+static void transport_set_property_volume_reply(DBusPendingCall *pending, void *user_data)
+{
+	struct spa_bt_transport *transport = user_data;
+	struct spa_bt_monitor *monitor = transport->monitor;
+	DBusError err;
+	DBusMessage *r;
+
+	r = dbus_pending_call_steal_reply(pending);
+
+	spa_assert(transport->volume_call == pending);
+	dbus_pending_call_unref(pending);
+	transport->volume_call = NULL;
+
+	if (dbus_set_error_from_message(&err, r)) {
+		spa_log_info(monitor->log, "transport %p: set volume failed for transport %s: %s",
+				transport, transport->path, err.message);
+		dbus_error_free(&err);
+	} else {
+		spa_log_debug(monitor->log, "transport %p: set volume complete",
+				transport);
+	}
+
+	dbus_message_unref(r);
+}
+
+static void transport_set_property_volume(struct spa_bt_transport *transport, uint16_t value)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
-	DBusMessage *m, *r;
+	DBusMessage *m;
 	DBusMessageIter it[2];
 	DBusError err;
 	const char *interface = BLUEZ_MEDIA_TRANSPORT_INTERFACE;
 	const char *name = "Volume";
 	int res = 0;
+	dbus_bool_t ret;
+
+	if (transport->volume_call) {
+		dbus_pending_call_cancel(transport->volume_call);
+		dbus_pending_call_unref(transport->volume_call);
+		transport->volume_call = NULL;
+	}
 
 	m = dbus_message_new_method_call(BLUEZ_SERVICE,
 					 transport->path,
 	                                 DBUS_INTERFACE_PROPERTIES,
 					 "Set");
-	if (m == NULL)
-		return -ENOMEM;
+	if (m == NULL) {
+		res = -ENOMEM;
+		goto fail;
+	}
 
 	dbus_message_iter_init_append(m, &it[0]);
 	dbus_message_iter_append_basic(&it[0], DBUS_TYPE_STRING, &interface);
@@ -3229,25 +3269,27 @@ static int transport_set_property_volume(struct spa_bt_transport *transport, uin
 
 	dbus_error_init(&err);
 
-	r = dbus_connection_send_with_reply_and_block(monitor->conn, m, -1, &err);
-
+	ret = dbus_connection_send_with_reply(monitor->conn, m, &transport->volume_call, -1);
 	dbus_message_unref(m);
 
-	if (r == NULL) {
-		spa_log_error(monitor->log, "set volume %u failed for transport %s (%s)",
-				value, transport->path, err.message);
-		dbus_error_free(&err);
-		return -EIO;
+	if (!ret || !transport->volume_call) {
+		res = -EIO;
+		goto fail;
 	}
 
-	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR)
+	ret = dbus_pending_call_set_notify(transport->volume_call,
+			transport_set_property_volume_reply, transport, NULL);
+	if (!ret) {
 		res = -EIO;
+		goto fail;
+	}
 
-	dbus_message_unref(r);
+	spa_log_debug(monitor->log, "transport %p: setting volume to %d", transport, value);
+	return;
 
-	spa_log_debug(monitor->log, "transport %p: set volume to %d", transport, value);
-
-	return res;
+fail:
+	spa_log_debug(monitor->log, "transport %p: failed to set volume %d: %s",
+			transport, value, spa_strerror(res));
 }
 
 static int transport_set_volume(void *data, int id, float volume)

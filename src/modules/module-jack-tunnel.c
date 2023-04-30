@@ -511,7 +511,6 @@ static void jack_info_shutdown(jack_status_t code, const char* reason, void *arg
 {
 	struct impl *impl = arg;
 	pw_log_warn("shutdown: %s (%08x)", reason, code);
-	impl->client = NULL;
 	module_schedule_destroy(impl);
 }
 
@@ -555,7 +554,7 @@ static void jack_latency(jack_latency_callback_mode_t mode, void *arg)
 	struct spa_latency_info latency;
 	bool update = false;
 
-      	spa_zero(latency);
+	spa_zero(latency);
 
 	if ((impl->mode & MODE_SINK)) {
 		if (mode == JackPlaybackLatency) {

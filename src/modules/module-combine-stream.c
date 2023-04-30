@@ -24,6 +24,7 @@
 #include <spa/pod/builder.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/raw.h>
+#include <spa/param/latency-utils.h>
 
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
@@ -251,6 +252,8 @@ struct impl {
 
 	struct pw_properties *stream_props;
 
+	struct spa_latency_info latency;
+
 	struct spa_audio_info_raw info;
 
 	unsigned int do_disconnect:1;
@@ -269,11 +272,14 @@ struct stream {
 	struct spa_hook stream_listener;
 	struct pw_stream_events stream_events;
 
+	struct spa_latency_info latency;
+
 	struct spa_audio_info_raw info;
 	uint32_t remap[SPA_AUDIO_MAX_CHANNELS];
 
 	unsigned int ready:1;
 	unsigned int added:1;
+	unsigned int have_latency:1;
 };
 
 static uint32_t channel_from_name(const char *name)
@@ -323,6 +329,43 @@ static struct stream *find_stream(struct impl *impl, uint32_t id)
 		if (s->id == id)
 			return s;
 	return NULL;
+}
+
+static enum pw_direction get_combine_direction(struct impl *impl)
+{
+	if (impl->mode == MODE_SINK || impl->mode == MODE_CAPTURE)
+		return PW_DIRECTION_INPUT;
+	else
+		return PW_DIRECTION_OUTPUT;
+}
+
+static void update_latency(struct impl *impl)
+{
+	struct spa_latency_info latency;
+	struct stream *s;
+
+	if (impl->combine == NULL)
+		return;
+
+	spa_latency_info_combine_start(&latency, get_combine_direction(impl));
+
+	spa_list_for_each(s, &impl->streams, link)
+		if (s->have_latency)
+			spa_latency_info_combine(&latency, &s->latency);
+
+	spa_latency_info_combine_finish(&latency);
+
+	if (spa_latency_info_compare(&latency, &impl->latency) != 0) {
+		struct spa_pod_builder b = { 0 };
+		uint8_t buffer[1024];
+		const struct spa_pod *param;
+
+		impl->latency = latency;
+
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		param = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
+		pw_stream_update_params(impl->combine, &param, 1);
+	}
 }
 
 static int do_add_stream(struct spa_loop *loop, bool async, uint32_t seq,
@@ -405,10 +448,32 @@ static void stream_state_changed(void *d, enum pw_stream_state old,
 	}
 }
 
+static void stream_param_changed(void *d, uint32_t id, const struct spa_pod *param)
+{
+	struct stream *s = d;
+	struct spa_latency_info latency;
+
+	switch (id) {
+	case SPA_PARAM_Latency:
+		if (!param) {
+			s->have_latency = false;
+		} else if (spa_latency_parse(param, &latency) == 0 &&
+				latency.direction == get_combine_direction(s->impl)) {
+			s->have_latency = true;
+			s->latency = latency;
+		}
+		update_latency(s->impl);
+		break;
+	default:
+		break;
+	}
+}
+
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = stream_destroy,
 	.state_changed = stream_state_changed,
+	.param_changed = stream_param_changed,
 };
 
 struct stream_info {

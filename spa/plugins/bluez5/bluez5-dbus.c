@@ -2632,6 +2632,7 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 
 	if (transport->acquire_call) {
 		dbus_pending_call_cancel(transport->acquire_call);
+		dbus_pending_call_unref(transport->acquire_call);
 		transport->acquire_call = NULL;
 	}
 
@@ -3551,6 +3552,7 @@ static int do_transport_release(struct spa_bt_transport *transport)
 
 	if (transport->acquire_call) {
 		dbus_pending_call_cancel(transport->acquire_call);
+		dbus_pending_call_unref(transport->acquire_call);
 		transport->acquire_call = NULL;
 	}
 

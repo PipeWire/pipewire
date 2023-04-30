@@ -16,7 +16,7 @@ module_sources = [
   'module-fallback-sink.c',
   'module-filter-chain.c',
   'module-jack-tunnel.c',
-  'module-jackdbus-tunnel.c',
+  'module-jackdbus-detect.c',
   'module-link-factory.c',
   'module-loopback.c',
   'module-metadata.c',

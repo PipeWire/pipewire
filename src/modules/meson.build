@@ -16,6 +16,7 @@ module_sources = [
   'module-fallback-sink.c',
   'module-filter-chain.c',
   'module-jack-tunnel.c',
+  'module-jackdbus-tunnel.c',
   'module-link-factory.c',
   'module-loopback.c',
   'module-metadata.c',
@@ -160,8 +161,8 @@ pipewire_module_echo_cancel = shared_library('pipewire-module-echo-cancel',
 )
 
 build_module_jack_tunnel = jack_dep.found()
-  if build_module_jack_tunnel
-    pipewire_module_jack_tunnel = shared_library('pipewire-module-jack-tunnel',
+if build_module_jack_tunnel
+  pipewire_module_jack_tunnel = shared_library('pipewire-module-jack-tunnel',
     [ 'module-jack-tunnel.c' ],
     include_directories : [configinc],
     install : true,
@@ -169,9 +170,22 @@ build_module_jack_tunnel = jack_dep.found()
     install_rpath: modules_install_dir,
     dependencies : [mathlib, dl_lib, pipewire_dep, jack_dep],
   )
+  build_module_jackdbus_detect = dbus_dep.found()
+  if build_module_jackdbus_detect
+    pipewire_module_jack_tunnel = shared_library('pipewire-module-jackdbus-detect',
+      [ 'module-jackdbus-detect.c' ],
+      include_directories : [configinc],
+      install : true,
+      install_dir : modules_install_dir,
+      install_rpath: modules_install_dir,
+      dependencies : [mathlib, dl_lib, pipewire_dep, dbus_dep],
+    )
+  endif
 endif
 
 summary({'jack-tunnel': build_module_jack_tunnel}, bool_yn: true, section: 'Optional Modules')
+
+
 
 pipewire_module_profiler = shared_library('pipewire-module-profiler',
   [ 'module-profiler.c',

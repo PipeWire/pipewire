@@ -1193,6 +1193,7 @@ static int node_ready(void *d, int status)
 	a->state[0].status = status;
 	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
 	a->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
+	a->awake_time = a->signal_time;
 
 	if (SPA_UNLIKELY(spa_system_eventfd_write(data_system, data->rtwritefd, 1) < 0))
 		pw_log_warn("node %p: write failed %m", node);

@@ -1772,7 +1772,7 @@ again:
 
 		pw_context_driver_emit_start(node->context, node);
 	}
-	if (SPA_UNLIKELY(!node->driving))
+	if (SPA_UNLIKELY(node->driver && !node->driving))
 		return 0;
 
 	if (status & SPA_STATUS_HAVE_DATA) {

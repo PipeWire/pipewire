@@ -254,6 +254,8 @@ struct impl {
 
 	struct spa_latency_info latency;
 
+	int64_t latency_offset;
+
 	struct spa_audio_info_raw info;
 
 	unsigned int do_disconnect:1;
@@ -339,6 +341,12 @@ static enum pw_direction get_combine_direction(struct impl *impl)
 		return PW_DIRECTION_OUTPUT;
 }
 
+static void apply_latency_offset(struct spa_latency_info *latency, int64_t offset)
+{
+	latency->min_ns += SPA_MAX(offset, -(int64_t)latency->min_ns);
+	latency->max_ns += SPA_MAX(offset, -(int64_t)latency->max_ns);
+}
+
 static void update_latency(struct impl *impl)
 {
 	struct spa_latency_info latency;
@@ -354,6 +362,8 @@ static void update_latency(struct impl *impl)
 			spa_latency_info_combine(&latency, &s->latency);
 
 	spa_latency_info_combine_finish(&latency);
+
+	apply_latency_offset(&latency, impl->latency_offset);
 
 	if (spa_latency_info_compare(&latency, &impl->latency) != 0) {
 		struct spa_pod_builder b = { 0 };
@@ -812,17 +822,55 @@ static void combine_output_process(void *d)
 	pw_stream_queue_buffer(impl->combine, out);
 }
 
+static void combine_param_changed(void *d, uint32_t id, const struct spa_pod *param)
+{
+	struct impl *impl = d;
+
+	switch (id) {
+	case SPA_PARAM_Props: {
+		int64_t latency_offset;
+		uint8_t buffer[1024];
+		struct spa_pod_builder b;
+		const struct spa_pod *p;
+
+		if (!param)
+			latency_offset = 0;
+		else if (spa_pod_parse_object(param,
+				SPA_TYPE_OBJECT_Props, NULL,
+				SPA_PROP_latencyOffsetNsec, SPA_POD_Long(&latency_offset)) < 0)
+			break;
+
+		if (latency_offset == impl->latency_offset)
+			break;
+
+		impl->latency_offset = latency_offset;
+
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		p = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
+				SPA_PROP_latencyOffsetNsec, SPA_POD_Long(impl->latency_offset));
+		pw_stream_update_params(impl->combine, &p, 1);
+
+		update_latency(impl);
+		break;
+	}
+	default:
+		break;
+	}
+}
+
 static const struct pw_stream_events combine_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = combine_destroy,
 	.state_changed = combine_state_changed,
+	.param_changed = combine_param_changed,
 };
 
 static int create_combine(struct impl *impl)
 {
 	int res;
 	uint32_t n_params;
-	const struct spa_pod *params[1];
+	const struct spa_pod *params[3];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	enum pw_direction direction;
@@ -857,6 +905,14 @@ static int create_combine(struct impl *impl)
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	params[n_params++] = spa_format_audio_raw_build(&b,
 			SPA_PARAM_EnumFormat, &impl->info);
+	params[n_params++] = spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+			SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_latencyOffsetNsec),
+			SPA_PROP_INFO_description, SPA_POD_String("Latency offset (ns)"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Long(0LL, INT64_MIN, INT64_MAX));
+	params[n_params++] = spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
+			SPA_PROP_latencyOffsetNsec, SPA_POD_Long(impl->latency_offset));
 
 	if ((res = pw_stream_connect(impl->combine,
 			direction, PW_ID_ANY, flags, params, n_params)) < 0)

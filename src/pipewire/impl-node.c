@@ -1196,7 +1196,7 @@ static void node_on_fd_events(struct spa_source *source)
 				this->name, this->info.id, cmd - 1);
 
 		pw_log_trace_fp("%p: got process", this);
-		this->rt.target.signal_func(this->rt.target.data);
+		process_node(this);
 	}
 }
 
@@ -1679,7 +1679,7 @@ static int node_ready(void *data, int status)
 						state->pending, state->required);
 				dump_states(node);
 			}
-			node->rt.target.signal_func(node->rt.target.data);
+			process_node(node);
 		} else {
 			/* calculate CPU time */
 			uint64_t new_signal = a->signal_time;

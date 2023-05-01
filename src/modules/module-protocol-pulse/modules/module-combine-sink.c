@@ -31,7 +31,8 @@ static const struct spa_dict_item module_combine_sink_info[] = {
 				"rate=<sample rate> "
 				"channels=<number of channels> "
 				"channel_map=<channel map> "
-				"remix=<remix channels> " },
+				"remix=<remix channels> "
+				"latency_compensate=<bool> " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -58,6 +59,7 @@ struct module_combine_sink_data {
 
 	unsigned int sinks_pending;
 	unsigned int remix:1;
+	unsigned int latency_compensate:1;
 	unsigned int load_emitted:1;
 	unsigned int start_error:1;
 };
@@ -154,6 +156,8 @@ static int module_combine_sink_load(struct module *module)
 	fprintf(f, "{");
 	fprintf(f, " node.name = %s", data->sink_name);
 	fprintf(f, " node.description = %s", data->sink_name);
+	if (data->latency_compensate)
+		fprintf(f, " combine.latency-compensate = true");
 	if (data->info.rate != 0)
 		fprintf(f, " audio.rate = %u", data->info.rate);
 	if (data->info.channels != 0) {
@@ -279,6 +283,9 @@ static int module_combine_sink_prepare(struct module * const module)
 		d->remix = pw_properties_parse_bool(str);
 		pw_properties_set(props, "remix", NULL);
 	}
+
+	if ((str = pw_properties_get(props, "latency_compensate")) != NULL)
+		d->latency_compensate = pw_properties_parse_bool(str);
 
 	if ((str = pw_properties_get(props, "adjust_time")) != NULL) {
 		pw_log_info("The `adjust_time` modarg is ignored");

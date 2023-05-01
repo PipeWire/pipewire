@@ -1902,10 +1902,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->context = context;
 	impl->loop = pw_context_get_main_loop(context);
 
-	if ((ip = pw_properties_get(props, "raop.ip")) == NULL)
+	ip = pw_properties_get(props, "raop.ip");
+	port = pw_properties_get(props, "raop.port");
+	if (ip == NULL || port == NULL) {
+		pw_log_error("Missing raop.ip or raop.port");
+		res = -EINVAL;
 		goto error;
-	if ((port = pw_properties_get(props, "raop.port")) == NULL)
-		goto error;
+	}
 
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
@@ -1926,7 +1929,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_NAME, "raop_sink.%s.%s.%s",
-				hostname, ip, port);		
+				hostname, ip, port);
 	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
 					"%s", name);

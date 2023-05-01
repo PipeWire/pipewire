@@ -1916,6 +1916,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
 		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 
+	if (pw_properties_get(props, PW_KEY_DEVICE_ICON_NAME) == NULL)
+		pw_properties_set(props, PW_KEY_DEVICE_ICON_NAME, "audio-speakers");
+
 	if ((name = pw_properties_get(props, "raop.name")) == NULL)
 		name = "RAOP";
 
@@ -1943,6 +1946,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_AUDIO_RATE);
 	copy_props(impl, props, PW_KEY_AUDIO_CHANNELS);
 	copy_props(impl, props, SPA_KEY_AUDIO_POSITION);
+	copy_props(impl, props, PW_KEY_DEVICE_ICON_NAME);
 	copy_props(impl, props, PW_KEY_NODE_NAME);
 	copy_props(impl, props, PW_KEY_NODE_DESCRIPTION);
 	copy_props(impl, props, PW_KEY_NODE_GROUP);

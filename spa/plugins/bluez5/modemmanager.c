@@ -539,8 +539,6 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 	} else if (dbus_message_is_signal(m, DBUS_INTERFACE_OBJECTMANAGER, DBUS_SIGNAL_INTERFACES_ADDED)) {
 		DBusMessageIter arg_i;
 
-		spa_log_warn(this->log, "sender: %s", dbus_message_get_sender(m));
-
 		if (!dbus_message_iter_init(m, &arg_i) || !spa_streq(dbus_message_get_signature(m), "oa{sa{sv}}")) {
 				spa_log_error(this->log, "Invalid signature found in InterfacesAdded");
 				goto finish;

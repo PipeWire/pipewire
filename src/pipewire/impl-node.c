@@ -139,7 +139,8 @@ static void remove_node(struct pw_impl_node *this)
 }
 
 static int
-do_node_add(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+do_node_add(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
 {
 	struct pw_impl_node *this = user_data;
 	struct pw_impl_node *driver = this->driver_node;
@@ -155,18 +156,21 @@ do_node_add(struct spa_loop *loop, bool async, uint32_t seq, const void *data, s
 			pw_log_warn("%p: read failed %m", this);
 
 		this->added = true;
-		spa_loop_add_source(loop, &this->source);
+		if (!this->remote)
+			spa_loop_add_source(loop, &this->source);
 		add_node(this, driver);
 	}
 	return 0;
 }
 
 static int
-do_node_remove(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+do_node_remove(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
 {
 	struct pw_impl_node *this = user_data;
 	if (this->added) {
-		spa_loop_remove_source(loop, &this->source);
+		if (!this->remote)
+			spa_loop_remove_source(loop, &this->source);
 		remove_node(this);
 		this->added = false;
 	}
@@ -1120,7 +1124,7 @@ static inline int node_signal_func(void *data)
 	if (SPA_UNLIKELY(spa_system_eventfd_write(data_system, this->source.fd, 1) < 0))
 		pw_log_warn("node %p: write failed %m", this);
 
-	return 0;
+	return SPA_STATUS_OK;
 }
 
 static inline void calculate_stats(struct pw_impl_node *this,  struct pw_node_activation *a)

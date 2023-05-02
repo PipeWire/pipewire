@@ -247,6 +247,7 @@ static int client_node_transport(void *_data,
 			int readfd, int writefd, uint32_t mem_id, uint32_t offset, uint32_t size)
 {
 	struct node_data *data = _data;
+	struct pw_impl_node *node = data->node;
 	struct pw_proxy *proxy = (struct pw_proxy*)data->client_node;
 
 	clean_transport(data);
@@ -258,18 +259,18 @@ static int client_node_transport(void *_data,
 		return -errno;
 	}
 
-	data->node->rt.activation = data->activation->ptr;
+	node->rt.activation = data->activation->ptr;
 
 	pw_log_debug("remote-node %p: fds:%d %d node:%u activation:%p",
 		proxy, readfd, writefd, data->remote_id, data->activation->ptr);
 
 	data->rtwritefd = writefd;
-	spa_system_close(data->data_system, data->node->source.fd);
-	data->node->source.fd = readfd;
+	spa_system_close(data->data_system, node->source.fd);
+	node->source.fd = readfd;
 
 	data->have_transport = true;
 
-	if (data->node->active)
+	if (node->active)
 		pw_client_node_set_active(data->client_node, true);
 
 	return 0;

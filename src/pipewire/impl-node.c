@@ -1189,6 +1189,20 @@ static inline int process_node(void *data)
 	return 0;
 }
 
+int pw_impl_node_trigger(struct pw_impl_node *node)
+{
+	struct pw_node_activation *a = node->rt.activation;
+	struct pw_node_activation_state *state = &a->state[0];
+
+	if (pw_node_activation_state_dec(state, 1)) {
+		uint64_t nsec = get_time_ns(node->data_system);
+		a->status = PW_NODE_ACTIVATION_TRIGGERED;
+		a->signal_time = nsec;
+		node_signal_func(node);
+	}
+	return 0;
+}
+
 static void node_on_fd_events(struct spa_source *source)
 {
 	struct pw_impl_node *this = source->data;

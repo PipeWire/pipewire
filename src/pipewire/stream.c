@@ -2433,7 +2433,7 @@ bool pw_stream_is_driving(struct pw_stream *stream)
 }
 
 static int
-do_trigger_process(struct spa_loop *loop,
+do_trigger_driver(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct stream *impl = user_data;
@@ -2473,15 +2473,16 @@ int pw_stream_trigger_process(struct pw_stream *stream)
 	/* flag to check for old or new behaviour */
 	impl->using_trigger = true;
 
-	if (!impl->driving && !impl->trigger) {
-		res = pw_loop_invoke(impl->main_loop,
-			do_trigger_request_process, 1, NULL, 0, false, impl);
-	} else {
+	if (impl->trigger) {
+		pw_impl_node_trigger(stream->node);
+	} else if (impl->driving) {
 		if (!impl->process_rt)
 			call_process(impl);
-
 		res = pw_loop_invoke(impl->data_loop,
-			do_trigger_process, 1, NULL, 0, false, impl);
+			do_trigger_driver, 1, NULL, 0, false, impl);
+	} else {
+		res = pw_loop_invoke(impl->main_loop,
+			do_trigger_request_process, 1, NULL, 0, false, impl);
 	}
 	return res;
 }

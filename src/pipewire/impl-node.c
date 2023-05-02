@@ -144,8 +144,7 @@ do_node_add(struct spa_loop *loop, bool async, uint32_t seq, const void *data, s
 	struct pw_impl_node *this = user_data;
 	struct pw_impl_node *driver = this->driver_node;
 
-	this->added = true;
-	if (this->source.loop == NULL) {
+	if (!this->added) {
 		struct spa_system *data_system = this->data_system;
 		uint64_t dummy;
 		int res;
@@ -155,6 +154,7 @@ do_node_add(struct spa_loop *loop, bool async, uint32_t seq, const void *data, s
 		if (SPA_UNLIKELY(res != -EAGAIN && res != 0))
 			pw_log_warn("%p: read failed %m", this);
 
+		this->added = true;
 		spa_loop_add_source(loop, &this->source);
 		add_node(this, driver);
 	}
@@ -165,11 +165,11 @@ static int
 do_node_remove(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct pw_impl_node *this = user_data;
-	if (this->source.loop != NULL) {
+	if (this->added) {
 		spa_loop_remove_source(loop, &this->source);
 		remove_node(this);
+		this->added = false;
 	}
-	this->added = false;
 	return 0;
 }
 
@@ -810,7 +810,7 @@ do_move_nodes(struct spa_loop *loop,
 	node->target_rate = node->rt.position->clock.target_rate;
 	node->target_quantum = node->rt.position->clock.target_duration;
 
-	if (node->source.loop != NULL) {
+	if (node->added) {
 		remove_node(node);
 		add_node(node, driver);
 	}

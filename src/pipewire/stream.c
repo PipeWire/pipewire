@@ -2374,12 +2374,21 @@ do_flush(struct spa_loop *loop,
 {
 	struct stream *impl = user_data;
 	struct buffer *b;
+	struct queue *from, *to;
 
 	pw_log_trace_fp("%p: flush", impl);
+
+	if (impl->direction == SPA_DIRECTION_OUTPUT) {
+		from = &impl->queued;
+		to = &impl->dequeued;
+	} else {
+		from = &impl->dequeued;
+		to = &impl->queued;
+	}
 	do {
-		b = queue_pop(impl, &impl->queued);
+		b = queue_pop(impl, from);
 		if (b != NULL)
-			queue_push(impl, &impl->dequeued, b);
+			queue_push(impl, to, b);
 	}
 	while (b);
 

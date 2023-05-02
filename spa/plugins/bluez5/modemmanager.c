@@ -122,10 +122,10 @@ static void mm_get_call_properties_reply(DBusPendingCall *pending, void *user_da
 	MMCallState state;
 
 	spa_assert(call->pending == pending);
-	dbus_pending_call_unref(pending);
 	call->pending = NULL;
 
 	r = dbus_pending_call_steal_reply(pending);
+	dbus_pending_call_unref(pending);
 	if (r == NULL)
 		return;
 
@@ -421,10 +421,10 @@ static void mm_get_managed_objects_reply(DBusPendingCall *pending, void *user_da
 	DBusMessageIter i, array_i;
 
 	spa_assert(this->pending == pending);
-	dbus_pending_call_unref(pending);
 	this->pending = NULL;
 
 	r = dbus_pending_call_steal_reply(pending);
+	dbus_pending_call_unref(pending);
 	if (r == NULL)
 		return;
 
@@ -761,49 +761,6 @@ fail:
 	return -EIO;
 }
 
-static bool is_dbus_service_available(struct impl *this, const char *service)
-{
-	DBusMessage *m, *r;
-	DBusError err;
-	bool success = false;
-
-	m = dbus_message_new_method_call("org.freedesktop.DBus", "/org/freedesktop/DBus",
-	                                  "org.freedesktop.DBus", "NameHasOwner");
-	if (m == NULL)
-		return false;
-	dbus_message_append_args(m, DBUS_TYPE_STRING, &service, DBUS_TYPE_INVALID);
-
-	dbus_error_init(&err);
-	r = dbus_connection_send_with_reply_and_block(this->conn, m, -1, &err);
-	dbus_message_unref(m);
-	m = NULL;
-
-	if (r == NULL) {
-		spa_log_info(this->log, "NameHasOwner failed for %s", service);
-		dbus_error_free(&err);
-		goto finish;
-	}
-
-	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
-		spa_log_error(this->log, "NameHasOwner() returned error: %s", dbus_message_get_error_name(r));
-		goto finish;
-	}
-
-	if (!dbus_message_get_args(r, &err,
-				   DBUS_TYPE_BOOLEAN, &success,
-				   DBUS_TYPE_INVALID)) {
-		spa_log_error(this->log, "Failed to parse NameHasOwner() reply: %s", err.message);
-		dbus_error_free(&err);
-		goto finish;
-	}
-
-finish:
-	if (r)
-		dbus_message_unref(r);
-
-	return success;
-}
-
 bool mm_is_available(void *modemmanager)
 {
 	struct impl *this = modemmanager;
@@ -830,10 +787,10 @@ static void mm_get_call_simple_reply(DBusPendingCall *pending, void *data)
 	free(data);
 
 	spa_assert(call->pending == pending);
-	dbus_pending_call_unref(pending);
 	call->pending = NULL;
 
 	r = dbus_pending_call_steal_reply(pending);
+	dbus_pending_call_unref(pending);
 	if (r == NULL)
 		return;
 
@@ -863,10 +820,10 @@ static void mm_get_call_create_reply(DBusPendingCall *pending, void *data)
 	free(data);
 
 	spa_assert(this->voice_pending == pending);
-	dbus_pending_call_unref(pending);
 	this->voice_pending = NULL;
 
 	r = dbus_pending_call_steal_reply(pending);
+	dbus_pending_call_unref(pending);
 	if (r == NULL)
 		return;
 
@@ -1182,26 +1139,24 @@ void *mm_register(struct spa_log *log, void *dbus_connection, const struct spa_d
 		goto fail;
 	}
 
-	if (is_dbus_service_available(this, MM_DBUS_SERVICE)) {
-		DBusMessage *m;
+	DBusMessage *m = dbus_message_new_method_call(MM_DBUS_SERVICE, "/org/freedesktop/ModemManager1",
+						      DBUS_INTERFACE_OBJECTMANAGER, "GetManagedObjects");
+	if (m == NULL)
+		goto fail;
 
-		m = dbus_message_new_method_call(MM_DBUS_SERVICE, "/org/freedesktop/ModemManager1",
-		                                 DBUS_INTERFACE_OBJECTMANAGER, "GetManagedObjects");
-		if (m == NULL)
-			goto fail;
+	dbus_message_set_auto_start(m, false);
 
-		if (!mm_dbus_connection_send_with_reply(this, m, &this->pending, mm_get_managed_objects_reply, this)) {
-			spa_log_error(this->log, "dbus call failure");
-			dbus_message_unref(m);
-			goto fail;
-		}
+	if (!mm_dbus_connection_send_with_reply(this, m, &this->pending, mm_get_managed_objects_reply, this)) {
+		spa_log_error(this->log, "dbus call failure");
+		dbus_message_unref(m);
+		goto fail;
 	}
 
-    return this;
+	return this;
 
 fail:
-    free(this);
-    return NULL;
+	free(this);
+	return NULL;
 }
 
 void mm_unregister(void *data)

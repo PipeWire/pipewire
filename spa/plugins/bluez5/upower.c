@@ -44,6 +44,7 @@ static void upower_get_percentage_properties_reply(DBusPendingCall *pending, voi
 	DBusMessageIter i, variant_i;
 
 	r = dbus_pending_call_steal_reply(pending);
+	dbus_pending_call_unref(pending);
 	if (r == NULL)
 		return;
 
@@ -188,49 +189,6 @@ fail:
 	return -EIO;
 }
 
-static bool is_dbus_service_available(struct impl *this, const char *service)
-{
-	DBusMessage *m, *r;
-	DBusError err;
-	bool success = false;
-
-	m = dbus_message_new_method_call("org.freedesktop.DBus", "/org/freedesktop/DBus",
-	                                  "org.freedesktop.DBus", "NameHasOwner");
-	if (m == NULL)
-		return false;
-	dbus_message_append_args(m, DBUS_TYPE_STRING, &service, DBUS_TYPE_INVALID);
-
-	dbus_error_init(&err);
-	r = dbus_connection_send_with_reply_and_block(this->conn, m, -1, &err);
-	dbus_message_unref(m);
-	m = NULL;
-
-	if (r == NULL) {
-		spa_log_info(this->log, "NameHasOwner failed for %s", service);
-		dbus_error_free(&err);
-		goto finish;
-	}
-
-	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
-		spa_log_error(this->log, "NameHasOwner() returned error: %s", dbus_message_get_error_name(r));
-		goto finish;
-	}
-
-	if (!dbus_message_get_args(r, &err,
-				   DBUS_TYPE_BOOLEAN, &success,
-				   DBUS_TYPE_INVALID)) {
-		spa_log_error(this->log, "Failed to parse NameHasOwner() reply: %s", err.message);
-		dbus_error_free(&err);
-		goto finish;
-	}
-
-finish:
-	if (r)
-		dbus_message_unref(r);
-
-	return success;
-}
-
 void *upower_register(struct spa_log *log,
                       void *dbus_connection,
                       void (*set_battery_level)(unsigned int level, void *user_data),
@@ -250,33 +208,33 @@ void *upower_register(struct spa_log *log,
 	this->log = log;
 	this->conn = dbus_connection;
 	this->set_battery_level = set_battery_level;
-    this->user_data = user_data;
+	this->user_data = user_data;
 
 	if (add_filters(this) < 0) {
 		goto fail4;
 	}
 
-	if (is_dbus_service_available(this, UPOWER_SERVICE)) {
-		DBusMessage *m;
-		DBusPendingCall *call;
-		static const char* upower_device_interface = UPOWER_DEVICE_INTERFACE;
-		static const char* percentage_property = "Percentage";
+	DBusMessage *m;
+	DBusPendingCall *call;
 
-		m = dbus_message_new_method_call(UPOWER_SERVICE, UPOWER_DISPLAY_DEVICE_OBJECT, DBUS_INTERFACE_PROPERTIES, "Get");
-		if (m == NULL)
-			goto fail4;
-		dbus_message_append_args(m, DBUS_TYPE_STRING, &upower_device_interface,
-		                         DBUS_TYPE_STRING, &percentage_property, DBUS_TYPE_INVALID);
-		dbus_connection_send_with_reply(this->conn, m, &call, -1);
-		dbus_pending_call_set_notify(call, upower_get_percentage_properties_reply, this, NULL);
-		dbus_message_unref(m);
-	}
+	m = dbus_message_new_method_call(UPOWER_SERVICE, UPOWER_DISPLAY_DEVICE_OBJECT, DBUS_INTERFACE_PROPERTIES, "Get");
+	if (m == NULL)
+		goto fail4;
 
-    return this;
+	dbus_message_append_args(m,
+				 DBUS_TYPE_STRING, &(const char *){ UPOWER_DEVICE_INTERFACE },
+				 DBUS_TYPE_STRING, &(const char *){ "Percentage" },
+				 DBUS_TYPE_INVALID);
+	dbus_message_set_auto_start(m, false);
+	dbus_connection_send_with_reply(this->conn, m, &call, -1);
+	dbus_pending_call_set_notify(call, upower_get_percentage_properties_reply, this, NULL);
+	dbus_message_unref(m);
+
+	return this;
 
 fail4:
-    free(this);
-    return NULL;
+	free(this);
+	return NULL;
 }
 
 void upower_unregister(void *data)

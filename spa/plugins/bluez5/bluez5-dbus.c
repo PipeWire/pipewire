@@ -3212,7 +3212,7 @@ static void transport_set_property_volume_reply(DBusPendingCall *pending, void *
 {
 	struct spa_bt_transport *transport = user_data;
 	struct spa_bt_monitor *monitor = transport->monitor;
-	DBusError err;
+	DBusError err = DBUS_ERROR_INIT;
 	DBusMessage *r;
 
 	r = dbus_pending_call_steal_reply(pending);

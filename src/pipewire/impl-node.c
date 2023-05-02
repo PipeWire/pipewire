@@ -1093,7 +1093,7 @@ static inline int resume_node(struct pw_impl_node *this, int status, uint64_t ns
 {
 	struct pw_node_target *t;
 
-	pw_log_trace_fp("%p: trigger peers %"PRIu64, this, nsec);
+	pw_log_trace_fp("%p: %s trigger peers %"PRIu64, this, this->name, nsec);
 
 	spa_list_for_each(t, &this->rt.target_list, link) {
 		struct pw_node_activation *a = t->activation;
@@ -1133,7 +1133,8 @@ static inline int process_node(void *data)
 	uint64_t nsec;
 
 	nsec = get_time_ns(data_system);
-	pw_log_trace_fp("%p: %s process %"PRIu64, this, this->name, nsec);
+	pw_log_trace_fp("%p: %s process remote:%u exported:%u %"PRIu64,
+			this, this->name, this->remote, this->exported, nsec);
 	a->status = PW_NODE_ACTIVATION_AWAKE;
 	a->awake_time = nsec;
 
@@ -1195,7 +1196,8 @@ static void node_on_fd_events(struct spa_source *source)
 			pw_log_info("(%s-%u) client missed %"PRIu64" wakeups",
 				this->name, this->info.id, cmd - 1);
 
-		pw_log_trace_fp("%p: got process", this);
+		pw_log_trace_fp("%p: remote:%u exported:%u %s got process", this, this->remote,
+				this->exported, this->name);
 		process_node(this);
 	}
 }

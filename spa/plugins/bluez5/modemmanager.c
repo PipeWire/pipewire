@@ -18,8 +18,6 @@ struct modem {
 };
 
 struct impl {
-	struct spa_bt_monitor *monitor;
-
 	struct spa_log *log;
 	DBusConnection *conn;
 

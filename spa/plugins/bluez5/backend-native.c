@@ -2794,7 +2794,7 @@ static int backend_native_free(void *data)
 	sco_close(backend);
 
 	if (backend->modemmanager) {
-		mm_unregister(backend);
+		mm_unregister(backend->modemmanager);
 		backend->modemmanager = NULL;
 	}
 

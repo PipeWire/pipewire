@@ -1036,7 +1036,7 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 
 			case DBUS_TYPE_BOOLEAN:
 				{
-					bool value;
+					dbus_bool_t value;
 					dbus_message_iter_get_basic(&value_i, &value);
 					if (spa_streq(key, "Connected"))
 						endpoint->connected = value;

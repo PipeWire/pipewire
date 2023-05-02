@@ -1111,6 +1111,18 @@ static inline int resume_node(struct pw_impl_node *this, int status, uint64_t ns
 	return 0;
 }
 
+static inline int node_signal_func(void *data)
+{
+	struct pw_impl_node *this = data;
+	struct spa_system *data_system = this->data_system;
+
+	pw_log_trace_fp("node %p %s", this, this->name);
+	if (SPA_UNLIKELY(spa_system_eventfd_write(data_system, this->source.fd, 1) < 0))
+		pw_log_warn("node %p: write failed %m", this);
+
+	return 0;
+}
+
 static inline void calculate_stats(struct pw_impl_node *this,  struct pw_node_activation *a)
 {
 	if (SPA_LIKELY(a->signal_time > a->prev_signal_time)) {
@@ -1316,9 +1328,9 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	this->rt.activation = this->activation->map->ptr;
 	this->rt.target.activation = this->rt.activation;
 	this->rt.target.node = this;
-	this->rt.target.signal_func = process_node;
+	this->rt.target.signal_func = node_signal_func;
 	this->rt.target.data = this;
-	this->rt.driver_target.signal_func = process_node;
+	this->rt.driver_target.signal_func = node_signal_func;
 
 	reset_position(this, &this->rt.activation->position);
 	this->rt.activation->sync_timeout = DEFAULT_SYNC_TIMEOUT;

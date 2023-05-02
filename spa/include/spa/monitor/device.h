@@ -275,7 +275,8 @@ struct spa_device_methods {
 #define SPA_KEY_DEVICE_PROFILE_SET	"device.profile-set"	/**< profile set for the device */
 #define SPA_KEY_DEVICE_STRING		"device.string"		/**< device string in the underlying
 								  *  layer's format. E.g. "surround51:0" */
-
+#define SPA_KEY_DEVICE_DEVIDS		"device.devids"		/**< space separated list of device ids (dev_t) of the
+								  *  underlying device(s) if applicable */
 /**
  * \}
  */

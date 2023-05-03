@@ -914,6 +914,7 @@ int pw_impl_port_register(struct pw_impl_port *port,
 		PW_KEY_PORT_CONTROL,
 		PW_KEY_PORT_ALIAS,
 		PW_KEY_PORT_EXTRA,
+		PW_KEY_PORT_IGNORE_LATENCY,
 		NULL
 	};
 
@@ -991,6 +992,8 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 	is_network = pw_properties_get_bool(nprops, PW_KEY_NODE_NETWORK, false);
 
 	is_monitor = pw_properties_get_bool(port->properties, PW_KEY_PORT_MONITOR, false);
+
+	port->ignore_latency = pw_properties_get_bool(port->properties, PW_KEY_PORT_IGNORE_LATENCY, false);
 
 	is_control = PW_IMPL_PORT_IS_CONTROL(port);
 	if (is_control) {
@@ -1440,6 +1443,11 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 	if (port->direction == PW_DIRECTION_OUTPUT) {
 		spa_list_for_each(l, &port->links, output_link) {
 			other = l->input;
+			if (other->ignore_latency) {
+				pw_log_debug("port %d: peer %d: peer latency ignored",
+						port->info.id, other->info.id);
+				continue;
+			}
 			spa_latency_info_combine(&latency, &other->latency[other->direction]);
 			pw_log_debug("port %d: peer %d: latency %f-%f %d-%d %"PRIu64"-%"PRIu64,
 					port->info.id, other->info.id,
@@ -1450,6 +1458,11 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 	} else {
 		spa_list_for_each(l, &port->links, input_link) {
 			other = l->output;
+			if (other->ignore_latency) {
+				pw_log_debug("port %d: peer %d: peer latency ignored",
+						port->info.id, other->info.id);
+				continue;
+			}
 			spa_latency_info_combine(&latency, &other->latency[other->direction]);
 			pw_log_debug("port %d: peer %d: latency %f-%f %d-%d %"PRIu64"-%"PRIu64,
 					port->info.id, other->info.id,

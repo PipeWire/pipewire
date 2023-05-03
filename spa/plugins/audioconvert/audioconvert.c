@@ -218,6 +218,7 @@ struct impl {
 	unsigned int ramp_volume:1;
 	unsigned int drained:1;
 	unsigned int rate_adjust:1;
+	unsigned int port_ignore_latency:1;
 
 	uint32_t empty_size;
 	float *empty;
@@ -265,7 +266,7 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 	if (full)
 		port->info.change_mask = port->info_all;
 	if (port->info.change_mask) {
-		struct spa_dict_item items[3];
+		struct spa_dict_item items[4];
 		uint32_t n_items = 0;
 
 		if (PORT_IS_DSP(this, port->direction, port->id)) {
@@ -273,6 +274,8 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_CHANNEL, port->position);
 			if (port->is_monitor)
 				items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_MONITOR, "true");
+			if (this->port_ignore_latency)
+				items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_IGNORE_LATENCY, "true");
 		} else if (PORT_IS_CONTROL(this, port->direction, port->id)) {
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_NAME, "control");
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "8 bit raw midi");
@@ -3144,6 +3147,8 @@ impl_init(const struct spa_handle_factory *factory,
 			if (s != NULL)
 	                        this->props.n_channels = parse_position(this->props.channel_map, s, strlen(s));
 		}
+		else if (spa_streq(k, SPA_KEY_PORT_IGNORE_LATENCY))
+			this->port_ignore_latency = spa_atob(s);
 		else
 			audioconvert_set_param(this, k, s);
 	}

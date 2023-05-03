@@ -893,6 +893,7 @@ struct pw_impl_port {
 
 	struct spa_latency_info latency[2];	/**< latencies */
 	unsigned int have_latency_param:1;
+	unsigned int ignore_latency:1;
 
 	void *owner_data;		/**< extra owner data */
 	void *user_data;                /**< extra user data */

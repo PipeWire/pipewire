@@ -197,6 +197,7 @@ extern "C" {
 #define PW_KEY_PORT_EXTRA		"port.extra"		/**< api specific extra port info, API name
 								  *  should be prefixed. "jack:flags:56" */
 #define PW_KEY_PORT_PASSIVE		"port.passive"		/**< the ports wants passive links, since 0.3.67 */
+#define PW_KEY_PORT_IGNORE_LATENCY	"port.ignore-latency"	/**< latency ignored by peers, since 0.3.71 */
 
 /** link properties */
 #define PW_KEY_LINK_ID			"link.id"		/**< a link id */

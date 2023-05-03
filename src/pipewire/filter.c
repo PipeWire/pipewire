@@ -131,7 +131,9 @@ struct filter {
 #define NODE_PropInfo		0
 #define NODE_Props		1
 #define NODE_ProcessLatency	2
-#define N_NODE_PARAMS		3
+#define NODE_EnumFormat		3
+#define NODE_Format		4
+#define N_NODE_PARAMS		5
 	struct spa_param_info params[N_NODE_PARAMS];
 
 	struct spa_process_latency_info process_latency;
@@ -163,6 +165,10 @@ static int get_param_index(uint32_t id)
 		return NODE_Props;
 	case SPA_PARAM_ProcessLatency:
 		return NODE_ProcessLatency;
+	case SPA_PARAM_EnumFormat:
+		return NODE_EnumFormat;
+	case SPA_PARAM_Format:
+		return NODE_Format;
 	default:
 		return -1;
 	}
@@ -435,9 +441,6 @@ static int impl_set_param(void *object, uint32_t id, uint32_t flags, const struc
 {
 	struct filter *impl = object;
 	struct pw_filter *filter = &impl->this;
-
-	if (id != SPA_PARAM_Props)
-		return -ENOTSUP;
 
 	pw_filter_emit_param_changed(filter, NULL, id, param);
 	return 0;
@@ -1594,6 +1597,8 @@ pw_filter_connect(struct pw_filter *filter,
 	impl->params[NODE_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, 0);
 	impl->params[NODE_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_WRITE);
 	impl->params[NODE_ProcessLatency] = SPA_PARAM_INFO(SPA_PARAM_ProcessLatency, 0);
+	impl->params[NODE_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
+	impl->params[NODE_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	impl->info.params = impl->params;
 	impl->info.n_params = N_NODE_PARAMS;
 	impl->info.change_mask = impl->change_mask_all;

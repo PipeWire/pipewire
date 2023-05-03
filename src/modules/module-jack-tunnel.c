@@ -47,8 +47,8 @@
  *
  * - `jack.server`: the name of the JACK server to tunnel to.
  * - `tunnel.mode`: the tunnel mode, sink|source|duplex, default duplex
- * - `source.props`: Extra properties for the source stream.
- * - `sink.props`: Extra properties for the sink stream.
+ * - `source.props`: Extra properties for the source filter.
+ * - `sink.props`: Extra properties for the sink filter.
  *
  * ## General options
  *
@@ -111,6 +111,14 @@ static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
+struct port {
+	jack_port_t *jack_port;
+
+	enum spa_direction direction;
+	struct spa_latency_info latency[2];
+	bool latency_changed[2];
+};
+
 struct impl {
 	struct pw_context *context;
 	struct pw_loop *main_loop;
@@ -133,28 +141,22 @@ struct impl {
 	struct spa_io_position *position;
 
 	struct pw_properties *source_props;
-	struct pw_stream *source;
+	struct pw_filter *source;
 	struct spa_hook source_listener;
 	struct spa_audio_info_raw source_info;
-	struct spa_latency_info source_latency[2];
-	bool source_latency_changed[2];
-
-	jack_client_t *client;
-	jack_port_t *source_ports[SPA_AUDIO_MAX_CHANNELS];
+	struct port *source_ports[SPA_AUDIO_MAX_CHANNELS];
 
 	struct pw_properties *sink_props;
-	struct pw_stream *sink;
+	struct pw_filter *sink;
 	struct spa_hook sink_listener;
 	struct spa_audio_info_raw sink_info;
-	struct spa_latency_info sink_latency[2];
-	bool sink_latency_changed[2];
-
-	jack_port_t *sink_ports[SPA_AUDIO_MAX_CHANNELS];
+	struct port *sink_ports[SPA_AUDIO_MAX_CHANNELS];
 
 	uint32_t nframes;
 	uint32_t samplerate;
 
-	jack_nframes_t frames;
+	jack_client_t *client;
+	jack_nframes_t frame_time;
 
 	uint32_t pw_xrun;
 	uint32_t jack_xrun;
@@ -166,33 +168,33 @@ struct impl {
 	unsigned int new_xrun:1;
 };
 
-static void source_stream_destroy(void *d)
+static void source_destroy(void *d)
 {
 	struct impl *impl = d;
 	spa_hook_remove(&impl->source_listener);
 	impl->source = NULL;
 }
 
-static void sink_stream_destroy(void *d)
+static void sink_destroy(void *d)
 {
 	struct impl *impl = d;
 	spa_hook_remove(&impl->sink_listener);
 	impl->sink = NULL;
 }
 
-static void sink_stream_state_changed(void *d, enum pw_stream_state old,
-		enum pw_stream_state state, const char *error)
+static void sink_state_changed(void *d, enum pw_filter_state old,
+		enum pw_filter_state state, const char *error)
 {
 	struct impl *impl = d;
 	switch (state) {
-	case PW_STREAM_STATE_ERROR:
-	case PW_STREAM_STATE_UNCONNECTED:
+	case PW_FILTER_STATE_ERROR:
+	case PW_FILTER_STATE_UNCONNECTED:
 		pw_impl_module_schedule_destroy(impl->module);
 		break;
-	case PW_STREAM_STATE_PAUSED:
+	case PW_FILTER_STATE_PAUSED:
 		impl->sink_running = false;
 		break;
-	case PW_STREAM_STATE_STREAMING:
+	case PW_FILTER_STATE_STREAMING:
 		impl->sink_running = true;
 		break;
 	default:
@@ -200,166 +202,267 @@ static void sink_stream_state_changed(void *d, enum pw_stream_state old,
 	}
 }
 
-static void sink_stream_process(void *d)
+static void sink_process(void *d, struct spa_io_position *position)
 {
 	struct impl *impl = d;
-	struct pw_buffer *buf;
-	struct spa_data *bd;
-	uint32_t i, offs, size;
-	void *data;
+	uint32_t i, n_samples = position->clock.duration;
 
-	if ((buf = pw_stream_dequeue_buffer(impl->sink)) == NULL) {
-		pw_log_warn("out of buffers: %m");
-		goto done;
+	for (i = 0; i < impl->sink_info.channels; i++) {
+		struct port *p = impl->sink_ports[i];
+		float *src, *dst;
+		if (p == NULL)
+			continue;
+		src = pw_filter_get_dsp_buffer(p, n_samples);
+		if (src == NULL || p->jack_port == NULL)
+			continue;
+
+		dst = jack_port_get_buffer(p->jack_port, n_samples);
+		memcpy(dst, src, n_samples * sizeof(float));
 	}
-
-	for (i = 0; i < buf->buffer->n_datas; i++) {
-		if (impl->sink_ports[i] == NULL)
-			break;
-
-		bd = &buf->buffer->datas[i];
-		offs = SPA_MIN(bd->chunk->offset, bd->maxsize);
-		size = SPA_MIN(bd->chunk->size, bd->maxsize - offs);
-		size = SPA_MIN(size, impl->nframes * sizeof(float));
-
-		data = jack_port_get_buffer (impl->sink_ports[i], impl->nframes);
-		memcpy(data, SPA_PTROFF(bd->data, offs, void), size);
-	}
-	pw_stream_queue_buffer(impl->sink, buf);
-done:
 	pw_log_trace_fp("done %u", impl->frames);
 	impl->done = true;
 	jack_cycle_signal(impl->client, 0);
 }
 
-static void source_stream_process(void *d)
+static void source_process(void *d, struct spa_io_position *position)
 {
 	struct impl *impl = d;
-	struct pw_buffer *buf;
-	struct spa_data *bd;
-	uint32_t i, size;
-	void *data;
+	uint32_t i, n_samples = position->clock.duration;
 
-	if ((buf = pw_stream_dequeue_buffer(impl->source)) == NULL) {
-		pw_log_warn("out of buffers: %m");
-		return;
+	for (i = 0; i < impl->source_info.channels; i++) {
+		struct port *p = impl->source_ports[i];
+		float *src, *dst;
+
+		if (p == NULL)
+			continue;
+
+		dst = pw_filter_get_dsp_buffer(p, n_samples);
+		if (dst == NULL || p->jack_port == NULL)
+			continue;
+
+		src = jack_port_get_buffer (p->jack_port, n_samples);
+		memcpy(dst, src, n_samples * sizeof(float));
 	}
-
-	for (i = 0; i < buf->buffer->n_datas; i++) {
-		if (impl->source_ports[i] == NULL)
-			break;
-
-		bd = &buf->buffer->datas[i];
-		size = SPA_MIN(bd->maxsize, impl->nframes * sizeof(float));
-
-		data = jack_port_get_buffer (impl->source_ports[i], impl->nframes);
-		memcpy(bd->data, data, size);
-
-		bd->chunk->offset = 0;
-		bd->chunk->size = size;
-		bd->chunk->stride = sizeof(float);
-	}
-	pw_stream_queue_buffer(impl->source, buf);
-	pw_log_trace_fp("done");
+	pw_log_trace_fp("done %u", impl->frame_time);
 }
 
-static void source_stream_state_changed(void *d, enum pw_stream_state old,
-		enum pw_stream_state state, const char *error)
+static void source_state_changed(void *d, enum pw_filter_state old,
+		enum pw_filter_state state, const char *error)
 {
 	struct impl *impl = d;
 	switch (state) {
-	case PW_STREAM_STATE_ERROR:
-	case PW_STREAM_STATE_UNCONNECTED:
+	case PW_FILTER_STATE_ERROR:
+	case PW_FILTER_STATE_UNCONNECTED:
 		pw_impl_module_schedule_destroy(impl->module);
 		break;
-	case PW_STREAM_STATE_PAUSED:
+	case PW_FILTER_STATE_PAUSED:
 		impl->source_running = false;
 		break;
-	case PW_STREAM_STATE_STREAMING:
+	case PW_FILTER_STATE_STREAMING:
 		impl->source_running = true;
 		break;
 	default:
 		break;
 	}
 }
-static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size)
+static void io_changed(void *data, void *port_data, uint32_t id, void *area, uint32_t size)
 {
 	struct impl *impl = data;
-	switch (id) {
-	case SPA_IO_Position:
-		impl->position = area;
-		break;
-	default:
-		break;
+	if (port_data == NULL) {
+		switch (id) {
+		case SPA_IO_Position:
+			impl->position = area;
+			break;
+		default:
+			break;
+		}
 	}
 }
 
 static void param_latency_changed(struct impl *impl, const struct spa_pod *param,
-		enum spa_direction direction)
+		struct port *port)
 {
 	struct spa_latency_info latency;
 	bool update = false;
+	enum spa_direction direction = port->direction;
 
 	if (spa_latency_parse(param, &latency) < 0)
 		return;
 
-	if (direction == SPA_DIRECTION_OUTPUT) {
-		if (spa_latency_info_compare(&impl->sink_latency[direction], &latency)) {
-			impl->sink_latency[direction] = latency;
-			impl->sink_latency_changed[direction] = update = true;
-		}
-	} else {
-		if (spa_latency_info_compare(&impl->source_latency[direction], &latency)) {
-			impl->source_latency[direction] = latency;
-			impl->source_latency_changed[direction] = update = true;
-		}
+	if (spa_latency_info_compare(&port->latency[direction], &latency)) {
+		port->latency[direction] = latency;
+		port->latency_changed[direction] = update = true;
 	}
 	if (update)
 		jack_recompute_total_latencies(impl->client);
 }
 
-static void sink_param_changed(void *data, uint32_t id, const struct spa_pod *param)
+static void make_sink_ports(struct impl *impl)
+{
+	uint32_t i;
+	struct pw_properties *props;
+	const char *str;
+	char name[256];
+	const char **ports;
+
+	ports = jack_get_ports(impl->client, NULL, NULL,
+                                JackPortIsPhysical|JackPortIsInput);
+
+	for (i = 0; i < impl->sink_info.channels; i++) {
+		struct port *port = impl->sink_ports[i];
+		if (port != NULL) {
+			impl->sink_ports[i] = NULL;
+			if (port->jack_port)
+				jack_port_unregister(impl->client, port->jack_port);
+			pw_filter_remove_port(port);
+		}
+
+		props = pw_properties_new(
+				PW_KEY_FORMAT_DSP, "32 bit float mono audio",
+				NULL);
+		str = spa_debug_type_find_short_name(spa_type_audio_channel,
+				impl->sink_info.position[i]);
+		pw_properties_setf(props,
+				PW_KEY_AUDIO_CHANNEL, "%s", str ? str : "UNK");
+		port = pw_filter_add_port(impl->sink,
+                        PW_DIRECTION_INPUT,
+                        PW_FILTER_PORT_FLAG_MAP_BUFFERS,
+                        sizeof(struct port),
+			props, NULL, 0);
+
+		if (str)
+			snprintf(name, sizeof(name), "output_%s", str);
+		else
+			snprintf(name, sizeof(name), "output_%d", i);
+
+		port->jack_port = jack_port_register (impl->client, name,
+					JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+
+		impl->sink_ports[i] = port;
+
+		if (ports != NULL && ports[i] != NULL) {
+			if (jack_connect(impl->client, jack_port_name(port->jack_port), ports[i]))
+				pw_log_warn("cannot connect output ports");
+		}
+	}
+	if (ports)
+		jack_free(ports);
+}
+
+static void sink_param_changed(void *data, void *port_data, uint32_t id,
+		const struct spa_pod *param)
 {
 	struct impl *impl = data;
-	switch (id) {
-	case SPA_PARAM_Latency:
-		param_latency_changed(impl, param, SPA_DIRECTION_OUTPUT);
-		break;
+	if (port_data != NULL) {
+		switch (id) {
+		case SPA_PARAM_Latency:
+			param_latency_changed(impl, param, port_data);
+			break;
+		}
+	} else {
+		switch (id) {
+		case SPA_PARAM_PortConfig:
+			pw_log_info("PortConfig");
+			make_sink_ports(impl);
+			break;
+		}
 	}
 }
-static void source_param_changed(void *data, uint32_t id, const struct spa_pod *param)
+static void make_source_ports(struct impl *impl)
+{
+	uint32_t i;
+	struct pw_properties *props;
+	const char *str;
+	char name[256];
+	const char **ports;
+
+	ports = jack_get_ports(impl->client, NULL, NULL,
+                                JackPortIsPhysical|JackPortIsOutput);
+
+	for (i = 0; i < impl->source_info.channels; i++) {
+		struct port *port = impl->source_ports[i];
+		if (port != NULL) {
+			impl->source_ports[i] = NULL;
+			if (port->jack_port)
+				jack_port_unregister(impl->client, port->jack_port);
+			pw_filter_remove_port(port);
+		}
+
+		props = pw_properties_new(
+				PW_KEY_FORMAT_DSP, "32 bit float mono audio",
+				NULL);
+		str = spa_debug_type_find_short_name(spa_type_audio_channel,
+				impl->source_info.position[i]);
+		pw_properties_setf(props,
+				PW_KEY_AUDIO_CHANNEL, "%s", str ? str : "UNK");
+		port = pw_filter_add_port(impl->source,
+                        PW_DIRECTION_OUTPUT,
+                        PW_FILTER_PORT_FLAG_MAP_BUFFERS,
+                        sizeof(struct port),
+			props, NULL, 0);
+
+		if (str)
+			snprintf(name, sizeof(name), "input_%s", str);
+		else
+			snprintf(name, sizeof(name), "input_%d", i);
+
+		port->jack_port = jack_port_register (impl->client, name,
+					JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
+
+		impl->source_ports[i] = port;
+
+		if (ports != NULL && ports[i] != NULL) {
+			if (jack_connect(impl->client, ports[i], jack_port_name(port->jack_port)))
+				pw_log_warn("cannot connect input ports");
+		}
+	}
+	if (ports)
+		jack_free(ports);
+}
+
+static void source_param_changed(void *data, void *port_data, uint32_t id,
+		const struct spa_pod *param)
 {
 	struct impl *impl = data;
-	switch (id) {
-	case SPA_PARAM_Latency:
-		param_latency_changed(impl, param, SPA_DIRECTION_INPUT);
-		break;
+	if (port_data != NULL) {
+		switch (id) {
+		case SPA_PARAM_Latency:
+			param_latency_changed(impl, param, port_data);
+			break;
+		}
+	} else {
+		switch (id) {
+		case SPA_PARAM_PortConfig:
+			pw_log_info("PortConfig");
+			make_source_ports(impl);
+			break;
+		}
 	}
 }
 
-static const struct pw_stream_events sink_stream_events = {
-	PW_VERSION_STREAM_EVENTS,
-	.destroy = sink_stream_destroy,
-	.state_changed = sink_stream_state_changed,
+static const struct pw_filter_events sink_events = {
+	PW_VERSION_FILTER_EVENTS,
+	.destroy = sink_destroy,
+	.state_changed = sink_state_changed,
 	.param_changed = sink_param_changed,
-	.io_changed = stream_io_changed,
-	.process = sink_stream_process
+	.io_changed = io_changed,
+	.process = sink_process
 };
 
-static const struct pw_stream_events source_stream_events = {
-	PW_VERSION_STREAM_EVENTS,
-	.destroy = source_stream_destroy,
-	.state_changed = source_stream_state_changed,
+static const struct pw_filter_events source_events = {
+	PW_VERSION_FILTER_EVENTS,
+	.destroy = source_destroy,
+	.state_changed = source_state_changed,
 	.param_changed = source_param_changed,
-	.io_changed = stream_io_changed,
-	.process = source_stream_process,
+	.io_changed = io_changed,
+	.process = source_process,
 };
 
-static int create_streams(struct impl *impl)
+static int create_filters(struct impl *impl)
 {
 	int res;
 	uint32_t n_params;
-	const struct spa_pod *params[2];
+	const struct spa_pod *params[4];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	struct spa_latency_info latency;
@@ -370,48 +473,52 @@ static int create_streams(struct impl *impl)
 	spa_zero(latency);
 
 	if (impl->mode & MODE_SINK) {
-		impl->sink = pw_stream_new(impl->core, "JACK Sink", impl->sink_props);
+		impl->sink = pw_filter_new(impl->core,
+				"JACK Sink",
+				impl->sink_props);
 		impl->sink_props = NULL;
 		if (impl->sink == NULL)
 			return -errno;
 
-		pw_stream_add_listener(impl->sink,
+		pw_filter_add_listener(impl->sink,
 				&impl->sink_listener,
-				&sink_stream_events, impl);
+				&sink_events, impl);
 
+		n_params = 0;
 		params[n_params++] = spa_format_audio_raw_build(&b,
 				SPA_PARAM_EnumFormat, &impl->sink_info);
+		params[n_params++] = spa_format_audio_raw_build(&b,
+				SPA_PARAM_Format, &impl->sink_info);
 
-		if ((res = pw_stream_connect(impl->sink,
-				PW_DIRECTION_INPUT,
-				PW_ID_ANY,
-				PW_STREAM_FLAG_AUTOCONNECT |
-				PW_STREAM_FLAG_MAP_BUFFERS |
-				PW_STREAM_FLAG_DRIVER |
-				PW_STREAM_FLAG_RT_PROCESS,
+		if ((res = pw_filter_connect(impl->sink,
+				PW_FILTER_FLAG_DRIVER |
+				PW_FILTER_FLAG_RT_PROCESS |
+				PW_FILTER_FLAG_CUSTOM_LATENCY,
 				params, n_params)) < 0)
 			return res;
 	}
 	if (impl->mode & MODE_SOURCE) {
-		impl->source = pw_stream_new(impl->core, "JACK Source", impl->source_props);
+		impl->source = pw_filter_new(impl->core,
+				"JACK Source",
+				impl->source_props);
 		impl->source_props = NULL;
 		if (impl->source == NULL)
 			return -errno;
 
-		pw_stream_add_listener(impl->source,
+		pw_filter_add_listener(impl->source,
 				&impl->source_listener,
-				&source_stream_events, impl);
+				&source_events, impl);
 
+		n_params = 0;
 		params[n_params++] = spa_format_audio_raw_build(&b,
 				SPA_PARAM_EnumFormat, &impl->source_info);
+		params[n_params++] = spa_format_audio_raw_build(&b,
+				SPA_PARAM_Format, &impl->source_info);
 
-		if ((res = pw_stream_connect(impl->source,
-				PW_DIRECTION_OUTPUT,
-				PW_ID_ANY,
-				PW_STREAM_FLAG_AUTOCONNECT |
-				PW_STREAM_FLAG_MAP_BUFFERS |
-				PW_STREAM_FLAG_DRIVER |
-				PW_STREAM_FLAG_RT_PROCESS,
+		if ((res = pw_filter_connect(impl->source,
+				PW_FILTER_FLAG_DRIVER |
+				PW_FILTER_FLAG_RT_PROCESS |
+				PW_FILTER_FLAG_CUSTOM_LATENCY,
 				params, n_params)) < 0)
 			return res;
 	}
@@ -430,10 +537,10 @@ static void *jack_process_thread(void *arg)
 		source_running = impl->source_running;
 		sink_running = impl->sink_running;
 
-		impl->frames = jack_frame_time(impl->client);
+		impl->frame_time = jack_frame_time(impl->client);
 
 		pw_log_trace_fp("process %d %u %u %p %d", nframes, source_running,
-				sink_running, impl->position, impl->frames);
+				sink_running, impl->position, impl->frame_time);
 
 		if (impl->new_xrun) {
 			pw_log_warn("Xrun JACK:%u PipeWire:%u", impl->jack_xrun, impl->pw_xrun);
@@ -469,7 +576,7 @@ static void *jack_process_thread(void *arg)
 
 		if (sink_running && source_running) {
 			impl->done = false;
-			pw_stream_trigger_process(impl->sink);
+			pw_filter_trigger_process(impl->sink);
 		} else {
 			jack_cycle_signal(impl->client, 0);
 		}
@@ -515,30 +622,41 @@ do_update_latency(struct spa_loop *loop,
 {
 	struct impl *impl = user_data;
 	const struct spa_pod *params[2];
-	uint32_t n_params = 0;
+	uint32_t i, n_params = 0;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 
 	if ((impl->mode & MODE_SINK)) {
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if (impl->sink_latency_changed[SPA_DIRECTION_INPUT]) {
-			params[n_params++] = spa_latency_build(&b,
-					SPA_PARAM_Latency, &impl->sink_latency[SPA_DIRECTION_INPUT]);
-			impl->sink_latency_changed[SPA_DIRECTION_INPUT] = false;
+		for (i = 0; i < impl->sink_info.channels; i++) {
+			struct port *port = impl->sink_ports[i];
+			if (port == NULL)
+				continue;
+			spa_pod_builder_init(&b, buffer, sizeof(buffer));
+			n_params = 0;
+			if (port->latency_changed[SPA_DIRECTION_INPUT]) {
+				params[n_params++] = spa_latency_build(&b,
+					SPA_PARAM_Latency, &port->latency[SPA_DIRECTION_INPUT]);
+				port->latency_changed[SPA_DIRECTION_INPUT] = false;
+			}
+			if (impl->sink)
+				pw_filter_update_params(impl->sink, port, params, n_params);
 		}
-		if (impl->sink)
-			pw_stream_update_params(impl->sink, params, n_params);
 	}
-
 	if ((impl->mode & MODE_SOURCE)) {
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if (impl->source_latency_changed[SPA_DIRECTION_OUTPUT]) {
-			params[n_params++] = spa_latency_build(&b,
-					SPA_PARAM_Latency, &impl->source_latency[SPA_DIRECTION_OUTPUT]);
-			impl->source_latency_changed[SPA_DIRECTION_OUTPUT] = false;
+		for (i = 0; i < impl->source_info.channels; i++) {
+			struct port *port = impl->source_ports[i];
+			if (port == NULL)
+				continue;
+			spa_pod_builder_init(&b, buffer, sizeof(buffer));
+			n_params = 0;
+			if (port->latency_changed[SPA_DIRECTION_OUTPUT]) {
+				params[n_params++] = spa_latency_build(&b,
+					SPA_PARAM_Latency, &port->latency[SPA_DIRECTION_OUTPUT]);
+				port->latency_changed[SPA_DIRECTION_OUTPUT] = false;
+			}
+			if (impl->source)
+				pw_filter_update_params(impl->source, port, params, n_params);
 		}
-		if (impl->source)
-			pw_stream_update_params(impl->source, params, n_params);
 	}
 	return 0;
 }
@@ -547,69 +665,74 @@ static void jack_latency(jack_latency_callback_mode_t mode, void *arg)
 {
 	struct impl *impl = arg;
 	uint32_t i;
-	jack_latency_range_t range, total;
 	struct spa_latency_info latency;
+	jack_latency_range_t range;
 	bool update = false;
 
 	spa_zero(latency);
 
 	if ((impl->mode & MODE_SINK)) {
 		if (mode == JackPlaybackLatency) {
-			total.min = total.max = 0;
 			for (i = 0; i < impl->sink_info.channels; i++) {
-				jack_port_get_latency_range(impl->sink_ports[i], mode, &range);
-				if (total.min == 0 || range.min < total.min)
-					total.min = range.min;
-				if (total.max == 0 || range.max > total.max)
-					total.max = range.max;
-			}
-			pw_log_debug("sink latency %d %d %d", mode, total.min, total.max);
+				struct port *port = impl->sink_ports[i];
+				if (port == NULL || port->jack_port == NULL)
+					continue;
 
-			latency.direction = PW_DIRECTION_INPUT;
-			latency.min_rate = total.min;
-			latency.max_rate = total.max;
+				jack_port_get_latency_range(port->jack_port, mode, &range);
 
-			if (spa_latency_info_compare(&latency, &impl->sink_latency[PW_DIRECTION_INPUT])) {
-				impl->sink_latency[PW_DIRECTION_INPUT] = latency;
-				impl->sink_latency_changed[PW_DIRECTION_INPUT] = update = true;
+				latency.direction = PW_DIRECTION_INPUT;
+				latency.min_rate = range.min;
+				latency.max_rate = range.max;
+				pw_log_debug("port latency %d %d %d", mode, range.min, range.max);
+
+				if (spa_latency_info_compare(&latency, &port->latency[PW_DIRECTION_INPUT])) {
+					port->latency[PW_DIRECTION_INPUT] = latency;
+					port->latency_changed[PW_DIRECTION_INPUT] = update = true;
+				}
 			}
 		} else if (mode == JackCaptureLatency) {
-			if (impl->sink_latency_changed[PW_DIRECTION_OUTPUT]) {
-				range.min = impl->sink_latency[PW_DIRECTION_OUTPUT].min_rate;
-				range.max = impl->sink_latency[PW_DIRECTION_OUTPUT].max_rate;
-				for (i = 0; i < impl->sink_info.channels; i++)
-					jack_port_set_latency_range(impl->sink_ports[i], mode, &range);
-				impl->sink_latency_changed[PW_DIRECTION_OUTPUT] = false;
+			for (i = 0; i < impl->sink_info.channels; i++) {
+				struct port *port = impl->sink_ports[i];
+				if (port == NULL || port->jack_port == NULL)
+					continue;
+				if (port->latency_changed[PW_DIRECTION_OUTPUT]) {
+					range.min = port->latency[PW_DIRECTION_OUTPUT].min_rate;
+					range.max = port->latency[PW_DIRECTION_OUTPUT].max_rate;
+					jack_port_set_latency_range(port->jack_port, mode, &range);
+					port->latency_changed[PW_DIRECTION_OUTPUT] = false;
+				}
 			}
 		}
 	}
 	if ((impl->mode & MODE_SOURCE) && mode == JackCaptureLatency) {
 		if (mode == JackCaptureLatency) {
-			total.min = total.max = 0;
 			for (i = 0; i < impl->source_info.channels; i++) {
-				jack_port_get_latency_range(impl->source_ports[i], mode, &range);
-				if (total.min == 0 || range.min < total.min)
-					total.min = range.min;
-				if (total.max == 0 || range.max > total.max)
-					total.max = range.max;
-			}
-			pw_log_debug("source latency %d %d %d", mode, total.min, total.max);
+				struct port *port = impl->source_ports[i];
+				if (port == NULL || port->jack_port == NULL)
+					continue;
+				jack_port_get_latency_range(port->jack_port, mode, &range);
 
-			latency.direction = PW_DIRECTION_OUTPUT;
-			latency.min_rate = total.min;
-			latency.max_rate = total.max;
+				latency.direction = PW_DIRECTION_OUTPUT;
+				latency.min_rate = range.min;
+				latency.max_rate = range.max;
+				pw_log_debug("port latency %d %d %d", mode, range.min, range.max);
 
-			if (spa_latency_info_compare(&latency, &impl->source_latency[PW_DIRECTION_OUTPUT])) {
-				impl->source_latency[PW_DIRECTION_OUTPUT] = latency;
-				impl->source_latency_changed[PW_DIRECTION_OUTPUT] = update = true;
+				if (spa_latency_info_compare(&latency, &port->latency[PW_DIRECTION_OUTPUT])) {
+					port->latency[PW_DIRECTION_OUTPUT] = latency;
+					port->latency_changed[PW_DIRECTION_OUTPUT] = update = true;
+				}
 			}
 		} else if (mode == JackPlaybackLatency) {
-			if (impl->source_latency_changed[PW_DIRECTION_INPUT]) {
-				range.min = impl->source_latency[PW_DIRECTION_INPUT].min_rate;
-				range.max = impl->source_latency[PW_DIRECTION_INPUT].max_rate;
-				for (i = 0; i < impl->sink_info.channels; i++)
-					jack_port_set_latency_range(impl->source_ports[i], mode, &range);
-				impl->source_latency_changed[PW_DIRECTION_INPUT] = false;
+			for (i = 0; i < impl->sink_info.channels; i++) {
+				struct port *port = impl->sink_ports[i];
+				if (port == NULL || port->jack_port == NULL)
+					continue;
+				if (port->latency_changed[PW_DIRECTION_INPUT]) {
+					range.min = port->latency[PW_DIRECTION_INPUT].min_rate;
+					range.max = port->latency[PW_DIRECTION_INPUT].max_rate;
+					jack_port_set_latency_range(port->jack_port, mode, &range);
+					port->latency_changed[PW_DIRECTION_INPUT] = false;
+				}
 			}
 		}
 	}
@@ -622,8 +745,6 @@ static int create_jack_client(struct impl *impl)
 	const char *server_name;
 	jack_options_t options = JackNullOption;
 	jack_status_t status;
-	uint32_t i;
-	char name[256];
 
 	server_name = pw_properties_get(impl->props, "jack.server");
 
@@ -640,62 +761,17 @@ static int create_jack_client(struct impl *impl)
 	jack_set_xrun_callback(impl->client, jack_xrun, impl);
 	jack_set_latency_callback(impl->client, jack_latency, impl);
 
-	if (impl->mode & MODE_SINK) {
-		for (i = 0; i < impl->sink_info.channels; i++) {
-			snprintf(name, sizeof(name), "output%d", i);
-			impl->sink_ports[i] = jack_port_register (impl->client, name,
-						JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
-		}
-
-	}
-	if (impl->mode & MODE_SOURCE) {
-		for (i = 0; i < impl->source_info.channels; i++) {
-			snprintf(name, sizeof(name), "input%d", i);
-			impl->source_ports[i] = jack_port_register (impl->client, name,
-						JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
-		}
-	}
-
 	impl->samplerate = jack_get_sample_rate(impl->client);
 	impl->source_info.rate = impl->samplerate;
 	impl->sink_info.rate = impl->samplerate;
+
 	return 0;
 }
 
 static int start_jack_clients(struct impl *impl)
 {
-	const char **ports;
-	uint32_t i;
-
 	jack_activate(impl->client);
 
-	ports = jack_get_ports(impl->client, NULL, NULL,
-                                JackPortIsPhysical|JackPortIsInput);
-	if (ports != NULL) {
-		for (i = 0; i < impl->sink_info.channels; i++) {
-			if (ports[i] == NULL)
-				break;
-			if (jack_connect(impl->client, jack_port_name(impl->sink_ports[i]), ports[i])) {
-				pw_log_error("cannot connect output ports");
-				break;
-			}
-		}
-		jack_free(ports);
-        }
-
-	ports = jack_get_ports(impl->client, NULL, NULL,
-                                JackPortIsPhysical|JackPortIsOutput);
-	if (ports != NULL) {
-		for (i = 0; i < impl->source_info.channels; i++) {
-			if (ports[i] == NULL)
-				break;
-			if (jack_connect(impl->client, ports[i], jack_port_name(impl->source_ports[i]))) {
-				pw_log_error("cannot connect input ports");
-				break;
-			}
-		}
-		jack_free(ports);
-        }
 	return 0;
 }
 
@@ -734,9 +810,9 @@ static void impl_destroy(struct impl *impl)
 		jack_client_close(impl->client);
 	}
 	if (impl->source)
-		pw_stream_destroy(impl->source);
+		pw_filter_destroy(impl->source);
 	if (impl->sink)
-		pw_stream_destroy(impl->sink);
+		pw_filter_destroy(impl->sink);
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
 
@@ -879,13 +955,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_properties_set(impl->sink_props, PW_KEY_PRIORITY_DRIVER, "30001");
 	pw_properties_set(impl->sink_props, PW_KEY_NODE_NAME, "jack_sink");
 	pw_properties_set(impl->sink_props, PW_KEY_NODE_DESCRIPTION, "JACK Sink");
-	pw_properties_set(impl->source_props, "resample.disable", "true");
 
 	pw_properties_set(impl->source_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 	pw_properties_set(impl->source_props, PW_KEY_PRIORITY_DRIVER, "30000");
 	pw_properties_set(impl->source_props, PW_KEY_NODE_NAME, "jack_source");
 	pw_properties_set(impl->source_props, PW_KEY_NODE_DESCRIPTION, "JACK Source");
-	pw_properties_set(impl->source_props, "resample.disable", "true");
 
 	if ((str = pw_properties_get(props, "sink.props")) != NULL)
 		pw_properties_update_string(impl->sink_props, str, strlen(str));
@@ -927,7 +1001,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if ((res = create_jack_client(impl)) < 0)
 		goto error;
 
-	if ((res = create_streams(impl)) < 0)
+	if ((res = create_filters(impl)) < 0)
 		goto error;
 
 	if ((res = start_jack_clients(impl)) < 0)

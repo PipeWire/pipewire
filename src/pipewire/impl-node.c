@@ -1712,10 +1712,13 @@ static int node_ready(void *data, int status)
 			}
 			node_signal_func(node);
 		} else {
-			/* calculate CPU time */
+			/* old nodes set the TRIGGERED status on node_ready, patch this
+			 * up here to avoid errors in pw-top */
+			a->status = PW_NODE_ACTIVATION_FINISHED;
 			a->signal_time = a->prev_signal_time;
 			a->prev_signal_time = impl->prev_signal_time;
 
+			/* calculate CPU time */
 			calculate_stats(node, a);
 
 			pw_log_trace_fp("%p: graph completed wait:%"PRIu64" run:%"PRIu64

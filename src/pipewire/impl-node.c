@@ -1730,6 +1730,8 @@ static int node_ready(void *data, int status)
 					a->cpu_load[0], a->cpu_load[1], a->cpu_load[2]);
 
 			pw_context_driver_emit_complete(node->context, node);
+
+			a->prev_signal_time = a->signal_time;
 		}
 
 		/* This update is done too late, the driver should do this

@@ -116,8 +116,6 @@ struct impl {
 	struct pw_loop *main_loop;
 	struct spa_system *system;
 
-	sem_t sem;
-
 #define MODE_SINK	(1<<0)
 #define MODE_SOURCE	(1<<1)
 #define MODE_DUPLEX	(MODE_SINK|MODE_SOURCE)
@@ -231,7 +229,7 @@ static void sink_stream_process(void *d)
 done:
 	pw_log_trace_fp("done %u", impl->frames);
 	impl->done = true;
-	sem_post(&impl->sem);
+	jack_cycle_signal(impl->client, 0);
 }
 
 static void source_stream_process(void *d)
@@ -420,76 +418,73 @@ static int create_streams(struct impl *impl)
 	return 0;
 }
 
-static int jack_process(jack_nframes_t nframes, void *arg)
+static void *jack_process_thread(void *arg)
 {
 	struct impl *impl = arg;
 	bool source_running, sink_running;
+	jack_nframes_t nframes;
 
-	source_running = impl->source_running;
-	sink_running = impl->sink_running;
+	while (true) {
+		nframes = jack_cycle_wait (impl->client);
 
-	impl->frames = jack_frame_time(impl->client);
+		source_running = impl->source_running;
+		sink_running = impl->sink_running;
 
-	pw_log_trace_fp("process %d %u %u %p %d", nframes, source_running,
-			sink_running, impl->position, impl->frames);
+		impl->frames = jack_frame_time(impl->client);
 
-	if (impl->position) {
-		struct spa_io_clock *c = &impl->position->clock;
-		jack_nframes_t current_frames;
-		jack_time_t current_usecs;
-		jack_time_t next_usecs;
-		float period_usecs;
-		jack_position_t pos;
+		pw_log_trace_fp("process %d %u %u %p %d", nframes, source_running,
+				sink_running, impl->position, impl->frames);
 
-		jack_get_cycle_times(impl->client,
-				&current_frames, &current_usecs,
-				&next_usecs, &period_usecs);
-
-		c->nsec = current_usecs * SPA_NSEC_PER_USEC;
-		c->rate = SPA_FRACTION(1, impl->samplerate);
-		c->position = current_frames;
-		c->duration = nframes;
-		c->delay = 0;
-		c->rate_diff = 1.0;
-		c->next_nsec = next_usecs * SPA_NSEC_PER_USEC;
-
-		c->target_rate = c->rate;
-		c->target_duration = c->duration;
-
-		jack_transport_query (impl->client, &pos);
-	}
-	impl->nframes = nframes;
-
-	if (sink_running && source_running) {
-
-		while (sem_trywait(&impl->sem) == 0);
-
-		impl->done = false;
-		pw_stream_trigger_process(impl->sink);
-
-		sem_wait(&impl->sem);
-		if (!impl->done) {
-			impl->pw_xrun++;
-			impl->new_xrun = true;
-		}
 		if (impl->new_xrun) {
 			pw_log_warn("Xrun JACK:%u PipeWire:%u", impl->jack_xrun, impl->pw_xrun);
 			impl->new_xrun = false;
 		}
-	}
-	pw_log_trace_fp("done %u", impl->frames);
 
-	return 0;
+		if (impl->position) {
+			struct spa_io_clock *c = &impl->position->clock;
+			jack_nframes_t current_frames;
+			jack_time_t current_usecs;
+			jack_time_t next_usecs;
+			float period_usecs;
+			jack_position_t pos;
+
+			jack_get_cycle_times(impl->client,
+					&current_frames, &current_usecs,
+					&next_usecs, &period_usecs);
+
+			c->nsec = current_usecs * SPA_NSEC_PER_USEC;
+			c->rate = SPA_FRACTION(1, impl->samplerate);
+			c->position = current_frames;
+			c->duration = nframes;
+			c->delay = 0;
+			c->rate_diff = 1.0;
+			c->next_nsec = next_usecs * SPA_NSEC_PER_USEC;
+
+			c->target_rate = c->rate;
+			c->target_duration = c->duration;
+
+			jack_transport_query (impl->client, &pos);
+		}
+		impl->nframes = nframes;
+
+		if (sink_running && source_running) {
+			impl->done = false;
+			pw_stream_trigger_process(impl->sink);
+		} else {
+			jack_cycle_signal(impl->client, 0);
+		}
+	}
+	return NULL;
 }
 
 static int jack_xrun(void *arg)
 {
 	struct impl *impl = arg;
-	if (impl->done) {
+	if (impl->done)
 		impl->jack_xrun++;
-		impl->new_xrun = true;
-	}
-	sem_post(&impl->sem);
+	else
+		impl->pw_xrun++;
+	impl->new_xrun = true;
 	return 0;
 }
 
@@ -639,7 +634,7 @@ static int create_jack_client(struct impl *impl)
 		return -EIO;
 	}
 	jack_on_info_shutdown(impl->client, jack_info_shutdown, impl);
-	jack_set_process_callback(impl->client, jack_process, impl);
+	jack_set_process_thread(impl->client, jack_process_thread, impl);
 	jack_set_xrun_callback(impl->client, jack_xrun, impl);
 	jack_set_latency_callback(impl->client, jack_latency, impl);
 
@@ -747,8 +742,6 @@ static void impl_destroy(struct impl *impl)
 	pw_properties_free(impl->source_props);
 	pw_properties_free(impl->props);
 
-	sem_destroy(&impl->sem);
-
 	free(impl);
 }
 
@@ -832,12 +825,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		return -errno;
 
 	pw_log_debug("module %p: new %s", impl, args);
-
-	if (sem_init(&impl->sem, 0, 0) < 0) {
-		res = -errno;
-		pw_log_error( "can't create semaphore: %m");
-		goto error;
-	}
 
 	if (args == NULL)
 		args = "";

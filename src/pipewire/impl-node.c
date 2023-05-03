@@ -1179,11 +1179,10 @@ static inline int process_node(void *data)
 
 	nsec = get_time_ns(data_system);
 
-	if (!this->remote) {
-		pw_log_trace_fp("%p: finished", this);
-		a->status = PW_NODE_ACTIVATION_FINISHED;
-		a->finish_time = nsec;
-	}
+	pw_log_trace_fp("%p: finished %"PRIu64, this, nsec);
+	a->status = PW_NODE_ACTIVATION_FINISHED;
+	a->finish_time = nsec;
+
 	if (!this->driving && status != SPA_STATUS_OK)
 		resume_node(this, status, nsec);
 

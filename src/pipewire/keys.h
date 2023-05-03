@@ -275,7 +275,10 @@ extern "C" {
 #define PW_KEY_STREAM_LATENCY_MAX	"stream.latency.max"	/**< The maximum latency of the stream */
 #define PW_KEY_STREAM_MONITOR		"stream.monitor"	/**< Indicates that the stream is monitoring
 								  *  and might select a less accurate but faster
-								  *  conversion algorithm. */
+								  *  conversion algorithm. Monitor streams are also
+								  *  ignored when calculating the latency of their peer
+								  *  ports (since 0.3.71).
+								  */
 #define PW_KEY_STREAM_DONT_REMIX	"stream.dont-remix"	/**< don't remix channels */
 #define PW_KEY_STREAM_CAPTURE_SINK	"stream.capture.sink"	/**< Try to capture the sink output instead of
 								  *  source output */

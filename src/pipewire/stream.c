@@ -2012,6 +2012,7 @@ pw_stream_connect(struct pw_stream *stream,
 	    pw_properties_parse_bool(str)) {
 		pw_properties_set(props, "resample.peaks", "true");
 		pw_properties_set(props, "channelmix.normalize", "true");
+		pw_properties_set(props, PW_KEY_PORT_IGNORE_LATENCY, "true");
 	}
 
 	if (impl->media_type == SPA_MEDIA_TYPE_audio) {

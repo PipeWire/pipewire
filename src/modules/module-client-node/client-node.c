@@ -1140,17 +1140,6 @@ node_init(struct node *this,
 	  uint32_t n_support)
 {
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
-	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
-
-	if (this->data_loop == NULL) {
-		spa_log_error(this->log, "a data-loop is needed");
-		return -EINVAL;
-	}
-	if (this->data_system == NULL) {
-		spa_log_error(this->log, "a data-system is needed");
-		return -EINVAL;
-	}
 
 	this->node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
@@ -1737,6 +1726,9 @@ struct pw_impl_client_node *pw_impl_client_node_new(struct pw_resource *resource
 
 	if (this->node == NULL)
 		goto error_no_node;
+
+	impl->node.data_loop = this->node->data_loop->loop;
+	impl->node.data_system = this->node->data_loop->system;
 
 	this->node->remote = true;
 	this->flags = 0;

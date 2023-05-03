@@ -1710,7 +1710,7 @@ static int node_ready(void *data, int status)
 						state->pending, state->required);
 				dump_states(node);
 			}
-			process_node(node);
+			node_signal_func(node);
 		} else {
 			/* calculate CPU time */
 			uint64_t new_signal = a->signal_time;

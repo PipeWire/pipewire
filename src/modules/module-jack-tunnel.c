@@ -526,7 +526,8 @@ do_update_latency(struct spa_loop *loop,
 					SPA_PARAM_Latency, &impl->sink_latency[SPA_DIRECTION_INPUT]);
 			impl->sink_latency_changed[SPA_DIRECTION_INPUT] = false;
 		}
-		pw_stream_update_params(impl->sink, params, n_params);
+		if (impl->sink)
+			pw_stream_update_params(impl->sink, params, n_params);
 	}
 
 	if ((impl->mode & MODE_SOURCE)) {
@@ -536,7 +537,8 @@ do_update_latency(struct spa_loop *loop,
 					SPA_PARAM_Latency, &impl->source_latency[SPA_DIRECTION_OUTPUT]);
 			impl->source_latency_changed[SPA_DIRECTION_OUTPUT] = false;
 		}
-		pw_stream_update_params(impl->source, params, n_params);
+		if (impl->source)
+			pw_stream_update_params(impl->source, params, n_params);
 	}
 	return 0;
 }

@@ -1713,8 +1713,6 @@ static int node_ready(void *data, int status)
 			node_signal_func(node);
 		} else {
 			/* calculate CPU time */
-			uint64_t new_signal = a->signal_time;
-
 			a->signal_time = a->prev_signal_time;
 			a->prev_signal_time = impl->prev_signal_time;
 
@@ -1729,9 +1727,6 @@ static int node_ready(void *data, int status)
 					a->cpu_load[0], a->cpu_load[1], a->cpu_load[2]);
 
 			pw_context_driver_emit_complete(node->context, node);
-
-			a->prev_signal_time = a->signal_time;
-			a->signal_time = new_signal;
 		}
 
 		/* This update is done too late, the driver should do this
@@ -1784,11 +1779,10 @@ again:
 		}
 
 		a->status = PW_NODE_ACTIVATION_TRIGGERED;
-		if (!node->exported)
-			a->signal_time = nsec;
-
+		a->signal_time = nsec;
 		impl->prev_signal_time = a->prev_signal_time;
 		a->prev_signal_time = a->signal_time;
+
 		a->sync_timeout = SPA_MIN(min_timeout, DEFAULT_SYNC_TIMEOUT);
 
 		if (SPA_UNLIKELY(reposition_node)) {
@@ -1807,6 +1801,8 @@ again:
 		return 0;
 
 	if (!node->driver) {
+		/* legacy, nodes should directly resume the graph by calling
+		 * the peer eventfd directly, node_ready is only for drivers */
 		a->status = PW_NODE_ACTIVATION_FINISHED;
 		a->finish_time = nsec;
 	}

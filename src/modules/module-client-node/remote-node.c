@@ -1181,9 +1181,7 @@ static int node_ready(void *d, int status)
 	struct pw_impl_node *node = data->node;
 	struct pw_node_activation *a = node->rt.activation;
 	struct spa_system *data_system = data->data_system;
-	struct timespec ts;
 	struct pw_impl_port *p;
-	uint64_t now;
 
 	pw_log_trace_fp("node %p: ready driver:%d exported:%d status:%d", node,
 			node->driver, node->exported, status);
@@ -1194,11 +1192,6 @@ static int node_ready(void *d, int status)
 	}
 
 	a->state[0].status = status;
-	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
-	now = SPA_TIMESPEC_TO_NSEC(&ts);
-
-	a->signal_time = now;
-	a->awake_time = now;
 
 	if (SPA_UNLIKELY(spa_system_eventfd_write(data_system, data->rtwritefd, 1) < 0))
 		pw_log_warn("node %p: write failed %m", node);

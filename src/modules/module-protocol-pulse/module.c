@@ -163,41 +163,48 @@ void module_args_add_props(struct pw_properties *props, const char *str)
 	free(s);
 }
 
-int module_args_to_audioinfo(struct impl *impl, struct pw_properties *props, struct spa_audio_info_raw *info)
+int module_args_to_audioinfo_keys(struct impl *impl, struct pw_properties *props,
+		const char *key_format, const char *key_rate,
+		const char *key_channels, const char *key_channel_map,
+		struct spa_audio_info_raw *info)
 {
 	const char *str;
 	uint32_t i;
 
-	/* We don't use any incoming format setting and use our native format */
-	spa_zero(*info);
-	info->flags = SPA_AUDIO_FLAG_UNPOSITIONED;
-	info->format = SPA_AUDIO_FORMAT_F32P;
-
-	if ((str = pw_properties_get(props, "channels")) != NULL) {
-		info->channels = pw_properties_parse_int(str);
-		if (info->channels == 0 || info->channels > SPA_AUDIO_MAX_CHANNELS) {
-			pw_log_error("invalid channels '%s'", str);
+	if (key_format && (str = pw_properties_get(props, key_format)) != NULL) {
+		info->format = format_paname2id(str, strlen(str));
+		if (info->format == SPA_AUDIO_FORMAT_UNKNOWN) {
+			pw_log_error("invalid %s '%s'", key_format, str);
 			return -EINVAL;
 		}
-		pw_properties_set(props, "channels", NULL);
+		pw_properties_set(props, key_format, NULL);
 	}
-	if ((str = pw_properties_get(props, "channel_map")) != NULL) {
+	if (key_channels && (str = pw_properties_get(props, key_channels)) != NULL) {
+		info->channels = pw_properties_parse_int(str);
+		if (info->channels == 0 || info->channels > SPA_AUDIO_MAX_CHANNELS) {
+			pw_log_error("invalid %s '%s'", key_channels, str);
+			return -EINVAL;
+		}
+		pw_properties_set(props, key_channels, NULL);
+	}
+	if (key_channel_map && (str = pw_properties_get(props, key_channel_map)) != NULL) {
 		struct channel_map map;
 
 		channel_map_parse(str, &map);
 		if (map.channels == 0 || map.channels > SPA_AUDIO_MAX_CHANNELS) {
-			pw_log_error("invalid channel_map '%s'", str);
+			pw_log_error("invalid %s '%s'", key_channel_map, str);
 			return -EINVAL;
 		}
 		if (info->channels == 0)
 			info->channels = map.channels;
 		if (info->channels != map.channels) {
-			pw_log_error("Mismatched channel map");
+			pw_log_error("Mismatched %s and %s (%d vs %d)",
+					key_channels, key_channel_map,
+					info->channels, map.channels);
 			return -EINVAL;
 		}
 		channel_map_to_positions(&map, info->position);
-		info->flags &= ~SPA_AUDIO_FLAG_UNPOSITIONED;
-		pw_properties_set(props, "channel_map", NULL);
+		pw_properties_set(props, key_channel_map, NULL);
 	} else {
 		if (info->channels == 0)
 			info->channels = impl->defs.sample_spec.channels;
@@ -214,17 +221,23 @@ int module_args_to_audioinfo(struct impl *impl, struct pw_properties *props, str
 			for (i = 0; i < info->channels; i++)
 				info->position[i] = SPA_AUDIO_CHANNEL_UNKNOWN;
 		}
-		if (info->position[0] != SPA_AUDIO_CHANNEL_UNKNOWN)
-			info->flags &= ~SPA_AUDIO_FLAG_UNPOSITIONED;
+		if (info->position[0] == SPA_AUDIO_CHANNEL_UNKNOWN)
+			info->flags |= SPA_AUDIO_FLAG_UNPOSITIONED;
 	}
-
-	if ((str = pw_properties_get(props, "rate")) != NULL) {
+	if (key_rate && (str = pw_properties_get(props, key_rate)) != NULL) {
 		info->rate = pw_properties_parse_int(str);
-		pw_properties_set(props, "rate", NULL);
-	} else {
-		info->rate = 0;
+		pw_properties_set(props, key_rate, NULL);
 	}
 	return 0;
+}
+
+int module_args_to_audioinfo(struct impl *impl, struct pw_properties *props, struct spa_audio_info_raw *info)
+{
+	/* We don't use any incoming format setting and use our native format */
+	spa_zero(*info);
+	info->format = SPA_AUDIO_FORMAT_F32P;
+	return module_args_to_audioinfo_keys(impl, props,
+			NULL, "rate", "channels", "channel_map", info);
 }
 
 bool module_args_parse_bool(const char *v)
@@ -233,6 +246,28 @@ bool module_args_parse_bool(const char *v)
 	    !strcasecmp(v, "yes") || !strcasecmp(v, "true") || !strcasecmp(v, "on"))
 		return true;
 	return false;
+}
+
+void audioinfo_to_properties(struct spa_audio_info_raw *info, struct pw_properties *props)
+{
+	uint32_t i;
+
+	if (info->format)
+		pw_properties_setf(props, SPA_KEY_AUDIO_FORMAT, "%s",
+					format_id2name(info->format));
+	if (info->rate)
+		pw_properties_setf(props, SPA_KEY_AUDIO_RATE, "%u", info->rate);
+	if (info->channels) {
+		char *s, *p;
+
+		pw_properties_setf(props, SPA_KEY_AUDIO_CHANNELS, "%u", info->channels);
+
+		p = s = alloca(info->channels * 8);
+		for (i = 0; i < info->channels; i++)
+			p += spa_scnprintf(p, 8, "%s%s", i == 0 ? "" : ",",
+					channel_id2name(info->position[i]));
+		pw_properties_setf(props, SPA_KEY_AUDIO_POSITION, "[ %s ]", s);
+	}
 }
 
 static const struct module_info *find_module_info(const char *name)

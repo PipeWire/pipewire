@@ -25,8 +25,6 @@ struct module_rtp_send_data {
 	struct pw_properties *stream_props;
 	struct pw_properties *global_props;
 	struct pw_properties *sap_props;
-
-	struct spa_audio_info_raw info;
 };
 
 static void module_destroy(void *data)
@@ -71,20 +69,6 @@ static int module_rtp_send_load(struct module *module)
 
 	fprintf(f, "{");
 	pw_properties_serialize_dict(f, &data->global_props->dict, 0);
-	if (data->info.format != 0)
-		fprintf(f, " \"audio.format\": \"%s\"", format_id2name(data->info.format));
-	if (data->info.rate != 0)
-		fprintf(f, " \"audio.rate\": %u,", data->info.rate);
-	if (data->info.channels != 0) {
-		fprintf(f, " \"audio.channels\": %u,", data->info.channels);
-		if (!(data->info.flags & SPA_AUDIO_FLAG_UNPOSITIONED)) {
-			fprintf(f, " \"audio.position\": [ ");
-			for (i = 0; i < data->info.channels; i++)
-				fprintf(f, "%s\"%s\"", i == 0 ? "" : ",",
-					channel_id2name(data->info.position[i]));
-			fprintf(f, " ],");
-		}
-	}
 	fprintf(f, " stream.props = {");
 	pw_properties_serialize_dict(f, &data->stream_props->dict, 0);
 	fprintf(f, " } }");
@@ -198,19 +182,13 @@ static int module_rtp_send_prepare(struct module * const module)
 			pw_properties_set(stream_props, PW_KEY_TARGET_OBJECT, str);
 		}
 	}
-	if (module_args_to_audioinfo(module->impl, props, &info) < 0) {
+
+	if (module_args_to_audioinfo_keys(module->impl, props,
+			"format", "rate", "channels", "channel_map", &info) < 0) {
 		res = -EINVAL;
 		goto out;
 	}
-	info.format = 0;
-	if ((str = pw_properties_get(props, "format")) != NULL) {
-		if ((info.format = format_paname2id(str, strlen(str))) ==
-				SPA_AUDIO_FORMAT_UNKNOWN) {
-			pw_log_error("unknown format %s", str);
-			res = -EINVAL;
-			goto out;
-		}
-	}
+	audioinfo_to_properties(&info, global_props);
 
 	pw_properties_set(global_props, "sess.media", "audio");
 	if ((str = pw_properties_get(props, "enable_opus")) != NULL) {
@@ -245,7 +223,6 @@ static int module_rtp_send_prepare(struct module * const module)
 	d->stream_props = stream_props;
 	d->global_props = global_props;
 	d->sap_props = sap_props;
-	d->info = info;
 
 	return 0;
 out:

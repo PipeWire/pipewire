@@ -22,11 +22,9 @@ struct module_loopback_data {
 	struct pw_impl_module *mod;
 	struct spa_hook mod_listener;
 
+	struct pw_properties *global_props;
 	struct pw_properties *capture_props;
 	struct pw_properties *playback_props;
-
-	struct spa_audio_info_raw info;
-	uint32_t latency_msec;
 };
 
 static void module_destroy(void *data)
@@ -48,7 +46,6 @@ static int module_loopback_load(struct module *module)
 	FILE *f;
 	char *args;
 	size_t size, i;
-	char val[256];
 
 	pw_properties_setf(data->capture_props, PW_KEY_NODE_GROUP, "loopback-%u", module->index);
 	pw_properties_setf(data->playback_props, PW_KEY_NODE_GROUP, "loopback-%u", module->index);
@@ -59,20 +56,7 @@ static int module_loopback_load(struct module *module)
 		return -errno;
 
 	fprintf(f, "{");
-	if (data->info.channels != 0) {
-		fprintf(f, " audio.channels = %u", data->info.channels);
-		if (!(data->info.flags & SPA_AUDIO_FLAG_UNPOSITIONED)) {
-			fprintf(f, " audio.position = [ ");
-			for (i = 0; i < data->info.channels; i++)
-				fprintf(f, "%s%s", i == 0 ? "" : ",",
-					channel_id2name(data->info.position[i]));
-			fprintf(f, " ]");
-		}
-	}
-	if (data->latency_msec != 0)
-		fprintf(f, " target.delay.sec = %s",
-				spa_json_format_float(val, sizeof(val),
-					data->latency_msec / 1000.0f));
+	pw_properties_serialize_dict(f, &data->global_props->dict, 0);
 	fprintf(f, " capture.props = {");
 	pw_properties_serialize_dict(f, &data->capture_props->dict, 0);
 	fprintf(f, " } playback.props = {");
@@ -107,6 +91,7 @@ static int module_loopback_unload(struct module *module)
 
 	pw_properties_free(d->capture_props);
 	pw_properties_free(d->playback_props);
+	pw_properties_free(d->global_props);
 
 	return 0;
 }
@@ -132,16 +117,17 @@ static int module_loopback_prepare(struct module * const module)
 {
 	struct module_loopback_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
-	struct pw_properties *playback_props = NULL, *capture_props = NULL;
+	struct pw_properties *global_props = NULL, *playback_props = NULL, *capture_props = NULL;
 	const char *str;
 	struct spa_audio_info_raw info = { 0 };
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
+	global_props = pw_properties_new(NULL, NULL);
 	capture_props = pw_properties_new(NULL, NULL);
 	playback_props = pw_properties_new(NULL, NULL);
-	if (!capture_props || !playback_props) {
+	if (!global_props || !capture_props || !playback_props) {
 		res = -EINVAL;
 		goto out;
 	}
@@ -167,10 +153,12 @@ static int module_loopback_prepare(struct module * const module)
 		pw_properties_set(props, "sink", NULL);
 	}
 
-	if (module_args_to_audioinfo(module->impl, props, &info) < 0) {
+	if (module_args_to_audioinfo_keys(module->impl, props,
+				NULL, NULL, "channels", "channel_map", &info) < 0) {
 		res = -EINVAL;
 		goto out;
 	}
+	audioinfo_to_properties(&info, global_props);
 
 	if ((str = pw_properties_get(props, "source_dont_move")) != NULL) {
 		pw_properties_set(capture_props, PW_KEY_NODE_DONT_RECONNECT, str);
@@ -189,8 +177,13 @@ static int module_loopback_prepare(struct module * const module)
 		pw_properties_set(props, "remix", NULL);
 	}
 
-	if ((str = pw_properties_get(props, "latency_msec")) != NULL)
-		d->latency_msec = atoi(str);
+	if ((str = pw_properties_get(props, "latency_msec")) != NULL) {
+		uint32_t latency_msec = atoi(str);
+		char val[256];
+		pw_properties_setf(global_props, "target.delay.sec",
+				"%s", spa_json_format_float(val, sizeof(val),
+					latency_msec / 1000.0f));
+	}
 
 	if ((str = pw_properties_get(props, "sink_input_properties")) != NULL) {
 		module_args_add_props(playback_props, str);
@@ -203,12 +196,13 @@ static int module_loopback_prepare(struct module * const module)
 	}
 
 	d->module = module;
+	d->global_props = global_props;
 	d->capture_props = capture_props;
 	d->playback_props = playback_props;
-	d->info = info;
 
 	return 0;
 out:
+	pw_properties_free(global_props);
 	pw_properties_free(playback_props);
 	pw_properties_free(capture_props);
 

@@ -23,8 +23,6 @@ struct module_tunnel_source_data {
 	struct pw_impl_module *mod;
 	struct spa_hook mod_listener;
 
-	uint32_t latency_msec;
-
 	struct pw_properties *stream_props;
 };
 
@@ -47,22 +45,15 @@ static int module_tunnel_source_load(struct module *module)
 	FILE *f;
 	char *args;
 	size_t size;
-	const char *server;
 
 	pw_properties_setf(data->stream_props, "pulse.module.id",
 			"%u", module->index);
-
-	server = pw_properties_get(module->props, "server");
 
 	if ((f = open_memstream(&args, &size)) == NULL)
 		return -errno;
 
 	fprintf(f, "{");
 	pw_properties_serialize_dict(f, &module->props->dict, 0);
-	fprintf(f, " pulse.server.address = \"%s\" ", server);
-	fprintf(f, " tunnel.mode = source ");
-	if (data->latency_msec > 0)
-		fprintf(f, " pulse.latency = %u ", data->latency_msec);
 	fprintf(f, " stream.props = {");
 	pw_properties_serialize_dict(f, &data->stream_props->dict, 0);
 	fprintf(f, " } }");
@@ -115,19 +106,6 @@ static const struct spa_dict_item module_tunnel_source_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-static void audio_info_to_props(struct spa_audio_info_raw *info, struct pw_properties *props)
-{
-	char *s, *p;
-	uint32_t i;
-
-	pw_properties_setf(props, SPA_KEY_AUDIO_CHANNELS, "%u", info->channels);
-	p = s = alloca(info->channels * 8);
-	for (i = 0; i < info->channels; i++)
-		p += spa_scnprintf(p, 8, "%s%s", i == 0 ? "" : ",",
-				channel_id2name(info->position[i]));
-	pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
-}
-
 static int module_tunnel_source_prepare(struct module * const module)
 {
 	struct module_tunnel_source_data * const d = module->user_data;
@@ -145,6 +123,8 @@ static int module_tunnel_source_prepare(struct module * const module)
 		goto out;
 	}
 
+	pw_properties_set(props, "tunnel.mode", "source");
+
 	remote_source_name = pw_properties_get(props, "source");
 	if (remote_source_name)
 		pw_properties_set(props, PW_KEY_TARGET_OBJECT, remote_source_name);
@@ -153,6 +133,8 @@ static int module_tunnel_source_prepare(struct module * const module)
 		pw_log_error("no server given");
 		res = -EINVAL;
 		goto out;
+	} else {
+		pw_properties_set(props, "pulse.server.address", server);
 	}
 
 	pw_properties_setf(stream_props, PW_KEY_NODE_DESCRIPTION,
@@ -171,22 +153,24 @@ static int module_tunnel_source_prepare(struct module * const module)
 		module_args_add_props(stream_props, str);
 		pw_properties_set(props, "source_properties", NULL);
 	}
-	if (module_args_to_audioinfo(module->impl, props, &info) < 0) {
+	if (module_args_to_audioinfo_keys(module->impl, props,
+			NULL, NULL, "channels", "channel_map", &info) < 0) {
 		res = -EINVAL;
 		goto out;
 	}
+	audioinfo_to_properties(&info, stream_props);
 
-	audio_info_to_props(&info, stream_props);
+	if ((str = pw_properties_get(props, "latency_msec")) != NULL) {
+		pw_properties_set(props, "pulse.latency", str);
+		pw_properties_set(props, "latency_msec", NULL);
+	}
 
 	d->module = module;
 	d->stream_props = stream_props;
 
-	pw_properties_fetch_uint32(props, "latency_msec", &d->latency_msec);
-
 	return 0;
 out:
 	pw_properties_free(stream_props);
-
 	return res;
 }
 

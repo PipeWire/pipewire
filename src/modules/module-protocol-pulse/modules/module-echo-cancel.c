@@ -22,6 +22,7 @@ struct module_echo_cancel_data {
 	struct pw_impl_module *mod;
 	struct spa_hook mod_listener;
 
+	struct pw_properties *global_props;
 	struct pw_properties *props;
 	struct pw_properties *capture_props;
 	struct pw_properties *source_props;
@@ -58,26 +59,10 @@ static int module_echo_cancel_load(struct module *module)
 		return -errno;
 
 	fprintf(f, "{");
-	if ((method = pw_properties_get(props, "aec_method")) == NULL)
-		method = "webrtc";
-
-	fprintf(f, " library.name = \"aec/libspa-aec-%s\"", method);
-
+	pw_properties_serialize_dict(f, &data->global_props->dict, 0);
 	fprintf(f, " aec.args = {");
 	pw_properties_serialize_dict(f, &data->props->dict, 0);
 	fprintf(f, " }");
-	if (data->info.rate != 0)
-		fprintf(f, " audio.rate = %u", data->info.rate);
-	if (data->info.channels != 0) {
-		fprintf(f, " audio.channels = %u", data->info.channels);
-		if (!(data->info.flags & SPA_AUDIO_FLAG_UNPOSITIONED)) {
-			fprintf(f, " audio.position = [ ");
-			for (i = 0; i < data->info.channels; i++)
-				fprintf(f, "%s%s", i == 0 ? "" : ",",
-					channel_id2name(data->info.position[i]));
-			fprintf(f, " ]");
-		}
-	}
 	fprintf(f, " capture.props = {");
 	pw_properties_serialize_dict(f, &data->capture_props->dict, 0);
 	fprintf(f, " } source.props = {");
@@ -114,6 +99,7 @@ static int module_echo_cancel_unload(struct module *module)
 		d->mod = NULL;
 	}
 
+	pw_properties_free(d->global_props);
 	pw_properties_free(d->props);
 	pw_properties_free(d->capture_props);
 	pw_properties_free(d->source_props);
@@ -231,21 +217,27 @@ static int module_echo_cancel_prepare(struct module * const module)
 	struct pw_properties * const props = module->props;
 	struct pw_properties *aec_props = NULL, *sink_props = NULL, *source_props = NULL;
 	struct pw_properties *playback_props = NULL, *capture_props = NULL;
+	struct pw_properties *global_props = NULL;
 	const char *str, *method;
 	struct spa_audio_info_raw info = { 0 };
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
+	global_props = pw_properties_new(NULL, NULL);
 	aec_props = pw_properties_new(NULL, NULL);
 	capture_props = pw_properties_new(NULL, NULL);
 	source_props = pw_properties_new(NULL, NULL);
 	sink_props = pw_properties_new(NULL, NULL);
 	playback_props = pw_properties_new(NULL, NULL);
-	if (!aec_props || !source_props || !sink_props || !capture_props || !playback_props) {
+	if (!global_props || !aec_props || !source_props || !sink_props || !capture_props || !playback_props) {
 		res = -EINVAL;
 		goto out;
 	}
+
+	if ((str = pw_properties_get(props, "aec_method")) == NULL)
+		str = "webrtc";
+	pw_properties_setf(global_props, "library.name", "aec/libspa-aec-%s", str);
 
 	if ((str = pw_properties_get(props, "source_name")) != NULL) {
 		pw_properties_set(source_props, PW_KEY_NODE_NAME, str);
@@ -282,6 +274,7 @@ static int module_echo_cancel_prepare(struct module * const module)
 		res = -EINVAL;
 		goto out;
 	}
+	audioinfo_to_properties(&info, global_props);
 
 	if ((str = pw_properties_get(props, "source_properties")) != NULL) {
 		module_args_add_props(source_props, str);
@@ -314,6 +307,7 @@ static int module_echo_cancel_prepare(struct module * const module)
 	}
 
 	d->module = module;
+	d->global_props = global_props;
 	d->props = aec_props;
 	d->capture_props = capture_props;
 	d->source_props = source_props;
@@ -323,6 +317,7 @@ static int module_echo_cancel_prepare(struct module * const module)
 
 	return 0;
 out:
+	pw_properties_free(global_props);
 	pw_properties_free(aec_props);
 	pw_properties_free(playback_props);
 	pw_properties_free(sink_props);

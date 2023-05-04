@@ -44,25 +44,12 @@ static int module_simple_protocol_tcp_load(struct module *module)
 	struct impl *impl = module->impl;
 	char *args;
 	size_t size;
-	uint32_t i;
 	FILE *f;
 
 	if ((f = open_memstream(&args, &size)) == NULL)
 		return -errno;
 
 	fprintf(f, "{");
-	if (data->info.rate != 0)
-		fprintf(f, " \"audio.rate\": %u,", data->info.rate);
-	if (data->info.channels != 0) {
-		fprintf(f, " \"audio.channels\": %u,", data->info.channels);
-		if (!(data->info.flags & SPA_AUDIO_FLAG_UNPOSITIONED)) {
-			fprintf(f, " \"audio.position\": [ ");
-			for (i = 0; i < data->info.channels; i++)
-				fprintf(f, "%s\"%s\"", i == 0 ? "" : ",",
-					channel_id2name(data->info.position[i]));
-			fprintf(f, " ],");
-		}
-	}
 	pw_properties_serialize_dict(f, &data->module_props->dict, 0);
 	fprintf(f, "}");
 	fclose(f);
@@ -127,15 +114,13 @@ static int module_simple_protocol_tcp_prepare(struct module * const module)
 		goto out;
 	}
 
-	if ((str = pw_properties_get(props, "format")) != NULL) {
-		pw_properties_set(module_props, "audio.format",
-				format_id2name(format_paname2id(str, strlen(str))));
-		pw_properties_set(props, "format", NULL);
-	}
-	if (module_args_to_audioinfo(module->impl, props, &info) < 0) {
+	if (module_args_to_audioinfo_keys(module->impl, props,
+			"format", "rate", "channels", "channel_map", &info) < 0) {
 		res = -EINVAL;
 		goto out;
 	}
+	audioinfo_to_properties(&info, module_props);
+
 	if ((str = pw_properties_get(props, "playback")) != NULL) {
 		pw_properties_set(module_props, "playback", str);
 		pw_properties_set(props, "playback", NULL);

@@ -25,9 +25,8 @@ struct module_pipesrc_data {
 	struct spa_hook mod_listener;
 	struct pw_impl_module *mod;
 
+	struct pw_properties *global_props;
 	struct pw_properties *playback_props;
-	struct spa_audio_info_raw info;
-	char *filename;
 };
 
 static void module_destroy(void *data)
@@ -49,7 +48,6 @@ static int module_pipe_source_load(struct module *module)
 	FILE *f;
 	char *args;
 	size_t size;
-	uint32_t i;
 
 	pw_properties_setf(data->playback_props, "pulse.module.id",
 			"%u", module->index);
@@ -58,23 +56,7 @@ static int module_pipe_source_load(struct module *module)
 		return -errno;
 
 	fprintf(f, "{");
-	fprintf(f, " \"tunnel.mode\" = \"source\" ");
-	if (data->filename != NULL)
-		fprintf(f, " \"pipe.filename\": \"%s\"", data->filename);
-	if (data->info.format != 0)
-		fprintf(f, " \"audio.format\": \"%s\"", format_id2name(data->info.format));
-	if (data->info.rate != 0)
-		fprintf(f, " \"audio.rate\": %u,", data->info.rate);
-	if (data->info.channels != 0) {
-		fprintf(f, " \"audio.channels\": %u,", data->info.channels);
-		if (!(data->info.flags & SPA_AUDIO_FLAG_UNPOSITIONED)) {
-			fprintf(f, " \"audio.position\": [ ");
-			for (i = 0; i < data->info.channels; i++)
-				fprintf(f, "%s\"%s\"", i == 0 ? "" : ",",
-					channel_id2name(data->info.position[i]));
-			fprintf(f, " ],");
-		}
-	}
+	pw_properties_serialize_dict(f, &data->global_props->dict, 0);
 	fprintf(f, " \"stream.props\": {");
 	pw_properties_serialize_dict(f, &data->playback_props->dict, 0);
 	fprintf(f, " } }");
@@ -105,7 +87,7 @@ static int module_pipe_source_unload(struct module *module)
 		d->mod = NULL;
 	}
 	pw_properties_free(d->playback_props);
-	free(d->filename);
+	pw_properties_free(d->global_props);
 	return 0;
 }
 
@@ -126,35 +108,30 @@ static int module_pipe_source_prepare(struct module * const module)
 {
 	struct module_pipesrc_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
-	struct pw_properties *playback_props = NULL;
+	struct pw_properties *global_props = NULL, *playback_props = NULL;
 	struct spa_audio_info_raw info = { 0 };
 	const char *str;
-	char *filename = NULL;
 	int res = 0;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
+	global_props = pw_properties_new(NULL, NULL);
 	playback_props = pw_properties_new(NULL, NULL);
-	if (!playback_props) {
+	if (!global_props || !playback_props) {
 		res = -errno;
 		goto out;
 	}
 
-	if (module_args_to_audioinfo(module->impl, props, &info) < 0) {
+	pw_properties_set(global_props, "tunnel.mode", "source");
+
+	info.format = SPA_AUDIO_FORMAT_S16;
+	if (module_args_to_audioinfo_keys(module->impl, props,
+			"format", "rate", "channels", "channel_map", &info) < 0) {
 		res = -EINVAL;
 		goto out;
 	}
+	audioinfo_to_properties(&info, global_props);
 
-	info.format = SPA_AUDIO_FORMAT_S16;
-	if ((str = pw_properties_get(props, "format")) != NULL) {
-		info.format = format_paname2id(str, strlen(str));
-		if (info.format == SPA_AUDIO_FORMAT_UNKNOWN) {
-			pw_log_error("invalid format '%s'", str);
-			res = -EINVAL;
-			goto out;
-		}
-		pw_properties_set(props, "format", NULL);
-	}
 	if ((str = pw_properties_get(props, "source_name")) != NULL) {
 		pw_properties_set(playback_props, PW_KEY_NODE_NAME, str);
 		pw_properties_set(props, "source_name", NULL);
@@ -163,7 +140,7 @@ static int module_pipe_source_prepare(struct module * const module)
 		module_args_add_props(playback_props, str);
 
 	if ((str = pw_properties_get(props, "file")) != NULL) {
-		filename = strdup(str);
+		pw_properties_set(global_props, "pipe.filename", str);
 		pw_properties_set(props, "file", NULL);
 	}
 	if ((str = pw_properties_get(playback_props, PW_KEY_DEVICE_ICON_NAME)) == NULL)
@@ -175,13 +152,12 @@ static int module_pipe_source_prepare(struct module * const module)
 
 	d->module = module;
 	d->playback_props = playback_props;
-	d->info = info;
-	d->filename = filename;
+	d->global_props = global_props;
 
 	return 0;
 out:
+	pw_properties_free(global_props);
 	pw_properties_free(playback_props);
-	free(filename);
 	return res;
 }
 

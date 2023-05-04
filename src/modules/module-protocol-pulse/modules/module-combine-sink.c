@@ -49,17 +49,16 @@ struct module_combine_sink_data {
 	struct pw_impl_module *mod;
 	struct spa_hook mod_listener;
 
-	char *sink_name;
 	char **sink_names;
+	struct pw_properties *props;
 	struct pw_properties *combine_props;
+	struct pw_properties *stream_props;
 
 	struct spa_source *sinks_timeout;
 
 	struct spa_audio_info_raw info;
 
 	unsigned int sinks_pending;
-	unsigned int remix:1;
-	unsigned int latency_compensate:1;
 	unsigned int load_emitted:1;
 	unsigned int start_error:1;
 };
@@ -150,33 +149,20 @@ static int module_combine_sink_load(struct module *module)
 	if (data->core == NULL)
 		return -errno;
 
+	pw_properties_setf(data->combine_props, "pulse.module.id", "%u",
+			module->index);
+	pw_properties_setf(data->stream_props, "pulse.module.id", "%u",
+			module->index);
+
 	if ((f = open_memstream(&args, &size)) == NULL)
 		return -errno;
 
 	fprintf(f, "{");
-	fprintf(f, " node.name = %s", data->sink_name);
-	fprintf(f, " node.description = %s", data->sink_name);
-	if (data->latency_compensate)
-		fprintf(f, " combine.latency-compensate = true");
-	if (data->info.rate != 0)
-		fprintf(f, " audio.rate = %u", data->info.rate);
-	if (data->info.channels != 0) {
-		fprintf(f, " audio.channels = %u", data->info.channels);
-		if (!(data->info.flags & SPA_AUDIO_FLAG_UNPOSITIONED)) {
-			fprintf(f, " audio.position = [ ");
-			for (i = 0; i < data->info.channels; i++)
-				fprintf(f, "%s%s", i == 0 ? "" : ",",
-					channel_id2name(data->info.position[i]));
-			fprintf(f, " ]");
-		}
-	}
+	pw_properties_serialize_dict(f, &data->props->dict, 0);
 	fprintf(f, " combine.props = {");
-	fprintf(f, " pulse.module.id = %u", module->index);
 	pw_properties_serialize_dict(f, &data->combine_props->dict, 0);
 	fprintf(f, " } stream.props = {");
-	if (!data->remix)
-		fprintf(f, "   "PW_KEY_STREAM_DONT_REMIX" = true");
-	fprintf(f, "   pulse.module.id = %u", module->index);
+	pw_properties_serialize_dict(f, &data->stream_props->dict, 0);
 	fprintf(f, " } stream.rules = [");
 	if (data->sink_names == NULL) {
 		fprintf(f, "  { matches = [ { media.class = \"Audio/Sink\" } ]");
@@ -244,8 +230,9 @@ static int module_combine_sink_unload(struct module *module)
 		pw_core_disconnect(d->core);
 	}
 	pw_free_strv(d->sink_names);
-	free(d->sink_name);
+	pw_properties_free(d->stream_props);
 	pw_properties_free(d->combine_props);
+	pw_properties_free(d->props);
 	return 0;
 }
 
@@ -253,39 +240,51 @@ static int module_combine_sink_prepare(struct module * const module)
 {
 	struct module_combine_sink_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
-	struct pw_properties *combine_props = NULL;
+	struct pw_properties *combine_props = NULL, *global_props = NULL, *stream_props = NULL;
 	const char *str;
-	char *sink_name = NULL, **sink_names = NULL;
+	char **sink_names = NULL;
 	struct spa_audio_info_raw info = { 0 };
 	int res;
 	int num_sinks = 0;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
+	global_props = pw_properties_new(NULL, NULL);
 	combine_props = pw_properties_new(NULL, NULL);
-
-	if ((str = pw_properties_get(props, "sink_name")) != NULL) {
-		sink_name = strdup(str);
-		pw_properties_set(props, "sink_name", NULL);
-	} else {
-		sink_name = strdup("combined");
+	stream_props = pw_properties_new(NULL, NULL);
+	if (global_props == NULL || combine_props == NULL || stream_props == NULL) {
+		res = -ENOMEM;
+		goto out;
 	}
 
-	if ((str = pw_properties_get(module->props, "sink_properties")) != NULL)
+	if ((str = pw_properties_get(props, "sink_name")) != NULL) {
+		pw_properties_set(global_props, PW_KEY_NODE_NAME, str);
+		pw_properties_set(global_props, PW_KEY_NODE_DESCRIPTION, str);
+		pw_properties_set(props, "sink_name", NULL);
+	} else {
+		str = "combined";
+		pw_properties_set(global_props, PW_KEY_NODE_NAME, str);
+		pw_properties_set(global_props, PW_KEY_NODE_DESCRIPTION, str);
+	}
+
+	if ((str = pw_properties_get(props, "sink_properties")) != NULL)
 		module_args_add_props(combine_props, str);
 
 	if ((str = pw_properties_get(props, "slaves")) != NULL) {
 		sink_names = pw_split_strv(str, ",", MAX_SINKS, &num_sinks);
 		pw_properties_set(props, "slaves", NULL);
 	}
-	d->remix = true;
 	if ((str = pw_properties_get(props, "remix")) != NULL) {
-		d->remix = pw_properties_parse_bool(str);
+		pw_properties_set(stream_props, PW_KEY_STREAM_DONT_REMIX,
+				module_args_parse_bool(str) ? "false" : "true");
 		pw_properties_set(props, "remix", NULL);
 	}
 
-	if ((str = pw_properties_get(props, "latency_compensate")) != NULL)
-		d->latency_compensate = pw_properties_parse_bool(str);
+	if ((str = pw_properties_get(props, "latency_compensate")) != NULL) {
+		pw_properties_set(global_props, "combine.latency-compensate",
+				module_args_parse_bool(str) ? "true" : "false");
+		pw_properties_set(props, "latency_compensate", NULL);
+	}
 
 	if ((str = pw_properties_get(props, "adjust_time")) != NULL) {
 		pw_log_info("The `adjust_time` modarg is ignored");
@@ -297,23 +296,27 @@ static int module_combine_sink_prepare(struct module * const module)
 		pw_properties_set(props, "resample_method", NULL);
 	}
 
-	if (module_args_to_audioinfo(module->impl, props, &info) < 0) {
+	if (module_args_to_audioinfo_keys(module->impl, props,
+			NULL, "rate", "channels", "channel_map", &info) < 0) {
 		res = -EINVAL;
 		goto out;
 	}
+	audioinfo_to_properties(&info, global_props);
 
 	d->module = module;
 	d->info = info;
-	d->sink_name = sink_name;
 	d->sink_names = sink_names;
 	d->sinks_pending = (sink_names == NULL) ? 0 : num_sinks;
+	d->stream_props = stream_props;
 	d->combine_props = combine_props;
+	d->props = global_props;
 
 	return 0;
 out:
-	free(sink_name);
 	pw_free_strv(sink_names);
+	pw_properties_free(stream_props);
 	pw_properties_free(combine_props);
+	pw_properties_free(global_props);
 
 	return res;
 }

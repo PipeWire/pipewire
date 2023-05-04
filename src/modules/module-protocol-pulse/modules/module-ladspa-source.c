@@ -144,19 +144,6 @@ static const struct spa_dict_item module_ladspa_source_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-static void position_to_props(struct spa_audio_info_raw *info, struct pw_properties *props)
-{
-	char *s, *p;
-	uint32_t i;
-
-	pw_properties_setf(props, SPA_KEY_AUDIO_CHANNELS, "%u", info->channels);
-	p = s = alloca(info->channels * 8);
-	for (i = 0; i < info->channels; i++)
-		p += spa_scnprintf(p, 8, "%s%s", i == 0 ? "" : ",",
-				channel_id2name(info->position[i]));
-	pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
-}
-
 static int module_ladspa_source_prepare(struct module * const module)
 {
 	struct module_ladspa_source_data * const d = module->user_data;
@@ -211,14 +198,15 @@ static int module_ladspa_source_prepare(struct module * const module)
 		pw_properties_set(props, "master", NULL);
 	}
 
-	if (module_args_to_audioinfo(module->impl, props, &playback_info) < 0) {
+	if (module_args_to_audioinfo_keys(module->impl, props,
+			NULL, NULL, "channels", "channel_map", &playback_info) < 0) {
 		res = -EINVAL;
 		goto out;
 	}
 	capture_info = playback_info;
 
-	position_to_props(&capture_info, capture_props);
-	position_to_props(&playback_info, playback_props);
+	audioinfo_to_properties(&capture_info, capture_props);
+	audioinfo_to_properties(&playback_info, playback_props);
 
 	if (pw_properties_get(capture_props, PW_KEY_NODE_PASSIVE) == NULL)
 		pw_properties_set(capture_props, PW_KEY_NODE_PASSIVE, "true");

@@ -160,35 +160,11 @@ static int module_null_sink_prepare(struct module * const module)
 		pw_properties_set(props, "sink_properties", NULL);
 	}
 
-	if (module_args_to_audioinfo(module->impl, props, &info) < 0)
+	if (module_args_to_audioinfo_keys(module->impl, props,
+			"format", "rate", "channels", "channel_map", &info) < 0)
 		return -EINVAL;
 
-	info.format = module->impl->defs.sample_spec.format;
-	if ((str = pw_properties_get(props, "format")) != NULL) {
-		info.format = format_paname2id(str, strlen(str));
-		if (info.format == SPA_AUDIO_FORMAT_UNKNOWN) {
-			pw_log_error("invalid format '%s'", str);
-			return -EINVAL;
-		}
-		pw_properties_set(props, "format", NULL);
-	}
-
-	if (info.format)
-		pw_properties_setf(props, SPA_KEY_AUDIO_FORMAT, "%s",
-					format_id2name(info.format));
-	if (info.rate)
-		pw_properties_setf(props, SPA_KEY_AUDIO_RATE, "%u", info.rate);
-	if (info.channels) {
-		char *s, *p;
-
-		pw_properties_setf(props, SPA_KEY_AUDIO_CHANNELS, "%u", info.channels);
-
-		p = s = alloca(info.channels * 8);
-		for (i = 0; i < info.channels; i++)
-			p += spa_scnprintf(p, 8, "%s%s", i == 0 ? "" : ",",
-					channel_id2name(info.position[i]));
-		pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
-	}
+	audioinfo_to_properties(&info, props);
 
 	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
 		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Sink");

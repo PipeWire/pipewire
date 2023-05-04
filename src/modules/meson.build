@@ -302,6 +302,7 @@ pipewire_module_protocol_pulse_sources = [
   'module-protocol-pulse/modules/module-always-sink.c',
   'module-protocol-pulse/modules/module-combine-sink.c',
   'module-protocol-pulse/modules/module-echo-cancel.c',
+  'module-protocol-pulse/modules/module-jackdbus-detect.c',
   'module-protocol-pulse/modules/module-ladspa-sink.c',
   'module-protocol-pulse/modules/module-ladspa-source.c',
   'module-protocol-pulse/modules/module-loopback.c',

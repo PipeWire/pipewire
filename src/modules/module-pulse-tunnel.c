@@ -224,7 +224,8 @@ static void stream_state_changed(void *d, enum pw_stream_state old,
 	switch (state) {
 	case PW_STREAM_STATE_ERROR:
 	case PW_STREAM_STATE_UNCONNECTED:
-		pw_impl_module_schedule_destroy(impl->module);
+		if (impl->module)
+			pw_impl_module_schedule_destroy(impl->module);
 		break;
 	case PW_STREAM_STATE_PAUSED:
 		cork_stream(impl, true);
@@ -500,7 +501,8 @@ do_schedule_destroy(struct spa_loop *loop,
 	bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct impl *impl = user_data;
-	pw_impl_module_schedule_destroy(impl->module);
+	if (impl->module)
+		pw_impl_module_schedule_destroy(impl->module);
 	return 0;
 }
 
@@ -937,8 +939,10 @@ static void core_error(void *data, uint32_t id, int seq, int res, const char *me
 	pw_log_error("error id:%u seq:%d res:%d (%s): %s",
 			id, seq, res, spa_strerror(res), message);
 
-	if (id == PW_ID_CORE && res == -EPIPE)
-		pw_impl_module_schedule_destroy(impl->module);
+	if (id == PW_ID_CORE && res == -EPIPE) {
+		if (impl->module)
+			pw_impl_module_schedule_destroy(impl->module);
+	}
 }
 
 static const struct pw_core_events core_events = {
@@ -951,7 +955,8 @@ static void core_destroy(void *d)
 	struct impl *impl = d;
 	spa_hook_remove(&impl->core_listener);
 	impl->core = NULL;
-	pw_impl_module_schedule_destroy(impl->module);
+	if (impl->module)
+		pw_impl_module_schedule_destroy(impl->module);
 }
 
 static const struct pw_proxy_events core_proxy_events = {
@@ -977,6 +982,8 @@ static void impl_destroy(struct impl *impl)
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
 
+	pw_loop_invoke(impl->main_loop, NULL, 0, NULL, 0, false, impl);
+
 	pw_properties_free(impl->stream_props);
 	pw_properties_free(impl->props);
 
@@ -988,6 +995,7 @@ static void module_destroy(void *data)
 {
 	struct impl *impl = data;
 	spa_hook_remove(&impl->module_listener);
+	impl->module = NULL;
 	impl_destroy(impl);
 }
 

@@ -1161,10 +1161,10 @@ static inline int process_node(void *data)
 	a->awake_time = nsec;
 
 	/* when transport sync is not supported, just clear the flag */
-	if (!this->transport_sync)
+	if (SPA_UNLIKELY(!this->transport_sync))
 		a->pending_sync = false;
 
-	if (this->added) {
+	if (SPA_LIKELY(this->added)) {
 		spa_list_for_each(p, &this->rt.input_mix, rt.node_link)
 			spa_node_process(p->mix);
 
@@ -1189,13 +1189,13 @@ static inline int process_node(void *data)
 	a->status = PW_NODE_ACTIVATION_FINISHED;
 	a->finish_time = nsec;
 
-	if (!this->driving && status != SPA_STATUS_OK)
+	if (SPA_LIKELY(!this->driving && status != SPA_STATUS_OK))
 		resume_node(this, status, nsec);
 
-	if (status & SPA_STATUS_DRAINED) {
+	if (SPA_UNLIKELY(status & SPA_STATUS_DRAINED))
 		pw_context_driver_emit_drained(this->context, this);
-	}
-	return 0;
+
+	return status;
 }
 
 int pw_impl_node_trigger(struct pw_impl_node *node)
@@ -1221,7 +1221,6 @@ static void node_on_fd_events(struct spa_source *source)
 		pw_log_warn("%p: got socket error %08x", this, source->rmask);
 		return;
 	}
-
 	if (SPA_LIKELY(source->rmask & SPA_IO_IN)) {
 		uint64_t cmd;
 
@@ -1594,7 +1593,7 @@ static const struct spa_node_events node_events = {
 #define SYNC_START	1
 #define SYNC_STOP	2
 
-static int check_updates(struct pw_impl_node *node, uint32_t *reposition_owner)
+static inline int check_updates(struct pw_impl_node *node, uint32_t *reposition_owner)
 {
 	int res = SYNC_CHECK;
 	struct pw_node_activation *a = node->rt.activation;
@@ -1659,11 +1658,11 @@ static void do_reposition(struct pw_impl_node *driver, struct pw_impl_node *node
 	}
 }
 
-static void update_position(struct pw_impl_node *node, int all_ready)
+static inline void update_position(struct pw_impl_node *node, int all_ready)
 {
 	struct pw_node_activation *a = node->rt.activation;
 
-	if (a->position.state == SPA_IO_POSITION_STATE_STARTING) {
+	if (SPA_UNLIKELY(a->position.state == SPA_IO_POSITION_STATE_STARTING)) {
 		if (!all_ready && --a->sync_left == 0) {
 			pw_log_warn("(%s-%u) sync timeout, going to RUNNING",
 					node->name, node->info.id);
@@ -1674,7 +1673,7 @@ static void update_position(struct pw_impl_node *node, int all_ready)
 		if (all_ready)
 			a->position.state = SPA_IO_POSITION_STATE_RUNNING;
 	}
-	if (a->position.state != SPA_IO_POSITION_STATE_RUNNING)
+	if (SPA_LIKELY(a->position.state != SPA_IO_POSITION_STATE_RUNNING))
 		a->position.offset += a->position.clock.duration;
 }
 
@@ -1692,7 +1691,7 @@ static int node_ready(void *data, int status)
 	pw_log_trace_fp("%p: ready driver:%d exported:%d %p status:%d added:%d", node,
 			node->driver, node->exported, driver, status, node->added);
 
-	if (!node->added) {
+	if (SPA_UNLIKELY(!node->added)) {
 		/* This can happen when we are stopping a node and removed it from the
 		 * graph but we still have not completed the Pause/Suspend command on
 		 * the node. In that case, the node might still emit ready events,
@@ -1703,7 +1702,7 @@ static int node_ready(void *data, int status)
 
 	nsec = get_time_ns(data_system);
 
-	if (SPA_UNLIKELY(node == driver)) {
+	if (SPA_LIKELY(node == driver)) {
 		struct pw_node_activation_state *state = &a->state[0];
 		int sync_type, all_ready, update_sync, target_sync;
 		uint32_t owner[2], reposition_owner;
@@ -1746,8 +1745,8 @@ static int node_ready(void *data, int status)
 		 * before calling the ready callback so that it can use the new target
 		 * duration and rate to schedule the next update. We do this here to
 		 * help drivers that don't support this yet */
-		if (node->rt.position->clock.duration != node->rt.position->clock.target_duration ||
-		    node->rt.position->clock.rate.denom != node->rt.position->clock.target_rate.denom) {
+		if (SPA_UNLIKELY(node->rt.position->clock.duration != node->rt.position->clock.target_duration ||
+		    node->rt.position->clock.rate.denom != node->rt.position->clock.target_rate.denom)) {
 			pw_log_warn("driver %s did not update duration/rate", node->name);
 			node->rt.position->clock.duration = node->rt.position->clock.target_duration;
 			node->rt.position->clock.rate = node->rt.position->clock.target_rate;
@@ -1813,7 +1812,7 @@ again:
 	if (SPA_UNLIKELY(node->driver && !node->driving))
 		return 0;
 
-	if (!node->driver) {
+	if (SPA_UNLIKELY(!node->driver)) {
 		/* legacy, nodes should directly resume the graph by calling
 		 * the peer eventfd directly, node_ready is only for drivers */
 		a->status = PW_NODE_ACTIVATION_FINISHED;

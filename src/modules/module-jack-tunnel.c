@@ -44,6 +44,8 @@
  *
  * - `jack.server`: the name of the JACK server to tunnel to.
  * - `jack.client-name`: the name of the JACK client.
+ * - `jack.connect`: if jack ports should be connected automatically can also be
+ *                   placed per stream.
  * - `tunnel.mode`: the tunnel mode, sink|source|duplex, default duplex
  * - `source.props`: Extra properties for the source filter.
  * - `sink.props`: Extra properties for the sink filter.
@@ -70,6 +72,7 @@
  *     args = {
  *         #jack.server      = null
  *         #jack.client-name = PipeWire
+ *         #jack.connect     = true
  *         #tunnel.mode      = duplex
  *         #audio.channels   = 2
  *         #audio.position   = [ FL FR ]
@@ -97,6 +100,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define MODULE_USAGE	"( remote.name=<remote> ] "				\
 			"( jack.server=<server name> ) "			\
 			"( jack.client-name=<name of the JACK client> ] "	\
+			"( jack.connect=<bool, autoconnect ports> ] "		\
 			"( tunnel.mode=<sink|source|duplex> ] "			\
 			"( audio.channels=<number of channels> ] "		\
 			"( audio.position=<channel map> ] "			\
@@ -165,6 +169,8 @@ struct impl {
 	unsigned int sink_running:1;
 	unsigned int done:1;
 	unsigned int new_xrun:1;
+	unsigned int source_connect:1;
+	unsigned int sink_connect:1;
 };
 
 static void source_destroy(void *d)
@@ -308,10 +314,11 @@ static void make_sink_ports(struct impl *impl)
 	struct pw_properties *props;
 	const char *str;
 	char name[256];
-	const char **ports;
+	const char **ports = NULL;
 
-	ports = jack_get_ports(impl->client, NULL, NULL,
-                                JackPortIsPhysical|JackPortIsInput);
+	if (impl->sink_connect)
+		ports = jack_get_ports(impl->client, NULL, NULL,
+	                                JackPortIsPhysical|JackPortIsInput);
 
 	for (i = 0; i < impl->sink_info.channels; i++) {
 		struct port *port = impl->sink_ports[i];
@@ -379,10 +386,11 @@ static void make_source_ports(struct impl *impl)
 	struct pw_properties *props;
 	const char *str;
 	char name[256];
-	const char **ports;
+	const char **ports = NULL;
 
-	ports = jack_get_ports(impl->client, NULL, NULL,
-                                JackPortIsPhysical|JackPortIsOutput);
+	if (impl->source_connect)
+		ports = jack_get_ports(impl->client, NULL, NULL,
+					JackPortIsPhysical|JackPortIsOutput);
 
 	for (i = 0; i < impl->source_info.channels; i++) {
 		struct port *port = impl->source_ports[i];
@@ -979,9 +987,15 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_ALWAYS_PROCESS);
 	copy_props(impl, props, PW_KEY_NODE_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
+	copy_props(impl, props, "jack.connect");
 
 	parse_audio_info(impl->source_props, &impl->source_info);
 	parse_audio_info(impl->sink_props, &impl->sink_info);
+
+	impl->source_connect = pw_properties_get_bool(impl->source_props,
+			"jack.connect", true);
+	impl->sink_connect = pw_properties_get_bool(impl->sink_props,
+			"jack.connect", true);
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

@@ -1818,8 +1818,9 @@ again:
 		a->status = PW_NODE_ACTIVATION_FINISHED;
 		a->finish_time = nsec;
 	}
-
-	if (status & SPA_STATUS_HAVE_DATA) {
+	if (!node->remote && (status & SPA_STATUS_HAVE_DATA)) {
+		/* remote nodes have done the output mix already before
+		 * they triggered the ready event */
 		spa_list_for_each(p, &node->rt.output_mix, rt.node_link)
 			spa_node_process(p->mix);
 	}

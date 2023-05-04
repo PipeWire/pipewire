@@ -13,15 +13,12 @@
 #include <signal.h>
 #include <limits.h>
 #include <math.h>
-#include <semaphore.h>
 
 #include "config.h"
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
-#include <spa/utils/ringbuffer.h>
-#include <spa/utils/dll.h>
 #include <spa/debug/types.h>
 #include <spa/pod/builder.h>
 #include <spa/param/audio/format-utils.h>
@@ -152,7 +149,6 @@ struct impl {
 	struct spa_audio_info_raw sink_info;
 	struct port *sink_ports[SPA_AUDIO_MAX_CHANNELS];
 
-	uint32_t nframes;
 	uint32_t samplerate;
 
 	jack_client_t *client;
@@ -220,8 +216,10 @@ static void sink_process(void *d, struct spa_io_position *position)
 		memcpy(dst, src, n_samples * sizeof(float));
 	}
 	pw_log_trace_fp("done %u", impl->frame_time);
-	impl->done = true;
-	jack_cycle_signal(impl->client, 0);
+	if (impl->mode & MODE_SINK) {
+		impl->done = true;
+		jack_cycle_signal(impl->client, 0);
+	}
 }
 
 static void source_process(void *d, struct spa_io_position *position)
@@ -244,6 +242,10 @@ static void source_process(void *d, struct spa_io_position *position)
 		memcpy(dst, src, n_samples * sizeof(float));
 	}
 	pw_log_trace_fp("done %u", impl->frame_time);
+	if (impl->mode == MODE_SOURCE) {
+		impl->done = true;
+		jack_cycle_signal(impl->client, 0);
+	}
 }
 
 static void source_state_changed(void *d, enum pw_filter_state old,
@@ -572,11 +574,12 @@ static void *jack_process_thread(void *arg)
 
 			jack_transport_query (impl->client, &pos);
 		}
-		impl->nframes = nframes;
-
-		if (sink_running && source_running) {
+		if (impl->mode & MODE_SINK && sink_running) {
 			impl->done = false;
 			pw_filter_trigger_process(impl->sink);
+		} else if (impl->mode == MODE_SOURCE && source_running) {
+			impl->done = false;
+			pw_filter_trigger_process(impl->source);
 		} else {
 			jack_cycle_signal(impl->client, 0);
 		}
@@ -771,7 +774,6 @@ static int create_jack_client(struct impl *impl)
 static int start_jack_clients(struct impl *impl)
 {
 	jack_activate(impl->client);
-
 	return 0;
 }
 

@@ -43,6 +43,7 @@
  * ## Module Options
  *
  * - `jack.server`: the name of the JACK server to tunnel to.
+ * - `jack.client-name`: the name of the JACK client.
  * - `tunnel.mode`: the tunnel mode, sink|source|duplex, default duplex
  * - `source.props`: Extra properties for the source filter.
  * - `sink.props`: Extra properties for the sink filter.
@@ -67,10 +68,11 @@
  * context.modules = [
  * {   name = libpipewire-module-jack-tunnel
  *     args = {
- *         #jack.server    = null
- *         #tunnel.mode    = duplex
- *         #audio.channels = 2
- *         #audio.position = [ FL FR ]
+ *         #jack.server      = null
+ *         #jack.client-name = PipeWire
+ *         #tunnel.mode      = duplex
+ *         #audio.channels   = 2
+ *         #audio.position   = [ FL FR ]
  *         source.props = {
  *             # extra sink properties
  *         }
@@ -88,15 +90,16 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define DEFAULT_CHANNELS 2
-#define DEFAULT_POSITION "[ FL FR ]"
+#define DEFAULT_CLIENT_NAME	"PipeWire"
+#define DEFAULT_CHANNELS	2
+#define DEFAULT_POSITION	"[ FL FR ]"
 
 #define MODULE_USAGE	"( remote.name=<remote> ] "				\
-			"( node.name=<name of the nodes> ] "			\
-			"( node.description=<description of the nodes> ] "	\
+			"( jack.server=<server name> ) "			\
+			"( jack.client-name=<name of the JACK client> ] "	\
+			"( tunnel.mode=<sink|source|duplex> ] "			\
 			"( audio.channels=<number of channels> ] "		\
 			"( audio.position=<channel map> ] "			\
-			"( jack.server=<server name> ) "			\
 			"( source.props=<properties> ) "			\
 			"( sink.props=<properties> ) "
 
@@ -745,16 +748,19 @@ static void jack_latency(jack_latency_callback_mode_t mode, void *arg)
 
 static int create_jack_client(struct impl *impl)
 {
-	const char *server_name;
+	const char *server_name, *client_name;
 	jack_options_t options = JackNullOption;
 	jack_status_t status;
 
 	server_name = pw_properties_get(impl->props, "jack.server");
-
 	if (server_name != NULL)
 		options |= JackServerName;
 
-	impl->client = jack_client_open("pipewire", options, &status, server_name);
+	client_name = pw_properties_get(impl->props, "jack.client-name");
+	if (client_name == NULL)
+		client_name = DEFAULT_CLIENT_NAME;
+
+	impl->client = jack_client_open(client_name, options, &status, server_name);
 	if (impl->client == NULL) {
 		pw_log_error ("jack_client_open() failed 0x%2.0x\n", status);
 		return -EIO;

@@ -1133,9 +1133,11 @@ static inline int node_signal_func(void *data)
 
 static inline void calculate_stats(struct pw_impl_node *this,  struct pw_node_activation *a)
 {
-	if (SPA_LIKELY(a->signal_time > a->prev_signal_time)) {
+	uint64_t signal_time = a->signal_time;
+	uint64_t prev_signal_time = a->prev_signal_time;
+	if (SPA_LIKELY(signal_time > prev_signal_time)) {
 		uint64_t process_time = a->finish_time - a->signal_time;
-		uint64_t period_time = a->signal_time - a->prev_signal_time;
+		uint64_t period_time = signal_time - prev_signal_time;
 		float load = (float) process_time / (float) period_time;
 		a->cpu_load[0] = (a->cpu_load[0] + load) / 2.0f;
 		a->cpu_load[1] = (a->cpu_load[1] * 7.0f + load) / 8.0f;

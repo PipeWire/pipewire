@@ -45,7 +45,7 @@ static int module_loopback_load(struct module *module)
 	struct module_loopback_data *data = module->user_data;
 	FILE *f;
 	char *args;
-	size_t size, i;
+	size_t size;
 
 	pw_properties_setf(data->capture_props, PW_KEY_NODE_GROUP, "loopback-%u", module->index);
 	pw_properties_setf(data->playback_props, PW_KEY_NODE_GROUP, "loopback-%u", module->index);

@@ -143,7 +143,6 @@ static int module_null_sink_prepare(struct module * const module)
 	struct pw_properties * const props = module->props;
 	const char *str;
 	struct spa_audio_info_raw info = { 0 };
-	uint32_t i;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 

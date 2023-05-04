@@ -47,13 +47,10 @@ static const struct pw_impl_module_events module_events = {
 
 static int module_echo_cancel_load(struct module *module)
 {
-	struct pw_properties * const props = module->props;
 	struct module_echo_cancel_data *data = module->user_data;
-	const char *method;
 	FILE *f;
 	char *args;
 	size_t size;
-	uint32_t i;
 
 	if ((f = open_memstream(&args, &size)) == NULL)
 		return -errno;

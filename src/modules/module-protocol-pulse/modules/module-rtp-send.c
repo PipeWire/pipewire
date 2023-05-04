@@ -59,7 +59,6 @@ static int module_rtp_send_load(struct module *module)
 	FILE *f;
 	char *args;
 	size_t size;
-	uint32_t i;
 
 	pw_properties_setf(data->stream_props, "pulse.module.id",
 			"%u", module->index);

@@ -396,11 +396,14 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 static int impl_node_send_command(void *object, const struct spa_command *command)
 {
 	struct node *this = object;
+	uint32_t id;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(command != NULL, -EINVAL);
 
-	pw_log_debug("%p: send command %d", this, SPA_COMMAND_TYPE(command));
+	id = SPA_NODE_COMMAND_ID(command);
+	pw_log_debug("%p: send command %d (%s)", this, id,
+		    spa_debug_type_find_name(spa_type_node_command_id, id));
 
 	if (this->resource == NULL)
 		return -EIO;

@@ -495,7 +495,9 @@ exit:
 
 static int client_node_event(void *data, const struct spa_event *event)
 {
-	pw_log_warn("unhandled node event %d", SPA_EVENT_TYPE(event));
+	uint32_t id = SPA_NODE_EVENT_ID(event);
+	pw_log_warn("unhandled node event %d (%s)", id,
+		    spa_debug_type_find_name(spa_type_node_event_id, id));
 	return -ENOTSUP;
 }
 
@@ -504,11 +506,13 @@ static int client_node_command(void *_data, const struct spa_command *command)
 	struct node_data *data = _data;
 	struct pw_proxy *proxy = (struct pw_proxy*)data->client_node;
 	int res;
+	uint32_t id = SPA_NODE_COMMAND_ID(command);
 
-	switch (SPA_NODE_COMMAND_ID(command)) {
+	pw_log_debug("%p: got command %d (%s)", proxy, id,
+		    spa_debug_type_find_name(spa_type_node_command_id, id));
+
+	switch (id) {
 	case SPA_NODE_COMMAND_Pause:
-		pw_log_debug("node %p: pause", proxy);
-
 		if ((res = pw_impl_node_set_state(data->node, PW_NODE_STATE_IDLE)) < 0) {
 			pw_log_warn("node %p: pause failed", proxy);
 			pw_proxy_error(proxy, res, "pause failed");
@@ -516,8 +520,6 @@ static int client_node_command(void *_data, const struct spa_command *command)
 
 		break;
 	case SPA_NODE_COMMAND_Start:
-		pw_log_debug("node %p: start", proxy);
-
 		if ((res = pw_impl_node_set_state(data->node, PW_NODE_STATE_RUNNING)) < 0) {
 			pw_log_warn("node %p: start failed", proxy);
 			pw_proxy_error(proxy, res, "start failed");
@@ -525,7 +527,6 @@ static int client_node_command(void *_data, const struct spa_command *command)
 		break;
 
 	case SPA_NODE_COMMAND_Suspend:
-		pw_log_debug("node %p: suspend", proxy);
 		if ((res = pw_impl_node_set_state(data->node, PW_NODE_STATE_SUSPENDED)) < 0) {
 			pw_log_warn("node %p: suspend failed", proxy);
 			pw_proxy_error(proxy, res, "suspend failed");
@@ -535,9 +536,11 @@ static int client_node_command(void *_data, const struct spa_command *command)
 		res = pw_impl_node_send_command(data->node, command);
 		break;
 	default:
-		pw_log_warn("unhandled node command %d", SPA_NODE_COMMAND_ID(command));
+		pw_log_warn("unhandled node command %d (%s)", id,
+				spa_debug_type_find_name(spa_type_node_command_id, id));
 		res = -ENOTSUP;
-		pw_proxy_errorf(proxy, res, "command %d not supported", SPA_NODE_COMMAND_ID(command));
+		pw_proxy_errorf(proxy, res, "command %d (%s) not supported", id,
+				spa_debug_type_find_name(spa_type_node_command_id, id));
 	}
 	return res;
 }

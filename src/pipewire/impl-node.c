@@ -578,8 +578,12 @@ static int node_send_command(void *object, const struct spa_command *command)
 {
 	struct resource_data *data = object;
 	struct pw_impl_node *node = data->node;
+	uint32_t id = SPA_NODE_COMMAND_ID(command);
 
-	switch (SPA_NODE_COMMAND_ID(command)) {
+	pw_log_debug("%p: got command %d (%s)", node, id,
+		    spa_debug_type_find_name(spa_type_node_command_id, id));
+
+	switch (id) {
 	case SPA_NODE_COMMAND_Suspend:
 		suspend_node(node);
 		break;
@@ -1551,10 +1555,12 @@ static void node_event(void *data, const struct spa_event *event)
 {
 	struct pw_impl_node *node = data;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
+	uint32_t id = SPA_NODE_EVENT_ID(event);
 
-	pw_log_trace("%p: event %d", node, SPA_EVENT_TYPE(event));
+	pw_log_debug("%p: event %d (%s)", node, id,
+		    spa_debug_type_find_name(spa_type_node_event_id, id));
 
-	switch (SPA_NODE_EVENT_ID(event)) {
+	switch (id) {
 	case SPA_NODE_EVENT_Error:
 		impl->last_error = -EFAULT;
 		node_update_state(node, PW_NODE_STATE_ERROR,

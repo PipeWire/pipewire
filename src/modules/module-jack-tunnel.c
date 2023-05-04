@@ -219,7 +219,7 @@ static void sink_process(void *d, struct spa_io_position *position)
 		dst = jack_port_get_buffer(p->jack_port, n_samples);
 		memcpy(dst, src, n_samples * sizeof(float));
 	}
-	pw_log_trace_fp("done %u", impl->frames);
+	pw_log_trace_fp("done %u", impl->frame_time);
 	impl->done = true;
 	jack_cycle_signal(impl->client, 0);
 }

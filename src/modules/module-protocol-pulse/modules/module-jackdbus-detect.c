@@ -92,8 +92,20 @@ static int module_jackdbus_detect_unload(struct module *module)
 
 static const struct spa_dict_item module_jackdbus_detect_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.con>" },
-	{ PW_KEY_MODULE_DESCRIPTION, "Creates a JACK client when JACK is started" },
-	{ PW_KEY_MODULE_USAGE, "" },
+	{ PW_KEY_MODULE_DESCRIPTION, "Creates a JACK client when jackdbus is started" },
+	{ PW_KEY_MODULE_USAGE,
+		"channels=<number of channels> "
+		"sink_name=<name for the sink> "
+		"sink_properties=<properties for the sink> "
+		"sink_client_name=<jack client name> "
+		"sink_channels=<number of channels> "
+		"sink_channel_map=<channel map> "
+		"source_name=<name for the source> "
+		"source_properties=<properties for the source> "
+		"source_client_name=<jack client name> "
+		"source_channels=<number of channels> "
+		"source_channel_map=<channel map> "
+		"connect=<connect ports?>" },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

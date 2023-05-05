@@ -117,8 +117,8 @@ static inline int spa_node_port_enum_params_sync(struct spa_node *node,
 
 #define spa_node_call(callbacks,method,version,...)			\
 ({									\
-	int _res = -ENOTSUP;							\
-	spa_callbacks_call_res(callbacks, struct spa_node_callbacks,	\
+	int _res;							\
+	spa_callbacks_call_fast_res(callbacks, struct spa_node_callbacks,	\
 			_res, method, version, ##__VA_ARGS__);		\
 	_res;								\
 })

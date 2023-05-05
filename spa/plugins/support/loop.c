@@ -397,7 +397,7 @@ static void cancellation_handler(void *closure)
 	}
 }
 
-static int loop_iterate(void *object, int timeout)
+static int loop_iterate_cancel(void *object, int timeout)
 {
 	struct impl *impl = object;
 	struct spa_poll_event ep[MAX_EP], *e;
@@ -441,6 +441,49 @@ static int loop_iterate(void *object, int timeout)
 
 	pthread_cleanup_pop(true);
 
+	return nfds;
+}
+
+static int loop_iterate(void *object, int timeout)
+{
+	struct impl *impl = object;
+	struct spa_poll_event ep[MAX_EP], *e;
+	int i, nfds;
+
+	impl->polling = true;
+	spa_loop_control_hook_before(&impl->hooks_list);
+
+	nfds = spa_system_pollfd_wait(impl->system, impl->poll_fd, ep, SPA_N_ELEMENTS(ep), timeout);
+
+	spa_loop_control_hook_after(&impl->hooks_list);
+	impl->polling = false;
+
+	/* first we set all the rmasks, then call the callbacks. The reason is that
+	 * some callback might also want to look at other sources it manages and
+	 * can then reset the rmask to suppress the callback */
+	for (i = 0; i < nfds; i++) {
+		struct spa_source *s = ep[i].data;
+
+		s->rmask = ep[i].events;
+		/* already active in another iteration of the loop,
+		 * remove it from that iteration */
+		if (SPA_UNLIKELY(e = s->priv))
+			e->data = NULL;
+		s->priv = &ep[i];
+	}
+
+	if (SPA_UNLIKELY(!spa_list_is_empty(&impl->destroy_list)))
+		process_destroy(impl);
+
+	for (i = 0; i < nfds; i++) {
+		struct spa_source *s = ep[i].data;
+		if (SPA_LIKELY(s)) {
+			if (SPA_LIKELY(s->rmask))
+				s->func(s);
+			s->rmask = 0;
+			s->priv = NULL;
+		}
+	}
 	return nfds;
 }
 
@@ -826,6 +869,16 @@ static const struct spa_loop_methods impl_loop = {
 	.invoke = loop_invoke,
 };
 
+static const struct spa_loop_control_methods impl_loop_control_cancel = {
+	SPA_VERSION_LOOP_CONTROL_METHODS,
+	.get_fd = loop_get_fd,
+	.add_hook = loop_add_hook,
+	.enter = loop_enter,
+	.leave = loop_leave,
+	.iterate = loop_iterate_cancel,
+	.check = loop_check,
+};
+
 static const struct spa_loop_control_methods impl_loop_control = {
 	SPA_VERSION_LOOP_CONTROL_METHODS,
 	.get_fd = loop_get_fd,
@@ -908,6 +961,7 @@ impl_init(const struct spa_handle_factory *factory,
 	  uint32_t n_support)
 {
 	struct impl *impl;
+	const char *str;
 	int res;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
@@ -929,6 +983,12 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_TYPE_INTERFACE_LoopUtils,
 			SPA_VERSION_LOOP_UTILS,
 			&impl_loop_utils, impl);
+
+	if (info) {
+		if ((str = spa_dict_lookup(info, "loop.cancel")) != NULL &&
+		    spa_atob(str))
+			impl->control.iface.cb.funcs = &impl_loop_control_cancel;
+	}
 
 	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	spa_log_topic_init(impl->log, &log_topic);

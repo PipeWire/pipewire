@@ -139,7 +139,6 @@ struct filter {
 	struct spa_process_latency_info process_latency;
 
 	struct data data;
-	uintptr_t seq;
 	struct pw_time time;
 	uint64_t base_pos;
 	uint32_t clock_id;
@@ -957,23 +956,6 @@ static int impl_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffe
 	return 0;
 }
 
-static inline void copy_position(struct filter *impl)
-{
-	struct spa_io_position *p = impl->rt.position;
-	if (SPA_UNLIKELY(p != NULL)) {
-		SEQ_WRITE(impl->seq);
-		impl->time.now = p->clock.nsec;
-		impl->time.rate = p->clock.rate;
-		if (SPA_UNLIKELY(impl->clock_id != p->clock.id)) {
-			impl->base_pos = p->clock.position - impl->time.ticks;
-			impl->clock_id = p->clock.id;
-		}
-		impl->time.ticks = p->clock.position - impl->base_pos;
-		impl->time.delay = 0;
-		SEQ_WRITE(impl->seq);
-	}
-}
-
 static int
 do_call_process(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
@@ -1028,12 +1010,12 @@ static int impl_node_process(void *object)
 	spa_list_for_each(p, &impl->port_list, link) {
 		struct spa_io_buffers *io = p->io;
 
-		if (io == NULL ||
-		    io->buffer_id >= p->n_buffers)
+		if (SPA_UNLIKELY(io == NULL ||
+		    io->buffer_id >= p->n_buffers))
 			continue;
 
 		if (p->direction == SPA_DIRECTION_INPUT) {
-			if (io->status != SPA_STATUS_HAVE_DATA)
+			if (SPA_UNLIKELY(io->status != SPA_STATUS_HAVE_DATA))
 				continue;
 
 			/* push new buffer */
@@ -1042,7 +1024,7 @@ static int impl_node_process(void *object)
 			push_queue(p, &p->dequeued, b);
 			drained = false;
 		} else {
-			if (io->status == SPA_STATUS_HAVE_DATA)
+			if (SPA_UNLIKELY(io->status == SPA_STATUS_HAVE_DATA))
 				continue;
 
 			/* recycle old buffer */
@@ -1052,18 +1034,17 @@ static int impl_node_process(void *object)
 		}
 	}
 
-	copy_position(impl);
 	call_process(impl);
 
 	/** recycle/push queued buffers */
 	spa_list_for_each(p, &impl->port_list, link) {
 		struct spa_io_buffers *io = p->io;
 
-		if (io == NULL)
+		if (SPA_UNLIKELY(io == NULL))
 			continue;
 
 		if (p->direction == SPA_DIRECTION_INPUT) {
-			if (io->status != SPA_STATUS_HAVE_DATA)
+			if (SPA_UNLIKELY(io->status != SPA_STATUS_HAVE_DATA))
 				continue;
 
 			/* pop buffer to recycle */
@@ -1075,7 +1056,7 @@ static int impl_node_process(void *object)
 			}
 			io->status = SPA_STATUS_NEED_DATA;
 		} else {
-			if (io->status == SPA_STATUS_HAVE_DATA)
+			if (SPA_UNLIKELY(io->status == SPA_STATUS_HAVE_DATA))
 				continue;
 
 			if ((b = pop_queue(p, &p->queued)) != NULL) {
@@ -1090,7 +1071,7 @@ static int impl_node_process(void *object)
 		}
 	}
 	impl->drained = drained;
-	if (drained && impl->draining)
+	if (SPA_UNLIKELY(drained && impl->draining))
 		call_drained(impl);
 
 	return SPA_STATUS_NEED_DATA | SPA_STATUS_HAVE_DATA;
@@ -1921,18 +1902,22 @@ SPA_EXPORT
 int pw_filter_get_time(struct pw_filter *filter, struct pw_time *time)
 {
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
-	uintptr_t seq1, seq2;
+	struct spa_io_position *p = impl->position;
 
-	do {
-		seq1 = SEQ_READ(impl->seq);
+	if (SPA_LIKELY(p != NULL)) {
+		impl->time.now = p->clock.nsec;
+		impl->time.rate = p->clock.rate;
+		if (SPA_UNLIKELY(impl->clock_id != p->clock.id)) {
+			impl->base_pos = p->clock.position - impl->time.ticks;
+			impl->clock_id = p->clock.id;
+		}
+		impl->time.ticks = p->clock.position - impl->base_pos;
+		impl->time.delay = 0;
 		*time = impl->time;
-		seq2 = SEQ_READ(impl->seq);
-	} while (!SEQ_READ_SUCCESS(seq1, seq2));
-
+	}
 	pw_log_trace("%p: %"PRIi64" %"PRIi64" %"PRIu64" %d/%d ", filter,
 			time->now, time->delay, time->ticks,
 			time->rate.num, time->rate.denom);
-
 	return 0;
 }
 

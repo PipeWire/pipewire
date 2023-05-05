@@ -1022,7 +1022,7 @@ static int impl_node_process(void *object)
 	struct buffer *b;
 	bool drained = true;
 
-	pw_log_trace("%p: do process %p", impl, impl->rt.position);
+	pw_log_trace_fp("%p: do process %p", impl, impl->rt.position);
 
 	/** first dequeue and recycle buffers */
 	spa_list_for_each(p, &impl->port_list, link) {
@@ -1038,7 +1038,7 @@ static int impl_node_process(void *object)
 
 			/* push new buffer */
 			b = &p->buffers[io->buffer_id];
-			pw_log_trace("%p: dequeue buffer %d", impl, b->id);
+			pw_log_trace_fp("%p: dequeue buffer %d", impl, b->id);
 			push_queue(p, &p->dequeued, b);
 			drained = false;
 		} else {
@@ -1047,7 +1047,7 @@ static int impl_node_process(void *object)
 
 			/* recycle old buffer */
 			b = &p->buffers[io->buffer_id];
-			pw_log_trace("%p: recycle buffer %d", impl, b->id);
+			pw_log_trace_fp("%p: recycle buffer %d", impl, b->id);
 			push_queue(p, &p->dequeued, b);
 		}
 	}
@@ -1068,7 +1068,7 @@ static int impl_node_process(void *object)
 
 			/* pop buffer to recycle */
 			if ((b = pop_queue(p, &p->queued)) != NULL) {
-				pw_log_trace("%p: recycle buffer %d", impl, b->id);
+				pw_log_trace_fp("%p: recycle buffer %d", impl, b->id);
 				io->buffer_id = b->id;
 			} else {
 				io->buffer_id = SPA_ID_INVALID;
@@ -1079,7 +1079,7 @@ static int impl_node_process(void *object)
 				continue;
 
 			if ((b = pop_queue(p, &p->queued)) != NULL) {
-				pw_log_trace("%p: pop %d %p", impl, b->id, io);
+				pw_log_trace_fp("%p: pop %d %p", impl, b->id, io);
 				io->buffer_id = b->id;
 				io->status = SPA_STATUS_HAVE_DATA;
 				drained = false;

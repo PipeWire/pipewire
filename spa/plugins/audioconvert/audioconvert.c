@@ -2675,11 +2675,21 @@ static int impl_node_process(void *object)
 		}
 	}
 
+	resample_passthrough = resample_is_passthrough(this);
+
 	/* calculate how many samples we are going to produce. */
 	if (this->direction == SPA_DIRECTION_INPUT) {
 		/* in split mode we need to output exactly the size of the
 		 * duration so we don't try to flush early */
 		max_out = quant_samples;
+		if (!in_avail || this->drained) {
+			n_out = max_out - SPA_MIN(max_out, this->out_offset);
+			/* no input, ask for more, update rate-match first */
+			resample_update_rate_match(this, resample_passthrough, n_out, 0);
+			spa_log_trace_fp(this->log, "%p: no input drained:%d", this, this->drained);
+			res |= this->drained ? SPA_STATUS_DRAINED : SPA_STATUS_NEED_DATA;
+			return res;
+		}
 		flush_out = false;
 	} else {
 		/* in merge mode we consume one duration of samples and
@@ -2780,18 +2790,9 @@ static int impl_node_process(void *object)
 	/* we only need to output the remaining samples */
 	n_out = max_out - SPA_MIN(max_out, this->out_offset);
 
-	resample_passthrough = resample_is_passthrough(this);
-
 	/* calculate how many samples we are going to consume. */
 	if (this->direction == SPA_DIRECTION_INPUT) {
-		if (!in_avail || this->drained) {
-			/* no input, ask for more, update rate-match first */
-			resample_update_rate_match(this, resample_passthrough, n_out, 0);
-			spa_log_trace_fp(this->log, "%p: no input drained:%d", this, this->drained);
-			res |= this->drained ? SPA_STATUS_DRAINED : SPA_STATUS_NEED_DATA;
-			return res;
-		}
-		/* else figure out how much input samples we need to consume */
+		/* figure out how much input samples we need to consume */
 		n_samples = SPA_MIN(n_samples,
 				resample_get_in_size(this, resample_passthrough, n_out));
 	} else {

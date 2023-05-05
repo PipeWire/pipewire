@@ -123,7 +123,7 @@ struct spa_loop_control_hooks {
 	struct spa_hook_list *_l = l;							\
 	struct spa_hook *_h;								\
 	spa_list_for_each_reverse(_h, &_l->list, link)					\
-		spa_callbacks_call(&_h->cb, struct spa_loop_control_hooks, before, 0);	\
+		spa_callbacks_call_fast(&_h->cb, struct spa_loop_control_hooks, before, 0);	\
 })
 
 #define spa_loop_control_hook_after(l)							\
@@ -131,7 +131,7 @@ struct spa_loop_control_hooks {
 	struct spa_hook_list *_l = l;							\
 	struct spa_hook *_h;								\
 	spa_list_for_each(_h, &_l->list, link)						\
-		spa_callbacks_call(&_h->cb, struct spa_loop_control_hooks, after, 0);	\
+		spa_callbacks_call_fast(&_h->cb, struct spa_loop_control_hooks, after, 0);	\
 })
 
 /**
@@ -212,12 +212,24 @@ struct spa_loop_control_methods {
 	_res;								\
 })
 
+#define spa_loop_control_method_fast_r(o,method,version,...)		\
+({									\
+	int _res;							\
+	struct spa_loop_control *_o = o;				\
+	spa_interface_call_fast_res(&_o->iface,				\
+			struct spa_loop_control_methods, _res,		\
+			method, version, ##__VA_ARGS__);		\
+	_res;								\
+})
+
 #define spa_loop_control_get_fd(l)		spa_loop_control_method_r(l,get_fd,0)
 #define spa_loop_control_add_hook(l,...)	spa_loop_control_method_v(l,add_hook,0,__VA_ARGS__)
 #define spa_loop_control_enter(l)		spa_loop_control_method_v(l,enter,0)
 #define spa_loop_control_leave(l)		spa_loop_control_method_v(l,leave,0)
 #define spa_loop_control_iterate(l,...)		spa_loop_control_method_r(l,iterate,0,__VA_ARGS__)
 #define spa_loop_control_check(l)		spa_loop_control_method_r(l,check,1)
+
+#define spa_loop_control_iterate_fast(l,...)	spa_loop_control_method_fast_r(l,iterate,0,__VA_ARGS__)
 
 typedef void (*spa_source_io_func_t) (void *data, int fd, uint32_t mask);
 typedef void (*spa_source_idle_func_t) (void *data);

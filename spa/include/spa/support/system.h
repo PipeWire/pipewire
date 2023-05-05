@@ -101,12 +101,11 @@ struct spa_system_methods {
 ({									\
 	volatile int _res = -ENOTSUP;					\
 	struct spa_system *_o = o;					\
-	spa_interface_call_res(&_o->iface,				\
+	spa_interface_call_fast_res(&_o->iface,				\
 			struct spa_system_methods, _res,		\
 			method, version, ##__VA_ARGS__);		\
 	_res;								\
 })
-
 
 #define spa_system_read(s,...)			spa_system_method_r(s,read,0,__VA_ARGS__)
 #define spa_system_write(s,...)			spa_system_method_r(s,write,0,__VA_ARGS__)

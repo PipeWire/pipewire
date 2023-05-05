@@ -162,6 +162,14 @@ struct spa_interface {
 	_res;									\
 })
 
+#define spa_callbacks_call_fast(callbacks,type,method,vers,...)			\
+({										\
+	const type *_f = (const type *) (callbacks)->funcs;			\
+	_f->method((callbacks)->data, ## __VA_ARGS__);				\
+	true;									\
+})
+
+
 /**
  * True if the \a callbacks are of version \a vers, false otherwise
  */
@@ -194,6 +202,11 @@ struct spa_interface {
 		res = _f->method((callbacks)->data, ## __VA_ARGS__);		\
 	res;									\
 })
+#define spa_callbacks_call_fast_res(callbacks,type,res,method,vers,...)		\
+({										\
+	const type *_f = (const type *) (callbacks)->funcs;			\
+	res = _f->method((callbacks)->data, ## __VA_ARGS__);			\
+})
 
 /**
  * True if the \a iface's callbacks are of version \a vers, false otherwise
@@ -216,6 +229,9 @@ struct spa_interface {
 #define spa_interface_call(iface,method_type,method,vers,...)			\
 	spa_callbacks_call(&(iface)->cb,method_type,method,vers,##__VA_ARGS__)
 
+#define spa_interface_call_fast(iface,method_type,method,vers,...)		\
+	spa_callbacks_call_fast(&(iface)->cb,method_type,method,vers,##__VA_ARGS__)
+
 /**
  * Invoke method named \a method in the callbacks on the given interface object.
  * The \a method_type defines the type of the method struct, not the interface
@@ -225,6 +241,9 @@ struct spa_interface {
  */
 #define spa_interface_call_res(iface,method_type,res,method,vers,...)			\
 	spa_callbacks_call_res(&(iface)->cb,method_type,res,method,vers,##__VA_ARGS__)
+
+#define spa_interface_call_fast_res(iface,method_type,res,method,vers,...)		\
+	spa_callbacks_call_fast_res(&(iface)->cb,method_type,res,method,vers,##__VA_ARGS__)
 
 /**
  * \}

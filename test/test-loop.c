@@ -234,6 +234,10 @@ struct dmsbd_data {
 	struct spa_hook hook;
 };
 
+static void dmsbd_before(void *data)
+{
+}
+
 static void dmsbd_after(void *data)
 {
 	struct dmsbd_data *d = data;
@@ -244,6 +248,7 @@ static void dmsbd_after(void *data)
 
 static const struct spa_loop_control_hooks dmsbd_hooks = {
 	SPA_VERSION_LOOP_CONTROL_HOOKS,
+	.before = dmsbd_before,
 	.after = dmsbd_after,
 };
 

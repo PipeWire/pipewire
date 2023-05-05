@@ -1191,7 +1191,7 @@ static int node_ready(void *d, int status)
 
 	if (status & SPA_STATUS_HAVE_DATA) {
 		spa_list_for_each(p, &node->rt.output_mix, rt.node_link)
-			spa_node_process(p->mix);
+			spa_node_process_fast(p->mix);
 	}
 
 	a->state[0].status = status;

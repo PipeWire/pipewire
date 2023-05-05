@@ -1166,13 +1166,13 @@ static inline int process_node(void *data)
 
 	if (SPA_LIKELY(this->added)) {
 		spa_list_for_each(p, &this->rt.input_mix, rt.node_link)
-			spa_node_process(p->mix);
+			spa_node_process_fast(p->mix);
 
-		status = spa_node_process(this->node);
+		status = spa_node_process_fast(this->node);
 
 		if (status & SPA_STATUS_HAVE_DATA) {
 			spa_list_for_each(p, &this->rt.output_mix, rt.node_link)
-				spa_node_process(p->mix);
+				spa_node_process_fast(p->mix);
 		}
 	} else {
 		/* This can happen when we deactivated the node but some links are
@@ -1822,7 +1822,7 @@ again:
 		/* remote nodes have done the output mix already before
 		 * they triggered the ready event */
 		spa_list_for_each(p, &node->rt.output_mix, rt.node_link)
-			spa_node_process(p->mix);
+			spa_node_process_fast(p->mix);
 	}
 	return resume_node(node, status, nsec);
 }

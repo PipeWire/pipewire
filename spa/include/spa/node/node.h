@@ -632,6 +632,16 @@ struct spa_node_methods {
 	_res;								\
 })
 
+#define spa_node_method_fast(o,method,version,...)			\
+({									\
+	int _res;							\
+	struct spa_node *_n = o;					\
+	spa_interface_call_fast_res(&_n->iface,				\
+			struct spa_node_methods, _res,			\
+			method, version, ##__VA_ARGS__);		\
+	_res;								\
+})
+
 #define spa_node_add_listener(n,...)		spa_node_method(n, add_listener, 0, __VA_ARGS__)
 #define spa_node_set_callbacks(n,...)		spa_node_method(n, set_callbacks, 0, __VA_ARGS__)
 #define spa_node_sync(n,...)			spa_node_method(n, sync, 0, __VA_ARGS__)
@@ -647,7 +657,9 @@ struct spa_node_methods {
 #define spa_node_port_set_io(n,...)		spa_node_method(n, port_set_io, 0, __VA_ARGS__)
 
 #define spa_node_port_reuse_buffer(n,...)	spa_node_method(n, port_reuse_buffer, 0, __VA_ARGS__)
+#define spa_node_port_reuse_buffer_fast(n,...)	spa_node_method_fast(n, port_reuse_buffer, 0, __VA_ARGS__)
 #define spa_node_process(n)			spa_node_method(n, process, 0)
+#define spa_node_process_fast(n)		spa_node_method_fast(n, process, 0)
 
 /**
  * \}

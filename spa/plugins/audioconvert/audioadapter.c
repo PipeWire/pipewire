@@ -1230,12 +1230,12 @@ static int follower_ready(void *data, int status)
 		if (this->direction == SPA_DIRECTION_OUTPUT) {
 			int retry = 8;
 			while (retry--) {
-				status = spa_node_process(this->convert);
+				status = spa_node_process_fast(this->convert);
 				if (status & SPA_STATUS_HAVE_DATA)
 					break;
 
 				if (status & SPA_STATUS_NEED_DATA) {
-					status = spa_node_process(this->follower);
+					status = spa_node_process_fast(this->follower);
 					if (!(status & SPA_STATUS_HAVE_DATA))
 						break;
 				}
@@ -1480,7 +1480,7 @@ static int impl_node_process(void *object)
 	if (this->target == this->follower) {
 		if (this->io_position)
 			this->io_rate_match.size = this->io_position->clock.duration;
-		return spa_node_process(this->follower);
+		return spa_node_process_fast(this->follower);
 	}
 
 	if (this->direction == SPA_DIRECTION_INPUT) {
@@ -1488,7 +1488,7 @@ static int impl_node_process(void *object)
 		 * First we run the converter to process the input for the follower
 		 * then if it produced data, we run the follower. */
 		while (retry--) {
-			status = spa_node_process(this->convert);
+			status = spa_node_process_fast(this->convert);
 			/* schedule the follower when the converter needed
 			 * a recycled buffer */
 			if (status == -EPIPE || status == 0)
@@ -1499,7 +1499,7 @@ static int impl_node_process(void *object)
 			if (status & (SPA_STATUS_HAVE_DATA | SPA_STATUS_DRAINED)) {
 				/* as long as the converter produced something or
 				 * is drained, process the follower. */
-				fstatus = spa_node_process(this->follower);
+				fstatus = spa_node_process_fast(this->follower);
 				if (fstatus < 0) {
 					status = fstatus;
 					break;
@@ -1520,7 +1520,7 @@ static int impl_node_process(void *object)
 			/* output node (source). First run the converter to make
 			 * sure we push out any queued data. Then when it needs
 			 * more data, schedule the follower. */
-			status = spa_node_process(this->convert);
+			status = spa_node_process_fast(this->convert);
 			if (status == 0)
 				status = SPA_STATUS_NEED_DATA;
 			else if (status < 0)
@@ -1537,7 +1537,7 @@ static int impl_node_process(void *object)
 			if (status & SPA_STATUS_NEED_DATA) {
 				/* the converter needs more data, schedule the
 				 * follower */
-				fstatus = spa_node_process(this->follower);
+				fstatus = spa_node_process_fast(this->follower);
 				if (fstatus < 0) {
 					status = fstatus;
 					break;
@@ -1556,7 +1556,7 @@ static int impl_node_process(void *object)
 			spa_node_call_xrun(&this->callbacks, 0, 0, NULL);
 
 	} else {
-		status = spa_node_process(this->follower);
+		status = spa_node_process_fast(this->follower);
 	}
 	spa_log_trace_fp(this->log, "%p: process status:%d", this, status);
 

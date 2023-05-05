@@ -109,6 +109,12 @@ struct pw_loop *pw_loop_new(const struct spa_dict *props)
                 goto error_unload_loop;
         }
 	this->control = iface;
+	if (!spa_interface_callback_check(&this->control->iface,
+			struct spa_loop_control_methods, iterate, 0)) {
+		res = -EINVAL;
+		pw_log_error("%p: loop does not support iterate", this);
+		goto error_unload_loop;
+	}
 
         if ((res = spa_handle_get_interface(impl->loop_handle,
 					    SPA_TYPE_INTERFACE_LoopUtils,

@@ -319,6 +319,8 @@ loop_add_hook(void *object,
 	      void *data)
 {
 	struct impl *impl = object;
+	spa_return_if_fail(SPA_CALLBACK_CHECK(hooks, before, 0));
+	spa_return_if_fail(SPA_CALLBACK_CHECK(hooks, after, 0));
 	spa_hook_list_append(&impl->hooks_list, hook, hooks, data);
 }
 

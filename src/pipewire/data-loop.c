@@ -51,6 +51,18 @@ static void *do_loop(void *user_data)
 {
 	struct pw_data_loop *this = user_data;
 	int res;
+	int (*iterate) (void *object, int timeout);
+	struct spa_interface *iface = &this->loop->control->iface;
+	struct spa_callbacks *cb = &iface->cb;
+	const struct spa_loop_control_methods *m =
+		(const struct spa_loop_control_methods *)cb->funcs;
+	void *data = cb->data;
+
+	if (!SPA_CALLBACK_CHECK(m, iterate, 0)) {
+		pw_log_error("loop is missing iterate method");
+		return NULL;
+	}
+	iterate = m->iterate;
 
 	pw_log_debug("%p: enter thread", this);
 	pw_loop_enter(this->loop);
@@ -58,7 +70,7 @@ static void *do_loop(void *user_data)
 	pthread_cleanup_push(thread_cleanup, this);
 
 	while (SPA_LIKELY(this->running)) {
-		if (SPA_UNLIKELY((res = pw_loop_iterate(this->loop, -1)) < 0)) {
+		if (SPA_UNLIKELY((res = iterate(data, -1)) < 0)) {
 			if (res == -EINTR)
 				continue;
 			pw_log_error("%p: iterate error %d (%s)",

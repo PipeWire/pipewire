@@ -477,9 +477,12 @@ static int loop_iterate(void *object, int timeout)
 
 	for (i = 0; i < nfds; i++) {
 		struct spa_source *s = ep[i].data;
+		if (SPA_LIKELY(s && s->rmask))
+			s->func(s);
+	}
+	for (i = 0; i < nfds; i++) {
+		struct spa_source *s = ep[i].data;
 		if (SPA_LIKELY(s)) {
-			if (SPA_LIKELY(s->rmask))
-				s->func(s);
 			s->rmask = 0;
 			s->priv = NULL;
 		}

@@ -7,11 +7,99 @@
 #include <pipewire/work-queue.h>
 
 #include "client.h"
+#include "collect.h"
+#include "commands.h"
 #include "internal.h"
 #include "log.h"
+#include "message.h"
 #include "operation.h"
 #include "pending-sample.h"
+#include "reply.h"
 #include "sample-play.h"
+
+static void sample_play_finish(struct pending_sample *ps)
+{
+	struct client *client = ps->client;
+	pending_sample_free(ps);
+	client_unref(client);
+}
+
+static void sample_play_ready_reply(void *data, struct client *client, uint32_t tag)
+{
+	struct pending_sample *ps = data;
+	struct message *reply;
+	uint32_t index = id_to_index(client->manager, ps->play->id);
+
+	pw_log_info("[%s] PLAY_SAMPLE tag:%u index:%u",
+			client->name, ps->tag, index);
+
+	ps->ready = true;
+
+	reply = reply_new(client, ps->tag);
+	if (client->version >= 13)
+		message_put(reply,
+			TAG_U32, index,
+			TAG_INVALID);
+
+	client_queue_message(client, reply);
+
+	if (ps->done)
+		sample_play_finish(ps);
+}
+
+static void sample_play_ready(void *data, uint32_t id)
+{
+	struct pending_sample *ps = data;
+	struct client *client = ps->client;
+	operation_new_cb(client, ps->tag, sample_play_ready_reply, ps);
+}
+
+static void on_sample_done(void *obj, void *data, int res, uint32_t id)
+{
+	struct pending_sample *ps = obj;
+	ps->done = true;
+	if (ps->ready)
+		sample_play_finish(ps);
+}
+
+static void sample_play_done(void *data, int res)
+{
+	struct pending_sample *ps = data;
+	struct client *client = ps->client;
+	struct impl *impl = client->impl;
+
+	if (res < 0)
+		reply_error(client, COMMAND_PLAY_SAMPLE, ps->tag, res);
+	else
+		pw_log_info("[%s] PLAY_SAMPLE done tag:%u", client->name, ps->tag);
+
+	pw_work_queue_add(impl->work_queue, ps, 0,
+				on_sample_done, client);
+}
+
+static const struct sample_play_events sample_play_events = {
+	VERSION_SAMPLE_PLAY_EVENTS,
+	.ready = sample_play_ready,
+	.done = sample_play_done,
+};
+
+int pending_sample_new(struct client *client, struct sample *sample, struct pw_properties *props, uint32_t tag)
+{
+	struct pending_sample *ps;
+	struct sample_play *p = sample_play_new(client->core, sample, props, sizeof(*ps));
+	if (!p)
+		return -errno;
+
+	ps = p->user_data;
+	ps->client = client;
+	ps->play = p;
+	ps->tag = tag;
+	sample_play_add_listener(p, &ps->listener, &sample_play_events, ps);
+	spa_list_append(&client->pending_samples, &ps->link);
+	client->ref++;
+
+	return 0;
+}
 
 void pending_sample_free(struct pending_sample *ps)
 {

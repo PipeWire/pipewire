@@ -11,6 +11,8 @@
 #include <spa/utils/hook.h>
 
 struct client;
+struct pw_properties;
+struct sample;
 struct sample_play;
 
 struct pending_sample {
@@ -23,6 +25,7 @@ struct pending_sample {
 	unsigned done:1;
 };
 
+int pending_sample_new(struct client *client, struct sample *sample, struct pw_properties *props, uint32_t tag);
 void pending_sample_free(struct pending_sample *ps);
 
 #endif /* PULSE_SERVER_PENDING_SAMPLE_H */

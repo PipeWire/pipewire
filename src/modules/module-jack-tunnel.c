@@ -29,7 +29,7 @@
 #include <pipewire/i18n.h>
 #include <pipewire/private.h>
 
-#include <jack/jack.h>
+#include "module-jack-tunnel/weakjack.h"
 
 /** \page page_module_jack_tunnel PipeWire Module: JACK Tunnel
  *
@@ -42,6 +42,9 @@
  *
  * ## Module Options
  *
+ * - `jack.library`: the libjack to load, by default libjack.so.0 is searched in
+ *   			JACK_PATH directories and then some standard library paths.
+ *   			Can be an absolute path.
  * - `jack.server`: the name of the JACK server to tunnel to.
  * - `jack.client-name`: the name of the JACK client.
  * - `jack.connect`: if jack ports should be connected automatically can also be
@@ -70,6 +73,7 @@
  * context.modules = [
  * {   name = libpipewire-module-jack-tunnel
  *     args = {
+ *         #jack.library     = libjack.so.0
  *         #jack.server      = null
  *         #jack.client-name = PipeWire
  *         #jack.connect     = true
@@ -114,6 +118,8 @@ static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_USAGE, MODULE_USAGE },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
+
+static struct weakjack jack;
 
 struct port {
 	jack_port_t *jack_port;
@@ -221,13 +227,13 @@ static void sink_process(void *d, struct spa_io_position *position)
 		if (src == NULL || p->jack_port == NULL)
 			continue;
 
-		dst = jack_port_get_buffer(p->jack_port, n_samples);
+		dst = jack.port_get_buffer(p->jack_port, n_samples);
 		memcpy(dst, src, n_samples * sizeof(float));
 	}
 	pw_log_trace_fp("done %u", impl->frame_time);
 	if (impl->mode & MODE_SINK) {
 		impl->done = true;
-		jack_cycle_signal(impl->client, 0);
+		jack.cycle_signal(impl->client, 0);
 	}
 }
 
@@ -247,13 +253,13 @@ static void source_process(void *d, struct spa_io_position *position)
 		if (dst == NULL || p->jack_port == NULL)
 			continue;
 
-		src = jack_port_get_buffer (p->jack_port, n_samples);
+		src = jack.port_get_buffer (p->jack_port, n_samples);
 		memcpy(dst, src, n_samples * sizeof(float));
 	}
 	pw_log_trace_fp("done %u", impl->frame_time);
 	if (impl->mode == MODE_SOURCE) {
 		impl->done = true;
-		jack_cycle_signal(impl->client, 0);
+		jack.cycle_signal(impl->client, 0);
 	}
 }
 
@@ -305,7 +311,7 @@ static void param_latency_changed(struct impl *impl, const struct spa_pod *param
 		port->latency_changed[direction] = update = true;
 	}
 	if (update)
-		jack_recompute_total_latencies(impl->client);
+		jack.recompute_total_latencies(impl->client);
 }
 
 static void make_sink_ports(struct impl *impl)
@@ -317,7 +323,7 @@ static void make_sink_ports(struct impl *impl)
 	const char **ports = NULL;
 
 	if (impl->sink_connect)
-		ports = jack_get_ports(impl->client, NULL, NULL,
+		ports = jack.get_ports(impl->client, NULL, NULL,
 	                                JackPortIsPhysical|JackPortIsInput);
 
 	for (i = 0; i < impl->sink_info.channels; i++) {
@@ -325,7 +331,7 @@ static void make_sink_ports(struct impl *impl)
 		if (port != NULL) {
 			impl->sink_ports[i] = NULL;
 			if (port->jack_port)
-				jack_port_unregister(impl->client, port->jack_port);
+				jack.port_unregister(impl->client, port->jack_port);
 			pw_filter_remove_port(port);
 		}
 
@@ -347,18 +353,18 @@ static void make_sink_ports(struct impl *impl)
 		else
 			snprintf(name, sizeof(name), "output_%d", i);
 
-		port->jack_port = jack_port_register (impl->client, name,
+		port->jack_port = jack.port_register (impl->client, name,
 					JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
 
 		impl->sink_ports[i] = port;
 
 		if (ports != NULL && ports[i] != NULL) {
-			if (jack_connect(impl->client, jack_port_name(port->jack_port), ports[i]))
+			if (jack.connect(impl->client, jack.port_name(port->jack_port), ports[i]))
 				pw_log_warn("cannot connect output ports");
 		}
 	}
 	if (ports)
-		jack_free(ports);
+		jack.free(ports);
 }
 
 static void sink_param_changed(void *data, void *port_data, uint32_t id,
@@ -389,7 +395,7 @@ static void make_source_ports(struct impl *impl)
 	const char **ports = NULL;
 
 	if (impl->source_connect)
-		ports = jack_get_ports(impl->client, NULL, NULL,
+		ports = jack.get_ports(impl->client, NULL, NULL,
 					JackPortIsPhysical|JackPortIsOutput);
 
 	for (i = 0; i < impl->source_info.channels; i++) {
@@ -397,7 +403,7 @@ static void make_source_ports(struct impl *impl)
 		if (port != NULL) {
 			impl->source_ports[i] = NULL;
 			if (port->jack_port)
-				jack_port_unregister(impl->client, port->jack_port);
+				jack.port_unregister(impl->client, port->jack_port);
 			pw_filter_remove_port(port);
 		}
 
@@ -419,18 +425,18 @@ static void make_source_ports(struct impl *impl)
 		else
 			snprintf(name, sizeof(name), "input_%d", i);
 
-		port->jack_port = jack_port_register (impl->client, name,
+		port->jack_port = jack.port_register (impl->client, name,
 					JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
 
 		impl->source_ports[i] = port;
 
 		if (ports != NULL && ports[i] != NULL) {
-			if (jack_connect(impl->client, ports[i], jack_port_name(port->jack_port)))
+			if (jack.connect(impl->client, ports[i], jack.port_name(port->jack_port)))
 				pw_log_warn("cannot connect input ports");
 		}
 	}
 	if (ports)
-		jack_free(ports);
+		jack.free(ports);
 }
 
 static void source_param_changed(void *data, void *port_data, uint32_t id,
@@ -545,12 +551,12 @@ static void *jack_process_thread(void *arg)
 	jack_nframes_t nframes;
 
 	while (true) {
-		nframes = jack_cycle_wait (impl->client);
+		nframes = jack.cycle_wait (impl->client);
 
 		source_running = impl->source_running;
 		sink_running = impl->sink_running;
 
-		impl->frame_time = jack_frame_time(impl->client);
+		impl->frame_time = jack.frame_time(impl->client);
 
 		pw_log_trace_fp("process %d %u %u %p %d", nframes, source_running,
 				sink_running, impl->position, impl->frame_time);
@@ -568,7 +574,7 @@ static void *jack_process_thread(void *arg)
 			float period_usecs;
 			jack_position_t pos;
 
-			jack_get_cycle_times(impl->client,
+			jack.get_cycle_times(impl->client,
 					&current_frames, &current_usecs,
 					&next_usecs, &period_usecs);
 
@@ -583,7 +589,7 @@ static void *jack_process_thread(void *arg)
 			c->target_rate = c->rate;
 			c->target_duration = c->duration;
 
-			jack_transport_query (impl->client, &pos);
+			jack.transport_query (impl->client, &pos);
 		}
 		if (impl->mode & MODE_SINK && sink_running) {
 			impl->done = false;
@@ -592,7 +598,7 @@ static void *jack_process_thread(void *arg)
 			impl->done = false;
 			pw_filter_trigger_process(impl->source);
 		} else {
-			jack_cycle_signal(impl->client, 0);
+			jack.cycle_signal(impl->client, 0);
 		}
 	}
 	return NULL;
@@ -692,7 +698,7 @@ static void jack_latency(jack_latency_callback_mode_t mode, void *arg)
 				if (port == NULL || port->jack_port == NULL)
 					continue;
 
-				jack_port_get_latency_range(port->jack_port, mode, &range);
+				jack.port_get_latency_range(port->jack_port, mode, &range);
 
 				latency.direction = PW_DIRECTION_INPUT;
 				latency.min_rate = range.min;
@@ -712,7 +718,7 @@ static void jack_latency(jack_latency_callback_mode_t mode, void *arg)
 				if (port->latency_changed[PW_DIRECTION_OUTPUT]) {
 					range.min = port->latency[PW_DIRECTION_OUTPUT].min_rate;
 					range.max = port->latency[PW_DIRECTION_OUTPUT].max_rate;
-					jack_port_set_latency_range(port->jack_port, mode, &range);
+					jack.port_set_latency_range(port->jack_port, mode, &range);
 					port->latency_changed[PW_DIRECTION_OUTPUT] = false;
 				}
 			}
@@ -724,7 +730,7 @@ static void jack_latency(jack_latency_callback_mode_t mode, void *arg)
 				struct port *port = impl->source_ports[i];
 				if (port == NULL || port->jack_port == NULL)
 					continue;
-				jack_port_get_latency_range(port->jack_port, mode, &range);
+				jack.port_get_latency_range(port->jack_port, mode, &range);
 
 				latency.direction = PW_DIRECTION_OUTPUT;
 				latency.min_rate = range.min;
@@ -744,7 +750,7 @@ static void jack_latency(jack_latency_callback_mode_t mode, void *arg)
 				if (port->latency_changed[PW_DIRECTION_INPUT]) {
 					range.min = port->latency[PW_DIRECTION_INPUT].min_rate;
 					range.max = port->latency[PW_DIRECTION_INPUT].max_rate;
-					jack_port_set_latency_range(port->jack_port, mode, &range);
+					jack.port_set_latency_range(port->jack_port, mode, &range);
 					port->latency_changed[PW_DIRECTION_INPUT] = false;
 				}
 			}
@@ -768,17 +774,17 @@ static int create_jack_client(struct impl *impl)
 	if (client_name == NULL)
 		client_name = DEFAULT_CLIENT_NAME;
 
-	impl->client = jack_client_open(client_name, options, &status, server_name);
+	impl->client = jack.client_open(client_name, options, &status, server_name);
 	if (impl->client == NULL) {
 		pw_log_error ("jack_client_open() failed 0x%2.0x\n", status);
 		return -EIO;
 	}
-	jack_on_info_shutdown(impl->client, jack_info_shutdown, impl);
-	jack_set_process_thread(impl->client, jack_process_thread, impl);
-	jack_set_xrun_callback(impl->client, jack_xrun, impl);
-	jack_set_latency_callback(impl->client, jack_latency, impl);
+	jack.on_info_shutdown(impl->client, jack_info_shutdown, impl);
+	jack.set_process_thread(impl->client, jack_process_thread, impl);
+	jack.set_xrun_callback(impl->client, jack_xrun, impl);
+	jack.set_latency_callback(impl->client, jack_latency, impl);
 
-	impl->samplerate = jack_get_sample_rate(impl->client);
+	impl->samplerate = jack.get_sample_rate(impl->client);
 	impl->source_info.rate = impl->samplerate;
 	impl->sink_info.rate = impl->samplerate;
 
@@ -787,7 +793,7 @@ static int create_jack_client(struct impl *impl)
 
 static int start_jack_clients(struct impl *impl)
 {
-	jack_activate(impl->client);
+	jack.activate(impl->client);
 	return 0;
 }
 
@@ -822,8 +828,8 @@ static const struct pw_proxy_events core_proxy_events = {
 static void impl_destroy(struct impl *impl)
 {
 	if (impl->client) {
-		jack_deactivate(impl->client);
-		jack_client_close(impl->client);
+		jack.deactivate(impl->client);
+		jack.client_close(impl->client);
 	}
 	if (impl->source)
 		pw_filter_destroy(impl->source);
@@ -930,6 +936,14 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 	impl->props = props;
+
+	if ((str = pw_properties_get(props, "jack.library")) == NULL)
+		str = "libjack.so.0";
+
+	if ((res = weakjack_load(&jack, str)) < 0) {
+		pw_log_error( "can't load '%s': %s", str, spa_strerror(res));
+		goto error;
+	}
 
 	impl->sink_props = pw_properties_new(NULL, NULL);
 	impl->source_props = pw_properties_new(NULL, NULL);

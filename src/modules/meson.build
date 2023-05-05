@@ -168,7 +168,7 @@ if build_module_jack_tunnel
     install : true,
     install_dir : modules_install_dir,
     install_rpath: modules_install_dir,
-    dependencies : [mathlib, dl_lib, pipewire_dep, jack_dep],
+    dependencies : [mathlib, dl_lib, pipewire_dep],
   )
   build_module_jackdbus_detect = dbus_dep.found()
   if build_module_jackdbus_detect

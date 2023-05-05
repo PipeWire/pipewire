@@ -3626,6 +3626,7 @@ exit:
 	jack_client_close((jack_client_t *) client);
 	return NULL;
 disabled:
+	pw_log_warn("JACK is disabled");
 	if (status)
 		*status = JackFailure | JackInitFailure;
 	return NULL;

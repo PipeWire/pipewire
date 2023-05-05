@@ -46,8 +46,6 @@ struct buffer {
 struct queue {
 	uint32_t ids[MAX_BUFFERS];
 	struct spa_ringbuffer ring;
-	uint64_t incount;
-	uint64_t outcount;
 };
 
 struct data {
@@ -327,7 +325,6 @@ static inline int push_queue(struct port *port, struct queue *queue, struct buff
 		return -EINVAL;
 
 	SPA_FLAG_SET(buffer->flags, BUFFER_FLAG_QUEUED);
-	queue->incount += buffer->this.size;
 
 	spa_ringbuffer_get_write_index(&queue->ring, &index);
 	queue->ids[index & MASK_BUFFERS] = buffer->id;
@@ -350,7 +347,6 @@ static inline struct buffer *pop_queue(struct port *port, struct queue *queue)
 	spa_ringbuffer_read_update(&queue->ring, index + 1);
 
 	buffer = &port->buffers[id];
-	queue->outcount += buffer->this.size;
 	SPA_FLAG_CLEAR(buffer->flags, BUFFER_FLAG_QUEUED);
 
 	return buffer;
@@ -359,7 +355,6 @@ static inline struct buffer *pop_queue(struct port *port, struct queue *queue)
 static inline void clear_queue(struct port *port, struct queue *queue)
 {
 	spa_ringbuffer_init(&queue->ring);
-	queue->incount = queue->outcount;
 }
 
 static bool filter_set_state(struct pw_filter *filter, enum pw_filter_state state, const char *error)
@@ -1929,13 +1924,13 @@ struct pw_buffer *pw_filter_dequeue_buffer(void *port_data)
 	struct buffer *b;
 	int res;
 
-	if ((b = pop_queue(p, &p->dequeued)) == NULL) {
+	if (SPA_UNLIKELY((b = pop_queue(p, &p->dequeued)) == NULL)) {
 		res = -errno;
-		pw_log_trace("%p: no more buffers: %m", impl);
+		pw_log_debug("%p: no more buffers: %m", impl);
 		errno = -res;
 		return NULL;
 	}
-	pw_log_trace("%p: dequeue buffer %d", impl, b->id);
+	pw_log_trace_fp("%p: dequeue buffer %d", impl, b->id);
 
 	return &b->this;
 }
@@ -1944,15 +1939,9 @@ SPA_EXPORT
 int pw_filter_queue_buffer(void *port_data, struct pw_buffer *buffer)
 {
 	struct port *p = SPA_CONTAINER_OF(port_data, struct port, user_data);
-	struct filter *impl = p->filter;
 	struct buffer *b = SPA_CONTAINER_OF(buffer, struct buffer, this);
-	int res;
-
-	pw_log_trace("%p: queue buffer %d", impl, b->id);
-	if ((res = push_queue(p, &p->queued, b)) < 0)
-		return res;
-
-	return res;
+	pw_log_trace_fp("%p: queue buffer %d", impl, b->id);
+	return push_queue(p, &p->queued, b);
 }
 
 SPA_EXPORT
@@ -1962,7 +1951,7 @@ void *pw_filter_get_dsp_buffer(void *port_data, uint32_t n_samples)
 	struct pw_buffer *buf;
 	struct spa_data *d;
 
-	if ((buf = pw_filter_dequeue_buffer(port_data)) == NULL)
+	if (SPA_UNLIKELY((buf = pw_filter_dequeue_buffer(port_data)) == NULL))
 		return NULL;
 
 	d = &buf->buffer->datas[0];
@@ -1973,7 +1962,6 @@ void *pw_filter_get_dsp_buffer(void *port_data, uint32_t n_samples)
 		d->chunk->stride = sizeof(float);
 		d->chunk->flags = 0;
 	}
-
 	pw_filter_queue_buffer(port_data, buf);
 
 	return d->data;
@@ -1994,10 +1982,6 @@ do_flush(struct spa_loop *loop,
 			push_queue(impl, &impl->dequeued, b);
 	}
 	while (b);
-
-	impl->time.queued = impl->queued.outcount = impl->dequeued.incount =
-		impl->dequeued.outcount = impl->queued.incount;
-
 #endif
 	return 0;
 }

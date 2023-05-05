@@ -613,13 +613,13 @@ static int do_remove_stream(struct spa_loop *loop, bool async, uint32_t seq,
 	return 0;
 }
 
-static void destroy_stream(struct stream *s)
+static void remove_stream(struct stream *s, bool destroy)
 {
 	pw_log_debug("destroy stream %d", s->id);
 
 	pw_data_loop_invoke(s->impl->data_loop, do_remove_stream, 0, NULL, 0, true, s);
 
-	if (s->stream) {
+	if (destroy && s->stream) {
 		spa_hook_remove(&s->stream_listener);
 		pw_stream_destroy(s->stream);
 	}
@@ -628,12 +628,16 @@ static void destroy_stream(struct stream *s)
 	free(s);
 }
 
+static void destroy_stream(struct stream *s)
+{
+	remove_stream(s, true);
+}
+
 static void stream_destroy(void *d)
 {
 	struct stream *s = d;
 	spa_hook_remove(&s->stream_listener);
-	s->stream = NULL;
-	destroy_stream(s);
+	remove_stream(s, false);
 }
 
 static void stream_input_process(void *d)

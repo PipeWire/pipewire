@@ -1940,7 +1940,7 @@ int pw_filter_queue_buffer(void *port_data, struct pw_buffer *buffer)
 {
 	struct port *p = SPA_CONTAINER_OF(port_data, struct port, user_data);
 	struct buffer *b = SPA_CONTAINER_OF(buffer, struct buffer, this);
-	pw_log_trace_fp("%p: queue buffer %d", impl, b->id);
+	pw_log_trace_fp("%p: queue buffer %d", p->filter, b->id);
 	return push_queue(p, &p->queued, b);
 }
 

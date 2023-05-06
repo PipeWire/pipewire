@@ -1178,6 +1178,12 @@ static const struct pw_proxy_events proxy_client_node_events = {
 	.bound_props = client_node_bound_props,
 };
 
+static inline uint64_t get_time_ns(struct spa_system *system)
+{
+	struct timespec ts;
+	spa_system_clock_gettime(system, CLOCK_MONOTONIC, &ts);
+	return SPA_TIMESPEC_TO_NSEC(&ts);
+}
 static int node_ready(void *d, int status)
 {
 	struct node_data *data = d;
@@ -1195,6 +1201,7 @@ static int node_ready(void *d, int status)
 	}
 
 	a->state[0].status = status;
+	a->signal_time = get_time_ns(data_system);
 
 	if (SPA_UNLIKELY(spa_system_eventfd_write(data_system, data->rtwritefd, 1) < 0))
 		pw_log_warn("node %p: write failed %m", node);

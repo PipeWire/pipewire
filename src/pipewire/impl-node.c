@@ -1719,6 +1719,7 @@ static int node_ready(void *data, int status)
 			}
 			node_signal_func(node);
 		} else {
+			uint64_t signal_time = a->signal_time;
 			/* old nodes set the TRIGGERED status on node_ready, patch this
 			 * up here to avoid errors in pw-top */
 			a->status = PW_NODE_ACTIVATION_FINISHED;
@@ -1739,6 +1740,7 @@ static int node_ready(void *data, int status)
 			pw_context_driver_emit_complete(node->context, node);
 
 			a->prev_signal_time = a->signal_time;
+			a->signal_time = signal_time;
 		}
 
 		/* This update is done too late, the driver should do this
@@ -1791,7 +1793,8 @@ again:
 		}
 
 		a->status = PW_NODE_ACTIVATION_TRIGGERED;
-		a->signal_time = nsec;
+		if (!node->remote)
+			a->signal_time = nsec;
 		impl->prev_signal_time = a->prev_signal_time;
 		a->prev_signal_time = a->signal_time;
 

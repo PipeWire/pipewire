@@ -111,7 +111,9 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_SCHED_RESET_ON_FORK  0
 #endif
 
-#define IS_VALID_NICE_LEVEL(l)	((l)>=-20 && (l)<=19)
+#define MIN_NICE_LEVEL		-20
+#define MAX_NICE_LEVEL		19
+#define IS_VALID_NICE_LEVEL(l)	((l)>=MIN_NICE_LEVEL && (l)<=MAX_NICE_LEVEL)
 
 #define DEFAULT_NICE_LEVEL	20
 #define DEFAULT_RT_PRIO_MIN	11
@@ -631,8 +633,16 @@ static int set_nice(struct impl *impl, int nice_level, bool warn)
 	int res = 0;
 
 #ifdef HAVE_DBUS
-	if (impl->use_rtkit)
+	if (impl->use_rtkit) {
+		int min_nice = nice_level;
+		pw_rtkit_get_min_nice_level(impl, &min_nice);
+		if (nice_level < min_nice) {
+			pw_log_info("clamped nice level %d to %d",
+					nice_level, min_nice);
+			nice_level = min_nice;
+		}
 		res = pw_rtkit_make_high_priority(impl, 0, nice_level);
+	}
 	else
 		res = sched_set_nice(nice_level);
 #else
@@ -985,6 +995,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->rt_time_hard = pw_properties_get_int32(props, "rt.time.hard", DEFAULT_RT_TIME_HARD);
 
 	bool can_use_rtkit = false, use_rtkit = false;
+
+	if (!IS_VALID_NICE_LEVEL(impl->nice_level)) {
+		pw_log_info("invalid nice level %d (not between %d and %d). "
+				"nice level will not be adjusted",
+				impl->nice_level, MIN_NICE_LEVEL, MAX_NICE_LEVEL);
+	}
 
 #ifdef HAVE_DBUS
 	spa_list_init(&impl->threads_list);

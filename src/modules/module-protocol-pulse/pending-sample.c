@@ -57,7 +57,7 @@ static void sample_play_ready_reply(void *data, struct client *client, uint32_t 
 	schedule_maybe_finish(ps);
 }
 
-static void sample_play_ready(void *data, uint32_t id)
+static void on_sample_play_ready(void *data, uint32_t id)
 {
 	struct pending_sample *ps = data;
 	struct client *client = ps->client;
@@ -66,7 +66,7 @@ static void sample_play_ready(void *data, uint32_t id)
 		operation_new_cb(client, ps->tag, sample_play_ready_reply, ps);
 }
 
-static void sample_play_done(void *data, int res)
+static void on_sample_play_done(void *data, int res)
 {
 	struct pending_sample *ps = data;
 	struct client *client = ps->client;
@@ -84,8 +84,8 @@ static void sample_play_done(void *data, int res)
 
 static const struct sample_play_events sample_play_events = {
 	VERSION_SAMPLE_PLAY_EVENTS,
-	.ready = sample_play_ready,
-	.done = sample_play_done,
+	.ready = on_sample_play_ready,
+	.done = on_sample_play_done,
 };
 
 int pending_sample_new(struct client *client, struct sample *sample, struct pw_properties *props, uint32_t tag)

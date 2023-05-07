@@ -110,14 +110,12 @@ void pending_sample_free(struct pending_sample *ps)
 {
 	struct client * const client = ps->client;
 	struct impl * const impl = client->impl;
-	struct operation *o;
 
 	spa_list_remove(&ps->link);
 	spa_hook_remove(&ps->listener);
 	pw_work_queue_cancel(impl->work_queue, ps, SPA_ID_INVALID);
 
-	if ((o = operation_find(client, ps->tag)) != NULL)
-		operation_free(o);
+	operation_free_by_tag(client, ps->tag);
 
 	sample_play_destroy(ps->play);
 }

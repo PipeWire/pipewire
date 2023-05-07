@@ -27,4 +27,11 @@ struct operation *operation_find(struct client *client, uint32_t tag);
 void operation_free(struct operation *o);
 void operation_complete(struct operation *o);
 
+static inline void operation_free_by_tag(struct client *client, uint32_t tag)
+{
+	struct operation *o = operation_find(client, tag);
+	if (o)
+		operation_free(o);
+}
+
 #endif /* PULSER_SERVER_OPERATION_H */

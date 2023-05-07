@@ -27,20 +27,21 @@ static void sample_play_finish(struct pending_sample *ps)
 static void sample_play_ready_reply(void *data, struct client *client, uint32_t tag)
 {
 	struct pending_sample *ps = data;
-	struct message *reply;
 	uint32_t index = id_to_index(client->manager, ps->play->id);
 
 	pw_log_info("[%s] PLAY_SAMPLE tag:%u index:%u",
 			client->name, ps->tag, index);
 
-	reply = reply_new(client, ps->tag);
-	if (client->version >= 13)
-		message_put(reply,
-			TAG_U32, index,
-			TAG_INVALID);
+	if (!ps->replied) {
+		struct message *reply = reply_new(client, ps->tag);
+		if (client->version >= 13)
+			message_put(reply,
+				TAG_U32, index,
+				TAG_INVALID);
 
-	client_queue_message(client, reply);
-	ps->replied = true;
+		client_queue_message(client, reply);
+		ps->replied = true;
+	}
 
 	if (ps->done)
 		sample_play_finish(ps);
@@ -67,7 +68,7 @@ static void sample_play_done(void *data, int res)
 	struct client *client = ps->client;
 	struct impl *impl = client->impl;
 
-	if (res < 0) {
+	if (!ps->replied && res < 0) {
 		reply_error(client, COMMAND_PLAY_SAMPLE, ps->tag, res);
 		ps->replied = true;
 	}

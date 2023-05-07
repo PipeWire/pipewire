@@ -61,7 +61,9 @@ static void sample_play_ready(void *data, uint32_t id)
 {
 	struct pending_sample *ps = data;
 	struct client *client = ps->client;
-	operation_new_cb(client, ps->tag, sample_play_ready_reply, ps);
+
+	if (!ps->replied)
+		operation_new_cb(client, ps->tag, sample_play_ready_reply, ps);
 }
 
 static void sample_play_done(void *data, int res)

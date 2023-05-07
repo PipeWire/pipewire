@@ -33,11 +33,7 @@
  * ## Module Options
  *
  * There are no module-specific options, all arguments are passed to
- * \page page_module_jack_tunnel.
- *
- * ## General options
- *
- * There are no general options for this module.
+ * \ref page_module_jack_tunnel.
  *
  * ## Example configuration
  *\code{.unparsed}

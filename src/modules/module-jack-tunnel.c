@@ -36,15 +36,15 @@
  * The jack-tunnel module provides a source or sink that tunnels all audio to
  * a JACK server.
  *
- * This module is usually used together with module-jack-dbus that will
+ * This module is usually used together with \ref page_module_jackdbus_detect that will
  * automatically load the tunnel with the right parameters based on dbus
  * information.
  *
  * ## Module Options
  *
  * - `jack.library`: the libjack to load, by default libjack.so.0 is searched in
- *   			JACK_PATH directories and then some standard library paths.
- *   			Can be an absolute path.
+ *			JACK_PATH directories and then some standard library paths.
+ *			Can be an absolute path.
  * - `jack.server`: the name of the JACK server to tunnel to.
  * - `jack.client-name`: the name of the JACK client.
  * - `jack.connect`: if jack ports should be connected automatically can also be
@@ -102,6 +102,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_POSITION	"[ FL FR ]"
 
 #define MODULE_USAGE	"( remote.name=<remote> ] "				\
+			"( jack.library=<jack library path> ) "			\
 			"( jack.server=<server name> ) "			\
 			"( jack.client-name=<name of the JACK client> ] "	\
 			"( jack.connect=<bool, autoconnect ports> ] "		\

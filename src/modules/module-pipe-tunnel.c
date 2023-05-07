@@ -43,16 +43,16 @@
  * - `stream.props`: Extra properties for the local stream.
  *
  * When `tunnel.mode` is `capture`, a capture stream on the default source is
- * created. Samples read from the pipe will be the contents of the captured source.
+ * created. The samples captured from the source will be written to the pipe.
  *
- * When `tunnel.mode` is `sink`, a sink node is created. Samples read from the
- * pipe will be the samples played on the sink.
+ * When `tunnel.mode` is `sink`, a sink node is created. Samples played on the
+ * sink will be written to the pipe.
  *
  * When `tunnel.mode` is `playback`, a playback stream on the default sink is
- * created. Samples written to the pipe will be played on the sink.
+ * created. The samples read from the pipe will be played on the sink.
  *
- * When `tunnel.mode` is `source`, a source node is created. Samples written to
- * the pipe will be made available to streams connected to the source.
+ * When `tunnel.mode` is `source`, a source node is created. Samples read from
+ * the the pipe will be made available on the source.
  *
  * When `pipe.filename` is not given, a default fifo in `/tmp/fifo_input` or
  * `/tmp/fifo_output` will be created that can be written and read respectively,
@@ -103,7 +103,7 @@
 
 #define NAME "pipe-tunnel"
 
-#define DEFAULT_CAPTURE_FILENAME 	"/tmp/fifo_input"
+#define DEFAULT_CAPTURE_FILENAME	"/tmp/fifo_input"
 #define DEFAULT_PLAYBACK_FILENAME	"/tmp/fifo_output"
 
 #define DEFAULT_FORMAT "S16"

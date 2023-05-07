@@ -277,7 +277,14 @@ static int translate_error(const char *name)
 	if (spa_streq(name, DBUS_ERROR_ACCESS_DENIED) ||
 	    spa_streq(name, DBUS_ERROR_AUTH_FAILED))
 		return -EACCES;
-
+	if (spa_streq(name, DBUS_ERROR_IO_ERROR))
+		return -EIO;
+	if (spa_streq(name, DBUS_ERROR_NOT_SUPPORTED))
+		return -ENOTSUP;
+	if (spa_streq(name, DBUS_ERROR_INVALID_ARGS))
+		return -EINVAL;
+	if (spa_streq(name, DBUS_ERROR_TIMED_OUT))
+		return -ETIMEDOUT;
 	return -EIO;
 }
 

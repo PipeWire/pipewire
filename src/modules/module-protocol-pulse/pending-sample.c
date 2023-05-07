@@ -33,8 +33,6 @@ static void sample_play_ready_reply(void *data, struct client *client, uint32_t 
 	pw_log_info("[%s] PLAY_SAMPLE tag:%u index:%u",
 			client->name, ps->tag, index);
 
-	ps->ready = true;
-
 	reply = reply_new(client, ps->tag);
 	if (client->version >= 13)
 		message_put(reply,
@@ -42,6 +40,7 @@ static void sample_play_ready_reply(void *data, struct client *client, uint32_t 
 			TAG_INVALID);
 
 	client_queue_message(client, reply);
+	ps->replied = true;
 
 	if (ps->done)
 		sample_play_finish(ps);
@@ -58,7 +57,7 @@ static void on_sample_done(void *obj, void *data, int res, uint32_t id)
 {
 	struct pending_sample *ps = obj;
 	ps->done = true;
-	if (ps->ready)
+	if (ps->replied)
 		sample_play_finish(ps);
 }
 

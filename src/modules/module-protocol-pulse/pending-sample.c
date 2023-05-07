@@ -67,10 +67,12 @@ static void sample_play_done(void *data, int res)
 	struct client *client = ps->client;
 	struct impl *impl = client->impl;
 
-	if (res < 0)
+	if (res < 0) {
 		reply_error(client, COMMAND_PLAY_SAMPLE, ps->tag, res);
-	else
-		pw_log_info("[%s] PLAY_SAMPLE done tag:%u", client->name, ps->tag);
+		ps->replied = true;
+	}
+
+	pw_log_info("[%s] PLAY_SAMPLE done tag:%u result:%d", client->name, ps->tag, res);
 
 	pw_work_queue_add(impl->work_queue, ps, 0,
 				on_sample_done, client);

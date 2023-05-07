@@ -17,11 +17,22 @@
 #include "reply.h"
 #include "sample-play.h"
 
-static void sample_play_finish(struct pending_sample *ps)
+static void do_pending_sample_finish(void *obj, void *data, int res, uint32_t id)
 {
+	struct pending_sample *ps = obj;
 	struct client *client = ps->client;
+
 	pending_sample_free(ps);
 	client_unref(client);
+}
+
+static void schedule_maybe_finish(struct pending_sample *ps)
+{
+	if (!ps->done || !ps->replied)
+		return;
+
+	pw_work_queue_add(ps->client->impl->work_queue, ps, 0,
+			  do_pending_sample_finish, NULL);
 }
 
 static void sample_play_ready_reply(void *data, struct client *client, uint32_t tag)
@@ -43,8 +54,7 @@ static void sample_play_ready_reply(void *data, struct client *client, uint32_t 
 		ps->replied = true;
 	}
 
-	if (ps->done)
-		sample_play_finish(ps);
+	schedule_maybe_finish(ps);
 }
 
 static void sample_play_ready(void *data, uint32_t id)
@@ -54,19 +64,10 @@ static void sample_play_ready(void *data, uint32_t id)
 	operation_new_cb(client, ps->tag, sample_play_ready_reply, ps);
 }
 
-static void on_sample_done(void *obj, void *data, int res, uint32_t id)
-{
-	struct pending_sample *ps = obj;
-	ps->done = true;
-	if (ps->replied)
-		sample_play_finish(ps);
-}
-
 static void sample_play_done(void *data, int res)
 {
 	struct pending_sample *ps = data;
 	struct client *client = ps->client;
-	struct impl *impl = client->impl;
 
 	if (!ps->replied && res < 0) {
 		reply_error(client, COMMAND_PLAY_SAMPLE, ps->tag, res);
@@ -75,8 +76,8 @@ static void sample_play_done(void *data, int res)
 
 	pw_log_info("[%s] PLAY_SAMPLE done tag:%u result:%d", client->name, ps->tag, res);
 
-	pw_work_queue_add(impl->work_queue, ps, 0,
-				on_sample_done, client);
+	ps->done = true;
+	schedule_maybe_finish(ps);
 }
 
 static const struct sample_play_events sample_play_events = {

@@ -20,6 +20,7 @@ struct pending_sample {
 	struct client *client;
 	struct sample_play *play;
 	struct spa_hook listener;
+	struct spa_hook client_listener;
 	uint32_t tag;
 	unsigned replied:1;
 	unsigned done:1;

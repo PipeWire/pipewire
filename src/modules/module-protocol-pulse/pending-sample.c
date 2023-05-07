@@ -88,6 +88,21 @@ static const struct sample_play_events sample_play_events = {
 	.done = on_sample_play_done,
 };
 
+static void on_client_disconnect(void *data)
+{
+	struct pending_sample *ps = data;
+
+	ps->replied = true;
+	operation_free_by_tag(ps->client, ps->tag);
+
+	schedule_maybe_finish(ps);
+}
+
+static const struct client_events client_events = {
+	VERSION_CLIENT_EVENTS,
+	.disconnect = on_client_disconnect,
+};
+
 int pending_sample_new(struct client *client, struct sample *sample, struct pw_properties *props, uint32_t tag)
 {
 	struct pending_sample *ps;
@@ -100,6 +115,7 @@ int pending_sample_new(struct client *client, struct sample *sample, struct pw_p
 	ps->play = p;
 	ps->tag = tag;
 	sample_play_add_listener(p, &ps->listener, &sample_play_events, ps);
+	client_add_listener(client, &ps->client_listener, &client_events, ps);
 	spa_list_append(&client->pending_samples, &ps->link);
 	client->ref++;
 
@@ -113,6 +129,7 @@ void pending_sample_free(struct pending_sample *ps)
 
 	spa_list_remove(&ps->link);
 	spa_hook_remove(&ps->listener);
+	spa_hook_remove(&ps->client_listener);
 	pw_work_queue_cancel(impl->work_queue, ps, SPA_ID_INVALID);
 
 	operation_free_by_tag(client, ps->tag);

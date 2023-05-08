@@ -130,6 +130,12 @@ struct port {
 	bool latency_changed[2];
 };
 
+struct volume {
+	bool mute;
+	uint32_t n_volumes;
+	float volumes[SPA_AUDIO_MAX_CHANNELS];
+};
+
 struct impl {
 	struct pw_context *context;
 	struct pw_loop *main_loop;
@@ -156,12 +162,14 @@ struct impl {
 	struct spa_hook source_listener;
 	struct spa_audio_info_raw source_info;
 	struct port *source_ports[SPA_AUDIO_MAX_CHANNELS];
+	struct volume sink_volume;
 
 	struct pw_properties *sink_props;
 	struct pw_filter *sink;
 	struct spa_hook sink_listener;
 	struct spa_audio_info_raw sink_info;
 	struct port *sink_ports[SPA_AUDIO_MAX_CHANNELS];
+	struct volume source_volume;
 
 	uint32_t samplerate;
 
@@ -179,6 +187,28 @@ struct impl {
 	unsigned int source_connect:1;
 	unsigned int sink_connect:1;
 };
+
+static void reset_volume(struct volume *vol, uint32_t n_volumes)
+{
+	uint32_t i;
+	vol->mute = false;
+	vol->n_volumes = n_volumes;
+	for (i = 0; i < n_volumes; i++)
+		vol->volumes[i] = 1.0f;
+}
+static void do_volume(float *dst, const float *src, struct volume *vol, uint32_t ch, uint32_t n_samples)
+{
+	float v = vol->mute ? 0.0f : vol->volumes[ch];
+	if (v == 1.0f)
+		memcpy(dst, src, n_samples * sizeof(float));
+	else if (v == 0.0f)
+		memset(dst, 0, n_samples * sizeof(float));
+	else {
+		uint32_t i;
+		for (i = 0; i < n_samples; i++)
+			dst[i] = src[i] * v;
+	}
+}
 
 static void source_destroy(void *d)
 {
@@ -229,7 +259,8 @@ static void sink_process(void *d, struct spa_io_position *position)
 			continue;
 
 		dst = jack.port_get_buffer(p->jack_port, n_samples);
-		memcpy(dst, src, n_samples * sizeof(float));
+
+		do_volume(dst, src, &impl->sink_volume, i, n_samples);
 	}
 	pw_log_trace_fp("done %u", impl->frame_time);
 	if (impl->mode & MODE_SINK) {
@@ -255,7 +286,8 @@ static void source_process(void *d, struct spa_io_position *position)
 			continue;
 
 		src = jack.port_get_buffer (p->jack_port, n_samples);
-		memcpy(dst, src, n_samples * sizeof(float));
+
+		do_volume(dst, src, &impl->source_volume, i, n_samples);
 	}
 	pw_log_trace_fp("done %u", impl->frame_time);
 	if (impl->mode == MODE_SOURCE) {
@@ -356,7 +388,6 @@ static void make_sink_ports(struct impl *impl)
 
 		port->jack_port = jack.port_register (impl->client, name,
 					JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
-
 		impl->sink_ports[i] = port;
 
 		if (ports != NULL && ports[i] != NULL) {
@@ -366,6 +397,55 @@ static void make_sink_ports(struct impl *impl)
 	}
 	if (ports)
 		jack.free(ports);
+}
+
+static struct spa_pod *make_props_param(struct spa_pod_builder *b, struct impl *impl,
+		struct volume *vol)
+{
+	return spa_pod_builder_add_object(b, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
+			SPA_PROP_mute, SPA_POD_Bool(vol->mute),
+			SPA_PROP_channelVolumes, SPA_POD_Array(sizeof(float),
+				SPA_TYPE_Float, vol->n_volumes, vol->volumes));
+}
+
+static void parse_props(struct impl *impl, const struct spa_pod *param,
+		struct pw_filter *filter, struct volume *vol)
+{
+	struct spa_pod_object *obj = (struct spa_pod_object *) param;
+	struct spa_pod_prop *prop;
+	uint8_t buffer[1024];
+	struct spa_pod_builder b;
+	const struct spa_pod *params[1];
+
+	SPA_POD_OBJECT_FOREACH(obj, prop) {
+		switch (prop->key) {
+		case SPA_PROP_mute:
+		{
+			bool mute;
+			if (spa_pod_get_bool(&prop->value, &mute) == 0)
+				vol->mute = mute;
+			break;
+		}
+		case SPA_PROP_channelVolumes:
+		{
+			uint32_t n;
+			float vols[SPA_AUDIO_MAX_CHANNELS];
+			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
+					vols, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+				vol->n_volumes = n;
+				for (n = 0; n < vol->n_volumes; n++)
+					vol->volumes[n] = vols[n];
+			}
+			break;
+		}
+		default:
+			break;
+		}
+	}
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	params[0] = make_props_param(&b, impl, vol);
+
+	pw_filter_update_params(filter, NULL, params, 1);
 }
 
 static void sink_param_changed(void *data, void *port_data, uint32_t id,
@@ -381,8 +461,12 @@ static void sink_param_changed(void *data, void *port_data, uint32_t id,
 	} else {
 		switch (id) {
 		case SPA_PARAM_PortConfig:
-			pw_log_info("PortConfig");
+			pw_log_debug("PortConfig");
 			make_sink_ports(impl);
+			break;
+		case SPA_PARAM_Props:
+			pw_log_debug("Props");
+			parse_props(impl, param, impl->sink, &impl->sink_volume);
 			break;
 		}
 	}
@@ -428,7 +512,6 @@ static void make_source_ports(struct impl *impl)
 
 		port->jack_port = jack.port_register (impl->client, name,
 					JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
-
 		impl->source_ports[i] = port;
 
 		if (ports != NULL && ports[i] != NULL) {
@@ -453,8 +536,12 @@ static void source_param_changed(void *data, void *port_data, uint32_t id,
 	} else {
 		switch (id) {
 		case SPA_PARAM_PortConfig:
-			pw_log_info("PortConfig");
+			pw_log_debug("PortConfig");
 			make_source_ports(impl);
+			break;
+		case SPA_PARAM_Props:
+			pw_log_debug("Props");
+			parse_props(impl, param, impl->source, &impl->source_volume);
 			break;
 		}
 	}
@@ -504,11 +591,14 @@ static int create_filters(struct impl *impl)
 				&impl->sink_listener,
 				&sink_events, impl);
 
+		reset_volume(&impl->sink_volume, impl->sink_info.channels);
+
 		n_params = 0;
 		params[n_params++] = spa_format_audio_raw_build(&b,
 				SPA_PARAM_EnumFormat, &impl->sink_info);
 		params[n_params++] = spa_format_audio_raw_build(&b,
 				SPA_PARAM_Format, &impl->sink_info);
+		params[n_params++] = make_props_param(&b, impl, &impl->sink_volume);
 
 		if ((res = pw_filter_connect(impl->sink,
 				PW_FILTER_FLAG_DRIVER |
@@ -529,11 +619,14 @@ static int create_filters(struct impl *impl)
 				&impl->source_listener,
 				&source_events, impl);
 
+		reset_volume(&impl->source_volume, impl->source_info.channels);
+
 		n_params = 0;
 		params[n_params++] = spa_format_audio_raw_build(&b,
 				SPA_PARAM_EnumFormat, &impl->source_info);
 		params[n_params++] = spa_format_audio_raw_build(&b,
 				SPA_PARAM_Format, &impl->source_info);
+		params[n_params++] = make_props_param(&b, impl, &impl->source_volume);
 
 		if ((res = pw_filter_connect(impl->source,
 				PW_FILTER_FLAG_DRIVER |

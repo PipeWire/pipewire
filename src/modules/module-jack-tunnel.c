@@ -47,9 +47,10 @@
  *			Can be an absolute path.
  * - `jack.server`: the name of the JACK server to tunnel to.
  * - `jack.client-name`: the name of the JACK client.
- * - `jack.connect`: if jack ports should be connected automatically can also be
+ * - `jack.connect`: if jack ports should be connected automatically. Can also be
  *                   placed per stream.
  * - `tunnel.mode`: the tunnel mode, sink|source|duplex, default duplex
+ * - `midi.ports`: the number of midi ports. Can also be added to the stream props.
  * - `source.props`: Extra properties for the source filter.
  * - `sink.props`: Extra properties for the sink filter.
  *
@@ -78,6 +79,7 @@
  *         #jack.client-name = PipeWire
  *         #jack.connect     = true
  *         #tunnel.mode      = duplex
+ *         #midi.ports       = 0
  *         #audio.channels   = 2
  *         #audio.position   = [ FL FR ]
  *         source.props = {
@@ -97,9 +99,12 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
+#define MAX_PORTS	128
+
 #define DEFAULT_CLIENT_NAME	"PipeWire"
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_POSITION	"[ FL FR ]"
+#define DEFAULT_MIDI_PORTS	1
 
 #define MODULE_USAGE	"( remote.name=<remote> ] "				\
 			"( jack.library=<jack library path> ) "			\
@@ -107,6 +112,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"( jack.client-name=<name of the JACK client> ] "	\
 			"( jack.connect=<bool, autoconnect ports> ] "		\
 			"( tunnel.mode=<sink|source|duplex> ] "			\
+			"( midi.ports=<number of midi ports> ] "		\
 			"( audio.channels=<number of channels> ] "		\
 			"( audio.position=<channel map> ] "			\
 			"( source.props=<properties> ) "			\
@@ -128,12 +134,30 @@ struct port {
 	enum spa_direction direction;
 	struct spa_latency_info latency[2];
 	bool latency_changed[2];
+	unsigned int is_midi:1;
 };
 
 struct volume {
 	bool mute;
 	uint32_t n_volumes;
 	float volumes[SPA_AUDIO_MAX_CHANNELS];
+};
+
+struct stream {
+	struct impl *impl;
+
+	enum spa_direction direction;
+	struct pw_properties *props;
+	struct pw_filter *filter;
+	struct spa_hook listener;
+	struct spa_audio_info_raw info;
+	uint32_t n_midi;
+	uint32_t n_ports;
+	struct port *ports[MAX_PORTS];
+	struct volume volume;
+
+	unsigned int running:1;
+	unsigned int connect:1;
 };
 
 struct impl {
@@ -157,19 +181,8 @@ struct impl {
 
 	struct spa_io_position *position;
 
-	struct pw_properties *source_props;
-	struct pw_filter *source;
-	struct spa_hook source_listener;
-	struct spa_audio_info_raw source_info;
-	struct port *source_ports[SPA_AUDIO_MAX_CHANNELS];
-	struct volume sink_volume;
-
-	struct pw_properties *sink_props;
-	struct pw_filter *sink;
-	struct spa_hook sink_listener;
-	struct spa_audio_info_raw sink_info;
-	struct port *sink_ports[SPA_AUDIO_MAX_CHANNELS];
-	struct volume source_volume;
+	struct stream source;
+	struct stream sink;
 
 	uint32_t samplerate;
 
@@ -180,12 +193,9 @@ struct impl {
 	uint32_t jack_xrun;
 
 	unsigned int do_disconnect:1;
-	unsigned int source_running:1;
-	unsigned int sink_running:1;
 	unsigned int done:1;
 	unsigned int new_xrun:1;
-	unsigned int source_connect:1;
-	unsigned int sink_connect:1;
+	unsigned int fix_midi:1;
 };
 
 static void reset_volume(struct volume *vol, uint32_t n_volumes)
@@ -196,13 +206,15 @@ static void reset_volume(struct volume *vol, uint32_t n_volumes)
 	for (i = 0; i < n_volumes; i++)
 		vol->volumes[i] = 1.0f;
 }
-static void do_volume(float *dst, const float *src, struct volume *vol, uint32_t ch, uint32_t n_samples)
+
+static inline void do_volume(float *dst, const float *src, struct volume *vol, uint32_t ch, uint32_t n_samples)
 {
 	float v = vol->mute ? 0.0f : vol->volumes[ch];
-	if (v == 1.0f)
-		memcpy(dst, src, n_samples * sizeof(float));
-	else if (v == 0.0f)
+
+	if (v == 0.0f || src == NULL)
 		memset(dst, 0, n_samples * sizeof(float));
+	else if (v == 1.0f)
+		memcpy(dst, src, n_samples * sizeof(float));
 	else {
 		uint32_t i;
 		for (i = 0; i < n_samples; i++)
@@ -210,34 +222,95 @@ static void do_volume(float *dst, const float *src, struct volume *vol, uint32_t
 	}
 }
 
-static void source_destroy(void *d)
+static inline void fix_midi_event(uint8_t *data, size_t size)
 {
-	struct impl *impl = d;
-	spa_hook_remove(&impl->source_listener);
-	impl->source = NULL;
+	/* fixup NoteOn with vel 0 */
+	if (size > 2 && (data[0] & 0xF0) == 0x90 && data[2] == 0x00) {
+		data[0] = 0x80 + (data[0] & 0x0F);
+		data[2] = 0x40;
+	}
 }
 
-static void sink_destroy(void *d)
+static void midi_to_jack(struct impl *impl, float *dst, float *src, uint32_t n_samples)
 {
-	struct impl *impl = d;
-	spa_hook_remove(&impl->sink_listener);
-	impl->sink = NULL;
+	struct spa_pod *pod;
+	struct spa_pod_sequence *seq;
+	struct spa_pod_control *c;
+	int res;
+
+	jack.midi_clear_buffer(dst);
+	if (src == NULL)
+		return;
+
+	if ((pod = spa_pod_from_data(src, n_samples * sizeof(float), 0, n_samples * sizeof(float))) == NULL)
+		return;
+	if (!spa_pod_is_sequence(pod))
+		return;
+
+	seq = (struct spa_pod_sequence*)pod;
+
+	SPA_POD_SEQUENCE_FOREACH(seq, c) {
+		switch(c->type) {
+		case SPA_CONTROL_Midi:
+		{
+			uint8_t *data = SPA_POD_BODY(&c->value);
+			size_t size = SPA_POD_BODY_SIZE(&c->value);
+
+			if (impl->fix_midi)
+				fix_midi_event(data, size);
+
+			if ((res = jack.midi_event_write(dst, c->offset, data, size)) < 0)
+				pw_log_warn("midi %p: can't write event: %s", dst,
+						spa_strerror(res));
+			break;
+		}
+		default:
+			break;
+		}
+	}
 }
 
-static void sink_state_changed(void *d, enum pw_filter_state old,
+static void jack_to_midi(float *dst, float *src, uint32_t size)
+{
+	struct spa_pod_builder b = { 0, };
+	uint32_t i, count;
+	struct spa_pod_frame f;
+
+	count = src ? jack.midi_get_event_count(src) : 0;
+
+	spa_pod_builder_init(&b, dst, size);
+	spa_pod_builder_push_sequence(&b, &f, 0);
+	for (i = 0; i < count; i++) {
+		jack_midi_event_t ev;
+		jack.midi_event_get(&ev, src, i);
+		spa_pod_builder_control(&b, ev.time, SPA_CONTROL_Midi);
+		spa_pod_builder_bytes(&b, ev.buffer, ev.size);
+	}
+	spa_pod_builder_pop(&b, &f);
+}
+
+static void stream_destroy(void *d)
+{
+	struct stream *s = d;
+	spa_hook_remove(&s->listener);
+	s->filter = NULL;
+}
+
+static void stream_state_changed(void *d, enum pw_filter_state old,
 		enum pw_filter_state state, const char *error)
 {
-	struct impl *impl = d;
+	struct stream *s = d;
+	struct impl *impl = s->impl;
 	switch (state) {
 	case PW_FILTER_STATE_ERROR:
 	case PW_FILTER_STATE_UNCONNECTED:
 		pw_impl_module_schedule_destroy(impl->module);
 		break;
 	case PW_FILTER_STATE_PAUSED:
-		impl->sink_running = false;
+		s->running = false;
 		break;
 	case PW_FILTER_STATE_STREAMING:
-		impl->sink_running = true;
+		s->running = true;
 		break;
 	default:
 		break;
@@ -246,21 +319,28 @@ static void sink_state_changed(void *d, enum pw_filter_state old,
 
 static void sink_process(void *d, struct spa_io_position *position)
 {
-	struct impl *impl = d;
+	struct stream *s = d;
+	struct impl *impl = s->impl;
 	uint32_t i, n_samples = position->clock.duration;
 
-	for (i = 0; i < impl->sink_info.channels; i++) {
-		struct port *p = impl->sink_ports[i];
+	for (i = 0; i < s->n_ports; i++) {
+		struct port *p = s->ports[i];
 		float *src, *dst;
 		if (p == NULL)
 			continue;
 		src = pw_filter_get_dsp_buffer(p, n_samples);
-		if (src == NULL || p->jack_port == NULL)
+
+		if (p->jack_port == NULL)
 			continue;
 
 		dst = jack.port_get_buffer(p->jack_port, n_samples);
+		if (dst == NULL)
+			continue;
 
-		do_volume(dst, src, &impl->sink_volume, i, n_samples);
+		if (SPA_UNLIKELY(p->is_midi))
+			midi_to_jack(impl, dst, src, n_samples);
+		else
+			do_volume(dst, src, &s->volume, i, n_samples);
 	}
 	pw_log_trace_fp("done %u", impl->frame_time);
 	if (impl->mode & MODE_SINK) {
@@ -271,11 +351,12 @@ static void sink_process(void *d, struct spa_io_position *position)
 
 static void source_process(void *d, struct spa_io_position *position)
 {
-	struct impl *impl = d;
+	struct stream *s = d;
+	struct impl *impl = s->impl;
 	uint32_t i, n_samples = position->clock.duration;
 
-	for (i = 0; i < impl->source_info.channels; i++) {
-		struct port *p = impl->source_ports[i];
+	for (i = 0; i < s->n_ports; i++) {
+		struct port *p = s->ports[i];
 		float *src, *dst;
 
 		if (p == NULL)
@@ -287,7 +368,10 @@ static void source_process(void *d, struct spa_io_position *position)
 
 		src = jack.port_get_buffer (p->jack_port, n_samples);
 
-		do_volume(dst, src, &impl->source_volume, i, n_samples);
+		if (SPA_UNLIKELY(p->is_midi))
+			jack_to_midi(dst, src, n_samples);
+		else
+			do_volume(dst, src, &s->volume, i, n_samples);
 	}
 	pw_log_trace_fp("done %u", impl->frame_time);
 	if (impl->mode == MODE_SOURCE) {
@@ -296,28 +380,10 @@ static void source_process(void *d, struct spa_io_position *position)
 	}
 }
 
-static void source_state_changed(void *d, enum pw_filter_state old,
-		enum pw_filter_state state, const char *error)
+static void stream_io_changed(void *data, void *port_data, uint32_t id, void *area, uint32_t size)
 {
-	struct impl *impl = d;
-	switch (state) {
-	case PW_FILTER_STATE_ERROR:
-	case PW_FILTER_STATE_UNCONNECTED:
-		pw_impl_module_schedule_destroy(impl->module);
-		break;
-	case PW_FILTER_STATE_PAUSED:
-		impl->source_running = false;
-		break;
-	case PW_FILTER_STATE_STREAMING:
-		impl->source_running = true;
-		break;
-	default:
-		break;
-	}
-}
-static void io_changed(void *data, void *port_data, uint32_t id, void *area, uint32_t size)
-{
-	struct impl *impl = data;
+	struct stream *s = data;
+	struct impl *impl = s->impl;
 	if (port_data == NULL) {
 		switch (id) {
 		case SPA_IO_Position:
@@ -329,7 +395,7 @@ static void io_changed(void *data, void *port_data, uint32_t id, void *area, uin
 	}
 }
 
-static void param_latency_changed(struct impl *impl, const struct spa_pod *param,
+static void param_latency_changed(struct stream *s, const struct spa_pod *param,
 		struct port *port)
 {
 	struct spa_latency_info latency;
@@ -344,62 +410,104 @@ static void param_latency_changed(struct impl *impl, const struct spa_pod *param
 		port->latency_changed[direction] = update = true;
 	}
 	if (update)
-		jack.recompute_total_latencies(impl->client);
+		jack.recompute_total_latencies(s->impl->client);
 }
 
-static void make_sink_ports(struct impl *impl)
+static void make_stream_ports(struct stream *s)
 {
+	struct impl *impl = s->impl;
 	uint32_t i;
 	struct pw_properties *props;
-	const char *str;
+	const char *str, *prefix, *type;
 	char name[256];
-	const char **ports = NULL;
+	const char **audio_ports = NULL, **link_ports = NULL;
+	const char **midi_ports = NULL;
+	unsigned long jack_peer, jack_flags;
+	bool is_midi;
 
-	if (impl->sink_connect)
-		ports = jack.get_ports(impl->client, NULL, NULL,
-	                                JackPortIsPhysical|JackPortIsInput);
+	if (s->direction == PW_DIRECTION_INPUT) {
+		/* sink */
+		jack_peer = JackPortIsInput;
+		jack_flags = JackPortIsOutput;
+		prefix = "playback";
+	} else {
+		/* source */
+		jack_peer = JackPortIsOutput;
+		jack_flags = JackPortIsInput;
+		prefix = "capture";
+	}
 
-	for (i = 0; i < impl->sink_info.channels; i++) {
-		struct port *port = impl->sink_ports[i];
+	if (s->connect) {
+		audio_ports = jack.get_ports(impl->client, NULL, JACK_DEFAULT_AUDIO_TYPE,
+	                                JackPortIsPhysical|jack_peer);
+		midi_ports = jack.get_ports(impl->client, NULL, JACK_DEFAULT_MIDI_TYPE,
+	                                JackPortIsPhysical|jack_peer);
+	}
+	for (i = 0; i < s->n_ports; i++) {
+		struct port *port = s->ports[i];
 		if (port != NULL) {
-			impl->sink_ports[i] = NULL;
+			s->ports[i] = NULL;
 			if (port->jack_port)
 				jack.port_unregister(impl->client, port->jack_port);
 			pw_filter_remove_port(port);
 		}
 
-		props = pw_properties_new(
-				PW_KEY_FORMAT_DSP, "32 bit float mono audio",
-				NULL);
-		str = spa_debug_type_find_short_name(spa_type_audio_channel,
-				impl->sink_info.position[i]);
-		pw_properties_setf(props,
-				PW_KEY_AUDIO_CHANNEL, "%s", str ? str : "UNK");
-		port = pw_filter_add_port(impl->sink,
-                        PW_DIRECTION_INPUT,
+		if (i < s->info.channels) {
+			str = spa_debug_type_find_short_name(spa_type_audio_channel,
+					s->info.position[i]);
+			if (str)
+				snprintf(name, sizeof(name), "%s_%s", prefix, str);
+			else
+				snprintf(name, sizeof(name), "%s_%d", prefix, i);
+
+			props = pw_properties_new(
+					PW_KEY_FORMAT_DSP, "32 bit float mono audio",
+					PW_KEY_AUDIO_CHANNEL, str ? str : "UNK",
+					PW_KEY_PORT_NAME, name,
+					NULL);
+
+			type = JACK_DEFAULT_AUDIO_TYPE;
+			link_ports = audio_ports;
+			is_midi = false;
+		} else {
+			snprintf(name, sizeof(name), "%s_%d", prefix, i - s->info.channels);
+			props = pw_properties_new(
+					PW_KEY_FORMAT_DSP, "8 bit raw midi",
+					PW_KEY_PORT_NAME, name,
+					NULL);
+
+			type = JACK_DEFAULT_MIDI_TYPE;
+			link_ports = midi_ports;
+			is_midi = true;
+		}
+
+		port = pw_filter_add_port(s->filter,
+                        s->direction,
                         PW_FILTER_PORT_FLAG_MAP_BUFFERS,
                         sizeof(struct port),
 			props, NULL, 0);
 
-		if (str)
-			snprintf(name, sizeof(name), "output_%s", str);
-		else
-			snprintf(name, sizeof(name), "output_%d", i);
+		port->is_midi = is_midi;
+		port->jack_port = jack.port_register (impl->client, name, type, jack_flags, 0);
 
-		port->jack_port = jack.port_register (impl->client, name,
-					JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
-		impl->sink_ports[i] = port;
-
-		if (ports != NULL && ports[i] != NULL) {
-			if (jack.connect(impl->client, jack.port_name(port->jack_port), ports[i]))
-				pw_log_warn("cannot connect output ports");
+		if (link_ports != NULL && link_ports[i] != NULL) {
+			if (jack_flags & JackPortIsOutput) {
+				if (jack.connect(impl->client, jack.port_name(port->jack_port), link_ports[i]))
+					pw_log_warn("cannot connect ports");
+			} else {
+				if (jack.connect(impl->client, link_ports[i], jack.port_name(port->jack_port)))
+					pw_log_warn("cannot connect ports");
+			}
 		}
+		s->ports[i] = port;
 	}
-	if (ports)
-		jack.free(ports);
+	if (audio_ports)
+		jack.free(audio_ports);
+	if (midi_ports)
+		jack.free(midi_ports);
 }
 
-static struct spa_pod *make_props_param(struct spa_pod_builder *b, struct impl *impl,
+static struct spa_pod *make_props_param(struct spa_pod_builder *b,
 		struct volume *vol)
 {
 	return spa_pod_builder_add_object(b, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
@@ -408,8 +516,7 @@ static struct spa_pod *make_props_param(struct spa_pod_builder *b, struct impl *
 				SPA_TYPE_Float, vol->n_volumes, vol->volumes));
 }
 
-static void parse_props(struct impl *impl, const struct spa_pod *param,
-		struct pw_filter *filter, struct volume *vol)
+static void parse_props(struct stream *s, const struct spa_pod *param)
 {
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
 	struct spa_pod_prop *prop;
@@ -423,7 +530,7 @@ static void parse_props(struct impl *impl, const struct spa_pod *param,
 		{
 			bool mute;
 			if (spa_pod_get_bool(&prop->value, &mute) == 0)
-				vol->mute = mute;
+				s->volume.mute = mute;
 			break;
 		}
 		case SPA_PROP_channelVolumes:
@@ -432,9 +539,9 @@ static void parse_props(struct impl *impl, const struct spa_pod *param,
 			float vols[SPA_AUDIO_MAX_CHANNELS];
 			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					vols, SPA_AUDIO_MAX_CHANNELS)) > 0) {
-				vol->n_volumes = n;
-				for (n = 0; n < vol->n_volumes; n++)
-					vol->volumes[n] = vols[n];
+				s->volume.n_volumes = n;
+				for (n = 0; n < s->volume.n_volumes; n++)
+					s->volume.volumes[n] = vols[n];
 			}
 			break;
 		}
@@ -443,105 +550,30 @@ static void parse_props(struct impl *impl, const struct spa_pod *param,
 		}
 	}
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	params[0] = make_props_param(&b, impl, vol);
+	params[0] = make_props_param(&b, &s->volume);
 
-	pw_filter_update_params(filter, NULL, params, 1);
+	pw_filter_update_params(s->filter, NULL, params, 1);
 }
 
-static void sink_param_changed(void *data, void *port_data, uint32_t id,
+static void stream_param_changed(void *data, void *port_data, uint32_t id,
 		const struct spa_pod *param)
 {
-	struct impl *impl = data;
+	struct stream *s = data;
 	if (port_data != NULL) {
 		switch (id) {
 		case SPA_PARAM_Latency:
-			param_latency_changed(impl, param, port_data);
+			param_latency_changed(s, param, port_data);
 			break;
 		}
 	} else {
 		switch (id) {
 		case SPA_PARAM_PortConfig:
 			pw_log_debug("PortConfig");
-			make_sink_ports(impl);
+			make_stream_ports(s);
 			break;
 		case SPA_PARAM_Props:
 			pw_log_debug("Props");
-			parse_props(impl, param, impl->sink, &impl->sink_volume);
-			break;
-		}
-	}
-}
-static void make_source_ports(struct impl *impl)
-{
-	uint32_t i;
-	struct pw_properties *props;
-	const char *str;
-	char name[256];
-	const char **ports = NULL;
-
-	if (impl->source_connect)
-		ports = jack.get_ports(impl->client, NULL, NULL,
-					JackPortIsPhysical|JackPortIsOutput);
-
-	for (i = 0; i < impl->source_info.channels; i++) {
-		struct port *port = impl->source_ports[i];
-		if (port != NULL) {
-			impl->source_ports[i] = NULL;
-			if (port->jack_port)
-				jack.port_unregister(impl->client, port->jack_port);
-			pw_filter_remove_port(port);
-		}
-
-		props = pw_properties_new(
-				PW_KEY_FORMAT_DSP, "32 bit float mono audio",
-				NULL);
-		str = spa_debug_type_find_short_name(spa_type_audio_channel,
-				impl->source_info.position[i]);
-		pw_properties_setf(props,
-				PW_KEY_AUDIO_CHANNEL, "%s", str ? str : "UNK");
-		port = pw_filter_add_port(impl->source,
-                        PW_DIRECTION_OUTPUT,
-                        PW_FILTER_PORT_FLAG_MAP_BUFFERS,
-                        sizeof(struct port),
-			props, NULL, 0);
-
-		if (str)
-			snprintf(name, sizeof(name), "input_%s", str);
-		else
-			snprintf(name, sizeof(name), "input_%d", i);
-
-		port->jack_port = jack.port_register (impl->client, name,
-					JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
-		impl->source_ports[i] = port;
-
-		if (ports != NULL && ports[i] != NULL) {
-			if (jack.connect(impl->client, ports[i], jack.port_name(port->jack_port)))
-				pw_log_warn("cannot connect input ports");
-		}
-	}
-	if (ports)
-		jack.free(ports);
-}
-
-static void source_param_changed(void *data, void *port_data, uint32_t id,
-		const struct spa_pod *param)
-{
-	struct impl *impl = data;
-	if (port_data != NULL) {
-		switch (id) {
-		case SPA_PARAM_Latency:
-			param_latency_changed(impl, param, port_data);
-			break;
-		}
-	} else {
-		switch (id) {
-		case SPA_PARAM_PortConfig:
-			pw_log_debug("PortConfig");
-			make_source_ports(impl);
-			break;
-		case SPA_PARAM_Props:
-			pw_log_debug("Props");
-			parse_props(impl, param, impl->source, &impl->source_volume);
+			parse_props(s, param);
 			break;
 		}
 	}
@@ -549,93 +581,75 @@ static void source_param_changed(void *data, void *port_data, uint32_t id,
 
 static const struct pw_filter_events sink_events = {
 	PW_VERSION_FILTER_EVENTS,
-	.destroy = sink_destroy,
-	.state_changed = sink_state_changed,
-	.param_changed = sink_param_changed,
-	.io_changed = io_changed,
+	.destroy = stream_destroy,
+	.state_changed = stream_state_changed,
+	.param_changed = stream_param_changed,
+	.io_changed = stream_io_changed,
 	.process = sink_process
 };
 
 static const struct pw_filter_events source_events = {
 	PW_VERSION_FILTER_EVENTS,
-	.destroy = source_destroy,
-	.state_changed = source_state_changed,
-	.param_changed = source_param_changed,
-	.io_changed = io_changed,
+	.destroy = stream_destroy,
+	.state_changed = stream_state_changed,
+	.param_changed = stream_param_changed,
+	.io_changed = stream_io_changed,
 	.process = source_process,
 };
 
-static int create_filters(struct impl *impl)
+static int make_stream(struct stream *s, const char *name)
 {
-	int res;
+	struct impl *impl = s->impl;
 	uint32_t n_params;
 	const struct spa_pod *params[4];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	struct spa_latency_info latency;
 
+	spa_zero(latency);
 	n_params = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	spa_zero(latency);
+	s->filter = pw_filter_new(impl->core, name, s->props);
+	s->props = NULL;
+	if (s->filter == NULL)
+		return -errno;
 
-	if (impl->mode & MODE_SINK) {
-		impl->sink = pw_filter_new(impl->core,
-				"JACK Sink",
-				impl->sink_props);
-		impl->sink_props = NULL;
-		if (impl->sink == NULL)
-			return -errno;
-
-		pw_filter_add_listener(impl->sink,
-				&impl->sink_listener,
-				&sink_events, impl);
-
-		reset_volume(&impl->sink_volume, impl->sink_info.channels);
-
-		n_params = 0;
-		params[n_params++] = spa_format_audio_raw_build(&b,
-				SPA_PARAM_EnumFormat, &impl->sink_info);
-		params[n_params++] = spa_format_audio_raw_build(&b,
-				SPA_PARAM_Format, &impl->sink_info);
-		params[n_params++] = make_props_param(&b, impl, &impl->sink_volume);
-
-		if ((res = pw_filter_connect(impl->sink,
-				PW_FILTER_FLAG_DRIVER |
-				PW_FILTER_FLAG_RT_PROCESS |
-				PW_FILTER_FLAG_CUSTOM_LATENCY,
-				params, n_params)) < 0)
-			return res;
+	if (s->direction == PW_DIRECTION_INPUT) {
+		pw_filter_add_listener(s->filter, &s->listener,
+				&sink_events, s);
+	} else {
+		pw_filter_add_listener(s->filter, &s->listener,
+				&source_events, s);
 	}
-	if (impl->mode & MODE_SOURCE) {
-		impl->source = pw_filter_new(impl->core,
-				"JACK Source",
-				impl->source_props);
-		impl->source_props = NULL;
-		if (impl->source == NULL)
-			return -errno;
 
-		pw_filter_add_listener(impl->source,
-				&impl->source_listener,
-				&source_events, impl);
+	reset_volume(&s->volume, s->info.channels);
 
-		reset_volume(&impl->source_volume, impl->source_info.channels);
+	n_params = 0;
+	params[n_params++] = spa_format_audio_raw_build(&b,
+			SPA_PARAM_EnumFormat, &s->info);
+	params[n_params++] = spa_format_audio_raw_build(&b,
+			SPA_PARAM_Format, &s->info);
+	params[n_params++] = make_props_param(&b, &s->volume);
 
-		n_params = 0;
-		params[n_params++] = spa_format_audio_raw_build(&b,
-				SPA_PARAM_EnumFormat, &impl->source_info);
-		params[n_params++] = spa_format_audio_raw_build(&b,
-				SPA_PARAM_Format, &impl->source_info);
-		params[n_params++] = make_props_param(&b, impl, &impl->source_volume);
+	return pw_filter_connect(s->filter,
+			PW_FILTER_FLAG_DRIVER |
+			PW_FILTER_FLAG_RT_PROCESS |
+			PW_FILTER_FLAG_CUSTOM_LATENCY,
+			params, n_params);
+}
 
-		if ((res = pw_filter_connect(impl->source,
-				PW_FILTER_FLAG_DRIVER |
-				PW_FILTER_FLAG_RT_PROCESS |
-				PW_FILTER_FLAG_CUSTOM_LATENCY,
-				params, n_params)) < 0)
-			return res;
-	}
-	return 0;
+static int create_filters(struct impl *impl)
+{
+	int res = 0;
+
+	if (impl->mode & MODE_SINK)
+		res = make_stream(&impl->sink, "JACK Sink");
+
+	if (impl->mode & MODE_SOURCE)
+		res = make_stream(&impl->source, "JACK Source");
+
+	return res;
 }
 
 static void *jack_process_thread(void *arg)
@@ -647,8 +661,8 @@ static void *jack_process_thread(void *arg)
 	while (true) {
 		nframes = jack.cycle_wait (impl->client);
 
-		source_running = impl->source_running;
-		sink_running = impl->sink_running;
+		source_running = impl->source.running;
+		sink_running = impl->sink.running;
 
 		impl->frame_time = jack.frame_time(impl->client);
 
@@ -687,10 +701,10 @@ static void *jack_process_thread(void *arg)
 		}
 		if (impl->mode & MODE_SINK && sink_running) {
 			impl->done = false;
-			pw_filter_trigger_process(impl->sink);
+			pw_filter_trigger_process(impl->sink.filter);
 		} else if (impl->mode == MODE_SOURCE && source_running) {
 			impl->done = false;
-			pw_filter_trigger_process(impl->source);
+			pw_filter_trigger_process(impl->source.filter);
 		} else {
 			jack.cycle_signal(impl->client, 0);
 		}
@@ -730,126 +744,99 @@ static void jack_info_shutdown(jack_status_t code, const char* reason, void *arg
 	module_schedule_destroy(impl);
 }
 
+static void stream_update_latency(struct stream *s)
+{
+	uint8_t buffer[1024];
+	struct spa_pod_builder b;
+	const struct spa_pod *params[2];
+	uint32_t i, n_params = 0;
+
+	for (i = 0; i < s->n_ports; i++) {
+		struct port *port = s->ports[i];
+		if (port == NULL)
+			continue;
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		n_params = 0;
+		if (port->latency_changed[s->direction]) {
+			params[n_params++] = spa_latency_build(&b,
+				SPA_PARAM_Latency, &port->latency[s->direction]);
+			port->latency_changed[s->direction] = false;
+		}
+		if (s->filter)
+			pw_filter_update_params(s->filter, port, params, n_params);
+	}
+}
+
 static int
 do_update_latency(struct spa_loop *loop,
 		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct impl *impl = user_data;
-	const struct spa_pod *params[2];
-	uint32_t i, n_params = 0;
-	uint8_t buffer[1024];
-	struct spa_pod_builder b;
 
-	if ((impl->mode & MODE_SINK)) {
-		for (i = 0; i < impl->sink_info.channels; i++) {
-			struct port *port = impl->sink_ports[i];
-			if (port == NULL)
-				continue;
-			spa_pod_builder_init(&b, buffer, sizeof(buffer));
-			n_params = 0;
-			if (port->latency_changed[SPA_DIRECTION_INPUT]) {
-				params[n_params++] = spa_latency_build(&b,
-					SPA_PARAM_Latency, &port->latency[SPA_DIRECTION_INPUT]);
-				port->latency_changed[SPA_DIRECTION_INPUT] = false;
-			}
-			if (impl->sink)
-				pw_filter_update_params(impl->sink, port, params, n_params);
-		}
-	}
-	if ((impl->mode & MODE_SOURCE)) {
-		for (i = 0; i < impl->source_info.channels; i++) {
-			struct port *port = impl->source_ports[i];
-			if (port == NULL)
-				continue;
-			spa_pod_builder_init(&b, buffer, sizeof(buffer));
-			n_params = 0;
-			if (port->latency_changed[SPA_DIRECTION_OUTPUT]) {
-				params[n_params++] = spa_latency_build(&b,
-					SPA_PARAM_Latency, &port->latency[SPA_DIRECTION_OUTPUT]);
-				port->latency_changed[SPA_DIRECTION_OUTPUT] = false;
-			}
-			if (impl->source)
-				pw_filter_update_params(impl->source, port, params, n_params);
-		}
-	}
+	if ((impl->mode & MODE_SINK))
+		stream_update_latency(&impl->sink);
+
+	if ((impl->mode & MODE_SOURCE))
+		stream_update_latency(&impl->source);
+
 	return 0;
 }
 
-static void jack_latency(jack_latency_callback_mode_t mode, void *arg)
+static bool stream_handle_latency(struct stream *s, jack_latency_callback_mode_t mode)
 {
-	struct impl *impl = arg;
 	uint32_t i;
 	struct spa_latency_info latency;
 	jack_latency_range_t range;
 	bool update = false;
+	enum spa_direction other = SPA_DIRECTION_REVERSE(s->direction);
+	struct port *port;
 
-	spa_zero(latency);
+	if (mode == JackPlaybackLatency) {
+		for (i = 0; i < s->n_ports; i++) {
+			port = s->ports[i];
+			if (port == NULL || port->jack_port == NULL)
+				continue;
 
-	if ((impl->mode & MODE_SINK)) {
-		if (mode == JackPlaybackLatency) {
-			for (i = 0; i < impl->sink_info.channels; i++) {
-				struct port *port = impl->sink_ports[i];
-				if (port == NULL || port->jack_port == NULL)
-					continue;
+			jack.port_get_latency_range(port->jack_port, mode, &range);
 
-				jack.port_get_latency_range(port->jack_port, mode, &range);
+			latency.direction = s->direction;
+			latency.min_rate = range.min;
+			latency.max_rate = range.max;
+			pw_log_debug("port latency %d %d %d", mode, range.min, range.max);
 
-				latency.direction = PW_DIRECTION_INPUT;
-				latency.min_rate = range.min;
-				latency.max_rate = range.max;
-				pw_log_debug("port latency %d %d %d", mode, range.min, range.max);
-
-				if (spa_latency_info_compare(&latency, &port->latency[PW_DIRECTION_INPUT])) {
-					port->latency[PW_DIRECTION_INPUT] = latency;
-					port->latency_changed[PW_DIRECTION_INPUT] = update = true;
-				}
+			if (spa_latency_info_compare(&latency, &port->latency[s->direction])) {
+				port->latency[s->direction] = latency;
+				port->latency_changed[s->direction] = update = true;
 			}
-		} else if (mode == JackCaptureLatency) {
-			for (i = 0; i < impl->sink_info.channels; i++) {
-				struct port *port = impl->sink_ports[i];
-				if (port == NULL || port->jack_port == NULL)
-					continue;
-				if (port->latency_changed[PW_DIRECTION_OUTPUT]) {
-					range.min = port->latency[PW_DIRECTION_OUTPUT].min_rate;
-					range.max = port->latency[PW_DIRECTION_OUTPUT].max_rate;
-					jack.port_set_latency_range(port->jack_port, mode, &range);
-					port->latency_changed[PW_DIRECTION_OUTPUT] = false;
-				}
+		}
+	} else if (mode == JackCaptureLatency) {
+		for (i = 0; i < s->n_ports; i++) {
+			port = s->ports[i];
+			if (port == NULL || port->jack_port == NULL)
+				continue;
+			if (port->latency_changed[other]) {
+				range.min = port->latency[other].min_rate;
+				range.max = port->latency[other].max_rate;
+				jack.port_set_latency_range(port->jack_port, mode, &range);
+				port->latency_changed[other] = false;
 			}
 		}
 	}
-	if ((impl->mode & MODE_SOURCE) && mode == JackCaptureLatency) {
-		if (mode == JackCaptureLatency) {
-			for (i = 0; i < impl->source_info.channels; i++) {
-				struct port *port = impl->source_ports[i];
-				if (port == NULL || port->jack_port == NULL)
-					continue;
-				jack.port_get_latency_range(port->jack_port, mode, &range);
+	return update;
+}
 
-				latency.direction = PW_DIRECTION_OUTPUT;
-				latency.min_rate = range.min;
-				latency.max_rate = range.max;
-				pw_log_debug("port latency %d %d %d", mode, range.min, range.max);
 
-				if (spa_latency_info_compare(&latency, &port->latency[PW_DIRECTION_OUTPUT])) {
-					port->latency[PW_DIRECTION_OUTPUT] = latency;
-					port->latency_changed[PW_DIRECTION_OUTPUT] = update = true;
-				}
-			}
-		} else if (mode == JackPlaybackLatency) {
-			for (i = 0; i < impl->sink_info.channels; i++) {
-				struct port *port = impl->sink_ports[i];
-				if (port == NULL || port->jack_port == NULL)
-					continue;
-				if (port->latency_changed[PW_DIRECTION_INPUT]) {
-					range.min = port->latency[PW_DIRECTION_INPUT].min_rate;
-					range.max = port->latency[PW_DIRECTION_INPUT].max_rate;
-					jack.port_set_latency_range(port->jack_port, mode, &range);
-					port->latency_changed[PW_DIRECTION_INPUT] = false;
-				}
-			}
-		}
-	}
+static void jack_latency(jack_latency_callback_mode_t mode, void *arg)
+{
+	struct impl *impl = arg;
+	bool update = false;
+
+	if ((impl->mode & MODE_SINK))
+		update |= stream_handle_latency(&impl->sink, mode);
+
+	if ((impl->mode & MODE_SOURCE))
+		update |= stream_handle_latency(&impl->source, mode);
+
 	if (update)
 		pw_loop_invoke(impl->main_loop, do_update_latency, 0, NULL, 0, false, impl);
 }
@@ -879,8 +866,8 @@ static int create_jack_client(struct impl *impl)
 	jack.set_latency_callback(impl->client, jack_latency, impl);
 
 	impl->samplerate = jack.get_sample_rate(impl->client);
-	impl->source_info.rate = impl->samplerate;
-	impl->sink_info.rate = impl->samplerate;
+	impl->source.info.rate = impl->samplerate;
+	impl->sink.info.rate = impl->samplerate;
 
 	return 0;
 }
@@ -925,15 +912,15 @@ static void impl_destroy(struct impl *impl)
 		jack.deactivate(impl->client);
 		jack.client_close(impl->client);
 	}
-	if (impl->source)
-		pw_filter_destroy(impl->source);
-	if (impl->sink)
-		pw_filter_destroy(impl->sink);
+	if (impl->source.filter)
+		pw_filter_destroy(impl->source.filter);
+	if (impl->sink.filter)
+		pw_filter_destroy(impl->sink.filter);
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
 
-	pw_properties_free(impl->sink_props);
-	pw_properties_free(impl->source_props);
+	pw_properties_free(impl->sink.props);
+	pw_properties_free(impl->source.props);
 	pw_properties_free(impl->props);
 
 	free(impl);
@@ -996,10 +983,10 @@ static void copy_props(struct impl *impl, struct pw_properties *props, const cha
 {
 	const char *str;
 	if ((str = pw_properties_get(props, key)) != NULL) {
-		if (pw_properties_get(impl->sink_props, key) == NULL)
-			pw_properties_set(impl->sink_props, key, str);
-		if (pw_properties_get(impl->source_props, key) == NULL)
-			pw_properties_set(impl->source_props, key, str);
+		if (pw_properties_get(impl->sink.props, key) == NULL)
+			pw_properties_set(impl->sink.props, key, str);
+		if (pw_properties_get(impl->source.props, key) == NULL)
+			pw_properties_set(impl->source.props, key, str);
 	}
 }
 
@@ -1039,9 +1026,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 
-	impl->sink_props = pw_properties_new(NULL, NULL);
-	impl->source_props = pw_properties_new(NULL, NULL);
-	if (impl->source_props == NULL || impl->sink_props == NULL) {
+	impl->sink.props = pw_properties_new(NULL, NULL);
+	impl->source.props = pw_properties_new(NULL, NULL);
+	if (impl->source.props == NULL || impl->sink.props == NULL) {
 		res = -errno;
 		pw_log_error( "can't create properties: %m");
 		goto error;
@@ -1052,6 +1039,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->main_loop = pw_context_get_main_loop(context);
 	impl->system = impl->main_loop->system;
 
+	impl->source.impl = impl;
+	impl->source.direction = PW_DIRECTION_OUTPUT;
+	impl->sink.impl = impl;
+	impl->sink.direction = PW_DIRECTION_INPUT;
 
 	impl->mode = MODE_DUPLEX;
 	if ((str = pw_properties_get(props, "tunnel.mode")) != NULL) {
@@ -1075,20 +1066,20 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(props, PW_KEY_NODE_ALWAYS_PROCESS) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_ALWAYS_PROCESS, "true");
 
-	pw_properties_set(impl->sink_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
-	pw_properties_set(impl->sink_props, PW_KEY_PRIORITY_DRIVER, "30001");
-	pw_properties_set(impl->sink_props, PW_KEY_NODE_NAME, "jack_sink");
-	pw_properties_set(impl->sink_props, PW_KEY_NODE_DESCRIPTION, "JACK Sink");
+	pw_properties_set(impl->sink.props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
+	pw_properties_set(impl->sink.props, PW_KEY_PRIORITY_DRIVER, "30001");
+	pw_properties_set(impl->sink.props, PW_KEY_NODE_NAME, "jack_sink");
+	pw_properties_set(impl->sink.props, PW_KEY_NODE_DESCRIPTION, "JACK Sink");
 
-	pw_properties_set(impl->source_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
-	pw_properties_set(impl->source_props, PW_KEY_PRIORITY_DRIVER, "30000");
-	pw_properties_set(impl->source_props, PW_KEY_NODE_NAME, "jack_source");
-	pw_properties_set(impl->source_props, PW_KEY_NODE_DESCRIPTION, "JACK Source");
+	pw_properties_set(impl->source.props, PW_KEY_MEDIA_CLASS, "Audio/Source");
+	pw_properties_set(impl->source.props, PW_KEY_PRIORITY_DRIVER, "30000");
+	pw_properties_set(impl->source.props, PW_KEY_NODE_NAME, "jack_source");
+	pw_properties_set(impl->source.props, PW_KEY_NODE_DESCRIPTION, "JACK Source");
 
 	if ((str = pw_properties_get(props, "sink.props")) != NULL)
-		pw_properties_update_string(impl->sink_props, str, strlen(str));
+		pw_properties_update_string(impl->sink.props, str, strlen(str));
 	if ((str = pw_properties_get(props, "source.props")) != NULL)
-		pw_properties_update_string(impl->source_props, str, strlen(str));
+		pw_properties_update_string(impl->source.props, str, strlen(str));
 
 	copy_props(impl, props, PW_KEY_AUDIO_CHANNELS);
 	copy_props(impl, props, SPA_KEY_AUDIO_POSITION);
@@ -1097,12 +1088,25 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
 	copy_props(impl, props, "jack.connect");
 
-	parse_audio_info(impl->source_props, &impl->source_info);
-	parse_audio_info(impl->sink_props, &impl->sink_info);
+	parse_audio_info(impl->source.props, &impl->source.info);
+	parse_audio_info(impl->sink.props, &impl->sink.info);
 
-	impl->source_connect = pw_properties_get_bool(impl->source_props,
+	impl->source.n_midi = pw_properties_get_uint32(impl->source.props,
+			"midi.ports", DEFAULT_MIDI_PORTS);
+	impl->sink.n_midi = pw_properties_get_uint32(impl->sink.props,
+			"midi.ports", DEFAULT_MIDI_PORTS);
+
+	impl->source.n_ports = impl->source.n_midi + impl->source.info.channels;
+	impl->sink.n_ports = impl->sink.n_midi + impl->sink.info.channels;
+	if (impl->source.n_ports > MAX_PORTS || impl->sink.n_ports > MAX_PORTS) {
+		pw_log_error("too many ports");
+		res = -EINVAL;
+		goto error;
+	}
+
+	impl->source.connect = pw_properties_get_bool(impl->source.props,
 			"jack.connect", true);
-	impl->sink_connect = pw_properties_get_bool(impl->sink_props,
+	impl->sink.connect = pw_properties_get_bool(impl->sink.props,
 			"jack.connect", true);
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);

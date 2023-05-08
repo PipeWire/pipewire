@@ -15,6 +15,7 @@ extern "C" {
 
 #include <jack/jack.h>
 #include <jack/transport.h>
+#include <jack/midiport.h>
 
 struct weakjack {
 	jack_nframes_t (*cycle_wait) (jack_client_t* client);
@@ -80,6 +81,16 @@ struct weakjack {
 			JackInfoShutdownCallback shutdown_callback, void *arg);
 	int (*set_latency_callback) (jack_client_t *client,
 			JackLatencyCallback latency_callback, void *arg);
+
+	void (*midi_clear_buffer) (void *port_buffer);
+	int (*midi_event_write) (void *port_buffer,
+			jack_nframes_t time,
+			const jack_midi_data_t *data,
+			size_t data_size);
+	uint32_t (*midi_get_event_count) (void* port_buffer);
+	int (*midi_event_get) (jack_midi_event_t *event, void *port_buffer,
+			uint32_t event_index);
+
 };
 
 
@@ -132,6 +143,11 @@ static inline int weakjack_load_by_path(struct weakjack *jack, const char *path)
 	LOAD_SYM(set_xrun_callback);
 	LOAD_SYM(on_info_shutdown);
 	LOAD_SYM(set_latency_callback);
+
+	LOAD_SYM(midi_clear_buffer);
+	LOAD_SYM(midi_event_write);
+	LOAD_SYM(midi_get_event_count);
+	LOAD_SYM(midi_event_get);
 #undef LOAD_SYM
 
 	return 0;

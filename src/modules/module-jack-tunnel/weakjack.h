@@ -148,8 +148,8 @@ static inline int weakjack_load(struct weakjack *jack, const char *lib)
 
 		search_dirs = getenv("LIBJACK_PATH");
 		if (!search_dirs)
-			search_dirs = "/usr/lib64:/usr/lib/:" LIBDIR;
-
+			search_dirs = PREFIX "/lib64/:" PREFIX "/lib/:"
+				"/usr/lib64/:/usr/lib/:" LIBDIR;
 
 		while ((p = pw_split_walk(search_dirs, ":", &len, &state))) {
 			int pathlen;

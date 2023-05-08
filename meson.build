@@ -191,6 +191,7 @@ versiondata.set('PIPEWIRE_VERSION_NANO', pipewire_version_nano)
 versiondata.set_quoted('PIPEWIRE_API_VERSION', apiversion)
 
 cdata = configuration_data()
+cdata.set_quoted('PREFIX', prefix)
 cdata.set_quoted('PIPEWIRE_CONFDATADIR', pipewire_confdatadir)
 cdata.set_quoted('LOCALEDIR', pipewire_localedir)
 cdata.set_quoted('LIBDIR', pipewire_libdir)

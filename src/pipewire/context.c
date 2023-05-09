@@ -1268,7 +1268,8 @@ again:
 		driver = NULL;
 		spa_list_for_each(t, &collect, sort_link) {
 			/* is any active and want a driver */
-			if (t->want_driver && t->active && t->runnable) {
+			if ((t->want_driver && t->active && t->runnable) ||
+			    t->always_process) {
 				driver = target;
 				driver->runnable = true;
 				break;

@@ -61,4 +61,4 @@ void dbus_monitor_init(struct dbus_monitor *monitor,
 
 void dbus_monitor_clear(struct dbus_monitor *monitor);
 
-#endif DBUS_MONITOR_H_
+#endif // DBUS_MONITOR_H_

@@ -1639,6 +1639,7 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 	case SPA_PARAM_Props:
 		if (param != NULL)
 			stream_props_changed(impl, id, param);
+		break;
 	default:
 		break;
 	}

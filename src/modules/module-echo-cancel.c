@@ -639,7 +639,6 @@ static int set_params(struct impl* impl, const struct spa_pod *params)
 {
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f;
-	int changed = 0;
 
 	spa_pod_parser_pod(&prs, params);
 	if (spa_pod_parser_push_struct(&prs, &f) < 0)
@@ -668,7 +667,6 @@ static int set_params(struct impl* impl, const struct spa_pod *params)
 		if (spa_streq(name, "debug.aec.wav-path")) {
 			spa_scnprintf(impl->wav_path,
 				sizeof(impl->wav_path), "%s", value);
-			changed++;
 		}
 	}
 	spa_audio_aec_set_params(impl->aec, params);

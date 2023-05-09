@@ -1701,7 +1701,7 @@ static int setup_convert(struct impl *this)
 	if (!in->have_format || !out->have_format)
 		return -EINVAL;
 
-	rate = this->io_position ?  this->io_position->clock.rate.denom : DEFAULT_RATE;
+	rate = this->io_position ? this->io_position->clock.target_rate.denom : DEFAULT_RATE;
 
 	/* in DSP mode we always convert to the DSP rate */
 	if (in->mode == SPA_PARAM_PORT_CONFIG_MODE_dsp)
@@ -1856,7 +1856,7 @@ static int port_enum_formats(void *object,
 				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		} else {
 			uint32_t rate = this->io_position ?
-				this->io_position->clock.rate.denom : DEFAULT_RATE;
+				this->io_position->clock.target_rate.denom : DEFAULT_RATE;
 
 			*param = spa_pod_builder_add_object(builder,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
@@ -1977,7 +1977,7 @@ impl_node_port_enum_params(void *object, int seq,
 			/* collect the other port rate */
 			dir = &this->dir[SPA_DIRECTION_REVERSE(direction)];
 			if (dir->mode == SPA_PARAM_PORT_CONFIG_MODE_dsp)
-				orate = this->io_position ?  this->io_position->clock.rate.denom : DEFAULT_RATE;
+				orate = this->io_position ?  this->io_position->clock.target_rate.denom : DEFAULT_RATE;
 			else
 				orate = dir->format.info.raw.rate;
 

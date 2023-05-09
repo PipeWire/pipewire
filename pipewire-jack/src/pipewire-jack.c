@@ -2925,7 +2925,7 @@ static void registry_event_global(void *data, uint32_t id,
 	struct client *c = (struct client *) data;
 	struct object *o, *ot, *op;
 	const char *str;
-	bool is_first = false;
+	bool is_first = true;
 	uint32_t serial;
 
 	if (props == NULL)
@@ -2950,12 +2950,6 @@ static void registry_event_global(void *data, uint32_t id,
 
 		node_name = spa_dict_lookup(props, PW_KEY_NODE_NAME);
 
-		if (id == c->node_id) {
-			pw_log_debug("%p: add our node %d", c, id);
-			if (node_name != NULL)
-				snprintf(c->name, sizeof(c->name), "%s", node_name);
-			c->serial = serial;
-		}
 		snprintf(o->node.node_name, sizeof(o->node.node_name),
 				"%s", node_name);
 
@@ -2990,6 +2984,11 @@ static void registry_event_global(void *data, uint32_t id,
 		} else {
 			is_first = ot == NULL;
 			snprintf(o->node.name, sizeof(o->node.name), "%s", tmp);
+		}
+		if (id == c->node_id) {
+			pw_log_debug("%p: add our node %d", c, id);
+			snprintf(c->name, sizeof(c->name), "%s", o->node.name);
+			c->serial = serial;
 		}
 
 		if ((str = spa_dict_lookup(props, PW_KEY_PRIORITY_SESSION)) != NULL)

@@ -804,9 +804,9 @@ void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto
 		*proto_ptr = 0;
 }
 
-#define do_callback_expr(c,expr,callback,...)			\
+#define do_callback_expr(c,expr,callback,active,...)		\
 ({								\
-	if (c->callback) {					\
+	if (c->callback && active) {				\
 		pw_thread_loop_unlock(c->context.loop);		\
 		if (c->locked_process)				\
 			pthread_mutex_lock(&c->rt_lock);	\
@@ -818,13 +818,13 @@ void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto
 		pw_thread_loop_lock(c->context.loop);		\
 	} else {						\
 		(expr);						\
-		pw_log_debug("skip " #callback			\
+		pw_log_warn("skip " #callback			\
 			" cb:%p active:%d", c->callback,	\
-			c->active);				\
+			active);				\
 	}							\
 })
 
-#define do_callback(c,callback,...) do_callback_expr(c,(void)0,callback,__VA_ARGS__)
+#define do_callback(c,callback,active,...) do_callback_expr(c,(void)0,callback,active,__VA_ARGS__)
 
 #define do_rt_callback_res(c,callback,...)			\
 ({								\
@@ -854,8 +854,8 @@ jack_get_version_string(void)
 
 static void recompute_latencies(struct client *c)
 {
-	do_callback(c, latency_callback, JackCaptureLatency, c->latency_arg);
-	do_callback(c, latency_callback, JackPlaybackLatency, c->latency_arg);
+	do_callback(c, latency_callback, c->active, JackCaptureLatency, c->latency_arg);
+	do_callback(c, latency_callback, c->active, JackPlaybackLatency, c->latency_arg);
 }
 
 static void emit_callbacks(struct client *c)
@@ -866,19 +866,19 @@ static void emit_callbacks(struct client *c)
 		if (o->register_pending) {
 			switch (o->type) {
 			case INTERFACE_Node:
-				do_callback(c, registration_callback,
+				do_callback(c, registration_callback, c->active,
 						o->node.name,
 						o->register_arg,
 						c->registration_arg);
 				break;
 			case INTERFACE_Port:
-				do_callback(c, portregistration_callback,
+				do_callback(c, portregistration_callback, c->active,
 						o->serial,
 						o->register_arg,
 						c->portregistration_arg);
 				break;
 			case INTERFACE_Link:
-				do_callback(c, connect_callback,
+				do_callback(c, connect_callback, c->active,
 						o->port_link.src_serial,
 						o->port_link.dst_serial,
 						o->register_arg,
@@ -895,7 +895,7 @@ static void emit_callbacks(struct client *c)
 	if (c->graph_callback_pending) {
 		c->graph_callback_pending = false;
 		recompute_latencies(c);
-		do_callback(c, graph_callback, c->graph_arg);
+		do_callback(c, graph_callback, c->active, c->graph_arg);
 	}
 }
 
@@ -924,6 +924,16 @@ static void on_sync_reply(void *data, uint32_t id, int seq)
 		pw_thread_loop_signal(client->context.loop, false);
 }
 
+static void do_shutdown(struct client *c)
+{
+	if (c->info_shutdown_callback) {
+		jack_status_t status = JackFailure | JackServerError;
+		do_callback(c, info_shutdown_callback, c->active,
+				status, "JACK server has been closed", c->info_shutdown_arg);
+	}
+	else
+		do_callback(c, shutdown_callback, c->active, c->shutdown_arg);
+}
 
 static void on_error(void *data, uint32_t id, int seq, int res, const char *message)
 {
@@ -935,7 +945,7 @@ static void on_error(void *data, uint32_t id, int seq, int res, const char *mess
 	if (id == PW_ID_CORE) {
 		client->last_res = res;
 		if (res == -EPIPE && !client->destroyed)
-			do_callback(client, shutdown_callback, client->shutdown_arg);
+			do_shutdown(client);
 	}
 	pw_thread_loop_signal(client->context.loop, false);
 }
@@ -1408,7 +1418,8 @@ do_buffer_frames(struct spa_loop *loop,
 	uint32_t buffer_frames = *((uint32_t*)data);
 	struct client *c = user_data;
 	if (c->buffer_frames != buffer_frames)
-		do_callback_expr(c, c->buffer_frames = buffer_frames, bufsize_callback, buffer_frames, c->bufsize_arg);
+		do_callback_expr(c, c->buffer_frames = buffer_frames,
+				bufsize_callback, c->active, buffer_frames, c->bufsize_arg);
 	recompute_latencies(c);
 	return 0;
 }
@@ -1434,7 +1445,8 @@ do_sample_rate(struct spa_loop *loop,
 {
 	struct client *c = user_data;
 	uint32_t sample_rate = *((uint32_t*)data);
-	do_callback_expr(c, c->sample_rate = sample_rate, srate_callback, sample_rate, c->srate_arg);
+	do_callback_expr(c, c->sample_rate = sample_rate,
+			srate_callback, c->active, sample_rate, c->srate_arg);
 	return 0;
 }
 
@@ -1770,7 +1782,7 @@ static int update_driver_activation(struct client *c)
 			jack_drop_real_time_scheduling(thr);
 		}
 
-		do_callback(c, freewheel_callback, freewheeling, c->freewheel_arg);
+		do_callback(c, freewheel_callback, c->active, freewheeling, c->freewheel_arg);
 
 		if (!freewheeling && thr) {
 			jack_acquire_real_time_scheduling(thr,
@@ -2209,7 +2221,7 @@ static int port_set_latency(struct client *c, struct port *p,
 		mode = JackCaptureLatency;
 
 	if (c->latency_callback)
-		do_callback(c, latency_callback, mode, c->latency_arg);
+		do_callback(c, latency_callback, c->active, mode, c->latency_arg);
 	else
 		default_latency_callback(mode, c);
 

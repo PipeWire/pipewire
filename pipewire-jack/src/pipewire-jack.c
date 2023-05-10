@@ -393,7 +393,8 @@ struct client {
 	unsigned int global_buffer_size:1;
 	unsigned int passive_links:1;
 	unsigned int graph_callback_pending:1;
-	unsigned int in_function:1;
+	unsigned int frozen_callbacks:1;
+	unsigned int pending_callbacks:1;
 	char filter_char;
 	uint32_t max_ports;
 
@@ -818,7 +819,7 @@ void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto
 		pw_thread_loop_lock(c->context.loop);		\
 	} else {						\
 		(expr);						\
-		pw_log_warn("skip " #callback			\
+		pw_log_debug("skip " #callback			\
 			" cb:%p active:%d", c->callback,	\
 			active);				\
 	}							\
@@ -858,11 +859,31 @@ static void recompute_latencies(struct client *c)
 	do_callback(c, latency_callback, c->active, JackPlaybackLatency, c->latency_arg);
 }
 
+#define freeze_callbacks(c)		\
+({					\
+	(c)->frozen_callbacks = true;	\
+ })
+
+#define thaw_callbacks(c)							\
+({										\
+	(c)->frozen_callbacks = false;						\
+	if ((c)->pending_callbacks)						\
+		pw_loop_signal_event((c)->context.l, (c)->notify_event);	\
+ })
+
 static void emit_callbacks(struct client *c)
 {
 	struct object *o, *t;
 
+	if (c->frozen_callbacks || !c->pending_callbacks)
+		return;
+
+	c->pending_callbacks = false;
+
+	freeze_callbacks(c);
 	spa_list_for_each_safe(o, t, &c->context.objects, link) {
+		if (o->removed)
+			continue;
 		if (o->register_pending) {
 			switch (o->type) {
 			case INTERFACE_Node:
@@ -897,15 +918,7 @@ static void emit_callbacks(struct client *c)
 		recompute_latencies(c);
 		do_callback(c, graph_callback, c->active, c->graph_arg);
 	}
-}
-
-static void trigger_callbacks(struct client *c)
-{
-	if (c->in_function) {
-		pw_loop_signal_event(c->context.l, c->notify_event);
-	} else {
-		emit_callbacks(c);
-	}
+	thaw_callbacks(c);
 }
 
 static void notify_event(void *data, uint64_t count)
@@ -2622,7 +2635,8 @@ static int client_node_port_set_mix_info(void *data,
 			l->register_pending = true;
 			l->register_arg = 1;
 			c->graph_callback_pending = true;
-			trigger_callbacks(c);
+			c->pending_callbacks = true;
+			emit_callbacks(c);
 		}
 	}
 
@@ -3234,6 +3248,7 @@ static void registry_event_global(void *data, uint32_t id,
 			o->register_pending = true;
 			o->register_arg = 1;
 			c->graph_callback_pending = true;
+			c->pending_callbacks = true;
 		}
 		break;
 
@@ -3242,6 +3257,7 @@ static void registry_event_global(void *data, uint32_t id,
 		o->register_pending = true;
 		o->register_arg = 1;
 		c->graph_callback_pending = true;
+		c->pending_callbacks = true;
 		break;
 
 	case INTERFACE_Link:
@@ -3253,10 +3269,11 @@ static void registry_event_global(void *data, uint32_t id,
 			o->register_pending = true;
 			o->register_arg = 1;
 			c->graph_callback_pending = true;
+			c->pending_callbacks = true;
 		}
 		break;
 	}
-	trigger_callbacks(c);
+	emit_callbacks(c);
 
       exit:
 	return;
@@ -3280,6 +3297,7 @@ static void registry_event_global_remove(void *data, uint32_t id)
 		o->proxy = NULL;
 	}
 	o->removing = true;
+	c->pending_callbacks = true;
 
 	switch (o->type) {
 	case INTERFACE_Node:
@@ -3318,7 +3336,7 @@ static void registry_event_global_remove(void *data, uint32_t id)
 					o->port_link.src, o->port_link.dst);
 		break;
 	}
-	trigger_callbacks(c);
+	emit_callbacks(c);
 
 	return;
 }
@@ -3876,7 +3894,7 @@ int jack_activate (jack_client_t *client)
 		return 0;
 
 	pw_thread_loop_lock(c->context.loop);
-	c->in_function = true;
+	freeze_callbacks(c);
 
 	pw_data_loop_start(c->loop);
 
@@ -3895,13 +3913,13 @@ int jack_activate (jack_client_t *client)
 		o->register_pending = true;
 		o->register_arg = 1;
 		c->graph_callback_pending = true;
+		c->pending_callbacks = true;
 	}
-	trigger_callbacks(c);
 done:
 	if (res < 0)
 		pw_data_loop_stop(c->loop);
 
-	c->in_function = false;
+	thaw_callbacks(c);
 	pw_thread_loop_unlock(c->context.loop);
 
 	return res;
@@ -3922,7 +3940,7 @@ int jack_deactivate (jack_client_t *client)
 		return 0;
 
 	pw_thread_loop_lock(c->context.loop);
-	c->in_function = true;
+	freeze_callbacks(c);
 	c->active = false;
 
 	pw_data_loop_stop(c->loop);
@@ -3945,11 +3963,11 @@ int jack_deactivate (jack_client_t *client)
 			continue;
 		o->register_pending = true;
 		o->register_arg = 0;
+		c->pending_callbacks = true;
 	}
 	res = do_sync(c);
 
-	trigger_callbacks(c);
-	c->in_function = false;
+	thaw_callbacks(c);
 	pw_thread_loop_unlock(c->context.loop);
 
 	return res;
@@ -4556,7 +4574,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	param_latency_other(c, p, &params[n_params++], &b);
 
 	pw_thread_loop_lock(c->context.loop);
-	c->in_function = true;
+	freeze_callbacks(c);
 
 	pw_client_node_port_update(c->node,
 					 direction,
@@ -4571,7 +4589,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 
 	res = do_sync(c);
 
-	c->in_function = false;
+	thaw_callbacks(c);
 	pw_thread_loop_unlock(c->context.loop);
 
 	if (res < 0) {
@@ -4608,7 +4626,7 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 	return_val_if_fail(o != NULL, -EINVAL);
 
 	pw_thread_loop_lock(c->context.loop);
-	c->in_function = true;
+	freeze_callbacks(c);
 
 	p = o->port.port;
 	if (o->type != INTERFACE_Port || p == NULL || !p->valid ||
@@ -4634,7 +4652,7 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 	}
 	free_port(c, p);
 done:
-	c->in_function = false;
+	thaw_callbacks(c);
 	pw_thread_loop_unlock(c->context.loop);
 
 	return res;
@@ -5320,7 +5338,7 @@ int jack_connect (jack_client_t *client,
 	pw_log_info("%p: connect %s %s", client, source_port, destination_port);
 
 	pw_thread_loop_lock(c->context.loop);
-	c->in_function = true;
+	freeze_callbacks(c);
 
 	src = find_port_by_name(c, source_port);
 	dst = find_port_by_name(c, destination_port);
@@ -5373,7 +5391,7 @@ int jack_connect (jack_client_t *client,
 	pw_proxy_destroy(proxy);
 
 exit:
-	c->in_function = false;
+	thaw_callbacks(c);
 	pw_thread_loop_unlock(c->context.loop);
 
 	return -res;
@@ -5395,7 +5413,7 @@ int jack_disconnect (jack_client_t *client,
 	pw_log_info("%p: disconnect %s %s", client, source_port, destination_port);
 
 	pw_thread_loop_lock(c->context.loop);
-	c->in_function = true;
+	freeze_callbacks(c);
 
 	src = find_port_by_name(c, source_port);
 	dst = find_port_by_name(c, destination_port);
@@ -5422,7 +5440,7 @@ int jack_disconnect (jack_client_t *client,
 	res = do_sync(c);
 
       exit:
-	c->in_function = false;
+	thaw_callbacks(c);
 	pw_thread_loop_unlock(c->context.loop);
 
 	return -res;
@@ -5442,7 +5460,7 @@ int jack_port_disconnect (jack_client_t *client, jack_port_t *port)
 	pw_log_debug("%p: disconnect %p", client, port);
 
 	pw_thread_loop_lock(c->context.loop);
-	c->in_function = true;
+	freeze_callbacks(c);
 
 	spa_list_for_each(l, &c->context.objects, link) {
 		if (l->type != INTERFACE_Link || l->removed)
@@ -5454,7 +5472,7 @@ int jack_port_disconnect (jack_client_t *client, jack_port_t *port)
 	}
 	res = do_sync(c);
 
-	c->in_function = false;
+	thaw_callbacks(c);
 	pw_thread_loop_unlock(c->context.loop);
 
 	return -res;
@@ -6040,7 +6058,7 @@ int jack_set_sync_callback (jack_client_t *client,
 	return_val_if_fail(c != NULL, -EINVAL);
 
 	pw_thread_loop_lock(c->context.loop);
-	c->in_function = true;
+	freeze_callbacks(c);
 
 	c->sync_callback = sync_callback;
 	c->sync_arg = arg;
@@ -6050,7 +6068,7 @@ int jack_set_sync_callback (jack_client_t *client,
 
 	c->activation->pending_sync = true;
 done:
-	c->in_function = false;
+	thaw_callbacks(c);
 	pw_thread_loop_unlock(c->context.loop);
 
 	return res;
@@ -6090,7 +6108,7 @@ int  jack_set_timebase_callback (jack_client_t *client,
 	return_val_if_fail(timebase_callback != NULL, -EINVAL);
 
 	pw_thread_loop_lock(c->context.loop);
-	c->in_function = true;
+	freeze_callbacks(c);
 
 	c->timebase_callback = timebase_callback;
 	c->timebase_arg = arg;
@@ -6104,7 +6122,7 @@ int  jack_set_timebase_callback (jack_client_t *client,
 
 	c->activation->pending_new_pos = true;
 done:
-	c->in_function = false;
+	thaw_callbacks(c);
 	pw_thread_loop_unlock(c->context.loop);
 
 	return res;

@@ -393,8 +393,8 @@ struct client {
 	unsigned int global_buffer_size:1;
 	unsigned int passive_links:1;
 	unsigned int graph_callback_pending:1;
-	unsigned int frozen_callbacks:1;
 	unsigned int pending_callbacks:1;
+	int frozen_callbacks;
 	char filter_char;
 	uint32_t max_ports;
 
@@ -861,13 +861,13 @@ static void recompute_latencies(struct client *c)
 
 #define freeze_callbacks(c)		\
 ({					\
-	(c)->frozen_callbacks = true;	\
+	(c)->frozen_callbacks++;	\
  })
 
 #define thaw_callbacks(c)							\
 ({										\
-	(c)->frozen_callbacks = false;						\
-	if ((c)->pending_callbacks)						\
+	(c)->frozen_callbacks--;						\
+	if ((c)->frozen_callbacks == 0 && (c)->pending_callbacks)		\
 		pw_loop_signal_event((c)->context.l, (c)->notify_event);	\
  })
 
@@ -875,8 +875,10 @@ static void emit_callbacks(struct client *c)
 {
 	struct object *o, *t;
 
-	if (c->frozen_callbacks || !c->pending_callbacks)
+	if (c->frozen_callbacks != 0 || !c->pending_callbacks)
 		return;
+
+	pw_log_debug("%p: enter", c);
 
 	c->pending_callbacks = false;
 
@@ -885,6 +887,7 @@ static void emit_callbacks(struct client *c)
 		if (o->removed)
 			continue;
 		if (o->register_pending) {
+			o->register_pending = false;
 			switch (o->type) {
 			case INTERFACE_Node:
 				do_callback(c, registration_callback, c->active,
@@ -906,7 +909,6 @@ static void emit_callbacks(struct client *c)
 						c->connect_arg);
 				break;
 			}
-			o->register_pending = false;
 		}
 		if (o->removing) {
 			o->removing = false;
@@ -919,6 +921,7 @@ static void emit_callbacks(struct client *c)
 		do_callback(c, graph_callback, c->active, c->graph_arg);
 	}
 	thaw_callbacks(c);
+	pw_log_debug("%p: leave", c);
 }
 
 static void notify_event(void *data, uint64_t count)

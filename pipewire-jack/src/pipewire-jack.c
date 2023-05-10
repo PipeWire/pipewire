@@ -3250,7 +3250,6 @@ static void registry_event_global(void *data, uint32_t id,
 			pw_log_info("%p: client added \"%s\"", c, o->node.name);
 			o->register_pending = true;
 			o->register_arg = 1;
-			c->graph_callback_pending = true;
 			c->pending_callbacks = true;
 		}
 		break;
@@ -3259,7 +3258,6 @@ static void registry_event_global(void *data, uint32_t id,
 		pw_log_info("%p: port added %u/%u \"%s\"", c, o->id, o->serial, o->port.name);
 		o->register_pending = true;
 		o->register_arg = 1;
-		c->graph_callback_pending = true;
 		c->pending_callbacks = true;
 		break;
 
@@ -3314,14 +3312,12 @@ static void registry_event_global_remove(void *data, uint32_t id)
 			pw_log_info("%p: client %u removed \"%s\"", c, o->id, o->node.name);
 			o->register_pending = true;
 			o->register_arg = 0;
-			c->graph_callback_pending = true;
 		}
 		break;
 	case INTERFACE_Port:
 		pw_log_info("%p: port %u/%u removed \"%s\"", c, o->id, o->serial, o->port.name);
 		o->register_pending = true;
 		o->register_arg = 0;
-		c->graph_callback_pending = true;
 		break;
 	case INTERFACE_Link:
 		if (o->port_link.is_complete &&
@@ -3915,7 +3911,6 @@ int jack_activate (jack_client_t *client)
 			continue;
 		o->register_pending = true;
 		o->register_arg = 1;
-		c->graph_callback_pending = true;
 		c->pending_callbacks = true;
 	}
 done:

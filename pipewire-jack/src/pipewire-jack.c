@@ -629,7 +629,7 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 	return p;
 }
 
-static void free_port(struct client *c, struct port *p)
+static void free_port(struct client *c, struct port *p, bool free)
 {
 	struct mix *m;
 
@@ -638,9 +638,12 @@ static void free_port(struct client *c, struct port *p)
 
 	c->n_ports--;
 	pw_map_remove(&c->ports[p->direction], p->port_id);
-	free_object(c, p->object);
 	pw_properties_free(p->props);
 	spa_list_append(&c->free_ports, &p->link);
+	if (free)
+		free_object(c, p->object);
+	else
+		p->object->removing = true;
 }
 
 static struct object *find_node(struct client *c, const char *name)
@@ -896,6 +899,7 @@ static void emit_callbacks(struct client *c)
 						c->registration_arg);
 				break;
 			case INTERFACE_Port:
+				pw_log_debug("%p: port %u %s", c, o->serial, o->port.name);
 				do_callback(c, portregistration_callback, c->active,
 						o->serial,
 						o->register_arg,
@@ -4588,6 +4592,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	res = do_sync(c);
 
 	thaw_callbacks(c);
+	pw_log_debug("%p: port %p done", c, p);
 	pw_thread_loop_unlock(c->context.loop);
 
 	if (res < 0) {
@@ -4599,7 +4604,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	return (jack_port_t *) o;
 
 error_free:
-	free_port(c, p);
+	free_port(c, p, true);
 	return NULL;
 }
 
@@ -4648,7 +4653,7 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 		pw_log_warn("can't unregister port %s: %s", o->port.name,
 				spa_strerror(res));
 	}
-	free_port(c, p);
+	free_port(c, p, false);
 done:
 	thaw_callbacks(c);
 	pw_thread_loop_unlock(c->context.loop);
@@ -5389,6 +5394,7 @@ int jack_connect (jack_client_t *client,
 	pw_proxy_destroy(proxy);
 
 exit:
+	pw_log_debug("%p: connect %s %s done %d", client, source_port, destination_port, res);
 	thaw_callbacks(c);
 	pw_thread_loop_unlock(c->context.loop);
 

@@ -1331,6 +1331,7 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	impl->pending_id = SPA_ID_INVALID;
 
 	spa_list_init(&this->follower_list);
+	spa_list_init(&this->peer_list);
 
 	spa_hook_list_init(&this->listener_list);
 

@@ -738,6 +738,8 @@ struct pw_impl_node {
 
 	struct spa_list sort_link;	/**< link used to sort nodes */
 
+	struct spa_list peer_list;	/* list of peers */
+
 	struct spa_node *node;		/**< SPA node implementation */
 	struct spa_hook listener;
 
@@ -909,6 +911,14 @@ struct pw_control_link {
 	unsigned int valid:1;
 };
 
+struct pw_node_peer {
+	int ref;
+	int active_count;
+	struct spa_list link;			/**< link in peer list */
+	struct pw_impl_node *output;		/**< the output node */
+	struct pw_node_target target;		/**< target of the input node */
+};
+
 #define pw_impl_link_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_impl_link_events, m, v, ##__VA_ARGS__)
 #define pw_impl_link_emit_destroy(l)		pw_impl_link_emit(l, destroy, 0)
 #define pw_impl_link_emit_free(l)		pw_impl_link_emit(l, free, 0)
@@ -940,10 +950,11 @@ struct pw_impl_link {
 	struct pw_control_link control;
 	struct pw_control_link notify;
 
+	struct pw_node_peer *peer;
+
 	struct {
 		struct pw_impl_port_mix out_mix;	/**< port added to the output mixer */
 		struct pw_impl_port_mix in_mix;		/**< port added to the input mixer */
-		struct pw_node_target target;		/**< target to trigger the input node */
 	} rt;
 
 	void *user_data;

@@ -899,7 +899,7 @@ static void emit_callbacks(struct client *c)
 						c->registration_arg);
 				break;
 			case INTERFACE_Port:
-				pw_log_debug("%p: port %u %s", c, o->serial, o->port.name);
+				pw_log_debug("%p: port %u %s %d", c, o->serial, o->port.name, c->active);
 				do_callback(c, portregistration_callback, c->active,
 						o->serial,
 						o->register_arg,
@@ -4653,7 +4653,7 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 		pw_log_warn("can't unregister port %s: %s", o->port.name,
 				spa_strerror(res));
 	}
-	free_port(c, p, false);
+	free_port(c, p, !c->active);
 done:
 	thaw_callbacks(c);
 	pw_thread_loop_unlock(c->context.loop);

@@ -463,6 +463,7 @@ static void make_stream_ports(struct stream *s)
 			props = pw_properties_new(
 					PW_KEY_FORMAT_DSP, "32 bit float mono audio",
 					PW_KEY_AUDIO_CHANNEL, str ? str : "UNK",
+					PW_KEY_PORT_PHYSICAL, "true",
 					PW_KEY_PORT_NAME, name,
 					NULL);
 
@@ -474,6 +475,7 @@ static void make_stream_ports(struct stream *s)
 			props = pw_properties_new(
 					PW_KEY_FORMAT_DSP, "8 bit raw midi",
 					PW_KEY_PORT_NAME, name,
+					PW_KEY_PORT_PHYSICAL, "true",
 					NULL);
 
 			type = JACK_DEFAULT_MIDI_TYPE;

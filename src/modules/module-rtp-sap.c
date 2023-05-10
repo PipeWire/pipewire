@@ -307,7 +307,7 @@ static void session_free(struct session *sess)
 		if (sess->announce)
 			send_sap(impl, sess, 1);
 		spa_list_remove(&sess->link);
-		impl->n_sessions++;
+		impl->n_sessions--;
 	}
 	if (sess->node && sess->node->session != NULL)
 		sess->node->session = NULL;

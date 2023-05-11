@@ -21,7 +21,7 @@ extern "C" {
 #include <spa/param/latency.h>
 
 static inline int
-spa_latency_info_compare(const struct spa_latency_info *a, struct spa_latency_info *b)
+spa_latency_info_compare(const struct spa_latency_info *a, const struct spa_latency_info *b)
 {
 	if (a->min_quantum == b->min_quantum &&
 	    a->max_quantum == b->max_quantum &&

@@ -788,6 +788,9 @@ int pw_properties_serialize_dict(FILE *f, const struct spa_dict *dict, uint32_t 
 		if ((len = spa_json_next(&sub, &value)) < 0)
 			break;
 
+		if (!spa_json_is_container(value, len))
+			len = value ? strlen(value) : 0;
+
 		dump(c, c->indent, &sub, value, len);
 		count++;
 	}

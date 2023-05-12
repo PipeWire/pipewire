@@ -166,6 +166,7 @@ struct object {
 	struct pw_proxy *proxy;
 	struct spa_hook proxy_listener;
 	struct spa_hook object_listener;
+	int registered;
 	unsigned int removing:1;
 	unsigned int removed:1;
 };
@@ -929,6 +930,8 @@ static void emit_callbacks(struct client *c)
 
 		switch (notify->type) {
 		case NOTIFY_TYPE_REGISTRATION:
+			if (o->registered == notify->arg1)
+				break;
 			pw_log_debug("%p: node %u %s %u", c, o->serial,
 					o->node.name, notify->arg1);
 			do_callback(c, registration_callback, true,
@@ -937,6 +940,8 @@ static void emit_callbacks(struct client *c)
 					c->registration_arg);
 			break;
 		case NOTIFY_TYPE_PORTREGISTRATION:
+			if (o->registered == notify->arg1)
+				break;
 			pw_log_debug("%p: port %u %s %u", c, o->serial,
 					o->port.name, notify->arg1);
 			do_callback(c, portregistration_callback, c->active,
@@ -945,6 +950,8 @@ static void emit_callbacks(struct client *c)
 					c->portregistration_arg);
 			break;
 		case NOTIFY_TYPE_CONNECT:
+			if (o->registered == notify->arg1)
+				break;
 			pw_log_debug("%p: link %u %u -> %u %u", c, o->serial,
 					o->port_link.src_serial,
 					o->port_link.dst, notify->arg1);
@@ -997,9 +1004,12 @@ static void emit_callbacks(struct client *c)
 		default:
 			break;
 		}
-		if (o != NULL && notify->arg1 == 0 && o->removing) {
-			o->removing = false;
-			free_object(c, o);
+		if (o != NULL) {
+			o->registered = notify->arg1;
+			if (notify->arg1 == 0 && o->removing) {
+				o->removing = false;
+				free_object(c, o);
+			}
 		}
 		avail -= sizeof(struct notify);
 		index += sizeof(struct notify);

@@ -423,6 +423,7 @@ struct client {
 	int frozen_callbacks;
 	char filter_char;
 	uint32_t max_ports;
+	unsigned int fill_aliases:1;
 
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
@@ -3289,11 +3290,13 @@ static void registry_event_global(void *data, uint32_t id,
 				snprintf(o->port.name, sizeof(o->port.name), "%s", tmp);
 		}
 
-		if ((str = spa_dict_lookup(props, PW_KEY_OBJECT_PATH)) != NULL)
-			snprintf(o->port.alias1, sizeof(o->port.alias1), "%s", str);
+		if (c->fill_aliases) {
+			if ((str = spa_dict_lookup(props, PW_KEY_OBJECT_PATH)) != NULL)
+				snprintf(o->port.alias1, sizeof(o->port.alias1), "%s", str);
 
-		if ((str = spa_dict_lookup(props, PW_KEY_PORT_ALIAS)) != NULL)
-			snprintf(o->port.alias2, sizeof(o->port.alias2), "%s", str);
+			if ((str = spa_dict_lookup(props, PW_KEY_PORT_ALIAS)) != NULL)
+				snprintf(o->port.alias2, sizeof(o->port.alias2), "%s", str);
+		}
 
 		if ((str = spa_dict_lookup(props, PW_KEY_PORT_ID)) != NULL) {
 			o->port.system_id = atoi(str);
@@ -3745,6 +3748,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->fix_midi_events = pw_properties_get_bool(client->props, "jack.fix-midi-events", true);
 	client->global_buffer_size = pw_properties_get_bool(client->props, "jack.global-buffer-size", false);
 	client->max_ports = pw_properties_get_uint32(client->props, "jack.max-client-ports", MAX_CLIENT_PORTS);
+	client->fill_aliases = pw_properties_get_bool(client->props, "jack.fill-aliases", false);
 
 	client->self_connect_mode = SELF_CONNECT_ALLOW;
 	if ((str = pw_properties_get(client->props, "jack.self-connect-mode")) != NULL) {

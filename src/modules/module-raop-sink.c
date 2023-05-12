@@ -857,6 +857,17 @@ static int rtsp_do_flush(struct impl *impl)
 	return res;
 }
 
+static int rtsp_send_volume(struct impl *impl)
+{
+	if (!impl->recording)
+		return 0;
+
+	char header[128], volstr[64];
+	snprintf(header, sizeof(header), "volume: %s\r\n",
+			spa_dtoa(volstr, sizeof(volstr), impl->volume));
+	return rtsp_send(impl, "SET_PARAMETER", "text/parameters", header, NULL);
+}
+
 static int rtsp_record_reply(void *data, int status, const struct spa_dict *headers)
 {
 	struct impl *impl = data;
@@ -867,7 +878,6 @@ static int rtsp_record_reply(void *data, int status, const struct spa_dict *head
 	struct spa_pod_builder b;
 	struct spa_latency_info latency;
 	char progress[128];
-	char header[128], volstr[64];
 
 	pw_log_info("reply %d", status);
 
@@ -893,9 +903,7 @@ static int rtsp_record_reply(void *data, int status, const struct spa_dict *head
 	impl->sync_period = impl->info.rate / (impl->block_size / impl->frame_size);
 	impl->recording = true;
 
-	snprintf(header, sizeof(header), "volume: %s\r\n",
-			spa_dtoa(volstr, sizeof(volstr), impl->volume));
-	rtsp_send(impl, "SET_PARAMETER", "text/parameters", header, NULL);
+	rtsp_send_volume(impl);
 
 	snprintf(progress, sizeof(progress), "progress: %s/%s/%s\r\n", "0", "0", "0");
 	return rtsp_send(impl, "SET_PARAMETER", "text/parameters", progress, NULL);
@@ -1587,7 +1595,6 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 			uint32_t i, n_vols;
 			float vols[SPA_AUDIO_MAX_CHANNELS], volume;
 			float soft_vols[SPA_AUDIO_MAX_CHANNELS];
-			char header[128], volstr[64];
 
 			if ((n_vols = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					vols, SPA_AUDIO_MAX_CHANNELS)) > 0) {
@@ -1600,10 +1607,7 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 				volume = SPA_CLAMPF(20.0 * log10(volume), VOLUME_MIN, VOLUME_MAX);
 				impl->volume = volume;
 
-				snprintf(header, sizeof(header), "volume: %s\r\n",
-						spa_dtoa(volstr, sizeof(volstr), volume));
-				if (impl->connected)
-					rtsp_send(impl, "SET_PARAMETER", "text/parameters", header, NULL);
+				rtsp_send_volume(impl);
 			}
 
 			spa_pod_builder_prop(&b, SPA_PROP_softVolumes, 0);

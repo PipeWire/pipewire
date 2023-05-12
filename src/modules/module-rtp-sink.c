@@ -163,7 +163,7 @@ struct impl {
 
 	char *ifname;
 	char *session_name;
-	bool ttl;
+	uint32_t ttl;
 	bool mcast_loop;
 	uint32_t dscp;
 

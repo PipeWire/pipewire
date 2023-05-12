@@ -889,12 +889,14 @@ static int impl_node_process(void *object)
 	/* this should not be called, we call the exported node
 	 * directly */
 	spa_log_warn(impl->log, "exported node activation");
-	if (SPA_UNLIKELY(spa_system_clock_gettime(impl->data_system, CLOCK_MONOTONIC, &ts) < 0))
-		spa_zero(ts);
+	spa_system_clock_gettime(impl->data_system, CLOCK_MONOTONIC, &ts);
 	n->rt.activation->status = PW_NODE_ACTIVATION_TRIGGERED;
 	n->rt.activation->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
-	return n->rt.target.signal_func(n->rt.target.data);
+	if (SPA_UNLIKELY(spa_system_eventfd_write(n->rt.target.system, n->rt.target.fd, 1) < 0))
+		pw_log_warn("%p: write failed %m", impl);
+
+	return SPA_STATUS_OK;
 }
 
 static struct pw_node *

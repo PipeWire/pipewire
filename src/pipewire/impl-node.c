@@ -81,7 +81,8 @@ static void add_node(struct pw_impl_node *this, struct pw_impl_node *driver)
 	/* signal the driver */
 	this->rt.driver_target.activation = driver->rt.activation;
 	this->rt.driver_target.node = driver;
-	this->rt.driver_target.data = driver;
+	this->rt.driver_target.system = driver->data_system;
+	this->rt.driver_target.fd = driver->source.fd;
 	spa_list_append(&this->rt.target_list, &this->rt.driver_target.link);
 
 	spa_list_append(&driver->rt.target_list, &this->rt.target.link);
@@ -112,7 +113,7 @@ static void remove_node(struct pw_impl_node *this)
 		return;
 
 	pw_log_trace("%p: remove from driver %p %p %p",
-			this, this->rt.driver_target.data,
+			this, this->rt.driver_target.node,
 			this->rt.driver_target.activation, this->rt.activation);
 
 	spa_list_remove(&this->rt.target.link);
@@ -146,12 +147,11 @@ do_node_add(struct spa_loop *loop, bool async, uint32_t seq,
 	struct pw_impl_node *driver = this->driver_node;
 
 	if (!this->added) {
-		struct spa_system *data_system = this->data_system;
 		uint64_t dummy;
 		int res;
 
 		/* clear the eventfd in case it was written to while the node was stopped */
-		res = spa_system_eventfd_read(data_system, this->source.fd, &dummy);
+		res = spa_system_eventfd_read(this->data_system, this->source.fd, &dummy);
 		if (SPA_UNLIKELY(res != -EAGAIN && res != 0))
 			pw_log_warn("%p: read failed %m", this);
 
@@ -1097,6 +1097,13 @@ static inline uint64_t get_time_ns(struct spa_system *system)
 	return SPA_TIMESPEC_TO_NSEC(&ts);
 }
 
+static inline void node_signal(struct pw_impl_node *this)
+{
+	pw_log_trace_fp("node %p %s", this, this->name);
+	if (SPA_UNLIKELY(spa_system_eventfd_write(this->data_system, this->source.fd, 1) < 0))
+		pw_log_warn("node %p: write failed %m", this);
+}
+
 static inline int resume_node(struct pw_impl_node *this, int status, uint64_t nsec)
 {
 	struct pw_node_target *t;
@@ -1113,22 +1120,11 @@ static inline int resume_node(struct pw_impl_node *this, int status, uint64_t ns
 		if (pw_node_activation_state_dec(state, 1)) {
 			a->status = PW_NODE_ACTIVATION_TRIGGERED;
 			a->signal_time = nsec;
-			t->signal_func(t->data);
+			if (SPA_UNLIKELY(spa_system_eventfd_write(t->system, t->fd, 1) < 0))
+				pw_log_warn("node %p: write failed %m", this);
 		}
 	}
 	return 0;
-}
-
-static inline int node_signal_func(void *data)
-{
-	struct pw_impl_node *this = data;
-	struct spa_system *data_system = this->data_system;
-
-	pw_log_trace_fp("node %p %s", this, this->name);
-	if (SPA_UNLIKELY(spa_system_eventfd_write(data_system, this->source.fd, 1) < 0))
-		pw_log_warn("node %p: write failed %m", this);
-
-	return SPA_STATUS_OK;
 }
 
 static inline void calculate_stats(struct pw_impl_node *this,  struct pw_node_activation *a)
@@ -1207,7 +1203,7 @@ int pw_impl_node_trigger(struct pw_impl_node *node)
 		uint64_t nsec = get_time_ns(node->data_system);
 		a->status = PW_NODE_ACTIVATION_TRIGGERED;
 		a->signal_time = nsec;
-		node_signal_func(node);
+		node_signal(node);
 	}
 	return 0;
 }
@@ -1215,7 +1211,6 @@ int pw_impl_node_trigger(struct pw_impl_node *node)
 static void node_on_fd_events(struct spa_source *source)
 {
 	struct pw_impl_node *this = source->data;
-	struct spa_system *data_system = this->data_system;
 
 	if (SPA_UNLIKELY(source->rmask & (SPA_IO_ERR | SPA_IO_HUP))) {
 		pw_log_warn("%p: got socket error %08x", this, source->rmask);
@@ -1224,7 +1219,7 @@ static void node_on_fd_events(struct spa_source *source)
 	if (SPA_LIKELY(source->rmask & SPA_IO_IN)) {
 		uint64_t cmd;
 
-		if (SPA_UNLIKELY(spa_system_eventfd_read(data_system, this->source.fd, &cmd) < 0))
+		if (SPA_UNLIKELY(spa_system_eventfd_read(this->data_system, this->source.fd, &cmd) < 0))
 			pw_log_warn("%p: read failed %m", this);
 		else if (SPA_UNLIKELY(cmd > 1))
 			pw_log_info("(%s-%u) client missed %"PRIu64" wakeups",
@@ -1351,9 +1346,8 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	this->rt.activation = this->activation->map->ptr;
 	this->rt.target.activation = this->rt.activation;
 	this->rt.target.node = this;
-	this->rt.target.signal_func = node_signal_func;
-	this->rt.target.data = this;
-	this->rt.driver_target.signal_func = node_signal_func;
+	this->rt.target.system = this->data_system;
+	this->rt.target.fd = this->source.fd;
 
 	reset_position(this, &this->rt.activation->position);
 	this->rt.activation->sync_timeout = DEFAULT_SYNC_TIMEOUT;
@@ -1718,7 +1712,7 @@ static int node_ready(void *data, int status)
 						state->pending, state->required);
 				dump_states(node);
 			}
-			node_signal_func(node);
+			node_signal(node);
 		} else {
 			uint64_t signal_time = a->signal_time;
 			/* old nodes set the TRIGGERED status on node_ready, patch this

@@ -82,7 +82,6 @@ struct link {
 	struct pw_memmap *map;
 	struct pw_node_target target;
 	uint32_t node_id;
-	int signalfd;
 };
 
 /** \endcond */
@@ -114,7 +113,7 @@ static void clear_link(struct node_data *data, struct link *link)
 	pw_loop_invoke(data->data_loop,
 		do_deactivate_link, SPA_ID_INVALID, NULL, 0, true, link);
 	pw_memmap_free(link->map);
-	spa_system_close(data->data_system, link->signalfd);
+	spa_system_close(link->target.system, link->target.fd);
 	spa_list_remove(&link->link);
 	free(link);
 }
@@ -852,18 +851,6 @@ exit:
 	return res;
 }
 
-static int link_signal_func(void *user_data)
-{
-	struct link *link = user_data;
-	struct spa_system *data_system = link->data->data_system;
-
-	pw_log_trace_fp("link %p: signal %p", link, link->target.activation);
-	if (SPA_UNLIKELY(spa_system_eventfd_write(data_system, link->signalfd, 1) < 0))
-		pw_log_warn("link %p: write failed %m", link);
-
-	return 0;
-}
-
 static int
 do_activate_link(struct spa_loop *loop,
                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
@@ -922,10 +909,8 @@ client_node_set_activation(void *_data,
 		link->node_id = node_id;
 		link->map = mm;
 		link->target.activation = ptr;
-		link->signalfd = signalfd;
-		link->target.signal_func = link_signal_func;
-		link->target.data = link;
-		link->target.node = NULL;
+		link->target.system = data->data_system;
+		link->target.fd = signalfd;
 		spa_list_append(&data->links, &link->link);
 
 		pw_loop_invoke(data->data_loop,

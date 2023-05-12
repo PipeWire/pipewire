@@ -586,8 +586,8 @@ struct pw_node_target {
 	struct spa_list link;
 	struct pw_impl_node *node;
 	struct pw_node_activation *activation;
-	int (*signal_func) (void *data);
-	void *data;
+	struct spa_system *system;
+	int fd;
 	unsigned int active:1;
 };
 

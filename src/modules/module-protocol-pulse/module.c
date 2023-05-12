@@ -264,7 +264,7 @@ void audioinfo_to_properties(struct spa_audio_info_raw *info, struct pw_properti
 
 		p = s = alloca(info->channels * 8);
 		for (i = 0; i < info->channels; i++)
-			p += spa_scnprintf(p, 8, "%s%s", i == 0 ? "" : ",",
+			p += spa_scnprintf(p, 8, "%s%s", i == 0 ? "" : ", ",
 					channel_id2name(info->position[i]));
 		pw_properties_setf(props, SPA_KEY_AUDIO_POSITION, "[ %s ]", s);
 	}

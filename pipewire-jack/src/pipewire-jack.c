@@ -3848,6 +3848,8 @@ int jack_client_close (jack_client_t *client)
 		pw_core_disconnect(c->core);
 	}
 
+	globals.thread_utils = pw_thread_utils_get();
+
 	if (c->context.context)
 		pw_context_destroy(c->context.context);
 

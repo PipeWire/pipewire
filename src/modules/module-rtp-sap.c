@@ -235,7 +235,7 @@ struct impl {
 	struct spa_source *timer;
 
 	char *ifname;
-	bool ttl;
+	uint32_t ttl;
 	bool mcast_loop;
 
 	struct sockaddr_storage src_addr;

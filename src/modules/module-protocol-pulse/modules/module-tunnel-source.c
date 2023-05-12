@@ -138,7 +138,8 @@ static int module_tunnel_source_prepare(struct module * const module)
 	}
 
 	pw_properties_setf(stream_props, PW_KEY_NODE_DESCRIPTION,
-                     _("Tunnel to %s/%s"), server,
+                     _("Tunnel to %s%s%s"), server,
+		     remote_source_name ? "/" : "",
 		     remote_source_name ? remote_source_name : "");
 	pw_properties_set(stream_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 

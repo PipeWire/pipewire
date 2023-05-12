@@ -155,7 +155,7 @@ static int module_tunnel_source_prepare(struct module * const module)
 		pw_properties_set(props, "source_properties", NULL);
 	}
 	if (module_args_to_audioinfo_keys(module->impl, props,
-			NULL, NULL, "channels", "channel_map", &info) < 0) {
+			"format", "rate", "channels", "channel_map", &info) < 0) {
 		res = -EINVAL;
 		goto out;
 	}

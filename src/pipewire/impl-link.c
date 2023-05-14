@@ -662,7 +662,7 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 			pw_link_state_as_string(this->info.state));
 
 	if (impl->activated || !this->prepared ||
-		!impl->inode->active || !impl->onode->active)
+		!impl->inode->runnable || !impl->onode->runnable)
 		return 0;
 
 	if (!impl->io_set) {

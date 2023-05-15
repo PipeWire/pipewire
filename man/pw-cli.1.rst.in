@@ -26,8 +26,11 @@ starts an interactive session with the default PipeWire instance
 *pipewire-0*.
 
 Connections to other, remote instances can be made. The current instance
-name is displayed at the prompt. Some commands operate on the current
-instance and some on the local instance.
+name is displayed at the prompt.
+
+Note that **pw-cli** also creates a local PipeWire instance. Some commands
+operate on the current (remote) instance and some on the local instance, such
+as module loading.
 
 Use the 'help' command to list the available commands.
 
@@ -50,11 +53,14 @@ MODULE MANAGEMENT
 | instance.
 
 load-module *name* [*arguments...*]
-  Load a module specified by its name and arguments. For most
-  modules it is OK to be loaded more than once.
+  Load a module specified by its name and arguments in the local instance.
+  For most modules it is OK to be loaded more than once.
 
   This command returns a module variable that can be used
   to unload the module.
+
+  The locally module is *not* visible in the remote instance. It is not
+  possible in PipeWire to load modules in a remote instance.
 
 unload-module *module-var*
   Unload a module, specified either by its variable.
@@ -82,6 +88,9 @@ connect [*remote-name*]
   If no remote name is specified, a connection is made to
   the default remote instance, usually *pipewire-0*.
 
+  The special remote name called *internal* can be used to connect to
+  the local **pw-cli** PipeWire instance.
+
   This command returns a remote var that can be used to disconnect or
   switch remotes.
 
@@ -96,7 +105,7 @@ list-remotes
 switch-remote [*remote-var*]
   Make the specified *remote* the current instance.
 
-  If no remote name is specified, the local instance is made current.
+  If no remote name is specified, the first instance is made current.
 
 NODE MANAGEMENT
 ===============

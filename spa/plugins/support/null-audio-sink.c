@@ -41,6 +41,7 @@ struct props {
 	uint32_t pos[SPA_AUDIO_MAX_CHANNELS];
 	char clock_name[64];
 	unsigned int debug:1;
+	unsigned int driver:1;
 };
 
 static void reset_props(struct props *props)
@@ -51,6 +52,7 @@ static void reset_props(struct props *props)
 	props->n_pos = 0;
 	strncpy(props->clock_name, DEFAULT_CLOCK_NAME, sizeof(props->clock_name));
 	props->debug = false;
+	props->driver = true;
 }
 
 #define DEFAULT_CHANNELS	2
@@ -356,9 +358,6 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	return 0;
 }
 
-static const struct spa_dict_item node_info_items[] = {
-	{ SPA_KEY_NODE_DRIVER, "true" },
-};
 
 static void emit_node_info(struct impl *this, bool full)
 {
@@ -366,6 +365,9 @@ static void emit_node_info(struct impl *this, bool full)
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
+		const struct spa_dict_item node_info_items[] = {
+			{ SPA_KEY_NODE_DRIVER, this->props.driver ? "true" : "false" },
+		};
 		this->info.props = &SPA_DICT_INIT_ARRAY(node_info_items);
 		spa_node_emit_info(&this->hooks, &this->info);
 		this->info.change_mask = old;
@@ -979,6 +981,8 @@ impl_init(const struct spa_handle_factory *factory,
 			this->props.channels = atoi(s);
 		} else if (spa_streq(k, SPA_KEY_AUDIO_RATE)) {
 			this->props.rate = atoi(s);
+		} else if (spa_streq(k, SPA_KEY_NODE_DRIVER)) {
+			this->props.driver = spa_atob(s);
 		} else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
 			parse_position(this, s, strlen(s));
 		} else if (spa_streq(k, "clock.name")) {

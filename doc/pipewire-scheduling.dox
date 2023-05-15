@@ -24,9 +24,9 @@ Each node also has:
   |           |
   +-v---------+
     activation {
-      status:OK,        /* bitmask of NEED_DATA, HAVE_DATA or OK */
-      pending:0,	/* number of unsatisfied dependencies to be able to run */
-      required:0        /* number of dependencies with other nodes */
+      status:OK,        // bitmask of NEED_DATA, HAVE_DATA or OK
+      pending:0,	// number of unsatisfied dependencies to be able to run
+      required:0        // number of dependencies with other nodes
     }
 ```
 
@@ -188,5 +188,4 @@ Currently the graph start cycle is managed by the server.
 Remote driver nodes therefore have an extra eventfd to wake up the server and signal
 the graph start.
 
-
-
+*/

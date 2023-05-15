@@ -1738,6 +1738,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->ttl = pw_properties_get_uint32(props, "net.ttl", DEFAULT_TTL);
 	impl->mcast_loop = pw_properties_get_bool(props, "net.loop", DEFAULT_LOOP);
 
+	str = pw_properties_get(stream_props, "sess.media");
+
 	if (spa_streq(str, "audio")) {
 		struct spa_dict_item items[] = {
 			{ "audio.format", DEFAULT_FORMAT },

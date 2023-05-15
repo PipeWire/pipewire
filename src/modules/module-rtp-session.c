@@ -564,9 +564,21 @@ static const struct rtp_stream_events recv_stream_events = {
 	.send_feedback = recv_send_feedback,
 };
 
+static int
+do_unlink_session(struct spa_loop *loop,
+		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct session *sess = user_data;
+	spa_list_remove(&sess->link);
+	return 0;
+}
+
 static void free_session(struct session *sess)
 {
-	spa_list_remove(&sess->link);
+	struct impl *impl = sess->impl;
+
+	pw_loop_invoke(impl->data_loop, do_unlink_session, 1, NULL, 0, true, sess);
+
 	sess->impl->n_sessions--;
 
 	if (sess->send)

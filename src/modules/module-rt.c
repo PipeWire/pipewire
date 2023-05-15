@@ -253,7 +253,7 @@ struct pw_rtkit_bus *pw_rtkit_bus_get_session(void)
 bool pw_rtkit_check_xdg_portal(struct pw_rtkit_bus *system_bus)
 {
 	if (!dbus_bus_name_has_owner(system_bus->bus, XDG_PORTAL_SERVICE_NAME, NULL)) {
-		pw_log_warn("Can't find %s. Is xdg-desktop-portal running?", XDG_PORTAL_SERVICE_NAME);
+		pw_log_info("Can't find %s. Is xdg-desktop-portal running?", XDG_PORTAL_SERVICE_NAME);
 		return false;
 	}
 
@@ -1015,7 +1015,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (!check_realtime_privileges(impl)) {
 		if (!can_use_rtkit) {
 			res = -ENOTSUP;
-			pw_log_warn("regular realtime scheduling not available (RTKit fallback disabled)");
+			pw_log_warn("regular realtime scheduling not available"
+					" (Portal/RTKit fallback disabled)");
 			goto error;
 		}
 		use_rtkit = true;
@@ -1037,7 +1038,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				impl->object_path = XDG_PORTAL_OBJECT_PATH;
 				impl->interface = XDG_PORTAL_INTERFACE;
 			} else {
-				pw_log_warn("found session bus but no portal");
+				pw_log_info("found session bus but no portal, trying RTKit fallback");
 				pw_rtkit_bus_free(impl->rtkit_bus);
 				impl->rtkit_bus = NULL;
 			}
@@ -1051,7 +1052,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				impl->interface = RTKIT_INTERFACE;
 			} else {
 				res = -errno;
-				pw_log_warn("could not get system bus: %m");
+				pw_log_warn("Realtime scheduling disabled: unsufficient realtime privileges, "
+					"Portal not found on session bus, and no system bus for RTKit: %m");
 				goto error;
 			}
 		}

@@ -1,0 +1,192 @@
+/** \page page_scheduling Graph Scheduling
+
+This document tries to explain how the PipeWire graph is scheduled.
+
+Graph are constructed from linked nodes together with their ports. This
+results in a dependency graph between nodes. Special care is taken for
+loopback links so that the graph remains a directed graph.
+
+
+# Nodes
+
+Nodes are objects with 0 or more input and output ports.
+
+Each node also has:
+
+- an eventfd to signal the node that it can start processing
+- an activation record that lives in shared memory with memfd.
+
+```
+   evenfd  
+  +-^---------+
+  |           |
+ in          out
+  |           |
+  +-v---------+
+    activation {
+      status:OK,        /* bitmask of NEED_DATA, HAVE_DATA or OK */
+      pending:0,	/* number of unsatisfied dependencies to be able to run */
+      required:0        /* number of dependencies with other nodes */
+    }
+```
+
+The activation record has the following information:
+
+ - processing state and pending dependencies. As long as there are pending dependencies
+   the node can not be processed. This is the only relevant information for actually
+   scheduling the graph and is shown in the above illustration.
+ - Current status of the node and profiling info (TRIGGERED, AWAKE, FINISHED, timestamps
+   when the node changed state).
+ - Timing information, mostly for drivers when the processing started, the time, duration
+   and rate (quantum) etc..
+ - Information about repositions (seek) and timebase owners.
+
+
+# links.
+
+When two nodes are linked together, the output node becomes a dependency for the input
+node. This means the input node can only start processing when the output node is finished.
+
+This dependency is reflected in the required counter in the activation record. In below
+illustration, B's required field is incremented with 1. The pending field is set to the
+required field when the graph is started. Node A will keep a list of all targets (B) that it
+is a dependency of.
+
+This dependency update is only performed when the link is ready (negotiated) and the nodes
+are ready to schedule (runnable).
+
+
+```
+   evenfd                                 eventfd
+  +-^---------+                          +-^---------+
+  |           |        link              |           |
+ in     A    out ---------------------> in     B    out
+  |           |                          |           |
+  +-v---------+                          +-v---------+
+    activation {       target              activation {
+      status:OK,  -------------------->      status:OK,
+      pending:0,                             pending:1,
+      required:0                             required:1
+    }                                      }
+```
+
+Multiple links between A and B will only result in 1 target link between A and B.
+
+
+# Drivers
+
+The graph can only run if there is a driver node that is in some way linked to an
+active node.
+
+The driver is special because it will have to initiate the processing in the graph. It
+will use a timer or some sort of interrupt from hardware to start the cycle.
+
+Any node can also be a candidate for a driver (when the node.driver property is true).
+PipeWire will select the node with the highest priority.driver property as the driver.
+
+Nodes will be assigned to the driver node they will be scheduled with. Each node holds
+a reference to the driver and increments the required field of the driver.
+
+When a node is ready to be scheduled, the driver adds the node to its list of targets
+and increments the required field.
+
+
+```
+   evenfd                                 eventfd
+  +-^---------+                          +-^---------+
+  |           |        link              |           |
+ in     A    out ---------------------> in     B    out
+  |           |                          |           |
+  +-v---------+                          +-v---------+
+    activation {       target              activation {
+      status:OK,  -------------------->      status:OK,
+      pending:0,                             pending:0,
+      required:1                             required:2
+    }                                      }
+      |    ^                         ^
+      |    |                        /   /
+      |    |                       /   /
+      |    |                      /   /
+      |    |                     /   /
+      |    |                    /   / 
+      v    |     /-------------/   /
+    activation {                  /
+      status:OK, V---------------/
+      pending:0, 
+      required:2
+    }
+  +-^---------+
+  |           |
+  |   driver  |
+  |           |
+  +-v---------+
+   eventfd
+```
+
+As seen in the illustration above, the driver holds a link to each node it needs to
+schedule and each node holds a link to the driver. Some nodes hold a link to other
+nodes.
+
+It is possible that the driver is the same as a node in the graph (for example node A)
+but conceptually, the links above are still valid.
+
+The driver will then start processing the graph by emitting the ready signal. PipeWire
+will then:
+
+ - Perform some statistics about the previous cycle. Did it complete? compute processing
+   times, cpu usage etc.
+ - Perform reposition requests if any, timebase changes, etc..
+ - The pending counter of each follower node is set to the required field.
+ - it then loops over all targets of the driver and atomically decrements the required
+   field of the activation record. When the required field is 0, the eventfd is signaled
+   and the node can be scheduled.
+
+In our example above, Node A and be will have their pending state decremented. Node A
+will be 0 and will be triggered first (node B has 2 pending dependencies to start with and
+will not be triggered yet). The driver itself also has 2 dependcies left and will not
+be triggered (complete) yet.
+
+## Scheduling node A
+
+When the eventfd is signaled on a node, we say the node is triggered and it will be able
+to process data. It consumes the input on the input ports and produces more data on the
+output ports.
+
+After processing, node A goes through the list of targets and decrements each pending
+field (node A has a reference to B and the driver).
+
+In our above example, the driver is decremented (from 2 to 1) but is not yet triggered.
+node B is decremented (from 1 to 0) and is triggered by writing to the eventfd.
+
+## Scheduling node B
+
+Node B is scheduled and processes the input from node A. It then goes through the list of
+targets and decrements the pending fields.  It decrements the pending field of the
+driver (from 1 to 0) and triggers the driver.
+
+## Scheduling the driver
+
+The graph always completes after the driver is triggered and scheduled. All required
+fields from all the nodes in the target list of the driver are now 0.
+
+# Remote nodes.
+
+For remote nodes, the eventfd and the activation is transfered from the server
+to the client.
+
+This means that writing to the remote client eventfd will wake the client directly
+without going to the server first. 
+
+All remote clients also get the activation and eventfd of the peer and driver they
+are linked to and can directly trigger peers and drivers without going to the
+server first.
+
+## Remote driver nodes.
+
+Currently the graph start cycle is managed by the server.
+
+Remote driver nodes therefore have an extra eventfd to wake up the server and signal
+the graph start.
+
+
+

@@ -520,35 +520,33 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 		snprintf(dst_ttl, sizeof(dst_ttl), "/%d", sdp->ttl);
 
 	spa_strbuf_init(&buf, buffer, sizeof(buffer));
+	/* Don't add any sdp records in between this definition or change the order
+	   it will break compatibility with Dante/AES67 devices. Add new records to
+	   the end. */
 	spa_strbuf_append(&buf,
 			"v=0\n"
 			"o=%s %u 0 IN %s %s\n"
 			"s=%s\n"
 			"c=IN %s %s%s\n"
 			"t=%u 0\n"
-			"a=recvonly\n"
-			"a=tool:PipeWire %s\n"
-			"a=type:broadcast\n",
+			"m=%s %u RTP/AVP %i\n",
 			user_name, sdp->ntp, src_ip4 ? "IP4" : "IP6", src_addr,
 			sdp->session_name,
 			dst_ip4 ? "IP4" : "IP6", dst_addr, dst_ttl,
 			sdp->ntp,
-			pw_get_library_version());
-	spa_strbuf_append(&buf,
-			"m=%s %u RTP/AVP %i\n",
-			sdp->media_type,
-			sdp->dst_port, sdp->payload);
+			sdp->media_type, sdp->dst_port, sdp->payload);
 
 	if (sdp->channels) {
-		spa_strbuf_append(&buf,
-			"a=rtpmap:%i %s/%u/%u\n",
-				sdp->payload, sdp->mime_type,
-				sdp->rate, sdp->channels);
 		if (sdp->channelmap[0] != 0) {
 			spa_strbuf_append(&buf,
 				"i=%d channels: %s\n", sdp->channels,
 				sdp->channelmap);
 		}
+		spa_strbuf_append(&buf,
+			"a=recvonly\n"
+			"a=rtpmap:%i %s/%u/%u\n",
+				sdp->payload, sdp->mime_type,
+				sdp->rate, sdp->channels);
 	} else {
 		spa_strbuf_append(&buf,
 			"a=rtpmap:%i %s/%u\n",
@@ -568,6 +566,11 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 	} else {
 		spa_strbuf_append(&buf, "a=mediaclk:sender\n");
 	}
+
+	spa_strbuf_append(&buf,
+		"a=tool:PipeWire %s\n"
+		"a=type:broadcast\n",
+		pw_get_library_version());
 
 	pw_log_debug("sending SAP for %u %s", sess->node->id, buffer);
 

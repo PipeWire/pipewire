@@ -31,6 +31,7 @@ extra_docs = [
   'pipewire-objects-design.dox',
   'pipewire-audio.dox',
   'pipewire-scheduling.dox',
+  'pipewire-protocol.dox',
   'tutorial.dox',
   'tutorial1.dox',
   'tutorial2.dox',

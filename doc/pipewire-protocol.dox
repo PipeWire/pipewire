@@ -183,7 +183,7 @@ id: the proxy id of the object to destroy.
 
 Core events are emited by the server.
 
-### Info (0)
+### Info (Opcode 0)
 
 Emited by the server upon connection with the more information about the
 server.
@@ -215,7 +215,7 @@ change_mask: a set of bits with changes to the info
              - 1<<0: Properties changed
 props: optional key/value properties
 
-### Done (1)
+### Done (Opcode 1)
 
 Emited as a result of a client Sync method.
 
@@ -228,7 +228,7 @@ Emited as a result of a client Sync method.
 
 id and seq are passed from the client Sync request.
 
-### Ping (2)
+### Ping (Opcode 2)
 
 Emited by the server when it wants to check if a client is alive or ensure
 that it has processed the previous events.
@@ -244,7 +244,7 @@ id: the object id to ping
 seq: usually automatically generated. The client should pass this in the Pong
      method reply.
 
-### Error (3)
+### Error (Opcode 3)
 
 The error event is sent out when a fatal (non-recoverable)
 error has occurred. The id argument is the proxy object where
@@ -267,7 +267,7 @@ res: a negative errno style error code
 message: an error message
 
 
-### RemoveId (4)
+### RemoveId (Opcode 4)
 
 This event is used internally by the object ID management
 logic. When a client deletes an object, the server will send
@@ -281,7 +281,7 @@ safely reuse the object ID.
    )
 ```
 
-### BoundId (5)
+### BoundId (Opcode 5)
 
 This event is emitted when a local object ID is bound to a
 global ID. It is emitted before the global becomes visible in the
@@ -298,7 +298,7 @@ be used because it also contains extra properties.
 id: a proxy id
 global_id: the global_id as it will appear in the registry.
 
-### AddMem (6)
+### AddMem (Opcode 6)
 
 Memory is given to a client as fd of a certain memory type.
 Further references to this fd will be made with the per memory
@@ -318,7 +318,7 @@ type: the memory type, see enum spa_data_type
 fd: the index of the fd sent with this message
 flags: extra flags
 
-### RemoveMem (7)
+### RemoveMem (Opcode 7)
 
 Remove memory for a client with the given id
 
@@ -331,7 +331,7 @@ Remove memory for a client with the given id
 id: the id of the memory to remove. This is the Id from
 AddMem.
 
-### BoundProps (8)
+### BoundProps (Opcode 8)
 
 This event is emitted when a local object ID is bound to a
 global ID. It is emitted before the global becomes visible in the
@@ -339,8 +339,8 @@ registry.
 
 ```
    Struct(
-     Int: id
-     Int: global_id
+      Int: id
+      Int: global_id
       Struct( 
          Int: n_items
 	 (String: key
@@ -352,5 +352,84 @@ registry.
 id: a proxy id
 global_id: the global_id as it will appear in the registry.
 props: the properties of the global
+
+# Registry proxy/resource
+
+The registry is obtained with the GetRegistry method on the Core object.
+The Id depends on the new_id that was provided.
+
+## Registry Methods
+
+### Bind (Opcode 1)
+
+Bind to the global object with id and use the client proxy
+with new_id as the proxy. After this call, methods can be
+send to the remote global object and events can be received.
+
+```
+   Struct(
+      Int: id
+      String: type
+      Int: version
+      Int: new_id
+   )
+```
+
+id: the global_id to bind to
+type: the type of the global id
+version: the client version of the interface for type
+new_id: the client proxy id for the global object
+
+### Destroy (Opcode 2)
+
+Try to destroy the global object with id. This might fail when the
+client does not have permission.
+
+```
+   Struct(
+      Int: id
+   )
+```
+
+id: the global id to destroy.
+
+## Registry Events
+
+### Global (Opcode 0)
+
+Notify a client about a new global object.
+
+```
+   Struct(
+      Int: id
+      Int: permissions
+      String: type
+      Int: version
+      Struct( 
+         Int: n_items
+	 (String: key
+	  String: value)*
+      ): props
+   )
+```
+
+id: the global id
+permissions: permission bits
+type: the type of object
+version: the server version of the object
+props: extra global properties
+
+### GlobalRemove (Opcode 1)
+
+A global with id was removed
+
+```
+   Struct(
+      Int: id
+   )
+```
+
+id: the global id that was removed.
+
 
 */

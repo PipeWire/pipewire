@@ -626,7 +626,7 @@ The info event is emitted when binding or when the device information changed.
    )
 ```
 
-id: the param id to set.
+id: the id of the global
 change_mask: a bitmask of changed fields
 props: extra properties, valid when change_mask is (1<<0)
 param_info: info about the parameters, valid when change_mask is (1<<1)
@@ -781,14 +781,124 @@ A Node is a processing element in the graph
 ## Node methods
 
 ### SubscribeParams (Opcode 1)
+
+Automatically emit Param events for the given ids when they are changed.
+
+```
+   Struct(
+      Array[Id]: ids
+   )
+```
+ids: and array of param Id to subscribe to
+
 ### EnumParams (Opcode 2)
+
+Enumerate the values of a param. This will result in Param events.
+
+```
+   Struct(
+      Int: seq
+      Id: id
+      Int: index
+      Int: num
+      Pod: filter
+   )
+```
+seq: an automatically generated sequence number, will be copied into the reply
+id: the param id to enumerate.
+index: the first param index to retrieve
+num: the number of params to retrieve
+filter: an optional filter object for the param.
+
 ### SetParam (Opcode 3)
+
+Set a parameter on the Node.
+
+```
+   Struct(
+      Id: id
+      Int: flags
+      Pod: param
+   )
+```
+id: the param id to set.
+flags: extra flags
+param: the param object to set
+
 ### SendCommand (Opcode 4)
+
+Send a Command to the node.
+
+```
+   Struct(
+      Pod: command
+   )
+```
+command: the command to send. See enum spa_node_command 
 
 ## Node events
 
 ### Info (Opcode 0)
+
+The info event is emitted when binding or when the node information changed.
+
+```
+   Struct(
+      Int: id
+      Int: max_input_ports
+      Int: max_output_ports
+      Long: change_mask
+      Int: n_input_ports
+      Int: n_output_ports
+      Id: state
+      String: error
+      Struct( 
+         Int: n_items
+	 ( String: key
+	   String: value )*
+      ): props
+      Struct( 
+         Int: n_params
+	 ( Int: id
+	   Int: flags )* 
+      ): param_info
+   )
+```
+
+id: the id of the node global
+max_input_port: the maximum input ports for the node
+max_output_port: the maximum output ports for the node
+change_mask: a bitmask of changed fields
+n_input_port: the number of input ports, when change_mask has (1<<0)
+n_output_port: the number of output ports, when change_mask has (1<<1)
+state: the current node state, when change_mask has (1<<2)
+       See enum pw_node_state  for values
+error: an error message.
+props: extra properties, valid when change_mask is (1<<3)
+param_info: info about the parameters, valid when change_mask is (1<<4)
+            For each parameter, the id and current flags are given.
+param_info.id : see enum spa_param_type
+param_info.flags: struct spa_param_info.flags
+
 ### Param (Opcode 1)
+
+Emitted as a result of EnumParams or SubscribeParams.
+
+```
+   Struct(
+      Int: seq
+      Id: id
+      Int: index
+      Int: next
+      Pod: param
+   )
+```
+seq: the sequence number send by the client EnumParams or server generated
+     in the SubscribeParams case.
+id: the param id that is reported, see enum spa_param_type 
+index: the index of the parameter
+next: the index of the next parameter
+param: the parameter. The object type depends on the id
 
 
 # PipeWire:Interface:Port
@@ -798,13 +908,86 @@ A port is part of a node and allows links with other ports.
 ## Port methods
 
 ### SubscribeParams (Opcode 1)
+
+Automatically emit Param events for the given ids when they are changed.
+
+```
+   Struct(
+      Array[Id]: ids
+   )
+```
+ids: and array of param Id to subscribe to
+
 ### EnumParams (Opcode 2)
+
+Enumerate the values of a param. This will result in Param events.
+
+```
+   Struct(
+      Int: seq
+      Id: id
+      Int: index
+      Int: num
+      Pod: filter
+   )
+```
+seq: an automatically generated sequence number, will be copied into the reply
+id: the param id to enumerate.
+index: the first param index to retrieve
+num: the number of params to retrieve
+filter: an optional filter object for the param.
 
 ## Port events
 
 ### Info (Opcode 0)
+
+The info event is emitted when binding or when the port information changed.
+
+```
+   Struct(
+      Int: id
+      Int: direction
+      Long: change_mask
+      Struct( 
+         Int: n_items
+	 ( String: key
+	   String: value )*
+      ): props
+      Struct( 
+         Int: n_params
+	 ( Int: id
+	   Int: flags )* 
+      ): param_info
+   )
+```
+
+id: the id of the port global
+direction: the direction of the port, see enum pw_direction
+change_mask: a bitmask of changed fields
+props: extra properties, valid when change_mask is (1<<0)
+param_info: info about the parameters, valid when change_mask is (1<<1)
+            For each parameter, the id and current flags are given.
+param_info.id : see enum spa_param_type
+param_info.flags: struct spa_param_info.flags
+
 ### Param (Opcode 1)
 
+Emitted as a result of EnumParams or SubscribeParams.
+
+```
+   Struct(
+      Int: seq
+      Id: id
+      Int: index
+      Int: next
+      Pod: param
+   )
+```
+seq: the sequence number send by the client EnumParams or server generated
+     in the SubscribeParams case.
+id: the param id that is reported, see enum spa_param_type 
+index: the index of the parameter
+next: the index of the next parameter
 
 
 

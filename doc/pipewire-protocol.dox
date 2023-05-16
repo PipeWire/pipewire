@@ -989,5 +989,488 @@ Emitted as a result of EnumParams or SubscribeParams.
 - next: the index of the next parameter
 
 
+# PipeWire:Interface:ClientNode
+
+The ClientNode object is created from the `client-node` factory that is provided
+by the `libpipewire-module-client-node` module.
+
+It creates a server Node that can be controlled from a client. Processing will happen
+in the client. It is used by pw-stream and pw-filter to implement the PipeWire media
+processing nodes.
+
+## ClientNode methods
+
+### GetNode (Opcode 1)
+
+Get the node object associated with the client-node. This binds to the server side
+Node object.
+
+```
+   Struct(
+      Int: version
+      Int: new_id
+   )
+```
+- version: the Node version to bind as
+- new_id: the proxy id
+
+### Update (Opcode 2)
+
+Update the params and info of the node.
+
+```
+   Struct(
+      Int: change_mask
+      Int: n_params
+      ( Pod: param )*
+      Struct(
+         Int: max_input_ports
+         Int: max_output_ports
+	 Long: change_mask
+	 Long: flags
+	 Int: n_items
+	 ( String: key
+	   String: value )*
+	 Int: n_params
+	 ( Id: id
+	   Int: flags )*
+      ): info
+   )
+```
+- change_mask: a bitfield of changed items
+- n_params: number of update params, valid when change_mask has (1<<0)
+- param: an updated param
+- info: an updated `struct spa_node_info`, valid when change_mask has (1<<1)
+  - max_input_ports: maximum input ports
+  - max_output_ports: maximum output ports
+  - change_mask: bitmask of changed items
+  - flags: flags, see `struct spa_node_info`, when change_mask has (1<<0)
+  - n_items: updated properties, valid when info.change_mask has (1<<1)
+  - n_params: updated `struct spa_param_info`, valid when info.change_mask has (1<<2)
+
+
+### PortUpdate (Opcode 3)
+
+Create, Update or destroy a node port.
+
+When the port is not known on the server, the port is created.
+When info is None, the port is destroyed.
+Otherwise, the port information is updated.
+
+```
+   Struct(
+      Int: direction
+      Int: port_id
+      Int: change_mask
+      Int: n_params
+      ( Pod: param )*
+      Struct(
+	 Long: change_mask
+	 Long: flags
+	 Int: rate_num
+	 Int: rate_denom
+	 Int: n_items
+	 ( String: key
+	   String: value )*
+	 Int: n_params
+	 ( Id: id
+	   Int: flags )*
+      ): info
+   )
+```
+- direction: the port direction
+- port_id: the port id
+- change_mask: a bitfield of changed items
+- n_params: number of updated params, valid when change_mask has (1<<0)
+- param: n_params updated params
+- info: an updated `struct spa_port_info`, valid when change_mask has (1<<1)
+  - change_mask: bitmask of changed items
+  - flags: flags, see `struct spa_port_info`, when change_mask has (1<<0)
+  - rate_num: updated rate numerator
+  - rate_denom: updated rate denominator, when info.change_mask has (1<<1)
+  - n_items: updated properties, valid when info.change_mask has (1<<2)
+  - n_params: updated `struct spa_param_info`, valid when info.change_mask has (1<<3)
+
+### SetActive (Opcode 4)
+
+Set the node active or inactive.
+
+```
+   Struct(
+      Bool: active
+   )
+```
+- active: the new state of the node
+
+### Event (Opcode 5)
+
+Emit an event on the node.
+
+```
+   Struct(
+      Pod: event
+   )
+```
+- event: the event to emit. See `enum spa_node_event`.
+
+### PortBuffers (Opcode 6)
+
+This method is used by the client when it has allocated buffers for a port.
+It is usually called right after the UseBuffers event to let the server know
+about the the newly allocated buffer memory.
+
+```
+   Struct(
+      Int: direction
+      Int: port_id
+      Int: mix_id
+      Int: n_buffers
+      (  Int: n_datas
+         (  Id: type
+	    Fd: memfd
+	    Int: flags
+	    Int: mapoffset
+	    Int: maxsize
+	 )*
+      )*
+   )
+```
+- direction: the direction of the port
+- port_id: the port id
+- mix_id: the mix id of the port
+- n_buffer: the number of buffers
+- n_data: for each buffer the number of data planes
+- type: the plane memory type
+- memfd: the plane memfd
+- mapoffset: the start offset of where the buffer memory starts
+- maxsize: the maxiumum size of the memory.
+
+## ClientNode events
+
+### Transport (Opcode 0)
+
+The server will allocate the activation record and eventfd for the node and
+transfer this to the client with the Transport event.
+
+```
+   Struct(
+      Fd: readfd
+      Fd: writefd
+      Int: memfd
+      Int: offset
+      Int: size
+   )
+```
+- readfd: the eventfd to start processing
+- writefd: the eventfd to signal driver start
+- memfd: the index of the memfd of the activation record
+- offset: the offset in memfd of the start of the activation record
+- size: the size of the activation record
+
+The activation record is currently an internal data structure that is
+not yet ABI stable.
+
+
+### SetParam (Opcode 1)
+
+Set a parameter on the Node.
+
+```
+   Struct(
+      Id: id
+      Int: flags
+      Pod: param
+   )
+```
+- id: the param id to set.
+- flags: extra flags
+- param: the param object to set
+
+
+### SetIO (Opcode 2)
+
+Set an IO area on the node.
+
+```
+   Struct(
+      Id: id
+      Int: memid
+      Int: offset
+      Int: size
+   )
+```
+- id: the io area id to set.
+- the memid to use, this is signaled with Core::AddMem
+- offset: the start offset in the memory area
+- the size of the io area
+
+### Event (Opcode 3)
+
+Emit an event on the node.
+
+```
+   Struct(
+      Pod: event
+   )
+```
+- event: the event to emit. See `enum spa_node_event`.
+
+### Command (Opcode 4)
+
+Send a command on the node.
+
+```
+   Struct(
+      Pod: command
+   )
+```
+- command: the command to send. See `enum spa_node_command`.
+
+### AddPort (Opcode 5)
+
+Add a new port to the node
+
+```
+   Struct(
+      Int: direction
+      Int: port_id
+      Struct( 
+         Int: n_items
+	 ( String: key
+	   String: value )*
+      ): props
+   )
+```
+- direction: the direction of the new port
+- port_id: the port id of the new port
+- props: optional extra properties for the port
+
+### RemovePort (Opcode 6)
+
+Remove a port from the node
+
+```
+   Struct(
+      Int: direction
+      Int: port_id
+   )
+```
+- direction: the direction of the port to remove
+- port_id: the port id of the port to remove
+
+
+### PortSetParam (Opcode 7)
+
+Set a parameter on the Port of the node.
+
+```
+   Struct(
+      Int: direction
+      Int: port_id
+      Id: id
+      Int: flags
+      Pod: param
+   )
+```
+- direction: the direction of the port
+- port_id: the port id of the port
+- id: the param id to set.
+- flags: extra flags
+- param: the param object to set
+
+### UseBuffers (Opcode 8)
+
+Use a set of buffers on the mixer port
+
+```
+   Struct(
+      Int: direction
+      Int: port_id
+      Int: mix_id
+      Int: flags
+      Int: n_buffers
+      (  Int: memid
+         Int: offset
+	 Int: size
+	 Int: n_metas
+	 (  Id: type
+	    Int: size
+	 )*: meta
+	 Int: n_datas
+	 (  Id: type
+	    Int: data
+	    Int: flags
+	    Int: mapoffset
+	    Int: maxsize
+	 )*: data
+      )*: buffer
+   )
+```
+- direction: the direction of the port
+- port_id: the port id of the port
+- mix_id: the mixer id of the port
+- flags: extra flags
+- id: the param id to set.
+- flags: extra flags
+   - SPA_NODE_BUFFERS_FLAG_ALLOC (1<<0) to let the client allocate
+     buffers, in which case the PortBuffers method needs to be called
+     with the allocated buffer memory.
+- n_buffers: the number of buffers
+- memid: the memory id of the buffer metadata and or data
+- offset: the offset in memid of the buffer
+- size: the size of the buffer metadata or data
+- n_metas: number of metadata. The buffer memory first contains this
+           number of metadata parts of the given type and size
+  - type: metadata type
+  - size: metadata size, round up with 8 to get to the next metadata
+- n_data: the number of datablocks (planes) per buffer
+  - type: the data type, this can be:
+  		- SPA_DATA_MemId to reference a memfd from Core:AddMem
+		- SPA_DATA_MemPtr to reference this buffer memid
+  - data: contains the memid or offset in the memid
+  - flags: extra flags for the data
+  - mapoffset: the offset in memfd
+  - maxsize: the maxsize of the memory in memfd
+
+### PortSetIO (Opcode 9)
+
+Set an IO area on a mixer port.
+
+```
+   Struct(
+      Int: direction
+      Int: port_id
+      Int: mix_id
+      Id: id
+      Int: memid
+      Int: offset
+      Int: size
+   )
+```
+- direction: the direction of the port
+- port_id: the port id of the port
+- mix_id: the mix id of the port
+- id: the IO area to set. See enum spa_io_type
+- memid: the memid of the io area, added with Core::AddMem
+- offset: the offset in the memid
+- size: the size of the IO area
+
+
+### SetActivation (Opcode 10)
+
+Notify the client of the activation record of a peer node. This activation record
+should be triggered when this node finishes processing.
+
+```
+   Struct(
+      Int: node_id
+      Fd: signalfd
+      Int: memid
+      Int: offset
+      Int: size
+   )
+```
+- node_id: the node_id of the peer node
+- signalfd: the eventfd of the peer node
+- memid: the memid of the activation record of the peer from Core:AddMem
+- offset: the offset in memid
+- size: the size of the activation record
+
+### PortSetMixInfo (Opcode 11)
+
+Notify the node of the peer of a mixer port. This can be used to track the peer
+ports of a node.
+
+```
+   Struct(
+      Int: direction
+      Int: port_id
+      Int: mix_id
+      Int: peer_id
+      Struct( 
+         Int: n_items
+	 ( String: key
+	   String: value )*
+      ): props
+   )
+```
+- direction: the direction of the port
+- port_id: the port id of the port
+- mix_id: the mix id of the port
+- peer_id: the id of the peer port
+- props: optional properties
+
+# PipeWire:Interface:Metadata
+
+Metadata is a shared database of settings and properties.
+
+## Metadata methods
+
+### SetProperty (Opcode 1)
+
+Set a property in the metadata store.
+
+```
+   Struct(
+      Int: subject
+      String: key
+      String: type
+      String: value
+   )
+```
+- subject: the id of the object, this needs to be a valid global_id
+- key: a key
+- type: an optional type
+- value: a value
+
+
+### Clear (Opcode 2)
+
+Clear the metadata store.
+
+```
+   Struct(
+      None
+   )
+```
+
+## Metadata events
+
+### Property (Opcode 0)
+
+A metadata key changed. This is also emitted when binding to the metadata.
+
+```
+   Struct(
+      Int: subject
+      String: key
+      String: type
+      String: value
+   )
+```
+- subject: the id of the object, this is a valid global_id
+- key: a key
+- type: an optional type
+- value: a value
+
+# PipeWire:Interface:Profiler
+
+The profiler object allows one to receive profiler information of the pipewire
+graph.
+
+## Profiler methods
+
+The profiler has no methods
+
+## Profiler events
+
+### Profile (Opcode 0)
+
+```
+   Struct(
+      Pod: object
+   )
+```
+- object: a SPA_TYPE_OBJECT_Profiler object. See enum spa_profiler 
 
 */

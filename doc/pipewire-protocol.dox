@@ -52,8 +52,41 @@ After the payload, there is an optional footer POD object.
 
 # Making a connection
 
+First a connection is made to a unix domain socket. By default, the socket is
+named as "pipewire-0" and searched in the following directories:
+
+ - getenv("PIPEWIRE_RUNTIME_DIR")
+ - getenv("XDG_RUNTIME_DIR")
+ - getenv("USERPROFILE")
 
 
+The client opens the socket and allocates a Core proxy with id 0 and a Client
+proxy with id 1.
+
+The server will allocate a new Core resource with id 0.
+
+The client sends the Core::Hello message on the socket to start the
+communication.
+
+The server binds the client resource with id 1 to the client.
+
+The client then sends client properties to the server.
+
+```
+   client                                    server
+     |---------------------------------------->|
+     |            open socket                  |
+     |                                         |
+     |---------------------------------------->|
+     |            Core::Hello(version)         |
+     |                                         |
+     |---------------------------------------->|
+     |       Client::UpdateProperties          |
+     .                                         .
+```
+
+This completes the setup of the client. The newly connected client will
+appear in the registry at this point.
 
 # Core proxy/resource
 
@@ -61,7 +94,7 @@ The core is always the object with Id 0.
 
 ## Core Methods (Id 0)
 
-### Hello (Opcode 1)
+### Core::Hello (Opcode 1)
 
 The first message sent by a client is the Hello message and contains the
 version number of the client.
@@ -74,7 +107,7 @@ version number of the client.
 
 The version is 3.
 
-### Sync (Opcode 2)
+### Core::Sync (Opcode 2)
 
 The Sync message will result in a Done event from the server. When the Done
 event is received, the client can be sure that all operations before the Sync
@@ -90,7 +123,7 @@ method have been completed.
 - id: the id will be returned in the Done event.
 - seq: is usually generated automatically and will be returned in the Done event.
 
-### Pong (Opcode 3)
+### Core::Pong (Opcode 3)
 
 Is sent from the client to the server when the server emits the Ping event.
 The id and seq should be copied from the Ping event.
@@ -102,7 +135,7 @@ The id and seq should be copied from the Ping event.
    )
 ```
 
-### Error (Opcode 4)
+### Core::Error (Opcode 4)
 
 An error occured in an object on the client.
 
@@ -120,7 +153,7 @@ An error occured in an object on the client.
 - res: a negative errno style error code
 - message: an error message
 
-### GetRegistry (Opcode 5)
+### Core::GetRegistry (Opcode 5)
 
 A client requests to bind to the registry object and list the available objects
 on the server.
@@ -135,11 +168,51 @@ new_id (in the message Id field).
       Int: new_id
    )
 ```
-
 - version: the version of the registry interface used on the client
 - new_id: the id of the new proxy with the registry interface
 
-### CreateObject (Opcode 6)
+After this method, the server will start sending Registry::Global events
+to the proxy with new_id.
+
+```
+   client                                    server
+     |                                         |
+     | new proxy(new_id)                       |
+     |---------------------------------------->|  new resource(new_id)
+     |      Core::GetRegistry(version)         |
+     |                                         |
+     |<----------------------------------------| new_id
+     |      Registry::Global()                 |
+     |<----------------------------------------|
+     |      Registry::Global()                 |
+     .                                         .
+```
+
+There is no explicit last Global event to signal that the last object
+has been received. The usual way of knowing this is to send a Core::Sync
+method right after the Core::GetRegistry method and to wait for the
+Core::Done event.
+
+```
+   client                                    server
+     |                                         |
+     | new proxy(new_id)                       |
+     |---------------------------------------->|  new resource(new_id)
+     |      Core::GetRegistry(version)         |
+     |---------------------------------------->|
+     |  seq = Core::Sync                       |
+     |                                         |
+     |<----------------------------------------| new_id
+     |      Registry::Global()                 |
+     |<----------------------------------------|
+     |      Registry::Global()                 |
+     .                                         .
+     |<----------------------------------------|
+     |         Core::Done(seq)                 |
+     .                                         .
+```
+
+### Core::CreateObject (Opcode 6)
 
 Create a new object from a factory of a certain type.
 
@@ -167,7 +240,7 @@ exchanged between the new object of the given type.
 - props: extra properties to create the object
 - new_id: the proxy id of the new object
 
-### Destroy (Opcode 7)
+### Core::Destroy (Opcode 7)
 
 Destroy an object.
 
@@ -183,7 +256,7 @@ Destroy an object.
 
 Core events are emited by the server.
 
-### Info (Opcode 0)
+### Core::Info (Opcode 0)
 
 Emited by the server upon connection with the more information about the
 server.
@@ -214,7 +287,7 @@ server.
 - change_mask: a set of bits with changes to the info
 - props: optional key/value properties, valid when change_mask has (1<<0)
 
-### Done (Opcode 1)
+### Core::Done (Opcode 1)
 
 Emited as a result of a client Sync method.
 
@@ -227,7 +300,7 @@ Emited as a result of a client Sync method.
 
 id and seq are passed from the client Sync request.
 
-### Ping (Opcode 2)
+### Core::Ping (Opcode 2)
 
 Emited by the server when it wants to check if a client is alive or ensure
 that it has processed the previous events.
@@ -243,7 +316,7 @@ that it has processed the previous events.
 - seq: usually automatically generated. The client should pass this in the Pong
        method reply.
 
-### Error (Opcode 3)
+### Core::Error (Opcode 3)
 
 The error event is sent out when a fatal (non-recoverable)
 error has occurred. The id argument is the proxy object where
@@ -266,7 +339,7 @@ for (debugging) convenience.
 - message: an error message
 
 
-### RemoveId (Opcode 4)
+### Core::RemoveId (Opcode 4)
 
 This event is used internally by the object ID management
 logic. When a client deletes an object, the server will send
@@ -282,7 +355,7 @@ safely reuse the object ID.
 
 - id: a proxy id that was removed
 
-### BoundId (Opcode 5)
+### Core::BoundId (Opcode 5)
 
 This event is emitted when a local object ID is bound to a
 global ID. It is emitted before the global becomes visible in the
@@ -299,7 +372,7 @@ be used because it also contains extra properties.
 - id: a proxy id
 - global_id: the global_id as it will appear in the registry.
 
-### AddMem (Opcode 6)
+### Core::AddMem (Opcode 6)
 
 Memory is given to a client as fd of a certain memory type.
 Further references to this fd will be made with the per memory
@@ -319,7 +392,7 @@ unique identifier id.
 - fd: the index of the fd sent with this message
 - flags: extra flags
 
-### RemoveMem (Opcode 7)
+### Core::RemoveMem (Opcode 7)
 
 Remove memory for a client with the given id
 
@@ -331,7 +404,7 @@ Remove memory for a client with the given id
 
 - id: the id of the memory to remove. This is the Id from AddMem.
 
-### BoundProps (Opcode 8)
+### Core::BoundProps (Opcode 8)
 
 This event is emitted when a local object ID is bound to a
 global ID. It is emitted before the global becomes visible in the
@@ -360,7 +433,7 @@ The Id depends on the new_id that was provided.
 
 ## Registry Methods
 
-### Bind (Opcode 1)
+### Registry::Bind (Opcode 1)
 
 Bind to the global object with id and use the client proxy
 with new_id as the proxy. After this call, methods can be
@@ -380,7 +453,7 @@ send to the remote global object and events can be received.
 - version: the client version of the interface for type
 - new_id: the client proxy id for the global object
 
-### Destroy (Opcode 2)
+### Registry::Destroy (Opcode 2)
 
 Try to destroy the global object with id. This might fail when the
 client does not have permission.
@@ -395,7 +468,7 @@ client does not have permission.
 
 ## Registry Events
 
-### Global (Opcode 0)
+### Registry::Global (Opcode 0)
 
 Notify a client about a new global object.
 
@@ -419,7 +492,7 @@ Notify a client about a new global object.
 - version: the server version of the object
 - props: extra global properties
 
-### GlobalRemove (Opcode 1)
+### Registry::GlobalRemove (Opcode 1)
 
 A global with id was removed
 
@@ -441,7 +514,7 @@ proxy id 1.
 
 ## Client Methods
 
-### Error (Opcode 1)
+### Client::Error (Opcode 1)
 
 Is used to send an error to a client.
 
@@ -457,7 +530,7 @@ Is used to send an error to a client.
 - res: a negative errno style error code
 - error: an error message
 
-### UpdateProperties (Opcode 2)
+### Client::UpdateProperties (Opcode 2)
 
 Is used to update the properties of a client.
 
@@ -472,7 +545,7 @@ Is used to update the properties of a client.
 ```
 - props: properties to update on the client.
 
-### GetPermissions (Opcode 3)
+### Client::GetPermissions (Opcode 3)
 
 Get the currently configured permissions on the client.
 
@@ -487,7 +560,7 @@ Get the currently configured permissions on the client.
 
 This method will result in at most num Permission Events.
 
-### UpdatePermissions (Opcode 4)
+### Client::UpdatePermissions (Opcode 4)
 
 Update the permissions of the global objects using the
 provided array with permissions
@@ -508,7 +581,7 @@ provided array with permissions
 
 ## Client Events
 
-### Info (Opcode 0)
+### Client::Info (Opcode 0)
 
 Get client information updates. This is emitted when binding to a client or
 when the client info is updated later.
@@ -528,7 +601,7 @@ when the client info is updated later.
 - change_mask: the changes emitted by this event
 - props: properties of this object, valid when change_mask has (1<<0)
 
-### Permissions (Opcode 1)
+### Client::Permissions (Opcode 1)
 
 Emitted as the reply of the GetPermissions method.
 
@@ -557,7 +630,7 @@ enumerate.
 
 ## Device methods
 
-### SubscribeParams (Opcode 1)
+### Device::SubscribeParams (Opcode 1)
 
 Automatically emit Param events for the given ids when they are changed.
 
@@ -568,7 +641,7 @@ Automatically emit Param events for the given ids when they are changed.
 ```
 - ids: and array of param Id to subscribe to
 
-### EnumParams (Opcode 2)
+### Device::EnumParams (Opcode 2)
 
 Enumerate the values of a param. This will result in Param events.
 
@@ -587,7 +660,7 @@ Enumerate the values of a param. This will result in Param events.
 - num: the number of params to retrieve
 - filter: an optional filter object for the param.
 
-### SetParam (Opcode 3)
+### Device::SetParam (Opcode 3)
 
 Set a parameter on the Device.
 
@@ -604,7 +677,7 @@ Set a parameter on the Device.
 
 ## Device events
 
-### Info (Opcode 0)
+### Device::Info (Opcode 0)
 
 The info event is emitted when binding or when the device information changed.
 
@@ -633,7 +706,7 @@ The info event is emitted when binding or when the device information changed.
 	- param_info.id : see enum spa_param_type
 	- param_info.flags: struct spa_param_info.flags
 
-### Param (Opcode 1)
+### Device::Param (Opcode 1)
 
 Emitted as a result of EnumParams or SubscribeParams.
 
@@ -664,7 +737,7 @@ A factory has no methods
 
 ## Factory events
 
-### Info (Opcode 0)
+### Factory::Info (Opcode 0)
 
 Info is emitted when binding to the factory global or when the information changed.
 
@@ -700,7 +773,7 @@ A link has no methods
 
 ## Link events
 
-### Info (Opcode 0)
+### Link::Info (Opcode 0)
 
 Info is emitted when binding to the link global or when the information changed.
 
@@ -746,7 +819,7 @@ A module has no methods
 
 ## Module events
 
-### Info (Opcode 0)
+### Module::Info (Opcode 0)
 
 Info is emitted when binding to the module global or when the information changed.
 
@@ -779,7 +852,7 @@ A Node is a processing element in the graph
 
 ## Node methods
 
-### SubscribeParams (Opcode 1)
+### Node::SubscribeParams (Opcode 1)
 
 Automatically emit Param events for the given ids when they are changed.
 
@@ -790,7 +863,7 @@ Automatically emit Param events for the given ids when they are changed.
 ```
 - ids: and array of param Id to subscribe to
 
-### EnumParams (Opcode 2)
+### Node::EnumParams (Opcode 2)
 
 Enumerate the values of a param. This will result in Param events.
 
@@ -809,7 +882,7 @@ Enumerate the values of a param. This will result in Param events.
 - num: the number of params to retrieve
 - filter: an optional filter object for the param.
 
-### SetParam (Opcode 3)
+### Node::SetParam (Opcode 3)
 
 Set a parameter on the Node.
 
@@ -824,7 +897,7 @@ Set a parameter on the Node.
 - flags: extra flags
 - param: the param object to set
 
-### SendCommand (Opcode 4)
+### Node::SendCommand (Opcode 4)
 
 Send a Command to the node.
 
@@ -837,7 +910,7 @@ Send a Command to the node.
 
 ## Node events
 
-### Info (Opcode 0)
+### Node::Info (Opcode 0)
 
 The info event is emitted when binding or when the node information changed.
 
@@ -879,7 +952,7 @@ The info event is emitted when binding or when the node information changed.
 	- param_info.id : see enum spa_param_type
 	- param_info.flags: struct spa_param_info.flags
 
-### Param (Opcode 1)
+### Node::Param (Opcode 1)
 
 Emitted as a result of EnumParams or SubscribeParams.
 
@@ -906,7 +979,7 @@ A port is part of a node and allows links with other ports.
 
 ## Port methods
 
-### SubscribeParams (Opcode 1)
+### Port::SubscribeParams (Opcode 1)
 
 Automatically emit Param events for the given ids when they are changed.
 
@@ -917,7 +990,7 @@ Automatically emit Param events for the given ids when they are changed.
 ```
 - ids: and array of param Id to subscribe to
 
-### EnumParams (Opcode 2)
+### Port::EnumParams (Opcode 2)
 
 Enumerate the values of a param. This will result in Param events.
 
@@ -938,7 +1011,7 @@ Enumerate the values of a param. This will result in Param events.
 
 ## Port events
 
-### Info (Opcode 0)
+### Port::Info (Opcode 0)
 
 The info event is emitted when binding or when the port information changed.
 
@@ -969,7 +1042,7 @@ The info event is emitted when binding or when the port information changed.
 	- param_info.id : see enum spa_param_type
 	- param_info.flags: struct spa_param_info.flags
 
-### Param (Opcode 1)
+### Port::Param (Opcode 1)
 
 Emitted as a result of EnumParams or SubscribeParams.
 
@@ -1000,7 +1073,7 @@ processing nodes.
 
 ## ClientNode methods
 
-### GetNode (Opcode 1)
+### ClientNode::GetNode (Opcode 1)
 
 Get the node object associated with the client-node. This binds to the server side
 Node object.
@@ -1014,7 +1087,7 @@ Node object.
 - version: the Node version to bind as
 - new_id: the proxy id
 
-### Update (Opcode 2)
+### ClientNode::Update (Opcode 2)
 
 Update the params and info of the node.
 
@@ -1049,7 +1122,7 @@ Update the params and info of the node.
   - n_params: updated `struct spa_param_info`, valid when info.change_mask has (1<<2)
 
 
-### PortUpdate (Opcode 3)
+### ClientNode::PortUpdate (Opcode 3)
 
 Create, Update or destroy a node port.
 
@@ -1091,7 +1164,7 @@ Otherwise, the port information is updated.
   - n_items: updated properties, valid when info.change_mask has (1<<2)
   - n_params: updated `struct spa_param_info`, valid when info.change_mask has (1<<3)
 
-### SetActive (Opcode 4)
+### ClientNode::SetActive (Opcode 4)
 
 Set the node active or inactive.
 
@@ -1102,7 +1175,7 @@ Set the node active or inactive.
 ```
 - active: the new state of the node
 
-### Event (Opcode 5)
+### ClientNode::Event (Opcode 5)
 
 Emit an event on the node.
 
@@ -1113,7 +1186,7 @@ Emit an event on the node.
 ```
 - event: the event to emit. See `enum spa_node_event`.
 
-### PortBuffers (Opcode 6)
+### ClientNode::PortBuffers (Opcode 6)
 
 This method is used by the client when it has allocated buffers for a port.
 It is usually called right after the UseBuffers event to let the server know
@@ -1147,7 +1220,7 @@ about the the newly allocated buffer memory.
 
 ## ClientNode events
 
-### Transport (Opcode 0)
+### ClientNode::Transport (Opcode 0)
 
 The server will allocate the activation record and eventfd for the node and
 transfer this to the client with the Transport event.
@@ -1171,7 +1244,7 @@ The activation record is currently an internal data structure that is
 not yet ABI stable.
 
 
-### SetParam (Opcode 1)
+### ClientNode::SetParam (Opcode 1)
 
 Set a parameter on the Node.
 
@@ -1187,7 +1260,7 @@ Set a parameter on the Node.
 - param: the param object to set
 
 
-### SetIO (Opcode 2)
+### ClientNode::SetIO (Opcode 2)
 
 Set an IO area on the node.
 
@@ -1204,7 +1277,7 @@ Set an IO area on the node.
 - offset: the start offset in the memory area
 - the size of the io area
 
-### Event (Opcode 3)
+### ClientNode::Event (Opcode 3)
 
 Emit an event on the node.
 
@@ -1215,7 +1288,7 @@ Emit an event on the node.
 ```
 - event: the event to emit. See `enum spa_node_event`.
 
-### Command (Opcode 4)
+### ClientNode::Command (Opcode 4)
 
 Send a command on the node.
 
@@ -1226,7 +1299,7 @@ Send a command on the node.
 ```
 - command: the command to send. See `enum spa_node_command`.
 
-### AddPort (Opcode 5)
+### ClientNode::AddPort (Opcode 5)
 
 Add a new port to the node
 
@@ -1245,7 +1318,7 @@ Add a new port to the node
 - port_id: the port id of the new port
 - props: optional extra properties for the port
 
-### RemovePort (Opcode 6)
+### ClientNode::RemovePort (Opcode 6)
 
 Remove a port from the node
 
@@ -1259,7 +1332,7 @@ Remove a port from the node
 - port_id: the port id of the port to remove
 
 
-### PortSetParam (Opcode 7)
+### ClientNode::PortSetParam (Opcode 7)
 
 Set a parameter on the Port of the node.
 
@@ -1278,7 +1351,7 @@ Set a parameter on the Port of the node.
 - flags: extra flags
 - param: the param object to set
 
-### UseBuffers (Opcode 8)
+### ClientNode::UseBuffers (Opcode 8)
 
 Use a set of buffers on the mixer port
 
@@ -1332,7 +1405,7 @@ Use a set of buffers on the mixer port
   - mapoffset: the offset in memfd
   - maxsize: the maxsize of the memory in memfd
 
-### PortSetIO (Opcode 9)
+### ClientNode::PortSetIO (Opcode 9)
 
 Set an IO area on a mixer port.
 
@@ -1356,7 +1429,7 @@ Set an IO area on a mixer port.
 - size: the size of the IO area
 
 
-### SetActivation (Opcode 10)
+### ClientNode::SetActivation (Opcode 10)
 
 Notify the client of the activation record of a peer node. This activation record
 should be triggered when this node finishes processing.
@@ -1376,7 +1449,7 @@ should be triggered when this node finishes processing.
 - offset: the offset in memid
 - size: the size of the activation record
 
-### PortSetMixInfo (Opcode 11)
+### ClientNode::PortSetMixInfo (Opcode 11)
 
 Notify the node of the peer of a mixer port. This can be used to track the peer
 ports of a node.
@@ -1406,7 +1479,7 @@ Metadata is a shared database of settings and properties.
 
 ## Metadata methods
 
-### SetProperty (Opcode 1)
+### Metadata::SetProperty (Opcode 1)
 
 Set a property in the metadata store.
 
@@ -1424,7 +1497,7 @@ Set a property in the metadata store.
 - value: a value
 
 
-### Clear (Opcode 2)
+### Metadata::Clear (Opcode 2)
 
 Clear the metadata store.
 
@@ -1436,7 +1509,7 @@ Clear the metadata store.
 
 ## Metadata events
 
-### Property (Opcode 0)
+### Metadata::Property (Opcode 0)
 
 A metadata key changed. This is also emitted when binding to the metadata.
 
@@ -1464,7 +1537,7 @@ The profiler has no methods
 
 ## Profiler events
 
-### Profile (Opcode 0)
+### Profiler::Profile (Opcode 0)
 
 ```
    Struct(

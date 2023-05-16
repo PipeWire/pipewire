@@ -407,8 +407,8 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	}
 
 	pw_properties_setf(props, "net.mtu", "%u", impl->mtu);
-	pw_properties_setf(props, "rtp.ptime", "%u",
-			impl->psamples * 1000 / impl->rate);
+	pw_properties_setf(props, "rtp.ptime", "%f",
+			impl->psamples * 1000.0 / impl->rate);
 	pw_properties_setf(props, "rtp.media", "%s", impl->format_info->media_type);
 	pw_properties_setf(props, "rtp.mime", "%s", impl->format_info->mime);
 	pw_properties_setf(props, "rtp.payload", "%u", impl->payload);

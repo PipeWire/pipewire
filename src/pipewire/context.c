@@ -803,7 +803,7 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
 
 			pw_log_debug("  peer %p: '%s'", t, t->name);
 			t->runnable = true;
-			if (!t->driver)
+			if (!t->driving)
 				run_nodes(context, t, nodes);
 		}
 	}
@@ -816,7 +816,7 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
 
 			pw_log_debug("  peer %p: '%s'", t, t->name);
 			t->runnable = true;
-			if (!t->driver)
+			if (!t->driving)
 				run_nodes(context, t, nodes);
 		}
 	}
@@ -834,7 +834,7 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
 
 			pw_log_debug("  group %p: '%s'", t, t->name);
 			t->runnable = true;
-			if (!t->driver)
+			if (!t->driving)
 				run_nodes(context, t, nodes);
 		}
 	}
@@ -937,7 +937,7 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 		pw_log_debug(" next node %p: '%s' runnable:%u", n, n->name, n->runnable);
 	}
 	spa_list_for_each(n, collect, sort_link)
-		if (!n->driver && n->runnable)
+		if (!n->driving && n->runnable)
 			run_nodes(context, n, collect);
 
 	return 0;

@@ -1,0 +1,356 @@
+/** \page page_native_protocol Native Protocol
+
+PipeWire has a pluggable client/server IPC protocol.
+
+The reference implementation uses unix sockets and is implemented in
+\ref page_module_protocol_native.
+
+We document the messages here.
+
+# Message header
+
+Each message on the unix socket contains a 16 bytes header and a
+variable length payload size:
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                     Id                                        |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |    opcode     |                   size                        |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                         seq                                   |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                         n_fds                                 |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                     payload POD                               |
+   .                                                               .
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                     optional footer POD                       |
+   .                                                               .
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+
+These are four uint32 words to be read in native endianness.
+
+Id: the message id this is the destination resource/proxy id
+opcode: the opcode on the resource/proxy interface
+size: the size of the payload and optional footer of the message
+seq: an increasing sequence number for each message
+n_fds: number of file descriptors in this message.
+
+The sender should send along with each message the fds that belong to
+the message. If there are more than the maximum number of fds in the
+message than can fit in one message, the message is split into multiple
+parts.
+
+The payload is a single POD see \ref page_spa_pod for details.
+
+After the payload, there is an optional footer POD object.
+
+# Making a connection
+
+
+
+
+# Core proxy/resource
+
+The core is always the object with Id 0.
+
+## Core Methods (Id 0)
+
+### Hello (Opcode 1)
+
+The first message sent by a client is the Hello message and contains the
+version number of the client.
+
+```
+   Struct(
+      Int: version
+   )
+```
+
+The version is 3.
+
+### Sync (Opcode 2)
+
+The Sync message will result in a Done event from the server. When the Done
+event is received, the client can be sure that all operations before the Sync
+method have been completed.
+
+```
+   Struct(
+      Int: id
+      Int: seq
+   )
+```
+
+id: the id will be returned in the Done event.
+seq: is usually generated automatically and will be returned in the Done event.
+
+### Pong (Opcode 3)
+
+Is sent from the client to the server when the server emits the Ping event.
+The id and seq should be copied from the Ping event.
+
+```
+   Struct(
+      Int: id
+      Int: seq
+   )
+```
+
+### Error (Opcode 4)
+
+An error occured in an object on the client.
+
+```
+   Struct(
+      Int: id
+      Int: seq
+      Int: res
+      String: message
+   )
+```
+
+id: The id of the proxy that is in error.
+seq: a seq number from the failing request (if any)
+res: a negative errno style error code
+message: an error message
+
+### GetRegistry (Opcode 5)
+
+A client requests to bind to the registry object and list the available objects
+on the server.
+
+Like with all bindings, first the client allocates a new proxy id and puts this
+as the new_id field. Methods and Events can then be sent and received on the 
+new_id (in the message Id field).
+
+```
+   Struct(
+      Int: version
+      Int: new_id
+   )
+```
+
+version: the version of the registry interface used on the client
+new_id: the id of the new proxy with the registry interface
+
+### CreateObject (Opcode 6)
+
+Create a new object from a factory of a certain type.
+
+The client allocates a new_id for the proxy. The server will allocate a new
+resource with the same new_id and from then on, Methods and Events will be 
+exchanged between the new object of the given type.
+
+```
+   Struct(
+      String: factory_name
+      String: type
+      Int: version
+      Struct(
+         Int: n_items
+	 (String: key
+	  String: value)*
+      ): props
+      Int: new_id
+   )
+```
+
+factory_name: the name of a server factory object to use
+type: the type of the object to create, this is also the type of the
+      interface of the new_id proxy.
+props: extra properties to create the object
+new_id: the proxy id of the new object
+
+### Destroy (Opcode 7)
+
+Destroy an object.
+
+```
+   Struct(
+      Int: id
+   )
+```
+
+id: the proxy id of the object to destroy.
+
+## Core Events
+
+Core events are emited by the server.
+
+### Info (0)
+
+Emited by the server upon connection with the more information about the
+server.
+
+```
+   Struct(
+      Int: id
+      Int: cookie
+      String: user_name
+      String: host_name
+      String: version
+      String: name
+      Long: change_mask
+      Struct( 
+         Int: n_items
+	 (String: key
+	  String: value)*
+      ): props
+   )
+```
+
+id: the id of the server (0)
+cookie: a unique cookie for this server
+user_name: the name of the user running the server
+host_name: the name of the host running the server
+version: a version string of the server
+name: the name of the server
+change_mask: a set of bits with changes to the info
+             - 1<<0: Properties changed
+props: optional key/value properties
+
+### Done (1)
+
+Emited as a result of a client Sync method.
+
+```
+   Struct(
+      Int: id
+      Int: seq
+   )
+```
+
+id and seq are passed from the client Sync request.
+
+### Ping (2)
+
+Emited by the server when it wants to check if a client is alive or ensure
+that it has processed the previous events.
+
+```
+   Struct(
+      Int: id
+      Int: seq
+   )
+```
+
+id: the object id to ping
+seq: usually automatically generated. The client should pass this in the Pong
+     method reply.
+
+### Error (3)
+
+The error event is sent out when a fatal (non-recoverable)
+error has occurred. The id argument is the proxy object where
+the error occurred, most often in response to a request to that
+object. The message is a brief description of the error,
+for (debugging) convenience.
+
+```
+   Struct(
+      Int: id
+      Int: seq
+      Int: res
+      String: message
+   )
+```
+
+id: The id of the resource that is in error.
+seq: a seq number from the failing request (if any)
+res: a negative errno style error code
+message: an error message
+
+
+### RemoveId (4)
+
+This event is used internally by the object ID management
+logic. When a client deletes an object, the server will send
+this event to acknowledge that it has seen the delete request.
+When the client receives this event, it will know that it can
+safely reuse the object ID.
+
+```
+   Struct(
+     Int: id
+   )
+```
+
+### BoundId (5)
+
+This event is emitted when a local object ID is bound to a
+global ID. It is emitted before the global becomes visible in the
+registry. This event is deprecated, the BoundProps event should
+be used because it also contains extra properties.
+
+```
+   Struct(
+     Int: id
+     Int: global_id
+   )
+```
+
+id: a proxy id
+global_id: the global_id as it will appear in the registry.
+
+### AddMem (6)
+
+Memory is given to a client as fd of a certain memory type.
+Further references to this fd will be made with the per memory
+unique identifier id.
+
+```
+   Struct(
+     Int: id
+     Id: type
+     Fd: fd
+     Int: flags
+   )
+```
+
+id: a server allocated id for this memory
+type: the memory type, see enum spa_data_type
+fd: the index of the fd sent with this message
+flags: extra flags
+
+### RemoveMem (7)
+
+Remove memory for a client with the given id
+
+```
+   Struct(
+     Int: id
+   )
+```
+
+id: the id of the memory to remove. This is the Id from
+AddMem.
+
+### BoundProps (8)
+
+This event is emitted when a local object ID is bound to a
+global ID. It is emitted before the global becomes visible in the
+registry.
+
+```
+   Struct(
+     Int: id
+     Int: global_id
+      Struct( 
+         Int: n_items
+	 (String: key
+	  String: value)*
+      ): props
+   )
+```
+
+id: a proxy id
+global_id: the global_id as it will appear in the registry.
+props: the properties of the global
+
+*/

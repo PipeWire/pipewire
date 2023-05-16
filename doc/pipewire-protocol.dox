@@ -431,5 +431,381 @@ A global with id was removed
 
 id: the global id that was removed.
 
+# PipeWire:Interface:Client
+
+The client object represents a client connect to the PipeWire server.
+Permissions of the client can be managed.
+
+The currently connected client always has the Client object with
+proxy id 1.
+
+## Client Methods
+
+### Error (Opcode 1)
+
+Is used to send an error to a client.
+
+```
+   Struct(
+      Int: id
+      Int: res
+      String: error
+   )
+```
+
+id: a client proxy id to send the error to
+res: a negative errno style error code
+error: an error message
+
+### UpdateProperties (Opcode 2)
+
+Is used to update the properties of a client.
+
+```
+   Struct(
+      Struct( 
+         Int: n_items
+	 (String: key
+	  String: value)*
+      ): props
+   )
+```
+props: properties to update on the client.
+
+### GetPermissions (Opcode 3)
+
+Get the currently configured permissions on the client.
+
+```
+   Struct(
+      Int: index
+      Int: num
+   )
+```
+index: the start index of the permissions to get
+num: the number of permissions to get
+
+This method will result in at most num Permission Events.
+
+### UpdatePermissions (Opcode 4)
+
+Update the permissions of the global objects using the
+provided array with permissions
+
+
+```
+   Struct(
+      Int: n_permissions
+      ( Int: id
+        Int: permission
+      )*
+   )
+```
+
+n_permissions: number of permissions
+id: the global id
+permissions: the permissions for the global id
+
+## Client Events
+
+### Info (Opcode 0)
+
+Get client information updates. This is emitted when binding to a client or
+when the client info is updated later.
+
+```
+   Struct(
+      Int: id
+      Long: change_mask
+      Struct( 
+         Int: n_items
+	 (String: key
+	  String: value)*
+      ): props
+   )
+```
+id: the global id of the client
+change_mask: the changes emitted by this event
+               - Props (1<<0) property changes
+props: properties of this object.	      
+
+### Permissions (Opcode 1)
+
+Emitted as the reply of the GetPermissions method.
+
+```
+   Struct(
+      Int: index
+      Struct( 
+         Int: n_permissions
+	 (Int: id
+	  Int: permission)*
+      )
+   )
+```
+index: index of the first permission
+n_permissions: the number of permission entries
+id: the global id of the object
+permissions: the permission for the given id
+
+# PipeWire:Interface:Device
+
+A device is an object that manages other devices or nodes.
+
+The usual flow is to bind to the Device object. This will result in an
+Info event. From the Info event one can find the available params to
+enumerate.
+
+## Device methods
+
+### SubscribeParams (Opcode 1)
+
+Automatically emit Param events for the given ids when they are changed.
+
+```
+   Struct(
+      Array[Id]: ids
+   )
+```
+ids: and array of param Id to subscribe to
+
+### EnumParams (Opcode 2)
+
+Enumerate the values of a param. This will result in Param events.
+
+```
+   Struct(
+      Int: seq
+      Id: id
+      Int: index
+      Int: num
+      Pod: filter
+   )
+```
+seq: an automatically generated sequence number, will be copied into the reply
+id: the param id to enumerate.
+index: the first param index to retrieve
+num: the number of params to retrieve
+filter: an optional filter object for the param.
+
+### SetParam (Opcode 3)
+
+Set a parameter on the Device.
+
+```
+   Struct(
+      Id: id
+      Int: flags
+      Pod: param
+   )
+```
+id: the param id to set.
+flags: extra flags
+param: the param object to set
+
+## Device events
+
+### Info (Opcode 0)
+
+The info event is emitted when binding or when the device information changed.
+
+```
+   Struct(
+      Int: id
+      Long: change_mask
+      Struct( 
+         Int: n_items
+	 ( String: key
+	   String: value )*
+      ): props
+      Struct( 
+         Int: n_params
+	 ( Int: id
+	   Int: flags )* 
+      ): param_info
+   )
+```
+
+id: the param id to set.
+change_mask: a bitmask of changed fields
+props: extra properties, valid when change_mask is (1<<0)
+param_info: info about the parameters, valid when change_mask is (1<<1)
+            For each parameter, the id and current flags are given.
+param_info.id : see enum spa_param_type
+param_info.flags: struct spa_param_info.flags
+
+### Param (Opcode 1)
+
+Emitted as a result of EnumParams or SubscribeParams.
+
+```
+   Struct(
+      Int: seq
+      Id: id
+      Int: index
+      Int: next
+      Pod: param
+   )
+```
+seq: the sequence number send by the client EnumParams or server generated
+     in the SubscribeParams case.
+id: the param id that is reported, see enum spa_param_type 
+index: the index of the parameter
+next: the index of the next parameter
+param: the parameter. The object type depends on the id
+
+
+# PipeWire:Interface:Factory
+
+A factory is an object that allows one to create new objects.
+
+## Factory methods
+
+A factory has no methods
+
+## Factory events
+
+### Info (Opcode 0)
+
+Info is emitted when binding to the factory global or when the information changed.
+
+```
+   Struct(
+      Int: id
+      String: name
+      String: type
+      Int: version
+      Long: change_mask
+      Struct( 
+         Int: n_items
+	 ( String: key
+	   String: value )*
+      ): props
+   )
+```
+id: the global id of the factory
+name: the name of the factory. This can be used as the name for Core::CreateObject
+type: the object type produced by this factory
+version: the version of the object interface
+change_mask: bitfield of changed values.
+props: optional properties of the factory, valid when change_mask is (1<<0)
+
+
+# PipeWire:Interface:Link
+
+A link is a connection between 2 ports.
+
+## Link methods
+
+A link has no methods
+
+## Link events
+
+### Info (Opcode 0)
+
+Info is emitted when binding to the link global or when the information changed.
+
+```
+   Struct(
+      Int: id
+      Int: output_node_id
+      Int: output_port_id
+      Int: input_node_id
+      Int: input_port_id
+      Long: change_mask
+      Int: state
+      String: error
+      Pod: format
+      Struct( 
+         Int: n_items
+	 ( String: key
+	   String: value )*
+      ): props
+   )
+```
+
+id: the global id of the link
+output_node_id: the global id of the output node
+output_port_id: the global id of the output port
+input_node_id: the global id of the input node
+input_port_id: the global id of the input port
+change_mask: bitfield of changed values.
+state: the state of the link, valid when change_mask has (1<<0)
+       - see enum pw_link_state for values
+error: an optional error string
+format: an optional format for the link, valid when change_mask has (1<<1)
+props: optional properties of the link, valid when change_mask is (1<<2)
+
+
+# PipeWire:Interface:Module
+
+A Module provides dynamically loaded functionality
+
+## Module methods
+
+A module has no methods
+
+## Module events
+
+### Info (Opcode 0)
+
+Info is emitted when binding to the module global or when the information changed.
+
+```
+   Struct(
+      Int: id
+      String: name
+      String: filename
+      String: args
+      Long: change_mask
+      Struct( 
+         Int: n_items
+	 ( String: key
+	   String: value )*
+      ): props
+   )
+```
+
+id: the global id of the module
+name: the name of the module
+filename: the filename of the module
+args: arguments passed when loading the module
+change_mask: bitfield of changed values.
+props: optional properties of the module, valid when change_mask has (1<<0)
+
+
+# PipeWire:Interface:Node
+
+A Node is a processing element in the graph
+
+## Node methods
+
+### SubscribeParams (Opcode 1)
+### EnumParams (Opcode 2)
+### SetParam (Opcode 3)
+### SendCommand (Opcode 4)
+
+## Node events
+
+### Info (Opcode 0)
+### Param (Opcode 1)
+
+
+# PipeWire:Interface:Port
+
+A port is part of a node and allows links with other ports.
+
+## Port methods
+
+### SubscribeParams (Opcode 1)
+### EnumParams (Opcode 2)
+
+## Port events
+
+### Info (Opcode 0)
+### Param (Opcode 1)
+
+
+
 
 */

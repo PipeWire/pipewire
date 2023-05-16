@@ -554,9 +554,10 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 			"a=rtpmap:%i %s/%u\n",
 				sdp->payload, sdp->mime_type, sdp->rate);
 	}
-	if (sdp->ptime != 0)
+
+	if (sdp->ptime > 0)
 		spa_strbuf_append(&buf,
-			"a=ptime:%f\n", sdp->ptime);
+			"a=ptime:%.6g\n", sdp->ptime);
 
 	if (sdp->ts_refclk != NULL) {
 		spa_strbuf_append(&buf,
@@ -671,6 +672,10 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 	}
 	sdp->ttl = pw_properties_get_int32(props, "rtp.ttl", DEFAULT_TTL);
 	sdp->payload = pw_properties_get_int32(props, "rtp.payload", 127);
+
+	if ((str = pw_properties_get(props, "rtp.ptime")) != NULL)
+		if (!spa_atof(str, &sdp->ptime))
+			sdp->ptime = 0.0;
 
 	if ((str = pw_properties_get(props, "rtp.media")) != NULL)
 		sdp->media_type = strdup(str);

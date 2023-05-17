@@ -9,6 +9,7 @@
 #ifdef HAVE_SNDFILE
 #include <sndfile.h>
 #endif
+#include <unistd.h>
 
 #include <spa/utils/json.h>
 #include <spa/utils/result.h>

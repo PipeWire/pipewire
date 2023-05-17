@@ -1088,6 +1088,7 @@ struct pw_stream {
 						  *  CONFIGURE state and higher */
 	enum pw_stream_state state;		/**< stream state */
 	char *error;				/**< error reason when state is in error */
+	int error_res;				/**< error code when in error */
 
 	struct spa_hook_list listener_list;
 
@@ -1125,6 +1126,7 @@ struct pw_filter {
 						  *  CONFIGURE state and higher */
 	enum pw_filter_state state;		/**< filter state */
 	char *error;				/**< error reason when state is in error */
+	int error_res;				/**< error code when in error */
 
 	struct spa_hook_list listener_list;
 

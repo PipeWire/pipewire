@@ -352,26 +352,28 @@ static inline void clear_queue(struct stream *stream, struct queue *queue)
 	queue->incount = queue->outcount;
 }
 
-static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state state, const char *error)
+static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state state,
+		int res, const char *error)
 {
 	enum pw_stream_state old = stream->state;
-	bool res = old != state;
+	bool changed = old != state;
 
 	if (res) {
 		free(stream->error);
 		stream->error = error ? strdup(error) : NULL;
+		stream->error_res = res;
 
-		pw_log_debug("%p: update state from %s -> %s (%s)", stream,
+		pw_log_debug("%p: update state from %s -> %s (%d) %s", stream,
 			     pw_stream_state_as_string(old),
-			     pw_stream_state_as_string(state), stream->error);
+			     pw_stream_state_as_string(state), res, stream->error);
 
 		if (state == PW_STREAM_STATE_ERROR)
-			pw_log_error("%p: error %s", stream, error);
+			pw_log_error("%p: error (%d) %s", stream, res, error);
 
 		stream->state = state;
 		pw_stream_emit_state_changed(stream, old, state, error);
 	}
-	return res;
+	return changed;
 }
 
 static struct buffer *get_buffer(struct pw_stream *stream, uint32_t id)
@@ -613,7 +615,7 @@ static int impl_send_command(void *object, const struct spa_command *command)
 		if (stream->state == PW_STREAM_STATE_STREAMING) {
 
 			pw_log_debug("%p: pause", stream);
-			stream_set_state(stream, PW_STREAM_STATE_PAUSED, NULL);
+			stream_set_state(stream, PW_STREAM_STATE_PAUSED, 0, NULL);
 		}
 		break;
 	case SPA_NODE_COMMAND_Start:
@@ -629,7 +631,7 @@ static int impl_send_command(void *object, const struct spa_command *command)
 				call_process(impl);
 			}
 
-			stream_set_state(stream, PW_STREAM_STATE_STREAMING, NULL);
+			stream_set_state(stream, PW_STREAM_STATE_STREAMING, 0, NULL);
 		}
 		break;
 	default:
@@ -884,7 +886,7 @@ static int impl_port_set_param(void *object,
 	pw_stream_emit_param_changed(stream, id, param);
 
 	if (stream->state == PW_STREAM_STATE_ERROR)
-		return -EIO;
+		return stream->error_res;
 
 	emit_node_info(impl, false);
 	emit_port_info(impl, false);
@@ -1120,7 +1122,7 @@ static void proxy_removed(void *_data)
 	pw_log_debug("%p: removed", stream);
 	spa_hook_remove(&stream->proxy_listener);
 	stream->node_id = SPA_ID_INVALID;
-	stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, NULL);
+	stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, 0, NULL);
 }
 
 static void proxy_destroy(void *_data)
@@ -1146,7 +1148,7 @@ static void proxy_bound_props(void *data, uint32_t global_id, const struct spa_d
 	stream->node_id = global_id;
 	if (props)
 		pw_properties_update(stream->properties, props);
-	stream_set_state(stream, PW_STREAM_STATE_PAUSED, NULL);
+	stream_set_state(stream, PW_STREAM_STATE_PAUSED, 0, NULL);
 }
 
 static const struct pw_proxy_events proxy_events = {
@@ -1382,7 +1384,7 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE && res == -EPIPE) {
-		stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, message);
+		stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, res, message);
 	}
 }
 
@@ -1943,7 +1945,7 @@ pw_stream_connect(struct pw_stream *stream,
 	impl->driving = false;
 	impl->trigger = false;
 	impl->using_trigger = false;
-	stream_set_state(stream, PW_STREAM_STATE_CONNECTING, NULL);
+	stream_set_state(stream, PW_STREAM_STATE_CONNECTING, 0, NULL);
 
 	if ((str = getenv("PIPEWIRE_NODE")) != NULL)
 		pw_properties_set(stream->properties, PW_KEY_TARGET_OBJECT, str);
@@ -2114,7 +2116,7 @@ int pw_stream_set_error(struct pw_stream *stream,
 
 		if (stream->proxy)
 			pw_proxy_error(stream->proxy, res, value);
-		stream_set_state(stream, PW_STREAM_STATE_ERROR, value);
+		stream_set_state(stream, PW_STREAM_STATE_ERROR, res, value);
 
 		free(value);
 	}

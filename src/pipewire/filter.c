@@ -357,26 +357,28 @@ static inline void clear_queue(struct port *port, struct queue *queue)
 	spa_ringbuffer_init(&queue->ring);
 }
 
-static bool filter_set_state(struct pw_filter *filter, enum pw_filter_state state, const char *error)
+static bool filter_set_state(struct pw_filter *filter, enum pw_filter_state state,
+		int res, const char *error)
 {
 	enum pw_filter_state old = filter->state;
-	bool res = old != state;
+	bool changed = old != state;
 
 	if (res) {
 		free(filter->error);
 		filter->error = error ? strdup(error) : NULL;
+		filter->error_res = res;
 
-		pw_log_debug("%p: update state from %s -> %s (%s)", filter,
+		pw_log_debug("%p: update state from %s -> %s: (%d) %s", filter,
 			     pw_filter_state_as_string(old),
-			     pw_filter_state_as_string(state), filter->error);
+			     pw_filter_state_as_string(state), res, error);
 
 		if (state == PW_FILTER_STATE_ERROR)
-			pw_log_error("%p: error %s", filter, error);
+			pw_log_error("%p: error (%d) %s", filter, res, error);
 
 		filter->state = state;
 		pw_filter_emit_state_changed(filter, old, state, error);
 	}
-	return res;
+	return changed;
 }
 
 static int enum_params(struct filter *d, struct spa_list *param_list, int seq,
@@ -490,13 +492,13 @@ static int impl_send_command(void *object, const struct spa_command *command)
 			NULL, 0, NULL, 0, false, impl);
 		if (filter->state == PW_FILTER_STATE_STREAMING) {
 			pw_log_debug("%p: pause", filter);
-			filter_set_state(filter, PW_FILTER_STATE_PAUSED, NULL);
+			filter_set_state(filter, PW_FILTER_STATE_PAUSED, 0, NULL);
 		}
 		break;
 	case SPA_NODE_COMMAND_Start:
 		if (filter->state == PW_FILTER_STATE_PAUSED) {
 			pw_log_debug("%p: start", filter);
-			filter_set_state(filter, PW_FILTER_STATE_STREAMING, NULL);
+			filter_set_state(filter, PW_FILTER_STATE_STREAMING, 0, NULL);
 		}
 		break;
 	default:
@@ -849,7 +851,7 @@ static int impl_port_set_param(void *object,
 		pw_filter_emit_param_changed(filter, port->user_data, id, param);
 
 	if (filter->state == PW_FILTER_STATE_ERROR)
-		return -EIO;
+		return filter->error_res;
 
 	emit_port_info(impl, port, false);
 
@@ -1094,7 +1096,7 @@ static void proxy_removed(void *_data)
 	pw_log_debug("%p: removed", filter);
 	spa_hook_remove(&filter->proxy_listener);
 	filter->node_id = SPA_ID_INVALID;
-	filter_set_state(filter, PW_FILTER_STATE_UNCONNECTED, NULL);
+	filter_set_state(filter, PW_FILTER_STATE_UNCONNECTED, 0, NULL);
 }
 
 static void proxy_destroy(void *_data)
@@ -1120,7 +1122,7 @@ static void proxy_bound_props(void *_data, uint32_t global_id, const struct spa_
 	filter->node_id = global_id;
 	if (props)
 		pw_properties_update(filter->properties, props);
-	filter_set_state(filter, PW_FILTER_STATE_PAUSED, NULL);
+	filter_set_state(filter, PW_FILTER_STATE_PAUSED, 0, NULL);
 }
 
 static const struct pw_proxy_events proxy_events = {
@@ -1139,7 +1141,7 @@ static void on_core_error(void *_data, uint32_t id, int seq, int res, const char
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE && res == -EPIPE) {
-		filter_set_state(filter, PW_FILTER_STATE_UNCONNECTED, message);
+		filter_set_state(filter, PW_FILTER_STATE_UNCONNECTED, res, message);
 	}
 }
 
@@ -1587,7 +1589,7 @@ pw_filter_connect(struct pw_filter *filter,
 	impl->disconnecting = false;
 	impl->draining = false;
 	impl->driving = false;
-	filter_set_state(filter, PW_FILTER_STATE_CONNECTING, NULL);
+	filter_set_state(filter, PW_FILTER_STATE_CONNECTING, 0, NULL);
 
 	if (flags & PW_FILTER_FLAG_DRIVER)
 		pw_properties_set(filter->properties, PW_KEY_NODE_DRIVER, "true");
@@ -1840,7 +1842,7 @@ int pw_filter_set_error(struct pw_filter *filter,
 
 		if (filter->proxy)
 			pw_proxy_error(filter->proxy, res, value);
-		filter_set_state(filter, PW_FILTER_STATE_ERROR, value);
+		filter_set_state(filter, PW_FILTER_STATE_ERROR, res, value);
 
 		free(value);
 	}

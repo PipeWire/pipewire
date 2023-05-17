@@ -4906,10 +4906,28 @@ static void unregister_media_application(struct spa_bt_monitor * monitor)
 	dbus_connection_unregister_object_path(monitor->conn, A2DP_OBJECT_MANAGER_PATH);
 }
 
+static bool have_codec_endpoints(struct spa_bt_monitor *monitor, bool bap)
+{
+	const struct media_codec * const * const media_codecs = monitor->media_codecs;
+	int i;
+
+	for (i = 0; media_codecs[i]; i++) {
+		const struct media_codec *codec = media_codecs[i];
+
+		if (codec->bap != bap)
+			continue;
+		if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SINK) ||
+				endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE))
+			return true;
+	}
+	return false;
+}
+
 static int adapter_register_application(struct spa_bt_adapter *a, bool bap)
 {
 	const char *object_manager_path = bap ? BAP_OBJECT_MANAGER_PATH : A2DP_OBJECT_MANAGER_PATH;
 	struct spa_bt_monitor *monitor = a->monitor;
+	const char *ep_type_name = (bap ? "LE Audio" : "A2DP");
 	DBusMessage *m;
 	DBusMessageIter i, d;
 	DBusPendingCall *call;
@@ -4925,8 +4943,14 @@ static int adapter_register_application(struct spa_bt_adapter *a, bool bap)
 		return -ENOTSUP;
 	}
 
+	if (!have_codec_endpoints(monitor, bap)) {
+		spa_log_warn(monitor->log, "No available %s codecs to register on adapter %s",
+				ep_type_name, a->path);
+		return -ENOENT;
+	}
+
 	spa_log_debug(monitor->log, "Registering bluez5 %s media application on adapter %s",
-			(bap ? "LE Audio" : "A2DP"), a->path);
+			ep_type_name, a->path);
 
 	m = dbus_message_new_method_call(BLUEZ_SERVICE,
 	                                 a->path,

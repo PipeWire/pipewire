@@ -363,7 +363,7 @@ static bool filter_set_state(struct pw_filter *filter, enum pw_filter_state stat
 	enum pw_filter_state old = filter->state;
 	bool changed = old != state;
 
-	if (res) {
+	if (changed) {
 		free(filter->error);
 		filter->error = error ? strdup(error) : NULL;
 		filter->error_res = res;

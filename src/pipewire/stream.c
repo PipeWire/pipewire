@@ -358,7 +358,7 @@ static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state stat
 	enum pw_stream_state old = stream->state;
 	bool changed = old != state;
 
-	if (res) {
+	if (changed) {
 		free(stream->error);
 		stream->error = error ? strdup(error) : NULL;
 		stream->error_res = res;

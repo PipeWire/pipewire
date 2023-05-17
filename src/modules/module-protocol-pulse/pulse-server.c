@@ -5565,7 +5565,11 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 			&context_events, impl);
 
 #ifdef HAVE_DBUS
-	impl->dbus_name = dbus_request_name(context, "org.pulseaudio.Server");
+	str = pw_properties_get(props, "server.dbus-name");
+	if (str == NULL)
+		str = "org.pulseaudio.Server";
+	if (strlen(str) > 0)
+		impl->dbus_name = dbus_request_name(context, str);
 #endif
 	cmd_run(impl);
 

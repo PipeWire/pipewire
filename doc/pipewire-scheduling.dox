@@ -17,7 +17,7 @@ Each node also has:
 - an activation record that lives in shared memory with memfd.
 
 ```
-   evenfd  
+   eventfd
   +-^---------+
   |           |
  in          out
@@ -42,7 +42,7 @@ The activation record has the following information:
  - Information about repositions (seek) and timebase owners.
 
 
-# links.
+# Links
 
 When two nodes are linked together, the output node becomes a dependency for the input
 node. This means the input node can only start processing when the output node is finished.
@@ -57,7 +57,7 @@ are ready to schedule (runnable).
 
 
 ```
-   evenfd                                 eventfd
+   eventfd                                eventfd
   +-^---------+                          +-^---------+
   |           |        link              |           |
  in     A    out ---------------------> in     B    out
@@ -92,7 +92,7 @@ and increments the required field.
 
 
 ```
-   evenfd                                 eventfd
+   eventfd                                eventfd
   +-^---------+                          +-^---------+
   |           |        link              |           |
  in     A    out ---------------------> in     B    out
@@ -108,11 +108,11 @@ and increments the required field.
       |    |                       /   /
       |    |                      /   /
       |    |                     /   /
-      |    |                    /   / 
+      |    |                    /   /
       v    |     /-------------/   /
     activation {                  /
       status:OK, V---------------/
-      pending:0, 
+      pending:0,
       required:2
     }
   +-^---------+
@@ -137,13 +137,13 @@ will then:
    times, cpu usage etc.
  - Perform reposition requests if any, timebase changes, etc..
  - The pending counter of each follower node is set to the required field.
- - it then loops over all targets of the driver and atomically decrements the required
+ - It then loops over all targets of the driver and atomically decrements the required
    field of the activation record. When the required field is 0, the eventfd is signaled
    and the node can be scheduled.
 
-In our example above, Node A and be will have their pending state decremented. Node A
+In our example above, Node A and B will have their pending state decremented. Node A
 will be 0 and will be triggered first (node B has 2 pending dependencies to start with and
-will not be triggered yet). The driver itself also has 2 dependcies left and will not
+will not be triggered yet). The driver itself also has 2 dependencies left and will not
 be triggered (complete) yet.
 
 ## Scheduling node A
@@ -175,7 +175,7 @@ For remote nodes, the eventfd and the activation is transfered from the server
 to the client.
 
 This means that writing to the remote client eventfd will wake the client directly
-without going to the server first. 
+without going to the server first.
 
 All remote clients also get the activation and eventfd of the peer and driver they
 are linked to and can directly trigger peers and drivers without going to the

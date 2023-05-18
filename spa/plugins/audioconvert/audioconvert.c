@@ -2227,7 +2227,7 @@ impl_node_port_set_param(void *object,
 	}
 }
 
-static void queue_buffer(struct impl *this, struct port *port, uint32_t id)
+static inline void queue_buffer(struct impl *this, struct port *port, uint32_t id)
 {
 	struct buffer *b = &port->buffers[id];
 
@@ -2240,7 +2240,7 @@ static void queue_buffer(struct impl *this, struct port *port, uint32_t id)
 	SPA_FLAG_SET(b->flags, BUFFER_FLAG_QUEUED);
 }
 
-static struct buffer *peek_buffer(struct impl *this, struct port *port)
+static inline struct buffer *peek_buffer(struct impl *this, struct port *port)
 {
 	struct buffer *b;
 
@@ -2256,7 +2256,7 @@ static struct buffer *peek_buffer(struct impl *this, struct port *port)
 	return b;
 }
 
-static void dequeue_buffer(struct impl *this, struct port *port, struct buffer *b)
+static inline void dequeue_buffer(struct impl *this, struct port *port, struct buffer *b)
 {
 	spa_list_remove(&b->link);
 	SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_QUEUED);
@@ -2491,7 +2491,7 @@ static int channelmix_process_apply_sequence(struct impl *this,
 	return end ? 1 : 0;
 }
 
-static uint32_t resample_get_in_size(struct impl *this, bool passthrough, uint32_t out_size)
+static inline uint32_t resample_get_in_size(struct impl *this, bool passthrough, uint32_t out_size)
 {
 	uint32_t match_size = passthrough ? out_size : resample_in_len(&this->resample, out_size);
 	spa_log_trace_fp(this->log, "%p: current match %u", this, match_size);

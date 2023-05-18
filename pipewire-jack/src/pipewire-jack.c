@@ -1027,8 +1027,6 @@ static int queue_notify(struct client *c, int type, struct object *o, int arg1, 
 	struct notify *notify;
 	bool emit = false;;
 
-	if ((type & NOTIFY_ACTIVE_FLAG) && !c->active)
-		return 0;
 	switch (type) {
 	case NOTIFY_TYPE_REGISTRATION:
 		emit = c->registration_callback != NULL && o != NULL;
@@ -1060,8 +1058,18 @@ static int queue_notify(struct client *c, int type, struct object *o, int arg1, 
 	default:
 		break;
 	}
+	if ((type & NOTIFY_ACTIVE_FLAG) && !c->active)
+		emit = false;
 	if (!emit) {
-		pw_log_debug("%p: skip notify %d", c, type);
+		switch (type) {
+		case NOTIFY_TYPE_BUFFER_FRAMES:
+			c->buffer_frames = arg1;
+			break;
+		case NOTIFY_TYPE_SAMPLE_RATE:
+			c->sample_rate = arg1;
+			break;
+		}
+		pw_log_debug("%p: skip notify %08x active:%d", c, type, c->active);
 		if (o != NULL && arg1 == 0 && o->removing) {
 			o->removing = false;
 			free_object(c, o);

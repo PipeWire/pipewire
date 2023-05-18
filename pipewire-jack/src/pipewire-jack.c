@@ -1597,11 +1597,10 @@ static inline int check_sample_rate(struct client *c, struct spa_io_position *po
 	if (SPA_UNLIKELY(sample_rate != c->sample_rate)) {
 		pw_log_info("%p: sample_rate old:%d new:%d cb:%p", c,
 				c->sample_rate, sample_rate, c->srate_callback);
-		if (c->srate_callback != NULL) {
+		if (c->sample_rate != (uint32_t)-1)
 			queue_notify(c, NOTIFY_TYPE_SAMPLE_RATE, NULL, sample_rate, NULL);
-		} else {
+		else
 			c->sample_rate = sample_rate;
-		}
 	}
 	return c->sample_rate == sample_rate;
 }
@@ -4539,6 +4538,7 @@ jack_nframes_t jack_get_sample_rate (jack_client_t *client)
 				res = c->position->clock.rate.denom;
 		}
 	}
+	c->sample_rate = res;
 	pw_log_debug("sample_rate: %u", res);
 	return res;
 }

@@ -259,6 +259,8 @@ static int client_node_transport(void *_data,
 	}
 
 	node->rt.activation = data->activation->ptr;
+	node->rt.position = &node->rt.activation->position;
+	node->info.id = node->rt.activation->position.clock.id;
 
 	pw_log_debug("remote-node %p: fds:%d %d node:%u activation:%p",
 		proxy, readfd, writefd, data->remote_id, data->activation->ptr);

@@ -1194,15 +1194,13 @@ static inline int process_node(void *data)
 
 	nsec = get_time_ns(data_system);
 
-	pw_log_trace_fp("%p: finished %"PRIu64, this, nsec);
+	pw_log_trace_fp("%p: finished status:%d %"PRIu64, this, status, nsec);
 	a->status = PW_NODE_ACTIVATION_FINISHED;
 	a->finish_time = nsec;
 
 	/* we don't need to trigger targets when the node was driving the
-	 * graph because that means we finished the graph. Also don't schedule
-	 * peers when the node returns OK, because that means the resume will
-	 * happen asynchronously later (unimplemented though). */
-	if (SPA_LIKELY(!this->driving && status != SPA_STATUS_OK))
+	 * graph because that means we finished the graph. */
+	if (SPA_LIKELY(!this->driving))
 		trigger_targets(this, status, nsec);
 
 	if (SPA_UNLIKELY(status & SPA_STATUS_DRAINED))

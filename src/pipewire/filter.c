@@ -2042,7 +2042,7 @@ int pw_filter_trigger_process(struct pw_filter *filter)
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
 	int res = 0;
 
-	pw_log_trace_fp("%p", impl);
+	pw_log_trace_fp("%p: driving:%d", impl, impl->driving);
 
 	if (!impl->driving) {
 		res = pw_loop_invoke(impl->main_loop,

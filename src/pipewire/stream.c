@@ -2471,7 +2471,7 @@ int pw_stream_trigger_process(struct pw_stream *stream)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int res = 0;
 
-	pw_log_trace_fp("%p", impl);
+	pw_log_trace_fp("%p: trigger:%d driving:%d", impl, impl->trigger, impl->driving);
 
 	/* flag to check for old or new behaviour */
 	impl->using_trigger = true;

@@ -87,6 +87,7 @@ struct impl {
 	unsigned int add_listener:1;
 	unsigned int have_format:1;
 	unsigned int started:1;
+	unsigned int warned:1;
 	unsigned int ready:1;
 	unsigned int driver:1;
 	unsigned int async:1;
@@ -844,15 +845,18 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		if ((res = negotiate_buffers(this)) < 0)
 			return res;
 		this->ready = true;
+		this->warned = false;
 		break;
 	case SPA_NODE_COMMAND_Suspend:
 		this->started = false;
 		this->ready = false;
+		this->warned = false;
 		spa_log_debug(this->log, "%p: suspending", this);
 		break;
 	case SPA_NODE_COMMAND_Pause:
 		this->started = false;
 		this->ready = false;
+		this->warned = false;
 		spa_log_debug(this->log, "%p: pausing", this);
 		break;
 	case SPA_NODE_COMMAND_Flush:
@@ -1470,7 +1474,9 @@ static int impl_node_process(void *object)
 	int status = 0, fstatus, retry = 8;
 
 	if (!this->started) {
-		spa_log_warn(this->log, "%p: scheduling stopped node", this);
+		if (!this->warned)
+			spa_log_warn(this->log, "%p: scheduling stopped node", this);
+		this->warned = true;
 		return -EIO;
 	}
 

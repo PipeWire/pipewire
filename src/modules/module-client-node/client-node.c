@@ -1197,6 +1197,56 @@ static void client_node_resource_pong(void *data, int seq)
 	spa_node_emit_result(&impl->hooks, seq, 0, 0, NULL);
 }
 
+static void node_peer_added(void *data, struct pw_impl_node *peer)
+{
+	struct impl *impl = data;
+	struct pw_memblock *m;
+
+	m = pw_mempool_import_block(impl->client->pool, peer->activation);
+	if (m == NULL) {
+		pw_log_debug("%p: can't ensure mem: %m", impl);
+		return;
+	}
+	pw_log_debug("%p: peer %p id:%u added mem_id:%u", &impl->this, peer,
+			peer->info.id, m->id);
+
+	if (impl->resource == NULL)
+		return;
+
+	pw_client_node_resource_set_activation(impl->resource,
+					  peer->info.id,
+					  peer->source.fd,
+					  m->id,
+					  0,
+					  sizeof(struct pw_node_activation));
+}
+
+static void node_peer_removed(void *data, struct pw_impl_node *peer)
+{
+	struct impl *impl = data;
+	struct pw_memblock *m;
+
+	m = pw_mempool_find_fd(impl->client->pool, peer->activation->fd);
+	if (m == NULL) {
+		pw_log_warn("%p: unknown peer %p fd:%d", impl, peer,
+			peer->source.fd);
+		return;
+	}
+	pw_log_debug("%p: peer %p %u removed", impl, peer,
+			peer->info.id);
+
+	if (impl->resource != NULL) {
+		pw_client_node_resource_set_activation(impl->resource,
+					  peer->info.id,
+					  -1,
+					  SPA_ID_INVALID,
+					  0,
+					  0);
+	}
+
+	pw_memblock_unref(m);
+}
+
 void pw_impl_client_node_registered(struct pw_impl_client_node *this, struct pw_global *global)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
@@ -1224,6 +1274,8 @@ void pw_impl_client_node_registered(struct pw_impl_client_node *this, struct pw_
 					  impl->activation->id,
 					  0,
 					  sizeof(struct pw_node_activation));
+
+	node_peer_added(impl, node);
 
 	if (impl->bind_node_id) {
 		pw_global_bind(global, client, PW_PERM_ALL,
@@ -1542,62 +1594,6 @@ static void node_port_removed(void *data, struct pw_impl_port *port)
 
 	p->removed = true;
 	clear_port(impl, p);
-}
-
-static void node_peer_added(void *data, struct pw_impl_node *peer)
-{
-	struct impl *impl = data;
-	struct pw_memblock *m;
-
-	if (peer == impl->this.node)
-		return;
-
-	m = pw_mempool_import_block(impl->client->pool, peer->activation);
-	if (m == NULL) {
-		pw_log_debug("%p: can't ensure mem: %m", impl);
-		return;
-	}
-	pw_log_debug("%p: peer %p id:%u added mem_id:%u", &impl->this, peer,
-			peer->info.id, m->id);
-
-	if (impl->resource == NULL)
-		return;
-
-	pw_client_node_resource_set_activation(impl->resource,
-					  peer->info.id,
-					  peer->source.fd,
-					  m->id,
-					  0,
-					  sizeof(struct pw_node_activation));
-}
-
-static void node_peer_removed(void *data, struct pw_impl_node *peer)
-{
-	struct impl *impl = data;
-	struct pw_memblock *m;
-
-	if (peer == impl->this.node)
-		return;
-
-	m = pw_mempool_find_fd(impl->client->pool, peer->activation->fd);
-	if (m == NULL) {
-		pw_log_warn("%p: unknown peer %p fd:%d", impl, peer,
-			peer->source.fd);
-		return;
-	}
-	pw_log_debug("%p: peer %p %u removed", impl, peer,
-			peer->info.id);
-
-	if (impl->resource != NULL) {
-		pw_client_node_resource_set_activation(impl->resource,
-					  peer->info.id,
-					  -1,
-					  SPA_ID_INVALID,
-					  0,
-					  0);
-	}
-
-	pw_memblock_unref(m);
 }
 
 static void node_driver_changed(void *data, struct pw_impl_node *old, struct pw_impl_node *driver)

@@ -719,6 +719,8 @@ static void update_io(struct pw_impl_node *node)
 		node->target_rate = node->rt.position->clock.target_rate;
 		node->target_quantum = node->rt.position->clock.target_duration;
 		node->target_pending = false;
+
+		pw_impl_node_emit_peer_added(node, node);
 	} else if (node->driver) {
 		pw_log_warn("%p: can't set position on driver", node);
 	}
@@ -900,6 +902,9 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 		       true, impl);
 
 	pw_impl_node_emit_driver_changed(node, old, driver);
+
+	pw_impl_node_emit_peer_removed(old, node);
+	pw_impl_node_emit_peer_added(driver, node);
 
 	return 0;
 }

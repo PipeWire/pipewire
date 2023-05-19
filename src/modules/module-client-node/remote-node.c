@@ -880,13 +880,6 @@ client_node_set_activation(void *_data,
 	struct link *link;
 	int res = 0;
 
-	if (data->remote_id == node_id) {
-		pw_log_debug("node %p: our activation %u: %u %u %u", node, node_id,
-				memid, offset, size);
-		spa_system_close(data->data_system, signalfd);
-		return 0;
-	}
-
 	if (memid == SPA_ID_INVALID) {
 		mm = ptr = NULL;
 		size = 0;
@@ -899,7 +892,13 @@ client_node_set_activation(void *_data,
 		}
 		ptr = mm->ptr;
 	}
-	pw_log_debug("node %p: set activation %d %p %u %u", node, node_id, ptr, offset, size);
+	if (data->remote_id == node_id) {
+		pw_log_debug("node %p: our activation %u: %u %p %u %u", node, node_id,
+				memid, ptr, offset, size);
+	} else {
+		pw_log_debug("node %p: set activation %d %u %p %u %u", node, node_id,
+				memid, ptr, offset, size);
+	}
 
 	if (ptr) {
 		link = calloc(1, sizeof(struct link));
@@ -1171,61 +1170,6 @@ static inline uint64_t get_time_ns(struct spa_system *system)
 	spa_system_clock_gettime(system, CLOCK_MONOTONIC, &ts);
 	return SPA_TIMESPEC_TO_NSEC(&ts);
 }
-static int node_ready(void *d, int status)
-{
-	struct node_data *data = d;
-	struct pw_impl_node *node = data->node;
-	struct pw_node_activation *a = node->rt.activation;
-	struct spa_system *data_system = data->data_system;
-	struct pw_impl_port *p;
-
-	pw_log_trace_fp("node %p: ready driver:%d exported:%d status:%d", node,
-			node->driver, node->exported, status);
-
-	if (status & SPA_STATUS_HAVE_DATA) {
-		spa_list_for_each(p, &node->rt.output_mix, rt.node_link)
-			spa_node_process_fast(p->mix);
-	}
-
-	a->state[0].status = status;
-	a->signal_time = get_time_ns(data_system);
-
-	if (SPA_UNLIKELY(spa_system_eventfd_write(data_system, data->rtwritefd, 1) < 0))
-		pw_log_warn("node %p: write failed %m", node);
-
-	return 0;
-}
-
-static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
-{
-	return 0;
-}
-
-static int node_xrun(void *d, uint64_t trigger, uint64_t delay, struct spa_pod *info)
-{
-	struct node_data *data = d;
-	struct pw_impl_node *node = data->node;
-	struct pw_node_activation *a = node->rt.activation;
-
-	a->xrun_count++;
-	a->xrun_time = trigger;
-	a->xrun_delay = delay;
-	a->max_delay = SPA_MAX(a->max_delay, delay);
-
-	pw_log_debug("node %p: XRun! count:%u time:%"PRIu64" delay:%"PRIu64" max:%"PRIu64,
-			node, a->xrun_count, trigger, delay, a->max_delay);
-
-	pw_context_driver_emit_xrun(data->context, node);
-
-	return 0;
-}
-
-static const struct spa_node_callbacks node_callbacks = {
-	SPA_VERSION_NODE_CALLBACKS,
-	.ready = node_ready,
-	.reuse_buffer = node_reuse_buffer,
-	.xrun = node_xrun
-};
 
 static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_free,
 		size_t user_data_size)
@@ -1275,7 +1219,6 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 			&data->proxy_client_node_listener,
 			&proxy_client_node_events, data);
 
-	spa_node_set_callbacks(node->node, &node_callbacks, data);
 	pw_impl_node_add_listener(node, &data->node_listener, &node_events, data);
 
 	pw_client_node_add_listener(data->client_node,

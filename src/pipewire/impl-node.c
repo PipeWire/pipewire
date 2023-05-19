@@ -1738,16 +1738,14 @@ static int node_ready(void *data, int status)
 		uint32_t owner[2], reposition_owner;
 		uint64_t min_timeout = UINT64_MAX;
 
-		if (SPA_UNLIKELY(state->pending > 0)) {
+		if (SPA_UNLIKELY(a->status != PW_NODE_ACTIVATION_FINISHED)) {
 			pw_context_driver_emit_incomplete(node->context, node);
-			if (ratelimit_test(&node->rt.rate_limit, a->signal_time, SPA_LOG_LEVEL_DEBUG)) {
-				pw_log_debug("(%s-%u) graph not finished: state:%p quantum:%"PRIu64
-						" pending %d/%d", node->name, node->info.id,
-						state, a->position.clock.duration,
-						state->pending, state->required);
+			pw_log_debug("(%s-%u) graph not finished: state:%p quantum:%"PRIu64
+					" pending %d/%d", node->name, node->info.id,
+					state, a->position.clock.duration,
+					state->pending, state->required);
+			if (ratelimit_test(&node->rt.rate_limit, a->signal_time, SPA_LOG_LEVEL_DEBUG))
 				dump_states(node);
-			}
-			node_trigger(node);
 		} else {
 			uint64_t signal_time = a->signal_time;
 			/* old nodes set the TRIGGERED status on node_ready, patch this

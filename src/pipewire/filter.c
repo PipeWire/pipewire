@@ -1000,6 +1000,7 @@ static int impl_node_process(void *object)
 	struct port *p;
 	struct buffer *b;
 	bool drained = true;
+	int res = 0;
 
 	pw_log_trace_fp("%p: do process %p", impl, impl->rt.position);
 
@@ -1041,6 +1042,7 @@ static int impl_node_process(void *object)
 			continue;
 
 		if (p->direction == SPA_DIRECTION_INPUT) {
+			res |= SPA_STATUS_NEED_DATA;
 			if (SPA_UNLIKELY(io->status != SPA_STATUS_HAVE_DATA))
 				continue;
 
@@ -1053,17 +1055,21 @@ static int impl_node_process(void *object)
 			}
 			io->status = SPA_STATUS_NEED_DATA;
 		} else {
-			if (SPA_UNLIKELY(io->status == SPA_STATUS_HAVE_DATA))
+			if (SPA_UNLIKELY(io->status == SPA_STATUS_HAVE_DATA)) {
+				res |= SPA_STATUS_HAVE_DATA;
 				continue;
+			}
 
 			if ((b = pop_queue(p, &p->queued)) != NULL) {
 				pw_log_trace_fp("%p: pop %d %p", impl, b->id, io);
 				io->buffer_id = b->id;
 				io->status = SPA_STATUS_HAVE_DATA;
+				res |= SPA_STATUS_HAVE_DATA;
 				drained = false;
 			} else {
 				io->buffer_id = SPA_ID_INVALID;
 				io->status = SPA_STATUS_NEED_DATA;
+				res |= SPA_STATUS_NEED_DATA;
 			}
 		}
 	}
@@ -1071,7 +1077,7 @@ static int impl_node_process(void *object)
 	if (SPA_UNLIKELY(drained && impl->draining))
 		call_drained(impl);
 
-	return SPA_STATUS_NEED_DATA | SPA_STATUS_HAVE_DATA;
+	return res;
 }
 
 static const struct spa_node_methods impl_node = {

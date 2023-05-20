@@ -137,6 +137,27 @@ do_handle_info(struct spa_loop *loop,
 	return 0;
 }
 
+static bool schema_exists(const char *schema_id)
+{
+	GSettingsSchemaSource *source;
+	GSettingsSchema *schema;
+
+	source = g_settings_schema_source_get_default();
+	if (!source) {
+		pw_log_error("gsettings schema source not found");
+		return false;
+	}
+
+	schema = g_settings_schema_source_lookup(source, schema_id, TRUE);
+	if (!schema) {
+		pw_log_error("required gsettings schema %s does not exist", schema_id);
+		return false;
+	}
+
+	g_settings_schema_unref(schema);
+	return true;
+}
+
 static void handle_module_group(struct module_gsettings_data *d, gchar *name)
 {
 	struct impl *impl = d->module->impl;
@@ -146,6 +167,9 @@ static void handle_module_group(struct module_gsettings_data *d, gchar *name)
 	int i;
 
 	snprintf(p, sizeof(p), PA_GSETTINGS_MODULE_GROUPS_PATH"%s/", name);
+
+	if (!schema_exists(PA_GSETTINGS_MODULE_GROUP_SCHEMA))
+		return;
 
 	settings = g_settings_new_with_path(PA_GSETTINGS_MODULE_GROUP_SCHEMA, p);
 	if (settings == NULL)
@@ -198,12 +222,20 @@ static int module_gsettings_load(struct module *module)
 	struct module_gsettings_data *data = module->user_data;
 	gchar **name;
 
+	/* Check the required schema files are installed. If not, Glib will
+	 * abort in g_settings_new */
+	if (!schema_exists(PA_GSETTINGS_MODULE_GROUPS_SCHEMA) ||
+			!schema_exists(PA_GSETTINGS_MODULE_GROUP_SCHEMA))
+		return -EIO;
+
 	data->context = g_main_context_new();
 	g_main_context_push_thread_default(data->context);
 
 	data->settings = g_settings_new(PA_GSETTINGS_MODULE_GROUPS_SCHEMA);
-	if (data->settings == NULL)
+	if (data->settings == NULL) {
+		g_main_context_pop_thread_default(data->context);
 		return -EIO;
+	}
 
 	data->group_names = g_settings_list_children(data->settings);
 
@@ -238,15 +270,19 @@ static int module_gsettings_unload(struct module *module)
 	struct module_gsettings_data *d = module->user_data;
 	struct group *g;
 
-	g_main_context_invoke(d->context, do_stop, d);
-	pw_thread_utils_join(d->thr, NULL);
-	g_main_context_unref(d->context);
+	if (d->context) {
+		g_main_context_invoke(d->context, do_stop, d);
+		if (d->thr)
+			pw_thread_utils_join(d->thr, NULL);
+		g_main_context_unref(d->context);
+	}
 
 	spa_list_consume(g, &d->groups, link)
 		unload_module(d, g);
 
 	g_strfreev(d->group_names);
-	g_object_unref(G_OBJECT(d->settings));
+	if (d->settings)
+		g_object_unref(G_OBJECT(d->settings));
 	return 0;
 }
 

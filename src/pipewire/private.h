@@ -423,6 +423,13 @@ struct pw_context_driver_events {
 	void (*complete) (void *data, struct pw_impl_node *node);
 };
 
+void pw_context_driver_add_listener(struct pw_context *context,
+			  struct spa_hook *listener,
+			  const struct pw_context_driver_events *events,
+			  void *data);
+void pw_context_driver_remove_listener(struct pw_context *context,
+			  struct spa_hook *listener);
+
 #define pw_registry_resource(r,m,v,...) pw_resource_call(r, struct pw_registry_events,m,v,##__VA_ARGS__)
 #define pw_registry_resource_global(r,...)        pw_registry_resource(r,global,0,__VA_ARGS__)
 #define pw_registry_resource_global_remove(r,...) pw_registry_resource(r,global_remove,0,__VA_ARGS__)

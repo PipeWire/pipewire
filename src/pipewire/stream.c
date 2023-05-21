@@ -1515,7 +1515,7 @@ stream_new(struct pw_context *context, const char *name,
 	impl->allow_mlock = context->settings.mem_allow_mlock;
 	impl->warn_mlock = context->settings.mem_warn_mlock;
 
-	spa_hook_list_append(&impl->context->driver_listener_list,
+	pw_context_driver_add_listener(impl->context,
 			&impl->context_listener,
 			&context_events, impl);
 	return impl;
@@ -1683,7 +1683,8 @@ void pw_stream_destroy(struct pw_stream *stream)
 	spa_hook_list_clean(&impl->hooks);
 	spa_hook_list_clean(&stream->listener_list);
 
-	spa_hook_remove(&impl->context_listener);
+	pw_context_driver_remove_listener(impl->context,
+			&impl->context_listener);
 
 	if (impl->data.context)
 		pw_context_destroy(impl->data.context);

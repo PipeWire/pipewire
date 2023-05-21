@@ -275,19 +275,11 @@ static const struct pw_context_driver_events context_events = {
 	.complete = context_do_profile,
 };
 
-static int do_stop(struct spa_loop *loop,
-		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct impl *impl = user_data;
-	spa_hook_remove(&impl->context_listener);
-	return 0;
-}
-
 static void stop_listener(struct impl *impl)
 {
 	if (impl->listening) {
-		pw_loop_invoke(impl->data_loop,
-                       do_stop, SPA_ID_INVALID, NULL, 0, true, impl);
+		pw_context_driver_remove_listener(impl->context,
+			&impl->context_listener);
 		impl->listening = false;
 	}
 }
@@ -306,16 +298,6 @@ static const struct pw_resource_events resource_events = {
 	.destroy = resource_destroy,
 };
 
-static int
-do_start(struct spa_loop *loop,
-		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct impl *impl = user_data;
-	spa_hook_list_append(&impl->context->driver_listener_list,
-			&impl->context_listener,
-			&context_events, impl);
-	return 0;
-}
 static int
 global_bind(void *object, struct pw_impl_client *client, uint32_t permissions,
             uint32_t version, uint32_t id)
@@ -340,8 +322,9 @@ global_bind(void *object, struct pw_impl_client *client, uint32_t permissions,
 
 	if (++impl->busy == 1) {
 		pw_log_info("%p: starting profiler", impl);
-		pw_loop_invoke(impl->data_loop,
-                       do_start, SPA_ID_INVALID, NULL, 0, false, impl);
+		pw_context_driver_add_listener(impl->context,
+			&impl->context_listener,
+			&context_events, impl);
 		impl->listening = true;
 	}
 	return 0;

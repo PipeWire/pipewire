@@ -1080,8 +1080,6 @@ static void node_on_data_fd_events(struct spa_source *source)
 	if (SPA_LIKELY(source->rmask & SPA_IO_IN)) {
 		uint64_t cmd;
 		struct pw_impl_node *node = impl->this.node;
-		struct pw_node_activation *a = node->rt.activation;
-		int status;
 
 		if (SPA_UNLIKELY(spa_system_eventfd_read(impl->data_system,
 					impl->data_source.fd, &cmd) < 0))
@@ -1090,9 +1088,8 @@ static void node_on_data_fd_events(struct spa_source *source)
 			pw_log_info("(%s-%u) client missed %"PRIu64" wakeups",
 				node->name, node->info.id, cmd - 1);
 
-		status = a->state[0].status;
-		spa_log_trace_fp(impl->log, "%p: got ready %d", impl, status);
-		spa_node_call_ready(&impl->callbacks, status);
+		spa_log_trace_fp(impl->log, "%p: got complete %d", impl, status);
+		pw_context_driver_emit_complete(node->context, node);
 	}
 }
 

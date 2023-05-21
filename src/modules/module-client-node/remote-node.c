@@ -47,6 +47,7 @@ struct mix {
 
 struct node_data {
 	struct pw_context *context;
+	struct spa_hook context_listener;
 	struct pw_loop *data_loop;
 	struct spa_system *data_system;
 
@@ -1128,6 +1129,9 @@ static void client_node_removed(void *_data)
 	spa_hook_remove(&data->proxy_client_node_listener);
 	spa_hook_remove(&data->client_node_listener);
 
+	pw_context_driver_remove_listener(data->context,
+			&data->context_listener);
+
 	if (data->node) {
 		spa_hook_remove(&data->node_listener);
 		pw_impl_node_set_state(data->node, PW_NODE_STATE_SUSPENDED);
@@ -1162,6 +1166,23 @@ static const struct pw_proxy_events proxy_client_node_events = {
 	.removed = client_node_removed,
 	.destroy = client_node_destroy,
 	.bound_props = client_node_bound_props,
+};
+
+static void context_complete(void *data, struct pw_impl_node *node)
+{
+	struct node_data *d = data;
+	struct spa_system *data_system = d->data_system;
+
+	if (node != d->node || !node->driving)
+		return;
+
+	if (SPA_UNLIKELY(spa_system_eventfd_write(data_system, d->rtwritefd, 1) < 0))
+		pw_log_warn("node %p: write failed %m", node);
+}
+
+static const struct pw_context_driver_events context_events = {
+	PW_VERSION_CONTEXT_DRIVER_EVENTS,
+	.complete = context_complete,
 };
 
 static inline uint64_t get_time_ns(struct spa_system *system)
@@ -1225,6 +1246,11 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 					  &data->client_node_listener,
 					  &client_node_events,
 					  data);
+
+	pw_context_driver_add_listener(data->context,
+			&data->context_listener,
+			&context_events, data);
+
 	do_node_init(data);
 
 	return client_node;

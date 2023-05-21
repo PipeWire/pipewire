@@ -1165,6 +1165,26 @@ static inline int trigger_targets(struct pw_impl_node *this, int status, uint64_
 	return 0;
 }
 
+static inline void calculate_stats(struct pw_impl_node *this,  struct pw_node_activation *a)
+{
+	uint64_t signal_time = a->signal_time;
+	uint64_t prev_signal_time = a->prev_signal_time;
+	if (SPA_LIKELY(signal_time > prev_signal_time)) {
+		uint64_t process_time = a->finish_time - a->signal_time;
+		uint64_t period_time = signal_time - prev_signal_time;
+		float load = (float) process_time / (float) period_time;
+		a->cpu_load[0] = (a->cpu_load[0] + load) / 2.0f;
+		a->cpu_load[1] = (a->cpu_load[1] * 7.0f + load) / 8.0f;
+		a->cpu_load[2] = (a->cpu_load[2] * 31.0f + load) / 32.0f;
+	}
+	pw_log_trace_fp("%p: graph completed wait:%"PRIu64" run:%"PRIu64
+			" busy:%"PRIu64" period:%"PRIu64" cpu:%f:%f:%f", node,
+			a->awake_time - signal_time,
+			a->finish_time - a->awake_time,
+			process_time,
+			period_time,
+			a->cpu_load[0], a->cpu_load[1], a->cpu_load[2]);
+}
 /* The main processing entry point of a node. This is called from the data-loop and usually
  * as a result of signaling the eventfd of the node.
  *
@@ -1221,6 +1241,10 @@ static inline int process_node(void *data)
 	 * graph because that means we finished the graph. */
 	if (SPA_LIKELY(!this->driving))
 		trigger_targets(this, status, nsec);
+	else {
+		calculate_stats(this, a);
+		pw_context_driver_emit_complete(this->context, this);
+	}
 
 	if (SPA_UNLIKELY(status & SPA_STATUS_DRAINED))
 		pw_context_driver_emit_drained(this->context, this);
@@ -1619,19 +1643,6 @@ static const struct spa_node_events node_events = {
 	.event = node_event,
 };
 
-static inline void calculate_stats(struct pw_impl_node *this,  struct pw_node_activation *a)
-{
-	uint64_t signal_time = a->signal_time;
-	uint64_t prev_signal_time = a->prev_signal_time;
-	if (SPA_LIKELY(signal_time > prev_signal_time)) {
-		uint64_t process_time = a->finish_time - a->signal_time;
-		uint64_t period_time = signal_time - prev_signal_time;
-		float load = (float) process_time / (float) period_time;
-		a->cpu_load[0] = (a->cpu_load[0] + load) / 2.0f;
-		a->cpu_load[1] = (a->cpu_load[1] * 7.0f + load) / 8.0f;
-		a->cpu_load[2] = (a->cpu_load[2] * 31.0f + load) / 32.0f;
-	}
-}
 
 #define SYNC_CHECK	0
 #define SYNC_START	1
@@ -1761,30 +1772,6 @@ static int node_ready(void *data, int status)
 					state, a->position.clock.duration,
 					state->pending, state->required);
 			check_states(node, nsec);
-			pw_context_driver_emit_incomplete(node->context, node);
-		} else {
-			uint64_t signal_time = a->signal_time;
-			/* old nodes set the TRIGGERED status on node_ready, patch this
-			 * up here to avoid errors in pw-top */
-			a->status = PW_NODE_ACTIVATION_FINISHED;
-			a->signal_time = a->prev_signal_time;
-			a->prev_signal_time = impl->prev_signal_time;
-
-			/* calculate CPU time */
-			calculate_stats(node, a);
-
-			pw_log_trace_fp("%p: graph completed wait:%"PRIu64" run:%"PRIu64
-					" busy:%"PRIu64" period:%"PRIu64" cpu:%f:%f:%f", node,
-					a->awake_time - a->signal_time,
-					a->finish_time - a->awake_time,
-					a->finish_time - a->signal_time,
-					a->signal_time - a->prev_signal_time,
-					a->cpu_load[0], a->cpu_load[1], a->cpu_load[2]);
-
-			pw_context_driver_emit_complete(node->context, node);
-
-			a->prev_signal_time = a->signal_time;
-			a->signal_time = signal_time;
 		}
 
 		/* This update is done too late, the driver should do this

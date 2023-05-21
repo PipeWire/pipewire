@@ -504,7 +504,7 @@ PWTEST(logger_journal)
 	}
 
 	sd_journal_seek_tail(journal);
-	sd_journal_next(journal);
+	sd_journal_previous(journal);
 
 	spa_scnprintf(token, sizeof(token), "MARK %s:%d", __func__, __LINE__);
 	spa_logt_info(iface, &topic, "%s", token);
@@ -572,7 +572,7 @@ PWTEST(logger_journal_chain)
 	}
 
 	sd_journal_seek_tail(journal);
-	sd_journal_next(journal);
+	sd_journal_previous(journal);
 
 	spa_scnprintf(token, sizeof(token), "MARK %s:%d", __func__, __LINE__);
 

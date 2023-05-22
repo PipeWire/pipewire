@@ -1088,13 +1088,14 @@ static void node_on_data_fd_events(struct spa_source *source)
 			pw_log_info("(%s-%u) client missed %"PRIu64" wakeups",
 				node->name, node->info.id, cmd - 1);
 
-		spa_log_trace_fp(impl->log, "%p: got complete %d", impl, status);
 
 		if (impl->resource && impl->resource->version < 5) {
 			struct pw_node_activation *a = node->rt.activation;
 			int status = a->state[0].status;
+			spa_log_trace_fp(impl->log, "%p: got ready %d", impl, status);
 			spa_node_call_ready(&impl->callbacks, status);
 		} else {
+			spa_log_trace_fp(impl->log, "%p: got complete", impl);
 			pw_context_driver_emit_complete(node->context, node);
 		}
 	}

@@ -1736,7 +1736,6 @@ static inline void update_position(struct pw_impl_node *node, int all_ready, uin
 static int node_ready(void *data, int status)
 {
 	struct pw_impl_node *node = data, *reposition_node = NULL;
-	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_impl_node *driver = node->driver_node;
 	struct pw_node_activation *a = node->rt.activation;
 	struct spa_system *data_system = node->data_system;

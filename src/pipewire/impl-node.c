@@ -41,6 +41,8 @@ struct impl {
 
 	unsigned int cache_params:1;
 	unsigned int pending_play:1;
+
+	uint64_t prev_signal_time;
 };
 
 #define pw_node_resource(r,m,v,...)	pw_resource_call(r,struct pw_node_events,m,v,__VA_ARGS__)
@@ -1169,6 +1171,7 @@ static inline void calculate_stats(struct pw_impl_node *this,  struct pw_node_ac
 	uint64_t prev_signal_time = a->prev_signal_time;
 	uint64_t process_time = a->finish_time - a->signal_time;
 	uint64_t period_time = signal_time - prev_signal_time;
+
 	if (SPA_LIKELY(signal_time > prev_signal_time)) {
 		float load = (float) process_time / (float) period_time;
 		a->cpu_load[0] = (a->cpu_load[0] + load) / 2.0f;
@@ -1176,13 +1179,13 @@ static inline void calculate_stats(struct pw_impl_node *this,  struct pw_node_ac
 		a->cpu_load[2] = (a->cpu_load[2] * 31.0f + load) / 32.0f;
 	}
 	pw_log_trace_fp("%p: graph completed wait:%"PRIu64" run:%"PRIu64
-			" busy:%"PRIu64" period:%"PRIu64" cpu:%f:%f:%f", this,
+			" busy:%"PRIu64" period:%"PRIu64" cpu:%f:%f:%f", node,
 			a->awake_time - signal_time,
 			a->finish_time - a->awake_time,
-			process_time,
-			period_time,
+			process_time, period_time,
 			a->cpu_load[0], a->cpu_load[1], a->cpu_load[2]);
 }
+
 /* The main processing entry point of a node. This is called from the data-loop and usually
  * as a result of signaling the eventfd of the node.
  *
@@ -1237,11 +1240,11 @@ static inline int process_node(void *data)
 
 	/* we don't need to trigger targets when the node was driving the
 	 * graph because that means we finished the graph. */
-	if (SPA_LIKELY(!this->driving))
+	if (SPA_LIKELY(!this->driving)) {
 		trigger_targets(this, status, nsec);
-	else {
+	} else {
+		/* calculate CPU time when finished */
 		calculate_stats(this, a);
-		pw_context_driver_emit_complete(this->context, this);
 	}
 
 	if (SPA_UNLIKELY(status & SPA_STATUS_DRAINED))
@@ -1641,7 +1644,6 @@ static const struct spa_node_events node_events = {
 	.event = node_event,
 };
 
-
 #define SYNC_CHECK	0
 #define SYNC_START	1
 #define SYNC_STOP	2
@@ -1736,6 +1738,7 @@ static inline void update_position(struct pw_impl_node *node, int all_ready, uin
 static int node_ready(void *data, int status)
 {
 	struct pw_impl_node *node = data, *reposition_node = NULL;
+	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_impl_node *driver = node->driver_node;
 	struct pw_node_activation *a = node->rt.activation;
 	struct spa_system *data_system = node->data_system;
@@ -1769,6 +1772,19 @@ static int node_ready(void *data, int status)
 					state, a->position.clock.duration,
 					state->pending, state->required);
 			check_states(node, nsec);
+			pw_context_driver_emit_incomplete(node->context, node);
+		} else {
+			uint64_t signal_time = a->signal_time;
+			/* old nodes set the TRIGGERED status on node_ready, patch this
+			 * up here to avoid errors in pw-top */
+			a->status = PW_NODE_ACTIVATION_FINISHED;
+			a->signal_time = a->prev_signal_time;
+			a->prev_signal_time = impl->prev_signal_time;
+
+			pw_context_driver_emit_complete(node->context, node);
+
+			a->prev_signal_time = a->signal_time;
+			a->signal_time = signal_time;
 		}
 
 		/* This update is done too late, the driver should do this
@@ -1825,6 +1841,7 @@ again:
 		 * eventfd */
 		if (!node->remote)
 			a->signal_time = nsec;
+		impl->prev_signal_time = a->prev_signal_time;
 		a->prev_signal_time = a->signal_time;
 
 		a->sync_timeout = SPA_MIN(min_timeout, DEFAULT_SYNC_TIMEOUT);

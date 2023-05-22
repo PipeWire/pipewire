@@ -1080,6 +1080,8 @@ static void node_on_data_fd_events(struct spa_source *source)
 	if (SPA_LIKELY(source->rmask & SPA_IO_IN)) {
 		uint64_t cmd;
 		struct pw_impl_node *node = impl->this.node;
+		struct pw_node_activation *a = node->rt.activation;
+		int status;
 
 		if (SPA_UNLIKELY(spa_system_eventfd_read(impl->data_system,
 					impl->data_source.fd, &cmd) < 0))
@@ -1088,16 +1090,9 @@ static void node_on_data_fd_events(struct spa_source *source)
 			pw_log_info("(%s-%u) client missed %"PRIu64" wakeups",
 				node->name, node->info.id, cmd - 1);
 
-
-		if (impl->resource && impl->resource->version < 5) {
-			struct pw_node_activation *a = node->rt.activation;
-			int status = a->state[0].status;
-			spa_log_trace_fp(impl->log, "%p: got ready %d", impl, status);
-			spa_node_call_ready(&impl->callbacks, status);
-		} else {
-			spa_log_trace_fp(impl->log, "%p: got complete", impl);
-			pw_context_driver_emit_complete(node->context, node);
-		}
+		status = a->state[0].status;
+		spa_log_trace_fp(impl->log, "%p: got ready %d", impl, status);
+		spa_node_call_ready(&impl->callbacks, status);
 	}
 }
 
@@ -1207,6 +1202,9 @@ static void node_peer_added(void *data, struct pw_impl_node *peer)
 	struct impl *impl = data;
 	struct pw_memblock *m;
 
+	if (peer == impl->this.node)
+		return;
+
 	m = pw_mempool_import_block(impl->client->pool, peer->activation);
 	if (m == NULL) {
 		pw_log_debug("%p: can't ensure mem: %m", impl);
@@ -1230,6 +1228,9 @@ static void node_peer_removed(void *data, struct pw_impl_node *peer)
 {
 	struct impl *impl = data;
 	struct pw_memblock *m;
+
+	if (peer == impl->this.node)
+		return;
 
 	m = pw_mempool_find_fd(impl->client->pool, peer->activation->fd);
 	if (m == NULL) {

@@ -22,7 +22,7 @@ extern "C" {
  */
 #define PW_TYPE_INTERFACE_ClientNode		PW_TYPE_INFO_INTERFACE_BASE "ClientNode"
 
-#define PW_VERSION_CLIENT_NODE			5
+#define PW_VERSION_CLIENT_NODE			4
 struct pw_client_node;
 
 #define PW_EXTENSION_MODULE_CLIENT_NODE		PIPEWIRE_MODULE_PREFIX "module-client-node"

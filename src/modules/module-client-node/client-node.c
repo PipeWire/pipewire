@@ -1089,7 +1089,14 @@ static void node_on_data_fd_events(struct spa_source *source)
 				node->name, node->info.id, cmd - 1);
 
 		spa_log_trace_fp(impl->log, "%p: got complete %d", impl, status);
-		pw_context_driver_emit_complete(node->context, node);
+
+		if (impl->resource && impl->resource->version < 5) {
+			struct pw_node_activation *a = node->rt.activation;
+			int status = a->state[0].status;
+			spa_node_call_ready(&impl->callbacks, status);
+		} else {
+			pw_context_driver_emit_complete(node->context, node);
+		}
 	}
 }
 

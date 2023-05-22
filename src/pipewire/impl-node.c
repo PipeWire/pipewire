@@ -41,8 +41,6 @@ struct impl {
 
 	unsigned int cache_params:1;
 	unsigned int pending_play:1;
-
-	uint64_t prev_signal_time;
 };
 
 #define pw_node_resource(r,m,v,...)	pw_resource_call(r,struct pw_node_events,m,v,__VA_ARGS__)
@@ -1828,7 +1826,6 @@ again:
 		 * eventfd */
 		if (!node->remote)
 			a->signal_time = nsec;
-		impl->prev_signal_time = a->prev_signal_time;
 		a->prev_signal_time = a->signal_time;
 
 		a->sync_timeout = SPA_MIN(min_timeout, DEFAULT_SYNC_TIMEOUT);

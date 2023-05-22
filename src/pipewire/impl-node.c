@@ -41,8 +41,6 @@ struct impl {
 
 	unsigned int cache_params:1;
 	unsigned int pending_play:1;
-
-	uint64_t prev_signal_time;
 };
 
 #define pw_node_resource(r,m,v,...)	pw_resource_call(r,struct pw_node_events,m,v,__VA_ARGS__)
@@ -903,8 +901,8 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 
 	pw_impl_node_emit_driver_changed(node, old, driver);
 
-	pw_impl_node_emit_peer_removed(old, node);
 	pw_impl_node_emit_peer_added(driver, node);
+	pw_impl_node_emit_peer_removed(old, node);
 
 	return 0;
 }
@@ -1245,6 +1243,7 @@ static inline int process_node(void *data)
 	} else {
 		/* calculate CPU time when finished */
 		calculate_stats(this, a);
+		pw_context_driver_emit_complete(this->context, this);
 	}
 
 	if (SPA_UNLIKELY(status & SPA_STATUS_DRAINED))
@@ -1738,7 +1737,6 @@ static inline void update_position(struct pw_impl_node *node, int all_ready, uin
 static int node_ready(void *data, int status)
 {
 	struct pw_impl_node *node = data, *reposition_node = NULL;
-	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_impl_node *driver = node->driver_node;
 	struct pw_node_activation *a = node->rt.activation;
 	struct spa_system *data_system = node->data_system;
@@ -1773,18 +1771,6 @@ static int node_ready(void *data, int status)
 					state->pending, state->required);
 			check_states(node, nsec);
 			pw_context_driver_emit_incomplete(node->context, node);
-		} else {
-			uint64_t signal_time = a->signal_time;
-			/* old nodes set the TRIGGERED status on node_ready, patch this
-			 * up here to avoid errors in pw-top */
-			a->status = PW_NODE_ACTIVATION_FINISHED;
-			a->signal_time = a->prev_signal_time;
-			a->prev_signal_time = impl->prev_signal_time;
-
-			pw_context_driver_emit_complete(node->context, node);
-
-			a->prev_signal_time = a->signal_time;
-			a->signal_time = signal_time;
 		}
 
 		/* This update is done too late, the driver should do this
@@ -1841,7 +1827,6 @@ again:
 		 * eventfd */
 		if (!node->remote)
 			a->signal_time = nsec;
-		impl->prev_signal_time = a->prev_signal_time;
 		a->prev_signal_time = a->signal_time;
 
 		a->sync_timeout = SPA_MIN(min_timeout, DEFAULT_SYNC_TIMEOUT);

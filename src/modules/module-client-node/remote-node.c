@@ -47,6 +47,8 @@ struct mix {
 
 struct node_data {
 	struct pw_context *context;
+	struct spa_hook context_listener;
+
 	struct pw_loop *data_loop;
 	struct spa_system *data_system;
 
@@ -1128,6 +1130,9 @@ static void client_node_removed(void *_data)
 	spa_hook_remove(&data->proxy_client_node_listener);
 	spa_hook_remove(&data->client_node_listener);
 
+	pw_context_driver_remove_listener(data->context,
+			&data->context_listener);
+
 	if (data->node) {
 		spa_hook_remove(&data->node_listener);
 		pw_impl_node_set_state(data->node, PW_NODE_STATE_SUSPENDED);
@@ -1170,60 +1175,22 @@ static inline uint64_t get_time_ns(struct spa_system *system)
 	spa_system_clock_gettime(system, CLOCK_MONOTONIC, &ts);
 	return SPA_TIMESPEC_TO_NSEC(&ts);
 }
-static int node_ready(void *d, int status)
+
+static void context_complete(void *data, struct pw_impl_node *node)
 {
-	struct node_data *data = d;
-	struct pw_impl_node *node = data->node;
-	struct pw_node_activation *a = node->rt.activation;
-	struct spa_system *data_system = data->data_system;
-	struct pw_impl_port *p;
+	struct node_data *d = data;
+	struct spa_system *data_system = d->data_system;
 
-	pw_log_trace_fp("node %p: ready driver:%d exported:%d status:%d", node,
-			node->driver, node->exported, status);
+	if (node != d->node || !node->driving)
+		return;
 
-	if (status & SPA_STATUS_HAVE_DATA) {
-		spa_list_for_each(p, &node->rt.output_mix, rt.node_link)
-			spa_node_process_fast(p->mix);
-	}
-
-	a->state[0].status = status;
-	a->signal_time = get_time_ns(data_system);
-
-	if (SPA_UNLIKELY(spa_system_eventfd_write(data_system, data->rtwritefd, 1) < 0))
+	if (SPA_UNLIKELY(spa_system_eventfd_write(data_system, d->rtwritefd, 1) < 0))
 		pw_log_warn("node %p: write failed %m", node);
-
-	return 0;
 }
 
-static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
-{
-	return 0;
-}
-
-static int node_xrun(void *d, uint64_t trigger, uint64_t delay, struct spa_pod *info)
-{
-	struct node_data *data = d;
-	struct pw_impl_node *node = data->node;
-	struct pw_node_activation *a = node->rt.activation;
-
-	a->xrun_count++;
-	a->xrun_time = trigger;
-	a->xrun_delay = delay;
-	a->max_delay = SPA_MAX(a->max_delay, delay);
-
-	pw_log_debug("node %p: XRun! count:%u time:%"PRIu64" delay:%"PRIu64" max:%"PRIu64,
-			node, a->xrun_count, trigger, delay, a->max_delay);
-
-	pw_context_driver_emit_xrun(data->context, node);
-
-	return 0;
-}
-
-static const struct spa_node_callbacks node_callbacks = {
-	SPA_VERSION_NODE_CALLBACKS,
-	.ready = node_ready,
-	.reuse_buffer = node_reuse_buffer,
-	.xrun = node_xrun
+static const struct pw_context_driver_events context_events = {
+	PW_VERSION_CONTEXT_DRIVER_EVENTS,
+	.complete = context_complete,
 };
 
 static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_free,
@@ -1274,13 +1241,16 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 			&data->proxy_client_node_listener,
 			&proxy_client_node_events, data);
 
-	spa_node_set_callbacks(node->node, &node_callbacks, data);
 	pw_impl_node_add_listener(node, &data->node_listener, &node_events, data);
 
 	pw_client_node_add_listener(data->client_node,
 					  &data->client_node_listener,
 					  &client_node_events,
 					  data);
+	pw_context_driver_add_listener(data->context,
+			&data->context_listener,
+			&context_events, data);
+
 	do_node_init(data);
 
 	return client_node;

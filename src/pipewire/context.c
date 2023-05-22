@@ -1260,9 +1260,10 @@ again:
 			collect_nodes(context, n, &collect);
 			move_to_driver(context, &collect, n);
 		}
-		/* from now on we are only interested in active driving nodes.
-		 * We're going to see if there are active followers. */
-		if (!n->driving || !n->active)
+		/* from now on we are only interested in active driving nodes
+		 * with a driver_priority. We're going to see if there are
+		 * active followers. */
+		if (!n->driving || !n->active || n->priority_driver <= 0)
 			continue;
 
 		/* first active driving node is fallback */

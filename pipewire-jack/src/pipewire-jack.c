@@ -2686,13 +2686,6 @@ static int client_node_set_activation(void *data,
 	void *ptr;
 	int res = 0;
 
-	if (c->node_id == node_id) {
-		pw_log_debug("%p: our activation %u: %u %u %u", c, node_id,
-				mem_id, offset, size);
-		close(signalfd);
-		return 0;
-	}
-
 	if (mem_id == SPA_ID_INVALID) {
 		mm = ptr = NULL;
 		size = 0;
@@ -2708,8 +2701,13 @@ static int client_node_set_activation(void *data,
 		ptr = mm->ptr;
 	}
 
-	pw_log_debug("%p: set activation %u: %u %u %u %p", c, node_id,
-			mem_id, offset, size, ptr);
+	if (c->node_id == node_id) {
+		pw_log_debug("%p: our activation %u: %u %u %u %p", c, node_id,
+				mem_id, offset, size, ptr);
+	} else {
+		pw_log_debug("%p: set activation %u: %u %u %u %p", c, node_id,
+				mem_id, offset, size, ptr);
+	}
 
 	if (ptr) {
 		link = calloc(1, sizeof(struct link));

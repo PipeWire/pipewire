@@ -1077,11 +1077,23 @@ static const char *str_status(uint32_t status)
 	return "unknown";
 }
 
-static void dump_states(struct pw_impl_node *driver)
+static void update_xrun_stats(struct pw_node_activation *a, uint64_t trigger, uint64_t delay)
+{
+	a->xrun_count++;
+	a->xrun_time = trigger;
+	a->xrun_delay = delay;
+	a->max_delay = SPA_MAX(a->max_delay, delay);
+}
+
+static void check_states(struct pw_impl_node *driver, uint64_t nsec)
 {
 	struct pw_node_target *t;
 	struct pw_node_activation *na = driver->rt.activation;
 	struct spa_io_clock *cl = &na->position.clock;
+	enum spa_log_level level = SPA_LOG_LEVEL_DEBUG;
+
+	if (ratelimit_test(&driver->rt.rate_limit, na->signal_time, SPA_LOG_LEVEL_DEBUG))
+		level = SPA_LOG_LEVEL_INFO;
 
 	spa_list_for_each(t, &driver->rt.target_list, link) {
 		struct pw_node_activation *a = t->activation;
@@ -1090,7 +1102,9 @@ static void dump_states(struct pw_impl_node *driver)
 			continue;
 		if (a->status == PW_NODE_ACTIVATION_TRIGGERED ||
 		    a->status == PW_NODE_ACTIVATION_AWAKE) {
-			pw_log_info("(%s-%u) client too slow! rate:%u/%u pos:%"PRIu64" status:%s",
+			update_xrun_stats(a, nsec / 1000, 0);
+
+			pw_log(level, "(%s-%u) client too slow! rate:%u/%u pos:%"PRIu64" status:%s",
 				t->node->name, t->node->info.id,
 				(uint32_t)(cl->rate.num * cl->duration), cl->rate.denom,
 				cl->position, str_status(a->status));
@@ -1683,7 +1697,7 @@ static void do_reposition(struct pw_impl_node *driver, struct pw_impl_node *node
 	}
 }
 
-static inline void update_position(struct pw_impl_node *node, int all_ready)
+static inline void update_position(struct pw_impl_node *node, int all_ready, uint64_t nsec)
 {
 	struct pw_node_activation *a = node->rt.activation;
 
@@ -1691,8 +1705,8 @@ static inline void update_position(struct pw_impl_node *node, int all_ready)
 		if (!all_ready && --a->sync_left == 0) {
 			pw_log_warn("(%s-%u) sync timeout, going to RUNNING",
 					node->name, node->info.id);
+			check_states(node, nsec);
 			pw_context_driver_emit_timeout(node->context, node);
-			dump_states(node);
 			all_ready = true;
 		}
 		if (all_ready)
@@ -1737,13 +1751,12 @@ static int node_ready(void *data, int status)
 		uint64_t min_timeout = UINT64_MAX;
 
 		if (SPA_UNLIKELY(a->status != PW_NODE_ACTIVATION_FINISHED)) {
-			pw_context_driver_emit_incomplete(node->context, node);
 			pw_log_debug("(%s-%u) graph not finished: state:%p quantum:%"PRIu64
 					" pending %d/%d", node->name, node->info.id,
 					state, a->position.clock.duration,
 					state->pending, state->required);
-			if (ratelimit_test(&node->rt.rate_limit, a->signal_time, SPA_LOG_LEVEL_DEBUG))
-				dump_states(node);
+			check_states(node, nsec);
+			pw_context_driver_emit_incomplete(node->context, node);
 		} else {
 			uint64_t signal_time = a->signal_time;
 			/* old nodes set the TRIGGERED status on node_ready, patch this
@@ -1836,7 +1849,7 @@ again:
 			goto again;
 		}
 
-		update_position(node, all_ready);
+		update_position(node, all_ready, nsec);
 
 		pw_context_driver_emit_start(node->context, node);
 	}
@@ -1873,14 +1886,6 @@ static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)
 		break;
 	}
 	return 0;
-}
-
-static void update_xrun_stats(struct pw_node_activation *a, uint64_t trigger, uint64_t delay)
-{
-	a->xrun_count++;
-	a->xrun_time = trigger;
-	a->xrun_delay = delay;
-	a->max_delay = SPA_MAX(a->max_delay, delay);
 }
 
 static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_pod *info)

@@ -49,8 +49,6 @@ struct node {
 	struct measurement measurement;
 	struct driver info;
 	struct node *driver;
-	uint32_t errors;
-	int32_t last_error_status;
 	uint32_t generation;
 	char format[MAX_FORMAT+1];
 	struct pw_proxy *proxy;
@@ -338,12 +336,6 @@ static int process_driver_block(struct data *d, const struct spa_pod *pod, struc
 	n->info = point->info;
 	point->driver = n;
 	n->generation = d->generation;
-
-	if (m.status != 3) {
-		n->errors++;
-		if (n->last_error_status == -1)
-			n->last_error_status = m.status;
-	}
 	return 0;
 }
 
@@ -376,11 +368,6 @@ static int process_follower_block(struct data *d, const struct spa_pod *pod, str
 		d->pending_refresh = true;
 	}
 	n->generation = d->generation;
-	if (m.status != 3) {
-		n->errors++;
-		if (n->last_error_status == -1)
-			n->last_error_status = m.status;
-	}
 	return 0;
 }
 
@@ -476,7 +463,7 @@ static void print_node(struct data *d, struct driver *i, struct node *n, int y)
 			print_time(buf2, active, 64, busy),
 			print_perc(buf3, active, 64, waiting, quantum),
 			print_perc(buf4, active, 64, busy, quantum),
-			i->xrun_count + n->errors,
+			i->xrun_count,
 			active ? n->format : "",
 			n->driver == n ? "" : " + ",
 			n->name);
@@ -487,8 +474,6 @@ static void clear_node(struct node *n)
 	n->driver = n;
 	spa_zero(n->measurement);
 	spa_zero(n->info);
-	n->errors = 0;
-	n->last_error_status = 0;
 }
 
 static void do_refresh(struct data *d)

@@ -692,7 +692,7 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 		sdp->ts_offset = atoi(str);
 	if ((str = pw_properties_get(props, "rtp.ts-refclk")) != NULL)
 		sdp->ts_refclk = strdup(str);
-	if ((str = pw_properties_get(props, "rtp.channel-names")) != NULL)
+	if ((str = pw_properties_get(props, PW_KEY_NODE_CHANNELNAMES)) != NULL)
 		snprintf(sdp->channelmap, sizeof(sdp->channelmap), "%s", str);
 
 	pw_log_info("created new session for node:%u", node->id);

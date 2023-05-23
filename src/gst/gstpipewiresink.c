@@ -482,7 +482,7 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
     GstMemory *mem = gst_buffer_peek_memory (buffer, i);
     d->chunk->offset = mem->offset;
     d->chunk->size = mem->size;
-    d->chunk->stride = 0;
+    d->chunk->stride = pwsink->pool->video_info.stride[i];
   }
 
   GstVideoMeta *meta = gst_buffer_get_video_meta (buffer);

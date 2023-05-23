@@ -168,7 +168,7 @@ static void context_do_profile(void *data, struct pw_impl_node *node)
 	struct impl *impl = data;
 	struct spa_pod_builder b;
 	struct spa_pod_frame f[2];
-	struct pw_node_activation *a = node->rt.activation;
+	struct pw_node_activation *a = node->rt.target.activation;
 	struct spa_io_position *pos = &a->position;
 	struct pw_node_target *t;
 	int32_t filled;
@@ -230,7 +230,7 @@ static void context_do_profile(void *data, struct pw_impl_node *node)
 		else if (n->rate.denom != 0)
 			latency.denom = n->rate.denom;
 
-		na = n->rt.activation;
+		na = n->rt.target.activation;
 		spa_pod_builder_prop(&b, SPA_PROFILER_followerBlock, 0);
 		spa_pod_builder_add_struct(&b,
 			SPA_POD_Int(n->info.id),

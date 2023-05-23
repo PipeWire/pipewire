@@ -890,8 +890,8 @@ static int impl_node_process(void *object)
 	 * directly */
 	spa_log_warn(impl->log, "exported node activation");
 	spa_system_clock_gettime(impl->data_system, CLOCK_MONOTONIC, &ts);
-	n->rt.activation->status = PW_NODE_ACTIVATION_TRIGGERED;
-	n->rt.activation->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
+	n->rt.target.activation->status = PW_NODE_ACTIVATION_TRIGGERED;
+	n->rt.target.activation->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
 	if (SPA_UNLIKELY(spa_system_eventfd_write(n->rt.target.system, n->rt.target.fd, 1) < 0))
 		pw_log_warn("%p: write failed %m", impl);
@@ -1089,7 +1089,7 @@ static void node_on_data_fd_events(struct spa_source *source)
 				node->name, node->info.id, cmd - 1);
 
 		if (impl->resource && impl->resource->version < 5) {
-			struct pw_node_activation *a = node->rt.activation;
+			struct pw_node_activation *a = node->rt.target.activation;
 			int status = a->state[0].status;
 			spa_log_trace_fp(impl->log, "%p: got ready %d", impl, status);
 			spa_node_call_ready(&impl->callbacks, status);

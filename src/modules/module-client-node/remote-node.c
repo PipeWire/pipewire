@@ -140,7 +140,7 @@ static void clean_transport(struct node_data *data)
 	}
 
 	pw_memmap_free(data->activation);
-	data->node->rt.activation = data->node->activation->map->ptr;
+	data->node->rt.target.activation = data->node->activation->map->ptr;
 
 	spa_system_close(data->data_system, data->rtwritefd);
 	data->have_transport = false;
@@ -260,9 +260,9 @@ static int client_node_transport(void *_data,
 		return -errno;
 	}
 
-	node->rt.activation = data->activation->ptr;
-	node->rt.position = &node->rt.activation->position;
-	node->info.id = node->rt.activation->position.clock.id;
+	node->rt.target.activation = data->activation->ptr;
+	node->rt.position = &node->rt.target.activation->position;
+	node->info.id = node->rt.target.activation->position.clock.id;
 
 	pw_log_debug("remote-node %p: fds:%d %d node:%u activation:%p",
 		proxy, readfd, writefd, data->remote_id, data->activation->ptr);

@@ -771,7 +771,6 @@ struct pw_impl_node {
 	struct {
 		struct spa_io_clock *clock;	/**< io area of the clock or NULL */
 		struct spa_io_position *position;
-		struct pw_node_activation *activation;
 
 		struct spa_list target_list;		/* list of targets to signal after
 							 * this node */

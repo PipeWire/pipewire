@@ -133,8 +133,7 @@ but conceptually, the links above are still valid.
 The driver will then start processing the graph by emitting the ready signal. PipeWire
 will then:
 
- - Perform some statistics about the previous cycle. Did it complete? compute processing
-   times, cpu usage etc.
+ - Check the previous cycle. Did it complete? Mark xrun on unfinished nodes.
  - Perform reposition requests if any, timebase changes, etc..
  - The pending counter of each follower node is set to the required field.
  - It then loops over all targets of the driver and atomically decrements the required
@@ -169,6 +168,8 @@ driver (from 1 to 0) and triggers the driver.
 The graph always completes after the driver is triggered and scheduled. All required
 fields from all the nodes in the target list of the driver are now 0.
 
+The driver calculates some stats about cpu time etc.
+
 # Remote nodes.
 
 For remote nodes, the eventfd and the activation is transfered from the server
@@ -183,9 +184,9 @@ server first.
 
 ## Remote driver nodes.
 
-Currently the graph start cycle is managed by the server.
+Remote drivers start the graph cycle directly without going to the server first.
 
-Remote driver nodes therefore have an extra eventfd to wake up the server and signal
-the graph start.
+After they complete, they will trigger an extra eventfd to signal the server that
+the graph completed. This is used by the server to driver the profiler info.
 
 */

@@ -124,8 +124,8 @@ static void remove_node(struct pw_impl_node *this)
 	if (this->exported)
 		return;
 
-	pw_log_trace("%p: remove from driver %p %p %p",
-			this, this->rt.driver_target.node,
+	pw_log_trace("%p: remove from driver %s %p %p",
+			this, this->rt.driver_target.name,
 			this->rt.driver_target.activation, this->rt.target.activation);
 
 	spa_list_remove(&this->rt.target.link);
@@ -148,7 +148,7 @@ static void remove_node(struct pw_impl_node *this)
 	}
 	spa_list_remove(&this->rt.driver_target.link);
 
-	this->rt.driver_target.node = NULL;
+	spa_zero(this->rt.driver_target);
 }
 
 static int
@@ -780,6 +780,7 @@ int pw_impl_node_register(struct pw_impl_node *this,
 	this->rt.target.activation->position.clock.id = this->global->id;
 
 	this->info.id = this->global->id;
+	this->rt.target.id = this->info.id;
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->info.id);
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(this->global));
@@ -924,6 +925,7 @@ static void check_properties(struct pw_impl_node *node)
 	    (node->name == NULL || !spa_streq(node->name, str))) {
 		free(node->name);
 		node->name = strdup(str);
+		snprintf(node->rt.target.name, sizeof(node->rt.target.name), "%s", node->name);
 		pw_log_debug("%p: name '%s'", node, node->name);
 	}
 
@@ -1100,20 +1102,19 @@ static void check_states(struct pw_impl_node *driver, uint64_t nsec)
 	spa_list_for_each(t, &driver->rt.target_list, link) {
 		struct pw_node_activation *a = t->activation;
 		struct pw_node_activation_state *state = &a->state[0];
-		if (t->node == NULL)
-			continue;
+
 		if (a->status == PW_NODE_ACTIVATION_TRIGGERED ||
 		    a->status == PW_NODE_ACTIVATION_AWAKE) {
 			update_xrun_stats(a, nsec / 1000, 0);
 
 			pw_log(level, "(%s-%u) client too slow! rate:%u/%u pos:%"PRIu64" status:%s",
-				t->node->name, t->node->info.id,
+				t->name, t->id,
 				(uint32_t)(cl->rate.num * cl->duration), cl->rate.denom,
 				cl->position, str_status(a->status));
 		}
 		pw_log_debug("(%s-%u) state:%p pending:%d/%d s:%"PRIu64" a:%"PRIu64" f:%"PRIu64
 				" waiting:%"PRIu64" process:%"PRIu64" status:%s sync:%d",
-				t->node->name, t->node->info.id, state,
+				t->name, t->id, state,
 				state->pending, state->required,
 				a->signal_time,
 				a->awake_time,
@@ -1676,15 +1677,15 @@ static inline int check_updates(struct pw_impl_node *node, uint32_t *reposition_
 	return res;
 }
 
-static void do_reposition(struct pw_impl_node *driver, struct pw_impl_node *node)
+static void do_reposition(struct pw_impl_node *driver, struct pw_node_target *target)
 {
 	struct pw_node_activation *a = driver->rt.target.activation;
 	struct spa_io_segment *dst, *src;
 
-	src = &node->rt.target.activation->reposition;
+	src = &target->activation->reposition;
 	dst = &a->position.segments[0];
 
-	pw_log_info("%p: update position:%"PRIu64, node, src->position);
+	pw_log_info("%p: %u update position:%"PRIu64, driver, target->id, src->position);
 
 	dst->version = src->version;
 	dst->flags = src->flags;
@@ -1734,11 +1735,11 @@ static inline void update_position(struct pw_impl_node *node, int all_ready, uin
  */
 static int node_ready(void *data, int status)
 {
-	struct pw_impl_node *node = data, *reposition_node = NULL;
+	struct pw_impl_node *node = data;
 	struct pw_impl_node *driver = node->driver_node;
 	struct pw_node_activation *a = node->rt.target.activation;
 	struct spa_system *data_system = node->data_system;
-	struct pw_node_target *t;
+	struct pw_node_target *t, *reposition_target = NULL;;
 	struct pw_impl_port *p;
 	uint64_t nsec;
 
@@ -1792,25 +1793,22 @@ again:
 
 		spa_list_for_each(t, &driver->rt.target_list, link) {
 			struct pw_node_activation *ta = t->activation;
+			uint32_t id = t->id;
 
 			ta->status = PW_NODE_ACTIVATION_NOT_TRIGGERED;
 			pw_node_activation_state_reset(&ta->state[0]);
 
-			if (SPA_LIKELY(t->node)) {
-				uint32_t id = t->node->info.id;
+			/* this is the node with reposition info */
+			if (SPA_UNLIKELY(id == reposition_owner))
+				reposition_target = t;
 
-				/* this is the node with reposition info */
-				if (SPA_UNLIKELY(id == reposition_owner))
-					reposition_node = t->node;
+			/* update extra segment info if it is the owner */
+			if (SPA_UNLIKELY(id == owner[0]))
+				a->position.segments[0].bar = ta->segment.bar;
+			if (SPA_UNLIKELY(id == owner[1]))
+				a->position.segments[0].video = ta->segment.video;
 
-				/* update extra segment info if it is the owner */
-				if (SPA_UNLIKELY(id == owner[0]))
-					a->position.segments[0].bar = ta->segment.bar;
-				if (SPA_UNLIKELY(id == owner[1]))
-					a->position.segments[0].video = ta->segment.video;
-
-				min_timeout = SPA_MIN(min_timeout, ta->sync_timeout);
-			}
+			min_timeout = SPA_MIN(min_timeout, ta->sync_timeout);
 
 			if (SPA_UNLIKELY(update_sync)) {
 				ta->pending_sync = target_sync;
@@ -1829,11 +1827,11 @@ again:
 
 		a->sync_timeout = SPA_MIN(min_timeout, DEFAULT_SYNC_TIMEOUT);
 
-		if (SPA_UNLIKELY(reposition_node)) {
-			do_reposition(node, reposition_node);
+		if (SPA_UNLIKELY(reposition_target != NULL)) {
+			do_reposition(node, reposition_target);
 			sync_type = SYNC_START;
 			reposition_owner = 0;
-			reposition_node = NULL;
+			reposition_target = NULL;
 			goto again;
 		}
 

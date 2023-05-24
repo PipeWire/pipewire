@@ -57,7 +57,7 @@ static struct pw_node_peer *pw_node_peer_ref(struct pw_impl_node *onode, struct 
 	struct pw_node_peer *peer;
 
 	spa_list_for_each(peer, &onode->peer_list, link) {
-		if (peer->target.node == inode) {
+		if (peer->target.id == inode->info.id) {
 			pw_log_debug("exiting peer %p from %p to %p", peer, onode, inode);
 			peer->ref++;
 			return peer;
@@ -102,8 +102,8 @@ static void pw_node_peer_activate(struct pw_node_peer *peer)
 			peer->target.active = true;
 		}
 	}
-	pw_log_trace("%p: node:%p state:%p pending:%d/%d", peer->output,
-			peer->target.node, state, state->pending, state->required);
+	pw_log_trace("%p: node:%s state:%p pending:%d/%d", peer->output,
+			peer->target.name, state, state->pending, state->required);
 }
 
 static void pw_node_peer_deactivate(struct pw_node_peer *peer)
@@ -119,8 +119,8 @@ static void pw_node_peer_deactivate(struct pw_node_peer *peer)
 			peer->target.active = false;
 		}
 	}
-	pw_log_trace("%p: node:%p state:%p pending:%d/%d", peer->output,
-			peer->target.node, state, state->pending, state->required);
+	pw_log_trace("%p: node:%s state:%p pending:%d/%d", peer->output,
+			peer->target.name, state, state->pending, state->required);
 }
 
 

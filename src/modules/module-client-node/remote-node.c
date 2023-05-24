@@ -93,7 +93,7 @@ static struct link *find_activation(struct spa_list *links, uint32_t node_id)
 	struct link *l;
 
 	spa_list_for_each(l, links, link) {
-		if (l->node_id == node_id)
+		if (l->target.id == node_id)
 			return l;
 	}
 	return NULL;
@@ -263,6 +263,7 @@ static int client_node_transport(void *_data,
 	node->rt.target.activation = data->activation->ptr;
 	node->rt.position = &node->rt.target.activation->position;
 	node->info.id = node->rt.target.activation->position.clock.id;
+	node->rt.target.id = node->info.id;
 
 	pw_log_debug("remote-node %p: fds:%d %d node:%u activation:%p",
 		proxy, readfd, writefd, data->remote_id, data->activation->ptr);
@@ -909,8 +910,8 @@ client_node_set_activation(void *_data,
 			goto error_exit;
 		}
 		link->data = data;
-		link->node_id = node_id;
 		link->map = mm;
+		link->target.id = node_id;
 		link->target.activation = ptr;
 		link->target.system = data->data_system;
 		link->target.fd = signalfd;

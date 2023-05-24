@@ -168,6 +168,7 @@ static void context_do_profile(void *data, struct pw_impl_node *node)
 	struct impl *impl = data;
 	struct spa_pod_builder b;
 	struct spa_pod_frame f[2];
+	uint32_t id = node->info.id;
 	struct pw_node_activation *a = node->rt.target.activation;
 	struct spa_io_position *pos = &a->position;
 	struct pw_node_target *t;
@@ -205,7 +206,7 @@ static void context_do_profile(void *data, struct pw_impl_node *node)
 
 	spa_pod_builder_prop(&b, SPA_PROFILER_driverBlock, 0);
 	spa_pod_builder_add_struct(&b,
-			SPA_POD_Int(node->info.id),
+			SPA_POD_Int(id),
 			SPA_POD_String(node->name),
 			SPA_POD_Long(a->prev_signal_time),
 			SPA_POD_Long(a->signal_time),
@@ -219,22 +220,26 @@ static void context_do_profile(void *data, struct pw_impl_node *node)
 		struct pw_node_activation *na;
 		struct spa_fraction latency;
 
-		if (n == NULL || n == node)
+		if (t->id == id)
 			continue;
 
-		latency = n->latency;
-		if (n->force_quantum != 0)
-			latency.num = n->force_quantum;
-		if (n->force_rate != 0)
-			latency.denom = n->force_rate;
-		else if (n->rate.denom != 0)
-			latency.denom = n->rate.denom;
+		if (n != NULL) {
+			latency = n->latency;
+			if (n->force_quantum != 0)
+				latency.num = n->force_quantum;
+			if (n->force_rate != 0)
+				latency.denom = n->force_rate;
+			else if (n->rate.denom != 0)
+				latency.denom = n->rate.denom;
+		} else {
+			spa_zero(latency);
+		}
 
-		na = n->rt.target.activation;
+		na = t->activation;
 		spa_pod_builder_prop(&b, SPA_PROFILER_followerBlock, 0);
 		spa_pod_builder_add_struct(&b,
-			SPA_POD_Int(n->info.id),
-			SPA_POD_String(n->name),
+			SPA_POD_Int(t->id),
+			SPA_POD_String(t->name),
 			SPA_POD_Long(a->signal_time),
 			SPA_POD_Long(na->signal_time),
 			SPA_POD_Long(na->awake_time),

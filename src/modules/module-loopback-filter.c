@@ -36,8 +36,10 @@ static const struct spa_dict_item module_props[] = {
 				"[ audio.rate=<sample rate> ] "
 				"[ audio.channels=<number of channels> ] "
 				"[ audio.position=<channel map> ] "
-				"[ capture.props=<properties> ] "
-				"[ playback.props=<properties> ] " },
+				"[ capture1.props=<properties> ] "
+				"[ capture2.props=<properties> ] "
+				"[ playback1.props=<properties> ] "
+				"[ playback2.props=<properties> ] " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -64,74 +66,149 @@ struct impl {
 	struct spa_hook core_proxy_listener;
 	struct spa_hook core_listener;
 
-	struct pw_properties *capture_props;
-	struct pw_stream *capture;
-	struct spa_hook capture_listener;
-	struct spa_audio_info_raw capture_info;
+	struct pw_properties *capture1_props;
+	struct pw_stream *capture1;
+	struct spa_hook capture1_listener;
+	struct spa_audio_info_raw capture1_info;
 
-	struct pw_properties *playback_props;
-	struct pw_stream *playback;
-	struct spa_hook playback_listener;
-	struct spa_audio_info_raw playback_info;
+	struct pw_properties *capture2_props;
+	struct pw_stream *capture2;
+	struct spa_hook capture2_listener;
+	struct spa_audio_info_raw capture2_info;
+
+	struct pw_properties *playback1_props;
+	struct pw_stream *playback1;
+	struct spa_hook playback1_listener;
+	struct spa_audio_info_raw playback1_info;
+
+	struct pw_properties *playback2_props;
+	struct pw_stream *playback2;
+	struct spa_hook playback2_listener;
+	struct spa_audio_info_raw playback2_info;
 
 	unsigned int do_disconnect:1;
 
 	struct spa_ringbuffer buffer;
 	uint8_t *buffer_data;
 	uint32_t buffer_size;
+
+	bool capture1_ready;
+	bool capture2_ready;
 };
 
-static void capture_destroy(void *d)
+static void trigger_playback(struct impl *impl)
 {
-	struct impl *impl = d;
-	spa_hook_remove(&impl->capture_listener);
-	impl->capture = NULL;
+	if (!impl->capture1_ready || !impl->capture2_ready)
+		return;
+
+	pw_stream_trigger_process(impl->playback2);
+
+	impl->capture1_ready = false;
+	impl->capture2_ready = false;
 }
 
-static void capture_process(void *d)
+static void capture1_destroy(void *d)
 {
 	struct impl *impl = d;
-	pw_log_trace("capture trigger");
-	pw_stream_trigger_process(impl->playback);
+	spa_hook_remove(&impl->capture1_listener);
+	impl->capture1 = NULL;
 }
 
-static void playback_process(void *d)
+static void capture1_process(void *d)
 {
 	struct impl *impl = d;
-	struct pw_buffer *in, *out;
+	pw_log_trace("capture1 trigger");
+
+	impl->capture1_ready = true;
+	trigger_playback(impl);
+}
+
+static void capture2_destroy(void *d)
+{
+	struct impl *impl = d;
+	spa_hook_remove(&impl->capture2_listener);
+	impl->capture2 = NULL;
+}
+
+static void capture2_process(void *d)
+{
+	struct impl *impl = d;
+	pw_log_trace("capture2 trigger");
+
+	impl->capture2_ready = true;
+	trigger_playback(impl);
+}
+
+static void playback1_process(void *d) {
+	pw_log_trace("playback1 trigger");
+	// We did all the work in playback2
+}
+
+static void playback2_process(void *d)
+{
+	struct impl *impl = d;
+	struct pw_buffer *in1, *in2, *out1, *out2;
 	uint32_t i;
 
-	pw_log_trace("playback process");
+	pw_log_trace("playback2 process");
 
-	if ((in = pw_stream_dequeue_buffer(impl->capture)) == NULL)
-		pw_log_debug("out of capture buffers: %m");
+	in1 = NULL;
+	while (true) {
+		struct pw_buffer *t;
+		if ((t = pw_stream_dequeue_buffer(impl->capture1)) == NULL)
+			break;
+		if (in1) {
+			pw_stream_queue_buffer(impl->capture1, in1);
+			pw_log_warn("dropping capture1 buffers: %m");
+		}
+		in1 = t;
+	}
+	if (in1 == NULL)
+		pw_log_debug("out of capture1 buffers: %m");
 
-	if ((out = pw_stream_dequeue_buffer(impl->playback)) == NULL)
-		pw_log_debug("out of playback buffers: %m");
+	in2 = NULL;
+	while (true) {
+		struct pw_buffer *t;
+		if ((t = pw_stream_dequeue_buffer(impl->capture2)) == NULL)
+			break;
+		if (in2) {
+			pw_stream_queue_buffer(impl->capture2, in2);
+			pw_log_warn("dropping capture2 buffers: %m");
+		}
+		in2 = t;
+	}
+	if (in2 == NULL)
+		pw_log_debug("out of capture2 buffers: %m");
 
-	if (in != NULL && out != NULL) {
-		uint32_t outsize = UINT32_MAX;
-		int32_t stride = 0;
+	if ((out1 = pw_stream_dequeue_buffer(impl->playback1)) == NULL)
+		pw_log_warn("out of playback1 buffers: %m");
+
+	if ((out2 = pw_stream_dequeue_buffer(impl->playback2)) == NULL)
+		pw_log_warn("out of playback2 buffers: %m");
+
+	if (in1 != NULL && out1 != NULL) {
+		uint32_t outsize;
+		int32_t stride;
 		struct spa_data *d;
-		const uint32_t *src;
-		uint32_t *dst;
+		const int32_t *src;
+		int32_t *dst;
 		uint32_t offs, size;
 
-		d = &in->buffer->datas[0];
+		d = &in1->buffer->datas[0];
 		offs = SPA_MIN(d->chunk->offset, d->maxsize);
 		size = SPA_MIN(d->chunk->size, d->maxsize - offs);
 
 		src = SPA_PTROFF(d->data, offs, void);
-		outsize = SPA_MIN(outsize, size);
-		stride = SPA_MAX(stride, d->chunk->stride);
+		outsize = size;
+		stride = d->chunk->stride;
 
-		d = &out->buffer->datas[0];
+		d = &out1->buffer->datas[0];
 		outsize = SPA_MIN(outsize, d->maxsize);
 		dst = d->data;
 
 		for (i = 0; i < outsize / sizeof(uint32_t); i++) {
 			if (i % 24 == 1)
-				dst[i] = src[i] * 0.5;
+				dst[i] = src[i] / 2;
 			else
 				dst[i] = src[i];
 		}
@@ -141,10 +218,50 @@ static void playback_process(void *d)
 		d->chunk->stride = stride;
 	}
 
-	if (in != NULL)
-		pw_stream_queue_buffer(impl->capture, in);
-	if (out != NULL)
-		pw_stream_queue_buffer(impl->playback, out);
+	if (in2 != NULL && out2 != NULL) {
+		uint32_t outsize;
+		int32_t stride;
+		struct spa_data *d;
+		const int32_t *src;
+		int32_t *dst;
+		uint32_t offs, size;
+
+		d = &in2->buffer->datas[0];
+		offs = SPA_MIN(d->chunk->offset, d->maxsize);
+		size = SPA_MIN(d->chunk->size, d->maxsize - offs);
+
+		src = SPA_PTROFF(d->data, offs, void);
+		outsize = size;
+		stride = d->chunk->stride;
+
+		d = &out2->buffer->datas[0];
+		outsize = SPA_MIN(outsize, d->maxsize);
+		dst = d->data;
+
+		for (i = 0; i < outsize / sizeof(uint32_t); i++) {
+			if (i % 8 == 0)
+				dst[i] = src[i] / 2;
+			else
+				dst[i] = src[i];
+		}
+
+		d->chunk->offset = 0;
+		d->chunk->size = outsize;
+		d->chunk->stride = stride;
+	}
+
+	if (in1 != NULL)
+		pw_stream_queue_buffer(impl->capture1, in1);
+	if (in2 != NULL)
+		pw_stream_queue_buffer(impl->capture2, in2);
+	if (out1 != NULL)
+		pw_stream_queue_buffer(impl->playback1, out1);
+	if (out2 != NULL)
+		pw_stream_queue_buffer(impl->playback2, out2);
+
+	// We've pushed data on both streams, trigger the other stream to
+	// complete the graph processing iteration
+	pw_stream_trigger_process(impl->playback1);
 }
 
 static void stream_state_changed(void *data, enum pw_stream_state old,
@@ -153,8 +270,10 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 	struct impl *impl = data;
 	switch (state) {
 	case PW_STREAM_STATE_PAUSED:
-		pw_stream_flush(impl->playback, false);
-		pw_stream_flush(impl->capture, false);
+		pw_stream_flush(impl->playback1, false);
+		pw_stream_flush(impl->playback2, false);
+		pw_stream_flush(impl->capture1, false);
+		pw_stream_flush(impl->capture2, false);
 		break;
 	case PW_STREAM_STATE_UNCONNECTED:
 		pw_log_info("module %p: unconnected", impl);
@@ -168,24 +287,45 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 	}
 }
 
-static const struct pw_stream_events in_stream_events = {
+static const struct pw_stream_events in1_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
-	.destroy = capture_destroy,
-	.process = capture_process,
+	.destroy = capture1_destroy,
+	.process = capture1_process,
 	.state_changed = stream_state_changed,
 };
 
-static void playback_destroy(void *d)
+static const struct pw_stream_events in2_stream_events = {
+	PW_VERSION_STREAM_EVENTS,
+	.destroy = capture2_destroy,
+	.process = capture2_process,
+	.state_changed = stream_state_changed,
+};
+
+static void playback1_destroy(void *d)
 {
 	struct impl *impl = d;
-	spa_hook_remove(&impl->playback_listener);
-	impl->playback = NULL;
+	spa_hook_remove(&impl->playback1_listener);
+	impl->playback1 = NULL;
 }
 
-static const struct pw_stream_events out_stream_events = {
+static const struct pw_stream_events out1_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
-	.destroy = playback_destroy,
-	.process = playback_process,
+	.destroy = playback1_destroy,
+	.process = playback1_process,
+	.state_changed = stream_state_changed,
+};
+
+static void playback2_destroy(void *d)
+{
+	struct impl *impl = d;
+	spa_hook_remove(&impl->playback2_listener);
+	impl->playback2 = NULL;
+}
+
+static const struct pw_stream_events out2_stream_events = {
+	PW_VERSION_STREAM_EVENTS,
+	.destroy = playback2_destroy,
+	.process = playback2_process,
 	.state_changed = stream_state_changed,
 };
 
@@ -197,32 +337,52 @@ static int setup_streams(struct impl *impl)
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 
-	impl->capture = pw_stream_new(impl->core,
-			"loopback capture", impl->capture_props);
-	impl->capture_props = NULL;
-	if (impl->capture == NULL)
+	impl->capture1 = pw_stream_new(impl->core,
+			"loopback capture1", impl->capture1_props);
+	impl->capture1_props = NULL;
+	if (impl->capture1 == NULL)
 		return -errno;
 
-	pw_stream_add_listener(impl->capture,
-			&impl->capture_listener,
-			&in_stream_events, impl);
+	pw_stream_add_listener(impl->capture1,
+			&impl->capture1_listener,
+			&in1_stream_events, impl);
 
-	impl->playback = pw_stream_new(impl->core,
-			"loopback playback", impl->playback_props);
-	impl->playback_props = NULL;
-	if (impl->playback == NULL)
+	impl->capture2 = pw_stream_new(impl->core,
+			"loopback capture2", impl->capture2_props);
+	impl->capture2_props = NULL;
+	if (impl->capture2 == NULL)
 		return -errno;
 
-	pw_stream_add_listener(impl->playback,
-			&impl->playback_listener,
-			&out_stream_events, impl);
+	pw_stream_add_listener(impl->capture2,
+			&impl->capture2_listener,
+			&in2_stream_events, impl);
+
+	impl->playback1 = pw_stream_new(impl->core,
+			"loopback playback1", impl->playback1_props);
+	impl->playback1_props = NULL;
+	if (impl->playback1 == NULL)
+		return -errno;
+
+	pw_stream_add_listener(impl->playback1,
+			&impl->playback1_listener,
+			&out1_stream_events, impl);
+
+	impl->playback2 = pw_stream_new(impl->core,
+			"loopback playback2", impl->playback2_props);
+	impl->playback2_props = NULL;
+	if (impl->playback2 == NULL)
+		return -errno;
+
+	pw_stream_add_listener(impl->playback2,
+			&impl->playback2_listener,
+			&out2_stream_events, impl);
 
 	/* connect playback first to activate it before capture triggers it */
 	n_params = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-			&impl->playback_info);
-	if ((res = pw_stream_connect(impl->playback,
+			&impl->playback1_info);
+	if ((res = pw_stream_connect(impl->playback1,
 			PW_DIRECTION_OUTPUT,
 			PW_ID_ANY,
 			PW_STREAM_FLAG_AUTOCONNECT |
@@ -235,12 +395,41 @@ static int setup_streams(struct impl *impl)
 	n_params = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-			&impl->capture_info);
-	if ((res = pw_stream_connect(impl->capture,
+			&impl->playback2_info);
+	if ((res = pw_stream_connect(impl->playback2,
+			PW_DIRECTION_OUTPUT,
+			PW_ID_ANY,
+			PW_STREAM_FLAG_AUTOCONNECT |
+			PW_STREAM_FLAG_MAP_BUFFERS |
+			PW_STREAM_FLAG_RT_PROCESS |
+			PW_STREAM_FLAG_TRIGGER,
+			params, n_params)) < 0)
+		return res;
+
+	n_params = 0;
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
+			&impl->capture1_info);
+	if ((res = pw_stream_connect(impl->capture1,
 			PW_DIRECTION_INPUT,
 			PW_ID_ANY,
 			PW_STREAM_FLAG_AUTOCONNECT |
 			PW_STREAM_FLAG_MAP_BUFFERS |
+			PW_STREAM_FLAG_ASYNC |
+			PW_STREAM_FLAG_RT_PROCESS,
+			params, n_params)) < 0)
+		return res;
+
+	n_params = 0;
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
+			&impl->capture2_info);
+	if ((res = pw_stream_connect(impl->capture2,
+			PW_DIRECTION_INPUT,
+			PW_ID_ANY,
+			PW_STREAM_FLAG_AUTOCONNECT |
+			PW_STREAM_FLAG_MAP_BUFFERS |
+			PW_STREAM_FLAG_ASYNC |
 			PW_STREAM_FLAG_RT_PROCESS,
 			params, n_params)) < 0)
 		return res;
@@ -284,21 +473,31 @@ static const struct pw_proxy_events core_proxy_events = {
 static void impl_destroy(struct impl *impl)
 {
 	/* deactivate both streams before destroying any of them */
-	if (impl->capture)
-		pw_stream_set_active(impl->capture, false);
-	if (impl->playback)
-		pw_stream_set_active(impl->playback, false);
+	if (impl->capture1)
+		pw_stream_set_active(impl->capture1, false);
+	if (impl->capture2)
+		pw_stream_set_active(impl->capture2, false);
+	if (impl->playback1)
+		pw_stream_set_active(impl->playback1, false);
+	if (impl->playback2)
+		pw_stream_set_active(impl->playback1, false);
 
-	if (impl->capture)
-		pw_stream_destroy(impl->capture);
-	if (impl->playback)
-		pw_stream_destroy(impl->playback);
+	if (impl->capture1)
+		pw_stream_destroy(impl->capture1);
+	if (impl->capture2)
+		pw_stream_destroy(impl->capture2);
+	if (impl->playback1)
+		pw_stream_destroy(impl->playback1);
+	if (impl->playback2)
+		pw_stream_destroy(impl->playback2);
 
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
 
-	pw_properties_free(impl->capture_props);
-	pw_properties_free(impl->playback_props);
+	pw_properties_free(impl->capture1_props);
+	pw_properties_free(impl->capture2_props);
+	pw_properties_free(impl->playback1_props);
+	pw_properties_free(impl->playback2_props);
 	free(impl);
 }
 
@@ -357,10 +556,14 @@ static void copy_props(struct impl *impl, struct pw_properties *props, const cha
 {
 	const char *str;
 	if ((str = pw_properties_get(props, key)) != NULL) {
-		if (pw_properties_get(impl->capture_props, key) == NULL)
-			pw_properties_set(impl->capture_props, key, str);
-		if (pw_properties_get(impl->playback_props, key) == NULL)
-			pw_properties_set(impl->playback_props, key, str);
+		if (pw_properties_get(impl->capture1_props, key) == NULL)
+			pw_properties_set(impl->capture1_props, key, str);
+		if (pw_properties_get(impl->capture2_props, key) == NULL)
+			pw_properties_set(impl->capture2_props, key, str);
+		if (pw_properties_get(impl->playback1_props, key) == NULL)
+			pw_properties_set(impl->playback1_props, key, str);
+		if (pw_properties_get(impl->playback2_props, key) == NULL)
+			pw_properties_set(impl->playback2_props, key, str);
 	}
 }
 
@@ -393,9 +596,14 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 
-	impl->capture_props = pw_properties_new(NULL, NULL);
-	impl->playback_props = pw_properties_new(NULL, NULL);
-	if (impl->capture_props == NULL || impl->playback_props == NULL) {
+	impl->capture1_props = pw_properties_new(NULL, NULL);
+	impl->capture2_props = pw_properties_new(NULL, NULL);
+	impl->playback1_props = pw_properties_new(NULL, NULL);
+	impl->playback2_props = pw_properties_new(NULL, NULL);
+	if (impl->capture1_props == NULL
+			|| impl->capture2_props == NULL
+			|| impl->playback1_props == NULL
+			|| impl->playback2_props == NULL) {
 		res = -errno;
 		pw_log_error( "can't create properties: %m");
 		goto error;
@@ -411,10 +619,15 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 
-	if ((str = pw_properties_get(props, "capture.props")) != NULL)
-		pw_properties_update_string(impl->capture_props, str, strlen(str));
-	if ((str = pw_properties_get(props, "playback.props")) != NULL)
-		pw_properties_update_string(impl->playback_props, str, strlen(str));
+	if ((str = pw_properties_get(props, "capture1.props")) != NULL)
+		pw_properties_update_string(impl->capture1_props, str, strlen(str));
+	if ((str = pw_properties_get(props, "capture2.props")) != NULL)
+		pw_properties_update_string(impl->capture2_props, str, strlen(str));
+	if ((str = pw_properties_get(props, "playback1.props")) != NULL)
+		pw_properties_update_string(impl->playback1_props, str, strlen(str));
+	if ((str = pw_properties_get(props, "playback2.props")) != NULL)
+		pw_properties_update_string(impl->playback2_props, str, strlen(str));
+
 
 	copy_props(impl, props, PW_KEY_AUDIO_RATE);
 	copy_props(impl, props, PW_KEY_AUDIO_CHANNELS);
@@ -431,26 +644,44 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				"loopback-%u-%u", pid, id);
 		str = pw_properties_get(props, PW_KEY_NODE_NAME);
 	}
-	if (pw_properties_get(impl->capture_props, PW_KEY_NODE_NAME) == NULL)
-		pw_properties_setf(impl->capture_props, PW_KEY_NODE_NAME,
-				"input.%s", str);
-	if (pw_properties_get(impl->playback_props, PW_KEY_NODE_NAME) == NULL)
-		pw_properties_setf(impl->playback_props, PW_KEY_NODE_NAME,
-				"output.%s", str);
-	if (pw_properties_get(impl->capture_props, PW_KEY_NODE_DESCRIPTION) == NULL)
-		pw_properties_set(impl->capture_props, PW_KEY_NODE_DESCRIPTION, str);
-	if (pw_properties_get(impl->playback_props, PW_KEY_NODE_DESCRIPTION) == NULL)
-		pw_properties_set(impl->playback_props, PW_KEY_NODE_DESCRIPTION, str);
+	if (pw_properties_get(impl->capture1_props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_setf(impl->capture1_props, PW_KEY_NODE_NAME,
+				"input1.%s", str);
+	if (pw_properties_get(impl->capture2_props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_setf(impl->capture2_props, PW_KEY_NODE_NAME,
+				"input2.%s", str);
+	if (pw_properties_get(impl->playback1_props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_setf(impl->playback1_props, PW_KEY_NODE_NAME,
+				"output1.%s", str);
+	if (pw_properties_get(impl->playback2_props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_setf(impl->playback2_props, PW_KEY_NODE_NAME,
+				"output2.%s", str);
+	if (pw_properties_get(impl->capture1_props, PW_KEY_NODE_DESCRIPTION) == NULL)
+		pw_properties_set(impl->capture1_props, PW_KEY_NODE_DESCRIPTION, str);
+	if (pw_properties_get(impl->capture2_props, PW_KEY_NODE_DESCRIPTION) == NULL)
+		pw_properties_set(impl->capture2_props, PW_KEY_NODE_DESCRIPTION, str);
+	if (pw_properties_get(impl->playback1_props, PW_KEY_NODE_DESCRIPTION) == NULL)
+		pw_properties_set(impl->playback1_props, PW_KEY_NODE_DESCRIPTION, str);
+	if (pw_properties_get(impl->playback2_props, PW_KEY_NODE_DESCRIPTION) == NULL)
+		pw_properties_set(impl->playback2_props, PW_KEY_NODE_DESCRIPTION, str);
 
-	parse_audio_info(impl->capture_props, &impl->capture_info);
-	parse_audio_info(impl->playback_props, &impl->playback_info);
+	parse_audio_info(impl->capture1_props, &impl->capture1_info);
+	parse_audio_info(impl->capture2_props, &impl->capture2_info);
+	parse_audio_info(impl->playback1_props, &impl->playback1_info);
+	parse_audio_info(impl->playback2_props, &impl->playback2_info);
 
-	if (pw_properties_get(impl->capture_props, PW_KEY_MEDIA_NAME) == NULL)
-		pw_properties_setf(impl->capture_props, PW_KEY_MEDIA_NAME, "%s input",
-				pw_properties_get(impl->capture_props, PW_KEY_NODE_DESCRIPTION));
-	if (pw_properties_get(impl->playback_props, PW_KEY_MEDIA_NAME) == NULL)
-		pw_properties_setf(impl->playback_props, PW_KEY_MEDIA_NAME, "%s output",
-				pw_properties_get(impl->playback_props, PW_KEY_NODE_DESCRIPTION));
+	if (pw_properties_get(impl->capture1_props, PW_KEY_MEDIA_NAME) == NULL)
+		pw_properties_setf(impl->capture1_props, PW_KEY_MEDIA_NAME, "%s input 1",
+				pw_properties_get(impl->capture1_props, PW_KEY_NODE_DESCRIPTION));
+	if (pw_properties_get(impl->capture2_props, PW_KEY_MEDIA_NAME) == NULL)
+		pw_properties_setf(impl->capture2_props, PW_KEY_MEDIA_NAME, "%s input 2",
+				pw_properties_get(impl->capture2_props, PW_KEY_NODE_DESCRIPTION));
+	if (pw_properties_get(impl->playback1_props, PW_KEY_MEDIA_NAME) == NULL)
+		pw_properties_setf(impl->playback1_props, PW_KEY_MEDIA_NAME, "%s output 1",
+				pw_properties_get(impl->playback1_props, PW_KEY_NODE_DESCRIPTION));
+	if (pw_properties_get(impl->playback2_props, PW_KEY_MEDIA_NAME) == NULL)
+		pw_properties_setf(impl->playback2_props, PW_KEY_MEDIA_NAME, "%s output 2",
+				pw_properties_get(impl->playback2_props, PW_KEY_NODE_DESCRIPTION));
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

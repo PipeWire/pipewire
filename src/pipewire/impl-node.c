@@ -1177,7 +1177,7 @@ static inline void calculate_stats(struct pw_impl_node *this,  struct pw_node_ac
 		a->cpu_load[2] = (a->cpu_load[2] * 31.0f + load) / 32.0f;
 	}
 	pw_log_trace_fp("%p: graph completed wait:%"PRIu64" run:%"PRIu64
-			" busy:%"PRIu64" period:%"PRIu64" cpu:%f:%f:%f", node,
+			" busy:%"PRIu64" period:%"PRIu64" cpu:%f:%f:%f", this,
 			a->awake_time - signal_time,
 			a->finish_time - a->awake_time,
 			process_time, period_time,

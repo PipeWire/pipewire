@@ -966,9 +966,9 @@ do_call_process(struct spa_loop *loop,
 
 static void call_process(struct filter *impl)
 {
-	pw_log_trace("%p: call process", impl);
+	pw_log_trace_fp("%p: call process", impl);
 	if (SPA_FLAG_IS_SET(impl->flags, PW_FILTER_FLAG_RT_PROCESS)) {
-		spa_callbacks_call(&impl->rt_callbacks, struct pw_filter_events,
+		spa_callbacks_call_fast(&impl->rt_callbacks, struct pw_filter_events,
 				process, 0, impl->rt.position);
 	}
 	else {
@@ -1934,7 +1934,7 @@ struct pw_buffer *pw_filter_dequeue_buffer(void *port_data)
 
 	if (SPA_UNLIKELY((b = pop_queue(p, &p->dequeued)) == NULL)) {
 		res = -errno;
-		pw_log_debug("%p: no more buffers: %m", impl);
+		pw_log_trace_fp("%p: no more buffers: %m", impl);
 		errno = -res;
 		return NULL;
 	}

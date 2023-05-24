@@ -427,7 +427,7 @@ static inline void call_process(struct stream *impl)
 	if (impl->direction == SPA_DIRECTION_OUTPUT && update_requested(impl) <= 0)
 		return;
 	if (impl->process_rt)
-		spa_callbacks_call(&impl->rt_callbacks, struct pw_stream_events, process, 0);
+		spa_callbacks_call_fast(&impl->rt_callbacks, struct pw_stream_events, process, 0);
 	else
 		pw_loop_invoke(impl->main_loop,
 			do_call_process, 1, NULL, 0, false, impl);

@@ -635,9 +635,13 @@ struct pw_node_activation {
 							 * used when driver segment_owner has this node id */
 
 	/* for drivers, shared with all nodes */
-	uint32_t segment_owner[32];			/* id of owners for each segment info struct.
+	uint32_t segment_owner[16];			/* id of owners for each segment info struct.
 							 * nodes that want to update segment info need to
 							 * CAS their node id in this array. */
+	uint32_t padding[15];
+#define PW_NODE_ACTIVATION_FLAG_NONE		0
+#define PW_NODE_ACTIVATION_FLAG_PROFILER	(1<<0)	/* the profiler is running */
+	uint32_t flags;					/* extra flags */
 	struct spa_io_position position;		/* contains current position and segment info.
 							 * extra info is updated by nodes that have set
 							 * themselves as owner in the segment structs */

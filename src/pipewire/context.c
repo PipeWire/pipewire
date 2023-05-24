@@ -505,6 +505,10 @@ void pw_context_driver_add_listener(struct pw_context *context,
 		.listener = listener,
 		.events = events,
 		.data = data };
+	struct pw_impl_node *n;
+	spa_list_for_each(n, &context->driver_list, driver_link) {
+		SPA_FLAG_SET(n->rt.target.activation->flags, PW_NODE_ACTIVATION_FLAG_PROFILER);
+	}
 	pw_loop_invoke(context->data_loop,
                        do_add_listener, SPA_ID_INVALID, &d, sizeof(d), false, context);
 }
@@ -521,6 +525,10 @@ SPA_EXPORT
 void pw_context_driver_remove_listener(struct pw_context *context,
 			  struct spa_hook *listener)
 {
+	struct pw_impl_node *n;
+	spa_list_for_each(n, &context->driver_list, driver_link) {
+		SPA_FLAG_CLEAR(n->rt.target.activation->flags, PW_NODE_ACTIVATION_FLAG_PROFILER);
+	}
 	pw_loop_invoke(context->data_loop,
                        do_remove_listener, SPA_ID_INVALID, NULL, 0, true, listener);
 }

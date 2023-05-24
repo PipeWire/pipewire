@@ -1170,19 +1170,13 @@ static const struct pw_proxy_events proxy_client_node_events = {
 	.bound_props = client_node_bound_props,
 };
 
-static inline uint64_t get_time_ns(struct spa_system *system)
-{
-	struct timespec ts;
-	spa_system_clock_gettime(system, CLOCK_MONOTONIC, &ts);
-	return SPA_TIMESPEC_TO_NSEC(&ts);
-}
-
 static void context_complete(void *data, struct pw_impl_node *node)
 {
 	struct node_data *d = data;
 	struct spa_system *data_system = d->data_system;
 
-	if (node != d->node || !node->driving)
+	if (node != d->node || !node->driving ||
+	    !SPA_FLAG_IS_SET(node->rt.target.activation->flags, PW_NODE_ACTIVATION_FLAG_PROFILER))
 		return;
 
 	if (SPA_UNLIKELY(spa_system_eventfd_write(data_system, d->rtwritefd, 1) < 0))

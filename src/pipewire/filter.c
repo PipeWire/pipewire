@@ -1928,17 +1928,16 @@ SPA_EXPORT
 struct pw_buffer *pw_filter_dequeue_buffer(void *port_data)
 {
 	struct port *p = SPA_CONTAINER_OF(port_data, struct port, user_data);
-	struct filter *impl = p->filter;
 	struct buffer *b;
 	int res;
 
 	if (SPA_UNLIKELY((b = pop_queue(p, &p->dequeued)) == NULL)) {
 		res = -errno;
-		pw_log_trace_fp("%p: no more buffers: %m", impl);
+		pw_log_trace_fp("%p: no more buffers: %m", p->filter);
 		errno = -res;
 		return NULL;
 	}
-	pw_log_trace_fp("%p: dequeue buffer %d", impl, b->id);
+	pw_log_trace_fp("%p: dequeue buffer %d", p->filter, b->id);
 
 	return &b->this;
 }

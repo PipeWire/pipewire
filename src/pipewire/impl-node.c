@@ -98,7 +98,7 @@ static void add_node(struct pw_impl_node *this, struct pw_impl_node *driver)
 	}
 
 	/* trigger the driver when we complete */
-	this->rt.driver_target = driver->rt.target;
+	copy_target(&this->rt.driver_target, &driver->rt.target);
 	spa_list_append(&this->rt.target_list, &this->rt.driver_target.link);
 
 	/* now increment the required states of all this node targets, including

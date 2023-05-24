@@ -600,6 +600,16 @@ struct pw_node_target {
 	unsigned int active:1;
 };
 
+static inline void copy_target(struct pw_node_target *dst, const struct pw_node_target *src)
+{
+	dst->id = src->id;
+	memcpy(dst->name, src->name, sizeof(dst->name));
+	dst->node = src->node;
+	dst->activation = src->activation;
+	dst->system = src->system;
+	dst->fd = src->fd;
+}
+
 struct pw_node_activation {
 #define PW_NODE_ACTIVATION_NOT_TRIGGERED	0
 #define PW_NODE_ACTIVATION_TRIGGERED		1

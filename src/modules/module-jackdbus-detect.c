@@ -38,7 +38,7 @@
  * ## Example configuration
  *\code{.unparsed}
  * context.modules = [
- *  {   name = libpipewire-jackdbus-detect
+ *  {   name = libpipewire-module-jackdbus-detect
  *      args {
  *         #jack.server    = null
  *         #tunnel.mode    = duplex

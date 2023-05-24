@@ -179,11 +179,18 @@ uint32_t stream_pop_missing(struct stream *stream)
 	missing -= stream->requested;
 	missing -= avail;
 
-	if (missing <= 0)
+	if (missing <= 0) {
+		pw_log_debug("stream %p: (tlen:%u - req:%"PRIi64" - avail:%"PRIi64") <= 0",
+				stream, stream->attr.tlength, stream->requested, avail);
 		return 0;
+	}
 
-	if (missing < stream->attr.minreq && !stream_prebuf_active(stream, avail))
+	if (missing < stream->attr.minreq && !stream_prebuf_active(stream, avail)) {
+		pw_log_debug("stream %p: (tlen:%u - req:%"PRIi64" - avail:%"PRIi64") <= minreq:%u",
+				stream, stream->attr.tlength, stream->requested, avail,
+				stream->attr.minreq);
 		return 0;
+	}
 
 	stream->requested += missing;
 
@@ -304,10 +311,11 @@ int stream_send_request(struct stream *stream)
 	uint32_t size;
 
 	size = stream_pop_missing(stream);
-	pw_log_debug("stream %p: REQUEST channel:%d %u", stream, stream->channel, size);
 
 	if (size == 0)
 		return 0;
+
+	pw_log_debug("stream %p: REQUEST channel:%d %u", stream, stream->channel, size);
 
 	msg = message_alloc(impl, -1, 0);
 	message_put(msg,

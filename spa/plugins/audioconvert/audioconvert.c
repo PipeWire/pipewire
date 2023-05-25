@@ -2026,8 +2026,13 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_Latency:
 		switch (result.index) {
 		case 0: case 1:
-			param = spa_latency_build(&b, id, &this->dir[result.index].latency);
+		{
+			uint32_t idx = result.index;
+			if (port->is_monitor)
+				idx = idx ^ 1;
+			param = spa_latency_build(&b, id, &this->dir[idx].latency);
 			break;
+		}
 		default:
 			return 0;
 		}

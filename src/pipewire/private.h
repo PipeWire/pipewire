@@ -803,6 +803,8 @@ struct pw_impl_node {
 	struct spa_fraction target_rate;
 	uint64_t target_quantum;
 
+	uint64_t driver_start;
+
 	void *user_data;                /**< extra user data */
 };
 

@@ -1242,6 +1242,7 @@ static inline int process_node(void *data)
 		trigger_targets(this, status, nsec);
 	} else {
 		/* calculate CPU time when finished */
+		a->signal_time = this->driver_start;
 		calculate_stats(this, a);
 		pw_context_driver_emit_complete(this->context, this);
 	}
@@ -1821,6 +1822,7 @@ again:
 		a->status = PW_NODE_ACTIVATION_TRIGGERED;
 		a->prev_signal_time = a->signal_time;
 		a->signal_time = nsec;
+		node->driver_start = nsec;
 
 		a->sync_timeout = SPA_MIN(min_timeout, DEFAULT_SYNC_TIMEOUT);
 

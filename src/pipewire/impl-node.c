@@ -1819,11 +1819,8 @@ again:
 		}
 
 		a->status = PW_NODE_ACTIVATION_TRIGGERED;
-		/* remote nodes set the signal_time before writing the ready
-		 * eventfd */
-		if (!node->remote)
-			a->signal_time = nsec;
 		a->prev_signal_time = a->signal_time;
+		a->signal_time = nsec;
 
 		a->sync_timeout = SPA_MIN(min_timeout, DEFAULT_SYNC_TIMEOUT);
 
@@ -1850,9 +1847,7 @@ again:
 		a->status = PW_NODE_ACTIVATION_FINISHED;
 		a->finish_time = nsec;
 	}
-	if (!node->remote && (status & SPA_STATUS_HAVE_DATA)) {
-		/* remote nodes have done the output mix already before
-		 * they wrote the ready eventfd */
+	if (status & SPA_STATUS_HAVE_DATA) {
 		spa_list_for_each(p, &node->rt.output_mix, rt.node_link)
 			spa_node_process_fast(p->mix);
 	}

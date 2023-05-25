@@ -203,6 +203,7 @@ static int spa_bt_transport_stop_volume_timer(struct spa_bt_transport *transport
 static int spa_bt_transport_start_volume_timer(struct spa_bt_transport *transport);
 static int spa_bt_transport_stop_release_timer(struct spa_bt_transport *transport);
 static int spa_bt_transport_start_release_timer(struct spa_bt_transport *transport);
+static void spa_bt_transport_commit_release_timer(struct spa_bt_transport *transport);
 
 static int device_start_timer(struct spa_bt_device *device);
 static int device_stop_timer(struct spa_bt_device *device);
@@ -2589,6 +2590,13 @@ void spa_bt_transport_set_state(struct spa_bt_transport *transport, enum spa_bt_
 		if (state >= SPA_BT_TRANSPORT_STATE_PENDING && old < SPA_BT_TRANSPORT_STATE_PENDING)
 			transport_sync_volume(transport);
 
+		if (state < SPA_BT_TRANSPORT_STATE_ACTIVE) {
+			/* If transport becomes inactive, do any pending releases
+			 * immediately, since the fd is not usable any more.
+			 */
+			spa_bt_transport_commit_release_timer(transport);
+		}
+
 		if (state == SPA_BT_TRANSPORT_STATE_ERROR) {
 			uint64_t now = get_time_now(monitor);
 
@@ -2719,6 +2727,27 @@ int spa_bt_transport_acquire(struct spa_bt_transport *transport, bool optional)
 	return res;
 }
 
+static void spa_bt_transport_do_release(struct spa_bt_transport *transport)
+{
+	struct spa_bt_monitor *monitor = transport->monitor;
+
+	spa_assert(transport->acquire_refcount >= 1);
+	spa_assert(transport->acquired);
+
+	if (transport->acquire_refcount == 1) {
+		if (!transport->keepalive) {
+			spa_bt_transport_impl(transport, release, 0);
+			transport->acquired = false;
+		} else {
+			spa_log_debug(monitor->log, "transport %p: keepalive %s on release",
+					transport, transport->path);
+		}
+	} else {
+		spa_log_debug(monitor->log, "transport %p: delayed decref %s", transport, transport->path);
+	}
+	transport->acquire_refcount -= 1;
+}
+
 int spa_bt_transport_release(struct spa_bt_transport *transport)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
@@ -2736,8 +2765,15 @@ int spa_bt_transport_release(struct spa_bt_transport *transport)
 	spa_assert(transport->acquire_refcount == 1);
 	spa_assert(transport->acquired);
 
-	/* Postpone transport releases, since we might need it again soon */
-	return spa_bt_transport_start_release_timer(transport);
+	/* Postpone active transport releases, since we might need it again soon.
+	 * If not active, release now since it has to be reacquired before using again.
+	 */
+	if (transport->state == SPA_BT_TRANSPORT_STATE_ACTIVE) {
+		return spa_bt_transport_start_release_timer(transport);
+	} else {
+		spa_bt_transport_do_release(transport);
+		return 0;
+	}
 }
 
 static int spa_bt_transport_release_now(struct spa_bt_transport *transport)
@@ -2808,25 +2844,9 @@ static int stop_timeout_timer(struct spa_bt_monitor *monitor, struct spa_source 
 static void spa_bt_transport_release_timer_event(struct spa_source *source)
 {
 	struct spa_bt_transport *transport = source->data;
-	struct spa_bt_monitor *monitor = transport->monitor;
-
-	spa_assert(transport->acquire_refcount >= 1);
-	spa_assert(transport->acquired);
 
 	spa_bt_transport_stop_release_timer(transport);
-
-	if (transport->acquire_refcount == 1) {
-		if (!transport->keepalive) {
-			spa_bt_transport_impl(transport, release, 0);
-			transport->acquired = false;
-		} else {
-			spa_log_debug(monitor->log, "transport %p: keepalive %s on release",
-					transport, transport->path);
-		}
-	} else {
-		spa_log_debug(monitor->log, "transport %p: delayed decref %s", transport, transport->path);
-	}
-	transport->acquire_refcount -= 1;
+	spa_bt_transport_do_release(transport);
 }
 
 static int spa_bt_transport_start_release_timer(struct spa_bt_transport *transport)
@@ -2840,6 +2860,17 @@ static int spa_bt_transport_start_release_timer(struct spa_bt_transport *transpo
 static int spa_bt_transport_stop_release_timer(struct spa_bt_transport *transport)
 {
 	return stop_timeout_timer(transport->monitor, &transport->release_timer);
+}
+
+static void spa_bt_transport_commit_release_timer(struct spa_bt_transport *transport)
+{
+	struct spa_bt_monitor *monitor = transport->monitor;
+
+	/* Do release now if it is pending */
+	if (transport->release_timer.data) {
+		spa_log_debug(monitor->log, "transport %p: commit pending release", transport);
+		spa_bt_transport_release_timer_event(&transport->release_timer);
+	}
 }
 
 static void spa_bt_transport_volume_changed(struct spa_bt_transport *transport)

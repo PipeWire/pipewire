@@ -8,8 +8,8 @@ msgstr ""
 "Project-Id-Version: pipewire\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/"
 "issues\n"
-"POT-Creation-Date: 2023-03-04 12:58+0000\n"
-"PO-Revision-Date: 2023-03-04 14:10+0100\n"
+"POT-Creation-Date: 2023-05-28 10:45+0000\n"
+"PO-Revision-Date: 2023-05-28 12:48+0200\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <community-poland@mozilla.org>\n"
 "Language: pl\n"
@@ -41,17 +41,17 @@ msgstr "System multimediów PipeWire"
 msgid "Start the PipeWire Media System"
 msgstr "Uruchomienie systemu multimediów PipeWire"
 
-#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:159
-#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:159
+#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:141
+#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:141
 #, c-format
-msgid "Tunnel to %s/%s"
-msgstr "Tunel do %s/%s"
+msgid "Tunnel to %s%s%s"
+msgstr "Tunel do %s%s%s"
 
 #: src/modules/module-fallback-sink.c:31
 msgid "Dummy Output"
 msgstr "Głuche wyjście"
 
-#: src/modules/module-pulse-tunnel.c:675
+#: src/modules/module-pulse-tunnel.c:844
 #, c-format
 msgid "Tunnel for %s@%s"
 msgstr "Tunel dla %s@%s"
@@ -175,7 +175,7 @@ msgstr ""
 "  -o, --encoded                         Tryb zakodowany\n"
 "\n"
 
-#: src/tools/pw-cli.c:2216
+#: src/tools/pw-cli.c:2220
 #, c-format
 msgid ""
 "%s [options] [command]\n"
@@ -200,7 +200,7 @@ msgid "Pro Audio"
 msgstr "Dźwięk w zastosowaniach profesjonalnych"
 
 #: spa/plugins/alsa/acp/acp.c:427 spa/plugins/alsa/acp/alsa-mixer.c:4648
-#: spa/plugins/bluez5/bluez5-device.c:1283
+#: spa/plugins/bluez5/bluez5-device.c:1586
 msgid "Off"
 msgstr "Wyłączone"
 
@@ -227,7 +227,7 @@ msgstr "Wejście liniowe"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2657
 #: spa/plugins/alsa/acp/alsa-mixer.c:2741
-#: spa/plugins/bluez5/bluez5-device.c:1519
+#: spa/plugins/bluez5/bluez5-device.c:1831
 msgid "Microphone"
 msgstr "Mikrofon"
 
@@ -293,7 +293,7 @@ msgid "No Bass Boost"
 msgstr "Brak podbicia basów"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2672
-#: spa/plugins/bluez5/bluez5-device.c:1525
+#: spa/plugins/bluez5/bluez5-device.c:1837
 msgid "Speaker"
 msgstr "Głośnik"
 
@@ -408,7 +408,7 @@ msgstr "Stereo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4484
 #: spa/plugins/alsa/acp/alsa-mixer.c:4642
-#: spa/plugins/bluez5/bluez5-device.c:1507
+#: spa/plugins/bluez5/bluez5-device.c:1819
 msgid "Headset"
 msgstr "Słuchawki z mikrofonem"
 
@@ -522,12 +522,12 @@ msgstr "Dupleks stereo"
 msgid "Mono Chat + 7.1 Surround"
 msgstr "Rozmowa mono + przestrzenne 7.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4754
+#: spa/plugins/alsa/acp/alsa-mixer.c:4748
 #, c-format
 msgid "%s Output"
 msgstr "Wyjście %s"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4761
+#: spa/plugins/alsa/acp/alsa-mixer.c:4756
 #, c-format
 msgid "%s Input"
 msgstr "Wejście %s"
@@ -632,104 +632,104 @@ msgstr "Wbudowany dźwięk"
 msgid "Modem"
 msgstr "Modem"
 
-#: spa/plugins/bluez5/bluez5-device.c:1294
+#: spa/plugins/bluez5/bluez5-device.c:1597
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr "Bramka dźwięku (źródło A2DP i AG HSP/HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1319
+#: spa/plugins/bluez5/bluez5-device.c:1622
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr "Odtwarzanie o wysokiej dokładności (odpływ A2DP, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1322
+#: spa/plugins/bluez5/bluez5-device.c:1625
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr "Dupleks o wysokiej dokładności (źródło/odpływ A2DP, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1330
+#: spa/plugins/bluez5/bluez5-device.c:1633
 msgid "High Fidelity Playback (A2DP Sink)"
 msgstr "Odtwarzanie o wysokiej dokładności (odpływ A2DP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1332
+#: spa/plugins/bluez5/bluez5-device.c:1635
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
 msgstr "Dupleks o wysokiej dokładności (źródło/odpływ A2DP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1374
+#: spa/plugins/bluez5/bluez5-device.c:1677
 #, c-format
 msgid "High Fidelity Playback (BAP Sink, codec %s)"
 msgstr "Odtwarzanie o wysokiej dokładności (odpływ BAP, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1378
+#: spa/plugins/bluez5/bluez5-device.c:1681
 #, c-format
 msgid "High Fidelity Input (BAP Source, codec %s)"
 msgstr "Wejście o wysokiej dokładności (źródło BAP, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1382
+#: spa/plugins/bluez5/bluez5-device.c:1685
 #, c-format
 msgid "High Fidelity Duplex (BAP Source/Sink, codec %s)"
 msgstr "Dupleks o wysokiej dokładności (źródło/odpływ BAP, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1390=
+#: spa/plugins/bluez5/bluez5-device.c:1693
 msgid "High Fidelity Playback (BAP Sink)"
 msgstr "Odtwarzanie o wysokiej dokładności (odpływ BAP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1393
+#: spa/plugins/bluez5/bluez5-device.c:1696
 msgid "High Fidelity Input (BAP Source)"
 msgstr "Wejście o wysokiej dokładności (źródło BAP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1396
+#: spa/plugins/bluez5/bluez5-device.c:1699
 msgid "High Fidelity Duplex (BAP Source/Sink)"
 msgstr "Dupleks o wysokiej dokładności (źródło/odpływ BAP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1424
+#: spa/plugins/bluez5/bluez5-device.c:1735
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
 msgstr "Jednostka główna słuchawek z mikrofonem (HSP/HFP, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1429
+#: spa/plugins/bluez5/bluez5-device.c:1740
 msgid "Headset Head Unit (HSP/HFP)"
 msgstr "Jednostka główna słuchawek z mikrofonem (HSP/HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1508
-#: spa/plugins/bluez5/bluez5-device.c:1513
-#: spa/plugins/bluez5/bluez5-device.c:1520
-#: spa/plugins/bluez5/bluez5-device.c:1526
-#: spa/plugins/bluez5/bluez5-device.c:1532
-#: spa/plugins/bluez5/bluez5-device.c:1538
-#: spa/plugins/bluez5/bluez5-device.c:1544
-#: spa/plugins/bluez5/bluez5-device.c:1550
-#: spa/plugins/bluez5/bluez5-device.c:1556
+#: spa/plugins/bluez5/bluez5-device.c:1820
+#: spa/plugins/bluez5/bluez5-device.c:1825
+#: spa/plugins/bluez5/bluez5-device.c:1832
+#: spa/plugins/bluez5/bluez5-device.c:1838
+#: spa/plugins/bluez5/bluez5-device.c:1844
+#: spa/plugins/bluez5/bluez5-device.c:1850
+#: spa/plugins/bluez5/bluez5-device.c:1856
+#: spa/plugins/bluez5/bluez5-device.c:1862
+#: spa/plugins/bluez5/bluez5-device.c:1868
 msgid "Handsfree"
 msgstr "Zestaw głośnomówiący"
 
-#: spa/plugins/bluez5/bluez5-device.c:1514
+#: spa/plugins/bluez5/bluez5-device.c:1826
 msgid "Handsfree (HFP)"
 msgstr "Zestaw głośnomówiący (HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1531
+#: spa/plugins/bluez5/bluez5-device.c:1843
 msgid "Headphone"
 msgstr "Słuchawki"
 
-#: spa/plugins/bluez5/bluez5-device.c:1537
+#: spa/plugins/bluez5/bluez5-device.c:1849
 msgid "Portable"
 msgstr "Przenośne"
 
-#: spa/plugins/bluez5/bluez5-device.c:1543
+#: spa/plugins/bluez5/bluez5-device.c:1855
 msgid "Car"
 msgstr "Samochód"
 
-#: spa/plugins/bluez5/bluez5-device.c:1549
+#: spa/plugins/bluez5/bluez5-device.c:1861
 msgid "HiFi"
 msgstr "HiFi"
 
-#: spa/plugins/bluez5/bluez5-device.c:1555
+#: spa/plugins/bluez5/bluez5-device.c:1867
 msgid "Phone"
 msgstr "Telefon"
 
-#: spa/plugins/bluez5/bluez5-device.c:1562
+#: spa/plugins/bluez5/bluez5-device.c:1874
 msgid "Bluetooth"
 msgstr "Bluetooth"
 
-#: spa/plugins/bluez5/bluez5-device.c:1563
+#: spa/plugins/bluez5/bluez5-device.c:1875
 msgid "Bluetooth (HFP)"
 msgstr "Bluetooth (HFP)"

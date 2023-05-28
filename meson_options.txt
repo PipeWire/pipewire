@@ -322,3 +322,7 @@ option('opus',
        description: 'Enable code that depends on opus',
        type: 'feature',
        value: 'auto')
+option('libffado',
+       description: 'Enable code that depends on libffado',
+       type: 'feature',
+       value: 'auto')

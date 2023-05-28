@@ -14,6 +14,7 @@ module_sources = [
   'module-example-sink.c',
   'module-example-source.c',
   'module-fallback-sink.c',
+  'module-ffado-driver.c',
   'module-filter-chain.c',
   'module-jack-tunnel.c',
   'module-jackdbus-detect.c',
@@ -185,6 +186,19 @@ endif
 
 summary({'jack-tunnel': build_module_jack_tunnel}, bool_yn: true, section: 'Optional Modules')
 
+build_module_ffado_driver = libffado_dep.found()
+if build_module_ffado_driver
+  pipewire_module_jack_tunnel = shared_library('pipewire-module-ffado-driver',
+    [ 'module-ffado-driver.c' ],
+    include_directories : [configinc],
+    install : true,
+    install_dir : modules_install_dir,
+    install_rpath: modules_install_dir,
+    dependencies : [mathlib, dl_lib, pipewire_dep, libffado_dep],
+  )
+endif
+
+summary({'ffado-driver': build_module_ffado_driver}, bool_yn: true, section: 'Optional Modules')
 
 
 pipewire_module_profiler = shared_library('pipewire-module-profiler',

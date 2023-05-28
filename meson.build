@@ -405,6 +405,9 @@ lilv_lib = dependency('lilv-0', required: get_option('lv2'))
 summary({'lilv (for lv2 plugins)': lilv_lib.found()}, bool_yn: true)
 cdata.set('HAVE_LILV', lilv_lib.found())
 
+libffado_dep = dependency('libffado', required: get_option('libffado'))
+summary({'ffado': libffado_dep.found()}, bool_yn: true)
+
 check_functions = [
   ['gettid', '#include <unistd.h>', ['-D_GNU_SOURCE'], []],
   ['memfd_create', '#include <sys/mman.h>', ['-D_GNU_SOURCE'], []],

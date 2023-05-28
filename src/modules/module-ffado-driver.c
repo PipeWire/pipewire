@@ -40,7 +40,15 @@
  * ## Module Options
  *
  * - `driver.mode`: the driver mode, sink|source|duplex, default duplex
- * - `midi.ports`: the number of midi ports. Can also be added to the stream props.
+ * - `ffado.devices`: array of devices to open, default hw:0
+ * - `ffado.period-size`: period size,default 1024
+ * - `ffado.period-num`: period number,default 3
+ * - `ffado.sample-rate`: sample-rate, default 48000
+ * - `ffado.slave-mode`: slave mode
+ * - `ffado.snoop-mode`: snoop mode
+ * - `ffado.verbose`: ffado verbose level
+ * - `latency.internal.input`: extra input latency in frames
+ * - `latency.internal.output`: extra output latency in frames
  * - `source.props`: Extra properties for the source filter.
  * - `sink.props`: Extra properties for the sink filter.
  *
@@ -63,10 +71,17 @@
  * context.modules = [
  * {   name = libpipewire-module-ffado-driver
  *     args = {
- *         #driver.mode      = duplex
- *         #midi.ports       = 0
- *         #audio.channels   = 2
- *         #audio.position   = [ FL FR ]
+ *         #driver.mode       = duplex
+ *         #ffado.devices     = [ hw:0 ]
+ *         #ffado.period-size = 1024
+ *         #ffado.period-num  = 3
+ *         #ffado.sample-rate = 48000
+ *         #ffado.slave-mode  = false
+ *         #ffado.snoop-mode  = false
+ *         #ffado.verbose     = 0
+ *         #latency.internal.input  = 0
+ *         #latency.internal.output = 0
+ *         #audio.position    = [ FL FR ]
  *         source.props = {
  *             # extra sink properties
  *         }
@@ -86,15 +101,27 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define MAX_PORTS	128
 
-#define DEFAULT_CHANNELS	2
+#define DEFAULT_DEVICES		"[ hw:0 ]"
+#define DEFAULT_PERIOD_SIZE	1024
+#define DEFAULT_PERIOD_NUM	3
+#define DEFAULT_SAMPLE_RATE	48000
+#define DEFAULT_SLAVE_MODE	false
+#define DEFAULT_SNOOP_MODE	false
+#define DEFAULT_VERBOSE		0
+
 #define DEFAULT_POSITION	"[ FL FR ]"
 #define DEFAULT_MIDI_PORTS	1
 
-#define MODULE_USAGE	"( remote.name=<remote> ] "				\
-			"( driver.mode=<sink|source|duplex> ] "			\
-			"( midi.ports=<number of midi ports> ] "		\
-			"( audio.channels=<number of channels> ] "		\
-			"( audio.position=<channel map> ] "			\
+#define MODULE_USAGE	"( remote.name=<remote> ) "				\
+			"( driver.mode=<sink|source|duplex> ) "			\
+			"( ffado.devices=<devices array size, default hw:0> ) "	\
+			"( ffado.period-size=<period size, default 1024> ) "	\
+			"( ffado.period-num=<period num, default 3> ) "		\
+			"( ffado.sample-rate=<sampe rate, default 48000> ) "	\
+			"( ffado.slave-mode=<slave mode, default false> ) "	\
+			"( ffado.snoop-mode=<snoop mode, default false> ) "	\
+			"( ffado.verbose=<verbose level, default 0> ) "		\
+			"( audio.position=<channel map> ) "			\
 			"( source.props=<properties> ) "			\
 			"( sink.props=<properties> ) "
 
@@ -167,9 +194,17 @@ struct impl {
 	struct stream source;
 	struct stream sink;
 
+	char *devices[FFADO_MAX_SPECSTRINGS];
+	uint32_t n_devices;
 	int32_t sample_rate;
 	int32_t period_size;
 	int32_t n_periods;
+	bool slave_mode;
+	bool snoop_mode;
+	uint32_t verbose;
+
+	uint32_t input_latency;
+	uint32_t output_latency;
 	uint32_t quantum_limit;
 
 	uint32_t pw_xrun;
@@ -711,17 +746,22 @@ static int open_ffado_device(struct impl *impl)
 	uint32_t i;
 
 	spa_zero(impl->device_info);
-	spa_zero(impl->device_options);
+	impl->device_info.device_spec_strings = impl->devices;
+	impl->device_info.nb_device_spec_strings = impl->n_devices;
 
+	spa_zero(impl->device_options);
 	impl->device_options.sample_rate = impl->sample_rate;
 	impl->device_options.period_size = impl->period_size;
 	impl->device_options.nb_buffers = impl->n_periods;
 	impl->device_options.realtime = 1;
 	impl->device_options.packetizer_priority = 88;
+	impl->device_options.verbose = impl->verbose;
+	impl->device_options.slave_mode = impl->slave_mode;
+	impl->device_options.snoop_mode = impl->snoop_mode;
 
 	impl->dev = ffado_streaming_init(impl->device_info, impl->device_options);
 	if (impl->dev == NULL) {
-		pw_log_error("can't open FFADO device");
+		pw_log_error("can't open FFADO device %s", impl->devices[0]);
 		return -EIO;
 	}
 
@@ -827,6 +867,8 @@ static const struct pw_proxy_events core_proxy_events = {
 
 static void impl_destroy(struct impl *impl)
 {
+	uint32_t i;
+
 	if (impl->dev) {
 		stop_ffado_device(impl);
 		ffado_streaming_finish(impl->dev);
@@ -843,6 +885,8 @@ static void impl_destroy(struct impl *impl)
 	pw_properties_free(impl->source.props);
 	pw_properties_free(impl->props);
 
+	for (i = 0; i < impl->n_devices; i++)
+		free(impl->devices[i]);
 	free(impl);
 }
 
@@ -866,6 +910,22 @@ static uint32_t channel_from_name(const char *name)
 			return spa_type_audio_channel[i].type;
 	}
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
+}
+
+static void parse_devices(struct impl *impl, const char *val, size_t len)
+{
+	struct spa_json it[2];
+	char v[FFADO_MAX_SPECSTRING_LENGTH];
+
+	spa_json_init(&it[0], val, len);
+        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+                spa_json_init(&it[1], val, len);
+
+	impl->n_devices = 0;
+	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
+	    impl->n_devices < FFADO_MAX_SPECSTRINGS) {
+		impl->devices[impl->n_devices++] = strdup(v);
+	}
 }
 
 static void parse_position(struct spa_audio_info_raw *info, const char *val, size_t len)
@@ -937,8 +997,27 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 	impl->props = props;
-	impl->period_size = 1024;
-	impl->sample_rate = 48000;
+	str = pw_properties_get(props, "ffado.devices");
+	if (str == NULL)
+		str = DEFAULT_DEVICES;
+	parse_devices(impl, str, strlen(str));
+
+	impl->period_size = pw_properties_get_int32(props,
+			"ffado.period-size", DEFAULT_PERIOD_SIZE);
+	impl->n_periods = pw_properties_get_int32(props,
+			"ffado.period-num", DEFAULT_PERIOD_NUM);
+	impl->sample_rate = pw_properties_get_int32(props,
+			"ffado.sample-rate", DEFAULT_SAMPLE_RATE);
+	impl->slave_mode = pw_properties_get_bool(props,
+			"ffado.slave-mode", DEFAULT_SLAVE_MODE);
+	impl->snoop_mode = pw_properties_get_bool(props,
+			"ffado.snoop-mode", DEFAULT_SNOOP_MODE);
+	impl->verbose = pw_properties_get_uint32(props,
+			"ffado.verbose", DEFAULT_VERBOSE);
+	impl->input_latency = pw_properties_get_uint32(props,
+			"latency.internal.input", 0);
+	impl->output_latency = pw_properties_get_uint32(props,
+			"latency.internal.output", 0);
 	impl->quantum_limit = 8192;
 	impl->utils = pw_thread_utils_get();
 

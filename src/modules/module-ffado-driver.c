@@ -501,12 +501,19 @@ static void make_stream_ports(struct stream *s)
 			pw_log_error("Can't create port buffer: %m");
 			return;
 		}
+		if (s->direction == PW_DIRECTION_INPUT) {
+			if (ffado_streaming_set_playback_stream_buffer(impl->dev, i, port->buffer))
+				pw_log_error("cannot configure port buffer for %s", name);
 
-		if (ffado_streaming_set_capture_stream_buffer(impl->dev, i, port->buffer))
-			pw_log_error("cannot configure port buffer for %s", name);
+			if (ffado_streaming_playback_stream_onoff(impl->dev, i, 1))
+				pw_log_error("cannot enable port %s", name);
+		} else {
+			if (ffado_streaming_set_capture_stream_buffer(impl->dev, i, port->buffer))
+				pw_log_error("cannot configure port buffer for %s", name);
 
-		if (ffado_streaming_capture_stream_onoff(impl->dev, i, 1))
-			pw_log_error("cannot enable port %s", name);
+			if (ffado_streaming_capture_stream_onoff(impl->dev, i, 1))
+				pw_log_error("cannot enable port %s", name);
+		}
 
 		s->ports[i] = port;
 	}

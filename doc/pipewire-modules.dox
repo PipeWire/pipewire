@@ -59,6 +59,7 @@ List of known modules:
 - \subpage page_module_example_sink
 - \subpage page_module_example_source
 - \subpage page_module_fallback_sink
+- \subpage page_module_ffado_driver
 - \subpage page_module_filter_chain
 - \subpage page_module_jackdbus_detect
 - \subpage page_module_jack_tunnel

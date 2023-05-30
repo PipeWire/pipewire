@@ -160,7 +160,6 @@ struct stream {
 	struct volume volume;
 
 	unsigned int running:1;
-	unsigned int connect:1;
 };
 
 struct impl {
@@ -209,6 +208,7 @@ struct impl {
 
 	uint32_t pw_xrun;
 	uint32_t ffado_xrun;
+	uint32_t frame_time;
 
 	pthread_t thread;
 
@@ -675,7 +675,7 @@ static void *ffado_process_thread(void *arg)
 {
 	struct impl *impl = arg;
 	bool source_running, sink_running;
-	uint32_t nsec;
+	uint64_t nsec;
 
 	while (true) {
 		ffado_wait_response response;

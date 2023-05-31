@@ -21,6 +21,7 @@ module_sources = [
   'module-link-factory.c',
   'module-loopback.c',
   'module-metadata.c',
+  'module-netjack2-driver.c',
   'module-pipe-tunnel.c',
   'module-portal.c',
   'module-profiler.c',
@@ -200,6 +201,14 @@ endif
 
 summary({'ffado-driver': build_module_ffado_driver}, bool_yn: true, section: 'Optional Modules')
 
+pipewire_module_netjack2_driver = shared_library('pipewire-module-netjack2-driver',
+  [ 'module-netjack2-driver.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
+)
 
 pipewire_module_profiler = shared_library('pipewire-module-profiler',
   [ 'module-profiler.c',

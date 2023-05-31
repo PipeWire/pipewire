@@ -305,8 +305,8 @@ build_all:
         -Droc=disabled
         -Dlibcamera=disabled
         -Dsession-managers=[]
-        -Dc_args="['-UFASTPATH']"
-        -Dcpp_args="['-UFASTPATH']"
+        -Dc_args=['-UFASTPATH']
+        -Dcpp_args=['-UFASTPATH']
   parallel:
     matrix:
       - CC: [gcc, clang]

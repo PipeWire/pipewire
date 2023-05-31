@@ -66,6 +66,7 @@ List of known modules:
 - \subpage page_module_link_factory
 - \subpage page_module_loopback
 - \subpage page_module_metadata
+- \subpage page_module_netjack2_driver
 - \subpage page_module_pipe_tunnel
 - \subpage page_module_portal
 - \subpage page_module_profiler

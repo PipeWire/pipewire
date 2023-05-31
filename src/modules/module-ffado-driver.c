@@ -794,6 +794,7 @@ static int open_ffado_device(struct impl *impl)
 			impl->source.info.channels++;
 			break;
 		default:
+			break;
 		}
 	}
 	impl->sink.info.channels = 0;
@@ -805,6 +806,7 @@ static int open_ffado_device(struct impl *impl)
 			impl->sink.info.channels++;
 			break;
 		default:
+			break;
 		}
 	}
 	if (ffado_streaming_prepare(impl->dev)) {

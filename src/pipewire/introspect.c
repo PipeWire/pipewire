@@ -212,6 +212,7 @@ struct pw_node_info *pw_node_info_merge(struct pw_node_info *info,
 		}
 		info->n_params = n_params;
 		for (; i < info->n_params; i++) {
+			spa_zero(info->params[i]);
 			info->params[i].id = update->params[i].id;
 			info->params[i].flags = update->params[i].flags;
 			info->params[i].user = 1;
@@ -285,6 +286,7 @@ struct pw_port_info *pw_port_info_merge(struct pw_port_info *info,
 		}
 		info->n_params = n_params;
 		for (; i < info->n_params; i++) {
+			spa_zero(info->params[i]);
 			info->params[i].id = update->params[i].id;
 			info->params[i].flags = update->params[i].flags;
 			info->params[i].user = 1;
@@ -448,6 +450,7 @@ struct pw_device_info *pw_device_info_merge(struct pw_device_info *info,
 		}
 		info->n_params = n_params;
 		for (; i < info->n_params; i++) {
+			spa_zero(info->params[i]);
 			info->params[i].id = update->params[i].id;
 			info->params[i].flags = update->params[i].flags;
 			info->params[i].user = 1;

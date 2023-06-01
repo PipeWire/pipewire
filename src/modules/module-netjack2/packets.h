@@ -14,6 +14,7 @@ extern "C" {
 
 struct nj2_session_params {
 	char type[8];					/* packet type ('param') */
+#define NJ2_NETWORK_PROTOCOL	8
 	uint32_t version;				/* version */
 #define NJ2_ID_FOLLOWER_AVAILABLE	0		/* a follower is available */
 #define NJ2_ID_FOLLOWER_SETUP		1		/* follower configuration */

@@ -151,6 +151,7 @@ struct filter {
 	unsigned int warn_mlock:1;
 	unsigned int process_rt:1;
 	unsigned int driving:1;
+	unsigned int trigger:1;
 };
 
 static int get_param_index(uint32_t id)
@@ -1601,6 +1602,10 @@ pw_filter_connect(struct pw_filter *filter,
 		pw_properties_set(filter->properties, PW_KEY_NODE_DRIVER, "true");
 	if ((pw_properties_get(filter->properties, PW_KEY_NODE_WANT_DRIVER) == NULL))
 		pw_properties_set(filter->properties, PW_KEY_NODE_WANT_DRIVER, "true");
+	if (flags & PW_FILTER_FLAG_TRIGGER) {
+		pw_properties_set(filter->properties, PW_KEY_NODE_TRIGGER, "true");
+		impl->trigger = true;
+	}
 
 	if (filter->core == NULL) {
 		filter->core = pw_context_connect(impl->context,
@@ -2049,12 +2054,14 @@ int pw_filter_trigger_process(struct pw_filter *filter)
 
 	pw_log_trace_fp("%p: driving:%d", impl, impl->driving);
 
-	if (!impl->driving) {
-		res = pw_loop_invoke(impl->main_loop,
-			do_trigger_request_process, 1, NULL, 0, false, impl);
-	} else {
+	if (impl->trigger) {
+		pw_impl_node_trigger(filter->node);
+	} else if (impl->driving) {
 		res = pw_loop_invoke(impl->data_loop,
 			do_trigger_process, 1, NULL, 0, false, impl);
+	} else {
+		res = pw_loop_invoke(impl->main_loop,
+			do_trigger_request_process, 1, NULL, 0, false, impl);
 	}
 	return res;
 }

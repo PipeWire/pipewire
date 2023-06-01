@@ -104,6 +104,11 @@ enum pw_filter_flags {
 	PW_FILTER_FLAG_CUSTOM_LATENCY	= (1 << 3),	/**< don't call the default latency algorithm
 							  *  but emit the param_changed event for the
 							  *  ports when Latency params are received. */
+	PW_FILTER_FLAG_TRIGGER		= (1 << 4),	/**< the filter will not be scheduled
+							  *  automatically but _trigger_process()
+							  *  needs to be called. This can be used
+							  *  when the filter depends on processing
+							  *  of other filters. */
 };
 
 enum pw_filter_port_flags {

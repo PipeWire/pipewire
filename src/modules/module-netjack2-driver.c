@@ -617,8 +617,9 @@ static int netjack2_recv_audio(struct stream *s, struct nj2_packet_header *heade
 			do_volume(dst, (float*)&ap[1], &s->volume, active_port, sub_period_size);
 		}
 	}
-	if (impl->sync.is_last)
+	if (impl->sync.is_last) {
 		pw_log_trace_fp("got last audio packet");
+	}
 
 	return 0;
 }

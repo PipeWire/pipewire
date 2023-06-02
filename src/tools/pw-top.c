@@ -22,6 +22,8 @@
 #define MAX_FORMAT		16
 #define MAX_NAME		128
 
+#define XRUN_INVALID	(uint32_t)-1
+
 struct driver {
 	int64_t count;
 	float cpu_load[3];
@@ -38,6 +40,7 @@ struct measurement {
 	int64_t awake;
 	int64_t finish;
 	struct spa_fraction latency;
+	uint32_t xrun_count;
 };
 
 struct node {
@@ -317,6 +320,7 @@ static int process_driver_block(struct data *d, const struct spa_pod *pod, struc
 	int res;
 
 	spa_zero(m);
+	m.xrun_count = XRUN_INVALID;
 	if ((res = spa_pod_parse_struct(pod,
 			SPA_POD_Int(&id),
 			SPA_POD_String(&name),
@@ -325,7 +329,8 @@ static int process_driver_block(struct data *d, const struct spa_pod *pod, struc
 			SPA_POD_Long(&m.awake),
 			SPA_POD_Long(&m.finish),
 			SPA_POD_Int(&m.status),
-			SPA_POD_Fraction(&m.latency))) < 0)
+			SPA_POD_Fraction(&m.latency),
+			SPA_POD_OPT_Int(&m.xrun_count))) < 0)
 		return res;
 
 	if ((n = find_node(d, id)) == NULL)
@@ -348,6 +353,7 @@ static int process_follower_block(struct data *d, const struct spa_pod *pod, str
 	int res;
 
 	spa_zero(m);
+	m.xrun_count = XRUN_INVALID;
 	if ((res = spa_pod_parse_struct(pod,
 			SPA_POD_Int(&id),
 			SPA_POD_String(&name),
@@ -356,7 +362,8 @@ static int process_follower_block(struct data *d, const struct spa_pod *pod, str
 			SPA_POD_Long(&m.awake),
 			SPA_POD_Long(&m.finish),
 			SPA_POD_Int(&m.status),
-			SPA_POD_Fraction(&m.latency))) < 0)
+			SPA_POD_Fraction(&m.latency),
+			SPA_POD_OPT_Int(&m.xrun_count))) < 0)
 		return res;
 
 	if ((n = find_node(d, id)) == NULL)
@@ -463,7 +470,8 @@ static void print_node(struct data *d, struct driver *i, struct node *n, int y)
 			print_time(buf2, active, 64, busy),
 			print_perc(buf3, active, 64, waiting, quantum),
 			print_perc(buf4, active, 64, busy, quantum),
-			i->xrun_count,
+			n->measurement.xrun_count == XRUN_INVALID ?
+					i->xrun_count : n->measurement.xrun_count,
 			active ? n->format : "",
 			n->driver == n ? "" : " + ",
 			n->name);

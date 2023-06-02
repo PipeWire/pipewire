@@ -213,7 +213,8 @@ static void context_do_profile(void *data, struct pw_impl_node *node)
 			SPA_POD_Long(a->awake_time),
 			SPA_POD_Long(a->finish_time),
 			SPA_POD_Int(a->status),
-			SPA_POD_Fraction(&node->latency));
+			SPA_POD_Fraction(&node->latency),
+			SPA_POD_Int(a->xrun_count));
 
 	spa_list_for_each(t, &node->rt.target_list, link) {
 		struct pw_impl_node *n = t->node;
@@ -245,7 +246,8 @@ static void context_do_profile(void *data, struct pw_impl_node *node)
 			SPA_POD_Long(na->awake_time),
 			SPA_POD_Long(na->finish_time),
 			SPA_POD_Int(na->status),
-			SPA_POD_Fraction(&latency));
+			SPA_POD_Fraction(&latency),
+			SPA_POD_Int(na->xrun_count));
 	}
 	spa_pod_builder_pop(&b, &f[0]);
 

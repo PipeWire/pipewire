@@ -1595,10 +1595,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(props, PW_KEY_NODE_LOCK_RATE, "true");
 
 	pw_properties_set(impl->sink_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
-	pw_properties_set(impl->sink_props, PW_KEY_NODE_NAME, "jack_manager_send");
+	pw_properties_set(impl->sink_props, PW_KEY_NODE_NAME, "netjack2_manager_send");
 
 	pw_properties_set(impl->source_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
-	pw_properties_set(impl->source_props, PW_KEY_NODE_NAME, "jack_manager_recv");
+	pw_properties_set(impl->source_props, PW_KEY_NODE_NAME, "netjack2_manager_recv");
 
 	if ((str = pw_properties_get(props, "sink.props")) != NULL)
 		pw_properties_update_string(impl->sink_props, str, strlen(str));

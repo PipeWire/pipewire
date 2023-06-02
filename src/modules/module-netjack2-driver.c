@@ -49,15 +49,16 @@
  * ## Module Options
  *
  * - `driver.mode`: the driver mode, sink|source|duplex, default duplex
- * - `jack.client-name`: the name of the JACK client.
  * - `local.ifname = <str>`: interface name to use
  * - `net.ip =<str>`: multicast IP address, default "225.3.19.154"
  * - `net.port =<int>`: control port, default "19000"
  * - `net.mtu = <int>`: MTU to use, default 1500
  * - `net.ttl = <int>`: TTL to use, default 1
  * - `net.loop = <bool>`: loopback multicast, default false
- * - `jack.connect`: if jack ports should be connected automatically. Can also be
+ * - `netjack2.client-name`: the name of the NETJACK2 client.
+ * - `netjack2.save`: if jack port connections should be save automatically. Can also be
  *                   placed per stream.
+ * - `netjack2.latency`: the latency in cycles, default 2
  * - `audio.channels`: the number of audio ports. Can also be added to the stream props.
  * - `midi.ports`: the number of midi ports. Can also be added to the stream props.
  * - `source.props`: Extra properties for the source filter.
@@ -83,12 +84,13 @@
  * context.modules = [
  * {   name = libpipewire-module-netjack2-driver
  *     args = {
- *         #driver.mode      = duplex
- *         #jack.client-name = PipeWire
- *         #jack.connect     = true
- *         #midi.ports       = 0
- *         #audio.channels   = 2
- *         #audio.position   = [ FL FR ]
+ *         #driver.mode          = duplex
+ *         #netjack2.client-name = PipeWire
+ *         #netjack2.save        = false
+ *         #netjack2.latency     = 2
+ *         #midi.ports           = 0
+ *         #audio.channels       = 2
+ *         #audio.position       = [ FL FR ]
  *         source.props = {
  *             # extra sink properties
  *         }
@@ -116,7 +118,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_NET_DSCP	34 /* Default to AES-67 AF41 (34) */
 #define MAX_MTU			9000
 
-#define NETWORK_DEFAULT_LATENCY	5
+#define DEFAULT_NETWORK_LATENCY	2
 #define NETWORK_MAX_LATENCY	30
 
 #define DEFAULT_CLIENT_NAME	"PipeWire"
@@ -135,8 +137,9 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"( net.mtu=<MTU to use, default 1500> ) "		\
 			"( net.ttl=<TTL to use, default 1> ) "			\
 			"( net.loop=<loopback, default false> ) "		\
-			"( jack.client-name=<name of the JACK client> ) "	\
-			"( jack.connect=<bool, autoconnect ports> ) "		\
+			"( netjack2.client-name=<name of the NETJACK2 client> ) "	\
+			"( netjack2.save=<bool, save ports> ) "			\
+			"( netjack2.latency=<latency in cycles, default 2> ) "	\
 			"( midi.ports=<number of midi ports> ) "		\
 			"( audio.channels=<number of channels> ) "		\
 			"( audio.position=<channel map> ) "			\
@@ -202,6 +205,7 @@ struct impl {
 	int ttl;
 	int dscp;
 	int mtu;
+	uint32_t latency;
 
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
@@ -364,18 +368,15 @@ static int32_t netjack2_sync_wait(struct impl *impl)
 		if ((len = recv(impl->socket->fd, impl->recv_buffer, impl->params.mtu, 0)) < 0)
 			goto receive_error;
 
-		if (len < (ssize_t)sizeof(*sync))
-			continue;
+		if (len >= (ssize_t)sizeof(*sync)) {
+			//nj2_dump_packet_header(sync);
 
-		//nj2_dump_packet_header(sync);
-
-		if (strcmp(sync->type, "header") != 0)
-			continue;
-		if (ntohl(sync->data_type) != 's' ||
-		    ntohl(sync->data_stream) != 's' ||
-		    ntohl(sync->id) != impl->params.id)
-			continue;
-		break;
+			if (strcmp(sync->type, "header") == 0 &&
+			    ntohl(sync->data_type) == 's' &&
+			    ntohl(sync->data_stream) == 's' &&
+			    ntohl(sync->id) == impl->params.id)
+				break;
+		}
 	}
 	impl->sync.is_last = ntohl(sync->is_last);
 	impl->sync.frames = ntohl(sync->frames);
@@ -921,10 +922,10 @@ static int create_filters(struct impl *impl)
 	int res = 0;
 
 	if (impl->mode & MODE_SINK)
-		res = make_stream(&impl->sink, "JACK Sink");
+		res = make_stream(&impl->sink, "NETJACK2 Sink");
 
 	if (impl->mode & MODE_SOURCE)
-		res = make_stream(&impl->source, "JACK Source");
+		res = make_stream(&impl->source, "NETJACK2 Source");
 
 	return res;
 }
@@ -1188,10 +1189,25 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 	header->data_stream = htonl('r');
 	header->id = params->id;
 
+	pw_properties_setf(impl->sink.props, PW_KEY_NODE_DESCRIPTION, "NETJACK2 to %s",
+			impl->params.driver_name);
+	pw_properties_setf(impl->source.props, PW_KEY_NODE_DESCRIPTION, "NETJACK2 from %s",
+			impl->params.driver_name);
+
 	if ((res = create_filters(impl)) < 0)
 		return res;
 
-	if (connect(impl->setup_socket->fd, (struct sockaddr*)addr, addr_len) < 0)
+	int bufsize = NETWORK_MAX_LATENCY * (impl->params.mtu +
+		impl->params.period_size * sizeof(float) *
+		SPA_MAX(impl->source.n_ports, impl->sink.n_ports));
+
+	pw_log_info("send/recv buffer %d", bufsize);
+	if (setsockopt(impl->socket->fd, SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(bufsize)) < 0)
+		pw_log_warn("setsockopt(SO_SNDBUF) failed: %m");
+	if (setsockopt(impl->socket->fd, SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize)) < 0)
+		pw_log_warn("setsockopt(SO_SNDBUF) failed: %m");
+
+	if (connect(impl->socket->fd, (struct sockaddr*)addr, addr_len) < 0)
 		goto connect_error;
 
 	impl->done = true;
@@ -1257,7 +1273,7 @@ static int send_follower_available(struct impl *impl)
 
 	pw_log_info("sending AVAILABLE to %s", get_ip(&impl->dst_addr, buffer, sizeof(buffer)));
 
-	client_name = pw_properties_get(impl->props, "jack.client-name");
+	client_name = pw_properties_get(impl->props, "netjack2.client-name");
 	if (client_name == NULL)
 		client_name = DEFAULT_CLIENT_NAME;
 
@@ -1275,7 +1291,7 @@ static int send_follower_available(struct impl *impl)
 	params.recv_midi_channels = htonl(-1);
 	params.sample_encoder = htonl(NJ2_ENCODER_FLOAT);
 	params.follower_sync_mode = htonl(1);
-        params.network_latency = htonl(NETWORK_DEFAULT_LATENCY);
+        params.network_latency = htonl(impl->latency);
 	sendto(impl->setup_socket->fd, &params, sizeof(params), 0,
 			(struct sockaddr*)&impl->dst_addr, impl->dst_len);
 	return 0;
@@ -1555,6 +1571,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			goto error;
 		}
 	}
+	impl->latency = pw_properties_get_uint32(impl->props, "netjack2.latency",
+			DEFAULT_NETWORK_LATENCY);
 
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
@@ -1566,12 +1584,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_properties_set(impl->sink.props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 	pw_properties_set(impl->sink.props, PW_KEY_PRIORITY_DRIVER, "40000");
 	pw_properties_set(impl->sink.props, PW_KEY_NODE_NAME, "jack_sink");
-	pw_properties_set(impl->sink.props, PW_KEY_NODE_DESCRIPTION, "JACK Sink");
 
 	pw_properties_set(impl->source.props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 	pw_properties_set(impl->source.props, PW_KEY_PRIORITY_DRIVER, "40001");
 	pw_properties_set(impl->source.props, PW_KEY_NODE_NAME, "jack_source");
-	pw_properties_set(impl->source.props, PW_KEY_NODE_DESCRIPTION, "JACK Source");
 
 	if ((str = pw_properties_get(props, "sink.props")) != NULL)
 		pw_properties_update_string(impl->sink.props, str, strlen(str));

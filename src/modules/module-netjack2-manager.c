@@ -55,8 +55,10 @@
  * - `net.mtu = <int>`: MTU to use, default 1500
  * - `net.ttl = <int>`: TTL to use, default 1
  * - `net.loop = <bool>`: loopback multicast, default false
- * - `jack.connect`: if jack ports should be connected automatically. Can also be
+ * - `netjack2.connect`: if jack ports should be connected automatically. Can also be
  *                   placed per stream.
+ * - `netjack2.sample-rate`: the sample rate to use, default 48000
+ * - `netjack2.period-size`: the buffer size to use, default 1024
  * - `audio.channels`: the number of audio ports. Can also be added to the stream props.
  * - `midi.ports`: the number of midi ports. Can also be added to the stream props.
  * - `source.props`: Extra properties for the source filter.
@@ -82,10 +84,12 @@
  * context.modules = [
  * {   name = libpipewire-module-netjack2-manager
  *     args = {
- *         #jack.connect     = true
- *         #midi.ports       = 0
- *         #audio.channels   = 2
- *         #audio.position   = [ FL FR ]
+ *         #netjack2.connect     = true
+ *         #netjack2.sample-rate = 48000
+ *         #netjack2.period-size = 1024
+ *         #midi.ports           = 0
+ *         #audio.channels       = 2
+ *         #audio.position       = [ FL FR ]
  *         source.props = {
  *             # extra sink properties
  *         }
@@ -113,8 +117,11 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_NET_DSCP	34 /* Default to AES-67 AF41 (34) */
 #define MAX_MTU			9000
 
+
 #define NETWORK_MAX_LATENCY	30
 
+#define DEFAULT_SAMPLE_RATE	48000
+#define DEFAULT_PERIOD_SIZE	1024
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_POSITION	"[ FL FR ]"
 #define DEFAULT_MIDI_PORTS	1
@@ -127,6 +134,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"( net.ttl=<TTL to use, default 1> ) "			\
 			"( net.loop=<loopback, default false> ) "		\
 			"( netjack2.connect=<bool, autoconnect ports> ) "	\
+			"( netjack2.sample-rate=<sampl erate, default 48000> ) "\
+			"( netjack2.period-size=<period size, default 1024> ) "	\
 			"( midi.ports=<number of midi ports> ) "		\
 			"( audio.channels=<number of channels> ) "		\
 			"( audio.position=<channel map> ) "			\
@@ -230,6 +239,8 @@ struct impl {
 	uint32_t ttl;
 	bool loop;
 	uint32_t dscp;
+	uint32_t period_size;
+	uint32_t samplerate;
 
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
@@ -444,15 +455,15 @@ static int netjack2_send_audio(struct stream *s, uint32_t frames, struct data_in
 	active_ports = n_info;
 
 	if (active_ports == 0) {
-		sub_period_size = follower->params.period_size;
+		sub_period_size = frames;
 	} else {
 		uint32_t max_size = PACKET_AVAILABLE_SIZE(follower->params.mtu);
 		uint32_t period = (uint32_t) powf(2.f, (uint32_t) (logf((float)max_size /
 				(active_ports * sizeof(float))) / logf(2.f)));
-		sub_period_size = SPA_MIN(period, follower->params.period_size);
+		sub_period_size = SPA_MIN(period, frames);
 	}
 	sub_period_bytes = sub_period_size * sizeof(float) + sizeof(int32_t);
-	num_packets = follower->params.period_size / sub_period_size;
+	num_packets = frames / sub_period_size;
 
 	header->data_type = htonl('a');
 	header->active_ports = htonl(active_ports);
@@ -548,12 +559,12 @@ static int netjack2_recv_audio(struct stream *s, struct nj2_packet_header *heade
 	active_ports = ntohl(header->active_ports);
 
 	if (active_ports == 0) {
-		sub_period_size = follower->params.period_size;
+		sub_period_size = follower->sync.frames;
 	} else {
 		uint32_t max_size = PACKET_AVAILABLE_SIZE(follower->params.mtu);
 		uint32_t period = (uint32_t) powf(2.f, (uint32_t) (logf((float)max_size /
 				(active_ports * sizeof(float))) / logf(2.f)));
-		sub_period_size = SPA_MIN(period, follower->params.period_size);
+		sub_period_size = SPA_MIN(period, (uint32_t)follower->sync.frames);
 	}
 	sub_period_bytes = sub_period_size * sizeof(float) + sizeof(int32_t);
 
@@ -667,7 +678,7 @@ static int netjack2_recv_data(struct stream *s, struct data_info *info, uint32_t
 	}
 	for (i = 0; i < n_info; i++) {
 		if (!info[i].filled && info[i].data != NULL)
-			memset(info[i].data, 0, follower->params.period_size * sizeof(float));
+			memset(info[i].data, 0, follower->sync.frames * sizeof(float));
 	}
 	follower->sync.cycle = ntohl(header->cycle);
 	return 0;
@@ -1201,8 +1212,8 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 	follower->sink.n_midi = pw_properties_get_uint32(follower->sink.props,
 			"midi.ports", DEFAULT_MIDI_PORTS);
 
-	follower->samplerate = 48000;
-	follower->period_size = 1024;
+	follower->samplerate = impl->samplerate;
+	follower->period_size = impl->period_size;
 
 	pw_properties_setf(follower->sink.props, PW_KEY_NODE_FORCE_RATE, "1/%u", follower->samplerate);
 	pw_properties_setf(follower->sink.props, PW_KEY_NODE_FORCE_QUANTUM, "%u", follower->period_size);
@@ -1585,6 +1596,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			goto error;
 		}
 	}
+	impl->samplerate = pw_properties_get_uint32(impl->props, "netjack2.sample-rate",
+			DEFAULT_SAMPLE_RATE);
+	impl->period_size = pw_properties_get_uint32(impl->props, "netjack2.period-size",
+			DEFAULT_PERIOD_SIZE);
 
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");

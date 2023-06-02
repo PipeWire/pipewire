@@ -476,15 +476,15 @@ static int netjack2_send_audio(struct stream *s, uint32_t frames, struct data_in
 	active_ports = n_info;
 
 	if (active_ports == 0) {
-		sub_period_size = impl->params.period_size;
+		sub_period_size = frames;
 	} else {
 		uint32_t max_size = PACKET_AVAILABLE_SIZE(impl->params.mtu);
 		uint32_t period = (uint32_t) powf(2.f, (uint32_t) (logf((float)max_size /
 				(active_ports * sizeof(float))) / logf(2.f)));
-		sub_period_size = SPA_MIN(period, impl->params.period_size);
+		sub_period_size = SPA_MIN(period, frames);
 	}
 	sub_period_bytes = sub_period_size * sizeof(float) + sizeof(int32_t);
-	num_packets = impl->params.period_size / sub_period_size;
+	num_packets = frames / sub_period_size;
 
 	header->data_type = htonl('a');
 	header->active_ports = htonl(active_ports);
@@ -589,12 +589,12 @@ static int netjack2_recv_audio(struct stream *s, struct nj2_packet_header *heade
 	active_ports = ntohl(header->active_ports);
 
 	if (active_ports == 0) {
-		sub_period_size = impl->params.period_size;
+		sub_period_size = impl->sync.frames;
 	} else {
 		uint32_t max_size = PACKET_AVAILABLE_SIZE(impl->params.mtu);
 		uint32_t period = (uint32_t) powf(2.f, (uint32_t) (logf((float)max_size /
 				(active_ports * sizeof(float))) / logf(2.f)));
-		sub_period_size = SPA_MIN(period, impl->params.period_size);
+		sub_period_size = SPA_MIN(period, (uint32_t)impl->sync.frames);
 	}
 	sub_period_bytes = sub_period_size * sizeof(float) + sizeof(int32_t);
 
@@ -658,7 +658,7 @@ static int netjack2_recv_data(struct stream *s, struct data_info *info, uint32_t
 	}
 	for (i = 0; i < s->n_ports; i++) {
 		if (!info[i].filled && info[i].data != NULL)
-			memset(info[i].data, 0, impl->params.period_size * sizeof(float));
+			memset(info[i].data, 0, impl->sync.frames * sizeof(float));
 	}
 	impl->sync.cycle = ntohl(header->cycle);
 	return 0;

@@ -393,6 +393,7 @@ receive_error:
 struct data_info {
 	void *data;
 	uint32_t id;
+	bool filled;
 };
 
 static int netjack2_send_sync(struct stream *s, uint32_t nframes)
@@ -565,8 +566,6 @@ static int netjack2_recv_midi(struct stream *s, struct nj2_packet_header *header
 	if ((len = recv(impl->socket->fd, impl->recv_buffer, ntohl(header->packet_size), 0)) < 0)
 		return -errno;
 
-	impl->sync.is_last = ntohl(header->is_last);
-
 	impl->sync.cycle = ntohl(header->cycle);
 	impl->sync.num_packets = ntohl(header->num_packets);
 
@@ -585,8 +584,6 @@ static int netjack2_recv_audio(struct stream *s, struct nj2_packet_header *heade
 
 	if ((len = recv(impl->socket->fd, impl->recv_buffer, ntohl(header->packet_size), 0)) < 0)
 		return -errno;
-
-	impl->sync.is_last = ntohl(header->is_last);
 
 	sub_cycle = ntohl(header->sub_cycle);
 	active_ports = ntohl(header->active_ports);
@@ -616,12 +613,9 @@ static int netjack2_recv_audio(struct stream *s, struct nj2_packet_header *heade
 					sub_cycle * sub_period_size * sizeof(float),
 					float);
 			do_volume(dst, (float*)&ap[1], &s->volume, active_port, sub_period_size);
+			info[active_port].filled = impl->sync.is_last;
 		}
 	}
-	if (impl->sync.is_last) {
-		pw_log_trace_fp("got last audio packet");
-	}
-
 	return 0;
 }
 
@@ -629,7 +623,7 @@ static int netjack2_recv_data(struct stream *s, struct data_info *info, uint32_t
 {
 	struct impl *impl = s->impl;
 	ssize_t len;
-	uint32_t count = 0;
+	uint32_t i, count = 0;
 	struct nj2_packet_header *header = (struct nj2_packet_header *)impl->recv_buffer;
 
 	while (!impl->sync.is_last) {
@@ -647,6 +641,8 @@ static int netjack2_recv_data(struct stream *s, struct data_info *info, uint32_t
 			continue;
 		}
 
+		impl->sync.is_last = ntohl(header->is_last);
+
 		switch (ntohl(header->data_type)) {
 		case 'm':
 			netjack2_recv_midi(s, header, &count, info, n_info);
@@ -656,8 +652,13 @@ static int netjack2_recv_data(struct stream *s, struct data_info *info, uint32_t
 			break;
 		case 's':
 			pw_log_info("missing last data packet");
-			return 0;
+			impl->sync.is_last = true;
+			break;
 		}
+	}
+	for (i = 0; i < s->n_ports; i++) {
+		if (!info[i].filled && info[i].data != NULL)
+			memset(info[i].data, 0, impl->params.period_size * sizeof(float));
 	}
 	impl->sync.cycle = ntohl(header->cycle);
 	return 0;
@@ -685,8 +686,8 @@ static void source_process(void *d, struct spa_io_position *position)
 		struct port *p = s->ports[i];
 		info[i].data = p ? pw_filter_get_dsp_buffer(p, n_samples) : NULL;
 		info[i].id = i;
+		info[i].filled = false;
 	}
-
 	netjack2_recv_data(s, info, s->n_ports);
 }
 

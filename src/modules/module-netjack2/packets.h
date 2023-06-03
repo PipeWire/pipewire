@@ -67,6 +67,48 @@ static inline void nj2_dump_session_params(struct nj2_session_params *params)
 	pw_log_info("Latency:       %u", ntohl(params->network_latency));
 }
 
+static inline void nj2_session_params_ntoh(struct nj2_session_params *host,
+		const struct nj2_session_params *net)
+{
+	memcpy(host, net, sizeof(*host));
+	host->version = ntohl(net->version);
+	host->packet_id = ntohl(net->packet_id);
+	host->mtu = ntohl(net->mtu);
+	host->id = ntohl(net->id);
+	host->transport_sync = ntohl(net->transport_sync);
+	host->send_audio_channels = ntohl(net->send_audio_channels);
+	host->recv_audio_channels = ntohl(net->recv_audio_channels);
+	host->send_midi_channels = ntohl(net->send_midi_channels);
+	host->recv_midi_channels = ntohl(net->recv_midi_channels);
+	host->sample_rate = ntohl(net->sample_rate);
+	host->period_size = ntohl(net->period_size);
+	host->sample_encoder = ntohl(net->sample_encoder);
+	host->kbps = ntohl(net->kbps);
+	host->follower_sync_mode = ntohl(net->follower_sync_mode);
+	host->network_latency = ntohl(net->network_latency);
+}
+
+static inline void nj2_session_params_hton(struct nj2_session_params *net,
+		const struct nj2_session_params *host)
+{
+	memcpy(net, host, sizeof(*net));
+	net->version = htonl(host->version);
+	net->packet_id = htonl(host->packet_id);
+	net->mtu = htonl(host->mtu);
+	net->id = htonl(host->id);
+	net->transport_sync = htonl(host->transport_sync);
+	net->send_audio_channels = htonl(host->send_audio_channels);
+	net->recv_audio_channels = htonl(host->recv_audio_channels);
+	net->send_midi_channels = htonl(host->send_midi_channels);
+	net->recv_midi_channels = htonl(host->recv_midi_channels);
+	net->sample_rate = htonl(host->sample_rate);
+	net->period_size = htonl(host->period_size);
+	net->sample_encoder = htonl(host->sample_encoder);
+	net->kbps = htonl(host->kbps);
+	net->follower_sync_mode = htonl(host->follower_sync_mode);
+	net->network_latency = htonl(host->network_latency);
+}
+
 struct nj2_packet_header {
 	char type[8];			/* packet type ('headr') */
 	uint32_t data_type;		/* 'a' for audio, 'm' for midi and 's' for sync */

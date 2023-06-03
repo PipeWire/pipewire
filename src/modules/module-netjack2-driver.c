@@ -35,6 +35,7 @@
 #include <pipewire/private.h>
 
 #include "module-netjack2/packets.h"
+#include "module-netjack2/peer.c"
 
 #ifndef IPTOS_DSCP
 #define IPTOS_DSCP_MASK 0xfc
@@ -161,12 +162,6 @@ struct port {
 	unsigned int is_midi:1;
 };
 
-struct volume {
-	bool mute;
-	uint32_t n_volumes;
-	float volumes[SPA_AUDIO_MAX_CHANNELS];
-};
-
 struct stream {
 	struct impl *impl;
 
@@ -235,10 +230,7 @@ struct impl {
 	struct spa_source *timer;
 	uint32_t init_retry;
 
-	struct nj2_session_params params;
-	struct nj2_packet_header sync;
-	uint8_t send_buffer[MAX_MTU];
-	uint8_t recv_buffer[MAX_MTU];
+	struct netjack2_peer peer;
 
 	uint32_t driving;
 
@@ -246,7 +238,6 @@ struct impl {
 	unsigned int do_disconnect:1;
 	unsigned int done:1;
 	unsigned int new_xrun:1;
-	unsigned int fix_midi:1;
 };
 
 static void reset_volume(struct volume *vol, uint32_t n_volumes)
@@ -256,79 +247,6 @@ static void reset_volume(struct volume *vol, uint32_t n_volumes)
 	vol->n_volumes = n_volumes;
 	for (i = 0; i < n_volumes; i++)
 		vol->volumes[i] = 1.0f;
-}
-
-static inline void do_volume(float *dst, const float *src, struct volume *vol, uint32_t ch, uint32_t n_samples)
-{
-	float v = vol->mute ? 0.0f : vol->volumes[ch];
-
-	if (v == 0.0f || src == NULL)
-		memset(dst, 0, n_samples * sizeof(float));
-	else if (v == 1.0f)
-		memcpy(dst, src, n_samples * sizeof(float));
-	else {
-		uint32_t i;
-		for (i = 0; i < n_samples; i++)
-			dst[i] = src[i] * v;
-	}
-}
-
-static inline void fix_midi_event(uint8_t *data, size_t size)
-{
-	/* fixup NoteOn with vel 0 */
-	if (size > 2 && (data[0] & 0xF0) == 0x90 && data[2] == 0x00) {
-		data[0] = 0x80 + (data[0] & 0x0F);
-		data[2] = 0x40;
-	}
-}
-
-static void midi_to_netjack2(struct impl *impl, float *dst, float *src, uint32_t n_samples)
-{
-	struct spa_pod *pod;
-	struct spa_pod_sequence *seq;
-	struct spa_pod_control *c;
-
-	if (src == NULL)
-		return;
-
-	if ((pod = spa_pod_from_data(src, n_samples * sizeof(float), 0, n_samples * sizeof(float))) == NULL)
-		return;
-	if (!spa_pod_is_sequence(pod))
-		return;
-
-	seq = (struct spa_pod_sequence*)pod;
-
-	SPA_POD_SEQUENCE_FOREACH(seq, c) {
-		switch(c->type) {
-		case SPA_CONTROL_Midi:
-		{
-			uint8_t *data = SPA_POD_BODY(&c->value);
-			size_t size = SPA_POD_BODY_SIZE(&c->value);
-
-			if (impl->fix_midi)
-				fix_midi_event(data, size);
-
-			break;
-		}
-		default:
-			break;
-		}
-	}
-}
-
-static void netjack2_to_midi(float *dst, float *src, uint32_t size)
-{
-	struct spa_pod_builder b = { 0, };
-	uint32_t i, count;
-	struct spa_pod_frame f;
-
-	count = 0;
-
-	spa_pod_builder_init(&b, dst, size);
-	spa_pod_builder_push_sequence(&b, &f, 0);
-	for (i = 0; i < count; i++) {
-	}
-	spa_pod_builder_pop(&b, &f);
 }
 
 static void stream_destroy(void *d)
@@ -359,170 +277,6 @@ static void stream_state_changed(void *d, enum pw_filter_state old,
 	}
 }
 
-static int32_t netjack2_sync_wait(struct impl *impl)
-{
-	struct nj2_packet_header *sync = (struct nj2_packet_header *)impl->recv_buffer;
-	ssize_t len;
-
-	while (true) {
-		if ((len = recv(impl->socket->fd, impl->recv_buffer, impl->params.mtu, 0)) < 0)
-			goto receive_error;
-
-		if (len >= (ssize_t)sizeof(*sync)) {
-			//nj2_dump_packet_header(sync);
-
-			if (strcmp(sync->type, "header") == 0 &&
-			    ntohl(sync->data_type) == 's' &&
-			    ntohl(sync->data_stream) == 's' &&
-			    ntohl(sync->id) == impl->params.id)
-				break;
-		}
-	}
-	impl->sync.is_last = ntohl(sync->is_last);
-	impl->sync.frames = ntohl(sync->frames);
-	if (impl->sync.frames == -1)
-		impl->sync.frames = impl->params.period_size;
-
-	return impl->sync.frames;
-
-receive_error:
-	pw_log_warn("recv error: %m");
-	return 0;
-}
-
-struct data_info {
-	void *data;
-	uint32_t id;
-	bool filled;
-};
-
-static int netjack2_send_sync(struct stream *s, uint32_t nframes)
-{
-	struct impl *impl = s->impl;
-	struct nj2_packet_header *header = (struct nj2_packet_header *)impl->send_buffer;
-	uint32_t i, packet_size, active_ports, is_last;
-	int32_t *p;
-
-	/* we always listen on all ports */
-	active_ports = impl->params.send_audio_channels;
-	packet_size = sizeof(*header) + active_ports * sizeof(int32_t);
-	is_last = impl->params.recv_midi_channels == 0 &&
-                        impl->params.recv_audio_channels == 0 ? 1 : 0;
-
-	header->active_ports = htonl(active_ports);
-	header->frames = htonl(nframes);
-	header->cycle = htonl(impl->sync.cycle);
-	header->sub_cycle = 0;
-	header->data_type = htonl('s');
-	header->is_last = htonl(is_last);
-	header->packet_size = htonl(packet_size);
-	p = SPA_PTROFF(header, sizeof(*header), int32_t);
-	for (i = 0; i < active_ports; i++)
-		p[i] = htonl(i);
-	send(impl->socket->fd, header, packet_size, 0);
-	return 0;
-}
-
-static int netjack2_send_midi(struct stream *s, uint32_t nframes,
-		struct data_info *info, uint32_t n_info)
-{
-	struct impl *impl = s->impl;
-	struct nj2_packet_header *header = (struct nj2_packet_header *)impl->send_buffer;
-	uint32_t i, num_packets, active_ports, data_size, res1, res2, max_size;
-	int32_t *ap;
-
-	if (impl->params.recv_midi_channels <= 0)
-		return 0;
-
-	active_ports = impl->params.recv_midi_channels;
-	ap = SPA_PTROFF(header, sizeof(*header), int32_t);
-
-	data_size = active_ports * sizeof(struct nj2_midi_buffer);
-	memset(ap, 0, data_size);
-
-	max_size = PACKET_AVAILABLE_SIZE(impl->params.mtu);
-
-	res1 = data_size % max_size;
-        res2 = data_size / max_size;
-        num_packets = (res1) ? res2 + 1 : res2;
-
-	header->data_type = htonl('m');
-	header->active_ports = htonl(active_ports);
-	header->num_packets = htonl(num_packets);
-
-	for (i = 0; i < num_packets; i++) {
-		uint32_t is_last = ((i == num_packets - 1) && impl->params.recv_audio_channels == 0) ? 1 : 0;
-		uint32_t packet_size = sizeof(*header) + data_size;
-
-		header->sub_cycle = htonl(i);
-		header->is_last = htonl(is_last);
-                header->packet_size = htonl(packet_size);
-		send(impl->socket->fd, header, packet_size, 0);
-		//nj2_dump_packet_header(header);
-	}
-	return 0;
-}
-
-static int netjack2_send_audio(struct stream *s, uint32_t frames, struct data_info *info, uint32_t n_info)
-{
-	struct impl *impl = s->impl;
-	struct nj2_packet_header *header = (struct nj2_packet_header *)impl->send_buffer;
-	uint32_t i, j, active_ports, num_packets;
-	uint32_t sub_period_size, sub_period_bytes;
-
-	if (impl->params.recv_audio_channels <= 0)
-		return 0;
-
-	active_ports = n_info;
-
-	if (active_ports == 0) {
-		sub_period_size = frames;
-	} else {
-		uint32_t max_size = PACKET_AVAILABLE_SIZE(impl->params.mtu);
-		uint32_t period = (uint32_t) powf(2.f, (uint32_t) (logf((float)max_size /
-				(active_ports * sizeof(float))) / logf(2.f)));
-		sub_period_size = SPA_MIN(period, frames);
-	}
-	sub_period_bytes = sub_period_size * sizeof(float) + sizeof(int32_t);
-	num_packets = frames / sub_period_size;
-
-	header->data_type = htonl('a');
-	header->active_ports = htonl(active_ports);
-	header->num_packets = htonl(num_packets);
-
-	for (i = 0; i < num_packets; i++) {
-		uint32_t is_last = (i == num_packets - 1) ? 1 : 0;
-		uint32_t packet_size = sizeof(*header) + active_ports * sub_period_bytes;
-		int32_t *ap = SPA_PTROFF(header, sizeof(*header), int32_t);
-		float *src;
-
-		for (j = 0; j < active_ports; j++) {
-			ap[0] = htonl(info[j].id);
-
-			src = SPA_PTROFF(info[j].data, i * sub_period_size * sizeof(float), float);
-			do_volume((float*)&ap[1], src, &s->volume, info[j].id, sub_period_size);
-
-			ap = SPA_PTROFF(ap, sub_period_bytes, int32_t);
-		}
-		header->sub_cycle = htonl(i);
-		header->is_last = htonl(is_last);
-		header->packet_size = htonl(packet_size);
-		send(impl->socket->fd, header, packet_size, 0);
-		//nj2_dump_packet_header(header);
-	}
-	return 0;
-}
-
-static int netjack2_send_data(struct stream *s, uint32_t nframes,
-		struct data_info *midi, uint32_t n_midi,
-		struct data_info *audio, uint32_t n_audio)
-{
-	netjack2_send_sync(s, nframes);
-	netjack2_send_midi(s, nframes, midi, n_midi);
-	netjack2_send_audio(s, nframes, audio, n_audio);
-	return 0;
-}
-
 static void sink_process(void *d, struct spa_io_position *position)
 {
 	struct stream *s = d;
@@ -550,122 +304,11 @@ static void sink_process(void *d, struct spa_io_position *position)
 		}
 	}
 
-	netjack2_send_data(s, nframes, midi, n_midi, audio, n_audio);
+	netjack2_send_data(&impl->peer, nframes, midi, n_midi, audio, n_audio);
 
 	pw_log_trace_fp("done %"PRIu64, impl->frame_time);
 	if (impl->driving == MODE_SINK)
 		impl->done = true;
-}
-
-static int netjack2_recv_midi(struct stream *s, struct nj2_packet_header *header, uint32_t *count,
-		struct data_info *info, uint32_t n_info)
-{
-	struct impl *impl = s->impl;
-	ssize_t len;
-
-	if ((len = recv(impl->socket->fd, impl->recv_buffer, ntohl(header->packet_size), 0)) < 0)
-		return -errno;
-
-	impl->sync.cycle = ntohl(header->cycle);
-	impl->sync.num_packets = ntohl(header->num_packets);
-
-	if (++(*count) == impl->sync.num_packets) {
-		pw_log_trace_fp("got last midi packet");
-	}
-	return 0;
-}
-
-static int netjack2_recv_audio(struct stream *s, struct nj2_packet_header *header, uint32_t *count,
-		struct data_info *info, uint32_t n_info)
-{
-	struct impl *impl = s->impl;
-	ssize_t len;
-	uint32_t i, sub_cycle, sub_period_size, sub_period_bytes, active_ports;
-
-	if ((len = recv(impl->socket->fd, impl->recv_buffer, ntohl(header->packet_size), 0)) < 0)
-		return -errno;
-
-	sub_cycle = ntohl(header->sub_cycle);
-	active_ports = ntohl(header->active_ports);
-
-	if (active_ports == 0) {
-		sub_period_size = impl->sync.frames;
-	} else {
-		uint32_t max_size = PACKET_AVAILABLE_SIZE(impl->params.mtu);
-		uint32_t period = (uint32_t) powf(2.f, (uint32_t) (logf((float)max_size /
-				(active_ports * sizeof(float))) / logf(2.f)));
-		sub_period_size = SPA_MIN(period, (uint32_t)impl->sync.frames);
-	}
-	sub_period_bytes = sub_period_size * sizeof(float) + sizeof(int32_t);
-
-	for (i = 0; i < active_ports; i++) {
-		int32_t *ap = SPA_PTROFF(header, sizeof(*header) + i * sub_period_bytes, int32_t);
-		uint32_t active_port = ntohl(ap[0]);
-		void *data;
-
-		pw_log_trace_fp("%u/%u %u %u", active_port, n_info,
-				sub_cycle, sub_period_size);
-		if (active_port >= n_info)
-			continue;
-
-		if ((data = info[active_port].data) != NULL) {
-			float *dst = SPA_PTROFF(data,
-					sub_cycle * sub_period_size * sizeof(float),
-					float);
-			do_volume(dst, (float*)&ap[1], &s->volume, active_port, sub_period_size);
-			info[active_port].filled = impl->sync.is_last;
-		}
-	}
-	return 0;
-}
-
-static int netjack2_recv_data(struct stream *s, struct data_info *info, uint32_t n_info)
-{
-	struct impl *impl = s->impl;
-	ssize_t len;
-	uint32_t i, count = 0;
-	struct nj2_packet_header *header = (struct nj2_packet_header *)impl->recv_buffer;
-
-	while (!impl->sync.is_last) {
-		if ((len = recv(impl->socket->fd, impl->recv_buffer, impl->params.mtu, MSG_PEEK)) < 0)
-			goto receive_error;
-
-		if (len < (ssize_t)sizeof(*header))
-			goto receive_error;
-
-		//nj2_dump_packet_header(header);
-
-		if (ntohl(header->data_stream) != 's' ||
-		    ntohl(header->id) != impl->params.id) {
-			pw_log_debug("not our packet");
-			continue;
-		}
-
-		impl->sync.is_last = ntohl(header->is_last);
-
-		switch (ntohl(header->data_type)) {
-		case 'm':
-			netjack2_recv_midi(s, header, &count, info, n_info);
-			break;
-		case 'a':
-			netjack2_recv_audio(s, header, &count, info, n_info);
-			break;
-		case 's':
-			pw_log_info("missing last data packet");
-			impl->sync.is_last = true;
-			break;
-		}
-	}
-	for (i = 0; i < s->n_ports; i++) {
-		if (!info[i].filled && info[i].data != NULL)
-			memset(info[i].data, 0, impl->sync.frames * sizeof(float));
-	}
-	impl->sync.cycle = ntohl(header->cycle);
-	return 0;
-
-receive_error:
-	pw_log_warn("recv error: %m");
-	return -errno;
 }
 
 static void source_process(void *d, struct spa_io_position *position)
@@ -688,7 +331,7 @@ static void source_process(void *d, struct spa_io_position *position)
 		info[i].id = i;
 		info[i].filled = false;
 	}
-	netjack2_recv_data(s, info, s->n_ports);
+	netjack2_recv_data(&impl->peer, info, s->n_ports);
 }
 
 static void stream_io_changed(void *data, void *port_data, uint32_t id, void *area, uint32_t size)
@@ -953,7 +596,7 @@ on_data_io(void *data, int fd, uint32_t mask)
 		uint32_t nframes;
 		uint64_t nsec;
 
-		nframes = netjack2_sync_wait(impl);
+		nframes = netjack2_driver_sync_wait(&impl->peer);
 		if (nframes == 0)
 			return;
 
@@ -991,7 +634,7 @@ on_data_io(void *data, int fd, uint32_t mask)
 			c->target_duration = c->duration;
 		}
 		if (!source_running)
-			netjack2_recv_data(&impl->sink, NULL, 0);
+			netjack2_recv_data(&impl->peer, NULL, 0);
 
 		if (impl->mode & MODE_SOURCE && source_running) {
 			impl->done = false;
@@ -1008,7 +651,7 @@ on_data_io(void *data, int fd, uint32_t mask)
 			impl->done = true;
 		}
 		if (!sink_running)
-			netjack2_send_data(&impl->sink, nframes, NULL, 0, NULL, 0);
+			netjack2_send_data(&impl->peer, nframes, NULL, 0, NULL, 0);
 	}
 }
 
@@ -1141,35 +784,22 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 	struct sockaddr_storage *addr, socklen_t addr_len)
 {
 	int res;
-	struct nj2_packet_header *header;
+	struct netjack2_peer *peer = &impl->peer;
 
 	pw_log_info("got follower setup");
 	nj2_dump_session_params(params);
 
-	impl->params = *params;
-	impl->params.version = ntohl(params->version);
-	impl->params.packet_id = ntohl(params->packet_id);
-	impl->params.mtu = ntohl(params->mtu);
-	impl->params.id = ntohl(params->id);
-	impl->params.transport_sync = ntohl(params->transport_sync);
-	impl->params.send_audio_channels = ntohl(params->send_audio_channels);
-	impl->params.recv_audio_channels = ntohl(params->recv_audio_channels);
-	impl->params.send_midi_channels = ntohl(params->send_midi_channels);
-	impl->params.recv_midi_channels = ntohl(params->recv_midi_channels);
-	impl->params.sample_rate = ntohl(params->sample_rate);
-	impl->params.period_size = ntohl(params->period_size);
-	impl->params.sample_encoder = ntohl(params->sample_encoder);
-	impl->params.kbps = ntohl(params->kbps);
-	impl->params.follower_sync_mode = ntohl(params->follower_sync_mode);
-	impl->params.network_latency = ntohl(params->network_latency);
+	nj2_session_params_ntoh(&peer->params, params);
+	SPA_SWAP(peer->params.send_audio_channels, peer->params.recv_audio_channels);
+	SPA_SWAP(peer->params.send_midi_channels, peer->params.recv_midi_channels);
 
-	if (impl->params.send_audio_channels < 0 ||
-	    impl->params.recv_audio_channels < 0 ||
-	    impl->params.send_midi_channels < 0 ||
-	    impl->params.recv_midi_channels < 0 ||
-	    impl->params.sample_rate == 0 ||
-	    impl->params.period_size == 0 ||
-	    impl->params.sample_encoder != NJ2_ENCODER_FLOAT) {
+	if (peer->params.send_audio_channels < 0 ||
+	    peer->params.recv_audio_channels < 0 ||
+	    peer->params.send_midi_channels < 0 ||
+	    peer->params.recv_midi_channels < 0 ||
+	    peer->params.sample_rate == 0 ||
+	    peer->params.period_size == 0 ||
+	    peer->params.sample_encoder != NJ2_ENCODER_FLOAT) {
 		pw_log_warn("invalid follower setup");
 		return -EINVAL;
 	}
@@ -1177,29 +807,24 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 	update_timer(impl, 0);
 	pw_loop_update_io(impl->main_loop, impl->setup_socket, 0);
 
-	impl->source.n_ports = impl->params.send_audio_channels + impl->params.send_midi_channels;
-	impl->source.info.rate =  impl->params.sample_rate;
-	impl->source.info.channels =  impl->params.send_audio_channels;
-	impl->sink.n_ports = impl->params.recv_audio_channels + impl->params.recv_midi_channels;
-	impl->sink.info.rate =  impl->params.sample_rate;
-	impl->sink.info.channels =  impl->params.recv_audio_channels;
-	impl->samplerate = impl->params.sample_rate;
-
-	header = (struct nj2_packet_header *)impl->send_buffer;
-	snprintf(header->type, sizeof(header->type), "header");
-	header->data_stream = htonl('r');
-	header->id = params->id;
+	impl->source.n_ports = peer->params.send_audio_channels + peer->params.send_midi_channels;
+	impl->source.info.rate =  peer->params.sample_rate;
+	impl->source.info.channels =  peer->params.send_audio_channels;
+	impl->sink.n_ports = peer->params.recv_audio_channels + peer->params.recv_midi_channels;
+	impl->sink.info.rate =  peer->params.sample_rate;
+	impl->sink.info.channels =  peer->params.recv_audio_channels;
+	impl->samplerate = peer->params.sample_rate;
 
 	pw_properties_setf(impl->sink.props, PW_KEY_NODE_DESCRIPTION, "NETJACK2 to %s",
-			impl->params.driver_name);
+			peer->params.driver_name);
 	pw_properties_setf(impl->source.props, PW_KEY_NODE_DESCRIPTION, "NETJACK2 from %s",
-			impl->params.driver_name);
+			peer->params.driver_name);
 
 	if ((res = create_filters(impl)) < 0)
 		return res;
 
-	int bufsize = NETWORK_MAX_LATENCY * (impl->params.mtu +
-		impl->params.period_size * sizeof(float) *
+	int bufsize = NETWORK_MAX_LATENCY * (peer->params.mtu +
+		peer->params.period_size * sizeof(float) *
 		SPA_MAX(impl->source.n_ports, impl->sink.n_ports));
 
 	pw_log_info("send/recv buffer %d", bufsize);
@@ -1207,6 +832,12 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 		pw_log_warn("setsockopt(SO_SNDBUF) failed: %m");
 	if (setsockopt(impl->socket->fd, SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize)) < 0)
 		pw_log_warn("setsockopt(SO_SNDBUF) failed: %m");
+
+	peer->fd = impl->socket->fd;
+	peer->our_stream = 'r';
+	peer->other_stream = 's';
+	peer->send_volume = &impl->sink.volume;
+	peer->recv_volume = &impl->source.volume;
 
 	if (connect(impl->socket->fd, (struct sockaddr*)addr, addr_len) < 0)
 		goto connect_error;
@@ -1375,9 +1006,11 @@ out:
 
 static int send_stop_driver(struct impl *impl)
 {
+	struct nj2_session_params params;
 	pw_log_info("sending STOP_DRIVER");
-	impl->params.packet_id = htonl(NJ2_ID_STOP_DRIVER);
-	sendto(impl->setup_socket->fd, &impl->params, sizeof(impl->params), 0,
+	nj2_session_params_hton(&params, &impl->peer.params);
+	params.packet_id = htonl(NJ2_ID_STOP_DRIVER);
+	sendto(impl->setup_socket->fd, &params, sizeof(params), 0,
 			(struct sockaddr*)&impl->dst_addr, impl->dst_len);
 	return 0;
 }

@@ -418,11 +418,16 @@ static void param_latency_changed(struct stream *s, const struct spa_pod *param,
 
 static void make_stream_ports(struct stream *s)
 {
+	struct follower *follower = s->follower;
 	uint32_t i;
 	struct pw_properties *props;
 	const char *str, *prefix;
 	char name[256];
 	bool is_midi;
+	uint8_t buffer[512];
+	struct spa_pod_builder b;
+	struct spa_latency_info latency;
+	const struct spa_pod *params[1];
 
 	if (s->direction == PW_DIRECTION_INPUT) {
 		/* sink */
@@ -465,13 +470,24 @@ static void make_stream_ports(struct stream *s)
 
 			is_midi = true;
 		}
+		spa_zero(latency);
+		latency = SPA_LATENCY_INFO(s->direction,
+				.min_quantum = follower->peer.params.network_latency,
+				.max_quantum = follower->peer.params.network_latency);
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		params[0] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
 
 		port = pw_filter_add_port(s->filter,
                         s->direction,
                         PW_FILTER_PORT_FLAG_MAP_BUFFERS,
                         sizeof(struct port),
-			props, NULL, 0);
+			props, params, 1);
+		if (port == NULL) {
+			pw_log_error("Can't create port: %m");
+			return;
+		}
 
+		port->latency[s->direction] = latency;
 		port->is_midi = is_midi;
 
 		s->ports[i] = port;
@@ -576,10 +592,8 @@ static int make_stream(struct stream *s, const char *name)
 	const struct spa_pod *params[4];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
-	struct spa_latency_info latency;
 	uint32_t flags;
 
-	spa_zero(latency);
 	n_params = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 

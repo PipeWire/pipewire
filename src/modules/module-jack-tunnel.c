@@ -606,9 +606,7 @@ static int make_stream(struct stream *s, const char *name)
 	const struct spa_pod *params[4];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
-	struct spa_latency_info latency;
 
-	spa_zero(latency);
 	n_params = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 

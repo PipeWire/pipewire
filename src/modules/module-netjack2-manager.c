@@ -860,12 +860,14 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 	follower->samplerate = impl->samplerate;
 	follower->period_size = impl->period_size;
 
-	pw_properties_setf(follower->sink.props, PW_KEY_NODE_FORCE_RATE,
+	pw_properties_setf(follower->sink.props, PW_KEY_NODE_RATE,
 			"1/%u", follower->samplerate);
+	pw_properties_set(follower->sink.props, PW_KEY_NODE_FORCE_RATE, "0");
 	pw_properties_setf(follower->sink.props, PW_KEY_NODE_FORCE_QUANTUM,
 			"%u", follower->period_size);
-	pw_properties_setf(follower->source.props, PW_KEY_NODE_FORCE_RATE,
+	pw_properties_setf(follower->source.props, PW_KEY_NODE_RATE,
 			"1/%u", follower->samplerate);
+	pw_properties_set(follower->source.props, PW_KEY_NODE_FORCE_RATE, "0");
 	pw_properties_setf(follower->source.props, PW_KEY_NODE_FORCE_QUANTUM,
 			"%u", follower->period_size);
 

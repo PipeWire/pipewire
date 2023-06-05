@@ -214,6 +214,7 @@ struct impl {
 	struct stream source;
 	struct stream sink;
 
+	uint32_t period_size;
 	uint32_t samplerate;
 	uint64_t frame_time;
 
@@ -827,11 +828,23 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 	impl->sink.info.rate =  peer->params.sample_rate;
 	impl->sink.info.channels =  peer->params.recv_audio_channels;
 	impl->samplerate = peer->params.sample_rate;
+	impl->period_size = peer->params.period_size;
 
 	pw_properties_setf(impl->sink.props, PW_KEY_NODE_DESCRIPTION, "NETJACK2 to %s",
 			peer->params.driver_name);
 	pw_properties_setf(impl->source.props, PW_KEY_NODE_DESCRIPTION, "NETJACK2 from %s",
 			peer->params.driver_name);
+
+	pw_properties_setf(impl->sink.props, PW_KEY_NODE_RATE,
+			"1/%u", impl->samplerate);
+	pw_properties_set(impl->sink.props, PW_KEY_NODE_FORCE_RATE, "0");
+	pw_properties_setf(impl->sink.props, PW_KEY_NODE_FORCE_QUANTUM,
+			"%u", impl->period_size);
+	pw_properties_setf(impl->source.props, PW_KEY_NODE_RATE,
+			"1/%u", impl->samplerate);
+	pw_properties_set(impl->source.props, PW_KEY_NODE_FORCE_RATE, "0");
+	pw_properties_setf(impl->source.props, PW_KEY_NODE_FORCE_QUANTUM,
+			"%u", impl->period_size);
 
 	if ((res = create_filters(impl)) < 0)
 		return res;

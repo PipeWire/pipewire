@@ -1887,6 +1887,7 @@ static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes
 	snd_htimestamp_t tstamp;
 	uint64_t then;
 
+	avail = snd_pcm_avail(state->hndl);
 	if ((res = snd_pcm_htimestamp(state->hndl, &avail, &tstamp)) < 0) {
 		if ((res = alsa_recover(state, res)) < 0)
 			return res;

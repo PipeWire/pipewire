@@ -880,7 +880,7 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 
 	peer->params.mtu = impl->mtu;
 	peer->params.id = follower->id;
-	snprintf(params->driver_name, sizeof(params->driver_name), "%s", pw_get_host_name());
+	snprintf(peer->params.driver_name, sizeof(peer->params.driver_name), "%s", pw_get_host_name());
 	peer->params.sample_rate = follower->samplerate;
 	peer->params.period_size = follower->period_size;
 	peer->params.sample_encoder = NJ2_ENCODER_FLOAT;

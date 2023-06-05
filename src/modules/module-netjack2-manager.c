@@ -263,7 +263,11 @@ static void reset_volume(struct volume *vol, uint32_t n_volumes)
 static void stream_destroy(void *d)
 {
 	struct stream *s = d;
+	uint32_t i;
+
 	spa_hook_remove(&s->listener);
+	for (i = 0; i < s->n_ports; i++)
+		s->ports[i] = NULL;
 	s->filter = NULL;
 }
 
@@ -941,9 +945,6 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 	if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize)) < 0)
 		pw_log_warn("setsockopt(SO_SNDBUF) failed: %m");
 
-	if (connect(fd, (struct sockaddr*)addr, addr_len) < 0)
-		goto connect_error;
-
 	impl->follower_id++;
 
 	nj2_session_params_hton(params, &peer->params);
@@ -961,10 +962,6 @@ create_failed:
 socket_failed:
 	res = fd;
 	pw_log_error("can't create socket: %s", spa_strerror(res));
-	goto cleanup;
-connect_error:
-	res = -errno;
-	pw_log_error("connect() failed: %m");
 	goto cleanup;
 cleanup:
 	follower_free(follower);

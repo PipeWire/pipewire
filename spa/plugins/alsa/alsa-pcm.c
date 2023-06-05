@@ -1856,7 +1856,7 @@ recover:
 	return do_start(state);
 }
 
-#if 1
+#if 0
 static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes_t *delay)
 {
 	int res, missed;

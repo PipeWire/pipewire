@@ -425,6 +425,7 @@ static void make_stream_ports(struct stream *s)
 	char name[512];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
+	struct spa_latency_info latency;
 	const struct spa_pod *params[2];
 	uint32_t i, n_params = 0;
 	bool is_midi;
@@ -474,16 +475,15 @@ static void make_stream_ports(struct stream *s)
 			continue;
 
 		}
-		spa_zero(port->latency[s->direction]);
-		port->latency[s->direction].min_quantum =
-			port->latency[s->direction].max_quantum = 1;
-		port->latency[s->direction].min_rate =
-			port->latency[s->direction].max_rate = impl->latency[s->direction];
+		latency = SPA_LATENCY_INFO(s->direction,
+				.min_quantum = 1,
+				.max_quantum = 1,
+				.min_rate = impl->latency[s->direction],
+				.max_rate = impl->latency[s->direction]);
 
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		n_params = 0;
-		params[n_params++] = spa_latency_build(&b,
-			SPA_PARAM_Latency, &port->latency[s->direction]);
+		params[n_params++] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
 
 		port = pw_filter_add_port(s->filter,
                         s->direction,
@@ -495,6 +495,7 @@ static void make_stream_ports(struct stream *s)
 			return;
 		}
 
+		port->latency[s->direction] = latency;
 		port->is_midi = is_midi;
 		port->buffer = calloc(sizeof(float), impl->quantum_limit);
 		if (port->buffer == NULL) {

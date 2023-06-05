@@ -205,7 +205,7 @@ static int refill_buffer(struct pw_protocol_native_connection *conn, struct buff
 		char cmsgbuf[CMSG_SPACE(MAX_FDS_MSG * sizeof(int))];
 		struct cmsghdr align;
 	} cmsgbuf;
-	int n_fds = 0;
+	int i, n_fds = 0, *fds;
 	size_t avail;
 
 	avail = buf->buffer_maxsize - buf->buffer_size;
@@ -242,10 +242,13 @@ static int refill_buffer(struct pw_protocol_native_connection *conn, struct buff
 			continue;
 
 		n_fds = cmsg_data_length(cmsg) / sizeof(int);
+		fds = (int*)CMSG_DATA(cmsg);
 		if (n_fds + buf->n_fds > MAX_FDS)
 			goto too_many_fds;
-		memcpy(&buf->fds[buf->n_fds], CMSG_DATA(cmsg), n_fds * sizeof(int));
-		buf->n_fds += n_fds;
+		for (i = 0; i < n_fds; i++) {
+			pw_log_debug("connection %p: buffer:%p got fd:%d", conn, buf, fds[i]);
+			buf->fds[buf->n_fds++] = fds[i];
+		}
 	}
 	pw_log_trace("connection %p: %d read %zd bytes and %d fds", conn, conn->fd, len,
 		     n_fds);
@@ -272,7 +275,7 @@ static void clear_buffer(struct buffer *buf, bool fds)
 {
 	uint32_t i;
 
-	pw_log_debug("clear fds:%d", fds);
+	pw_log_debug("%p clear fds:%d n_fds:%d", buf, fds, buf->n_fds);
 	if (fds) {
 		for (i = 0; i < buf->n_fds; i++) {
 			pw_log_debug("%p: close fd:%d", buf, buf->fds[i]);
@@ -847,6 +850,8 @@ exit:
 int pw_protocol_native_connection_clear(struct pw_protocol_native_connection *conn)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
+
+	pw_log_debug("%p: clear", conn);
 
 	clear_buffer(&impl->out, true);
 	clear_buffer(&impl->in, true);

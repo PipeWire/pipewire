@@ -919,12 +919,18 @@ process_remote(struct client *impl)
 
 		proxy = pw_core_find_proxy(this, msg->id);
 		if (proxy == NULL || proxy->zombie) {
+			uint32_t i;
+
 			if (proxy == NULL)
 				pw_log_error("%p: could not find proxy %u", this, msg->id);
 			else
 				pw_log_debug("%p: zombie proxy %u", this, msg->id);
 
-			/* FIXME close fds */
+			/* close fds */
+			for (i = 0; i < msg->n_fds; i++) {
+				pw_log_debug("%p: close fd:%d", conn, msg->fds[i]);
+				close(msg->fds[i]);
+			}
 			continue;
 		}
 

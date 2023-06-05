@@ -2509,7 +2509,7 @@ static int handle_capture(struct state *state, uint64_t current_time, snd_pcm_uf
 	if (SPA_UNLIKELY(avail < state->read_size)) {
 		spa_log_trace(state->log, "%p: early wakeup %ld %ld %ld %d", state,
 				delay, avail, target, state->read_size);
-		state->next_time = current_time + (target - delay) * SPA_NSEC_PER_SEC /
+		state->next_time = current_time + (state->read_size - avail) * SPA_NSEC_PER_SEC /
 			state->rate;
 		return -EAGAIN;
 	}

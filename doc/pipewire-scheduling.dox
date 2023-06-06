@@ -186,7 +186,8 @@ server first.
 
 Remote drivers start the graph cycle directly without going to the server first.
 
-After they complete, they will trigger an extra eventfd to signal the server that
-the graph completed. This is used by the server to driver the profiler info.
+After they complete (and only when the profiler is active), they will trigger an
+extra eventfd to signal the server that the graph completed. This is used by the
+server to generate the profiler info.
 
 */

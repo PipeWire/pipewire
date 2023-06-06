@@ -46,6 +46,10 @@ the message. If there are more than the maximum number of fds in the
 message than can fit in one message, the message is split into multiple
 parts.
 
+A receiver needs to first read the header to know the size of the
+complete message. After collecting the complete message, it can start
+processing it.
+
 The payload is a single POD see \ref page_spa_pod for details.
 
 After the payload, there is an optional footer POD object.
@@ -61,14 +65,28 @@ named as "pipewire-0" and searched in the following directories:
 
 
 The client opens the socket and allocates a Core proxy with id 0 and a Client
-proxy with id 1.
+proxy with id 1. The proxy is nothing more than a way to identify the remote
+objects with an id. Usually they also contain the type and version of the
+remote object and some helpers (interfaces) to dispatch messages.
 
-The server will allocate a new Core resource with id 0.
+The server will allocate a new Core resource with id 0. Resources are the
+counterpart of client proxies and also typically contain extra information
+and helpers (interfaces) to dispatch messages.
 
 The client sends the Core::Hello message on the socket to start the
 communication.
 
-The server binds the client resource with id 1 to the client.
+The server binds the client resource with id 1 to the client. This means
+that the client object on the server will now have a resource with a
+client side proxy associated with it.
+
+When the client sends a message for a certain proxy, the server side
+resource with the same id for the client is found and the message is
+dispatched to the object associated with the resource.
+
+Similarly when a server sends a message on a resource, the client will
+find the proxy with the same id and dispatch the message to it's
+associated object.
 
 The client then sends client properties to the server.
 

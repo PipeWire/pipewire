@@ -13,6 +13,7 @@ examples = [
   'video-src-reneg',
   'video-src-fixate',
   'video-play-fixate',
+  'internal',
   'export-sink',
   'export-source',
   'export-spa',

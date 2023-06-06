@@ -220,8 +220,9 @@ static int emit_object_info(struct impl *this, struct device *device)
 	uint32_t id = device->id;
 	struct udev_device *dev = device->dev;
 	const char *str;
-	struct spa_dict_item items[20];
+	struct spa_dict_item items[21];
 	uint32_t n_items = 0;
+	char devnum[32];
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
 
@@ -236,6 +237,8 @@ static int emit_object_info(struct impl *this, struct device *device)
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Video/Device");
 
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_V4L2_PATH, udev_device_get_devnode(dev));
+	snprintf(devnum, sizeof(devnum), "%" PRId64, (int64_t)udev_device_get_devnum(dev));
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_DEVIDS, devnum);
 
 	if ((str = udev_device_get_property_value(dev, "USEC_INITIALIZED")) && *str)
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PLUGGED_USEC, str);

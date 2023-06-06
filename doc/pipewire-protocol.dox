@@ -1253,7 +1253,8 @@ transfer this to the client with the Transport event.
    )
 ```
 - readfd: the eventfd to start processing
-- writefd: the eventfd to signal driver start
+- writefd: the eventfd to signal when the driver completes and profiling is
+           enabled.
 - memfd: the index of the memfd of the activation record
 - offset: the offset in memfd of the start of the activation record
 - size: the size of the activation record
@@ -1261,6 +1262,11 @@ transfer this to the client with the Transport event.
 The activation record is currently an internal data structure that is
 not yet ABI stable.
 
+The writefd is meant to wake up the server after the driver completes so
+that the profiler can collect the information. The profiler is active
+when the pw_node_activation::flags fields has PW_NODE_ACTIVATION_FLAG_PROFILER
+set. When the profiler is disabled (or when the node is not driving), this
+eventfd should not be signaled.
 
 ### ClientNode::SetParam (Opcode 1)
 

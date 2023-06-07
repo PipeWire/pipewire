@@ -1,3 +1,109 @@
+# PipeWire 0.3.72 (2023-06-26)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Fix a critical bug that would refuse to update the samplerate or
+    buffersize in JACK clients. (#3226)
+  - A new module-netjack2-driver and module-netjack2-manager were added
+    that are compatible with NETJACK2. This allows PipeWire to become
+    a NETJACK2 manager or a driver between JACK2 or PipeWire servers.
+  - Support was added for firewire devices with FFADO. This is untested
+    for now and MIDI is not implemented yet.
+  - The node scheduling was optimized some more. External drivers are now
+    as efficient as in-server ones. This should improve performance of
+    various drivers such as bluetooth and JACK based drivers.
+  - Many, many bug fixes and a ton of improvements.
+
+
+## PipeWire
+  - pw-filter can now be used to write sinks and sources.
+  - The node activation for drivers was changed. The driver now does not
+    need to go to the server to start the processing cycle. This makes
+    out-of-server drivers as efficient as in-server drivers.
+  - Don't try to use drivers with 0 priority as fallback drivers. This
+    avoids making the screencast driver a driver for audio. (#3219)
+  - Improve xrun count reporting in pw-top and the profiler. Now each
+    node has their own xrun counter updated when it fails to complete
+    processing during the cycle.
+  - pw-filter now also has support for TRIGGER.
+  - A potential fd leak was found when fds were send to a zombie client.
+    (#1840)
+  - Fix a bug where monitor or capture streams were logged twice in the
+    profiler. (#3278)
+  - Remove stream hooks safely. (#3251)
+  - A bug in serialization of container properties was fixed. This could
+    result in truncated property values. (#3290)
+  - The PIPEWIRE_AUTOCONNECT environment variable now always overrides the
+    autoconnect settings of streams. (#3299)
+  - Node, port and link destroy now avoids some useless work.
+  - Port will now try to renegotiate a new format when idle. (#3266)
+
+## Modules
+  - The module-sap now is more compatible with AES67.
+  - A new FFADO driver module was added. This is completely untested because
+    of lack of hardware. Please test and report issues.
+  - A new NETJACK2 driver and a NETJACK2 manager module were added. These
+    should be drop in replacements for the JACK2 parts.
+  - The RAOP discover module now tries harder to only list devices once.
+  - The zeroconf discover module now tries harder to only list devices once.
+  - The RAOP sink module now handles latency better and is compatible with
+    some more devices. (#3247, #3282)
+  - The loopback and filter-chain modules now always dequeue the last input
+    buffer to avoid stuttering in some cases. (#3276)
+  - The SPA node factory module can now also export nodes. This is used to
+    export the PTP clock from the AES67 config file.
+  - A bug in module-jack-tunnel was fixed that would cause stuttering and
+    corrupted output in some cases. (#3255)
+  - The resampler is now disabled in module-loopback and filter-chain when
+    the samplerate is set to follow the graph rate. (#2969)
+  - The way the mixer peer is sent to clients was improved. It is now also
+    possible to let a remote node know about mixer port removes, which
+    can avoid memory leaks and some code simplifications.
+
+## SPA
+  - Monitor ports now report latency correctly.
+  - The ALSA plugin now uses htimestamp to get a more accurate ringbuffer
+    position to estimate the clock skew.
+  - The channelmixer now has min/max-volume settings to limit or fix the
+    volume.
+  - The ALSA plugin can now control the playback and capture rate of USB
+    gadgets. This can avoid resampling and instead use the USB feedback
+    to control the rate.
+  - The ALSA output to multiple devices has been improved, some lockups
+    are avoided when the device ringbuffer is full.
+  - The compress-offload sink has improved negotiation.
+
+## pulse-server
+  - Only try to use GSettings when the schema exists.
+  - @DEFAULT_SOURCE@, @DEFAULT_SINK@ and @DEFAULT_MONITOR@ are now correctly
+    handled as targets in playback and capture streams. (#3284)
+  - 2 new quirks are added to disable volume updates on sinks/sources.
+    (#1517)
+  - The virtual-sink and virtual-source modules were added. These are really
+    example modules but actually also work and are useful on PulseAudio so
+    implement them as well.
+  - Fix initial stream volumes. (#3306)
+
+## Bluetooth
+  - Only register A2DP or BAP when we have codecs.
+  - Include codec into the media.name
+
+## JACK
+  - Fix a critical bug that would refuse to update the samplerate or
+    buffersize. (#3226)
+  - Improve updates of samplerate/buffersize, delay the updates until the
+    client is activated. (#3297)
+  - Use the new mix-info updates to simplify the mixer setup and peer
+    detection.
+
+## GStreamer
+  - Fill default strides instead of 0 on pipewire video buffers. (#3236)
+
+Older versions:
+
+
 # PipeWire 0.3.71 (2023-05-17)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -139,9 +245,6 @@ This is a bugfix release that is API and ABI compatible with previous
   - Update the pw-cli man page. (#2988)
   - Document the SPA Pod serialization.
   - Document the PipeWire native protocol.
-
-
-Older versions:
 
 # PipeWire 0.3.70 (2023-04-20)
 

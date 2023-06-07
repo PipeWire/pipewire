@@ -122,6 +122,9 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define FRAMES_PER_TCP_PACKET 4096
 #define FRAMES_PER_UDP_PACKET 352
 
+#define RAOP_LATENCY_MIN	11025u
+#define DEFAULT_LATENCY_MS	"1000"
+
 #define DEFAULT_TCP_AUDIO_PORT   6000
 #define DEFAULT_UDP_AUDIO_PORT   6000
 #define DEFAULT_UDP_CONTROL_PORT 6001
@@ -142,8 +145,6 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_RATE 44100
 #define DEFAULT_CHANNELS 2
 #define DEFAULT_POSITION "[ FL FR ]"
-
-#define DEFAULT_LATENCY 22050
 
 #define VOLUME_MAX  0.0
 #define VOLUME_DEF -30.0
@@ -243,7 +244,6 @@ struct impl {
 	struct spa_source *server_source;
 
 	uint32_t block_size;
-	uint32_t delay;
 	uint32_t latency;
 
 	uint16_t seq;
@@ -297,10 +297,10 @@ static inline uint64_t timespec_to_ntp(struct timespec *ts)
     return ntp | (uint64_t) (ts->tv_sec + 0x83aa7e80) << 32;
 }
 
-static inline uint64_t ntp_now(int clockid)
+static inline uint64_t ntp_now(void)
 {
 	struct timespec now;
-	clock_gettime(clockid, &now);
+	clock_gettime(CLOCK_REALTIME, &now);
 	return timespec_to_ntp(&now);
 }
 
@@ -309,22 +309,20 @@ static int send_udp_sync_packet(struct impl *impl,
 {
 	uint32_t pkt[5];
 	uint32_t rtptime = impl->rtptime;
-	uint32_t delay = impl->delay;
+	uint32_t latency = impl->latency;
 	uint64_t transmitted;
 
 	pkt[0] = htonl(0x80d40007);
 	if (impl->first)
 		pkt[0] |= htonl(0x10000000);
-	rtptime -= delay;
-	pkt[1] = htonl(rtptime);
-	transmitted = ntp_now(CLOCK_MONOTONIC);
+	pkt[1] = htonl(rtptime - latency);
+	transmitted = ntp_now();
 	pkt[2] = htonl(transmitted >> 32);
 	pkt[3] = htonl(transmitted & 0xffffffff);
-	rtptime += delay;
 	pkt[4] = htonl(rtptime);
 
-	pw_log_debug("sync: delayed:%u now:%"PRIu64" rtptime:%u",
-			rtptime - delay, transmitted, rtptime);
+	pw_log_debug("sync: first:%d latency:%u now:%"PRIx64" rtptime:%u",
+			impl->first, latency, transmitted, rtptime);
 
 	return sendto(impl->control_fd, pkt, sizeof(pkt), 0, dest_addr, addrlen);
 }
@@ -341,11 +339,11 @@ static int send_udp_timing_packet(struct impl *impl, uint64_t remote, uint64_t r
 	pkt[3] = htonl(remote & 0xffffffff);
 	pkt[4] = htonl(received >> 32);
 	pkt[5] = htonl(received & 0xffffffff);
-	transmitted = ntp_now(CLOCK_MONOTONIC);
+	transmitted = ntp_now();
 	pkt[6] = htonl(transmitted >> 32);
 	pkt[7] = htonl(transmitted & 0xffffffff);
 
-	pw_log_debug("sync: remote:%"PRIu64" received:%"PRIu64" transmitted:%"PRIu64,
+	pw_log_debug("sync: remote:%"PRIx64" received:%"PRIx64" transmitted:%"PRIx64,
 			remote, received, transmitted);
 
 	return sendto(impl->timing_fd, pkt, sizeof(pkt), 0, dest_addr, addrlen);
@@ -391,8 +389,7 @@ static int flush_to_udp_packet(struct impl *impl)
 	if (!impl->recording)
 		return 0;
 
-	impl->sync++;
-	if (impl->first || impl->sync == impl->sync_period) {
+	if (impl->first || ++impl->sync == impl->sync_period) {
 		impl->sync = 0;
 		send_udp_sync_packet(impl, NULL, 0);
 	}
@@ -642,12 +639,17 @@ on_timing_source_io(void *data, int fd, uint32_t mask)
 	uint32_t packet[8];
 	ssize_t bytes;
 
+	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
+		pw_log_warn("error on timing socket: %08x", mask);
+		pw_loop_update_io(impl->loop, impl->timing_source, 0);
+		return;
+	}
 	if (mask & SPA_IO_IN) {
 		uint64_t remote, received;
 		struct sockaddr_storage sender;
 		socklen_t sender_size = sizeof(sender);
 
-		received = ntp_now(CLOCK_MONOTONIC);
+		received = ntp_now();
 		bytes = recvfrom(impl->timing_fd, packet, sizeof(packet), 0,
 				(struct sockaddr*)&sender, &sender_size);
 		if (bytes < 0) {
@@ -679,13 +681,18 @@ on_control_source_io(void *data, int fd, uint32_t mask)
 	uint32_t packet[2];
 	ssize_t bytes;
 
+	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
+		pw_log_warn("error on control socket: %08x", mask);
+		pw_loop_update_io(impl->loop, impl->control_source, 0);
+		return;
+	}
 	if (mask & SPA_IO_IN) {
 		uint32_t hdr;
 		uint16_t seq, num;
 
 		bytes = read(impl->control_fd, packet, sizeof(packet));
 		if (bytes < 0) {
-			pw_log_debug("error reading control packet: %m");
+			pw_log_warn("error reading control packet: %m");
 			return;
 		}
 		if (bytes != sizeof(packet)) {
@@ -882,15 +889,14 @@ static int rtsp_record_reply(void *data, int status, const struct spa_dict *head
 	pw_log_info("reply %d", status);
 
 	if ((str = spa_dict_lookup(headers, "Audio-Latency")) != NULL) {
-		if (!spa_atou32(str, &impl->latency, 0))
-			impl->latency = DEFAULT_LATENCY;
-	} else {
-		impl->latency = DEFAULT_LATENCY;
+		uint32_t l;
+		if (spa_atou32(str, &l, 0))
+			impl->latency = SPA_MAX(l, impl->latency);
 	}
 
 	spa_zero(latency);
 	latency.direction = PW_DIRECTION_INPUT;
-	latency.min_rate = latency.max_rate = impl->latency;
+	latency.min_rate = latency.max_rate = impl->latency + RAOP_LATENCY_MIN;
 
 	n_params = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -1033,7 +1039,7 @@ static int rtsp_setup_reply(void *data, int status, const struct spa_dict *heade
 			if ((impl->timing_fd = connect_socket(impl, SOCK_DGRAM, impl->timing_fd, timing_port)) < 0)
 				return impl->timing_fd;
 
-			ntp = ntp_now(CLOCK_MONOTONIC);
+			ntp = ntp_now();
 			send_udp_timing_packet(impl, ntp, ntp, NULL, 0);
 		}
 
@@ -1206,8 +1212,6 @@ static int rtsp_do_announce(struct impl *impl)
 	int res, frames, rsa_len, ip_version;
 	char *sdp;
 	char local_ip[256];
-	int min_latency;
-	min_latency = DEFAULT_LATENCY;
 	host = pw_properties_get(impl->props, "raop.ip");
 
 	if (impl->protocol == PROTO_TCP)
@@ -1246,7 +1250,7 @@ static int rtsp_do_announce(struct impl *impl)
 				"a=min-latency:%d",
 				impl->session_id, ip_version, local_ip,
 				ip_version, host, frames, impl->info.rate,
-				min_latency);
+				impl->latency + RAOP_LATENCY_MIN);
 		break;
 
 	case CRYPTO_RSA:
@@ -2008,6 +2012,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 	str = pw_properties_get(props, "raop.password");
 	impl->password = str ? strdup(str) : NULL;
+
+	if ((str = pw_properties_get(props, "raop.latency.ms")) == NULL)
+		str = DEFAULT_LATENCY_MS;
+	impl->latency = SPA_MAX(atoi(str) * impl->info.rate / 1000u, RAOP_LATENCY_MIN);
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

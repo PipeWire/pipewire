@@ -490,6 +490,7 @@ int pw_rtsp_client_connect(struct pw_rtsp_client *client,
 		pw_log_error("getaddrinfo: %s", gai_strerror(res));
 		return -EINVAL;
 	}
+	res = -ENOENT;
 	for (rp = result; rp != NULL; rp = rp->ai_next) {
 		fd = socket(rp->ai_family,
 				rp->ai_socktype | SOCK_CLOEXEC | SOCK_NONBLOCK,
@@ -501,12 +502,14 @@ int pw_rtsp_client_connect(struct pw_rtsp_client *client,
 		if (res == 0 || (res < 0 && errno == EINPROGRESS))
 			break;
 
+		res = -errno;
 		close(fd);
 	}
 	freeaddrinfo(result);
 
 	if (rp == NULL) {
-		pw_log_error("Could not connect to %s:%u", hostname, port);
+		pw_log_error("Could not connect to %s:%u: %s", hostname, port,
+				spa_strerror(res));
 		return -EINVAL;
 	}
 

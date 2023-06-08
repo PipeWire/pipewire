@@ -656,10 +656,16 @@ static int impl_node_process(void *object)
 		d = inport->buffers[inio->buffer_id].buffer->datas;
 
 		if ((pod = spa_pod_from_data(d->data, d->maxsize,
-				d->chunk->offset, d->chunk->size)) == NULL)
+				d->chunk->offset, d->chunk->size)) == NULL) {
+			spa_log_trace_fp(this->log, NAME " %p: skip input idx:%d max:%u "
+					"offset:%u size:%u", this, i,
+					d->maxsize, d->chunk->offset, d->chunk->size);
 			continue;
-		if (!spa_pod_is_sequence(pod))
+		}
+		if (!spa_pod_is_sequence(pod)) {
+			spa_log_trace_fp(this->log, NAME " %p: skip input idx:%d", this, i);
 			continue;
+		}
 
 		seq[n_seq] = pod;
 		ctrl[n_seq] = spa_pod_control_first(&seq[n_seq]->body);

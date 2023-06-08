@@ -230,8 +230,8 @@ context.objects = [
     #        node.group      = pipewire.ptp0
     #        priority.driver = 30000
     #        clock.name      = "clock.system.ptp0"
-    #        #clock.id       = tai
-    #        clock.device    = "/dev/ptp0"
+    #        clock.id        = tai
+    #        #clock.device   = "/dev/ptp0"
     #    }
     #}
 

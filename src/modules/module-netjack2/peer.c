@@ -32,7 +32,16 @@ struct netjack2_peer {
 	struct volume *send_volume;
 	struct volume *recv_volume;
 
+	void *buffer;
+	uint32_t buffer_size;
+
 	unsigned fix_midi:1;
+};
+
+struct data_info {
+	uint32_t id;
+	void *data;
+	bool filled;
 };
 
 static inline void fix_midi_event(uint8_t *data, size_t size)
@@ -44,12 +53,21 @@ static inline void fix_midi_event(uint8_t *data, size_t size)
 	}
 }
 
-static inline void midi_to_netjack2(struct netjack2_peer *peer, float *dst,
-		float *src, uint32_t n_samples)
+static void midi_to_netjack2(struct netjack2_peer *peer,
+		struct nj2_midi_buffer *buf, float *src, uint32_t n_samples)
 {
 	struct spa_pod *pod;
 	struct spa_pod_sequence *seq;
 	struct spa_pod_control *c;
+	struct nj2_midi_event *ev;
+	uint32_t free_size;
+
+	buf->magic = MIDI_BUFFER_MAGIC;
+	buf->buffer_size = 8192 * sizeof(float);
+	buf->nframes = n_samples;
+	buf->write_pos = 0;
+	buf->event_count = 0;
+	buf->lost_events = 0;
 
 	if (src == NULL)
 		return;
@@ -62,43 +80,74 @@ static inline void midi_to_netjack2(struct netjack2_peer *peer, float *dst,
 
 	seq = (struct spa_pod_sequence*)pod;
 
+	free_size = buf->buffer_size - sizeof(*buf);
+
 	SPA_POD_SEQUENCE_FOREACH(seq, c) {
 		switch(c->type) {
 		case SPA_CONTROL_Midi:
 		{
 			uint8_t *data = SPA_POD_BODY(&c->value);
 			size_t size = SPA_POD_BODY_SIZE(&c->value);
+			void *ptr;
 
+			if (c->offset >= n_samples ||
+			    size >= free_size) {
+				buf->lost_events++;
+				continue;
+			}
 			if (peer->fix_midi)
 				fix_midi_event(data, size);
 
+			ev = &buf->event[buf->event_count];
+			ev->time = c->offset;
+			ev->size = size;
+			if (size <= MIDI_INLINE_MAX) {
+				ptr = ev->buffer;
+			} else {
+				buf->write_pos += size;
+				ev->offset = buf->buffer_size - 1 - buf->write_pos;
+				free_size -= size;
+				ptr = SPA_PTROFF(buf, ev->offset, void);
+			}
+			memcpy(ptr, data, size);
+			buf->event_count++;
+			free_size -= sizeof(*ev);
 			break;
 		}
 		default:
 			break;
 		}
 	}
+	if (buf->write_pos > 0)
+		memmove(SPA_PTROFF(buf, sizeof(*buf) + buf->event_count * sizeof(struct nj2_midi_event), void),
+			SPA_PTROFF(buf, buf->buffer_size - buf->write_pos, void),
+			buf->write_pos);
 }
 
-static inline void netjack2_to_midi(float *dst, float *src, uint32_t size)
+static inline void netjack2_to_midi(float *dst, uint32_t size, struct nj2_midi_buffer *buf)
 {
 	struct spa_pod_builder b = { 0, };
-	uint32_t i, count;
+	uint32_t i;
 	struct spa_pod_frame f;
 
-	count = 0;
 	spa_pod_builder_init(&b, dst, size);
 	spa_pod_builder_push_sequence(&b, &f, 0);
-	for (i = 0; i < count; i++) {
+	for (i = 0; buf != NULL && i < buf->event_count; i++) {
+		struct nj2_midi_event *ev = &buf->event[i];
+		void *data;
+
+		if (ev->size <= MIDI_INLINE_MAX)
+			data = ev->buffer;
+		else if (ev->offset > buf->write_pos)
+			data = SPA_PTROFF(buf, ev->offset - buf->write_pos, void);
+		else
+			continue;
+
+		spa_pod_builder_control(&b, ev->time, SPA_CONTROL_Midi);
+		spa_pod_builder_bytes(&b, data, ev->size);
 	}
 	spa_pod_builder_pop(&b, &f);
 }
-
-struct data_info {
-	void *data;
-	uint32_t id;
-	bool filled;
-};
 
 static int netjack2_send_sync(struct netjack2_peer *peer, uint32_t nframes)
 {
@@ -138,19 +187,31 @@ static int netjack2_send_midi(struct netjack2_peer *peer, uint32_t nframes,
 {
 	struct nj2_packet_header header;
 	uint8_t buffer[peer->params.mtu];
-	uint32_t i, num_packets, active_ports, data_size, res1, res2, max_size;
-	int32_t *ap;
-
-	if (peer->params.send_midi_channels <= 0)
-		return 0;
+	uint32_t i, num_packets, active_ports, data_size, res1, res2;
+	uint32_t max_size;
 
 	active_ports = peer->params.send_midi_channels;
-	ap = SPA_PTROFF(buffer, sizeof(header), int32_t);
+	if (active_ports <= 0)
+		return 0;
 
-	data_size = active_ports * sizeof(struct nj2_midi_buffer);
-	memset(ap, 0, data_size);
+	data_size = 0;
+	for (i = 0; i < active_ports; i++) {
+		struct nj2_midi_buffer *mbuf;
+		void *data = (i < n_info && info) ? info[i].data : NULL;
 
-	max_size = PACKET_AVAILABLE_SIZE(peer->params.mtu);
+		mbuf = SPA_PTROFF(peer->buffer, data_size, struct nj2_midi_buffer);
+		midi_to_netjack2(peer, mbuf, data, nframes);
+
+		data_size += sizeof(*mbuf)
+			+ mbuf->event_count * sizeof(struct nj2_midi_event)
+			+ mbuf->write_pos;
+
+		nj2_midi_buffer_hton(mbuf, mbuf);
+	}
+
+	/* Note: jack2 calculates the packet max_size and num packets with
+	 * different values... */
+	max_size = peer->params.mtu - sizeof(header);
 
 	res1 = data_size % max_size;
         res2 = data_size / max_size;
@@ -163,22 +224,28 @@ static int netjack2_send_midi(struct netjack2_peer *peer, uint32_t nframes,
 	header.cycle = htonl(peer->cycle);
 	header.active_ports = htonl(active_ports);
 	header.num_packets = htonl(num_packets);
+	header.frames = htonl(nframes);
 
 	for (i = 0; i < num_packets; i++) {
 		uint32_t is_last = ((i == num_packets - 1) && peer->params.send_audio_channels == 0) ? 1 : 0;
-		uint32_t packet_size = sizeof(header) + data_size;
+		uint32_t size = data_size - i * max_size;
+		uint32_t copy_size = SPA_MIN(size, max_size);
+		uint32_t packet_size = sizeof(header) + copy_size;
 
 		header.sub_cycle = htonl(i);
 		header.is_last = htonl(is_last);
                 header.packet_size = htonl(packet_size);
 		memcpy(buffer, &header, sizeof(header));
+		memcpy(SPA_PTROFF(buffer, sizeof(header), void),
+			SPA_PTROFF(peer->buffer, i * max_size, void),
+			copy_size);
 		send(peer->fd, buffer, packet_size, 0);
 		//nj2_dump_packet_header(&header);
 	}
 	return 0;
 }
 
-static int netjack2_send_audio(struct netjack2_peer *peer, uint32_t frames,
+static int netjack2_send_audio(struct netjack2_peer *peer, uint32_t nframes,
 		struct data_info *info, uint32_t n_info)
 {
 	struct nj2_packet_header header;
@@ -192,15 +259,15 @@ static int netjack2_send_audio(struct netjack2_peer *peer, uint32_t frames,
 	active_ports = n_info;
 
 	if (active_ports == 0) {
-		sub_period_size = frames;
+		sub_period_size = nframes;
 	} else {
 		uint32_t max_size = PACKET_AVAILABLE_SIZE(peer->params.mtu);
 		uint32_t period = (uint32_t) powf(2.f, (uint32_t) (logf((float)max_size /
 				(active_ports * sizeof(float))) / logf(2.f)));
-		sub_period_size = SPA_MIN(period, frames);
+		sub_period_size = SPA_MIN(period, nframes);
 	}
 	sub_period_bytes = sub_period_size * sizeof(float) + sizeof(int32_t);
-	num_packets = frames / sub_period_size;
+	num_packets = nframes / sub_period_size;
 
 	strcpy(header.type, "header");
 	header.data_type = htonl('a');
@@ -209,6 +276,7 @@ static int netjack2_send_audio(struct netjack2_peer *peer, uint32_t frames,
 	header.cycle = htonl(peer->cycle);
 	header.active_ports = htonl(active_ports);
 	header.num_packets = htonl(num_packets);
+	header.frames = htonl(nframes);
 
 	for (i = 0; i < num_packets; i++) {
 		uint32_t is_last = (i == num_packets - 1) ? 1 : 0;
@@ -323,17 +391,42 @@ static int netjack2_recv_midi(struct netjack2_peer *peer, struct nj2_packet_head
 		struct data_info *info, uint32_t n_info)
 {
 	ssize_t len;
+	uint32_t i, active_ports, sub_cycle, max_size, offset;
 	uint32_t packet_size = SPA_MIN(ntohl(header->packet_size), peer->params.mtu);
-	uint8_t buffer[packet_size];
+	uint8_t buffer[packet_size], *p = buffer;
+
+	//nj2_dump_packet_header(header);
 
 	if ((len = recv(peer->fd, buffer, packet_size, 0)) < 0)
 		return -errno;
 
-	peer->sync.cycle = ntohl(header->cycle);
+	active_ports = peer->params.send_midi_channels;
+	sub_cycle = ntohl(header->sub_cycle);
 	peer->sync.num_packets = ntohl(header->num_packets);
+	max_size = peer->params.mtu - sizeof(*header);
+	offset = max_size * sub_cycle;
 
-	if (++(*count) == peer->sync.num_packets) {
-		pw_log_trace_fp("got last midi packet");
+	p += sizeof(*header);
+	len -= sizeof(*header);
+
+	if (offset + len < peer->buffer_size)
+		memcpy(SPA_PTROFF(peer->buffer, offset, void), p, len);
+
+	if (++(*count) < peer->sync.num_packets)
+		return 0;
+
+	p = (uint8_t*)peer->buffer;
+	for (i = 0; i < active_ports; i++) {
+		struct nj2_midi_buffer *mbuf = (struct nj2_midi_buffer *)p;
+		nj2_midi_buffer_ntoh(mbuf, mbuf);
+
+		if (i < n_info && info[i].data != NULL) {
+			netjack2_to_midi(info[i].data, peer->params.period_size * sizeof(float), mbuf);
+			info[i].filled = true;
+		}
+		p += sizeof(*mbuf)
+			+ mbuf->event_count * sizeof(struct nj2_midi_event)
+			+ mbuf->write_pos;
 	}
 	return 0;
 }
@@ -383,7 +476,9 @@ static int netjack2_recv_audio(struct netjack2_peer *peer, struct nj2_packet_hea
 	return 0;
 }
 
-static int netjack2_recv_data(struct netjack2_peer *peer, struct data_info *info, uint32_t n_info)
+static int netjack2_recv_data(struct netjack2_peer *peer,
+		struct data_info *midi, uint32_t n_midi,
+		struct data_info *audio, uint32_t n_audio)
 {
 	ssize_t len;
 	uint32_t i, count = 0;
@@ -408,10 +503,10 @@ static int netjack2_recv_data(struct netjack2_peer *peer, struct data_info *info
 
 		switch (ntohl(header.data_type)) {
 		case 'm':
-			netjack2_recv_midi(peer, &header, &count, info, n_info);
+			netjack2_recv_midi(peer, &header, &count, midi, n_midi);
 			break;
 		case 'a':
-			netjack2_recv_audio(peer, &header, &count, info, n_info);
+			netjack2_recv_audio(peer, &header, &count, audio, n_audio);
 			break;
 		case 's':
 			pw_log_info("missing last data packet");
@@ -419,9 +514,13 @@ static int netjack2_recv_data(struct netjack2_peer *peer, struct data_info *info
 			break;
 		}
 	}
-	for (i = 0; i < n_info; i++) {
-		if (!info[i].filled && info[i].data != NULL)
-			memset(info[i].data, 0, peer->sync.frames * sizeof(float));
+	for (i = 0; i < n_audio; i++) {
+		if (!audio[i].filled && audio[i].data != NULL)
+			memset(audio[i].data, 0, peer->sync.frames * sizeof(float));
+	}
+	for (i = 0; i < n_midi; i++) {
+		if (!midi[i].filled && midi[i].data != NULL)
+			netjack2_to_midi(midi[i].data, peer->params.period_size * sizeof(float), NULL);
 	}
 	peer->sync.cycle = ntohl(header.cycle);
 	return 0;

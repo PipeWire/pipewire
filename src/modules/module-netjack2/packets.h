@@ -142,26 +142,50 @@ static inline void nj2_dump_packet_header(struct nj2_packet_header *header)
 	pw_log_info("Is Last:      %u", ntohl(header->is_last));
 }
 
+#define MIDI_INLINE_MAX 4
+
 struct nj2_midi_event {
 	uint32_t time;		/**< Sample index at which event is valid */
 	uint32_t size;		/**< Number of bytes of data in the event */
 	union {
-		uint32_t offset;	/**< offset in buffer */
-		uint8_t	buffer[4];	/**< Raw inline data */
+		uint32_t offset;			/**< offset in buffer */
+		uint8_t	buffer[MIDI_INLINE_MAX];	/**< Raw inline data */
 	};
 };
 
 struct nj2_midi_buffer {
 #define MIDI_BUFFER_MAGIC 0x900df00d
 	uint32_t magic;
-	int32_t buffer_size;
+	uint32_t buffer_size;
 	uint32_t nframes;
-	int32_t write_pos;
+	uint32_t write_pos;
 	uint32_t event_count;
 	uint32_t lost_events;
 
 	struct nj2_midi_event event[1];
 };
+
+static inline void nj2_midi_buffer_hton(struct nj2_midi_buffer *net,
+		const struct nj2_midi_buffer *host)
+{
+	net->magic = htonl(host->magic);
+	net->buffer_size = htonl(host->buffer_size);
+	net->nframes = htonl(host->nframes);
+	net->write_pos = htonl(host->write_pos);
+	net->event_count = htonl(host->event_count);
+	net->lost_events = htonl(host->lost_events);
+}
+
+static inline void nj2_midi_buffer_ntoh(struct nj2_midi_buffer *host,
+		const struct nj2_midi_buffer *net)
+{
+	host->magic = ntohl(net->magic);
+	host->buffer_size = ntohl(net->buffer_size);
+	host->nframes = ntohl(net->nframes);
+	host->write_pos = ntohl(net->write_pos);
+	host->event_count = ntohl(net->event_count);
+	host->lost_events = ntohl(net->lost_events);
+}
 
 #ifdef __cplusplus
 }

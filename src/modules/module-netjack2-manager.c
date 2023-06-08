@@ -25,7 +25,6 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/debug/types.h>
-#include <spa/debug/mem.h>
 #include <spa/pod/builder.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/latency-utils.h>
@@ -292,27 +291,40 @@ static void stream_state_changed(void *d, enum pw_filter_state old,
 	}
 }
 
-static void sink_process(void *d, struct spa_io_position *position)
+static inline void set_info(struct stream *s, uint32_t nframes,
+		struct data_info *midi, uint32_t *n_midi,
+		struct data_info *audio, uint32_t *n_audio)
 {
-	struct stream *s = d;
-	struct follower *follower = s->follower;
-	uint32_t i, nframes = position->clock.duration;
-	struct data_info midi[s->n_ports];
-	struct data_info audio[s->n_ports];
-	uint32_t n_midi, n_audio;
-
-	n_midi = n_audio = 0;
+	uint32_t i, n_m, n_a;
+	n_m = n_a = 0;
 	for (i = 0; i < s->n_ports; i++) {
 		struct port *p = s->ports[i];
 		void *data = p ? pw_filter_get_dsp_buffer(p, nframes) : NULL;
 		if (p && p->is_midi) {
-			midi[n_midi].data = data;
-			midi[n_midi++].id = i;
+			midi[n_m].data = data;
+			midi[n_m].id = i;
+			midi[n_m++].filled = false;
 		} else if (data != NULL) {
-			audio[n_audio].data = data;
-			audio[n_audio++].id = i;
+			audio[n_a].data = data;
+			audio[n_a].id = i;
+			audio[n_a++].filled = false;
 		}
 	}
+	*n_midi = n_m;
+	*n_audio = n_a;
+}
+
+static void sink_process(void *d, struct spa_io_position *position)
+{
+	struct stream *s = d;
+	struct follower *follower = s->follower;
+	uint32_t nframes = position->clock.duration;
+	struct data_info midi[s->n_ports];
+	struct data_info audio[s->n_ports];
+	uint32_t n_midi, n_audio;
+
+	set_info(s, nframes, midi, &n_midi, audio, &n_audio);
+
 	follower->peer.cycle++;
 	netjack2_send_data(&follower->peer, nframes, midi, n_midi, audio, n_audio);
 
@@ -323,17 +335,15 @@ static void source_process(void *d, struct spa_io_position *position)
 {
 	struct stream *s = d;
 	struct follower *follower = s->follower;
-	uint32_t i, n_samples = position->clock.duration;
-	struct data_info info[s->n_ports];
+	uint32_t nframes = position->clock.duration;
+	struct data_info midi[s->n_ports];
+	struct data_info audio[s->n_ports];
+	uint32_t n_midi, n_audio;
 
-	for (i = 0; i < s->n_ports; i++) {
-		struct port *p = s->ports[i];
-		info[i].data = p ? pw_filter_get_dsp_buffer(p, n_samples) : NULL;
-		info[i].id = i;
-		info[i].filled = false;
-	}
+	set_info(s, nframes, midi, &n_midi, audio, &n_audio);
+
 	netjack2_manager_sync_wait(&follower->peer);
-	netjack2_recv_data(&follower->peer, info, s->n_ports);
+	netjack2_recv_data(&follower->peer, midi, n_midi, audio, n_audio);
 }
 
 static void follower_free(struct follower *follower)
@@ -352,6 +362,8 @@ static void follower_free(struct follower *follower)
 
 	if (follower->socket)
 		pw_loop_destroy_source(impl->data_loop->loop, follower->socket);
+
+	free(follower->peer.buffer);
 
 	free(follower);
 }
@@ -934,6 +946,9 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 	peer->other_stream = 'r';
 	peer->send_volume = &follower->sink.volume;
 	peer->recv_volume = &follower->source.volume;
+	peer->buffer_size = peer->params.period_size * sizeof(float) *
+		SPA_MAX(peer->params.send_midi_channels, peer->params.recv_midi_channels);
+	peer->buffer = calloc(1, peer->buffer_size);
 
 	int bufsize = NETWORK_MAX_LATENCY * (peer->params.mtu +
 		follower->period_size * sizeof(float) *

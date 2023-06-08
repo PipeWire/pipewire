@@ -24,7 +24,6 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/debug/types.h>
-#include <spa/debug/mem.h>
 #include <spa/pod/builder.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/latency-utils.h>
@@ -284,11 +283,34 @@ static void stream_state_changed(void *d, enum pw_filter_state old,
 	}
 }
 
+static inline void set_info(struct stream *s, uint32_t nframes,
+		struct data_info *midi, uint32_t *n_midi,
+		struct data_info *audio, uint32_t *n_audio)
+{
+	uint32_t i, n_m, n_a;
+	n_m = n_a = 0;
+	for (i = 0; i < s->n_ports; i++) {
+		struct port *p = s->ports[i];
+		void *data = p ? pw_filter_get_dsp_buffer(p, nframes) : NULL;
+		if (p && p->is_midi) {
+			midi[n_m].data = data;
+			midi[n_m].id = i;
+			midi[n_m++].filled = false;
+		} else if (data != NULL) {
+			audio[n_a].data = data;
+			audio[n_a].id = i;
+			audio[n_a++].filled = false;
+		}
+	}
+	*n_midi = n_m;
+	*n_audio = n_a;
+}
+
 static void sink_process(void *d, struct spa_io_position *position)
 {
 	struct stream *s = d;
 	struct impl *impl = s->impl;
-	uint32_t i, nframes = position->clock.duration;
+	uint32_t nframes = position->clock.duration;
 	struct data_info midi[s->n_ports];
 	struct data_info audio[s->n_ports];
 	uint32_t n_midi, n_audio;
@@ -298,18 +320,7 @@ static void sink_process(void *d, struct spa_io_position *position)
 		return;
 	}
 
-	n_midi = n_audio = 0;
-	for (i = 0; i < s->n_ports; i++) {
-		struct port *p = s->ports[i];
-		void *data = p ? pw_filter_get_dsp_buffer(p, nframes) : NULL;
-		if (p && p->is_midi) {
-			midi[n_midi].data = data;
-			midi[n_midi++].id = i;
-		} else if (data != NULL) {
-			audio[n_audio].data = data;
-			audio[n_audio++].id = i;
-		}
-	}
+	set_info(s, nframes, midi, &n_midi, audio, &n_audio);
 
 	netjack2_send_data(&impl->peer, nframes, midi, n_midi, audio, n_audio);
 
@@ -322,8 +333,10 @@ static void source_process(void *d, struct spa_io_position *position)
 {
 	struct stream *s = d;
 	struct impl *impl = s->impl;
-	uint32_t i, n_samples = position->clock.duration;
-	struct data_info info[s->n_ports];
+	uint32_t nframes = position->clock.duration;
+	struct data_info midi[s->n_ports];
+	struct data_info audio[s->n_ports];
+	uint32_t n_midi, n_audio;
 
 	if (impl->driving == MODE_SOURCE && !impl->triggered) {
 		pw_log_trace_fp("done %"PRIu64, impl->frame_time);
@@ -332,13 +345,9 @@ static void source_process(void *d, struct spa_io_position *position)
 	}
 	impl->triggered = false;
 
-	for (i = 0; i < s->n_ports; i++) {
-		struct port *p = s->ports[i];
-		info[i].data = p ? pw_filter_get_dsp_buffer(p, n_samples) : NULL;
-		info[i].id = i;
-		info[i].filled = false;
-	}
-	netjack2_recv_data(&impl->peer, info, s->n_ports);
+	set_info(s, nframes, midi, &n_midi, audio, &n_audio);
+
+	netjack2_recv_data(&impl->peer, midi, n_midi, audio, n_audio);
 }
 
 static void stream_io_changed(void *data, void *port_data, uint32_t id, void *area, uint32_t size)
@@ -655,7 +664,7 @@ on_data_io(void *data, int fd, uint32_t mask)
 			c->target_duration = c->duration;
 		}
 		if (!source_running)
-			netjack2_recv_data(&impl->peer, NULL, 0);
+			netjack2_recv_data(&impl->peer, NULL, 0, NULL, 0);
 
 		if (impl->mode & MODE_SOURCE && source_running) {
 			impl->done = false;
@@ -860,6 +869,9 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 	peer->other_stream = 's';
 	peer->send_volume = &impl->sink.volume;
 	peer->recv_volume = &impl->source.volume;
+	peer->buffer_size = peer->params.period_size * sizeof(float) *
+		SPA_MAX(peer->params.send_midi_channels, peer->params.recv_midi_channels);
+	peer->buffer = calloc(1, peer->buffer_size);
 
 	int bufsize = NETWORK_MAX_LATENCY * (peer->params.mtu +
 		peer->params.period_size * sizeof(float) *
@@ -1037,6 +1049,8 @@ static int send_stop_driver(struct impl *impl)
 		pw_filter_destroy(impl->source.filter);
 	if (impl->sink.filter)
 		pw_filter_destroy(impl->sink.filter);
+	free(impl->peer.buffer);
+	impl->peer.buffer = NULL;
 
 	return 0;
 }

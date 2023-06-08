@@ -43,15 +43,15 @@ static void on_process(void *userdata)
 	stride = sizeof(int16_t) * DEFAULT_CHANNELS;
 	n_frames = buf->datas[0].maxsize / stride;
 
-        for (i = 0; i < n_frames; i++) {
-                data->accumulator += M_PI_M2 * 440 / DEFAULT_RATE;
-                if (data->accumulator >= M_PI_M2)
-                        data->accumulator -= M_PI_M2;
+	for (i = 0; i < n_frames; i++) {
+		data->accumulator += M_PI_M2 * 440 / DEFAULT_RATE;
+		if (data->accumulator >= M_PI_M2)
+			data->accumulator -= M_PI_M2;
 
-                val = sin(data->accumulator) * DEFAULT_VOLUME * 16767.f;
-                for (c = 0; c < DEFAULT_CHANNELS; c++)
-                        *dst++ = val;
-        }
+		val = sin(data->accumulator) * DEFAULT_VOLUME * 16767.f;
+		for (c = 0; c < DEFAULT_CHANNELS; c++)
+			*dst++ = val;
+	}
 
 	buf->datas[0].chunk->offset = 0;
 	buf->datas[0].chunk->stride = stride;

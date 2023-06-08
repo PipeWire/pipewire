@@ -546,6 +546,53 @@ int spa_alsa_clear(struct state *state)
 	return err;
 }
 
+static int probe_pitch_ctl(struct state *state, const char* device_name)
+{
+	snd_ctl_elem_id_t *id;
+	/* TODO: Add configuration params for the control name and units */
+	const char *elem_name =
+		state->stream == SND_PCM_STREAM_CAPTURE ?
+		"Capture Pitch 1000000" :
+		"Playback Pitch 1000000";
+	int err;
+
+	err = snd_ctl_open(&state->ctl, device_name, SND_CTL_NONBLOCK);
+
+	if (err < 0) {
+		spa_log_info(state->log, "%s could not find ctl device", state->props.device);
+		state->ctl = NULL;
+		return err;
+	}
+
+	snd_ctl_elem_id_alloca(&id);
+	snd_ctl_elem_id_set_name(id, elem_name);
+	snd_ctl_elem_id_set_interface(id, SND_CTL_ELEM_IFACE_PCM);
+
+	snd_ctl_elem_value_malloc(&state->pitch_elem);
+	snd_ctl_elem_value_set_id(state->pitch_elem, id);
+
+	err = snd_ctl_elem_read(state->ctl, state->pitch_elem);
+
+	if (err < 0) {
+		spa_log_debug(state->log, "%s: did not find ctl %s", state->props.device, elem_name);
+
+		snd_ctl_elem_value_free(state->pitch_elem);
+		state->pitch_elem = NULL;
+
+		snd_ctl_close(state->ctl);
+		state->ctl = NULL;
+
+		return err;
+	}
+
+	snd_ctl_elem_value_set_integer(state->pitch_elem, 0, 1000000);
+	state->last_rate = 1.0;
+
+	spa_log_info(state->log, "%s: found ctl %s", state->props.device, elem_name);
+
+	return 0;
+}
+
 int spa_alsa_open(struct state *state, const char *params)
 {
 	int err;
@@ -588,6 +635,8 @@ int spa_alsa_open(struct state *state, const char *params)
 	state->sample_count = 0;
 	state->sample_time = 0;
 
+	probe_pitch_ctl(state, device_name);
+
 	return 0;
 
 error_exit_close:
@@ -621,6 +670,14 @@ int spa_alsa_close(struct state *state)
 
 	state->have_format = false;
 	state->opened = false;
+
+	if (state->pitch_elem) {
+		snd_ctl_elem_value_free(state->pitch_elem);
+		state->pitch_elem = NULL;
+
+		snd_ctl_close(state->ctl);
+		state->ctl = NULL;
+	}
 
 	return err;
 }
@@ -1665,6 +1722,41 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	return match ? 0 : 1;
 }
 
+int spa_alsa_update_rate_match(struct state *state)
+{
+	uint64_t pitch, last_pitch;
+	int err;
+
+	if (!state->pitch_elem)
+		return -ENOENT;
+
+	/* The rate/pitch defines the rate of input to output (if there were a
+	 * resampler, it's the ratio of input samples to output samples). This
+	 * means that to adjust the playback rate, we need to apply the inverse
+	 * of the given rate. */
+	if (state->stream == SND_PCM_STREAM_CAPTURE) {
+		pitch = 1000000 * state->rate_match->rate;
+		last_pitch = 1000000 * state->last_rate;
+	} else {
+		pitch = 1000000 / state->rate_match->rate;
+		last_pitch = 1000000 / state->last_rate;
+	}
+
+	/* The pitch adjustment is limited to 1 ppm */
+	if (pitch == last_pitch)
+		return 0;
+
+	snd_ctl_elem_value_set_integer(state->pitch_elem, 0, pitch);
+	CHECK(snd_ctl_elem_write(state->ctl, state->pitch_elem), "snd_ctl_elem_write");
+
+	spa_log_trace_fp(state->log, "%s %u set rate to %g",
+			state->props.device, state->stream, state->rate_match->rate);
+
+	state->last_rate = state->rate_match->rate;
+
+	return 0;
+}
+
 static int set_swparams(struct state *state)
 {
 	snd_pcm_t *hndl = state->hndl;
@@ -2015,7 +2107,10 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 		else
 			state->rate_match->rate = 1.0/corr;
 
-		SPA_FLAG_UPDATE(state->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE, state->matching);
+		if (state->pitch_elem && state->matching)
+			spa_alsa_update_rate_match(state);
+		else
+			SPA_FLAG_UPDATE(state->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE, state->matching);
 	}
 
 	state->next_time += state->threshold / corr * 1e9 / state->rate;
@@ -2055,7 +2150,7 @@ static int setup_matching(struct state *state)
 	if (spa_streq(state->position->clock.name, state->clock_name))
 		state->matching = false;
 
-	state->resample = ((uint32_t)state->rate != state->rate_denom) || state->matching;
+	state->resample = !state->pitch_elem && (((uint32_t)state->rate != state->rate_denom) || state->matching);
 
 	spa_log_info(state->log, "driver clock:'%s'@%d our clock:'%s'@%d matching:%d resample:%d",
 			state->position->clock.name, state->rate_denom,

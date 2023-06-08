@@ -218,6 +218,11 @@ struct state {
 
 	struct spa_latency_info latency[2];
 	struct spa_process_latency_info process_latency;
+
+	/* Rate match via an ALSA ctl */
+	snd_ctl_t *ctl;
+	snd_ctl_elem_value_t *pitch_elem;
+	double last_rate;
 };
 
 struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
@@ -230,6 +235,7 @@ int spa_alsa_enum_format(struct state *state, int seq,
 		     const struct spa_pod *filter);
 
 int spa_alsa_set_format(struct state *state, struct spa_audio_info *info, uint32_t flags);
+int spa_alsa_update_rate_match(struct state *state);
 
 int spa_alsa_init(struct state *state, const struct spa_dict *info);
 int spa_alsa_clear(struct state *state);

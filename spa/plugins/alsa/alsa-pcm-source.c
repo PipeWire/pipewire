@@ -709,6 +709,7 @@ impl_node_port_set_io(void *object,
 		break;
 	case SPA_IO_RateMatch:
 		this->rate_match = data;
+		spa_alsa_update_rate_match(this);
 		break;
 	default:
 		return -ENOENT;

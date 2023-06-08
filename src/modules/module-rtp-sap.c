@@ -355,8 +355,10 @@ static bool is_multicast(struct sockaddr *sa, socklen_t salen)
 	return false;
 }
 
-static int make_send_socket(struct sockaddr_storage *sa, socklen_t salen,
-		bool loop, int ttl, char *ifname)
+static int make_send_socket(
+		struct sockaddr_storage *src, socklen_t src_len,
+		struct sockaddr_storage *sa, socklen_t salen,
+		bool loop, int ttl)
 {
 	int af, fd, val, res;
 
@@ -364,6 +366,11 @@ static int make_send_socket(struct sockaddr_storage *sa, socklen_t salen,
 	if ((fd = socket(af, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		pw_log_error("socket failed: %m");
 		return -errno;
+	}
+	if (bind(fd, (struct sockaddr*)src, src_len) < 0) {
+		res = -errno;
+		pw_log_error("bind() failed: %m");
+		goto error;
 	}
 	if (connect(fd, (struct sockaddr*)sa, salen) < 0) {
 		res = -errno;
@@ -1217,9 +1224,9 @@ static int start_sap(struct impl *impl)
 	int fd, res;
 	struct timespec value, interval;
 
-	if ((fd = make_send_socket(&impl->sap_addr, impl->sap_len,
-					impl->mcast_loop, impl->ttl,
-					impl->ifname)) < 0)
+	if ((fd = make_send_socket(&impl->src_addr, impl->src_len,
+					&impl->sap_addr, impl->sap_len,
+					impl->mcast_loop, impl->ttl)) < 0)
 		return fd;
 
 	impl->sap_fd = fd;

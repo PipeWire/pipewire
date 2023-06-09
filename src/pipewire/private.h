@@ -591,6 +591,9 @@ static inline void pw_node_activation_state_reset(struct pw_node_activation_stat
 
 struct pw_node_target {
 	struct spa_list link;
+#define PW_NODE_TARGET_NONE	0
+#define PW_NODE_TARGET_PEER	1
+	uint32_t flags;
 	uint32_t id;
 	char name[128];
 	struct pw_impl_node *node;

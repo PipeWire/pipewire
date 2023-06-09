@@ -71,6 +71,7 @@ static struct pw_node_peer *pw_node_peer_ref(struct pw_impl_node *onode, struct 
 	peer->output = onode;
 	peer->active_count = 0;
 	copy_target(&peer->target, &inode->rt.target);
+	peer->target.flags = PW_NODE_TARGET_PEER;
 
 	spa_list_append(&onode->peer_list, &peer->link);
 	pw_log_debug("new peer %p from %p to %p", peer, onode, inode);

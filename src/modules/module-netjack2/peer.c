@@ -1,22 +1,51 @@
 
+#include <byteswap.h>
+
 struct volume {
 	bool mute;
 	uint32_t n_volumes;
 	float volumes[SPA_AUDIO_MAX_CHANNELS];
 };
 
-static inline void do_volume(float *dst, const float *src, struct volume *vol, uint32_t ch, uint32_t n_samples)
+static inline float bswap_f32(float f)
+{
+	union {
+		float f;
+		uint32_t u;
+	} v;
+	v.f = f;
+	v.u = bswap_32(v.u);
+	return v.f;
+}
+
+static inline void do_volume(float *dst, const float *src, struct volume *vol, uint32_t ch, uint32_t n_samples, bool recv)
 {
 	float v = vol->mute ? 0.0f : vol->volumes[ch];
+	uint32_t i;
 
 	if (v == 0.0f || src == NULL)
 		memset(dst, 0, n_samples * sizeof(float));
-	else if (v == 1.0f)
+	else if (v == 1.0f) {
+#if __BYTE_ORDER == __BIG_ENDIAN
+		for (i = 0; i < n_samples; i++)
+			dst[i] = bswap_f32(src[i]);
+#else
 		memcpy(dst, src, n_samples * sizeof(float));
-	else {
-		uint32_t i;
+#endif
+
+	} else {
+#if __BYTE_ORDER == __BIG_ENDIAN
+		if (recv) {
+			for (i = 0; i < n_samples; i++)
+				dst[i] = bswap_f32(src[i]) * v;
+		} else {
+			for (i = 0; i < n_samples; i++)
+				dst[i] = bswap_f32(src[i] * v);
+		}
+#else
 		for (i = 0; i < n_samples; i++)
 			dst[i] = src[i] * v;
+#endif
 	}
 }
 
@@ -288,7 +317,7 @@ static int netjack2_send_audio(struct netjack2_peer *peer, uint32_t nframes,
 			ap[0] = htonl(info[j].id);
 
 			src = SPA_PTROFF(info[j].data, i * sub_period_size * sizeof(float), float);
-			do_volume((float*)&ap[1], src, peer->send_volume, info[j].id, sub_period_size);
+			do_volume((float*)&ap[1], src, peer->send_volume, info[j].id, sub_period_size, false);
 
 			ap = SPA_PTROFF(ap, sub_period_bytes, int32_t);
 		}
@@ -469,7 +498,7 @@ static int netjack2_recv_audio(struct netjack2_peer *peer, struct nj2_packet_hea
 			float *dst = SPA_PTROFF(data,
 					sub_cycle * sub_period_size * sizeof(float),
 					float);
-			do_volume(dst, (float*)&ap[1], peer->recv_volume, active_port, sub_period_size);
+			do_volume(dst, (float*)&ap[1], peer->recv_volume, active_port, sub_period_size, true);
 			info[active_port].filled = peer->sync.is_last;
 		}
 	}

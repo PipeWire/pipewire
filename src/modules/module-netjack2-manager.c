@@ -328,7 +328,8 @@ static void sink_process(void *d, struct spa_io_position *position)
 	follower->peer.cycle++;
 	netjack2_send_data(&follower->peer, nframes, midi, n_midi, audio, n_audio);
 
-	pw_loop_update_io(s->impl->data_loop->loop, follower->socket, SPA_IO_IN);
+	if (follower->socket)
+		pw_loop_update_io(s->impl->data_loop->loop, follower->socket, SPA_IO_IN);
 }
 
 static void source_process(void *d, struct spa_io_position *position)

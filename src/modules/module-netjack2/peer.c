@@ -1,6 +1,8 @@
 
 #include <byteswap.h>
 
+#define MAX_BUFFER_FRAMES	8192
+
 struct volume {
 	bool mute;
 	uint32_t n_volumes;
@@ -92,7 +94,7 @@ static void midi_to_netjack2(struct netjack2_peer *peer,
 	uint32_t free_size;
 
 	buf->magic = MIDI_BUFFER_MAGIC;
-	buf->buffer_size = 8192 * sizeof(float);
+	buf->buffer_size = MAX_BUFFER_FRAMES * sizeof(float);
 	buf->nframes = n_samples;
 	buf->write_pos = 0;
 	buf->event_count = 0;
@@ -420,9 +422,9 @@ static int netjack2_recv_midi(struct netjack2_peer *peer, struct nj2_packet_head
 		struct data_info *info, uint32_t n_info)
 {
 	ssize_t len;
-	uint32_t i, active_ports, sub_cycle, max_size, offset;
+	uint32_t i, active_ports, sub_cycle, max_size, offset, buffer_size;
 	uint32_t packet_size = SPA_MIN(ntohl(header->packet_size), peer->params.mtu);
-	uint8_t buffer[packet_size], *p = buffer;
+	uint8_t buffer[packet_size], *buffer_data = buffer;
 
 	//nj2_dump_packet_header(header);
 
@@ -435,27 +437,35 @@ static int netjack2_recv_midi(struct netjack2_peer *peer, struct nj2_packet_head
 	max_size = peer->params.mtu - sizeof(*header);
 	offset = max_size * sub_cycle;
 
-	p += sizeof(*header);
+	buffer_data += sizeof(*header);
 	len -= sizeof(*header);
 
 	if (offset + len < peer->buffer_size)
-		memcpy(SPA_PTROFF(peer->buffer, offset, void), p, len);
+		memcpy(SPA_PTROFF(peer->buffer, offset, void), buffer_data, len);
 
 	if (++(*count) < peer->sync.num_packets)
 		return 0;
 
-	p = (uint8_t*)peer->buffer;
+	buffer_data = peer->buffer;
+	buffer_size = peer->buffer_size;
+
 	for (i = 0; i < active_ports; i++) {
-		struct nj2_midi_buffer *mbuf = (struct nj2_midi_buffer *)p;
+		struct nj2_midi_buffer *mbuf = (struct nj2_midi_buffer *)buffer_data;
+
 		nj2_midi_buffer_ntoh(mbuf, mbuf);
+
+		size_t used = sizeof(*mbuf)
+			+ mbuf->event_count * sizeof(struct nj2_midi_event)
+			+ mbuf->write_pos;
+		if (used > buffer_size)
+			break;
 
 		if (i < n_info && info[i].data != NULL) {
 			netjack2_to_midi(info[i].data, peer->params.period_size * sizeof(float), mbuf);
 			info[i].filled = true;
 		}
-		p += sizeof(*mbuf)
-			+ mbuf->event_count * sizeof(struct nj2_midi_event)
-			+ mbuf->write_pos;
+		buffer_data += used;
+		buffer_size -= used;
 	}
 	return 0;
 }
@@ -471,18 +481,22 @@ static int netjack2_recv_audio(struct netjack2_peer *peer, struct nj2_packet_hea
 	if ((len = recv(peer->fd, buffer, packet_size, 0)) < 0)
 		return -errno;
 
-	sub_cycle = ntohl(header->sub_cycle);
 	active_ports = ntohl(header->active_ports);
+	if (active_ports == 0)
+		return 0;
 
-	if (active_ports == 0) {
-		sub_period_size = peer->sync.frames;
-	} else {
-		uint32_t max_size = PACKET_AVAILABLE_SIZE(peer->params.mtu);
-		uint32_t period = (uint32_t) powf(2.f, (uint32_t) (logf((float)max_size /
-				(active_ports * sizeof(float))) / logf(2.f)));
-		sub_period_size = SPA_MIN(period, (uint32_t)peer->sync.frames);
-	}
+	uint32_t max_size = PACKET_AVAILABLE_SIZE(peer->params.mtu);
+	uint32_t period = (uint32_t) powf(2.f, (uint32_t) (logf((float)max_size /
+			(active_ports * sizeof(float))) / logf(2.f)));
+	sub_period_size = SPA_MIN(period, (uint32_t)peer->sync.frames);
 	sub_period_bytes = sub_period_size * sizeof(float) + sizeof(int32_t);
+
+	if ((size_t)len < active_ports * sub_period_bytes + sizeof(*header))
+		return 0;
+
+	sub_cycle = ntohl(header->sub_cycle);
+	if (sub_cycle * sub_period_size > MAX_BUFFER_FRAMES)
+		return 0;
 
 	for (i = 0; i < active_ports; i++) {
 		int32_t *ap = SPA_PTROFF(buffer, sizeof(*header) + i * sub_period_bytes, int32_t);

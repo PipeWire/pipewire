@@ -1226,7 +1226,7 @@ static int rtsp_do_announce(struct impl *impl)
 
 	switch (impl->encryption) {
 	case CRYPTO_NONE:
-		asprintf(&sdp, "v=0\r\n"
+		sdp = spa_aprintf("v=0\r\n"
 				"o=iTunes %s 0 IN IP%d %s\r\n"
 				"s=iTunes\r\n"
 				"c=IN IP%d %s\r\n"
@@ -1236,10 +1236,12 @@ static int rtsp_do_announce(struct impl *impl)
 				"a=fmtp:96 %d 0 16 40 10 14 2 255 0 0 %u\r\n",
 				impl->session_id, ip_version, local_ip,
 				ip_version, host, frames, impl->info.rate);
+		if (!sdp)
+			return -errno;
 		break;
 
 	case CRYPTO_AUTH_SETUP:
-		asprintf(&sdp, "v=0\r\n"
+		sdp = spa_aprintf("v=0\r\n"
 				"o=iTunes %s 0 IN IP%d %s\r\n"
 				"s=iTunes\r\n"
 				"c=IN IP%d %s\r\n"
@@ -1251,6 +1253,8 @@ static int rtsp_do_announce(struct impl *impl)
 				impl->session_id, ip_version, local_ip,
 				ip_version, host, frames, impl->info.rate,
 				impl->latency + RAOP_LATENCY_MIN);
+		if (!sdp)
+			return -errno;
 		break;
 
 	case CRYPTO_RSA:
@@ -1265,7 +1269,7 @@ static int rtsp_do_announce(struct impl *impl)
 	        base64_encode(rsakey, rsa_len, key, '=');
 	        base64_encode(impl->iv, 16, iv, '=');
 
-		asprintf(&sdp, "v=0\r\n"
+		sdp = spa_aprintf("v=0\r\n"
 				"o=iTunes %s 0 IN IP%d %s\r\n"
 				"s=iTunes\r\n"
 				"c=IN IP%d %s\r\n"
@@ -1278,6 +1282,8 @@ static int rtsp_do_announce(struct impl *impl)
 				impl->session_id, ip_version, local_ip,
 				ip_version, host, frames, impl->info.rate,
 				key, iv);
+		if (!sdp)
+			return -errno;
 		break;
 	default:
 		return -ENOTSUP;

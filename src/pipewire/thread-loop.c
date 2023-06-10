@@ -50,7 +50,7 @@ static int do_lock(struct pw_thread_loop *this)
 {
 	int res;
 	if ((res = pthread_mutex_lock(&this->lock)) != 0)
-		pw_log_error("%p: thread:%lu: %s", this, pthread_self(), strerror(res));
+		pw_log_error("%p: thread:%p: %s", this, (void *) pthread_self(), strerror(res));
 	else
 		this->recurse++;
 	return -res;
@@ -62,7 +62,7 @@ static int do_unlock(struct pw_thread_loop *this)
 	spa_return_val_if_fail(this->recurse > 0, -EIO);
 	this->recurse--;
 	if ((res = pthread_mutex_unlock(&this->lock)) != 0) {
-		pw_log_error("%p: thread:%lu: %s", this, pthread_self(), strerror(res));
+		pw_log_error("%p: thread:%p: %s", this, (void *) pthread_self(), strerror(res));
 		this->recurse++;
 	}
 	return -res;
@@ -97,13 +97,13 @@ static int impl_check(void *data, struct pw_loop *loop)
 
 	/* if lock taken by something else, error */
 	if ((res = pthread_mutex_trylock(&this->lock)) != 0) {
-		pw_log_debug("%p: thread:%lu: %s", this, pthread_self(), strerror(res));
+		pw_log_debug("%p: thread:%p: %s", this, (void *) pthread_self(), strerror(res));
 		return -res;
 	}
 	/* we could take the lock, check if we actually locked it somewhere */
 	res = this->recurse > 0 ? 1 : -EPERM;
 	if (res < 0)
-		pw_log_debug("%p: thread:%lu: recurse:%d", this, pthread_self(), this->recurse);
+		pw_log_debug("%p: thread:%p: recurse:%d", this, (void *) pthread_self(), this->recurse);
 	pthread_mutex_unlock(&this->lock);
 	return res;
 }
@@ -398,7 +398,7 @@ void pw_thread_loop_signal(struct pw_thread_loop *loop, bool wait_for_accept)
 		while (loop->n_waiting_for_accept > 0) {
 			int res;
 			if ((res = pthread_cond_wait(&loop->accept_cond, &loop->lock)) != 0)
-				pw_log_error("%p: thread:%lu: %s", loop, pthread_self(), strerror(res));
+				pw_log_error("%p: thread:%p: %s", loop, (void *) pthread_self(), strerror(res));
 		}
 	}
 }
@@ -418,7 +418,7 @@ void pw_thread_loop_wait(struct pw_thread_loop *loop)
 	loop->n_waiting++;
 	loop->recurse--;
 	if ((res = pthread_cond_wait(&loop->cond, &loop->lock)) != 0)
-		pw_log_error("%p: thread:%lu: %s", loop, pthread_self(), strerror(res));
+		pw_log_error("%p: thread:%p: %s", loop, (void *) pthread_self(), strerror(res));
 	loop->recurse++;
 	loop->n_waiting--;
 	pw_log_trace("%p, waiting done %d", loop, loop->n_waiting);

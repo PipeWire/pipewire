@@ -126,9 +126,6 @@ struct impl {
 
 struct tunnel_info {
 	const char *name;
-	const char *host_name;
-	const char *ip;
-	const char *port;
 };
 
 #define TUNNEL_INFO(...) ((struct tunnel_info){ __VA_ARGS__ })
@@ -151,9 +148,6 @@ static struct tunnel *make_tunnel(struct impl *impl, const struct tunnel_info *i
 		return NULL;
 
 	t->info.name = strdup(info->name);
-	t->info.host_name = strdup(info->host_name);
-	t->info.ip = strdup(info->ip);
-	t->info.port = strdup(info->port);
 	spa_list_append(&impl->tunnel_list, &t->link);
 
 	return t;
@@ -175,9 +169,6 @@ static void free_tunnel(struct tunnel *t)
 	if (t->module)
 		pw_impl_module_destroy(t->module);
 	free((char *) t->info.name);
-	free((char *) t->info.host_name);
-	free((char *) t->info.ip);
-	free((char *) t->info.port);
 	free(t);
 }
 
@@ -367,10 +358,11 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	struct impl *impl = userdata;
 	struct tunnel_info tinfo;
 	struct tunnel *t;
-	const char *str, *port_str;
+	const char *str;
 	AvahiStringList *l;
 	struct pw_properties *props = NULL;
 	char at[AVAHI_ADDRESS_STR_MAX];
+	int ipv;
 
 	if (event != AVAHI_RESOLVER_FOUND) {
 		pw_log_error("Resolving of '%s' failed: %s", name,
@@ -378,7 +370,19 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		goto done;
 	}
 
-	avahi_address_snprint(at, sizeof(at), a);
+	tinfo = TUNNEL_INFO(.name = name);
+
+	t = find_tunnel(impl, &tinfo);
+	if (t == NULL)
+		t = make_tunnel(impl, &tinfo);
+	if (t == NULL) {
+		pw_log_error("Can't make tunnel: %m");
+		goto done;
+	}
+	if (t->module != NULL) {
+		pw_log_info("found duplicate mdns entry - skipping tunnel creation");
+		goto done;
+	}
 
 	props = pw_properties_new(NULL, NULL);
 	if (props == NULL) {
@@ -386,7 +390,10 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		goto done;
 	}
 
+	avahi_address_snprint(at, sizeof(at), a);
+	ipv = protocol == AVAHI_PROTO_INET ? 4 : 6;
 	pw_properties_setf(props, "raop.ip", "%s", at);
+	pw_properties_setf(props, "raop.ip.version", "%d", ipv);
 	pw_properties_setf(props, "raop.port", "%u", port);
 	pw_properties_setf(props, "raop.name", "%s", name);
 	pw_properties_setf(props, "raop.hostname", "%s", host_name);
@@ -401,24 +408,6 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		pw_properties_from_avahi_string(key, value, props);
 		avahi_free(key);
 		avahi_free(value);
-	}
-
-	port_str = pw_properties_get(props, "raop.port");
-
-	tinfo = TUNNEL_INFO(.name = name,
-			.host_name = host_name,
-			.ip = at,
-			.port = port_str);
-	t = find_tunnel(impl, &tinfo);
-	if (t == NULL)
-		t = make_tunnel(impl, &tinfo);
-	if (t == NULL) {
-		pw_log_error("Can't make tunnel: %m");
-		goto done;
-	}
-	if (t->module != NULL) {
-		pw_log_info("found duplicate mdns entry - skipping tunnel creation");
-		goto done;
 	}
 
 	if ((str = pw_properties_get(impl->properties, "stream.rules")) == NULL)

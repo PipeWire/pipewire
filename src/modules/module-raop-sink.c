@@ -1252,7 +1252,7 @@ static int rtsp_do_announce(struct impl *impl)
 				"a=min-latency:%d",
 				impl->session_id, ip_version, local_ip,
 				ip_version, host, frames, impl->info.rate,
-				impl->latency + RAOP_LATENCY_MIN);
+				RAOP_LATENCY_MIN);
 		if (!sdp)
 			return -errno;
 		break;

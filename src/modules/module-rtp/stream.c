@@ -389,9 +389,20 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	min_samples = min_ptime * impl->rate / 1000;
 	max_samples = max_ptime * impl->rate / 1000;
 
-	impl->psamples = impl->mtu / impl->stride;
-	impl->psamples = SPA_CLAMP(impl->psamples, min_samples, max_samples);
+	float ptime = 0;
+	if ((str = pw_properties_get(props, "rtp.ptime")) != NULL)
+		if (!spa_atof(str, &ptime))
+			ptime = 0.0;
 
+	if (ptime) {
+		impl->psamples = ptime * impl->rate / 1000;
+	} else {
+		impl->psamples = impl->mtu / impl->stride;
+		impl->psamples = SPA_CLAMP(impl->psamples, min_samples, max_samples);
+		if (direction == PW_DIRECTION_OUTPUT)
+			pw_properties_setf(props, "rtp.ptime", "%f",
+					impl->psamples * 1000.0 / impl->rate);
+	}
 	latency_msec = pw_properties_get_uint32(props,
 			"sess.latency.msec", DEFAULT_SESS_LATENCY);
 	impl->target_buffer = msec_to_samples(impl, latency_msec);
@@ -407,8 +418,6 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	}
 
 	pw_properties_setf(props, "net.mtu", "%u", impl->mtu);
-	pw_properties_setf(props, "rtp.ptime", "%f",
-			impl->psamples * 1000.0 / impl->rate);
 	pw_properties_setf(props, "rtp.media", "%s", impl->format_info->media_type);
 	pw_properties_setf(props, "rtp.mime", "%s", impl->format_info->mime);
 	pw_properties_setf(props, "rtp.payload", "%u", impl->payload);

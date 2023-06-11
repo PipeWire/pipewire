@@ -899,6 +899,7 @@ static struct session *session_new(struct impl *impl, struct sdp_info *info)
 	pw_properties_setf(props, "rtp.destination.ip", "%s", dst_addr);
 	pw_properties_setf(props, "rtp.destination.port", "%u", info->dst_port);
 	pw_properties_setf(props, "rtp.payload", "%u", info->payload);
+	pw_properties_setf(props, "rtp.ptime", "%f", info->ptime);
 	pw_properties_setf(props, "rtp.media", "%s", info->media_type);
 	pw_properties_setf(props, "rtp.mime", "%s", info->mime_type);
 	pw_properties_setf(props, "rtp.rate", "%u", info->rate);

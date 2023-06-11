@@ -85,11 +85,7 @@ struct impl {
 };
 
 struct tunnel_info {
-	AvahiIfIndex interface;
-	AvahiProtocol protocol;
 	const char *name;
-	const char *type;
-	const char *domain;
 };
 
 #define TUNNEL_INFO(...) ((struct tunnel_info){ __VA_ARGS__ })
@@ -111,11 +107,7 @@ static struct tunnel *make_tunnel(struct impl *impl, const struct tunnel_info *i
 	if (t == NULL)
 		return NULL;
 
-	t->info.interface = info->interface;
-	t->info.protocol = info->protocol;
 	t->info.name = strdup(info->name);
-	t->info.type = strdup(info->type);
-	t->info.domain = strdup(info->domain);
 	spa_list_append(&impl->tunnel_list, &t->link);
 
 	return t;
@@ -125,11 +117,7 @@ static struct tunnel *find_tunnel(struct impl *impl, const struct tunnel_info *i
 {
 	struct tunnel *t;
 	spa_list_for_each(t, &impl->tunnel_list, link) {
-		if (t->info.interface == info->interface &&
-		    t->info.protocol == info->protocol &&
-		    spa_streq(t->info.name, info->name) &&
-		    spa_streq(t->info.type, info->type) &&
-		    spa_streq(t->info.domain, info->domain))
+		if (spa_streq(t->info.name, info->name))
 			return t;
 	}
 	return NULL;
@@ -137,7 +125,12 @@ static struct tunnel *find_tunnel(struct impl *impl, const struct tunnel_info *i
 
 static void free_tunnel(struct tunnel *t)
 {
-	pw_impl_module_destroy(t->module);
+	spa_list_remove(&t->link);
+	if (t->module)
+		pw_impl_module_destroy(t->module);
+	free((char *) t->info.name);
+
+	free(t);
 }
 
 static void impl_free(struct impl *impl)
@@ -226,14 +219,8 @@ static void submodule_destroy(void *data)
 {
 	struct tunnel *t = data;
 
-	spa_list_remove(&t->link);
 	spa_hook_remove(&t->module_listener);
-
-	free((char *) t->info.name);
-	free((char *) t->info.type);
-	free((char *) t->info.domain);
-
-	free(t);
+	t->module = NULL;
 }
 
 static const struct pw_impl_module_events submodule_events = {
@@ -264,11 +251,19 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 				avahi_strerror(avahi_client_errno(impl->client)));
 		goto done;
 	}
-	tinfo = TUNNEL_INFO(.interface = interface,
-			.protocol = protocol,
-			.name = name,
-			.type = type,
-			.domain = domain);
+
+	tinfo = TUNNEL_INFO(.name = name);
+
+	t = find_tunnel(impl, &tinfo);
+	if (t == NULL)
+		t = make_tunnel(impl, &tinfo);
+	if (t == NULL) {
+		pw_log_error("Can't make tunnel: %m");
+		goto done;
+	}
+	if (t->module != NULL) {
+		pw_log_info("found duplicate mdns entry - skipping tunnel creation");
+		goto done;
 
 	props = pw_properties_new(NULL, NULL);
 	if (props == NULL) {
@@ -346,8 +341,6 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	fprintf(f, "}");
         fclose(f);
 
-	pw_properties_free(props);
-
 	pw_log_info("loading module args:'%s'", args);
 	mod = pw_context_load_module(impl->context,
 			"libpipewire-module-pulse-tunnel",
@@ -359,19 +352,13 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
                 goto done;
 	}
 
-	t = make_tunnel(impl, &tinfo);
-	if (t == NULL) {
-		pw_log_error("Can't make tunnel: %m");
-		pw_impl_module_destroy(mod);
-		goto done;
-	}
-
 	pw_impl_module_add_listener(mod, &t->module_listener, &submodule_events, t);
 
 	t->module = mod;
 
 done:
 	avahi_service_resolver_free(r);
+	pw_properties_free(props);
 }
 
 
@@ -386,18 +373,16 @@ static void browser_cb(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProt
 	if (flags & AVAHI_LOOKUP_RESULT_LOCAL)
 		return;
 
-	info = TUNNEL_INFO(.interface = interface,
-			.protocol = protocol,
-			.name = name,
-			.type = type,
-			.domain = domain);
+	info = TUNNEL_INFO(.name = name);
 
 	t = find_tunnel(impl, &info);
 
 	switch (event) {
 	case AVAHI_BROWSER_NEW:
-		if (t != NULL)
+		if (t != NULL) {
+			pw_log_info("found duplicate mdns entry - skipping tunnel creation");
 			return;
+		}
 		if (!(avahi_service_resolver_new(impl->client,
 						interface, protocol,
 						name, type, domain,

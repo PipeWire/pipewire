@@ -1586,6 +1586,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	const struct spa_pod *params[MAX_FORMATS];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	struct pw_manager_object *o;
+	bool is_monitor;
 
 	props = pw_properties_copy(client->props);
 	if (props == NULL)
@@ -1632,22 +1634,17 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 				TAG_INVALID) < 0)
 			goto error_protocol;
 	}
+	o = find_device(client, sink_index, sink_name, true, &is_monitor);
 
 	spa_zero(fix_ss);
 	spa_zero(fix_map);
-	if (fix_format || fix_rate || fix_channels) {
-		struct pw_manager_object *o;
-		bool is_monitor;
-
-		o = find_device(client, sink_index, sink_name, true, &is_monitor);
-		if (o != NULL) {
-			struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_OUTPUT);
-			collect_device_info(o, NULL, &dev_info, is_monitor, &impl->defs);
-			fix_ss.format = fix_format ? dev_info.ss.format : 0;
-			fix_ss.rate = fix_rate ? dev_info.ss.rate : 0;
-			fix_ss.channels = fix_channels ? dev_info.ss.channels : 0;
-			fix_map = dev_info.map;
-		}
+	if ((fix_format || fix_rate || fix_channels) && o != NULL) {
+		struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_OUTPUT);
+		collect_device_info(o, NULL, &dev_info, is_monitor, &impl->defs);
+		fix_ss.format = fix_format ? dev_info.ss.format : 0;
+		fix_ss.rate = fix_rate ? dev_info.ss.rate : 0;
+		fix_ss.channels = fix_channels ? dev_info.ss.channels : 0;
+		fix_map = dev_info.map;
 	}
 
 	if (client->version >= 13) {
@@ -1772,6 +1769,9 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 		flags |= PW_STREAM_FLAG_DONT_RECONNECT;
 
 	if (sink_name != NULL) {
+		if (o != NULL)
+			sink_name = pw_properties_get(o->props,
+					PW_KEY_NODE_NAME);
 		pw_properties_set(props,
 				PW_KEY_TARGET_OBJECT, sink_name);
 	} else if (sink_index != SPA_ID_INVALID && sink_index != 0) {
@@ -1858,6 +1858,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	const struct spa_pod *params[MAX_FORMATS];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	struct pw_manager_object *o;
+	bool is_monitor = false;
 
 	props = pw_properties_copy(client->props);
 	if (props == NULL)
@@ -1922,22 +1924,17 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 				TAG_INVALID) < 0)
 			goto error_protocol;
 	}
+	o = find_device(client, source_index, source_name, false, &is_monitor);
 
 	spa_zero(fix_ss);
 	spa_zero(fix_map);
-	if (fix_format || fix_rate || fix_channels) {
-		struct pw_manager_object *o;
-		bool is_monitor;
-
-		o = find_device(client, source_index, source_name, false, &is_monitor);
-		if (o != NULL) {
-			struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_INPUT);
-			collect_device_info(o, NULL, &dev_info, is_monitor, &impl->defs);
-			fix_ss.format = fix_format ? dev_info.ss.format : 0;
-			fix_ss.rate = fix_rate ? dev_info.ss.rate : 0;
-			fix_ss.channels = fix_channels ? dev_info.ss.channels : 0;
-			fix_map = dev_info.map;
-		}
+	if ((fix_format || fix_rate || fix_channels) && o != NULL) {
+		struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_INPUT);
+		collect_device_info(o, NULL, &dev_info, is_monitor, &impl->defs);
+		fix_ss.format = fix_format ? dev_info.ss.format : 0;
+		fix_ss.rate = fix_rate ? dev_info.ss.rate : 0;
+		fix_ss.channels = fix_channels ? dev_info.ss.channels : 0;
+		fix_map = dev_info.map;
 	}
 
 	if (client->version >= 22) {
@@ -2048,16 +2045,21 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 		pw_properties_setf(props,
 				PW_KEY_TARGET_OBJECT, "%u", source_index);
 	} else if (source_name != NULL) {
+		if (o != NULL)
+			source_name = pw_properties_get(o->props,
+					PW_KEY_NODE_NAME);
 		if (spa_strendswith(source_name, ".monitor")) {
+			is_monitor = true;
 			pw_properties_setf(props,
 					PW_KEY_TARGET_OBJECT,
 					"%.*s", (int)strlen(source_name)-8, source_name);
-			pw_properties_set(props,
-					PW_KEY_STREAM_CAPTURE_SINK, "true");
 		} else {
 			pw_properties_set(props,
 					PW_KEY_TARGET_OBJECT, source_name);
 		}
+		if (is_monitor)
+			pw_properties_set(props,
+					PW_KEY_STREAM_CAPTURE_SINK, "true");
 	}
 
 	stream->stream = pw_stream_new(client->core, name, props);
@@ -2453,6 +2455,7 @@ static struct pw_manager_object *find_device(struct client *client,
 				return NULL;
 			sink = true;
 			find_default = true;
+			monitor = true;
 		} else if (spa_streq(name, DEFAULT_SOURCE)) {
 			if (sink)
 				return NULL;

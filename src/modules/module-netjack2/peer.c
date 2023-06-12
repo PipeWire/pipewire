@@ -189,10 +189,10 @@ static int netjack2_init(struct netjack2_peer *peer)
 
 	}
 	return res;
-#ifdef HAVE_OPUS
 error_errno:
 	pw_log_warn("error: %m");
 	return -errno;
+#ifdef HAVE_OPUS
 error_opus:
 	pw_log_warn("error: %d", res);
 	return -EINVAL;

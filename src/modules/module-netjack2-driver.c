@@ -869,9 +869,7 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 	peer->other_stream = 's';
 	peer->send_volume = &impl->sink.volume;
 	peer->recv_volume = &impl->source.volume;
-	peer->buffer_size = peer->params.period_size * sizeof(float) *
-		SPA_MAX(peer->params.send_midi_channels, peer->params.recv_midi_channels);
-	peer->buffer = calloc(1, peer->buffer_size);
+	netjack2_init(peer);
 
 	int bufsize = NETWORK_MAX_LATENCY * (peer->params.mtu +
 		peer->params.period_size * sizeof(float) *
@@ -1049,9 +1047,8 @@ static int send_stop_driver(struct impl *impl)
 		pw_filter_destroy(impl->source.filter);
 	if (impl->sink.filter)
 		pw_filter_destroy(impl->sink.filter);
-	free(impl->peer.buffer);
-	impl->peer.buffer = NULL;
 
+	netjack2_cleanup(&impl->peer);
 	return 0;
 }
 

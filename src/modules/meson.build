@@ -208,7 +208,7 @@ pipewire_module_netjack2_driver = shared_library('pipewire-module-netjack2-drive
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep, opus_dep],
 )
 
 pipewire_module_netjack2_manager = shared_library('pipewire-module-netjack2-manager',
@@ -217,7 +217,7 @@ pipewire_module_netjack2_manager = shared_library('pipewire-module-netjack2-mana
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep, opus_dep],
 )
 
 pipewire_module_profiler = shared_library('pipewire-module-profiler',

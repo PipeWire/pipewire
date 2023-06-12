@@ -60,6 +60,8 @@
  *                   placed per stream.
  * - `netjack2.sample-rate`: the sample rate to use, default 48000
  * - `netjack2.period-size`: the buffer size to use, default 1024
+ * - `netjack2.encoding`: the encoding, float|opus, default float
+ * - `netjack2.kbps`: the number of kilobits per second when encoding, default 64
  * - `audio.channels`: the number of audio ports. Can also be added to the stream props.
  * - `midi.ports`: the number of midi ports. Can also be added to the stream props.
  * - `source.props`: Extra properties for the source filter.
@@ -88,6 +90,8 @@
  *         #netjack2.connect     = true
  *         #netjack2.sample-rate = 48000
  *         #netjack2.period-size = 1024
+ *         #netjack2.encoding    = float # float|opus
+ *         #netjack2.kbps        = 64
  *         #midi.ports           = 0
  *         #audio.channels       = 2
  *         #audio.position       = [ FL FR ]
@@ -123,6 +127,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define DEFAULT_SAMPLE_RATE	48000
 #define DEFAULT_PERIOD_SIZE	1024
+#define DEFAULT_ENCODING	"float"
+#define DEFAULT_KBPS		64
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_POSITION	"[ FL FR ]"
 #define DEFAULT_MIDI_PORTS	1
@@ -232,6 +238,8 @@ struct impl {
 	uint32_t dscp;
 	uint32_t period_size;
 	uint32_t samplerate;
+	uint32_t encoding;
+	uint32_t kbps;
 
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
@@ -364,8 +372,7 @@ static void follower_free(struct follower *follower)
 	if (follower->socket)
 		pw_loop_destroy_source(impl->data_loop->loop, follower->socket);
 
-	free(follower->peer.buffer);
-
+	netjack2_cleanup(&follower->peer);
 	free(follower);
 }
 
@@ -900,8 +907,8 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 	snprintf(peer->params.driver_name, sizeof(peer->params.driver_name), "%s", pw_get_host_name());
 	peer->params.sample_rate = follower->samplerate;
 	peer->params.period_size = follower->period_size;
-	peer->params.sample_encoder = NJ2_ENCODER_FLOAT;
-	peer->params.kbps = 0;
+	peer->params.sample_encoder = impl->encoding;
+	peer->params.kbps = impl->kbps;
 
 	if (peer->params.send_audio_channels < 0)
 		peer->params.send_audio_channels = follower->sink.info.channels;
@@ -947,9 +954,7 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 	peer->other_stream = 'r';
 	peer->send_volume = &follower->sink.volume;
 	peer->recv_volume = &follower->source.volume;
-	peer->buffer_size = peer->params.period_size * sizeof(float) *
-		SPA_MAX(peer->params.send_midi_channels, peer->params.recv_midi_channels);
-	peer->buffer = calloc(1, peer->buffer_size);
+	netjack2_init(peer);
 
 	int bufsize = NETWORK_MAX_LATENCY * (peer->params.mtu +
 		follower->period_size * sizeof(float) *
@@ -1245,6 +1250,21 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			DEFAULT_SAMPLE_RATE);
 	impl->period_size = pw_properties_get_uint32(impl->props, "netjack2.period-size",
 			DEFAULT_PERIOD_SIZE);
+	if ((str = pw_properties_get(impl->props, "netjack2.encoding")) == NULL)
+		str = DEFAULT_ENCODING;
+	if (spa_streq(str, "float"))
+		impl->encoding = NJ2_ENCODER_FLOAT;
+#ifdef HAVE_OPUS
+	else if (spa_streq(str, "opus"))
+		impl->encoding = NJ2_ENCODER_OPUS;
+#endif
+	else {
+			pw_log_error("invalid netjack2.encoding '%s'", str);
+			res = -EINVAL;
+			goto error;
+	}
+	impl->kbps = pw_properties_get_uint32(impl->props, "netjack2.kbps",
+			DEFAULT_KBPS);
 
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");

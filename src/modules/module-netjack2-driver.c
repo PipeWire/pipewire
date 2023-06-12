@@ -829,7 +829,9 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 	    peer->params.recv_midi_channels < 0 ||
 	    peer->params.sample_rate == 0 ||
 	    peer->params.period_size == 0 ||
-	    peer->params.sample_encoder != NJ2_ENCODER_FLOAT) {
+	    (peer->params.sample_encoder != NJ2_ENCODER_FLOAT &&
+	     peer->params.sample_encoder != NJ2_ENCODER_OPUS &&
+	     peer->params.sample_encoder != NJ2_ENCODER_INT)) {
 		pw_log_warn("invalid follower setup");
 		return -EINVAL;
 	}

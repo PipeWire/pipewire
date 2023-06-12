@@ -810,6 +810,20 @@ static void update_timer(struct impl *impl, uint64_t timeout)
 	pw_loop_update_timer(impl->main_loop, impl->timer, &value, &interval, false);
 }
 
+static bool encoding_supported(uint32_t encoder)
+{
+	switch (encoder) {
+	case NJ2_ENCODER_FLOAT:
+	case NJ2_ENCODER_INT:
+		return true;
+#ifdef HAVE_OPUS
+	case NJ2_ENCODER_OPUS:
+		return true;
+#endif
+	}
+	return false;
+}
+
 static int handle_follower_setup(struct impl *impl, struct nj2_session_params *params,
 	struct sockaddr_storage *addr, socklen_t addr_len)
 {
@@ -829,9 +843,7 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 	    peer->params.recv_midi_channels < 0 ||
 	    peer->params.sample_rate == 0 ||
 	    peer->params.period_size == 0 ||
-	    (peer->params.sample_encoder != NJ2_ENCODER_FLOAT &&
-	     peer->params.sample_encoder != NJ2_ENCODER_OPUS &&
-	     peer->params.sample_encoder != NJ2_ENCODER_INT)) {
+	    !encoding_supported(peer->params.sample_encoder)) {
 		pw_log_warn("invalid follower setup");
 		return -EINVAL;
 	}

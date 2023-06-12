@@ -60,7 +60,7 @@
  *                   placed per stream.
  * - `netjack2.sample-rate`: the sample rate to use, default 48000
  * - `netjack2.period-size`: the buffer size to use, default 1024
- * - `netjack2.encoding`: the encoding, float|opus, default float
+ * - `netjack2.encoding`: the encoding, float|opus|int, default float
  * - `netjack2.kbps`: the number of kilobits per second when encoding, default 64
  * - `audio.channels`: the number of audio ports. Can also be added to the stream props.
  * - `midi.ports`: the number of midi ports. Can also be added to the stream props.
@@ -1327,15 +1327,19 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			DEFAULT_PERIOD_SIZE);
 	if ((str = pw_properties_get(impl->props, "netjack2.encoding")) == NULL)
 		str = DEFAULT_ENCODING;
-	if (spa_streq(str, "float"))
+	if (spa_streq(str, "float")) {
 		impl->encoding = NJ2_ENCODER_FLOAT;
+	} else if (spa_streq(str, "opus")) {
 #ifdef HAVE_OPUS
-	else if (spa_streq(str, "opus"))
 		impl->encoding = NJ2_ENCODER_OPUS;
+#else
+		pw_log_error("OPUS support is disabled");
+		res = -EINVAL;
+		goto error;
 #endif
-	else if (spa_streq(str, "int"))
+	} else if (spa_streq(str, "int")) {
 		impl->encoding = NJ2_ENCODER_INT;
-	else {
+	} else {
 			pw_log_error("invalid netjack2.encoding '%s'", str);
 			res = -EINVAL;
 			goto error;

@@ -114,7 +114,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_NET_PORT	19000
 #define DEFAULT_NET_TTL		1
 #define DEFAULT_NET_MTU		1500
-#define DEFAULT_NET_LOOP	true
+#define DEFAULT_NET_LOOP	false
 #define DEFAULT_NET_DSCP	34 /* Default to AES-67 AF41 (34) */
 #define MAX_MTU			9000
 

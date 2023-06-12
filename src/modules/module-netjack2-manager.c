@@ -118,7 +118,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_NET_PORT	19000
 #define DEFAULT_NET_TTL		1
 #define DEFAULT_NET_MTU		1500
-#define DEFAULT_NET_LOOP	true
+#define DEFAULT_NET_LOOP	false
 #define DEFAULT_NET_DSCP	34 /* Default to AES-67 AF41 (34) */
 #define MAX_MTU			9000
 
@@ -1258,6 +1258,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	else if (spa_streq(str, "opus"))
 		impl->encoding = NJ2_ENCODER_OPUS;
 #endif
+	else if (spa_streq(str, "int"))
+		impl->encoding = NJ2_ENCODER_INT;
 	else {
 			pw_log_error("invalid netjack2.encoding '%s'", str);
 			res = -EINVAL;

@@ -25,7 +25,8 @@ static inline float bswap_f32(float f)
 	return v.f;
 }
 
-static inline void do_volume(float *dst, const float *src, struct volume *vol, uint32_t ch, uint32_t n_samples, bool recv)
+static inline void do_volume(float *dst, const float *src, struct volume *vol,
+		uint32_t ch, uint32_t n_samples, bool recv)
 {
 	float v = vol->mute ? 0.0f : vol->volumes[ch];
 	uint32_t i;
@@ -56,6 +57,51 @@ static inline void do_volume(float *dst, const float *src, struct volume *vol, u
 	}
 }
 
+#define ITOF(type,v,scale) \
+	(((type)(v)) * (1.0f / (scale)))
+#define FTOI(type,v,scale,min,max) \
+	(type)(SPA_CLAMPF((v) * (scale), min, max))
+
+#define S16_MIN			-32768
+#define S16_MAX			32767
+#define S16_SCALE		32768.0f
+#define S16_TO_F32(v)		ITOF(int16_t, v, S16_SCALE)
+#define F32_TO_S16(v)		FTOI(int16_t, v, S16_SCALE, S16_MIN, S16_MAX)
+
+static inline void do_volume_to_s16(int16_t *dst, const float *src, struct volume *vol,
+		uint32_t ch, uint32_t n_samples)
+{
+	float v = vol->mute ? 0.0f : vol->volumes[ch];
+	uint32_t i;
+
+	if (v == 0.0f || src == NULL)
+		memset(dst, 0, n_samples * sizeof(int16_t));
+	else if (v == 1.0f) {
+		for (i = 0; i < n_samples; i++)
+			dst[i] = F32_TO_S16(src[i]);
+	} else {
+		for (i = 0; i < n_samples; i++)
+			dst[i] = F32_TO_S16(src[i] * v);
+	}
+}
+
+static inline void do_volume_from_s16(float *dst, const int16_t *src, struct volume *vol,
+		uint32_t ch, uint32_t n_samples)
+{
+	float v = vol->mute ? 0.0f : vol->volumes[ch];
+	uint32_t i;
+
+	if (v == 0.0f || src == NULL)
+		memset(dst, 0, n_samples * sizeof(float));
+	else if (v == 1.0f) {
+		for (i = 0; i < n_samples; i++)
+			dst[i] = S16_TO_F32(src[i]);
+	} else {
+		for (i = 0; i < n_samples; i++)
+			dst[i] = S16_TO_F32(src[i]) * v;
+	}
+}
+
 struct netjack2_peer {
 	int fd;
 
@@ -72,10 +118,10 @@ struct netjack2_peer {
 	uint32_t midi_size;
 
 	float *empty;
-#ifdef HAVE_OPUS
 	void *encoded_data;
 	uint32_t encoded_size;
 	uint32_t max_encoded_size;
+#ifdef HAVE_OPUS
 	OpusCustomMode *opus_config;
 	OpusCustomEncoder **opus_enc;
 	OpusCustomDecoder **opus_dec;
@@ -94,7 +140,13 @@ static int netjack2_init(struct netjack2_peer *peer)
 		SPA_MAX(peer->params.send_midi_channels, peer->params.recv_midi_channels);
 	peer->midi_data = calloc(1, peer->midi_size);
 
-	if (peer->params.sample_encoder == NJ2_ENCODER_OPUS) {
+	if (peer->params.sample_encoder == NJ2_ENCODER_INT) {
+		peer->max_encoded_size = peer->params.period_size * sizeof(int16_t);
+		peer->encoded_size = peer->max_encoded_size *
+			SPA_MAX(peer->params.send_audio_channels, peer->params.recv_audio_channels);
+		if ((peer->encoded_data = calloc(1, peer->encoded_size)) == NULL)
+			goto error_errno;
+	} else if (peer->params.sample_encoder == NJ2_ENCODER_OPUS) {
 #ifdef HAVE_OPUS
 		int32_t i;
 		peer->max_encoded_size = (peer->params.kbps * peer->params.period_size * 1024) /
@@ -154,16 +206,20 @@ static void netjack2_cleanup(struct netjack2_peer *peer)
 	free(peer->midi_data);
 #ifdef HAVE_OPUS
 	int32_t i;
-	for (i = 0; i < peer->params.send_audio_channels; i++) {
-		if (peer->opus_enc[i])
-			opus_custom_encoder_destroy(peer->opus_enc[i]);
+	if (peer->opus_enc != NULL) {
+		for (i = 0; i < peer->params.send_audio_channels; i++) {
+			if (peer->opus_enc[i])
+				opus_custom_encoder_destroy(peer->opus_enc[i]);
+		}
+		free(peer->opus_enc);
 	}
-	free(peer->opus_enc);
-	for (i = 0; i < peer->params.recv_audio_channels; i++) {
-		if (peer->opus_dec[i])
-			opus_custom_decoder_destroy(peer->opus_dec[i]);
+	if (peer->opus_dec != NULL) {
+		for (i = 0; i < peer->params.recv_audio_channels; i++) {
+			if (peer->opus_dec[i])
+				opus_custom_decoder_destroy(peer->opus_dec[i]);
+		}
+		free(peer->opus_dec);
 	}
-	free(peer->opus_dec);
 	if (peer->opus_config)
 		opus_custom_mode_destroy(peer->opus_config);
 	free(peer->encoded_data);
@@ -377,7 +433,7 @@ static int netjack2_send_midi(struct netjack2_peer *peer, uint32_t nframes,
 	return 0;
 }
 
-static int netjack2_send_audio(struct netjack2_peer *peer, uint32_t nframes,
+static int netjack2_send_float(struct netjack2_peer *peer, uint32_t nframes,
 		struct data_info *info, uint32_t n_info)
 {
 	struct nj2_packet_header header;
@@ -511,6 +567,71 @@ static int netjack2_send_opus(struct netjack2_peer *peer, uint32_t nframes,
 #endif
 }
 
+
+static int netjack2_send_int(struct netjack2_peer *peer, uint32_t nframes,
+		struct data_info *info, uint32_t n_info)
+{
+	struct nj2_packet_header header;
+	uint8_t buffer[peer->params.mtu], *encoded_data;
+	uint32_t i, j, active_ports, num_packets, max_size, max_encoded;
+	uint32_t sub_period_bytes, last_period_bytes;
+
+	active_ports = peer->params.send_audio_channels;
+	if (active_ports <= 0)
+		return 0;
+
+	max_encoded = peer->max_encoded_size;
+
+	max_size = PACKET_AVAILABLE_SIZE(peer->params.mtu);
+	num_packets = ((active_ports * max_encoded) + max_size-1) / max_size;
+
+	sub_period_bytes = max_encoded / num_packets;
+	last_period_bytes = sub_period_bytes + max_encoded % num_packets;
+
+	encoded_data = peer->encoded_data;
+
+	for (i = 0; i < active_ports; i++) {
+		int16_t *ap = SPA_PTROFF(encoded_data, i * max_encoded, int16_t);
+		void *pcm;
+
+		if (i < n_info && (pcm = info[i].data) != NULL)
+			do_volume_to_s16(ap, pcm, peer->send_volume, i, nframes);
+		else
+			memset(ap, 0, max_encoded);
+	}
+
+	strcpy(header.type, "header");
+	header.data_type = htonl('a');
+	header.data_stream = htonl(peer->our_stream);
+	header.id = htonl(peer->params.id);
+	header.cycle = htonl(peer->cycle);
+	header.active_ports = htonl(active_ports);
+	header.num_packets = htonl(num_packets);
+	header.frames = htonl(nframes);
+
+	for (i = 0; i < num_packets; i++) {
+		uint32_t is_last = (i == num_packets - 1) ? 1 : 0;
+		uint32_t data_size, packet_size;
+
+		data_size = is_last ? last_period_bytes : sub_period_bytes;
+		packet_size = sizeof(header) + active_ports * data_size;
+
+		header.sub_cycle = htonl(i);
+		header.is_last = htonl(is_last);
+		header.packet_size = htonl(packet_size);
+		memcpy(buffer, &header, sizeof(header));
+		for (j = 0; j < active_ports; j++) {
+			memcpy(SPA_PTROFF(buffer, sizeof(header) + j * data_size, void),
+					SPA_PTROFF(encoded_data,
+						j * max_encoded + i * sub_period_bytes, void),
+					data_size);
+		}
+		send(peer->fd, buffer, packet_size, 0);
+		//nj2_dump_packet_header(&header);
+	}
+	return 0;
+}
+
 static int netjack2_send_data(struct netjack2_peer *peer, uint32_t nframes,
 		struct data_info *midi, uint32_t n_midi,
 		struct data_info *audio, uint32_t n_audio)
@@ -518,8 +639,11 @@ static int netjack2_send_data(struct netjack2_peer *peer, uint32_t nframes,
 	netjack2_send_sync(peer, nframes);
 	netjack2_send_midi(peer, nframes, midi, n_midi);
 	switch (peer->params.sample_encoder) {
+	case NJ2_ENCODER_INT:
+		netjack2_send_int(peer, nframes, audio, n_audio);
+		break;
 	case NJ2_ENCODER_FLOAT:
-		netjack2_send_audio(peer, nframes, audio, n_audio);
+		netjack2_send_float(peer, nframes, audio, n_audio);
 		break;
 	case NJ2_ENCODER_OPUS:
 		netjack2_send_opus(peer, nframes, audio, n_audio);
@@ -656,7 +780,7 @@ static int netjack2_recv_midi(struct netjack2_peer *peer, struct nj2_packet_head
 	return 0;
 }
 
-static int netjack2_recv_audio(struct netjack2_peer *peer, struct nj2_packet_header *header, uint32_t *count,
+static int netjack2_recv_float(struct netjack2_peer *peer, struct nj2_packet_header *header, uint32_t *count,
 		struct data_info *info, uint32_t n_info)
 {
 	ssize_t len;
@@ -779,6 +903,69 @@ static int netjack2_recv_opus(struct netjack2_peer *peer, struct nj2_packet_head
 #endif
 }
 
+static int netjack2_recv_int(struct netjack2_peer *peer, struct nj2_packet_header *header,
+		uint32_t *count, struct data_info *info, uint32_t n_info)
+{
+	ssize_t len;
+	uint32_t i, active_ports, sub_cycle, max_size, encoded_size, max_encoded;
+	uint32_t packet_size = SPA_MIN(ntohl(header->packet_size), peer->params.mtu);
+	uint8_t buffer[packet_size], *data = buffer, *encoded_data;
+	uint32_t sub_period_bytes, last_period_bytes, data_size, num_packets;
+
+	if ((len = recv(peer->fd, buffer, packet_size, 0)) < 0)
+		return -errno;
+
+	active_ports = peer->params.recv_audio_channels;
+	if (active_ports == 0)
+		return 0;
+
+	sub_cycle = ntohl(header->sub_cycle);
+	peer->sync.num_packets = ntohl(header->num_packets);
+
+	max_encoded = peer->max_encoded_size;
+
+	max_size = PACKET_AVAILABLE_SIZE(peer->params.mtu);
+	num_packets = ((active_ports * max_encoded) + max_size-1) / max_size;
+
+	sub_period_bytes = max_encoded / num_packets;
+	last_period_bytes = sub_period_bytes + max_encoded % num_packets;
+
+	data += sizeof(*header);
+	len -= sizeof(*header);
+
+	if (sub_cycle == peer->sync.num_packets-1)
+		data_size = last_period_bytes;
+	else
+		data_size = sub_period_bytes;
+
+	encoded_data = peer->encoded_data;
+	encoded_size = peer->encoded_size;
+
+	if ((active_ports-1) * max_encoded + sub_cycle * sub_period_bytes + data_size > encoded_size)
+		return -ENOSPC;
+
+	for (i = 0; i < active_ports; i++) {
+		memcpy(SPA_PTROFF(encoded_data,
+				i * max_encoded + sub_cycle * sub_period_bytes, void),
+				SPA_PTROFF(data, i * data_size, void),
+				data_size);
+	}
+	if (++(*count) < peer->sync.num_packets)
+		return 0;
+
+	for (i = 0; i < active_ports; i++) {
+		int16_t *ap = SPA_PTROFF(encoded_data, i * max_encoded, int16_t);
+		void *pcm;
+
+		if (i >= n_info || (pcm = info[i].data) == NULL)
+			continue;
+
+		do_volume_from_s16(pcm, ap, peer->recv_volume, i, peer->sync.frames);
+		info[i].filled = true;
+	}
+	return 0;
+}
+
 static int netjack2_recv_data(struct netjack2_peer *peer,
 		struct data_info *midi, uint32_t n_midi,
 		struct data_info *audio, uint32_t n_audio)
@@ -811,10 +998,13 @@ static int netjack2_recv_data(struct netjack2_peer *peer,
 		case 'a':
 			switch (peer->params.sample_encoder) {
 			case NJ2_ENCODER_FLOAT:
-				netjack2_recv_audio(peer, &header, &audio_count, audio, n_audio);
+				netjack2_recv_float(peer, &header, &audio_count, audio, n_audio);
 				break;
 			case NJ2_ENCODER_OPUS:
 				netjack2_recv_opus(peer, &header, &audio_count, audio, n_audio);
+				break;
+			case NJ2_ENCODER_INT:
+				netjack2_recv_int(peer, &header, &audio_count, audio, n_audio);
 				break;
 			}
 			break;

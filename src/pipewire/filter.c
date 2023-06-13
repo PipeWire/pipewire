@@ -1448,7 +1448,10 @@ do_remove_callbacks(struct spa_loop *loop,
 static void hook_removed(struct spa_hook *hook)
 {
 	struct filter *impl = hook->priv;
-	pw_loop_invoke(impl->data_loop, do_remove_callbacks, 1, NULL, 0, true, impl);
+	if (impl->data_loop)
+		pw_loop_invoke(impl->data_loop, do_remove_callbacks, 1, NULL, 0, true, impl);
+	else
+		spa_zero(impl->rt_callbacks);
 	hook->priv = NULL;
 	hook->removed = NULL;
 }
@@ -1541,8 +1544,10 @@ int pw_filter_update_properties(struct pw_filter *filter, void *port_data, const
 static void node_event_destroy(void *data)
 {
 	struct pw_filter *filter = data;
+	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
 	spa_hook_remove(&filter->node_listener);
 	filter->node = NULL;
+	impl->data_loop = NULL;
 }
 
 static const struct pw_impl_node_events node_events = {

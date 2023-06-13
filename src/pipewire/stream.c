@@ -1344,8 +1344,10 @@ static int node_event_param(void *object, int seq,
 static void node_event_destroy(void *data)
 {
 	struct pw_stream *stream = data;
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	spa_hook_remove(&stream->node_listener);
 	stream->node = NULL;
+	impl->data_loop = NULL;
 }
 
 static void node_event_info(void *data, const struct pw_node_info *info)
@@ -1707,7 +1709,10 @@ do_remove_callbacks(struct spa_loop *loop,
 static void hook_removed(struct spa_hook *hook)
 {
 	struct stream *impl = hook->priv;
-	pw_loop_invoke(impl->data_loop, do_remove_callbacks, 1, NULL, 0, true, impl);
+	if (impl->data_loop)
+		pw_loop_invoke(impl->data_loop, do_remove_callbacks, 1, NULL, 0, true, impl);
+	else
+		spa_zero(impl->rt_callbacks);
 	hook->priv = NULL;
 	hook->removed = NULL;
 }

@@ -42,7 +42,6 @@ struct mix {
 	uint32_t mix_id;
 	struct pw_impl_port_mix mix;
 	struct pw_array buffers;
-	bool active;
 };
 
 struct node_data {
@@ -152,52 +151,8 @@ static void mix_init(struct mix *mix, struct pw_impl_port *port, uint32_t mix_id
 	mix->port = port;
 	mix->mix_id = mix_id;
 	pw_impl_port_init_mix(port, &mix->mix);
-	mix->active = false;
 	pw_array_init(&mix->buffers, 32);
 	pw_array_ensure_size(&mix->buffers, sizeof(struct buffer) * 64);
-}
-
-static int
-do_deactivate_mix(struct spa_loop *loop,
-                bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct mix *mix = user_data;
-	spa_list_remove(&mix->mix.rt_link);
-        return 0;
-}
-
-static int
-deactivate_mix(struct node_data *data, struct mix *mix)
-{
-	if (mix->active) {
-		pw_log_debug("node %p: mix %p deactivate", data, mix);
-		pw_loop_invoke(data->data_loop,
-                       do_deactivate_mix, SPA_ID_INVALID, NULL, 0, true, mix);
-		mix->active = false;
-	}
-	return 0;
-}
-
-static int
-do_activate_mix(struct spa_loop *loop,
-                bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct mix *mix = user_data;
-
-	spa_list_append(&mix->port->rt.mix_list, &mix->mix.rt_link);
-        return 0;
-}
-
-static int
-activate_mix(struct node_data *data, struct mix *mix)
-{
-	if (!mix->active) {
-		pw_log_debug("node %p: mix %p activate", data, mix);
-		pw_loop_invoke(data->data_loop,
-                       do_activate_mix, SPA_ID_INVALID, NULL, 0, false, mix);
-		mix->active = true;
-	}
-	return 0;
 }
 
 static struct mix *find_mix(struct node_data *data,
@@ -829,22 +784,12 @@ client_node_port_set_io(void *_data,
 	pw_log_debug("port %p: set io:%s new:%p old:%p", mix->port,
 			spa_debug_type_find_name(spa_type_io, id), ptr, mix->mix.io);
 
-	if (id == SPA_IO_Buffers) {
-		if (ptr == NULL && mix->mix.io)
-			deactivate_mix(data, mix);
-	}
-
 	if ((res = spa_node_port_set_io(mix->port->mix,
 			     direction, mix->mix.port.port_id, id, ptr, size)) < 0) {
 		if (res == -ENOTSUP)
 			res = 0;
 		else
 			goto exit_free;
-	}
-	if (id == SPA_IO_Buffers) {
-		mix->mix.io = ptr;
-		if (ptr)
-			activate_mix(data, mix);
 	}
 exit_free:
 	pw_memmap_free(old);
@@ -983,8 +928,6 @@ static void do_node_init(struct node_data *data)
 static void clear_mix(struct node_data *data, struct mix *mix)
 {
 	pw_log_debug("port %p: mix clear %d.%d", mix->port, mix->port->port_id, mix->mix_id);
-
-	deactivate_mix(data, mix);
 
 	spa_list_remove(&mix->link);
 

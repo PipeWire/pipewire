@@ -264,6 +264,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	if (t->module != NULL) {
 		pw_log_info("found duplicate mdns entry - skipping tunnel creation");
 		goto done;
+	}
 
 	props = pw_properties_new(NULL, NULL);
 	if (props == NULL) {

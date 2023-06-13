@@ -969,10 +969,10 @@ static void call_process(struct filter *impl)
 {
 	pw_log_trace_fp("%p: call process", impl);
 	if (SPA_FLAG_IS_SET(impl->flags, PW_FILTER_FLAG_RT_PROCESS)) {
-		spa_callbacks_call_fast(&impl->rt_callbacks, struct pw_filter_events,
-				process, 0, impl->rt.position);
-	}
-	else {
+		if (impl->rt_callbacks.funcs)
+			spa_callbacks_call_fast(&impl->rt_callbacks, struct pw_filter_events,
+					process, 0, impl->rt.position);
+	} else {
 		pw_loop_invoke(impl->main_loop,
 			do_call_process, 1, NULL, 0, false, impl);
 	}
@@ -1436,10 +1436,19 @@ void pw_filter_destroy(struct pw_filter *filter)
 	free(impl);
 }
 
+static int
+do_remove_callbacks(struct spa_loop *loop,
+                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct filter *impl = user_data;
+	spa_zero(impl->rt_callbacks);
+	return 0;
+}
+
 static void hook_removed(struct spa_hook *hook)
 {
 	struct filter *impl = hook->priv;
-	spa_zero(impl->rt_callbacks);
+	pw_loop_invoke(impl->data_loop, do_remove_callbacks, 1, NULL, 0, true, impl);
 	hook->priv = NULL;
 	hook->removed = NULL;
 }

@@ -426,11 +426,13 @@ static inline void call_process(struct stream *impl)
 	pw_log_trace_fp("%p: call process rt:%u", impl, impl->process_rt);
 	if (impl->direction == SPA_DIRECTION_OUTPUT && update_requested(impl) <= 0)
 		return;
-	if (impl->process_rt)
-		spa_callbacks_call_fast(&impl->rt_callbacks, struct pw_stream_events, process, 0);
-	else
+	if (impl->process_rt) {
+		if (impl->rt_callbacks.funcs)
+			spa_callbacks_call_fast(&impl->rt_callbacks, struct pw_stream_events, process, 0);
+	} else {
 		pw_loop_invoke(impl->main_loop,
 			do_call_process, 1, NULL, 0, false, impl);
+	}
 }
 
 static int
@@ -1693,10 +1695,19 @@ void pw_stream_destroy(struct pw_stream *stream)
 	free(impl);
 }
 
+static int
+do_remove_callbacks(struct spa_loop *loop,
+                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct stream *impl = user_data;
+	spa_zero(impl->rt_callbacks);
+	return 0;
+}
+
 static void hook_removed(struct spa_hook *hook)
 {
 	struct stream *impl = hook->priv;
-	spa_zero(impl->rt_callbacks);
+	pw_loop_invoke(impl->data_loop, do_remove_callbacks, 1, NULL, 0, true, impl);
 	hook->priv = NULL;
 	hook->removed = NULL;
 }

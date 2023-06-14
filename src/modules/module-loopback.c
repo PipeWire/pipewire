@@ -180,6 +180,7 @@ struct impl {
 	unsigned int do_disconnect:1;
 	unsigned int recalc_delay:1;
 
+	struct spa_audio_info_raw delay_info;
 	float target_delay;
 	struct spa_ringbuffer buffer;
 	uint8_t *buffer_data;
@@ -195,7 +196,7 @@ static void capture_destroy(void *d)
 
 static void recalculate_delay(struct impl *impl)
 {
-	uint32_t target = impl->capture_info.rate * impl->target_delay, cdelay, pdelay;
+	uint32_t target = impl->delay_info.rate * impl->target_delay, cdelay, pdelay;
 	uint32_t delay, w;
 	struct pw_time pwt;
 
@@ -347,11 +348,11 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 static void recalculate_buffer(struct impl *impl)
 {
 	if (impl->target_delay > 0.0f) {
-		uint32_t delay = impl->capture_info.rate * impl->target_delay;
+		uint32_t delay = impl->delay_info.rate * impl->target_delay;
 		void *data;
 
 		impl->buffer_size = (delay + (1u<<15)) * 4;
-		data = realloc(impl->buffer_data, impl->buffer_size * impl->capture_info.channels);
+		data = realloc(impl->buffer_data, impl->buffer_size * impl->delay_info.channels);
 		if (data == NULL) {
 			pw_log_warn("can't allocate delay buffer, delay disabled: %m");
 			impl->buffer_size = 0;
@@ -385,7 +386,7 @@ static void capture_param_changed(void *data, uint32_t id, const struct spa_pod 
 		    info.channels > SPA_AUDIO_MAX_CHANNELS)
 			return;
 
-		impl->capture_info = info;
+		impl->delay_info = info;
 		recalculate_buffer(impl);
 		break;
 	}

@@ -158,6 +158,7 @@ struct stream {
 	unsigned int using_trigger:1;
 	unsigned int trigger:1;
 	int in_set_param;
+	int in_emit_param_changed;
 };
 
 static int get_param_index(uint32_t id)
@@ -268,12 +269,40 @@ static struct param *add_param(struct stream *impl,
 static void clear_params(struct stream *impl, uint32_t id)
 {
 	struct param *p, *t;
+	bool found = false;
+	int i, idx;
 
 	spa_list_for_each_safe(p, t, &impl->param_list, link) {
 		if (id == SPA_ID_INVALID ||
 		    (p->id == id && !(p->flags & PARAM_FLAG_LOCKED))) {
+			found = true;
 			spa_list_remove(&p->link);
 			free(p);
+		}
+	}
+	if (found) {
+		if (id == SPA_ID_INVALID) {
+			impl->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+			for (i = 0; i < N_NODE_PARAMS; i++) {
+				impl->params[i].flags &= ~SPA_PARAM_INFO_READ;
+				impl->params[i].user++;
+			}
+			impl->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+			for (i = 0; i < N_PORT_PARAMS; i++) {
+				impl->port_params[i].flags &= ~SPA_PARAM_INFO_READ;
+				impl->port_params[i].user++;
+			}
+		} else {
+			if ((idx = get_param_index(id)) != -1) {
+				impl->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+				impl->params[idx].flags &= ~SPA_PARAM_INFO_READ;
+				impl->params[idx].user++;
+			}
+			if ((idx = get_port_param_index(id)) != -1) {
+				impl->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+				impl->port_params[idx].flags &= ~SPA_PARAM_INFO_READ;
+				impl->port_params[idx].user++;
+			}
 		}
 	}
 }
@@ -563,16 +592,24 @@ static int impl_enum_params(void *object, int seq, uint32_t id, uint32_t start, 
 	return enum_params(object, false, seq, id, start, num, filter);
 }
 
+static inline void emit_param_changed(struct stream *impl,
+		uint32_t id, const struct spa_pod *param)
+{
+	struct pw_stream *stream = &impl->this;
+	if (impl->in_emit_param_changed++ == 0)
+		pw_stream_emit_param_changed(stream, id, param);
+	impl->in_emit_param_changed--;
+}
+
 static int impl_set_param(void *object, uint32_t id, uint32_t flags, const struct spa_pod *param)
 {
 	struct stream *impl = object;
-	struct pw_stream *stream = &impl->this;
 
 	if (id != SPA_PARAM_Props)
 		return -ENOTSUP;
 
 	if (impl->in_set_param == 0)
-		pw_stream_emit_param_changed(stream, id, param);
+		emit_param_changed(impl, id, param);
 
 	return 0;
 }
@@ -885,7 +922,7 @@ static int impl_port_set_param(void *object,
 		break;
 	}
 
-	pw_stream_emit_param_changed(stream, id, param);
+	emit_param_changed(impl, id, param);
 
 	if (stream->state == PW_STREAM_STATE_ERROR)
 		return stream->error_res;

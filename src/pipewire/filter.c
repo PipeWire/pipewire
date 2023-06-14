@@ -152,6 +152,7 @@ struct filter {
 	unsigned int process_rt:1;
 	unsigned int driving:1;
 	unsigned int trigger:1;
+	int in_emit_param_changed;
 };
 
 static int get_param_index(uint32_t id)
@@ -276,6 +277,8 @@ static void clear_params(struct filter *impl, struct port *port, uint32_t id)
 {
 	struct param *p, *t;
 	struct spa_list *param_list;
+	bool found = false;
+	int i, idx;
 
 	if (port)
 		param_list = &port->param_list;
@@ -285,8 +288,40 @@ static void clear_params(struct filter *impl, struct port *port, uint32_t id)
 	spa_list_for_each_safe(p, t, param_list, link) {
 		if (id == SPA_ID_INVALID ||
 		    (p->id == id && !(p->flags & PARAM_FLAG_LOCKED))) {
+			found = true;
 			spa_list_remove(&p->link);
 			free(p);
+		}
+	}
+	if (found) {
+		if (id == SPA_ID_INVALID) {
+			if (port) {
+				port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+				for (i = 0; i < N_PORT_PARAMS; i++) {
+					port->params[i].flags &= ~SPA_PARAM_INFO_READ;
+					port->params[i].user++;
+				}
+			} else {
+				impl->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+				for (i = 0; i < N_NODE_PARAMS; i++) {
+					impl->params[i].flags &= ~SPA_PARAM_INFO_READ;
+					impl->params[i].user++;
+				}
+			}
+		} else {
+			if (port) {
+				if ((idx = get_port_param_index(id)) != -1) {
+					port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+					port->params[idx].flags &= ~SPA_PARAM_INFO_READ;
+					port->params[idx].user++;
+				}
+			} else {
+				if ((idx = get_param_index(id)) != -1) {
+					impl->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+					impl->params[idx].flags &= ~SPA_PARAM_INFO_READ;
+					impl->params[idx].user++;
+				}
+			}
 		}
 	}
 }
@@ -434,12 +469,19 @@ static int impl_enum_params(void *object, int seq, uint32_t id, uint32_t start, 
 	return enum_params(impl, &impl->param_list, seq, id, start, num, filter);
 }
 
+static inline void emit_param_changed(struct filter *impl, void *port,
+		uint32_t id, const struct spa_pod *param)
+{
+	struct pw_filter *filter = &impl->this;
+	if (impl->in_emit_param_changed++ == 0)
+		pw_filter_emit_param_changed(filter, port, id, param);
+	impl->in_emit_param_changed--;
+}
+
 static int impl_set_param(void *object, uint32_t id, uint32_t flags, const struct spa_pod *param)
 {
 	struct filter *impl = object;
-	struct pw_filter *filter = &impl->this;
-
-	pw_filter_emit_param_changed(filter, NULL, id, param);
+	emit_param_changed(impl, NULL, id, param);
 	return 0;
 }
 
@@ -777,7 +819,6 @@ static int default_latency(struct filter *impl, struct port *port, enum spa_dire
 
 static int handle_latency(struct filter *impl, struct port *port, const struct spa_pod *param)
 {
-	struct pw_filter *filter = &impl->this;
 	struct spa_latency_info info;
 	int res;
 
@@ -797,7 +838,7 @@ static int handle_latency(struct filter *impl, struct port *port, const struct s
 		return 0;
 
 	if (SPA_FLAG_IS_SET(impl->flags, PW_FILTER_FLAG_CUSTOM_LATENCY)) {
-		pw_filter_emit_param_changed(filter, port->user_data,
+		emit_param_changed(impl, port->user_data,
 				SPA_PARAM_Latency, param);
 	} else {
 		default_latency(impl, port, info.direction);
@@ -849,7 +890,7 @@ static int impl_port_set_param(void *object,
 	}
 
 	if (emit)
-		pw_filter_emit_param_changed(filter, port->user_data, id, param);
+		emit_param_changed(impl, port->user_data, id, param);
 
 	if (filter->state == PW_FILTER_STATE_ERROR)
 		return filter->error_res;

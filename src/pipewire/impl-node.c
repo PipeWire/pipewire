@@ -1096,7 +1096,7 @@ static void check_states(struct pw_impl_node *driver, uint64_t nsec)
 	struct spa_io_clock *cl = &na->position.clock;
 	enum spa_log_level level = SPA_LOG_LEVEL_DEBUG;
 
-	if (ratelimit_test(&driver->rt.rate_limit, na->signal_time, SPA_LOG_LEVEL_DEBUG))
+	if (ratelimit_test(&driver->rt.rate_limit, nsec, SPA_LOG_LEVEL_DEBUG))
 		level = SPA_LOG_LEVEL_INFO;
 
 	spa_list_for_each(t, &driver->rt.target_list, link) {
@@ -1150,8 +1150,8 @@ static inline int trigger_targets(struct pw_impl_node *this, int status, uint64_
 		struct pw_node_activation *a = t->activation;
 		struct pw_node_activation_state *state = &a->state[0];
 
-		pw_log_trace_fp("%p: state:%p pending:%d/%d", t->node, state,
-                                state->pending, state->required);
+		pw_log_trace_fp("%p: (%s-%u) state:%p pending:%d/%d", t->node,
+				t->name, t->id, state, state->pending, state->required);
 
 		if (pw_node_activation_state_dec(state, 1)) {
 			a->status = PW_NODE_ACTIVATION_TRIGGERED;
@@ -1876,12 +1876,12 @@ static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_po
 	struct pw_impl_node *this = data;
 	struct pw_node_activation *a = this->rt.target.activation;
 	struct pw_node_activation *da = this->rt.driver_target.activation;
+	struct spa_system *data_system = this->data_system;
+	uint64_t nsec = get_time_ns(data_system);
 
 	update_xrun_stats(a, trigger, delay);
-	if (da && da != a)
-		update_xrun_stats(da, trigger, delay);
 
-	if (ratelimit_test(&this->rt.rate_limit, a->signal_time, SPA_LOG_LEVEL_INFO)) {
+	if (ratelimit_test(&this->rt.rate_limit, nsec, SPA_LOG_LEVEL_INFO)) {
 		struct spa_fraction rate;
 		if (da) {
 			struct spa_io_clock *cl = &da->position.clock;

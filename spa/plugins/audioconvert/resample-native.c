@@ -169,8 +169,8 @@ static void impl_native_update_rate(struct resample *r, double rate)
 		r->func_name = data->info->inter_name;
 	}
 
-	spa_log_trace_fp(r->log, "native %p: rate:%f in:%d out:%d phase:%d inc:%d frac:%d", r,
-			rate, data->in_rate, data->out_rate, data->phase, data->inc, data->frac);
+	spa_log_trace_fp(r->log, "native %p: rate:%f in:%d out:%d gcd:%d phase:%d inc:%d frac:%d", r,
+			rate, r->i_rate, r->o_rate, gcd, data->phase, data->inc, data->frac);
 
 }
 
@@ -367,8 +367,8 @@ int resample_native_init(struct resample *r)
 	    return -ENOTSUP;
 	}
 
-	spa_log_debug(r->log, "native %p: q:%d in:%d out:%d n_taps:%d n_phases:%d features:%08x:%08x",
-			r, r->quality, in_rate, out_rate, n_taps, n_phases,
+	spa_log_debug(r->log, "native %p: q:%d in:%d out:%d gcd:%d n_taps:%d n_phases:%d features:%08x:%08x",
+			r, r->quality, r->i_rate, r->o_rate, gcd, n_taps, n_phases,
 			r->cpu_flags, d->info->cpu_flags);
 
 	r->cpu_flags = d->info->cpu_flags;

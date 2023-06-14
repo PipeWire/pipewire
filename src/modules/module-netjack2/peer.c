@@ -1,7 +1,7 @@
 
 #include <byteswap.h>
 
-#ifdef HAVE_OPUS
+#ifdef HAVE_OPUS_CUSTOM
 #include <opus/opus.h>
 #include <opus/opus_custom.h>
 #endif
@@ -121,7 +121,7 @@ struct netjack2_peer {
 	void *encoded_data;
 	uint32_t encoded_size;
 	uint32_t max_encoded_size;
-#ifdef HAVE_OPUS
+#ifdef HAVE_OPUS_CUSTOM
 	OpusCustomMode *opus_config;
 	OpusCustomEncoder **opus_enc;
 	OpusCustomDecoder **opus_dec;
@@ -147,7 +147,7 @@ static int netjack2_init(struct netjack2_peer *peer)
 		if ((peer->encoded_data = calloc(1, peer->encoded_size)) == NULL)
 			goto error_errno;
 	} else if (peer->params.sample_encoder == NJ2_ENCODER_OPUS) {
-#ifdef HAVE_OPUS
+#ifdef HAVE_OPUS_CUSTOM
 		int32_t i;
 		peer->max_encoded_size = (peer->params.kbps * peer->params.period_size * 1024) /
 			(peer->params.sample_rate * 8) + sizeof(uint16_t);
@@ -192,7 +192,7 @@ static int netjack2_init(struct netjack2_peer *peer)
 error_errno:
 	pw_log_warn("error: %m");
 	return -errno;
-#ifdef HAVE_OPUS
+#ifdef HAVE_OPUS_CUSTOM
 error_opus:
 	pw_log_warn("error: %d", res);
 	return -EINVAL;
@@ -204,7 +204,7 @@ static void netjack2_cleanup(struct netjack2_peer *peer)
 
 	free(peer->empty);
 	free(peer->midi_data);
-#ifdef HAVE_OPUS
+#ifdef HAVE_OPUS_CUSTOM
 	int32_t i;
 	if (peer->opus_enc != NULL) {
 		for (i = 0; i < peer->params.send_audio_channels; i++) {
@@ -493,7 +493,7 @@ static int netjack2_send_float(struct netjack2_peer *peer, uint32_t nframes,
 static int netjack2_send_opus(struct netjack2_peer *peer, uint32_t nframes,
 		struct data_info *info, uint32_t n_info)
 {
-#ifdef HAVE_OPUS
+#ifdef HAVE_OPUS_CUSTOM
 	struct nj2_packet_header header;
 	uint8_t buffer[peer->params.mtu], *encoded_data;
 	uint32_t i, j, active_ports, num_packets, max_size, max_encoded;
@@ -832,7 +832,7 @@ static int netjack2_recv_float(struct netjack2_peer *peer, struct nj2_packet_hea
 static int netjack2_recv_opus(struct netjack2_peer *peer, struct nj2_packet_header *header,
 		uint32_t *count, struct data_info *info, uint32_t n_info)
 {
-#ifdef HAVE_OPUS
+#ifdef HAVE_OPUS_CUSTOM
 	ssize_t len;
 	uint32_t i, active_ports, sub_cycle, max_size, encoded_size, max_encoded;
 	uint32_t packet_size = SPA_MIN(ntohl(header->packet_size), peer->params.mtu);

@@ -202,13 +202,21 @@ endif
 
 summary({'ffado-driver': build_module_ffado_driver}, bool_yn: true, section: 'Optional Modules')
 
+opus_custom_h = cc.has_header('opus/opus_custom.h', dependencies: opus_dep)
+if opus_custom_h
+  opus_custom_dep = declare_dependency(compile_args: ['-DHAVE_OPUS_CUSTOM'], dependencies: opus_dep)
+else
+  opus_custom_dep = dependency('', required: false)
+endif
+summary({'Opus with custom modes for NetJack2': opus_custom_dep}, bool_yn: true, section: 'Streaming between daemons')
+
 pipewire_module_netjack2_driver = shared_library('pipewire-module-netjack2-driver',
   [ 'module-netjack2-driver.c' ],
   include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep, opus_dep],
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep, opus_custom_dep],
 )
 
 pipewire_module_netjack2_manager = shared_library('pipewire-module-netjack2-manager',
@@ -217,7 +225,7 @@ pipewire_module_netjack2_manager = shared_library('pipewire-module-netjack2-mana
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep, opus_dep],
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep, opus_custom_dep],
 )
 
 pipewire_module_profiler = shared_library('pipewire-module-profiler',

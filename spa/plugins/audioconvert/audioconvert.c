@@ -2584,7 +2584,10 @@ static int impl_node_process(void *object)
 				r = 1.0;
 		}
 		if (this->rate_scale != r) {
-			spa_log_info(this->log, "scale %f->%f", this->rate_scale, r);
+			spa_log_info(this->log, "scale graph:%u in:%u out:%u scale:%f->%f",
+					this->io_position->clock.rate.denom,
+					this->resample.i_rate, this->resample.o_rate,
+					this->rate_scale, r);
 			this->rate_scale = r;
 		}
 	}

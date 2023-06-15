@@ -129,6 +129,8 @@ pulse.rules = [
             # Possible quirks:"
             #    force-s16-info                 forces sink and source info as S16 format
             #    remove-capture-dont-move       removes the capture DONT_MOVE flag
+            #    block-source-volume            blocks updates to source volume
+            #    block-sink-volume              blocks updates to sink volume
             #quirks = [ ]
         }
     }
@@ -158,4 +160,8 @@ pulse.rules = [
             }
         }
     }
+    #{
+    #    matches = [ { application.process.binary = "Discord" } ]
+    #    actions = { quirks = [ block-source-volume ] }
+    #}
 ]

@@ -17,6 +17,8 @@ static uint64_t parse_quirks(const char *str)
 	static const struct { const char *key; uint64_t value; } quirk_keys[] = {
 		{ "force-s16-info", QUIRK_FORCE_S16_FORMAT },
 		{ "remove-capture-dont-move", QUIRK_REMOVE_CAPTURE_DONT_MOVE },
+		{ "block-source-volume", QUIRK_BLOCK_SOURCE_VOLUME },
+		{ "block-sink-volume", QUIRK_BLOCK_SINK_VOLUME },
 	};
 	SPA_FOR_EACH_ELEMENT_VAR(quirk_keys, i) {
 		if (spa_streq(str, i->key))

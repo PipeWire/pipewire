@@ -44,8 +44,10 @@ static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.audioconvert");
 #define MAX_DATAS	SPA_AUDIO_MAX_CHANNELS
 #define MAX_PORTS	(SPA_AUDIO_MAX_CHANNELS+1)
 
-#define DEFAULT_MUTE	false
-#define DEFAULT_VOLUME	VOLUME_NORM
+#define DEFAULT_MUTE		false
+#define DEFAULT_VOLUME		VOLUME_NORM
+#define DEFAULT_MIN_VOLUME	0.0
+#define DEFAULT_MAX_VOLUME	10.0
 
 struct volumes {
 	bool mute;
@@ -72,6 +74,8 @@ struct volume_ramp_params {
 
 struct props {
 	float volume;
+	float min_volume;
+	float max_volume;
 	float prev_volume;
 	uint32_t n_channels;
 	uint32_t channel_map[SPA_AUDIO_MAX_CHANNELS];
@@ -91,6 +95,8 @@ static void props_reset(struct props *props)
 {
 	uint32_t i;
 	props->volume = DEFAULT_VOLUME;
+	props->min_volume = DEFAULT_MIN_VOLUME;
+	props->max_volume = DEFAULT_MAX_VOLUME;
 	props->n_channels = 0;
 	for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
 		props->channel_map[i] = SPA_AUDIO_CHANNEL_UNKNOWN;
@@ -446,7 +452,8 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_volume),
 				SPA_PROP_INFO_description, SPA_POD_String("Volume"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume, 0.0, 10.0));
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume,
+					DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME));
 			break;
 		case 1:
 			param = spa_pod_builder_add_object(&b,
@@ -460,7 +467,8 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_channelVolumes),
 				SPA_PROP_INFO_description, SPA_POD_String("Channel Volumes"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume, 0.0, 10.0),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume,
+					DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
 				SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
 			break;
 		case 3:
@@ -483,7 +491,8 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_monitorVolumes),
 				SPA_PROP_INFO_description, SPA_POD_String("Monitor Volumes"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume, 0.0, 10.0),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume,
+					DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
 				SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
 			break;
 		case 6:
@@ -498,7 +507,8 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_softVolumes),
 				SPA_PROP_INFO_description, SPA_POD_String("Soft Volumes"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume, 0.0, 10.0),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume,
+					DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
 				SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
 			break;
 		case 8:
@@ -521,13 +531,31 @@ static int impl_node_enum_params(void *object, int seq,
 		case 10:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.min-volume"),
+				SPA_PROP_INFO_description, SPA_POD_String("Minimum volume level"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->min_volume,
+					DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+		case 11:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.max-volume"),
+				SPA_PROP_INFO_description, SPA_POD_String("Maximum volume level"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->max_volume,
+					DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+		case 12:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.normalize"),
 				SPA_PROP_INFO_description, SPA_POD_String("Normalize Volumes"),
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
 					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_NORMALIZE)),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 11:
+		case 13:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.mix-lfe"),
@@ -536,7 +564,7 @@ static int impl_node_enum_params(void *object, int seq,
 					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_MIX_LFE)),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 12:
+		case 14:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.upmix"),
@@ -545,7 +573,7 @@ static int impl_node_enum_params(void *object, int seq,
 					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_UPMIX)),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 13:
+		case 15:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.lfe-cutoff"),
@@ -554,7 +582,7 @@ static int impl_node_enum_params(void *object, int seq,
 					this->mix.lfe_cutoff, 0.0, 1000.0),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 14:
+		case 16:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.fc-cutoff"),
@@ -563,7 +591,7 @@ static int impl_node_enum_params(void *object, int seq,
 					this->mix.fc_cutoff, 0.0, 48000.0),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 15:
+		case 17:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.rear-delay"),
@@ -572,7 +600,7 @@ static int impl_node_enum_params(void *object, int seq,
 					this->mix.rear_delay, 0.0, 1000.0),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 16:
+		case 18:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.stereo-widen"),
@@ -581,7 +609,7 @@ static int impl_node_enum_params(void *object, int seq,
 					this->mix.widen, 0.0, 1.0),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 17:
+		case 19:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.hilbert-taps"),
@@ -590,7 +618,7 @@ static int impl_node_enum_params(void *object, int seq,
 					this->mix.hilbert_taps, 0, MAX_TAPS),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 18:
+		case 20:
 			spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
 			spa_pod_builder_add(&b,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.upmix-method"),
@@ -609,14 +637,14 @@ static int impl_node_enum_params(void *object, int seq,
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
-		case 19:
+		case 21:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_rate),
 				SPA_PROP_INFO_description, SPA_POD_String("Rate scaler"),
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Double(p->rate, 0.0, 10.0));
 			break;
-		case 20:
+		case 22:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_quality),
@@ -625,7 +653,7 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->resample_quality, 0, 14),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 21:
+		case 23:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("resample.disable"),
@@ -633,7 +661,7 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->resample_disabled),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 22:
+		case 24:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("dither.noise"),
@@ -641,7 +669,7 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(this->dir[1].conv.noise_bits, 0, 16),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 23:
+		case 25:
 			spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
 			spa_pod_builder_add(&b,
 				SPA_PROP_INFO_name, SPA_POD_String("dither.method"),
@@ -659,7 +687,7 @@ static int impl_node_enum_params(void *object, int seq,
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
-		case 24:
+		case 26:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("debug.wav-path"),
@@ -710,6 +738,10 @@ static int impl_node_enum_params(void *object, int seq,
 			spa_pod_builder_bool(&b, this->monitor_channel_volumes);
 			spa_pod_builder_string(&b, "channelmix.disable");
 			spa_pod_builder_bool(&b, this->props.mix_disabled);
+			spa_pod_builder_string(&b, "channelmix.min-volume");
+			spa_pod_builder_float(&b, this->props.min_volume);
+			spa_pod_builder_string(&b, "channelmix.max-volume");
+			spa_pod_builder_float(&b, this->props.max_volume);
 			spa_pod_builder_string(&b, "channelmix.normalize");
 			spa_pod_builder_bool(&b, SPA_FLAG_IS_SET(this->mix.options,
 						CHANNELMIX_OPTION_NORMALIZE));
@@ -788,6 +820,10 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 		this->monitor_channel_volumes = spa_atob(s);
 	else if (spa_streq(k, "channelmix.disable"))
 		this->props.mix_disabled = spa_atob(s);
+	else if (spa_streq(k, "channelmix.min-volume"))
+		spa_atof(s, &this->props.min_volume);
+	else if (spa_streq(k, "channelmix.max-volume"))
+		spa_atof(s, &this->props.max_volume);
 	else if (spa_streq(k, "channelmix.normalize"))
 		SPA_FLAG_UPDATE(this->mix.options, CHANNELMIX_OPTION_NORMALIZE, spa_atob(s));
 	else if (spa_streq(k, "channelmix.mix-lfe"))
@@ -1476,10 +1512,12 @@ static void set_volume(struct impl *this)
 		vol = &this->props.channel;
 
 	for (i = 0; i < vol->n_volumes; i++)
-		volumes[i] = vol->volumes[dir->remap[i]];
+		volumes[i] = SPA_CLAMPF(vol->volumes[dir->remap[i]],
+				this->props.min_volume, this->props.max_volume);
 
-	channelmix_set_volume(&this->mix, this->props.volume, vol->mute,
-			vol->n_volumes, volumes);
+	channelmix_set_volume(&this->mix,
+			SPA_CLAMPF(this->props.volume, this->props.min_volume, this->props.max_volume),
+			vol->mute, vol->n_volumes, volumes);
 
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 	this->params[IDX_Props].user++;
@@ -1910,7 +1948,7 @@ impl_node_port_enum_params(void *object, int seq,
 	struct port *port;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
-	uint8_t buffer[2048];
+	uint8_t buffer[4096];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
 	int res;
@@ -2750,7 +2788,8 @@ static int impl_node_process(void *object)
 					uint32_t mon_max;
 
 					remap = n_mon_datas++;
-					volume = this->props.monitor.mute ? 0.0f : this->props.monitor.volumes[remap];
+					volume = this->props.monitor.mute ?
+						0.0f : this->props.monitor.volumes[remap];
 					if (this->monitor_channel_volumes)
 						volume *= this->props.channel.mute ? 0.0f :
 							this->props.channel.volumes[remap];

@@ -10,6 +10,7 @@
 #include <pipewire/extensions/session-manager.h>
 
 #include <spa/pod/filter.h>
+#include <spa/pod/dynamic.h>
 
 #include "endpoint-stream.h"
 #include "client-endpoint.h"
@@ -39,8 +40,8 @@ static int endpoint_stream_enum_params (void *object, int seq,
 	struct endpoint_stream *this = data->stream;
 	struct spa_pod *result;
 	struct spa_pod *param;
-	uint8_t buffer[1024];
-	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[2048];
+	struct spa_pod_dynamic_builder b = { 0 };
 	uint32_t index;
 	uint32_t next = start;
 	uint32_t count = 0;
@@ -55,15 +56,15 @@ static int endpoint_stream_enum_params (void *object, int seq,
 		if (param == NULL || !spa_pod_is_object_id(param, id))
 			continue;
 
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if (spa_pod_filter(&b, &result, param, filter) != 0)
-			continue;
+		spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+		if (spa_pod_filter(&b.b, &result, param, filter) == 0) {
+			pw_log_debug(NAME" %p: %d param %u", this, seq, index);
+			pw_endpoint_stream_resource_param(resource, seq, id, index, next, result);
+			count++;
+		}
+		spa_pod_dynamic_builder_clean(&b);
 
-		pw_log_debug(NAME" %p: %d param %u", this, seq, index);
-
-		pw_endpoint_stream_resource_param(resource, seq, id, index, next, result);
-
-		if (++count == num)
+		if (count == num)
 			break;
 	}
 	return 0;

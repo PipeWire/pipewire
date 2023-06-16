@@ -363,6 +363,8 @@ pipewire_module_protocol_pulse_sources = [
   'module-protocol-pulse/modules/module-switch-on-connect.c',
   'module-protocol-pulse/modules/module-tunnel-sink.c',
   'module-protocol-pulse/modules/module-tunnel-source.c',
+  'module-protocol-pulse/modules/module-virtual-sink.c',
+  'module-protocol-pulse/modules/module-virtual-source.c',
   'module-protocol-pulse/modules/module-x11-bell.c',
   'module-protocol-pulse/modules/module-zeroconf-discover.c',
 ]

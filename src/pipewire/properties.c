@@ -706,8 +706,11 @@ static int dump(struct dump_config *c, int indent, struct spa_json *it, const ch
 	if (value == NULL || len == 0) {
 		fprintf(file, "%snull%s", LITERAL(c), NORMAL(c));
 	} else if (spa_json_is_container(value, len) && !c->recurse) {
-		len = spa_json_container_len(it, value, len);
-		fprintf(file, "%s%.*s%s", CONTAINER(c), len, value, NORMAL(c));
+		spa_json_enter_container(it, &sub, value[0]);
+		if (spa_json_container_len(&sub, value, len) == len)
+			fprintf(file, "%s%.*s%s", CONTAINER(c), len, value, NORMAL(c));
+		else
+			encode_string(c, STRING(c), value, len, NORMAL(c));
 	} else if (spa_json_is_array(value, len)) {
 		fprintf(file, "[");
 		spa_json_enter(it, &sub);
@@ -782,14 +785,10 @@ int pw_properties_serialize_dict(FILE *f, const struct spa_dict *dict, uint32_t 
 			fprintf(f, "%s%s%s: ", KEY(c), key, NORMAL(c));
 		}
 		value = it->value;
-
 		len = value ? strlen(value) : 0;
 		spa_json_init(&sub, value, len);
-		if ((len = spa_json_next(&sub, &value)) < 0)
+		if (c->recurse && spa_json_next(&sub, &value) < 0)
 			break;
-
-		if (!spa_json_is_container(value, len))
-			len = value ? strlen(value) : 0;
 
 		dump(c, c->indent, &sub, value, len);
 		count++;

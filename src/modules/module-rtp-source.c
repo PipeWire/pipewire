@@ -18,6 +18,7 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
 #include <spa/utils/ringbuffer.h>
+#include <spa/utils/defs.h>
 #include <spa/utils/dll.h>
 #include <spa/utils/json.h>
 #include <spa/param/audio/format-utils.h>
@@ -164,7 +165,8 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 		if (len < 12)
 			goto short_packet;
 
-		rtp_stream_receive_packet(impl->stream, buffer, len);
+		if (SPA_LIKELY(impl->stream))
+			rtp_stream_receive_packet(impl->stream, buffer, len);
 
 		impl->receiving = true;
 	}

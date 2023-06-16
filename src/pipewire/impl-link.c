@@ -482,7 +482,6 @@ static int port_set_io(struct pw_impl_link *this, struct pw_impl_port *port, uin
 {
 	int res = 0;
 
-	mix->io = data;
 	pw_log_debug("%p: %s port %p %d.%d set io: %d %p %zd", this,
 			pw_direction_as_string(port->direction),
 			port, port->port_id, mix->port.port_id, id, data, size);

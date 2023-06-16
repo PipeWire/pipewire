@@ -233,11 +233,20 @@ static void playback_process(void *d)
 		impl->recalc_delay = false;
 	}
 
-	if ((in = pw_stream_dequeue_buffer(impl->capture)) == NULL)
-		pw_log_debug("out of capture buffers: %m");
+	in = NULL;
+	while (true) {
+		struct pw_buffer *t;
+		if ((t = pw_stream_dequeue_buffer(impl->capture)) == NULL)
+			break;
+		if (in)
+			pw_stream_queue_buffer(impl->capture, in);
+		in = t;
+	}
+	if (in == NULL)
+		pw_log_debug("%p: out of capture buffers: %m", impl);
 
 	if ((out = pw_stream_dequeue_buffer(impl->playback)) == NULL)
-		pw_log_debug("out of playback buffers: %m");
+		pw_log_debug("%p: out of playback buffers: %m", impl);
 
 	if (in != NULL && out != NULL) {
 		uint32_t outsize = UINT32_MAX;

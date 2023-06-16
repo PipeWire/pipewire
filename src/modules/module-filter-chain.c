@@ -685,7 +685,16 @@ static void playback_process(void *d)
 	struct graph_port *port;
 	struct spa_data *bd;
 
-	if ((in = pw_stream_dequeue_buffer(impl->capture)) == NULL)
+	in = NULL;
+	while (true) {
+		struct pw_buffer *t;
+		if ((t = pw_stream_dequeue_buffer(impl->capture)) == NULL)
+			break;
+		if (in)
+			pw_stream_queue_buffer(impl->capture, in);
+		in = t;
+	}
+	if (in == NULL)
 		pw_log_debug("%p: out of capture buffers: %m", impl);
 
 	if ((out = pw_stream_dequeue_buffer(impl->playback)) == NULL)

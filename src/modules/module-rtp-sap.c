@@ -1472,8 +1472,23 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->cleanup_interval = pw_properties_get_uint32(impl->props,
 			"sap.cleanup.sec", DEFAULT_CLEANUP_SEC);
 
-	if ((str = pw_properties_get(props, "source.ip")) == NULL)
+	if ((str = pw_properties_get(props, "source.ip")) == NULL) {
 		str = DEFAULT_SOURCE_IP;
+		if (impl->ifname) {
+			int fd = socket(AF_INET, SOCK_DGRAM, 0);
+			if (fd >= 0) {
+				struct ifreq req;
+				spa_zero(req);
+				req.ifr_addr.sa_family = AF_INET;
+				snprintf(req.ifr_name, sizeof(req.ifr_name), "%s", impl->ifname);
+				res = ioctl(fd, SIOCGIFADDR, &req);
+				if (res < 0)
+					pw_log_warn("SIOCGIFADDR %s failed: %m", impl->ifname);
+				str = inet_ntoa(((struct sockaddr_in *)&req.ifr_addr)->sin_addr);
+				close(fd);
+			}
+		}
+	}
 	if ((res = parse_address(str, port, &impl->src_addr, &impl->src_len)) < 0) {
 		pw_log_error("invalid source.ip %s: %s", str, spa_strerror(res));
 		goto out;

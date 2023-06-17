@@ -539,10 +539,10 @@ impl_init(const struct spa_handle_factory *factory,
 		const char *s = info->items[i].value;
 		if (spa_streq(k, "node.freewheel")) {
 			this->props.freewheel = spa_atob(s);
-		} else if (spa_streq(k, "clock.name")) {
+		} else if (spa_streq(k, "clock.name") && this->clock_fd < 0) {
 			spa_scnprintf(this->props.clock_name,
 				sizeof(this->props.clock_name), "%s", s);
-		} else if (spa_streq(k, "clock.id")) {
+		} else if (spa_streq(k, "clock.id") && this->clock_fd < 0) {
 			this->props.clock_id = clock_name_to_id(s);
 			if (this->props.clock_id == -1) {
 				spa_log_warn(this->log, "unknown clock id '%s'", s);
@@ -551,7 +551,7 @@ impl_init(const struct spa_handle_factory *factory,
 		} else if (spa_streq(k, "clock.device")) {
 			this->clock_fd = open(s, O_RDWR);
 			if (this->clock_fd == -1) {
-				spa_log_warn(this->log, "failed to open clock device '%s'", s);
+				spa_log_info(this->log, "failed to open clock device '%s'", s);
 			} else {
 				this->props.clock_id = FD_TO_CLOCKID(this->clock_fd);
 			}

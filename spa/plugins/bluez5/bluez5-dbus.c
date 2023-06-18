@@ -1364,6 +1364,7 @@ static void adapter_free(struct spa_bt_adapter *adapter)
 
 static uint32_t adapter_connectable_profiles(struct spa_bt_adapter *adapter)
 {
+	struct spa_bt_monitor *monitor = adapter->monitor;
 	const uint32_t profiles = adapter->profiles;
 	uint32_t mask = 0;
 
@@ -1391,6 +1392,9 @@ static uint32_t adapter_connectable_profiles(struct spa_bt_adapter *adapter)
 		mask |= SPA_BT_PROFILE_HFP_HF;
 	if (profiles & SPA_BT_PROFILE_HFP_HF)
 		mask |= SPA_BT_PROFILE_HFP_AG;
+
+	if (monitor->backend_selection == BACKEND_NONE)
+		mask &= ~SPA_BT_PROFILE_HEADSET_AUDIO;
 
 	return mask;
 }
@@ -1955,7 +1959,8 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 			direction_connected = true;
 	}
 
-	all_connected = (device->profiles & connected_profiles) == device->profiles;
+	all_connected = ((device->profiles & connected_profiles & connectable_profiles)
+				== (device->profiles & connectable_profiles));
 
 	spa_list_for_each(set, &device->set_membership_list, link)
 		spa_bt_for_each_set_member(s, set)
@@ -1969,7 +1974,7 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 	if (connected_profiles == 0 && spa_list_is_empty(&device->codec_switch_list)) {
 		device_stop_timer(device);
 		device_connected(monitor, device, BT_DEVICE_DISCONNECTED);
-	} else if (force || ((direction_connected || all_connected) && set_connected)) {
+	} else if (force || ((direction_connected || all_connected) && set_connected && connected_profiles)) {
 		device_stop_timer(device);
 		device_connected(monitor, device, BT_DEVICE_CONNECTED);
 	} else {
@@ -2362,17 +2367,11 @@ static int device_update_props(struct spa_bt_device *device,
 
 				profile = spa_bt_profile_from_uuid(uuid);
 
-				/* Only add A2DP/BAP profiles if HSP/HFP backed is none.
-				 * This allows BT device to connect instantly instead of waiting for
-				 * profile timeout, because all available profiles are connected.
-				 */
-				if (monitor->backend_selection != BACKEND_NONE || (monitor->backend_selection == BACKEND_NONE &&
-						profile & (SPA_BT_PROFILE_MEDIA_SINK | SPA_BT_PROFILE_MEDIA_SOURCE))) {
-					if (profile && (device->profiles & profile) == 0) {
-						spa_log_debug(monitor->log, "device %p: add UUID=%s", device, uuid);
-						device->profiles |= profile;
-					}
+				if (profile && (device->profiles & profile) == 0) {
+					spa_log_debug(monitor->log, "device %p: add UUID=%s", device, uuid);
+					device->profiles |= profile;
 				}
+
 				dbus_message_iter_next(&iter);
 			}
 

@@ -151,6 +151,9 @@ extern "C" {
  *
  * \section sec_stream_environment Environment Variables
  *
+ * The environment variable PIPEWIRE_AUTOCONNECT can be used to override the
+ * flag and force apps to autoconnect or not.
+ *
  */
 /** \defgroup pw_stream Stream
  *

@@ -221,21 +221,6 @@ context.objects = [
             node.freewheel  = true
         }
     }
-    # An example clock reading from /dev/ptp0. Another option is to sync the
-    # ptp clock to CLOCK_TAI and then set clock.id = tai.
-    # If both device and ID are given and available, device takes precedence
-    { factory = spa-node-factory
-        args = {
-            factory.name    = support.node.driver
-            node.name       = PTP0-Driver
-            node.group      = pipewire.ptp0
-            # This driver should only be used for network nodes marked with group
-            priority.driver = 0
-            clock.name      = "clock.system.ptp0"
-            clock.device    = "/dev/ptp0"
-            clock.id        = tai
-        }
-    }
 
     # This creates a new Source node. It will have input ports
     # that you can link, to provide audio for this source.

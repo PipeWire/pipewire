@@ -479,7 +479,9 @@ SPA_EXPORT
 int pw_core_disconnect(struct pw_core *core)
 {
 	pw_log_debug("%p: disconnect", core);
-	pw_proxy_remove(&core->proxy);
-	pw_proxy_destroy(&core->proxy);
+	if (!core->removed)
+		pw_proxy_remove(&core->proxy);
+	if (!core->destroyed)
+		pw_proxy_destroy(&core->proxy);
 	return 0;
 }

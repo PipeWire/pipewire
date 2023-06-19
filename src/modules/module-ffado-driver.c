@@ -214,6 +214,7 @@ struct impl {
 
 	unsigned int do_disconnect:1;
 	unsigned int done:1;
+	unsigned int triggered:1;
 	unsigned int new_xrun:1;
 	unsigned int fix_midi:1;
 };
@@ -334,6 +335,11 @@ static void sink_process(void *d, struct spa_io_position *position)
 	struct impl *impl = s->impl;
 	uint32_t i, n_samples = position->clock.duration;
 
+	if (impl->mode & MODE_SINK && impl->triggered) {
+		impl->triggered = false;
+		return;
+	}
+
 	for (i = 0; i < s->n_ports; i++) {
 		struct port *p = s->ports[i];
 		float *src;
@@ -363,6 +369,13 @@ static void source_process(void *d, struct spa_io_position *position)
 	struct impl *impl = s->impl;
 	uint32_t i, n_samples = position->clock.duration;
 
+	if (impl->mode == MODE_SOURCE && !impl->triggered) {
+		pw_log_trace_fp("done %u", impl->frame_time);
+		impl->done = true;
+		return;
+	}
+	impl->triggered = false;
+
 	ffado_streaming_transfer_capture_buffers(impl->dev);
 
 	for (i = 0; i < s->n_ports; i++) {
@@ -380,10 +393,6 @@ static void source_process(void *d, struct spa_io_position *position)
 			ffado_to_midi(dst, p->buffer, n_samples);
 		else
 			do_volume(dst, p->buffer, &s->volume, i, n_samples);
-	}
-	pw_log_trace_fp("done %u", impl->frame_time);
-	if (impl->mode == MODE_SOURCE) {
-		impl->done = true;
 	}
 }
 
@@ -725,9 +734,11 @@ static void *ffado_process_thread(void *arg)
 		}
 		if (impl->mode & MODE_SINK && sink_running) {
 			impl->done = false;
+			impl->triggered = true;
 			pw_filter_trigger_process(impl->sink.filter);
 		} else if (impl->mode == MODE_SOURCE && source_running) {
 			impl->done = false;
+			impl->triggered = true;
 			pw_filter_trigger_process(impl->source.filter);
 		}
 	}

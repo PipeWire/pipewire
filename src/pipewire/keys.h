@@ -52,7 +52,8 @@ extern "C" {
 #define PW_KEY_OBJECT_LINGER		"object.linger"		/**< the object lives on even after the client
 								  *  that created it has been destroyed */
 #define PW_KEY_OBJECT_REGISTER		"object.register"	/**< If the object should be registered. */
-
+#define PW_KEY_OBJECT_EXPORT		"object.export"		/**< If the object should be exported,
+								  *  since 0.3.72 */
 
 /* config */
 #define PW_KEY_CONFIG_PREFIX		"config.prefix"		/**< a config prefix directory */

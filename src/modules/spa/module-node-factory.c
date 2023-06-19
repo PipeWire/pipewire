@@ -49,7 +49,99 @@ struct node_data {
 	struct pw_resource *resource;
 	struct spa_hook resource_listener;
 	unsigned int linger:1;
+
+	struct pw_core *core;
+	struct spa_hook core_listener;
+	struct spa_hook core_proxy_listener;
+	struct pw_proxy *proxy;
+	struct spa_hook proxy_listener;
 };
+
+static void proxy_removed(void *_data)
+{
+	struct node_data *nd = _data;
+	pw_log_debug("%p: removed", nd);
+	pw_proxy_destroy(nd->proxy);
+}
+
+static void proxy_destroy(void *_data)
+{
+	struct node_data *nd = _data;
+	pw_log_debug("%p: destroy", nd);
+	spa_hook_remove(&nd->proxy_listener);
+	nd->proxy = NULL;
+	if (nd->node)
+		pw_impl_node_destroy(nd->node);
+}
+
+static const struct pw_proxy_events proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.removed = proxy_removed,
+	.destroy = proxy_destroy,
+};
+
+static void core_error(void *data, uint32_t id, int seq, int res, const char *message)
+{
+	struct node_data *nd = data;
+
+	pw_log_error("error id:%u seq:%d res:%d (%s): %s",
+			id, seq, res, spa_strerror(res), message);
+
+	if (id == PW_ID_CORE && res == -EPIPE)
+		pw_impl_node_destroy(nd->node);
+}
+
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
+	.error = core_error,
+};
+
+static void core_removed(void *d)
+{
+	struct node_data *nd = d;
+	pw_log_debug("%p: removed", nd);
+	spa_hook_remove(&nd->core_proxy_listener);
+	spa_hook_remove(&nd->core_listener);
+	nd->core = NULL;
+	if (nd->node)
+		pw_impl_node_destroy(nd->node);
+}
+
+static const struct pw_proxy_events core_proxy_events = {
+	.removed = core_removed,
+};
+
+static int export_node(struct node_data *nd, struct pw_properties *props)
+{
+	const char *str;
+
+	str = pw_properties_get(props, PW_KEY_REMOTE_NAME);
+	nd->core = pw_context_connect(nd->data->context,
+			pw_properties_new(
+				PW_KEY_REMOTE_NAME, str,
+				NULL),
+			0);
+	if (nd->core == NULL) {
+		pw_log_error("can't connect: %m");
+		return -errno;
+	}
+	pw_proxy_add_listener((struct pw_proxy*)nd->core,
+			&nd->core_proxy_listener,
+			&core_proxy_events, nd);
+	pw_core_add_listener(nd->core,
+			&nd->core_listener,
+			&core_events, nd);
+
+	pw_log_debug("%p: export node %p", nd, nd->node);
+	nd->proxy = pw_core_export(nd->core,
+			PW_TYPE_INTERFACE_Node, NULL, nd->node, 0);
+	if (nd->proxy == NULL)
+		return -errno;
+
+	pw_proxy_add_listener(nd->proxy, &nd->proxy_listener, &proxy_events, nd);
+
+	return 0;
+}
 
 static void resource_destroy(void *data)
 {
@@ -77,6 +169,10 @@ static void node_destroy(void *data)
 	if (nd->resource) {
 		spa_hook_remove(&nd->resource_listener);
 		nd->resource = NULL;
+	}
+	if (nd->core) {
+		pw_core_disconnect(nd->core);
+		nd->core = NULL;
 	}
 }
 
@@ -145,6 +241,11 @@ static void *create_object(void *_data,
 
 		pw_resource_add_listener(nd->resource, &nd->resource_listener, &resource_events, nd);
 	}
+	if (pw_properties_get_bool(properties, PW_KEY_OBJECT_EXPORT, false)) {
+		res = export_node(nd, properties);
+		if (res < 0)
+			goto error_export;
+	}
 	return node;
 
 error_properties:
@@ -158,6 +259,10 @@ error_create_node:
 	goto error_exit;
 error_bind:
 	pw_resource_errorf_id(resource, new_id, res, "can't bind node");
+	pw_impl_node_destroy(node);
+	goto error_exit;
+error_export:
+	pw_resource_errorf_id(resource, new_id, res, "can't export node");
 	pw_impl_node_destroy(node);
 	goto error_exit;
 

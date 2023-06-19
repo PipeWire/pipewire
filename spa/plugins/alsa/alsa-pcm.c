@@ -477,6 +477,11 @@ static cookie_io_functions_t io_funcs = {
 	.write = log_write,
 };
 
+static void silence_error_handler(const char *file, int line,
+		const char *function, int err, const char *fmt, ...)
+{
+}
+
 int spa_alsa_init(struct state *state, const struct spa_dict *info)
 {
 	uint32_t i;
@@ -556,12 +561,14 @@ static int probe_pitch_ctl(struct state *state, const char* device_name)
 		"Playback Pitch 1000000";
 	int err;
 
-	err = snd_ctl_open(&state->ctl, device_name, SND_CTL_NONBLOCK);
+	snd_lib_error_set_handler(silence_error_handler);
 
+	err = snd_ctl_open(&state->ctl, device_name, SND_CTL_NONBLOCK);
 	if (err < 0) {
-		spa_log_info(state->log, "%s could not find ctl device", state->props.device);
+		spa_log_info(state->log, "%s could not find ctl device: %s",
+				state->props.device, snd_strerror(err));
 		state->ctl = NULL;
-		return err;
+		goto error;
 	}
 
 	snd_ctl_elem_id_alloca(&id);
@@ -572,25 +579,26 @@ static int probe_pitch_ctl(struct state *state, const char* device_name)
 	snd_ctl_elem_value_set_id(state->pitch_elem, id);
 
 	err = snd_ctl_elem_read(state->ctl, state->pitch_elem);
-
 	if (err < 0) {
-		spa_log_debug(state->log, "%s: did not find ctl %s", state->props.device, elem_name);
+		spa_log_debug(state->log, "%s: did not find ctl %s: %s",
+				state->props.device, elem_name, snd_strerror(err));
 
 		snd_ctl_elem_value_free(state->pitch_elem);
 		state->pitch_elem = NULL;
 
 		snd_ctl_close(state->ctl);
 		state->ctl = NULL;
-
-		return err;
+		goto error;
 	}
 
 	snd_ctl_elem_value_set_integer(state->pitch_elem, 0, 1000000);
 	state->last_rate = 1.0;
 
 	spa_log_info(state->log, "%s: found ctl %s", state->props.device, elem_name);
-
-	return 0;
+	err = 0;
+error:
+	snd_lib_error_set_handler(NULL);
+	return err;
 }
 
 int spa_alsa_open(struct state *state, const char *params)

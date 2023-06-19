@@ -2652,7 +2652,7 @@ static void alsa_wakeup_event(struct spa_source *source)
 	struct state *state = source->data;
 	snd_pcm_uframes_t avail, delay, target;
 	uint64_t expire, current_time;
-	int res;
+	int res, missed;
 
 	if (SPA_UNLIKELY(state->disable_tsched)) {
 		/* ALSA poll fds need to be "demangled" to know whether it's a real wakeup */
@@ -2724,10 +2724,13 @@ done:
 	if (!state->disable_tsched &&
 			(state->next_time > current_time + SPA_NSEC_PER_SEC ||
 			 current_time > state->next_time + SPA_NSEC_PER_SEC)) {
-		spa_log_error(state->log, "%s: impossible timeout %lu %lu %lu %"PRIu64" %"PRIu64" %"PRIi64
-				" %d %"PRIi64, state->props.device, avail, delay, target,
-				current_time, state->next_time, state->next_time - current_time,
-				state->threshold, state->sample_count);
+		if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+			spa_log_error(state->log, "%s: impossible timeout %lu %lu %lu %"
+					PRIu64" %"PRIu64" %"PRIi64" %d %"PRIi64" (%d missed)",
+					state->props.device, avail, delay, target,
+					current_time, state->next_time, state->next_time - current_time,
+					state->threshold, state->sample_count, missed);
+		}
 		state->next_time = current_time + state->threshold * 1e9 / state->rate;
 	}
 	set_timeout(state, state->next_time);

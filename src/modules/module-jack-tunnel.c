@@ -193,6 +193,7 @@ struct impl {
 	uint32_t jack_xrun;
 
 	unsigned int do_disconnect:1;
+	unsigned int triggered:1;
 	unsigned int done:1;
 	unsigned int new_xrun:1;
 	unsigned int fix_midi:1;
@@ -323,6 +324,11 @@ static void sink_process(void *d, struct spa_io_position *position)
 	struct impl *impl = s->impl;
 	uint32_t i, n_samples = position->clock.duration;
 
+	if (impl->mode & MODE_SINK && impl->triggered) {
+		impl->triggered = false;
+		return;
+	}
+
 	for (i = 0; i < s->n_ports; i++) {
 		struct port *p = s->ports[i];
 		float *src, *dst;
@@ -342,7 +348,7 @@ static void sink_process(void *d, struct spa_io_position *position)
 		else
 			do_volume(dst, src, &s->volume, i, n_samples);
 	}
-	pw_log_trace_fp("done %u", impl->frame_time);
+	pw_log_trace_fp("done %u %u", impl->frame_time, n_samples);
 	if (impl->mode & MODE_SINK) {
 		impl->done = true;
 		jack.cycle_signal(impl->client, 0);
@@ -354,6 +360,14 @@ static void source_process(void *d, struct spa_io_position *position)
 	struct stream *s = d;
 	struct impl *impl = s->impl;
 	uint32_t i, n_samples = position->clock.duration;
+
+	if (impl->mode == MODE_SOURCE && !impl->triggered) {
+		pw_log_trace_fp("done %u", impl->frame_time);
+		impl->done = true;
+		jack.cycle_signal(impl->client, 0);
+		return;
+	}
+	impl->triggered = false;
 
 	for (i = 0; i < s->n_ports; i++) {
 		struct port *p = s->ports[i];
@@ -372,11 +386,6 @@ static void source_process(void *d, struct spa_io_position *position)
 			jack_to_midi(dst, src, n_samples);
 		else
 			do_volume(dst, src, &s->volume, i, n_samples);
-	}
-	pw_log_trace_fp("done %u", impl->frame_time);
-	if (impl->mode == MODE_SOURCE) {
-		impl->done = true;
-		jack.cycle_signal(impl->client, 0);
 	}
 }
 
@@ -701,11 +710,14 @@ static void *jack_process_thread(void *arg)
 		}
 		if (impl->mode & MODE_SINK && sink_running) {
 			impl->done = false;
+			impl->triggered = true;
 			pw_filter_trigger_process(impl->sink.filter);
 		} else if (impl->mode == MODE_SOURCE && source_running) {
 			impl->done = false;
+			impl->triggered = true;
 			pw_filter_trigger_process(impl->source.filter);
 		} else {
+			pw_log_trace_fp("done %d", nframes);
 			jack.cycle_signal(impl->client, 0);
 		}
 	}

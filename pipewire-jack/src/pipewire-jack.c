@@ -926,7 +926,7 @@ static void emit_callbacks(struct client *c)
 		notify = SPA_PTROFF(c->notify_buffer, index & NOTIFY_BUFFER_MASK, struct notify);
 
 		o = notify->object;
-		pw_log_debug("%p: dequeue notify index:%08x %p type:%d %p arg1:%d\n", c,
+		pw_log_debug("%p: dequeue notify index:%08x %p type:%d %p arg1:%d", c,
 				index, notify, notify->type, o, notify->arg1);
 
 		switch (notify->type) {
@@ -1025,7 +1025,7 @@ static int queue_notify(struct client *c, int type, struct object *o, int arg1, 
 	int32_t filled;
 	uint32_t index;
 	struct notify *notify;
-	bool emit = false;;
+	bool emit = false;
 
 	switch (type) {
 	case NOTIFY_TYPE_REGISTRATION:
@@ -1058,18 +1058,19 @@ static int queue_notify(struct client *c, int type, struct object *o, int arg1, 
 	default:
 		break;
 	}
-	if ((type & NOTIFY_ACTIVE_FLAG) && !c->active)
-		emit = false;
-	if (!emit) {
+	if (!emit || ((type & NOTIFY_ACTIVE_FLAG) && !c->active)) {
 		switch (type) {
 		case NOTIFY_TYPE_BUFFER_FRAMES:
-			c->buffer_frames = arg1;
+			if (!emit)
+				c->buffer_frames = arg1;
 			break;
 		case NOTIFY_TYPE_SAMPLE_RATE:
-			c->sample_rate = arg1;
+			if (!emit)
+				c->sample_rate = arg1;
 			break;
 		}
-		pw_log_debug("%p: skip notify %08x active:%d", c, type, c->active);
+		pw_log_debug("%p: skip notify %08x active:%d emit:%d", c, type,
+				c->active, emit);
 		if (o != NULL && arg1 == 0 && o->removing) {
 			o->removing = false;
 			free_object(c, o);
@@ -1088,7 +1089,7 @@ static int queue_notify(struct client *c, int type, struct object *o, int arg1, 
 	notify->object = o;
 	notify->arg1 = arg1;
 	notify->msg = msg;
-	pw_log_debug("%p: queue notify index:%08x %p type:%d %p arg1:%d msg:%s\n", c,
+	pw_log_debug("%p: queue notify index:%08x %p type:%d %p arg1:%d msg:%s", c,
 				index, notify, notify->type, o, notify->arg1, notify->msg);
 	index += sizeof(struct notify);
 	spa_ringbuffer_write_update(&c->notify_ring, index);

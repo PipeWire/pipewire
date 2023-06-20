@@ -1245,7 +1245,7 @@ again:
 	/* clean up the flags first */
 	spa_list_for_each(n, &context->node_list, link) {
 		n->visited = false;
-		n->runnable = n->always_process;
+		n->runnable = n->always_process && n->active;
 	}
 
 	get_quantums(context, &def_quantum, &min_quantum, &max_quantum, &lim_quantum, &rate_quantum);

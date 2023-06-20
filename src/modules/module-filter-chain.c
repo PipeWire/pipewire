@@ -166,6 +166,9 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * are read-only except for the bq_raw biquad, which can configure default values
  * depending on the graph rate and change those at runtime.
  *
+ * We refer to https://arachnoid.com/BiQuadDesigner/index.html for an explanation of
+ * the controls.
+ *
  * The following labels can be used:
  *
  * - `bq_lowpass` a lowpass filter.

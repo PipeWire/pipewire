@@ -1964,6 +1964,7 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 
 	active = node->active;
 	node->active = false;
+	node->runnable = false;
 
 	pw_log_debug("%p: destroy", impl);
 	pw_log_info("(%s-%u) destroy", node->name, node->info.id);

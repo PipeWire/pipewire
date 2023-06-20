@@ -1408,6 +1408,11 @@ static int port_init_mix(void *data, struct pw_impl_port_mix *mix)
 
 	m->peer_id = mix->peer_id;
 
+	if (impl->resource && impl->resource->version >= 4)
+		pw_client_node_resource_port_set_mix_info(impl->resource,
+					 mix->port.direction, mix->p->port_id,
+					 mix->port.port_id, mix->peer_id, NULL);
+
 	pw_log_debug("%p: init mix id:%d io:%p base:%p", impl,
 			mix->id, mix->io, area->map->ptr);
 
@@ -1429,6 +1434,11 @@ static int port_release_mix(void *data, struct pw_impl_port_mix *mix)
 
 	if ((m = find_mix(port, mix->port.port_id)) == NULL || !m->valid)
 		return -EINVAL;
+
+	if (impl->resource && impl->resource->version >= 4)
+		pw_client_node_resource_port_set_mix_info(impl->resource,
+					 mix->port.direction, mix->p->port_id,
+					 mix->port.port_id, SPA_ID_INVALID, NULL);
 
 	pw_map_remove(&impl->io_map, mix->id);
 	m->valid = false;
@@ -1515,13 +1525,7 @@ static int impl_mix_port_set_io(void *object,
 			mix->io = data;
 		else
 			mix->io = NULL;
-
-		if (mix->io != NULL && impl->resource && impl->resource->version >= 4)
-			pw_client_node_resource_port_set_mix_info(impl->resource,
-						 direction, port->port_id,
-						 mix->port.port_id, mix->peer_id, NULL);
 	}
-
 	return do_port_set_io(impl,
 			      direction, port->port_id, mix->port.port_id,
 			      id, data, size);

@@ -142,7 +142,6 @@ struct object {
 			uint32_t dst_serial;
 			bool src_ours;
 			bool dst_ours;
-			bool is_complete;
 			struct port *our_input;
 			struct port *our_output;
 		} port_link;
@@ -535,6 +534,17 @@ static struct mix *find_mix_peer(struct client *c, uint32_t peer_id)
 {
 	struct mix *mix;
 	spa_list_for_each(mix, &c->mix, link) {
+		if (mix->peer_id == peer_id)
+			return mix;
+	}
+	return NULL;
+}
+
+static struct mix *find_port_peer(struct port *port, uint32_t peer_id)
+{
+	struct mix *mix;
+	spa_list_for_each(mix, &port->mix, port_link) {
+		pw_log_info("%p %d %d", port, mix->peer_id, peer_id);
 		if (mix->peer_id == peer_id)
 			return mix;
 	}
@@ -2766,8 +2776,6 @@ static int client_node_port_set_mix_info(void *data,
 	struct client *c = (struct client *) data;
 	struct port *p = GET_PORT(c, direction, port_id);
 	struct mix *mix;
-	struct object *l;
-	uint32_t src, dst;
 	int res = 0;
 
 	if (p == NULL || !p->valid) {
@@ -2775,40 +2783,21 @@ static int client_node_port_set_mix_info(void *data,
 		goto exit;
 	}
 
-	if ((mix = ensure_mix(c, p, mix_id)) == NULL) {
-		res = -ENOMEM;
-		goto exit;
-	}
-	mix->peer_id = peer_id;
+	mix = find_mix(c, p, mix_id);
 
-	if (direction == SPA_DIRECTION_INPUT) {
-		src = peer_id;
-		dst = p->object->id;
-	} else {
-		src = p->object->id;
-		dst = peer_id;
-	}
-
-	if ((l = find_link(c, src, dst)) != NULL) {
-		if (direction == SPA_DIRECTION_INPUT)
-			mix->peer_port = l->port_link.our_output;
-		else
-			mix->peer_port = l->port_link.our_input;
-
-		pw_log_debug("peer port %p %p %p", mix->peer_port,
-				l->port_link.our_output, l->port_link.our_input);
-
-		if (!l->port_link.is_complete) {
-			l->port_link.is_complete = true;
-			pw_log_info("%p: our link %u/%u -> %u/%u completed", c,
-					l->port_link.src, l->port_link.src_serial,
-					l->port_link.dst, l->port_link.dst_serial);
-			queue_notify(c, NOTIFY_TYPE_CONNECT, l, 1, NULL);
-			queue_notify(c, NOTIFY_TYPE_GRAPH, NULL, 0, NULL);
-			emit_callbacks(c);
+	if (peer_id == SPA_ID_INVALID) {
+		if (mix == NULL) {
+			res = -ENOENT;
+			goto exit;
 		}
+		free_mix(c, mix);
+	} else {
+		if (mix != NULL) {
+			res = -EEXIST;
+			goto exit;
+		}
+		mix = create_mix(c, p, mix_id, peer_id);
 	}
-
 exit:
 	if (res < 0)
 		pw_proxy_error((struct pw_proxy*)c->node, res, spa_strerror(res));
@@ -3366,7 +3355,16 @@ static void registry_event_global(void *data, uint32_t id,
 		if (o->port_link.dst_ours)
 			o->port_link.our_input = p->port.port;
 
-		o->port_link.is_complete = !o->port_link.src_ours && !o->port_link.dst_ours;
+		if (o->port_link.our_input != NULL &&
+		    o->port_link.our_output != NULL) {
+			struct mix *mix;
+			mix = find_port_peer(o->port_link.our_output, o->port_link.dst);
+			if (mix != NULL)
+				mix->peer_port = o->port_link.our_input;
+			mix = find_port_peer(o->port_link.our_input, o->port_link.src);
+			if (mix != NULL)
+				mix->peer_port = o->port_link.our_output;
+		}
 		pw_log_debug("%p: add link %d %u/%u->%u/%u", c, id,
 				o->port_link.src, o->port_link.src_serial,
 				o->port_link.dst, o->port_link.dst_serial);
@@ -3427,14 +3425,11 @@ static void registry_event_global(void *data, uint32_t id,
 		break;
 
 	case INTERFACE_Link:
-		pw_log_info("%p: link %u %u/%u -> %u/%u added complete:%d", c,
+		pw_log_info("%p: link %u %u/%u -> %u/%u added", c,
 				o->id, o->port_link.src, o->port_link.src_serial,
-				o->port_link.dst, o->port_link.dst_serial,
-				o->port_link.is_complete);
-		if (o->port_link.is_complete) {
-			queue_notify(c, NOTIFY_TYPE_CONNECT, o, 1, NULL);
-			queue_notify(c, NOTIFY_TYPE_GRAPH, NULL, 0, NULL);
-		}
+				o->port_link.dst, o->port_link.dst_serial);
+		queue_notify(c, NOTIFY_TYPE_CONNECT, o, 1, NULL);
+		queue_notify(c, NOTIFY_TYPE_GRAPH, NULL, 0, NULL);
 		break;
 	}
 	emit_callbacks(c);
@@ -3482,13 +3477,11 @@ static void registry_event_global_remove(void *data, uint32_t id)
 		queue_notify(c, NOTIFY_TYPE_PORTREGISTRATION, o, 0, NULL);
 		break;
 	case INTERFACE_Link:
-		if (o->port_link.is_complete &&
-		    find_type(c, o->port_link.src, INTERFACE_Port, true) != NULL &&
+		if (find_type(c, o->port_link.src, INTERFACE_Port, true) != NULL &&
 		    find_type(c, o->port_link.dst, INTERFACE_Port, true) != NULL) {
 			pw_log_info("%p: link %u %u/%u -> %u/%u removed", c, o->id,
 					o->port_link.src, o->port_link.src_serial,
 					o->port_link.dst, o->port_link.dst_serial);
-			o->port_link.is_complete = false;
 			queue_notify(c, NOTIFY_TYPE_CONNECT, o, 0, NULL);
 			queue_notify(c, NOTIFY_TYPE_GRAPH, NULL, 0, NULL);
 		} else {

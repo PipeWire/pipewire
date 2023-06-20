@@ -896,6 +896,47 @@ error_exit:
 	return res;
 }
 
+static void clear_mix(struct node_data *data, struct mix *mix)
+{
+	pw_log_debug("port %p: mix clear %d.%d", mix->port, mix->port->port_id, mix->mix_id);
+
+	spa_node_port_set_io(mix->port->mix, mix->mix.port.direction,
+			mix->mix.port.port_id, SPA_IO_Buffers, NULL, 0);
+
+	spa_list_remove(&mix->link);
+
+	clear_buffers(data, mix);
+	pw_array_clear(&mix->buffers);
+
+	spa_list_append(&data->free_mix, &mix->link);
+	pw_impl_port_release_mix(mix->port, &mix->mix);
+}
+
+static int client_node_port_set_mix_info(void *_data,
+		enum spa_direction direction, uint32_t port_id,
+		uint32_t mix_id, uint32_t peer_id, const struct spa_dict *props)
+{
+	struct node_data *data = _data;
+	struct mix *mix;
+
+	pw_log_debug("%p: %d:%d:%d peer:%d", data, direction, port_id, mix_id, peer_id);
+
+	mix = find_mix(data, direction, port_id, mix_id);
+
+	if (peer_id == SPA_ID_INVALID) {
+		if (mix == NULL)
+			return -EINVAL;
+		clear_mix(data, mix);
+	} else {
+		if (mix != NULL)
+			return -EEXIST;
+		mix = create_mix(data, direction, port_id, mix_id, peer_id);
+		if (mix == NULL)
+			return -errno;
+	}
+	return 0;
+}
+
 static const struct pw_client_node_events client_node_events = {
 	PW_VERSION_CLIENT_NODE_EVENTS,
 	.transport = client_node_transport,
@@ -909,6 +950,7 @@ static const struct pw_client_node_events client_node_events = {
 	.port_use_buffers = client_node_port_use_buffers,
 	.port_set_io = client_node_port_set_io,
 	.set_activation = client_node_set_activation,
+	.port_set_mix_info = client_node_port_set_mix_info,
 };
 
 static void do_node_init(struct node_data *data)
@@ -932,22 +974,6 @@ static void do_node_init(struct node_data *data)
 				PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
 				PW_CLIENT_NODE_PORT_UPDATE_INFO);
 	}
-}
-
-static void clear_mix(struct node_data *data, struct mix *mix)
-{
-	pw_log_debug("port %p: mix clear %d.%d", mix->port, mix->port->port_id, mix->mix_id);
-
-	spa_node_port_set_io(mix->port->mix, mix->mix.port.direction,
-			mix->mix.port.port_id, SPA_IO_Buffers, NULL, 0);
-
-	spa_list_remove(&mix->link);
-
-	clear_buffers(data, mix);
-	pw_array_clear(&mix->buffers);
-
-	spa_list_append(&data->free_mix, &mix->link);
-	pw_impl_port_release_mix(mix->port, &mix->mix);
 }
 
 static void clean_node(struct node_data *d)

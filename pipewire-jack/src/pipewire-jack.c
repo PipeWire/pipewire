@@ -520,9 +520,11 @@ static void free_object(struct client *c, struct object *o)
 
 static void init_mix(struct mix *mix, uint32_t mix_id, struct port *port, uint32_t peer_id)
 {
+	pw_log_debug("create %p mix:%d peer:%d", port, mix_id, peer_id);
 	mix->id = mix_id;
 	mix->peer_id = peer_id;
 	mix->port = port;
+	mix->peer_port = NULL;
 	mix->io = NULL;
 	mix->n_buffers = 0;
 	spa_list_init(&mix->queue);

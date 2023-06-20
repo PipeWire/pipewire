@@ -40,6 +40,7 @@ struct mix {
 	struct spa_list link;
 	struct pw_impl_port *port;
 	uint32_t mix_id;
+	uint32_t peer_id;
 	struct pw_impl_port_mix mix;
 	struct pw_array buffers;
 };
@@ -145,11 +146,13 @@ static void clean_transport(struct node_data *data)
 	data->have_transport = false;
 }
 
-static void mix_init(struct mix *mix, struct pw_impl_port *port, uint32_t mix_id)
+static void mix_init(struct mix *mix, struct pw_impl_port *port,
+		uint32_t mix_id, uint32_t peer_id)
 {
 	pw_log_debug("port %p: mix init %d.%d", port, port->port_id, mix_id);
 	mix->port = port;
 	mix->mix_id = mix_id;
+	mix->peer_id = peer_id;
 	pw_impl_port_init_mix(port, &mix->mix);
 	pw_array_init(&mix->buffers, 32);
 	pw_array_ensure_size(&mix->buffers, sizeof(struct buffer) * 64);
@@ -171,14 +174,12 @@ static struct mix *find_mix(struct node_data *data,
 	return NULL;
 }
 
-static struct mix *ensure_mix(struct node_data *data,
-		enum spa_direction direction, uint32_t port_id, uint32_t mix_id)
+static struct mix *create_mix(struct node_data *data,
+		enum spa_direction direction, uint32_t port_id,
+		uint32_t mix_id, uint32_t peer_id)
 {
 	struct mix *mix;
 	struct pw_impl_port *port;
-
-	if ((mix = find_mix(data, direction, port_id, mix_id)))
-		return mix;
 
 	port = pw_impl_node_find_port(data->node, direction, port_id);
 	if (port == NULL)
@@ -191,13 +192,21 @@ static struct mix *ensure_mix(struct node_data *data,
 		mix = spa_list_first(&data->free_mix, struct mix, link);
 		spa_list_remove(&mix->link);
 	}
-
-	mix_init(mix, port, mix_id);
+	mix_init(mix, port, mix_id, peer_id);
 	spa_list_append(&data->mix[direction], &mix->link);
 
 	return mix;
 }
 
+static struct mix *ensure_mix(struct node_data *data,
+		enum spa_direction direction, uint32_t port_id,
+		uint32_t mix_id)
+{
+	struct mix *mix;
+	if ((mix = find_mix(data, direction, port_id, mix_id)))
+		return mix;
+	return create_mix(data, direction, port_id, mix_id, SPA_ID_INVALID);
+}
 
 static int client_node_transport(void *_data,
 			int readfd, int writefd, uint32_t mem_id, uint32_t offset, uint32_t size)

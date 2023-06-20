@@ -518,9 +518,10 @@ static void free_object(struct client *c, struct object *o)
 
 }
 
-static void init_mix(struct mix *mix, uint32_t mix_id, struct port *port)
+static void init_mix(struct mix *mix, uint32_t mix_id, struct port *port, uint32_t peer_id)
 {
 	mix->id = mix_id;
+	mix->peer_id = mix_id;
 	mix->port = port;
 	mix->io = NULL;
 	mix->n_buffers = 0;
@@ -549,13 +550,11 @@ static struct mix *find_mix(struct client *c, struct port *port, uint32_t mix_id
 	return NULL;
 }
 
-static struct mix *ensure_mix(struct client *c, struct port *port, uint32_t mix_id)
+static struct mix *create_mix(struct client *c, struct port *port,
+		uint32_t mix_id, uint32_t peer_id)
 {
 	struct mix *mix;
 	uint32_t i;
-
-	if ((mix = find_mix(c, port, mix_id)) != NULL)
-		return mix;
 
 	if (spa_list_is_empty(&c->free_mix)) {
 		mix = calloc(OBJECT_CHUNK, sizeof(struct mix));
@@ -570,9 +569,17 @@ static struct mix *ensure_mix(struct client *c, struct port *port, uint32_t mix_
 
 	spa_list_append(&port->mix, &mix->port_link);
 
-	init_mix(mix, mix_id, port);
+	init_mix(mix, mix_id, port, peer_id);
 
 	return mix;
+}
+
+static struct mix *ensure_mix(struct client *c, struct port *port, uint32_t mix_id)
+{
+	struct mix *mix;
+	if ((mix = find_mix(c, port, mix_id)) != NULL)
+		return mix;
+	return create_mix(c, port, mix_id, SPA_ID_INVALID);
 }
 
 static int clear_buffers(struct client *c, struct mix *mix)

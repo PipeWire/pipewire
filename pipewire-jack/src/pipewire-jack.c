@@ -521,7 +521,7 @@ static void free_object(struct client *c, struct object *o)
 static void init_mix(struct mix *mix, uint32_t mix_id, struct port *port, uint32_t peer_id)
 {
 	mix->id = mix_id;
-	mix->peer_id = mix_id;
+	mix->peer_id = peer_id;
 	mix->port = port;
 	mix->io = NULL;
 	mix->n_buffers = 0;

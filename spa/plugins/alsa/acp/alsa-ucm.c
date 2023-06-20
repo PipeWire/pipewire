@@ -991,6 +991,40 @@ fail:
     }
 }
 
+static void ucm_add_port_props(
+       pa_device_port *port,
+       bool is_sink)
+{
+    const char *icon;
+
+    if (is_sink) {
+        switch (port->type) {
+            case PA_DEVICE_PORT_TYPE_HEADPHONES:
+                icon = "audio-headphones";
+                break;
+            case PA_DEVICE_PORT_TYPE_HDMI:
+                icon = "video-display";
+                break;
+            case PA_DEVICE_PORT_TYPE_SPEAKER:
+            default:
+                icon = "audio-speakers";
+                break;
+        }
+    } else {
+        switch (port->type) {
+            case PA_DEVICE_PORT_TYPE_HEADSET:
+                icon = "audio-headset";
+                break;
+            case PA_DEVICE_PORT_TYPE_MIC:
+            default:
+                icon = "audio-input-microphone";
+                break;
+        }
+    }
+
+    pa_proplist_sets(port->proplist, "device.icon_name", icon);
+}
+
 static void ucm_add_port_combination(
         pa_hashmap *hash,
         pa_alsa_ucm_mapping_context *context,
@@ -1097,6 +1131,7 @@ static void ucm_add_port_combination(
 
         pa_hashmap_put(ports, port->name, port);
         pa_log_debug("Add port %s: %s", port->name, port->description);
+        ucm_add_port_props(port, is_sink);
 
         if (num == 1) {
             /* To keep things simple and not worry about stacking controls, we only support hardware volumes on non-combination

@@ -70,7 +70,7 @@ static void emit_info_changed(struct pw_impl_port *port)
 	port->info.change_mask = 0;
 }
 
-static const char *port_state_as_string(enum pw_impl_port_state state)
+const char *pw_impl_port_state_as_string(enum pw_impl_port_state state)
 {
 	switch (state) {
 	case PW_IMPL_PORT_STATE_ERROR:
@@ -101,7 +101,8 @@ void pw_impl_port_update_state(struct pw_impl_port *port, enum pw_impl_port_stat
 	pw_log(state == PW_IMPL_PORT_STATE_ERROR ?
 			SPA_LOG_LEVEL_ERROR : SPA_LOG_LEVEL_DEBUG,
 		"%p: state %s -> %s (%s)", port,
-		port_state_as_string(old), port_state_as_string(state), error);
+		pw_impl_port_state_as_string(old),
+		pw_impl_port_state_as_string(state), error);
 
 	pw_impl_port_emit_state_changed(port, old, state, error);
 
@@ -1705,7 +1706,7 @@ int pw_impl_port_use_buffers(struct pw_impl_port *port, struct pw_impl_port_mix 
 	int res = 0, res2;
 
 	pw_log_debug("%p: %d:%d.%d: %d buffers flags:%d state:%d n_mix:%d", port,
-			port->direction, port->port_id, mix->id,
+			port->direction, port->port_id, mix->port.port_id,
 			n_buffers, flags, port->state, port->n_mix);
 
 	if (n_buffers == 0 && port->state <= PW_IMPL_PORT_STATE_READY)

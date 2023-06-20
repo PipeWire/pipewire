@@ -157,12 +157,16 @@ static void link_update_state(struct pw_impl_link *link, enum pw_link_state stat
 		     pw_link_state_as_string(state), error);
 
 	if (state == PW_LINK_STATE_ERROR) {
-		pw_log_error("(%s) %s -> error (%s)", link->name,
-				pw_link_state_as_string(old), error);
+		pw_log_error("(%s) %s -> error (%s) (%s-%s)", link->name,
+				pw_link_state_as_string(old), error,
+				pw_impl_port_state_as_string(link->output->state),
+				pw_impl_port_state_as_string(link->input->state));
 	} else {
-		pw_log_info("(%s) %s -> %s", link->name,
+		pw_log_info("(%s) %s -> %s (%s-%s)", link->name,
 				pw_link_state_as_string(old),
-				pw_link_state_as_string(state));
+				pw_link_state_as_string(state),
+				pw_impl_port_state_as_string(link->output->state),
+				pw_impl_port_state_as_string(link->input->state));
 	}
 
 	pw_impl_link_emit_state_changed(link, old, state, error);
@@ -1287,9 +1291,9 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 		     output_node, output->port_id, this->rt.out_mix.port.port_id,
 		     input_node, input->port_id, this->rt.in_mix.port.port_id);
 
-	this->name = spa_aprintf("%d.%d -> %d.%d",
-			output_node->info.id, output->port_id,
-			input_node->info.id, input->port_id);
+	this->name = spa_aprintf("%d.%d.%d -> %d.%d.%d",
+			output_node->info.id, output->port_id, this->rt.out_mix.port.port_id,
+			input_node->info.id, input->port_id, this->rt.in_mix.port.port_id);
 	pw_log_info("(%s) (%s) -> (%s)", this->name, output_node->name, input_node->name);
 
 	pw_impl_port_emit_link_added(output, this);

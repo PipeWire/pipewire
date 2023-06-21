@@ -1124,18 +1124,6 @@ static void state_changed(void *data, enum pw_stream_state old,
 	}
 }
 
-static void param_format_cleared(struct impl *impl, struct pw_stream *other,
-		struct spa_audio_info_raw *other_info)
-{
-	uint8_t buffer[1024];
-	struct spa_pod_builder b;
-	const struct spa_pod *params[1];
-
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, other_info);
-	pw_stream_update_params(other, params, 1);
-}
-
 static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 {
 	struct impl *impl = data;
@@ -1146,8 +1134,6 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 	case SPA_PARAM_Format:
 		if (param == NULL) {
 			graph_cleanup(graph);
-			param_format_cleared(impl, impl->capture, &impl->capture_info);
-			param_format_cleared(impl, impl->playback, &impl->playback_info);
 		} else {
 			struct spa_audio_info_raw info;
 			spa_zero(info);

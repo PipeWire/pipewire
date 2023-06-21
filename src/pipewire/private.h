@@ -823,6 +823,7 @@ struct pw_impl_port_mix {
 	uint32_t id;
 	uint32_t peer_id;
 	unsigned int have_buffers:1;
+	unsigned int active:1;
 };
 
 struct pw_impl_port_implementation {

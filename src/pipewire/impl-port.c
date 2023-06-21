@@ -132,7 +132,10 @@ do_add_mix(struct spa_loop *loop,
 	struct pw_impl_port *this = mix->p;
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	pw_log_trace("%p: add mix %p", this, mix);
-	spa_list_append(&impl->mix_list, &mix->rt_link);
+	if (!mix->active) {
+		spa_list_append(&impl->mix_list, &mix->rt_link);
+		mix->active = true;
+	}
 	return 0;
 }
 
@@ -143,7 +146,10 @@ do_remove_mix(struct spa_loop *loop,
 	struct pw_impl_port_mix *mix = user_data;
 	struct pw_impl_port *this = mix->p;
 	pw_log_trace("%p: remove mix %p", this, mix);
-	spa_list_remove(&mix->rt_link);
+	if (mix->active) {
+		spa_list_remove(&mix->rt_link);
+		mix->active = false;
+	}
 	return 0;
 }
 
@@ -157,7 +163,7 @@ static int port_set_io(void *object,
 
 	mix = find_mix(this, direction, port_id);
 	if (mix == NULL)
-		return 0;
+		return -ENOENT;
 
 	if (id == SPA_IO_Buffers) {
 		if (data == NULL || size == 0) {

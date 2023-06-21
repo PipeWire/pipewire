@@ -655,7 +655,7 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 	pw_log_debug("%p: activate activated:%d state:%s", this, impl->activated,
 			pw_link_state_as_string(this->info.state));
 
-	if (impl->activated || !this->prepared ||
+	if (this->destroyed || impl->activated || !this->prepared ||
 		!impl->inode->runnable || !impl->onode->runnable)
 		return 0;
 
@@ -820,7 +820,7 @@ int pw_impl_link_prepare(struct pw_impl_link *this)
 	if (!impl->inode->active || !impl->onode->active)
 		return 0;
 
-	if (this->preparing || this->prepared)
+	if (this->destroyed || this->preparing || this->prepared)
 		return 0;
 
 	this->preparing = true;
@@ -861,8 +861,9 @@ int pw_impl_link_deactivate(struct pw_impl_link *this)
 
 	impl->activated = false;
 	pw_log_info("(%s) deactivated", this->name);
-	link_update_state(this, PW_LINK_STATE_PAUSED, 0, NULL);
-
+	link_update_state(this, this->destroyed ?
+			PW_LINK_STATE_INIT : PW_LINK_STATE_PAUSED,
+			0, NULL);
 	return 0;
 }
 
@@ -1433,6 +1434,8 @@ void pw_impl_link_destroy(struct pw_impl_link *link)
 
 	pw_log_debug("%p: destroy", impl);
 	pw_log_info("(%s) destroy", link->name);
+
+	link->destroyed = true;
 	pw_impl_link_emit_destroy(link);
 
 	pw_impl_link_deactivate(link);

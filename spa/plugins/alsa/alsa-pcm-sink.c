@@ -820,6 +820,11 @@ static int impl_node_process(void *object)
 
 		io->status = SPA_STATUS_OK;
 	}
+	else if (!spa_list_is_empty(&this->ready)) {
+		spa_alsa_write(this);
+
+		io->status = SPA_STATUS_OK;
+	}
 	return SPA_STATUS_HAVE_DATA;
 }
 

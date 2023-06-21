@@ -2574,6 +2574,7 @@ int spa_alsa_skip(struct state *state)
 static int handle_play(struct state *state, uint64_t current_time, snd_pcm_uframes_t avail,
 		snd_pcm_uframes_t delay, snd_pcm_uframes_t target)
 {
+	struct spa_io_buffers *io = state->io;
 	int res;
 
 	if (state->alsa_started && SPA_UNLIKELY(delay > target + state->max_error)) {
@@ -2588,20 +2589,12 @@ static int handle_play(struct state *state, uint64_t current_time, snd_pcm_ufram
 	if (SPA_UNLIKELY((res = update_time(state, current_time, delay, target, false)) < 0))
 		return res;
 
-	if (spa_list_is_empty(&state->ready)) {
-		struct spa_io_buffers *io = state->io;
+	spa_log_trace_fp(state->log, "%p: %d", state, io->status);
 
-		spa_log_trace_fp(state->log, "%p: %d", state, io->status);
+	update_sources(state, false);
 
-		update_sources(state, false);
-
-		io->status = SPA_STATUS_NEED_DATA;
-		res = spa_node_call_ready(&state->callbacks, SPA_STATUS_NEED_DATA);
-	}
-	else {
-		res = spa_alsa_write(state);
-	}
-	return res;
+	io->status = SPA_STATUS_NEED_DATA;
+	return spa_node_call_ready(&state->callbacks, SPA_STATUS_NEED_DATA);
 }
 
 static int handle_capture(struct state *state, uint64_t current_time, snd_pcm_uframes_t avail,

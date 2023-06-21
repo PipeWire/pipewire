@@ -1169,6 +1169,7 @@ static void follower_port_info(void *data,
 			if (idx == IDX_EnumFormat) {
 				spa_log_debug(this->log, "new formats");
 				configure_format(this, 0, NULL);
+				negotiate_format(this);
 			}
 
 			this->params[idx].user++;

@@ -50,7 +50,7 @@ struct buffer {
 
 struct mix {
 	unsigned int valid:1;
-	uint32_t id;
+	uint32_t mix_id;
 	struct port *port;
 	uint32_t peer_id;
 	uint32_t n_buffers;
@@ -209,10 +209,10 @@ static struct mix *find_mix(struct port *p, uint32_t mix_id)
 	return mix;
 }
 
-static void mix_init(struct mix *mix, struct port *p, uint32_t id)
+static void mix_init(struct mix *mix, struct port *p, uint32_t mix_id)
 {
 	mix->valid = true;
-	mix->id = id;
+	mix->mix_id = mix_id;
 	mix->port = p;
 	mix->n_buffers = 0;
 }
@@ -281,7 +281,7 @@ static void mix_clear(struct impl *impl, struct mix *mix)
 	if (!mix->valid)
 		return;
 	do_port_use_buffers(impl, port->direction, port->id,
-			mix->id, 0, NULL, 0);
+			mix->mix_id, 0, NULL, 0);
 	mix->valid = false;
 }
 

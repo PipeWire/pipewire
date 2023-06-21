@@ -1035,12 +1035,15 @@ static int impl_node_process_input(void *object)
 		/* push new buffer */
 		pw_log_trace_fp("%p: push %d %p", stream, b->id, io);
 		if (queue_push(impl, &impl->dequeued, b) == 0) {
-			copy_position(impl, impl->dequeued.incount);
 			if (b->busy)
 				ATOMIC_INC(b->busy->count);
-			call_process(impl);
 		}
 	}
+	if (!queue_is_empty(impl, &impl->dequeued)) {
+		copy_position(impl, impl->dequeued.incount);
+		call_process(impl);
+	}
+
 	if (io->status != SPA_STATUS_NEED_DATA || io->buffer_id == SPA_ID_INVALID) {
 		/* pop buffer to recycle */
 		if ((b = queue_pop(impl, &impl->queued))) {

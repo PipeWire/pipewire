@@ -664,8 +664,11 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 		return res;
 
 	if ((res = port_set_io(this, this->output, SPA_IO_Buffers, this->io,
-			sizeof(struct spa_io_buffers), &this->rt.out_mix)) < 0)
+			sizeof(struct spa_io_buffers), &this->rt.out_mix)) < 0) {
+		port_set_io(this, this->input, SPA_IO_Buffers, NULL, 0,
+				&this->rt.in_mix);
 		return res;
+	}
 
 	pw_loop_invoke(this->output->node->data_loop,
 	       do_activate_link, SPA_ID_INVALID, NULL, 0, false, this);

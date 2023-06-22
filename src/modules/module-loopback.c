@@ -332,18 +332,6 @@ static void param_latency_changed(struct impl *impl, const struct spa_pod *param
 	impl->recalc_delay = true;
 }
 
-static void param_format_cleared(struct impl *impl, struct pw_stream *other,
-		struct spa_audio_info_raw *other_info)
-{
-	uint8_t buffer[1024];
-	struct spa_pod_builder b;
-	const struct spa_pod *params[1];
-
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, other_info);
-	pw_stream_update_params(other, params, 1);
-}
-
 static void stream_state_changed(void *data, enum pw_stream_state old,
 		enum pw_stream_state state, const char *error)
 {
@@ -398,10 +386,8 @@ static void capture_param_changed(void *data, uint32_t id, const struct spa_pod 
 	case SPA_PARAM_Format:
 	{
 		struct spa_audio_info_raw info;
-		if (param == NULL) {
-			param_format_cleared(impl, impl->playback, &impl->playback_info);
+		if (param == NULL)
 			return;
-		}
 		if (spa_format_audio_raw_parse(param, &info) < 0)
 			return;
 		if (info.rate == 0 ||
@@ -439,12 +425,6 @@ static void playback_param_changed(void *data, uint32_t id, const struct spa_pod
 	struct impl *impl = data;
 
 	switch (id) {
-	case SPA_PARAM_Format:
-		if (param == NULL) {
-			param_format_cleared(impl, impl->capture, &impl->capture_info);
-			return;
-		}
-		break;
 	case SPA_PARAM_Latency:
 		param_latency_changed(impl, param, &impl->playback_latency, impl->capture);
 		break;

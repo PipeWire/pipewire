@@ -811,9 +811,9 @@ static bool stream_handle_latency(struct stream *s, jack_latency_callback_mode_t
 
 			jack.port_get_latency_range(port->jack_port, mode, &range);
 
-			latency.direction = s->direction;
-			latency.min_rate = range.min;
-			latency.max_rate = range.max;
+			latency = SPA_LATENCY_INFO(s->direction,
+					.min_rate = range.min,
+					.max_rate = range.max);
 			pw_log_debug("port latency %d %d %d", mode, range.min, range.max);
 
 			if (spa_latency_info_compare(&latency, &port->latency[s->direction])) {

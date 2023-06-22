@@ -2466,7 +2466,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	parse_audio_info(impl->capture_props, &impl->capture_info);
 	parse_audio_info(impl->playback_props, &impl->playback_info);
 
-	if (impl->capture_info.rate && !impl->playback_info.rate)
+	if (!impl->capture_info.rate && !impl->playback_info.rate) {
+		if (pw_properties_get(impl->playback_props, "resample.disable") == NULL)
+			pw_properties_set(impl->playback_props, "resample.disable", "true");
+		if (pw_properties_get(impl->capture_props, "resample.disable") == NULL)
+			pw_properties_set(impl->capture_props, "resample.disable", "true");
+	} else if (impl->capture_info.rate && !impl->playback_info.rate)
 		impl->playback_info.rate = impl->capture_info.rate;
 	else if (impl->playback_info.rate && !impl->capture_info.rate)
 		impl->capture_info.rate = !impl->playback_info.rate;

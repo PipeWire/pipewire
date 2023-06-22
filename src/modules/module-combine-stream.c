@@ -1375,6 +1375,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 	if (pw_properties_get(props, "resample.prefill") == NULL)
 		pw_properties_set(props, "resample.prefill", "true");
+	if (pw_properties_get(props, "resample.disable") == NULL)
+		pw_properties_set(props, "resample.disable", "true");
 
 	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL) {
 		if (impl->mode == MODE_SINK)

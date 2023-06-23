@@ -216,8 +216,10 @@ static struct spa_bt_transport *_transport_create(struct rfcomm *rfcomm)
 		return NULL;
 
 	t = spa_bt_transport_create(backend->monitor, pathfd, sizeof(struct transport_data));
-	if (t == NULL)
-		goto finish;
+	if (t == NULL) {
+		free(pathfd);
+		return NULL;
+	}
 	spa_bt_transport_set_implementation(t, &sco_transport_impl, t);
 
 	t->device = rfcomm->device;
@@ -248,7 +250,6 @@ static struct spa_bt_transport *_transport_create(struct rfcomm *rfcomm)
 
 	spa_bt_transport_add_listener(t, &rfcomm->transport_listener, &transport_events, rfcomm);
 
-finish:
 	return t;
 }
 

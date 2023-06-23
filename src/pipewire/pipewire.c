@@ -520,12 +520,11 @@ parse_pw_debug_env(void)
 		int i;
 		for (i = 0; i < n_tokens; i++) {
 			int n_tok;
-			char **tok;
-			char *pattern;
+			char *tok[2];
 
-			tok = pw_split_strv(tokens[i], ":", 2, &n_tok);
+			n_tok = pw_split_ip(tokens[i], ":", SPA_N_ELEMENTS(tok), tok);
 			if (n_tok == 2 && parse_log_level(tok[1], &lvl)) {
-				pattern = tok[0];
+				char *pattern = tok[0];
 				pos += spa_scnprintf(pos, end - pos, "{ %s = %d },",
 						     pattern, lvl);
 			} else if (n_tok == 1 && parse_log_level(tok[0], &lvl)) {
@@ -534,8 +533,6 @@ parse_pw_debug_env(void)
 				pw_log_warn("Ignoring invalid format in PIPEWIRE_DEBUG: '%s'",
 						tokens[i]);
 			}
-
-			pw_free_strv(tok);
 		}
 	}
 	pw_free_strv(tokens);

@@ -1097,13 +1097,17 @@ static void stream_control_info(void *data, uint32_t id,
 
 	switch (id) {
 	case SPA_PROP_channelVolumes:
-		stream->volume.channels = control->n_values;
-		memcpy(stream->volume.values, control->values, control->n_values * sizeof(float));
-		pw_log_info("stream %p: volume changed %f", stream, stream->volume.values[0]);
+		if (!stream->volume_set) {
+			stream->volume.channels = control->n_values;
+			memcpy(stream->volume.values, control->values, control->n_values * sizeof(float));
+			pw_log_info("stream %p: volume changed %f", stream, stream->volume.values[0]);
+		}
 		break;
 	case SPA_PROP_mute:
-		stream->muted = control->values[0] >= 0.5;
-		pw_log_info("stream %p: mute changed %d", stream, stream->muted);
+		if (!stream->muted_set) {
+			stream->muted = control->values[0] >= 0.5;
+			pw_log_info("stream %p: mute changed %d", stream, stream->muted);
+		}
 		break;
 	}
 }
@@ -1208,11 +1212,13 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 		struct pw_manager_object *peer;
 
 		if (stream->volume_set) {
+			stream->volume_set = false;
 			pw_stream_set_control(stream->stream,
 				SPA_PROP_channelVolumes, stream->volume.channels, stream->volume.values, 0);
 		}
 		if (stream->muted_set) {
 			float val = stream->muted ? 1.0f : 0.0f;
+			stream->muted_set = false;
 			pw_stream_set_control(stream->stream,
 				SPA_PROP_mute, 1, &val, 0);
 		}

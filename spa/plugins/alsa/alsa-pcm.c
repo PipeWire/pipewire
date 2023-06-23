@@ -592,6 +592,7 @@ static int probe_pitch_ctl(struct state *state, const char* device_name)
 	}
 
 	snd_ctl_elem_value_set_integer(state->pitch_elem, 0, 1000000);
+	CHECK(snd_ctl_elem_write(state->ctl, state->pitch_elem), "snd_ctl_elem_write");
 	state->last_rate = 1.0;
 
 	spa_log_info(state->log, "%s: found ctl %s", state->props.device, elem_name);

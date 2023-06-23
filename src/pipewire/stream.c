@@ -453,7 +453,8 @@ do_call_process(struct spa_loop *loop,
 static inline void call_process(struct stream *impl)
 {
 	pw_log_trace_fp("%p: call process rt:%u", impl, impl->process_rt);
-	if (impl->direction == SPA_DIRECTION_OUTPUT && update_requested(impl) <= 0)
+	if (impl->n_buffers == 0 ||
+	    (impl->direction == SPA_DIRECTION_OUTPUT && update_requested(impl) <= 0))
 		return;
 	if (impl->process_rt) {
 		if (impl->rt_callbacks.funcs)

@@ -331,6 +331,9 @@ int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix 
 
 	res = pw_impl_port_call_release_mix(port, mix);
 
+	if (port->destroying)
+		return res;
+
 	if ((res = spa_node_remove_port(port->mix, port->direction, port_id)) < 0 &&
 	    res != -ENOTSUP)
 		pw_log_warn("can't remove mix port %d: %s", port_id, spa_strerror(res));

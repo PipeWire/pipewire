@@ -499,7 +499,6 @@ parse_pw_debug_env(void)
 	const char *str;
 	char **tokens;
 	int n_tokens;
-	size_t slen;
 	char json[1024] = {0};
 	char *pos = json;
 	char *end = pos + sizeof(json) - 1;
@@ -507,7 +506,7 @@ parse_pw_debug_env(void)
 
 	str = getenv("PIPEWIRE_DEBUG");
 
-	if (!str || (slen = strlen(str)) == 0)
+	if (!str || !*str)
 		return NULL;
 
 	/* String format is PIPEWIRE_DEBUG=[<glob>:]<level>,...,

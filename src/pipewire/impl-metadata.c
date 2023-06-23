@@ -577,31 +577,17 @@ int pw_impl_metadata_set_propertyf(struct pw_impl_metadata *metadata,
 			const char *fmt, ...)
 {
 	va_list args;
-	int n = 0, res;
-	size_t size = 0;
-	char *p = NULL;
+	char *value;
+	int res;
 
 	va_start(args, fmt);
-	n = vsnprintf(p, size, fmt, args);
+	res = vasprintf(&value, fmt, args);
 	va_end(args);
-	if (n < 0)
+	if (res < 0)
 		return -errno;
 
-	size = (size_t) n + 1;
-	p = malloc(size);
-	if (p == NULL)
-		return -errno;
-
-	va_start(args, fmt);
-	n = vsnprintf(p, size, fmt, args);
-	va_end(args);
-
-	if (n < 0) {
-		free(p);
-		return -errno;
-	}
-	res = pw_impl_metadata_set_property(metadata, subject, key, type, p);
-	free(p);
+	res = pw_impl_metadata_set_property(metadata, subject, key, type, value);
+	free(value);
 
 	return res;
 }

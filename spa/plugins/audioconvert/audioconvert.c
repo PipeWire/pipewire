@@ -1893,11 +1893,13 @@ static int port_enum_formats(void *object,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
 				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		} else {
+			struct spa_pod_frame f[1];
 			uint32_t rate = this->io_position ?
 				this->io_position->clock.target_rate.denom : DEFAULT_RATE;
 
-			*param = spa_pod_builder_add_object(builder,
-				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+			spa_pod_builder_push_object(builder, &f[0],
+					SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+			spa_pod_builder_add(builder,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 				SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(25,
@@ -1926,10 +1928,18 @@ static int port_enum_formats(void *object,
 							SPA_AUDIO_FORMAT_U8,
 							SPA_AUDIO_FORMAT_ULAW,
 							SPA_AUDIO_FORMAT_ALAW),
-				SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
-					rate, 1, INT32_MAX),
+				0);
+			if (!this->props.resample_disabled) {
+				spa_pod_builder_add(builder,
+					SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
+						rate, 1, INT32_MAX),
+					0);
+			}
+			spa_pod_builder_add(builder,
 				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(
-					DEFAULT_CHANNELS, 1, SPA_AUDIO_MAX_CHANNELS));
+					DEFAULT_CHANNELS, 1, SPA_AUDIO_MAX_CHANNELS),
+				0);
+			*param = spa_pod_builder_pop(builder, &f[0]);
 		}
 		break;
 	default:
@@ -2205,7 +2215,7 @@ static int port_set_format(void *object,
 				return res;
 			}
 			if (info.info.raw.format == 0 ||
-			    info.info.raw.rate == 0 ||
+			    (!this->props.resample_disabled && info.info.raw.rate == 0) ||
 			    info.info.raw.channels == 0 ||
 			    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS) {
 				spa_log_error(this->log, "invalid format:%d rate:%d channels:%d",

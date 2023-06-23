@@ -519,6 +519,8 @@ int format_parse_param(const struct spa_pod *param, bool collect,
 			if (ss != NULL)
 				*ss = *def_ss;
 		} else {
+			if (info.info.raw.rate == 0)
+				info.info.raw.rate = 48000;
 			if (info.info.raw.format == 0 ||
 			    info.info.raw.rate == 0 ||
 			    info.info.raw.channels == 0 ||

@@ -96,7 +96,7 @@ _pw_log_topic_new(struct spa_log_topic *topic);
  */
 #define PW_LOG_TOPIC_STATIC(var, topic) \
   static struct spa_log_topic var##__LINE__ = SPA_LOG_TOPIC(0, topic); \
-  static struct spa_log_topic *(var) = &(var##__LINE__)
+  static struct spa_log_topic *var = &(var##__LINE__)
 
 /**
  * Declare a static log topic named \a var.
@@ -111,7 +111,7 @@ _pw_log_topic_new(struct spa_log_topic *topic);
  */
 #define PW_LOG_TOPIC(var, topic) \
   struct spa_log_topic var##__LINE__ = SPA_LOG_TOPIC(0, topic); \
-  struct spa_log_topic *(var) = &(var##__LINE__)
+  struct spa_log_topic *var = &(var##__LINE__)
 
 #define PW_LOG_TOPIC_INIT(var) \
    spa_log_topic_init(pw_log_get(), var);

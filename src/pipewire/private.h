@@ -1066,7 +1066,6 @@ struct pw_core {
 	struct pw_properties *properties;	/**< extra properties */
 
 	struct pw_mempool *pool;		/**< memory pool */
-	struct pw_core *core;			/**< proxy for the core object */
 	struct spa_hook core_listener;
 	struct spa_hook proxy_core_listener;
 

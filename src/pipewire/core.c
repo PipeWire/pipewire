@@ -24,7 +24,7 @@ static void core_event_ping(void *data, uint32_t id, int seq)
 {
 	struct pw_core *this = data;
 	pw_log_debug("%p: object %u ping %u", this, id, seq);
-	pw_core_pong(this->core, id, seq);
+	pw_core_pong(this, id, seq);
 }
 
 static void core_event_done(void *data, uint32_t id, int seq)
@@ -321,7 +321,6 @@ static struct pw_core *core_new(struct pw_context *context,
 	p->context = context;
 	p->properties = properties;
 	p->pool = pw_mempool_new(NULL);
-	p->core = p;
 	if (user_data_size > 0)
 		p->user_data = SPA_PTROFF(p, sizeof(struct pw_core), void);
 	p->proxy.user_data = p->user_data;

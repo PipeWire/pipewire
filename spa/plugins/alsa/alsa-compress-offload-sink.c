@@ -510,6 +510,8 @@ static void device_close(struct impl *this)
 	this->device_context = NULL;
 	this->device_started = false;
 	this->device_is_paused = false;
+
+	this->have_format = false;
 }
 
 static int device_start(struct impl *this)
@@ -918,11 +920,6 @@ static int do_start(struct impl *this)
 
 	if (this->started)
 		return 0;
-
-	if (!this->have_format)
-		return -EIO;
-	if (this->n_buffers == 0)
-		return -EIO;
 
 	this->following = is_following(this);
 	spa_log_debug(this->log, "%p: starting output; starting as follower: %d",
@@ -1357,8 +1354,14 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		break;
 
 	case SPA_NODE_COMMAND_Start:
+		if (!this->have_format)
+			return -EIO;
+		if (this->n_buffers == 0)
+			return -EIO;
+
 		if (SPA_UNLIKELY((res = do_start(this)) < 0))
 			return res;
+
 		break;
 
 	case SPA_NODE_COMMAND_Suspend:
@@ -1402,6 +1405,12 @@ static int port_enum_formats(struct impl *this, int seq, uint32_t start, uint32_
 	spa_log_debug(this->log, "%p: about to enumerate supported codecs: "
 	              "device opened: %d have configured format: %d device started: %d",
 	              this, device_opened, this->have_format, device_started);
+
+	if (!this->started && this->have_format) {
+		spa_log_debug(this->log, "%p: closing device to reset configured format", this);
+		device_close(this);
+		device_opened = false;
+	}
 
 	if (!device_opened) {
 		if ((res = device_open(this)) < 0)
@@ -1487,10 +1496,17 @@ next:
 		return port_enum_formats(this, seq, start, num, filter, &b);
 
 	case SPA_PARAM_Format:
-		if (!this->have_format)
+		if (!this->have_format) {
+			spa_log_debug(this->log, "%p: attempted to enumerate current "
+			              "format, but no current audio info set", this);
 			return -EIO;
+		}
+
 		if (result.index > 0)
 			return 0;
+
+		spa_log_debug(this->log, "%p: current audio info is set; "
+		              "enumerating currently set format", this);
 
 		param = spa_format_audio_build(&b, id, &this->current_audio_info);
 		break;
@@ -1557,8 +1573,6 @@ static int port_set_format(void *object,
 		spa_log_debug(this->log, "%p: clearing format and closing device", this);
 		device_close(this);
 		clear_buffers(this);
-
-		this->have_format = false;
 	} else {
 		struct spa_audio_info info = { 0 };
 		uint32_t rate;

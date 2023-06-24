@@ -56,8 +56,6 @@ struct module_combine_sink_data {
 
 	struct spa_source *sinks_timeout;
 
-	struct spa_audio_info_raw info;
-
 	unsigned int sinks_pending;
 	unsigned int load_emitted:1;
 	unsigned int start_error:1;
@@ -304,7 +302,6 @@ static int module_combine_sink_prepare(struct module * const module)
 	audioinfo_to_properties(&info, global_props);
 
 	d->module = module;
-	d->info = info;
 	d->sink_names = sink_names;
 	d->sinks_pending = (sink_names == NULL) ? 0 : num_sinks;
 	d->stream_props = stream_props;

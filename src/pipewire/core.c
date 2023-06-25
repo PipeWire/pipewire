@@ -317,7 +317,6 @@ static struct pw_core *core_new(struct pw_context *context,
 
 	pw_properties_add(properties, &context->properties->dict);
 
-	p->proxy.core = p;
 	p->context = context;
 	p->properties = properties;
 	p->pool = pw_mempool_new(NULL);
@@ -343,7 +342,7 @@ static struct pw_core *core_new(struct pw_context *context,
 	if (p->conn == NULL)
 		goto error_connection;
 
-	if ((res = pw_proxy_init(&p->proxy, PW_TYPE_INTERFACE_Core, PW_VERSION_CORE)) < 0)
+	if ((res = pw_proxy_init(&p->proxy, p, PW_TYPE_INTERFACE_Core, PW_VERSION_CORE)) < 0)
 		goto error_proxy;
 
 	p->client = (struct pw_client*)pw_proxy_new(&p->proxy,

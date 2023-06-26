@@ -1327,11 +1327,11 @@ again:
 			if ((t->want_driver && t->active && t->runnable) ||
 			    t->always_process) {
 				driver = target;
-				driver->runnable = true;
 				break;
 			}
 		}
 		if (driver != NULL) {
+			driver->runnable = true;
 			/* driver needed for this group */
 			move_to_driver(context, &collect, driver);
 		} else {

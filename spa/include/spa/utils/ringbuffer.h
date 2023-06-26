@@ -85,7 +85,7 @@ static inline int32_t spa_ringbuffer_get_read_index(struct spa_ringbuffer *rbuf,
  * \param len number of bytes to read
  */
 static inline void
-spa_ringbuffer_read_data(struct spa_ringbuffer *rbuf,
+spa_ringbuffer_read_data(struct spa_ringbuffer *rbuf SPA_UNUSED,
 			 const void *buffer, uint32_t size,
 			 uint32_t offset, void *data, uint32_t len)
 {
@@ -135,7 +135,7 @@ static inline int32_t spa_ringbuffer_get_write_index(struct spa_ringbuffer *rbuf
  * \param len number of bytes to write
  */
 static inline void
-spa_ringbuffer_write_data(struct spa_ringbuffer *rbuf,
+spa_ringbuffer_write_data(struct spa_ringbuffer *rbuf SPA_UNUSED,
 			  void *buffer, uint32_t size,
 			  uint32_t offset, const void *data, uint32_t len)
 {

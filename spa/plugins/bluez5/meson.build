@@ -118,16 +118,14 @@ endif
 
 if ldac_dep.found()
   ldac_args = codec_args
-  ldac_dep = [ ldac_dep ]
   if ldac_abr_dep.found()
     ldac_args += [ '-DENABLE_LDAC_ABR' ]
-    ldac_dep += ldac_abr_dep
   endif
   bluez_codec_ldac = shared_library('spa-codec-bluez5-ldac',
     [ 'a2dp-codec-ldac.c', 'media-codecs.c' ],
     include_directories : [ configinc ],
     c_args : ldac_args,
-    dependencies : [ spa_dep, ldac_dep ],
+    dependencies : [ spa_dep, ldac_dep, ldac_abr_dep ],
     install : true,
     install_dir : spa_plugindir / 'bluez5')
 endif
@@ -144,7 +142,6 @@ endif
 
 if get_option('bluez5-codec-opus').allowed() and opus_dep.found()
   opus_args = codec_args
-  opus_dep = [ opus_dep ]
   bluez_codec_opus = shared_library('spa-codec-bluez5-opus',
     [ 'a2dp-codec-opus.c', 'media-codecs.c' ],
     include_directories : [ configinc ],

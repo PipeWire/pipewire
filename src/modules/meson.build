@@ -203,7 +203,8 @@ endif
 summary({'ffado-driver': build_module_ffado_driver}, bool_yn: true, section: 'Optional Modules')
 
 opus_custom_h = cc.has_header('opus/opus_custom.h', dependencies: opus_dep)
-if opus_custom_h
+# One would imagine that opus_dep is a requirement but for some reason it's not, so we need to manually check that
+if opus_dep.found() and opus_custom_h
   opus_custom_dep = declare_dependency(compile_args: ['-DHAVE_OPUS_CUSTOM'], dependencies: opus_dep)
 else
   opus_custom_dep = dependency('', required: false)

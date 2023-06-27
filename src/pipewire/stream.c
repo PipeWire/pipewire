@@ -446,7 +446,8 @@ do_call_process(struct spa_loop *loop,
 	struct stream *impl = user_data;
 	struct pw_stream *stream = &impl->this;
 	pw_log_trace_fp("%p: do process", stream);
-	pw_stream_emit_process(stream);
+	if (!impl->disconnecting)
+		pw_stream_emit_process(stream);
 	return 0;
 }
 

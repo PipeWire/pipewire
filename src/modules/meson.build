@@ -11,6 +11,7 @@ module_sources = [
   'module-client-node.c',
   'module-combine-stream.c',
   'module-echo-cancel.c',
+  'module-example-filter.c',
   'module-example-sink.c',
   'module-example-source.c',
   'module-fallback-sink.c',
@@ -437,6 +438,15 @@ pipewire_module_protocol_simple = shared_library('pipewire-module-protocol-simpl
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
   dependencies : pipewire_module_protocol_deps,
+)
+
+pipewire_module_example_filter = shared_library('pipewire-module-example-filter',
+  [ 'module-example-filter.c' ],
+  include_directories : [configinc],
+  install : false,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
 )
 
 pipewire_module_example_sink = shared_library('pipewire-module-example-sink',

@@ -2263,6 +2263,7 @@ again:
 		if (SPA_UNLIKELY((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &frames)) < 0)) {
 			spa_log_error(state->log, "%s: snd_pcm_mmap_begin error: %s",
 					state->props.device, snd_strerror(res));
+			alsa_recover(state, res);
 			return res;
 		}
 		spa_log_trace_fp(state->log, "%p: begin offset:%ld avail:%ld threshold:%d",
@@ -2500,6 +2501,7 @@ int spa_alsa_read(struct state *state)
 		if ((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &to_read)) < 0) {
 			spa_log_error(state->log, "%s: snd_pcm_mmap_begin error: %s",
 					state->props.device, snd_strerror(res));
+			alsa_recover(state, res);
 			return res;
 		}
 		spa_log_trace_fp(state->log, "%p: begin offs:%ld frames:%ld to_read:%ld thres:%d", state,

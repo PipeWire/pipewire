@@ -378,6 +378,13 @@ enum pw_stream_flags {
 							  *  needs to be called. This can be used
 							  *  when the output of the stream depends
 							  *  on input from other streams. */
+	PW_STREAM_FLAG_ASYNC		= (1 << 10),	/**< Buffers will not be dequeued/queued from
+							  *  the realtime process() function. This is
+							  *  assumed when RT_PROCESS is unset but can
+							  *  also be the case when the process() function
+							  *  does a trigger_process() that will then
+							  *  dequeue/queue a buffer from another process()
+							  *  function. since 0.3.73 */
 };
 
 /** Create a new unconneced \ref pw_stream

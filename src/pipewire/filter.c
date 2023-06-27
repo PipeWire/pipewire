@@ -1632,7 +1632,9 @@ pw_filter_connect(struct pw_filter *filter,
 	impl->info = SPA_NODE_INFO_INIT();
 	impl->info.max_input_ports = UINT32_MAX;
 	impl->info.max_output_ports = UINT32_MAX;
-	impl->info.flags = impl->process_rt ? SPA_NODE_FLAG_RT : 0;
+	impl->info.flags = SPA_NODE_FLAG_RT;
+	if (!impl->process_rt || SPA_FLAG_IS_SET(flags, PW_FILTER_FLAG_ASYNC))
+		impl->info.flags |= SPA_NODE_FLAG_ASYNC;
 	impl->info.props = &filter->properties->dict;
 	impl->params[NODE_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, 0);
 	impl->params[NODE_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_WRITE);

@@ -1957,7 +1957,7 @@ pw_stream_connect(struct pw_stream *stream,
 	impl->info.flags = SPA_NODE_FLAG_RT;
 	/* if the callback was not marked RT_PROCESS, we will offload
 	 * the process callback in the main thread and we are ASYNC */
-	if (!impl->process_rt)
+	if (!impl->process_rt || SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_ASYNC))
 		impl->info.flags |= SPA_NODE_FLAG_ASYNC;
 	impl->info.props = &stream->properties->dict;
 	impl->params[NODE_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, 0);

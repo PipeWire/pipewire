@@ -109,6 +109,13 @@ enum pw_filter_flags {
 							  *  needs to be called. This can be used
 							  *  when the filter depends on processing
 							  *  of other filters. */
+	PW_FILTER_FLAG_ASYNC		= (1 << 5),	/**< Buffers will not be dequeued/queued from
+							  *  the realtime process() function. This is
+							  *  assumed when RT_PROCESS is unset but can
+							  *  also be the case when the process() function
+							  *  does a trigger_process() that will then
+							  *  dequeue/queue a buffer from another process()
+							  *  function. since 0.3.73 */
 };
 
 enum pw_filter_port_flags {

@@ -818,6 +818,7 @@ static int create_stream(struct stream_info *info)
 	} else {
 		direction = PW_DIRECTION_INPUT;
 		s->stream_events.process = stream_input_process;
+		flags |= PW_STREAM_FLAG_ASYNC;
 	}
 
 	pw_stream_add_listener(s->stream,

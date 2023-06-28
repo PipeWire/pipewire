@@ -1603,7 +1603,7 @@ static int parse_link(struct graph *graph, struct spa_json *json)
 	char output[256] = "";
 	char input[256] = "";
 	const char *val;
-	struct node *def_node;
+	struct node *def_in_node, *def_out_node;
 	struct port *in_port, *out_port;
 	struct link *link;
 
@@ -1628,16 +1628,25 @@ static int parse_link(struct graph *graph, struct spa_json *json)
 		else if (spa_json_next(json, &val) < 0)
 			break;
 	}
-	def_node = spa_list_first(&graph->node_list, struct node, link);
-	if ((out_port = find_port(def_node, output, FC_PORT_OUTPUT)) == NULL) {
-		pw_log_error("unknown output port %s", output);
+	def_out_node = spa_list_first(&graph->node_list, struct node, link);
+	def_in_node = spa_list_last(&graph->node_list, struct node, link);
+
+	out_port = find_port(def_out_node, output, FC_PORT_OUTPUT);
+	in_port = find_port(def_in_node, input, FC_PORT_INPUT);
+
+	if (out_port == NULL && out_port == NULL) {
+		/* try control ports */
+		out_port = find_port(def_out_node, output, FC_PORT_OUTPUT | FC_PORT_CONTROL);
+		in_port = find_port(def_in_node, input, FC_PORT_INPUT | FC_PORT_CONTROL);
+	}
+	if (in_port == NULL || out_port == NULL) {
+		if (out_port == NULL)
+			pw_log_error("unknown output port %s", output);
+		if (in_port == NULL)
+			pw_log_error("unknown input port %s", input);
 		return -ENOENT;
 	}
-	def_node = spa_list_last(&graph->node_list, struct node, link);
-	if ((in_port = find_port(def_node, input, FC_PORT_INPUT)) == NULL) {
-		pw_log_error("unknown input port %s", input);
-		return -ENOENT;
-	}
+
 	if (in_port->n_links > 0) {
 		pw_log_info("Can't have more than 1 link to %s, use a mixer", input);
 		return -ENOTSUP;
@@ -1935,9 +1944,20 @@ static int graph_instantiate(struct graph *graph)
 			for (j = 0; j < desc->n_control; j++) {
 				port = &node->control_port[j];
 				d->connect_port(node->hndl[i], port->p, &port->control_data);
+
+				spa_list_for_each(link, &port->link_list, input_link) {
+					struct port *peer = link->output;
+					pw_log_info("connect control port %s[%d]:%s %p",
+							node->name, i, d->ports[port->p].name,
+							&peer->control_data);
+					d->connect_port(node->hndl[i], port->p, &peer->control_data);
+				}
 			}
 			for (j = 0; j < desc->n_notify; j++) {
 				port = &node->notify_port[j];
+				pw_log_info("connect notify port %s[%d]:%s %p",
+						node->name, i, d->ports[port->p].name,
+						&port->control_data);
 				d->connect_port(node->hndl[i], port->p, &port->control_data);
 			}
 			if (d->activate)

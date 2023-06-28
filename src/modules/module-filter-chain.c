@@ -1180,12 +1180,12 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 		spa_zero(info);
 		if (param == NULL) {
 			graph_cleanup(graph);
+			impl->rate = 0;
 		} else {
 			if ((res = spa_format_audio_raw_parse(param, &info)) < 0)
 				goto error;
 		}
 		impl->info = info;
-		impl->rate = 0;
 		break;
 	}
 	case SPA_PARAM_Props:

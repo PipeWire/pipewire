@@ -518,6 +518,8 @@ static const struct spa_dict_item module_props[] = {
 #define MAX_HNDL 64
 #define MAX_SAMPLES 8192
 
+#define DEFAULT_RATE	48000
+
 static float silence_data[MAX_SAMPLES];
 static float discard_data[MAX_SAMPLES];
 
@@ -655,6 +657,10 @@ struct impl {
 	struct pw_stream *playback;
 	struct spa_hook playback_listener;
 	struct spa_audio_info_raw playback_info;
+
+	struct spa_audio_info_raw info;
+
+	struct spa_io_position *position;
 
 	unsigned int do_disconnect:1;
 
@@ -858,7 +864,7 @@ static struct spa_pod *get_prop_info(struct graph *graph, struct spa_pod_builder
 	struct fc_port *p = &d->ports[port->p];
 	float def, min, max;
 	char name[512];
-	uint32_t rate = impl->rate ? impl->rate : 48000;
+	uint32_t rate = impl->rate ? impl->rate : DEFAULT_RATE;
 
 	if (p->hint & FC_HINT_SAMPLE_RATE) {
 		def = p->def * rate;
@@ -1107,6 +1113,7 @@ static void state_changed(void *data, enum pw_stream_state old,
 {
 	struct impl *impl = data;
 	struct graph *graph = &impl->graph;
+	int res;
 
 	switch (state) {
 	case PW_STREAM_STATE_PAUSED:
@@ -1121,6 +1128,40 @@ static void state_changed(void *data, enum pw_stream_state old,
 	case PW_STREAM_STATE_ERROR:
 		pw_log_info("module %p: error: %s", impl, error);
 		break;
+	case PW_STREAM_STATE_STREAMING:
+	{
+		uint32_t target = impl->info.rate;
+		if (target == 0)
+			target = impl->position ?
+				impl->position->clock.target_rate.denom : DEFAULT_RATE;
+		if (target == 0) {
+			res = -EINVAL;
+			goto error;
+		}
+		if (impl->rate != target) {
+			impl->rate = target;
+			graph_cleanup(graph);
+			if ((res = graph_instantiate(graph)) < 0)
+				goto error;
+		}
+		break;
+	}
+	default:
+		break;
+	}
+	return;
+error:
+	pw_stream_set_error(impl->capture, res, "can't start graph: %s",
+			spa_strerror(res));
+}
+
+static void io_changed(void *data, uint32_t id, void *area, uint32_t size)
+{
+	struct impl *impl = data;
+	switch (id) {
+	case SPA_IO_Position:
+		impl->position = area;
+		break;
 	default:
 		break;
 	}
@@ -1134,22 +1175,19 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 
 	switch (id) {
 	case SPA_PARAM_Format:
+	{
+		struct spa_audio_info_raw info;
+		spa_zero(info);
 		if (param == NULL) {
 			graph_cleanup(graph);
 		} else {
-			struct spa_audio_info_raw info;
-			spa_zero(info);
 			if ((res = spa_format_audio_raw_parse(param, &info)) < 0)
 				goto error;
-			if (info.rate == 0) {
-				res = -EINVAL;
-				goto error;
-			}
-			impl->rate = info.rate;
-			if ((res = graph_instantiate(graph)) < 0)
-				goto error;
 		}
+		impl->info = info;
+		impl->rate = 0;
 		break;
+	}
 	case SPA_PARAM_Props:
 		if (param != NULL)
 			param_props_changed(impl, param);
@@ -1169,6 +1207,7 @@ static const struct pw_stream_events in_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = capture_destroy,
 	.process = capture_process,
+	.io_changed = io_changed,
 	.state_changed = state_changed,
 	.param_changed = param_changed
 };
@@ -1184,8 +1223,9 @@ static const struct pw_stream_events out_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = playback_destroy,
 	.process = playback_process,
+	.io_changed = io_changed,
 	.state_changed = state_changed,
-	.param_changed = param_changed
+	.param_changed = param_changed,
 };
 
 static int setup_streams(struct impl *impl)

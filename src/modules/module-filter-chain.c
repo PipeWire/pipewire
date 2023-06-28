@@ -1913,8 +1913,9 @@ static int graph_instantiate(struct graph *graph)
 
 		for (i = 0; i < node->n_hndl; i++) {
 			pw_log_info("instantiate %s %d rate:%lu", d->name, i, impl->rate);
+			errno = EINVAL;
 			if ((node->hndl[i] = d->instantiate(d, impl->rate, i, node->config)) == NULL) {
-				pw_log_error("cannot create plugin instance: %m");
+				pw_log_error("cannot create plugin instance %d rate:%lu: %m", i, impl->rate);
 				res = -errno;
 				goto error;
 			}

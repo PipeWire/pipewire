@@ -627,6 +627,8 @@ struct graph {
 
 	uint32_t n_control;
 	struct port **control_port;
+
+	unsigned instantiated:1;
 };
 
 struct impl {
@@ -1777,6 +1779,7 @@ static void node_cleanup(struct node *node)
 	for (i = 0; i < node->n_hndl; i++) {
 		if (node->hndl[i] == NULL)
 			continue;
+		pw_log_info("cleanup %s %d", d->name, i);
 		if (d->deactivate)
 			d->deactivate(node->hndl[i]);
 		d->cleanup(node->hndl[i]);
@@ -1826,6 +1829,9 @@ static void node_free(struct node *node)
 static void graph_cleanup(struct graph *graph)
 {
 	struct node *node;
+	if (!graph->instantiated)
+		return;
+	graph->instantiated = false;
 	spa_list_for_each(node, &graph->node_list, link)
 		node_cleanup(node);
 }
@@ -1840,6 +1846,11 @@ static int graph_instantiate(struct graph *graph)
 	const struct fc_descriptor *d;
 	uint32_t i, j;
 	int res;
+
+	if (graph->instantiated)
+		return 0;
+
+	graph->instantiated = true;
 
 	spa_list_for_each(node, &graph->node_list, link) {
 		float *sd = silence_data, *dd = discard_data;

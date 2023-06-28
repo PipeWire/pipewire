@@ -142,6 +142,8 @@ static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
+#define DEFAULT_RATE	48000
+
 #include <stdlib.h>
 #include <signal.h>
 #include <getopt.h>
@@ -180,7 +182,9 @@ struct impl {
 	unsigned int do_disconnect:1;
 	unsigned int recalc_delay:1;
 
-	struct spa_audio_info_raw delay_info;
+	struct spa_io_position *position;
+	struct spa_audio_info_raw info;
+	uint32_t rate;
 	float target_delay;
 	struct spa_ringbuffer buffer;
 	uint8_t *buffer_data;
@@ -196,7 +200,7 @@ static void capture_destroy(void *d)
 
 static void recalculate_delay(struct impl *impl)
 {
-	uint32_t target = impl->delay_info.rate * impl->target_delay, cdelay, pdelay;
+	uint32_t target = impl->rate * impl->target_delay, cdelay, pdelay;
 	uint32_t delay, w;
 	struct pw_time pwt;
 
@@ -332,6 +336,30 @@ static void param_latency_changed(struct impl *impl, const struct spa_pod *param
 	impl->recalc_delay = true;
 }
 
+static void recalculate_buffer(struct impl *impl)
+{
+	if (impl->target_delay > 0.0f) {
+		uint32_t delay = impl->rate * impl->target_delay;
+		void *data;
+
+		impl->buffer_size = (delay + (1u<<15)) * 4;
+		data = realloc(impl->buffer_data, impl->buffer_size * impl->info.channels);
+		if (data == NULL) {
+			pw_log_warn("can't allocate delay buffer, delay disabled: %m");
+			impl->buffer_size = 0;
+			free(impl->buffer_data);
+		}
+		impl->buffer_data = data;
+		spa_ringbuffer_init(&impl->buffer);
+	} else {
+		impl->buffer_size = 0;
+		free(impl->buffer_data);
+		impl->buffer_data = NULL;
+	}
+	pw_log_info("configured delay:%f buffer:%d", impl->target_delay, impl->buffer_size);
+	impl->recalc_delay = true;
+}
+
 static void stream_state_changed(void *data, enum pw_stream_state old,
 		enum pw_stream_state state, const char *error)
 {
@@ -349,33 +377,21 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 	case PW_STREAM_STATE_ERROR:
 		pw_log_info("module %p: error: %s", impl, error);
 		break;
+	case PW_STREAM_STATE_STREAMING:
+	{
+		uint32_t target = impl->info.rate;
+		if (target == 0)
+			target = impl->position ?
+				impl->position->clock.target_rate.denom : DEFAULT_RATE;
+		if (impl->rate != target) {
+			impl->rate = target;
+			recalculate_buffer(impl);
+		}
+		break;
+	}
 	default:
 		break;
 	}
-}
-
-static void recalculate_buffer(struct impl *impl)
-{
-	if (impl->target_delay > 0.0f) {
-		uint32_t delay = impl->delay_info.rate * impl->target_delay;
-		void *data;
-
-		impl->buffer_size = (delay + (1u<<15)) * 4;
-		data = realloc(impl->buffer_data, impl->buffer_size * impl->delay_info.channels);
-		if (data == NULL) {
-			pw_log_warn("can't allocate delay buffer, delay disabled: %m");
-			impl->buffer_size = 0;
-			free(impl->buffer_data);
-		}
-		impl->buffer_data = data;
-		spa_ringbuffer_init(&impl->buffer);
-	} else {
-		impl->buffer_size = 0;
-		free(impl->buffer_data);
-		impl->buffer_data = NULL;
-	}
-	pw_log_info("configured delay:%f buffer:%d", impl->target_delay, impl->buffer_size);
-	impl->recalc_delay = true;
 }
 
 static void capture_param_changed(void *data, uint32_t id, const struct spa_pod *param)
@@ -386,21 +402,31 @@ static void capture_param_changed(void *data, uint32_t id, const struct spa_pod 
 	case SPA_PARAM_Format:
 	{
 		struct spa_audio_info_raw info;
-		if (param == NULL)
-			return;
-		if (spa_format_audio_raw_parse(param, &info) < 0)
-			return;
-		if (info.rate == 0 ||
-		    info.channels == 0 ||
-		    info.channels > SPA_AUDIO_MAX_CHANNELS)
-			return;
-
-		impl->delay_info = info;
-		recalculate_buffer(impl);
+		spa_zero(info);
+		if (param != NULL) {
+			if (spa_format_audio_raw_parse(param, &info) < 0 ||
+			    info.channels == 0 ||
+			    info.channels > SPA_AUDIO_MAX_CHANNELS)
+				return;
+		}
+		impl->rate = 0;
+		impl->info = info;
 		break;
 	}
 	case SPA_PARAM_Latency:
 		param_latency_changed(impl, param, &impl->capture_latency, impl->playback);
+		break;
+	}
+}
+
+static void io_changed(void *data, uint32_t id, void *area, uint32_t size)
+{
+	struct impl *impl = data;
+	switch (id) {
+	case SPA_IO_Position:
+		impl->position = area;
+		break;
+	default:
 		break;
 	}
 }
@@ -411,6 +437,7 @@ static const struct pw_stream_events in_stream_events = {
 	.process = capture_process,
 	.state_changed = stream_state_changed,
 	.param_changed = capture_param_changed,
+	.io_changed = io_changed,
 };
 
 static void playback_destroy(void *d)
@@ -436,6 +463,7 @@ static const struct pw_stream_events out_stream_events = {
 	.process = playback_process,
 	.state_changed = stream_state_changed,
 	.param_changed = playback_param_changed,
+	.io_changed = io_changed,
 };
 
 static int setup_streams(struct impl *impl)

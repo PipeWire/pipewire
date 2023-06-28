@@ -3529,10 +3529,11 @@ static int fill_card_info(struct client *client, struct message *m,
 {
 	struct pw_manager *manager = client->manager;
 	struct pw_device_info *info = o->info;
-	const char *str, *drv_name;
+	const char *str, *drv_name, *card_name;
 	uint32_t module_id = SPA_ID_INVALID, n_profiles, n;
 	struct card_info card_info = CARD_INFO_INIT;
 	struct profile_info *profile_info;
+	char name[128];
 
 	if (!pw_manager_object_is_card(o) || info == NULL || info->props == NULL)
 		return -ENOENT;
@@ -3544,9 +3545,17 @@ static int fill_card_info(struct client *client, struct message *m,
 	if (drv_name && spa_streq("bluez5", drv_name))
 		drv_name = "module-bluez5-device.c"; /* blueman needs this */
 
+	card_name = spa_dict_lookup(info->props, PW_KEY_DEVICE_NAME);
+	if (card_name == NULL)
+		card_name = spa_dict_lookup(info->props, "api.alsa.card.name");
+	if (card_name == NULL) {
+		snprintf(name, sizeof(name), "card_%u", o->index);
+		card_name = name;
+	}
+
 	message_put(m,
 		TAG_U32, o->index,			/* card index */
-		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_DEVICE_NAME),
+		TAG_STRING, card_name,
 		TAG_U32, id_to_index(manager, module_id),
 		TAG_STRING, drv_name,
 		TAG_INVALID);

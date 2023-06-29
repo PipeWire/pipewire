@@ -523,6 +523,11 @@ static const struct spa_dict_item module_props[] = {
 static float silence_data[MAX_SAMPLES];
 static float discard_data[MAX_SAMPLES];
 
+struct fc_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t n_support,
+		struct dsp_ops *dsp, const char *path, const char *config);
+struct fc_plugin *load_builtin_plugin(const struct spa_support *support, uint32_t n_support,
+		struct dsp_ops *dsp, const char *path, const char *config);
+
 struct plugin {
 	struct spa_list link;
 	int ref;
@@ -531,6 +536,13 @@ struct plugin {
 
 	struct fc_plugin *plugin;
 	struct spa_list descriptor_list;
+};
+
+struct plugin_func {
+	struct spa_list link;
+	char type[256];
+	fc_plugin_load_func *func;
+	void *hndl;
 };
 
 struct descriptor {
@@ -647,6 +659,7 @@ struct impl {
 	struct dsp_ops dsp;
 
 	struct spa_list plugin_list;
+	struct spa_list plugin_func_list;
 
 	struct pw_properties *capture_props;
 	struct pw_stream *capture;
@@ -1348,12 +1361,92 @@ static void plugin_unref(struct plugin *hndl)
 	free(hndl);
 }
 
+
+static struct plugin_func *add_plugin_func(struct impl *impl, const char *type,
+		fc_plugin_load_func *func, void *hndl)
+{
+	struct plugin_func *pl;
+
+	pl = calloc(1, sizeof(*pl));
+	if (pl == NULL)
+		return NULL;
+
+	snprintf(pl->type, sizeof(pl->type), "%s", type);
+	pl->func = func;
+	pl->hndl = hndl;
+	spa_list_append(&impl->plugin_func_list, &pl->link);
+	return pl;
+}
+
+static void free_plugin_func(struct plugin_func *pl)
+{
+	spa_list_remove(&pl->link);
+	if (pl->hndl)
+		dlclose(pl->hndl);
+	free(pl);
+}
+
+static fc_plugin_load_func *find_plugin_func(struct impl *impl, const char *type)
+{
+	fc_plugin_load_func *func = NULL;
+	void *hndl = NULL;
+	int res;
+	struct plugin_func *pl;
+	char module[PATH_MAX];
+	const char *module_dir;
+	const char *state = NULL, *p;
+	size_t len;
+
+	spa_list_for_each(pl, &impl->plugin_func_list, link) {
+		if (spa_streq(pl->type, type))
+			return pl->func;
+	}
+	module_dir = getenv("PIPEWIRE_MODULE_DIR");
+	if (module_dir == NULL)
+		module_dir = MODULEDIR;
+	pw_log_debug("moduledir set to: %s", module_dir);
+
+	while ((p = pw_split_walk(module_dir, ":", &len, &state))) {
+		if ((res = spa_scnprintf(module, sizeof(module),
+				"%.*s/libpipewire-module-filter-chain-%s.so",
+						(int)len, p, type)) <= 0)
+			continue;
+
+		hndl = dlopen(module, RTLD_NOW | RTLD_LOCAL);
+		if (hndl != NULL)
+			break;
+
+		pw_log_debug("open plugin module %s failed: %s", module, dlerror());
+	}
+	if (hndl == NULL) {
+		errno = ENOENT;
+		return NULL;
+	}
+	func = dlsym(hndl, FC_PLUGIN_LOAD_FUNC);
+	if (func != NULL) {
+		pw_log_info("opened plugin module %s", module);
+		pl = add_plugin_func(impl, type, func, hndl);
+		if (pl == NULL)
+			goto error_close;
+	} else {
+		errno = ENOSYS;
+		pw_log_error("%s is not a filter chain plugin: %m", module);
+		goto error_close;
+	}
+	return func;
+
+error_close:
+	dlclose(hndl);
+	return NULL;
+}
+
 static struct plugin *plugin_load(struct impl *impl, const char *type, const char *path)
 {
 	struct fc_plugin *pl = NULL;
 	struct plugin *hndl;
 	const struct spa_support *support;
 	uint32_t n_support;
+	fc_plugin_load_func *plugin_func;
 
 	spa_list_for_each(hndl, &impl->plugin_list, link) {
 		if (spa_streq(hndl->type, type) &&
@@ -1364,27 +1457,12 @@ static struct plugin *plugin_load(struct impl *impl, const char *type, const cha
 	}
 	support = pw_context_get_support(impl->context, &n_support);
 
-	if (spa_streq(type, "builtin")) {
-		pl = load_builtin_plugin(support, n_support, &impl->dsp, path, NULL);
-	}
-	else if (spa_streq(type, "sofa")) {
-		pl = load_sofa_plugin(support, n_support, &impl->dsp, path, NULL);
-	}
-	else if (spa_streq(type, "ladspa")) {
-		pl = load_ladspa_plugin(support, n_support, &impl->dsp, path, NULL);
-	}
-	else if (spa_streq(type, "lv2")) {
-#ifdef HAVE_LILV
-		pl = load_lv2_plugin(support, n_support, &impl->dsp, path, NULL);
-#else
-		pw_log_error("filter-chain is compiled without lv2 support");
+	plugin_func = find_plugin_func(impl, type);
+	if (plugin_func == NULL) {
+		pw_log_error("can't load plugin type '%s': %m", type);
 		pl = NULL;
-		errno = ENOTSUP;
-#endif
 	} else {
-		pw_log_error("invalid plugin type '%s'", type);
-		pl = NULL;
-		errno = EINVAL;
+		pl = plugin_func(support, n_support, &impl->dsp, path, NULL);
 	}
 	if (pl == NULL)
 		goto exit;
@@ -1397,7 +1475,7 @@ static struct plugin *plugin_load(struct impl *impl, const char *type, const cha
 	snprintf(hndl->type, sizeof(hndl->type), "%s", type);
 	snprintf(hndl->path, sizeof(hndl->path), "%s", path);
 
-	pw_log_info("successfully opened '%s'", path);
+	pw_log_info("successfully opened '%s':'%s'", type, path);
 
 	hndl->plugin = pl;
 
@@ -2374,6 +2452,8 @@ static const struct pw_proxy_events core_proxy_events = {
 
 static void impl_destroy(struct impl *impl)
 {
+	struct plugin_func *pl;
+
 	/* disconnect both streams before destroying any of them */
 	if (impl->capture)
 		pw_stream_disconnect(impl->capture);
@@ -2391,6 +2471,8 @@ static void impl_destroy(struct impl *impl)
 	pw_properties_free(impl->capture_props);
 	pw_properties_free(impl->playback_props);
 	graph_free(&impl->graph);
+	spa_list_consume(pl, &impl->plugin_func_list, link)
+		free_plugin_func(pl);
 	free(impl);
 }
 
@@ -2502,6 +2584,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->graph.impl = impl;
 
 	spa_list_init(&impl->plugin_list);
+	spa_list_init(&impl->plugin_func_list);
+
+	add_plugin_func(impl, "builtin", load_builtin_plugin, NULL);
+	add_plugin_func(impl, "ladspa", load_ladspa_plugin, NULL);
 
 	support = pw_context_get_support(impl->context, &n_support);
 

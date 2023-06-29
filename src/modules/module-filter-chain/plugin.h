@@ -7,14 +7,8 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <errno.h>
-#include <stdio.h>
-#include <limits.h>
 
 #include <spa/support/plugin.h>
-#include <spa/utils/defs.h>
-#include <spa/utils/list.h>
-#include <spa/utils/string.h>
 
 #include "dsp-ops.h"
 
@@ -83,13 +77,10 @@ static inline void fc_descriptor_free(const struct fc_descriptor *desc)
 		desc->free(desc);
 }
 
-struct fc_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t n_support,
+#define FC_PLUGIN_LOAD_FUNC "pipewire__filter_chain_plugin_load"
+
+typedef struct fc_plugin *(fc_plugin_load_func)(const struct spa_support *support, uint32_t n_support,
 		struct dsp_ops *dsp, const char *path, const char *config);
-struct fc_plugin *load_lv2_plugin(const struct spa_support *support, uint32_t n_support,
-		struct dsp_ops *dsp, const char *path, const char *config);
-struct fc_plugin *load_builtin_plugin(const struct spa_support *support, uint32_t n_support,
-		struct dsp_ops *dsp, const char *path, const char *config);
-struct fc_plugin *load_sofa_plugin(const struct spa_support *support, uint32_t n_support,
-		struct dsp_ops *dsp, const char *path, const char *config);
+
 
 #endif /* PLUGIN_H */

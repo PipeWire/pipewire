@@ -117,19 +117,11 @@ filter_chain_sources = [
   'module-filter-chain/biquad.c',
   'module-filter-chain/ladspa_plugin.c',
   'module-filter-chain/builtin_plugin.c',
-  'module-filter-chain/sofa_plugin.c',
   'module-filter-chain/convolver.c'
 ]
 filter_chain_dependencies = [
-  mathlib, dl_lib, pipewire_dep, sndfile_dep, audioconvert_dep, libmysofa_dep
+  mathlib, dl_lib, pipewire_dep, sndfile_dep, audioconvert_dep
 ]
-
-if lilv_lib.found()
-  filter_chain_sources += [
-    'module-filter-chain/lv2_plugin.c'
-  ]
-  filter_chain_dependencies += [ lilv_lib ]
-endif
 
 pipewire_module_filter_chain = shared_library('pipewire-module-filter-chain',
   filter_chain_sources,
@@ -140,6 +132,31 @@ pipewire_module_filter_chain = shared_library('pipewire-module-filter-chain',
   link_with : simd_dependencies,
   dependencies : filter_chain_dependencies,
 )
+
+if libmysofa_dep.found()
+pipewire_module_filter_chain_sofa = shared_library('pipewire-module-filter-chain-sofa',
+  [ 'module-filter-chain/sofa_plugin.c',
+    'module-filter-chain/convolver.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  link_with : simd_dependencies,
+  dependencies : [ filter_chain_dependencies, libmysofa_dep ]
+)
+endif
+
+if lilv_lib.found()
+pipewire_module_filter_chain_lv2 = shared_library('pipewire-module-filter-chain-lv2',
+  [ 'module-filter-chain/lv2_plugin.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [ filter_chain_dependencies, lilv_lib ]
+)
+endif
+
 
 pipewire_module_combine_stream = shared_library('pipewire-module-combine-stream',
   [ 'module-combine-stream.c' ],

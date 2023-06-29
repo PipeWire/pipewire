@@ -1,19 +1,20 @@
 #include "config.h"
 
+#include <limits.h>
+
 #include <spa/utils/json.h>
 #include <spa/support/loop.h>
 
 #include <pipewire/log.h>
+
 #include "plugin.h"
 #include "convolver.h"
 #include "dsp-ops.h"
 #include "pffft.h"
 
-#ifdef HAVE_LIBMYSOFA
 #include <mysofa.h>
 
 #define MAX_SAMPLES	8192u
-#endif
 
 static struct dsp_ops *dsp_ops;
 static struct spa_loop *data_loop;
@@ -25,9 +26,7 @@ struct spatializer_impl {
 	int n_samples, blocksize, tailsize;
 	float *tmp[2];
 
-#ifdef HAVE_LIBMYSOFA
 	struct MYSOFA_EASY *sofa;
-#endif
 	unsigned int interpolate:1;
 	struct convolver *l_conv[3];
 	struct convolver *r_conv[3];
@@ -36,7 +35,6 @@ struct spatializer_impl {
 static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
-#ifdef HAVE_LIBMYSOFA
 	struct spatializer_impl *impl;
 	struct spa_json it[2];
 	const char *val;
@@ -115,14 +113,8 @@ error:
 		mysofa_close_cached(impl->sofa);
 	free(impl);
 	return NULL;
-#else
-	pw_log_error("libmysofa is required for spatializer, but disabled at compile time");
-	errno = EINVAL;
-	return NULL;
-#endif
 }
 
-#ifdef HAVE_LIBMYSOFA
 static int
 do_switch(struct spa_loop *loop, bool async, uint32_t seq, const void *data,
 		size_t size, void *user_data)
@@ -205,11 +197,9 @@ do_free(struct spa_loop *loop, bool async, uint32_t seq, const void *data,
 		convolver_free(fd->item[1]);
 	return 0;
 }
-#endif
 
 static void spatializer_run(void * Instance, unsigned long SampleCount)
 {
-#ifdef HAVE_LIBMYSOFA
 	struct spatializer_impl *impl = Instance;
 
 	if (impl->interpolate) {
@@ -239,7 +229,6 @@ static void spatializer_run(void * Instance, unsigned long SampleCount)
 		convolver_run(impl->l_conv[0], impl->port[2], impl->port[0], SampleCount);
 		convolver_run(impl->r_conv[0], impl->port[2], impl->port[1], SampleCount);
 	}
-#endif
 }
 
 static void spatializer_connect_port(void * Instance, unsigned long Port,
@@ -261,10 +250,8 @@ static void spatializer_cleanup(void * Instance)
 		if (impl->r_conv[i])
 			convolver_free(impl->r_conv[i]);
 	}
-#ifdef HAVE_LIBMYSOFA
 	if (impl->sofa)
 		mysofa_close_cached(impl->sofa);
-#endif
 	free(impl->tmp[0]);
 	free(impl->tmp[1]);
 
@@ -273,10 +260,8 @@ static void spatializer_cleanup(void * Instance)
 
 static void spatializer_control_changed(void * Instance)
 {
-#ifdef HAVE_LIBMYSOFA
 	pw_log_info("control changed");
 	spatializer_reload(Instance);
-#endif
 }
 
 static void spatializer_deactivate(void * Instance)
@@ -361,7 +346,8 @@ static struct fc_plugin builtin_plugin = {
 	.make_desc = sofa_make_desc
 };
 
-struct fc_plugin *load_sofa_plugin(const struct spa_support *support, uint32_t n_support,
+SPA_EXPORT
+struct fc_plugin *pipewire__filter_chain_plugin_load(const struct spa_support *support, uint32_t n_support,
 		struct dsp_ops *dsp, const char *plugin, const char *config)
 {
 	dsp_ops = dsp;
@@ -372,4 +358,3 @@ struct fc_plugin *load_sofa_plugin(const struct spa_support *support, uint32_t n
 
 	return &builtin_plugin;
 }
-

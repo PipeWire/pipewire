@@ -295,7 +295,6 @@ summary({'sndfile': sndfile_dep.found()}, bool_yn: true, section: 'pw-cat/pw-pla
 cdata.set('HAVE_SNDFILE', sndfile_dep.found())
 libmysofa_dep = dependency('libmysofa', required : get_option('libmysofa'))
 summary({'libmysofa': libmysofa_dep.found()}, bool_yn: true, section: 'filter-chain')
-cdata.set('HAVE_LIBMYSOFA', libmysofa_dep.found())
 pulseaudio_dep = dependency('libpulse', required : get_option('libpulse'))
 summary({'libpulse': pulseaudio_dep.found()}, bool_yn: true, section: 'Streaming between daemons')
 avahi_dep = dependency('avahi-client', required : get_option('avahi'))
@@ -403,7 +402,6 @@ summary({'OpenSSL (for raop-sink)': openssl_lib.found()}, bool_yn: true)
 
 lilv_lib = dependency('lilv-0', required: get_option('lv2'))
 summary({'lilv (for lv2 plugins)': lilv_lib.found()}, bool_yn: true)
-cdata.set('HAVE_LILV', lilv_lib.found())
 
 libffado_dep = dependency('libffado', required: get_option('libffado'))
 summary({'ffado': libffado_dep.found()}, bool_yn: true)

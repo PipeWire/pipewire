@@ -6,6 +6,7 @@
 
 #include <dlfcn.h>
 #include <math.h>
+#include <limits.h>
 
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>

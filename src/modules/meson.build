@@ -131,7 +131,6 @@ if lilv_lib.found()
   filter_chain_dependencies += [ lilv_lib ]
 endif
 
-
 pipewire_module_filter_chain = shared_library('pipewire-module-filter-chain',
   filter_chain_sources,
   include_directories : [configinc],
@@ -141,10 +140,6 @@ pipewire_module_filter_chain = shared_library('pipewire-module-filter-chain',
   link_with : simd_dependencies,
   dependencies : filter_chain_dependencies,
 )
-
-pipewire_module_echo_cancel_sources = [
-  'module-echo-cancel.c',
-]
 
 pipewire_module_combine_stream = shared_library('pipewire-module-combine-stream',
   [ 'module-combine-stream.c' ],
@@ -156,7 +151,7 @@ pipewire_module_combine_stream = shared_library('pipewire-module-combine-stream'
 )
 
 pipewire_module_echo_cancel = shared_library('pipewire-module-echo-cancel',
-  pipewire_module_echo_cancel_sources,
+  [ 'module-echo-cancel.c' ],
   include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,

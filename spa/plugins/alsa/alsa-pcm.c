@@ -2028,9 +2028,18 @@ static int get_avail_htimestamp(struct state *state, uint64_t current_time, snd_
 
 		if (SPA_ABS(diff) < state->threshold) {
 			*delay += diff;
-		} else if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
-			spa_log_warn(state->log, "%s: (%d missed) impossible htimestamp diff:%"PRIi64,
-				state->props.device, missed, diff);
+			state->htimestamp_error = 0;
+		} else {
+			if (++state->htimestamp_error > MAX_HTIMESTAMP_ERROR) {
+				spa_log_error(state->log, "%s: wrong htimestamps from driver, disabling",
+					state->props.device);
+				state->htimestamp_error = 0;
+				state->htimestamp = false;
+			}
+			else if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+				spa_log_warn(state->log, "%s: (%d missed) impossible htimestamp diff:%"PRIi64,
+					state->props.device, missed, diff);
+			}
 		}
 	}
 	return SPA_MIN(avail, state->buffer_frames);

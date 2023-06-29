@@ -2014,7 +2014,12 @@ static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes
 
 		spa_log_trace_fp(state->log, "%"PRIu64" %"PRIu64" %"PRIi64, current_time, then, diff);
 
-		*delay += diff;
+		if (SPA_ABS(diff) < state->threshold) {
+			*delay += diff;
+		} else if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+			spa_log_warn(state->log, "%s: (%d missed) impossible htimestamp diff:%"PRIi64,
+				state->props.device, missed, diff);
+		}
 	}
 	return SPA_MIN(avail, state->buffer_frames);
 }

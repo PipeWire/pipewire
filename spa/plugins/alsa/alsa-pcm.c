@@ -128,6 +128,8 @@ static int alsa_set_param(struct state *state, const char *k, const char *s)
 		state->props.use_chmap = spa_atob(s);
 	} else if (spa_streq(k, "api.alsa.multi-rate")) {
 		state->multi_rate = spa_atob(s);
+	} else if (spa_streq(k, "api.alsa.htimestamp")) {
+		state->htimestamp = spa_atob(s);
 	} else if (spa_streq(k, "latency.internal.rate")) {
 		state->process_latency.rate = atoi(s);
 	} else if (spa_streq(k, "latency.internal.ns")) {
@@ -310,13 +312,21 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 	case 14:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.htimestamp"),
+			SPA_PROP_INFO_description, SPA_POD_String("Use hires timestamps"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(state->htimestamp),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 15:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("latency.internal.rate"),
 			SPA_PROP_INFO_description, SPA_POD_String("Internal latency in samples"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(state->process_latency.rate,
 				0, 65536),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 15:
+	case 16:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("latency.internal.ns"),
@@ -325,7 +335,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 				0LL, 2 * SPA_NSEC_PER_SEC),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 16:
+	case 17:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("clock.name"),
@@ -393,6 +403,9 @@ int spa_alsa_add_prop_params(struct state *state, struct spa_pod_builder *b)
 
 	spa_pod_builder_string(b, "api.alsa.multi-rate");
 	spa_pod_builder_bool(b, state->multi_rate);
+
+	spa_pod_builder_string(b, "api.alsa.htimestamp");
+	spa_pod_builder_bool(b, state->htimestamp);
 
 	spa_pod_builder_string(b, "latency.internal.rate");
 	spa_pod_builder_int(b, state->process_latency.rate);
@@ -490,6 +503,7 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 	snd_config_update_free_global();
 
 	state->multi_rate = true;
+	state->htimestamp = true;
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
@@ -1957,7 +1971,6 @@ recover:
 	return do_start(state);
 }
 
-#if 0
 static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes_t *delay)
 {
 	int res, missed;
@@ -1980,8 +1993,7 @@ static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes
 	return avail;
 }
 
-#else
-static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes_t *delay)
+static int get_avail_htimestamp(struct state *state, uint64_t current_time, snd_pcm_uframes_t *delay)
 {
 	int res, missed;
 	snd_pcm_uframes_t avail;
@@ -2023,7 +2035,6 @@ static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes
 	}
 	return SPA_MIN(avail, state->buffer_frames);
 }
-#endif
 
 static int get_status(struct state *state, uint64_t current_time, snd_pcm_uframes_t *avail,
 		snd_pcm_uframes_t *delay, snd_pcm_uframes_t *target)
@@ -2031,7 +2042,11 @@ static int get_status(struct state *state, uint64_t current_time, snd_pcm_uframe
 	int res;
 	snd_pcm_uframes_t a, d;
 
-	if ((res = get_avail(state, current_time, &d)) < 0)
+	if (state->htimestamp)
+		res = get_avail_htimestamp(state, current_time, &d);
+	else
+		res = get_avail(state, current_time, &d);
+	if (res < 0)
 		return res;
 
 	a = SPA_MIN(res, (int)state->buffer_frames);

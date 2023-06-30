@@ -1245,7 +1245,8 @@ static int fill_properties(struct data *data)
 		    *s == '\0')
 			continue;
 
-		pw_properties_set(data->props, table[c], s);
+		if (pw_properties_get(data->props, table[c]) == NULL)
+			pw_properties_set(data->props, table[c], s);
 	}
 
 	spa_zero(sfi);
@@ -1257,13 +1258,15 @@ static int fill_properties(struct data *data)
 	spa_zero(fi);
 	fi.format = sfi.format;
 	if (sf_command(data->file, SFC_GET_FORMAT_INFO, &fi, sizeof(fi)) == 0 && fi.name)
-		pw_properties_set(data->props, PW_KEY_MEDIA_FORMAT, fi.name);
+		if (pw_properties_get(data->props, PW_KEY_MEDIA_FORMAT) == NULL)
+			pw_properties_set(data->props, PW_KEY_MEDIA_FORMAT, fi.name);
 
 	s = pw_properties_get(data->props, PW_KEY_MEDIA_TITLE);
 	t = pw_properties_get(data->props, PW_KEY_MEDIA_ARTIST);
 	if (s && t)
-		pw_properties_setf(data->props, PW_KEY_MEDIA_NAME,
-				"'%s' / '%s'", s, t);
+		if (pw_properties_get(data->props, PW_KEY_MEDIA_NAME) == NULL)
+			pw_properties_setf(data->props, PW_KEY_MEDIA_NAME,
+					"'%s' / '%s'", s, t);
 
 	return 0;
 }
@@ -1494,10 +1497,10 @@ static int setup_properties(struct data *data)
 	const char *s;
 	unsigned int nom = 0;
 
-	if (data->quality >= 0)
+	if (data->quality >= 0 && pw_properties_get(data->props, "resample.quality") == NULL)
 		pw_properties_setf(data->props, "resample.quality", "%d", data->quality);
 
-	if (data->rate)
+	if (data->rate && pw_properties_get(data->props, PW_KEY_NODE_RATE) == NULL)
 		pw_properties_setf(data->props, PW_KEY_NODE_RATE, "1/%u", data->rate);
 
 	data->latency_unit = unit_none;
@@ -1551,7 +1554,7 @@ static int setup_properties(struct data *data)
 	if (data->verbose)
 		printf("rate:%d latency:%u (%.3fs)\n",
 				data->rate, nom, data->rate ? (double)nom/data->rate : 0.0f);
-	if (nom)
+	if (nom && pw_properties_get(data->props, PW_KEY_NODE_LATENCY) == NULL)
 		pw_properties_setf(data->props, PW_KEY_NODE_LATENCY, "%u/%u", nom, data->rate);
 
 	return 0;
@@ -1785,12 +1788,18 @@ int main(int argc, char *argv[])
 	}
 	data.filename = argv[optind++];
 
-	pw_properties_set(data.props, PW_KEY_MEDIA_TYPE, data.media_type);
-	pw_properties_set(data.props, PW_KEY_MEDIA_CATEGORY, data.media_category);
-	pw_properties_set(data.props, PW_KEY_MEDIA_ROLE, data.media_role);
-	pw_properties_set(data.props, PW_KEY_MEDIA_FILENAME, data.filename);
-	pw_properties_set(data.props, PW_KEY_MEDIA_NAME, data.filename);
-	pw_properties_set(data.props, PW_KEY_TARGET_OBJECT, data.target);
+	if (pw_properties_get(data.props, PW_KEY_MEDIA_TYPE) == NULL)
+		pw_properties_set(data.props, PW_KEY_MEDIA_TYPE, data.media_type);
+	if (pw_properties_get(data.props, PW_KEY_MEDIA_CATEGORY) == NULL)
+		pw_properties_set(data.props, PW_KEY_MEDIA_CATEGORY, data.media_category);
+	if (pw_properties_get(data.props, PW_KEY_MEDIA_ROLE) == NULL)
+		pw_properties_set(data.props, PW_KEY_MEDIA_ROLE, data.media_role);
+	if (pw_properties_get(data.props, PW_KEY_MEDIA_FILENAME) == NULL)
+		pw_properties_set(data.props, PW_KEY_MEDIA_FILENAME, data.filename);
+	if (pw_properties_get(data.props, PW_KEY_MEDIA_NAME) == NULL)
+		pw_properties_set(data.props, PW_KEY_MEDIA_NAME, data.filename);
+	if (pw_properties_get(data.props, PW_KEY_TARGET_OBJECT) == NULL)
+		pw_properties_set(data.props, PW_KEY_TARGET_OBJECT, data.target);
 
 	/* make a main loop. If you already have another main loop, you can add
 	 * the fd of this pipewire mainloop to it. */

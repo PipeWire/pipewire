@@ -28,7 +28,7 @@
 #define ifr_ifindex ifr_index
 #endif
 
-/** \page page_module_rtp_sap PipeWire Module: Announce and create RTP streams
+/** \page page_module_rtp_sap PipeWire Module: SAP Announce and create RTP streams
  *
  * The `rtp-sap` module announces RTP streams that match the rules with the
  * announce-stream action.

@@ -147,7 +147,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *
  * The mixer plugin has up to 8 input ports labeled "In 1" to "In 8" and each with
  * a gain control labeled "Gain 1" to "Gain 8". There is an output port labeled
- * "Out". Unused input ports will be ignoded and not cause overhead.
+ * "Out". Unused input ports will be ignored and not cause overhead.
  *
  * ### Copy
  *

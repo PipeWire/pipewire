@@ -22,17 +22,16 @@ void lr4_set(struct lr4 *lr4, enum biquad_type type, float freq)
 
 void lr4_process(struct lr4 *lr4, float *dst, const float *src, const float vol, int samples)
 {
-	float lx1 = lr4->x1;
-	float lx2 = lr4->x2;
-	float ly1 = lr4->y1;
-	float ly2 = lr4->y2;
-	float lz1 = lr4->z1;
-	float lz2 = lr4->z2;
-	float lb0 = lr4->bq.b0;
-	float lb1 = lr4->bq.b1;
-	float lb2 = lr4->bq.b2;
-	float la1 = lr4->bq.a1;
-	float la2 = lr4->bq.a2;
+	float x1 = lr4->x1;
+	float x2 = lr4->x2;
+	float y1 = lr4->y1;
+	float y2 = lr4->y2;
+	float b0 = lr4->bq.b0;
+	float b1 = lr4->bq.b1;
+	float b2 = lr4->bq.b2;
+	float a1 = lr4->bq.a1;
+	float a2 = lr4->bq.a2;
+	float x, y, z;
 	int i;
 
 	if (vol == 0.0f) {
@@ -47,24 +46,19 @@ void lr4_process(struct lr4 *lr4, float *dst, const float *src, const float vol,
 	}
 
 	for (i = 0; i < samples; i++) {
-		float x, y, z;
-		x = src[i];
-		y = lb0*x + lb1*lx1 + lb2*lx2 - la1*ly1 - la2*ly2;
-		z = lb0*y + lb1*ly1 + lb2*ly2 - la1*lz1 - la2*lz2;
-		lx2 = lx1;
-		lx1 = x;
-		ly2 = ly1;
-		ly1 = y;
-		lz2 = lz1;
-		lz1 = z;
+		x  = src[i];
+		y  = b0 * x          + x1;
+		x1 = b1 * x - a1 * y + x2;
+		x2 = b2 * x - a2 * y;
+		z  = b0 * y          + y1;
+		y1 = b1 * y - a1 * z + y2;
+		y2 = b2 * y - a2 * z;
 		dst[i] = z * vol;
 	}
 #define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
-	lr4->x1 = F(lx1);
-	lr4->x2 = F(lx2);
-	lr4->y1 = F(ly1);
-	lr4->y2 = F(ly2);
-	lr4->z1 = F(lz1);
-	lr4->z2 = F(lz2);
+	lr4->x1 = F(x1);
+	lr4->x2 = F(x2);
+	lr4->y1 = F(y1);
+	lr4->y2 = F(y2);
 #undef F
 }

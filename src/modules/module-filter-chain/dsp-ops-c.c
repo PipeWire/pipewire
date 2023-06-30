@@ -84,33 +84,27 @@ void dsp_mix_gain_c(struct dsp_ops *ops,
 void dsp_biquad_run_c(struct dsp_ops *ops, struct biquad *bq,
 		float *out, const float *in, uint32_t n_samples)
 {
-	float x1, x2, y1, y2;
+	float x, y, x1, x2;
 	float b0, b1, b2, a1, a2;
 	uint32_t i;
 
 	x1 = bq->x1;
 	x2 = bq->x2;
-	y1 = bq->y1;
-	y2 = bq->y2;
 	b0 = bq->b0;
 	b1 = bq->b1;
 	b2 = bq->b2;
 	a1 = bq->a1;
 	a2 = bq->a2;
 	for (i = 0; i < n_samples; i++) {
-		float x = in[i];
-		float y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+		x  = in[i];
+		y  = b0 * x          + x1;
+		x1 = b1 * x - a1 * y + x2;
+		x2 = b2 * x - a2 * y;
 		out[i] = y;
-		x2 = x1;
-		x1 = x;
-		y2 = y1;
-		y1 = y;
 	}
 #define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
 	bq->x1 = F(x1);
 	bq->x2 = F(x2);
-	bq->y1 = F(y1);
-	bq->y2 = F(y2);
 #undef F
 }
 

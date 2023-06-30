@@ -1736,8 +1736,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 			n_valid_formats++;
 		} else {
 			pw_log_warn("%p: unsupported format:%s rate:%d channels:%u",
-					impl, format_id2name(ss.format), ss.rate,
-					ss.channels);
+					impl, format_id2name(sfix.format), sfix.rate,
+					sfix.channels);
 		}
 	}
 
@@ -2001,8 +2001,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 			n_valid_formats++;
 		} else {
 			pw_log_warn("%p: unsupported format:%s rate:%d channels:%u",
-					impl, format_id2name(ss.format), ss.rate,
-					ss.channels);
+					impl, format_id2name(sfix.format), sfix.rate,
+					sfix.channels);
 		}
 	}
 	if (m->offset != m->length)

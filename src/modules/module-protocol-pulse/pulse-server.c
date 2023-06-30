@@ -1564,7 +1564,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	int res;
 	struct sample_spec ss, fix_ss;
 	struct channel_map map, fix_map;
-	uint32_t sink_index, syncid, rate = 0;
+	uint32_t sink_index, syncid, ss_rate = 0, rate = 0;
 	const char *sink_name;
 	struct buffer_attr attr = { 0 };
 	bool corked = false,
@@ -1712,7 +1712,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 					n_params++;
 					n_valid_formats++;
 					if (r > rate)
-						rate = r;
+						ss_rate = rate = r;
 				} else {
 					log_format_info(impl, SPA_LOG_LEVEL_WARN, &format);
 				}
@@ -1724,9 +1724,9 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 		struct sample_spec sfix = ss;
 		struct channel_map mfix = map;
 
-		rate = ss.rate;
-
+		ss_rate = ss.rate;
 		sample_spec_fix(&sfix, &mfix, &fix_ss, &fix_map, &props->dict);
+		rate = sfix.rate;
 
 		if (n_params < MAX_FORMATS &&
 		    (params[n_params] = format_build_param(&b,
@@ -1763,7 +1763,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 
 	if (rate != 0) {
 		struct spa_fraction lat;
-		fix_playback_buffer_attr(stream, &attr, rate, &lat);
+		fix_playback_buffer_attr(stream, &attr, ss_rate, &lat);
 		pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", rate);
 		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u",
 				lat.num, lat.denom);
@@ -1860,7 +1860,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	struct pw_properties *props = NULL;
 	uint8_t n_formats = 0;
 	struct stream *stream = NULL;
-	uint32_t n_params = 0, n_valid_formats = 0, flags, id, rate = 0;
+	uint32_t n_params = 0, n_valid_formats = 0, flags, id, ss_rate = 0, rate = 0;
 	const struct spa_pod *params[MAX_FORMATS];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
@@ -1966,7 +1966,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 					n_params++;
 					n_valid_formats++;
 					if (r > rate)
-						rate = r;
+						ss_rate = rate = r;
 				} else {
 					log_format_info(impl, SPA_LOG_LEVEL_WARN, &format);
 				}
@@ -1989,9 +1989,9 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 		struct sample_spec sfix = ss;
 		struct channel_map mfix = map;
 
-		rate = ss.rate;
-
+		ss_rate = ss.rate;
 		sample_spec_fix(&sfix, &mfix, &fix_ss, &fix_map, &props->dict);
+		rate = sfix.rate;
 
 		if (n_params < MAX_FORMATS &&
 		    (params[n_params] = format_build_param(&b,
@@ -2028,7 +2028,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 
 	if (rate != 0) {
 		struct spa_fraction lat;
-		fix_record_buffer_attr(stream, &attr, rate, &lat);
+		fix_record_buffer_attr(stream, &attr, ss_rate, &lat);
 		pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", rate);
 		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u",
 				lat.num, lat.denom);

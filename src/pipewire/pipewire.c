@@ -27,6 +27,7 @@
 
 #include "pipewire.h"
 #include "private.h"
+#include "i18n.h"
 
 #define MAX_SUPPORT	32
 

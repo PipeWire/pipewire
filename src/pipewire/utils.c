@@ -227,7 +227,7 @@ void pw_random(void *buf, size_t buflen)
 	}
 }
 
-void pw_random_init()
+void pw_random_init(void)
 {
 	unsigned int seed;
 	if (pw_getrandom(&seed, sizeof(seed), 0) < 0) {

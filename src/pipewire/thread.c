@@ -12,8 +12,8 @@
 #include <spa/utils/list.h>
 
 #include <pipewire/log.h>
-
-#include "thread.h"
+#include <pipewire/private.h>
+#include <pipewire/thread.h>
 
 #define CHECK(expression,label)						\
 do {									\

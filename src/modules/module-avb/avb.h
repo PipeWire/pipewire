@@ -5,6 +5,8 @@
 #ifndef PIPEWIRE_AVB_H
 #define PIPEWIRE_AVB_H
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

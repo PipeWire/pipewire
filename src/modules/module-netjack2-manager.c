@@ -730,21 +730,6 @@ static int create_filters(struct follower *follower)
 	return res;
 }
 
-
-static int
-do_schedule_destroy(struct spa_loop *loop,
-	bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct impl *impl = user_data;
-	pw_impl_module_schedule_destroy(impl->module);
-	return 0;
-}
-
-void module_schedule_destroy(struct impl *impl)
-{
-	pw_loop_invoke(impl->main_loop, do_schedule_destroy, 1, NULL, 0, false, impl);
-}
-
 static int parse_address(const char *address, uint16_t port,
 		struct sockaddr_storage *addr, socklen_t *len)
 {

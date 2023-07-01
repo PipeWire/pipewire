@@ -2,6 +2,9 @@
 /* SPDX-FileCopyrightText: Copyright © 2021 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#ifndef PIPEWIRE_CONF_H
+#define PIPEWIRE_CONF_H
+
 #include <pipewire/context.h>
 
 /** \defgroup pw_conf Configuration
@@ -40,3 +43,5 @@ int pw_conf_section_match_rules(const struct spa_dict *conf, const char *section
 /**
  * \}
  */
+
+#endif /* PIPEWIRE_CONF_H */

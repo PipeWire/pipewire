@@ -79,60 +79,60 @@ bool mm_send_dtmf(void *modemmanager, const char *dtmf, void *user_data, enum cm
 const char *mm_get_incoming_call_number(void *modemmanager);
 struct spa_list *mm_get_calls(void *modemmanager);
 #else
-void *mm_register(struct spa_log *log, void *dbus_connection, const struct spa_dict *info,
+static inline void *mm_register(struct spa_log *log, void *dbus_connection, const struct spa_dict *info,
                   const struct mm_ops *ops, void *user_data)
 {
 	return NULL;
 }
 
-void mm_unregister(void *data)
+static inline void mm_unregister(void *data)
 {
 }
 
-bool mm_is_available(void *modemmanager)
+static inline bool mm_is_available(void *modemmanager)
 {
 	return false;
 }
 
-unsigned int mm_supported_features(void)
+static inline unsigned int mm_supported_features(void)
 {
 	return 0;
 }
 
-bool mm_answer_call(void *modemmanager, void *user_data, enum cmee_error *error)
+static inline bool mm_answer_call(void *modemmanager, void *user_data, enum cmee_error *error)
 {
 	if (error)
 		*error = CMEE_OPERATION_NOT_SUPPORTED;
 	return false;
 }
 
-bool mm_hangup_call(void *modemmanager, void *user_data, enum cmee_error *error)
+static inline bool mm_hangup_call(void *modemmanager, void *user_data, enum cmee_error *error)
 {
 	if (error)
 		*error = CMEE_OPERATION_NOT_SUPPORTED;
 	return false;
 }
 
-bool mm_do_call(void *modemmanager, const char* number, void *user_data, enum cmee_error *error)
+static inline bool mm_do_call(void *modemmanager, const char* number, void *user_data, enum cmee_error *error)
 {
 	if (error)
 		*error = CMEE_OPERATION_NOT_SUPPORTED;
 	return false;
 }
 
-bool mm_send_dtmf(void *modemmanager, const char *dtmf, void *user_data, enum cmee_error *error)
+static inline bool mm_send_dtmf(void *modemmanager, const char *dtmf, void *user_data, enum cmee_error *error)
 {
 	if (error)
 		*error = CMEE_OPERATION_NOT_SUPPORTED;
 	return false;
 }
 
-const char *mm_get_incoming_call_number(void *modemmanager)
+static inline const char *mm_get_incoming_call_number(void *modemmanager)
 {
 	return NULL;
 }
 
-struct spa_list *mm_get_calls(void *modemmanager)
+static inline struct spa_list *mm_get_calls(void *modemmanager)
 {
 	return NULL;
 }

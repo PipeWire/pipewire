@@ -2,6 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "adp.h"
 #include "aecp-aem.h"
 #include "aecp-aem-descriptors.h"
 #include "internal.h"

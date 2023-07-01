@@ -12,6 +12,7 @@
 #include "commands.h"
 #include "message.h"
 #include "log.h"
+#include "reply.h"
 
 struct message *reply_new(const struct client *client, uint32_t tag)
 {

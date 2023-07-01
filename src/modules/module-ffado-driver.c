@@ -745,20 +745,6 @@ static void *ffado_process_thread(void *arg)
 	return NULL;
 }
 
-static int
-do_schedule_destroy(struct spa_loop *loop,
-	bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct impl *impl = user_data;
-	pw_impl_module_schedule_destroy(impl->module);
-	return 0;
-}
-
-void module_schedule_destroy(struct impl *impl)
-{
-	pw_loop_invoke(impl->main_loop, do_schedule_destroy, 1, NULL, 0, false, impl);
-}
-
 static int open_ffado_device(struct impl *impl)
 {
 	ffado_streaming_stream_type stream_type;

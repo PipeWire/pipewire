@@ -13,7 +13,7 @@ extern "C" {
 
 #define CLIENT_DEVICE_USAGE	"["PW_KEY_DEVICE_NAME"=<string>]"
 
-struct pw_device *
+struct pw_impl_device *
 pw_client_device_new(struct pw_resource *resource,
 		   struct pw_properties *properties);
 

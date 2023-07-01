@@ -17,6 +17,8 @@
 
 #include <pipewire/impl.h>
 
+#include "client-device.h"
+
 struct impl {
 	struct pw_context *context;
 	struct pw_impl_device *device;

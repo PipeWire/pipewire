@@ -2,6 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "avb.h"
 #include "internal.h"
 
 #include <spa/support/cpu.h>

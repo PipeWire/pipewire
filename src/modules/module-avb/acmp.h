@@ -75,5 +75,6 @@ struct avb_packet_acmp {
 #define AVB_PACKET_ACMP_GET_STATUS(p)			AVB_PACKET_GET_SUB2(&(p)->hdr)
 
 struct avb_acmp *avb_acmp_register(struct server *server);
+void avb_acmp_unregister(struct avb_acmp *acmp);
 
 #endif /* AVB_ACMP_H */

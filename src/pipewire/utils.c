@@ -16,6 +16,7 @@
 #include <pipewire/array.h>
 #include <pipewire/log.h>
 #include <pipewire/utils.h>
+#include <pipewire/private.h>
 
 /** Split a string based on delimiters
  * \param str a string to split

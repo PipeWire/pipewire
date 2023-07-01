@@ -160,12 +160,6 @@ const char *pw_proxy_get_type(struct pw_proxy *proxy, uint32_t *version)
 }
 
 SPA_EXPORT
-struct pw_core *pw_proxy_get_core(struct pw_proxy *proxy)
-{
-	return proxy->core;
-}
-
-SPA_EXPORT
 struct pw_protocol *pw_proxy_get_protocol(struct pw_proxy *proxy)
 {
 	if (proxy->core == NULL || proxy->core->conn == NULL)

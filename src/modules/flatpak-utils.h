@@ -5,6 +5,8 @@
 #ifndef FLATPAK_UTILS_H
 #define FLATPAK_UTILS_H
 
+#include "config.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>

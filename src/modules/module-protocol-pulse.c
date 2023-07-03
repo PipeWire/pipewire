@@ -194,6 +194,32 @@
  * VMs usually can't support the low latency settings that are possible on real
  * hardware.
  *
+ * ### Quirk options
+ *
+ *\code{.unparsed}
+ *     pulse.fix.format = "S16LE"
+ *\endcode
+ *
+ * When a stream uses the FIX_FORMAT flag, fixate the format to this value.
+ * Normally the format would be fixed to the sink/source that the stream connects
+ * to. When an invalid format (null or "") is set, the FIX_FORMAT flag is ignored.
+ *
+ *\code{.unparsed}
+ *     pulse.fix.rate = 48000
+ *\endcode
+ *
+ * When a stream uses the FIX_RATE flag, fixate the sample rate to this value.
+ * Normally the rate would be fixed to the sink/source that the stream connects
+ * to. When a 0 rate is set, the FIX_RATE flag is ignored.
+ *
+ *\code{.unparsed}
+ *     pulse.fix.position = "[ FL FR ]"
+ *\endcode
+ *
+ * When a stream uses the FIX_CHANNELS flag, fixate the channels to this value.
+ * Normally the channels would be fixed to the sink/source that the stream connects
+ * to. When an invalid position (null or "") is set, the FIX_CHANNELS flag is ignored.
+ *
  * ## Command execution
  *
  * As part of the server startup sequence, a set of commands can be executed.

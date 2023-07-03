@@ -243,24 +243,34 @@ void sample_spec_fix(struct sample_spec *ss, struct channel_map *map,
 {
 	const char *str;
 	if (fix_ss->format != 0) {
-		if ((str = spa_dict_lookup(props, "pulse.fix.format")) != NULL)
-			ss->format = format_name2id(str);
+		if ((str = spa_dict_lookup(props, "pulse.fix.format")) != NULL) {
+			uint32_t val = format_name2id(str);
+			if (val != SPA_AUDIO_FORMAT_UNKNOWN)
+				ss->format = val;
+		}
 		else
 			ss->format = fix_ss->format;
 		/* convert back and forth to convert potential planar to packed */
 		ss->format = format_pa2id(format_id2pa(ss->format));
 	}
 	if (fix_ss->rate != 0) {
-		if ((str = spa_dict_lookup(props, "pulse.fix.rate")) != NULL)
-			ss->rate = atoi(str);
+		if ((str = spa_dict_lookup(props, "pulse.fix.rate")) != NULL) {
+			uint32_t val = atoi(str);
+			if (val != 0)
+				ss->rate = val;
+		}
 		else
 			ss->rate = fix_ss->rate;
 		ss->rate = SPA_CLAMP(ss->rate, 0u, RATE_MAX);
 	}
 	if (fix_ss->channels != 0) {
 		if ((str = spa_dict_lookup(props, "pulse.fix.position")) != NULL) {
-			channel_map_parse_position(str, map);
-			ss->channels = map->channels;
+			struct channel_map val;
+			channel_map_parse_position(str, &val);
+			if (val.channels > 0) {
+				ss->channels = val.channels;
+				*map = val;
+			}
 		} else {
 			ss->channels = fix_ss->channels;
 			*map = *fix_map;

@@ -84,6 +84,7 @@ common_flags = [
   '-Wno-pedantic',
   '-Wdeprecated-declarations',
   '-Wunused-result',
+  '-Werror=return-type',
 ]
 
 cc_flags = common_flags + [

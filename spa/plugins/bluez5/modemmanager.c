@@ -771,7 +771,7 @@ bool mm_is_available(void *modemmanager)
 	return this->modem.path != NULL;
 }
 
-unsigned int mm_supported_features()
+unsigned int mm_supported_features(void)
 {
 	return SPA_BT_HFP_AG_FEATURE_REJECT_CALL | SPA_BT_HFP_AG_FEATURE_ENHANCED_CALL_STATUS;
 }

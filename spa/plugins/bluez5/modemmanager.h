@@ -71,7 +71,7 @@ void *mm_register(struct spa_log *log, void *dbus_connection, const struct spa_d
                   const struct mm_ops *ops, void *user_data);
 void mm_unregister(void *data);
 bool mm_is_available(void *modemmanager);
-unsigned int mm_supported_features();
+unsigned int mm_supported_features(void);
 bool mm_answer_call(void *modemmanager, void *user_data, enum cmee_error *error);
 bool mm_hangup_call(void *modemmanager, void *user_data, enum cmee_error *error);
 bool mm_do_call(void *modemmanager, const char* number, void *user_data, enum cmee_error *error);

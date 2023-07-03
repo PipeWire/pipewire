@@ -1489,7 +1489,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			}
 		}
 	}
-	if ((res = parse_address(str, port, &impl->src_addr, &impl->src_len)) < 0) {
+	if ((res = parse_address(str, 0, &impl->src_addr, &impl->src_len)) < 0) {
 		pw_log_error("invalid source.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}

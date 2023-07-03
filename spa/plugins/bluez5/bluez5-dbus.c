@@ -216,9 +216,7 @@ static void media_codec_switch_free(struct spa_bt_media_codec_switch *sw);
 // Name of battery, formatted as /org/freedesktop/pipewire/battery/org/bluez/hciX/dev_XX_XX_XX_XX_XX_XX
 static char *battery_get_name(const char *device_path)
 {
-	char *path = malloc(strlen(PIPEWIRE_BATTERY_PROVIDER) + strlen(device_path) + 1);
-	sprintf(path, PIPEWIRE_BATTERY_PROVIDER "%s", device_path);
-	return path;
+	return spa_aprintf(PIPEWIRE_BATTERY_PROVIDER "%s", device_path);
 }
 
 // Unregister virtual battery of device

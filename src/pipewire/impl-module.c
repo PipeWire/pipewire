@@ -75,7 +75,8 @@ static char *find_module(const char *path, const char *name, int level)
 		if (newpath == NULL)
 			break;
 
-		if (stat(newpath, &s) == 0 && S_ISDIR(s.st_mode))
+		if (entry->d_type == DT_DIR ||
+		    (entry->d_type == DT_UNKNOWN && stat(newpath, &s) == 0 && S_ISDIR(s.st_mode)))
 			filename = find_module(newpath, name, level - 1);
 
 		free(newpath);

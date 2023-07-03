@@ -11,6 +11,7 @@
 #include <math.h>
 
 #include <jack/jack.h>
+#include <jack/intclient.h>
 #include <jack/session.h>
 #include <jack/thread.h>
 #include <jack/midiport.h>

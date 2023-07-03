@@ -1990,59 +1990,49 @@ static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes
 		state->alsa_recovering = false;
 	}
 	*delay = avail;
-	return avail;
-}
 
-static int get_avail_htimestamp(struct state *state, uint64_t current_time, snd_pcm_uframes_t *delay)
-{
-	int res, missed;
-	snd_pcm_uframes_t avail;
-	snd_htimestamp_t tstamp;
-	uint64_t then;
+	if (state->htimestamp) {
+		snd_pcm_uframes_t havail;
+		snd_htimestamp_t tstamp;
+		uint64_t then;
 
-	avail = snd_pcm_avail(state->hndl);
-	if ((res = snd_pcm_htimestamp(state->hndl, &avail, &tstamp)) < 0) {
-		if ((res = alsa_recover(state, res)) < 0)
-			return res;
-		if ((res = snd_pcm_htimestamp(state->hndl, &avail, &tstamp)) < 0) {
+		if ((res = snd_pcm_htimestamp(state->hndl, &havail, &tstamp)) < 0) {
 			if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
 				spa_log_warn(state->log, "%s: (%d missed) snd_pcm_htimestamp error: %s",
 					state->props.device, missed, snd_strerror(res));
 			}
-			avail = state->threshold * 2;
+			return avail;
 		}
-	} else {
-		state->alsa_recovering = false;
-	}
-	*delay = avail;
+		avail = havail;
+		*delay = havail;
+		if ((then = SPA_TIMESPEC_TO_NSEC(&tstamp)) != 0) {
+			int64_t diff;
 
-	if ((then = SPA_TIMESPEC_TO_NSEC(&tstamp)) != 0) {
-		int64_t diff;
+			if (then < current_time)
+				diff = ((int64_t)(current_time - then)) * state->rate / SPA_NSEC_PER_SEC;
+			else
+				diff = -((int64_t)(then - current_time)) * state->rate / SPA_NSEC_PER_SEC;
 
-		if (then < current_time)
-			diff = ((int64_t)(current_time - then)) * state->rate / SPA_NSEC_PER_SEC;
-		else
-			diff = -((int64_t)(then - current_time)) * state->rate / SPA_NSEC_PER_SEC;
+			spa_log_trace_fp(state->log, "%"PRIu64" %"PRIu64" %"PRIi64, current_time, then, diff);
 
-		spa_log_trace_fp(state->log, "%"PRIu64" %"PRIu64" %"PRIi64, current_time, then, diff);
-
-		if (SPA_ABS(diff) < state->threshold) {
-			*delay += diff;
-			state->htimestamp_error = 0;
-		} else {
-			if (++state->htimestamp_error > MAX_HTIMESTAMP_ERROR) {
-				spa_log_error(state->log, "%s: wrong htimestamps from driver, disabling",
-					state->props.device);
+			if (SPA_ABS(diff) < state->threshold) {
+				*delay += diff;
 				state->htimestamp_error = 0;
-				state->htimestamp = false;
-			}
-			else if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
-				spa_log_warn(state->log, "%s: (%d missed) impossible htimestamp diff:%"PRIi64,
-					state->props.device, missed, diff);
+			} else {
+				if (++state->htimestamp_error > MAX_HTIMESTAMP_ERROR) {
+					spa_log_error(state->log, "%s: wrong htimestamps from driver, disabling",
+						state->props.device);
+					state->htimestamp_error = 0;
+					state->htimestamp = false;
+				}
+				else if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+					spa_log_warn(state->log, "%s: (%d missed) impossible htimestamp diff:%"PRIi64,
+						state->props.device, missed, diff);
+				}
 			}
 		}
 	}
-	return SPA_MIN(avail, state->buffer_frames);
+	return avail;
 }
 
 static int get_status(struct state *state, uint64_t current_time, snd_pcm_uframes_t *avail,
@@ -2051,11 +2041,7 @@ static int get_status(struct state *state, uint64_t current_time, snd_pcm_uframe
 	int res;
 	snd_pcm_uframes_t a, d;
 
-	if (state->htimestamp)
-		res = get_avail_htimestamp(state, current_time, &d);
-	else
-		res = get_avail(state, current_time, &d);
-	if (res < 0)
+	if ((res = get_avail(state, current_time, &d)) < 0)
 		return res;
 
 	a = SPA_MIN(res, (int)state->buffer_frames);

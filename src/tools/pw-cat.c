@@ -26,6 +26,7 @@
 #include <spa/utils/json.h>
 #include <spa/debug/types.h>
 
+#include <pipewire/cleanup.h>
 #include <pipewire/pipewire.h>
 #include <pipewire/i18n.h>
 #include <pipewire/extensions/metadata.h>
@@ -603,7 +604,6 @@ static unsigned int find_channel(const char *name)
 static int parse_channelmap(const char *channel_map, struct channelmap *map)
 {
 	int i, nch;
-	char **ch;
 
 	SPA_FOR_EACH_ELEMENT_VAR(maps, m) {
 		if (spa_streq(m->name, channel_map)) {
@@ -614,7 +614,7 @@ static int parse_channelmap(const char *channel_map, struct channelmap *map)
 		}
 	}
 
-	ch = pw_split_strv(channel_map, ",", SPA_AUDIO_MAX_CHANNELS, &nch);
+	spa_auto(pw_strv) ch = pw_split_strv(channel_map, ",", SPA_AUDIO_MAX_CHANNELS, &nch);
 	if (ch == NULL)
 		return -1;
 
@@ -623,7 +623,7 @@ static int parse_channelmap(const char *channel_map, struct channelmap *map)
 		int c = find_channel(ch[i]);
 		map->channels[i] = c;
 	}
-	pw_free_strv(ch);
+
 	return 0;
 }
 

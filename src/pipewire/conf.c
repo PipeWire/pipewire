@@ -28,6 +28,7 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 
+#include <pipewire/cleanup.h>
 #include <pipewire/impl.h>
 #include <pipewire/private.h>
 
@@ -345,7 +346,8 @@ int pw_conf_save_state(const char *prefix, const char *name, const struct pw_pro
 {
 	char path[PATH_MAX];
 	char *tmp_name;
-	int res, sfd, fd, count = 0;
+	spa_autoclose int sfd = -1;
+	int res, fd, count = 0;
 	FILE *f;
 
 	if ((sfd = open_write_dir(path, sizeof(path), prefix)) < 0)
@@ -354,9 +356,9 @@ int pw_conf_save_state(const char *prefix, const char *name, const struct pw_pro
 	tmp_name = alloca(strlen(name)+5);
 	sprintf(tmp_name, "%s.tmp", name);
 	if ((fd = openat(sfd, tmp_name,  O_CLOEXEC | O_CREAT | O_WRONLY | O_TRUNC, 0600)) < 0) {
-		pw_log_error("can't open file '%s': %m", tmp_name);
 		res = -errno;
-		goto error;
+		pw_log_error("can't open file '%s': %m", tmp_name);
+		return res;
 	}
 
 	f = fdopen(fd, "w");
@@ -366,46 +368,43 @@ int pw_conf_save_state(const char *prefix, const char *name, const struct pw_pro
 	fclose(f);
 
 	if (renameat(sfd, tmp_name, sfd, name) < 0) {
-		pw_log_error("can't rename temp file '%s': %m", tmp_name);
 		res = -errno;
-		goto error;
+		pw_log_error("can't rename temp file '%s': %m", tmp_name);
+		return res;
 	}
-	res = 0;
+
 	pw_log_info("%p: saved state '%s%s'", conf, path, name);
-error:
-	close(sfd);
-	return res;
+
+	return 0;
 }
 
 static int conf_load(const char *path, struct pw_properties *conf)
 {
 	char *data;
 	struct stat sbuf;
-	int fd, count;
+	int count;
 
-	if ((fd = open(path,  O_CLOEXEC | O_RDONLY)) < 0)
+	spa_autoclose int fd = open(path,  O_CLOEXEC | O_RDONLY);
+	if (fd < 0)
 		goto error;
 
 	if (fstat(fd, &sbuf) < 0)
-		goto error_close;
+		goto error;
 
 	if (sbuf.st_size > 0) {
 		if ((data = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED)
-			goto error_close;
+			goto error;
 
 		count = pw_properties_update_string(conf, data, sbuf.st_size);
 		munmap(data, sbuf.st_size);
 	} else {
 		count = 0;
 	}
-	close(fd);
 
 	pw_log_info("%p: loaded config '%s' with %d items", conf, path, count);
 
 	return 0;
 
-error_close:
-	close(fd);
 error:
 	pw_log_warn("%p: error loading config '%s': %m", conf, path);
 	return -errno;
@@ -455,7 +454,7 @@ int pw_conf_load_conf(const char *prefix, const char *name, struct pw_properties
 	char path[PATH_MAX];
 	char fname[PATH_MAX + 256];
 	int i, res, level = 0;
-	struct pw_properties *override = NULL;
+	spa_autoptr(pw_properties) override = NULL;
 	const char *dname;
 
 	if (name == NULL) {
@@ -510,7 +509,7 @@ int pw_conf_load_conf(const char *prefix, const char *name, struct pw_properties
 		}
 		free(entries);
 	}
-	pw_properties_free(override);
+
 	return 0;
 }
 
@@ -660,15 +659,14 @@ static int parse_modules(void *user_data, const char *location,
 	struct data *d = user_data;
 	struct pw_context *context = d->context;
 	struct spa_json it[4];
-	char key[512], *s;
+	char key[512];
 	int res = 0;
 
-	s = strndup(str, len);
+	spa_autofree char *s = strndup(str, len);
 	spa_json_init(&it[0], s, len);
 	if (spa_json_enter_array(&it[0], &it[1]) < 0) {
 		pw_log_error("config file error: context.modules is not an array");
-		res = -EINVAL;
-		goto exit;
+		return -EINVAL;
 	}
 
 	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
@@ -714,8 +712,7 @@ static int parse_modules(void *user_data, const char *location,
 
 		d->count++;
 	}
-exit:
-	free(s);
+
 	return res;
 }
 
@@ -761,15 +758,14 @@ static int parse_objects(void *user_data, const char *location,
 	struct data *d = user_data;
 	struct pw_context *context = d->context;
 	struct spa_json it[4];
-	char key[512], *s;
+	char key[512];
 	int res = 0;
 
-	s = strndup(str, len);
+	spa_autofree char *s = strndup(str, len);
 	spa_json_init(&it[0], s, len);
 	if (spa_json_enter_array(&it[0], &it[1]) < 0) {
 		pw_log_error("config file error: context.objects is not an array");
-		res = -EINVAL;
-		goto exit;
+		return -EINVAL;
 	}
 
 	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
@@ -815,8 +811,7 @@ static int parse_objects(void *user_data, const char *location,
 			break;
 		d->count++;
 	}
-exit:
-	free(s);
+
 	return res;
 }
 
@@ -880,15 +875,14 @@ static int parse_exec(void *user_data, const char *location,
 	struct data *d = user_data;
 	struct pw_context *context = d->context;
 	struct spa_json it[4];
-	char key[512], *s;
+	char key[512];
 	int res = 0;
 
-	s = strndup(str, len);
+	spa_autofree char *s = strndup(str, len);
 	spa_json_init(&it[0], s, len);
 	if (spa_json_enter_array(&it[0], &it[1]) < 0) {
 		pw_log_error("config file error: context.exec is not an array");
-		res = -EINVAL;
-		goto exit;
+		return -EINVAL;
 	}
 
 	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
@@ -926,8 +920,7 @@ static int parse_exec(void *user_data, const char *location,
 
 		d->count++;
 	}
-exit:
-	free(s);
+
 	return res;
 }
 

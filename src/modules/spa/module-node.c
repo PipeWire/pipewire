@@ -10,6 +10,7 @@
 #include <getopt.h>
 #include <limits.h>
 
+#include <pipewire/cleanup.h>
 #include <pipewire/impl.h>
 
 #include "spa-node.h"
@@ -52,8 +53,8 @@ SPA_EXPORT
 int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
 	struct pw_properties *props = NULL;
-	char **argv = NULL;
-	int n_tokens, res;
+	spa_auto(pw_strv) argv = NULL;
+	int n_tokens;
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_impl_node *node;
         struct node_data *data;
@@ -69,10 +70,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if (n_tokens == 2) {
 		props = pw_properties_new_string(argv[1]);
-		if (props == NULL) {
-			res = -errno;
-			goto error_exit_cleanup;
-		}
+		if (props == NULL)
+			return -errno;
 	}
 
 	node = pw_spa_node_load(context,
@@ -81,12 +80,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				props,
 				sizeof(struct node_data));
 
-	if (node == NULL) {
-		res = -errno;
-		goto error_exit_cleanup;
-	}
-
-	pw_free_strv(argv);
+	if (node == NULL)
+		return -errno;
 
 	data = pw_spa_node_get_user_data(node);
 	data->this = node;
@@ -101,10 +96,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	return 0;
 
 error_arguments:
-	res = -EINVAL;
 	pw_log_error("usage: module-spa-node " MODULE_USAGE);
-	goto error_exit_cleanup;
-error_exit_cleanup:
-	pw_free_strv(argv);
-	return res;
+	return -EINVAL;
 }

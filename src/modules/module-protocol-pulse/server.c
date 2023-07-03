@@ -28,6 +28,7 @@
 #include <spa/utils/defs.h>
 #include <spa/utils/json.h>
 #include <spa/utils/result.h>
+#include <pipewire/cleanup.h>
 #include <pipewire/pipewire.h>
 
 #include "client.h"
@@ -404,7 +405,7 @@ on_connect(void *data, int fd, uint32_t mask)
 		client_access = server->client_access;
 
 	if (server->addr.ss_family == AF_UNIX) {
-		char *app_id = NULL, *devices = NULL;
+		spa_autofree char *app_id = NULL, *devices = NULL;
 
 #ifdef SO_PRIORITY
 		val = 6;
@@ -443,8 +444,6 @@ on_connect(void *data, int fd, uint32_t mask)
 			else
 				pw_properties_set(client->props, PW_KEY_MEDIA_CATEGORY, NULL);
 		}
-		free(devices);
-		free(app_id);
 	}
 	else if (server->addr.ss_family == AF_INET || server->addr.ss_family == AF_INET6) {
 

@@ -11,6 +11,7 @@
 #include <spa/utils/list.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/string.h>
+#include <pipewire/cleanup.h>
 #include <pipewire/log.h>
 #include <pipewire/map.h>
 #include <pipewire/properties.h>
@@ -117,7 +118,8 @@ int module_unload(struct module *module)
 /** utils */
 void module_args_add_props(struct pw_properties *props, const char *str)
 {
-	char *s = strdup(str), *p = s, *e, f;
+	spa_autofree char *s = strdup(str);
+	char *p = s, *e, f;
 	const char *k, *v;
 	const struct str_map *map;
 
@@ -160,7 +162,6 @@ void module_args_add_props(struct pw_properties *props, const char *str)
 		}
 		pw_properties_set(props, k, v);
 	}
-	free(s);
 }
 
 int module_args_to_audioinfo_keys(struct impl *impl, struct pw_properties *props,

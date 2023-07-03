@@ -15,6 +15,7 @@
 
 #include <spa/utils/string.h>
 
+#include <pipewire/cleanup.h>
 #include "pipewire/impl.h"
 #include "pipewire/private.h"
 
@@ -38,7 +39,6 @@ static char *find_module(const char *path, const char *name, int level)
 	char *filename;
 	struct dirent *entry;
 	struct stat s;
-	DIR *dir;
 	int res;
 
 	filename = spa_aprintf("%s/%s.so", path, name);
@@ -57,7 +57,7 @@ static char *find_module(const char *path, const char *name, int level)
 	if (level <= 0)
 		return NULL;
 
-	dir = opendir(path);
+	spa_autoptr(DIR) dir = opendir(path);
 	if (dir == NULL) {
 		res = -errno;
 		pw_log_warn("could not open %s: %m", path);
@@ -66,28 +66,22 @@ static char *find_module(const char *path, const char *name, int level)
 	}
 
 	while ((entry = readdir(dir))) {
-		char *newpath;
-
 		if (spa_streq(entry->d_name, ".") || spa_streq(entry->d_name, ".."))
 			continue;
 
-		newpath = spa_aprintf("%s/%s", path, entry->d_name);
+		spa_autofree char *newpath = spa_aprintf("%s/%s", path, entry->d_name);
 		if (newpath == NULL)
 			break;
 
 		if (entry->d_type == DT_DIR ||
-		    (entry->d_type == DT_UNKNOWN && stat(newpath, &s) == 0 && S_ISDIR(s.st_mode)))
+		    (entry->d_type == DT_UNKNOWN && stat(newpath, &s) == 0 && S_ISDIR(s.st_mode))) {
 			filename = find_module(newpath, name, level - 1);
-
-		free(newpath);
-
-		if (filename != NULL)
-			break;
+			if (filename)
+				return filename;
+		}
 	}
 
-	closedir(dir);
-
-	return filename;
+	return NULL;
 }
 
 static int

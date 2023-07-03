@@ -22,6 +22,7 @@
 #include <glib.h>
 #endif
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
 #include <pipewire/log.h>
 
@@ -62,8 +63,8 @@ static int pw_check_flatpak(pid_t pid, char **app_id, char **devices)
 {
 #if defined(__linux__)
 	char root_path[2048];
-	int root_fd, info_fd, res;
 	struct stat stat_buf;
+	int res;
 
 	if (app_id)
 		*app_id = NULL;
@@ -71,8 +72,9 @@ static int pw_check_flatpak(pid_t pid, char **app_id, char **devices)
 		*devices = NULL;
 
 	snprintf(root_path, sizeof(root_path), "/proc/%d/root", (int)pid);
-	root_fd = openat (AT_FDCWD, root_path, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
-	if (root_fd == -1) {
+
+	spa_autoclose int root_fd = openat(AT_FDCWD, root_path, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
+	if (root_fd < 0) {
 		res = -errno;
 		if (res == -EACCES) {
 			struct statfs buf;
@@ -90,9 +92,9 @@ static int pw_check_flatpak(pid_t pid, char **app_id, char **devices)
 		pw_log_info("failed to open \"%s\": %s", root_path, spa_strerror(res));
 		return res;
 	}
-	info_fd = openat (root_fd, ".flatpak-info", O_RDONLY | O_CLOEXEC | O_NOCTTY);
-	close (root_fd);
-	if (info_fd == -1) {
+
+	spa_autoclose int info_fd = openat(root_fd, ".flatpak-info", O_RDONLY | O_CLOEXEC | O_NOCTTY);
+	if (info_fd < 0) {
 		if (errno == ENOENT) {
 			pw_log_debug("no .flatpak-info, client on the host");
 			/* No file => on the host */
@@ -128,7 +130,7 @@ static int pw_check_flatpak(pid_t pid, char **app_id, char **devices)
 			pw_log_error("PID %d .flatpak-info parsing failed: %s",
 					(int)pid, spa_strerror(res));
 	}
-	close(info_fd);
+
 	return 1;
 #else
 	return 0;

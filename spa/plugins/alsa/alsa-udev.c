@@ -14,6 +14,7 @@
 #include <libudev.h>
 #include <alsa/asoundlib.h>
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/type.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
@@ -228,27 +229,24 @@ static void unescape(const char *src, char *dst)
 
 static int check_device_pcm_class(const char *devname)
 {
-	FILE *f;
 	char path[PATH_MAX];
 	char buf[16];
 	size_t sz;
 
 	/* Check device class */
-	spa_scnprintf(path, sizeof(path), "/sys/class/sound/%s/pcm_class",
-			devname);
-	f = fopen(path, "re");
+	spa_scnprintf(path, sizeof(path), "/sys/class/sound/%s/pcm_class", devname);
+
+	spa_autoptr(FILE) f = fopen(path, "re");
 	if (f == NULL)
 		return -errno;
 	sz = fread(buf, 1, sizeof(buf) - 1, f);
 	buf[sz] = '\0';
-	fclose(f);
 	return spa_strstartswith(buf, "modem") ? -ENXIO : 0;
 }
 
 static int get_num_pcm_devices(unsigned int card_id)
 {
 	char prefix[32];
-	DIR *snd = NULL;
 	struct dirent *entry;
 	int num_dev = 0;
 	int res;
@@ -257,7 +255,8 @@ static int get_num_pcm_devices(unsigned int card_id)
 
 	spa_scnprintf(prefix, sizeof(prefix), "pcmC%uD", card_id);
 
-	if ((snd = opendir("/dev/snd")) == NULL)
+	spa_autoptr(DIR) snd = opendir("/dev/snd");
+	if (snd == NULL)
 		return -errno;
 
 	while ((errno = 0, entry = readdir(snd)) != NULL) {
@@ -271,20 +270,13 @@ static int get_num_pcm_devices(unsigned int card_id)
 			++num_dev;
 		}
 	}
-	if (errno != 0)
-		res = -errno;
-	else
-		res = num_dev;
 
-	closedir(snd);
-	return res;
+	return errno != 0 ? -errno : num_dev;
 }
 
 static int check_device_available(struct impl *this, struct device *device, int *num_pcm)
 {
 	char path[PATH_MAX];
-	DIR *card = NULL, *pcm = NULL;
-	FILE *f;
 	char buf[16];
 	size_t sz;
 	struct dirent *entry, *entry_pcm;
@@ -314,7 +306,8 @@ static int check_device_available(struct impl *this, struct device *device, int 
 
 	spa_scnprintf(path, sizeof(path), "/proc/asound/card%u", (unsigned int)device->id);
 
-	if ((card = opendir(path)) == NULL)
+	spa_autoptr(DIR) card = opendir(path);
+	if (card == NULL)
 		goto done;
 
 	while ((errno = 0, entry = readdir(card)) != NULL) {
@@ -330,7 +323,9 @@ static int check_device_available(struct impl *this, struct device *device, int 
 		/* Check busy status */
 		spa_scnprintf(path, sizeof(path), "/proc/asound/card%u/%s",
 				(unsigned int)device->id, entry->d_name);
-		if ((pcm = opendir(path)) == NULL)
+
+		spa_autoptr(DIR) pcm = opendir(path);
+		if (pcm == NULL)
 			goto done;
 
 		while ((errno = 0, entry_pcm = readdir(pcm)) != NULL) {
@@ -341,12 +336,11 @@ static int check_device_available(struct impl *this, struct device *device, int 
 			spa_scnprintf(path, sizeof(path), "/proc/asound/card%u/%s/%s/status",
 					(unsigned int)device->id, entry->d_name, entry_pcm->d_name);
 
-			f = fopen(path, "re");
+			spa_autoptr(FILE) f = fopen(path, "re");
 			if (f == NULL)
 				goto done;
 			sz = fread(buf, 1, 6, f);
 			buf[sz] = '\0';
-			fclose(f);
 
 			if (!spa_strstartswith(buf, "closed")) {
 				spa_log_debug(this->log, "card %u pcm device %s busy",
@@ -359,9 +353,6 @@ static int check_device_available(struct impl *this, struct device *device, int 
 		}
 		if (errno != 0)
 			goto done;
-
-		closedir(pcm);
-		pcm = NULL;
 	}
 	if (errno != 0)
 		goto done;
@@ -371,10 +362,7 @@ done:
 		spa_log_info(this->log, "card %u: failed to find busy status (%s)",
 				(unsigned int)device->id, spa_strerror(-errno));
 	}
-	if (card)
-		closedir(card);
-	if (pcm)
-		closedir(pcm);
+
 	return res;
 }
 
@@ -519,7 +507,7 @@ static int emit_object_info(struct impl *this, struct device *device)
 static bool check_access(struct impl *this, struct device *device)
 {
 	char path[128], prefix[32];
-	DIR *snd = NULL;
+	spa_autoptr(DIR) snd = NULL;
 	struct dirent *entry;
 	bool accessible = false;
 
@@ -544,7 +532,6 @@ static bool check_access(struct impl *this, struct device *device)
 				break;
 			}
 		}
-		closedir(snd);
 	}
 
 	if (accessible != device->accessible)

@@ -7,6 +7,7 @@
 #include <spa/debug/types.h>
 #include <spa/utils/string.h>
 
+#include <pipewire/cleanup.h>
 #include "pipewire/impl.h"
 #include "pipewire/private.h"
 
@@ -576,8 +577,8 @@ int pw_impl_metadata_set_propertyf(struct pw_impl_metadata *metadata,
 			uint32_t subject, const char *key, const char *type,
 			const char *fmt, ...)
 {
+	spa_autofree char *value = NULL;
 	va_list args;
-	char *value;
 	int res;
 
 	va_start(args, fmt);
@@ -586,8 +587,5 @@ int pw_impl_metadata_set_propertyf(struct pw_impl_metadata *metadata,
 	if (res < 0)
 		return -errno;
 
-	res = pw_impl_metadata_set_property(metadata, subject, key, type, value);
-	free(value);
-
-	return res;
+	return pw_impl_metadata_set_property(metadata, subject, key, type, value);
 }

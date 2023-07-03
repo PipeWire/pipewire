@@ -18,6 +18,7 @@
 #include <spa/pod/dynamic.h>
 #include <spa/debug/types.h>
 
+#include <pipewire/cleanup.h>
 #include "pipewire/pipewire.h"
 #include "pipewire/filter.h"
 #include "pipewire/private.h"
@@ -1898,8 +1899,8 @@ int pw_filter_set_error(struct pw_filter *filter,
 	ensure_loop(impl->main_loop, return -EIO);
 
 	if (res < 0) {
+		spa_autofree char *value = NULL;
 		va_list args;
-		char *value;
 		int r;
 
 		va_start(args, error);
@@ -1911,8 +1912,6 @@ int pw_filter_set_error(struct pw_filter *filter,
 		if (filter->proxy)
 			pw_proxy_error(filter->proxy, res, value);
 		filter_set_state(filter, PW_FILTER_STATE_ERROR, res, value);
-
-		free(value);
 	}
 	return res;
 }

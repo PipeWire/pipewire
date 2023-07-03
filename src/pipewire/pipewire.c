@@ -25,6 +25,7 @@
 #include <spa/support/cpu.h>
 #include <spa/support/i18n.h>
 
+#include <pipewire/cleanup.h>
 #include "pipewire.h"
 #include "private.h"
 #include "i18n.h"
@@ -498,7 +499,6 @@ static char *
 parse_pw_debug_env(void)
 {
 	const char *str;
-	char **tokens;
 	int n_tokens;
 	char json[1024] = {0};
 	char *pos = json;
@@ -516,7 +516,7 @@ parse_pw_debug_env(void)
 	 */
 	pos += spa_scnprintf(pos, end - pos, "[ { conn.* = %d },", SPA_LOG_LEVEL_NONE);
 
-	tokens = pw_split_strv(str, ",", INT_MAX, &n_tokens);
+	spa_auto(pw_strv) tokens = pw_split_strv(str, ",", INT_MAX, &n_tokens);
 	if (n_tokens > 0) {
 		int i;
 		for (i = 0; i < n_tokens; i++) {
@@ -536,7 +536,7 @@ parse_pw_debug_env(void)
 			}
 		}
 	}
-	pw_free_strv(tokens);
+
 	pos += spa_scnprintf(pos, end - pos, "]");
 	return strdup(json);
 }

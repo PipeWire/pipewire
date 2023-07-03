@@ -8,6 +8,7 @@
 #include <getopt.h>
 #include <limits.h>
 
+#include <pipewire/cleanup.h>
 #include <pipewire/impl.h>
 
 #include "spa-device.h"
@@ -51,12 +52,11 @@ SPA_EXPORT
 int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
 	struct pw_properties *props = NULL;
-	char **argv = NULL;
+	spa_auto(pw_strv) argv = NULL;
 	int n_tokens;
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_impl_device *device;
         struct device_data *data;
-	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -69,10 +69,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if (n_tokens == 2) {
 		props = pw_properties_new_string(argv[1]);
-		if (props == NULL) {
-			res = -errno;
-			goto error_exit_cleanup;
-		}
+		if (props == NULL)
+			return -errno;
 	}
 
 	device = pw_spa_device_load(context,
@@ -80,12 +78,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				0,
 				props,
 				sizeof(struct device_data));
-	if (device == NULL) {
-		res = -errno;
-		goto error_exit_cleanup;
-	}
-
-	pw_free_strv(argv);
+	if (device == NULL)
+		return -errno;
 
 	data = pw_spa_device_get_user_data(device);
 	data->this = device;
@@ -99,10 +93,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	return 0;
 
 error_arguments:
-	res = -EINVAL;
 	pw_log_error("usage: module-spa-device " MODULE_USAGE);
-	goto error_exit_cleanup;
-error_exit_cleanup:
-	pw_free_strv(argv);
-	return res;
+	return -EINVAL;
 }

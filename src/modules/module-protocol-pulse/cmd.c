@@ -4,6 +4,7 @@
 
 #include <spa/utils/json.h>
 
+#include <pipewire/cleanup.h>
 #include <pipewire/utils.h>
 
 #include "module.h"
@@ -68,15 +69,14 @@ static int parse_cmd(void *user_data, const char *location,
 {
 	struct impl *impl = user_data;
 	struct spa_json it[3];
-	char key[512], *s;
+	char key[512];
 	int res = 0;
 
-	s = strndup(str, len);
+	spa_autofree char *s = strndup(str, len);
 	spa_json_init(&it[0], s, len);
 	if (spa_json_enter_array(&it[0], &it[1]) < 0) {
 		pw_log_error("config file error: pulse.cmd is not an array");
-		res = -EINVAL;
-		goto exit;
+		return -EINVAL;
 	}
 
 	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
@@ -107,8 +107,7 @@ static int parse_cmd(void *user_data, const char *location,
 		if (res < 0)
 			break;
 	}
-exit:
-	free(s);
+
 	return res;
 }
 

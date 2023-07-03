@@ -28,6 +28,7 @@
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/json.h>
 
+#include <pipewire/cleanup.h>
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/metadata.h>
 
@@ -2516,12 +2517,12 @@ static int do_play_sample(struct client *client, uint32_t command, uint32_t tag,
 	uint32_t sink_index, volume;
 	struct sample *sample;
 	const char *sink_name, *name;
-	struct pw_properties *props = NULL;
+	spa_autoptr(pw_properties) props = NULL;
 	struct pw_manager_object *o;
 	int res;
 
 	if ((props = pw_properties_new(NULL, NULL)) == NULL)
-		goto error_errno;
+		return -errno;
 
 	if ((res = message_get(m,
 			TAG_U32, &sink_index,
@@ -2529,13 +2530,13 @@ static int do_play_sample(struct client *client, uint32_t command, uint32_t tag,
 			TAG_U32, &volume,
 			TAG_STRING, &name,
 			TAG_INVALID)) < 0)
-		goto error_proto;
+		return -EPROTO;
 
 	if (client->version >= 13) {
 		if ((res = message_get(m,
 				TAG_PROPLIST, props,
 				TAG_INVALID)) < 0)
-			goto error_proto;
+			return -EPROTO;
 
 	}
 	pw_log_info("[%s] %s tag:%u sink_index:%u sink_name:%s name:%s",
@@ -2545,35 +2546,19 @@ static int do_play_sample(struct client *client, uint32_t command, uint32_t tag,
 	pw_properties_update(props, &client->props->dict);
 
 	if (sink_index != SPA_ID_INVALID && sink_name != NULL)
-		goto error_inval;
+		return -EINVAL;
 
 	o = find_device(client, sink_index, sink_name, PW_DIRECTION_OUTPUT, NULL);
 	if (o == NULL)
-		goto error_noent;
+		return -ENOENT;
 
 	sample = find_sample(impl, SPA_ID_INVALID, name);
 	if (sample == NULL)
-		goto error_noent;
+		return -ENOENT;
 
 	pw_properties_setf(props, PW_KEY_TARGET_OBJECT, "%"PRIu64, o->serial);
 
-	return pending_sample_new(client, sample, props, tag);
-
-error_errno:
-	res = -errno;
-	goto error;
-error_proto:
-	res = -EPROTO;
-	goto error;
-error_inval:
-	res = -EINVAL;
-	goto error;
-error_noent:
-	res = -ENOENT;
-	goto error;
-error:
-	pw_properties_free(props);
-	return res;
+	return pending_sample_new(client, sample, spa_steal_ptr(props), tag);
 }
 
 static int do_remove_sample(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -3184,11 +3169,8 @@ static int do_set_stream_name(struct client *client, uint32_t command, uint32_t 
 static int do_update_proplist(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	uint32_t channel, mode;
-	struct stream *stream;
-	struct pw_properties *props;
-	int res;
 
-	props = pw_properties_new(NULL, NULL);
+	spa_autoptr(pw_properties) props = pw_properties_new(NULL, NULL);
 	if (props == NULL)
 		return -errno;
 
@@ -3196,7 +3178,7 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 		if (message_get(m,
 				TAG_U32, &channel,
 				TAG_INVALID) < 0)
-			goto error_protocol;
+			return -EPROTO;
 	} else {
 		channel = SPA_ID_INVALID;
 	}
@@ -3208,12 +3190,12 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 			TAG_U32, &mode,
 			TAG_PROPLIST, props,
 			TAG_INVALID) < 0)
-		goto error_protocol;
+		return -EPROTO;
 
 	if (command != COMMAND_UPDATE_CLIENT_PROPLIST) {
-		stream = pw_map_lookup(&client->streams, channel);
+		struct stream *stream = pw_map_lookup(&client->streams, channel);
 		if (stream == NULL || stream->type == STREAM_TYPE_UPLOAD)
-			goto error_noentity;
+			return -ENOENT;
 
 		pw_stream_update_properties(stream->stream, &props->dict);
 	} else {
@@ -3223,29 +3205,17 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 			pw_core_update_properties(client->core, &client->props->dict);
 		}
 	}
-	res = reply_simple_ack(client, tag);
-exit:
-	pw_properties_free(props);
-	return res;
 
-error_protocol:
-	res = -EPROTO;
-	goto exit;
-error_noentity:
-	res = -ENOENT;
-	goto exit;
+	return reply_simple_ack(client, tag);
 }
 
 static int do_remove_proplist(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	uint32_t i, channel;
-	struct stream *stream;
-	struct pw_properties *props;
 	struct spa_dict dict;
 	struct spa_dict_item *items;
-	int res;
 
-	props = pw_properties_new(NULL, NULL);
+	spa_autoptr(pw_properties) props = pw_properties_new(NULL, NULL);
 	if (props == NULL)
 		return -errno;
 
@@ -3253,7 +3223,7 @@ static int do_remove_proplist(struct client *client, uint32_t command, uint32_t 
 		if (message_get(m,
 				TAG_U32, &channel,
 				TAG_INVALID) < 0)
-			goto error_protocol;
+			return -EPROTO;
 	} else {
 		channel = SPA_ID_INVALID;
 	}
@@ -3267,7 +3237,7 @@ static int do_remove_proplist(struct client *client, uint32_t command, uint32_t 
 		if (message_get(m,
 				TAG_STRING, &key,
 				TAG_INVALID) < 0)
-			goto error_protocol;
+			return -EPROTO;
 		if (key == NULL)
 			break;
 		pw_properties_set(props, key, key);
@@ -3281,25 +3251,16 @@ static int do_remove_proplist(struct client *client, uint32_t command, uint32_t 
 	}
 
 	if (command != COMMAND_UPDATE_CLIENT_PROPLIST) {
-		stream = pw_map_lookup(&client->streams, channel);
+		struct stream *stream = pw_map_lookup(&client->streams, channel);
 		if (stream == NULL || stream->type == STREAM_TYPE_UPLOAD)
-			goto error_noentity;
+			return -ENOENT;
 
 		pw_stream_update_properties(stream->stream, &dict);
 	} else {
 		pw_core_update_properties(client->core, &dict);
 	}
-	res = reply_simple_ack(client, tag);
-exit:
-	pw_properties_free(props);
-	return res;
 
-error_protocol:
-	res = -EPROTO;
-	goto exit;
-error_noentity:
-	res = -ENOENT;
-	goto exit;
+	return reply_simple_ack(client, tag);
 }
 
 
@@ -3672,7 +3633,7 @@ static int fill_sink_info_proplist(struct message *m, const struct spa_dict *sin
 		const struct pw_manager_object *card)
 {
 	struct pw_device_info *card_info = card ? card->info : NULL;
-	struct pw_properties *props = NULL;
+	spa_autoptr(pw_properties) props = NULL;
 
 	if (card_info && card_info->props) {
 		props = pw_properties_new_dict(sink_props);
@@ -3682,9 +3643,8 @@ static int fill_sink_info_proplist(struct message *m, const struct spa_dict *sin
 		pw_properties_add(props, card_info->props);
 		sink_props = &props->dict;
 	}
-	message_put(m, TAG_PROPLIST, sink_props, TAG_INVALID);
 
-	pw_properties_free(props);
+	message_put(m, TAG_PROPLIST, sink_props, TAG_INVALID);
 
 	return 0;
 }
@@ -3882,7 +3842,7 @@ static int fill_source_info_proplist(struct message *m, const struct spa_dict *s
 		const struct pw_manager_object *card, const bool is_monitor)
 {
 	struct pw_device_info *card_info = card ? card->info : NULL;
-	struct pw_properties *props = NULL;
+	spa_autoptr(pw_properties) props = NULL;
 
 	if ((card_info && card_info->props) || is_monitor) {
 		props = pw_properties_new_dict(source_props);
@@ -3897,9 +3857,8 @@ static int fill_source_info_proplist(struct message *m, const struct spa_dict *s
 
 		source_props = &props->dict;
 	}
-	message_put(m, TAG_PROPLIST, source_props, TAG_INVALID);
 
-	pw_properties_free(props);
+	message_put(m, TAG_PROPLIST, source_props, TAG_INVALID);
 
 	return 0;
 }
@@ -5140,12 +5099,9 @@ static int do_send_object_message(struct client *client, uint32_t command, uint3
 	const char *object_path = NULL;
 	const char *message = NULL;
 	const char *params = NULL;
-	char *response = NULL;
-	char *path = NULL;
 	struct message *reply;
 	struct pw_manager_object *o;
 	int len = 0;
-	int res;
 
 	if (message_get(m,
 			TAG_STRING, &object_path,
@@ -5164,11 +5120,13 @@ static int do_send_object_message(struct client *client, uint32_t command, uint3
 	len = strlen(object_path);
 	if (len > 0 && object_path[len - 1] == '/')
 		--len;
-	path = strndup(object_path, len);
+
+	spa_autofree char *path = strndup(object_path, len);
 	if (path == NULL)
 		return -ENOMEM;
 
-	res = -ENOENT;
+	spa_autofree char *response = NULL;
+	int res = -ENOENT;
 
 	spa_list_for_each(o, &manager->object_list, link) {
 		if (o->message_object_path && spa_streq(o->message_object_path, path)) {
@@ -5180,7 +5138,6 @@ static int do_send_object_message(struct client *client, uint32_t command, uint3
 		}
 	}
 
-	free(path);
 	if (res < 0)
 		return res;
 
@@ -5188,7 +5145,7 @@ static int do_send_object_message(struct client *client, uint32_t command, uint3
 
 	reply = reply_new(client, tag);
 	message_put(reply, TAG_STRING, response, TAG_INVALID);
-	free(response);
+
 	return client_queue_message(client, reply);
 }
 

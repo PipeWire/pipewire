@@ -21,6 +21,7 @@
 
 #define PW_ENABLE_DEPRECATED
 
+#include <pipewire/cleanup.h>
 #include "pipewire/pipewire.h"
 #include "pipewire/stream.h"
 #include "pipewire/private.h"
@@ -2165,8 +2166,8 @@ int pw_stream_set_error(struct pw_stream *stream,
 	ensure_loop(impl->main_loop, return -EIO);
 
 	if (res < 0) {
+		spa_autofree char *value = NULL;
 		va_list args;
-		char *value;
 		int r;
 
 		va_start(args, error);
@@ -2178,8 +2179,6 @@ int pw_stream_set_error(struct pw_stream *stream,
 		if (stream->proxy)
 			pw_proxy_error(stream->proxy, res, value);
 		stream_set_state(stream, PW_STREAM_STATE_ERROR, res, value);
-
-		free(value);
 	}
 	return res;
 }

@@ -39,6 +39,7 @@
 #include <spa/param/audio/raw.h>
 #include <spa/param/latency-utils.h>
 
+#include <pipewire/cleanup.h>
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
 
@@ -1211,7 +1212,7 @@ static int rtsp_do_announce(struct impl *impl)
 	char key[512*2];
 	char iv[16*2];
 	int res, frames, rsa_len, ip_version;
-	char *sdp;
+	spa_autofree char *sdp = NULL;
 	char local_ip[256];
 	host = pw_properties_get(impl->props, "raop.ip");
 
@@ -1289,10 +1290,8 @@ static int rtsp_do_announce(struct impl *impl)
 	default:
 		return -ENOTSUP;
 	}
-	res = rtsp_send(impl, "ANNOUNCE", "application/sdp", sdp, rtsp_announce_reply);
-	free(sdp);
 
-	return res;
+	return rtsp_send(impl, "ANNOUNCE", "application/sdp", sdp, rtsp_announce_reply);
 }
 
 static int rtsp_auth_setup_reply(void *data, int status, const struct spa_dict *headers)
@@ -1355,7 +1354,6 @@ static const char *find_attr(char **tokens, const char *key)
 static int rtsp_do_auth(struct impl *impl, const struct spa_dict *headers)
 {
 	const char *str, *realm, *nonce;
-	char **tokens;
 	int n_tokens;
 
 	if ((str = spa_dict_lookup(headers, "WWW-Authenticate")) == NULL)
@@ -1368,9 +1366,9 @@ static int rtsp_do_auth(struct impl *impl, const struct spa_dict *headers)
 
 	pw_log_info("Auth: %s", str);
 
-	tokens = pw_split_strv(str, " ", INT_MAX, &n_tokens);
+	spa_auto(pw_strv) tokens = pw_split_strv(str, " ", INT_MAX, &n_tokens);
 	if (tokens == NULL || tokens[0] == NULL)
-		goto error;
+		return -EINVAL;
 
 	impl->auth_method = strdup(tokens[0]);
 
@@ -1378,20 +1376,13 @@ static int rtsp_do_auth(struct impl *impl, const struct spa_dict *headers)
 		realm = find_attr(tokens, "realm");
 		nonce = find_attr(tokens, "nonce");
 		if (realm == NULL || nonce == NULL)
-			goto error;
+			return -EINVAL;
 
 		impl->realm = strdup(realm);
 		impl->nonce = strdup(nonce);
 	}
 
-	pw_free_strv(tokens);
-
-	rtsp_send(impl, "OPTIONS", NULL, NULL, rtsp_auth_reply);
-	return 0;
-
-error:
-	pw_free_strv(tokens);
-	return -EINVAL;
+	return rtsp_send(impl, "OPTIONS", NULL, NULL, rtsp_auth_reply);
 }
 
 static int rtsp_options_reply(void *data, int status, const struct spa_dict *headers)

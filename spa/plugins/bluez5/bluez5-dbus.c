@@ -3265,7 +3265,6 @@ static void transport_set_property_volume(struct spa_bt_transport *transport, ui
 	struct spa_bt_monitor *monitor = transport->monitor;
 	DBusMessage *m;
 	DBusMessageIter it[2];
-	DBusError err;
 	const char *interface = BLUEZ_MEDIA_TRANSPORT_INTERFACE;
 	const char *name = "Volume";
 	int res = 0;
@@ -3293,8 +3292,6 @@ static void transport_set_property_volume(struct spa_bt_transport *transport, ui
 					DBUS_TYPE_UINT16_AS_STRING, &it[1]);
 	dbus_message_iter_append_basic(&it[1], DBUS_TYPE_UINT16, &value);
 	dbus_message_iter_close_container(&it[0], &it[1]);
-
-	dbus_error_init(&err);
 
 	ret = dbus_connection_send_with_reply(monitor->conn, m, &transport->volume_call, -1);
 	dbus_message_unref(m);
@@ -3509,7 +3506,6 @@ static int do_transport_acquire(struct spa_bt_transport *transport)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
 	DBusMessage *m;
-	DBusError err;
 	dbus_bool_t ret;
 	struct spa_bt_transport *t_linked;
 
@@ -3534,8 +3530,6 @@ static int do_transport_acquire(struct spa_bt_transport *transport)
 					 "Acquire");
 	if (m == NULL)
 		return -ENOMEM;
-
-	dbus_error_init(&err);
 
 	ret = dbus_connection_send_with_reply(monitor->conn, m, &transport->acquire_call, -1);
 	dbus_message_unref(m);

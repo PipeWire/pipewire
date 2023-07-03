@@ -208,6 +208,8 @@ static void spa_bt_transport_commit_release_timer(struct spa_bt_transport *trans
 static int device_start_timer(struct spa_bt_device *device);
 static int device_stop_timer(struct spa_bt_device *device);
 
+static void media_codec_switch_free(struct spa_bt_media_codec_switch *sw);
+
 // Working with BlueZ Battery Provider.
 // Developed using https://github.com/dgreid/adhd/commit/655b58f as an example of DBus calls.
 
@@ -1286,10 +1288,6 @@ static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const
 
 	return d;
 }
-
-static int device_stop_timer(struct spa_bt_device *device);
-
-static void media_codec_switch_free(struct spa_bt_media_codec_switch *sw);
 
 static void device_clear_sub(struct spa_bt_device *device)
 {

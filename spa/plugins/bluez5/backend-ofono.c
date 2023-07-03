@@ -307,7 +307,7 @@ static const struct spa_bt_transport_implementation ofono_transport_impl = {
 	.release = ofono_audio_release,
 };
 
-bool activate_transport(struct spa_bt_transport *t, const void *data)
+static bool activate_transport(struct spa_bt_transport *t, const void *data)
 {
 	struct impl *backend = (void *)data;
 	struct transport_data *td = t->user_data;

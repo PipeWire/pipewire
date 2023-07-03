@@ -39,7 +39,7 @@ struct impl {
 	uint32_t vm_type;
 };
 
-char *spa_cpu_read_file(const char *name, char *buffer, size_t len)
+static char *spa_cpu_read_file(const char *name, char *buffer, size_t len)
 {
 	int n, fd;
 

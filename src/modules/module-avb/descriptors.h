@@ -7,7 +7,7 @@
 #include "aecp-aem-descriptors.h"
 #include "internal.h"
 
-void init_descriptors(struct server *server)
+static inline void init_descriptors(struct server *server)
 {
 	server_add_descriptor(server, AVB_AEM_DESC_STRINGS, 0,
 			sizeof(struct avb_aem_desc_strings),

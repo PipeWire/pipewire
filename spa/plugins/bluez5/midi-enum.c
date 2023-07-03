@@ -202,7 +202,7 @@ static int read_probe(struct impl *impl, MidiEnumCharacteristicProxy *chr)
 	return 0;
 }
 
-Bluez5GattDescriptor1 *find_dsc(struct impl *impl, MidiEnumCharacteristicProxy *chr)
+static Bluez5GattDescriptor1 *find_dsc(struct impl *impl, MidiEnumCharacteristicProxy *chr)
 {
 	const char *path = g_dbus_proxy_get_object_path(G_DBUS_PROXY(chr));
 	Bluez5GattDescriptor1 *found = NULL;;

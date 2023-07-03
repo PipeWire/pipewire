@@ -308,7 +308,7 @@ static void group_destroy(struct group *group)
 	free(group);
 }
 
-struct stream *stream_create(struct spa_bt_transport *t, struct group *group)
+static struct stream *stream_create(struct spa_bt_transport *t, struct group *group)
 {
 	struct stream *stream;
 	void *codec_data = NULL;

@@ -2708,7 +2708,7 @@ static void set_call_setup(enum call_setup value, void *user_data)
 	}
 }
 
-void set_battery_level(unsigned int level, void *user_data)
+static void set_battery_level(unsigned int level, void *user_data)
 {
 	struct impl *backend = user_data;
 

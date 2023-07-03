@@ -207,7 +207,7 @@ static pid_t _gettid(void)
 }
 
 #ifdef HAVE_DBUS
-struct pw_rtkit_bus *pw_rtkit_bus_get(DBusBusType bus_type)
+static struct pw_rtkit_bus *pw_rtkit_bus_get(DBusBusType bus_type)
 {
 	struct pw_rtkit_bus *bus;
 	DBusError error;
@@ -240,17 +240,17 @@ error:
 	return NULL;
 }
 
-struct pw_rtkit_bus *pw_rtkit_bus_get_system(void)
+static struct pw_rtkit_bus *pw_rtkit_bus_get_system(void)
 {
 	return pw_rtkit_bus_get(DBUS_BUS_SYSTEM);
 }
 
-struct pw_rtkit_bus *pw_rtkit_bus_get_session(void)
+static struct pw_rtkit_bus *pw_rtkit_bus_get_session(void)
 {
 	return pw_rtkit_bus_get(DBUS_BUS_SESSION);
 }
 
-bool pw_rtkit_check_xdg_portal(struct pw_rtkit_bus *system_bus)
+static bool pw_rtkit_check_xdg_portal(struct pw_rtkit_bus *system_bus)
 {
 	if (!dbus_bus_name_has_owner(system_bus->bus, XDG_PORTAL_SERVICE_NAME, NULL)) {
 		pw_log_info("Can't find %s. Is xdg-desktop-portal running?", XDG_PORTAL_SERVICE_NAME);
@@ -260,7 +260,7 @@ bool pw_rtkit_check_xdg_portal(struct pw_rtkit_bus *system_bus)
 	return true;
 }
 
-void pw_rtkit_bus_free(struct pw_rtkit_bus *system_bus)
+static void pw_rtkit_bus_free(struct pw_rtkit_bus *system_bus)
 {
 	dbus_connection_close(system_bus->bus);
 	dbus_connection_unref(system_bus->bus);
@@ -369,7 +369,7 @@ finish:
 	return ret;
 }
 
-int pw_rtkit_get_max_realtime_priority(struct impl *impl)
+static int pw_rtkit_get_max_realtime_priority(struct impl *impl)
 {
 	long long retval;
 	int err;
@@ -378,7 +378,7 @@ int pw_rtkit_get_max_realtime_priority(struct impl *impl)
 	return err < 0 ? err : retval;
 }
 
-int pw_rtkit_get_min_nice_level(struct impl *impl, int *min_nice_level)
+static int pw_rtkit_get_min_nice_level(struct impl *impl, int *min_nice_level)
 {
 	long long retval;
 	int err;
@@ -389,7 +389,7 @@ int pw_rtkit_get_min_nice_level(struct impl *impl, int *min_nice_level)
 	return err;
 }
 
-long long pw_rtkit_get_rttime_usec_max(struct impl *impl)
+static long long pw_rtkit_get_rttime_usec_max(struct impl *impl)
 {
 	long long retval;
 	int err;
@@ -398,7 +398,7 @@ long long pw_rtkit_get_rttime_usec_max(struct impl *impl)
 	return err < 0 ? err : retval;
 }
 
-int pw_rtkit_make_realtime(struct impl *impl, pid_t thread, int priority)
+static int pw_rtkit_make_realtime(struct impl *impl, pid_t thread, int priority)
 {
 	DBusMessage *m = NULL, *r = NULL;
 	dbus_uint64_t pid;
@@ -458,7 +458,7 @@ finish:
 	return ret;
 }
 
-int pw_rtkit_make_high_priority(struct impl *impl, pid_t thread, int nice_level)
+static int pw_rtkit_make_high_priority(struct impl *impl, pid_t thread, int nice_level)
 {
 	DBusMessage *m = NULL, *r = NULL;
 	dbus_uint64_t pid;

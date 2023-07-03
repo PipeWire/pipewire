@@ -89,7 +89,7 @@ void marshal_client_footers(struct footer_client_global_state *state, struct pw_
 	end_footer(&fb);
 }
 
-int demarshal_core_generation(void *object, struct spa_pod_parser *parser)
+static int demarshal_core_generation(void *object, struct spa_pod_parser *parser)
 {
 	struct pw_core *core = object;
 	int64_t generation;
@@ -106,7 +106,7 @@ int demarshal_core_generation(void *object, struct spa_pod_parser *parser)
 	return 0;
 }
 
-int demarshal_client_generation(void *object, struct spa_pod_parser *parser)
+static int demarshal_client_generation(void *object, struct spa_pod_parser *parser)
 {
 	struct pw_impl_client *client = object;
 	int64_t generation;

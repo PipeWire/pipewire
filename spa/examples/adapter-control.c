@@ -176,7 +176,7 @@ exit_cleanup:
 	return res;
 }
 
-int init_data(struct data *data)
+static int init_data(struct data *data)
 {
 	int res;
 	const char *str;

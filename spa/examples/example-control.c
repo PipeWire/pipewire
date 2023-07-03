@@ -457,7 +457,7 @@ static int load_handle(struct data *data, struct spa_handle **handle, const char
 	return -EBADF;
 }
 
-int init_data(struct data *data)
+static int init_data(struct data *data)
 {
 	int res;
 	const char *str;

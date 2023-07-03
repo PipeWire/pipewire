@@ -315,8 +315,7 @@ conv_s24_to_f32d_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 		conv_s24_to_f32d_1s_sse2(conv, &dst[i], &s[3*i], n_channels, n_samples);
 }
 
-
-void
+static void
 conv_s32_to_f32d_1s_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
 		uint32_t n_channels, uint32_t n_samples)
 {

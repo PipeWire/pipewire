@@ -744,7 +744,7 @@ do_schedule_destroy(struct spa_loop *loop,
 	return 0;
 }
 
-void module_schedule_destroy(struct impl *impl)
+static void module_schedule_destroy(struct impl *impl)
 {
 	pw_loop_invoke(impl->main_loop, do_schedule_destroy, 1, NULL, 0, false, impl);
 }

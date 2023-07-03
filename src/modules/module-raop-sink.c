@@ -972,6 +972,7 @@ static int rtsp_setup_reply(void *data, int status, const struct spa_dict *heade
 	size_t len;
 	uint64_t ntp;
 	uint16_t control_port, timing_port;
+	int res;
 
 	pw_log_info("reply %d", status);
 
@@ -1003,9 +1004,9 @@ static int rtsp_setup_reply(void *data, int status, const struct spa_dict *heade
 		return 0;
 	}
 
-	if (pw_getrandom(&impl->seq, sizeof(impl->seq), 0) < 0 ||
-	    pw_getrandom(&impl->rtptime, sizeof(impl->rtptime), 0) <  0) {
-		pw_log_error("error generating random seq and rtptime: %m");
+	if ((res = pw_getrandom(&impl->seq, sizeof(impl->seq), 0)) < 0 ||
+	    (res = pw_getrandom(&impl->rtptime, sizeof(impl->rtptime), 0)) <  0) {
+		pw_log_error("error generating random seq and rtptime: %s", spa_strerror(res));
 		return 0;
 	}
 
@@ -1258,9 +1259,9 @@ static int rtsp_do_announce(struct impl *impl)
 		break;
 
 	case CRYPTO_RSA:
-		if (pw_getrandom(impl->key, sizeof(impl->key), 0) < 0 ||
-		    pw_getrandom(impl->iv, sizeof(impl->iv), 0) < 0)
-			return -errno;
+		if ((res = pw_getrandom(impl->key, sizeof(impl->key), 0)) < 0 ||
+		    (res = pw_getrandom(impl->iv, sizeof(impl->iv), 0)) < 0)
+			return res;
 
 		rsa_len = rsa_encrypt(impl->key, 16, rsakey);
 		if (rsa_len < 0)
@@ -1420,14 +1421,15 @@ static void rtsp_connected(void *data)
 	uint32_t sci[2];
 	uint8_t rac[16];
 	char sac[16*4];
+	int res;
 
 	pw_log_info("connected");
 
 	impl->connected = true;
 
-	if (pw_getrandom(sci, sizeof(sci), 0) < 0 ||
-	    pw_getrandom(rac, sizeof(rac), 0) < 0) {
-		pw_log_error("error generating random data: %m");
+	if ((res = pw_getrandom(sci, sizeof(sci), 0)) < 0 ||
+	    (res = pw_getrandom(rac, sizeof(rac), 0)) < 0) {
+		pw_log_error("error generating random data: %s", spa_strerror(res));
 		return;
 	}
 
@@ -1533,6 +1535,7 @@ static int rtsp_do_connect(struct impl *impl)
 {
 	const char *hostname, *port;
 	uint32_t session_id;
+	int res;
 
 	if (impl->connected) {
 		if (!impl->ready)
@@ -1545,8 +1548,8 @@ static int rtsp_do_connect(struct impl *impl)
 	if (hostname == NULL || port == NULL)
 		return -EINVAL;
 
-	if (pw_getrandom(&session_id, sizeof(session_id), 0) < 0)
-		return -errno;
+	if ((res = pw_getrandom(&session_id, sizeof(session_id), 0)) < 0)
+		return res;
 
 	spa_scnprintf(impl->session_id, sizeof(impl->session_id), "%u", session_id);
 

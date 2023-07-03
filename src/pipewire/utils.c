@@ -158,21 +158,25 @@ char *pw_strip(char *str, const char *whitespace)
 static inline ssize_t make_random(void *buf, size_t buflen, unsigned int flags)
 {
 	ssize_t bytes;
-	int read_errno;
 
 #ifdef HAVE_GETRANDOM
 	bytes = getrandom(buf, buflen, flags);
-	if (!(bytes == -1 && errno == ENOSYS))
+	if (bytes < 0)
+		bytes = -errno;
+	if (bytes != -ENOSYS)
 		return bytes;
 #endif
 
 	int fd = open("/dev/urandom", O_CLOEXEC);
 	if (fd < 0)
-		return -1;
+		return -errno;
+
 	bytes = read(fd, buf, buflen);
-	read_errno = errno;
+	if (bytes < 0)
+		bytes = -errno;
+
 	close(fd);
-	errno = read_errno;
+
 	return bytes;
 }
 
@@ -190,9 +194,9 @@ ssize_t pw_getrandom(void *buf, size_t buflen, unsigned int flags)
 	ssize_t res;
 	do {
 		res = make_random(buf, buflen, flags);
-	} while ((res == -1) && (errno == EINTR));
-	if (res == -1)
-		return -errno;
+	} while (res == -EINTR);
+	if (res < 0)
+		return res;
 	if ((size_t)res != buflen)
 		return -ENODATA;
 	return res;

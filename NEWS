@@ -1,3 +1,77 @@
+# PipeWire 0.3.73 (2023-07-06)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Fixes an ALSA resume after suspend error.
+  - Handle and disable seemingly wrong hires timestamps from ALSA.
+  - Filter-chain now has loadable plugin modules. The LV2 and sofa plugins are
+    moved to a separate .so file to make things more modular.
+  - Rate changes in the graph should now be handled more gracefully by loopback
+    and filter-chain.
+  - A regression in the rtp-sap module was fixed where it would in some cases
+    fail to start.
+  - A potential crash in the peaks resampler was fixed.
+  - Many cleanups and other small bug fixes.
+
+
+## PipeWire
+  - Fix a potential segfault when no fallback driver was set in the config.
+  - Improve OPUS detection.
+  - Add ASYNC flag to pw-filter and pw-stream when queue/dequeue is not called
+    from the process function. This ensure we allocate an extra buffer.
+  - Discard pending process callbacks when disconnecting. (#3314)
+  - Cleanups and improvements to the debug environment variable parsing.
+  - The graph rate was tweaked to better handle very low rates such as those
+    requested by pavucontrol when it does the signal monitoring.
+
+## Modules
+  - An example filter module was added.
+  - Filter-chain and loopback now disable the resamplers if no rate is specified
+    and will always follow the graph rate.
+  - Improve setup of filter-chain. The graph is now created when starting
+    because this ensure the target graph rate is known.
+  - Filter-chain can now link notify ports to control ports in the graph.
+  - Filter-chain now has loadable plugin modules. The LV2 and sofa plugins are
+    moved to a separate .so file.
+  - A regression in the rtp-sap module was fixed where it would in some cases
+    fail to start.
+  - Module-rt now has options to disable rlimits, portal and rtkit.
+  - module-raop-discover now has an options to set the latency. (#3247)
+
+## Tools
+  - pw-cat now supports overriding all stream properties.
+
+## SPA
+  - Disable rate negotiation when the resampler is disabled. We will always
+    follow the graph rate. 
+  - Set device.icon property for UCM ports as well.
+  - Improve ALSA recover when using hires timestamps. This fixes some problems
+    after resume from suspend. (#3315)
+  - ALSA will now warn and disable hires timestamp when they seem wrong.
+    They can also be disabled manually with a property.
+  - V4l2 will now gracefully handle ENOTTY when enumerating frame sizes and
+    frame rates. (#3325)
+  - A potential crash in the peaks resampler was fixed. (#3320)
+
+## pulse-server
+  - A client crash in pavucontrol is avoided by always setting a card name.
+  - The graph rate is now taken correctly when using the FIX flags. (#3317)
+  - An option was added to ignore the FIX flags of a stream. Also the
+    documentation for those options was updated. (#3317)
+  - module-raop-discover now support latency_msec. (#3247)
+
+## Bluetooth
+  - Remove an assert and issue a warning/recover instead when a buffer is too
+    small.
+
+## GStreamer
+  - The device provider does locking when destroying the registry.
+
+Older versions:
+
+
 # PipeWire 0.3.72 (2023-06-26)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -100,9 +174,6 @@ This is a bugfix release that is API and ABI compatible with previous
 
 ## GStreamer
   - Fill default strides instead of 0 on pipewire video buffers. (#3236)
-
-Older versions:
-
 
 # PipeWire 0.3.71 (2023-05-17)
 

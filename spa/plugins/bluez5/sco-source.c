@@ -1298,6 +1298,9 @@ static uint32_t get_samples(struct impl *this, uint32_t *result_duration)
 	return samples;
 }
 
+#define WARN_ONCE(cond, ...) \
+	if (SPA_UNLIKELY(cond)) { static bool __once; if (!__once) { __once = true; spa_log_warn(__VA_ARGS__); } }
+
 static void process_buffering(struct impl *this)
 {
 	struct port *port = &this->port;
@@ -1318,20 +1321,24 @@ static void process_buffering(struct impl *this)
 		struct spa_data *datas;
 		uint32_t data_size;
 
+		buffer = spa_list_first(&port->free, struct buffer, link);
+		datas = buffer->buf->datas;
+
 		data_size = samples * port->frame_size;
+
+		WARN_ONCE(datas[0].maxsize < data_size && !this->following,
+				this->log, "source buffer too small (%u < %u)",
+				datas[0].maxsize, data_size);
+
+		data_size = SPA_MIN(data_size, SPA_ROUND_DOWN(datas[0].maxsize, port->frame_size));
 
 		avail = SPA_MIN(avail, data_size);
 
 		spa_bt_decode_buffer_read(&port->buffer, avail);
 
-		buffer = spa_list_first(&port->free, struct buffer, link);
 		spa_list_remove(&buffer->link);
 
 		spa_log_trace(this->log, "dequeue %d", buffer->id);
-
-		datas = buffer->buf->datas;
-
-		spa_assert(datas[0].maxsize >= data_size);
 
 		datas[0].chunk->offset = 0;
 		datas[0].chunk->size = data_size;

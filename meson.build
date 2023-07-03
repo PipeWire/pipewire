@@ -82,7 +82,6 @@ common_flags = [
   '-Wno-missing-field-initializers',
   '-Wno-unused-parameter',
   '-Wno-pedantic',
-  '-Wold-style-declaration',
   '-Wdeprecated-declarations',
   '-Wunused-result',
 ]
@@ -93,6 +92,8 @@ cc_flags = common_flags + [
 # '-DSPA_DEBUG_MEMCPY',
   '-Werror=implicit-function-declaration',
   '-Werror=int-conversion',
+  '-Werror=old-style-declaration',
+  '-Werror=old-style-definition',
 ]
 add_project_arguments(cc.get_supported_arguments(cc_flags), language: 'c')
 

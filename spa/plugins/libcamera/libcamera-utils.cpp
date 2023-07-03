@@ -53,9 +53,7 @@ static void spa_libcamera_get_config(struct impl *impl)
 	if (impl->config)
 		return;
 
-	StreamRoles roles;
-	roles.push_back(StreamRole::VideoRecording);
-	impl->config = impl->camera->generateConfiguration(roles);
+	impl->config = impl->camera->generateConfiguration({ StreamRole::VideoRecording });
 }
 
 static int spa_libcamera_buffer_recycle(struct impl *impl, struct port *port, uint32_t buffer_id)

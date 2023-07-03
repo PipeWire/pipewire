@@ -94,6 +94,8 @@ cc_flags = common_flags + [
   '-Werror=int-conversion',
   '-Werror=old-style-declaration',
   '-Werror=old-style-definition',
+  '-Werror=missing-parameter-type',
+  '-Werror=strict-prototypes',
 ]
 add_project_arguments(cc.get_supported_arguments(cc_flags), language: 'c')
 

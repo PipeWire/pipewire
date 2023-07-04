@@ -63,7 +63,8 @@
  * This requires `RLIMIT_RTPRIO` to be set to a value that's equal to this
  * module's `rt.prio` parameter or higher. Most distros will come with some
  * package that configures this for certain groups or users. If this is not set
- * up and DBus is available, then this module will fall back to using RTKit.
+ * up and DBus is available, then this module will fall back to using the Portal
+ * Realtime DBus API or RTKit.
  *
  * ## Module Options
  *
@@ -75,6 +76,9 @@
  *              consume without doing any blocking calls before the kernel kills
  *              the thread. This is a safety measure to avoid lockups of the complete
  *              system when some thread consumes 100%.
+ * - `rlimits.enabled`: enable the use of rtlimits, default true.
+ * - `rtportal.enabled`: enable the use of realtime portal, default true
+ * - `rtkit.enabled`: enable the use of rtkit, default true
 
  * The nice level is by default set to an invalid value so that clients don't
  * automatically have the nice level raised.
@@ -91,6 +95,9 @@
  *         #rt.prio      = 88
  *         #rt.time.soft = -1
  *         #rt.time.hard = -1
+ *         #rlimits.enabled = true
+ *         #rtportal.enabled = true
+ *         #rtkit.enabled = true
  *     }
  *     flags = [ ifexists nofail ]
  * }
@@ -123,8 +130,11 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define MODULE_USAGE	"( nice.level=<priority: default "SPA_STRINGIFY(DEFAULT_NICE_LEVEL)"(don't change)> ) "	\
 			"( rt.prio=<priority: default "SPA_STRINGIFY(DEFAULT_RT_PRIO)"> ) "		\
-			"( rt.time.soft=<in usec: default "SPA_STRINGIFY(DEFAULT_RT_TIME_SOFT)" ) "	\
-			"( rt.time.hard=<in usec: default "SPA_STRINGIFY(DEFAULT_RT_TIME_HARD)" ) "
+			"( rt.time.soft=<in usec: default "SPA_STRINGIFY(DEFAULT_RT_TIME_SOFT)"> ) "	\
+			"( rt.time.hard=<in usec: default "SPA_STRINGIFY(DEFAULT_RT_TIME_HARD)"> ) "	\
+			"( rlimits.enabled=<default true> ) " \
+			"( rtportal.enabled=<default true> ) " \
+			"( rtkit.enabled=<default true> ) "
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
@@ -169,6 +179,10 @@ struct impl {
 	rlim_t rt_time_hard;
 
 	struct spa_hook module_listener;
+
+	unsigned rlimits_enabled:1;
+	unsigned rtportal_enabled:1;
+	unsigned rtkit_enabled:1;
 
 #ifdef HAVE_DBUS
 	bool use_rtkit;
@@ -568,6 +582,9 @@ static bool check_realtime_privileges(struct impl *impl)
 	struct sched_param new_sched_params;
 	int try = 0;
 
+	if (!impl->rlimits_enabled)
+		return false;
+
 	while (try++ < 2) {
 		/* We could check `RLIMIT_RTPRIO`, but the BSDs generally don't have
 		 * that available, and there are also other ways to use realtime
@@ -643,10 +660,15 @@ static int set_nice(struct impl *impl, int nice_level, bool warn)
 		}
 		res = pw_rtkit_make_high_priority(impl, 0, nice_level);
 	}
-	else
+	else if (impl->rlimits_enabled)
 		res = sched_set_nice(nice_level);
+	else
+		res = -ENOTSUP;
 #else
-	res = sched_set_nice(nice_level);
+	if (impl->rlimits_enabled)
+		res = sched_set_nice(nice_level);
+	else
+		res = -ENOTSUP;
 #endif
 
 	if (res < 0) {
@@ -993,6 +1015,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->rt_prio = pw_properties_get_int32(props, "rt.prio", DEFAULT_RT_PRIO);
 	impl->rt_time_soft = pw_properties_get_int32(props, "rt.time.soft", DEFAULT_RT_TIME_SOFT);
 	impl->rt_time_hard = pw_properties_get_int32(props, "rt.time.hard", DEFAULT_RT_TIME_HARD);
+	impl->rlimits_enabled = pw_properties_get_bool(props, "rlimits.enabled", true);
+	impl->rtportal_enabled = pw_properties_get_bool(props, "rtportal.enabled", true);
+	impl->rtkit_enabled = pw_properties_get_bool(props, "rtkit.enabled", true);
 
 	bool can_use_rtkit = false, use_rtkit = false;
 
@@ -1031,7 +1056,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->use_rtkit = use_rtkit;
 	if (impl->use_rtkit) {
 		/* Checking xdg-desktop-portal. It works fine in all situations. */
-		impl->rtkit_bus = pw_rtkit_bus_get_session();
+		if (impl->rtportal_enabled)
+			impl->rtkit_bus = pw_rtkit_bus_get_session();
+		else
+			pw_log_info("Portal Realtime disabled");
 		if (impl->rtkit_bus != NULL) {
 			if (pw_rtkit_check_xdg_portal(impl->rtkit_bus)) {
 				impl->service_name = XDG_PORTAL_SERVICE_NAME;
@@ -1045,7 +1073,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		}
 		/* Failed to get xdg-desktop-portal, try to use rtkit. */
 		if (impl->rtkit_bus == NULL) {
-			impl->rtkit_bus = pw_rtkit_bus_get_system();
+			if (impl->rtkit_enabled)
+				impl->rtkit_bus = pw_rtkit_bus_get_system();
+			else
+				pw_log_info("RTkit disabled");
+
 			if (impl->rtkit_bus != NULL) {
 				impl->service_name = RTKIT_SERVICE_NAME;
 				impl->object_path = RTKIT_OBJECT_PATH;

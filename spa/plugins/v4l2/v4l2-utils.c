@@ -627,7 +627,7 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 		}
 	      do_frmsize:
 		if ((res = xioctl(dev->fd, VIDIOC_ENUM_FRAMESIZES, &port->frmsize)) < 0) {
-			if (errno == EINVAL)
+			if (errno == EINVAL || errno == ENOTTY)
 				goto next_fmtdesc;
 
 			res = -errno;
@@ -745,7 +745,7 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 	while (true) {
 		if ((res = xioctl(dev->fd, VIDIOC_ENUM_FRAMEINTERVALS, &port->frmival)) < 0) {
 			res = -errno;
-			if (errno == EINVAL) {
+			if (errno == EINVAL || errno == ENOTTY) {
 				port->frmsize.index++;
 				port->next_frmsize = true;
 				if (port->frmival.index == 0)

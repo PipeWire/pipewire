@@ -19,6 +19,8 @@ struct module_raop_discover_data {
 
 	struct spa_hook mod_listener;
 	struct pw_impl_module *mod;
+
+	uint32_t latency_msec;
 };
 
 static void module_destroy(void *data)
@@ -37,10 +39,25 @@ static const struct pw_impl_module_events module_events = {
 static int module_raop_discover_load(struct module *module)
 {
 	struct module_raop_discover_data *data = module->user_data;
+	FILE *f;
+	char *args;
+	size_t size;
+
+	if ((f = open_memstream(&args, &size)) == NULL)
+		return -errno;
+
+	fprintf(f, "{");
+	if (data->latency_msec > 0)
+		fprintf(f, " raop.latency.ms = %u ", data->latency_msec);
+	fprintf(f, "}");
+	fclose(f);
 
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-raop-discover",
-			NULL, NULL);
+			args, NULL);
+
+	free(args);
+
 	if (data->mod == NULL)
 		return -errno;
 
@@ -75,8 +92,11 @@ static int module_raop_discover_prepare(struct module * const module)
 {
 	PW_LOG_TOPIC_INIT(mod_topic);
 
+	struct pw_properties * const props = module->props;
 	struct module_raop_discover_data * const data = module->user_data;
 	data->module = module;
+
+	pw_properties_fetch_uint32(props, "latency_msec", &data->latency_msec);
 
 	return 0;
 }

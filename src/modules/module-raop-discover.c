@@ -41,6 +41,8 @@
  *
  * Options specific to the behavior of this module
  *
+ * - `raop.latency.ms` = latency for all streams in microseconds. This
+ *    can be overwritten in the stream rules.
  * - `stream.rules` = <rules>: match rules, use create-stream actions. See
  *   \ref page_module_raop_sink for module properties.
  *
@@ -50,6 +52,7 @@
  * context.modules = [
  * {   name = libpipewire-raop-discover
  *     args = {
+ *         #raop.latency.ms = 1000
  *         stream.rules = [
  *             {   matches = [
  *                     {    raop.ip = "~.*"
@@ -409,6 +412,9 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		avahi_free(key);
 		avahi_free(value);
 	}
+
+	if ((str = pw_properties_get(impl->properties, "raop.latency.ms")) != NULL)
+		pw_properties_set(props, "raop.latency.ms", str);
 
 	if ((str = pw_properties_get(impl->properties, "stream.rules")) == NULL)
 		str = DEFAULT_CREATE_RULES;

@@ -115,7 +115,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define MAX_NICE_LEVEL		19
 #define IS_VALID_NICE_LEVEL(l)	((l)>=MIN_NICE_LEVEL && (l)<=MAX_NICE_LEVEL)
 
-#define DEFAULT_NICE_LEVEL	20
+#define DEFAULT_NICE_LEVEL	20 	/* invalid value by default, see above */
 #define DEFAULT_RT_PRIO_MIN	11
 #define DEFAULT_RT_PRIO		88
 #define DEFAULT_RT_TIME_SOFT	-1

@@ -665,9 +665,11 @@ gst_pipewire_device_provider_stop (GstDeviceProvider * provider)
 {
   GstPipeWireDeviceProvider *self = GST_PIPEWIRE_DEVICE_PROVIDER (provider);
 
+  pw_thread_loop_lock (self->core->loop);
   GST_DEBUG_OBJECT (self, "stopping provider");
 
   g_clear_pointer ((struct pw_proxy**)&self->registry, pw_proxy_destroy);
+  pw_thread_loop_unlock (self->core->loop);
   g_clear_pointer (&self->core, gst_pipewire_core_release);
 }
 

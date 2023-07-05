@@ -229,12 +229,12 @@ static void pw_properties_from_avahi_string(const char *key, const char *value,
 			value = "tcp";
 		pw_properties_set(props, "raop.transport", value);
 	} else if (spa_streq(key, "et")) {
-		/* Supported encryption types:
+		/* RAOP encryption types:
 		 *  0 = none,
 		 *  1 = RSA,
-		 *  2 = FairPlay,
-		 *  3 = MFiSAP,
-		 *  4 = FairPlay SAPv2.5. */
+		 *  3 = FairPlay,
+		 *  4 = MFiSAP (/auth-setup),
+		 *  5 = FairPlay SAPv2.5 */
 		if (str_in_list(value, ",", "1"))
 			value = "RSA";
 		else if (str_in_list(value, ",", "4"))
@@ -254,7 +254,7 @@ static void pw_properties_from_avahi_string(const char *key, const char *value,
 			value = "ALAC";
 		else if (str_in_list(value, ",", "2"))
 			value = "AAC";
-		else if (str_in_list(value, ",", "2"))
+		else if (str_in_list(value, ",", "3"))
 			value = "AAC-ELD";
 		else
 			value = "unknown";

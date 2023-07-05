@@ -40,11 +40,16 @@
  * The `rtp-source` module creates a PipeWire source that receives audio
  * and midi RTP packets.
  *
+ * This module is usually loaded from the \page page_module_rtp_sap so that the
+ * source.ip and source.port and format parameters matches that of the sender.
+ *
  * ## Module Options
  *
  * Options specific to the behavior of this module
  *
  * - `local.ifname = <str>`: interface name to use
+ * - `source.ip = <str>`: the source ip address, default 224.0.0.56
+ * - `source.port = <int>`: the source port
  * - `node.always-process = <bool>`: true to receive even when not running
  * - `sess.latency.msec = <str>`: target network latency in milliseconds, default 100
  * - `sess.media = <string>`: the media type audio|midi|opus, default audio
@@ -73,6 +78,8 @@
  * {   name = libpipewire-module-rtp-source
  *     args = {
  *         #local.ifname = eth0
+ *         #source.ip = 224.0.0.56
+ *         #source.port = 0
  *         sess.latency.msec = 100
  *         #node.always-process = false
  *         #sess.media = "audio"

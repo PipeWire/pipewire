@@ -198,16 +198,6 @@ static struct mix *create_mix(struct node_data *data,
 	return mix;
 }
 
-static struct mix *ensure_mix(struct node_data *data,
-		enum spa_direction direction, uint32_t port_id,
-		uint32_t mix_id)
-{
-	struct mix *mix;
-	if ((mix = find_mix(data, direction, port_id, mix_id)))
-		return mix;
-	return create_mix(data, direction, port_id, mix_id, SPA_ID_INVALID);
-}
-
 static int client_node_transport(void *_data,
 			int readfd, int writefd, uint32_t mem_id, uint32_t offset, uint32_t size)
 {
@@ -614,7 +604,7 @@ client_node_port_use_buffers(void *_data,
 	struct mix *mix;
 	int res, prot;
 
-	mix = ensure_mix(data, direction, port_id, mix_id);
+	mix = find_mix(data, direction, port_id, mix_id);
 	if (mix == NULL) {
 		res = -ENOENT;
 		goto error_exit;
@@ -767,7 +757,7 @@ client_node_port_set_io(void *_data,
 	int res = 0;
 	uint32_t tag[5] = { data->remote_id, direction, port_id, mix_id, id };
 
-	mix = ensure_mix(data, direction, port_id, mix_id);
+	mix = find_mix(data, direction, port_id, mix_id);
 	if (mix == NULL) {
 		res = -ENOENT;
 		goto exit;
@@ -1051,6 +1041,22 @@ static void node_port_info_changed(void *data, struct pw_impl_port *port,
 	add_port_update(d, port, change_mask);
 }
 
+static void node_port_added(void *data, struct pw_impl_port *port)
+{
+	struct node_data *d = data;
+	struct mix *mix;
+
+	pw_log_debug("added %p", d);
+
+	if (d->client_node == NULL)
+		return;
+
+	mix = create_mix(d, port->direction, port->port_id, SPA_ID_INVALID, SPA_ID_INVALID);
+	if (mix == NULL) {
+		pw_log_error("%p: failed to create port mix: %m", d->node);
+	}
+}
+
 static void node_port_removed(void *data, struct pw_impl_port *port)
 {
 	struct node_data *d = data;
@@ -1099,6 +1105,7 @@ static const struct pw_impl_node_events node_events = {
 	.free = node_free,
 	.info_changed = node_info_changed,
 	.port_info_changed = node_port_info_changed,
+	.port_added = node_port_added,
 	.port_removed = node_port_removed,
 	.active_changed = node_active_changed,
 	.event = node_event,

@@ -217,14 +217,12 @@ static void mix_init(struct mix *mix, struct port *p, uint32_t mix_id)
 	mix->n_buffers = 0;
 }
 
-static struct mix *ensure_mix(struct impl *impl, struct port *p, uint32_t mix_id)
+static struct mix *create_mix(struct impl *impl, struct port *p, uint32_t mix_id)
 {
 	struct mix *mix;
 
-	if ((mix = find_mix(p, mix_id)) == NULL)
+	if ((mix = find_mix(p, mix_id)) == NULL || mix->valid)
 		return NULL;
-	if (mix->valid)
-		return mix;
 	mix_init(mix, p, mix_id);
 	return mix;
 }
@@ -726,14 +724,11 @@ do_port_use_buffers(struct impl *impl,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
 			port_id, mix_id, buffers, n_buffers, flags);
 
+	if (direction == SPA_DIRECTION_OUTPUT)
+		mix_id = SPA_ID_INVALID;
+
 	if ((mix = find_mix(p, mix_id)) == NULL || !mix->valid)
 		return -EINVAL;
-
-	if (direction == SPA_DIRECTION_OUTPUT) {
-		mix_id = SPA_ID_INVALID;
-		if ((mix = find_mix(p, mix_id)) == NULL || !mix->valid)
-			return -EINVAL;
-	}
 
 	clear_buffers(impl, mix);
 
@@ -1380,7 +1375,7 @@ static int port_init_mix(void *data, struct pw_impl_port_mix *mix)
 	uint32_t idx, pos, len;
 	struct pw_memblock *area;
 
-	if ((m = ensure_mix(impl, port, mix->port.port_id)) == NULL)
+	if ((m = create_mix(impl, port, mix->port.port_id)) == NULL)
 		return -ENOMEM;
 
 	mix->id = pw_map_insert_new(&impl->io_map, NULL);
@@ -1573,7 +1568,7 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
 			&impl_port_mix, p);
-	ensure_mix(impl, p, SPA_ID_INVALID);
+	create_mix(impl, p, SPA_ID_INVALID);
 
 	pw_map_insert_at(&impl->ports[p->direction], p->id, p);
 	return;

@@ -44,6 +44,7 @@ static void resample_peaks_process(struct resample *r,
 			m = peaks_abs_max(&pd->peaks, &s[i], chunk, m);
 
 			i += chunk;
+			i_count += chunk;
 
 			if (chunk == end) {
 				d[o++] = m;
@@ -56,7 +57,7 @@ static void resample_peaks_process(struct resample *r,
 	*out_len = o;
 	*in_len = i;
 	pd->o_count = o_count;
-	pd->i_count = i_count + i;
+	pd->i_count = i_count;
 
 	while (pd->i_count >= r->i_rate && pd->o_count >= r->o_rate) {
 		pd->i_count -= r->i_rate;

@@ -1103,6 +1103,9 @@ static void check_states(struct pw_impl_node *driver, uint64_t nsec)
 		struct pw_node_activation *a = t->activation;
 		struct pw_node_activation_state *state = &a->state[0];
 
+		if (t->id == driver->info.id)
+			continue;
+
 		if (a->status == PW_NODE_ACTIVATION_TRIGGERED ||
 		    a->status == PW_NODE_ACTIVATION_AWAKE) {
 			update_xrun_stats(a, nsec / 1000, 0);

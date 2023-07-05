@@ -1155,12 +1155,14 @@ static uint32_t find_best_rate(const uint32_t *rates, uint32_t n_rates, uint32_t
 	 * 8000 and [ 44100 192000 ] -> 44100
 	 * 11025 and [ 44100 48000 ] -> 44100
 	 * 44100 and [ 48000 176400 ] -> 48000
+	 * 144 and [ 44100 48000 88200 96000] -> 48000
 	 */
 	spa_zero(best);
 	/* Don't try to do excessive upsampling by limiting the max rate
 	 * for desired < default to default*2. For other rates allow
-	 * a x3 upsample rate max */
-	limit = rate < def ? def*2 : rate*3;
+	 * a x3 upsample rate max. For values lower than half of the default,
+	 * limit to the default.  */
+	limit = rate < def/2 ? def : rate < def ? def*2 : rate*3;
 	for (i = 0; i < n_rates; i++) {
 		if (info[i].rate >= rate && info[i].rate <= limit)
 			update_nearest_gcd(&best, &info[i]);

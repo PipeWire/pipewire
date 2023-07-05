@@ -39,13 +39,13 @@ static void resample_peaks_process(struct resample *r,
 			end = ((uint64_t) (o_count + 1)
 				* r->i_rate) / r->o_rate;
 			end = end > i_count ? end - i_count : 0;
-			chunk = SPA_MIN(end, *in_len);
+			chunk = SPA_MIN(end, *in_len - i);
 
-			m = peaks_abs_max(&pd->peaks, &s[i], chunk - i, m);
+			m = peaks_abs_max(&pd->peaks, &s[i], chunk, m);
 
 			i += chunk;
 
-			if (i == end) {
+			if (chunk == end) {
 				d[o++] = m;
 				m = 0.0f;
 				o_count++;
@@ -58,7 +58,7 @@ static void resample_peaks_process(struct resample *r,
 	pd->o_count = o_count;
 	pd->i_count = i_count + i;
 
-	while (pd->i_count >= r->i_rate) {
+	while (pd->i_count >= r->i_rate && pd->o_count >= r->o_rate) {
 		pd->i_count -= r->i_rate;
 		pd->o_count -= r->o_rate;
 	}

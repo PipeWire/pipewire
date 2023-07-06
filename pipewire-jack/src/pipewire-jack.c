@@ -587,14 +587,6 @@ static struct mix *create_mix(struct client *c, struct port *port,
 	return mix;
 }
 
-static struct mix *ensure_mix(struct client *c, struct port *port, uint32_t mix_id)
-{
-	struct mix *mix;
-	if ((mix = find_mix(c, port, mix_id)) != NULL)
-		return mix;
-	return create_mix(c, port, mix_id, SPA_ID_INVALID);
-}
-
 static int clear_buffers(struct client *c, struct mix *mix)
 {
 	struct port *port = mix->port;
@@ -2483,7 +2475,7 @@ static int client_node_port_use_buffers(void *data,
 		res = -EINVAL;
 		goto done;
 	}
-	if ((mix = ensure_mix(c, p, mix_id)) == NULL) {
+	if ((mix = find_mix(c, p, mix_id)) == NULL) {
 		res = -ENOMEM;
 		goto done;
 	}
@@ -2633,7 +2625,7 @@ static int client_node_port_set_io(void *data,
 		goto exit;
 	}
 
-	if ((mix = ensure_mix(c, p, mix_id)) == NULL) {
+	if ((mix = find_mix(c, p, mix_id)) == NULL) {
 		res = -ENOMEM;
 		goto exit;
 	}
@@ -4737,6 +4729,13 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	param_latency_other(c, p, &params[n_params++], &b);
 
 	pw_thread_loop_lock(c->context.loop);
+	if (create_mix(c, p, SPA_ID_INVALID, SPA_ID_INVALID) == NULL) {
+		res = -errno;
+		pw_log_warn("can't create mix for port %s: %m", port_name);
+		pw_thread_loop_unlock(c->context.loop);
+		goto error_free;
+	}
+
 	freeze_callbacks(c);
 
 	pw_client_node_port_update(c->node,

@@ -1472,8 +1472,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	PW_LOG_TOPIC_INIT(mod_topic);
 	PW_LOG_TOPIC_INIT(mod_topic_connection);
 
-	if (pw_context_find_protocol(context, PW_TYPE_INFO_PROTOCOL_Native) != NULL)
-		return 0;
+	if (pw_context_find_protocol(context, PW_TYPE_INFO_PROTOCOL_Native) != NULL) {
+		pw_log_error("protocol %s is already loaded", PW_TYPE_INFO_PROTOCOL_Native);
+		return -EEXIST;
+	}
 
 	this = pw_protocol_new(context, PW_TYPE_INFO_PROTOCOL_Native, sizeof(struct protocol_data));
 	if (this == NULL)

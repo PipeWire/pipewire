@@ -56,6 +56,7 @@ struct impl {
 	uint32_t ssrc;
 	uint16_t seq;
 	unsigned have_ssrc:1;
+	unsigned ignore_ssrc:1;
 	unsigned have_seq:1;
 	uint32_t ts_offset;
 	uint32_t psamples;
@@ -363,6 +364,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	if (pw_properties_get(props, PW_KEY_NODE_NETWORK) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_NETWORK, "true");
 
+	impl->ignore_ssrc = pw_properties_get_bool(props, "sess.ignore-ssrc", false);
 	impl->direct_timestamp = pw_properties_get_bool(props, "sess.ts-direct", false);
 
 	if (direction == PW_DIRECTION_INPUT) {

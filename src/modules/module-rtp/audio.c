@@ -117,7 +117,7 @@ static int rtp_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 	if (impl->have_ssrc && impl->ssrc != hdr->ssrc)
 		goto unexpected_ssrc;
 	impl->ssrc = hdr->ssrc;
-	impl->have_ssrc = true;
+	impl->have_ssrc = !impl->ignore_ssrc;
 
 	seq = ntohs(hdr->sequence_number);
 	if (impl->have_seq && impl->seq != seq) {

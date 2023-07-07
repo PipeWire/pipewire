@@ -2298,8 +2298,9 @@ static inline struct buffer *peek_buffer(struct impl *this, struct port *port)
 	struct buffer *b;
 
 	if (spa_list_is_empty(&port->queue)) {
-		spa_log_trace_fp(this->log, "%p: out of buffers on port %d %d",
-			this, port->id, port->n_buffers);
+		if (port->n_buffers > 0)
+			spa_log_warn(this->log, "%p: out of buffers on port %d %d",
+				this, port->id, port->n_buffers);
 		return NULL;
 	}
 

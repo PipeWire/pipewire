@@ -623,7 +623,9 @@ static int impl_node_process(void *object)
 
 	/* get output buffer */
 	if ((outb = dequeue_buffer(this, outport)) == NULL) {
-                spa_log_trace(this->log, NAME " %p: out of buffers", this);
+		if (outport->n_buffers > 0)
+	                spa_log_warn(this->log, NAME " %p: out of buffers (%d)",
+					this, outport->n_buffers);
                 return -EPIPE;
         }
 

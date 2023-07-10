@@ -901,8 +901,8 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 
 	pw_impl_node_emit_driver_changed(node, old, driver);
 
-	pw_impl_node_emit_peer_added(driver, node);
 	pw_impl_node_emit_peer_removed(old, node);
+	pw_impl_node_emit_peer_added(driver, node);
 
 	return 0;
 }

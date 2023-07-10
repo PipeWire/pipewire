@@ -39,8 +39,6 @@ struct buffer {
 struct mix {
 	struct spa_list link;
 	struct pw_impl_port *port;
-	uint32_t mix_id;
-	uint32_t peer_id;
 	struct pw_impl_port_mix mix;
 	struct pw_array buffers;
 };
@@ -151,9 +149,10 @@ static void mix_init(struct mix *mix, struct pw_impl_port *port,
 {
 	pw_log_debug("port %p: mix init %d.%d", port, port->port_id, mix_id);
 	mix->port = port;
-	mix->mix_id = mix_id;
-	mix->peer_id = peer_id;
-	pw_impl_port_init_mix(port, &mix->mix);
+	mix->mix.id = mix_id;
+	mix->mix.peer_id = peer_id;
+	if (mix_id != SPA_ID_INVALID)
+		pw_impl_port_init_mix(port, &mix->mix);
 	pw_array_init(&mix->buffers, 32);
 	pw_array_ensure_size(&mix->buffers, sizeof(struct buffer) * 64);
 }
@@ -165,7 +164,7 @@ static struct mix *find_mix(struct node_data *data,
 
 	spa_list_for_each(mix, &data->mix[direction], link) {
 		if (mix->port->port_id == port_id &&
-		    mix->mix_id == mix_id) {
+		    mix->mix.id == mix_id) {
 			pw_log_debug("port %p: found mix %d:%d.%d", mix->port,
 					direction, port_id, mix_id);
 			return mix;
@@ -532,7 +531,7 @@ static int clear_buffers(struct node_data *data, struct mix *mix)
 
         pw_log_debug("port %p: clear %zd buffers mix:%d", port,
 			pw_array_get_len(&mix->buffers, struct buffer *),
-			mix->mix_id);
+			mix->mix.id);
 
 	if ((res = pw_impl_port_use_buffers(port, &mix->mix, 0, NULL, 0)) < 0) {
 		pw_log_error("port %p: error clear buffers %s", port, spa_strerror(res));
@@ -892,7 +891,7 @@ error_exit:
 
 static void clear_mix(struct node_data *data, struct mix *mix)
 {
-	pw_log_debug("port %p: mix clear %d.%d", mix->port, mix->port->port_id, mix->mix_id);
+	pw_log_debug("port %p: mix clear %d.%d", mix->port, mix->port->port_id, mix->mix.id);
 
 	spa_node_port_set_io(mix->port->mix, mix->mix.port.direction,
 			mix->mix.port.port_id, SPA_IO_Buffers, NULL, 0);
@@ -903,7 +902,8 @@ static void clear_mix(struct node_data *data, struct mix *mix)
 	pw_array_clear(&mix->buffers);
 
 	spa_list_append(&data->free_mix, &mix->link);
-	pw_impl_port_release_mix(mix->port, &mix->mix);
+	if (mix->mix.id != SPA_ID_INVALID)
+		pw_impl_port_release_mix(mix->port, &mix->mix);
 }
 
 static int client_node_port_set_mix_info(void *_data,

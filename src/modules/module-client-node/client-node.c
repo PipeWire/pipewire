@@ -1346,9 +1346,6 @@ static void node_free(void *data)
 	while ((mm = pw_mempool_find_tag(impl->client->pool, tag, sizeof(uint32_t))) != NULL)
 		pw_memmap_free(mm);
 
-	if (impl->resource)
-		pw_resource_destroy(impl->resource);
-
 	if (impl->activation)
 		pw_memblock_free(impl->activation);
 
@@ -1357,6 +1354,9 @@ static void node_free(void *data)
 			pw_memblock_unref(*area);
 	}
 	pw_array_clear(&impl->io_areas);
+
+	if (impl->resource)
+		pw_resource_destroy(impl->resource);
 
 	pw_map_clear(&impl->ports[0]);
 	pw_map_clear(&impl->ports[1]);

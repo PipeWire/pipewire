@@ -298,9 +298,9 @@ int pw_impl_port_init_mix(struct pw_impl_port *port, struct pw_impl_port_mix *mi
 	spa_list_append(&port->mix_list, &mix->link);
 	port->n_mix++;
 
-	pw_log_debug("%p: init mix n_mix:%d %d.%d io:%p: (%s)", port,
+	pw_log_debug("%p: init mix n_mix:%d %d.%d id:%d peer:%d io:%p: (%s)", port,
 			port->n_mix, port->port_id, mix->port.port_id,
-			mix->io, spa_strerror(res));
+			mix->id, mix->peer_id, mix->io, spa_strerror(res));
 
 	if (port->n_mix == 1) {
 		pw_log_debug("%p: setting port io", port);
@@ -329,6 +329,9 @@ int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix 
 	spa_list_remove(&mix->link);
 	port->n_mix--;
 
+	pw_log_debug("%p: release mix %d %d.%d", port,
+			port->n_mix, port->port_id, mix->port.port_id);
+
 	res = pw_impl_port_call_release_mix(port, mix);
 
 	if (port->destroying)
@@ -337,9 +340,6 @@ int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix 
 	if ((res = spa_node_remove_port(port->mix, port->direction, port_id)) < 0 &&
 	    res != -ENOTSUP)
 		pw_log_warn("can't remove mix port %d: %s", port_id, spa_strerror(res));
-
-	pw_log_debug("%p: release mix %d %d.%d", port,
-			port->n_mix, port->port_id, mix->port.port_id);
 
 	if (port->n_mix == 0) {
 		pw_log_debug("%p: clearing port io", port);

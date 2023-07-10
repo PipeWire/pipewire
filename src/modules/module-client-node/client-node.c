@@ -1207,8 +1207,8 @@ static void node_peer_added(void *data, struct pw_impl_node *peer)
 		return;
 	}
 
-	pw_log_debug("%p: peer %p/%p id:%u added mem_id:%u", impl, peer,
-			impl->this.node, peer->info.id, m->id);
+	pw_log_debug("%p: peer %p/%p id:%u added mem_id:%u %p %d", impl, peer,
+			impl->this.node, peer->info.id, m->id, m, m->ref);
 
 	if (impl->resource == NULL)
 		return;

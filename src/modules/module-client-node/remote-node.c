@@ -864,18 +864,22 @@ client_node_set_activation(void *_data,
 		pw_loop_invoke(data->data_loop,
                        do_activate_link, SPA_ID_INVALID, NULL, 0, false, link);
 
-		pw_log_debug("node %p: link %p: fd:%d id:%u state %p required %d, pending %d",
-				node, link, signalfd,
-				link->target.activation->position.clock.id,
+		pw_log_debug("node %p: add link %p: memid:%u fd:%d id:%u state:%p pending:%d/%d",
+				node, link, memid, signalfd, node_id,
 				&link->target.activation->state[0],
-				link->target.activation->state[0].required,
-				link->target.activation->state[0].pending);
+				link->target.activation->state[0].pending,
+				link->target.activation->state[0].required);
 	} else {
 		link = find_activation(&data->links, node_id);
 		if (link == NULL) {
 			res = -ENOENT;
 			goto error_exit;
 		}
+		pw_log_debug("node %p: remove link %p: id:%u state:%p pending:%d/%d",
+				node, link, node_id,
+				&link->target.activation->state[0],
+				link->target.activation->state[0].pending,
+				link->target.activation->state[0].required);
 		clear_link(data, link);
 	}
 	return res;

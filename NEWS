@@ -1,3 +1,41 @@
+# PipeWire 0.3.74 (2023-07-12)
+
+This is a quick bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Fix a critical bug where audio to bluetooth devices would cut out
+    randomly. (#3316)
+  - Improve RAOP compatibility.
+  - Avoid crashes after an update.
+  - Small fixes and improvements.
+
+
+## PipeWire
+  - Mix info on port is now created explicitly.
+  - Remove the node as a driver peer when stopping. This caused some problem
+    with playback on and other remote bluetooth devices. (#3316)
+  - Work on avoiding crashes when loading new modules that use internal API
+    with old libpipewire. This is typical after an update where the old library is
+    still loaded by an application but when a new stream is created, updated
+    modules are loaded. (#3243)
+
+## Modules
+  - The RTP source module now has an option to ignore the SSRC, which is
+    useful to continue to receive the stream when the sender is restarted.
+  - The native protocol will refuse to load twice now instead of silently
+    ignoring the error.
+  - module-raop is compatible with more devices. (#3247)
+
+## SPA
+  - plugins will now warn when running out of buffers. This is always a bad
+    thing.
+  - Merge scope based cleanup macros.
+  - Add ratelimit function.
+
+Older versions:
+
+
 # PipeWire 0.3.73 (2023-07-06)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -68,9 +106,6 @@ This is a bugfix release that is API and ABI compatible with previous
 
 ## GStreamer
   - The device provider does locking when destroying the registry.
-
-Older versions:
-
 
 # PipeWire 0.3.72 (2023-06-26)
 

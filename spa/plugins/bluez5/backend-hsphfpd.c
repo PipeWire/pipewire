@@ -18,6 +18,7 @@
 #include <spa/param/audio/raw.h>
 
 #include "defs.h"
+#include "dbus-helpers.h"
 
 static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.hsphfpd");
 #undef SPA_LOG_TOPIC_DEFAULT
@@ -846,7 +847,7 @@ static void hsphfpd_audio_acquire_reply(DBusPendingCall *pending, void *user_dat
 
 	backend->acquire_in_progress = false;
 
-	r = dbus_pending_call_steal_reply(pending);
+	r = steal_reply_and_unref(&pending);
 	if (r == NULL)
 		return;
 
@@ -889,7 +890,6 @@ static void hsphfpd_audio_acquire_reply(DBusPendingCall *pending, void *user_dat
 
 finish:
 	dbus_message_unref(r);
-	dbus_pending_call_unref(pending);
 
 	if (ret < 0)
 		spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ERROR);
@@ -1179,7 +1179,7 @@ static void hsphfpd_get_endpoints_reply(DBusPendingCall *pending, void *user_dat
 	DBusMessage *r;
 	DBusMessageIter i, array_i;
 
-	r = dbus_pending_call_steal_reply(pending);
+	r = steal_reply_and_unref(&pending);
 	if (r == NULL)
 		return;
 
@@ -1212,7 +1212,6 @@ static void hsphfpd_get_endpoints_reply(DBusPendingCall *pending, void *user_dat
 
 finish:
 	dbus_message_unref(r);
-	dbus_pending_call_unref(pending);
 }
 
 static int backend_hsphfpd_register(void *data)

@@ -22,6 +22,7 @@
 #include <spa/param/audio/raw.h>
 
 #include "defs.h"
+#include "dbus-helpers.h"
 
 #define INITIAL_INTERVAL_NSEC	(500 * SPA_NSEC_PER_MSEC)
 #define ACTION_INTERVAL_NSEC	(3000 * SPA_NSEC_PER_MSEC)
@@ -633,7 +634,7 @@ static void ofono_getcards_reply(DBusPendingCall *pending, void *user_data)
 	DBusMessage *r;
 	DBusMessageIter i, array_i, struct_i, props_i;
 
-	r = dbus_pending_call_steal_reply(pending);
+	r = steal_reply_and_unref(&pending);
 	if (r == NULL)
 		return;
 
@@ -665,7 +666,6 @@ static void ofono_getcards_reply(DBusPendingCall *pending, void *user_data)
 
 finish:
 	dbus_message_unref(r);
-	dbus_pending_call_unref(pending);
 }
 
 static int backend_ofono_register(void *data)

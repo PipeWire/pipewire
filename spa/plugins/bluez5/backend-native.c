@@ -33,6 +33,7 @@
 #include <libusb.h>
 #endif
 
+#include "dbus-helpers.h"
 #include "modemmanager.h"
 #include "upower.h"
 
@@ -2413,7 +2414,7 @@ static void register_profile_reply(DBusPendingCall *pending, void *user_data)
 	struct impl *backend = user_data;
 	DBusMessage *r;
 
-	r = dbus_pending_call_steal_reply(pending);
+	r = steal_reply_and_unref(&pending);
 	if (r == NULL)
 		return;
 
@@ -2431,9 +2432,8 @@ static void register_profile_reply(DBusPendingCall *pending, void *user_data)
 		goto finish;
 	}
 
-      finish:
+finish:
 	dbus_message_unref(r);
-        dbus_pending_call_unref(pending);
 }
 
 static int register_profile(struct impl *backend, const char *profile, const char *uuid)

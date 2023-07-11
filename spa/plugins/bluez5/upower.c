@@ -44,8 +44,7 @@ static void upower_get_percentage_properties_reply(DBusPendingCall *pending, voi
 	DBusMessage *r;
 	DBusMessageIter i, variant_i;
 
-	r = dbus_pending_call_steal_reply(pending);
-	dbus_pending_call_unref(pending);
+	r = steal_reply_and_unref(&pending);
 	if (r == NULL)
 		return;
 

@@ -351,10 +351,8 @@ static void on_battery_provider_registered(DBusPendingCall *pending_call,
 	DBusMessage *reply;
 	struct spa_bt_device *device = data;
 
-	reply = dbus_pending_call_steal_reply(pending_call);
-	dbus_pending_call_unref(pending_call);
-
-	device->battery_pending_call = NULL;
+	spa_assert(device->battery_pending_call == pending_call);
+	reply = steal_reply_and_unref(&device->battery_pending_call);
 
 	if (dbus_message_get_type(reply) == DBUS_MESSAGE_TYPE_ERROR) {
 		spa_log_error(device->monitor->log, "Failed to register battery provider. Error: %s", dbus_message_get_error_name(reply));
@@ -3228,11 +3226,8 @@ static void transport_set_property_volume_reply(DBusPendingCall *pending, void *
 	DBusError err = DBUS_ERROR_INIT;
 	DBusMessage *r;
 
-	r = dbus_pending_call_steal_reply(pending);
-
 	spa_assert(transport->volume_call == pending);
-	dbus_pending_call_unref(pending);
-	transport->volume_call = NULL;
+	r = steal_reply_and_unref(&transport->volume_call);
 
 	if (dbus_set_error_from_message(&err, r)) {
 		spa_log_info(monitor->log, "transport %p: set volume failed for transport %s: %s",
@@ -3382,11 +3377,8 @@ static void transport_acquire_reply(DBusPendingCall *pending, void *user_data)
 	DBusMessage *r;
 	struct spa_bt_transport *t, *t_linked;
 
-	r = dbus_pending_call_steal_reply(pending);
-
 	spa_assert(transport->acquire_call == pending);
-	dbus_pending_call_unref(pending);
-	transport->acquire_call = NULL;
+	r = steal_reply_and_unref(&transport->acquire_call);
 
 	spa_bt_device_update_last_bluez_action_time(device);
 
@@ -3967,11 +3959,8 @@ static void media_codec_switch_reply(DBusPendingCall *pending, void *user_data)
 	struct spa_bt_device *device = sw->device;
 	DBusMessage *r;
 
-	r = dbus_pending_call_steal_reply(pending);
-
 	spa_assert(sw->pending == pending);
-	dbus_pending_call_unref(pending);
-	sw->pending = NULL;
+	r = steal_reply_and_unref(&sw->pending);
 
 	spa_bt_device_update_last_bluez_action_time(device);
 
@@ -4450,9 +4439,7 @@ static void bluez_register_endpoint_legacy_reply(DBusPendingCall *pending, void 
 	struct spa_bt_monitor *monitor = adapter->monitor;
 	DBusMessage *r;
 
-	r = dbus_pending_call_steal_reply(pending);
-	dbus_pending_call_unref(pending);
-
+	r = steal_reply_and_unref(&pending);
 	if (r == NULL)
 		return;
 
@@ -4751,9 +4738,7 @@ static void bluez_register_application_a2dp_reply(DBusPendingCall *pending, void
 	DBusMessage *r;
 	bool fallback = true;
 
-	r = dbus_pending_call_steal_reply(pending);
-	dbus_pending_call_unref(pending);
-
+	r = steal_reply_and_unref(&pending);
 	if (r == NULL)
 		return;
 
@@ -4784,9 +4769,7 @@ static void bluez_register_application_bap_reply(DBusPendingCall *pending, void 
 	struct spa_bt_monitor *monitor = adapter->monitor;
 	DBusMessage *r;
 
-	r = dbus_pending_call_steal_reply(pending);
-	dbus_pending_call_unref(pending);
-
+	r = steal_reply_and_unref(&pending);
 	if (r == NULL)
 		return;
 
@@ -5200,12 +5183,8 @@ static void get_managed_objects_reply(DBusPendingCall *pending, void *user_data)
 	DBusMessage *r;
 	DBusMessageIter it[6];
 
-	spa_assert(pending == monitor->get_managed_objects_call);
-	monitor->get_managed_objects_call = NULL;
-
-	r = dbus_pending_call_steal_reply(pending);
-	dbus_pending_call_unref(pending);
-
+	spa_assert(monitor->get_managed_objects_call == pending);
+	r = steal_reply_and_unref(&monitor->get_managed_objects_call);
 	if (r == NULL)
 		return;
 

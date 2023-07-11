@@ -125,10 +125,7 @@ static void mm_get_call_properties_reply(DBusPendingCall *pending, void *user_da
 	MMCallState state;
 
 	spa_assert(call->pending == pending);
-	call->pending = NULL;
-
-	r = dbus_pending_call_steal_reply(pending);
-	dbus_pending_call_unref(pending);
+	r = steal_reply_and_unref(&call->pending);
 	if (r == NULL)
 		return;
 
@@ -424,10 +421,7 @@ static void mm_get_managed_objects_reply(DBusPendingCall *pending, void *user_da
 	DBusMessageIter i, array_i;
 
 	spa_assert(this->pending == pending);
-	this->pending = NULL;
-
-	r = dbus_pending_call_steal_reply(pending);
-	dbus_pending_call_unref(pending);
+	r = steal_reply_and_unref(&this->pending);
 	if (r == NULL)
 		return;
 
@@ -782,10 +776,7 @@ static void mm_get_call_simple_reply(DBusPendingCall *pending, void *data)
 	free(data);
 
 	spa_assert(call->pending == pending);
-	call->pending = NULL;
-
-	r = dbus_pending_call_steal_reply(pending);
-	dbus_pending_call_unref(pending);
+	r = steal_reply_and_unref(&call->pending);
 	if (r == NULL)
 		return;
 
@@ -815,10 +806,7 @@ static void mm_get_call_create_reply(DBusPendingCall *pending, void *data)
 	free(data);
 
 	spa_assert(this->voice_pending == pending);
-	this->voice_pending = NULL;
-
-	r = dbus_pending_call_steal_reply(pending);
-	dbus_pending_call_unref(pending);
+	r = steal_reply_and_unref(&this->voice_pending);
 	if (r == NULL)
 		return;
 

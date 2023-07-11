@@ -35,6 +35,7 @@
 
 #include "config.h"
 #include "codec-loader.h"
+#include "dbus-helpers.h"
 #include "player.h"
 #include "iso-io.h"
 #include "defs.h"
@@ -225,12 +226,7 @@ static void battery_remove(struct spa_bt_device *device) {
 	DBusMessage *m;
 	const char *interface;
 
-	if (device->battery_pending_call) {
-		spa_log_debug(device->monitor->log, "Cancelling and freeing pending battery provider register call");
-		dbus_pending_call_cancel(device->battery_pending_call);
-		dbus_pending_call_unref(device->battery_pending_call);
-		device->battery_pending_call = NULL;
-	}
+	cancel_and_unref(&device->battery_pending_call);
 
 	if (!device->adapter || !device->adapter->has_battery_provider || !device->has_battery)
 		return;
@@ -422,9 +418,7 @@ static void register_battery_provider(struct spa_bt_device *device)
 		    device->battery_pending_call, on_battery_provider_registered,
 		    device, NULL)) {
 		spa_log_error(device->monitor->log, "Failed to register battery provider");
-		dbus_pending_call_cancel(device->battery_pending_call);
-		dbus_pending_call_unref(device->battery_pending_call);
-		device->battery_pending_call = NULL;
+		cancel_and_unref(&device->battery_pending_call);
 	}
 }
 
@@ -2634,17 +2628,8 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 
 	spa_bt_transport_destroy(transport);
 
-	if (transport->acquire_call) {
-		dbus_pending_call_cancel(transport->acquire_call);
-		dbus_pending_call_unref(transport->acquire_call);
-		transport->acquire_call = NULL;
-	}
-
-	if (transport->volume_call) {
-		dbus_pending_call_cancel(transport->volume_call);
-		dbus_pending_call_unref(transport->volume_call);
-		transport->volume_call = NULL;
-	}
+	cancel_and_unref(&transport->acquire_call);
+	cancel_and_unref(&transport->volume_call);
 
 	if (transport->fd >= 0) {
 		spa_bt_player_set_state(transport->device->adapter->dummy_player, SPA_BT_PLAYER_STOPPED);
@@ -3271,11 +3256,7 @@ static void transport_set_property_volume(struct spa_bt_transport *transport, ui
 	int res = 0;
 	dbus_bool_t ret;
 
-	if (transport->volume_call) {
-		dbus_pending_call_cancel(transport->volume_call);
-		dbus_pending_call_unref(transport->volume_call);
-		transport->volume_call = NULL;
-	}
+	cancel_and_unref(&transport->volume_call);
 
 	m = dbus_message_new_method_call(BLUEZ_SERVICE,
 					 transport->path,
@@ -3614,11 +3595,7 @@ static int do_transport_release(struct spa_bt_transport *transport)
 
 	spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_IDLE);
 
-	if (transport->acquire_call) {
-		dbus_pending_call_cancel(transport->acquire_call);
-		dbus_pending_call_unref(transport->acquire_call);
-		transport->acquire_call = NULL;
-	}
+	cancel_and_unref(&transport->acquire_call);
 
 	if (transport->iso_io) {
 		spa_log_debug(monitor->log, "transport %p: remove ISO IO", transport);
@@ -3743,10 +3720,7 @@ static void media_codec_switch_free(struct spa_bt_media_codec_switch *sw)
 
 	media_codec_switch_stop_timer(sw);
 
-	if (sw->pending != NULL) {
-		dbus_pending_call_cancel(sw->pending);
-		dbus_pending_call_unref(sw->pending);
-	}
+	cancel_and_unref(&sw->pending);
 
 	if (sw->device != NULL)
 		spa_list_remove(&sw->device_link);
@@ -5626,10 +5600,7 @@ static int impl_clear(struct spa_handle *handle)
 		monitor->filters_added = false;
 	}
 
-	if (monitor->get_managed_objects_call) {
-		dbus_pending_call_cancel(monitor->get_managed_objects_call);
-		dbus_pending_call_unref(monitor->get_managed_objects_call);
-	}
+	cancel_and_unref(&monitor->get_managed_objects_call);
 
 	spa_list_consume(t, &monitor->transport_list, link)
 		spa_bt_transport_free(t);

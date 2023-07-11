@@ -1699,6 +1699,11 @@ struct pw_impl_client_node *pw_impl_client_node_new(struct pw_resource *resource
 	if (this->node == NULL)
 		goto error_no_node;
 
+	if (this->node->data_loop == NULL) {
+		errno = EIO;
+		goto error_no_node;
+	}
+
 	impl->data_loop = this->node->data_loop->loop;
 	impl->data_system = this->node->data_loop->system;
 

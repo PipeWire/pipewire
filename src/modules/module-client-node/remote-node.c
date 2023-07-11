@@ -1187,6 +1187,9 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 	struct pw_proxy *client_node;
 	struct node_data *data;
 
+	if (node->data_loop == NULL)
+		goto error;
+
 	user_data_size = SPA_ROUND_UP_N(user_data_size, __alignof__(struct node_data));
 
 	client_node = pw_core_create_object(core,

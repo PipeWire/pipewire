@@ -560,6 +560,12 @@ struct pw_work_queue *pw_context_get_work_queue(struct pw_context *context)
 }
 
 SPA_EXPORT
+struct pw_mempool *pw_context_get_mempool(struct pw_context *context)
+{
+	return context->pool;
+}
+
+SPA_EXPORT
 const struct pw_properties *pw_context_get_properties(struct pw_context *context)
 {
 	return context->properties;

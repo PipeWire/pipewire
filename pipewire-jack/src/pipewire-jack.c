@@ -21,9 +21,11 @@
 #include <spa/support/cpu.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/video/format-utils.h>
+#include <spa/param/latency-utils.h>
 #include <spa/debug/types.h>
 #include <spa/debug/pod.h>
 #include <spa/utils/json.h>
+#include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/ringbuffer.h>
 
@@ -298,6 +300,7 @@ struct client {
 	char *load_init;		/* initialization string */
 	jack_uuid_t session_id;		/* requested session_id */
 
+	struct pw_loop *l;
 	struct pw_data_loop *loop;
 	struct pw_properties *props;
 
@@ -1232,7 +1235,7 @@ static struct link *find_activation(struct spa_list *links, uint32_t node_id)
 static void client_remove_source(struct client *c)
 {
 	if (c->socket_source) {
-		pw_loop_destroy_source(c->loop->loop, c->socket_source);
+		pw_loop_destroy_source(c->l, c->socket_source);
 		c->socket_source = NULL;
 	}
 }
@@ -1860,7 +1863,7 @@ static int client_node_transport(void *data,
 			c, readfd, writefd, c->node_id);
 
 	close(writefd);
-	c->socket_source = pw_loop_add_io(c->loop->loop,
+	c->socket_source = pw_loop_add_io(c->l,
 					  readfd,
 					  SPA_IO_ERR | SPA_IO_HUP,
 					  true, on_rtsocket_condition, c);
@@ -2020,7 +2023,7 @@ static int client_node_command(void *data, const struct spa_command *command)
 	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Pause:
 		if (c->started) {
-			pw_loop_update_io(c->loop->loop,
+			pw_loop_update_io(c->l,
 					  c->socket_source, SPA_IO_ERR | SPA_IO_HUP);
 
 			c->started = false;
@@ -2029,7 +2032,7 @@ static int client_node_command(void *data, const struct spa_command *command)
 
 	case SPA_NODE_COMMAND_Start:
 		if (!c->started) {
-			pw_loop_update_io(c->loop->loop,
+			pw_loop_update_io(c->l,
 					  c->socket_source,
 					  SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
 			c->started = true;
@@ -3638,6 +3641,7 @@ jack_client_t * jack_client_open (const char *client_name,
 			&thread_utils_impl, client);
 
 	client->loop = pw_context_get_data_loop(client->context.context);
+	client->l = pw_data_loop_get_loop(client->loop);
 	pw_data_loop_stop(client->loop);
 
 	pw_context_set_object(client->context.context,

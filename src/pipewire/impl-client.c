@@ -572,6 +572,12 @@ struct pw_global *pw_impl_client_get_global(struct pw_impl_client *client)
 }
 
 SPA_EXPORT
+struct pw_mempool *pw_impl_client_get_mempool(struct pw_impl_client *client)
+{
+	return client->pool;
+}
+
+SPA_EXPORT
 const struct pw_properties *pw_impl_client_get_properties(struct pw_impl_client *client)
 {
 	return client->properties;

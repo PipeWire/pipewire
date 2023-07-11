@@ -43,6 +43,16 @@ struct spa_command_node0_clock_update {
 	struct spa_command_node0_clock_update_body body;
 };
 
+enum spa_node0_event {
+	SPA_NODE0_EVENT_START	= SPA_TYPE_VENDOR_PipeWire,
+	SPA_NODE0_EVENT_RequestClockUpdate,
+};
+
+enum spa_node0_command {
+	SPA_NODE0_COMMAND_START	= SPA_TYPE_VENDOR_PipeWire,
+	SPA_NODE0_COMMAND_ClockUpdate,
+};
+
 #define SPA_COMMAND_NODE0_CLOCK_UPDATE_INIT(type,change_mask,rate,ticks,monotonic_time,offset,scale,state,flags,latency)  \
 	SPA_COMMAND_INIT_FULL(struct spa_command_node0_clock_update,			\
                         sizeof(struct spa_command_node0_clock_update_body), 0, type,	\

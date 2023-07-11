@@ -32,7 +32,6 @@
 
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
-#include <pipewire/private.h>
 
 #include "module-netjack2/packets.h"
 
@@ -224,7 +223,7 @@ struct follower {
 struct impl {
 	struct pw_context *context;
 	struct pw_loop *main_loop;
-	struct pw_data_loop *data_loop;
+	struct pw_loop *data_loop;
 	struct spa_system *system;
 
 #define MODE_SINK	(1<<0)
@@ -340,7 +339,7 @@ static void sink_process(void *d, struct spa_io_position *position)
 	netjack2_send_data(&follower->peer, nframes, midi, n_midi, audio, n_audio);
 
 	if (follower->socket)
-		pw_loop_update_io(s->impl->data_loop->loop, follower->socket, SPA_IO_IN);
+		pw_loop_update_io(s->impl->data_loop, follower->socket, SPA_IO_IN);
 }
 
 static void source_process(void *d, struct spa_io_position *position)
@@ -373,7 +372,7 @@ static void follower_free(struct follower *follower)
 	pw_properties_free(follower->sink.props);
 
 	if (follower->socket)
-		pw_loop_destroy_source(impl->data_loop->loop, follower->socket);
+		pw_loop_destroy_source(impl->data_loop, follower->socket);
 	if (follower->setup_socket)
 		pw_loop_destroy_source(impl->main_loop, follower->setup_socket);
 
@@ -460,13 +459,13 @@ on_data_io(void *data, int fd, uint32_t mask)
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_warn("error:%08x", mask);
-		pw_loop_destroy_source(impl->data_loop->loop, follower->socket);
+		pw_loop_destroy_source(impl->data_loop, follower->socket);
 		follower->socket = NULL;
 		pw_loop_invoke(impl->main_loop, do_stop_follower, 1, NULL, 0, false, follower);
 		return;
 	}
 	if (mask & SPA_IO_IN) {
-		pw_loop_update_io(impl->data_loop->loop, follower->socket, 0);
+		pw_loop_update_io(impl->data_loop, follower->socket, 0);
 
 		pw_filter_trigger_process(follower->source.filter);
 	}
@@ -1000,7 +999,7 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 		goto socket_failed;
 	}
 
-	follower->socket = pw_loop_add_io(impl->data_loop->loop, fd,
+	follower->socket = pw_loop_add_io(impl->data_loop, fd,
 			0, false, on_data_io, follower);
 	if (follower->socket == NULL) {
 		res = -errno;
@@ -1254,6 +1253,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_properties *props = NULL;
+	struct pw_data_loop *data_loop;
 	struct impl *impl;
 	const char *str;
 	int res;
@@ -1277,7 +1277,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 	impl->props = props;
-	impl->data_loop = pw_context_get_data_loop(context);
+	data_loop = pw_context_get_data_loop(context);
+	impl->data_loop = pw_data_loop_get_loop(data_loop);
 
 	impl->sink_props = pw_properties_new(NULL, NULL);
 	impl->source_props = pw_properties_new(NULL, NULL);

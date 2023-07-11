@@ -30,7 +30,6 @@
 
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
-#include <pipewire/private.h>
 
 #include <pulse/pulseaudio.h>
 #include "module-protocol-pulse/defs.h"

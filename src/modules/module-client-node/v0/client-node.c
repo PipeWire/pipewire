@@ -15,13 +15,14 @@
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/node/io.h>
+#include <spa/node/type-info.h>
 #include <spa/pod/filter.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/result.h>
 
 #define PW_ENABLE_DEPRECATED
 
 #include "pipewire/pipewire.h"
-#include "pipewire/private.h"
 
 #include "pipewire/context.h"
 #include "modules/spa/spa-node.h"
@@ -130,6 +131,7 @@ struct impl {
 	bool client_reuse;
 
 	struct pw_context *context;
+	struct pw_mempool *context_pool;
 
 	struct node node;
 
@@ -335,7 +337,7 @@ static inline void do_flush(struct node *this)
 
 static int send_clock_update(struct node *this)
 {
-	struct pw_impl_client *client = this->resource->client;
+	struct pw_impl_client *client = pw_resource_get_client(this->resource);
 	uint32_t type = pw_protocol_native0_name_to_v2(client, SPA_TYPE_INFO_NODE_COMMAND_BASE "ClockUpdate");
 	struct timespec ts;
 	int64_t now;
@@ -468,7 +470,7 @@ do_update_port(struct node *this,
 		}
 		for (i = 0; i < port->n_params; i++) {
 			port->params[i] = params[i] ?
-				pw_protocol_native0_pod_from_v2(this->resource->client, params[i]) : NULL;
+				pw_protocol_native0_pod_from_v2(pw_resource_get_client(this->resource), params[i]) : NULL;
 
 			if (port->params[i] && spa_pod_is_object_id(port->params[i], SPA_PARAM_Format))
 				port->have_format = true;
@@ -661,7 +663,7 @@ impl_node_port_set_io(void *object,
 
 
 	if (data) {
-		if ((mem = pw_mempool_find_ptr(impl->context->pool, data)) == NULL)
+		if ((mem = pw_mempool_find_ptr(impl->context_pool, data)) == NULL)
 			return -EINVAL;
 
 		mem_offset = SPA_PTRDIFF(data, mem->map->ptr);
@@ -744,7 +746,7 @@ impl_node_port_use_buffers(void *object,
 		else
 			return -EINVAL;
 
-		if ((mem = pw_mempool_find_ptr(impl->context->pool, baseptr)) == NULL)
+		if ((mem = pw_mempool_find_ptr(impl->context_pool, baseptr)) == NULL)
 			return -EINVAL;
 
 		data_size = 0;
@@ -910,8 +912,7 @@ static int impl_node_process(void *object)
 	struct node *this = object;
 	struct impl *impl = this->impl;
 	struct pw_impl_node *n = impl->this.node;
-
-	return impl_node_process_input(n->node);
+	return impl_node_process_input(pw_impl_node_get_implementation(n));
 }
 
 static int handle_node_message(struct node *this, struct pw_client_node0_message *message)
@@ -1363,9 +1364,10 @@ struct pw_impl_client_node0 *pw_impl_client_node0_new(struct pw_resource *resour
 	}
 	convert_properties(properties);
 
-	pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d", client->global->id);
+	pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d", pw_global_get_id(pw_impl_client_get_global(client)));
 
 	impl->context = context;
+	impl->context_pool = pw_context_get_mempool(context);
 	impl->fds[0] = impl->fds[1] = -1;
 	pw_log_debug("client-node %p: new", impl);
 

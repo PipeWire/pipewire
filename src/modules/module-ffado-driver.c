@@ -27,7 +27,6 @@
 
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
-#include <pipewire/private.h>
 #include <pipewire/thread.h>
 
 #include <libffado/ffado.h>

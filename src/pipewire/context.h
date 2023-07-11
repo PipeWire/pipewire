@@ -122,6 +122,9 @@ struct pw_data_loop *pw_context_get_data_loop(struct pw_context *context);
 /** Get the work queue from the context: Since 0.3.26 */
 struct pw_work_queue *pw_context_get_work_queue(struct pw_context *context);
 
+/** Get the memmory pool from the context: Since 0.3.74 */
+struct pw_mempool *pw_context_get_mempool(struct pw_context *context);
+
 /** Iterate the globals of the context. The callback should return
  * 0 to fetch the next item, any other value stops the iteration and returns
  * the value. When all callbacks return 0, this function returns 0 when all

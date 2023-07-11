@@ -27,7 +27,6 @@
 
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
-#include <pipewire/private.h>
 
 #include "module-jack-tunnel/weakjack.h"
 

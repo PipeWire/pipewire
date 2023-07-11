@@ -143,6 +143,9 @@ struct pw_resource *pw_impl_client_find_resource(struct pw_impl_client *client, 
 /** Get the global associated with this client */
 struct pw_global *pw_impl_client_get_global(struct pw_impl_client *client);
 
+/** Get the mempool associated with this client, Since 0.3.74 */
+struct pw_mempool *pw_impl_client_get_mempool(struct pw_impl_client *client);
+
 /** listen to events from this client */
 void pw_impl_client_add_listener(struct pw_impl_client *client,
 			    struct spa_hook *listener,

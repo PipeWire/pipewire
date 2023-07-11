@@ -31,7 +31,6 @@
 
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
-#include <pipewire/private.h>
 
 #include "module-netjack2/packets.h"
 #include "module-netjack2/peer.c"
@@ -186,7 +185,7 @@ struct stream {
 struct impl {
 	struct pw_context *context;
 	struct pw_loop *main_loop;
-	struct pw_data_loop *data_loop;
+	struct pw_loop *data_loop;
 	struct spa_system *system;
 
 #define MODE_SINK	(1<<0)
@@ -617,7 +616,7 @@ on_data_io(void *data, int fd, uint32_t mask)
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_warn("error:%08x", mask);
-		pw_loop_update_io(impl->data_loop->loop, impl->socket, 0);
+		pw_loop_update_io(impl->data_loop, impl->socket, 0);
 		return;
 	}
 	if (mask & SPA_IO_IN) {
@@ -889,7 +888,7 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 	send(impl->socket->fd, params, sizeof(*params), 0);
 
 	impl->done = true;
-	pw_loop_update_io(impl->data_loop->loop, impl->socket, SPA_IO_IN);
+	pw_loop_update_io(impl->data_loop, impl->socket, SPA_IO_IN);
 
 	return 0;
 connect_error:
@@ -1013,7 +1012,7 @@ static int create_netjack2_socket(struct impl *impl)
 		goto out;
 	}
 
-	impl->socket = pw_loop_add_io(impl->data_loop->loop, fd,
+	impl->socket = pw_loop_add_io(impl->data_loop, fd,
 			0, false, on_data_io, impl);
 	if (impl->socket == NULL) {
 		res = -errno;
@@ -1035,7 +1034,7 @@ static int send_stop_driver(struct impl *impl)
 
 	impl->started = false;
 	if (impl->socket)
-		pw_loop_update_io(impl->data_loop->loop, impl->socket, 0);
+		pw_loop_update_io(impl->data_loop, impl->socket, 0);
 
 	pw_log_info("sending STOP_DRIVER");
 	nj2_session_params_hton(&params, &impl->peer.params);
@@ -1057,7 +1056,7 @@ static int destroy_netjack2_socket(struct impl *impl)
 	update_timer(impl, 0);
 
 	if (impl->socket) {
-		pw_loop_destroy_source(impl->data_loop->loop, impl->socket);
+		pw_loop_destroy_source(impl->data_loop, impl->socket);
 		impl->socket = NULL;
 	}
 	if (impl->setup_socket) {
@@ -1214,6 +1213,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_properties *props = NULL;
+	struct pw_data_loop *data_loop;
 	struct impl *impl;
 	const char *str;
 	int res;
@@ -1236,7 +1236,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 	impl->props = props;
-	impl->data_loop = pw_context_get_data_loop(context);
+	data_loop = pw_context_get_data_loop(context);
+	impl->data_loop = pw_data_loop_get_loop(data_loop);
 
 	impl->sink.props = pw_properties_new(NULL, NULL);
 	impl->source.props = pw_properties_new(NULL, NULL);

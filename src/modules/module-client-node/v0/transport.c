@@ -10,7 +10,6 @@
 #include <spa/node/io.h>
 
 #include <pipewire/impl.h>
-#include <pipewire/private.h>
 
 #include "ext-client-node.h"
 
@@ -190,7 +189,7 @@ pw_client_node0_transport_new(struct pw_context *context,
 	trans = &impl->trans;
 	impl->offset = 0;
 
-	impl->mem = pw_mempool_alloc(context->pool,
+	impl->mem = pw_mempool_alloc(pw_context_get_mempool(context),
 			PW_MEMBLOCK_FLAG_READWRITE |
 			PW_MEMBLOCK_FLAG_MAP |
 			PW_MEMBLOCK_FLAG_SEAL,

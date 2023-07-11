@@ -12,6 +12,7 @@
 
 #include "config.h"
 
+#include <spa/pod/builder.h>
 #include <spa/utils/result.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/param/profiler.h>
@@ -74,6 +75,7 @@ struct impl {
 	struct pw_context *context;
 	struct pw_properties *properties;
 
+	struct pw_loop *main_loop;
 	struct pw_loop *data_loop;
 
 	struct spa_hook context_listener;
@@ -111,7 +113,7 @@ static void start_flush(struct impl *impl)
         value.tv_nsec = 1;
 	interval.tv_sec = DEFAULT_INTERVAL;
         interval.tv_nsec = 0;
-        pw_loop_update_timer(impl->context->main_loop,
+        pw_loop_update_timer(impl->main_loop,
 			impl->flush_timeout, &value, &interval, false);
 	impl->flushing = true;
 }
@@ -127,7 +129,7 @@ static void stop_flush(struct impl *impl)
         value.tv_nsec = 0;
 	interval.tv_sec = 0;
         interval.tv_nsec = 0;
-        pw_loop_update_timer(impl->context->main_loop,
+        pw_loop_update_timer(impl->main_loop,
 			impl->flush_timeout, &value, &interval, false);
 	impl->flushing = false;
 }
@@ -348,7 +350,7 @@ static void module_destroy(void *data)
 
 	pw_properties_free(impl->properties);
 
-	pw_loop_destroy_source(pw_context_get_main_loop(impl->context), impl->flush_timeout);
+	pw_loop_destroy_source(impl->main_loop, impl->flush_timeout);
 
 	free(impl);
 }
@@ -380,7 +382,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_properties *props;
 	struct impl *impl;
-	struct pw_loop *main_loop = pw_context_get_main_loop(context);
 	static const char * const keys[] = {
 		PW_KEY_OBJECT_SERIAL,
 		NULL
@@ -403,7 +404,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->context = context;
 	impl->properties = props;
-	impl->data_loop = pw_context_get_data_loop(impl->context)->loop;
+	impl->main_loop = pw_context_get_main_loop(impl->context);
+	impl->data_loop = pw_data_loop_get_loop(pw_context_get_data_loop(impl->context));
 
 	spa_ringbuffer_init(&impl->buffer);
 
@@ -416,11 +418,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		free(impl);
 		return -errno;
 	}
-	pw_properties_setf(impl->properties, PW_KEY_OBJECT_ID, "%d", impl->global->id);
+	pw_properties_setf(impl->properties, PW_KEY_OBJECT_ID, "%d", pw_global_get_id(impl->global));
 	pw_properties_setf(impl->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(impl->global));
 
-	impl->flush_timeout = pw_loop_add_timer(main_loop, flush_timeout, impl);
+	impl->flush_timeout = pw_loop_add_timer(impl->main_loop, flush_timeout, impl);
 
 	pw_global_update_keys(impl->global, &impl->properties->dict, keys);
 

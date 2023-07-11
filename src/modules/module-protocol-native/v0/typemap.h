@@ -1,3 +1,13 @@
+enum spa_node0_event {
+	SPA_NODE0_EVENT_START   = SPA_TYPE_VENDOR_PipeWire,
+	SPA_NODE0_EVENT_RequestClockUpdate,
+};
+
+enum spa_node0_command {
+	SPA_NODE0_COMMAND_START = SPA_TYPE_VENDOR_PipeWire,
+	SPA_NODE0_COMMAND_ClockUpdate,
+};
+
 static const struct type_info {
 	const char *type;
 	const char *name;

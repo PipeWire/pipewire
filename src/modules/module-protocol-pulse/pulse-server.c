@@ -3250,7 +3250,7 @@ static int do_remove_proplist(struct client *client, uint32_t command, uint32_t 
 		items[i].value = NULL;
 	}
 
-	if (command != COMMAND_UPDATE_CLIENT_PROPLIST) {
+	if (command != COMMAND_REMOVE_CLIENT_PROPLIST) {
 		struct stream *stream = pw_map_lookup(&client->streams, channel);
 		if (stream == NULL || stream->type == STREAM_TYPE_UPLOAD)
 			return -ENOENT;

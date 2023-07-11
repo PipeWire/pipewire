@@ -764,7 +764,6 @@ static void append_audio_agent_object(DBusMessageIter *iter, const char *endpoin
 {
 	const char *interface_name = HSPHFPD_AUDIO_AGENT_INTERFACE;
 	DBusMessageIter object, array, entry, dict, codec, data;
-	char *str = "AgentCodec";
 
 	dbus_message_iter_open_container(iter, DBUS_TYPE_DICT_ENTRY, NULL, &object);
 	dbus_message_iter_append_basic(&object, DBUS_TYPE_OBJECT_PATH, &endpoint);
@@ -777,7 +776,7 @@ static void append_audio_agent_object(DBusMessageIter *iter, const char *endpoin
 	dbus_message_iter_open_container(&entry, DBUS_TYPE_ARRAY, "{sv}", &dict);
 
 	dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &codec);
-	dbus_message_iter_append_basic(&codec, DBUS_TYPE_STRING, &str);
+	dbus_message_iter_append_basic(&codec, DBUS_TYPE_STRING, &(const char *) { "AgentCodec" });
 	dbus_message_iter_open_container(&codec, DBUS_TYPE_VARIANT, "s", &data);
 	dbus_message_iter_append_basic(&data, DBUS_TYPE_STRING, &agent_codec);
 	dbus_message_iter_close_container(&codec, &data);

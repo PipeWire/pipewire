@@ -905,7 +905,6 @@ static int hsphfpd_audio_acquire(void *data, bool optional)
 	const char *air_codec = HSPHFP_AIR_CODEC_CVSD;
 	const char *agent_codec = HSPHFP_AGENT_CODEC_PCM;
 	DBusPendingCall *call;
-	DBusError err;
 
 	spa_log_debug(backend->log, "transport %p: Acquire %s",
 			transport, transport->path);
@@ -925,8 +924,6 @@ static int hsphfpd_audio_acquire(void *data, bool optional)
 	if (m == NULL)
 		return -ENOMEM;
 	dbus_message_append_args(m, DBUS_TYPE_STRING, &air_codec, DBUS_TYPE_STRING, &agent_codec, DBUS_TYPE_INVALID);
-
-	dbus_error_init(&err);
 
 	dbus_connection_send_with_reply(backend->conn, m, &call, -1);
 	dbus_pending_call_set_notify(call, hsphfpd_audio_acquire_reply, transport, NULL);
@@ -1302,9 +1299,6 @@ static DBusHandlerResult hsphfpd_filter_cb(DBusConnection *bus, DBusMessage *m, 
 {
 	const char *sender;
 	struct impl *backend = user_data;
-	DBusError err;
-
-	dbus_error_init(&err);
 
 	sender = dbus_message_get_sender(m);
 

@@ -28,6 +28,7 @@
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
+#include <spa/utils/cleanup.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/type.h>
 #include <spa/utils/keys.h>
@@ -187,27 +188,21 @@ static int load_conf(struct spa_bt_quirks *this, const char *path)
 {
 	char *data;
 	struct stat sbuf;
-	int fd = -1;
+	spa_autoclose int fd = -1;
 
 	spa_log_debug(this->log, "loading %s", path);
 
 	if ((fd = open(path, O_CLOEXEC | O_RDONLY)) < 0)
-		goto fail;
+		return -errno;
 	if (fstat(fd, &sbuf) < 0)
-		goto fail;
+		return -errno;
 	if ((data = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED)
-		goto fail;
-	close(fd);
+		return -errno;
 
 	load_quirks(this, data, sbuf.st_size);
 	munmap(data, sbuf.st_size);
 
 	return 0;
-
-fail:
-	if (fd >= 0)
-		close(fd);
-	return -errno;
 }
 
 struct spa_bt_quirks *spa_bt_quirks_create(const struct spa_dict *info, struct spa_log *log)

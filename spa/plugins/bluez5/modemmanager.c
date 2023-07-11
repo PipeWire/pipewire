@@ -786,7 +786,7 @@ bool mm_answer_call(void *modemmanager, void *user_data, enum cmee_error *error)
 {
 	struct impl *this = modemmanager;
 	struct call *call_object, *call_tmp;
-	struct dbus_cmd_data *data;
+	spa_autofree struct dbus_cmd_data *data = NULL;
 	spa_autoptr(DBusMessage) m = NULL;
 
 	call_object = NULL;
@@ -828,15 +828,15 @@ bool mm_answer_call(void *modemmanager, void *user_data, enum cmee_error *error)
 		return false;
 	}
 
-	return true;
+	return spa_steal_ptr(data), true;
 }
 
 bool mm_hangup_call(void *modemmanager, void *user_data, enum cmee_error *error)
 {
 	struct impl *this = modemmanager;
 	struct call *call_object, *call_tmp;
+	spa_autofree struct dbus_cmd_data *data= NULL;
 	spa_autoptr(DBusMessage) m = NULL;
-	struct dbus_cmd_data *data;
 
 	call_object = NULL;
 	spa_list_for_each(call_tmp, &this->call_list, link) {
@@ -887,7 +887,7 @@ bool mm_hangup_call(void *modemmanager, void *user_data, enum cmee_error *error)
 		return false;
 	}
 
-	return true;
+	return spa_steal_ptr(data), true;
 }
 
 static void append_basic_variant_dict_entry(DBusMessageIter *dict, const char* key, int variant_type_int, const char* variant_type_str, void* variant) {
@@ -913,7 +913,7 @@ static inline bool is_valid_dial_string_char(char c)
 bool mm_do_call(void *modemmanager, const char* number, void *user_data, enum cmee_error *error)
 {
 	struct impl *this = modemmanager;
-	struct dbus_cmd_data *data;
+	spa_autofree struct dbus_cmd_data *data = NULL;
 	spa_autoptr(DBusMessage) m = NULL;
 	DBusMessageIter iter, dict;
 
@@ -954,14 +954,14 @@ bool mm_do_call(void *modemmanager, const char* number, void *user_data, enum cm
 		return false;
 	}
 
-	return true;
+	return spa_steal_ptr(data), true;
 }
 
 bool mm_send_dtmf(void *modemmanager, const char *dtmf, void *user_data, enum cmee_error *error)
 {
 	struct impl *this = modemmanager;
 	struct call *call_object, *call_tmp;
-	struct dbus_cmd_data *data;
+	spa_autofree struct dbus_cmd_data *data = NULL;
 	spa_autoptr(DBusMessage) m = NULL;
 
 	call_object = NULL;
@@ -1015,7 +1015,7 @@ bool mm_send_dtmf(void *modemmanager, const char *dtmf, void *user_data, enum cm
 		return false;
 	}
 
-	return true;
+	return spa_steal_ptr(data), true;
 }
 
 const char *mm_get_incoming_call_number(void *modemmanager)

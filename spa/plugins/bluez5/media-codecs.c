@@ -9,6 +9,7 @@
  */
 
 #include <spa/utils/string.h>
+#include <spa/utils/cleanup.h>
 
 #include "media-codecs.h"
 
@@ -16,7 +17,8 @@ int media_codec_select_config(const struct media_codec_config configs[], size_t 
 			     uint32_t cap, int preferred_value)
 {
 	size_t i;
-	int *scores, res;
+	spa_autofree int *scores = NULL;
+	int res;
 	unsigned int max_priority;
 
 	if (n == 0)
@@ -54,9 +56,8 @@ int media_codec_select_config(const struct media_codec_config configs[], size_t 
 	}
 
 	if (scores[res] < 0)
-		res = -EINVAL;
+		return -EINVAL;
 
-	free(scores);
 	return res;
 }
 

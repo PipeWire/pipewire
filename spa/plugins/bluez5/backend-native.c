@@ -1383,12 +1383,11 @@ static int sco_create_socket(struct impl *backend, struct spa_bt_adapter *adapte
 	struct sockaddr_sco addr;
 	socklen_t len;
 	bdaddr_t src;
-	int sock = -1;
 
-	sock = socket(PF_BLUETOOTH, SOCK_SEQPACKET | SOCK_NONBLOCK, BTPROTO_SCO);
+	spa_autoclose int sock = socket(PF_BLUETOOTH, SOCK_SEQPACKET | SOCK_NONBLOCK, BTPROTO_SCO);
 	if (sock < 0) {
 		spa_log_error(backend->log, "socket(SEQPACKET, SCO) %s", strerror(errno));
-		goto fail;
+		return -1;
 	}
 
 	str2ba(adapter->address, &src);
@@ -1400,7 +1399,7 @@ static int sco_create_socket(struct impl *backend, struct spa_bt_adapter *adapte
 
 	if (bind(sock, (struct sockaddr *) &addr, len) < 0) {
 		spa_log_error(backend->log, "bind(): %s", strerror(errno));
-		goto fail;
+		return -1;
 	}
 
 	spa_log_debug(backend->log, "msbc=%d", (int)msbc);
@@ -1411,16 +1410,11 @@ static int sco_create_socket(struct impl *backend, struct spa_bt_adapter *adapte
 		voice_config.setting = BT_VOICE_TRANSPARENT;
 		if (setsockopt(sock, SOL_BLUETOOTH, BT_VOICE, &voice_config, sizeof(voice_config)) < 0) {
 			spa_log_error(backend->log, "setsockopt(): %s", strerror(errno));
-			goto fail;
+			return -1;
 		}
 	}
 
-	return sock;
-
-fail:
-	if (sock >= 0)
-		close(sock);
-	return -1;
+	return spa_steal_fd(sock);
 }
 
 static int sco_do_connect(struct spa_bt_transport *t)
@@ -1429,11 +1423,7 @@ static int sco_do_connect(struct spa_bt_transport *t)
 	struct spa_bt_device *d = t->device;
 	struct transport_data *td = t->user_data;
 	struct sockaddr_sco addr;
-	socklen_t len;
 	int err;
-	int sock;
-	bdaddr_t dst;
-	int retry = 2;
 
 	spa_log_debug(backend->log, "transport %p: enter sco_do_connect, codec=%u",
 			t, t->codec);
@@ -1443,52 +1433,45 @@ static int sco_do_connect(struct spa_bt_transport *t)
 	if (d->adapter == NULL)
 		return -EIO;
 
-	str2ba(d->address, &dst);
-
-again:
-	sock = sco_create_socket(backend, d->adapter, (t->codec == HFP_AUDIO_CODEC_MSBC));
-	if (sock < 0)
-		return -1;
-
-	len = sizeof(addr);
-	memset(&addr, 0, len);
+	spa_zero(addr);
 	addr.sco_family = AF_BLUETOOTH;
-	bacpy(&addr.sco_bdaddr, &dst);
+	str2ba(d->address, &addr.sco_bdaddr);
 
-	spa_log_debug(backend->log, "transport %p: doing connect", t);
-	err = connect(sock, (struct sockaddr *) &addr, len);
-	if (err < 0 && errno == ECONNABORTED && retry-- > 0) {
-		spa_log_warn(backend->log, "connect(): %s. Remaining retry:%d",
-				strerror(errno), retry);
-		close(sock);
-		goto again;
-	} else if (err < 0 && !(errno == EAGAIN || errno == EINPROGRESS)) {
-		spa_log_error(backend->log, "connect(): %s", strerror(errno));
+	for (int retry = 2;;) {
+		spa_autoclose int sock = sco_create_socket(backend, d->adapter, (t->codec == HFP_AUDIO_CODEC_MSBC));
+		if (sock < 0)
+			return -1;
+
+		spa_log_debug(backend->log, "transport %p: doing connect", t);
+		err = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
+		if (err < 0 && errno == ECONNABORTED && retry-- > 0) {
+			spa_log_warn(backend->log, "connect(): %s. Remaining retry:%d",
+					strerror(errno), retry);
+			continue;
+		} else if (err < 0 && !(errno == EAGAIN || errno == EINPROGRESS)) {
+			spa_log_error(backend->log, "connect(): %s", strerror(errno));
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
-		if (errno == EOPNOTSUPP && t->codec == HFP_AUDIO_CODEC_MSBC &&
-				td->rfcomm->msbc_supported_by_hfp) {
-			/* Adapter doesn't support msbc. Renegotiate. */
-			d->adapter->msbc_probed = true;
-			d->adapter->has_msbc = false;
-			td->rfcomm->msbc_supported_by_hfp = false;
-			if (t->profile == SPA_BT_PROFILE_HFP_HF) {
-				td->rfcomm->hfp_ag_switching_codec = true;
-				rfcomm_send_reply(td->rfcomm, "+BCS: 1");
-			} else if (t->profile == SPA_BT_PROFILE_HFP_AG) {
-				rfcomm_send_cmd(td->rfcomm, "AT+BAC=1");
+			if (errno == EOPNOTSUPP && t->codec == HFP_AUDIO_CODEC_MSBC &&
+					td->rfcomm->msbc_supported_by_hfp) {
+				/* Adapter doesn't support msbc. Renegotiate. */
+				d->adapter->msbc_probed = true;
+				d->adapter->has_msbc = false;
+				td->rfcomm->msbc_supported_by_hfp = false;
+				if (t->profile == SPA_BT_PROFILE_HFP_HF) {
+					td->rfcomm->hfp_ag_switching_codec = true;
+					rfcomm_send_reply(td->rfcomm, "+BCS: 1");
+				} else if (t->profile == SPA_BT_PROFILE_HFP_AG) {
+					rfcomm_send_cmd(td->rfcomm, "AT+BAC=1");
+				}
 			}
-		}
 #endif
-		goto fail_close;
+			return -1;
+		}
+
+		td->err = -EINPROGRESS;
+
+		return spa_steal_fd(sock);
 	}
-
-	td->err = -EINPROGRESS;
-
-	return sock;
-
-fail_close:
-	close(sock);
-	return -1;
 }
 
 static int rfcomm_ag_sync_volume(struct rfcomm *rfcomm, bool later);
@@ -1719,25 +1702,24 @@ static void sco_listen_event(struct spa_source *source)
 	struct impl *backend = source->data;
 	struct sockaddr_sco addr;
 	socklen_t addrlen;
-	int sock = -1;
 	char local_address[18], remote_address[18];
 	struct rfcomm *rfcomm;
 	struct spa_bt_transport *t = NULL;
 
 	if (source->rmask & (SPA_IO_HUP | SPA_IO_ERR)) {
 		spa_log_error(backend->log, "error listening SCO connection: %s", strerror(errno));
-		goto fail;
+		return;
 	}
 
 	memset(&addr, 0, sizeof(addr));
 	addrlen = sizeof(addr);
 
 	spa_log_debug(backend->log, "doing accept");
-	sock = accept(source->fd, (struct sockaddr *) &addr, &addrlen);
+	spa_autoclose int sock = accept(source->fd, (struct sockaddr *) &addr, &addrlen);
 	if (sock < 0) {
 		if (errno != EAGAIN)
 			spa_log_error(backend->log, "SCO accept(): %s", strerror(errno));
-		goto fail;
+		return;
 	}
 
 	ba2str(&addr.sco_bdaddr, remote_address);
@@ -1747,7 +1729,7 @@ static void sco_listen_event(struct spa_source *source)
 
 	if (getsockname(sock, (struct sockaddr *) &addr, &addrlen) < 0) {
 		spa_log_error(backend->log, "SCO getsockname(): %s", strerror(errno));
-		goto fail;
+		return;
 	}
 
 	ba2str(&addr.sco_bdaddr, local_address);
@@ -1763,19 +1745,19 @@ static void sco_listen_event(struct spa_source *source)
 	if (!t) {
 		spa_log_debug(backend->log, "No transport for adapter %s and remote %s",
 		              local_address, remote_address);
-		goto fail;
+		return;
 	}
 
 	/* The Synchronous Connection shall always be established by the AG, i.e. the remote profile
 	   should be a HSP AG or HFP AG profile */
 	if ((t->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY) == 0) {
 		spa_log_debug(backend->log, "transport %p: Rejecting incoming audio connection to an AG profile", t);
-		goto fail;
+		return;
 	}
 
 	if (t->fd >= 0) {
 		spa_log_debug(backend->log, "transport %p: Rejecting, audio already connected", t);
-		goto fail;
+		return;
 	}
 
 	spa_log_debug(backend->log, "transport %p: codec=%u", t, t->codec);
@@ -1792,18 +1774,18 @@ static void sco_listen_event(struct spa_source *source)
 			voice_config.setting = BT_VOICE_TRANSPARENT;
 			if (setsockopt(sock, SOL_BLUETOOTH, BT_VOICE, &voice_config, sizeof(voice_config)) < 0) {
 				spa_log_error(backend->log, "transport %p: setsockopt(): %s", t, strerror(errno));
-				goto fail;
+				return;
 			}
 		}
 
 		/* First read from the accepted socket is non-blocking and returns a zero length buffer. */
 		if (read(sock, &buff, 1) == -1) {
 			spa_log_error(backend->log, "transport %p: Couldn't authorize SCO connection: %s", t, strerror(errno));
-			goto fail;
+			return;
 		}
 	}
 
-	t->fd = sock;
+	t->fd = spa_steal_fd(sock);
 
 	sco_start_source(t);
 
@@ -1823,24 +1805,17 @@ static void sco_listen_event(struct spa_source *source)
 	}
 
 	spa_bt_transport_set_state(t, SPA_BT_TRANSPORT_STATE_PENDING);
-	return;
-
-fail:
-	if (sock >= 0)
-		close(sock);
-	return;
 }
 
-static int sco_listen(struct impl *backend)
+static void sco_listen(struct impl *backend)
 {
 	struct sockaddr_sco addr;
-	int sock;
 	uint32_t defer = 1;
 
-	sock = socket(PF_BLUETOOTH, SOCK_SEQPACKET | SOCK_NONBLOCK | SOCK_CLOEXEC, BTPROTO_SCO);
+	spa_autoclose int sock = socket(PF_BLUETOOTH, SOCK_SEQPACKET | SOCK_NONBLOCK | SOCK_CLOEXEC, BTPROTO_SCO);
 	if (sock < 0) {
 		spa_log_error(backend->log, "socket(SEQPACKET, SCO) %m");
-		return -errno;
+		return;
 	}
 
 	/* Bind to local address */
@@ -1850,7 +1825,7 @@ static int sco_listen(struct impl *backend)
 
 	if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
 		spa_log_error(backend->log, "bind(): %m");
-		goto fail_close;
+		return;
 	}
 
 	if (setsockopt(sock, SOL_BLUETOOTH, BT_DEFER_SETUP, &defer, sizeof(defer)) < 0) {
@@ -1863,21 +1838,17 @@ static int sco_listen(struct impl *backend)
 	spa_log_debug(backend->log, "doing listen");
 	if (listen(sock, 1) < 0) {
 		spa_log_error(backend->log, "listen(): %m");
-		goto fail_close;
+		return;
 	}
 
 	backend->sco.func = sco_listen_event;
 	backend->sco.data = backend;
-	backend->sco.fd = sock;
+	backend->sco.fd = spa_steal_fd(sock);
 	backend->sco.mask = SPA_IO_IN;
 	backend->sco.rmask = 0;
 	spa_loop_add_source(backend->main_loop, &backend->sco);
 
-	return sock;
-
-fail_close:
-	close(sock);
-	return -1;
+	return;
 }
 
 static int rfcomm_ag_set_volume(struct spa_bt_transport *t, int id)
@@ -2195,7 +2166,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	struct rfcomm *rfcomm;
 	struct spa_bt_device *d;
 	struct spa_bt_transport *t = NULL;
-	int fd;
+	spa_autoclose int fd = -1;
 
 	if (!dbus_message_has_signature(m, "oha{sv}")) {
 		spa_log_warn(backend->log, "invalid NewConnection() signature");
@@ -2234,7 +2205,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	rfcomm->path = strdup(path);
 	rfcomm->source.func = rfcomm_event;
 	rfcomm->source.data = rfcomm;
-	rfcomm->source.fd = fd;
+	rfcomm->source.fd = spa_steal_fd(fd);
 	rfcomm->source.mask = SPA_IO_IN;
 	rfcomm->source.rmask = 0;
 	/* By default all indicators are enabled */

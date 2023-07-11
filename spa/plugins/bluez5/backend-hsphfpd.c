@@ -538,7 +538,6 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 	struct impl *backend = userdata;
 	DBusMessageIter arg_i;
 	const char *transport_path;
-	int fd;
 	const char *sender;
 	const char *endpoint_path = NULL;
 	const char *air_codec = NULL;
@@ -552,6 +551,7 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 	struct spa_bt_transport *transport;
 	struct hsphfpd_transport_data *transport_data;
 	spa_autoptr(DBusMessage) r = NULL;
+	spa_autoclose int fd = -1;
 
 	if (!check_signature(m, "oha{sv}")) {
 		r = dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS, "Invalid signature in method call");
@@ -569,7 +569,6 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 
 	sender = dbus_message_get_sender(m);
 	if (!spa_streq(sender, backend->hsphfpd_service_id)) {
-		close(fd);
 		spa_log_error(backend->log, "Sender '%s' is not authorized", sender);
 		r = dbus_message_new_error_printf(m, HSPHFPD_ERROR_REJECTED, "Sender '%s' is not authorized", sender);
 		goto fail;
@@ -592,28 +591,24 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 																		&mtu);
 
 	if (!endpoint_path) {
-		close(fd);
 		spa_log_error(backend->log, "Endpoint property was not specified");
 		r = dbus_message_new_error(m, HSPHFPD_ERROR_REJECTED, "Endpoint property was not specified");
 		goto fail;
 	}
 
 	if (!air_codec) {
-		close(fd);
 		spa_log_error(backend->log, "AirCodec property was not specified");
 		r = dbus_message_new_error(m, HSPHFPD_ERROR_REJECTED, "AirCodec property was not specified");
 		goto fail;
 	}
 
 	if (!rx_volume_control) {
-		close(fd);
 		spa_log_error(backend->log, "RxVolumeControl property was not specified");
 		r = dbus_message_new_error(m, HSPHFPD_ERROR_REJECTED, "RxVolumeControl property was not specified");
 		goto fail;
 	}
 
 	if (!tx_volume_control) {
-		close(fd);
 		spa_log_error(backend->log, "TxVolumeControl property was not specified");
 		r = dbus_message_new_error(m, HSPHFPD_ERROR_REJECTED, "TxVolumeControl property was not specified");
 		goto fail;
@@ -621,7 +616,6 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 
 	if (rx_volume_control != HSPHFPD_VOLUME_CONTROL_NONE) {
 		if (rx_volume_gain == (uint16_t)-1) {
-			close(fd);
 			spa_log_error(backend->log, "RxVolumeGain property was not specified, but VolumeControl is not none");
 			r = dbus_message_new_error(m, HSPHFPD_ERROR_REJECTED, "RxVolumeGain property was not specified, but VolumeControl is not none");
 			goto fail;
@@ -632,7 +626,6 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 
 	if (tx_volume_control != HSPHFPD_VOLUME_CONTROL_NONE) {
 		if (tx_volume_gain == (uint16_t)-1) {
-			close(fd);
 			spa_log_error(backend->log, "TxVolumeGain property was not specified, but VolumeControl is not none");
 			r = dbus_message_new_error(m, HSPHFPD_ERROR_REJECTED, "TxVolumeGain property was not specified, but VolumeControl is not none");
 			goto fail;
@@ -642,7 +635,6 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 	}
 
 	if (!mtu) {
-		close(fd);
 		spa_log_error(backend->log, "MTU property was not specified");
 		r = dbus_message_new_error(m, HSPHFPD_ERROR_REJECTED, "MTU property was not specified");
 		goto fail;
@@ -650,14 +642,12 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 
 	endpoint = endpoint_find(backend, endpoint_path);
 	if (!endpoint) {
-		close(fd);
 		spa_log_error(backend->log, "Endpoint %s does not exist", endpoint_path);
 		r = dbus_message_new_error_printf(m, HSPHFPD_ERROR_REJECTED, "Endpoint %s does not exist", endpoint_path);
 		goto fail;
 	}
 
 	if (!endpoint->valid) {
-		close(fd);
 		spa_log_error(backend->log, "Endpoint %s is not valid", endpoint_path);
 		r = dbus_message_new_error_printf(m, HSPHFPD_ERROR_REJECTED, "Endpoint %s is not valid", endpoint_path);
 		goto fail;
@@ -665,7 +655,6 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 
 	transport = spa_bt_transport_find(backend->monitor, endpoint_path);
 	if (!transport) {
-		close(fd);
 		spa_log_error(backend->log, "Endpoint %s is not connected", endpoint_path);
 		r = dbus_message_new_error_printf(m, HSPHFPD_ERROR_REJECTED, "Endpoint %s is not connected", endpoint_path);
 		goto fail;
@@ -675,7 +664,6 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 		spa_log_warn(backend->log, "Expecting codec to be %d, got %d", transport->codec, codec);
 
 	if (transport->fd >= 0) {
-		close(fd);
 		spa_log_error(backend->log, "Endpoint %s has already active transport", endpoint_path);
 		r = dbus_message_new_error_printf(m, HSPHFPD_ERROR_REJECTED, "Endpoint %s has already active transport", endpoint_path);
 		goto fail;
@@ -698,7 +686,7 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 	transport->read_mtu = mtu;
 	transport->write_mtu = mtu;
 
-	transport->fd = fd;
+	transport->fd = spa_steal_fd(fd);
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;

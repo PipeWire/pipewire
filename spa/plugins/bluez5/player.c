@@ -9,6 +9,7 @@
 #include <spa/utils/string.h>
 
 #include "defs.h"
+#include "dbus-helpers.h"
 #include "player.h"
 
 #define PLAYER_OBJECT_PATH_BASE	"/media_player"
@@ -167,18 +168,18 @@ static DBusMessage *properties_set(struct impl *impl, DBusMessage *m)
 static DBusMessage *introspect(struct impl *impl, DBusMessage *m)
 {
 	const char *xml = PLAYER_INTROSPECT_XML;
-	DBusMessage *r;
+	spa_autoptr(DBusMessage) r = NULL;
 	if ((r = dbus_message_new_method_return(m)) == NULL)
 		return NULL;
 	if (!dbus_message_append_args(r, DBUS_TYPE_STRING, &xml, DBUS_TYPE_INVALID))
 		return NULL;
-	return r;
+	return spa_steal_ptr(r);
 }
 
 static DBusHandlerResult player_handler(DBusConnection *c, DBusMessage *m, void *userdata)
 {
 	struct impl *impl = userdata;
-	DBusMessage *r;
+	spa_autoptr(DBusMessage) r = NULL;
 
 	if (dbus_message_is_method_call(m, DBUS_INTERFACE_INTROSPECTABLE, "Introspect")) {
 		r = introspect(impl, m);
@@ -194,20 +195,16 @@ static DBusHandlerResult player_handler(DBusConnection *c, DBusMessage *m, void 
 
 	if (r == NULL)
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
-	if (!dbus_connection_send(impl->conn, r, NULL)) {
-		dbus_message_unref(r);
+	if (!dbus_connection_send(impl->conn, r, NULL))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
-	}
-	dbus_message_unref(r);
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
 static int send_update_signal(struct impl *impl)
 {
-	DBusMessage *m;
+	spa_autoptr(DBusMessage) m = NULL;
 	const char *iface = PLAYER_INTERFACE;
 	DBusMessageIter i, a;
-	int res = 0;
 
 	m = dbus_message_new_signal(impl->path, DBUS_INTERFACE_PROPERTIES, "PropertiesChanged");
 	if (m == NULL)
@@ -223,11 +220,9 @@ static int send_update_signal(struct impl *impl)
         dbus_message_iter_close_container(&i, &a);
 
 	if (!dbus_connection_send(impl->conn, m, NULL))
-		res = -EIO;
+		return -EIO;
 
-	dbus_message_unref(m);
-
-	return res;
+	return 0;
 }
 
 static void update_properties(struct impl *impl, bool send_signal)
@@ -332,8 +327,7 @@ int spa_bt_player_register(struct spa_bt_player *player, const char *adapter_pat
 
 	DBusError err;
 	DBusMessageIter i;
-	DBusMessage *m, *r;
-	int res = 0;
+	spa_autoptr(DBusMessage) m = NULL, r = NULL;
 
 	spa_log_debug(impl->log, "RegisterPlayer() for dummy AVRCP player %s for %s",
 			impl->path, adapter_path);
@@ -349,8 +343,6 @@ int spa_bt_player_register(struct spa_bt_player *player, const char *adapter_pat
 
 	dbus_error_init(&err);
 	r = dbus_connection_send_with_reply_and_block(impl->conn, m, -1, &err);
-	dbus_message_unref(m);
-
 	if (r == NULL) {
 		spa_log_error(impl->log, "RegisterPlayer() failed (%s)", err.message);
 		dbus_error_free(&err);
@@ -359,12 +351,10 @@ int spa_bt_player_register(struct spa_bt_player *player, const char *adapter_pat
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
 		spa_log_error(impl->log, "RegisterPlayer() failed");
-		res = -EIO;
+		return -EIO;
 	}
 
-	dbus_message_unref(r);
-
-	return res;
+	return 0;
 }
 
 int spa_bt_player_unregister(struct spa_bt_player *player, const char *adapter_path)
@@ -373,8 +363,7 @@ int spa_bt_player_unregister(struct spa_bt_player *player, const char *adapter_p
 
 	DBusError err;
 	DBusMessageIter i;
-	DBusMessage *m, *r;
-	int res = 0;
+	spa_autoptr(DBusMessage) m = NULL, r = NULL;
 
 	spa_log_debug(impl->log, "UnregisterPlayer() for dummy AVRCP player %s for %s",
 			impl->path, adapter_path);
@@ -389,8 +378,6 @@ int spa_bt_player_unregister(struct spa_bt_player *player, const char *adapter_p
 
 	dbus_error_init(&err);
 	r = dbus_connection_send_with_reply_and_block(impl->conn, m, -1, &err);
-	dbus_message_unref(m);
-
 	if (r == NULL) {
 		spa_log_error(impl->log, "UnregisterPlayer() failed (%s)", err.message);
 		dbus_error_free(&err);
@@ -399,10 +386,8 @@ int spa_bt_player_unregister(struct spa_bt_player *player, const char *adapter_p
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
 		spa_log_error(impl->log, "UnregisterPlayer() failed");
-		res = -EIO;
+		return -EIO;
 	}
 
-	dbus_message_unref(r);
-
-	return res;
+	return 0;
 }

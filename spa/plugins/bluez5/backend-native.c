@@ -177,16 +177,9 @@ struct rfcomm {
 
 static DBusHandlerResult profile_release(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
-	DBusMessage *r;
-
-	r = dbus_message_new_error(m, BLUEZ_PROFILE_INTERFACE ".Error.NotImplemented",
-                                            "Method not implemented");
-	if (r == NULL)
-		return DBUS_HANDLER_RESULT_NEED_MEMORY;
-	if (!dbus_connection_send(conn, r, NULL))
+	if (!reply_with_error(conn, m, BLUEZ_PROFILE_INTERFACE ".Error.NotImplemented", "Method not implemented"))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
-	dbus_message_unref(r);
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
@@ -2195,7 +2188,7 @@ static enum spa_bt_profile path_to_profile(const char *path)
 static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
 	struct impl *backend = userdata;
-	DBusMessage *r;
+	spa_autoptr(DBusMessage) r = NULL;
 	DBusMessageIter it;
 	const char *handler, *path;
 	enum spa_bt_profile profile;
@@ -2314,7 +2307,6 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 		goto fail_need_memory;
 	if (!dbus_connection_send(conn, r, NULL))
 		goto fail_need_memory;
-	dbus_message_unref(r);
 
 	return DBUS_HANDLER_RESULT_HANDLED;
 
@@ -2327,7 +2319,7 @@ fail_need_memory:
 static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
 	struct impl *backend = userdata;
-	DBusMessage *r;
+	spa_autoptr(DBusMessage) r = NULL;
 	const char *handler, *path;
 	struct spa_bt_device *d;
 	enum spa_bt_profile profile = SPA_BT_PROFILE_NULL;
@@ -2367,7 +2359,6 @@ static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBu
 	if (!dbus_connection_send(conn, r, NULL))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
-	dbus_message_unref(r);
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
@@ -2375,7 +2366,6 @@ static DBusHandlerResult profile_handler(DBusConnection *c, DBusMessage *m, void
 {
 	struct impl *backend = userdata;
 	const char *path, *interface, *member;
-	DBusMessage *r;
 	DBusHandlerResult res;
 
 	path = dbus_message_get_path(m);
@@ -2386,6 +2376,7 @@ static DBusHandlerResult profile_handler(DBusConnection *c, DBusMessage *m, void
 
 	if (dbus_message_is_method_call(m, "org.freedesktop.DBus.Introspectable", "Introspect")) {
 		const char *xml = PROFILE_INTROSPECT_XML;
+		spa_autoptr(DBusMessage) r = NULL;
 
 		if ((r = dbus_message_new_method_return(m)) == NULL)
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -2394,7 +2385,6 @@ static DBusHandlerResult profile_handler(DBusConnection *c, DBusMessage *m, void
 		if (!dbus_connection_send(backend->conn, r, NULL))
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
-		dbus_message_unref(r);
 		res = DBUS_HANDLER_RESULT_HANDLED;
 	}
 	else if (dbus_message_is_method_call(m, BLUEZ_PROFILE_INTERFACE, "Release"))
@@ -2412,33 +2402,29 @@ static DBusHandlerResult profile_handler(DBusConnection *c, DBusMessage *m, void
 static void register_profile_reply(DBusPendingCall *pending, void *user_data)
 {
 	struct impl *backend = user_data;
-	DBusMessage *r;
 
-	r = steal_reply_and_unref(&pending);
+	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&pending);
 	if (r == NULL)
 		return;
 
 	if (dbus_message_is_error(r, BLUEZ_ERROR_NOT_SUPPORTED)) {
 		spa_log_warn(backend->log, "Register profile not supported");
-		goto finish;
+		return;
 	}
 	if (dbus_message_is_error(r, DBUS_ERROR_UNKNOWN_METHOD)) {
 		spa_log_warn(backend->log, "Error registering profile");
-		goto finish;
+		return;
 	}
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
 		spa_log_error(backend->log, "RegisterProfile() failed: %s",
 				dbus_message_get_error_name(r));
-		goto finish;
+		return;
 	}
-
-finish:
-	dbus_message_unref(r);
 }
 
 static int register_profile(struct impl *backend, const char *profile, const char *uuid)
 {
-	DBusMessage *m;
+	spa_autoptr(DBusMessage) m = NULL;
 	DBusMessageIter it[4];
 	dbus_bool_t autoconnect;
 	dbus_uint16_t version, chan, features;
@@ -2538,13 +2524,13 @@ static int register_profile(struct impl *backend, const char *profile, const cha
 
 	dbus_connection_send_with_reply(backend->conn, m, &call, -1);
 	dbus_pending_call_set_notify(call, register_profile_reply, backend, NULL);
-	dbus_message_unref(m);
+
 	return 0;
 }
 
 static void unregister_profile(struct impl *backend, const char *profile)
 {
-	DBusMessage *m, *r;
+	spa_autoptr(DBusMessage) m = NULL, r = NULL;
 	DBusError err;
 
 	spa_log_debug(backend->log, "Unregistering Profile %s", profile);
@@ -2559,9 +2545,6 @@ static void unregister_profile(struct impl *backend, const char *profile)
 	dbus_error_init(&err);
 
 	r = dbus_connection_send_with_reply_and_block(backend->conn, m, -1, &err);
-	dbus_message_unref(m);
-	m = NULL;
-
 	if (r == NULL) {
 		spa_log_info(backend->log, "Unregistering Profile %s failed", profile);
 		dbus_error_free(&err);
@@ -2572,8 +2555,6 @@ static void unregister_profile(struct impl *backend, const char *profile)
 		spa_log_error(backend->log, "UnregisterProfile() returned error: %s", dbus_message_get_error_name(r));
 		return;
 	}
-
-	dbus_message_unref(r);
 }
 
 static int backend_native_register_profiles(void *data)

@@ -198,7 +198,7 @@ static int set_dbus_property(struct impl *backend,
                              int type,
                              void *value)
 {
-	DBusMessage *m, *r;
+	spa_autoptr(DBusMessage) m = NULL, r = NULL;
 	DBusMessageIter iter;
 	DBusError err;
 
@@ -212,9 +212,6 @@ static int set_dbus_property(struct impl *backend,
 	dbus_error_init(&err);
 
 	r = dbus_connection_send_with_reply_and_block(backend->conn, m, -1, &err);
-	dbus_message_unref(m);
-	m = NULL;
-
 	if (r == NULL) {
 		spa_log_error(backend->log, "Transport Set() failed for transport %s (%s)", path, err.message);
 		dbus_error_free(&err);
@@ -226,7 +223,6 @@ static int set_dbus_property(struct impl *backend,
 		return -EIO;
 	}
 
-	dbus_message_unref(r);
 	return 0;
 }
 
@@ -447,7 +443,7 @@ static DBusHandlerResult audio_agent_get_property(DBusConnection *conn, DBusMess
 	const char *interface;
 	const char *property;
 	const char *agent_codec;
-	DBusMessage *r = NULL;
+	spa_autoptr(DBusMessage) r = NULL;
 
 	if (!check_signature(m, "ss")) {
 		r = dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS, "Invalid signature in method call");
@@ -488,7 +484,6 @@ fail:
 	if (!dbus_connection_send(conn, r, NULL))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
-	dbus_message_unref(r);
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
@@ -497,7 +492,7 @@ static DBusHandlerResult audio_agent_getall_properties(DBusConnection *conn, DBu
 	const char *interface;
 	DBusMessageIter iter, array, dict, data;
 	const char *agent_codec;
-	DBusMessage *r = NULL;
+	spa_autoptr(DBusMessage) r = NULL;
 
 	if (!check_signature(m, "s")) {
 		r = dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS, "Invalid signature in method call");
@@ -538,7 +533,6 @@ fail:
 	if (!dbus_connection_send(conn, r, NULL))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
-	dbus_message_unref(r);
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
@@ -560,7 +554,7 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 	struct hsphfpd_endpoint *endpoint;
 	struct spa_bt_transport *transport;
 	struct hsphfpd_transport_data *transport_data;
-	DBusMessage *r = NULL;
+	spa_autoptr(DBusMessage) r = NULL;
 
 	if (!check_signature(m, "oha{sv}")) {
 		r = dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS, "Invalid signature in method call");
@@ -714,11 +708,8 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 
 fail:
 	if (r) {
-		DBusHandlerResult res = DBUS_HANDLER_RESULT_HANDLED;
 		if (!dbus_connection_send(backend->conn, r, NULL))
-			res = DBUS_HANDLER_RESULT_NEED_MEMORY;
-		dbus_message_unref(r);
-		return res;
+			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 	}
 
 	return DBUS_HANDLER_RESULT_HANDLED;
@@ -728,7 +719,6 @@ static DBusHandlerResult audio_agent_endpoint_handler(DBusConnection *c, DBusMes
 {
 	struct impl *backend = userdata;
 	const char *path, *interface, *member;
-	DBusMessage *r;
 	DBusHandlerResult res;
 
 	path = dbus_message_get_path(m);
@@ -739,6 +729,7 @@ static DBusHandlerResult audio_agent_endpoint_handler(DBusConnection *c, DBusMes
 
 	if (dbus_message_is_method_call(m, "org.freedesktop.DBus.Introspectable", "Introspect")) {
 		const char *xml = AUDIO_AGENT_ENDPOINT_INTROSPECT_XML;
+		spa_autoptr(DBusMessage) r = NULL;
 
 		if ((r = dbus_message_new_method_return(m)) == NULL)
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -747,7 +738,6 @@ static DBusHandlerResult audio_agent_endpoint_handler(DBusConnection *c, DBusMes
 		if (!dbus_connection_send(backend->conn, r, NULL))
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
-		dbus_message_unref(r);
 		res = DBUS_HANDLER_RESULT_HANDLED;
 	} else if (dbus_message_is_method_call(m, DBUS_INTERFACE_PROPERTIES, "Get"))
 		res = audio_agent_get_property(c, m, path, userdata);
@@ -793,7 +783,7 @@ static DBusHandlerResult application_object_manager_handler(DBusConnection *c, D
 {
 	struct impl *backend = userdata;
 	const char *path, *interface, *member;
-	DBusMessage *r;
+	spa_autoptr(DBusMessage) r = NULL;
 
 	path = dbus_message_get_path(m);
 	interface = dbus_message_get_interface(m);
@@ -827,16 +817,14 @@ static DBusHandlerResult application_object_manager_handler(DBusConnection *c, D
 
 	if (!dbus_connection_send(backend->conn, r, NULL))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
-	dbus_message_unref(r);
 
-  return DBUS_HANDLER_RESULT_HANDLED;
+	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
 static void hsphfpd_audio_acquire_reply(DBusPendingCall *pending, void *user_data)
 {
 	struct spa_bt_transport *transport = user_data;
 	struct impl *backend = SPA_CONTAINER_OF(transport->backend, struct impl, this);
-	DBusMessage *r;
 	const char *transport_path;
 	const char *service_id;
 	const char *agent_path;
@@ -847,7 +835,7 @@ static void hsphfpd_audio_acquire_reply(DBusPendingCall *pending, void *user_dat
 
 	backend->acquire_in_progress = false;
 
-	r = steal_reply_and_unref(&pending);
+	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&pending);
 	if (r == NULL)
 		return;
 
@@ -889,8 +877,6 @@ static void hsphfpd_audio_acquire_reply(DBusPendingCall *pending, void *user_dat
 	spa_log_debug(backend->log, "hsphfpd audio acquired");
 
 finish:
-	dbus_message_unref(r);
-
 	if (ret < 0)
 		spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ERROR);
 	else
@@ -901,7 +887,7 @@ static int hsphfpd_audio_acquire(void *data, bool optional)
 {
 	struct spa_bt_transport *transport = data;
 	struct impl *backend = SPA_CONTAINER_OF(transport->backend, struct impl, this);
-	DBusMessage *m;
+	spa_autoptr(DBusMessage) m = NULL;
 	const char *air_codec = HSPHFP_AIR_CODEC_CVSD;
 	const char *agent_codec = HSPHFP_AGENT_CODEC_PCM;
 	DBusPendingCall *call;
@@ -927,7 +913,6 @@ static int hsphfpd_audio_acquire(void *data, bool optional)
 
 	dbus_connection_send_with_reply(backend->conn, m, &call, -1);
 	dbus_pending_call_set_notify(call, hsphfpd_audio_acquire_reply, transport, NULL);
-	dbus_message_unref(m);
 
 	backend->acquire_in_progress = true;
 
@@ -1176,27 +1161,26 @@ static DBusHandlerResult hsphfpd_parse_interfaces(struct impl *backend, DBusMess
 static void hsphfpd_get_endpoints_reply(DBusPendingCall *pending, void *user_data)
 {
 	struct impl *backend = user_data;
-	DBusMessage *r;
 	DBusMessageIter i, array_i;
 
-	r = steal_reply_and_unref(&pending);
+	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&pending);
 	if (r == NULL)
 		return;
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
 		spa_log_error(backend->log, "Failed to get a list of endpoints from hsphfpd: %s",
 				dbus_message_get_error_name(r));
-		goto finish;
+		return;
 	}
 
 	if (!spa_streq(dbus_message_get_sender(r), backend->hsphfpd_service_id)) {
 		spa_log_error(backend->log, "Reply for GetManagedObjects() from invalid sender");
-		goto finish;
+		return;
 	}
 
 	if (!dbus_message_iter_init(r, &i) || !check_signature(r, "a{oa{sa{sv}}}")) {
 		spa_log_error(backend->log, "Invalid arguments in GetManagedObjects() reply");
-		goto finish;
+		return;
 	}
 
 	dbus_message_iter_recurse(&i, &array_i);
@@ -1209,17 +1193,12 @@ static void hsphfpd_get_endpoints_reply(DBusPendingCall *pending, void *user_dat
 	}
 
 	backend->endpoints_listed = true;
-
-finish:
-	dbus_message_unref(r);
 }
 
-static int backend_hsphfpd_register(void *data)
+static int hsphfpd_register(struct impl *backend)
 {
-	struct impl *backend = data;
-	DBusMessage *m, *r;
+	spa_autoptr(DBusMessage) m = NULL, r = NULL;
 	const char *path = APPLICATION_OBJECT_MANAGER_PATH;
-	DBusPendingCall *call;
 	DBusError err;
 	int res;
 
@@ -1235,8 +1214,6 @@ static int backend_hsphfpd_register(void *data)
 	dbus_error_init(&err);
 
 	r = dbus_connection_send_with_reply_and_block(backend->conn, m, -1, &err);
-	dbus_message_unref(m);
-
 	if (r == NULL) {
 		if (dbus_error_has_name(&err, "org.freedesktop.DBus.Error.ServiceUnknown")) {
 			spa_log_info(backend->log, "hsphfpd not available: %s",
@@ -1254,28 +1231,43 @@ static int backend_hsphfpd_register(void *data)
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
 		spa_log_error(backend->log, "RegisterApplication() failed: %s",
 				dbus_message_get_error_name(r));
-		goto finish;
+		return -EIO;
 	}
-	dbus_message_unref(r);
 
 	backend->hsphfpd_service_id = strdup(dbus_message_get_sender(r));
 
 	spa_log_debug(backend->log, "Registered to hsphfpd");
 
+	return 0;
+}
+
+static int hsphfpd_get_endpoints(struct impl *backend)
+{
+	spa_autoptr(DBusMessage) m = NULL;
+
 	m = dbus_message_new_method_call(HSPHFPD_SERVICE, "/",
 			DBUS_INTERFACE_OBJECTMANAGER, "GetManagedObjects");
 	if (m == NULL)
-		goto finish;
+		return -ENOMEM;
 
+	DBusPendingCall *call;
 	dbus_connection_send_with_reply(backend->conn, m, &call, -1);
 	dbus_pending_call_set_notify(call, hsphfpd_get_endpoints_reply, backend, NULL);
-	dbus_message_unref(m);
 
 	return 0;
+}
 
-finish:
-	dbus_message_unref(r);
-	return -EIO;
+static int backend_hsphfpd_register(void *data)
+{
+	int ret = hsphfpd_register(data);
+	if (ret < 0)
+		return ret;
+
+	ret = hsphfpd_get_endpoints(data);
+	if (ret < 0)
+		return ret;
+
+	return 0;
 }
 
 static int backend_hsphfpd_unregistered(void *data)
@@ -1467,9 +1459,8 @@ static const struct spa_bt_backend_implementation backend_impl = {
 
 static bool is_available(struct impl *backend)
 {
-	DBusMessage *m, *r;
+	spa_autoptr(DBusMessage) m = NULL, r = NULL;
 	DBusError err;
-	bool success = false;
 
 	m = dbus_message_new_method_call(HSPHFPD_SERVICE, "/",
 			DBUS_INTERFACE_INTROSPECTABLE, "Introspect");
@@ -1478,17 +1469,13 @@ static bool is_available(struct impl *backend)
 
 	dbus_error_init(&err);
 	r = dbus_connection_send_with_reply_and_block(backend->conn, m, -1, &err);
-	dbus_message_unref(m);
-
 	if (r && dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
-		success = true;
+		return true;
 
-	if (r)
-		dbus_message_unref(r);
-	else
+	if (!r)
 		dbus_error_free(&err);
 
-	return success;
+	return false;
 }
 
 struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,

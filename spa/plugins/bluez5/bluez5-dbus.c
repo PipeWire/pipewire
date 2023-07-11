@@ -221,9 +221,10 @@ static char *battery_get_name(const char *device_path)
 }
 
 // Unregister virtual battery of device
-static void battery_remove(struct spa_bt_device *device) {
+static void battery_remove(struct spa_bt_device *device)
+{
 	DBusMessageIter i, entry;
-	DBusMessage *m;
+	spa_autoptr(DBusMessage) m = NULL;
 	const char *interface;
 
 	cancel_and_unref(&device->battery_pending_call);
@@ -251,8 +252,6 @@ static void battery_remove(struct spa_bt_device *device) {
 	if (!dbus_connection_send(device->monitor->conn, m, NULL)) {
 		spa_log_error(device->monitor->log, "sending " DBUS_SIGNAL_INTERFACES_REMOVED " failed");
 	}
-
-	dbus_message_unref(m);
 
 	device->has_battery = false;
 }
@@ -292,7 +291,7 @@ static void battery_update(struct spa_bt_device *device)
 {
 	spa_log_debug(device->monitor->log, "updating battery: %s", device->battery_path);
 
-	DBusMessage *msg;
+	spa_autoptr(DBusMessage) msg = NULL;
 	DBusMessageIter iter;
 
 	msg = dbus_message_new_signal(device->battery_path,
@@ -308,13 +307,12 @@ static void battery_update(struct spa_bt_device *device)
 
 	if (!dbus_connection_send(device->monitor->conn, msg, NULL))
 		spa_log_error(device->monitor->log, "Error updating battery");
-
-	dbus_message_unref(msg);
 }
 
 // Create new virtual battery with value stored in current device object
-static void battery_create(struct spa_bt_device *device) {
-	DBusMessage *msg;
+static void battery_create(struct spa_bt_device *device)
+{
+	spa_autoptr(DBusMessage) msg = NULL;
 	DBusMessageIter iter, entry, dict;
 	msg = dbus_message_new_signal(PIPEWIRE_BATTERY_PROVIDER,
 				      DBUS_INTERFACE_OBJECT_MANAGER,
@@ -339,8 +337,6 @@ static void battery_create(struct spa_bt_device *device) {
 		return;
 	}
 
-	dbus_message_unref(msg);
-
 	spa_log_debug(device->monitor->log, "Created virtual battery for %s", device->address);
 	device->has_battery = true;
 }
@@ -348,17 +344,15 @@ static void battery_create(struct spa_bt_device *device) {
 static void on_battery_provider_registered(DBusPendingCall *pending_call,
 				       void *data)
 {
-	DBusMessage *reply;
 	struct spa_bt_device *device = data;
 
 	spa_assert(device->battery_pending_call == pending_call);
-	reply = steal_reply_and_unref(&device->battery_pending_call);
+	spa_autoptr(DBusMessage) reply = steal_reply_and_unref(&device->battery_pending_call);
 
 	if (dbus_message_get_type(reply) == DBUS_MESSAGE_TYPE_ERROR) {
 		spa_log_error(device->monitor->log, "Failed to register battery provider. Error: %s", dbus_message_get_error_name(reply));
 		spa_log_error(device->monitor->log, "BlueZ Battery Provider is not available, won't retry to register it. Make sure you are running BlueZ 5.56+ with experimental features to use Battery Provider.");
 		device->adapter->battery_provider_unavailable = true;
-		dbus_message_unref(reply);
 		return;
 	}
 
@@ -368,14 +362,12 @@ static void on_battery_provider_registered(DBusPendingCall *pending_call,
 
 	if (!device->has_battery)
 		battery_create(device);
-
-	dbus_message_unref(reply);
 }
 
 // Register Battery Provider for adapter and then create virtual battery for device
 static void register_battery_provider(struct spa_bt_device *device)
 {
-	DBusMessage *method_call;
+	spa_autoptr(DBusMessage) method_call = NULL;
 	DBusMessageIter message_iter;
 
 	if (device->battery_pending_call) {
@@ -400,12 +392,9 @@ static void register_battery_provider(struct spa_bt_device *device)
 
 	if (!dbus_connection_send_with_reply(device->monitor->conn, method_call, &device->battery_pending_call,
 					     DBUS_TIMEOUT_USE_DEFAULT)) {
-		dbus_message_unref(method_call);
 		spa_log_error(device->monitor->log, "Failed to register battery provider");
 		return;
 	}
-
-	dbus_message_unref(method_call);
 
 	if (!device->battery_pending_call) {
 		spa_log_error(device->monitor->log, "Failed to register battery provider");
@@ -546,7 +535,7 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 	const char *path;
 	uint8_t *cap, config[A2DP_MAX_CAPS_SIZE];
 	uint8_t *pconf = (uint8_t *) config;
-	DBusMessage *r;
+	spa_autoptr(DBusMessage) r = NULL;
 	DBusError err;
 	int size, res;
 	const struct media_codec *codec;
@@ -604,8 +593,6 @@ exit_send:
 	if (!dbus_connection_send(conn, r, NULL))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
-	dbus_message_unref(r);
-
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
@@ -618,7 +605,7 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	struct spa_bt_monitor *monitor = userdata;
 	const char *path;
 	DBusMessageIter args, props, iter;
-	DBusMessage *r = NULL;
+	spa_autoptr(DBusMessage) r = NULL;
 	int res;
 	const struct media_codec *codec;
 	bool sink;
@@ -831,12 +818,8 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 
 	dbus_message_iter_close_container(&iter, &dict);
 
-	if (r) {
-		if (!dbus_connection_send(conn, r, NULL))
-			return DBUS_HANDLER_RESULT_NEED_MEMORY;
-
-		dbus_message_unref(r);
-	}
+	if (!dbus_connection_send(conn, r, NULL))
+		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
 	return DBUS_HANDLER_RESULT_HANDLED;
 
@@ -845,15 +828,8 @@ error_invalid:
 	goto error;
 
 error:
-	if (r)
-		dbus_message_unref(r);
-	if ((r = dbus_message_new_error(m, "org.bluez.Error.InvalidArguments", err_msg)) == NULL)
+	if (!reply_with_error(conn, m, "org.bluez.Error.InvalidArguments", err_msg))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
-	if (!dbus_connection_send(conn, r, NULL)) {
-		dbus_message_unref(r);
-		return DBUS_HANDLER_RESULT_NEED_MEMORY;
-	}
-	dbus_message_unref(r);
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
@@ -1591,7 +1567,7 @@ static int device_try_connect_profile(struct spa_bt_device *device,
 				      const char *profile_uuid)
 {
 	struct spa_bt_monitor *monitor = device->monitor;
-	DBusMessage *m;
+	spa_autoptr(DBusMessage) m = NULL;
 
 	spa_log_info(monitor->log, "device %p %s: profile %s not connected; try ConnectProfile()",
 	             device, device->path, profile_uuid);
@@ -1605,11 +1581,8 @@ static int device_try_connect_profile(struct spa_bt_device *device,
 	if (m == NULL)
 		return -ENOMEM;
 	dbus_message_append_args(m, DBUS_TYPE_STRING, &profile_uuid, DBUS_TYPE_INVALID);
-	if (!dbus_connection_send(monitor->conn, m, NULL)) {
-		dbus_message_unref(m);
+	if (!dbus_connection_send(monitor->conn, m, NULL))
 		return -EIO;
-	}
-	dbus_message_unref(m);
 
 	return 0;
 }
@@ -3224,10 +3197,9 @@ static void transport_set_property_volume_reply(DBusPendingCall *pending, void *
 	struct spa_bt_transport *transport = user_data;
 	struct spa_bt_monitor *monitor = transport->monitor;
 	DBusError err = DBUS_ERROR_INIT;
-	DBusMessage *r;
 
 	spa_assert(transport->volume_call == pending);
-	r = steal_reply_and_unref(&transport->volume_call);
+	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&transport->volume_call);
 
 	if (dbus_set_error_from_message(&err, r)) {
 		spa_log_info(monitor->log, "transport %p: set volume failed for transport %s: %s",
@@ -3237,14 +3209,12 @@ static void transport_set_property_volume_reply(DBusPendingCall *pending, void *
 		spa_log_debug(monitor->log, "transport %p: set volume complete",
 				transport);
 	}
-
-	dbus_message_unref(r);
 }
 
 static void transport_set_property_volume(struct spa_bt_transport *transport, uint16_t value)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
-	DBusMessage *m;
+	spa_autoptr(DBusMessage) m = NULL;
 	DBusMessageIter it[2];
 	const char *interface = BLUEZ_MEDIA_TRANSPORT_INTERFACE;
 	const char *name = "Volume";
@@ -3271,8 +3241,6 @@ static void transport_set_property_volume(struct spa_bt_transport *transport, ui
 	dbus_message_iter_close_container(&it[0], &it[1]);
 
 	ret = dbus_connection_send_with_reply(monitor->conn, m, &transport->volume_call, -1);
-	dbus_message_unref(m);
-
 	if (!ret || !transport->volume_call) {
 		res = -EIO;
 		goto fail;
@@ -3374,11 +3342,10 @@ static void transport_acquire_reply(DBusPendingCall *pending, void *user_data)
 	struct spa_bt_device *device = transport->device;
 	int ret = 0;
 	DBusError err;
-	DBusMessage *r;
 	struct spa_bt_transport *t, *t_linked;
 
 	spa_assert(transport->acquire_call == pending);
-	r = steal_reply_and_unref(&transport->acquire_call);
+	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&transport->acquire_call);
 
 	spa_bt_device_update_last_bluez_action_time(device);
 
@@ -3418,8 +3385,6 @@ static void transport_acquire_reply(DBusPendingCall *pending, void *user_data)
 	transport_sync_volume(transport);
 
 finish:
-	if (r)
-		dbus_message_unref(r);
 	if (ret < 0)
 		spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ERROR);
 	else {
@@ -3479,7 +3444,7 @@ finish:
 static int do_transport_acquire(struct spa_bt_transport *transport)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
-	DBusMessage *m;
+	spa_autoptr(DBusMessage) m = NULL;
 	dbus_bool_t ret;
 	struct spa_bt_transport *t_linked;
 
@@ -3506,8 +3471,6 @@ static int do_transport_acquire(struct spa_bt_transport *transport)
 		return -ENOMEM;
 
 	ret = dbus_connection_send_with_reply(monitor->conn, m, &transport->acquire_call, -1);
-	dbus_message_unref(m);
-
 	if (!ret || transport->acquire_call == NULL)
 		return -EIO;
 
@@ -3573,10 +3536,9 @@ static int transport_acquire(void *data, bool optional)
 static int do_transport_release(struct spa_bt_transport *transport)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
-	DBusMessage *m;
+	spa_autoptr(DBusMessage) m = NULL, r = NULL;
 	struct spa_bt_transport *t_linked;
 	bool is_idle = (transport->state == SPA_BT_TRANSPORT_STATE_IDLE);
-	DBusMessage *r;
 	DBusError err;
 	bool linked = false;
 
@@ -3627,8 +3589,6 @@ static int do_transport_release(struct spa_bt_transport *transport)
 
 	dbus_error_init(&err);
 	r = dbus_connection_send_with_reply_and_block(monitor->conn, m, -1, &err);
-	dbus_message_unref(m);
-
 	if (r == NULL)  {
 		if (is_idle) {
 			/* XXX: The fd always needs to be closed. However, Release()
@@ -3645,7 +3605,6 @@ static int do_transport_release(struct spa_bt_transport *transport)
 		dbus_error_free(&err);
 	} else {
 		spa_log_info(monitor->log, "Transport %s released", transport->path);
-		dbus_message_unref(r);
 	}
 
 	return 0;
@@ -3749,7 +3708,7 @@ static bool media_codec_switch_process_current(struct spa_bt_media_codec_switch 
 	char *local_endpoint = NULL;
 	int res, config_size;
 	dbus_bool_t dbus_ret;
-	DBusMessage *m;
+	spa_autoptr(DBusMessage) m = NULL;
 	DBusMessageIter iter, d;
 	int i;
 	bool sink;
@@ -3849,16 +3808,12 @@ static bool media_codec_switch_process_current(struct spa_bt_media_codec_switch 
 
 	spa_assert(sw->pending == NULL);
 	dbus_ret = dbus_connection_send_with_reply(sw->device->monitor->conn, m, &sw->pending, -1);
-
 	if (!dbus_ret || sw->pending == NULL) {
 		spa_log_error(sw->device->monitor->log, "media codec switch %p: dbus call failure, try next", sw);
-		dbus_message_unref(m);
 		goto next;
 	}
 
 	dbus_ret = dbus_pending_call_set_notify(sw->pending, media_codec_switch_reply, sw, NULL);
-	dbus_message_unref(m);
-
 	if (!dbus_ret) {
 		spa_log_error(sw->device->monitor->log, "media codec switch %p: dbus set notify failure", sw);
 		goto next;
@@ -3957,18 +3912,14 @@ static void media_codec_switch_reply(DBusPendingCall *pending, void *user_data)
 {
 	struct spa_bt_media_codec_switch *sw = user_data;
 	struct spa_bt_device *device = sw->device;
-	DBusMessage *r;
 
 	spa_assert(sw->pending == pending);
-	r = steal_reply_and_unref(&sw->pending);
+	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&sw->pending);
 
 	spa_bt_device_update_last_bluez_action_time(device);
 
-	if (!media_codec_switch_goto_active(sw)) {
-		if (r != NULL)
-			dbus_message_unref(r);
+	if (!media_codec_switch_goto_active(sw))
 		return;
-	}
 
 	if (r == NULL) {
 		spa_log_error(sw->device->monitor->log,
@@ -3981,11 +3932,8 @@ static void media_codec_switch_reply(DBusPendingCall *pending, void *user_data)
 		spa_log_debug(sw->device->monitor->log,
 		              "media codec switch %p: failed (%s), trying next",
 		              sw, dbus_message_get_error_name(r));
-		dbus_message_unref(r);
 		goto next;
 	}
-
-	dbus_message_unref(r);
 
 	/* Success */
 	spa_log_info(sw->device->monitor->log, "media codec switch %p: success", sw);
@@ -4218,7 +4166,7 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	struct spa_bt_monitor *monitor = userdata;
 	const char *transport_path, *endpoint;
 	DBusMessageIter it[2];
-	DBusMessage *r;
+	spa_autoptr(DBusMessage) r = NULL;
 	struct spa_bt_transport *transport;
 	const struct media_codec *codec;
 	int profile;
@@ -4327,8 +4275,6 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	if (!dbus_connection_send(conn, r, NULL))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
-	dbus_message_unref(r);
-
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
@@ -4336,7 +4282,7 @@ static DBusHandlerResult endpoint_clear_configuration(DBusConnection *conn, DBus
 {
 	struct spa_bt_monitor *monitor = userdata;
 	DBusError err;
-	DBusMessage *r;
+	spa_autoptr(DBusMessage) r = NULL;
 	const char *transport_path;
 	struct spa_bt_transport *transport;
 
@@ -4369,24 +4315,13 @@ static DBusHandlerResult endpoint_clear_configuration(DBusConnection *conn, DBus
 	if (!dbus_connection_send(conn, r, NULL))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
-	dbus_message_unref(r);
-
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
 static DBusHandlerResult endpoint_release(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
-	DBusMessage *r;
-
-	r = dbus_message_new_error(m,
-				   BLUEZ_MEDIA_ENDPOINT_INTERFACE ".Error.NotImplemented",
-				   "Method not implemented");
-	if (r == NULL)
+	if (!reply_with_error(conn, m, BLUEZ_MEDIA_ENDPOINT_INTERFACE ".Error.NotImplemented", "Method not implemented"))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
-	if (!dbus_connection_send(conn, r, NULL))
-		return DBUS_HANDLER_RESULT_NEED_MEMORY;
-
-	dbus_message_unref(r);
 
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
@@ -4395,7 +4330,6 @@ static DBusHandlerResult endpoint_handler(DBusConnection *c, DBusMessage *m, voi
 {
 	struct spa_bt_monitor *monitor = userdata;
 	const char *path, *interface, *member;
-	DBusMessage *r;
 	DBusHandlerResult res;
 
 	path = dbus_message_get_path(m);
@@ -4406,6 +4340,7 @@ static DBusHandlerResult endpoint_handler(DBusConnection *c, DBusMessage *m, voi
 
 	if (dbus_message_is_method_call(m, "org.freedesktop.DBus.Introspectable", "Introspect")) {
 		const char *xml = ENDPOINT_INTROSPECT_XML;
+		spa_autoptr(DBusMessage) r = NULL;
 
 		if ((r = dbus_message_new_method_return(m)) == NULL)
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -4414,7 +4349,6 @@ static DBusHandlerResult endpoint_handler(DBusConnection *c, DBusMessage *m, voi
 		if (!dbus_connection_send(monitor->conn, r, NULL))
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
-		dbus_message_unref(r);
 		res = DBUS_HANDLER_RESULT_HANDLED;
 	}
 	else if (dbus_message_is_method_call(m, BLUEZ_MEDIA_ENDPOINT_INTERFACE, "SetConfiguration"))
@@ -4437,26 +4371,22 @@ static void bluez_register_endpoint_legacy_reply(DBusPendingCall *pending, void 
 {
 	struct spa_bt_adapter *adapter = user_data;
 	struct spa_bt_monitor *monitor = adapter->monitor;
-	DBusMessage *r;
 
-	r = steal_reply_and_unref(&pending);
+	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&pending);
 	if (r == NULL)
 		return;
 
 	if (dbus_message_is_error(r, DBUS_ERROR_UNKNOWN_METHOD)) {
 		spa_log_warn(monitor->log, "BlueZ D-Bus ObjectManager not available");
-		goto finish;
+		return;
 	}
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
 		spa_log_error(monitor->log, "RegisterEndpoint() failed: %s",
 				dbus_message_get_error_name(r));
-		goto finish;
+		return;
 	}
 
 	adapter->legacy_endpoints_registered = true;
-
-finish:
-	dbus_message_unref(r);
 }
 
 static void append_basic_variant_dict_entry(DBusMessageIter *dict, const char* key, int variant_type_int, const char* variant_type_str, void* variant) {
@@ -4490,7 +4420,7 @@ static int bluez_register_endpoint_legacy(struct spa_bt_adapter *adapter,
 	struct spa_bt_monitor *monitor = adapter->monitor;
 	const char *path = adapter->path;
 	char  *object_path = NULL;
-	DBusMessage *m;
+	spa_autoptr(DBusMessage) m = NULL;
 	DBusMessageIter object_it, dict_it;
 	DBusPendingCall *call;
 	uint8_t caps[A2DP_MAX_CAPS_SIZE];
@@ -4530,7 +4460,6 @@ static int bluez_register_endpoint_legacy(struct spa_bt_adapter *adapter,
 
 	dbus_connection_send_with_reply(monitor->conn, m, &call, -1);
 	dbus_pending_call_set_notify(call, bluez_register_endpoint_legacy_reply, adapter, NULL);
-	dbus_message_unref(m);
 
 	free(object_path);
 
@@ -4636,7 +4565,6 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 	const struct media_codec * const * const media_codecs = monitor->media_codecs;
 	const char *path, *interface, *member;
 	char *endpoint;
-	DBusMessage *r;
 	DBusMessageIter iter, array;
 	DBusHandlerResult res;
 	int i;
@@ -4649,6 +4577,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 
 	if (dbus_message_is_method_call(m, "org.freedesktop.DBus.Introspectable", "Introspect")) {
 		const char *xml = OBJECT_MANAGER_INTROSPECT_XML;
+		spa_autoptr(DBusMessage) r = NULL;
 
 		if ((r = dbus_message_new_method_return(m)) == NULL)
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -4657,10 +4586,11 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 		if (!dbus_connection_send(monitor->conn, r, NULL))
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
-		dbus_message_unref(r);
 		res = DBUS_HANDLER_RESULT_HANDLED;
 	}
 	else if (dbus_message_is_method_call(m, "org.freedesktop.DBus.ObjectManager", "GetManagedObjects")) {
+		spa_autoptr(DBusMessage) r = NULL;
+
 		if ((r = dbus_message_new_method_return(m)) == NULL)
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
@@ -4735,10 +4665,9 @@ static void bluez_register_application_a2dp_reply(DBusPendingCall *pending, void
 {
 	struct spa_bt_adapter *adapter = user_data;
 	struct spa_bt_monitor *monitor = adapter->monitor;
-	DBusMessage *r;
 	bool fallback = true;
 
-	r = steal_reply_and_unref(&pending);
+	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&pending);
 	if (r == NULL)
 		return;
 
@@ -4757,8 +4686,6 @@ static void bluez_register_application_a2dp_reply(DBusPendingCall *pending, void
 	adapter->a2dp_application_registered = true;
 
 finish:
-	dbus_message_unref(r);
-
 	if (fallback)
 		adapter_register_endpoints_legacy(adapter);
 }
@@ -4767,22 +4694,18 @@ static void bluez_register_application_bap_reply(DBusPendingCall *pending, void 
 {
 	struct spa_bt_adapter *adapter = user_data;
 	struct spa_bt_monitor *monitor = adapter->monitor;
-	DBusMessage *r;
 
-	r = steal_reply_and_unref(&pending);
+	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&pending);
 	if (r == NULL)
 		return;
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
 		spa_log_error(monitor->log, "RegisterApplication() failed: %s",
 		        dbus_message_get_error_name(r));
-		goto finish;
+		return;
 	}
 
 	adapter->bap_application_registered = true;
-
-finish:
-	dbus_message_unref(r);
 }
 
 static int register_media_endpoint(struct spa_bt_monitor *monitor,
@@ -4907,7 +4830,7 @@ static int adapter_register_application(struct spa_bt_adapter *a, bool bap)
 	const char *object_manager_path = bap ? BAP_OBJECT_MANAGER_PATH : A2DP_OBJECT_MANAGER_PATH;
 	struct spa_bt_monitor *monitor = a->monitor;
 	const char *ep_type_name = (bap ? "LE Audio" : "A2DP");
-	DBusMessage *m;
+	spa_autoptr(DBusMessage) m = NULL;
 	DBusMessageIter i, d;
 	DBusPendingCall *call;
 
@@ -4947,7 +4870,6 @@ static int adapter_register_application(struct spa_bt_adapter *a, bool bap)
 	dbus_pending_call_set_notify(call,
 			bap ? bluez_register_application_bap_reply : bluez_register_application_a2dp_reply,
 			a, NULL);
-	dbus_message_unref(m);
 
 	return 0;
 }
@@ -5180,29 +5102,28 @@ static void interfaces_removed(struct spa_bt_monitor *monitor, DBusMessageIter *
 static void get_managed_objects_reply(DBusPendingCall *pending, void *user_data)
 {
 	struct spa_bt_monitor *monitor = user_data;
-	DBusMessage *r;
 	DBusMessageIter it[6];
 
 	spa_assert(monitor->get_managed_objects_call == pending);
-	r = steal_reply_and_unref(&monitor->get_managed_objects_call);
+	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&monitor->get_managed_objects_call);
 	if (r == NULL)
 		return;
 
 	if (dbus_message_is_error(r, DBUS_ERROR_UNKNOWN_METHOD)) {
 		spa_log_warn(monitor->log, "BlueZ D-Bus ObjectManager not available");
-		goto finish;
+		return;
 	}
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
 		spa_log_error(monitor->log, "GetManagedObjects() failed: %s",
 				dbus_message_get_error_name(r));
-		goto finish;
+		return;
 	}
 
 	if (!dbus_message_iter_init(r, &it[0]) ||
 	    !spa_streq(dbus_message_get_signature(r), "a{oa{sa{sv}}}")) {
 		spa_log_error(monitor->log, "Invalid reply signature for GetManagedObjects()");
-		goto finish;
+		return;
 	}
 
 	dbus_message_iter_recurse(&it[0], &it[1]);
@@ -5218,10 +5139,6 @@ static void get_managed_objects_reply(DBusPendingCall *pending, void *user_data)
 	reselect_backend(monitor, false);
 
 	monitor->objects_listed = true;
-
-finish:
-	dbus_message_unref(r);
-	return;
 }
 
 static void get_managed_objects(struct spa_bt_monitor *monitor)
@@ -5229,7 +5146,7 @@ static void get_managed_objects(struct spa_bt_monitor *monitor)
 	if (monitor->objects_listed || monitor->get_managed_objects_call)
 		return;
 
-	DBusMessage *m;
+	spa_autoptr(DBusMessage) m = NULL;
 	DBusPendingCall *call;
 
 	m = dbus_message_new_method_call(BLUEZ_SERVICE,
@@ -5241,7 +5158,6 @@ static void get_managed_objects(struct spa_bt_monitor *monitor)
 
 	dbus_connection_send_with_reply(monitor->conn, m, &call, -1);
 	dbus_pending_call_set_notify(call, get_managed_objects_reply, monitor, NULL);
-	dbus_message_unref(m);
 
 	monitor->get_managed_objects_call = call;
 }

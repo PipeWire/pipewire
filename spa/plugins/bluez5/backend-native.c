@@ -2530,7 +2530,7 @@ static int register_profile(struct impl *backend, const char *profile, const cha
 static void unregister_profile(struct impl *backend, const char *profile)
 {
 	spa_autoptr(DBusMessage) m = NULL, r = NULL;
-	DBusError err;
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 
 	spa_log_debug(backend->log, "Unregistering Profile %s", profile);
 
@@ -2541,12 +2541,9 @@ static void unregister_profile(struct impl *backend, const char *profile)
 
 	dbus_message_append_args(m, DBUS_TYPE_OBJECT_PATH, &profile, DBUS_TYPE_INVALID);
 
-	dbus_error_init(&err);
-
 	r = dbus_connection_send_with_reply_and_block(backend->conn, m, -1, &err);
 	if (r == NULL) {
 		spa_log_info(backend->log, "Unregistering Profile %s failed", profile);
-		dbus_error_free(&err);
 		return;
 	}
 

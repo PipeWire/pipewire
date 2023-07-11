@@ -141,7 +141,7 @@ finish:
 static int _audio_acquire(struct impl *backend, const char *path, uint8_t *codec)
 {
 	spa_autoptr(DBusMessage) m = NULL, r = NULL;
-	DBusError err;
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 	int ret = 0;
 
 	m = dbus_message_new_method_call(OFONO_SERVICE, path,
@@ -150,7 +150,6 @@ static int _audio_acquire(struct impl *backend, const char *path, uint8_t *codec
 	if (m == NULL)
 		return -ENOMEM;
 
-	dbus_error_init(&err);
 
 	/*
 	 * XXX: We assume here oFono replies. It however can happen that the headset does
@@ -163,7 +162,6 @@ static int _audio_acquire(struct impl *backend, const char *path, uint8_t *codec
 	if (r == NULL) {
 		spa_log_error(backend->log, "Transport Acquire() failed for transport %s (%s)",
 		              path, err.message);
-		dbus_error_free(&err);
 		return -EIO;
 	}
 
@@ -177,7 +175,6 @@ static int _audio_acquire(struct impl *backend, const char *path, uint8_t *codec
 	                           DBUS_TYPE_BYTE, codec,
 	                           DBUS_TYPE_INVALID)) {
 		spa_log_error(backend->log, "Failed to parse Acquire() reply: %s", err.message);
-		dbus_error_free(&err);
 		return -EIO;
 	}
 
@@ -654,8 +651,8 @@ static int ofono_register(struct impl *backend)
 	const char *path = OFONO_AUDIO_CLIENT;
 	uint8_t codecs[2];
 	const uint8_t *pcodecs = codecs;
-	int ncodecs = 0, res;
-	DBusError err;
+	int ncodecs = 0;
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 
 	spa_log_debug(backend->log, "Registering");
 
@@ -672,21 +669,17 @@ static int ofono_register(struct impl *backend)
                                           DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &pcodecs, ncodecs,
                                           DBUS_TYPE_INVALID);
 
-	dbus_error_init(&err);
-
 	r = dbus_connection_send_with_reply_and_block(backend->conn, m, -1, &err);
 	if (r == NULL) {
 		if (dbus_error_has_name(&err, "org.freedesktop.DBus.Error.ServiceUnknown")) {
 			spa_log_info(backend->log, "oFono not available: %s",
 					err.message);
-			res = -ENOTSUP;
+			return -ENOTSUP;
 		} else {
 			spa_log_warn(backend->log, "Registering Profile %s failed: %s (%s)",
 					path, err.message, err.name);
-			res = -EIO;
+			return -EIO;
 		}
-		dbus_error_free(&err);
-		return res;
 	}
 
 	if (dbus_message_is_error(r, OFONO_ERROR_INVALID_ARGUMENTS)) {
@@ -747,9 +740,6 @@ static int backend_ofono_register(void *data)
 static DBusHandlerResult ofono_filter_cb(DBusConnection *bus, DBusMessage *m, void *user_data)
 {
 	struct impl *backend = user_data;
-	DBusError err;
-
-	dbus_error_init(&err);
 
 	if (dbus_message_is_signal(m, OFONO_HF_AUDIO_MANAGER_INTERFACE, "CardAdded")) {
 			char *p;
@@ -770,6 +760,7 @@ static DBusHandlerResult ofono_filter_cb(DBusConnection *bus, DBusMessage *m, vo
 			return ofono_audio_card_found(backend, p, &props_i);
 	} else if (dbus_message_is_signal(m, OFONO_HF_AUDIO_MANAGER_INTERFACE, "CardRemoved")) {
 			const char *p;
+			spa_auto(DBusError) err = DBUS_ERROR_INIT;
 
 			if (!dbus_message_get_args(m, &err, DBUS_TYPE_OBJECT_PATH, &p, DBUS_TYPE_INVALID)) {
 					spa_log_error(backend->log, "Failed to parse org.ofono.HandsfreeAudioManager.CardRemoved: %s", err.message);
@@ -785,17 +776,15 @@ fail:
 
 static int add_filters(struct impl *backend)
 {
-	DBusError err;
-
 	if (backend->filters_added)
 		return 0;
 
-	dbus_error_init(&err);
-
 	if (!dbus_connection_add_filter(backend->conn, ofono_filter_cb, backend, NULL)) {
 		spa_log_error(backend->log, "failed to add filter function");
-		goto fail;
+		return -EIO;
 	}
+
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 
 	dbus_bus_add_match(backend->conn,
 			"type='signal',sender='" OFONO_SERVICE "',"
@@ -807,10 +796,6 @@ static int add_filters(struct impl *backend)
 	backend->filters_added = true;
 
 	return 0;
-
-fail:
-	dbus_error_free(&err);
-	return -EIO;
 }
 
 static int backend_ofono_free(void *data)
@@ -841,20 +826,16 @@ static const struct spa_bt_backend_implementation backend_impl = {
 static bool is_available(struct impl *backend)
 {
 	spa_autoptr(DBusMessage) m = NULL, r = NULL;
-	DBusError err;
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 
 	m = dbus_message_new_method_call(OFONO_SERVICE, "/",
 			DBUS_INTERFACE_INTROSPECTABLE, "Introspect");
 	if (m == NULL)
 		return false;
 
-	dbus_error_init(&err);
 	r = dbus_connection_send_with_reply_and_block(backend->conn, m, -1, &err);
 	if (r && dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
 		return true;
-
-	if (!r)
-		dbus_error_free(&err);
 
 	return false;
 }

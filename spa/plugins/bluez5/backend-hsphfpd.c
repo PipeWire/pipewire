@@ -200,7 +200,7 @@ static int set_dbus_property(struct impl *backend,
 {
 	spa_autoptr(DBusMessage) m = NULL, r = NULL;
 	DBusMessageIter iter;
-	DBusError err;
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 
 	m = dbus_message_new_method_call(HSPHFPD_SERVICE, path, DBUS_INTERFACE_PROPERTIES, "Set");
 	if (m == NULL)
@@ -209,12 +209,9 @@ static int set_dbus_property(struct impl *backend,
 	dbus_message_iter_init_append(m, &iter);
 	dbus_message_iter_append_basic(&iter, type, value);
 
-	dbus_error_init(&err);
-
 	r = dbus_connection_send_with_reply_and_block(backend->conn, m, -1, &err);
 	if (r == NULL) {
 		spa_log_error(backend->log, "Transport Set() failed for transport %s (%s)", path, err.message);
-		dbus_error_free(&err);
 		return -EIO;
 	}
 
@@ -828,10 +825,8 @@ static void hsphfpd_audio_acquire_reply(DBusPendingCall *pending, void *user_dat
 	const char *transport_path;
 	const char *service_id;
 	const char *agent_path;
-	DBusError error;
+	spa_auto(DBusError) error = DBUS_ERROR_INIT;
 	int ret = 0;
-
-	dbus_error_init(&error);
 
 	backend->acquire_in_progress = false;
 
@@ -1198,8 +1193,7 @@ static int hsphfpd_register(struct impl *backend)
 {
 	spa_autoptr(DBusMessage) m = NULL, r = NULL;
 	const char *path = APPLICATION_OBJECT_MANAGER_PATH;
-	DBusError err;
-	int res;
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 
 	spa_log_debug(backend->log, "Registering to hsphfpd");
 
@@ -1210,21 +1204,17 @@ static int hsphfpd_register(struct impl *backend)
 
 	dbus_message_append_args(m, DBUS_TYPE_OBJECT_PATH, &path, DBUS_TYPE_INVALID);
 
-	dbus_error_init(&err);
-
 	r = dbus_connection_send_with_reply_and_block(backend->conn, m, -1, &err);
 	if (r == NULL) {
 		if (dbus_error_has_name(&err, "org.freedesktop.DBus.Error.ServiceUnknown")) {
 			spa_log_info(backend->log, "hsphfpd not available: %s",
 					err.message);
-			res = -ENOTSUP;
+			return -ENOTSUP;
 		} else {
 			spa_log_warn(backend->log, "Registering application %s failed: %s (%s)",
 					path, err.message, err.name);
-			res = -EIO;
+			return -EIO;
 		}
-		dbus_error_free(&err);
-		return res;
 	}
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
@@ -1389,17 +1379,16 @@ finish:
 static int add_filters(void *data)
 {
 	struct impl *backend = data;
-	DBusError err;
 
 	if (backend->filters_added)
 		return 0;
 
-	dbus_error_init(&err);
-
 	if (!dbus_connection_add_filter(backend->conn, hsphfpd_filter_cb, backend, NULL)) {
 		spa_log_error(backend->log, "failed to add filter function");
-		goto fail;
+		return -EIO;
 	}
+
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 
 	dbus_bus_add_match(backend->conn,
 			"type='signal',sender='" HSPHFPD_SERVICE "',"
@@ -1419,10 +1408,6 @@ static int add_filters(void *data)
 	backend->filters_added = true;
 
 	return 0;
-
-fail:
-	dbus_error_free(&err);
-	return -EIO;
 }
 
 static int backend_hsphfpd_free(void *data)
@@ -1458,20 +1443,16 @@ static const struct spa_bt_backend_implementation backend_impl = {
 static bool is_available(struct impl *backend)
 {
 	spa_autoptr(DBusMessage) m = NULL, r = NULL;
-	DBusError err;
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 
 	m = dbus_message_new_method_call(HSPHFPD_SERVICE, "/",
 			DBUS_INTERFACE_INTROSPECTABLE, "Introspect");
 	if (m == NULL)
 		return false;
 
-	dbus_error_init(&err);
 	r = dbus_connection_send_with_reply_and_block(backend->conn, m, -1, &err);
 	if (r && dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
 		return true;
-
-	if (!r)
-		dbus_error_free(&err);
 
 	return false;
 }

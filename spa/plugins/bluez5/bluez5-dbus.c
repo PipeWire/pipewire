@@ -525,19 +525,16 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 	uint8_t *cap, config[A2DP_MAX_CAPS_SIZE];
 	uint8_t *pconf = (uint8_t *) config;
 	spa_autoptr(DBusMessage) r = NULL;
-	DBusError err;
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 	int size, res;
 	const struct media_codec *codec;
 	bool sink;
-
-	dbus_error_init(&err);
 
 	path = dbus_message_get_path(m);
 
 	if (!dbus_message_get_args(m, &err, DBUS_TYPE_ARRAY,
 				DBUS_TYPE_BYTE, &cap, &size, DBUS_TYPE_INVALID)) {
 		spa_log_error(monitor->log, "Endpoint SelectConfiguration(): %s", err.message);
-		dbus_error_free(&err);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 	spa_log_info(monitor->log, "%p: %s select conf %d", monitor, path, size);
@@ -3185,7 +3182,7 @@ static void transport_set_property_volume_reply(DBusPendingCall *pending, void *
 {
 	struct spa_bt_transport *transport = user_data;
 	struct spa_bt_monitor *monitor = transport->monitor;
-	DBusError err = DBUS_ERROR_INIT;
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 
 	spa_assert(transport->volume_call == pending);
 	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&transport->volume_call);
@@ -3193,7 +3190,6 @@ static void transport_set_property_volume_reply(DBusPendingCall *pending, void *
 	if (dbus_set_error_from_message(&err, r)) {
 		spa_log_info(monitor->log, "transport %p: set volume failed for transport %s: %s",
 				transport, transport->path, err.message);
-		dbus_error_free(&err);
 	} else {
 		spa_log_debug(monitor->log, "transport %p: set volume complete",
 				transport);
@@ -3322,7 +3318,7 @@ static void transport_acquire_reply(DBusPendingCall *pending, void *user_data)
 	struct spa_bt_monitor *monitor = transport->monitor;
 	struct spa_bt_device *device = transport->device;
 	int ret = 0;
-	DBusError err;
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 	struct spa_bt_transport *t, *t_linked;
 
 	spa_assert(transport->acquire_call == pending);
@@ -3338,8 +3334,6 @@ static void transport_acquire_reply(DBusPendingCall *pending, void *user_data)
 		goto finish;
 	}
 
-	dbus_error_init(&err);
-
 	if (transport->fd >= 0) {
 		spa_log_error(monitor->log, "transport %p: invalid duplicate acquire", transport);
 		ret = -EINVAL;
@@ -3353,7 +3347,6 @@ static void transport_acquire_reply(DBusPendingCall *pending, void *user_data)
 				   DBUS_TYPE_INVALID)) {
 		spa_log_error(monitor->log, "Failed to parse Acquire %s reply: %s",
 				transport->path, err.message);
-		dbus_error_free(&err);
 		ret = -EIO;
 		goto finish;
 	}
@@ -3515,7 +3508,6 @@ static int do_transport_release(struct spa_bt_transport *transport)
 	spa_autoptr(DBusMessage) m = NULL, r = NULL;
 	struct spa_bt_transport *t_linked;
 	bool is_idle = (transport->state == SPA_BT_TRANSPORT_STATE_IDLE);
-	DBusError err;
 	bool linked = false;
 
 	spa_log_debug(monitor->log, "transport %p: Release %s",
@@ -3563,7 +3555,7 @@ static int do_transport_release(struct spa_bt_transport *transport)
 	if (m == NULL)
 		return -ENOMEM;
 
-	dbus_error_init(&err);
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 	r = dbus_connection_send_with_reply_and_block(monitor->conn, m, -1, &err);
 	if (r == NULL)  {
 		if (is_idle) {
@@ -3578,7 +3570,6 @@ static int do_transport_release(struct spa_bt_transport *transport)
 			spa_log_error(monitor->log, "Failed to release transport %s: %s",
 			              transport->path, err.message);
 		}
-		dbus_error_free(&err);
 	} else {
 		spa_log_info(monitor->log, "Transport %s released", transport->path);
 	}
@@ -4250,19 +4241,16 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 static DBusHandlerResult endpoint_clear_configuration(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
 	struct spa_bt_monitor *monitor = userdata;
-	DBusError err;
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 	spa_autoptr(DBusMessage) r = NULL;
 	const char *transport_path;
 	struct spa_bt_transport *transport;
-
-	dbus_error_init(&err);
 
 	if (!dbus_message_get_args(m, &err,
 				   DBUS_TYPE_OBJECT_PATH, &transport_path,
 				   DBUS_TYPE_INVALID)) {
 		spa_log_warn(monitor->log, "Bad ClearConfiguration method call: %s",
 			err.message);
-		dbus_error_free(&err);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
@@ -5128,12 +5116,10 @@ static void get_managed_objects(struct spa_bt_monitor *monitor)
 static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *user_data)
 {
 	struct spa_bt_monitor *monitor = user_data;
-	DBusError err;
-
-	dbus_error_init(&err);
 
 	if (dbus_message_is_signal(m, "org.freedesktop.DBus", "NameOwnerChanged")) {
 		const char *name, *old_owner, *new_owner;
+		spa_auto(DBusError) err = DBUS_ERROR_INIT;
 
 		spa_log_debug(monitor->log, "Name owner changed %s", dbus_message_get_path(m));
 
@@ -5143,7 +5129,7 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 					   DBUS_TYPE_STRING, &new_owner,
 					   DBUS_TYPE_INVALID)) {
 			spa_log_error(monitor->log, "Failed to parse org.freedesktop.DBus.NameOwnerChanged: %s", err.message);
-			goto fail;
+			goto finish;
 		}
 
 		if (spa_streq(name, BLUEZ_SERVICE)) {
@@ -5310,25 +5296,21 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 		}
 	}
 
-fail:
-	dbus_error_free(&err);
 finish:
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
 static void add_filters(struct spa_bt_monitor *this)
 {
-	DBusError err;
-
 	if (this->filters_added)
 		return;
 
-	dbus_error_init(&err);
-
 	if (!dbus_connection_add_filter(this->conn, filter_cb, this, NULL)) {
 		spa_log_error(this->log, "failed to add filter function");
-		goto fail;
+		return;
 	}
+
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 
 	dbus_bus_add_match(this->conn,
 			"type='signal',sender='org.freedesktop.DBus',"
@@ -5378,11 +5360,6 @@ static void add_filters(struct spa_bt_monitor *this)
 			"arg0='" BLUEZ_MEDIA_TRANSPORT_INTERFACE "'", &err);
 
 	this->filters_added = true;
-
-	return;
-
-fail:
-	dbus_error_free(&err);
 }
 
 static int

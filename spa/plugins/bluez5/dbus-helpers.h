@@ -65,4 +65,8 @@ static inline DBusPendingCall *send_with_reply(DBusConnection *conn,
 	return pending_call;
 }
 
+SPA_DEFINE_AUTO_CLEANUP(DBusError, DBusError, {
+	dbus_error_free(thing);
+})
+
 #endif /* SPA_BLUEZ5_DBUS_HELPERS_H */

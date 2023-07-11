@@ -325,7 +325,7 @@ int spa_bt_player_register(struct spa_bt_player *player, const char *adapter_pat
 {
 	struct impl *impl = SPA_CONTAINER_OF(player, struct impl, this);
 
-	DBusError err;
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 	DBusMessageIter i;
 	spa_autoptr(DBusMessage) m = NULL, r = NULL;
 
@@ -341,11 +341,9 @@ int spa_bt_player_register(struct spa_bt_player *player, const char *adapter_pat
 	dbus_message_iter_append_basic(&i, DBUS_TYPE_OBJECT_PATH, &impl->path);
 	append_properties(impl, &i);
 
-	dbus_error_init(&err);
 	r = dbus_connection_send_with_reply_and_block(impl->conn, m, -1, &err);
 	if (r == NULL) {
 		spa_log_error(impl->log, "RegisterPlayer() failed (%s)", err.message);
-		dbus_error_free(&err);
 		return -EIO;
 	}
 
@@ -361,7 +359,7 @@ int spa_bt_player_unregister(struct spa_bt_player *player, const char *adapter_p
 {
 	struct impl *impl = SPA_CONTAINER_OF(player, struct impl, this);
 
-	DBusError err;
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 	DBusMessageIter i;
 	spa_autoptr(DBusMessage) m = NULL, r = NULL;
 
@@ -376,11 +374,9 @@ int spa_bt_player_unregister(struct spa_bt_player *player, const char *adapter_p
 	dbus_message_iter_init_append(m, &i);
 	dbus_message_iter_append_basic(&i, DBUS_TYPE_OBJECT_PATH, &impl->path);
 
-	dbus_error_init(&err);
 	r = dbus_connection_send_with_reply_and_block(impl->conn, m, -1, &err);
 	if (r == NULL) {
 		spa_log_error(impl->log, "UnregisterPlayer() failed (%s)", err.message);
-		dbus_error_free(&err);
 		return -EIO;
 	}
 

@@ -97,12 +97,10 @@ static void upower_clean(struct impl *this)
 static DBusHandlerResult upower_filter_cb(DBusConnection *bus, DBusMessage *m, void *user_data)
 {
 	struct impl *this = user_data;
-	DBusError err;
-
-	dbus_error_init(&err);
 
 	if (dbus_message_is_signal(m, "org.freedesktop.DBus", "NameOwnerChanged")) {
 		const char *name, *old_owner, *new_owner;
+		spa_auto(DBusError) err = DBUS_ERROR_INIT;
 
 		spa_log_debug(this->log, "Name owner changed %s", dbus_message_get_path(m));
 
@@ -171,17 +169,15 @@ finish:
 
 static int add_filters(struct impl *this)
 {
-	DBusError err;
-
 	if (this->filters_added)
 		return 0;
 
-	dbus_error_init(&err);
-
 	if (!dbus_connection_add_filter(this->conn, upower_filter_cb, this, NULL)) {
 		spa_log_error(this->log, "failed to add filter function");
-		goto fail;
+		return -EIO;
 	}
+
+	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 
 	dbus_bus_add_match(this->conn,
 			"type='signal',sender='org.freedesktop.DBus',"
@@ -194,10 +190,6 @@ static int add_filters(struct impl *this)
 	this->filters_added = true;
 
 	return 0;
-
-fail:
-	dbus_error_free(&err);
-	return -EIO;
 }
 
 void *upower_register(struct spa_log *log,

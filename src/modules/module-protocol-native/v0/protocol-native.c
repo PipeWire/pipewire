@@ -22,6 +22,7 @@
 #include "interfaces.h"
 #include "typemap.h"
 
+#include "../defs.h"
 #include "../connection.h"
 
 PW_LOG_TOPIC_EXTERN(mod_topic);

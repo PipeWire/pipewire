@@ -27,3 +27,9 @@ static inline void *get_first_pod_from_data(void *data, uint32_t maxsize, uint64
 		return NULL;
 	return pod;
 }
+
+struct protocol_compat_v2 {
+	/* v2 typemap */
+	struct pw_map types;
+	unsigned int send_types:1;
+};

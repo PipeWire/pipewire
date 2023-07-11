@@ -213,12 +213,6 @@ enum spa_node0_command {
 	SPA_NODE0_COMMAND_ClockUpdate,
 };
 
-struct protocol_compat_v2 {
-	/* v2 typemap */
-	struct pw_map types;
-	unsigned int send_types:1;
-};
-
 #define pw_impl_core_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct pw_impl_core_events, m, v, ##__VA_ARGS__)
 
 #define pw_impl_core_emit_destroy(s)		pw_impl_core_emit(s, destroy, 0)

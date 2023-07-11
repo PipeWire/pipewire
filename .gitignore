@@ -1,7 +1,5 @@
 .*
-.tarball-version
-.version
-.*.swp
+!.gitlab
 ABOUT-NLS
 *~
 *.tar.gz

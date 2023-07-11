@@ -9,6 +9,7 @@
 extern "C" {
 #endif
 
+#include <inttypes.h>
 #include <stddef.h>
 
 struct spa_ratelimit {

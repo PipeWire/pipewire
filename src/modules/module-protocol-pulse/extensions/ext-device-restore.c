@@ -10,10 +10,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <spa/pod/builder.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/dict.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
+#include <spa/param/audio/format.h>
+#include <spa/param/props.h>
+
 #include <pipewire/log.h>
 #include <pipewire/properties.h>
 

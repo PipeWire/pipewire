@@ -10,10 +10,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <spa/utils/result.h>
 #include <spa/utils/defs.h>
+#include <spa/utils/ratelimit.h>
 #include <spa/utils/ringbuffer.h>
-#include <pipewire/map.h>
-#include <pipewire/private.h>
+#include <pipewire/impl.h>
 
 #include "format.h"
 #include "server.h"

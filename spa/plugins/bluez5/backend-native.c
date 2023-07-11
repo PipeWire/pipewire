@@ -2429,7 +2429,6 @@ static int register_profile(struct impl *backend, const char *profile, const cha
 	dbus_bool_t autoconnect;
 	dbus_uint16_t version, chan, features;
 	char *str;
-	DBusPendingCall *call;
 
 	if (!(backend->enabled_profiles & spa_bt_profile_from_uuid(uuid)))
 		return -ECANCELED;
@@ -2522,8 +2521,8 @@ static int register_profile(struct impl *backend, const char *profile, const cha
 	}
 	dbus_message_iter_close_container(&it[0], &it[1]);
 
-	dbus_connection_send_with_reply(backend->conn, m, &call, -1);
-	dbus_pending_call_set_notify(call, register_profile_reply, backend, NULL);
+	if (!send_with_reply(backend->conn, m, register_profile_reply, backend))
+		return -EIO;
 
 	return 0;
 }

@@ -725,9 +725,8 @@ static int ofono_getcards(struct impl *backend)
 	if (m == NULL)
 		return -ENOMEM;
 
-	DBusPendingCall *call;
-	dbus_connection_send_with_reply(backend->conn, m, &call, -1);
-	dbus_pending_call_set_notify(call, ofono_getcards_reply, backend, NULL);
+	if (!send_with_reply(backend->conn, m, ofono_getcards_reply, backend))
+		return -EIO;
 
 	return 0;
 }

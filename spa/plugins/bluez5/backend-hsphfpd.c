@@ -890,7 +890,6 @@ static int hsphfpd_audio_acquire(void *data, bool optional)
 	spa_autoptr(DBusMessage) m = NULL;
 	const char *air_codec = HSPHFP_AIR_CODEC_CVSD;
 	const char *agent_codec = HSPHFP_AGENT_CODEC_PCM;
-	DBusPendingCall *call;
 
 	spa_log_debug(backend->log, "transport %p: Acquire %s",
 			transport, transport->path);
@@ -911,8 +910,8 @@ static int hsphfpd_audio_acquire(void *data, bool optional)
 		return -ENOMEM;
 	dbus_message_append_args(m, DBUS_TYPE_STRING, &air_codec, DBUS_TYPE_STRING, &agent_codec, DBUS_TYPE_INVALID);
 
-	dbus_connection_send_with_reply(backend->conn, m, &call, -1);
-	dbus_pending_call_set_notify(call, hsphfpd_audio_acquire_reply, transport, NULL);
+	if (!send_with_reply(backend->conn, m, hsphfpd_audio_acquire_reply, transport))
+		return -EIO;
 
 	backend->acquire_in_progress = true;
 
@@ -1250,9 +1249,8 @@ static int hsphfpd_get_endpoints(struct impl *backend)
 	if (m == NULL)
 		return -ENOMEM;
 
-	DBusPendingCall *call;
-	dbus_connection_send_with_reply(backend->conn, m, &call, -1);
-	dbus_pending_call_set_notify(call, hsphfpd_get_endpoints_reply, backend, NULL);
+	if (!send_with_reply(backend->conn, m, hsphfpd_get_endpoints_reply, backend))
+		return -EIO;
 
 	return 0;
 }

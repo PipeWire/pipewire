@@ -82,8 +82,9 @@ static int update_battery_percentage(struct impl *this)
 				 DBUS_TYPE_INVALID);
 	dbus_message_set_auto_start(m, false);
 
-	dbus_connection_send_with_reply(this->conn, m, &this->pending_get_call, -1);
-	dbus_pending_call_set_notify(this->pending_get_call, upower_get_percentage_properties_reply, this, NULL);
+	this->pending_get_call = send_with_reply(this->conn, m, upower_get_percentage_properties_reply, this);
+	if (!this->pending_get_call)
+		return -EIO;
 
 	return 0;
 }

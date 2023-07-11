@@ -390,22 +390,11 @@ static void register_battery_provider(struct spa_bt_device *device)
 	dbus_message_iter_append_basic(&message_iter, DBUS_TYPE_OBJECT_PATH,
 				       &object_path);
 
-	if (!dbus_connection_send_with_reply(device->monitor->conn, method_call, &device->battery_pending_call,
-					     DBUS_TIMEOUT_USE_DEFAULT)) {
-		spa_log_error(device->monitor->log, "Failed to register battery provider");
-		return;
-	}
-
+	device->battery_pending_call = send_with_reply(device->monitor->conn, method_call,
+						       on_battery_provider_registered, device);
 	if (!device->battery_pending_call) {
 		spa_log_error(device->monitor->log, "Failed to register battery provider");
 		return;
-	}
-
-	if (!dbus_pending_call_set_notify(
-		    device->battery_pending_call, on_battery_provider_registered,
-		    device, NULL)) {
-		spa_log_error(device->monitor->log, "Failed to register battery provider");
-		cancel_and_unref(&device->battery_pending_call);
 	}
 }
 
@@ -3219,7 +3208,6 @@ static void transport_set_property_volume(struct spa_bt_transport *transport, ui
 	const char *interface = BLUEZ_MEDIA_TRANSPORT_INTERFACE;
 	const char *name = "Volume";
 	int res = 0;
-	dbus_bool_t ret;
 
 	cancel_and_unref(&transport->volume_call);
 
@@ -3240,15 +3228,8 @@ static void transport_set_property_volume(struct spa_bt_transport *transport, ui
 	dbus_message_iter_append_basic(&it[1], DBUS_TYPE_UINT16, &value);
 	dbus_message_iter_close_container(&it[0], &it[1]);
 
-	ret = dbus_connection_send_with_reply(monitor->conn, m, &transport->volume_call, -1);
-	if (!ret || !transport->volume_call) {
-		res = -EIO;
-		goto fail;
-	}
-
-	ret = dbus_pending_call_set_notify(transport->volume_call,
-			transport_set_property_volume_reply, transport, NULL);
-	if (!ret) {
+	transport->volume_call = send_with_reply(monitor->conn, m, transport_set_property_volume_reply, transport);
+	if (!transport->volume_call) {
 		res = -EIO;
 		goto fail;
 	}
@@ -3445,7 +3426,6 @@ static int do_transport_acquire(struct spa_bt_transport *transport)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
 	spa_autoptr(DBusMessage) m = NULL;
-	dbus_bool_t ret;
 	struct spa_bt_transport *t_linked;
 
 	spa_list_for_each(t_linked, &transport->bap_transport_linked, bap_transport_linked) {
@@ -3470,12 +3450,8 @@ static int do_transport_acquire(struct spa_bt_transport *transport)
 	if (m == NULL)
 		return -ENOMEM;
 
-	ret = dbus_connection_send_with_reply(monitor->conn, m, &transport->acquire_call, -1);
-	if (!ret || transport->acquire_call == NULL)
-		return -EIO;
-
-	ret = dbus_pending_call_set_notify(transport->acquire_call, transport_acquire_reply, transport, NULL);
-	if (!ret)
+	transport->acquire_call = send_with_reply(monitor->conn, m, transport_acquire_reply, transport);
+	if (!transport->acquire_call)
 		return -EIO;
 
 	return 0;
@@ -3707,7 +3683,6 @@ static bool media_codec_switch_process_current(struct spa_bt_media_codec_switch 
 	enum spa_bt_media_direction direction;
 	char *local_endpoint = NULL;
 	int res, config_size;
-	dbus_bool_t dbus_ret;
 	spa_autoptr(DBusMessage) m = NULL;
 	DBusMessageIter iter, d;
 	int i;
@@ -3807,15 +3782,9 @@ static bool media_codec_switch_process_current(struct spa_bt_media_codec_switch 
 	dbus_message_iter_close_container(&iter, &d);
 
 	spa_assert(sw->pending == NULL);
-	dbus_ret = dbus_connection_send_with_reply(sw->device->monitor->conn, m, &sw->pending, -1);
-	if (!dbus_ret || sw->pending == NULL) {
+	sw->pending = send_with_reply(sw->device->monitor->conn, m, media_codec_switch_reply, sw);
+	if (!sw->pending) {
 		spa_log_error(sw->device->monitor->log, "media codec switch %p: dbus call failure, try next", sw);
-		goto next;
-	}
-
-	dbus_ret = dbus_pending_call_set_notify(sw->pending, media_codec_switch_reply, sw, NULL);
-	if (!dbus_ret) {
-		spa_log_error(sw->device->monitor->log, "media codec switch %p: dbus set notify failure", sw);
 		goto next;
 	}
 
@@ -4422,7 +4391,6 @@ static int bluez_register_endpoint_legacy(struct spa_bt_adapter *adapter,
 	char  *object_path = NULL;
 	spa_autoptr(DBusMessage) m = NULL;
 	DBusMessageIter object_it, dict_it;
-	DBusPendingCall *call;
 	uint8_t caps[A2DP_MAX_CAPS_SIZE];
 	int ret, caps_size;
 	uint16_t codec_id = codec->codec_id;
@@ -4458,8 +4426,10 @@ static int bluez_register_endpoint_legacy(struct spa_bt_adapter *adapter,
 
 	dbus_message_iter_close_container(&object_it, &dict_it);
 
-	dbus_connection_send_with_reply(monitor->conn, m, &call, -1);
-	dbus_pending_call_set_notify(call, bluez_register_endpoint_legacy_reply, adapter, NULL);
+	if (!send_with_reply(monitor->conn, m, bluez_register_endpoint_legacy_reply, adapter)) {
+		ret = -EIO;
+		goto error;
+	}
 
 	free(object_path);
 
@@ -4832,7 +4802,6 @@ static int adapter_register_application(struct spa_bt_adapter *a, bool bap)
 	const char *ep_type_name = (bap ? "LE Audio" : "A2DP");
 	spa_autoptr(DBusMessage) m = NULL;
 	DBusMessageIter i, d;
-	DBusPendingCall *call;
 
 	if (bap && a->bap_application_registered)
 		return 0;
@@ -4866,10 +4835,8 @@ static int adapter_register_application(struct spa_bt_adapter *a, bool bap)
 	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY, "{sv}", &d);
 	dbus_message_iter_close_container(&i, &d);
 
-	dbus_connection_send_with_reply(monitor->conn, m, &call, -1);
-	dbus_pending_call_set_notify(call,
-			bap ? bluez_register_application_bap_reply : bluez_register_application_a2dp_reply,
-			a, NULL);
+	if (!send_with_reply(monitor->conn, m, bap ? bluez_register_application_bap_reply : bluez_register_application_a2dp_reply, a))
+		return -EIO;
 
 	return 0;
 }
@@ -5147,7 +5114,6 @@ static void get_managed_objects(struct spa_bt_monitor *monitor)
 		return;
 
 	spa_autoptr(DBusMessage) m = NULL;
-	DBusPendingCall *call;
 
 	m = dbus_message_new_method_call(BLUEZ_SERVICE,
 					 "/",
@@ -5156,10 +5122,7 @@ static void get_managed_objects(struct spa_bt_monitor *monitor)
 
 	dbus_message_set_auto_start(m, false);
 
-	dbus_connection_send_with_reply(monitor->conn, m, &call, -1);
-	dbus_pending_call_set_notify(call, get_managed_objects_reply, monitor, NULL);
-
-	monitor->get_managed_objects_call = call;
+	monitor->get_managed_objects_call = send_with_reply(monitor->conn, m, get_managed_objects_reply, monitor);
 }
 
 static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *user_data)

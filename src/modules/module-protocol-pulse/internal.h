@@ -52,7 +52,7 @@ struct impl {
 	struct pw_properties *props;
 	void *dbus_name;
 
-	struct ratelimit rate_limit;
+	struct spa_ratelimit rate_limit;
 
 	struct spa_hook_list hooks;
 	struct spa_list servers;

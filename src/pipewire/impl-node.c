@@ -1095,8 +1095,9 @@ static void check_states(struct pw_impl_node *driver, uint64_t nsec)
 	struct pw_node_activation *na = driver->rt.target.activation;
 	struct spa_io_clock *cl = &na->position.clock;
 	enum spa_log_level level = SPA_LOG_LEVEL_DEBUG;
+	int missed;
 
-	if (ratelimit_test(&driver->rt.rate_limit, nsec, SPA_LOG_LEVEL_DEBUG))
+	if ((missed = spa_ratelimit_test(&driver->rt.rate_limit, nsec)) >= 0)
 		level = SPA_LOG_LEVEL_INFO;
 
 	spa_list_for_each(t, &driver->rt.target_list, link) {
@@ -1110,10 +1111,11 @@ static void check_states(struct pw_impl_node *driver, uint64_t nsec)
 		    a->status == PW_NODE_ACTIVATION_AWAKE) {
 			update_xrun_stats(a, nsec / 1000, 0);
 
-			pw_log(level, "(%s-%u) client too slow! rate:%u/%u pos:%"PRIu64" status:%s",
+			pw_log(level, "(%s-%u) client too slow! rate:%u/%u pos:%"PRIu64" status:%s (%u missed)",
 				t->name, t->id,
 				(uint32_t)(cl->rate.num * cl->duration), cl->rate.denom,
-				cl->position, str_status(a->status));
+				cl->position, str_status(a->status),
+				missed);
 		}
 		pw_log_debug("(%s-%u) state:%p pending:%d/%d s:%"PRIu64" a:%"PRIu64" f:%"PRIu64
 				" waiting:%"PRIu64" process:%"PRIu64" status:%s sync:%d",
@@ -1881,10 +1883,11 @@ static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_po
 	struct pw_node_activation *da = this->rt.driver_target.activation;
 	struct spa_system *data_system = this->data_system;
 	uint64_t nsec = get_time_ns(data_system);
+	int missed;
 
 	update_xrun_stats(a, trigger, delay);
 
-	if (ratelimit_test(&this->rt.rate_limit, nsec, SPA_LOG_LEVEL_INFO)) {
+	if ((missed = spa_ratelimit_test(&this->rt.rate_limit, nsec)) >= 0) {
 		struct spa_fraction rate;
 		if (da) {
 			struct spa_io_clock *cl = &da->position.clock;
@@ -1894,10 +1897,11 @@ static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_po
 			rate = SPA_FRACTION(0,0);
 		}
 		pw_log_info("(%s-%d) XRun! rate:%u/%u count:%u time:%"PRIu64
-				" delay:%"PRIu64" max:%"PRIu64,
+				" delay:%"PRIu64" max:%"PRIu64" (%d missed)",
 				this->name, this->info.id,
 				rate.num, rate.denom, a->xrun_count,
-				trigger, delay, a->max_delay);
+				trigger, delay, a->max_delay,
+				missed);
 	}
 
 	pw_context_driver_emit_xrun(this->context, this);

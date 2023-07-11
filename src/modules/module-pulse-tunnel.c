@@ -21,6 +21,7 @@
 #include <spa/utils/json.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/dll.h>
+#include <spa/utils/ratelimit.h>
 #include <spa/debug/types.h>
 #include <spa/pod/builder.h>
 #include <spa/param/audio/format-utils.h>
@@ -170,7 +171,7 @@ struct impl {
 	pa_stream *pa_stream;
 	uint32_t pa_index;
 
-	struct ratelimit rate_limit;
+	struct spa_ratelimit rate_limit;
 
 	uint32_t target_latency;
 	uint32_t current_latency;
@@ -669,19 +670,22 @@ static void stream_underflow_cb(pa_stream *s, void *userdata)
 {
 	struct impl *impl = userdata;
 	struct timespec ts;
+	int missed;
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	if (ratelimit_test(&impl->rate_limit, SPA_TIMESPEC_TO_NSEC(&ts), SPA_LOG_LEVEL_WARN))
-		pw_log_warn("underflow");
+	if ((missed = spa_ratelimit_test(&impl->rate_limit, SPA_TIMESPEC_TO_NSEC(&ts))) >= 0)
+		pw_log_warn("underflow (%d missed)", missed);
 	impl->resync = true;
 }
 static void stream_overflow_cb(pa_stream *s, void *userdata)
 {
 	struct impl *impl = userdata;
 	struct timespec ts;
+	int missed;
+
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	if (ratelimit_test(&impl->rate_limit, SPA_TIMESPEC_TO_NSEC(&ts), SPA_LOG_LEVEL_WARN))
-		pw_log_warn("overflow");
+	if ((missed = spa_ratelimit_test(&impl->rate_limit, SPA_TIMESPEC_TO_NSEC(&ts))) >= 0)
+		pw_log_warn("overflow (%d missed)", missed);
 	impl->resync = true;
 }
 

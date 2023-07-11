@@ -21,6 +21,7 @@ extern "C" {
 #include <spa/utils/list.h>
 #include <spa/utils/json.h>
 #include <spa/utils/dll.h>
+#include <spa/utils/ratelimit.h>
 
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
@@ -81,13 +82,6 @@ struct card {
 	uint32_t rate;
 };
 
-struct ratelimit {
-	uint64_t interval;
-	uint64_t begin;
-	unsigned burst;
-	unsigned n_printed, n_missed;
-};
-
 struct state {
 	struct spa_handle handle;
 	struct spa_node node;
@@ -97,7 +91,7 @@ struct state {
 	struct spa_loop *data_loop;
 
 	FILE *log_file;
-	struct ratelimit rate_limit;
+	struct spa_ratelimit rate_limit;
 
 	uint32_t card_index;
 	struct card *card;
@@ -346,22 +340,6 @@ static inline uint32_t spa_alsa_get_iec958_codecs(struct state *state, uint32_t 
 		j++;
 	}
 	return i;
-}
-
-static inline int ratelimit_test(struct ratelimit *r, uint64_t now)
-{
-	unsigned missed = 0;
-	if (r->begin + r->interval < now) {
-		missed = r->n_missed;
-		r->begin = now;
-		r->n_printed = 0;
-		r->n_missed = 0;
-	} else if (r->n_printed >= r->burst) {
-		r->n_missed++;
-		return -1;
-	}
-	r->n_printed++;
-	return missed;
 }
 
 /* This function is also as snd_pcm_channel_area_addr() since 1.2.6 which is not yet

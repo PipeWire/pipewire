@@ -1980,7 +1980,7 @@ static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes
 		if ((res = alsa_recover(state, avail)) < 0)
 			return res;
 		if ((avail = snd_pcm_avail(state->hndl)) < 0) {
-			if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+			if ((missed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
 				spa_log_warn(state->log, "%s: (%d missed) snd_pcm_avail after recover: %s",
 						state->props.device, missed, snd_strerror(avail));
 			}
@@ -1997,7 +1997,7 @@ static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes
 		uint64_t then;
 
 		if ((res = snd_pcm_htimestamp(state->hndl, &havail, &tstamp)) < 0) {
-			if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+			if ((missed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
 				spa_log_warn(state->log, "%s: (%d missed) snd_pcm_htimestamp error: %s",
 					state->props.device, missed, snd_strerror(res));
 			}
@@ -2025,7 +2025,7 @@ static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes
 					state->htimestamp_error = 0;
 					state->htimestamp = false;
 				}
-				else if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+				else if ((missed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
 					spa_log_warn(state->log, "%s: (%d missed) impossible htimestamp diff:%"PRIi64,
 						state->props.device, missed, diff);
 				}
@@ -2253,7 +2253,7 @@ int spa_alsa_write(struct state *state)
 			else
 				lev = SPA_LOG_LEVEL_INFO;
 
-			if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+			if ((missed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
 				spa_log_lev(state->log, lev, "%s: follower avail:%lu delay:%ld "
 						"target:%ld thr:%u, resync (%d missed)",
 						state->props.device, avail, delay,
@@ -2490,7 +2490,7 @@ int spa_alsa_read(struct state *state)
 			else
 				lev = SPA_LOG_LEVEL_INFO;
 
-			if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+			if ((missed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
 				spa_log_lev(state->log, lev, "%s: follower delay:%ld target:%ld thr:%u, "
 						"resync (%d missed)", state->props.device, delay,
 						target, state->threshold, missed);
@@ -2743,7 +2743,7 @@ done:
 	if (!state->disable_tsched &&
 			(state->next_time > current_time + SPA_NSEC_PER_SEC ||
 			 current_time > state->next_time + SPA_NSEC_PER_SEC)) {
-		if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+		if ((missed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
 			spa_log_error(state->log, "%s: impossible timeout %lu %lu %lu %"
 					PRIu64" %"PRIu64" %"PRIi64" %d %"PRIi64" (%d missed)",
 					state->props.device, avail, delay, target,

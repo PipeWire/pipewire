@@ -173,16 +173,10 @@ static struct mix *find_mix(struct node_data *data,
 	return NULL;
 }
 
-static struct mix *create_mix(struct node_data *data,
-		enum spa_direction direction, uint32_t port_id,
+static struct mix *create_mix(struct node_data *data, struct pw_impl_port *port,
 		uint32_t mix_id, uint32_t peer_id)
 {
 	struct mix *mix;
-	struct pw_impl_port *port;
-
-	port = pw_impl_node_find_port(data->node, direction, port_id);
-	if (port == NULL)
-		return NULL;
 
 	if (spa_list_is_empty(&data->free_mix)) {
 		if ((mix = calloc(1, sizeof(*mix))) == NULL)
@@ -192,7 +186,7 @@ static struct mix *create_mix(struct node_data *data,
 		spa_list_remove(&mix->link);
 	}
 	mix_init(mix, port, mix_id, peer_id);
-	spa_list_append(&data->mix[direction], &mix->link);
+	spa_list_append(&data->mix[port->direction], &mix->link);
 
 	return mix;
 }
@@ -733,8 +727,10 @@ client_node_port_use_buffers(void *_data,
 error_exit_cleanup:
 	clear_buffers(data, mix);
 error_exit:
-        pw_log_error("port %p: use_buffers: %d %s", mix, res, spa_strerror(res));
-	pw_proxy_errorf(proxy, res, "port_use_buffers error: %s", spa_strerror(res));
+	pw_log_error("port %p: use_buffers(%u:%u:%d): %d %s", mix,
+			direction, port_id, mix_id, res, spa_strerror(res));
+	pw_proxy_errorf(proxy, res, "port_use_buffers(%u:%u:%d) error: %s",
+			direction, port_id, mix_id, spa_strerror(res));
 	return res;
 }
 
@@ -922,9 +918,13 @@ static int client_node_port_set_mix_info(void *_data,
 			return -EINVAL;
 		clear_mix(data, mix);
 	} else {
+		struct pw_impl_port *port;
 		if (mix != NULL)
 			return -EEXIST;
-		mix = create_mix(data, direction, port_id, mix_id, peer_id);
+		port = pw_impl_node_find_port(data->node, direction, port_id);
+		if (port == NULL)
+			return -ENOENT;
+		mix = create_mix(data, port, mix_id, peer_id);
 		if (mix == NULL)
 			return -errno;
 	}
@@ -950,6 +950,7 @@ static const struct pw_client_node_events client_node_events = {
 static void do_node_init(struct node_data *data)
 {
 	struct pw_impl_port *port;
+	struct mix *mix;
 
 	pw_log_debug("%p: node %p init", data, data->node);
 	add_node_update(data, PW_CLIENT_NODE_UPDATE_PARAMS |
@@ -959,11 +960,17 @@ static void do_node_init(struct node_data *data)
 				SPA_NODE_CHANGE_MASK_PARAMS);
 
 	spa_list_for_each(port, &data->node->input_ports, link) {
+		mix = create_mix(data, port, SPA_ID_INVALID, SPA_ID_INVALID);
+		if (mix == NULL)
+			pw_log_error("%p: failed to create port mix: %m", data->node);
 		add_port_update(data, port,
 				PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
 				PW_CLIENT_NODE_PORT_UPDATE_INFO);
 	}
 	spa_list_for_each(port, &data->node->output_ports, link) {
+		mix = create_mix(data, port, SPA_ID_INVALID, SPA_ID_INVALID);
+		if (mix == NULL)
+			pw_log_error("%p: failed to create port mix: %m", data->node);
 		add_port_update(data, port,
 				PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
 				PW_CLIENT_NODE_PORT_UPDATE_INFO);
@@ -1055,10 +1062,9 @@ static void node_port_added(void *data, struct pw_impl_port *port)
 	if (d->client_node == NULL)
 		return;
 
-	mix = create_mix(d, port->direction, port->port_id, SPA_ID_INVALID, SPA_ID_INVALID);
-	if (mix == NULL) {
+	mix = create_mix(d, port, SPA_ID_INVALID, SPA_ID_INVALID);
+	if (mix == NULL)
 		pw_log_error("%p: failed to create port mix: %m", d->node);
-	}
 }
 
 static void node_port_removed(void *data, struct pw_impl_port *port)

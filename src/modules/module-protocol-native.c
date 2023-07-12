@@ -1472,9 +1472,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	const struct pw_properties *props;
 	int res;
 
-	if (!spa_streq(pw_get_library_version(), pw_get_headers_version()))
-		return -ESTALE;
-
 	PW_LOG_TOPIC_INIT(mod_topic);
 	PW_LOG_TOPIC_INIT(mod_topic_connection);
 

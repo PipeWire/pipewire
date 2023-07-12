@@ -3543,9 +3543,6 @@ jack_client_t * jack_client_open (const char *client_name,
 	    strstr(pw_get_library_version(), "0.2") != NULL)
 		goto disabled;
 
-	if (!spa_streq(pw_get_library_version(), pw_get_headers_version()))
-		goto disabled;
-
 	return_val_if_fail(client_name != NULL, NULL);
 
 	client = calloc(1, sizeof(struct client));

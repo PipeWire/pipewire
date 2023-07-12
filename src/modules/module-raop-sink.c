@@ -827,7 +827,7 @@ error:
 
 static int rtsp_send(struct impl *impl, const char *method,
 		const char *content_type, const char *content,
-		int (*reply) (void *data, int status, const struct spa_dict *headers))
+		int (*reply) (void *data, int status, const struct spa_dict *headers, const struct pw_array *content))
 {
 	int res;
 
@@ -838,7 +838,7 @@ static int rtsp_send(struct impl *impl, const char *method,
 	return res;
 }
 
-static int rtsp_log_reply_status(void *data, int status, const struct spa_dict *headers)
+static int rtsp_log_reply_status(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	pw_log_info("reply status: %d", status);
 	return 0;
@@ -876,7 +876,7 @@ static int rtsp_send_volume(struct impl *impl)
 	return rtsp_send(impl, "SET_PARAMETER", "text/parameters", header, rtsp_log_reply_status);
 }
 
-static int rtsp_record_reply(void *data, int status, const struct spa_dict *headers)
+static int rtsp_record_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
 	const char *str;
@@ -966,7 +966,7 @@ error:
 	pw_loop_update_io(impl->loop, impl->server_source, 0);
 }
 
-static int rtsp_setup_reply(void *data, int status, const struct spa_dict *headers)
+static int rtsp_setup_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
 	const char *str, *state = NULL, *s;
@@ -1105,7 +1105,7 @@ error:
 	return -EIO;
 }
 
-static int rtsp_announce_reply(void *data, int status, const struct spa_dict *headers)
+static int rtsp_announce_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
 
@@ -1294,7 +1294,7 @@ static int rtsp_do_announce(struct impl *impl)
 	return rtsp_send(impl, "ANNOUNCE", "application/sdp", sdp, rtsp_announce_reply);
 }
 
-static int rtsp_auth_setup_reply(void *data, int status, const struct spa_dict *headers)
+static int rtsp_auth_setup_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
 
@@ -1315,7 +1315,7 @@ static int rtsp_do_auth_setup(struct impl *impl)
 				       rtsp_auth_setup_reply, impl);
 }
 
-static int rtsp_auth_reply(void *data, int status, const struct spa_dict *headers)
+static int rtsp_auth_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
 	int res = 0;
@@ -1385,7 +1385,7 @@ static int rtsp_do_auth(struct impl *impl, const struct spa_dict *headers)
 	return rtsp_send(impl, "OPTIONS", NULL, NULL, rtsp_auth_reply);
 }
 
-static int rtsp_options_reply(void *data, int status, const struct spa_dict *headers)
+static int rtsp_options_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
 	int res = 0;
@@ -1547,7 +1547,7 @@ static int rtsp_do_connect(struct impl *impl)
 	return pw_rtsp_client_connect(impl->rtsp, hostname, atoi(port), impl->session_id);
 }
 
-static int rtsp_teardown_reply(void *data, int status, const struct spa_dict *headers)
+static int rtsp_teardown_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
 	const char *str;

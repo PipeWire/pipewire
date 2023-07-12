@@ -55,13 +55,13 @@ int pw_rtsp_client_get_local_ip(struct pw_rtsp_client *client,
 int pw_rtsp_client_url_send(struct pw_rtsp_client *client, const char *url,
 		const char *cmd, const struct spa_dict *headers,
 		const char *content_type, const void *content, size_t content_length,
-		int (*reply) (void *user_data, int status, const struct spa_dict *headers),
+		int (*reply) (void *user_data, int status, const struct spa_dict *headers, const struct pw_array *content),
 		void *user_data);
 
 int pw_rtsp_client_send(struct pw_rtsp_client *client,
 		const char *cmd, const struct spa_dict *headers,
 		const char *content_type, const char *content,
-		int (*reply) (void *user_data, int status, const struct spa_dict *headers),
+		int (*reply) (void *user_data, int status, const struct spa_dict *headers, const struct pw_array *content),
 		void *user_data);
 
 

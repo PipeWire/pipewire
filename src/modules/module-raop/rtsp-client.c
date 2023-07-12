@@ -25,7 +25,7 @@ struct message {
 	size_t len;
 	size_t offset;
 	uint32_t cseq;
-	int (*reply) (void *user_data, int status, const struct spa_dict *headers);
+	int (*reply) (void *user_data, int status, const struct spa_dict *headers, const struct pw_array *content);
 	void *user_data;
 };
 
@@ -60,6 +60,7 @@ struct pw_rtsp_client {
 	char line_buf[1024];
 	size_t line_pos;
 	struct pw_properties *headers;
+	struct pw_array content;
 	size_t content_length;
 
 	uint32_t cseq;
@@ -89,6 +90,7 @@ struct pw_rtsp_client *pw_rtsp_client_new(struct pw_loop *main_loop,
 	spa_list_init(&client->pending);
 	spa_hook_list_init(&client->listener_list);
 	client->headers = pw_properties_new(NULL, NULL);
+	pw_array_init(&client->content, 4096);
 	client->recv_state = CLIENT_RECV_NONE;
 
 	pw_log_info("new client %p", client);
@@ -105,6 +107,7 @@ void pw_rtsp_client_destroy(struct pw_rtsp_client *client)
 	pw_properties_free(client->headers);
 	pw_properties_free(client->props);
 	spa_hook_list_clean(&client->listener_list);
+	pw_array_clear(&client->content);
 	free(client);
 }
 
@@ -277,7 +280,7 @@ static void dispatch_handler(struct pw_rtsp_client *client)
 
 	msg = find_pending(client, cseq);
 	if (msg) {
-		res = msg->reply(msg->user_data, client->status, &client->headers->dict);
+		res = msg->reply(msg->user_data, client->status, &client->headers->dict, &client->content);
 		spa_list_remove(&msg->link);
 		free(msg);
 
@@ -288,6 +291,8 @@ static void dispatch_handler(struct pw_rtsp_client *client)
 	else {
 		pw_rtsp_client_emit_message(client, client->status, &client->headers->dict);
 	}
+
+	pw_array_reset(&client->content);
 }
 
 static void process_received_message(struct pw_rtsp_client *client)
@@ -328,7 +333,7 @@ static int process_header(struct pw_rtsp_client *client, char *buf)
 
 static int process_content(struct pw_rtsp_client *client)
 {
-	char buf[1024];
+	uint8_t buf[4096];
 
 	while (client->content_length > 0) {
 		const size_t max_recv = SPA_MIN(sizeof(buf), client->content_length);
@@ -344,6 +349,9 @@ static int process_content(struct pw_rtsp_client *client)
 
 			return res;
 		}
+
+		void *p = pw_array_add(&client->content, res);
+		memcpy(p, buf, res);
 
 		spa_assert((size_t) res <= client->content_length);
 		client->content_length -= res;
@@ -556,7 +564,7 @@ int pw_rtsp_client_disconnect(struct pw_rtsp_client *client)
 int pw_rtsp_client_url_send(struct pw_rtsp_client *client, const char *url,
 		const char *cmd, const struct spa_dict *headers,
 		const char *content_type, const void *content, size_t content_length,
-		int (*reply) (void *user_data, int status, const struct spa_dict *headers),
+		int (*reply) (void *user_data, int status, const struct spa_dict *headers, const struct pw_array *content),
 		void *user_data)
 {
 	FILE *f;
@@ -610,7 +618,7 @@ int pw_rtsp_client_url_send(struct pw_rtsp_client *client, const char *url,
 int pw_rtsp_client_send(struct pw_rtsp_client *client,
 		const char *cmd, const struct spa_dict *headers,
 		const char *content_type, const char *content,
-		int (*reply) (void *user_data, int status, const struct spa_dict *headers),
+		int (*reply) (void *user_data, int status, const struct spa_dict *headers, const struct pw_array *content),
 		void *user_data)
 {
 	const size_t content_length = content ? strlen(content) : 0;

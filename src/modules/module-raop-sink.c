@@ -318,7 +318,7 @@ static int send_udp_sync_packet(struct impl *impl,
 		pkt[0] |= htonl(0x10000000);
 	pkt[1] = htonl(rtptime - latency);
 	transmitted = ntp_now();
-	pkt[2] = htonl((transmitted >> 32) & 0x0000ffff);
+	pkt[2] = htonl(transmitted >> 32);
 	pkt[3] = htonl(transmitted & 0xffffffff);
 	pkt[4] = htonl(rtptime);
 

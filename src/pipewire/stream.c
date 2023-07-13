@@ -621,7 +621,7 @@ static inline void copy_position(struct stream *impl, int64_t queued)
 {
 	struct spa_io_position *p = impl->rt.position;
 
-	SEQ_WRITE(impl->seq);
+	SPA_SEQ_WRITE(impl->seq);
 	if (SPA_LIKELY(p != NULL)) {
 		impl->time.now = p->clock.nsec;
 		impl->time.rate = p->clock.rate;
@@ -636,7 +636,7 @@ static inline void copy_position(struct stream *impl, int64_t queued)
 	}
 	if (SPA_LIKELY(impl->rate_match != NULL))
 		impl->rate_queued = impl->rate_match->delay;
-	SEQ_WRITE(impl->seq);
+	SPA_SEQ_WRITE(impl->seq);
 }
 
 static int impl_send_command(void *object, const struct spa_command *command)
@@ -859,7 +859,7 @@ static void clear_buffers(struct pw_stream *stream)
 
 		while ((b = queue_pop(impl, &impl->dequeued))) {
 			if (b->busy)
-				ATOMIC_DEC(b->busy->count);
+				SPA_ATOMIC_DEC(b->busy->count);
 		}
 	} else
 		clear_queue(impl, &impl->dequeued);
@@ -1039,7 +1039,7 @@ static int impl_node_process_input(void *object)
 		pw_log_trace_fp("%p: push %d %p", stream, b->id, io);
 		if (queue_push(impl, &impl->dequeued, b) == 0) {
 			if (b->busy)
-				ATOMIC_INC(b->busy->count);
+				SPA_ATOMIC_INC(b->busy->count);
 		}
 	}
 	if (!queue_is_empty(impl, &impl->dequeued)) {
@@ -2340,12 +2340,12 @@ int pw_stream_get_time_n(struct pw_stream *stream, struct pw_time *time, size_t 
 	uint32_t buffered, quantum, index;
 
 	do {
-		seq1 = SEQ_READ(impl->seq);
+		seq1 = SPA_SEQ_READ(impl->seq);
 		memcpy(time, &impl->time, SPA_MIN(size, sizeof(struct pw_time)));
 		buffered = impl->rate_queued;
 		quantum = impl->quantum;
-		seq2 = SEQ_READ(impl->seq);
-	} while (!SEQ_READ_SUCCESS(seq1, seq2));
+		seq2 = SPA_SEQ_READ(impl->seq);
+	} while (!SPA_SEQ_READ_SUCCESS(seq1, seq2));
 
 	if (impl->direction == SPA_DIRECTION_INPUT)
 		time->queued = (int64_t)(time->queued - impl->dequeued.outcount);
@@ -2397,8 +2397,8 @@ struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream)
 	pw_log_trace_fp("%p: dequeue buffer %d size:%"PRIu64, stream, b->id, b->this.size);
 
 	if (b->busy && impl->direction == SPA_DIRECTION_OUTPUT) {
-		if (ATOMIC_INC(b->busy->count) > 1) {
-			ATOMIC_DEC(b->busy->count);
+		if (SPA_ATOMIC_INC(b->busy->count) > 1) {
+			SPA_ATOMIC_DEC(b->busy->count);
 			queue_push(impl, &impl->dequeued, b);
 			pw_log_trace_fp("%p: buffer busy", stream);
 			errno = EBUSY;
@@ -2416,7 +2416,7 @@ int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 	int res;
 
 	if (b->busy)
-		ATOMIC_DEC(b->busy->count);
+		SPA_ATOMIC_DEC(b->busy->count);
 
 	pw_log_trace_fp("%p: queue buffer %d", stream, b->id);
 	if ((res = queue_push(impl, &impl->queued, b)) < 0)

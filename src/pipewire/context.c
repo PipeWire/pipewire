@@ -17,6 +17,7 @@
 #include <spa/support/plugin.h>
 #include <spa/support/plugin-loader.h>
 #include <spa/node/utils.h>
+#include <spa/utils/atomic.h>
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
 #include <spa/debug/types.h>
@@ -1534,10 +1535,10 @@ again:
 			pw_log_debug("%p: apply duration:%"PRIu64" rate:%u/%u", context,
 					n->target_quantum, n->target_rate.num,
 					n->target_rate.denom);
-			SEQ_WRITE(n->rt.position->clock.target_seq);
+			SPA_SEQ_WRITE(n->rt.position->clock.target_seq);
 			n->rt.position->clock.target_duration = n->target_quantum;
 			n->rt.position->clock.target_rate = n->target_rate;
-			SEQ_WRITE(n->rt.position->clock.target_seq);
+			SPA_SEQ_WRITE(n->rt.position->clock.target_seq);
 
 			if (n->info.state < PW_NODE_STATE_RUNNING) {
 				n->rt.position->clock.duration = n->target_quantum;

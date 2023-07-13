@@ -1898,18 +1898,18 @@ static int install_timeowner(struct client *c)
 	pw_log_debug("%p: activation %p", c, a);
 
 	/* was ok */
-	owner = ATOMIC_LOAD(a->segment_owner[0]);
+	owner = SPA_ATOMIC_LOAD(a->segment_owner[0]);
 	if (owner == c->node_id)
 		return 0;
 
 	/* try to become owner */
 	if (c->timeowner_conditional) {
-		if (!ATOMIC_CAS(a->segment_owner[0], 0, c->node_id)) {
+		if (!SPA_ATOMIC_CAS(a->segment_owner[0], 0, c->node_id)) {
 			pw_log_debug("%p: owner:%u id:%u", c, owner, c->node_id);
 			return -EBUSY;
 		}
 	} else {
-		ATOMIC_STORE(a->segment_owner[0], c->node_id);
+		SPA_ATOMIC_STORE(a->segment_owner[0], c->node_id);
 	}
 
 	pw_log_debug("%p: timebase installed for id:%u", c, c->node_id);
@@ -6195,7 +6195,7 @@ int jack_release_timebase (jack_client_t *client)
 	if ((a = c->driver_activation) == NULL)
 		return -EIO;
 
-	if (!ATOMIC_CAS(a->segment_owner[0], c->node_id, 0))
+	if (!SPA_ATOMIC_CAS(a->segment_owner[0], c->node_id, 0))
 		return -EINVAL;
 
 	c->timebase_callback = NULL;
@@ -6367,7 +6367,7 @@ int  jack_transport_reposition (jack_client_t *client,
 	na->reposition.duration = 0;
 	na->reposition.position = pos->frame;
 	na->reposition.rate = 1.0;
-	ATOMIC_STORE(a->reposition_owner, c->node_id);
+	SPA_ATOMIC_STORE(a->reposition_owner, c->node_id);
 
 	return 0;
 }
@@ -6377,7 +6377,7 @@ static void update_command(struct client *c, uint32_t command)
 	struct pw_node_activation *a = c->rt.driver_activation;
 	if (!a)
 		return;
-	ATOMIC_STORE(a->command, command);
+	SPA_ATOMIC_STORE(a->command, command);
 }
 
 SPA_EXPORT

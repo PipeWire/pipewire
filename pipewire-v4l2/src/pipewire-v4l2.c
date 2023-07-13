@@ -19,6 +19,7 @@
 
 #include "pipewire-v4l2.h"
 
+#include <spa/utils/atomic.h>
 #include <spa/utils/result.h>
 #include <spa/pod/iter.h>
 #include <spa/pod/parser.h>
@@ -248,8 +249,6 @@ static void update_params(struct file *file)
 		}
 	}
 }
-#define ATOMIC_DEC(s)                   __atomic_sub_fetch(&(s), 1, __ATOMIC_SEQ_CST)
-#define ATOMIC_INC(s)                   __atomic_add_fetch(&(s), 1, __ATOMIC_SEQ_CST)
 
 static struct file *make_file(void)
 {
@@ -301,7 +300,7 @@ static void free_file(struct file *file)
 static void unref_file(struct file *file)
 {
 	pw_log_debug("file:%d ref:%d", file->fd, file->ref);
-	if (ATOMIC_DEC(file->ref) <= 0)
+	if (SPA_ATOMIC_DEC(file->ref) <= 0)
 		free_file(file);
 }
 
@@ -314,7 +313,7 @@ static int add_fd_map(int fd, struct file *file, uint32_t flags)
 		map->fd = fd;
 		map->flags = flags;
 		map->file = file;
-		ATOMIC_INC(file->ref);
+		SPA_ATOMIC_INC(file->ref);
 		pw_log_debug("fd:%d -> file:%d ref:%d", fd, file->fd, file->ref);
 	}
 	pthread_mutex_unlock(&globals.lock);
@@ -349,7 +348,7 @@ static struct fd_map *find_fd_map_unlocked(int fd)
 	struct fd_map *map;
 	pw_array_for_each(map, &globals.fd_maps) {
 		if (map->fd == fd) {
-			ATOMIC_INC(map->file->ref);
+			SPA_ATOMIC_INC(map->file->ref);
 			pw_log_debug("fd:%d find:%d ref:%d", map->fd, fd, map->file->ref);
 			return map;
 		}
@@ -384,7 +383,7 @@ static struct file *find_file_by_dev(uint32_t dev)
 		if (tmp->file->dev_id == dev) {
 			if (tmp->file->closed)
 				tmp->file->fd = tmp->fd;
-			ATOMIC_INC(tmp->file->ref);
+			SPA_ATOMIC_INC(tmp->file->ref);
 			map = tmp;
 			pw_log_debug("dev:%d find:%d ref:%d",
 					tmp->file->dev_id, dev, tmp->file->ref);

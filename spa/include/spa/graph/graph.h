@@ -18,6 +18,7 @@ extern "C" {
  * \{
  */
 
+#include <spa/utils/atomic.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
 #include <spa/utils/hook.h>
@@ -53,7 +54,7 @@ struct spa_graph_link {
 
 #define spa_graph_link_signal(l)	((l)->signal((l)->signal_data))
 
-#define spa_graph_state_dec(s,c) (__atomic_sub_fetch(&(s)->pending, c, __ATOMIC_SEQ_CST) == 0)
+#define spa_graph_state_dec(s) (SPA_ATOMIC_DEC(s->pending) == 0)
 
 static inline int spa_graph_link_trigger(struct spa_graph_link *link)
 {
@@ -62,7 +63,7 @@ static inline int spa_graph_link_trigger(struct spa_graph_link *link)
 	spa_debug("link %p: state %p: pending %d/%d", link, state,
                         state->pending, state->required);
 
-	if (spa_graph_state_dec(state, 1))
+	if (spa_graph_state_dec(state))
 		spa_graph_link_signal(link);
 
         return state->status;

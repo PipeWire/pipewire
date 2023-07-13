@@ -19,19 +19,11 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/debug/types.h>
 #include <spa/param/props.h>
+#include <spa/utils/atomic.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 
 #include <pipewire/pipewire.h>
-
-#define ATOMIC_INC(s)                   __atomic_add_fetch(&(s), 1, __ATOMIC_SEQ_CST)
-#define ATOMIC_LOAD(s)                  __atomic_load_n(&(s), __ATOMIC_SEQ_CST)
-
-#define SEQ_WRITE(s)                    ATOMIC_INC(s)
-#define SEQ_WRITE_SUCCESS(s1,s2)        ((s1) + 1 == (s2) && ((s2) & 1) == 0)
-
-#define SEQ_READ(s)                     ATOMIC_LOAD(s)
-#define SEQ_READ_SUCCESS(s1,s2)         ((s1) == (s2) && ((s2) & 1) == 0)
 
 PW_LOG_TOPIC_STATIC(alsa_log_topic, "alsa.pcm");
 #define PW_LOG_TOPIC_DEFAULT alsa_log_topic
@@ -223,7 +215,7 @@ static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delay
 	int64_t diff;
 
 	do {
-		seq1 = SEQ_READ(pw->seq);
+		seq1 = SPA_SEQ_READ(pw->seq);
 
 		delay = pw->delay + pw->transfered;
 		now = pw->now;
@@ -232,8 +224,8 @@ static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delay
 		else
 			avail = snd_pcm_ioplug_avail(io, pw->hw_ptr, io->appl_ptr);
 
-		seq2 = SEQ_READ(pw->seq);
-	} while (!SEQ_READ_SUCCESS(seq1, seq2));
+		seq2 = SPA_SEQ_READ(pw->seq);
+	} while (!SPA_SEQ_READ_SUCCESS(seq1, seq2));
 
 	if (now != 0 && (io->state == SND_PCM_STATE_RUNNING ||
 	    io->state == SND_PCM_STATE_DRAINING)) {
@@ -437,7 +429,7 @@ static void on_stream_process(void *data)
 
 	want = b->requested ? b->requested : hw_avail;
 
-	SEQ_WRITE(pw->seq);
+	SPA_SEQ_WRITE(pw->seq);
 
 	if (pw->now != pwt.now) {
 		pw->transfered = pw->buffered;
@@ -455,7 +447,7 @@ static void on_stream_process(void *data)
 	pw->buffered = (want == 0 || pw->transfered < want) ?  0 : (pw->transfered % want);
 
 	pw->now = pwt.now;
-	SEQ_WRITE(pw->seq);
+	SPA_SEQ_WRITE(pw->seq);
 
 	pw_log_trace("%p: avail-before:%lu avail:%lu want:%lu xfer:%lu hw:%lu appl:%lu",
 			pw, before, hw_avail, want, xfer, pw->hw_ptr, io->appl_ptr);

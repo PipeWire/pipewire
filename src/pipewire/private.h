@@ -17,6 +17,7 @@ extern "C" {
 #include <spa/support/plugin.h>
 #include <spa/pod/builder.h>
 #include <spa/param/latency-utils.h>
+#include <spa/utils/atomic.h>
 #include <spa/utils/ratelimit.h>
 #include <spa/utils/result.h>
 #include <spa/utils/type-info.h>
@@ -549,7 +550,7 @@ static inline void pw_node_activation_state_reset(struct pw_node_activation_stat
         state->pending = state->required;
 }
 
-#define pw_node_activation_state_dec(s) (ATOMIC_DEC(s->pending) == 0)
+#define pw_node_activation_state_dec(s) (SPA_ATOMIC_DEC(s->pending) == 0)
 
 struct pw_node_target {
 	struct spa_list link;
@@ -630,25 +631,6 @@ struct pw_node_activation {
 	uint32_t reposition_owner;			/* owner id with new reposition info, last one
 							 * to update wins */
 };
-
-#define ATOMIC_CAS(v,ov,nv)						\
-({									\
-	__typeof__(v) __ov = (ov);					\
-	__atomic_compare_exchange_n(&(v), &__ov, (nv),			\
-			0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);		\
-})
-
-#define ATOMIC_DEC(s)			__atomic_sub_fetch(&(s), 1, __ATOMIC_SEQ_CST)
-#define ATOMIC_INC(s)			__atomic_add_fetch(&(s), 1, __ATOMIC_SEQ_CST)
-#define ATOMIC_LOAD(s)			__atomic_load_n(&(s), __ATOMIC_SEQ_CST)
-#define ATOMIC_STORE(s,v)		__atomic_store_n(&(s), (v), __ATOMIC_SEQ_CST)
-#define ATOMIC_XCHG(s,v)		__atomic_exchange_n(&(s), (v), __ATOMIC_SEQ_CST)
-
-#define SEQ_WRITE(s)			ATOMIC_INC(s)
-#define SEQ_WRITE_SUCCESS(s1,s2)	((s1) + 1 == (s2) && ((s2) & 1) == 0)
-
-#define SEQ_READ(s)			ATOMIC_LOAD(s)
-#define SEQ_READ_SUCCESS(s1,s2)		((s1) == (s2) && ((s2) & 1) == 0)
 
 #define pw_impl_node_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_impl_node_events, m, v, ##__VA_ARGS__)
 #define pw_impl_node_emit_destroy(n)			pw_impl_node_emit(n, destroy, 0)

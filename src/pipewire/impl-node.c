@@ -846,8 +846,8 @@ do_move_nodes(struct spa_loop *loop,
 static void remove_segment_owner(struct pw_impl_node *driver, uint32_t node_id)
 {
 	struct pw_node_activation *a = driver->rt.target.activation;
-	ATOMIC_CAS(a->segment_owner[0], node_id, 0);
-	ATOMIC_CAS(a->segment_owner[1], node_id, 0);
+	SPA_ATOMIC_CAS(a->segment_owner[0], node_id, 0);
+	SPA_ATOMIC_CAS(a->segment_owner[1], node_id, 0);
 }
 
 SPA_EXPORT
@@ -1661,8 +1661,8 @@ static inline int check_updates(struct pw_impl_node *node, uint32_t *reposition_
 	if (SPA_UNLIKELY(a->position.offset == INT64_MIN))
 		a->position.offset = a->position.clock.position;
 
-	command = ATOMIC_XCHG(a->command, PW_NODE_ACTIVATION_COMMAND_NONE);
-	*reposition_owner = ATOMIC_XCHG(a->reposition_owner, 0);
+	command = SPA_ATOMIC_XCHG(a->command, PW_NODE_ACTIVATION_COMMAND_NONE);
+	*reposition_owner = SPA_ATOMIC_XCHG(a->reposition_owner, 0);
 
 	if (SPA_UNLIKELY(command != PW_NODE_ACTIVATION_COMMAND_NONE)) {
 		pw_log_debug("%p: update command:%u", node, command);
@@ -1790,8 +1790,8 @@ static int node_ready(void *data, int status)
 		}
 
 		sync_type = check_updates(node, &reposition_owner);
-		owner[0] = ATOMIC_LOAD(a->segment_owner[0]);
-		owner[1] = ATOMIC_LOAD(a->segment_owner[1]);
+		owner[0] = SPA_ATOMIC_LOAD(a->segment_owner[0]);
+		owner[1] = SPA_ATOMIC_LOAD(a->segment_owner[1]);
 again:
 		all_ready = sync_type == SYNC_CHECK;
 		update_sync = !all_ready;

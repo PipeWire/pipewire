@@ -838,6 +838,12 @@ const char* pw_get_library_version(void)
 	return pw_get_headers_version();
 }
 
+SPA_EXPORT
+bool pw_check_library_version(int major, int minor, int micro)
+{
+	return PW_CHECK_VERSION(major, minor, micro);
+}
+
 static const struct spa_type_info type_info[] = {
 	{ SPA_ID_INVALID, SPA_ID_INVALID, "spa_types", spa_types },
 	{ 0, 0, NULL, NULL },

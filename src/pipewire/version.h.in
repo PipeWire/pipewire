@@ -20,6 +20,10 @@ it. */
  * linked to. */
 const char* pw_get_library_version(void);
 
+/** Return TRUE if the currently linked PipeWire library version is equal
+ * or newer than the specified version. Since 0.3.75 */
+bool pw_check_library_version(int major, int minor, int micro);
+
 /** The current API version. Versions prior to 0.2.0 have
  * PW_API_VERSION undefined. Please note that this is only ever
  * increased on incompatible API changes!  */

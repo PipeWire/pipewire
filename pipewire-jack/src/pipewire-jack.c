@@ -3536,6 +3536,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	uint32_t n_support;
 	const char *str;
 	struct spa_cpu *cpu_iface;
+	const struct pw_properties *props;
 	va_list ap;
 
         if (getenv("PIPEWIRE_NOJACK") != NULL ||
@@ -3607,14 +3608,16 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->notify_buffer = calloc(1, NOTIFY_BUFFER_SIZE + sizeof(struct notify));
 	spa_ringbuffer_init(&client->notify_ring);
 
-	client->allow_mlock = client->context.context->settings.mem_allow_mlock;
-	client->warn_mlock = client->context.context->settings.mem_warn_mlock;
-
 	pw_context_conf_update_props(client->context.context,
 			"jack.properties", client->props);
 
+	props = pw_context_get_properties(client->context.context);
+
+	client->allow_mlock = pw_properties_get_bool(props, "mem.allow-mlock", true);
+	client->warn_mlock = pw_properties_get_bool(props, "mem.warn-mlock", false);
+
 	pw_context_conf_section_match_rules(client->context.context, "jack.rules",
-			&client->context.context->properties->dict, execute_match, client);
+			&props->dict, execute_match, client);
 
 	support = pw_context_get_support(client->context.context, &n_support);
 

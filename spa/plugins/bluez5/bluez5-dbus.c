@@ -2669,6 +2669,7 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 
 	spa_list_remove(&transport->bap_transport_linked);
 
+	free(transport->configuration);
 	free(transport->endpoint_path);
 	free(transport->path);
 	free(transport);

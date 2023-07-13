@@ -549,7 +549,7 @@ static inline void pw_node_activation_state_reset(struct pw_node_activation_stat
         state->pending = state->required;
 }
 
-#define pw_node_activation_state_dec(s,c) (__atomic_sub_fetch(&(s)->pending, c, __ATOMIC_SEQ_CST) == 0)
+#define pw_node_activation_state_dec(s) (ATOMIC_DEC(s->pending) == 0)
 
 struct pw_node_target {
 	struct spa_list link;

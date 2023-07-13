@@ -1737,7 +1737,7 @@ static inline void signal_sync(struct client *c)
 		pw_log_trace_fp("%p: link %p %p %d/%d", c, l, state,
 				state->pending, state->required);
 
-		if (pw_node_activation_state_dec(state, 1)) {
+		if (pw_node_activation_state_dec(state)) {
 			l->activation->status = PW_NODE_ACTIVATION_TRIGGERED;
 			l->activation->signal_time = nsec;
 

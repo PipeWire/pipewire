@@ -27,6 +27,7 @@ extern "C" {
 SPA_DEPRECATED
 void pw_thread_utils_set(struct spa_thread_utils *impl);
 struct spa_thread_utils *pw_thread_utils_get(void);
+void *pw_thread_fill_attr(const struct spa_dict *props, void *attr);
 
 #define pw_thread_utils_create(...)		spa_thread_utils_create(pw_thread_utils_get(), ##__VA_ARGS__)
 #define pw_thread_utils_join(...)		spa_thread_utils_join(pw_thread_utils_get(), ##__VA_ARGS__)

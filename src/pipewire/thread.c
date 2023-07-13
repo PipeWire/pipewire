@@ -25,8 +25,9 @@ do {									\
 } while(false);
 
 SPA_EXPORT
-pthread_attr_t *pw_thread_fill_attr(const struct spa_dict *props, pthread_attr_t *attr)
+void *pw_thread_fill_attr(const struct spa_dict *props, void *_attr)
 {
+	pthread_attr_t *attr = _attr;
 	const char *str;
 	int res;
 

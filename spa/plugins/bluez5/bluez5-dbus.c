@@ -2340,7 +2340,7 @@ const struct media_codec **spa_bt_device_get_supported_media_codecs(struct spa_b
 		if (j >= size) {
 			const struct media_codec **p;
 			size = size * 2;
-#ifdef HAVE_REALLOCARRRAY
+#ifdef HAVE_REALLOCARRAY
 			p = reallocarray(supported_codecs, size, sizeof(const struct media_codec *));
 #else
 			p = realloc(supported_codecs, size * sizeof(const struct media_codec *));

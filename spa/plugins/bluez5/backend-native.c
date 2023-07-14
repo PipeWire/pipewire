@@ -2195,7 +2195,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 {
 	struct impl *backend = userdata;
 	DBusMessage *r;
-	DBusMessageIter it[5];
+	DBusMessageIter it;
 	const char *handler, *path;
 	enum spa_bt_profile profile;
 	struct rfcomm *rfcomm;
@@ -2215,8 +2215,8 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
-	dbus_message_iter_init(m, &it[0]);
-	dbus_message_iter_get_basic(&it[0], &path);
+	dbus_message_iter_init(m, &it);
+	dbus_message_iter_get_basic(&it, &path);
 
 	d = spa_bt_device_find(backend->monitor, path);
 	if (d == NULL || d->adapter == NULL) {
@@ -2225,8 +2225,8 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	}
 	spa_bt_device_add_profile(d, profile);
 
-	dbus_message_iter_next(&it[0]);
-	dbus_message_iter_get_basic(&it[0], &fd);
+	dbus_message_iter_next(&it);
+	dbus_message_iter_get_basic(&it, &fd);
 
 	spa_log_debug(backend->log, "NewConnection path=%s, fd=%d, profile %s", path, fd, handler);
 

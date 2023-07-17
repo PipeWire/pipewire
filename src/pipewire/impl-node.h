@@ -75,6 +75,23 @@ struct pw_impl_node_events {
 	void (*peer_removed) (void *data, struct pw_impl_node *peer);
 };
 
+struct pw_impl_node_rt_events {
+#define PW_VERSION_IMPL_NODE_RT_EVENTS	0
+	uint32_t version;
+	/** the node is drained */
+	void (*drained) (void *data);
+	/** the node had an xrun */
+	void (*xrun) (void *data);
+	/** the driver node starts processing */
+	void (*start) (void *data);
+	/** the driver node completed processing */
+	void (*complete) (void *data);
+	/** the driver node did not complete processing */
+	void (*incomplete) (void *data);
+	/** the node had */
+	void (*timeout) (void *data);
+};
+
 /** Create a new node */
 struct pw_impl_node *
 pw_context_create_node(struct pw_context *context,	/**< the context */
@@ -117,6 +134,14 @@ void pw_impl_node_add_listener(struct pw_impl_node *node,
 			  struct spa_hook *listener,
 			  const struct pw_impl_node_events *events,
 			  void *data);
+
+/** Add an rt_event listener */
+void pw_impl_node_add_rt_listener(struct pw_impl_node *node,
+			  struct spa_hook *listener,
+			  const struct pw_impl_node_rt_events *events,
+			  void *data);
+void pw_impl_node_remove_rt_listener(struct pw_impl_node *node,
+			  struct spa_hook *listener);
 
 /** Iterate the ports in the given direction. The callback should return
  * 0 to fetch the next item, any other value stops the iteration and returns

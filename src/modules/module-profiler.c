@@ -278,17 +278,15 @@ done:
 	impl->count++;
 }
 
-static const struct pw_context_driver_events context_events = {
-	PW_VERSION_CONTEXT_DRIVER_EVENTS,
-	.incomplete = context_do_profile,
-	.complete = context_do_profile,
+static const struct pw_context_events context_events = {
+	PW_VERSION_CONTEXT_EVENTS,
+	.profiler = context_do_profile,
 };
 
 static void stop_listener(struct impl *impl)
 {
 	if (impl->listening) {
-		pw_context_driver_remove_listener(impl->context,
-			&impl->context_listener);
+		pw_context_stop_profiler(impl->context);
 		impl->listening = false;
 	}
 }
@@ -331,9 +329,7 @@ global_bind(void *object, struct pw_impl_client *client, uint32_t permissions,
 
 	if (++impl->busy == 1) {
 		pw_log_info("%p: starting profiler", impl);
-		pw_context_driver_add_listener(impl->context,
-			&impl->context_listener,
-			&context_events, impl);
+		pw_context_start_profiler(impl->context);
 		impl->listening = true;
 	}
 	return 0;
@@ -346,6 +342,7 @@ static void module_destroy(void *data)
 	if (impl->global != NULL)
 		pw_global_destroy(impl->global);
 
+	spa_hook_remove(&impl->context_listener);
 	spa_hook_remove(&impl->module_listener);
 
 	pw_properties_free(impl->properties);
@@ -429,6 +426,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
+
+	pw_context_add_listener(impl->context,
+			&impl->context_listener,
+			&context_events, impl);
 
 	pw_global_register(impl->global);
 

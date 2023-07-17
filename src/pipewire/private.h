@@ -360,39 +360,6 @@ int pw_loop_check(struct pw_loop *loop);
 	}										\
 })
 
-#define pw_context_driver_emit(c,m,v,...) spa_hook_list_call_simple(&c->driver_listener_list, struct pw_context_driver_events, m, v, ##__VA_ARGS__)
-#define pw_context_driver_emit_start(c,n)	pw_context_driver_emit(c, start, 0, n)
-#define pw_context_driver_emit_xrun(c,n)	pw_context_driver_emit(c, xrun, 0, n)
-#define pw_context_driver_emit_incomplete(c,n)	pw_context_driver_emit(c, incomplete, 0, n)
-#define pw_context_driver_emit_timeout(c,n)	pw_context_driver_emit(c, timeout, 0, n)
-#define pw_context_driver_emit_drained(c,n)	pw_context_driver_emit(c, drained, 0, n)
-#define pw_context_driver_emit_complete(c,n)	pw_context_driver_emit(c, complete, 0, n)
-
-struct pw_context_driver_events {
-#define PW_VERSION_CONTEXT_DRIVER_EVENTS	0
-	uint32_t version;
-
-	/** The driver graph is started */
-	void (*start) (void *data, struct pw_impl_node *node);
-	/** The driver under/overruns */
-	void (*xrun) (void *data, struct pw_impl_node *node);
-	/** The driver could not complete the graph */
-	void (*incomplete) (void *data, struct pw_impl_node *node);
-	/** The driver got a sync timeout */
-	void (*timeout) (void *data, struct pw_impl_node *node);
-	/** a node drained */
-	void (*drained) (void *data, struct pw_impl_node *node);
-	/** The driver completed the graph */
-	void (*complete) (void *data, struct pw_impl_node *node);
-};
-
-void pw_context_driver_add_listener(struct pw_context *context,
-			  struct spa_hook *listener,
-			  const struct pw_context_driver_events *events,
-			  void *data);
-void pw_context_driver_remove_listener(struct pw_context *context,
-			  struct spa_hook *listener);
-
 #define pw_registry_resource(r,m,v,...) pw_resource_call(r, struct pw_registry_events,m,v,##__VA_ARGS__)
 #define pw_registry_resource_global(r,...)        pw_registry_resource(r,global,0,__VA_ARGS__)
 #define pw_registry_resource_global_remove(r,...) pw_registry_resource(r,global_remove,0,__VA_ARGS__)
@@ -404,6 +371,7 @@ void pw_context_driver_remove_listener(struct pw_context *context,
 #define pw_context_emit_check_access(c,cl)	pw_context_emit(c, check_access, 0, cl)
 #define pw_context_emit_global_added(c,g)	pw_context_emit(c, global_added, 0, g)
 #define pw_context_emit_global_removed(c,g)	pw_context_emit(c, global_removed, 0, g)
+#define pw_context_emit_profiler(c,n)		pw_context_emit(c, profiler, 1, n)
 
 struct pw_context {
 	struct pw_impl_core *core;		/**< core object */
@@ -458,6 +426,8 @@ struct pw_context {
 
 	long sc_pagesize;
 	unsigned int freewheeling:1;
+
+	int profiling;
 
 	void *user_data;		/**< extra user data */
 };
@@ -651,6 +621,14 @@ struct pw_node_activation {
 #define pw_impl_node_emit_peer_added(n,p)		pw_impl_node_emit(n, peer_added, 0, p)
 #define pw_impl_node_emit_peer_removed(n,p)		pw_impl_node_emit(n, peer_removed, 0, p)
 
+#define pw_impl_node_rt_emit(o,m,v,...) spa_hook_list_call(&o->rt_listener_list, struct pw_impl_node_rt_events, m, v, ##__VA_ARGS__)
+#define pw_impl_node_rt_emit_drained(n)			pw_impl_node_rt_emit(n, drained, 0)
+#define pw_impl_node_rt_emit_xrun(n)			pw_impl_node_rt_emit(n, xrun, 0)
+#define pw_impl_node_rt_emit_start(n)			pw_impl_node_rt_emit(n, start, 0)
+#define pw_impl_node_rt_emit_complete(n)		pw_impl_node_rt_emit(n, complete, 0)
+#define pw_impl_node_rt_emit_incomplete(n)		pw_impl_node_rt_emit(n, incomplete, 0)
+#define pw_impl_node_rt_emit_timeout(n)			pw_impl_node_rt_emit(n, timeout, 0)
+
 struct pw_impl_node {
 	struct pw_context *context;		/**< context object */
 	struct spa_list link;		/**< link in context node_list */
@@ -719,6 +697,7 @@ struct pw_impl_node {
 	struct pw_map output_port_map;		/**< map from port_id to port */
 
 	struct spa_hook_list listener_list;
+	struct spa_hook_list rt_listener_list;
 
 	struct pw_loop *data_loop;		/**< the data loop for this node */
 	struct spa_system *data_system;
@@ -751,6 +730,7 @@ struct pw_impl_node {
 	uint64_t target_quantum;
 
 	uint64_t driver_start;
+	struct spa_hook profiler_listener;
 
 	void *user_data;                /**< extra user data */
 };
@@ -1067,6 +1047,7 @@ struct pw_stream {
 
 	struct pw_impl_node *node;
 	struct spa_hook node_listener;
+	struct spa_hook node_rt_listener;
 
 	struct spa_list controls;
 };

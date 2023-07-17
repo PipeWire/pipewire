@@ -43,6 +43,7 @@ struct pw_context;
 
 struct pw_global;
 struct pw_impl_client;
+struct pw_impl_node;
 
 #include <pipewire/core.h>
 #include <pipewire/loop.h>
@@ -50,7 +51,7 @@ struct pw_impl_client;
 
 /** context events emitted by the context object added with \ref pw_context_add_listener */
 struct pw_context_events {
-#define PW_VERSION_CONTEXT_EVENTS	0
+#define PW_VERSION_CONTEXT_EVENTS	1
 	uint32_t version;
 
 	/** The context is being destroyed */
@@ -63,6 +64,8 @@ struct pw_context_events {
 	void (*global_added) (void *data, struct pw_global *global);
 	/** a global object was removed */
 	void (*global_removed) (void *data, struct pw_global *global);
+	/** a driver completed */
+	void (*profiler) (void *data, struct pw_impl_node *node);
 };
 
 /** Make a new context object for a given main_loop. Ownership of the properties is taken */
@@ -167,6 +170,11 @@ const struct pw_export_type *pw_context_find_export_type(struct pw_context *cont
 int pw_context_set_object(struct pw_context *context, const char *type, void *value);
 /** get an object from the context */
 void *pw_context_get_object(struct pw_context *context, const char *type);
+
+/** start the profiler, driver_completed events will be emited */
+void pw_context_start_profiler(struct pw_context *context);
+/** stop the profiler */
+void pw_context_stop_profiler(struct pw_context *context);
 
 /**
  * \}

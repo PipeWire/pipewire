@@ -479,59 +479,51 @@ void pw_context_add_listener(struct pw_context *context,
 	spa_hook_list_append(&context->listener_list, listener, events, data);
 }
 
-struct listener_data {
-	struct spa_hook *listener;
-	const struct pw_context_driver_events *events;
-	void *data;
+static void node_complete(void *data)
+{
+	struct pw_impl_node *node = data;
+	pw_log_info("complete");
+	pw_context_emit_profiler(node->context, node);
+}
+
+static struct pw_impl_node_rt_events node_rt_events = {
+	PW_VERSION_IMPL_NODE_RT_EVENTS,
+	.complete = node_complete,
 };
 
-static int
-do_add_listener(struct spa_loop *loop,
-		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct pw_context *context = user_data;
-	const struct listener_data *d = data;
-	spa_hook_list_append(&context->driver_listener_list,
-			d->listener, d->events, d->data);
-	return 0;
-}
-
 SPA_EXPORT
-void pw_context_driver_add_listener(struct pw_context *context,
-			  struct spa_hook *listener,
-			  const struct pw_context_driver_events *events,
-			  void *data)
+void pw_context_start_profiler(struct pw_context *context)
 {
-	struct listener_data d = {
-		.listener = listener,
-		.events = events,
-		.data = data };
 	struct pw_impl_node *n;
+
+	pw_log_info("%d", context->profiling);
+	if (context->profiling++ > 0)
+		return;
+
 	spa_list_for_each(n, &context->driver_list, driver_link) {
+		if (SPA_FLAG_IS_SET(n->rt.target.activation->flags, PW_NODE_ACTIVATION_FLAG_PROFILER))
+			continue;
+
 		SPA_FLAG_SET(n->rt.target.activation->flags, PW_NODE_ACTIVATION_FLAG_PROFILER);
+		pw_impl_node_add_rt_listener(n, &n->profiler_listener, &node_rt_events, n);
 	}
-	pw_loop_invoke(context->data_loop,
-                       do_add_listener, SPA_ID_INVALID, &d, sizeof(d), false, context);
-}
-
-static int do_remove_listener(struct spa_loop *loop,
-		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct spa_hook *listener = user_data;
-	spa_hook_remove(listener);
-	return 0;
 }
 
 SPA_EXPORT
-void pw_context_driver_remove_listener(struct pw_context *context,
-			  struct spa_hook *listener)
+void pw_context_stop_profiler(struct pw_context *context)
 {
 	struct pw_impl_node *n;
+
+	pw_log_info("%d", context->profiling);
+	if (--context->profiling > 0)
+		return;
+
 	spa_list_for_each(n, &context->driver_list, driver_link) {
+		if (!SPA_FLAG_IS_SET(n->rt.target.activation->flags, PW_NODE_ACTIVATION_FLAG_PROFILER))
+			continue;
 		SPA_FLAG_CLEAR(n->rt.target.activation->flags, PW_NODE_ACTIVATION_FLAG_PROFILER);
+		pw_impl_node_remove_rt_listener(n, &n->profiler_listener);
 	}
-	pw_loop_invoke(context->data_loop,
-                       do_remove_listener, SPA_ID_INVALID, NULL, 0, true, listener);
 }
 
 SPA_EXPORT

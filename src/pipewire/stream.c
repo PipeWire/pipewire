@@ -83,7 +83,6 @@ struct stream {
 	const char *path;
 
 	struct pw_context *context;
-	struct spa_hook context_listener;
 
 	struct pw_loop *main_loop;
 	struct pw_loop *data_loop;
@@ -479,6 +478,7 @@ do_call_drained(struct spa_loop *loop,
 
 static void call_drained(struct stream *impl)
 {
+	pw_log_info("%p: drained", impl);
 	pw_loop_invoke(impl->main_loop,
 		do_call_drained, 1, NULL, 0, false, impl);
 }
@@ -1388,6 +1388,7 @@ static void node_event_destroy(void *data)
 	struct pw_stream *stream = data;
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	spa_hook_remove(&stream->node_listener);
+	pw_impl_node_remove_rt_listener(stream->node, &stream->node_rt_listener);
 	stream->node = NULL;
 	impl->data_loop = NULL;
 }
@@ -1439,11 +1440,9 @@ static const struct pw_core_events core_events = {
 	.error = on_core_error,
 };
 
-static void context_drained(void *data, struct pw_impl_node *node)
+static void node_drained(void *data)
 {
 	struct stream *impl = data;
-	if (impl->this.node != node)
-		return;
 	if (impl->draining && impl->drained) {
 		impl->draining = false;
 		if (impl->io != NULL)
@@ -1452,9 +1451,9 @@ static void context_drained(void *data, struct pw_impl_node *node)
 	}
 }
 
-static const struct pw_context_driver_events context_events = {
-	PW_VERSION_CONTEXT_DRIVER_EVENTS,
-	.drained = context_drained,
+static const struct pw_impl_node_rt_events node_rt_events = {
+	PW_VERSION_IMPL_NODE_RT_EVENTS,
+	.drained = node_drained,
 };
 
 struct match {
@@ -1542,9 +1541,6 @@ stream_new(struct pw_context *context, const char *name,
 	impl->allow_mlock = context->settings.mem_allow_mlock;
 	impl->warn_mlock = context->settings.mem_warn_mlock;
 
-	pw_context_driver_add_listener(impl->context,
-			&impl->context_listener,
-			&context_events, impl);
 	return impl;
 
 error_properties:
@@ -1709,9 +1705,6 @@ void pw_stream_destroy(struct pw_stream *stream)
 
 	spa_hook_list_clean(&impl->hooks);
 	spa_hook_list_clean(&stream->listener_list);
-
-	pw_context_driver_remove_listener(impl->context,
-			&impl->context_listener);
 
 	if (impl->data.context)
 		pw_context_destroy(impl->data.context);
@@ -2121,6 +2114,8 @@ pw_stream_connect(struct pw_stream *stream,
 	pw_proxy_add_listener(stream->proxy, &stream->proxy_listener, &proxy_events, stream);
 
 	pw_impl_node_add_listener(stream->node, &stream->node_listener, &node_events, stream);
+	pw_impl_node_add_rt_listener(stream->node, &stream->node_rt_listener,
+			&node_rt_events, stream);
 
 	return 0;
 

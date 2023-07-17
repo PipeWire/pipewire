@@ -1092,7 +1092,7 @@ static void node_on_data_fd_events(struct spa_source *source)
 			spa_node_call_ready(&impl->callbacks, status);
 		} else {
 			spa_log_trace_fp(impl->log, "%p: got complete", impl);
-			pw_context_driver_emit_complete(node->context, node);
+			pw_impl_node_rt_emit_complete(node);
 		}
 	}
 }

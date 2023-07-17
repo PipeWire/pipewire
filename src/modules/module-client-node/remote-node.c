@@ -45,7 +45,6 @@ struct mix {
 
 struct node_data {
 	struct pw_context *context;
-	struct spa_hook context_listener;
 
 	struct pw_loop *data_loop;
 	struct spa_system *data_system;
@@ -61,6 +60,7 @@ struct node_data {
 
 	struct pw_impl_node *node;
 	struct spa_hook node_listener;
+	struct spa_hook node_rt_listener;
 	unsigned int do_free:1;
 	unsigned int have_transport:1;
 	unsigned int allow_mlock:1;
@@ -1129,11 +1129,10 @@ static void client_node_removed(void *_data)
 	spa_hook_remove(&data->proxy_client_node_listener);
 	spa_hook_remove(&data->client_node_listener);
 
-	pw_context_driver_remove_listener(data->context,
-			&data->context_listener);
-
 	if (data->node) {
 		spa_hook_remove(&data->node_listener);
+		pw_impl_node_remove_rt_listener(data->node,
+				&data->node_rt_listener);
 		pw_impl_node_set_state(data->node, PW_NODE_STATE_SUSPENDED);
 
 		clean_node(data);
@@ -1168,12 +1167,13 @@ static const struct pw_proxy_events proxy_client_node_events = {
 	.bound_props = client_node_bound_props,
 };
 
-static void context_complete(void *data, struct pw_impl_node *node)
+static void node_rt_complete(void *data)
 {
 	struct node_data *d = data;
+	struct pw_impl_node *node = d->node;
 	struct spa_system *data_system = d->data_system;
 
-	if (node != d->node || !node->driving ||
+	if (!node->driving ||
 	    !SPA_FLAG_IS_SET(node->rt.target.activation->flags, PW_NODE_ACTIVATION_FLAG_PROFILER))
 		return;
 
@@ -1181,9 +1181,9 @@ static void context_complete(void *data, struct pw_impl_node *node)
 		pw_log_warn("node %p: write failed %m", node);
 }
 
-static const struct pw_context_driver_events context_events = {
-	PW_VERSION_CONTEXT_DRIVER_EVENTS,
-	.complete = context_complete,
+static const struct pw_impl_node_rt_events node_rt_events = {
+	PW_VERSION_IMPL_NODE_RT_EVENTS,
+	.complete = node_rt_complete,
 };
 
 static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_free,
@@ -1238,14 +1238,13 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 			&proxy_client_node_events, data);
 
 	pw_impl_node_add_listener(node, &data->node_listener, &node_events, data);
+	pw_impl_node_add_rt_listener(node, &data->node_rt_listener,
+			&node_rt_events, data);
 
 	pw_client_node_add_listener(data->client_node,
 					  &data->client_node_listener,
 					  &client_node_events,
 					  data);
-	pw_context_driver_add_listener(data->context,
-			&data->context_listener,
-			&context_events, data);
 
 	do_node_init(data);
 

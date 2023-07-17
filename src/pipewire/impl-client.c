@@ -713,7 +713,7 @@ int pw_impl_client_update_permissions(struct pw_impl_client *client,
 			if (context->current_client == client)
 				new_perm &= old_perm;
 
-			pw_log_debug("%p: set default permissions %08x -> %08x",
+			pw_log_info("%p: set default permissions %08x -> %08x",
 					client, old_perm, new_perm);
 
 			def->permissions = new_perm;
@@ -748,7 +748,7 @@ int pw_impl_client_update_permissions(struct pw_impl_client *client,
 			if (context->current_client == client)
 				new_perm &= old_perm;
 
-			pw_log_debug("%p: set global %d permissions %08x -> %08x",
+			pw_log_info("%p: set global %d permissions %08x -> %08x",
 					client, global->id, old_perm, new_perm);
 
 			p->permissions = new_perm;

@@ -4,6 +4,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2021 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <stddef.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -59,10 +61,12 @@ struct impl {
 static const libcamera::Span<const int64_t> cameraDevice(
 			const Camera *camera)
 {
+#ifdef HAVE_LIBCAMERA_SYSTEM_DEVICES
 	const ControlList &props = camera->properties();
 
 	if (auto devices = props.get(properties::SystemDevices))
 		return devices.value();
+#endif
 
 	return {};
 }

@@ -17,7 +17,6 @@
 #include <spa/pod/filter.h>
 #include <spa/pod/dynamic.h>
 #include <spa/debug/types.h>
-#include <spa/debug/dict.h>
 
 #define PW_ENABLE_DEPRECATED
 
@@ -1481,7 +1480,6 @@ stream_new(struct pw_context *context, const char *name,
 	struct stream *impl;
 	struct pw_stream *this;
 	const char *str;
-	struct match match;
 	int res;
 
 	ensure_loop(context->main_loop, return NULL);
@@ -1513,28 +1511,6 @@ stream_new(struct pw_context *context, const char *name,
 	spa_hook_list_init(&impl->hooks);
 	this->properties = props;
 
-	pw_context_conf_update_props(context, "stream.properties", props);
-
-	match = MATCH_INIT(this);
-	pw_context_conf_section_match_rules(context, "stream.rules",
-			&this->properties->dict, execute_match, &match);
-
-	if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
-		pw_properties_update_string(props, str, strlen(str));
-	if ((str = getenv("PIPEWIRE_QUANTUM")) != NULL) {
-		struct spa_fraction q;
-		if (sscanf(str, "%u/%u", &q.num, &q.denom) == 2 && q.denom != 0) {
-			pw_properties_setf(props, PW_KEY_NODE_RATE,
-					"1/%u", q.denom);
-			pw_properties_setf(props, PW_KEY_NODE_LATENCY,
-					"%u/%u", q.num, q.denom);
-		}
-	}
-	if ((str = getenv("PIPEWIRE_LATENCY")) != NULL)
-		pw_properties_set(props, PW_KEY_NODE_LATENCY, str);
-	if ((str = getenv("PIPEWIRE_RATE")) != NULL)
-		pw_properties_set(props, PW_KEY_NODE_RATE, str);
-
 	if (pw_properties_get(props, PW_KEY_STREAM_IS_LIVE) == NULL)
 		pw_properties_set(props, PW_KEY_STREAM_IS_LIVE, "true");
 	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL && extra) {
@@ -1545,6 +1521,10 @@ stream_new(struct pw_context *context, const char *name,
 			str = name;
 		pw_properties_set(props, PW_KEY_NODE_NAME, str);
 	}
+	if ((pw_properties_get(props, PW_KEY_NODE_WANT_DRIVER) == NULL))
+		pw_properties_set(props, PW_KEY_NODE_WANT_DRIVER, "true");
+
+	pw_context_conf_update_props(context, "stream.properties", props);
 
 	this->name = name ? strdup(name) : NULL;
 	this->node_id = SPA_ID_INVALID;
@@ -1914,6 +1894,7 @@ pw_stream_connect(struct pw_stream *stream,
 	struct pw_impl_factory *factory;
 	struct pw_properties *props = NULL;
 	const char *str;
+	struct match match;
 	uint32_t i;
 	int res;
 
@@ -2007,24 +1988,13 @@ pw_stream_connect(struct pw_stream *stream,
 	impl->using_trigger = false;
 	stream_set_state(stream, PW_STREAM_STATE_CONNECTING, 0, NULL);
 
-	if ((str = getenv("PIPEWIRE_NODE")) != NULL)
-		pw_properties_set(stream->properties, PW_KEY_TARGET_OBJECT, str);
-	else if (target_id != PW_ID_ANY)
+	if (target_id != PW_ID_ANY)
 		/* XXX this is deprecated but still used by the portal and its apps */
 		pw_properties_setf(stream->properties, PW_KEY_NODE_TARGET, "%d", target_id);
-
-	if ((str = getenv("PIPEWIRE_AUTOCONNECT")) != NULL)
-		pw_properties_set(stream->properties,
-				PW_KEY_NODE_AUTOCONNECT, spa_atob(str) ? "true" : "false");
-	else if ((flags & PW_STREAM_FLAG_AUTOCONNECT) &&
-	    pw_properties_get(stream->properties, PW_KEY_NODE_AUTOCONNECT) == NULL) {
+	if (flags & PW_STREAM_FLAG_AUTOCONNECT)
 		pw_properties_set(stream->properties, PW_KEY_NODE_AUTOCONNECT, "true");
-	}
 	if (flags & PW_STREAM_FLAG_DRIVER)
 		pw_properties_set(stream->properties, PW_KEY_NODE_DRIVER, "true");
-	if ((pw_properties_get(stream->properties, PW_KEY_NODE_WANT_DRIVER) == NULL))
-		pw_properties_set(stream->properties, PW_KEY_NODE_WANT_DRIVER, "true");
-
 	if (flags & PW_STREAM_FLAG_EXCLUSIVE)
 		pw_properties_set(stream->properties, PW_KEY_NODE_EXCLUSIVE, "true");
 	if (flags & PW_STREAM_FLAG_DONT_RECONNECT)
@@ -2033,22 +2003,48 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(stream->properties, PW_KEY_NODE_TRIGGER, "true");
 		impl->trigger = true;
 	}
-
-	if ((str = pw_properties_get(stream->properties, "mem.warn-mlock")) != NULL)
-		impl->warn_mlock = pw_properties_parse_bool(str);
-
 	if ((pw_properties_get(stream->properties, PW_KEY_MEDIA_CLASS) == NULL)) {
 		const char *media_type = pw_properties_get(stream->properties, PW_KEY_MEDIA_TYPE);
 		pw_properties_setf(stream->properties, PW_KEY_MEDIA_CLASS, "Stream/%s/%s",
 				direction == PW_DIRECTION_INPUT ? "Input" : "Output",
 				media_type ? media_type : get_media_class(impl));
 	}
-
 	if ((str = pw_properties_get(stream->properties, PW_KEY_FORMAT_DSP)) != NULL)
 		pw_properties_set(impl->port_props, PW_KEY_FORMAT_DSP, str);
 	else if (impl->media_type == SPA_MEDIA_TYPE_application &&
 	    impl->media_subtype == SPA_MEDIA_SUBTYPE_control)
 		pw_properties_set(impl->port_props, PW_KEY_FORMAT_DSP, "8 bit raw midi");
+
+	match = MATCH_INIT(stream);
+	pw_context_conf_section_match_rules(impl->context, "stream.rules",
+			&stream->properties->dict, execute_match, &match);
+
+	if ((str = getenv("PIPEWIRE_NODE")) != NULL)
+		pw_properties_set(stream->properties, PW_KEY_TARGET_OBJECT, str);
+	if ((str = getenv("PIPEWIRE_AUTOCONNECT")) != NULL)
+		pw_properties_set(stream->properties,
+				PW_KEY_NODE_AUTOCONNECT, spa_atob(str) ? "true" : "false");
+
+	if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
+		pw_properties_update_string(stream->properties, str, strlen(str));
+	if ((str = getenv("PIPEWIRE_QUANTUM")) != NULL) {
+		struct spa_fraction q;
+		if (sscanf(str, "%u/%u", &q.num, &q.denom) == 2 && q.denom != 0) {
+			pw_properties_setf(stream->properties, PW_KEY_NODE_RATE,
+					"1/%u", q.denom);
+			pw_properties_setf(stream->properties, PW_KEY_NODE_LATENCY,
+					"%u/%u", q.num, q.denom);
+		}
+	}
+	if ((str = getenv("PIPEWIRE_LATENCY")) != NULL)
+		pw_properties_set(stream->properties, PW_KEY_NODE_LATENCY, str);
+	if ((str = getenv("PIPEWIRE_RATE")) != NULL)
+		pw_properties_set(stream->properties, PW_KEY_NODE_RATE, str);
+
+	if ((str = pw_properties_get(stream->properties, "mem.warn-mlock")) != NULL)
+		impl->warn_mlock = pw_properties_parse_bool(str);
+	if ((str = pw_properties_get(stream->properties, "mem.allow-mlock")) != NULL)
+		impl->allow_mlock = pw_properties_parse_bool(str);
 
 	impl->port_info.props = &impl->port_props->dict;
 

@@ -479,53 +479,6 @@ void pw_context_add_listener(struct pw_context *context,
 	spa_hook_list_append(&context->listener_list, listener, events, data);
 }
 
-static void node_complete(void *data)
-{
-	struct pw_impl_node *node = data;
-	pw_log_info("complete");
-	pw_context_emit_profiler(node->context, node);
-}
-
-static struct pw_impl_node_rt_events node_rt_events = {
-	PW_VERSION_IMPL_NODE_RT_EVENTS,
-	.complete = node_complete,
-};
-
-SPA_EXPORT
-void pw_context_start_profiler(struct pw_context *context)
-{
-	struct pw_impl_node *n;
-
-	pw_log_info("%d", context->profiling);
-	if (context->profiling++ > 0)
-		return;
-
-	spa_list_for_each(n, &context->driver_list, driver_link) {
-		if (SPA_FLAG_IS_SET(n->rt.target.activation->flags, PW_NODE_ACTIVATION_FLAG_PROFILER))
-			continue;
-
-		SPA_FLAG_SET(n->rt.target.activation->flags, PW_NODE_ACTIVATION_FLAG_PROFILER);
-		pw_impl_node_add_rt_listener(n, &n->profiler_listener, &node_rt_events, n);
-	}
-}
-
-SPA_EXPORT
-void pw_context_stop_profiler(struct pw_context *context)
-{
-	struct pw_impl_node *n;
-
-	pw_log_info("%d", context->profiling);
-	if (--context->profiling > 0)
-		return;
-
-	spa_list_for_each(n, &context->driver_list, driver_link) {
-		if (!SPA_FLAG_IS_SET(n->rt.target.activation->flags, PW_NODE_ACTIVATION_FLAG_PROFILER))
-			continue;
-		SPA_FLAG_CLEAR(n->rt.target.activation->flags, PW_NODE_ACTIVATION_FLAG_PROFILER);
-		pw_impl_node_remove_rt_listener(n, &n->profiler_listener);
-	}
-}
-
 SPA_EXPORT
 const struct spa_support *pw_context_get_support(struct pw_context *context, uint32_t *n_support)
 {

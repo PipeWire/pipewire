@@ -371,7 +371,8 @@ int pw_loop_check(struct pw_loop *loop);
 #define pw_context_emit_check_access(c,cl)	pw_context_emit(c, check_access, 0, cl)
 #define pw_context_emit_global_added(c,g)	pw_context_emit(c, global_added, 0, g)
 #define pw_context_emit_global_removed(c,g)	pw_context_emit(c, global_removed, 0, g)
-#define pw_context_emit_profiler(c,n)		pw_context_emit(c, profiler, 1, n)
+#define pw_context_emit_driver_added(c,n)	pw_context_emit(c, driver_added, 1, n)
+#define pw_context_emit_driver_removed(c,n)	pw_context_emit(c, driver_removed, 1, n)
 
 struct pw_context {
 	struct pw_impl_core *core;		/**< core object */
@@ -426,8 +427,6 @@ struct pw_context {
 
 	long sc_pagesize;
 	unsigned int freewheeling:1;
-
-	int profiling;
 
 	void *user_data;		/**< extra user data */
 };
@@ -730,7 +729,6 @@ struct pw_impl_node {
 	uint64_t target_quantum;
 
 	uint64_t driver_start;
-	struct spa_hook profiler_listener;
 
 	void *user_data;                /**< extra user data */
 };

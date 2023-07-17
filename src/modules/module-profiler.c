@@ -71,6 +71,16 @@ static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
+struct node {
+	struct spa_list link;
+	struct impl *impl;
+
+	struct pw_impl_node *node;
+	struct spa_hook node_rt_listener;
+
+	unsigned enabled:1;
+};
+
 struct impl {
 	struct pw_context *context;
 	struct pw_properties *properties;
@@ -84,6 +94,8 @@ struct impl {
 	struct pw_global *global;
 	struct spa_hook global_listener;
 
+	struct spa_list node_list;
+
 	int64_t count;
 	uint32_t busy;
 	uint32_t empty;
@@ -94,7 +106,6 @@ struct impl {
 	struct spa_ringbuffer buffer;
 	uint8_t tmp[TMP_BUFFER];
 	uint8_t data[MAX_BUFFER];
-
 	uint8_t flush[MAX_BUFFER + sizeof(struct spa_pod_struct)];
 };
 
@@ -278,15 +289,88 @@ done:
 	impl->count++;
 }
 
+static void node_complete(void *data)
+{
+	struct node *n = data;
+	pw_log_info("complete");
+	context_do_profile(n->impl, n->node);
+}
+
+static struct pw_impl_node_rt_events node_rt_events = {
+	PW_VERSION_IMPL_NODE_RT_EVENTS,
+	.complete = node_complete,
+};
+
+static void enable_node_profiling(struct node *n, bool enabled)
+{
+	if (enabled && !n->enabled) {
+		SPA_FLAG_SET(n->node->rt.target.activation->flags, PW_NODE_ACTIVATION_FLAG_PROFILER);
+		pw_impl_node_add_rt_listener(n->node, &n->node_rt_listener, &node_rt_events, n);
+	} else if (!enabled && n->enabled) {
+		SPA_FLAG_CLEAR(n->node->rt.target.activation->flags, PW_NODE_ACTIVATION_FLAG_PROFILER);
+		pw_impl_node_remove_rt_listener(n->node, &n->node_rt_listener);
+	}
+	n->enabled = enabled;
+}
+
+static void enable_profiling(struct impl *impl, bool enabled)
+{
+	struct node *n;
+	spa_list_for_each(n, &impl->node_list, link)
+		enable_node_profiling(n, enabled);
+}
+
+static void context_driver_added(void *data, struct pw_impl_node *node)
+{
+	struct impl *impl = data;
+	struct node *n;
+
+	n = calloc(1, sizeof(*n));
+	if (n == NULL)
+		return;
+
+	n->impl = impl;
+	n->node = node;
+	spa_list_append(&impl->node_list, &n->link);
+
+	if (impl->busy > 0)
+		enable_node_profiling(n, true);
+}
+
+static struct node *find_node(struct impl *impl, struct pw_impl_node *node)
+{
+	struct node *n;
+	spa_list_for_each(n, &impl->node_list, link) {
+		if (n->node == node)
+			return n;
+	}
+	return NULL;
+}
+
+static void context_driver_removed(void *data, struct pw_impl_node *node)
+{
+	struct impl *impl = data;
+	struct node *n;
+
+	n = find_node(impl, node);
+	if (n == NULL)
+		return;
+
+	enable_node_profiling(n, false);
+	spa_list_remove(&n->link);
+	free(n);
+}
+
 static const struct pw_context_events context_events = {
 	PW_VERSION_CONTEXT_EVENTS,
-	.profiler = context_do_profile,
+	.driver_added = context_driver_added,
+	.driver_removed = context_driver_removed,
 };
 
 static void stop_listener(struct impl *impl)
 {
 	if (impl->listening) {
-		pw_context_stop_profiler(impl->context);
+		enable_profiling(impl, false);
 		impl->listening = false;
 	}
 }
@@ -329,7 +413,7 @@ global_bind(void *object, struct pw_impl_client *client, uint32_t permissions,
 
 	if (++impl->busy == 1) {
 		pw_log_info("%p: starting profiler", impl);
-		pw_context_start_profiler(impl->context);
+		enable_profiling(impl, true);
 		impl->listening = true;
 	}
 	return 0;
@@ -390,6 +474,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (impl == NULL)
 		return -errno;
 
+	spa_list_init(&impl->node_list);
 	pw_protocol_native_ext_profiler_init(context);
 
 	pw_log_debug("module %p: new %s", impl, args);

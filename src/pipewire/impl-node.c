@@ -698,6 +698,13 @@ static inline void insert_driver(struct pw_context *context, struct pw_impl_node
 			break;
 	}
 	spa_list_append(&n->driver_link, &node->driver_link);
+	pw_context_emit_driver_added(context, node);
+}
+
+static inline void remove_driver(struct pw_context *context, struct pw_impl_node *node)
+{
+	spa_list_remove(&node->driver_link);
+	pw_context_emit_driver_removed(context, node);
 }
 
 static void update_io(struct pw_impl_node *node)
@@ -941,8 +948,9 @@ static void check_properties(struct pw_impl_node *node)
 		if (node->registered) {
 			if (driver)
 				insert_driver(context, node);
-			else
-				spa_list_remove(&node->driver_link);
+			else {
+				remove_driver(context, node);
+			}
 		}
 		if (driver && node->driver_node == node)
 			node->driving = true;
@@ -2044,7 +2052,7 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	if (node->registered) {
 		spa_list_remove(&node->link);
 		if (node->driver)
-			spa_list_remove(&node->driver_link);
+			remove_driver(context, node);
 	}
 
 	if (node->node) {

@@ -1130,12 +1130,56 @@ static void try_unlink_controls(struct impl *impl, struct pw_impl_port *output, 
 	}
 }
 
+static int check_owner_permissions(struct pw_context *context,
+		struct pw_impl_node *node, uint32_t id, uint32_t permissions)
+{
+	const char *str;
+	struct pw_impl_client *client;
+	struct pw_global *global;
+	uint32_t perms;
+	uint32_t client_id;
+
+	str = pw_properties_get(node->properties, PW_KEY_CLIENT_ID);
+	if (str == NULL)
+		/* node not owned by client */
+		return 0;
+
+	if (!spa_atou32(str, &client_id, 0))
+		/* invalid client_id, something is wrong */
+		return -EIO;
+	if ((global = pw_context_find_global(context, client_id)) == NULL)
+		/* current client can't see the owner client */
+		return -ENOENT;
+	if (!pw_global_is_type(global, PW_TYPE_INTERFACE_Client) ||
+	    (client = global->object) == NULL)
+		/* not the right object, something wrong */
+		return -EIO;
+
+	if ((global = pw_context_find_global(context, id)) == NULL)
+		/* current client can't see node id */
+		return -ENOENT;
+
+	perms = pw_global_get_permissions(global, client);
+	if ((perms & permissions) != permissions)
+		/* owner client can't see other node */
+		return -EPERM;
+
+	return 0;
+}
+
 static int
 check_permission(struct pw_context *context,
 		 struct pw_impl_port *output,
 		 struct pw_impl_port *input,
 		 struct pw_properties *properties)
 {
+	int res;
+	if ((res = check_owner_permissions(context, output->node,
+					input->node->info.id, PW_PERM_R)) < 0)
+		return res;
+	if ((res = check_owner_permissions(context, input->node,
+					output->node->info.id, PW_PERM_R)) < 0)
+		return res;
 	return 0;
 }
 

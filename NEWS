@@ -1,3 +1,56 @@
+# PipeWire 0.3.75 (2023-07-21)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Link permissions between nodes are now enforced. This avoids potential portal
+    managed screencast nodes to link to the camera even though it was not assigned
+    permissions to do so by the session manager.
+  - Libcamera and v4l2 devices now have properties so that duplicates can be
+    filtered out by the session manager.
+  - A bug with draining was fixed where a buffer would be marked EMPTY and would not
+    play when it contained drained samples. (#3365)
+  - Many fixes and improvements.
+
+
+## PipeWire
+  - Permissions for links between nodes are now enforced. The link will now check
+    that the owner clients of the nodes can see eachother before allowing the link.
+    This avoids screensharing clients to accidentally being linked to the camera
+    nodes by the session manager. A side effect is that patchbay tools will no longer
+    be able to link portal managed screencast nodes to the camera, for this we need
+    a new permission for those patchbay clients. (wireplumber#218)
+  - The stream.rules/filter.rules are now evaluated when connecting the stream/filter
+    so that more properties can be matched. (#3355)
+  - Move some internal events from the context to the nodes to better handle per-node
+    threads in the future.
+  - The thread-loop will now signal when the thread is started.
+
+## modules
+  - A timestamp workaround in module-raop was reverted because it does not work
+    in all cases. Instead latency was increased to 1.5 seconds, which also makes
+    the problematic device in question work. (#3247)
+  - The profiler module was reworked a bit to use the new node realtime events. It
+    should now also handle dynamically added and removed drivers.
+  - The module-rt now does the rtkit calls from a separate thread so that it does
+    not block the main thread. This could cause deadlocks during startup in some
+    cases. (#3357)
+
+## SPA
+  - Atomic operation macros were move from internal pipewire API to public API.
+  - The video-info structure now has a new SPA_VIDEO_FLAG_MODIFIER_FIXATION_REQUIRED
+    flag to instruct the application to fixate the modifiers. This simplifies some
+    logic in applications a lot.
+  - The libcamera and v4l2 nodes now have properties to enumerate the device id
+    they are using. This can be used to match v4l2 devices and libcamera devices
+    and filter out duplicates.
+  - A bug with draining was fixed where a buffer would be marked EMPTY and would not
+    play when it contained drained samples. (#3365)
+
+Older versions:
+
+
 # PipeWire 0.3.74 (2023-07-12)
 
 This is a quick bugfix release that is API and ABI compatible with previous
@@ -32,9 +85,6 @@ This is a quick bugfix release that is API and ABI compatible with previous
     thing.
   - Merge scope based cleanup macros.
   - Add ratelimit function.
-
-Older versions:
-
 
 # PipeWire 0.3.73 (2023-07-06)
 

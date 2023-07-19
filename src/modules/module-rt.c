@@ -414,10 +414,10 @@ static long long pw_rtkit_get_rttime_usec_max(struct impl *impl)
 
 static int pw_rtkit_make_realtime(struct impl *impl, pid_t thread, int priority)
 {
-	DBusMessage *m = NULL, *r = NULL;
+	DBusMessage *m = NULL;
 	dbus_uint64_t pid;
 	dbus_uint64_t u64;
-	dbus_uint32_t u32;
+	dbus_uint32_t u32, serial;
 	DBusError error;
 	int ret;
 	struct pw_rtkit_bus *connection = impl->rtkit_bus;
@@ -446,17 +446,10 @@ static int pw_rtkit_make_realtime(struct impl *impl, pid_t thread, int priority)
 		goto finish;
 	}
 
-	if (!(r = dbus_connection_send_with_reply_and_block(connection->bus, m, -1, &error))) {
+	if (!dbus_connection_send(connection->bus, m, &serial)) {
 		ret = translate_error(error.name);
 		goto finish;
 	}
-
-
-	if (dbus_set_error_from_message(&error, r)) {
-		ret = translate_error(error.name);
-		goto finish;
-	}
-
 	ret = 0;
 
 finish:
@@ -464,25 +457,19 @@ finish:
 	if (m)
 		dbus_message_unref(m);
 
-	if (r)
-		dbus_message_unref(r);
-
-	dbus_error_free(&error);
-
 	return ret;
 }
 
+
 static int pw_rtkit_make_high_priority(struct impl *impl, pid_t thread, int nice_level)
 {
-	DBusMessage *m = NULL, *r = NULL;
+	DBusMessage *m = NULL;
 	dbus_uint64_t pid;
 	dbus_uint64_t u64;
 	dbus_int32_t s32;
-	DBusError error;
+	dbus_uint32_t serial;
 	int ret;
 	struct pw_rtkit_bus *connection = impl->rtkit_bus;
-
-	dbus_error_init(&error);
 
 	if (thread == 0)
 		thread = _gettid();
@@ -505,31 +492,16 @@ static int pw_rtkit_make_high_priority(struct impl *impl, pid_t thread, int nice
 		ret = -ENOMEM;
 		goto finish;
 	}
-
-
-
-	if (!(r = dbus_connection_send_with_reply_and_block(connection->bus, m, -1, &error))) {
-		ret = translate_error(error.name);
+	if (!dbus_connection_send(connection->bus, m, &serial)) {
+		ret = -EIO;
 		goto finish;
 	}
-
-
-	if (dbus_set_error_from_message(&error, r)) {
-		ret = translate_error(error.name);
-		goto finish;
-	}
-
 	ret = 0;
 
 finish:
 
 	if (m)
 		dbus_message_unref(m);
-
-	if (r)
-		dbus_message_unref(r);
-
-	dbus_error_free(&error);
 
 	return ret;
 }
@@ -675,6 +647,9 @@ static int set_nice(struct impl *impl, int nice_level, bool warn)
 		if (warn)
 			pw_log_warn("could not set nice-level to %d: %s",
 					nice_level, spa_strerror(res));
+	} else if (res > 0) {
+		pw_log_info("main thread setting nice level to %d: %s",
+				nice_level, spa_strerror(-res));
 	} else {
 		pw_log_info("main thread nice level set to %d",
 				nice_level);

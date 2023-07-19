@@ -65,9 +65,9 @@ struct pw_context_events {
 	/** a global object was removed */
 	void (*global_removed) (void *data, struct pw_global *global);
 
-	/** a driver was added */
+	/** a driver was added, since 0.3.75 version:1 */
 	void (*driver_added) (void *data, struct pw_impl_node *node);
-	/** a driver was removed */
+	/** a driver was removed, since 0.3.75 version:1 */
 	void (*driver_removed) (void *data, struct pw_impl_node *node);
 };
 

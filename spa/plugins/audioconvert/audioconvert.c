@@ -2609,7 +2609,8 @@ static int impl_node_process(void *object)
 	struct dir *dir;
 	int tmp = 0, res = 0;
 	bool in_passthrough, mix_passthrough, resample_passthrough, out_passthrough;
-	bool in_avail = false, flush_in = false, flush_out = false, draining = false, in_empty = true;
+	bool in_avail = false, flush_in = false, flush_out = false;
+	bool draining = false, in_empty = this->out_offset == 0;
 	struct spa_io_buffers *io, *ctrlio = NULL;
 	const struct spa_pod_sequence *ctrl = NULL;
 

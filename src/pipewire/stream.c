@@ -434,7 +434,7 @@ static inline uint32_t update_requested(struct stream *impl)
 		buffer->this.requested = impl->quantum;
 		res = 1;
 	}
-	pw_log_trace_fp("%p: update buffer:%u size:%"PRIu64, impl, id, buffer->this.requested);
+	pw_log_trace_fp("%p: update buffer:%u req:%"PRIu64, impl, id, buffer->this.requested);
 	return res;
 }
 
@@ -2385,7 +2385,8 @@ struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream)
 		errno = -res;
 		return NULL;
 	}
-	pw_log_trace_fp("%p: dequeue buffer %d size:%"PRIu64, stream, b->id, b->this.size);
+	pw_log_trace_fp("%p: dequeue buffer %d size:%"PRIu64" req:%"PRIu64,
+			stream, b->id, b->this.size, b->this.requested);
 
 	if (b->busy && impl->direction == SPA_DIRECTION_OUTPUT) {
 		if (SPA_ATOMIC_INC(b->busy->count) > 1) {
@@ -2409,7 +2410,8 @@ int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 	if (b->busy)
 		SPA_ATOMIC_DEC(b->busy->count);
 
-	pw_log_trace_fp("%p: queue buffer %d", stream, b->id);
+	pw_log_trace_fp("%p: queue buffer %d size:%"PRIu64, stream, b->id,
+			b->this.size);
 	if ((res = queue_push(impl, &impl->queued, b)) < 0)
 		return res;
 

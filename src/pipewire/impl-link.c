@@ -1149,7 +1149,7 @@ static int check_owner_permissions(struct pw_context *context,
 		return -EIO;
 	if ((global = pw_context_find_global(context, client_id)) == NULL)
 		/* current client can't see the owner client */
-		return -ENOENT;
+		return -errno;
 	if (!pw_global_is_type(global, PW_TYPE_INTERFACE_Client) ||
 	    (client = global->object) == NULL)
 		/* not the right object, something wrong */
@@ -1157,7 +1157,7 @@ static int check_owner_permissions(struct pw_context *context,
 
 	if ((global = pw_context_find_global(context, id)) == NULL)
 		/* current client can't see node id */
-		return -ENOENT;
+		return -errno;
 
 	perms = pw_global_get_permissions(global, client);
 	if ((perms & permissions) != permissions)
@@ -1186,6 +1186,7 @@ check_permission(struct pw_context *context,
 static void permissions_changed(struct pw_impl_link *this, struct pw_impl_port *other,
 		struct pw_impl_client *client, uint32_t old, uint32_t new)
 {
+	int res;
 	uint32_t perm;
 
 	perm = pw_global_get_permissions(other->global, client);
@@ -1193,17 +1194,36 @@ static void permissions_changed(struct pw_impl_link *this, struct pw_impl_port *
 	new &= perm;
 	pw_log_debug("%p: permissions changed %08x -> %08x", this, old, new);
 
-	if (check_permission(this->context, this->output, this->input, this->properties) < 0) {
+	if ((res = check_permission(this->context, this->output, this->input, this->properties)) < 0) {
+		pw_log_info("%p: link permissions removed: %s", this, spa_strerror(res));
 		pw_impl_link_destroy(this);
 	} else if (this->global != NULL) {
 		pw_global_update_permissions(this->global, client, old, new);
 	}
 }
 
+static bool is_port_owner(struct pw_impl_client *client, struct pw_impl_port *port)
+{
+	const char *str;
+	uint32_t client_id;
+
+	str = pw_properties_get(port->node->properties, PW_KEY_CLIENT_ID);
+	if (str == NULL)
+		return false;
+
+	if (!spa_atou32(str, &client_id, 0))
+		return false;
+
+	return client_id == client->info.id;
+}
+
 static void output_permissions_changed(void *data,
 		struct pw_impl_client *client, uint32_t old, uint32_t new)
 {
 	struct pw_impl_link *this = data;
+	if (!is_port_owner(client, this->output) &&
+	    !is_port_owner(client, this->input))
+		return;
 	permissions_changed(this, this->input, client, old, new);
 }
 
@@ -1216,6 +1236,9 @@ static void input_permissions_changed(void *data,
 		struct pw_impl_client *client, uint32_t old, uint32_t new)
 {
 	struct pw_impl_link *this = data;
+	if (!is_port_owner(client, this->output) &&
+	    !is_port_owner(client, this->input))
+		return;
 	permissions_changed(this, this->output, client, old, new);
 }
 

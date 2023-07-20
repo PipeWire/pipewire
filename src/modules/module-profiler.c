@@ -54,9 +54,6 @@ PW_LOG_TOPIC(mod_topic, "mod." NAME);
 #define TMP_BUFFER		(16 * 1024)
 #define DATA_BUFFER		(32 * 1024)
 #define FLUSH_BUFFER		(8 * 1024 * 1024)
-#define MIN_FLUSH		(16 * 1024)
-#define DEFAULT_IDLE		5
-#define DEFAULT_INTERVAL	1
 
 int pw_protocol_native_ext_profiler_init(struct pw_context *context);
 
@@ -103,9 +100,7 @@ struct impl {
 	struct spa_list node_list;
 
 	uint32_t busy;
-	uint32_t empty;
-	struct spa_source *flush_timeout;
-	unsigned int flushing:1;
+	struct spa_source *flush_event;
 	unsigned int listening:1;
 
 	uint8_t flush[FLUSH_BUFFER + sizeof(struct spa_pod_struct)];
@@ -118,39 +113,7 @@ struct resource_data {
 	struct spa_hook resource_listener;
 };
 
-static void start_flush(struct impl *impl)
-{
-	struct timespec value, interval;
-
-	if (impl->flushing)
-		return;
-
-	value.tv_sec = 0;
-        value.tv_nsec = 1;
-	interval.tv_sec = DEFAULT_INTERVAL;
-        interval.tv_nsec = 0;
-        pw_loop_update_timer(impl->main_loop,
-			impl->flush_timeout, &value, &interval, false);
-	impl->flushing = true;
-}
-
-static void stop_flush(struct impl *impl)
-{
-	struct timespec value, interval;
-
-	if (!impl->flushing)
-		return;
-
-	value.tv_sec = 0;
-        value.tv_nsec = 0;
-	interval.tv_sec = 0;
-        interval.tv_nsec = 0;
-        pw_loop_update_timer(impl->main_loop,
-			impl->flush_timeout, &value, &interval, false);
-	impl->flushing = false;
-}
-
-static void flush_timeout(void *data, uint64_t expirations)
+static void do_flush_event(void *data, uint64_t count)
 {
 	struct impl *impl = data;
 	struct pw_resource *resource;
@@ -176,13 +139,6 @@ static void flush_timeout(void *data, uint64_t expirations)
 			spa_ringbuffer_read_update(&n->buffer, idx + avail);
 			total += avail;
 		}
-	}
-	if (total <= 0) {
-		if (++impl->empty == DEFAULT_IDLE)
-			stop_flush(impl);
-		return;
-	} else {
-		impl->empty = 0;
 	}
 
 	*p = SPA_POD_INIT_Struct(total);
@@ -300,7 +256,7 @@ static void context_do_profile(void *data)
 			b.data, b.state.offset);
 	spa_ringbuffer_write_update(&n->buffer, idx + b.state.offset);
 
-	start_flush(impl);
+	pw_loop_signal_event(impl->main_loop, impl->flush_event);
 done:
 	n->count++;
 }
@@ -442,7 +398,7 @@ static void module_destroy(void *data)
 
 	pw_properties_free(impl->properties);
 
-	pw_loop_destroy_source(impl->main_loop, impl->flush_timeout);
+	pw_loop_destroy_source(impl->main_loop, impl->flush_event);
 
 	free(impl);
 }
@@ -457,7 +413,6 @@ static void global_destroy(void *data)
 	struct impl *impl = data;
 
 	stop_listener(impl);
-	stop_flush(impl);
 
 	spa_hook_remove(&impl->global_listener);
 	impl->global = NULL;
@@ -513,7 +468,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_properties_setf(impl->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(impl->global));
 
-	impl->flush_timeout = pw_loop_add_timer(impl->main_loop, flush_timeout, impl);
+	impl->flush_event = pw_loop_add_event(impl->main_loop, do_flush_event, impl);
 
 	pw_global_update_keys(impl->global, &impl->properties->dict, keys);
 

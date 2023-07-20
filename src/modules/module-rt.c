@@ -786,21 +786,6 @@ static int impl_get_rt_range(void *object, const struct spa_dict *props,
 	return res;
 }
 
-static pid_t impl_gettid(struct impl *impl, pthread_t pt)
-{
-	struct thread *thr;
-	pid_t pid;
-
-	pthread_mutex_lock(&impl->lock);
-	if ((thr = find_thread_by_pt(impl, pt)) != NULL)
-		pid = thr->pid;
-	else
-		pid = _gettid();
-	pthread_mutex_unlock(&impl->lock);
-
-	return pid;
-}
-
 struct rt_params {
 	pid_t pid;
 	int priority;
@@ -839,6 +824,7 @@ static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority
 	struct impl *impl = object;
 	struct sched_param sp;
 	pthread_t pt = (pthread_t)thread;
+	int res;
 
 	/* See the docstring on `spa_thread_utils_methods::acquire_rt` */
 	if (priority == -1) {
@@ -846,16 +832,26 @@ static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority
 	}
 	if (impl->use_rtkit) {
 		struct rt_params params;
+		struct thread *thr;
 
 		spa_zero(sp);
 		if (pthread_setschedparam(pt, SCHED_OTHER | PW_SCHED_RESET_ON_FORK, &sp) == 0) {
 			pw_log_debug("SCHED_OTHER|SCHED_RESET_ON_FORK worked.");
 		}
-		params.pid = impl_gettid(impl, pt);
+
 		params.priority = priority;
 
-		return pw_loop_invoke(pw_thread_loop_get_loop(impl->thread_loop),
+		pthread_mutex_lock(&impl->lock);
+		if ((thr = find_thread_by_pt(impl, pt)) != NULL)
+			params.pid = thr->pid;
+		else
+			params.pid = _gettid();
+
+		res = pw_loop_invoke(pw_thread_loop_get_loop(impl->thread_loop),
 				do_make_realtime, 0, &params, sizeof(params), false, impl);
+		pthread_mutex_unlock(&impl->lock);
+
+		return res;
 	} else {
 		return acquire_rt_sched(thread, priority);
 	}

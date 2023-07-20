@@ -73,6 +73,7 @@ static void dispatch_cb(void *userdata)
 	struct connection *conn = userdata;
 	struct impl *impl = conn->impl;
 
+	spa_log_debug(impl->log, "impl:%p", impl);
 	if (dbus_connection_dispatch(conn->conn) == DBUS_DISPATCH_COMPLETE)
 		spa_loop_utils_enable_idle(impl->utils, conn->dispatch_event, false);
 }
@@ -82,6 +83,7 @@ static void dispatch_status(DBusConnection *conn, DBusDispatchStatus status, voi
 	struct connection *c = userdata;
 	struct impl *impl = c->impl;
 
+	spa_log_debug(impl->log, "impl:%p %d", impl, status);
 	spa_loop_utils_enable_idle(impl->utils, c->dispatch_event,
 			status == DBUS_DISPATCH_COMPLETE ? false : true);
 }
@@ -268,6 +270,7 @@ static void wakeup_main(void *userdata)
 	struct connection *this = userdata;
 	struct impl *impl = this->impl;
 
+	spa_log_debug(impl->log, "wakeup main impl:%p", impl);
 	spa_loop_utils_enable_idle(impl->utils, this->dispatch_event, true);
 }
 

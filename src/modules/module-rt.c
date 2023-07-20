@@ -491,10 +491,10 @@ static void module_destroy(void *data)
 	spa_hook_remove(&impl->module_listener);
 
 #ifdef HAVE_DBUS
-	if (impl->rtkit_bus)
-		pw_rtkit_bus_free(impl->rtkit_bus);
 	if (impl->thread_loop)
 		pw_thread_loop_destroy(impl->thread_loop);
+	if (impl->rtkit_bus)
+		pw_rtkit_bus_free(impl->rtkit_bus);
 #endif
 
 	free(impl);
@@ -1114,10 +1114,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 error:
 #ifdef HAVE_DBUS
-	if (impl->rtkit_bus)
-		pw_rtkit_bus_free(impl->rtkit_bus);
 	if (impl->thread_loop)
 		pw_thread_loop_destroy(impl->thread_loop);
+	if (impl->rtkit_bus)
+		pw_rtkit_bus_free(impl->rtkit_bus);
 #endif
 	free(impl);
 done:

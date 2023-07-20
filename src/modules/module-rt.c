@@ -173,6 +173,7 @@ struct impl {
 
 	struct spa_thread_utils thread_utils;
 
+	pid_t main_pid;
 	struct rlimit rl;
 	int nice_level;
 	int rt_prio;
@@ -587,9 +588,9 @@ static bool check_realtime_privileges(struct impl *impl)
 	return false;
 }
 
-static int sched_set_nice(int nice_level)
+static int sched_set_nice(pid_t pid, int nice_level)
 {
-	if (setpriority(PRIO_PROCESS, _gettid(), nice_level) == 0)
+	if (setpriority(PRIO_PROCESS, pid, nice_level) == 0)
 		return 0;
 	else
 		return -errno;
@@ -606,12 +607,12 @@ static int set_nice(struct impl *impl, int nice_level, bool warn)
 					nice_level, impl->min_nice_level);
 			nice_level = impl->min_nice_level;
 		}
-		res = pw_rtkit_make_high_priority(impl, 0, nice_level);
+		res = pw_rtkit_make_high_priority(impl, impl->main_pid, nice_level);
 	}
 	else
 #endif
 	if (impl->rlimits_enabled)
-		res = sched_set_nice(nice_level);
+		res = sched_set_nice(impl->main_pid, nice_level);
 	else
 		res = -ENOTSUP;
 
@@ -813,7 +814,7 @@ static int do_make_realtime(struct spa_loop *loop, bool async, uint32_t seq,
 	int err, min, max, priority = params->priority;
 	pid_t pid = params->pid;
 
-	pw_log_info(".");
+	pw_log_debug("rtkit realtime");
 
 	if ((err = get_rtkit_priority_range(impl, &min, &max)) < 0)
 		return err;
@@ -933,7 +934,7 @@ static int do_rtkit_setup(struct spa_loop *loop, bool async, uint32_t seq,
 	int res;
 	long long retval;
 
-	pw_log_debug("enter dbus setup");
+	pw_log_debug("enter rtkit setup");
 
 	/* Checking xdg-desktop-portal. It works fine in all situations. */
 	if (impl->rtportal_enabled)
@@ -1029,6 +1030,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->rl.rlim_cur = impl->rt_time_soft;
 	impl->rl.rlim_max = impl->rt_time_hard;
+	impl->main_pid = _gettid();
 
 	bool can_use_rtkit = false, use_rtkit = false;
 

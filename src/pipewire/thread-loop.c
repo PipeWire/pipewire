@@ -282,6 +282,8 @@ static void *do_loop(void *user_data)
 	pw_log_debug("%p: enter thread", this);
 	pw_loop_enter(this->loop);
 
+	pw_thread_loop_signal(this, false);
+
 	while (this->running) {
 		if ((res = pw_loop_iterate(this->loop, -1)) < 0) {
 			if (res == -EINTR)

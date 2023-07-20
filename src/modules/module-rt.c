@@ -968,12 +968,21 @@ static int do_rtkit_setup(struct spa_loop *loop, bool async, uint32_t seq,
 		}
 	}
 	/* get some properties */
-	if (rtkit_get_int_property(impl, "MaxRealtimePriority", &retval) >= 0)
-		impl->max_rtprio = retval;
-	if (rtkit_get_int_property(impl, "MinNiceLevel", &retval) >= 0)
-		impl->min_nice_level = retval;
-	if (rtkit_get_int_property(impl, "RTTimeUSecMax", &retval) >= 0)
-		impl->rttime_max = retval;
+	if (rtkit_get_int_property(impl, "MaxRealtimePriority", &retval) < 0) {
+		retval = 1;
+		pw_log_warn("RTKit does not give us MaxRealtimePriority, using %lld", retval);
+	}
+	impl->max_rtprio = retval;
+	if (rtkit_get_int_property(impl, "MinNiceLevel", &retval) < 0) {
+		retval = 0;
+		pw_log_warn("RTKit does not give us MinNiceLevel, using %lld", retval);
+	}
+	impl->min_nice_level = retval;
+	if (rtkit_get_int_property(impl, "RTTimeUSecMax", &retval) < 0) {
+		retval = impl->rl.rlim_cur;
+		pw_log_warn("RTKit does not give us RTTimeUSecMax, using %lld", retval);
+	}
+	impl->rttime_max = retval;
 
 	/* Retry set_nice with rtkit */
 	if (IS_VALID_NICE_LEVEL(impl->nice_level))

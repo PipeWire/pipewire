@@ -1078,6 +1078,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		}
 		pw_thread_loop_lock(impl->thread_loop);
 		pw_thread_loop_start(impl->thread_loop);
+		pw_thread_loop_wait(impl->thread_loop);
 		pw_thread_loop_unlock(impl->thread_loop);
 
 		pw_loop_invoke(pw_thread_loop_get_loop(impl->thread_loop),

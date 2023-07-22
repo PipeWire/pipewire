@@ -923,14 +923,11 @@ static int check_rtkit(struct impl *impl, struct pw_context *context, bool *can_
 	return 0;
 }
 
-static int do_rtkit_setup(struct spa_loop *loop, bool async, uint32_t seq,
-		const void *data, size_t size, void *user_data)
+static int rtkit_get_bus(struct impl *impl)
 {
-	struct impl *impl = user_data;
 	int res;
-	long long retval;
 
-	pw_log_debug("enter rtkit setup");
+	pw_log_debug("enter rtkit get bus");
 
 	/* Checking xdg-desktop-portal. It works fine in all situations. */
 	if (impl->rtportal_enabled)
@@ -967,6 +964,18 @@ static int do_rtkit_setup(struct spa_loop *loop, bool async, uint32_t seq,
 			return res;
 		}
 	}
+
+	return 0;
+}
+
+static int do_rtkit_setup(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct impl *impl = user_data;
+	long long retval;
+
+	pw_log_debug("enter rtkit setup");
+
 	/* get some properties */
 	if (rtkit_get_int_property(impl, "MaxRealtimePriority", &retval) < 0) {
 		retval = 1;
@@ -1076,6 +1085,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 #ifdef HAVE_DBUS
 	impl->use_rtkit = use_rtkit;
 	if (impl->use_rtkit) {
+		if ((res = rtkit_get_bus(impl)) < 0)
+			goto error;
+
 		impl->thread_loop = pw_thread_loop_new("module-rt", NULL);
 		if (impl->thread_loop == NULL) {
 			res = -errno;

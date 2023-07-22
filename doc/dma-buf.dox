@@ -147,6 +147,18 @@ Therefore consumers should ignore the field `maxsize` of a `spa_data` and the fi
 In cases where mapping a single plane is required the size should be obtained locally
 via the filedescriptor.
 
+# SPA param video format helpers
+
+SPA offers helper functions to parse and build a spa_pod object to/from the spa_video_info_*
+struct. The flags `SPA_VIDEO_FLAG_MODIFIER` and `SPA_VIDEO_FLAG_MODIFIER_FIXATION_REQUIRED`
+are used to indicate modifier usage with the format. `SPA_VIDEO_FLAG_MODIFIER` declares the
+parsed/provided spa_video_info_* struct contains valid modifier information. For legacy
+reasons `spa_format_video_*_build` will announce any modifier != 0 even when this flag is
+unused. `SPA_VIDEO_FLAG_MODIFIER_FIXATION_REQUIRED` is exclusive to the parse helpers and
+declares that the parsed spa_pod contains modifier information which needs to be fixated as
+described aboath. The list of available modifiers has to be parsed manually from the spa_pod
+object.
+
 # v4l2
 
 Another use case for streaming via DMA-BUFs are exporting a camera feed from v4l2

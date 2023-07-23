@@ -1051,6 +1051,21 @@ static int emit_nodes(struct impl *this)
 				emit_device_set_node(this, DEVICE_ID_SINK_SET);
 		}
 
+		if (this->bt_dev->connected_profiles & (SPA_BT_PROFILE_BAP_BROADCAST_SINK)) {
+			t = find_transport(this, SPA_BT_PROFILE_BAP_BROADCAST_SINK, this->props.codec);
+			if (t) {
+				this->props.codec = t->media_codec->id;
+				if (t->bap_initiator)
+					emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_MEDIA_SINK, false);
+				else
+					emit_dynamic_node(&this->dyn_media_sink, this, t,
+						DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_MEDIA_SINK, false);
+			}
+
+			if (this->device_set.leader && this->device_set.sinks > 0)
+				emit_device_set_node(this, DEVICE_ID_SINK_SET);
+		}
+
 		if (get_supported_media_codec(this, this->props.codec, NULL) == NULL)
 			this->props.codec = 0;
 		break;
@@ -1643,7 +1658,9 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 	case DEVICE_PROFILE_BAP:
 	{
 		uint32_t profile = device->connected_profiles &
-		      (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE);
+		      (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE 
+			  	| SPA_BT_PROFILE_BAP_BROADCAST_SOURCE 
+				| SPA_BT_PROFILE_BAP_BROADCAST_SINK);
 		size_t idx;
 		const struct media_codec *media_codec;
 
@@ -1654,9 +1671,11 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		if (profile == 0)
 			return NULL;
 
-		if (profile & (SPA_BT_PROFILE_BAP_SINK))
+		if ((profile & (SPA_BT_PROFILE_BAP_SINK)) || 
+			(profile & (SPA_BT_PROFILE_BAP_BROADCAST_SINK)))
 			n_sink++;
-		if (profile & (SPA_BT_PROFILE_BAP_SOURCE))
+		if ((profile & (SPA_BT_PROFILE_BAP_SOURCE)) || 
+			(profile & (SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)))
 			n_source++;
 
 		name = spa_bt_profile_name(profile);

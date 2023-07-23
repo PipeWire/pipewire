@@ -43,6 +43,7 @@ struct pw_thread_loop {
 	int n_waiting_for_accept;
 	unsigned int created:1;
 	unsigned int running:1;
+	unsigned int start_signal:1;
 };
 /** \endcond */
 
@@ -143,6 +144,11 @@ static struct pw_thread_loop *loop_new(struct pw_loop *loop,
 		return NULL;
 
 	pw_log_debug("%p: new name:%s", this, name);
+	if (props != NULL) {
+		const char *str = spa_dict_lookup(props, "thread-loop.start-signal");
+		if (str != NULL)
+			this->start_signal = spa_atob(str);
+	}
 
 	if (loop == NULL) {
 		loop = pw_loop_new(props);
@@ -282,7 +288,8 @@ static void *do_loop(void *user_data)
 	pw_log_debug("%p: enter thread", this);
 	pw_loop_enter(this->loop);
 
-	pw_thread_loop_signal(this, false);
+	if (this->start_signal)
+		pw_thread_loop_signal(this, false);
 
 	while (this->running) {
 		if ((res = pw_loop_iterate(this->loop, -1)) < 0) {

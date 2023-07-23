@@ -1085,10 +1085,14 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 #ifdef HAVE_DBUS
 	impl->use_rtkit = use_rtkit;
 	if (impl->use_rtkit) {
+		struct spa_dict_item items[] = {
+			{ "thread-loop.start-signal", "true" }
+		};
 		if ((res = rtkit_get_bus(impl)) < 0)
 			goto error;
 
-		impl->thread_loop = pw_thread_loop_new("module-rt", NULL);
+		impl->thread_loop = pw_thread_loop_new("module-rt",
+			&SPA_DICT_INIT_ARRAY(items));
 		if (impl->thread_loop == NULL) {
 			res = -errno;
 			goto error;

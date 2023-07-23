@@ -11,6 +11,8 @@
 extern "C" {
 #endif
 
+#include <stdbool.h> /* bool */
+
 /** Return the version of the header files. Keep in mind that this is
 a macro and not a function, so it is impossible to get the pointer of
 it. */

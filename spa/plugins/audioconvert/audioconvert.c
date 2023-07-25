@@ -89,6 +89,7 @@ struct props {
 	unsigned int resample_quality;
 	double rate;
 	char wav_path[512];
+	unsigned int lock_volumes:1;
 };
 
 static void props_reset(struct props *props)
@@ -109,6 +110,7 @@ static void props_reset(struct props *props)
 	props->resample_quality = RESAMPLE_DEFAULT_QUALITY;
 	props->rate = 1.0;
 	spa_zero(props->wav_path);
+	props->lock_volumes = false;
 }
 
 struct buffer {
@@ -695,6 +697,14 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_type, SPA_POD_String(p->wav_path),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
+		case 27:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.lock-volumes"),
+				SPA_PROP_INFO_description, SPA_POD_String("Disable volume updates"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->lock_volumes),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
 		default:
 			return 0;
 		}
@@ -773,6 +783,8 @@ static int impl_node_enum_params(void *object, int seq,
 			spa_pod_builder_string(&b, dither_method_info[this->dir[1].conv.method].label);
 			spa_pod_builder_string(&b, "debug.wav-path");
 			spa_pod_builder_string(&b, p->wav_path);
+			spa_pod_builder_string(&b, "channelmix.lock-volumes");
+			spa_pod_builder_bool(&b, p->lock_volumes);
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
@@ -854,6 +866,8 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 		spa_scnprintf(this->props.wav_path,
 				sizeof(this->props.wav_path), "%s", s ? s : "");
 	}
+	else if (spa_streq(k, "channelmix.lock-volumes"))
+		this->props.lock_volumes = spa_atob(s);
 	else
 		return 0;
 	return 1;
@@ -1049,13 +1063,15 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 		case SPA_PROP_volume:
 			p->prev_volume = p->volume;
 
-			if (spa_pod_get_float(&prop->value, &p->volume) == 0) {
+			if (!p->lock_volumes &&
+			    spa_pod_get_float(&prop->value, &p->volume) == 0) {
 				spa_log_debug(this->log, "%p new volume %f", this, p->volume);
 				changed++;
 			}
 			break;
 		case SPA_PROP_mute:
-			if (spa_pod_get_bool(&prop->value, &p->channel.mute) == 0) {
+			if (!p->lock_volumes &&
+			    spa_pod_get_bool(&prop->value, &p->channel.mute) == 0) {
 				have_channel_volume = true;
 				changed++;
 			}
@@ -1124,7 +1140,8 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			}
 			break;
 		case SPA_PROP_channelVolumes:
-			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
+			if (!p->lock_volumes &&
+			    (n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					p->channel.volumes, SPA_AUDIO_MAX_CHANNELS)) > 0) {
 				have_channel_volume = true;
 				p->channel.n_volumes = n;
@@ -1139,13 +1156,15 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			}
 			break;
 		case SPA_PROP_softMute:
-			if (spa_pod_get_bool(&prop->value, &p->soft.mute) == 0) {
+			if (!p->lock_volumes &&
+			    spa_pod_get_bool(&prop->value, &p->soft.mute) == 0) {
 				have_soft_volume = true;
 				changed++;
 			}
 			break;
 		case SPA_PROP_softVolumes:
-			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
+			if (!p->lock_volumes &&
+			    (n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					p->soft.volumes, SPA_AUDIO_MAX_CHANNELS)) > 0) {
 				have_soft_volume = true;
 				p->soft.n_volumes = n;
@@ -1187,7 +1206,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 		set_volume(this);
 	}
 
-	if (vol_ramp_params_changed) {
+	if (!p->lock_volumes && vol_ramp_params_changed) {
 		void *sequence = NULL;
 		if (p->volume == p->prev_volume)
 			spa_log_error(this->log, "no change in volume, cannot ramp volume");

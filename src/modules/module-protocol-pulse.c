@@ -281,6 +281,9 @@
  * * `remove-capture-dont-move` Removes the DONT_MOVE flag on capture streams. Some applications
  *                    set this flag so that the stream can't be moved anymore with tools such as
  *                    pavucontrol.
+ * * `block-source-volume` blocks the client from updating any source volumes. This can be used
+ *                    to disable things like automatic gain control.
+ * * `block-sink-volume` blocks the client from updating any sink volumes.
  *
  * ### update-props
  *

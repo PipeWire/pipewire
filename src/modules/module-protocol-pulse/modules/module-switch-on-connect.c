@@ -107,7 +107,7 @@ static void manager_added(void *data, struct pw_manager_object *o)
 		return;
 	}
 
-	if (d->ignore_virtual && spa_dict_lookup(info->props, PW_KEY_DEVICE_API) == NULL) {
+	if (d->ignore_virtual && pw_manager_object_is_virtual(o)) {
 		pw_log_debug("not switching to virtual device");
 		return;
 	}

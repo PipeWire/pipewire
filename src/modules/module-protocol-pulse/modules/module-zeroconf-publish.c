@@ -215,7 +215,7 @@ static void fill_service_data(struct module_zeroconf_publish_data *d, struct ser
 
 	collect_device_info(o, card, &dev_info, false, &impl->defs);
 
-	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_API)) != NULL) {
+	if (!pw_manager_object_is_virtual(o)) {
 		if (is_sink)
 			flags |= SINK_HARDWARE;
 		else if (is_source)
@@ -574,7 +574,6 @@ static void manager_added(void *d, struct pw_manager_object *o)
 {
 	struct service *s;
 	struct pw_node_info *info;
-	const char *str;
 
 	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
 		return;
@@ -583,8 +582,7 @@ static void manager_added(void *d, struct pw_manager_object *o)
 	if (info == NULL || info->props == NULL)
 		return;
 
-	if ((str = spa_dict_lookup(info->props, PW_KEY_NODE_NETWORK)) != NULL &&
-	    spa_atob(str))
+	if (pw_manager_object_is_network(o))
 		return;
 
 	s = create_service(d, o);

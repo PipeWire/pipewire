@@ -974,6 +974,16 @@ bool pw_manager_object_is_virtual(struct pw_manager_object *o)
 		pw_properties_parse_bool(str);
 }
 
+bool pw_manager_object_is_network(struct pw_manager_object *o)
+{
+	const char *str;
+	struct pw_node_info *info;
+	return spa_streq(o->type, PW_TYPE_INTERFACE_Node) &&
+		(info = o->info) != NULL && info->props != NULL &&
+		(str = spa_dict_lookup(info->props, PW_KEY_NODE_NETWORK)) != NULL &&
+		pw_properties_parse_bool(str);
+}
+
 bool pw_manager_object_is_source_or_monitor(struct pw_manager_object *o)
 {
 	return pw_manager_object_is_source(o) || pw_manager_object_is_monitor(o);

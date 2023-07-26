@@ -1983,15 +1983,20 @@ pw_stream_connect(struct pw_stream *stream,
 
 	if (target_id != PW_ID_ANY)
 		/* XXX this is deprecated but still used by the portal and its apps */
-		pw_properties_setf(stream->properties, PW_KEY_NODE_TARGET, "%d", target_id);
+		if (pw_properties_get(stream->properties, PW_KEY_NODE_TARGET) == NULL)
+			pw_properties_setf(stream->properties, PW_KEY_NODE_TARGET, "%d", target_id);
 	if (flags & PW_STREAM_FLAG_AUTOCONNECT)
-		pw_properties_set(stream->properties, PW_KEY_NODE_AUTOCONNECT, "true");
+		if (pw_properties_get(stream->properties, PW_KEY_NODE_AUTOCONNECT) == NULL)
+			pw_properties_set(stream->properties, PW_KEY_NODE_AUTOCONNECT, "true");
+	if (flags & PW_STREAM_FLAG_EXCLUSIVE)
+		if (pw_properties_get(stream->properties, PW_KEY_NODE_EXCLUSIVE) == NULL)
+			pw_properties_set(stream->properties, PW_KEY_NODE_EXCLUSIVE, "true");
+	if (flags & PW_STREAM_FLAG_DONT_RECONNECT)
+		if (pw_properties_get(stream->properties, PW_KEY_NODE_DONT_RECONNECT) == NULL)
+			pw_properties_set(stream->properties, PW_KEY_NODE_DONT_RECONNECT, "true");
+
 	if (flags & PW_STREAM_FLAG_DRIVER)
 		pw_properties_set(stream->properties, PW_KEY_NODE_DRIVER, "true");
-	if (flags & PW_STREAM_FLAG_EXCLUSIVE)
-		pw_properties_set(stream->properties, PW_KEY_NODE_EXCLUSIVE, "true");
-	if (flags & PW_STREAM_FLAG_DONT_RECONNECT)
-		pw_properties_set(stream->properties, PW_KEY_NODE_DONT_RECONNECT, "true");
 	if (flags & PW_STREAM_FLAG_TRIGGER) {
 		pw_properties_set(stream->properties, PW_KEY_NODE_TRIGGER, "true");
 		impl->trigger = true;

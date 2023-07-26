@@ -1,3 +1,44 @@
+# PipeWire 0.3.76 (2023-07-28)
+
+This is a quick bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Fix a regression that would cause the MPV pipewire backend to fail because
+    of a spurious thread-loop signal.
+  - Fix a crash when DBus is not found.
+  - ALSA hires timestamps are now disabled by default.
+  - Some more fixes and improvements.
+
+## PipeWire
+  - A new option was added to pw-thread-loop to signal when the thread starts.
+    This is only used in module-rt to avoid regressions in mpv. (#3374)
+  - Fix a compilation problem.
+  - Stream flags now only set the properties when not already set. This fixes
+    a regression with node autoconnect. (#3382)
+
+## Tools
+  - pw-cat will now stop when the stream is disconnected. (#2731)
+  - Improve the pw-cat man page, mention that stdin/stdout handling is only
+    on raw data.
+
+## modules
+  - module-rt will now not crash when dbus is not available but error out as
+    before.
+  - A new VBAN (vb-audio.com) sender and receiver was added. (#3380)
+
+## SPA
+  - Add an option in audioconvert to disable volume updates. (#3361)
+  - ALSA hires timestamps are disabled by default because many drivers seem to
+    give wrong timestamps and cause extra delay.
+
+## bluetooth
+  - LE Audio support is now enabled by default when liblc3 is available now that
+    bluez has support for detecting the hardware features.
+
+Older versions:
+
+
 # PipeWire 0.3.75 (2023-07-21)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -47,9 +88,6 @@ This is a bugfix release that is API and ABI compatible with previous
     and filter out duplicates.
   - A bug with draining was fixed where a buffer would be marked EMPTY and would not
     play when it contained drained samples. (#3365)
-
-Older versions:
-
 
 # PipeWire 0.3.74 (2023-07-12)
 

@@ -25,6 +25,8 @@ extern "C" {
 
 #define PW_TYPE_INTERFACE_Device	PW_TYPE_INFO_INTERFACE_BASE "Device"
 
+#define PW_DEVICE_PERM_MASK		PW_PERM_RWX
+
 #define PW_VERSION_DEVICE		3
 struct pw_device;
 

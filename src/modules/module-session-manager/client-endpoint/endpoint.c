@@ -322,6 +322,7 @@ int endpoint_init(struct endpoint *this,
 	this->global = pw_global_new (context,
 			PW_TYPE_INTERFACE_Endpoint,
 			PW_VERSION_ENDPOINT,
+			PW_ENDPOINT_PERM_MASK,
 			NULL, endpoint_bind, this);
 	if (!this->global)
 		goto no_mem;

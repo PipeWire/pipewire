@@ -588,6 +588,7 @@ int pw_impl_core_register(struct pw_impl_core *core,
         core->global = pw_global_new(context,
 					PW_TYPE_INTERFACE_Core,
 					PW_VERSION_CORE,
+					PW_CORE_PERM_MASK,
 					properties,
 					global_bind,
 					core);

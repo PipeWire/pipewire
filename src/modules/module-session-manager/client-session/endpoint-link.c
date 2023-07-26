@@ -310,6 +310,7 @@ int endpoint_link_init(struct endpoint_link *this,
 	this->global = pw_global_new(context,
 			PW_TYPE_INTERFACE_EndpointLink,
 			PW_VERSION_ENDPOINT_LINK,
+			PW_ENDPOINT_LINK_PERM_MASK,
 			properties, endpoint_link_bind, this);
 	if (!this->global)
 		goto no_mem;

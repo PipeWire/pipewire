@@ -174,6 +174,7 @@ int pw_impl_factory_register(struct pw_impl_factory *factory,
         factory->global = pw_global_new(context,
 					PW_TYPE_INTERFACE_Factory,
 					PW_VERSION_FACTORY,
+					PW_FACTORY_PERM_MASK,
 					properties,
 					global_bind,
 					factory);

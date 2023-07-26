@@ -390,6 +390,7 @@ static void *link_new(struct pw_context *context,
 	impl->global = pw_global_new(context,
 			PW_TYPE_INTERFACE_EndpointLink,
 			PW_VERSION_ENDPOINT_LINK,
+			PW_ENDPOINT_LINK_PERM_MASK,
 			properties,
 			global_bind, impl);
 	if (impl->global == NULL) {

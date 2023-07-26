@@ -21,6 +21,8 @@ extern "C" {
  */
 #define PW_TYPE_INTERFACE_Metadata		PW_TYPE_INFO_INTERFACE_BASE "Metadata"
 
+#define PW_METADATA_PERM_MASK			PW_PERM_RWX
+
 #define PW_VERSION_METADATA			3
 struct pw_metadata;
 

@@ -29,6 +29,8 @@ extern "C" {
 
 #define PW_TYPE_INTERFACE_Port	PW_TYPE_INFO_INTERFACE_BASE "Port"
 
+#define PW_PORT_PERM_MASK	PW_PERM_R|PW_PERM_X|PW_PERM_M
+
 #define PW_VERSION_PORT		3
 struct pw_port;
 

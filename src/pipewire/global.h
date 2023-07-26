@@ -65,6 +65,7 @@ struct pw_global *
 pw_global_new(struct pw_context *context,	/**< the context */
 	      const char *type,			/**< the interface type of the global */
 	      uint32_t version,			/**< the interface version of the global */
+	      uint32_t permission_mask,		/**< mask of valid permissions */
 	      struct pw_properties *properties,	/**< extra properties */
 	      pw_global_bind_func_t func,	/**< function to bind */
 	      void *object			/**< global object */);

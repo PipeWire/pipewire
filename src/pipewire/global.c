@@ -25,10 +25,10 @@ struct impl {
 SPA_EXPORT
 uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_impl_client *client)
 {
-	if (client->permission_func == NULL)
-		return PW_PERM_ALL;
-
-	return client->permission_func(global, client, client->permission_data);
+	uint32_t permissions = global->permission_mask;
+	if (client->permission_func != NULL)
+		permissions &= client->permission_func(global, client, client->permission_data);
+	return permissions;
 }
 
 /** Create a new global
@@ -47,6 +47,7 @@ struct pw_global *
 pw_global_new(struct pw_context *context,
 	      const char *type,
 	      uint32_t version,
+	      uint32_t permission_mask,
 	      struct pw_properties *properties,
 	      pw_global_bind_func_t func,
 	      void *object)
@@ -71,6 +72,7 @@ pw_global_new(struct pw_context *context,
 	this->context = context;
 	this->type = type;
 	this->version = version;
+	this->permission_mask = permission_mask;
 	this->func = func;
 	this->object = object;
 	this->properties = properties;

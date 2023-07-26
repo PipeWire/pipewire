@@ -379,6 +379,7 @@ static void *session_new(struct pw_context *context,
 	impl->global = pw_global_new(context,
 			PW_TYPE_INTERFACE_Session,
 			PW_VERSION_SESSION,
+			PW_SESSION_PERM_MASK,
 			properties,
 			global_bind, impl);
 	if (impl->global == NULL) {

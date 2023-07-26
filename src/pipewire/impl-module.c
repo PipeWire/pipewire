@@ -222,6 +222,7 @@ pw_context_load_module(struct pw_context *context,
 	this->global = pw_global_new(context,
 				     PW_TYPE_INTERFACE_Module,
 				     PW_VERSION_MODULE,
+				     PW_MODULE_PERM_MASK,
 				     NULL,
 				     global_bind,
 				     this);

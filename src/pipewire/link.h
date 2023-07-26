@@ -31,6 +31,8 @@ extern "C" {
 
 #define PW_TYPE_INTERFACE_Link	PW_TYPE_INFO_INTERFACE_BASE "Link"
 
+#define PW_LINK_PERM_MASK	PW_PERM_R
+
 #define PW_VERSION_LINK		3
 struct pw_link;
 

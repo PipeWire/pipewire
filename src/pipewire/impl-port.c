@@ -1000,6 +1000,7 @@ int pw_impl_port_register(struct pw_impl_port *port,
 	port->global = pw_global_new(node->context,
 				PW_TYPE_INTERFACE_Port,
 				PW_VERSION_PORT,
+				PW_PORT_PERM_MASK,
 				properties,
 				global_bind,
 				port);

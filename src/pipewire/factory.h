@@ -27,6 +27,8 @@ extern "C" {
  */
 #define PW_TYPE_INTERFACE_Factory	PW_TYPE_INFO_INTERFACE_BASE "Factory"
 
+#define PW_FACTORY_PERM_MASK		PW_PERM_R
+
 #define PW_VERSION_FACTORY		3
 struct pw_factory;
 

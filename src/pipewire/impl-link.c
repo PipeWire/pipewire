@@ -1462,6 +1462,7 @@ int pw_impl_link_register(struct pw_impl_link *link,
 	link->global = pw_global_new(context,
 				     PW_TYPE_INTERFACE_Link,
 				     PW_VERSION_LINK,
+				     PW_LINK_PERM_MASK,
 				     properties,
 				     global_bind,
 				     link);

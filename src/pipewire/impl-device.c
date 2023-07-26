@@ -560,6 +560,7 @@ int pw_impl_device_register(struct pw_impl_device *device,
         device->global = pw_global_new(context,
 				       PW_TYPE_INTERFACE_Device,
 				       PW_VERSION_DEVICE,
+				       PW_DEVICE_PERM_MASK,
 				       properties,
 				       global_bind,
 				       device);

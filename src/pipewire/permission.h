@@ -30,7 +30,8 @@ extern "C" {
 				  *  present in order to call methods that modify the object. */
 #define PW_PERM_M	0010	/**< metadata can be set on object, Since 0.3.9 */
 
-#define PW_PERM_RWX	(PW_PERM_R|PW_PERM_W|PW_PERM_X)
+#define PW_PERM_RW	(PW_PERM_R|PW_PERM_W)
+#define PW_PERM_RWX	(PW_PERM_RW|PW_PERM_X)
 #define PW_PERM_RWXM	(PW_PERM_RWX|PW_PERM_M)
 
 #define PW_PERM_IS_R(p) (((p)&PW_PERM_R) == PW_PERM_R)

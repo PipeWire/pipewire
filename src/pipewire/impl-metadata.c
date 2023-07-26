@@ -519,6 +519,7 @@ int pw_impl_metadata_register(struct pw_impl_metadata *metadata,
         metadata->global = pw_global_new(context,
 					PW_TYPE_INTERFACE_Metadata,
 					PW_VERSION_METADATA,
+					PW_METADATA_PERM_MASK,
 					properties,
 					global_bind,
 					metadata);

@@ -514,6 +514,7 @@ int pw_impl_client_register(struct pw_impl_client *client,
 	client->global = pw_global_new(context,
 				       PW_TYPE_INTERFACE_Client,
 				       PW_VERSION_CLIENT,
+				       PW_CLIENT_PERM_MASK,
 				       properties,
 				       global_bind,
 				       client);

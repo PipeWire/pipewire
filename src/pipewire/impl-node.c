@@ -773,6 +773,7 @@ int pw_impl_node_register(struct pw_impl_node *this,
 	this->global = pw_global_new(context,
 				     PW_TYPE_INTERFACE_Node,
 				     PW_VERSION_NODE,
+				     PW_NODE_PERM_MASK,
 				     properties,
 				     global_bind,
 				     this);

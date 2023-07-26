@@ -34,6 +34,8 @@ extern "C" {
 #define PW_TYPE_INTERFACE_Core		PW_TYPE_INFO_INTERFACE_BASE "Core"
 #define PW_TYPE_INTERFACE_Registry	PW_TYPE_INFO_INTERFACE_BASE "Registry"
 
+#define PW_CORE_PERM_MASK		PW_PERM_R|PW_PERM_X|PW_PERM_M
+
 #define PW_VERSION_CORE		4
 struct pw_core;
 #define PW_VERSION_REGISTRY	3

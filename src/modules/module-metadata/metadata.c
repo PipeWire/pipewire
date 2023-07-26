@@ -265,6 +265,7 @@ pw_metadata_new(struct pw_context *context, struct pw_resource *resource,
 	impl->global = pw_global_new(context,
 			PW_TYPE_INTERFACE_Metadata,
 			PW_VERSION_METADATA,
+			PW_METADATA_PERM_MASK,
 			properties,
 			global_bind, impl);
 	if (impl->global == NULL) {

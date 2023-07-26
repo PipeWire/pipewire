@@ -292,6 +292,7 @@ int endpoint_stream_init(struct endpoint_stream *this,
 	this->global = pw_global_new (context,
 			PW_TYPE_INTERFACE_EndpointStream,
 			PW_VERSION_ENDPOINT_STREAM,
+			PW_ENDPOINT_STREAM_PERM_MASK,
 			properties, endpoint_stream_bind, this);
 	if (!this->global)
 		goto no_mem;

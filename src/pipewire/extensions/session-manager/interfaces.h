@@ -21,18 +21,22 @@ extern "C" {
  */
 
 #define PW_TYPE_INTERFACE_Session		PW_TYPE_INFO_INTERFACE_BASE "Session"
+#define PW_SESSION_PERM_MASK			PW_PERM_RWX
 #define PW_VERSION_SESSION			0
 struct pw_session;
 
 #define PW_TYPE_INTERFACE_Endpoint		PW_TYPE_INFO_INTERFACE_BASE "Endpoint"
+#define PW_ENDPOINT_PERM_MASK			PW_PERM_RWX
 #define PW_VERSION_ENDPOINT			0
 struct pw_endpoint;
 
 #define PW_TYPE_INTERFACE_EndpointStream	PW_TYPE_INFO_INTERFACE_BASE "EndpointStream"
+#define PW_ENDPOINT_STREAM_PERM_MASK		PW_PERM_RWX
 #define PW_VERSION_ENDPOINT_STREAM		0
 struct pw_endpoint_stream;
 
 #define PW_TYPE_INTERFACE_EndpointLink		PW_TYPE_INFO_INTERFACE_BASE "EndpointLink"
+#define PW_ENDPOINT_LINK_PERM_MASK		PW_PERM_RWX
 #define PW_VERSION_ENDPOINT_LINK		0
 struct pw_endpoint_link;
 

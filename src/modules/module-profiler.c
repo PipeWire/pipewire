@@ -458,6 +458,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->global = pw_global_new(context,
 			PW_TYPE_INTERFACE_Profiler,
 			PW_VERSION_PROFILER,
+			PW_PROFILER_PERM_MASK,
 			pw_properties_copy(props),
 			global_bind, impl);
 	if (impl->global == NULL) {

@@ -283,6 +283,7 @@ int session_init(struct session *this,
 	this->global = pw_global_new (context,
 			PW_TYPE_INTERFACE_Session,
 			PW_VERSION_SESSION,
+			PW_SESSION_PERM_MASK,
 			NULL, session_bind, this);
 	if (!this->global)
 		goto no_mem;

@@ -288,6 +288,7 @@ struct pw_global {
 
 	const char *type;		/**< type of interface */
 	uint32_t version;		/**< version of interface */
+	uint32_t permission_mask;	/**< possible permissions */
 
 	pw_global_bind_func_t func;	/**< bind function */
 	void *object;			/**< object associated with the interface */

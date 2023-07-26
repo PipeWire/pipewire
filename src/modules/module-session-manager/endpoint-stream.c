@@ -381,6 +381,7 @@ static void *stream_new(struct pw_context *context,
 	impl->global = pw_global_new(context,
 			PW_TYPE_INTERFACE_EndpointStream,
 			PW_VERSION_ENDPOINT_STREAM,
+			PW_ENDPOINT_STREAM_PERM_MASK,
 			properties,
 			global_bind, impl);
 	if (impl->global == NULL) {

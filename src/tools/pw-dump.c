@@ -1427,6 +1427,7 @@ static void dump_objects(struct data *d)
 		{ "w", PW_PERM_W },
 		{ "x", PW_PERM_X },
 		{ "m", PW_PERM_M },
+		{ "l", PW_PERM_L },
 		{ NULL, },
 	};
 

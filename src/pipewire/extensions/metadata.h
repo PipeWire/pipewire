@@ -31,6 +31,7 @@ struct pw_metadata;
 #define PW_METADATA_EVENT_PROPERTY		0
 #define PW_METADATA_EVENT_NUM			1
 
+
 /** \ref pw_metadata events */
 struct pw_metadata_events {
 #define PW_VERSION_METADATA_EVENTS		0

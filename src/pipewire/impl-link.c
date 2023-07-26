@@ -1131,7 +1131,7 @@ static void try_unlink_controls(struct impl *impl, struct pw_impl_port *output, 
 }
 
 static int check_owner_permissions(struct pw_context *context,
-		struct pw_impl_node *node, uint32_t id, uint32_t permissions)
+		struct pw_impl_node *node, struct pw_global *other, uint32_t permissions)
 {
 	const char *str;
 	struct pw_impl_client *client;
@@ -1155,11 +1155,7 @@ static int check_owner_permissions(struct pw_context *context,
 		/* not the right object, something wrong */
 		return -EIO;
 
-	if ((global = pw_context_find_global(context, id)) == NULL)
-		/* current client can't see node id */
-		return -errno;
-
-	perms = pw_global_get_permissions(global, client);
+	perms = pw_global_get_permissions(other, client);
 	if ((perms & permissions) != permissions)
 		/* owner client can't see other node */
 		return -EPERM;
@@ -1174,12 +1170,37 @@ check_permission(struct pw_context *context,
 		 struct pw_properties *properties)
 {
 	int res;
+	uint32_t in_perms, out_perms;
+	struct pw_global *in_global, *out_global;
+
+	if ((in_global = input->node->global) == NULL)
+		return -ENOENT;
+	if ((out_global = output->node->global) == NULL)
+		return -ENOENT;
+
+	in_perms = out_perms = PW_PERM_R | PW_PERM_L;
+	if (context->current_client != NULL) {
+		in_perms = pw_global_get_permissions(in_global, context->current_client);
+		out_perms = pw_global_get_permissions(out_global, context->current_client);
+	}
+	/* current client can't see input node or output node */
+	if (!PW_PERM_IS_R(in_perms) || !PW_PERM_IS_R(out_perms))
+		return -ENOENT;
+
 	if ((res = check_owner_permissions(context, output->node,
-					input->node->info.id, PW_PERM_R)) < 0)
-		return res;
+					in_global, PW_PERM_R)) < 0) {
+		/* output node owner can't see input node, check if the current
+		 * client has universal link permissions for the output node */
+		if (!PW_PERM_IS_L(out_perms))
+			return res;
+	}
 	if ((res = check_owner_permissions(context, input->node,
-					output->node->info.id, PW_PERM_R)) < 0)
-		return res;
+					out_global, PW_PERM_R)) < 0) {
+		/* input node owner can't see output node, check if the current
+		 * client has universal link permissions for the input node */
+		if (!PW_PERM_IS_L(in_perms))
+			return res;
+	}
 	return 0;
 }
 

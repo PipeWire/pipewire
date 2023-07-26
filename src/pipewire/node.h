@@ -29,7 +29,7 @@ extern "C" {
  */
 #define PW_TYPE_INTERFACE_Node	PW_TYPE_INFO_INTERFACE_BASE "Node"
 
-#define PW_NODE_PERM_MASK	PW_PERM_RWXM
+#define PW_NODE_PERM_MASK	PW_PERM_RWXML
 
 #define PW_VERSION_NODE		3
 struct pw_node;

@@ -745,6 +745,11 @@ on_state_changed(void *userdata, enum pw_stream_state old,
 				error);
 		pw_main_loop_quit(data->loop);
 		break;
+	case PW_STREAM_STATE_UNCONNECTED:
+		printf("stream node %"PRIu32" unconnected\n",
+				pw_stream_get_node_id(data->stream));
+		pw_main_loop_quit(data->loop);
+		break;
 	default:
 		break;
 	}

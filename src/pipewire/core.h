@@ -476,7 +476,8 @@ struct pw_registry_methods {
 	 *
 	 * Try to destroy the global object.
 	 *
-	 * \param id the global id to destroy
+	 * \param id the global id to destroy. The client needs X permissions
+	 * on the global.
 	 */
 	int (*destroy) (void *object, uint32_t id);
 };

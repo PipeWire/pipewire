@@ -24,7 +24,9 @@ DESCRIPTION
 **pw-cat** is a simple tool for playing back or
 capturing raw or encoded media files on a PipeWire
 server. It understands all audio file formats supported by
-``libsndfile`` for PCM capture and playback.
+``libsndfile`` for PCM capture and playback. When capturing PCM, the filename
+extension is used to guess the file format with the WAV file format as
+the default.
 
 It understands standard MIDI files for playback and recording. This tool
 will not render MIDI files, it will simply make the MIDI events available
@@ -35,7 +37,7 @@ DSD playback is supported with the DSF file format. This tool will only work
 with native DSD capable hardware and will produce an error when no such
 hardware was found.
 
-When the *FILE* is - input and output will be from STDIN and
+When the *FILE* is - input and output will be raw data from STDIN and
 STDOUT respectively.
 
 OPTIONS

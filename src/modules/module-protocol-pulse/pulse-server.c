@@ -2453,7 +2453,7 @@ static struct pw_manager_object *find_device(struct client *client,
 		uint32_t index, const char *name, bool sink, bool *is_monitor)
 {
 	struct selector sel;
-	bool monitor = false, find_default = false;
+	bool monitor = false, find_default = false, allow_monitor = false;
 	struct pw_manager_object *o;
 
 	if (name != NULL) {
@@ -2463,10 +2463,12 @@ static struct pw_manager_object *find_device(struct client *client,
 			sink = true;
 			find_default = true;
 			monitor = true;
+			allow_monitor = true;
 		} else if (spa_streq(name, DEFAULT_SOURCE)) {
 			if (sink)
 				return NULL;
 			find_default = true;
+			allow_monitor = true;
 		} else if (spa_streq(name, DEFAULT_SINK)) {
 			if (!sink)
 				return NULL;
@@ -2485,8 +2487,10 @@ static struct pw_manager_object *find_device(struct client *client,
 
 	if (name != NULL) {
 		if (spa_strendswith(name, ".monitor")) {
-			name = strndupa(name, strlen(name)-8);
-			monitor = true;
+			if (!sink) {
+				name = strndupa(name, strlen(name)-8);
+				allow_monitor = true;
+			}
 		}
 	} else if (index == SPA_ID_INVALID)
 		return NULL;
@@ -2502,8 +2506,18 @@ static struct pw_manager_object *find_device(struct client *client,
 
 	o = select_object(client->manager, &sel);
 	if (o != NULL) {
-		if (!sink && pw_manager_object_is_monitor(o))
-			monitor = true;
+		if (!sink) {
+			if (pw_manager_object_is_monitor(o)) {
+				if (!allow_monitor)
+					return NULL;
+				monitor = true;
+			}
+			else if (!pw_manager_object_is_source(o))
+				return NULL;
+		} else {
+			if (!pw_manager_object_is_sink(o))
+				return NULL;
+		}
 	}
 	if (is_monitor)
 		*is_monitor = monitor;

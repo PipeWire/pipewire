@@ -58,6 +58,7 @@ struct object {
 
 	const struct object_info *info;
 
+	int changed;
 	struct spa_list pending_list;
 
 	struct spa_hook proxy_listener;
@@ -210,7 +211,7 @@ static void client_event_info(void *data, const struct pw_client_info *info)
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
-	info = o->this.info = pw_client_info_merge(o->this.info, info, o->this.changed == 0);
+	info = o->this.info = pw_client_info_merge(o->this.info, info, o->changed == 0);
 	if (info == NULL)
 		return;
 
@@ -218,7 +219,7 @@ static void client_event_info(void *data, const struct pw_client_info *info)
 		changed++;
 
 	if (changed) {
-		o->this.changed += changed;
+		o->changed += changed;
 		core_sync(o->manager);
 	}
 }
@@ -251,7 +252,7 @@ static void module_event_info(void *data, const struct pw_module_info *info)
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
-	info = o->this.info = pw_module_info_merge(o->this.info, info, o->this.changed == 0);
+	info = o->this.info = pw_module_info_merge(o->this.info, info, o->changed == 0);
 	if (info == NULL)
 		return;
 
@@ -259,7 +260,7 @@ static void module_event_info(void *data, const struct pw_module_info *info)
 		changed++;
 
 	if (changed) {
-		o->this.changed += changed;
+		o->changed += changed;
 		core_sync(o->manager);
 	}
 }
@@ -292,7 +293,7 @@ static void device_event_info(void *data, const struct pw_device_info *info)
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
-	info = o->this.info = pw_device_info_merge(o->this.info, info, o->this.changed == 0);
+	info = o->this.info = pw_device_info_merge(o->this.info, info, o->changed == 0);
 	if (info == NULL)
 		return;
 
@@ -331,7 +332,7 @@ static void device_event_info(void *data, const struct pw_device_info *info)
 		}
 	}
 	if (changed) {
-		o->this.changed += changed;
+		o->changed += changed;
 		core_sync(o->manager);
 	}
 }
@@ -377,7 +378,7 @@ static void device_event_param(void *data, int seq,
 			return;
 
 		if ((dev = find_device(m, o->this.id, device)) != NULL) {
-			dev->this.changed++;
+			dev->changed++;
 			core_sync(o->manager);
 		}
 	}
@@ -412,7 +413,7 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
-	info = o->this.info = pw_node_info_merge(o->this.info, info, o->this.changed == 0);
+	info = o->this.info = pw_node_info_merge(o->this.info, info, o->changed == 0);
 	if (info == NULL)
 		return;
 
@@ -446,7 +447,7 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 		}
 	}
 	if (changed) {
-		o->this.changed += changed;
+		o->changed += changed;
 		core_sync(o->manager);
 	}
 }
@@ -678,10 +679,10 @@ static void on_core_done(void *data, uint32_t id, int seq)
 			if (o->this.creating) {
 				o->this.creating = false;
 				manager_emit_added(m, &o->this);
-				o->this.changed = 0;
-			} else if (o->this.changed > 0) {
+				o->changed = 0;
+			} else if (o->changed > 0) {
 				manager_emit_updated(m, &o->this);
-				o->this.changed = 0;
+				o->changed = 0;
 			}
 		}
 	}

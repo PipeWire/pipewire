@@ -107,12 +107,16 @@ struct pw_client_methods {
 	 * \param id the global id to report the error on
 	 * \param res an errno style error code
 	 * \param message an error string
+	 *
+	 * This requires W and X permissions on the client.
 	 */
 	int (*error) (void *object, uint32_t id, int res, const char *message);
 	/**
 	 * Update client properties
 	 *
 	 * \param props new properties
+	 *
+	 * This requires W and X permissions on the client.
 	 */
 	int (*update_properties) (void *object, const struct spa_dict *props);
 
@@ -123,6 +127,8 @@ struct pw_client_methods {
 	 *
 	 * \param index the first index to query, 0 for first
 	 * \param num the maximum number of items to get
+	 *
+	 * This requires W and X permissions on the client.
 	 */
 	int (*get_permissions) (void *object, uint32_t index, uint32_t num);
 	/**
@@ -137,6 +143,8 @@ struct pw_client_methods {
 	 *
 	 * \param n_permissions number of permissions
 	 * \param permissions array of permissions
+	 *
+	 * This requires W and X permissions on the client.
 	 */
 	int (*update_permissions) (void *object, uint32_t n_permissions,
 			const struct pw_permission *permissions);

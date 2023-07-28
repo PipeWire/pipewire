@@ -58,12 +58,33 @@ struct pw_metadata_methods {
 			const struct pw_metadata_events *events,
 			void *data);
 
+	/**
+	 * Set a metadata property
+	 *
+	 * Automatically emit property events for the subject and key
+	 * when they are changed.
+	 *
+	 * \param subject the id of the global to associate the metadata
+	 *                with.
+	 * \param key the key of the metadata, NULL clears all metadata for
+	 *                the subject.
+	 * \param type the type of the metadata, this can be blank
+	 * \param value the metadata value. NULL clears the metadata.
+	 *
+	 * This requires X and W permissions on the metadata. It also
+	 * requires M permissions on the subject global.
+	 */
 	int (*set_property) (void *object,
 			uint32_t subject,
 			const char *key,
 			const char *type,
 			const char *value);
 
+	/**
+	 * Clear all metadata
+	 *
+	 * This requires X and W permissions on the metadata.
+	 */
 	int (*clear) (void *object);
 };
 

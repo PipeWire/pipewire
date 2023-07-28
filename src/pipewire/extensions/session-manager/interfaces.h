@@ -97,6 +97,8 @@ struct pw_session_methods {
 	 *
 	 * \param ids an array of param ids
 	 * \param n_ids the number of ids in \a ids
+	 *
+	 * This requires X permissions.
 	 */
 	int (*subscribe_params) (void *object, uint32_t *ids, uint32_t n_ids);
 
@@ -111,6 +113,8 @@ struct pw_session_methods {
 	 * \param start the start index or 0 for the first param
 	 * \param num the maximum number of params to retrieve
 	 * \param filter a param filter or NULL
+	 *
+	 * This requires X permissions.
 	 */
 	int (*enum_params) (void *object, int seq,
 			uint32_t id, uint32_t start, uint32_t num,
@@ -122,6 +126,8 @@ struct pw_session_methods {
 	 * \param id the parameter id to set
 	 * \param flags extra parameter flags
 	 * \param param the parameter to set
+	 *
+	 * This requires X and W permissions.
 	 */
 	int (*set_param) (void *object, uint32_t id, uint32_t flags,
 			  const struct spa_pod *param);
@@ -199,6 +205,8 @@ struct pw_endpoint_methods {
 	 *
 	 * \param ids an array of param ids
 	 * \param n_ids the number of ids in \a ids
+	 *
+	 * This requires X permissions.
 	 */
 	int (*subscribe_params) (void *object, uint32_t *ids, uint32_t n_ids);
 
@@ -213,6 +221,8 @@ struct pw_endpoint_methods {
 	 * \param start the start index or 0 for the first param
 	 * \param num the maximum number of params to retrieve
 	 * \param filter a param filter or NULL
+	 *
+	 * This requires X permissions.
 	 */
 	int (*enum_params) (void *object, int seq,
 			uint32_t id, uint32_t start, uint32_t num,
@@ -224,10 +234,17 @@ struct pw_endpoint_methods {
 	 * \param id the parameter id to set
 	 * \param flags extra parameter flags
 	 * \param param the parameter to set
+	 *
+	 * This requires X and W permissions.
 	 */
 	int (*set_param) (void *object, uint32_t id, uint32_t flags,
 			  const struct spa_pod *param);
 
+	/**
+	 * Create a link
+	 *
+	 * This requires X permissions.
+	 */
 	int (*create_link) (void *object, const struct spa_dict *props);
 };
 
@@ -302,6 +319,8 @@ struct pw_endpoint_stream_methods {
 	 *
 	 * \param ids an array of param ids
 	 * \param n_ids the number of ids in \a ids
+	 *
+	 * This requires X permissions.
 	 */
 	int (*subscribe_params) (void *object, uint32_t *ids, uint32_t n_ids);
 
@@ -316,6 +335,8 @@ struct pw_endpoint_stream_methods {
 	 * \param start the start index or 0 for the first param
 	 * \param num the maximum number of params to retrieve
 	 * \param filter a param filter or NULL
+	 *
+	 * This requires X permissions.
 	 */
 	int (*enum_params) (void *object, int seq,
 			uint32_t id, uint32_t start, uint32_t num,
@@ -327,6 +348,8 @@ struct pw_endpoint_stream_methods {
 	 * \param id the parameter id to set
 	 * \param flags extra parameter flags
 	 * \param param the parameter to set
+	 *
+	 * This requires X and W permissions.
 	 */
 	int (*set_param) (void *object, uint32_t id, uint32_t flags,
 			  const struct spa_pod *param);
@@ -404,6 +427,8 @@ struct pw_endpoint_link_methods {
 	 *
 	 * \param ids an array of param ids
 	 * \param n_ids the number of ids in \a ids
+	 *
+	 * This requires X permissions.
 	 */
 	int (*subscribe_params) (void *object, uint32_t *ids, uint32_t n_ids);
 
@@ -418,6 +443,8 @@ struct pw_endpoint_link_methods {
 	 * \param start the start index or 0 for the first param
 	 * \param num the maximum number of params to retrieve
 	 * \param filter a param filter or NULL
+	 *
+	 * This requires X permissions.
 	 */
 	int (*enum_params) (void *object, int seq,
 			uint32_t id, uint32_t start, uint32_t num,
@@ -429,10 +456,17 @@ struct pw_endpoint_link_methods {
 	 * \param id the parameter id to set
 	 * \param flags extra parameter flags
 	 * \param param the parameter to set
+	 *
+	 * This requires X and W permissions.
 	 */
 	int (*set_param) (void *object, uint32_t id, uint32_t flags,
 			  const struct spa_pod *param);
 
+	/**
+	 * Request a state on the link.
+	 *
+	 * This requires X and W permissions.
+	 */
 	int (*request_state) (void *object, enum pw_endpoint_link_state state);
 };
 

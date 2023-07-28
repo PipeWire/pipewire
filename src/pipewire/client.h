@@ -25,7 +25,7 @@ extern "C" {
  */
 #define PW_TYPE_INTERFACE_Client	PW_TYPE_INFO_INTERFACE_BASE "Client"
 
-#define PW_CLIENT_PERM_MASK		PW_PERM_RWX
+#define PW_CLIENT_PERM_MASK		PW_PERM_RWXM
 
 #define PW_VERSION_CLIENT		3
 struct pw_client;

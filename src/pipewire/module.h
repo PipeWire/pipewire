@@ -24,7 +24,7 @@ extern "C" {
  */
 #define PW_TYPE_INTERFACE_Module	PW_TYPE_INFO_INTERFACE_BASE "Module"
 
-#define PW_MODULE_PERM_MASK		PW_PERM_R
+#define PW_MODULE_PERM_MASK		PW_PERM_R|PW_PERM_M
 
 #define PW_VERSION_MODULE		3
 struct pw_module;

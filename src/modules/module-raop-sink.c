@@ -1117,7 +1117,7 @@ error:
 	return -EIO;
 }
 
-static int rtsp_announce_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+static int rtsp_raop_announce_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
 
@@ -1224,13 +1224,13 @@ error:
 	goto done;
 }
 
-static int rtsp_do_announce(struct impl *impl)
+static int rtsp_do_raop_announce(struct impl *impl)
 {
 	const char *host;
-	uint8_t rsakey[512];
+	uint8_t rsa_key[512];
+	char rsa_key_b64enc[512*2];
+	char rsa_iv_b64enc[16*2];
 	uint32_t rtp_latency;
-	char key[512*2];
-	char iv[16*2];
 	int res, rsa_len, ip_version;
 	spa_autofree char *sdp = NULL;
 	char local_ip[256];
@@ -1256,7 +1256,6 @@ static int rtsp_do_announce(struct impl *impl)
 		if (!sdp)
 			return -errno;
 		break;
-
 	case CRYPTO_AUTH_SETUP:
 		sdp = spa_aprintf("v=0\r\n"
 				"o=iTunes %s 0 IN IP%d %s\r\n"
@@ -1287,12 +1286,12 @@ static int rtsp_do_announce(struct impl *impl)
 		pw_base64_encode(rac, sizeof(rac), sac, '\0');
 		pw_properties_set(impl->headers, "Apple-Challenge", sac);
 
-		rsa_len = rsa_encrypt(impl->aes_key, 16, rsakey, sizeof(rsakey));
+		rsa_len = rsa_encrypt(impl->aes_key, 16, rsa_key, sizeof(rsa_key));
 		if (rsa_len < 0)
 			return -rsa_len;
 
-		pw_base64_encode(rsakey, rsa_len, key, '=');
-		pw_base64_encode(impl->aes_iv, 16, iv, '=');
+		pw_base64_encode(rsa_key, rsa_len, rsa_key_b64enc, '=');
+		pw_base64_encode(impl->aes_iv, 16, rsa_iv_b64enc, '=');
 
 		sdp = spa_aprintf("v=0\r\n"
 				"o=iTunes %s 0 IN IP%d %s\r\n"
@@ -1306,7 +1305,7 @@ static int rtsp_do_announce(struct impl *impl)
 				"a=aesiv:%s\r\n",
 				impl->session_id, ip_version, local_ip,
 				ip_version, host, impl->psamples, impl->rate,
-				key, iv);
+				rsa_key_b64enc, rsa_iv_b64enc);
 		if (!sdp)
 			return -errno;
 		break;
@@ -1315,14 +1314,14 @@ static int rtsp_do_announce(struct impl *impl)
 		return -ENOTSUP;
 	}
 
-	return rtsp_send(impl, "ANNOUNCE", "application/sdp", sdp, rtsp_announce_reply);
+	return rtsp_send(impl, "ANNOUNCE", "application/sdp", sdp, rtsp_raop_announce_reply);
 }
 
-static int rtsp_do_post_auth_setup(struct impl *impl);
+static int rtsp_do_raop_auth_setup(struct impl *impl);
 static int rtsp_parse_auth(struct impl *impl, const struct spa_dict *headers);
 static void rtsp_clear_auth(struct impl *impl);
 
-static int rtsp_post_auth_setup_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+static int rtsp_raop_auth_setup_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
 	int res;
@@ -1341,16 +1340,16 @@ static int rtsp_post_auth_setup_reply(void *data, int status, const struct spa_d
 			return 0;
 		}
 		impl->auth_setup_auth_retry = true;
-		return rtsp_do_post_auth_setup(impl);
+		return rtsp_do_raop_auth_setup(impl);
 	default:
 		pw_impl_module_schedule_destroy(impl->module);
 		return 0;
 	}
 
-	return rtsp_do_announce(impl);
+	return rtsp_do_raop_announce(impl);
 }
 
-static int rtsp_do_post_auth_setup(struct impl *impl)
+static int rtsp_do_raop_auth_setup(struct impl *impl)
 {
 	static const uint8_t content[33] = {
 		0x01,
@@ -1362,25 +1361,25 @@ static int rtsp_do_post_auth_setup(struct impl *impl)
 	int res;
 
 	res = rtsp_send_url(impl, "/auth-setup", "POST", "application/octet-stream",
-			content, sizeof(content), rtsp_post_auth_setup_reply);
+			content, sizeof(content), rtsp_raop_auth_setup_reply);
 	if (res < 0)
 		pw_impl_module_schedule_destroy(impl->module);
 	return res;
 }
 
-static int rtsp_options_auth_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+static int rtsp_raop_auth_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
 	int res = 0;
 
-	pw_log_info("auth status: %d", status);
+	pw_log_info("raop auth status: %d", status);
 
 	switch (status) {
 	case 200:
 		if (impl->encryption == CRYPTO_AUTH_SETUP)
-			res = rtsp_do_post_auth_setup(impl);
+			res = rtsp_do_raop_auth_setup(impl);
 		else
-			res = rtsp_do_announce(impl);
+			res = rtsp_do_raop_announce(impl);
 		break;
 	default:
 		pw_impl_module_schedule_destroy(impl->module);
@@ -1483,19 +1482,19 @@ error:
 	return res;
 }
 
-static int rtsp_do_options_auth(struct impl *impl, const struct spa_dict *headers)
+static int rtsp_do_raop_auth(struct impl *impl, const struct spa_dict *headers)
 {
 	int res;
 
 	res = rtsp_parse_auth(impl, headers);
 	if (res >= 0)
-		res = rtsp_send(impl, "OPTIONS", NULL, NULL, rtsp_options_auth_reply);
+		res = rtsp_send(impl, "OPTIONS", NULL, NULL, rtsp_raop_auth_reply);
 	if (res < 0)
 		pw_impl_module_schedule_destroy(impl->module);
 	return res;
 }
 
-static int rtsp_options_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+static int rtsp_raop_options_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
 	int res = 0;
@@ -1504,13 +1503,13 @@ static int rtsp_options_reply(void *data, int status, const struct spa_dict *hea
 
 	switch (status) {
 	case 401:
-		res = rtsp_do_options_auth(impl, headers);
+		res = rtsp_do_raop_auth(impl, headers);
 		break;
 	case 200:
 		if (impl->encryption == CRYPTO_AUTH_SETUP)
-			res = rtsp_do_post_auth_setup(impl);
+			res = rtsp_do_raop_auth_setup(impl);
 		else
-			res = rtsp_do_announce(impl);
+			res = rtsp_do_raop_announce(impl);
 		break;
 	default:
 		pw_impl_module_schedule_destroy(impl->module);
@@ -1543,7 +1542,7 @@ static void rtsp_connected(void *data)
 	pw_properties_set(impl->headers, "User-Agent", DEFAULT_USER_NAME "/" PACKAGE_VERSION);
 
 	pw_rtsp_client_send(impl->rtsp, "OPTIONS", &impl->headers->dict,
-			NULL, NULL, rtsp_options_reply, impl);
+			NULL, NULL, rtsp_raop_options_reply, impl);
 }
 
 static void connection_cleanup(struct impl *impl)
@@ -1633,7 +1632,7 @@ static int rtsp_do_connect(struct impl *impl)
 
 	if (impl->connected) {
 		if (!impl->ready)
-			return rtsp_do_announce(impl);
+			return rtsp_do_raop_announce(impl);
 		return 0;
 	}
 

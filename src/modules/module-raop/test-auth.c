@@ -311,7 +311,7 @@ static void test_auth_setup(bool accepted, const char *options_auth)
 		reply(loop, peer_fd, 2, 200, NULL);
 		post_cseq = 3;
 	} else {
-		spa_assert_se(rtsp_do_post_auth_setup(&sender) == 0);
+		spa_assert_se(rtsp_do_raop_auth_setup(&sender) == 0);
 		read_request(loop, peer_fd, request, sizeof(request), &size);
 		assert_request(request, size, NULL, 1);
 		reply(loop, peer_fd, 1, 401, challenge);
@@ -382,9 +382,9 @@ static void test_invalid_challenge(const char *challenge, bool password, bool op
 	sender.headers = pw_properties_new(NULL, NULL);
 	destroy_count = 0;
 	if (options)
-		spa_assert_se(rtsp_options_reply(&sender, 401, &headers, NULL) < 0);
+		spa_assert_se(rtsp_raop_options_reply(&sender, 401, &headers, NULL) < 0);
 	else
-		spa_assert_se(rtsp_post_auth_setup_reply(&sender, 401, &headers, NULL) <= 0);
+		spa_assert_se(rtsp_raop_auth_setup_reply(&sender, 401, &headers, NULL) <= 0);
 	spa_assert_se(destroy_count == 1);
 	free(sender.auth_method);
 	free(sender.realm);

@@ -229,8 +229,8 @@ struct impl {
 
 	unsigned int do_disconnect:1;
 
-	uint8_t key[AES_CHUNK_SIZE]; /* Key for aes-cbc */
-	uint8_t iv[AES_CHUNK_SIZE];  /* Initialization vector for cbc */
+	uint8_t aes_key[AES_CHUNK_SIZE]; /* Key for aes-cbc */
+	uint8_t aes_iv[AES_CHUNK_SIZE];  /* Initialization vector for cbc */
 	EVP_CIPHER_CTX *ctx;
 
 	uint16_t control_port;
@@ -288,7 +288,7 @@ static inline void bit_writer(uint8_t **p, int *pos, uint8_t data, int len)
 static int aes_encrypt(struct impl *impl, uint8_t *data, int len)
 {
 	int i = len & ~0xf, clen = i;
-	EVP_EncryptInit(impl->ctx, EVP_aes_128_cbc(), impl->key, impl->iv);
+	EVP_EncryptInit(impl->ctx, EVP_aes_128_cbc(), impl->aes_key, impl->aes_iv);
 	EVP_EncryptUpdate(impl->ctx, data, &clen, data, i);
 	return i;
 }
@@ -891,7 +891,7 @@ static int MD5_hash(char hash[MD5_HASH_LENGTH+1], const char *fmt, ...)
 	return 0;
 }
 
-static int rtsp_add_auth(struct impl *impl, const char *method)
+static int rtsp_add_raop_auth_header(struct impl *impl, const char *method)
 {
 	char auth[1024];
 
@@ -929,7 +929,7 @@ static int rtsp_add_auth(struct impl *impl, const char *method)
 
 	return 0;
 error:
-	pw_log_error("error adding auth");
+	pw_log_error("error adding raop RSA auth");
 	return -EINVAL;
 }
 
@@ -939,7 +939,7 @@ static int rtsp_send(struct impl *impl, const char *method,
 {
 	int res;
 
-	rtsp_add_auth(impl, method);
+	rtsp_add_raop_auth_header(impl, method);
 
 	res = pw_rtsp_client_send(impl->rtsp, method, &impl->headers->dict,
 			content_type, content, reply, impl);
@@ -1349,7 +1349,6 @@ static int rtsp_do_announce(struct impl *impl)
 		if (!sdp)
 			return -errno;
 		break;
-
 	case CRYPTO_AUTH_SETUP:
 		sdp = spa_aprintf("v=0\r\n"
 				"o=iTunes %s 0 IN IP%d %s\r\n"
@@ -1368,16 +1367,16 @@ static int rtsp_do_announce(struct impl *impl)
 		break;
 
 	case CRYPTO_RSA:
-		if ((res = pw_getrandom(impl->key, sizeof(impl->key), 0)) < 0 ||
-		    (res = pw_getrandom(impl->iv, sizeof(impl->iv), 0)) < 0)
+		if ((res = pw_getrandom(impl->aes_key, sizeof(impl->aes_key), 0)) < 0 ||
+		    (res = pw_getrandom(impl->aes_iv, sizeof(impl->aes_iv), 0)) < 0)
 			return res;
 
-		rsa_len = rsa_encrypt(impl->key, 16, rsakey);
+		rsa_len = rsa_encrypt(impl->aes_key, 16, rsakey);
 		if (rsa_len < 0)
 			return -rsa_len;
 
-	        base64_encode(rsakey, rsa_len, key, '=');
-	        base64_encode(impl->iv, 16, iv, '=');
+		base64_encode(rsakey, rsa_len, key, '=');
+		base64_encode(impl->aes_iv, 16, iv, '=');
 
 		sdp = spa_aprintf("v=0\r\n"
 				"o=iTunes %s 0 IN IP%d %s\r\n"
@@ -1402,7 +1401,7 @@ static int rtsp_do_announce(struct impl *impl)
 	return rtsp_send(impl, "ANNOUNCE", "application/sdp", sdp, rtsp_announce_reply);
 }
 
-static int rtsp_auth_setup_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+static int rtsp_post_auth_setup_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
 
@@ -1411,7 +1410,7 @@ static int rtsp_auth_setup_reply(void *data, int status, const struct spa_dict *
 	return rtsp_do_announce(impl);
 }
 
-static int rtsp_do_auth_setup(struct impl *impl)
+static int rtsp_do_post_auth_setup(struct impl *impl)
 {
 	static const unsigned char content[33] =
 		"\x01"
@@ -1420,10 +1419,10 @@ static int rtsp_do_auth_setup(struct impl *impl)
 
 	return pw_rtsp_client_url_send(impl->rtsp, "/auth-setup", "POST", &impl->headers->dict,
 				       "application/octet-stream", content, sizeof(content),
-				       rtsp_auth_setup_reply, impl);
+				       rtsp_post_auth_setup_reply, impl);
 }
 
-static int rtsp_auth_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+static int rtsp_options_auth_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
 	int res = 0;
@@ -1433,7 +1432,7 @@ static int rtsp_auth_reply(void *data, int status, const struct spa_dict *header
 	switch (status) {
 	case 200:
 		if (impl->encryption == CRYPTO_AUTH_SETUP)
-			res = rtsp_do_auth_setup(impl);
+			res = rtsp_do_post_auth_setup(impl);
 		else
 			res = rtsp_do_announce(impl);
 		break;
@@ -1459,7 +1458,7 @@ static const char *find_attr(char **tokens, const char *key)
 	return NULL;
 }
 
-static int rtsp_do_auth(struct impl *impl, const struct spa_dict *headers)
+static int rtsp_do_options_auth(struct impl *impl, const struct spa_dict *headers)
 {
 	const char *str, *realm, *nonce;
 	int n_tokens;
@@ -1490,7 +1489,7 @@ static int rtsp_do_auth(struct impl *impl, const struct spa_dict *headers)
 		impl->nonce = strdup(nonce);
 	}
 
-	return rtsp_send(impl, "OPTIONS", NULL, NULL, rtsp_auth_reply);
+	return rtsp_send(impl, "OPTIONS", NULL, NULL, rtsp_options_auth_reply);
 }
 
 static int rtsp_options_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
@@ -1502,11 +1501,11 @@ static int rtsp_options_reply(void *data, int status, const struct spa_dict *hea
 
 	switch (status) {
 	case 401:
-		res = rtsp_do_auth(impl, headers);
+		res = rtsp_do_options_auth(impl, headers);
 		break;
 	case 200:
 		if (impl->encryption == CRYPTO_AUTH_SETUP)
-			res = rtsp_do_auth_setup(impl);
+			res = rtsp_do_post_auth_setup(impl);
 		else
 			res = rtsp_do_announce(impl);
 		break;

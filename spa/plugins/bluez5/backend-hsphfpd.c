@@ -172,6 +172,7 @@ static void endpoint_free(struct hsphfpd_endpoint *endpoint)
 	free(endpoint->path);
 	free(endpoint->local_address);
 	free(endpoint->remote_address);
+	free(endpoint);
 }
 
 static bool hsphfpd_cmp_transport_path(struct spa_bt_transport *t, const void *data)

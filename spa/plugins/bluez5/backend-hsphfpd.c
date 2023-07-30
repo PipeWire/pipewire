@@ -170,10 +170,8 @@ static void endpoint_free(struct hsphfpd_endpoint *endpoint)
 {
 	spa_list_remove(&endpoint->link);
 	free(endpoint->path);
-	if (endpoint->local_address)
-		free(endpoint->local_address);
-	if (endpoint->remote_address)
-		free(endpoint->remote_address);
+	free(endpoint->local_address);
+	free(endpoint->remote_address);
 }
 
 static bool hsphfpd_cmp_transport_path(struct spa_bt_transport *t, const void *data)

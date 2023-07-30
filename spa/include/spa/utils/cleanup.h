@@ -40,13 +40,20 @@ __extension__ ({ \
 	_old_value; \
 })
 
+#if __GNUC__ > 10 || defined(__clang__)
 #define spa_steal_ptr(ptr) ((__typeof__(*(ptr)) *) spa_exchange((ptr), NULL))
+#else
+#define spa_steal_ptr(ptr) ((__typeof__(ptr)) spa_exchange((ptr), NULL))
+#endif
+
 #define spa_steal_fd(fd) spa_exchange((fd), -1)
 
 /* ========================================================================== */
 
 #include <stdlib.h>
 
+
+#if __GNUC__ > 10 || defined(__clang__)
 #define spa_clear_ptr(ptr, destructor) \
 __extension__ ({ \
 	__typeof__(*(ptr)) *_old_value = spa_steal_ptr(ptr); \
@@ -54,6 +61,15 @@ __extension__ ({ \
 		destructor(_old_value); \
 	(void) 0; \
 })
+#else
+#define spa_clear_ptr(ptr, destructor) \
+__extension__ ({ \
+	__typeof__(ptr) _old_value = spa_steal_ptr(ptr); \
+	if (_old_value) \
+		destructor(_old_value); \
+	(void) 0; \
+})
+#endif
 
 static inline void _spa_autofree_cleanup_func(void *p)
 {

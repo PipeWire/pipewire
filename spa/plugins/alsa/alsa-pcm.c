@@ -2498,9 +2498,10 @@ int spa_alsa_read(struct state *state)
 
 			if (avail < target)
 				max_read = target - avail;
-			else if (avail > target)
+			else if (avail > target) {
 				snd_pcm_forward(state->hndl, avail - target);
-			avail = target;
+				avail = target;
+			}
 			state->alsa_sync = false;
 		} else
 			state->alsa_sync_warning = true;

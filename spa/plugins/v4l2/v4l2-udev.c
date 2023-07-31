@@ -33,8 +33,10 @@
 #define ACTION_DISABLE	2
 
 struct device {
+	struct impl *impl;
 	uint32_t id;
 	struct udev_device *dev;
+	struct spa_source notify;
 	unsigned int accessible:1;
 	unsigned int ignored:1;
 	unsigned int emitted:1;
@@ -59,66 +61,79 @@ struct impl {
         uint32_t n_devices;
 
 	struct spa_source source;
-	struct spa_source notify;
 };
 
-static int impl_udev_open(struct impl *this)
+static int stop_inotify(struct device *dev);
+static int start_inotify(struct device *dev);
+
+static int impl_udev_open(struct impl *impl)
 {
-	if (this->udev == NULL) {
-		this->udev = udev_new();
-		if (this->udev == NULL)
+	if (impl->udev == NULL) {
+		impl->udev = udev_new();
+		if (impl->udev == NULL)
 			return -ENOMEM;
 	}
 	return 0;
 }
 
-static int impl_udev_close(struct impl *this)
+static int impl_udev_close(struct impl *impl)
 {
-	if (this->udev != NULL)
-		udev_unref(this->udev);
-	this->udev = NULL;
+	if (impl->udev != NULL)
+		udev_unref(impl->udev);
+	impl->udev = NULL;
 	return 0;
 }
 
-static struct device *add_device(struct impl *this, uint32_t id, struct udev_device *dev)
+static struct device *add_device(struct impl *impl, uint32_t id, struct udev_device *dev)
 {
 	struct device *device;
 
-	if (this->n_devices >= MAX_DEVICES)
+	if (impl->n_devices >= MAX_DEVICES)
 		return NULL;
-	device = &this->devices[this->n_devices++];
+	device = &impl->devices[impl->n_devices++];
 	spa_zero(*device);
+	device->impl = impl;
+	device->notify.fd = -1;
 	device->id = id;
 	udev_device_ref(dev);
 	device->dev = dev;
+	start_inotify(device);
 	return device;
 }
 
-static struct device *find_device(struct impl *this, uint32_t id)
+static struct device *find_device(struct impl *impl, uint32_t id)
 {
 	uint32_t i;
-	for (i = 0; i < this->n_devices; i++) {
-		if (this->devices[i].id == id)
-			return &this->devices[i];
+	for (i = 0; i < impl->n_devices; i++) {
+		if (impl->devices[i].id == id)
+			return &impl->devices[i];
 	}
 	return NULL;
 }
 
-static void remove_device(struct impl *this, struct device *device)
+static void clear_device(struct device *device)
 {
-	udev_device_unref(device->dev);
-	*device = this->devices[--this->n_devices];
+	stop_inotify(device);
+	if (device->dev)
+		udev_device_unref(device->dev);
 }
 
-static void clear_devices(struct impl *this)
+static void remove_device(struct device *device)
+{
+	struct impl *impl = device->impl;
+	clear_device(device);
+	*device = impl->devices[--impl->n_devices];
+}
+
+static void clear_devices(struct impl *impl)
 {
         uint32_t i;
-	for (i = 0; i < this->n_devices; i++)
-	        udev_device_unref(this->devices[i].dev);
-	this->n_devices = 0;
+	for (i = 0; i < impl->n_devices; i++)
+		clear_device(&impl->devices[i]);
+	impl->n_devices = 0;
 }
 
-static uint32_t get_device_id(struct impl *this, struct udev_device *dev)
+static uint32_t get_device_id(struct impl *impl, struct udev_device *dev)
 {
 	const char *str;
 
@@ -214,8 +229,9 @@ static void unescape(const char *src, char *dst)
 	*d = 0;
 }
 
-static int emit_object_info(struct impl *this, struct device *device)
+static int emit_object_info(struct device *device)
 {
+	struct impl *impl = device->impl;
 	struct spa_device_object_info info;
 	uint32_t id = device->id;
 	struct udev_device *dev = device->dev;
@@ -315,54 +331,55 @@ static int emit_object_info(struct impl *this, struct device *device)
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_CAPABILITIES, str);
 	}
         info.props = &SPA_DICT_INIT(items, n_items);
-        spa_device_emit_object_info(&this->hooks, id, &info);
+        spa_device_emit_object_info(&impl->hooks, id, &info);
 	device->emitted = true;
 
 	return 1;
 }
 
-static bool check_access(struct impl *this, struct device *device)
+static bool check_access(struct device *device)
 {
 	char path[128];
 
 	snprintf(path, sizeof(path), "/dev/video%u", device->id);
 	device->accessible = access(path, R_OK|W_OK) >= 0;
-	spa_log_debug(this->log, "%s accessible:%u", path, device->accessible);
+	spa_log_debug(device->impl->log, "%s accessible:%u", path, device->accessible);
 
 	return device->accessible;
 }
 
-static void process_device(struct impl *this, uint32_t action, struct udev_device *dev)
+static void process_device(struct impl *impl, uint32_t action, struct udev_device *dev)
 {
 	uint32_t id;
 	struct device *device;
 	bool emitted;
 
-	if ((id = get_device_id(this, dev)) == SPA_ID_INVALID)
+	if ((id = get_device_id(impl, dev)) == SPA_ID_INVALID)
 		return;
 
-	device = find_device(this, id);
+	device = find_device(impl, id);
 	if (device && device->ignored)
 		return;
 
 	switch (action) {
 	case ACTION_ADD:
 		if (device == NULL)
-			device = add_device(this, id, dev);
+			device = add_device(impl, id, dev);
 		if (device == NULL)
 			return;
-		if (!check_access(this, device))
+		if (!check_access(device))
 			return;
-		emit_object_info(this, device);
+		else
+			emit_object_info(device);
 		break;
 
 	case ACTION_REMOVE:
 		if (device == NULL)
 			return;
 		emitted = device->emitted;
-		remove_device(this, device);
+		remove_device(device);
 		if (emitted)
-			spa_device_emit_object_info(&this->hooks, id, NULL);
+			spa_device_emit_object_info(&impl->hooks, id, NULL);
 		break;
 
 	case ACTION_DISABLE:
@@ -370,27 +387,16 @@ static void process_device(struct impl *this, uint32_t action, struct udev_devic
 			return;
 		if (device->emitted) {
 			device->emitted = false;
-			spa_device_emit_object_info(&this->hooks, id, NULL);
+			spa_device_emit_object_info(&impl->hooks, id, NULL);
 		}
 		break;
 	}
 }
 
-static int stop_inotify(struct impl *this)
-{
-	if (this->notify.fd == -1)
-		return 0;
-	spa_log_info(this->log, "stop inotify");
-	spa_loop_remove_source(this->main_loop, &this->notify);
-	close(this->notify.fd);
-	this->notify.fd = -1;
-	return 0;
-}
-
 static void impl_on_notify_events(struct spa_source *source)
 {
-	bool deleted = false;
-	struct impl *this = source->data;
+	struct device *dev = source->data;
+	struct impl *impl = dev->impl;
 	union {
 		unsigned char name[sizeof(struct inotify_event) + NAME_MAX + 1];
 		struct inotify_event e; /* for appropriate alignment */
@@ -411,143 +417,138 @@ static void impl_on_notify_events(struct spa_source *source)
 
 		for (p = &buf; p < e;
 		    p = SPA_PTROFF(p, sizeof(struct inotify_event) + event->len, void)) {
-			unsigned int id;
-			struct device *device;
 
 			event = (const struct inotify_event *) p;
 
 			if ((event->mask & IN_ATTRIB)) {
 				bool access;
-				if (sscanf(event->name, "video%u", &id) != 1)
-					continue;
-				if ((device = find_device(this, id)) == NULL)
-					continue;
-				access = check_access(this, device);
-				if (access && !device->emitted)
-					process_device(this, ACTION_ADD, device->dev);
-				else if (!access && device->emitted)
-					process_device(this, ACTION_DISABLE, device->dev);
+				access = check_access(dev);
+				if (access && !dev->emitted)
+					process_device(impl, ACTION_ADD, dev->dev);
+				else if (!access && dev->emitted)
+					process_device(impl, ACTION_DISABLE, dev->dev);
 			}
-			/* /dev/ might have been removed */
-			if ((event->mask & (IN_DELETE_SELF | IN_MOVE_SELF)))
-				deleted = true;
 		}
 	}
-	if (deleted)
-		stop_inotify(this);
 }
 
-static int start_inotify(struct impl *this)
+static int start_inotify(struct device *dev)
 {
+	struct impl *impl = dev->impl;
 	int res, notify_fd;
+	char name[32];
 
-	if (this->notify.fd != -1)
+	if (dev->notify.fd != -1)
 		return 0;
 
 	if ((notify_fd = inotify_init1(IN_CLOEXEC | IN_NONBLOCK)) < 0)
 		return -errno;
 
-	res = inotify_add_watch(notify_fd, "/dev",
-			IN_ATTRIB | IN_CLOSE_WRITE | IN_DELETE_SELF | IN_MOVE_SELF);
+	snprintf(name, sizeof(name), "/dev/video%u", dev->id);
+
+	res = inotify_add_watch(notify_fd, name, IN_ATTRIB | IN_CLOSE_WRITE);
 	if (res < 0) {
 		res = -errno;
 		close(notify_fd);
 
 		if (res == -ENOENT) {
-			spa_log_debug(this->log, "/dev/ does not exist yet");
+			spa_log_debug(impl->log, "%s does not exist yet", name);
 			return 0;
 		}
-		spa_log_error(this->log, "inotify_add_watch() failed: %s", spa_strerror(res));
+		spa_log_error(impl->log, "inotify_add_watch() failed: %s", spa_strerror(res));
 		return res;
 	}
-	spa_log_info(this->log, "start inotify");
-	this->notify.func = impl_on_notify_events;
-	this->notify.data = this;
-	this->notify.fd = notify_fd;
-	this->notify.mask = SPA_IO_IN | SPA_IO_ERR;
+	spa_log_info(impl->log, "start inotify for %s", name);
+	dev->notify.func = impl_on_notify_events;
+	dev->notify.data = dev;
+	dev->notify.fd = notify_fd;
+	dev->notify.mask = SPA_IO_IN | SPA_IO_ERR;
 
-	spa_loop_add_source(this->main_loop, &this->notify);
+	spa_loop_add_source(impl->main_loop, &dev->notify);
 
+	return 0;
+}
+
+static int stop_inotify(struct device *dev)
+{
+	struct impl *impl = dev->impl;
+	if (dev->notify.fd == -1)
+		return 0;
+	spa_log_info(impl->log, "stop inotify for /dev/video%u", dev->id);
+	spa_loop_remove_source(impl->main_loop, &dev->notify);
+	close(dev->notify.fd);
+	dev->notify.fd = -1;
 	return 0;
 }
 
 static void impl_on_fd_events(struct spa_source *source)
 {
-	struct impl *this = source->data;
+	struct impl *impl = source->data;
 	struct udev_device *dev;
 	const char *action;
 
-	dev = udev_monitor_receive_device(this->umonitor);
+	dev = udev_monitor_receive_device(impl->umonitor);
 	if (dev == NULL)
 		return;
 
 	if ((action = udev_device_get_action(dev)) == NULL)
 		action = "change";
 
-	spa_log_debug(this->log, "action %s", action);
-
-	start_inotify(this);
+	spa_log_debug(impl->log, "action %s", action);
 
 	if (spa_streq(action, "add") ||
 	    spa_streq(action, "change")) {
-		process_device(this, ACTION_ADD, dev);
+		process_device(impl, ACTION_ADD, dev);
 	} else if (spa_streq(action, "remove")) {
-		process_device(this, ACTION_REMOVE, dev);
+		process_device(impl, ACTION_REMOVE, dev);
 	}
 	udev_device_unref(dev);
 }
 
-static int start_monitor(struct impl *this)
+static int start_monitor(struct impl *impl)
 {
-	int res;
-
-	if (this->umonitor != NULL)
+	if (impl->umonitor != NULL)
 		return 0;
 
-	this->umonitor = udev_monitor_new_from_netlink(this->udev, "udev");
-	if (this->umonitor == NULL)
+	impl->umonitor = udev_monitor_new_from_netlink(impl->udev, "udev");
+	if (impl->umonitor == NULL)
 		return -ENOMEM;
 
-	udev_monitor_filter_add_match_subsystem_devtype(this->umonitor,
+	udev_monitor_filter_add_match_subsystem_devtype(impl->umonitor,
 							"video4linux", NULL);
-	udev_monitor_enable_receiving(this->umonitor);
+	udev_monitor_enable_receiving(impl->umonitor);
 
-	this->source.func = impl_on_fd_events;
-	this->source.data = this;
-	this->source.fd = udev_monitor_get_fd(this->umonitor);
-	this->source.mask = SPA_IO_IN | SPA_IO_ERR;
+	impl->source.func = impl_on_fd_events;
+	impl->source.data = impl;
+	impl->source.fd = udev_monitor_get_fd(impl->umonitor);
+	impl->source.mask = SPA_IO_IN | SPA_IO_ERR;
 
-	spa_log_debug(this->log, "monitor %p", this->umonitor);
-	spa_loop_add_source(this->main_loop, &this->source);
-
-	if ((res = start_inotify(this)) < 0)
-		return res;
+	spa_log_debug(impl->log, "monitor %p", impl->umonitor);
+	spa_loop_add_source(impl->main_loop, &impl->source);
 
 	return 0;
 }
 
-static int stop_monitor(struct impl *this)
+static int stop_monitor(struct impl *impl)
 {
-	if (this->umonitor == NULL)
+	if (impl->umonitor == NULL)
 		return 0;
 
-	clear_devices (this);
+	clear_devices(impl);
 
-	spa_loop_remove_source(this->main_loop, &this->source);
-	udev_monitor_unref(this->umonitor);
-	this->umonitor = NULL;
-
-	stop_inotify(this);
+	spa_loop_remove_source(impl->main_loop, &impl->source);
+	udev_monitor_unref(impl->umonitor);
+	impl->umonitor = NULL;
 
 	return 0;
 }
 
-static int enum_devices(struct impl *this)
+static int enum_devices(struct impl *impl)
 {
 	struct udev_enumerate *enumerate;
 	struct udev_list_entry *devices;
 
-	enumerate = udev_enumerate_new(this->udev);
+	enumerate = udev_enumerate_new(impl->udev);
 	if (enumerate == NULL)
 		return -ENOMEM;
 
@@ -558,11 +559,11 @@ static int enum_devices(struct impl *this)
 			devices = udev_list_entry_get_next(devices)) {
 		struct udev_device *dev;
 
-		dev = udev_device_new_from_syspath(this->udev, udev_list_entry_get_name(devices));
+		dev = udev_device_new_from_syspath(impl->udev, udev_list_entry_get_name(devices));
 		if (dev == NULL)
 			continue;
 
-		process_device(this, ACTION_ADD, dev);
+		process_device(impl, ACTION_ADD, dev);
 
 		udev_device_unref(dev);
 	}
@@ -577,24 +578,24 @@ static const struct spa_dict_item device_info_items[] = {
 	{ SPA_KEY_API_UDEV_MATCH, "video4linux" },
 };
 
-static void emit_device_info(struct impl *this, bool full)
+static void emit_device_info(struct impl *impl, bool full)
 {
-	uint64_t old = full ? this->info.change_mask : 0;
+	uint64_t old = full ? impl->info.change_mask : 0;
 	if (full)
-		this->info.change_mask = this->info_all;
-	if (this->info.change_mask) {
-		this->info.props = &SPA_DICT_INIT_ARRAY(device_info_items);
-		spa_device_emit_info(&this->hooks, &this->info);
-		this->info.change_mask = old;
+		impl->info.change_mask = impl->info_all;
+	if (impl->info.change_mask) {
+		impl->info.props = &SPA_DICT_INIT_ARRAY(device_info_items);
+		spa_device_emit_info(&impl->hooks, &impl->info);
+		impl->info.change_mask = old;
 	}
 }
 
 static void impl_hook_removed(struct spa_hook *hook)
 {
-	struct impl *this = hook->priv;
-	if (spa_hook_list_is_empty(&this->hooks)) {
-		stop_monitor(this);
-		impl_udev_close(this);
+	struct impl *impl = hook->priv;
+	if (spa_hook_list_is_empty(&impl->hooks)) {
+		stop_monitor(impl);
+		impl_udev_close(impl);
 	}
 }
 
@@ -603,29 +604,29 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 		const struct spa_device_events *events, void *data)
 {
 	int res;
-	struct impl *this = object;
+	struct impl *impl = object;
         struct spa_hook_list save;
 
-	spa_return_val_if_fail(this != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != NULL, -EINVAL);
 	spa_return_val_if_fail(events != NULL, -EINVAL);
 
-	if ((res = impl_udev_open(this)) < 0)
+	if ((res = impl_udev_open(impl)) < 0)
 		return res;
 
-        spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
+        spa_hook_list_isolate(&impl->hooks, &save, listener, events, data);
 
-	emit_device_info(this, true);
+	emit_device_info(impl, true);
 
-	if ((res = enum_devices(this)) < 0)
+	if ((res = enum_devices(impl)) < 0)
 		return res;
 
-	if ((res = start_monitor(this)) < 0)
+	if ((res = start_monitor(impl)) < 0)
 		return res;
 
-        spa_hook_list_join(&this->hooks, &save);
+        spa_hook_list_join(&impl->hooks, &save);
 
 	listener->removed = impl_hook_removed;
-	listener->priv = this;
+	listener->priv = impl;
 
 	return 0;
 }
@@ -637,15 +638,15 @@ static const struct spa_device_methods impl_device = {
 
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
-	struct impl *this;
+	struct impl *impl;
 
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 	spa_return_val_if_fail(interface != NULL, -EINVAL);
 
-	this = (struct impl *) handle;
+	impl = (struct impl *) handle;
 
 	if (spa_streq(type, SPA_TYPE_INTERFACE_Device))
-		*interface = &this->device;
+		*interface = &impl->device;
 	else
 		return -ENOENT;
 
@@ -654,9 +655,9 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 static int impl_clear(struct spa_handle *handle)
 {
-	struct impl *this = (struct impl *) handle;
-	stop_monitor(this);
-	impl_udev_close(this);
+	struct impl *impl = (struct impl *) handle;
+	stop_monitor(impl);
+	impl_udev_close(impl);
 	return 0;
 }
 
@@ -674,7 +675,7 @@ impl_init(const struct spa_handle_factory *factory,
 	  const struct spa_support *support,
 	  uint32_t n_support)
 {
-	struct impl *this;
+	struct impl *impl;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -682,27 +683,25 @@ impl_init(const struct spa_handle_factory *factory,
 	handle->get_interface = impl_get_interface;
 	handle->clear = impl_clear;
 
-	this = (struct impl *) handle;
-	this->notify.fd = -1;
+	impl = (struct impl *) handle;
+	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	impl->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 
-	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	this->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
-
-	if (this->main_loop == NULL) {
-		spa_log_error(this->log, "a main-loop is needed");
+	if (impl->main_loop == NULL) {
+		spa_log_error(impl->log, "a main-loop is needed");
 		return -EINVAL;
 	}
-	spa_hook_list_init(&this->hooks);
+	spa_hook_list_init(&impl->hooks);
 
-	this->device.iface = SPA_INTERFACE_INIT(
+	impl->device.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Device,
 			SPA_VERSION_DEVICE,
-			&impl_device, this);
+			&impl_device, impl);
 
-	this->info = SPA_DEVICE_INFO_INIT();
-	this->info_all = SPA_DEVICE_CHANGE_MASK_FLAGS |
+	impl->info = SPA_DEVICE_INFO_INIT();
+	impl->info_all = SPA_DEVICE_CHANGE_MASK_FLAGS |
 			SPA_DEVICE_CHANGE_MASK_PROPS;
-	this->info.flags = 0;
+	impl->info.flags = 0;
 
 	return 0;
 }

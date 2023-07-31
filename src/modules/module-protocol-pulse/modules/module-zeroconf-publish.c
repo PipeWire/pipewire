@@ -180,17 +180,14 @@ static char* channel_map_snprint(char *s, size_t l, const struct channel_map *ma
 static void fill_service_data(struct module_zeroconf_publish_data *d, struct service *s,
 				struct pw_manager_object *o)
 {
-	struct impl *impl = d->module->impl;
 	bool is_sink = pw_manager_object_is_sink(o);
 	bool is_source = pw_manager_object_is_source(o);
 	struct pw_node_info *info = o->info;
-	const char *name, *desc, *str;
-	uint32_t card_id = SPA_ID_INVALID;
+	const char *name, *desc;
 	struct pw_manager *manager = d->manager;
 	struct pw_manager_object *card = NULL;
 	struct card_info card_info = CARD_INFO_INIT;
-	struct device_info dev_info = is_sink ?
-		DEVICE_INFO_INIT(PW_DIRECTION_OUTPUT) : DEVICE_INFO_INIT(PW_DIRECTION_INPUT);
+	struct device_info dev_info;
 	uint32_t flags = 0;
 
 	if (info == NULL || info->props == NULL)
@@ -202,18 +199,14 @@ static void fill_service_data(struct module_zeroconf_publish_data *d, struct ser
 	if (name == NULL)
 		name = "unknown";
 
-	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
-		card_id = (uint32_t)atoi(str);
-	if ((str = spa_dict_lookup(info->props, "card.profile.device")) != NULL)
-		dev_info.device = (uint32_t)atoi(str);
-	if (card_id != SPA_ID_INVALID) {
-		struct selector sel = { .id = card_id, .type = pw_manager_object_is_card, };
+	get_device_info(o, &dev_info, is_sink ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT, false);
+
+	if (dev_info.card_id != SPA_ID_INVALID) {
+		struct selector sel = { .id = dev_info.card_id, .type = pw_manager_object_is_card, };
 		card = select_object(manager, &sel);
 	}
 	if (card)
 		collect_card_info(card, &card_info);
-
-	collect_device_info(o, card, &dev_info, false, &impl->defs);
 
 	if (!pw_manager_object_is_virtual(o)) {
 		if (is_sink)

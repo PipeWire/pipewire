@@ -220,17 +220,15 @@ static int set_node_codecs(struct pw_manager_object *o, uint32_t n_codecs, uint3
 static int do_extension_device_restore_save_formats(struct client *client,
 		uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	struct pw_manager *manager = client->manager;
 	struct selector sel;
 	struct pw_manager_object *o, *card = NULL;
 	struct pw_node_info *info;
 	int res;
-	uint32_t type, sink_index, card_id = SPA_ID_INVALID;
+	uint32_t type, sink_index;
 	uint8_t i, n_formats;
 	uint32_t n_codecs = 0, codec, iec958codecs[32];
 	struct device_info dev_info;
-	const char *str;
 
 	if ((res = message_get(m,
 			TAG_U32, &type,
@@ -269,18 +267,12 @@ static int do_extension_device_restore_save_formats(struct client *client,
 	if (o == NULL || (info = o->info) == NULL || info->props == NULL)
 		return -ENOENT;
 
-	dev_info = DEVICE_INFO_INIT(SPA_DIRECTION_INPUT);
+	get_device_info(o, &dev_info, SPA_DIRECTION_INPUT, false);
 
-	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
-		card_id = (uint32_t)atoi(str);
-	if ((str = spa_dict_lookup(info->props, "card.profile.device")) != NULL)
-		dev_info.device = (uint32_t)atoi(str);
-	if (card_id != SPA_ID_INVALID) {
-		struct selector sel = { .id = card_id, .type = pw_manager_object_is_card, };
+	if (dev_info.card_id != SPA_ID_INVALID) {
+		struct selector sel = { .id = dev_info.card_id, .type = pw_manager_object_is_card, };
 		card = select_object(manager, &sel);
 	}
-	collect_device_info(o, card, &dev_info, false, &impl->defs);
-
 	if (card != NULL && dev_info.active_port != SPA_ID_INVALID) {
 		res = set_card_codecs(card, dev_info.active_port,
 				dev_info.device, n_codecs, iec958codecs);

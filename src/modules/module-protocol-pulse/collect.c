@@ -6,6 +6,9 @@
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
 #include <spa/utils/string.h>
+
+#include <spa/param/audio/format-utils.h>
+
 #include <pipewire/pipewire.h>
 
 #include "collect.h"
@@ -226,7 +229,7 @@ uint32_t find_profile_index(struct pw_manager_object *card, const char *name)
 	return SPA_ID_INVALID;
 }
 
-void collect_device_info(struct pw_manager_object *device, struct pw_manager_object *card,
+static void collect_device_info(struct pw_manager_object *device, struct pw_manager_object *card,
 			 struct device_info *dev_info, bool monitor, struct defs *defs)
 {
 	struct pw_manager_param *p;
@@ -285,6 +288,57 @@ void collect_device_info(struct pw_manager_object *device, struct pw_manager_obj
 		dev_info->ss.channels = dev_info->map.channels;
 	if (dev_info->volume_info.volume.channels != dev_info->map.channels)
 		dev_info->volume_info.volume.channels = dev_info->map.channels;
+}
+
+static void update_device_info(struct pw_manager *manager, struct pw_manager_object *o,
+		enum pw_direction direction, bool monitor, struct defs *defs)
+{
+	const char *str;
+	const char *key = monitor ? "device.info.monitor" : "device.info";
+	struct pw_manager_object *card = NULL;
+	struct pw_node_info *info = o->info;
+	struct device_info *dev_info, di;
+
+	if (info == NULL)
+		return;
+
+	di = DEVICE_INFO_INIT(direction);
+	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
+		di.card_id = (uint32_t)atoi(str);
+	if ((str = spa_dict_lookup(info->props, "card.profile.device")) != NULL)
+		di.device = (uint32_t)atoi(str);
+	if (di.card_id != SPA_ID_INVALID) {
+		struct selector sel = { .id = di.card_id, .type = pw_manager_object_is_card, };
+		card = select_object(manager, &sel);
+	}
+	collect_device_info(o, card, &di, monitor, defs);
+
+	dev_info = pw_manager_object_get_data(o, key);
+	if (dev_info) {
+		if (memcmp(dev_info, &di, sizeof(di)) != 0) {
+			if (monitor || direction == PW_DIRECTION_INPUT)
+				o->change_mask |= PW_MANAGER_OBJECT_FLAG_SOURCE;
+			else
+				o->change_mask |= PW_MANAGER_OBJECT_FLAG_SINK;
+		}
+	} else {
+		o->change_mask = ~0;
+		dev_info = pw_manager_object_add_data(o, key, sizeof(*dev_info));
+	}
+	if (dev_info != NULL)
+		*dev_info = di;
+}
+
+void get_device_info(struct pw_manager_object *o, struct device_info *info,
+		enum pw_direction direction, bool monitor)
+{
+	const char *key = monitor ? "device.info.monitor" : "device.info";
+	struct device_info *di;
+	di = pw_manager_object_get_data(o, key);
+	if (di != NULL)
+		*info = *di;
+	else
+		*info = DEVICE_INFO_INIT(direction);
 }
 
 static bool array_contains(uint32_t *vals, uint32_t n_vals, uint32_t val)
@@ -526,4 +580,22 @@ uint32_t collect_transport_codec_info(struct pw_manager_object *card,
 	}
 
 	return n_codecs;
+}
+
+void update_object_info(struct pw_manager *manager, struct pw_manager_object *o,
+		struct defs *defs)
+{
+	if (pw_manager_object_is_sink(o)) {
+		update_device_info(manager, o, PW_DIRECTION_OUTPUT, false, defs);
+		update_device_info(manager, o, PW_DIRECTION_OUTPUT, true, defs);
+	}
+	if (pw_manager_object_is_source(o)) {
+		update_device_info(manager, o, PW_DIRECTION_INPUT, false, defs);
+	}
+	if (pw_manager_object_is_source_output(o)) {
+		update_device_info(manager, o, PW_DIRECTION_INPUT, false, defs);
+	}
+	if (pw_manager_object_is_sink_input(o)) {
+		update_device_info(manager, o, PW_DIRECTION_OUTPUT, false, defs);
+	}
 }

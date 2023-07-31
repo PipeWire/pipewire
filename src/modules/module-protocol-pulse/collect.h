@@ -35,6 +35,8 @@ struct selector {
 struct pw_manager_object *select_object(struct pw_manager *m, struct selector *s);
 uint32_t id_to_index(struct pw_manager *m, uint32_t id);
 void select_best(struct selector *s, struct pw_manager_object *o);
+void update_object_info(struct pw_manager *manager, struct pw_manager_object *o,
+		struct defs *defs);
 
 /* ========================================================================== */
 
@@ -47,9 +49,11 @@ struct device_info {
 	unsigned int have_volume:1;
 	unsigned int have_iec958codecs:1;
 
+	uint32_t card_id;
 	uint32_t device;
 	uint32_t active_port;
 	const char *active_port_name;
+
 };
 
 #define DEVICE_INFO_INIT(_dir) \
@@ -58,12 +62,13 @@ struct device_info {
 		.ss = SAMPLE_SPEC_INIT,			\
 		.map = CHANNEL_MAP_INIT,		\
 		.volume_info = VOLUME_INFO_INIT,	\
+		.card_id = SPA_ID_INVALID,		\
 		.device = SPA_ID_INVALID,		\
 		.active_port = SPA_ID_INVALID,		\
 	}
 
-void collect_device_info(struct pw_manager_object *device, struct pw_manager_object *card,
-			 struct device_info *dev_info, bool monitor, struct defs *defs);
+void get_device_info(struct pw_manager_object *device, struct device_info *info,
+		enum pw_direction direction, bool monitor);
 
 /* ========================================================================== */
 

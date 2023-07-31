@@ -75,6 +75,8 @@ struct pw_manager_object {
 	struct spa_param_info *params;
 	uint32_t n_params;
 
+#define PW_MANAGER_OBJECT_FLAG_SOURCE	(1<<0)
+#define PW_MANAGER_OBJECT_FLAG_SINK	(1<<1)
 	uint64_t change_mask;	/* object specific params change mask */
 	struct spa_list param_list;
 	unsigned int creating:1;

@@ -1,3 +1,57 @@
+# PipeWire 0.3.77 (2023-08-04)
+
+This is a quick bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Fix a bug in ALSA source where the available number of samples was miscaluclated
+    and resulted in xruns in some cases.
+  - A new L permission was added to make it possible to force a link between
+    nodes even when the nodes can't see eachother.
+  - The VBAN module now supports midi send and receive as well.
+  - Many cleanups and small fixes.
+
+
+## PipeWire
+  - Global objects now only show permissions that apply to them. The permissions
+    required to perform various API calls are documented.
+  - A new L permission was added to make it possible to force a link between
+    nodes even when the nodes can't see eachother.
+  - Config files need to end with .conf.
+  - The client.api is added the to global properties of a node.
+
+## modules
+  - The VBAN module now supports midi send and receive as well.
+  - Fix module-profiler alignment and make sure we don't overrun our buffers with
+    many nodes.
+  - Protect libcanberra calls with a mutex because it is not thread safe. (#2834)
+
+## SPA
+  - Support older compilers for spa_clear_ptr().
+  - Fix a bug in ALSA source where the available number of samples was miscaluclated
+    and resulted in xruns. (#3395)
+  - Don't set inotify on /dev but on the videoX devices directly. Setting inotify
+    on /dev would cause a lot of spurious wakeups and lock contention in the
+    fsnotify subsystem on some benchmarks.
+  - Audioconvert now rate limits the warnings when it runs out of buffers. (#3384)
+
+## pulse-server
+  - Some bugs and inconsistencies were fixed in device lookup.
+  - Improve subscribe event emission, detect changes to the sink or the monitor
+    and send the right sink/source event. (#3388)
+
+## JACK
+  - The libjack.so now has a minor version of 3 and a micro version of the pipewire
+    version.
+  - JACK clients will now see portregistration from other jack clients when they
+    activate/deactivate like real JACK. (#3260)
+
+## bluetooth
+  - Use some more autoptr cleanups, fix some leaks.
+
+Older versions:
+
+
 # PipeWire 0.3.76 (2023-07-28)
 
 This is a quick bugfix release that is API and ABI compatible with previous
@@ -35,9 +89,6 @@ This is a quick bugfix release that is API and ABI compatible with previous
 ## bluetooth
   - LE Audio support is now enabled by default when liblc3 is available now that
     bluez has support for detecting the hardware features.
-
-Older versions:
-
 
 # PipeWire 0.3.75 (2023-07-21)
 

@@ -134,12 +134,14 @@ static void do_flush_event(void *data, uint64_t count)
 		pw_log_trace("%p avail %d", impl, avail);
 
 		if (avail > 0) {
-			spa_ringbuffer_read_data(&n->buffer, n->data, DATA_BUFFER,
-					idx % DATA_BUFFER,
-					SPA_PTROFF(p, sizeof(struct spa_pod_struct) + total, void),
-					avail);
+			if (total + avail < FLUSH_BUFFER) {
+				spa_ringbuffer_read_data(&n->buffer, n->data, DATA_BUFFER,
+						idx % DATA_BUFFER,
+						SPA_PTROFF(p, sizeof(struct spa_pod_struct) + total, void),
+						avail);
+				total += avail;
+			}
 			spa_ringbuffer_read_update(&n->buffer, idx + avail);
-			total += avail;
 		}
 	}
 

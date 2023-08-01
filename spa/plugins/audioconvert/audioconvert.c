@@ -9,12 +9,14 @@
 
 #include <spa/support/plugin.h>
 #include <spa/support/cpu.h>
+#include <spa/support/loop.h>
 #include <spa/support/log.h>
 #include <spa/utils/result.h>
 #include <spa/utils/list.h>
 #include <spa/utils/json.h>
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
+#include <spa/utils/ratelimit.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
 #include <spa/node/utils.h>
@@ -184,11 +186,14 @@ struct impl {
 
 	struct spa_log *log;
 	struct spa_cpu *cpu;
+	struct spa_system *data_system;
 
 	uint32_t cpu_flags;
 	uint32_t max_align;
 	uint32_t quantum_limit;
 	enum spa_direction direction;
+
+	struct spa_ratelimit rate_limit;
 
 	struct props props;
 
@@ -2316,12 +2321,8 @@ static inline struct buffer *peek_buffer(struct impl *this, struct port *port)
 {
 	struct buffer *b;
 
-	if (spa_list_is_empty(&port->queue)) {
-		if (port->n_buffers > 0)
-			spa_log_warn(this->log, "%p: out of buffers on port %d %d",
-				this, port->id, port->n_buffers);
+	if (spa_list_is_empty(&port->queue))
 		return NULL;
-	}
 
 	b = spa_list_first(&port->queue, struct buffer, link);
 	spa_log_trace_fp(this->log, "%p: peek buffer %d/%d on port %d %u",
@@ -2616,6 +2617,14 @@ static inline bool resample_is_passthrough(struct impl *this)
 	return true;
 }
 
+static uint64_t get_time_ns(struct impl *impl)
+{
+	struct timespec now;
+	if (spa_system_clock_gettime(impl->data_system, CLOCK_MONOTONIC, &now) < 0)
+		return 0;
+	return SPA_TIMESPEC_TO_NSEC(&now);
+}
+
 static int impl_node_process(void *object)
 {
 	struct impl *this = object;
@@ -2628,12 +2637,13 @@ static int impl_node_process(void *object)
 	struct buffer *buf, *out_bufs[MAX_PORTS];
 	struct spa_data *bd;
 	struct dir *dir;
-	int tmp = 0, res = 0;
+	int tmp = 0, res = 0, missed;
 	bool in_passthrough, mix_passthrough, resample_passthrough, out_passthrough;
 	bool in_avail = false, flush_in = false, flush_out = false;
 	bool draining = false, in_empty = this->out_offset == 0;
 	struct spa_io_buffers *io, *ctrlio = NULL;
 	const struct spa_pod_sequence *ctrl = NULL;
+	uint64_t current_time;
 
 	/* calculate quantum scale, this is how many samples we need to produce or
 	 * consume. Also update the rate scale, this is sent to the resampler to adjust
@@ -2642,6 +2652,7 @@ static int impl_node_process(void *object)
 	if (SPA_LIKELY(this->io_position)) {
 		double r =  this->rate_scale;
 
+		current_time = this->io_position->clock.nsec;
 		quant_samples = this->io_position->clock.duration;
 		if (this->direction == SPA_DIRECTION_INPUT) {
 			if (this->io_position->clock.rate.denom != this->resample.o_rate)
@@ -2662,8 +2673,10 @@ static int impl_node_process(void *object)
 			this->rate_scale = r;
 		}
 	}
-	else
+	else {
+		current_time = get_time_ns(this);
 		quant_samples = this->quantum_limit;
+	}
 
 	dir = &this->dir[SPA_DIRECTION_INPUT];
 	in_passthrough = dir->conv.is_passthrough;
@@ -2791,6 +2804,11 @@ static int impl_node_process(void *object)
 				queue_buffer(this, port, io->buffer_id);
 
 			buf = peek_buffer(this, port);
+			if (buf == NULL && port->n_buffers > 0 &&
+			    (missed = spa_ratelimit_test(&this->rate_limit, current_time)) >= 0) {
+				spa_log_warn(this->log, "%p: (%d missed) out of buffers on port %d %d",
+					this, missed, port->id, port->n_buffers);
+			}
 		}
 		out_bufs[i] = buf;
 
@@ -3197,8 +3215,15 @@ impl_init(const struct spa_handle_factory *factory,
 		this->cpu_flags = spa_cpu_get_flags(this->cpu);
 		this->max_align = SPA_MIN(MAX_ALIGN, spa_cpu_get_max_align(this->cpu));
 	}
-
+	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
+	if (this->data_system == NULL) {
+		spa_log_error(this->log, "a data_system is needed");
+		return -EINVAL;
+	}
 	props_reset(&this->props);
+
+	this->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
+	this->rate_limit.burst = 1;
 
 	this->mix.options = CHANNELMIX_OPTION_UPMIX | CHANNELMIX_OPTION_MIX_LFE;
 	this->mix.upmix = CHANNELMIX_UPMIX_NONE;

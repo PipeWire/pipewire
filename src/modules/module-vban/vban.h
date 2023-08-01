@@ -53,6 +53,10 @@ static inline uint8_t vban_sr_index(uint32_t rate)
 #define VBAN_DATATYPE_12BITS	0x06
 #define VBAN_DATATYPE_10BITS	0x07
 
+#define VBAN_SERIAL_GENERIC	0x00
+#define VBAN_SERIAL_MIDI	0x10
+#define VBAN_SERIAL_USER	0xf0
+
 #ifdef __cplusplus
 }
 #endif

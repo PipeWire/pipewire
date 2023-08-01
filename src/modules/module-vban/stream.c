@@ -81,7 +81,7 @@ struct impl {
 };
 
 #include "module-vban/audio.c"
-//#include "module-vban/midi.c"
+#include "module-vban/midi.c"
 
 struct format_info {
 	uint32_t media_subtype;
@@ -97,7 +97,7 @@ static const struct format_info audio_format_info[] = {
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S32_LE, 4, VBAN_DATATYPE_INT32, },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_F32_LE, 4, VBAN_DATATYPE_FLOAT32, },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_F64_LE, 8, VBAN_DATATYPE_FLOAT64, },
-	{ SPA_MEDIA_SUBTYPE_control, 0, 1, },
+	{ SPA_MEDIA_SUBTYPE_control, 0, 1, VBAN_SERIAL_MIDI | VBAN_DATATYPE_U8, },
 };
 
 static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size)
@@ -289,9 +289,6 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 		goto out;
 	}
 	memcpy(impl->header.vban, "VBAN", 4);
-	if ((str = pw_properties_get(props, "sess.name")) == NULL)
-		str = "Stream1";
-	strcpy(impl->header.stream_name, str);
 
 	switch (impl->info.media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
@@ -307,6 +304,7 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 		}
 		impl->stride = impl->format_info->size * impl->stream_info.info.raw.channels;
 		impl->rate = impl->stream_info.info.raw.rate;
+
 		impl->header.format_SR = vban_sr_index(impl->rate);
 		if (impl->header.format_SR == VBAN_SR_MAXNUMBER) {
 			pw_log_error("unsupported audio rate:%u", impl->rate);
@@ -314,6 +312,9 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 			goto out;
 		}
 		impl->header.format_bit = impl->format_info->format_bit;
+		if ((str = pw_properties_get(props, "sess.name")) == NULL)
+			str = "Stream1";
+		strcpy(impl->header.stream_name, str);
 		break;
 	case SPA_MEDIA_SUBTYPE_control:
 		impl->stream_info = impl->info;
@@ -327,6 +328,14 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 		impl->rate = pw_properties_get_uint32(props, "midi.rate", 10000);
 		if (impl->rate == 0)
 			impl->rate = 10000;
+
+		impl->header.format_SR = (0x1 << 5) | 14; /* 115200 */
+		impl->header.format_nbs = 0;
+		impl->header.format_nbc = 0;
+		impl->header.format_bit = impl->format_info->format_bit;
+		if ((str = pw_properties_get(props, "sess.name")) == NULL)
+			str = "Midi1";
+		strcpy(impl->header.stream_name, str);
 		break;
 	default:
 		spa_assert_not_reached();
@@ -413,7 +422,7 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
                                 SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
                                 SPA_FORMAT_mediaType,           SPA_POD_Id(SPA_MEDIA_TYPE_application),
                                 SPA_FORMAT_mediaSubtype,        SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
-//		vban_midi_init(impl, direction);
+		vban_midi_init(impl, direction);
 		break;
 	default:
 		res = -EINVAL;

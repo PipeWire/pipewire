@@ -209,8 +209,9 @@ static void vban_audio_flush_packets(struct impl *impl)
 
 		timestamp += tosend;
 		avail -= tosend;
-		impl->header.n_frames++;
+		header.n_frames++;
 	}
+	impl->header.n_frames = header.n_frames;
 	spa_ringbuffer_read_update(&impl->ring, timestamp);
 }
 

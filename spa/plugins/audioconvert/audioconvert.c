@@ -186,7 +186,6 @@ struct impl {
 
 	struct spa_log *log;
 	struct spa_cpu *cpu;
-	struct spa_system *data_system;
 
 	uint32_t cpu_flags;
 	uint32_t max_align;
@@ -2620,7 +2619,7 @@ static inline bool resample_is_passthrough(struct impl *this)
 static uint64_t get_time_ns(struct impl *impl)
 {
 	struct timespec now;
-	if (spa_system_clock_gettime(impl->data_system, CLOCK_MONOTONIC, &now) < 0)
+	if (clock_gettime(CLOCK_MONOTONIC, &now) < 0)
 		return 0;
 	return SPA_TIMESPEC_TO_NSEC(&now);
 }
@@ -3214,11 +3213,6 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->cpu) {
 		this->cpu_flags = spa_cpu_get_flags(this->cpu);
 		this->max_align = SPA_MIN(MAX_ALIGN, spa_cpu_get_max_align(this->cpu));
-	}
-	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
-	if (this->data_system == NULL) {
-		spa_log_error(this->log, "a data_system is needed");
-		return -EINVAL;
 	}
 	props_reset(&this->props);
 

@@ -4,6 +4,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <stdalign.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -103,6 +104,7 @@ struct impl {
 	struct spa_source *flush_event;
 	unsigned int listening:1;
 
+	alignas(max_align_t)
 	uint8_t flush[FLUSH_BUFFER + sizeof(struct spa_pod_struct)];
 };
 

@@ -2331,10 +2331,12 @@ static inline struct buffer *peek_buffer(struct impl *this, struct port *port)
 
 static inline void dequeue_buffer(struct impl *this, struct port *port, struct buffer *b)
 {
-	spa_list_remove(&b->link);
-	SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_QUEUED);
 	spa_log_trace_fp(this->log, "%p: dequeue buffer %d on port %d %u",
 			this, b->id, port->id, b->flags);
+	if (!SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_QUEUED))
+		return;
+	spa_list_remove(&b->link);
+	SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_QUEUED);
 }
 
 static int

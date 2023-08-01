@@ -985,7 +985,9 @@ static const struct format_info format_info[] = {
 	MAKE_FORMAT(Y10, video, raw, 2, UNKNOWN),
 	MAKE_FORMAT(Y12, video, raw, 2, UNKNOWN),
 	MAKE_FORMAT(Y16, video, raw, 2, GRAY16_LE),
+#ifdef V4L2_PIX_FMT_Y16_BE
 	MAKE_FORMAT(Y16_BE, video, raw, 2, GRAY16_BE),
+#endif
 	MAKE_FORMAT(Y10BPACK, video, raw, 2, UNKNOWN),
 
 	/* Palette formats */

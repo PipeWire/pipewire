@@ -513,10 +513,11 @@ static enum spa_bt_profile get_codec_profile(const struct media_codec *codec,
 {
 	switch (direction) {
 	case SPA_BT_MEDIA_SOURCE:
-	case SPA_BT_MEDIA_SOURCE_BROADCAST:
 		return codec->bap ? SPA_BT_PROFILE_BAP_SOURCE : SPA_BT_PROFILE_A2DP_SOURCE;
 	case SPA_BT_MEDIA_SINK:
 		return codec->bap ? SPA_BT_PROFILE_BAP_SINK : SPA_BT_PROFILE_A2DP_SINK;
+	case SPA_BT_MEDIA_SOURCE_BROADCAST:
+		return SPA_BT_PROFILE_BAP_BROADCAST_SOURCE;
 	default:
 		spa_assert_not_reached();
 	}
@@ -4906,7 +4907,8 @@ static bool have_codec_endpoints(struct spa_bt_monitor *monitor, bool bap)
 		if (codec->bap != bap)
 			continue;
 		if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SINK) ||
-				endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE))
+				endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE) ||
+				endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST))
 			return true;
 	}
 	return false;
@@ -5642,6 +5644,8 @@ int spa_bt_profiles_from_json_array(const char *str)
 			profiles |= SPA_BT_PROFILE_BAP_SINK;
 		} else if (spa_streq(role_name, "bap_source")) {
 			profiles |= SPA_BT_PROFILE_BAP_SOURCE;
+		} else if (spa_streq(role_name, "bap_bcast_source")) {
+			profiles |= SPA_BT_PROFILE_BAP_BROADCAST_SOURCE;
 		}
 	}
 

@@ -137,6 +137,8 @@ struct object {
 			char node_name[512];
 			int32_t priority;
 			uint32_t client_id;
+			unsigned is_jack:1;
+			unsigned is_running:1;
 		} node;
 		struct {
 			uint32_t src;
@@ -3061,6 +3063,35 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = proxy_destroy,
 };
 
+static void node_info(void *data, const struct pw_node_info *info)
+{
+	struct object *n = data;
+	struct client *c = n->client;
+
+	pw_log_info("DSP node %d state change %s", info->id,
+			pw_node_state_as_string(info->state));
+
+	n->node.is_running = (info->state == PW_NODE_STATE_RUNNING);
+
+	if (info->change_mask & PW_NODE_CHANGE_MASK_STATE) {
+		struct object *p;
+		spa_list_for_each(p, &c->context.objects, link) {
+			if (p->type != INTERFACE_Port || p->removed ||
+			    p->port.node_id != info->id)
+				continue;
+			if (n->node.is_running)
+				queue_notify(c, NOTIFY_TYPE_PORTREGISTRATION, p, 1, NULL);
+			else
+				queue_notify(c, NOTIFY_TYPE_PORTREGISTRATION, p, 0, NULL);
+		}
+	}
+}
+
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE,
+	.info = node_info,
+};
+
 static void port_param(void *data, int seq,
 			uint32_t id, uint32_t index, uint32_t next,
 			const struct spa_pod *param)
@@ -3105,7 +3136,7 @@ static void registry_event_global(void *data, uint32_t id,
 	struct client *c = (struct client *) data;
 	struct object *o, *ot, *op;
 	const char *str;
-	bool is_first = true;
+	bool do_emit = true;
 	uint32_t serial;
 
 	if (props == NULL)
@@ -3162,7 +3193,7 @@ static void registry_event_global(void *data, uint32_t id,
 			snprintf(o->node.name, sizeof(o->node.name), "%.*s-%d",
 					(int)(sizeof(tmp)-11), tmp, id);
 		} else {
-			is_first = ot == NULL;
+			do_emit = ot == NULL;
 			snprintf(o->node.name, sizeof(o->node.name), "%s", tmp);
 		}
 		if (id == c->node_id) {
@@ -3174,9 +3205,21 @@ static void registry_event_global(void *data, uint32_t id,
 
 		if ((str = spa_dict_lookup(props, PW_KEY_PRIORITY_SESSION)) != NULL)
 			o->node.priority = pw_properties_parse_int(str);
+		if ((str = spa_dict_lookup(props, PW_KEY_CLIENT_API)) != NULL)
+			o->node.is_jack = spa_streq(str, "jack");
 
 		pw_log_debug("%p: add node %d", c, id);
 
+		if (o->node.is_jack) {
+			o->proxy = pw_registry_bind(c->registry,
+				id, type, PW_VERSION_NODE, 0);
+			if (o->proxy) {
+				pw_proxy_add_listener(o->proxy,
+						&o->proxy_listener, &proxy_events, o);
+				pw_proxy_add_object_listener(o->proxy,
+						&o->object_listener, &node_events, o);
+			}
+		}
 		pthread_mutex_lock(&c->context.lock);
 		spa_list_append(&c->context.objects, &o->link);
 		pthread_mutex_unlock(&c->context.lock);
@@ -3254,6 +3297,8 @@ static void registry_event_global(void *data, uint32_t id,
 			o->port.node = ot;
 			o->port.latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
 			o->port.latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
+
+			do_emit = !ot->node.is_jack || ot->node.is_running;
 
 			o->proxy = pw_registry_bind(c->registry,
 				id, type, PW_VERSION_PORT, 0);
@@ -3409,15 +3454,16 @@ static void registry_event_global(void *data, uint32_t id,
 
 	switch (o->type) {
 	case INTERFACE_Node:
-		if (is_first) {
-			pw_log_info("%p: client added \"%s\"", c, o->node.name);
+		pw_log_info("%p: client added \"%s\" emit:%d", c, o->node.name, do_emit);
+		if (do_emit)
 			queue_notify(c, NOTIFY_TYPE_REGISTRATION, o, 1, NULL);
-		}
 		break;
 
 	case INTERFACE_Port:
-		pw_log_info("%p: port added %u/%u \"%s\"", c, o->id, o->serial, o->port.name);
-		queue_notify(c, NOTIFY_TYPE_PORTREGISTRATION, o, 1, NULL);
+		pw_log_info("%p: port added %u/%u \"%s\" emit:%d", c, o->id,
+				o->serial, o->port.name, do_emit);
+		if (do_emit)
+			queue_notify(c, NOTIFY_TYPE_PORTREGISTRATION, o, 1, NULL);
 		break;
 
 	case INTERFACE_Link:

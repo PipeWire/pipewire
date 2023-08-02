@@ -486,7 +486,6 @@ static int media_endpoint_to_profile(const char *endpoint)
 		return SPA_BT_PROFILE_BAP_BROADCAST_SOURCE;
 	else if (spa_strstartswith(endpoint, BAP_BROADCAST_SOURCE_ENDPOINT "/"))
 		return SPA_BT_PROFILE_BAP_BROADCAST_SINK;
-		
 	else
 		return SPA_BT_PROFILE_NULL;
 }
@@ -1186,7 +1185,6 @@ static uint32_t adapter_connectable_profiles(struct spa_bt_adapter *adapter)
 		mask |= SPA_BT_PROFILE_BAP_BROADCAST_SOURCE;
 	if (profiles & SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)
 		mask |= SPA_BT_PROFILE_BAP_BROADCAST_SINK;
-
 
 	if (profiles & SPA_BT_PROFILE_HSP_AG)
 		mask |= SPA_BT_PROFILE_HSP_HS;
@@ -2360,6 +2358,44 @@ static struct spa_bt_remote_endpoint *remote_endpoint_find(struct spa_bt_monitor
 	return NULL;
 }
 
+static struct spa_bt_device* create_bcast_device(struct spa_bt_monitor *monitor,
+											const char *object_path)
+{	
+	struct spa_bt_device *d;
+	d = device_create(monitor, object_path);
+	if (d == NULL) {
+		spa_log_warn(monitor->log, "can't create Bluetooth device %s: %m",
+				object_path);
+		return NULL;
+	}
+	else {
+		spa_log_warn(monitor->log, "created device %s", d->path);
+	}
+
+	d->adapter = adapter_find(monitor, object_path);
+	if (d->adapter == NULL) {
+		spa_log_info(monitor->log, "unknown adapter %s", d->adapter_path );
+	}
+	d->adapter_path = d->adapter->path;
+	d->alias = "bcast_device";
+	d->name = "bcast_device";
+	d->address = "00:00:00:00:00:00";
+	
+	spa_bt_device_check_profiles(d, false);
+	d->reconnect_state = BT_DEVICE_RECONNECT_INIT;
+
+	if (!device_props_ready(d))
+	{
+		return NULL;
+	}
+
+	device_update_hw_volume_profiles(d);
+
+	spa_bt_device_add_profile(d, SPA_BT_PROFILE_NULL);
+
+	return d;
+}
+
 static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_endpoint,
 				DBusMessageIter *props_iter,
 				DBusMessageIter *invalidated_iter)
@@ -2392,8 +2428,22 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 			else if (spa_streq(key, "Device")) {
 				struct spa_bt_device *device;
 				device = spa_bt_device_find(monitor, value);
-				if (device == NULL)
-					goto next;
+				if (device == NULL) {
+					/*
+					* If a broadcast sink endpoint is detected (over DBus) a new device
+					* will be created.  This device will be our simulated remote device. 
+					* This is done because BlueZ sets the adapter as the device
+					* that is connected to for a broadcast sink endpoint/transport.
+					*/
+					if(spa_streq(remote_endpoint->uuid, SPA_BT_UUID_BAP_BROADCAST_SINK)) {
+						device = create_bcast_device(monitor, value);
+						remote_endpoint->acceptor = true;
+						device_set_connected(device, 1);
+					} else {
+						goto next;
+					}
+				}
+
 				spa_log_debug(monitor->log, "remote_endpoint %p: device -> %p", remote_endpoint, device);
 
 				if (remote_endpoint->device != device) {
@@ -4203,7 +4253,6 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	const struct media_codec *codec;
 	int profile;
 	bool sink;
-	struct spa_bt_device *d;
 
 	if (!dbus_message_has_signature(m, "oa{sv}")) {
 		spa_log_warn(monitor->log, "invalid SetConfiguration() signature");
@@ -4255,27 +4304,6 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	transport->profile = profile;
 	transport->media_codec = codec;
 	transport_update_props(transport, &it[1], NULL);
-	/*
-	 * Switch the device from the one read from DBus to the one created by us.
-	 * This is done because in BlueZ, when the transport is created, at the 
-	 * "Device" property, BlueZ sets the adapter as the device that 
-	 * the transport is connected to.
-	 * */
-	if(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK)	{
-
-		if (transport->device != NULL)
-		{
-			spa_log_warn(monitor->log, "transport->device != NULL");
-			spa_list_remove(&transport->device_link);
-		}
-		
-		d = spa_bt_device_find(monitor, "/org/bluez/hci0/dev_00_00_00_00_00_00");
-		if (d != NULL) {
-			transport->device = d;
-		}
-
-		spa_list_append(&d->transport_list, &transport->device_link);
-	}
 
 	if (transport->device == NULL || transport->device->adapter == NULL) {
 		spa_log_warn(monitor->log, "no device found for transport");
@@ -4687,13 +4715,13 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 					if (caps_size < 0)
 						continue;
 
+					spa_autofree char *endpoint = NULL;
 					ret = media_codec_to_endpoint(codec, SPA_BT_MEDIA_SOURCE_BROADCAST, &endpoint);
 						if (ret == 0) {
 							spa_log_info(monitor->log, "register media source codec %s: %s", media_codecs[i]->name, endpoint);
 							append_media_object(&array, endpoint,
 									SPA_BT_UUID_BAP_BROADCAST_SOURCE,
 									codec_id, caps, caps_size);
-							free(endpoint);
 						}
 				}
 			}
@@ -4996,44 +5024,6 @@ static void reselect_backend(struct spa_bt_monitor *monitor, bool silent)
 				backend ? backend->name : "none");
 }
 
-static struct spa_bt_device* create_bcast_device(struct spa_bt_monitor *monitor,
-											const char *object_path)
-{	
-	struct spa_bt_device *d;
-	d = device_create(monitor, "/org/bluez/hci0/dev_00_00_00_00_00_00");
-	if (d == NULL) {
-		spa_log_warn(monitor->log, "can't create Bluetooth device %s: %m",
-				object_path);
-		return NULL;
-	}
-	else {
-		spa_log_warn(monitor->log, "created device /org/bluez/hci0/dev_00_00_00_00_00_00");
-	}
-
-	d->adapter_path = "/org/bluez/hci0";
-	d->adapter = adapter_find(monitor, d->adapter_path);
-	if (d->adapter == NULL) {
-		spa_log_info(monitor->log, "unknown adapter %s", d->adapter_path );
-	}
-	d->alias = "bcast_device";
-	d->name = "bcast_device";
-	d->address = "00:00:00:00:00:00";
-	
-	spa_bt_device_check_profiles(d, false);
-	d->reconnect_state = BT_DEVICE_RECONNECT_INIT;
-
-	if (!device_props_ready(d))
-	{
-		return NULL;
-	}
-
-	device_update_hw_volume_profiles(d);
-
-	spa_bt_device_add_profile(d, SPA_BT_PROFILE_NULL);
-
-	return d;
-}
-
 static void interface_added(struct spa_bt_monitor *monitor,
 			    DBusConnection *conn,
 			    const char *object_path,
@@ -5117,20 +5107,6 @@ static void interface_added(struct spa_bt_monitor *monitor,
 			}
 		}
 		remote_endpoint_update_props(ep, props_iter, NULL);
-		/*
-		 * If a broadcast sink endpoint is detected (over DBus) a new device
-		 * will be created with the address 00:00:00:00:00:00.
-		 * This device will be our simulated remote device. 
-		 * This is done because BlueZ sets the adapter as the device
-		 * that is connected to for a broadcast sink endpoint/transport.
-		 */
-		if(spa_streq(ep->uuid, SPA_BT_UUID_BAP_BROADCAST_SINK)) {
-			d = create_bcast_device(monitor, object_path);
-			ep->device = d;
-			ep->acceptor = true;
-			spa_list_append(&d->remote_endpoint_list, &ep->device_link);
-			device_set_connected(d, 1);
-		}
 
 		d = ep->device;
 		if (d)

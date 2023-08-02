@@ -984,6 +984,11 @@ int pw_conf_section_update_props(const struct spa_dict *conf,
 	return res == 0 ? data.count : res;
 }
 
+static bool valid_conf_name(const char *str)
+{
+	return spa_streq(str, "null") || spa_strendswith(str, ".conf");
+}
+
 static int try_load_conf(const char *conf_prefix, const char *conf_name,
 			 struct pw_properties *conf)
 {
@@ -1018,6 +1023,11 @@ int pw_conf_load_conf_for_context(struct pw_properties *props, struct pw_propert
 		conf_name = pw_properties_get(props, PW_KEY_CONFIG_NAME);
 		if (conf_name == NULL)
 			conf_name = "client.conf";
+		else if (!valid_conf_name(conf_name)) {
+			pw_log_error("%s '%s' does not end with .conf",
+				PW_KEY_CONFIG_NAME, conf_name);
+			return -EINVAL;
+		}
 		if ((res = try_load_conf(conf_prefix, conf_name, conf)) < 0) {
 			pw_log_error("can't load config %s: %s",
 				conf_name, spa_strerror(res));
@@ -1029,6 +1039,12 @@ int pw_conf_load_conf_for_context(struct pw_properties *props, struct pw_propert
 	if (conf_name != NULL) {
 		struct pw_properties *override;
 		const char *path, *name;
+
+		if (!valid_conf_name(conf_name)) {
+			pw_log_error("%s '%s' does not end with .conf",
+				PW_KEY_CONFIG_OVERRIDE_NAME, conf_name);
+			return -EINVAL;
+		}
 
 		override = pw_properties_new(NULL, NULL);
 		if (override == NULL) {

@@ -981,6 +981,10 @@ static int adapter_update_props(struct spa_bt_adapter *adapter,
 					adapter->profiles |= SPA_BT_PROFILE_BAP_SINK;
 					spa_log_debug(monitor->log, "adapter %p: add UUID=%s", adapter, SPA_BT_UUID_BAP_SOURCE);
 					adapter->profiles |= SPA_BT_PROFILE_BAP_SOURCE;
+					spa_log_debug(monitor->log, "adapter %p: add UUID=%s", adapter, SPA_BT_UUID_BAP_BROADCAST_SOURCE);
+					adapter->profiles |= SPA_BT_PROFILE_BAP_BROADCAST_SOURCE;
+					spa_log_debug(monitor->log, "adapter %p: add UUID=%s", adapter, SPA_BT_UUID_BAP_BROADCAST_SINK);
+					adapter->profiles |= SPA_BT_PROFILE_BAP_BROADCAST_SINK;
 				}
 				dbus_message_iter_next(&iter);
 			}
@@ -1023,12 +1027,18 @@ static int adapter_media_update_props(struct spa_bt_adapter *adapter,
 
 				dbus_message_iter_get_basic(&iter, &uuid);
 
-				if (spa_streq(uuid, SPA_BT_UUID_BAP_SINK)
-					|| spa_streq(uuid, SPA_BT_UUID_BAP_BROADCAST_SOURCE)) {
+				if (spa_streq(uuid, SPA_BT_UUID_BAP_SINK)) {
 					adapter->le_audio_supported = true;
 					spa_log_info(monitor->log, "Adapter %s: LE Audio supported",
 							adapter->path);
 				}
+
+				if (spa_streq(uuid, SPA_BT_UUID_BAP_BROADCAST_SOURCE)) {
+					adapter->le_audio_bcast_supported = true;
+					spa_log_info(monitor->log, "Adapter %s: LE Broadcast Audio supported",
+							adapter->path);
+				}
+
 				dbus_message_iter_next(&iter);
 			}
 		}
@@ -4660,12 +4670,25 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 	}
 	else if (dbus_message_is_method_call(m, "org.freedesktop.DBus.ObjectManager", "GetManagedObjects")) {
 		spa_autoptr(DBusMessage) r = NULL;
+		struct spa_bt_adapter *a;
+		bool register_bcast = false;
 
 		if ((r = dbus_message_new_method_return(m)) == NULL)
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
 		dbus_message_iter_init_append(r, &iter);
 		dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{oa{sa{sv}}}", &array);
+
+		/*
+		 * Verify if an adapter exists that supports bap broadcast.
+		 * If this adapter exists will register the broadcast endpoint.
+		 */
+		spa_list_for_each(a, &monitor->adapter_list, link) {
+			if (a->le_audio_bcast_supported) {
+					register_bcast = true;
+					break;
+				}
+		}
 
 		for (i = 0; media_codecs[i]; i++) {
 			const struct media_codec *codec = media_codecs[i];
@@ -4709,7 +4732,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 				}
 			}
 
-			if(codec->bap)
+			if((codec->bap) && register_bcast)
 			{
 				if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST)) {
 					caps_size = codec->fill_caps(codec, 0, caps);
@@ -4927,7 +4950,7 @@ static int adapter_register_application(struct spa_bt_adapter *a, bool bap)
 	if (!bap && a->a2dp_application_registered)
 		return 0;
 
-	if (bap && !a->le_audio_supported) {
+	if ((bap && !a->le_audio_supported) && (bap && !a->le_audio_bcast_supported)) {
 		spa_log_info(monitor->log, "Adapter %s indicates LE Audio unsupported: not registering application",
 				a->path);
 		return -ENOTSUP;

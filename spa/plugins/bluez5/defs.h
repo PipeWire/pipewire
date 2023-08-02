@@ -365,6 +365,7 @@ struct spa_bt_adapter {
 	unsigned int le_audio_supported:1;
 	unsigned int has_adapter1_interface:1;
 	unsigned int has_media1_interface:1;
+	unsigned int le_audio_bcast_supported :1;
 };
 
 enum spa_bt_form_factor {

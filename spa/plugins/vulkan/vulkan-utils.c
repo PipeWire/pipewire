@@ -266,6 +266,9 @@ static int queryFormatInfo(struct vulkan_base *s, struct vulkan_base_info *info)
 			if (!(props.drmFormatModifierTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT))
 				continue;
 
+			if (props.drmFormatModifierPlaneCount > DMABUF_MAX_PLANES)
+				continue;
+
 			VkPhysicalDeviceImageDrmFormatModifierInfoEXT modInfo = {
 				.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_DRM_FORMAT_MODIFIER_INFO_EXT,
 				.drmFormatModifier = props.drmFormatModifier,

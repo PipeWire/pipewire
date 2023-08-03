@@ -6,6 +6,7 @@
 #include <spa/node/node.h>
 
 #define MAX_BUFFERS 16
+#define DMABUF_MAX_PLANES 1
 
 struct vulkan_modifier_info {
 	VkDrmFormatModifierPropertiesEXT props;

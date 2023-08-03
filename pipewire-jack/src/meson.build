@@ -21,12 +21,19 @@ libjack_path = get_option('libjack-path')
 if libjack_path == ''
   libjack_path = modules_install_dir / 'jack'
   libjack_path_dlopen = modules_install_dir_dlopen / 'jack'
+  libjack_path_enable = ''
+elif libjack_path == get_option('libdir') or libjack_path == pipewire_libdir
+  libjack_path = pipewire_libdir
+  libjack_path_dlopen = libjack_path
+  libjack_path_enable = '#'
 else
   libjack_path_dlopen = libjack_path
+  libjack_path_enable = ''
 endif
 
 tools_config = configuration_data()
 tools_config.set('LIBJACK_PATH', libjack_path_dlopen)
+tools_config.set('LIBJACK_PATH_ENABLE', libjack_path_enable)
 
 configure_file(input : 'pw-jack.in',
                output : 'pw-jack',

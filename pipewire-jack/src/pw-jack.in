@@ -54,7 +54,7 @@ if [ -n "$PERIOD" ]; then
 fi
 
 # shellcheck disable=SC2016 # ${LIB} is interpreted by ld.so, not the shell
-LD_LIBRARY_PATH='@LIBJACK_PATH@'"${LD_LIBRARY_PATH+":$LD_LIBRARY_PATH"}"
-export LD_LIBRARY_PATH
+@LIBJACK_PATH_ENABLE@LD_LIBRARY_PATH='@LIBJACK_PATH@'"${LD_LIBRARY_PATH+":$LD_LIBRARY_PATH"}"
+@LIBJACK_PATH_ENABLE@export LD_LIBRARY_PATH
 
 exec "$@"

@@ -503,6 +503,11 @@ int spa_vulkan_get_buffer_caps(struct vulkan_compute_state *s, enum spa_directio
 	return 0;
 }
 
+struct vulkan_modifier_info *spa_vulkan_get_modifier_info(struct vulkan_compute_state *s, struct spa_video_info_dsp *info) {
+	VkFormat vk_format = vulkan_id_to_vkformat(info->format);
+	return vulkan_modifierInfo_find(&s->base, vk_format, info->modifier);
+}
+
 int spa_vulkan_init(struct vulkan_compute_state *s)
 {
 	s->base.log = s->log;

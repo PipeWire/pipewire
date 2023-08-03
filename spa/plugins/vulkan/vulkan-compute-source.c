@@ -640,13 +640,26 @@ impl_node_port_enum_params(void *object, int seq,
 				this->position->video.size.height,
 				this->position->video.stride);
 
-		param = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_ParamBuffers, id,
-			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
-			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(this->position->video.stride *
-								this->position->video.size.height),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(this->position->video.stride));
+
+		if (port->current_format.info.dsp.flags & SPA_VIDEO_FLAG_MODIFIER) {
+			struct vulkan_modifier_info *mod_info = spa_vulkan_get_modifier_info(&this->state,
+				&port->current_format.info.dsp);
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamBuffers, id,
+				SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
+				SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(mod_info->props.drmFormatModifierPlaneCount),
+				SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(1<<SPA_DATA_DmaBuf));
+		} else {
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamBuffers, id,
+				SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
+				SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+				SPA_PARAM_BUFFERS_size,    SPA_POD_Int(this->position->video.stride *
+					this->position->video.size.height),
+				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(this->position->video.stride),
+				SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(1<<SPA_DATA_MemPtr));
+		}
+
 		break;
 	}
 	case SPA_PARAM_Meta:

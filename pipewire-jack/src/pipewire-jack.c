@@ -928,6 +928,7 @@ static void emit_callbacks(struct client *c)
 	int32_t avail;
 	uint32_t index;
 	struct notify *notify;
+	bool do_graph = false;
 
 	if (c->frozen_callbacks != 0 || !c->pending_callbacks)
 		return;
@@ -978,11 +979,12 @@ static void emit_callbacks(struct client *c)
 					o->port_link.dst_serial,
 					notify->arg1,
 					c->connect_arg);
+
+			do_graph = true;
 			break;
 		case NOTIFY_TYPE_GRAPH:
 			pw_log_debug("%p: graph", c);
-			recompute_latencies(c);
-			do_callback(c, graph_callback, c->active, c->graph_arg);
+			do_graph = true;
 			break;
 		case NOTIFY_TYPE_BUFFER_FRAMES:
 			pw_log_debug("%p: buffer frames %d", c, notify->arg1);
@@ -1032,6 +1034,10 @@ static void emit_callbacks(struct client *c)
 		avail -= sizeof(struct notify);
 		index += sizeof(struct notify);
 		spa_ringbuffer_read_update(&c->notify_ring, index);
+	}
+	if (do_graph) {
+		recompute_latencies(c);
+		do_callback(c, graph_callback, c->active, c->graph_arg);
 	}
 	thaw_callbacks(c);
 	pw_log_debug("%p: leave", c);
@@ -3470,8 +3476,8 @@ static void registry_event_global(void *data, uint32_t id,
 		pw_log_info("%p: link %u %u/%u -> %u/%u added", c,
 				o->id, o->port_link.src, o->port_link.src_serial,
 				o->port_link.dst, o->port_link.dst_serial);
-		queue_notify(c, NOTIFY_TYPE_CONNECT, o, 1, NULL);
-		queue_notify(c, NOTIFY_TYPE_GRAPH, NULL, 0, NULL);
+		if (do_emit)
+			queue_notify(c, NOTIFY_TYPE_CONNECT, o, 1, NULL);
 		break;
 	}
 	emit_callbacks(c);
@@ -3525,7 +3531,6 @@ static void registry_event_global_remove(void *data, uint32_t id)
 					o->port_link.src, o->port_link.src_serial,
 					o->port_link.dst, o->port_link.dst_serial);
 			queue_notify(c, NOTIFY_TYPE_CONNECT, o, 0, NULL);
-			queue_notify(c, NOTIFY_TYPE_GRAPH, NULL, 0, NULL);
 		} else {
 			pw_log_warn("unlink between unknown ports %d and %d",
 					o->port_link.src, o->port_link.dst);

@@ -787,44 +787,44 @@ static int ensure_state(struct pw_impl_node *node, bool running)
 	return pw_impl_node_set_state(node, state);
 }
 
-/* From a node (that is runnable) follow all prepared links and groups to
- * active nodes up to the driver and make them recursively runnable as well.
- *
- * We stop at driver nodes so that other paths linked to the driver will stay
- * unrunnable when no other runnable path exists.
+/* From a node (that is runnable) follow all prepared links in the given direction
+ * and groups to active nodes and make them recursively runnable as well.
  */
-static inline int run_nodes(struct pw_context *context, struct pw_impl_node *node, struct spa_list *nodes)
+static inline int run_nodes(struct pw_context *context, struct pw_impl_node *node,
+		struct spa_list *nodes, enum pw_direction direction)
 {
 	struct pw_impl_node *t;
 	struct pw_impl_port *p;
 	struct pw_impl_link *l;
 
-	pw_log_debug("node %p: '%s'", node, node->name);
+	pw_log_debug("node %p: '%s' direction:%s", node, node->name,
+			pw_direction_as_string(direction));
 
-	spa_list_for_each(p, &node->input_ports, link) {
-		spa_list_for_each(l, &p->links, input_link) {
-			t = l->output->node;
+	if (direction == PW_DIRECTION_INPUT) {
+		spa_list_for_each(p, &node->input_ports, link) {
+			spa_list_for_each(l, &p->links, input_link) {
+				t = l->output->node;
 
-			if (!t->active || !l->prepared || t->runnable)
-				continue;
+				if (!t->active || !l->prepared || (!t->driving && t->runnable))
+					continue;
 
-			pw_log_debug("  peer %p: '%s'", t, t->name);
-			t->runnable = true;
-			if (!t->driving)
-				run_nodes(context, t, nodes);
+				pw_log_debug("  peer %p: '%s'", t, t->name);
+				t->runnable = true;
+				run_nodes(context, t, nodes, direction);
+			}
 		}
-	}
-	spa_list_for_each(p, &node->output_ports, link) {
-		spa_list_for_each(l, &p->links, output_link) {
-			t = l->input->node;
+	} else {
+		spa_list_for_each(p, &node->output_ports, link) {
+			spa_list_for_each(l, &p->links, output_link) {
+				t = l->input->node;
 
-			if (!t->active || !l->prepared || t->runnable)
-				continue;
+				if (!t->active || !l->prepared || (!t->driving && t->runnable))
+					continue;
 
-			pw_log_debug("  peer %p: '%s'", t, t->name);
-			t->runnable = true;
-			if (!t->driving)
-				run_nodes(context, t, nodes);
+				pw_log_debug("  peer %p: '%s'", t, t->name);
+				t->runnable = true;
+				run_nodes(context, t, nodes, direction);
+			}
 		}
 	}
 	/* now go through all the nodes that have the same link group and
@@ -842,7 +842,7 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
 			pw_log_debug("  group %p: '%s'", t, t->name);
 			t->runnable = true;
 			if (!t->driving)
-				run_nodes(context, t, nodes);
+				run_nodes(context, t, nodes, direction);
 		}
 	}
 	return 0;
@@ -944,8 +944,10 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 		pw_log_debug(" next node %p: '%s' runnable:%u", n, n->name, n->runnable);
 	}
 	spa_list_for_each(n, collect, sort_link)
-		if (!n->driving && n->runnable)
-			run_nodes(context, n, collect);
+		if (!n->driving && n->runnable) {
+			run_nodes(context, n, collect, PW_DIRECTION_OUTPUT);
+			run_nodes(context, n, collect, PW_DIRECTION_INPUT);
+		}
 
 	return 0;
 }

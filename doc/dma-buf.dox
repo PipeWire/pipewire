@@ -1,7 +1,7 @@
 /** \page page_dma_buf DMA-BUF Sharing
 
 PipeWire supports sharing Direct Memory Access buffers (DMA-BUFs) between
-clients via the `SPA_DATA_DmaBuf` data type. However properly negotiating
+clients via the \ref SPA_DATA_DmaBuf data type. However properly negotiating
 DMA-BUF support on both the producer and the consumer side require following
 a specific procedure. This page describes said procedure by using events and
 methods from the filter or stream API.
@@ -21,37 +21,37 @@ allocating the buffers.
 
 ## pw_stream_connect
 
-The stream parameters should contain two `SPA_PARAM_EnumFormat` objects for
+The stream parameters should contain two \ref SPA_PARAM_EnumFormat objects for
 each format: one for DMA-BUFs, one for shared memory buffers as a fallback.
 
 Query the list of all supported modifiers from your graphics API of choice.
-Add a `SPA_FORMAT_VIDEO_modifier` property to the first stream parameter with
+Add a \ref SPA_FORMAT_VIDEO_modifier property to the first stream parameter with
 the flags `SPA_POD_PROP_FLAG_MANDATORY | SPA_POD_PROP_FLAG_DONT_FIXATE`. The
-value of the property should be set to a `SPA_CHOICE_Enum` containing one
+value of the property should be set to a \ref SPA_CHOICE_Enum containing one
 `long` choice per supported modifier, plus `DRM_FORMAT_MOD_INVALID` if the
 graphics API supports modifier-less buffers.
 
 Note: When a producer is only supporting modifier-less buffers it can omit
-the `SPA_POD_PROP_FLAG_DONT_FIXATE` (see param_changed hook, For producers).
+the \ref SPA_POD_PROP_FLAG_DONT_FIXATE (see param_changed hook, For producers).
 
-The second stream parameter should not contain any `SPA_FORMAT_VIDEO_modifier`
+The second stream parameter should not contain any \ref SPA_FORMAT_VIDEO_modifier
 property.
 
-To prioritise DMA-BUFs place those `SPA_PARAM_EnumFormat` containing modifiers
+To prioritise DMA-BUFs place those \ref SPA_PARAM_EnumFormat containing modifiers
 first, when emitting them to PipeWire.
 
 ## param_changed Hook
 
-When the `param_changed` hook is called for a `SPA_PARAM_Format` the client
+When the `param_changed` hook is called for a \ref SPA_PARAM_Format the client
 has to parse the `spa_pod` directly. Use
 `spa_pod_find_prop(param, NULL, SPA_FORMAT_VIDEO_modifier)` to check
 whether modifiers were negotiated. If they were negotiated, set the
-`SPA_PARAM_BUFFERS_dataType` property to `1 << SPA_DATA_DmaBuf`. If they were
+\ref SPA_PARAM_BUFFERS_dataType property to `1 << SPA_DATA_DmaBuf`. If they were
 not negotiated, fall back to shared memory by setting the
-`SPA_PARAM_BUFFERS_dataType` property to `1 << SPA_DATA_MemFd`,
+\ref SPA_PARAM_BUFFERS_dataType property to `1 << SPA_DATA_MemFd`,
 `1 << SPA_DATA_MemPtr`, or both.
 
-While consumers only have to parse the resulting `SPA_PARAM_Format` for any
+While consumers only have to parse the resulting \ref SPA_PARAM_Format for any
 format related information, it's up to the producer to fixate onto a single
 format modifier pair. The producer is also responsible to check if all clients
 announce sufficient capabilities or fallback to shared memory buffers when
@@ -59,7 +59,7 @@ possible.
 
 ### For Consumers
 
-Use `spa_format_video_raw_parse` to get the format and modifier.
+Use \ref spa_format_video_raw_parse to get the format and modifier.
 
 ### For Producers
 
@@ -70,28 +70,28 @@ modifier-aware one, or supporting both.
 - modifier-less:
   In this case only the modifier `DRM_FORMAT_MOD_INVALID` was announced with
   the format.
-  It is sufficient to check if the `SPA_PARAM_Format` contains the modifier
+  It is sufficient to check if the \ref SPA_PARAM_Format contains the modifier
   property as described above. If that is the case, use DMA-BUFs for screen-sharing,
   else fall back to SHM, if possible.
 - modifier-aware:
   In this case a list with all supported modifiers will be returned in the format.
   (using `DRM_FORMAT_MOD_INVALID` as the token for the modifier-less API).
   On the `param_changed` event check if the modifier key is present and has the flag
-  `SPA_POD_PROP_FLAG_DONT_FIXATE` attached to it. In this case, extract all modifiers
+  \ref SPA_POD_PROP_FLAG_DONT_FIXATE attached to it. In this case, extract all modifiers
   from the list and do a test allocation with your allocator to choose the preferred
-  modifier. Fixate on that `EnumFormat` by announcing a `SPA_PARAM_EnumFormat` with
-  only one modifier in the `SPA_CHOICE_Enum` and without the
-  `SPA_POD_PROP_FLAG_DONT_FIXATE` flag, followed by the previous announced
-  `EnumFormat`. This will retrigger the `param_changed` event with an
-  `SPA_PARAM_Format` as described below.
-  If the `SPA_PARAM_Format` contains a modifier key, without the flag
-  `SPA_POD_PROP_FLAG_DONT_FIXATE`, it should only contain one value in the
-  `SPA_CHOICE_Enum`. In this case announce the `SPA_PARAM_Buffers` accordingly
+  modifier. Fixate on that \ref EnumFormat by announcing a \ref SPA_PARAM_EnumFormat with
+  only one modifier in the \ref SPA_CHOICE_Enum and without the
+  \ref SPA_POD_PROP_FLAG_DONT_FIXATE flag, followed by the previous announced
+  \ref EnumFormat. This will retrigger the `param_changed` event with an
+  \ref SPA_PARAM_Format as described below.
+  If the \ref SPA_PARAM_Format contains a modifier key, without the flag
+  \ref SPA_POD_PROP_FLAG_DONT_FIXATE, it should only contain one value in the
+  \ref SPA_CHOICE_Enum. In this case announce the \ref SPA_PARAM_Buffers accordingly
   to the selected format and modifier. It is important to query the plane count
   of the used format modifier pair and set `SPA_PARAM_BUFFERS_blocks` accordingly.
 
 Note: When test allocating a buffer, collect all possible modifiers, while omitting
-`DRM_FORMAT_MOD_INVALID` from the `SPA_FORMAT_VIDEO_modifier` property and
+`DRM_FORMAT_MOD_INVALID` from the \ref SPA_FORMAT_VIDEO_modifier property and
 pass them all to the graphics API. If the allocation fails and the list of
 possible modifiers contains `DRM_FORMAT_MOD_INVALID`, fall back to allocating
 without an explicit modifier if the graphics API allows it.
@@ -106,9 +106,9 @@ Allocate a DMA-BUF only using the negotiated format and modifier.
 
 This is relevant for consumers.
 
-Check the type of the dequeued buffer. If its `SPA_DATA_MemFd` or
-`SPA_DATA_MemPtr` use the fallback SHM import mechanism.
-If it's `SPA_DATA_DmaBuf` 
+Check the type of the dequeued buffer. If its \ref SPA_DATA_MemFd or
+\ref SPA_DATA_MemPtr use the fallback SHM import mechanism.
+If it's \ref SPA_DATA_DmaBuf
 get the DMA-BUF FDs (the plane count is encoded in the `n_datas` variable of the
 `spa_buffer` struct) and import them with the graphics API.
 
@@ -150,14 +150,17 @@ via the filedescriptor.
 # SPA param video format helpers
 
 SPA offers helper functions to parse and build a spa_pod object to/from the spa_video_info_*
-struct. The flags `SPA_VIDEO_FLAG_MODIFIER` and `SPA_VIDEO_FLAG_MODIFIER_FIXATION_REQUIRED`
+struct. The flags \ref SPA_VIDEO_FLAG_MODIFIER and \ref SPA_VIDEO_FLAG_MODIFIER_FIXATION_REQUIRED
 are used to indicate modifier usage with the format. `SPA_VIDEO_FLAG_MODIFIER` declares the
 parsed/provided spa_video_info_* struct contains valid modifier information. For legacy
 reasons `spa_format_video_*_build` will announce any modifier != 0 even when this flag is
 unused. `SPA_VIDEO_FLAG_MODIFIER_FIXATION_REQUIRED` is exclusive to the parse helpers and
 declares that the parsed spa_pod contains modifier information which needs to be fixated as
-described aboath. The list of available modifiers has to be parsed manually from the spa_pod
+described above. The list of available modifiers has to be parsed manually from the spa_pod
 object.
+
+- \ref spa_video_info_raw, \ref spa_format_video_raw_parse, \ref spa_format_video_raw_build
+- \ref spa_video_info_dsp, \ref spa_format_video_dsp_parse, \ref spa_format_video_dsp_build
 
 # v4l2
 

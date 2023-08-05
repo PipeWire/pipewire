@@ -49,9 +49,11 @@ spa_format_video_dsp_build(struct spa_pod_builder *builder, uint32_t id,
 	if (info->format != SPA_VIDEO_FORMAT_UNKNOWN)
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_format,	SPA_POD_Id(info->format), 0);
-	if (info->modifier != 0 || info->flags & SPA_VIDEO_FLAG_MODIFIER)
-		spa_pod_builder_add(builder,
-			SPA_FORMAT_VIDEO_modifier,	SPA_POD_Long(info->modifier), 0);
+	if (info->modifier != 0 || info->flags & SPA_VIDEO_FLAG_MODIFIER) {
+		spa_pod_builder_prop(builder,
+			SPA_FORMAT_VIDEO_modifier,	SPA_POD_PROP_FLAG_MANDATORY);
+		spa_pod_builder_long(builder,           info->modifier);
+	}
 	return (struct spa_pod*)spa_pod_builder_pop(builder, &f);
 }
 

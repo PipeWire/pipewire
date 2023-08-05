@@ -68,9 +68,11 @@ spa_format_video_raw_build(struct spa_pod_builder *builder, uint32_t id,
 	if (info->framerate.denom != 0)
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_framerate,	SPA_POD_Fraction(&info->framerate), 0);
-	if (info->modifier != 0 || info->flags & SPA_VIDEO_FLAG_MODIFIER)
-		spa_pod_builder_add(builder,
-			SPA_FORMAT_VIDEO_modifier,	SPA_POD_Long(info->modifier), 0);
+	if (info->modifier != 0 || info->flags & SPA_VIDEO_FLAG_MODIFIER) {
+		spa_pod_builder_prop(builder,
+			SPA_FORMAT_VIDEO_modifier,	SPA_POD_PROP_FLAG_MANDATORY);
+		spa_pod_builder_long(builder,           info->modifier);
+	}
 	if (info->max_framerate.denom != 0)
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_maxFramerate,	SPA_POD_Fraction(info->max_framerate), 0);

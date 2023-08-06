@@ -736,6 +736,7 @@ impl_node_port_use_buffers(void *object,
 		b->flags = 0;
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
+		spa_log_info(this->log, "%p: %d:%d add buffer %p", port, direction, port_id, b);
 		spa_list_append(&port->empty, &b->link);
 	}
 	spa_vulkan_use_buffers(&this->state, &this->state.streams[0], flags, n_buffers, buffers);

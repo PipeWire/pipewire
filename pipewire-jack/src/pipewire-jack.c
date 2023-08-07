@@ -3075,11 +3075,18 @@ static void node_info(void *data, const struct pw_node_info *info)
 {
 	struct object *n = data;
 	struct client *c = n->client;
+	const char *str;
 
-	pw_log_info("DSP node %d state change %s", info->id,
-			pw_node_state_as_string(info->state));
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS) {
+		str = spa_dict_lookup(info->props, PW_KEY_NODE_ALWAYS_PROCESS);
+		n->node.is_jack = str ? spa_atob(str) : false;
+	}
 
-	n->node.is_running = (info->state == PW_NODE_STATE_RUNNING);
+	n->node.is_running = !n->node.is_jack || (info->state == PW_NODE_STATE_RUNNING);
+
+	pw_log_debug("DSP node %d %08"PRIx64" jack:%u state change %s running:%d", info->id,
+			info->change_mask, n->node.is_jack,
+			pw_node_state_as_string(info->state), n->node.is_running);
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_STATE) {
 		struct object *p;

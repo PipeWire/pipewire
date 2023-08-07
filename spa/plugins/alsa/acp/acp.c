@@ -281,6 +281,18 @@ static void profile_free(void *data)
 	}
 }
 
+static const char *find_best_verb(pa_card *impl)
+{
+	const char *res = NULL;
+	unsigned prio = 0;
+	pa_alsa_ucm_verb *verb;
+	PA_LLIST_FOREACH(verb, impl->ucm.verbs) {
+		if (verb->priority >= prio)
+			res = pa_proplist_gets(verb->proplist, PA_ALSA_PROP_UCM_NAME);
+	}
+	return res;
+}
+
 static int add_pro_profile(pa_card *impl, uint32_t index)
 {
 	snd_ctl_t *ctl_hndl;
@@ -292,6 +304,16 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 	snd_pcm_info_t *pcminfo;
 	pa_sample_spec ss;
 	snd_pcm_uframes_t try_period_size, try_buffer_size;
+
+	if (impl->use_ucm) {
+		const char *verb = find_best_verb(impl);
+		if (verb == NULL)
+			return -ENOTSUP;
+		if ((err = snd_use_case_set(impl->ucm.ucm_mgr, "_verb", verb)) < 0) {
+			pa_log_error("error setting verb: %s", snd_strerror(err));
+			return err;
+		}
+	}
 
 	ss.format = PA_SAMPLE_S32LE;
 	ss.rate = impl->rate;

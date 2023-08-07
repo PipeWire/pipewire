@@ -171,6 +171,7 @@ struct object {
 	struct spa_hook proxy_listener;
 	struct spa_hook object_listener;
 	int registered;
+	unsigned int visible;
 	unsigned int removing:1;
 	unsigned int removed:1;
 };
@@ -723,7 +724,7 @@ static struct object *find_port_by_name(struct client *c, const char *name)
 	struct object *o;
 
 	spa_list_for_each(o, &c->context.objects, link) {
-		if (o->type != INTERFACE_Port || o->removed)
+		if (o->type != INTERFACE_Port || o->removed || !o->visible)
 			continue;
 		if (spa_streq(o->port.name, name) ||
 		    spa_streq(o->port.alias1, name) ||
@@ -1056,6 +1057,7 @@ static int queue_notify(struct client *c, int type, struct object *o, int arg1, 
 		break;
 	case NOTIFY_TYPE_PORTREGISTRATION:
 		emit = c->portregistration_callback != NULL && o != NULL;
+		o->visible = arg1;
 		break;
 	case NOTIFY_TYPE_CONNECT:
 		emit = c->connect_callback != NULL && o != NULL;
@@ -5989,7 +5991,7 @@ const char ** jack_get_ports (jack_client_t *client,
 	count = 0;
 
 	spa_list_for_each(o, &c->context.objects, link) {
-		if (o->type != INTERFACE_Port || o->removed)
+		if (o->type != INTERFACE_Port || o->removed || !o->visible)
 			continue;
 		pw_log_debug("%p: check port type:%d flags:%08lx name:\"%s\"", c,
 				o->port.type_id, o->port.flags, o->port.name);

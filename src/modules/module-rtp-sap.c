@@ -1435,6 +1435,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	uint32_t port;
 	const char *str;
 	int res = 0;
+	char addr[64];
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -1484,7 +1485,15 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				res = ioctl(fd, SIOCGIFADDR, &req);
 				if (res < 0)
 					pw_log_warn("SIOCGIFADDR %s failed: %m", impl->ifname);
-				str = inet_ntoa(((struct sockaddr_in *)&req.ifr_addr)->sin_addr);
+				str = inet_ntop(req.ifr_addr.sa_family,
+						&((struct sockaddr_in *)&req.ifr_addr)->sin_addr,
+						addr, sizeof(addr));
+				if (str == NULL) {
+					pw_log_warn("can't parse interface ip: %m");
+					str = DEFAULT_SOURCE_IP;
+				} else {
+					pw_log_info("interface %s IP: %s", impl->ifname, str);
+				}
 				close(fd);
 			}
 		}

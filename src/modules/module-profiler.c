@@ -104,7 +104,11 @@ struct impl {
 	struct spa_source *flush_event;
 	unsigned int listening:1;
 
+#ifdef max_align_t
 	alignas(max_align_t)
+#else
+	alignas(64)
+#endif
 	uint8_t flush[FLUSH_BUFFER + sizeof(struct spa_pod_struct)];
 };
 

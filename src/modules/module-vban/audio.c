@@ -103,7 +103,7 @@ static int vban_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 
 	hlen = VBAN_HEADER_SIZE;
 	plen = len - hlen;
-	samples = SPA_MIN(hdr->format_nbs, plen / stride);
+	samples = SPA_MIN(hdr->format_nbs+1, plen / stride);
 
 	n_frames = hdr->n_frames;
 	if (impl->have_sync && impl->n_frames != n_frames) {

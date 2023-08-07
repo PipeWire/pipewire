@@ -132,7 +132,7 @@ static int vban_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 		filled = impl->target_buffer;
 
 		spa_dll_init(&impl->dll);
-		spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 128, impl->rate);
+		spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MAX, 128, impl->rate);
 		memset(impl->buffer, 0, BUFFER_SIZE);
 		impl->have_sync = true;
 	} else if (expected_write != write) {
@@ -145,7 +145,7 @@ static int vban_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 				BUFFER_SIZE / stride);
 		impl->have_sync = false;
 	} else {
-		pw_log_debug("got samples:%u", samples);
+		pw_log_trace("got samples:%u", samples);
 		spa_ringbuffer_write_data(&impl->ring,
 				impl->buffer,
 				BUFFER_SIZE,

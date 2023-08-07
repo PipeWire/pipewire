@@ -393,7 +393,7 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 		pw_properties_setf(props, "vban.channels", "%u", impl->info.info.raw.channels);
 
 	spa_dll_init(&impl->dll);
-	spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 128, impl->rate);
+	spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MAX, 128, impl->rate);
 	impl->corr = 1.0;
 
 	impl->stream = pw_stream_new(core, "vban-session", props);

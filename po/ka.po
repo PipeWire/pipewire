@@ -1,25 +1,25 @@
-# Georgian translation for pipewire.
-# Copyright (C) 2022 pipewire'S authors
+# Georgian translation of pipewire
+# Copyright (C) 2023 pipewire's authors
 # This file is distributed under the same license as the pipewire package.
-# Temuri Doghonadze <temuri.doghonadze@gmail.com>, 2022.
+# Temuri Doghonadze <temuri.doghonadze@gmail.com>, 2023.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
-"POT-Creation-Date: 2022-06-30 12:50+0200\n"
-"PO-Revision-Date: 2022-11-20 11:50+0100\n"
+"POT-Creation-Date: 2023-08-07 22:01+0200\n"
+"PO-Revision-Date: 2023-08-07 22:06+0200\n"
 "Last-Translator: Temuri Doghonadze <temuri.doghonadze@gmail.com>\n"
-"Language-Team: \n"
+"Language-Team: Georgian <(nothing)>\n"
 "Language: ka\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Poedit 3.2\n"
+"X-Generator: Poedit 3.3.2\n"
 
-#: src/daemon/pipewire.c:46
+#: src/daemon/pipewire.c:26
 #, c-format
 msgid ""
 "%s [options]\n"
@@ -32,36 +32,44 @@ msgstr ""
 "       --version ვერსიის ჩვენება\n"
 "   -c, --config ჩატვირთვის კონფიგურაცია (ნაგულისხმები %s)\n"
 
-#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:180
-#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:180
-#, c-format
-msgid "Tunnel to %s/%s"
-msgstr "გვირაბი %s/%s -მდე"
+#: src/daemon/pipewire.desktop.in:4
+msgid "PipeWire Media System"
+msgstr "PipeWire Media System"
 
-#: src/modules/module-fallback-sink.c:51
+#: src/daemon/pipewire.desktop.in:5
+msgid "Start the PipeWire Media System"
+msgstr "PipeWire Media System-ის გაშვება"
+
+#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:141
+#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:141
+#, c-format
+msgid "Tunnel to %s%s%s"
+msgstr "გვირაბი %s%s%s-მდე"
+
+#: src/modules/module-fallback-sink.c:31
 msgid "Dummy Output"
 msgstr "ნულოვანი გამოყვანა"
 
-#: src/modules/module-pulse-tunnel.c:662
+#: src/modules/module-pulse-tunnel.c:847
 #, c-format
 msgid "Tunnel for %s@%s"
 msgstr "გვირაბი %s@%s-სთვის"
 
-#: src/modules/module-zeroconf-discover.c:332
+#: src/modules/module-zeroconf-discover.c:311
 msgid "Unknown device"
 msgstr "უცნობი მოწყობილობა"
 
-#: src/modules/module-zeroconf-discover.c:344
+#: src/modules/module-zeroconf-discover.c:323
 #, c-format
 msgid "%s on %s@%s"
 msgstr "%s %s@%s -ზე"
 
-#: src/modules/module-zeroconf-discover.c:348
+#: src/modules/module-zeroconf-discover.c:327
 #, c-format
 msgid "%s on %s"
 msgstr "%s %s-ზე"
 
-#: src/tools/pw-cat.c:784
+#: src/tools/pw-cat.c:979
 #, c-format
 msgid ""
 "%s [options] [<file>|-]\n"
@@ -76,14 +84,15 @@ msgstr ""
 "   -v, --verbose დამატებითი შეტყობინებების გამოტანა\n"
 "\n"
 
-#: src/tools/pw-cat.c:791
+#: src/tools/pw-cat.c:986
 #, c-format
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
 "      --media-type                      Set media type (default %s)\n"
 "      --media-category                  Set media category (default %s)\n"
 "      --media-role                      Set media role (default %s)\n"
-"      --target                          Set node target (default %s)\n"
+"      --target                          Set node target serial or name "
+"(default %s)\n"
 "                                          0 means don't link\n"
 "      --latency                         Set node latency (default %s)\n"
 "                                          Xunit (unit = s, ms, us, ns)\n"
@@ -106,7 +115,7 @@ msgstr ""
 "ფაილი\n"
 "   -P --properties კვანძის თვისებების დაყენება\n"
 
-#: src/tools/pw-cat.c:809
+#: src/tools/pw-cat.c:1004
 #, c-format
 msgid ""
 "      --rate                            Sample rate (req. for rec) (default "
@@ -139,21 +148,23 @@ msgstr ""
 "   -q --quality                         Resampler ხარისხი (0 - 15) "
 "(ნაგულისხმები %d)\n"
 
-#: src/tools/pw-cat.c:826
+#: src/tools/pw-cat.c:1021
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"
 "  -m, --midi                            Midi mode\n"
 "  -d, --dsd                             DSD mode\n"
+"  -o, --encoded                         Encoded mode\n"
 "\n"
 msgstr ""
-"   -p, --playback                        დაკვრის რეჟიმი\n"
-"   -r, -- record                          ჩაწერის რეჟიმი\n"
-"   -m, --midi                            Midi რეჟიმი\n"
-"   -d, --dsd                             DSD რეჟიმი\n"
+"  -p, --playback                        დაკვრის რეჟიმი\n"
+"  -r, --record                          ჩაწერის რეჟიმი\n"
+"  -m, --midi                            Midi რეჟიმი\n"
+"  -d, --dsd                             DSD რეჟიმი\n"
+"  -o, --encoded                         დაშიფრული რეჟიმი\n"
 "\n"
 
-#: src/tools/pw-cli.c:2250
+#: src/tools/pw-cli.c:2220
 #, c-format
 msgid ""
 "%s [options] [command]\n"
@@ -161,23 +172,26 @@ msgid ""
 "      --version                         Show version\n"
 "  -d, --daemon                          Start as daemon (Default false)\n"
 "  -r, --remote                          Remote daemon name\n"
+"  -m, --monitor                         Monitor activity\n"
 "\n"
 msgstr ""
 "%s [პარამეტრები] [ბრძანება]\n"
-"   -h, --help                            ამ დახმარების ჩვენება\n"
-"       --version                         ვერსიის ჩვენება\n"
-"   -d, --daemon                          დაწყება როგორც დემონი (ნაგულისხმები "
-"false)\n"
-"   -r, --remote                          დაშორებული დემონის სახელი\n"
+"  -h, --help                            ამ დახმარების ჩვენება\n"
+"      --version                         ვერსიის ჩვენება\n"
+"  -d, --daemon                          დემონის სახით გაშვება (ნაგულისხმევად "
+"გამორთულია)\n"
+"  -r, --remote                          დაშორებული დემონის სახელი\n"
+"  -m, --monitor                         აქტივობის მონიტორინგი\n"
+"\n"
 
-#: spa/plugins/alsa/acp/acp.c:321
+#: spa/plugins/alsa/acp/acp.c:325
 msgid "Pro Audio"
 msgstr "Pro Audio"
 
-#: spa/plugins/alsa/acp/acp.c:444 spa/plugins/alsa/acp/alsa-mixer.c:4648
-#: spa/plugins/bluez5/bluez5-device.c:1236
+#: spa/plugins/alsa/acp/acp.c:449 spa/plugins/alsa/acp/alsa-mixer.c:4648
+#: spa/plugins/bluez5/bluez5-device.c:1586
 msgid "Off"
-msgstr "გამორთული"
+msgstr "გამორთულია"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2652
 msgid "Input"
@@ -193,7 +207,7 @@ msgstr "Docking Station-ის მიკროფონი"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2655
 msgid "Docking Station Line In"
-msgstr "Docking Station Line In"
+msgstr "Docking Station-ის Line In პორტი"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2656
 #: spa/plugins/alsa/acp/alsa-mixer.c:2747
@@ -202,7 +216,7 @@ msgstr "Line In"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2657
 #: spa/plugins/alsa/acp/alsa-mixer.c:2741
-#: spa/plugins/bluez5/bluez5-device.c:1454
+#: spa/plugins/bluez5/bluez5-device.c:1831
 msgid "Microphone"
 msgstr "მიკროფონი"
 
@@ -268,7 +282,7 @@ msgid "No Bass Boost"
 msgstr "Bass-ის გაძლიერების გარეშე"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2672
-#: spa/plugins/bluez5/bluez5-device.c:1460
+#: spa/plugins/bluez5/bluez5-device.c:1837
 msgid "Speaker"
 msgstr "დინამიკი"
 
@@ -383,7 +397,7 @@ msgstr "სტერეო"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4484
 #: spa/plugins/alsa/acp/alsa-mixer.c:4642
-#: spa/plugins/bluez5/bluez5-device.c:1442
+#: spa/plugins/bluez5/bluez5-device.c:1819
 msgid "Headset"
 msgstr "ყურსაცვამები & მიკროფონი"
 
@@ -497,12 +511,12 @@ msgstr "სტერეო დუპლექსი"
 msgid "Mono Chat + 7.1 Surround"
 msgstr "მონო ჩატი + 7.1 სივრცითი"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4754
+#: spa/plugins/alsa/acp/alsa-mixer.c:4748
 #, c-format
 msgid "%s Output"
 msgstr "%s გამოყვანა"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4761
+#: spa/plugins/alsa/acp/alsa-mixer.c:4756
 #, c-format
 msgid "%s Input"
 msgstr "%s შეყვანა"
@@ -533,13 +547,13 @@ msgstr[1] ""
 #: spa/plugins/alsa/acp/alsa-util.c:1253
 #, c-format
 msgid ""
-"snd_pcm_delay() returned a value that is exceptionally large: %li byte (%s"
-"%lu ms).\n"
+"snd_pcm_delay() returned a value that is exceptionally large: %li byte "
+"(%s%lu ms).\n"
 "Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
 "to the ALSA developers."
 msgid_plural ""
-"snd_pcm_delay() returned a value that is exceptionally large: %li bytes (%s"
-"%lu ms).\n"
+"snd_pcm_delay() returned a value that is exceptionally large: %li bytes "
+"(%s%lu ms).\n"
 "Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
 "to the ALSA developers."
 msgstr[0] ""
@@ -601,92 +615,104 @@ msgstr "ჩაშენებული აუდიო"
 msgid "Modem"
 msgstr "მოდემი"
 
-#: spa/plugins/bluez5/bluez5-device.c:1247
+#: spa/plugins/bluez5/bluez5-device.c:1597
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr "Audio Gateway (A2DP წყარო & HSP/HFP AG)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1272
+#: spa/plugins/bluez5/bluez5-device.c:1622
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr "მაღალი ხარისხის ხმა (A2DP Sink, კოდეკი %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1275
+#: spa/plugins/bluez5/bluez5-device.c:1625
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr "მაღალი ხარისხის დუპლექსი (A2DP წყარო/Sink, კოდეკი %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1283
+#: spa/plugins/bluez5/bluez5-device.c:1633
 msgid "High Fidelity Playback (A2DP Sink)"
 msgstr "მაღალი ხარისხის ხმა (A2DP Sink)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1285
+#: spa/plugins/bluez5/bluez5-device.c:1635
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
 msgstr "მაღალი ხარისხის დუპლექსი(A2DP წყარო/Sink)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1322
+#: spa/plugins/bluez5/bluez5-device.c:1677
 #, c-format
 msgid "High Fidelity Playback (BAP Sink, codec %s)"
 msgstr "მაღალი ხარისხის დაკვრა (BAP Sink, კოდეკი %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1326
+#: spa/plugins/bluez5/bluez5-device.c:1681
 #, c-format
 msgid "High Fidelity Input (BAP Source, codec %s)"
 msgstr "მაღალი ხარისხის შეყვანა (BAP წყარო, კოდეკი %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1330
+#: spa/plugins/bluez5/bluez5-device.c:1685
 #, c-format
 msgid "High Fidelity Duplex (BAP Source/Sink, codec %s)"
 msgstr "მაღალი ხარისხის დუპლექსი (BAP წყარო/Sink, კოდეკი %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1359
+#: spa/plugins/bluez5/bluez5-device.c:1693
+msgid "High Fidelity Playback (BAP Sink)"
+msgstr "მაღალი ხარისხის დაკვრა (BAP Sink)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1696
+msgid "High Fidelity Input (BAP Source)"
+msgstr "მაღალი ხარისხის შეყვანა (BAP წყარო)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1699
+msgid "High Fidelity Duplex (BAP Source/Sink)"
+msgstr "მაღალი ხარისხის დუპლექსი (BAP წყარო/Sink)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1735
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
 msgstr "Headset Head Unit (HSP/HFP, კოდეკი %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1364
+#: spa/plugins/bluez5/bluez5-device.c:1740
 msgid "Headset Head Unit (HSP/HFP)"
 msgstr "Headset Head Unit (HSP/HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1443
-#: spa/plugins/bluez5/bluez5-device.c:1448
-#: spa/plugins/bluez5/bluez5-device.c:1455
-#: spa/plugins/bluez5/bluez5-device.c:1461
-#: spa/plugins/bluez5/bluez5-device.c:1467
-#: spa/plugins/bluez5/bluez5-device.c:1473
-#: spa/plugins/bluez5/bluez5-device.c:1479
-#: spa/plugins/bluez5/bluez5-device.c:1485
-#: spa/plugins/bluez5/bluez5-device.c:1491
+#: spa/plugins/bluez5/bluez5-device.c:1820
+#: spa/plugins/bluez5/bluez5-device.c:1825
+#: spa/plugins/bluez5/bluez5-device.c:1832
+#: spa/plugins/bluez5/bluez5-device.c:1838
+#: spa/plugins/bluez5/bluez5-device.c:1844
+#: spa/plugins/bluez5/bluez5-device.c:1850
+#: spa/plugins/bluez5/bluez5-device.c:1856
+#: spa/plugins/bluez5/bluez5-device.c:1862
+#: spa/plugins/bluez5/bluez5-device.c:1868
 msgid "Handsfree"
 msgstr "ხელის გარეშე სამართავი"
 
-#: spa/plugins/bluez5/bluez5-device.c:1449
+#: spa/plugins/bluez5/bluez5-device.c:1826
 msgid "Handsfree (HFP)"
 msgstr "ხელის გარეშე სამართავი (HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1466
+#: spa/plugins/bluez5/bluez5-device.c:1843
 msgid "Headphone"
 msgstr "ყურსაცვამი"
 
-#: spa/plugins/bluez5/bluez5-device.c:1472
+#: spa/plugins/bluez5/bluez5-device.c:1849
 msgid "Portable"
 msgstr "გადატანადი"
 
-#: spa/plugins/bluez5/bluez5-device.c:1478
+#: spa/plugins/bluez5/bluez5-device.c:1855
 msgid "Car"
 msgstr "მანქანა"
 
-#: spa/plugins/bluez5/bluez5-device.c:1484
+#: spa/plugins/bluez5/bluez5-device.c:1861
 msgid "HiFi"
 msgstr "HiFi"
 
-#: spa/plugins/bluez5/bluez5-device.c:1490
+#: spa/plugins/bluez5/bluez5-device.c:1867
 msgid "Phone"
 msgstr "ტელეფონი"
 
-#: spa/plugins/bluez5/bluez5-device.c:1497
+#: spa/plugins/bluez5/bluez5-device.c:1874
 msgid "Bluetooth"
-msgstr "Bluetooth"
+msgstr "ლურჯკბილა"
 
-#: spa/plugins/bluez5/bluez5-device.c:1498
+#: spa/plugins/bluez5/bluez5-device.c:1875
 msgid "Bluetooth (HFP)"
-msgstr "Bluetooth (HFP)"
+msgstr "ბლუთუზი (HFP)"

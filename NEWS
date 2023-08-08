@@ -1,3 +1,56 @@
+# PipeWire 0.3.78 (2023-08-22)
+
+This is a small bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - An old regression was fixed with where some nodes would not run.
+  - A regression was fixed where removed events would not be shown in some
+    cases. This would result in duplicate entries in audio clients.
+  - Fix an off-by-one in the vban audio receiver. Tweak the rate adaption
+    a little.
+  - ACP will now set a UCM verb before probing the pro-audio devices.
+  - More bugfixes and improvements.
+
+
+## PipeWire
+  - An old regression was fixed with where some nodes would not run. (#3405)
+  - Suspend was improved a little to avoid races when the session manager would
+    suspend right when a driver was starting.
+
+## Modules
+  - module-rtp-sap does not use the deprecated inet_aton anymore.
+  - Fix an off-by-one in the vban audio receiver. Tweak the rate adaption
+    a little. (#3380)
+
+## SPA
+  - ACP will now set a UCM verb before probing the pro-audio devices. (#3407)
+  - The mandatory flag will be set now on the video modifiers.
+  - EVL was updated to Xenomai4 r46 and xbuf creation was improved.
+  - An option was added to force colors in the log even when logging to !tty.
+  - The return type of spa_pod_builder_control() was fixed.
+  - inotify errors are handled better now. (#3439)
+
+## pulse-server
+  - A regression was fixed where removed events would not be shown in some
+    cases. (#3414)
+
+## Bluetooth
+  - Improve compatibility with more devices, avoid reusing the same transport
+    for different media-sink instances to avoid encoder resets.
+  - Improve enumeration of codec profiles for BAP and A2DP.
+
+## JACK
+  - Ensure we can't iterate ports from a deactivated client. Also make sure
+    the JACK clients with the node.always-process=false always show their
+    ports. (#3416)
+
+## GStreamer
+  - A potential crash was fixed in the device provider when stopping.
+
+Older versions:
+
+
 # PipeWire 0.3.77 (2023-08-04)
 
 This is a quick bugfix release that is API and ABI compatible with previous
@@ -48,9 +101,6 @@ This is a quick bugfix release that is API and ABI compatible with previous
 
 ## bluetooth
   - Use some more autoptr cleanups, fix some leaks.
-
-Older versions:
-
 
 # PipeWire 0.3.76 (2023-07-28)
 

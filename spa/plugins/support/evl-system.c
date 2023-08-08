@@ -18,6 +18,7 @@
 #include <spa/support/log.h>
 #include <spa/support/system.h>
 #include <spa/support/plugin.h>
+#include <spa/utils/names.h>
 #include <spa/utils/type.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
@@ -133,7 +134,7 @@ static int impl_pollfd_add(void *object, int pfd, int fd, uint32_t events, void 
 	e->fd = fd;
 	e->events = events;
 	e->data = data;
-	return evl_add_pollfd(pfd, fd, e->events);
+	return evl_add_pollfd(pfd, fd, e->events, evl_nil);
 }
 
 static int impl_pollfd_mod(void *object, int pfd, int fd, uint32_t events, void *data)
@@ -147,7 +148,7 @@ static int impl_pollfd_mod(void *object, int pfd, int fd, uint32_t events, void 
 
 	e->events = events;
 	e->data = data;
-	return evl_mod_pollfd(pfd, fd, e->events);
+	return evl_mod_pollfd(pfd, fd, e->events, evl_nil);
 }
 
 static int impl_pollfd_del(void *object, int pfd, int fd)
@@ -261,7 +262,7 @@ static int impl_eventfd_create(void *object, int flags)
 	struct impl *impl = object;
 	int res;
 
-	res = evl_new_xbuf(1024, 1024, "xbuf-%d-%p-%d", impl->pid, impl, impl->n_xbuf);
+	res = evl_new_xbuf(1024, "xbuf-%d-%p-%d", impl->pid, impl, impl->n_xbuf);
 	if (res < 0)
 		return res;
 

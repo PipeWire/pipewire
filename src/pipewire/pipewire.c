@@ -598,8 +598,11 @@ void pw_init(int *argc, char **argv[])
 		char *patterns = NULL;
 
 		n_items = 0;
-		if (!support->no_color)
-			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_COLORS, "true");
+		if (!support->no_color) {
+			if ((str = getenv("PIPEWIRE_LOG_COLOR")) == NULL)
+				str = "true";
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_COLORS, str);
+		}
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_TIMESTAMP, "true");
 		if ((str = getenv("PIPEWIRE_LOG_LINE")) == NULL || spa_atob(str))
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LINE, "true");

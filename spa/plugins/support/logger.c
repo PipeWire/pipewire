@@ -295,6 +295,7 @@ impl_init(const struct spa_handle_factory *factory,
 	struct spa_loop *loop = NULL;
 	const char *str, *dest = "";
 	bool linebuf = false;
+	bool force_colors = false;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -333,8 +334,14 @@ impl_init(const struct spa_handle_factory *factory,
 			this->timestamp = spa_atob(str);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_LINE)) != NULL)
 			this->line = spa_atob(str);
-		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_COLORS)) != NULL)
-			this->colors = spa_atob(str);
+		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_COLORS)) != NULL) {
+			if (spa_streq(str, "force")) {
+				this->colors = true;
+				force_colors = true;
+			} else {
+				this->colors = spa_atob(str);
+			}
+		}
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_LEVEL)) != NULL)
 			this->log.level = atoi(str);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_FILE)) != NULL) {
@@ -363,8 +370,9 @@ impl_init(const struct spa_handle_factory *factory,
 	if (linebuf)
 		setlinebuf(this->file);
 
-	if (!isatty(fileno(this->file)))
+	if (!isatty(fileno(this->file)) && !force_colors) {
 		this->colors = false;
+	}
 
 	spa_ringbuffer_init(&this->trace_rb);
 

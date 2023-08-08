@@ -171,5 +171,7 @@ environment variables:
 - `PIPEWIRE_LOG_SYSTEMD=false`: Disable logging to the systemd journal.
 - `PIPEWIRE_LOG=<filename>`: Redirect the log to the given filename.
 - `PIPEWIRE_LOG_LINE=false`: Don't log filename, function, and source code line.
+- `PIPEWIRE_LOG_COLOR=true/false/force`: Enable/disable color logging, and optionally force
+  colors even when logging to a file.
 
 */

@@ -1055,11 +1055,7 @@ static int emit_nodes(struct impl *this)
 			t = find_transport(this, SPA_BT_PROFILE_BAP_BROADCAST_SINK, this->props.codec);
 			if (t) {
 				this->props.codec = t->media_codec->id;
-				if (t->bap_initiator)
-					emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_MEDIA_SINK, false);
-				else
-					emit_dynamic_node(&this->dyn_media_sink, this, t,
-						DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_MEDIA_SINK, false);
+				emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_MEDIA_SINK, false);
 			}
 
 			if (this->device_set.leader && this->device_set.sinks > 0)
@@ -1698,10 +1694,12 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 
 			switch (profile) {
 			case SPA_BT_PROFILE_BAP_SINK:
+			case SPA_BT_PROFILE_BAP_BROADCAST_SINK:
 				desc_and_codec = spa_aprintf(_("High Fidelity Playback (BAP Sink, codec %s)"),
 						media_codec->description);
 				break;
 			case SPA_BT_PROFILE_BAP_SOURCE:
+			case SPA_BT_PROFILE_BAP_BROADCAST_SOURCE:
 				desc_and_codec = spa_aprintf(_("High Fidelity Input (BAP Source, codec %s)"),
 						media_codec->description);
 				break;
@@ -1714,9 +1712,11 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		} else {
 			switch (profile) {
 			case SPA_BT_PROFILE_BAP_SINK:
+			case SPA_BT_PROFILE_BAP_BROADCAST_SINK:
 				desc = _("High Fidelity Playback (BAP Sink)");
 				break;
 			case SPA_BT_PROFILE_BAP_SOURCE:
+			case SPA_BT_PROFILE_BAP_BROADCAST_SOURCE:
 				desc = _("High Fidelity Input (BAP Source)");
 				break;
 			default:

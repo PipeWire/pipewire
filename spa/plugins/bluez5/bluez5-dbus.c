@@ -2379,18 +2379,15 @@ static struct spa_bt_device* create_bcast_device(struct spa_bt_monitor *monitor,
 				object_path);
 		return NULL;
 	}
-	else {
-		spa_log_warn(monitor->log, "created device %s", d->path);
-	}
 
 	d->adapter = adapter_find(monitor, object_path);
 	if (d->adapter == NULL) {
-		spa_log_info(monitor->log, "unknown adapter %s", d->adapter_path );
+		spa_log_warn(monitor->log, "unknown adapter %s", d->adapter_path);
 	}
 	d->adapter_path = d->adapter->path;
-	d->alias = "bcast_device";
-	d->name = "bcast_device";
-	d->address = "00:00:00:00:00:00";
+	d->alias = strdup("bcast_device");
+	d->name = strdup("bcast_device");
+	d->address = strdup("00:00:00:00:00:00");
 	
 	spa_bt_device_check_profiles(d, false);
 	d->reconnect_state = BT_DEVICE_RECONNECT_INIT;
@@ -2448,6 +2445,9 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 					*/
 					if(spa_streq(remote_endpoint->uuid, SPA_BT_UUID_BAP_BROADCAST_SINK)) {
 						device = create_bcast_device(monitor, value);
+						if(device == NULL) {
+							goto next;
+						}
 						remote_endpoint->acceptor = true;
 						device_set_connected(device, 1);
 					} else {
@@ -3495,6 +3495,7 @@ finish:
 			spa_log_error(monitor->log, "transport %p: transport_create_iso_io failed",
 					transport);
 		/* For broadcast there initiator moves the transport state to SPA_BT_TRANSPORT_STATE_ACTIVE */
+		/* TODO: handeling multiple BIGs support */
 		if(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK)	{
 			spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ACTIVE);
 		} else {
@@ -4913,6 +4914,10 @@ static void unregister_media_application(struct spa_bt_monitor * monitor)
 
 		unregister_media_endpoint(monitor, codec, SPA_BT_MEDIA_SOURCE);
 		unregister_media_endpoint(monitor, codec, SPA_BT_MEDIA_SINK);
+		if(codec->bap)
+		{
+			unregister_media_endpoint(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST);
+		}
 	}
 
 	dbus_connection_unregister_object_path(monitor->conn, BAP_OBJECT_MANAGER_PATH);

@@ -40,6 +40,11 @@ struct vulkan_buffer {
 	VkSemaphore foreign_semaphore;
 };
 
+struct vulkan_staging_buffer {
+	VkBuffer buffer;
+	VkDeviceMemory memory;
+};
+
 struct vulkan_base_info {
 	uint32_t queueFlags;
 };

@@ -412,6 +412,40 @@ static VkImageAspectFlagBits mem_plane_aspect(uint32_t i)
 	}
 }
 
+int vulkan_staging_buffer_create(struct vulkan_base *s, uint32_t size, struct vulkan_staging_buffer *s_buf) {
+	VkBufferCreateInfo buf_info = {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+		.size = size,
+		.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+	};
+	VK_CHECK_RESULT(vkCreateBuffer(s->device, &buf_info, NULL, &s_buf->buffer));
+
+	VkMemoryRequirements memoryRequirements;
+	vkGetBufferMemoryRequirements(s->device, s_buf->buffer, &memoryRequirements);
+
+	VkMemoryAllocateInfo mem_info = {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+		.allocationSize = memoryRequirements.size,
+		.memoryTypeIndex = vulkan_memoryType_find(s,
+					  memoryRequirements.memoryTypeBits,
+					  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
+					  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT),
+	};
+	VK_CHECK_RESULT(vkAllocateMemory(s->device, &mem_info, NULL, &s_buf->memory));
+	VK_CHECK_RESULT(vkBindBufferMemory(s->device, s_buf->buffer, s_buf->memory, 0));
+
+	return 0;
+}
+
+void vulkan_staging_buffer_destroy(struct vulkan_base *s, struct vulkan_staging_buffer *s_buf) {
+	if (s_buf->buffer == VK_NULL_HANDLE)
+		return;
+	vkFreeMemory(s->device, s_buf->memory, NULL);
+	vkDestroyBuffer(s->device, s_buf->buffer, NULL);
+}
+
 static int allocate_dmabuf(struct vulkan_base *s, VkFormat format, uint32_t modifierCount, uint64_t *modifiers, VkImageUsageFlags usage, struct spa_rectangle *size, struct vulkan_buffer *vk_buf)
 {
 	VkImageDrmFormatModifierListCreateInfoEXT imageDrmFormatModifierListCreateInfo = {

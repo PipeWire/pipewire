@@ -260,16 +260,17 @@ static int impl_timerfd_read(void *object, int fd, uint64_t *expirations)
 static int impl_eventfd_create(void *object, int flags)
 {
 	struct impl *impl = object;
-	int res;
+	int res, fl;
 
-	res = evl_new_xbuf(1024, "xbuf-%d-%p-%d", impl->pid, impl, impl->n_xbuf);
+	fl = EVL_CLONE_PRIVATE;
+	if (flags & SPA_FD_NONBLOCK)
+		fl |= EVL_CLONE_NONBLOCK;
+
+	res = evl_create_xbuf(1024, 1024, fl, "xbuf-%d-%p-%d", impl->pid, impl, impl->n_xbuf);
 	if (res < 0)
 		return res;
 
 	impl->n_xbuf++;
-
-	if (flags & SPA_FD_NONBLOCK)
-		fcntl(res, F_SETFL, fcntl(res, F_GETFL) | O_NONBLOCK);
 
 	return res;
 }

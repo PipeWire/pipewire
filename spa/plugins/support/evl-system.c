@@ -249,10 +249,8 @@ static int impl_timerfd_gettime(void *object,
 }
 static int impl_timerfd_read(void *object, int fd, uint64_t *expirations)
 {
-	uint32_t ticks;
-	if (oob_read(fd, &ticks, sizeof(ticks)) != sizeof(ticks))
+	if (oob_read(fd, expirations, sizeof(uint64_t)) != sizeof(uint64_t))
 		return -errno;
-	*expirations = ticks;
 	return 0;
 }
 

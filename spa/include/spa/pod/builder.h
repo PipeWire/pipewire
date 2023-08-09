@@ -441,7 +441,7 @@ spa_pod_builder_push_sequence(struct spa_pod_builder *builder, struct spa_pod_fr
 	return res;
 }
 
-static inline uint32_t
+static inline int
 spa_pod_builder_control(struct spa_pod_builder *builder, uint32_t offset, uint32_t type)
 {
 	const struct { uint32_t offset; uint32_t type; } p = { offset, type };

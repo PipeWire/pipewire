@@ -538,6 +538,13 @@ static int port_set_format(struct impl *this, struct port *port,
 			modifier_fixed = true;
 		}
 
+		if (info.info.dsp.flags & SPA_VIDEO_FLAG_MODIFIER) {
+			port->info.flags |= SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
+		} else {
+			port->info.flags &= ~SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
+		}
+		port->info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
+
 		port->current_format = info;
 		port->have_format = true;
 
@@ -832,7 +839,7 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_PORT_CHANGE_MASK_PARAMS |
 			SPA_PORT_CHANGE_MASK_PROPS;
 	port->info = SPA_PORT_INFO_INIT();
-	port->info.flags = SPA_PORT_FLAG_NO_REF | SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
+	port->info.flags = SPA_PORT_FLAG_NO_REF;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);

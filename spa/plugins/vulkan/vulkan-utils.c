@@ -29,6 +29,9 @@
 
 //#define ENABLE_VALIDATION
 
+#define VULKAN_INSTANCE_FUNCTION(name)						\
+	PFN_##name name = (PFN_##name)vkGetInstanceProcAddr(s->instance, #name)
+
 static int vkresult_to_errno(VkResult result)
 {
 	switch (result) {
@@ -399,6 +402,246 @@ void vulkan_buffer_clear(struct vulkan_base *s, struct vulkan_buffer *buffer)
 	vkFreeMemory(s->device, buffer->memory, NULL);
 	vkDestroyImage(s->device, buffer->image, NULL);
 	vkDestroyImageView(s->device, buffer->view, NULL);
+}
+
+static VkImageAspectFlagBits mem_plane_aspect(uint32_t i)
+{
+	switch (i) {
+	case 0: return VK_IMAGE_ASPECT_MEMORY_PLANE_0_BIT_EXT;
+	case 1: return VK_IMAGE_ASPECT_MEMORY_PLANE_1_BIT_EXT;
+	case 2: return VK_IMAGE_ASPECT_MEMORY_PLANE_2_BIT_EXT;
+	case 3: return VK_IMAGE_ASPECT_MEMORY_PLANE_3_BIT_EXT;
+	default: abort(); // unreachable
+	}
+}
+
+static int allocate_dmabuf(struct vulkan_base *s, VkFormat format, uint32_t modifierCount, uint64_t *modifiers, VkImageUsageFlags usage, struct spa_rectangle *size, struct vulkan_buffer *vk_buf)
+{
+	VkImageDrmFormatModifierListCreateInfoEXT imageDrmFormatModifierListCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_LIST_CREATE_INFO_EXT,
+		.drmFormatModifierCount = modifierCount,
+		.pDrmFormatModifiers = modifiers,
+	};
+
+	VkExternalMemoryImageCreateInfo extMemoryImageCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+		.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
+	};
+	extMemoryImageCreateInfo.pNext = &imageDrmFormatModifierListCreateInfo;
+
+	VkImageCreateInfo imageCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+		.imageType = VK_IMAGE_TYPE_2D,
+		.format = format,
+		.extent.width = size->width,
+		.extent.height = size->height,
+		.extent.depth = 1,
+		.mipLevels = 1,
+		.arrayLayers = 1,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.tiling = VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT,
+		.usage = usage,
+		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+	};
+	imageCreateInfo.pNext = &extMemoryImageCreateInfo;
+
+	VK_CHECK_RESULT(vkCreateImage(s->device,
+				&imageCreateInfo, NULL, &vk_buf->image));
+
+	VkMemoryRequirements memoryRequirements = {0};
+	vkGetImageMemoryRequirements(s->device,
+			vk_buf->image, &memoryRequirements);
+
+	VkExportMemoryAllocateInfo exportAllocateInfo = {
+		.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
+		.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
+	};
+	VkMemoryAllocateInfo allocateInfo = {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+		.allocationSize = memoryRequirements.size,
+		.memoryTypeIndex = vulkan_memoryType_find(s,
+					  memoryRequirements.memoryTypeBits,
+					  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+	};
+	allocateInfo.pNext = &exportAllocateInfo;
+
+	VK_CHECK_RESULT(vkAllocateMemory(s->device,
+			&allocateInfo, NULL, &vk_buf->memory));
+
+	VK_CHECK_RESULT(vkBindImageMemory(s->device,
+				vk_buf->image, vk_buf->memory, 0));
+
+	return 0;
+}
+
+int vulkan_create_dmabuf(struct vulkan_base *s, struct external_dmabuf_info *info, struct vulkan_buffer *vk_buf)
+{
+	VULKAN_INSTANCE_FUNCTION(vkGetMemoryFdKHR);
+
+	if (info->spa_buf->n_datas != 1)
+		return -1;
+
+	VK_CHECK_RESULT(allocate_dmabuf(s, info->format, 1, &info->modifier, info->usage, &info->size, vk_buf));
+
+	const VkMemoryGetFdInfoKHR getFdInfo = {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
+		.memory = vk_buf->memory,
+		.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT
+	};
+	int fd = -1;
+	VK_CHECK_RESULT(vkGetMemoryFdKHR(s->device, &getFdInfo, &fd));
+
+	const struct vulkan_modifier_info *modInfo = vulkan_modifierInfo_find(s, info->format, info->modifier);
+
+	if (info->spa_buf->n_datas != modInfo->props.drmFormatModifierPlaneCount)
+		return -1;
+
+	VkMemoryRequirements memoryRequirements = {0};
+	vkGetImageMemoryRequirements(s->device,
+			vk_buf->image, &memoryRequirements);
+
+	spa_log_info(s->log, "export DMABUF %zd", memoryRequirements.size);
+
+	for (uint32_t i = 0; i < info->spa_buf->n_datas; i++) {
+		VkImageSubresource subresource = {
+			.aspectMask = mem_plane_aspect(i),
+		};
+		VkSubresourceLayout subresLayout = {0};
+		vkGetImageSubresourceLayout(s->device, vk_buf->image, &subresource, &subresLayout);
+
+		info->spa_buf->datas[i].type = SPA_DATA_DmaBuf;
+		info->spa_buf->datas[i].fd = fd;
+		info->spa_buf->datas[i].flags = SPA_DATA_FLAG_READABLE;
+		info->spa_buf->datas[i].mapoffset = 0;
+		info->spa_buf->datas[i].chunk->offset = subresLayout.offset;
+		info->spa_buf->datas[i].chunk->stride = subresLayout.rowPitch;
+		info->spa_buf->datas[i].chunk->size = subresLayout.size;
+		info->spa_buf->datas[i].maxsize = memoryRequirements.size;
+	}
+	vk_buf->fd = fd;
+
+	VkImageViewCreateInfo viewInfo = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+		.image = vk_buf->image,
+		.viewType = VK_IMAGE_VIEW_TYPE_2D,
+		.format = info->format,
+		.components.r = VK_COMPONENT_SWIZZLE_R,
+		.components.g = VK_COMPONENT_SWIZZLE_G,
+		.components.b = VK_COMPONENT_SWIZZLE_B,
+		.components.a = VK_COMPONENT_SWIZZLE_A,
+		.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+		.subresourceRange.levelCount = 1,
+		.subresourceRange.layerCount = 1,
+	};
+
+	VK_CHECK_RESULT(vkCreateImageView(s->device,
+				&viewInfo, NULL, &vk_buf->view));
+	return 0;
+}
+
+int vulkan_import_dmabuf(struct vulkan_base *s, struct external_dmabuf_info *info, struct vulkan_buffer *vk_buf)
+{
+
+	if (info->spa_buf->n_datas == 0 || info->spa_buf->n_datas > DMABUF_MAX_PLANES)
+		return -1;
+
+	struct vulkan_modifier_info *modProps = vulkan_modifierInfo_find(s, info->format, info->modifier);
+	if (!modProps)
+		return -1;
+
+	uint32_t planeCount = info->spa_buf->n_datas;
+
+	if (planeCount != modProps->props.drmFormatModifierPlaneCount)
+		return -1;
+
+	if (info->size.width > modProps->max_extent.width || info->size.height > modProps->max_extent.height)
+		return -1;
+
+	VkSubresourceLayout planeLayouts[DMABUF_MAX_PLANES] = {0};
+	for (uint32_t i = 0; i < planeCount; i++) {
+		planeLayouts[i].offset = info->spa_buf->datas[i].chunk->offset;
+		planeLayouts[i].rowPitch = info->spa_buf->datas[i].chunk->stride;
+		planeLayouts[i].size = 0;
+	}
+
+	VkImageDrmFormatModifierExplicitCreateInfoEXT modInfo = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_EXPLICIT_CREATE_INFO_EXT,
+		.drmFormatModifierPlaneCount = planeCount,
+		.drmFormatModifier = info->modifier,
+		.pPlaneLayouts = planeLayouts,
+	};
+
+	VkExternalMemoryImageCreateInfo extInfo = {
+		.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+		.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
+		.pNext = &modInfo,
+	};
+
+	VkImageCreateInfo imageCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+		.imageType = VK_IMAGE_TYPE_2D,
+		.format = info->format,
+		.extent.width = info->size.width,
+		.extent.height = info->size.height,
+		.extent.depth = 1,
+		.mipLevels = 1,
+		.arrayLayers = 1,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.tiling = VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT,
+		.usage = info->usage,
+		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+		.pNext = &extInfo,
+	};
+
+	VK_CHECK_RESULT(vkCreateImage(s->device,
+				&imageCreateInfo, NULL, &vk_buf->image));
+
+	VkMemoryRequirements memoryRequirements;
+	vkGetImageMemoryRequirements(s->device,
+			vk_buf->image, &memoryRequirements);
+
+	vk_buf->fd = fcntl(info->spa_buf->datas[0].fd, F_DUPFD_CLOEXEC, 0);
+	VkImportMemoryFdInfoKHR importInfo = {
+		.sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR,
+		.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
+		.fd = fcntl(info->spa_buf->datas[0].fd, F_DUPFD_CLOEXEC, 0),
+	};
+
+	VkMemoryAllocateInfo allocateInfo = {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+		.allocationSize = memoryRequirements.size,
+		.memoryTypeIndex = vulkan_memoryType_find(s,
+					  memoryRequirements.memoryTypeBits,
+					  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+	};
+	allocateInfo.pNext = &importInfo;
+
+	spa_log_info(s->log, "import DMABUF");
+
+	VK_CHECK_RESULT(vkAllocateMemory(s->device,
+			&allocateInfo, NULL, &vk_buf->memory));
+	VK_CHECK_RESULT(vkBindImageMemory(s->device,
+				vk_buf->image, vk_buf->memory, 0));
+
+	VkImageViewCreateInfo viewInfo = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+		.image = vk_buf->image,
+		.viewType = VK_IMAGE_VIEW_TYPE_2D,
+		.format = info->format,
+		.components.r = VK_COMPONENT_SWIZZLE_R,
+		.components.g = VK_COMPONENT_SWIZZLE_G,
+		.components.b = VK_COMPONENT_SWIZZLE_B,
+		.components.a = VK_COMPONENT_SWIZZLE_A,
+		.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+		.subresourceRange.levelCount = 1,
+		.subresourceRange.layerCount = 1,
+	};
+
+	VK_CHECK_RESULT(vkCreateImageView(s->device,
+				&viewInfo, NULL, &vk_buf->view));
+	return 0;
 }
 
 int vulkan_stream_init(struct vulkan_stream *stream, enum spa_direction direction,

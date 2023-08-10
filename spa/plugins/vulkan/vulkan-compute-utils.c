@@ -31,12 +31,6 @@
 #define VULKAN_INSTANCE_FUNCTION(name)						\
 	PFN_##name name = (PFN_##name)vkGetInstanceProcAddr(s->base.instance, #name)
 
-static uint32_t findMemoryType(struct vulkan_compute_state *s,
-		uint32_t memoryTypeBits, VkMemoryPropertyFlags properties)
-{
-	return vulkan_memoryType_find(&s->base, memoryTypeBits, properties);
-}
-
 static int createFence(struct vulkan_compute_state *s) {
 	VkFenceCreateInfo createInfo = {
 		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
@@ -334,115 +328,60 @@ static void clear_streams(struct vulkan_compute_state *s)
 int spa_vulkan_use_buffers(struct vulkan_compute_state *s, struct vulkan_stream *p, uint32_t flags,
 		struct spa_video_info_dsp *dsp_info, uint32_t n_buffers, struct spa_buffer **buffers)
 {
-	uint32_t i;
-	VULKAN_INSTANCE_FUNCTION(vkGetMemoryFdKHR);
-
 	VkFormat format = vulkan_id_to_vkformat(dsp_info->format);
 	if (format == VK_FORMAT_UNDEFINED)
 		return -1;
 
+	vulkan_wait_idle(&s->base);
 	clear_buffers(s, p);
 
-	for (i = 0; i < n_buffers; i++) {
-		VkExternalMemoryImageCreateInfo extInfo;
-		VkImageCreateInfo imageCreateInfo = {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-			.imageType = VK_IMAGE_TYPE_2D,
-			.format = format,
-			.extent.width = s->constants.width,
-			.extent.height = s->constants.height,
-			.extent.depth = 1,
-			.mipLevels = 1,
-			.arrayLayers = 1,
-			.samples = VK_SAMPLE_COUNT_1_BIT,
-			.tiling = VK_IMAGE_TILING_LINEAR,
-			.usage = p->direction == SPA_DIRECTION_OUTPUT ?
-				VK_IMAGE_USAGE_STORAGE_BIT:
-				VK_IMAGE_USAGE_SAMPLED_BIT,
-			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		};
-
-		if (!(flags & SPA_NODE_BUFFERS_FLAG_ALLOC)) {
-			extInfo = (VkExternalMemoryImageCreateInfo) {
-				.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
-				.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
-			};
-			imageCreateInfo.pNext = &extInfo;
-		}
-
-		VK_CHECK_RESULT(vkCreateImage(s->base.device,
-					&imageCreateInfo, NULL, &p->buffers[i].image));
-
-		VkMemoryRequirements memoryRequirements;
-		vkGetImageMemoryRequirements(s->base.device,
-				p->buffers[i].image, &memoryRequirements);
-
-		VkMemoryAllocateInfo allocateInfo = {
-			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-			.allocationSize = memoryRequirements.size,
-			.memoryTypeIndex = findMemoryType(s,
-						  memoryRequirements.memoryTypeBits,
-						  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
-						  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT),
-		};
-
-		if (flags & SPA_NODE_BUFFERS_FLAG_ALLOC) {
-			VK_CHECK_RESULT(vkAllocateMemory(s->base.device,
-					&allocateInfo, NULL, &p->buffers[i].memory));
-
-			const VkMemoryGetFdInfoKHR getFdInfo = {
-				.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
-				.memory = p->buffers[i].memory,
-				.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT
-			};
-			int fd;
-
-		        VK_CHECK_RESULT(vkGetMemoryFdKHR(s->base.device, &getFdInfo, &fd));
-
-			spa_log_info(s->log, "export DMABUF %zd", memoryRequirements.size);
-
-//			buffers[i]->datas[0].type = SPA_DATA_DmaBuf;
-			buffers[i]->datas[0].type = SPA_DATA_MemFd;
-			buffers[i]->datas[0].fd = fd;
-			buffers[i]->datas[0].flags = SPA_DATA_FLAG_READABLE;
-			buffers[i]->datas[0].mapoffset = 0;
-			buffers[i]->datas[0].maxsize = memoryRequirements.size;
-			p->buffers[i].fd = fd;
+	bool alloc = flags & SPA_NODE_BUFFERS_FLAG_ALLOC;
+	int ret;
+	p->n_buffers = 0;
+	for (uint32_t i = 0; i < n_buffers; i++) {
+		if (alloc) {
+			if (SPA_FLAG_IS_SET(buffers[i]->datas[0].type, 1<<SPA_DATA_DmaBuf)) {
+				struct external_dmabuf_info dmabuf_info = {
+					.format = format,
+					.modifier = dsp_info->modifier,
+					.size.width = s->constants.width,
+					.size.height = s->constants.height,
+					.usage = p->direction == SPA_DIRECTION_OUTPUT
+						? VK_IMAGE_USAGE_STORAGE_BIT
+						: VK_IMAGE_USAGE_SAMPLED_BIT,
+					.spa_buf = buffers[i],
+				};
+				ret = vulkan_create_dmabuf(&s->base, &dmabuf_info, &p->buffers[i]);
+			} else {
+				spa_log_error(s->log, "Unsupported buffer type mask %d", buffers[i]->datas[0].type);
+				return -1;
+			}
 		} else {
-			VkImportMemoryFdInfoKHR importInfo = {
-				.sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR,
-				.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
-				.fd = fcntl(buffers[i]->datas[0].fd, F_DUPFD_CLOEXEC, 0),
-			};
-			allocateInfo.pNext = &importInfo;
-			p->buffers[i].fd = -1;
-			spa_log_info(s->log, "import DMABUF");
-
-			VK_CHECK_RESULT(vkAllocateMemory(s->base.device,
-					&allocateInfo, NULL, &p->buffers[i].memory));
+			switch (buffers[i]->datas[0].type) {
+			case SPA_DATA_DmaBuf:;
+				struct external_dmabuf_info dmabuf_info = {
+					.format = format,
+					.modifier = dsp_info->modifier,
+					.size.width = s->constants.width,
+					.size.height = s->constants.height,
+					.usage = p->direction == SPA_DIRECTION_OUTPUT
+						? VK_IMAGE_USAGE_STORAGE_BIT
+						: VK_IMAGE_USAGE_SAMPLED_BIT,
+					.spa_buf = buffers[i],
+				};
+				ret = vulkan_import_dmabuf(&s->base, &dmabuf_info, &p->buffers[i]);
+				break;
+			default:
+				spa_log_error(s->log, "Unsupported buffer type %d", buffers[i]->datas[0].type);
+				return -1;
+			}
 		}
-		VK_CHECK_RESULT(vkBindImageMemory(s->base.device,
-					p->buffers[i].image, p->buffers[i].memory, 0));
-
-		VkImageViewCreateInfo viewInfo = {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-			.image = p->buffers[i].image,
-			.viewType = VK_IMAGE_VIEW_TYPE_2D,
-			.format = format,
-			.components.r = VK_COMPONENT_SWIZZLE_R,
-			.components.g = VK_COMPONENT_SWIZZLE_G,
-			.components.b = VK_COMPONENT_SWIZZLE_B,
-			.components.a = VK_COMPONENT_SWIZZLE_A,
-			.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			.subresourceRange.levelCount = 1,
-			.subresourceRange.layerCount = 1,
-		};
-
-		VK_CHECK_RESULT(vkCreateImageView(s->base.device,
-					&viewInfo, NULL, &p->buffers[i].view));
+		if (ret != 0) {
+			spa_log_error(s->log, "Failed to use buffer %d", i);
+			return ret;
+		}
+		p->n_buffers++;
 	}
-	p->n_buffers = n_buffers;
 
 	return 0;
 }

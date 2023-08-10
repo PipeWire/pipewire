@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2019 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#pragma once
+
 #include <vulkan/vulkan.h>
 
 #include <spa/buffer/buffer.h>
@@ -33,6 +35,17 @@
 	if (_res < 0) 									\
 		return _res;								\
 }
+
+struct external_dmabuf_info {
+	VkFormat format;
+	uint64_t modifier;
+	struct spa_rectangle size;
+	VkImageUsageFlags usage;
+	struct spa_buffer *spa_buf;
+};
+
+int vulkan_create_dmabuf(struct vulkan_base *s, struct external_dmabuf_info *info, struct vulkan_buffer *vk_buf);
+int vulkan_import_dmabuf(struct vulkan_base *s, struct external_dmabuf_info *info, struct vulkan_buffer *vk_buf);
 
 int vulkan_commandPool_create(struct vulkan_base *s, VkCommandPool *commandPool);
 int vulkan_commandBuffer_create(struct vulkan_base *s, VkCommandPool commandPool, VkCommandBuffer *commandBuffer);

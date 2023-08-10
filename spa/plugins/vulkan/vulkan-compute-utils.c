@@ -469,7 +469,7 @@ int spa_vulkan_use_buffers(struct vulkan_compute_state *s, struct vulkan_stream 
 	for (uint32_t i = 0; i < n_buffers; i++) {
 		if (alloc) {
 			if (SPA_FLAG_IS_SET(buffers[i]->datas[0].type, 1<<SPA_DATA_DmaBuf)) {
-				struct external_dmabuf_info dmabuf_info = {
+				struct external_buffer_info dmabufInfo = {
 					.format = format,
 					.modifier = dsp_info->modifier,
 					.size.width = s->constants.width,
@@ -479,7 +479,7 @@ int spa_vulkan_use_buffers(struct vulkan_compute_state *s, struct vulkan_stream 
 						: VK_IMAGE_USAGE_SAMPLED_BIT,
 					.spa_buf = buffers[i],
 				};
-				ret = vulkan_create_dmabuf(&s->base, &dmabuf_info, &p->buffers[i]);
+				ret = vulkan_create_dmabuf(&s->base, &dmabufInfo, &p->buffers[i]);
 			} else {
 				spa_log_error(s->log, "Unsupported buffer type mask %d", buffers[i]->datas[0].type);
 				return -1;
@@ -487,7 +487,7 @@ int spa_vulkan_use_buffers(struct vulkan_compute_state *s, struct vulkan_stream 
 		} else {
 			switch (buffers[i]->datas[0].type) {
 			case SPA_DATA_DmaBuf:;
-				struct external_dmabuf_info dmabuf_info = {
+				struct external_buffer_info dmabufInfo = {
 					.format = format,
 					.modifier = dsp_info->modifier,
 					.size.width = s->constants.width,
@@ -497,7 +497,19 @@ int spa_vulkan_use_buffers(struct vulkan_compute_state *s, struct vulkan_stream 
 						: VK_IMAGE_USAGE_SAMPLED_BIT,
 					.spa_buf = buffers[i],
 				};
-				ret = vulkan_import_dmabuf(&s->base, &dmabuf_info, &p->buffers[i]);
+				ret = vulkan_import_dmabuf(&s->base, &dmabufInfo, &p->buffers[i]);
+				break;
+			case SPA_DATA_MemPtr:;
+				struct external_buffer_info memptrInfo = {
+					.format = format,
+					.size.width = s->constants.width,
+					.size.height = s->constants.height,
+					.usage = p->direction == SPA_DIRECTION_OUTPUT
+						? VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+						: VK_IMAGE_USAGE_SAMPLED_BIT,
+					.spa_buf = buffers[i],
+				};
+				ret = vulkan_import_memptr(&s->base, &memptrInfo, &p->buffers[i]);
 				break;
 			default:
 				spa_log_error(s->log, "Unsupported buffer type %d", buffers[i]->datas[0].type);

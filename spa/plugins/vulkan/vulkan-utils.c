@@ -559,7 +559,7 @@ int vulkan_fixate_modifier(struct vulkan_base *s, struct dmabuf_fixation_info *i
 	return 0;
 }
 
-int vulkan_create_dmabuf(struct vulkan_base *s, struct external_dmabuf_info *info, struct vulkan_buffer *vk_buf)
+int vulkan_create_dmabuf(struct vulkan_base *s, struct external_buffer_info *info, struct vulkan_buffer *vk_buf)
 {
 	VULKAN_INSTANCE_FUNCTION(vkGetMemoryFdKHR);
 
@@ -624,7 +624,7 @@ int vulkan_create_dmabuf(struct vulkan_base *s, struct external_dmabuf_info *inf
 	return 0;
 }
 
-int vulkan_import_dmabuf(struct vulkan_base *s, struct external_dmabuf_info *info, struct vulkan_buffer *vk_buf)
+int vulkan_import_dmabuf(struct vulkan_base *s, struct external_buffer_info *info, struct vulkan_buffer *vk_buf)
 {
 
 	if (info->spa_buf->n_datas == 0 || info->spa_buf->n_datas > DMABUF_MAX_PLANES)
@@ -703,6 +703,67 @@ int vulkan_import_dmabuf(struct vulkan_base *s, struct external_dmabuf_info *inf
 	allocateInfo.pNext = &importInfo;
 
 	spa_log_info(s->log, "import DMABUF");
+
+	VK_CHECK_RESULT(vkAllocateMemory(s->device,
+			&allocateInfo, NULL, &vk_buf->memory));
+	VK_CHECK_RESULT(vkBindImageMemory(s->device,
+				vk_buf->image, vk_buf->memory, 0));
+
+	VkImageViewCreateInfo viewInfo = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+		.image = vk_buf->image,
+		.viewType = VK_IMAGE_VIEW_TYPE_2D,
+		.format = info->format,
+		.components.r = VK_COMPONENT_SWIZZLE_R,
+		.components.g = VK_COMPONENT_SWIZZLE_G,
+		.components.b = VK_COMPONENT_SWIZZLE_B,
+		.components.a = VK_COMPONENT_SWIZZLE_A,
+		.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+		.subresourceRange.levelCount = 1,
+		.subresourceRange.layerCount = 1,
+	};
+
+	VK_CHECK_RESULT(vkCreateImageView(s->device,
+				&viewInfo, NULL, &vk_buf->view));
+	return 0;
+}
+
+int vulkan_import_memptr(struct vulkan_base *s, struct external_buffer_info *info, struct vulkan_buffer *vk_buf)
+{
+	VkImageCreateInfo imageCreateInfo = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+		.imageType = VK_IMAGE_TYPE_2D,
+		.format = info->format,
+		.extent.width = info->size.width,
+		.extent.height = info->size.height,
+		.extent.depth = 1,
+		.mipLevels = 1,
+		.arrayLayers = 1,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.tiling = VK_IMAGE_TILING_LINEAR,
+		.usage = info->usage,
+		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+	};
+
+	VK_CHECK_RESULT(vkCreateImage(s->device,
+				&imageCreateInfo, NULL, &vk_buf->image));
+
+	VkMemoryRequirements memoryRequirements;
+	vkGetImageMemoryRequirements(s->device,
+			vk_buf->image, &memoryRequirements);
+
+	VkMemoryAllocateInfo allocateInfo = {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+		.allocationSize = memoryRequirements.size,
+		.memoryTypeIndex = vulkan_memoryType_find(s,
+					  memoryRequirements.memoryTypeBits,
+					  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
+					  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT),
+	};
+
+	vk_buf->fd = -1;
+	spa_log_info(s->log, "import MemPtr");
 
 	VK_CHECK_RESULT(vkAllocateMemory(s->device,
 			&allocateInfo, NULL, &vk_buf->memory));

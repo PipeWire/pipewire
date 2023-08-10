@@ -54,7 +54,7 @@ struct dmabuf_fixation_info {
 	VkImageUsageFlags usage;
 };
 
-struct external_dmabuf_info {
+struct external_buffer_info {
 	VkFormat format;
 	uint64_t modifier;
 	struct spa_rectangle size;
@@ -66,8 +66,9 @@ int vulkan_sync_foreign_dmabuf(struct vulkan_base *s, struct vulkan_buffer *vk_b
 bool vulkan_sync_export_dmabuf(struct vulkan_base *s, struct vulkan_buffer *vk_buf, int sync_file_fd);
 
 int vulkan_fixate_modifier(struct vulkan_base *s, struct dmabuf_fixation_info *info, uint64_t *modifier);
-int vulkan_create_dmabuf(struct vulkan_base *s, struct external_dmabuf_info *info, struct vulkan_buffer *vk_buf);
-int vulkan_import_dmabuf(struct vulkan_base *s, struct external_dmabuf_info *info, struct vulkan_buffer *vk_buf);
+int vulkan_create_dmabuf(struct vulkan_base *s, struct external_buffer_info *info, struct vulkan_buffer *vk_buf);
+int vulkan_import_dmabuf(struct vulkan_base *s, struct external_buffer_info *info, struct vulkan_buffer *vk_buf);
+int vulkan_import_memptr(struct vulkan_base *s, struct external_buffer_info *info, struct vulkan_buffer *vk_buf);
 
 int vulkan_commandPool_create(struct vulkan_base *s, VkCommandPool *commandPool);
 int vulkan_commandBuffer_create(struct vulkan_base *s, VkCommandPool commandPool, VkCommandBuffer *commandBuffer);

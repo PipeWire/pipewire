@@ -58,6 +58,8 @@ struct vulkan_compute_state {
 int spa_vulkan_init_stream(struct vulkan_compute_state *s, struct vulkan_stream *stream, enum spa_direction,
 		struct spa_dict *props);
 
+int spa_vulkan_fixate_modifier(struct vulkan_compute_state *s, struct vulkan_stream *p, struct spa_video_info_dsp *dsp_info,
+		uint32_t modifierCount, uint64_t *modifiers, uint64_t *modifier);
 int spa_vulkan_prepare(struct vulkan_compute_state *s);
 int spa_vulkan_use_buffers(struct vulkan_compute_state *s, struct vulkan_stream *stream, uint32_t flags,
 		struct spa_video_info_dsp *dsp_info, uint32_t n_buffers, struct spa_buffer **buffers);

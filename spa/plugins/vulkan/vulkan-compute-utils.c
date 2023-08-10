@@ -325,6 +325,25 @@ static void clear_streams(struct vulkan_compute_state *s)
 	}
 }
 
+int spa_vulkan_fixate_modifier(struct vulkan_compute_state *s, struct vulkan_stream *p, struct spa_video_info_dsp *dsp_info,
+		uint32_t modifierCount, uint64_t *modifiers, uint64_t *modifier)
+{
+	VkFormat format = vulkan_id_to_vkformat(dsp_info->format);
+	if (format == VK_FORMAT_UNDEFINED) {
+		return -1;
+	}
+
+	struct dmabuf_fixation_info fixation_info = {
+		.format = format,
+		.modifierCount = modifierCount,
+		.modifiers = modifiers,
+		.size.width = s->constants.width,
+		.size.height = s->constants.height,
+		.usage = VK_IMAGE_USAGE_STORAGE_BIT,
+	};
+	return vulkan_fixate_modifier(&s->base, &fixation_info, modifier);
+}
+
 int spa_vulkan_use_buffers(struct vulkan_compute_state *s, struct vulkan_stream *p, uint32_t flags,
 		struct spa_video_info_dsp *dsp_info, uint32_t n_buffers, struct spa_buffer **buffers)
 {

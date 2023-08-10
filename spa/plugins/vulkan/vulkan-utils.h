@@ -36,6 +36,14 @@
 		return _res;								\
 }
 
+struct dmabuf_fixation_info {
+	VkFormat format;
+	uint64_t modifierCount;
+	uint64_t *modifiers;
+	struct spa_rectangle size;
+	VkImageUsageFlags usage;
+};
+
 struct external_dmabuf_info {
 	VkFormat format;
 	uint64_t modifier;
@@ -44,6 +52,7 @@ struct external_dmabuf_info {
 	struct spa_buffer *spa_buf;
 };
 
+int vulkan_fixate_modifier(struct vulkan_base *s, struct dmabuf_fixation_info *info, uint64_t *modifier);
 int vulkan_create_dmabuf(struct vulkan_base *s, struct external_dmabuf_info *info, struct vulkan_buffer *vk_buf);
 int vulkan_import_dmabuf(struct vulkan_base *s, struct external_dmabuf_info *info, struct vulkan_buffer *vk_buf);
 

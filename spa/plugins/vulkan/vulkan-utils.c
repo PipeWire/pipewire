@@ -475,6 +475,27 @@ static int allocate_dmabuf(struct vulkan_base *s, VkFormat format, uint32_t modi
 	return 0;
 }
 
+int vulkan_fixate_modifier(struct vulkan_base *s, struct dmabuf_fixation_info *info, uint64_t *modifier)
+{
+	VULKAN_INSTANCE_FUNCTION(vkGetImageDrmFormatModifierPropertiesEXT);
+
+	struct vulkan_buffer vk_buf;
+	vk_buf.fd = -1;
+	vk_buf.view = VK_NULL_HANDLE;
+	VK_CHECK_RESULT(allocate_dmabuf(s, info->format, info->modifierCount, info->modifiers, info->usage, &info->size, &vk_buf));
+
+	VkImageDrmFormatModifierPropertiesEXT mod_prop = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_PROPERTIES_EXT,
+	};
+	VK_CHECK_RESULT(vkGetImageDrmFormatModifierPropertiesEXT(s->device, vk_buf.image, &mod_prop));
+
+	*modifier = mod_prop.drmFormatModifier;
+
+	vulkan_buffer_clear(s, &vk_buf);
+
+	return 0;
+}
+
 int vulkan_create_dmabuf(struct vulkan_base *s, struct external_dmabuf_info *info, struct vulkan_buffer *vk_buf)
 {
 	VULKAN_INSTANCE_FUNCTION(vkGetMemoryFdKHR);

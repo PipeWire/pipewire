@@ -286,6 +286,7 @@ static int runCommandBuffer(struct vulkan_compute_state *s)
 	for (i = 0; i < s->n_streams; i++) {
 		struct vulkan_stream *p = &s->streams[i];
 		struct vulkan_buffer *current_buffer = &p->buffers[p->current_buffer_id];
+		struct spa_buffer *current_spa_buffer = p->spa_buffers[p->current_buffer_id];
 
 		VkAccessFlags access_flags;
 		if (p->direction == SPA_DIRECTION_INPUT) {
@@ -321,6 +322,9 @@ static int runCommandBuffer(struct vulkan_compute_state *s)
 			.subresourceRange.levelCount = 1,
 			.subresourceRange.layerCount = 1,
 		};
+
+		if (current_spa_buffer->datas[0].type != SPA_DATA_DmaBuf)
+			continue;
 
 		if (vulkan_sync_foreign_dmabuf(&s->base, current_buffer) < 0) {
 			spa_log_warn(s->log, "Failed to wait for foreign buffer DMA-BUF fence");
@@ -396,6 +400,10 @@ static int runCommandBuffer(struct vulkan_compute_state *s)
 	int ret = 1;
 	for (uint32_t i = 0; i < s->n_streams; i++) {
 		struct vulkan_stream *p = &s->streams[i];
+		struct spa_buffer *current_spa_buffer = p->spa_buffers[p->current_buffer_id];
+
+		if (current_spa_buffer->datas[0].type != SPA_DATA_DmaBuf)
+			continue;
 
 		if (!vulkan_sync_export_dmabuf(&s->base, &p->buffers[p->current_buffer_id], sync_file_fd)) {
 			ret = 0;
@@ -412,6 +420,7 @@ static void clear_buffers(struct vulkan_compute_state *s, struct vulkan_stream *
 
 	for (i = 0; i < p->n_buffers; i++) {
 		vulkan_buffer_clear(&s->base, &p->buffers[i]);
+		p->spa_buffers[i] = NULL;
 	}
 	p->n_buffers = 0;
 }
@@ -499,6 +508,7 @@ int spa_vulkan_use_buffers(struct vulkan_compute_state *s, struct vulkan_stream 
 			spa_log_error(s->log, "Failed to use buffer %d", i);
 			return ret;
 		}
+		p->spa_buffers[i] = buffers[i];
 		p->n_buffers++;
 	}
 

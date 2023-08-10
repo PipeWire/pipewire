@@ -42,6 +42,7 @@ struct vulkan_stream {
 	uint32_t ready_buffer_id;
 
 	struct vulkan_buffer buffers[MAX_BUFFERS];
+	struct spa_buffer *spa_buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
 };
 

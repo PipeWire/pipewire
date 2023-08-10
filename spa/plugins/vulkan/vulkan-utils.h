@@ -46,6 +46,14 @@
 		return _res;								\
 }
 
+struct vulkan_read_pixels_info {
+	struct spa_rectangle size;
+	void *data;
+	uint32_t offset;
+	uint32_t stride;
+	uint32_t bytes_per_pixel;
+};
+
 struct dmabuf_fixation_info {
 	VkFormat format;
 	uint64_t modifierCount;
@@ -61,6 +69,8 @@ struct external_buffer_info {
 	VkImageUsageFlags usage;
 	struct spa_buffer *spa_buf;
 };
+
+int vulkan_read_pixels(struct vulkan_base *s, struct vulkan_read_pixels_info *info, struct vulkan_buffer *vk_buf);
 
 int vulkan_sync_foreign_dmabuf(struct vulkan_base *s, struct vulkan_buffer *vk_buf);
 bool vulkan_sync_export_dmabuf(struct vulkan_base *s, struct vulkan_buffer *vk_buf, int sync_file_fd);

@@ -247,6 +247,30 @@ static int createCommandBuffer(struct vulkan_compute_state *s)
 	return 0;
 }
 
+static int runExportSHMBuffers(struct vulkan_compute_state *s) {
+	for (uint32_t i = 0; i < s->n_streams; i++) {
+		struct vulkan_stream *p = &s->streams[i];
+
+		if (p->direction == SPA_DIRECTION_INPUT)
+			continue;
+
+		if (p->spa_buffers[p->current_buffer_id]->datas[0].type == SPA_DATA_MemPtr) {
+			struct spa_buffer *spa_buf = p->spa_buffers[p->current_buffer_id];
+			struct vulkan_read_pixels_info readInfo = {
+				.data = spa_buf->datas[0].data,
+				.offset = spa_buf->datas[0].chunk->offset,
+				.stride = spa_buf->datas[0].chunk->stride,
+				.bytes_per_pixel = 16,
+				.size.width = s->constants.width,
+				.size.height = s->constants.height,
+			};
+			CHECK(vulkan_read_pixels(&s->base, &readInfo, &p->buffers[p->current_buffer_id]));
+		}
+	}
+
+	return 0;
+}
+
 /** runCommandBuffer
  *  The return value of this functions means the following:
  *  ret < 0: Error
@@ -610,6 +634,7 @@ int spa_vulkan_process(struct vulkan_compute_state *s)
 	CHECK(updateDescriptors(s));
 	CHECK(runCommandBuffer(s));
         VK_CHECK_RESULT(vkDeviceWaitIdle(s->base.device));
+	CHECK(runExportSHMBuffers(s));
 
 	return 0;
 }
@@ -620,7 +645,7 @@ int spa_vulkan_get_buffer_caps(struct vulkan_compute_state *s, enum spa_directio
 	case SPA_DIRECTION_INPUT:
 		return VULKAN_BUFFER_TYPE_CAP_DMABUF;
 	case SPA_DIRECTION_OUTPUT:
-		return VULKAN_BUFFER_TYPE_CAP_DMABUF;
+		return VULKAN_BUFFER_TYPE_CAP_DMABUF | VULKAN_BUFFER_TYPE_CAP_SHM;
 	}
 	return 0;
 }

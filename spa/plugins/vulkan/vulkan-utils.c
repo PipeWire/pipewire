@@ -338,6 +338,34 @@ static void destroyFormatInfo(struct vulkan_base *s)
 	s->formatInfoCount = 0;
 }
 
+int vulkan_read_pixels(struct vulkan_base *s, struct vulkan_read_pixels_info *info, struct vulkan_buffer *vk_buf)
+{
+	VkImageSubresource img_sub_res = {
+		.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+		.arrayLayer = 0,
+		.mipLevel = 0,
+	};
+	VkSubresourceLayout img_sub_layout;
+	vkGetImageSubresourceLayout(s->device, vk_buf->image, &img_sub_res, &img_sub_layout);
+
+	void *v;
+	VK_CHECK_RESULT(vkMapMemory(s->device, vk_buf->memory, 0, VK_WHOLE_SIZE, 0, &v));
+
+	const char *d = (const char *)v + img_sub_layout.offset;
+	unsigned char *p = (unsigned char *)info->data + info->offset;
+	uint32_t bytes_per_pixel = 16;
+	uint32_t pack_stride = img_sub_layout.rowPitch;
+	if (pack_stride == info->stride) {
+		memcpy(p, d, info->stride * info->size.height);
+	} else {
+		for (uint32_t i = 0; i < info->size.height; i++) {
+			memcpy(p + i * info->stride, d + i * pack_stride, info->size.width * bytes_per_pixel);
+		}
+	}
+	vkUnmapMemory(s->device, vk_buf->memory);
+	return 0;
+}
+
 int vulkan_sync_foreign_dmabuf(struct vulkan_base *s, struct vulkan_buffer *vk_buf)
 {
 	VULKAN_INSTANCE_FUNCTION(vkImportSemaphoreFdKHR);

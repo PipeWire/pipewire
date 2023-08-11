@@ -338,8 +338,21 @@ static int port_enum_formats(void *object,
 
 	uint32_t fmt_index;
 	bool has_modifier;
-	if (!find_EnumFormatInfo(&this->state.base, index, spa_vulkan_get_buffer_caps(&this->state, direction), &fmt_index, &has_modifier))
-		return 0;
+	if (this->port[port_id].have_format
+			&& this->port[port_id].current_format.info.dsp.flags & SPA_VIDEO_FLAG_MODIFIER
+			&& this->port[port_id].current_format.info.dsp.flags ^ SPA_VIDEO_FLAG_MODIFIER_FIXATION_REQUIRED) {
+		if (index == 0) {
+			spa_log_info(this->log, "vulkan-compute-filter: enum_formats fixated format idx: %d, format %d, has_modifier 1",
+					index, this->port[port_id].current_format.info.dsp.format);
+			*param = spa_format_video_dsp_build(builder, SPA_PARAM_EnumFormat, &this->port[port_id].current_format.info.dsp);
+			return 1;
+		}
+		if (!find_EnumFormatInfo(&this->state.base, index-1, spa_vulkan_get_buffer_caps(&this->state, direction), &fmt_index, &has_modifier))
+			return 0;
+	} else {
+		if (!find_EnumFormatInfo(&this->state.base, index, spa_vulkan_get_buffer_caps(&this->state, direction), &fmt_index, &has_modifier))
+			return 0;
+	}
 
 	const struct vulkan_format_info *f_info = &this->state.base.formatInfos[fmt_index];
 	spa_log_info(this->log, "vulkan-compute-filter: enum_formats idx: %d, format %d, has_modifier %d", index, f_info->spa_format, has_modifier);
@@ -498,8 +511,42 @@ static int port_set_format(struct impl *this, struct port *port,
 		this->state.constants.width = this->position->video.size.width;
 		this->state.constants.height = this->position->video.size.height;
 
+		bool modifier_fixed = false;
+		if (port->direction == SPA_DIRECTION_OUTPUT
+				&& info.info.dsp.flags & SPA_VIDEO_FLAG_MODIFIER
+				&& info.info.dsp.flags & SPA_VIDEO_FLAG_MODIFIER_FIXATION_REQUIRED) {
+			const struct spa_pod_prop *mod_prop;
+			if ((mod_prop = spa_pod_find_prop(format, NULL, SPA_FORMAT_VIDEO_modifier)) == NULL)
+				return -EINVAL;
+
+			const struct spa_pod *mod_pod = &mod_prop->value;
+			uint32_t modifierCount = SPA_POD_CHOICE_N_VALUES(mod_pod);
+			uint64_t *modifiers = SPA_POD_CHOICE_VALUES(mod_pod);
+			if (modifierCount <= 1)
+				return -EINVAL;
+			// SPA_POD_CHOICE carries the "preferred" value at position 0
+			modifierCount -= 1;
+			modifiers++;
+			uint64_t fixed_modifier;
+			if (spa_vulkan_fixate_modifier(&this->state, &this->state.streams[port->stream_id], &info.info.dsp, modifierCount, modifiers, &fixed_modifier) != 0)
+				return -EINVAL;
+
+			spa_log_info(this->log, NAME ": modifier fixated %"PRIu64, fixed_modifier);
+
+			info.info.dsp.modifier = fixed_modifier;
+			info.info.dsp.flags &= ~SPA_VIDEO_FLAG_MODIFIER_FIXATION_REQUIRED;
+			modifier_fixed = true;
+		}
+
 		port->current_format = info;
 		port->have_format = true;
+
+		if (modifier_fixed) {
+			port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+			port->params[0].flags ^= SPA_PARAM_INFO_SERIAL;
+			emit_port_info(this, port, false);
+			return 0;
+		}
 	}
 
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;

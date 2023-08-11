@@ -860,6 +860,8 @@ static int impl_clear(struct spa_handle *handle)
 
 	this = (struct impl *) handle;
 
+	spa_vulkan_deinit(&this->state);
+
 	if (this->data_loop)
 		spa_loop_invoke(this->data_loop, do_remove_timer, 0, NULL, 0, true, this);
 	spa_system_close(this->data_system, this->timer_source.fd);
@@ -952,6 +954,7 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_DIRECTION_OUTPUT, NULL);
 	this->state.shaderName = "spa/plugins/vulkan/shaders/main.spv";
 	this->state.n_streams = 1;
+	spa_vulkan_init(&this->state);
 
 	return 0;
 }

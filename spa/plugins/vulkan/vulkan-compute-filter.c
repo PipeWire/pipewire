@@ -650,6 +650,13 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 static int impl_clear(struct spa_handle *handle)
 {
+	struct impl *this;
+
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+
+	this = (struct impl *) handle;
+
+	spa_vulkan_deinit(&this->state);
 	return 0;
 }
 
@@ -742,6 +749,7 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_DIRECTION_OUTPUT, NULL);
 
 	this->state.n_streams = 2;
+	spa_vulkan_init(&this->state);
 	spa_vulkan_prepare(&this->state);
 
 	return 0;

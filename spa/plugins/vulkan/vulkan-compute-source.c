@@ -503,6 +503,59 @@ impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_
 	return -ENOTSUP;
 }
 
+static struct spa_pod *build_EnumFormat(uint32_t fmt, const struct vulkan_format_info *fmtInfo, struct spa_pod_builder *builder) {
+	struct spa_pod_frame f[2];
+	uint32_t i, c;
+
+	spa_pod_builder_push_object(builder, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+	spa_pod_builder_add(builder, SPA_FORMAT_mediaType, SPA_POD_Id(SPA_MEDIA_TYPE_video), 0);
+	spa_pod_builder_add(builder, SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsp), 0);
+	spa_pod_builder_add(builder, SPA_FORMAT_VIDEO_format, SPA_POD_Id(fmt), 0);
+	if (fmtInfo && fmtInfo->modifierCount > 0) {
+		spa_pod_builder_prop(builder, SPA_FORMAT_VIDEO_modifier, SPA_POD_PROP_FLAG_MANDATORY | SPA_POD_PROP_FLAG_DONT_FIXATE);
+		spa_pod_builder_push_choice(builder, &f[1], SPA_CHOICE_Enum, 0);
+		for (i = 0, c = 0; i < fmtInfo->modifierCount; i++) {
+			spa_pod_builder_long(builder, fmtInfo->infos[i].props.drmFormatModifier);
+			if (c++ == 0)
+				spa_pod_builder_long(builder, fmtInfo->infos[i].props.drmFormatModifier);
+		}
+		spa_pod_builder_pop(builder, &f[1]);
+	}
+	return spa_pod_builder_pop(builder, &f[0]);
+}
+
+// This function enumerates the available formats in vulkan_state::formats, announcing all formats capable to support DmaBufs
+// first and then falling back to those supported with SHM buffers.
+static bool find_EnumFormatInfo(struct vulkan_base *s, uint32_t index, uint32_t *fmt_idx, bool *has_modifier) {
+	int64_t fmtIterator = 0;
+	// Count available formats until index underflows, while fmtIterator indexes the current format.
+	// Iterate twice over formats first time with modifiers, second time without.
+	while (index < (uint32_t)-1 && fmtIterator < 2*s->formatInfoCount) {
+		const struct vulkan_format_info *f_info = &s->formatInfos[fmtIterator%s->formatInfoCount];
+		if (fmtIterator < s->formatInfoCount) {
+			// First round, check for modifiers
+			if (f_info->modifierCount > 0) {
+				index--;
+			}
+		} else {
+			// Second round, every format should be supported.
+			index--;
+		}
+		fmtIterator++;
+	}
+
+	if (index != (uint32_t)-1) {
+		// No more formats available
+		return false;
+	}
+	// Undo end of loop increment
+	fmtIterator--;
+	*fmt_idx = fmtIterator%s->formatInfoCount;
+	// Loop finished in first round
+	*has_modifier = fmtIterator < s->formatInfoCount;
+	return true;
+}
+
 static int port_enum_formats(void *object,
 			     enum spa_direction direction, uint32_t port_id,
 			     uint32_t index,
@@ -510,17 +563,17 @@ static int port_enum_formats(void *object,
 			     struct spa_pod **param,
 			     struct spa_pod_builder *builder)
 {
-	switch (index) {
-	case 0:
-		*param = spa_pod_builder_add_object(builder,
-			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-			SPA_FORMAT_mediaType,       SPA_POD_Id(SPA_MEDIA_TYPE_video),
-			SPA_FORMAT_mediaSubtype,    SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsp),
-			SPA_FORMAT_VIDEO_format,    SPA_POD_Id(SPA_VIDEO_FORMAT_DSP_F32));
-		break;
-	default:
+	struct impl *this = object;
+
+	uint32_t fmt_index;
+	bool has_modifier;
+	if (!find_EnumFormatInfo(&this->state.base, index, &fmt_index, &has_modifier))
 		return 0;
-	}
+
+	const struct vulkan_format_info *f_info = &this->state.base.formatInfos[fmt_index];
+	spa_log_info(this->log, "vulkan-compute-source: enum_formats idx: %d, format %d, has_modifier %d", index, f_info->spa_format, has_modifier);
+	*param = build_EnumFormat(f_info->spa_format, has_modifier ? f_info : NULL, builder);
+
 	return 1;
 }
 

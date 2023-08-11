@@ -539,8 +539,11 @@ int spa_vulkan_process(struct vulkan_compute_state *s)
 int spa_vulkan_init(struct vulkan_compute_state *s)
 {
 	s->base.log = s->log;
+	uint32_t dsp_format = SPA_VIDEO_FORMAT_DSP_F32;
 	struct vulkan_base_info baseInfo = {
 		.queueFlags = VK_QUEUE_COMPUTE_BIT,
+		.formatInfo.formatCount = 1,
+		.formatInfo.formats = &dsp_format,
 	};
 	return vulkan_base_init(&s->base, &baseInfo);
 }

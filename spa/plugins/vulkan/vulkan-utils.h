@@ -18,6 +18,15 @@
 		return _r;								\
 	}										\
 }
+#define VK_CHECK_RESULT_LOOP(f)								\
+{											\
+	VkResult _result = (f);								\
+	int _r = -vkresult_to_errno(_result);						\
+	if (_result != VK_SUCCESS) {							\
+		spa_log_error(s->log, "error: %d (%d %s)", _result, _r, spa_strerror(_r));	\
+		continue;								\
+	}										\
+}
 #define CHECK(f)									\
 {											\
 	int _res = (f);									\
@@ -30,6 +39,8 @@ int vulkan_commandBuffer_create(struct vulkan_base *s, VkCommandPool commandPool
 
 uint32_t vulkan_memoryType_find(struct vulkan_base *s,
 		uint32_t memoryTypeBits, VkMemoryPropertyFlags properties);
+struct vulkan_format_info *vulkan_formatInfo_find(struct vulkan_base *s, VkFormat format);
+struct vulkan_modifier_info *vulkan_modifierInfo_find(struct vulkan_base *s, VkFormat format, uint64_t modifier);
 
 void vulkan_buffer_clear(struct vulkan_base *s, struct vulkan_buffer *buffer);
 

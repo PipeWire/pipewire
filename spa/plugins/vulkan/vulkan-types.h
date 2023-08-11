@@ -7,6 +7,18 @@
 
 #define MAX_BUFFERS 16
 
+struct vulkan_modifier_info {
+	VkDrmFormatModifierPropertiesEXT props;
+	VkExtent2D max_extent;
+};
+
+struct vulkan_format_info {
+	uint32_t spa_format;
+	VkFormat vk_format;
+	uint32_t modifierCount;
+	struct vulkan_modifier_info *infos;
+};
+
 struct vulkan_buffer {
 	int fd;
 	VkImage image;
@@ -28,6 +40,11 @@ struct vulkan_stream {
 
 struct vulkan_base_info {
 	uint32_t queueFlags;
+
+	struct {
+		uint32_t formatCount;
+		uint32_t *formats;
+	} formatInfo;
 };
 
 struct vulkan_base {
@@ -40,6 +57,9 @@ struct vulkan_base {
 	VkQueue queue;
 	uint32_t queueFamilyIndex;
 	VkDevice device;
+
+	uint32_t formatInfoCount;
+	struct vulkan_format_info *formatInfos;
 
 	unsigned int initialized:1;
 };

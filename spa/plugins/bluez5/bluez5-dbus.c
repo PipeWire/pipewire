@@ -193,12 +193,13 @@ struct spa_bt_media_codec_switch {
  * stopped/started rapidly, postpone release until the transport has remained
  * unused for a time.
  *
- * Avoiding unnecessary release+reacquire also makes sense for other transports,
- * so we use the release timeout for all of them.
+ * Avoiding unnecessary release+reacquire also makes sense for ISO.
  */
 #define TRANSPORT_RELEASE_TIMEOUT_MSEC 1000
 
 #define TRANSPORT_VOLUME_TIMEOUT_MSEC 200
+
+#define SPA_BT_TRANSPORT_IS_A2DP(transport) ((transport)->profile & (SPA_BT_PROFILE_A2DP_SOURCE | SPA_BT_PROFILE_A2DP_SINK))
 
 static int spa_bt_transport_stop_volume_timer(struct spa_bt_transport *transport);
 static int spa_bt_transport_start_volume_timer(struct spa_bt_transport *transport);
@@ -2700,7 +2701,8 @@ int spa_bt_transport_release(struct spa_bt_transport *transport)
 	/* Postpone active transport releases, since we might need it again soon.
 	 * If not active, release now since it has to be reacquired before using again.
 	 */
-	if (transport->state == SPA_BT_TRANSPORT_STATE_ACTIVE) {
+	if (transport->state == SPA_BT_TRANSPORT_STATE_ACTIVE &&
+			!SPA_BT_TRANSPORT_IS_A2DP(transport)) {
 		return spa_bt_transport_start_release_timer(transport);
 	} else {
 		spa_bt_transport_do_release(transport);

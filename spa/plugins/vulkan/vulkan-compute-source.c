@@ -526,18 +526,23 @@ static struct spa_pod *build_EnumFormat(uint32_t fmt, const struct vulkan_format
 
 // This function enumerates the available formats in vulkan_state::formats, announcing all formats capable to support DmaBufs
 // first and then falling back to those supported with SHM buffers.
-static bool find_EnumFormatInfo(struct vulkan_base *s, uint32_t index, uint32_t *fmt_idx, bool *has_modifier) {
+static bool find_EnumFormatInfo(struct vulkan_base *s, uint32_t index, uint32_t caps, uint32_t *fmt_idx, bool *has_modifier) {
 	int64_t fmtIterator = 0;
+	int64_t maxIterator = 0;
+	if (caps & VULKAN_BUFFER_TYPE_CAP_SHM)
+		maxIterator += s->formatInfoCount;
+	if (caps & VULKAN_BUFFER_TYPE_CAP_DMABUF)
+		maxIterator += s->formatInfoCount;
 	// Count available formats until index underflows, while fmtIterator indexes the current format.
-	// Iterate twice over formats first time with modifiers, second time without.
-	while (index < (uint32_t)-1 && fmtIterator < 2*s->formatInfoCount) {
+	// Iterate twice over formats first time with modifiers, second time without if both caps are supported.
+	while (index < (uint32_t)-1 && fmtIterator < maxIterator) {
 		const struct vulkan_format_info *f_info = &s->formatInfos[fmtIterator%s->formatInfoCount];
-		if (fmtIterator < s->formatInfoCount) {
+		if (caps & VULKAN_BUFFER_TYPE_CAP_DMABUF && fmtIterator < s->formatInfoCount) {
 			// First round, check for modifiers
 			if (f_info->modifierCount > 0) {
 				index--;
 			}
-		} else {
+		} else if (caps & VULKAN_BUFFER_TYPE_CAP_SHM) {
 			// Second round, every format should be supported.
 			index--;
 		}
@@ -552,7 +557,7 @@ static bool find_EnumFormatInfo(struct vulkan_base *s, uint32_t index, uint32_t 
 	fmtIterator--;
 	*fmt_idx = fmtIterator%s->formatInfoCount;
 	// Loop finished in first round
-	*has_modifier = fmtIterator < s->formatInfoCount;
+	*has_modifier = caps & VULKAN_BUFFER_TYPE_CAP_DMABUF && fmtIterator < s->formatInfoCount;
 	return true;
 }
 
@@ -567,7 +572,7 @@ static int port_enum_formats(void *object,
 
 	uint32_t fmt_index;
 	bool has_modifier;
-	if (!find_EnumFormatInfo(&this->state.base, index, &fmt_index, &has_modifier))
+	if (!find_EnumFormatInfo(&this->state.base, index, spa_vulkan_get_buffer_caps(&this->state, direction), &fmt_index, &has_modifier))
 		return 0;
 
 	const struct vulkan_format_info *f_info = &this->state.base.formatInfos[fmt_index];

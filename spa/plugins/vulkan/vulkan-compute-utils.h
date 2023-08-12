@@ -71,5 +71,7 @@ int spa_vulkan_ready(struct vulkan_compute_state *s);
 int spa_vulkan_process(struct vulkan_compute_state *s);
 int spa_vulkan_cleanup(struct vulkan_compute_state *s);
 
+int spa_vulkan_get_buffer_caps(struct vulkan_compute_state *s, enum spa_direction direction);
+
 int spa_vulkan_init(struct vulkan_compute_state *s);
 void spa_vulkan_deinit(struct vulkan_compute_state *s);

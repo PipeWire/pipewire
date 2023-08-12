@@ -8,6 +8,11 @@
 #define MAX_BUFFERS 16
 #define DMABUF_MAX_PLANES 1
 
+enum buffer_type_caps {
+	VULKAN_BUFFER_TYPE_CAP_SHM = 1<<0,
+	VULKAN_BUFFER_TYPE_CAP_DMABUF = 1<<1,
+};
+
 struct vulkan_modifier_info {
 	VkDrmFormatModifierPropertiesEXT props;
 	VkExtent2D max_extent;

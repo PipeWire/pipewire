@@ -492,6 +492,17 @@ int spa_vulkan_process(struct vulkan_compute_state *s)
 	return 0;
 }
 
+int spa_vulkan_get_buffer_caps(struct vulkan_compute_state *s, enum spa_direction direction)
+{
+	switch (direction) {
+	case SPA_DIRECTION_INPUT:
+		return VULKAN_BUFFER_TYPE_CAP_DMABUF;
+	case SPA_DIRECTION_OUTPUT:
+		return VULKAN_BUFFER_TYPE_CAP_DMABUF;
+	}
+	return 0;
+}
+
 int spa_vulkan_init(struct vulkan_compute_state *s)
 {
 	s->base.log = s->log;

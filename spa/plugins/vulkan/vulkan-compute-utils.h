@@ -41,6 +41,7 @@ struct vulkan_compute_state {
 	VkCommandBuffer commandBuffer;
 
 	VkFence fence;
+	VkSemaphore pipelineSemaphore;
 	unsigned int initialized:1;
 	unsigned int prepared:1;
 	unsigned int started:1;

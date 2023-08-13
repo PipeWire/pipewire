@@ -30,6 +30,7 @@ struct vulkan_buffer {
 	VkImage image;
 	VkImageView view;
 	VkDeviceMemory memory;
+	VkSemaphore foreign_semaphore;
 };
 
 struct vulkan_stream {
@@ -66,6 +67,8 @@ struct vulkan_base {
 
 	uint32_t formatInfoCount;
 	struct vulkan_format_info *formatInfos;
+
+	bool implicit_sync_interop;
 
 	unsigned int initialized:1;
 };

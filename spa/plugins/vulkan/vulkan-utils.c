@@ -10,6 +10,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <string.h>
+#include <poll.h>
 #if !defined(__FreeBSD__) && !defined(__MidnightBSD__)
 #include <alloca.h>
 #endif
@@ -26,6 +27,7 @@
 #include <spa/debug/mem.h>
 
 #include "vulkan-utils.h"
+#include "dmabuf.h"
 
 //#define ENABLE_VALIDATION
 
@@ -201,10 +203,16 @@ static int createDevice(struct vulkan_base *s, struct vulkan_base_info *info)
 		.queueCount = 1,
 		.pQueuePriorities = (const float[]) { 1.0f }
 	};
+	const VkPhysicalDeviceSynchronization2FeaturesKHR sync2_features = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR,
+		.synchronization2 = VK_TRUE,
+	};
 	static const char * const extensions[] = {
 		VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
 		VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
 		VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME,
+		VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME,
+		VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
 		VK_EXT_IMAGE_DRM_FORMAT_MODIFIER_EXTENSION_NAME
 	};
 	const VkDeviceCreateInfo deviceCreateInfo = {
@@ -213,6 +221,7 @@ static int createDevice(struct vulkan_base *s, struct vulkan_base_info *info)
 		.pQueueCreateInfos = &queueCreateInfo,
 		.enabledExtensionCount = SPA_N_ELEMENTS(extensions),
 		.ppEnabledExtensionNames = extensions,
+		.pNext = &sync2_features,
 	};
 
 	VK_CHECK_RESULT(vkCreateDevice(s->physicalDevice, &deviceCreateInfo, NULL, &s->device));
@@ -327,6 +336,60 @@ static void destroyFormatInfo(struct vulkan_base *s)
 	free(s->formatInfos);
 	s->formatInfos = NULL;
 	s->formatInfoCount = 0;
+}
+
+int vulkan_sync_foreign_dmabuf(struct vulkan_base *s, struct vulkan_buffer *vk_buf)
+{
+	VULKAN_INSTANCE_FUNCTION(vkImportSemaphoreFdKHR);
+
+	if (!s->implicit_sync_interop) {
+		struct pollfd pollfd = {
+			.fd = vk_buf->fd,
+			.events = POLLIN,
+		};
+		int timeout_ms = 1000;
+		int ret = poll(&pollfd, 1, timeout_ms);
+		if (ret < 0) {
+			spa_log_error(s->log, "Failed to wait for DMA-BUF fence");
+			return -1;
+		} else if (ret == 0) {
+			spa_log_error(s->log, "Timed out waiting for DMA-BUF fence");
+			return -1;
+		}
+		return 0;
+	}
+
+	int sync_file_fd = dmabuf_export_sync_file(s->log, vk_buf->fd, DMA_BUF_SYNC_READ);
+	if (sync_file_fd < 0) {
+		spa_log_error(s->log, "Failed to extract for DMA-BUF fence");
+		return -1;
+	}
+
+	if (vk_buf->foreign_semaphore == VK_NULL_HANDLE) {
+		VkSemaphoreCreateInfo semaphore_info = {
+			.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+		};
+		VK_CHECK_RESULT_WITH_CLEANUP(vkCreateSemaphore(s->device, &semaphore_info, NULL, &vk_buf->foreign_semaphore), close(sync_file_fd));
+	}
+
+	VkImportSemaphoreFdInfoKHR import_info = {
+		.sType = VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_FD_INFO_KHR,
+		.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+		.flags = VK_SEMAPHORE_IMPORT_TEMPORARY_BIT_KHR,
+		.semaphore = vk_buf->foreign_semaphore,
+		.fd = sync_file_fd,
+	};
+	VK_CHECK_RESULT_WITH_CLEANUP(vkImportSemaphoreFdKHR(s->device, &import_info), close(sync_file_fd));
+
+	return 0;
+}
+
+bool vulkan_sync_export_dmabuf(struct vulkan_base *s, struct vulkan_buffer *vk_buf, int sync_file_fd)
+{
+	if (!s->implicit_sync_interop)
+		return false;
+
+	return dmabuf_import_sync_file(s->log, vk_buf->fd, DMA_BUF_SYNC_WRITE, sync_file_fd);
 }
 
 int vulkan_commandPool_create(struct vulkan_base *s, VkCommandPool *commandPool)
@@ -720,6 +783,7 @@ int vulkan_base_init(struct vulkan_base *s, struct vulkan_base_info *info)
 		CHECK(findPhysicalDevice(s));
 		CHECK(createDevice(s, info));
 		CHECK(queryFormatInfo(s, info));
+		s->implicit_sync_interop = dmabuf_check_sync_file_import_export(s->log);
 		s->initialized = true;
 	}
 	return 0;

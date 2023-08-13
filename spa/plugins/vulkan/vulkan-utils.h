@@ -20,6 +20,16 @@
 		return _r;								\
 	}										\
 }
+#define VK_CHECK_RESULT_WITH_CLEANUP(f, c)						\
+{											\
+	VkResult _result = (f);								\
+	int _r = -vkresult_to_errno(_result);						\
+	if (_result != VK_SUCCESS) {							\
+		spa_log_error(s->log, "error: %d (%d %s)", _result, _r, spa_strerror(_r));	\
+		(c);									\
+		return _r;								\
+	}										\
+}
 #define VK_CHECK_RESULT_LOOP(f)								\
 {											\
 	VkResult _result = (f);								\
@@ -51,6 +61,9 @@ struct external_dmabuf_info {
 	VkImageUsageFlags usage;
 	struct spa_buffer *spa_buf;
 };
+
+int vulkan_sync_foreign_dmabuf(struct vulkan_base *s, struct vulkan_buffer *vk_buf);
+bool vulkan_sync_export_dmabuf(struct vulkan_base *s, struct vulkan_buffer *vk_buf, int sync_file_fd);
 
 int vulkan_fixate_modifier(struct vulkan_base *s, struct dmabuf_fixation_info *info, uint64_t *modifier);
 int vulkan_create_dmabuf(struct vulkan_base *s, struct external_dmabuf_info *info, struct vulkan_buffer *vk_buf);

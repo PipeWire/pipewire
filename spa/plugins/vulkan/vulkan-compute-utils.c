@@ -247,38 +247,22 @@ static int createCommandBuffer(struct vulkan_compute_state *s)
 	return 0;
 }
 
+/** runCommandBuffer
+ *  The return value of this functions means the following:
+ *  ret < 0: Error
+ *  ret = 0: queueSubmit was succsessful, but manual synchronization is required
+ *  ret = 1: queueSubmit was succsessful and buffers can be released without synchronization
+ */
 static int runCommandBuffer(struct vulkan_compute_state *s)
 {
+	VULKAN_INSTANCE_FUNCTION(vkQueueSubmit2KHR);
+	VULKAN_INSTANCE_FUNCTION(vkGetSemaphoreFdKHR);
+
 	static const VkCommandBufferBeginInfo beginInfo = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 	};
 	VK_CHECK_RESULT(vkBeginCommandBuffer(s->commandBuffer, &beginInfo));
-
-	VkImageMemoryBarrier barrier[s->n_streams];
-	uint32_t i;
-
-	for (i = 0; i < s->n_streams; i++) {
-		struct vulkan_stream *p = &s->streams[i];
-
-		barrier[i]= (VkImageMemoryBarrier) {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			.subresourceRange.levelCount = 1,
-			.subresourceRange.layerCount = 1,
-			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
-			.srcAccessMask = 0,
-			.dstAccessMask = 0,
-			.image = p->buffers[p->current_buffer_id].image,
-		};
-	}
-
-        vkCmdPipelineBarrier(s->commandBuffer,
-				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				0, 0, NULL, 0, NULL,
-				s->n_streams, barrier);
 
 	vkCmdBindPipeline(s->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, s->pipeline);
 	vkCmdPushConstants (s->commandBuffer,
@@ -291,19 +275,135 @@ static int runCommandBuffer(struct vulkan_compute_state *s)
 			(uint32_t)ceil(s->constants.width / (float)WORKGROUP_SIZE),
 			(uint32_t)ceil(s->constants.height / (float)WORKGROUP_SIZE), 1);
 
+	VkImageMemoryBarrier acquire_barrier[s->n_streams];
+	VkImageMemoryBarrier release_barrier[s->n_streams];
+	VkSemaphoreSubmitInfo semaphore_wait_info[s->n_streams];
+	uint32_t semaphore_wait_info_len = 0;
+	VkSemaphoreSubmitInfo semaphore_signal_info[1];
+	uint32_t semaphore_signal_info_len = 0;
+
+	uint32_t i;
+	for (i = 0; i < s->n_streams; i++) {
+		struct vulkan_stream *p = &s->streams[i];
+		struct vulkan_buffer *current_buffer = &p->buffers[p->current_buffer_id];
+
+		VkAccessFlags access_flags;
+		if (p->direction == SPA_DIRECTION_INPUT) {
+			access_flags = VK_ACCESS_SHADER_READ_BIT;
+		} else {
+			access_flags = VK_ACCESS_SHADER_WRITE_BIT;
+		}
+
+		acquire_barrier[i]= (VkImageMemoryBarrier) {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_FOREIGN_EXT,
+			.dstQueueFamilyIndex = s->base.queueFamilyIndex,
+			.image = current_buffer->image,
+			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.srcAccessMask = 0,
+			.dstAccessMask = access_flags,
+			.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.subresourceRange.levelCount = 1,
+			.subresourceRange.layerCount = 1,
+		};
+
+		release_barrier[i]= (VkImageMemoryBarrier) {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.srcQueueFamilyIndex = s->base.queueFamilyIndex,
+			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_FOREIGN_EXT,
+			.image = current_buffer->image,
+			.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.srcAccessMask = access_flags,
+			.dstAccessMask = 0,
+			.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.subresourceRange.levelCount = 1,
+			.subresourceRange.layerCount = 1,
+		};
+
+		if (vulkan_sync_foreign_dmabuf(&s->base, current_buffer) < 0) {
+			spa_log_warn(s->log, "Failed to wait for foreign buffer DMA-BUF fence");
+		} else {
+			if (current_buffer->foreign_semaphore != VK_NULL_HANDLE) {
+				semaphore_wait_info[semaphore_wait_info_len++] = (VkSemaphoreSubmitInfo) {
+					.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+					.semaphore = current_buffer->foreign_semaphore,
+					.stageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+				};
+			}
+		}
+	}
+
+        vkCmdPipelineBarrier(s->commandBuffer,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				0, 0, NULL, 0, NULL,
+				s->n_streams, acquire_barrier);
+
+        vkCmdPipelineBarrier(s->commandBuffer,
+				VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+				VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+				0, 0, NULL, 0, NULL,
+				s->n_streams, release_barrier);
+
 	VK_CHECK_RESULT(vkEndCommandBuffer(s->commandBuffer));
 
 	VK_CHECK_RESULT(vkResetFences(s->base.device, 1, &s->fence));
 
-	const VkSubmitInfo submitInfo = {
-		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		.commandBufferCount = 1,
-		.pCommandBuffers = &s->commandBuffer,
+	if (s->pipelineSemaphore == VK_NULL_HANDLE) {
+		VkExportSemaphoreCreateInfo export_info = {
+			.sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO,
+			.handleTypes = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+		};
+		VkSemaphoreCreateInfo semaphore_info = {
+			.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+			.pNext = &export_info,
+		};
+		VK_CHECK_RESULT(vkCreateSemaphore(s->base.device, &semaphore_info, NULL, &s->pipelineSemaphore));
+	}
+
+	semaphore_signal_info[semaphore_signal_info_len++] = (VkSemaphoreSubmitInfo) {
+		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+		.semaphore = s->pipelineSemaphore,
 	};
-        VK_CHECK_RESULT(vkQueueSubmit(s->base.queue, 1, &submitInfo, s->fence));
+
+	VkCommandBufferSubmitInfoKHR commandBufferInfo = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+		.commandBuffer = s->commandBuffer,
+	};
+
+	const VkSubmitInfo2KHR submitInfo = {
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR,
+		.commandBufferInfoCount = 1,
+		.pCommandBufferInfos = &commandBufferInfo,
+		.waitSemaphoreInfoCount = semaphore_wait_info_len,
+		.pWaitSemaphoreInfos = semaphore_wait_info,
+		.signalSemaphoreInfoCount = semaphore_signal_info_len,
+		.pSignalSemaphoreInfos = semaphore_signal_info,
+	};
+        VK_CHECK_RESULT(vkQueueSubmit2KHR(s->base.queue, 1, &submitInfo, s->fence));
 	s->started = true;
 
-	return 0;
+	VkSemaphoreGetFdInfoKHR get_fence_fd_info = {
+		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR,
+		.semaphore = s->pipelineSemaphore,
+		.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+	};
+	int sync_file_fd = -1;
+	VK_CHECK_RESULT(vkGetSemaphoreFdKHR(s->base.device, &get_fence_fd_info, &sync_file_fd));
+
+	int ret = 1;
+	for (uint32_t i = 0; i < s->n_streams; i++) {
+		struct vulkan_stream *p = &s->streams[i];
+
+		if (!vulkan_sync_export_dmabuf(&s->base, &p->buffers[p->current_buffer_id], sync_file_fd)) {
+			ret = 0;
+		}
+	}
+	close(sync_file_fd);
+
+	return ret;
 }
 
 static void clear_buffers(struct vulkan_compute_state *s, struct vulkan_stream *p)

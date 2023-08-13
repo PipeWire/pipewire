@@ -435,6 +435,20 @@ int vulkan_vkresult_to_errno(VkResult result)
 	return vkresult_to_errno(result);
 }
 
+int vulkan_wait_fence(struct vulkan_base *s, VkFence fence)
+{
+        VK_CHECK_RESULT(vkWaitForFences(s->device, 1, &fence, VK_TRUE, UINT64_MAX));
+
+	return 0;
+}
+
+int vulkan_wait_idle(struct vulkan_base *s)
+{
+        VK_CHECK_RESULT(vkDeviceWaitIdle(s->device));
+
+	return 0;
+}
+
 int vulkan_base_init(struct vulkan_base *s, struct vulkan_base_info *info)
 {
 	if (!s->initialized) {

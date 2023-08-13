@@ -52,5 +52,8 @@ VkFormat vulkan_id_to_vkformat(uint32_t id);
 
 int vulkan_vkresult_to_errno(VkResult result);
 
+int vulkan_wait_fence(struct vulkan_base *s, VkFence fence);
+int vulkan_wait_idle(struct vulkan_base *s);
+
 int vulkan_base_init(struct vulkan_base *s, struct vulkan_base_info *info);
 void vulkan_base_deinit(struct vulkan_base *s);

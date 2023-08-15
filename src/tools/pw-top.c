@@ -82,12 +82,31 @@ struct data {
 	unsigned pending_refresh:1;
 
 	WINDOW *win;
+
+	unsigned int batch_mode:1;
+	int iterations;
 };
 
 struct point {
 	struct node *driver;
 	struct driver info;
 };
+
+static SPA_PRINTF_FUNC(4, 5) void print_mode_dependent(struct data *d, int y, int x, const char *fmt, ...)
+{
+	va_list argp;
+	if (!d->batch_mode)
+		mvwprintw(d->win, y, x, "%s", "");
+
+	va_start(argp, fmt);
+	if (d->batch_mode) {
+		vprintf(fmt, argp);
+		printf("\n");
+	} else
+		vw_printw(d->win, fmt, argp);
+	va_end(argp);
+}
+
 
 static int process_info(struct data *d, const struct spa_pod *pod, struct driver *info)
 {
@@ -144,7 +163,7 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = on_node_destroy,
 };
 
-static void do_refresh(struct data *d);
+static void do_refresh(struct data *d, bool force_refresh);
 
 static void node_info(void *data, const struct pw_node_info *info)
 {
@@ -152,7 +171,7 @@ static void node_info(void *data, const struct pw_node_info *info)
 
 	if (n->state != info->state) {
 		n->state = info->state;
-		do_refresh(n->data);
+		do_refresh(n->data, !n->data->batch_mode);
 	}
 }
 
@@ -259,7 +278,7 @@ static void node_param(void *data, int seq,
 		break;
 	}
 done:
-	do_refresh(n->data);
+	do_refresh(n->data, !n->data->batch_mode);
 }
 
 static const struct pw_node_events node_events = {
@@ -296,7 +315,8 @@ static struct node *add_node(struct data *d, uint32_t id, const char *name)
 	}
 	spa_list_append(&d->node_list, &n->link);
 	d->n_nodes++;
-	d->pending_refresh = true;
+	if (!d->batch_mode)
+		d->pending_refresh = true;
 
 	return n;
 }
@@ -307,7 +327,8 @@ static void remove_node(struct data *d, struct node *n)
 		pw_proxy_destroy(n->proxy);
 	spa_list_remove(&n->link);
 	d->n_nodes--;
-	d->pending_refresh = true;
+	if (!d->batch_mode)
+		d->pending_refresh = true;
 	free(n);
 }
 
@@ -462,7 +483,7 @@ static void print_node(struct data *d, struct driver *i, struct node *n, int y)
 	else
 		busy = -1;
 
-	mvwprintw(d->win, y, 0, "%s %4.1u %6.1u %6.1u %s %s %s %s  %3.1u %16.16s %s%s",
+	print_mode_dependent(d, y, 0, "%s %4.1u %6.1u %6.1u %s %s %s %s  %3.1u %16.16s %s%s",
 			state_as_string(n->state),
 			n->id,
 			frac.num, frac.denom,
@@ -484,23 +505,31 @@ static void clear_node(struct node *n)
 	spa_zero(n->info);
 }
 
-static void do_refresh(struct data *d)
+#define HEADER	"S   ID  QUANT   RATE    WAIT    BUSY   W/Q   B/Q  ERR FORMAT           NAME "
+
+static void do_refresh(struct data *d, bool force_refresh)
 {
 	struct node *n, *t, *f;
 	int y = 1;
 
-	wclear(d->win);
-	wattron(d->win, A_REVERSE);
-	wprintw(d->win, "%-*.*s", COLS, COLS, "S   ID  QUANT   RATE    WAIT    BUSY   W/Q   B/Q  ERR FORMAT           NAME ");
-	wattroff(d->win, A_REVERSE);
-	wprintw(d->win, "\n");
+	if (!d->pending_refresh && !force_refresh)
+		return;
+
+	if (!d->batch_mode) {
+		wclear(d->win);
+		wattron(d->win, A_REVERSE);
+		wprintw(d->win, "%-*.*s", COLS, COLS, HEADER);
+		wattroff(d->win, A_REVERSE);
+		wprintw(d->win, "\n");
+	} else
+		printf(HEADER "\n");
 
 	spa_list_for_each_safe(n, t, &d->node_list, link) {
 		if (n->driver != n)
 			continue;
 
 		print_node(d, &n->info, n, y++);
-		if(y > LINES)
+		if(!d->batch_mode && y > LINES)
 			break;
 
 		spa_list_for_each(f, &d->node_list, link) {
@@ -517,19 +546,28 @@ static void do_refresh(struct data *d)
 		}
 	}
 
-	// Clear from last line to the end of the window to hide text wrapping from the last node
-	wmove(d->win, y, 0);
-	wclrtobot(d->win);
+	if (!d->batch_mode) {
+		// Clear from last line to the end of the window to hide text wrapping from the last node
+		wmove(d->win, y, 0);
+		wclrtobot(d->win);
 
-	wrefresh(d->win);
+		wrefresh(d->win);
+	}
+
 	d->pending_refresh = false;
+
+	if (d->iterations > 0)
+		d->iterations--;
+
+	if (d->iterations == 0)
+		pw_main_loop_quit(d->loop);
 }
 
 static void do_timeout(void *data, uint64_t expirations)
 {
 	struct data *d = data;
 	d->generation++;
-	do_refresh(d);
+	do_refresh(d, true);
 }
 
 static void profiler_profile(void *data, const struct spa_pod *pod)
@@ -568,8 +606,8 @@ static void profiler_profile(void *data, const struct spa_pod *pod)
 		if (res < 0)
 			continue;
 	}
-	if (d->pending_refresh)
-		do_refresh(d);
+
+	do_refresh(d, false);
 }
 
 static const struct pw_profiler_events profiler_events = {
@@ -608,8 +646,8 @@ static void registry_event_global(void *data, uint32_t id,
 		d->profiler = proxy;
 		pw_proxy_add_object_listener(proxy, &d->profiler_listener, &profiler_events, d);
 	}
-	if (d->pending_refresh)
-		do_refresh(d);
+
+	do_refresh(d, false);
 	return;
 
 error_proxy:
@@ -623,8 +661,8 @@ static void registry_event_global_remove(void *data, uint32_t id)
 	struct node *n;
 	if ((n = find_node(d, id)) != NULL)
 		remove_node(d, n);
-	if (d->pending_refresh)
-		do_refresh(d);
+
+	do_refresh(d, false);
 }
 
 static const struct pw_registry_events registry_events = {
@@ -662,7 +700,7 @@ static void on_core_done(void *_data, uint32_t id, int seq)
 			pw_log_error("no Profiler Interface found, please load one in the server");
 			pw_main_loop_quit(d->loop);
 		} else {
-			do_refresh(d);
+			do_refresh(d, true);
 		}
 	}
 }
@@ -683,6 +721,8 @@ static void show_help(const char *name, bool error)
 {
         fprintf(error ? stderr : stdout, "Usage:\n%s [options]\n\n"
 		"Options:\n"
+		"  -b, --batch-mode		         run in non-interactive batch_mode mode\n"
+		"  -n, --iterations = NUMBER             exit on maximum iterations NUMBER\n"
 		"  -r, --remote                          Remote daemon name\n"
 		"\n"
 		"  -h, --help                            Show this help\n"
@@ -715,7 +755,7 @@ static void do_handle_io(void *data, int fd, uint32_t mask)
 			pw_main_loop_quit(d->loop);
 			break;
 		default:
-			do_refresh(d);
+			do_refresh(d, !d->batch_mode);
 			break;
 		}
 	}
@@ -727,9 +767,11 @@ int main(int argc, char *argv[])
 	struct pw_loop *l;
 	const char *opt_remote = NULL;
 	static const struct option long_options[] = {
+		{ "batch-mode",	no_argument,		NULL, 'b' },
+		{ "iterations",	required_argument,	NULL, 'n' },
+		{ "remote",	required_argument,	NULL, 'r' },
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
-		{ "remote",	required_argument,	NULL, 'r' },
 		{ NULL, 0, NULL, 0}
 	};
 	int c;
@@ -739,9 +781,11 @@ int main(int argc, char *argv[])
 	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
 
+	data.iterations = -1;
+
 	spa_list_init(&data.node_list);
 
-	while ((c = getopt_long(argc, argv, "hVr:o:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:o:bn:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(argv[0], false);
@@ -757,6 +801,12 @@ int main(int argc, char *argv[])
 		case 'r':
 			opt_remote = optarg;
 			break;
+		case 'b':
+			data.batch_mode = 1;
+			break;
+		case 'n':
+			spa_atoi32(optarg, &data.iterations, 10);
+			break;
 		default:
 			show_help(argv[0], true);
 			return -1;
@@ -768,6 +818,9 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Can't create data loop: %m\n");
 		return -1;
 	}
+
+	if (!data.batch_mode)
+		data.iterations = -1;
 
 	l = pw_main_loop_get_loop(data.loop);
 	pw_loop_add_signal(l, SIGINT, do_quit, &data);
@@ -802,9 +855,10 @@ int main(int argc, char *argv[])
 
 	data.check_profiler = pw_core_sync(data.core, 0, 0);
 
-	terminal_start();
-
-	data.win = newwin(LINES, COLS, 0, 0);
+	if (!data.batch_mode) {
+		terminal_start();
+		data.win = newwin(LINES, COLS, 0, 0);
+	}
 
 	data.timer = pw_loop_add_timer(l, do_timeout, &data);
 	value.tv_sec = 1;
@@ -813,15 +867,16 @@ int main(int argc, char *argv[])
 	interval.tv_nsec = 0;
 	pw_loop_update_timer(l, data.timer, &value, &interval, false);
 
-	pw_loop_add_io(l, fileno(stdin), SPA_IO_IN, false, do_handle_io, &data);
+	if (!data.batch_mode)
+		pw_loop_add_io(l, fileno(stdin), SPA_IO_IN, false, do_handle_io, &data);
 
 	pw_main_loop_run(data.loop);
 
-	terminal_stop();
+	if (!data.batch_mode)
+		terminal_stop();
 
 	spa_list_consume(n, &data.node_list, link)
 		remove_node(&data, n);
-
 	if (data.profiler) {
 		spa_hook_remove(&data.profiler_listener);
 		pw_proxy_destroy((struct pw_proxy*)data.profiler);

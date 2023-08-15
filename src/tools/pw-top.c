@@ -681,10 +681,12 @@ static void do_quit(void *data, int signal_number)
 
 static void show_help(const char *name, bool error)
 {
-        fprintf(error ? stderr : stdout, "%s [options]\n"
+        fprintf(error ? stderr : stdout, "Usage:\n%s [options]\n\n"
+		"Options:\n"
+		"  -r, --remote                          Remote daemon name\n"
+		"\n"
 		"  -h, --help                            Show this help\n"
-		"      --version                         Show version\n"
-		"  -r, --remote                          Remote daemon name\n",
+		"  -V  --version                         Show version\n",
 		name);
 }
 

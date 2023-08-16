@@ -27,6 +27,8 @@ build_ms = 'media-session' in get_option('session-managers')
 build_wp = 'wireplumber' in get_option('session-managers')
 default_sm = get_option('session-managers').get(0, '')
 
+build_vk = get_option('vulkan').enabled()
+
 summary({'Build media-session': build_ms,
          'Build wireplumber': build_wp,
          'Default session-manager': default_sm},
@@ -75,6 +77,10 @@ conf_files = [
  'pipewire-aes67.conf',
 ]
 
+if build_vk
+  conf_files += 'pipewire-vulkan.conf'
+endif
+
 foreach c : conf_files
   configure_file(input : '@0@.in'.format(c),
                  output : c,
@@ -107,7 +113,17 @@ pipewire_exec = executable('pipewire',
 
 ln = find_program('ln')
 
-foreach alias : ['pipewire-pulse', 'pipewire-avb', 'pipewire-aes67']
+pipewire_aliases = [
+  'pipewire-pulse',
+  'pipewire-avb',
+  'pipewire-aes67',
+]
+
+if build_vk
+ pipewire_aliases += 'pipewire-vulkan'
+endif
+
+foreach alias : pipewire_aliases
   custom_target(
     alias,
     build_by_default: true,

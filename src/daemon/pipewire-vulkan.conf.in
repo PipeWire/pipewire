@@ -1,0 +1,98 @@
+# Config file for PipeWire version "0.3.77" #
+#
+# This config file should start the vulkan-compute-source/filter as proxied
+# clients
+#
+
+context.properties = {
+    ## Configure properties in the system.
+    #library.name.system                   = support/libspa-support
+    #context.data-loop.library.name.system = support/libspa-support
+    #support.dbus                          = true
+    #link.max-buffers                      = 64
+    #link.max-buffers                       = 16                       # version < 3 clients can't handle more
+    #mem.warn-mlock                        = false
+    #mem.allow-mlock                       = true
+    #mem.mlock-all                         = false
+    #clock.power-of-two-quantum            = true
+    #log.level                             = 4
+    #cpu.zero.denormals                    = false
+
+    #default.clock.quantum-limit = 8192
+}
+
+context.spa-libs = {
+    #<factory-name regex> = <library-name>
+    #
+    # Used to find spa factory names. It maps an spa factory name
+    # regular expression to a library name that should contain
+    # that factory.
+    #
+    api.vulkan.*    = vulkan/libspa-vulkan
+    support.*       = support/libspa-support
+}
+
+context.modules = [
+    #{ name = <module-name>
+    #    ( args  = { <key> = <value> ... } )
+    #    ( flags = [ ( ifexists ) ( nofail ) ] )
+    #    ( condition = [ { <key> = <value> ... } ... ] )
+    #}
+    #
+    # Loads a module with the given parameters.
+    # If ifexists is given, the module is ignored when it is not found.
+    # If nofail is given, module initialization failures are ignored.
+    # If condition is given, the module is loaded only when the context
+    # properties all match the match rules.
+    #
+
+    # Uses realtime scheduling to boost the audio thread priorities. This uses
+    # RTKit if the user doesn't have permission to use regular realtime
+    # scheduling.
+    { name = libpipewire-module-rt
+        args = {
+            nice.level    = -11
+            #rt.prio      = 88
+            #rt.time.soft = -1
+            #rt.time.hard = -1
+        }
+        flags = [ ifexists nofail ]
+    }
+
+    # The native communication protocol.
+    { name = libpipewire-module-protocol-native }
+
+    # Creates a factory for making nodes that run in the
+    # context of the PipeWire server.
+    { name = libpipewire-module-spa-node-factory }
+
+    # Allows creating nodes that run in the context of the
+    # client. Is used by all clients that want to provide
+    # data to PipeWire.
+    { name = libpipewire-module-client-node }
+
+    # Makes a factory for wrapping nodes in an adapter with a
+    # converter and resampler.
+    { name = libpipewire-module-adapter }
+]
+
+context.objects = [
+    #{ factory = <factory-name>
+    #    ( args  = { <key> = <value> ... } )
+    #    ( flags = [ ( nofail ) ] )
+    #    ( condition = [ { <key> = <value> ... } ... ] )
+    #}
+    #
+    # Creates an object from a PipeWire factory with the given parameters.
+    # If nofail is given, errors are ignored (and no object is created).
+    # If condition is given, the object is created only when the context properties
+    # all match the match rules.
+    #
+    #{ factory = spa-node-factory   args = { factory.name = videotestsrc node.name = videotestsrc Spa:Pod:Object:Param:Props:patternType = 1 } }
+    #{ factory = spa-device-factory args = { factory.name = api.jack.device foo=bar } flags = [ nofail ] }
+    #{ factory = spa-device-factory args = { factory.name = api.alsa.enum.udev } }
+    #{ factory = spa-node-factory   args = { factory.name = api.alsa.seq.bridge node.name = Internal-MIDI-Bridge } }
+    #{ factory = adapter            args = { factory.name = audiotestsrc node.name = my-test } }
+    { factory = spa-node-factory   args = { factory.name = api.vulkan.compute.source node.name = vulkan-compute-source object.export = true } }
+    { factory = spa-node-factory   args = { factory.name = api.vulkan.compute.filter node.name = vulkan-compute-filter object.export = true } }
+]

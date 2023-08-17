@@ -502,6 +502,7 @@ static bool codec_has_direction(const struct media_codec *codec, enum spa_bt_med
 	case SPA_BT_MEDIA_SOURCE_BROADCAST:
 		return codec->encode;
 	case SPA_BT_MEDIA_SINK:
+	case SPA_BT_MEDIA_SINK_BROADCAST:
 		return codec->decode;
 	default:
 		spa_assert_not_reached();
@@ -518,6 +519,8 @@ static enum spa_bt_profile get_codec_profile(const struct media_codec *codec,
 		return codec->bap ? SPA_BT_PROFILE_BAP_SINK : SPA_BT_PROFILE_A2DP_SINK;
 	case SPA_BT_MEDIA_SOURCE_BROADCAST:
 		return SPA_BT_PROFILE_BAP_BROADCAST_SOURCE;
+	case SPA_BT_MEDIA_SINK_BROADCAST:
+		return SPA_BT_PROFILE_BAP_BROADCAST_SINK;
 	default:
 		spa_assert_not_reached();
 	}
@@ -1033,7 +1036,8 @@ static int adapter_media_update_props(struct spa_bt_adapter *adapter,
 							adapter->path);
 				}
 
-				if (spa_streq(uuid, SPA_BT_UUID_BAP_BROADCAST_SOURCE)) {
+				if (spa_streq(uuid, SPA_BT_UUID_BAP_BROADCAST_SOURCE) ||
+					spa_streq(uuid, SPA_BT_UUID_BAP_BROADCAST_SINK)) {
 					adapter->le_audio_bcast_supported = true;
 					spa_log_info(monitor->log, "Adapter %s: LE Broadcast Audio supported",
 							adapter->path);
@@ -1659,7 +1663,7 @@ static int reconnect_device_profiles(struct spa_bt_device *device)
 	if (reconnect & SPA_BT_PROFILE_BAP_SOURCE)
 		device_try_connect_profile(device, SPA_BT_UUID_BAP_SOURCE);
 	if (reconnect & SPA_BT_PROFILE_BAP_BROADCAST_SINK)
-		device_try_connect_profile(device, SPA_BT_UUID_BAP_SINK);
+		device_try_connect_profile(device, SPA_BT_UUID_BAP_BROADCAST_SINK);
 	if (reconnect & SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)
 		device_try_connect_profile(device, SPA_BT_UUID_BAP_BROADCAST_SOURCE);
 
@@ -2269,7 +2273,7 @@ bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const stru
 	spa_list_for_each(ep, &device->remote_endpoint_list, device_link) {
 		enum spa_bt_profile profile = spa_bt_profile_from_uuid(ep->uuid);
 		if (codec->bap) {
-			if(profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK)
+			if((profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) || (profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE))
 				codec_profile = sink ? SPA_BT_PROFILE_BAP_BROADCAST_SINK : SPA_BT_PROFILE_BAP_BROADCAST_SOURCE;
 			else
 				codec_profile = sink ? SPA_BT_PROFILE_BAP_SINK : SPA_BT_PROFILE_BAP_SOURCE;
@@ -2293,7 +2297,7 @@ bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const stru
 	 */
 	spa_list_for_each(t, &device->transport_list, device_link) {
 		if (codec->bap) {
-			if(t->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK)
+			if((t->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) || (t->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE))
 				codec_profile = sink ? SPA_BT_PROFILE_BAP_BROADCAST_SINK : SPA_BT_PROFILE_BAP_BROADCAST_SOURCE;
 			else
 				codec_profile = sink ? SPA_BT_PROFILE_BAP_SINK : SPA_BT_PROFILE_BAP_SOURCE;
@@ -3384,11 +3388,12 @@ static int transport_create_iso_io(struct spa_bt_transport *transport)
 	struct spa_bt_monitor *monitor = transport->monitor;
 	struct spa_bt_transport *t;
 
-	if (!(transport->profile & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE
-		| SPA_BT_PROFILE_BAP_BROADCAST_SINK)))
+	if (!(transport->profile & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE |
+		SPA_BT_PROFILE_BAP_BROADCAST_SINK || SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)))
 		return 0;
 
-	if (transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) {
+	if ((transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) ||
+		(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)) {
 		if (transport->bap_big == 0xff || transport->bap_bis == 0xff)
 			return -EINVAL;
 	} else {
@@ -3404,11 +3409,12 @@ static int transport_create_iso_io(struct spa_bt_transport *transport)
 
 	/* Transports in same connected iso group share the same i/o */
 	spa_list_for_each(t, &monitor->transport_list, link) {
-		if (!(t->profile & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE
-		| SPA_BT_PROFILE_BAP_BROADCAST_SINK)))
+		if (!(t->profile & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE |
+				SPA_BT_PROFILE_BAP_BROADCAST_SINK | SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)))
 			continue;
-		
-		if (transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) {
+
+		if ((transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) ||
+			(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)) {
 			if (t->bap_big != transport->bap_big)
 				continue;
 		} else {
@@ -3494,9 +3500,10 @@ finish:
 		if (transport_create_iso_io(transport) < 0)
 			spa_log_error(monitor->log, "transport %p: transport_create_iso_io failed",
 					transport);
-		/* For broadcast there initiator moves the transport state to SPA_BT_TRANSPORT_STATE_ACTIVE */
+		/* For broadcast the initiator moves the transport state to SPA_BT_TRANSPORT_STATE_ACTIVE */
 		/* TODO: handeling multiple BIGs support */
-		if(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK)	{
+		if ((transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) ||
+			(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE))	{
 			spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ACTIVE);
 		} else {
 			if (!transport->bap_initiator)
@@ -3526,7 +3533,8 @@ finish:
 					t_linked);
 
 		/* For broadcast there initiator moves the transport state to SPA_BT_TRANSPORT_STATE_ACTIVE */
-		if(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK)	{
+		if ((transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) ||
+			(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE))	{
 			spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ACTIVE);
 		} else {
 			if (!transport->bap_initiator)
@@ -4733,7 +4741,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 				}
 			}
 
-			if((codec->bap) && register_bcast)
+			if(codec->bap && register_bcast)
 			{
 				if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST)) {
 					caps_size = codec->fill_caps(codec, 0, caps);
@@ -4748,6 +4756,21 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 									SPA_BT_UUID_BAP_BROADCAST_SOURCE,
 									codec_id, caps, caps_size);
 						}
+				}
+				
+				if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SINK_BROADCAST)) {
+					caps_size = codec->fill_caps(codec, MEDIA_CODEC_FLAG_SINK, caps);
+					if (caps_size < 0)
+						continue;
+
+					spa_autofree char *endpoint = NULL;
+					ret = media_codec_to_endpoint(codec, SPA_BT_MEDIA_SINK_BROADCAST, &endpoint);
+					if (ret == 0) {
+						spa_log_info(monitor->log, "register broadcast media sink codec %s: %s", media_codecs[i]->name, endpoint);
+						append_media_object(&array, endpoint,
+								SPA_BT_UUID_BAP_BROADCAST_SINK,
+								codec_id, caps, caps_size);
+					}
 				}
 			}
 		}
@@ -4880,8 +4903,8 @@ static int register_media_application(struct spa_bt_monitor * monitor)
 		if(codec->bap)
 		{
 			register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST);
+			register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SINK_BROADCAST);
 		}
-		
 	}
 
 	return 0;
@@ -4917,6 +4940,7 @@ static void unregister_media_application(struct spa_bt_monitor * monitor)
 		if(codec->bap)
 		{
 			unregister_media_endpoint(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST);
+			unregister_media_endpoint(monitor, codec, SPA_BT_MEDIA_SINK_BROADCAST);
 		}
 	}
 
@@ -4936,7 +4960,8 @@ static bool have_codec_endpoints(struct spa_bt_monitor *monitor, bool bap)
 			continue;
 		if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SINK) ||
 				endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE) ||
-				endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST))
+				endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST) || 
+				endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SINK_BROADCAST))
 			return true;
 	}
 	return false;
@@ -5674,6 +5699,8 @@ int spa_bt_profiles_from_json_array(const char *str)
 			profiles |= SPA_BT_PROFILE_BAP_SOURCE;
 		} else if (spa_streq(role_name, "bap_bcast_source")) {
 			profiles |= SPA_BT_PROFILE_BAP_BROADCAST_SOURCE;
+		} else if (spa_streq(role_name, "bap_bcast_sink")) {
+			profiles |= SPA_BT_PROFILE_BAP_BROADCAST_SINK;
 		}
 	}
 

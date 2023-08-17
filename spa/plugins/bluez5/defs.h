@@ -321,10 +321,10 @@ static inline const char *spa_bt_profile_name (enum spa_bt_profile profile) {
       case SPA_BT_PROFILE_HEADSET_AUDIO:
 	return "headset-audio";
       case SPA_BT_PROFILE_BAP_SOURCE:
-	  case SPA_BT_PROFILE_BAP_BROADCAST_SOURCE:
+      case SPA_BT_PROFILE_BAP_BROADCAST_SOURCE:
         return "bap-source";
       case SPA_BT_PROFILE_BAP_SINK:
-	  case SPA_BT_PROFILE_BAP_BROADCAST_SINK:
+      case SPA_BT_PROFILE_BAP_BROADCAST_SINK:
         return "bap-sink";
       case SPA_BT_PROFILE_BAP_DUPLEX:
         return "bap-duplex";
@@ -365,7 +365,7 @@ struct spa_bt_adapter {
 	unsigned int le_audio_supported:1;
 	unsigned int has_adapter1_interface:1;
 	unsigned int has_media1_interface:1;
-	unsigned int le_audio_bcast_supported :1;
+	unsigned int le_audio_bcast_supported:1;
 };
 
 enum spa_bt_form_factor {

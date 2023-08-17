@@ -1062,6 +1062,18 @@ static int emit_nodes(struct impl *this)
 				emit_device_set_node(this, DEVICE_ID_SINK_SET);
 		}
 
+		if (this->bt_dev->connected_profiles & (SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)) {
+			t = find_transport(this, SPA_BT_PROFILE_BAP_BROADCAST_SOURCE, this->props.codec);
+			if (t) {
+				this->props.codec = t->media_codec->id;
+				emit_dynamic_node(&this->dyn_media_source, this, t,
+					DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_MEDIA_SOURCE, false);
+			}
+
+			if (this->device_set.leader && this->device_set.sources > 0)
+				emit_device_set_node(this, DEVICE_ID_SOURCE_SET);
+		}
+
 		if (get_supported_media_codec(this, this->props.codec, NULL) == NULL)
 			this->props.codec = 0;
 		break;

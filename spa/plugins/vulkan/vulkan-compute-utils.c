@@ -127,6 +127,7 @@ static int updateDescriptors(struct vulkan_compute_state *s)
 	uint32_t i;
 	VkDescriptorImageInfo descriptorImageInfo[s->n_streams];
 	VkWriteDescriptorSet writeDescriptorSet[s->n_streams];
+	uint32_t descriptorSetLen = 0;
 
 	for (i = 0; i < s->n_streams; i++) {
 		struct vulkan_stream *p = &s->streams[i];
@@ -139,12 +140,12 @@ static int updateDescriptors(struct vulkan_compute_state *s)
 		p->busy_buffer_id = p->current_buffer_id;
 		p->pending_buffer_id = SPA_ID_INVALID;
 
-		descriptorImageInfo[i] = (VkDescriptorImageInfo) {
+		descriptorImageInfo[descriptorSetLen] = (VkDescriptorImageInfo) {
 			.sampler = s->sampler,
 			.imageView = p->buffers[p->current_buffer_id].view,
 			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 		};
-		writeDescriptorSet[i] = (VkWriteDescriptorSet) {
+		writeDescriptorSet[descriptorSetLen] = (VkWriteDescriptorSet) {
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			.dstSet = s->descriptorSet,
 			.dstBinding = i,
@@ -154,8 +155,9 @@ static int updateDescriptors(struct vulkan_compute_state *s)
 				VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			.pImageInfo = &descriptorImageInfo[i],
 		};
+		descriptorSetLen++;
 	}
-	vkUpdateDescriptorSets(s->base.device, s->n_streams,
+	vkUpdateDescriptorSets(s->base.device, descriptorSetLen,
 				writeDescriptorSet, 0, NULL);
 
 	return 0;

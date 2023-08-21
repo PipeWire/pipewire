@@ -393,6 +393,19 @@ static void process_device(struct impl *impl, uint32_t action, struct udev_devic
 	}
 }
 
+static int stop_inotify(struct device *dev)
+{
+	struct impl *impl = dev->impl;
+	if (dev->notify.fd == -1)
+		return 0;
+	spa_log_info(impl->log, "stop inotify for /dev/video%u", dev->id);
+	spa_loop_remove_source(impl->main_loop, &dev->notify);
+	close(dev->notify.fd);
+	dev->notify.fd = -1;
+	return 0;
+}
+
+
 static void impl_on_notify_events(struct spa_source *source)
 {
 	struct device *dev = source->data;
@@ -402,7 +415,12 @@ static void impl_on_notify_events(struct spa_source *source)
 		struct inotify_event e; /* for appropriate alignment */
 	} buf;
 
-	while (true) {
+	if (source->rmask & (SPA_IO_ERR | SPA_IO_HUP)) {
+		spa_log_warn(impl->log, "notify error on /dev/video%u", dev->id);
+		stop_inotify(dev);
+		return;
+	}
+	while (source->rmask & SPA_IO_IN) {
 		ssize_t len;
 		const struct inotify_event *event;
 		void *p, *e;
@@ -466,18 +484,6 @@ static int start_inotify(struct device *dev)
 
 	spa_loop_add_source(impl->main_loop, &dev->notify);
 
-	return 0;
-}
-
-static int stop_inotify(struct device *dev)
-{
-	struct impl *impl = dev->impl;
-	if (dev->notify.fd == -1)
-		return 0;
-	spa_log_info(impl->log, "stop inotify for /dev/video%u", dev->id);
-	spa_loop_remove_source(impl->main_loop, &dev->notify);
-	close(dev->notify.fd);
-	dev->notify.fd = -1;
 	return 0;
 }
 

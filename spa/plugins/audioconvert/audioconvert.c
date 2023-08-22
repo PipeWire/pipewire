@@ -2594,7 +2594,7 @@ static uint32_t resample_update_rate_match(struct impl *this, bool passthrough, 
 	spa_log_trace_fp(this->log, "%p: next match %u", this, match_size);
 
 	if (this->io_rate_match) {
-		this->io_rate_match->delay = delay;
+		this->io_rate_match->delay = delay + in_queued;
 		this->io_rate_match->size = match_size;
 	}
 	return match_size;

@@ -2273,7 +2273,7 @@ bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const stru
 	spa_list_for_each(ep, &device->remote_endpoint_list, device_link) {
 		enum spa_bt_profile profile = spa_bt_profile_from_uuid(ep->uuid);
 		if (codec->bap) {
-			if((profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) || (profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE))
+			if ((profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) || (profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE))
 				codec_profile = sink ? SPA_BT_PROFILE_BAP_BROADCAST_SINK : SPA_BT_PROFILE_BAP_BROADCAST_SOURCE;
 			else
 				codec_profile = sink ? SPA_BT_PROFILE_BAP_SINK : SPA_BT_PROFILE_BAP_SOURCE;
@@ -3389,7 +3389,7 @@ static int transport_create_iso_io(struct spa_bt_transport *transport)
 	struct spa_bt_transport *t;
 
 	if (!(transport->profile & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE |
-		SPA_BT_PROFILE_BAP_BROADCAST_SINK || SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)))
+		SPA_BT_PROFILE_BAP_BROADCAST_SINK | SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)))
 		return 0;
 
 	if ((transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) ||
@@ -4741,8 +4741,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 				}
 			}
 
-			if(codec->bap && register_bcast)
-			{
+			if (codec->bap && register_bcast) {
 				if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST)) {
 					caps_size = codec->fill_caps(codec, 0, caps);
 					if (caps_size < 0)
@@ -4900,8 +4899,7 @@ static int register_media_application(struct spa_bt_monitor * monitor)
 
 		register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SOURCE);
 		register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SINK);
-		if(codec->bap)
-		{
+		if (codec->bap) {
 			register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST);
 			register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SINK_BROADCAST);
 		}
@@ -4937,8 +4935,7 @@ static void unregister_media_application(struct spa_bt_monitor * monitor)
 
 		unregister_media_endpoint(monitor, codec, SPA_BT_MEDIA_SOURCE);
 		unregister_media_endpoint(monitor, codec, SPA_BT_MEDIA_SINK);
-		if(codec->bap)
-		{
+		if (codec->bap) {
 			unregister_media_endpoint(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST);
 			unregister_media_endpoint(monitor, codec, SPA_BT_MEDIA_SINK_BROADCAST);
 		}

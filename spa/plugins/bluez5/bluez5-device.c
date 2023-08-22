@@ -1069,9 +1069,6 @@ static int emit_nodes(struct impl *this)
 				emit_dynamic_node(&this->dyn_media_source, this, t,
 					DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_MEDIA_SOURCE, false);
 			}
-
-			if (this->device_set.leader && this->device_set.sources > 0)
-				emit_device_set_node(this, DEVICE_ID_SOURCE_SET);
 		}
 
 		if (get_supported_media_codec(this, this->props.codec, NULL) == NULL)

@@ -95,11 +95,12 @@ stream.properties = {
 }
 
 alsa.properties = {
-    #alsa.format = 0
-    #alsa.rate = 0
-    #alsa.channels = 0
-    #alsa.period-bytes = 0
-    #alsa.buffer-bytes = 0
+    #alsa.access = 0 			# [ MMAP_INTERLEAVED MMAP_NONINTERLEAVED RW_INTERLEAVED RW_NONINTERLEAVED ]
+    #alsa.format = 0 			# [ FLOAT S32 S24 S24_3 S16 U8 ]
+    #alsa.rate = 0			# { min=1 max=384000 } or [ 44100 48000 .. ]
+    #alsa.channels = 0			# { min=1 max=64 } or [ 2 4 6 .. ]
+    #alsa.period-bytes = 0		# { min=128 max=2097152 } or [ 128 256 1024 .. ]
+    #alsa.buffer-bytes = 0		# { min=256 max=4194304 } or [ 256 512 4096 .. ]
     #alsa.volume-method = cubic		# linear, cubic
 }
 

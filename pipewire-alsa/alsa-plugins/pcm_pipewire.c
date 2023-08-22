@@ -22,6 +22,7 @@
 #include <spa/utils/atomic.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
+#include <spa/utils/json.h>
 
 #include <pipewire/pipewire.h>
 
@@ -919,118 +920,199 @@ static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 	.query_chmaps = snd_pcm_pipewire_query_chmaps,
 };
 
-static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
+#define MAX_VALS	64
+struct param_info {
+	const char *prop;
+	int key;
+#define TYPE_LIST	0
+#define TYPE_MIN_MAX	1
+	int type;
+	unsigned int vals[MAX_VALS];
+	unsigned int n_vals;
+	int (*collect) (const char *str, int len, unsigned int *val);
+
+};
+
+static int collect_access(const char *str, int len, unsigned int *val)
 {
-	unsigned int access_list[] = {
-		SND_PCM_ACCESS_MMAP_INTERLEAVED,
-		SND_PCM_ACCESS_MMAP_NONINTERLEAVED,
-		SND_PCM_ACCESS_RW_INTERLEAVED,
-		SND_PCM_ACCESS_RW_NONINTERLEAVED
-	};
-	unsigned int format_list[] = {
+	char key[64];
+
+	if (spa_json_parse_stringn(str, len, key, sizeof(key)) <= 0)
+		return -EINVAL;
+
+	if (strcasecmp(key, "MMAP_INTERLEAVED") == 0)
+		*val = SND_PCM_ACCESS_MMAP_INTERLEAVED;
+	else if (strcasecmp(key, "MMAP_NONINTERLEAVED") == 0)
+		*val = SND_PCM_ACCESS_MMAP_NONINTERLEAVED;
+	else if (strcasecmp(key, "RW_INTERLEAVED") == 0)
+		*val = SND_PCM_ACCESS_RW_INTERLEAVED;
+	else if (strcasecmp(key, "RW_NONINTERLEAVED") == 0)
+		*val = SND_PCM_ACCESS_RW_NONINTERLEAVED;
+	else
+		return -EINVAL;
+	return 0;
+}
+
+static int collect_format(const char *str, int len, unsigned int *val)
+{
+	char key[64];
+	snd_pcm_format_t fmt;
+
+	if (spa_json_parse_stringn(str, len, key, sizeof(key)) < 0)
+		return -EINVAL;
+
+	fmt = snd_pcm_format_value(key);
+	if (fmt != SND_PCM_FORMAT_UNKNOWN)
+		*val = fmt;
+	else
+		return -EINVAL;
+	return 0;
+}
+
+static int collect_int(const char *str, int len, unsigned int *val)
+{
+	int v;
+	if (spa_json_parse_int(str, len, &v) > 0)
+		*val = v;
+	else
+		return -EINVAL;
+	return 0;
+}
+
+struct param_info infos[] = {
+	{ "alsa.access", SND_PCM_IOPLUG_HW_ACCESS, TYPE_LIST,
+		{ SND_PCM_ACCESS_MMAP_INTERLEAVED,
+			SND_PCM_ACCESS_MMAP_NONINTERLEAVED,
+			SND_PCM_ACCESS_RW_INTERLEAVED,
+			SND_PCM_ACCESS_RW_NONINTERLEAVED }, 4, collect_access },
+	{ "alsa.format", SND_PCM_IOPLUG_HW_FORMAT, TYPE_LIST,
+		{
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-		SND_PCM_FORMAT_FLOAT_LE,
-		SND_PCM_FORMAT_S32_LE,
-		SND_PCM_FORMAT_S24_LE,
-		SND_PCM_FORMAT_S24_3LE,
-		SND_PCM_FORMAT_S24_3BE,
-		SND_PCM_FORMAT_S16_LE,
+			SND_PCM_FORMAT_FLOAT_LE,
+			SND_PCM_FORMAT_S32_LE,
+			SND_PCM_FORMAT_S24_LE,
+			SND_PCM_FORMAT_S24_3LE,
+			SND_PCM_FORMAT_S24_3BE,
+			SND_PCM_FORMAT_S16_LE,
 #elif __BYTE_ORDER == __BIG_ENDIAN
-		SND_PCM_FORMAT_FLOAT_BE,
-		SND_PCM_FORMAT_S32_BE,
-		SND_PCM_FORMAT_S24_BE,
-		SND_PCM_FORMAT_S24_3LE,
-		SND_PCM_FORMAT_S24_3BE,
-		SND_PCM_FORMAT_S16_BE,
+			SND_PCM_FORMAT_FLOAT_BE,
+			SND_PCM_FORMAT_S32_BE,
+			SND_PCM_FORMAT_S24_BE,
+			SND_PCM_FORMAT_S24_3LE,
+			SND_PCM_FORMAT_S24_3BE,
+			SND_PCM_FORMAT_S16_BE,
 #endif
-		SND_PCM_FORMAT_U8,
-	};
-	int val;
-	int min_rate;
-	int max_rate;
-	int min_channels;
-	int max_channels;
-	int min_period_bytes;
-	int max_period_bytes;
-	int min_buffer_bytes;
-	int max_buffer_bytes;
+			SND_PCM_FORMAT_U8 }, 7, collect_format },
+	{ "alsa.rate", SND_PCM_IOPLUG_HW_RATE, TYPE_MIN_MAX,
+		{ 1, MAX_RATE }, 2, collect_int },
+	{ "alsa.channels", SND_PCM_IOPLUG_HW_CHANNELS, TYPE_MIN_MAX,
+		{ 1, MAX_CHANNELS }, 2, collect_int },
+	{ "alsa.buffer-bytes", SND_PCM_IOPLUG_HW_BUFFER_BYTES, TYPE_MIN_MAX,
+		{ MIN_BUFFER_BYTES, MAX_BUFFER_BYTES }, 2, collect_int },
+	{ "alsa.period-bytes", SND_PCM_IOPLUG_HW_PERIOD_BYTES, TYPE_MIN_MAX,
+		{ MIN_PERIOD_BYTES, MAX_PERIOD_BYTES }, 2, collect_int },
+	{ "alsa.periods", SND_PCM_IOPLUG_HW_PERIODS, TYPE_MIN_MAX,
+		{ MIN_BUFFERS, 1024 }, 2, collect_int },
+};
+
+static struct param_info *param_info_by_key(int key)
+{
+	SPA_FOR_EACH_ELEMENT_VAR(infos, p) {
+		if (p->key == key)
+			return p;
+	}
+	return NULL;
+}
+
+static int parse_value(const char *str, struct param_info *info)
+{
+	struct spa_json it[2];
+	unsigned int v;
+	const char *val;
+	int len;
+
+	spa_json_init(&it[0], str, strlen(str));
+	if ((len = spa_json_next(&it[0], &val)) <= 0)
+		return -EINVAL;
+
+	if (spa_json_is_array(val, len)) {
+		info->type = TYPE_LIST;
+		info->n_vals = 0;
+		spa_json_enter(&it[0], &it[1]);
+		while ((len = spa_json_next(&it[1], &val)) > 0 && info->n_vals < MAX_VALS) {
+			if (info->collect(val, len, &v) < 0)
+				continue;
+			info->vals[info->n_vals++] = v;
+		}
+	}
+	else if (spa_json_is_object(val, len)) {
+		char key[64];
+		info->type = TYPE_MIN_MAX;
+		info->n_vals = 2;
+		spa_json_enter(&it[0], &it[1]);
+                while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+                        if ((len = spa_json_next(&it[1], &val)) <= 0)
+                                break;
+			if (info->collect(val, len, &v) < 0)
+				continue;
+			if (spa_streq(key, "min"))
+				info->vals[0] = v;
+			else if (spa_streq(key, "max"))
+				info->vals[1] = v;
+                }
+	}
+	else if (info->collect(val, len, &v) >= 0) {
+		info->type = TYPE_LIST;
+		info->vals[0] = v;
+		info->n_vals = 1;
+	}
+	return 0;
+}
+
+static int set_constraint(snd_pcm_pipewire_t *pw, int key)
+{
+	struct param_info *p = param_info_by_key(key), info;
 	const char *str;
-	snd_pcm_format_t format;
 	int err;
 
-	val = pw_properties_get_uint32(pw->props, "alsa.rate", 0);
-	if (val > 0) {
-		min_rate = max_rate = SPA_CLAMP(val, 1, MAX_RATE);
-	} else {
-		min_rate = 1;
-		max_rate = MAX_RATE;
-	}
-	val = pw_properties_get_uint32(pw->props, "alsa.channels", 0);
-	if (val > 0) {
-		min_channels = max_channels = SPA_CLAMP(val, 1, MAX_CHANNELS);
-	} else {
-		min_channels = 1;
-		max_channels = MAX_CHANNELS;
-	}
-	val = pw_properties_get_uint32(pw->props, "alsa.period-bytes", 0);
-	if (val > 0) {
-		min_period_bytes = max_period_bytes = SPA_CLAMP(val,
-				MIN_PERIOD_BYTES, MAX_PERIOD_BYTES);
-	} else {
-		min_period_bytes = MIN_PERIOD_BYTES;
-		max_period_bytes = MAX_PERIOD_BYTES;
-	}
-	val = pw_properties_get_uint32(pw->props, "alsa.buffer-bytes", 0);
-	if (val > 0) {
-		min_buffer_bytes = max_buffer_bytes = SPA_CLAMP(val,
-				MIN_BUFFER_BYTES, MAX_BUFFER_BYTES);
-	} else {
-		min_buffer_bytes = MIN_BUFFER_BYTES;
-		max_buffer_bytes = MAX_BUFFER_BYTES;
-	}
-	if (min_period_bytes * 2 > max_buffer_bytes)
-		min_period_bytes = max_period_bytes = max_buffer_bytes / 2;
+	if (p == NULL)
+		return -EINVAL;
 
-	if ((err = snd_pcm_ioplug_set_param_list(&pw->io, SND_PCM_IOPLUG_HW_ACCESS,
-						   SPA_N_ELEMENTS(access_list), access_list)) < 0 ||
-		(err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_CHANNELS,
-						   min_channels, max_channels)) < 0 ||
-		(err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_RATE,
-						   min_rate, max_rate)) < 0 ||
-		(err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_BUFFER_BYTES,
-						   min_buffer_bytes,
-						   max_buffer_bytes)) < 0 ||
-		(err = snd_pcm_ioplug_set_param_minmax(&pw->io,
-						   SND_PCM_IOPLUG_HW_PERIOD_BYTES,
-						   min_period_bytes,
-						   max_period_bytes)) < 0 ||
-		(err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_PERIODS,
-						   MIN_BUFFERS, 1024)) < 0) {
-		pw_log_warn("Can't set param list: %s", snd_strerror(err));
+	info = *p;
+
+	str = pw_properties_get(pw->props, p->prop);
+	if (str != NULL)
+		parse_value(str, &info);
+
+	switch (info.type) {
+	case TYPE_LIST:
+		pw_log_info("%s: list %d", p->prop, info.n_vals);
+		err = snd_pcm_ioplug_set_param_list(&pw->io, key, info.n_vals, info.vals);
+		break;
+	case TYPE_MIN_MAX:
+		pw_log_info("%s: min:%u max:%u", p->prop, info.vals[0], info.vals[1]);
+		err = snd_pcm_ioplug_set_param_minmax(&pw->io, key, info.vals[0], info.vals[1]);
+		break;
+	default:
+		return -EIO;
+	}
+	if (err < 0)
+		pw_log_warn("Can't set param %s: %s", info.prop, snd_strerror(err));
+
+	return err;
+
+}
+static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw)
+{
+	int err;
+	if ((err = set_constraint(pw, SND_PCM_IOPLUG_HW_ACCESS)) < 0 ||
+	    (err = set_constraint(pw, SND_PCM_IOPLUG_HW_FORMAT)) < 0 ||
+	    (err = set_constraint(pw, SND_PCM_IOPLUG_HW_RATE)) < 0 ||
+	    (err = set_constraint(pw, SND_PCM_IOPLUG_HW_CHANNELS)) < 0 ||
+	    (err = set_constraint(pw, SND_PCM_IOPLUG_HW_PERIOD_BYTES)) < 0 ||
+	    (err = set_constraint(pw, SND_PCM_IOPLUG_HW_BUFFER_BYTES)) < 0 ||
+	    (err = set_constraint(pw, SND_PCM_IOPLUG_HW_PERIODS)) < 0)
 		return err;
-	}
-	format = SND_PCM_FORMAT_UNKNOWN;
-	if ((str = pw_properties_get(pw->props, "alsa.format")))
-		format = snd_pcm_format_value(str);
-
-	if (format != SND_PCM_FORMAT_UNKNOWN) {
-		err = snd_pcm_ioplug_set_param_list(&pw->io,
-				SND_PCM_IOPLUG_HW_FORMAT,
-				1, (unsigned int *)&format);
-		if (err < 0) {
-			pw_log_warn("Can't set param list: %s", snd_strerror(err));
-			return err;
-		}
-	} else {
-		err = snd_pcm_ioplug_set_param_list(&pw->io,
-				SND_PCM_IOPLUG_HW_FORMAT,
-				SPA_N_ELEMENTS(format_list),
-				format_list);
-		if (err < 0) {
-			pw_log_warn("Can't set param list: %s", snd_strerror(err));
-			return err;
-		}
-	}
 	return 0;
 }
 

@@ -226,10 +226,12 @@ struct pw_stream_control {
  * value, and pw_time.ticks, were captured at pw_time.now and can be extrapolated
  * to the current time like this:
  *
+ *\code{.c}
  *    struct timespec ts;
  *    clock_gettime(CLOCK_MONOTONIC, &ts);
  *    int64_t diff = SPA_TIMESPEC_TO_NSEC(&ts) - pw_time.now;
  *    int64_t elapsed = (pw_time.rate.denom * diff) / (pw_time.rate.num * SPA_NSEC_PER_SEC);
+ *\endcode
  *
  * pw_time.delay contains the total delay that a signal will travel through the
  * graph. This includes the delay caused by filters in the graph as well as delays
@@ -255,6 +257,7 @@ struct pw_stream_control {
  * in milliseconds for the first sample in the newly queued buffer to be played
  * by the hardware can be calculated as:
  *
+ *\code{.unparsed}
  *  (pw_time.buffered * 1000 / stream.samplerate) +
  *    (pw_time.queued * 1000 / app.rate) +
  *     ((pw_time.delay - elapsed) * 1000 * pw_time.rate.num / pw_time.rate.denom)
@@ -262,8 +265,10 @@ struct pw_stream_control {
  * The current extrapolated time (in ms) in the source or sink can be calculated as:
  *
  *  (pw_time.ticks + elapsed) * 1000 * pw_time.rate.num / pw_time.rate.denom
+ *\endcode
  *
  *
+ *\code{.unparsed}
  *           stream time domain           graph time domain
  *         /-----------------------\/-----------------------------\
  *
@@ -275,6 +280,7 @@ struct pw_stream_control {
  *                                    latency             latency
  *         \--------/\-------------/\-----------------------------/
  *           queued      buffered            delay
+ *\endcode
  */
 struct pw_time {
 	int64_t now;			/**< the monotonic time in nanoseconds. This is the time

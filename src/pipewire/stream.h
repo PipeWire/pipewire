@@ -261,12 +261,15 @@ struct pw_stream_control {
  *  (pw_time.buffered * 1000 / stream.samplerate) +
  *    (pw_time.queued * 1000 / app.rate) +
  *     ((pw_time.delay - elapsed) * 1000 * pw_time.rate.num / pw_time.rate.denom)
+ *\endcode
  *
  * The current extrapolated time (in ms) in the source or sink can be calculated as:
  *
+ *\code{.unparsed}
  *  (pw_time.ticks + elapsed) * 1000 * pw_time.rate.num / pw_time.rate.denom
  *\endcode
  *
+ * Below is an overview of the different timing values:
  *
  *\code{.unparsed}
  *           stream time domain           graph time domain

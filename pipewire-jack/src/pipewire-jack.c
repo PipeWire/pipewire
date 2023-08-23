@@ -86,12 +86,12 @@ struct notify {
 #define NOTIFY_TYPE_REGISTRATION	((1<<4))
 #define NOTIFY_TYPE_PORTREGISTRATION	((2<<4)|NOTIFY_ACTIVE_FLAG)
 #define NOTIFY_TYPE_CONNECT		((3<<4)|NOTIFY_ACTIVE_FLAG)
-#define NOTIFY_TYPE_GRAPH		((4<<4)|NOTIFY_ACTIVE_FLAG)
-#define NOTIFY_TYPE_BUFFER_FRAMES	((5<<4)|NOTIFY_ACTIVE_FLAG)
-#define NOTIFY_TYPE_SAMPLE_RATE		((6<<4)|NOTIFY_ACTIVE_FLAG)
-#define NOTIFY_TYPE_FREEWHEEL		((7<<4)|NOTIFY_ACTIVE_FLAG)
-#define NOTIFY_TYPE_SHUTDOWN		((8<<4)|NOTIFY_ACTIVE_FLAG)
-#define NOTIFY_TYPE_LATENCY		((9<<4)|NOTIFY_ACTIVE_FLAG)
+#define NOTIFY_TYPE_BUFFER_FRAMES	((4<<4)|NOTIFY_ACTIVE_FLAG)
+#define NOTIFY_TYPE_SAMPLE_RATE		((5<<4)|NOTIFY_ACTIVE_FLAG)
+#define NOTIFY_TYPE_FREEWHEEL		((6<<4)|NOTIFY_ACTIVE_FLAG)
+#define NOTIFY_TYPE_SHUTDOWN		((7<<4)|NOTIFY_ACTIVE_FLAG)
+#define NOTIFY_TYPE_LATENCY		((8<<4)|NOTIFY_ACTIVE_FLAG)
+#define NOTIFY_TYPE_TOTAL_LATENCY	((9<<4)|NOTIFY_ACTIVE_FLAG)
 	int type;
 	struct object *object;
 	int arg1;
@@ -901,12 +901,6 @@ jack_get_version_string(void)
 	return name;
 }
 
-static void recompute_latencies(struct client *c)
-{
-	do_callback(c, latency_callback, c->active, JackCaptureLatency, c->latency_arg);
-	do_callback(c, latency_callback, c->active, JackPlaybackLatency, c->latency_arg);
-}
-
 #define freeze_callbacks(c)		\
 ({					\
 	(c)->frozen_callbacks++;	\
@@ -929,7 +923,7 @@ static void emit_callbacks(struct client *c)
 	int32_t avail;
 	uint32_t index;
 	struct notify *notify;
-	bool do_graph = false;
+	bool do_graph = false, do_recompute_capture = false, do_recompute_playback = false;
 
 	if (c->frozen_callbacks != 0 || !c->pending_callbacks)
 		return;
@@ -982,10 +976,7 @@ static void emit_callbacks(struct client *c)
 					c->connect_arg);
 
 			do_graph = true;
-			break;
-		case NOTIFY_TYPE_GRAPH:
-			pw_log_debug("%p: graph", c);
-			do_graph = true;
+			do_recompute_capture = do_recompute_playback = true;
 			break;
 		case NOTIFY_TYPE_BUFFER_FRAMES:
 			pw_log_debug("%p: buffer frames %d", c, notify->arg1);
@@ -993,7 +984,7 @@ static void emit_callbacks(struct client *c)
 				do_callback_expr(c, c->buffer_frames = notify->arg1,
 						bufsize_callback, c->active,
 						notify->arg1, c->bufsize_arg);
-				recompute_latencies(c);
+				do_recompute_capture = do_recompute_playback = true;
 			}
 			break;
 		case NOTIFY_TYPE_SAMPLE_RATE:
@@ -1020,7 +1011,14 @@ static void emit_callbacks(struct client *c)
 			break;
 		case NOTIFY_TYPE_LATENCY:
 			pw_log_debug("%p: latency %d", c, notify->arg1);
-			do_callback(c, latency_callback, c->active, notify->arg1, c->latency_arg);
+			if (notify->arg1 == JackCaptureLatency)
+				do_recompute_capture = true;
+			else if (notify->arg1 == JackPlaybackLatency)
+				do_recompute_playback = true;
+			break;
+		case NOTIFY_TYPE_TOTAL_LATENCY:
+			pw_log_debug("%p: total latency", c);
+			do_recompute_capture = do_recompute_playback = true;
 			break;
 		default:
 			break;
@@ -1036,10 +1034,13 @@ static void emit_callbacks(struct client *c)
 		index += sizeof(struct notify);
 		spa_ringbuffer_read_update(&c->notify_ring, index);
 	}
-	if (do_graph) {
-		recompute_latencies(c);
+	if (do_recompute_capture)
+		do_callback(c, latency_callback, c->active, JackCaptureLatency, c->latency_arg);
+	if (do_recompute_playback)
+		do_callback(c, latency_callback, c->active, JackPlaybackLatency, c->latency_arg);
+	if (do_graph)
 		do_callback(c, graph_callback, c->active, c->graph_arg);
-	}
+
 	thaw_callbacks(c);
 	pw_log_debug("%p: leave", c);
 }
@@ -1050,6 +1051,7 @@ static int queue_notify(struct client *c, int type, struct object *o, int arg1, 
 	uint32_t index;
 	struct notify *notify;
 	bool emit = false;
+	int res = 0;
 
 	switch (type) {
 	case NOTIFY_TYPE_REGISTRATION:
@@ -1061,9 +1063,6 @@ static int queue_notify(struct client *c, int type, struct object *o, int arg1, 
 		break;
 	case NOTIFY_TYPE_CONNECT:
 		emit = c->connect_callback != NULL && o != NULL;
-		break;
-	case NOTIFY_TYPE_GRAPH:
-		emit = c->graph_callback != NULL || c->latency_callback != NULL;
 		break;
 	case NOTIFY_TYPE_BUFFER_FRAMES:
 		emit = c->bufsize_callback != NULL;
@@ -1078,6 +1077,7 @@ static int queue_notify(struct client *c, int type, struct object *o, int arg1, 
 		emit = c->info_shutdown_callback != NULL || c->shutdown_callback != NULL;
 		break;
 	case NOTIFY_TYPE_LATENCY:
+	case NOTIFY_TYPE_TOTAL_LATENCY:
 		emit = c->latency_callback != NULL;
 		break;
 	default:
@@ -1086,8 +1086,10 @@ static int queue_notify(struct client *c, int type, struct object *o, int arg1, 
 	if (!emit || ((type & NOTIFY_ACTIVE_FLAG) && !c->active)) {
 		switch (type) {
 		case NOTIFY_TYPE_BUFFER_FRAMES:
-			if (!emit)
+			if (!emit) {
 				c->buffer_frames = arg1;
+				queue_notify(c, NOTIFY_TYPE_TOTAL_LATENCY, NULL, 0, NULL);
+			}
 			break;
 		case NOTIFY_TYPE_SAMPLE_RATE:
 			if (!emit)
@@ -1100,13 +1102,15 @@ static int queue_notify(struct client *c, int type, struct object *o, int arg1, 
 			o->removing = false;
 			free_object(c, o);
 		}
-		return 0;
+		return res;
 	}
 
+	pthread_mutex_lock(&c->context.lock);
 	filled = spa_ringbuffer_get_write_index(&c->notify_ring, &index);
 	if (filled < 0 || filled + sizeof(struct notify) > NOTIFY_BUFFER_SIZE) {
 		pw_log_warn("%p: notify queue full %d", c, type);
-		return -ENOSPC;
+		res = -ENOSPC;
+		goto done;
 	}
 
 	notify = SPA_PTROFF(c->notify_buffer, index & NOTIFY_BUFFER_MASK, struct notify);
@@ -1120,7 +1124,9 @@ static int queue_notify(struct client *c, int type, struct object *o, int arg1, 
 	spa_ringbuffer_write_update(&c->notify_ring, index);
 	c->pending_callbacks = true;
 	check_callbacks(c);
-	return 0;
+done:
+	pthread_mutex_unlock(&c->context.lock);
+	return res;
 }
 
 static void on_notify_event(void *data, uint64_t count)
@@ -5860,9 +5866,7 @@ SPA_EXPORT
 int jack_recompute_total_latencies (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
-	queue_notify(c, NOTIFY_TYPE_LATENCY, NULL, JackCaptureLatency, NULL);
-	queue_notify(c, NOTIFY_TYPE_LATENCY, NULL, JackPlaybackLatency, NULL);
-	return 0;
+	return queue_notify(c, NOTIFY_TYPE_TOTAL_LATENCY, NULL, 0, NULL);
 }
 
 static jack_nframes_t port_get_latency (jack_port_t *port)

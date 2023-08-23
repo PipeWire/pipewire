@@ -1645,31 +1645,27 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 
 	dir = 0;
 	period_size = state->default_period_size;
-	is_batch = snd_pcm_hw_params_is_batch(params) &&
-		!state->disable_batch;
+	is_batch = snd_pcm_hw_params_is_batch(params) && !state->disable_batch;
 
 	/* no period size specified. If we are batch or not using timers,
 	 * use the graph duration as the period */
 	if (period_size == 0 && (is_batch || state->disable_tsched))
-		period_size = state->position ? state->position->clock.duration : DEFAULT_PERIOD;
+		period_size = state->position ? state->position->clock.target_duration : DEFAULT_PERIOD;
+	if (period_size == 0)
+		period_size = DEFAULT_PERIOD;
 
-	if (is_batch) {
-		if (period_size == 0)
-			period_size = DEFAULT_PERIOD;
-		/* batch devices get their hw pointers updated every period. Make
-		 * the period smaller and add one period of headroom. Limit the
-		 * period size to our default so that we don't create too much
-		 * headroom. */
-		if (!state->disable_tsched)
+	if (!state->disable_tsched) {
+		if (is_batch) {
+			/* batch devices get their hw pointers updated every period. Make
+			 * the period smaller and add one period of headroom. Limit the
+			 * period size to our default so that we don't create too much
+			 * headroom. */
 			period_size = SPA_MIN(period_size, DEFAULT_PERIOD) / 2;
-		spa_log_info(state->log, "%s: batch mode, period_size:%ld",
-			state->props.device, period_size);
-	} else {
-		if (period_size == 0)
-			period_size = DEFAULT_PERIOD;
-		/* disable ALSA wakeups, if we use a timer */
-		if (!state->disable_tsched && snd_pcm_hw_params_can_disable_period_wakeup(params))
-			CHECK(snd_pcm_hw_params_set_period_wakeup(hndl, params, 0), "set_period_wakeup");
+		} else {
+			/* disable ALSA wakeups */
+			if (snd_pcm_hw_params_can_disable_period_wakeup(params))
+				CHECK(snd_pcm_hw_params_set_period_wakeup(hndl, params, 0), "set_period_wakeup");
+		}
 	}
 
 	CHECK(snd_pcm_hw_params_set_period_size_near(hndl, params, &period_size, &dir), "set_period_size_near");
@@ -1729,7 +1725,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 
 	spa_log_info(state->log, "%s (%s): format:%s access:%s-%s rate:%d channels:%d "
 			"buffer frames %lu, period frames %lu, periods %u, frame_size %zd "
-			"headroom %u start-delay:%u tsched:%u",
+			"headroom %u start-delay:%u batch:%u tsched:%u",
 			state->props.device,
 			state->stream == SND_PCM_STREAM_CAPTURE ? "capture" : "playback",
 			snd_pcm_format_name(state->format),
@@ -1737,7 +1733,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 			planar ? "planar" : "interleaved",
 			state->rate, state->channels, state->buffer_frames, state->period_frames,
 			periods, state->frame_size, state->headroom, state->start_delay,
-			!state->disable_tsched);
+			is_batch, !state->disable_tsched);
 
 	/* write the parameters to device */
 	CHECK(snd_pcm_hw_params(hndl, params), "set_hw_params");

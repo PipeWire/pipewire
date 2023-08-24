@@ -83,7 +83,8 @@ struct port {
 #define PORT_Format	3
 #define PORT_Buffers	4
 #define PORT_Latency	5
-#define N_PORT_PARAMS	6
+#define PORT_Tag	6
+#define N_PORT_PARAMS	7
 	struct spa_param_info params[N_PORT_PARAMS];
 
 	struct spa_io_buffers *io;
@@ -189,6 +190,8 @@ static int get_port_param_index(uint32_t id)
 		return PORT_Buffers;
 	case SPA_PARAM_Latency:
 		return PORT_Latency;
+	case SPA_PARAM_Tag:
+		return PORT_Tag;
 	default:
 		return -1;
 	}
@@ -1849,6 +1852,7 @@ void *pw_filter_add_port(struct pw_filter *filter,
 	p->params[PORT_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	p->params[PORT_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	p->params[PORT_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_WRITE);
+	p->params[PORT_Tag] = SPA_PARAM_INFO(SPA_PARAM_Tag, SPA_PARAM_INFO_WRITE);
 	p->info.params = p->params;
 	p->info.n_params = N_PORT_PARAMS;
 

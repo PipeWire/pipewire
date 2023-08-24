@@ -20,6 +20,7 @@
 #include <spa/param/param.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/latency-utils.h>
+#include <spa/param/tag-utils.h>
 #include <spa/debug/format.h>
 #include <spa/debug/pod.h>
 #include <spa/debug/log.h>
@@ -75,7 +76,8 @@ struct impl {
 #define IDX_PortConfig		5
 #define IDX_Latency		6
 #define IDX_ProcessLatency	7
-#define N_NODE_PARAMS		8
+#define IDX_Tag			8
+#define N_NODE_PARAMS		9
 	struct spa_param_info params[N_NODE_PARAMS];
 	uint32_t convert_params_flags[N_NODE_PARAMS];
 	uint32_t follower_params_flags[N_NODE_PARAMS];
@@ -204,6 +206,7 @@ next:
 	case SPA_PARAM_EnumFormat:
 	case SPA_PARAM_Format:
 	case SPA_PARAM_Latency:
+	case SPA_PARAM_Tag:
 		res = spa_node_port_enum_params_sync(this->follower,
 				this->direction, 0,
 				id, &result.next, filter, &result.param, &b.b);
@@ -1093,8 +1096,10 @@ static int recalc_latency(struct impl *this, enum spa_direction direction, uint3
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		if ((res = spa_node_port_enum_params_sync(this->follower,
 						direction, port_id, SPA_PARAM_Latency,
-						&index, NULL, &param, &b)) != 1)
-			return res;
+						&index, NULL, &param, &b)) != 1) {
+			param = NULL;
+			break;
+		}
 		if ((res = spa_latency_parse(param, &latency)) < 0)
 			return res;
 		if (latency.direction == direction)
@@ -1103,6 +1108,42 @@ static int recalc_latency(struct impl *this, enum spa_direction direction, uint3
 	if ((res = spa_node_port_set_param(this->target,
 					SPA_DIRECTION_REVERSE(direction), 0,
 					SPA_PARAM_Latency, 0, param)) < 0)
+		return res;
+
+	return 0;
+}
+
+static int recalc_tag(struct impl *this, enum spa_direction direction, uint32_t port_id)
+{
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
+	struct spa_pod *param;
+	uint32_t index = 0;
+	struct spa_tag_info info;
+	int res;
+
+	spa_log_debug(this->log, "%p: ", this);
+
+	if (this->target == this->follower)
+		return 0;
+
+	while (true) {
+		void *state = NULL;
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		if ((res = spa_node_port_enum_params_sync(this->follower,
+						direction, port_id, SPA_PARAM_Tag,
+						&index, NULL, &param, &b)) != 1) {
+			param = NULL;
+			break;
+		}
+		if ((res = spa_tag_parse(param, &info, &state)) < 0)
+			return res;
+		if (info.direction == direction)
+			break;
+	}
+	if ((res = spa_node_port_set_param(this->target,
+					SPA_DIRECTION_REVERSE(direction), 0,
+					SPA_PARAM_Tag, 0, param)) < 0)
 		return res;
 
 	return 0;
@@ -1144,6 +1185,9 @@ static void follower_port_info(void *data,
 			case SPA_PARAM_Latency:
 				idx = IDX_Latency;
 				break;
+			case SPA_PARAM_Tag:
+				idx = IDX_Tag;
+				break;
 			default:
 				continue;
 			}
@@ -1164,6 +1208,11 @@ static void follower_port_info(void *data,
 			if (idx == IDX_Latency) {
 				res = recalc_latency(this, direction, port_id);
 				spa_log_debug(this->log, "latency: %d (%s)", res,
+						spa_strerror(res));
+			}
+			if (idx == IDX_Tag) {
+				res = recalc_tag(this, direction, port_id);
+				spa_log_debug(this->log, "tag: %d (%s)", res,
 						spa_strerror(res));
 			}
 			if (idx == IDX_EnumFormat) {
@@ -1403,7 +1452,7 @@ impl_node_port_set_param(void *object,
 			flags, param)) < 0)
 		return res;
 
-	if ((id == SPA_PARAM_Latency) &&
+	if ((id == SPA_PARAM_Latency || id == SPA_PARAM_Tag) &&
 	    direction == this->direction) {
 		if ((res = spa_node_port_set_param(this->follower, direction, 0, id,
 				flags, param)) < 0)
@@ -1707,6 +1756,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->params[IDX_PortConfig] = SPA_PARAM_INFO(SPA_PARAM_PortConfig, SPA_PARAM_INFO_READWRITE);
 	this->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_READWRITE);
 	this->params[IDX_ProcessLatency] = SPA_PARAM_INFO(SPA_PARAM_ProcessLatency, SPA_PARAM_INFO_READWRITE);
+	this->params[IDX_Tag] = SPA_PARAM_INFO(SPA_PARAM_Tag, SPA_PARAM_INFO_READWRITE);
 	this->info.params = this->params;
 	this->info.n_params = N_NODE_PARAMS;
 

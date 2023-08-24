@@ -782,6 +782,7 @@ struct pw_impl_port_implementation {
 #define pw_impl_port_emit_control_removed(p,c)		pw_impl_port_emit(p, control_removed, 0, c)
 #define pw_impl_port_emit_param_changed(p,i)		pw_impl_port_emit(p, param_changed, 1, i)
 #define pw_impl_port_emit_latency_changed(p)		pw_impl_port_emit(p, latency_changed, 2)
+#define pw_impl_port_emit_tag_changed(p)		pw_impl_port_emit(p, tag_changed, 3)
 
 #define PW_IMPL_PORT_IS_CONTROL(port)	SPA_FLAG_MASK((port)->flags, \
 						PW_IMPL_PORT_FLAG_BUFFERS|PW_IMPL_PORT_FLAG_CONTROL,\
@@ -846,6 +847,9 @@ struct pw_impl_port {
 	struct spa_latency_info latency[2];	/**< latencies */
 	unsigned int have_latency_param:1;
 	unsigned int ignore_latency:1;
+
+	unsigned int have_tag_param:1;
+	struct spa_pod *tag[2];			/**< tags */
 
 	void *owner_data;		/**< extra owner data */
 	void *user_data;                /**< extra user data */
@@ -1221,6 +1225,7 @@ int pw_impl_port_use_buffers(struct pw_impl_port *port, struct pw_impl_port_mix 
 		struct spa_buffer **buffers, uint32_t n_buffers);
 
 int pw_impl_port_recalc_latency(struct pw_impl_port *port);
+int pw_impl_port_recalc_tag(struct pw_impl_port *port);
 
 /** Change the state of the node */
 int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state);

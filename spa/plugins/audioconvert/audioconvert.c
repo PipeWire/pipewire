@@ -24,6 +24,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/param.h>
 #include <spa/param/latency-utils.h>
+#include <spa/param/tag-utils.h>
 #include <spa/pod/filter.h>
 #include <spa/pod/dynamic.h>
 #include <spa/debug/types.h>
@@ -138,7 +139,8 @@ struct port {
 #define IDX_Format	3
 #define IDX_Buffers	4
 #define IDX_Latency	5
-#define N_PORT_PARAMS	6
+#define IDX_Tag		6
+#define N_PORT_PARAMS	7
 	struct spa_param_info params[N_PORT_PARAMS];
 	char position[16];
 
@@ -171,6 +173,7 @@ struct dir {
 	unsigned int have_format:1;
 	unsigned int have_profile:1;
 	struct spa_latency_info latency;
+	struct spa_pod *tag;
 
 	uint32_t remap[MAX_PORTS];
 
@@ -339,6 +342,7 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 	port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	port->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_READWRITE);
+	port->params[IDX_Tag] = SPA_PARAM_INFO(SPA_PARAM_Tag, SPA_PARAM_INFO_READWRITE);
 	port->info.params = port->params;
 	port->info.n_params = N_PORT_PARAMS;
 
@@ -2108,6 +2112,22 @@ impl_node_port_enum_params(void *object, int seq,
 			return 0;
 		}
 		break;
+	case SPA_PARAM_Tag:
+		switch (result.index) {
+		case 0: case 1:
+		{
+			uint32_t idx = result.index;
+			if (port->is_monitor)
+				idx = idx ^ 1;
+			param = this->dir[idx].tag;
+			if (param == NULL)
+				goto next;
+			break;
+		}
+		default:
+			return 0;
+		}
+		break;
 	default:
 		return -ENOENT;
 	}
@@ -2169,6 +2189,48 @@ static int port_set_latency(void *object,
 	}
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	port->params[IDX_Latency].user++;
+	emit_port_info(this, port, false);
+	return 0;
+}
+
+static int port_set_tag(void *object,
+			   enum spa_direction direction,
+			   uint32_t port_id,
+			   uint32_t flags,
+			   const struct spa_pod *tag)
+{
+	struct impl *this = object;
+	struct port *port, *oport;
+	enum spa_direction other = SPA_DIRECTION_REVERSE(direction);
+	uint32_t i;
+
+	spa_log_debug(this->log, "%p: set tag direction:%d id:%d %p",
+			this, direction, port_id, tag);
+
+	port = GET_PORT(this, direction, port_id);
+	if (port->is_monitor)
+		return 0;
+
+	free(this->dir[other].tag);
+	this->dir[other].tag = NULL;
+
+	if (tag != NULL) {
+		struct spa_tag_info info;
+		void *state = NULL;
+		if (spa_tag_parse(tag, &info, &state) < 0 ||
+		    info.direction != other)
+			return -EINVAL;
+		this->dir[other].tag = spa_pod_copy(tag);
+	}
+
+	for (i = 0; i < this->dir[other].n_ports; i++) {
+		oport = GET_PORT(this, other, i);
+		oport->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+		oport->params[IDX_Tag].user++;
+		emit_port_info(this, oport, false);
+	}
+	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+	port->params[IDX_Tag].user++;
 	emit_port_info(this, port, false);
 	return 0;
 }
@@ -2296,6 +2358,8 @@ impl_node_port_set_param(void *object,
 	switch (id) {
 	case SPA_PARAM_Latency:
 		return port_set_latency(this, direction, port_id, flags, param);
+	case SPA_PARAM_Tag:
+		return port_set_tag(this, direction, port_id, flags, param);
 	case SPA_PARAM_Format:
 		return port_set_format(this, direction, port_id, flags, param);
 	default:
@@ -3123,19 +3187,27 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 	return 0;
 }
 
+static void free_dir(struct dir *dir)
+{
+	uint32_t i;
+	for (i = 0; i < MAX_PORTS; i++)
+		free(dir->ports[i]);
+	if (dir->conv.free)
+		convert_free(&dir->conv);
+	free(dir->tag);
+}
+
 static int impl_clear(struct spa_handle *handle)
 {
 	struct impl *this;
-	uint32_t i;
 
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
 	this = (struct impl *) handle;
 
-	for (i = 0; i < MAX_PORTS; i++)
-		free(this->dir[SPA_DIRECTION_INPUT].ports[i]);
-	for (i = 0; i < MAX_PORTS; i++)
-		free(this->dir[SPA_DIRECTION_OUTPUT].ports[i]);
+	free_dir(&this->dir[SPA_DIRECTION_INPUT]);
+	free_dir(&this->dir[SPA_DIRECTION_OUTPUT]);
+
 	free(this->empty);
 	free(this->scratch);
 	free(this->tmp[0]);
@@ -3143,10 +3215,6 @@ static int impl_clear(struct spa_handle *handle)
 
 	if (this->resample.free)
 		resample_free(&this->resample);
-	if (this->dir[0].conv.free)
-		convert_free(&this->dir[0].conv);
-	if (this->dir[1].conv.free)
-		convert_free(&this->dir[1].conv);
 	if (this->wav_file != NULL)
 		wav_file_close(this->wav_file);
 	free (this->vol_ramp_sequence);

@@ -40,6 +40,7 @@ static const struct spa_type_info spa_type_param[] = {
 	{ SPA_PARAM_Control, SPA_TYPE_Sequence, SPA_TYPE_INFO_PARAM_ID_BASE "Control", NULL },
 	{ SPA_PARAM_Latency, SPA_TYPE_OBJECT_ParamLatency, SPA_TYPE_INFO_PARAM_ID_BASE "Latency", NULL },
 	{ SPA_PARAM_ProcessLatency, SPA_TYPE_OBJECT_ParamProcessLatency, SPA_TYPE_INFO_PARAM_ID_BASE "ProcessLatency", NULL },
+	{ SPA_PARAM_Tag, SPA_TYPE_OBJECT_ParamTag, SPA_TYPE_INFO_PARAM_ID_BASE "Tag", NULL },
 	{ 0, 0, NULL, NULL },
 };
 

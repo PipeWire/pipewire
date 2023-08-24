@@ -113,7 +113,8 @@ struct stream {
 #define PORT_Format	3
 #define PORT_Buffers	4
 #define PORT_Latency	5
-#define N_PORT_PARAMS	6
+#define PORT_Tag	6
+#define N_PORT_PARAMS	7
 	struct spa_param_info port_params[N_PORT_PARAMS];
 
 	struct spa_list param_list;
@@ -191,6 +192,8 @@ static int get_port_param_index(uint32_t id)
 		return PORT_Buffers;
 	case SPA_PARAM_Latency:
 		return PORT_Latency;
+	case SPA_PARAM_Tag:
+		return PORT_Tag;
 	default:
 		return -1;
 	}
@@ -1960,6 +1963,7 @@ pw_stream_connect(struct pw_stream *stream,
 	impl->port_params[PORT_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	impl->port_params[PORT_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	impl->port_params[PORT_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_WRITE);
+	impl->port_params[PORT_Tag] = SPA_PARAM_INFO(SPA_PARAM_Tag, SPA_PARAM_INFO_WRITE);
 	impl->port_info.props = &impl->port_props->dict;
 	impl->port_info.params = impl->port_params;
 	impl->port_info.n_params = N_PORT_PARAMS;

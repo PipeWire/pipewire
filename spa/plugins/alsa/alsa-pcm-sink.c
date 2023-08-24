@@ -15,6 +15,8 @@
 #include <spa/utils/string.h>
 #include <spa/param/audio/format.h>
 #include <spa/pod/filter.h>
+#include <spa/debug/log.h>
+#include <spa/debug/pod.h>
 
 #include "alsa-pcm.h"
 
@@ -669,7 +671,7 @@ impl_node_port_set_param(void *object,
 			 const struct spa_pod *param)
 {
 	struct state *this = object;
-	int res;
+	int res = 0;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -693,9 +695,12 @@ impl_node_port_set_param(void *object,
 		this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 		this->port_params[PORT_Latency].user++;
 		emit_port_info(this, false);
-		res = 0;
 		break;
 	}
+	case SPA_PARAM_Tag:
+		if (param != NULL)
+			spa_debug_log_pod(this->log, SPA_LOG_LEVEL_DEBUG, 0, NULL, param);
+		break;
 	default:
 		res = -ENOENT;
 		break;

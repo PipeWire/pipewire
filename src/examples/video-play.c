@@ -14,8 +14,10 @@
 
 #include <spa/utils/result.h>
 #include <spa/param/video/format-utils.h>
+#include <spa/param/tag-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/format.h>
+#include <spa/debug/pod.h>
 
 #include <pipewire/pipewire.h>
 
@@ -278,6 +280,10 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	void *d;
 	int32_t mult, size;
 
+	if (param != NULL && id == SPA_PARAM_Tag) {
+		spa_debug_pod(0, NULL, param);
+		return;
+	}
 	/* NULL means to clear the format */
 	if (param == NULL || id != SPA_PARAM_Format)
 		return;
@@ -422,7 +428,7 @@ static void do_quit(void *userdata, int signal_number)
 int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
-	const struct spa_pod *params[2];
+	const struct spa_pod *params[3];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct pw_properties *props;
@@ -477,6 +483,16 @@ int main(int argc, char *argv[])
 	 * a list of supported formats.  We use a builder that writes the param
 	 * object to the stack. */
 	n_params = build_format(&data, &b, params);
+
+	{
+		struct spa_pod_frame f;
+		struct spa_dict_item items[1];
+		/* send a tag, input tags travel upstream */
+		spa_tag_build_start(&b, &f, SPA_PARAM_Tag, SPA_DIRECTION_INPUT);
+		items[0] = SPA_DICT_ITEM_INIT("my-tag-other-key", "my-special-other-tag-value");
+		spa_tag_build_add_dict(&b, &SPA_DICT_INIT(items, 1));
+		params[n_params++] = spa_tag_build_end(&b, &f);
+	}
 
 	/* now connect the stream, we need a direction (input/output),
 	 * an optional target node to connect to, some flags and parameters

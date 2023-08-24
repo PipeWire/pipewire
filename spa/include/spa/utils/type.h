@@ -78,6 +78,7 @@ enum {
 	SPA_TYPE_OBJECT_Profiler,
 	SPA_TYPE_OBJECT_ParamLatency,
 	SPA_TYPE_OBJECT_ParamProcessLatency,
+	SPA_TYPE_OBJECT_ParamTag,
 	_SPA_TYPE_OBJECT_LAST,			/**< not part of ABI */
 
 	/* vendor extensions */

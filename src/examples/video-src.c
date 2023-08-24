@@ -14,6 +14,8 @@
 #include <math.h>
 
 #include <spa/param/video/format-utils.h>
+#include <spa/param/tag-utils.h>
+#include <spa/debug/pod.h>
 
 #include <pipewire/pipewire.h>
 
@@ -212,6 +214,10 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
 	const struct spa_pod *params[5];
 
+	if (param != NULL && id == SPA_PARAM_Tag) {
+		spa_debug_pod(0, NULL, param);
+		return;
+	}
 	if (param == NULL || id != SPA_PARAM_Format)
 		return;
 
@@ -276,7 +282,7 @@ static void do_quit(void *userdata, int signal_number)
 int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
-	const struct spa_pod *params[1];
+	const struct spa_pod *params[2];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
@@ -314,6 +320,16 @@ int main(int argc, char *argv[])
 						&SPA_RECTANGLE(4096, 4096)),
 		SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&SPA_FRACTION(25, 1)));
 
+	{
+		struct spa_pod_frame f;
+		struct spa_dict_item items[1];
+		/* send a tag, output tags travel downstream */
+		spa_tag_build_start(&b, &f, SPA_PARAM_Tag, SPA_DIRECTION_OUTPUT);
+		items[0] = SPA_DICT_ITEM_INIT("my-tag-key", "my-special-tag-value");
+		spa_tag_build_add_dict(&b, &SPA_DICT_INIT(items, 1));
+		params[1] = spa_tag_build_end(&b, &f);
+	}
+
 	pw_stream_add_listener(data.stream,
 			       &data.stream_listener,
 			       &stream_events,
@@ -324,7 +340,7 @@ int main(int argc, char *argv[])
 			  PW_ID_ANY,
 			  PW_STREAM_FLAG_DRIVER |
 			  PW_STREAM_FLAG_MAP_BUFFERS,
-			  params, 1);
+			  params, 2);
 
 	pw_main_loop_run(data.loop);
 

@@ -774,6 +774,7 @@ static void input_remove(struct pw_impl_link *this, struct pw_impl_port *port)
 	pw_impl_port_emit_link_removed(this->input, this);
 
 	pw_impl_port_recalc_latency(this->input);
+	pw_impl_port_recalc_tag(this->input);
 
 	if ((res = pw_impl_port_use_buffers(port, mix, 0, NULL, 0)) < 0) {
 		pw_log_warn("%p: port %p clear error %s", this, port, spa_strerror(res));
@@ -803,6 +804,7 @@ static void output_remove(struct pw_impl_link *this, struct pw_impl_port *port)
 	pw_impl_port_emit_link_removed(this->output, this);
 
 	pw_impl_port_recalc_latency(this->output);
+	pw_impl_port_recalc_tag(this->output);
 
 	/* we don't clear output buffers when the link goes away. They will get
 	 * cleared when the node goes to suspend */
@@ -988,6 +990,14 @@ static void input_port_latency_changed(void *data)
 		pw_impl_port_recalc_latency(this->output);
 }
 
+static void input_port_tag_changed(void *data)
+{
+	struct impl *impl = data;
+	struct pw_impl_link *this = &impl->this;
+	if (!this->feedback)
+		pw_impl_port_recalc_tag(this->output);
+}
+
 static void output_port_latency_changed(void *data)
 {
 	struct impl *impl = data;
@@ -996,11 +1006,20 @@ static void output_port_latency_changed(void *data)
 		pw_impl_port_recalc_latency(this->input);
 }
 
+static void output_port_tag_changed(void *data)
+{
+	struct impl *impl = data;
+	struct pw_impl_link *this = &impl->this;
+	if (!this->feedback)
+		pw_impl_port_recalc_tag(this->input);
+}
+
 static const struct pw_impl_port_events input_port_events = {
 	PW_VERSION_IMPL_PORT_EVENTS,
 	.param_changed = input_port_param_changed,
 	.state_changed = input_port_state_changed,
 	.latency_changed = input_port_latency_changed,
+	.tag_changed = input_port_tag_changed,
 };
 
 static const struct pw_impl_port_events output_port_events = {
@@ -1008,6 +1027,7 @@ static const struct pw_impl_port_events output_port_events = {
 	.param_changed = output_port_param_changed,
 	.state_changed = output_port_state_changed,
 	.latency_changed = output_port_latency_changed,
+	.tag_changed = output_port_tag_changed,
 };
 
 static void node_result(struct impl *impl, void *obj,
@@ -1395,6 +1415,8 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 
 	pw_impl_port_recalc_latency(output);
 	pw_impl_port_recalc_latency(input);
+	pw_impl_port_recalc_tag(output);
+	pw_impl_port_recalc_tag(input);
 
 	if (impl->onode != impl->inode)
 		this->peer = pw_node_peer_ref(impl->onode, impl->inode);

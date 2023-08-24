@@ -294,7 +294,7 @@ conv_f32d_to_s16_2s_neon(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		"      beq 4f\n"
 		"3:"
 		"      ld1 { v0.s }[0], [%[s0]], #4\n"
-		"      ld1 { v2.s }[0], [%[s1]], #4\n"
+		"      ld1 { v1.s }[0], [%[s1]], #4\n"
 		"      subs %[remainder], %[remainder], #1\n"
 		"      sqadd  v0.4s, v0.4s, v2.4s\n"
 		"      sqadd  v1.4s, v1.4s, v2.4s\n"

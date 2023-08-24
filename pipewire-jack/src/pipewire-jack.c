@@ -719,12 +719,20 @@ static bool is_port_default(struct client *c, struct object *o)
 	return false;
 }
 
+static inline bool client_port_visible(struct client *c, struct object *o)
+{
+	if (o->port.port != NULL && o->port.port->client == c)
+		return true;
+	return o->visible;
+}
+
 static struct object *find_port_by_name(struct client *c, const char *name)
 {
 	struct object *o;
 
 	spa_list_for_each(o, &c->context.objects, link) {
-		if (o->type != INTERFACE_Port || o->removed || !o->visible)
+		if (o->type != INTERFACE_Port || o->removed ||
+		    (!client_port_visible(c, o)))
 			continue;
 		if (spa_streq(o->port.name, name) ||
 		    spa_streq(o->port.alias1, name) ||

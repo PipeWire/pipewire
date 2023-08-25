@@ -619,7 +619,12 @@ static bool find_match(struct spa_json *arr, const struct spa_dict *props)
 			if (str != NULL) {
 				if (value[0] == '~') {
 					regex_t preg;
-					if (regcomp(&preg, value+1, REG_EXTENDED | REG_NOSUB) == 0) {
+					int res;
+					if ((res = regcomp(&preg, value+1, REG_EXTENDED | REG_NOSUB)) != 0) {
+						char errbuf[1024];
+						regerror(res, &preg, errbuf, sizeof(errbuf));
+						pw_log_warn("invalid regex %s: %s", value+1, errbuf);
+					} else {
 						if (regexec(&preg, str, 0, NULL, 0) == 0)
 							success = true;
 						regfree(&preg);

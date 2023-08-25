@@ -94,6 +94,22 @@ stream.properties = {
     #dither.noise = 0
 }
 
+stream.rules = [
+    {   matches = [
+            {
+                # all keys must match the value. ! negates. ~ starts regex.
+                #application.name       = "pw-cat"
+                #node.name 		= "~Google Chrome$"
+            }
+        ]
+        actions = {
+            update-props = {
+                #node.latency = 512/48000
+            }
+        }
+    }
+]
+
 alsa.properties = {
     # ALSA params take a single value, an array [] of values
     # or a range { min=.. max=... }

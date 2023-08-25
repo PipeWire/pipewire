@@ -249,6 +249,8 @@ struct port {
 	struct spa_list mix;
 	struct mix *global_mix;
 
+	struct port *tied;
+
 	unsigned int empty_out:1;
 	unsigned int zeroed:1;
 
@@ -1435,22 +1437,27 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 
 static inline void process_empty(struct port *p, uint32_t frames)
 {
-	void *ptr;
+	void *ptr, *src = p->emptyptr;
+	struct port *tied = p->tied;
+
+	if (SPA_UNLIKELY(tied != NULL)) {
+		if ((src = tied->get_buffer(tied, frames)) == NULL)
+			src = p->emptyptr;
+	}
 
 	switch (p->object->port.type_id) {
 	case TYPE_ID_AUDIO:
 		ptr = get_buffer_output(p, frames, sizeof(float), NULL);
 		if (SPA_LIKELY(ptr != NULL))
-			memcpy(ptr, p->emptyptr, frames * sizeof(float));
+			memcpy(ptr, src, frames * sizeof(float));
 		break;
 	case TYPE_ID_MIDI:
 	{
 		struct buffer *b;
 		ptr = get_buffer_output(p, MAX_BUFFER_FRAMES, 1, &b);
-		if (SPA_LIKELY(ptr != NULL)) {
-			b->datas[0].chunk->size = convert_from_midi(p->emptyptr,
+		if (SPA_LIKELY(ptr != NULL))
+			b->datas[0].chunk->size = convert_from_midi(src,
 					ptr, MAX_BUFFER_FRAMES * sizeof(float));
-		}
 		break;
 	}
 	default:
@@ -1463,7 +1470,7 @@ static void prepare_output(struct port *p, uint32_t frames)
 {
 	struct mix *mix;
 
-	if (SPA_UNLIKELY(p->empty_out))
+	if (SPA_UNLIKELY(p->empty_out || p->tied))
 		process_empty(p, frames);
 
 	spa_list_for_each(mix, &p->mix, port_link) {
@@ -1478,6 +1485,15 @@ static void complete_process(struct client *c, uint32_t frames)
 	struct mix *mix;
 	union pw_map_item *item;
 
+	pw_array_for_each(item, &c->ports[SPA_DIRECTION_OUTPUT].items) {
+                if (pw_map_item_is_free(item))
+			continue;
+		p = item->data;
+		if (!p->valid)
+			continue;
+		prepare_output(p, frames);
+		p->io.status = SPA_STATUS_NEED_DATA;
+	}
 	pw_array_for_each(item, &c->ports[SPA_DIRECTION_INPUT].items) {
                 if (pw_map_item_is_free(item))
 			continue;
@@ -1489,15 +1505,6 @@ static void complete_process(struct client *c, uint32_t frames)
 				mix->io->status = SPA_STATUS_NEED_DATA;
 		}
         }
-	pw_array_for_each(item, &c->ports[SPA_DIRECTION_OUTPUT].items) {
-                if (pw_map_item_is_free(item))
-			continue;
-		p = item->data;
-		if (!p->valid)
-			continue;
-		prepare_output(p, frames);
-		p->io.status = SPA_STATUS_NEED_DATA;
-	}
 }
 
 static inline void debug_position(struct client *c, jack_position_t *p)
@@ -5279,15 +5286,32 @@ const char ** jack_port_get_all_connections (const jack_client_t *client,
 SPA_EXPORT
 int jack_port_tie (jack_port_t *src, jack_port_t *dst)
 {
-	pw_log_warn("not implemented %p %p", src, dst);
-	return -ENOTSUP;
+	struct object *s = (struct object *) src;
+	struct object *d = (struct object *) dst;
+	struct port *sp, *dp;
+
+	sp = s->port.port;
+	dp = d->port.port;
+	if (sp == NULL || !sp->valid ||
+	    dp == NULL || !dp->valid ||
+	    sp->client != dp->client)
+		return -EINVAL;
+
+	dp->tied = sp;
+	return 0;
 }
 
 SPA_EXPORT
 int jack_port_untie (jack_port_t *port)
 {
-	pw_log_warn("not implemented %p", port);
-	return -ENOTSUP;
+	struct object *o = (struct object *) port;
+	struct port *p;
+
+	p = o->port.port;
+	if (p == NULL || !p->valid)
+		return -EINVAL;
+	p->tied = NULL;
+	return 0;
 }
 
 SPA_EXPORT

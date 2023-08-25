@@ -116,7 +116,7 @@ pulse.rules = [
     {
         matches = [
             {
-                # all keys must match the value. ~ starts regex.
+                # all keys must match the value. ! negates. ~ starts regex.
                 #client.name                = "Firefox"
                 #application.process.binary = "teams"
                 #application.name           = "~speech-dispatcher.*"

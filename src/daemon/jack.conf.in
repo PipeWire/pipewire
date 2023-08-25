@@ -95,7 +95,7 @@ jack.properties = {
 jack.rules = [
     {   matches = [
             {
-                # all keys must match the value. ~ starts regex.
+                # all keys must match the value. ! negates. ~ starts regex.
                 #client.name                = "Carla"
                 #application.process.binary = "jack_simple_client"
                 #application.name           = "~jack_simple_client.*"

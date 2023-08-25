@@ -75,7 +75,7 @@
  *             {   matches = [
  *                     # any of the items in matches needs to match, if one does,
  *                     # actions are emited.
- *                     {   # all keys must match the value. ~ in value starts regex.
+ *                     {   # all keys must match the value. ! negates. ~ starts regex.
  *                         #rtp.origin = "wim 3883629975 0 IN IP4 0.0.0.0"
  *                         #rtp.payload = "127"
  *                         #rtp.fmt = "L16/48000/2"
@@ -91,7 +91,7 @@
  *                 }
  *             }
  *             {   matches = [
- *                     {   # all keys must match the value. ~ in value starts regex.
+ *                     {   # all keys must match the value. ! negates. ~ starts regex.
  *                         #rtp.origin = "wim 3883629975 0 IN IP4 0.0.0.0"
  *                         #rtp.payload = "127"
  *                         #rtp.fmt = "L16/48000/2"

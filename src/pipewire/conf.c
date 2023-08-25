@@ -586,6 +586,7 @@ static int load_module(struct pw_context *context, const char *key, const char *
 /*
  * {
  *     # all keys must match the value. ~ in value starts regex.
+ *     # ! as the first char of the value negates the match
  *     <key> = <value>
  *     ...
  * }
@@ -598,7 +599,7 @@ static bool find_match(struct spa_json *arr, const struct spa_dict *props)
 		char key[256], val[1024];
 		const char *str, *value;
 		int match = 0, fail = 0;
-		int len;
+		int len, skip = 0;
 
 		while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
 			bool success = false;
@@ -615,23 +616,28 @@ static bool find_match(struct spa_json *arr, const struct spa_dict *props)
 					continue;
 				value = val;
 				len = strlen(val);
+				if (len > 0 && value[0] == '!') {
+					success = !success;
+					skip++;
+				}
 			}
 			if (str != NULL) {
-				if (value[0] == '~') {
+				if (value[skip] == '~') {
 					regex_t preg;
 					int res;
-					if ((res = regcomp(&preg, value+1, REG_EXTENDED | REG_NOSUB)) != 0) {
+					skip++;
+					if ((res = regcomp(&preg, value+skip, REG_EXTENDED | REG_NOSUB)) != 0) {
 						char errbuf[1024];
 						regerror(res, &preg, errbuf, sizeof(errbuf));
-						pw_log_warn("invalid regex %s: %s", value+1, errbuf);
+						pw_log_warn("invalid regex %s: %s", value+skip, errbuf);
 					} else {
 						if (regexec(&preg, str, 0, NULL, 0) == 0)
-							success = true;
+							success = !success;
 						regfree(&preg);
 					}
-				} else if (strncmp(str, value, len) == 0 &&
-				    strlen(str) == (size_t)len) {
-					success = true;
+				} else if (strncmp(str, value+skip, len-skip) == 0 &&
+				    strlen(str) == (size_t)(len-skip)) {
+					success = !success;
 				}
 			}
 			if (success) {
@@ -639,6 +645,7 @@ static bool find_match(struct spa_json *arr, const struct spa_dict *props)
 				pw_log_debug("'%s' match '%s' < > '%.*s'", key, str, len, value);
 			}
 			else {
+				pw_log_debug("'%s' fail '%s' < > '%.*s'", key, str, len, value);
 				fail++;
 				break;
 			}
@@ -1080,7 +1087,7 @@ int pw_conf_load_conf_for_context(struct pw_properties *props, struct pw_propert
  *             # any of the items in matches needs to match, if one does,
  *             # actions are emited.
  *             {
- *                 # all keys must match the value. ~ in value starts regex.
+ *                 # all keys must match the value. ! negates. ~ starts regex.
  *                 <key> = <value>
  *                 ...
  *             }

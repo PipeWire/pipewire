@@ -676,6 +676,7 @@ struct pw_impl_node {
 	unsigned int trigger:1;		/**< has the TRIGGER property and needs an extra
 					  *  trigger to start processing. */
 	unsigned int can_suspend:1;
+	unsigned int checked;		/**< for sorting */
 
 	uint32_t port_user_data_size;	/**< extra size for port user data */
 

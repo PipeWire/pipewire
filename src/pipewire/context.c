@@ -800,6 +800,8 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
 	pw_log_debug("node %p: '%s' direction:%s", node, node->name,
 			pw_direction_as_string(direction));
 
+	SPA_FLAG_SET(node->checked, 1u<<direction);
+
 	if (direction == PW_DIRECTION_INPUT) {
 		spa_list_for_each(p, &node->input_ports, link) {
 			spa_list_for_each(l, &p->links, input_link) {
@@ -834,7 +836,8 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
 	 * them. */
 	if (node->link_group != NULL) {
 		spa_list_for_each(t, nodes, sort_link) {
-			if (t->exported || !t->active || t->runnable)
+			if (t->exported || !t->active ||
+			    SPA_FLAG_IS_SET(t->checked,  1u<<direction))
 				continue;
 			if (!spa_streq(t->link_group, node->link_group))
 				continue;
@@ -1201,6 +1204,7 @@ again:
 	/* clean up the flags first */
 	spa_list_for_each(n, &context->node_list, link) {
 		n->visited = false;
+		n->checked = 0;
 		n->runnable = n->always_process && n->active;
 	}
 

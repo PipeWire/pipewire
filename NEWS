@@ -1,3 +1,61 @@
+# PipeWire 0.3.79 (2023-08-29)
+
+This is a quick bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Fix a regression in suspend that could cause silence.
+  - Fix a regression in JACK port registration that could cause all kinds of
+    JACK problems. (#3485)
+  - Fix a typo in the neon sample conversion functions that could cause
+    distortion.
+  - Add BAP broadcast source and sink support.
+  - pw-top now has a batch mode to dump the output to stdout.
+  - Many more bugfixes and improvements.
+
+
+## PipeWire
+  - Fix a regression in shutdown where a node might not first suspend
+    properly. This cause loss of sound in some cases. (#3378)
+  - Failure to compile a regular expression in the config file will now
+    be reported and ! can be used to negate the match. (#3460)
+  - Fix a regression where some nodes might not set running in some
+    cases.
+  - Nodes are now suspended before the format is cleared, which might
+    fix some crashes.
+
+## Tools
+  - pw-top now has a batch mode to dump the output to stdout.
+
+## SPA
+  - The queued samples in audioconvert are now correctly reported in the
+    delay. (#3454)
+  - Make it easier to add a custom profile in ACP.
+  - Fix a typo in the neon sample conversion functions that could cause
+    distortion. (#3463)
+  - device.profile.pro=true is added for pro audio nodes.
+  - An xrun counter was added to spa_io_clock to detect and track skipped
+    data because of xruns.
+
+## Pulse-server
+  - Add alsa-sink and alsa-source modules. (#3456)
+
+## Bluetooth
+  - Fix a regression where only the BAP off profile is shown.
+  - Add BAP broadcast source and sink support.
+
+## JACK
+  - Also emit a latency notify when the buffer size changes.
+  - Fix a regression in JACK port registration. (#3485)
+  - jack_port_tie() is now supported.
+
+## ALSA
+  - Improve property handling, support lists and ranges in addition to
+    fixed values. (#3451)
+
+Older versions:
+
+
 # PipeWire 0.3.78 (2023-08-22)
 
 This is a small bugfix release that is API and ABI compatible with previous
@@ -47,9 +105,6 @@ This is a small bugfix release that is API and ABI compatible with previous
 
 ## GStreamer
   - A potential crash was fixed in the device provider when stopping.
-
-Older versions:
-
 
 # PipeWire 0.3.77 (2023-08-04)
 

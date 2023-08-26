@@ -24,7 +24,7 @@
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
 
-#include "vulkan-utils.h"
+#include "vulkan-compute-utils.h"
 
 #define NAME "vulkan-compute-source"
 
@@ -97,7 +97,7 @@ struct impl {
 
 	uint64_t frame_count;
 
-	struct vulkan_state state;
+	struct vulkan_compute_state state;
 	struct port port;
 };
 

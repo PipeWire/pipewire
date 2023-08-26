@@ -7,84 +7,36 @@
 #include <spa/buffer/buffer.h>
 #include <spa/node/node.h>
 
-#define MAX_STREAMS 2
-#define MAX_BUFFERS 16
-#define WORKGROUP_SIZE 32
+#include "vulkan-types.h"
 
-struct pixel {
-	float r, g, b, a;
-};
+#define VK_CHECK_RESULT(f)								\
+{											\
+	VkResult _result = (f);								\
+	int _r = -vulkan_vkresult_to_errno(_result);						\
+	if (_result != VK_SUCCESS) {							\
+		spa_log_error(s->log, "error: %d (%d %s)", _result, _r, spa_strerror(_r));	\
+		return _r;								\
+	}										\
+}
+#define CHECK(f)									\
+{											\
+	int _res = (f);									\
+	if (_res < 0) 									\
+		return _res;								\
+}
 
-struct push_constants {
-	float time;
-	int frame;
-	int width;
-	int height;
-};
+int vulkan_commandPool_create(struct vulkan_base *s, VkCommandPool *commandPool);
+int vulkan_commandBuffer_create(struct vulkan_base *s, VkCommandPool commandPool, VkCommandBuffer *commandBuffer);
 
-struct vulkan_buffer {
-	int fd;
-	VkImage image;
-	VkImageView view;
-	VkDeviceMemory memory;
-};
+uint32_t vulkan_memoryType_find(struct vulkan_base *s,
+		uint32_t memoryTypeBits, VkMemoryPropertyFlags properties);
 
-struct vulkan_stream {
-	enum spa_direction direction;
+void vulkan_buffer_clear(struct vulkan_base *s, struct vulkan_buffer *buffer);
 
-	uint32_t pending_buffer_id;
-	uint32_t current_buffer_id;
-	uint32_t busy_buffer_id;
-	uint32_t ready_buffer_id;
-
-	struct vulkan_buffer buffers[MAX_BUFFERS];
-	uint32_t n_buffers;
-};
-
-struct vulkan_state {
-	struct spa_log *log;
-
-	struct push_constants constants;
-
-	VkInstance instance;
-
-	VkPhysicalDevice physicalDevice;
-	VkDevice device;
-
-	VkPipeline pipeline;
-	VkPipelineLayout pipelineLayout;
-	const char *shaderName;
-	VkShaderModule computeShaderModule;
-
-	VkCommandPool commandPool;
-	VkCommandBuffer commandBuffer;
-
-	VkQueue queue;
-	uint32_t queueFamilyIndex;
-	VkFence fence;
-	unsigned int prepared:1;
-	unsigned int started:1;
-
-	VkDescriptorPool descriptorPool;
-	VkDescriptorSetLayout descriptorSetLayout;
-
-	VkSampler sampler;
-
-	uint32_t n_streams;
-	VkDescriptorSet descriptorSet;
-	struct vulkan_stream streams[MAX_STREAMS];
-};
-
-int spa_vulkan_init_stream(struct vulkan_state *s, struct vulkan_stream *stream, enum spa_direction,
+int vulkan_stream_init(struct vulkan_stream *stream, enum spa_direction direction,
 		struct spa_dict *props);
 
-int spa_vulkan_prepare(struct vulkan_state *s);
-int spa_vulkan_use_buffers(struct vulkan_state *s, struct vulkan_stream *stream, uint32_t flags,
-		uint32_t n_buffers, struct spa_buffer **buffers);
-int spa_vulkan_unprepare(struct vulkan_state *s);
+int vulkan_vkresult_to_errno(VkResult result);
 
-int spa_vulkan_start(struct vulkan_state *s);
-int spa_vulkan_stop(struct vulkan_state *s);
-int spa_vulkan_ready(struct vulkan_state *s);
-int spa_vulkan_process(struct vulkan_state *s);
-int spa_vulkan_cleanup(struct vulkan_state *s);
+int vulkan_base_init(struct vulkan_base *s, struct vulkan_base_info *info);
+void vulkan_base_deinit(struct vulkan_base *s);

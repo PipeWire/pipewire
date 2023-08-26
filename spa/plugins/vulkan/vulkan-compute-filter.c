@@ -23,7 +23,7 @@
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
 
-#include "vulkan-utils.h"
+#include "vulkan-compute-utils.h"
 
 #define NAME "vulkan-compute-filter"
 
@@ -73,7 +73,7 @@ struct impl {
 
 	bool started;
 
-	struct vulkan_state state;
+	struct vulkan_compute_state state;
 	struct port port[2];
 };
 

@@ -1799,7 +1799,12 @@ static int node_ready(void *data, int status)
 		 * help drivers that don't support this yet */
 		if (SPA_UNLIKELY(node->rt.position->clock.duration != node->rt.position->clock.target_duration ||
 		    node->rt.position->clock.rate.denom != node->rt.position->clock.target_rate.denom)) {
-			pw_log_warn("driver %s did not update duration/rate", node->name);
+			pw_log_warn("driver %s did not update duration/rate (%"PRIu64"/%"PRIu64" %u/%u)",
+					node->name,
+					node->rt.position->clock.duration,
+					node->rt.position->clock.target_duration,
+					node->rt.position->clock.rate.denom,
+					node->rt.position->clock.target_rate.denom);
 			node->rt.position->clock.duration = node->rt.position->clock.target_duration;
 			node->rt.position->clock.rate = node->rt.position->clock.target_rate;
 		}

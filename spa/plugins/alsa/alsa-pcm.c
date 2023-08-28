@@ -2205,8 +2205,15 @@ static inline int check_position_config(struct state *state)
 	if (SPA_UNLIKELY(state->position  == NULL))
 		return 0;
 
-	target_duration = state->position->clock.target_duration;
-	target_rate = state->position->clock.target_rate;
+	if (state->disable_tsched && state->started && !state->following) {
+		target_duration = state->period_frames;
+		target_rate = SPA_FRACTION(1, state->rate);
+		state->position->clock.target_duration = target_duration;
+		state->position->clock.target_rate = target_rate;
+	} else {
+		target_duration = state->position->clock.target_duration;
+		target_rate = state->position->clock.target_rate;
+	}
 
 	if (SPA_UNLIKELY((state->duration != target_duration) ||
 	    (state->rate_denom != target_rate.denom))) {

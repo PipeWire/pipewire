@@ -1931,14 +1931,18 @@ static int alsa_recover(struct state *state, int err)
 
 		delay = SPA_TIMEVAL_TO_USEC(&diff);
 		missing = delay * state->rate / SPA_USEC_PER_SEC;
+		if (missing == 0)
+			missing = state->threshold;
 
 		spa_log_trace(state->log, "%p: xrun of %"PRIu64" usec %"PRIu64,
 				state, delay, missing);
 
+		if (state->clock)
+			state->clock->xrun += missing;
+		state->sample_count += missing;
+
 		spa_node_call_xrun(&state->callbacks,
 				SPA_TIMEVAL_TO_USEC(&trigger), delay, NULL);
-
-		state->sample_count += missing ? missing : state->threshold;
 		break;
 	}
 	case SND_PCM_STATE_SUSPENDED:

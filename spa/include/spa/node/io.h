@@ -117,7 +117,7 @@ struct spa_io_clock {
 					  *  is unique per clock and can be used to check if nodes
 					  *  share the same clock. */
 	uint64_t nsec;			/**< time in nanoseconds against monotonic clock */
-	struct spa_fraction rate;	/**< rate for position/duration/delay */
+	struct spa_fraction rate;	/**< rate for position/duration/delay/xrun */
 	uint64_t position;		/**< current position */
 	uint64_t duration;		/**< duration of current cycle */
 	int64_t delay;			/**< delay between position and hardware,
@@ -129,8 +129,8 @@ struct spa_io_clock {
 	uint64_t target_duration;		/**< target duration of next cycle */
 	uint32_t target_seq;			/**< seq counter. must be equal at start and
 						  *  end of read and lower bit must be 0 */
-
-	uint32_t padding[3];
+	uint32_t padding;
+	uint64_t xrun;			/**< estimated accumulated xrun duration */
 };
 
 /* the size of the video in this cycle */

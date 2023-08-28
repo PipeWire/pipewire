@@ -1496,6 +1496,9 @@ again:
 				n->rt.position->clock.rate = n->target_rate;
 			}
 			n->target_pending = false;
+		} else {
+			n->target_quantum = n->rt.position->clock.target_duration;
+			n->target_rate = n->rt.position->clock.target_rate;
 		}
 
 		pw_log_debug("%p: driver %p running:%d runnable:%d quantum:%u '%s'",

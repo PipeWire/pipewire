@@ -499,8 +499,12 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 {
 	uint32_t i;
 	int err;
+	const char *str;
 
 	snd_config_update_free_global();
+
+	if ((str = spa_dict_lookup(info, "device.profile.pro")) != NULL)
+		state->is_pro = spa_atob(str);
 
 	state->multi_rate = true;
 	state->htimestamp = false;

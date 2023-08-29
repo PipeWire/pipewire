@@ -591,7 +591,6 @@ static int node_send_command(void *object, const struct spa_command *command)
 {
 	struct resource_data *data = object;
 	struct pw_impl_node *node = data->node;
-	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	uint32_t id = SPA_NODE_COMMAND_ID(command);
 
 	pw_log_debug("%p: got command %d (%s)", node, id,
@@ -599,9 +598,7 @@ static int node_send_command(void *object, const struct spa_command *command)
 
 	switch (id) {
 	case SPA_NODE_COMMAND_Suspend:
-		if (node->info.state == PW_NODE_STATE_ERROR ||
-		    impl->pending_state == PW_NODE_STATE_IDLE)
-			suspend_node(node);
+		suspend_node(node);
 		break;
 	default:
 		spa_node_send_command(node->node, command);

@@ -37,6 +37,7 @@ shift $(( OPTIND - 1 ))
 if [ "$PW_UNINSTALLED" = 1 ] ; then
    PW_V4L2_LD_PRELOAD="$PW_BUILDDIR"'/pipewire-v4l2/src/libpw-v4l2.so'
 else
+   # shellcheck disable=SC2016 # ${LIB} is interpreted by ld.so, not the shell
    PW_V4L2_LD_PRELOAD='@LIBV4L2_PATH@/libpw-v4l2.so'
 fi
 

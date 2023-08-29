@@ -11,6 +11,7 @@ FILENAME="$1"
 # Add \ingroup commands for the file, for each \addgroup in it
 BASEFILE=$(echo "$FILENAME" | sed -e 's@.*src/pipewire/@pipewire/@; s@.*spa/include/spa/@spa/@; s@.*src/test/@test/@;')
 
+# shellcheck disable=SC2028 # \file is not an escape sequence
 echo "/** \file"
 echo "\`$BASEFILE\`"
 sed -n -e '/.*\\addtogroup [a-zA-Z0-9_].*/ { s/.*addtogroup /\\ingroup /; p; }' < "$FILENAME" | sort | uniq

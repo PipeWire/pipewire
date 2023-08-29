@@ -52,6 +52,8 @@ if [ -n "$PERIOD" ]; then
 	fi
 	export PIPEWIRE_QUANTUM
 fi
+
+# shellcheck disable=SC2016 # ${LIB} is interpreted by ld.so, not the shell
 LD_LIBRARY_PATH='@LIBJACK_PATH@'"${LD_LIBRARY_PATH+":$LD_LIBRARY_PATH"}"
 export LD_LIBRARY_PATH
 

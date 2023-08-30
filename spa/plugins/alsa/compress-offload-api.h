@@ -6,20 +6,10 @@
 #include <sound/compress_offload.h>
 #include <sound/compress_params.h>
 #include <spa/support/log.h>
+#include "compress-offload-api-util.h"
 
 
 struct compress_offload_api_context;
-
-
-#if defined(__GNUC__) && __GNUC__ >= 4
-#define COMPR_API_PRIVATE __attribute__((visibility("hidden")))
-#elif defined(__SUNPRO_C) && (__SUNPRO_C >= 0x590)
-#define COMPR_API_PRIVATE __attribute__((visibility("hidden")))
-#elif defined(__SUNPRO_C) && (__SUNPRO_C >= 0x550)
-#define COMPR_API_PRIVATE __hidden
-#else
-#define COMPR_API_PRIVATE
-#endif
 
 
 /* This is a simple encapsulation of the ALSA Compress-Offload API

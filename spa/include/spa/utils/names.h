@@ -90,8 +90,10 @@ extern "C" {
 #define SPA_NAME_API_ALSA_SEQ_BRIDGE	"api.alsa.seq.bridge"		/**< an alsa Node interface for
 									  *  bridging midi ports */
 #define SPA_NAME_API_ALSA_ACP_DEVICE	"api.alsa.acp.device"		/**< an alsa ACP Device interface */
-#define SPA_NAME_API_ALSA_COMPRESS_OFFLOAD_SINK	"api.alsa.compress.offload.sink"	/**< an alsa Node interface for
-											  * compressed audio */
+#define SPA_NAME_API_ALSA_COMPRESS_OFFLOAD_DEVICE	"api.alsa.compress.offload.device"	/**< an alsa Device interface for
+												  * compressed audio */
+#define SPA_NAME_API_ALSA_COMPRESS_OFFLOAD_SINK		"api.alsa.compress.offload.sink"	/**< an alsa Node interface for
+												  * compressed audio */
 
 /** keys for bluez5 factory names */
 #define SPA_NAME_API_BLUEZ5_ENUM_DBUS	"api.bluez5.enum.dbus"		/**< a dbus Device interface */

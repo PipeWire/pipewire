@@ -24,23 +24,50 @@
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
+#include <spa/debug/dict.h>
 
 #include "alsa.h"
 
-#define MAX_DEVICES	64
+#define MAX_CARDS	64
 
 #define ACTION_ADD	0
 #define ACTION_REMOVE	1
 #define ACTION_DISABLE	2
 
-struct device {
-	uint32_t id;
-	struct udev_device *dev;
+/* Used for unavailable devices in the card structure. */
+#define ID_DEVICE_NOT_SUPPORTED 0
+
+/* This represents an ALSA card.
+ * One card can have up to 1 PCM and 1 Compress-Offload device. */
+struct card {
+	unsigned int card_nr;
+	struct udev_device *udev_device;
 	unsigned int unavailable:1;
 	unsigned int accessible:1;
 	unsigned int ignored:1;
 	unsigned int emitted:1;
+
+	/* Local SPA object IDs. (Global IDs are produced by PipeWire
+	 * out of this using its registry.) Compress-Offload or PCM
+	 * is not available, the corresponding ID is set to
+	 * ID_DEVICE_NOT_SUPPORTED (= 0).
+	 * PCM device IDs are (card nr + 1) * 2, and Compress-Offload
+	 * device IDs are (card nr + 1) * 2 + 1. Assigning IDs like this
+	 * makes it easy to deal with removed devices. (card nr + 1)
+	 * is used because 0 is a valid ALSA card number. */
+	uint32_t pcm_device_id;
+	uint32_t compress_offload_device_id;
 };
+
+static uint32_t calc_pcm_device_id(struct card *card)
+{
+	return (card->card_nr + 1) * 2 + 0;
+}
+
+static uint32_t calc_compress_offload_device_id(struct card *card)
+{
+	return (card->card_nr + 1) * 2 + 1;
+}
 
 struct impl {
 	struct spa_handle handle;
@@ -58,8 +85,8 @@ struct impl {
 	struct udev *udev;
 	struct udev_monitor *umonitor;
 
-	struct device devices[MAX_DEVICES];
-        uint32_t n_devices;
+	struct card cards[MAX_CARDS];
+        unsigned int n_cards;
 
 	struct spa_source source;
 	struct spa_source notify;
@@ -84,58 +111,60 @@ static int impl_udev_close(struct impl *this)
 	return 0;
 }
 
-static struct device *add_device(struct impl *this, uint32_t id, struct udev_device *dev)
+static struct card *add_card(struct impl *this, unsigned int card_nr, struct udev_device *udev_device)
 {
-	struct device *device;
+	struct card *card;
 
-	if (this->n_devices >= MAX_DEVICES)
+	if (this->n_cards >= MAX_CARDS)
 		return NULL;
-	device = &this->devices[this->n_devices++];
-	spa_zero(*device);
-	device->id = id;
-	udev_device_ref(dev);
-	device->dev = dev;
-	return device;
+
+	card = &this->cards[this->n_cards++];
+	spa_zero(*card);
+	card->card_nr = card_nr;
+	udev_device_ref(udev_device);
+	card->udev_device = udev_device;
+
+	return card;
 }
 
-static struct device *find_device(struct impl *this, uint32_t id)
+static struct card *find_card(struct impl *this, unsigned int card_nr)
 {
-	uint32_t i;
-	for (i = 0; i < this->n_devices; i++) {
-		if (this->devices[i].id == id)
-			return &this->devices[i];
+	unsigned int i;
+	for (i = 0; i < this->n_cards; i++) {
+		if (this->cards[i].card_nr == card_nr)
+			return &this->cards[i];
 	}
 	return NULL;
 }
 
-static void remove_device(struct impl *this, struct device *device)
+static void remove_card(struct impl *this, struct card *card)
 {
-	udev_device_unref(device->dev);
-	*device = this->devices[--this->n_devices];
+	udev_device_unref(card->udev_device);
+	*card = this->cards[--this->n_cards];
 }
 
-static void clear_devices(struct impl *this)
+static void clear_cards(struct impl *this)
 {
-        uint32_t i;
-	for (i = 0; i < this->n_devices; i++)
-	        udev_device_unref(this->devices[i].dev);
-	this->n_devices = 0;
+        unsigned int i;
+	for (i = 0; i < this->n_cards; i++)
+	        udev_device_unref(this->cards[i].udev_device);
+	this->n_cards = 0;
 }
 
-static uint32_t get_card_id(struct impl *this, struct udev_device *dev)
+static unsigned int get_card_nr(struct impl *this, struct udev_device *udev_device)
 {
 	const char *e, *str;
 
-	if (udev_device_get_property_value(dev, "ACP_IGNORE"))
+	if (udev_device_get_property_value(udev_device, "ACP_IGNORE"))
 		return SPA_ID_INVALID;
 
-	if ((str = udev_device_get_property_value(dev, "SOUND_CLASS")) && spa_streq(str, "modem"))
+	if ((str = udev_device_get_property_value(udev_device, "SOUND_CLASS")) && spa_streq(str, "modem"))
 		return SPA_ID_INVALID;
 
-	if (udev_device_get_property_value(dev, "SOUND_INITIALIZED") == NULL)
+	if (udev_device_get_property_value(udev_device, "SOUND_INITIALIZED") == NULL)
 		return SPA_ID_INVALID;
 
-	if ((str = udev_device_get_property_value(dev, "DEVPATH")) == NULL)
+	if ((str = udev_device_get_property_value(udev_device, "DEVPATH")) == NULL)
 		return SPA_ID_INVALID;
 
 	if ((e = strrchr(str, '/')) == NULL)
@@ -244,7 +273,7 @@ static int check_device_pcm_class(const char *devname)
 	return spa_strstartswith(buf, "modem") ? -ENXIO : 0;
 }
 
-static int get_num_pcm_devices(unsigned int card_id)
+static int get_num_pcm_devices(unsigned int card_nr)
 {
 	char prefix[32];
 	struct dirent *entry;
@@ -253,7 +282,7 @@ static int get_num_pcm_devices(unsigned int card_id)
 
 	/* Check if card has PCM devices, without opening them */
 
-	spa_scnprintf(prefix, sizeof(prefix), "pcmC%uD", card_id);
+	spa_scnprintf(prefix, sizeof(prefix), "pcmC%uD", card_nr);
 
 	spa_autoptr(DIR) snd = opendir("/dev/snd");
 	if (snd == NULL)
@@ -274,7 +303,33 @@ static int get_num_pcm_devices(unsigned int card_id)
 	return errno != 0 ? -errno : num_dev;
 }
 
-static int check_device_available(struct impl *this, struct device *device, int *num_pcm)
+static int get_num_compress_offload_devices(unsigned int card_nr)
+{
+	char prefix[32];
+	struct dirent *entry;
+	int num_dev = 0;
+
+	/* Check if card has Compress-Offload devices, without opening them */
+
+	spa_scnprintf(prefix, sizeof(prefix), "comprC%uD", card_nr);
+
+	spa_autoptr(DIR) snd = opendir("/dev/snd");
+	if (snd == NULL)
+		return -errno;
+
+	while ((errno = 0, entry = readdir(snd)) != NULL) {
+		if (!(entry->d_type == DT_CHR &&
+				spa_strstartswith(entry->d_name, prefix)))
+			continue;
+
+		++num_dev;
+	}
+
+	return errno != 0 ? -errno : num_dev;
+}
+
+static int check_pcm_device_availability(struct impl *this, struct card *card,
+                                         int *num_pcm_devices)
 {
 	char path[PATH_MAX];
 	char buf[16];
@@ -282,15 +337,16 @@ static int check_device_available(struct impl *this, struct device *device, int 
 	struct dirent *entry, *entry_pcm;
 	int res;
 
-	res = get_num_pcm_devices(device->id);
+	res = get_num_pcm_devices(card->card_nr);
 	if (res < 0) {
 		spa_log_error(this->log, "Error finding PCM devices for ALSA card %u: %s",
-			(unsigned int)device->id, spa_strerror(res));
+			card->card_nr, spa_strerror(res));
 		return res;
 	}
-	*num_pcm = res;
+	*num_pcm_devices = res;
 
-	spa_log_debug(this->log, "card %u has %d pcm device(s)", (unsigned int)device->id, *num_pcm);
+	spa_log_debug(this->log, "card %u has %d PCM device(s)",
+	              card->card_nr, *num_pcm_devices);
 
 	/*
 	 * Check if some pcm devices of the card are busy.  Check it via /proc, as we
@@ -304,25 +360,25 @@ static int check_device_available(struct impl *this, struct device *device, int 
 
 	res = 0;
 
-	spa_scnprintf(path, sizeof(path), "/proc/asound/card%u", (unsigned int)device->id);
+	spa_scnprintf(path, sizeof(path), "/proc/asound/card%u", card->card_nr);
 
-	spa_autoptr(DIR) card = opendir(path);
-	if (card == NULL)
+	spa_autoptr(DIR) card_dir = opendir(path);
+	if (card_dir == NULL)
 		goto done;
 
-	while ((errno = 0, entry = readdir(card)) != NULL) {
+	while ((errno = 0, entry = readdir(card_dir)) != NULL) {
 		if (!(entry->d_type == DT_DIR &&
 				spa_strstartswith(entry->d_name, "pcm")))
 			continue;
 
 		spa_scnprintf(path, sizeof(path), "pcmC%uD%s",
-				(unsigned int)device->id, entry->d_name+3);
+				card->card_nr, entry->d_name+3);
 		if (check_device_pcm_class(path) < 0)
 			continue;
 
 		/* Check busy status */
 		spa_scnprintf(path, sizeof(path), "/proc/asound/card%u/%s",
-				(unsigned int)device->id, entry->d_name);
+				card->card_nr, entry->d_name);
 
 		spa_autoptr(DIR) pcm = opendir(path);
 		if (pcm == NULL)
@@ -334,7 +390,7 @@ static int check_device_available(struct impl *this, struct device *device, int 
 				continue;
 
 			spa_scnprintf(path, sizeof(path), "/proc/asound/card%u/%s/%s/status",
-					(unsigned int)device->id, entry->d_name, entry_pcm->d_name);
+					card->card_nr, entry->d_name, entry_pcm->d_name);
 
 			spa_autoptr(FILE) f = fopen(path, "re");
 			if (f == NULL)
@@ -344,12 +400,12 @@ static int check_device_available(struct impl *this, struct device *device, int 
 
 			if (!spa_strstartswith(buf, "closed")) {
 				spa_log_debug(this->log, "card %u pcm device %s busy",
-						(unsigned int)device->id, entry->d_name);
+						card->card_nr, entry->d_name);
 				res = -EBUSY;
 				goto done;
 			}
 			spa_log_debug(this->log, "card %u pcm device %s free",
-					(unsigned int)device->id, entry->d_name);
+					card->card_nr, entry->d_name);
 		}
 		if (errno != 0)
 			goto done;
@@ -360,158 +416,249 @@ static int check_device_available(struct impl *this, struct device *device, int 
 done:
 	if (errno != 0) {
 		spa_log_info(this->log, "card %u: failed to find busy status (%s)",
-				(unsigned int)device->id, spa_strerror(-errno));
+				card->card_nr, spa_strerror(-errno));
 	}
 
 	return res;
 }
 
-static int emit_object_info(struct impl *this, struct device *device)
+static int check_compress_offload_device_availability(struct impl *this, struct card *card,
+                                                      int *num_compress_offload_devices)
 {
-	struct spa_device_object_info info;
-	uint32_t id = device->id;
-	struct udev_device *dev = device->dev;
+	int res;
+
+	res = get_num_compress_offload_devices(card->card_nr);
+	if (res < 0) {
+		spa_log_error(this->log, "Error finding Compress-Offload devices for ALSA card %u: %s",
+			card->card_nr, spa_strerror(res));
+		return res;
+	}
+	*num_compress_offload_devices = res;
+
+	spa_log_debug(this->log, "card %u has %d Compress-Offload device(s)",
+	              card->card_nr, *num_compress_offload_devices);
+
+	return 0;
+}
+
+static int emit_added_object_info(struct impl *this, struct card *card)
+{
+	char path[32];
+	int res, num_pcm_devices, num_compress_offload_devices;
 	const char *str;
-	char path[32], *cn = NULL, *cln = NULL;
-	struct spa_dict_item items[25];
-	uint32_t n_items = 0;
-	int res, pcm;
+	struct udev_device *udev_device = card->udev_device;
 
 	/*
 	 * inotify close events under /dev/snd must not be emitted, except after setting
-	 * device->emitted to true. alsalib functions can be used after that.
+	 * card->emitted to true. alsalib functions can be used after that.
 	 */
 
-	snprintf(path, sizeof(path), "hw:%u", id);
+	snprintf(path, sizeof(path), "hw:%u", card->card_nr);
 
-	if ((res = check_device_available(this, device, &pcm)) < 0)
+	if ((res = check_pcm_device_availability(this, card, &num_pcm_devices)) < 0)
 		return res;
-	if (pcm == 0) {
-		spa_log_debug(this->log, "no pcm devices for %s", path);
-		device->ignored = true;
+	if ((res = check_compress_offload_device_availability(this, card, &num_compress_offload_devices)) < 0)
+		return res;
+
+	if ((num_pcm_devices == 0) && (num_compress_offload_devices == 0)) {
+		spa_log_debug(this->log, "no PCM and no Compress-Offload devices for %s", path);
+		card->ignored = true;
 		return -ENODEV;
 	}
 
-	spa_log_debug(this->log, "emitting card %s", path);
-	device->emitted = true;
+	card->emitted = true;
 
-	info = SPA_DEVICE_OBJECT_INFO_INIT();
+	if (num_pcm_devices > 0) {
+		struct spa_device_object_info info;
+		char *cn = NULL, *cln = NULL;
+		struct spa_dict_item items[25];
+		unsigned int n_items = 0;
 
-	info.type = SPA_TYPE_INTERFACE_Device;
-	info.factory_name = this->use_acp ?
-		SPA_NAME_API_ALSA_ACP_DEVICE :
-		SPA_NAME_API_ALSA_PCM_DEVICE;
-	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_FLAGS |
-		SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
-	info.flags = 0;
+		card->pcm_device_id = calc_pcm_device_id(card);
 
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ENUM_API, "udev");
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API,  "alsa");
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Device");
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH, path);
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD, path+3);
-	if (snd_card_get_name(id, &cn) >= 0)
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_NAME, cn);
-	if (snd_card_get_longname(id, &cln) >= 0)
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_LONGNAME, cln);
+		spa_log_debug(this->log, "emitting ACP/PCM device interface for card %s; "
+		              "using local alsa-udev object ID %" PRIu32, path, card->pcm_device_id);
 
-	if ((str = udev_device_get_property_value(dev, "ACP_NAME")) && *str)
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, str);
+		info = SPA_DEVICE_OBJECT_INFO_INIT();
 
-	if ((str = udev_device_get_property_value(dev, "ACP_PROFILE_SET")) && *str)
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PROFILE_SET, str);
+		info.type = SPA_TYPE_INTERFACE_Device;
+		info.factory_name = this->use_acp ?
+			SPA_NAME_API_ALSA_ACP_DEVICE :
+			SPA_NAME_API_ALSA_PCM_DEVICE;
+		info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_FLAGS |
+			SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
+		info.flags = 0;
 
-	if ((str = udev_device_get_property_value(dev, "SOUND_CLASS")) && *str)
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_CLASS, str);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ENUM_API, "udev");
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API,  "alsa");
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Device");
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH, path);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD, path+3);
+		if (snd_card_get_name(card->card_nr, &cn) >= 0)
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_NAME, cn);
+		if (snd_card_get_longname(card->card_nr, &cln) >= 0)
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD_LONGNAME, cln);
 
-	if ((str = udev_device_get_property_value(dev, "USEC_INITIALIZED")) && *str)
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PLUGGED_USEC, str);
+		if ((str = udev_device_get_property_value(udev_device, "ACP_NAME")) && *str)
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, str);
 
-	str = udev_device_get_property_value(dev, "ID_PATH");
-	if (!(str && *str))
-		str = udev_device_get_syspath(dev);
-	if (str && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_BUS_PATH, str);
-	}
-	if ((str = udev_device_get_devpath(dev)) && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_SYSFS_PATH, str);
-	}
-	if ((str = udev_device_get_property_value(dev, "ID_ID")) && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_BUS_ID, str);
-	}
-	if ((str = udev_device_get_property_value(dev, "ID_BUS")) && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_BUS, str);
-	}
-	if ((str = udev_device_get_property_value(dev, "SUBSYSTEM")) && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_SUBSYSTEM, str);
-	}
-	if ((str = udev_device_get_property_value(dev, "ID_VENDOR_ID")) && *str) {
-		int32_t val;
-		if (spa_atoi32(str, &val, 16)) {
-			char *dec = alloca(12); /* 0xffffffff is max */
-			snprintf(dec, 12, "0x%04x", val);
-			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_VENDOR_ID, dec);
+		if ((str = udev_device_get_property_value(udev_device, "ACP_PROFILE_SET")) && *str)
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PROFILE_SET, str);
+
+		if ((str = udev_device_get_property_value(udev_device, "SOUND_CLASS")) && *str)
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_CLASS, str);
+
+		if ((str = udev_device_get_property_value(udev_device, "USEC_INITIALIZED")) && *str)
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PLUGGED_USEC, str);
+
+		str = udev_device_get_property_value(udev_device, "ID_PATH");
+		if (!(str && *str))
+			str = udev_device_get_syspath(udev_device);
+		if (str && *str) {
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_BUS_PATH, str);
 		}
-	}
-	str = udev_device_get_property_value(dev, "ID_VENDOR_FROM_DATABASE");
-	if (!(str && *str)) {
-		str = udev_device_get_property_value(dev, "ID_VENDOR_ENC");
+		if ((str = udev_device_get_devpath(udev_device)) && *str) {
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_SYSFS_PATH, str);
+		}
+		if ((str = udev_device_get_property_value(udev_device, "ID_ID")) && *str) {
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_BUS_ID, str);
+		}
+		if ((str = udev_device_get_property_value(udev_device, "ID_BUS")) && *str) {
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_BUS, str);
+		}
+		if ((str = udev_device_get_property_value(udev_device, "SUBSYSTEM")) && *str) {
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_SUBSYSTEM, str);
+		}
+		if ((str = udev_device_get_property_value(udev_device, "ID_VENDOR_ID")) && *str) {
+			int32_t val;
+			if (spa_atoi32(str, &val, 16)) {
+				char *dec = alloca(12); /* 0xffffffff is max */
+				snprintf(dec, 12, "0x%04x", val);
+				items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_VENDOR_ID, dec);
+			}
+		}
+		str = udev_device_get_property_value(udev_device, "ID_VENDOR_FROM_DATABASE");
 		if (!(str && *str)) {
-			str = udev_device_get_property_value(dev, "ID_VENDOR");
-		} else {
-			char *t = alloca(strlen(str) + 1);
-			unescape(str, t);
-			str = t;
+			str = udev_device_get_property_value(udev_device, "ID_VENDOR_ENC");
+			if (!(str && *str)) {
+				str = udev_device_get_property_value(udev_device, "ID_VENDOR");
+			} else {
+				char *t = alloca(strlen(str) + 1);
+				unescape(str, t);
+				str = t;
+			}
 		}
-	}
-	if (str && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_VENDOR_NAME, str);
-	}
-	if ((str = udev_device_get_property_value(dev, "ID_MODEL_ID")) && *str) {
-		int32_t val;
-		if (spa_atoi32(str, &val, 16)) {
-			char *dec = alloca(12); /* 0xffffffff is max */
-			snprintf(dec, 12, "0x%04x", val);
-			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PRODUCT_ID, dec);
+		if (str && *str) {
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_VENDOR_NAME, str);
 		}
-	}
-	str = udev_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE");
-	if (!(str && *str)) {
-		str = udev_device_get_property_value(dev, "ID_MODEL_ENC");
+		if ((str = udev_device_get_property_value(udev_device, "ID_MODEL_ID")) && *str) {
+			int32_t val;
+			if (spa_atoi32(str, &val, 16)) {
+				char *dec = alloca(12); /* 0xffffffff is max */
+				snprintf(dec, 12, "0x%04x", val);
+				items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PRODUCT_ID, dec);
+			}
+		}
+		str = udev_device_get_property_value(udev_device, "ID_MODEL_FROM_DATABASE");
 		if (!(str && *str)) {
-			str = udev_device_get_property_value(dev, "ID_MODEL");
-		} else {
-			char *t = alloca(strlen(str) + 1);
-			unescape(str, t);
-			str = t;
+			str = udev_device_get_property_value(udev_device, "ID_MODEL_ENC");
+			if (!(str && *str)) {
+				str = udev_device_get_property_value(udev_device, "ID_MODEL");
+			} else {
+				char *t = alloca(strlen(str) + 1);
+				unescape(str, t);
+				str = t;
+			}
 		}
-	}
-	if (str && *str)
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PRODUCT_NAME, str);
+		if (str && *str)
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PRODUCT_NAME, str);
 
-	if ((str = udev_device_get_property_value(dev, "ID_SERIAL")) && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_SERIAL, str);
-	}
-	if ((str = udev_device_get_property_value(dev, "SOUND_FORM_FACTOR")) && *str) {
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_FORM_FACTOR, str);
-	}
-	info.props = &SPA_DICT_INIT(items, n_items);
+		if ((str = udev_device_get_property_value(udev_device, "ID_SERIAL")) && *str) {
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_SERIAL, str);
+		}
+		if ((str = udev_device_get_property_value(udev_device, "SOUND_FORM_FACTOR")) && *str) {
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_FORM_FACTOR, str);
+		}
+		info.props = &SPA_DICT_INIT(items, n_items);
 
-	spa_device_emit_object_info(&this->hooks, id, &info);
-	free(cn);
-	free(cln);
+		spa_log_debug(this->log, "interface information:");
+		spa_debug_dict(2, info.props);
+
+		spa_device_emit_object_info(&this->hooks, card->pcm_device_id, &info);
+		free(cn);
+		free(cln);
+	} else {
+		card->pcm_device_id = ID_DEVICE_NOT_SUPPORTED;
+	}
+
+	if (num_compress_offload_devices > 0) {
+		struct spa_device_object_info info;
+		struct spa_dict_item items[11];
+		unsigned int n_items = 0;
+		char device_name[200];
+		char device_desc[200];
+
+		card->compress_offload_device_id = calc_compress_offload_device_id(card);
+
+		spa_log_debug(this->log, "emitting Compress-Offload device interface for card %s; "
+		              "using local alsa-udev object ID %" PRIu32, path, card->compress_offload_device_id);
+
+		info = SPA_DEVICE_OBJECT_INFO_INIT();
+
+		info.type = SPA_TYPE_INTERFACE_Device;
+		info.factory_name = SPA_NAME_API_ALSA_COMPRESS_OFFLOAD_DEVICE;
+		info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_FLAGS |
+			SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
+		info.flags = 0;
+
+		snprintf(device_name, sizeof(device_name), "comprC%u", card->card_nr);
+		snprintf(device_desc, sizeof(device_desc), "Compress-Offload device (ALSA card %u)", card->card_nr);
+
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ENUM_API, "udev");
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API,  "alsa:compressed");
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, device_name);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_DESCRIPTION, device_desc);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Device");
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH, path);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD, path+3);
+
+		if ((str = udev_device_get_property_value(udev_device, "USEC_INITIALIZED")) && *str)
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PLUGGED_USEC, str);
+
+		str = udev_device_get_property_value(udev_device, "ID_PATH");
+		if (!(str && *str))
+			str = udev_device_get_syspath(udev_device);
+		if (str && *str) {
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_BUS_PATH, str);
+		}
+		if ((str = udev_device_get_devpath(udev_device)) && *str) {
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_SYSFS_PATH, str);
+		}
+		if ((str = udev_device_get_property_value(udev_device, "SUBSYSTEM")) && *str) {
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_SUBSYSTEM, str);
+		}
+
+		info.props = &SPA_DICT_INIT(items, n_items);
+
+		spa_log_debug(this->log, "interface information:");
+		spa_debug_dict(2, info.props);
+
+		spa_device_emit_object_info(&this->hooks, card->compress_offload_device_id, &info);
+	} else {
+		card->compress_offload_device_id = ID_DEVICE_NOT_SUPPORTED;
+	}
 
 	return 1;
 }
 
-static bool check_access(struct impl *this, struct device *device)
+static bool check_access(struct impl *this, struct card *card)
 {
-	char path[128], prefix[32];
+	char path[128], pcm_prefix[32], compr_prefix[32];;
 	spa_autoptr(DIR) snd = NULL;
 	struct dirent *entry;
 	bool accessible = false;
 
-	snprintf(path, sizeof(path), "/dev/snd/controlC%u", device->id);
+	snprintf(path, sizeof(path), "/dev/snd/controlC%u", card->card_nr);
 	if (access(path, R_OK|W_OK) >= 0 && (snd = opendir("/dev/snd"))) {
 		/*
 		 * It's possible that controlCX is accessible before pcmCX* or
@@ -520,10 +667,12 @@ static bool check_access(struct impl *this, struct device *device)
 		 */
 
 		accessible = true;
-		spa_scnprintf(prefix, sizeof(prefix), "pcmC%uD", device->id);
+		spa_scnprintf(pcm_prefix, sizeof(pcm_prefix), "pcmC%uD", card->card_nr);
+		spa_scnprintf(compr_prefix, sizeof(compr_prefix), "comprC%uD", card->card_nr);
 		while ((entry = readdir(snd)) != NULL) {
 			if (!(entry->d_type == DT_CHR &&
-					spa_strstartswith(entry->d_name, prefix)))
+			      (spa_strstartswith(entry->d_name, pcm_prefix) ||
+			       spa_strstartswith(entry->d_name, compr_prefix))))
 				continue;
 
 			snprintf(path, sizeof(path), "/dev/snd/%.32s", entry->d_name);
@@ -534,70 +683,90 @@ static bool check_access(struct impl *this, struct device *device)
 		}
 	}
 
-	if (accessible != device->accessible)
+	if (accessible != card->accessible)
 		spa_log_debug(this->log, "%s accessible:%u", path, accessible);
-	device->accessible = accessible;
+	card->accessible = accessible;
 
-	return device->accessible;
+	return card->accessible;
 }
 
-static void process_device(struct impl *this, uint32_t action, struct udev_device *dev)
+static void process_card(struct impl *this, uint32_t action, struct udev_device *udev_device)
 {
-	uint32_t id;
-	struct device *device;
+	unsigned int card_nr;
+	struct card *card;
 	bool emitted;
 	int res;
 
-	if ((id = get_card_id(this, dev)) == SPA_ID_INVALID)
+	if ((card_nr = get_card_nr(this, udev_device)) == SPA_ID_INVALID)
 		return;
 
-	device = find_device(this, id);
-	if (device && device->ignored)
+	card = find_card(this, card_nr);
+	if (card && card->ignored)
 		return;
 
 	switch (action) {
 	case ACTION_ADD:
-		if (device == NULL)
-			device = add_device(this, id, dev);
-		if (device == NULL)
+		if (card == NULL)
+			card = add_card(this, card_nr, udev_device);
+		if (card == NULL)
 			return;
-		if (!check_access(this, device))
+		if (!check_access(this, card))
 			return;
-		res = emit_object_info(this, device);
+		res = emit_added_object_info(this, card);
 		if (res < 0) {
-			if (device->ignored)
+			if (card->ignored)
 				spa_log_info(this->log, "ALSA card %u unavailable (%s): it is ignored",
-						device->id, spa_strerror(res));
-			else if (!device->unavailable)
+						card->card_nr, spa_strerror(res));
+			else if (!card->unavailable)
 				spa_log_info(this->log, "ALSA card %u unavailable (%s): wait for it",
-						device->id, spa_strerror(res));
+						card->card_nr, spa_strerror(res));
 			else
 				spa_log_debug(this->log, "ALSA card %u still unavailable (%s)",
-						device->id, spa_strerror(res));
-			device->unavailable = true;
+						card->card_nr, spa_strerror(res));
+			card->unavailable = true;
 		} else {
-			if (device->unavailable)
+			if (card->unavailable)
 				spa_log_info(this->log, "ALSA card %u now available",
-						device->id);
-			device->unavailable = false;
+						card->card_nr);
+			card->unavailable = false;
 		}
 		break;
 
-	case ACTION_REMOVE:
-		if (device == NULL)
+	case ACTION_REMOVE: {
+		uint32_t pcm_device_id, compress_offload_device_id;
+
+		if (card == NULL)
 			return;
-		emitted = device->emitted;
-		remove_device(this, device);
-		if (emitted)
-			spa_device_emit_object_info(&this->hooks, id, NULL);
+
+		emitted = card->emitted;
+		pcm_device_id = card->pcm_device_id;
+		compress_offload_device_id = card->compress_offload_device_id;
+		remove_card(this, card);
+
+		if (emitted) {
+			if (pcm_device_id != ID_DEVICE_NOT_SUPPORTED)
+				spa_device_emit_object_info(&this->hooks, pcm_device_id, NULL);
+			if (compress_offload_device_id != ID_DEVICE_NOT_SUPPORTED)
+				spa_device_emit_object_info(&this->hooks, compress_offload_device_id, NULL);
+		}
 		break;
+	}
 
 	case ACTION_DISABLE:
-		if (device == NULL)
+		if (card == NULL)
 			return;
-		if (device->emitted) {
-			device->emitted = false;
-			spa_device_emit_object_info(&this->hooks, id, NULL);
+		if (card->emitted) {
+			uint32_t pcm_device_id, compress_offload_device_id;
+
+			pcm_device_id = card->pcm_device_id;
+			compress_offload_device_id = card->compress_offload_device_id;
+
+			card->emitted = false;
+
+			if (pcm_device_id != ID_DEVICE_NOT_SUPPORTED)
+				spa_device_emit_object_info(&this->hooks, pcm_device_id, NULL);
+			if (compress_offload_device_id != ID_DEVICE_NOT_SUPPORTED)
+				spa_device_emit_object_info(&this->hooks, compress_offload_device_id, NULL);
 		}
 		break;
 	}
@@ -638,28 +807,28 @@ static void impl_on_notify_events(struct spa_source *source)
 
 		for (p = &buf; p < e;
 		     p = SPA_PTROFF(p, sizeof(struct inotify_event) + event->len, void)) {
-			unsigned int id;
-			struct device *device;
+			unsigned int card_nr;
+			struct card *card;
 
 			event = (const struct inotify_event *) p;
 			spa_assert_se(SPA_PTRDIFF(e, p) >= (ptrdiff_t)sizeof(struct inotify_event) &&
 			              SPA_PTRDIFF(e, p) - sizeof(struct inotify_event) >= event->len &&
 			              "bad event from kernel");
 
-			/* Device becomes accessible or not busy */
+			/* card becomes accessible or not busy */
 			if ((event->mask & (IN_ATTRIB | IN_CLOSE_WRITE))) {
 				bool access;
-				if (sscanf(event->name, "controlC%u", &id) != 1 &&
-				    sscanf(event->name, "pcmC%uD", &id) != 1)
+				if (sscanf(event->name, "controlC%u", &card_nr) != 1 &&
+				    sscanf(event->name, "pcmC%uD", &card_nr) != 1)
 					continue;
-				if ((device = find_device(this, id)) == NULL)
+				if ((card = find_card(this, card_nr)) == NULL)
 					continue;
 
-				access = check_access(this, device);
-				if (access && !device->emitted)
-					process_device(this, ACTION_ADD, device->dev);
-				else if (!access && device->emitted)
-					process_device(this, ACTION_DISABLE, device->dev);
+				access = check_access(this, card);
+				if (access && !card->emitted)
+					process_card(this, ACTION_ADD, card->udev_device);
+				else if (!access && card->emitted)
+					process_card(this, ACTION_DISABLE, card->udev_device);
 			}
 			/* /dev/snd/ might have been removed */
 			if ((event->mask & (IN_DELETE_SELF | IN_MOVE_SELF)))
@@ -707,14 +876,14 @@ static int start_inotify(struct impl *this)
 static void impl_on_fd_events(struct spa_source *source)
 {
 	struct impl *this = source->data;
-	struct udev_device *dev;
+	struct udev_device *udev_device;
 	const char *action;
 
-	dev = udev_monitor_receive_device(this->umonitor);
-	if (dev == NULL)
+	udev_device = udev_monitor_receive_device(this->umonitor);
+	if (udev_device == NULL)
 		return;
 
-	if ((action = udev_device_get_action(dev)) == NULL)
+	if ((action = udev_device_get_action(udev_device)) == NULL)
 		action = "change";
 
 	spa_log_debug(this->log, "action %s", action);
@@ -722,11 +891,11 @@ static void impl_on_fd_events(struct spa_source *source)
 	start_inotify(this);
 
 	if (spa_streq(action, "change")) {
-		process_device(this, ACTION_ADD, dev);
+		process_card(this, ACTION_ADD, udev_device);
 	} else if (spa_streq(action, "remove")) {
-		process_device(this, ACTION_REMOVE, dev);
+		process_card(this, ACTION_REMOVE, udev_device);
 	}
-	udev_device_unref(dev);
+	udev_device_unref(udev_device);
 }
 
 static int start_monitor(struct impl *this)
@@ -763,7 +932,7 @@ static int stop_monitor(struct impl *this)
 	if (this->umonitor == NULL)
 		return 0;
 
-        clear_devices (this);
+        clear_cards (this);
 
 	spa_loop_remove_source(this->main_loop, &this->source);
 	udev_monitor_unref(this->umonitor);
@@ -774,10 +943,10 @@ static int stop_monitor(struct impl *this)
 	return 0;
 }
 
-static int enum_devices(struct impl *this)
+static int enum_cards(struct impl *this)
 {
 	struct udev_enumerate *enumerate;
-	struct udev_list_entry *devices;
+	struct udev_list_entry *udev_devices;
 
 	enumerate = udev_enumerate_new(this->udev);
 	if (enumerate == NULL)
@@ -786,17 +955,18 @@ static int enum_devices(struct impl *this)
 	udev_enumerate_add_match_subsystem(enumerate, "sound");
 	udev_enumerate_scan_devices(enumerate);
 
-	for (devices = udev_enumerate_get_list_entry(enumerate); devices;
-			devices = udev_list_entry_get_next(devices)) {
-		struct udev_device *dev;
+	for (udev_devices = udev_enumerate_get_list_entry(enumerate); udev_devices;
+			udev_devices = udev_list_entry_get_next(udev_devices)) {
+		struct udev_device *udev_device;
 
-		dev = udev_device_new_from_syspath(this->udev, udev_list_entry_get_name(devices));
-		if (dev == NULL)
+		udev_device = udev_device_new_from_syspath(this->udev,
+		                                           udev_list_entry_get_name(udev_devices));
+		if (udev_device == NULL)
 			continue;
 
-		process_device(this, ACTION_ADD, dev);
+		process_card(this, ACTION_ADD, udev_device);
 
-		udev_device_unref(dev);
+		udev_device_unref(udev_device);
 	}
 	udev_enumerate_unref(enumerate);
 
@@ -851,7 +1021,7 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 	if ((res = start_monitor(this)) < 0)
 		return res;
 
-	if ((res = enum_devices(this)) < 0)
+	if ((res = enum_cards(this)) < 0)
 		return res;
 
         spa_hook_list_join(&this->hooks, &save);

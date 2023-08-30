@@ -15,7 +15,10 @@ spa_alsa_sources = ['alsa.c',
                 'alsa-seq.c']
 
 if compress_offload_option.allowed()
-  spa_alsa_sources += [ 'alsa-compress-offload-sink.c', 'compress-offload-api.c' ]
+  spa_alsa_sources += ['alsa-compress-offload-sink.c',
+                       'alsa-compress-offload-device.c',
+                       'compress-offload-api-util.c',
+                       'compress-offload-api.c']
 endif
 
 spa_alsa = shared_library(

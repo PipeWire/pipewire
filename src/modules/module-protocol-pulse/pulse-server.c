@@ -2505,8 +2505,12 @@ static struct pw_manager_object *find_device(struct client *client,
 				allow_monitor = true;
 			}
 		}
-	} else if (index == SPA_ID_INVALID)
+	} else if (index != SPA_ID_INVALID) {
+		if (!sink)
+			allow_monitor = true;
+	} else {
 		return NULL;
+	}
 
 
 	spa_zero(sel);

@@ -1,3 +1,7 @@
+/* Spa */
+/* SPDX-FileCopyrightText: Copyright © 2019 Wim Taymans */
+/* SPDX-License-Identifier: MIT */
+
 #include <vulkan/vulkan.h>
 
 #include <spa/buffer/buffer.h>

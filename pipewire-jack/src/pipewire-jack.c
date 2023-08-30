@@ -1108,9 +1108,12 @@ static int queue_notify(struct client *c, int type, struct object *o, int arg1, 
 		}
 		pw_log_debug("%p: skip notify %08x active:%d emit:%d", c, type,
 				c->active, emit);
-		if (o != NULL && arg1 == 0 && o->removing) {
-			o->removing = false;
-			free_object(c, o);
+		if (o != NULL) {
+			o->registered = arg1;
+			if (arg1 == 0 && o->removing) {
+				o->removing = false;
+				free_object(c, o);
+			}
 		}
 		return res;
 	}

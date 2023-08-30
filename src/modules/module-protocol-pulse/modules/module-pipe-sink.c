@@ -100,7 +100,8 @@ static const struct spa_dict_item module_pipe_sink_info[] = {
 				"format=<sample format> "
 				"rate=<sample rate> "
 				"channels=<number of channels> "
-				"channel_map=<channel map> " },
+				"channel_map=<channel map> "
+				"use_system_clock_for_timing=<yes or no> " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -111,6 +112,7 @@ static int module_pipe_sink_prepare(struct module * const module)
 	struct pw_properties *global_props = NULL, *stream_props = NULL;
 	struct spa_audio_info_raw info = { 0 };
 	const char *str;
+	bool use_system_clock;
 	int res = 0;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -142,6 +144,14 @@ static int module_pipe_sink_prepare(struct module * const module)
 	if ((str = pw_properties_get(props, "file")) != NULL) {
 		pw_properties_set(global_props, "pipe.filename", str);
 		pw_properties_set(props, "file", NULL);
+	}
+	str = pw_properties_get(props, "use_system_clock_for_timing");
+	use_system_clock = str ? module_args_parse_bool(str) : false;
+
+	if ((str = pw_properties_get(stream_props, PW_KEY_NODE_GROUP)) == NULL) {
+		if (use_system_clock)
+			pw_properties_set(stream_props, PW_KEY_NODE_GROUP,
+				"pipewire.dummy");
 	}
 	if ((str = pw_properties_get(stream_props, PW_KEY_DEVICE_ICON_NAME)) == NULL)
 		pw_properties_set(stream_props, PW_KEY_DEVICE_ICON_NAME,

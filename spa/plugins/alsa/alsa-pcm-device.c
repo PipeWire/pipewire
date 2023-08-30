@@ -154,7 +154,6 @@ static int activate_profile(struct impl *this, snd_ctl_t *ctl_hndl, uint32_t id)
 	snd_pcm_info_t *pcminfo;
 	snd_ctl_card_info_t *cardinfo;
 
-	spa_log_debug(this->log, "profile %d", id);
 	this->profile = id;
 
 	snd_ctl_card_info_alloca(&cardinfo);
@@ -216,7 +215,9 @@ static int set_profile(struct impl *this, uint32_t id)
 	snd_ctl_t *ctl_hndl;
 	int err;
 
-	spa_log_debug(this->log, "open card %s", this->props.device);
+	spa_log_debug(this->log, "enumerate PCM nodes for card %s; profile: %d",
+	              this->props.device, id);
+
 	if ((err = snd_ctl_open(&ctl_hndl, this->props.device, 0)) < 0) {
 		spa_log_error(this->log, "can't open control for card %s: %s",
 				this->props.device, snd_strerror(err));
@@ -225,7 +226,7 @@ static int set_profile(struct impl *this, uint32_t id)
 
 	err = activate_profile(this, ctl_hndl, id);
 
-	spa_log_debug(this->log, "close card %s", this->props.device);
+	spa_log_debug(this->log, "done enumerating PCM nodes for card %s", this->props.device);
 	snd_ctl_close(ctl_hndl);
 
 	return err;

@@ -150,6 +150,11 @@ static int module_pipe_source_prepare(struct module * const module)
 		pw_properties_set(stream_props, PW_KEY_NODE_NAME,
 				"fifo_input");
 
+//	if ((str = pw_properties_get(stream_props, PW_KEY_NODE_DRIVER)) == NULL)
+//		pw_properties_set(stream_props, PW_KEY_NODE_DRIVER, "true");
+//	if ((str = pw_properties_get(stream_props, PW_KEY_PRIORITY_DRIVER)) == NULL)
+//		pw_properties_set(stream_props, PW_KEY_PRIORITY_DRIVER, "50000");
+
 	d->module = module;
 	d->stream_props = stream_props;
 	d->global_props = global_props;

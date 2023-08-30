@@ -551,7 +551,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return 1;
 }
 
-const struct spa_handle_factory spa_alsa_device_factory = {
+const struct spa_handle_factory spa_alsa_pcm_device_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	SPA_NAME_API_ALSA_PCM_DEVICE,
 	NULL,

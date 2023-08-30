@@ -26,7 +26,7 @@ struct module_pipesrc_data {
 	struct pw_impl_module *mod;
 
 	struct pw_properties *global_props;
-	struct pw_properties *playback_props;
+	struct pw_properties *stream_props;
 };
 
 static void module_destroy(void *data)
@@ -49,7 +49,7 @@ static int module_pipe_source_load(struct module *module)
 	char *args;
 	size_t size;
 
-	pw_properties_setf(data->playback_props, "pulse.module.id",
+	pw_properties_setf(data->stream_props, "pulse.module.id",
 			"%u", module->index);
 
 	if ((f = open_memstream(&args, &size)) == NULL)
@@ -58,7 +58,7 @@ static int module_pipe_source_load(struct module *module)
 	fprintf(f, "{");
 	pw_properties_serialize_dict(f, &data->global_props->dict, 0);
 	fprintf(f, " \"stream.props\": {");
-	pw_properties_serialize_dict(f, &data->playback_props->dict, 0);
+	pw_properties_serialize_dict(f, &data->stream_props->dict, 0);
 	fprintf(f, " } }");
 	fclose(f);
 
@@ -86,7 +86,7 @@ static int module_pipe_source_unload(struct module *module)
 		pw_impl_module_destroy(d->mod);
 		d->mod = NULL;
 	}
-	pw_properties_free(d->playback_props);
+	pw_properties_free(d->stream_props);
 	pw_properties_free(d->global_props);
 	return 0;
 }
@@ -108,7 +108,7 @@ static int module_pipe_source_prepare(struct module * const module)
 {
 	struct module_pipesrc_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
-	struct pw_properties *global_props = NULL, *playback_props = NULL;
+	struct pw_properties *global_props = NULL, *stream_props = NULL;
 	struct spa_audio_info_raw info = { 0 };
 	const char *str;
 	int res = 0;
@@ -116,8 +116,8 @@ static int module_pipe_source_prepare(struct module * const module)
 	PW_LOG_TOPIC_INIT(mod_topic);
 
 	global_props = pw_properties_new(NULL, NULL);
-	playback_props = pw_properties_new(NULL, NULL);
-	if (!global_props || !playback_props) {
+	stream_props = pw_properties_new(NULL, NULL);
+	if (!global_props || !stream_props) {
 		res = -errno;
 		goto out;
 	}
@@ -133,31 +133,31 @@ static int module_pipe_source_prepare(struct module * const module)
 	audioinfo_to_properties(&info, global_props);
 
 	if ((str = pw_properties_get(props, "source_name")) != NULL) {
-		pw_properties_set(playback_props, PW_KEY_NODE_NAME, str);
+		pw_properties_set(stream_props, PW_KEY_NODE_NAME, str);
 		pw_properties_set(props, "source_name", NULL);
 	}
 	if ((str = pw_properties_get(props, "source_properties")) != NULL)
-		module_args_add_props(playback_props, str);
+		module_args_add_props(stream_props, str);
 
 	if ((str = pw_properties_get(props, "file")) != NULL) {
 		pw_properties_set(global_props, "pipe.filename", str);
 		pw_properties_set(props, "file", NULL);
 	}
-	if ((str = pw_properties_get(playback_props, PW_KEY_DEVICE_ICON_NAME)) == NULL)
-		pw_properties_set(playback_props, PW_KEY_DEVICE_ICON_NAME,
+	if ((str = pw_properties_get(stream_props, PW_KEY_DEVICE_ICON_NAME)) == NULL)
+		pw_properties_set(stream_props, PW_KEY_DEVICE_ICON_NAME,
 				"audio-input-microphone");
-	if ((str = pw_properties_get(playback_props, PW_KEY_NODE_NAME)) == NULL)
-		pw_properties_set(playback_props, PW_KEY_NODE_NAME,
+	if ((str = pw_properties_get(stream_props, PW_KEY_NODE_NAME)) == NULL)
+		pw_properties_set(stream_props, PW_KEY_NODE_NAME,
 				"fifo_input");
 
 	d->module = module;
-	d->playback_props = playback_props;
+	d->stream_props = stream_props;
 	d->global_props = global_props;
 
 	return 0;
 out:
 	pw_properties_free(global_props);
-	pw_properties_free(playback_props);
+	pw_properties_free(stream_props);
 	return res;
 }
 

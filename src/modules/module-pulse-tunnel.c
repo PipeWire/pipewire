@@ -393,23 +393,26 @@ static void capture_stream_process(void *d)
 		req = 4096 * impl->frame_size;
 
 	size = SPA_MIN(bd->maxsize, req);
+	size = SPA_ROUND_DOWN(size, impl->frame_size);
 
 	avail = spa_ringbuffer_get_read_index(&impl->ring, &index);
-	if (avail < (int32_t)size) {
+	if (avail < (int32_t)size)
 		memset(bd->data, 0, size);
-	} else {
-		if (avail > (int32_t)RINGBUFFER_SIZE) {
-			avail = impl->target_buffer;
-			index += avail - impl->target_buffer;
-		} else {
-			update_rate(impl, avail / impl->frame_size);
-		}
+	if (avail > (int32_t)RINGBUFFER_SIZE) {
+		avail = impl->target_buffer;
+		index += avail - impl->target_buffer;
+	}
+	if (avail > 0) {
+		avail = SPA_ROUND_DOWN(avail, impl->frame_size);
+		update_rate(impl, avail / impl->frame_size);
+
+		avail = SPA_MIN(size, (uint32_t)avail);
 		spa_ringbuffer_read_data(&impl->ring,
 				impl->buffer, RINGBUFFER_SIZE,
 				index & RINGBUFFER_MASK,
-				bd->data, size);
+				bd->data, avail);
 
-		index += size;
+		index += avail;
 		spa_ringbuffer_read_update(&impl->ring, index);
 	}
 	bd->chunk->offset = 0;

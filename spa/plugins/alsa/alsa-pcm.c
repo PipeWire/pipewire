@@ -1349,6 +1349,17 @@ static int enum_dsd_formats(struct state *state, uint32_t index, uint32_t *next,
 	return 1;
 }
 
+/* find smaller power of 2 */
+static uint32_t flp2(uint32_t x)
+{
+	x = x | (x >> 1);
+	x = x | (x >> 2);
+	x = x | (x >> 4);
+	x = x | (x >> 8);
+	x = x | (x >> 16);
+	return x - (x >> 1);
+}
+
 int
 spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 		     const struct spa_pod *filter)
@@ -1426,6 +1437,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	unsigned int periods;
 	bool match = true, planar = false, is_batch;
 	char spdif_params[128] = "";
+	uint32_t default_period;
 
 	spa_log_debug(state->log, "opened:%d format:%d started:%d", state->opened,
 			state->have_format, state->started);
@@ -1651,12 +1663,14 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	period_size = state->default_period_size;
 	is_batch = snd_pcm_hw_params_is_batch(params) && !state->disable_batch;
 
+	default_period = flp2(SPA_SCALE32_UP(DEFAULT_PERIOD, state->rate, DEFAULT_RATE));
+
 	/* no period size specified. If we are batch or not using timers,
 	 * use the graph duration as the period */
 	if (period_size == 0 && (is_batch || state->disable_tsched))
-		period_size = state->position ? state->position->clock.target_duration : DEFAULT_PERIOD;
+		period_size = state->position ? state->position->clock.target_duration : default_period;
 	if (period_size == 0)
-		period_size = DEFAULT_PERIOD;
+		period_size = default_period;
 
 	if (!state->disable_tsched) {
 		if (is_batch) {
@@ -1664,7 +1678,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 			 * the period smaller and add one period of headroom. Limit the
 			 * period size to our default so that we don't create too much
 			 * headroom. */
-			period_size = SPA_MIN(period_size, DEFAULT_PERIOD) / 2;
+			period_size = SPA_MIN(period_size, default_period) / 2;
 		} else {
 			/* disable ALSA wakeups */
 			if (snd_pcm_hw_params_can_disable_period_wakeup(params))

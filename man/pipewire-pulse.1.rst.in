@@ -17,8 +17,8 @@ DESCRIPTION
 ===========
 
 **pipewire-pulse** starts a PulseAudio-compatible daemon that integrates with
-the PipeWire media server. This daemon is a drop-in replacement for the
-PulseAudio daemon.
+the PipeWire media server, by running a pipewire process through a systemd
+service. This daemon is a drop-in replacement for the PulseAudio daemon.
 
 OPTIONS
 =======

@@ -49,7 +49,9 @@ pipewire_configdir = pipewire_sysconfdir / 'pipewire'
 pipewire_confdatadir = pipewire_datadir / 'pipewire'
 modules_install_dir = pipewire_libdir / pipewire_name
 
-if host_machine.system() == 'linux'
+cc = meson.get_compiler('c')
+
+if cc.has_header('features.h') and cc.get_define('__GLIBC__', prefix: '#include <features.h>') != ''
   # glibc ld.so interprets ${LIB} in a library loading path with an
   # appropriate value for the current architecture, typically something
   # like lib, lib64 or lib/x86_64-linux-gnu.
@@ -71,8 +73,6 @@ alsadatadir = pipewire_datadir / 'alsa-card-profile' / 'mixer'
 pipewire_headers_dir = pipewire_name / 'pipewire'
 
 pkgconfig = import('pkgconfig')
-
-cc = meson.get_compiler('c')
 
 common_flags = [
   '-fvisibility=hidden',

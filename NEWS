@@ -1,3 +1,71 @@
+# PipeWire 0.3.80 (2023-09-14)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - A new Tag param was added that allows arbitrary metadata to be transported
+    out-of-band in the graph.
+  - Vulkan DMA buf support was merged.
+  - The echo-canceller was ported to webrtc-audio-processing-1.
+  - Fix a regression in locating monitor sources by id in pulse-server.
+  - Mixer io areas updates are now synchronized correctly with the data
+    thread to avoid potential crashes.
+  - Many more bugfixes and improvements.
+
+
+## PipeWire
+  - Handle driver nodes that refuse to change the quantum or rate.
+  - A new Tag param was added that allows arbitrary metadata to be transported
+    out-of-band in the graph.
+
+## Modules
+  - The pipe-tunnel source has been reworked to use a ringbuffer and rate
+    adaption to keep the latency constant. It can now also function as a
+    driver to reduce resampling. (#3478)
+
+## Tools
+  - pw-cat will now place media properties in Tag params.
+  - pw-mon can now filter props and params.
+
+## SPA
+  - ALSA refuses to change quantum and rate when in IRQ mode.
+  - ALSA will now be smarter in selecting the period size for batch devices
+    and will make it depend on the samplerate. (#3444)
+  - Vulkan DMA buf support was merged.
+  - ALSA latency will now be reported in the time domain of the graph.
+  - Add udev based autodetection for compress-offload devices.
+  - The echo-canceller was ported to webrtc-audio-processing-1.
+  - The v4l2 inotify code was rewritten to avoid a use-after-free and by
+    using a separate watch (but same fd) for each device. (#3439)
+  - The tag and latency handling was improved in audioadpter.
+  - Don't use -Ofast on alpha because it can crash on denormalized
+    values. (#3489)
+  - The mixers now synchronize spa_io_buffers updates with the data
+    thread to avoid crashes.
+  - Handle NULL param updates. (#3504)
+
+## Pulse-server
+  - Fix a regression in locating monitor sources by id. (#3476)
+  - Add support for use_system_clock_for_timing in module-pipe-sink.
+  - Add support for checking module arguments.
+  - Avoid some useless change events.
+
+## Bluetooth
+  - Ports are now marked as physical, which makes the bluetooth devices show
+    up as hardware devices in Ardour and other JACK apps. (#3418)
+  - Some fixes for LE audio support (#3479)
+
+## JACK
+  - Also emit unregister notify even when supressed when creating the
+    client.
+  - The notify callbacks now match JACK2 behaviour more.
+  - The mixer io areas are updated and handled safely now to avoid
+    crashes. (#3506)
+
+Older versions:
+
+
 # PipeWire 0.3.79 (2023-08-29)
 
 This is a quick bugfix release that is API and ABI compatible with previous
@@ -52,9 +120,6 @@ This is a quick bugfix release that is API and ABI compatible with previous
 ## ALSA
   - Improve property handling, support lists and ranges in addition to
     fixed values. (#3451)
-
-Older versions:
-
 
 # PipeWire 0.3.78 (2023-08-22)
 

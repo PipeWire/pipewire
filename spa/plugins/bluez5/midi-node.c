@@ -2033,7 +2033,9 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_PORT_CHANGE_MASK_PARAMS;
 		port->info = SPA_PORT_INFO_INIT();
 		port->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
-		port->info.flags = SPA_PORT_FLAG_LIVE;
+		port->info.flags = SPA_PORT_FLAG_LIVE |
+			SPA_PORT_FLAG_PHYSICAL |
+			SPA_PORT_FLAG_TERMINAL;
 		port->params[IDX_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 		port->params[IDX_Meta] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 		port->params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);

@@ -16,6 +16,8 @@ extern "C" {
 
 /** node keys */
 #define SPA_KEY_NODE_NAME		"node.name"		/**< a node name */
+#define SPA_KEY_NODE_DESCRIPTION	"node.description"	/**< localized human readable node one-line
+								  *  description. Ex. "Foobar USB Headset" */
 #define SPA_KEY_NODE_LATENCY		"node.latency"		/**< the requested node latency */
 #define SPA_KEY_NODE_MAX_LATENCY	"node.max-latency"	/**< maximum supported latency */
 

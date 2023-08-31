@@ -399,8 +399,8 @@ static void capture_stream_process(void *d)
 	if (avail < (int32_t)size)
 		memset(bd->data, 0, size);
 	if (avail > (int32_t)RINGBUFFER_SIZE) {
-		avail = impl->target_buffer;
 		index += avail - impl->target_buffer;
+		avail = impl->target_buffer;
 	}
 	if (avail > 0) {
 		avail = SPA_ROUND_DOWN(avail, impl->frame_size);

@@ -83,7 +83,7 @@ static inline pa_volume_t pa_sw_volume_from_linear(double v)
 
 static inline pa_volume_t pa_sw_volume_from_dB(double dB)
 {
-    if (isinf(dB) < 0 || dB <= PA_DECIBEL_MININFTY)
+    if (dB == -INFINITY || dB <= PA_DECIBEL_MININFTY)
         return PA_VOLUME_MUTED;
     return pa_sw_volume_from_linear(pa_volume_dB_to_linear(dB));
 }

@@ -1663,7 +1663,8 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	period_size = state->default_period_size;
 	is_batch = snd_pcm_hw_params_is_batch(params) && !state->disable_batch;
 
-	default_period = flp2(SPA_SCALE32_UP(DEFAULT_PERIOD, state->rate, DEFAULT_RATE));
+	default_period = SPA_SCALE32_UP(DEFAULT_PERIOD, state->rate, DEFAULT_RATE);
+	default_period = flp2(2 * default_period - 1);
 
 	/* no period size specified. If we are batch or not using timers,
 	 * use the graph duration as the period */

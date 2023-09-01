@@ -920,7 +920,7 @@ static int add_rate(struct state *state, uint32_t scale, uint32_t interleave, bo
 		min = max = rate;
 
 	if (rate == 0)
-		rate = state->position ? state->position->clock.rate.denom : DEFAULT_RATE;
+		rate = state->position ? state->position->clock.target_rate.denom : DEFAULT_RATE;
 
 	rate = SPA_CLAMP(rate, min, max);
 
@@ -1437,7 +1437,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	unsigned int periods;
 	bool match = true, planar = false, is_batch;
 	char spdif_params[128] = "";
-	uint32_t default_period;
+	uint32_t default_period, latency;
 
 	spa_log_debug(state->log, "opened:%d format:%d started:%d", state->opened,
 			state->have_format, state->started);
@@ -1738,11 +1738,12 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	state->headroom = SPA_MIN(state->headroom, state->buffer_frames);
 	state->start_delay = state->default_start_delay;
 
+	latency = SPA_MAX(state->min_delay, SPA_MIN(state->max_delay, state->headroom));
+	if (state->position != NULL)
+		latency = SPA_SCALE32_UP(latency, state->position->clock.target_rate.denom, state->rate);
+
 	state->latency[state->port_direction].min_rate =
-		state->latency[state->port_direction].max_rate =
-			SPA_SCALE32_UP(
-				SPA_MAX(state->min_delay, SPA_MIN(state->max_delay, state->headroom)),
-				state->clock->rate.denom, state->rate);
+		state->latency[state->port_direction].max_rate = latency;
 
 	spa_log_info(state->log, "%s (%s): format:%s access:%s-%s rate:%d channels:%d "
 			"buffer frames %lu, period frames %lu, periods %u, frame_size %zd "

@@ -1793,19 +1793,6 @@ int main(int argc, char *argv[])
 	}
 	data.filename = argv[optind++];
 
-	if (pw_properties_get(data.props, PW_KEY_MEDIA_TYPE) == NULL)
-		pw_properties_set(data.props, PW_KEY_MEDIA_TYPE, data.media_type);
-	if (pw_properties_get(data.props, PW_KEY_MEDIA_CATEGORY) == NULL)
-		pw_properties_set(data.props, PW_KEY_MEDIA_CATEGORY, data.media_category);
-	if (pw_properties_get(data.props, PW_KEY_MEDIA_ROLE) == NULL)
-		pw_properties_set(data.props, PW_KEY_MEDIA_ROLE, data.media_role);
-	if (pw_properties_get(data.props, PW_KEY_MEDIA_FILENAME) == NULL)
-		pw_properties_set(data.props, PW_KEY_MEDIA_FILENAME, data.filename);
-	if (pw_properties_get(data.props, PW_KEY_MEDIA_NAME) == NULL)
-		pw_properties_set(data.props, PW_KEY_MEDIA_NAME, data.filename);
-	if (pw_properties_get(data.props, PW_KEY_TARGET_OBJECT) == NULL)
-		pw_properties_set(data.props, PW_KEY_TARGET_OBJECT, data.target);
-
 	/* make a main loop. If you already have another main loop, you can add
 	 * the fd of this pipewire mainloop to it. */
 	data.loop = pw_main_loop_new(NULL);
@@ -1873,6 +1860,19 @@ int main(int argc, char *argv[])
 		}
 	}
 	ret = setup_properties(&data);
+
+	if (pw_properties_get(data.props, PW_KEY_MEDIA_TYPE) == NULL)
+		pw_properties_set(data.props, PW_KEY_MEDIA_TYPE, data.media_type);
+	if (pw_properties_get(data.props, PW_KEY_MEDIA_CATEGORY) == NULL)
+		pw_properties_set(data.props, PW_KEY_MEDIA_CATEGORY, data.media_category);
+	if (pw_properties_get(data.props, PW_KEY_MEDIA_ROLE) == NULL)
+		pw_properties_set(data.props, PW_KEY_MEDIA_ROLE, data.media_role);
+	if (pw_properties_get(data.props, PW_KEY_MEDIA_FILENAME) == NULL)
+		pw_properties_set(data.props, PW_KEY_MEDIA_FILENAME, data.filename);
+	if (pw_properties_get(data.props, PW_KEY_MEDIA_NAME) == NULL)
+		pw_properties_set(data.props, PW_KEY_MEDIA_NAME, data.filename);
+	if (pw_properties_get(data.props, PW_KEY_TARGET_OBJECT) == NULL)
+		pw_properties_set(data.props, PW_KEY_TARGET_OBJECT, data.target);
 
 	switch (data.data_type) {
 #ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION

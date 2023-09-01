@@ -921,7 +921,7 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 				pw_log_error("convolver:filename requires a string or an array");
 				return NULL;
 			} else {
-				filenames[i] = strdup(v);
+				filenames[0] = strdup(v);
 			}
 		}
 		else if (spa_streq(key, "offset")) {

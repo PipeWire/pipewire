@@ -190,10 +190,12 @@ static void get_media_codecs(struct impl *this, enum spa_bluetooth_audio_codec i
 	*codecs = NULL;
 }
 
-static const struct media_codec *get_supported_media_codec(struct impl *this, enum spa_bluetooth_audio_codec id, size_t *idx)
+static const struct media_codec *get_supported_media_codec(struct impl *this, enum spa_bluetooth_audio_codec id,
+		size_t *idx, enum spa_bt_profile profile)
 {
 	const struct media_codec *media_codec = NULL;
 	size_t i;
+
 	for (i = 0; i < this->supported_codec_count; ++i) {
 		if (this->supported_codecs[i]->id == id) {
 			media_codec = this->supported_codecs[i];
@@ -201,6 +203,13 @@ static const struct media_codec *get_supported_media_codec(struct impl *this, en
 				*idx = i;
 		}
 	}
+
+	if (!media_codec)
+		return NULL;
+
+	if (!spa_bt_device_supports_media_codec(this->bt_dev, media_codec, profile))
+		return NULL;
+
 	return media_codec;
 }
 
@@ -625,6 +634,8 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 	char transport[32], str_id[32], object_path[512];
 	bool is_dyn_node = SPA_FLAG_IS_SET(id, DYNAMIC_NODE_ID_FLAG);
 
+	spa_log_debug(this->log, "node, transport:%p id:%08x factory:%s", t, id, factory_name);
+
 	snprintf(transport, sizeof(transport), "pointer:%p", t);
 	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_TRANSPORT, transport);
 	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_PROFILE, spa_bt_profile_name(t->profile));
@@ -1016,9 +1027,6 @@ static int emit_nodes(struct impl *this)
 				}
 			}
 		}
-
-		if (get_supported_media_codec(this, this->props.codec, NULL) == NULL)
-			this->props.codec = 0;
 		break;
 	case DEVICE_PROFILE_BAP:
 		if (this->bt_dev->connected_profiles & (SPA_BT_PROFILE_BAP_SOURCE)) {
@@ -1070,9 +1078,6 @@ static int emit_nodes(struct impl *this)
 					DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_MEDIA_SOURCE, false);
 			}
 		}
-
-		if (get_supported_media_codec(this, this->props.codec, NULL) == NULL)
-			this->props.codec = 0;
 		break;
 	case DEVICE_PROFILE_HSP_HFP:
 		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT) {
@@ -1119,6 +1124,8 @@ static void emit_info(struct impl *this, bool full)
 
 static void emit_remove_nodes(struct impl *this)
 {
+	spa_log_debug(this->log, "remove nodes");
+
 	remove_dynamic_node (&this->dyn_media_source);
 	remove_dynamic_node (&this->dyn_media_sink);
 	remove_dynamic_node (&this->dyn_sco_source);
@@ -1278,11 +1285,9 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 	if (this->switching_codec)
 		return;
 
-	if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_MEDIA_SINK) {
-		free(this->supported_codecs);
-		this->supported_codecs = spa_bt_device_get_supported_media_codecs(
-			this->bt_dev, &this->supported_codec_count, true);
-	}
+	free(this->supported_codecs);
+	this->supported_codecs = spa_bt_device_get_supported_media_codecs(
+		this->bt_dev, &this->supported_codec_count);
 
 	switch (this->profile) {
 	case DEVICE_PROFILE_OFF:
@@ -1297,8 +1302,6 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 		break;
 	case DEVICE_PROFILE_A2DP:
 	case DEVICE_PROFILE_BAP:
-		if (get_supported_media_codec(this, this->props.codec, NULL) == NULL)
-			this->props.codec = 0;
 		nodes_changed = (connected_change & (SPA_BT_PROFILE_MEDIA_SINK |
 						     SPA_BT_PROFILE_MEDIA_SOURCE));
 		spa_log_debug(this->log, "profiles changed: media nodes changed: %d",
@@ -1419,7 +1422,7 @@ static uint32_t profile_direction_mask(struct impl *this, uint32_t index, enum s
 		if (device->connected_profiles & SPA_BT_PROFILE_A2DP_SINK)
 			have_output = true;
 
-		media_codec = get_supported_media_codec(this, codec, NULL);
+		media_codec = get_supported_media_codec(this, codec, NULL, device->connected_profiles);
 		if (media_codec && media_codec->duplex_codec)
 			have_input = true;
 		break;
@@ -1533,7 +1536,7 @@ static void set_initial_profile(struct impl *this)
 	if (this->supported_codecs)
 		free(this->supported_codecs);
 	this->supported_codecs = spa_bt_device_get_supported_media_codecs(
-		this->bt_dev, &this->supported_codec_count, true);
+		this->bt_dev, &this->supported_codec_count);
 
 	/* Prefer BAP, then A2DP, then HFP, then null, but select AG if the device
 	   appears not to have BAP_SINK, A2DP_SINK or any HEAD_UNIT profile */
@@ -1625,7 +1628,7 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		n_sink++;
 		if (codec) {
 			size_t idx;
-			const struct media_codec *media_codec = get_supported_media_codec(this, codec, &idx);
+			const struct media_codec *media_codec = get_supported_media_codec(this, codec, &idx, profile);
 			if (media_codec == NULL) {
 				errno = EINVAL;
 				return NULL;
@@ -1686,7 +1689,7 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		name = spa_bt_profile_name(profile);
 
 		if (codec) {
-			media_codec = get_supported_media_codec(this, codec, &idx);
+			media_codec = get_supported_media_codec(this, codec, &idx, profile);
 			if (media_codec == NULL) {
 				errno = EINVAL;
 				return NULL;

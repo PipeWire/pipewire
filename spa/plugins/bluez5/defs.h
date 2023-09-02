@@ -169,6 +169,7 @@ enum spa_bt_media_direction {
 	SPA_BT_MEDIA_SINK,
 	SPA_BT_MEDIA_SOURCE_BROADCAST,
 	SPA_BT_MEDIA_SINK_BROADCAST,
+	SPA_BT_MEDIA_DIRECTION_LAST,
 };
 
 enum spa_bt_profile {
@@ -538,8 +539,8 @@ int spa_bt_device_add_profile(struct spa_bt_device *device, enum spa_bt_profile 
 int spa_bt_device_connect_profile(struct spa_bt_device *device, enum spa_bt_profile profile);
 int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force);
 int spa_bt_device_ensure_media_codec(struct spa_bt_device *device, const struct media_codec * const *codecs);
-bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const struct media_codec *codec, bool sink);
-const struct media_codec **spa_bt_device_get_supported_media_codecs(struct spa_bt_device *device, size_t *count, bool sink);
+bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const struct media_codec *codec, enum spa_bt_profile profile);
+const struct media_codec **spa_bt_device_get_supported_media_codecs(struct spa_bt_device *device, size_t *count);
 int spa_bt_device_ensure_hfp_codec(struct spa_bt_device *device, unsigned int codec);
 int spa_bt_device_supports_hfp_codec(struct spa_bt_device *device, unsigned int codec);
 int spa_bt_device_release_transports(struct spa_bt_device *device);

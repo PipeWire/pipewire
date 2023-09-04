@@ -721,8 +721,8 @@ static void show_help(const char *name, bool error)
 {
         fprintf(error ? stderr : stdout, "Usage:\n%s [options]\n\n"
 		"Options:\n"
-		"  -b, --batch-mode		         run in non-interactive batch_mode mode\n"
-		"  -n, --iterations = NUMBER             exit on maximum iterations NUMBER\n"
+		"  -b, --batch-mode		         run in non-interactive batch mode\n"
+		"  -n, --iterations = NUMBER             exit after NUMBER batch iterations\n"
 		"  -r, --remote                          Remote daemon name\n"
 		"\n"
 		"  -h, --help                            Show this help\n"

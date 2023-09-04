@@ -155,11 +155,17 @@ OPTIONS
 -h | --help
   Show help.
 
+-b | --batch-mode
+  Run in non-interactive batch mode, similar to top's batch mode.
+
+-n | --iterations=NUMBER
+  Exit after NUMBER of batch iterations. Only used in batch mode.
+
 -r | --remote=NAME
   The name the *remote* instance to monitor. If left unspecified,
   a connection is made to the default PipeWire instance.
 
---version
+-V | --version
   Show version information.
 
 

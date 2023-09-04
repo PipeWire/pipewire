@@ -273,7 +273,7 @@ static void on_timeout(struct spa_source *source)
 
 	if ((res = spa_system_timerfd_read(this->data_system,
 				this->timer_source.fd, &expirations)) < 0) {
-		if (res != EAGAIN)
+		if (res != -EAGAIN)
 			spa_log_error(this->log, NAME " %p: timerfd error: %s",
 					this, spa_strerror(res));
 		return;

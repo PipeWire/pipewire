@@ -375,8 +375,8 @@ summary({'gstreamer-device-provider': gst_dp_found}, bool_yn: true, section: 'Ba
 
 cdata.set('HAVE_GSTREAMER_DEVICE_PROVIDER', get_option('gstreamer-device-provider').allowed())
 
-webrtc_dep = dependency('webrtc-audio-processing',
-  version : ['>= 0.2', '< 1.0'],
+webrtc_dep = dependency('webrtc-audio-processing-1',
+  version : ['>= 1.2' ],
   required : get_option('echo-cancel-webrtc'))
 summary({'WebRTC Echo Canceling': webrtc_dep.found()}, bool_yn: true, section: 'Misc dependencies')
 cdata.set('HAVE_WEBRTC', webrtc_dep.found())

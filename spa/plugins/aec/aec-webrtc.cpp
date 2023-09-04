@@ -13,9 +13,7 @@
 #include <spa/utils/json.h>
 #include <spa/support/plugin.h>
 
-#include <webrtc/modules/audio_processing/include/audio_processing.h>
-#include <webrtc/modules/interface/module_common_types.h>
-#include <webrtc/system_wrappers/include/trace.h>
+#include <modules/audio_processing/include/audio_processing.h>
 
 struct impl_data {
 	struct spa_handle handle;
@@ -41,53 +39,6 @@ static bool webrtc_get_spa_bool(const struct spa_dict *args, const char *key, bo
 	return default_value;
 }
 
-
-/* [ f0 f1 f2 ] */
-static int parse_point(struct spa_json *it, float (&f)[3])
-{
-	struct spa_json arr;
-	int i, res;
-
-	if (spa_json_enter_array(it, &arr) <= 0)
-		return -EINVAL;
-
-	for (i = 0; i < 3; i++) {
-		if ((res = spa_json_get_float(&arr, &f[i])) <= 0)
-			return -EINVAL;
-	}
-	return 0;
-}
-
-/* [ point1 point2 ... ] */
-static int parse_mic_geometry(struct impl_data *impl, const char *mic_geometry,
-		std::vector<webrtc::Point>& geometry)
-{
-	int res;
-	size_t i;
-	struct spa_json it[2];
-
-	spa_json_init(&it[0], mic_geometry, strlen(mic_geometry));
-	if (spa_json_enter_array(&it[0], &it[1]) <= 0) {
-		spa_log_error(impl->log, "Error: webrtc.mic-geometry expects an array");
-		return -EINVAL;
-	}
-
-	for (i = 0; i < geometry.size(); i++) {
-		float f[3];
-
-		if ((res = parse_point(&it[1], f)) < 0) {
-			spa_log_error(impl->log, "Error: can't parse webrtc.mic-geometry points: %d", res);
-			return res;
-		}
-
-		spa_log_info(impl->log, "mic %zd position: (%g %g %g)", i, f[0], f[1], f[2]);
-		geometry[i].c[0] = f[0];
-		geometry[i].c[1] = f[1];
-		geometry[i].c[2] = f[2];
-	}
-	return 0;
-}
-
 static int webrtc_init2(void *object, const struct spa_dict *args,
 		struct spa_audio_info_raw *rec_info, struct spa_audio_info_raw *out_info,
 		struct spa_audio_info_raw *play_info)
@@ -95,69 +46,33 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 	auto impl = static_cast<struct impl_data*>(object);
 	int res;
 
-	bool extended_filter = webrtc_get_spa_bool(args, "webrtc.extended_filter", true);
-	bool delay_agnostic = webrtc_get_spa_bool(args, "webrtc.delay_agnostic", true);
 	bool high_pass_filter = webrtc_get_spa_bool(args, "webrtc.high_pass_filter", true);
 	bool noise_suppression = webrtc_get_spa_bool(args, "webrtc.noise_suppression", true);
+	bool transient_suppression = webrtc_get_spa_bool(args, "webrtc.transient_suppression", true);
 	bool voice_detection = webrtc_get_spa_bool(args, "webrtc.voice_detection", true);
 
 	// Note: AGC seems to mess up with Agnostic Delay Detection, especially with speech,
 	// result in very poor performance, disable by default
 	bool gain_control = webrtc_get_spa_bool(args, "webrtc.gain_control", false);
 
-	// Disable experimental flags by default
-	bool experimental_agc = webrtc_get_spa_bool(args, "webrtc.experimental_agc", false);
-	bool experimental_ns = webrtc_get_spa_bool(args, "webrtc.experimental_ns", false);
-
-	bool beamforming = webrtc_get_spa_bool(args, "webrtc.beamforming", false);
-
 	// FIXME: Intelligibility enhancer is not currently supported
 	// This filter will modify playback buffer (when calling ProcessReverseStream), but now
 	// playback buffer modifications are discarded.
 
-	webrtc::Config config;
-	config.Set<webrtc::ExtendedFilter>(new webrtc::ExtendedFilter(extended_filter));
-	config.Set<webrtc::DelayAgnostic>(new webrtc::DelayAgnostic(delay_agnostic));
-	config.Set<webrtc::ExperimentalAgc>(new webrtc::ExperimentalAgc(experimental_agc));
-	config.Set<webrtc::ExperimentalNs>(new webrtc::ExperimentalNs(experimental_ns));
-
-	if (beamforming) {
-		std::vector<webrtc::Point> geometry(rec_info->channels);
-		const char *mic_geometry, *target_direction;
-
-		/* The beamformer gives a single mono channel */
-		out_info->channels = 1;
-		out_info->position[0] = SPA_AUDIO_CHANNEL_MONO;
-
-		if ((mic_geometry = spa_dict_lookup(args, "webrtc.mic-geometry")) == NULL) {
-			spa_log_error(impl->log, "Error: webrtc.beamforming requires webrtc.mic-geometry");
-			return -EINVAL;
-		}
-
-		if ((res = parse_mic_geometry(impl, mic_geometry, geometry)) < 0)
-			return res;
-
-		if ((target_direction = spa_dict_lookup(args, "webrtc.target-direction")) != NULL) {
-			webrtc::SphericalPointf direction(0.0f, 0.0f, 0.0f);
-			struct spa_json it;
-			float f[3];
-
-			spa_json_init(&it, target_direction, strlen(target_direction));
-			if (parse_point(&it, f) < 0) {
-				spa_log_error(impl->log, "Error: can't parse target-direction %s",
-						target_direction);
-				return -EINVAL;
-			}
-
-			direction.s[0] = f[0];
-			direction.s[1] = f[1];
-			direction.s[2] = f[2];
-
-			config.Set<webrtc::Beamforming>(new webrtc::Beamforming(true, geometry, direction));
-		} else {
-			config.Set<webrtc::Beamforming>(new webrtc::Beamforming(true, geometry));
-		}
-	}
+	webrtc::AudioProcessing::Config config;
+	config.echo_canceller.enabled = true;
+	// FIXME: Example code enables both gain controllers, but that seems sus
+	config.gain_controller1.enabled = gain_control;
+	config.gain_controller1.mode = webrtc::AudioProcessing::Config::GainController1::Mode::kAdaptiveDigital;
+	config.gain_controller1.analog_level_minimum = 0;
+	config.gain_controller1.analog_level_maximum = 255;
+	config.gain_controller2.enabled = gain_control;
+	config.high_pass_filter.enabled = high_pass_filter;
+	config.noise_suppression.enabled = noise_suppression;
+	config.noise_suppression.level = webrtc::AudioProcessing::Config::NoiseSuppression::kHigh;
+	// FIXME: expose pre/postamp gain
+	config.transient_suppression.enabled = transient_suppression;
+	config.voice_detection.enabled = voice_detection;
 
 	webrtc::ProcessingConfig pconfig = {{
 		webrtc::StreamConfig(rec_info->rate, rec_info->channels, false), /* input stream */
@@ -166,26 +81,15 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 		webrtc::StreamConfig(play_info->rate, play_info->channels, false), /* reverse output stream */
 	}};
 
-	auto apm = std::unique_ptr<webrtc::AudioProcessing>(webrtc::AudioProcessing::Create(config));
+	auto apm = std::unique_ptr<webrtc::AudioProcessing>(webrtc::AudioProcessingBuilder().Create());
+
+	apm->ApplyConfig(config);
+
 	if ((res = apm->Initialize(pconfig)) != webrtc::AudioProcessing::kNoError) {
 		spa_log_error(impl->log, "Error initialising webrtc audio processing module: %d", res);
 		return -EINVAL;
 	}
 
-	apm->high_pass_filter()->Enable(high_pass_filter);
-	// Always disable drift compensation since PipeWire will already do
-	// drift compensation on all sinks and sources linked to this echo-canceler
-	apm->echo_cancellation()->enable_drift_compensation(false);
-	apm->echo_cancellation()->Enable(true);
-	// TODO: wire up supression levels to args
-	apm->echo_cancellation()->set_suppression_level(webrtc::EchoCancellation::kHighSuppression);
-	apm->noise_suppression()->set_level(webrtc::NoiseSuppression::kHigh);
-	apm->noise_suppression()->Enable(noise_suppression);
-	apm->voice_detection()->Enable(voice_detection);
-	// TODO: wire up AGC parameters to args
-	apm->gain_control()->set_analog_level_limits(0, 255);
-	apm->gain_control()->set_mode(webrtc::GainControl::kAdaptiveDigital);
-	apm->gain_control()->Enable(gain_control);
 	impl->apm = std::move(apm);
 	impl->rec_info = *rec_info;
 	impl->out_info = *out_info;

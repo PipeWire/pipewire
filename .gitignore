@@ -18,6 +18,7 @@ subprojects/gtest.wrap
 subprojects/libyaml.wrap
 subprojects/libyaml
 subprojects/libcamera
+subprojects/webrtc-audio-processing
 
 # Created by https://www.gitignore.io/api/vim
 

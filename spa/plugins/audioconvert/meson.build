@@ -15,7 +15,7 @@ audioconvert_c = static_library('audioconvert_c',
     'peaks-ops-c.c',
     'resample-native-c.c',
     'fmt-ops-c.c' ],
-  c_args : ['-Ofast', '-ffast-math'],
+  c_args : ['-Ofast'],
   dependencies : [ spa_dep ],
   install : false
   )

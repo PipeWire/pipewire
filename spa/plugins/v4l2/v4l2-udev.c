@@ -35,6 +35,7 @@
 struct device {
 	uint32_t id;
 	struct udev_device *dev;
+	int inotify_wd;
 	unsigned int accessible:1;
 	unsigned int ignored:1;
 	unsigned int emitted:1;
@@ -80,6 +81,28 @@ static int impl_udev_close(struct impl *this)
 	return 0;
 }
 
+static void start_watching_device(struct impl *this, struct device *device)
+{
+	if (this->notify.fd < 0 || device->inotify_wd >= 0)
+		return;
+
+	char path[64];
+	snprintf(path, sizeof(path), "/dev/video%" PRIu32, device->id);
+
+	device->inotify_wd = inotify_add_watch(this->notify.fd, path, IN_ATTRIB);
+}
+
+static void stop_watching_device(struct impl *this, struct device *device)
+{
+	if (device->inotify_wd < 0)
+		return;
+
+	spa_assert(this->notify.fd >= 0);
+
+	inotify_rm_watch(this->notify.fd, device->inotify_wd);
+	device->inotify_wd = -1;
+}
+
 static struct device *add_device(struct impl *this, uint32_t id, struct udev_device *dev)
 {
 	struct device *device;
@@ -91,6 +114,10 @@ static struct device *add_device(struct impl *this, uint32_t id, struct udev_dev
 	device->id = id;
 	udev_device_ref(dev);
 	device->dev = dev;
+	device->inotify_wd = -1;
+
+	start_watching_device(this, device);
+
 	return device;
 }
 
@@ -106,16 +133,15 @@ static struct device *find_device(struct impl *this, uint32_t id)
 
 static void remove_device(struct impl *this, struct device *device)
 {
-	udev_device_unref(device->dev);
+	device->dev = udev_device_unref(device->dev);
+	stop_watching_device(this, device);
 	*device = this->devices[--this->n_devices];
 }
 
 static void clear_devices(struct impl *this)
 {
-        uint32_t i;
-	for (i = 0; i < this->n_devices; i++)
-	        udev_device_unref(this->devices[i].dev);
-	this->n_devices = 0;
+	while (this->n_devices > 0)
+		remove_device(this, &this->devices[0]);
 }
 
 static uint32_t get_device_id(struct impl *this, struct udev_device *dev)
@@ -381,6 +407,10 @@ static int stop_inotify(struct impl *this)
 	if (this->notify.fd == -1)
 		return 0;
 	spa_log_info(this->log, "stop inotify");
+
+	for (size_t i = 0; i < this->n_devices; i++)
+		stop_watching_device(this, &this->devices[i]);
+
 	spa_loop_remove_source(this->main_loop, &this->notify);
 	close(this->notify.fd);
 	this->notify.fd = -1;
@@ -389,7 +419,6 @@ static int stop_inotify(struct impl *this)
 
 static void impl_on_notify_events(struct spa_source *source)
 {
-	bool deleted = false;
 	struct impl *this = source->data;
 	union {
 		unsigned char name[sizeof(struct inotify_event) + NAME_MAX + 1];
@@ -411,35 +440,33 @@ static void impl_on_notify_events(struct spa_source *source)
 
 		for (p = &buf; p < e;
 		    p = SPA_PTROFF(p, sizeof(struct inotify_event) + event->len, void)) {
-			unsigned int id;
-			struct device *device;
-
 			event = (const struct inotify_event *) p;
 
 			if ((event->mask & IN_ATTRIB)) {
-				bool access;
-				if (sscanf(event->name, "video%u", &id) != 1)
-					continue;
-				if ((device = find_device(this, id)) == NULL)
-					continue;
-				access = check_access(this, device);
+				struct device *device = NULL;
+
+				for (size_t i = 0; i < this->n_devices; i++) {
+					if (this->devices[i].inotify_wd == event->wd) {
+						device = &this->devices[i];
+						break;
+					}
+				}
+
+				spa_assert(device);
+
+				bool access = check_access(this, device);
 				if (access && !device->emitted)
 					process_device(this, ACTION_ADD, device->dev);
 				else if (!access && device->emitted)
 					process_device(this, ACTION_DISABLE, device->dev);
 			}
-			/* /dev/ might have been removed */
-			if ((event->mask & (IN_DELETE_SELF | IN_MOVE_SELF)))
-				deleted = true;
 		}
 	}
-	if (deleted)
-		stop_inotify(this);
 }
 
 static int start_inotify(struct impl *this)
 {
-	int res, notify_fd;
+	int notify_fd;
 
 	if (this->notify.fd != -1)
 		return 0;
@@ -447,19 +474,6 @@ static int start_inotify(struct impl *this)
 	if ((notify_fd = inotify_init1(IN_CLOEXEC | IN_NONBLOCK)) < 0)
 		return -errno;
 
-	res = inotify_add_watch(notify_fd, "/dev",
-			IN_ATTRIB | IN_CLOSE_WRITE | IN_DELETE_SELF | IN_MOVE_SELF);
-	if (res < 0) {
-		res = -errno;
-		close(notify_fd);
-
-		if (res == -ENOENT) {
-			spa_log_debug(this->log, "/dev/ does not exist yet");
-			return 0;
-		}
-		spa_log_error(this->log, "inotify_add_watch() failed: %s", spa_strerror(res));
-		return res;
-	}
 	spa_log_info(this->log, "start inotify");
 	this->notify.func = impl_on_notify_events;
 	this->notify.data = this;
@@ -467,6 +481,9 @@ static int start_inotify(struct impl *this)
 	this->notify.mask = SPA_IO_IN | SPA_IO_ERR;
 
 	spa_loop_add_source(this->main_loop, &this->notify);
+
+	for (size_t i = 0; i < this->n_devices; i++)
+		start_watching_device(this, &this->devices[i]);
 
 	return 0;
 }

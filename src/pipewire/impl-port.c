@@ -1368,7 +1368,6 @@ struct result_port_params_data {
 			uint32_t id, uint32_t index, uint32_t next,
 			struct spa_pod *param);
 	int seq;
-	uint32_t count;
 	unsigned int cache:1;
 };
 
@@ -1382,11 +1381,8 @@ static void result_port_params(void *data, int seq, int res, uint32_t type, cons
 		const struct spa_result_node_params *r = result;
 		if (d->seq == seq) {
 			d->callback(d->data, seq, r->id, r->index, r->next, r->param);
-			if (d->cache) {
-				if (d->count++ == 0)
-					pw_param_add(&impl->pending_list, seq, r->id, NULL);
+			if (d->cache)
 				pw_param_add(&impl->pending_list, seq, r->id, r->param);
-			}
 		}
 		break;
 	}
@@ -1408,7 +1404,7 @@ int pw_impl_port_for_each_param(struct pw_impl_port *port,
 	int res;
 	struct impl *impl = SPA_CONTAINER_OF(port, struct impl, this);
 	struct pw_impl_node *node = port->node;
-	struct result_port_params_data user_data = { impl, data, callback, seq, 0, false };
+	struct result_port_params_data user_data = { impl, data, callback, seq, false };
 	struct spa_hook listener;
 	struct spa_param_info *pi;
 	static const struct spa_node_events node_events = {
@@ -1461,6 +1457,9 @@ int pw_impl_port_for_each_param(struct pw_impl_port *port,
 	} else {
 		user_data.cache = impl->cache_params &&
 			(filter == NULL && index == 0 && max == UINT32_MAX);
+
+		if (user_data.cache)
+			pw_param_add(&impl->pending_list, seq, param_id, NULL);
 
 		spa_zero(listener);
 		spa_node_add_listener(node->node, &listener, &node_events, &user_data);

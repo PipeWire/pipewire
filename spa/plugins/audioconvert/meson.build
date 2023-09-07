@@ -7,6 +7,13 @@ audioconvert_sources = [
 simd_cargs = []
 simd_dependencies = []
 
+opt_flags = []
+if host_machine.cpu_family() != 'alpha'
+  opt_flags += '-Ofast'
+else
+  opt_flags += '-O3'
+endif
+
 audioconvert_c = static_library('audioconvert_c',
   [ 'channelmix-ops-c.c',
     'biquad.c',
@@ -15,7 +22,7 @@ audioconvert_c = static_library('audioconvert_c',
     'peaks-ops-c.c',
     'resample-native-c.c',
     'fmt-ops-c.c' ],
-  c_args : ['-Ofast'],
+  c_args : [ opt_flags ],
   dependencies : [ spa_dep ],
   install : false
   )
@@ -27,7 +34,7 @@ if have_sse
       'volume-ops-sse.c',
       'peaks-ops-sse.c',
       'channelmix-ops-sse.c' ],
-    c_args : [sse_args, '-Ofast', '-DHAVE_SSE'],
+    c_args : [sse_args, opt_flags, '-DHAVE_SSE'],
     dependencies : [ spa_dep ],
     install : false
     )

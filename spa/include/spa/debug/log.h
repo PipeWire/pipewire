@@ -53,23 +53,30 @@ static inline void spa_debug_log_log(struct spa_debug_context *ctx, const char *
 
 #define spa_debug_log_pod(l,lev,indent,info,pod) 				\
 ({										\
- 	struct spa_debug_log_ctx c = SPA_LOG_DEBUG_INIT(l,lev);			\
+	struct spa_debug_log_ctx c = SPA_LOG_DEBUG_INIT(l,lev);			\
 	if (SPA_UNLIKELY(spa_log_level_topic_enabled(c.log, c.topic, c.level)))	\
 		spa_debugc_pod(&c.ctx, indent, info, pod);			\
 })
 
 #define spa_debug_log_format(l,lev,indent,info,format) 				\
 ({										\
- 	struct spa_debug_log_ctx c = SPA_LOG_DEBUG_INIT(l,lev);			\
+	struct spa_debug_log_ctx c = SPA_LOG_DEBUG_INIT(l,lev);			\
 	if (SPA_UNLIKELY(spa_log_level_topic_enabled(c.log, c.topic, c.level)))	\
 		spa_debugc_format(&c.ctx, indent, info, format);		\
 })
 
 #define spa_debug_log_mem(l,lev,indent,data,len)				\
 ({										\
- 	struct spa_debug_log_ctx c = SPA_LOG_DEBUG_INIT(l,lev);			\
+	struct spa_debug_log_ctx c = SPA_LOG_DEBUG_INIT(l,lev);			\
 	if (SPA_UNLIKELY(spa_log_level_topic_enabled(c.log, c.topic, c.level)))	\
 		spa_debugc_mem(&c.ctx, indent, data, len);			\
+})
+
+#define spa_debug_log_dict(l,lev,indent,dict)					\
+({										\
+	struct spa_debug_log_ctx c = SPA_LOG_DEBUG_INIT(l,lev);			\
+	if (SPA_UNLIKELY(spa_log_level_topic_enabled(c.log, c.topic, c.level)))	\
+		spa_debugc_dict(&c.ctx, indent, dict);				\
 })
 
 /**

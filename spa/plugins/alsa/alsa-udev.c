@@ -24,6 +24,7 @@
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
+#include <spa/debug/log.h>
 #include <spa/debug/dict.h>
 
 #include "alsa.h"
@@ -582,7 +583,7 @@ static int emit_added_object_info(struct impl *this, struct card *card)
 		info.props = &SPA_DICT_INIT(items, n_items);
 
 		spa_log_debug(this->log, "interface information:");
-		spa_debug_dict(2, info.props);
+		spa_debug_log_dict(this->log, SPA_LOG_LEVEL_DEBUG, 2, info.props);
 
 		spa_device_emit_object_info(&this->hooks, card->pcm_device_id, &info);
 		free(cn);
@@ -641,7 +642,7 @@ static int emit_added_object_info(struct impl *this, struct card *card)
 		info.props = &SPA_DICT_INIT(items, n_items);
 
 		spa_log_debug(this->log, "interface information:");
-		spa_debug_dict(2, info.props);
+		spa_debug_log_dict(this->log, SPA_LOG_LEVEL_DEBUG, 2, info.props);
 
 		spa_device_emit_object_info(&this->hooks, card->compress_offload_device_id, &info);
 	} else {

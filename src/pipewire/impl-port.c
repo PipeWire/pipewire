@@ -1675,12 +1675,12 @@ int pw_impl_port_recalc_tag(struct pw_impl_port *port)
 	pw_log_info("port %d: %p %s %s tag %p",
 			port->info.id, port, changed ? "set" : "keep",
 			pw_direction_as_string(direction), param);
-	if (param)
-		pw_log_pod(SPA_LOG_LEVEL_INFO, param);
 
 	if (changed) {
 		free(old);
 		port->tag[direction] = param ? spa_pod_copy(param) : NULL;
+		if (param)
+			pw_log_pod(SPA_LOG_LEVEL_INFO, param);
 	}
 	spa_pod_dynamic_builder_clean(&b);
 

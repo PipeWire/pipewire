@@ -1549,6 +1549,7 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
 	bool changed;
+	int count = 0;
 
 	if (port->destroying)
 		return 0;
@@ -1571,6 +1572,7 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 					latency.min_quantum, latency.max_quantum,
 					latency.min_rate, latency.max_rate,
 					latency.min_ns, latency.max_ns);
+			count++;
 		}
 	} else {
 		spa_list_for_each(l, &port->links, input_link) {
@@ -1586,13 +1588,16 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 					latency.min_quantum, latency.max_quantum,
 					latency.min_rate, latency.max_rate,
 					latency.min_ns, latency.max_ns);
+			count++;
 		}
 	}
 	spa_latency_info_combine_finish(&latency);
 
-	current = &port->latency[latency.direction];
-
-	changed = spa_latency_info_compare(current, &latency) != 0;
+	current = port->have_latency ? &port->latency[latency.direction] : NULL;
+	if (current == NULL)
+		changed = count > 0;
+	else
+		changed = spa_latency_info_compare(current, &latency) != 0;
 
 	pw_log_info("port %d: %s %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64,
 			port->info.id, changed ? "set" : "keep",
@@ -1604,13 +1609,14 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 	if (!changed)
 		return 0;
 
-	*current = latency;
+	port->latency[latency.direction] = latency;
+	port->have_latency = count > 0;
 
 	if (!port->have_latency_param)
 		return 0;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	param = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
+	param = port->have_latency ? spa_latency_build(&b, SPA_PARAM_Latency, &latency) : NULL;
 	return pw_impl_port_set_param(port, SPA_PARAM_Latency, 0, param);
 }
 

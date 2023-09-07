@@ -20,6 +20,7 @@
 #include <spa/param/audio/layout.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/type-info.h>
+#include <spa/param/tag-utils.h>
 #include <spa/param/props.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
@@ -1569,7 +1570,8 @@ int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
 	struct pw_loop *l;
-	const struct spa_pod *params[1];
+	const struct spa_pod *params[2];
+	uint32_t n_params = 0;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	const char *prog;
@@ -1886,7 +1888,7 @@ int main(int argc, char *argv[])
 		ret = av_codec_params_to_audio_info(&data, data.encoded.audio_stream->codecpar, &info);
 		if (ret < 0)
 			goto error_bad_file;
-		params[0] = spa_format_audio_build(&b, SPA_PARAM_EnumFormat, &info);
+		params[n_params++] = spa_format_audio_build(&b, SPA_PARAM_EnumFormat, &info);
 		break;
 	}
 #endif
@@ -1902,11 +1904,11 @@ int main(int argc, char *argv[])
 		if (data.channelmap.n_channels)
 			memcpy(info.position, data.channelmap.channels, data.channels * sizeof(int));
 
-		params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
+		params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
 		break;
 	}
 	case TYPE_MIDI:
-		params[0] = spa_pod_builder_add_object(&b,
+		params[n_params++] = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 				SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_application),
 				SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
@@ -1928,9 +1930,24 @@ int main(int argc, char *argv[])
 			memcpy(info.position, i->info.position,
 					info.channels * sizeof(uint32_t));
 		}
-		params[0] = spa_format_audio_dsd_build(&b, SPA_PARAM_EnumFormat, &info);
+		params[n_params++] = spa_format_audio_dsd_build(&b, SPA_PARAM_EnumFormat, &info);
 		break;
 	}
+	}
+	if (data.mode == mode_playback) {
+		struct spa_dict_item items[64];
+		uint32_t i, n_items = 0;
+
+		for (i = 0; i < data.props->dict.n_items; i++) {
+			if (spa_strstartswith(data.props->dict.items[i].key, "media."))
+				items[n_items++] = data.props->dict.items[i];
+		}
+		if (n_items > 0) {
+			struct spa_pod_frame f;
+			spa_tag_build_start(&b, &f, SPA_PARAM_Tag, SPA_DIRECTION_OUTPUT);
+			spa_tag_build_add_dict(&b, &SPA_DICT_INIT(items, n_items));
+			params[n_params++] = spa_tag_build_end(&b, &f);
+		}
 	}
 
 	data.stream = pw_stream_new(data.core, prog, data.props);
@@ -1955,7 +1972,7 @@ int main(int argc, char *argv[])
 			  PW_ID_ANY,
 			  flags |
 			  PW_STREAM_FLAG_MAP_BUFFERS,
-			  params, 1);
+			  params, n_params);
 	if (ret < 0) {
 		fprintf(stderr, "error: failed connect: %s\n", spa_strerror(ret));
 		goto error_connect_fail;

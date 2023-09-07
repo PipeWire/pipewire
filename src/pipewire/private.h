@@ -847,6 +847,7 @@ struct pw_impl_port {
 	struct spa_latency_info latency[2];	/**< latencies */
 	unsigned int have_latency_param:1;
 	unsigned int ignore_latency:1;
+	unsigned int have_latency:1;
 
 	unsigned int have_tag_param:1;
 	struct spa_pod *tag[2];			/**< tags */

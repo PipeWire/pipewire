@@ -95,6 +95,7 @@ struct impl {
 	unsigned int async:1;
 	unsigned int passthrough:1;
 	unsigned int follower_removing:1;
+	unsigned int in_recalc;
 };
 
 /** \endcond */
@@ -544,6 +545,80 @@ extern const struct spa_handle_factory spa_audioconvert_factory;
 
 static const struct spa_node_events follower_node_events;
 
+static int recalc_latency(struct impl *this, struct spa_node *src, enum spa_direction direction,
+		uint32_t port_id, struct spa_node *dst)
+{
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
+	struct spa_pod *param;
+	uint32_t index = 0;
+	struct spa_latency_info latency;
+	int res;
+
+	spa_log_info(this->log, "%p: %d:%d", this, direction, port_id);
+
+	if (this->target == this->follower)
+		return 0;
+
+	while (true) {
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		if ((res = spa_node_port_enum_params_sync(src,
+						direction, port_id, SPA_PARAM_Latency,
+						&index, NULL, &param, &b)) != 1) {
+			param = NULL;
+			break;
+		}
+		if ((res = spa_latency_parse(param, &latency)) < 0)
+			return res;
+		if (latency.direction == direction)
+			break;
+	}
+	if ((res = spa_node_port_set_param(dst,
+					SPA_DIRECTION_REVERSE(direction), 0,
+					SPA_PARAM_Latency, 0, param)) < 0)
+		return res;
+
+	return 0;
+}
+
+static int recalc_tag(struct impl *this, struct spa_node *src, enum spa_direction direction,
+		uint32_t port_id, struct spa_node *dst)
+{
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
+	struct spa_pod *param;
+	uint32_t index = 0;
+	struct spa_tag_info info;
+	int res;
+
+	spa_log_debug(this->log, "%p: %d:%d", this, direction, port_id);
+
+	if (this->target == this->follower)
+		return 0;
+
+	while (true) {
+		void *state = NULL;
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		if ((res = spa_node_port_enum_params_sync(src,
+						direction, port_id, SPA_PARAM_Tag,
+						&index, NULL, &param, &b)) != 1) {
+			param = NULL;
+			break;
+		}
+		if ((res = spa_tag_parse(param, &info, &state)) < 0)
+			return res;
+		if (info.direction == direction)
+			break;
+	}
+	if ((res = spa_node_port_set_param(dst,
+					SPA_DIRECTION_REVERSE(direction), 0,
+					SPA_PARAM_Tag, 0, param)) < 0)
+		return res;
+
+	return 0;
+}
+
+
 static int reconfigure_mode(struct impl *this, bool passthrough,
                 enum spa_direction direction, struct spa_pod *format)
 {
@@ -592,6 +667,8 @@ static int reconfigure_mode(struct impl *this, bool passthrough,
 	this->params[IDX_Props].user++;
 
 	emit_node_info(this, false);
+
+	spa_log_debug(this->log, "%p: passthrough mode %d", this, passthrough);
 
 	return 0;
 }
@@ -676,6 +753,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		if (this->target != this->follower) {
 			if ((res = spa_node_set_param(this->target, id, flags, param)) < 0)
 				return res;
+
+			res = recalc_latency(this, this->follower, this->direction, 0, this->convert);
 		}
 		break;
 	}
@@ -956,6 +1035,61 @@ static void convert_node_info(void *data, const struct spa_node_info *info)
 	emit_node_info(this, false);
 }
 
+static void follower_convert_port_info(void *data,
+		enum spa_direction direction, uint32_t port_id,
+		const struct spa_port_info *info)
+{
+	struct impl *this = data;
+	uint32_t i;
+	int res;
+
+	spa_log_info(this->log, "%p: convert port info %s %p %08"PRIx64, this,
+			this->direction == SPA_DIRECTION_INPUT ?
+				"Input" : "Output", info, info->change_mask);
+
+	if (info->change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
+		for (i = 0; i < info->n_params; i++) {
+			uint32_t idx;
+
+			switch (info->params[i].id) {
+			case SPA_PARAM_Latency:
+				idx = IDX_Latency;
+				break;
+			case SPA_PARAM_Tag:
+				idx = IDX_Tag;
+				break;
+			default:
+				continue;
+			}
+
+			if (!this->add_listener &&
+			    this->convert_params_flags[idx] == info->params[i].flags)
+				continue;
+
+			this->convert_params_flags[idx] = info->params[i].flags;
+
+			if (this->add_listener)
+				continue;
+
+			if (idx == IDX_Latency) {
+				this->in_recalc++;
+				res = recalc_latency(this, this->convert, direction, port_id, this->follower);
+				this->in_recalc--;
+				spa_log_debug(this->log, "latency: %d (%s)", res,
+						spa_strerror(res));
+			}
+			if (idx == IDX_Tag) {
+				this->in_recalc++;
+				res = recalc_tag(this, this->convert, direction, port_id, this->follower);
+				this->in_recalc--;
+				spa_log_debug(this->log, "tag: %d (%s)", res,
+						spa_strerror(res));
+			}
+			spa_log_debug(this->log, "param %d changed", info->params[i].id);
+		}
+	}
+}
+
 static void convert_port_info(void *data,
 		enum spa_direction direction, uint32_t port_id,
 		const struct spa_port_info *info)
@@ -964,10 +1098,11 @@ static void convert_port_info(void *data,
 	struct spa_port_info pi;
 
 	if (direction != this->direction) {
-		/* skip the converter output port into the follower */
-		if (port_id == 0)
+		if (port_id == 0) {
+			/* handle the converter output port into the follower separately */
+			follower_convert_port_info(this, direction, port_id, info);
 			return;
-		else
+		} else
 			/* the monitor ports are exposed */
 			port_id--;
 	} else if (info) {
@@ -1075,78 +1210,6 @@ static void follower_info(void *data, const struct spa_node_info *info)
 
 	spa_zero(this->info.props);
 	this->info.change_mask &= ~SPA_NODE_CHANGE_MASK_PROPS;
-
-}
-
-static int recalc_latency(struct impl *this, enum spa_direction direction, uint32_t port_id)
-{
-	struct spa_pod_builder b = { 0 };
-	uint8_t buffer[1024];
-	struct spa_pod *param;
-	uint32_t index = 0;
-	struct spa_latency_info latency;
-	int res;
-
-	spa_log_debug(this->log, "%p: ", this);
-
-	if (this->target == this->follower)
-		return 0;
-
-	while (true) {
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if ((res = spa_node_port_enum_params_sync(this->follower,
-						direction, port_id, SPA_PARAM_Latency,
-						&index, NULL, &param, &b)) != 1) {
-			param = NULL;
-			break;
-		}
-		if ((res = spa_latency_parse(param, &latency)) < 0)
-			return res;
-		if (latency.direction == direction)
-			break;
-	}
-	if ((res = spa_node_port_set_param(this->target,
-					SPA_DIRECTION_REVERSE(direction), 0,
-					SPA_PARAM_Latency, 0, param)) < 0)
-		return res;
-
-	return 0;
-}
-
-static int recalc_tag(struct impl *this, enum spa_direction direction, uint32_t port_id)
-{
-	struct spa_pod_builder b = { 0 };
-	uint8_t buffer[1024];
-	struct spa_pod *param;
-	uint32_t index = 0;
-	struct spa_tag_info info;
-	int res;
-
-	spa_log_debug(this->log, "%p: ", this);
-
-	if (this->target == this->follower)
-		return 0;
-
-	while (true) {
-		void *state = NULL;
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if ((res = spa_node_port_enum_params_sync(this->follower,
-						direction, port_id, SPA_PARAM_Tag,
-						&index, NULL, &param, &b)) != 1) {
-			param = NULL;
-			break;
-		}
-		if ((res = spa_tag_parse(param, &info, &state)) < 0)
-			return res;
-		if (info.direction == direction)
-			break;
-	}
-	if ((res = spa_node_port_set_param(this->target,
-					SPA_DIRECTION_REVERSE(direction), 0,
-					SPA_PARAM_Tag, 0, param)) < 0)
-		return res;
-
-	return 0;
 }
 
 static void follower_port_info(void *data,
@@ -1167,9 +1230,10 @@ static void follower_port_info(void *data,
 		 SPA_PORT_FLAG_PHYSICAL |
 		 SPA_PORT_FLAG_TERMINAL);
 
-	spa_log_debug(this->log, "%p: follower port info %s %p %08"PRIx64, this,
+	spa_log_debug(this->log, "%p: follower port info %s %p %08"PRIx64" recalc:%u", this,
 			this->direction == SPA_DIRECTION_INPUT ?
-				"Input" : "Output", info, info->change_mask);
+				"Input" : "Output", info, info->change_mask,
+				this->in_recalc);
 
 	if (info->change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
@@ -1205,13 +1269,13 @@ static void follower_port_info(void *data,
 			if (this->add_listener)
 				continue;
 
-			if (idx == IDX_Latency) {
-				res = recalc_latency(this, direction, port_id);
+			if (idx == IDX_Latency && this->in_recalc == 0) {
+				res = recalc_latency(this, this->follower, direction, port_id, this->target);
 				spa_log_debug(this->log, "latency: %d (%s)", res,
 						spa_strerror(res));
 			}
-			if (idx == IDX_Tag) {
-				res = recalc_tag(this, direction, port_id);
+			if (idx == IDX_Tag && this->in_recalc == 0) {
+				res = recalc_tag(this, this->follower, direction, port_id, this->target);
 				spa_log_debug(this->log, "tag: %d (%s)", res,
 						spa_strerror(res));
 			}
@@ -1439,7 +1503,6 @@ impl_node_port_set_param(void *object,
 			 const struct spa_pod *param)
 {
 	struct impl *this = object;
-	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -1448,18 +1511,8 @@ impl_node_port_set_param(void *object,
 	if (direction != this->direction)
 		port_id++;
 
-	if ((res = spa_node_port_set_param(this->target, direction, port_id, id,
-			flags, param)) < 0)
-		return res;
-
-	if ((id == SPA_PARAM_Latency || id == SPA_PARAM_Tag) &&
-	    direction == this->direction) {
-		if ((res = spa_node_port_set_param(this->follower, direction, 0, id,
-				flags, param)) < 0)
-			return res;
-	}
-
-	return res;
+	return spa_node_port_set_param(this->target, direction, port_id, id,
+			flags, param);
 }
 
 static int

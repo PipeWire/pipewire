@@ -20,6 +20,7 @@
 #include <spa/utils/json.h>
 #include <spa/support/cpu.h>
 #include <spa/param/latency-utils.h>
+#include <spa/param/tag-utils.h>
 #include <spa/pod/dynamic.h>
 #include <spa/debug/types.h>
 
@@ -1109,13 +1110,28 @@ static void param_latency_changed(struct impl *impl, const struct spa_pod *param
 	struct spa_pod_builder b;
 	const struct spa_pod *params[1];
 
-	if (spa_latency_parse(param, &latency) < 0)
+	if (param == NULL || spa_latency_parse(param, &latency) < 0)
 		return;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	params[0] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
 
 	if (latency.direction == SPA_DIRECTION_INPUT)
+		pw_stream_update_params(impl->capture, params, 1);
+	else
+		pw_stream_update_params(impl->playback, params, 1);
+}
+
+static void param_tag_changed(struct impl *impl, const struct spa_pod *param)
+{
+	struct spa_tag_info tag;
+	const struct spa_pod *params[1] = { param };
+	void *state = NULL;
+
+	if (param == 0 || spa_tag_parse(param, &tag, &state) < 0)
+		return;
+
+	if (tag.direction == SPA_DIRECTION_INPUT)
 		pw_stream_update_params(impl->capture, params, 1);
 	else
 		pw_stream_update_params(impl->playback, params, 1);
@@ -1207,6 +1223,9 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 		break;
 	case SPA_PARAM_Latency:
 		param_latency_changed(impl, param);
+		break;
+	case SPA_PARAM_Tag:
+		param_tag_changed(impl, param);
 		break;
 	}
 	return;

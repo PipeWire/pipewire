@@ -171,13 +171,11 @@ struct impl {
 	struct pw_stream *capture;
 	struct spa_hook capture_listener;
 	struct spa_audio_info_raw capture_info;
-	struct spa_latency_info capture_latency;
 
 	struct pw_properties *playback_props;
 	struct pw_stream *playback;
 	struct spa_hook playback_listener;
 	struct spa_audio_info_raw playback_info;
-	struct spa_latency_info playback_latency;
 
 	unsigned int do_disconnect:1;
 	unsigned int recalc_delay:1;
@@ -317,23 +315,30 @@ static void playback_process(void *d)
 }
 
 static void param_latency_changed(struct impl *impl, const struct spa_pod *param,
-		struct spa_latency_info *info, struct pw_stream *other)
+		struct pw_stream *other)
 {
 	struct spa_latency_info latency;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	const struct spa_pod *params[1];
 
-	if (spa_latency_parse(param, &latency) < 0)
+	if (param == NULL || spa_latency_parse(param, &latency) < 0)
 		return;
-
-	*info = latency;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	params[0] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
 	pw_stream_update_params(other, params, 1);
 
 	impl->recalc_delay = true;
+}
+
+static void param_tag_changed(struct impl *impl, const struct spa_pod *param,
+		struct pw_stream *other)
+{
+	const struct spa_pod *params[1] = { param };
+	if (param == NULL)
+		return;
+	pw_stream_update_params(other, params, 1);
 }
 
 static void recalculate_buffer(struct impl *impl)
@@ -414,7 +419,10 @@ static void capture_param_changed(void *data, uint32_t id, const struct spa_pod 
 		break;
 	}
 	case SPA_PARAM_Latency:
-		param_latency_changed(impl, param, &impl->capture_latency, impl->playback);
+		param_latency_changed(impl, param, impl->playback);
+		break;
+	case SPA_PARAM_Tag:
+		param_tag_changed(impl, param, impl->playback);
 		break;
 	}
 }
@@ -453,7 +461,10 @@ static void playback_param_changed(void *data, uint32_t id, const struct spa_pod
 
 	switch (id) {
 	case SPA_PARAM_Latency:
-		param_latency_changed(impl, param, &impl->playback_latency, impl->capture);
+		param_latency_changed(impl, param, impl->capture);
+		break;
+	case SPA_PARAM_Tag:
+		param_tag_changed(impl, param, impl->capture);
 		break;
 	}
 }

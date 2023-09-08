@@ -199,10 +199,10 @@ static int get_port_param_index(uint32_t id)
 	}
 }
 
-static void fix_datatype(const struct spa_pod *param)
+static void fix_datatype(struct spa_pod *param)
 {
 	const struct spa_pod_prop *pod_param;
-	const struct spa_pod *vals;
+	struct spa_pod *vals;
 	uint32_t dataType, n_vals, choice;
 
 	pod_param = spa_pod_find_prop(param, NULL, SPA_PARAM_BUFFERS_dataType);
@@ -242,16 +242,16 @@ static struct param *add_param(struct stream *impl,
 	if (p == NULL)
 		return NULL;
 
-	if (id == SPA_PARAM_Buffers &&
-	    SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_MAP_BUFFERS) &&
-	    impl->direction == SPA_DIRECTION_INPUT)
-		fix_datatype(param);
-
 	p->id = id;
 	p->flags = flags;
 	p->param = SPA_PTROFF(p, sizeof(struct param), struct spa_pod);
 	memcpy(p->param, param, SPA_POD_SIZE(param));
 	SPA_POD_OBJECT_ID(p->param) = id;
+
+	if (id == SPA_PARAM_Buffers &&
+	    SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_MAP_BUFFERS) &&
+	    impl->direction == SPA_DIRECTION_INPUT)
+		fix_datatype(p->param);
 
 	spa_list_append(&impl->param_list, &p->link);
 

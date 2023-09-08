@@ -197,10 +197,10 @@ static int get_port_param_index(uint32_t id)
 	}
 }
 
-static void fix_datatype(const struct spa_pod *param)
+static void fix_datatype(struct spa_pod *param)
 {
 	const struct spa_pod_prop *pod_param;
-	const struct spa_pod *vals;
+	struct spa_pod *vals;
 	uint32_t dataType, n_vals, choice;
 
 	pod_param = spa_pod_find_prop(param, NULL, SPA_PARAM_BUFFERS_dataType);
@@ -240,11 +240,6 @@ static struct param *add_param(struct filter *impl, struct port *port,
 	if (p == NULL)
 		return NULL;
 
-	if (id == SPA_PARAM_Buffers && port != NULL &&
-	    SPA_FLAG_IS_SET(port->flags, PW_FILTER_PORT_FLAG_MAP_BUFFERS) &&
-	    port->direction == SPA_DIRECTION_INPUT)
-		fix_datatype(param);
-
 	if (id == SPA_PARAM_ProcessLatency && port == NULL)
 		spa_process_latency_parse(param, &impl->process_latency);
 
@@ -253,6 +248,11 @@ static struct param *add_param(struct filter *impl, struct port *port,
 	p->param = SPA_PTROFF(p, sizeof(struct param), struct spa_pod);
 	memcpy(p->param, param, SPA_POD_SIZE(param));
 	SPA_POD_OBJECT_ID(p->param) = id;
+
+	if (id == SPA_PARAM_Buffers && port != NULL &&
+	    SPA_FLAG_IS_SET(port->flags, PW_FILTER_PORT_FLAG_MAP_BUFFERS) &&
+	    port->direction == SPA_DIRECTION_INPUT)
+		fix_datatype(p->param);
 
 	pw_log_debug("%p: port %p param id %d (%s)", impl, p, id,
 			spa_debug_type_find_name(spa_type_param, id));

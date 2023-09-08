@@ -469,9 +469,7 @@ int pw_stream_set_error(struct pw_stream *stream,	/**< a \ref pw_stream */
 /** Update the param exposed on the stream. */
 int
 pw_stream_update_params(struct pw_stream *stream,	/**< a \ref pw_stream */
-			const struct spa_pod **params,	/**< an array of params. The params should
-							  *  ideally contain parameters for doing
-							  *  buffer allocation. */
+			const struct spa_pod **params,	/**< an array of params. */
 			uint32_t n_params		/**< number of elements in \a params */);
 
 /**

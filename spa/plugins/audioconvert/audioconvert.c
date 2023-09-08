@@ -2740,7 +2740,7 @@ static int impl_node_process(void *object)
 	struct buffer *buf, *out_bufs[MAX_PORTS];
 	struct spa_data *bd;
 	struct dir *dir;
-	int tmp = 0, res = 0, missed;
+	int tmp = 0, res = 0, suppressed;
 	bool in_passthrough, mix_passthrough, resample_passthrough, out_passthrough;
 	bool in_avail = false, flush_in = false, flush_out = false;
 	bool draining = false, in_empty = this->out_offset == 0;
@@ -2908,9 +2908,9 @@ static int impl_node_process(void *object)
 
 			buf = peek_buffer(this, port);
 			if (buf == NULL && port->n_buffers > 0 &&
-			    (missed = spa_ratelimit_test(&this->rate_limit, current_time)) >= 0) {
-				spa_log_warn(this->log, "%p: (%d missed) out of buffers on port %d %d",
-					this, missed, port->id, port->n_buffers);
+			    (suppressed = spa_ratelimit_test(&this->rate_limit, current_time)) >= 0) {
+				spa_log_warn(this->log, "%p: (%d suppressed) out of buffers on port %d %d",
+					this, suppressed, port->id, port->n_buffers);
 			}
 		}
 		out_bufs[i] = buf;

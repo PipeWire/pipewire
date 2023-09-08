@@ -216,11 +216,11 @@ int stream_send_underflow(struct stream *stream, int64_t offset)
 	struct client *client = stream->client;
 	struct impl *impl = client->impl;
 	struct message *reply;
-	int missed;
+	int suppressed;
 
-	if ((missed = spa_ratelimit_test(&impl->rate_limit, stream->timestamp)) >= 0) {
-		pw_log_info("[%s]: UNDERFLOW channel:%u offset:%" PRIi64" (%d missed)",
-			    client->name, stream->channel, offset, missed);
+	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, stream->timestamp)) >= 0) {
+		pw_log_info("[%s]: UNDERFLOW channel:%u offset:%" PRIi64" (%d suppressed)",
+			    client->name, stream->channel, offset, suppressed);
 	}
 
 	reply = message_alloc(impl, -1, 0);

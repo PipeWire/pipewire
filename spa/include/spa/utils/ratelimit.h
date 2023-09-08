@@ -17,23 +17,23 @@ struct spa_ratelimit {
 	uint64_t begin;
 	unsigned burst;
 	unsigned n_printed;
-	unsigned n_missed;
+	unsigned n_suppressed;
 };
 
 static inline int spa_ratelimit_test(struct spa_ratelimit *r, uint64_t now)
 {
-	unsigned missed = 0;
+	unsigned suppressed = 0;
 	if (r->begin + r->interval < now) {
-		missed = r->n_missed;
+		suppressed = r->n_suppressed;
 		r->begin = now;
 		r->n_printed = 0;
-		r->n_missed = 0;
+		r->n_suppressed = 0;
 	} else if (r->n_printed >= r->burst) {
-		r->n_missed++;
+		r->n_suppressed++;
 		return -1;
 	}
 	r->n_printed++;
-	return missed;
+	return suppressed;
 }
 
 #ifdef __cplusplus

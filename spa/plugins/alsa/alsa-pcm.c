@@ -1994,16 +1994,16 @@ recover:
 
 static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes_t *delay)
 {
-	int res, missed;
+	int res, suppressed;
 	snd_pcm_sframes_t avail;
 
 	if (SPA_UNLIKELY((avail = snd_pcm_avail(state->hndl)) < 0)) {
 		if ((res = alsa_recover(state, avail)) < 0)
 			return res;
 		if ((avail = snd_pcm_avail(state->hndl)) < 0) {
-			if ((missed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
-				spa_log_warn(state->log, "%s: (%d missed) snd_pcm_avail after recover: %s",
-						state->props.device, missed, snd_strerror(avail));
+			if ((suppressed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+				spa_log_warn(state->log, "%s: (%d suppressed) snd_pcm_avail after recover: %s",
+						state->props.device, suppressed, snd_strerror(avail));
 			}
 			avail = state->threshold * 2;
 		}
@@ -2018,9 +2018,9 @@ static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes
 		uint64_t then;
 
 		if ((res = snd_pcm_htimestamp(state->hndl, &havail, &tstamp)) < 0) {
-			if ((missed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
-				spa_log_warn(state->log, "%s: (%d missed) snd_pcm_htimestamp error: %s",
-					state->props.device, missed, snd_strerror(res));
+			if ((suppressed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+				spa_log_warn(state->log, "%s: (%d suppressed) snd_pcm_htimestamp error: %s",
+					state->props.device, suppressed, snd_strerror(res));
 			}
 			return avail;
 		}
@@ -2046,9 +2046,9 @@ static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes
 					state->htimestamp_error = 0;
 					state->htimestamp = false;
 				}
-				else if ((missed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
-					spa_log_warn(state->log, "%s: (%d missed) impossible htimestamp diff:%"PRIi64,
-						state->props.device, missed, diff);
+				else if ((suppressed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+					spa_log_warn(state->log, "%s: (%d suppressed) impossible htimestamp diff:%"PRIi64,
+						state->props.device, suppressed, diff);
 				}
 			}
 		}
@@ -2253,7 +2253,7 @@ int spa_alsa_write(struct state *state)
 	const snd_pcm_channel_area_t *my_areas;
 	snd_pcm_uframes_t written, frames, offset, off, to_write, total_written, max_write;
 	snd_pcm_sframes_t commitres;
-	int res, missed;
+	int res, suppressed;
 	size_t frame_size = state->frame_size;
 
 	if ((res = check_position_config(state)) < 0)
@@ -2281,11 +2281,11 @@ int spa_alsa_write(struct state *state)
 			else
 				lev = SPA_LOG_LEVEL_INFO;
 
-			if ((missed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+			if ((suppressed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
 				spa_log_lev(state->log, lev, "%s: follower avail:%lu delay:%ld "
-						"target:%ld thr:%u, resync (%d missed)",
+						"target:%ld thr:%u, resync (%d suppressed)",
 						state->props.device, avail, delay,
-						target, state->threshold, missed);
+						target, state->threshold, suppressed);
 			}
 
 			if (avail > target)
@@ -2491,7 +2491,7 @@ int spa_alsa_read(struct state *state)
 	const snd_pcm_channel_area_t *my_areas;
 	snd_pcm_uframes_t read, frames, offset;
 	snd_pcm_sframes_t commitres;
-	int res, missed;
+	int res, suppressed;
 
 	if ((res = check_position_config(state)) < 0)
 		return res;
@@ -2518,10 +2518,10 @@ int spa_alsa_read(struct state *state)
 			else
 				lev = SPA_LOG_LEVEL_INFO;
 
-			if ((missed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+			if ((suppressed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
 				spa_log_lev(state->log, lev, "%s: follower delay:%ld target:%ld thr:%u, "
-						"resync (%d missed)", state->props.device, delay,
-						target, state->threshold, missed);
+						"resync (%d suppressed)", state->props.device, delay,
+						target, state->threshold, suppressed);
 			}
 
 			if (avail < target)
@@ -2700,7 +2700,7 @@ static void alsa_wakeup_event(struct spa_source *source)
 	struct state *state = source->data;
 	snd_pcm_uframes_t avail, delay, target;
 	uint64_t expire, current_time;
-	int res, missed;
+	int res, suppressed;
 
 	if (SPA_UNLIKELY(state->disable_tsched)) {
 		/* ALSA poll fds need to be "demangled" to know whether it's a real wakeup */
@@ -2772,12 +2772,12 @@ done:
 	if (!state->disable_tsched &&
 			(state->next_time > current_time + SPA_NSEC_PER_SEC ||
 			 current_time > state->next_time + SPA_NSEC_PER_SEC)) {
-		if ((missed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+		if ((suppressed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
 			spa_log_error(state->log, "%s: impossible timeout %lu %lu %lu %"
-					PRIu64" %"PRIu64" %"PRIi64" %d %"PRIi64" (%d missed)",
+					PRIu64" %"PRIu64" %"PRIi64" %d %"PRIi64" (%d suppressed)",
 					state->props.device, avail, delay, target,
 					current_time, state->next_time, state->next_time - current_time,
-					state->threshold, state->sample_count, missed);
+					state->threshold, state->sample_count, suppressed);
 		}
 		state->next_time = current_time + state->threshold * 1e9 / state->rate;
 	}

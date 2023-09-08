@@ -672,22 +672,22 @@ static void stream_underflow_cb(pa_stream *s, void *userdata)
 {
 	struct impl *impl = userdata;
 	struct timespec ts;
-	int missed;
+	int suppressed;
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	if ((missed = spa_ratelimit_test(&impl->rate_limit, SPA_TIMESPEC_TO_NSEC(&ts))) >= 0)
-		pw_log_warn("underflow (%d missed)", missed);
+	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, SPA_TIMESPEC_TO_NSEC(&ts))) >= 0)
+		pw_log_warn("underflow (%d suppressed)", suppressed);
 	impl->resync = true;
 }
 static void stream_overflow_cb(pa_stream *s, void *userdata)
 {
 	struct impl *impl = userdata;
 	struct timespec ts;
-	int missed;
+	int suppressed;
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	if ((missed = spa_ratelimit_test(&impl->rate_limit, SPA_TIMESPEC_TO_NSEC(&ts))) >= 0)
-		pw_log_warn("overflow (%d missed)", missed);
+	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, SPA_TIMESPEC_TO_NSEC(&ts))) >= 0)
+		pw_log_warn("overflow (%d suppressed)", suppressed);
 	impl->resync = true;
 }
 

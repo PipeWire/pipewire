@@ -2382,10 +2382,17 @@ static struct spa_bt_remote_endpoint *remote_endpoint_find(struct spa_bt_monitor
 	return NULL;
 }
 
-static struct spa_bt_device* create_bcast_device(struct spa_bt_monitor *monitor,
-											const char *object_path)
+static struct spa_bt_device *create_bcast_device(struct spa_bt_monitor *monitor, const char *object_path)
 {	
 	struct spa_bt_device *d;
+	struct spa_bt_adapter *adapter;
+
+	adapter = adapter_find(monitor, object_path);
+	if (adapter == NULL) {
+		spa_log_warn(monitor->log, "unknown adapter %s", object_path);
+		return NULL;
+	}
+
 	d = device_create(monitor, object_path);
 	if (d == NULL) {
 		spa_log_warn(monitor->log, "can't create Bluetooth device %s: %m",
@@ -2393,22 +2400,12 @@ static struct spa_bt_device* create_bcast_device(struct spa_bt_monitor *monitor,
 		return NULL;
 	}
 
-	d->adapter = adapter_find(monitor, object_path);
-	if (d->adapter == NULL) {
-		spa_log_warn(monitor->log, "unknown adapter %s", d->adapter_path);
-	}
-	d->adapter_path = d->adapter->path;
-	d->alias = strdup("bcast_device");
-	d->name = strdup("bcast_device");
+	d->adapter = adapter;
+	d->adapter_path = strdup(adapter->path);
+	d->alias = strdup(adapter->alias);
+	d->name = strdup(adapter->name);
 	d->address = strdup("00:00:00:00:00:00");
-	
-	spa_bt_device_check_profiles(d, false);
-	d->reconnect_state = BT_DEVICE_RECONNECT_INIT;
-
-	if (!device_props_ready(d))
-	{
-		return NULL;
-	}
+	d->reconnect_state = BT_DEVICE_RECONNECT_STOP;
 
 	device_update_hw_volume_profiles(d);
 
@@ -2448,6 +2445,7 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 			}
 			else if (spa_streq(key, "Device")) {
 				struct spa_bt_device *device;
+
 				device = spa_bt_device_find(monitor, value);
 				if (device == NULL) {
 					/*
@@ -2456,11 +2454,11 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 					* This is done because BlueZ sets the adapter as the device
 					* that is connected to for a broadcast sink endpoint/transport.
 					*/
-					if(spa_streq(remote_endpoint->uuid, SPA_BT_UUID_BAP_BROADCAST_SINK)) {
+					if (spa_streq(remote_endpoint->uuid, SPA_BT_UUID_BAP_BROADCAST_SINK)) {
 						device = create_bcast_device(monitor, value);
-						if(device == NULL) {
+						if (device == NULL)
 							goto next;
-						}
+
 						remote_endpoint->acceptor = true;
 						device_set_connected(device, 1);
 					} else {

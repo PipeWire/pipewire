@@ -485,7 +485,9 @@ struct spa_node_methods {
 	 *
 	 * When \a param is NULL, the parameter will be unset.
 	 *
-	 * This function must be called from the main thread.
+	 * This function must be called from the main thread. The node muse be paused
+	 * or the port SPA_IO_Buffers area is NULL when this function is called with
+	 * a param that changes the processing state (like a format change).
 	 *
 	 * \param node a struct \ref spa_node
 	 * \param direction a enum \ref spa_direction
@@ -540,7 +542,8 @@ struct spa_node_methods {
 	 * When this function returns async, use the spa_node_sync operation to
 	 * wait for completion.
 	 *
-	 * This function must be called from the main thread.
+	 * This function must be called from the main thread. The node muse be paused
+	 * or the port SPA_IO_Buffers area is NULL when this function is called.
 	 *
 	 * \param object an object implementing the interface
 	 * \param direction a port direction
@@ -565,6 +568,11 @@ struct spa_node_methods {
 	 * Setting an \a io of NULL will disable the port io.
 	 *
 	 * This function must be called from the main thread.
+	 *
+	 * This function can be called when the node is running and the node
+	 * must be prepared to handle changes in io areas while running. This
+	 * is normally done by synchronizing the port io updates with the
+	 * data processing loop.
 	 *
 	 * \param direction a spa_direction
 	 * \param port_id a port id

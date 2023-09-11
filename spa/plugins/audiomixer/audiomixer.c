@@ -9,6 +9,7 @@
 #include <spa/support/plugin.h>
 #include <spa/support/log.h>
 #include <spa/support/cpu.h>
+#include <spa/support/loop.h>
 #include <spa/utils/list.h>
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
@@ -88,6 +89,9 @@ struct impl {
 	struct spa_cpu *cpu;
 	uint32_t cpu_flags;
 	uint32_t max_align;
+
+	struct spa_loop *data_loop;
+
 	uint32_t quantum_limit;
 
 	struct mix_ops ops;
@@ -525,6 +529,8 @@ static int port_set_format(void *object,
 
 	port = GET_PORT(this, direction, port_id);
 
+	spa_return_val_if_fail(!this->started || port->io == NULL, -EIO);
+
 	if (format == NULL) {
 		if (port->have_format) {
 			port->have_format = false;
@@ -632,6 +638,8 @@ impl_node_port_use_buffers(void *object,
 
 	port = GET_PORT(this, direction, port_id);
 
+	spa_return_val_if_fail(!this->started || port->io == NULL, -EIO);
+
 	clear_buffers(this, port);
 
 	if (n_buffers > 0 && !port->have_format)
@@ -670,6 +678,19 @@ impl_node_port_use_buffers(void *object,
 	return 0;
 }
 
+struct io_info {
+	struct port *port;
+	void *data;
+};
+
+static int do_port_set_io(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct io_info *info = user_data;
+	info->port->io = info->data;
+	return 0;
+}
+
 static int
 impl_node_port_set_io(void *object,
 		      enum spa_direction direction, uint32_t port_id,
@@ -677,6 +698,7 @@ impl_node_port_set_io(void *object,
 {
 	struct impl *this = object;
 	struct port *port;
+	struct io_info info;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -686,10 +708,13 @@ impl_node_port_set_io(void *object,
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	port = GET_PORT(this, direction, port_id);
+	info.port = port;
+	info.data = data;
 
 	switch (id) {
 	case SPA_IO_Buffers:
-		port->io = data;
+		spa_loop_invoke(this->data_loop,
+                               do_port_set_io, SPA_ID_INVALID, NULL, 0, true, &info);
 		break;
 	default:
 		return -ENOENT;

@@ -388,6 +388,8 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 				pa_alsa_init_proplist_pcm(NULL, m->output_proplist, m->output_pcm);
 				pa_proplist_setf(m->output_proplist, "clock.name", "api.alsa.%u", index);
 				pa_proplist_setf(m->output_proplist, "device.profile.pro", "true");
+				pa_proplist_setf(m->output_proplist, "node.group", "pro-audio-%u", index);
+				pa_proplist_setf(m->output_proplist, "node.link-group", "pro-audio-%u", index);
 				pa_alsa_close(&m->output_pcm);
 				m->supported = true;
 				pa_channel_map_init_auto(&m->channel_map, m->sample_spec.channels, PA_CHANNEL_MAP_AUX);
@@ -419,6 +421,8 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 				pa_alsa_init_proplist_pcm(NULL, m->input_proplist, m->input_pcm);
 				pa_proplist_setf(m->input_proplist, "clock.name", "api.alsa.%u", index);
 				pa_proplist_setf(m->input_proplist, "device.profile.pro", "true");
+				pa_proplist_setf(m->input_proplist, "node.group", "pro-audio-%u", index);
+				pa_proplist_setf(m->input_proplist, "node.link-group", "pro-audio-%u", index);
 				pa_alsa_close(&m->input_pcm);
 				m->supported = true;
 				pa_channel_map_init_auto(&m->channel_map, m->sample_spec.channels, PA_CHANNEL_MAP_AUX);

@@ -213,6 +213,7 @@ struct state {
 	unsigned int htimestamp:1;
 	unsigned int is_pro:1;
 	unsigned int sources_added:1;
+	unsigned int linked:1;
 
 	uint64_t iec958_codecs;
 

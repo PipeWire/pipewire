@@ -512,6 +512,7 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 
 	state->multi_rate = true;
 	state->htimestamp = false;
+	state->disable_tsched = state->is_pro;
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
@@ -627,6 +628,27 @@ error:
 	return err;
 }
 
+static int do_link(struct state *driver, struct state *state)
+{
+	int res;
+	snd_pcm_status_t *status;
+
+	snd_pcm_status_alloca(&status);
+	snd_pcm_status(driver->hndl, status);
+	snd_pcm_status_dump(status, state->output);
+	snd_pcm_status(state->hndl, status);
+	snd_pcm_status_dump(status, state->output);
+	fflush(state->log_file);
+
+	res = snd_pcm_link(driver->hndl, state->hndl);
+	if (res >= 0 || res == -EALREADY)
+		state->linked = true;
+
+	spa_log_info(state->log, "%p: linked to driver %p: %u (%s)",
+			state, driver, state->linked, snd_strerror(res));
+	return 0;
+}
+
 int spa_alsa_open(struct state *state, const char *params)
 {
 	int err;
@@ -663,6 +685,7 @@ int spa_alsa_open(struct state *state, const char *params)
 		/* ALSA pollfds may only be ready after setting swparams, so
 		 * these are initialised in spa_alsa_start() */
 	}
+
 	state->opened = true;
 	state->sample_count = 0;
 	state->sample_time = 0;
@@ -678,12 +701,34 @@ error_exit_close:
 	return err;
 }
 
+static void try_unlink(struct state *state)
+{
+	struct state *follower;
+
+	if (state->driver != NULL && state->linked) {
+		snd_pcm_unlink(state->hndl);
+		spa_log_info(state->log, "%p: unlinked from driver %p",
+				state, state->driver);
+		state->linked = false;
+	}
+	spa_list_for_each(follower, &state->followers, driver_link) {
+		if (follower->opened && follower->linked) {
+			snd_pcm_unlink(follower->hndl);
+			spa_log_info(state->log, "%p: follower unlinked from driver %p",
+				follower, state);
+			follower->linked = false;
+		}
+	}
+}
+
 int spa_alsa_close(struct state *state)
 {
 	int err = 0;
 
 	if (!state->opened)
 		return 0;
+
+	try_unlink(state);
 
 	spa_alsa_pause(state);
 
@@ -702,6 +747,7 @@ int spa_alsa_close(struct state *state)
 
 	state->have_format = false;
 	state->opened = false;
+	state->linked = false;
 
 	if (state->pitch_elem) {
 		snd_ctl_elem_value_free(state->pitch_elem);
@@ -1917,8 +1963,8 @@ static inline int do_start(struct state *state)
 {
 	int res;
 	if (SPA_UNLIKELY(!state->alsa_started)) {
-		spa_log_trace(state->log, "%p: snd_pcm_start", state);
-		if ((res = snd_pcm_start(state->hndl)) < 0) {
+		spa_log_trace(state->log, "%p: snd_pcm_start %u", state, state->linked);
+		if (!state->linked && (res = snd_pcm_start(state->hndl)) < 0) {
 			spa_log_error(state->log, "%s: snd_pcm_start: %s",
 					state->name, snd_strerror(res));
 			return res;
@@ -1986,10 +2032,14 @@ recover:
 				state->name, snd_strerror(res));
 		return res;
 	}
-
-	spa_alsa_prepare(state);
-
-	return spa_alsa_start(state);
+	if (state->driver && state->linked) {
+		spa_alsa_prepare(state->driver);
+		res = spa_alsa_start(state->driver);
+	} else {
+		spa_alsa_prepare(state);
+		res = spa_alsa_start(state);
+	}
+	return res;
 }
 
 static inline snd_pcm_sframes_t alsa_avail(struct state *state)
@@ -2279,7 +2329,7 @@ static int alsa_write_sync(struct state *state, uint64_t current_time)
 	if (SPA_UNLIKELY((res = update_time(state, current_time, delay, target, following)) < 0))
 		return res;
 
-	if (following) {
+	if (following && !state->linked) {
 		if (SPA_UNLIKELY(state->alsa_sync)) {
 			enum spa_log_level lev;
 
@@ -2318,7 +2368,6 @@ static int alsa_write_frames(struct state *state)
 
 	total_written = 0;
 again:
-
 	frames = state->buffer_frames;
 	if (state->use_mmap && frames > 0) {
 		if (SPA_UNLIKELY((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &frames)) < 0)) {
@@ -2511,7 +2560,6 @@ push_frames(struct state *state,
 	}
 	return total_frames;
 }
-
 
 static int alsa_read_sync(struct state *state, uint64_t current_time)
 {
@@ -2897,6 +2945,7 @@ static int do_state_sync(struct spa_loop *loop, bool async, uint32_t seq,
 
 int spa_alsa_prepare(struct state *state)
 {
+	struct state *follower;
 	int err;
 
 	spa_alsa_pause(state);
@@ -2935,6 +2984,14 @@ int spa_alsa_prepare(struct state *state)
 	state->alsa_recovering = false;
 	state->alsa_started = false;
 
+	spa_list_for_each(follower, &state->followers, driver_link) {
+		if (follower != state && !follower->matching) {
+			spa_alsa_prepare(follower);
+			if (!follower->linked)
+				do_link(state, follower);
+		}
+	}
+
 	state->prepared = true;
 
 	return 0;
@@ -2942,6 +2999,7 @@ int spa_alsa_prepare(struct state *state)
 
 int spa_alsa_start(struct state *state)
 {
+	struct state *follower;
 	int err;
 
 	if (state->started)
@@ -2987,6 +3045,10 @@ int spa_alsa_start(struct state *state)
 			state->source[i].rmask = 0;
 		}
 	}
+
+	spa_list_for_each(follower, &state->followers, driver_link)
+		if (follower != state)
+			spa_alsa_start(follower);
 
 	/* start capture now. We should have some data when the timer or IRQ
 	 * goes off later */
@@ -3036,8 +3098,9 @@ int spa_alsa_reassign_follower(struct state *state)
 		spa_log_debug(state->log, "%p: reassign driver %p->%p", state, state->driver, driver);
 		if (state->driver != NULL)
 			spa_list_remove(&state->driver_link);
-		if (driver)
+		if (driver != NULL) {
 			spa_list_append(&driver->followers, &state->driver_link);
+		}
 		state->driver = driver;
 	}
 	if (following != state->following) {
@@ -3049,7 +3112,6 @@ int spa_alsa_reassign_follower(struct state *state)
 		spa_loop_invoke(state->data_loop, do_state_sync, 0, NULL, 0, true, state);
 
 	freewheel = pos != NULL && SPA_FLAG_IS_SET(pos->clock.flags, SPA_IO_CLOCK_FLAG_FREEWHEEL);
-
 	if (state->freewheel != freewheel) {
 		spa_log_debug(state->log, "%p: freewheel %d->%d", state, state->freewheel, freewheel);
 		state->freewheel = freewheel;
@@ -3067,6 +3129,7 @@ int spa_alsa_reassign_follower(struct state *state)
 int spa_alsa_pause(struct state *state)
 {
 	int err;
+	struct state *follower;
 
 	if (!state->started)
 		return 0;
@@ -3076,7 +3139,10 @@ int spa_alsa_pause(struct state *state)
 	state->started = false;
 	spa_loop_invoke(state->data_loop, do_state_sync, 0, NULL, 0, true, state);
 
-	if ((err = snd_pcm_drop(state->hndl)) < 0)
+	spa_list_for_each(follower, &state->followers, driver_link)
+		spa_alsa_pause(follower);
+
+	if (!state->linked && (err = snd_pcm_drop(state->hndl)) < 0)
 		spa_log_error(state->log, "%s: snd_pcm_drop %s", state->name,
 				snd_strerror(err));
 

@@ -4152,6 +4152,9 @@ int jack_activate (jack_client_t *client)
 	pw_thread_loop_lock(c->context.loop);
 	freeze_callbacks(c);
 
+	/* reemit buffer_frames */
+	c->buffer_frames = 0;
+
 	pw_data_loop_start(c->loop);
 
 	if ((res = do_activate(c)) < 0)

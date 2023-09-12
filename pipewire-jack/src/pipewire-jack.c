@@ -3113,15 +3113,23 @@ static void node_info(void *data, const struct pw_node_info *info)
 			pw_node_state_as_string(info->state), n->node.is_running);
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_STATE) {
-		struct object *p;
+		struct object *p, *l;
 		spa_list_for_each(p, &c->context.objects, link) {
 			if (p->type != INTERFACE_Port || p->removed ||
 			    p->port.node_id != info->id)
 				continue;
 			if (n->node.is_running)
 				queue_notify(c, NOTIFY_TYPE_PORTREGISTRATION, p, 1, NULL);
-			else
+			else {
+				spa_list_for_each(l, &c->context.objects, link) {
+					if (l->type != INTERFACE_Link || l->removed ||
+					    (l->port_link.src_serial != p->serial &&
+					     l->port_link.dst_serial != p->serial))
+						continue;
+					queue_notify(c, NOTIFY_TYPE_CONNECT, l, 0, NULL);
+				}
 				queue_notify(c, NOTIFY_TYPE_PORTREGISTRATION, p, 0, NULL);
+			}
 		}
 	}
 }

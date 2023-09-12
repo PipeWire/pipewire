@@ -4162,13 +4162,13 @@ int jack_activate (jack_client_t *client)
 
 	c->activation->pending_new_pos = true;
 	c->activation->pending_sync = true;
-
 	c->active = true;
 
 	spa_list_for_each(o, &c->context.objects, link) {
 		if (o->type != INTERFACE_Port || o->port.port == NULL ||
 		    o->port.port->client != c || !o->port.port->valid)
 			continue;
+		o->registered = 0;
 		queue_notify(c, NOTIFY_TYPE_PORTREGISTRATION, o, 1, NULL);
 	}
 done:

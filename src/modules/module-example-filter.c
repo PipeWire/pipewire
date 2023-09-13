@@ -227,7 +227,7 @@ static void param_latency_changed(struct impl *impl, const struct spa_pod *param
 	struct spa_pod_builder b;
 	const struct spa_pod *params[1];
 
-	if (spa_latency_parse(param, &latency) < 0)
+	if (param == NULL || spa_latency_parse(param, &latency) < 0)
 		return;
 
 	*info = latency;

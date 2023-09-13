@@ -604,7 +604,7 @@ static void input_param_latency_changed(struct impl *impl, const struct spa_pod 
 	struct spa_pod_builder b;
 	const struct spa_pod *params[1];
 
-	if (spa_latency_parse(param, &latency) < 0)
+	if (param == NULL || spa_latency_parse(param, &latency) < 0)
 		return;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -767,7 +767,7 @@ static void output_param_latency_changed(struct impl *impl, const struct spa_pod
 	struct spa_pod_builder b;
 	const struct spa_pod *params[1];
 
-	if (spa_latency_parse(param, &latency) < 0)
+	if (param == NULL || spa_latency_parse(param, &latency) < 0)
 		return;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));

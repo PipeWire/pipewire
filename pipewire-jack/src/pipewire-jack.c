@@ -2442,7 +2442,6 @@ static int port_set_latency(struct client *c, struct port *p,
 
 	if (param == NULL)
 		return 0;
-
 	if ((res = spa_latency_parse(param, &info)) < 0)
 		return res;
 

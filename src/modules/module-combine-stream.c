@@ -697,7 +697,7 @@ static void stream_param_changed(void *d, uint32_t id, const struct spa_pod *par
 		update_delay(s->impl);
 		break;
 	case SPA_PARAM_Latency:
-		if (!param) {
+		if (param == NULL) {
 			s->have_latency = false;
 		} else if (spa_latency_parse(param, &latency) == 0 &&
 				latency.direction == get_combine_direction(s->impl)) {

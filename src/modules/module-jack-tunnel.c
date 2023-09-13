@@ -410,7 +410,7 @@ static void param_latency_changed(struct stream *s, const struct spa_pod *param,
 	bool update = false;
 	enum spa_direction direction = port->direction;
 
-	if (spa_latency_parse(param, &latency) < 0)
+	if (param == NULL || spa_latency_parse(param, &latency) < 0)
 		return;
 
 	if (spa_latency_info_compare(&port->latency[direction], &latency)) {

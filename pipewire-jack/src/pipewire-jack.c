@@ -4192,13 +4192,13 @@ int jack_activate (jack_client_t *client)
 	c->buffer_frames = 0;
 
 	pw_data_loop_start(c->loop);
+	c->active = true;
 
 	if ((res = do_activate(c)) < 0)
 		goto done;
 
 	c->activation->pending_new_pos = true;
 	c->activation->pending_sync = true;
-	c->active = true;
 
 	spa_list_for_each(o, &c->context.objects, link) {
 		if (o->type != INTERFACE_Port || o->port.port == NULL ||
@@ -4208,8 +4208,10 @@ int jack_activate (jack_client_t *client)
 		queue_notify(c, NOTIFY_TYPE_PORTREGISTRATION, o, 1, NULL);
 	}
 done:
-	if (res < 0)
+	if (res < 0) {
+		c->active = false;
 		pw_data_loop_stop(c->loop);
+	}
 
 	pw_log_debug("%p: activate result:%d", c, res);
 	thaw_callbacks(c);

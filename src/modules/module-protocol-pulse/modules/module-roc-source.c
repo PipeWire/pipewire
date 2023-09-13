@@ -89,6 +89,18 @@ static int module_roc_source_unload(struct module *module)
 	return 0;
 }
 
+static const char* const valid_args[] = {
+	"source_name",
+	"source_properties",
+	"resampler_profile",
+	"fec_code",
+	"sess_latency_msec",
+	"local_ip",
+	"local_source_port",
+	"local_repair_port",
+	NULL
+};
+
 static const struct spa_dict_item module_roc_source_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "roc source" },
@@ -178,6 +190,7 @@ out:
 
 DEFINE_MODULE_INFO(module_roc_source) = {
 	.name = "module-roc-source",
+	.valid_args = valid_args,
 	.prepare = module_roc_source_prepare,
 	.load = module_roc_source_load,
 	.unload = module_roc_source_unload,

@@ -164,6 +164,28 @@ void module_args_add_props(struct pw_properties *props, const char *str)
 	}
 }
 
+static bool find_key(const char * const keys[], const char *key)
+{
+	for (int i = 0; keys[i] != NULL; i++)
+		if (spa_streq(keys[i], key))
+			return true;
+	return false;
+}
+
+static int module_args_check(struct pw_properties *props, const char * const valid_args[])
+{
+	if (valid_args != NULL) {
+		const struct spa_dict_item *it;
+		spa_dict_for_each(it, &props->dict) {
+			if (!find_key(valid_args, it->key)) {
+				pw_log_warn("'%s' is not a valid module argument key", it->key);
+				return -EINVAL;
+			}
+		}
+	}
+	return 0;
+}
+
 int module_args_to_audioinfo_keys(struct impl *impl, struct pw_properties *props,
 		const char *key_format, const char *key_rate,
 		const char *key_channels, const char *key_channel_map,
@@ -299,6 +321,7 @@ struct module *module_create(struct impl *impl, const char *name, const char *ar
 {
 	const struct module_info *info;
 	struct module *module;
+	int res;
 
 	info = find_module_info(name);
 	if (info == NULL) {
@@ -321,19 +344,19 @@ struct module *module_create(struct impl *impl, const char *name, const char *ar
 		return NULL;
 
 	module->props = pw_properties_new(NULL, NULL);
-	if (module->props == NULL) {
-		module_free(module);
-		return NULL;
-	}
+	if (module->props == NULL)
+		goto error_free;
 
 	if (args)
 		module_args_add_props(module->props, args);
-
-	int res = module->info->prepare(module);
-	if (res < 0) {
-		module_free(module);
+	if ((res = module_args_check(module->props, info->valid_args)) < 0) {
 		errno = -res;
-		return NULL;
+		goto error_free;
+	}
+
+	if ((res = module->info->prepare(module)) < 0) {
+		errno = -res;
+		goto error_free;
 	}
 
 	module->index = pw_map_insert_new(&impl->modules, module);
@@ -346,4 +369,9 @@ struct module *module_create(struct impl *impl, const char *name, const char *ar
 	module->index |= MODULE_FLAG;
 
 	return module;
+
+error_free:
+	module_free(module);
+	return NULL;
+
 }

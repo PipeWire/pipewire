@@ -89,6 +89,15 @@ static int module_roc_sink_unload(struct module *module)
 	return 0;
 }
 
+static const char* const valid_args[] = {
+	"sink_name",
+	"sink_properties",
+	"fec_code",
+	"remote_ip",
+	"remote_source_port",
+	"remote_repair_port",
+	NULL
+};
 static const struct spa_dict_item module_roc_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "roc sink" },
@@ -169,6 +178,7 @@ out:
 
 DEFINE_MODULE_INFO(module_roc_sink) = {
 	.name = "module-roc-sink",
+	.valid_args = valid_args,
 	.prepare = module_roc_sink_prepare,
 	.load = module_roc_sink_load,
 	.unload = module_roc_sink_unload,

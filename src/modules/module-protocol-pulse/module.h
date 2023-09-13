@@ -23,6 +23,7 @@ struct module_info {
 	int (*load) (struct module *module);
 	int (*unload) (struct module *module);
 
+	const char* const *valid_args;
 	const struct spa_dict *properties;
 	size_t data_size;
 };

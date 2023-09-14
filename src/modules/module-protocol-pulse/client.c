@@ -46,7 +46,6 @@ struct client *client_new(struct server *server)
 	spa_list_init(&client->out_messages);
 	spa_list_init(&client->operations);
 	spa_list_init(&client->pending_samples);
-	spa_list_init(&client->pending_streams);
 	spa_hook_list_init(&client->listener_list);
 
 	spa_list_append(&server->clients, &client->link);

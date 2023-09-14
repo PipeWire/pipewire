@@ -103,9 +103,6 @@ void stream_free(struct stream *stream)
 
 	pw_log_debug("client %p: stream %p channel:%d", client, stream, stream->channel);
 
-	if (stream->pending)
-		spa_list_remove(&stream->link);
-
 	if (stream->drain_tag)
 		reply_error(client, -1, stream->drain_tag, -ENOENT);
 

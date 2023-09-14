@@ -74,8 +74,6 @@ struct client {
 
 	struct spa_list pending_samples;
 
-	struct spa_list pending_streams;
-
 	unsigned int disconnect:1;
 	unsigned int new_msg_since_last_flush:1;
 	unsigned int authenticated:1;

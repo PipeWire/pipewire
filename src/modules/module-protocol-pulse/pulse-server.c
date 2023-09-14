@@ -832,42 +832,43 @@ static void manager_added(void *data, struct pw_manager_object *o)
 	}
 
 	if (spa_streq(o->type, PW_TYPE_INTERFACE_Link)) {
-		struct stream *s, *t;
 		struct pw_manager_object *peer = NULL;
 		union pw_map_item *item;
 		pw_array_for_each(item, &client->streams.items) {
 			struct stream *s = item->data;
 			const char *peer_name;
 
-			if (pw_map_item_is_free(item) || s->pending)
+			if (pw_map_item_is_free(item))
 				continue;
-			if (s->peer_index == SPA_ID_INVALID)
+
+			if (!s->pending && s->peer_index == SPA_ID_INVALID)
 				continue;
 
 			peer = find_peer_for_link(manager, o, s->id, s->direction);
-			if (peer == NULL || peer->props == NULL ||
-			    peer->index == s->peer_index)
+			if (peer == NULL)
 				continue;
 
-			s->peer_index = peer->index;
-
-			peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
-			if (peer_name && s->direction == PW_DIRECTION_INPUT &&
-			    pw_manager_object_is_monitor(peer)) {
-				int len = strlen(peer_name) + 10;
-				char *tmp = alloca(len);
-				snprintf(tmp, len, "%s.monitor", peer_name);
-				peer_name = tmp;
-			}
-			if (peer_name != NULL)
-				stream_send_moved(s, peer->index, peer_name);
-		}
-		spa_list_for_each_safe(s, t, &client->pending_streams, link) {
-			peer = find_peer_for_link(manager, o, s->id, s->direction);
-			if (peer) {
+			if (s->pending) {
 				reply_create_stream(s, peer);
-				spa_list_remove(&s->link);
 				s->pending = false;
+			} else {
+				if (s->peer_index == peer->index)
+					continue;
+				if (peer->props == NULL)
+					continue;
+
+				s->peer_index = peer->index;
+
+				peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
+				if (peer_name && s->direction == PW_DIRECTION_INPUT &&
+				    pw_manager_object_is_monitor(peer)) {
+					int len = strlen(peer_name) + 10;
+					char *tmp = alloca(len);
+					snprintf(tmp, len, "%s.monitor", peer_name);
+					peer_name = tmp;
+				}
+				if (peer_name != NULL)
+					stream_send_moved(s, peer->index, peer_name);
 			}
 		}
 	}
@@ -1244,7 +1245,6 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 		if (peer) {
 			reply_create_stream(stream, peer);
 		} else {
-			spa_list_append(&stream->client->pending_streams, &stream->link);
 			stream->pending = true;
 		}
 	}

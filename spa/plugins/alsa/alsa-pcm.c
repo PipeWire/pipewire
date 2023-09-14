@@ -654,10 +654,6 @@ int spa_alsa_open(struct state *state, const char *params)
 		/* ALSA pollfds may only be ready after setting swparams, so
 		 * these are initialised in spa_alsa_start() */
 	}
-
-	if (state->clock)
-		spa_scnprintf(state->clock->name, sizeof(state->clock->name),
-				"%s", state->clock_name);
 	state->opened = true;
 	state->sample_count = 0;
 	state->sample_time = 0;
@@ -2965,16 +2961,17 @@ int spa_alsa_reassign_follower(struct state *state)
 {
 	bool following, freewheel;
 
-	if (!state->started)
-		return 0;
+	if (state->clock != NULL)
+		spa_scnprintf(state->clock->name, sizeof(state->clock->name), "%s", state->clock_name);
 
 	following = is_following(state);
 	if (following != state->following) {
 		spa_log_debug(state->log, "%p: reassign follower %d->%d", state, state->following, following);
 		state->following = following;
-		spa_loop_invoke(state->data_loop, do_setup_sources, 0, NULL, 0, true, state);
+		setup_matching(state);
+		if (state->started)
+			spa_loop_invoke(state->data_loop, do_setup_sources, 0, NULL, 0, true, state);
 	}
-	setup_matching(state);
 
 	freewheel = state->position &&
 		SPA_FLAG_IS_SET(state->position->clock.flags, SPA_IO_CLOCK_FLAG_FREEWHEEL);
@@ -2982,12 +2979,13 @@ int spa_alsa_reassign_follower(struct state *state)
 	if (state->freewheel != freewheel) {
 		spa_log_debug(state->log, "%p: freewheel %d->%d", state, state->freewheel, freewheel);
 		state->freewheel = freewheel;
-		if (freewheel)
-			snd_pcm_pause(state->hndl, 1);
-		else
-			snd_pcm_pause(state->hndl, 0);
+		if (state->started) {
+			if (freewheel)
+				snd_pcm_pause(state->hndl, 1);
+			else
+				snd_pcm_pause(state->hndl, 0);
+		}
 	}
-
 	state->alsa_sync_warning = false;
 	return 0;
 }

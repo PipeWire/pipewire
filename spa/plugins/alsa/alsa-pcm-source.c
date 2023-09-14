@@ -235,6 +235,8 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 		this->clock = data;
 		break;
 	case SPA_IO_Position:
+		if (size > 0 && size < sizeof(struct spa_io_position))
+			return -EINVAL;
 		this->position = data;
 		break;
 	default:

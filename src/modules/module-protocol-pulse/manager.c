@@ -318,7 +318,7 @@ static void device_event_info(void *data, const struct pw_device_info *info)
 			case SPA_PARAM_EnumRoute:
 				changed++;
 				break;
-			case SPA_PARAM_Route:
+			default:
 				break;
 			}
 			add_param(&o->pending_list, info->params[i].seq, id, NULL);
@@ -435,7 +435,16 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 				continue;
 			info->params[i].user = 0;
 
-			changed++;
+			switch (id) {
+			case SPA_PARAM_Props:
+			case SPA_PARAM_PropInfo:
+			case SPA_PARAM_Format:
+			case SPA_PARAM_EnumFormat:
+				changed++;
+				break;
+			default:
+				break;
+			}
 			add_param(&o->pending_list, info->params[i].seq, id, NULL);
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;

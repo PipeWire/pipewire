@@ -50,6 +50,8 @@ context.properties = {
     # enables autoloading of access module, when disabled an alternative
     # access module needs to be loaded.
     module.access = true
+    # enables autoloading of module-jackdbus-detect
+    module.jackdbus-detect = true
 }
 
 context.spa-libs = {
@@ -178,6 +180,29 @@ context.modules = [
         }
         flags = [ ifexists nofail ]
         condition = [ { module.x11.bell = true } ]
+    }
+    { name = libpipewire-module-jackdbus-detect
+        args {
+            #jack.library     = libjack.so.0
+            #jack.server      = null
+            #jack.client-name = PipeWire
+            #jack.connect     = true
+            #tunnel.mode      = duplex  # source|sink|duplex
+            source.props = {
+                #audio.channels = 2
+		#midi.ports = 1
+                #audio.position = [ FL FR ]
+                # extra sink properties
+            }
+            sink.props = {
+                #audio.channels = 2
+		#midi.ports = 1
+                #audio.position = [ FL FR ]
+                # extra sink properties
+            }
+        }
+        flags = [ ifexists nofail ]
+        condition = [ { module.jackdbus-detect = true } ]
     }
 ]
 

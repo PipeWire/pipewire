@@ -1992,15 +1992,23 @@ recover:
 	return do_start(state);
 }
 
+static inline snd_pcm_sframes_t alsa_avail(struct state *state)
+{
+	if (state->disable_tsched)
+		return snd_pcm_avail_update(state->hndl);
+	else
+		return snd_pcm_avail(state->hndl);
+}
+
 static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes_t *delay)
 {
 	int res, suppressed;
 	snd_pcm_sframes_t avail;
 
-	if (SPA_UNLIKELY((avail = snd_pcm_avail(state->hndl)) < 0)) {
+	if (SPA_UNLIKELY((avail = alsa_avail(state)) < 0)) {
 		if ((res = alsa_recover(state, avail)) < 0)
 			return res;
-		if ((avail = snd_pcm_avail(state->hndl)) < 0) {
+		if ((avail = alsa_avail(state)) < 0) {
 			if ((suppressed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
 				spa_log_warn(state->log, "%s: (%d suppressed) snd_pcm_avail after recover: %s",
 						state->props.device, suppressed, snd_strerror(avail));

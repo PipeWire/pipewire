@@ -1850,10 +1850,6 @@ static int set_swparams(struct state *state)
 static int set_timeout(struct state *state, uint64_t time)
 {
 	struct itimerspec ts;
-
-	if (state->disable_tsched)
-		return 0;
-
 	ts.it_value.tv_sec = time / SPA_NSEC_PER_SEC;
 	ts.it_value.tv_nsec = time % SPA_NSEC_PER_SEC;
 	ts.it_interval.tv_sec = 0;
@@ -2773,19 +2769,20 @@ static void alsa_wakeup_event(struct spa_source *source)
 		handle_capture(state, current_time, avail, delay, target);
 
 done:
-	if (!state->disable_tsched &&
-			(state->next_time > current_time + SPA_NSEC_PER_SEC ||
-			 current_time > state->next_time + SPA_NSEC_PER_SEC)) {
-		if ((suppressed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
-			spa_log_error(state->log, "%s: impossible timeout %lu %lu %lu %"
+	if (!state->disable_tsched) {
+		if (state->next_time > current_time + SPA_NSEC_PER_SEC ||
+		    current_time > state->next_time + SPA_NSEC_PER_SEC) {
+			if ((suppressed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+				spa_log_error(state->log, "%s: impossible timeout %lu %lu %lu %"
 					PRIu64" %"PRIu64" %"PRIi64" %d %"PRIi64" (%d suppressed)",
 					state->props.device, avail, delay, target,
 					current_time, state->next_time, state->next_time - current_time,
 					state->threshold, state->sample_count, suppressed);
+			}
+			state->next_time = current_time + state->threshold * 1e9 / state->rate;
 		}
-		state->next_time = current_time + state->threshold * 1e9 / state->rate;
+		set_timeout(state, state->next_time);
 	}
-	set_timeout(state, state->next_time);
 }
 
 static void reset_buffers(struct state *this)

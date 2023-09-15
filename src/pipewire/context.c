@@ -1501,8 +1501,10 @@ again:
 			n->target_rate = n->rt.position->clock.target_rate;
 		}
 
-		pw_log_debug("%p: driver %p running:%d runnable:%d quantum:%u '%s'",
-				context, n, running, n->runnable, quantum, n->name);
+		pw_log_debug("%p: driver %p running:%d runnable:%d quantum:%u rate:%u (%"PRIu64"/%u)'%s'",
+				context, n, running, n->runnable, quantum, target_rate,
+				n->rt.position->clock.target_duration,
+				n->rt.position->clock.target_rate.denom, n->name);
 
 		/* first change the node states of the followers to the new target */
 		spa_list_for_each(s, &n->follower_list, follower_link) {

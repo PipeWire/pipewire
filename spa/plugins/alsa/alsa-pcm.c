@@ -2903,8 +2903,12 @@ int spa_alsa_prepare(struct state *state)
 				state->name, snd_strerror(err));
 		return err;
 	}
-	if (state->stream == SND_PCM_STREAM_PLAYBACK)
-		spa_alsa_silence(state, state->start_delay + state->threshold + state->headroom);
+	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
+		snd_pcm_uframes_t silence = state->start_delay + state->threshold + state->headroom;
+		if (state->disable_tsched)
+			silence += state->threshold;
+		spa_alsa_silence(state, silence);
+	}
 
 	reset_buffers(state);
 	state->alsa_sync = true;

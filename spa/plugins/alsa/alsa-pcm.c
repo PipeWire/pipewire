@@ -1653,6 +1653,11 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	else
 		state->frame_size *= rchannels;
 
+	/* make sure we updates threshold in check_position_config() because they depend
+	 * on the samplerate. */
+	state->duration = 0;
+	state->rate_denom = 0;
+
 	state->have_format = true;
 	if (state->card->format_ref++ == 0)
 		state->card->rate = rrate;

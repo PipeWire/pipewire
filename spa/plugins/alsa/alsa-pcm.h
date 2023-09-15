@@ -97,6 +97,7 @@ struct state {
 	struct card *card;
 	snd_pcm_stream_t stream;
 	snd_output_t *output;
+	char name[64];
 
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;

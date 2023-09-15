@@ -2834,21 +2834,28 @@ static void clear_period_sources(struct state *state) {
 	}
 }
 
-static int setup_sources(struct state *state)
+static int do_setup_sources(struct spa_loop *loop,
+			    bool async,
+			    uint32_t seq,
+			    const void *data,
+			    size_t size,
+			    void *user_data)
 {
+	struct state *state = user_data;
+
+	spa_dll_init(&state->dll);
 	state->next_time = get_time_ns(state);
 
-	if (state->following) {
-		/* Disable wakeups from this node */
-		if (!state->disable_tsched) {
+	if (!state->disable_tsched) {
+		/* timers */
+		spa_loop_add_source(state->data_loop, &state->source[0]);
+		if (state->following)
 			set_timeout(state, 0);
-		} else {
-			clear_period_sources(state);
-		}
-	} else {
-		/* We're driving, so let's wake up when data is ready/needed */
-		if (!state->disable_tsched) {
+		else
 			set_timeout(state, state->next_time);
+	} else {
+		if (state->following) {
+			clear_period_sources(state);
 		} else {
 			for (int i = 0; i < state->n_fds; i++) {
 				state->source[i].func = alsa_wakeup_event;
@@ -2863,7 +2870,7 @@ static int setup_sources(struct state *state)
 	return 0;
 }
 
-static int do_setup_sources(struct spa_loop *loop,
+static int do_remove_source(struct spa_loop *loop,
 			    bool async,
 			    uint32_t seq,
 			    const void *data,
@@ -2871,8 +2878,13 @@ static int do_setup_sources(struct spa_loop *loop,
 			    void *user_data)
 {
 	struct state *state = user_data;
-	spa_dll_init(&state->dll);
-	setup_sources(state);
+
+	if (!state->disable_tsched) {
+		spa_loop_remove_source(state->data_loop, &state->source[0]);
+		set_timeout(state, 0);
+	} else {
+		clear_period_sources(state);
+	}
 	return 0;
 }
 
@@ -2937,7 +2949,6 @@ int spa_alsa_start(struct state *state)
 		state->source[0].fd = state->timerfd;
 		state->source[0].mask = SPA_IO_IN;
 		state->source[0].rmask = 0;
-		spa_loop_add_source(state->data_loop, &state->source[0]);
 	} else {
 		/* ALSA period-based scheduling */
 		err = snd_pcm_poll_descriptors_count(state->hndl);
@@ -2969,17 +2980,22 @@ int spa_alsa_start(struct state *state)
 		}
 	}
 
-	/* start capture now, playback will start after first write. Without tsched, we start
-	 * right away so that the fds become active in poll right away. */
-	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
-		if (state->disable_tsched)
-			do_start(state);
+	/* start capture now. We should have some data when the timer or IRQ
+	 * goes off later */
+	if (state->stream == SND_PCM_STREAM_CAPTURE) {
+		if ((err = do_start(state)) < 0)
+			return err;
 	}
-	else if ((err = do_start(state)) < 0)
-		return err;
 
 	spa_loop_invoke(state->data_loop, do_setup_sources, 0, NULL, 0, true, state);
 
+	/* playback will start after first write. Without tsched, we start
+	 * right away so that the fds become active in poll right away. */
+	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
+		if (state->disable_tsched)
+			if ((err = do_start(state)) < 0)
+				return err;
+	}
 	state->started = true;
 
 	return 0;
@@ -3016,24 +3032,6 @@ int spa_alsa_reassign_follower(struct state *state)
 		}
 	}
 	state->alsa_sync_warning = false;
-	return 0;
-}
-
-static int do_remove_source(struct spa_loop *loop,
-			    bool async,
-			    uint32_t seq,
-			    const void *data,
-			    size_t size,
-			    void *user_data)
-{
-	struct state *state = user_data;
-
-	if (!state->disable_tsched) {
-		spa_loop_remove_source(state->data_loop, &state->source[0]);
-		set_timeout(state, 0);
-	} else {
-		clear_period_sources(state);
-	}
 	return 0;
 }
 

@@ -2702,7 +2702,7 @@ static int capture_ready(struct state *state)
 		} else {
 			io->buffer_id = SPA_ID_INVALID;
 		}
-		spa_log_trace_fp(state->log, "%p: output buffer:%d", state, b->id);
+		spa_log_trace_fp(state->log, "%p: output buffer:%d", state, io->buffer_id);
 	}
 	if (have_data)
 		spa_node_call_ready(&state->callbacks, SPA_STATUS_HAVE_DATA);

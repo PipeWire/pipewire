@@ -2441,9 +2441,11 @@ static int port_set_latency(struct client *c, struct port *p,
 	int res;
 
 	if (param == NULL)
-		return 0;
-	if ((res = spa_latency_parse(param, &info)) < 0)
+		info = SPA_LATENCY_INFO(SPA_DIRECTION_REVERSE(p->direction));
+	else if ((res = spa_latency_parse(param, &info)) < 0)
 		return res;
+	if (info.direction == p->direction)
+		return 0;
 
 	current = &p->object->port.latency[info.direction];
 	if (spa_latency_info_compare(current, &info) == 0)
@@ -2457,8 +2459,6 @@ static int port_set_latency(struct client *c, struct port *p,
 			info.min_rate, info.max_rate,
 			info.min_ns, info.max_ns);
 
-	if (info.direction == p->direction)
-		return 0;
 
 	if (info.direction == SPA_DIRECTION_INPUT)
 		mode = JackPlaybackLatency;

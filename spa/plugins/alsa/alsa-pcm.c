@@ -2252,10 +2252,10 @@ static int alsa_write_sync(struct state *state, uint64_t current_time)
 	snd_pcm_uframes_t avail, delay, target;
 	bool following = state->following;
 
-	if (!state->alsa_started)
+	if (SPA_UNLIKELY(!state->alsa_started))
 		return 0;
 
-	if ((res = check_position_config(state)) < 0)
+	if (SPA_UNLIKELY((res = check_position_config(state)) < 0))
 		return res;
 
 	if (SPA_UNLIKELY((res = get_status(state, current_time, &avail, &delay, &target)) < 0))
@@ -2420,9 +2420,7 @@ int spa_alsa_write(struct state *state)
 		if ((res = alsa_write_sync(state, current_time)) < 0)
 			return res;
 	}
-	if ((res = alsa_write_frames(state)) < 0)
-		return res;
-	return 0;
+	return alsa_write_frames(state);
 }
 
 void spa_alsa_recycle_buffer(struct state *this, uint32_t buffer_id)
@@ -2514,13 +2512,13 @@ static int alsa_read_sync(struct state *state, uint64_t current_time)
 	snd_pcm_uframes_t avail, delay, target, max_read;
 	bool following = state->following;
 
-	if (!state->alsa_started)
+	if (SPA_UNLIKELY(!state->alsa_started))
 		return 0;
 
-	if ((res = check_position_config(state)) < 0)
+	if (SPA_UNLIKELY((res = check_position_config(state)) < 0))
 		return res;
 
-	if ((res = get_status(state, current_time, &avail, &delay, &target)) < 0)
+	if (SPA_UNLIKELY((res = get_status(state, current_time, &avail, &delay, &target)) < 0))
 		return res;
 
 	if (SPA_UNLIKELY(!following && avail < state->read_size)) {
@@ -2630,9 +2628,7 @@ int spa_alsa_read(struct state *state)
 		if ((res = alsa_read_sync(state, current_time)) < 0)
 			return res;
 	}
-	if ((res = alsa_read_frames(state)) < 0)
-		return res;
-	return 0;
+	return alsa_read_frames(state);
 }
 
 int spa_alsa_skip(struct state *state)
@@ -2641,7 +2637,7 @@ int spa_alsa_skip(struct state *state)
 	struct spa_data *d;
 	uint32_t i, avail, total_frames, n_bytes, frames;
 
-	if (spa_list_is_empty(&state->free)) {
+	if (SPA_UNLIKELY(spa_list_is_empty(&state->free))) {
 		spa_log_warn(state->log, "%s: no more buffers", state->name);
 		return -EPIPE;
 	}
@@ -2684,27 +2680,32 @@ static int playback_ready(struct state *state)
 static int capture_ready(struct state *state)
 {
 	struct spa_io_buffers *io;
+	bool have_data;
 
-	if (spa_list_is_empty(&state->ready))
-		return 0;
+	have_data = !spa_list_is_empty(&state->ready);
 
 	io = state->io;
 	if (io != NULL &&
 	    (io->status != SPA_STATUS_HAVE_DATA || state->rate_match != NULL)) {
 		struct buffer *b;
 
-		if (io->buffer_id < state->n_buffers)
+		if (SPA_LIKELY(io->buffer_id < state->n_buffers))
 			spa_alsa_recycle_buffer(state, io->buffer_id);
 
-		b = spa_list_first(&state->ready, struct buffer, link);
-		spa_list_remove(&b->link);
-		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
+		if (SPA_LIKELY(have_data)) {
+			b = spa_list_first(&state->ready, struct buffer, link);
+			spa_list_remove(&b->link);
+			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 
-		io->buffer_id = b->id;
-		io->status = SPA_STATUS_HAVE_DATA;
+			io->buffer_id = b->id;
+			io->status = SPA_STATUS_HAVE_DATA;
+		} else {
+			io->buffer_id = SPA_ID_INVALID;
+		}
 		spa_log_trace_fp(state->log, "%p: output buffer:%d", state, b->id);
 	}
-	spa_node_call_ready(&state->callbacks, SPA_STATUS_HAVE_DATA);
+	if (have_data)
+		spa_node_call_ready(&state->callbacks, SPA_STATUS_HAVE_DATA);
 	return 0;
 }
 
@@ -2768,7 +2769,7 @@ static void alsa_wakeup_event(struct spa_source *source)
 	else
 		res = alsa_write_sync(state, current_time);
 	/* we can get -EAGAIN when we need to wait some more */
-	if (res == -EAGAIN)
+	if (SPA_UNLIKELY(res == -EAGAIN))
 		goto done;
 
 	/* then read all sources, the sinks will be written to when the

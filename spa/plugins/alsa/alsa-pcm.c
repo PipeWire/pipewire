@@ -2178,11 +2178,6 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 	return 0;
 }
 
-static inline bool is_following(struct state *state)
-{
-	return state->position && state->clock && state->position->clock.id != state->clock->id;
-}
-
 static int setup_matching(struct state *state)
 {
 	state->matching = state->following;
@@ -2220,7 +2215,7 @@ static inline int check_position_config(struct state *state)
 	uint64_t target_duration;
 	struct spa_fraction target_rate;
 
-	if (SPA_UNLIKELY(state->position  == NULL))
+	if (SPA_UNLIKELY(state->position == NULL))
 		return 0;
 
 	if (state->disable_tsched && state->started && !state->following) {
@@ -2988,11 +2983,13 @@ int spa_alsa_start(struct state *state)
 int spa_alsa_reassign_follower(struct state *state)
 {
 	bool following, freewheel;
+	struct spa_io_position *pos = state->position;
+	struct spa_io_clock *clock = state->clock;
 
-	if (state->clock != NULL)
-		spa_scnprintf(state->clock->name, sizeof(state->clock->name), "%s", state->clock_name);
+	if (clock != NULL)
+		spa_scnprintf(clock->name, sizeof(clock->name), "%s", state->clock_name);
 
-	following = is_following(state);
+	following = pos && clock && pos->clock.id != clock->id;
 	if (following != state->following) {
 		spa_log_debug(state->log, "%p: reassign follower %d->%d", state, state->following, following);
 		state->following = following;
@@ -3001,8 +2998,7 @@ int spa_alsa_reassign_follower(struct state *state)
 			spa_loop_invoke(state->data_loop, do_setup_sources, 0, NULL, 0, true, state);
 	}
 
-	freewheel = state->position &&
-		SPA_FLAG_IS_SET(state->position->clock.flags, SPA_IO_CLOCK_FLAG_FREEWHEEL);
+	freewheel = pos != NULL && SPA_FLAG_IS_SET(pos->clock.flags, SPA_IO_CLOCK_FLAG_FREEWHEEL);
 
 	if (state->freewheel != freewheel) {
 		spa_log_debug(state->log, "%p: freewheel %d->%d", state, state->freewheel, freewheel);

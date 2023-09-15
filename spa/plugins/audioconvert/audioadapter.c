@@ -555,7 +555,7 @@ static int recalc_latency(struct impl *this, struct spa_node *src, enum spa_dire
 	struct spa_latency_info latency;
 	int res;
 
-	spa_log_info(this->log, "%p: %d:%d", this, direction, port_id);
+	spa_log_debug(this->log, "%p: %d:%d", this, direction, port_id);
 
 	if (this->target == this->follower)
 		return 0;
@@ -625,7 +625,7 @@ static int reconfigure_mode(struct impl *this, bool passthrough,
 	int res = 0;
 	struct spa_hook l;
 
-	spa_log_info(this->log, "%p: passthrough mode %d", this, passthrough);
+	spa_log_debug(this->log, "%p: passthrough mode %d", this, passthrough);
 
 	if (this->passthrough != passthrough) {
 		if (passthrough) {
@@ -1043,7 +1043,7 @@ static void follower_convert_port_info(void *data,
 	uint32_t i;
 	int res;
 
-	spa_log_info(this->log, "%p: convert port info %s %p %08"PRIx64, this,
+	spa_log_debug(this->log, "%p: convert port info %s %p %08"PRIx64, this,
 			this->direction == SPA_DIRECTION_INPUT ?
 				"Input" : "Output", info, info->change_mask);
 

@@ -147,6 +147,7 @@ struct state {
 	uint32_t rate_denom;
 	uint32_t delay;
 	uint32_t read_size;
+	uint32_t max_read;
 
 	uint64_t port_info_all;
 	struct spa_port_info port_info;

@@ -2251,32 +2251,33 @@ static inline int check_position_config(struct state *state)
 	return 0;
 }
 
-int spa_alsa_write(struct state *state)
+static int alsa_write_sync(struct state *state, uint64_t current_time)
 {
-	snd_pcm_t *hndl = state->hndl;
-	const snd_pcm_channel_area_t *my_areas;
-	snd_pcm_uframes_t written, frames, offset, off, to_write, total_written, max_write;
-	snd_pcm_sframes_t commitres;
 	int res, suppressed;
-	size_t frame_size = state->frame_size;
+	snd_pcm_uframes_t avail, delay, target;
+	bool following = state->following;
+
+	if (!state->alsa_started)
+		return 0;
 
 	if ((res = check_position_config(state)) < 0)
 		return res;
 
-	max_write = state->buffer_frames;
+	if (SPA_UNLIKELY((res = get_status(state, current_time, &avail, &delay, &target)) < 0))
+		return res;
 
-	if (state->following && state->alsa_started) {
-		uint64_t current_time;
-		snd_pcm_uframes_t avail, delay, target;
+	if (SPA_UNLIKELY(!following && delay > target + state->max_error)) {
+		spa_log_trace(state->log, "%p: early wakeup %ld %lu %lu", state,
+				avail, delay, target);
+		if (delay > target * 3)
+			delay = target * 3;
+		state->next_time = current_time + (delay - target) * SPA_NSEC_PER_SEC / state->rate;
+		return -EAGAIN;
+	}
+	if (SPA_UNLIKELY((res = update_time(state, current_time, delay, target, following)) < 0))
+		return res;
 
-		current_time = state->position->clock.nsec;
-
-		if (SPA_UNLIKELY((res = get_status(state, current_time, &avail, &delay, &target)) < 0))
-			return res;
-
-		if (SPA_UNLIKELY((res = update_time(state, current_time, delay, target, true)) < 0))
-			return res;
-
+	if (following) {
 		if (SPA_UNLIKELY(state->alsa_sync)) {
 			enum spa_log_level lev;
 
@@ -2301,11 +2302,22 @@ int spa_alsa_write(struct state *state)
 		} else
 			state->alsa_sync_warning = true;
 	}
+	return 0;
+}
+
+static int alsa_write_frames(struct state *state)
+{
+	snd_pcm_t *hndl = state->hndl;
+	const snd_pcm_channel_area_t *my_areas;
+	snd_pcm_uframes_t written, frames, offset, off, to_write, total_written;
+	snd_pcm_sframes_t commitres;
+	int res = 0;
+	size_t frame_size = state->frame_size;
 
 	total_written = 0;
 again:
 
-	frames = max_write;
+	frames = state->buffer_frames;
 	if (state->use_mmap && frames > 0) {
 		if (SPA_UNLIKELY((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &frames)) < 0)) {
 			spa_log_error(state->log, "%s: snd_pcm_mmap_begin error: %s",
@@ -2405,6 +2417,19 @@ again:
 	return 0;
 }
 
+int spa_alsa_write(struct state *state)
+{
+	int res = 0;
+	if (state->following) {
+		uint64_t current_time = state->position->clock.nsec;
+		if ((res = alsa_write_sync(state, current_time)) < 0)
+			return res;
+	}
+	if ((res = alsa_write_frames(state)) < 0)
+		return res;
+	return 0;
+}
+
 void spa_alsa_recycle_buffer(struct state *this, uint32_t buffer_id)
 {
 	struct buffer *b = &this->buffers[buffer_id];
@@ -2488,32 +2513,34 @@ push_frames(struct state *state,
 }
 
 
-int spa_alsa_read(struct state *state)
+static int alsa_read_sync(struct state *state, uint64_t current_time)
 {
-	snd_pcm_t *hndl = state->hndl;
-	snd_pcm_uframes_t total_read = 0, to_read, max_read;
-	const snd_pcm_channel_area_t *my_areas;
-	snd_pcm_uframes_t read, frames, offset;
-	snd_pcm_sframes_t commitres;
 	int res, suppressed;
+	snd_pcm_uframes_t avail, delay, target, max_read;
+	bool following = state->following;
+
+	if (!state->alsa_started)
+		return 0;
 
 	if ((res = check_position_config(state)) < 0)
 		return res;
 
+	if ((res = get_status(state, current_time, &avail, &delay, &target)) < 0)
+		return res;
+
+	if (SPA_UNLIKELY(!following && avail < state->read_size)) {
+		spa_log_trace(state->log, "%p: early wakeup %ld %ld %ld %d", state,
+				delay, avail, target, state->read_size);
+		state->next_time = current_time + (state->read_size - avail) * SPA_NSEC_PER_SEC /
+			state->rate;
+		return -EAGAIN;
+	}
+
+	if (SPA_UNLIKELY((res = update_time(state, current_time, delay, target, following)) < 0))
+		return res;
+
 	max_read = state->buffer_frames;
-
-	if (state->following && state->alsa_started) {
-		uint64_t current_time;
-		snd_pcm_uframes_t avail, delay, target;
-
-		current_time = state->position->clock.nsec;
-
-		if ((res = get_status(state, current_time, &avail, &delay, &target)) < 0)
-			return res;
-
-		if (SPA_UNLIKELY((res = update_time(state, current_time, delay, target, true)) < 0))
-			return res;
-
+	if (following) {
 		if (state->alsa_sync) {
 			enum spa_log_level lev;
 
@@ -2541,8 +2568,20 @@ int spa_alsa_read(struct state *state)
 		if (avail < state->read_size)
 			max_read = 0;
 	}
+	state->max_read = SPA_MIN(max_read, state->read_size);
+	return 0;
+}
 
-	frames = SPA_MIN(max_read, state->read_size);
+static int alsa_read_frames(struct state *state)
+{
+	snd_pcm_t *hndl = state->hndl;
+	snd_pcm_uframes_t total_read = 0, to_read;
+	const snd_pcm_channel_area_t *my_areas;
+	snd_pcm_uframes_t read, frames, offset;
+	snd_pcm_sframes_t commitres;
+	int res = 0;
+
+	frames = state->max_read;
 
 	if (state->use_mmap) {
 		to_read = state->buffer_frames;
@@ -2588,6 +2627,19 @@ int spa_alsa_read(struct state *state)
 	return 0;
 }
 
+int spa_alsa_read(struct state *state)
+{
+	int res;
+	if (state->following) {
+		uint64_t current_time = state->position->clock.nsec;
+		if ((res = alsa_read_sync(state, current_time)) < 0)
+			return res;
+	}
+	if ((res = alsa_read_frames(state)) < 0)
+		return res;
+	return 0;
+}
+
 int spa_alsa_skip(struct state *state)
 {
 	struct buffer *b;
@@ -2622,23 +2674,9 @@ int spa_alsa_skip(struct state *state)
 }
 
 
-static int handle_play(struct state *state, uint64_t current_time, snd_pcm_uframes_t avail,
-		snd_pcm_uframes_t delay, snd_pcm_uframes_t target)
+static int playback_ready(struct state *state)
 {
 	struct spa_io_buffers *io = state->io;
-	int res;
-
-	if (state->alsa_started && SPA_UNLIKELY(delay > target + state->max_error)) {
-		spa_log_trace(state->log, "%p: early wakeup %ld %lu %lu", state,
-				avail, delay, target);
-		if (delay > target * 3)
-			delay = target * 3;
-		state->next_time = current_time + (delay - target) * SPA_NSEC_PER_SEC / state->rate;
-		return -EAGAIN;
-	}
-
-	if (SPA_UNLIKELY((res = update_time(state, current_time, delay, target, false)) < 0))
-		return res;
 
 	spa_log_trace_fp(state->log, "%p: %d", state, io->status);
 
@@ -2648,25 +2686,9 @@ static int handle_play(struct state *state, uint64_t current_time, snd_pcm_ufram
 	return spa_node_call_ready(&state->callbacks, SPA_STATUS_NEED_DATA);
 }
 
-static int handle_capture(struct state *state, uint64_t current_time, snd_pcm_uframes_t avail,
-		snd_pcm_uframes_t delay, snd_pcm_uframes_t target)
+static int capture_ready(struct state *state)
 {
-	int res;
 	struct spa_io_buffers *io;
-
-	if (SPA_UNLIKELY(avail < state->read_size)) {
-		spa_log_trace(state->log, "%p: early wakeup %ld %ld %ld %d", state,
-				delay, avail, target, state->read_size);
-		state->next_time = current_time + (state->read_size - avail) * SPA_NSEC_PER_SEC /
-			state->rate;
-		return -EAGAIN;
-	}
-
-	if (SPA_UNLIKELY((res = update_time(state, current_time, delay, target, false)) < 0))
-		return res;
-
-	if ((res = spa_alsa_read(state)) < 0)
-		return res;
 
 	if (spa_list_is_empty(&state->ready))
 		return 0;
@@ -2702,7 +2724,6 @@ static uint64_t get_time_ns(struct state *state)
 static void alsa_wakeup_event(struct spa_source *source)
 {
 	struct state *state = source->data;
-	snd_pcm_uframes_t avail, delay, target;
 	uint64_t expire, current_time;
 	int res, suppressed;
 
@@ -2746,42 +2767,36 @@ static void alsa_wakeup_event(struct spa_source *source)
 		current_time = state->next_time;
 	}
 
-	if (SPA_UNLIKELY((res = check_position_config(state)) < 0)) {
-		spa_log_warn(state->log, "%p: error invalid position: %s",
-						state, spa_strerror(res));
-		return;
-	}
-
-	if (SPA_UNLIKELY(get_status(state, current_time, &avail, &delay, &target) < 0)) {
-		spa_log_error(state->log, "get_status error");
-		state->next_time += state->threshold * 1e9 / state->rate;
-		goto done;
-	}
-
-#ifndef FASTPATH
-	if (SPA_UNLIKELY(spa_log_level_topic_enabled(state->log, SPA_LOG_TOPIC_DEFAULT, SPA_LOG_LEVEL_TRACE))) {
-		uint64_t nsec = get_time_ns(state);
-		spa_log_trace_fp(state->log, "%p: wakeup %lu %lu %lu %"PRIu64" %"PRIu64" %"PRIi64
-				" %d %"PRIi64, state, avail, delay, target, nsec, nsec,
-				nsec - current_time, state->threshold, state->sample_count);
-	}
-#endif
-
-	if (state->stream == SND_PCM_STREAM_PLAYBACK)
-		handle_play(state, current_time, avail, delay, target);
+	/* first do all the sync */
+	if (state->stream == SND_PCM_STREAM_CAPTURE)
+		res = alsa_read_sync(state, current_time);
 	else
-		handle_capture(state, current_time, avail, delay, target);
+		res = alsa_write_sync(state, current_time);
+	/* we can get -EAGAIN when we need to wait some more */
+	if (res == -EAGAIN)
+		goto done;
+
+	/* then read all sources, the sinks will be written to when the
+	 * graph completes. */
+	if (state->stream == SND_PCM_STREAM_CAPTURE)
+		alsa_read_frames(state);
+
+	/* and then trigger the graph */
+	if (state->stream == SND_PCM_STREAM_PLAYBACK)
+		playback_ready(state);
+	else
+		capture_ready(state);
 
 done:
 	if (!state->disable_tsched) {
 		if (state->next_time > current_time + SPA_NSEC_PER_SEC ||
 		    current_time > state->next_time + SPA_NSEC_PER_SEC) {
 			if ((suppressed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
-				spa_log_error(state->log, "%s: impossible timeout %lu %lu %lu %"
+				spa_log_error(state->log, "%s: impossible timeout %"
 					PRIu64" %"PRIu64" %"PRIi64" %d %"PRIi64" (%d suppressed)",
-					state->name, avail, delay, target,
-					current_time, state->next_time, state->next_time - current_time,
-					state->threshold, state->sample_count, suppressed);
+					state->name, current_time, state->next_time,
+					state->next_time - current_time, state->threshold,
+					state->sample_count, suppressed);
 			}
 			state->next_time = current_time + state->threshold * 1e9 / state->rate;
 		}

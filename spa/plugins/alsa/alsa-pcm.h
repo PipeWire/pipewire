@@ -112,7 +112,9 @@ struct state {
 	struct spa_param_info params[N_NODE_PARAMS];
 	struct props props;
 
-	bool opened;
+	unsigned int opened:1;
+	unsigned int prepared:1;
+	unsigned int started:1;
 	snd_pcm_t *hndl;
 
 	bool have_format;
@@ -170,7 +172,6 @@ struct state {
 
 	size_t ready_offset;
 
-	bool started;
 	/* Either a single source for tsched, or a set of pollfds from ALSA */
 	struct spa_source source[MAX_POLL];
 	int timerfd;
@@ -241,6 +242,7 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info);
 int spa_alsa_clear(struct state *state);
 
 int spa_alsa_open(struct state *state, const char *params);
+int spa_alsa_prepare(struct state *state);
 int spa_alsa_start(struct state *state);
 int spa_alsa_reassign_follower(struct state *state);
 int spa_alsa_pause(struct state *state);

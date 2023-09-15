@@ -1979,14 +1979,10 @@ recover:
 				state->name, snd_strerror(res));
 		return res;
 	}
-	spa_dll_init(&state->dll);
-	state->alsa_recovering = true;
-	state->alsa_started = false;
 
-	if (state->stream == SND_PCM_STREAM_PLAYBACK)
-		spa_alsa_silence(state, state->start_delay + state->threshold + state->headroom);
+	spa_alsa_prepare(state);
 
-	return do_start(state);
+	return spa_alsa_start(state);
 }
 
 static inline snd_pcm_sframes_t alsa_avail(struct state *state)
@@ -2236,13 +2232,16 @@ static inline int check_position_config(struct state *state)
 		target_duration = state->position->clock.target_duration;
 		target_rate = state->position->clock.target_rate;
 	}
+	if (target_duration == 0 || target_rate.denom == 0)
+		return -EIO;
 
 	if (SPA_UNLIKELY((state->duration != target_duration) ||
 	    (state->rate_denom != target_rate.denom))) {
+		spa_log_debug(state->log, "%p: follower:%d duration:%u->%"PRIu64" rate;%d->%d",
+				state, state->following, state->duration, target_duration,
+				state->rate_denom, target_rate.denom);
 		state->duration = target_duration;
 		state->rate_denom = target_rate.denom;
-		if (state->rate_denom == 0 || state->duration == 0)
-			return -EIO;
 		state->threshold = SPA_SCALE32_UP(state->duration, state->rate, state->rate_denom);
 		state->max_error = SPA_MAX(256.0f, state->threshold / 2.0f);
 		state->max_resync = SPA_MIN(state->threshold, state->max_error);
@@ -2866,26 +2865,23 @@ static int do_setup_sources(struct spa_loop *loop,
 	return 0;
 }
 
-int spa_alsa_start(struct state *state)
+int spa_alsa_prepare(struct state *state)
 {
 	int err;
 
-	if (state->started)
-		return 0;
+	spa_alsa_pause(state);
 
-	state->following = is_following(state);
+	if (state->prepared)
+		return 0;
 
 	if (check_position_config(state) < 0) {
 		spa_log_error(state->log, "%s: invalid position config", state->name);
 		return -EIO;
 	}
 
-	setup_matching(state);
-
-	spa_dll_init(&state->dll);
 	state->last_threshold = state->threshold;
 
-	spa_log_debug(state->log, "%p: start %d duration:%d rate:%d follower:%d match:%d resample:%d",
+	spa_log_debug(state->log, "%p: start threshold:%d duration:%d rate:%d follower:%d match:%d resample:%d",
 			state, state->threshold, state->duration, state->rate_denom,
 			state->following, state->matching, state->resample);
 
@@ -2896,6 +2892,28 @@ int spa_alsa_start(struct state *state)
 				state->name, snd_strerror(err));
 		return err;
 	}
+	if (state->stream == SND_PCM_STREAM_PLAYBACK)
+		spa_alsa_silence(state, state->start_delay + state->threshold + state->headroom);
+
+	reset_buffers(state);
+	state->alsa_sync = true;
+	state->alsa_sync_warning = false;
+	state->alsa_recovering = false;
+	state->alsa_started = false;
+
+	state->prepared = true;
+
+	return 0;
+}
+
+int spa_alsa_start(struct state *state)
+{
+	int err;
+
+	if (state->started)
+		return 0;
+
+	spa_alsa_prepare(state);
 
 	if (!state->disable_tsched) {
 		/* Timer-based scheduling */
@@ -2936,16 +2954,9 @@ int spa_alsa_start(struct state *state)
 		}
 	}
 
-	reset_buffers(state);
-	state->alsa_sync = true;
-	state->alsa_sync_warning = false;
-	state->alsa_recovering = false;
-	state->alsa_started = false;
-
 	/* start capture now, playback will start after first write. Without tsched, we start
 	 * right away so that the fds become active in poll right away. */
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
-		spa_alsa_silence(state, state->start_delay + state->threshold + state->headroom);
 		if (state->disable_tsched)
 			do_start(state);
 	}
@@ -3026,6 +3037,7 @@ int spa_alsa_pause(struct state *state)
 				snd_strerror(err));
 
 	state->started = false;
+	state->prepared = false;
 
 	return 0;
 }

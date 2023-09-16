@@ -1864,7 +1864,7 @@ static int set_timeout(struct state *state, uint64_t time)
 	return 0;
 }
 
-int spa_alsa_silence(struct state *state, snd_pcm_uframes_t silence)
+static int spa_alsa_silence(struct state *state, snd_pcm_uframes_t silence)
 {
 	snd_pcm_t *hndl = state->hndl;
 	const snd_pcm_channel_area_t *my_areas;

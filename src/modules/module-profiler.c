@@ -269,7 +269,7 @@ done:
 	n->count++;
 }
 
-static struct pw_impl_node_rt_events node_rt_events = {
+static const struct pw_impl_node_rt_events node_rt_events = {
 	PW_VERSION_IMPL_NODE_RT_EVENTS,
 	.complete = context_do_profile,
 	.incomplete = context_do_profile,

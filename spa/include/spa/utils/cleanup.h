@@ -35,8 +35,9 @@ static inline void _spa_autoptr_cleanup_func_ ## name (__typeof__(type) **thing)
 
 #define spa_exchange(var, new_value) \
 __extension__ ({ \
-	__typeof__(var) _old_value = (var); \
-	(var) = (new_value); \
+	__typeof__(var) *_ptr = &(var); \
+	__typeof__(var) _old_value = *_ptr; \
+	*_ptr = (new_value); \
 	_old_value; \
 })
 

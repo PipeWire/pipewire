@@ -44,7 +44,7 @@ __extension__ ({ \
 #if __GNUC__ >= 10 || defined(__clang__)
 #define spa_steal_ptr(ptr) ((__typeof__(*(ptr)) *) spa_exchange((ptr), NULL))
 #else
-#define spa_steal_ptr(ptr) ((__typeof__(ptr)) spa_exchange((ptr), NULL))
+#define spa_steal_ptr(ptr) spa_exchange((ptr), NULL)
 #endif
 
 #define spa_steal_fd(fd) spa_exchange((fd), -1)

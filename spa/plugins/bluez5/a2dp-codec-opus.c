@@ -443,7 +443,7 @@ static int set_channel_conf(const struct media_codec *codec, a2dp_opus_05_t *cap
 		OPUS_05_SET_LOCATION(caps->bidi, props->bidi_location);
 		break;
 	default:
-		spa_assert(false);
+		spa_assert_not_reached();
 	};
 
 	return 0;

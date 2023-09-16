@@ -848,7 +848,7 @@ static int parse_device(struct impl *this)
 		switch (value_index) {
 		case 0: value_label = "card"; break;
 		case 1: value_label = "device"; break;
-		default: assert(false);
+		default: spa_assert_not_reached();
 		}
 
 		errno = 0;

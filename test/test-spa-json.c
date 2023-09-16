@@ -166,7 +166,7 @@ PWTEST(json_encode)
 	return PWTEST_PASS;
 }
 
-static void test_array(char *str, char **vals)
+static void test_array(const char *str, const char * const vals[])
 {
 	struct spa_json it[2];
 	char val[256];
@@ -183,12 +183,12 @@ static void test_array(char *str, char **vals)
 
 PWTEST(json_array)
 {
-	test_array("FL,FR", (char *[]){ "FL", "FR", NULL });
-	test_array(" FL , FR ", (char *[]){ "FL", "FR", NULL });
-	test_array("[ FL , FR ]", (char *[]){ "FL", "FR", NULL });
-	test_array("[FL FR]", (char *[]){ "FL", "FR", NULL });
-	test_array("FL FR", (char *[]){ "FL", "FR", NULL });
-	test_array("[ FL FR ]", (char *[]){ "FL", "FR", NULL });
+	test_array("FL,FR", (const char *[]){ "FL", "FR", NULL });
+	test_array(" FL , FR ", (const char *[]){ "FL", "FR", NULL });
+	test_array("[ FL , FR ]", (const char *[]){ "FL", "FR", NULL });
+	test_array("[FL FR]", (const char *[]){ "FL", "FR", NULL });
+	test_array("FL FR", (const char *[]){ "FL", "FR", NULL });
+	test_array("[ FL FR ]", (const char *[]){ "FL", "FR", NULL });
 
 	return PWTEST_PASS;
 }

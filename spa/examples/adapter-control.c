@@ -906,9 +906,9 @@ static void run_async_sink(struct data *data)
 		printf("got error %d\n", res);
 }
 
-static char *getscale(uint32_t scale)
+static const char *getscale(uint32_t scale)
 {
-	char *scale_s = NULL;
+	const char *scale_s = NULL;
 
 	if (scale == SPA_AUDIO_VOLUME_RAMP_LINEAR)
 		scale_s = LINEAR;

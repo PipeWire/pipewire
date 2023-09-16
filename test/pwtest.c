@@ -1207,7 +1207,7 @@ static char* make_xdg_runtime_dir(void)
 	time_t t = time(NULL);
 	struct tm *tm = localtime(&t);
 	char *dir;
-	char *tmpdir = getenv("TMPDIR");
+	const char *tmpdir = getenv("TMPDIR");
 	char path[PATH_MAX];
 	FILE *fp;
 

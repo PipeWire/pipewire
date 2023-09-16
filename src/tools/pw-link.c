@@ -197,7 +197,9 @@ static char *port_alias(char *buffer, int size, struct object *n, struct object 
 static void print_port(struct data *data, const char *prefix, struct object *n,
 		struct object *p, bool verbose)
 {
-	char buffer[1024], id[64] = "", *prefix2 = "";
+	char buffer[1024], id[64] = "";
+	const char *prefix2 = "";
+
 	if (data->opt_id) {
 		snprintf(id, sizeof(id), "%4d ", p->id);
 		prefix2 = "     ";

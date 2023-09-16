@@ -2399,7 +2399,7 @@ static int register_profile(struct impl *backend, const char *profile, const cha
 	DBusMessageIter it[4];
 	dbus_bool_t autoconnect;
 	dbus_uint16_t version, chan, features;
-	char *str;
+	const char *str;
 
 	if (!(backend->enabled_profiles & spa_bt_profile_from_uuid(uuid)))
 		return -ECANCELED;

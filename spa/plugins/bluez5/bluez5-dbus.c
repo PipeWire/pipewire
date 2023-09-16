@@ -1435,7 +1435,7 @@ static bool device_remove_device_set(struct spa_bt_device *device, const char *p
 int spa_bt_format_vendor_product_id(uint16_t source_id, uint16_t vendor_id, uint16_t product_id,
 		char *vendor_str, int vendor_str_size, char *product_str, int product_str_size)
 {
-	char *source_str;
+	const char *source_str;
 
 	switch (source_id) {
 	case SOURCE_ID_USB:

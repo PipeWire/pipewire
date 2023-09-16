@@ -843,7 +843,7 @@ static int parse_device(struct impl *this)
 
 	nextptr = device + 3;
 	for (value_index = 0; ; ++value_index) {
-		char *value_label;
+		const char *value_label;
 
 		switch (value_index) {
 		case 0: value_label = "card"; break;

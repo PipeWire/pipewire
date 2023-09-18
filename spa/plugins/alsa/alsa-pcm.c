@@ -2823,71 +2823,46 @@ static void reset_buffers(struct state *this)
 	}
 }
 
-static void clear_period_sources(struct state *state) {
-	/* This check is to make sure we've actually added the sources
-	 * previously */
-	if (state->source[0].data) {
-		for (int i = 0; i < state->n_fds; i++) {
+static void remove_sources(struct state *state)
+{
+	int i;
+	if (state->sources_added) {
+		for (i = 0; i < state->n_fds; i++)
 			spa_loop_remove_source(state->data_loop, &state->source[i]);
-			state->source[i].func = NULL;
-			state->source[i].data = NULL;
-			state->source[i].fd = -1;
-			state->source[i].mask = 0;
-			state->source[i].rmask = 0;
-		}
+		state->sources_added = false;
 	}
 }
 
-static int do_setup_sources(struct spa_loop *loop,
-			    bool async,
-			    uint32_t seq,
-			    const void *data,
-			    size_t size,
-			    void *user_data)
+static void add_sources(struct state *state)
+{
+	int i;
+	if (!state->sources_added) {
+		for (i = 0; i < state->n_fds; i++)
+			spa_loop_add_source(state->data_loop, &state->source[i]);
+		state->sources_added = true;
+ 	}
+}
+
+static int do_state_sync(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
 {
 	struct state *state = user_data;
 
-	spa_dll_init(&state->dll);
-	state->next_time = get_time_ns(state);
+	if (state->started) {
+		state->next_time = get_time_ns(state);
 
-	if (!state->disable_tsched) {
-		/* timers */
-		spa_loop_add_source(state->data_loop, &state->source[0]);
-		if (state->following)
-			set_timeout(state, 0);
-		else
-			set_timeout(state, state->next_time);
-	} else {
 		if (state->following) {
-			clear_period_sources(state);
+			remove_sources(state);
+			set_timeout(state, 0);
 		} else {
-			for (int i = 0; i < state->n_fds; i++) {
-				state->source[i].func = alsa_wakeup_event;
-				state->source[i].data = state;
-				state->source[i].fd = state->pfds[i].fd;
-				state->source[i].mask = state->pfds[i].events;
-				state->source[i].rmask = 0;
-				spa_loop_add_source(state->data_loop, &state->source[i]);
-			}
+			add_sources(state);
+			if (!state->disable_tsched)
+				set_timeout(state, state->next_time);
 		}
-	}
-	return 0;
-}
-
-static int do_remove_source(struct spa_loop *loop,
-			    bool async,
-			    uint32_t seq,
-			    const void *data,
-			    size_t size,
-			    void *user_data)
-{
-	struct state *state = user_data;
-
-	if (!state->disable_tsched) {
-		spa_loop_remove_source(state->data_loop, &state->source[0]);
-		set_timeout(state, 0);
 	} else {
-		clear_period_sources(state);
+		if (!state->disable_tsched)
+			set_timeout(state, 0);
+		remove_sources(state);
 	}
 	return 0;
 }
@@ -2953,6 +2928,7 @@ int spa_alsa_start(struct state *state)
 		state->source[0].fd = state->timerfd;
 		state->source[0].mask = SPA_IO_IN;
 		state->source[0].rmask = 0;
+		state->n_fds = 1;
 	} else {
 		/* ALSA period-based scheduling */
 		err = snd_pcm_poll_descriptors_count(state->hndl);
@@ -2976,10 +2952,10 @@ int spa_alsa_start(struct state *state)
 		/* We only add the source to the data loop if we're driving.
 		 * This is done in setup_sources() */
 		for (int i = 0; i < state->n_fds; i++) {
-			state->source[i].func = NULL;
-			state->source[i].data = NULL;
-			state->source[i].fd = -1;
-			state->source[i].mask = 0;
+			state->source[i].func = alsa_wakeup_event;
+			state->source[i].data = state;
+			state->source[i].fd = state->pfds[i].fd;
+			state->source[i].mask = state->pfds[i].events;
 			state->source[i].rmask = 0;
 		}
 	}
@@ -2991,7 +2967,8 @@ int spa_alsa_start(struct state *state)
 			return err;
 	}
 
-	spa_loop_invoke(state->data_loop, do_setup_sources, 0, NULL, 0, true, state);
+	state->started = true;
+	spa_loop_invoke(state->data_loop, do_state_sync, 0, NULL, 0, true, state);
 
 	/* playback will start after first write. Without tsched, we start
 	 * right away so that the fds become active in poll right away. */
@@ -3000,8 +2977,6 @@ int spa_alsa_start(struct state *state)
 			if ((err = do_start(state)) < 0)
 				return err;
 	}
-	state->started = true;
-
 	return 0;
 }
 
@@ -3019,9 +2994,9 @@ int spa_alsa_reassign_follower(struct state *state)
 		spa_log_debug(state->log, "%p: reassign follower %d->%d", state, state->following, following);
 		state->following = following;
 		setup_matching(state);
-		if (state->started)
-			spa_loop_invoke(state->data_loop, do_setup_sources, 0, NULL, 0, true, state);
 	}
+	if (state->started)
+		spa_loop_invoke(state->data_loop, do_state_sync, 0, NULL, 0, true, state);
 
 	freewheel = pos != NULL && SPA_FLAG_IS_SET(pos->clock.flags, SPA_IO_CLOCK_FLAG_FREEWHEEL);
 
@@ -3048,13 +3023,13 @@ int spa_alsa_pause(struct state *state)
 
 	spa_log_debug(state->log, "%p: pause", state);
 
-	spa_loop_invoke(state->data_loop, do_remove_source, 0, NULL, 0, true, state);
+	state->started = false;
+	spa_loop_invoke(state->data_loop, do_state_sync, 0, NULL, 0, true, state);
 
 	if ((err = snd_pcm_drop(state->hndl)) < 0)
 		spa_log_error(state->log, "%s: snd_pcm_drop %s", state->name,
 				snd_strerror(err));
 
-	state->started = false;
 	state->prepared = false;
 
 	return 0;

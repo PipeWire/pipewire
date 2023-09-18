@@ -203,6 +203,7 @@ struct state {
 	unsigned int multi_rate:1;
 	unsigned int htimestamp:1;
 	unsigned int is_pro:1;
+	unsigned int sources_added:1;
 
 	uint64_t iec958_codecs;
 

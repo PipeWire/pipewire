@@ -225,6 +225,8 @@ struct state {
 	snd_ctl_t *ctl;
 	snd_ctl_elem_value_t *pitch_elem;
 	double last_rate;
+
+	struct spa_list link;
 };
 
 struct spa_pod *spa_alsa_enum_propinfo(struct state *state,

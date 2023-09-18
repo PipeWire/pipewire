@@ -17,6 +17,7 @@
 #include "alsa-pcm.h"
 
 static struct spa_list cards = SPA_LIST_INIT(&cards);
+static struct spa_list states = SPA_LIST_INIT(&states);
 
 static struct card *find_card(uint32_t index)
 {
@@ -501,6 +502,8 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 	int err;
 	const char *str;
 
+	spa_list_append(&states, &state->link);
+
 	snd_config_update_free_global();
 
 	if ((str = spa_dict_lookup(info, "device.profile.pro")) != NULL)
@@ -557,6 +560,7 @@ int spa_alsa_clear(struct state *state)
 {
 	int err;
 
+	spa_list_remove(&state->link);
 	release_card(state->card);
 
 	state->card = NULL;

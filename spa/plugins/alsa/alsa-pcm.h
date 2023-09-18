@@ -82,6 +82,15 @@ struct card {
 	uint32_t rate;
 };
 
+struct rt_state {
+	struct spa_list followers;
+	struct state *driver;
+	struct spa_list driver_link;
+
+	unsigned int sources_added:1;
+	unsigned int following:1;
+};
+
 struct state {
 	struct spa_handle handle;
 	struct spa_node node;
@@ -130,9 +139,9 @@ struct state {
 	uint32_t allowed_rates[MAX_RATES];
 	uint32_t n_allowed_rates;
 	struct channel_map default_pos;
-	unsigned int disable_mmap;
-	unsigned int disable_batch;
-	unsigned int disable_tsched;
+	unsigned int disable_mmap:1;
+	unsigned int disable_batch:1;
+	unsigned int disable_tsched:1;
 	char clock_name[64];
 	uint32_t quantum_limit;
 
@@ -228,6 +237,12 @@ struct state {
 	double last_rate;
 
 	struct spa_list link;
+
+	struct spa_list followers;
+	struct state *driver;
+	struct spa_list driver_link;
+
+	struct rt_state rt;
 };
 
 struct spa_pod *spa_alsa_enum_propinfo(struct state *state,

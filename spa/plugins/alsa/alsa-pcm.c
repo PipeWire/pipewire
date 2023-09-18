@@ -502,7 +502,8 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 	int err;
 	const char *str;
 
-	spa_list_append(&states, &state->link);
+	spa_list_init(&state->followers);
+	spa_list_init(&state->rt.followers);
 
 	snd_config_update_free_global();
 
@@ -549,6 +550,8 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 		return -errno;
 	}
 	CHECK(snd_output_stdio_attach(&state->output, state->log_file, 0), "attach failed");
+
+	spa_list_append(&states, &state->link);
 
 	state->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
 	state->rate_limit.burst = 1;
@@ -2206,7 +2209,7 @@ static int setup_matching(struct state *state)
 
 static void update_sources(struct state *state, bool active)
 {
-	if (state->disable_tsched && state->source[0].data != NULL) {
+	if (state->disable_tsched && state->rt.sources_added) {
 		for (int i = 0; i < state->n_fds; i++) {
 			state->source[i].mask = active ? state->pfds[i].events : 0;
 			spa_loop_update_source(state->data_loop, &state->source[i]);
@@ -2419,7 +2422,7 @@ again:
 int spa_alsa_write(struct state *state)
 {
 	int res = 0;
-	if (state->following) {
+	if (state->following && state->rt.driver == NULL) {
 		uint64_t current_time = state->position->clock.nsec;
 		if ((res = alsa_write_sync(state, current_time)) < 0)
 			return res;
@@ -2627,7 +2630,7 @@ static int alsa_read_frames(struct state *state)
 int spa_alsa_read(struct state *state)
 {
 	int res;
-	if (state->following) {
+	if (state->following && state->rt.driver == NULL) {
 		uint64_t current_time = state->position->clock.nsec;
 		if ((res = alsa_read_sync(state, current_time)) < 0)
 			return res;
@@ -2723,7 +2726,7 @@ static uint64_t get_time_ns(struct state *state)
 
 static void alsa_wakeup_event(struct spa_source *source)
 {
-	struct state *state = source->data;
+	struct state *state = source->data, *follower;
 	uint64_t expire, current_time;
 	int res, suppressed;
 
@@ -2776,8 +2779,18 @@ static void alsa_wakeup_event(struct spa_source *source)
 	if (SPA_UNLIKELY(res == -EAGAIN))
 		goto done;
 
-	/* then read all sources, the sinks will be written to when the
-	 * graph completes. */
+	spa_list_for_each(follower, &state->rt.followers, rt.driver_link) {
+		if (follower == state)
+			continue;
+		if (follower->stream == SND_PCM_STREAM_CAPTURE)
+			alsa_read_sync(follower, current_time);
+		else
+			alsa_write_sync(follower, current_time);
+	}
+
+	/* then read this source, the sinks will be written to when the
+	 * graph completes. We can't read other follower sources yet because
+	 * the resampler first needs to run. */
 	if (state->stream == SND_PCM_STREAM_CAPTURE)
 		alsa_read_frames(state);
 
@@ -2826,31 +2839,42 @@ static void reset_buffers(struct state *this)
 static void remove_sources(struct state *state)
 {
 	int i;
-	if (state->sources_added) {
+	if (state->rt.sources_added) {
 		for (i = 0; i < state->n_fds; i++)
 			spa_loop_remove_source(state->data_loop, &state->source[i]);
-		state->sources_added = false;
+		state->rt.sources_added = false;
 	}
 }
 
 static void add_sources(struct state *state)
 {
 	int i;
-	if (!state->sources_added) {
+	if (!state->rt.sources_added) {
 		for (i = 0; i < state->n_fds; i++)
 			spa_loop_add_source(state->data_loop, &state->source[i]);
-		state->sources_added = true;
- 	}
+		state->rt.sources_added = true;
+	}
 }
 
 static int do_state_sync(struct spa_loop *loop, bool async, uint32_t seq,
 		const void *data, size_t size, void *user_data)
 {
 	struct state *state = user_data;
+	struct rt_state *rt = &state->rt;
 
 	if (state->started) {
 		state->next_time = get_time_ns(state);
 
+		if (rt->driver != state->driver) {
+			spa_dll_init(&state->dll);
+
+			if (rt->driver != NULL)
+				spa_list_remove(&rt->driver_link);
+			if (state->driver != NULL)
+				spa_list_append(&state->driver->rt.followers, &rt->driver_link);
+			rt->driver = state->driver;
+			spa_log_debug(state->log, "state:%p -> driver:%p", state, state->driver);
+		}
 		if (state->following) {
 			remove_sources(state);
 			set_timeout(state, 0);
@@ -2860,6 +2884,10 @@ static int do_state_sync(struct spa_loop *loop, bool async, uint32_t seq,
 				set_timeout(state, state->next_time);
 		}
 	} else {
+		if (rt->driver) {
+			spa_list_remove(&rt->driver_link);
+			rt->driver = NULL;
+		}
 		if (!state->disable_tsched)
 			set_timeout(state, 0);
 		remove_sources(state);
@@ -2980,16 +3008,38 @@ int spa_alsa_start(struct state *state)
 	return 0;
 }
 
+static struct state *find_state(uint32_t id)
+{
+	struct state *state;
+	spa_list_for_each(state, &states, link) {
+		if (state->clock != NULL && state->clock->id == id)
+			return state;
+	}
+	return NULL;
+}
+
 int spa_alsa_reassign_follower(struct state *state)
 {
 	bool following, freewheel;
 	struct spa_io_position *pos = state->position;
 	struct spa_io_clock *clock = state->clock;
+	struct state *driver;
 
 	if (clock != NULL)
 		spa_scnprintf(clock->name, sizeof(clock->name), "%s", state->clock_name);
 
 	following = pos && clock && pos->clock.id != clock->id;
+
+	driver = pos != NULL ? find_state(pos->clock.id) : NULL;
+
+	if (driver != state->driver) {
+		spa_log_debug(state->log, "%p: reassign driver %p->%p", state, state->driver, driver);
+		if (state->driver != NULL)
+			spa_list_remove(&state->driver_link);
+		if (driver)
+			spa_list_append(&driver->followers, &state->driver_link);
+		state->driver = driver;
+	}
 	if (following != state->following) {
 		spa_log_debug(state->log, "%p: reassign follower %d->%d", state, state->following, following);
 		state->following = following;

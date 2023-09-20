@@ -1706,7 +1706,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	else
 		state->frame_size *= rchannels;
 
-	/* make sure we updates threshold in check_position_config() because they depend
+	/* make sure we update threshold in check_position_config() because they depend
 	 * on the samplerate. */
 	state->driver_duration = 0;
 	state->driver_rate.denom = 0;
@@ -1959,11 +1959,76 @@ static int spa_alsa_silence(struct state *state, snd_pcm_uframes_t silence)
 	return 0;
 }
 
+static void reset_buffers(struct state *this)
+{
+	uint32_t i;
+
+	spa_list_init(&this->free);
+	spa_list_init(&this->ready);
+
+	for (i = 0; i < this->n_buffers; i++) {
+		struct buffer *b = &this->buffers[i];
+		if (this->stream == SND_PCM_STREAM_PLAYBACK) {
+			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
+			spa_node_call_reuse_buffer(&this->callbacks, 0, b->id);
+		} else {
+			spa_list_append(&this->free, &b->link);
+			SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
+		}
+	}
+}
+
+
+static int do_prepare(struct state *state)
+{
+	int err;
+
+	state->last_threshold = state->threshold;
+
+	spa_log_debug(state->log, "%p: start threshold:%d duration:%d rate:%d follower:%d match:%d resample:%d",
+			state, state->threshold, state->driver_duration, state->driver_rate.denom,
+			state->following, state->matching, state->resample);
+
+	CHECK(set_swparams(state), "swparams");
+
+	if ((err = snd_pcm_prepare(state->hndl)) < 0 && err != -EBUSY) {
+		spa_log_error(state->log, "%s: snd_pcm_prepare error: %s",
+				state->name, snd_strerror(err));
+		return err;
+	}
+	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
+		snd_pcm_uframes_t silence = state->start_delay + state->threshold + state->headroom;
+		if (state->disable_tsched)
+			silence += state->threshold;
+		spa_alsa_silence(state, silence);
+	}
+
+	reset_buffers(state);
+	state->alsa_sync = true;
+	state->alsa_sync_warning = false;
+	state->alsa_recovering = false;
+	state->alsa_started = false;
+
+	return 0;
+}
+
+static inline int do_drop(struct state *state)
+{
+	int res;
+	spa_log_debug(state->log, "%p: snd_pcm_drop %u", state, state->linked);
+	if (!state->linked && (res = snd_pcm_drop(state->hndl)) < 0) {
+		spa_log_error(state->log, "%s: snd_pcm_drop: %s",
+				state->name, snd_strerror(res));
+		return res;
+	}
+	return 0;
+}
+
 static inline int do_start(struct state *state)
 {
 	int res;
 	if (SPA_UNLIKELY(!state->alsa_started)) {
-		spa_log_trace(state->log, "%p: snd_pcm_start %u", state, state->linked);
+		spa_log_debug(state->log, "%p: snd_pcm_start %u", state, state->linked);
 		if (!state->linked && (res = snd_pcm_start(state->hndl)) < 0) {
 			spa_log_error(state->log, "%s: snd_pcm_start: %s",
 					state->name, snd_strerror(res));
@@ -1974,10 +2039,13 @@ static inline int do_start(struct state *state)
 	return 0;
 }
 
+static inline int check_position_config(struct state *state);
+
 static int alsa_recover(struct state *state, int err)
 {
 	int res, st;
 	snd_pcm_status_t *status;
+	struct state *driver, *follower;
 
 	snd_pcm_status_alloca(&status);
 	if (SPA_UNLIKELY((res = snd_pcm_status(state->hndl, status)) < 0)) {
@@ -2032,13 +2100,29 @@ recover:
 				state->name, snd_strerror(res));
 		return res;
 	}
-	if (state->driver && state->linked) {
-		spa_alsa_prepare(state->driver);
-		res = spa_alsa_start(state->driver);
-	} else {
-		spa_alsa_prepare(state);
-		res = spa_alsa_start(state);
+	if (state->driver && state->linked)
+		driver = state->driver;
+	else
+		driver = state;
+
+	do_drop(driver);
+	spa_list_for_each(follower, &driver->rt.followers, rt.driver_link) {
+		if (follower != driver && follower->linked) {
+			do_drop(follower);
+			check_position_config(follower);
+		}
 	}
+	do_prepare(driver);
+	spa_list_for_each(follower, &driver->rt.followers, rt.driver_link) {
+		if (follower != driver && follower->linked)
+			do_prepare(follower);
+	}
+	do_start(driver);
+	spa_list_for_each(follower, &driver->rt.followers, rt.driver_link) {
+		if (follower != driver && follower->linked)
+			do_start(follower);
+	}
+
 	return res;
 }
 
@@ -2293,6 +2377,7 @@ static inline int check_position_config(struct state *state)
 		spa_log_info(state->log, "%p: follower:%d duration:%u->%"PRIu64" rate:%d->%d",
 				state, state->following, state->driver_duration, target_duration,
 				state->driver_rate.denom, target_rate.denom);
+
 		state->driver_duration = target_duration;
 		state->driver_rate = target_rate;
 		state->threshold = SPA_SCALE32_UP(state->driver_duration, state->rate, state->driver_rate.denom);
@@ -2866,25 +2951,6 @@ done:
 	}
 }
 
-static void reset_buffers(struct state *this)
-{
-	uint32_t i;
-
-	spa_list_init(&this->free);
-	spa_list_init(&this->ready);
-
-	for (i = 0; i < this->n_buffers; i++) {
-		struct buffer *b = &this->buffers[i];
-		if (this->stream == SND_PCM_STREAM_PLAYBACK) {
-			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
-			spa_node_call_reuse_buffer(&this->callbacks, 0, b->id);
-		} else {
-			spa_list_append(&this->free, &b->link);
-			SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
-		}
-	}
-}
-
 static void remove_sources(struct state *state)
 {
 	int i;
@@ -2958,32 +3024,8 @@ int spa_alsa_prepare(struct state *state)
 		spa_log_error(state->log, "%s: invalid position config", state->name);
 		return -EIO;
 	}
-
-	state->last_threshold = state->threshold;
-
-	spa_log_debug(state->log, "%p: start threshold:%d duration:%d rate:%d follower:%d match:%d resample:%d",
-			state, state->threshold, state->driver_duration, state->driver_rate.denom,
-			state->following, state->matching, state->resample);
-
-	CHECK(set_swparams(state), "swparams");
-
-	if ((err = snd_pcm_prepare(state->hndl)) < 0 && err != -EBUSY) {
-		spa_log_error(state->log, "%s: snd_pcm_prepare error: %s",
-				state->name, snd_strerror(err));
+	if ((err = do_prepare(state)) < 0)
 		return err;
-	}
-	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
-		snd_pcm_uframes_t silence = state->start_delay + state->threshold + state->headroom;
-		if (state->disable_tsched)
-			silence += state->threshold;
-		spa_alsa_silence(state, silence);
-	}
-
-	reset_buffers(state);
-	state->alsa_sync = true;
-	state->alsa_sync_warning = false;
-	state->alsa_recovering = false;
-	state->alsa_started = false;
 
 	spa_list_for_each(follower, &state->followers, driver_link) {
 		if (follower != state && !follower->matching) {
@@ -3129,7 +3171,6 @@ int spa_alsa_reassign_follower(struct state *state)
 
 int spa_alsa_pause(struct state *state)
 {
-	int err;
 	struct state *follower;
 
 	if (!state->started)
@@ -3143,9 +3184,7 @@ int spa_alsa_pause(struct state *state)
 	spa_list_for_each(follower, &state->followers, driver_link)
 		spa_alsa_pause(follower);
 
-	if (!state->linked && (err = snd_pcm_drop(state->hndl)) < 0)
-		spa_log_error(state->log, "%s: snd_pcm_drop %s", state->name,
-				snd_strerror(err));
+	do_drop(state);
 
 	state->prepared = false;
 

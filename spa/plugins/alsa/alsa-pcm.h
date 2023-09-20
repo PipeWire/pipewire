@@ -153,7 +153,6 @@ struct state {
 	size_t frame_size;
 	size_t frame_scale;
 	int blocks;
-	uint32_t rate_denom;
 	uint32_t delay;
 	uint32_t read_size;
 	uint32_t max_read;
@@ -195,7 +194,9 @@ struct state {
 	uint32_t max_delay;
 	uint32_t htimestamp_error;
 
-	uint32_t duration;
+	struct spa_fraction driver_rate;
+	uint32_t driver_duration;
+
 	unsigned int alsa_started:1;
 	unsigned int alsa_sync:1;
 	unsigned int alsa_sync_warning:1;

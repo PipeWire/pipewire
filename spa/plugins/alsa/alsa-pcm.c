@@ -1708,8 +1708,8 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 
 	/* make sure we updates threshold in check_position_config() because they depend
 	 * on the samplerate. */
-	state->duration = 0;
-	state->rate_denom = 0;
+	state->driver_duration = 0;
+	state->driver_rate.denom = 0;
 
 	state->have_format = true;
 	if (state->card->format_ref++ == 0)
@@ -2220,9 +2220,9 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 
 	if (SPA_LIKELY(!follower && state->clock)) {
 		state->clock->nsec = current_time;
-		state->clock->rate = state->clock->target_rate;
+		state->clock->rate = state->driver_rate;
 		state->clock->position += state->clock->duration;
-		state->clock->duration = state->duration;
+		state->clock->duration = state->driver_duration;
 		state->clock->delay = delay + state->delay;
 		state->clock->rate_diff = corr;
 		state->clock->next_nsec = state->next_time;
@@ -2248,10 +2248,10 @@ static int setup_matching(struct state *state)
 	if (spa_streq(state->position->clock.name, state->clock_name))
 		state->matching = false;
 
-	state->resample = !state->pitch_elem && (((uint32_t)state->rate != state->rate_denom) || state->matching);
+	state->resample = !state->pitch_elem && (((uint32_t)state->rate != state->driver_rate.denom) || state->matching);
 
 	spa_log_info(state->log, "driver clock:'%s'@%d our clock:'%s'@%d matching:%d resample:%d",
-			state->position->clock.name, state->rate_denom,
+			state->position->clock.name, state->driver_rate.denom,
 			state->clock_name, state->rate,
 			state->matching, state->resample);
 	return 0;
@@ -2271,33 +2271,34 @@ static inline int check_position_config(struct state *state)
 {
 	uint64_t target_duration;
 	struct spa_fraction target_rate;
+	struct spa_io_position *pos;
 
-	if (SPA_UNLIKELY(state->position == NULL))
+	if (SPA_UNLIKELY((pos = state->position) == NULL))
 		return 0;
 
 	if (state->disable_tsched && state->started && !state->following) {
 		target_duration = state->period_frames;
 		target_rate = SPA_FRACTION(1, state->rate);
-		state->position->clock.target_duration = target_duration;
-		state->position->clock.target_rate = target_rate;
+		pos->clock.target_duration = target_duration;
+		pos->clock.target_rate = target_rate;
 	} else {
-		target_duration = state->position->clock.target_duration;
-		target_rate = state->position->clock.target_rate;
+		target_duration = pos->clock.target_duration;
+		target_rate = pos->clock.target_rate;
 	}
 	if (target_duration == 0 || target_rate.denom == 0)
 		return -EIO;
 
-	if (SPA_UNLIKELY((state->duration != target_duration) ||
-	    (state->rate_denom != target_rate.denom))) {
-		spa_log_debug(state->log, "%p: follower:%d duration:%u->%"PRIu64" rate;%d->%d",
-				state, state->following, state->duration, target_duration,
-				state->rate_denom, target_rate.denom);
-		state->duration = target_duration;
-		state->rate_denom = target_rate.denom;
-		state->threshold = SPA_SCALE32_UP(state->duration, state->rate, state->rate_denom);
+	if (SPA_UNLIKELY((state->driver_duration != target_duration) ||
+	    (state->driver_rate.denom != target_rate.denom))) {
+		spa_log_info(state->log, "%p: follower:%d duration:%u->%"PRIu64" rate:%d->%d",
+				state, state->following, state->driver_duration, target_duration,
+				state->driver_rate.denom, target_rate.denom);
+		state->driver_duration = target_duration;
+		state->driver_rate = target_rate;
+		state->threshold = SPA_SCALE32_UP(state->driver_duration, state->rate, state->driver_rate.denom);
 		state->max_error = SPA_MAX(256.0f, state->threshold / 2.0f);
 		state->max_resync = SPA_MIN(state->threshold, state->max_error);
-		state->resample = ((uint32_t)state->rate != state->rate_denom) || state->matching;
+		state->resample = ((uint32_t)state->rate != state->driver_rate.denom) || state->matching;
 		state->alsa_sync = true;
 	}
 	return 0;
@@ -2961,7 +2962,7 @@ int spa_alsa_prepare(struct state *state)
 	state->last_threshold = state->threshold;
 
 	spa_log_debug(state->log, "%p: start threshold:%d duration:%d rate:%d follower:%d match:%d resample:%d",
-			state, state->threshold, state->duration, state->rate_denom,
+			state, state->threshold, state->driver_duration, state->driver_rate.denom,
 			state->following, state->matching, state->resample);
 
 	CHECK(set_swparams(state), "swparams");

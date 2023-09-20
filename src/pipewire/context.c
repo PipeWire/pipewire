@@ -1306,9 +1306,9 @@ again:
 		struct spa_fraction latency = SPA_FRACTION(0, 0);
 		struct spa_fraction max_latency = SPA_FRACTION(0, 0);
 		struct spa_fraction rate = SPA_FRACTION(0, 0);
-		uint32_t quantum, target_rate, current_rate;
+		uint32_t target_quantum, target_rate, current_rate, current_quantum;
 		uint64_t quantum_stamp = 0, rate_stamp = 0;
-		bool force_rate, force_quantum, restore_rate = false;
+		bool force_rate, force_quantum, restore_rate = false, restore_quantum = false;
 		bool do_reconfigure = false, was_target_pending;
 		const uint32_t *node_rates;
 		uint32_t node_n_rates, node_def_rate;
@@ -1387,6 +1387,12 @@ again:
 			pw_log_info("(%s-%u) restore rate", n->name, n->info.id);
 			restore_rate = true;
 		}
+		if (n->forced_quantum && !force_quantum && n->runnable) {
+			/* A node that was forced to a quantum but is no longer being
+			 * forced can restore its quantum */
+			pw_log_info("(%s-%u) restore quantum", n->name, n->info.id);
+			restore_quantum = true;
+		}
 
 		if (force_quantum)
 			lock_quantum = false;
@@ -1456,22 +1462,29 @@ again:
 				node_max_quantum = tmp;
 		}
 
-		quantum = node_def_quantum;
-		if (latency.denom != 0)
-			quantum = (latency.num * current_rate / latency.denom);
-		quantum = SPA_CLAMP(quantum, node_min_quantum, node_max_quantum);
-		quantum = SPA_MIN(quantum, lim_quantum);
+		current_quantum = n->target_quantum;
+		if (!restore_quantum &&
+		   (lock_quantum || n->reconfigure || !running ||
+		    (!force_quantum && (n->info.state > PW_NODE_STATE_IDLE))))
+			target_quantum = current_quantum;
+		else {
+			target_quantum = node_def_quantum;
+			if (latency.denom != 0)
+				target_quantum = (latency.num * current_rate / latency.denom);
+			target_quantum = SPA_CLAMP(target_quantum, node_min_quantum, node_max_quantum);
+			target_quantum = SPA_MIN(target_quantum, lim_quantum);
 
-		if (settings->clock_power_of_two_quantum)
-			quantum = flp2(quantum);
+			if (settings->clock_power_of_two_quantum)
+				target_quantum = flp2(target_quantum);
+		}
 
-		if (running && quantum != n->target_quantum && !lock_quantum) {
+		if (target_quantum != current_quantum) {
 			pw_log_info("(%s-%u) new quantum:%"PRIu64"->%u",
 					n->name, n->info.id,
 					n->target_quantum,
-					quantum);
+					target_quantum);
 			/* this is the new pending quantum */
-			n->target_quantum = quantum;
+			n->target_quantum = target_quantum;
 			n->forced_quantum = force_quantum;
 			n->target_pending = true;
 
@@ -1507,7 +1520,7 @@ again:
 		}
 
 		pw_log_debug("%p: driver %p running:%d runnable:%d quantum:%u rate:%u (%"PRIu64"/%u)'%s'",
-				context, n, running, n->runnable, quantum, target_rate,
+				context, n, running, n->runnable, target_quantum, target_rate,
 				n->rt.position->clock.target_duration,
 				n->rt.position->clock.target_rate.denom, n->name);
 

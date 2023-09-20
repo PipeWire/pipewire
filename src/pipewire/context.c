@@ -1309,6 +1309,7 @@ again:
 		uint32_t quantum, target_rate, current_rate;
 		uint64_t quantum_stamp = 0, rate_stamp = 0;
 		bool force_rate, force_quantum, restore_rate = false;
+		bool do_reconfigure = false, was_target_pending;
 		const uint32_t *node_rates;
 		uint32_t node_n_rates, node_def_rate;
 		uint32_t node_max_quantum, node_min_quantum, node_def_quantum, node_rate_quantum;
@@ -1416,8 +1417,9 @@ again:
 						rate.denom, target_rate);
 		}
 
+		was_target_pending = n->target_pending;
+
 		if (target_rate != current_rate) {
-			bool do_reconfigure = false;
 			/* we doing a rate switch */
 			pw_log_info("(%s-%u) state:%s new rate:%u/(%u)->%u",
 					n->name, n->info.id,
@@ -1427,23 +1429,17 @@ again:
 
 			if (force_rate) {
 				if (settings->clock_rate_update_mode == CLOCK_RATE_UPDATE_MODE_HARD)
-					do_reconfigure = !n->target_pending;
+					do_reconfigure |= !was_target_pending;
 			} else {
 				if (n->info.state >= PW_NODE_STATE_SUSPENDED)
-					do_reconfigure = !n->target_pending;
+					do_reconfigure |= !was_target_pending;
 			}
-			if (do_reconfigure)
-				reconfigure_driver(context, n);
-
 			/* we're setting the pending rate. This will become the new
 			 * current rate in the next iteration of the graph. */
 			n->target_rate = SPA_FRACTION(1, target_rate);
-			n->target_pending = true;
 			n->forced_rate = force_rate;
+			n->target_pending = true;
 			current_rate = target_rate;
-			/* we might be suspended now and the links need to be prepared again */
-			if (do_reconfigure)
-				goto again;
 		}
 
 		if (node_rate_quantum != 0 && current_rate != node_rate_quantum) {
@@ -1476,10 +1472,19 @@ again:
 					quantum);
 			/* this is the new pending quantum */
 			n->target_quantum = quantum;
+			n->forced_quantum = force_quantum;
 			n->target_pending = true;
+
+			if (force_quantum)
+				do_reconfigure |= !was_target_pending;
 		}
 
 		if (n->target_pending) {
+			if (do_reconfigure) {
+				reconfigure_driver(context, n);
+				/* we might be suspended now and the links need to be prepared again */
+				goto again;
+			}
 			/* we have a pending change. We place the new values in the
 			 * pending fields so that they are picked up by the driver in
 			 * the next cycle */

@@ -920,6 +920,12 @@ impl_init(const struct spa_handle_factory *factory,
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	spa_log_topic_init(this->log, log_topic);
 
+	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
+	if (this->data_loop == NULL) {
+		spa_log_error(this->log, "a data loop is needed");
+		return -EINVAL;
+	}
+
 	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 	if (this->cpu) {
 		this->cpu_flags = spa_cpu_get_flags(this->cpu);

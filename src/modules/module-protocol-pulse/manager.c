@@ -440,6 +440,10 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 			case SPA_PARAM_PropInfo:
 			case SPA_PARAM_Format:
 			case SPA_PARAM_EnumFormat:
+			/* also emit changed for the Latency param because the stream might
+			 * now be linked. FIXME, we should check if a new link is made for
+			 * a stream and only emit a changed event in that case. */
+			case SPA_PARAM_Latency:
 				changed++;
 				break;
 			default:

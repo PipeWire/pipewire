@@ -138,8 +138,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #endif
 #define MD5_HASH_LENGTH (2*MD5_DIGEST_LENGTH)
 
-#define DEFAULT_USER_AGENT	"iTunes/11.0.4 (Windows; N)"
-#define DEFAULT_USER_NAME	"iTunes"
+#define DEFAULT_USER_NAME	"PipeWire"
+#define RAOP_AUTH_USER_NAME	"iTunes"
 
 #define MAX_PORT_RETRY	128
 
@@ -901,7 +901,7 @@ static int rtsp_add_raop_auth_header(struct impl *impl, const char *method)
 	if (spa_streq(impl->auth_method, "Basic")) {
 		char buf[256];
 		char enc[512];
-		spa_scnprintf(buf, sizeof(buf), "%s:%s", DEFAULT_USER_NAME, impl->password);
+		spa_scnprintf(buf, sizeof(buf), "%s:%s", RAOP_AUTH_USER_NAME, impl->password);
 		base64_encode((uint8_t*)buf, strlen(buf), enc, '=');
 		spa_scnprintf(auth, sizeof(auth), "Basic %s", enc);
 	}
@@ -913,13 +913,13 @@ static int rtsp_add_raop_auth_header(struct impl *impl, const char *method)
 
 		url = pw_rtsp_client_get_url(impl->rtsp);
 
-		MD5_hash(h1, "%s:%s:%s", DEFAULT_USER_NAME, impl->realm, impl->password);
+		MD5_hash(h1, "%s:%s:%s", RAOP_AUTH_USER_NAME, impl->realm, impl->password);
 		MD5_hash(h2, "%s:%s", method, url);
 		MD5_hash(resp, "%s:%s:%s", h1, impl->nonce, h2);
 
 		spa_scnprintf(auth, sizeof(auth),
 				"username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\"",
-				DEFAULT_USER_NAME, impl->realm, impl->nonce, url, resp);
+				RAOP_AUTH_USER_NAME, impl->realm, impl->nonce, url, resp);
 	}
 	else
 		goto error;
@@ -1541,7 +1541,7 @@ static void rtsp_connected(void *data)
 	pw_properties_setf(impl->headers, "DACP-ID",
 			"%08X%08X", sci[0], sci[1]);
 
-	pw_properties_set(impl->headers, "User-Agent", DEFAULT_USER_AGENT);
+	pw_properties_set(impl->headers, "User-Agent", DEFAULT_USER_NAME "/" PACKAGE_VERSION);
 
 	pw_rtsp_client_send(impl->rtsp, "OPTIONS", &impl->headers->dict,
 			NULL, NULL, rtsp_options_reply, impl);

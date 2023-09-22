@@ -2745,8 +2745,15 @@ static int alsa_read_frames(struct state *state)
 		spa_log_trace_fp(state->log, "%p: commit offs:%ld read:%ld count:%"PRIi64, state,
 				offset, read, state->sample_count);
 		if ((commitres = snd_pcm_mmap_commit(hndl, offset, read)) < 0) {
-			spa_log_error(state->log, "%s: snd_pcm_mmap_commit error %lu %lu: %s",
-					state->name, frames, read, snd_strerror(commitres));
+			enum spa_log_level lev;
+
+			if (SPA_UNLIKELY(state->alsa_sync_warning))
+				lev = SPA_LOG_LEVEL_ERROR;
+			else
+				lev = SPA_LOG_LEVEL_INFO;
+
+			spa_log_lev(state->log, lev, "%s: snd_pcm_mmap_commit error %lu %lu %lu: %s",
+					state->name, frames, to_read, read, snd_strerror(commitres));
 			if (commitres != -EPIPE && commitres != -ESTRPIPE)
 				return res;
 		}

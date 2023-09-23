@@ -3,7 +3,8 @@ spa_vulkan_sources = [
   'vulkan-compute-filter.c',
   'vulkan-compute-source.c',
   'vulkan-compute-utils.c',
-  'vulkan-utils.c'
+  'vulkan-utils.c',
+  'utils.c',
 ]
 
 drm = dependency('libdrm')

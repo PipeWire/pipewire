@@ -87,8 +87,8 @@ int vulkan_commandBuffer_create(struct vulkan_base *s, VkCommandPool commandPool
 
 uint32_t vulkan_memoryType_find(struct vulkan_base *s,
 		uint32_t memoryTypeBits, VkMemoryPropertyFlags properties);
-struct vulkan_format_info *vulkan_formatInfo_find(struct vulkan_base *s, VkFormat format);
-struct vulkan_modifier_info *vulkan_modifierInfo_find(struct vulkan_base *s, VkFormat format, uint64_t modifier);
+struct vulkan_format_info *vulkan_formatInfo_find(struct vulkan_format_infos *fmtInfo, VkFormat format);
+struct vulkan_modifier_info *vulkan_modifierInfo_find(struct vulkan_format_infos *fmtInfo, VkFormat format, uint64_t modifier);
 
 void vulkan_buffer_clear(struct vulkan_base *s, struct vulkan_buffer *buffer);
 
@@ -100,5 +100,8 @@ int vulkan_vkresult_to_errno(VkResult result);
 int vulkan_wait_fence(struct vulkan_base *s, VkFence fence);
 int vulkan_wait_idle(struct vulkan_base *s);
 
+int vulkan_format_infos_init(struct vulkan_base *s, uint32_t formatCount, uint32_t *formats,
+		struct vulkan_format_infos *info);
+void vulkan_format_infos_deinit(struct vulkan_format_infos *info);
 int vulkan_base_init(struct vulkan_base *s, struct vulkan_base_info *info);
 void vulkan_base_deinit(struct vulkan_base *s);

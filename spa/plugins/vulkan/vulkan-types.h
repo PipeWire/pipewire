@@ -25,6 +25,13 @@ struct vulkan_format_info {
 	struct vulkan_modifier_info *infos;
 };
 
+struct vulkan_format_infos {
+	uint32_t formatCount;
+	struct vulkan_format_info *infos;
+
+	uint32_t formatsWithModifiersCount;
+};
+
 struct vulkan_buffer {
 	int fd;
 	VkImage image;
@@ -35,11 +42,6 @@ struct vulkan_buffer {
 
 struct vulkan_base_info {
 	uint32_t queueFlags;
-
-	struct {
-		uint32_t formatCount;
-		uint32_t *formats;
-	} formatInfo;
 };
 
 struct vulkan_base {
@@ -52,9 +54,6 @@ struct vulkan_base {
 	VkQueue queue;
 	uint32_t queueFamilyIndex;
 	VkDevice device;
-
-	uint32_t formatInfoCount;
-	struct vulkan_format_info *formatInfos;
 
 	bool implicit_sync_interop;
 

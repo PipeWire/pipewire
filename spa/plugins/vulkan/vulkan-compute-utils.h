@@ -7,6 +7,7 @@
 #include <spa/buffer/buffer.h>
 #include <spa/param/video/format.h>
 #include <spa/node/node.h>
+#include <spa/pod/builder.h>
 
 #include "vulkan-utils.h"
 
@@ -44,6 +45,8 @@ struct vulkan_compute_state {
 
 	struct vulkan_base base;
 
+	struct vulkan_format_infos formatInfos;
+
 	VkPipeline pipeline;
 	VkPipelineLayout pipelineLayout;
 	const char *shaderName;
@@ -73,9 +76,11 @@ int spa_vulkan_compute_init_stream(struct vulkan_compute_state *s, struct vulkan
 
 int spa_vulkan_compute_fixate_modifier(struct vulkan_compute_state *s, struct vulkan_stream *p, struct spa_video_info_dsp *dsp_info,
 		uint32_t modifierCount, uint64_t *modifiers, uint64_t *modifier);
-int spa_vulkan_compute_prepare(struct vulkan_compute_state *s);
 int spa_vulkan_compute_use_buffers(struct vulkan_compute_state *s, struct vulkan_stream *stream, uint32_t flags,
 		struct spa_video_info_dsp *dsp_info, uint32_t n_buffers, struct spa_buffer **buffers);
+int spa_vulkan_compute_enumerate_formats(struct vulkan_compute_state *s, uint32_t index, uint32_t caps,
+		struct spa_pod **param, struct spa_pod_builder *builder);
+int spa_vulkan_compute_prepare(struct vulkan_compute_state *s);
 int spa_vulkan_compute_unprepare(struct vulkan_compute_state *s);
 
 int spa_vulkan_compute_start(struct vulkan_compute_state *s);

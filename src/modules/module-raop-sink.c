@@ -236,6 +236,7 @@ struct impl {
 	uint16_t control_port;
 	int control_fd;
 	struct spa_source *control_source;
+	struct spa_source *feedback_timer;
 
 	uint16_t timing_port;
 	int timing_fd;
@@ -984,6 +985,14 @@ static int rtsp_send_volume(struct impl *impl)
 	return rtsp_send(impl, "SET_PARAMETER", "text/parameters", header, rtsp_log_reply_status);
 }
 
+static void rtsp_do_post_feedback(void *data, uint64_t expirations)
+{
+	struct impl *impl = data;
+
+	pw_rtsp_client_url_send(impl->rtsp, "/feedback", "POST", &impl->headers->dict,
+					NULL, NULL, 0, rtsp_log_reply_status, impl);
+}
+
 static int rtsp_record_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
@@ -994,8 +1003,18 @@ static int rtsp_record_reply(void *data, int status, const struct spa_dict *head
 	struct spa_pod_builder b;
 	struct spa_latency_info latency;
 	char progress[128];
+	struct timespec timeout, interval;
 
 	pw_log_info("record status: %d", status);
+
+	timeout.tv_sec = 2;
+	timeout.tv_nsec = 0;
+	interval.tv_sec = 2;
+	interval.tv_nsec = 0;
+
+	if (!impl->feedback_timer)
+		impl->feedback_timer = pw_loop_add_timer(impl->loop, rtsp_do_post_feedback, impl);
+	pw_loop_update_timer(impl->loop, impl->feedback_timer, &timeout, &interval, false);
 
 	if ((str = spa_dict_lookup(headers, "Audio-Latency")) != NULL) {
 		uint32_t l;
@@ -1573,6 +1592,10 @@ static void connection_cleanup(struct impl *impl)
 	if (impl->timing_fd >= 0) {
 		close(impl->timing_fd);
 		impl->timing_fd = -1;
+	}
+	if (impl->feedback_timer != NULL) {
+		pw_loop_destroy_source(impl->loop, impl->feedback_timer);
+		impl->feedback_timer = NULL;
 	}
 	free(impl->auth_method);
 	impl->auth_method = NULL;

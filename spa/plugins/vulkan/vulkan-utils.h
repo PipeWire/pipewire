@@ -80,6 +80,7 @@ int vulkan_create_dmabuf(struct vulkan_base *s, struct external_buffer_info *inf
 int vulkan_import_dmabuf(struct vulkan_base *s, struct external_buffer_info *info, struct vulkan_buffer *vk_buf);
 int vulkan_import_memptr(struct vulkan_base *s, struct external_buffer_info *info, struct vulkan_buffer *vk_buf);
 
+int vulkan_fence_create(struct vulkan_base *s, VkFence *fence);
 int vulkan_commandPool_create(struct vulkan_base *s, VkCommandPool *commandPool);
 int vulkan_commandBuffer_create(struct vulkan_base *s, VkCommandPool commandPool, VkCommandBuffer *commandBuffer);
 

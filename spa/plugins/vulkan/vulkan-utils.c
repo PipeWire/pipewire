@@ -420,6 +420,17 @@ bool vulkan_sync_export_dmabuf(struct vulkan_base *s, struct vulkan_buffer *vk_b
 	return dmabuf_import_sync_file(s->log, vk_buf->fd, DMA_BUF_SYNC_WRITE, sync_file_fd);
 }
 
+int vulkan_fence_create(struct vulkan_base *s, VkFence *fence)
+{
+	VkFenceCreateInfo createInfo = {
+		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+		.flags = 0,
+	};
+	VK_CHECK_RESULT(vkCreateFence(s->device, &createInfo, NULL, fence));
+
+	return 0;
+}
+
 int vulkan_commandPool_create(struct vulkan_base *s, VkCommandPool *commandPool)
 {
 	const VkCommandPoolCreateInfo commandPoolCreateInfo = {

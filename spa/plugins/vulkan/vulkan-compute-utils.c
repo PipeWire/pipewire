@@ -31,16 +31,6 @@
 #define VULKAN_INSTANCE_FUNCTION(name)						\
 	PFN_##name name = (PFN_##name)vkGetInstanceProcAddr(s->base.instance, #name)
 
-static int createFence(struct vulkan_compute_state *s) {
-	VkFenceCreateInfo createInfo = {
-		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-		.flags = 0,
-	};
-	VK_CHECK_RESULT(vkCreateFence(s->base.device, &createInfo, NULL, &s->fence));
-
-	return 0;
-};
-
 static int createDescriptors(struct vulkan_compute_state *s)
 {
 	uint32_t i;
@@ -562,7 +552,7 @@ int spa_vulkan_compute_init_stream(struct vulkan_compute_state *s, struct vulkan
 int spa_vulkan_compute_prepare(struct vulkan_compute_state *s)
 {
 	if (!s->prepared) {
-		CHECK(createFence(s));
+		CHECK(vulkan_fence_create(&s->base, &s->fence));
 		CHECK(createDescriptors(s));
 		CHECK(createComputePipeline(s, s->shaderName));
 		CHECK(createCommandBuffer(s));

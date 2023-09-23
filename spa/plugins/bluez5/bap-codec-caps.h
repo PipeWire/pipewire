@@ -97,14 +97,17 @@ struct __attribute__((packed)) ltv {
 };
 
 struct bap_endpoint_qos {
-        uint8_t  framing;
-        uint8_t  phy;
-        uint8_t  retransmission;
-        uint16_t latency;
-        uint32_t delay_min;
-        uint32_t delay_max;
-        uint32_t preferred_delay_min;
-        uint32_t preferred_delay_max;
+	uint8_t	framing;
+	uint8_t	phy;
+	uint8_t	retransmission;
+	uint16_t latency;
+	uint32_t delay_min;
+	uint32_t delay_max;
+	uint32_t preferred_delay_min;
+	uint32_t preferred_delay_max;
+	uint32_t locations;
+	uint16_t supported_context;
+	uint16_t context;
 };
 
 struct bap_codec_qos {
@@ -116,6 +119,14 @@ struct bap_codec_qos {
 	uint16_t latency;
 	uint32_t delay;
 	uint8_t target_latency;
+};
+
+struct bap_codec_qos_full {
+	uint8_t cig;
+	uint8_t cis;
+	uint8_t big;
+	uint8_t bis;
+	struct bap_codec_qos qos;
 };
 
 #endif

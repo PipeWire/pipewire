@@ -627,6 +627,163 @@ static void append_basic_variant_dict_entry(DBusMessageIter *dict, const char* k
 static void append_basic_array_variant_dict_entry(DBusMessageIter *dict, const char* key, const char* variant_type_str, const char* array_type_str, int array_type_int, void* data, int data_size);
 static struct spa_bt_remote_endpoint *remote_endpoint_find(struct spa_bt_monitor *monitor, const char *path);
 
+static bool check_iter_signature(DBusMessageIter *it, const char *sig)
+{
+	char *v;
+	bool res;
+	v = dbus_message_iter_get_signature(it);
+	res = spa_streq(v, sig);
+	dbus_free(v);
+	return res;
+}
+
+static void parse_codec_qos(struct spa_bt_monitor *monitor, DBusMessageIter *iter, struct bap_codec_qos_full *qos)
+{
+	DBusMessageIter dict_iter = *iter;
+
+	memset(qos, 0, sizeof(*qos));
+	qos->cig = 0xff;
+	qos->cis = 0xff;
+	qos->big = 0xff;
+	qos->bis = 0xff;
+
+	if (!check_iter_signature(&dict_iter, "{sv}")) {
+		spa_log_warn(monitor->log, "Invalid BAP QoS in DBus");
+		return;
+	}
+
+	while (dbus_message_iter_get_arg_type(&dict_iter) != DBUS_TYPE_INVALID) {
+		DBusMessageIter it[2];
+		const char *key;
+		int type;
+
+		dbus_message_iter_recurse(&dict_iter, &it[0]);
+		dbus_message_iter_get_basic(&it[0], &key);
+		dbus_message_iter_next(&it[0]);
+		dbus_message_iter_recurse(&it[0], &it[1]);
+
+		type = dbus_message_iter_get_arg_type(&it[1]);
+
+		if (type == DBUS_TYPE_BYTE) {
+			uint8_t value;
+
+			dbus_message_iter_get_basic(&it[1], &value);
+			spa_log_debug(monitor->log, "qos: %s=%d", key, (int)value);
+
+			if (spa_streq(key, "PHY"))
+				qos->qos.phy = value;
+			else if (spa_streq(key, "Retransmissions"))
+				qos->qos.retransmission = value;
+			else if (spa_streq(key, "CIG"))
+				qos->cig = value;
+			else if (spa_streq(key, "CIS"))
+				qos->cis = value;
+			else if (spa_streq(key, "BIG"))
+				qos->big = value;
+			else if (spa_streq(key, "BIS"))
+				qos->bis = value;
+			else if (spa_streq(key, "TargetLatency"))
+				qos->qos.target_latency = value;
+			else if (spa_streq(key, "Framing"))
+				qos->qos.framing = value;
+		}
+		else if (type == DBUS_TYPE_UINT16) {
+			dbus_uint16_t value;
+
+			dbus_message_iter_get_basic(&it[1], &value);
+			spa_log_debug(monitor->log, "qos: %s=%d", key, (int)value);
+
+			if (spa_streq(key, "SDU"))
+				qos->qos.sdu = value;
+			else if (spa_streq(key, "Latency") || spa_streq(key, "MaximumLatency"))
+				qos->qos.latency = value;
+		}
+		else if (type == DBUS_TYPE_UINT32) {
+			dbus_uint32_t value;
+
+			dbus_message_iter_get_basic(&it[1], &value);
+			spa_log_debug(monitor->log, "qos: %s=%d", key, (int)value);
+
+			if (spa_streq(key, "Interval"))
+				qos->qos.interval = value;
+			else if (spa_streq(key, "PresentationDelay"))
+				qos->qos.delay = value;
+		}
+
+		dbus_message_iter_next(&dict_iter);
+	}
+}
+
+static void parse_endpoint_qos(struct spa_bt_monitor *monitor, DBusMessageIter *iter,
+		struct bap_endpoint_qos *qos)
+{
+	DBusMessageIter dict_iter = *iter;
+
+	memset(qos, 0, sizeof(*qos));
+
+	if (!check_iter_signature(&dict_iter, "{sv}")) {
+		spa_log_warn(monitor->log, "Invalid BAP Endpoint QoS in DBus");
+		return;
+	}
+
+	while (dbus_message_iter_get_arg_type(&dict_iter) != DBUS_TYPE_INVALID) {
+		DBusMessageIter it[2];
+		const char *key;
+		int type;
+
+		dbus_message_iter_recurse(&dict_iter, &it[0]);
+		dbus_message_iter_get_basic(&it[0], &key);
+		dbus_message_iter_next(&it[0]);
+		dbus_message_iter_recurse(&it[0], &it[1]);
+
+		type = dbus_message_iter_get_arg_type(&it[1]);
+
+		if (type == DBUS_TYPE_BYTE) {
+			uint8_t value;
+
+			dbus_message_iter_get_basic(&it[1], &value);
+			spa_log_debug(monitor->log, "ep qos: %s=%d", key, (int)value);
+
+			if (spa_streq(key, "Framing"))
+				qos->framing = value;
+			else if (spa_streq(key, "PHY"))
+				qos->phy = value;
+			else if (spa_streq(key, "Retransmissions"))
+				qos->retransmission = value;
+		} else if (type == DBUS_TYPE_UINT16) {
+			dbus_uint16_t value;
+
+			dbus_message_iter_get_basic(&it[1], &value);
+			spa_log_debug(monitor->log, "ep qos: %s=%d", key, (int)value);
+
+			if (spa_streq(key, "Latency") || spa_streq(key, "MaximumLatency"))
+				qos->latency = value;
+			else if (spa_streq(key, "Context"))
+				qos->context = value;
+			else if (spa_streq(key, "SupportedContext"))
+				qos->supported_context = value;
+		} else if (type == DBUS_TYPE_UINT32) {
+			dbus_uint32_t value;
+
+			dbus_message_iter_get_basic(&it[1], &value);
+			spa_log_debug(monitor->log, "ep qos: %s=%d", key, (int)value);
+
+			if (spa_streq(key, "MinimumDelay"))
+				qos->delay_min = value;
+			else if (spa_streq(key, "MaximumDelay"))
+				qos->delay_max = value;
+			else if (spa_streq(key, "PreferredMinimumDelay"))
+				qos->preferred_delay_min = value;
+			else if (spa_streq(key, "PreferredMaximumDelay"))
+				qos->preferred_delay_max = value;
+			else if (spa_streq(key, "Locations") || spa_streq(key, "Location"))
+				qos->locations = value;
+		}
+
+		dbus_message_iter_next(&dict_iter);
+	}
+}
+
 static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
 	struct spa_bt_monitor *monitor = userdata;
@@ -635,6 +792,7 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	spa_autoptr(DBusMessage) r = NULL;
 	int res;
 	const struct media_codec *codec;
+	struct spa_bt_remote_endpoint *ep;
 	bool sink;
 	const char *err_msg = "Unknown error";
 	struct spa_dict settings;
@@ -670,13 +828,17 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	 */
 	codec = media_endpoint_to_codec(monitor, path, &sink, NULL);
 	spa_log_debug(monitor->log, "%p: %s codec:%s", monitor, path, codec ? codec->name : "<null>");
-	if (!codec) {
+	if (!codec || !codec->bap || !codec->get_qos) {
 		spa_log_error(monitor->log, "Unsupported codec");
 		err_msg = "Unsupported codec";
 		goto error;
 	}
 
-	/* Parse transport properties */
+	/* Parse endpoint properties */
+	parse_endpoint_qos(monitor, &props, &endpoint_qos);
+	if (endpoint_qos.locations)
+		spa_scnprintf(locations, sizeof(locations), "%"PRIu32, endpoint_qos.locations);
+
 	while (dbus_message_iter_get_arg_type(&props) == DBUS_TYPE_DICT_ENTRY) {
 		const char *key;
 		DBusMessageIter value, entry;
@@ -724,67 +886,21 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 			dbus_message_iter_get_basic(&value, &endpoint_path);
 
 			spa_log_info(monitor->log, "%p: %s %s %s", monitor, path, key, endpoint_path);
-		} else if (type == DBUS_TYPE_BYTE) {
-			uint8_t v;
-			dbus_message_iter_get_basic(&value, &v);
-
-			spa_log_info(monitor->log, "%p: %s %s 0x%x", monitor, path, key, (unsigned int)v);
-
-			if (spa_streq(key, "Framing"))
-				endpoint_qos.framing = v;
-			else if (spa_streq(key, "PHY"))
-				endpoint_qos.phy = v;
-			else
-				spa_log_info(monitor->log, "Unknown property %s", key);
-		} else if (type == DBUS_TYPE_UINT16) {
-			dbus_uint16_t v;
-			dbus_message_iter_get_basic(&value, &v);
-
-			spa_log_info(monitor->log, "%p: %s %s 0x%x", monitor, path, key, (unsigned int)v);
-
-			if (spa_streq(key, "Latency"))
-				endpoint_qos.latency = v;
-			else
-				spa_log_info(monitor->log, "Unknown property %s", key);
-		} else if (type == DBUS_TYPE_UINT32) {
-			dbus_uint32_t v;
-			dbus_message_iter_get_basic(&value, &v);
-
-			spa_log_info(monitor->log, "%p: %s %s 0x%x", monitor, path, key, (unsigned int)v);
-
-			if (spa_streq(key, "MinimumDelay"))
-				endpoint_qos.delay_min = v;
-			else if (spa_streq(key, "MaximumDelay"))
-				endpoint_qos.delay_max = v;
-			else if (spa_streq(key, "PreferredMinimumDelay"))
-				endpoint_qos.preferred_delay_min = v;
-			else if (spa_streq(key, "PreferredMaximumDelay"))
-				endpoint_qos.preferred_delay_max = v;
-			else if (spa_streq(key, "Location"))
-				spa_scnprintf(locations, sizeof(locations), "%"PRIu32, v);
-			else
-				spa_log_info(monitor->log, "Unknown property %s", key);
-		} else {
-			spa_log_info(monitor->log, "Unknown property %s", key);
 		}
 
 		dbus_message_iter_next(&props);
 	}
 
-	if (codec->bap) {
-		struct spa_bt_remote_endpoint *ep;
-
-		ep = remote_endpoint_find(monitor, endpoint_path);
-		if (!ep) {
-			spa_log_warn(monitor->log, "Unable to find remote endpoint for %s", endpoint_path);
-			goto error_invalid;
-		}
-
-		/* Call of SelectProperties means that local device acts as an initiator
-		 * and therefor remote endpoint is an acceptor
-		 */
-		ep->acceptor = true;
+	ep = remote_endpoint_find(monitor, endpoint_path);
+	if (!ep) {
+		spa_log_warn(monitor->log, "Unable to find remote endpoint for %s", endpoint_path);
+		goto error_invalid;
 	}
+
+	/* Call of SelectProperties means that local device acts as an initiator
+	 * and therefor remote endpoint is an acceptor
+	 */
+	ep->acceptor = true;
 
 	for (i = 0; i < (int)monitor->global_settings.n_items; ++i)
 		setting_items[i] = monitor->global_settings.items[i];
@@ -812,10 +928,10 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 			&dict);
 	append_basic_array_variant_dict_entry(&dict, "Capabilities", "ay", "y", DBUS_TYPE_BYTE, &config, conf_size);
 
-	if (codec->get_qos) {
+	{
 		struct bap_codec_qos qos;
-		dbus_bool_t framing;
-		const char *phy_str;
+		DBusMessageIter entry, variant, qos_dict;
+		const char *entry_key = "QoS";
 
 		spa_zero(qos);
 
@@ -826,21 +942,29 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 			goto error_invalid;
 		}
 
-		append_basic_variant_dict_entry(&dict, "Interval", DBUS_TYPE_UINT32, "u", &qos.interval);
-		framing = (qos.framing ? TRUE : FALSE);
-		append_basic_variant_dict_entry(&dict, "Framing", DBUS_TYPE_BOOLEAN, "b", &framing);
-		if (qos.phy == 0x1)
-			phy_str = "1M";
-		else if (qos.phy == 0x2)
-			phy_str = "2M";
-		else
-			spa_assert_not_reached();
-		append_basic_variant_dict_entry(&dict, "PHY", DBUS_TYPE_STRING, "s", &phy_str);
-		append_basic_variant_dict_entry(&dict, "SDU", DBUS_TYPE_UINT16, "q", &qos.sdu);
-		append_basic_variant_dict_entry(&dict, "Retransmissions", DBUS_TYPE_BYTE, "y", &qos.retransmission);
-		append_basic_variant_dict_entry(&dict, "Latency", DBUS_TYPE_UINT16, "q", &qos.latency);
-		append_basic_variant_dict_entry(&dict, "Delay", DBUS_TYPE_UINT32, "u", &qos.delay);
-		append_basic_variant_dict_entry(&dict, "TargetLatency", DBUS_TYPE_BYTE, "y", &qos.target_latency);
+		dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &entry_key);
+		dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "a{sv}", &variant);
+
+		dbus_message_iter_open_container(&variant, DBUS_TYPE_ARRAY,
+			DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING
+			DBUS_TYPE_STRING_AS_STRING
+			DBUS_TYPE_VARIANT_AS_STRING
+			DBUS_DICT_ENTRY_END_CHAR_AS_STRING,
+			&qos_dict);
+
+		append_basic_variant_dict_entry(&qos_dict, "Interval", DBUS_TYPE_UINT32, "u", &qos.interval);
+		append_basic_variant_dict_entry(&qos_dict, "Framing", DBUS_TYPE_BYTE, "y", &qos.framing);
+		append_basic_variant_dict_entry(&qos_dict, "PHY", DBUS_TYPE_BYTE, "y", &qos.phy);
+		append_basic_variant_dict_entry(&qos_dict, "SDU", DBUS_TYPE_UINT16, "q", &qos.sdu);
+		append_basic_variant_dict_entry(&qos_dict, "Retransmissions", DBUS_TYPE_BYTE, "y", &qos.retransmission);
+		append_basic_variant_dict_entry(&qos_dict, "Latency", DBUS_TYPE_UINT16, "q", &qos.latency);
+		append_basic_variant_dict_entry(&qos_dict, "PresentationDelay", DBUS_TYPE_UINT32, "u", &qos.delay);
+		append_basic_variant_dict_entry(&qos_dict, "TargetLatency", DBUS_TYPE_BYTE, "y", &qos.target_latency);
+
+		dbus_message_iter_close_container(&variant, &qos_dict);
+		dbus_message_iter_close_container(&entry, &variant);
+		dbus_message_iter_close_container(&dict, &entry);
 	}
 
 	dbus_message_iter_close_container(&iter, &dict);
@@ -867,16 +991,6 @@ static struct spa_bt_adapter *adapter_find(struct spa_bt_monitor *monitor, const
 		if (spa_streq(d->path, path))
 			return d;
 	return NULL;
-}
-
-static bool check_iter_signature(DBusMessageIter *it, const char *sig)
-{
-	char *v;
-	bool res;
-	v = dbus_message_iter_get_signature(it);
-	res = spa_streq(v, sig);
-	dbus_free(v);
-	return res;
 }
 
 static int parse_modalias(const char *modalias, uint16_t *source, uint16_t *vendor,
@@ -3149,31 +3263,6 @@ static int transport_update_props(struct spa_bt_transport *transport,
 				spa_bt_transport_volume_changed(transport);
 		}
 		else if (spa_streq(key, "Delay")) {
-			if (transport->profile & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE)) {
-				uint32_t value;
-
-				if (type != DBUS_TYPE_UINT32)
-					goto next;
-				dbus_message_iter_get_basic(&it[1], &value);
-
-				spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
-
-				transport->delay_us = value;
-			} else {
-				uint16_t value;
-
-				if (type != DBUS_TYPE_UINT16)
-					goto next;
-				dbus_message_iter_get_basic(&it[1], &value);
-
-				spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
-
-				transport->delay_us = value * 100;
-			}
-
-			spa_bt_transport_emit_delay_changed(transport);
-		}
-		else if (spa_streq(key, "Latency")) {
 			uint16_t value;
 
 			if (type != DBUS_TYPE_UINT16)
@@ -3182,7 +3271,28 @@ static int transport_update_props(struct spa_bt_transport *transport,
 
 			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
 
-			transport->latency_us = value * 1000;
+			transport->delay_us = value * 100;
+
+			spa_bt_transport_emit_delay_changed(transport);
+		}
+		else if (spa_streq(key, "QoS")) {
+			struct bap_codec_qos_full qos;
+			DBusMessageIter value;
+
+			if (!check_iter_signature(&it[1], "a{sv}"))
+				goto next;
+
+			dbus_message_iter_recurse(&it[1], &value);
+			parse_codec_qos(monitor, &value, &qos);
+
+			transport->bap_cig = qos.cig;
+			transport->bap_cis = qos.cis;
+			transport->bap_big = qos.big;
+			transport->bap_bis = qos.bis;
+			transport->delay_us = qos.qos.delay;
+			transport->latency_us = (unsigned int)qos.qos.latency * 1000;
+			transport->bap_interval = qos.qos.interval;
+
 			spa_bt_transport_emit_delay_changed(transport);
 		}
 		else if (spa_streq(key, "Links")) {
@@ -3214,71 +3324,7 @@ static int transport_update_props(struct spa_bt_transport *transport,
 				dbus_message_iter_next(&iter);
 			}
 		}
-		else if (spa_streq(key, "Interval")) {
-			uint32_t value;
 
-			if (type != DBUS_TYPE_UINT32)
-				goto next;
-			dbus_message_iter_get_basic(&it[1], &value);
-
-			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
-			transport->bap_interval = value;
-		}
-		else if (spa_streq(key, "Framing")) {
-			dbus_bool_t value;
-
-			if (type != DBUS_TYPE_BOOLEAN)
-				goto next;
-			dbus_message_iter_get_basic(&it[1], &value);
-
-			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
-		}
-		else if (spa_streq(key, "SDU")) {
-			uint16_t value;
-
-			if (type != DBUS_TYPE_UINT16)
-				goto next;
-			dbus_message_iter_get_basic(&it[1], &value);
-
-			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
-		}
-		else if (spa_streq(key, "Retransmissions")) {
-			uint8_t value;
-
-			if (type != DBUS_TYPE_BYTE)
-				goto next;
-			dbus_message_iter_get_basic(&it[1], &value);
-
-			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
-		}
-		else if (spa_streq(key, "CIG") || spa_streq(key, "CIS")) {
-			uint8_t value;
-
-			if (type != DBUS_TYPE_BYTE)
-				goto next;
-			dbus_message_iter_get_basic(&it[1], &value);
-
-			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
-
-			if (spa_streq(key, "CIG"))
-				transport->bap_cig = value;
-			else
-				transport->bap_cis = value;
-		}
-		else if (spa_streq(key, "BIG") || spa_streq(key, "BIS")) {
-			uint8_t value;
-
-			if (type != DBUS_TYPE_BYTE)
-				goto next;
-			dbus_message_iter_get_basic(&it[1], &value);
-
-			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, (int)value);
-
-			if (spa_streq(key, "BIG"))
-				transport->bap_big = value;
-			else
-				transport->bap_bis = value;
-		}
 next:
 		dbus_message_iter_next(props_iter);
 	}

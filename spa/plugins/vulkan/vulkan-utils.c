@@ -248,13 +248,13 @@ int vulkan_read_pixels(struct vulkan_base *s, struct vulkan_read_pixels_info *in
 
 	const char *d = (const char *)v + img_sub_layout.offset;
 	unsigned char *p = (unsigned char *)info->data + info->offset;
-	uint32_t bytes_per_pixel = 16;
 	uint32_t pack_stride = img_sub_layout.rowPitch;
+	spa_log_trace_fp(s->log, "Read pixels: %p to %p, stride: %d, width %d, height %d, offset %d, pack_stride %d", d, p, info->stride, info->size.width, info->size.height, info->offset, pack_stride);
 	if (pack_stride == info->stride) {
 		memcpy(p, d, info->stride * info->size.height);
 	} else {
 		for (uint32_t i = 0; i < info->size.height; i++) {
-			memcpy(p + i * info->stride, d + i * pack_stride, info->size.width * bytes_per_pixel);
+			memcpy(p + i * info->stride, d + i * pack_stride, info->size.width * info->bytes_per_pixel);
 		}
 	}
 	vkUnmapMemory(s->device, vk_buf->memory);

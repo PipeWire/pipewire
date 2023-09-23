@@ -1,5 +1,6 @@
 spa_vulkan_sources = [
   'plugin.c',
+  'pixel-formats.c',
   'vulkan-compute-filter.c',
   'vulkan-compute-source.c',
   'vulkan-compute-utils.c',

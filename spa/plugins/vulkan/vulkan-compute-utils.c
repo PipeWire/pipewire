@@ -28,6 +28,7 @@
 #include "vulkan-compute-utils.h"
 #include "vulkan-utils.h"
 #include "utils.h"
+#include "pixel-formats.h"
 
 #define VULKAN_INSTANCE_FUNCTION(name)						\
 	PFN_##name name = (PFN_##name)vkGetInstanceProcAddr(s->base.instance, #name)
@@ -247,13 +248,16 @@ static int runExportSHMBuffers(struct vulkan_compute_state *s) {
 		if (p->direction == SPA_DIRECTION_INPUT)
 			continue;
 
+		struct pixel_format_info pixel_info;
+		CHECK(get_pixel_format_info(p->format, &pixel_info));
+
 		if (p->spa_buffers[p->current_buffer_id]->datas[0].type == SPA_DATA_MemPtr) {
 			struct spa_buffer *spa_buf = p->spa_buffers[p->current_buffer_id];
 			struct vulkan_read_pixels_info readInfo = {
 				.data = spa_buf->datas[0].data,
 				.offset = spa_buf->datas[0].chunk->offset,
 				.stride = spa_buf->datas[0].chunk->stride,
-				.bytes_per_pixel = 16,
+				.bytes_per_pixel = pixel_info.bpp,
 				.size.width = s->constants.width,
 				.size.height = s->constants.height,
 			};
@@ -479,6 +483,7 @@ int spa_vulkan_compute_use_buffers(struct vulkan_compute_state *s, struct vulkan
 
 	vulkan_wait_idle(&s->base);
 	clear_buffers(s, p);
+	p->format = SPA_VIDEO_FORMAT_UNKNOWN;
 
 	bool alloc = flags & SPA_NODE_BUFFERS_FLAG_ALLOC;
 	int ret;
@@ -544,6 +549,7 @@ int spa_vulkan_compute_use_buffers(struct vulkan_compute_state *s, struct vulkan
 		p->spa_buffers[i] = buffers[i];
 		p->n_buffers++;
 	}
+	p->format = dsp_info->format;
 
 	return 0;
 }

@@ -1367,9 +1367,16 @@ static int rtsp_do_announce(struct impl *impl)
 		break;
 
 	case CRYPTO_RSA:
-		if ((res = pw_getrandom(impl->aes_key, sizeof(impl->aes_key), 0)) < 0 ||
+		uint8_t rac[16];
+		char sac[16*4];
+
+		if ((res = pw_getrandom(rac, sizeof(rac), 0)) < 0 ||
+		    (res = pw_getrandom(impl->aes_key, sizeof(impl->aes_key), 0)) < 0 ||
 		    (res = pw_getrandom(impl->aes_iv, sizeof(impl->aes_iv), 0)) < 0)
 			return res;
+
+		base64_encode(rac, sizeof(rac), sac, '\0');
+		pw_properties_set(impl->headers, "Apple-Challenge", sac);
 
 		rsa_len = rsa_encrypt(impl->aes_key, 16, rsakey);
 		if (rsa_len < 0)
@@ -1517,25 +1524,19 @@ static void rtsp_connected(void *data)
 {
 	struct impl *impl = data;
 	uint32_t sci[2];
-	uint8_t rac[16];
-	char sac[16*4];
 	int res;
 
 	pw_log_info("connected");
 
 	impl->connected = true;
 
-	if ((res = pw_getrandom(sci, sizeof(sci), 0)) < 0 ||
-	    (res = pw_getrandom(rac, sizeof(rac), 0)) < 0) {
+	if ((res = pw_getrandom(sci, sizeof(sci), 0)) < 0) {
 		pw_log_error("error generating random data: %s", spa_strerror(res));
 		return;
 	}
 
 	pw_properties_setf(impl->headers, "Client-Instance",
 			"%08x%08x", sci[0], sci[1]);
-
-	base64_encode(rac, sizeof(rac), sac, '\0');
-	pw_properties_set(impl->headers, "Apple-Challenge", sac);
 
 	pw_properties_set(impl->headers, "User-Agent", DEFAULT_USER_AGENT);
 

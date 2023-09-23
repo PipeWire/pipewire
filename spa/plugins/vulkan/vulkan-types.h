@@ -33,19 +33,6 @@ struct vulkan_buffer {
 	VkSemaphore foreign_semaphore;
 };
 
-struct vulkan_stream {
-	enum spa_direction direction;
-
-	uint32_t pending_buffer_id;
-	uint32_t current_buffer_id;
-	uint32_t busy_buffer_id;
-	uint32_t ready_buffer_id;
-
-	struct vulkan_buffer buffers[MAX_BUFFERS];
-	struct spa_buffer *spa_buffers[MAX_BUFFERS];
-	uint32_t n_buffers;
-};
-
 struct vulkan_base_info {
 	uint32_t queueFlags;
 

@@ -91,9 +91,6 @@ struct vulkan_modifier_info *vulkan_modifierInfo_find(struct vulkan_base *s, VkF
 
 void vulkan_buffer_clear(struct vulkan_base *s, struct vulkan_buffer *buffer);
 
-int vulkan_stream_init(struct vulkan_stream *stream, enum spa_direction direction,
-		struct spa_dict *props);
-
 uint32_t vulkan_vkformat_to_id(VkFormat vkFormat);
 VkFormat vulkan_id_to_vkformat(uint32_t id);
 

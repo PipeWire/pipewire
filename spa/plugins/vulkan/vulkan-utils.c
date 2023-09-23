@@ -828,17 +828,6 @@ int vulkan_import_memptr(struct vulkan_base *s, struct external_buffer_info *inf
 	return 0;
 }
 
-int vulkan_stream_init(struct vulkan_stream *stream, enum spa_direction direction,
-		struct spa_dict *props)
-{
-	spa_zero(*stream);
-	stream->direction = direction;
-	stream->current_buffer_id = SPA_ID_INVALID;
-	stream->busy_buffer_id = SPA_ID_INVALID;
-	stream->ready_buffer_id = SPA_ID_INVALID;
-	return 0;
-}
-
 uint32_t vulkan_vkformat_to_id(VkFormat format)
 {
 	SPA_FOR_EACH_ELEMENT_VAR(vk_video_format_convs, f) {

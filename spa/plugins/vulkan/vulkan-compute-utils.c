@@ -543,6 +543,17 @@ int spa_vulkan_compute_use_buffers(struct vulkan_compute_state *s, struct vulkan
 	return 0;
 }
 
+static int vulkan_stream_init(struct vulkan_stream *stream, enum spa_direction direction,
+		struct spa_dict *props)
+{
+	spa_zero(*stream);
+	stream->direction = direction;
+	stream->current_buffer_id = SPA_ID_INVALID;
+	stream->busy_buffer_id = SPA_ID_INVALID;
+	stream->ready_buffer_id = SPA_ID_INVALID;
+	return 0;
+}
+
 int spa_vulkan_compute_init_stream(struct vulkan_compute_state *s, struct vulkan_stream *stream,
 		enum spa_direction direction, struct spa_dict *props)
 {

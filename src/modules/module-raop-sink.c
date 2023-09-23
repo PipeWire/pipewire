@@ -1536,7 +1536,7 @@ static void rtsp_connected(void *data)
 	}
 
 	pw_properties_setf(impl->headers, "Client-Instance",
-			"%08x%08x", sci[0], sci[1]);
+			"%08X%08X", sci[0], sci[1]);
 
 	pw_properties_set(impl->headers, "User-Agent", DEFAULT_USER_AGENT);
 

@@ -70,6 +70,7 @@ context.spa-libs = {
     api.vulkan.*    = vulkan/libspa-vulkan
     api.jack.*      = jack/libspa-jack
     support.*       = support/libspa-support
+    video.convert.* = videoconvert/libspa-videoconvert
     #videotestsrc   = videotestsrc/libspa-videotestsrc
     #audiotestsrc   = audiotestsrc/libspa-audiotestsrc
 }

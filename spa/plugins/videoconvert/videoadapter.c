@@ -2,7 +2,9 @@
 /* SPDX-FileCopyrightText: Copyright © 2019 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "spa/utils/dict.h"
 #include <spa/support/plugin.h>
+#include <spa/support/plugin-loader.h>
 #include <spa/support/log.h>
 #include <spa/support/cpu.h>
 
@@ -41,6 +43,7 @@ struct impl {
 
 	struct spa_log *log;
 	struct spa_cpu *cpu;
+	struct spa_plugin_loader *ploader;
 
 	uint32_t max_align;
 	enum spa_direction direction;
@@ -58,6 +61,7 @@ struct impl {
 	struct spa_node *convert;
 	struct spa_hook convert_listener;
 	uint64_t convert_flags;
+	char *convertname;
 
 	uint32_t n_buffers;
 	struct spa_buffer **buffers;
@@ -551,8 +555,6 @@ static int configure_convert(struct impl *this, uint32_t mode)
 
 	return spa_node_set_param(this->convert, SPA_PARAM_PortConfig, 0, param);
 }
-
-extern const struct spa_handle_factory spa_videoconvert_factory;
 
 static const struct spa_node_events follower_node_events;
 
@@ -1712,6 +1714,45 @@ static const struct spa_node_methods impl_node = {
 	.process = impl_node_process,
 };
 
+static int load_plugin_from(struct impl *this, const struct spa_dict *info,
+		const char *convertname, struct spa_handle **handle, struct spa_node **iface)
+{
+	struct spa_handle *hnd_convert = NULL;
+	void *iface_conv = NULL;
+	hnd_convert = spa_plugin_loader_load(this->ploader, convertname, NULL);
+	if (!hnd_convert)
+		return -EINVAL;
+
+	spa_handle_get_interface(hnd_convert, SPA_TYPE_INTERFACE_Node, &iface_conv);
+	if (iface_conv == NULL) {
+		spa_plugin_loader_unload(this->ploader, hnd_convert);
+		return -EINVAL;
+	}
+
+	*handle = hnd_convert;
+	*iface = iface_conv;
+
+	return 0;
+}
+
+static int load_converter(struct impl *this, const struct spa_dict *info)
+{
+	int ret;
+	if (!this->ploader || !info)
+		return -EINVAL;
+
+	const char* factory_name = spa_dict_lookup(info, "video.adapt.converter");
+
+	if (factory_name) {
+		ret = load_plugin_from(this, info, factory_name, &this->hnd_convert, &this->convert);
+		if (ret >= 0) {
+			this->convertname = strdup(factory_name);
+			return ret;
+		}
+	}
+	return 0;
+}
+
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
 	struct impl *this;
@@ -1740,8 +1781,10 @@ static int impl_clear(struct spa_handle *handle)
 	spa_hook_remove(&this->follower_listener);
 	spa_node_set_callbacks(this->follower, NULL, NULL);
 
-	if (this->hnd_convert)
-		spa_handle_clear(this->hnd_convert);
+	if (this->hnd_convert) {
+		spa_plugin_loader_unload(this->ploader, this->hnd_convert);
+		free(this->convertname);
+	}
 
 	if (this->buffers)
 		free(this->buffers);
@@ -1755,12 +1798,7 @@ static size_t
 impl_get_size(const struct spa_handle_factory *factory,
 	      const struct spa_dict *params)
 {
-	size_t size = 0;
-
-#if 0
-	size += spa_handle_factory_get_size(&spa_videoconvert_factory, params);
-#endif
-	size += sizeof(struct impl);
+	size_t size = sizeof(struct impl);
 
 	return size;
 }
@@ -1773,10 +1811,8 @@ impl_init(const struct spa_handle_factory *factory,
 	  uint32_t n_support)
 {
 	struct impl *this;
-#if 0
-	void *iface;
-#endif
 	const char *str;
+	int ret;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -1790,6 +1826,8 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_log_topic_init(this->log, &log_topic);
 
 	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
+
+	this->ploader = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_PluginLoader);
 
 	if (info == NULL ||
 	    (str = spa_dict_lookup(info, "video.adapt.follower")) == NULL)
@@ -1809,18 +1847,10 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_VERSION_NODE,
 			&impl_node, this);
 
-#if 0
-	this->hnd_convert = SPA_PTROFF(this, sizeof(struct impl), struct spa_handle);
-	spa_handle_factory_init(&spa_videoconvert_factory,
-				this->hnd_convert,
-				info, support, n_support);
-
-	spa_handle_get_interface(this->hnd_convert, SPA_TYPE_INTERFACE_Node, &iface);
-	if (iface == NULL)
-		return -EINVAL;
-
-	this->convert = iface;
-#endif
+	ret = load_converter(this, info);
+	spa_log_debug(this->log, "%p: loaded converter %s, hnd %p, convert %p", this, this->convertname, this->hnd_convert, this->convert);
+	if (ret < 0)
+		return ret;
 	this->target = this->convert;
 
 	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS |

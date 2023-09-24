@@ -30,6 +30,7 @@ context.spa-libs = {
     #
     api.vulkan.*    = vulkan/libspa-vulkan
     support.*       = support/libspa-support
+    video.convert.* = videoconvert/libspa-videoconvert
 }
 
 context.modules = [

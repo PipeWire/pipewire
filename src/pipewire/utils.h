@@ -15,6 +15,7 @@ extern "C" {
 #ifndef _POSIX_C_SOURCE
 # include <sys/mount.h>
 #endif
+#include <errno.h>
 
 #ifndef ENODATA
 #define ENODATA 9919

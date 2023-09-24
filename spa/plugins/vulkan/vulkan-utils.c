@@ -233,6 +233,38 @@ static int createDevice(struct vulkan_base *s, struct vulkan_base_info *info)
 	return 0;
 }
 
+int vulkan_write_pixels(struct vulkan_base *s, struct vulkan_write_pixels_info *info, struct vulkan_staging_buffer *vk_sbuf)
+{
+	void *vmap;
+	VK_CHECK_RESULT(vkMapMemory(s->device, vk_sbuf->memory, 0, VK_WHOLE_SIZE, 0, &vmap));
+
+	char *map = (char *)vmap;
+
+	// upload data
+	const char *pdata = info->data;
+	memcpy(map, pdata, info->stride * info->size.height);
+
+	info->copies[0] = (VkBufferImageCopy) {
+		.imageExtent.width = info->size.width,
+		.imageExtent.height = info->size.height,
+		.imageExtent.depth = 1,
+		.imageOffset.x = 0,
+		.imageOffset.y = 0,
+		.imageOffset.z = 0,
+		.bufferOffset = 0,
+		.bufferRowLength = info->size.width,
+		.bufferImageHeight = info->size.height,
+		.imageSubresource.mipLevel = 0,
+		.imageSubresource.baseArrayLayer = 0,
+		.imageSubresource.layerCount = 1,
+		.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+	};
+
+	vkUnmapMemory(s->device, vk_sbuf->memory);
+
+	return 0;
+}
+
 int vulkan_read_pixels(struct vulkan_base *s, struct vulkan_read_pixels_info *info, struct vulkan_buffer *vk_buf)
 {
 	VkImageSubresource img_sub_res = {

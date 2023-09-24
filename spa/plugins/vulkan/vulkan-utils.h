@@ -46,6 +46,16 @@
 		return _res;								\
 }
 
+struct vulkan_write_pixels_info {
+	struct spa_rectangle size;
+	uint32_t offset;
+	uint32_t stride;
+	uint32_t bytes_per_pixel;
+
+	VkBufferImageCopy *copies;
+	void *data;
+};
+
 struct vulkan_read_pixels_info {
 	struct spa_rectangle size;
 	void *data;
@@ -70,6 +80,7 @@ struct external_buffer_info {
 	struct spa_buffer *spa_buf;
 };
 
+int vulkan_write_pixels(struct vulkan_base *s, struct vulkan_write_pixels_info *info, struct vulkan_staging_buffer *vk_sbuf);
 int vulkan_read_pixels(struct vulkan_base *s, struct vulkan_read_pixels_info *info, struct vulkan_buffer *vk_buf);
 
 int vulkan_sync_foreign_dmabuf(struct vulkan_base *s, struct vulkan_buffer *vk_buf);

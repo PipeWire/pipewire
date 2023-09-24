@@ -35,6 +35,9 @@
 #if defined(__FreeBSD__) || defined(__MidnightBSD__)
 #include <sys/thr.h>
 #endif
+#if defined(__GNU__)
+#include <mach.h>
+#endif
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -221,6 +224,9 @@ static pid_t _gettid(void)
 	long pid;
 	thr_self(&pid);
 	return (pid_t)pid;
+#elif defined(__GNU__)
+       mach_port_t thread = mach_thread_self();
+       return (pid_t)thread;
 #else
 #error "No gettid impl"
 #endif

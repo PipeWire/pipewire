@@ -22,7 +22,7 @@ extern "C" {
 #include <spa/utils/result.h>
 #include <spa/utils/type-info.h>
 
-#if defined(__FreeBSD__) || defined(__MidnightBSD__)
+#if defined(__FreeBSD__) || defined(__MidnightBSD__) || defined(__GNU__)
 struct ucred {
 };
 #endif

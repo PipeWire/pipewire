@@ -143,7 +143,7 @@ static int get_exe_name(int pid, char *buf, size_t buf_size)
 	 * (in the current namespace).
 	 */
 
-#if defined(__linux__)
+#if defined(__linux__) || defined(__GNU__)
 	spa_scnprintf(path, sizeof(path), "/proc/%u/exe", pid);
 #elif defined(__FreeBSD__) || defined(__MidnightBSD__)
 	spa_scnprintf(path, sizeof(path), "/proc/%u/file", pid);

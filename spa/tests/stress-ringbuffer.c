@@ -11,10 +11,11 @@
 #define ARRAY_SIZE 63
 #define MAX_VALUE 0x10000
 
-#if defined(__FreeBSD__) || defined(__MidnightBSD__)
+#if defined(__FreeBSD__) || defined(__MidnightBSD__) || defined (__GNU__)
 #include <sys/param.h>
 #if (__FreeBSD_version >= 1400000 && __FreeBSD_version < 1400043) \
-    || (__FreeBSD_version < 1300523) || defined(__MidnightBSD__)
+    || (__FreeBSD_version < 1300523) || defined(__MidnightBSD__) \
+    || defined (__GNU__)
 static int sched_getcpu(void) { return -1; };
 #endif
 #endif

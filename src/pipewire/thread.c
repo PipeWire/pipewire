@@ -53,6 +53,9 @@ int pthread_setname_np(pthread_t thread, const char *name)
 }
 #endif
 #endif
+#if defined(__GNU__)
+int pthread_setname_np(pthread_t thread, const char *name) { return 0; }
+#endif
 
 static struct spa_thread *impl_create(void *object,
 			const struct spa_dict *props,

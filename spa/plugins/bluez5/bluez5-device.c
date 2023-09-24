@@ -1608,7 +1608,17 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 			name = "audio-gateway";
 			desc = _("Audio Gateway (A2DP Source & HSP/HFP AG)");
 		}
-		priority = 256;
+
+		/*
+		 * If the remote is A2DP sink and HF, we likely should prioritize being
+		 * A2DP sender, not gateway. This can occur in PW<->PW if RFCOMM gets
+		 * connected both as AG and HF.
+		 */
+		if ((device->connected_profiles & SPA_BT_PROFILE_A2DP_SINK) &&
+				(device->connected_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT))
+			priority = 15;
+		else
+			priority = 256;
 		break;
 	}
 	case DEVICE_PROFILE_A2DP:

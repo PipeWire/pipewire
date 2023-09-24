@@ -95,14 +95,18 @@ static const struct clock_info {
 #ifdef CLOCK_MONOTONIC_RAW
 	{ "monotonic-raw", CLOCK_MONOTONIC_RAW },
 #endif
+#ifdef CLOCK_BOOTTIME
 	{ "boottime", CLOCK_BOOTTIME },
+#endif
 };
 
 static bool clock_for_timerfd(clockid_t id)
 {
 	return id == CLOCK_REALTIME ||
-		id == CLOCK_MONOTONIC ||
-		id == CLOCK_BOOTTIME;
+#ifdef CLOCK_BOOTTIME
+		id == CLOCK_BOOTTIME ||
+#endif
+		id == CLOCK_MONOTONIC;
 }
 
 static clockid_t clock_name_to_id(const char *name)

@@ -44,6 +44,7 @@
 #include <pipewire/i18n.h>
 
 #include "module-raop/rtsp-client.h"
+#include "module-rtp/rtp.h"
 
 /** \page page_module_raop_sink PipeWire Module: AirPlay Sink
  *
@@ -247,7 +248,7 @@ struct impl {
 	uint32_t block_size;
 	uint32_t latency;
 
-	uint16_t seq;
+	uint16_t seq, cseq;
 	uint32_t rtptime;
 	uint32_t ssrc;
 	uint32_t sync;
@@ -308,46 +309,104 @@ static inline uint64_t ntp_now(void)
 static int send_udp_sync_packet(struct impl *impl,
 		struct sockaddr *dest_addr, socklen_t addrlen)
 {
-	uint32_t pkt[5];
+	uint32_t out[3];
 	uint32_t rtptime = impl->rtptime;
 	uint32_t latency = impl->latency;
 	uint64_t transmitted;
+	struct rtp_header header;
+	struct iovec iov[2];
+	struct msghdr msg;
+	int res;
 
-	pkt[0] = htonl(0x80d40007);
+	spa_zero(header);
+	header.v = 2;
 	if (impl->first)
-		pkt[0] |= htonl(0x10000000);
-	pkt[1] = htonl(rtptime - latency);
+		header.x = 1;
+	header.m = 1;
+	header.pt = 84;
+	header.sequence_number = htons(impl->cseq);
+	header.timestamp = htonl(rtptime - latency);
+
+	iov[0].iov_base = &header;
+	iov[0].iov_len = 8;
+
 	transmitted = ntp_now();
-	pkt[2] = htonl(transmitted >> 32);
-	pkt[3] = htonl(transmitted & 0xffffffff);
-	pkt[4] = htonl(rtptime);
+	out[0] = htonl(transmitted >> 32);
+	out[1] = htonl(transmitted & 0xffffffff);
+	out[2] = htonl(rtptime);
 
-	pw_log_debug("sync: first:%d latency:%u now:%"PRIx64" rtptime:%u",
-			impl->first, latency, transmitted, rtptime);
+	iov[1].iov_base = out;
+	iov[1].iov_len = sizeof(out);
 
-	return sendto(impl->control_fd, pkt, sizeof(pkt), 0, dest_addr, addrlen);
+	msg.msg_name = dest_addr;
+	msg.msg_namelen = addrlen;
+	msg.msg_iov = iov;
+	msg.msg_iovlen = 2;
+	msg.msg_control = NULL;
+	msg.msg_controllen = 0;
+	msg.msg_flags = 0;
+
+	res = sendmsg(impl->control_fd, &msg, MSG_NOSIGNAL);
+	if (res < 0) {
+		res = -errno;
+		pw_log_warn("error sending control packet: %d", res);
+	}
+
+	impl->cseq = (impl->cseq + 1) & 0xffff;
+
+	pw_log_debug("raop control sync: cseq:%d first:%d latency:%u now:%"PRIx64" rtptime:%u",
+			impl->cseq, impl->first, latency, transmitted, rtptime);
+
+	return res;
 }
 
 static int send_udp_timing_packet(struct impl *impl, uint64_t remote, uint64_t received,
 		struct sockaddr *dest_addr, socklen_t addrlen)
 {
-	uint32_t pkt[8];
+	uint32_t out[6];
 	uint64_t transmitted;
+	struct rtp_header header;
+	struct iovec iov[2];
+	struct msghdr msg;
+	int res;
 
-	pkt[0] = htonl(0x80d30007);
-	pkt[1] = 0x00000000;
-	pkt[2] = htonl(remote >> 32);
-	pkt[3] = htonl(remote & 0xffffffff);
-	pkt[4] = htonl(received >> 32);
-	pkt[5] = htonl(received & 0xffffffff);
+	spa_zero(header);
+	header.v = 2;
+	header.pt = 83;
+	header.m = 1;
+
+	iov[0].iov_base = &header;
+	iov[0].iov_len = 8;
+
+	out[0] = htonl(remote >> 32);
+	out[1] = htonl(remote & 0xffffffff);
+
+	out[2] = htonl(received >> 32);
+	out[3] = htonl(received & 0xffffffff);
 	transmitted = ntp_now();
-	pkt[6] = htonl(transmitted >> 32);
-	pkt[7] = htonl(transmitted & 0xffffffff);
+	out[4] = htonl(transmitted >> 32);
+	out[5] = htonl(transmitted & 0xffffffff);
 
-	pw_log_debug("sync: remote:%"PRIx64" received:%"PRIx64" transmitted:%"PRIx64,
+	iov[1].iov_base = out;
+	iov[1].iov_len = sizeof(out);
+
+	msg.msg_name = dest_addr;
+	msg.msg_namelen = addrlen;
+	msg.msg_iov = iov;
+	msg.msg_iovlen = 2;
+	msg.msg_control = NULL;
+	msg.msg_controllen = 0;
+	msg.msg_flags = 0;
+
+	res = sendmsg(impl->timing_fd, &msg, MSG_NOSIGNAL);
+	if (res < 0) {
+		res = -errno;
+		pw_log_warn("error sending timing packet: %d", res);
+	}
+	pw_log_debug("raop timing sync: remote:%"PRIx64" received:%"PRIx64" transmitted:%"PRIx64,
 			remote, received, transmitted);
 
-	return sendto(impl->timing_fd, pkt, sizeof(pkt), 0, dest_addr, addrlen);
+	return res;
 }
 
 static int write_codec_pcm(void *dst, void *frames, uint32_t n_frames)
@@ -382,8 +441,11 @@ static int write_codec_pcm(void *dst, void *frames, uint32_t n_frames)
 
 static int flush_to_udp_packet(struct impl *impl)
 {
-	const size_t max = 12 + 8 + impl->block_size;
-	uint32_t pkt[max], len, n_frames;
+	const size_t max = 8 + impl->block_size;
+	uint32_t out[max], len, n_frames;
+	struct rtp_header header;
+	struct iovec iov[2];
+	struct msghdr msg;
 	uint8_t *dst;
 	int res;
 
@@ -394,15 +456,21 @@ static int flush_to_udp_packet(struct impl *impl)
 		impl->sync = 0;
 		send_udp_sync_packet(impl, NULL, 0);
 	}
-	pkt[0] = htonl(0x80600000);
+
+	spa_zero(header);
+	header.v = 2;
+	header.pt = 96;
 	if (impl->first)
-		pkt[0] |= htonl((uint32_t)0x80 << 16);
-	pkt[0] |= htonl((uint32_t)impl->seq);
-	pkt[1] = htonl(impl->rtptime);
-	pkt[2] = htonl(impl->ssrc);
+		header.m = 1;
+	header.sequence_number = htons(impl->seq);
+	header.timestamp = htonl(impl->rtptime);
+	header.ssrc = htonl(impl->ssrc);
+
+	iov[0].iov_base = &header;
+	iov[0].iov_len = 12;
 
 	n_frames = impl->filled / impl->frame_size;
-	dst = (uint8_t*)&pkt[3];
+	dst = (uint8_t*)&out[0];
 
 	switch (impl->codec) {
 	case CODEC_PCM:
@@ -417,11 +485,25 @@ static int flush_to_udp_packet(struct impl *impl)
 	if (impl->encryption == CRYPTO_RSA)
 		aes_encrypt(impl, dst, len);
 
+	iov[1].iov_base = out;
+	iov[1].iov_len = len;
+
 	impl->rtptime += n_frames;
 	impl->seq = (impl->seq + 1) & 0xffff;
 
-	pw_log_debug("send %u", len + 12);
-	res = send(impl->server_fd, pkt, len + 12, 0);
+	msg.msg_name = NULL;
+	msg.msg_namelen = 0;
+	msg.msg_iov = iov;
+	msg.msg_iovlen = 2;
+	msg.msg_control = NULL;
+	msg.msg_controllen = 0;
+	msg.msg_flags = 0;
+
+	res = sendmsg(impl->server_fd, &msg, MSG_NOSIGNAL);
+	if (res < 0) {
+		res = -errno;
+		pw_log_warn("error streaming packet: %d", res);
+	}
 
 	impl->first = false;
 
@@ -430,22 +512,34 @@ static int flush_to_udp_packet(struct impl *impl)
 
 static int flush_to_tcp_packet(struct impl *impl)
 {
-	const size_t max = 16 + 8 + impl->block_size;
-	uint32_t pkt[max], len, n_frames;
+	const size_t max = 8 + impl->block_size;
+	uint32_t tcp_pkt[1], out[max], len, n_frames;
+	struct rtp_header header;
+	struct iovec iov[3];
+	struct msghdr msg;
 	uint8_t *dst;
 	int res;
 
 	if (!impl->recording)
 		return 0;
 
-	pkt[0] = htonl(0x24000000);
-	pkt[1] = htonl(0x80e00000);
-	pkt[1] |= htonl((uint32_t)impl->seq);
-	pkt[2] = htonl(impl->rtptime);
-	pkt[3] = htonl(impl->ssrc);
+	tcp_pkt[0] = htonl(0x24000000);
+
+	iov[0].iov_base = &tcp_pkt;
+	iov[0].iov_len = 4;
+
+	spa_zero(header);
+	header.v = 2;
+	header.pt = 96;
+	header.sequence_number = htons(impl->seq);
+	header.timestamp = htonl(impl->rtptime);
+	header.ssrc = htonl(impl->ssrc);
+
+	iov[1].iov_base = &header;
+	iov[1].iov_len = 12;
 
 	n_frames = impl->filled / impl->frame_size;
-	dst = (uint8_t*)&pkt[4];
+	dst = (uint8_t*)&out[0];
 
 	switch (impl->codec) {
 	case CODEC_PCM:
@@ -460,13 +554,27 @@ static int flush_to_tcp_packet(struct impl *impl)
 	if (impl->encryption == CRYPTO_RSA)
 		aes_encrypt(impl, dst, len);
 
-	pkt[0] |= htonl((uint32_t) len + 12);
+	out[0] |= htonl((uint32_t) len + 12);
+
+	iov[2].iov_base = out;
+	iov[2].iov_len = len;
 
 	impl->rtptime += n_frames;
 	impl->seq = (impl->seq + 1) & 0xffff;
 
-	pw_log_debug("send %u", len + 16);
-	res = send(impl->server_fd, pkt, len + 16, 0);
+	msg.msg_name = NULL;
+	msg.msg_namelen = 0;
+	msg.msg_iov = iov;
+	msg.msg_iovlen = 2;
+	msg.msg_control = NULL;
+	msg.msg_controllen = 0;
+	msg.msg_flags = 0;
+
+	res = sendmsg(impl->server_fd, &msg, MSG_NOSIGNAL);
+	if (res < 0) {
+		res = -errno;
+		pw_log_warn("error streaming packet: %d", res);
+	}
 
 	impl->first = false;
 

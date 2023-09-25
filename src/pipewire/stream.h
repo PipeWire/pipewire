@@ -394,6 +394,11 @@ enum pw_stream_flags {
 							  *  does a trigger_process() that will then
 							  *  dequeue/queue a buffer from another process()
 							  *  function. since 0.3.73 */
+	PW_STREAM_FLAG_EARLY_PROCESS	= (1 << 11),	/**< Call process as soon as there is a buffer
+							  *  to dequeue. This is only relevant for
+							  *  playback and when not using RT_PROCESS. It
+							  *  can be used to keep the maximum number of
+							  *  buffers queued. Since 0.3.81 */
 };
 
 /** Create a new unconneced \ref pw_stream

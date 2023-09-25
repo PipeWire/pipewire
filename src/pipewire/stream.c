@@ -157,6 +157,7 @@ struct stream {
 	unsigned int driving:1;
 	unsigned int using_trigger:1;
 	unsigned int trigger:1;
+	unsigned int early_process:1;
 	int in_set_param;
 	int in_emit_param_changed;
 };
@@ -1103,7 +1104,7 @@ again:
 			 * rate matching node (audioconvert) has been scheduled to
 			 * update the values. */
 			ask_more = !impl->process_rt && impl->rate_match == NULL &&
-				queue_is_empty(impl, &impl->queued) &&
+				(impl->early_process || queue_is_empty(impl, &impl->queued)) &&
 				!queue_is_empty(impl, &impl->dequeued);
 			pw_log_trace_fp("%p: pop %d %p ask_more:%u %p", stream, b->id, io,
 					ask_more, impl->rate_match);
@@ -1121,7 +1122,7 @@ again:
 		}
 	} else {
 		ask_more = !impl->process_rt &&
-			queue_is_empty(impl, &impl->queued) &&
+			(impl->early_process || queue_is_empty(impl, &impl->queued)) &&
 			!queue_is_empty(impl, &impl->dequeued);
 	}
 
@@ -1912,6 +1913,7 @@ pw_stream_connect(struct pw_stream *stream,
 		impl->node_methods.process = impl_node_process_output;
 
 	impl->process_rt = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_RT_PROCESS);
+	impl->early_process = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_EARLY_PROCESS);
 
 	impl->impl_node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,

@@ -599,10 +599,11 @@ static bool find_match(struct spa_json *arr, const struct spa_dict *props)
 		char key[256], val[1024];
 		const char *str, *value;
 		int match = 0, fail = 0;
-		int len, skip = 0;
+		int len;
 
 		while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
 			bool success = false;
+			int skip = 0;
 
 			if ((len = spa_json_next(&it[0], &value)) <= 0)
 				break;

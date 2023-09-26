@@ -28,6 +28,7 @@ context.modules = [
         args = {
             nice.level   = -11
             #rt.prio      = 88
+            rt.prio      = 65
             #rt.time.soft = -1
             #rt.time.hard = -1
         }

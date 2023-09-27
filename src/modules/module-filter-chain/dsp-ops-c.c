@@ -63,9 +63,6 @@ void dsp_mix_gain_c(struct dsp_ops *ops,
 	uint32_t i;
 	if (n_src == 0) {
 		dsp_clear_c(ops, dst, n_samples);
-	} else if (n_src == 1) {
-		if (dst != src[0])
-			dsp_copy_c(ops, dst, src[0], n_samples);
 	} else {
 		if (gain[0] == 1.0f)
 			dsp_copy_c(ops, dst, src[0], n_samples);

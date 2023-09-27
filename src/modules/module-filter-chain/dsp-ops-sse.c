@@ -19,7 +19,7 @@ void dsp_mix_gain_sse(struct dsp_ops *ops,
 {
 	if (n_src == 0) {
 		memset(dst, 0, n_samples * sizeof(float));
-	} else if (n_src == 1) {
+	} else if (n_src == 1 && gain[0] == 1.0f) {
 		if (dst != src[0])
 			spa_memcpy(dst, src[0], n_samples * sizeof(float));
 	} else {

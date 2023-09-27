@@ -576,7 +576,7 @@ struct port {
 	uint32_t n_links;
 	uint32_t external;
 
-	float control_data;
+	float control_data[MAX_HNDL];
 	float *audio_data[MAX_HNDL];
 };
 
@@ -962,35 +962,45 @@ static struct spa_pod *get_props_param(struct graph *graph, struct spa_pod_build
 
 		spa_pod_builder_string(b, name);
 		if (p->hint & FC_HINT_BOOLEAN) {
-			spa_pod_builder_bool(b, port->control_data <= 0.0f ? false : true);
+			spa_pod_builder_bool(b, port->control_data[0] <= 0.0f ? false : true);
 		} else if (p->hint & FC_HINT_INTEGER) {
-			spa_pod_builder_int(b, port->control_data);
+			spa_pod_builder_int(b, port->control_data[0]);
 		} else {
-			spa_pod_builder_float(b, port->control_data);
+			spa_pod_builder_float(b, port->control_data[0]);
 		}
 	}
 	spa_pod_builder_pop(b, &f[1]);
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
+static int port_set_control_value(struct port *port, float *value, uint32_t id)
+{
+	struct node *node = port->node;
+	struct descriptor *desc = node->desc;
+	float old;
+
+	old = port->control_data[id];
+	port->control_data[id] = value ? *value : desc->default_control[port->idx];
+	pw_log_info("control %d %d ('%s') from %f to %f", port->idx, id,
+			desc->desc->ports[port->p].name, old, port->control_data[id]);
+	node->control_changed = old != port->control_data[id];
+	return node->control_changed ? 1 : 0;
+}
+
 static int set_control_value(struct node *node, const char *name, float *value)
 {
-	struct descriptor *desc;
 	struct port *port;
-	float old;
+	int count = 0;
+	uint32_t i;
 
 	port = find_port(node, name, FC_PORT_INPUT | FC_PORT_CONTROL);
 	if (port == NULL)
 		return -ENOENT;
 
-	node = port->node;
-	desc = node->desc;
+	for (i = 0; i < port->node->n_hndl; i++)
+		count += port_set_control_value(port, value, i);
 
-	old = port->control_data;
-	port->control_data = value ? *value : desc->default_control[port->idx];
-	pw_log_info("control %d ('%s') from %f to %f", port->idx, name, old, port->control_data);
-	node->control_changed = old != port->control_data;
-	return node->control_changed ? 1 : 0;
+	return count;
 }
 
 static int parse_params(struct graph *graph, const struct spa_pod *pod)
@@ -1809,7 +1819,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	char label[256] = "";
 	bool have_control = false;
 	bool have_config = false;
-	uint32_t i;
+	uint32_t i, j;
 	int res;
 
 	while (spa_json_get_string(json, key, sizeof(key)) > 0) {
@@ -1896,7 +1906,8 @@ static int load_node(struct graph *graph, struct spa_json *json)
 		port->external = SPA_ID_INVALID;
 		port->p = desc->control[i];
 		spa_list_init(&port->link_list);
-		port->control_data = desc->default_control[i];
+		for (j = 0; j < MAX_HNDL; j++)
+			port->control_data[j] = desc->default_control[i];
 	}
 	for (i = 0; i < desc->n_notify; i++) {
 		struct port *port = &node->notify_port[i];
@@ -2041,22 +2052,22 @@ static int graph_instantiate(struct graph *graph)
 			}
 			for (j = 0; j < desc->n_control; j++) {
 				port = &node->control_port[j];
-				d->connect_port(node->hndl[i], port->p, &port->control_data);
+				d->connect_port(node->hndl[i], port->p, &port->control_data[i]);
 
 				spa_list_for_each(link, &port->link_list, input_link) {
 					struct port *peer = link->output;
 					pw_log_info("connect control port %s[%d]:%s %p",
 							node->name, i, d->ports[port->p].name,
-							&peer->control_data);
-					d->connect_port(node->hndl[i], port->p, &peer->control_data);
+							&peer->control_data[i]);
+					d->connect_port(node->hndl[i], port->p, &peer->control_data[i]);
 				}
 			}
 			for (j = 0; j < desc->n_notify; j++) {
 				port = &node->notify_port[j];
 				pw_log_info("connect notify port %s[%d]:%s %p",
 						node->name, i, d->ports[port->p].name,
-						&port->control_data);
-				d->connect_port(node->hndl[i], port->p, &port->control_data);
+						&port->control_data[i]);
+				d->connect_port(node->hndl[i], port->p, &port->control_data[i]);
 			}
 			if (d->activate)
 				d->activate(node->hndl[i]);

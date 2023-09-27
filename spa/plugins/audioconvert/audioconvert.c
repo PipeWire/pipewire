@@ -370,8 +370,9 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 	}
 	spa_list_init(&port->queue);
 
-	spa_log_info(this->log, "%p: add port %d:%d position:%s %d %d %d",
-			this, direction, port_id, port->position, is_dsp, is_monitor, is_control);
+	spa_log_debug(this->log, "%p: add port %d:%d position:%s %d %d %d",
+			this, direction, port_id, port->position, is_dsp,
+			is_monitor, is_control);
 	emit_port_info(this, port, true);
 
 	return 0;
@@ -1266,8 +1267,9 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	    (info == NULL || memcmp(&dir->format, info, sizeof(*info)) == 0))
 		return 0;
 
-	spa_log_info(this->log, "%p: port config direction:%d monitor:%d control:%d mode:%d %d", this,
-			direction, monitor, control, mode, dir->n_ports);
+	spa_log_debug(this->log, "%p: port config direction:%d monitor:%d "
+			"control:%d mode:%d %d", this, direction, monitor,
+			control, mode, dir->n_ports);
 
 	for (i = 0; i < dir->n_ports; i++) {
 		spa_node_emit_port_info(&this->hooks, direction, i, NULL);

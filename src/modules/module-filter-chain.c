@@ -82,6 +82,12 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *         ]
  *         inputs = [ <portname> ... ]
  *         outputs = [ <portname> ... ]
+ *         capture.volumes = [
+ *             { control = <portname>  min = <value>  max = <value> } ...
+ *         ]
+ *         playback.volumes = [
+ *             { control = <portname>  min = <value>  max = <value> } ...
+ *         ]
  *    }
  *\endcode
  *
@@ -136,6 +142,15 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * inputs from the first filter and all outputs from the last filter node. The
  * graph will then be duplicated as many times to match the number of input/output
  * channels of the streams.
+ *
+ * ### Volumes
+ *
+ * Normally the volume of the sink/source is handled by the stream software volume.
+ * With the capture.volumes and playback.volumes properties this can be handled
+ * by a control port in the graph instead.
+ *
+ * The min and max values (defaults 0.0 and 1.0) respectively can be used to scale
+ * and translate the volume min and max values.
  *
  * ## Builtin filters
  *
@@ -625,6 +640,17 @@ struct graph_hndl {
 	void **hndl;
 };
 
+struct volume {
+	bool mute;
+	uint32_t n_volumes;
+	float volumes[SPA_AUDIO_MAX_CHANNELS];
+	float min_volumes[SPA_AUDIO_MAX_CHANNELS];
+	float max_volumes[SPA_AUDIO_MAX_CHANNELS];
+
+	uint32_t n_ports;
+	struct port *ports[SPA_AUDIO_MAX_CHANNELS];
+};
+
 struct graph {
 	struct impl *impl;
 
@@ -642,6 +668,9 @@ struct graph {
 
 	uint32_t n_control;
 	struct port **control_port;
+
+	struct volume capture_volume;
+	struct volume playback_volume;
 
 	unsigned instantiated:1;
 };
@@ -1092,17 +1121,103 @@ static void update_props_param(struct impl *impl)
 	spa_pod_dynamic_builder_clean(&b);
 }
 
-static void param_props_changed(struct impl *impl, const struct spa_pod *param)
+static int sync_volume(struct graph *graph, struct volume *vol)
+{
+	uint32_t i;
+	int res = 0;
+
+	if (vol->n_ports == 0)
+		return 0;
+	for (i = 0; i < vol->n_volumes; i++) {
+		struct port *p = vol->ports[i % vol->n_ports];
+		float v = vol->mute ? 0.0f : vol->volumes[i];
+		res += port_set_control_value(p, &v, i % MAX_HNDL);
+	}
+	return res;
+}
+
+static int parse_channel_volumes(struct graph *graph, struct volume *vol,
+		const struct spa_pod *pod)
+{
+	uint32_t i, n_vols;
+	float vols[SPA_AUDIO_MAX_CHANNELS];
+	int res = 0;
+
+	if ((n_vols = spa_pod_copy_array(pod, SPA_TYPE_Float, vols,
+			SPA_AUDIO_MAX_CHANNELS)) == 0)
+		return 0;
+
+	if (vol->n_volumes != n_vols)
+		res++;
+	vol->n_volumes = n_vols;
+
+	for (i = 0; i < n_vols; i++) {
+		float v = vols[i];
+		if (v != vol->volumes[i]) {
+			vol->volumes[i] = v;
+			res++;
+		}
+	}
+	return res;
+}
+
+static void param_props_changed(struct impl *impl, const struct spa_pod *param,
+		bool capture)
 {
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
+	struct spa_pod_frame f[1];
 	const struct spa_pod_prop *prop;
 	struct graph *graph = &impl->graph;
 	int changed = 0;
+	char buf[1024];
+	struct spa_pod_dynamic_builder b;
+	struct volume *vol = capture ? &graph->capture_volume :
+		&graph->playback_volume;
+	bool do_param = false;
+
+	spa_pod_dynamic_builder_init(&b, buf, sizeof(buf), 1024);
+	spa_pod_builder_push_object(&b.b, &f[0], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
 
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
-		if (prop->key == SPA_PROP_params)
+		switch (prop->key) {
+		case SPA_PROP_params:
 			changed += parse_params(graph, &prop->value);
+			spa_pod_builder_raw_padded(&b.b, prop, SPA_POD_PROP_SIZE(prop));
+			break;
+		case SPA_PROP_mute:
+		{
+			bool mute;
+			if (spa_pod_get_bool(&prop->value, &mute) == 0) {
+				vol->mute = mute;
+				do_param = true;
+			}
+			spa_pod_builder_raw_padded(&b.b, prop, SPA_POD_PROP_SIZE(prop));
+			break;
+		}
+		case SPA_PROP_channelVolumes:
+		{
+			if (parse_channel_volumes(graph, vol, &prop->value) > 0)
+				do_param = true;
+			break;
+		}
+		case SPA_PROP_softVolumes:
+		case SPA_PROP_softMute:
+			break;
+		default:
+			spa_pod_builder_raw_padded(&b.b, prop, SPA_POD_PROP_SIZE(prop));
+			break;
+		}
 	}
+	param = spa_pod_builder_pop(&b.b, &f[0]);
+
+	if (do_param) {
+		sync_volume(graph, vol);
+		pw_stream_set_param(capture ? impl->capture :
+				impl->playback, SPA_PARAM_Props, param);
+	}
+
+	spa_pod_dynamic_builder_clean(&b);
+
 	if (changed > 0) {
 		struct node *node;
 
@@ -1111,6 +1226,7 @@ static void param_props_changed(struct impl *impl, const struct spa_pod *param)
 
 		update_props_param(impl);
 	}
+
 }
 
 static void param_latency_changed(struct impl *impl, const struct spa_pod *param)
@@ -1206,7 +1322,8 @@ static void io_changed(void *data, uint32_t id, void *area, uint32_t size)
 	}
 }
 
-static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
+static void param_changed(void *data, uint32_t id, const struct spa_pod *param,
+		bool capture)
 {
 	struct impl *impl = data;
 	struct graph *graph = &impl->graph;
@@ -1229,7 +1346,7 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 	}
 	case SPA_PARAM_Props:
 		if (param != NULL)
-			param_props_changed(impl, param);
+			param_props_changed(impl, param, capture);
 		break;
 	case SPA_PARAM_Latency:
 		param_latency_changed(impl, param);
@@ -1241,8 +1358,13 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 	return;
 
 error:
-	pw_stream_set_error(impl->capture, res, "can't start graph: %s",
-			spa_strerror(res));
+	pw_stream_set_error(capture ? impl->capture : impl->playback,
+			res, "can't start graph: %s", spa_strerror(res));
+}
+
+static void capture_param_changed(void *data, uint32_t id, const struct spa_pod *param)
+{
+	param_changed(data, id, param, true);
 }
 
 static const struct pw_stream_events in_stream_events = {
@@ -1251,8 +1373,13 @@ static const struct pw_stream_events in_stream_events = {
 	.process = capture_process,
 	.io_changed = io_changed,
 	.state_changed = state_changed,
-	.param_changed = param_changed
+	.param_changed = capture_param_changed
 };
+
+static void playback_param_changed(void *data, uint32_t id, const struct spa_pod *param)
+{
+	param_changed(data, id, param, false);
+}
 
 static void playback_destroy(void *d)
 {
@@ -1267,7 +1394,7 @@ static const struct pw_stream_events out_stream_events = {
 	.process = playback_process,
 	.io_changed = io_changed,
 	.state_changed = state_changed,
-	.param_changed = param_changed,
+	.param_changed = playback_param_changed,
 };
 
 static int setup_streams(struct impl *impl)
@@ -1792,6 +1919,75 @@ static void link_free(struct link *link)
 	link->output->n_links--;
 	spa_list_remove(&link->link);
 	free(link);
+}
+
+/**
+ * {
+ *   control = [name:][portname]
+ *   min = ...
+ *   max = ...
+ * }
+ */
+static int parse_volume(struct graph *graph, struct spa_json *json, bool capture)
+{
+	char key[256];
+	char control[256] = "";
+	float min = 0.0f, max = 1.0f;
+	const char *val;
+	struct node *def_control;
+	struct port *port;
+	struct volume *vol = capture ? &graph->capture_volume :
+		&graph->playback_volume;
+
+	if (spa_list_is_empty(&graph->node_list)) {
+		pw_log_error("can't set volume in graph without nodes");
+		return -EINVAL;
+	}
+	while (spa_json_get_string(json, key, sizeof(key)) > 0) {
+		if (spa_streq(key, "control")) {
+			if (spa_json_get_string(json, control, sizeof(control)) <= 0) {
+				pw_log_error("control expects a string");
+				return -EINVAL;
+			}
+		}
+		else if (spa_streq(key, "min")) {
+			if (spa_json_get_float(json, &min) <= 0) {
+				pw_log_error("min expects a float");
+				return -EINVAL;
+			}
+		}
+		else if (spa_streq(key, "max")) {
+			if (spa_json_get_float(json, &max) <= 0) {
+				pw_log_error("max expects a float");
+				return -EINVAL;
+			}
+		}
+		else if (spa_json_next(json, &val) < 0)
+			break;
+	}
+	if (capture)
+		def_control = spa_list_first(&graph->node_list, struct node, link);
+	else
+		def_control = spa_list_last(&graph->node_list, struct node, link);
+
+	port = find_port(def_control, control, FC_PORT_INPUT | FC_PORT_CONTROL);
+	if (port == NULL) {
+		pw_log_error("unknown control port %s", control);
+		return -ENOENT;
+	}
+	if (vol->n_ports >= SPA_AUDIO_MAX_CHANNELS) {
+		pw_log_error("too many volume controls");
+		return -ENOENT;
+	}
+	pw_log_info("volume %d: %s:%s %f %f", vol->n_ports, port->node->name,
+			port->node->desc->desc->ports[port->p].name, min, max);
+
+	vol->ports[vol->n_ports] = port;
+	vol->min_volumes[vol->n_ports] = min;
+	vol->max_volumes[vol->n_ports] = max;
+	vol->n_ports++;
+
+	return 0;
 }
 
 /**
@@ -2366,6 +2562,7 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 {
 	struct spa_json it[3];
 	struct spa_json inputs, outputs, *pinputs = NULL, *poutputs = NULL;
+	struct spa_json cvolumes, pvolumes, *pcvolumes = NULL, *ppvolumes = NULL;
 	struct spa_json nodes, *pnodes = NULL, links, *plinks = NULL;
 	const char *json, *val;
 	char key[256];
@@ -2413,6 +2610,20 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 				return -EINVAL;
 			}
 			poutputs = &outputs;
+		}
+		else if (spa_streq("capture.volumes", key)) {
+			if (spa_json_enter_array(&it[1], &cvolumes) <= 0) {
+				pw_log_error("capture.volumes expects an array");
+				return -EINVAL;
+			}
+			pcvolumes = &cvolumes;
+		}
+		else if (spa_streq("playback.volumes", key)) {
+			if (spa_json_enter_array(&it[1], &pvolumes) <= 0) {
+				pw_log_error("playback.volumes expects an array");
+				return -EINVAL;
+			}
+			ppvolumes = &pvolumes;
 		} else if (spa_json_next(&it[1], &val) < 0)
 			break;
 	}
@@ -2427,6 +2638,18 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 	if (plinks != NULL) {
 		while (spa_json_enter_object(plinks, &it[2]) > 0) {
 			if ((res = parse_link(graph, &it[2])) < 0)
+				return res;
+		}
+	}
+	if (pcvolumes != NULL) {
+		while (spa_json_enter_object(pcvolumes, &it[2]) > 0) {
+			if ((res = parse_volume(graph, &it[2], true)) < 0)
+				return res;
+		}
+	}
+	if (ppvolumes != NULL) {
+		while (spa_json_enter_object(ppvolumes, &it[2]) > 0) {
+			if ((res = parse_volume(graph, &it[2], false)) < 0)
 				return res;
 		}
 	}

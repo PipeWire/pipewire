@@ -1386,6 +1386,7 @@ static int rtsp_do_announce(struct impl *impl)
 		break;
 
 	case CRYPTO_RSA:
+	{
 		uint8_t rac[16];
 		char sac[16*4];
 
@@ -1420,6 +1421,7 @@ static int rtsp_do_announce(struct impl *impl)
 		if (!sdp)
 			return -errno;
 		break;
+	}
 	default:
 		return -ENOTSUP;
 	}

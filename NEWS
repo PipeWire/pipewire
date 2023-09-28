@@ -1,3 +1,88 @@
+# PipeWire 0.3.81 (2023-10-06)
+
+This is the first 1.0 release candidate that is API and ABI compatible
+with previous 0.3.x releases.
+
+## Highlights
+  - jackdbus support is now enabled by default.
+  - IRQ based scheduling in ALSA was improved and enabled by default for
+    Pro-Audio profile. It will also link the pcms together to get lower
+    latency. This now matches what JACK does and gives equal latency to
+    PipeWire for Pro-Audio profiles.
+  - Support both old and new versions of webrtc-audio-processing to make
+    the transition easier.
+  - Forced quantum changes by nodes or metadata will now also force a
+    suspend and resume of the graph, like the rate changes to make sure all
+    nodes adapt to the new quantum. This is important for Pro-Audio nodes
+    that need to reconfigure the hardware to a new period in IRQ based
+    scheduling.
+  - Fix a regression in regex parsing.
+  - Many bugfixes and improvements.
+
+
+## PipeWire
+  - jackdbus is by default enabled now. The idea is that when jackdbus is
+    installed, the real libjack.so is in the path and we can become a
+    real JACK client.
+  - Forces quantum changes by nodes or metadata will now also force a
+    suspend and resume in the graph, like the rate changes to make sure all
+    nodes adapt to the new quantum. This is important for Pro-Audio nodes
+    that need to reconfigure the hardware to a new period.
+  - The stream now has an EARLY_PROCESS option that can be used to implement
+    custum buffer fill levels. (#3480)
+  - Fix a regression in regex parsing. (#3528)
+  - Fix a bug in position reporting in the driver node. (#3189) (#3544)
+  - Destroying a link will now recalculate the graph correctly.
+  - Fix the rate comparison for finding the best rate in the graph.
+  - Use malloc_trim() when available to release memory. (#1840)
+
+## Tools
+  - pw-cat now supports DFF DSD files.
+  - pw-cli avoid some NULL derefs in some cases.
+
+## Modules
+  - The RAOP sink has seen some cleanups and improvements. It will now ask
+    for feedback every 2 seconds to keep some devices alive.
+  - A bug in filter-chain was fixed where it would fail to apply the gain
+    when mixing just one source.
+  - The filter-chain can now pass the stream volume to a control in the
+    filter-chain graph. (#3434)
+  - Improve volume handling in RAOP sink.
+
+## Pulse-server
+  - Some cleanup in the pending_stream handling.
+  - Fix a regression in the event emission code where it failed to emit
+    a changed event when a node was linked. (#3522)
+  - Lower the realtime priority of pulseaudio clients.
+  - Set pulse.module.id on the echo-cancel streams. (#3541)
+
+## SPA
+  - Support both old and new versions of webrtc-audio-processing to make
+    the transition easier.
+  - The ALSA driver now does the sync of all followers directly from the
+    wakeup event. This results in more stable rate matching.
+  - IRQ based scheduling in ALSA was improved and enabled by default for
+    Pro-Audio profile. It will also link the pcms together to get lower
+    latency. This now matches what JACK does and gives equal latency to
+    PipeWire for Pro-Audio profiles.
+  - GNU/Hurd support was added.
+  - Some improvements to passthrough handling.
+
+## Bluetooth
+  - Improvements to the codec handling when PipeWire is used as Audio
+    Gateway.
+  - Adapt to new Bluez API for BAP devices.
+
+## JACK
+  - When the jack library is set in the default library path, avoid using
+    LD_LIBRARY_PATH because this can cause confusion.
+  - Handle clearing the latency on a port.
+  - jack_property now always manages to actually change the metadata because
+    it waits for a roundtrip before exiting.
+
+Older versions:
+
+
 # PipeWire 0.3.80 (2023-09-14)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -62,9 +147,6 @@ This is a bugfix release that is API and ABI compatible with previous
   - The notify callbacks now match JACK2 behaviour more.
   - The mixer io areas are updated and handled safely now to avoid
     crashes. (#3506)
-
-Older versions:
-
 
 # PipeWire 0.3.79 (2023-08-29)
 

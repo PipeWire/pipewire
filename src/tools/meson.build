@@ -47,6 +47,7 @@ if get_option('pw-cat').allowed() and sndfile_dep.found()
   pwcat_sources = [
     'pw-cat.c',
     'midifile.c',
+    'dfffile.c',
     'dsffile.c',
   ]
 

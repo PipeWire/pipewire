@@ -1545,6 +1545,7 @@ SPA_EXPORT
 void pw_impl_link_destroy(struct pw_impl_link *link)
 {
 	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
+	bool was_prepared = link->prepared;
 
 	pw_log_debug("%p: destroy", impl);
 	pw_log_info("(%s) destroy", link->name);
@@ -1570,7 +1571,7 @@ void pw_impl_link_destroy(struct pw_impl_link *link)
 		pw_global_destroy(link->global);
 	}
 
-	if (link->prepared)
+	if (was_prepared)
 		pw_context_recalc_graph(link->context, "link destroy");
 
 	pw_log_debug("%p: free", impl);

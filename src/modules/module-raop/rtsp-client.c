@@ -21,12 +21,12 @@
 
 struct message {
 	struct spa_list link;
-	void *data;
 	size_t len;
 	size_t offset;
 	uint32_t cseq;
 	int (*reply) (void *user_data, int status, const struct spa_dict *headers, const struct pw_array *content);
 	void *user_data;
+	unsigned char data[];
 };
 
 enum client_recv_state {
@@ -598,7 +598,6 @@ int pw_rtsp_client_url_send(struct pw_rtsp_client *client, const char *url,
 
 	fclose(f);
 
-	msg->data = SPA_PTROFF(msg, sizeof(*msg), void);
 	msg->len = len - sizeof(*msg);
 	msg->offset = 0;
 	msg->reply = reply;

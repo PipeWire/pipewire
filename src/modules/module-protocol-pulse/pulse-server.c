@@ -5483,9 +5483,23 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	const char *str;
 	int res = 0;
 
+	debug_messages = pw_log_topic_enabled(SPA_LOG_LEVEL_INFO, pulse_conn);
+
 	impl = calloc(1, sizeof(*impl) + user_data_size);
 	if (impl == NULL)
-		goto error_exit;
+		goto error_free_props;
+
+	impl->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
+	impl->rate_limit.burst = 1;
+	spa_hook_list_init(&impl->hooks);
+	spa_list_init(&impl->servers);
+	pw_map_init(&impl->samples, 16, 16);
+	pw_map_init(&impl->modules, 16, 16);
+	spa_list_init(&impl->cleanup_clients);
+	spa_list_init(&impl->free_messages);
+
+	impl->loop = pw_context_get_main_loop(context);
+	impl->work_queue = pw_context_get_work_queue(context);
 
 	if (props == NULL)
 		props = pw_properties_new(NULL, NULL);
@@ -5502,25 +5516,6 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 			pw_properties_update_string(props, str, strlen(str));
 		pw_properties_set(props, "vm.overrides", NULL);
 	}
-
-	load_defaults(&impl->defs, props);
-
-	debug_messages = pw_log_topic_enabled(SPA_LOG_LEVEL_INFO, pulse_conn);
-
-	impl->context = context;
-	impl->loop = pw_context_get_main_loop(context);
-	impl->props = props;
-
-	impl->work_queue = pw_context_get_work_queue(context);
-
-	spa_hook_list_init(&impl->hooks);
-	spa_list_init(&impl->servers);
-	impl->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
-	impl->rate_limit.burst = 1;
-	pw_map_init(&impl->samples, 16, 16);
-	pw_map_init(&impl->modules, 16, 16);
-	spa_list_init(&impl->cleanup_clients);
-	spa_list_init(&impl->free_messages);
 
 	str = pw_properties_get(props, "server.address");
 	if (str == NULL) {
@@ -5544,8 +5539,6 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 		pw_log_warn("%p: can't create pid file: %s",
 				impl, spa_strerror(res));
 	}
-	pw_context_add_listener(context, &impl->context_listener,
-			&context_events, impl);
 
 #ifdef HAVE_DBUS
 	str = pw_properties_get(props, "server.dbus-name");
@@ -5554,14 +5547,22 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	if (strlen(str) > 0)
 		impl->dbus_name = dbus_request_name(context, str);
 #endif
+
+	load_defaults(&impl->defs, props);
+	impl->props = spa_steal_ptr(props);
+
+	pw_context_add_listener(context, &impl->context_listener,
+			&context_events, impl);
+	impl->context = context;
+
 	cmd_run(impl);
 
 	return (struct pw_protocol_pulse *) impl;
 
 error_free:
-	free(impl);
+	impl_free(impl);
 
-error_exit:
+error_free_props:
 	pw_properties_free(props);
 
 	if (res < 0)

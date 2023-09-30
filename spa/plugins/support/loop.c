@@ -16,6 +16,7 @@
 #include <spa/support/plugin.h>
 #include <spa/utils/list.h>
 #include <spa/utils/names.h>
+#include <spa/utils/ratelimit.h>
 #include <spa/utils/result.h>
 #include <spa/utils/type.h>
 #include <spa/utils/ringbuffer.h>
@@ -64,6 +65,7 @@ struct impl {
 
 	struct spa_source *wakeup;
 	int ack_fd;
+	struct spa_ratelimit rate_limit;
 
 	struct spa_ringbuffer buffer;
 	uint8_t *buffer_data;
@@ -93,6 +95,13 @@ struct source_impl {
 	bool enabled;
 };
 /** \endcond */
+
+static inline uint64_t get_time_ns(struct spa_system *system)
+{
+	struct timespec ts;
+	spa_system_clock_gettime(system, CLOCK_MONOTONIC, &ts);
+	return SPA_TIMESPEC_TO_NSEC(&ts);
+}
 
 static int loop_add_source(void *object, struct spa_source *source)
 {
@@ -267,8 +276,12 @@ loop_invoke(void *object,
 		item->item_size = SPA_ROUND_UP_N(l0 + size, ITEM_ALIGN);
 	}
 	if (avail < item->item_size) {
-		spa_log_warn(impl->log, "%p: queue full %d, need %zd", impl, avail,
-				item->item_size);
+		int suppressed;
+		uint64_t nsec = get_time_ns(impl->system);
+		if ((suppressed = spa_ratelimit_test(&impl->rate_limit, nsec)) >= 0) {
+			spa_log_warn(impl->log, "%p: queue full %d, need %zd (%d suppressed)",
+					impl, avail, item->item_size, suppressed);
+		}
 		return -EPIPE;
 	}
 	if (data && size > 0)
@@ -1004,6 +1017,8 @@ impl_init(const struct spa_handle_factory *factory,
 		res = -EINVAL;
 		goto error_exit;
 	}
+	impl->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
+	impl->rate_limit.burst = 1;
 
 	if ((res = spa_system_pollfd_create(impl->system, SPA_FD_CLOEXEC)) < 0) {
 		spa_log_error(impl->log, "%p: can't create pollfd: %s",

@@ -15,6 +15,10 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/support/log.h>
 #include <spa/debug/context.h>
+#include <spa/debug/dict.h>
+#include <spa/debug/format.h>
+#include <spa/debug/mem.h>
+#include <spa/debug/pod.h>
 
 /**
  * \addtogroup spa_debug

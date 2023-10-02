@@ -2395,9 +2395,6 @@ static int alsa_write_sync(struct state *state, uint64_t current_time)
 	snd_pcm_uframes_t avail, delay, target;
 	bool following = state->following;
 
-	if (SPA_UNLIKELY(!state->alsa_started))
-		return 0;
-
 	if (SPA_UNLIKELY((res = check_position_config(state)) < 0))
 		return res;
 

@@ -1365,10 +1365,10 @@ again:
 			     fraction_compare(&s->max_latency, &max_latency) < 0))
 				max_latency = s->max_latency;
 
-			/* largest rate */
+			/* largest rate, which is in fact the smallest fraction */
 			if (rate.denom == 0 ||
 			    (s->rate.denom > 0 &&
-			     fraction_compare(&s->rate, &rate) > 0))
+			     fraction_compare(&s->rate, &rate) < 0))
 				rate = s->rate;
 
 			if (s->active)

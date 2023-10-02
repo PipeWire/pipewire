@@ -52,6 +52,11 @@ static int module_echo_cancel_load(struct module *module)
 	char *args;
 	size_t size;
 
+	pw_properties_setf(data->capture_props, "pulse.module.id", "%u", module->index);
+	pw_properties_setf(data->source_props, "pulse.module.id", "%u", module->index);
+	pw_properties_setf(data->sink_props, "pulse.module.id", "%u", module->index);
+	pw_properties_setf(data->playback_props, "pulse.module.id", "%u", module->index);
+
 	if ((f = open_memstream(&args, &size)) == NULL)
 		return -errno;
 

@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
+#include <malloc.h>
 
 #include <spa/support/system.h>
 #include <spa/pod/parser.h>
@@ -2029,6 +2030,7 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	struct pw_impl_node *follower;
 	struct pw_context *context = node->context;
 	bool active, had_driver;
+	int res;
 
 	active = node->active;
 	node->active = false;
@@ -2103,6 +2105,9 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 
 	spa_system_close(node->data_system, node->source.fd);
 	free(impl);
+
+	res = malloc_trim(0);
+	pw_log_debug("malloc_trim(): %d", res);
 }
 
 SPA_EXPORT

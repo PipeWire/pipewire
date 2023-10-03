@@ -719,8 +719,6 @@ static void parse_endpoint_qos(struct spa_bt_monitor *monitor, DBusMessageIter *
 {
 	DBusMessageIter dict_iter = *iter;
 
-	memset(qos, 0, sizeof(*qos));
-
 	if (!check_iter_signature(&dict_iter, "{sv}")) {
 		spa_log_warn(monitor->log, "Invalid BAP Endpoint QoS in DBus");
 		return;
@@ -784,6 +782,87 @@ static void parse_endpoint_qos(struct spa_bt_monitor *monitor, DBusMessageIter *
 	}
 }
 
+static int parse_endpoint_props(struct spa_bt_monitor *monitor, DBusMessageIter *iter,
+		uint8_t caps[A2DP_MAX_CAPS_SIZE], int *caps_size, const char **endpoint_path,
+		struct bap_endpoint_qos *qos)
+{
+	DBusMessageIter dict_iter = *iter;
+	const char *key = NULL;
+	int type = 0;
+
+	memset(caps, 0, A2DP_MAX_CAPS_SIZE);
+	*endpoint_path = NULL;
+	memset(qos, 0, sizeof(*qos));
+
+	if (!check_iter_signature(&dict_iter, "{sv}")) {
+		spa_log_warn(monitor->log, "Invalid BAP Endpoint QoS in DBus");
+		return -EINVAL;
+	}
+
+	while (dbus_message_iter_get_arg_type(&dict_iter) != DBUS_TYPE_INVALID) {
+		DBusMessageIter it[3];
+
+		dbus_message_iter_recurse(&dict_iter, &it[0]);
+		dbus_message_iter_get_basic(&it[0], &key);
+		dbus_message_iter_next(&it[0]);
+		dbus_message_iter_recurse(&it[0], &it[1]);
+
+		type = dbus_message_iter_get_arg_type(&it[1]);
+
+		if (spa_streq(key, "Capabilities")) {
+			uint8_t *buf;
+
+			if (type != DBUS_TYPE_ARRAY)
+				goto bad_property;
+
+			dbus_message_iter_recurse(&it[1], &it[2]);
+			type = dbus_message_iter_get_arg_type(&it[2]);
+			if (type != DBUS_TYPE_BYTE)
+				goto bad_property;
+
+			dbus_message_iter_get_fixed_array(&it[2], &buf, caps_size);
+			if (*caps_size > A2DP_MAX_CAPS_SIZE) {
+				spa_log_error(monitor->log, "%s size:%d too large", key, (int)*caps_size);
+				return -EINVAL;
+			}
+			memcpy(caps, buf, *caps_size);
+
+			spa_log_info(monitor->log, "%p: %s size:%d", monitor, key, *caps_size);
+			spa_debug_log_mem(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', caps, (size_t)*caps_size);
+		} else if (spa_streq(key, "Endpoint")) {
+			if (type != DBUS_TYPE_OBJECT_PATH)
+				goto bad_property;
+
+			dbus_message_iter_get_basic(&it[1], endpoint_path);
+
+			spa_log_info(monitor->log, "%p: %s %s", monitor, key, *endpoint_path);
+		} else if (spa_streq(key, "QoS")) {
+			if (!check_iter_signature(&it[1], "a{sv}"))
+				goto bad_property;
+
+			dbus_message_iter_recurse(&it[1], &it[2]);
+			parse_endpoint_qos(monitor, &it[2], qos);
+		} else if (spa_streq(key, "Locations")) {
+			dbus_uint32_t value;
+
+			if (type != DBUS_TYPE_UINT32)
+				goto bad_property;
+
+			dbus_message_iter_get_basic(&it[1], &value);
+			spa_log_debug(monitor->log, "ep qos: %s=%d", key, (int)value);
+			qos->locations = value;
+		}
+
+		dbus_message_iter_next(&dict_iter);
+	}
+
+	return 0;
+
+bad_property:
+	spa_log_error(monitor->log, "Property %s of wrong type %c", key, (char)type);
+	return -EINVAL;
+}
+
 static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
 	struct spa_bt_monitor *monitor = userdata;
@@ -835,61 +914,10 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	}
 
 	/* Parse endpoint properties */
-	parse_endpoint_qos(monitor, &props, &endpoint_qos);
+	if (parse_endpoint_props(monitor, &props, caps, &caps_size, &endpoint_path, &endpoint_qos) < 0)
+		goto error_invalid;
 	if (endpoint_qos.locations)
 		spa_scnprintf(locations, sizeof(locations), "%"PRIu32, endpoint_qos.locations);
-
-	while (dbus_message_iter_get_arg_type(&props) == DBUS_TYPE_DICT_ENTRY) {
-		const char *key;
-		DBusMessageIter value, entry;
-		int type;
-
-		dbus_message_iter_recurse(&props, &entry);
-		dbus_message_iter_get_basic(&entry, &key);
-
-		dbus_message_iter_next(&entry);
-		dbus_message_iter_recurse(&entry, &value);
-
-		type = dbus_message_iter_get_arg_type(&value);
-
-		if (spa_streq(key, "Capabilities")) {
-			DBusMessageIter array;
-			uint8_t *buf;
-
-			if (type != DBUS_TYPE_ARRAY) {
-				spa_log_error(monitor->log, "Property %s of wrong type %c", key, (char)type);
-				goto error_invalid;
-			}
-
-			dbus_message_iter_recurse(&value, &array);
-			type = dbus_message_iter_get_arg_type(&array);
-			if (type != DBUS_TYPE_BYTE) {
-				spa_log_error(monitor->log, "%s is an array of wrong type %c", key, (char)type);
-				goto error_invalid;
-			}
-
-			dbus_message_iter_get_fixed_array(&array, &buf, &caps_size);
-			if (caps_size > (int)sizeof(caps)) {
-				spa_log_error(monitor->log, "%s size:%d too large", key, (int)caps_size);
-				goto error_invalid;
-			}
-			memcpy(caps, buf, caps_size);
-
-			spa_log_info(monitor->log, "%p: %s %s size:%d", monitor, path, key, caps_size);
-			spa_debug_log_mem(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', caps, (size_t)caps_size);
-		} else if (spa_streq(key, "Endpoint")) {
-			if (type != DBUS_TYPE_OBJECT_PATH) {
-				spa_log_error(monitor->log, "Property %s of wrong type %c", key, (char)type);
-				goto error_invalid;
-			}
-
-			dbus_message_iter_get_basic(&value, &endpoint_path);
-
-			spa_log_info(monitor->log, "%p: %s %s %s", monitor, path, key, endpoint_path);
-		}
-
-		dbus_message_iter_next(&props);
-	}
 
 	ep = remote_endpoint_find(monitor, endpoint_path);
 	if (!ep) {

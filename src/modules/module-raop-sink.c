@@ -981,7 +981,7 @@ static int rtsp_send_volume(struct impl *impl)
 
 	char header[128], volstr[64];
 	snprintf(header, sizeof(header), "volume: %s\r\n",
-			spa_dtoa(volstr, sizeof(volstr), impl->volume));
+			spa_dtoa(volstr, sizeof(volstr), impl->mute ? VOLUME_MUTE : impl->volume));
 	return rtsp_send(impl, "SET_PARAMETER", "text/parameters", header, rtsp_log_reply_status);
 }
 
@@ -1723,14 +1723,13 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 		{
 			bool mute;
 			if (spa_pod_get_bool(&prop->value, &mute) == 0) {
-				if (!impl->mute) {
-					impl->volume = VOLUME_MUTE;
+				if (!impl->mute != mute) {
+					impl->mute = mute;
 					rtsp_send_volume(impl);
 				}
-				impl->mute = mute;
                         }
 			spa_pod_builder_prop(&b, SPA_PROP_softMute, 0);
-			spa_pod_builder_bool(&b, impl->mute);
+			spa_pod_builder_bool(&b, false);
 			spa_pod_builder_raw_padded(&b, prop, SPA_POD_PROP_SIZE(prop));
 			break;
 		}

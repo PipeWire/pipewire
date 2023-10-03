@@ -148,9 +148,9 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_CHANNELS 2
 #define DEFAULT_POSITION "[ FL FR ]"
 
-#define VOLUME_MAX  0.0
-#define VOLUME_DEF -30.0
-#define VOLUME_MIN -144.0
+#define VOLUME_MAX	0.0
+#define VOLUME_MIN	-30.0
+#define VOLUME_MUTE	-144.0
 
 #define MODULE_USAGE	"( raop.ip=<ip address of host> ) "					\
 			"( raop.port=<remote port> ) "						\
@@ -1723,6 +1723,10 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 		{
 			bool mute;
 			if (spa_pod_get_bool(&prop->value, &mute) == 0) {
+				if (!impl->mute) {
+					impl->volume = VOLUME_MUTE;
+					rtsp_send_volume(impl);
+				}
 				impl->mute = mute;
                         }
 			spa_pod_builder_prop(&b, SPA_PROP_softMute, 0);
@@ -1744,7 +1748,7 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 					soft_vols[i] = 1.0f;
 				}
 				volume /= n_vols;
-				volume = SPA_CLAMPF(20.0 * log10(volume), VOLUME_MIN, VOLUME_MAX);
+				volume = SPA_CLAMPF(cbrt(volume) * 30 - 30, VOLUME_MIN, VOLUME_MAX);
 				impl->volume = volume;
 
 				rtsp_send_volume(impl);

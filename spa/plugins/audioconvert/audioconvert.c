@@ -2449,7 +2449,7 @@ static void free_tmp(struct impl *this)
 {
 	uint32_t i;
 
-	spa_log_warn(this->log, "free tmp %d", this->empty_size);
+	spa_log_debug(this->log, "free tmp %d", this->empty_size);
 
 	free(this->empty);
 	this->empty = NULL;
@@ -2471,7 +2471,7 @@ static int ensure_tmp(struct impl *this, uint32_t maxsize)
 	if (maxsize > this->empty_size) {
 		float *empty, *scratch, *tmp[2];
 
-		spa_log_warn(this->log, "resize tmp %d -> %d", this->empty_size, maxsize);
+		spa_log_debug(this->log, "resize tmp %d -> %d", this->empty_size, maxsize);
 
 		if ((empty = realloc(this->empty, maxsize + MAX_ALIGN)) != NULL)
 			this->empty = empty;

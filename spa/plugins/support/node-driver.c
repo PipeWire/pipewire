@@ -555,7 +555,7 @@ impl_init(const struct spa_handle_factory *factory,
 		} else if (spa_streq(k, "clock.device")) {
 			this->clock_fd = open(s, O_RDWR);
 			if (this->clock_fd == -1) {
-				spa_log_info(this->log, "failed to open clock device '%s'", s);
+				spa_log_warn(this->log, "failed to open clock device '%s'", s);
 			} else {
 				this->props.clock_id = FD_TO_CLOCKID(this->clock_fd);
 			}

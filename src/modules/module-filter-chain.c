@@ -644,8 +644,8 @@ struct volume {
 	bool mute;
 	uint32_t n_volumes;
 	float volumes[SPA_AUDIO_MAX_CHANNELS];
-	float min_volumes[SPA_AUDIO_MAX_CHANNELS];
-	float max_volumes[SPA_AUDIO_MAX_CHANNELS];
+	float min[SPA_AUDIO_MAX_CHANNELS];
+	float max[SPA_AUDIO_MAX_CHANNELS];
 
 	uint32_t n_ports;
 	struct port *ports[SPA_AUDIO_MAX_CHANNELS];
@@ -1129,34 +1129,11 @@ static int sync_volume(struct graph *graph, struct volume *vol)
 	if (vol->n_ports == 0)
 		return 0;
 	for (i = 0; i < vol->n_volumes; i++) {
-		struct port *p = vol->ports[i % vol->n_ports];
+		uint32_t n_port = i % vol->n_ports;
+		struct port *p = vol->ports[n_port];
 		float v = vol->mute ? 0.0f : vol->volumes[i];
+		v = v * (vol->max[n_port] - vol->min[n_port]) + vol->min[n_port];
 		res += port_set_control_value(p, &v, i % MAX_HNDL);
-	}
-	return res;
-}
-
-static int parse_channel_volumes(struct graph *graph, struct volume *vol,
-		const struct spa_pod *pod)
-{
-	uint32_t i, n_vols;
-	float vols[SPA_AUDIO_MAX_CHANNELS];
-	int res = 0;
-
-	if ((n_vols = spa_pod_copy_array(pod, SPA_TYPE_Float, vols,
-			SPA_AUDIO_MAX_CHANNELS)) == 0)
-		return 0;
-
-	if (vol->n_volumes != n_vols)
-		res++;
-	vol->n_volumes = n_vols;
-
-	for (i = 0; i < n_vols; i++) {
-		float v = vols[i];
-		if (v != vol->volumes[i]) {
-			vol->volumes[i] = v;
-			res++;
-		}
 	}
 	return res;
 }
@@ -1188,20 +1165,50 @@ static void param_props_changed(struct impl *impl, const struct spa_pod *param,
 		{
 			bool mute;
 			if (spa_pod_get_bool(&prop->value, &mute) == 0) {
-				vol->mute = mute;
-				do_param = true;
+				if (vol->mute != mute) {
+					vol->mute = mute;
+					do_param = vol->n_ports != 0;
+				}
+			}
+			if (vol->n_ports != 0) {
+				spa_pod_builder_prop(&b.b, SPA_PROP_softMute, 0);
+				spa_pod_builder_bool(&b.b, false);
 			}
 			spa_pod_builder_raw_padded(&b.b, prop, SPA_POD_PROP_SIZE(prop));
 			break;
 		}
 		case SPA_PROP_channelVolumes:
 		{
-			if (parse_channel_volumes(graph, vol, &prop->value) > 0)
-				do_param = true;
+			uint32_t i, n_vols;
+			float vols[SPA_AUDIO_MAX_CHANNELS];
+			float soft_vols[SPA_AUDIO_MAX_CHANNELS];
+
+			if ((n_vols = spa_pod_copy_array(&prop->value, SPA_TYPE_Float, vols,
+					SPA_AUDIO_MAX_CHANNELS)) > 0) {
+				if (vol->n_volumes != n_vols)
+					do_param = true;
+				vol->n_volumes = n_vols;
+				for (i = 0; i < n_vols; i++) {
+					float v = vols[i];
+					if (v != vol->volumes[i]) {
+						vol->volumes[i] = v;
+						do_param = vol->n_ports != 0;
+					}
+					soft_vols[i] = 1.0f;
+				}
+			}
+			if (vol->n_ports != 0) {
+				spa_pod_builder_prop(&b.b, SPA_PROP_softVolumes, 0);
+				spa_pod_builder_array(&b.b, sizeof(float), SPA_TYPE_Float,
+						n_vols, soft_vols);
+			}
+			spa_pod_builder_raw_padded(&b.b, prop, SPA_POD_PROP_SIZE(prop));
 			break;
 		}
 		case SPA_PROP_softVolumes:
 		case SPA_PROP_softMute:
+			if (vol->n_ports == 0)
+				spa_pod_builder_raw_padded(&b.b, prop, SPA_POD_PROP_SIZE(prop));
 			break;
 		default:
 			spa_pod_builder_raw_padded(&b.b, prop, SPA_POD_PROP_SIZE(prop));
@@ -1983,8 +1990,8 @@ static int parse_volume(struct graph *graph, struct spa_json *json, bool capture
 			port->node->desc->desc->ports[port->p].name, min, max);
 
 	vol->ports[vol->n_ports] = port;
-	vol->min_volumes[vol->n_ports] = min;
-	vol->max_volumes[vol->n_ports] = max;
+	vol->min[vol->n_ports] = min;
+	vol->max[vol->n_ports] = max;
 	vol->n_ports++;
 
 	return 0;

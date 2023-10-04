@@ -435,6 +435,7 @@ check_functions = [
   ['reallocarray', '#include <stdlib.h>', ['-D_GNU_SOURCE'], []],
   ['sigabbrev_np', '#include <string.h>', ['-D_GNU_SOURCE'], []],
   ['XSetIOErrorExitHandler', '#include <X11/Xlib.h>', [], [x11_dep]],
+  ['malloc_trim', '#include <malloc.h>', [], []],
 ]
 
 foreach f : check_functions

@@ -2030,7 +2030,6 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	struct pw_impl_node *follower;
 	struct pw_context *context = node->context;
 	bool active, had_driver;
-	int res;
 
 	active = node->active;
 	node->active = false;
@@ -2106,8 +2105,10 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	spa_system_close(node->data_system, node->source.fd);
 	free(impl);
 
-	res = malloc_trim(0);
+#ifdef HAVE_MALLOC_TRIM
+	int res = malloc_trim(0);
 	pw_log_debug("malloc_trim(): %d", res);
+#endif
 }
 
 SPA_EXPORT

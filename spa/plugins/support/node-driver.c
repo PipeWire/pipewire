@@ -8,6 +8,11 @@
 #include <string.h>
 #include <stdio.h>
 #include <fcntl.h>
+#if !defined(__FreeBSD__) && !defined(__MidnightBSD__)
+#include <linux/ethtool.h>
+#include <linux/sockios.h>
+#endif
+#include <net/if.h>
 
 #include <spa/support/plugin.h>
 #include <spa/support/log.h>
@@ -485,6 +490,33 @@ impl_get_size(const struct spa_handle_factory *factory,
 	return sizeof(struct impl);
 }
 
+int get_phc_index(struct spa_system *s, const char *name) {
+#ifdef ETHTOOL_GET_TS_INFO
+	struct ethtool_ts_info info = {0};
+	struct ifreq ifr = {0};
+	int fd, err;
+
+	info.cmd = ETHTOOL_GET_TS_INFO;
+	strncpy(ifr.ifr_name, name, IFNAMSIZ - 1);
+	ifr.ifr_data = (char *) &info;
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+	if (fd < 0) {
+		return -1;
+	}
+
+	err = spa_system_ioctl(s, fd, SIOCETHTOOL, &ifr);
+	close(fd);
+	if (err < 0) {
+		return err;
+	}
+
+	return info.phc_index;
+#else
+	return -1;
+#endif
+}
+
 static int
 impl_init(const struct spa_handle_factory *factory,
 	  struct spa_handle *handle,
@@ -553,7 +585,26 @@ impl_init(const struct spa_handle_factory *factory,
 				this->props.clock_id = DEFAULT_CLOCK_ID;
 			}
 		} else if (spa_streq(k, "clock.device")) {
+			if (this->clock_fd >= 0) {
+				close(this->clock_fd);
+			}
 			this->clock_fd = open(s, O_RDWR);
+
+			if (this->clock_fd == -1) {
+				spa_log_warn(this->log, "failed to open clock device '%s'", s);
+			} else {
+				this->props.clock_id = FD_TO_CLOCKID(this->clock_fd);
+			}
+		} else if (spa_streq(k, "clock.interface") && this->clock_fd < 0) {
+			int phc_index = get_phc_index(this->data_system, s);
+			if (phc_index < 0) {
+				spa_log_warn(this->log, "failed to get phc device index for interface '%s'", s);
+			} else {
+				char dev[19];
+				spa_scnprintf(dev, sizeof(dev), "/dev/ptp%d", phc_index);
+				this->clock_fd = open(dev, O_RDWR);
+			}
+
 			if (this->clock_fd == -1) {
 				spa_log_warn(this->log, "failed to open clock device '%s'", s);
 			} else {

@@ -238,9 +238,9 @@ static inline uint64_t scale_u64(uint64_t val, uint32_t num, uint32_t denom)
 static void on_timeout(struct spa_source *source)
 {
 	struct impl *this = source->data;
-	uint64_t expirations, nsec, duration, position;
+	uint64_t expirations, nsec, duration, current_time, current_position, position;
 	uint32_t rate;
-	double corr = 1.0;
+	double corr = 1.0, err = 0.0;
 	int res;
 
 	if ((res = spa_system_timerfd_read(this->data_system,
@@ -250,9 +250,6 @@ static void on_timeout(struct spa_source *source)
 					this, spa_strerror(res));
 		return;
 	}
-
-	nsec = this->next_time;
-
 	if (SPA_LIKELY(this->position)) {
 		duration = this->position->clock.target_duration;
 		rate = this->position->clock.target_rate.denom;
@@ -260,50 +257,51 @@ static void on_timeout(struct spa_source *source)
 		duration = 1024;
 		rate = 48000;
 	}
-	if (SPA_LIKELY(this->clock)) {
-		position = this->clock->position + this->clock->duration;
-	} else {
-		position = 0;
-	}
+	nsec = this->next_time;
 
-	if (this->tracking) {
-		double err = 0.0;
-		uint64_t current_time, current_position;
-
+	if (this->tracking)
 		/* we are actually following another clock */
 		current_time = gettime_nsec(this, this->props.clock_id);
-		current_position = scale_u64(current_time, rate, SPA_NSEC_PER_SEC);
+	else
+		current_time = nsec;
 
-		if (this->last_time == 0) {
-			spa_dll_set_bw(&this->dll, SPA_DLL_BW_MIN, duration, rate);
-			this->max_error = rate * MAX_ERROR_MS / 1000;
-			this->last_time = current_position - position;
-			current_position = position;
-		} else {
-			current_position -= this->last_time;
-		}
+	current_position = scale_u64(current_time, rate, SPA_NSEC_PER_SEC);
 
-		/* check the elapsed time of the other clock against
-		 * the graph clock elapsed time, feed this error into the
-		 * dll and adjust the timeout of our MONOTONIC clock. */
-		err = (double)position - (double)current_position;
-		if (err > this->max_error)
-			err = this->max_error;
-		else if (err < -this->max_error)
-			err = -this->max_error;
+	if (this->last_time == 0) {
+		spa_dll_set_bw(&this->dll, SPA_DLL_BW_MIN, duration, rate);
+		this->max_error = rate * MAX_ERROR_MS / 1000;
+		position = current_position;
+	} else if (SPA_LIKELY(this->clock)) {
+		position = this->clock->position + this->clock->duration;
+	} else {
+		position = current_position;
+	}
 
+	/* check the elapsed time of the other clock against
+	 * the graph clock elapsed time, feed this error into the
+	 * dll and adjust the timeout of our MONOTONIC clock. */
+	err = (double)position - (double)current_position;
+	if (err > this->max_error)
+		err = this->max_error;
+	else if (err < -this->max_error)
+		err = -this->max_error;
+
+	this->last_time = current_time;
+
+	if (this->tracking) {
 		corr = spa_dll_update(&this->dll, err);
 		this->next_time = nsec + duration / corr * 1e9 / rate;
-
-		if (SPA_UNLIKELY((this->next_time - this->base_time) > BW_PERIOD)) {
-			this->base_time = this->next_time;
-			spa_log_debug(this->log, "%p: rate:%f "
-				"bw:%f dur:%"PRIu64" max:%f drift:%f %"PRIu64" %"PRIu64,
-					this, corr, this->dll.bw, duration,
-					this->max_error, err, this->last_time, current_position);
-		}
 	} else {
-		this->next_time = nsec + duration * 1e9 / rate;
+		corr = 1.0;
+		this->next_time = scale_u64(position + duration, SPA_NSEC_PER_SEC, rate);
+	}
+
+	if (SPA_UNLIKELY((this->next_time - this->base_time) > BW_PERIOD)) {
+		this->base_time = this->next_time;
+		spa_log_debug(this->log, "%p: rate:%f "
+			"bw:%f dur:%"PRIu64" max:%f drift:%f",
+				this, corr, this->dll.bw, duration,
+				this->max_error, err);
 	}
 
 	if (SPA_LIKELY(this->clock)) {

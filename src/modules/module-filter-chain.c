@@ -1133,7 +1133,7 @@ static int sync_volume(struct graph *graph, struct volume *vol)
 		struct port *p = vol->ports[n_port];
 		float v = vol->mute ? 0.0f : vol->volumes[i];
 		v = v * (vol->max[n_port] - vol->min[n_port]) + vol->min[n_port];
-		res += port_set_control_value(p, &v, i % MAX_HNDL);
+		res += port_set_control_value(p, &v, i % p->node->n_hndl);
 	}
 	return res;
 }
@@ -1986,7 +1986,7 @@ static int parse_volume(struct graph *graph, struct spa_json *json, bool capture
 		pw_log_error("too many volume controls");
 		return -ENOENT;
 	}
-	pw_log_info("volume %d: %s:%s %f %f", vol->n_ports, port->node->name,
+	pw_log_info("volume %d: \"%s:%s\" min:%f max:%f", vol->n_ports, port->node->name,
 			port->node->desc->desc->ports[port->p].name, min, max);
 
 	vol->ports[vol->n_ports] = port;

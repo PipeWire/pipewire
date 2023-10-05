@@ -1150,7 +1150,7 @@ static void param_props_changed(struct impl *impl, const struct spa_pod *param,
 	struct spa_pod_dynamic_builder b;
 	struct volume *vol = capture ? &graph->capture_volume :
 		&graph->playback_volume;
-	bool do_param = false;
+	bool do_volume = false;
 
 	spa_pod_dynamic_builder_init(&b, buf, sizeof(buf), 1024);
 	spa_pod_builder_push_object(&b.b, &f[0], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
@@ -1167,12 +1167,8 @@ static void param_props_changed(struct impl *impl, const struct spa_pod *param,
 			if (spa_pod_get_bool(&prop->value, &mute) == 0) {
 				if (vol->mute != mute) {
 					vol->mute = mute;
-					do_param = vol->n_ports != 0;
+					do_volume = true;
 				}
-			}
-			if (vol->n_ports != 0) {
-				spa_pod_builder_prop(&b.b, SPA_PROP_softMute, 0);
-				spa_pod_builder_bool(&b.b, false);
 			}
 			spa_pod_builder_raw_padded(&b.b, prop, SPA_POD_PROP_SIZE(prop));
 			break;
@@ -1181,43 +1177,45 @@ static void param_props_changed(struct impl *impl, const struct spa_pod *param,
 		{
 			uint32_t i, n_vols;
 			float vols[SPA_AUDIO_MAX_CHANNELS];
-			float soft_vols[SPA_AUDIO_MAX_CHANNELS];
 
 			if ((n_vols = spa_pod_copy_array(&prop->value, SPA_TYPE_Float, vols,
 					SPA_AUDIO_MAX_CHANNELS)) > 0) {
 				if (vol->n_volumes != n_vols)
-					do_param = true;
+					do_volume = true;
 				vol->n_volumes = n_vols;
 				for (i = 0; i < n_vols; i++) {
 					float v = vols[i];
 					if (v != vol->volumes[i]) {
 						vol->volumes[i] = v;
-						do_param = vol->n_ports != 0;
+						do_volume = true;
 					}
-					soft_vols[i] = 1.0f;
 				}
-			}
-			if (vol->n_ports != 0) {
-				spa_pod_builder_prop(&b.b, SPA_PROP_softVolumes, 0);
-				spa_pod_builder_array(&b.b, sizeof(float), SPA_TYPE_Float,
-						n_vols, soft_vols);
 			}
 			spa_pod_builder_raw_padded(&b.b, prop, SPA_POD_PROP_SIZE(prop));
 			break;
 		}
 		case SPA_PROP_softVolumes:
 		case SPA_PROP_softMute:
-			if (vol->n_ports == 0)
-				spa_pod_builder_raw_padded(&b.b, prop, SPA_POD_PROP_SIZE(prop));
 			break;
 		default:
 			spa_pod_builder_raw_padded(&b.b, prop, SPA_POD_PROP_SIZE(prop));
 			break;
 		}
 	}
-	param = spa_pod_builder_pop(&b.b, &f[0]);
+	if (do_volume && vol->n_ports != 0) {
+		float soft_vols[SPA_AUDIO_MAX_CHANNELS];
+		uint32_t i;
 
-	if (do_param) {
+		for (i = 0; i < vol->n_volumes; i++)
+			soft_vols[i] = (vol->mute || vol->volumes[i] == 0.0f) ? 0.0f : 1.0f;
+
+		spa_pod_builder_prop(&b.b, SPA_PROP_softMute, 0);
+		spa_pod_builder_bool(&b.b, vol->mute);
+		spa_pod_builder_prop(&b.b, SPA_PROP_softVolumes, 0);
+		spa_pod_builder_array(&b.b, sizeof(float), SPA_TYPE_Float,
+				vol->n_volumes, soft_vols);
+		param = spa_pod_builder_pop(&b.b, &f[0]);
+
 		sync_volume(graph, vol);
 		pw_stream_set_param(capture ? impl->capture :
 				impl->playback, SPA_PARAM_Props, param);

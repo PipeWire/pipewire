@@ -194,15 +194,13 @@ struct spa_log_methods {
 #define SPA_LOG_TOPIC(v, t) \
    (struct spa_log_topic){ .version = (v), .topic = (t)}
 
-#define spa_log_topic_init(l, topic)				\
-do {								\
-	struct spa_log *_l = l;					\
-	if (SPA_LIKELY(_l)) {					\
-		struct spa_interface *_if = &_l->iface;		\
-		spa_interface_call(_if, struct spa_log_methods,	\
-				topic_init, 1, topic);		\
-	}							\
-} while(0)
+static inline void spa_log_topic_init(struct spa_log *log, struct spa_log_topic *topic)
+{
+	if (SPA_UNLIKELY(!log))
+		return;
+
+	spa_interface_call(&log->iface, struct spa_log_methods, topic_init, 1, topic);
+}
 
 /* Unused, left for backwards compat */
 #define spa_log_level_enabled(l,lev) ((l) && (l)->level >= (lev))

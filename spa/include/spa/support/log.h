@@ -202,9 +202,6 @@ static inline void spa_log_topic_init(struct spa_log *log, struct spa_log_topic 
 	spa_interface_call(&log->iface, struct spa_log_methods, topic_init, 1, topic);
 }
 
-/* Unused, left for backwards compat */
-#define spa_log_level_enabled(l,lev) ((l) && (l)->level >= (lev))
-
 static inline bool spa_log_level_topic_enabled(const struct spa_log *log,
 					       const struct spa_log_topic *topic,
 					       enum spa_log_level level)

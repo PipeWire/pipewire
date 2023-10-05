@@ -205,15 +205,21 @@ static inline void spa_log_topic_init(struct spa_log *log, struct spa_log_topic 
 /* Unused, left for backwards compat */
 #define spa_log_level_enabled(l,lev) ((l) && (l)->level >= (lev))
 
-#define spa_log_level_topic_enabled(l,topic,lev)		\
-({								\
-	struct spa_log *_log = l;				\
-	enum spa_log_level _lev = _log ? _log->level : SPA_LOG_LEVEL_NONE;		\
-	struct spa_log_topic *_t = (struct spa_log_topic *)(topic); \
-	if (_t && _t->has_custom_level)							\
-		_lev = _t->level;				\
-	_lev >= (lev);						\
-})
+static inline bool spa_log_level_topic_enabled(const struct spa_log *log,
+					       const struct spa_log_topic *topic,
+					       enum spa_log_level level)
+{
+	enum spa_log_level max_level;
+
+	if (topic && topic->has_custom_level)
+		max_level = topic->level;
+	else if (log)
+		max_level = log->level;
+	else
+		max_level = SPA_LOG_LEVEL_NONE;
+
+	return level <= max_level;
+}
 
 /* Transparently calls to version 0 log if v1 is not supported */
 #define spa_log_logt(l,lev,topic,...)					\

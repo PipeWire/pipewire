@@ -348,6 +348,10 @@ static void registry_event_global(void *data, uint32_t id,
 	bool ret;
 
 	global = calloc(1, sizeof(struct global));
+	if (global == NULL) {
+		fprintf(stderr, "Allocation failed: %m");
+		return;
+	}
 	global->rd = rd;
 	global->id = id;
 	global->permissions = permissions;
@@ -615,6 +619,8 @@ static void info_core(struct proxy_data *pd)
 	struct pw_core_info *info = pd->info;
 
 	info_global(pd);
+	if (info == NULL)
+		return;
 	printf("\tcookie: %u\n", info->cookie);
 	printf("\tuser-name: \"%s\"\n", info->user_name);
 	printf("\thost-name: \"%s\"\n", info->host_name);
@@ -629,6 +635,8 @@ static void info_module(struct proxy_data *pd)
 	struct pw_module_info *info = pd->info;
 
 	info_global(pd);
+	if (info == NULL)
+		return;
 	printf("\tname: \"%s\"\n", info->name);
 	printf("\tfilename: \"%s\"\n", info->filename);
 	printf("\targs: \"%s\"\n", info->args);
@@ -641,6 +649,8 @@ static void info_node(struct proxy_data *pd)
 	struct pw_node_info *info = pd->info;
 
 	info_global(pd);
+	if (info == NULL)
+		return;
 	printf("%c\tinput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_INPUT_PORTS),
 			info->n_input_ports, info->max_input_ports);
 	printf("%c\toutput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_OUTPUT_PORTS),
@@ -661,6 +671,8 @@ static void info_port(struct proxy_data *pd)
 	struct pw_port_info *info = pd->info;
 
 	info_global(pd);
+	if (info == NULL)
+		return;
 	printf("\tdirection: \"%s\"\n", pw_direction_as_string(info->direction));
 	print_properties(info->props, MARK_CHANGE(PW_PORT_CHANGE_MASK_PROPS), true);
 	print_params(info->params, info->n_params, MARK_CHANGE(PW_PORT_CHANGE_MASK_PARAMS), true);
@@ -672,6 +684,8 @@ static void info_factory(struct proxy_data *pd)
 	struct pw_factory_info *info = pd->info;
 
 	info_global(pd);
+	if (info == NULL)
+		return;
 	printf("\tname: \"%s\"\n", info->name);
 	printf("\tobject-type: %s/%d\n", info->type, info->version);
 	print_properties(info->props, MARK_CHANGE(PW_FACTORY_CHANGE_MASK_PROPS), true);
@@ -683,6 +697,8 @@ static void info_client(struct proxy_data *pd)
 	struct pw_client_info *info = pd->info;
 
 	info_global(pd);
+	if (info == NULL)
+		return;
 	print_properties(info->props, MARK_CHANGE(PW_CLIENT_CHANGE_MASK_PROPS), true);
 	info->change_mask = 0;
 }
@@ -692,6 +708,8 @@ static void info_link(struct proxy_data *pd)
 	struct pw_link_info *info = pd->info;
 
 	info_global(pd);
+	if (info == NULL)
+		return;
 	printf("\toutput-node-id: %u\n", info->output_node_id);
 	printf("\toutput-port-id: %u\n", info->output_port_id);
 	printf("\tinput-node-id: %u\n", info->input_node_id);
@@ -717,6 +735,8 @@ static void info_device(struct proxy_data *pd)
 	struct pw_device_info *info = pd->info;
 
 	info_global(pd);
+	if (info == NULL)
+		return;
 	print_properties(info->props, MARK_CHANGE(PW_DEVICE_CHANGE_MASK_PROPS), true);
 	print_params(info->params, info->n_params, MARK_CHANGE(PW_DEVICE_CHANGE_MASK_PARAMS), true);
 	info->change_mask = 0;
@@ -727,6 +747,8 @@ static void info_session(struct proxy_data *pd)
 	struct pw_session_info *info = pd->info;
 
 	info_global(pd);
+	if (info == NULL)
+		return;
 	print_properties(info->props, MARK_CHANGE(0), true);
 	print_params(info->params, info->n_params, MARK_CHANGE(1), true);
 	info->change_mask = 0;
@@ -738,6 +760,8 @@ static void info_endpoint(struct proxy_data *pd)
 	const char *direction;
 
 	info_global(pd);
+	if (info == NULL)
+		return;
 	printf("\tname: %s\n", info->name);
 	printf("\tmedia-class: %s\n",  info->media_class);
 	switch(info->direction) {
@@ -765,6 +789,8 @@ static void info_endpoint_stream(struct proxy_data *pd)
 	struct pw_endpoint_stream_info *info = pd->info;
 
 	info_global(pd);
+	if (info == NULL)
+		return;
 	printf("\tid: %u\n", info->id);
 	printf("\tendpoint-id: %u\n", info->endpoint_id);
 	printf("\tname: %s\n", info->name);
@@ -987,23 +1013,23 @@ static void session_event_info(void *data,
 	struct remote_data *rd = pd->rd;
 	struct pw_session_info *info = pd->info;
 
-	if (!info) {
+	if (info == NULL)
 		info = pd->info = calloc(1, sizeof(*info));
+	if (info != NULL) {
 		info->id = update->id;
+		if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PARAMS) {
+			info->n_params = update->n_params;
+			free(info->params);
+			info->params = malloc(info->n_params * sizeof(struct spa_param_info));
+			memcpy(info->params, update->params,
+				info->n_params * sizeof(struct spa_param_info));
+		}
+		if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS) {
+			pw_properties_free ((struct pw_properties *)info->props);
+			info->props =
+				(struct spa_dict *) pw_properties_new_dict (update->props);
+		}
 	}
-	if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PARAMS) {
-		info->n_params = update->n_params;
-		free(info->params);
-		info->params = malloc(info->n_params * sizeof(struct spa_param_info));
-		memcpy(info->params, update->params,
-			info->n_params * sizeof(struct spa_param_info));
-	}
-	if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS) {
-		pw_properties_free ((struct pw_properties *)info->props);
-		info->props =
-			(struct spa_dict *) pw_properties_new_dict (update->props);
-	}
-
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
 	if (pd->global && pd->global->info_pending) {
@@ -1034,31 +1060,32 @@ static void endpoint_event_info(void *data,
 	struct remote_data *rd = pd->rd;
 	struct pw_endpoint_info *info = pd->info;
 
-	if (!info) {
+	if (info == NULL)
 		info = pd->info = calloc(1, sizeof(*info));
+	if (info != NULL) {
 		info->id = update->id;
 		info->name = update->name ? strdup(update->name) : NULL;
 		info->media_class = update->media_class ? strdup(update->media_class) : NULL;
 		info->direction = update->direction;
 		info->flags = update->flags;
-	}
-	if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_STREAMS)
-		info->n_streams = update->n_streams;
-	if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_SESSION)
-		info->session_id = update->session_id;
-	if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PARAMS) {
-		info->n_params = update->n_params;
-		free(info->params);
-		info->params = malloc(info->n_params * sizeof(struct spa_param_info));
-		memcpy(info->params, update->params,
-			info->n_params * sizeof(struct spa_param_info));
-	}
-	if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS) {
-		pw_properties_free ((struct pw_properties *)info->props);
-		info->props =
-			(struct spa_dict *) pw_properties_new_dict (update->props);
-	}
 
+		if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_STREAMS)
+			info->n_streams = update->n_streams;
+		if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_SESSION)
+			info->session_id = update->session_id;
+		if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PARAMS) {
+			info->n_params = update->n_params;
+			free(info->params);
+			info->params = malloc(info->n_params * sizeof(struct spa_param_info));
+			memcpy(info->params, update->params,
+				info->n_params * sizeof(struct spa_param_info));
+		}
+		if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS) {
+			pw_properties_free ((struct pw_properties *)info->props);
+			info->props =
+				(struct spa_dict *) pw_properties_new_dict (update->props);
+		}
+	}
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
 	if (pd->global && pd->global->info_pending) {
@@ -1088,25 +1115,26 @@ static void endpoint_stream_event_info(void *data,
 	struct remote_data *rd = pd->rd;
 	struct pw_endpoint_stream_info *info = pd->info;
 
-	if (!info) {
+	if (info == NULL)
 		info = pd->info = calloc(1, sizeof(*info));
+	if (info != NULL) {
 		info->id = update->id;
 		info->endpoint_id = update->endpoint_id;
 		info->name = update->name ? strdup(update->name) : NULL;
-	}
-	if (update->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PARAMS) {
-		info->n_params = update->n_params;
-		free(info->params);
-		info->params = malloc(info->n_params * sizeof(struct spa_param_info));
-		memcpy(info->params, update->params,
-			info->n_params * sizeof(struct spa_param_info));
-	}
-	if (update->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS) {
-		pw_properties_free ((struct pw_properties *)info->props);
-		info->props =
-			(struct spa_dict *) pw_properties_new_dict (update->props);
-	}
 
+		if (update->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PARAMS) {
+			info->n_params = update->n_params;
+			free(info->params);
+			info->params = malloc(info->n_params * sizeof(struct spa_param_info));
+			memcpy(info->params, update->params,
+				info->n_params * sizeof(struct spa_param_info));
+		}
+		if (update->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS) {
+			pw_properties_free ((struct pw_properties *)info->props);
+			info->props =
+				(struct spa_dict *) pw_properties_new_dict (update->props);
+		}
+	}
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
 	if (pd->global && pd->global->info_pending) {

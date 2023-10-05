@@ -732,6 +732,7 @@ struct pw_impl_node {
 	uint64_t target_quantum;
 
 	uint64_t driver_start;
+	uint64_t elapsed;		/* elapsed time in playing */
 
 	void *user_data;                /**< extra user data */
 };

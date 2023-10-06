@@ -22,6 +22,7 @@ support_log_topic_init(struct spa_list *patterns, enum spa_log_level default_lev
 		       struct spa_log_topic *t)
 {
 	enum spa_log_level level = default_level;
+	bool has_custom_level = false;
 	const char *topic = t->topic;
 	struct support_log_pattern *pattern;
 
@@ -29,10 +30,11 @@ support_log_topic_init(struct spa_list *patterns, enum spa_log_level default_lev
 		if (fnmatch(pattern->pattern, topic, 0) != 0)
 			continue;
 		level = pattern->level;
-		t->has_custom_level = true;
+		has_custom_level = true;
 	}
 
 	t->level = level;
+	t->has_custom_level = has_custom_level;
 }
 
 int

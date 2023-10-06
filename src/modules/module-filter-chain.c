@@ -83,10 +83,10 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *         inputs = [ <portname> ... ]
  *         outputs = [ <portname> ... ]
  *         capture.volumes = [
- *             { control = <portname>  min = <value>  max = <value> } ...
+ *             { control = <portname>  min = <value>  max = <value>  scale = <scale> } ...
  *         ]
  *         playback.volumes = [
- *             { control = <portname>  min = <value>  max = <value> } ...
+ *             { control = <portname>  min = <value>  max = <value>  scale = <scale> } ...
  *         ]
  *    }
  *\endcode
@@ -151,6 +151,11 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *
  * The min and max values (defaults 0.0 and 1.0) respectively can be used to scale
  * and translate the volume min and max values.
+ *
+ * Normally the control values are linear and it is assumed that the plugin does not
+ * perform any scaling to the values. This can be changed with the scale property. By
+ * default this is linear but it can be set to cubic when the control applies a
+ * cubic transformation.
  *
  * ## Builtin filters
  *
@@ -644,11 +649,14 @@ struct volume {
 	bool mute;
 	uint32_t n_volumes;
 	float volumes[SPA_AUDIO_MAX_CHANNELS];
-	float min[SPA_AUDIO_MAX_CHANNELS];
-	float max[SPA_AUDIO_MAX_CHANNELS];
 
 	uint32_t n_ports;
 	struct port *ports[SPA_AUDIO_MAX_CHANNELS];
+	float min[SPA_AUDIO_MAX_CHANNELS];
+	float max[SPA_AUDIO_MAX_CHANNELS];
+#define SCALE_LINEAR	0
+#define SCALE_CUBIC	1
+	int scale[SPA_AUDIO_MAX_CHANNELS];
 };
 
 struct graph {
@@ -1135,7 +1143,13 @@ static int sync_volume(struct graph *graph, struct volume *vol)
 		uint32_t n_port = i % vol->n_ports, n_hndl;
 		struct port *p = vol->ports[n_port];
 		float v = vol->mute ? 0.0f : vol->volumes[i];
+		switch (vol->scale[n_port]) {
+		case SCALE_CUBIC:
+			v = cbrt(v);
+			break;
+		}
 		v = v * (vol->max[n_port] - vol->min[n_port]) + vol->min[n_port];
+
 		n_hndl = SPA_MAX(1u, p->node->n_hndl);
 		res += port_set_control_value(p, &v, i % n_hndl);
 	}
@@ -1933,14 +1947,16 @@ static void link_free(struct link *link)
 /**
  * {
  *   control = [name:][portname]
- *   min = ...
- *   max = ...
+ *   min = <float, defaukt 0.0>
+ *   max = <float, default 1.0>
+ *   scale = <string, default "linear", options "linear","cubic">
  * }
  */
 static int parse_volume(struct graph *graph, struct spa_json *json, bool capture)
 {
 	char key[256];
 	char control[256] = "";
+	char scale[64] = "linear";
 	float min = 0.0f, max = 1.0f;
 	const char *val;
 	struct node *def_control;
@@ -1971,6 +1987,12 @@ static int parse_volume(struct graph *graph, struct spa_json *json, bool capture
 				return -EINVAL;
 			}
 		}
+		else if (spa_streq(key, "scale")) {
+			if (spa_json_get_string(json, scale, sizeof(scale)) <= 0) {
+				pw_log_error("scale expects a string");
+				return -EINVAL;
+			}
+		}
 		else if (spa_json_next(json, &val) < 0)
 			break;
 	}
@@ -1986,10 +2008,18 @@ static int parse_volume(struct graph *graph, struct spa_json *json, bool capture
 	}
 	if (vol->n_ports >= SPA_AUDIO_MAX_CHANNELS) {
 		pw_log_error("too many volume controls");
-		return -ENOENT;
+		return -ENOSPC;
 	}
-	pw_log_info("volume %d: \"%s:%s\" min:%f max:%f", vol->n_ports, port->node->name,
-			port->node->desc->desc->ports[port->p].name, min, max);
+	if (spa_streq(scale, "linear")) {
+		vol->scale[vol->n_ports] = SCALE_LINEAR;
+	} else if (spa_streq(scale, "cubic")) {
+		vol->scale[vol->n_ports] = SCALE_CUBIC;
+	} else {
+		pw_log_error("Invalid scale value '%s', use one of linear or cubic", scale);
+		return -EINVAL;
+	}
+	pw_log_info("volume %d: \"%s:%s\" min:%f max:%f scale:%s", vol->n_ports, port->node->name,
+			port->node->desc->desc->ports[port->p].name, min, max, scale);
 
 	vol->ports[vol->n_ports] = port;
 	vol->min[vol->n_ports] = min;

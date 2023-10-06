@@ -9,8 +9,7 @@
 
 #include "libcamera.h"
 
-struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.libcamera");
-struct spa_log_topic *libcamera_log_topic = &log_topic;
+struct spa_log_topic libcamera_log_topic = SPA_LOG_TOPIC(0, "spa.libcamera");
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory,

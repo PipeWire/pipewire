@@ -4,15 +4,17 @@
 
 #include <errno.h>
 
+#include <linux/videodev2.h>
+
 #include <spa/support/log.h>
 
 #undef SPA_LOG_TOPIC_DEFAULT
-#define SPA_LOG_TOPIC_DEFAULT v4l2_log_topic
-extern struct spa_log_topic *v4l2_log_topic;
+#define SPA_LOG_TOPIC_DEFAULT &v4l2_log_topic
+extern struct spa_log_topic v4l2_log_topic;
 
 static inline void v4l2_log_topic_init(struct spa_log *log)
 {
-	spa_log_topic_init(log, v4l2_log_topic);
+	spa_log_topic_init(log, &v4l2_log_topic);
 }
 
 struct spa_v4l2_device {

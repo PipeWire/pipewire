@@ -25,8 +25,8 @@
 #include <spa/debug/log.h>
 
 #undef SPA_LOG_TOPIC_DEFAULT
-#define SPA_LOG_TOPIC_DEFAULT log_topic
-static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.videoadapter");
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.videoadapter");
 
 #define DEFAULT_ALIGN	16
 
@@ -1554,7 +1554,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	spa_log_topic_init(this->log, log_topic);
+	spa_log_topic_init(this->log, &log_topic);
 
 	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 

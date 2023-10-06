@@ -9,6 +9,8 @@
 #include <spa/support/plugin.h>
 #include <spa/support/log.h>
 
+#include "alsa.h"
+
 extern const struct spa_handle_factory spa_alsa_source_factory;
 extern const struct spa_handle_factory spa_alsa_sink_factory;
 extern const struct spa_handle_factory spa_alsa_udev_factory;
@@ -20,8 +22,7 @@ extern const struct spa_handle_factory spa_alsa_compress_offload_sink_factory;
 extern const struct spa_handle_factory spa_alsa_compress_offload_device_factory;
 #endif
 
-struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.alsa");
-struct spa_log_topic *alsa_log_topic = &log_topic;
+struct spa_log_topic alsa_log_topic = SPA_LOG_TOPIC(0, "spa.alsa");
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)

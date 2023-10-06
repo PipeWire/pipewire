@@ -1031,7 +1031,7 @@ static void session_event_info(void *data,
 		}
 	}
 	if (pd->global == NULL)
-		pd->global = pw_map_lookup(&rd->globals, info->id);
+		pd->global = pw_map_lookup(&rd->globals, update->id);
 	if (pd->global && pd->global->info_pending) {
 		info_session(pd);
 		pd->global->info_pending = false;
@@ -1087,7 +1087,7 @@ static void endpoint_event_info(void *data,
 		}
 	}
 	if (pd->global == NULL)
-		pd->global = pw_map_lookup(&rd->globals, info->id);
+		pd->global = pw_map_lookup(&rd->globals, update->id);
 	if (pd->global && pd->global->info_pending) {
 		info_endpoint(pd);
 		pd->global->info_pending = false;
@@ -1136,7 +1136,7 @@ static void endpoint_stream_event_info(void *data,
 		}
 	}
 	if (pd->global == NULL)
-		pd->global = pw_map_lookup(&rd->globals, info->id);
+		pd->global = pw_map_lookup(&rd->globals, update->id);
 	if (pd->global && pd->global->info_pending) {
 		info_endpoint_stream(pd);
 		pd->global->info_pending = false;

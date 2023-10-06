@@ -1020,13 +1020,16 @@ static int set_control_value(struct node *node, const char *name, float *value)
 {
 	struct port *port;
 	int count = 0;
-	uint32_t i;
+	uint32_t i, n_hndl;
 
 	port = find_port(node, name, FC_PORT_INPUT | FC_PORT_CONTROL);
 	if (port == NULL)
 		return -ENOENT;
 
-	for (i = 0; i < port->node->n_hndl; i++)
+	/* if we don't have any instances yet, set the first control value, we will
+	 * copy to other instances later */
+	n_hndl = SPA_MAX(1u, port->node->n_hndl);
+	for (i = 0; i < n_hndl; i++)
 		count += port_set_control_value(port, value, i);
 
 	return count;
@@ -1129,11 +1132,12 @@ static int sync_volume(struct graph *graph, struct volume *vol)
 	if (vol->n_ports == 0)
 		return 0;
 	for (i = 0; i < vol->n_volumes; i++) {
-		uint32_t n_port = i % vol->n_ports;
+		uint32_t n_port = i % vol->n_ports, n_hndl;
 		struct port *p = vol->ports[n_port];
 		float v = vol->mute ? 0.0f : vol->volumes[i];
 		v = v * (vol->max[n_port] - vol->min[n_port]) + vol->min[n_port];
-		res += port_set_control_value(p, &v, i % p->node->n_hndl);
+		n_hndl = SPA_MAX(1u, p->node->n_hndl);
+		res += port_set_control_value(p, &v, i % n_hndl);
 	}
 	return res;
 }
@@ -2020,7 +2024,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	char label[256] = "";
 	bool have_control = false;
 	bool have_config = false;
-	uint32_t i, j;
+	uint32_t i;
 	int res;
 
 	while (spa_json_get_string(json, key, sizeof(key)) > 0) {
@@ -2107,8 +2111,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 		port->external = SPA_ID_INVALID;
 		port->p = desc->control[i];
 		spa_list_init(&port->link_list);
-		for (j = 0; j < MAX_HNDL; j++)
-			port->control_data[j] = desc->default_control[i];
+		port->control_data[0] = desc->default_control[i];
 	}
 	for (i = 0; i < desc->n_notify; i++) {
 		struct port *port = &node->notify_port[i];
@@ -2283,6 +2286,22 @@ error:
 	return res;
 }
 
+/* any default values for the controls are set in the first instance
+ * of the control data. Duplicate this to the other instances now. */
+static void setup_node_controls(struct node *node)
+{
+	uint32_t i, j;
+	uint32_t n_hndl = node->n_hndl;
+	uint32_t n_ports = node->desc->n_control;
+	struct port *ports = node->control_port;
+
+	for (i = 0; i < n_ports; i++) {
+		struct port *port = &ports[i];
+		for (j = 1; j < n_hndl; j++)
+			port->control_data[j] = port->control_data[0];
+	}
+}
+
 static struct node *find_next_node(struct graph *graph)
 {
 	struct node *node;
@@ -2379,6 +2398,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		desc = node->desc;
 		n_control += desc->n_control;
 		n_nodes++;
+		setup_node_controls(node);
 	}
 	graph->n_input = 0;
 	graph->input = calloc(n_input * 16 * n_hndl, sizeof(struct graph_port));

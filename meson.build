@@ -436,6 +436,7 @@ check_functions = [
   ['sigabbrev_np', '#include <string.h>', ['-D_GNU_SOURCE'], []],
   ['XSetIOErrorExitHandler', '#include <X11/Xlib.h>', [], [x11_dep]],
   ['malloc_trim', '#include <malloc.h>', [], []],
+  ['malloc_info', '#include <malloc.h>', [], []],
 ]
 
 foreach f : check_functions

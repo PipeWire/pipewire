@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #include <regex.h>
+#include <malloc.h>
 
 #include <spa/param/props.h>
 #include <spa/pod/builder.h>
@@ -104,6 +105,15 @@ static int core_object_message_handler(struct client *client, struct pw_manager_
 			}
 		}
 		fputc(']', response);
+#ifdef HAVE_MALLOC_INFO
+	} else if (spa_streq(message, "malloc-info")) {
+		malloc_info(0, response);
+#endif
+#ifdef HAVE_MALLOC_TRIM
+	} else if (spa_streq(message, "malloc-trim")) {
+		int res = malloc_trim(0);
+		fprintf(response, "%d", res);
+#endif
 	} else {
 		return -ENOSYS;
 	}

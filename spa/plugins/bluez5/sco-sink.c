@@ -662,7 +662,9 @@ static int transport_start(struct impl *this)
 
 	/* Init mSBC if needed */
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
-		sbc_init_msbc(&this->msbc, 0);
+		res = sbc_init_msbc(&this->msbc, 0);
+		if (res < 0)
+			return res;
 		/* Libsbc expects audio samples by default in host endianness, mSBC requires little endian */
 		this->msbc.endian = SBC_LE;
 
@@ -705,6 +707,7 @@ static int transport_start(struct impl *this)
 fail:
 	free(this->buffer);
 	this->buffer = NULL;
+	sbc_finish(&this->msbc);
 	return res;
 }
 
@@ -819,6 +822,8 @@ static void transport_stop(struct impl *this)
 		this->buffer = NULL;
 		this->buffer_head = this->buffer_next = this->buffer;
 	}
+
+	sbc_finish(&this->msbc);
 }
 
 static int do_stop(struct impl *this)

@@ -72,17 +72,6 @@ pw_log_logv(enum spa_log_level level,
 	    int line, const char *func,
 	    const char *fmt, va_list args) SPA_PRINTF_FUNC(5, 0);
 
-/** Initialize the log topic. The returned topic is owned by the pipewire
- * context and the topic must not be modified or freed.
- * Do not use this function directly, use one of PW_LOG_TOPIC_* instead.
- *
- * \see PW_LOG_TOPIC_STATIC
- * \see PW_LOG_TOPIC_EXTERN
- * \see PW_LOG_TOPIC
- */
-void
-_pw_log_topic_new(struct spa_log_topic *topic);
-
 /**
  * Declare a static log topic named \a var. The usual usage is:
  * \code

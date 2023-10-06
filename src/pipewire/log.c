@@ -233,13 +233,6 @@ void pw_log_log_object(enum spa_log_level level,
 	}
 }
 
-SPA_EXPORT
-void
-_pw_log_topic_new(struct spa_log_topic *topic)
-{
-	spa_log_topic_init(global_log, topic);
-}
-
 void
 pw_log_init(void)
 {

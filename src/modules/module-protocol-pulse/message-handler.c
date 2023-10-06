@@ -106,11 +106,11 @@ static int core_object_message_handler(struct client *client, struct pw_manager_
 		}
 		fputc(']', response);
 #ifdef HAVE_MALLOC_INFO
-	} else if (spa_streq(message, "malloc-info")) {
+	} else if (spa_streq(message, "pipewire-pulse:malloc-info")) {
 		malloc_info(0, response);
 #endif
 #ifdef HAVE_MALLOC_TRIM
-	} else if (spa_streq(message, "malloc-trim")) {
+	} else if (spa_streq(message, "pipewire-pulse:malloc-trim")) {
 		int res = malloc_trim(0);
 		fprintf(response, "%d", res);
 #endif

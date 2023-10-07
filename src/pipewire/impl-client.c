@@ -524,6 +524,7 @@ int pw_impl_client_register(struct pw_impl_client *client,
 		PW_KEY_SEC_UID,
 		PW_KEY_SEC_GID,
 		PW_KEY_SEC_LABEL,
+		PW_KEY_SEC_SOCKET,
 		NULL
 	};
 

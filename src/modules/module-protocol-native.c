@@ -578,6 +578,8 @@ static struct client_data *client_new(struct server *s, int fd)
 	if (props == NULL)
 		goto exit;
 
+	pw_properties_set(props, PW_KEY_SEC_SOCKET, s->socket_info.name);
+
 #if defined(__linux__)
 	len = sizeof(ucred);
 	if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len) < 0) {

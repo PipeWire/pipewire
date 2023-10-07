@@ -313,6 +313,10 @@ if systemd_dep.found()
   pipewire_module_protocol_deps += systemd_dep
 endif
 
+if selinux_dep.found()
+  pipewire_module_protocol_deps += selinux_dep
+endif
+
 pipewire_module_protocol_native = shared_library('pipewire-module-protocol-native',
   [ 'module-protocol-native.c',
     'module-protocol-native/local-socket.c',

@@ -42,6 +42,10 @@ option('systemd-user-service',
        description: 'Install systemd user service file (ignored without systemd)',
        type: 'feature',
        value: 'enabled')
+option('selinux',
+       description: 'Enable SELinux integration',
+       type: 'feature',
+       value: 'auto')
 option('pipewire-alsa',
        description: 'Enable pipewire-alsa integration',
        type: 'feature',

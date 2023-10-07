@@ -102,7 +102,12 @@ context.modules = [
     }
 
     # The native communication protocol.
-    { name = libpipewire-module-protocol-native }
+    { name = libpipewire-module-protocol-native
+        args = {
+            # List of server Unix sockets, and optionally permissions
+            #sockets = [ { name = "pipewire-0" }, { name = "pipewire-manager-0" } ]
+        }
+    }
 
     # The profile module. Allows application to access profiler
     # and performance data. It provides an interface that is used

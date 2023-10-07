@@ -15,8 +15,12 @@
 #include <fcntl.h>
 #include <sys/file.h>
 #include <ctype.h>
+#include <limits.h>
 #ifdef HAVE_PWD_H
 #include <pwd.h>
+#endif
+#ifdef HAVE_GRP_H
+#include <grp.h>
 #endif
 #if defined(__FreeBSD__) || defined(__MidnightBSD__)
 #include <sys/ucred.h>
@@ -27,13 +31,19 @@
 #include <spa/pod/builder.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
+#include <spa/utils/json.h>
 
 #ifdef HAVE_SYSTEMD
 #include <systemd/sd-daemon.h>
 #endif
 
+#ifdef HAVE_SELINUX
+#include <selinux/selinux.h>
+#endif
+
 #include <pipewire/impl.h>
 #include <pipewire/extensions/protocol-native.h>
+#include <pipewire/cleanup.h>
 
 #include "pipewire/private.h"
 
@@ -63,7 +73,17 @@ PW_LOG_TOPIC(mod_topic_connection, "conn." NAME);
  *
  * ## Module Options
  *
- * The module has no options.
+ * The module supports the following arguments:
+ *
+ * - `sockets`: `[ { name = "socket-name", owner = "owner", group = "group", mode = "mode", selinux.context = "context" }, ... ]`
+ *
+ *   Array of Unix socket names and (optionally) owner/permissions to serve,
+ *   if the context is a server. If not absolute paths, the sockets are created
+ *   in the default runtime directory. If not specified, one socket with
+ *   a default name is created.
+ *
+ *   The permissions have no effect for sockets from Systemd socket activation.
+ *   Those should be configured via the systemd.socket(5) mechanism.
  *
  * ## General Options
  *
@@ -105,6 +125,13 @@ PW_LOG_TOPIC(mod_topic_connection, "conn." NAME);
  *\code{.unparsed}
  * context.modules = [
    { name = libpipewire-module-protocol-native }
+ * ]
+ *\endcode
+ *
+ *\code{.unparsed}
+ * context.modules = [
+ *  { name = libpipewire-module-protocol-native,
+ *    args = { sockets = [ { name = "pipewire-0" }, { name = "pipewire-1" } ] } }
  * ]
  *\endcode
  */
@@ -165,12 +192,23 @@ static void client_unref(struct client *impl)
 		free(impl);
 }
 
+struct socket_info {
+	char *name;
+	uid_t uid;
+	gid_t gid;
+	int mode;
+	char *selinux_context;
+	unsigned int has_owner:1;
+	unsigned int has_mode:1;
+};
+
 struct server {
 	struct pw_protocol_server this;
 
 	int fd_lock;
 	struct sockaddr_un addr;
 	char lock_addr[UNIX_PATH_MAX + LOCK_SUFFIXLEN];
+	struct socket_info socket_info;
 
 	struct pw_loop *loop;
 	struct spa_source *source;
@@ -789,6 +827,31 @@ error:
 	return res;
 }
 
+static int set_socket_permissions(struct server *s)
+{
+	struct socket_info *info = &s->socket_info;
+	const char *path = s->addr.sun_path;
+
+	if (info->has_owner)
+		if (chown(path, info->uid, info->gid) < 0)
+			return -errno;
+
+	if (info->has_mode)
+		if (chmod(path, info->mode) < 0)
+			return -errno;
+
+	if (info->selinux_context) {
+#ifdef HAVE_SELINUX
+		if (setfilecon(path, info->selinux_context) < 0)
+			return -errno;
+#else
+		return -EOPNOTSUPP;
+#endif
+	}
+
+	return 0;
+}
+
 static int add_socket(struct pw_protocol *protocol, struct server *s)
 {
 	socklen_t size;
@@ -836,11 +899,22 @@ static int add_socket(struct pw_protocol *protocol, struct server *s)
 			goto error_close;
 		}
 
+		if ((res = set_socket_permissions(s)) < 0) {
+			errno = -res;
+			pw_log_error("server %p: failed to set socket %s permissions: %m",
+					s, s->socket_info.name);
+			goto error_close;
+		}
+
 		if (listen(fd, 128) < 0) {
 			res = -errno;
 			pw_log_error("server %p: listen() failed with error: %m", s);
 			goto error_close;
 		}
+	} else {
+		if (s->socket_info.has_owner || s->socket_info.has_mode || s->socket_info.selinux_context)
+			pw_log_info("server %p: permissions ignored for socket %s from systemd",
+					s, s->socket_info.name);
 	}
 
 	res = write_socket_address(s);
@@ -1250,6 +1324,8 @@ static void destroy_server(struct pw_protocol_server *server)
 		unlink(s->lock_addr);
 	if (s->fd_lock != -1)
 		close(s->fd_lock);
+	free(s->socket_info.name);
+	free(s->socket_info.selinux_context);
 	free(s);
 }
 
@@ -1311,9 +1387,10 @@ create_server(struct pw_protocol *protocol,
 }
 
 static struct pw_protocol_server *
-impl_add_server(struct pw_protocol *protocol,
+add_server(struct pw_protocol *protocol,
 		struct pw_impl_core *core,
-                const struct spa_dict *props)
+		const struct spa_dict *props,
+		struct socket_info *socket_info)
 {
 	struct pw_protocol_server *this;
 	struct server *s;
@@ -1325,7 +1402,16 @@ impl_add_server(struct pw_protocol *protocol,
 
 	this = &s->this;
 
-	name = get_server_name(props);
+	if (socket_info) {
+		s->socket_info = *socket_info;
+		s->socket_info.name = strdup(socket_info->name);
+		s->socket_info.selinux_context = socket_info->selinux_context ?
+			strdup(socket_info->selinux_context) : NULL;
+		name = socket_info->name;
+	} else {
+		name = get_server_name(props);
+		s->socket_info.name = strdup(name);
+	}
 
 	if ((res = init_socket_name(s, name)) < 0)
 		goto error;
@@ -1347,6 +1433,14 @@ error:
 	destroy_server(this);
 	errno = -res;
 	return NULL;
+}
+
+static struct pw_protocol_server *
+impl_add_server(struct pw_protocol *protocol,
+		struct pw_impl_core *core,
+                const struct spa_dict *props)
+{
+	return add_server(protocol, core, props, NULL);
 }
 
 static const struct pw_protocol_implementation protocol_impl = {
@@ -1462,14 +1556,121 @@ static int need_server(struct pw_context *context, const struct spa_dict *props)
 	return 0;
 }
 
+static int create_servers(struct pw_protocol *this, struct pw_impl_core *core,
+		const struct pw_properties *props, const struct pw_properties *args)
+{
+	const char *sockets = args ? pw_properties_get(args, "sockets") : NULL;
+	struct spa_json it[3];
+
+	if (sockets == NULL) {
+		if (add_server(this, core, &props->dict, NULL) == NULL)
+			return -errno;
+
+		return 0;
+	}
+
+	spa_json_init(&it[0], sockets, strlen(sockets));
+
+	if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+		goto error_invalid;
+
+	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
+		struct socket_info info = {0};
+		char key[256];
+		char name[PATH_MAX];
+		char selinux_context[PATH_MAX];
+
+		info.uid = getuid();
+		info.gid = getgid();
+
+		while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
+			const char *value;
+			int len;
+
+			if ((len = spa_json_next(&it[2], &value)) <= 0)
+				goto error_invalid;
+
+			if (spa_streq(key, "name")) {
+				if (spa_json_parse_stringn(value, len, name, sizeof(name)) < 0)
+					goto error_invalid;
+				info.name = name;
+			} else if (spa_streq(key, "selinux.context")) {
+				if (spa_json_parse_stringn(value, len, selinux_context, sizeof(selinux_context)) < 0)
+					goto error_invalid;
+				info.selinux_context = selinux_context;
+			} else if (spa_streq(key, "owner")) {
+				char buffer[16384];
+				char owner[PATH_MAX];
+				struct passwd pwd, *result = NULL;
+				int64_t val;
+
+				if (spa_json_parse_stringn(value, len, owner, sizeof(owner)) < 0)
+					goto error_invalid;
+
+				if (spa_atoi64(owner, &val, 10))
+					info.uid = val;
+				else if (getpwnam_r(owner, &pwd, buffer, sizeof(buffer), &result) == 0 && result)
+					info.uid = result->pw_uid;
+				else
+					goto error_invalid;
+
+				info.has_owner = true;
+			} else if (spa_streq(key, "group")) {
+				char buffer[16384];
+				char group[PATH_MAX];
+				struct group grp, *result = NULL;
+				int64_t val;
+
+				if (spa_json_parse_stringn(value, len, group, sizeof(group)) < 0)
+					goto error_invalid;
+
+				if (spa_atoi64(group, &val, 10))
+					info.gid = val;
+				else if (getgrnam_r(group, &grp, buffer, sizeof(buffer), &result) == 0 && result)
+					info.gid = result->gr_gid;
+				else
+					goto error_invalid;
+
+				info.has_owner = true;
+			} else if (spa_streq(key, "mode")) {
+				char mode[PATH_MAX];
+				int64_t val;
+
+				if (spa_json_parse_stringn(value, len, mode, sizeof(mode)) < 0)
+					goto error_invalid;
+
+				if (spa_atoi64(mode, &val, 0))
+					info.mode = val;
+				else
+					goto error_invalid;
+
+				info.has_mode = true;
+			}
+		}
+
+		if (info.name == NULL)
+			goto error_invalid;
+
+		if (add_server(this, core, &props->dict, &info) == NULL)
+			return -errno;
+	}
+
+	return 0;
+
+error_invalid:
+	pw_log_error("invalid module 'sockets' argument: %s", sockets);
+	return -EINVAL;
+}
+
 SPA_EXPORT
-int pipewire__module_init(struct pw_impl_module *module, const char *args)
+int pipewire__module_init(struct pw_impl_module *module, const char *args_str)
 {
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_protocol *this;
 	struct pw_impl_core *core = context->core;
 	struct protocol_data *d;
 	const struct pw_properties *props;
+	spa_autoptr(pw_properties) args = NULL;
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -1479,6 +1680,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_log_error("protocol %s is already loaded", PW_TYPE_INFO_PROTOCOL_Native);
 		return -EEXIST;
 	}
+
+	args = args_str ? pw_properties_new_string(args_str) : NULL;
 
 	this = pw_protocol_new(context, PW_TYPE_INFO_PROTOCOL_Native, sizeof(struct protocol_data));
 	if (this == NULL)
@@ -1501,12 +1704,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	props = pw_context_get_properties(context);
 	d->local = create_server(this, core, &props->dict);
 
-	if (need_server(context, &props->dict)) {
-		if (impl_add_server(this, core, &props->dict) == NULL) {
-			res = -errno;
+	if (need_server(context, &props->dict))
+		if ((res = create_servers(this, core, props, args)) < 0)
 			goto error_cleanup;
-		}
-	}
 
 	pw_impl_module_add_listener(module, &d->module_listener, &module_events, d);
 

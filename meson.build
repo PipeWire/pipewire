@@ -232,6 +232,7 @@ check_headers = [
   ['sys/random.h', 'HAVE_SYS_RANDOM_H'],
   ['sys/vfs.h', 'HAVE_SYS_VFS_H'],
   ['pwd.h', 'HAVE_PWD_H'],
+  ['grp.h', 'HAVE_GRP_H'],
 ]
 
 foreach h : check_headers
@@ -246,6 +247,10 @@ systemd_dep = dependency('libsystemd',required: get_option('systemd'))
 summary({'systemd conf data': systemd.found()}, bool_yn: true)
 summary({'libsystemd': systemd_dep.found()}, bool_yn: true)
 cdata.set('HAVE_SYSTEMD', systemd.found() and systemd_dep.found())
+
+selinux_dep = dependency('libselinux', required: get_option('selinux'))
+summary({'libselinux': selinux_dep.found()}, bool_yn: true)
+cdata.set('HAVE_SELINUX', selinux_dep.found())
 
 configinc = include_directories('.')
 includes_inc = include_directories('include')

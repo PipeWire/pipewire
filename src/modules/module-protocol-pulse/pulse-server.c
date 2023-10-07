@@ -5101,7 +5101,7 @@ static int do_send_object_message(struct client *client, uint32_t command, uint3
 	struct pw_manager *manager = client->manager;
 	const char *object_path = NULL, *message = NULL, *params = NULL;
 	struct pw_manager_object *o;
-	char *response_str = NULL;
+	spa_autofree char *response_str = NULL;
 	size_t path_len = 0, response_len = 0;
 	FILE *response;
 	int res = -ENOENT;
@@ -5154,8 +5154,6 @@ static int do_send_object_message(struct client *client, uint32_t command, uint3
 		message_put(reply, TAG_STRING, response_str, TAG_INVALID);
 		res = client_queue_message(client, reply);
 	}
-
-	free(response_str);
 
 	return res;
 }

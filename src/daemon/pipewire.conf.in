@@ -146,21 +146,12 @@ context.modules = [
     # new clients.
     { name = libpipewire-module-access
         args = {
-            # access.allowed to list an array of paths of allowed
-            # apps.
-            #access.allowed = [
-            #    @session_manager_path@
-            #]
+            # Socket-specific access permissions
+            #access.socket = { pipewire-0 = "default", pipewire-0-manager = "unrestricted" }
 
-            # An array of rejected paths.
-            #access.rejected = [ ]
-
-            # An array of paths with restricted access.
-            #access.restricted = [ ]
-
-            # Anything not in the above lists gets assigned the
-            # access.force permission.
-            #access.force = flatpak
+            # Deprecated legacy mode (not socket-based),
+            # for now enabled by default if access.socket is not specified
+            #access.legacy = true
         }
         condition = [ { module.access = true } ]
     }

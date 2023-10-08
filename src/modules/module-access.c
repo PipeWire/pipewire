@@ -25,6 +25,7 @@
 #include <spa/utils/json.h>
 
 #include <pipewire/impl.h>
+#include <pipewire/cleanup.h>
 
 #include "flatpak-utils.h"
 
@@ -36,40 +37,51 @@
  * resolution.
  *
  * Permissions assigned to a client are configured as arguments to this
- * module, see the example configuration below. A special use-case is Flatpak
- * where the permission management is delegated.
+ * module, see below. Permission management beyond unrestricted access
+ * is delegated to an external agent, usually the session manager.
  *
- * This module sets the \ref PW_KEY_ACCESS property to one of
- * - `allowed`: the client is explicitly allowed to access all resources
- * - `rejected`: the client does not have access to any resources and a
- *   resource error is generated
- * - `restricted`: the client is restricted, see note below
- * - `flatpak`: restricted, special case for clients running inside flatpak,
- *   see note below
- * - `$access.force`: the value of the `access.force` argument given in the
- *   module configuration.
- * - `unrestricted`: the client is allowed to access all resources. This is the
- *   default for clients not listed in any of the `access.*` options
- *   unless the client requested reduced permissions in \ref
- *   PW_KEY_CLIENT_ACCESS.
+ * This module sets the \ref PW_KEY_ACCESS as follows:
  *
- * \note Clients with a resolution other than `allowed` or `rejected` rely
- *       on an external actor to update that property once permission is
- *       granted or rejected.
+ * - If `access.legacy` module option is not enabled:
+
+ *   The value defined for the socket in `access.socket` module option, or
+ *   `"default"` if no value is defined.
  *
- * For connections from applications running inside Flatpak not mediated
- * by a portal, the `access` module itself sets the `pipewire.access.portal.app_id`
- * property to the Flatpak application ID.
+ * - If `access.legacy` is enabled, the value is:
+ *
+ *     - `"flatpak"`: if client is a Flatpak client
+ *     - Value of \ref PW_KEY_CLIENT_ACCESS client property, if set
+ *     - `"unrestricted"`: otherwise
+ *
+ * If the resulting \ref PW_KEY_ACCESS value is `"unrestricted"`, this module
+ * will give the client all permissions to access all resources.  Otherwise, the
+ * client will be forced to wait until an external actor, such as the session
+ * manager, updates the client permissions.
+ *
+ * For connections from applications running inside Flatpak, and not mediated by
+ * other clients (eg. portal or pipewire-pulse), the
+ * `pipewire.access.portal.app_id` property is to the Flatpak application ID, if
+ * found. In addition, `pipewire.sec.flatpak` is set to `true`.
  *
  * ## Module Options
  *
  * Options specific to the behavior of this module
  *
- * - ``access.allowed = []``: an array of paths of allowed applications
- * - ``access.rejected = []``: an array of paths of rejected applications
- * - ``access.restricted = []``: an array of paths of restricted applications
- * - ``access.force = <str>``: forces an external permissions check (e.g. a flatpak
- *   portal)
+ * - `access.socket = { "socket-name" = "access-value", ... }`:
+ *
+ *   Socket-specific access permissions. Has the default value
+ *   `{ "CORENAME-manager": "unrestricted" }`
+ *   where `CORENAME` is the name of the PipeWire core, usually `pipewire-0`.
+ *
+ * - `access.legacy = true`: enable backward-compatible access mode.  Cannot be
+ *   enabled when using socket-based permissions.
+ *
+ *   If `access.socket` is not specified, has the default value `true`
+ *   otherwise `false`.
+ *
+ *   \warning The legacy mode is deprecated. The default value is subject to
+ *            change and the legacy mode may be removed in future PipeWire
+ *            releases.
  *
  * ## General options
  *
@@ -84,20 +96,12 @@
  * context.modules = [
  *  {   name = libpipewire-module-access
  *      args = {
- *          access.allowed = [
- *              /usr/bin/pipewire-media-session
- *              /usr/bin/important-thing
- *          ]
- *
- *          access.rejected = [
- *              /usr/bin/microphone-snooper
- *          ]
- *
- *          #access.restricted = [ ]
- *
- *          # Anything not in the above lists gets assigned the
- *          # access.force permission.
- *          #access.force = flatpak
+ *          # Use separate socket for session manager applications,
+ *          # and pipewire-0 for usual applications.
+ *          access.socket = {
+ *              pipewire-0 = "default",
+ *              pipewire-0-manager = "unrestricted",
+ *          }
  *      }
  *  }
  *]
@@ -112,10 +116,12 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define MODULE_USAGE	"( access.force=flatpak ) "		\
-			"( access.allowed= [ <cmd-line>,.. ] ) "	\
-			"( access.rejected= [ <cmd-line>,.. ] ) "	\
-			"( access.restricted= [ <cmd-line>,.. ] ) "	\
+#define MODULE_USAGE	"( access.socket={ <socket>=<access>, ... } ) " \
+			"( access.legacy=true ) "
+
+#define ACCESS_UNRESTRICTED	"unrestricted"
+#define ACCESS_FLATPAK		"flatpak"
+#define ACCESS_DEFAULT		"default"
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
@@ -126,187 +132,98 @@ static const struct spa_dict_item module_props[] = {
 
 struct impl {
 	struct pw_context *context;
-	struct pw_properties *properties;
+
+	struct pw_properties *socket_access;
 
 	struct spa_hook context_listener;
 	struct spa_hook module_listener;
+
+	unsigned int legacy:1;
 };
-
-static int get_exe_name(int pid, char *buf, size_t buf_size)
-{
-	char path[256];
-	struct stat s1, s2;
-	int res;
-
-	/*
-	 * Find executable name, checking it is an existing file
-	 * (in the current namespace).
-	 */
-
-#if defined(__linux__) || defined(__GNU__)
-	spa_scnprintf(path, sizeof(path), "/proc/%u/exe", pid);
-#elif defined(__FreeBSD__) || defined(__MidnightBSD__)
-	spa_scnprintf(path, sizeof(path), "/proc/%u/file", pid);
-#else
-	return -ENOTSUP;
-#endif
-
-	res = readlink(path, buf, buf_size);
-	if (res < 0)
-		return -errno;
-	if ((size_t)res >= buf_size)
-		return -E2BIG;
-	buf[res] = '\0';
-
-	/* Check the file exists (= not deleted, and is in current namespace) */
-	if (stat(path, &s1) != 0 || stat(buf, &s2) != 0)
-		return -errno;
-	if (s1.st_dev != s2.st_dev || s1.st_ino != s2.st_ino)
-		return -ENXIO;
-
-	return 0;
-}
-
-static int check_exe(struct pw_impl_client *client, const char *path, const char *str)
-{
-	char key[1024];
-	int res;
-	struct spa_json it[2];
-
-	spa_json_init(&it[0], str, strlen(str));
-	if ((res = spa_json_enter_array(&it[0], &it[1])) <= 0)
-		return res;
-
-	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
-		if (spa_streq(path, key))
-			return 1;
-	}
-
-	return 0;
-}
 
 static void
 context_check_access(void *data, struct pw_impl_client *client)
 {
 	struct impl *impl = data;
 	struct pw_permission permissions[1];
-	struct spa_dict_item items[2];
-	char exe_path[PATH_MAX];
+	struct spa_dict_item items[3];
 	const struct pw_properties *props;
-	const char *str, *access;
-	char *flatpak_app_id = NULL;
+	const char *str;
+	const char *access;
+	const char *socket;
+	spa_autofree char *flatpak_app_id = NULL;
 	int nitems = 0;
+	bool sandbox_flatpak;
 	int pid, res;
 
+	/* Get client properties */
+
 	pid = -EINVAL;
+	socket = NULL;
+	sandbox_flatpak = false;
+
 	if ((props = pw_impl_client_get_properties(client)) != NULL) {
 		if ((str = pw_properties_get(props, PW_KEY_ACCESS)) != NULL) {
 			pw_log_info("client %p: has already access: '%s'", client, str);
 			return;
 		}
 		 pw_properties_fetch_int32(props, PW_KEY_SEC_PID, &pid);
+		socket = pw_properties_get(props, PW_KEY_SEC_SOCKET);
 	}
 
 	if (pid < 0) {
 		pw_log_info("client %p: no trusted pid found, assuming not sandboxed", client);
-		access = "no-pid";
-		goto granted;
 	} else {
 		pw_log_info("client %p has trusted pid %d", client, pid);
-		if ((res = get_exe_name(pid, exe_path, sizeof(exe_path))) >= 0) {
-			pw_log_info("client %p has trusted exe path '%s'", client, exe_path);
-		} else {
-			pw_log_info("client %p has no trusted exe path: %s",
-					client, spa_strerror(res));
-			exe_path[0] = '\0';
+
+		res = pw_check_flatpak(pid, &flatpak_app_id, NULL);
+		if (res != 0) {
+			if (res < 0)
+				pw_log_warn("%p: client %p flatpak check failed: %s",
+						impl, client, spa_strerror(res));
+
+			pw_log_info("client %p is from flatpak", client);
+			sandbox_flatpak = true;
 		}
 	}
 
-	if (impl->properties && (str = pw_properties_get(impl->properties, "access.allowed")) != NULL) {
-		res = check_exe(client, exe_path, str);
-		if (res < 0) {
-			pw_log_warn("%p: client %p allowed check failed: %s",
-				impl, client, spa_strerror(res));
-		} else if (res > 0) {
-			access = "allowed";
-			goto granted;
-		}
-	}
+	/* Apply rules */
 
-	if (impl->properties && (str = pw_properties_get(impl->properties, "access.rejected")) != NULL) {
-		res = check_exe(client, exe_path, str);
-		if (res < 0) {
-			pw_log_warn("%p: client %p rejected check failed: %s",
-				impl, client, spa_strerror(res));
-		} else if (res > 0) {
-			res = -EACCES;
-			access = "rejected";
-			goto rejected;
-		}
-	}
-
-	if (impl->properties && (str = pw_properties_get(impl->properties, "access.restricted")) != NULL) {
-		res = check_exe(client, exe_path, str);
-		if (res < 0) {
-			pw_log_warn("%p: client %p restricted check failed: %s",
-				impl, client, spa_strerror(res));
-		}
-		else if (res > 0) {
-			pw_log_debug(" %p: restricted client %p added", impl, client);
-			access = "restricted";
-			goto wait_permissions;
-		}
-	}
-	if (impl->properties &&
-	    (access = pw_properties_get(impl->properties, "access.force")) != NULL)
-		goto wait_permissions;
-
-	res = pw_check_flatpak(pid, &flatpak_app_id, NULL);
-	if (res != 0) {
-		if (res < 0)
-			pw_log_warn("%p: client %p sandbox check failed: %s",
-				impl, client, spa_strerror(res));
+	if (!impl->legacy) {
+		if ((str = pw_properties_get(impl->socket_access, socket)) != NULL)
+			access = str;
 		else
-			pw_log_debug(" %p: flatpak client %p added", impl, client);
-		access = "flatpak";
+			access = ACCESS_DEFAULT;
+	} else {
+		if (sandbox_flatpak)
+			access = ACCESS_FLATPAK;
+		else if ((str = pw_properties_get(props, PW_KEY_CLIENT_ACCESS)) != NULL)
+			access = str;
+		else
+			access = ACCESS_UNRESTRICTED;
+	}
+
+	/* Handle resolution */
+
+	if (sandbox_flatpak) {
 		items[nitems++] = SPA_DICT_ITEM_INIT("pipewire.access.portal.app_id",
 				flatpak_app_id);
-		goto wait_permissions;
+		items[nitems++] = SPA_DICT_ITEM_INIT("pipewire.sec.flatpak", "true");
 	}
 
-	if ((access = pw_properties_get(props, PW_KEY_CLIENT_ACCESS)) == NULL)
-		access = "unrestricted";
+	if (spa_streq(access, ACCESS_UNRESTRICTED)) {
+		pw_log_info("%p: client %p '%s' access granted", impl, client, access);
+		items[nitems++] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
+		pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, nitems));
 
-	if (spa_streq(access, "unrestricted") || spa_streq(access, "allowed"))
-		goto granted;
-	else
-		goto wait_permissions;
-
-granted:
-	pw_log_info("%p: client %p '%s' access granted", impl, client, access);
-	items[nitems++] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
-	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, nitems));
-
-	permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_ALL);
-	pw_impl_client_update_permissions(client, 1, permissions);
-	goto done;
-
-wait_permissions:
-	pw_log_info("%p: client %p wait for '%s' permissions",
-			impl, client, access);
-	items[nitems++] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
-	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, nitems));
-	goto done;
-
-rejected:
-	pw_resource_error(pw_impl_client_get_core_resource(client), res, access);
-	items[nitems++] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
-	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, nitems));
-	goto done;
-
-done:
-	free(flatpak_app_id);
-	return;
+		permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_ALL);
+		pw_impl_client_update_permissions(client, 1, permissions);
+	} else {
+		pw_log_info("%p: client %p wait for '%s' permissions",
+				impl, client, access);
+		items[nitems++] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
+		pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, nitems));
+	}
 }
 
 static const struct pw_context_events context_events = {
@@ -318,10 +235,12 @@ static void module_destroy(void *data)
 {
 	struct impl *impl = data;
 
-	spa_hook_remove(&impl->context_listener);
-	spa_hook_remove(&impl->module_listener);
+	if (impl->context) {
+		spa_hook_remove(&impl->context_listener);
+		spa_hook_remove(&impl->module_listener);
+	}
 
-	pw_properties_free(impl->properties);
+	pw_properties_free(impl->socket_access);
 
 	free(impl);
 }
@@ -331,12 +250,105 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy,
 };
 
+static const char *
+get_server_name(const struct spa_dict *props)
+{
+	const char *name = NULL;
+
+	name = getenv("PIPEWIRE_CORE");
+	if (name == NULL && props != NULL)
+		name = spa_dict_lookup(props, PW_KEY_CORE_NAME);
+	if (name == NULL)
+		name = PW_DEFAULT_REMOTE;
+	return name;
+}
+
+static int parse_socket_args(struct impl *impl, const char *str)
+{
+	struct spa_json it[2];
+	char socket[PATH_MAX];
+
+	spa_json_init(&it[0], str, strlen(str));
+
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+		return -EINVAL;
+
+	while (spa_json_get_string(&it[1], socket, sizeof(socket)) > 0) {
+		char value[256];
+		const char *val;
+		int len;
+
+		if ((len = spa_json_next(&it[1], &val)) <= 0)
+			return -EINVAL;
+
+		if (spa_json_parse_stringn(val, len, value, sizeof(value)) <= 0)
+			return -EINVAL;
+
+		pw_properties_set(impl->socket_access, socket, value);
+	}
+
+	return 0;
+}
+
+static int parse_args(struct impl *impl, const struct pw_properties *props, const char *args_str)
+{
+	spa_autoptr(pw_properties) args = NULL;
+	const char *str;
+	int res;
+
+	if (args_str)
+		args = pw_properties_new_string(args_str);
+	else
+		args = pw_properties_new(NULL, NULL);
+
+	if ((str = pw_properties_get(args, "access.legacy")) != NULL) {
+		impl->legacy = spa_atob(str);
+	} else if (pw_properties_get(args, "access.socket")) {
+		impl->legacy = false;
+	} else {
+		/* When time comes, we should change this to false */
+		impl->legacy = true;
+	}
+
+	if (pw_properties_get(args, "access.force") ||
+			pw_properties_get(args, "access.allowed") ||
+			pw_properties_get(args, "access.rejected") ||
+			pw_properties_get(args, "access.restricted")) {
+		pw_log_warn("access.force/allowed/rejected/restricted are deprecated and ignored "
+				"but imply legacy access mode");
+		impl->legacy = true;
+	}
+
+	if ((str = pw_properties_get(args, "access.socket")) != NULL) {
+		if (impl->legacy) {
+			pw_log_error("access.socket and legacy mode cannot be both enabled");
+			return -EINVAL;
+		}
+
+		if ((res = parse_socket_args(impl, str)) < 0) {
+			pw_log_error("invalid access.socket value");
+			return res;
+		}
+	} else {
+		char def[PATH_MAX];
+
+		spa_scnprintf(def, sizeof(def), "%s-manager", get_server_name(&props->dict));
+		pw_properties_set(impl->socket_access, def, ACCESS_UNRESTRICTED);
+	}
+
+	if (impl->legacy)
+		pw_log_info("Using backward-compatible legacy access mode.");
+
+	return 0;
+}
+
 SPA_EXPORT
 int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
 	struct pw_context *context = pw_impl_module_get_context(module);
-	struct pw_properties *props;
+	const struct pw_properties *props = pw_context_get_properties(context);
 	struct impl *impl;
+	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -346,13 +358,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	pw_log_debug("module %p: new %s", impl, args);
 
-	if (args)
-		props = pw_properties_new_string(args);
-	else
-		props = NULL;
+	impl->socket_access = pw_properties_new(NULL, NULL);
+
+	if ((res = parse_args(impl, props, args)) < 0)
+		goto error;
 
 	impl->context = context;
-	impl->properties = props;
 
 	pw_context_add_listener(context, &impl->context_listener, &context_events, impl);
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
@@ -360,4 +371,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
+
+error:
+	module_destroy(impl);
+	return res;
 }

@@ -36,7 +36,7 @@
 #include <sys/thr.h>
 #endif
 #if defined(__GNU__)
-#include <mach.h>
+#include <hurd.h>
 #endif
 #include <fcntl.h>
 #include <unistd.h>
@@ -225,7 +225,7 @@ static pid_t _gettid(void)
 	thr_self(&pid);
 	return (pid_t)pid;
 #elif defined(__GNU__)
-       mach_port_t thread = mach_thread_self();
+       mach_port_t thread = hurd_thread_self();
        return (pid_t)thread;
 #else
 #error "No gettid impl"

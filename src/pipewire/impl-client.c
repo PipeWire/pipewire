@@ -152,30 +152,53 @@ static bool has_key(const char * const keys[], const char *key)
 	return false;
 }
 
-static int update_properties(struct pw_impl_client *client, const struct spa_dict *dict, bool filter)
+static bool check_client_property_update(struct pw_impl_client *client,
+		const char *key, const char *old, const char *new)
 {
 	static const char * const ignored[] = {
+		PW_KEY_PROTOCOL,
 		PW_KEY_OBJECT_ID,
+		PW_KEY_OBJECT_SERIAL,
+		PW_KEY_ACCESS,
 		NULL
 	};
 
+	/* Refuse specific restricted keys */
+	if (has_key(ignored, key))
+		goto deny;
+
+	/* Refuse all security keys */
+	if (spa_strstartswith(key, "pipewire.sec."))
+		goto deny;
+
+	/* Restrict other pipewire.* keys */
+	if (spa_strstartswith(key, "pipewire.")) {
+		/* Refuse changing existing values */
+		if (old != NULL)
+			goto deny;
+	}
+
+	return true;
+
+deny:
+	if (!spa_streq(old, new))
+		pw_log_warn("%p: refuse property update '%s' from '%s' to '%s'",
+				client, key, old ? old : "<unset>", new ? new : "<unset>");
+	return false;
+}
+
+static int update_properties(struct pw_impl_client *client, const struct spa_dict *dict, bool filter)
+{
 	struct pw_resource *resource;
 	int changed = 0;
 	uint32_t i;
-	const char *old;
 
         for (i = 0; i < dict->n_items; i++) {
 		if (filter) {
-			if (spa_strstartswith(dict->items[i].key, "pipewire.") &&
-			    (old = pw_properties_get(client->properties, dict->items[i].key)) != NULL &&
-			    (dict->items[i].value == NULL || !spa_streq(old, dict->items[i].value))) {
-				pw_log_warn("%p: refuse property update '%s' from '%s' to '%s'",
-						client, dict->items[i].key, old,
-						dict->items[i].value);
-				continue;
+			const char *old = pw_properties_get(client->properties, dict->items[i].key);
+			const char *new = dict->items[i].value;
 
-			}
-			if (has_key(ignored, dict->items[i].key))
+			if (!check_client_property_update(client, dict->items[i].key, old, new))
 				continue;
 		}
                 changed += pw_properties_set(client->properties, dict->items[i].key, dict->items[i].value);

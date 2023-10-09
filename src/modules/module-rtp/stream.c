@@ -550,6 +550,13 @@ uint16_t rtp_stream_get_seq(struct rtp_stream *s)
 	return impl->seq;
 }
 
+void rtp_stream_set_first(struct rtp_stream *s)
+{
+	struct impl *impl = (struct impl*)s;
+
+	impl->first = true;
+}
+
 int rtp_stream_set_param(struct rtp_stream *s, uint32_t id, const struct spa_pod *param)
 {
 	struct impl *impl = (struct impl*)s;

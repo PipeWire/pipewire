@@ -226,6 +226,10 @@ static void rtp_audio_flush_packets(struct impl *impl)
 	iov[0].iov_len = sizeof(header);
 
 	while (avail >= tosend) {
+		if (impl->marker_on_first && impl->first)
+			header.m = 1;
+		else
+			header.m = 0;
 		header.sequence_number = htons(impl->seq);
 		header.timestamp = htonl(impl->ts_offset + timestamp);
 
@@ -234,11 +238,12 @@ static void rtp_audio_flush_packets(struct impl *impl)
 			(timestamp * stride) & BUFFER_MASK,
 			&iov[1], tosend * stride);
 
-		pw_log_trace("sending %d timestamp:%d", tosend, timestamp);
+		pw_log_trace("sending %d avail:%d ts_offset:%d timestamp:%d", tosend, avail, impl->ts_offset, timestamp);
 
 		rtp_stream_emit_send_packet(impl, iov, 3);
 
 		impl->seq++;
+		impl->first = false;
 		timestamp += tosend;
 		avail -= tosend;
 	}

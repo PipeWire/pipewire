@@ -58,6 +58,7 @@ struct impl {
 	unsigned have_ssrc:1;
 	unsigned ignore_ssrc:1;
 	unsigned have_seq:1;
+	unsigned marker_on_first:1;
 	uint32_t ts_offset;
 	uint32_t psamples;
 	uint32_t mtu;
@@ -131,6 +132,8 @@ static int stream_start(struct impl *impl)
 {
 	if (impl->started)
 		return 0;
+
+	impl->first = true;
 
 	rtp_stream_emit_state_changed(impl, true, NULL);
 
@@ -364,6 +367,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	if (pw_properties_get(props, PW_KEY_NODE_NETWORK) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_NETWORK, "true");
 
+	impl->marker_on_first = pw_properties_get_bool(props, "sess.marker-on-first", false);
 	impl->ignore_ssrc = pw_properties_get_bool(props, "sess.ignore-ssrc", false);
 	impl->direct_timestamp = pw_properties_get_bool(props, "sess.ts-direct", false);
 

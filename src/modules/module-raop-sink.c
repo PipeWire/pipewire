@@ -953,27 +953,6 @@ static int rtsp_log_reply_status(void *data, int status, const struct spa_dict *
 	return 0;
 }
 
-static int rtsp_do_flush(struct impl *impl)
-{
-	int res;
-
-	if (!impl->recording)
-		return 0;
-
-	pw_properties_set(impl->headers, "Range", "npt=0-");
-	pw_properties_setf(impl->headers, "RTP-Info",
-			"seq=%u;rtptime=%u", impl->seq, impl->rtptime);
-
-	impl->recording = false;
-
-	res = rtsp_send(impl, "FLUSH", NULL, NULL, rtsp_log_reply_status);
-
-	pw_properties_set(impl->headers, "Range", NULL);
-	pw_properties_set(impl->headers, "RTP-Info", NULL);
-
-	return res;
-}
-
 static int rtsp_send_volume(struct impl *impl)
 {
 	if (!impl->recording)
@@ -1647,9 +1626,6 @@ static void stream_state_changed(void *d, enum pw_stream_state old,
 	case PW_STREAM_STATE_UNCONNECTED:
 		pw_impl_module_schedule_destroy(impl->module);
 		break;
-	case PW_STREAM_STATE_PAUSED:
-		rtsp_do_flush(impl);
-		break;
 	case PW_STREAM_STATE_STREAMING:
 		rtsp_do_record(impl);
 		break;
@@ -1701,6 +1677,8 @@ static int rtsp_teardown_reply(void *data, int status, const struct spa_dict *he
 
 static int rtsp_do_teardown(struct impl *impl)
 {
+	impl->recording = false;
+
 	if (!impl->ready)
 		return 0;
 

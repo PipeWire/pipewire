@@ -104,6 +104,7 @@ static const struct format_info audio_format_info[] = {
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_ALAW, 1, "PCMA", "audio" },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_ULAW, 1, "PCMU", "audio" },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S16_BE, 2, "L16", "audio" },
+	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S16_LE, 2, "L16", "audio" },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S24_BE, 3, "L24", "audio" },
 	{ SPA_MEDIA_SUBTYPE_control, 0, 1, "rtp-midi", "audio" },
 	{ SPA_MEDIA_SUBTYPE_opus, 0, 4, "opus", "audio" },
@@ -297,6 +298,12 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		impl->info.media_type = SPA_MEDIA_TYPE_audio;
 		impl->info.media_subtype = SPA_MEDIA_SUBTYPE_raw;
 		impl->payload = 127;
+	}
+	else if (spa_streq(str, "raop")) {
+		impl->info.media_type = SPA_MEDIA_TYPE_audio;
+		impl->info.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+		impl->payload = 0x60;
+		impl->marker_on_first = 1;
 	}
 	else if (spa_streq(str, "midi")) {
 		impl->info.media_type = SPA_MEDIA_TYPE_application;

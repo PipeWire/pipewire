@@ -1474,7 +1474,7 @@ again:
 			target_quantum = SPA_CLAMP(target_quantum, node_min_quantum, node_max_quantum);
 			target_quantum = SPA_MIN(target_quantum, lim_quantum);
 
-			if (settings->clock_power_of_two_quantum)
+			if (settings->clock_power_of_two_quantum && !force_quantum)
 				target_quantum = flp2(target_quantum);
 		}
 

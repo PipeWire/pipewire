@@ -437,11 +437,13 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 			pa_proplist_setf(m->output_proplist, "node.group", "pro-audio-%u", index);
 			pa_proplist_setf(m->output_proplist, "node.link-group", "pro-audio-%u", index);
 			pa_proplist_setf(m->output_proplist, "api.alsa.auto-link", "true");
+			pa_proplist_setf(m->output_proplist, "api.alsa.disable-tsched", "true");
 		}
 		PA_IDXSET_FOREACH(m, ap->input_mappings, idx) {
 			pa_proplist_setf(m->input_proplist, "node.group", "pro-audio-%u", index);
 			pa_proplist_setf(m->input_proplist, "node.link-group", "pro-audio-%u", index);
 			pa_proplist_setf(m->input_proplist, "api.alsa.auto-link", "true");
+			pa_proplist_setf(m->input_proplist, "api.alsa.disable-tsched", "true");
 		}
 	}
 	return 0;

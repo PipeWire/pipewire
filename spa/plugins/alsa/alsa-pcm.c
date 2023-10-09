@@ -514,7 +514,6 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 
 	state->multi_rate = true;
 	state->htimestamp = false;
-	state->disable_tsched = state->is_pro;
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;

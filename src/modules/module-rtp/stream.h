@@ -35,7 +35,7 @@ struct rtp_stream_events {
 
 	void (*send_packet) (void *data, struct iovec *iov, size_t iovlen);
 
-	void (*send_feedback) (void *data, uint32_t senum);
+	void (*send_feedback) (void *data, uint32_t seqnum);
 };
 
 struct rtp_stream *rtp_stream_new(struct pw_core *core,

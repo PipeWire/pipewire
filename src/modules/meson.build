@@ -607,12 +607,13 @@ build_module_raop = openssl_lib.found()
 if build_module_raop
   pipewire_module_raop_sink = shared_library('pipewire-module-raop-sink',
     [ 'module-raop-sink.c',
-      'module-raop/rtsp-client.c' ],
+      'module-raop/rtsp-client.c',
+      'module-rtp/stream.c' ],
     include_directories : [configinc],
     install : true,
     install_dir : modules_install_dir,
     install_rpath: modules_install_dir,
-    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, openssl_lib],
+    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, opus_dep, openssl_lib],
   )
 endif
 summary({'raop-sink (requires OpenSSL)': build_module_raop}, bool_yn: true, section: 'Optional Modules')

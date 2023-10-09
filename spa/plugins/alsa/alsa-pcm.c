@@ -131,6 +131,8 @@ static int alsa_set_param(struct state *state, const char *k, const char *s)
 		state->multi_rate = spa_atob(s);
 	} else if (spa_streq(k, "api.alsa.htimestamp")) {
 		state->htimestamp = spa_atob(s);
+	} else if (spa_streq(k, "api.alsa.auto-link")) {
+		state->auto_link = spa_atob(s);
 	} else if (spa_streq(k, "latency.internal.rate")) {
 		state->process_latency.rate = atoi(s);
 	} else if (spa_streq(k, "latency.internal.ns")) {
@@ -3034,7 +3036,7 @@ int spa_alsa_prepare(struct state *state)
 	spa_list_for_each(follower, &state->followers, driver_link) {
 		if (follower != state && !follower->matching) {
 			spa_alsa_prepare(follower);
-			if (!follower->linked)
+			if (!follower->linked && state->auto_link)
 				do_link(state, follower);
 		}
 	}

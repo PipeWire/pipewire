@@ -32,6 +32,7 @@
 							struct rtp_stream_events, m, v, ##__VA_ARGS__)
 #define rtp_stream_emit_destroy(s)		rtp_stream_emit(s, destroy, 0)
 #define rtp_stream_emit_state_changed(s,n,e)	rtp_stream_emit(s, state_changed,0,n,e)
+#define rtp_stream_emit_param_changed(s,i,p)	rtp_stream_emit(s, param_changed,0,i,p)
 #define rtp_stream_emit_send_packet(s,i,l)	rtp_stream_emit(s, send_packet,0,i,l)
 #define rtp_stream_emit_send_feedback(s,seq)	rtp_stream_emit(s, send_feedback,0,seq)
 
@@ -179,10 +180,17 @@ static void on_stream_state_changed(void *d, enum pw_stream_state old,
 	}
 }
 
+static void on_stream_param_changed (void *d, uint32_t id, const struct spa_pod *param)
+{
+	struct impl *impl = d;
+	rtp_stream_emit_param_changed(impl, id, param);
+};
+
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = stream_destroy,
 	.state_changed = on_stream_state_changed,
+	.param_changed = on_stream_param_changed,
 	.io_changed = stream_io_changed,
 };
 
@@ -533,4 +541,20 @@ uint64_t rtp_stream_get_time(struct rtp_stream *s, uint64_t *rate)
 	*rate = impl->rate;
 	return pos->clock.position * impl->rate *
 		pos->clock.rate.num / pos->clock.rate.denom;
+}
+
+int rtp_stream_set_param(struct rtp_stream *s, uint32_t id, const struct spa_pod *param)
+{
+	struct impl *impl = (struct impl*)s;
+
+	return pw_stream_set_param(impl->stream, id, param);
+}
+
+int rtp_stream_update_params(struct rtp_stream *s,
+			const struct spa_pod **params,
+			uint32_t n_params)
+{
+	struct impl *impl = (struct impl*)s;
+	
+	return pw_stream_update_params(impl->stream, params, n_params);
 }

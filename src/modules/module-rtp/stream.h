@@ -31,6 +31,8 @@ struct rtp_stream_events {
 
 	void (*state_changed) (void *data, bool started, const char *error);
 
+	void (*param_changed) (void *data, uint32_t id, const struct spa_pod *param);
+
 	void (*send_packet) (void *data, struct iovec *iov, size_t iovlen);
 
 	void (*send_feedback) (void *data, uint32_t senum);
@@ -46,6 +48,11 @@ int rtp_stream_receive_packet(struct rtp_stream *s, uint8_t *buffer, size_t len)
 
 uint64_t rtp_stream_get_time(struct rtp_stream *s, uint64_t *rate);
 
+int rtp_stream_set_param(struct rtp_stream *s, uint32_t id, const struct spa_pod *param);
+
+int rtp_stream_update_params(struct rtp_stream *stream,
+			const struct spa_pod **params,
+			uint32_t n_params);
 
 #ifdef __cplusplus
 }

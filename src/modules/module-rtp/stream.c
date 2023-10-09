@@ -557,6 +557,13 @@ void rtp_stream_set_first(struct rtp_stream *s)
 	impl->first = true;
 }
 
+enum pw_stream_state rtp_stream_get_state(struct rtp_stream *s, const char **error)
+{
+	struct impl *impl = (struct impl*)s;
+
+	return pw_stream_get_state(impl->stream, error);
+}
+
 int rtp_stream_set_param(struct rtp_stream *s, uint32_t id, const struct spa_pod *param)
 {
 	struct impl *impl = (struct impl*)s;

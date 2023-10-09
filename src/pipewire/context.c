@@ -1027,7 +1027,7 @@ static void reconfigure_driver(struct pw_context *context, struct pw_impl_node *
 			context, n, n->name);
 
 	if (n->info.state >= PW_NODE_STATE_IDLE)
-		n->reconfigure = true;
+		n->need_resume = !n->pause_on_idle;
 	pw_impl_node_set_state(n, PW_NODE_STATE_SUSPENDED);
 }
 
@@ -1309,7 +1309,7 @@ again:
 		uint32_t target_quantum, target_rate, current_rate, current_quantum;
 		uint64_t quantum_stamp = 0, rate_stamp = 0;
 		bool force_rate, force_quantum, restore_rate = false, restore_quantum = false;
-		bool do_reconfigure = false, was_target_pending;
+		bool do_reconfigure = false, need_resume, was_target_pending;
 		const uint32_t *node_rates;
 		uint32_t node_n_rates, node_def_rate;
 		uint32_t node_max_quantum, node_min_quantum, node_def_quantum, node_rate_quantum;
@@ -1399,13 +1399,22 @@ again:
 		if (force_rate)
 			lock_rate = false;
 
-		if (n->reconfigure)
+		need_resume = n->need_resume;
+		if (need_resume) {
 			running = true;
+			n->need_resume = false;
+		}
 
 		current_rate = n->target_rate.denom;
 		if (!restore_rate &&
-		   (lock_rate || n->reconfigure || !running ||
-		    (!force_rate && (n->info.state > PW_NODE_STATE_IDLE))))
+		   (lock_rate || need_resume || !running ||
+		    (!force_rate && (n->info.state > PW_NODE_STATE_IDLE)))) {
+			pw_log_debug("%p: keep rate:1/%u restore:%u lock:%u resume:%u "
+					"running:%u force:%u state:%s", context,
+					current_rate, restore_rate, lock_rate, need_resume,
+					running, force_rate,
+					pw_node_state_as_string(n->info.state));
+
 			/* when we don't need to restore or rate and
 			 * when someone wants us to lock the rate of this driver or
 			 * when we are in the process of reconfiguring the driver or
@@ -1413,6 +1422,7 @@ again:
 			 * when the driver is busy and we don't need to force a rate,
 			 * keep the current rate */
 			target_rate = current_rate;
+		}
 		else {
 			/* Here we are allowed to change the rate of the driver.
 			 * Start with the default rate. If the desired rate is
@@ -1464,9 +1474,15 @@ again:
 
 		current_quantum = n->target_quantum;
 		if (!restore_quantum &&
-		   (lock_quantum || n->reconfigure || !running ||
-		    (!force_quantum && (n->info.state > PW_NODE_STATE_IDLE))))
+		   (lock_quantum || need_resume || !running ||
+		    (!force_quantum && (n->info.state > PW_NODE_STATE_IDLE)))) {
+			pw_log_debug("%p: keep quantum:%u restore:%u lock:%u resume:%u "
+					"running:%u force:%u state:%s", context,
+					current_quantum, restore_quantum, lock_quantum, need_resume,
+					running, force_quantum,
+					pw_node_state_as_string(n->info.state));
 			target_quantum = current_quantum;
+		}
 		else {
 			target_quantum = node_def_quantum;
 			if (latency.denom != 0)

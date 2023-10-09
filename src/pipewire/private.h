@@ -671,7 +671,7 @@ struct pw_impl_node {
 	unsigned int added:1;		/**< the node was add to graph */
 	unsigned int pause_on_idle:1;	/**< Pause processing when IDLE */
 	unsigned int suspend_on_idle:1;
-	unsigned int reconfigure:1;
+	unsigned int need_resume:1;
 	unsigned int forced_rate:1;
 	unsigned int forced_quantum:1;
 	unsigned int trigger:1;		/**< has the TRIGGER property and needs an extra

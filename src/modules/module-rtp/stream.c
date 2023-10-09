@@ -543,6 +543,13 @@ uint64_t rtp_stream_get_time(struct rtp_stream *s, uint64_t *rate)
 		pos->clock.rate.num / pos->clock.rate.denom;
 }
 
+uint16_t rtp_stream_get_seq(struct rtp_stream *s)
+{
+	struct impl *impl = (struct impl*)s;
+
+	return impl->seq;
+}
+
 int rtp_stream_set_param(struct rtp_stream *s, uint32_t id, const struct spa_pod *param)
 {
 	struct impl *impl = (struct impl*)s;

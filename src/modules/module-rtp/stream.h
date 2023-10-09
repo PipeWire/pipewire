@@ -48,6 +48,8 @@ int rtp_stream_receive_packet(struct rtp_stream *s, uint8_t *buffer, size_t len)
 
 uint64_t rtp_stream_get_time(struct rtp_stream *s, uint64_t *rate);
 
+uint16_t rtp_stream_get_seq(struct rtp_stream *s);
+
 int rtp_stream_set_param(struct rtp_stream *s, uint32_t id, const struct spa_pod *param);
 
 int rtp_stream_update_params(struct rtp_stream *stream,

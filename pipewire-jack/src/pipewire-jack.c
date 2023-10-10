@@ -3804,10 +3804,10 @@ jack_client_t * jack_client_open (const char *client_name,
 	if ((str = getenv("PIPEWIRE_QUANTUM")) != NULL) {
 		struct spa_fraction q;
 		if (sscanf(str, "%u/%u", &q.num, &q.denom) == 2 && q.denom != 0) {
-			pw_properties_setf(client->props, PW_KEY_NODE_RATE,
+			pw_properties_setf(client->props, PW_KEY_NODE_FORCE_RATE,
 					"1/%u", q.denom);
-			pw_properties_setf(client->props, PW_KEY_NODE_LATENCY,
-					"%u/%u", q.num, q.denom);
+			pw_properties_setf(client->props, PW_KEY_NODE_FORCE_QUANTUM,
+					"%u", q.num);
 		} else {
 			pw_log_warn("invalid PIPEWIRE_QUANTUM: %s", str);
 		}

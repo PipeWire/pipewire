@@ -147,7 +147,9 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *
  * Normally the volume of the sink/source is handled by the stream software volume.
  * With the capture.volumes and playback.volumes properties this can be handled
- * by a control port in the graph instead.
+ * by a control port in the graph instead. Use capture.volumes for the volume of the
+ * input of the filter (when for example used as a sink). Use playback,volumes for
+ * the volume of the output of the filter (when for example used as a source).
  *
  * The min and max values (defaults 0.0 and 1.0) respectively can be used to scale
  * and translate the volume min and max values.

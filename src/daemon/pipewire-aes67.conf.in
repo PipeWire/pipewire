@@ -23,9 +23,11 @@ context.spa-libs = {
 }
 
 context.objects = [
-    # An example clock reading from /dev/ptp0. Another option is to sync the
-    # ptp clock to CLOCK_TAI and then set clock.id = tai.
-    # If both device and ID are given and available, device takes precedence
+    # An example clock reading from /dev/ptp0. You can also specify the network interface name,
+    # pipewire will query the interface for the current active PHC index. Another option is to
+    # sync the ptp clock to CLOCK_TAI and then set clock.id = tai, keep in mind that tai may
+    # also be synced by a NTP client.
+    # The precedence is: device, interface, id
     { factory = spa-node-factory
         args = {
             factory.name    = support.node.driver
@@ -34,8 +36,9 @@ context.objects = [
             # This driver should only be used for network nodes marked with group
             priority.driver = 0
             clock.name      = "clock.system.ptp0"
+            #clock.id        = tai
             clock.device    = "/dev/ptp0"
-            clock.id        = tai
+            #clock.interface = "eth0"
             object.export   = true
         }
     }

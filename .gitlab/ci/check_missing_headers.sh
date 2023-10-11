@@ -5,7 +5,7 @@
 
 LIST=""
 
-for i in $(find spa/include -name '*.h' -a -not -path 'spa/include/spa/utils/cleanup.h' | sed s#spa/include/##);
+for i in $(find spa/include -name '*.h' | sed s#spa/include/##);
 do
 	[ -f "$PREFIX/include/spa-0.2/$i" ] || LIST="$i $LIST"
 done

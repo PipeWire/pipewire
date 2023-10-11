@@ -1,3 +1,68 @@
+# PipeWire 0.3.82 (2023-10-13)
+
+This is the second 1.0 release candidate that is API and ABI compatible
+with previous 0.3.x releases.
+
+## Highlights
+  - Fix a regression in some devices when the Pro-Audio profile was selected.
+    Only enable the IRQ based scheduling and device linking in specific
+    safe cases. (#3556)
+  - Improve rate switching. In some cases the graph rate would not switch
+    correctly. (#2929)
+  - Fix regression in alsa wakeups that would cause silence in VMs.
+  - Fix a leak in the SBC codecs for SCO.
+  - More improvements to the RAOP module.
+  - Other small improvements and fixes.
+
+
+## PipeWire
+  - Improve client property checks.
+  - Allow non-power-of-2 quantums when forced.
+  - Improve rate switching. In some cases the graph rate would not switch
+    correctly. (#2929)
+  - The PIPEWIRE_QUANTUM env variable now forces the size and rate in the
+    graph for the duration of the application. The softer PIPEWIRE_LATENCY
+    and PIPEWIRE_RATE can still be used to merely suggest a maximum latency
+    and a rate.
+
+## modules
+  - Remove the RTSP FLUSH request in RAOP because it does not seem necessary.
+  - The RAOP module now uses the common RTP stream functions.
+  - Add sockets option to protocol-native to make pipewire listen on multiple
+    sockets.
+
+## SPA
+  - Clean up some of the log functions.
+  - Add an option in ALSA to disable linking devices together.
+  - Only link pcms together when 1 capture and 1 playback pcm. For more complex
+    devices we can't be sure which ones can be linked. (#3556)
+  - disable tsched only when using linked devices.
+  - Add some extra checks in ALSA to avoid segfaults. (#3554)
+  - Add Tag support to alsa-sink and alsa-source.
+  - Use dynamic pod builder when we can.
+  - Set priority.driver on midi-bridge to allow it as a fallback driver. (#3562)
+  - Fix regression in alsa wakeups. (#3565)
+  - The PTP clock can now be found from the interface in node-driver.
+
+## pulse-server
+  - Some small cleanups and internal improvements.
+  - Add some memory debugging messages.
+  - Add Tag messages to streams.
+
+## Bluetooth
+  - Fix a leak in the SBC codecs for SCO.
+
+## JACK
+  - Patch up midi events in the destination buffer instead of writing to the
+    source buffer. (#3580)
+  - Group all jack clients together to avoid transport issues. (#3562)
+
+## ALSA-plugins
+  - Add also.deny option to block alsa clients from opening the PCM.
+
+Older versions:
+
+
 # PipeWire 0.3.81 (2023-10-06)
 
 This is the first 1.0 release candidate that is API and ABI compatible
@@ -79,9 +144,6 @@ with previous 0.3.x releases.
   - Handle clearing the latency on a port.
   - jack_property now always manages to actually change the metadata because
     it waits for a roundtrip before exiting.
-
-Older versions:
-
 
 # PipeWire 0.3.80 (2023-09-14)
 

@@ -1820,6 +1820,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 			PW_STREAM_FLAG_MAP_BUFFERS,
 			params, n_params);
 
+	stream_update_tag_param(stream);
+
 	return 0;
 
 error_errno:
@@ -3215,7 +3217,8 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 		if (stream == NULL || stream->type == STREAM_TYPE_UPLOAD)
 			return -ENOENT;
 
-		pw_stream_update_properties(stream->stream, &props->dict);
+		if (pw_stream_update_properties(stream->stream, &props->dict) > 0)
+			stream_update_tag_param(stream);
 	} else {
 		if (pw_properties_update(client->props, &props->dict) > 0) {
 			client_update_quirks(client);

@@ -8,6 +8,9 @@
 
 #include <spa/utils/hook.h>
 #include <spa/utils/ringbuffer.h>
+#include <spa/pod/dynamic.h>
+#include <spa/param/tag-utils.h>
+
 #include <pipewire/log.h>
 #include <pipewire/loop.h>
 #include <pipewire/map.h>
@@ -411,4 +414,37 @@ int stream_send_moved(struct stream *stream, uint32_t peer_index, const char *pe
 		}
 	}
 	return client_queue_message(client, reply);
+}
+
+int stream_update_tag_param(struct stream *stream)
+{
+	struct spa_pod_dynamic_builder b;
+	const struct pw_properties *props = pw_stream_get_properties(stream->stream);
+	const struct spa_pod *param[1];
+	struct spa_dict_item items[64];
+	uint32_t i, n_items = 0;
+	uint8_t buffer[4096];
+
+	if (props == NULL)
+		return -EIO;
+
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+
+	for (i = 0; i < props->dict.n_items; i++) {
+		if (n_items < SPA_N_ELEMENTS(items) &&
+			spa_strstartswith(props->dict.items[i].key, "media."))
+				items[n_items++] = props->dict.items[i];
+	}
+	if (n_items > 0) {
+		struct spa_pod_frame f;
+		spa_tag_build_start(&b.b, &f, SPA_PARAM_Tag, SPA_DIRECTION_OUTPUT);
+		spa_tag_build_add_dict(&b.b, &SPA_DICT_INIT(items, n_items));
+		param[0] = spa_tag_build_end(&b.b, &f);
+	} else {
+		param[0] = NULL;
+	}
+	if (param[0] != NULL)
+		pw_stream_update_params(stream->stream, param, 1);
+	spa_pod_dynamic_builder_clean(&b);
+	return 0;
 }

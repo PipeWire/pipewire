@@ -116,5 +116,6 @@ int stream_send_started(struct stream *stream);
 int stream_send_request(struct stream *stream);
 int stream_update_minreq(struct stream *stream, uint32_t minreq);
 int stream_send_moved(struct stream *stream, uint32_t peer_index, const char *peer_name);
+int stream_update_tag_param(struct stream *stream);
 
 #endif /* PULSER_SERVER_STREAM_H */

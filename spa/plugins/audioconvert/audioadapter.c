@@ -153,13 +153,17 @@ static int impl_node_enum_params(void *object, int seq,
 {
 	struct impl *this = object;
 	uint8_t buffer[4096];
-	struct spa_pod_dynamic_builder b;
+	spa_auto(spa_pod_dynamic_builder) b = { 0 };
+	struct spa_pod_builder_state state;
 	struct spa_result_node_params result;
 	uint32_t count = 0;
 	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
+
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+	spa_pod_builder_get_state(&b.b, &state);
 
 	result.id = id;
 	result.next = start;
@@ -168,7 +172,7 @@ next:
 
 	spa_log_debug(this->log, "%p: %d id:%u", this, seq, id);
 
-	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+	spa_pod_builder_reset(&b.b, &state);
 
 	switch (id) {
 	case SPA_PARAM_EnumPortConfig:
@@ -215,15 +219,11 @@ next:
 	default:
 		return -ENOENT;
 	}
-
-	if (res == 1) {
-		spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
-		count++;
-	}
-	spa_pod_dynamic_builder_clean(&b);
-
 	if (res != 1)
 		return res;
+
+	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+	count++;
 
 	if (count != num)
 		goto next;
@@ -580,8 +580,9 @@ static int recalc_latency(struct impl *this, struct spa_node *src, enum spa_dire
 static int recalc_tag(struct impl *this, struct spa_node *src, enum spa_direction direction,
 		uint32_t port_id, struct spa_node *dst)
 {
-	struct spa_pod_builder b = { 0 };
-	uint8_t buffer[1024];
+	spa_auto(spa_pod_dynamic_builder) b = { 0 };
+	struct spa_pod_builder_state state;
+	uint8_t buffer[2048];
 	struct spa_pod *param;
 	uint32_t index = 0;
 	struct spa_tag_info info;
@@ -592,26 +593,25 @@ static int recalc_tag(struct impl *this, struct spa_node *src, enum spa_directio
 	if (this->target == this->follower)
 		return 0;
 
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 2048);
+	spa_pod_builder_get_state(&b.b, &state);
+
 	while (true) {
-		void *state = NULL;
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		void *tag_state = NULL;
+		spa_pod_builder_reset(&b.b, &state);
 		if ((res = spa_node_port_enum_params_sync(src,
 						direction, port_id, SPA_PARAM_Tag,
-						&index, NULL, &param, &b)) != 1) {
+						&index, NULL, &param, &b.b)) != 1) {
 			param = NULL;
 			break;
 		}
-		if ((res = spa_tag_parse(param, &info, &state)) < 0)
+		if ((res = spa_tag_parse(param, &info, &tag_state)) < 0)
 			return res;
 		if (info.direction == direction)
 			break;
 	}
-	if ((res = spa_node_port_set_param(dst,
-					SPA_DIRECTION_REVERSE(direction), 0,
-					SPA_PARAM_Tag, 0, param)) < 0)
-		return res;
-
-	return 0;
+	return spa_node_port_set_param(dst, SPA_DIRECTION_REVERSE(direction), 0,
+					SPA_PARAM_Tag, 0, param);
 }
 
 

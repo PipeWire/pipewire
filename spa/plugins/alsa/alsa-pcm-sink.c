@@ -15,6 +15,7 @@
 #include <spa/utils/string.h>
 #include <spa/param/audio/format.h>
 #include <spa/pod/filter.h>
+#include <spa/pod/dynamic.h>
 #include <spa/debug/log.h>
 #include <spa/debug/pod.h>
 
@@ -100,7 +101,8 @@ static int impl_node_enum_params(void *object, int seq,
 {
 	struct state *this = object;
 	struct spa_pod *param;
-	struct spa_pod_builder b = { 0 };
+	spa_auto(spa_pod_dynamic_builder) b = { 0 };
+	struct spa_pod_builder_state state;
 	uint8_t buffer[4096];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
@@ -108,12 +110,15 @@ static int impl_node_enum_params(void *object, int seq,
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+	spa_pod_builder_get_state(&b.b, &state);
+
 	result.id = id;
 	result.next = start;
-      next:
+next:
 	result.index = result.next++;
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_reset(&b.b, &state);
 
 	switch (id) {
 	case SPA_PARAM_PropInfo:
@@ -122,7 +127,7 @@ static int impl_node_enum_params(void *object, int seq,
 
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
+			param = spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_device),
 				SPA_PROP_INFO_name, SPA_POD_String(SPA_KEY_API_ALSA_PATH),
@@ -130,21 +135,21 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_type, SPA_POD_Stringn(p->device, sizeof(p->device)));
 			break;
 		case 1:
-			param = spa_pod_builder_add_object(&b,
+			param = spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_deviceName),
 				SPA_PROP_INFO_description, SPA_POD_String("The ALSA device name"),
 				SPA_PROP_INFO_type, SPA_POD_Stringn(p->device_name, sizeof(p->device_name)));
 			break;
 		case 2:
-			param = spa_pod_builder_add_object(&b,
+			param = spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_cardName),
 				SPA_PROP_INFO_description, SPA_POD_String("The ALSA card name"),
 				SPA_PROP_INFO_type, SPA_POD_Stringn(p->card_name, sizeof(p->card_name)));
 			break;
 		case 3:
-			param = spa_pod_builder_add_object(&b,
+			param = spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_latencyOffsetNsec),
 				SPA_PROP_INFO_description, SPA_POD_String("Latency offset (ns)"),
@@ -153,7 +158,7 @@ static int impl_node_enum_params(void *object, int seq,
 		case 4:
 			if (!this->is_iec958 && !this->is_hdmi)
 				goto next;
-			param = spa_pod_builder_add_object(&b,
+			param = spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_iec958Codecs),
 				SPA_PROP_INFO_name, SPA_POD_String("iec958.codecs"),
@@ -163,7 +168,7 @@ static int impl_node_enum_params(void *object, int seq,
                                 SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
 			break;
 		default:
-			param = spa_alsa_enum_propinfo(this, result.index - 5, &b);
+			param = spa_alsa_enum_propinfo(this, result.index - 5, &b.b);
 			if (param == NULL)
 				return 0;
 		}
@@ -177,9 +182,9 @@ static int impl_node_enum_params(void *object, int seq,
 
 		switch (result.index) {
 		case 0:
-			spa_pod_builder_push_object(&b, &f,
+			spa_pod_builder_push_object(&b.b, &f,
                                 SPA_TYPE_OBJECT_Props, id);
-			spa_pod_builder_add(&b,
+			spa_pod_builder_add(&b.b,
 				SPA_PROP_device,       SPA_POD_Stringn(p->device, sizeof(p->device)),
 				SPA_PROP_deviceName,   SPA_POD_Stringn(p->device_name, sizeof(p->device_name)),
 				SPA_PROP_cardName,     SPA_POD_Stringn(p->card_name, sizeof(p->card_name)),
@@ -188,12 +193,12 @@ static int impl_node_enum_params(void *object, int seq,
 
 			if (this->is_iec958 || this->is_hdmi) {
 				n_codecs = spa_alsa_get_iec958_codecs(this, codecs, SPA_N_ELEMENTS(codecs));
-				spa_pod_builder_prop(&b, SPA_PROP_iec958Codecs, 0);
-				spa_pod_builder_array(&b, sizeof(uint32_t), SPA_TYPE_Id,
+				spa_pod_builder_prop(&b.b, SPA_PROP_iec958Codecs, 0);
+				spa_pod_builder_array(&b.b, sizeof(uint32_t), SPA_TYPE_Id,
 						n_codecs, codecs);
 			}
-			spa_alsa_add_prop_params(this, &b);
-			param = spa_pod_builder_pop(&b, &f);
+			spa_alsa_add_prop_params(this, &b.b);
+			param = spa_pod_builder_pop(&b.b, &f);
 			break;
 		default:
 			return 0;
@@ -203,13 +208,13 @@ static int impl_node_enum_params(void *object, int seq,
 	case SPA_PARAM_IO:
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
+			param = spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_ParamIO, id,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Clock),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_clock)));
 			break;
 		case 1:
-			param = spa_pod_builder_add_object(&b,
+			param = spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_ParamIO, id,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Position),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_position)));
@@ -222,7 +227,7 @@ static int impl_node_enum_params(void *object, int seq,
 	case SPA_PARAM_ProcessLatency:
 		switch (result.index) {
 		case 0:
-			param = spa_process_latency_build(&b, id, &this->process_latency);
+			param = spa_process_latency_build(&b.b, id, &this->process_latency);
 			break;
 		default:
 			return 0;
@@ -233,7 +238,7 @@ static int impl_node_enum_params(void *object, int seq,
 		return -ENOENT;
 	}
 
-	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
+	if (spa_pod_filter(&b.b, &result.param, param, filter) < 0)
 		goto next;
 
 	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
@@ -469,7 +474,8 @@ impl_node_port_enum_params(void *object, int seq,
 
 	struct state *this = object;
 	struct spa_pod *param;
-	struct spa_pod_builder b = { 0 };
+	spa_auto(spa_pod_dynamic_builder) b = { 0 };
+	struct spa_pod_builder_state state;
 	uint8_t buffer[1024];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
@@ -479,12 +485,15 @@ impl_node_port_enum_params(void *object, int seq,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+	spa_pod_builder_get_state(&b.b, &state);
+
 	result.id = id;
 	result.next = start;
       next:
 	result.index = result.next++;
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_reset(&b.b, &state);
 
 	switch (id) {
 	case SPA_PARAM_EnumFormat:
@@ -498,15 +507,15 @@ impl_node_port_enum_params(void *object, int seq,
 
 		switch (this->current_format.media_subtype) {
 		case SPA_MEDIA_SUBTYPE_raw:
-			param = spa_format_audio_raw_build(&b, id,
+			param = spa_format_audio_raw_build(&b.b, id,
 					&this->current_format.info.raw);
 			break;
 		case SPA_MEDIA_SUBTYPE_iec958:
-			param = spa_format_audio_iec958_build(&b, id,
+			param = spa_format_audio_iec958_build(&b.b, id,
 					&this->current_format.info.iec958);
 			break;
 		case SPA_MEDIA_SUBTYPE_dsd:
-			param = spa_format_audio_dsd_build(&b, id,
+			param = spa_format_audio_dsd_build(&b.b, id,
 					&this->current_format.info.dsd);
 			break;
 		default:
@@ -520,7 +529,7 @@ impl_node_port_enum_params(void *object, int seq,
 		if (result.index > 0)
 			return 0;
 
-		param = spa_pod_builder_add_object(&b,
+		param = spa_pod_builder_add_object(&b.b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(this->blocks),
@@ -534,7 +543,7 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_Meta:
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
+			param = spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_ParamMeta, id,
 				SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
 				SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
@@ -547,13 +556,13 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_IO:
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
+			param = spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_ParamIO, id,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
 			break;
 		case 1:
-			param = spa_pod_builder_add_object(&b,
+			param = spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_ParamIO, id,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_RateMatch),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_rate_match)));
@@ -570,7 +579,7 @@ impl_node_port_enum_params(void *object, int seq,
 			struct spa_latency_info latency = this->latency[result.index];
 			if (latency.direction == SPA_DIRECTION_INPUT)
 				spa_process_latency_info_add(&this->process_latency, &latency);
-			param = spa_latency_build(&b, id, &latency);
+			param = spa_latency_build(&b.b, id, &latency);
 			break;
 		}
 		default:
@@ -591,7 +600,7 @@ impl_node_port_enum_params(void *object, int seq,
 		return -ENOENT;
 	}
 
-	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
+	if (spa_pod_filter(&b.b, &result.param, param, filter) < 0)
 		goto next;
 
 	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);

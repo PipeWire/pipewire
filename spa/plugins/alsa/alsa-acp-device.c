@@ -26,6 +26,7 @@
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
 #include <spa/pod/parser.h>
+#include <spa/pod/dynamic.h>
 #include <spa/debug/pod.h>
 #include <spa/debug/log.h>
 
@@ -484,7 +485,8 @@ static int impl_enum_params(void *object, int seq,
 {
 	struct impl *this = object;
 	struct spa_pod *param;
-	struct spa_pod_builder b = { 0 };
+	spa_auto(spa_pod_dynamic_builder) b = { 0 };
+	struct spa_pod_builder_state state;
 	uint8_t buffer[4096];
 	struct spa_result_device_params result;
 	uint32_t count = 0;
@@ -496,6 +498,9 @@ static int impl_enum_params(void *object, int seq,
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+	spa_pod_builder_get_state(&b.b, &state);
+
 	card = this->card;
 
 	result.id = id;
@@ -503,7 +508,7 @@ static int impl_enum_params(void *object, int seq,
       next:
 	result.index = result.next++;
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_reset(&b.b, &state);
 
 	switch (id) {
 	case SPA_PARAM_EnumProfile:
@@ -511,7 +516,7 @@ static int impl_enum_params(void *object, int seq,
 			return 0;
 
 		pr = card->profiles[result.index];
-		param = build_profile(&b, id, pr, false);
+		param = build_profile(&b.b, id, pr, false);
 		break;
 
 	case SPA_PARAM_Profile:
@@ -519,7 +524,7 @@ static int impl_enum_params(void *object, int seq,
 			return 0;
 
 		pr = card->profiles[card->active_profile_index];
-		param = build_profile(&b, id, pr, true);
+		param = build_profile(&b.b, id, pr, true);
 		break;
 
 	case SPA_PARAM_EnumRoute:
@@ -527,7 +532,7 @@ static int impl_enum_params(void *object, int seq,
 			return 0;
 
 		p = card->ports[result.index];
-		param = build_route(&b, id, p, NULL, SPA_ID_INVALID);
+		param = build_route(&b.b, id, p, NULL, SPA_ID_INVALID);
 		break;
 
 	case SPA_PARAM_Route:
@@ -543,7 +548,7 @@ static int impl_enum_params(void *object, int seq,
 			result.index++;
 		}
 		result.next = result.index + 1;
-		param = build_route(&b, id, p, dev, card->active_profile_index);
+		param = build_route(&b.b, id, p, dev, card->active_profile_index);
 		if (param == NULL)
 			return -errno;
 		break;
@@ -552,7 +557,7 @@ static int impl_enum_params(void *object, int seq,
 		return -ENOENT;
 	}
 
-	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
+	if (spa_pod_filter(&b.b, &result.param, param, filter) < 0)
 		goto next;
 
 	spa_device_emit_result(&this->hooks, seq, 0,

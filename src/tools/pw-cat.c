@@ -1977,7 +1977,8 @@ int main(int argc, char *argv[])
 		uint32_t i, n_items = 0;
 
 		for (i = 0; i < data.props->dict.n_items; i++) {
-			if (spa_strstartswith(data.props->dict.items[i].key, "media."))
+			if (n_items < SPA_N_ELEMENTS(items) &&
+			    spa_strstartswith(data.props->dict.items[i].key, "media."))
 				items[n_items++] = data.props->dict.items[i];
 		}
 		if (n_items > 0) {

@@ -687,12 +687,13 @@ impl_node_port_set_param(void *object,
 		break;
 	case SPA_PARAM_Latency:
 	{
+		enum spa_direction other = SPA_DIRECTION_REVERSE(direction);
 		struct spa_latency_info info;
 		if (param == NULL)
-			info = SPA_LATENCY_INFO(SPA_DIRECTION_REVERSE(direction));
+			info = SPA_LATENCY_INFO(other);
 		else if ((res = spa_latency_parse(param, &info)) < 0)
 			return res;
-		if (direction == info.direction)
+		if (info.direction != other)
 			return -EINVAL;
 
 		this->latency[info.direction] = info;

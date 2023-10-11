@@ -609,7 +609,7 @@ impl_node_port_set_param(void *object,
 			 const struct spa_pod *param)
 {
 	struct state *this = object;
-	int res;
+	int res = 0;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -621,19 +621,19 @@ impl_node_port_set_param(void *object,
 		break;
 	case SPA_PARAM_Latency:
 	{
+		enum spa_direction other = SPA_DIRECTION_REVERSE(direction);
 		struct spa_latency_info info;
 		if (param == NULL)
-			info = SPA_LATENCY_INFO(SPA_DIRECTION_REVERSE(direction));
+			info = SPA_LATENCY_INFO(other);
 		else if ((res = spa_latency_parse(param, &info)) < 0)
 			return res;
-		if (direction == info.direction)
+		if (info.direction != other)
 			return -EINVAL;
 
 		this->latency[info.direction] = info;
 		this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 		this->port_params[PORT_Latency].user++;
 		emit_port_info(this, false);
-		res = 0;
 		break;
 	}
 	default:

@@ -1949,7 +1949,7 @@ static void link_free(struct link *link)
 /**
  * {
  *   control = [name:][portname]
- *   min = <float, defaukt 0.0>
+ *   min = <float, default 0.0>
  *   max = <float, default 1.0>
  *   scale = <string, default "linear", options "linear","cubic">
  * }

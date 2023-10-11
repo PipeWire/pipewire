@@ -3020,6 +3020,9 @@ int spa_alsa_prepare(struct state *state)
 	struct state *follower;
 	int err;
 
+	if (!state->opened)
+		return -EIO;
+
 	spa_alsa_pause(state);
 
 	if (state->prepared)
@@ -3052,6 +3055,8 @@ int spa_alsa_start(struct state *state)
 
 	if (state->started)
 		return 0;
+	else if (!state->opened)
+		return -EIO;
 
 	spa_alsa_prepare(state);
 

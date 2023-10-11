@@ -524,6 +524,16 @@ impl_node_port_enum_params(void *object, int seq,
 			return 0;
 		}
 		break;
+	case SPA_PARAM_Tag:
+		switch (result.index) {
+		case 0: case 1:
+			if ((param = this->tag[result.index]) == NULL)
+				goto next;
+			break;
+		default:
+			return 0;
+		}
+		break;
 
 	default:
 		return -ENOENT;
@@ -634,6 +644,26 @@ impl_node_port_set_param(void *object,
 		this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 		this->port_params[PORT_Latency].user++;
 		emit_port_info(this, false);
+		break;
+	}
+	case SPA_PARAM_Tag:
+	{
+		enum spa_direction other = SPA_DIRECTION_REVERSE(direction);
+		if (param != NULL) {
+			struct spa_tag_info info;
+			void *state = NULL;
+			if (spa_tag_parse(param, &info, &state) < 0 ||
+			    info.direction != other)
+				return -EINVAL;
+		}
+		if (spa_tag_compare(param, this->tag[other]) != 0) {
+			free(this->tag[other]);
+			this->tag[other] = param ? spa_pod_copy(param) : NULL;
+
+			this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+			this->port_params[PORT_Tag].user++;
+			emit_port_info(this, false);
+		}
 		break;
 	}
 	default:
@@ -901,6 +931,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->port_params[PORT_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	this->port_params[PORT_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	this->port_params[PORT_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_READWRITE);
+	this->port_params[PORT_Tag] = SPA_PARAM_INFO(SPA_PARAM_Tag, SPA_PARAM_INFO_READWRITE);
 	this->port_info.params = this->port_params;
 	this->port_info.n_params = N_PORT_PARAMS;
 

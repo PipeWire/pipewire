@@ -575,6 +575,9 @@ int spa_alsa_clear(struct state *state)
 		spa_log_warn(state->log, "output close failed: %s", snd_strerror(err));
 	fclose(state->log_file);
 
+	free(state->tag[0]);
+	free(state->tag[1]);
+
 	return err;
 }
 

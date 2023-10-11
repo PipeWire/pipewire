@@ -23,14 +23,15 @@ static int spa_pod_dynamic_builder_overflow(void *data, uint32_t size)
 	struct spa_pod_dynamic_builder *d = (struct spa_pod_dynamic_builder*)data;
 	int32_t old_size = d->b.size;
 	int32_t new_size = SPA_ROUND_UP_N(size, d->extend);
-	void *old_data = d->b.data;
+	void *old_data = d->b.data, *new_data;
 
 	if (old_data == d->data)
 		d->b.data = NULL;
-	if ((d->b.data = realloc(d->b.data, new_size)) == NULL)
+	if ((new_data = realloc(d->b.data, new_size)) == NULL)
 		return -errno;
-	if (old_data == d->data && d->b.data != old_data && old_size > 0)
-		memcpy(d->b.data, old_data, old_size);
+	if (old_data == d->data && new_data != old_data && old_size > 0)
+		memcpy(new_data, old_data, old_size);
+	d->b.data = new_data;
 	d->b.size = new_size;
         return 0;
 }

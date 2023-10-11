@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 #include <spa/pod/builder.h>
+#include <spa/utils/cleanup.h>
 
 struct spa_pod_dynamic_builder {
 	struct spa_pod_builder b;
@@ -54,6 +55,10 @@ static inline void spa_pod_dynamic_builder_clean(struct spa_pod_dynamic_builder 
 	if (builder->data != builder->b.data)
 		free(builder->b.data);
 }
+
+SPA_DEFINE_AUTO_CLEANUP(spa_pod_dynamic_builder, struct spa_pod_dynamic_builder, {
+	spa_pod_dynamic_builder_clean(thing);
+})
 
 #ifdef __cplusplus
 }  /* extern "C" */

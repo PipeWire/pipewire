@@ -111,6 +111,7 @@ stream.rules = [
 ]
 
 alsa.properties = {
+    #alsa.deny = false
     # ALSA params take a single value, an array [] of values
     # or a range { min=.. max=... }
     #alsa.access = [ MMAP_INTERLEAVED MMAP_NONINTERLEAVED RW_INTERLEAVED RW_NONINTERLEAVED ]

@@ -2402,8 +2402,11 @@ static int alsa_write_sync(struct state *state, uint64_t current_time)
 	if (SPA_UNLIKELY((res = check_position_config(state)) < 0))
 		return res;
 
-	if (SPA_UNLIKELY((res = get_status(state, current_time, &avail, &delay, &target)) < 0))
+	if (SPA_UNLIKELY((res = get_status(state, current_time, &avail, &delay, &target)) < 0)) {
+		spa_log_error(state->log, "get_status error");
+		state->next_time += state->threshold * 1e9 / state->rate;
 		return res;
+	}
 
 	if (SPA_UNLIKELY(!following && delay > target + state->max_error)) {
 		spa_log_trace(state->log, "%p: early wakeup %ld %lu %lu", state,
@@ -2658,8 +2661,11 @@ static int alsa_read_sync(struct state *state, uint64_t current_time)
 	if (SPA_UNLIKELY((res = check_position_config(state)) < 0))
 		return res;
 
-	if (SPA_UNLIKELY((res = get_status(state, current_time, &avail, &delay, &target)) < 0))
+	if (SPA_UNLIKELY((res = get_status(state, current_time, &avail, &delay, &target)) < 0)) {
+		spa_log_error(state->log, "get_status error");
+		state->next_time += state->threshold * 1e9 / state->rate;
 		return res;
+	}
 
 	if (SPA_UNLIKELY(!following && avail < state->read_size)) {
 		spa_log_trace(state->log, "%p: early wakeup %ld %ld %ld %d", state,

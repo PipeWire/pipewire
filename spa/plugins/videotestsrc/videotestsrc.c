@@ -89,6 +89,9 @@ struct impl {
 	struct spa_param_info params[2];
 	struct props props;
 
+	struct spa_io_clock *clock;
+	struct spa_io_position *position;
+
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
 
@@ -196,7 +199,23 @@ static int impl_node_enum_params(void *object, int seq,
 
 static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
-	return -ENOTSUP;
+	struct impl *this = object;
+
+	spa_return_val_if_fail(this != NULL, -EINVAL);
+
+	switch (id) {
+	case SPA_IO_Clock:
+		if (size > 0 && size < sizeof(struct spa_io_clock))
+			return -EINVAL;
+		this->clock = data;
+		break;
+	case SPA_IO_Position:
+		this->position = data;
+		break;
+	default:
+		return -ENOENT;
+	}
+	return 0;
 }
 
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,

@@ -1238,6 +1238,12 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
 	if (str != NULL)
 		pw_properties_update_string(pw->props, str, strlen(str));
 
+	if ((str = pw_properties_get(pw->props, "alsa.deny")) != NULL &&
+	    spa_atob(str)) {
+		err = -EACCES;
+		goto error;
+	}
+
 	str = getenv("PIPEWIRE_NODE");
 	if (str != NULL && str[0])
 		pw_properties_set(pw->props, PW_KEY_TARGET_OBJECT, str);

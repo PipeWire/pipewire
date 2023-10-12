@@ -2679,7 +2679,7 @@ static int alsa_read_sync(struct state *state, uint64_t current_time)
 		return res;
 
 	max_read = state->buffer_frames;
-	if (following) {
+	if (following && !state->linked) {
 		if (state->alsa_sync) {
 			enum spa_log_level lev;
 

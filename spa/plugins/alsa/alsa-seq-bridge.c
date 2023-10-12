@@ -195,6 +195,7 @@ static const struct spa_dict_item node_info_items[] = {
 	{ SPA_KEY_DEVICE_API, "alsa" },
 	{ SPA_KEY_MEDIA_CLASS, "Midi/Bridge" },
 	{ SPA_KEY_NODE_DRIVER, "true" },
+	{ "priority.driver", "1" },
 };
 
 static void emit_node_info(struct seq_state *this, bool full)

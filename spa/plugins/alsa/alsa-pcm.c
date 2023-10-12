@@ -2557,11 +2557,9 @@ again:
 
 int spa_alsa_write(struct state *state)
 {
-	int res = 0;
 	if (state->following && state->rt.driver == NULL) {
 		uint64_t current_time = state->position->clock.nsec;
-		if ((res = alsa_write_sync(state, current_time)) < 0)
-			return res;
+		alsa_write_sync(state, current_time);
 	}
 	return alsa_write_frames(state);
 }
@@ -2771,11 +2769,9 @@ static int alsa_read_frames(struct state *state)
 
 int spa_alsa_read(struct state *state)
 {
-	int res;
 	if (state->following && state->rt.driver == NULL) {
 		uint64_t current_time = state->position->clock.nsec;
-		if ((res = alsa_read_sync(state, current_time)) < 0)
-			return res;
+		alsa_read_sync(state, current_time);
 	}
 	return alsa_read_frames(state);
 }

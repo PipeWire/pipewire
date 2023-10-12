@@ -2408,7 +2408,7 @@ static int alsa_write_sync(struct state *state, uint64_t current_time)
 		return res;
 	}
 
-	if (SPA_UNLIKELY(!following && delay > target + state->max_error)) {
+	if (SPA_UNLIKELY(!following && state->alsa_started && delay > target + state->max_error)) {
 		spa_log_trace(state->log, "%p: early wakeup %ld %lu %lu", state,
 				avail, delay, target);
 		if (delay > target * 3)
@@ -2419,7 +2419,7 @@ static int alsa_write_sync(struct state *state, uint64_t current_time)
 	if (SPA_UNLIKELY((res = update_time(state, current_time, delay, target, following)) < 0))
 		return res;
 
-	if (following && !state->linked) {
+	if (following && state->alsa_started && !state->linked) {
 		if (SPA_UNLIKELY(state->alsa_sync)) {
 			enum spa_log_level lev;
 

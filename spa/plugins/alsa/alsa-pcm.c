@@ -1995,7 +1995,7 @@ static int do_prepare(struct state *state)
 
 	CHECK(set_swparams(state), "swparams");
 
-	if ((err = snd_pcm_prepare(state->hndl)) < 0 && err != -EBUSY) {
+	if ((!state->linked) && (err = snd_pcm_prepare(state->hndl)) < 0 && err != -EBUSY) {
 		spa_log_error(state->log, "%s: snd_pcm_prepare error: %s",
 				state->name, snd_strerror(err));
 		return err;

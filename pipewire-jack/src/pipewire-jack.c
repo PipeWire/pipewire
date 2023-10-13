@@ -52,8 +52,6 @@
 #define MONITOR_EXT			" Monitor"
 
 #define MAX_MIX				1024
-#define MAX_BUFFER_FRAMES		8192
-
 #define MAX_CLIENT_PORTS		768
 
 #define MAX_ALIGN			16
@@ -255,10 +253,10 @@ struct port {
 	unsigned int empty_out:1;
 	unsigned int zeroed:1;
 
-	float *emptyptr;
-	float empty[MAX_BUFFER_FRAMES + MAX_ALIGN];
-
 	void *(*get_buffer) (struct port *p, jack_nframes_t frames);
+
+	float *emptyptr;
+	float empty[];
 };
 
 struct link {
@@ -433,6 +431,8 @@ struct client {
 	char filter_char;
 	uint32_t max_ports;
 	unsigned int fill_aliases:1;
+
+	uint32_t max_frames;
 
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
@@ -658,7 +658,7 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 {
 	struct port *p;
 	struct object *o;
-	uint32_t i;
+	uint32_t i, port_size;
 
 	if (c->n_ports >= c->max_ports) {
 		errno = ENOSPC;
@@ -666,11 +666,15 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 	}
 
 	if (spa_list_is_empty(&c->free_ports)) {
-		p = calloc(OBJECT_CHUNK, sizeof(struct port));
+		port_size = sizeof(struct port) + (c->max_frames * sizeof(float)) + MAX_ALIGN;
+
+		p = calloc(OBJECT_CHUNK, port_size);
 		if (p == NULL)
 			return NULL;
-		for (i = 0; i < OBJECT_CHUNK; i++)
-			spa_list_append(&c->free_ports, &p[i].link);
+		for (i = 0; i < OBJECT_CHUNK; i++) {
+			struct port *t = SPA_PTROFF(p, port_size * i, struct port);
+			spa_list_append(&c->free_ports, &t->link);
+		}
 	}
 	p = spa_list_first(&c->free_ports, struct port, link);
 	spa_list_remove(&p->link);
@@ -1481,6 +1485,7 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 
 static inline void process_empty(struct port *p, uint32_t frames)
 {
+	struct client *c = p->client;
 	void *ptr, *src = p->emptyptr;
 	struct port *tied = p->tied;
 
@@ -1498,10 +1503,10 @@ static inline void process_empty(struct port *p, uint32_t frames)
 	case TYPE_ID_MIDI:
 	{
 		struct buffer *b;
-		ptr = get_buffer_output(p, MAX_BUFFER_FRAMES, 1, &b);
+		ptr = get_buffer_output(p, c->max_frames, 1, &b);
 		if (SPA_LIKELY(ptr != NULL))
 			b->datas[0].chunk->size = convert_from_midi(src,
-					ptr, MAX_BUFFER_FRAMES * sizeof(float));
+					ptr, c->max_frames * sizeof(float));
 		break;
 	}
 	default:
@@ -2216,7 +2221,7 @@ static int param_buffers(struct client *c, struct port *p,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_STEP_Int(
-								MAX_BUFFER_FRAMES * sizeof(float),
+								c->max_frames * sizeof(float),
 								sizeof(float),
 								INT32_MAX,
 								sizeof(float)),
@@ -2517,6 +2522,7 @@ static int client_node_port_set_param(void *data,
 
 static inline void *init_buffer(struct port *p)
 {
+	struct client *c = p->client;
 	void *data = p->emptyptr;
 	if (p->zeroed)
 		return data;
@@ -2524,14 +2530,14 @@ static inline void *init_buffer(struct port *p)
 	if (p->object->port.type_id == TYPE_ID_MIDI) {
 		struct midi_buffer *mb = data;
 		mb->magic = MIDI_BUFFER_MAGIC;
-		mb->buffer_size = MAX_BUFFER_FRAMES * sizeof(float);
-		mb->nframes = MAX_BUFFER_FRAMES;
+		mb->buffer_size = c->max_frames * sizeof(float);
+		mb->nframes = c->max_frames;
 		mb->write_pos = 0;
 		mb->event_count = 0;
 		mb->lost_events = 0;
 		pw_log_debug("port %p: init midi buffer size:%d", p, mb->buffer_size);
 	} else
-		memset(data, 0, MAX_BUFFER_FRAMES * sizeof(float));
+		memset(data, 0, c->max_frames * sizeof(float));
 
 	p->zeroed = true;
 	return data;
@@ -3741,6 +3747,8 @@ jack_client_t * jack_client_open (const char *client_name,
 			0);
 	if (client->context.context == NULL)
 		goto no_props;
+
+	client->max_frames = client->context.context->settings.clock_quantum_limit;
 
 	client->notify_source = pw_loop_add_event(client->context.l,
 			on_notify_event, client);
@@ -5835,13 +5843,15 @@ int jack_port_type_size(void)
 SPA_EXPORT
 size_t jack_port_type_get_buffer_size (jack_client_t *client, const char *port_type)
 {
+	struct client *c = (struct client *) client;
+
 	return_val_if_fail(client != NULL, 0);
 	return_val_if_fail(port_type != NULL, 0);
 
 	if (spa_streq(JACK_DEFAULT_AUDIO_TYPE, port_type))
 		return jack_get_buffer_size(client) * sizeof(float);
 	else if (spa_streq(JACK_DEFAULT_MIDI_TYPE, port_type))
-		return MAX_BUFFER_FRAMES * sizeof(float);
+		return c->max_frames * sizeof(float);
 	else if (spa_streq(JACK_DEFAULT_VIDEO_TYPE, port_type))
 		return 320 * 240 * 4 * sizeof(float);
 	else

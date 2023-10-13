@@ -26,7 +26,6 @@
 PW_LOG_TOPIC_EXTERN(log_filter);
 #define PW_LOG_TOPIC_DEFAULT log_filter
 
-#define MAX_SAMPLES	8192
 #define MAX_BUFFERS	64
 
 #define MASK_BUFFERS	(MAX_BUFFERS-1)
@@ -109,6 +108,8 @@ struct filter {
 	struct pw_context *context;
 	struct pw_loop *main_loop;
 	struct pw_loop *data_loop;
+
+	uint32_t quantum_limit;
 
 	enum pw_filter_flags flags;
 
@@ -1236,6 +1237,7 @@ filter_new(struct pw_context *context, const char *name,
 	}
 
 	impl->main_loop = pw_context_get_main_loop(context);
+	impl->quantum_limit = context->settings.clock_quantum_limit;
 
 	this = &impl->this;
 	pw_log_debug("%p: new", impl);
@@ -1779,9 +1781,9 @@ static void add_audio_dsp_port_params(struct filter *impl, struct port *port)
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_STEP_Int(
-								MAX_SAMPLES * sizeof(float),
+								impl->quantum_limit * sizeof(float),
 								sizeof(float),
-								MAX_SAMPLES * sizeof(float),
+								impl->quantum_limit * sizeof(float),
 								sizeof(float)),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(4)));
 }

@@ -300,7 +300,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 				blocks, minsize, stride, max_buffers, align, types);
 	} else {
 		pw_log_warn("%p: no buffers param", result);
-		minsize = 8192;
+		minsize = context->settings.clock_quantum_limit;
 		max_buffers = 2;
 	}
 

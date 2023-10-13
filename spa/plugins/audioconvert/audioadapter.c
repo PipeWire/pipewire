@@ -432,6 +432,9 @@ static int negotiate_buffers(struct impl *this)
 			SPA_PARAM_BUFFERS_align,   SPA_POD_OPT_Int(&align))) < 0)
 		return res;
 
+	if (this->async)
+		buffers = SPA_MAX(2u, buffers);
+
 	spa_log_debug(this->log, "%p: buffers:%d, blocks:%d, size:%d, stride:%d align:%d %d:%d",
 			this, buffers, blocks, size, stride, align, follower_alloc, conv_alloc);
 

@@ -158,6 +158,7 @@ struct port {
 
 	uint32_t blocks;
 	uint32_t stride;
+	uint32_t maxsize;
 
 	const struct spa_pod_sequence *ctrl;
 	uint32_t ctrl_offset;
@@ -237,7 +238,8 @@ struct impl {
 	unsigned int rate_adjust:1;
 	unsigned int port_ignore_latency:1;
 
-	uint32_t empty_size;
+	uint32_t scratch_size;
+	uint32_t scratch_ports;
 	float *empty;
 	float *scratch;
 	float *tmp[2];
@@ -1754,10 +1756,68 @@ static int setup_out_convert(struct impl *this)
 	return 0;
 }
 
+static void free_tmp(struct impl *this)
+{
+	uint32_t i;
+
+	spa_log_debug(this->log, "free tmp %d", this->scratch_size);
+
+	free(this->empty);
+	this->empty = NULL;
+	this->scratch_size = 0;
+	this->scratch_ports = 0;
+	free(this->scratch);
+	this->scratch = NULL;
+	free(this->tmp[0]);
+	this->tmp[0] = NULL;
+	free(this->tmp[1]);
+	this->tmp[1] = NULL;
+	for (i = 0; i < MAX_PORTS; i++) {
+		this->tmp_datas[0][i] = NULL;
+		this->tmp_datas[1][i] = NULL;
+	}
+}
+
+static int ensure_tmp(struct impl *this, uint32_t maxsize, uint32_t maxports)
+{
+	if (maxsize > this->scratch_size || maxports > this->scratch_ports) {
+		float *empty, *scratch, *tmp[2];
+		uint32_t i;
+
+		spa_log_debug(this->log, "resize tmp %d -> %d", this->scratch_size, maxsize);
+
+		if ((empty = realloc(this->empty, maxsize + MAX_ALIGN)) != NULL)
+			this->empty = empty;
+		if ((scratch = realloc(this->scratch, maxsize + MAX_ALIGN)) != NULL)
+			this->scratch = scratch;
+		if ((tmp[0] = realloc(this->tmp[0], (maxsize + MAX_ALIGN) * maxports)) != NULL)
+			this->tmp[0] = tmp[0];
+		if ((tmp[1] = realloc(this->tmp[1], (maxsize + MAX_ALIGN) * maxports)) != NULL)
+			this->tmp[1] = tmp[1];
+
+		if (empty == NULL || scratch == NULL || tmp[0] == NULL || tmp[1] == NULL) {
+			free_tmp(this);
+			return -ENOMEM;
+		}
+		memset(this->empty, 0, maxsize + MAX_ALIGN);
+		this->scratch_size = maxsize;
+		this->scratch_ports = maxports;
+
+		for (i = 0; i < maxports; i++) {
+			this->tmp_datas[0][i] = SPA_PTROFF(tmp[0], maxsize * i, void);
+			this->tmp_datas[0][i] = SPA_PTR_ALIGN(this->tmp_datas[0][i], MAX_ALIGN, void);
+			this->tmp_datas[1][i] = SPA_PTROFF(tmp[1], maxsize * i, void);
+			this->tmp_datas[1][i] = SPA_PTR_ALIGN(this->tmp_datas[1][i], MAX_ALIGN, void);
+		}
+	}
+	return 0;
+}
+
 static int setup_convert(struct impl *this)
 {
 	struct dir *in, *out;
-	uint32_t i, rate;
+	uint32_t i, rate, maxsize, maxports;
+	struct port *p;
 	int res;
 
 	in = &this->dir[SPA_DIRECTION_INPUT];
@@ -1806,12 +1866,19 @@ static int setup_convert(struct impl *this)
 	if ((res = setup_out_convert(this)) < 0)
 		return res;
 
-	for (i = 0; i < MAX_PORTS; i++) {
-		this->tmp_datas[0][i] = SPA_PTROFF(this->tmp[0], this->empty_size * i, void);
-		this->tmp_datas[0][i] = SPA_PTR_ALIGN(this->tmp_datas[0][i], MAX_ALIGN, void);
-		this->tmp_datas[1][i] = SPA_PTROFF(this->tmp[1], this->empty_size * i, void);
-		this->tmp_datas[1][i] = SPA_PTR_ALIGN(this->tmp_datas[1][i], MAX_ALIGN, void);
+	maxsize = this->quantum_limit * sizeof(float);
+	for (i = 0; i < in->n_ports; i++) {
+		p = GET_IN_PORT(this, i);
+		maxsize = SPA_MAX(maxsize, p->maxsize);
 	}
+	for (i = 0; i < out->n_ports; i++) {
+		p = GET_OUT_PORT(this, i);
+		maxsize = SPA_MAX(maxsize, p->maxsize);
+	}
+	maxports = SPA_MAX(in->format.info.raw.channels, out->format.info.raw.channels);
+	if ((res = ensure_tmp(this, maxsize, maxports)) < 0)
+		return res;
+
 	this->setup = true;
 
 	emit_node_info(this, false);
@@ -2445,53 +2512,6 @@ static inline void dequeue_buffer(struct impl *this, struct port *port, struct b
 	SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_QUEUED);
 }
 
-static void free_tmp(struct impl *this)
-{
-	uint32_t i;
-
-	spa_log_debug(this->log, "free tmp %d", this->empty_size);
-
-	free(this->empty);
-	this->empty = NULL;
-	this->empty_size = 0;
-	free(this->scratch);
-	this->scratch = NULL;
-	free(this->tmp[0]);
-	this->tmp[0] = NULL;
-	free(this->tmp[1]);
-	this->tmp[1] = NULL;
-	for (i = 0; i < MAX_PORTS; i++) {
-		this->tmp_datas[0][i] = NULL;
-		this->tmp_datas[1][i] = NULL;
-	}
-}
-
-static int ensure_tmp(struct impl *this, uint32_t maxsize)
-{
-	if (maxsize > this->empty_size) {
-		float *empty, *scratch, *tmp[2];
-
-		spa_log_debug(this->log, "resize tmp %d -> %d", this->empty_size, maxsize);
-
-		if ((empty = realloc(this->empty, maxsize + MAX_ALIGN)) != NULL)
-			this->empty = empty;
-		if ((scratch = realloc(this->scratch, maxsize + MAX_ALIGN)) != NULL)
-			this->scratch = scratch;
-		if ((tmp[0] = realloc(this->tmp[0], (maxsize + MAX_ALIGN) * MAX_PORTS)) != NULL)
-			this->tmp[0] = tmp[0];
-		if ((tmp[1] = realloc(this->tmp[1], (maxsize + MAX_ALIGN) * MAX_PORTS)) != NULL)
-			this->tmp[1] = tmp[1];
-
-		if (empty == NULL || scratch == NULL || tmp[0] == NULL || tmp[1] == NULL) {
-			free_tmp(this);
-			return -ENOMEM;
-		}
-		memset(this->empty, 0, maxsize + MAX_ALIGN);
-		this->empty_size = maxsize;
-	}
-	return 0;
-}
-
 static int
 impl_node_port_use_buffers(void *object,
 			   enum spa_direction direction,
@@ -2503,7 +2523,6 @@ impl_node_port_use_buffers(void *object,
 	struct impl *this = object;
 	struct port *port;
 	uint32_t i, j, maxsize;
-	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -2560,9 +2579,7 @@ impl_node_port_use_buffers(void *object,
 		if (direction == SPA_DIRECTION_OUTPUT)
 			queue_buffer(this, port, i);
 	}
-	if ((res = ensure_tmp(this, maxsize)) < 0)
-		return res;
-
+	port->maxsize = maxsize;
 	port->n_buffers = n_buffers;
 
 	return 0;
@@ -2869,7 +2886,7 @@ static int impl_node_process(void *object)
 					src_datas[remap] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
 					spa_log_trace_fp(this->log, "%p: empty input %d->%d", this,
 							i * port->blocks + j, remap);
-					max_in = SPA_MIN(max_in, this->empty_size / port->stride);
+					max_in = SPA_MIN(max_in, this->scratch_size / port->stride);
 				}
 			}
 		} else {
@@ -2970,7 +2987,7 @@ static int impl_node_process(void *object)
 					dst_datas[remap] = SPA_PTR_ALIGN(this->scratch, MAX_ALIGN, void);
 					spa_log_trace_fp(this->log, "%p: empty output %d->%d", this,
 						i * port->blocks + j, remap);
-					max_out = SPA_MIN(max_out, this->empty_size / port->stride);
+					max_out = SPA_MIN(max_out, this->scratch_size / port->stride);
 				}
 			}
 		} else {

@@ -505,7 +505,7 @@ static void make_stream_ports(struct stream *s)
 
 		port->latency[s->direction] = latency;
 		port->is_midi = is_midi;
-		port->buffer = calloc(sizeof(float), impl->quantum_limit);
+		port->buffer = calloc(impl->quantum_limit, sizeof(float));
 		if (port->buffer == NULL) {
 			pw_log_error("Can't create port buffer: %m");
 			return;
@@ -1024,8 +1024,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			"latency.internal.input", 0);
 	impl->output_latency = pw_properties_get_uint32(props,
 			"latency.internal.output", 0);
-	impl->quantum_limit = 8192;
 	impl->utils = pw_thread_utils_get();
+
+	impl->quantum_limit = pw_properties_get_uint32(
+			pw_context_get_properties(context),
+			"default.clock.quantum-limit", 8192u);
 
 	impl->sink.props = pw_properties_new(NULL, NULL);
 	impl->source.props = pw_properties_new(NULL, NULL);

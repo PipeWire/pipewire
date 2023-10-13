@@ -539,12 +539,8 @@ static const struct spa_dict_item module_props[] = {
 #include <pipewire/pipewire.h>
 
 #define MAX_HNDL 64
-#define MAX_SAMPLES 8192
 
 #define DEFAULT_RATE	48000
-
-static float silence_data[MAX_SAMPLES];
-static float discard_data[MAX_SAMPLES];
 
 struct fc_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t n_support,
 		struct dsp_ops *dsp, const char *path, const char *config);
@@ -696,6 +692,7 @@ struct impl {
 	struct spa_hook core_proxy_listener;
 	struct spa_hook core_listener;
 
+	uint32_t quantum_limit;
 	struct dsp_ops dsp;
 
 	struct spa_list plugin_list;
@@ -720,6 +717,9 @@ struct impl {
 	long unsigned rate;
 
 	struct graph graph;
+
+	float *silence_data;
+	float *discard_data;
 };
 
 static int graph_instantiate(struct graph *graph);
@@ -2180,11 +2180,11 @@ static void node_cleanup(struct node *node)
 	}
 }
 
-static int port_ensure_data(struct port *port, uint32_t i)
+static int port_ensure_data(struct port *port, uint32_t i, uint32_t max_samples)
 {
 	float *data;
 	if ((data = port->audio_data[i]) == NULL) {
-		data = calloc(1, MAX_SAMPLES * sizeof(float));
+		data = calloc(max_samples, sizeof(float));
 		if (data == NULL) {
 			pw_log_error("cannot create port data: %m");
 			return -errno;
@@ -2237,8 +2237,9 @@ static int graph_instantiate(struct graph *graph)
 	struct link *link;
 	struct descriptor *desc;
 	const struct fc_descriptor *d;
-	uint32_t i, j;
+	uint32_t i, j, max_samples = impl->quantum_limit;
 	int res;
+	float *sd = impl->silence_data, *dd = impl->discard_data;
 
 	if (graph->instantiated)
 		return 0;
@@ -2246,7 +2247,6 @@ static int graph_instantiate(struct graph *graph)
 	graph->instantiated = true;
 
 	spa_list_for_each(node, &graph->node_list, link) {
-		float *sd = silence_data, *dd = discard_data;
 
 		node_cleanup(node);
 
@@ -2269,7 +2269,7 @@ static int graph_instantiate(struct graph *graph)
 
 				spa_list_for_each(link, &port->link_list, input_link) {
 					struct port *peer = link->output;
-					if ((res = port_ensure_data(peer, i)) < 0)
+					if ((res = port_ensure_data(peer, i, max_samples)) < 0)
 						goto error;
 					pw_log_info("connect input port %s[%d]:%s %p",
 							node->name, i, d->ports[port->p].name,
@@ -2279,7 +2279,7 @@ static int graph_instantiate(struct graph *graph)
 			}
 			for (j = 0; j < desc->n_output; j++) {
 				port = &node->output_port[j];
-				if ((res = port_ensure_data(port, i)) < 0)
+				if ((res = port_ensure_data(port, i, max_samples)) < 0)
 					goto error;
 				pw_log_info("connect output port %s[%d]:%s %p",
 						node->name, i, d->ports[port->p].name,
@@ -2900,6 +2900,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	add_plugin_func(impl, "ladspa", load_ladspa_plugin, NULL);
 
 	support = pw_context_get_support(impl->context, &n_support);
+	impl->quantum_limit = pw_properties_get_uint32(
+			pw_context_get_properties(impl->context),
+			"default.clock.quantum-limit", 8192u);
+	impl->silence_data = calloc(impl->quantum_limit, sizeof(float));
+	impl->discard_data = calloc(impl->quantum_limit, sizeof(float));
 
 	cpu_iface = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 	impl->dsp.cpu_flags = cpu_iface ? spa_cpu_get_flags(cpu_iface) : 0;

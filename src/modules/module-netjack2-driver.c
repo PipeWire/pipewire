@@ -199,6 +199,7 @@ struct impl {
 	int dscp;
 	int mtu;
 	uint32_t latency;
+	uint32_t quantum_limit;
 
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
@@ -868,6 +869,7 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 	peer->other_stream = 's';
 	peer->send_volume = &impl->sink.volume;
 	peer->recv_volume = &impl->source.volume;
+	peer->quantum_limit = impl->quantum_limit;
 	netjack2_init(peer);
 
 	int bufsize = NETWORK_MAX_LATENCY * (peer->params.mtu +
@@ -1238,6 +1240,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->props = props;
 	data_loop = pw_context_get_data_loop(context);
 	impl->data_loop = pw_data_loop_get_loop(data_loop);
+	impl->quantum_limit = pw_properties_get_uint32(
+			pw_context_get_properties(context),
+			"default.clock.quantum-limit", 8192u);
 
 	impl->sink.props = pw_properties_new(NULL, NULL);
 	impl->source.props = pw_properties_new(NULL, NULL);

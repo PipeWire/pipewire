@@ -6,8 +6,6 @@
 #include <opus/opus_custom.h>
 #endif
 
-#define MAX_BUFFER_FRAMES	8192
-
 struct volume {
 	bool mute;
 	uint32_t n_volumes;
@@ -117,6 +115,7 @@ struct netjack2_peer {
 	void *midi_data;
 	uint32_t midi_size;
 
+	uint32_t quantum_limit;
 	float *empty;
 	void *encoded_data;
 	uint32_t encoded_size;
@@ -134,7 +133,7 @@ static int netjack2_init(struct netjack2_peer *peer)
 {
 	int res = 0;
 
-	peer->empty = calloc(MAX_BUFFER_FRAMES, sizeof(float));
+	peer->empty = calloc(peer->quantum_limit, sizeof(float));
 
 	peer->midi_size = peer->params.period_size * sizeof(float) *
 		SPA_MAX(peer->params.send_midi_channels, peer->params.recv_midi_channels);
@@ -252,7 +251,7 @@ static void midi_to_netjack2(struct netjack2_peer *peer,
 	uint32_t free_size;
 
 	buf->magic = MIDI_BUFFER_MAGIC;
-	buf->buffer_size = MAX_BUFFER_FRAMES * sizeof(float);
+	buf->buffer_size = peer->quantum_limit * sizeof(float);
 	buf->nframes = n_samples;
 	buf->write_pos = 0;
 	buf->event_count = 0;
@@ -805,7 +804,7 @@ static int netjack2_recv_float(struct netjack2_peer *peer, struct nj2_packet_hea
 		return 0;
 
 	sub_cycle = ntohl(header->sub_cycle);
-	if (sub_cycle * sub_period_size > MAX_BUFFER_FRAMES)
+	if (sub_cycle * sub_period_size > peer->quantum_limit)
 		return 0;
 
 	for (i = 0; i < active_ports; i++) {

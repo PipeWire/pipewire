@@ -329,6 +329,27 @@ static int get_num_compress_offload_devices(unsigned int card_nr)
 	return errno != 0 ? -errno : num_dev;
 }
 
+static int check_udev_environment(struct udev *udev, const char *devname)
+{
+	char path[PATH_MAX];
+	struct udev_device *dev;
+	int ret = 0;
+
+	/* Check for ACP_IGNORE on a specific PCM device (not the whole card) */
+	spa_scnprintf(path, sizeof(path), "/sys/class/sound/%s", devname);
+
+	dev = udev_device_new_from_syspath(udev, path);
+	if (dev == NULL)
+		return 0;
+
+	if (udev_device_get_property_value(dev, "ACP_IGNORE"))
+		ret = -ENXIO;
+
+	udev_device_unref(dev);
+
+	return ret;
+}
+
 static int check_pcm_device_availability(struct impl *this, struct card *card,
                                          int *num_pcm_devices)
 {
@@ -375,6 +396,9 @@ static int check_pcm_device_availability(struct impl *this, struct card *card,
 		spa_scnprintf(path, sizeof(path), "pcmC%uD%s",
 				card->card_nr, entry->d_name+3);
 		if (check_device_pcm_class(path) < 0)
+			continue;
+		/* Check udev environment */
+		if (check_udev_environment(this->udev, path) < 0)
 			continue;
 
 		/* Check busy status */

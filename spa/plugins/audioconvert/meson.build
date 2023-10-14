@@ -135,6 +135,7 @@ test_lib = static_library('test_lib',
   dependencies : [ spa_dep ],
   install : false
   )
+test_inc = include_directories('../test')
 
 test_apps = [
   'test-audioadapter',
@@ -149,7 +150,7 @@ foreach a : test_apps
   test(a,
     executable(a, a + '.c',
       dependencies : [ spa_dep, dl_lib, pthread_lib, mathlib, audioconvert_dep, spa_audioconvert_dep ],
-      include_directories : [ configinc ],
+      include_directories : [ configinc, test_inc ],
       link_with : [ test_lib ],
       install_rpath : spa_plugindir / 'audioconvert',
       c_args : [ simd_cargs ],
@@ -180,7 +181,7 @@ foreach a : benchmark_apps
   benchmark(a,
     executable(a, a + '.c',
       dependencies : [ spa_dep, dl_lib, pthread_lib, mathlib, audioconvert_dep, spa_audioconvert_dep ],
-      include_directories : [ configinc ],
+      include_directories : [ configinc, test_inc ],
       c_args : [ simd_cargs ],
       install_rpath : spa_plugindir / 'audioconvert',
       install : installed_tests_enabled,

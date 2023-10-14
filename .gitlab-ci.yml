@@ -343,7 +343,9 @@ build_with_asan_ubsan:
     - echo "Building with ASan and UBSan"
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" -D debug=true -D optimization=g -D b_sanitize=address,undefined -D session-managers=[]
     - meson compile -C "$BUILD_DIR" $COMPILE_ARGS
-    - meson test -C "$BUILD_DIR" --no-rebuild
+    - env UBSAN_OPTIONS=halt_on_error=1:abort_on_error=1:print_summary=1:print_stacktrace=1 \
+          ASAN_OPTIONS=halt_on_error=1:abort_on_error=1:print_summary=1 \
+          meson test -C "$BUILD_DIR" --no-rebuild
 
 # A release build with NDEBUG, all options on auto() but tests explicitly
 # enabled. This should show issues with tests failing due to different

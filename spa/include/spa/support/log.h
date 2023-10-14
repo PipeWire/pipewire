@@ -208,12 +208,13 @@ static inline bool spa_log_level_topic_enabled(const struct spa_log *log,
 {
 	enum spa_log_level max_level;
 
+	if (SPA_UNLIKELY(!log))
+		return false;
+
 	if (topic && topic->has_custom_level)
 		max_level = topic->level;
-	else if (log)
-		max_level = log->level;
 	else
-		max_level = SPA_LOG_LEVEL_NONE;
+		max_level = log->level;
 
 	return level <= max_level;
 }
@@ -222,8 +223,8 @@ static inline bool spa_log_level_topic_enabled(const struct spa_log *log,
 #define spa_log_logt(l,lev,topic,...)					\
 ({									\
 	struct spa_log *_l = l;						\
-	struct spa_interface *_if = &_l->iface;				\
 	if (SPA_UNLIKELY(spa_log_level_topic_enabled(_l, topic, lev))) { \
+		struct spa_interface *_if = &_l->iface;			\
 		if (!spa_interface_call(_if,				\
 				struct spa_log_methods, logt, 1,	\
 				lev, topic,				\
@@ -238,8 +239,8 @@ static inline bool spa_log_level_topic_enabled(const struct spa_log *log,
 #define spa_log_logtv(l,lev,topic,...)					\
 ({									\
 	struct spa_log *_l = l;						\
-	struct spa_interface *_if = &_l->iface;				\
 	if (SPA_UNLIKELY(spa_log_level_topic_enabled(_l, topic, lev))) { \
+		struct spa_interface *_if = &_l->iface;			\
 		if (!spa_interface_call(_if,				\
 				struct spa_log_methods, logtv, 1,	\
 				lev, topic,				\

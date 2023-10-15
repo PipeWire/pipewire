@@ -93,14 +93,14 @@ static void ofono_transport_get_mtu(struct impl *backend, struct spa_bt_transpor
 	socklen_t len;
 
 	/* Fallback values */
-	t->read_mtu = 48;
-	t->write_mtu = 48;
+	t->read_mtu = 144;
+	t->write_mtu = 144;
 
 	len = sizeof(sco_opt);
 	memset(&sco_opt, 0, len);
 
 	if (getsockopt(t->fd, SOL_SCO, SCO_OPTIONS, &sco_opt, &len) < 0)
-		spa_log_warn(backend->log, "getsockopt(SCO_OPTIONS) failed, loading defaults");
+		spa_log_warn(backend->log, "getsockopt(SCO_OPTIONS) failed: %d (%m)", errno);
 	else {
 		spa_log_debug(backend->log, "autodetected mtu = %u", sco_opt.mtu);
 		t->read_mtu = sco_opt.mtu;

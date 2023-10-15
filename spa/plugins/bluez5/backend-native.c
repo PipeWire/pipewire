@@ -1514,9 +1514,9 @@ static void sco_ready(struct spa_bt_transport *t)
 	len = sizeof(sco_opt);
 	memset(&sco_opt, 0, len);
 	if (getsockopt(t->fd, SOL_SCO, SCO_OPTIONS, &sco_opt, &len) < 0) {
-		spa_log_warn(backend->log, "getsockopt(SCO_OPTIONS) failed, using defaults");
-		t->read_mtu = 48;
-		t->write_mtu = 48;
+		spa_log_warn(backend->log, "getsockopt(SCO_OPTIONS) failed: %d (%m)", errno);
+		t->read_mtu = 144;
+		t->write_mtu = 144;
 	} else {
 		spa_log_debug(backend->log, "autodetected mtu = %u", sco_opt.mtu);
 		t->read_mtu = sco_opt.mtu;

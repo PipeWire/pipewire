@@ -555,7 +555,7 @@ static void test_lossless_s16(void)
 		spa_assert_se(i == t);
 
 		int32_t t2 = F32_TO_S32(v);
-		spa_assert_se(i<<16 == t2);
+		spa_assert_se((int32_t)(((uint32_t)i)<<16) == t2);
 		spa_assert_se(i == t2>>16);
 	}
 }

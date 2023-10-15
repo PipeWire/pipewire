@@ -692,12 +692,17 @@ conv_f32d_to_s32_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 	int32_t *d = dst[0];
 	uint32_t i = 0, n_channels = conv->n_channels;
 
-	for(; i + 3 < n_channels; i += 4)
-		conv_f32d_to_s32_4s_avx2(conv, &d[i], &src[i], n_channels, n_samples);
-	for(; i + 1 < n_channels; i += 2)
-		conv_f32d_to_s32_2s_avx2(conv, &d[i], &src[i], n_channels, n_samples);
-	for(; i < n_channels; i++)
-		conv_f32d_to_s32_1s_avx2(conv, &d[i], &src[i], n_channels, n_samples);
+	if ((n_channels & 3) == 0) {
+		for(; i + 3 < n_channels; i += 4)
+			conv_f32d_to_s32_4s_avx2(conv, &d[i], &src[i], n_channels, n_samples);
+	}
+	else if ((n_channels & 1) == 0) {
+		for(; i + 1 < n_channels; i += 2)
+			conv_f32d_to_s32_2s_avx2(conv, &d[i], &src[i], n_channels, n_samples);
+	} else {
+		for(; i < n_channels; i++)
+			conv_f32d_to_s32_1s_avx2(conv, &d[i], &src[i], n_channels, n_samples);
+	}
 }
 
 static void

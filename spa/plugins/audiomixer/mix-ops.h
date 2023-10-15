@@ -43,7 +43,7 @@ static inline uint24_t u32_to_u24(uint32_t src)
 
 static inline int32_t s24_to_s32(int24_t src)
 {
-	return ((int32_t)src.v1 << 16) | ((uint32_t)src.v2 << 8) | (uint32_t)src.v3;
+	return ((uint32_t)((int32_t)src.v1 & 0xFFFF) << 16) | ((uint32_t)src.v2 << 8) | (uint32_t)src.v3;
 }
 
 #define S32_TO_S24(s) (int24_t) { .v1 = (int8_t)(((int32_t)s) >> 16), \

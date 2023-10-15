@@ -89,7 +89,7 @@ if get_option('spa-plugins').allowed()
   summary({'JACK2': jack_dep.found()}, bool_yn: true, section: 'Backend')
 
   have_vulkan = false
-  vulkan_dep = dependency('vulkan', version : '>= 1.1.69', required: get_option('vulkan'))
+  vulkan_dep = dependency('vulkan', version : '>= 1.2.170', required: get_option('vulkan'))
   if vulkan_dep.found()
     have_vulkan = cc.has_header('vulkan/vulkan.h', dependencies : vulkan_dep)
     assert((not get_option('vulkan').enabled()) or have_vulkan, 'Vulkan headers are missing')

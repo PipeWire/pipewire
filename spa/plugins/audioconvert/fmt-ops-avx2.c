@@ -839,22 +839,14 @@ conv_f32d_to_s16_4s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		out[3] = _mm256_unpackhi_epi32(out[0], out[1]); /* a2 b2 c2 d2 a3 b3 c3 d3 a6 b6 c6 d6 a7 b7 c7 d7 */
 
 #ifdef __x86_64__
-		*((int32_t*)(d + 0*n_channels+0)) = _mm256_extract_epi32(out[2],0);
-		*((int32_t*)(d + 0*n_channels+2)) = _mm256_extract_epi32(out[2],1);
-		*((int32_t*)(d + 1*n_channels+0)) = _mm256_extract_epi32(out[2],2);
-		*((int32_t*)(d + 1*n_channels+2)) = _mm256_extract_epi32(out[2],3);
-		*((int32_t*)(d + 2*n_channels+0)) = _mm256_extract_epi32(out[3],0);
-		*((int32_t*)(d + 2*n_channels+2)) = _mm256_extract_epi32(out[3],1);
-		*((int32_t*)(d + 3*n_channels+0)) = _mm256_extract_epi32(out[3],2);
-		*((int32_t*)(d + 3*n_channels+2)) = _mm256_extract_epi32(out[3],3);
-		*((int32_t*)(d + 4*n_channels+0)) = _mm256_extract_epi32(out[2],4);
-		*((int32_t*)(d + 4*n_channels+2)) = _mm256_extract_epi32(out[2],5);
-		*((int32_t*)(d + 5*n_channels+0)) = _mm256_extract_epi32(out[2],6);
-		*((int32_t*)(d + 5*n_channels+2)) = _mm256_extract_epi32(out[2],7);
-		*((int32_t*)(d + 6*n_channels+0)) = _mm256_extract_epi32(out[3],4);
-		*((int32_t*)(d + 6*n_channels+2)) = _mm256_extract_epi32(out[3],5);
-		*((int32_t*)(d + 7*n_channels+0)) = _mm256_extract_epi32(out[3],6);
-		*((int32_t*)(d + 7*n_channels+2)) = _mm256_extract_epi32(out[3],7);
+		*(int64_t*)(d + 0*n_channels) = _mm256_extract_epi64(out[2], 0); /* a0 b0 c0 d0 */
+		*(int64_t*)(d + 1*n_channels) = _mm256_extract_epi64(out[2], 1); /* a1 b1 c1 d1 */
+		*(int64_t*)(d + 2*n_channels) = _mm256_extract_epi64(out[3], 0); /* a2 b2 c2 d2 */
+		*(int64_t*)(d + 3*n_channels) = _mm256_extract_epi64(out[3], 1); /* a3 b3 c3 d3 */
+		*(int64_t*)(d + 4*n_channels) = _mm256_extract_epi64(out[2], 2); /* a4 b4 c4 d4 */
+		*(int64_t*)(d + 5*n_channels) = _mm256_extract_epi64(out[2], 3); /* a5 b5 c5 d5 */
+		*(int64_t*)(d + 6*n_channels) = _mm256_extract_epi64(out[3], 2); /* a6 b6 c6 d6 */
+		*(int64_t*)(d + 7*n_channels) = _mm256_extract_epi64(out[3], 3); /* a7 b7 c7 d7 */
 #else
 		_mm_storel_pi((__m64*)(d + 0*n_channels), (__m128)_mm256_extracti128_si256(out[2], 0));
 		_mm_storeh_pi((__m64*)(d + 1*n_channels), (__m128)_mm256_extracti128_si256(out[2], 0));

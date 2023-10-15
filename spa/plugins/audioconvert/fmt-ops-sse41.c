@@ -6,6 +6,13 @@
 
 #include <smmintrin.h>
 
+#define spa_read_unaligned(ptr, type) \
+__extension__ ({ \
+	__typeof__(type) _val; \
+	memcpy(&_val, (ptr), sizeof(_val)); \
+	_val; \
+})
+
 static void
 conv_s24_to_f32d_1s_sse41(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
 		uint32_t n_channels, uint32_t n_samples)
@@ -22,10 +29,10 @@ conv_s24_to_f32d_1s_sse41(void *data, void * SPA_RESTRICT dst[], const void * SP
 		unrolled = 0;
 
 	for(n = 0; n < unrolled; n += 4) {
-		in = _mm_insert_epi32(in, *((uint32_t*)&s[0 * n_channels]), 0);
-		in = _mm_insert_epi32(in, *((uint32_t*)&s[1 * n_channels]), 1);
-		in = _mm_insert_epi32(in, *((uint32_t*)&s[2 * n_channels]), 2);
-		in = _mm_insert_epi32(in, *((uint32_t*)&s[3 * n_channels]), 3);
+		in = _mm_insert_epi32(in, spa_read_unaligned(&s[0 * n_channels], uint32_t), 0);
+		in = _mm_insert_epi32(in, spa_read_unaligned(&s[1 * n_channels], uint32_t), 1);
+		in = _mm_insert_epi32(in, spa_read_unaligned(&s[2 * n_channels], uint32_t), 2);
+		in = _mm_insert_epi32(in, spa_read_unaligned(&s[3 * n_channels], uint32_t), 3);
 		in = _mm_slli_epi32(in, 8);
 		in = _mm_srai_epi32(in, 8);
 		out = _mm_cvtepi32_ps(in);

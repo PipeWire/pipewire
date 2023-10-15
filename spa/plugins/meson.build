@@ -40,7 +40,7 @@ endif
 if get_option('volume').allowed()
   subdir('volume')
 endif
-if vulkan_headers
+if have_vulkan
   subdir('vulkan')
 endif
 

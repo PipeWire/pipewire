@@ -87,9 +87,14 @@ if get_option('spa-plugins').allowed()
   endif
   jack_dep = dependency('jack', version : '>= 1.9.10', required: get_option('jack'))
   summary({'JACK2': jack_dep.found()}, bool_yn: true, section: 'Backend')
-  vulkan_dep = dependency('vulkan', disabler : true, version : '>= 1.1.69', required: get_option('vulkan'))
-  vulkan_headers = cc.has_header('vulkan/vulkan.h', dependencies : vulkan_dep)
-  #summary({'Vulkan': vulkan_headers}, bool_yn: true, section: 'Misc dependencies')
+
+  have_vulkan = false
+  vulkan_dep = dependency('vulkan', version : '>= 1.1.69', required: get_option('vulkan'))
+  if vulkan_dep.found()
+    have_vulkan = cc.has_header('vulkan/vulkan.h', dependencies : vulkan_dep)
+    assert((not get_option('vulkan').enabled()) or have_vulkan, 'Vulkan headers are missing')
+  endif
+  summary({'Vulkan': have_vulkan}, bool_yn: true, section: 'Misc dependencies')
 
   libcamera_dep = dependency('libcamera', required: get_option('libcamera'))
   summary({'libcamera': libcamera_dep.found()}, bool_yn: true, section: 'Backend')

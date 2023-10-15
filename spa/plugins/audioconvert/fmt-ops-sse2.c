@@ -1143,14 +1143,15 @@ conv_f32d_to_s16_2s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		t[1] = _mm_packs_epi32(t[1], t[1]);
 
 		out[0] = _mm_unpacklo_epi16(t[0], t[1]);
-		out[1] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(0, 3, 2, 1));
-		out[2] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(1, 0, 3, 2));
-		out[3] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(2, 1, 0, 3));
 
-		*((int32_t*)(d + 0*n_channels)) = _mm_cvtsi128_si32(out[0]);
-		*((int32_t*)(d + 1*n_channels)) = _mm_cvtsi128_si32(out[1]);
-		*((int32_t*)(d + 2*n_channels)) = _mm_cvtsi128_si32(out[2]);
-		*((int32_t*)(d + 3*n_channels)) = _mm_cvtsi128_si32(out[3]);
+		d[0*n_channels+0] = _mm_extract_epi16(out[0], 0);
+		d[0*n_channels+1] = _mm_extract_epi16(out[0], 1);
+		d[1*n_channels+0] = _mm_extract_epi16(out[0], 2);
+		d[1*n_channels+1] = _mm_extract_epi16(out[0], 3);
+		d[2*n_channels+0] = _mm_extract_epi16(out[0], 4);
+		d[2*n_channels+1] = _mm_extract_epi16(out[0], 5);
+		d[3*n_channels+0] = _mm_extract_epi16(out[0], 6);
+		d[3*n_channels+1] = _mm_extract_epi16(out[0], 7);
 		d += 4*n_channels;
 	}
 	for(; n < n_samples; n++) {

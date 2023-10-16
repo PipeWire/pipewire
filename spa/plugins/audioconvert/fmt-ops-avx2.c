@@ -523,6 +523,12 @@ conv_f32d_to_s32_1s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 	}
 }
 
+#define spa_write_unaligned(ptr, type, val) \
+__extension__ ({ \
+	__typeof__(type) _val = (val); \
+	memcpy((ptr), &_val, sizeof(_val)); \
+})
+
 static void
 conv_f32d_to_s32_2s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
 		uint32_t n_channels, uint32_t n_samples)
@@ -558,14 +564,14 @@ conv_f32d_to_s32_2s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		t[1] = _mm256_unpackhi_epi32(out[0], out[1]); /* a2 b2 a3 b3 a6 b6 a7 b7 */
 
 #ifdef __x86_64__
-		*((int64_t*)(d + 0*n_channels)) = _mm256_extract_epi64(t[0], 0);
-		*((int64_t*)(d + 1*n_channels)) = _mm256_extract_epi64(t[0], 1);
-		*((int64_t*)(d + 2*n_channels)) = _mm256_extract_epi64(t[1], 0);
-		*((int64_t*)(d + 3*n_channels)) = _mm256_extract_epi64(t[1], 1);
-		*((int64_t*)(d + 4*n_channels)) = _mm256_extract_epi64(t[0], 2);
-		*((int64_t*)(d + 5*n_channels)) = _mm256_extract_epi64(t[0], 3);
-		*((int64_t*)(d + 6*n_channels)) = _mm256_extract_epi64(t[1], 2);
-		*((int64_t*)(d + 7*n_channels)) = _mm256_extract_epi64(t[1], 3);
+		spa_write_unaligned(d + 0*n_channels, uint64_t, _mm256_extract_epi64(t[0], 0));
+		spa_write_unaligned(d + 1*n_channels, uint64_t, _mm256_extract_epi64(t[0], 1));
+		spa_write_unaligned(d + 2*n_channels, uint64_t, _mm256_extract_epi64(t[1], 0));
+		spa_write_unaligned(d + 3*n_channels, uint64_t, _mm256_extract_epi64(t[1], 1));
+		spa_write_unaligned(d + 4*n_channels, uint64_t, _mm256_extract_epi64(t[0], 2));
+		spa_write_unaligned(d + 5*n_channels, uint64_t, _mm256_extract_epi64(t[0], 3));
+		spa_write_unaligned(d + 6*n_channels, uint64_t, _mm256_extract_epi64(t[1], 2));
+		spa_write_unaligned(d + 7*n_channels, uint64_t, _mm256_extract_epi64(t[1], 3));
 #else
 		_mm_storel_pi((__m64*)(d + 0*n_channels), (__m128)_mm256_extracti128_si256(t[0], 0));
 		_mm_storeh_pi((__m64*)(d + 1*n_channels), (__m128)_mm256_extracti128_si256(t[0], 0));
@@ -692,17 +698,12 @@ conv_f32d_to_s32_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 	int32_t *d = dst[0];
 	uint32_t i = 0, n_channels = conv->n_channels;
 
-	if ((n_channels & 3) == 0) {
-		for(; i + 3 < n_channels; i += 4)
-			conv_f32d_to_s32_4s_avx2(conv, &d[i], &src[i], n_channels, n_samples);
-	}
-	else if ((n_channels & 1) == 0) {
-		for(; i + 1 < n_channels; i += 2)
-			conv_f32d_to_s32_2s_avx2(conv, &d[i], &src[i], n_channels, n_samples);
-	} else {
-		for(; i < n_channels; i++)
-			conv_f32d_to_s32_1s_avx2(conv, &d[i], &src[i], n_channels, n_samples);
-	}
+	for(; i + 3 < n_channels; i += 4)
+		conv_f32d_to_s32_4s_avx2(conv, &d[i], &src[i], n_channels, n_samples);
+	for(; i + 1 < n_channels; i += 2)
+		conv_f32d_to_s32_2s_avx2(conv, &d[i], &src[i], n_channels, n_samples);
+	for(; i < n_channels; i++)
+		conv_f32d_to_s32_1s_avx2(conv, &d[i], &src[i], n_channels, n_samples);
 }
 
 static void
@@ -777,14 +778,14 @@ conv_f32d_to_s16_2s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 
 		out[0] = _mm256_packs_epi32(t[0], t[1]); /* a0 b0 a1 b1 a2 b2 a3 b3 a4 b4 a5 b5 a6 b6 a7 b7 */
 
-		*((int32_t*)(d + 0*n_channels)) = _mm256_extract_epi32(out[0],0);
-		*((int32_t*)(d + 1*n_channels)) = _mm256_extract_epi32(out[0],1);
-		*((int32_t*)(d + 2*n_channels)) = _mm256_extract_epi32(out[0],2);
-		*((int32_t*)(d + 3*n_channels)) = _mm256_extract_epi32(out[0],3);
-		*((int32_t*)(d + 4*n_channels)) = _mm256_extract_epi32(out[0],4);
-		*((int32_t*)(d + 5*n_channels)) = _mm256_extract_epi32(out[0],5);
-		*((int32_t*)(d + 6*n_channels)) = _mm256_extract_epi32(out[0],6);
-		*((int32_t*)(d + 7*n_channels)) = _mm256_extract_epi32(out[0],7);
+		spa_write_unaligned(d + 0*n_channels, uint32_t, _mm256_extract_epi32(out[0],0));
+		spa_write_unaligned(d + 1*n_channels, uint32_t, _mm256_extract_epi32(out[0],1));
+		spa_write_unaligned(d + 2*n_channels, uint32_t, _mm256_extract_epi32(out[0],2));
+		spa_write_unaligned(d + 3*n_channels, uint32_t, _mm256_extract_epi32(out[0],3));
+		spa_write_unaligned(d + 4*n_channels, uint32_t, _mm256_extract_epi32(out[0],4));
+		spa_write_unaligned(d + 5*n_channels, uint32_t, _mm256_extract_epi32(out[0],5));
+		spa_write_unaligned(d + 6*n_channels, uint32_t, _mm256_extract_epi32(out[0],6));
+		spa_write_unaligned(d + 7*n_channels, uint32_t, _mm256_extract_epi32(out[0],7));
 
 		d += 8*n_channels;
 	}
@@ -844,14 +845,14 @@ conv_f32d_to_s16_4s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		out[3] = _mm256_unpackhi_epi32(out[0], out[1]); /* a2 b2 c2 d2 a3 b3 c3 d3 a6 b6 c6 d6 a7 b7 c7 d7 */
 
 #ifdef __x86_64__
-		*(int64_t*)(d + 0*n_channels) = _mm256_extract_epi64(out[2], 0); /* a0 b0 c0 d0 */
-		*(int64_t*)(d + 1*n_channels) = _mm256_extract_epi64(out[2], 1); /* a1 b1 c1 d1 */
-		*(int64_t*)(d + 2*n_channels) = _mm256_extract_epi64(out[3], 0); /* a2 b2 c2 d2 */
-		*(int64_t*)(d + 3*n_channels) = _mm256_extract_epi64(out[3], 1); /* a3 b3 c3 d3 */
-		*(int64_t*)(d + 4*n_channels) = _mm256_extract_epi64(out[2], 2); /* a4 b4 c4 d4 */
-		*(int64_t*)(d + 5*n_channels) = _mm256_extract_epi64(out[2], 3); /* a5 b5 c5 d5 */
-		*(int64_t*)(d + 6*n_channels) = _mm256_extract_epi64(out[3], 2); /* a6 b6 c6 d6 */
-		*(int64_t*)(d + 7*n_channels) = _mm256_extract_epi64(out[3], 3); /* a7 b7 c7 d7 */
+		spa_write_unaligned(d + 0*n_channels, uint64_t, _mm256_extract_epi64(out[2], 0)); /* a0 b0 c0 d0 */
+		spa_write_unaligned(d + 1*n_channels, uint64_t, _mm256_extract_epi64(out[2], 1)); /* a1 b1 c1 d1 */
+		spa_write_unaligned(d + 2*n_channels, uint64_t, _mm256_extract_epi64(out[3], 0)); /* a2 b2 c2 d2 */
+		spa_write_unaligned(d + 3*n_channels, uint64_t, _mm256_extract_epi64(out[3], 1)); /* a3 b3 c3 d3 */
+		spa_write_unaligned(d + 4*n_channels, uint64_t, _mm256_extract_epi64(out[2], 2)); /* a4 b4 c4 d4 */
+		spa_write_unaligned(d + 5*n_channels, uint64_t, _mm256_extract_epi64(out[2], 3)); /* a5 b5 c5 d5 */
+		spa_write_unaligned(d + 6*n_channels, uint64_t, _mm256_extract_epi64(out[3], 2)); /* a6 b6 c6 d6 */
+		spa_write_unaligned(d + 7*n_channels, uint64_t, _mm256_extract_epi64(out[3], 3)); /* a7 b7 c7 d7 */
 #else
 		_mm_storel_pi((__m64*)(d + 0*n_channels), (__m128)_mm256_extracti128_si256(out[2], 0));
 		_mm_storeh_pi((__m64*)(d + 1*n_channels), (__m128)_mm256_extracti128_si256(out[2], 0));
@@ -894,14 +895,10 @@ conv_f32d_to_s16_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 	int16_t *d = dst[0];
 	uint32_t i = 0, n_channels = conv->n_channels;
 
-	if ((n_channels & 0x3) == 0) {
-		for(; i + 3 < n_channels; i += 4)
-			conv_f32d_to_s16_4s_avx2(conv, &d[i], &src[i], n_channels, n_samples);
-	}
-	if ((n_channels & 0x1) == 0) {
-		for(; i + 1 < n_channels; i += 2)
-			conv_f32d_to_s16_2s_avx2(conv, &d[i], &src[i], n_channels, n_samples);
-	}
+	for(; i + 3 < n_channels; i += 4)
+		conv_f32d_to_s16_4s_avx2(conv, &d[i], &src[i], n_channels, n_samples);
+	for(; i + 1 < n_channels; i += 2)
+		conv_f32d_to_s16_2s_avx2(conv, &d[i], &src[i], n_channels, n_samples);
 	for(; i < n_channels; i++)
 		conv_f32d_to_s16_1s_avx2(conv, &d[i], &src[i], n_channels, n_samples);
 }

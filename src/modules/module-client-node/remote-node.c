@@ -606,8 +606,6 @@ client_node_port_use_buffers(void *_data,
 	if (n_buffers > MAX_BUFFERS)
 		return -ENOSPC;
 
-	/* this is for the metadata, which needs to be writable for input buffers
-	 * as well, for the busy metadata, for example */
 	prot = PW_MEMMAP_FLAG_READWRITE;
 
 	/* clear previous buffers */

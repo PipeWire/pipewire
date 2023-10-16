@@ -2575,14 +2575,12 @@ static int client_node_port_use_buffers(void *data,
 		return -ENOSPC;
 	}
 
-	if (direction == SPA_DIRECTION_INPUT) {
-		if (p->object->port.type_id == TYPE_ID_VIDEO) {
-			fl = PW_MEMMAP_FLAG_READ;
-		} else {
-			/* some apps write to the input buffer so we want everything readwrite */
-			fl = PW_MEMMAP_FLAG_READWRITE | PW_MEMMAP_FLAG_PRIVATE;
-		}
+	if (p->object->port.type_id == TYPE_ID_VIDEO && direction == SPA_DIRECTION_INPUT) {
+		fl = PW_MEMMAP_FLAG_READ;
 	} else {
+		/* some apps write to the input buffer so we want everything readwrite. We
+		 * can't use PRIVATE because then we might not see changes in the buffer
+		 * by other apps. */
 		fl = PW_MEMMAP_FLAG_READWRITE;
 	}
 

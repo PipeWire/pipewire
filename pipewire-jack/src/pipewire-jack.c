@@ -431,6 +431,7 @@ struct client {
 	char filter_char;
 	uint32_t max_ports;
 	unsigned int fill_aliases:1;
+	unsigned int writable_input:1;
 
 	uint32_t max_frames;
 
@@ -2575,14 +2576,14 @@ static int client_node_port_use_buffers(void *data,
 		return -ENOSPC;
 	}
 
-	if (p->object->port.type_id == TYPE_ID_VIDEO && direction == SPA_DIRECTION_INPUT) {
-		fl = PW_MEMMAP_FLAG_READ;
-	} else {
-		/* some apps write to the input buffer so we want everything readwrite. We
-		 * can't use PRIVATE because then we might not see changes in the buffer
-		 * by other apps. */
-		fl = PW_MEMMAP_FLAG_READWRITE;
-	}
+	fl = PW_MEMMAP_FLAG_READ;
+	/* Make the buffer writable when output. Some apps write to the input buffer
+	 * so we want to make them writable as well if the option is selected.
+	 * We can't use a PRIVATE mapping here because then we might not see changes
+	 * in the buffer by other apps (see mmap man page). */
+	if (direction == SPA_DIRECTION_OUTPUT ||
+	    (p->object->port.type_id != TYPE_ID_VIDEO && c->writable_input))
+		fl |= PW_MEMMAP_FLAG_WRITE;
 
 	/* clear previous buffers */
 	clear_buffers(c, mix);
@@ -3906,6 +3907,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->global_buffer_size = pw_properties_get_bool(client->props, "jack.global-buffer-size", false);
 	client->max_ports = pw_properties_get_uint32(client->props, "jack.max-client-ports", MAX_CLIENT_PORTS);
 	client->fill_aliases = pw_properties_get_bool(client->props, "jack.fill-aliases", false);
+	client->writable_input = pw_properties_get_bool(client->props, "jack.writable-input", true);
 
 	client->self_connect_mode = SELF_CONNECT_ALLOW;
 	if ((str = pw_properties_get(client->props, "jack.self-connect-mode")) != NULL) {

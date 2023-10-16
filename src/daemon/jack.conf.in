@@ -89,6 +89,7 @@ jack.properties = {
      #jack.global-buffer-size = false
      #jack.max-client-ports   = 768
      #jack.fill-aliases       = false
+     #jack.writable-input     = true
 }
 
 # client specific properties

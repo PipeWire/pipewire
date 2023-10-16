@@ -105,7 +105,7 @@ context.modules = [
     { name = libpipewire-module-protocol-native
         args = {
             # List of server Unix sockets, and optionally permissions
-            #sockets = [ { name = "pipewire-0" }, { name = "pipewire-manager-0" } ]
+            #sockets = [ { name = "pipewire-0" }, { name = "pipewire-0-manager" } ]
         }
     }
 

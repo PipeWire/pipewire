@@ -1,9 +1,10 @@
 [Unit]
-Description=PipeWire Multimedia System Socket
+Description=PipeWire Multimedia System Sockets
 
 [Socket]
 Priority=6
 ListenStream=%t/pipewire-0
+ListenStream=%t/pipewire-0-manager
 
 [Install]
 WantedBy=sockets.target

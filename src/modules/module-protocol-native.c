@@ -79,8 +79,10 @@ PW_LOG_TOPIC(mod_topic_connection, "conn." NAME);
  *
  *   Array of Unix socket names and (optionally) owner/permissions to serve,
  *   if the context is a server. If not absolute paths, the sockets are created
- *   in the default runtime directory. If not specified, one socket with
- *   a default name is created.
+ *   in the default runtime directory.
+ *
+ *   Has the default value `[ { name = "CORENAME" }, { name = "CORENAME-manager" } ]`,
+ *   where `CORENAME` is the name of the PipeWire core, usually `pipewire-0`.
  *
  *   The permissions have no effect for sockets from Systemd socket activation.
  *   Those should be configured via the systemd.socket(5) mechanism.
@@ -131,7 +133,7 @@ PW_LOG_TOPIC(mod_topic_connection, "conn." NAME);
  *\code{.unparsed}
  * context.modules = [
  *  { name = libpipewire-module-protocol-native,
- *    args = { sockets = [ { name = "pipewire-0" }, { name = "pipewire-1" } ] } }
+ *    args = { sockets = [ { name = "pipewire-0" }, { name = "pipewire-0-manager" } ] } }
  * ]
  *\endcode
  */
@@ -1565,7 +1567,19 @@ static int create_servers(struct pw_protocol *this, struct pw_impl_core *core,
 	struct spa_json it[3];
 
 	if (sockets == NULL) {
-		if (add_server(this, core, &props->dict, NULL) == NULL)
+		struct socket_info info = {0};
+		spa_autofree char *manager_name = NULL;
+
+		info.name = (char *)get_server_name(&props->dict);
+		if (add_server(this, core, &props->dict, &info) == NULL)
+			return -errno;
+
+		manager_name = spa_aprintf("%s-manager", info.name);
+		if (manager_name == NULL)
+			return -ENOMEM;
+
+		info.name = manager_name;
+		if (add_server(this, core, &props->dict, &info) == NULL)
 			return -errno;
 
 		return 0;

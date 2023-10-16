@@ -3042,7 +3042,8 @@ int spa_alsa_prepare(struct state *state)
 
 	spa_list_for_each(follower, &state->followers, driver_link) {
 		if (follower != state && !follower->matching) {
-			spa_alsa_prepare(follower);
+			if (spa_alsa_prepare(follower) < 0)
+				continue;
 			if (!follower->linked && state->auto_link)
 				do_link(state, follower);
 		}

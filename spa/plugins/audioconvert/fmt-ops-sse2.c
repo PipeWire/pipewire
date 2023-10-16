@@ -448,10 +448,10 @@ conv_f32d_to_s32_2s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		t[0] = _mm_unpacklo_epi32(out[0], out[1]);
 		t[1] = _mm_unpackhi_epi32(out[0], out[1]);
 
-		_mm_storel_pd((double*)(d + 0*n_channels), (__m128d)t[0]);
-		_mm_storeh_pd((double*)(d + 1*n_channels), (__m128d)t[0]);
-		_mm_storel_pd((double*)(d + 2*n_channels), (__m128d)t[1]);
-		_mm_storeh_pd((double*)(d + 3*n_channels), (__m128d)t[1]);
+		_mm_storel_pi((__m64*)(d + 0*n_channels), (__m128)t[0]);
+		_mm_storeh_pi((__m64*)(d + 1*n_channels), (__m128)t[0]);
+		_mm_storel_pi((__m64*)(d + 2*n_channels), (__m128)t[1]);
+		_mm_storeh_pi((__m64*)(d + 3*n_channels), (__m128)t[1]);
 		d += 4*n_channels;
 	}
 	for(; n < n_samples; n++) {
@@ -544,17 +544,12 @@ conv_f32d_to_s32_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 	int32_t *d = dst[0];
 	uint32_t i = 0, n_channels = conv->n_channels;
 
-	if ((n_channels & 0x3) == 0) {
-		for(; i + 3 < n_channels; i += 4)
-			conv_f32d_to_s32_4s_sse2(conv, &d[i], &src[i], n_channels, n_samples);
-	}
-	else if ((n_channels & 0x1) == 0) {
-		for(; i + 1 < n_channels; i += 2)
-			conv_f32d_to_s32_2s_sse2(conv, &d[i], &src[i], n_channels, n_samples);
-	} else {
-		for(; i < n_channels; i++)
-			conv_f32d_to_s32_1s_sse2(conv, &d[i], &src[i], n_channels, n_samples);
-	}
+	for(; i + 3 < n_channels; i += 4)
+		conv_f32d_to_s32_4s_sse2(conv, &d[i], &src[i], n_channels, n_samples);
+	for(; i + 1 < n_channels; i += 2)
+		conv_f32d_to_s32_2s_sse2(conv, &d[i], &src[i], n_channels, n_samples);
+	for(; i < n_channels; i++)
+		conv_f32d_to_s32_1s_sse2(conv, &d[i], &src[i], n_channels, n_samples);
 }
 
 /* 32 bit xorshift PRNG, see https://en.wikipedia.org/wiki/Xorshift */

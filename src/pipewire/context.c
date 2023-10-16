@@ -1473,9 +1473,7 @@ again:
 		}
 
 		current_quantum = n->target_quantum;
-		if (!restore_quantum &&
-		   (lock_quantum || need_resume || !running ||
-		    (!force_quantum && (n->info.state > PW_NODE_STATE_IDLE)))) {
+		if (!restore_quantum && (lock_quantum || need_resume || !running)) {
 			pw_log_debug("%p: keep quantum:%u restore:%u lock:%u resume:%u "
 					"running:%u force:%u state:%s", context,
 					current_quantum, restore_quantum, lock_quantum, need_resume,

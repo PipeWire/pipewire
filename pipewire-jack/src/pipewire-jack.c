@@ -537,7 +537,7 @@ static int
 do_mix_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 		const void *data, size_t size, void *user_data)
 {
-	struct io_info *info = user_data;
+	const struct io_info *info = data;
 	info->mix->io = info->data;
 	return 0;
 }
@@ -546,7 +546,7 @@ static inline void mix_set_io(struct mix *mix, void *data)
 {
 	struct io_info info = { .mix = mix, .data = data };
 	pw_data_loop_invoke(mix->port->client->loop,
-		do_mix_set_io, SPA_ID_INVALID, NULL, 0, true, &info);
+		do_mix_set_io, SPA_ID_INVALID, &info, sizeof(info), false, NULL);
 }
 
 static void init_mix(struct mix *mix, uint32_t mix_id, struct port *port, uint32_t peer_id)
@@ -2693,6 +2693,26 @@ static int client_node_port_use_buffers(void *data,
 	return res;
 }
 
+static int
+do_memmap_free(struct spa_loop *loop,
+                bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct pw_memmap *mm = user_data;
+	pw_log_trace("memmap %p free", mm);
+	pw_memmap_free(mm);
+	return 0;
+}
+
+static int
+do_queue_memmap_free(struct spa_loop *loop,
+                bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct client *c = user_data;
+	struct pw_memmap *mm = *((struct pw_memmap **)data);
+	pw_loop_invoke(c->context.l, do_memmap_free, 0, NULL, 0, false, mm);
+	return 0;
+}
+
 static int client_node_port_set_io(void *data,
                              enum spa_direction direction,
                              uint32_t port_id,
@@ -2742,6 +2762,12 @@ static int client_node_port_set_io(void *data,
 	switch (id) {
 	case SPA_IO_Buffers:
 		mix_set_io(mix, ptr);
+		if (old != NULL) {
+			old->tag[0] = SPA_ID_INVALID;
+			pw_data_loop_invoke(c->loop,
+				do_queue_memmap_free, SPA_ID_INVALID, &old, sizeof(&old), false, c);
+			old = NULL;
+		}
 		break;
 	default:
 		break;

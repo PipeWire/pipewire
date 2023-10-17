@@ -273,6 +273,8 @@ struct context {
 	struct pw_loop *l;
 	struct pw_thread_loop *loop;	/* thread_lock protects all below */
 	struct pw_context *context;
+	struct pw_loop *nl;
+	struct pw_thread_loop *notify;
 
 	struct spa_thread_utils *old_thread_utils;
 	struct spa_thread_utils thread_utils;
@@ -952,7 +954,7 @@ jack_get_version_string(void)
 #define check_callbacks(c)							\
 ({										\
 	if ((c)->frozen_callbacks == 0 && (c)->pending_callbacks)		\
-		pw_loop_signal_event((c)->context.l, (c)->notify_source);	\
+		pw_loop_signal_event((c)->context.nl, (c)->notify_source);	\
  })
 #define thaw_callbacks(c)							\
 ({										\
@@ -960,16 +962,18 @@ jack_get_version_string(void)
 	check_callbacks(c);							\
  })
 
-static void emit_callbacks(struct client *c)
+static void on_notify_event(void *data, uint64_t count)
 {
+	struct client *c = data;
 	struct object *o;
 	int32_t avail;
 	uint32_t index;
 	struct notify *notify;
 	bool do_graph = false, do_recompute_capture = false, do_recompute_playback = false;
 
+	pw_thread_loop_lock(c->context.loop);
 	if (c->frozen_callbacks != 0 || !c->pending_callbacks)
-		return;
+		goto done;
 
 	pw_log_debug("%p: enter active:%u", c, c->active);
 
@@ -1085,7 +1089,9 @@ static void emit_callbacks(struct client *c)
 		do_callback(c, graph_callback, c->active, c->graph_arg);
 
 	thaw_callbacks(c);
+done:
 	pw_log_debug("%p: leave", c);
+	pw_thread_loop_unlock(c->context.loop);
 }
 
 static int queue_notify(struct client *c, int type, struct object *o, int arg1, const char *msg)
@@ -1173,12 +1179,6 @@ static int queue_notify(struct client *c, int type, struct object *o, int arg1, 
 done:
 	pthread_mutex_unlock(&c->context.lock);
 	return res;
-}
-
-static void on_notify_event(void *data, uint64_t count)
-{
-	struct client *c = data;
-	emit_callbacks(c);
 }
 
 static void on_sync_reply(void *data, uint32_t id, int seq)
@@ -3603,7 +3603,6 @@ static void registry_event_global(void *data, uint32_t id,
 			queue_notify(c, NOTIFY_TYPE_CONNECT, o, 1, NULL);
 		break;
 	}
-	emit_callbacks(c);
 
       exit:
 	return;
@@ -3661,7 +3660,6 @@ static void registry_event_global_remove(void *data, uint32_t id)
 		}
 		break;
 	}
-	emit_callbacks(c);
 
 	return;
 }
@@ -3769,6 +3767,8 @@ jack_client_t * jack_client_open (const char *client_name,
 		goto no_props;
 
 	client->context.loop = pw_thread_loop_new(client->name, NULL);
+	if (client->context.loop == NULL)
+		goto no_props;
 	client->context.l = pw_thread_loop_get_loop(client->context.loop);
 	client->context.context = pw_context_new(
 			client->context.l,
@@ -3777,9 +3777,14 @@ jack_client_t * jack_client_open (const char *client_name,
 	if (client->context.context == NULL)
 		goto no_props;
 
+	client->context.notify = pw_thread_loop_new(client->name, NULL);
+	if (client->context.notify == NULL)
+		goto no_props;
+	client->context.nl = pw_thread_loop_get_loop(client->context.notify);
+
 	client->max_frames = client->context.context->settings.clock_quantum_limit;
 
-	client->notify_source = pw_loop_add_event(client->context.l,
+	client->notify_source = pw_loop_add_event(client->context.nl,
 			on_notify_event, client);
 	client->notify_buffer = calloc(1, NOTIFY_BUFFER_SIZE + sizeof(struct notify));
 	spa_ringbuffer_init(&client->notify_ring);
@@ -3969,6 +3974,8 @@ jack_client_t * jack_client_open (const char *client_name,
 	}
 	pw_thread_loop_unlock(client->context.loop);
 
+	pw_thread_loop_start(client->context.notify);
+
 	pw_log_info("%p: opened", client);
 	return (jack_client_t *)client;
 
@@ -4026,9 +4033,13 @@ int jack_client_close (jack_client_t *client)
 	clean_transport(c);
 
 	if (c->context.loop) {
-		queue_notify(c, NOTIFY_TYPE_REGISTRATION, c->object, 0, NULL);
 		pw_loop_invoke(c->context.l, NULL, 0, NULL, 0, false, c);
 		pw_thread_loop_stop(c->context.loop);
+	}
+	if (c->context.notify) {
+		queue_notify(c, NOTIFY_TYPE_REGISTRATION, c->object, 0, NULL);
+		pw_loop_invoke(c->context.nl, NULL, 0, NULL, 0, false, c);
+		pw_thread_loop_stop(c->context.notify);
 	}
 
 	if (c->registry) {
@@ -4053,11 +4064,13 @@ int jack_client_close (jack_client_t *client)
 		pw_context_destroy(c->context.context);
 
 	if (c->notify_source)
-		pw_loop_destroy_source(c->context.l, c->notify_source);
+		pw_loop_destroy_source(c->context.nl, c->notify_source);
 	free(c->notify_buffer);
 
 	if (c->context.loop)
 		pw_thread_loop_destroy(c->context.loop);
+	if (c->context.notify)
+		pw_thread_loop_destroy(c->context.notify);
 
 	pw_log_debug("%p: free", client);
 

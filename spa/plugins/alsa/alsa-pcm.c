@@ -2132,10 +2132,12 @@ recover:
 
 static inline snd_pcm_sframes_t alsa_avail(struct state *state)
 {
-	if (state->disable_tsched)
-		return snd_pcm_avail_update(state->hndl);
+	snd_pcm_sframes_t avail;
+	if (state->disable_tsched && !state->resample)
+		avail = snd_pcm_avail_update(state->hndl);
 	else
-		return snd_pcm_avail(state->hndl);
+		avail = snd_pcm_avail(state->hndl);
+	return avail;
 }
 
 static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes_t *delay)

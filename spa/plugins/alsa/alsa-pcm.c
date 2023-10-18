@@ -1480,6 +1480,33 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 	return res;
 }
 
+static void recalc_headroom(struct state *state)
+{
+	uint32_t latency;
+
+	state->headroom = state->default_headroom;
+	if (!state->disable_tsched || state->resample) {
+		/* When using timers, we might miss the pointer update for batch
+		 * devices so add some extra headroom. With IRQ, we know the pointers
+		 * are updated when we wake up and we don't need the headroom. */
+		if (state->is_batch)
+			state->headroom += state->period_frames;
+		/* Add 32 extra samples of headroom to handle jitter in capture.
+		 * For IRQ, we don't need this because when we wake up, we have
+		 * exactly enough samples to read or write. */
+		if (state->stream == SND_PCM_STREAM_CAPTURE)
+			state->headroom = SPA_MAX(state->headroom, 32u);
+	}
+	state->headroom = SPA_MIN(state->headroom, state->buffer_frames);
+
+	latency = SPA_MAX(state->min_delay, SPA_MIN(state->max_delay, state->headroom));
+	if (state->position != NULL && state->rate != 0)
+		latency = SPA_SCALE32_UP(latency, state->position->clock.target_rate.denom, state->rate);
+
+	state->latency[state->port_direction].min_rate =
+		state->latency[state->port_direction].max_rate = latency;
+}
+
 int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_t flags)
 {
 	unsigned int rrate, rchannels, val, rscale = 1;
@@ -1490,9 +1517,9 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	snd_pcm_access_mask_t *amask;
 	snd_pcm_t *hndl;
 	unsigned int periods;
-	bool match = true, planar = false, is_batch;
+	bool match = true, planar = false;
 	char spdif_params[128] = "";
-	uint32_t default_period, latency;
+	uint32_t default_period;
 
 	spa_log_debug(state->log, "opened:%d format:%d started:%d", state->opened,
 			state->have_format, state->started);
@@ -1721,20 +1748,20 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 
 	dir = 0;
 	period_size = state->default_period_size;
-	is_batch = snd_pcm_hw_params_is_batch(params) && !state->disable_batch;
+	state->is_batch = snd_pcm_hw_params_is_batch(params) && !state->disable_batch;
 
 	default_period = SPA_SCALE32_UP(DEFAULT_PERIOD, state->rate, DEFAULT_RATE);
 	default_period = flp2(2 * default_period - 1);
 
 	/* no period size specified. If we are batch or not using timers,
 	 * use the graph duration as the period */
-	if (period_size == 0 && (is_batch || state->disable_tsched))
+	if (period_size == 0 && (state->is_batch || state->disable_tsched))
 		period_size = state->position ? state->position->clock.target_duration : default_period;
 	if (period_size == 0)
 		period_size = default_period;
 
-	if (!state->disable_tsched) {
-		if (is_batch) {
+	if (!state->disable_tsched || state->resample) {
+		if (state->is_batch) {
 			/* batch devices get their hw pointers updated every period. Make
 			 * the period smaller and add one period of headroom. Limit the
 			 * period size to our default so that we don't create too much
@@ -1774,20 +1801,6 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		return -EIO;
 	}
 
-	state->headroom = state->default_headroom;
-	if (!state->disable_tsched) {
-		/* When using timers, we might miss the pointer update for batch
-		 * devices so add some extra headroom. With IRQ, we know the pointers
-		 * are updated when we wake up and we don't need the headroom. */
-		if (is_batch)
-			state->headroom += period_size;
-		/* Add 32 extra samples of headroom to handle jitter in capture.
-		 * For IRQ, we don't need this because when we wake up, we have
-		 * exactly enough samples to read or write. */
-		if (state->stream == SND_PCM_STREAM_CAPTURE)
-			state->headroom = SPA_MAX(state->headroom, 32u);
-	}
-
 	state->max_delay = state->buffer_frames / 2;
 	if (spa_strstartswith(state->props.device, "a52") ||
 	    spa_strstartswith(state->props.device, "dca"))
@@ -1795,15 +1808,9 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	else
 		state->min_delay = 0;
 
-	state->headroom = SPA_MIN(state->headroom, state->buffer_frames);
 	state->start_delay = state->default_start_delay;
 
-	latency = SPA_MAX(state->min_delay, SPA_MIN(state->max_delay, state->headroom));
-	if (state->position != NULL)
-		latency = SPA_SCALE32_UP(latency, state->position->clock.target_rate.denom, state->rate);
-
-	state->latency[state->port_direction].min_rate =
-		state->latency[state->port_direction].max_rate = latency;
+	recalc_headroom(state);
 
 	spa_log_info(state->log, "%s: format:%s access:%s-%s rate:%d channels:%d "
 			"buffer frames %lu, period frames %lu, periods %u, frame_size %zd "
@@ -1813,7 +1820,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 			planar ? "planar" : "interleaved",
 			state->rate, state->channels, state->buffer_frames, state->period_frames,
 			periods, state->frame_size, state->headroom, state->start_delay,
-			is_batch, !state->disable_tsched);
+			state->is_batch, !state->disable_tsched);
 
 	/* write the parameters to device */
 	CHECK(snd_pcm_hw_params(hndl, params), "set_hw_params");
@@ -2339,6 +2346,7 @@ static int setup_matching(struct state *state)
 		state->matching = false;
 
 	state->resample = !state->pitch_elem && (((uint32_t)state->rate != state->driver_rate.denom) || state->matching);
+	recalc_headroom(state);
 
 	spa_log_info(state->log, "driver clock:'%s'@%d our clock:'%s'@%d matching:%d resample:%d",
 			state->position->clock.name, state->driver_rate.denom,

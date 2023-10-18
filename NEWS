@@ -1,3 +1,60 @@
+# PipeWire 0.3.83 (2023-10-19)
+
+This is the third 1.0 release candidate that is API and ABI compatible
+with previous 0.3.x releases.
+
+## Highlights
+  - A quantum change regression was fixed.
+  - Use a 2 socket server now for the manager and the applications
+    with (when wireplumber is updated) different permissions.
+  - Reduce memory usage a little in audioconvert and use fewer buffers.
+  - Some JACK deadlocks were fixed.
+  - More bugfixes and improvements.
+
+
+## PipeWire
+  - Fix quantum change regression. (#3574)
+  - Use a 2 socket server by default. One for the session-manager and one
+    for applications.
+  - Fix a potential use-after-free in node and device cleanup. (#3588)
+
+## modules
+  - Some hardcoded buffer size limits were removed.
+  - Fix ASYNC flag on combined-streams.
+  - Add support for on-demand combined-streams using metadata.
+
+## SPA
+  - alsa-udev will now ignore PCMs with the ACP_IGNORE udev environment
+    variable. (#3570)
+  - The audioadapter now uses at least 2 buffers when the follower is
+    async.
+  - The number of buffers used by plugins was tweaked a little. Most
+    plugins now only ask 1 buffer.
+  - Memory usage in audioconvert was reduced.
+  - Fix some unaligned reads and writes and undefined left shifts reported
+    by ASAN. (#3572)
+  - Rework vulkan dependency checking.
+  - Don't try to link ALSA devices when prepare fails. This fixes some
+    crashes.
+  - Fix a stall when the allowed codecs are changed in ALSA.
+  - Improve ALSA rate control for sources to avoid xruns. (#3584)
+  - Try to fix IEC958 TrueHD and DTS playback. (#2284)
+
+## Bluetooth
+  - Improve fallback SCO mtu when the kernel doesn't tell us.
+
+## JACK
+  - The fixed buffer size limit was removed.
+  - Add an option to make input buffers writable (default true).
+  - A potential deadlock was fixed when applications lock the process
+    function. (#3585)
+  - Use a separate thread to dispatch notifications to avoid deadlocks.
+    (#3585)
+  - Potentially fix silent export in ardour in some cases. (#3514)
+
+Older versions:
+
+
 # PipeWire 0.3.82 (2023-10-13)
 
 This is the second 1.0 release candidate that is API and ABI compatible
@@ -59,9 +116,6 @@ with previous 0.3.x releases.
 
 ## ALSA-plugins
   - Add also.deny option to block alsa clients from opening the PCM.
-
-Older versions:
-
 
 # PipeWire 0.3.81 (2023-10-06)
 

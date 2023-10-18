@@ -1483,6 +1483,10 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 static void recalc_headroom(struct state *state)
 {
 	uint32_t latency;
+	uint32_t rate = 0;
+
+	if (state->position != NULL)
+		rate = state->position->clock.target_rate.denom;
 
 	state->headroom = state->default_headroom;
 	if (!state->disable_tsched || state->resample) {
@@ -1500,8 +1504,8 @@ static void recalc_headroom(struct state *state)
 	state->headroom = SPA_MIN(state->headroom, state->buffer_frames);
 
 	latency = SPA_MAX(state->min_delay, SPA_MIN(state->max_delay, state->headroom));
-	if (state->position != NULL && state->rate != 0)
-		latency = SPA_SCALE32_UP(latency, state->position->clock.target_rate.denom, state->rate);
+	if (rate != 0 && state->rate != 0)
+		latency = SPA_SCALE32_UP(latency, rate, state->rate);
 
 	state->latency[state->port_direction].min_rate =
 		state->latency[state->port_direction].max_rate = latency;
@@ -2744,8 +2748,6 @@ static int alsa_read_frames(struct state *state)
 			alsa_recover(state, res);
 			return res;
 		}
-		if (avail < frames)
-			frames = avail;
 		spa_log_trace_fp(state->log, "%p: begin offs:%ld frames:%ld avail:%ld thres:%d", state,
 				offset, frames, avail, state->threshold);
 	} else {

@@ -520,7 +520,7 @@ error_resource:
 	return -errno;
 }
 
-static void global_destroy(void *data)
+static void global_free(void *data)
 {
 	struct pw_impl_device *device = data;
 	spa_hook_remove(&device->global_listener);
@@ -530,7 +530,7 @@ static void global_destroy(void *data)
 
 static const struct pw_global_events global_events = {
 	PW_VERSION_GLOBAL_EVENTS,
-	.destroy = global_destroy,
+	.free = global_free,
 };
 
 SPA_EXPORT

@@ -669,7 +669,7 @@ error_resource:
 	return -errno;
 }
 
-static void global_destroy(void *data)
+static void global_free(void *data)
 {
 	struct pw_impl_node *this = data;
 	spa_hook_remove(&this->global_listener);
@@ -679,7 +679,7 @@ static void global_destroy(void *data)
 
 static const struct pw_global_events global_events = {
 	PW_VERSION_GLOBAL_EVENTS,
-	.destroy = global_destroy,
+	.free = global_free,
 };
 
 static inline void insert_driver(struct pw_context *context, struct pw_impl_node *node)

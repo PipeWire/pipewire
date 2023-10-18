@@ -2728,7 +2728,7 @@ static int alsa_read_sync(struct state *state, uint64_t current_time)
 static int alsa_read_frames(struct state *state)
 {
 	snd_pcm_t *hndl = state->hndl;
-	snd_pcm_uframes_t total_read = 0, to_read;
+	snd_pcm_uframes_t total_read = 0, avail;
 	const snd_pcm_channel_area_t *my_areas;
 	snd_pcm_uframes_t read, frames, offset;
 	snd_pcm_sframes_t commitres;
@@ -2737,15 +2737,17 @@ static int alsa_read_frames(struct state *state)
 	frames = state->max_read;
 
 	if (state->use_mmap) {
-		to_read = state->buffer_frames;
-		if ((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &to_read)) < 0) {
+		avail = state->buffer_frames;
+		if ((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &avail)) < 0) {
 			spa_log_error(state->log, "%s: snd_pcm_mmap_begin error: %s",
 					state->name, snd_strerror(res));
 			alsa_recover(state, res);
 			return res;
 		}
-		spa_log_trace_fp(state->log, "%p: begin offs:%ld frames:%ld to_read:%ld thres:%d", state,
-				offset, frames, to_read, state->threshold);
+		if (avail < frames)
+			frames = avail;
+		spa_log_trace_fp(state->log, "%p: begin offs:%ld frames:%ld avail:%ld thres:%d", state,
+				offset, frames, avail, state->threshold);
 	} else {
 		my_areas = NULL;
 		offset = 0;
@@ -2772,7 +2774,7 @@ static int alsa_read_frames(struct state *state)
 				lev = SPA_LOG_LEVEL_INFO;
 
 			spa_log_lev(state->log, lev, "%s: snd_pcm_mmap_commit error %lu %lu %lu: %s",
-					state->name, frames, to_read, read, snd_strerror(commitres));
+					state->name, frames, avail, read, snd_strerror(commitres));
 			if (commitres != -EPIPE && commitres != -ESTRPIPE)
 				return res;
 		}

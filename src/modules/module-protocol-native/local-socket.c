@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <limits.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -20,6 +21,7 @@
 #endif
 
 #include <pipewire/pipewire.h>
+#include <spa/utils/json.h>
 
 #define DEFAULT_SYSTEM_RUNTIME_DIR "/run/pipewire"
 
@@ -119,31 +121,56 @@ error:
 	return res;
 }
 
-int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
-					    const struct spa_dict *props,
-					    void (*done_callback) (void *data, int res),
-					    void *data)
+static int try_connect_name(struct pw_protocol_client *client,
+		const char *name,
+		void (*done_callback) (void *data, int res),
+		void *data)
 {
-	const char *runtime_dir, *name;
+	const char *runtime_dir;
 	int res;
 
-	name = get_remote(props);
-	if (name == NULL)
-		return -EINVAL;
-
 	if (name[0] == '/') {
-		res = try_connect(client, NULL, name, done_callback, data);
+		return try_connect(client, NULL, name, done_callback, data);
 	} else {
 		runtime_dir = get_runtime_dir();
 		if (runtime_dir != NULL) {
 			res = try_connect(client, runtime_dir, name, done_callback, data);
 			if (res >= 0)
-				goto exit;
+				return res;
 		}
 		runtime_dir = get_system_dir();
 		if (runtime_dir != NULL)
-			res = try_connect(client, runtime_dir, name, done_callback, data);
+			return try_connect(client, runtime_dir, name, done_callback, data);
 	}
-exit:
+
+	return -EINVAL;
+}
+
+int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
+					    const struct spa_dict *props,
+					    void (*done_callback) (void *data, int res),
+					    void *data)
+{
+	const char *name;
+	struct spa_json it[2];
+	char path[PATH_MAX];
+	int res = -EINVAL;
+
+	name = get_remote(props);
+	if (name == NULL)
+		return -EINVAL;
+
+	spa_json_init(&it[0], name, strlen(name));
+
+	if (spa_json_enter_array(&it[0], &it[1]) < 0)
+		return try_connect_name(client, name, done_callback, data);
+
+	while (spa_json_get_string(&it[1], path, sizeof(path)) > 0) {
+		res = try_connect_name(client, path, done_callback, data);
+		if (res < 0)
+			continue;
+		break;
+	}
+
 	return res;
 }

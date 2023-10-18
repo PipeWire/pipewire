@@ -90,7 +90,9 @@ extern "C" {
 /* remote keys */
 #define PW_KEY_REMOTE_NAME		"remote.name"		/**< The name of the remote to connect to,
 								  *  default pipewire-0, overwritten by
-								  *  env(PIPEWIRE_REMOTE) */
+								  *  env(PIPEWIRE_REMOTE). May also be
+								  *  a SPA-JSON array of sockets, to be tried
+								  *  in order. */
 #define PW_KEY_REMOTE_INTENTION		"remote.intention"	/**< The intention of the remote connection,
 								  *  "generic", "screencast" */
 

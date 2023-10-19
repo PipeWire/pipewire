@@ -1529,6 +1529,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 			state->have_format, state->started);
 
 	state->use_mmap = !state->disable_mmap;
+	state->force_position = false;
 
 	switch (fmt->media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
@@ -1591,6 +1592,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 				IEC958_AES0_CON_EMPHASIS_NONE | IEC958_AES0_NONAUDIO,
 				IEC958_AES1_CON_ORIGINAL | IEC958_AES1_CON_PCM_CODER,
 				0, aes3);
+		state->force_position = true;
 		break;
 	}
 	case SPA_MEDIA_SUBTYPE_dsd:
@@ -2378,7 +2380,8 @@ static inline int check_position_config(struct state *state)
 	if (SPA_UNLIKELY((pos = state->position) == NULL))
 		return 0;
 
-	if (state->disable_tsched && state->started && !state->following) {
+	if (state->force_position ||
+	    (state->disable_tsched && state->started && !state->following)) {
 		target_duration = state->period_frames;
 		target_rate = SPA_FRACTION(1, state->rate);
 		pos->clock.target_duration = target_duration;

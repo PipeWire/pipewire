@@ -98,7 +98,7 @@ common_flags = [
 
 cc_flags = common_flags + [
   '-D_GNU_SOURCE',
-  '-DFASTPATH',
+  #  '-DFASTPATH',
 # '-DSPA_DEBUG_MEMCPY',
   '-Werror=implicit-function-declaration',
   '-Werror=int-conversion',

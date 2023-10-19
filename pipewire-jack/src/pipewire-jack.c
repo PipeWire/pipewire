@@ -1519,13 +1519,17 @@ static inline void process_empty(struct port *p, uint32_t frames)
 static void prepare_output(struct port *p, uint32_t frames)
 {
 	struct mix *mix;
+	struct spa_io_buffers *io;
 
 	if (SPA_UNLIKELY(p->empty_out || p->tied))
 		process_empty(p, frames);
 
+	if (p->global_mix == NULL || (io = p->global_mix->io) == NULL)
+		return;
+
 	spa_list_for_each(mix, &p->mix, port_link) {
 		if (SPA_LIKELY(mix->io != NULL))
-			*mix->io = p->io;
+			*mix->io = *io;
 	}
 }
 
@@ -5045,6 +5049,19 @@ static struct buffer *get_mix_buffer(struct mix *mix, jack_nframes_t frames)
 	return &mix->buffers[io->buffer_id];
 }
 
+static inline void *get_buffer_data(struct buffer *b, jack_nframes_t frames)
+{
+	struct spa_data *d;
+	uint32_t offset, size;
+
+	d = &b->datas[0];
+	offset = SPA_MIN(d->chunk->offset, d->maxsize);
+	size = SPA_MIN(d->chunk->size, d->maxsize - offset);
+	if (size / sizeof(float) < frames)
+		return NULL;
+	return SPA_PTROFF(d->data, offset, void);
+}
+
 static void *get_buffer_input_float(struct port *p, jack_nframes_t frames)
 {
 	struct mix *mix;
@@ -5055,8 +5072,8 @@ static void *get_buffer_input_float(struct port *p, jack_nframes_t frames)
 	bool ptr_aligned = true;
 
 	spa_list_for_each(mix, &p->mix, port_link) {
-		struct spa_data *d;
-		uint32_t offset, size;
+		if (mix->id == SPA_ID_INVALID)
+			continue;
 
 		pw_log_trace_fp("%p: port %s mix %d.%d get buffer %d",
 				p->client, p->object->port.name, p->port_id, mix->id, frames);
@@ -5064,13 +5081,9 @@ static void *get_buffer_input_float(struct port *p, jack_nframes_t frames)
 		if ((b = get_mix_buffer(mix, frames)) == NULL)
 			continue;
 
-		d = &b->datas[0];
-		offset = SPA_MIN(d->chunk->offset, d->maxsize);
-		size = SPA_MIN(d->chunk->size, d->maxsize - offset);
-		if (size / sizeof(float) < frames)
+		if ((np = get_buffer_data(b, frames)) == NULL)
 			continue;
 
-		np = SPA_PTROFF(d->data, offset, float);
 		if (!SPA_IS_ALIGNED(np, 16))
 			ptr_aligned = false;
 
@@ -5103,6 +5116,9 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 		struct spa_data *d;
 		struct buffer *b;
 		void *pod;
+
+		if (mix->id == SPA_ID_INVALID)
+			continue;
 
 		pw_log_trace_fp("%p: port %p mix %d.%d get buffer %d",
 				p->client, p, p->port_id, mix->id, frames);
@@ -5168,8 +5184,6 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	if ((p = o->port.port) == NULL) {
 		struct mix *mix;
 		struct buffer *b;
-		struct spa_data *d;
-		uint32_t offset, size;
 
 		if ((mix = find_mix_peer(o->client, o->id)) == NULL)
 			return NULL;
@@ -5179,13 +5193,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 		if ((b = get_mix_buffer(mix, frames)) == NULL)
 			return NULL;
 
-		d = &b->datas[0];
-		offset = SPA_MIN(d->chunk->offset, d->maxsize);
-		size = SPA_MIN(d->chunk->size, d->maxsize - offset);
-		if (size / sizeof(float) < frames)
-			return NULL;
-
-		return SPA_PTROFF(d->data, offset, void);
+		return get_buffer_data(b, frames);
 	}
 	if (!p->valid)
 		return NULL;

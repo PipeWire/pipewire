@@ -836,7 +836,8 @@ int main(int argc, char *argv[])
 
 	data.core = pw_context_connect(data.context,
 			pw_properties_new(
-				PW_KEY_REMOTE_NAME, opt_remote,
+				PW_KEY_REMOTE_NAME, opt_remote ? opt_remote :
+					("[" PW_DEFAULT_REMOTE "-manager," PW_DEFAULT_REMOTE "]"),
 				NULL),
 			0);
 	if (data.core == NULL) {

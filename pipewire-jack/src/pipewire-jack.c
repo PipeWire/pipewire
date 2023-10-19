@@ -1519,19 +1519,15 @@ static inline void process_empty(struct port *p, uint32_t frames)
 static void prepare_output(struct port *p, uint32_t frames)
 {
 	struct mix *mix;
-	struct spa_io_buffers *io;
 
 	if (SPA_UNLIKELY(p->empty_out || p->tied))
 		process_empty(p, frames);
 
-	if (p->global_mix == NULL || (io = p->global_mix->io) == NULL)
-		return;
-
 	spa_list_for_each(mix, &p->mix, port_link) {
 		if (SPA_LIKELY(mix->io != NULL))
-			*mix->io = *io;
+			*mix->io = p->io;
 	}
-	io->status = SPA_STATUS_NEED_DATA;
+	p->io.status = SPA_STATUS_NEED_DATA;
 }
 
 static void complete_process(struct client *c, uint32_t frames)

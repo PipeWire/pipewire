@@ -1527,7 +1527,6 @@ static void prepare_output(struct port *p, uint32_t frames)
 		if (SPA_LIKELY(mix->io != NULL))
 			*mix->io = p->io;
 	}
-	p->io.status = SPA_STATUS_NEED_DATA;
 }
 
 static void complete_process(struct client *c, uint32_t frames)
@@ -1543,6 +1542,7 @@ static void complete_process(struct client *c, uint32_t frames)
 		if (!p->valid)
 			continue;
 		prepare_output(p, frames);
+		p->io.status = SPA_STATUS_NEED_DATA;
 	}
 	pw_array_for_each(item, &c->ports[SPA_DIRECTION_INPUT].items) {
                 if (pw_map_item_is_free(item))

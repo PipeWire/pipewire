@@ -1243,17 +1243,13 @@ static void linear_run(void * Instance, unsigned long SampleCount)
 	float *in = impl->port[1], *out = impl->port[0];
 	float *ctrl = impl->port[3], *notify = impl->port[2];
 
-	fprintf(stderr, "%f %f %f %f\n", ctrl[0], notify[0], mult, add);
-
 	if (in != NULL && out != NULL) {
 		unsigned long n;
 		for (n = 0; n < SampleCount; n++)
 			out[n] = SPA_CLAMPF(in[n] * mult + add, min, max);
 	}
-	if (ctrl != NULL && notify != NULL) {
-		fprintf(stderr, "%f %f %f %f\n", ctrl[0], notify[0], mult, add);
+	if (ctrl != NULL && notify != NULL)
 		notify[0] = SPA_CLAMPF(ctrl[0] * mult + add, min, max);
-	}
 }
 
 static struct fc_port linear_ports[] = {

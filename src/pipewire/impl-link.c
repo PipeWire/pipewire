@@ -149,7 +149,7 @@ static inline void input_set_busy_id(struct pw_impl_link *link, uint32_t id)
 		link->input->busy_count++;
 	impl->input_busy_id = id;
 	if (link->input->busy_count < 0)
-		pw_log_error("%p: invalid busy count:%d", link->input->busy_count);
+		pw_log_error("%s: invalid busy count:%d", link->name, link->input->busy_count);
 }
 
 static inline void output_set_busy_id(struct pw_impl_link *link, uint32_t id)
@@ -161,7 +161,7 @@ static inline void output_set_busy_id(struct pw_impl_link *link, uint32_t id)
 		link->output->busy_count++;
 	impl->output_busy_id = id;
 	if (link->output->busy_count < 0)
-		pw_log_error("%p: invalid busy count:%d", link->output->busy_count);
+		pw_log_error("%s: invalid busy count:%d", link->name, link->output->busy_count);
 }
 
 static void link_update_state(struct pw_impl_link *link, enum pw_link_state state, int res, char *error)

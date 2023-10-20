@@ -178,7 +178,7 @@ context.modules = [
         condition = [ { module.x11.bell = true } ]
     }
     { name = libpipewire-module-jackdbus-detect
-        args {
+        args = {
             #jack.library     = libjack.so.0
             #jack.server      = null
             #jack.client-name = PipeWire

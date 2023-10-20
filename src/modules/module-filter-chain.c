@@ -2591,6 +2591,10 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 			spa_list_for_each(link, &node->output_port[i].link_list, output_link)
 				link->input->node->n_deps--;
 		}
+		for (i = 0; i < desc->n_notify; i++) {
+			spa_list_for_each(link, &node->notify_port[i].link_list, output_link)
+				link->input->node->n_deps--;
+		}
 
 		/* collect all control ports on the graph */
 		for (i = 0; i < desc->n_control; i++) {

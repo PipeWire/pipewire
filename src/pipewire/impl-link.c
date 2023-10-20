@@ -218,14 +218,17 @@ static void complete_ready(void *obj, void *data, int res, uint32_t id)
 	else
 		port = this->output;
 
-	if (id == impl->input_busy_id) {
-		impl->input_busy_id = SPA_ID_INVALID;
-		port->busy_count--;
-	} else if (id == impl->output_busy_id) {
-		impl->output_busy_id = SPA_ID_INVALID;
-		port->busy_count--;
-	} else if (id != SPA_ID_INVALID)
-		return;
+	if (id != SPA_ID_INVALID) {
+		if (id == impl->input_busy_id) {
+			impl->input_busy_id = SPA_ID_INVALID;
+			port->busy_count--;
+		} else if (id == impl->output_busy_id) {
+			impl->output_busy_id = SPA_ID_INVALID;
+			port->busy_count--;
+		} else {
+			return;
+		}
+	}
 
 	pw_log_debug("%p: obj:%p port %p complete state:%d: %s", this, obj, port,
 			port->state, spa_strerror(res));
@@ -258,14 +261,17 @@ static void complete_paused(void *obj, void *data, int res, uint32_t id)
 		mix = &this->rt.out_mix;
 	}
 
-	if (id == impl->input_busy_id) {
-		impl->input_busy_id = SPA_ID_INVALID;
-		port->busy_count--;
-	} else if (id == impl->output_busy_id) {
-		impl->output_busy_id = SPA_ID_INVALID;
-		port->busy_count--;
-	} else if (id != SPA_ID_INVALID)
-		return;
+	if (id != SPA_ID_INVALID) {
+		if (id == impl->input_busy_id) {
+			impl->input_busy_id = SPA_ID_INVALID;
+			port->busy_count--;
+		} else if (id == impl->output_busy_id) {
+			impl->output_busy_id = SPA_ID_INVALID;
+			port->busy_count--;
+		} else {
+			return;
+		}
+	}
 
 	pw_log_debug("%p: obj:%p port %p complete state:%d: %s", this, obj, port,
 			port->state, spa_strerror(res));
@@ -430,10 +436,11 @@ static int do_negotiate(struct pw_impl_link *this)
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res)) {
-			output->busy_count++;
 			res = spa_node_sync(output->node->node, res);
 			impl->output_busy_id = pw_work_queue_add(impl->work, &this->output_link, res,
 					complete_ready, this);
+			if (impl->output_busy_id != SPA_ID_INVALID)
+				output->busy_count++;
 		} else {
 			complete_ready(&this->output_link, this, res, SPA_ID_INVALID);
 		}
@@ -449,10 +456,11 @@ static int do_negotiate(struct pw_impl_link *this)
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res2)) {
-			input->busy_count++;
 			res2 = spa_node_sync(input->node->node, res2);
 			impl->input_busy_id = pw_work_queue_add(impl->work, &this->input_link, res2,
 					complete_ready, this);
+			if (impl->input_busy_id != SPA_ID_INVALID)
+				input->busy_count++;
 			if (res == 0)
 				res = res2;
 		} else {
@@ -597,10 +605,11 @@ static int do_allocation(struct pw_impl_link *this)
 			goto error_clear;
 		}
 		if (SPA_RESULT_IS_ASYNC(res)) {
-			output->busy_count++;
 			res = spa_node_sync(output->node->node, res);
 			impl->output_busy_id = pw_work_queue_add(impl->work, &this->output_link, res,
 					complete_paused, this);
+			if (impl->output_busy_id != SPA_ID_INVALID)
+				output->busy_count++;
 			if (flags & SPA_NODE_BUFFERS_FLAG_ALLOC)
 				return 0;
 		} else {
@@ -620,10 +629,11 @@ static int do_allocation(struct pw_impl_link *this)
 	}
 
 	if (SPA_RESULT_IS_ASYNC(res)) {
-		input->busy_count++;
 		res = spa_node_sync(input->node->node, res);
 		impl->input_busy_id = pw_work_queue_add(impl->work, &this->input_link, res,
 				complete_paused, this);
+		if (impl->input_busy_id != SPA_ID_INVALID)
+			input->busy_count++;
 	} else {
 		complete_paused(&this->input_link, this, res, SPA_ID_INVALID);
 	}

@@ -203,8 +203,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * - `bq_notch` a notch filter.
  * - `bq_allpass` an allpass filter.
  * - `bq_raw` a raw biquad filter. You need a config section to specify coefficients
- *   		per sample rate. The coefficients of the sample rate closest to the
- *   		graph rate are selected:
+ *		per sample rate. The coefficients of the sample rate closest to the
+ *		graph rate are selected:
  *
  *\code{.unparsed}
  * filter.graph = {
@@ -320,6 +320,19 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *
  * It has an input port "In" and an output port "Out".
  *
+ * ### Linear
+ *
+ * The linear plugin can be used to apply a linear transformation on samples
+ * or control values.
+ *
+ * It has an input port "In" and an output port "Out". It also has a "Control"
+ * and "Notify" port for the control values.
+ *
+ * The control value "Mult" and "Add" are used to configure the linear transform. Each
+ * sample or control value will be calculated as: new = old * Mult + Add.
+ *
+ * The final result can be clamped to the "Min" and "Max" control values.
+ *
  * ## SOFA filter
  *
  * There is an optional builtin SOFA filter available.
@@ -391,7 +404,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * - \ref PW_KEY_NODE_LINK_GROUP
  * - \ref PW_KEY_NODE_VIRTUAL
  * - \ref PW_KEY_NODE_NAME: See notes below. If not specified, defaults to
- *   	'filter-chain-<pid>-<module-id>'.
+ *	'filter-chain-<pid>-<module-id>'.
  *
  * Stream only properties:
  *

@@ -1234,6 +1234,80 @@ static const struct fc_descriptor invert_desc = {
 	.cleanup = builtin_cleanup,
 };
 
+/* linear */
+static void linear_run(void * Instance, unsigned long SampleCount)
+{
+	struct builtin *impl = Instance;
+	float mult = impl->port[4][0], add = impl->port[5][0];
+	float min = impl->port[6][0], max = impl->port[7][0];
+	float *in = impl->port[1], *out = impl->port[0];
+	float *ctrl = impl->port[3], *notify = impl->port[2];
+
+	fprintf(stderr, "%f %f %f %f\n", ctrl[0], notify[0], mult, add);
+
+	if (in != NULL && out != NULL) {
+		unsigned long n;
+		for (n = 0; n < SampleCount; n++)
+			out[n] = SPA_CLAMPF(in[n] * mult + add, min, max);
+	}
+	if (ctrl != NULL && notify != NULL) {
+		fprintf(stderr, "%f %f %f %f\n", ctrl[0], notify[0], mult, add);
+		notify[0] = SPA_CLAMPF(ctrl[0] * mult + add, min, max);
+	}
+}
+
+static struct fc_port linear_ports[] = {
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "In",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 2,
+	  .name = "Notify",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_CONTROL,
+	},
+	{ .index = 3,
+	  .name = "Control",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	},
+	{ .index = 4,
+	  .name = "Mult",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 1.0f, .min = -10.0f, .max = 10.0f
+	},
+	{ .index = 5,
+	  .name = "Add",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 0.0f, .min = -10.0f, .max = 10.0f
+	},
+	{ .index = 6,
+	  .name = "Min",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 0.0f, .min = -100.0f, .max = 100.0f
+	},
+	{ .index = 7,
+	  .name = "Max",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 1.0f, .min = -100.0f, .max = 100.0f
+	},
+};
+
+static const struct fc_descriptor linear_desc = {
+	.name = "linear",
+	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = 8,
+	.ports = linear_ports,
+
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = linear_run,
+	.cleanup = builtin_cleanup,
+};
+
 static const struct fc_descriptor * builtin_descriptor(unsigned long Index)
 {
 	switch(Index) {
@@ -1265,6 +1339,8 @@ static const struct fc_descriptor * builtin_descriptor(unsigned long Index)
 		return &invert_desc;
 	case 13:
 		return &bq_raw_desc;
+	case 14:
+		return &linear_desc;
 	}
 	return NULL;
 }

@@ -1002,7 +1002,8 @@ static int setup_streams(struct impl *impl)
 			PW_DIRECTION_OUTPUT,
 			PW_ID_ANY,
 			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS,
+			PW_STREAM_FLAG_RT_PROCESS |
+			PW_STREAM_FLAG_ASYNC,
 			params, n_params)) < 0) {
 		spa_pod_dynamic_builder_clean(&b);
 		return res;
@@ -1036,7 +1037,8 @@ static int setup_streams(struct impl *impl)
 			PW_ID_ANY,
 			PW_STREAM_FLAG_AUTOCONNECT |
 			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS,
+			PW_STREAM_FLAG_RT_PROCESS |
+			PW_STREAM_FLAG_ASYNC,
 			params, n_params)) < 0) {
 		spa_pod_dynamic_builder_clean(&b);
 		return res;

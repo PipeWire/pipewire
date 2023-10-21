@@ -267,7 +267,7 @@ static void remove_object(struct impl *impl, struct object *obj)
 	spa_list_remove(&obj->link);
 	spa_hook_remove(&obj->listener);
 	pw_proxy_destroy(obj->proxy);
-	free(obj->handle);
+	pw_unload_spa_handle(obj->handle);
 	free(obj);
 }
 

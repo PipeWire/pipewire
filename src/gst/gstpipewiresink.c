@@ -576,9 +576,10 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     goto start_error;
 
   if (state == PW_STREAM_STATE_UNCONNECTED) {
-    enum pw_stream_flags flags = 0;
+    enum pw_stream_flags flags;
     uint32_t target_id;
 
+    flags = PW_STREAM_FLAG_ASYNC;
     if (pwsink->mode != GST_PIPEWIRE_SINK_MODE_PROVIDE)
       flags |= PW_STREAM_FLAG_AUTOCONNECT;
     else

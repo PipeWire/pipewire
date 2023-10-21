@@ -892,7 +892,9 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   GST_DEBUG_OBJECT (basesrc, "connect capture with path %s, target-object %s",
                     pwsrc->path, pwsrc->target_object);
   pwsrc->negotiated = FALSE;
-  enum pw_stream_flags flags = PW_STREAM_FLAG_DONT_RECONNECT;
+  enum pw_stream_flags flags;
+  flags = PW_STREAM_FLAG_DONT_RECONNECT |
+	  PW_STREAM_FLAG_ASYNC;
   if (pwsrc->autoconnect)
     flags |= PW_STREAM_FLAG_AUTOCONNECT;
   pw_stream_connect (pwsrc->stream,

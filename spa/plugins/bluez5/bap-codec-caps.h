@@ -51,37 +51,55 @@
 #define LC3_CONFIG_DURATION_7_5 0x00
 #define LC3_CONFIG_DURATION_10  0x01
 
-#define LC3_CONFIG_CHNL_NOT_ALLOWED 0x00000000
-#define LC3_CONFIG_CHNL_FL          0x00000001 /* front left */
-#define LC3_CONFIG_CHNL_FR          0x00000002 /* front right */
-#define LC3_CONFIG_CHNL_FC          0x00000004 /* front center */
-#define LC3_CONFIG_CHNL_LFE         0x00000008 /* LFE */
-#define LC3_CONFIG_CHNL_BL          0x00000010 /* back left */
-#define LC3_CONFIG_CHNL_BR          0x00000020 /* back right */
-#define LC3_CONFIG_CHNL_FLC         0x00000040 /* front left center */
-#define LC3_CONFIG_CHNL_FRC         0x00000080 /* front right center */
-#define LC3_CONFIG_CHNL_BC          0x00000100 /* back center */
-#define LC3_CONFIG_CHNL_LFE2		0x00000200 /* LFE 2 */
-#define LC3_CONFIG_CHNL_SL          0x00000400 /* side left */
-#define LC3_CONFIG_CHNL_SR          0x00000800 /* side right */
-#define LC3_CONFIG_CHNL_TFL         0x00001000 /* top front left */
-#define LC3_CONFIG_CHNL_TFR         0x00002000 /* top front right */
-#define LC3_CONFIG_CHNL_TFC         0x00004000 /* top front center */
-#define LC3_CONFIG_CHNL_TC          0x00008000 /* top center */
-#define LC3_CONFIG_CHNL_TBL         0x00010000 /* top back left */
-#define LC3_CONFIG_CHNL_TBR         0x00020000 /* top back right */
-#define LC3_CONFIG_CHNL_TSL         0x00040000 /* top side left */
-#define LC3_CONFIG_CHNL_TSR         0x00080000 /* top side right */
-#define LC3_CONFIG_CHNL_TBC         0x00100000 /* top back center */
-#define LC3_CONFIG_CHNL_BFC         0x00200000 /* bottom front center */
-#define LC3_CONFIG_CHNL_BFL         0x00400000 /* bottom front left */
-#define LC3_CONFIG_CHNL_BFR         0x00800000 /* bottom front right */
-#define LC3_CONFIG_CHNL_FLW         0x01000000 /* front left wide */
-#define LC3_CONFIG_CHNL_FRW         0x02000000 /* front right wide */
-#define LC3_CONFIG_CHNL_LS          0x04000000 /* left surround */
-#define LC3_CONFIG_CHNL_RS          0x08000000 /* right surround */
-
 #define LC3_MAX_CHANNELS 28
+
+#define BAP_CHANNEL_NOT_ALLOWED	0x00000000
+#define BAP_CHANNEL_FL		0x00000001 /* front left */
+#define BAP_CHANNEL_FR		0x00000002 /* front right */
+#define BAP_CHANNEL_FC		0x00000004 /* front center */
+#define BAP_CHANNEL_LFE		0x00000008 /* LFE */
+#define BAP_CHANNEL_BL		0x00000010 /* back left */
+#define BAP_CHANNEL_BR		0x00000020 /* back right */
+#define BAP_CHANNEL_FLC		0x00000040 /* front left center */
+#define BAP_CHANNEL_FRC		0x00000080 /* front right center */
+#define BAP_CHANNEL_BC		0x00000100 /* back center */
+#define BAP_CHANNEL_LFE2	0x00000200 /* LFE 2 */
+#define BAP_CHANNEL_SL		0x00000400 /* side left */
+#define BAP_CHANNEL_SR		0x00000800 /* side right */
+#define BAP_CHANNEL_TFL		0x00001000 /* top front left */
+#define BAP_CHANNEL_TFR		0x00002000 /* top front right */
+#define BAP_CHANNEL_TFC		0x00004000 /* top front center */
+#define BAP_CHANNEL_TC		0x00008000 /* top center */
+#define BAP_CHANNEL_TBL		0x00010000 /* top back left */
+#define BAP_CHANNEL_TBR		0x00020000 /* top back right */
+#define BAP_CHANNEL_TSL		0x00040000 /* top side left */
+#define BAP_CHANNEL_TSR		0x00080000 /* top side right */
+#define BAP_CHANNEL_TBC		0x00100000 /* top back center */
+#define BAP_CHANNEL_BFC		0x00200000 /* bottom front center */
+#define BAP_CHANNEL_BFL		0x00400000 /* bottom front left */
+#define BAP_CHANNEL_BFR		0x00800000 /* bottom front right */
+#define BAP_CHANNEL_FLW		0x01000000 /* front left wide */
+#define BAP_CHANNEL_FRW		0x02000000 /* front right wide */
+#define BAP_CHANNEL_LS		0x04000000 /* left surround */
+#define BAP_CHANNEL_RS		0x08000000 /* right surround */
+
+#define BAP_CHANNEL_ALL         0x0fffffff /* mask of all */
+
+#define BAP_CONTEXT_PROHIBITED		0x0000 /* Prohibited */
+#define BAP_CONTEXT_UNSPECIFIED		0x0001 /* Unspecified */
+#define BAP_CONTEXT_CONVERSATIONAL	0x0002 /* Telephony, video calls, ... */
+#define BAP_CONTEXT_MEDIA		0x0004 /* Music, radio, podcast, movie soundtrack, TV */
+#define BAP_CONTEXT_GAME		0x0008 /* Gaming media, game effects, music, in-game voice chat  */
+#define BAP_CONTEXT_INSTRUCTIONAL	0x0010 /* Instructional audio, navigation, announcements, user guidance */
+#define BAP_CONTEXT_VOICE		0x0020 /* Man-machine communication, voice recognition, virtual assistants */
+#define BAP_CONTEXT_LIVE		0x0040 /* Live audio, perceived both via direct acoustic path and via BAP */
+#define BAP_CONTEXT_SOUND_EFFECTS	0x0080 /* Keyboard and touch feedback, menu, UI, other system sounds */
+#define BAP_CONTEXT_NOTIFICATIONS	0x0100 /* Attention-seeking, message arrival, reminders */
+#define BAP_CONTEXT_RINGTONE		0x0200 /* Incoming call alert audio */
+#define BAP_CONTEXT_ALERTS		0x0400 /* Alarms and timers, critical battery, alarm clock, toaster */
+#define BAP_CONTEXT_EMERGENCY		0x0800 /* Fire alarm, other urgent alerts */
+
+#define BAP_CONTEXT_ALL			0x0fff
 
 #define BT_ISO_QOS_CIG_UNSET    0xff
 #define BT_ISO_QOS_CIS_UNSET    0xff

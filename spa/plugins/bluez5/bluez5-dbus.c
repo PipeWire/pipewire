@@ -38,6 +38,7 @@
 #include "dbus-helpers.h"
 #include "player.h"
 #include "iso-io.h"
+#include "bap-codec-caps.h"
 #include "defs.h"
 
 static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5");
@@ -4684,7 +4685,6 @@ static void append_media_object(DBusMessageIter *iter, const char *endpoint,
 {
 	const char *interface_name = BLUEZ_MEDIA_ENDPOINT_INTERFACE;
 	DBusMessageIter object, array, entry, dict;
-	dbus_bool_t delay_reporting;
 
 	dbus_message_iter_open_container(iter, DBUS_TYPE_DICT_ENTRY, NULL, &object);
 	dbus_message_iter_append_basic(&object, DBUS_TYPE_OBJECT_PATH, &endpoint);
@@ -4699,9 +4699,27 @@ static void append_media_object(DBusMessageIter *iter, const char *endpoint,
 	append_basic_variant_dict_entry(&dict, "UUID", DBUS_TYPE_STRING, "s", &uuid);
 	append_basic_variant_dict_entry(&dict, "Codec", DBUS_TYPE_BYTE, "y", &codec_id);
 	append_basic_array_variant_dict_entry(&dict, "Capabilities", "ay", "y", DBUS_TYPE_BYTE, caps, caps_size);
+
 	if (spa_bt_profile_from_uuid(uuid) & SPA_BT_PROFILE_A2DP_SOURCE) {
-		delay_reporting = TRUE;
+		dbus_bool_t delay_reporting = TRUE;
+
 		append_basic_variant_dict_entry(&dict, "DelayReporting", DBUS_TYPE_BOOLEAN, "b", &delay_reporting);
+	}
+	if (spa_bt_profile_from_uuid(uuid) & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE)) {
+		dbus_uint32_t locations;
+		dbus_uint16_t supported_context, context;
+
+		locations = BAP_CHANNEL_ALL;
+		if (spa_bt_profile_from_uuid(uuid) & SPA_BT_PROFILE_BAP_SINK) {
+			supported_context = context = BAP_CONTEXT_ALL;
+		} else {
+			supported_context = context = (BAP_CONTEXT_UNSPECIFIED | BAP_CONTEXT_CONVERSATIONAL |
+					BAP_CONTEXT_MEDIA | BAP_CONTEXT_GAME);
+		}
+
+		append_basic_variant_dict_entry(&dict, "Locations", DBUS_TYPE_UINT32, "u", &locations);
+		append_basic_variant_dict_entry(&dict, "Context", DBUS_TYPE_UINT16, "q", &context);
+		append_basic_variant_dict_entry(&dict, "SupportedContext", DBUS_TYPE_UINT16, "q", &supported_context);
 	}
 
 	dbus_message_iter_close_container(&entry, &dict);

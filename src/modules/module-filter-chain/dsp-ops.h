@@ -37,6 +37,9 @@ struct dsp_ops_funcs {
 			float * dst, const float * src,
 			const float * SPA_RESTRICT a, const float * SPA_RESTRICT b,
 			uint32_t len, const float scale);
+	void (*linear) (struct dsp_ops *ops,
+			float * dst, const float * SPA_RESTRICT src,
+			const float mult, const float add, uint32_t n_samples);
 };
 
 struct dsp_ops {
@@ -58,6 +61,7 @@ int dsp_ops_init(struct dsp_ops *ops);
 #define dsp_ops_mix_gain(ops,...)	(ops)->funcs.mix_gain(ops, __VA_ARGS__)
 #define dsp_ops_biquad_run(ops,...)	(ops)->funcs.biquad_run(ops, __VA_ARGS__)
 #define dsp_ops_sum(ops,...)		(ops)->funcs.sum(ops, __VA_ARGS__)
+#define dsp_ops_linear(ops,...)		(ops)->funcs.linear(ops, __VA_ARGS__)
 
 #define dsp_ops_fft_new(ops,...)	(ops)->funcs.fft_new(ops, __VA_ARGS__)
 #define dsp_ops_fft_free(ops,...)	(ops)->funcs.fft_free(ops, __VA_ARGS__)
@@ -79,6 +83,9 @@ void dsp_biquad_run_##arch (struct dsp_ops *ops, struct biquad *bq,	\
 #define MAKE_SUM_FUNC(arch) \
 void dsp_sum_##arch (struct dsp_ops *ops, float * SPA_RESTRICT dst, \
 	const float * SPA_RESTRICT a, const float * SPA_RESTRICT b, uint32_t n_samples)
+#define MAKE_LINEAR_FUNC(arch) \
+void dsp_linear_##arch (struct dsp_ops *ops, float * SPA_RESTRICT dst, \
+	const float * SPA_RESTRICT src, const float mult, const float add, uint32_t n_samples)
 
 #define MAKE_FFT_NEW_FUNC(arch) \
 void *dsp_fft_new_##arch(struct dsp_ops *ops, int32_t size, bool real)
@@ -102,6 +109,7 @@ MAKE_COPY_FUNC(c);
 MAKE_MIX_GAIN_FUNC(c);
 MAKE_BIQUAD_RUN_FUNC(c);
 MAKE_SUM_FUNC(c);
+MAKE_LINEAR_FUNC(c);
 
 MAKE_FFT_NEW_FUNC(c);
 MAKE_FFT_FREE_FUNC(c);

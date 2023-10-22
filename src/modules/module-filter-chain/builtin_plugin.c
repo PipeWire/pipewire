@@ -1301,11 +1301,9 @@ static void linear_run(void * Instance, unsigned long SampleCount)
 	float *in = impl->port[1], *out = impl->port[0];
 	float *ctrl = impl->port[3], *notify = impl->port[2];
 
-	if (in != NULL && out != NULL) {
-		unsigned long n;
-		for (n = 0; n < SampleCount; n++)
-			out[n] = in[n] * mult + add;
-	}
+	if (in != NULL && out != NULL)
+		dsp_ops_linear(dsp_ops, out, in, mult, add, SampleCount);
+
 	if (ctrl != NULL && notify != NULL)
 		notify[0] = ctrl[0] * mult + add;
 }

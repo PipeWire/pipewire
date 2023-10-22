@@ -33,8 +33,14 @@ static inline void dsp_gain_c(struct dsp_ops *ops, void * SPA_RESTRICT dst,
 	uint32_t i;
 	const float *s = src;
 	float *d = dst;
-	for (i = 0; i < n_samples; i++)
-		d[i] = s[i] * gain;
+	if (gain == 0.0f)
+		dsp_clear_c(ops, dst, n_samples);
+	else if (gain == 1.0f)
+		dsp_copy_c(ops, dst, src, n_samples);
+	else  {
+		for (i = 0; i < n_samples; i++)
+			d[i] = s[i] * gain;
+	}
 }
 
 static inline void dsp_gain_add_c(struct dsp_ops *ops, void * SPA_RESTRICT dst,
@@ -43,8 +49,15 @@ static inline void dsp_gain_add_c(struct dsp_ops *ops, void * SPA_RESTRICT dst,
 	uint32_t i;
 	const float *s = src;
 	float *d = dst;
-	for (i = 0; i < n_samples; i++)
-		d[i] += s[i] * gain;
+
+	if (gain == 0.0f)
+		return;
+	else if (gain == 1.0f)
+		dsp_add_c(ops, dst, src, n_samples);
+	else {
+		for (i = 0; i < n_samples; i++)
+			d[i] += s[i] * gain;
+	}
 }
 
 
@@ -64,17 +77,9 @@ void dsp_mix_gain_c(struct dsp_ops *ops,
 	if (n_src == 0) {
 		dsp_clear_c(ops, dst, n_samples);
 	} else {
-		if (gain[0] == 1.0f)
-			dsp_copy_c(ops, dst, src[0], n_samples);
-		else
-			dsp_gain_c(ops, dst, src[0], gain[0], n_samples);
-
-		for (i = 1; i < n_src; i++) {
-			if (gain[i] == 1.0f)
-				dsp_add_c(ops, dst, src[i], n_samples);
-			else
-				dsp_gain_add_c(ops, dst, src[i], gain[i], n_samples);
-		}
+		dsp_gain_c(ops, dst, src[0], gain[0], n_samples);
+		for (i = 1; i < n_src; i++)
+			dsp_gain_add_c(ops, dst, src[i], gain[i], n_samples);
 	}
 }
 
@@ -111,6 +116,27 @@ void dsp_sum_c(struct dsp_ops *ops, float * dst,
 	uint32_t i;
 	for (i = 0; i < n_samples; i++)
 		dst[i] = a[i] + b[i];
+}
+
+void dsp_linear_c(struct dsp_ops *ops, float * dst,
+		const float * SPA_RESTRICT src, const float mult,
+		const float add, uint32_t n_samples)
+{
+	uint32_t i;
+	if (add == 0.0f) {
+		dsp_gain_c(ops, dst, src, mult, n_samples);
+	} else {
+		if (mult == 0.0f) {
+			for (i = 0; i < n_samples; i++)
+				dst[i] = add;
+		} else if (mult == 1.0f) {
+			for (i = 0; i < n_samples; i++)
+				dst[i] = src[i] + add;
+		} else {
+			for (i = 0; i < n_samples; i++)
+				dst[i] = mult * src[i] + add;
+		}
+	}
 }
 
 void *dsp_fft_new_c(struct dsp_ops *ops, int32_t size, bool real)

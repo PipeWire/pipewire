@@ -320,6 +320,15 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *
  * It has an input port "In" and an output port "Out".
  *
+ * ### Clamp
+ *
+ * The clamp plugin can be used to clamp samples between min and max values.
+ *
+ * It has an input port "In" and an output port "Out". It also has a "Control"
+ * and "Notify" port for the control values.
+ *
+ * The final result is clamped to the "Min" and "Max" control values.
+ *
  * ### Linear
  *
  * The linear plugin can be used to apply a linear transformation on samples
@@ -331,7 +340,34 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * The control value "Mult" and "Add" are used to configure the linear transform. Each
  * sample or control value will be calculated as: new = old * Mult + Add.
  *
- * The final result can be clamped to the "Min" and "Max" control values.
+ * ### Reciprocal
+ *
+ * The recip plugin can be used to calculate the reciprocal (1/x) of samples
+ * or control values.
+ *
+ * It has an input port "In" and an output port "Out". It also has a "Control"
+ * and "Notify" port for the control values.
+ *
+ * ### Exp
+ *
+ * The exp plugin can be used to calculate the exponential (base^x) of samples
+ * or control values.
+ *
+ * It has an input port "In" and an output port "Out". It also has a "Control"
+ * and "Notify" port for the control values.
+ *
+ * The control value "Base" is used to calculate base ^ x for each sample.
+ *
+ * ### Log
+ *
+ * The log plugin can be used to calculate the logarithm of samples
+ * or control values.
+ *
+ * It has an input port "In" and an output port "Out". It also has a "Control"
+ * and "Notify" port for the control values.
+ *
+ * The control value "Base", "M1" and "M2" are used to calculate
+ * out = M2 * log2f(fabsf(in * M1)) / log2f(Base) for each sample.
  *
  * ## SOFA filter
  *

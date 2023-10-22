@@ -1234,22 +1234,80 @@ static const struct fc_descriptor invert_desc = {
 	.cleanup = builtin_cleanup,
 };
 
-/* linear */
-static void linear_run(void * Instance, unsigned long SampleCount)
+/* clamp */
+static void clamp_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
-	float mult = impl->port[4][0], add = impl->port[5][0];
-	float min = impl->port[6][0], max = impl->port[7][0];
+	float min = impl->port[4][0], max = impl->port[5][0];
 	float *in = impl->port[1], *out = impl->port[0];
 	float *ctrl = impl->port[3], *notify = impl->port[2];
 
 	if (in != NULL && out != NULL) {
 		unsigned long n;
 		for (n = 0; n < SampleCount; n++)
-			out[n] = SPA_CLAMPF(in[n] * mult + add, min, max);
+			out[n] = SPA_CLAMPF(in[n], min, max);
 	}
 	if (ctrl != NULL && notify != NULL)
-		notify[0] = SPA_CLAMPF(ctrl[0] * mult + add, min, max);
+		notify[0] = SPA_CLAMPF(ctrl[0], min, max);
+}
+
+static struct fc_port clamp_ports[] = {
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "In",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 2,
+	  .name = "Notify",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_CONTROL,
+	},
+	{ .index = 3,
+	  .name = "Control",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	},
+	{ .index = 4,
+	  .name = "Min",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 0.0f, .min = -100.0f, .max = 100.0f
+	},
+	{ .index = 5,
+	  .name = "Max",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 1.0f, .min = -100.0f, .max = 100.0f
+	},
+};
+
+static const struct fc_descriptor clamp_desc = {
+	.name = "clamp",
+	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = SPA_N_ELEMENTS(clamp_ports),
+	.ports = clamp_ports,
+
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = clamp_run,
+	.cleanup = builtin_cleanup,
+};
+
+/* linear */
+static void linear_run(void * Instance, unsigned long SampleCount)
+{
+	struct builtin *impl = Instance;
+	float mult = impl->port[4][0], add = impl->port[5][0];
+	float *in = impl->port[1], *out = impl->port[0];
+	float *ctrl = impl->port[3], *notify = impl->port[2];
+
+	if (in != NULL && out != NULL) {
+		unsigned long n;
+		for (n = 0; n < SampleCount; n++)
+			out[n] = in[n] * mult + add;
+	}
+	if (ctrl != NULL && notify != NULL)
+		notify[0] = ctrl[0] * mult + add;
 }
 
 static struct fc_port linear_ports[] = {
@@ -1279,28 +1337,196 @@ static struct fc_port linear_ports[] = {
 	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
 	  .def = 0.0f, .min = -10.0f, .max = 10.0f
 	},
-	{ .index = 6,
-	  .name = "Min",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
-	  .def = 0.0f, .min = -100.0f, .max = 100.0f
-	},
-	{ .index = 7,
-	  .name = "Max",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
-	  .def = 1.0f, .min = -100.0f, .max = 100.0f
-	},
 };
 
 static const struct fc_descriptor linear_desc = {
 	.name = "linear",
 	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
-	.n_ports = 8,
+	.n_ports = SPA_N_ELEMENTS(linear_ports),
 	.ports = linear_ports,
 
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = linear_run,
+	.cleanup = builtin_cleanup,
+};
+
+
+/* reciprocal */
+static void recip_run(void * Instance, unsigned long SampleCount)
+{
+	struct builtin *impl = Instance;
+	float *in = impl->port[1], *out = impl->port[0];
+	float *ctrl = impl->port[3], *notify = impl->port[2];
+
+	if (in != NULL && out != NULL) {
+		unsigned long n;
+		for (n = 0; n < SampleCount; n++) {
+			if (in[0] == 0.0f)
+				out[n] = 0.0f;
+			else
+				out[n] = 1.0f / in[n];
+		}
+	}
+	if (ctrl != NULL && notify != NULL) {
+		if (ctrl[0] == 0.0f)
+			notify[0] = 0.0f;
+		else
+			notify[0] = 1.0f / ctrl[0];
+	}
+}
+
+static struct fc_port recip_ports[] = {
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "In",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 2,
+	  .name = "Notify",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_CONTROL,
+	},
+	{ .index = 3,
+	  .name = "Control",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	},
+};
+
+static const struct fc_descriptor recip_desc = {
+	.name = "recip",
+	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = SPA_N_ELEMENTS(recip_ports),
+	.ports = recip_ports,
+
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = recip_run,
+	.cleanup = builtin_cleanup,
+};
+
+/* exp */
+static void exp_run(void * Instance, unsigned long SampleCount)
+{
+	struct builtin *impl = Instance;
+	float base = impl->port[4][0];
+	float *in = impl->port[1], *out = impl->port[0];
+	float *ctrl = impl->port[3], *notify = impl->port[2];
+
+	if (in != NULL && out != NULL) {
+		unsigned long n;
+		for (n = 0; n < SampleCount; n++)
+			out[n] = powf(base, in[n]);
+	}
+	if (ctrl != NULL && notify != NULL)
+		notify[0] = powf(base, ctrl[0]);
+}
+
+static struct fc_port exp_ports[] = {
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "In",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 2,
+	  .name = "Notify",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_CONTROL,
+	},
+	{ .index = 3,
+	  .name = "Control",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	},
+	{ .index = 4,
+	  .name = "Base",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = M_E, .min = -10.0f, .max = 10.0f
+	},
+};
+
+static const struct fc_descriptor exp_desc = {
+	.name = "exp",
+	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = SPA_N_ELEMENTS(exp_ports),
+	.ports = exp_ports,
+
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = exp_run,
+	.cleanup = builtin_cleanup,
+};
+
+/* log */
+static void log_run(void * Instance, unsigned long SampleCount)
+{
+	struct builtin *impl = Instance;
+	float base = impl->port[4][0];
+	float m1 = impl->port[5][0];
+	float m2 = impl->port[6][0];
+	float *in = impl->port[1], *out = impl->port[0];
+	float *ctrl = impl->port[3], *notify = impl->port[2];
+	float lb = log2f(base);
+
+	if (in != NULL && out != NULL) {
+		unsigned long n;
+		for (n = 0; n < SampleCount; n++)
+			out[n] = m2 * log2f(fabsf(in[n] * m1)) / lb;
+	}
+	if (ctrl != NULL && notify != NULL)
+		notify[0] = m2 * log2f(fabsf(ctrl[0] * m1)) / lb;
+}
+
+static struct fc_port log_ports[] = {
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "In",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 2,
+	  .name = "Notify",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_CONTROL,
+	},
+	{ .index = 3,
+	  .name = "Control",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	},
+	{ .index = 4,
+	  .name = "Base",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = M_E, .min = 2.0f, .max = 100.0f
+	},
+	{ .index = 5,
+	  .name = "M1",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 1.0f, .min = -10.0f, .max = 10.0f
+	},
+	{ .index = 6,
+	  .name = "M2",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 1.0f, .min = -10.0f, .max = 10.0f
+	},
+};
+
+static const struct fc_descriptor log_desc = {
+	.name = "log",
+	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = SPA_N_ELEMENTS(log_ports),
+	.ports = log_ports,
+
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = log_run,
 	.cleanup = builtin_cleanup,
 };
 
@@ -1336,7 +1562,15 @@ static const struct fc_descriptor * builtin_descriptor(unsigned long Index)
 	case 13:
 		return &bq_raw_desc;
 	case 14:
+		return &clamp_desc;
+	case 15:
 		return &linear_desc;
+	case 16:
+		return &recip_desc;
+	case 17:
+		return &exp_desc;
+	case 18:
+		return &log_desc;
 	}
 	return NULL;
 }

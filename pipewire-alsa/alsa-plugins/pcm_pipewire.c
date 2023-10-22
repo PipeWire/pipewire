@@ -309,21 +309,21 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b,
 		xfer = nframes;
 		if (xfer > 0) {
 			const snd_pcm_channel_area_t *areas = snd_pcm_ioplug_mmap_areas(io);
-			const snd_pcm_uframes_t offset = hw_ptr % io->buffer_size;
-
-			if (io->stream == SND_PCM_STREAM_PLAYBACK)
-				snd_pcm_areas_copy_wrap(pwareas, 0, nframes,
-						areas, offset,
-						io->buffer_size,
-						io->channels, xfer,
-						io->format);
-			else
-				snd_pcm_areas_copy_wrap(areas, offset,
-						io->buffer_size,
-						pwareas, 0, nframes,
-						io->channels, xfer,
-						io->format);
-
+			if (areas != NULL) {
+				const snd_pcm_uframes_t offset = hw_ptr % io->buffer_size;
+				if (io->stream == SND_PCM_STREAM_PLAYBACK)
+					snd_pcm_areas_copy_wrap(pwareas, 0, nframes,
+							areas, offset,
+							io->buffer_size,
+							io->channels, xfer,
+							io->format);
+				else
+					snd_pcm_areas_copy_wrap(areas, offset,
+							io->buffer_size,
+							pwareas, 0, nframes,
+							io->channels, xfer,
+							io->format);
+			}
 			hw_ptr += xfer;
 			if (hw_ptr >= pw->boundary)
 				hw_ptr -= pw->boundary;

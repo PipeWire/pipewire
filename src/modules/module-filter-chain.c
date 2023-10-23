@@ -369,6 +369,24 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * The control value "Base", "M1" and "M2" are used to calculate
  * out = M2 * log2f(fabsf(in * M1)) / log2f(Base) for each sample.
  *
+ * ### Multiply
+ *
+ * The mult plugin can be used to multiply samples together.
+ *
+ * It has 8 input ports named "In 1" to "In 8" and an output port "Out".
+ *
+ * All input ports samples are multiplied together into the output. Unused input ports
+ * will be ignored and not cause overhead.
+ *
+ * ### Sine
+ *
+ * The sine plugin generates a sine wave.
+ *
+ * It has an output port "Out" and also a control output port "notify".
+ *
+ * "Freq", "Ampl", "Offset" and "Phase" can be used to control the sine wave
+ * frequence, amplitude, offset and phase.
+ *
  * ## SOFA filter
  *
  * There is an optional builtin SOFA filter available.

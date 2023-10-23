@@ -41,6 +41,7 @@ struct builtin {
 	float gain;
 	float b0, b1, b2;
 	float a0, a1, a2;
+	float accum;
 };
 
 static void *builtin_instantiate(const struct fc_descriptor * Descriptor,
@@ -1528,6 +1529,149 @@ static const struct fc_descriptor log_desc = {
 	.cleanup = builtin_cleanup,
 };
 
+/* mult */
+static void mult_run(void * Instance, unsigned long SampleCount)
+{
+	struct builtin *impl = Instance;
+	int i, n_src = 0;
+	float *out = impl->port[0];
+	const void *src[8];
+
+	if (out == NULL)
+		return;
+
+	for (i = 0; i < 8; i++) {
+		float *in = impl->port[1+i];
+
+		if (in == NULL)
+			continue;
+
+		src[n_src++] = in;
+	}
+	dsp_ops_mult(dsp_ops, out, src, n_src, SampleCount);
+}
+
+static struct fc_port mult_ports[] = {
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "In 1",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 2,
+	  .name = "In 2",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 3,
+	  .name = "In 3",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 4,
+	  .name = "In 4",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 5,
+	  .name = "In 5",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 6,
+	  .name = "In 6",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 7,
+	  .name = "In 7",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 8,
+	  .name = "In 8",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+};
+
+static const struct fc_descriptor mult_desc = {
+	.name = "mult",
+	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = SPA_N_ELEMENTS(mult_ports),
+	.ports = mult_ports,
+
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = mult_run,
+	.cleanup = builtin_cleanup,
+};
+
+#define M_PI_M2 ( M_PI + M_PI )
+
+/* sine */
+static void sine_run(void * Instance, unsigned long SampleCount)
+{
+	struct builtin *impl = Instance;
+	float *out = impl->port[0];
+	float *notify = impl->port[1];
+	float freq = impl->port[2][0];
+	float ampl = impl->port[3][0];
+	float offs = impl->port[5][0];
+	unsigned long n;
+
+	for (n = 0; n < SampleCount; n++) {
+		if (out != NULL)
+			out[n] = sin(impl->accum) * ampl + offs;
+		if (notify != NULL && n == 0)
+			notify[0] = sin(impl->accum) * ampl + offs;
+
+		impl->accum += M_PI_M2 * freq / impl->rate;
+		if (impl->accum >= M_PI_M2)
+			impl->accum -= M_PI_M2;
+	}
+}
+
+static struct fc_port sine_ports[] = {
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "Notify",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_CONTROL,
+	},
+	{ .index = 2,
+	  .name = "Freq",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 440.0f, .min = 0.0f, .max = 1000000.0f
+	},
+	{ .index = 3,
+	  .name = "Ampl",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 1.0, .min = 0.0f, .max = 10.0f
+	},
+	{ .index = 4,
+	  .name = "Phase",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 0.0f, .min = -M_PI, .max = M_PI
+	},
+	{ .index = 5,
+	  .name = "Offset",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 0.0f, .min = -10.0f, .max = 10.0f
+	},
+};
+
+static const struct fc_descriptor sine_desc = {
+	.name = "sine",
+	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = SPA_N_ELEMENTS(sine_ports),
+	.ports = sine_ports,
+
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = sine_run,
+	.cleanup = builtin_cleanup,
+};
+
 static const struct fc_descriptor * builtin_descriptor(unsigned long Index)
 {
 	switch(Index) {
@@ -1569,6 +1713,10 @@ static const struct fc_descriptor * builtin_descriptor(unsigned long Index)
 		return &exp_desc;
 	case 18:
 		return &log_desc;
+	case 19:
+		return &mult_desc;
+	case 20:
+		return &sine_desc;
 	}
 	return NULL;
 }

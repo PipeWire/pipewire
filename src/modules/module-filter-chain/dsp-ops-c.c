@@ -83,6 +83,31 @@ void dsp_mix_gain_c(struct dsp_ops *ops,
 	}
 }
 
+static inline void dsp_mult1_c(struct dsp_ops *ops, void * SPA_RESTRICT dst,
+			const void * SPA_RESTRICT src, uint32_t n_samples)
+{
+	uint32_t i;
+	const float *s = src;
+	float *d = dst;
+	for (i = 0; i < n_samples; i++)
+		d[i] *= s[i];
+}
+
+void dsp_mult_c(struct dsp_ops *ops,
+		void * SPA_RESTRICT dst,
+		const void * SPA_RESTRICT src[],
+		uint32_t n_src, uint32_t n_samples)
+{
+	uint32_t i;
+	if (n_src == 0) {
+		dsp_clear_c(ops, dst, n_samples);
+	} else {
+		dsp_copy_c(ops, dst, src[0], n_samples);
+		for (i = 1; i < n_src; i++)
+			dsp_mult1_c(ops, dst, src[i], n_samples);
+	}
+}
+
 void dsp_biquad_run_c(struct dsp_ops *ops, struct biquad *bq,
 		float *out, const float *in, uint32_t n_samples)
 {

@@ -426,6 +426,7 @@ struct client {
 	int rt_max;
 	unsigned int fix_midi_events:1;
 	unsigned int global_buffer_size:1;
+	unsigned int global_sample_rate:1;
 	unsigned int passive_links:1;
 	unsigned int graph_callback_pending:1;
 	unsigned int pending_callbacks:1;
@@ -3936,6 +3937,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->default_as_system = pw_properties_get_bool(client->props, "jack.default-as-system", false);
 	client->fix_midi_events = pw_properties_get_bool(client->props, "jack.fix-midi-events", true);
 	client->global_buffer_size = pw_properties_get_bool(client->props, "jack.global-buffer-size", false);
+	client->global_sample_rate = pw_properties_get_bool(client->props, "jack.global-sample-rate", false);
 	client->max_ports = pw_properties_get_uint32(client->props, "jack.max-client-ports", MAX_CLIENT_PORTS);
 	client->fill_aliases = pw_properties_get_bool(client->props, "jack.fill-aliases", false);
 	client->writable_input = pw_properties_get_bool(client->props, "jack.writable-input", true);
@@ -4709,6 +4711,37 @@ int jack_set_buffer_size (jack_client_t *client, jack_nframes_t nframes)
 				"clock.force-quantum", "", val);
 	} else {
 		pw_properties_setf(c->props, PW_KEY_NODE_FORCE_QUANTUM, "%u", nframes);
+
+		c->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
+		c->info.props = &c->props->dict;
+
+		pw_client_node_update(c->node,
+	                                    PW_CLIENT_NODE_UPDATE_INFO,
+					    0, NULL, &c->info);
+		c->info.change_mask = 0;
+	}
+	pw_thread_loop_unlock(c->context.loop);
+
+	return 0;
+}
+
+SPA_EXPORT
+int jack_set_sample_rate (jack_client_t *client, jack_nframes_t nframes)
+{
+	struct client *c = (struct client *) client;
+
+	return_val_if_fail(c != NULL, -EINVAL);
+
+	pw_log_info("%p: sample-size %u", client, nframes);
+
+	pw_thread_loop_lock(c->context.loop);
+	if (c->global_sample_rate && c->settings && c->settings->proxy) {
+		char val[256];
+		snprintf(val, sizeof(val), "%u", nframes);
+		pw_metadata_set_property(c->settings->proxy, 0,
+				"clock.force-rate", "", val);
+	} else {
+		pw_properties_setf(c->props, PW_KEY_NODE_FORCE_RATE, "%u", nframes);
 
 		c->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
 		c->info.props = &c->props->dict;

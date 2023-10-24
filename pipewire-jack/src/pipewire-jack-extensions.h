@@ -23,6 +23,8 @@ typedef struct jack_image_size {
 
 int jack_get_video_image_size(jack_client_t *client, jack_image_size_t *size);
 
+int jack_set_sample_rate (jack_client_t *client, jack_nframes_t nframes);
+
 #ifdef __cplusplus
 }
 #endif

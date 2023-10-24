@@ -1,3 +1,64 @@
+# PipeWire 0.3.84 (2023-11-02)
+
+This is the fourth 1.0 release candidate that is API and ABI compatible
+with previous 0.3.x releases.
+
+## Highlights
+  - Fix a regression with openal because the queued buffers in the stream
+    were not reported correctly.
+  - Fix a bug in port busy counters that could cause random silent links.
+  - Fix a regression in echo-cancel because it was not reporting its
+    streams as ASYNC.
+  - Fix a JACK regression where not all ports were enumerated in all cases.
+  - Many more fixes and improvements.
+
+
+## PipeWire
+  - pw_stream now reports the queued buffers more accurately. This fixes
+    a regression when using openal. (#3592)
+  - The port busy counters were not updated correctly in some cases. This
+    could lead to negotiation errors and silent links. (#3547)
+  - Ignore latency maximum when forcing rate/quantum. (#3613)
+  - Nodes can now be added to multiple groups and link-groups. (#3612)
+
+## Modules
+  - The filter-chain now also handles notify port dependencies
+    correctly. (#3596)
+  - Filter-chain has support for new linear, clamp, recip, exp, log, mult,
+    sine builtin plugins.
+  - The echo-cancel module now correctly reports its playback and capture
+    streams as ASYNC to avoid running out of buffers. (#3593)
+  - It is now possible to specify an array of remote names to connect to
+    with the native protocol.
+  - module-rtp-sap and module-rtp-sink now try to bind to the specified
+    interface.
+
+## SPA
+  - The alsa plugin now removes the runtime properties such as period-num,
+    period-size and max-latency when suspended. (#3613)
+
+## Bluetooth
+  - BAP Locations/Context is now set on endpoints as required by new bluez.
+  - Improve selection of BAP leader.
+
+## JACK
+  - Add a jack_set_sample_rate() extension function.
+  - Make sure we get the info of all nodes/ports before completing the
+    jack_client_open() operation so that we can enumerate the ports
+    correctly in all cases. (#3618)
+
+## GStreamer
+  - Fix types of metadata in pipewiresink.
+  - Also copy metadata in buffers in all cases.
+  - Fix size allocation in bufferpool for compressed formats.
+  - Don't stop streaming thread when unlinked. (#3620)
+
+## ALSA
+  - The ALSA plugin now handles NULL values from mmap_areas. (#3600)
+
+Older versions:
+
+
 # PipeWire 0.3.83 (2023-10-19)
 
 This is the third 1.0 release candidate that is API and ABI compatible
@@ -51,9 +112,6 @@ with previous 0.3.x releases.
   - Use a separate thread to dispatch notifications to avoid deadlocks.
     (#3585)
   - Potentially fix silent export in ardour in some cases. (#3514)
-
-Older versions:
-
 
 # PipeWire 0.3.82 (2023-10-13)
 

@@ -2018,41 +2018,31 @@ static void device_update_hw_volume_profiles(struct spa_bt_device *device)
 
 static bool device_set_update_leader(struct spa_bt_set_membership *set)
 {
-	struct spa_bt_set_membership *s, *leader;
-	int min_rank = INT_MAX;
-	int leader_rank = INT_MAX;
+	struct spa_bt_set_membership *s, *leader = NULL;
 
-	leader = NULL;
-
+	/* Make minimum rank device the leader, so that device set nodes always
+	 * appear under a specific device.
+	 */
 	spa_bt_for_each_set_member(s, set) {
 		if (!(s->device->connected_profiles & SPA_BT_PROFILE_BAP_DUPLEX))
 			continue;
-		min_rank = SPA_MIN(min_rank, s->rank);
-		if (s->leader) {
-			leader_rank = s->rank;
+
+		if (leader == NULL || s->rank < leader->rank ||
+				(s->rank == leader->rank && s->leader))
 			leader = s;
-		}
 	}
 
-	if (min_rank >= leader_rank && leader)
+	if (leader == NULL || (leader && leader->leader))
 		return false;
 
-	spa_bt_for_each_set_member(s, set) {
-		if (leader == NULL && s->rank == min_rank &&
-				(s->device->connected_profiles & SPA_BT_PROFILE_BAP_DUPLEX)) {
-			s->leader = true;
-			leader = s;
-		} else {
-			s->leader = false;
-		}
-	}
+	spa_bt_for_each_set_member(s, set)
+		s->leader = false;
 
-	if (leader) {
-		struct spa_bt_monitor *monitor = leader->device->monitor;
+	leader->leader = true;
 
-		spa_log_debug(monitor->log, "device set %s: leader is %s",
-				leader->path, leader->device->path);
-	}
+	spa_log_debug(leader->device->monitor->log,
+			"device set %p %s: leader is %s",
+			set, leader->path, leader->device->path);
 
 	return true;
 }

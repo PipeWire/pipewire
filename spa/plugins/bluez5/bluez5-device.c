@@ -634,7 +634,7 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 	char transport[32], str_id[32], object_path[512];
 	bool is_dyn_node = SPA_FLAG_IS_SET(id, DYNAMIC_NODE_ID_FLAG);
 
-	spa_log_debug(this->log, "node, transport:%p id:%08x factory:%s", t, id, factory_name);
+	spa_log_debug(this->log, "%p: node, transport:%p id:%08x factory:%s", this, t, id, factory_name);
 
 	snprintf(transport, sizeof(transport), "pointer:%p", t);
 	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_TRANSPORT, transport);
@@ -838,8 +838,8 @@ static const struct spa_bt_transport_events dynamic_node_transport_events = {
 static void emit_dynamic_node(struct dynamic_node *this, struct impl *impl,
 	struct spa_bt_transport *t, uint32_t id, const char *factory_name, bool a2dp_duplex)
 {
-	spa_log_debug(impl->log, "dynamic node, transport: %p->%p id: %08x->%08x",
-		this->transport, t, this->id, id);
+	spa_log_debug(impl->log, "%p: dynamic node, transport: %p->%p id: %08x->%08x",
+			this, this->transport, t, this->id, id);
 
 	if (this->transport) {
 		/* Session manager don't really handles transport ptr changing. */
@@ -954,6 +954,9 @@ static void device_set_update(struct impl *this)
 			device_set_clear(this);
 			continue;
 		}
+
+		spa_log_debug(this->log, "%p: %s belongs to set %s leader:%d", this,
+				device->path, set->path, set->leader);
 
 		dset->path = strdup(set->path);
 		dset->leader = set->leader;
@@ -1124,7 +1127,7 @@ static void emit_info(struct impl *this, bool full)
 
 static void emit_remove_nodes(struct impl *this)
 {
-	spa_log_debug(this->log, "remove nodes");
+	spa_log_debug(this->log, "%p: remove nodes", this);
 
 	remove_dynamic_node (&this->dyn_media_source);
 	remove_dynamic_node (&this->dyn_media_sink);

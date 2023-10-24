@@ -253,7 +253,7 @@ static bool is_multicast(struct sockaddr *sa, socklen_t salen)
 
 static int make_socket(struct sockaddr_storage *src, socklen_t src_len,
 		struct sockaddr_storage *dst, socklen_t dst_len,
-		bool loop, int ttl, int dscp)
+		bool loop, int ttl, int dscp, char *ifname)
 {
 	int af, fd, val, res;
 
@@ -267,6 +267,13 @@ static int make_socket(struct sockaddr_storage *src, socklen_t src_len,
 		pw_log_error("bind() failed: %m");
 		goto error;
 	}
+#ifdef SO_BINDTODEVICE
+	if (ifname && setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, ifname, strlen(ifname)) < 0) {
+		res = -errno;
+		pw_log_error("setsockopt(SO_BINDTODEVICE) failed: %m");
+		goto error;
+	}
+#endif
 	if (connect(fd, (struct sockaddr*)dst, dst_len) < 0) {
 		res = -errno;
 		pw_log_error("connect() failed: %m");
@@ -517,7 +524,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if ((res = make_socket(&impl->src_addr, impl->src_len,
 					&impl->dst_addr, impl->dst_len,
-					impl->mcast_loop, impl->ttl, impl->dscp)) < 0) {
+					impl->mcast_loop, impl->ttl, impl->dscp,
+					impl->ifname)) < 0) {
 		pw_log_error("can't make socket: %s", spa_strerror(res));
 		goto out;
 	}

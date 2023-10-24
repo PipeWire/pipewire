@@ -757,6 +757,11 @@ static int session_load_source(struct session *session, struct pw_properties *pr
 	if ((str = pw_properties_get(props, "rtp.session")) != NULL)
 		fprintf(f, "\"sess.name\" = \"%s\", ", str);
 
+	/* Use an interface if explicitly specified, else use the SAP interface if that was specified */
+	if ((str = pw_properties_get(props, "local.ifname")) != NULL || (str = impl->ifname) != NULL) {
+		fprintf(f, "\"local.ifname\" = \"%s\", ", str);
+	}
+
 	if ((media = pw_properties_get(props, "sess.media")) == NULL)
 		media = "audio";
 
@@ -1540,7 +1545,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_info));
 
-	pw_log_info("Successfully loaded module-rtp-sink");
+	pw_log_info("Successfully loaded module-rtp-sap");
 
 	return 0;
 out:

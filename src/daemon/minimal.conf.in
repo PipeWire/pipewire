@@ -144,7 +144,7 @@ context.objects = [
     # Creates an object from a PipeWire factory with the given parameters.
     # If nofail is given, errors are ignored (and no object is created).
     #
-    #{ factory = spa-node-factory   args = { factory.name = videotestsrc node.name = videotestsrc node.description = videotestsrc Spa:Pod:Object:Param:Props:patternType = 1 } }
+    #{ factory = spa-node-factory   args = { factory.name = videotestsrc node.name = videotestsrc node.description = videotestsrc "Spa:Pod:Object:Param:Props:patternType" = 1 } }
     #{ factory = spa-device-factory args = { factory.name = api.jack.device foo=bar } flags = [ nofail ] }
     #{ factory = spa-device-factory args = { factory.name = api.alsa.enum.udev } }
     #{ factory = spa-node-factory   args = { factory.name = api.alsa.seq.bridge node.name = Internal-MIDI-Bridge } }

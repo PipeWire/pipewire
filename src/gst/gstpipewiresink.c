@@ -703,6 +703,7 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
     gst_buffer_extract (buffer, 0, info.data, info.maxsize);
     gst_buffer_unmap (b, &info);
     gst_buffer_resize (b, 0, gst_buffer_get_size (buffer));
+    gst_buffer_copy_into(b, buffer, GST_BUFFER_COPY_METADATA, 0, -1);
     buffer = b;
     unref_buffer = TRUE;
 

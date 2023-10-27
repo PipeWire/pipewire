@@ -677,7 +677,11 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
     config = gst_buffer_pool_get_config (GST_BUFFER_POOL_CAST (pwsink->pool));
     gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
 
-    size = (size == 0) ? gst_buffer_get_size (buffer) : size;
+    if (size == 0) {
+      gsize maxsize;
+      gst_buffer_get_sizes (buffer, NULL, &maxsize);
+      size = maxsize;
+    }
 
     gst_buffer_pool_config_set_params (config, caps, size, min_buffers, max_buffers);
     gst_buffer_pool_set_config (GST_BUFFER_POOL_CAST (pwsink->pool), config);

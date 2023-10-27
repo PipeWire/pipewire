@@ -267,12 +267,12 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
 
   port_params[1] = spa_pod_builder_add_object (&b,
       SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
-      SPA_PARAM_META_type, SPA_POD_Int(SPA_META_Header),
+      SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
       SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_header)));
 
   port_params[2] = spa_pod_builder_add_object (&b,
       SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
-      SPA_PARAM_META_type, SPA_POD_Int(SPA_META_VideoCrop),
+      SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoCrop),
       SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_region)));
 
   pw_thread_loop_lock (sink->core->loop);

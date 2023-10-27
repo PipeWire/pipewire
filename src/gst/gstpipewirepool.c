@@ -228,7 +228,10 @@ set_config (GstBufferPool * pool, GstStructure * config)
   p->add_metavideo = has_video && gst_buffer_pool_config_has_option (config,
       GST_BUFFER_POOL_OPTION_VIDEO_META);
 
-  gst_buffer_pool_config_set_params (config, caps, p->video_info.size, min_buffers, max_buffers);
+  if (p->video_info.size != 0)
+    size = p->video_info.size;
+
+  gst_buffer_pool_config_set_params (config, caps, size, min_buffers, max_buffers);
 
   return GST_BUFFER_POOL_CLASS (gst_pipewire_pool_parent_class)->set_config (pool, config);
 }

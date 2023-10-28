@@ -716,25 +716,23 @@ static int spa_libcamera_use_buffers(struct impl *impl, struct port *port,
 }
 
 static const struct {
-	Transform libcamera_transform;
-	uint32_t spa_transform_value;
-} transform_map[] = {
-	{ Transform::Identity, SPA_META_TRANSFORMATION_None },
-	{ Transform::Rot0, SPA_META_TRANSFORMATION_None },
-	{ Transform::HFlip, SPA_META_TRANSFORMATION_Flipped },
-	{ Transform::VFlip, SPA_META_TRANSFORMATION_Flipped180 },
-	{ Transform::HVFlip, SPA_META_TRANSFORMATION_180 },
-	{ Transform::Rot180, SPA_META_TRANSFORMATION_180 },
-	{ Transform::Transpose, SPA_META_TRANSFORMATION_Flipped90 },
-	{ Transform::Rot90, SPA_META_TRANSFORMATION_90 },
-	{ Transform::Rot270, SPA_META_TRANSFORMATION_270 },
-	{ Transform::Rot180Transpose, SPA_META_TRANSFORMATION_Flipped270 },
+	Orientation libcamera_orientation; /* clockwise rotation then horizontal mirroring */
+	uint32_t spa_transform_value; /* horizontal mirroring then counter-clockwise rotation */
+} orientation_map[] = {
+	{ Orientation::Rotate0, SPA_META_TRANSFORMATION_None },
+	{ Orientation::Rotate0Mirror, SPA_META_TRANSFORMATION_Flipped },
+	{ Orientation::Rotate90, SPA_META_TRANSFORMATION_270 },
+	{ Orientation::Rotate90Mirror, SPA_META_TRANSFORMATION_Flipped90 },
+	{ Orientation::Rotate180, SPA_META_TRANSFORMATION_180 },
+	{ Orientation::Rotate180Mirror, SPA_META_TRANSFORMATION_Flipped180 },
+	{ Orientation::Rotate270, SPA_META_TRANSFORMATION_90 },
+	{ Orientation::Rotate270Mirror, SPA_META_TRANSFORMATION_Flipped270 },
 };
 
-static uint32_t libcamera_transform_to_spa_transform_value(Transform transform)
+static uint32_t libcamera_orientation_to_spa_transform_value(Orientation orientation)
 {
-	for (const auto& t : transform_map) {
-		if (t.libcamera_transform == transform)
+	for (const auto& t : orientation_map) {
+		if (t.libcamera_orientation == orientation)
 			return t.spa_transform_value;
 	}
 	return SPA_META_TRANSFORMATION_None;
@@ -788,9 +786,9 @@ mmap_init(struct impl *impl, struct port *port,
 			buffers[i], SPA_META_VideoTransform, sizeof(*b->videotransform));
 		if (b->videotransform) {
 			b->videotransform->transform =
-				libcamera_transform_to_spa_transform_value(impl->config->transform);
-			spa_log_debug(impl->log, "Setting videotransform for buffer %d to %u (from %s)",
-				i, b->videotransform->transform, transformToString(impl->config->transform));
+				libcamera_orientation_to_spa_transform_value(impl->config->orientation);
+			spa_log_debug(impl->log, "Setting videotransform for buffer %u to %u",
+				i, b->videotransform->transform);
 
 		}
 

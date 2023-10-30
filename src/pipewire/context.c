@@ -1465,8 +1465,9 @@ again:
 			node_max_quantum = node_max_quantum * current_rate / node_rate_quantum;
 		}
 
-		/* calculate desired quantum */
-		if (max_latency.denom != 0) {
+		/* calculate desired quantum. Don't limit to the max_latency when we are
+		 * going to force a quantum or rate and reconfigure the nodes. */
+		if (max_latency.denom != 0 && !force_quantum && !force_rate) {
 			uint32_t tmp = (max_latency.num * current_rate / max_latency.denom);
 			if (tmp < node_max_quantum)
 				node_max_quantum = tmp;

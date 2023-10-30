@@ -55,6 +55,11 @@ static void emit_node_info(struct state *this, bool full)
 			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-num", nperiods);
 			snprintf(headroom, sizeof(headroom), "%u", this->headroom);
 			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.headroom", headroom);
+		} else {
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_MAX_LATENCY, NULL);
+			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-size", NULL);
+			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-num", NULL);
+			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.headroom", NULL);
 		}
 		this->info.props = &SPA_DICT_INIT(items, n_items);
 

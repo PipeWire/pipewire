@@ -13,6 +13,8 @@
 #include <string.h>
 #include <time.h>
 
+#include <spa/utils/json.h>
+
 #include <pipewire/array.h>
 #include <pipewire/log.h>
 #include <pipewire/utils.h>
@@ -74,7 +76,8 @@ char **pw_split_strv(const char *str, const char *delimiter, int max_tokens, int
 	}
 	pw_array_add_ptr(&arr, NULL);
 
-	*n_tokens = n;
+	if (n_tokens != NULL)
+		*n_tokens = n;
 
 	return arr.data;
 }
@@ -108,6 +111,89 @@ int pw_split_ip(char *str, const char *delimiter, int max_tokens, char *tokens[]
 	if (s)
 		tokens[n++] = s;
 	return n;
+}
+
+/** Parse an array of strings
+ * \param val a string to parse
+ * \param len the length of \a val
+ * \param max_tokens the max number of tokens to split
+ * \param[out] n_tokens the number of tokens, may be NULL
+ * \return a NULL terminated array of strings that should be
+ *	freed with \ref pw_free_strv.
+ *
+ * \a val is parsed using relaxed json syntax.
+ *
+ * \since 0.3.84
+ */
+SPA_EXPORT
+char **pw_strv_parse(const char *val, size_t len, int max_tokens, int *n_tokens)
+{
+	struct pw_array arr;
+	struct spa_json it[2];
+	char v[256];
+	int n = 0;
+
+	if (val == NULL)
+		return NULL;
+
+	pw_array_init(&arr, 16);
+
+	spa_json_init(&it[0], val, len);
+        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+                spa_json_init(&it[1], val, len);
+
+	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 && n + 1 < max_tokens) {
+		pw_array_add_ptr(&arr, strdup(v));
+		n++;
+	}
+	pw_array_add_ptr(&arr, NULL);
+
+	if (n_tokens != NULL)
+		*n_tokens = n;
+
+	return arr.data;
+}
+
+/** Find a string in a NULL terminated array of strings.
+ * \param a a strv to check
+ * \param b the string to find
+ * \return the index in \a a where \a b is found or < 0 if not.
+ *
+ * \since 0.3.84
+ */
+SPA_EXPORT
+int pw_strv_find(char **a, char *b)
+{
+	int i;
+	if (a == NULL || b == NULL)
+		return -EINVAL;
+	for (i = 0; a[i]; i++) {
+		if (spa_streq(a[i], b))
+			return i;
+	}
+	return -ENOENT;
+}
+
+/** Check if two NULL terminated arrays of strings have a common string.
+ * \param a a strv to check
+ * \param b another strv to check
+ * \return the index in \a a of the first common string or < 0 if not.
+ *
+ * \since 0.3.84
+ */
+SPA_EXPORT
+int pw_strv_find_common(char **a, char **b)
+{
+	int i;
+
+	if (a == NULL || b == NULL)
+		return -EINVAL;
+
+	for (i = 0; a[i]; i++) {
+		if (pw_strv_find(b, a[i]) >= 0)
+			return i;
+	}
+	return -ENOENT;
 }
 
 /** Free a NULL terminated array of strings

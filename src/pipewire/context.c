@@ -807,7 +807,8 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
 			spa_list_for_each(l, &p->links, input_link) {
 				t = l->output->node;
 
-				if (!t->active || !l->prepared || (!t->driving && SPA_FLAG_IS_SET(t->checked, 1u<<direction)))
+				if (!t->active || !l->prepared ||
+				    (!t->driving && SPA_FLAG_IS_SET(t->checked, 1u<<direction)))
 					continue;
 
 				pw_log_debug("  peer %p: '%s'", t, t->name);
@@ -820,7 +821,8 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
 			spa_list_for_each(l, &p->links, output_link) {
 				t = l->input->node;
 
-				if (!t->active || !l->prepared || (!t->driving && SPA_FLAG_IS_SET(t->checked, 1u<<direction)))
+				if (!t->active || !l->prepared ||
+				    (!t->driving && SPA_FLAG_IS_SET(t->checked, 1u<<direction)))
 					continue;
 
 				pw_log_debug("  peer %p: '%s'", t, t->name);

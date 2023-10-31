@@ -834,12 +834,12 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
 	 * don't get included here. They were added to the same driver but
 	 * need to otherwise stay idle unless some non-passive link activates
 	 * them. */
-	if (node->link_group != NULL) {
+	if (node->link_groups != NULL) {
 		spa_list_for_each(t, nodes, sort_link) {
 			if (t->exported || !t->active ||
 			    SPA_FLAG_IS_SET(t->checked, 1u<<direction))
 				continue;
-			if (!spa_streq(t->link_group, node->link_group))
+			if (pw_strv_find_common(t->link_groups, node->link_groups) < 0)
 				continue;
 
 			pw_log_debug("  group %p: '%s'", t, t->name);
@@ -931,15 +931,15 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 		}
 		/* now go through all the nodes that have the same group and
 		 * that are not yet visited */
-		if (n->group != NULL || n->link_group != NULL) {
+		if (n->groups != NULL || n->link_groups != NULL) {
 			spa_list_for_each(t, &context->node_list, link) {
 				if (t->exported || !t->active || t->visited)
 					continue;
-				if ((t->group == NULL || !spa_streq(t->group, n->group)) &&
-				    (t->link_group == NULL || !spa_streq(t->link_group, n->link_group)))
+				if (pw_strv_find_common(t->groups, n->groups) < 0 &&
+				    pw_strv_find_common(t->link_groups, n->link_groups) < 0)
 					continue;
-				pw_log_debug("%p: %s join group:%s link-group:%s",
-						t, t->name, n->group, n->link_group);
+				pw_log_debug("%p: %s join group of %s",
+						t, t->name, n->name);
 				t->visited = true;
 				spa_list_append(&queue, &t->sort_link);
 			}

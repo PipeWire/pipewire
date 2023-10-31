@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <time.h>
 #include <malloc.h>
+#include <limits.h>
 
 #include <spa/support/system.h>
 #include <spa/pod/parser.h>
@@ -42,6 +43,9 @@ struct impl {
 
 	unsigned int cache_params:1;
 	unsigned int pending_play:1;
+
+	char *group;
+	char *link_group;
 };
 
 #define pw_node_resource(r,m,v,...)	pw_resource_call(r,struct pw_node_events,m,v,__VA_ARGS__)
@@ -473,8 +477,8 @@ static int suspend_node(struct pw_impl_node *this)
 static void
 clear_info(struct pw_impl_node *this)
 {
-	free(this->group);
-	free(this->link_group);
+	pw_free_strv(this->groups);
+	pw_free_strv(this->link_groups);
 	free(this->name);
 	free((char*)this->info.error);
 }
@@ -964,20 +968,26 @@ static void check_properties(struct pw_impl_node *node)
 
 	/* group defines what nodes are scheduled together */
 	str = pw_properties_get(node->properties, PW_KEY_NODE_GROUP);
-	if (!spa_streq(str, node->group)) {
-		pw_log_info("%p: group '%s'->'%s'", node, node->group, str);
-		free(node->group);
-		node->group = str ? strdup(str) : NULL;
-		node->freewheel = spa_streq(node->group, "pipewire.freewheel");
+	if (!spa_streq(str, impl->group)) {
+		pw_log_info("%p: group '%s'->'%s'", node, impl->group, str);
+		free(impl->group);
+		impl->group = str ? strdup(str) : NULL;
+		pw_free_strv(node->groups);
+		node->groups = impl->group ?
+			pw_strv_parse(impl->group, strlen(impl->group), INT_MAX, NULL) : NULL;
+		node->freewheel = pw_strv_find(node->groups, "pipewire.freewheel") >= 0;
 		recalc_reason = "group changed";
 	}
 
 	/* link group defines what nodes are logically linked together */
 	str = pw_properties_get(node->properties, PW_KEY_NODE_LINK_GROUP);
-	if (!spa_streq(str, node->link_group)) {
-		pw_log_info("%p: link group '%s'->'%s'", node, node->link_group, str);
-		free(node->link_group);
-		node->link_group = str ? strdup(str) : NULL;
+	if (!spa_streq(str, impl->link_group)) {
+		pw_log_info("%p: link group '%s'->'%s'", node, impl->link_group, str);
+		free(impl->link_group);
+		impl->link_group = str ? strdup(str) : NULL;
+		pw_free_strv(node->link_groups);
+		node->link_groups = impl->link_group ?
+			pw_strv_parse(impl->link_group, strlen(impl->link_group), INT_MAX, NULL) : NULL;
 		recalc_reason = "link group changed";
 	}
 
@@ -2098,6 +2108,8 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	clear_info(node);
 
 	spa_system_close(node->data_system, node->source.fd);
+	free(impl->group);
+	free(impl->link_group);
 	free(impl);
 
 #ifdef HAVE_MALLOC_TRIM

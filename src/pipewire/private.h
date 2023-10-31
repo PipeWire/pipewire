@@ -643,8 +643,8 @@ struct pw_impl_node {
 	char *name;				/** for debug */
 
 	uint32_t priority_driver;	/** priority for being driver */
-	char *group;			/** group to schedule this node in */
-	char *link_group;		/** group this node is linked to */
+	char **groups;			/** groups to schedule this node in */
+	char **link_groups;		/** groups this node is linked to */
 	uint64_t spa_flags;
 
 	unsigned int registered:1;

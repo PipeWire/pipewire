@@ -326,7 +326,7 @@ pipewire_module_link_manager = shared_library('pipewire-module-link-manager',
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep, alsa_dep],
 )
 
 pipewire_module_protocol_deps = [mathlib, dl_lib, pipewire_dep]

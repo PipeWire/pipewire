@@ -4,6 +4,9 @@
 
 #include "config.h"
 
+#include <alsa/asoundlib.h>
+#include <alsa/version.h>
+
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
@@ -20,6 +23,9 @@
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
+
+#define USB_CAPTURE_DEV "usb-out-ch"
+#define USB_PLAYBACK_DEV "usb-in-ch"
 
 struct node {
 	struct spa_list list;
@@ -43,10 +49,12 @@ struct port {
 	struct spa_hook proxy_listener;
 
 	struct port *linked;
+	uint32_t link_id;
 };
 
 struct impl {
 	struct pw_impl_module *module;
+	struct pw_context *context;
 	struct pw_core *core;
 	struct pw_registry *registry;
 
@@ -57,23 +65,32 @@ struct impl {
 
 	struct spa_list nodes;
 	struct spa_list ports;
+
+	/* For the ALSA watcher */
+	snd_ctl_t *ctl;
+	snd_ctl_elem_value_t *capture_rate_elem;
+	int capture_rate;
+
+	struct spa_source sources[16];
+	struct pollfd pfds[16];
+	int n_fds;
 };
 
-void node_free(struct node *node)
+static void node_free(struct node *node)
 {
 	if (node->props)
 		pw_properties_free(node->props);
 	pw_proxy_destroy((struct pw_proxy*)node->proxy);
 }
 
-void port_free(struct port *port)
+static void port_free(struct port *port)
 {
 	if (port->props)
 		pw_properties_free(port->props);
 	pw_proxy_destroy((struct pw_proxy*)port->proxy);
 }
 
-void create_link(struct impl *impl, struct port *p1, struct port *p2)
+static void create_link(struct impl *impl, struct port *p1, struct port *p2)
 {
 	struct pw_properties *link_props;
 	struct pw_proxy *proxy;
@@ -84,9 +101,12 @@ void create_link(struct impl *impl, struct port *p1, struct port *p2)
 		p2 = tmp;
 	}
 
+	pw_log_debug("link %s -> %s",
+			pw_properties_get(p1->props, PW_KEY_PORT_NAME),
+			pw_properties_get(p2->props, PW_KEY_PORT_NAME));
+
 	// p1 is now input, p2 is output
 	link_props = pw_properties_new(NULL, NULL);
-	pw_properties_set(link_props, PW_KEY_OBJECT_LINGER, "true");
 	pw_properties_setf(link_props, PW_KEY_LINK_INPUT_PORT, "%u", p1->id);
 	pw_properties_setf(link_props, PW_KEY_LINK_OUTPUT_PORT, "%u", p2->id);
 
@@ -98,26 +118,38 @@ void create_link(struct impl *impl, struct port *p1, struct port *p2)
 
 	if (proxy == NULL)
 		pw_log_error("Could not create link: %s", spa_strerror(errno));
-	else
-		pw_proxy_destroy(proxy);
 
 	p1->linked = p2;
 	p2->linked = p1;
 }
 
-struct node *find_node_for_port(struct impl *impl, struct port *port)
+static struct node *find_node_by_id(struct impl *impl, uint32_t id)
 {
 	struct node *node;
 
 	spa_list_for_each(node, &impl->nodes, list) {
-		if (node->id == port->node_id)
+		if (node->id == id)
 			return node;
 	}
 
 	return NULL;
 }
 
-struct node *find_target_node(struct impl *impl, struct node *node)
+static struct node *find_node_by_name(struct impl *impl, const char *name)
+{
+	struct node *n, *node = NULL;
+
+	spa_list_for_each(n, &impl->nodes, list) {
+		if (spa_streq(pw_properties_get(n->props, PW_KEY_NODE_NAME), name)) {
+			node = n;
+			break;
+		}
+	}
+
+	return node;
+}
+
+static struct node *find_target_node(struct impl *impl, struct node *node)
 {
 	struct node *n;
 	const char *target;
@@ -131,9 +163,6 @@ struct node *find_target_node(struct impl *impl, struct node *node)
 
 	if ((target = pw_properties_get(node->props, PW_KEY_TARGET_OBJECT)) == NULL)
 		return NULL;
-	else {
-		pw_log_debug("node %u has target %s", node->id, target);
-	}
 
 	target_is_id = spa_atou32(target, &target_id, 10);
 
@@ -153,31 +182,23 @@ struct node *find_target_node(struct impl *impl, struct node *node)
 	return NULL;
 }
 
-void check_port(struct impl *impl, struct port *port)
+static struct port *find_port_by_id(struct impl *impl, uint32_t id)
 {
-	struct node *node, *target_node = NULL;
-	struct port *p;
+	struct port *port;
 
-	if (port->linked)
-		return;
-
-	node = find_node_for_port(impl, port);
-	if (!node) {
-		pw_log_error("Could not find node for port %u", port->id);
-		return;
+	spa_list_for_each(port, &impl->ports, list) {
+		if (port->id == id)
+			return port;
 	}
 
-	target_node = find_target_node(impl, node);
-	if (!target_node)
-		return;
+	return NULL;
+}
 
-	pw_log_info("Trying to link port of %s and %s/%u",
-			pw_properties_get(node->props, PW_KEY_NODE_NAME),
-			pw_properties_get(target_node->props, PW_KEY_NODE_NAME), target_node->id);
+static void link_port_to_target(struct impl *impl, struct port *port, struct node *target_node) {
+	struct port *p;
 
 	// FIXME: do some validation here
 	spa_list_for_each(p, &impl->ports, list) {
-		// Link all ports of `node` with `target_node`, but port.id
 		if (p->node_id != target_node->id)
 			continue;
 
@@ -189,10 +210,6 @@ void check_port(struct impl *impl, struct port *port)
 			continue;
 		}
 
-		pw_log_debug("%s/%s & %s/%s",
-				pw_properties_get(p->props, PW_KEY_PORT_NAME), p->direction == SPA_DIRECTION_INPUT ? "in" : "out",
-				pw_properties_get(port->props, PW_KEY_PORT_NAME), port->direction == SPA_DIRECTION_INPUT ? "in" : "out");
-
 		if (spa_streq(pw_properties_get(p->props, PW_KEY_PORT_ID),
 					pw_properties_get(port->props, PW_KEY_PORT_ID)) &&
 				p->direction != port->direction) {
@@ -201,12 +218,40 @@ void check_port(struct impl *impl, struct port *port)
 	}
 }
 
-void node_info(void *data, const struct pw_node_info *info)
+static void check_port(struct impl *impl, struct port *port)
+{
+	struct node *node, *target_node = NULL;
+
+	if (port->linked)
+		return;
+
+	node = find_node_by_id(impl, port->node_id);
+	if (!node) {
+		pw_log_error("Could not find node for port %u", port->id);
+		return;
+	}
+
+	target_node = find_target_node(impl, node);
+	if (!target_node)
+		return;
+
+	if (spa_streq(pw_properties_get(target_node->props, PW_KEY_NODE_NAME), USB_CAPTURE_DEV) ||
+			spa_streq(pw_properties_get(target_node->props, PW_KEY_NODE_NAME), USB_PLAYBACK_DEV)) {
+		if (impl->capture_rate == 0) {
+			pw_log_debug("Skipping USB device until host starts playback");
+			return;
+		}
+	}
+
+	link_port_to_target(impl, port, target_node);
+}
+
+static void node_info(void *data, const struct pw_node_info *info)
 {
 	struct node *node = data;
 
-	pw_log_debug("Got node info for %u", node->id);
-	node->props = pw_properties_new_dict(info->props);
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS)
+		node->props = pw_properties_new_dict(info->props);
 	// Just gather props, we'll use this while linking
 }
 
@@ -215,20 +260,17 @@ static const struct pw_node_events node_events = {
 	.info = node_info,
 };
 
-void port_info(void *data, const struct pw_port_info *info)
+static void port_info(void *data, const struct pw_port_info *info)
 {
 	struct impl *impl = data;
 	struct port *port = NULL;
 
 	// We don't expect this to fail
-	spa_list_for_each(port, &impl->ports, list) {
-		if (port->id == info->id)
-			break;
-	}
+	port = find_port_by_id(impl, info->id);
 
-	pw_log_debug("Got port info for %u", port->id);
 	port->direction = info->direction;
-	port->props = pw_properties_new_dict(info->props);
+	if (info->change_mask & PW_PORT_CHANGE_MASK_PROPS)
+		port->props = pw_properties_new_dict(info->props);
 
 	check_port(impl, port);
 }
@@ -238,14 +280,14 @@ static const struct pw_port_events port_events = {
 	.info = port_info,
 };
 
-void registry_global_added(void *data, uint32_t id, uint32_t permissions,
+static void registry_global(void *data, uint32_t id, uint32_t permissions,
 		const char *type, uint32_t version,
 		const struct spa_dict *props)
 {
 	struct impl *impl = data;
 	const char *str;
 
-	pw_log_debug("Got object %u of type %s", id, type);
+	pw_log_trace("Got type %s: %u", type, id);
 
 	if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
 		struct pw_node *proxy;
@@ -261,7 +303,6 @@ void registry_global_added(void *data, uint32_t id, uint32_t permissions,
 		spa_list_insert(&impl->nodes, &node->list);
 
 		pw_node_add_listener(proxy, &node->proxy_listener, &node_events, node);
-		pw_core_sync(impl->core, 0, 0);
 	} else if (spa_streq(type, PW_TYPE_INTERFACE_Port)) {
 		struct pw_port *proxy;
 		struct port *port;
@@ -282,16 +323,32 @@ void registry_global_added(void *data, uint32_t id, uint32_t permissions,
 		spa_list_insert(&impl->ports, &port->list);
 
 		pw_port_add_listener(proxy, &port->proxy_listener, &port_events, impl);
-	} else {
-		pw_log_debug("Ignoring object of type %s", type);
+	} else if (spa_streq(type, PW_TYPE_INTERFACE_Link)) {
+		struct port *port;
+		const char *id_str;
+		uint32_t port_id;
+
+		id_str = spa_dict_lookup(props, PW_KEY_LINK_INPUT_PORT);
+		if (spa_atou32(id_str, &port_id, 10) && (port = find_port_by_id(impl, port_id)))
+			port->link_id = id;
+
+		id_str = spa_dict_lookup(props, PW_KEY_LINK_OUTPUT_PORT);
+		if (spa_atou32(id_str, &port_id, 10) && (port = find_port_by_id(impl, port_id)))
+			port->link_id = id;
+
+		pw_log_debug("Stored link %u (%s -> %s)", id,
+				spa_dict_lookup(props, PW_KEY_LINK_INPUT_PORT),
+				spa_dict_lookup(props, PW_KEY_LINK_OUTPUT_PORT));
 	}
 }
 
-void registry_global_removed(void *data, uint32_t id)
+static void registry_global_removed(void *data, uint32_t id)
 {
 	struct impl *impl = data;
 	struct node *node;
 	struct port *port;
+
+	pw_log_trace("Removed %u", id);
 
 	spa_list_for_each(node, &impl->nodes, list) {
 		if (node->id != id)
@@ -318,15 +375,191 @@ void registry_global_removed(void *data, uint32_t id)
 
 static const struct pw_registry_events registry_events = {
 	PW_VERSION_REGISTRY_EVENTS,
-	.global = registry_global_added,
+	.global = registry_global,
 	.global_remove = registry_global_removed,
 };
 
-void module_destroy(void *data)
+static void link_node_ports(struct impl *impl, const char *node_name)
+{
+	struct node *node, *this_node = NULL, *other_node = NULL;
+	struct port *port;
+
+	this_node = find_node_by_name(impl, node_name);
+
+	if (!this_node)
+		return;
+
+	spa_list_for_each(node, &impl->nodes, list) {
+		struct node *target;
+
+		target = find_target_node(impl, node);
+		if (!target)
+			continue;
+
+		// This node's target is the USB device
+		if (target->id == this_node->id) {
+			other_node = node;
+			break;
+		}
+	}
+
+	if (!other_node)
+		return;
+
+	spa_list_for_each(port, &impl->ports, list) {
+		if (port->node_id != this_node->id)
+			continue;
+
+		link_port_to_target(impl, port, other_node);
+	}
+}
+
+static void unlink_node_ports(struct impl *impl, const char *node_name)
+{
+	struct node *this_node;
+	struct port *port;
+
+	this_node = find_node_by_name(impl, node_name);
+
+	if (!this_node)
+		return;
+
+	spa_list_for_each(port, &impl->ports, list) {
+		if (port->node_id != this_node->id)
+			continue;
+
+		if (!port->linked)
+			continue;
+
+		pw_log_debug("Destroying link %u (%u <-> %u)", port->link_id, port->id, port->linked->id);
+		pw_registry_destroy(impl->registry, port->link_id);
+
+		// Clean up the other port
+		port->linked->link_id = 0;
+		port->linked->linked = NULL;
+		// And this one
+		port->link_id = 0;
+		port->linked = NULL;
+	}
+}
+
+static void usb_capture_rate_changed(struct impl *impl, int capture_rate)
+{
+	impl->capture_rate = capture_rate;
+
+	if (capture_rate > 0) {
+		pw_log_debug("Linking USB ports");
+		link_node_ports(impl, USB_PLAYBACK_DEV);
+		link_node_ports(impl, USB_CAPTURE_DEV);
+	} else {
+		pw_log_debug("Unlinking USB ports");
+		unlink_node_ports(impl, USB_CAPTURE_DEV);
+		unlink_node_ports(impl, USB_PLAYBACK_DEV);
+	}
+}
+
+static void ctl_event(struct spa_source *source)
+{
+	struct impl *impl = source->data;
+	snd_ctl_event_t *event;
+	int capture_rate, err;
+
+	if (!(source->rmask & SPA_IO_IN)) {
+		pw_log_debug("Woken up without work");
+		return;
+	}
+
+	snd_ctl_event_alloca(&event);
+	err = snd_ctl_read(impl->ctl, event);
+	if (err < 0) {
+		pw_log_warn("Error reading ctl event: %s", snd_strerror(err));
+		return;
+	}
+
+	if (snd_ctl_event_get_type(event) != SND_CTL_EVENT_ELEM ||
+			snd_ctl_event_elem_get_numid(event) != snd_ctl_elem_value_get_numid(impl->capture_rate_elem))
+		return;
+
+	err = snd_ctl_elem_read(impl->ctl, impl->capture_rate_elem);
+	if (err < 0) {
+		pw_log_warn("Could not read 'Capture Rate': %s", snd_strerror(err));
+		return;
+	}
+
+	capture_rate = snd_ctl_elem_value_get_integer(impl->capture_rate_elem, 0);
+	pw_log_debug("New capture rate: %d", capture_rate);
+
+	if (capture_rate != impl->capture_rate) {
+		// TODO: debounce
+		usb_capture_rate_changed(impl, capture_rate);
+	}
+}
+
+static void start_alsa_watcher(struct impl *impl, const char *device_name)
+{
+	struct pw_loop *loop;
+	snd_ctl_elem_id_t *id;
+	int err;
+
+	err = snd_ctl_open(&impl->ctl, device_name, SND_CTL_READONLY | SND_CTL_NONBLOCK);
+	if (err < 0) {
+		pw_log_warn("Could not find ctl device for %s: %s", device_name, snd_strerror(err));
+		impl->ctl = NULL;
+		return;
+	}
+
+	snd_ctl_elem_id_alloca(&id);
+	snd_ctl_elem_id_set_name(id, "Capture Rate");
+	snd_ctl_elem_id_set_interface(id, SND_CTL_ELEM_IFACE_PCM);
+
+	snd_ctl_elem_value_malloc(&impl->capture_rate_elem);
+	snd_ctl_elem_value_set_id(impl->capture_rate_elem, id);
+
+	err = snd_ctl_elem_read(impl->ctl, impl->capture_rate_elem);
+	if (err < 0) {
+		pw_log_warn("Could not read 'Capture Rate': %s", snd_strerror(err));
+
+		snd_ctl_elem_value_free(impl->capture_rate_elem);
+		impl->capture_rate_elem = NULL;
+
+		snd_ctl_close(impl->ctl);
+		impl->ctl = NULL;
+		return;
+	}
+
+	impl->capture_rate = snd_ctl_elem_value_get_integer(impl->capture_rate_elem, 0);
+
+	impl->n_fds = snd_ctl_poll_descriptors_count(impl->ctl);
+	if (impl->n_fds > (int)SPA_N_ELEMENTS(impl->sources)) {
+		pw_log_warn("Too many poll descriptors (%d), listening to a subset", impl->n_fds);
+		impl->n_fds = SPA_N_ELEMENTS(impl->sources);
+	}
+
+	if ((err = snd_ctl_poll_descriptors(impl->ctl, impl->pfds, impl->n_fds)) < 0) {
+		pw_log_warn("Could not get poll descriptors: %s", snd_strerror(err));
+		return;
+	}
+
+	snd_ctl_subscribe_events(impl->ctl, 1);
+
+	loop = pw_context_get_main_loop(impl->context);
+
+	for (int i = 0; i < impl->n_fds; i++) {
+		impl->sources[i].func = ctl_event;
+		impl->sources[i].data = impl;
+		impl->sources[i].fd = impl->pfds[i].fd;
+		impl->sources[i].mask = SPA_IO_IN;
+		impl->sources[i].rmask = 0;
+		pw_loop_add_source(loop, &impl->sources[i]);
+	}
+}
+
+static void module_destroy(void *data)
 {
 	struct impl *impl = data;
 	struct node *node;
 	struct port *port;
+	struct pw_loop *loop;
 
 	spa_hook_remove(&impl->module_listener);
 	spa_hook_remove(&impl->registry_listener);
@@ -344,6 +577,17 @@ void module_destroy(void *data)
 	if (impl->own_core)
 		pw_core_disconnect(impl->core);
 
+	loop = pw_context_get_main_loop(impl->context);
+
+	for (int i = 0; i < impl->n_fds; i++)
+		pw_loop_remove_source(loop, &impl->sources[i]);
+
+	if (impl->capture_rate_elem)
+		snd_ctl_elem_value_free(impl->capture_rate_elem);
+
+	if (impl->ctl)
+		snd_ctl_close(impl->ctl);
+
 	free(impl);
 }
 
@@ -356,7 +600,6 @@ SPA_EXPORT
 int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
 	struct impl *impl;
-	struct pw_context *context = pw_impl_module_get_context(module);
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -364,11 +607,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (impl == NULL)
 		return -errno;
 	impl->module = module;
-	impl->core = pw_context_get_object(context, PW_TYPE_INTERFACE_Core);
+	impl->context = pw_impl_module_get_context(module);
+	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 
 	if (impl->core == NULL) {
 		// FIXME: allow non-default remotes
-		impl->core = pw_context_connect(context, NULL, 0);
+		impl->core = pw_context_connect(impl->context, NULL, 0);
 		impl->own_core = true;
 	}
 
@@ -376,6 +620,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	spa_list_init(&impl->nodes);
 	spa_list_init(&impl->ports);
+
+	start_alsa_watcher(impl, "hw:1");
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 	pw_registry_add_listener(impl->registry, &impl->registry_listener, &registry_events, impl);

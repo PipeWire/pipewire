@@ -3266,7 +3266,7 @@ static void registry_event_global(void *data, uint32_t id,
 	struct client *c = (struct client *) data;
 	struct object *o, *ot, *op;
 	const char *str;
-	bool do_emit = true;
+	bool do_emit = true, do_sync = false;
 	uint32_t serial;
 
 	if (props == NULL)
@@ -3348,6 +3348,7 @@ static void registry_event_global(void *data, uint32_t id,
 						&o->proxy_listener, &proxy_events, o);
 				pw_proxy_add_object_listener(o->proxy,
 						&o->object_listener, &node_events, o);
+				do_sync = true;
 			}
 		}
 		pthread_mutex_lock(&c->context.lock);
@@ -3442,6 +3443,7 @@ static void registry_event_global(void *data, uint32_t id,
 
 				pw_port_subscribe_params((struct pw_port*)o->proxy,
 						ids, 1);
+				do_sync = true;
 			}
 			pthread_mutex_lock(&c->context.lock);
 			spa_list_append(&c->context.objects, &o->link);
@@ -3563,6 +3565,7 @@ static void registry_event_global(void *data, uint32_t id,
 			pw_metadata_add_listener(proxy,
 					&c->metadata->listener,
 					&metadata_events, c);
+			do_sync = true;
 		} else if (spa_streq(str, "settings")) {
 			proxy = pw_registry_bind(c->registry,
 					id, type, PW_VERSION_METADATA, sizeof(struct metadata));
@@ -3572,6 +3575,7 @@ static void registry_event_global(void *data, uint32_t id,
 			pw_proxy_add_listener(proxy,
 					&c->settings->proxy_listener,
 					&settings_proxy_events, c);
+			do_sync = true;
 		}
 		goto exit;
 	}
@@ -3606,6 +3610,9 @@ static void registry_event_global(void *data, uint32_t id,
 	}
 
       exit:
+	if (do_sync)
+		c->pending_sync = pw_proxy_sync((struct pw_proxy*)c->core,
+				c->pending_sync);
 	return;
       exit_free:
 	free_object(c, o);
@@ -3958,13 +3965,15 @@ jack_client_t * jack_client_open (const char *client_name,
 	if (status)
 		*status = 0;
 
+	client->pending_sync = pw_proxy_sync((struct pw_proxy*)client->core, client->pending_sync);
+
 	while (true) {
 	        pw_thread_loop_wait(client->context.loop);
 
 		if (client->last_res < 0)
 			goto init_failed;
 
-		if (client->has_transport)
+		if (client->pending_sync == client->last_sync)
 			break;
 	}
 

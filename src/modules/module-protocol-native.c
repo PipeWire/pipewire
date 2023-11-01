@@ -1489,6 +1489,7 @@ static int impl_ext_end_proxy(struct pw_proxy *proxy,
 {
 	struct pw_core *core = proxy->core;
 	struct client *impl = SPA_CONTAINER_OF(core->conn, struct client, this);
+	ensure_loop(impl->context->main_loop);
 	assert_single_pod(builder);
 	marshal_core_footers(&impl->footer_state, core, builder);
 	return core->send_seq = pw_protocol_native_connection_end(impl->connection, builder);
@@ -1518,6 +1519,7 @@ static int impl_ext_end_resource(struct pw_resource *resource,
 {
 	struct client_data *data = resource->client->user_data;
 	struct pw_impl_client *client = resource->client;
+	ensure_loop(client->context->main_loop);
 	assert_single_pod(builder);
 	marshal_client_footers(&data->footer_state, client, builder);
 	return client->send_seq = pw_protocol_native_connection_end(data->connection, builder);

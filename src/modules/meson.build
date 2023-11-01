@@ -20,6 +20,7 @@ module_sources = [
   'module-jack-tunnel.c',
   'module-jackdbus-detect.c',
   'module-link-factory.c',
+  'module-link-manager.c',
   'module-loopback.c',
   'module-loopback-filter.c',
   'module-metadata.c',
@@ -312,6 +313,15 @@ pipewire_module_client_device = shared_library('pipewire-module-client-device',
 
 pipewire_module_link_factory = shared_library('pipewire-module-link-factory',
   [ 'module-link-factory.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
+)
+
+pipewire_module_link_manager = shared_library('pipewire-module-link-manager',
+  [ 'module-link-manager.c' ],
   include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,

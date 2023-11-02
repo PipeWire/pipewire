@@ -282,7 +282,7 @@ done:
 }
 
 static const struct pw_node_events node_events = {
-	PW_VERSION_NODE,
+	PW_VERSION_NODE_EVENTS,
 	.info = node_info,
 	.param = node_param,
 };

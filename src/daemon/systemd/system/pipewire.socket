@@ -1,10 +1,9 @@
 [Unit]
-Description=PipeWire Multimedia System Sockets
+Description=PipeWire Multimedia System Socket
 
 [Socket]
 Priority=6
 ListenStream=%t/pipewire/pipewire-0
-ListenStream=%t/pipewire/pipewire-0-manager
 SocketUser=pipewire
 SocketGroup=pipewire
 SocketMode=0660

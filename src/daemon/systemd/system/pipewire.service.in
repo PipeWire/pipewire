@@ -31,5 +31,5 @@ User=pipewire
 Environment=PIPEWIRE_RUNTIME_DIR=%t/pipewire
 
 [Install]
-Also=pipewire.socket
+Also=pipewire.socket pipewire-manager.socket
 WantedBy=default.target

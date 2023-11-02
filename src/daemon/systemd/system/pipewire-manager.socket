@@ -1,0 +1,13 @@
+[Unit]
+Description=PipeWire Multimedia System Manager Socket
+
+[Socket]
+Service=pipewire.service
+Priority=6
+ListenStream=%t/pipewire/pipewire-0-manager
+SocketUser=pipewire
+SocketGroup=pipewire
+SocketMode=0600
+
+[Install]
+WantedBy=sockets.target

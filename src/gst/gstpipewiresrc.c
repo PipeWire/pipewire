@@ -1188,7 +1188,7 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
     if (state == PW_STREAM_STATE_ERROR)
       goto streaming_error;
 
-    if (state != PW_STREAM_STATE_STREAMING)
+    if (state == PW_STREAM_STATE_UNCONNECTED)
       goto streaming_stopped;
 
     if ((caps = pwsrc->caps) != NULL) {

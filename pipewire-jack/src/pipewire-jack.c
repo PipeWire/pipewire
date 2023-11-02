@@ -3218,7 +3218,7 @@ static void node_info(void *data, const struct pw_node_info *info)
 }
 
 static const struct pw_node_events node_events = {
-	PW_VERSION_NODE,
+	PW_VERSION_NODE_EVENTS,
 	.info = node_info,
 };
 
@@ -3243,7 +3243,7 @@ static void port_param(void *data, int seq,
 }
 
 static const struct pw_port_events port_events = {
-	PW_VERSION_PORT,
+	PW_VERSION_PORT_EVENTS,
 	.param = port_param,
 };
 

@@ -884,9 +884,11 @@ int pw_impl_link_deactivate(struct pw_impl_link *this)
 
 	impl->activated = false;
 	pw_log_info("(%s) deactivated", this->name);
-	link_update_state(this, this->destroyed ?
-			PW_LINK_STATE_INIT : PW_LINK_STATE_PAUSED,
-			0, NULL);
+	
+	if (this->info.state < PW_LINK_STATE_PAUSED || this->destroyed)
+		link_update_state(this, PW_LINK_STATE_INIT, 0, NULL);
+	else
+		link_update_state(this, PW_LINK_STATE_PAUSED, 0, NULL);
 	return 0;
 }
 

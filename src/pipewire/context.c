@@ -32,6 +32,8 @@
 PW_LOG_TOPIC_EXTERN(log_context);
 #define PW_LOG_TOPIC_DEFAULT log_context
 
+#define MAX_HOPS	64
+
 /** \cond */
 struct impl {
 	struct pw_context this;
@@ -791,11 +793,16 @@ static int ensure_state(struct pw_impl_node *node, bool running)
  * and groups to active nodes and make them recursively runnable as well.
  */
 static inline int run_nodes(struct pw_context *context, struct pw_impl_node *node,
-		struct spa_list *nodes, enum pw_direction direction)
+		struct spa_list *nodes, enum pw_direction direction, int hop)
 {
 	struct pw_impl_node *t;
 	struct pw_impl_port *p;
 	struct pw_impl_link *l;
+
+	if (hop == MAX_HOPS) {
+		pw_log_warn("exceeded hops (%d)", hop);
+		return -EIO;
+	}
 
 	pw_log_debug("node %p: '%s' direction:%s", node, node->name,
 			pw_direction_as_string(direction));
@@ -813,7 +820,7 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
 
 				pw_log_debug("  peer %p: '%s'", t, t->name);
 				t->runnable = true;
-				run_nodes(context, t, nodes, direction);
+				run_nodes(context, t, nodes, direction, hop + 1);
 			}
 		}
 	} else {
@@ -827,7 +834,7 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
 
 				pw_log_debug("  peer %p: '%s'", t, t->name);
 				t->runnable = true;
-				run_nodes(context, t, nodes, direction);
+				run_nodes(context, t, nodes, direction, hop + 1);
 			}
 		}
 	}
@@ -847,7 +854,7 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
 			pw_log_debug("  group %p: '%s'", t, t->name);
 			t->runnable = true;
 			if (!t->driving)
-				run_nodes(context, t, nodes, direction);
+				run_nodes(context, t, nodes, direction, hop + 1);
 		}
 	}
 	return 0;
@@ -950,8 +957,8 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 	}
 	spa_list_for_each(n, collect, sort_link)
 		if (!n->driving && n->runnable) {
-			run_nodes(context, n, collect, PW_DIRECTION_OUTPUT);
-			run_nodes(context, n, collect, PW_DIRECTION_INPUT);
+			run_nodes(context, n, collect, PW_DIRECTION_OUTPUT, 0);
+			run_nodes(context, n, collect, PW_DIRECTION_INPUT, 0);
 		}
 
 	return 0;

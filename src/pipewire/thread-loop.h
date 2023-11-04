@@ -13,6 +13,8 @@ extern "C" {
 
 /** \page page_thread_loop Thread Loop
  *
+ * \see \ref pw_thread_loop
+ *
  * \section sec_thread_loop_overview Overview
  *
  * The threaded loop implementation is a special wrapper around the
@@ -68,7 +70,7 @@ extern "C" {
  * All of the loop callbacks will be executed with the loop
  * lock held.
  *
- * See also \ref page_thread_loop
+ * \see \ref page_thread_loop
  */
 
 /**

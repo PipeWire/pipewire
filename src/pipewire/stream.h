@@ -11,6 +11,8 @@ extern "C" {
 
 /** \page page_streams Streams
  *
+ * \see \ref pw_stream
+ *
  * \section sec_overview Overview
  *
  * \ref pw_stream "Streams" are used to exchange data with the
@@ -162,7 +164,7 @@ extern "C" {
  * The stream object provides a convenient way to send and
  * receive data streams from/to PipeWire.
  *
- * See also \ref page_streams and \ref api_pw_core
+ * \see \ref page_streams, \ref api_pw_core
  */
 
 /**

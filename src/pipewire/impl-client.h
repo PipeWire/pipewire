@@ -13,6 +13,8 @@ extern "C" {
 
 /** \page page_client_impl Client Implementation
  *
+ * \see \ref pw_impl_client
+ *
  * \section sec_page_client_impl_overview Overview
  *
  * The \ref pw_impl_client object is created by a protocol implementation when
@@ -51,7 +53,7 @@ extern "C" {
  * Each client has its own list of resources it is bound to along with
  * a mapping between the client types and server types.
  *
- * See: \ref page_client_impl
+ * \see \ref page_client_impl
  */
 
 /**

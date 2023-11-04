@@ -120,8 +120,4 @@ Support interfaces provided by host
 \{
 \}
 
-\defgroup pwtest Test Suite
-\{
-\}
-
 */

@@ -1,37 +1,37 @@
 <doxygenlayout version="1.0">
   <navindex>
     <tab type="mainpage" visible="yes" title=""/>
-    <tab type="pages" visible="yes" title="" intro=""/>
+    <tab type="pages" visible="yes" title="Pages" intro=""/>
     <tab type="modules" visible="yes" title="API Reference" intro="" />
     <tab type="namespaces" visible="no" title="">
       <tab type="namespacelist" visible="yes" title="" intro=""/>
       <tab type="namespacemembers" visible="yes" title="" intro=""/>
     </tab>
-    <tab type="concepts" visible="yes" title="">
+    <tab type="concepts" visible="no" title="">
     </tab>
-    <tab type="interfaces" visible="yes" title="">
+    <tab type="interfaces" visible="no" title="">
       <tab type="interfacelist" visible="yes" title="" intro=""/>
       <tab type="interfaceindex" visible="$ALPHABETICAL_INDEX" title=""/>
       <tab type="interfacehierarchy" visible="yes" title="" intro=""/>
     </tab>
     <tab type="classes" visible="yes" title="">
       <tab type="classlist" visible="yes" title="" intro=""/>
-      <tab type="classindex" visible="$ALPHABETICAL_INDEX" title=""/>
+      <tab type="classindex" visible="yes" title=""/>
       <tab type="hierarchy" visible="yes" title="" intro=""/>
-      <tab type="classmembers" visible="yes" title="" intro=""/>
+      <tab type="classmembers" visible="no" title="" intro=""/>
     </tab>
-    <tab type="structs" visible="yes" title="">
+    <tab type="structs" visible="no" title="">
       <tab type="structlist" visible="yes" title="" intro=""/>
       <tab type="structindex" visible="$ALPHABETICAL_INDEX" title=""/>
     </tab>
-    <tab type="exceptions" visible="yes" title="">
+    <tab type="exceptions" visible="no" title="">
       <tab type="exceptionlist" visible="yes" title="" intro=""/>
       <tab type="exceptionindex" visible="$ALPHABETICAL_INDEX" title=""/>
       <tab type="exceptionhierarchy" visible="yes" title="" intro=""/>
     </tab>
     <tab type="files" visible="yes" title="">
       <tab type="filelist" visible="yes" title="" intro=""/>
-      <tab type="globals" visible="yes" title="" intro=""/>
+      <tab type="globals" visible="no" title="" intro=""/>
     </tab>
     <tab type="examples" visible="yes" title="" intro=""/>
   </navindex>
@@ -185,12 +185,12 @@
       <namespaces visible="yes" title=""/>
       <concepts visible="yes" title=""/>
       <classes visible="yes" title=""/>
-      <defines title=""/>
       <typedefs title=""/>
       <sequences title=""/>
       <dictionaries title=""/>
       <enums title=""/>
       <enumvalues title=""/>
+      <defines title=""/>
       <functions title=""/>
       <variables title=""/>
       <signals title=""/>
@@ -206,12 +206,12 @@
     <memberdef>
       <pagedocs/>
       <inlineclasses title=""/>
-      <defines title=""/>
       <typedefs title=""/>
       <sequences title=""/>
       <dictionaries title=""/>
       <enums title=""/>
       <enumvalues title=""/>
+      <defines title=""/>
       <functions title=""/>
       <variables title=""/>
       <signals title=""/>

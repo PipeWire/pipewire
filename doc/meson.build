@@ -68,7 +68,6 @@ endforeach
 foreach h : module_sources
   inputs += meson.project_source_root() / 'src' / 'modules' / h
 endforeach
-inputs += meson.project_source_root() / 'test' / 'pwtest.h'
 input_dirs = [ meson.project_source_root() / 'spa' / 'include' / 'spa' ]
 
 path_prefixes = [
@@ -142,13 +141,15 @@ pw_tools_dox = configure_file(input: 'pipewire-tools.dox.in',
 input_dirs += [ 'doc/pipewire-tools.dox' ]
 
 doxygen_layout = meson.project_source_root() / 'doc' / 'DoxygenLayout.xml'
+doxygen_filter_c = meson.project_source_root() / 'doc' / 'input-filter.sh'
+doxygen_filter_h = meson.project_source_root() / 'doc' / 'input-filter-h.sh'
 
 doxyfile_conf.set('inputs', ' '.join(inputs + input_dirs))
 doxyfile_conf.set('cssfiles', ' '.join(cssfiles))
 doxyfile_conf.set('layout', doxygen_layout)
 doxyfile_conf.set('path_prefixes', ' '.join(path_prefixes))
-doxyfile_conf.set('c_input_filter', meson.project_source_root() / 'doc' / 'input-filter.sh')
-doxyfile_conf.set('h_input_filter', meson.project_source_root() / 'doc' / 'input-filter-h.sh')
+doxyfile_conf.set('c_input_filter', doxygen_filter_c)
+doxyfile_conf.set('h_input_filter', doxygen_filter_h)
 
 doxyfile = configure_file(input: 'Doxyfile.in',
                           output: 'Doxyfile',
@@ -160,7 +161,7 @@ if docdir == ''
 endif
 
 html_target = custom_target('pipewire-docs',
-                            input: [ doxyfile, doxygen_layout, examples_dox, pw_tools_dox ] + inputs + cssfiles + man_doxygen,
+                            input: [ doxyfile, doxygen_layout, examples_dox, pw_tools_dox, doxygen_filter_c, doxygen_filter_h ] + inputs + cssfiles + man_doxygen,
                             output: [ 'html' ],
                             command: [ doxygen, doxyfile ],
                             install: true,

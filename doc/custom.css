@@ -22,3 +22,15 @@
     opacity: 1;
     padding-right: 0.25em;
 }
+
+.textblock h1 {
+    font-size: 150%;
+}
+.textblock h2 {
+    font-size: 100%;
+}
+.textblock h3, .textblock h4, .textblock h5, .textblock h6 {
+    font-size: 100%;
+    font-style: italic;
+    font-size: medium;
+}

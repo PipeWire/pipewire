@@ -1,5 +1,7 @@
 /** \page @pagename@ @title@
 
+\brief Manual page for @title@
+
 \verbinclude @filename@
 
 */

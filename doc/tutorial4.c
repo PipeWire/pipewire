@@ -42,6 +42,8 @@ static void on_process(void *userdata)
 
 	stride = sizeof(int16_t) * DEFAULT_CHANNELS;
 	n_frames = buf->datas[0].maxsize / stride;
+	if (b->requested)
+		n_frames = SPA_MIN(b->requested, n_frames);
 
 	for (i = 0; i < n_frames; i++) {
 		data->accumulator += M_PI_M2 * 440 / DEFAULT_RATE;

@@ -141,8 +141,11 @@ pw_tools_dox = configure_file(input: 'pipewire-tools.dox.in',
                           configuration: pw_tools_dox_conf)
 input_dirs += [ 'doc/pipewire-tools.dox' ]
 
+doxygen_layout = meson.project_source_root() / 'doc' / 'DoxygenLayout.xml'
+
 doxyfile_conf.set('inputs', ' '.join(inputs + input_dirs))
 doxyfile_conf.set('cssfiles', ' '.join(cssfiles))
+doxyfile_conf.set('layout', doxygen_layout)
 doxyfile_conf.set('path_prefixes', ' '.join(path_prefixes))
 doxyfile_conf.set('c_input_filter', meson.project_source_root() / 'doc' / 'input-filter.sh')
 doxyfile_conf.set('h_input_filter', meson.project_source_root() / 'doc' / 'input-filter-h.sh')
@@ -157,7 +160,7 @@ if docdir == ''
 endif
 
 html_target = custom_target('pipewire-docs',
-                            input: [ doxyfile, examples_dox, pw_tools_dox ] + inputs + cssfiles + man_doxygen,
+                            input: [ doxyfile, doxygen_layout, examples_dox, pw_tools_dox ] + inputs + cssfiles + man_doxygen,
                             output: [ 'html' ],
                             command: [ doxygen, doxyfile ],
                             install: true,

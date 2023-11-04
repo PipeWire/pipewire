@@ -17,9 +17,7 @@
 # Components
 
 - \subpage page_daemon
-- \subpage page_tools
 - \subpage page_session_manager
-
 
 # Backends
 

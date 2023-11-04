@@ -89,6 +89,7 @@ Utility data structures, macros, etc.
 \addtogroup spa_hooks
 \addtogroup spa_interfaces
 \addtogroup spa_json
+\addtogroup spa_json_pod
 \addtogroup spa_keys
 \addtogroup spa_names
 \addtogroup spa_result

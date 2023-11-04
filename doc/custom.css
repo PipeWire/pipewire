@@ -17,3 +17,8 @@
 		--fragment-link: #729fcf;
 	}
 }
+
+#nav-tree .arrow {
+    opacity: 1;
+    padding-right: 0.25em;
+}

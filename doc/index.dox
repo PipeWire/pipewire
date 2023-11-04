@@ -43,4 +43,13 @@ More information on how to configure and use PipeWire.
 - [Intoduction to PipeWire](https://bootlin.com/blog/an-introduction-to-pipewire/)
 - [A custom PipeWire node](https://bootlin.com/blog/a-custom-pipewire-node/)
 
+
+\page page_overview
+\page page_pipewire
+\page page_tools
+\page page_pipewire_modules
+\page page_api
+\page page_spa
+\page page_tutorial
+
 */

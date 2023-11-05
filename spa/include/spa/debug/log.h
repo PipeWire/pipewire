@@ -38,7 +38,7 @@ struct spa_debug_log_ctx {
 SPA_PRINTF_FUNC(2,3)
 static inline void spa_debug_log_log(struct spa_debug_context *ctx, const char *fmt, ...)
 {
-	struct spa_debug_log_ctx *c = (struct spa_debug_log_ctx*)ctx;
+	struct spa_debug_log_ctx *c = SPA_CONTAINER_OF(ctx, struct spa_debug_log_ctx, ctx);
 	va_list args;
 	va_start(args, fmt);
 	spa_log_logtv(c->log, c->level, c->topic, c->file, c->line, c->func, fmt, args);

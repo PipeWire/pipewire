@@ -162,7 +162,7 @@ char **pw_strv_parse(const char *val, size_t len, int max_tokens, int *n_tokens)
  * \since 0.3.84
  */
 SPA_EXPORT
-int pw_strv_find(char **a, char *b)
+int pw_strv_find(char **a, const char *b)
 {
 	int i;
 	if (a == NULL || b == NULL)

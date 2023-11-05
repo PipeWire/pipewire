@@ -48,7 +48,7 @@ pw_split_ip(char *str, const char *delimiter, int max_tokens, char *tokens[]);
 
 char **pw_strv_parse(const char *val, size_t len, int max_tokens, int *n_tokens);
 
-int pw_strv_find(char **a, char *b);
+int pw_strv_find(char **a, const char *b);
 
 int pw_strv_find_common(char **a, char **b);
 

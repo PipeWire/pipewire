@@ -86,7 +86,7 @@ static void emit_node(struct impl *this, const char *device_node, unsigned int d
 		 * hardware that can capture audio is difficult to do. The only hardware
 		 * known is the Wolfson ADSP; the only driver in the kernel that exposes
 		 * Compress-Offload capture devices is the one for that hardware. */
-		assert(false);
+		spa_assert_not_reached();
 	}
 
 	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;

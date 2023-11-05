@@ -173,7 +173,7 @@ const struct media_codec * const *load_media_codecs(struct spa_plugin_loader *lo
 #undef MEDIA_CODEC_FACTORY_LIB
 	};
 
-	impl = calloc(sizeof(struct impl), 1);
+	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
 		return NULL;
 

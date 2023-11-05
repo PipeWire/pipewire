@@ -106,7 +106,7 @@ static int emit_info(struct impl *impl, bool full)
 	uint32_t n_items = 0;
 	struct spa_device_info info;
 	struct spa_param_info params[2];
-	char path[256], model[256], name[256], devices_str[128];
+	char path[256], name[256], devices_str[128];
 	struct spa_strbuf buf;
 
 	info = SPA_DEVICE_INFO_INIT();
@@ -123,9 +123,10 @@ static int emit_info(struct impl *impl, bool full)
 	if (auto location = cameraLoc(impl->camera.get()))
 		ADD_ITEM(SPA_KEY_API_LIBCAMERA_LOCATION, location);
 
-	snprintf(model, sizeof(model), "%s", cameraModel(impl->camera.get()).c_str());
-	ADD_ITEM(SPA_KEY_DEVICE_PRODUCT_NAME, model);
-	ADD_ITEM(SPA_KEY_DEVICE_DESCRIPTION, model);
+	const auto model = cameraModel(impl->camera.get());
+	ADD_ITEM(SPA_KEY_DEVICE_PRODUCT_NAME, model.c_str());
+	ADD_ITEM(SPA_KEY_DEVICE_DESCRIPTION, model.c_str());
+
 	snprintf(name, sizeof(name), "libcamera_device.%s", impl->device_id.c_str());
 	ADD_ITEM(SPA_KEY_DEVICE_NAME, name);
 

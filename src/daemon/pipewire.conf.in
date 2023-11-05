@@ -90,13 +90,16 @@ context.modules = [
 
     # Uses realtime scheduling to boost the audio thread priorities. This uses
     # RTKit if the user doesn't have permission to use regular realtime
-    # scheduling.
+    # scheduling. You can also clamp utilisation values to improve scheduling
+    # on embedded and heterogeneous systems, e.g. Arm big.LITTLE devices.
     { name = libpipewire-module-rt
         args = {
             nice.level    = -11
             #rt.prio      = 88
             #rt.time.soft = -1
             #rt.time.hard = -1
+            #uclamp.min = 0
+            #uclamp.max = 1024
         }
         flags = [ ifexists nofail ]
     }

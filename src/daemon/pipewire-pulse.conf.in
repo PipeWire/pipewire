@@ -31,6 +31,8 @@ context.modules = [
             rt.prio      = 65
             #rt.time.soft = -1
             #rt.time.hard = -1
+            #uclamp.min = 0
+            #uclamp.max = 1024
         }
         flags = [ ifexists nofail ]
     }

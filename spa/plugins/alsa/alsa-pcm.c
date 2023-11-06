@@ -2060,7 +2060,7 @@ static inline int check_position_config(struct state *state);
 
 static int alsa_recover(struct state *state, int err)
 {
-	int res, st;
+	int res, st, retry = 0;
 	snd_pcm_status_t *status;
 	struct state *driver, *follower;
 
@@ -2100,10 +2100,12 @@ static int alsa_recover(struct state *state, int err)
 	case SND_PCM_STATE_SUSPENDED:
 		spa_log_info(state->log, "%s: recover from state %s",
 				state->name, snd_pcm_state_name(st));
-		res = snd_pcm_resume(state->hndl);
-		if (res >= 0)
-		        return res;
-		err = -ESTRPIPE;
+		while (retry++ < 5 && (err = snd_pcm_resume(state->hndl)) == -EAGAIN)
+			/* wait until suspend flag is released */
+			poll(NULL, 0, 1000);
+		if (err >= 0)
+			return res;
+		/* try to drop and prepare below */
 		break;
 	default:
 		spa_log_error(state->log, "%s: recover from error state %s",
@@ -2112,11 +2114,6 @@ static int alsa_recover(struct state *state, int err)
 	}
 
 recover:
-	if (SPA_UNLIKELY((res = snd_pcm_recover(state->hndl, err, true)) < 0)) {
-		spa_log_error(state->log, "%s: snd_pcm_recover error: %s",
-				state->name, snd_strerror(res));
-		return res;
-	}
 	if (state->driver && state->linked)
 		driver = state->driver;
 	else

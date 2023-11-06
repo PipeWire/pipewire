@@ -92,16 +92,24 @@ struct impl {
 	uint8_t *buffer_data;
 	uint32_t buffer_size;
 
+	bool capture1_streaming;
+	bool capture2_streaming;
 	bool capture1_ready;
 	bool capture2_ready;
 };
 
 static void trigger_playback(struct impl *impl)
 {
-	if (!impl->capture1_ready || !impl->capture2_ready)
+	if ((impl->capture1_streaming && !impl->capture1_ready) || (impl->capture2_streaming && !impl->capture2_ready))
 		return;
 
-	pw_stream_trigger_process(impl->playback2);
+	if (impl->capture2_streaming) {
+		// loopback1 and loopback2 are running, trigger the second which cascades to the first
+		pw_stream_trigger_process(impl->playback2);
+	} else {
+		// Only loopback1 is running, so trigger just that
+		pw_stream_trigger_process(impl->playback1);
+	}
 
 	impl->capture1_ready = false;
 	impl->capture2_ready = false;
@@ -140,17 +148,10 @@ static void capture2_process(void *d)
 }
 
 static void playback1_process(void *d) {
-	pw_log_trace("playback1 trigger");
-	// We did all the work in playback2
-}
-
-static void playback2_process(void *d)
-{
 	struct impl *impl = d;
-	struct pw_buffer *in1, *in2, *out1, *out2;
-	uint32_t i;
+	struct pw_buffer *in1 = NULL, *out1 = NULL;
 
-	pw_log_trace("playback2 process");
+	pw_log_trace("playback1 trigger");
 
 	in1 = NULL;
 	while (true) {
@@ -166,25 +167,8 @@ static void playback2_process(void *d)
 	if (in1 == NULL)
 		pw_log_debug("out of capture1 buffers: %m");
 
-	in2 = NULL;
-	while (true) {
-		struct pw_buffer *t;
-		if ((t = pw_stream_dequeue_buffer(impl->capture2)) == NULL)
-			break;
-		if (in2) {
-			pw_stream_queue_buffer(impl->capture2, in2);
-			pw_log_warn("dropping capture2 buffers: %m");
-		}
-		in2 = t;
-	}
-	if (in2 == NULL)
-		pw_log_debug("out of capture2 buffers: %m");
-
 	if ((out1 = pw_stream_dequeue_buffer(impl->playback1)) == NULL)
 		pw_log_warn("out of playback1 buffers: %m");
-
-	if ((out2 = pw_stream_dequeue_buffer(impl->playback2)) == NULL)
-		pw_log_warn("out of playback2 buffers: %m");
 
 	if (in1 != NULL && out1 != NULL) {
 		uint32_t outsize;
@@ -206,7 +190,7 @@ static void playback2_process(void *d)
 		outsize = SPA_MIN(outsize, d->maxsize);
 		dst = d->data;
 
-		for (i = 0; i < outsize / sizeof(uint32_t); i++) {
+		for (uint32_t i = 0; i < outsize / sizeof(uint32_t); i++) {
 			if (i % 24 == 1)
 				dst[i] = src[i] / 2;
 			else
@@ -217,6 +201,34 @@ static void playback2_process(void *d)
 		d->chunk->size = outsize;
 		d->chunk->stride = stride;
 	}
+
+	if (in1 != NULL)
+		pw_stream_queue_buffer(impl->capture1, in1);
+	if (out1 != NULL)
+		pw_stream_queue_buffer(impl->playback1, out1);
+}
+
+static void playback2_process(void *d)
+{
+	struct impl *impl = d;
+	struct pw_buffer *in2 = NULL, *out2 = NULL;
+
+	pw_log_trace("playback2 process");
+
+	in2 = NULL;
+	while (true) {
+		struct pw_buffer *t;
+		if ((t = pw_stream_dequeue_buffer(impl->capture2)) == NULL)
+			break;
+		if (in2) {
+			pw_stream_queue_buffer(impl->capture2, in2);
+			pw_log_warn("dropping capture2 buffers: %m");
+		}
+		in2 = t;
+	}
+
+	// Can be NULL if USB isn't connected
+	out2 = pw_stream_dequeue_buffer(impl->playback2);
 
 	if (in2 != NULL && out2 != NULL) {
 		uint32_t outsize;
@@ -238,7 +250,7 @@ static void playback2_process(void *d)
 		outsize = SPA_MIN(outsize, d->maxsize);
 		dst = d->data;
 
-		for (i = 0; i < outsize / sizeof(uint32_t); i++) {
+		for (uint32_t i = 0; i < outsize / sizeof(uint32_t); i++) {
 			if (i % 8 == 0)
 				dst[i] = src[i] / 2;
 			else
@@ -250,12 +262,8 @@ static void playback2_process(void *d)
 		d->chunk->stride = stride;
 	}
 
-	if (in1 != NULL)
-		pw_stream_queue_buffer(impl->capture1, in1);
 	if (in2 != NULL)
 		pw_stream_queue_buffer(impl->capture2, in2);
-	if (out1 != NULL)
-		pw_stream_queue_buffer(impl->playback1, out1);
 	if (out2 != NULL)
 		pw_stream_queue_buffer(impl->playback2, out2);
 
@@ -268,13 +276,21 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 		enum pw_stream_state state, const char *error)
 {
 	struct impl *impl = data;
+
+	// FIXME: We have to check stream states here, because the callback is
+	// used across all streams and we don't know which one this was called
+	// on.
+	if (pw_stream_get_state(impl->capture1, NULL) == PW_STREAM_STATE_STREAMING)
+		impl->capture1_streaming = true;
+	else
+		impl->capture1_streaming = false;
+	if (pw_stream_get_state(impl->capture2, NULL) == PW_STREAM_STATE_STREAMING)
+		impl->capture2_streaming = true;
+	else
+		impl->capture2_streaming = false;
+	pw_log_debug("Stream states: capture1 %u, capture2 %u", impl->capture1_streaming, impl->capture2_streaming);
+
 	switch (state) {
-	case PW_STREAM_STATE_PAUSED:
-		pw_stream_flush(impl->playback1, false);
-		pw_stream_flush(impl->playback2, false);
-		pw_stream_flush(impl->capture1, false);
-		pw_stream_flush(impl->capture2, false);
-		break;
 	case PW_STREAM_STATE_UNCONNECTED:
 		pw_log_info("module %p: unconnected", impl);
 		pw_impl_module_schedule_destroy(impl->module);
@@ -614,8 +630,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_GROUP, "loopback-%u-%u", pid, id);
-	if (pw_properties_get(props, PW_KEY_NODE_LINK_GROUP) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_LINK_GROUP, "loopback-%u-%u", pid, id);
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 
@@ -634,7 +648,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, SPA_KEY_AUDIO_POSITION);
 	copy_props(impl, props, PW_KEY_NODE_DESCRIPTION);
 	copy_props(impl, props, PW_KEY_NODE_GROUP);
-	copy_props(impl, props, PW_KEY_NODE_LINK_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_LATENCY);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
 	copy_props(impl, props, PW_KEY_MEDIA_NAME);
@@ -656,6 +669,16 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(impl->playback2_props, PW_KEY_NODE_NAME) == NULL)
 		pw_properties_setf(impl->playback2_props, PW_KEY_NODE_NAME,
 				"output2.%s", str);
+
+	if (pw_properties_get(impl->capture1_props, PW_KEY_NODE_LINK_GROUP) == NULL)
+		pw_properties_setf(impl->capture1_props, PW_KEY_NODE_LINK_GROUP, "loopback-%u-%u-1", pid, id);
+	if (pw_properties_get(impl->capture2_props, PW_KEY_NODE_LINK_GROUP) == NULL)
+		pw_properties_setf(impl->capture2_props, PW_KEY_NODE_LINK_GROUP, "loopback-%u-%u-2", pid, id);
+	if (pw_properties_get(impl->playback1_props, PW_KEY_NODE_LINK_GROUP) == NULL)
+		pw_properties_setf(impl->playback1_props, PW_KEY_NODE_LINK_GROUP, "loopback-%u-%u-1", pid, id);
+	if (pw_properties_get(impl->playback2_props, PW_KEY_NODE_LINK_GROUP) == NULL)
+		pw_properties_setf(impl->playback2_props, PW_KEY_NODE_LINK_GROUP, "loopback-%u-%u-2", pid, id);
+
 	if (pw_properties_get(impl->capture1_props, PW_KEY_NODE_DESCRIPTION) == NULL)
 		pw_properties_set(impl->capture1_props, PW_KEY_NODE_DESCRIPTION, str);
 	if (pw_properties_get(impl->capture2_props, PW_KEY_NODE_DESCRIPTION) == NULL)

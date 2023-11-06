@@ -2351,7 +2351,8 @@ static int setup_matching(struct state *state)
 	if (spa_streq(state->position->clock.name, state->clock_name))
 		state->matching = false;
 
-	state->resample = !state->pitch_elem && (((uint32_t)state->rate != state->driver_rate.denom) || state->matching);
+	state->resample = !state->pitch_elem &&
+		(((uint32_t)state->rate != state->driver_rate.denom) || state->matching);
 	recalc_headroom(state);
 
 	spa_log_info(state->log, "driver clock:'%s'@%d our clock:'%s'@%d matching:%d resample:%d",
@@ -2404,7 +2405,8 @@ static inline int check_position_config(struct state *state)
 		state->threshold = SPA_SCALE32_UP(state->driver_duration, state->rate, state->driver_rate.denom);
 		state->max_error = SPA_MAX(256.0f, state->threshold / 2.0f);
 		state->max_resync = SPA_MIN(state->threshold, state->max_error);
-		state->resample = ((uint32_t)state->rate != state->driver_rate.denom) || state->matching;
+		state->resample = !state->pitch_elem &&
+			(((uint32_t)state->rate != state->driver_rate.denom) || state->matching);
 		state->alsa_sync = true;
 	}
 	return 0;

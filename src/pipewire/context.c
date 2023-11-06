@@ -817,6 +817,8 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
 				if (!t->active || !l->prepared ||
 				    (!t->driving && SPA_FLAG_IS_SET(t->checked, 1u<<direction)))
 					continue;
+				if (t->driving && p->node == t)
+					continue;
 
 				pw_log_debug("  peer %p: '%s'", t, t->name);
 				t->runnable = true;
@@ -830,6 +832,8 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
 
 				if (!t->active || !l->prepared ||
 				    (!t->driving && SPA_FLAG_IS_SET(t->checked, 1u<<direction)))
+					continue;
+				if (t->driving && p->node == t)
 					continue;
 
 				pw_log_debug("  peer %p: '%s'", t, t->name);

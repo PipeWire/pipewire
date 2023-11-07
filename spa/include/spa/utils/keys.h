@@ -44,6 +44,7 @@ extern "C" {
 #define SPA_KEY_API_ALSA_OPEN_UCM	"api.alsa.open.ucm"		/**< if UCM should be opened card */
 #define SPA_KEY_API_ALSA_DISABLE_LONGNAME	\
 					"api.alsa.disable-longname"	/**< if card long name should not be passed to MIDI port */
+#define SPA_KEY_API_ALSA_BIND_CTLS	"api.alsa.bind-ctls"		/**< alsa controls to bind as params */
 
 /** info from alsa card_info */
 #define SPA_KEY_API_ALSA_CARD_ID	"api.alsa.card.id"		/**< id from card_info */

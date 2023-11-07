@@ -186,6 +186,69 @@ static int uint32_array_to_string(uint32_t *vals, uint32_t n_vals, char *val, si
 	return 0;
 }
 
+static struct spa_pod *enum_bind_ctl_propinfo(struct state *state, uint32_t idx, struct spa_pod_builder *b)
+{
+	char param_name[1024];
+	char param_desc[1024];
+	snd_ctl_elem_info_t *info = state->bound_ctls[idx].info;
+
+	if (!info) {
+		// This will end iteration early, so print a warning
+		spa_log_warn(state->log, "Don't have prop info for bind ctl, bailing");
+		return NULL;
+	}
+
+	snprintf(param_name, sizeof(param_name), "api.alsa.bind-ctl.%s",
+			snd_ctl_elem_info_get_name(info));
+	snprintf(param_desc, sizeof(param_desc), "Value of ALSA control '%s'",
+			snd_ctl_elem_info_get_name(info));
+
+	// We don't have meaningful default values
+	switch (snd_ctl_elem_info_get_type(info)) {
+		case SND_CTL_ELEM_TYPE_BOOLEAN:
+			return spa_pod_builder_add_object(b,
+					SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+					SPA_PROP_INFO_name, SPA_POD_String(param_name),
+					SPA_PROP_INFO_description, SPA_POD_String(param_desc),
+					SPA_PROP_INFO_type, SPA_POD_Bool(false),
+					SPA_PROP_INFO_params, SPA_POD_Bool(true));
+
+		case SND_CTL_ELEM_TYPE_INTEGER:
+			return spa_pod_builder_add_object(b,
+					SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+					SPA_PROP_INFO_name, SPA_POD_String(param_name),
+					SPA_PROP_INFO_description, SPA_POD_String(param_desc),
+					SPA_PROP_INFO_type, SPA_POD_Int(0),
+					SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+
+		case SND_CTL_ELEM_TYPE_INTEGER64:
+			return spa_pod_builder_add_object(b,
+					SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+					SPA_PROP_INFO_name, SPA_POD_String(param_name),
+					SPA_PROP_INFO_description, SPA_POD_String(param_desc),
+					SPA_PROP_INFO_type, SPA_POD_Long(0),
+					SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+
+		case SND_CTL_ELEM_TYPE_ENUMERATED:
+			return spa_pod_builder_add_object(b,
+					SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+					SPA_PROP_INFO_name, SPA_POD_String(param_name),
+					SPA_PROP_INFO_description, SPA_POD_String(param_desc),
+					SPA_PROP_INFO_type, SPA_POD_Int(0),
+					SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+
+		default:
+			// FIXME: we can probably support bytes but the length seems unknown in the API
+			spa_log_warn(state->log, "%s ctl '%s' not supported",
+					snd_ctl_elem_type_name(snd_ctl_elem_info_get_type(info)),
+					snd_ctl_elem_info_get_name(info));
+			return NULL;
+	}
+}
+
 struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 		uint32_t idx, struct spa_pod_builder *b)
 {
@@ -348,10 +411,65 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_type, SPA_POD_String(state->clock_name),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
+	// While adding params here, update the math in default too
 	default:
-		return NULL;
+		idx -= 17;
+		if (idx <= state->num_bind_ctls)
+			param = enum_bind_ctl_propinfo(state, idx - 1, b);
+		else
+			return NULL;
 	}
 	return param;
+}
+
+static void add_bind_ctl_param(struct state *state, const snd_ctl_elem_value_t *elem, const snd_ctl_elem_info_t *info,
+		struct spa_pod_builder *b)
+{
+	char param_name[1024];
+
+	snprintf(param_name, sizeof(param_name), "api.alsa.bind-ctl.%s",
+			snd_ctl_elem_info_get_name(info));
+	spa_pod_builder_string(b, param_name);
+
+	switch (snd_ctl_elem_info_get_type(info)) {
+		case SND_CTL_ELEM_TYPE_BOOLEAN:
+			spa_pod_builder_bool(b, snd_ctl_elem_value_get_boolean(elem, 0));
+			break;
+
+		case SND_CTL_ELEM_TYPE_INTEGER:
+			spa_pod_builder_int(b, snd_ctl_elem_value_get_integer(elem, 0));
+			break;
+
+		case SND_CTL_ELEM_TYPE_INTEGER64:
+			spa_pod_builder_long(b, snd_ctl_elem_value_get_integer64(elem, 0));
+			break;
+
+		case SND_CTL_ELEM_TYPE_ENUMERATED:
+			spa_pod_builder_int(b, snd_ctl_elem_value_get_enumerated(elem, 0));
+			break;
+
+		default:
+			// FIXME: we can probably support bytes but the length seems unknown in the API
+			spa_log_warn(state->log, "%s ctl '%s' not supported",
+					snd_ctl_elem_type_name(snd_ctl_elem_info_get_type(info)),
+					snd_ctl_elem_info_get_name(info));
+			break;
+	}
+}
+
+static void add_bind_ctl_params(struct state *state, struct spa_pod_builder *b)
+{
+	int err;
+
+	for (unsigned int i = 0; i < state->num_bind_ctls; i++) {
+		err = snd_ctl_elem_read(state->ctl, state->bound_ctls[i].value);
+		if (err < 0) {
+			spa_log_warn(state->log, "Could not read elem value for '%s': %s",
+					state->bound_ctls[i].name, snd_strerror(err));
+		}
+
+		add_bind_ctl_param(state, state->bound_ctls[i].value, state->bound_ctls[i].info, b);
+	}
 }
 
 int spa_alsa_add_prop_params(struct state *state, struct spa_pod_builder *b)
@@ -420,6 +538,8 @@ int spa_alsa_add_prop_params(struct state *state, struct spa_pod_builder *b)
 
 	spa_pod_builder_string(b, "clock.name");
 	spa_pod_builder_string(b, state->clock_name);
+
+	add_bind_ctl_params(state, b);
 
 	spa_pod_builder_pop(b, &f[0]);
 	return 0;
@@ -500,6 +620,123 @@ static void silence_error_handler(const char *file, int line,
 {
 }
 
+static void fill_device_name(struct state *state, const char *params, char device_name[], size_t len)
+{
+	spa_scnprintf(device_name, len, "%s%s%s",
+			state->card->ucm_prefix ? state->card->ucm_prefix : "",
+			state->props.device, params ? params : "");
+}
+
+static void bind_ctl_event(struct spa_source *source)
+{
+	// We don't know if a bound element changed or not, so let's find out
+	struct state *state = source->data;
+	snd_ctl_elem_value_t *old_value;
+	bool changed = false;
+
+	snd_ctl_elem_value_alloca(&old_value);
+
+	for (unsigned int i = 0; i < state->num_bind_ctls; i++) {
+		int err;
+
+		snd_ctl_elem_value_copy(old_value, state->bound_ctls[i].value);
+
+		err = snd_ctl_elem_read(state->ctl, state->bound_ctls[i].value);
+		if (err < 0) {
+			spa_log_warn(state->log, "Could not read ctl '%s': %s",
+					state->bound_ctls[i].name, snd_strerror(err));
+			continue;
+		}
+
+		if (snd_ctl_elem_value_compare(old_value, state->bound_ctls[i].value) != 0) {
+			// We don't need to check all the ctls, if one changed,
+			// we'll emit a notification and they'll be read when
+			// the props are read
+			spa_log_debug(state->log, "bound ctl '%s' has changed", state->bound_ctls[i].name);
+			changed = true;
+			break;
+		}
+	}
+
+	if (changed) {
+		state->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+		state->params[NODE_Props].user++;
+		spa_alsa_emit_node_info(state, false);
+	}
+}
+
+static void bind_ctls_for_params(struct state *state)
+{
+	struct pollfd pfds[16];
+	int err;
+
+	if (state->num_bind_ctls == 0)
+		return;
+
+	if (!state->ctl) {
+		char device_name[256];
+
+		fill_device_name(state, NULL, device_name, sizeof(device_name));
+
+		err = snd_ctl_open(&state->ctl, device_name, SND_CTL_NONBLOCK);
+		if (err < 0) {
+			spa_log_info(state->log, "%s could not find ctl device: %s",
+					state->props.device, snd_strerror(err));
+			state->ctl = NULL;
+			return;
+		}
+	}
+
+	state->ctl_n_fds = snd_ctl_poll_descriptors_count(state->ctl);
+	if (state->ctl_n_fds > (int)SPA_N_ELEMENTS(state->ctl_sources)) {
+		spa_log_warn(state->log, "Too many poll descriptors (%d), listening to a subset", state->ctl_n_fds);
+		state->ctl_n_fds = SPA_N_ELEMENTS(state->ctl_sources);
+	}
+
+	if ((err = snd_ctl_poll_descriptors(state->ctl, pfds, state->ctl_n_fds)) < 0) {
+		spa_log_warn(state->log, "Could not get poll descriptors: %s", snd_strerror(err));
+		return;
+	}
+
+	snd_ctl_subscribe_events(state->ctl, 1);
+
+	for (int i = 0; i < state->ctl_n_fds; i++) {
+		state->ctl_sources[i].func = bind_ctl_event;
+		state->ctl_sources[i].data = state;
+		state->ctl_sources[i].fd = pfds[i].fd;
+		state->ctl_sources[i].mask = SPA_IO_IN;
+		state->ctl_sources[i].rmask = 0;
+		spa_loop_add_source(state->data_loop, &state->ctl_sources[i]);
+	}
+
+	for (unsigned int i = 0; i < state->num_bind_ctls; i++) {
+		snd_ctl_elem_id_t *id;
+
+		snd_ctl_elem_id_alloca(&id);
+		snd_ctl_elem_id_set_name(id, state->bound_ctls[i].name);
+		snd_ctl_elem_id_set_interface(id, SND_CTL_ELEM_IFACE_PCM);
+
+		snd_ctl_elem_info_malloc(&state->bound_ctls[i].info);
+		snd_ctl_elem_info_set_id(state->bound_ctls[i].info, id);
+
+		err = snd_ctl_elem_info(state->ctl, state->bound_ctls[i].info);
+		if (err < 0) {
+			spa_log_warn(state->log, "Could not read elem info for '%s': %s",
+					state->bound_ctls[i].name, snd_strerror(err));
+
+			snd_ctl_elem_info_free(state->bound_ctls[i].info);
+			state->bound_ctls[i].info = NULL;
+			continue;
+		}
+
+		snd_ctl_elem_value_malloc(&state->bound_ctls[i].value);
+		snd_ctl_elem_value_set_id(state->bound_ctls[i].value, id);
+
+		spa_log_debug(state->log, "Binding ctl for '%s'",
+				snd_ctl_elem_info_get_name(state->bound_ctls[i].info));
+	}
+}
+
 int spa_alsa_init(struct state *state, const struct spa_dict *info)
 {
 	uint32_t i;
@@ -527,6 +764,24 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 			state->open_ucm = spa_atob(s);
 		} else if (spa_streq(k, "clock.quantum-limit")) {
 			spa_atou32(s, &state->quantum_limit, 0);
+		} else if (spa_streq(k, SPA_KEY_API_ALSA_BIND_CTLS)) {
+			struct spa_json it[2];
+			char v[256];
+			unsigned int i = 0;
+
+			/* Read a list of ALSA control names to bind as params */
+			spa_json_init(&it[0], s, strlen(s));
+			if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+				spa_json_init(&it[1], s, strlen(s));
+
+			while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
+					i < SPA_N_ELEMENTS(state->bound_ctls)) {
+				strncpy(state->bound_ctls[i].name, v, sizeof(state->bound_ctls[i].name));
+				i++;
+			}
+			state->num_bind_ctls = i;
+
+			/* We'll do the actual binding after checking the card exists */
 		} else {
 			alsa_set_param(state, k, s);
 		}
@@ -560,6 +815,8 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 	state->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
 	state->rate_limit.burst = 1;
 
+	bind_ctls_for_params(state);
+
 	return 0;
 }
 
@@ -579,6 +836,26 @@ int spa_alsa_clear(struct state *state)
 
 	free(state->tag[0]);
 	free(state->tag[1]);
+
+	if (state->ctl) {
+		for (unsigned int i = 0; i < state->num_bind_ctls; i++) {
+			if (state->bound_ctls[i].info) {
+				snd_ctl_elem_info_free(state->bound_ctls[i].info);
+				state->bound_ctls[i].info = NULL;
+			}
+			if (state->bound_ctls[i].value) {
+				snd_ctl_elem_value_free(state->bound_ctls[i].value);
+				state->bound_ctls[i].value = NULL;
+			}
+		}
+
+		for (int i = 0; i < state->ctl_n_fds; i++) {
+			spa_loop_remove_source(state->data_loop, &state->ctl_sources[i]);
+		}
+
+		snd_ctl_close(state->ctl);
+		state->ctl = NULL;
+	}
 
 	return err;
 }
@@ -664,9 +941,7 @@ int spa_alsa_open(struct state *state, const char *params)
 	if (state->opened)
 		return 0;
 
-	spa_scnprintf(device_name, sizeof(device_name), "%s%s%s",
-			state->card->ucm_prefix ? state->card->ucm_prefix : "",
-			props->device, params ? params : "");
+	fill_device_name(state, params, device_name, sizeof(device_name));
 	spa_scnprintf(state->name, sizeof(state->name), "%s%s",
 			props->device, state->stream == SND_PCM_STREAM_CAPTURE ? "c" : "p");
 
@@ -759,8 +1034,11 @@ int spa_alsa_close(struct state *state)
 		snd_ctl_elem_value_free(state->pitch_elem);
 		state->pitch_elem = NULL;
 
-		snd_ctl_close(state->ctl);
-		state->ctl = NULL;
+		// Close it unless we've got some bind_ctls we're listening to
+		if (state->ctl_n_fds == 0) {
+			snd_ctl_close(state->ctl);
+			state->ctl = NULL;
+		}
 	}
 
 	return err;

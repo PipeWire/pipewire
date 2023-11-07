@@ -8,12 +8,10 @@
 
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
-#include <spa/node/keys.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
 #include <spa/utils/list.h>
 #include <spa/utils/string.h>
-#include <spa/monitor/device.h>
 #include <spa/param/audio/format.h>
 #include <spa/pod/filter.h>
 #include <spa/pod/dynamic.h>
@@ -31,73 +29,6 @@ static void reset_props(struct props *props)
 	strncpy(props->device, default_device, 64);
 	props->use_chmap = DEFAULT_USE_CHMAP;
 }
-
-static void emit_node_info(struct state *this, bool full)
-{
-	uint64_t old = full ? this->info.change_mask : 0;
-	if (full)
-		this->info.change_mask = this->info_all;
-	if (this->info.change_mask) {
-		struct spa_dict_item items[7];
-		uint32_t i, n_items = 0;
-		char latency[64], period[64], nperiods[64], headroom[64];
-
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API, "alsa");
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Source");
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, "true");
-		if (this->have_format) {
-			snprintf(latency, sizeof(latency), "%lu/%d", this->buffer_frames / 2, this->rate);
-			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_MAX_LATENCY, latency);
-			snprintf(period, sizeof(period), "%lu", this->period_frames);
-			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-size", period);
-			snprintf(nperiods, sizeof(nperiods), "%lu",
-					this->period_frames != 0 ? this->buffer_frames / this->period_frames : 0);
-			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-num", nperiods);
-			snprintf(headroom, sizeof(headroom), "%u", this->headroom);
-			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.headroom", headroom);
-		} else {
-			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_MAX_LATENCY, NULL);
-			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-size", NULL);
-			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-num", NULL);
-			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.headroom", NULL);
-		}
-		this->info.props = &SPA_DICT_INIT(items, n_items);
-
-		if (this->info.change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
-			for (i = 0; i < this->info.n_params; i++) {
-				if (this->params[i].user > 0) {
-					this->params[i].flags ^= SPA_PARAM_INFO_SERIAL;
-					this->params[i].user = 0;
-				}
-			}
-		}
-		spa_node_emit_info(&this->hooks, &this->info);
-		this->info.change_mask = old;
-	}
-}
-
-static void emit_port_info(struct state *this, bool full)
-{
-	uint64_t old = full ? this->port_info.change_mask : 0;
-	if (full)
-		this->port_info.change_mask = this->port_info_all;
-	if (this->port_info.change_mask) {
-		uint32_t i;
-
-		if (this->port_info.change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
-			for (i = 0; i < this->port_info.n_params; i++) {
-				if (this->port_params[i].user > 0) {
-					this->port_params[i].flags ^= SPA_PARAM_INFO_SERIAL;
-					this->port_params[i].user = 0;
-				}
-			}
-		}
-		spa_node_emit_port_info(&this->hooks,
-				SPA_DIRECTION_OUTPUT, 0, &this->port_info);
-		this->port_info.change_mask = old;
-	}
-}
-
 
 static int impl_node_enum_params(void *object, int seq,
 				 uint32_t id, uint32_t start, uint32_t num,
@@ -311,8 +242,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			handle_process_latency(this, &info);
 		}
 
-		emit_node_info(this, false);
-		emit_port_info(this, false);
+		spa_alsa_emit_node_info(this, false);
+		spa_alsa_emit_port_info(this, false);
 		break;
 	}
 	case SPA_PARAM_ProcessLatency:
@@ -325,8 +256,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 		handle_process_latency(this, &info);
 
-		emit_node_info(this, false);
-		emit_port_info(this, false);
+		spa_alsa_emit_node_info(this, false);
+		spa_alsa_emit_port_info(this, false);
 		break;
 	}
 	default:
@@ -388,8 +319,8 @@ impl_node_add_listener(void *object,
 
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
-	emit_node_info(this, true);
-	emit_port_info(this, true);
+	spa_alsa_emit_node_info(this, true);
+	spa_alsa_emit_port_info(this, true);
 
 	spa_hook_list_join(&this->hooks, &save);
 
@@ -607,7 +538,7 @@ static int port_set_format(void *object,
 	}
 
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
-	emit_node_info(this, false);
+	spa_alsa_emit_node_info(this, false);
 
 	this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_RATE;
 	this->port_info.rate = SPA_FRACTION(1, this->rate);
@@ -620,7 +551,7 @@ static int port_set_format(void *object,
 		this->port_params[PORT_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 		this->port_params[PORT_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	}
-	emit_port_info(this, false);
+	spa_alsa_emit_port_info(this, false);
 
 	return err;
 }
@@ -656,7 +587,7 @@ impl_node_port_set_param(void *object,
 		this->latency[info.direction] = info;
 		this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 		this->port_params[PORT_Latency].user++;
-		emit_port_info(this, false);
+		spa_alsa_emit_port_info(this, false);
 		break;
 	}
 	case SPA_PARAM_Tag:
@@ -675,7 +606,7 @@ impl_node_port_set_param(void *object,
 
 			this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 			this->port_params[PORT_Tag].user++;
-			emit_port_info(this, false);
+			spa_alsa_emit_port_info(this, false);
 		}
 		break;
 	}

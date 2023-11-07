@@ -13,6 +13,8 @@
 #include <spa/utils/result.h>
 #include <spa/support/system.h>
 #include <spa/utils/keys.h>
+#include <spa/node/keys.h>
+#include <spa/monitor/device.h>
 
 #include "alsa-pcm.h"
 
@@ -3225,4 +3227,75 @@ int spa_alsa_pause(struct state *state)
 	state->prepared = false;
 
 	return 0;
+}
+
+void spa_alsa_emit_node_info(struct state *state, bool full)
+{
+	uint64_t old = full ? state->info.change_mask : 0;
+
+	if (full)
+		state->info.change_mask = state->info_all;
+	if (state->info.change_mask) {
+		struct spa_dict_item items[7];
+		uint32_t i, n_items = 0;
+		char latency[64], period[64], nperiods[64], headroom[64];
+
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API, "alsa");
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS,
+				state->stream == SND_PCM_STREAM_PLAYBACK ? "Audio/Sink" : "Audio/Source");
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, "true");
+		if (state->have_format) {
+			snprintf(latency, sizeof(latency), "%lu/%d", state->buffer_frames / 2, state->rate);
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_MAX_LATENCY, latency);
+			snprintf(period, sizeof(period), "%lu", state->period_frames);
+			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-size", period);
+			snprintf(nperiods, sizeof(nperiods), "%lu",
+					state->period_frames != 0 ? state->buffer_frames / state->period_frames : 0);
+			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-num", nperiods);
+			snprintf(headroom, sizeof(headroom), "%u", state->headroom);
+			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.headroom", headroom);
+		} else {
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_MAX_LATENCY, NULL);
+			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-size", NULL);
+			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-num", NULL);
+			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.headroom", NULL);
+		}
+		state->info.props = &SPA_DICT_INIT(items, n_items);
+
+		if (state->info.change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
+			for (i = 0; i < state->info.n_params; i++) {
+				if (state->params[i].user > 0) {
+					state->params[i].flags ^= SPA_PARAM_INFO_SERIAL;
+					state->params[i].user = 0;
+				}
+			}
+		}
+		spa_node_emit_info(&state->hooks, &state->info);
+
+		state->info.change_mask = old;
+	}
+}
+
+void spa_alsa_emit_port_info(struct state *state, bool full)
+{
+	uint64_t old = full ? state->port_info.change_mask : 0;
+
+	if (full)
+		state->port_info.change_mask = state->port_info_all;
+	if (state->port_info.change_mask) {
+		uint32_t i;
+
+		if (state->port_info.change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
+			for (i = 0; i < state->port_info.n_params; i++) {
+				if (state->port_params[i].user > 0) {
+					state->port_params[i].flags ^= SPA_PARAM_INFO_SERIAL;
+					state->port_params[i].user = 0;
+				}
+			}
+		}
+		spa_node_emit_port_info(&state->hooks,
+				state->stream == SND_PCM_STREAM_PLAYBACK ? SPA_DIRECTION_INPUT : SPA_DIRECTION_OUTPUT,
+				0, &state->port_info);
+		state->port_info.change_mask = old;
+	}
 }

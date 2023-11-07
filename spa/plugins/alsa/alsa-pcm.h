@@ -282,6 +282,9 @@ int spa_alsa_skip(struct state *state);
 
 void spa_alsa_recycle_buffer(struct state *state, uint32_t buffer_id);
 
+void spa_alsa_emit_node_info(struct state *state, bool full);
+void spa_alsa_emit_port_info(struct state *state, bool full);
+
 static inline uint32_t spa_alsa_format_from_name(const char *name, size_t len)
 {
 	int i;

@@ -3587,10 +3587,10 @@ finish:
 		/* For broadcast there initiator moves the transport state to SPA_BT_TRANSPORT_STATE_ACTIVE */
 		if ((transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) ||
 			(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE))	{
-			spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ACTIVE);
+			spa_bt_transport_set_state(t_linked, SPA_BT_TRANSPORT_STATE_ACTIVE);
 		} else {
 			if (!transport->bap_initiator)
-				spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ACTIVE);
+				spa_bt_transport_set_state(t_linked, SPA_BT_TRANSPORT_STATE_ACTIVE);
 		}
 	}
 

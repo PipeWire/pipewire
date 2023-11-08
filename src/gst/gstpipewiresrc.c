@@ -681,9 +681,13 @@ on_state_changed (void *data,
     case PW_STREAM_STATE_STREAMING:
       break;
     case PW_STREAM_STATE_ERROR:
-      pw_stream_set_error (pwsrc->stream, -EPIPE, "%s", error);
-      GST_ELEMENT_ERROR (pwsrc, RESOURCE, FAILED,
-          ("stream error: %s", error), (NULL));
+      /* make the error permanent, if it is not already;
+         pw_stream_set_error() will recursively call us again */
+      if (pw_stream_get_state (pwsrc->stream, NULL) != PW_STREAM_STATE_ERROR)
+        pw_stream_set_error (pwsrc->stream, -EPIPE, "%s", error);
+      else
+        GST_ELEMENT_ERROR (pwsrc, RESOURCE, FAILED,
+            ("stream error: %s", error), (NULL));
       break;
   }
   pw_thread_loop_signal (pwsrc->core->loop, FALSE);

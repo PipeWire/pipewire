@@ -532,8 +532,13 @@ on_state_changed (void *data, enum pw_stream_state old, enum pw_stream_state sta
         pw_stream_trigger_process (pwsink->stream);
       break;
     case PW_STREAM_STATE_ERROR:
-      GST_ELEMENT_ERROR (pwsink, RESOURCE, FAILED,
-          ("stream error: %s", error), (NULL));
+      /* make the error permanent, if it is not already;
+         pw_stream_set_error() will recursively call us again */
+      if (pw_stream_get_state (pwsink->stream, NULL) != PW_STREAM_STATE_ERROR)
+        pw_stream_set_error (pwsink->stream, -EPIPE, "%s", error);
+      else
+        GST_ELEMENT_ERROR (pwsink, RESOURCE, FAILED,
+            ("stream error: %s", error), (NULL));
       break;
   }
   pw_thread_loop_signal (pwsink->core->loop, FALSE);

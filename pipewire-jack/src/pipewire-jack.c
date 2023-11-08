@@ -110,6 +110,10 @@ struct globals {
 static struct globals globals;
 static bool mlock_warned = false;
 
+#define MIDI_SCRATCH_FRAMES	8192
+static float midi_scratch[MIDI_SCRATCH_FRAMES];
+
+
 #define OBJECT_CHUNK		8
 #define RECYCLE_THRESHOLD	128
 
@@ -2522,6 +2526,17 @@ static int client_node_port_set_param(void *data,
 	return 0;
 }
 
+static void midi_init_buffer(void *data, uint32_t max_frames)
+{
+	struct midi_buffer *mb = data;
+	mb->magic = MIDI_BUFFER_MAGIC;
+	mb->buffer_size = max_frames * sizeof(float);
+	mb->nframes = max_frames;
+	mb->write_pos = 0;
+	mb->event_count = 0;
+	mb->lost_events = 0;
+}
+
 static inline void *init_buffer(struct port *p)
 {
 	struct client *c = p->client;
@@ -2531,12 +2546,7 @@ static inline void *init_buffer(struct port *p)
 
 	if (p->object->port.type_id == TYPE_ID_MIDI) {
 		struct midi_buffer *mb = data;
-		mb->magic = MIDI_BUFFER_MAGIC;
-		mb->buffer_size = c->max_frames * sizeof(float);
-		mb->nframes = c->max_frames;
-		mb->write_pos = 0;
-		mb->event_count = 0;
-		mb->lost_events = 0;
+		midi_init_buffer(data, c->max_frames);
 		pw_log_debug("port %p: init midi buffer size:%d", p, mb->buffer_size);
 	} else
 		memset(data, 0, c->max_frames * sizeof(float));
@@ -5235,7 +5245,26 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 		if ((b = get_mix_buffer(mix, frames)) == NULL)
 			return NULL;
 
-		return get_buffer_data(b, frames);
+		if (o->port.type_id == TYPE_ID_MIDI) {
+			struct spa_pod_sequence *seq[1];
+			struct spa_data *d;
+			void *pod;
+
+			ptr = midi_scratch;
+			midi_init_buffer(ptr, MIDI_SCRATCH_FRAMES);
+
+			d = &b->datas[0];
+			if ((pod = spa_pod_from_data(d->data, d->maxsize,
+							d->chunk->offset, d->chunk->size)) == NULL)
+				return NULL;
+			if (!spa_pod_is_sequence(pod))
+				return NULL;
+			seq[0] = pod;
+			convert_to_midi(seq, 1, ptr, o->client->fix_midi_events);
+		} else {
+			ptr = get_buffer_data(b, frames);
+		}
+		return ptr;
 	}
 	if (!p->valid)
 		return NULL;

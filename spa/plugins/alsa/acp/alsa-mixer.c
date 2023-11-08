@@ -2795,20 +2795,6 @@ static int path_verify(pa_alsa_path *p) {
     return 0;
 }
 
-static const char *get_default_paths_dir(void) {
-    const char *str;
-#ifdef HAVE_RUNNING_FROM_BUILD_TREE
-    if (pa_run_from_build_tree())
-        return PA_SRCDIR "mixer/paths";
-    else
-#endif
-    if (getenv("ACP_BUILDDIR") != NULL)
-        return "mixer/paths";
-    if ((str = getenv("ACP_PATHS_DIR")) != NULL)
-        return str;
-    return PA_ALSA_PATHS_DIR;
-}
-
 pa_alsa_path* pa_alsa_path_new(const char *paths_dir, const char *fname, pa_alsa_direction_t direction) {
     pa_alsa_path *p;
     char *fn;
@@ -2873,10 +2859,9 @@ pa_alsa_path* pa_alsa_path_new(const char *paths_dir, const char *fname, pa_alsa
     items[2].data = &p->description;
     items[3].data = &mute_during_activation;
 
-    if (!paths_dir)
-        paths_dir = get_default_paths_dir();
+    fn = get_data_path(paths_dir, "paths", fname);
 
-    fn = pa_maybe_prefix_path(fname, paths_dir);
+    pa_log_info("Loading path config: %s", fn);
 
     r = pa_config_parse(fn, NULL, items, p->proplist, false, p);
     pa_xfree(fn);
@@ -4827,20 +4812,6 @@ void pa_alsa_decibel_fix_dump(pa_alsa_decibel_fix *db_fix) {
     pa_xfree(db_values);
 }
 
-static const char *get_default_profile_dir(void) {
-    const char *str;
-#ifdef HAVE_RUNNING_FROM_BUILD_TREE
-    if (pa_run_from_build_tree())
-        return PA_SRCDIR "mixer/profile-sets";
-    else
-#endif
-    if (getenv("ACP_BUILDDIR") != NULL)
-        return "mixer/profile-sets";
-    if ((str = getenv("ACP_PROFILES_DIR")) != NULL)
-        return str;
-    return PA_ALSA_PROFILE_SETS_DIR;
-}
-
 pa_alsa_profile_set* pa_alsa_profile_set_new(const char *fname, const pa_channel_map *bonus) {
     pa_alsa_profile_set *ps;
     pa_alsa_profile *p;
@@ -4890,13 +4861,14 @@ pa_alsa_profile_set* pa_alsa_profile_set_new(const char *fname, const pa_channel
 
     items[0].data = &ps->auto_profiles;
 
-    fn = pa_maybe_prefix_path(fname ? fname : "default.conf",
-		    get_default_profile_dir());
+    fn = get_data_path(NULL, "profile-sets", fname ? fname : "default.conf");
+
+    pa_log_info("Loading profile set: %s", fn);
+
     if ((r = access(fn, R_OK)) != 0) {
         if (fname != NULL) {
             pa_log_warn("profile-set '%s' can't be accessed: %m", fn);
-            fn = pa_maybe_prefix_path("default.conf",
-			    get_default_profile_dir());
+            fn = get_data_path(NULL, "profile-sets", "default.conf");
             r = access(fn, R_OK);
 	}
 	if (r != 0) {

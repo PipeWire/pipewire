@@ -18,9 +18,13 @@
   along with PulseAudio; if not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <spa/utils/string.h>
+#include <spa/utils/cleanup.h>
+
 #include "compat.h"
 #include "device-port.h"
 #include "alsa-mixer.h"
+#include "config.h"
 
 static const char *port_types[] = {
 	[PA_DEVICE_PORT_TYPE_UNKNOWN] = "unknown",
@@ -207,4 +211,78 @@ bool pa_alsa_device_init_description(pa_proplist *p, pa_card *card) {
         pa_proplist_sets(p, PA_PROP_DEVICE_DESCRIPTION, d);
 
     return true;
+}
+
+static char *try_path(const char *fname, const char *path)
+{
+    char *result = pa_maybe_prefix_path(fname, path);
+
+    pa_log_trace("Check for file: %s", result);
+
+    if (access(result, R_OK) == 0)
+	return result;
+
+    pa_xfree(result);
+    return NULL;
+}
+
+static char *get_xdg_home(const char *key, const char *fallback)
+{
+    const char *e;
+
+    e = getenv(key);
+    if (e && *e) {
+	return strdup(e);
+    } else {
+	e = getenv("HOME");
+	if (!(e && *e))
+	    e = getenv("USERPROFILE");
+	if (e && *e)
+	    return spa_aprintf("%s/%s", e, fallback);
+    }
+    return NULL;
+}
+
+char *get_data_path(const char *data_dir, const char *data_type, const char *fname)
+{
+    static const char * const subpaths[] = {
+	"alsa-card-profile/mixer",
+	"alsa-card-profile",
+    };
+    const char *e;
+    spa_autofree char *base = NULL;
+    spa_autofree char *path = NULL;
+    char *result;
+
+    if (data_dir)
+	if ((result = try_path(fname, data_dir)) != NULL)
+	    return result;
+
+    e = getenv("ACP_PATHS_DIR");
+    if (e && *e && spa_streq(data_type, "paths"))
+	if ((result = try_path(fname, e)) != NULL)
+	    return result;
+
+    e = getenv("ACP_PROFILES_DIR");
+    if (e && *e && spa_streq(data_type, "profile-sets"))
+	if ((result = try_path(fname, e)) != NULL)
+	    return result;
+
+    base = get_xdg_home("XDG_CONFIG_HOME", ".config");
+    if (base) {
+	SPA_FOR_EACH_ELEMENT_VAR(subpaths, subpath) {
+	    path = spa_aprintf("%s/%s/%s", base, *subpath, data_type);
+	    if ((result = try_path(fname, path)) != NULL)
+		return result;
+	}
+    }
+
+    SPA_FOR_EACH_ELEMENT_VAR(subpaths, subpath) {
+	path = spa_aprintf("/etc/%s/%s", *subpath, data_type);
+	if ((result = try_path(fname, path)) != NULL)
+	    return result;
+    }
+
+    path = spa_aprintf("%s/%s", PA_ALSA_DATA_DIR, data_type);
+    return pa_maybe_prefix_path(fname, path);
 }

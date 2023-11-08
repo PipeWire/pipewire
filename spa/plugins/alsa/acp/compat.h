@@ -214,6 +214,7 @@ typedef enum pa_log_level {
 	PA_LOG_NOTICE = 2,    /* Notice messages */
 	PA_LOG_INFO   = 3,    /* Info messages */
 	PA_LOG_DEBUG  = 4,    /* Debug messages */
+	PA_LOG_TRACE = 5,
 	PA_LOG_LEVEL_MAX
 } pa_log_level_t;
 
@@ -245,6 +246,7 @@ static inline PA_PRINTF_FUNC(5, 6) void pa_log_level_meta(enum pa_log_level leve
 #define pa_log_notice(fmt,...)	pa_logl(PA_LOG_NOTICE, fmt, ##__VA_ARGS__)
 #define pa_log_info(fmt,...)	pa_logl(PA_LOG_INFO, fmt, ##__VA_ARGS__)
 #define pa_log_debug(fmt,...)	pa_logl(PA_LOG_DEBUG, fmt, ##__VA_ARGS__)
+#define pa_log_trace(fmt,...)	pa_logl(PA_LOG_TRACE, fmt, ##__VA_ARGS__)
 #define pa_log			pa_log_error
 
 #define pa_assert_se(expr)                                              \
@@ -676,6 +678,8 @@ static inline char *pa_readlink(const char *p) {
     return NULL;
 #endif
 }
+
+char *get_data_path(const char *data_dir, const char *data_type, const char *fname);
 
 #include <spa/support/i18n.h>
 

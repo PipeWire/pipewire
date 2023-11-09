@@ -868,16 +868,20 @@ static int probe_pitch_ctl(struct state *state, const char* device_name)
 		state->stream == SND_PCM_STREAM_CAPTURE ?
 		"Capture Pitch 1000000" :
 		"Playback Pitch 1000000";
+	bool opened = false;
 	int err;
 
 	snd_lib_error_set_handler(silence_error_handler);
 
-	err = snd_ctl_open(&state->ctl, device_name, SND_CTL_NONBLOCK);
-	if (err < 0) {
-		spa_log_info(state->log, "%s could not find ctl device: %s",
-				device_name, snd_strerror(err));
-		state->ctl = NULL;
-		goto error;
+	if (!state->ctl) {
+		err = snd_ctl_open(&state->ctl, device_name, SND_CTL_NONBLOCK);
+		if (err < 0) {
+			spa_log_info(state->log, "%s could not find ctl device: %s",
+					device_name, snd_strerror(err));
+			state->ctl = NULL;
+			goto error;
+		}
+		opened = true;
 	}
 
 	snd_ctl_elem_id_alloca(&id);
@@ -895,9 +899,11 @@ static int probe_pitch_ctl(struct state *state, const char* device_name)
 		snd_ctl_elem_value_free(state->pitch_elem);
 		state->pitch_elem = NULL;
 
-		snd_ctl_close(state->ctl);
-		state->ctl = NULL;
-		goto error;
+		if (opened) {
+			snd_ctl_close(state->ctl);
+			state->ctl = NULL;
+			goto error;
+		}
 	}
 
 	snd_ctl_elem_value_set_integer(state->pitch_elem, 0, 1000000);

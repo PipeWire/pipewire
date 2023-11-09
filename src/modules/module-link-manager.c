@@ -4,13 +4,12 @@
 
 #include "config.h"
 
-#include <alsa/asoundlib.h>
-#include <alsa/version.h>
-
+#include <spa/debug/dict.h>
+#include <spa/param/props.h>
+#include <spa/pod/parser.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
-#include <spa/debug/dict.h>
 
 #include <pipewire/core.h>
 #include <pipewire/impl.h>
@@ -29,6 +28,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 struct node {
 	struct spa_list list;
+	struct impl *impl;
 
 	uint32_t id;
 	struct pw_properties *props;
@@ -66,14 +66,7 @@ struct impl {
 	struct spa_list nodes;
 	struct spa_list ports;
 
-	/* For the ALSA watcher */
-	snd_ctl_t *ctl;
-	snd_ctl_elem_value_t *capture_rate_elem;
 	int capture_rate;
-
-	struct spa_source sources[16];
-	struct pollfd pfds[16];
-	int n_fds;
 };
 
 static void node_free(struct node *node)
@@ -140,7 +133,7 @@ static struct node *find_node_by_name(struct impl *impl, const char *name)
 	struct node *n, *node = NULL;
 
 	spa_list_for_each(n, &impl->nodes, list) {
-		if (spa_streq(pw_properties_get(n->props, PW_KEY_NODE_NAME), name)) {
+		if (n->props && spa_streq(pw_properties_get(n->props, PW_KEY_NODE_NAME), name)) {
 			node = n;
 			break;
 		}
@@ -246,139 +239,6 @@ static void check_port(struct impl *impl, struct port *port)
 	link_port_to_target(impl, port, target_node);
 }
 
-static void node_info(void *data, const struct pw_node_info *info)
-{
-	struct node *node = data;
-
-	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS)
-		node->props = pw_properties_new_dict(info->props);
-	// Just gather props, we'll use this while linking
-}
-
-static const struct pw_node_events node_events = {
-	PW_VERSION_NODE_EVENTS,
-	.info = node_info,
-};
-
-static void port_info(void *data, const struct pw_port_info *info)
-{
-	struct impl *impl = data;
-	struct port *port = NULL;
-
-	// We don't expect this to fail
-	port = find_port_by_id(impl, info->id);
-
-	port->direction = info->direction;
-	if (info->change_mask & PW_PORT_CHANGE_MASK_PROPS)
-		port->props = pw_properties_new_dict(info->props);
-
-	check_port(impl, port);
-}
-
-static const struct pw_port_events port_events = {
-	PW_VERSION_NODE_EVENTS,
-	.info = port_info,
-};
-
-static void registry_global(void *data, uint32_t id, uint32_t permissions,
-		const char *type, uint32_t version,
-		const struct spa_dict *props)
-{
-	struct impl *impl = data;
-	const char *str;
-
-	pw_log_trace("Got type %s: %u", type, id);
-
-	if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
-		struct pw_node *proxy;
-		struct node *node;
-
-		proxy = pw_registry_bind(impl->registry, id, type, PW_VERSION_NODE, sizeof(struct node));
-
-		node = pw_proxy_get_user_data((struct pw_proxy*)proxy);
-		node->id = id;
-		node->proxy = proxy;
-		node->props = NULL;
-
-		spa_list_insert(&impl->nodes, &node->list);
-
-		pw_node_add_listener(proxy, &node->proxy_listener, &node_events, node);
-	} else if (spa_streq(type, PW_TYPE_INTERFACE_Port)) {
-		struct pw_port *proxy;
-		struct port *port;
-
-		if ((str = spa_dict_lookup(props, PW_KEY_NODE_ID)) == NULL) {
-			pw_log_info("Got port %u with no node id", id);
-			return;
-		}
-
-		proxy = pw_registry_bind(impl->registry, id, type, PW_VERSION_PORT, sizeof(struct port));
-
-		port = pw_proxy_get_user_data((struct pw_proxy*)proxy);
-		port->id = id;
-		port->node_id = atoi(str);
-		port->props = NULL;
-		port->proxy = proxy;
-
-		spa_list_insert(&impl->ports, &port->list);
-
-		pw_port_add_listener(proxy, &port->proxy_listener, &port_events, impl);
-	} else if (spa_streq(type, PW_TYPE_INTERFACE_Link)) {
-		struct port *port;
-		const char *id_str;
-		uint32_t port_id;
-
-		id_str = spa_dict_lookup(props, PW_KEY_LINK_INPUT_PORT);
-		if (spa_atou32(id_str, &port_id, 10) && (port = find_port_by_id(impl, port_id)))
-			port->link_id = id;
-
-		id_str = spa_dict_lookup(props, PW_KEY_LINK_OUTPUT_PORT);
-		if (spa_atou32(id_str, &port_id, 10) && (port = find_port_by_id(impl, port_id)))
-			port->link_id = id;
-
-		pw_log_debug("Stored link %u (%s -> %s)", id,
-				spa_dict_lookup(props, PW_KEY_LINK_INPUT_PORT),
-				spa_dict_lookup(props, PW_KEY_LINK_OUTPUT_PORT));
-	}
-}
-
-static void registry_global_removed(void *data, uint32_t id)
-{
-	struct impl *impl = data;
-	struct node *node;
-	struct port *port;
-
-	pw_log_trace("Removed %u", id);
-
-	spa_list_for_each(node, &impl->nodes, list) {
-		if (node->id != id)
-			continue;
-
-		pw_log_debug("Removing node %u", id);
-
-		spa_list_remove(&node->list);
-		node_free(node);
-		return;
-	}
-
-	spa_list_for_each(port, &impl->ports, list) {
-		if (port->id != id)
-			continue;
-
-		pw_log_debug("Removing port %u", id);
-
-		spa_list_remove(&port->list);
-		port_free(port);
-		return;
-	}
-}
-
-static const struct pw_registry_events registry_events = {
-	PW_VERSION_REGISTRY_EVENTS,
-	.global = registry_global,
-	.global_remove = registry_global_removed,
-};
-
 static void link_node_ports(struct impl *impl, const char *node_name)
 {
 	struct node *node, *this_node = NULL, *other_node = NULL;
@@ -458,108 +318,210 @@ static void usb_capture_rate_changed(struct impl *impl, int capture_rate)
 	}
 }
 
-static void ctl_event(struct spa_source *source)
+static void node_info(void *data, const struct pw_node_info *info)
 {
-	struct impl *impl = source->data;
-	snd_ctl_event_t *event;
-	int capture_rate, err;
+	struct node *node = data;
 
-	if (!(source->rmask & SPA_IO_IN)) {
-		pw_log_debug("Woken up without work");
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS) {
+		if (node->props)
+			pw_properties_free(node->props);
+		node->props = pw_properties_new_dict(info->props);
+	}
+	// Just gather props, we'll use this while linking
+}
+
+static void node_param(void *data, int seq, uint32_t id, uint32_t index,
+		uint32_t next, const struct spa_pod *param)
+{
+	struct node *node = data;
+	struct spa_pod_parser params;
+	struct spa_pod_frame f;
+	struct spa_pod *pod = NULL;
+	int32_t capture_rate = 0;
+
+	if (id != SPA_PARAM_Props)
+		return;
+
+	spa_pod_parse_object(param,
+			SPA_TYPE_OBJECT_Props, NULL,
+			SPA_PROP_params, SPA_POD_OPT_Pod(&pod));
+
+	if (!pod)
+		return;
+
+	pw_log_debug("node props updated");
+
+	spa_pod_parser_pod(&params, pod);
+	if (spa_pod_parser_push_struct(&params, &f) < 0) {
+		pw_log_warn("got param props that is not a struct");
 		return;
 	}
 
-	snd_ctl_event_alloca(&event);
-	err = snd_ctl_read(impl->ctl, event);
-	if (err < 0) {
-		pw_log_warn("Error reading ctl event: %s", snd_strerror(err));
-		return;
-	}
+	while (true) {
+		const char *name;
 
-	if (snd_ctl_event_get_type(event) != SND_CTL_EVENT_ELEM ||
-			snd_ctl_event_elem_get_numid(event) != snd_ctl_elem_value_get_numid(impl->capture_rate_elem))
-		return;
+		// prop name
+		if (spa_pod_parser_get_string(&params, &name) < 0)
+			break;
 
-	err = snd_ctl_elem_read(impl->ctl, impl->capture_rate_elem);
-	if (err < 0) {
-		pw_log_warn("Could not read 'Capture Rate': %s", snd_strerror(err));
-		return;
-	}
+		// prop value
+		if (spa_pod_parser_get_pod(&params, &pod) < 0)
+			break;
 
-	capture_rate = snd_ctl_elem_value_get_integer(impl->capture_rate_elem, 0);
-	pw_log_debug("New capture rate: %d", capture_rate);
+		if (!spa_streq(name, "api.alsa.bind-ctl.Capture Rate"))
+			continue;
 
-	if (capture_rate != impl->capture_rate) {
-		// TODO: debounce
-		usb_capture_rate_changed(impl, capture_rate);
+		if (!spa_pod_is_int(pod)) {
+			pw_log_warn("Did not find expected integer rate in props param");
+			break;
+		}
+
+		capture_rate = SPA_POD_VALUE(struct spa_pod_int, pod);
+
+		if (capture_rate != node->impl->capture_rate)
+			usb_capture_rate_changed(node->impl, capture_rate);
 	}
 }
 
-static void start_alsa_watcher(struct impl *impl, const char *device_name)
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE_EVENTS,
+	.info = node_info,
+	.param = node_param,
+};
+
+static void port_info(void *data, const struct pw_port_info *info)
 {
-	struct pw_loop *loop;
-	snd_ctl_elem_id_t *id;
-	int err;
+	struct impl *impl = data;
+	struct port *port = NULL;
 
-	err = snd_ctl_open(&impl->ctl, device_name, SND_CTL_READONLY | SND_CTL_NONBLOCK);
-	if (err < 0) {
-		pw_log_warn("Could not find ctl device for %s: %s", device_name, snd_strerror(err));
-		impl->ctl = NULL;
-		return;
+	// We don't expect this to fail
+	port = find_port_by_id(impl, info->id);
+
+	port->direction = info->direction;
+	if (info->change_mask & PW_PORT_CHANGE_MASK_PROPS) {
+		if (port->props)
+			pw_properties_free(port->props);
+		port->props = pw_properties_new_dict(info->props);
 	}
 
-	snd_ctl_elem_id_alloca(&id);
-	snd_ctl_elem_id_set_name(id, "Capture Rate");
-	snd_ctl_elem_id_set_interface(id, SND_CTL_ELEM_IFACE_PCM);
+	check_port(impl, port);
+}
 
-	snd_ctl_elem_value_malloc(&impl->capture_rate_elem);
-	snd_ctl_elem_value_set_id(impl->capture_rate_elem, id);
+static const struct pw_port_events port_events = {
+	PW_VERSION_NODE_EVENTS,
+	.info = port_info,
+};
 
-	err = snd_ctl_elem_read(impl->ctl, impl->capture_rate_elem);
-	if (err < 0) {
-		pw_log_warn("Could not read 'Capture Rate': %s", snd_strerror(err));
+static void registry_global(void *data, uint32_t id, uint32_t permissions,
+		const char *type, uint32_t version,
+		const struct spa_dict *props)
+{
+	struct impl *impl = data;
+	const char *str;
 
-		snd_ctl_elem_value_free(impl->capture_rate_elem);
-		impl->capture_rate_elem = NULL;
+	pw_log_trace("Got type %s: %u", type, id);
 
-		snd_ctl_close(impl->ctl);
-		impl->ctl = NULL;
-		return;
-	}
+	if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
+		struct pw_node *proxy;
+		struct node *node;
 
-	impl->capture_rate = snd_ctl_elem_value_get_integer(impl->capture_rate_elem, 0);
+		proxy = pw_registry_bind(impl->registry, id, type, PW_VERSION_NODE, sizeof(struct node));
 
-	impl->n_fds = snd_ctl_poll_descriptors_count(impl->ctl);
-	if (impl->n_fds > (int)SPA_N_ELEMENTS(impl->sources)) {
-		pw_log_warn("Too many poll descriptors (%d), listening to a subset", impl->n_fds);
-		impl->n_fds = SPA_N_ELEMENTS(impl->sources);
-	}
+		node = pw_proxy_get_user_data((struct pw_proxy*)proxy);
+		node->impl = impl;
+		node->id = id;
+		node->proxy = proxy;
+		node->props = NULL;
 
-	if ((err = snd_ctl_poll_descriptors(impl->ctl, impl->pfds, impl->n_fds)) < 0) {
-		pw_log_warn("Could not get poll descriptors: %s", snd_strerror(err));
-		return;
-	}
+		spa_list_insert(&impl->nodes, &node->list);
 
-	snd_ctl_subscribe_events(impl->ctl, 1);
+		pw_node_add_listener(proxy, &node->proxy_listener, &node_events, node);
 
-	loop = pw_context_get_main_loop(impl->context);
+		if (spa_streq(spa_dict_lookup(props, PW_KEY_NODE_NAME), USB_CAPTURE_DEV)) {
+			uint32_t ids[] = { SPA_PARAM_Props };
+			pw_node_subscribe_params(node->proxy, ids, SPA_N_ELEMENTS(ids));
+		}
+	} else if (spa_streq(type, PW_TYPE_INTERFACE_Port)) {
+		struct pw_port *proxy;
+		struct port *port;
 
-	for (int i = 0; i < impl->n_fds; i++) {
-		impl->sources[i].func = ctl_event;
-		impl->sources[i].data = impl;
-		impl->sources[i].fd = impl->pfds[i].fd;
-		impl->sources[i].mask = SPA_IO_IN;
-		impl->sources[i].rmask = 0;
-		pw_loop_add_source(loop, &impl->sources[i]);
+		if ((str = spa_dict_lookup(props, PW_KEY_NODE_ID)) == NULL) {
+			pw_log_info("Got port %u with no node id", id);
+			return;
+		}
+
+		proxy = pw_registry_bind(impl->registry, id, type, PW_VERSION_PORT, sizeof(struct port));
+
+		port = pw_proxy_get_user_data((struct pw_proxy*)proxy);
+		port->id = id;
+		port->node_id = atoi(str);
+		port->props = NULL;
+		port->proxy = proxy;
+
+		spa_list_insert(&impl->ports, &port->list);
+
+		pw_port_add_listener(proxy, &port->proxy_listener, &port_events, impl);
+	} else if (spa_streq(type, PW_TYPE_INTERFACE_Link)) {
+		struct port *port;
+		const char *id_str;
+		uint32_t port_id;
+
+		id_str = spa_dict_lookup(props, PW_KEY_LINK_INPUT_PORT);
+		if (spa_atou32(id_str, &port_id, 10) && (port = find_port_by_id(impl, port_id)))
+			port->link_id = id;
+
+		id_str = spa_dict_lookup(props, PW_KEY_LINK_OUTPUT_PORT);
+		if (spa_atou32(id_str, &port_id, 10) && (port = find_port_by_id(impl, port_id)))
+			port->link_id = id;
+
+		pw_log_debug("Stored link %u (%s -> %s)", id,
+				spa_dict_lookup(props, PW_KEY_LINK_INPUT_PORT),
+				spa_dict_lookup(props, PW_KEY_LINK_OUTPUT_PORT));
 	}
 }
+
+static void registry_global_removed(void *data, uint32_t id)
+{
+	struct impl *impl = data;
+	struct node *node;
+	struct port *port;
+
+	pw_log_trace("Removed %u", id);
+
+	spa_list_for_each(node, &impl->nodes, list) {
+		if (node->id != id)
+			continue;
+
+		pw_log_debug("Removing node %u", id);
+
+		spa_list_remove(&node->list);
+		node_free(node);
+		return;
+	}
+
+	spa_list_for_each(port, &impl->ports, list) {
+		if (port->id != id)
+			continue;
+
+		pw_log_debug("Removing port %u", id);
+
+		spa_list_remove(&port->list);
+		port_free(port);
+		return;
+	}
+}
+
+static const struct pw_registry_events registry_events = {
+	PW_VERSION_REGISTRY_EVENTS,
+	.global = registry_global,
+	.global_remove = registry_global_removed,
+};
 
 static void module_destroy(void *data)
 {
 	struct impl *impl = data;
 	struct node *node;
 	struct port *port;
-	struct pw_loop *loop;
 
 	spa_hook_remove(&impl->module_listener);
 	spa_hook_remove(&impl->registry_listener);
@@ -576,17 +538,6 @@ static void module_destroy(void *data)
 
 	if (impl->own_core)
 		pw_core_disconnect(impl->core);
-
-	loop = pw_context_get_main_loop(impl->context);
-
-	for (int i = 0; i < impl->n_fds; i++)
-		pw_loop_remove_source(loop, &impl->sources[i]);
-
-	if (impl->capture_rate_elem)
-		snd_ctl_elem_value_free(impl->capture_rate_elem);
-
-	if (impl->ctl)
-		snd_ctl_close(impl->ctl);
 
 	free(impl);
 }
@@ -620,8 +571,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	spa_list_init(&impl->nodes);
 	spa_list_init(&impl->ports);
-
-	start_alsa_watcher(impl, "hw:1");
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 	pw_registry_add_listener(impl->registry, &impl->registry_listener, &registry_events, impl);

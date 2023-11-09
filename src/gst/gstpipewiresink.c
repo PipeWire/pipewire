@@ -244,14 +244,9 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
 
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
   spa_pod_builder_push_object (&b, &f, SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers);
-  if (size == 0)
-    spa_pod_builder_add (&b,
-        SPA_PARAM_BUFFERS_size, SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
-        0);
-  else
-    spa_pod_builder_add (&b,
-        SPA_PARAM_BUFFERS_size, SPA_POD_CHOICE_RANGE_Int(size, size, INT32_MAX),
-        0);
+  spa_pod_builder_add (&b,
+      SPA_PARAM_BUFFERS_size, SPA_POD_CHOICE_RANGE_Int(size, size, INT32_MAX),
+      0);
 
   spa_pod_builder_add (&b,
       SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),

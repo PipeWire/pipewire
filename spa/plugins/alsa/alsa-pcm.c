@@ -838,6 +838,13 @@ int spa_alsa_clear(struct state *state)
 	free(state->tag[1]);
 
 	if (state->ctl) {
+		for (int i = 0; i < state->ctl_n_fds; i++) {
+			spa_loop_remove_source(state->data_loop, &state->ctl_sources[i]);
+		}
+
+		snd_ctl_close(state->ctl);
+		state->ctl = NULL;
+
 		for (unsigned int i = 0; i < state->num_bind_ctls; i++) {
 			if (state->bound_ctls[i].info) {
 				snd_ctl_elem_info_free(state->bound_ctls[i].info);
@@ -848,13 +855,6 @@ int spa_alsa_clear(struct state *state)
 				state->bound_ctls[i].value = NULL;
 			}
 		}
-
-		for (int i = 0; i < state->ctl_n_fds; i++) {
-			spa_loop_remove_source(state->data_loop, &state->ctl_sources[i]);
-		}
-
-		snd_ctl_close(state->ctl);
-		state->ctl = NULL;
 	}
 
 	return err;

@@ -126,9 +126,10 @@ struct object {
 
 	struct client *client;
 
-#define INTERFACE_Port		0
-#define INTERFACE_Node		1
-#define INTERFACE_Link		2
+#define INTERFACE_Invalid	0
+#define INTERFACE_Port		1
+#define INTERFACE_Node		2
+#define INTERFACE_Link		3
 	uint32_t type;
 	uint32_t id;
 	uint32_t serial;
@@ -506,7 +507,7 @@ static void recycle_objects(struct client *c, uint32_t remain)
 	pthread_mutex_lock(&globals.lock);
 	spa_list_for_each_safe(o, t, &c->context.objects, link) {
 		if (o->removed) {
-			pw_log_info("%p: recycle object:%p type:%d id:%u/%u",
+			pw_log_debug("%p: recycle object:%p type:%d id:%u/%u",
 					c, o, o->type, o->id, o->serial);
 			spa_list_remove(&o->link);
 			memset(o, 0, sizeof(struct object));

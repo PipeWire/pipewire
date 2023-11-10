@@ -251,7 +251,6 @@ char *get_data_path(const char *data_dir, const char *data_type, const char *fna
     };
     const char *e;
     spa_autofree char *base = NULL;
-    spa_autofree char *path = NULL;
     char *result;
 
     if (data_dir)
@@ -271,18 +270,18 @@ char *get_data_path(const char *data_dir, const char *data_type, const char *fna
     base = get_xdg_home("XDG_CONFIG_HOME", ".config");
     if (base) {
 	SPA_FOR_EACH_ELEMENT_VAR(subpaths, subpath) {
-	    path = spa_aprintf("%s/%s/%s", base, *subpath, data_type);
+	    spa_autofree char *path = spa_aprintf("%s/%s/%s", base, *subpath, data_type);
 	    if ((result = try_path(fname, path)) != NULL)
 		return result;
 	}
     }
 
     SPA_FOR_EACH_ELEMENT_VAR(subpaths, subpath) {
-	path = spa_aprintf("/etc/%s/%s", *subpath, data_type);
+	spa_autofree char *path = spa_aprintf("/etc/%s/%s", *subpath, data_type);
 	if ((result = try_path(fname, path)) != NULL)
 	    return result;
     }
 
-    path = spa_aprintf("%s/%s", PA_ALSA_DATA_DIR, data_type);
+    spa_autofree char *path = spa_aprintf("%s/%s", PA_ALSA_DATA_DIR, data_type);
     return pa_maybe_prefix_path(fname, path);
 }

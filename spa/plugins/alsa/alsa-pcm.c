@@ -2268,6 +2268,7 @@ static void reset_buffers(struct state *this)
 
 	spa_list_init(&this->free);
 	spa_list_init(&this->ready);
+	this->ready_offset = 0;
 
 	for (i = 0; i < this->n_buffers; i++) {
 		struct buffer *b = &this->buffers[i];

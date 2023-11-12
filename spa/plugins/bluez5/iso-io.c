@@ -37,7 +37,7 @@ struct group {
 	struct spa_source source;
 	struct spa_list streams;
 	int timerfd;
-	uint8_t cig;
+	uint8_t id;
 	uint64_t next;
 	uint64_t duration;
 	uint32_t paused;
@@ -155,7 +155,7 @@ static void group_on_timeout(struct spa_source *source)
 	if ((res = spa_system_timerfd_read(group->data_system, group->timerfd, &exp)) < 0) {
 		if (res != -EAGAIN)
 			spa_log_warn(group->log, "%p: ISO group:%u error reading timerfd: %s",
-					group, group->cig, spa_strerror(res));
+					group, group->id, spa_strerror(res));
 		return;
 	}
 
@@ -178,7 +178,7 @@ static void group_on_timeout(struct spa_source *source)
 
 	if (group->paused) {
 		--group->paused;
-		spa_log_debug(group->log, "%p: ISO group:%d paused:%u", group, group->cig, group->paused);
+		spa_log_debug(group->log, "%p: ISO group:%u paused:%u", group, group->id, group->paused);
 	}
 
 	/* Produce output */
@@ -194,7 +194,7 @@ static void group_on_timeout(struct spa_source *source)
 		}
 		if (stream->this.size == 0) {
 			spa_log_debug(group->log, "%p: ISO group:%u miss fd:%d",
-					group, group->cig, stream->fd);
+					group, group->id, stream->fd);
 			if (stream_silence(stream) < 0) {
 				fail = true;
 				continue;
@@ -208,7 +208,7 @@ static void group_on_timeout(struct spa_source *source)
 		}
 
 		spa_log_trace(group->log, "%p: ISO group:%u sent fd:%d size:%u ts:%u idle:%d res:%d",
-				group, group->cig, stream->fd, (unsigned)stream->this.size,
+				group, group->id, stream->fd, (unsigned)stream->this.size,
 				(unsigned)stream->this.timestamp, stream->idle, res);
 
 		stream->this.size = 0;
@@ -243,8 +243,18 @@ static struct group *group_create(struct spa_bt_transport *t,
 		struct spa_log *log, struct spa_loop *data_loop, struct spa_system *data_system)
 {
 	struct group *group;
+	uint8_t id;
 
 	if (t->bap_interval <= 5000) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (t->profile & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE)) {
+		id = t->bap_cig;
+	} else if (t->profile & (SPA_BT_PROFILE_BAP_BROADCAST_SINK | SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)) {
+		id = t->bap_big;
+	} else {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -255,7 +265,7 @@ static struct group *group_create(struct spa_bt_transport *t,
 
 	spa_log_topic_init(log, &log_topic);
 
-	group->cig = t->bap_cig;
+	group->id = id;
 	group->log = log;
 	group->data_loop = data_loop;
 	group->data_system = data_system;

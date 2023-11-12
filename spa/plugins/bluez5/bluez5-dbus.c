@@ -3465,6 +3465,9 @@ static int transport_create_iso_io(struct spa_bt_transport *transport)
 				SPA_BT_PROFILE_BAP_BROADCAST_SINK | SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)))
 			continue;
 
+		if (t->device->adapter != transport->device->adapter)
+			continue;
+
 		if ((transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) ||
 			(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)) {
 			if (t->bap_big != transport->bap_big)

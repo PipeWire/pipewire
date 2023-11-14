@@ -1854,6 +1854,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_NAME, "raop_sink.%s.%s.%s",
 				hostname, ip, port);
+	if (pw_properties_get(props, PW_KEY_MEDIA_NAME) == NULL)
+		pw_properties_setf(props, PW_KEY_MEDIA_NAME, "RAOP to %s", name);
 	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION, "%s", name);
 	if (pw_properties_get(props, PW_KEY_NODE_LATENCY) == NULL)
@@ -1891,6 +1893,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
 	copy_props(impl, props, PW_KEY_MEDIA_CLASS);
 	copy_props(impl, props, PW_KEY_MEDIA_FORMAT);
+	copy_props(impl, props, PW_KEY_MEDIA_NAME);
 	copy_props(impl, props, "net.mtu");
 	copy_props(impl, props, "rtp.sender-ts-offset");
 	copy_props(impl, props, "sess.media");

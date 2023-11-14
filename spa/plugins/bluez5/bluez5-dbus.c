@@ -971,6 +971,11 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 			goto error_invalid;
 		}
 
+		spa_log_debug(monitor->log, "select qos: interval:%d framing:%d phy:%d sdu:%d "
+				"rtn:%d latency:%d delay:%d target_latency:%d",
+				qos.interval, qos.framing, qos.phy, qos.sdu, qos.retransmission,
+				qos.latency, (int)qos.delay, qos.target_latency);
+
 		dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
 		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &entry_key);
 		dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "a{sv}", &variant);

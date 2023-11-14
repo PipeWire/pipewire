@@ -674,6 +674,8 @@ static int codec_get_qos(const struct media_codec *codec,
 	if (endpoint_qos->latency >= 0x0005 && endpoint_qos->latency <= 0x0FA0)
 		/* Values outside the range are RFU */
 		qos->latency = endpoint_qos->latency;
+	if (endpoint_qos->retransmission)
+		qos->retransmission = endpoint_qos->retransmission;
 	if (endpoint_qos->delay_min)
 		qos->delay = SPA_MAX(qos->delay, endpoint_qos->delay_min);
 	if (endpoint_qos->delay_max)

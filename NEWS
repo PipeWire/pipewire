@@ -1,3 +1,61 @@
+# PipeWire 0.3.85 (2023-11-16)
+
+This is the fifth (and last) 1.0 release candidate that is API and ABI
+compatible with previous 0.3.x releases.
+
+## Highlights
+  - Fix an issue where a link could end up paused while not negotiated.
+  - Fix an infinite recursion issue when finding runnable nodes.
+  - Support XDG base directories when loading ACP config.
+  - Fix MIDI event recording preview in Ardour.
+  - Many more small fixes, cleanups and improvements.
+
+
+## PipeWire
+  - Fix an issue where a link could end up paused while not negotiated.
+    (#3619)
+  - Fix an infinite recursion issue when finding runnable nodes by stopping
+    the scan on feedback links around the driver. (#3621)
+  - The system service now has better socket permissions.
+
+## Modules
+  - Add support for uclamp. This allows the scheduler to make better informed
+    decisions about where tasks should be placed, and what pstate to set
+    for the CPU it is running on.
+  - Emit warnings when applications are not doing the right locking instead
+    of crashing.
+  - Improve media.name for RAOP sinks. (#3801)
+  - Support pause/resume in pipe-tunnel. (#3197)
+  - Remove time rlimit when probing for realtime to avoid SIGXCPU.
+
+## SPA
+  - Fix a bug where the resampler would be activated even when there is an
+    ALSA pitch element. (#3628)
+  - Improve resume from suspend in ALSA. (#3646)
+  - Add option to expose ALSA controls as prop params.
+  - Support XDG base directories when loading ACP config. This makes it possible
+    to override the ACP config files.
+
+## Bluetooth
+  - Schedule nodes in the same ISO group together.
+  - More BAP fixes and cleanups.
+
+## JACK
+  - Fix MIDI events from peer ports. This makes the MIDI event recording preview
+    of Ardour work correctly.
+
+## GStreamer
+  - Fix some error handling in the source and sink.
+
+## ALSA plugin
+  - Improve poll descriptor handling. (#3648)
+
+## Docs
+  - Many improvements to the layout and organization.
+
+Older versions:
+
+
 # PipeWire 0.3.84 (2023-11-02)
 
 This is the fourth 1.0 release candidate that is API and ABI compatible
@@ -55,9 +113,6 @@ with previous 0.3.x releases.
 
 ## ALSA
   - The ALSA plugin now handles NULL values from mmap_areas. (#3600)
-
-Older versions:
-
 
 # PipeWire 0.3.83 (2023-10-19)
 

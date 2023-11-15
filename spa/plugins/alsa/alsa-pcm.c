@@ -2345,7 +2345,7 @@ static inline int do_start(struct state *state)
 
 static inline int check_position_config(struct state *state);
 
-static int alsa_recover(struct state *state, int err)
+static int alsa_recover(struct state *state)
 {
 	int res, st, retry = 0;
 	snd_pcm_status_t *status;
@@ -2387,10 +2387,10 @@ static int alsa_recover(struct state *state, int err)
 	case SND_PCM_STATE_SUSPENDED:
 		spa_log_info(state->log, "%s: recover from state %s",
 				state->name, snd_pcm_state_name(st));
-		while (retry++ < 5 && (err = snd_pcm_resume(state->hndl)) == -EAGAIN)
+		while (retry++ < 5 && (res = snd_pcm_resume(state->hndl)) == -EAGAIN)
 			/* wait until suspend flag is released */
 			poll(NULL, 0, 1000);
-		if (err >= 0)
+		if (res >= 0)
 			return res;
 		/* try to drop and prepare below */
 		break;
@@ -2423,7 +2423,6 @@ recover:
 		if (follower != driver && follower->linked)
 			do_start(follower);
 	}
-
 	return res;
 }
 
@@ -2443,7 +2442,7 @@ static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes
 	snd_pcm_sframes_t avail;
 
 	if (SPA_UNLIKELY((avail = alsa_avail(state)) < 0)) {
-		if ((res = alsa_recover(state, avail)) < 0)
+		if ((res = alsa_recover(state)) < 0)
 			return res;
 		if ((avail = alsa_avail(state)) < 0) {
 			if ((suppressed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
@@ -2768,7 +2767,7 @@ again:
 		if (SPA_UNLIKELY((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &frames)) < 0)) {
 			spa_log_error(state->log, "%s: snd_pcm_mmap_begin error: %s",
 					state->name, snd_strerror(res));
-			alsa_recover(state, res);
+			alsa_recover(state);
 			return res;
 		}
 		spa_log_trace_fp(state->log, "%p: begin offset:%ld avail:%ld threshold:%d",
@@ -3034,7 +3033,7 @@ static int alsa_read_frames(struct state *state)
 		if ((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &avail)) < 0) {
 			spa_log_error(state->log, "%s: snd_pcm_mmap_begin error: %s",
 					state->name, snd_strerror(res));
-			alsa_recover(state, res);
+			alsa_recover(state);
 			return res;
 		}
 		spa_log_trace_fp(state->log, "%p: begin offs:%ld frames:%ld avail:%ld thres:%d", state,

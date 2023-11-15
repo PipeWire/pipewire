@@ -2423,7 +2423,7 @@ recover:
 		if (follower != driver && follower->linked)
 			do_start(follower);
 	}
-	return res;
+	return 0;
 }
 
 static inline snd_pcm_sframes_t alsa_avail(struct state *state)
@@ -2705,7 +2705,7 @@ static int alsa_write_sync(struct state *state, uint64_t current_time)
 		return res;
 
 	if (SPA_UNLIKELY((res = get_status(state, current_time, &avail, &delay, &target)) < 0)) {
-		spa_log_error(state->log, "get_status error");
+		spa_log_error(state->log, "get_status error: %s", spa_strerror(res));
 		state->next_time += state->threshold * 1e9 / state->rate;
 		return res;
 	}
@@ -2966,7 +2966,7 @@ static int alsa_read_sync(struct state *state, uint64_t current_time)
 		return res;
 
 	if (SPA_UNLIKELY((res = get_status(state, current_time, &avail, &delay, &target)) < 0)) {
-		spa_log_error(state->log, "get_status error");
+		spa_log_error(state->log, "get_status error: %s", spa_strerror(res));
 		state->next_time += state->threshold * 1e9 / state->rate;
 		return res;
 	}

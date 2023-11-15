@@ -549,6 +549,8 @@ static bool check_realtime_privileges(struct impl *impl)
 	int err, old_policy, new_policy, min, max;
 	struct sched_param old_sched_params;
 	struct sched_param new_sched_params;
+	struct rlimit old_rlim;
+	struct rlimit no_rlim = { -1, -1 };
 	int try = 0;
 
 	if (!impl->rlimits_enabled)
@@ -596,11 +598,21 @@ static bool check_realtime_privileges(struct impl *impl)
 		if ((old_policy & PW_SCHED_RESET_ON_FORK) != 0)
 			new_policy |= PW_SCHED_RESET_ON_FORK;
 
+		/* Disable RLIMIT_RTTIME while trying new_policy. */
+		if ((err = getrlimit(RLIMIT_RTTIME, &old_rlim)) < 0)
+			pw_log_debug("getrlimit() failed: %s", spa_strerror(err));
+		if ((err = setrlimit(RLIMIT_RTTIME, &no_rlim)) < 0)
+			pw_log_debug("setrlimit() failed: %s", spa_strerror(err));
+
 		if (pthread_setschedparam(pthread_self(), new_policy, &new_sched_params) == 0) {
 			impl->rt_prio = new_sched_params.sched_priority;
 			pthread_setschedparam(pthread_self(), old_policy, &old_sched_params);
+			if ((err = setrlimit(RLIMIT_RTTIME, &old_rlim)) < 0)
+				pw_log_debug("setrlimit() failed: %s", spa_strerror(err));
 			return true;
 		}
+		if ((err = setrlimit(RLIMIT_RTTIME, &old_rlim)) < 0)
+			pw_log_debug("setrlimit() failed: %s", spa_strerror(err));
 	}
 	pw_log_info("Can't set rt prio to %d: %m (try increasing rlimits)", (int)priority);
 	return false;
@@ -648,18 +660,18 @@ static int set_nice(struct impl *impl, int nice_level, bool warn)
 	return res;
 }
 
-static int set_rlimit(struct impl *impl)
+static int set_rlimit(struct rlimit *rlim)
 {
 	int res = 0;
 
-	if (setrlimit(RLIMIT_RTTIME, &impl->rl) < 0)
+	if (setrlimit(RLIMIT_RTTIME, rlim) < 0)
 		res = -errno;
 
 	if (res < 0)
 		pw_log_debug("setrlimit() failed: %s", spa_strerror(res));
 	else
 		pw_log_debug("rt.time.soft:%"PRIi64" rt.time.hard:%"PRIi64,
-				(int64_t)impl->rl.rlim_cur, (int64_t)impl->rl.rlim_max);
+				(int64_t)rlim->rlim_cur, (int64_t)rlim->rlim_max);
 
 	return res;
 }
@@ -1023,7 +1035,7 @@ static int do_rtkit_setup(struct spa_loop *loop, bool async, uint32_t seq,
 	impl->rl.rlim_cur = SPA_MIN(impl->rl.rlim_cur, impl->rttime_max);
 	impl->rl.rlim_max = SPA_MIN(impl->rl.rlim_max, impl->rttime_max);
 
-	set_rlimit(impl);
+	set_rlimit(&impl->rl);
 
 	return 0;
 }
@@ -1144,7 +1156,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			use_rtkit = can_use_rtkit;
 	}
 	if (!use_rtkit)
-		set_rlimit(impl);
+		set_rlimit(&impl->rl);
 
 	if (impl->uclamp_max > 1024) {
 		pw_log_warn("uclamp.max out of bounds. Got %d, clamping to 1024.", impl->uclamp_max);

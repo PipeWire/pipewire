@@ -5235,7 +5235,7 @@ SPA_EXPORT
 void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 {
 	struct object *o = port_to_object(port);
-	struct port *p;
+	struct port *p = NULL;
 	void *ptr = NULL;
 
 	return_val_if_fail(o != NULL, NULL);
@@ -5278,7 +5278,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 		ptr = p->get_buffer(p, frames);
 	}
 done:
-	pw_log_trace_fp("%p: port %p buffer %p: %s", p->client, p, ptr);
+	pw_log_trace_fp("%p: port %p buffer %p", p->client, p, ptr);
 	return ptr;
 }
 

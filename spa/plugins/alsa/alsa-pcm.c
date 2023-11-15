@@ -2319,7 +2319,7 @@ static int do_prepare(struct state *state)
 static inline int do_drop(struct state *state)
 {
 	int res;
-	spa_log_debug(state->log, "%p: snd_pcm_drop %u", state, state->linked);
+	spa_log_debug(state->log, "%p: snd_pcm_drop linked:%u", state, state->linked);
 	if (!state->linked && (res = snd_pcm_drop(state->hndl)) < 0) {
 		spa_log_error(state->log, "%s: snd_pcm_drop: %s",
 				state->name, snd_strerror(res));
@@ -2332,7 +2332,7 @@ static inline int do_start(struct state *state)
 {
 	int res;
 	if (SPA_UNLIKELY(!state->alsa_started)) {
-		spa_log_debug(state->log, "%p: snd_pcm_start %u", state, state->linked);
+		spa_log_debug(state->log, "%p: snd_pcm_start linked:%u", state, state->linked);
 		if (!state->linked && (res = snd_pcm_start(state->hndl)) < 0) {
 			spa_log_error(state->log, "%s: snd_pcm_start: %s",
 					state->name, snd_strerror(res));

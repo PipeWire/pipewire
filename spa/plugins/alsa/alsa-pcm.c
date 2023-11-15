@@ -3204,6 +3204,11 @@ static void alsa_wakeup_event(struct spa_source *source)
 			spa_log_trace_fp(state->log, "Woken up with no work to do");
 			return;
 		}
+		if (revents & POLLERR) {
+			spa_log_trace_fp(state->log, "poll error");
+			if ((res = alsa_recover(state)) < 0)
+				return;
+		}
 	} else {
 		if (SPA_LIKELY(state->started)) {
 			if (SPA_UNLIKELY((res = spa_system_timerfd_read(state->data_system,

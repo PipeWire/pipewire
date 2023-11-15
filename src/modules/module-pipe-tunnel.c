@@ -40,6 +40,7 @@
  * ## Module Options
  *
  * - `tunnel.mode`: the desired tunnel to create. (Default `playback`)
+ * - `tunnel.may-pause`: if the tunnel stream is allowed to pause on xrun
  * - `pipe.filename`: the filename of the pipe.
  * - `stream.props`: Extra properties for the local stream.
  *
@@ -54,6 +55,12 @@
  *
  * When `tunnel.mode` is `source`, a source node is created. Samples read from
  * the the pipe will be made available on the source.
+ *
+ * `tunnel.may-pause` allows the tunnel stream to become inactive (paused) when
+ * there is no data in the fifo or when the fifo is full. For `capture` and
+ * `playback` `tunnel.mode` this is by default true. For `source` and `sink`
+ * `tunnel.mode`, this is by default false. A paused stream will consume no
+ * CPU and will resume when the fifo becomes readable or writable again.
  *
  * When `pipe.filename` is not given, a default fifo in `/tmp/fifo_input` or
  * `/tmp/fifo_output` will be created that can be written and read respectively,
@@ -86,6 +93,7 @@
  * {   name = libpipewire-module-pipe-tunnel
  *     args = {
  *         tunnel.mode = playback
+ *         #tunnel.may-pause = true
  *         # Set the pipe name to tunnel to
  *         pipe.filename = "/tmp/fifo_output"
  *         #audio.format=<sample format>
@@ -128,6 +136,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"( audio.channels=<number of channels> ) "		\
 			"( audio.position=<channel map> ) "			\
 			"( tunnel.mode=capture|playback|sink|source )"		\
+			"( tunnel.may-pause=<bool, if the stream can pause> )"	\
 			"( pipe.filename=<filename> )"				\
 			"( stream.props=<properties> ) "
 
@@ -898,6 +907,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		res = -EINVAL;
 		goto error;
 	}
+	if ((str = pw_properties_get(props, "tunnel.may-pause")) != NULL)
+		impl->may_pause = spa_atob(str);
 
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");

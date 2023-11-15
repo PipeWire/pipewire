@@ -159,15 +159,6 @@ static int snd_pcm_pipewire_close(snd_pcm_ioplug_t *io)
 	return 0;
 }
 
-static int snd_pcm_pipewire_poll_descriptors(snd_pcm_ioplug_t *io, struct pollfd *pfds, unsigned int space)
-{
-	snd_pcm_pipewire_t *pw = io->private_data;
-	update_active(io);
-	pfds->fd = pw->fd;
-	pfds->events = POLLIN | POLLERR | POLLNVAL;
-	return 1;
-}
-
 static int snd_pcm_pipewire_poll_revents(snd_pcm_ioplug_t *io,
 				     struct pollfd *pfds, unsigned int nfds,
 				     unsigned short *revents)
@@ -179,10 +170,8 @@ static int snd_pcm_pipewire_poll_revents(snd_pcm_ioplug_t *io,
 	if (pw->error < 0)
 		return pw->error;
 
-	update_active(io);
-
 	*revents = pfds[0].revents & ~(POLLIN | POLLOUT);
-	if (pfds[0].revents & POLLIN && pw->active)
+	if (pfds[0].revents & POLLIN && update_active(io))
 		*revents |= (io->stream == SND_PCM_STREAM_PLAYBACK) ? POLLOUT : POLLIN;
 
 	pw_log_trace_fp("poll %d", *revents);
@@ -910,7 +899,6 @@ static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 	.delay = snd_pcm_pipewire_delay,
 	.drain = snd_pcm_pipewire_drain,
 	.prepare = snd_pcm_pipewire_prepare,
-	.poll_descriptors = snd_pcm_pipewire_poll_descriptors,
 	.poll_revents = snd_pcm_pipewire_poll_revents,
 	.hw_params = snd_pcm_pipewire_hw_params,
 	.sw_params = snd_pcm_pipewire_sw_params,

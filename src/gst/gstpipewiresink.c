@@ -256,12 +256,12 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   spa_pod_builder_add (&b,
       SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
       SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(
-	      SPA_MAX(MIN_BUFFERS, min_buffers),
-	      SPA_MAX(MIN_BUFFERS, min_buffers),
-	      max_buffers ? max_buffers : INT32_MAX),
+              SPA_MAX(MIN_BUFFERS, min_buffers),
+              SPA_MAX(MIN_BUFFERS, min_buffers),
+              max_buffers ? max_buffers : INT32_MAX),
       SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(
-						(1<<SPA_DATA_MemFd) |
-						(1<<SPA_DATA_MemPtr)),
+                                                (1<<SPA_DATA_MemFd) |
+                                                (1<<SPA_DATA_MemPtr)),
       0);
   port_params[0] = spa_pod_builder_pop (&b, &f);
 
@@ -550,7 +550,7 @@ on_param_changed (void *data, uint32_t id, const struct spa_pod *param)
   GstPipeWireSink *pwsink = data;
 
   if (param == NULL || id != SPA_PARAM_Format)
-          return;
+    return;
 
   if (gst_buffer_pool_is_active (GST_BUFFER_POOL_CAST (pwsink->pool)))
     pool_activated (pwsink->pool, pwsink);
@@ -595,8 +595,8 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     if (pwsink->target_object) {
       struct spa_dict_item items[2] = {
         SPA_DICT_ITEM_INIT(PW_KEY_TARGET_OBJECT, pwsink->target_object),
-	/* XXX deprecated but the portal and some example apps only
-	 * provide the object id */
+        /* XXX deprecated but the portal and some example apps only
+         * provide the object id */
         SPA_DICT_ITEM_INIT(PW_KEY_NODE_TARGET, NULL),
       };
       struct spa_dict dict = SPA_DICT_INIT_ARRAY(items);

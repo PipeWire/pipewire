@@ -182,7 +182,7 @@ acquire_buffer (GstBufferPool * pool, GstBuffer ** buffer,
   *buffer = data->buf;
 
   GST_OBJECT_UNLOCK (pool);
-  GST_DEBUG ("acquire buffer %p", *buffer);
+  GST_LOG_OBJECT (pool, "acquire buffer %p", buffer);
 
   return GST_FLOW_OK;
 
@@ -251,7 +251,7 @@ flush_start (GstBufferPool * pool)
 static void
 release_buffer (GstBufferPool * pool, GstBuffer *buffer)
 {
-  GST_DEBUG ("release buffer %p", buffer);
+  GST_LOG_OBJECT (pool, "release buffer %p", buffer);
 }
 
 static gboolean

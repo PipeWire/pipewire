@@ -15,6 +15,8 @@
 
 #include "gstpipewirepool.h"
 
+#include <spa/debug/types.h>
+
 GST_DEBUG_CATEGORY_STATIC (gst_pipewire_pool_debug_category);
 #define GST_CAT_DEFAULT gst_pipewire_pool_debug_category
 
@@ -57,7 +59,7 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
   uint32_t i;
   GstPipeWirePoolData *data;
 
-  GST_LOG_OBJECT (pool, "wrap buffer");
+  GST_DEBUG_OBJECT (pool, "wrap buffer");
 
   data = g_slice_new (GstPipeWirePoolData);
 
@@ -67,21 +69,20 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
     struct spa_data *d = &b->buffer->datas[i];
     GstMemory *gmem = NULL;
 
-    GST_LOG_OBJECT (pool, "wrap buffer %d %d", d->mapoffset, d->maxsize);
+    GST_DEBUG_OBJECT (pool, "wrap data (%s) %d %d",
+        spa_debug_type_find_short_name(spa_type_data_type, d->type),
+        d->mapoffset, d->maxsize);
     if (d->type == SPA_DATA_MemFd) {
-      GST_LOG_OBJECT (pool, "memory type MemFd");
       gmem = gst_fd_allocator_alloc (pool->fd_allocator, dup(d->fd),
                 d->mapoffset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
       gst_memory_resize (gmem, d->mapoffset, d->maxsize);
     }
     else if(d->type == SPA_DATA_DmaBuf) {
-      GST_LOG_OBJECT (pool, "memory type DmaBuf");
       gmem = gst_fd_allocator_alloc (pool->dmabuf_allocator, dup(d->fd),
                 d->mapoffset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
       gst_memory_resize (gmem, d->mapoffset, d->maxsize);
     }
     else if (d->type == SPA_DATA_MemPtr) {
-      GST_LOG_OBJECT (pool, "memory type MemPtr");
       gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, 0,
                                      d->maxsize, NULL, NULL);
     }

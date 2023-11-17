@@ -23,8 +23,7 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define USB_CAPTURE_DEV "usb-out-ch"
-#define USB_PLAYBACK_DEV "usb-in-ch"
+#define KEY_API_ALSA_USB_GADGET "api.alsa.usb-gadget"
 
 struct node {
 	struct spa_list list;
@@ -35,12 +34,17 @@ struct node {
 
 	struct pw_node *proxy;
 	struct spa_hook proxy_listener;
+
+	bool is_gadget;
+	// -1 for non-USB nodes, 0 or rate for USB nodes to track link status
+	int capture_rate;
 };
 
 struct port {
 	struct spa_list list;
 
 	uint32_t id;
+	// FIXME: maybe just replace with a `struct node *`
 	uint32_t node_id;
 	enum spa_direction direction;
 	struct pw_properties *props;
@@ -65,8 +69,6 @@ struct impl {
 
 	struct spa_list nodes;
 	struct spa_list ports;
-
-	int capture_rate;
 };
 
 static void node_free(struct node *node)
@@ -116,6 +118,32 @@ static void create_link(struct impl *impl, struct port *p1, struct port *p2)
 	p2->linked = p1;
 }
 
+static bool node_is_source(struct node *node)
+{
+	return spa_streq(pw_properties_get(node->props, PW_KEY_MEDIA_CLASS), "Audio/Source");
+}
+
+static bool node_has_link_group(struct node *node)
+{
+	return pw_properties_get(node->props, PW_KEY_NODE_LINK_GROUP) != NULL;
+}
+
+static bool node_is_ready(struct node *node)
+{
+	// We want to know if we have all the node information (i.e. has the
+	// node_info callback been called). We use the existence of properties
+	// as a proxy for this, but could potentially just use an explicit
+	// boolean in the future
+	if (node->props == NULL)
+		return false;
+
+	// USB device, isn't deemed ready until the capture side is linked
+	if (node->is_gadget && node->capture_rate <= 0)
+		return false;
+
+	return true;
+}
+
 static struct node *find_node_by_id(struct impl *impl, uint32_t id)
 {
 	struct node *node;
@@ -128,20 +156,6 @@ static struct node *find_node_by_id(struct impl *impl, uint32_t id)
 	return NULL;
 }
 
-static struct node *find_node_by_name(struct impl *impl, const char *name)
-{
-	struct node *n, *node = NULL;
-
-	spa_list_for_each(n, &impl->nodes, list) {
-		if (n->props && spa_streq(pw_properties_get(n->props, PW_KEY_NODE_NAME), name)) {
-			node = n;
-			break;
-		}
-	}
-
-	return node;
-}
-
 static struct node *find_target_node(struct impl *impl, struct node *node)
 {
 	struct node *n;
@@ -150,7 +164,6 @@ static struct node *find_target_node(struct impl *impl, struct node *node)
 	bool target_is_id;
 
 	if (!node->props) {
-		pw_log_debug("Don't yet have node props for %u", node->id);
 		return NULL;
 	}
 
@@ -161,10 +174,8 @@ static struct node *find_target_node(struct impl *impl, struct node *node)
 
 	// Find the node given by `target` in `impl->nodes`
 	spa_list_for_each(n, &impl->nodes, list) {
-		if (!target_is_id && !n->props) {
-			pw_log_debug("Can't yet match node %u", n->id);
+		if (!target_is_id && !n->props)
 			continue;
-		}
 
 		if (target_is_id && n->id == target_id)
 			return n;
@@ -190,6 +201,11 @@ static struct port *find_port_by_id(struct impl *impl, uint32_t id)
 static void link_port_to_target(struct impl *impl, struct port *port, struct node *target_node) {
 	struct port *p;
 
+	if (!port->props) {
+		// Not ready to compare yet
+		return;
+	}
+
 	// FIXME: do some validation here
 	spa_list_for_each(p, &impl->ports, list) {
 		if (p->node_id != target_node->id)
@@ -199,7 +215,6 @@ static void link_port_to_target(struct impl *impl, struct port *port, struct nod
 			continue;
 
 		if (!p->props) {
-			pw_log_debug("Can't yet match port %u", p->id);
 			continue;
 		}
 
@@ -224,47 +239,66 @@ static void check_port(struct impl *impl, struct port *port)
 		return;
 	}
 
+	if (!node_is_ready(node)) {
+		pw_log_debug("Waiting for node to be ready for port %u", port->id);
+		return;
+	}
+
 	target_node = find_target_node(impl, node);
 	if (!target_node)
 		return;
 
-	if (spa_streq(pw_properties_get(target_node->props, PW_KEY_NODE_NAME), USB_CAPTURE_DEV) ||
-			spa_streq(pw_properties_get(target_node->props, PW_KEY_NODE_NAME), USB_PLAYBACK_DEV)) {
-		if (impl->capture_rate == 0) {
-			pw_log_debug("Skipping USB device until host starts playback");
-			return;
-		}
+	if (!node_is_ready(target_node)) {
+		pw_log_debug("Waiting for target node to be ready for port %u", port->id);
+		return;
 	}
 
 	link_port_to_target(impl, port, target_node);
 }
 
-static void link_node_ports(struct impl *impl, const char *node_name)
+static void link_node_group(struct impl *impl, struct node *node);
+
+static void link_node_ports(struct impl *impl, struct node *this_node, bool cascade)
 {
-	struct node *node, *this_node = NULL, *other_node = NULL;
+	struct node *node, *other_node = NULL;
 	struct port *port;
 
-	this_node = find_node_by_name(impl, node_name);
-
-	if (!this_node)
+	// We can get here, for example, when traversing a link group where one
+	// node props have been read but another have not
+	if (!node_is_ready(this_node))
 		return;
 
-	spa_list_for_each(node, &impl->nodes, list) {
-		struct node *target;
+	// First see if this node has a target
+	other_node = find_target_node(impl, this_node);
 
-		target = find_target_node(impl, node);
-		if (!target)
-			continue;
+	if (other_node) {
+		pw_log_debug("Node %u has a target", this_node->id);
+	} else {
+		// If not, see if this is the target of another node
+		spa_list_for_each(node, &impl->nodes, list) {
+			struct node *target;
 
-		// This node's target is the USB device
-		if (target->id == this_node->id) {
-			other_node = node;
-			break;
+			target = find_target_node(impl, node);
+			if (!target)
+				continue;
+
+			// This node's target is the USB device
+			if (target->id == this_node->id) {
+				other_node = node;
+				break;
+			}
 		}
+
+		pw_log_debug("Node %u is%s a target", this_node->id, other_node ? "" : " not");
 	}
 
 	if (!other_node)
 		return;
+
+	if (!node_is_ready(other_node)) {
+		pw_log_debug("... but is not ready");
+		return;
+	}
 
 	spa_list_for_each(port, &impl->ports, list) {
 		if (port->node_id != this_node->id)
@@ -272,14 +306,47 @@ static void link_node_ports(struct impl *impl, const char *node_name)
 
 		link_port_to_target(impl, port, other_node);
 	}
+
+	if (cascade) {
+		// Cascade to link groups
+		if (node_has_link_group(this_node))
+			link_node_group(impl, this_node);
+		if (node_has_link_group(other_node))
+			link_node_group(impl, other_node);
+	}
 }
 
-static void unlink_node_ports(struct impl *impl, const char *node_name)
+static void link_node_group(struct impl *impl, struct node *node)
 {
-	struct node *this_node;
-	struct port *port;
+	struct node *n;
+	const char *group = pw_properties_get(node->props, PW_KEY_NODE_LINK_GROUP);
 
-	this_node = find_node_by_name(impl, node_name);
+	if (!group) {
+		pw_log_warn("Could not find link group for node '%u'", node->id);
+		return;
+	}
+
+	pw_log_debug("Linking nodes in group '%s'", group);
+
+	spa_list_for_each(n, &impl->nodes, list) {
+		if (!node_is_ready(n))
+			continue;
+
+		if (!spa_streq(group, pw_properties_get(n->props, PW_KEY_NODE_LINK_GROUP)))
+			continue;
+
+		// Don't cascade to avoid infinite recursion
+		link_node_ports(impl, n, false);
+	}
+}
+
+static void unlink_node_group(struct impl *impl, struct node *node);
+
+static void unlink_node_ports(struct impl *impl, struct node *this_node, bool cascade)
+{
+	struct node *other_node = NULL;
+	struct port *port;
+	uint32_t other_node_id = 0;
 
 	if (!this_node)
 		return;
@@ -294,6 +361,8 @@ static void unlink_node_ports(struct impl *impl, const char *node_name)
 		pw_log_debug("Destroying link %u (%u <-> %u)", port->link_id, port->id, port->linked->id);
 		pw_registry_destroy(impl->registry, port->link_id);
 
+		other_node_id = port->linked->node_id;
+
 		// Clean up the other port
 		port->linked->link_id = 0;
 		port->linked->linked = NULL;
@@ -301,20 +370,73 @@ static void unlink_node_ports(struct impl *impl, const char *node_name)
 		port->link_id = 0;
 		port->linked = NULL;
 	}
+
+	if (other_node_id != 0)
+		other_node = find_node_by_id(impl, other_node_id);
+
+	if (cascade) {
+		// Cascade to link groups
+		if (node_has_link_group(this_node))
+			unlink_node_group(impl, this_node);
+		if (other_node && node_has_link_group(other_node))
+			unlink_node_group(impl, other_node);
+	}
 }
 
-static void usb_capture_rate_changed(struct impl *impl, int capture_rate)
+static void unlink_node_group(struct impl *impl, struct node *node)
 {
-	impl->capture_rate = capture_rate;
+	struct node *n;
+	const char *group = pw_properties_get(node->props, PW_KEY_NODE_LINK_GROUP);
+
+	if (!group) {
+		pw_log_warn("Could not find link group for node '%u'", node->id);
+		return;
+	}
+
+
+	pw_log_debug("Unlinking nodes in group '%s'", group);
+
+	spa_list_for_each(n, &impl->nodes, list) {
+		const char *g = pw_properties_get(n->props, PW_KEY_NODE_LINK_GROUP);
+
+		if (!spa_streq(group, g))
+			continue;
+
+		// Don't cascade to avoid infinite recursion
+		pw_log_debug("Destroying links of node %u (%s)", n->id, g);
+		unlink_node_ports(impl, n, false);
+	}
+}
+
+static void usb_capture_rate_changed(struct node *node, int capture_rate)
+{
+	struct impl *impl = node->impl;
+	const char *device = pw_properties_get(node->props, "api.alsa.path");
+
+	node->capture_rate = capture_rate;
+
+	if (device) {
+		// Update rate for all nodes of the same device track the USB status
+		struct node *n;
+
+		spa_list_for_each(n, &impl->nodes, list) {
+			const char *d = pw_properties_get(node->props, "api.alsa.path");
+
+			if (!spa_streq(device, d))
+				continue;
+
+			n->capture_rate = capture_rate;
+		}
+	}
 
 	if (capture_rate > 0) {
 		pw_log_debug("Linking USB ports");
-		link_node_ports(impl, USB_PLAYBACK_DEV);
-		link_node_ports(impl, USB_CAPTURE_DEV);
+		// ... and cascading to linked groups
+		link_node_ports(impl, node, true);
 	} else {
 		pw_log_debug("Unlinking USB ports");
-		unlink_node_ports(impl, USB_CAPTURE_DEV);
-		unlink_node_ports(impl, USB_PLAYBACK_DEV);
+		// ... and cascading to linked groups
+		unlink_node_ports(impl, node, true);
 	}
 }
 
@@ -323,9 +445,28 @@ static void node_info(void *data, const struct pw_node_info *info)
 	struct node *node = data;
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS) {
+		bool wasnt_ready = false;
+
+		pw_log_debug("node props updated: %u", node->id);
+
 		if (node->props)
 			pw_properties_free(node->props);
+		else
+			wasnt_ready = true;
+
 		node->props = pw_properties_new_dict(info->props);
+		node->is_gadget = spa_atob(spa_dict_lookup(info->props, KEY_API_ALSA_USB_GADGET));
+
+		// We now know whether this is a gadget or not, so we can check whether it can be linked
+		if (wasnt_ready) {
+			// Listen for rate changes on USB gadget capture nodes
+			if (node->is_gadget && node_is_source(node)) {
+				uint32_t ids[] = { SPA_PARAM_Props };
+				pw_node_subscribe_params(node->proxy, ids, SPA_N_ELEMENTS(ids));
+			}
+
+			link_node_ports(node->impl, node, true);
+		}
 	}
 	// Just gather props, we'll use this while linking
 }
@@ -334,7 +475,7 @@ static void node_param(void *data, int seq, uint32_t id, uint32_t index,
 		uint32_t next, const struct spa_pod *param)
 {
 	struct node *node = data;
-	struct spa_pod_parser params;
+	struct spa_pod_parser param_props;
 	struct spa_pod_frame f;
 	struct spa_pod *pod = NULL;
 	int32_t capture_rate = 0;
@@ -349,11 +490,11 @@ static void node_param(void *data, int seq, uint32_t id, uint32_t index,
 	if (!pod)
 		return;
 
-	pw_log_debug("node props updated");
+	pw_log_debug("node params updated");
 
-	spa_pod_parser_pod(&params, pod);
-	if (spa_pod_parser_push_struct(&params, &f) < 0) {
-		pw_log_warn("got param props that is not a struct");
+	spa_pod_parser_pod(&param_props, pod);
+	if (spa_pod_parser_push_struct(&param_props, &f) < 0) {
+		pw_log_warn("got props param that is not a struct");
 		return;
 	}
 
@@ -361,11 +502,11 @@ static void node_param(void *data, int seq, uint32_t id, uint32_t index,
 		const char *name;
 
 		// prop name
-		if (spa_pod_parser_get_string(&params, &name) < 0)
+		if (spa_pod_parser_get_string(&param_props, &name) < 0)
 			break;
 
 		// prop value
-		if (spa_pod_parser_get_pod(&params, &pod) < 0)
+		if (spa_pod_parser_get_pod(&param_props, &pod) < 0)
 			break;
 
 		if (!spa_streq(name, "api.alsa.bind-ctl.Capture Rate"))
@@ -378,8 +519,8 @@ static void node_param(void *data, int seq, uint32_t id, uint32_t index,
 
 		capture_rate = SPA_POD_VALUE(struct spa_pod_int, pod);
 
-		if (capture_rate != node->impl->capture_rate)
-			usb_capture_rate_changed(node->impl, capture_rate);
+		if (capture_rate != node->capture_rate)
+			usb_capture_rate_changed(node, capture_rate);
 	}
 }
 
@@ -432,15 +573,11 @@ static void registry_global(void *data, uint32_t id, uint32_t permissions,
 		node->id = id;
 		node->proxy = proxy;
 		node->props = NULL;
+		node->capture_rate = -1;
 
 		spa_list_insert(&impl->nodes, &node->list);
 
 		pw_node_add_listener(proxy, &node->proxy_listener, &node_events, node);
-
-		if (spa_streq(spa_dict_lookup(props, PW_KEY_NODE_NAME), USB_CAPTURE_DEV)) {
-			uint32_t ids[] = { SPA_PARAM_Props };
-			pw_node_subscribe_params(node->proxy, ids, SPA_N_ELEMENTS(ids));
-		}
 	} else if (spa_streq(type, PW_TYPE_INTERFACE_Port)) {
 		struct pw_port *proxy;
 		struct port *port;
@@ -574,6 +711,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 	pw_registry_add_listener(impl->registry, &impl->registry_listener, &registry_events, impl);
+
+	pw_core_sync(impl->core, 0, 0);
 
 	return 0;
 }

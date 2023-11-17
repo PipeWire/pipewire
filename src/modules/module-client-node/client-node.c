@@ -255,19 +255,21 @@ static void clear_data(struct impl *impl, struct spa_data *d)
 	}
 }
 
+static void clear_buffer(struct impl *impl, struct spa_buffer *b)
+{
+	uint32_t i;
+	for (i = 0; i < b->n_datas; i++)
+		clear_data(impl, &b->datas[i]);
+}
+
 static int clear_buffers(struct impl *impl, struct mix *mix)
 {
-	uint32_t i, j;
-
+	uint32_t i;
 	for (i = 0; i < mix->n_buffers; i++) {
 		struct buffer *b = &mix->buffers[i];
 
 		spa_log_debug(impl->log, "%p: clear buffer %d", impl, i);
-
-		for (j = 0; j < b->buffer.n_datas; j++) {
-			struct spa_data *d = &b->datas[j];
-			clear_data(impl, d);
-		}
+		clear_buffer(impl, &b->buffer);
 		pw_memblock_unref(b->mem);
 	}
 	mix->n_buffers = 0;
@@ -1018,10 +1020,10 @@ static int client_node_port_buffers(void *data,
 		mix_id = SPA_ID_INVALID;
 
 	if ((mix = find_mix(p, mix_id)) == NULL || !mix->valid)
-		return -EINVAL;
+		goto invalid;
 
 	if (mix->n_buffers != n_buffers)
-		return -EINVAL;
+		goto invalid;
 
 	for (i = 0; i < n_buffers; i++) {
 		struct spa_buffer *oldbuf, *newbuf;
@@ -1033,7 +1035,7 @@ static int client_node_port_buffers(void *data,
 		spa_log_debug(impl->log, "buffer %d n_datas:%d", i, newbuf->n_datas);
 
 		if (oldbuf->n_datas != newbuf->n_datas)
-			return -EINVAL;
+			goto invalid;
 
 		for (j = 0; j < b->buffer.n_datas; j++) {
 			struct spa_chunk *oldchunk = oldbuf->datas[j].chunk;
@@ -1054,6 +1056,10 @@ static int client_node_port_buffers(void *data,
 	mix->n_buffers = n_buffers;
 
 	return 0;
+invalid:
+	for (i = 0; i < n_buffers; i++)
+		clear_buffer(impl, buffers[i]);
+	return -EINVAL;
 }
 
 static const struct pw_client_node_methods client_node_methods = {

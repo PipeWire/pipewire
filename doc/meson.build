@@ -166,3 +166,33 @@ html_target = custom_target('pipewire-docs',
                             command: [ doxygen, doxyfile ],
                             install: true,
                             install_dir: docdir)
+
+
+if generate_module_manpages
+   module_man_rst_py = meson.project_source_root() / 'doc' / 'module-man-rst.py'
+   module_man_defines = []
+   foreach m : manpage_conf.keys()
+     if m != 'LIBPIPEWIRE_MODULES'
+       module_man_defines += ['-D', m, manpage_conf.get(m)]
+     endif
+   endforeach
+
+   foreach m : module_sources
+       name = m.split('.c').get(0)
+       file = 'libpipewire-' + name + '.7'
+
+       rst = custom_target(file + '.rst',
+                command : [python, module_man_rst_py, pandoc, name, '@INPUT@' ] + module_man_defines,
+                input : [ html_target ],
+                depend_files : [ module_man_rst_py ],
+                output : file + '.rst',
+                capture : true
+       )
+       custom_target(file,
+                output : file,
+                input : rst,
+                command : [rst2man, '@INPUT@', '@OUTPUT@'],
+                install : true,
+                install_dir : get_option('mandir') / 'man7')
+   endforeach
+endif

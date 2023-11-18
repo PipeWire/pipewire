@@ -6,6 +6,14 @@ manpage_conf.set('PACKAGE_BUGREPORT', 'https://gitlab.freedesktop.org/pipewire/p
 manpage_conf.set('PIPEWIRE_CONFIG_DIR', pipewire_configdir)
 manpage_conf.set('PIPEWIRE_CONFDATADIR', pipewire_confdatadir)
 
+module_manpage_list = []
+foreach m : module_sources
+   name = m.split('.c').get(0)
+   module_manpage_list += ['``libpipewire-' + name + '(7)``']
+endforeach
+
+manpage_conf.set('LIBPIPEWIRE_MODULES', '\n- '.join(module_manpage_list))
+
 manpages = [
   'pipewire.1.rst.in',
   'pipewire-pulse.1.rst.in',
@@ -22,6 +30,7 @@ manpages = [
   'pw-mon.1.rst.in',
   'pw-profiler.1.rst.in',
   'pw-top.1.rst.in',
+  'libpipewire-modules.7.rst.in',
 ]
 
 if get_option('pipewire-jack').allowed()

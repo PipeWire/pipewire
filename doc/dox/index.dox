@@ -17,7 +17,7 @@ PipeWire ships with the following components:
 
 - A \ref page_daemon that implements the IPC and graph processing.
 - An example \ref page_session_manager that manages objects in the \ref page_daemon.
-- A set of \ref page_tools to introspect and use the \ref page_daemon.
+- A set of \ref page_programs to introspect and use the \ref page_daemon.
 - A \ref page_library to develop PipeWire applications and plugins (\ref
   page_tutorial "tutorial").
 - The \ref page_spa used by both the \ref page_daemon and in the \ref
@@ -42,14 +42,5 @@ More information on how to configure and use PipeWire.
 - [Bluetooth, PipeWire and Whatsapp calls](https://gjhenrique.com/pipewire.html)
 - [Intoduction to PipeWire](https://bootlin.com/blog/an-introduction-to-pipewire/)
 - [A custom PipeWire node](https://bootlin.com/blog/a-custom-pipewire-node/)
-
-
-\page page_overview
-\page page_pipewire
-\page page_tools
-\page page_pipewire_modules
-\page page_api
-\page page_spa
-\page page_tutorial
 
 */

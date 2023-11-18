@@ -1,4 +1,4 @@
-/** \page page_pipewire_modules PipeWire Modules
+/** \page page_modules Modules
 
 A PipeWire module is effectively a PipeWire client in an `.so` file that
 shares the \ref pw_context with the loading entity. Usually modules are

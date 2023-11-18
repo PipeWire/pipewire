@@ -14,39 +14,39 @@ else
 endif
 
 # Note: order here is how doxygen will expose the pages in the sidebar
-# api-tree.dox should be first to determine ordering of Modules.
+# tree.dox should be first to determine the ordering.
 extra_docs = [
-  'api-tree.dox',
-  'index.dox',
-  'overview.dox',
-  'pipewire.dox',
-  'pipewire-design.dox',
-  'pipewire-access.dox',
-  'pipewire-midi.dox',
-  'pipewire-portal.dox',
-  'pipewire-daemon.dox',
-  'pipewire-library.dox',
-  'pipewire-modules.dox',
-  'pipewire-session-manager.dox',
-  'pipewire-objects-design.dox',
-  'pipewire-audio.dox',
-  'pipewire-scheduling.dox',
-  'pipewire-protocol.dox',
-  'tutorial.dox',
-  'tutorial1.dox',
-  'tutorial2.dox',
-  'tutorial3.dox',
-  'tutorial4.dox',
-  'tutorial5.dox',
-  'tutorial6.dox',
-  'api.dox',
-  'spa-index.dox',
-  'spa-plugins.dox',
-  'spa-design.dox',
-  'spa-pod.dox',
-  'spa-buffer.dox',
-  'pulseaudio.dox',
-  'dma-buf.dox',
+  'tree.dox',
+  'dox/index.dox',
+  'dox/overview.dox',
+  'dox/modules.dox',
+  'dox/internals/index.dox',
+  'dox/internals/design.dox',
+  'dox/internals/access.dox',
+  'dox/internals/midi.dox',
+  'dox/internals/portal.dox',
+  'dox/internals/daemon.dox',
+  'dox/internals/library.dox',
+  'dox/internals/session-manager.dox',
+  'dox/internals/objects.dox',
+  'dox/internals/audio.dox',
+  'dox/internals/scheduling.dox',
+  'dox/internals/protocol.dox',
+  'dox/internals/pulseaudio.dox',
+  'dox/internals/dma-buf.dox',
+  'dox/tutorial/index.dox',
+  'dox/tutorial/tutorial1.dox',
+  'dox/tutorial/tutorial2.dox',
+  'dox/tutorial/tutorial3.dox',
+  'dox/tutorial/tutorial4.dox',
+  'dox/tutorial/tutorial5.dox',
+  'dox/tutorial/tutorial6.dox',
+  'dox/api/index.dox',
+  'dox/api/spa-index.dox',
+  'dox/api/spa-plugins.dox',
+  'dox/api/spa-design.dox',
+  'dox/api/spa-pod.dox',
+  'dox/api/spa-buffer.dox',
 ]
 
 inputs = []
@@ -133,12 +133,12 @@ foreach m : manpages
   input_dirs += [ 'doc/' + filename ]
 endforeach
 
-pw_tools_dox_conf = configuration_data()
-pw_tools_dox_conf.set('man_subpages', '\n'.join(man_subpages))
-pw_tools_dox = configure_file(input: 'pipewire-tools.dox.in',
-                          output: 'pipewire-tools.dox',
-                          configuration: pw_tools_dox_conf)
-input_dirs += [ 'doc/pipewire-tools.dox' ]
+pw_programs_dox_conf = configuration_data()
+pw_programs_dox_conf.set('man_subpages', '\n'.join(man_subpages))
+pw_programs_dox = configure_file(input: 'programs.dox.in',
+                          output: 'programs.dox',
+                          configuration: pw_programs_dox_conf)
+input_dirs += [ 'doc/programs.dox' ]
 
 doxygen_layout = meson.project_source_root() / 'doc' / 'DoxygenLayout.xml'
 doxygen_filter_c = meson.project_source_root() / 'doc' / 'input-filter.sh'
@@ -161,7 +161,7 @@ if docdir == ''
 endif
 
 html_target = custom_target('pipewire-docs',
-                            input: [ doxyfile, doxygen_layout, examples_dox, pw_tools_dox, doxygen_filter_c, doxygen_filter_h ] + inputs + cssfiles + man_doxygen,
+                            input: [ doxyfile, doxygen_layout, examples_dox, pw_programs_dox, doxygen_filter_c, doxygen_filter_h ] + inputs + cssfiles + man_doxygen,
                             output: [ 'html' ],
                             command: [ doxygen, doxyfile ],
                             install: true,

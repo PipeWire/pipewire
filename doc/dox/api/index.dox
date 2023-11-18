@@ -59,6 +59,7 @@ digraph API {
 It is common for clients to use both the \ref api_pw_core and the \ref api_pw_impl
 and both APIs are provided by the same library.
 
+- \subpage page_spa
 - \subpage page_client_impl
 - \subpage page_proxy
 - \subpage page_streams

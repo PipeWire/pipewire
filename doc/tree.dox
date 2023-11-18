@@ -1,5 +1,7 @@
 /**
 
+This determines the ordering of items in Doxygen sidebar.
+
 \defgroup api_pw_core Core API
 \brief PipeWire Core API
 \{
@@ -119,5 +121,12 @@ Support interfaces provided by host
 \defgroup pw_filter Filter
 \{
 \}
+
+\page page_overview
+\page page_modules
+\page page_programs
+\page page_internals
+\page page_api
+\page page_tutorial
 
 */

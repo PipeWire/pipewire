@@ -28,7 +28,7 @@
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
 
-/** \page page_module_example_sink PipeWire Module: Example Sink
+/** \page page_module_example_sink Example Sink
  *
  * The example sink is a good starting point for writing a custom
  * sink. We refer to the source code for more information.

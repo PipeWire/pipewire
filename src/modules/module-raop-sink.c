@@ -47,7 +47,7 @@
 #include "module-rtp/rtp.h"
 #include "module-rtp/stream.h"
 
-/** \page page_module_raop_sink PipeWire Module: AirPlay Sink
+/** \page page_module_raop_sink AirPlay Sink
  *
  * Creates a new Sink to stream to an Airplay device.
  *

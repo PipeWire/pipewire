@@ -27,7 +27,7 @@
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
 
-/** \page page_module_x11_bell PipeWire Module: X11 Bell
+/** \page page_module_x11_bell X11 Bell
  *
  * The `x11-bell` module intercept the X11 bell events and uses libcanberra to
  * play a sound.

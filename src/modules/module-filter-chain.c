@@ -34,7 +34,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
 /**
- * \page page_module_filter_chain PipeWire Module: Filter-Chain
+ * \page page_module_filter_chain Filter-Chain
  *
  * The filter-chain allows you to create an arbitrary processing graph
  * from LADSPA, LV2 and builtin filters. This filter can be made into a

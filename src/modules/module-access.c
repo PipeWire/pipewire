@@ -29,7 +29,7 @@
 
 #include "flatpak-utils.h"
 
-/** \page page_module_access PipeWire Module: Access
+/** \page page_module_access Access
  *
  *
  * The `access` module performs access checks on clients. The access check

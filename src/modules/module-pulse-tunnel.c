@@ -35,7 +35,7 @@
 #include "module-protocol-pulse/defs.h"
 #include "module-protocol-pulse/format.h"
 
-/** \page page_module_pulse_tunnel PipeWire Module: Pulse Tunnel
+/** \page page_module_pulse_tunnel Pulse Tunnel
  *
  * The pulse-tunnel module provides a source or sink that tunnels all audio to
  * a remote PulseAudio connection.

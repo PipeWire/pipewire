@@ -19,7 +19,7 @@
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
 
-/** \page page_module_fallback_sink PipeWire Module: Fallback Sink
+/** \page page_module_fallback_sink Fallback Sink
  *
  * Fallback sink, which appear dynamically when no other sinks are
  * present. This is only useful for Pulseaudio compatibility.

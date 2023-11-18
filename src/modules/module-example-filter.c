@@ -22,7 +22,7 @@
 #include <pipewire/impl.h>
 #include <pipewire/extensions/profiler.h>
 
-/** \page page_module_example_filter PipeWire Module: Example Filter
+/** \page page_module_example_filter Example Filter
  *
  * The example filter is a good starting point for writing a custom
  * filter. We refer to the source code for more information.

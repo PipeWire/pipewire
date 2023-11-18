@@ -29,7 +29,7 @@
 
 #include <pipewire/impl.h>
 
-/** \page page_module_protocol_simple PipeWire Module: Protocol Simple
+/** \page page_module_protocol_simple Protocol Simple
  *
  * The simple protocol provides a bidirectional audio stream on a network
  * socket.

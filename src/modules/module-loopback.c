@@ -22,7 +22,7 @@
 #include <pipewire/impl.h>
 #include <pipewire/extensions/profiler.h>
 
-/** \page page_module_loopback PipeWire Module: Loopback
+/** \page page_module_loopback Loopback
  *
  * The loopback module passes the output of a capture stream unmodified to a playback stream.
  * It can be used to construct a link between a source and sink but also to

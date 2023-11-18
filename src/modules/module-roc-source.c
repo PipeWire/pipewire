@@ -24,7 +24,7 @@
 
 #include "module-roc/common.h"
 
-/** \page page_module_roc_source PipeWire Module: ROC source
+/** \page page_module_roc_source ROC source
  *
  * The `roc-source` module creates a PipeWire source that receives samples
  * from ROC sender and passes them to the sink it is connected to. One can

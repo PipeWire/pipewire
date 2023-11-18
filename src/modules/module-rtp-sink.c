@@ -32,7 +32,7 @@
 #define IPTOS_DSCP(x) ((x) & IPTOS_DSCP_MASK)
 #endif
 
-/** \page page_module_rtp_sink PipeWire Module: RTP sink
+/** \page page_module_rtp_sink RTP sink
  *
  * The `rtp-sink` module creates a PipeWire sink that sends audio
  * RTP packets.

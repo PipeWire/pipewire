@@ -32,7 +32,7 @@
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
 
-/** \page page_module_pipe_tunnel PipeWire Module: Unix Pipe Tunnel
+/** \page page_module_pipe_tunnel Unix Pipe Tunnel
  *
  * The pipe-tunnel module provides a source or sink that tunnels all audio to
  * or from a unix pipe respectively.

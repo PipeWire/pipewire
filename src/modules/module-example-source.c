@@ -28,7 +28,7 @@
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
 
-/** \page page_module_example_source PipeWire Module: Example Source
+/** \page page_module_example_source Example Source
  *
  * The example source is a good starting point for writing a custom
  * source. We refer to the source code for more information.

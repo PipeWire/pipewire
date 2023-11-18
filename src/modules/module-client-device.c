@@ -15,7 +15,7 @@
 
 #include "module-client-device/client-device.h"
 
-/** \page page_module_client_device PipeWire Module: Client Device
+/** \page page_module_client_device Client Device
  */
 
 #define NAME "client-device"

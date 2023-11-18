@@ -18,7 +18,7 @@
 
 #include "module-protocol-pulse/pulse-server.h"
 
-/** \page page_module_protocol_pulse PipeWire Module: Protocol Pulse
+/** \page page_module_protocol_pulse Protocol Pulse
  *
  * This module implements a complete PulseAudio server on top of
  * PipeWire.  This is only the server implementation, client are expected

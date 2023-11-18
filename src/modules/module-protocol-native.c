@@ -63,7 +63,7 @@ PW_LOG_TOPIC(mod_topic_connection, "conn." NAME);
 #include <spa/debug/pod.h>
 #include <spa/debug/types.h>
 
-/** \page page_module_protocol_native PipeWire Module: Protocol Native
+/** \page page_module_protocol_native Protocol Native
  *
  * The native protocol module implements the PipeWire communication between
  * a client and a server using unix local sockets.

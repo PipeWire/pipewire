@@ -14,7 +14,7 @@
 
 #include <pipewire/impl.h>
 
-/** \page page_module_link_factory PipeWire Module: Link Factory
+/** \page page_module_link_factory Link Factory
  */
 
 #define NAME "link-factory"

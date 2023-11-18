@@ -25,7 +25,7 @@
 #include "pipewire/module.h"
 #include "pipewire/utils.h"
 
-/** \page page_module_portal PipeWire Module: Portal
+/** \page page_module_portal Portal
  *
  * The `portal` module performs access control management for clients started
  * inside an XDG portal.

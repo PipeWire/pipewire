@@ -32,7 +32,7 @@
 #define IPTOS_DSCP(x) ((x) & IPTOS_DSCP_MASK)
 #endif
 
-/** \page page_module_vban_send PipeWire Module: VBAN sender
+/** \page page_module_vban_send VBAN sender
  *
  * The `vban-send` module creates a PipeWire sink that sends
  * audio and midi [VBAN](https://vb-audio.com) packets.

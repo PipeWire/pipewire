@@ -27,7 +27,7 @@
 #include "module-protocol-pulse/format.h"
 #include "module-zeroconf-discover/avahi-poll.h"
 
-/** \page page_module_zeroconf_discover PipeWire Module: Zeroconf Discover
+/** \page page_module_zeroconf_discover Zeroconf Discover
  *
  * Use zeroconf to detect and load module-pulse-tunnel with the right
  * parameters. This will automatically create sinks and sources to stream

@@ -35,7 +35,7 @@
 #define ifr_ifindex ifr_index
 #endif
 
-/** \page page_module_rtp_source PipeWire Module: RTP source
+/** \page page_module_rtp_source RTP source
  *
  * The `rtp-source` module creates a PipeWire source that receives audio
  * and midi RTP packets.

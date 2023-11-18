@@ -40,7 +40,7 @@
 
 #include <pipewire/extensions/profiler.h>
 
-/** \page page_module_echo_cancel PipeWire Module: Echo Cancel
+/** \page page_module_echo_cancel Echo Cancel
  *
  * The `echo-cancel` module performs echo cancellation. The module creates
  * virtual `echo-cancel-capture` source and `echo-cancel-playback` sink

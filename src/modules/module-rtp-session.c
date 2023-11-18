@@ -41,7 +41,7 @@
 #define ifr_ifindex ifr_index
 #endif
 
-/** \page page_module_rtp_session PipeWire Module: RTP session
+/** \page page_module_rtp_session RTP session
  *
  * The `rtp-session` module creates a media session that is announced
  * with avahi/mDNS/Bonjour.

@@ -57,7 +57,7 @@
 #include <dbus/dbus.h>
 #endif
 
-/** \page page_module_rt PipeWire Module: RT
+/** \page page_module_rt RT
  *
  * The `rt` modules can give real-time priorities to processing threads.
  *

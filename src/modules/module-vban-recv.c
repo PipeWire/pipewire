@@ -35,7 +35,7 @@
 #define ifr_ifindex ifr_index
 #endif
 
-/** \page page_module_vban_recv PipeWire Module: VBAN receiver
+/** \page page_module_vban_recv VBAN receiver
  *
  * The `vban-recv` module creates a PipeWire source that receives audio
  * and midi [VBAN](https://vb-audio.com) packets.

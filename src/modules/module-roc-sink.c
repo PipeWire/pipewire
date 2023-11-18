@@ -24,7 +24,7 @@
 
 #include "module-roc/common.h"
 
-/** \page page_module_roc_sink PipeWire Module: ROC sink
+/** \page page_module_roc_sink ROC sink
  *
  * The `roc-sink` module creates a PipeWire sink that sends samples to
  * a preconfigured receiver address. One can then connect an audio stream

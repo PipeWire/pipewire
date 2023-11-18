@@ -26,7 +26,7 @@
 #include "module-protocol-pulse/format.h"
 #include "module-zeroconf-discover/avahi-poll.h"
 
-/** \page page_module_raop_discover PipeWire Module: RAOP Discover
+/** \page page_module_raop_discover RAOP Discover
  *
  * Automatically creates RAOP (Airplay) sink devices based on zeroconf
  * information.

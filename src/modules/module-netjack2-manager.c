@@ -42,7 +42,7 @@
 #define IPTOS_DSCP(x) ((x) & IPTOS_DSCP_MASK)
 #endif
 
-/** \page page_module_netjack2_manager PipeWire Module: Netjack2 manager
+/** \page page_module_netjack2_manager Netjack2 manager
  *
  * The netjack2 manager module listens for new netjack2 driver messages and will
  * start a communication channel with them.

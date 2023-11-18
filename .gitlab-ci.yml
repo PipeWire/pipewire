@@ -25,7 +25,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2023-05-31.0'
+    FDO_DISTRIBUTION_TAG: '2023-11-18.0'
     FDO_DISTRIBUTION_VERSION: '37'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
@@ -75,6 +75,7 @@ include:
       pulseaudio-utils
       openal-soft
       readline-devel
+      pandoc
 # Uncommenting the following two lines and disabling the meson entry above
 # will re-enable use of Meson via pip but please consider using a newer distro
 # image first or making the build system compatible instead! This is because

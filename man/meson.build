@@ -16,6 +16,7 @@ manpages = [
   'pw-dot.1.rst.in',
   'pw-dump.1.rst.in',
   'pw-link.1.rst.in',
+  'pw-loopback.1.rst.in',
   'pw-metadata.1.rst.in',
   'pw-mididump.1.rst.in',
   'pw-mon.1.rst.in',

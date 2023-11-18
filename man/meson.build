@@ -14,6 +14,7 @@ manpages = [
   'pw-cli.1.rst.in',
   'pw-config.1.rst.in',
   'pw-dot.1.rst.in',
+  'pw-dump.1.rst.in',
   'pw-link.1.rst.in',
   'pw-metadata.1.rst.in',
   'pw-mididump.1.rst.in',

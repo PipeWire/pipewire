@@ -48,6 +48,10 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * manager can manage the configuration and connection with the sinks and
  * sources automatically.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-filter-chain`
+ *
  * ## Module Options
  *
  * - `node.description`: a human readable name for the filter chain

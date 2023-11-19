@@ -37,6 +37,10 @@
  * The `rtp-sink` module creates a PipeWire sink that sends audio
  * RTP packets.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-rtp-sink`
+ *
  * ## Module Options
  *
  * Options specific to the behavior of this module

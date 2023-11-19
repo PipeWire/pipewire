@@ -52,6 +52,10 @@
  * The session setup is based on apple-midi and is compatible with
  * apple-midi when the session is using midi.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-rtp-session`
+ *
  * ## Module Options
  *
  * Options specific to the behavior of this module

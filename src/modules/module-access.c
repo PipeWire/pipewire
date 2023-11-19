@@ -63,6 +63,10 @@
  * `pipewire.access.portal.app_id` property is to the Flatpak application ID, if
  * found. In addition, `pipewire.sec.flatpak` is set to `true`.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-access`
+ *
  * ## Module Options
  *
  * Options specific to the behavior of this module

@@ -45,6 +45,10 @@
  * The netjack2-driver module provides a source or sink that is following a
  * netjack2 driver.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-netjack2-driver`
+ *
  * ## Module Options
  *
  * - `driver.mode`: the driver mode, sink|source|duplex, default duplex

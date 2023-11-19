@@ -40,6 +40,10 @@
  * The `vban-recv` module creates a PipeWire source that receives audio
  * and midi [VBAN](https://vb-audio.com) packets.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-vban-recv`
+ *
  * ## Module Options
  *
  * Options specific to the behavior of this module

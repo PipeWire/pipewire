@@ -37,6 +37,10 @@
  * If no stream.rules are given, it will create a sink for all announced
  * streams.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-raop-discover`
+ *
  * ## Module Options
  *
  * Options specific to the behavior of this module

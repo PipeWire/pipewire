@@ -34,6 +34,10 @@
  * audio to/from remote PulseAudio servers. It also works with
  * module-protocol-pulse.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-zeroconf-discover`
+ *
  * ## Module Options
  *
  * - `pulse.latency`: the latency to end-to-end latency in milliseconds to

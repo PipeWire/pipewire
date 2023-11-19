@@ -71,6 +71,10 @@ PW_LOG_TOPIC(mod_topic_connection, "conn." NAME);
  * Normally this module is loaded in both client and server config files
  * so that they cam communicate.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-protocol-native`
+ *
  * ## Module Options
  *
  * The module supports the following arguments:

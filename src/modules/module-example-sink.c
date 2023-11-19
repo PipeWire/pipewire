@@ -33,6 +33,10 @@
  * The example sink is a good starting point for writing a custom
  * sink. We refer to the source code for more information.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-example-sink`
+ *
  * ## Module Options
  *
  * - `node.name`: a unique name for the stream

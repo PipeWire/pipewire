@@ -37,6 +37,10 @@
  * The `vban-send` module creates a PipeWire sink that sends
  * audio and midi [VBAN](https://vb-audio.com) packets.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-vban-send`
+ *
  * ## Module Options
  *
  * Options specific to the behavior of this module

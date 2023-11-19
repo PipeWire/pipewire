@@ -47,6 +47,10 @@
  * automatically load the tunnel with the right parameters based on zeroconf
  * information.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-pulse-tunnel`
+ *
  * ## Module Options
  *
  * - `tunnel.mode`: the desired tunnel to create, must be `source` or `sink`.

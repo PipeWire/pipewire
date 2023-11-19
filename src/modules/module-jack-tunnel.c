@@ -39,6 +39,10 @@
  * automatically load the tunnel with the right parameters based on dbus
  * information.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-jack-tunnel`
+ *
  * ## Module Options
  *
  * - `jack.library`: the libjack to load, by default libjack.so.0 is searched in

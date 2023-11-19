@@ -47,6 +47,10 @@
  * The netjack2 manager module listens for new netjack2 driver messages and will
  * start a communication channel with them.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-netjack2-manager`
+ *
  * ## Module Options
  *
  * - `local.ifname = <str>`: interface name to use

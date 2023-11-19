@@ -55,6 +55,10 @@
  * with the right parameters but it is possible to manually create a RAOP sink
  * as well.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-raop-sink`
+ *
  * ## Module Options
  *
  * Options specific to the behavior of this module

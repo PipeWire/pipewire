@@ -27,6 +27,10 @@
  * The example filter is a good starting point for writing a custom
  * filter. We refer to the source code for more information.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-example-filter`
+ *
  * ## Module Options
  *
  * - `node.description`: a human readable name for the filter streams

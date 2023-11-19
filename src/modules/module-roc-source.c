@@ -30,6 +30,10 @@
  * from ROC sender and passes them to the sink it is connected to. One can
  * then connect it to any audio device.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-roc-source`
+ *
  * ## Module Options
  *
  * Options specific to the behavior of this module

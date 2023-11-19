@@ -33,6 +33,10 @@
  * The example source is a good starting point for writing a custom
  * source. We refer to the source code for more information.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-example-source`
+ *
  * ## Module Options
  *
  * - `node.name`: a unique name for the stream

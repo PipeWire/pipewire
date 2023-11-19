@@ -40,6 +40,10 @@
  * rules. This makes it possible to combine static nodes or nodes based on certain
  * properties.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-combine-stream`
+ *
  * ## Module Options
  *
  * - `node.name`: a unique name for the stream

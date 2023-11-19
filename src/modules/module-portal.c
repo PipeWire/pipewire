@@ -42,6 +42,10 @@
  *
  * Clients connecting from other PIDs are ignored by this module.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-portal`
+ *
  * ## Module Options
  *
  * There are no module-specific options.

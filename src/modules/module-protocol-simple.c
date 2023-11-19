@@ -40,6 +40,10 @@
  * Each client that connects will create a capture and/or playback stream,
  * depending on the configuration options.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-protocol-simple`
+ *
  * ## Module Options
  *
  *  - `capture`: boolean if capture is enabled. This will create a capture stream

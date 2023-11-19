@@ -32,6 +32,10 @@
  * The `x11-bell` module intercept the X11 bell events and uses libcanberra to
  * play a sound.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-x11-bell`
+ *
  * ## Module Options
  *
  * - `sink.name = <str>`: node.name of the sink to connect to

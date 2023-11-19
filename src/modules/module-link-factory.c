@@ -15,6 +15,10 @@
 #include <pipewire/impl.h>
 
 /** \page page_module_link_factory Link Factory
+ *
+ * ## Module Name
+ *
+ * `libpipewire-module-link-factory`
  */
 
 #define NAME "link-factory"

@@ -80,6 +80,10 @@
  *   This data then goes into the application (the conference application) and
  *   does not contain the echo from the other participants anymore.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-echo-cancel`
+ *
  * ## Module Options
  *
  * Options specific to the behavior of this module

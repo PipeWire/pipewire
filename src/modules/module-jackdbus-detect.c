@@ -30,6 +30,10 @@
  * Automaticall creates a sink/source when a jackdbus server is started
  * and connect to JACK.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-jackdbus-detect`
+ *
  * ## Module Options
  *
  * There are no module-specific options, all arguments are passed to

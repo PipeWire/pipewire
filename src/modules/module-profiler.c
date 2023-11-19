@@ -30,6 +30,10 @@
  * Use tools like pw-top and pw-profiler to collect profiling information
  * about the pipewire graph.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-profiler`
+ *
  * ## Example configuration
  *
  * The module has no arguments and is usually added to the config file of

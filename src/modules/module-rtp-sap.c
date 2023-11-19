@@ -40,6 +40,10 @@
  * sess.sap.announce = true and it will create a receiver for all announced
  * streams.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-rtp-sap`
+ *
  * ## Module Options
  *
  * Options specific to the behavior of this module

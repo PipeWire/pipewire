@@ -36,6 +36,10 @@
  * The ffado-driver module provides a source or sink using the libffado library for
  * reading and writing to firewire audio devices.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-ffado-driver`
+ *
  * ## Module Options
  *
  * - `driver.mode`: the driver mode, sink|source|duplex, default duplex

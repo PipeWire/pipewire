@@ -16,6 +16,10 @@
 #include "module-client-device/client-device.h"
 
 /** \page page_module_client_device Client Device
+ *
+ * ## Module Name
+ *
+ * `libpipewire-module-client-device`
  */
 
 #define NAME "client-device"

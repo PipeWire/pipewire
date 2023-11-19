@@ -33,6 +33,10 @@
  * The pulse server implements a sample cache that is otherwise not
  * available in PipeWire.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-protocol-pulse`
+ *
  * ## Module Options
  *
  * The module arguments can be the contents of the pulse.properties but
@@ -86,7 +90,7 @@
  *\endcode
  *
  * The addresses the server listens on when starting. Uncomment the `tcp:4713` entry to also
- * make the server listen on a tcp socket. This is equivalent to loading `module-native-protocol-tcp`.
+ * make the server listen on a tcp socket. This is equivalent to loading `libpipewire-module-native-protocol-tcp`.
  *
  * There is also a slightly more verbose syntax with more options:
  *

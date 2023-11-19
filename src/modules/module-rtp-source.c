@@ -43,6 +43,10 @@
  * This module is usually loaded from the \ref page_module_rtp_sap so that the
  * source.ip and source.port and format parameters matches that of the sender.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-rtp-source`
+ *
  * ## Module Options
  *
  * Options specific to the behavior of this module

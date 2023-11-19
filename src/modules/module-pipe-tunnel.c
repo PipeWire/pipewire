@@ -37,6 +37,10 @@
  * The pipe-tunnel module provides a source or sink that tunnels all audio to
  * or from a unix pipe respectively.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-pipe-tunnel`
+ *
  * ## Module Options
  *
  * - `tunnel.mode`: the desired tunnel to create. (Default `playback`)

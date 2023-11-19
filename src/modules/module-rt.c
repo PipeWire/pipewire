@@ -69,6 +69,10 @@
  * up and DBus is available, then this module will fall back to using the Portal
  * Realtime DBus API or RTKit.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-rt`
+ *
  * ## Module Options
  *
  * - `nice.level`: The nice value set for the application thread. It improves

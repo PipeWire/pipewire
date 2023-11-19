@@ -31,6 +31,10 @@
  * Because both ends of the loopback are built with streams, the session manager can
  * manage the configuration and connection with the sinks and sources.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-loopback`
+ *
  * ## Module Options
  *
  * - `node.description`: a human readable name for the loopback streams

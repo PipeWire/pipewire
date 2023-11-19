@@ -30,6 +30,10 @@
  * a preconfigured receiver address. One can then connect an audio stream
  * of any running application to that sink or make it the default sink.
  *
+ * ## Module Name
+ *
+ * `libpipewire-module-roc-sink`
+ *
  * ## Module Options
  *
  * Options specific to the behavior of this module

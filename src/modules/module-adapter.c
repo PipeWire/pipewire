@@ -19,6 +19,10 @@
 #include "module-adapter/adapter.h"
 
 /** \page page_module_adapter Adapter
+ *
+ * ## Module Name
+ *
+ * `libpipewire-module-adapter`
  */
 #define NAME "adapter"
 

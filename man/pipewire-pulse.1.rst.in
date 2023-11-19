@@ -45,5 +45,6 @@ PipeWire is available from @PACKAGE_URL@
 SEE ALSO
 ========
 
+``pipewire-pulse.conf(5)``,
 ``pipewire(1)``,
 ``pipewire-pulse-modules(7)``

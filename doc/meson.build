@@ -20,6 +20,7 @@ extra_docs = [
   'dox/index.dox',
   'dox/overview.dox',
   'dox/modules.dox',
+  'dox/pulse-modules.dox',
   'dox/internals/index.dox',
   'dox/internals/design.dox',
   'dox/internals/access.dox',
@@ -66,6 +67,9 @@ foreach h : pipewire_sources
   inputs += meson.project_source_root() / 'src' / 'pipewire' / h
 endforeach
 foreach h : module_sources
+  inputs += meson.project_source_root() / 'src' / 'modules' / h
+endforeach
+foreach h : pipewire_module_protocol_pulse_sources
   inputs += meson.project_source_root() / 'src' / 'modules' / h
 endforeach
 input_dirs = [ meson.project_source_root() / 'spa' / 'include' / 'spa' ]
@@ -141,7 +145,7 @@ pw_programs_dox = configure_file(input: 'programs.dox.in',
 input_dirs += [ 'doc/programs.dox' ]
 
 doxygen_layout = meson.project_source_root() / 'doc' / 'DoxygenLayout.xml'
-doxygen_filter_c = meson.project_source_root() / 'doc' / 'input-filter.sh'
+doxygen_filter_c = meson.project_source_root() / 'doc' / 'input-filter.py'
 doxygen_filter_h = meson.project_source_root() / 'doc' / 'input-filter-h.sh'
 
 doxyfile_conf.set('inputs', ' '.join(inputs + input_dirs))
@@ -177,9 +181,24 @@ if generate_module_manpages
      endif
    endforeach
 
+   module_manpage_names = []
    foreach m : module_sources
-       name = m.split('.c').get(0)
-       file = 'libpipewire-' + name + '.7'
+     name = m.split('.c').get(0)
+     file = f'libpipewire-@name@.7'
+     module_manpage_names += [[name, file]]
+   endforeach
+   foreach m : pipewire_module_protocol_pulse_sources
+     name = m.split('/').get(-1).split('.c').get(0)
+     if m.contains('/modules/') and name.startswith('module-')
+       name = f'pulse-@name@'
+       file = f'pipewire-@name@.7'
+       module_manpage_names += [[name, file]]
+     endif
+   endforeach
+
+   foreach item : module_manpage_names
+       name = item.get(0)
+       file = item.get(1)
 
        rst = custom_target(file + '.rst',
                 command : [python, module_man_rst_py, pandoc, name, '@INPUT@' ] + module_man_defines,

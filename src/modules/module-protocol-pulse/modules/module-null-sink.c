@@ -7,6 +7,25 @@
 #include "../manager.h"
 #include "../module.h"
 
+/** \page page_pulse_module_null_sink Null Sink
+ *
+ * ## Module Name
+ *
+ * `module-null-sink`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ */
+
+static const char *const pulse_module_options =
+	"sink_name=<name of sink> "
+	"sink_properties=<properties for the sink> "
+	"format=<sample format> "
+	"rate=<sample rate> "
+	"channels=<number of channels> "
+	"channel_map=<channel map>";
+
 #define NAME "null-sink"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -129,12 +148,7 @@ static int module_null_sink_unload(struct module *module)
 static const struct spa_dict_item module_null_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "A NULL sink" },
-	{ PW_KEY_MODULE_USAGE,  "sink_name=<name of sink> "
-				"sink_properties=<properties for the sink> "
-				"format=<sample format> "
-				"rate=<sample rate> "
-				"channels=<number of channels> "
-				"channel_map=<channel map>" },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

@@ -9,7 +9,32 @@
 #include "../defs.h"
 #include "../module.h"
 
-#define NAME "roc-source"
+/** \page page_pulse_module_roc_sink_input ROC Sink Input
+ *
+ * ## Module Name
+ *
+ * `module-roc-sink-input`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ *
+ * ## See Also
+ *
+ * \ref page_module_roc_source "libpipewire-module-roc-source"
+ */
+
+static const char *const pulse_module_options =
+	"sink=<name for the sink> "
+	"sink_input_properties=<properties for the sink_input> "
+	"resampler_profile=<empty>|disable|high|medium|low "
+	"fec_code=<empty>|disable|rs8m|ldpc "
+	"sess_latency_msec=<target network latency in milliseconds> "
+	"local_ip=<local receiver ip> "
+	"local_source_port=<local receiver port for source packets> "
+	"local_repair_port=<local receiver port for repair packets> ";
+
+#define NAME "roc-sink-input"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
@@ -92,14 +117,7 @@ static int module_roc_sink_input_unload(struct module *module)
 static const struct spa_dict_item module_roc_sink_input_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "roc sink-input" },
-	{ PW_KEY_MODULE_USAGE, "sink=<name for the sink> "
-				"sink_input_properties=<properties for the sink_input> "
-				"resampler_profile=<empty>|disable|high|medium|low "
-				"fec_code=<empty>|disable|rs8m|ldpc "
-				"sess_latency_msec=<target network latency in milliseconds> "
-				"local_ip=<local receiver ip> "
-				"local_source_port=<local receiver port for source packets> "
-				"local_repair_port=<local receiver port for repair packets> " },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

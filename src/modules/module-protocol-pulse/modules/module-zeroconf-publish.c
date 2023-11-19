@@ -24,6 +24,17 @@
 #include <avahi-common/domain.h>
 #include <avahi-common/malloc.h>
 
+/** \page page_pulse_module_zeroconf_publish Zeroconf Publish
+ *
+ * ## Module Name
+ *
+ * `module-zeroconf-publish`
+ *
+ * ## Module Options
+ *
+ * No options.
+ */
+
 #define NAME "zeroconf-publish"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);

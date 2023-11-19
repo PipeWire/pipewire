@@ -6,6 +6,27 @@
 
 #include "../module.h"
 
+/** \page page_pulse_module_x11_bell X11 Bell
+ *
+ * ## Module Name
+ *
+ * `module-x11-bell`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ *
+ * ## See Also
+ *
+ * \ref page_module_x11_bell "libpipewire-module-x11-bell"
+ */
+
+static const char *const pulse_module_options =
+	"sink=<sink to connect to> "
+	"sample=<the sample to play> "
+	"display=<X11 display> "
+	"xauthority=<X11 Authority>";
+
 #define NAME "x11-bell"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -93,10 +114,7 @@ static int module_x11_bell_prepare(struct module * const module)
 static const struct spa_dict_item module_x11_bell_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "X11 bell interceptor" },
-	{ PW_KEY_MODULE_USAGE,  "sink=<sink to connect to> "
-				"sample=<the sample to play> "
-				"display=<X11 display> "
-				"xauthority=<X11 Authority>" },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

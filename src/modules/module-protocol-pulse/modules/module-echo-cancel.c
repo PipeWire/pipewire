@@ -11,6 +11,45 @@
 #include "../defs.h"
 #include "../module.h"
 
+/** \page page_pulse_module_echo_cancel Echo Cancel
+ *
+ * ## Module Name
+ *
+ * `module-echo-cancel`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ *
+ * ## See Also
+ *
+ * \ref page_module_echo_cancel "libpipewire-module-echo-cancel"
+ */
+
+static const char *const pulse_module_options =
+	"source_name=<name for the source> "
+	"source_properties=<properties for the source> "
+	"source_master=<name of source to filter> "
+	"sink_name=<name for the sink> "
+	"sink_properties=<properties for the sink> "
+	"sink_master=<name of sink to filter> "
+	"rate=<sample rate> "
+	"channels=<number of channels> "
+	"channel_map=<channel map> "
+	"aec_method=<implementation to use> "
+	"aec_args=<parameters for the AEC engine> ";
+#if 0
+	/* These are not implemented because they don't
+	 * really make sense in the PipeWire context */
+	"format=<sample format> "
+	"adjust_time=<how often to readjust rates in s> "
+	"adjust_threshold=<how much drift to readjust after in ms> "
+	"autoloaded=<set if this module is being loaded automatically> "
+	"save_aec=<save AEC data in /tmp> "
+	"use_volume_sharing=<yes or no> "
+	"use_master_format=<yes or no> "
+#endif
+
 #define NAME "echo-cancel"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -114,29 +153,7 @@ static int module_echo_cancel_unload(struct module *module)
 static const struct spa_dict_item module_echo_cancel_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Arun Raghavan <arun@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Acoustic echo canceller" },
-	{ PW_KEY_MODULE_USAGE, "source_name=<name for the source> "
-				"source_properties=<properties for the source> "
-				"source_master=<name of source to filter> "
-				"sink_name=<name for the sink> "
-				"sink_properties=<properties for the sink> "
-				"sink_master=<name of sink to filter> "
-				"rate=<sample rate> "
-				"channels=<number of channels> "
-				"channel_map=<channel map> "
-				"aec_method=<implementation to use> "
-				"aec_args=<parameters for the AEC engine> "
-#if 0
-				/* These are not implemented because they don't
-				 * really make sense in the PipeWire context */
-				"format=<sample format> "
-				"adjust_time=<how often to readjust rates in s> "
-				"adjust_threshold=<how much drift to readjust after in ms> "
-				"autoloaded=<set if this module is being loaded automatically> "
-				"save_aec=<save AEC data in /tmp> "
-				"use_volume_sharing=<yes or no> "
-				"use_master_format=<yes or no> "
-#endif
-	},
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# -*- mode: python; coding: utf-8; eval: (blacken-mode); -*-
 """
 Convert Doxygen HTML documentation for a PipeWire module to RST.
 """
@@ -33,9 +34,7 @@ PipeWire is available from {PACKAGE_URL}
 SEE ALSO
 --------
 
-``pipewire(1)``,
-``pipewire.conf(5)``,
-``libpipewire-modules(7)``
+{seealso}
 """
 
 
@@ -68,11 +67,17 @@ def main():
         [args.pandoc, "-f", "html", "-t", "rst"], input=data, encoding="utf-8"
     )
 
-    if not content.strip():
-        content = "Undocumented."
+    if not content.strip() or content.lower().startswith("module name\n-----"):
+        content = "Undocumented.\n\n" + content
 
-    name = f"libpipewire-{args.module}"
-    subtitle = "PipeWire module"
+    if args.module.startswith("pulse-"):
+        name = re.sub(r"^pulse-module-", "module-", args.module)
+        seealso = "``pipewire-pulse(1)``, ``pipewire-pulse-modules(7)``"
+        subtitle = "PipeWire Pulseaudio module"
+    else:
+        name = f"libpipewire-{args.module}"
+        seealso = "``pipewire(1)``, ``pipewire.conf(5)``, ``libpipewire-modules(7)``"
+        subtitle = "PipeWire module"
 
     env = dict(
         content=content,
@@ -80,6 +85,7 @@ def main():
         name_underline="#" * len(name),
         subtitle=subtitle,
         subtitle_underline="-" * len(subtitle),
+        seealso=seealso,
     )
 
     for k, v in args.define:

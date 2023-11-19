@@ -8,6 +8,36 @@
 #include "../defs.h"
 #include "../module.h"
 
+/** \page page_pulse_module_rtp_send RTP Sender
+ *
+ * ## Module Name
+ *
+ * `module-rtp-send`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ *
+ * ## See Also
+ *
+ * \ref page_module_rtp_sink "libpipewire-module-rtp-sink"
+ */
+
+static const char *const pulse_module_options =
+	"source=<name of the source> "
+	"format=<sample format> "
+	"channels=<number of channels> "
+	"rate=<sample rate> "
+	"destination_ip=<destination IP address> "
+	"source_ip=<source IP address> "
+	"port=<port number> "
+	"mtu=<maximum transfer unit> "
+	"loop=<loopback to local host?> "
+	"ttl=<ttl value> "
+	"inhibit_auto_suspend=<always|never|only_with_non_monitor_sources> "
+	"stream_name=<name of the stream> "
+	"enable_opus=<enable OPUS codec>";
+
 #define NAME "rtp-send"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -136,19 +166,7 @@ static int module_rtp_send_unload(struct module *module)
 static const struct spa_dict_item module_rtp_send_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Read data from source and send it to the network via RTP/SAP/SDP" },
-	{ PW_KEY_MODULE_USAGE,	"source=<name of the source> "
-				"format=<sample format> "
-				"channels=<number of channels> "
-				"rate=<sample rate> "
-				"destination_ip=<destination IP address> "
-				"source_ip=<source IP address> "
-				"port=<port number> "
-				"mtu=<maximum transfer unit> "
-				"loop=<loopback to local host?> "
-				"ttl=<ttl value> "
-				"inhibit_auto_suspend=<always|never|only_with_non_monitor_sources> "
-				"stream_name=<name of the stream> "
-				"enable_opus=<enable OPUS codec>" },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

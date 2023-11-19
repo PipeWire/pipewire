@@ -11,6 +11,31 @@
 #include "../defs.h"
 #include "../module.h"
 
+/** \page page_pulse_module_virtual_source Virtual Source
+ *
+ * ## Module Name
+ *
+ * `module-virtual-source`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ *
+ * ## See Also
+ *
+ * \ref page_module_loopback "libpipewire-module-loopback"
+ */
+
+static const char *const pulse_module_options =
+	"source_name=<name for the source> "
+	"source_properties=<properties for the source> "
+	"master=<name of source to filter> "
+	"uplink_sink=<name> (optional)"
+	"channels=<number of channels> "
+	"channel_map=<channel map> "
+	"use_volume_sharing=<yes or no> "
+	"force_flat_volume=<yes or no> ";
+
 #define NAME "virtual-source"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -99,14 +124,7 @@ static int module_virtual_source_unload(struct module *module)
 static const struct spa_dict_item module_virtual_source_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Arun Raghavan <arun@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Loopback from source to sink" },
-	{ PW_KEY_MODULE_USAGE, "source_name=<name for the source> "
-				"source_properties=<properties for the source> "
-				"master=<name of source to filter> "
-				"uplink_sink=<name> (optional)"
-				"channels=<number of channels> "
-				"channel_map=<channel map> "
-				"use_volume_sharing=<yes or no> "
-				"force_flat_volume=<yes or no> " },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

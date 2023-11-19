@@ -500,13 +500,13 @@ summary({'Manpage generation': generate_manpages}, bool_yn: true)
 subdir('man')
 
 doxygen = find_program('doxygen', required : get_option('docs'))
-if doxygen.found()
+pymod = import('python')
+python = pymod.find_installation('python3', required: get_option('docs'))
+if doxygen.found() and python.found()
   generate_module_manpages = get_option('docs').enabled() and get_option('man').enabled()
   if generate_manpages
-    pymod = import('python')
-    python = pymod.find_installation('python3', required: generate_module_manpages)
     pandoc = find_program('pandoc', required: generate_module_manpages)
-    generate_module_manpages = python.found() and pandoc.found()
+    generate_module_manpages = pandoc.found()
   endif
   summary({'Module manpage generation': generate_module_manpages}, bool_yn: true)
 

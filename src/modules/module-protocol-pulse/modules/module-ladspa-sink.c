@@ -11,6 +11,37 @@
 #include "../defs.h"
 #include "../module.h"
 
+/** \page page_pulse_module_ladspa_sink LADSPA Sink
+ *
+ * ## Module Name
+ *
+ * `module-ladspa-sink`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ *
+ * ## See Also
+ *
+ * \ref page_module_filter_chain "libpipewire-module-filter-chain"
+ */
+
+static const char *const pulse_module_options =
+	"sink_name=<name for the sink> "
+	"sink_properties=<properties for the sink> "
+	"sink_input_properties=<properties for the sink input> "
+	"master=<name of sink to filter> "
+	"sink_master=<name of sink to filter> "
+	"format=<sample format> "
+	"rate=<sample rate> "
+	"channels=<number of channels> "
+	"channel_map=<input channel map> "
+	"plugin=<ladspa plugin name> "
+	"label=<ladspa plugin label> "
+	"control=<comma separated list of input control values> "
+	"input_ladspaport_map=<comma separated list of input LADSPA port names> "
+	"output_ladspaport_map=<comma separated list of output LADSPA port names> ";
+
 #define NAME "ladspa-sink"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -126,21 +157,7 @@ static int module_ladspa_sink_unload(struct module *module)
 static const struct spa_dict_item module_ladspa_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Virtual LADSPA sink" },
-	{ PW_KEY_MODULE_USAGE,
-		"sink_name=<name for the sink> "
-		"sink_properties=<properties for the sink> "
-		"sink_input_properties=<properties for the sink input> "
-		"master=<name of sink to filter> "
-		"sink_master=<name of sink to filter> "
-		"format=<sample format> "
-		"rate=<sample rate> "
-		"channels=<number of channels> "
-		"channel_map=<input channel map> "
-		"plugin=<ladspa plugin name> "
-		"label=<ladspa plugin label> "
-		"control=<comma separated list of input control values> "
-		"input_ladspaport_map=<comma separated list of input LADSPA port names> "
-		"output_ladspaport_map=<comma separated list of output LADSPA port names> "},
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

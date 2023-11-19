@@ -8,6 +8,21 @@
 #include "../defs.h"
 #include "../module.h"
 
+/** \page page_pulse_module_raop_discover RAOP Discover
+ *
+ * ## Module Name
+ *
+ * `module-raop-discover`
+ *
+ * ## Module Options
+ *
+ * No options.
+ *
+ * ## See Also
+ *
+ * \ref page_module_raop_discover "libpipewire-module-raop-discover"
+ */
+
 #define NAME "raop-discover"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);

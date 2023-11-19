@@ -123,8 +123,9 @@ Support interfaces provided by host
 \}
 
 \page page_overview
-\page page_modules
 \page page_programs
+\page page_modules
+\page page_pulse_modules
 \page page_internals
 \page page_api
 \page page_tutorial

@@ -6,6 +6,19 @@
 
 #include "../module.h"
 
+/** \page page_pulse_module_always_sink Always Sink
+ *
+ * ## Module Name
+ *
+ * `module-always-sink`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ */
+
+static const char *const pulse_module_options = "sink_name=<name of sink>";
+
 #define NAME "always-sink"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -77,7 +90,7 @@ static int module_always_sink_unload(struct module *module)
 static const struct spa_dict_item module_always_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Pauli Virtanen <pav@iki.fi>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Always keeps at least one sink loaded even if it's a null one" },
-	{ PW_KEY_MODULE_USAGE,  "sink_name=<name of sink>" },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

@@ -7,6 +7,43 @@
 #include "../manager.h"
 #include "../module.h"
 
+/** \page page_pulse_module_alsa_source ALSA Source
+ *
+ * ## Module Name
+ *
+ * `module-alsa-source`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ */
+
+static const char *const pulse_module_options =
+		"name=<name of the source, to be prefixed> "
+		"source_name=<name for the source> "
+		"source_properties=<properties for the source> "
+		"namereg_fail=<when false attempt to synthesise new source_name if it is already taken> "
+		"device=<ALSA device> "
+		"device_id=<ALSA card index> "
+		"format=<sample format> "
+		"rate=<sample rate> "
+		"alternate_rate=<alternate sample rate> "
+		"channels=<number of channels> "
+		"channel_map=<channel map> "
+		"fragments=<number of fragments> "
+		"fragment_size=<fragment size> "
+		"mmap=<enable memory mapping?> "
+		"tsched=<enable system timer based scheduling mode?> "
+		"tsched_buffer_size=<buffer size when using timer based scheduling> "
+		"tsched_buffer_watermark=<lower fill watermark> "
+		"ignore_dB=<ignore dB information from the device?> "
+		"control=<name of mixer control, or name and index separated by a comma> "
+		"rewind_safeguard=<number of bytes that cannot be rewound> "
+		"deferred_volume=<Synchronize software and hardware volume changes to avoid momentary jumps?> "
+		"deferred_volume_safety_margin=<usec adjustment depending on volume direction> "
+		"deferred_volume_extra_delay=<usec adjustment to HW volume changes> "
+		"fixed_latency_range=<disable latency range changes on underrun?>";
+
 #define NAME "alsa-source"
 
 #define DEFAULT_DEVICE "default"
@@ -131,31 +168,7 @@ static int module_alsa_source_unload(struct module *module)
 static const struct spa_dict_item module_alsa_source_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "An ALSA source" },
-	{ PW_KEY_MODULE_USAGE,
-		"name=<name of the source, to be prefixed> "
-		"source_name=<name for the source> "
-		"source_properties=<properties for the source> "
-		"namereg_fail=<when false attempt to synthesise new source_name if it is already taken> "
-		"device=<ALSA device> "
-		"device_id=<ALSA card index> "
-		"format=<sample format> "
-		"rate=<sample rate> "
-		"alternate_rate=<alternate sample rate> "
-		"channels=<number of channels> "
-		"channel_map=<channel map> "
-		"fragments=<number of fragments> "
-		"fragment_size=<fragment size> "
-		"mmap=<enable memory mapping?> "
-		"tsched=<enable system timer based scheduling mode?> "
-		"tsched_buffer_size=<buffer size when using timer based scheduling> "
-		"tsched_buffer_watermark=<lower fill watermark> "
-		"ignore_dB=<ignore dB information from the device?> "
-		"control=<name of mixer control, or name and index separated by a comma> "
-		"rewind_safeguard=<number of bytes that cannot be rewound> "
-		"deferred_volume=<Synchronize software and hardware volume changes to avoid momentary jumps?> "
-		"deferred_volume_safety_margin=<usec adjustment depending on volume direction> "
-		"deferred_volume_extra_delay=<usec adjustment to HW volume changes> "
-		"fixed_latency_range=<disable latency range changes on underrun?>" },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

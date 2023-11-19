@@ -8,6 +8,22 @@
 #include "../pulse-server.h"
 #include "../server.h"
 
+/** \page page_pulse_module_native_protocol_tcp Pulseaudio TCP Protocol
+ *
+ * ## Module Name
+ *
+ * `module-native-protocol-tcp`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ */
+
+static const char *const pulse_module_options =
+	"port=<TCP port number> "
+	"listen=<address to listen on> "
+	"auth-anonymous=<don't check for cookies?>";
+
 #define NAME "protocol-tcp"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -53,9 +69,7 @@ static int module_native_protocol_tcp_unload(struct module *module)
 static const struct spa_dict_item module_native_protocol_tcp_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Native protocol (TCP sockets)" },
-	{ PW_KEY_MODULE_USAGE, "port=<TCP port number> "
-				"listen=<address to listen on> "
-				"auth-anonymous=<don't check for cookies?>"},
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

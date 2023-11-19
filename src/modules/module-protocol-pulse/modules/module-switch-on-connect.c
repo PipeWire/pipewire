@@ -15,6 +15,22 @@
 #include "../manager.h"
 #include "../collect.h"
 
+/** \page page_pulse_module_switch_on_connect Switch on Connect
+ *
+ * ## Module Name
+ *
+ * `module-switch-on-connect`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ */
+
+static const char *const pulse_module_options =
+	"only_from_unavailable=<boolean, only switch from unavailable ports (not implemented yet)> "
+	"ignore_virtual=<boolean, ignore new virtual sinks and sources, defaults to true> "
+	"blocklist=<regex, ignore matching devices, default=hdmi> ";
+
 #define NAME "switch-on-connect"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -215,9 +231,7 @@ static const struct spa_dict_item module_switch_on_connect_info[] = {
 	  "This module exists for Pulseaudio compatibility, and is useful only when some applications "
 	  "try to manage the default sinks/sources themselves and interfere with PipeWire's builtin "
 	  "default device switching." },
-	{ PW_KEY_MODULE_USAGE, "only_from_unavailable=<boolean, only switch from unavailable ports (not implemented yet)> "
-				"ignore_virtual=<boolean, ignore new virtual sinks and sources, defaults to true> "
-				"blocklist=<regex, ignore matching devices, default=hdmi> " },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

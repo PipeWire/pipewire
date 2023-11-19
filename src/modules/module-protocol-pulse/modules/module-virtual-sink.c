@@ -10,6 +10,30 @@
 #include "../defs.h"
 #include "../module.h"
 
+/** \page page_pulse_module_virtual_sink Virtual Sink
+ *
+ * ## Module Name
+ *
+ * `module-virtual-sink`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ *
+ * ## See Also
+ *
+ * \ref page_module_loopback "libpipewire-module-loopback"
+ */
+
+static const char *const pulse_module_options =
+	"sink_name=<name for the sink> "
+	"sink_properties=<properties for the sink> "
+	"master=<name of sink to filter> "
+	"channels=<number of channels> "
+	"channel_map=<channel map> "
+	"use_volume_sharing=<yes or no> "
+	"force_flat_volume=<yes or no> ";
+
 #define NAME "virtual-sink"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -98,13 +122,7 @@ static int module_virtual_sink_unload(struct module *module)
 static const struct spa_dict_item module_virtual_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Virtual sink" },
-	{ PW_KEY_MODULE_USAGE, "sink_name=<name for the sink> "
-				"sink_properties=<properties for the sink> "
-				"master=<name of sink to filter> "
-				"channels=<number of channels> "
-				"channel_map=<channel map> "
-				"use_volume_sharing=<yes or no> "
-				"force_flat_volume=<yes or no> " },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

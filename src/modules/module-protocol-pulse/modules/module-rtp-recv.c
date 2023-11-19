@@ -8,6 +8,26 @@
 #include "../defs.h"
 #include "../module.h"
 
+/** \page page_pulse_module_rtp_recv RTP Receiver
+ *
+ * ## Module Name
+ *
+ * `module-rtp-recv`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ *
+ * ## See Also
+ *
+ * \ref page_module_rtp_sap "libpipewire-module-rtp-sap"
+ */
+
+static const char *const pulse_module_options =
+	"sink=<name of the sink> "
+	"sap_address=<multicast address to listen on> "
+	"latency_msec=<latency in ms> ";
+
 #define NAME "rtp-recv"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -94,9 +114,7 @@ static int module_rtp_recv_unload(struct module *module)
 static const struct spa_dict_item module_rtp_recv_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Receive data from a network via RTP/SAP/SDP" },
-	{ PW_KEY_MODULE_USAGE,	"sink=<name of the sink> "
-				"sap_address=<multicast address to listen on> "
-				"latency_msec=<latency in ms> " },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

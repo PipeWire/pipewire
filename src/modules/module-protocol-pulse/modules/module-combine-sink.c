@@ -12,6 +12,32 @@
 #include "../manager.h"
 #include "../module.h"
 
+/** \page page_pulse_module_combine_sink Combine Sink
+ *
+ * ## Module Name
+ *
+ * `module-combine-sink`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ *
+ * ## See Also
+ *
+ * \ref page_module_combine_stream "libpipewire-module-combine-stream"
+ */
+
+static const char *const pulse_module_options =
+	"sink_name=<name of the sink> "
+	"sink_properties=<properties for the sink> "
+	/* not a great name, but for backwards compatibility... */
+	"slaves=<sinks to combine> "
+	"rate=<sample rate> "
+	"channels=<number of channels> "
+	"channel_map=<channel map> "
+	"remix=<remix channels> "
+	"latency_compensate=<bool> ";
+
 #define NAME "combine-sink"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -24,15 +50,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 static const struct spa_dict_item module_combine_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Arun Raghavan <arun@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Combine multiple sinks into a single sink" },
-	{ PW_KEY_MODULE_USAGE, "sink_name=<name of the sink> "
-				"sink_properties=<properties for the sink> "
-				/* not a great name, but for backwards compatibility... */
-				"slaves=<sinks to combine> "
-				"rate=<sample rate> "
-				"channels=<number of channels> "
-				"channel_map=<channel map> "
-				"remix=<remix channels> "
-				"latency_compensate=<bool> " },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

@@ -9,10 +9,20 @@ manpage_conf.set('PIPEWIRE_CONFDATADIR', pipewire_confdatadir)
 module_manpage_list = []
 foreach m : module_sources
    name = m.split('.c').get(0)
-   module_manpage_list += ['``libpipewire-' + name + '(7)``']
+   module_manpage_list += f'``libpipewire-' + name + '(7)``'
 endforeach
 
 manpage_conf.set('LIBPIPEWIRE_MODULES', '\n- '.join(module_manpage_list))
+
+pulse_module_manpage_list = []
+foreach m : pipewire_module_protocol_pulse_sources
+  name = m.split('/').get(-1).split('.c').get(0)
+  if m.contains('/modules/') and name.startswith('module-')
+    pulse_module_manpage_list += f'``pipewire-pulse-@name@(7)``'
+  endif
+endforeach
+
+manpage_conf.set('PIPEWIRE_PULSE_MODULES', '\n- '.join(pulse_module_manpage_list))
 
 manpages = [
   'pipewire.1.rst.in',
@@ -31,6 +41,7 @@ manpages = [
   'pw-profiler.1.rst.in',
   'pw-top.1.rst.in',
   'libpipewire-modules.7.rst.in',
+  'pipewire-pulse-modules.7.rst.in',
 ]
 
 if get_option('pipewire-jack').allowed()

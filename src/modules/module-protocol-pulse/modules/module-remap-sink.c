@@ -10,6 +10,33 @@
 #include "../defs.h"
 #include "../module.h"
 
+/** \page page_pulse_module_remap_sink Remap Sink
+ *
+ * ## Module Name
+ *
+ * `module-remap-sink`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ *
+ * ## See Also
+ *
+ * \ref page_module_loopback "libpipewire-module-loopback"
+ */
+
+static const char *const pulse_module_options =
+	"sink_name=<name for the sink> "
+	"sink_properties=<properties for the sink> "
+	"master=<name of sink to remap> "
+	"master_channel_map=<channel map> "
+	"format=<sample format> "
+	"rate=<sample rate> "
+	"channels=<number of channels> "
+	"channel_map=<channel map> "
+	"resample_method=<resampler> "
+	"remix=<remix channels?>";
+
 #define NAME "remap-sink"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -96,16 +123,7 @@ static int module_remap_sink_unload(struct module *module)
 static const struct spa_dict_item module_remap_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Remap sink channels" },
-	{ PW_KEY_MODULE_USAGE, "sink_name=<name for the sink> "
-			"sink_properties=<properties for the sink> "
-			"master=<name of sink to remap> "
-			"master_channel_map=<channel map> "
-			"format=<sample format> "
-			"rate=<sample rate> "
-			"channels=<number of channels> "
-			"channel_map=<channel map> "
-			"resample_method=<resampler> "
-			"remix=<remix channels?>" },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

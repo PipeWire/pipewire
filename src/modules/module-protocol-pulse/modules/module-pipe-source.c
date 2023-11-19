@@ -14,6 +14,30 @@
 #include "../defs.h"
 #include "../module.h"
 
+/** \page page_pulse_module_pipe_source Pipe Source
+ *
+ * ## Module Name
+ *
+ * `module-pipe-source`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ *
+ * ## See Also
+ *
+ * \ref page_module_pipe_tunnel "libpipewire-module-pipe-tunnel"
+ */
+
+static const char *const pulse_module_options =
+	"file=<name of the FIFO special file to use> "
+	"source_name=<name for the source> "
+	"source_properties=<source properties> "
+	"format=<sample format> "
+	"rate=<sample rate> "
+	"channels=<number of channels> "
+	"channel_map=<channel map> ";
+
 #define NAME "pipe-source"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -94,13 +118,7 @@ static int module_pipe_source_unload(struct module *module)
 static const struct spa_dict_item module_pipe_source_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Pipe source" },
-	{ PW_KEY_MODULE_USAGE, "file=<name of the FIFO special file to use> "
-				"source_name=<name for the source> "
-				"source_properties=<source properties> "
-				"format=<sample format> "
-				"rate=<sample rate> "
-				"channels=<number of channels> "
-				"channel_map=<channel map> " },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

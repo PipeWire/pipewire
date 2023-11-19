@@ -12,6 +12,33 @@
 #include "../defs.h"
 #include "../module.h"
 
+/** \page page_pulse_module_tunnel_source Tunnel Source
+ *
+ * ## Module Name
+ *
+ * `module-tunnel-source`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ *
+ * ## See Also
+ *
+ * \ref page_module_pulse_tunnel "libpipewire-module-pulse-tunnel"
+ */
+
+static const char *const pulse_module_options =
+	"server=<address> "
+	"source=<name of the remote source> "
+	"source_name=<name for the local source> "
+	"source_properties=<properties for the local source> "
+	"format=<sample format> "
+	"channels=<number of channels> "
+	"rate=<sample rate> "
+	"channel_map=<channel map> "
+	"latency_msec=<fixed latency in ms> "
+	"cookie=<cookie file path>";
+
 #define NAME "tunnel-source"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -92,17 +119,7 @@ static int module_tunnel_source_unload(struct module *module)
 static const struct spa_dict_item module_tunnel_source_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Create a network source which connects to a remote PulseAudio server" },
-	{ PW_KEY_MODULE_USAGE,
-		"server=<address> "
-		"source=<name of the remote source> "
-		"source_name=<name for the local source> "
-		"source_properties=<properties for the local source> "
-		"format=<sample format> "
-		"channels=<number of channels> "
-		"rate=<sample rate> "
-		"channel_map=<channel map> "
-		"latency_msec=<fixed latency in ms> "
-		"cookie=<cookie file path>" },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

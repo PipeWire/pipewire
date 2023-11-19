@@ -11,6 +11,34 @@
 #include "../defs.h"
 #include "../module.h"
 
+/** \page page_pulse_module_loopback Loopback
+ *
+ * ## Module Name
+ *
+ * `module-loopback`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ *
+ * ## See Also
+ *
+ * \ref page_module_loopback "libpipewire-module-loopback"
+ */
+
+static const char *const pulse_module_options =
+	"source=<source to connect to> "
+	"sink=<sink to connect to> "
+	"latency_msec=<latency in ms> "
+	"rate=<sample rate> "
+	"channels=<number of channels> "
+	"channel_map=<channel map> "
+	"sink_input_properties=<proplist> "
+	"source_output_properties=<proplist> "
+	"source_dont_move=<boolean> "
+	"sink_dont_move=<boolean> "
+	"remix=<remix channels?> ";
+
 #define NAME "loopback"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -99,17 +127,7 @@ static int module_loopback_unload(struct module *module)
 static const struct spa_dict_item module_loopback_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Arun Raghavan <arun@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Loopback from source to sink" },
-	{ PW_KEY_MODULE_USAGE, "source=<source to connect to> "
-				"sink=<sink to connect to> "
-				"latency_msec=<latency in ms> "
-				"rate=<sample rate> "
-				"channels=<number of channels> "
-				"channel_map=<channel map> "
-				"sink_input_properties=<proplist> "
-				"source_output_properties=<proplist> "
-				"source_dont_move=<boolean> "
-				"sink_dont_move=<boolean> "
-				"remix=<remix channels?> " },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

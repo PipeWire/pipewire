@@ -8,6 +8,35 @@
 #include "../defs.h"
 #include "../module.h"
 
+/** \page page_pulse_module_jackdbus_detect JackDBus Detect
+ *
+ * ## Module Name
+ *
+ * `module-jackdbus-detect`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ *
+ * ## See Also
+ *
+ * \ref page_module_jackdbus_detect "libpipewire-module-jackdbus-detect"
+ */
+
+static const char *const pulse_module_options =
+	"channels=<number of channels> "
+	"sink_name=<name for the sink> "
+	"sink_properties=<properties for the sink> "
+	"sink_client_name=<jack client name> "
+	"sink_channels=<number of channels> "
+	"sink_channel_map=<channel map> "
+	"source_name=<name for the source> "
+	"source_properties=<properties for the source> "
+	"source_client_name=<jack client name> "
+	"source_channels=<number of channels> "
+	"source_channel_map=<channel map> "
+	"connect=<connect ports?>";
+
 #define NAME "jackdbus-detect"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -93,19 +122,7 @@ static int module_jackdbus_detect_unload(struct module *module)
 static const struct spa_dict_item module_jackdbus_detect_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.con>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Creates a JACK client when jackdbus is started" },
-	{ PW_KEY_MODULE_USAGE,
-		"channels=<number of channels> "
-		"sink_name=<name for the sink> "
-		"sink_properties=<properties for the sink> "
-		"sink_client_name=<jack client name> "
-		"sink_channels=<number of channels> "
-		"sink_channel_map=<channel map> "
-		"source_name=<name for the source> "
-		"source_properties=<properties for the source> "
-		"source_client_name=<jack client name> "
-		"source_channels=<number of channels> "
-		"source_channel_map=<channel map> "
-		"connect=<connect ports?>" },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

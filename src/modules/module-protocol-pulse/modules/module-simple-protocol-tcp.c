@@ -8,6 +8,33 @@
 #include "../defs.h"
 #include "../module.h"
 
+/** \page page_pulse_module_simple_protocol_tcp Simple TCP Protocol
+ *
+ * ## Module Name
+ *
+ * `module-simple-protocol-tcp`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ *
+ * ## See Also
+ *
+ * \ref page_module_protocol_simple "libpipewire-module-protocol-simple"
+ */
+
+static const char *const pulse_module_options =
+	"rate=<sample rate> "
+	"format=<sample format> "
+	"channels=<number of channels> "
+	"channel_map=<number of channels> "
+	"sink=<sink to connect to> "
+	"source=<source to connect to> "
+	"playback=<enable playback?> "
+	"record=<enable record?> "
+	"port=<TCP port number> "
+	"listen=<address to listen on>";
+
 #define NAME "simple-protocol-tcp"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -84,16 +111,7 @@ static int module_simple_protocol_tcp_unload(struct module *module)
 static const struct spa_dict_item module_simple_protocol_tcp_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Simple protocol (TCP sockets)" },
-	{ PW_KEY_MODULE_USAGE, "rate=<sample rate> "
-				"format=<sample format> "
-				"channels=<number of channels> "
-				"channel_map=<number of channels> "
-				"sink=<sink to connect to> "
-				"source=<source to connect to> "
-				"playback=<enable playback?> "
-				"record=<enable record?> "
-				"port=<TCP port number> "
-				"listen=<address to listen on>" },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

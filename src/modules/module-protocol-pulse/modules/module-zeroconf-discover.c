@@ -8,6 +8,24 @@
 #include "../defs.h"
 #include "../module.h"
 
+/** \page page_pulse_module_zeroconf_discover Zeroconf Discover
+ *
+ * ## Module Name
+ *
+ * `module-zeroconf-discover`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ *
+ * ## See Also
+ *
+ * \ref page_module_zeroconf_discover "libpipewire-module-zeroconf-discover"
+ */
+
+static const char *const pulse_module_options =
+	"latency_msec=<fixed latency in ms> ";
+
 #define NAME "zeroconf-discover"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -84,8 +102,7 @@ static int module_zeroconf_discover_unload(struct module *module)
 static const struct spa_dict_item module_zeroconf_discover_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.con>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "mDNS/DNS-SD Service Discovery" },
-	{ PW_KEY_MODULE_USAGE,
-		"latency_msec=<fixed latency in ms> " },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

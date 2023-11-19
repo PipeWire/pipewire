@@ -11,6 +11,17 @@
 
 #include "../module.h"
 
+/** \page page_pulse_module_gsettings GSettings
+ *
+ * ## Module Name
+ *
+ * `module-gsettings`
+ *
+ * ## Module Options
+ *
+ * No options.
+ */
+
 #define NAME "gsettings"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);

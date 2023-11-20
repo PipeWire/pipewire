@@ -1053,6 +1053,11 @@ static int client_node_port_buffers(void *data,
 		goto invalid;
 
 	for (i = 0; i < n_buffers; i++) {
+		if (mix->buffers[i].outbuf->n_datas != buffers[i]->n_datas)
+			goto invalid;
+	}
+
+	for (i = 0; i < n_buffers; i++) {
 		struct spa_buffer *oldbuf, *newbuf;
 		struct buffer *b = &mix->buffers[i];
 
@@ -1060,9 +1065,6 @@ static int client_node_port_buffers(void *data,
 		newbuf = buffers[i];
 
 		spa_log_debug(impl->log, "buffer %d n_datas:%d", i, newbuf->n_datas);
-
-		if (oldbuf->n_datas != newbuf->n_datas)
-			goto invalid;
 
 		for (j = 0; j < b->buffer.n_datas; j++) {
 			struct spa_chunk *oldchunk = oldbuf->datas[j].chunk;
@@ -1080,8 +1082,6 @@ static int client_node_port_buffers(void *data,
 					d->maxsize);
 		}
 	}
-	mix->n_buffers = n_buffers;
-
 	return 0;
 invalid:
 	for (i = 0; i < n_buffers; i++)

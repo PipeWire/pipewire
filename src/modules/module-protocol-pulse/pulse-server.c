@@ -3770,17 +3770,9 @@ static int fill_sink_info(struct client *client, struct message *m,
 			TAG_INVALID);
 	}
 	if (client->version >= 15) {
-		bool is_linked = collect_is_linked(manager, o->id, SPA_DIRECTION_INPUT);
-		int state = node_state(info->state);
-
-		/* running with nothing linked is probably the monitor that is
-		 * keeping this sink busy */
-		if (state == STATE_RUNNING && !is_linked)
-			state = STATE_IDLE;
-
 		message_put(m,
 			TAG_VOLUME, dev_info.volume_info.base,	/* base volume */
-			TAG_U32, state,				/* state */
+			TAG_U32, dev_info.state,		/* state */
 			TAG_U32, dev_info.volume_info.steps,	/* n_volume_steps */
 			TAG_U32, card ? card->index : SPA_ID_INVALID,	/* card index */
 			TAG_INVALID);
@@ -3974,17 +3966,9 @@ static int fill_source_info(struct client *client, struct message *m,
 			TAG_INVALID);
 	}
 	if (client->version >= 15) {
-		bool is_linked = collect_is_linked(manager, o->id, SPA_DIRECTION_OUTPUT);
-		int state = node_state(info->state);
-
-		/* running with nothing linked is probably the sink that is
-		 * keeping this source busy */
-		if (state == STATE_RUNNING && !is_linked)
-			state = STATE_IDLE;
-
 		message_put(m,
 			TAG_VOLUME, dev_info.volume_info.base,	/* base volume */
-			TAG_U32, state,				/* state */
+			TAG_U32, dev_info.state,		/* state */
 			TAG_U32, dev_info.volume_info.steps,	/* n_volume_steps */
 			TAG_U32, card ? card->index : SPA_ID_INVALID,	/* card index */
 			TAG_INVALID);
@@ -4104,7 +4088,7 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 			TAG_INVALID);
 	if (client->version >= 19)
 		message_put(m,
-			TAG_BOOLEAN, info->state != PW_NODE_STATE_RUNNING,		/* corked */
+			TAG_BOOLEAN, dev_info.state != STATE_RUNNING,		/* corked */
 			TAG_INVALID);
 	if (client->version >= 20)
 		message_put(m,
@@ -4178,7 +4162,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 			TAG_INVALID);
 	if (client->version >= 19)
 		message_put(m,
-			TAG_BOOLEAN, info->state != PW_NODE_STATE_RUNNING,		/* corked */
+			TAG_BOOLEAN, dev_info.state != STATE_RUNNING,		/* corked */
 			TAG_INVALID);
 	if (client->version >= 22) {
 		struct format_info fi;

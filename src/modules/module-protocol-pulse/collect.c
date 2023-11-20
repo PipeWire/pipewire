@@ -65,7 +65,7 @@ uint32_t id_to_index(struct pw_manager *m, uint32_t id)
 	return SPA_ID_INVALID;
 }
 
-bool collect_is_linked(struct pw_manager *m, uint32_t id, enum pw_direction direction)
+static bool collect_is_linked(struct pw_manager *m, uint32_t id, enum pw_direction direction)
 {
 	struct pw_manager_object *o;
 	uint32_t in_node, out_node;
@@ -291,7 +291,7 @@ static void collect_device_info(struct pw_manager_object *device, struct pw_mana
 }
 
 static void update_device_info(struct pw_manager *manager, struct pw_manager_object *o,
-		enum pw_direction direction, bool monitor, struct defs *defs)
+		enum pw_direction direction, bool monitor, struct defs *defs, bool stream)
 {
 	const char *str;
 	const char *key = monitor ? "device.info.monitor" : "device.info";
@@ -312,6 +312,12 @@ static void update_device_info(struct pw_manager *manager, struct pw_manager_obj
 		card = select_object(manager, &sel);
 	}
 	collect_device_info(o, card, &di, monitor, defs);
+
+	di.state = node_state(info->state);
+	/* running sink/source that is not linked is reported as idle */
+	if (!stream && di.state == STATE_RUNNING &&
+	    !collect_is_linked(manager, o->id, pw_direction_reverse(direction)))
+		di.state = STATE_IDLE;
 
 	dev_info = pw_manager_object_get_data(o, key);
 	if (dev_info) {
@@ -586,16 +592,16 @@ void update_object_info(struct pw_manager *manager, struct pw_manager_object *o,
 		struct defs *defs)
 {
 	if (pw_manager_object_is_sink(o)) {
-		update_device_info(manager, o, PW_DIRECTION_OUTPUT, false, defs);
-		update_device_info(manager, o, PW_DIRECTION_OUTPUT, true, defs);
+		update_device_info(manager, o, PW_DIRECTION_OUTPUT, false, defs, false);
+		update_device_info(manager, o, PW_DIRECTION_OUTPUT, true, defs, false);
 	}
 	if (pw_manager_object_is_source(o)) {
-		update_device_info(manager, o, PW_DIRECTION_INPUT, false, defs);
+		update_device_info(manager, o, PW_DIRECTION_INPUT, false, defs, false);
 	}
 	if (pw_manager_object_is_source_output(o)) {
-		update_device_info(manager, o, PW_DIRECTION_INPUT, false, defs);
+		update_device_info(manager, o, PW_DIRECTION_INPUT, false, defs, true);
 	}
 	if (pw_manager_object_is_sink_input(o)) {
-		update_device_info(manager, o, PW_DIRECTION_OUTPUT, false, defs);
+		update_device_info(manager, o, PW_DIRECTION_OUTPUT, false, defs, true);
 	}
 }

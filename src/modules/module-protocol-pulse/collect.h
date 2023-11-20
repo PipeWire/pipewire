@@ -42,6 +42,7 @@ void update_object_info(struct pw_manager *manager, struct pw_manager_object *o,
 
 struct device_info {
 	uint32_t direction;
+	int state;
 
 	struct sample_spec ss;
 	struct channel_map map;
@@ -59,6 +60,7 @@ struct device_info {
 #define DEVICE_INFO_INIT(_dir) \
 	(struct device_info) {				\
 		.direction = _dir,			\
+		.state = STATE_INIT,			\
 		.ss = SAMPLE_SPEC_INIT,			\
 		.map = CHANNEL_MAP_INIT,		\
 		.volume_info = VOLUME_INFO_INIT,	\
@@ -146,6 +148,5 @@ uint32_t find_port_index(struct pw_manager_object *card, uint32_t direction, con
 struct pw_manager_object *find_peer_for_link(struct pw_manager *m,
 		struct pw_manager_object *o, uint32_t id, enum pw_direction direction);
 struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t id, enum pw_direction direction);
-bool collect_is_linked(struct pw_manager *m, uint32_t id, enum pw_direction direction);
 
 #endif

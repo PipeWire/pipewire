@@ -3067,6 +3067,17 @@ static const char* type_to_string(jack_port_type_id_t type_id)
 		return NULL;
 	}
 }
+static bool type_is_dsp(jack_port_type_id_t type_id)
+{
+	switch(type_id) {
+	case TYPE_ID_AUDIO:
+	case TYPE_ID_MIDI:
+	case TYPE_ID_VIDEO:
+		return true;
+	default:
+		return false;
+	}
+}
 
 static jack_uuid_t client_make_uuid(uint32_t id, bool monitor)
 {
@@ -3477,8 +3488,9 @@ static void registry_event_global(void *data, uint32_t id,
 				pw_proxy_add_object_listener(o->proxy,
 						&o->object_listener, &port_events, o);
 
-				pw_port_subscribe_params((struct pw_port*)o->proxy,
-						ids, 1);
+				if (type_is_dsp(type_id))
+					pw_port_subscribe_params((struct pw_port*)o->proxy,
+							ids, 1);
 				do_sync = true;
 			}
 			pthread_mutex_lock(&c->context.lock);

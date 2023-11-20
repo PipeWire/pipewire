@@ -30,8 +30,7 @@
 static const char *const pulse_module_options =
 	"sink_name=<name of the sink> "
 	"sink_properties=<properties for the sink> "
-	/* not a great name, but for backwards compatibility... */
-	"slaves=<sinks to combine> "
+	"sinks=<sinks to combine> "
 	"rate=<sample rate> "
 	"channels=<number of channels> "
 	"channel_map=<channel map> "
@@ -286,8 +285,10 @@ static int module_combine_sink_prepare(struct module * const module)
 	if ((str = pw_properties_get(props, "sink_properties")) != NULL)
 		module_args_add_props(combine_props, str);
 
-	if ((str = pw_properties_get(props, "slaves")) != NULL) {
+	if ((str = pw_properties_get(props, "sinks")) != NULL ||
+			(str = pw_properties_get(props, "slaves")) != NULL) {
 		sink_names = pw_split_strv(str, ",", MAX_SINKS, &num_sinks);
+		pw_properties_set(props, "sinks", NULL);
 		pw_properties_set(props, "slaves", NULL);
 	}
 	if ((str = pw_properties_get(props, "remix")) != NULL) {

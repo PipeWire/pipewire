@@ -26,6 +26,7 @@
 #include <spa/node/keys.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/param.h>
+#include <spa/param/latency-utils.h>
 #include <spa/control/control.h>
 #include <spa/pod/filter.h>
 
@@ -96,7 +97,8 @@ struct port {
 #define PORT_IO		3
 #define PORT_Format	4
 #define PORT_Buffers	5
-#define N_PORT_PARAMS	6
+#define PORT_Latency	6
+#define N_PORT_PARAMS	7
 	struct spa_param_info params[N_PORT_PARAMS];
 
 	uint32_t fmt_index = 0;
@@ -114,6 +116,7 @@ struct port {
 		params[PORT_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
 		params[PORT_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 		params[PORT_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+		params[PORT_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_READ);
 
 		info.flags = SPA_PORT_FLAG_LIVE | SPA_PORT_FLAG_PHYSICAL | SPA_PORT_FLAG_TERMINAL;
 		info.params = params;
@@ -151,6 +154,8 @@ struct impl {
 
 	struct spa_io_position *position = nullptr;
 	struct spa_io_clock *clock = nullptr;
+
+	struct spa_latency_info latency[2];
 
 	std::shared_ptr<CameraManager> manager;
 	std::shared_ptr<Camera> camera;
@@ -601,6 +606,15 @@ next:
 			return 0;
 		}
 		break;
+	case SPA_PARAM_Latency:
+		switch (result.index) {
+		case 0: case 1:
+			param = spa_latency_build(&b, id, &impl->latency[result.index]);
+			break;
+		default:
+			return 0;
+		}
+		break;
 	default:
 		return -ENOENT;
 	}
@@ -961,6 +975,9 @@ impl::impl(spa_log *log, spa_loop *data_loop, spa_system *system,
 	info.flags = SPA_NODE_FLAG_RT;
 	info.params = params;
 	info.n_params = N_NODE_PARAMS;
+
+	latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
+	latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 }
 
 static size_t

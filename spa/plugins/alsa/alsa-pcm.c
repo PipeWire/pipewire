@@ -2531,6 +2531,15 @@ static int get_status(struct state *state, uint64_t current_time, snd_pcm_uframe
 	return 0;
 }
 
+
+static uint64_t get_time_ns(struct state *state)
+{
+	struct timespec now;
+	if (spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &now) < 0)
+		return 0;
+	return SPA_TIMESPEC_TO_NSEC(&now);
+}
+
 static int update_time(struct state *state, uint64_t current_time, snd_pcm_sframes_t delay,
 		snd_pcm_sframes_t target, bool follower)
 {
@@ -2538,8 +2547,15 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 	int32_t diff;
 
 	if (state->disable_tsched && !follower) {
-		err = (int64_t)(current_time - state->next_time);
-		err = err / 1e9 * state->rate;
+		uint64_t now = get_time_ns(state);
+
+		if (SPA_UNLIKELY(state->dll.bw == 0.0)) {
+			current_time = now;
+			err = 0.0;
+		} else {
+			err = (int64_t)(now - current_time);
+			err = err / 1e9 * state->rate;
+		}
 	} else {
 		if (state->stream == SND_PCM_STREAM_PLAYBACK)
 			err = delay - target;
@@ -3166,14 +3182,6 @@ static int capture_ready(struct state *state)
 	return 0;
 }
 
-static uint64_t get_time_ns(struct state *state)
-{
-	struct timespec now;
-	if (spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &now) < 0)
-		return 0;
-	return SPA_TIMESPEC_TO_NSEC(&now);
-}
-
 static void alsa_wakeup_event(struct spa_source *source)
 {
 	struct state *state = source->data, *follower;
@@ -3184,8 +3192,6 @@ static void alsa_wakeup_event(struct spa_source *source)
 		/* ALSA poll fds need to be "demangled" to know whether it's a real wakeup */
 		int err;
 		unsigned short revents;
-
-		current_time = get_time_ns(state);
 
 		for (int i = 0; i < state->n_fds; i++) {
 			state->pfds[i].revents = state->source[i].rmask;
@@ -3222,8 +3228,8 @@ static void alsa_wakeup_event(struct spa_source *source)
 				return;
 			}
 		}
-		current_time = state->next_time;
 	}
+	current_time = state->next_time;
 
 	/* first do all the sync */
 	if (state->stream == SND_PCM_STREAM_CAPTURE)

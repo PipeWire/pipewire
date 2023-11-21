@@ -502,16 +502,19 @@ subdir('man')
 doxygen = find_program('doxygen', required : get_option('docs'))
 pymod = import('python')
 python = pymod.find_installation('python3', required: get_option('docs'))
+
+generate_extra_manpages = false
+
 if doxygen.found() and python.found()
-  generate_module_manpages = get_option('docs').enabled() and get_option('man').enabled()
   if generate_manpages
-    pandoc = find_program('pandoc', required: generate_module_manpages)
-    generate_module_manpages = pandoc.found()
+    pandoc = find_program('pandoc', required: get_option('man-extra'))
+    generate_extra_manpages = pandoc.found()
   endif
-  summary({'Module manpage generation': generate_module_manpages}, bool_yn: true)
 
   subdir('doc')
 endif
+
+summary({'Extra manpage generation': generate_extra_manpages}, bool_yn: true)
 
 setenv = find_program('pw-uninstalled.sh')
 run_target('pw-uninstalled',

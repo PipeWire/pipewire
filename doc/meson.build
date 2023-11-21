@@ -172,7 +172,7 @@ html_target = custom_target('pipewire-docs',
                             install_dir: docdir)
 
 
-if generate_module_manpages
+if generate_extra_manpages
    module_man_rst_py = meson.project_source_root() / 'doc' / 'module-man-rst.py'
    module_man_defines = []
    foreach m : manpage_conf.keys()

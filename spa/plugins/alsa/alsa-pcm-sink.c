@@ -873,7 +873,12 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
 	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
+	this->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 
+	if (this->main_loop == NULL) {
+		spa_log_error(this->log, "a main loop is needed");
+		return -EINVAL;
+	}
 	if (this->data_loop == NULL) {
 		spa_log_error(this->log, "a data loop is needed");
 		return -EINVAL;

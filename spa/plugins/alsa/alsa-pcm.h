@@ -105,6 +105,7 @@ struct state {
 	struct spa_log *log;
 	struct spa_system *data_system;
 	struct spa_loop *data_loop;
+	struct spa_loop *main_loop;
 
 	FILE *log_file;
 	struct spa_ratelimit rate_limit;

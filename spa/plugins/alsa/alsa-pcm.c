@@ -706,7 +706,7 @@ static void bind_ctls_for_params(struct state *state)
 		state->ctl_sources[i].fd = pfds[i].fd;
 		state->ctl_sources[i].mask = SPA_IO_IN;
 		state->ctl_sources[i].rmask = 0;
-		spa_loop_add_source(state->data_loop, &state->ctl_sources[i]);
+		spa_loop_add_source(state->main_loop, &state->ctl_sources[i]);
 	}
 
 	for (unsigned int i = 0; i < state->num_bind_ctls; i++) {
@@ -839,7 +839,7 @@ int spa_alsa_clear(struct state *state)
 
 	if (state->ctl) {
 		for (int i = 0; i < state->ctl_n_fds; i++) {
-			spa_loop_remove_source(state->data_loop, &state->ctl_sources[i]);
+			spa_loop_remove_source(state->main_loop, &state->ctl_sources[i]);
 		}
 
 		snd_ctl_close(state->ctl);

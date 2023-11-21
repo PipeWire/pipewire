@@ -32,8 +32,9 @@ struct node {
 	uint32_t id;
 	struct pw_properties *props;
 
-	struct pw_node *proxy;
+	struct pw_proxy *proxy;
 	struct spa_hook proxy_listener;
+	struct spa_hook node_listener;
 
 	bool is_gadget;
 	// -1 for non-USB nodes, 0 or rate for USB nodes to track link status
@@ -49,8 +50,9 @@ struct port {
 	enum spa_direction direction;
 	struct pw_properties *props;
 
-	struct pw_port *proxy;
+	struct pw_proxy *proxy;
 	struct spa_hook proxy_listener;
+	struct spa_hook port_listener;
 
 	struct port *linked;
 	uint32_t link_id;
@@ -70,20 +72,6 @@ struct impl {
 	struct spa_list nodes;
 	struct spa_list ports;
 };
-
-static void node_free(struct node *node)
-{
-	if (node->props)
-		pw_properties_free(node->props);
-	pw_proxy_destroy((struct pw_proxy*)node->proxy);
-}
-
-static void port_free(struct port *port)
-{
-	if (port->props)
-		pw_properties_free(port->props);
-	pw_proxy_destroy((struct pw_proxy*)port->proxy);
-}
 
 static void create_link(struct impl *impl, struct port *p1, struct port *p2)
 {
@@ -462,7 +450,7 @@ static void node_info(void *data, const struct pw_node_info *info)
 			// Listen for rate changes on USB gadget capture nodes
 			if (node->is_gadget && node_is_source(node)) {
 				uint32_t ids[] = { SPA_PARAM_Props };
-				pw_node_subscribe_params(node->proxy, ids, SPA_N_ELEMENTS(ids));
+				pw_node_subscribe_params((struct pw_node *)node->proxy, ids, SPA_N_ELEMENTS(ids));
 			}
 
 			link_node_ports(node->impl, node, true);
@@ -530,6 +518,32 @@ static const struct pw_node_events node_events = {
 	.param = node_param,
 };
 
+static void node_removed(void *data) {
+	struct node *node = data;
+	pw_log_debug("Removing node %u", node->id);
+	pw_proxy_destroy(node->proxy);
+}
+
+static void node_destroy(void *data) {
+	struct node *node = data;
+
+	pw_log_debug("Destroying node %u", node->id);
+
+	spa_hook_remove(&node->node_listener);
+	spa_hook_remove(&node->proxy_listener);
+
+	spa_list_remove(&node->list);
+
+	if (node->props)
+		pw_properties_free(node->props);
+}
+
+static const struct pw_proxy_events node_proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.removed = node_removed,
+	.destroy = node_destroy,
+};
+
 static void port_info(void *data, const struct pw_port_info *info)
 {
 	struct impl *impl = data;
@@ -553,6 +567,31 @@ static const struct pw_port_events port_events = {
 	.info = port_info,
 };
 
+static void port_removed(void *data) {
+	struct port *port = data;
+	pw_log_debug("Removing port %u", port->id);
+	pw_proxy_destroy(port->proxy);
+}
+
+static void port_destroy(void *data) {
+	struct port *port = data;
+
+	pw_log_debug("Destroying port %u", port->id);
+
+	spa_hook_remove(&port->port_listener);
+	spa_hook_remove(&port->proxy_listener);
+
+	spa_list_remove(&port->list);
+	if (port->props)
+		pw_properties_free(port->props);
+}
+
+static const struct pw_proxy_events port_proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.removed = port_removed,
+	.destroy = port_destroy,
+};
+
 static void registry_global(void *data, uint32_t id, uint32_t permissions,
 		const char *type, uint32_t version,
 		const struct spa_dict *props)
@@ -563,7 +602,7 @@ static void registry_global(void *data, uint32_t id, uint32_t permissions,
 	pw_log_trace("Got type %s: %u", type, id);
 
 	if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
-		struct pw_node *proxy;
+		struct pw_proxy *proxy;
 		struct node *node;
 
 		proxy = pw_registry_bind(impl->registry, id, type, PW_VERSION_NODE, sizeof(struct node));
@@ -577,9 +616,10 @@ static void registry_global(void *data, uint32_t id, uint32_t permissions,
 
 		spa_list_insert(&impl->nodes, &node->list);
 
-		pw_node_add_listener(proxy, &node->proxy_listener, &node_events, node);
+		pw_proxy_add_object_listener(proxy, &node->node_listener, &node_events, node);
+		pw_proxy_add_listener(proxy, &node->proxy_listener, &node_proxy_events, node);
 	} else if (spa_streq(type, PW_TYPE_INTERFACE_Port)) {
-		struct pw_port *proxy;
+		struct pw_proxy *proxy;
 		struct port *port;
 
 		if ((str = spa_dict_lookup(props, PW_KEY_NODE_ID)) == NULL) {
@@ -597,7 +637,8 @@ static void registry_global(void *data, uint32_t id, uint32_t permissions,
 
 		spa_list_insert(&impl->ports, &port->list);
 
-		pw_port_add_listener(proxy, &port->proxy_listener, &port_events, impl);
+		pw_proxy_add_object_listener(proxy, &port->port_listener, &port_events, impl);
+		pw_proxy_add_listener(proxy, &port->proxy_listener, &port_proxy_events, port);
 	} else if (spa_streq(type, PW_TYPE_INTERFACE_Link)) {
 		struct port *port;
 		const char *id_str;
@@ -617,59 +658,17 @@ static void registry_global(void *data, uint32_t id, uint32_t permissions,
 	}
 }
 
-static void registry_global_removed(void *data, uint32_t id)
-{
-	struct impl *impl = data;
-	struct node *node;
-	struct port *port;
-
-	pw_log_trace("Removed %u", id);
-
-	spa_list_for_each(node, &impl->nodes, list) {
-		if (node->id != id)
-			continue;
-
-		pw_log_debug("Removing node %u", id);
-
-		spa_list_remove(&node->list);
-		node_free(node);
-		return;
-	}
-
-	spa_list_for_each(port, &impl->ports, list) {
-		if (port->id != id)
-			continue;
-
-		pw_log_debug("Removing port %u", id);
-
-		spa_list_remove(&port->list);
-		port_free(port);
-		return;
-	}
-}
-
 static const struct pw_registry_events registry_events = {
 	PW_VERSION_REGISTRY_EVENTS,
 	.global = registry_global,
-	.global_remove = registry_global_removed,
 };
 
 static void module_destroy(void *data)
 {
 	struct impl *impl = data;
-	struct node *node;
-	struct port *port;
 
 	spa_hook_remove(&impl->module_listener);
 	spa_hook_remove(&impl->registry_listener);
-
-	spa_list_for_each(node, &impl->nodes, list) {
-		node_free(node);
-	}
-
-	spa_list_for_each(port, &impl->ports, list) {
-		port_free(port);
-	}
 
 	pw_proxy_destroy((struct pw_proxy*)impl->registry);
 

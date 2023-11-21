@@ -9,14 +9,6 @@ option('examples',
        description: 'Build examples',
        type: 'feature',
        value: 'enabled')
-option('man',
-       description: 'Build manpages',
-       type: 'feature',
-       value: 'auto')
-option('man-extra',
-       description: 'Build extra manpages',
-       type: 'feature',
-       value: 'auto')
 option('tests',
        description: 'Build tests',
        type: 'feature',

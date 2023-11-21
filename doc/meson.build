@@ -1,9 +1,19 @@
+fs = import('fs')
+
 doxyfile_conf = configuration_data()
 doxyfile_conf.set('PACKAGE_NAME', meson.project_name())
 doxyfile_conf.set('PACKAGE_VERSION', meson.project_version())
 doxyfile_conf.set('top_srcdir', meson.project_source_root())
 doxyfile_conf.set('top_builddir', meson.project_build_root())
 doxyfile_conf.set('output_directory', meson.current_build_dir())
+
+doxygen_env = environment()
+doxygen_env.set('PACKAGE_NAME', meson.project_name())
+doxygen_env.set('PACKAGE_VERSION', meson.project_version())
+doxygen_env.set('PACKAGE_URL', 'https://pipewire.org')
+doxygen_env.set('PACKAGE_BUGREPORT', 'https://gitlab.freedesktop.org/pipewire/pipewire/issues')
+doxygen_env.set('PIPEWIRE_CONFIG_DIR', pipewire_configdir)
+doxygen_env.set('PIPEWIRE_CONFDATADIR', pipewire_confdatadir)
 
 dot_found = find_program('dot', required: false).found()
 summary({'dot (used with doxygen)': dot_found}, bool_yn: true, section: 'Optional programs')
@@ -21,6 +31,7 @@ extra_docs = [
   'dox/overview.dox',
   'dox/modules.dox',
   'dox/pulse-modules.dox',
+  'dox/programs/index.md',
   'dox/internals/index.dox',
   'dox/internals/design.dox',
   'dox/internals/access.dox',
@@ -49,6 +60,37 @@ extra_docs = [
   'dox/api/spa-pod.dox',
   'dox/api/spa-buffer.dox',
 ]
+
+manpage_docs = [
+  'dox/programs/libpipewire-modules.7.md',
+  'dox/programs/pipewire-pulse-modules.7.md',
+  'dox/programs/pipewire-pulse.1.md',
+  'dox/programs/pipewire-pulse.conf.5.md',
+  'dox/programs/pipewire.1.md',
+  'dox/programs/pipewire.conf.5.md',
+  'dox/programs/pw-cat.1.md',
+  'dox/programs/pw-cli.1.md',
+  'dox/programs/pw-config.1.md',
+  'dox/programs/pw-dot.1.md',
+  'dox/programs/pw-dump.1.md',
+  'dox/programs/pw-jack.1.md',
+  'dox/programs/pw-link.1.md',
+  'dox/programs/pw-loopback.1.md',
+  'dox/programs/pw-metadata.1.md',
+  'dox/programs/pw-mididump.1.md',
+  'dox/programs/pw-mon.1.md',
+  'dox/programs/pw-profiler.1.md',
+  'dox/programs/pw-top.1.md',
+]
+
+manpages = []
+
+foreach m : manpage_docs
+  name = fs.stem(fs.name(m))
+  pagepart = name.replace('.', '_')
+  manpages += [[name, f'page_man_@pagepart@']]
+  extra_docs += m
+endforeach
 
 inputs = []
 foreach extra : extra_docs
@@ -120,29 +162,27 @@ examples_dox = configure_file(input: 'examples.dox.in',
 
 input_dirs += [ 'doc/examples.dox' ]
 
-man_doxygen = []
-man_subpages = []
-foreach m : manpages
-  manconf = configuration_data()
-  pagename = 'page_man_' + m.split('.rst.in').get(0).replace('.', '_').replace('-', '_')
-  filename = m.split('.rst.in').get(0) + '.dox'
-  manconf.set('pagename', pagename)
-  manconf.set('title', m.split('.rst.in').get(0).replace('.1','').replace('.5',''))
-  manconf.set('filename', meson.project_source_root() / 'man' / m)
-  manfile = configure_file(input: 'manpage.dox.in',
-                           output: filename,
-                           configuration: manconf)
-  man_doxygen += [manfile]
-  man_subpages += ['- \subpage ' + pagename]
-  input_dirs += [ 'doc/' + filename ]
+module_manpage_list = []
+foreach m : module_sources
+   name = fs.stem(m)
+   pagepart = name.replace('-', '_')
+   module_manpage_list += f'\\ref page_@pagepart@ "libpipewire-@name@(7)"'
+   manpages += [[f'libpipewire-@name@.7', f'page_@pagepart@']]
 endforeach
 
-pw_programs_dox_conf = configuration_data()
-pw_programs_dox_conf.set('man_subpages', '\n'.join(man_subpages))
-pw_programs_dox = configure_file(input: 'programs.dox.in',
-                          output: 'programs.dox',
-                          configuration: pw_programs_dox_conf)
-input_dirs += [ 'doc/programs.dox' ]
+doxygen_env.set('LIBPIPEWIRE_MODULES', '<ul><li>' + '</li><li>'.join(module_manpage_list) + '</li></ul>')
+
+pulse_module_manpage_list = []
+foreach m : pipewire_module_protocol_pulse_sources
+  name = fs.stem(fs.name(m))
+  if m.contains('/modules/') and name.startswith('module-')
+    pagepart = name.replace('-', '_')
+    pulse_module_manpage_list += f'\\ref page_pulse_@pagepart@ "pipewire-pulse-@name@(7)"'
+    manpages += [[f'pipewire-pulse-@name@.7', f'page_pulse_@pagepart@']]
+  endif
+endforeach
+
+doxygen_env.set('PIPEWIRE_PULSE_MODULES', '<ul><li>' + '</li><li>'.join(pulse_module_manpage_list) + '</li></ul>')
 
 doxygen_layout = meson.project_source_root() / 'doc' / 'DoxygenLayout.xml'
 doxygen_filter_c = meson.project_source_root() / 'doc' / 'input-filter.py'
@@ -165,53 +205,31 @@ if docdir == ''
 endif
 
 html_target = custom_target('pipewire-docs',
-                            input: [ doxyfile, doxygen_layout, examples_dox, pw_programs_dox, doxygen_filter_c, doxygen_filter_h ] + inputs + cssfiles + man_doxygen,
+                            input: [ doxyfile, doxygen_layout, examples_dox, doxygen_filter_c, doxygen_filter_h ] + inputs + cssfiles,
                             output: [ 'html' ],
                             command: [ doxygen, doxyfile ],
+                            env: doxygen_env,
                             install: true,
                             install_dir: docdir)
 
 
-if generate_extra_manpages
-   module_man_rst_py = meson.project_source_root() / 'doc' / 'module-man-rst.py'
-   module_man_defines = []
-   foreach m : manpage_conf.keys()
-     if m != 'LIBPIPEWIRE_MODULES'
-       module_man_defines += ['-D', m, manpage_conf.get(m)]
-     endif
-   endforeach
+man_fixup = files('man-fixup.py')
 
-   module_manpage_names = []
-   foreach m : module_sources
-     name = m.split('.c').get(0)
-     file = f'libpipewire-@name@.7'
-     module_manpage_names += [[name, file]]
-   endforeach
-   foreach m : pipewire_module_protocol_pulse_sources
-     name = m.split('/').get(-1).split('.c').get(0)
-     if m.contains('/modules/') and name.startswith('module-')
-       name = f'pulse-@name@'
-       file = f'pipewire-@name@.7'
-       module_manpage_names += [[name, file]]
-     endif
-   endforeach
+manfiles = []
 
-   foreach item : module_manpage_names
-       name = item.get(0)
-       file = item.get(1)
+foreach m : manpages
+  file = m.get(0)
+  page = m.get(1)
+  name = fs.stem(file)
+  section = file.split('.').get(-1)
 
-       rst = custom_target(file + '.rst',
-                command : [python, module_man_rst_py, pandoc, name, '@INPUT@' ] + module_man_defines,
-                input : [ html_target ],
-                depend_files : [ module_man_rst_py ],
-                output : file + '.rst',
-                capture : true
-       )
-       custom_target(file,
-                output : file,
-                input : rst,
-                command : [rst2man, '@INPUT@', '@OUTPUT@'],
-                install : true,
-                install_dir : get_option('mandir') / 'man7')
-   endforeach
-endif
+  manfiles += custom_target(file,
+     command : [ python, man_fixup, '@INPUT@', page, name, section, meson.project_version() ],
+     output : file,
+     input : html_target,
+     depend_files : [ man_fixup ],
+     capture : true,
+     install : true,
+     install_dir : get_option('mandir') / 'man' + section
+  )
+endforeach

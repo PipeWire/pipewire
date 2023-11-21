@@ -26,6 +26,9 @@ EXAMPLE_PATH           = "@top_srcdir@/src/examples" \
                          "@top_srcdir@/doc"
 EXAMPLE_PATTERNS       = "*.c"
 
+GENERATE_MAN           = YES
+MAN_EXTENSION          = 3
+
 REFERENCED_BY_RELATION = NO
 REFERENCES_RELATION    = NO
 IGNORE_PREFIX          = pw_ \

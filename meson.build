@@ -485,36 +485,17 @@ if alsa_dep.found()
   subdir('pipewire-alsa/tests')
 endif
 
-generate_manpages = false
-if get_option('man').allowed()
-  rst2man = find_program('rst2man', required: false)
-  if not rst2man.found()
-    rst2man = find_program('rst2man.py', required: get_option('man'))
-  endif
-  if rst2man.found()
-    generate_manpages = true
-  endif
-endif
-
-summary({'Manpage generation': generate_manpages}, bool_yn: true)
-subdir('man')
-
 doxygen = find_program('doxygen', required : get_option('docs'))
 pymod = import('python')
 python = pymod.find_installation('python3', required: get_option('docs'))
+generate_docs = doxygen.found() and python.found()
 
-generate_extra_manpages = false
-
-if doxygen.found() and python.found()
-  if generate_manpages
-    pandoc = find_program('pandoc', required: get_option('man-extra'))
-    generate_extra_manpages = pandoc.found()
-  endif
-
+if generate_docs
   subdir('doc')
 endif
 
-summary({'Extra manpage generation': generate_extra_manpages}, bool_yn: true)
+summary({'Documentation and man pages ': generate_docs}, bool_yn: true)
+
 
 setenv = find_program('pw-uninstalled.sh')
 run_target('pw-uninstalled',

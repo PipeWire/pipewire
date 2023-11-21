@@ -857,7 +857,7 @@ static struct object *find_link(struct client *c, uint32_t src, uint32_t dst)
 	return NULL;
 }
 
-static struct buffer *dequeue_buffer(struct client *c, struct mix *mix)
+static inline struct buffer *dequeue_buffer(struct client *c, struct mix *mix)
 {
 	struct buffer *b;
 
@@ -1479,7 +1479,7 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 			c, p->object->port.name, p->port_id, frames,
 			mix->n_buffers, mix->io);
 
-	if (SPA_UNLIKELY((io = mix->io) == NULL))
+	if (SPA_UNLIKELY((io = mix->io) == NULL || mix->n_buffers == 0))
 		return NULL;
 
 	if (io->status == SPA_STATUS_HAVE_DATA &&
@@ -1492,7 +1492,7 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 			io->buffer_id = SPA_ID_INVALID;
 		}
 		if (SPA_UNLIKELY((b = dequeue_buffer(c, mix)) == NULL)) {
-			pw_log_warn("port %p: out of buffers", p);
+			pw_log_warn("port %p: out of buffers %d", p, mix->n_buffers);
 			return NULL;
 		}
 		d = &b->datas[0];
@@ -5306,7 +5306,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 		ptr = p->get_buffer(p, frames);
 	}
 done:
-	pw_log_trace_fp("%p: port %p buffer %p", p->client, p, ptr);
+	pw_log_trace_fp("%p: port %p buffer %p", o->client, p, ptr);
 	return ptr;
 }
 

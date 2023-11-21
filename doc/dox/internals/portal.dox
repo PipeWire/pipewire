@@ -13,7 +13,7 @@ client is a portal-managed client. PipeWire can detect and enforce
 extra permission checks on the portal managed clients.
 
 Once such portal is the [camera
-portal](https://flatpak.github.io/xdg-desktop-portal/portal-docs.html#gdbus-org.freedesktop.portal.Camera)
+portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Camera.html)
 that provides a PipeWire session to stream video from a camera.
 
 
@@ -176,7 +176,7 @@ The session manager listens for new clients to appear. It will use the
 from the portal the session manager checks the requested `media_roles` and
 enables or disables access to the respective PipeWire objects.
 It might have to consult a database to decide what is allowed, for example the
-[org.freedesktop.impl.portal.PermissionStore](https://flatpak.github.io/xdg-desktop-portal/portal-docs.html#gdbus-org.freedesktop.impl.portal.PermissionStore).
+[org.freedesktop.impl.portal.PermissionStore](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.PermissionStore.html).
 
 \dot
 strict digraph pw {

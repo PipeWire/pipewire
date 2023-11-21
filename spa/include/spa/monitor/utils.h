@@ -22,8 +22,8 @@ struct spa_result_device_params_data {
 	struct spa_result_device_params data;
 };
 
-static inline void spa_result_func_device_params(void *data, int seq, int res,
-		uint32_t type, const void *result)
+static inline void spa_result_func_device_params(void *data, int seq SPA_UNUSED, int res SPA_UNUSED,
+		uint32_t type SPA_UNUSED, const void *result)
 {
 	struct spa_result_device_params_data *d =
 		(struct spa_result_device_params_data *)data;
@@ -42,8 +42,8 @@ static inline int spa_device_enum_params_sync(struct spa_device *device,
 			struct spa_pod **param,
 			struct spa_pod_builder *builder)
 {
-	struct spa_result_device_params_data data = { builder, };
-	struct spa_hook listener = {{0}};
+	struct spa_result_device_params_data data = { builder, {0}};
+	struct spa_hook listener = {{0}, {0}, 0, 0};
 	static const struct spa_device_events device_events = {
 		.version = SPA_VERSION_DEVICE_EVENTS,
 		.info = NULL,

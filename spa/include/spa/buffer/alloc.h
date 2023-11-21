@@ -300,7 +300,8 @@ spa_buffer_alloc_array(uint32_t n_buffers, uint32_t flags,
 {
 
 	struct spa_buffer **buffers;
-	struct spa_buffer_alloc_info info = { flags | SPA_BUFFER_ALLOC_FLAG_INLINE_ALL, };
+	struct spa_buffer_alloc_info info = { flags | SPA_BUFFER_ALLOC_FLAG_INLINE_ALL,
+                                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	void *skel;
 
 	spa_buffer_alloc_fill_info(&info, n_metas, metas, n_datas, datas, data_aligns);

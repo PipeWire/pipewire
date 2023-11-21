@@ -78,7 +78,7 @@ static inline int spa_pod_choice_fix_default(struct spa_pod_choice *choice)
 }
 
 static inline int spa_pod_filter_flags_value(struct spa_pod_builder *b,
-		uint32_t type, const void *r1, const void *r2, uint32_t size)
+		uint32_t type, const void *r1, const void *r2, uint32_t size SPA_UNUSED)
 {
 	switch (type) {
 	case SPA_TYPE_Int:
@@ -104,7 +104,7 @@ static inline int spa_pod_filter_flags_value(struct spa_pod_builder *b,
 }
 
 static inline int spa_pod_filter_is_step_of(uint32_t type, const void *r1,
-		const void *r2, uint32_t size)
+		const void *r2, uint32_t size SPA_UNUSED)
 {
 	switch (type) {
 	case SPA_TYPE_Int:

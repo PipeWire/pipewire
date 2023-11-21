@@ -215,7 +215,7 @@ spa_graph_node_init(struct spa_graph_node *node, struct spa_graph_state *state)
 }
 
 
-static inline int spa_graph_node_impl_sub_process(void *data, struct spa_graph_node *node)
+static inline int spa_graph_node_impl_sub_process(void *data SPA_UNUSED, struct spa_graph_node *node)
 {
 	struct spa_graph *graph = node->subgraph;
 	spa_debug("node %p: sub process %p", node, graph);
@@ -322,7 +322,7 @@ static inline int spa_graph_node_impl_process(void *data, struct spa_graph_node 
         return state->status;
 }
 
-static inline int spa_graph_node_impl_reuse_buffer(void *data, struct spa_graph_node *node,
+static inline int spa_graph_node_impl_reuse_buffer(void *data, struct spa_graph_node *node SPA_UNUSED,
 		uint32_t port_id, uint32_t buffer_id)
 {
 	struct spa_node *n = (struct spa_node *)data;

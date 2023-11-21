@@ -24,7 +24,7 @@ struct spa_result_node_params_data {
 };
 
 static inline void spa_result_func_node_params(void *data,
-		int seq, int res, uint32_t type, const void *result)
+		int seq SPA_UNUSED, int res SPA_UNUSED, uint32_t type SPA_UNUSED, const void *result)
 {
 	struct spa_result_node_params_data *d =
 		(struct spa_result_node_params_data *) data;
@@ -43,8 +43,8 @@ static inline int spa_node_enum_params_sync(struct spa_node *node,
 			struct spa_pod **param,
 			struct spa_pod_builder *builder)
 {
-	struct spa_result_node_params_data data = { builder, };
-	struct spa_hook listener = {{0}};
+	struct spa_result_node_params_data data = { builder, {0}};
+	struct spa_hook listener = {{0}, {0}, 0, 0};
 	static const struct spa_node_events node_events = {
 		.version = SPA_VERSION_NODE_EVENTS,
 		.info = NULL,
@@ -77,8 +77,8 @@ static inline int spa_node_port_enum_params_sync(struct spa_node *node,
 			struct spa_pod **param,
 			struct spa_pod_builder *builder)
 {
-	struct spa_result_node_params_data data = { builder, };
-	struct spa_hook listener = {{0}};
+	struct spa_result_node_params_data data = { builder, {0}};
+	struct spa_hook listener = {{0}, {0}, 0, 0};
 	static const struct spa_node_events node_events = {
 		.version = SPA_VERSION_NODE_EVENTS,
 		.info = NULL,

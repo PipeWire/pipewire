@@ -148,17 +148,17 @@ pw_sandbox_access_t pw_snap_get_audio_permissions(struct client *client, int fd,
                                               &plugs,
                                               NULL,
                                               NULL,
-                                              NULL);
+                                              &error);
     if (retv == FALSE) {
-        pw_log_warn("Failed to get Snap connections for snap %s\n", snap_id);
+        pw_log_warn("Failed to get Snap connections for snap %s: %s\n", snap_id, error->message);
         return PW_SANDBOX_ACCESS_NONE;
     }
     if (plugs == NULL) {
-        pw_log_warn("Failed to get Snap connections for snap %s\n", snap_id);
+        pw_log_warn("Failed to get Snap connections for snap %s: %s\n", snap_id, error->message);
         return PW_SANDBOX_ACCESS_NONE;
     }
     if (plugs->pdata == NULL) {
-        pw_log_warn("Failed to get Snap connections for snap %s\n", snap_id);
+        pw_log_warn("Failed to get Snap connections for snap %s: %s\n", snap_id, error->message);
         return PW_SANDBOX_ACCESS_NONE;
     }
 

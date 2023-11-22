@@ -295,7 +295,7 @@ static int roc_source_setup(struct module_roc_source_data *data)
 	 * See API reference:
 	 * https://roc-streaming.org/toolkit/docs/api/reference.html
 	 */
-	receiver_config.target_latency = (unsigned long long)data->sess_latency_msec * 1000000ULL;
+	receiver_config.target_latency = (unsigned long long)data->sess_latency_msec * SPA_NSEC_PER_MSEC;
 
 	res = roc_receiver_open(data->context, &receiver_config, &data->receiver);
 	if (res) {

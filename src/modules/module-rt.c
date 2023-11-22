@@ -230,6 +230,8 @@ struct impl {
 #define RLIMIT_RTTIME 15
 #endif
 
+static pthread_mutex_t rlimit_lock = PTHREAD_MUTEX_INITIALIZER;
+
 static pid_t _gettid(void)
 {
 #if defined(HAVE_GETTID)
@@ -556,11 +558,12 @@ static bool check_realtime_privileges(struct impl *impl)
 	struct rlimit old_rlim;
 	struct rlimit no_rlim = { -1, -1 };
 	int try = 0;
+	bool ret = false;
 
 	if (!impl->rlimits_enabled)
-		return false;
+		return ret;
 
-	while (try++ < 2) {
+	while (!ret && try++ < 2) {
 		/* We could check `RLIMIT_RTPRIO`, but the BSDs generally don't have
 		 * that available, and there are also other ways to use realtime
 		 * scheduling without that rlimit being set such as `CAP_SYS_NICE` or
@@ -568,11 +571,11 @@ static bool check_realtime_privileges(struct impl *impl)
 		 * just try if setting realtime scheduling works or not. */
 		if ((err = pthread_getschedparam(pthread_self(), &old_policy, &old_sched_params)) != 0) {
 			pw_log_warn("Failed to check RLIMIT_RTPRIO: %s", strerror(err));
-			return false;
+			break;
 		}
 		if ((err = get_rt_priority_range(&min, &max)) < 0) {
 			pw_log_warn("Failed to get priority range: %s", strerror(err));
-			return false;
+			break;
 		}
 		if (try == 2) {
 #ifdef RLIMIT_RTPRIO
@@ -588,7 +591,7 @@ static bool check_realtime_privileges(struct impl *impl)
 		}
 		if (max < DEFAULT_RT_PRIO_MIN) {
 			pw_log_info("Priority max (%d) must be at least %d", max, DEFAULT_RT_PRIO_MIN);
-			return false;
+			break;
 		}
 
 		/* If the current scheduling policy has `SCHED_RESET_ON_FORK` set, then
@@ -602,24 +605,29 @@ static bool check_realtime_privileges(struct impl *impl)
 		if ((old_policy & PW_SCHED_RESET_ON_FORK) != 0)
 			new_policy |= PW_SCHED_RESET_ON_FORK;
 
-		/* Disable RLIMIT_RTTIME while trying new_policy. */
-		if ((err = getrlimit(RLIMIT_RTTIME, &old_rlim)) < 0)
-			pw_log_debug("getrlimit() failed: %s", spa_strerror(err));
-		if ((err = setrlimit(RLIMIT_RTTIME, &no_rlim)) < 0)
-			pw_log_debug("setrlimit() failed: %s", spa_strerror(err));
-
-		if (pthread_setschedparam(pthread_self(), new_policy, &new_sched_params) == 0) {
+		/* Disable RLIMIT_RTTIME in a thread safe way and hope that the application
+		 * doesn't also set RLIMIT_RTTIME while trying new_policy. */
+		pthread_mutex_lock(&rlimit_lock);
+		if (getrlimit(RLIMIT_RTTIME, &old_rlim) < 0)
+			pw_log_info("getrlimit() failed: %m");
+		if (setrlimit(RLIMIT_RTTIME, &no_rlim) < 0)
+			pw_log_info("setrlimit() failed: %m");
+		if (err = pthread_setschedparam(pthread_self(), new_policy, &new_sched_params) == 0) {
 			impl->rt_prio = new_sched_params.sched_priority;
 			pthread_setschedparam(pthread_self(), old_policy, &old_sched_params);
-			if ((err = setrlimit(RLIMIT_RTTIME, &old_rlim)) < 0)
-				pw_log_debug("setrlimit() failed: %s", spa_strerror(err));
-			return true;
-		}
-		if ((err = setrlimit(RLIMIT_RTTIME, &old_rlim)) < 0)
-			pw_log_debug("setrlimit() failed: %s", spa_strerror(err));
+			ret = true;
+		} else
+			pw_log_info("failed to set realtime policy: %s", strerror(err));
+		if (setrlimit(RLIMIT_RTTIME, &old_rlim) < 0)
+			pw_log_info("setrlimit() failed: %m");
+		pthread_mutex_unlock(&rlimit_lock);
 	}
-	pw_log_info("Can't set rt prio to %d: %m (try increasing rlimits)", (int)priority);
-	return false;
+
+	if (ret)
+		pw_log_debug("can set rt prio to %d", (int)priority);
+	else
+		pw_log_info("can't set rt prio to %d (try increasing rlimits)", (int)priority);
+	return ret;
 }
 
 static int sched_set_nice(pid_t pid, int nice_level)
@@ -668,11 +676,13 @@ static int set_rlimit(struct rlimit *rlim)
 {
 	int res = 0;
 
+	pthread_mutex_lock(&rlimit_lock);
 	if (setrlimit(RLIMIT_RTTIME, rlim) < 0)
 		res = -errno;
+	pthread_mutex_unlock(&rlimit_lock);
 
 	if (res < 0)
-		pw_log_debug("setrlimit() failed: %s", spa_strerror(res));
+		pw_log_info("setrlimit() failed: %s", spa_strerror(res));
 	else
 		pw_log_debug("rt.time.soft:%"PRIi64" rt.time.hard:%"PRIi64,
 				(int64_t)rlim->rlim_cur, (int64_t)rlim->rlim_max);

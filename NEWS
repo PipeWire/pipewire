@@ -1,3 +1,84 @@
+# PipeWire 1.0.0 (2023-11-26)
+
+The PipeWire project is immensely proud to announce the 1.0 release
+of PipeWire.
+
+It is API and ABI compatible with previous 0.3.x releases.
+
+ "PipeWire represents the next evolution of audio handling for Linux, taking
+ the best of both pro-audio (JACK) and desktop audio servers (PulseAudio) and
+ linking them into a single, seamless, powerful new system."
+    - Paul Davis, JACK and Ardour author
+
+ "What exciting times! PipeWire 1.0 is the culmination of 15 years of
+ Linux audio expertise, blending lessons from PulseAudio into a high-performance,
+ flexible, and user-friendly foundation for audio and multimedia on Linux.
+ I'm looking forward to the next decade of progress in the free software
+ consumer and professional audio space!."
+    - Arun Raghavan, PulseAudio developer/maintainer.
+
+ "I'm thrilled to witness the first stable release of PipeWire after five years
+ of collaboration with its remarkable community, pushing the boundaries of
+ multimedia integration in the Linux ecosystem one step further.”
+    - George Kiagiadakis, WirePlumber author
+
+ "From the beginning of the libcamera project, we have always seen
+ PipeWire as the solution to handle desktop and mobile integration and
+ give a seemless multimedia integration to users while providing security
+ features and resource sharing between applications."
+    - Kieran Bingham, libcamera author
+
+Happy Holidays!
+
+
+## Highlights
+  - Fix a memfd/dmabuf leak when uploading buffers while shutting down.
+  - Handle concurrent jack_port_get_buffer() calls because ardour seems to
+    be doing this.
+  - Improve time reporting (less jitter) in ALSA when using IRQ.
+  - Many doc improvements.
+
+## PipeWire
+  - Respect PIPEWIRE_DLCLOSE everywhere, remove pw_in_valgrind().
+  - Remove a warning when a client tries to change ignored properties.
+
+## Modules
+  - Fix a memfd/dmabuf leak when uploading buffers while shutting down.
+  - Fix a potential segfault when copying mix structures. (#3658)
+  - Avoid races in setrlimit in module-rt.
+  - Fix a memory leak in filter-chain.
+  - Set rtp.ptime on senders, not receivers.
+  - The ROC modules were ported to ROC 0.3
+
+## SPA
+  - Improve time reporting (less jitter) in ALSA when using IRQ. (#3657)
+  - Add latency param query in libcamera.
+  - Fix some compiler warnings.
+  - The EVL plugin was updated.
+
+## Bluetooth
+  - LC3 codec and compatibility improvements.
+
+## Pulse server
+  - Fix emission of events when a sink/source state changes. (#3660)
+
+## JACK
+  - Improve transport and time handling. Use unique ids to make consistent
+    snapshots of the current time and transport.
+  - Avoid enumerating port params that we are not going to use.
+  - Optimize buffer reuse.
+  - Handle concurrent jack_port_get_buffer() calls because ardour seems to
+    be doing this. (#3632)
+
+## Docs
+  - Many doc improvements.
+  - Add man pages for pw-dump, pw-loopback, modules, pipewire-pulse.
+  - Manpages are now made with Doxygen.
+  - Add docs for pulse-modules
+
+Older versions:
+
+
 # PipeWire 0.3.85 (2023-11-16)
 
 This is the fifth (and last) 1.0 release candidate that is API and ABI
@@ -52,9 +133,6 @@ compatible with previous 0.3.x releases.
 
 ## Docs
   - Many improvements to the layout and organization.
-
-Older versions:
-
 
 # PipeWire 0.3.84 (2023-11-02)
 

@@ -857,21 +857,6 @@ static struct object *find_link(struct client *c, uint32_t src, uint32_t dst)
 	return NULL;
 }
 
-static inline struct buffer *dequeue_buffer(struct client *c, struct mix *mix)
-{
-	struct buffer *b;
-
-	if (SPA_UNLIKELY(spa_list_is_empty(&mix->queue)))
-		return NULL;
-
-	b = spa_list_first(&mix->queue, struct buffer, link);
-	spa_list_remove(&b->link);
-	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
-	pw_log_trace_fp("%p: port %p: dequeue buffer %d", c, mix->port, b->id);
-
-	return b;
-}
-
 #if defined (__SSE__)
 #include <xmmintrin.h>
 static void mix_sse(float *dst, float *src[], uint32_t n_src, bool aligned, uint32_t n_samples)
@@ -1327,7 +1312,7 @@ static void client_remove_source(struct client *c)
 	}
 }
 
-static inline void reuse_buffer(struct client *c, struct mix *mix, uint32_t id)
+static inline void queue_buffer(struct client *c, struct mix *mix, uint32_t id)
 {
 	struct buffer *b;
 
@@ -1338,6 +1323,21 @@ static inline void reuse_buffer(struct client *c, struct mix *mix, uint32_t id)
 		spa_list_append(&mix->queue, &b->link);
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 	}
+}
+
+static inline struct buffer *dequeue_buffer(struct client *c, struct mix *mix)
+{
+	struct buffer *b;
+
+	if (SPA_UNLIKELY(spa_list_is_empty(&mix->queue)))
+		return NULL;
+
+	b = spa_list_first(&mix->queue, struct buffer, link);
+	spa_list_remove(&b->link);
+	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
+	pw_log_trace_fp("%p: port %p: dequeue buffer %d", c, mix->port, b->id);
+
+	return b;
 }
 
 
@@ -1487,21 +1487,26 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 		b = &mix->buffers[io->buffer_id];
 		d = &b->datas[0];
 	} else {
-		if (io->buffer_id < mix->n_buffers) {
-			reuse_buffer(c, mix, io->buffer_id);
-			io->buffer_id = SPA_ID_INVALID;
-		}
-		if (SPA_UNLIKELY((b = dequeue_buffer(c, mix)) == NULL)) {
-			pw_log_warn("port %p: out of buffers %d", p, mix->n_buffers);
-			return NULL;
+		if (mix->n_buffers == 1) {
+			b = &mix->buffers[0];
+		} else {
+			if (io->buffer_id < mix->n_buffers)
+				queue_buffer(c, mix, io->buffer_id);
+			b = dequeue_buffer(c, mix);
+
+			if (SPA_UNLIKELY(b == NULL)) {
+				pw_log_warn("port %p: out of buffers %d", p, mix->n_buffers);
+				io->buffer_id = SPA_ID_INVALID;
+				return NULL;
+			}
 		}
 		d = &b->datas[0];
 		d->chunk->offset = 0;
 		d->chunk->size = frames * sizeof(float);
 		d->chunk->stride = stride;
 
-		io->status = SPA_STATUS_HAVE_DATA;
 		io->buffer_id = b->id;
+		io->status = SPA_STATUS_HAVE_DATA;
 	}
 	ptr = d->data;
 	if (buf)
@@ -2717,7 +2722,7 @@ static int client_node_port_use_buffers(void *data,
 		}
 		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 		if (direction == SPA_DIRECTION_OUTPUT)
-			reuse_buffer(c, mix, b->id);
+			queue_buffer(c, mix, b->id);
 
 	}
 	pw_log_debug("%p: have %d buffers", c, n_buffers);

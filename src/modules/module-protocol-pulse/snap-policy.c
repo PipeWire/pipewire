@@ -90,7 +90,7 @@ pw_sandbox_access_t pw_snap_get_audio_permissions(struct client *client, int fd,
     *app_id = snap_id;
 
     // it's a "classic" or a "devmode" confinement snap, so we give it full access
-    if (g_str_equal (snap_confinement, "complain")) {
+    if (g_str_equal(snap_confinement, "complain")) {
         return PW_SANDBOX_ACCESS_ALL;
     }
 

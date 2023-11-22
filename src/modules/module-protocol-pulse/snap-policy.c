@@ -16,6 +16,7 @@
 #include <errno.h>
 #include "snap-policy.h"
 #include <fcntl.h>
+#include <assert.h>
 
 #define SNAP_LABEL_PREFIX      "snap."
 
@@ -61,10 +62,7 @@ pw_sandbox_access_t pw_snap_get_audio_permissions(struct client *client, int fd,
     int exit_code;
 
     *app_id = g_strdup("unknown");
-    if (client == NULL) {
-        pw_log_warn("Called snap_get_audio_permissions with NULL parameter.");
-        return PW_SANDBOX_ACCESS_NONE;
-    }
+    assert(client != NULL);
 
     if (aa_getpeercon(fd, &aa_label, &snap_confinement) == -1) {
         if (errno == EINVAL) {

@@ -204,13 +204,13 @@ static uint8_t get_num_channels(uint32_t channels)
 	return num;
 }
 
-static int select_channels(uint8_t channels, uint32_t locations, uint32_t *mapping)
+static int select_channels(uint8_t channels, uint32_t locations, uint32_t *mapping, unsigned int max_channels)
 {
-	unsigned int i, num;
+	unsigned int i, num = 0;
 
-	if (channels & LC3_CHAN_2)
+	if ((channels & LC3_CHAN_2) && max_channels >= 2)
 		num = 2;
-	else if (channels & LC3_CHAN_1)
+	else if ((channels & LC3_CHAN_1) && max_channels >= 1)
 		num = 1;
 	else
 		return -1;
@@ -234,12 +234,13 @@ static int select_channels(uint8_t channels, uint32_t locations, uint32_t *mappi
 	return 0;
 }
 
-static bool select_config(bap_lc3_t *conf, const struct pac_data *pac)
+static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct spa_debug_context *debug_ctx)
 {
 	const uint8_t *data = pac->data;
 	size_t data_size = pac->size;
 	uint16_t framelen_min = 0, framelen_max = 0;
 	int max_frames = -1;
+	uint8_t channels = 0;
 
 	if (!data_size)
 		return false;
@@ -294,10 +295,7 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac)
 		case LC3_TYPE_CHAN:
 			spa_return_val_if_fail(ltv->len == 2, false);
 			{
-				uint8_t channels = ltv->value[0];
-
-				if (select_channels(channels, pac->locations, &conf->channels) < 0)
-					return false;
+				channels = ltv->value[0];
 			}
 			break;
 		case LC3_TYPE_FRAMELEN:
@@ -315,6 +313,12 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac)
 		}
 		data_size -= ltv->len + 1;
 		data += ltv->len + 1;
+	}
+
+	if (select_channels(channels, pac->locations, &conf->channels, max_frames) < 0) {
+		spa_debugc(debug_ctx, "invalid channel configuration: 0x%02x %u",
+				channels, max_frames);
+		return false;
 	}
 
 	/* Default: 1 per channel (BAP v1.0.1 Sec 4.3.1) */
@@ -446,8 +450,12 @@ static int conf_cmp(const bap_lc3_t *conf1, int res1, const bap_lc3_t *conf2, in
 		return b - a;
 
 	PREFER_BOOL(conf->channels & LC3_CHAN_2);
+	PREFER_BOOL(conf->channels & LC3_CHAN_1);
 	PREFER_BOOL(conf->rate & (LC3_CONFIG_FREQ_48KHZ | LC3_CONFIG_FREQ_24KHZ | LC3_CONFIG_FREQ_16KHZ | LC3_CONFIG_FREQ_8KHZ));
 	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_48KHZ);
+	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_24KHZ);
+	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_16KHZ);
+	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_8KHZ);
 
 	return 0;
 

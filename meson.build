@@ -442,7 +442,7 @@ else
   snap_dep = dependency('snapd-glib', required : get_option('snap'))
 endif
 if snap_dep.found() and glib2_snap_dep.found() and gio2_snap_dep.found() and apparmor_snap_dep.found()
-  cdata.set('HAVE_SNAP', 1)
+  cdata.set('HAVE_SNAP', true)
   snap_deps = [glib2_snap_dep, gio2_snap_dep, snap_dep, apparmor_snap_dep]
 endif
 summary({'GLib-2.0 (Snap support)': glib2_snap_dep.found()}, bool_yn: true, section: 'Misc dependencies')

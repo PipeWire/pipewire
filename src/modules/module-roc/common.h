@@ -31,8 +31,6 @@ static inline int pw_roc_parse_resampler_profile(roc_resampler_profile *out, con
 {
 	if (!str || !*str)
 		*out = ROC_RESAMPLER_PROFILE_DEFAULT;
-	else if (spa_streq(str, "disable"))
-		*out = ROC_RESAMPLER_PROFILE_DISABLE;
 	else if (spa_streq(str, "high"))
 		*out = ROC_RESAMPLER_PROFILE_HIGH;
 	else if (spa_streq(str, "medium"))

@@ -268,9 +268,10 @@ static int roc_source_setup(struct module_roc_source_data *data)
 	}
 
 	spa_zero(receiver_config);
-	receiver_config.frame_sample_rate = data->rate;
-	receiver_config.frame_channels = ROC_CHANNEL_SET_STEREO;
-	receiver_config.frame_encoding = ROC_FRAME_ENCODING_PCM_FLOAT;
+
+	receiver_config.frame_encoding.rate = data->rate;
+	receiver_config.frame_encoding.channels = ROC_CHANNEL_LAYOUT_STEREO;
+	receiver_config.frame_encoding.format = ROC_FORMAT_PCM_FLOAT32;
 	receiver_config.resampler_profile = data->resampler_profile;
 
 	info.rate = data->rate;

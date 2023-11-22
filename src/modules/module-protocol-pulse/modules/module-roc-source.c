@@ -27,7 +27,7 @@
 static const char *const pulse_module_options =
 	"source_name=<name for the source> "
 	"source_properties=<properties for the source> "
-	"resampler_profile=<empty>|disable|high|medium|low "
+	"resampler_profile=<empty>|high|medium|low "
 	"fec_code=<empty>|disable|rs8m|ldpc "
 	"sess_latency_msec=<target network latency in milliseconds> "
 	"local_ip=<local receiver ip> "

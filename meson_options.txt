@@ -335,6 +335,6 @@ option('gsettings-pulse-schema',
        type: 'feature',
        value: 'auto')
 option('snap',
-       description : 'Snap support is available.',
+       description : 'Enable Snap permissions support.',
        type : 'feature',
        value : 'auto')

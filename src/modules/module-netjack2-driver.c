@@ -43,7 +43,7 @@
 /** \page page_module_netjack2_driver Netjack2 driver
  *
  * The netjack2-driver module provides a source or sink that is following a
- * netjack2 driver.
+ * netjack2 manager.
  *
  * ## Module Name
  *

@@ -53,7 +53,6 @@ pw_sandbox_access_t pw_snap_get_audio_permissions(struct client *client, int fd,
     g_autoptr(GPtrArray) plugs = NULL;
     gboolean retv;
     pw_sandbox_access_t permissions = PW_SANDBOX_ACCESS_NONE;
-    pw_sandbox_access_t add_permission = PW_SANDBOX_ACCESS_NONE;
     SnapdPlug **plug = NULL;
     g_autoptr(GError) error = NULL;
     int exit_code;
@@ -161,6 +160,7 @@ pw_sandbox_access_t pw_snap_get_audio_permissions(struct client *client, int fd,
 
     plug = (SnapdPlug **)plugs->pdata;
     for (guint p = 0; p < plugs->len; p++, plug++) {
+        pw_sandbox_access_t add_permission;
         const gchar *plug_name = snapd_plug_get_name(*plug);
         if (g_str_equal("audio-record", plug_name)) {
             add_permission = PW_SANDBOX_ACCESS_RECORD;

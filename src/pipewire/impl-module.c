@@ -323,7 +323,7 @@ void pw_impl_module_destroy(struct pw_impl_module *module)
 		pw_work_queue_cancel(pw_context_get_work_queue(module->context),
 				     module, SPA_ID_INVALID);
 
-	if (!pw_in_valgrind() && dlclose(impl->hnd) != 0)
+	if (pw_should_dlclose() && dlclose(impl->hnd) != 0)
 		pw_log_warn("%p: dlclose failed: %s", module, dlerror());
 	free(impl);
 }

@@ -1292,6 +1292,8 @@ void pw_settings_init(struct pw_context *context);
 int pw_settings_expose(struct pw_context *context);
 void pw_settings_clean(struct pw_context *context);
 
+bool pw_should_dlclose(void);
+
 /** \endcond */
 
 #ifdef __cplusplus

@@ -785,12 +785,6 @@ const char *pw_get_host_name(void)
 	return hname;
 }
 
-SPA_EXPORT
-bool pw_in_valgrind(void)
-{
-	return global_support.in_valgrind;
-}
-
 bool
 pw_should_dlclose(void)
 {

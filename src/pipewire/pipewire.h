@@ -72,8 +72,6 @@ pw_get_host_name(void);
 const char *
 pw_get_client_name(void);
 
-bool pw_in_valgrind(void);
-
 bool pw_check_option(const char *option, const char *value);
 
 enum pw_direction

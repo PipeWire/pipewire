@@ -84,14 +84,15 @@ static void impl_dsp_ops_free(struct dsp_ops *ops)
 	spa_zero(*ops);
 }
 
-int dsp_ops_init(struct dsp_ops *ops)
+int dsp_ops_init(struct dsp_ops *ops, uint32_t cpu_flags)
 {
 	const struct dsp_info *info;
 
-	info = find_dsp_info(ops->cpu_flags);
+	info = find_dsp_info(cpu_flags);
 	if (info == NULL)
 		return -ENOTSUP;
 
+	ops->cpu_flags = cpu_flags;
 	ops->priv = info;
 	ops->free = impl_dsp_ops_free;
 	ops->funcs = info->funcs;

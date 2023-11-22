@@ -55,7 +55,7 @@ struct dsp_ops {
 	const void *priv;
 };
 
-int dsp_ops_init(struct dsp_ops *ops);
+int dsp_ops_init(struct dsp_ops *ops, uint32_t cpu_flags);
 
 #define dsp_ops_free(ops)		(ops)->free(ops)
 

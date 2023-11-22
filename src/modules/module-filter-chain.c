@@ -2995,8 +2995,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 
 	cpu_iface = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
-	impl->dsp.cpu_flags = cpu_iface ? spa_cpu_get_flags(cpu_iface) : 0;
-	dsp_ops_init(&impl->dsp);
+	dsp_ops_init(&impl->dsp, cpu_iface ? spa_cpu_get_flags(cpu_iface) : 0);
 
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_GROUP, "filter-chain-%u-%u", pid, id);

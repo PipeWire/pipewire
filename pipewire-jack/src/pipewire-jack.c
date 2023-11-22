@@ -9,6 +9,7 @@
 #include <sys/mman.h>
 #include <regex.h>
 #include <math.h>
+#include <threads.h>
 
 #include <jack/jack.h>
 #include <jack/intclient.h>
@@ -111,7 +112,7 @@ static struct globals globals;
 static bool mlock_warned = false;
 
 #define MIDI_SCRATCH_FRAMES	8192
-static float midi_scratch[MIDI_SCRATCH_FRAMES];
+static thread_local float midi_scratch[MIDI_SCRATCH_FRAMES];
 
 
 #define OBJECT_CHUNK		8
@@ -1535,9 +1536,14 @@ static inline void process_empty(struct port *p, uint32_t frames)
 	{
 		struct buffer *b;
 		ptr = get_buffer_output(p, c->max_frames, 1, &b);
-		if (SPA_LIKELY(ptr != NULL))
+		if (SPA_LIKELY(ptr != NULL)) {
+			/* first build the complete pod in scratch memory, then copy it
+			 * to the target buffer. This makes it possible for multiple threads
+			 * to do this concurrently */
 			b->datas[0].chunk->size = convert_from_midi(src,
-					ptr, c->max_frames * sizeof(float));
+					midi_scratch, MIDI_SCRATCH_FRAMES * sizeof(float));
+			memcpy(ptr, midi_scratch, b->datas[0].chunk->size);
+		}
 		break;
 	}
 	default:
@@ -5201,11 +5207,9 @@ static void *get_buffer_input_float(struct port *p, jack_nframes_t frames)
 static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 {
 	struct mix *mix;
-	void *ptr = p->emptyptr;
+	void *ptr = midi_scratch;
 	struct spa_pod_sequence *seq[MAX_MIX];
 	uint32_t n_seq = 0;
-
-	jack_midi_clear_buffer(ptr);
 
 	spa_list_for_each(mix, &p->mix, port_link) {
 		struct spa_data *d;
@@ -5232,8 +5236,8 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 		if (n_seq == MAX_MIX)
 			break;
 	}
+	midi_init_buffer(ptr, MIDI_SCRATCH_FRAMES);
 	convert_to_midi(seq, n_seq, ptr, p->client->fix_midi_events);
-
 	return ptr;
 }
 

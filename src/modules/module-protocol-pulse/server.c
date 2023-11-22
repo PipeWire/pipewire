@@ -410,7 +410,7 @@ on_connect(void *data, int fd, uint32_t mask)
 		client_access = server->client_access;
 
 	if (server->addr.ss_family == AF_UNIX) {
-		spa_autofree char *app_id = NULL, *devices = NULL;
+		spa_autofree char *app_id = NULL, *snap_app_id = NULL, *devices = NULL;
 #ifdef HAVE_SNAP
 		pw_sandbox_access_t snap_access;
 #endif
@@ -454,9 +454,9 @@ on_connect(void *data, int fd, uint32_t mask)
 		}
 		// check SNAP permissions
 #ifdef HAVE_SNAP
-		snap_access = pw_snap_get_audio_permissions(client, client_fd, &app_id);
+		snap_access = pw_snap_get_audio_permissions(client, client_fd, &snap_app_id);
 		if ((snap_access & PW_SANDBOX_ACCESS_NOT_A_SANDBOX) == 0) {
-			pw_properties_set(client->props, PW_KEY_SNAP_ID, app_id);
+			pw_properties_set(client->props, PW_KEY_SNAP_ID, snap_app_id);
 
 			pw_properties_set(client->props,
 			                  PW_KEY_SNAP_PLAYBACK_ALLOWED,

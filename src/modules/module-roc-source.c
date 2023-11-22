@@ -425,7 +425,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(playback_props, PW_KEY_NODE_NETWORK) == NULL)
 		pw_properties_set(playback_props, PW_KEY_NODE_NETWORK, "true");
 
-	data->rate = pw_properties_get_uint32(playback_props, PW_KEY_AUDIO_RATE, data->rate);
+	data->rate = pw_properties_get_uint32(playback_props, PW_KEY_AUDIO_RATE, 0);
 	if (data->rate == 0)
 		data->rate = PW_ROC_DEFAULT_RATE;
 

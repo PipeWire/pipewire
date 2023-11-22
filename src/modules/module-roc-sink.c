@@ -402,7 +402,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if ((str = pw_properties_get(capture_props, PW_KEY_MEDIA_CLASS)) == NULL)
 		pw_properties_set(capture_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 
-	data->rate = pw_properties_get_uint32(capture_props, PW_KEY_AUDIO_RATE, data->rate);
+	data->rate = pw_properties_get_uint32(capture_props, PW_KEY_AUDIO_RATE, 0);
 	if (data->rate == 0)
 		data->rate = PW_ROC_DEFAULT_RATE;
 

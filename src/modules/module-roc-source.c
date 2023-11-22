@@ -410,7 +410,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if ((str = pw_properties_get(props, "source.name")) != NULL) {
 		pw_properties_set(playback_props, PW_KEY_NODE_NAME, str);
-		pw_properties_set(props, "source.name", NULL);
 	}
 
 	if ((str = pw_properties_get(props, "source.props")) != NULL)
@@ -431,28 +430,24 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if ((str = pw_properties_get(props, "local.ip")) != NULL) {
 		data->local_ip = strdup(str);
-		pw_properties_set(props, "local.ip", NULL);
 	} else {
 		data->local_ip = strdup(PW_ROC_DEFAULT_IP);
 	}
 
 	if ((str = pw_properties_get(props, "local.source.port")) != NULL) {
 		data->local_source_port = pw_properties_parse_int(str);
-		pw_properties_set(props, "local.source.port", NULL);
 	} else {
 		data->local_source_port = PW_ROC_DEFAULT_SOURCE_PORT;
 	}
 
 	if ((str = pw_properties_get(props, "local.repair.port")) != NULL) {
 		data->local_repair_port = pw_properties_parse_int(str);
-		pw_properties_set(props, "local.repair.port", NULL);
 	} else {
 		data->local_repair_port = PW_ROC_DEFAULT_REPAIR_PORT;
 	}
 
 	if ((str = pw_properties_get(props, "sess.latency.msec")) != NULL) {
 		data->sess_latency_msec = pw_properties_parse_int(str);
-		pw_properties_set(props, "sess.latency.msec", NULL);
 	} else {
 		data->sess_latency_msec = PW_ROC_DEFAULT_SESS_LATENCY;
 	}
@@ -462,7 +457,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			pw_log_warn("Invalid resampler profile %s, using default", str);
 			data->resampler_profile = ROC_RESAMPLER_PROFILE_DEFAULT;
 		}
-		pw_properties_set(props, "resampler.profile", NULL);
 	} else {
 		data->resampler_profile = ROC_RESAMPLER_PROFILE_DEFAULT;
 	}
@@ -471,7 +465,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			pw_log_error("Invalid fec code %s, using default", str);
 			data->fec_code = ROC_FEC_ENCODING_DEFAULT;
 		}
-		pw_properties_set(props, "fec.code", NULL);
 	} else {
 		data->fec_code = ROC_FEC_ENCODING_DEFAULT;
 	}

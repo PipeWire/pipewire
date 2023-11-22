@@ -385,7 +385,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if ((str = pw_properties_get(props, "sink.name")) != NULL) {
 		pw_properties_set(capture_props, PW_KEY_NODE_NAME, str);
-		pw_properties_set(props, "sink.name", NULL);
 	}
 
 	if ((str = pw_properties_get(props, "sink.props")) != NULL)
@@ -408,7 +407,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if ((str = pw_properties_get(props, "remote.ip")) != NULL) {
 		data->remote_ip = strdup(str);
-		pw_properties_set(props, "remote.ip", NULL);
 	} else {
 		pw_log_error("Remote IP not specified");
 		res = -EINVAL;
@@ -417,14 +415,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if ((str = pw_properties_get(props, "remote.source.port")) != NULL) {
 		data->remote_source_port = pw_properties_parse_int(str);
-		pw_properties_set(props, "remote.source.port", NULL);
 	} else {
 		data->remote_source_port = PW_ROC_DEFAULT_SOURCE_PORT;
 	}
 
 	if ((str = pw_properties_get(props, "remote.repair.port")) != NULL) {
 		data->remote_repair_port = pw_properties_parse_int(str);
-		pw_properties_set(props, "remote.repair.port", NULL);
 	} else {
 		data->remote_repair_port = PW_ROC_DEFAULT_REPAIR_PORT;
 	}
@@ -434,7 +430,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			data->fec_code = ROC_FEC_ENCODING_DEFAULT;
 		}
 		pw_log_info("using fec.code %s %d", str, data->fec_code);
-		pw_properties_set(props, "fec.code", NULL);
 	} else {
 		data->fec_code = ROC_FEC_ENCODING_DEFAULT;
 	}

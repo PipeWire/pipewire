@@ -106,15 +106,15 @@ pw_sandbox_access_t pw_snap_get_audio_permissions(struct client *client, int fd,
         // give to it full access.
         if (check_is_same_snap(aacon, aa_label))
             return PW_SANDBOX_ACCESS_ALL;
-        snapd_client_set_socket_path (snapdclient, "/run/snapd-snap.socket");
+        snapd_client_set_socket_path(snapdclient, "/run/snapd-snap.socket");
 
         /* Take context from the environment if available */
-        const char *context = g_getenv ("SNAP_COOKIE");
+        const char *context = g_getenv("SNAP_COOKIE");
         if (!context)
             context = "";
 
         char *snapctl_command[] = { "is-connected", "--apparmor-label", aa_label, "pulseaudio", NULL };
-        if (!snapd_client_run_snapctl2_sync (snapdclient, context, (char **) snapctl_command, NULL, NULL, &exit_code, NULL, &error)) {
+        if (!snapd_client_run_snapctl2_sync(snapdclient, context, (char **) snapctl_command, NULL, NULL, &exit_code, NULL, &error)) {
             pw_log_warn("snap_get_audio_permissions: error summoning snapctl2 for pulseaudio interface: %s", error->message);
             return PW_SANDBOX_ACCESS_NONE;
         }
@@ -125,7 +125,7 @@ pw_sandbox_access_t pw_snap_get_audio_permissions(struct client *client, int fd,
             return PW_SANDBOX_ACCESS_ALL;
         }
         char *snapctl_command2[] = { "is-connected", "--apparmor-label", aa_label, "audio-record", NULL };
-        if (!snapd_client_run_snapctl2_sync (snapdclient, context, (char **) snapctl_command2, NULL, NULL, &exit_code, NULL, &error)) {
+        if (!snapd_client_run_snapctl2_sync(snapdclient, context, (char **) snapctl_command2, NULL, NULL, &exit_code, NULL, &error)) {
             pw_log_warn("snap_get_audio_permissions: error summoning snapctl2 for audio-record interface: %s", error->message);
             return PW_SANDBOX_ACCESS_NONE;
         }
@@ -177,10 +177,10 @@ pw_sandbox_access_t pw_snap_get_audio_permissions(struct client *client, int fd,
         SnapdSlotRef **slot = (SnapdSlotRef**) slots->pdata;
 
         for (guint q = 0; q < slots->len; q++, slot++) {
-            const gchar *slot_name = snapd_slot_ref_get_slot (*slot);
-            const gchar *snap_name = snapd_slot_ref_get_snap (*slot);
-            if (g_str_equal (snap_name, "snapd") &&
-                g_str_equal (slot_name, plug_name))
+            const gchar *slot_name = snapd_slot_ref_get_slot(*slot);
+            const gchar *snap_name = snapd_slot_ref_get_snap(*slot);
+            if (g_str_equal(snap_name, "snapd") &&
+                g_str_equal(slot_name, plug_name))
                     permissions |= add_permission;
         }
     }

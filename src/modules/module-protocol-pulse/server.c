@@ -459,12 +459,12 @@ on_connect(void *data, int fd, uint32_t mask)
 			pw_properties_set(client->props, PW_KEY_SNAP_ID, snap_app_id);
 
 			pw_properties_set(client->props,
-			                  PW_KEY_SNAP_PLAYBACK_ALLOWED,
-			                  (snap_access & PW_SANDBOX_ACCESS_PLAYBACK) ? "true" : "false");
+					  PW_KEY_SNAP_PLAYBACK_ALLOWED,
+					  (snap_access & PW_SANDBOX_ACCESS_PLAYBACK) ? "true" : "false");
 
 			pw_properties_set(client->props,
-			                  PW_KEY_SNAP_RECORD_ALLOWED,
-			                  (snap_access & PW_SANDBOX_ACCESS_RECORD) ? "true" : "false");
+					  PW_KEY_SNAP_RECORD_ALLOWED,
+					  (snap_access & PW_SANDBOX_ACCESS_RECORD) ? "true" : "false");
 		}
 #endif
 	}

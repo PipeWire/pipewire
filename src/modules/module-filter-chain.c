@@ -2858,6 +2858,9 @@ static void impl_destroy(struct impl *impl)
 	graph_free(&impl->graph);
 	spa_list_consume(pl, &impl->plugin_func_list, link)
 		free_plugin_func(pl);
+
+	free(impl->silence_data);
+	free(impl->discard_data);
 	free(impl);
 }
 
@@ -2978,8 +2981,18 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->quantum_limit = pw_properties_get_uint32(
 			pw_context_get_properties(impl->context),
 			"default.clock.quantum-limit", 8192u);
+
 	impl->silence_data = calloc(impl->quantum_limit, sizeof(float));
+	if (impl->silence_data == NULL) {
+		res = -errno;
+		goto error;
+	}
+
 	impl->discard_data = calloc(impl->quantum_limit, sizeof(float));
+	if (impl->discard_data == NULL) {
+		res = -errno;
+		goto error;
+	}
 
 	cpu_iface = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 	impl->dsp.cpu_flags = cpu_iface ? spa_cpu_get_flags(cpu_iface) : 0;

@@ -58,7 +58,7 @@ pw_sandbox_access_t pw_snap_get_audio_permissions(struct client *client, int fd,
     SnapdPlug **plug = NULL;
     GPtrArray *slots = NULL;
     SnapdSlotRef **slot = NULL;
-    GError *error = NULL;
+    g_autoptr(GError) error = NULL;
     int exit_code;
 
     *app_id = g_strdup("unknown");

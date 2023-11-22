@@ -19,7 +19,8 @@
 
 #define SNAP_LABEL_PREFIX      "snap."
 
-static gboolean check_is_same_snap(gchar *snap1, gchar *snap2) {
+static gboolean check_is_same_snap(gchar *snap1, gchar *snap2)
+{
     // Checks if two apparmor labels belong to the same snap
     g_auto(GStrv) strings1 = NULL;
     g_auto(GStrv) strings2 = NULL;

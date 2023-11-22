@@ -56,8 +56,6 @@ pw_sandbox_access_t pw_snap_get_audio_permissions(struct client *client, int fd,
     pw_sandbox_access_t permissions = PW_SANDBOX_ACCESS_NONE;
     pw_sandbox_access_t add_permission = PW_SANDBOX_ACCESS_NONE;
     SnapdPlug **plug = NULL;
-    GPtrArray *slots = NULL;
-    SnapdSlotRef **slot = NULL;
     g_autoptr(GError) error = NULL;
     int exit_code;
 
@@ -174,10 +172,10 @@ pw_sandbox_access_t pw_snap_get_audio_permissions(struct client *client, int fd,
         } else {
             continue;
         }
-        slots = snapd_plug_get_connected_slots(*plug);
+        GPtrArray *slots = snapd_plug_get_connected_slots(*plug);
         if (slots == NULL)
             continue;
-        slot = (SnapdSlotRef**) slots->pdata;
+        SnapdSlotRef **slot = (SnapdSlotRef**) slots->pdata;
 
         for (guint q = 0; q < slots->len; q++, slot++) {
             const gchar *slot_name = snapd_slot_ref_get_slot (*slot);

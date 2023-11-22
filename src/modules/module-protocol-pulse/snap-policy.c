@@ -49,7 +49,6 @@ pw_sandbox_access_t pw_snap_get_audio_permissions(struct client *client, int fd,
     gchar *separator = NULL;
     g_autofree gchar *aacon = NULL;
     gchar *aamode = NULL;
-    const char *context = NULL;
     g_autoptr(SnapdClient) snapdclient = NULL;
     g_autoptr(GPtrArray) plugs = NULL;
     gboolean retv;
@@ -111,7 +110,7 @@ pw_sandbox_access_t pw_snap_get_audio_permissions(struct client *client, int fd,
         snapd_client_set_socket_path (snapdclient, "/run/snapd-snap.socket");
 
         /* Take context from the environment if available */
-        context = g_getenv ("SNAP_COOKIE");
+        const char *context = g_getenv ("SNAP_COOKIE");
         if (!context)
             context = "";
 

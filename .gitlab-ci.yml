@@ -96,6 +96,7 @@ include:
       debhelper-compat
       findutils
       git
+      libapparmor-dev
       libasound2-dev
       libavcodec-dev
       libavfilter-dev
@@ -107,6 +108,7 @@ include:
       libgstreamer-plugins-base1.0-dev
       libsbc-dev
       libsdl2-dev
+      libsnapd-glib-dev
       libudev-dev
       libva-dev
       libv4l-dev
@@ -247,7 +249,7 @@ build_on_ubuntu:
     - .build
   stage: build
   variables:
-    MESON_OPTIONS: "-Dsession-managers=[]"
+    MESON_OPTIONS: "-Dsession-managers=[] -Dsnap=enabled"
 
 .build_on_fedora:
   extends:
@@ -274,6 +276,7 @@ build_on_fedora:
         -Dsdl2=enabled
         -Dsndfile=enabled
         -Dsession-managers=[]
+        -Dsnap=disabled
   artifacts:
     name: pipewire-$CI_COMMIT_SHA
     when: always
@@ -289,7 +292,7 @@ build_on_alpine:
     - .build
   stage: build
   variables:
-    MESON_OPTIONS: "-Dsession-managers=[]"
+    MESON_OPTIONS: "-Dsession-managers=[] -Dsnap=disabled"
 
 # build with all auto() options enabled
 build_all:
@@ -308,6 +311,7 @@ build_all:
         -Dsession-managers=[]
         -Dc_args=['-UFASTPATH']
         -Dcpp_args=['-UFASTPATH']
+        -Dsnap=disabled
   parallel:
     matrix:
       - CC: [gcc, clang]
@@ -317,7 +321,7 @@ build_with_no_commandline_options:
   extends:
     - .build_on_fedora
   variables:
-    MESON_OPTIONS: "-Dsession-managers=[]"
+    MESON_OPTIONS: "-Dsession-managers=[] -Dsnap=disabled"
   parallel:
     matrix:
       - CC: [gcc, clang]
@@ -353,7 +357,7 @@ build_release:
   extends:
     - .build_on_fedora
   variables:
-    MESON_OPTIONS: "-Dtest=enabled -Dbuildtype=release -Db_ndebug=true -Dsession-managers=[]"
+    MESON_OPTIONS: "-Dtest=enabled -Dbuildtype=release -Db_ndebug=true -Dsession-managers=[] -Dsnap=disabled"
   parallel:
     matrix:
       - CC: [gcc, clang]
@@ -367,7 +371,7 @@ build_session_managers:
     - meson compile -C "$BUILD_DIR" $COMPILE_ARGS
     - meson install -C "$BUILD_DIR" --no-rebuild
   variables:
-    MESON_OPTIONS: "-Dsession-managers=$SESSION_MANAGERS"
+    MESON_OPTIONS: "-Dsession-managers=$SESSION_MANAGERS -Dsnap=disabled"
   parallel:
     matrix:
       - SESSION_MANAGERS: ["[]", "wireplumber", "media-session", "media-session,wireplumber", "wireplumber,media-session" ]
@@ -384,7 +388,7 @@ build_meson_prerelease:
     - meson compile -C "$BUILD_DIR" $COMPILE_ARGS
     - meson install -C "$BUILD_DIR" --no-rebuild
   variables:
-    MESON_OPTIONS: "-Dsession-managers=wireplumber,media-session"
+    MESON_OPTIONS: "-Dsession-managers=wireplumber,media-session -Dsnap=disabled"
   allow_failure: true
 
 build_meson_exact_release:
@@ -402,7 +406,7 @@ build_meson_exact_release:
     - meson compile -C "$BUILD_DIR" $COMPILE_ARGS
     - meson install -C "$BUILD_DIR" --no-rebuild
   variables:
-    MESON_OPTIONS: "-Dsession-managers=[]"
+    MESON_OPTIONS: "-Dsession-managers=[] -Dsnap=disabled"
 
 valgrind:
   extends:

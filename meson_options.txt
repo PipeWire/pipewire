@@ -334,3 +334,7 @@ option('gsettings-pulse-schema',
        description: 'Install gsettings schema for pulseaudio',
        type: 'feature',
        value: 'auto')
+option('snap',
+       description : 'Snap support is available.',
+       type : 'feature',
+       value : 'auto')

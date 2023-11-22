@@ -393,6 +393,13 @@ pipewire_module_protocol_pulse_sources = [
   'module-protocol-pulse/modules/module-zeroconf-discover.c',
 ]
 
+if snap_dep.found() and glib2_snap_dep.found() and gio2_snap_dep.found() and apparmor_snap_dep.found()
+  pipewire_module_protocol_pulse_sources += [
+    'module-protocol-pulse/snap-policy.c',
+  ]
+  pipewire_module_protocol_pulse_deps += snap_deps
+endif
+
 if dbus_dep.found()
   pipewire_module_protocol_pulse_sources += [
     'module-protocol-pulse/dbus-name.c',

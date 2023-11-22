@@ -433,6 +433,22 @@ summary({'lilv (for lv2 plugins)': lilv_lib.found()}, bool_yn: true)
 
 libffado_dep = dependency('libffado', required: get_option('libffado'))
 summary({'ffado': libffado_dep.found()}, bool_yn: true)
+glib2_snap_dep = dependency('glib-2.0', required : get_option('snap'))
+gio2_snap_dep = dependency('gio-2.0', required : get_option('snap'))
+apparmor_snap_dep = dependency('libapparmor', required : get_option('snap'))
+if dependency('snapd-glib-2', required: false).found()
+  snap_dep = dependency('snapd-glib-2', required : get_option('snap'))
+else
+  snap_dep = dependency('snapd-glib', required : get_option('snap'))
+endif
+if snap_dep.found() and glib2_snap_dep.found() and gio2_snap_dep.found() and apparmor_snap_dep.found()
+  cdata.set('HAVE_SNAP', 1)
+  snap_deps = [glib2_snap_dep, gio2_snap_dep, snap_dep, apparmor_snap_dep]
+endif
+summary({'GLib-2.0 (Snap support)': glib2_snap_dep.found()}, bool_yn: true, section: 'Misc dependencies')
+summary({'Gio-2.0 (Snap support)': gio2_snap_dep.found()}, bool_yn: true, section: 'Misc dependencies')
+summary({'Apparmor (Snap support)': apparmor_snap_dep.found()}, bool_yn: true, section: 'Misc dependencies')
+summary({'Snapd-glib (Snap support)': snap_dep.found()}, bool_yn: true, section: 'Misc dependencies')
 
 check_functions = [
   ['gettid', '#include <unistd.h>', ['-D_GNU_SOURCE'], []],

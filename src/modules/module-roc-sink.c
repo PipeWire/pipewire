@@ -282,21 +282,7 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 		return -EINVAL;
 	}
 
-	switch (data->fec_code) {
-	case ROC_FEC_ENCODING_DEFAULT:
-	case ROC_FEC_ENCODING_RS8M:
-		audio_proto = ROC_PROTO_RTP_RS8M_SOURCE;
-		repair_proto = ROC_PROTO_RS8M_REPAIR;
-		break;
-	case ROC_FEC_ENCODING_LDPC_STAIRCASE:
-		audio_proto = ROC_PROTO_RTP_LDPC_SOURCE;
-		repair_proto = ROC_PROTO_LDPC_REPAIR;
-		break;
-	default:
-		audio_proto = ROC_PROTO_RTP;
-		repair_proto = 0;
-		break;
-	}
+	pw_roc_fec_encoding_to_proto(data->fec_code, &audio_proto, &repair_proto);
 
 	res = pw_roc_create_endpoint(&data->remote_source_addr, audio_proto, data->remote_ip, data->remote_source_port);
 	if (res < 0) {

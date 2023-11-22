@@ -66,4 +66,23 @@ out_error_free_ep:
 	return -EINVAL;
 }
 
+static inline void pw_roc_fec_encoding_to_proto(roc_fec_encoding fec_code, roc_protocol *audio, roc_protocol *repair)
+{
+	switch (fec_code) {
+	case ROC_FEC_ENCODING_DEFAULT:
+	case ROC_FEC_ENCODING_RS8M:
+		*audio = ROC_PROTO_RTP_RS8M_SOURCE;
+		*repair = ROC_PROTO_RS8M_REPAIR;
+		break;
+	case ROC_FEC_ENCODING_LDPC_STAIRCASE:
+		*audio = ROC_PROTO_RTP_LDPC_SOURCE;
+		*repair = ROC_PROTO_LDPC_REPAIR;
+		break;
+	default:
+		*audio = ROC_PROTO_RTP;
+		*repair = 0;
+		break;
+	}
+}
+
 #endif /* MODULE_ROC_COMMON_H */

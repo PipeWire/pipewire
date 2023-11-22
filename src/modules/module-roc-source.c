@@ -19,6 +19,7 @@
 #include <roc/log.h>
 #include <roc/receiver.h>
 
+#include <pipewire/cleanup.h>
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
 
@@ -86,7 +87,6 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 struct module_roc_source_data {
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
-	struct pw_properties *props;
 	struct pw_context *module_context;
 
 	struct pw_core *core;
@@ -220,7 +220,6 @@ static void impl_destroy(struct module_roc_source_data *data)
 		pw_core_disconnect(data->core);
 
 	pw_properties_free(data->playback_props);
-	pw_properties_free(data->props);
 
 	if (data->receiver)
 		roc_receiver_close(data->receiver);
@@ -378,7 +377,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct module_roc_source_data *data;
-	struct pw_properties *props = NULL, *playback_props = NULL;
+	struct pw_properties *playback_props = NULL;
 	const char *str;
 	int res = 0;
 
@@ -391,13 +390,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (args == NULL)
 		args = "";
 
-	props = pw_properties_new_string(args);
+	spa_autoptr(pw_properties) props = pw_properties_new_string(args);
 	if (props == NULL) {
 		res = -errno;
 		pw_log_error( "can't create properties: %m");
 		goto out;
 	}
-	data->props = props;
 
 	playback_props = pw_properties_new(NULL, NULL);
 	if (playback_props == NULL) {

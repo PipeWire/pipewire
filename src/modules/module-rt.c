@@ -612,7 +612,7 @@ static bool check_realtime_privileges(struct impl *impl)
 			pw_log_info("getrlimit() failed: %m");
 		if (setrlimit(RLIMIT_RTTIME, &no_rlim) < 0)
 			pw_log_info("setrlimit() failed: %m");
-		if (err = pthread_setschedparam(pthread_self(), new_policy, &new_sched_params) == 0) {
+		if ((err = pthread_setschedparam(pthread_self(), new_policy, &new_sched_params)) == 0) {
 			impl->rt_prio = new_sched_params.sched_priority;
 			pthread_setschedparam(pthread_self(), old_policy, &old_sched_params);
 			ret = true;

@@ -2,10 +2,6 @@ pipewire_daemon_sources = [
   'pipewire.c',
 ]
 
-pipewire_c_args = [
-  '-DG_LOG_DOMAIN=g_log_domain_pipewire',
-]
-
 conf_config = configuration_data()
 conf_config.set('VERSION', '"@0@"'.format(pipewire_version))
 conf_config.set('PIPEWIRE_CONFIG_DIR', pipewire_configdir)
@@ -106,7 +102,6 @@ endforeach
 pipewire_exec = executable('pipewire',
   pipewire_daemon_sources,
   install: true,
-  c_args : pipewire_c_args,
   include_directories : [ configinc ],
   dependencies : [ spa_dep, pipewire_dep, ],
 )

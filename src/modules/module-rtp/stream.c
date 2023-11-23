@@ -420,7 +420,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	} else {
 		impl->psamples = impl->mtu / impl->stride;
 		impl->psamples = SPA_CLAMP(impl->psamples, min_samples, max_samples);
-		if (direction == PW_DIRECTION_OUTPUT)
+		if (direction == PW_DIRECTION_INPUT)
 			pw_properties_setf(props, "rtp.ptime", "%f",
 					impl->psamples * 1000.0 / impl->rate);
 	}

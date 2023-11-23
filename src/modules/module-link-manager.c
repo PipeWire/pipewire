@@ -54,7 +54,7 @@ struct port {
 	struct spa_hook proxy_listener;
 	struct spa_hook port_listener;
 
-	struct port *linked;
+	struct port *linked_port;
 	uint32_t link_id;
 };
 
@@ -102,8 +102,8 @@ static void create_link(struct impl *impl, struct port *p1, struct port *p2)
 	if (proxy == NULL)
 		pw_log_error("Could not create link: %s", spa_strerror(errno));
 
-	p1->linked = p2;
-	p2->linked = p1;
+	p1->linked_port = p2;
+	p2->linked_port = p1;
 }
 
 static bool node_is_source(struct node *node)
@@ -199,7 +199,7 @@ static void link_port_to_target(struct impl *impl, struct port *port, struct nod
 		if (p->node_id != target_node->id)
 			continue;
 
-		if (p->linked)
+		if (p->linked_port)
 			continue;
 
 		if (!p->props) {
@@ -218,7 +218,7 @@ static void check_port(struct impl *impl, struct port *port)
 {
 	struct node *node, *target_node = NULL;
 
-	if (port->linked)
+	if (port->linked_port)
 		return;
 
 	node = find_node_by_id(impl, port->node_id);
@@ -343,20 +343,20 @@ static void unlink_node_ports(struct impl *impl, struct node *this_node, bool ca
 		if (port->node_id != this_node->id)
 			continue;
 
-		if (!port->linked)
+		if (!port->linked_port)
 			continue;
 
-		pw_log_debug("Destroying link %u (%u <-> %u)", port->link_id, port->id, port->linked->id);
+		pw_log_debug("Destroying link %u (%u <-> %u)", port->link_id, port->id, port->linked_port->id);
 		pw_registry_destroy(impl->registry, port->link_id);
 
-		other_node_id = port->linked->node_id;
+		other_node_id = port->linked_port->node_id;
 
 		// Clean up the other port
-		port->linked->link_id = 0;
-		port->linked->linked = NULL;
+		port->linked_port->link_id = 0;
+		port->linked_port->linked_port = NULL;
 		// And this one
 		port->link_id = 0;
-		port->linked = NULL;
+		port->linked_port = NULL;
 	}
 
 	if (other_node_id != 0)
@@ -583,10 +583,10 @@ static void port_destroy(void *data) {
 
 	spa_list_remove(&port->list);
 
-	if (port->linked) {
+	if (port->linked_port) {
 		// "unlink" the other port
-		port->linked->linked = NULL;
-		port->linked->link_id = 0;
+		port->linked_port->linked_port = NULL;
+		port->linked_port->link_id = 0;
 	}
 
 	if (port->props)

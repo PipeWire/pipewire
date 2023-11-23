@@ -165,7 +165,7 @@ static bool check_client_property_update(struct pw_impl_client *client,
 
 	/* Refuse specific restricted keys */
 	if (has_key(ignored, key))
-		goto deny;
+		goto ignore;
 
 	/* Refuse all security keys */
 	if (spa_strstartswith(key, "pipewire.sec."))
@@ -184,6 +184,7 @@ deny:
 	if (!spa_streq(old, new))
 		pw_log_warn("%p: refuse property update '%s' from '%s' to '%s'",
 				client, key, old ? old : "<unset>", new ? new : "<unset>");
+ignore:
 	return false;
 }
 

@@ -582,6 +582,13 @@ static void port_destroy(void *data) {
 	spa_hook_remove(&port->proxy_listener);
 
 	spa_list_remove(&port->list);
+
+	if (port->linked) {
+		// "unlink" the other port
+		port->linked->linked = NULL;
+		port->linked->link_id = 0;
+	}
+
 	if (port->props)
 		pw_properties_free(port->props);
 }

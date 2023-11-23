@@ -6,6 +6,22 @@ Graph are constructed from linked nodes together with their ports. This
 results in a dependency graph between nodes. Special care is taken for
 loopback links so that the graph remains a directed graph.
 
+# Processing threads
+
+The server (and clients) have two processing threads:
+
+- A main thread that will do all IPC with clients and server and configures the
+  nodes in the graph for processing.
+- A (or more) data processing thread that only does the data processing.
+
+
+The data processing threads are given realtime priority and are designed to
+run with as little overhead as possible. All of the node resources such as
+buffers, io areas and metadata will be set up in shared memory before the
+node is scheduled to run.
+
+This document describes the processing that happens in the data processing
+thread after the main-thread has configured it.
 
 # Nodes
 

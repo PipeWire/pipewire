@@ -14,6 +14,7 @@
 #include <spa/param/audio/format.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/utils/string.h>
+#include <spa/debug/log.h>
 
 #include <lc3.h>
 
@@ -21,6 +22,11 @@
 #include "bap-codec-caps.h"
 
 #define MAX_PACS	64
+
+static struct spa_log *log;
+static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.codecs.lc3");
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
 
 struct impl {
 	lc3_encoder_t enc[LC3_MAX_CHANNELS];
@@ -38,6 +44,7 @@ struct impl {
 struct pac_data {
 	const uint8_t *data;
 	size_t size;
+	int index;
 	uint32_t locations;
 };
 
@@ -126,7 +133,31 @@ static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 	return data - caps;
 }
 
-static int parse_bluez_pacs(const uint8_t *data, size_t data_size, struct pac_data pacs[MAX_PACS])
+static void debugc_ltv(struct spa_debug_context *debug_ctx, int pac, struct ltv *ltv)
+{
+	switch (ltv->len) {
+	case 0:
+		spa_debugc(debug_ctx, "PAC %d: --", pac);
+		break;
+	case 2:
+		spa_debugc(debug_ctx, "PAC %d: 0x%02x %x", pac, ltv->type, ltv->value[0]);
+		break;
+	case 3:
+		spa_debugc(debug_ctx, "PAC %d: 0x%02x %x %x", pac, ltv->type, ltv->value[0], ltv->value[1]);
+		break;
+	case 5:
+		spa_debugc(debug_ctx, "PAC %d: 0x%02x %x %x %x %x", pac, ltv->type,
+				ltv->value[0], ltv->value[1], ltv->value[2], ltv->value[3]);
+		break;
+	default:
+		spa_debugc(debug_ctx, "PAC %d: 0x%02x", pac, ltv->type);
+		spa_debugc_mem(debug_ctx, 7, ltv->value, ltv->len - 1);
+		break;
+	}
+}
+
+static int parse_bluez_pacs(const uint8_t *data, size_t data_size, struct pac_data pacs[MAX_PACS],
+		struct spa_debug_context *debug_ctx)
 {
 	/*
 	 * BlueZ capabilites for the same codec may contain multiple
@@ -145,10 +176,11 @@ static int parse_bluez_pacs(const uint8_t *data, size_t data_size, struct pac_da
 				break;
 
 			++pac;
-			pacs[pac] = (struct pac_data){ data + 1, 0 };
+			pacs[pac] = (struct pac_data){ data + 1, 0, pac };
 		} else if (ltv->len >= data_size) {
 			return -EINVAL;
 		} else {
+			debugc_ltv(debug_ctx, pac, ltv);
 			pacs[pac].size += ltv->len + 1;
 		}
 		data_size -= ltv->len + 1;
@@ -221,8 +253,10 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac)
 	while (data_size > 0) {
 		struct ltv *ltv = (struct ltv *)data;
 
-		if (ltv->len < sizeof(struct ltv) || ltv->len >= data_size)
+		if (ltv->len < sizeof(struct ltv) || ltv->len >= data_size) {
+			spa_debugc(debug_ctx, "invalid LTV data");
 			return false;
+		}
 
 		switch (ltv->type) {
 		case LC3_TYPE_FREQ:
@@ -237,8 +271,10 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac)
 					conf->rate = LC3_CONFIG_FREQ_16KHZ;
 				else if (rate & LC3_FREQ_8KHZ)
 					conf->rate = LC3_CONFIG_FREQ_8KHZ;
-				else
+				else {
+					spa_debugc(debug_ctx, "unsupported rate: 0x%04x", rate);
 					return false;
+				}
 			}
 			break;
 		case LC3_TYPE_DUR:
@@ -249,8 +285,10 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac)
 					conf->frame_duration = LC3_CONFIG_DURATION_10;
 				else if (duration & LC3_DUR_7_5)
 					conf->frame_duration = LC3_CONFIG_DURATION_7_5;
-				else
+				else {
+					spa_debugc(debug_ctx, "unsupported duration: 0x%02x", duration);
 					return false;
+				}
 			}
 			break;
 		case LC3_TYPE_CHAN:
@@ -272,7 +310,8 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac)
 			max_frames = ltv->value[0];
 			break;
 		default:
-			return false;
+			spa_debugc(debug_ctx, "unknown LTV type: 0x%02x", ltv->type);
+			break;
 		}
 		data_size -= ltv->len + 1;
 		data += ltv->len + 1;
@@ -281,13 +320,19 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac)
 	/* Default: 1 per channel (BAP v1.0.1 Sec 4.3.1) */
 	if (max_frames < 0)
 		max_frames = get_num_channels(conf->channels);
-	if (max_frames < get_num_channels(conf->channels))
+	if (max_frames < get_num_channels(conf->channels)) {
+		spa_debugc(debug_ctx, "invalid max frames per SDU: %u", max_frames);
 		return false;
+	}
 
-	if (framelen_min < LC3_MIN_FRAME_BYTES || framelen_max > LC3_MAX_FRAME_BYTES)
+	if (framelen_min < LC3_MIN_FRAME_BYTES || framelen_max > LC3_MAX_FRAME_BYTES) {
+		spa_debugc(debug_ctx, "invalid framelen: %u %u", framelen_min, framelen_max);
 		return false;
-	if (conf->frame_duration == 0xFF || !conf->rate)
+	}
+	if (conf->frame_duration == 0xFF || !conf->rate) {
+		spa_debugc(debug_ctx, "no frame duration or rate");
 		return false;
+	}
 
 	/* BAP v1.0.1 Table 5.2; high-reliability */
 	switch (conf->rate) {
@@ -316,7 +361,8 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac)
 			conf->framelen = 30;	/* 8_2_2 */
 		break;
 	default:
-			return false;
+		spa_debugc(debug_ctx, "invalid rate");
+		return false;
 	}
 
 	return true;
@@ -413,11 +459,12 @@ static int pac_cmp(const void *p1, const void *p2)
 {
 	const struct pac_data *pac1 = p1;
 	const struct pac_data *pac2 = p2;
+	struct spa_debug_log_ctx debug_ctx = SPA_LOG_DEBUG_INIT(log, SPA_LOG_LEVEL_TRACE);
 	bap_lc3_t conf1, conf2;
 	int res1, res2;
 
-	res1 = select_config(&conf1, pac1) ? (int)sizeof(bap_lc3_t) : -EINVAL;
-	res2 = select_config(&conf2, pac2) ? (int)sizeof(bap_lc3_t) : -EINVAL;
+	res1 = select_config(&conf1, pac1, &debug_ctx.ctx) ? (int)sizeof(bap_lc3_t) : -EINVAL;
+	res2 = select_config(&conf2, pac2, &debug_ctx.ctx) ? (int)sizeof(bap_lc3_t) : -EINVAL;
 
 	return conf_cmp(&conf1, res1, &conf2, res2);
 }
@@ -432,6 +479,7 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	bap_lc3_t conf;
 	uint8_t *data = config;
 	uint32_t locations = 0;
+	struct spa_debug_log_ctx debug_ctx = SPA_LOG_DEBUG_INIT(log, SPA_LOG_LEVEL_TRACE);
 	int i;
 
 	if (caps == NULL)
@@ -441,21 +489,29 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 		for (i = 0; i < (int)settings->n_items; ++i)
 			if (spa_streq(settings->items[i].key, "bluez5.bap.locations"))
 				sscanf(settings->items[i].value, "%"PRIu32, &locations);
+
+		if (spa_atob(spa_dict_lookup(settings, "bluez5.bap.debug")))
+			debug_ctx = SPA_LOG_DEBUG_INIT(log, SPA_LOG_LEVEL_DEBUG);
 	}
 
 	/* Select best conf from those possible */
-	npacs = parse_bluez_pacs(caps, caps_size, pacs);
-	if (npacs < 0)
+	npacs = parse_bluez_pacs(caps, caps_size, pacs, &debug_ctx.ctx);
+	if (npacs < 0) {
+		spa_debugc(&debug_ctx.ctx, "malformed PACS");
 		return npacs;
-	else if (npacs == 0)
+	} else if (npacs == 0) {
+		spa_debugc(&debug_ctx.ctx, "no PACS");
 		return -EINVAL;
+	}
 
 	for (i = 0; i < npacs; ++i)
 		pacs[i].locations = locations;
 
 	qsort(pacs, npacs, sizeof(struct pac_data), pac_cmp);
 
-	if (!select_config(&conf, &pacs[0]))
+	spa_debugc(&debug_ctx.ctx, "selected PAC %d", pacs[0].index);
+
+	if (!select_config(&conf, &pacs[0], &debug_ctx.ctx))
 		return -ENOTSUP;
 
 	data += write_ltv_uint8(data, LC3_TYPE_FREQ, conf.rate);
@@ -892,6 +948,12 @@ static int codec_increase_bitpool(void *data)
 	return -ENOTSUP;
 }
 
+static void codec_set_log(struct spa_log *global_log)
+{
+	log = global_log;
+	spa_log_topic_init(log, &log_topic);
+}
+
 const struct media_codec bap_codec_lc3 = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_LC3,
 	.name = "lc3",
@@ -913,7 +975,8 @@ const struct media_codec bap_codec_lc3 = {
 	.start_decode = codec_start_decode,
 	.decode = codec_decode,
 	.reduce_bitpool = codec_reduce_bitpool,
-	.increase_bitpool = codec_increase_bitpool
+	.increase_bitpool = codec_increase_bitpool,
+	.set_log = codec_set_log,
 };
 
 MEDIA_CODEC_EXPORT_DEF(

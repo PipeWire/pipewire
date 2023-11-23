@@ -876,7 +876,7 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	bool sink;
 	const char *err_msg = "Unknown error";
 	struct spa_dict settings;
-	struct spa_dict_item setting_items[SPA_N_ELEMENTS(monitor->global_setting_items) + 1];
+	struct spa_dict_item setting_items[SPA_N_ELEMENTS(monitor->global_setting_items) + 2];
 	int i;
 
 	const char *endpoint_path = NULL;
@@ -933,8 +933,9 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 
 	for (i = 0; i < (int)monitor->global_settings.n_items; ++i)
 		setting_items[i] = monitor->global_settings.items[i];
-	setting_items[i] = SPA_DICT_ITEM_INIT("bluez5.bap.locations", locations);
-	settings = SPA_DICT_INIT(setting_items, monitor->global_settings.n_items + 1);
+	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.locations", locations);
+	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.debug", "true");
+	settings = SPA_DICT_INIT(setting_items, i);
 
 	conf_size = codec->select_config(codec, 0, caps, caps_size, &monitor->default_audio_info, &settings, config);
 	if (conf_size < 0) {

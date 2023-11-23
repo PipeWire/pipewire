@@ -32,7 +32,9 @@ static const char *const pulse_module_options =
 	"sess_latency_msec=<target network latency in milliseconds> "
 	"local_ip=<local receiver ip> "
 	"local_source_port=<local receiver port for source packets> "
-	"local_repair_port=<local receiver port for repair packets> ";
+	"local_repair_port=<local receiver port for repair packets> "
+	"local_control_port=<local receiver port for control packets> "
+	;
 
 #define NAME "roc-source"
 
@@ -123,6 +125,7 @@ static const char* const valid_args[] = {
 	"local_ip",
 	"local_source_port",
 	"local_repair_port",
+	"local_control_port",
 	NULL
 };
 
@@ -177,6 +180,11 @@ static int module_roc_source_prepare(struct module * const module)
 	if ((str = pw_properties_get(props, "local_repair_port")) != NULL) {
 		pw_properties_set(roc_props, "local.repair.port", str);
 		pw_properties_set(props, "local_repair_port", NULL);
+	}
+
+	if ((str = pw_properties_get(props, "local_control_port")) != NULL) {
+		pw_properties_set(roc_props, "local.control.port", str);
+		pw_properties_set(props, "local_control_port", NULL);
 	}
 
 	if ((str = pw_properties_get(props, "sess_latency_msec")) != NULL) {

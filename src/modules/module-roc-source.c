@@ -44,6 +44,7 @@
  * - `local.ip = <str>`: local sender ip
  * - `local.source.port = <str>`: local receiver TCP/UDP port for source packets
  * - `local.repair.port = <str>`: local receiver TCP/UDP port for receiver packets
+ * - `local.control.port = <str>`: local receiver TCP/UDP port for control packets
  * - `sess.latency.msec = <str>`: target network latency in milliseconds
  * - `resampler.profile = <str>`: Possible values: `disable`, `high`,
  *   `medium`, `low`.
@@ -68,6 +69,7 @@
  *          sess.latency.msec = 5000
  *          local.source.port = 10001
  *          local.repair.port = 10002
+ *          local.control.port = 10003
  *          source.name = "ROC Source"
  *          source.props = {
  *             node.name = "roc-source"
@@ -112,6 +114,9 @@ struct module_roc_source_data {
 	int local_source_port;
 	int local_repair_port;
 	int sess_latency_msec;
+
+	roc_endpoint *local_control_addr;
+	int local_control_port;
 };
 
 static void stream_destroy(void *d)
@@ -221,15 +226,12 @@ static void impl_destroy(struct module_roc_source_data *data)
 
 	pw_properties_free(data->playback_props);
 
-	if (data->receiver)
-		roc_receiver_close(data->receiver);
-	if (data->context)
-		roc_context_close(data->context);
+	spa_clear_ptr(data->receiver, roc_receiver_close);
+	spa_clear_ptr(data->context, roc_context_close);
 
-	if (data->local_source_addr)
-		(void) roc_endpoint_deallocate(data->local_source_addr);
-	if (data->local_repair_addr)
-		(void) roc_endpoint_deallocate(data->local_repair_addr);
+	spa_clear_ptr(data->local_source_addr, roc_endpoint_deallocate);
+	spa_clear_ptr(data->local_repair_addr, roc_endpoint_deallocate);
+	spa_clear_ptr(data->local_control_addr, roc_endpoint_deallocate);
 
 	free(data->local_ip);
 	free(data);
@@ -331,6 +333,18 @@ static int roc_source_setup(struct module_roc_source_data *data)
 		}
 	}
 
+	res = pw_roc_create_endpoint(&data->local_control_addr, PW_ROC_DEFAULT_CONTROL_PROTO, data->local_ip, data->local_control_port);
+	if (res < 0) {
+		pw_log_error("failed to create control endpoint: %s", spa_strerror(res));
+		return res;
+	}
+
+	if (roc_receiver_bind(data->receiver, ROC_SLOT_DEFAULT, ROC_INTERFACE_AUDIO_CONTROL,
+				data->local_control_addr) != 0) {
+		pw_log_error("can't connect roc receiver to local control address");
+		return -EINVAL;
+	}
+
 	data->playback = pw_stream_new(data->core,
 			"roc-source playback", data->playback_props);
 	data->playback_props = NULL;
@@ -368,6 +382,7 @@ static const struct spa_dict_item module_roc_source_info[] = {
 				"( local.ip=<local receiver ip> ) "
 				"( local.source.port=<local receiver port for source packets> ) "
 				"( local.repair.port=<local receiver port for repair packets> ) "
+				"( local.control.port=<local receiver port for control packets> ) "
 				"( source.props= { key=value ... } ) " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
@@ -444,6 +459,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		data->local_repair_port = pw_properties_parse_int(str);
 	} else {
 		data->local_repair_port = PW_ROC_DEFAULT_REPAIR_PORT;
+	}
+
+	if ((str = pw_properties_get(props, "local.control.port")) != NULL) {
+		data->local_control_port = pw_properties_parse_int(str);
+	} else {
+		data->local_control_port = PW_ROC_DEFAULT_CONTROL_PORT;
 	}
 
 	if ((str = pw_properties_get(props, "sess.latency.msec")) != NULL) {

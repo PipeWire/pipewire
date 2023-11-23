@@ -30,7 +30,9 @@ static const char *const pulse_module_options =
 	"fec_code=<empty>|disable|rs8m|ldpc "
 	"remote_ip=<remote receiver ip> "
 	"remote_source_port=<remote receiver port for source packets> "
-	"remote_repair_port=<remote receiver port for repair packets> ";
+	"remote_repair_port=<remote receiver port for repair packets> "
+	"remote_control_port=<remote receiver port for control packets> "
+	;
 
 #define NAME "roc-sink"
 
@@ -119,6 +121,7 @@ static const char* const valid_args[] = {
 	"remote_ip",
 	"remote_source_port",
 	"remote_repair_port",
+	"remote_control_port",
 	NULL
 };
 static const struct spa_dict_item module_roc_sink_info[] = {
@@ -177,6 +180,12 @@ static int module_roc_sink_prepare(struct module * const module)
 		pw_properties_set(roc_props, "remote.repair.port", str);
 		pw_properties_set(props, "remote_repair_port", NULL);
 	}
+
+	if ((str = pw_properties_get(props, "remote_control_port")) != NULL) {
+		pw_properties_set(roc_props, "remote.control.port", str);
+		pw_properties_set(props, "remote_control_port", NULL);
+	}
+
 	if ((str = pw_properties_get(props, "fec_code")) != NULL) {
 		pw_properties_set(roc_props, "fec.code", str);
 		pw_properties_set(props, "fec_code", NULL);

@@ -44,6 +44,7 @@
  * - `remote.ip = <str>`: remote receiver ip
  * - `remote.source.port = <str>`: remote receiver TCP/UDP port for source packets
  * - `remote.repair.port = <str>`: remote receiver TCP/UDP port for receiver packets
+ * - `remote.control.port = <str>`: remote receiver TCP/UDP port for control packets
  * - `fec.code = <str>`: Possible values: `disable`, `rs8m`, `ldpc`
  *
  * ## General options
@@ -63,6 +64,7 @@
  *          remote.ip = 192.168.0.244
  *          remote.source.port = 10001
  *          remote.repair.port = 10002
+ *          remote.control.port = 10003
  *          sink.name = "ROC Sink"
  *          sink.props = {
  *             node.name = "roc-sink"
@@ -104,6 +106,9 @@ struct module_roc_sink_data {
 	char *remote_ip;
 	int remote_source_port;
 	int remote_repair_port;
+
+	roc_endpoint *remote_control_addr;
+	int remote_control_port;
 };
 
 static void stream_destroy(void *d)
@@ -212,15 +217,12 @@ static void impl_destroy(struct module_roc_sink_data *data)
 
 	pw_properties_free(data->capture_props);
 
-	if (data->sender)
-		roc_sender_close(data->sender);
-	if (data->context)
-		roc_context_close(data->context);
+	spa_clear_ptr(data->sender, roc_sender_close);
+	spa_clear_ptr(data->context, roc_context_close);
 
-	if (data->remote_source_addr)
-		(void) roc_endpoint_deallocate(data->remote_source_addr);
-	if (data->remote_repair_addr)
-		(void) roc_endpoint_deallocate(data->remote_repair_addr);
+	spa_clear_ptr(data->remote_source_addr, roc_endpoint_deallocate);
+	spa_clear_ptr(data->remote_repair_addr, roc_endpoint_deallocate);
+	spa_clear_ptr(data->remote_control_addr, roc_endpoint_deallocate);
 
 	free(data->remote_ip);
 	free(data);
@@ -309,6 +311,18 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 		}
 	}
 
+	res = pw_roc_create_endpoint(&data->remote_control_addr, PW_ROC_DEFAULT_CONTROL_PROTO, data->remote_ip, data->remote_control_port);
+	if (res < 0) {
+		pw_log_error("failed to create control endpoint: %s", spa_strerror(res));
+		return res;
+	}
+
+	if (roc_sender_connect(data->sender, ROC_SLOT_DEFAULT, ROC_INTERFACE_AUDIO_CONTROL,
+				data->remote_control_addr) != 0) {
+		pw_log_error("can't connect roc sender to remote control address");
+		return -EINVAL;
+	}
+
 	data->capture = pw_stream_new(data->core,
 			"roc-sink capture", data->capture_props);
 	data->capture_props = NULL;
@@ -343,6 +357,7 @@ static const struct spa_dict_item module_roc_sink_info[] = {
 				"remote.ip=<remote receiver ip> "
 				"( remote.source.port=<remote receiver port for source packets> ) "
 				"( remote.repair.port=<remote receiver port for repair packets> ) "
+				"( remote.control.port=<remote receiver port for control packets> ) "
 				"( sink.props= { key=val ... } ) " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
@@ -424,6 +439,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	} else {
 		data->remote_repair_port = PW_ROC_DEFAULT_REPAIR_PORT;
 	}
+
+	if ((str = pw_properties_get(props, "remote.control.port")) != NULL) {
+		data->remote_control_port = pw_properties_parse_int(str);
+	} else {
+		data->remote_control_port = PW_ROC_DEFAULT_CONTROL_PORT;
+	}
+
 	if ((str = pw_properties_get(props, "fec.code")) != NULL) {
 		if (pw_roc_parse_fec_encoding(&data->fec_code, str)) {
 			pw_log_error("Invalid fec code %s, using default", str);

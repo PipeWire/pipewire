@@ -209,7 +209,7 @@ html_target = custom_target('pipewire-docs',
                             output: [ 'html' ],
                             command: [ doxygen, doxyfile ],
                             env: doxygen_env,
-                            install: true,
+                            install: install_docs,
                             install_tag: 'doc',
                             install_dir: docdir)
 
@@ -230,7 +230,7 @@ foreach m : manpages
      input : html_target,
      depend_files : [ man_fixup ],
      capture : true,
-     install : true,
+     install : install_man,
      install_tag: 'man',
      install_dir : get_option('mandir') / 'man' + section
   )

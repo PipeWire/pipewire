@@ -485,17 +485,23 @@ if alsa_dep.found()
   subdir('pipewire-alsa/tests')
 endif
 
-doxygen = find_program('doxygen', required : get_option('docs'))
-pymod = import('python')
-python = pymod.find_installation('python3', required: get_option('docs'))
-generate_docs = doxygen.found() and python.found()
+generate_docs = get_option('man').enabled() or get_option('docs').enabled()
+if get_option('man').allowed() or get_option('docs').allowed()
+  doxygen = find_program('doxygen', required : generate_docs)
+  pymod = import('python')
+  python = pymod.find_installation('python3', required: generate_docs)
+  generate_docs = doxygen.found() and python.found()
+endif
+
+install_docs = get_option('docs').require(generate_docs).allowed()
+install_man = get_option('man').require(generate_docs).allowed()
+
+summary({'Documentation ': install_docs}, bool_yn: true)
+summary({'Man pages ': install_man}, bool_yn: true)
 
 if generate_docs
   subdir('doc')
 endif
-
-summary({'Documentation and man pages ': generate_docs}, bool_yn: true)
-
 
 setenv = find_program('pw-uninstalled.sh')
 run_target('pw-uninstalled',

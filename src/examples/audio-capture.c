@@ -143,6 +143,7 @@ int main(int argc, char *argv[])
 	 * the data.
 	 */
 	props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Audio",
+			PW_KEY_CONFIG_NAME, "client-rt.conf",
 			PW_KEY_MEDIA_CATEGORY, "Capture",
 			PW_KEY_MEDIA_ROLE, "Music",
 			NULL);

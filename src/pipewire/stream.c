@@ -1595,7 +1595,7 @@ pw_stream_new_simple(struct pw_loop *loop,
 	if (props == NULL)
 		return NULL;
 
-	context = pw_context_new(loop, NULL, 0);
+	context = pw_context_new(loop, pw_properties_copy(props), 0);
 	if (context == NULL) {
 		res = -errno;
 		goto error_cleanup;

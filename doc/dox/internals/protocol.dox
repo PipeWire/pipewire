@@ -7,7 +7,9 @@ The reference implementation uses unix sockets and is implemented in
 
 We document the messages here.
 
-# Message header
+\tableofcontents
+
+# Message header {#native-protocol-message-header}
 
 Each message on the unix socket contains a 16 bytes header and a
 variable length payload size:
@@ -54,7 +56,7 @@ The payload is a single POD see \ref page_spa_pod for details.
 
 After the payload, there is an optional footer POD object.
 
-# Making a connection
+# Making a connection {#native-protocol-making-connection}
 
 First a connection is made to a unix domain socket. By default, the socket is
 named as "pipewire-0" and searched in the following directories:
@@ -106,7 +108,7 @@ The client then sends client properties to the server.
 This completes the setup of the client. The newly connected client will
 appear in the registry at this point.
 
-# Core proxy/resource
+# Core proxy/resource {#native-protocol-core}
 
 The core is always the object with Id 0.
 
@@ -444,7 +446,7 @@ registry.
 - global_id: the global_id as it will appear in the registry.
 - props: the properties of the global
 
-# Registry proxy/resource
+# Registry proxy/resource {#native-protocol-registry}
 
 The registry is obtained with the GetRegistry method on the Core object.
 The Id depends on the new_id that was provided.
@@ -522,7 +524,7 @@ A global with id was removed
 
 - id: the global id that was removed.
 
-# PipeWire:Interface:Client
+# PipeWire:Interface:Client {#native-protocol-client}
 
 The client object represents a client connect to the PipeWire server.
 Permissions of the client can be managed.
@@ -638,7 +640,7 @@ Emitted as the reply of the GetPermissions method.
 - id: the global id of the object
 - permissions: the permission for the given id
 
-# PipeWire:Interface:Device
+# PipeWire:Interface:Device {#native-protocol-device}
 
 A device is an object that manages other devices or nodes.
 
@@ -745,7 +747,7 @@ Emitted as a result of EnumParams or SubscribeParams.
 - param: the parameter. The object type depends on the id
 
 
-# PipeWire:Interface:Factory
+# PipeWire:Interface:Factory {#native-protocol-factory}
 
 A factory is an object that allows one to create new objects.
 
@@ -781,7 +783,7 @@ Info is emitted when binding to the factory global or when the information chang
 - props: optional properties of the factory, valid when change_mask is (1<<0)
 
 
-# PipeWire:Interface:Link
+# PipeWire:Interface:Link {#native-protocol-link}
 
 A link is a connection between 2 ports.
 
@@ -827,7 +829,7 @@ Info is emitted when binding to the link global or when the information changed.
 - props: optional properties of the link, valid when change_mask is (1<<2)
 
 
-# PipeWire:Interface:Module
+# PipeWire:Interface:Module {#native-protocol-module}
 
 A Module provides dynamically loaded functionality
 
@@ -864,7 +866,7 @@ Info is emitted when binding to the module global or when the information change
 - props: optional properties of the module, valid when change_mask has (1<<0)
 
 
-# PipeWire:Interface:Node
+# PipeWire:Interface:Node {#native-protocol-node}
 
 A Node is a processing element in the graph
 
@@ -991,7 +993,7 @@ Emitted as a result of EnumParams or SubscribeParams.
 - param: the parameter. The object type depends on the id
 
 
-# PipeWire:Interface:Port
+# PipeWire:Interface:Port {#native-protocol-port}
 
 A port is part of a node and allows links with other ports.
 
@@ -1080,7 +1082,7 @@ Emitted as a result of EnumParams or SubscribeParams.
 - next: the index of the next parameter
 
 
-# PipeWire:Interface:ClientNode
+# PipeWire:Interface:ClientNode {#native-protocol-clientnode}
 
 The ClientNode object is created from the `client-node` factory that is provided
 by the `libpipewire-module-client-node` module.
@@ -1497,7 +1499,7 @@ ports of a node.
 - peer_id: the id of the peer port
 - props: optional properties
 
-# PipeWire:Interface:Metadata
+# PipeWire:Interface:Metadata {#native-protocol-metadata}
 
 Metadata is a shared database of settings and properties.
 
@@ -1550,7 +1552,7 @@ A metadata key changed. This is also emitted when binding to the metadata.
 - type: an optional type
 - value: a value
 
-# PipeWire:Interface:Profiler
+# PipeWire:Interface:Profiler {#native-protocol-profiler}
 
 The profiler object allows one to receive profiler information of the pipewire
 graph.
@@ -1569,5 +1571,121 @@ The profiler has no methods
    )
 ```
 - object: a SPA_TYPE_OBJECT_Profiler object. See enum spa_profiler 
+
+
+# Footer {#native-protocol-footer}
+
+The message footer contains additional messages, not directed to the
+destination object defined by the `Id` field.
+
+The footer consists of a single POD, immediately following the payload
+POD.  The footer POD consists of a sequence of footer opcode Ids and
+footer payload Structs containing their arguments:
+
+```
+   Struct(
+      Id: opcode1,
+      Struct { ... },
+      Id: opcode2,
+      Struct { ... },
+      ...
+   )
+```
+
+The footer opcodes are separate for server-to-client (`core`) and
+client-to-server (`client`) directions.
+
+The message footer is processed before other parts of the message,
+including the object Id lookup.
+
+## Core Generation (Footer Opcode 0)
+
+```
+   Struct(
+      Long: registry_generation,
+   )
+```
+
+Indicates to the client what is the current registry generation
+number of the \ref pw_context on the server side.
+
+The server shall include this footer in the next message it sends that
+follows the increment of the registry generation number.
+
+\see \ref native-protocol-registry-generation
+
+## Client Generation (Footer Opcode 0)
+
+```
+   Struct(
+      Long: client_generation,
+   )
+```
+
+Indicates to the server what is the last registry generation number
+the client has processed.
+
+The client shall include this footer in the next message it sends,
+after it has processed an incoming message whose footer includes a
+registry generation update.
+
+\see \ref native-protocol-registry-generation
+
+# Registry generation  {#native-protocol-registry-generation}
+
+The registry generation is a 64-bit integer in the PipeWire server
+\ref pw_context that increments by one when the server allocates a new
+global \ref PW_KEY_OBJECT_ID for an object.
+
+The server keeps track of each global *id* as a tuple ( *id*, *object
+generation* ) where *object generation* is the registry generation
+value when the *id* was allocated.
+
+When an object is destroyed, its *id* value may be reallocated to a
+different object. Because the protocol is asynchronous, the
+object *id* alone is not sufficient to uniquely identify objects.
+
+The server looks up objects based on a tuple ( *id*, *generation* ) as
+follows:
+
+1. Look up the \ref pw_global based on the *id*.
+
+2. The lookup fails if there is no global for the *id*, or
+   if *generation* < *object generation*.
+
+The protocol message generally contains only the object *id*.  The
+registry generation part is passed around as follows:
+
+1. The server sends the current *registry generation* to clients in the
+   protocol footer, if it has changed.
+
+2. The clients keep track of the latest registry generation of the
+   messages they have processed. This is the *client generation*.
+
+3. Each client sends their *client generation* in the protocol footer
+   of the next message to the server, if its value has changed.
+
+4. The server keeps track for each client the *client generation* they
+   have sent back.
+
+5. In each protocol message received from client, the server considers
+   each object *id* as tuple ( *id*, *client generation* ).
+
+This allows the server to know if the object *id* the client refers to was
+already destroyed, but the client has not yet processed the message
+indicating that the *id* is gone. The server indicates failed lookups
+of this type with error code ESTALE to the client.
+
+If a client has not sent any *client generation* updates to the
+server, then the server will not do any registry generation checks in
+object lookups.  This is for backward compatibility only.
+
+The registry generation is an internal detail of the server
+implementation and the native protocol, and is not visible to clients
+in the PipeWire API.  To identify objects uniquely, clients can use
+\ref PW_KEY_OBJECT_SERIAL, which are unique for objects and not
+reused, unlike \ref PW_KEY_OBJECT_ID
+
+\see \ref PW_KEY_OBJECT_SERIAL
 
 */

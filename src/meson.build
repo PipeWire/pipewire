@@ -3,9 +3,7 @@ subdir('pipewire')
 subdir('daemon')
 subdir('tools')
 subdir('modules')
-if get_option('examples').allowed()
-  subdir('examples')
-endif
+subdir('examples')
 if get_option('tests').allowed()
   subdir('tests')
 endif

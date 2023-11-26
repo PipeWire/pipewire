@@ -704,10 +704,8 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 
 		if (prev_channels > 0) {
 			size_t i;
-			/*
-			 * Spread mono volume to all channels, if we had switched HFP -> A2DP.
-			 * XXX: we should also use different route for hfp and a2dp
-			 */
+
+			/* Spread mono volume to all channels, if we had switched HFP -> A2DP. */
 			for (i = prev_channels; i < this->nodes[id].n_channels; ++i)
 				this->nodes[id].volumes[i] = this->nodes[id].volumes[i % prev_channels];
 		}
@@ -722,6 +720,30 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 		}
 
 		emit_node_props(this, &this->nodes[id], true);
+	}
+}
+
+static void init_dummy_input_node(struct impl *this, uint32_t id)
+{
+	uint32_t prev_channels = this->nodes[id].n_channels;
+
+	/* Don't emit a device node, only initialize volume etc. for the route */
+
+	spa_log_debug(this->log, "%p: node, id:%08x", this, id);
+
+	this->nodes[id].impl = this;
+	this->nodes[id].active = true;
+	this->nodes[id].offload_acquired = false;
+	this->nodes[id].a2dp_duplex = false;
+	this->nodes[id].n_channels = 1;
+	this->nodes[id].channels[0] = SPA_AUDIO_CHANNEL_MONO;
+
+	if (prev_channels > 0) {
+		size_t i;
+
+		/* Spread mono volume to all channels */
+		for (i = prev_channels; i < this->nodes[id].n_channels; ++i)
+			this->nodes[id].volumes[i] = this->nodes[id].volumes[i % prev_channels];
 	}
 }
 
@@ -1030,6 +1052,13 @@ static int emit_nodes(struct impl *this)
 				}
 			}
 		}
+
+		/* Setup route for HFP input, for tracking its volume even though there is
+		 * no node emitted yet. */
+		if ((this->bt_dev->connected_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT) &&
+				!(this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE) &&
+				!this->nodes[DEVICE_ID_SOURCE].active)
+			init_dummy_input_node(this, DEVICE_ID_SOURCE);
 		break;
 	case DEVICE_PROFILE_BAP:
 		if (this->bt_dev->connected_profiles & (SPA_BT_PROFILE_BAP_SOURCE)) {
@@ -1435,7 +1464,8 @@ static int impl_sync(void *object, int seq)
 	return 0;
 }
 
-static uint32_t profile_direction_mask(struct impl *this, uint32_t index, enum spa_bluetooth_audio_codec codec)
+static uint32_t profile_direction_mask(struct impl *this, uint32_t index, enum spa_bluetooth_audio_codec codec,
+	bool hfp_input_for_a2dp)
 {
 	struct spa_bt_device *device = this->bt_dev;
 	uint32_t mask;
@@ -1449,6 +1479,8 @@ static uint32_t profile_direction_mask(struct impl *this, uint32_t index, enum s
 
 		media_codec = get_supported_media_codec(this, codec, NULL, device->connected_profiles);
 		if (media_codec && media_codec->duplex_codec)
+			have_input = true;
+		if (hfp_input_for_a2dp && this->nodes[DEVICE_ID_SOURCE].active)
 			have_input = true;
 		break;
 	case DEVICE_PROFILE_BAP:
@@ -1953,7 +1985,15 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		direction = SPA_DIRECTION_INPUT;
 		snprintf(name, sizeof(name), "%s-input", name_prefix);
 		enum_dev = DEVICE_ID_SOURCE;
-		if (profile == DEVICE_PROFILE_A2DP || profile == DEVICE_PROFILE_BAP)
+
+		if ((this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SINK) &&
+				!(this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE) &&
+				!(this->bt_dev->connected_profiles & SPA_BT_PROFILE_BAP_AUDIO) &&
+				(this->bt_dev->connected_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT))
+			description = hfp_description;
+
+		if (profile == DEVICE_PROFILE_A2DP || profile == DEVICE_PROFILE_BAP ||
+				profile == DEVICE_PROFILE_HSP_HFP)
 			dev = enum_dev;
 		else if (profile != SPA_ID_INVALID)
 			enum_dev = SPA_ID_INVALID;
@@ -1968,16 +2008,6 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 			enum_dev = SPA_ID_INVALID;
 		break;
 	case 2:
-		direction = SPA_DIRECTION_INPUT;
-		snprintf(name, sizeof(name), "%s-hf-input", name_prefix);
-		description = hfp_description;
-		enum_dev = DEVICE_ID_SOURCE;
-		if (profile == DEVICE_PROFILE_HSP_HFP)
-			dev = enum_dev;
-		else if (profile != SPA_ID_INVALID)
-			enum_dev = SPA_ID_INVALID;
-		break;
-	case 3:
 		direction = SPA_DIRECTION_OUTPUT;
 		snprintf(name, sizeof(name), "%s-hf-output", name_prefix);
 		description = hfp_description;
@@ -1987,7 +2017,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		else if (profile != SPA_ID_INVALID)
 			enum_dev = SPA_ID_INVALID;
 		break;
-	case 4:
+	case 3:
 		if (!this->device_set.leader) {
 			errno = EINVAL;
 			return NULL;
@@ -2000,7 +2030,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		else if (profile != SPA_ID_INVALID)
 			enum_dev = SPA_ID_INVALID;
 		break;
-	case 5:
+	case 4:
 		if (!this->device_set.leader) {
 			errno = EINVAL;
 			return NULL;
@@ -2053,12 +2083,12 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 
 		if (j == DEVICE_PROFILE_A2DP && !(port == 0 || port == 1))
 			continue;
-		if (j == DEVICE_PROFILE_BAP && !(port == 0 || port == 1 || port == 4 || port == 5))
+		if (j == DEVICE_PROFILE_BAP && !(port == 0 || port == 1 || port == 3 || port == 4))
 			continue;
-		if (j == DEVICE_PROFILE_HSP_HFP && !(port == 2 || port == 3))
+		if (j == DEVICE_PROFILE_HSP_HFP && !(port == 0 || port == 2))
 			continue;
 
-		profile_mask = profile_direction_mask(this, j, codec);
+		profile_mask = profile_direction_mask(this, j, codec, false);
 		if (!(profile_mask & (1 << direction)))
 			continue;
 
@@ -2080,7 +2110,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		struct node *node = &this->nodes[dev];
 		struct spa_bt_transport_volume *t_volume;
 
-		mask = profile_direction_mask(this, this->profile, this->props.codec);
+		mask = profile_direction_mask(this, this->profile, this->props.codec, true);
 		if (!(mask & (1 << direction)))
 			return NULL;
 
@@ -2294,7 +2324,7 @@ static int impl_enum_params(void *object, int seq,
 	case SPA_PARAM_EnumRoute:
 	{
 		switch (result.index) {
-		case 0: case 1: case 2: case 3: case 4: case 5:
+		case 0: case 1: case 2: case 3: case 4:
 			param = build_route(this, &b, id, result.index, SPA_ID_INVALID);
 			if (param == NULL)
 				goto next;

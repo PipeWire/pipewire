@@ -123,19 +123,61 @@ struct media_codec {
 
 	int (*update_props) (void *data, void *props);
 
+	/** Number of bytes needed for encoding */
 	int (*get_block_size) (void *data);
 
 	int (*abr_process) (void *data, size_t unsent);
 
+	/**
+	 * Start encoding new packet.
+	 *
+	 * \param data Codec data from init()
+	 * \param timestamp Packet time stamp (in samples played)
+	 * \return Size of packet header written to dst in bytes, or < 0 for error
+	 */
 	int (*start_encode) (void *data,
 		void *dst, size_t dst_size, uint16_t seqnum, uint32_t timestamp);
+
+	/**
+	 * Consume data from input buffer, encode to output buffer.
+	 *
+	 * \param data Codec data from init()
+	 * \param src Source data. NULL if encoding packet fragment.
+	 * \param dst Output buffer position. The memory region passed to the
+	 *    previous start_encode() is still valid, and this position is inside
+	 *    that region. The caller does not modify the contents of the buffer.
+	 * \param dst_size Remaining buffer space after dst
+	 * \param dst_out Bytes written to dst
+	 * \param need_flush
+	 *    - NEED_FLUSH_NO: don't flush this packet,
+	 *    - NEED_FLUSH_ALL: flush this packet,
+	 *    - NEED_FLUSH_FRAGMENT: flush packet fragment. The next start_encode()
+	 *      and encode() are expected to produce more fragments or the final
+	 *      fragment with NEED_FLUSH_ALL, without consuming source data.
+	 *      The fragment start_encode() is called with the same output buffer
+	 *      as previous. The fragment encode() will be called with NULL src.
+	 *      No new source data will be fed in before NEED_FLUSH_ALL.
+	 * \return Number of bytes consumed from src, or < 0 for error
+	 */
 	int (*encode) (void *data,
 		const void *src, size_t src_size,
 		void *dst, size_t dst_size,
 		size_t *dst_out, int *need_flush);
 
+	/**
+	 * Start decoding received packet.
+	 *
+	 * \return Number of bytes consumed from source data, or < 0 for error
+	 */
 	int (*start_decode) (void *data,
 		const void *src, size_t src_size, uint16_t *seqnum, uint32_t *timestamp);
+
+	/**
+	 * Decode received packet data.
+	 *
+	 * \param dst_out Number of bytes output to dst
+	 * \return Number of bytes consumed from src, or < 0 for error
+	 */
 	int (*decode) (void *data,
 		const void *src, size_t src_size,
 		void *dst, size_t dst_size,

@@ -22,6 +22,10 @@ examples = [
   'local-v4l2',
 ]
 
+if not get_option('examples').allowed()
+  subdir_done()
+endif
+
 examples_extra_deps = {
   'video-src-fixate': [drm_dep],
   'video-play': [sdl_dep],

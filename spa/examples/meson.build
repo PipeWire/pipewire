@@ -6,6 +6,10 @@ spa_examples = [
   'local-v4l2',
 ]
 
+if not get_option('examples').allowed()
+  subdir_done()
+endif
+
 spa_examples_extra_deps = {
   'local-v4l2': [sdl_dep],
   'local-libcamera': [sdl_dep, libcamera_dep],

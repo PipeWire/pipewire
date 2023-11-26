@@ -113,6 +113,4 @@ endif
 
 subdir('tools')
 subdir('tests')
-if get_option('examples').allowed()
-  subdir('examples')
-endif
+subdir('examples')

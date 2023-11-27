@@ -282,9 +282,9 @@ struct pa_alsa_ucm_port_data {
 
     pa_alsa_ucm_device *device;
 
-    /* profile name -> pa_alsa_path for volume control */
+    /* verb name -> pa_alsa_path for volume control */
     pa_hashmap *paths;
-    /* Current path, set when activating profile */
+    /* Current path, set when activating verb */
     pa_alsa_path *path;
 
     /* ELD info */

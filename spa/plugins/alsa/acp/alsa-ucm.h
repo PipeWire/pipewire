@@ -268,7 +268,7 @@ struct pa_alsa_ucm_mapping_context {
     pa_alsa_ucm_config *ucm;
     pa_direction_t direction;
 
-    pa_idxset *ucm_devices;
+    pa_alsa_ucm_device *ucm_device;
     pa_idxset *ucm_modifiers;
 };
 

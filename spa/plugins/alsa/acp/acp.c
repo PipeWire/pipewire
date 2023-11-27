@@ -510,7 +510,7 @@ static void add_profiles(pa_card *impl)
 					pa_dynarray_append(&impl->out.devices, dev);
 				}
 				if (impl->use_ucm) {
-					if (m->ucm_context.ucm_devices) {
+					if (m->ucm_context.ucm_device) {
 						pa_alsa_ucm_add_port(NULL, &m->ucm_context,
 							true, impl->ports, ap, NULL);
 						pa_alsa_ucm_add_ports(&dev->ports, m->proplist, &m->ucm_context,
@@ -534,7 +534,7 @@ static void add_profiles(pa_card *impl)
 				}
 
 				if (impl->use_ucm) {
-					if (m->ucm_context.ucm_devices) {
+					if (m->ucm_context.ucm_device) {
 						pa_alsa_ucm_add_port(NULL, &m->ucm_context,
 							false, impl->ports, ap, NULL);
 						pa_alsa_ucm_add_ports(&dev->ports, m->proplist, &m->ucm_context,
@@ -1516,7 +1516,7 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index, uint32_t fla
 		PA_IDXSET_FOREACH(am, np->output_mappings, idx) {
 			if (impl->use_ucm) {
 				/* Update ports priorities */
-				if (am->ucm_context.ucm_devices) {
+				if (am->ucm_context.ucm_device) {
 					pa_alsa_ucm_add_port(am->output.ports, &am->ucm_context,
 						true, impl->ports, np, NULL);
 				}
@@ -1529,7 +1529,7 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index, uint32_t fla
 		PA_IDXSET_FOREACH(am, np->input_mappings, idx) {
 			if (impl->use_ucm) {
 				/* Update ports priorities */
-				if (am->ucm_context.ucm_devices) {
+				if (am->ucm_context.ucm_device) {
 					pa_alsa_ucm_add_port(am->input.ports, &am->ucm_context,
 						false, impl->ports, np, NULL);
 				}

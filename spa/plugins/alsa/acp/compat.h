@@ -96,7 +96,7 @@ typedef enum pa_available {
 	PA_AVAILABLE_YES = 2,
 } pa_available_t;
 
-#define PA_RATE_MAX (48000U*8U)
+#define PA_RATE_MAX (48000U*16U)
 
 typedef enum pa_sample_format {
 	PA_SAMPLE_U8,		/**< Unsigned 8 Bit PCM */

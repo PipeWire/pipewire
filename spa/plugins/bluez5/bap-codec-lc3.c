@@ -468,7 +468,16 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 	/*
 	 * Select supported rate + frame length combination
 	 */
-	bap_qos = select_bap_qos(rate_mask, duration_mask, framelen_min, framelen_max);
+	if (pac->sink && pac->duplex) {
+		/* 16KHz input is mandatory in BAP v1.0.1 Table 3.5, so prefer
+		 * it for now for input rate in duplex configuration.
+		 *
+		 * Devices may list other values but not certain they will work properly.
+		 */
+		bap_qos = select_bap_qos(rate_mask & LC3_FREQ_16KHZ, duration_mask, framelen_min, framelen_max);
+	}
+	if (!bap_qos)
+		bap_qos = select_bap_qos(rate_mask, duration_mask, framelen_min, framelen_max);
 
 	if (!bap_qos) {
 		spa_debugc(debug_ctx, "no compatible configuration found, rate:0x%08x, duration:0x%08x frame:%u-%u",
@@ -564,6 +573,9 @@ static int conf_cmp(const bap_lc3_t *conf1, int res1, const bap_lc3_t *conf2, in
 	PREFER_BOOL(conf->channels & LC3_CHAN_1);
 	PREFER_BOOL(conf->rate & (LC3_CONFIG_FREQ_48KHZ | LC3_CONFIG_FREQ_32KHZ | \
 		LC3_CONFIG_FREQ_24KHZ | LC3_CONFIG_FREQ_16KHZ | LC3_CONFIG_FREQ_8KHZ));
+
+	if (conf->sink && conf->duplex)
+		PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_16KHZ);
 
 	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_48KHZ);
 	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_32KHZ);
@@ -923,6 +935,9 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		res = -EINVAL;
 		goto error;
 	}
+
+	spa_log_info(log, "LC3 rate:%d frame_duration:%d channels:%d framelen:%d",
+			this->samplerate, this->frame_dus, this->channels, this->framelen);
 
 	this->samples = lc3_frame_samples(this->frame_dus, this->samplerate);
 	if (this->samples < 0) {

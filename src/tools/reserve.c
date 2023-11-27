@@ -307,12 +307,45 @@ invalid:
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
+bool rd_device_valid_device_name(const char *name)
+{
+	const char *p = name;
+
+	if (!p || !*p)
+		return false;
+
+	/* cf. dbus-marshal-validate.c:_dbus_validate_bus_name_full */
+	while (*p) {
+		switch (*p) {
+		case 'A' ... 'Z':
+		case 'a' ... 'z':
+		case '-':
+		case '_':
+			break;
+		case '0' ... '9':
+			if (p == name)
+				return false;
+			break;
+		default:
+			return false;
+		}
+		++p;
+	}
+
+	return true;
+}
+
 struct rd_device *
 rd_device_new(DBusConnection *connection, const char *device_name, const char *application_name,
 		int32_t priority, const struct rd_device_callbacks *callbacks, void *data)
 {
 	struct rd_device *d;
 	int res;
+
+	if (!rd_device_valid_device_name(device_name)) {
+		errno = EINVAL;
+		return NULL;
+	}
 
 	d = calloc(1, sizeof(struct rd_device));
 	if (d == NULL)

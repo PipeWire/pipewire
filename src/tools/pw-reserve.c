@@ -142,8 +142,8 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 	}
-	if (opt_name == NULL) {
-		fprintf(stderr, "name must be given\n");
+	if (opt_name == NULL || !rd_device_valid_device_name(opt_name)) {
+		fprintf(stderr, "valid name must be given\n");
 		return -1;
 	}
 
@@ -190,6 +190,11 @@ int main(int argc, char *argv[])
 			opt_appname,
 			opt_priority,
 			&reserve_callbacks, &impl);
+	if (!impl.device) {
+		res = -errno;
+		fprintf(stderr, "dbus connection failed: %m\n");
+		goto exit;
+	}
 
 	if (!opt_monitor) {
 		res = rd_device_acquire(impl.device);

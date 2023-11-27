@@ -7,6 +7,7 @@
 
 #include <dbus/dbus.h>
 #include <inttypes.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,6 +51,9 @@ void rd_device_release(struct rd_device *d);
 
 /** destroy a device */
 void rd_device_destroy(struct rd_device *d);
+
+/** check if device name is a valid name */
+bool rd_device_valid_device_name(const char *name);
 
 /* Set the application device name for an rd_device object. Returns 0
  * on success, a negative errno style return value on error. */

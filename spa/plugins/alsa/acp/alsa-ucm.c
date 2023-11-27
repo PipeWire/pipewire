@@ -1832,16 +1832,14 @@ static int ucm_create_profile(
         pa_alsa_ucm_config *ucm,
         pa_alsa_profile_set *ps,
         pa_alsa_ucm_verb *verb,
+        pa_idxset *mappings,
         const char *profile_name,
-        const char *profile_desc) {
+        const char *profile_desc,
+        unsigned int profile_priority) {
 
     pa_alsa_profile *p;
-    pa_alsa_ucm_device *dev;
-    pa_alsa_ucm_modifier *mod;
-    int i = 0;
-    const char *name, *sink, *source;
-    unsigned int priority;
-    const char *verb_name = pa_proplist_gets(verb->proplist, PA_ALSA_PROP_UCM_NAME);
+    pa_alsa_mapping *map;
+    uint32_t idx;
 
     pa_assert(ps);
 
@@ -1854,6 +1852,7 @@ static int ucm_create_profile(
     p->profile_set = ps;
     p->name = pa_xstrdup(profile_name);
     p->description = pa_xstrdup(profile_desc);
+    p->priority = profile_priority;
     p->ucm_context.verb = verb;
 
     p->output_mappings = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
@@ -1862,10 +1861,33 @@ static int ucm_create_profile(
     p->supported = true;
     pa_hashmap_put(ps->profiles, p->name, p);
 
-    /* TODO: get profile priority from policy management */
-    priority = verb->priority;
+    PA_IDXSET_FOREACH(map, mappings, idx)
+        ucm_add_mapping(p, map);
 
-    if (priority == 0) {
+    pa_alsa_profile_dump(p);
+
+    return 0;
+}
+
+static int ucm_create_verb_profiles(
+        pa_alsa_ucm_config *ucm,
+        pa_alsa_profile_set *ps,
+        pa_alsa_ucm_verb *verb,
+        const char *verb_name,
+        const char *verb_desc) {
+
+    pa_idxset *mappings;
+    pa_alsa_ucm_device *dev;
+    pa_alsa_ucm_modifier *mod;
+    int i = 0;
+    int ret = 0;
+    const char *name, *sink, *source;
+    unsigned int verb_priority;
+
+    /* TODO: get profile priority from policy management */
+    verb_priority = verb->priority;
+
+    if (verb_priority == 0) {
         char *verb_cmp, *c;
         c = verb_cmp = pa_xstrdup(verb_name);
         while (*c) {
@@ -1874,14 +1896,14 @@ static int ucm_create_profile(
         }
         for (i = 0; verb_info[i].id; i++) {
             if (strcasecmp(verb_info[i].id, verb_cmp) == 0) {
-                priority = verb_info[i].priority;
+                verb_priority = verb_info[i].priority;
                 break;
             }
         }
         pa_xfree(verb_cmp);
     }
 
-    p->priority = priority;
+    mappings = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
 
     PA_LLIST_FOREACH(dev, verb->devices) {
         pa_alsa_jack *jack;
@@ -1895,9 +1917,9 @@ static int ucm_create_profile(
         ucm_create_mapping(ucm, ps, dev, verb_name, name, sink, source);
 
         if (dev->playback_mapping)
-            ucm_add_mapping(p, dev->playback_mapping);
+            pa_idxset_put(mappings, dev->playback_mapping, NULL);
         if (dev->capture_mapping)
-            ucm_add_mapping(p, dev->capture_mapping);
+            pa_idxset_put(mappings, dev->capture_mapping, NULL);
 
         jack = ucm_get_jack(ucm, dev);
         if (jack)
@@ -1953,14 +1975,16 @@ static int ucm_create_profile(
             ucm_create_mapping_for_modifier(ucm, ps, mod, verb_name, name, source, false);
 
         if (mod->playback_mapping)
-            ucm_add_mapping(p, mod->playback_mapping);
+            pa_idxset_put(mappings, mod->playback_mapping, NULL);
         if (mod->capture_mapping)
-            ucm_add_mapping(p, mod->capture_mapping);
+            pa_idxset_put(mappings, mod->capture_mapping, NULL);
     }
 
-    pa_alsa_profile_dump(p);
+    ret = ucm_create_profile(ucm, ps, verb, mappings, verb_name, verb_desc, verb_priority);
 
-    return 0;
+    pa_idxset_free(mappings, NULL);
+
+    return ret;
 }
 
 static void mapping_init_eld(pa_alsa_mapping *m, snd_pcm_t *pcm)
@@ -2170,7 +2194,7 @@ pa_alsa_profile_set* pa_alsa_ucm_add_profile_set(pa_alsa_ucm_config *ucm, pa_cha
             continue;
         }
 
-        ucm_create_profile(ucm, ps, verb, verb_name, verb_desc);
+        ucm_create_verb_profiles(ucm, ps, verb, verb_name, verb_desc);
     }
 
     ucm_probe_profile_set(ucm, ps);

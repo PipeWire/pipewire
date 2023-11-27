@@ -3533,28 +3533,36 @@ void spa_alsa_emit_node_info(struct state *state, bool full)
 	if (state->info.change_mask) {
 		struct spa_dict_item items[7];
 		uint32_t i, n_items = 0;
-		char latency[64], period[64], nperiods[64], headroom[64];
+		char latency[64] = "", period[64] = "", nperiods[64] = "", headroom[64] = "";
 
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API, "alsa");
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS,
 				state->stream == SND_PCM_STREAM_PLAYBACK ? "Audio/Sink" : "Audio/Source");
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, "true");
-		if (state->have_format) {
+
+		if (state->have_format)
 			snprintf(latency, sizeof(latency), "%lu/%d", state->buffer_frames / 2, state->rate);
-			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_MAX_LATENCY, latency);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_MAX_LATENCY, latency[0] ? latency : NULL);
+
+		if (state->have_format)
 			snprintf(period, sizeof(period), "%lu", state->period_frames);
-			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-size", period);
+		else if (state->default_period_size)
+			snprintf(period, sizeof(period), "%u", state->default_period_size);
+		items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-size", period[0] ? period : NULL);
+
+		if (state->have_format)
 			snprintf(nperiods, sizeof(nperiods), "%lu",
 					state->period_frames != 0 ? state->buffer_frames / state->period_frames : 0);
-			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-num", nperiods);
+		else if (state->default_period_num)
+			snprintf(nperiods, sizeof(nperiods), "%u", state->default_period_size);
+		items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-num", nperiods[0] ? nperiods : NULL);
+
+		if (state->have_format)
 			snprintf(headroom, sizeof(headroom), "%u", state->headroom);
-			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.headroom", headroom);
-		} else {
-			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_MAX_LATENCY, NULL);
-			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-size", NULL);
-			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-num", NULL);
-			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.headroom", NULL);
-		}
+		else if (state->default_headroom)
+			snprintf(headroom, sizeof(headroom), "%u", state->default_headroom);
+		items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.headroom", headroom[0] ? headroom : NULL);
+
 		state->info.props = &SPA_DICT_INIT(items, n_items);
 
 		if (state->info.change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {

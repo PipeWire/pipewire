@@ -1370,12 +1370,34 @@ static void device_connected(void *userdata, bool connected)
 	}
 }
 
+static void device_switch_profile(void *userdata)
+{
+	struct impl *this = userdata;
+	uint32_t profile;
+
+	switch(this->profile) {
+	case DEVICE_PROFILE_OFF:
+		profile = DEVICE_PROFILE_HSP_HFP;
+		break;
+	case DEVICE_PROFILE_HSP_HFP:
+		profile = DEVICE_PROFILE_OFF;
+		break;
+	default:
+		return;
+	}
+
+	spa_log_debug(this->log, "%p: device switch profile %d -> %d", this, this->profile, profile);
+
+	set_profile(this, profile, 0, false);
+}
+
 static const struct spa_bt_device_events bt_dev_events = {
 	SPA_VERSION_BT_DEVICE_EVENTS,
 	.connected = device_connected,
 	.codec_switched = codec_switched,
 	.profiles_changed = profiles_changed,
 	.device_set_changed = device_set_changed,
+	.switch_profile = device_switch_profile,
 };
 
 static int impl_add_listener(void *object,

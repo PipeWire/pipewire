@@ -422,7 +422,7 @@ static void rfcomm_emit_volume_changed(struct rfcomm *rfcomm, int id, int hw_vol
 static bool rfcomm_hsp_ag(struct rfcomm *rfcomm, char* buf)
 {
 	struct impl *backend = rfcomm->backend;
-	unsigned int gain, dummy;
+	unsigned int gain;
 
 	/* There are only three HSP AT commands:
 	 * AT+VGS=value: value between 0 and 15, sent by the HS to AG to set the speaker gain.
@@ -445,8 +445,9 @@ static bool rfcomm_hsp_ag(struct rfcomm *rfcomm, char* buf)
 			rfcomm_send_reply(rfcomm, "ERROR");
 			spa_log_debug(backend->log, "RFCOMM receive unsupported VGM gain: %s", buf);
 		}
-	} else if (sscanf(buf, "AT+CKPD=%d", &dummy) == 1) {
+	} else if (spa_strstartswith(buf, "AT+CKPD=200") == 1) {
 		rfcomm_send_reply(rfcomm, "OK");
+		spa_bt_device_emit_switch_profile(rfcomm->device);
 	} else {
 		return false;
 	}

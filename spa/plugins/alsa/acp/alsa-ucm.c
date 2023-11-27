@@ -1252,11 +1252,18 @@ static int ucm_port_contains(const char *port_name, const char *dev_name, bool i
 }
 
 static bool devset_supports_device(pa_idxset *devices, pa_alsa_ucm_device *dev) {
+    pa_alsa_ucm_device *d;
+    uint32_t idx;
+
     pa_assert(devices);
     pa_assert(dev);
 
     /* Can add anything to empty group */
     if (pa_idxset_isempty(devices))
+        return true;
+
+    /* Device already selected */
+    if (pa_idxset_contains(devices, dev))
         return true;
 
     /* No conflicting device must already be selected */
@@ -1268,9 +1275,11 @@ static bool devset_supports_device(pa_idxset *devices, pa_alsa_ucm_device *dev) 
         if (!pa_idxset_issubset(devices, dev->supported_devices))
            return false;
 
-    if (pa_idxset_isempty(dev->conflicting_devices) && pa_idxset_isempty(dev->supported_devices)) {
-        return false;
-    }
+    /* Must not be unsupported by any selected device */
+    PA_IDXSET_FOREACH(d, devices, idx)
+        if (!pa_idxset_isempty(d->supported_devices))
+            if (!pa_idxset_contains(d->supported_devices, dev))
+                return false;
 
     return true;
 }

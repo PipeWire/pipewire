@@ -142,6 +142,7 @@ typedef struct pa_alsa_ucm_modifier pa_alsa_ucm_modifier;
 typedef struct pa_alsa_ucm_device pa_alsa_ucm_device;
 typedef struct pa_alsa_ucm_config pa_alsa_ucm_config;
 typedef struct pa_alsa_ucm_mapping_context pa_alsa_ucm_mapping_context;
+typedef struct pa_alsa_ucm_profile_context pa_alsa_ucm_profile_context;
 typedef struct pa_alsa_ucm_port_data pa_alsa_ucm_port_data;
 typedef struct pa_alsa_ucm_volume pa_alsa_ucm_volume;
 
@@ -269,6 +270,10 @@ struct pa_alsa_ucm_mapping_context {
 
     pa_idxset *ucm_devices;
     pa_idxset *ucm_modifiers;
+};
+
+struct pa_alsa_ucm_profile_context {
+    pa_alsa_ucm_verb *verb;
 };
 
 struct pa_alsa_ucm_port_data {

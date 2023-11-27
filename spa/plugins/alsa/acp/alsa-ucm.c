@@ -170,17 +170,6 @@ static char *ucm_verb_value(
     return (char *)value;
 }
 
-static int ucm_device_exists(pa_idxset *idxset, pa_alsa_ucm_device *dev) {
-    pa_alsa_ucm_device *d;
-    uint32_t idx;
-
-    PA_IDXSET_FOREACH(d, idxset, idx)
-        if (d == dev)
-            return 1;
-
-    return 0;
-}
-
 static void ucm_add_devices_to_idxset(
         pa_idxset *idxset,
         pa_alsa_ucm_device *me,
@@ -1086,14 +1075,15 @@ static void ucm_add_port_combination(
         pa_hashmap *hash,
         pa_alsa_ucm_mapping_context *context,
         bool is_sink,
-        pa_alsa_ucm_device **pdevices,
-        int num,
+        pa_idxset *devices,
         pa_hashmap *ports,
         pa_card_profile *cp,
         pa_core *core) {
 
     pa_device_port *port;
     int i;
+    int num = pa_idxset_size(devices);
+    uint32_t idx;
     unsigned priority;
     double prio2;
     char *name, *desc;
@@ -1107,8 +1097,11 @@ static void ucm_add_port_combination(
     pa_device_port_type_t type, type2;
     void *state;
 
-    for (i = 0; i < num; i++)
-        sorted[i] = pdevices[i];
+    i = 0;
+    PA_IDXSET_FOREACH(dev, devices, idx) {
+        sorted[i] = dev;
+        i++;
+    }
 
     /* Sort by alphabetical order so as to have a deterministic naming scheme
      * for combination ports */
@@ -1183,7 +1176,7 @@ static void ucm_add_port_combination(
         pa_device_port_new_data_done(&port_data);
 
         data = PA_DEVICE_PORT_DATA(port);
-        ucm_port_data_init(data, context->ucm, port, pdevices, num);
+        ucm_port_data_init(data, context->ucm, port, sorted, num);
         port->impl_free = ucm_port_data_free;
 
         pa_hashmap_put(ports, port->name, port);
@@ -1258,94 +1251,71 @@ static int ucm_port_contains(const char *port_name, const char *dev_name, bool i
     return ret;
 }
 
-static int ucm_check_conformance(
-        pa_alsa_ucm_mapping_context *context,
-        pa_alsa_ucm_device **pdevices,
-        int dev_num,
-        pa_alsa_ucm_device *dev) {
-
-    uint32_t idx;
-    pa_alsa_ucm_device *d;
-    int i;
-
+static bool devset_supports_device(pa_idxset *devices, pa_alsa_ucm_device *dev) {
+    pa_assert(devices);
     pa_assert(dev);
 
-    pa_log_debug("Check device %s conformance with %d other devices",
-            pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME), dev_num);
-    if (dev_num == 0) {
-        pa_log_debug("First device in combination, number 1");
-        return 1;
-    }
+    /* Can add anything to empty group */
+    if (pa_idxset_isempty(devices))
+        return true;
 
-    PA_IDXSET_FOREACH(d, dev->conflicting_devices, idx) {
-        /* No conflicting device must already be selected */
-        for (i = 0; i < dev_num; i++) {
-            if (pdevices[i] == d) {
-                pa_log_debug("Conflicting device found");
-                return 0;
-            }
-        }
-    }
+    /* No conflicting device must already be selected */
+    if (!pa_idxset_isdisjoint(devices, dev->conflicting_devices))
+        return false;
 
-    if (!pa_idxset_isempty(dev->supported_devices)) {
-        /* No already selected device must be unsupported */
-        for (i = 0; i < dev_num; i++) {
-            if (!ucm_device_exists(dev->supported_devices, pdevices[i])) {
-                pa_log_debug("Supported device not found");
-                return 0;
-            }
-        }
-    }
+    /* No already selected device must be unsupported */
+    if (!pa_idxset_isempty(dev->supported_devices))
+        if (!pa_idxset_issubset(devices, dev->supported_devices))
+           return false;
 
     if (pa_idxset_isempty(dev->conflicting_devices) && pa_idxset_isempty(dev->supported_devices)) {
-        pa_log_debug("Not support any other devices");
-        return 0;
+        return false;
     }
 
-    pa_log_debug("Device added to combination, number %d", dev_num + 1);
-    return 1;
+    return true;
 }
 
-static inline pa_alsa_ucm_device *get_next_device(pa_idxset *idxset, uint32_t *idx) {
+/* Iterates nonempty subsets of UCM devices that can be simultaneously
+ * used, including subsets of previously returned subsets. At start,
+ * *state should be NULL. It's not safe to modify the devices argument
+ * until iteration ends. The returned idxsets must be freed by the
+ * caller. */
+static pa_idxset *iterate_device_subsets(pa_idxset *devices, void **state) {
+    uint32_t idx;
     pa_alsa_ucm_device *dev;
 
-    if (*idx == PA_IDXSET_INVALID)
-        dev = pa_idxset_first(idxset, idx);
-    else
-        dev = pa_idxset_next(idxset, idx);
+    pa_assert(devices);
+    pa_assert(state);
 
-    return dev;
-}
+    if (*state == NULL) {
+        /* First iteration, start adding from first device */
+        *state = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
+        dev = pa_idxset_first(devices, &idx);
 
-static void ucm_add_ports_combination(
-        pa_hashmap *hash,
-        pa_alsa_ucm_mapping_context *context,
-        bool is_sink,
-        pa_alsa_ucm_device **pdevices,
-        int dev_num,
-        uint32_t map_index,
-        pa_hashmap *ports,
-        pa_card_profile *cp,
-        pa_core *core) {
-
-    pa_alsa_ucm_device *dev;
-    uint32_t idx = map_index;
-
-    if ((dev = get_next_device(context->ucm_devices, &idx)) == NULL)
-        return;
-
-    /* check if device at map_index can combine with existing devices combination */
-    if (ucm_check_conformance(context, pdevices, dev_num, dev)) {
-        /* add device at map_index to devices combination */
-        pdevices[dev_num] = dev;
-        /* add current devices combination as a new port */
-        ucm_add_port_combination(hash, context, is_sink, pdevices, dev_num + 1, ports, cp, core);
-        /* try more elements combination */
-        ucm_add_ports_combination(hash, context, is_sink, pdevices, dev_num + 1, idx, ports, cp, core);
+    } else {
+        /* Backtrack the most recent device we added and skip it */
+        dev = pa_idxset_steal_last(*state, NULL);
+        pa_idxset_get_by_data(devices, dev, &idx);
+        if (dev)
+            dev = pa_idxset_next(devices, &idx);
     }
 
-    /* try other device with current elements number */
-    ucm_add_ports_combination(hash, context, is_sink, pdevices, dev_num, idx, ports, cp, core);
+    /* Try adding devices we haven't decided on yet */
+    for (; dev; dev = pa_idxset_next(devices, &idx)) {
+        if (devset_supports_device(*state, dev))
+            pa_idxset_put(*state, dev, NULL);
+    }
+
+    if (pa_idxset_isempty(*state)) {
+        /* No more choices to backtrack on, therefore no more subsets to
+         * return after this. Don't return the empty set, instead clean
+         * up and end iteration. */
+        pa_idxset_free(*state, NULL);
+        *state = NULL;
+        return NULL;
+    }
+
+    return pa_idxset_copy(*state, NULL);
 }
 
 static char* merge_roles(const char *cur, const char *add) {
@@ -1385,14 +1355,14 @@ void pa_alsa_ucm_add_ports_combination(
         pa_card_profile *cp,
         pa_core *core) {
 
-    pa_alsa_ucm_device **pdevices;
+    pa_idxset *devices;
+    void *state = NULL;
 
     pa_assert(context->ucm_devices);
 
-    if (pa_idxset_size(context->ucm_devices) > 0) {
-        pdevices = pa_xnew(pa_alsa_ucm_device *, pa_idxset_size(context->ucm_devices));
-        ucm_add_ports_combination(p, context, is_sink, pdevices, 0, PA_IDXSET_INVALID, ports, cp, core);
-        pa_xfree(pdevices);
+    while ((devices = iterate_device_subsets(context->ucm_devices, &state))) {
+        ucm_add_port_combination(p, context, is_sink, devices, ports, cp, core);
+        pa_idxset_free(devices, NULL);
     }
 
     /* ELD devices */

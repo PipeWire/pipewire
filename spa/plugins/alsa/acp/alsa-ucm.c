@@ -1656,7 +1656,6 @@ static pa_alsa_mapping* ucm_alsa_mapping_get(pa_alsa_ucm_config *ucm, pa_alsa_pr
 static int ucm_create_mapping_direction(
         pa_alsa_ucm_config *ucm,
         pa_alsa_profile_set *ps,
-        pa_alsa_profile *p,
         pa_alsa_ucm_device *device,
         const char *verb_name,
         const char *device_name,
@@ -1686,7 +1685,6 @@ static int ucm_create_mapping_direction(
         m->device_strings[0] = pa_xstrdup(device_str);
         m->direction = is_sink ? PA_ALSA_DIRECTION_OUTPUT : PA_ALSA_DIRECTION_INPUT;
 
-        ucm_add_mapping(p, m);
         if (rate)
             m->sample_spec.rate = rate;
         pa_channel_map_init_extend(&m->channel_map, channels, PA_CHANNEL_MAP_ALSA);
@@ -1708,7 +1706,6 @@ static int ucm_create_mapping_direction(
 static int ucm_create_mapping_for_modifier(
         pa_alsa_ucm_config *ucm,
         pa_alsa_profile_set *ps,
-        pa_alsa_profile *p,
         pa_alsa_ucm_modifier *modifier,
         const char *verb_name,
         const char *mod_name,
@@ -1735,8 +1732,6 @@ static int ucm_create_mapping_for_modifier(
         m->direction = is_sink ? PA_ALSA_DIRECTION_OUTPUT : PA_ALSA_DIRECTION_INPUT;
         /* Modifier sinks should not be routed to by default */
         m->priority = 0;
-
-        ucm_add_mapping(p, m);
     } else if (!m->ucm_context.ucm_modifiers) /* share pcm with device */
         m->ucm_context.ucm_modifiers = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
 
@@ -1748,7 +1743,6 @@ static int ucm_create_mapping_for_modifier(
 static int ucm_create_mapping(
         pa_alsa_ucm_config *ucm,
         pa_alsa_profile_set *ps,
-        pa_alsa_profile *p,
         pa_alsa_ucm_device *device,
         const char *verb_name,
         const char *device_name,
@@ -1763,9 +1757,9 @@ static int ucm_create_mapping(
     }
 
     if (sink)
-        ret = ucm_create_mapping_direction(ucm, ps, p, device, verb_name, device_name, sink, true);
+        ret = ucm_create_mapping_direction(ucm, ps, device, verb_name, device_name, sink, true);
     if (ret == 0 && source)
-        ret = ucm_create_mapping_direction(ucm, ps, p, device, verb_name, device_name, source, false);
+        ret = ucm_create_mapping_direction(ucm, ps, device, verb_name, device_name, source, false);
 
     return ret;
 }
@@ -1898,7 +1892,12 @@ static int ucm_create_profile(
         sink = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_SINK);
         source = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_SOURCE);
 
-        ucm_create_mapping(ucm, ps, p, dev, verb_name, name, sink, source);
+        ucm_create_mapping(ucm, ps, dev, verb_name, name, sink, source);
+
+        if (dev->playback_mapping)
+            ucm_add_mapping(p, dev->playback_mapping);
+        if (dev->capture_mapping)
+            ucm_add_mapping(p, dev->capture_mapping);
 
         jack = ucm_get_jack(ucm, dev);
         if (jack)
@@ -1949,9 +1948,14 @@ static int ucm_create_profile(
         source = pa_proplist_gets(mod->proplist, PA_ALSA_PROP_UCM_SOURCE);
 
         if (sink)
-            ucm_create_mapping_for_modifier(ucm, ps, p, mod, verb_name, name, sink, true);
+            ucm_create_mapping_for_modifier(ucm, ps, mod, verb_name, name, sink, true);
         else if (source)
-            ucm_create_mapping_for_modifier(ucm, ps, p, mod, verb_name, name, source, false);
+            ucm_create_mapping_for_modifier(ucm, ps, mod, verb_name, name, source, false);
+
+        if (mod->playback_mapping)
+            ucm_add_mapping(p, mod->playback_mapping);
+        if (mod->capture_mapping)
+            ucm_add_mapping(p, mod->capture_mapping);
     }
 
     pa_alsa_profile_dump(p);

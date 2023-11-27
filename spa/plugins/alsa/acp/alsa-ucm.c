@@ -506,10 +506,10 @@ static int ucm_get_device_property(
     n_confdev = snd_use_case_get_list(uc_mgr, id, &devices);
     pa_xfree(id);
 
+    device->conflicting_devices = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
     if (n_confdev <= 0)
         pa_log_debug("No %s for device %s", "_conflictingdevs", device_name);
     else {
-        device->conflicting_devices = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
         ucm_add_devices_to_idxset(device->conflicting_devices, device, verb->devices, devices, n_confdev);
         snd_use_case_free_list(devices, n_confdev);
     }
@@ -518,10 +518,10 @@ static int ucm_get_device_property(
     n_suppdev = snd_use_case_get_list(uc_mgr, id, &devices);
     pa_xfree(id);
 
+    device->supported_devices = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
     if (n_suppdev <= 0)
         pa_log_debug("No %s for device %s", "_supporteddevs", device_name);
     else {
-        device->supported_devices = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
         ucm_add_devices_to_idxset(device->supported_devices, device, verb->devices, devices, n_suppdev);
         snd_use_case_free_list(devices, n_suppdev);
     }
@@ -718,29 +718,17 @@ static void append_lost_relationship(pa_alsa_ucm_device *dev) {
     uint32_t idx;
     pa_alsa_ucm_device *d;
 
-    if (dev->conflicting_devices) {
-        PA_IDXSET_FOREACH(d, dev->conflicting_devices, idx) {
-            if (!d->conflicting_devices)
-                d->conflicting_devices = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
+    PA_IDXSET_FOREACH(d, dev->conflicting_devices, idx)
+        if (pa_idxset_put(d->conflicting_devices, dev, NULL) == 0)
+            pa_log_warn("Add lost conflicting device %s to %s",
+                    pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME),
+                    pa_proplist_gets(d->proplist, PA_ALSA_PROP_UCM_NAME));
 
-            if (pa_idxset_put(d->conflicting_devices, dev, NULL) == 0)
-                pa_log_warn("Add lost conflicting device %s to %s",
-                        pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME),
-                        pa_proplist_gets(d->proplist, PA_ALSA_PROP_UCM_NAME));
-        }
-    }
-
-    if (dev->supported_devices) {
-        PA_IDXSET_FOREACH(d, dev->supported_devices, idx) {
-            if (!d->supported_devices)
-                d->supported_devices = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
-
-            if (pa_idxset_put(d->supported_devices, dev, NULL) == 0)
-                pa_log_warn("Add lost supported device %s to %s",
-                        pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME),
-                        pa_proplist_gets(d->proplist, PA_ALSA_PROP_UCM_NAME));
-        }
-    }
+    PA_IDXSET_FOREACH(d, dev->supported_devices, idx)
+        if (pa_idxset_put(d->supported_devices, dev, NULL) == 0)
+            pa_log_warn("Add lost supported device %s to %s",
+                    pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME),
+                    pa_proplist_gets(d->proplist, PA_ALSA_PROP_UCM_NAME));
 }
 
 int pa_alsa_ucm_query_profiles(pa_alsa_ucm_config *ucm, int card_index) {
@@ -1225,23 +1213,27 @@ static int ucm_check_conformance(
         return 1;
     }
 
-    if (dev->conflicting_devices) { /* the device defines conflicting devices */
-        PA_IDXSET_FOREACH(d, dev->conflicting_devices, idx) {
-            for (i = 0; i < dev_num; i++) {
-                if (pdevices[i] == d) {
-                    pa_log_debug("Conflicting device found");
-                    return 0;
-                }
+    PA_IDXSET_FOREACH(d, dev->conflicting_devices, idx) {
+        /* No conflicting device must already be selected */
+        for (i = 0; i < dev_num; i++) {
+            if (pdevices[i] == d) {
+                pa_log_debug("Conflicting device found");
+                return 0;
             }
         }
-    } else if (dev->supported_devices) { /* the device defines supported devices */
+    }
+
+    if (!pa_idxset_isempty(dev->supported_devices)) {
+        /* No already selected device must be unsupported */
         for (i = 0; i < dev_num; i++) {
             if (!ucm_device_exists(dev->supported_devices, pdevices[i])) {
                 pa_log_debug("Supported device not found");
                 return 0;
             }
         }
-    } else { /* not support any other devices */
+    }
+
+    if (pa_idxset_isempty(dev->conflicting_devices) && pa_idxset_isempty(dev->supported_devices)) {
         pa_log_debug("Not support any other devices");
         return 0;
     }
@@ -2145,10 +2137,8 @@ static void free_verb(pa_alsa_ucm_verb *verb) {
 
         pa_proplist_free(di->proplist);
 
-        if (di->conflicting_devices)
-            pa_idxset_free(di->conflicting_devices, NULL);
-        if (di->supported_devices)
-            pa_idxset_free(di->supported_devices, NULL);
+        pa_idxset_free(di->conflicting_devices, NULL);
+        pa_idxset_free(di->supported_devices, NULL);
 
         pa_xfree(di->eld_mixer_device_name);
 

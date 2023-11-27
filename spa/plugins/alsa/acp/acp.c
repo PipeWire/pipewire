@@ -1330,8 +1330,7 @@ static int setup_mixer(pa_card *impl, pa_alsa_device *dev, bool ignore_dB)
 	* will be NULL, but the UCM device enable sequence will still need to be
 	* executed. */
 	if (dev->active_port && dev->ucm_context) {
-		if ((res = pa_alsa_ucm_set_port(dev->ucm_context, dev->active_port,
-					dev->direction == PA_ALSA_DIRECTION_OUTPUT)) < 0)
+		if ((res = pa_alsa_ucm_set_port(dev->ucm_context, dev->active_port)) < 0)
 			return res;
 	}
 
@@ -1927,8 +1926,7 @@ int acp_device_set_port(struct acp_device *dev, uint32_t port_index, uint32_t fl
 		mixer_volume_init(impl, d);
 
 		sync_mixer(d, p);
-		res = pa_alsa_ucm_set_port(d->ucm_context, p,
-					dev->direction == ACP_DIRECTION_PLAYBACK);
+		res = pa_alsa_ucm_set_port(d->ucm_context, p);
 	} else {
 		pa_alsa_port_data *data;
 

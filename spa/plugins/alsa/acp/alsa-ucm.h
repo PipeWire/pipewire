@@ -167,7 +167,7 @@ void pa_alsa_ucm_add_port(
         pa_hashmap *ports,
         pa_card_profile *cp,
         pa_core *core);
-int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *port, bool is_sink);
+int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *port);
 
 void pa_alsa_ucm_free(pa_alsa_ucm_config *ucm);
 void pa_alsa_ucm_mapping_context_free(pa_alsa_ucm_mapping_context *context);
@@ -280,9 +280,7 @@ struct pa_alsa_ucm_port_data {
     pa_alsa_ucm_config *ucm;
     pa_device_port *core_port;
 
-    /* A single port will be associated with multiple devices if it represents
-     * a combination of devices. */
-    pa_dynarray *devices; /* pa_alsa_ucm_device */
+    pa_alsa_ucm_device *device;
 
     /* profile name -> pa_alsa_path for volume control */
     pa_hashmap *paths;

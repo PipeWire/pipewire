@@ -1341,6 +1341,10 @@ static inline struct buffer *dequeue_buffer(struct client *c, struct mix *mix)
 	return b;
 }
 
+static inline bool is_osc(jack_midi_event_t *ev)
+{
+	return ev->size >= 1 && (ev->buffer[0] == '#' || ev->buffer[0] == '/');
+}
 
 static size_t convert_from_midi(void *midi, void *buffer, size_t size)
 {
@@ -1356,7 +1360,8 @@ static size_t convert_from_midi(void *midi, void *buffer, size_t size)
 	for (i = 0; i < count; i++) {
 		jack_midi_event_t ev;
 		jack_midi_event_get(&ev, midi, i);
-		spa_pod_builder_control(&b, ev.time, SPA_CONTROL_Midi);
+		spa_pod_builder_control(&b, ev.time,
+				is_osc(&ev) ? SPA_CONTROL_OSC : SPA_CONTROL_Midi);
 		spa_pod_builder_bytes(&b, ev.buffer, ev.size);
 	}
 	spa_pod_builder_pop(&b, &f);
@@ -1445,6 +1450,7 @@ static void convert_to_midi(struct spa_pod_sequence **seq, uint32_t n_seq, void 
 			break;
 
 		switch(next->type) {
+		case SPA_CONTROL_OSC:
 		case SPA_CONTROL_Midi:
 		{
 			uint8_t *data = SPA_POD_BODY(&next->value);

@@ -269,7 +269,7 @@ struct pa_alsa_ucm_mapping_context {
     pa_direction_t direction;
 
     pa_alsa_ucm_device *ucm_device;
-    pa_idxset *ucm_modifiers;
+    pa_alsa_ucm_modifier *ucm_modifier;
 };
 
 struct pa_alsa_ucm_profile_context {

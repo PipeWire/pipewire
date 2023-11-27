@@ -238,7 +238,9 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 	size_t data_size = pac->size;
 	uint16_t framelen_min = 0, framelen_max = 0;
 	int max_frames = -1;
-	uint8_t channels = 0;
+	uint8_t channels = LC3_CHAN_1; /* Default: 1 channel (BAP v1.0.1 Sec 4.3.1) */
+	uint8_t max_channels = 0;
+	unsigned int i;
 
 	if (!data_size)
 		return false;
@@ -315,24 +317,36 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 		data += ltv->len + 1;
 	}
 
+	for (i = 0; i < 8; ++i)
+		if (channels & (1u << i))
+			max_channels = i + 1;
+
+	/* Default: 1 frame per channel (BAP v1.0.1 Sec 4.3.1) */
+	if (max_frames < 0)
+		max_frames = max_channels;
+
+	/*
+	 * Workaround:
+	 * Creative Zen Hybrid Pro sets Supported_Max_Codec_Frames_Per_SDU == 1
+	 * but channels == 0x3, and the 2-channel audio stream works.
+	 */
+	if (max_frames < max_channels) {
+		spa_debugc(debug_ctx, "workaround: fixing bad Supported_Max_Codec_Frames_Per_SDU: %u->%u",
+				max_frames, max_channels);
+		max_frames = max_channels;
+	}
+
 	if (select_channels(channels, pac->locations, &conf->channels, max_frames) < 0) {
 		spa_debugc(debug_ctx, "invalid channel configuration: 0x%02x %u",
 				channels, max_frames);
 		return false;
 	}
 
-	/* Default: 1 per channel (BAP v1.0.1 Sec 4.3.1) */
-	if (max_frames < 0)
-		max_frames = get_num_channels(conf->channels);
 	if (max_frames < get_num_channels(conf->channels)) {
 		spa_debugc(debug_ctx, "invalid max frames per SDU: %u", max_frames);
 		return false;
 	}
 
-	if (framelen_min < LC3_MIN_FRAME_BYTES || framelen_max > LC3_MAX_FRAME_BYTES) {
-		spa_debugc(debug_ctx, "invalid framelen: %u %u", framelen_min, framelen_max);
-		return false;
-	}
 	if (conf->frame_duration == 0xFF || !conf->rate) {
 		spa_debugc(debug_ctx, "no frame duration or rate");
 		return false;
@@ -372,6 +386,11 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 		break;
 	default:
 		spa_debugc(debug_ctx, "invalid rate");
+		return false;
+	}
+
+	if (conf->framelen < framelen_min || conf->framelen > framelen_max) {
+		spa_debugc(debug_ctx, "invalid framelen: %u %u", framelen_min, framelen_max);
 		return false;
 	}
 

@@ -882,10 +882,10 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	int res;
 	const struct media_codec *codec;
 	struct spa_bt_remote_endpoint *ep;
-	bool sink;
+	bool sink, duplex;
 	const char *err_msg = "Unknown error";
 	struct spa_dict settings;
-	struct spa_dict_item setting_items[SPA_N_ELEMENTS(monitor->global_setting_items) + 3];
+	struct spa_dict_item setting_items[SPA_N_ELEMENTS(monitor->global_setting_items) + 5];
 	int i;
 
 	const char *endpoint_path = NULL;
@@ -933,10 +933,12 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 		spa_scnprintf(channel_allocation, sizeof(channel_allocation), "%"PRIu32, endpoint_qos.channel_allocation);
 
 	ep = remote_endpoint_find(monitor, endpoint_path);
-	if (!ep) {
+	if (!ep || !ep->device) {
 		spa_log_warn(monitor->log, "Unable to find remote endpoint for %s", endpoint_path);
 		goto error_invalid;
 	}
+
+	duplex = SPA_FLAG_IS_SET(ep->device->profiles, SPA_BT_PROFILE_BAP_DUPLEX);
 
 	/* Call of SelectProperties means that local device acts as an initiator
 	 * and therefor remote endpoint is an acceptor
@@ -947,6 +949,8 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 		setting_items[i] = monitor->global_settings.items[i];
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.locations", locations);
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.channel-allocation", channel_allocation);
+	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.sink", sink ? "true" : "false");
+	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.duplex", duplex ? "true" : "false");
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.debug", "true");
 	settings = SPA_DICT_INIT(setting_items, i);
 	spa_assert((size_t)i <= SPA_N_ELEMENTS(setting_items));

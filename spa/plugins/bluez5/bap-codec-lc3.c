@@ -44,6 +44,8 @@ struct pac_data {
 	int index;
 	uint32_t locations;
 	uint32_t channel_allocation;
+	bool sink;
+	bool duplex;
 };
 
 typedef struct {
@@ -52,6 +54,8 @@ typedef struct {
 	uint32_t channels;
 	uint16_t framelen;
 	uint8_t n_blks;
+	bool sink;
+	bool duplex;
 } bap_lc3_t;
 
 static const struct {
@@ -281,6 +285,9 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 	if (!data_size)
 		return false;
 	memset(conf, 0, sizeof(*conf));
+
+	conf->sink = pac->sink;
+	conf->duplex = pac->duplex;
 
 	conf->frame_duration = 0xFF;
 
@@ -514,6 +521,7 @@ static int conf_cmp(const bap_lc3_t *conf1, int res1, const bap_lc3_t *conf2, in
 	PREFER_BOOL(conf->channels & LC3_CHAN_1);
 	PREFER_BOOL(conf->rate & (LC3_CONFIG_FREQ_48KHZ | LC3_CONFIG_FREQ_32KHZ | \
 		LC3_CONFIG_FREQ_24KHZ | LC3_CONFIG_FREQ_16KHZ | LC3_CONFIG_FREQ_8KHZ));
+
 	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_48KHZ);
 	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_32KHZ);
 	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_24KHZ);
@@ -551,6 +559,7 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	uint8_t *data = config;
 	uint32_t locations = 0;
 	uint32_t channel_allocation = 0;
+	bool sink = false, duplex = false;
 	struct spa_debug_log_ctx debug_ctx = SPA_LOG_DEBUG_INIT(log, SPA_LOG_LEVEL_TRACE);
 	int i;
 
@@ -567,6 +576,12 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 
 		if (spa_atob(spa_dict_lookup(settings, "bluez5.bap.debug")))
 			debug_ctx = SPA_LOG_DEBUG_INIT(log, SPA_LOG_LEVEL_DEBUG);
+
+		/* Is remote endpoint sink or source */
+		sink = spa_atob(spa_dict_lookup(settings, "bluez5.bap.sink"));
+
+		/* Is remote endpoint duplex */
+		duplex = spa_atob(spa_dict_lookup(settings, "bluez5.bap.duplex"));
 	}
 
 	/* Select best conf from those possible */
@@ -582,6 +597,8 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	for (i = 0; i < npacs; ++i) {
 		pacs[i].locations = locations;
 		pacs[i].channel_allocation = channel_allocation;
+		pacs[i].sink = sink;
+		pacs[i].duplex = duplex;
 	}
 
 	qsort(pacs, npacs, sizeof(struct pac_data), pac_cmp);

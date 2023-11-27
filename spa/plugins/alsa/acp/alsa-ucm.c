@@ -530,10 +530,16 @@ static int ucm_get_device_property(
 };
 
 /* Create a property list for this ucm modifier */
-static int ucm_get_modifier_property(pa_alsa_ucm_modifier *modifier, snd_use_case_mgr_t *uc_mgr, const char *modifier_name) {
+static int ucm_get_modifier_property(
+        pa_alsa_ucm_modifier *modifier,
+        snd_use_case_mgr_t *uc_mgr,
+        pa_alsa_ucm_verb *verb,
+        const char *modifier_name) {
     const char *value;
     char *id;
     int i;
+    const char **devices;
+    int n_confdev, n_suppdev;
 
     for (i = 0; item[i].id; i++) {
         int err;
@@ -550,16 +556,28 @@ static int ucm_get_modifier_property(pa_alsa_ucm_modifier *modifier, snd_use_cas
     }
 
     id = pa_sprintf_malloc("%s/%s", "_conflictingdevs", modifier_name);
-    modifier->n_confdev = snd_use_case_get_list(uc_mgr, id, &modifier->conflicting_devices);
+    n_confdev = snd_use_case_get_list(uc_mgr, id, &devices);
     pa_xfree(id);
-    if (modifier->n_confdev < 0)
+
+    modifier->conflicting_devices = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
+    if (n_confdev <= 0)
         pa_log_debug("No %s for modifier %s", "_conflictingdevs", modifier_name);
+    else {
+        ucm_add_devices_to_idxset(modifier->conflicting_devices, NULL, verb->devices, devices, n_confdev);
+        snd_use_case_free_list(devices, n_confdev);
+    }
 
     id = pa_sprintf_malloc("%s/%s", "_supporteddevs", modifier_name);
-    modifier->n_suppdev = snd_use_case_get_list(uc_mgr, id, &modifier->supported_devices);
+    n_suppdev = snd_use_case_get_list(uc_mgr, id, &devices);
     pa_xfree(id);
-    if (modifier->n_suppdev < 0)
+
+    modifier->supported_devices = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
+    if (n_suppdev <= 0)
         pa_log_debug("No %s for modifier %s", "_supporteddevs", modifier_name);
+    else {
+        ucm_add_devices_to_idxset(modifier->supported_devices, NULL, verb->devices, devices, n_suppdev);
+        snd_use_case_free_list(devices, n_suppdev);
+    }
 
     return 0;
 };
@@ -642,23 +660,15 @@ static void add_role_to_device(pa_alsa_ucm_device *dev, const char *dev_name, co
                 role_name));
 }
 
-static void add_media_role(const char *name, pa_alsa_ucm_device *list, const char *role_name, const char *role, bool is_sink) {
-    pa_alsa_ucm_device *d;
+static void add_media_role(pa_alsa_ucm_device *dev, const char *role_name, const char *role, bool is_sink) {
+    const char *dev_name = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME);
+    const char *sink = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_SINK);
+    const char *source = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_SOURCE);
 
-    PA_LLIST_FOREACH(d, list) {
-        const char *dev_name = pa_proplist_gets(d->proplist, PA_ALSA_PROP_UCM_NAME);
-
-        if (pa_streq(dev_name, name)) {
-            const char *sink = pa_proplist_gets(d->proplist, PA_ALSA_PROP_UCM_SINK);
-            const char *source = pa_proplist_gets(d->proplist, PA_ALSA_PROP_UCM_SOURCE);
-
-            if (is_sink && sink)
-                add_role_to_device(d, dev_name, role_name, role);
-            else if (!is_sink && source)
-                add_role_to_device(d, dev_name, role_name, role);
-            break;
-        }
-    }
+    if (is_sink && sink)
+        add_role_to_device(dev, dev_name, role_name, role);
+    else if (!is_sink && source)
+        add_role_to_device(dev, dev_name, role_name, role);
 }
 
 static char *modifier_name_to_role(const char *mod_name, bool *is_sink) {
@@ -692,11 +702,12 @@ static char *modifier_name_to_role(const char *mod_name, bool *is_sink) {
     return tmp;
 }
 
-static void ucm_set_media_roles(pa_alsa_ucm_modifier *modifier, pa_alsa_ucm_device *list, const char *mod_name) {
-    int i;
+static void ucm_set_media_roles(pa_alsa_ucm_modifier *modifier, const char *mod_name) {
+    pa_alsa_ucm_device *dev;
     bool is_sink = false;
     char *sub = NULL;
     const char *role_name;
+    uint32_t idx;
 
     sub = modifier_name_to_role(mod_name, &is_sink);
     if (!sub)
@@ -706,11 +717,11 @@ static void ucm_set_media_roles(pa_alsa_ucm_modifier *modifier, pa_alsa_ucm_devi
     modifier->media_role = sub;
 
     role_name = is_sink ? PA_ALSA_PROP_UCM_PLAYBACK_ROLES : PA_ALSA_PROP_UCM_CAPTURE_ROLES;
-    for (i = 0; i < modifier->n_suppdev; i++) {
+    PA_IDXSET_FOREACH(dev, modifier->supported_devices, idx) {
         /* if modifier has no specific pcm, we add role intent to its supported devices */
         if (!pa_proplist_gets(modifier->proplist, PA_ALSA_PROP_UCM_SINK) &&
                 !pa_proplist_gets(modifier->proplist, PA_ALSA_PROP_UCM_SOURCE))
-            add_media_role(modifier->supported_devices[i], list, role_name, sub, is_sink);
+            add_media_role(dev, role_name, sub, is_sink);
     }
 }
 
@@ -869,11 +880,11 @@ int pa_alsa_ucm_get_verb(snd_use_case_mgr_t *uc_mgr, const char *verb_name, cons
         const char *mod_name = pa_proplist_gets(mod->proplist, PA_ALSA_PROP_UCM_NAME);
 
         /* Modifier properties */
-        ucm_get_modifier_property(mod, uc_mgr, mod_name);
+        ucm_get_modifier_property(mod, uc_mgr, verb, mod_name);
 
         /* Set PA_PROP_DEVICE_INTENDED_ROLES property to devices */
         pa_log_debug("Set media roles for verb %s, modifier %s", verb_name, mod_name);
-        ucm_set_media_roles(mod, verb->devices, mod_name);
+        ucm_set_media_roles(mod, mod_name);
     }
 
     *p_verb = verb;
@@ -2148,10 +2159,8 @@ static void free_verb(pa_alsa_ucm_verb *verb) {
     PA_LLIST_FOREACH_SAFE(mi, mn, verb->modifiers) {
         PA_LLIST_REMOVE(pa_alsa_ucm_modifier, verb->modifiers, mi);
         pa_proplist_free(mi->proplist);
-        if (mi->n_suppdev > 0)
-            snd_use_case_free_list(mi->supported_devices, mi->n_suppdev);
-        if (mi->n_confdev > 0)
-            snd_use_case_free_list(mi->conflicting_devices, mi->n_confdev);
+        pa_idxset_free(mi->conflicting_devices, NULL);
+        pa_idxset_free(mi->supported_devices, NULL);
         pa_xfree(mi->media_role);
         pa_xfree(mi);
     }

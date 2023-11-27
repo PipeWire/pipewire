@@ -511,7 +511,7 @@ static void add_profiles(pa_card *impl)
 				}
 				if (impl->use_ucm) {
 					if (m->ucm_context.ucm_devices) {
-						pa_alsa_ucm_add_ports_combination(NULL, &m->ucm_context,
+						pa_alsa_ucm_add_port(NULL, &m->ucm_context,
 							true, impl->ports, ap, NULL);
 						pa_alsa_ucm_add_ports(&dev->ports, m->proplist, &m->ucm_context,
 							true, impl, dev->pcm_handle, impl->profile_set->ignore_dB);
@@ -535,7 +535,7 @@ static void add_profiles(pa_card *impl)
 
 				if (impl->use_ucm) {
 					if (m->ucm_context.ucm_devices) {
-						pa_alsa_ucm_add_ports_combination(NULL, &m->ucm_context,
+						pa_alsa_ucm_add_port(NULL, &m->ucm_context,
 							false, impl->ports, ap, NULL);
 						pa_alsa_ucm_add_ports(&dev->ports, m->proplist, &m->ucm_context,
 							false, impl, dev->pcm_handle, impl->profile_set->ignore_dB);
@@ -1518,7 +1518,7 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index, uint32_t fla
 			if (impl->use_ucm) {
 				/* Update ports priorities */
 				if (am->ucm_context.ucm_devices) {
-					pa_alsa_ucm_add_ports_combination(am->output.ports, &am->ucm_context,
+					pa_alsa_ucm_add_port(am->output.ports, &am->ucm_context,
 						true, impl->ports, np, NULL);
 				}
 			}
@@ -1531,7 +1531,7 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index, uint32_t fla
 			if (impl->use_ucm) {
 				/* Update ports priorities */
 				if (am->ucm_context.ucm_devices) {
-					pa_alsa_ucm_add_ports_combination(am->input.ports, &am->ucm_context,
+					pa_alsa_ucm_add_port(am->input.ports, &am->ucm_context,
 						false, impl->ports, np, NULL);
 				}
 			}

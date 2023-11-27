@@ -130,13 +130,25 @@ static inline unsigned pa_idxset_size(pa_idxset*s)
 	return count;
 }
 
-static inline void *pa_idxset_search(pa_idxset *s, uint32_t *idx)
+static inline pa_idxset_item *pa_idxset_search(pa_idxset *s, uint32_t *idx)
 {
         pa_idxset_item *item;
 	for (item = pa_array_get_unchecked(&s->array, *idx, pa_idxset_item);
 	     pa_array_check(&s->array, item); item++, (*idx)++) {
 		if (item->ptr != NULL)
-			return item->ptr;
+			return item;
+	}
+	*idx = PA_IDXSET_INVALID;
+	return NULL;
+}
+
+static inline pa_idxset_item *pa_idxset_reverse_search(pa_idxset *s, uint32_t *idx)
+{
+        pa_idxset_item *item;
+	for (item = pa_array_get_unchecked(&s->array, *idx, pa_idxset_item);
+	     pa_array_check(&s->array, item); item--, (*idx)--) {
+		if (item->ptr != NULL)
+			return item;
 	}
 	*idx = PA_IDXSET_INVALID;
 	return NULL;
@@ -144,27 +156,91 @@ static inline void *pa_idxset_search(pa_idxset *s, uint32_t *idx)
 
 static inline void *pa_idxset_next(pa_idxset *s, uint32_t *idx)
 {
+	pa_idxset_item *item;
 	(*idx)++;;
-	return pa_idxset_search(s, idx);
+	item = pa_idxset_search(s, idx);
+	return item ? item->ptr : NULL;
 }
 
 static inline void* pa_idxset_first(pa_idxset *s, uint32_t *idx)
 {
 	uint32_t i = 0;
-	void *ptr = pa_idxset_search(s, &i);
+	pa_idxset_item *item = pa_idxset_search(s, &i);
 	if (idx)
 		*idx = i;
+	return item ? item->ptr : NULL;
+}
+
+static inline void* pa_idxset_last(pa_idxset *s, uint32_t *idx)
+{
+	uint32_t i = pa_array_get_len(&s->array, pa_idxset_item) - 1;
+	pa_idxset_item *item = pa_idxset_reverse_search(s, &i);
+	if (idx)
+		*idx = i;
+	return item ? item->ptr : NULL;
+}
+
+static inline void* pa_idxset_steal_last(pa_idxset *s, uint32_t *idx)
+{
+	uint32_t i = pa_array_get_len(&s->array, pa_idxset_item) - 1;
+	void *ptr = NULL;
+	pa_idxset_item *item = pa_idxset_reverse_search(s, &i);
+	if (idx)
+		*idx = i;
+	if (item) {
+		ptr = item->ptr;
+		item->ptr = NULL;
+		pa_array_remove(&s->array, item);
+	}
 	return ptr;
 }
 
 static inline void* pa_idxset_get_by_data(pa_idxset*s, const void *p, uint32_t *idx)
 {
 	pa_idxset_item *item = pa_idxset_find(s, p);
-	if (item == NULL)
+	if (item == NULL) {
+		if (idx)
+			*idx = PA_IDXSET_INVALID;
 		return NULL;
+	}
 	if (idx)
 		*idx = item - (pa_idxset_item*)s->array.data;
 	return item->ptr;
+}
+
+static inline bool pa_idxset_contains(pa_idxset *s, const void *p)
+{
+	return pa_idxset_get_by_data(s, p, NULL) == p;
+}
+
+static inline bool pa_idxset_isdisjoint(pa_idxset *s, pa_idxset *t)
+{
+	pa_idxset_item *item;
+	pa_array_for_each(item, &s->array) {
+		if (item->ptr && pa_idxset_contains(t, item->ptr))
+			return false;
+	}
+	return true;
+}
+
+static inline bool pa_idxset_issubset(pa_idxset *s, pa_idxset *t)
+{
+	pa_idxset_item *item;
+	pa_array_for_each(item, &s->array) {
+		if (item->ptr && !pa_idxset_contains(t, item->ptr))
+			return false;
+	}
+	return true;
+}
+
+static inline bool pa_idxset_issuperset(pa_idxset *s, pa_idxset *t)
+{
+    return pa_idxset_issubset(t, s);
+}
+
+static inline bool pa_idxset_equals(pa_idxset *s, pa_idxset *t)
+{
+    return pa_idxset_issubset(s, t) && pa_idxset_issuperset(s, t);
 }
 
 static inline void* pa_idxset_get_by_index(pa_idxset*s, uint32_t idx)

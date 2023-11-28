@@ -52,8 +52,10 @@ static const struct spa_dict_item module_props[] = {
 
 #include <pipewire/pipewire.h>
 
+#define MAX_LOOBACKS 5
+
 #define IMPL_FOREACH_LOOPBACK(impl, l, idx) \
-	for (idx = 0, l = &impl->loopbacks[0]; idx < SPA_N_ELEMENTS(impl->loopbacks); l = &impl->loopbacks[++idx])
+	for (idx = 0, l = &impl->loopbacks[0]; idx < impl->n_loopbacks; l = &impl->loopbacks[++idx])
 
 struct loopback;
 
@@ -99,7 +101,8 @@ struct impl {
 	struct spa_hook core_proxy_listener;
 	struct spa_hook core_listener;
 
-	struct loopback loopbacks[2];
+	unsigned int n_loopbacks;
+	struct loopback loopbacks[MAX_LOOBACKS];
 
 	unsigned int do_disconnect:1;
 
@@ -492,6 +495,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_log_error( "can't create properties: %m");
 		goto error;
 	}
+
+	// FIXME: get this from module props
+	impl->n_loopbacks = 2;
 
 	IMPL_FOREACH_LOOPBACK(impl, l, i) {
 		l->capture_props = pw_properties_new(NULL, NULL);

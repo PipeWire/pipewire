@@ -557,10 +557,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 		if (pw_properties_get(l->capture_props, PW_KEY_MEDIA_NAME) == NULL)
 			pw_properties_setf(l->capture_props, PW_KEY_MEDIA_NAME, "%s input %lu",
-					pw_properties_get(impl->loopbacks[0].capture_props, PW_KEY_NODE_DESCRIPTION), i + 1);
+					pw_properties_get(l->capture_props, PW_KEY_NODE_DESCRIPTION), i + 1);
 		if (pw_properties_get(l->playback_props, PW_KEY_MEDIA_NAME) == NULL)
 			pw_properties_setf(l->playback_props, PW_KEY_MEDIA_NAME, "%s output %lu",
-					pw_properties_get(impl->loopbacks[0].playback_props, PW_KEY_NODE_DESCRIPTION), i + 1);
+					pw_properties_get(l->playback_props, PW_KEY_NODE_DESCRIPTION), i + 1);
 
 		parse_audio_info(l->capture_props, &l->capture_info);
 		parse_audio_info(l->playback_props, &l->playback_info);

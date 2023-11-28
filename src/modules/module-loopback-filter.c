@@ -235,10 +235,6 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 	pw_log_debug("stream state [%p]: %u", l, l->capture_streaming);
 
 	switch (state) {
-	case PW_STREAM_STATE_UNCONNECTED:
-		pw_log_info("module %p: unconnected", l->impl);
-		pw_impl_module_schedule_destroy(l->impl->module);
-		break;
 	case PW_STREAM_STATE_ERROR:
 		pw_log_info("module %p: error: %s", l->impl, error);
 		break;

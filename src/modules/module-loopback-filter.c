@@ -55,7 +55,22 @@ static const struct spa_dict_item module_props[] = {
 #define IMPL_FOREACH_LOOPBACK(impl, l, idx) \
 	for (idx = 0, l = &impl->loopbacks[0]; idx < SPA_N_ELEMENTS(impl->loopbacks); l = &impl->loopbacks[++idx])
 
+struct loopback;
+
+typedef void process_fn(struct loopback*, const int32_t*, int32_t*, uint32_t);
+typedef void skip_fn(struct loopback*);
+
+static process_fn noop_process;
+static process_fn attenuate_process;
+
+static process_fn *device_process_fns[] = {
+	noop_process, /* 1 -> FPGA */
+	attenuate_process, /* 2 -> USB */
+};
+
 struct loopback {
+	struct impl *impl;
+
 	struct pw_stream *playback;
 	struct pw_properties *playback_props;
 	struct spa_hook playback_listener;
@@ -68,6 +83,9 @@ struct loopback {
 
 	bool capture_ready;
 	bool capture_streaming;
+
+	process_fn *process;
+	skip_fn *skip;
 };
 
 struct impl {
@@ -92,78 +110,80 @@ struct impl {
 
 static void trigger_playback(struct impl *impl)
 {
-	if ((impl->loopbacks[0].capture_streaming && !impl->loopbacks[0].capture_ready) ||
-			(impl->loopbacks[1].capture_streaming && !impl->loopbacks[1].capture_ready))
-		return;
+	struct loopback *l;
+	unsigned long i;
 
-	if (impl->loopbacks[1].capture_streaming) {
-		// loopback1 and loopback2 are running, trigger the second which cascades to the first
-		pw_stream_trigger_process(impl->loopbacks[1].playback);
-	} else {
-		// Only loopback1 is running, so trigger just that
-		pw_stream_trigger_process(impl->loopbacks[0].playback);
+	// Make sure all streaming capture streams are ready
+	IMPL_FOREACH_LOOPBACK(impl, l, i) {
+		if (l->capture_streaming && !l->capture_ready)
+			return;
 	}
 
-	impl->loopbacks[0].capture_ready = false;
-	impl->loopbacks[1].capture_ready = false;
+	IMPL_FOREACH_LOOPBACK(impl, l, i) {
+		if (l->capture_streaming)
+			pw_stream_trigger_process(l->playback);
+		else if (l->skip)
+			l->skip(l);
+		l->capture_ready = false;
+	}
 }
 
-static void capture1_destroy(void *d)
+static void capture_destroy(void *d)
 {
-	struct impl *impl = d;
-	spa_hook_remove(&impl->loopbacks[0].capture_listener);
-	impl->loopbacks[0].capture = NULL;
+	struct loopback *l = d;
+	spa_hook_remove(&l->capture_listener);
+	l->capture = NULL;
 }
 
-static void capture1_process(void *d)
+static void capture_process(void *d)
 {
-	struct impl *impl = d;
-	pw_log_trace("capture1 trigger");
+	struct loopback *l = d;
+	pw_log_trace("capture trigger");
 
-	impl->loopbacks[0].capture_ready = true;
-	trigger_playback(impl);
+	l->capture_ready = true;
+	trigger_playback(l->impl);
 }
 
-static void capture2_destroy(void *d)
+static void noop_process(struct loopback *l, const int32_t *src, int32_t *dst, uint32_t size)
 {
-	struct impl *impl = d;
-	spa_hook_remove(&impl->loopbacks[1].capture_listener);
-	impl->loopbacks[1].capture = NULL;
+	// We have access to `impl` inside `l`, so we could look up any of the
+	// other streams and forward data there if needed
+	for (uint32_t i = 0; i < size / sizeof(uint32_t); i++) {
+		dst[i] = src[i];
+	}
 }
 
-static void capture2_process(void *d)
+static void attenuate_process(struct loopback *l, const int32_t *src, int32_t *dst, uint32_t size)
 {
-	struct impl *impl = d;
-	pw_log_trace("capture2 trigger");
-
-	impl->loopbacks[1].capture_ready = true;
-	trigger_playback(impl);
+	for (uint32_t i = 0; i < size / sizeof(uint32_t); i++) {
+		dst[i] = src[i] / 2;
+	}
 }
 
-static void playback1_process(void *d) {
-	struct impl *impl = d;
-	struct pw_buffer *in1 = NULL, *out1 = NULL;
+static void playback_process(void *d) {
+	struct loopback *l = d;
+	struct pw_buffer *in = NULL, *out = NULL;
 
-	pw_log_trace("playback1 trigger");
+	pw_log_trace("playback trigger");
 
-	in1 = NULL;
+	in = NULL;
 	while (true) {
 		struct pw_buffer *t;
-		if ((t = pw_stream_dequeue_buffer(impl->loopbacks[0].capture)) == NULL)
+		if ((t = pw_stream_dequeue_buffer(l->capture)) == NULL)
 			break;
-		if (in1) {
-			pw_stream_queue_buffer(impl->loopbacks[0].capture, in1);
-			pw_log_warn("dropping capture1 buffers: %m");
+		if (in) {
+			pw_stream_queue_buffer(l->capture, in);
+			pw_log_warn("dropping capture buffers: %m");
 		}
-		in1 = t;
+		in = t;
 	}
-	if (in1 == NULL)
-		pw_log_debug("out of capture1 buffers: %m");
+	if (in == NULL)
+		pw_log_debug("out of capture buffers: %m");
 
-	if ((out1 = pw_stream_dequeue_buffer(impl->loopbacks[0].playback)) == NULL)
-		pw_log_warn("out of playback1 buffers: %m");
+	if ((out = pw_stream_dequeue_buffer(l->playback)) == NULL)
+		pw_log_warn("out of playback buffers: %m");
 
-	if (in1 != NULL && out1 != NULL) {
+	if (in != NULL && out != NULL) {
 		uint32_t outsize;
 		int32_t stride;
 		struct spa_data *d;
@@ -171,7 +191,7 @@ static void playback1_process(void *d) {
 		int32_t *dst;
 		uint32_t offs, size;
 
-		d = &in1->buffer->datas[0];
+		d = &in->buffer->datas[0];
 		offs = SPA_MIN(d->chunk->offset, d->maxsize);
 		size = SPA_MIN(d->chunk->size, d->maxsize - offs);
 
@@ -179,269 +199,135 @@ static void playback1_process(void *d) {
 		outsize = size;
 		stride = d->chunk->stride;
 
-		d = &out1->buffer->datas[0];
+		d = &out->buffer->datas[0];
 		outsize = SPA_MIN(outsize, d->maxsize);
 		dst = d->data;
 
-		for (uint32_t i = 0; i < outsize / sizeof(uint32_t); i++) {
-			if (i % 24 == 1)
-				dst[i] = src[i] / 2;
-			else
-				dst[i] = src[i];
-		}
+		// Do the actual processing
+		l->process(l, src, dst, size);
 
 		d->chunk->offset = 0;
 		d->chunk->size = outsize;
 		d->chunk->stride = stride;
 	}
 
-	if (in1 != NULL)
-		pw_stream_queue_buffer(impl->loopbacks[0].capture, in1);
-	if (out1 != NULL)
-		pw_stream_queue_buffer(impl->loopbacks[0].playback, out1);
-}
-
-static void playback2_process(void *d)
-{
-	struct impl *impl = d;
-	struct pw_buffer *in2 = NULL, *out2 = NULL;
-
-	pw_log_trace("playback2 process");
-
-	in2 = NULL;
-	while (true) {
-		struct pw_buffer *t;
-		if ((t = pw_stream_dequeue_buffer(impl->loopbacks[1].capture)) == NULL)
-			break;
-		if (in2) {
-			pw_stream_queue_buffer(impl->loopbacks[1].capture, in2);
-			pw_log_warn("dropping capture2 buffers: %m");
-		}
-		in2 = t;
-	}
-
-	// Can be NULL if USB isn't connected
-	out2 = pw_stream_dequeue_buffer(impl->loopbacks[1].playback);
-
-	if (in2 != NULL && out2 != NULL) {
-		uint32_t outsize;
-		int32_t stride;
-		struct spa_data *d;
-		const int32_t *src;
-		int32_t *dst;
-		uint32_t offs, size;
-
-		d = &in2->buffer->datas[0];
-		offs = SPA_MIN(d->chunk->offset, d->maxsize);
-		size = SPA_MIN(d->chunk->size, d->maxsize - offs);
-
-		src = SPA_PTROFF(d->data, offs, void);
-		outsize = size;
-		stride = d->chunk->stride;
-
-		d = &out2->buffer->datas[0];
-		outsize = SPA_MIN(outsize, d->maxsize);
-		dst = d->data;
-
-		for (uint32_t i = 0; i < outsize / sizeof(uint32_t); i++) {
-			if (i % 8 == 0)
-				dst[i] = src[i] / 2;
-			else
-				dst[i] = src[i];
-		}
-
-		d->chunk->offset = 0;
-		d->chunk->size = outsize;
-		d->chunk->stride = stride;
-	}
-
-	if (in2 != NULL)
-		pw_stream_queue_buffer(impl->loopbacks[1].capture, in2);
-	if (out2 != NULL)
-		pw_stream_queue_buffer(impl->loopbacks[1].playback, out2);
-
-	// We've pushed data on both streams, trigger the other stream to
-	// complete the graph processing iteration
-	pw_stream_trigger_process(impl->loopbacks[0].playback);
+	if (in != NULL)
+		pw_stream_queue_buffer(l->capture, in);
+	if (out != NULL)
+		pw_stream_queue_buffer(l->playback, out);
 }
 
 static void stream_state_changed(void *data, enum pw_stream_state old,
 		enum pw_stream_state state, const char *error)
 {
-	struct impl *impl = data;
+	struct loopback *l = data;
 
 	// FIXME: We have to check stream states here, because the callback is
 	// used across all streams and we don't know which one this was called
 	// on.
-	if (pw_stream_get_state(impl->loopbacks[0].capture, NULL) == PW_STREAM_STATE_STREAMING)
-		impl->loopbacks[0].capture_streaming = true;
+	if (pw_stream_get_state(l->capture, NULL) == PW_STREAM_STATE_STREAMING)
+		l->capture_streaming = true;
 	else
-		impl->loopbacks[0].capture_streaming = false;
-	if (pw_stream_get_state(impl->loopbacks[1].capture, NULL) == PW_STREAM_STATE_STREAMING)
-		impl->loopbacks[1].capture_streaming = true;
-	else
-		impl->loopbacks[1].capture_streaming = false;
-	pw_log_debug("Stream states: capture1 %u, capture2 %u", impl->loopbacks[0].capture_streaming, impl->loopbacks[1].capture_streaming);
+		l->capture_streaming = false;
+	pw_log_debug("stream state [%p]: %u", l, l->capture_streaming);
 
 	switch (state) {
 	case PW_STREAM_STATE_UNCONNECTED:
-		pw_log_info("module %p: unconnected", impl);
-		pw_impl_module_schedule_destroy(impl->module);
+		pw_log_info("module %p: unconnected", l->impl);
+		pw_impl_module_schedule_destroy(l->impl->module);
 		break;
 	case PW_STREAM_STATE_ERROR:
-		pw_log_info("module %p: error: %s", impl, error);
+		pw_log_info("module %p: error: %s", l->impl, error);
 		break;
 	default:
 		break;
 	}
 }
 
-static const struct pw_stream_events in1_stream_events = {
+static const struct pw_stream_events capture_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
-	.destroy = capture1_destroy,
-	.process = capture1_process,
+	.destroy = capture_destroy,
+	.process = capture_process,
 	.state_changed = stream_state_changed,
 };
 
-static const struct pw_stream_events in2_stream_events = {
-	PW_VERSION_STREAM_EVENTS,
-	.destroy = capture2_destroy,
-	.process = capture2_process,
-	.state_changed = stream_state_changed,
-};
-
-static void playback1_destroy(void *d)
+static void playback_destroy(void *d)
 {
-	struct impl *impl = d;
-	spa_hook_remove(&impl->loopbacks[0].playback_listener);
-	impl->loopbacks[0].playback = NULL;
+	struct loopback *l = d;
+	spa_hook_remove(&l->playback_listener);
+	l->playback = NULL;
 }
 
-static const struct pw_stream_events out1_stream_events = {
+static const struct pw_stream_events playback_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
-	.destroy = playback1_destroy,
-	.process = playback1_process,
-	.state_changed = stream_state_changed,
-};
-
-static void playback2_destroy(void *d)
-{
-	struct impl *impl = d;
-	spa_hook_remove(&impl->loopbacks[1].playback_listener);
-	impl->loopbacks[1].playback = NULL;
-}
-
-static const struct pw_stream_events out2_stream_events = {
-	PW_VERSION_STREAM_EVENTS,
-	.destroy = playback2_destroy,
-	.process = playback2_process,
+	.destroy = playback_destroy,
+	.process = playback_process,
 	.state_changed = stream_state_changed,
 };
 
 static int setup_streams(struct impl *impl)
 {
 	int res;
+	struct loopback *l;
+	unsigned long idx;
 	uint32_t n_params;
 	const struct spa_pod *params[1];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 
-	impl->loopbacks[0].capture = pw_stream_new(impl->core,
-			"loopback capture1", impl->loopbacks[0].capture_props);
-	impl->loopbacks[0].capture_props = NULL;
-	if (impl->loopbacks[0].capture == NULL)
-		return -errno;
+	IMPL_FOREACH_LOOPBACK(impl, l, idx) {
+		l->impl = impl;
+		// FIXME: we could set a property on the stream to select this function
+		l->process = device_process_fns[idx];
+		l->skip = NULL;
 
-	pw_stream_add_listener(impl->loopbacks[0].capture,
-			&impl->loopbacks[0].capture_listener,
-			&in1_stream_events, impl);
+		l->capture = pw_stream_new(impl->core,
+				"loopback capture", l->capture_props);
+		l->capture_props = NULL;
+		if (l->capture == NULL)
+			return -errno;
 
-	impl->loopbacks[1].capture = pw_stream_new(impl->core,
-			"loopback capture2", impl->loopbacks[1].capture_props);
-	impl->loopbacks[1].capture_props = NULL;
-	if (impl->loopbacks[1].capture == NULL)
-		return -errno;
+		pw_stream_add_listener(l->capture, &l->capture_listener,
+				&capture_stream_events, l);
 
-	pw_stream_add_listener(impl->loopbacks[1].capture,
-			&impl->loopbacks[1].capture_listener,
-			&in2_stream_events, impl);
+		l->playback = pw_stream_new(impl->core,
+				"loopback playback", l->playback_props);
+		l->playback_props = NULL;
+		if (l->playback == NULL)
+			return -errno;
 
-	impl->loopbacks[0].playback = pw_stream_new(impl->core,
-			"loopback playback1", impl->loopbacks[0].playback_props);
-	impl->loopbacks[0].playback_props = NULL;
-	if (impl->loopbacks[0].playback == NULL)
-		return -errno;
+		pw_stream_add_listener(l->playback, &l->playback_listener,
+				&playback_stream_events, l);
 
-	pw_stream_add_listener(impl->loopbacks[0].playback,
-			&impl->loopbacks[0].playback_listener,
-			&out1_stream_events, impl);
+		/* connect playback first to activate it before capture triggers it */
+		n_params = 0;
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
+				&l->playback_info);
+		if ((res = pw_stream_connect(l->playback,
+						PW_DIRECTION_OUTPUT,
+						PW_ID_ANY,
+						PW_STREAM_FLAG_AUTOCONNECT |
+						PW_STREAM_FLAG_MAP_BUFFERS |
+						PW_STREAM_FLAG_RT_PROCESS |
+						PW_STREAM_FLAG_TRIGGER,
+						params, n_params)) < 0)
+			return res;
 
-	impl->loopbacks[1].playback = pw_stream_new(impl->core,
-			"loopback playback2", impl->loopbacks[1].playback_props);
-	impl->loopbacks[1].playback_props = NULL;
-	if (impl->loopbacks[1].playback == NULL)
-		return -errno;
-
-	pw_stream_add_listener(impl->loopbacks[1].playback,
-			&impl->loopbacks[1].playback_listener,
-			&out2_stream_events, impl);
-
-	/* connect playback first to activate it before capture triggers it */
-	n_params = 0;
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-			&impl->loopbacks[0].playback_info);
-	if ((res = pw_stream_connect(impl->loopbacks[0].playback,
-			PW_DIRECTION_OUTPUT,
-			PW_ID_ANY,
-			PW_STREAM_FLAG_AUTOCONNECT |
-			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS |
-			PW_STREAM_FLAG_TRIGGER,
-			params, n_params)) < 0)
-		return res;
-
-	n_params = 0;
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-			&impl->loopbacks[1].playback_info);
-	if ((res = pw_stream_connect(impl->loopbacks[1].playback,
-			PW_DIRECTION_OUTPUT,
-			PW_ID_ANY,
-			PW_STREAM_FLAG_AUTOCONNECT |
-			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS |
-			PW_STREAM_FLAG_TRIGGER,
-			params, n_params)) < 0)
-		return res;
-
-	n_params = 0;
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-			&impl->loopbacks[0].capture_info);
-	if ((res = pw_stream_connect(impl->loopbacks[0].capture,
-			PW_DIRECTION_INPUT,
-			PW_ID_ANY,
-			PW_STREAM_FLAG_AUTOCONNECT |
-			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_ASYNC |
-			PW_STREAM_FLAG_RT_PROCESS,
-			params, n_params)) < 0)
-		return res;
-
-	n_params = 0;
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-			&impl->loopbacks[1].capture_info);
-	if ((res = pw_stream_connect(impl->loopbacks[1].capture,
-			PW_DIRECTION_INPUT,
-			PW_ID_ANY,
-			PW_STREAM_FLAG_AUTOCONNECT |
-			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_ASYNC |
-			PW_STREAM_FLAG_RT_PROCESS,
-			params, n_params)) < 0)
-		return res;
+		n_params = 0;
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
+				&l->capture_info);
+		if ((res = pw_stream_connect(l->capture,
+						PW_DIRECTION_INPUT,
+						PW_ID_ANY,
+						PW_STREAM_FLAG_AUTOCONNECT |
+						PW_STREAM_FLAG_MAP_BUFFERS |
+						PW_STREAM_FLAG_ASYNC |
+						PW_STREAM_FLAG_RT_PROCESS,
+						params, n_params)) < 0)
+			return res;
+	}
 
 	return 0;
 }

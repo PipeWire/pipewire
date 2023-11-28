@@ -10,8 +10,8 @@ msgstr ""
 "Project-Id-Version: pipewire\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/"
 "issues\n"
-"POT-Creation-Date: 2023-04-06 03:27+0000\n"
-"PO-Revision-Date: 2023-04-06 10:51+0300\n"
+"POT-Creation-Date: 2023-05-28 10:45+0000\n"
+"PO-Revision-Date: 2023-11-28 14:30+0300\n"
 "Last-Translator: Aleksandr Melman <Alexmelman88@gmail.com>\n"
 "Language-Team: ru\n"
 "Language: ru\n"
@@ -20,7 +20,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
-"X-Generator: Poedit 3.2.2\n"
+"X-Generator: Poedit 3.4.1\n"
 
 #: src/daemon/pipewire.c:26
 #, c-format
@@ -30,9 +30,9 @@ msgid ""
 "      --version                         Show version\n"
 "  -c, --config                          Load config (Default %s)\n"
 msgstr ""
-"%s [опции]\n"
+"%s [параметры]\n"
 "  -h, --help                            Показать справку\n"
-"      --version                         Информация о версии\n"
+"      --version                         Показать версию\n"
 "  -c, --config                          Загрузить конфигурацию (По умолчанию "
 "%s)\n"
 
@@ -44,17 +44,17 @@ msgstr "Мультимедийная система PipeWire"
 msgid "Start the PipeWire Media System"
 msgstr "Запустить PipeWire"
 
-#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:159
-#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:159
+#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:141
+#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:141
 #, c-format
-msgid "Tunnel to %s/%s"
-msgstr "Туннель на %s/%s"
+msgid "Tunnel to %s%s%s"
+msgstr "Туннель на %s%s%s"
 
 #: src/modules/module-fallback-sink.c:31
 msgid "Dummy Output"
 msgstr "Холостой выход"
 
-#: src/modules/module-pulse-tunnel.c:688
+#: src/modules/module-pulse-tunnel.c:844
 #, c-format
 msgid "Tunnel for %s@%s"
 msgstr "Туннель для %s@%s"
@@ -82,9 +82,9 @@ msgid ""
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
-"%s [опции] [<file>|-]\n"
+"%s [параметры] [<file>|-]\n"
 "  -h, --help                            Показать справку\n"
-"      --version                         Информация о версии\n"
+"      --version                         Показать версию\n"
 "  -v, --verbose                         Включить показ подробной информации\n"
 "\n"
 
@@ -188,9 +188,9 @@ msgid ""
 "  -m, --monitor                         Monitor activity\n"
 "\n"
 msgstr ""
-"%s [опции] [команда]\n"
+"%s [параметры] [команда]\n"
 "  -h, --help                            Показать справку\n"
-"      --version                         Информация о версии\n"
+"      --version                         Показать версию\n"
 "  -d, --daemon                          Запустить в режиме фоновой службы "
 "(По умолчанию false)\n"
 "  -r, --remote                          Имя удаленного фоновой службы\n"
@@ -202,7 +202,7 @@ msgid "Pro Audio"
 msgstr "Pro Audio"
 
 #: spa/plugins/alsa/acp/acp.c:427 spa/plugins/alsa/acp/alsa-mixer.c:4648
-#: spa/plugins/bluez5/bluez5-device.c:1286
+#: spa/plugins/bluez5/bluez5-device.c:1586
 msgid "Off"
 msgstr "Выключено"
 
@@ -229,7 +229,7 @@ msgstr "Линейный вход"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2657
 #: spa/plugins/alsa/acp/alsa-mixer.c:2741
-#: spa/plugins/bluez5/bluez5-device.c:1522
+#: spa/plugins/bluez5/bluez5-device.c:1831
 msgid "Microphone"
 msgstr "Микрофон"
 
@@ -295,7 +295,7 @@ msgid "No Bass Boost"
 msgstr "Нет усиления басов"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2672
-#: spa/plugins/bluez5/bluez5-device.c:1528
+#: spa/plugins/bluez5/bluez5-device.c:1837
 msgid "Speaker"
 msgstr "Динамик"
 
@@ -410,7 +410,7 @@ msgstr "Стерео"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4484
 #: spa/plugins/alsa/acp/alsa-mixer.c:4642
-#: spa/plugins/bluez5/bluez5-device.c:1510
+#: spa/plugins/bluez5/bluez5-device.c:1819
 msgid "Headset"
 msgstr "Гарнитура"
 
@@ -534,7 +534,7 @@ msgstr "%s выход"
 msgid "%s Input"
 msgstr "%s вход"
 
-#: spa/plugins/alsa/acp/alsa-util.c:1211 spa/plugins/alsa/acp/alsa-util.c:1305
+#: spa/plugins/alsa/acp/alsa-util.c:1187 spa/plugins/alsa/acp/alsa-util.c:1281
 #, c-format
 msgid ""
 "snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu "
@@ -562,7 +562,7 @@ msgstr[2] ""
 "Вероятно, это ошибка в драйвере ALSA «%s». Пожалуйста, сообщите об этой "
 "проблеме разработчикам ALSA."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1277
+#: spa/plugins/alsa/acp/alsa-util.c:1253
 #, c-format
 msgid ""
 "snd_pcm_delay() returned a value that is exceptionally large: %li byte "
@@ -590,7 +590,7 @@ msgstr[2] ""
 "Вероятно, это ошибка в драйвере ALSA «%s». Пожалуйста, сообщите об этой "
 "проблеме разработчикам ALSA."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1324
+#: spa/plugins/alsa/acp/alsa-util.c:1300
 #, c-format
 msgid ""
 "snd_pcm_avail_delay() returned strange values: delay %lu is less than avail "
@@ -603,7 +603,7 @@ msgstr ""
 "Вероятно, это ошибка в драйвере ALSA «%s». Пожалуйста, сообщите об этой "
 "проблеме разработчикам ALSA."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1367
+#: spa/plugins/alsa/acp/alsa-util.c:1343
 #, c-format
 msgid ""
 "snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu byte "
@@ -643,104 +643,104 @@ msgstr "Встроенное аудио"
 msgid "Modem"
 msgstr "Модем"
 
-#: spa/plugins/bluez5/bluez5-device.c:1297
+#: spa/plugins/bluez5/bluez5-device.c:1597
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr "Адаптер аудиогарнитуры (приёмник A2DP и HSP/HFP AG)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1322
+#: spa/plugins/bluez5/bluez5-device.c:1622
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr "Воспроизведение высокого качества (приёмник A2DP, кодек %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1325
+#: spa/plugins/bluez5/bluez5-device.c:1625
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr "Дуплекс высокого качества (источник / приёмник A2DP,  кодек %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1333
+#: spa/plugins/bluez5/bluez5-device.c:1633
 msgid "High Fidelity Playback (A2DP Sink)"
 msgstr "Воспроизведение высокого качества (приёмник A2DP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1335
+#: spa/plugins/bluez5/bluez5-device.c:1635
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
 msgstr "Дуплекс высокого качества (источник / приёмник A2DP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1377
+#: spa/plugins/bluez5/bluez5-device.c:1677
 #, c-format
 msgid "High Fidelity Playback (BAP Sink, codec %s)"
 msgstr "Воспроизведение высокого качества (приёмник BAP, кодек %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1381
+#: spa/plugins/bluez5/bluez5-device.c:1681
 #, c-format
 msgid "High Fidelity Input (BAP Source, codec %s)"
 msgstr "Вход высокого качества (источник BAP, кодек %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1385
+#: spa/plugins/bluez5/bluez5-device.c:1685
 #, c-format
 msgid "High Fidelity Duplex (BAP Source/Sink, codec %s)"
 msgstr "Дуплекс высокого качества (источник / приёмник BAP, кодек %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1393
+#: spa/plugins/bluez5/bluez5-device.c:1693
 msgid "High Fidelity Playback (BAP Sink)"
 msgstr "Воспроизведение высокого качества (приёмник BAP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1396
+#: spa/plugins/bluez5/bluez5-device.c:1696
 msgid "High Fidelity Input (BAP Source)"
 msgstr "Вход высокого качества (источник BAP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1399
+#: spa/plugins/bluez5/bluez5-device.c:1699
 msgid "High Fidelity Duplex (BAP Source/Sink)"
 msgstr "Дуплекс высокого качества (источник / приёмник BAP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1427
+#: spa/plugins/bluez5/bluez5-device.c:1735
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
 msgstr "Гарнитура (HSP/HFP, кодек %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1432
+#: spa/plugins/bluez5/bluez5-device.c:1740
 msgid "Headset Head Unit (HSP/HFP)"
 msgstr "Гарнитура (HSP/HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1511
-#: spa/plugins/bluez5/bluez5-device.c:1516
-#: spa/plugins/bluez5/bluez5-device.c:1523
-#: spa/plugins/bluez5/bluez5-device.c:1529
-#: spa/plugins/bluez5/bluez5-device.c:1535
-#: spa/plugins/bluez5/bluez5-device.c:1541
-#: spa/plugins/bluez5/bluez5-device.c:1547
-#: spa/plugins/bluez5/bluez5-device.c:1553
-#: spa/plugins/bluez5/bluez5-device.c:1559
+#: spa/plugins/bluez5/bluez5-device.c:1820
+#: spa/plugins/bluez5/bluez5-device.c:1825
+#: spa/plugins/bluez5/bluez5-device.c:1832
+#: spa/plugins/bluez5/bluez5-device.c:1838
+#: spa/plugins/bluez5/bluez5-device.c:1844
+#: spa/plugins/bluez5/bluez5-device.c:1850
+#: spa/plugins/bluez5/bluez5-device.c:1856
+#: spa/plugins/bluez5/bluez5-device.c:1862
+#: spa/plugins/bluez5/bluez5-device.c:1868
 msgid "Handsfree"
 msgstr "Handsfree"
 
-#: spa/plugins/bluez5/bluez5-device.c:1517
+#: spa/plugins/bluez5/bluez5-device.c:1826
 msgid "Handsfree (HFP)"
 msgstr "Handsfree (HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1534
+#: spa/plugins/bluez5/bluez5-device.c:1843
 msgid "Headphone"
 msgstr "Наушники"
 
-#: spa/plugins/bluez5/bluez5-device.c:1540
+#: spa/plugins/bluez5/bluez5-device.c:1849
 msgid "Portable"
 msgstr "Портативное устройство"
 
-#: spa/plugins/bluez5/bluez5-device.c:1546
+#: spa/plugins/bluez5/bluez5-device.c:1855
 msgid "Car"
 msgstr "Автомобильное устройство"
 
-#: spa/plugins/bluez5/bluez5-device.c:1552
+#: spa/plugins/bluez5/bluez5-device.c:1861
 msgid "HiFi"
 msgstr "Hi-Fi"
 
-#: spa/plugins/bluez5/bluez5-device.c:1558
+#: spa/plugins/bluez5/bluez5-device.c:1867
 msgid "Phone"
 msgstr "Телефон"
 
-#: spa/plugins/bluez5/bluez5-device.c:1565
+#: spa/plugins/bluez5/bluez5-device.c:1874
 msgid "Bluetooth"
 msgstr "Bluetooth"
 
-#: spa/plugins/bluez5/bluez5-device.c:1566
+#: spa/plugins/bluez5/bluez5-device.c:1875
 msgid "Bluetooth (HFP)"
 msgstr "Bluetooth (HFP)"

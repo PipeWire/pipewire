@@ -34,7 +34,7 @@ context.objects = [
             node.name       = PTP0-Driver
             node.group      = pipewire.ptp0
             # This driver should only be used for network nodes marked with group
-            priority.driver = 0
+            priority.driver = 100000
             clock.name      = "clock.system.ptp0"
             #clock.id        = tai
             clock.device    = "/dev/ptp0"

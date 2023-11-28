@@ -902,8 +902,9 @@ static int probe_pitch_ctl(struct state *state, const char* device_name)
 		if (opened) {
 			snd_ctl_close(state->ctl);
 			state->ctl = NULL;
-			goto error;
 		}
+
+		goto error;
 	}
 
 	snd_ctl_elem_value_set_integer(state->pitch_elem, 0, 1000000);

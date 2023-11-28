@@ -1143,6 +1143,14 @@ static int read_volume(pa_alsa_device *dev)
 	uint32_t i;
 	int res;
 
+	if (dev->ucm_context) {
+		if (!dev->active_port)
+			return 0;
+		pa_alsa_ucm_port_data *data = PA_DEVICE_PORT_DATA(dev->active_port);
+		if (pa_alsa_ucm_port_device_status(data) <= 0)
+			return 0;
+	}
+
 	if (!dev->mixer_handle)
 		return 0;
 
@@ -1177,6 +1185,14 @@ static void set_volume(pa_alsa_device *dev, const pa_cvolume *v)
 
 	if (v != &dev->real_volume)
 		dev->real_volume = *v;
+
+	if (dev->ucm_context) {
+		if (!dev->active_port)
+			return;
+		pa_alsa_ucm_port_data *data = PA_DEVICE_PORT_DATA(dev->active_port);
+		if (pa_alsa_ucm_port_device_status(data) <= 0)
+			return;
+	}
 
 	if (!dev->mixer_handle)
 		return;
@@ -1231,6 +1247,14 @@ static int read_mute(pa_alsa_device *dev)
 	bool mute;
 	int res;
 
+	if (dev->ucm_context) {
+		if (!dev->active_port)
+			return 0;
+		pa_alsa_ucm_port_data *data = PA_DEVICE_PORT_DATA(dev->active_port);
+		if (pa_alsa_ucm_port_device_status(data) <= 0)
+			return 0;
+	}
+
 	if (!dev->mixer_handle)
 		return 0;
 
@@ -1252,6 +1276,14 @@ static int read_mute(pa_alsa_device *dev)
 static void set_mute(pa_alsa_device *dev, bool mute)
 {
 	dev->muted = mute;
+
+	if (dev->ucm_context) {
+		if (!dev->active_port)
+			return;
+		pa_alsa_ucm_port_data *data = PA_DEVICE_PORT_DATA(dev->active_port);
+		if (pa_alsa_ucm_port_device_status(data) <= 0)
+			return;
+	}
 
 	if (!dev->mixer_handle)
 		return;

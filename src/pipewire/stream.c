@@ -901,6 +901,7 @@ static int impl_port_set_param(void *object,
 {
 	struct stream *impl = object;
 	struct pw_stream *stream = &impl->this;
+	uint32_t user;
 	int res;
 
 	pw_log_debug("%p: port:%d.%d id:%d (%s) param:%p disconnecting:%d", impl,
@@ -920,6 +921,7 @@ static int impl_port_set_param(void *object,
 	switch (id) {
 	case SPA_PARAM_Format:
 		clear_buffers(stream);
+		user = impl->params[NODE_Format].user;
 		break;
 	case SPA_PARAM_Latency:
 		parse_latency(stream, param);
@@ -933,10 +935,17 @@ static int impl_port_set_param(void *object,
 	if (stream->state == PW_STREAM_STATE_ERROR)
 		return stream->error_res;
 
+	switch (id) {
+	case SPA_PARAM_Format:
+		if (user != impl->params[NODE_Format].user)
+			res++;
+		break;
+	}
+
 	emit_node_info(impl, false);
 	emit_port_info(impl, false);
 
-	return 0;
+	return res;
 }
 
 static int impl_port_use_buffers(void *object,

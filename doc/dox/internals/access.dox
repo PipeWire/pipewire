@@ -82,15 +82,14 @@ module does nothing.
 
 If the property is not set it will go through a set of checks to determine
 the permissions for a client. See the \ref page_module_access documentation
-for details, particularly on the values documented below. Depending on the
-value of the \ref PW_KEY_ACCESS property one the following happens:
+for details.
 
-- `"allowed"`, `"unrestricted"`:  ALL permissions are set on the core
+Depending on the resolution, it grants permissions to the client as follows:
+
+- `"unrestricted"`:  ALL permissions are set on the core
     object and the client will be able to resume.
-- `"restricted"`, `"flatpak"`, `"$access.force"`:  No permissions are set on
-    the core object and the client will be suspended.
-- `"rejected"`: An error is sent to the client and the client is
-    suspended.
+- any other value: No permissions are set on the core object
+  and the client will be suspended.
 
 As detailed above, the client may be suspended. In that case the session
 manager or another client is required to configure permissions on the object
@@ -101,8 +100,7 @@ for it to resume.
 The session manager listens for new clients to appear. It will use the
 \ref PW_KEY_ACCESS property to determine what to do.
 
-For clients that are suspended with `"restricted"`, `"flatpak"` or
-`"$access.force"` access, the session manager needs to set permissions on the
+For clients that are not unrestricted, the session manager needs to set permissions on the
 client for the various PipeWire objects in the graph that it is allowed to
 interact with.  To resume a client, the session manager needs to set
 permission `R` on the core object for the client.

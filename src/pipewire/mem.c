@@ -57,6 +57,32 @@ static inline int memfd_create(const char *name, unsigned int flags)
 #define MFD_ALLOW_SEALING 0x0002U
 #endif
 
+#ifndef MFD_HUGETLB
+#define MFD_HUGETLB 0x0004U
+#endif
+
+#ifndef MFD_NOEXEC_SEAL
+#define MFD_NOEXEC_SEAL 0x0008U
+#endif
+
+#ifndef MFD_EXEC
+#define MFD_EXEC 0x0010U
+#endif
+
+#ifdef HAVE_MEMFD_CREATE
+static int pw_memfd_create(const char *name, unsigned int flags)
+{
+	int res;
+
+	res = memfd_create(name, flags);
+
+	if (res == -1 && errno == EINVAL && flags & MFD_NOEXEC_SEAL)
+		res = memfd_create(name, flags & ~MFD_NOEXEC_SEAL);
+
+	return res;
+}
+#endif
+
 /* fcntl() seals-related flags */
 
 #ifndef F_LINUX_SPECIFIC_BASE
@@ -489,7 +515,7 @@ struct pw_memblock * pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_
 		 "pipewire-memfd:flags=0x%08x,type=%" PRIu32 ",size=%zu",
 		 (unsigned int) flags, type, size);
 
-	b->this.fd = memfd_create(name, MFD_CLOEXEC | MFD_ALLOW_SEALING);
+	b->this.fd = pw_memfd_create(name, MFD_CLOEXEC | MFD_ALLOW_SEALING | MFD_NOEXEC_SEAL);
 	if (b->this.fd == -1) {
 		res = -errno;
 		pw_log_error("%p: Failed to create memfd: %m", pool);

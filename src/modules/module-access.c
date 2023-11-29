@@ -50,6 +50,7 @@
  * - If `access.legacy` is enabled, the value is:
  *
  *     - `"flatpak"`: if client is a Flatpak client
+ *     - `"unrestricted"`: if \ref PW_KEY_CLIENT_ACCESS client property is set to `"allowed"`
  *     - Value of \ref PW_KEY_CLIENT_ACCESS client property, if set
  *     - `"unrestricted"`: otherwise
  *
@@ -199,12 +200,16 @@ context_check_access(void *data, struct pw_impl_client *client)
 		else
 			access = ACCESS_DEFAULT;
 	} else {
-		if (sandbox_flatpak)
+		if (sandbox_flatpak) {
 			access = ACCESS_FLATPAK;
-		else if ((str = pw_properties_get(props, PW_KEY_CLIENT_ACCESS)) != NULL)
-			access = str;
-		else
+		} else if ((str = pw_properties_get(props, PW_KEY_CLIENT_ACCESS)) != NULL) {
+			if (spa_streq(str, "allowed"))
+				access = ACCESS_UNRESTRICTED;
+			else
+				access = str;
+		} else {
 			access = ACCESS_UNRESTRICTED;
+		}
 	}
 
 	/* Handle resolution */

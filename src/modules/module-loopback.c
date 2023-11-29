@@ -67,6 +67,16 @@
  *         prefixed with 'input.' and 'output.' to generate a capture and playback
  *         stream node.name respectively.
  *
+ * ## Channel handling
+ *
+ * Channels from the capture stream are copied, in order, to the channels of the
+ * output stream. The remaining streams are ignored (when capture has more channels)
+ * or filled with silence (when playback has more channels).
+ *
+ * When a global channel position is set, both capture and playback will be converted
+ * to and from this common channel layout. This can be used to implement up or
+ * downmixing loopback sinks/sources.
+ *
  * ## Example configuration of a virtual sink
  *
  * This Virtual sink routes stereo input to the rear channels of a 7.1 sink.
@@ -104,18 +114,49 @@
  * context.modules = [
  * {   name = libpipewire-module-loopback
  *     args = {
- *       node.description = "Scarlett Focusrite Line 1"
- *       capture.props = {
- *           audio.position = [ FL ]
- *           stream.dont-remix = true
- *           node.target = "alsa_input.usb-Focusrite_Scarlett_Solo_USB_Y7ZD17C24495BC-00.analog-stereo"
- *           node.passive = true
- *       }
- *       playback.props = {
- *           node.name = "SF_mono_in_1"
- *           media.class = "Audio/Source"
- *           audio.position = [ MONO ]
- *       }
+ *         node.description = "Scarlett Focusrite Line 1"
+ *         capture.props = {
+ *             audio.position = [ FL ]
+ *             stream.dont-remix = true
+ *             node.target = "alsa_input.usb-Focusrite_Scarlett_Solo_USB_Y7ZD17C24495BC-00.analog-stereo"
+ *             node.passive = true
+ *         }
+ *         playback.props = {
+ *             node.name = "SF_mono_in_1"
+ *             media.class = "Audio/Source"
+ *             audio.position = [ MONO ]
+ *         }
+ *     }
+ * }
+ * ]
+ *\endcode
+ *
+ * ## Example configuration of an upmix sink
+ *
+ * This Virtual sink has 2 input channels and 6 output channels. It will perform upmixing
+ * using the PSD algorithm on the playback stream.
+ *
+ *\code{.unparsed}
+ * context.modules = [
+ * {   name = libpipewire-module-loopback
+ *     args = {
+ *         node.description = "Upmix Sink"
+ *         audio.position = [ FL FR ]
+ *         capture.props = {
+ *             node.name = "effect_input.upmix"
+ *             media.class = Audio/Sink
+ *         }
+ *         playback.props = {
+ *             node.name = "effect_output.upmix"
+ *             audio.position = [ FL FR RL RR FC LFE ]
+ *             node.passive = true
+ *             stream.dont-remix = true
+ *             channelmix.upmix = true
+ *             channelmix.upmix-method = psd
+ *             channelmix.lfe-cutoff = 150
+ *             channelmix.fc-cutoff = 12000
+ *             channelmix.rear-delay = 12.0
+ *         }
  *     }
  * }
  * ]
@@ -171,6 +212,8 @@ struct impl {
 	struct spa_hook core_proxy_listener;
 	struct spa_hook core_listener;
 
+	struct spa_audio_info_raw info;
+
 	struct pw_properties *capture_props;
 	struct pw_stream *capture;
 	struct spa_hook capture_listener;
@@ -185,8 +228,11 @@ struct impl {
 	unsigned int recalc_delay:1;
 
 	struct spa_io_position *position;
-	struct spa_audio_info_raw info;
+
+	uint32_t target_rate;
 	uint32_t rate;
+	uint32_t target_channels;
+	uint32_t channels;
 	float target_delay;
 	struct spa_ringbuffer buffer;
 	uint8_t *buffer_data;
@@ -345,6 +391,47 @@ static void param_tag_changed(struct impl *impl, const struct spa_pod *param,
 	pw_stream_update_params(other, params, 1);
 }
 
+static void param_format_changed(struct impl *impl, const struct spa_pod *param,
+		struct pw_stream *stream, bool capture)
+{
+	struct spa_audio_info_raw info;
+
+	spa_zero(info);
+	if (param != NULL) {
+		if (spa_format_audio_raw_parse(param, &info) < 0 ||
+		    info.channels == 0 ||
+		    info.channels > SPA_AUDIO_MAX_CHANNELS)
+			return;
+
+		if ((impl->info.format != 0 && impl->info.format != info.format) ||
+		    (impl->info.rate != 0 && impl->info.rate != info.rate) ||
+		    (impl->info.channels != 0 &&
+		     (impl->info.channels != info.channels ||
+		      memcmp(impl->info.position, info.position,
+			      info.channels * sizeof(uint32_t)) != 0))) {
+			uint8_t buffer[1024];
+			struct spa_pod_builder b;
+			const struct spa_pod *params[1];
+
+			if (impl->info.format != 0)
+				info.format = impl->info.format;
+			if (impl->info.rate != 0)
+				info.rate = impl->info.rate;
+			if (impl->info.channels != 0) {
+				info.channels = impl->info.channels;
+				memcpy(info.position, impl->info.position, sizeof(info.position));
+			}
+			spa_pod_builder_init(&b, buffer, sizeof(buffer));
+			params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info);
+			pw_stream_update_params(stream, params, 1);
+		}
+	}
+	if (capture) {
+		impl->target_rate = info.rate;
+		impl->target_channels = info.channels;
+	}
+}
+
 static void recalculate_buffer(struct impl *impl)
 {
 	if (impl->target_delay > 0.0f) {
@@ -352,7 +439,7 @@ static void recalculate_buffer(struct impl *impl)
 		void *data;
 
 		impl->buffer_size = (delay + (1u<<15)) * 4;
-		data = realloc(impl->buffer_data, impl->buffer_size * impl->info.channels);
+		data = realloc(impl->buffer_data, impl->buffer_size * impl->channels);
 		if (data == NULL) {
 			pw_log_warn("can't allocate delay buffer, delay disabled: %m");
 			impl->buffer_size = 0;
@@ -388,12 +475,13 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 		break;
 	case PW_STREAM_STATE_STREAMING:
 	{
-		uint32_t target = impl->info.rate;
+		uint32_t target = impl->target_rate;
 		if (target == 0)
 			target = impl->position ?
 				impl->position->clock.target_rate.denom : DEFAULT_RATE;
-		if (impl->rate != target) {
+		if (impl->rate != target || impl->target_channels != impl->channels) {
 			impl->rate = target;
+			impl->channels = impl->target_channels;
 			recalculate_buffer(impl);
 		}
 		break;
@@ -409,19 +497,8 @@ static void capture_param_changed(void *data, uint32_t id, const struct spa_pod 
 
 	switch (id) {
 	case SPA_PARAM_Format:
-	{
-		struct spa_audio_info_raw info;
-		spa_zero(info);
-		if (param != NULL) {
-			if (spa_format_audio_raw_parse(param, &info) < 0 ||
-			    info.channels == 0 ||
-			    info.channels > SPA_AUDIO_MAX_CHANNELS)
-				return;
-		}
-		impl->rate = 0;
-		impl->info = info;
+		param_format_changed(impl, param, impl->capture, true);
 		break;
-	}
 	case SPA_PARAM_Latency:
 		param_latency_changed(impl, param, impl->playback);
 		break;
@@ -464,6 +541,9 @@ static void playback_param_changed(void *data, uint32_t id, const struct spa_pod
 	struct impl *impl = data;
 
 	switch (id) {
+	case SPA_PARAM_Format:
+		param_format_changed(impl, param, impl->playback, false);
+		break;
 	case SPA_PARAM_Latency:
 		param_latency_changed(impl, param, impl->capture);
 		break;
@@ -747,6 +827,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(impl->playback_props, PW_KEY_NODE_DESCRIPTION) == NULL)
 		pw_properties_set(impl->playback_props, PW_KEY_NODE_DESCRIPTION, str);
 
+	parse_audio_info(props, &impl->info);
 	parse_audio_info(impl->capture_props, &impl->capture_info);
 	parse_audio_info(impl->playback_props, &impl->playback_info);
 

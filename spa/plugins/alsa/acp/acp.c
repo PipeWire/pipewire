@@ -7,6 +7,7 @@
 #include "alsa-ucm.h"
 
 #include <spa/utils/string.h>
+#include <spa/utils/json.h>
 
 int _acp_log_level = 1;
 acp_log_func _acp_log_func;
@@ -449,6 +450,24 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 	return 0;
 }
 
+static bool contains_string(const char *arr, const char *str)
+{
+	struct spa_json it[2];
+	char v[256];
+
+	if (arr == NULL || str == NULL)
+		return false;
+
+	spa_json_init(&it[0], arr, strlen(arr));
+        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+                spa_json_init(&it[1], arr, strlen(arr));
+
+	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0) {
+		if (spa_streq(v, str))
+			return true;
+	}
+	return false;
+}
 
 static void add_profiles(pa_card *impl)
 {
@@ -459,6 +478,7 @@ static void add_profiles(pa_card *impl)
 	pa_alsa_device *dev;
 	int n_profiles, n_ports, n_devices;
 	uint32_t idx;
+	const char *arr;
 
 	n_devices = 0;
 	pa_dynarray_init(&impl->out.devices, device_free);
@@ -561,7 +581,10 @@ static void add_profiles(pa_card *impl)
 		dev->device.ports = dev->port_array.array.data;
 		dev->device.n_ports = pa_dynarray_size(&dev->port_array);
 	}
+	arr = pa_proplist_gets(impl->proplist, "api.acp.hidden-ports");
 	PA_HASHMAP_FOREACH(dp, impl->ports, state) {
+		if (contains_string(arr, dp->name))
+			dp->port.flags |= ACP_PORT_HIDDEN;
 		dp->port.devices = dp->devices.array.data;
 		dp->port.n_devices = pa_dynarray_size(&dp->devices);
 	}
@@ -570,7 +593,10 @@ static void add_profiles(pa_card *impl)
 
 	n_profiles = 0;
 	pa_dynarray_init(&impl->out.profiles, NULL);
+	arr = pa_proplist_gets(impl->proplist, "api.acp.hidden-profiles");
 	PA_HASHMAP_FOREACH(cp, impl->profiles, state) {
+		if (contains_string(arr, cp->name))
+			cp->flags |= ACP_PROFILE_HIDDEN;
 		cp->index = n_profiles++;
 		pa_dynarray_append(&impl->out.profiles, cp);
 	}
@@ -1021,6 +1047,9 @@ uint32_t acp_card_find_best_profile_index(struct acp_card *card, const char *nam
 	for (i = 0; i < card->n_profiles; i++) {
 		struct acp_card_profile *p = profiles[i];
 
+		if (SPA_FLAG_IS_SET(p->flags, ACP_PROFILE_HIDDEN))
+			continue;
+
 		if (name) {
 			if (spa_streq(name, p->name))
 				best = i;
@@ -1440,9 +1469,11 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index, uint32_t fla
 	if (new_index >= card->n_profiles)
 		return -EINVAL;
 
-	op = old_index != ACP_INVALID_INDEX ? (pa_alsa_profile*)profiles[old_index] : NULL;
 	np = (pa_alsa_profile*)profiles[new_index];
+	if (SPA_FLAG_IS_SET(np->profile.flags, ACP_PROFILE_HIDDEN))
+		return -EINVAL;
 
+	op = old_index != ACP_INVALID_INDEX ? (pa_alsa_profile*)profiles[old_index] : NULL;
 	if (op == np)
 		return 0;
 
@@ -1830,6 +1861,9 @@ uint32_t acp_device_find_best_port_index(struct acp_device *dev, const char *nam
 	for (i = 0; i < dev->n_ports; i++) {
 		struct acp_port *p = ports[i];
 
+		if (SPA_FLAG_IS_SET(p->flags, ACP_PORT_HIDDEN))
+			continue;
+
 		if (name) {
 			if (spa_streq(name, p->name))
 				best = i;
@@ -1868,6 +1902,8 @@ int acp_device_set_port(struct acp_device *dev, uint32_t port_index, uint32_t fl
 
 	p = (pa_device_port*)impl->card.ports[port_index];
 	if (!pa_hashmap_get(d->ports, p->name))
+		return -EINVAL;
+	if (SPA_FLAG_IS_SET(p->port.flags, ACP_PORT_HIDDEN))
 		return -EINVAL;
 
 	p->port.flags = ACP_PORT_ACTIVE | flags;

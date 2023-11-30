@@ -516,14 +516,17 @@ static int impl_enum_params(void *object, int seq,
 			return 0;
 
 		pr = card->profiles[result.index];
+		if (SPA_FLAG_IS_SET(pr->flags, ACP_PROFILE_HIDDEN))
+			goto next;
 		param = build_profile(&b.b, id, pr, false);
 		break;
 
 	case SPA_PARAM_Profile:
 		if (result.index > 0 || card->active_profile_index >= card->n_profiles)
 			return 0;
-
 		pr = card->profiles[card->active_profile_index];
+		if (SPA_FLAG_IS_SET(pr->flags, ACP_PROFILE_HIDDEN))
+			goto next;
 		param = build_profile(&b.b, id, pr, true);
 		break;
 
@@ -532,6 +535,8 @@ static int impl_enum_params(void *object, int seq,
 			return 0;
 
 		p = card->ports[result.index];
+		if (SPA_FLAG_IS_SET(p->flags, ACP_PORT_HIDDEN))
+			goto next;
 		param = build_route(&b.b, id, p, NULL, SPA_ID_INVALID);
 		break;
 
@@ -541,6 +546,8 @@ static int impl_enum_params(void *object, int seq,
 				return 0;
 
 			dev = card->devices[result.index];
+			if (SPA_FLAG_IS_SET(dev->flags, ACP_DEVICE_HIDDEN))
+				goto next;
 			if (SPA_FLAG_IS_SET(dev->flags, ACP_DEVICE_ACTIVE) &&
 			    (p = find_port_for_device(card, dev)) != NULL)
 				break;
@@ -548,6 +555,8 @@ static int impl_enum_params(void *object, int seq,
 			result.index++;
 		}
 		result.next = result.index + 1;
+		if (SPA_FLAG_IS_SET(p->flags, ACP_PORT_HIDDEN))
+			goto next;
 		param = build_route(&b.b, id, p, dev, card->active_profile_index);
 		if (param == NULL)
 			return -errno;
@@ -754,6 +763,8 @@ static int impl_set_param(void *object,
 			return -EINVAL;
 
 		dev = this->card->devices[device];
+		if (SPA_FLAG_IS_SET(dev->flags, ACP_DEVICE_HIDDEN))
+			return -EINVAL;
 		acp_device_set_port(dev, idx, save ? ACP_PORT_SAVE : 0);
 		if (props)
 			apply_device_props(this, dev, props);

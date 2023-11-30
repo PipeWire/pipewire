@@ -31,14 +31,15 @@ static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Arun Raghavan <arun@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Create loopback streams" },
 	{ PW_KEY_MODULE_USAGE, " [ remote.name=<remote> ] "
+				"[ loopback.count=<number of loopbacks> ] "
 				"[ node.latency=<latency as fraction> ] "
 				"[ node.description=<description of the nodes> ] "
 				"[ audio.rate=<sample rate> ] "
 				"[ audio.channels=<number of channels> ] "
 				"[ audio.position=<channel map> ] "
 				"[ capture1.props=<properties> ] "
-				"[ capture2.props=<properties> ] "
 				"[ playback1.props=<properties> ] "
+				"[ capture2.props=<properties> ] "
 				"[ playback2.props=<properties> ] " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
@@ -65,10 +66,32 @@ typedef void skip_fn(struct loopback*);
 static process_fn noop_process;
 static process_fn attenuate_process;
 
-static process_fn *device_process_fns[] = {
-	noop_process, /* 1 -> FPGA */
-	attenuate_process, /* 2 -> USB */
+struct device_fns {
+	const char *name;
+	process_fn *process;
+	skip_fn *skip;
 };
+
+static struct device_fns fns[] = {
+	{
+		.name = "fpga",
+		.process = noop_process,
+		.skip = NULL,
+	},
+	{
+		.name = "usb",
+		.process = attenuate_process,
+		.skip = NULL,
+	},
+};
+
+static struct device_fns* lookup_device_fns(const char *name) {
+	for (unsigned int i = 0; i < SPA_N_ELEMENTS(fns); i++)
+		if (spa_streq(name, fns[i].name))
+			return &fns[i];
+
+	return NULL;
+}
 
 struct loopback {
 	struct impl *impl;
@@ -275,10 +298,20 @@ static int setup_streams(struct impl *impl)
 	struct spa_pod_builder b;
 
 	IMPL_FOREACH_LOOPBACK(impl, l, idx) {
+		struct device_fns *fns;
+		const char *str;
+
+		str = pw_properties_get(l->playback_props, "loopback.device");
+		fns = lookup_device_fns(str);
+
+		if (!fns) {
+			pw_log_error("Could not look up functions for device %s", str);
+			return -EINVAL;
+		}
+
 		l->impl = impl;
-		// FIXME: we could set a property on the stream to select this function
-		l->process = device_process_fns[idx];
-		l->skip = NULL;
+		l->process = fns->process;
+		l->skip = fns->skip;
 
 		l->capture = pw_stream_new(impl->core,
 				"loopback capture", l->capture_props);
@@ -492,8 +525,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 
-	// FIXME: get this from module props
-	impl->n_loopbacks = 2;
+	// Defaulting to 2 to allow older configs to work as-is
+	impl->n_loopbacks = pw_properties_get_uint32(props, "loopback.count", 2);
 
 	IMPL_FOREACH_LOOPBACK(impl, l, i) {
 		l->capture_props = pw_properties_new(NULL, NULL);

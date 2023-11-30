@@ -194,10 +194,10 @@ struct pw_buffer {
 	uint64_t size;			/**< This field is set by the user and the sum of
 					  *  all queued buffer is returned in the time info.
 					  *  For audio, it is advised to use the number of
-					  *  samples in the buffer for this field. */
+					  *  frames in the buffer for this field. */
 	uint64_t requested;		/**< For playback streams, this field contains the
 					  *  suggested amount of data to provide. For audio
-					  *  streams this will be the amount of samples
+					  *  streams this will be the amount of frames
 					  *  required by the resampler. This field is 0
 					  *  when no suggestion is provided. Since 0.3.49 */
 };
@@ -245,10 +245,10 @@ struct pw_stream_control {
  *
  * pw_time.queued is the sum of all the pw_buffer.size fields of the buffers that are
  * currently queued in the stream but not yet processed. The application can choose
- * the units of this value, for example, time, samples or bytes (below expressed
- * as app.rate).
+ * the units of this value, for example, time, samples, frames or bytes (below
+ * expressed as app.rate).
  *
- * pw_time.buffered is format dependent, for audio/raw it contains the number of samples
+ * pw_time.buffered is format dependent, for audio/raw it contains the number of frames
  * that are buffered inside the resampler/converter.
  *
  * The total delay of data in a stream is the sum of the queued and buffered data
@@ -312,7 +312,7 @@ struct pw_time {
 					  *  of the size fields in the pw_buffer that are
 					  *  currently queued */
 	uint64_t buffered;		/**< for audio/raw streams, this contains the extra
-					  *  number of samples buffered in the resampler.
+					  *  number of frames buffered in the resampler.
 					  *  Since 0.3.50. */
 	uint32_t queued_buffers;	/**< The number of buffers that are queued. Since 0.3.50 */
 	uint32_t avail_buffers;		/**< The number of buffers that can be dequeued. Since 0.3.50 */

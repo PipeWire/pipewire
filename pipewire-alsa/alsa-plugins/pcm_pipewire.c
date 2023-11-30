@@ -504,7 +504,12 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 
 	snd_pcm_sw_params_alloca(&swparams);
 	if (snd_pcm_sw_params_current(io->pcm, swparams) == 0) {
-		snd_pcm_sw_params_get_avail_min(swparams, &pw->min_avail);
+		int event;
+		snd_pcm_sw_params_get_period_event(swparams, &event);
+		if (event)
+			pw->min_avail = io->period_size;
+		else
+			snd_pcm_sw_params_get_avail_min(swparams, &pw->min_avail);
 		snd_pcm_sw_params_get_boundary(swparams, &pw->boundary);
 		snd_pcm_sw_params_dump(swparams, pw->output);
 		fflush(pw->log_file);

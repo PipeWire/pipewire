@@ -845,7 +845,8 @@ static void on_process(void *userdata)
 		bool null_frame = false;
 
 		n_frames = d->maxsize / data->stride;
-		n_frames = SPA_MIN(n_frames, (int)b->requested);
+		if (b->requested)
+			n_frames = SPA_MIN(n_frames, (int)b->requested);
 
 		/* Note that when playing encoded audio, the encoded_playback_fill()
 		 * fill callback actually returns number of bytes, not frames, since

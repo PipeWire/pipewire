@@ -408,7 +408,12 @@ static void usb_capture_rate_changed(struct node *node, int capture_rate)
 		struct node *n;
 
 		spa_list_for_each(n, &impl->nodes, list) {
-			const char *d = pw_properties_get(node->props, "api.alsa.path");
+			const char *d;
+
+			if (!n->props)
+				continue;
+
+			d = pw_properties_get(n->props, "api.alsa.path");
 
 			if (!spa_streq(device, d))
 				continue;

@@ -260,7 +260,7 @@ static void link_node_ports(struct impl *impl, struct node *this_node, bool casc
 	other_node = find_target_node(impl, this_node);
 
 	if (other_node) {
-		pw_log_debug("Node %u has a target", this_node->id);
+		pw_log_debug("Node %u has target %u", this_node->id, other_node->id);
 	} else {
 		// If not, see if this is the target of another node
 		spa_list_for_each(node, &impl->nodes, list) {
@@ -277,7 +277,7 @@ static void link_node_ports(struct impl *impl, struct node *this_node, bool casc
 			}
 		}
 
-		pw_log_debug("Node %u is%s a target", this_node->id, other_node ? "" : " not");
+		pw_log_debug("Node %u is a target: %u", this_node->id, other_node ? other_node->id : 0);
 	}
 
 	if (!other_node)
@@ -418,11 +418,11 @@ static void usb_capture_rate_changed(struct node *node, int capture_rate)
 	}
 
 	if (capture_rate > 0) {
-		pw_log_debug("Linking USB ports");
+		pw_log_debug("Linking USB ports for %u (%u)", node->id, node->capture_rate);
 		// ... and cascading to linked groups
 		link_node_ports(impl, node, true);
 	} else {
-		pw_log_debug("Unlinking USB ports");
+		pw_log_debug("Unlinking USB ports for %u", node->id);
 		// ... and cascading to linked groups
 		unlink_node_ports(impl, node, true);
 	}

@@ -1602,6 +1602,7 @@ int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *p
     pa_alsa_ucm_config *ucm;
     pa_alsa_ucm_device *dev;
     pa_alsa_ucm_port_data *data;
+    const char *dev_name, *ucm_dev_name;
 
     pa_assert(context && context->ucm);
 
@@ -1609,8 +1610,17 @@ int pa_alsa_ucm_set_port(pa_alsa_ucm_mapping_context *context, pa_device_port *p
     pa_assert(ucm->ucm_mgr);
 
     data = PA_DEVICE_PORT_DATA(port);
-    dev = context->ucm_device;
-    pa_assert(dev == data->device);
+    dev = data->device;
+    pa_assert(dev);
+
+    if (context->ucm_device) {
+        dev_name = pa_proplist_gets(dev->proplist, PA_ALSA_PROP_UCM_NAME);
+        ucm_dev_name = pa_proplist_gets(context->ucm_device->proplist, PA_ALSA_PROP_UCM_NAME);
+        if (!pa_streq(dev_name, ucm_dev_name)) {
+            pa_log_error("Failed to set port %s with wrong UCM context: %s", dev_name, ucm_dev_name);
+            return -1;
+        }
+    }
 
     return ucm_device_enable(ucm, dev);
 }

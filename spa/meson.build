@@ -35,7 +35,7 @@ if get_option('spa-plugins').allowed()
   udevrulesdir = get_option('udevrulesdir')
   if udevrulesdir == ''
     # absolute path, otherwise meson prepends the prefix
-    udevrulesdir = '/lib/udev/rules.d'
+    udevrulesdir = '/usr/lib/udev/rules.d'
   endif
 
   # plugin-specific dependencies

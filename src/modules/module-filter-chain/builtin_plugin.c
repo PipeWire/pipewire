@@ -979,14 +979,15 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 			samples = resample_buffer(samples, &n_samples,
 					rate, SampleRate, resample_quality);
 	}
-	if (samples == NULL) {
-		errno = ENOENT;
-		return NULL;
-	}
 
 	for (i = 0; i < MAX_RATES; i++)
 		if (filenames[i])
 			free(filenames[i]);
+
+	if (samples == NULL) {
+		errno = ENOENT;
+		return NULL;
+	}
 
 	if (blocksize <= 0)
 		blocksize = SPA_CLAMP(n_samples, 64, 256);

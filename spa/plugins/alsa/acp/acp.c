@@ -1140,7 +1140,8 @@ static void set_volume(pa_alsa_device *dev, const pa_cvolume *v)
 {
 	pa_cvolume r;
 
-	dev->real_volume = *v;
+	if (v != &dev->real_volume)
+		dev->real_volume = *v;
 
 	if (!dev->mixer_handle)
 		return;

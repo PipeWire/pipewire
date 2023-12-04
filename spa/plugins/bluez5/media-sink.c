@@ -1333,6 +1333,9 @@ static int do_remove_transport_source(struct spa_loop *loop,
 	if (this->transport->iso_io)
 		spa_bt_iso_io_set_cb(this->transport->iso_io, NULL, NULL);
 
+	/* Drop queued data */
+	drop_frames(this, UINT32_MAX);
+
 	return 0;
 }
 

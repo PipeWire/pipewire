@@ -802,7 +802,7 @@ static int do_remove_transport_source(struct spa_loop *loop,
 		spa_loop_remove_source(this->data_loop, &this->flush_timer_source);
 	enable_flush_timer(this, false);
 
-	/* Drop buffered data in the ready queue. Ideally there shouldn't be any. */
+	/* Drop queued data */
 	drop_port_output(this);
 
 	return 0;

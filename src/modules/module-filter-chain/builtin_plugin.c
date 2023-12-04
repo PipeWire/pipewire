@@ -856,7 +856,7 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 {
 	struct convolver_impl *impl;
 	float *samples;
-	int offset = 0, length = 0, channel = index, n_samples, len;
+	int offset = 0, length = 0, channel = index, n_samples = 0, len;
 	uint32_t i = 0;
 	struct spa_json it[3];
 	const char *val;

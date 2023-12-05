@@ -104,6 +104,11 @@ static int play_sample(struct impl *impl)
 		res = -EIO;
 		goto exit;
 	}
+	if ((res = ca_context_set_driver(ca, "pulse")) < 0) {
+		pw_log_error("canberra context set backend error: %s", ca_strerror(res));
+		res = -EIO;
+		goto exit_destroy;
+	}
 	if ((res = ca_context_open(ca)) < 0) {
 		pw_log_error("canberra context open error: %s", ca_strerror(res));
 		res = -EIO;

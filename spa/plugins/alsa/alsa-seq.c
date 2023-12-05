@@ -850,8 +850,11 @@ static int set_timers(struct seq_state *state)
 	int res;
 
 	if ((res = spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &now)) < 0)
-	    return res;
+		return res;
 
+	state->queue_time = 0;
+	state->queue_corr = 1.0;
+	spa_dll_init(&state->dll);
 	state->next_time = SPA_TIMESPEC_TO_NSEC(&now);
 	if (state->following) {
 		set_timeout(state, 0);
@@ -898,11 +901,9 @@ int spa_alsa_seq_start(struct seq_state *state)
 	state->source.rmask = 0;
 	spa_loop_add_source(state->data_loop, &state->source);
 
-	state->queue_time = 0;
-	spa_dll_init(&state->dll);
-	set_timers(state);
+	res = set_timers(state);
 
-	return 0;
+	return res;
 }
 
 static int do_reassign_follower(struct spa_loop *loop,
@@ -913,7 +914,10 @@ static int do_reassign_follower(struct spa_loop *loop,
 			    void *user_data)
 {
 	struct seq_state *state = user_data;
-	set_timers(state);
+	int res;
+
+	if ((res = set_timers(state)) < 0)
+		spa_log_error(state->log, "can't set timers: %s", spa_strerror(res));
 	return 0;
 }
 

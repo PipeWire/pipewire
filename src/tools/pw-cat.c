@@ -253,8 +253,10 @@ static int encoded_playback_fill(struct data *d, void *dest, unsigned int n_fram
 {
 	AVPacket *packet = d->encoded.packet;
 	int ret;
+	uint8_t *dest_ptr = (uint8_t *)dest;
 	struct pw_time time;
 	int64_t quantum_duration;
+	int64_t accumulated_duration;
 	int64_t excess_playtime;
 	int64_t cycle_length;
 	int64_t av_time_base_num, av_time_base_denom;
@@ -302,26 +304,38 @@ static int encoded_playback_fill(struct data *d, void *dest, unsigned int n_fram
 		return 0;
 	}
 
-	/* Keep reading packets until we get one from the stream we are
-	 * interested in. This is relevant when playing data that contains
-	 * several multiplexed streams. */
-	while (true) {
-		if ((ret = av_read_frame(d->encoded.format_context, packet) < 0))
-			break;
+	accumulated_duration = 0;
 
-		if (packet->stream_index == d->encoded.stream_index)
+	/* Continue filling the buffer until at least a quantum's worth of data
+	 * has been written. Encoded frames may have a playtime that is _shorter_
+	 * than a quantum. In that case, multiple frames must be written into the
+	 * buffer to cover a quantum length. */
+	while (true) {
+		/* Keep reading packets until we get one from the stream we are
+		 * interested in. This is relevant when playing data that contains
+		 * several multiplexed streams. */
+		while (true) {
+			if ((ret = av_read_frame(d->encoded.format_context, packet) < 0))
+				break;
+
+			if (packet->stream_index == d->encoded.stream_index)
+				break;
+		}
+
+		memcpy(dest_ptr, packet->data, packet->size);
+
+		accumulated_duration += packet->duration;
+		dest_ptr += packet->size;
+
+		if (accumulated_duration >= quantum_duration)
+		{
+			excess_playtime = accumulated_duration - quantum_duration;
+			d->encoded.accumulated_excess_playtime += excess_playtime;
 			break;
+		}
 	}
 
-	memcpy(dest, packet->data, packet->size);
-
-	if (packet->duration > quantum_duration)
-		excess_playtime = packet->duration - quantum_duration;
-	else
-		excess_playtime = 0;
-	d->encoded.accumulated_excess_playtime += excess_playtime;
-
-	return packet->size;
+	return (dest_ptr - ((uint8_t*)dest));
 }
 
 static int av_codec_params_to_audio_info(struct data *data, AVCodecParameters *codec_params, struct spa_audio_info *info)

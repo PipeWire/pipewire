@@ -967,11 +967,15 @@ static int write_queued_output_buffers(struct impl *this)
 	 * If during the write attempts, only a portion of a chunk
 	 * is written, we must keep track of the portion that hasn't
 	 * been consumed yet. offset_within_oldest_output_buffer
-	 * exists for this purpose. In this sink node, each SPA
-	 * buffer has exactly one chunk, so when a chunk is fully
-	 * consumed, the corresponding buffer is removed from the
-	 * queued_output_buffers list, marked as available, and
-	 * returned to the pool through spa_node_call_reuse_buffer(). */
+	 * exists for this purpose. This can happen when the
+	 * device_write() call below returns 0. The loop is then
+	 * aborted, and the chunk is not fully written.
+	 *
+	 * In this sink node, each SPA buffer has exactly one chunk,
+	 * so when a chunk is fully consumed, the corresponding buffer
+	 * is removed from the queued_output_buffers list, marked as
+	 * available, and returned to the pool through
+	 * spa_node_call_reuse_buffer(). */
 again:
 	total_num_written_bytes = 0;
 

@@ -16,7 +16,6 @@ struct compress_offload_api_context {
 	int fd;
 	struct snd_compr_caps caps;
 	struct spa_log *log;
-	bool was_configured;
 	uint32_t fragment_size;
 	uint32_t num_fragments;
 };
@@ -109,8 +108,6 @@ int compress_offload_api_set_params(struct compress_offload_api_context *context
 		spa_log_error(context->log, "could not set params: %s (%d)", strerror(errno), errno);
 		return -errno;
 	}
-
-	context->was_configured = true;
 
 	return 0;
 }

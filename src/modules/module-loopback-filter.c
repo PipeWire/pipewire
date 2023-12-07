@@ -128,10 +128,6 @@ struct impl {
 	struct loopback loopbacks[MAX_LOOBACKS];
 
 	unsigned int do_disconnect:1;
-
-	struct spa_ringbuffer buffer;
-	uint8_t *buffer_data;
-	uint32_t buffer_size;
 };
 
 static void trigger_playback(struct impl *impl)

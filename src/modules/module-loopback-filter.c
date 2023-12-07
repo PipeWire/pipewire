@@ -60,7 +60,7 @@ static const struct spa_dict_item module_props[] = {
 
 struct loopback;
 
-typedef void process_fn(struct loopback*, const int32_t*, int32_t*, uint32_t);
+typedef void process_fn(struct loopback*, const int32_t*, int32_t*, uint32_t*);
 typedef void skip_fn(struct loopback*);
 
 static process_fn noop_process;
@@ -106,6 +106,7 @@ struct loopback {
 	struct spa_hook capture_listener;
 	struct spa_audio_info_raw capture_info;
 
+	bool needs_capture;
 	bool capture_ready;
 	bool capture_streaming;
 
@@ -137,12 +138,12 @@ static void trigger_playback(struct impl *impl)
 
 	// Make sure all streaming capture streams are ready
 	IMPL_FOREACH_LOOPBACK(impl, l, i) {
-		if (l->capture_streaming && !l->capture_ready)
+		if (l->needs_capture && l->capture_streaming && !l->capture_ready)
 			return;
 	}
 
 	IMPL_FOREACH_LOOPBACK(impl, l, i) {
-		if (l->capture_streaming)
+		if (!l->needs_capture || l->capture_streaming)
 			pw_stream_trigger_process(l->playback);
 		else if (l->skip)
 			l->skip(l);
@@ -166,18 +167,18 @@ static void capture_process(void *d)
 	trigger_playback(l->impl);
 }
 
-static void noop_process(struct loopback *l, const int32_t *src, int32_t *dst, uint32_t size)
+static void noop_process(struct loopback *l, const int32_t *src, int32_t *dst, uint32_t *size)
 {
 	// We have access to `impl` inside `l`, so we could look up any of the
 	// other streams and forward data there if needed
-	for (uint32_t i = 0; i < size / sizeof(uint32_t); i++) {
+	for (uint32_t i = 0; i < *size / sizeof(uint32_t); i++) {
 		dst[i] = src[i];
 	}
 }
 
-static void attenuate_process(struct loopback *l, const int32_t *src, int32_t *dst, uint32_t size)
+static void attenuate_process(struct loopback *l, const int32_t *src, int32_t *dst, uint32_t *size)
 {
-	for (uint32_t i = 0; i < size / sizeof(uint32_t); i++) {
+	for (uint32_t i = 0; i < *size / sizeof(uint32_t); i++) {
 		dst[i] = src[i] / 2;
 	}
 }
@@ -226,11 +227,25 @@ static void playback_process(void *d) {
 		dst = d->data;
 
 		// Do the actual processing
-		l->process(l, src, dst, size);
+		l->process(l, src, dst, &size);
 
 		d->chunk->offset = 0;
 		d->chunk->size = outsize;
 		d->chunk->stride = stride;
+	} else if (!l->needs_capture && out != NULL) {
+		struct spa_data *d;
+		int32_t *dst;
+		uint32_t size;
+
+		d = &out->buffer->datas[0];
+		size = d->maxsize;
+		dst = d->data;
+
+		// Do the actual processing
+		l->process(l, NULL, dst, &size);
+
+		d->chunk->offset = 0;
+		d->chunk->size = size;
 	}
 
 	if (in != NULL)
@@ -576,10 +591,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 
 	IMPL_FOREACH_LOOPBACK(impl, l, i) {
-		if (pw_properties_get(l->capture_props, PW_KEY_NODE_LINK_GROUP) == NULL)
-			pw_properties_setf(l->capture_props, PW_KEY_NODE_LINK_GROUP, "loopback-%u-%u-%lu", pid, id, i + 1);
-		if (pw_properties_get(l->playback_props, PW_KEY_NODE_LINK_GROUP) == NULL)
-			pw_properties_setf(l->playback_props, PW_KEY_NODE_LINK_GROUP, "loopback-%u-%u-%lu", pid, id, i + 1);
+		l->needs_capture = pw_properties_get_bool(l->playback_props, "loopback.needs-capture", true);
+		if (l->needs_capture) {
+			if (pw_properties_get(l->capture_props, PW_KEY_NODE_LINK_GROUP) == NULL)
+				pw_properties_setf(l->capture_props, PW_KEY_NODE_LINK_GROUP, "loopback-%u-%u-%lu", pid, id, i + 1);
+			if (pw_properties_get(l->playback_props, PW_KEY_NODE_LINK_GROUP) == NULL)
+				pw_properties_setf(l->playback_props, PW_KEY_NODE_LINK_GROUP, "loopback-%u-%u-%lu", pid, id, i + 1);
+		}
 
 		if (pw_properties_get(l->capture_props, PW_KEY_NODE_DESCRIPTION) == NULL)
 			pw_properties_set(l->capture_props, PW_KEY_NODE_DESCRIPTION, str);

@@ -80,6 +80,7 @@ manpage_docs = [
   'dox/programs/pw-mididump.1.md',
   'dox/programs/pw-mon.1.md',
   'dox/programs/pw-profiler.1.md',
+  'dox/programs/pw-reserve.1.md',
   'dox/programs/pw-top.1.md',
 ]
 

@@ -19,5 +19,6 @@ Manual pages:
 - \subpage page_man_pw-mididump_1
 - \subpage page_man_pw-mon_1
 - \subpage page_man_pw-profiler_1
+- \subpage page_man_pw-reserve_1
 - \subpage page_man_pw-top_1
 - \subpage page_man_libpipewire-modules_7

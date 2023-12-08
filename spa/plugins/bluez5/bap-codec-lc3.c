@@ -460,8 +460,10 @@ static int conf_cmp(const bap_lc3_t *conf1, int res1, const bap_lc3_t *conf2, in
 
 	PREFER_BOOL(conf->channels & LC3_CHAN_2);
 	PREFER_BOOL(conf->channels & LC3_CHAN_1);
-	PREFER_BOOL(conf->rate & (LC3_CONFIG_FREQ_48KHZ | LC3_CONFIG_FREQ_24KHZ | LC3_CONFIG_FREQ_16KHZ | LC3_CONFIG_FREQ_8KHZ));
+	PREFER_BOOL(conf->rate & (LC3_CONFIG_FREQ_48KHZ | LC3_CONFIG_FREQ_32KHZ | \
+		LC3_CONFIG_FREQ_24KHZ | LC3_CONFIG_FREQ_16KHZ | LC3_CONFIG_FREQ_8KHZ));
 	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_48KHZ);
+	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_32KHZ);
 	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_24KHZ);
 	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_16KHZ);
 	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_8KHZ);
@@ -614,6 +616,11 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 			spa_pod_builder_int(b, 48000);
 		spa_pod_builder_int(b, 48000);
 	}
+	if (conf.rate & LC3_CONFIG_FREQ_32KHZ) {
+		if (i++ == 0)
+			spa_pod_builder_int(b, 32000);
+		spa_pod_builder_int(b, 32000);
+	}
 	if (conf.rate & LC3_CONFIG_FREQ_24KHZ) {
 		if (i++ == 0)
 			spa_pod_builder_int(b, 24000);
@@ -670,6 +677,9 @@ static int codec_validate_config(const struct media_codec *codec, uint32_t flags
 	switch (conf.rate) {
 	case LC3_CONFIG_FREQ_48KHZ:
 		info->info.raw.rate = 48000U;
+		break;
+	case LC3_CONFIG_FREQ_32KHZ:
+		info->info.raw.rate = 32000U;
 		break;
 	case LC3_CONFIG_FREQ_24KHZ:
 		info->info.raw.rate = 24000U;

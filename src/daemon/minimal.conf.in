@@ -162,7 +162,7 @@ context.objects = [
         }
     }
 
-    # A default dummy driver. This handles nodes marked with the "node.always-driver"
+    # A default dummy driver. This handles nodes marked with the "node.always-process"
     # property when no other driver is currently active. JACK clients need this.
     { factory = spa-node-factory
         args = {

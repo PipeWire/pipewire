@@ -290,6 +290,7 @@ static void device_event_info(void *data, const struct pw_device_info *info)
 {
 	struct object *o = data;
 	uint32_t i, changed = 0;
+	bool enumerate = false;
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
@@ -321,6 +322,9 @@ static void device_event_info(void *data, const struct pw_device_info *info)
 			default:
 				break;
 			}
+
+			enumerate = true;
+
 			add_param(&o->pending_list, info->params[i].seq, id, NULL);
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
@@ -331,7 +335,7 @@ static void device_event_info(void *data, const struct pw_device_info *info)
 				info->params[i].seq = res;
 		}
 	}
-	if (changed) {
+	if (changed || enumerate) {
 		o->changed += changed;
 		core_sync(o->manager);
 	}
@@ -410,6 +414,7 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 {
 	struct object *o = data;
 	uint32_t i, changed = 0;
+	bool enumerate = false;
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
@@ -449,6 +454,9 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 			default:
 				break;
 			}
+
+			enumerate = true;
+
 			add_param(&o->pending_list, info->params[i].seq, id, NULL);
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
@@ -459,7 +467,7 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 				info->params[i].seq = res;
 		}
 	}
-	if (changed) {
+	if (changed || enumerate) {
 		o->changed += changed;
 		core_sync(o->manager);
 	}

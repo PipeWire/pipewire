@@ -263,8 +263,14 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	}
 
 	if (getenv("PIPEWIRE_DEBUG") == NULL &&
-	    (str = pw_properties_get(properties, "log.level")) != NULL)
-		pw_log_set_level(atoi(str));
+			(str = pw_properties_get(properties, "log.level")) != NULL) {
+		enum spa_log_level lev;
+
+		if (pw_parse_log_level(str, &lev))
+			pw_log_set_level(lev);
+		else
+			pw_log_warn("%p: invalid log.level in context properties", this);
+	}
 
 	if (pw_properties_get_bool(properties, "mem.mlock-all", false)) {
 		if (mlockall(MCL_CURRENT | MCL_FUTURE) < 0)

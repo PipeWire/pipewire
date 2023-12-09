@@ -469,15 +469,23 @@ static struct spa_log *load_journal_logger(struct support *support,
 }
 #endif
 
-static bool
-parse_log_level(const char *str, enum spa_log_level *l)
+bool
+pw_parse_log_level(const char *str, enum spa_log_level *l)
 {
 	uint32_t lvl;
+
+	if (!str)
+		return false;
+
 	if (strlen(str) == 1) {
-		switch(str[0]) {
+		/* SPA levels, plus a few duplicate codes that
+		 * WirePlumber supports for some GLib levels. */
+		switch (str[0]) {
 		case 'X': lvl = SPA_LOG_LEVEL_NONE; break;
+		case 'F': lvl = SPA_LOG_LEVEL_NONE; break; /* fatal */
 		case 'E': lvl = SPA_LOG_LEVEL_ERROR; break;
 		case 'W': lvl = SPA_LOG_LEVEL_WARN; break;
+		case 'N': lvl = SPA_LOG_LEVEL_WARN; break; /* notice */
 		case 'I': lvl = SPA_LOG_LEVEL_INFO; break;
 		case 'D': lvl = SPA_LOG_LEVEL_DEBUG; break;
 		case 'T': lvl = SPA_LOG_LEVEL_TRACE; break;
@@ -491,6 +499,7 @@ check_int:
 		  if (lvl > SPA_LOG_LEVEL_TRACE)
 			  return false;
 	}
+
 	*l = lvl;
 	return true;
 }
@@ -524,11 +533,11 @@ parse_pw_debug_env(void)
 			char *tok[2];
 
 			n_tok = pw_split_ip(tokens[i], ":", SPA_N_ELEMENTS(tok), tok);
-			if (n_tok == 2 && parse_log_level(tok[1], &lvl)) {
+			if (n_tok == 2 && pw_parse_log_level(tok[1], &lvl)) {
 				char *pattern = tok[0];
 				pos += spa_scnprintf(pos, end - pos, "{ %s = %d },",
 						     pattern, lvl);
-			} else if (n_tok == 1 && parse_log_level(tok[0], &lvl)) {
+			} else if (n_tok == 1 && pw_parse_log_level(tok[0], &lvl)) {
 				pw_log_set_level(lvl);
 			} else {
 				pw_log_warn("Ignoring invalid format in PIPEWIRE_DEBUG: '%s'",

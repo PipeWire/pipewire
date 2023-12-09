@@ -18,8 +18,6 @@
 
 SPA_LOG_IMPL(default_log);
 
-#define DEFAULT_LOG_LEVEL SPA_LOG_LEVEL_WARN
-
 SPA_EXPORT
 enum spa_log_level pw_log_level = DEFAULT_LOG_LEVEL;
 

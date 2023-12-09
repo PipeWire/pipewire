@@ -30,6 +30,7 @@ struct ucred {
 #define MAX_RATES				32u
 #define CLOCK_MIN_QUANTUM			4u
 #define CLOCK_MAX_QUANTUM			65536u
+#define DEFAULT_LOG_LEVEL			SPA_LOG_LEVEL_WARN
 
 struct settings {
 	uint32_t log_level;
@@ -1293,6 +1294,8 @@ int pw_settings_expose(struct pw_context *context);
 void pw_settings_clean(struct pw_context *context);
 
 bool pw_should_dlclose(void);
+
+bool pw_parse_log_level(const char *str, enum spa_log_level *l);
 
 /** \endcond */
 

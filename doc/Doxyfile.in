@@ -19,7 +19,7 @@ QUIET                  = YES
 WARN_NO_PARAMDOC       = YES
 HAVE_DOT               = @HAVE_DOT@
 INPUT                  = @inputs@
-FILTER_PATTERNS        = "*.c=@c_input_filter@" "*.h=@h_input_filter@"
+FILTER_PATTERNS        = "*.c=@c_input_filter@" "*.h=@h_input_filter@" "*.md=@md_input_filter@"
 FILE_PATTERNS          = "*.h" "*.c"
 RECURSIVE              = YES
 EXAMPLE_PATH           = "@top_srcdir@/src/examples" \

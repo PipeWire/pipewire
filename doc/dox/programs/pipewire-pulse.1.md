@@ -28,6 +28,20 @@ Show version information.
 \par -c | \--config=FILE
 Load the given config file (Default: pipewire-pulse.conf).
 
+# ENVIRONMENT VARIABLES
+
+The generic \ref pipewire-env "pipewire(1) environment variables"
+are supported.
+
+In addition:
+
+@PAR@ pulse-env PULSE_RUNTIME_PATH
+
+@PAR@ pulse-env XDG_RUNTIME_DIR
+
+Directory where to create the native protocol pulseaudio socket.
+
+
 # AUTHORS
 
 The PipeWire Developers <$(PACKAGE_BUGREPORT)>;

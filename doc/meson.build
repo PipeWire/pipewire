@@ -15,6 +15,7 @@ doxygen_env.set('PACKAGE_BUGREPORT', 'https://gitlab.freedesktop.org/pipewire/pi
 doxygen_env.set('PIPEWIRE_CONFIG_DIR', pipewire_configdir)
 doxygen_env.set('PIPEWIRE_CONFDATADIR', pipewire_confdatadir)
 doxygen_env.set('SPA_PLUGINDIR', spa_plugindir)
+doxygen_env.set('BUILD_DIR', meson.current_build_dir())
 
 dot_found = find_program('dot', required: false).found()
 summary({'dot (used with doxygen)': dot_found}, bool_yn: true, section: 'Optional programs')
@@ -70,6 +71,9 @@ manpage_docs = [
   'dox/programs/pipewire-pulse.conf.5.md',
   'dox/programs/pipewire.1.md',
   'dox/programs/pipewire.conf.5.md',
+  'dox/programs/pipewire-client.conf.5.md',
+  'dox/programs/pipewire-jack.conf.5.md',
+  'dox/programs/pipewire-devices.7.md',
   'dox/programs/pw-cat.1.md',
   'dox/programs/pw-cli.1.md',
   'dox/programs/pw-config.1.md',
@@ -196,6 +200,7 @@ doxygen_env.set('PIPEWIRE_PULSE_MODULES', '<ul><li>' + '</li><li>'.join(pulse_mo
 doxygen_layout = meson.project_source_root() / 'doc' / 'DoxygenLayout.xml'
 doxygen_filter_c = meson.project_source_root() / 'doc' / 'input-filter.py'
 doxygen_filter_h = meson.project_source_root() / 'doc' / 'input-filter-h.sh'
+doxygen_filter_md = meson.project_source_root() / 'doc' / 'input-filter-md.py'
 
 doxyfile_conf.set('inputs', ' '.join(inputs + input_dirs))
 doxyfile_conf.set('cssfiles', ' '.join(cssfiles))
@@ -203,6 +208,7 @@ doxyfile_conf.set('layout', doxygen_layout)
 doxyfile_conf.set('path_prefixes', ' '.join(path_prefixes))
 doxyfile_conf.set('c_input_filter', doxygen_filter_c)
 doxyfile_conf.set('h_input_filter', doxygen_filter_h)
+doxyfile_conf.set('md_input_filter', doxygen_filter_md)
 
 doxyfile = configure_file(input: 'Doxyfile.in',
                           output: 'Doxyfile',
@@ -213,8 +219,15 @@ if docdir == ''
   docdir = pipewire_datadir / 'doc' / meson.project_name()
 endif
 
+index_json = custom_target('index.json',
+  command: [ doxygen_filter_md, '--index', '@INPUT@' ],
+  input: extra_docs + manpage_docs,
+  output: 'index.json',
+  env: doxygen_env
+)
+
 html_target = custom_target('pipewire-docs',
-                            input: [ doxyfile, doxygen_layout, examples_dox, doxygen_filter_c, doxygen_filter_h ] + inputs + cssfiles,
+                            input: [ doxyfile, doxygen_layout, examples_dox, doxygen_filter_c, doxygen_filter_h, index_json ] + inputs + cssfiles,
                             output: [ 'html' ],
                             command: [ doxygen, doxyfile ],
                             env: doxygen_env,

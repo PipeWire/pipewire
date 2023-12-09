@@ -23,20 +23,60 @@ configuration options and files:
 
 Configuration of daemons:
 
-- [PipeWire daemon configuration](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/Config-PipeWire)
+- \ref page_man_pipewire_conf_5
+- \ref page_man_pipewire-pulse_conf_5
 - [WirePlumber daemon configuration](https://pipewire.pages.freedesktop.org/wireplumber/)
-- [PipeWire PulseAudio daemon configuration](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/Config-PulseAudio)
+- [Wiki page on PipeWire daemon configuration](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/Config-PipeWire)
+- [Wiki page on PipeWire PulseAudio daemon configuration](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/Config-PulseAudio)
 
 Configuration of devices:
 
+- \ref page_man_pipewire-devices_7
 - [WirePlumber configuration](https://pipewire.pages.freedesktop.org/wireplumber/daemon/configuration.html)
-- [Device runtime settings](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/Config-Devices)
+- [Wiki page on device runtime settings](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/Config-Devices)
 
 Configuration for client applications, either connecting via the
 native PipeWire interface, or the emulated ALSA, JACK, or PulseAudio
 interfaces:
 
-- [PipeWire native clients](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/Config-client)
-- [PipeWire ALSA clients](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/Config-ALSA)
-- [PipeWire JACK clients](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/Config-JACK)
-- [PipeWire PulseAudio clients](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/Config-PulseAudio)
+- \ref page_man_pipewire-client_conf_5
+- \ref page_man_pipewire-jack_conf_5
+- \ref page_man_pipewire-pulse_conf_5
+- [Wiki page on native clients](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/Config-client)
+- [Wiki page on ALSA clients](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/Config-ALSA)
+- [Wiki page on JACK clients](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/Config-JACK)
+- [Wiki page on PulseAudio clients](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/Config-PulseAudio)
+
+# Configuration Index
+
+\ref page_man_pipewire_conf_5 "pipewire.conf"
+
+@SECREF@ pipewire.conf
+
+\ref page_man_pipewire_conf_5 "pipewire-pulse.conf"
+
+@SECREF@ pipewire-pulse.conf
+
+\ref page_man_pipewire_conf_5 "client.conf, client-rt.conf"
+
+@SECREF@ client.conf
+
+\ref page_man_pipewire_conf_5 "jack.conf"
+
+@SECREF@ jack.conf
+
+**Runtime settings**
+
+@SECREF@ pipewire-settings
+
+**Environment variables**
+
+@SECREF@ pipewire-env client-env jack-env pulse-env
+
+**Device properties**
+
+@SECREF@ device-property
+
+**Device parameters**
+
+@SECREF@ device-param

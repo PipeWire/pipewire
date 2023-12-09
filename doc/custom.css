@@ -25,16 +25,36 @@
 
 .textblock h1 {
     font-size: 150%;
+    border-bottom: 1px solid var(--page-foreground-color);
+    margin-top: 1.5em;
 }
 .textblock h2 {
-    font-size: 100%;
+    font-size: 120%;
+    margin-top: 1.5em;
 }
 .textblock h3, .textblock h4, .textblock h5, .textblock h6 {
     font-size: 100%;
     font-style: italic;
     font-size: medium;
+    margin-top: 1.5em;
 }
 
 .textblock dl.section dd {
     margin-left: 2rem;
+}
+
+ul.multicol li {
+    word-break: break-word;
+    padding-left: 3em;
+    text-indent: -3em;
+}
+
+ul.multicol li a.el {
+    font-weight: normal;
+}
+
+div.contents div.toc li {
+    word-break: break-word;
+    padding-left: 2em;
+    text-indent: -2em;
 }

@@ -73,6 +73,8 @@ extern "C" {
 #define SPA_NAME_VIDEO_CONVERT		"video.convert"			/**< converts raw video from one format
 									  *  to another. Must include at least
 									  *  format and scaling */
+#define SPA_NAME_VIDEO_CONVERT_DUMMY	"video.convert.dummy"		/**< a dummy converter as fallback for the
+									  *  videoadapter node */
 #define SPA_NAME_VIDEO_ADAPT		"video.adapt"			/**< combination of a node and a
 									  *  video.convert. */
 /** keys for alsa factory names */

@@ -1,5 +1,6 @@
 videoconvert_sources = [
   'videoadapter.c',
+  'videoconvert-dummy.c',
   'plugin.c'
 ]
 

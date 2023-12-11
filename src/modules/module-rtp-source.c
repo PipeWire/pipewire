@@ -194,6 +194,19 @@ short_packet:
 	return;
 }
 
+static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len)
+{
+	if (sa->ss_family == AF_INET) {
+		struct sockaddr_in *in = (struct sockaddr_in*)sa;
+		inet_ntop(sa->ss_family, &in->sin_addr, ip, len);
+	} else if (sa->ss_family == AF_INET6) {
+		struct sockaddr_in6 *in = (struct sockaddr_in6*)sa;
+		inet_ntop(sa->ss_family, &in->sin6_addr, ip, len);
+	} else
+		return -EIO;
+	return 0;
+}
+
 static int parse_address(const char *address, uint16_t port,
 		struct sockaddr_storage *addr, socklen_t *len)
 {
@@ -447,6 +460,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct timespec value, interval;
 	struct pw_properties *props, *stream_props;
 	int64_t ts_offset;
+	char addr[128];
 	int res = 0;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -521,6 +535,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_log_error("invalid source.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}
+	get_ip(&impl->src_addr, addr, sizeof(addr));
+	pw_properties_set(stream_props, "rtp.source.ip", addr);
+	pw_properties_setf(stream_props, "rtp.source.port", "%u", impl->src_port);
 
 	ts_offset = pw_properties_get_int64(props, "sess.ts-offset", DEFAULT_TS_OFFSET);
 	if (ts_offset == -1)

@@ -226,22 +226,23 @@ static void fix_datatype(struct spa_pod *param)
 	}
 }
 
-static struct param *add_param(struct stream *impl,
+static int add_param(struct stream *impl,
 		uint32_t id, uint32_t flags, const struct spa_pod *param)
 {
 	struct param *p;
 	int idx;
 
-	if (param == NULL || !spa_pod_is_object(param)) {
-		errno = EINVAL;
-		return NULL;
-	}
+	if (param != NULL && !spa_pod_is_object(param))
+		return -EINVAL;
+	if (param == NULL || !spa_pod_object_has_props((struct spa_pod_object*)param))
+		return 0;
+
 	if (id == SPA_ID_INVALID)
 		id = SPA_POD_OBJECT_ID(param);
 
 	p = malloc(sizeof(struct param) + SPA_POD_SIZE(param));
 	if (p == NULL)
-		return NULL;
+		return -errno;
 
 	p->id = id;
 	p->flags = flags;
@@ -266,7 +267,7 @@ static struct param *add_param(struct stream *impl,
 		impl->port_params[idx].flags |= SPA_PARAM_INFO_READ;
 		impl->port_params[idx].user++;
 	}
-	return p;
+	return 0;
 }
 
 static void clear_params(struct stream *impl, uint32_t id)
@@ -326,10 +327,8 @@ static int update_params(struct stream *impl, uint32_t id,
 		}
 	}
 	for (i = 0; i < n_params; i++) {
-		if (add_param(impl, id, 0, params[i]) == NULL) {
-			res = -errno;
+		if ((res = add_param(impl, id, 0, params[i])) < 0)
 			break;
-		}
 	}
 	return res;
 }

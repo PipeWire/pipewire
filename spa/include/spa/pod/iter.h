@@ -437,6 +437,14 @@ static inline int spa_pod_object_is_fixated(const struct spa_pod_object *pod)
 	return 1;
 }
 
+static inline int spa_pod_object_has_props(const struct spa_pod_object *pod)
+{
+	struct spa_pod_prop *res;
+	SPA_POD_OBJECT_FOREACH(pod, res)
+		return 1;
+	return 0;
+}
+
 static inline int spa_pod_is_fixated(const struct spa_pod *pod)
 {
 	if (!spa_pod_is_object(pod))

@@ -224,22 +224,23 @@ static void fix_datatype(struct spa_pod *param)
 	}
 }
 
-static struct param *add_param(struct filter *impl, struct port *port,
+static int add_param(struct filter *impl, struct port *port,
 		uint32_t id, uint32_t flags, const struct spa_pod *param)
 {
 	struct param *p;
 	int idx;
 
-	if (param == NULL || !spa_pod_is_object(param)) {
-		errno = EINVAL;
-		return NULL;
-	}
+	if (param != NULL && !spa_pod_is_object(param))
+		return -EINVAL;
+	if (param == NULL || !spa_pod_object_has_props((struct spa_pod_object*)param))
+		return 0;
+
 	if (id == SPA_ID_INVALID)
 		id = SPA_POD_OBJECT_ID(param);
 
 	p = malloc(sizeof(struct param) + SPA_POD_SIZE(param));
 	if (p == NULL)
-		return NULL;
+		return -errno;
 
 	if (id == SPA_PARAM_ProcessLatency && port == NULL)
 		spa_process_latency_parse(param, &impl->process_latency);
@@ -275,7 +276,7 @@ static struct param *add_param(struct filter *impl, struct port *port,
 			impl->params[idx].user++;
 		}
 	}
-	return p;
+	return 0;
 }
 
 static void clear_params(struct filter *impl, struct port *port, uint32_t id)
@@ -702,10 +703,8 @@ static int update_params(struct filter *impl, struct port *port, uint32_t id,
 			}
 			continue;
 		}
-		if (add_param(impl, port, id, 0, params[i]) == NULL) {
-			res = -errno;
+		if ((res = add_param(impl, port, id, 0, params[i])) < 0)
 			break;
-		}
 	}
 	if (port != NULL && update_latency) {
 		uint8_t buffer[4096];
@@ -1636,9 +1635,8 @@ pw_filter_connect(struct pw_filter *filter,
 	impl->info.change_mask = impl->change_mask_all;
 
 	clear_params(impl, NULL, SPA_ID_INVALID);
-	for (i = 0; i < n_params; i++) {
+	for (i = 0; i < n_params; i++)
 		add_param(impl, NULL, SPA_ID_INVALID, 0, params[i]);
-	}
 
 	impl->disconnecting = false;
 	impl->draining = false;

@@ -962,8 +962,18 @@ static int setup_streams(struct impl *impl)
 			offsets[n_params++] = b.b.state.offset;
 			spa_audio_aec_enum_props(impl->aec, i, &b.b);
 		}
-		get_props_param(impl, &b.b);
 	}
+
+	offsets[n_params++] = b.b.state.offset;
+	spa_pod_builder_add_object(&b.b,
+                                SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+                                SPA_PROP_INFO_name, SPA_POD_String("debug.aec.wav-path"),
+                                SPA_PROP_INFO_description, SPA_POD_String("Path to WAV file"),
+                                SPA_PROP_INFO_type, SPA_POD_String(impl->wav_path),
+                                SPA_PROP_INFO_params, SPA_POD_Bool(true));
+
+	offsets[n_params++] = b.b.state.offset;
+	get_props_param(impl, &b.b);
 
 	for (i = 0; i < n_params; i++)
 		params[i] = spa_pod_builder_deref(&b.b, offsets[i]);

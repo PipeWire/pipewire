@@ -153,6 +153,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define RAOP_STRIDE		(2*DEFAULT_CHANNELS)
 #define RAOP_RATE		44100
 #define RAOP_LATENCY_MS		250
+#define DEFAULT_LATENCY_MS	1500
 
 #define VOLUME_MAX		0.0
 #define VOLUME_MIN		-30.0
@@ -890,8 +891,11 @@ static int rtsp_record_reply(void *data, int status, const struct spa_dict *head
 
 	if ((str = spa_dict_lookup(headers, "Audio-Latency")) != NULL) {
 		uint32_t l;
-		if (spa_atou32(str, &l, 0))
+		if (spa_atou32(str, &l, 0)) {
+			if (l == 0)
+				l = msec_to_samples(impl, DEFAULT_LATENCY_MS);
 			impl->latency = SPA_MAX(l, impl->latency);
+		}
 	}
 
 	spa_zero(latency);

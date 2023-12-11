@@ -511,6 +511,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->src_port = pw_properties_get_uint32(props, "source.port", 0);
 	if (impl->src_port == 0) {
+		res = -EINVAL;
 		pw_log_error("invalid source.port");
 		goto out;
 	}

@@ -898,12 +898,14 @@ static const struct pw_stream_events sink_events = {
 	.param_changed = output_param_changed
 };
 
+#define MAX_PARAMS	512u
+
 static int setup_streams(struct impl *impl)
 {
 	int res;
 	uint32_t n_params, i;
-	uint32_t offsets[512];
-	const struct spa_pod *params[512];
+	uint32_t offsets[MAX_PARAMS];
+	const struct spa_pod *params[MAX_PARAMS];
 	struct spa_pod_dynamic_builder b;
 
 	impl->capture = pw_stream_new(impl->core,
@@ -953,27 +955,30 @@ static int setup_streams(struct impl *impl)
 	n_params = 0;
 	spa_pod_dynamic_builder_init(&b, NULL, 0, 4096);
 
-	offsets[n_params++] = b.b.state.offset;
-	spa_format_audio_raw_build(&b.b, SPA_PARAM_EnumFormat, &impl->capture_info);
-
+	if (n_params < MAX_PARAMS) {
+		offsets[n_params++] = b.b.state.offset;
+		spa_format_audio_raw_build(&b.b, SPA_PARAM_EnumFormat, &impl->capture_info);
+	}
 	int nbr_of_external_props = spa_audio_aec_enum_props(impl->aec, 0, NULL);
-	if (nbr_of_external_props > 0) {
-		for (int i = 0; i < nbr_of_external_props; i++) {
+	for (int i = 0; i < nbr_of_external_props; i++) {
+		if (n_params < MAX_PARAMS) {
 			offsets[n_params++] = b.b.state.offset;
 			spa_audio_aec_enum_props(impl->aec, i, &b.b);
 		}
 	}
-
-	offsets[n_params++] = b.b.state.offset;
-	spa_pod_builder_add_object(&b.b,
+	if (n_params < MAX_PARAMS) {
+		offsets[n_params++] = b.b.state.offset;
+		spa_pod_builder_add_object(&b.b,
                                 SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
                                 SPA_PROP_INFO_name, SPA_POD_String("debug.aec.wav-path"),
                                 SPA_PROP_INFO_description, SPA_POD_String("Path to WAV file"),
                                 SPA_PROP_INFO_type, SPA_POD_String(impl->wav_path),
                                 SPA_PROP_INFO_params, SPA_POD_Bool(true));
-
-	offsets[n_params++] = b.b.state.offset;
-	get_props_param(impl, &b.b);
+	}
+	if (n_params < MAX_PARAMS) {
+		offsets[n_params++] = b.b.state.offset;
+		get_props_param(impl, &b.b);
+	}
 
 	for (i = 0; i < n_params; i++)
 		params[i] = spa_pod_builder_deref(&b.b, offsets[i]);

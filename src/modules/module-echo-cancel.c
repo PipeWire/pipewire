@@ -677,10 +677,34 @@ static int set_params(struct impl* impl, const struct spa_pod *params)
 	return 1;
 }
 
+static void props_changed(struct impl* impl, const struct spa_pod *param)
+{
+	uint8_t buffer[1024];
+	struct spa_pod_dynamic_builder b;
+	const struct spa_pod* params[1];
+	const struct spa_pod_prop* prop;
+	struct spa_pod_object* obj = (struct spa_pod_object*)param;
+
+	if (param == NULL)
+		return;
+
+	SPA_POD_OBJECT_FOREACH(obj, prop) {
+		if (prop->key == SPA_PROP_params)
+			set_params(impl, &prop->value);
+	}
+
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+	params[0] = get_props_param(impl, &b.b);
+	if (params[0]) {
+		pw_stream_update_params(impl->capture, params, 1);
+		if (impl->playback != NULL)
+			pw_stream_update_params(impl->playback, params, 1);
+	}
+	spa_pod_dynamic_builder_clean(&b);
+}
+
 static void input_param_changed(void *data, uint32_t id, const struct spa_pod* param)
 {
-	struct spa_pod_object* obj = (struct spa_pod_object*)param;
-	const struct spa_pod_prop* prop;
 	struct impl* impl = data;
 
 	switch (id) {
@@ -692,27 +716,7 @@ static void input_param_changed(void *data, uint32_t id, const struct spa_pod* p
 		input_param_latency_changed(impl, param);
 		break;
 	case SPA_PARAM_Props:
-		if (param != NULL) {
-			uint8_t buffer[1024];
-			struct spa_pod_dynamic_builder b;
-			const struct spa_pod* params[1];
-
-			SPA_POD_OBJECT_FOREACH(obj, prop) {
-				if (prop->key == SPA_PROP_params)
-					set_params(impl, &prop->value);
-			}
-
-			spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
-			params[0] = get_props_param(impl, &b.b);
-			if (params[0]) {
-				pw_stream_update_params(impl->capture, params, 1);
-				if (impl->playback != NULL)
-					pw_stream_update_params(impl->playback, params, 1);
-			}
-			spa_pod_dynamic_builder_clean(&b);
-		} else {
-			pw_log_warn("param is null");
-		}
+		props_changed(impl, param);
 		break;
 	}
 }
@@ -785,8 +789,6 @@ static void output_param_latency_changed(struct impl *impl, const struct spa_pod
 
 static void output_param_changed(void *data, uint32_t id, const struct spa_pod *param)
 {
-	struct spa_pod_object *obj = (struct spa_pod_object *) param;
-	const struct spa_pod_prop *prop;
 	struct impl *impl = data;
 
 	switch (id) {
@@ -798,26 +800,7 @@ static void output_param_changed(void *data, uint32_t id, const struct spa_pod *
 		output_param_latency_changed(impl, param);
 		break;
 	case SPA_PARAM_Props:
-		if (param != NULL) {
-			uint8_t buffer[1024];
-			struct spa_pod_dynamic_builder b;
-			const struct spa_pod* params[1];
-
-			SPA_POD_OBJECT_FOREACH(obj, prop)
-			{
-				if (prop->key == SPA_PROP_params) {
-					spa_audio_aec_set_params(impl->aec, &prop->value);
-				}
-			}
-			spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
-			params[0] = get_props_param(impl, &b.b);
-			if (params[0] != NULL) {
-				pw_stream_update_params(impl->capture, params, 1);
-				if (impl->playback != NULL)
-					pw_stream_update_params(impl->playback, params, 1);
-			}
-			spa_pod_dynamic_builder_clean(&b);
-		}
+		props_changed(impl, param);
 		break;
 	}
 }

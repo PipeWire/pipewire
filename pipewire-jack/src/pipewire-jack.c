@@ -6396,7 +6396,7 @@ jack_nframes_t jack_frames_since_cycle_start (const jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
 	struct frame_times times;
-	uint64_t diff;
+	int64_t diff;
 
 	return_val_if_fail(c != NULL, 0);
 
@@ -6438,14 +6438,14 @@ int jack_get_cycle_times(const jack_client_t *client,
 
 	get_frame_times(c, &times);
 
-	*current_frames = times.frames;
-	*current_usecs = times.nsec / SPA_NSEC_PER_USEC;
-	*next_usecs = times.next_nsec / SPA_NSEC_PER_USEC;
 	if (times.sample_rate == 0 || times.rate_diff == 0.0)
-		*period_usecs = (times.next_nsec - times.nsec) / SPA_NSEC_PER_USEC;
-	else
-		*period_usecs = times.buffer_frames *
+		return -1;
+
+	*current_frames = times.frames;
+	*next_usecs = times.next_nsec / SPA_NSEC_PER_USEC;
+	*period_usecs = times.buffer_frames *
 			(float)SPA_USEC_PER_SEC / (times.sample_rate * times.rate_diff);
+	*current_usecs = *next_usecs - (jack_time_t)*period_usecs;
 
 	pw_log_trace("%p: %d %"PRIu64" %"PRIu64" %f", c, *current_frames,
 			*current_usecs, *next_usecs, *period_usecs);
@@ -6462,14 +6462,15 @@ jack_time_t jack_frames_to_time(const jack_client_t *client, jack_nframes_t fram
 
 	get_frame_times(c, &times);
 
-	if (times.buffer_frames == 0)
+	if (times.buffer_frames == 0 || times.sample_rate == 0 || times.rate_diff == 0.0)
 		return 0;
 
 	uint32_t nf = (uint32_t)times.frames;
-	uint64_t w = times.nsec/SPA_NSEC_PER_USEC;
 	uint64_t nw = times.next_nsec/SPA_NSEC_PER_USEC;
+	uint64_t dp = (uint64_t)(times.buffer_frames *
+			(float)SPA_USEC_PER_SEC / (times.sample_rate * times.rate_diff));
+	uint64_t w = nw - dp;
 	int32_t df = frames - nf;
-	int64_t dp = nw - w;
 	return w + (int64_t)rint((double) df * (double) dp / times.buffer_frames);
 }
 
@@ -6483,14 +6484,15 @@ jack_nframes_t jack_time_to_frames(const jack_client_t *client, jack_time_t usec
 
 	get_frame_times(c, &times);
 
-	if (times.buffer_frames == 0)
+	if (times.sample_rate == 0 || times.rate_diff == 0.0)
 		return 0;
 
 	uint32_t nf = (uint32_t)times.frames;
-	uint64_t w = times.nsec/SPA_NSEC_PER_USEC;
 	uint64_t nw = times.next_nsec/SPA_NSEC_PER_USEC;
+	uint64_t dp = (uint64_t)(times.buffer_frames *
+			(float)SPA_USEC_PER_SEC / (times.sample_rate * times.rate_diff));
+	uint64_t w = nw - dp;
 	int64_t du = usecs - w;
-	int64_t dp = nw - w;
 	return nf + (int32_t)rint((double)du / (double)dp * times.buffer_frames);
 }
 

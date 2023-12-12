@@ -188,7 +188,12 @@ int pw_data_loop_start(struct pw_data_loop *loop)
 
 		if ((utils = loop->thread_utils) == NULL)
 			utils = pw_thread_utils_get();
-		thr = spa_thread_utils_create(utils, NULL, do_loop, loop);
+
+		static const struct spa_dict_item items[] = {
+			{ SPA_KEY_THREAD_NAME, "pw-data-loop" },
+		};
+
+		thr = spa_thread_utils_create(utils, &SPA_DICT_INIT_ARRAY(items), do_loop, loop);
 		loop->thread = (pthread_t)thr;
 		if (thr == NULL) {
 			pw_log_error("%p: can't create thread: %m", loop);

@@ -927,15 +927,9 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		this->warned = false;
 		break;
 	case SPA_NODE_COMMAND_Suspend:
-		this->started = false;
-		this->ready = false;
-		this->warned = false;
 		spa_log_debug(this->log, "%p: suspending", this);
 		break;
 	case SPA_NODE_COMMAND_Pause:
-		this->started = false;
-		this->ready = false;
-		this->warned = false;
 		spa_log_debug(this->log, "%p: pausing", this);
 		break;
 	case SPA_NODE_COMMAND_Flush:
@@ -972,9 +966,15 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		break;
 	case SPA_NODE_COMMAND_Suspend:
 		configure_format(this, 0, NULL);
+		this->started = false;
+		this->warned = false;
+		this->ready = false;
 		spa_log_debug(this->log, "%p: suspended", this);
 		break;
 	case SPA_NODE_COMMAND_Pause:
+		this->started = false;
+		this->warned = false;
+		this->ready = false;
 		spa_log_debug(this->log, "%p: paused", this);
 		break;
 	case SPA_NODE_COMMAND_Flush:
@@ -1572,7 +1572,7 @@ static int impl_node_process(void *object)
 	struct impl *this = object;
 	int status = 0, fstatus, retry = 8;
 
-	if (!this->started) {
+	if (!this->ready) {
 		if (!this->warned)
 			spa_log_warn(this->log, "%p: scheduling stopped node", this);
 		this->warned = true;

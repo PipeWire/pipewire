@@ -2181,8 +2181,6 @@ static int set_swparams(struct state *state)
 	/* start the transfer */
 	CHECK(snd_pcm_sw_params_set_start_threshold(hndl, params, LONG_MAX), "set_start_threshold");
 
-	CHECK(snd_pcm_sw_params_set_period_event(hndl, params, state->disable_tsched), "set_period_event");
-
 	if (state->disable_tsched) {
 		snd_pcm_uframes_t avail_min;
 

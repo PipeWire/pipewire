@@ -60,8 +60,6 @@
  *         stream.rules = [
  *             {   matches = [
  *                     {    raop.ip = "~.*"
- *                          #raop.ip.version = 4 | 6
- *                          #raop.ip.version = 4
  *                          #raop.port = 1000
  *                          #raop.name = ""
  *                          #raop.hostname = ""
@@ -369,7 +367,6 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	AvahiStringList *l;
 	struct pw_properties *props = NULL;
 	char at[AVAHI_ADDRESS_STR_MAX];
-	int ipv;
 
 	if (event != AVAHI_RESOLVER_FOUND) {
 		pw_log_error("Resolving of '%s' failed: %s", name,
@@ -398,9 +395,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	}
 
 	avahi_address_snprint(at, sizeof(at), a);
-	ipv = protocol == AVAHI_PROTO_INET ? 4 : 6;
 	pw_properties_setf(props, "raop.ip", "%s", at);
-	pw_properties_setf(props, "raop.ip.version", "%d", ipv);
 	pw_properties_setf(props, "raop.port", "%u", port);
 	pw_properties_setf(props, "raop.name", "%s", name);
 	pw_properties_setf(props, "raop.hostname", "%s", host_name);

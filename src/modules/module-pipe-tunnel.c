@@ -187,7 +187,6 @@ struct impl {
 
 	unsigned int do_disconnect:1;
 	unsigned int driving:1;
-	unsigned int have_sync:1;
 	unsigned int may_pause:1;
 	unsigned int paused:1;
 
@@ -203,6 +202,7 @@ struct impl {
 	float corr;
 
 	uint64_t next_time;
+	unsigned int have_sync:1;
 };
 
 static uint64_t get_time_ns(struct impl *impl)

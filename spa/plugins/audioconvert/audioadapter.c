@@ -89,13 +89,14 @@ struct impl {
 	unsigned int add_listener:1;
 	unsigned int have_format:1;
 	unsigned int started:1;
-	unsigned int warned:1;
 	unsigned int ready:1;
-	unsigned int driver:1;
 	unsigned int async:1;
 	unsigned int passthrough:1;
 	unsigned int follower_removing:1;
 	unsigned int in_recalc;
+
+	unsigned int warned:1;
+	unsigned int driver:1;
 };
 
 /** \endcond */

@@ -880,6 +880,13 @@ static int rtsp_record_reply(void *data, int status, const struct spa_dict *head
 	struct timespec timeout, interval;
 
 	pw_log_info("record status: %d", status);
+	switch (status) {
+	case 200:
+		break;
+	default:
+		pw_impl_module_schedule_destroy(impl->module);
+		return 0;
+	}
 
 	timeout.tv_sec = 2;
 	timeout.tv_nsec = 0;
@@ -971,6 +978,7 @@ on_server_source_io(void *data, int fd, uint32_t mask)
 	return;
 error:
 	pw_loop_update_io(impl->loop, impl->server_source, 0);
+	pw_impl_module_schedule_destroy(impl->module);
 }
 
 static int rtsp_setup_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
@@ -982,6 +990,13 @@ static int rtsp_setup_reply(void *data, int status, const struct spa_dict *heade
 	uint16_t control_port, timing_port;
 
 	pw_log_info("setup status: %d", status);
+	switch (status) {
+	case 200:
+		break;
+	default:
+		pw_impl_module_schedule_destroy(impl->module);
+		return 0;
+	}
 
 	if ((str = spa_dict_lookup(headers, "Session")) == NULL) {
 		pw_log_error("missing Session header");
@@ -1110,6 +1125,13 @@ static int rtsp_announce_reply(void *data, int status, const struct spa_dict *he
 	struct impl *impl = data;
 
 	pw_log_info("announce status: %d", status);
+	switch (status) {
+	case 200:
+		break;
+	default:
+		pw_impl_module_schedule_destroy(impl->module);
+		return 0;
+	}
 
 	pw_properties_set(impl->headers, "Apple-Challenge", NULL);
 
@@ -1302,6 +1324,13 @@ static int rtsp_post_auth_setup_reply(void *data, int status, const struct spa_d
 	struct impl *impl = data;
 
 	pw_log_info("auth-setup status: %d", status);
+	switch (status) {
+	case 200:
+		break;
+	default:
+		pw_impl_module_schedule_destroy(impl->module);
+		return 0;
+	}
 
 	return rtsp_do_announce(impl);
 }
@@ -1332,6 +1361,9 @@ static int rtsp_options_auth_reply(void *data, int status, const struct spa_dict
 		else
 			res = rtsp_do_announce(impl);
 		break;
+	default:
+		pw_impl_module_schedule_destroy(impl->module);
+		return 0;
 	}
 	return res;
 }
@@ -1405,6 +1437,9 @@ static int rtsp_options_reply(void *data, int status, const struct spa_dict *hea
 		else
 			res = rtsp_do_announce(impl);
 		break;
+	default:
+		pw_impl_module_schedule_destroy(impl->module);
+		return 0;
 	}
 	return res;
 }

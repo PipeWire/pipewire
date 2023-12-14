@@ -70,7 +70,6 @@ struct _GstPipeWireDeviceProvider {
   struct pw_registry *registry;
   struct spa_hook registry_listener;
   struct spa_list nodes;
-  struct spa_list pending;
   int seq;
 
   int error;

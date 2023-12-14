@@ -581,7 +581,6 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   pw_thread_loop_lock (self->core->loop);
 
   spa_list_init(&self->nodes);
-  spa_list_init(&self->pending);
   self->end = FALSE;
   self->error = 0;
   self->list_only = TRUE;
@@ -631,7 +630,6 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
   pw_thread_loop_lock (self->core->loop);
 
   spa_list_init(&self->nodes);
-  spa_list_init(&self->pending);
   self->end = FALSE;
   self->error = 0;
   self->list_only = FALSE;

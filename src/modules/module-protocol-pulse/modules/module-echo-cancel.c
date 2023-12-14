@@ -176,7 +176,7 @@ static int parse_point(const char **point, float f[3])
 static int rename_geometry(struct pw_properties *props, const char *pa_key, const char *pw_key)
 {
 	const char *str;
-	int len;
+	int i = 0, len;
 	char *args;
 	size_t size;
 	FILE *f;
@@ -189,14 +189,16 @@ static int rename_geometry(struct pw_properties *props, const char *pa_key, cons
 	if ((f = open_memstream(&args, &size)) == NULL)
 		return -errno;
 
-	fprintf(f, "[ ");
+	fprintf(f, "[");
 	while (true) {
 		float p[3];
 		char ps0[64], ps1[64], ps2[64];
 		if ((len = parse_point(&str, p)) < 0)
 			break;
 
-		fprintf(f, "[ %s %s %s ] ",
+		pw_log_info("Got mic #%d position: (%g, %g, %g)", i, p[0], p[1], p[2]);
+
+		fprintf(f, "%s [ %s, %s, %s ]", i == 0 ?  "" : ",",
 				spa_dtoa(ps0, sizeof(ps0), p[0]),
 				spa_dtoa(ps1, sizeof(ps1), p[1]),
 				spa_dtoa(ps2, sizeof(ps2), p[2]));
@@ -204,8 +206,9 @@ static int rename_geometry(struct pw_properties *props, const char *pa_key, cons
 		if (*str != ',')
 			break;
 		str++;
+		i++;
 	}
-	fprintf(f, "]");
+	fprintf(f, " ]");
 	fclose(f);
 
 	pw_properties_set(props, pw_key, args);
@@ -230,7 +233,9 @@ static int rename_direction(struct pw_properties *props, const char *pa_key, con
 	if ((res = parse_point(&str, f)) < 0)
 		return res;
 
-	pw_properties_setf(props, pw_key, "[ %s %s %s ]",
+	pw_log_info("Got target direction: (%g, %g, %g)", f[0], f[1], f[2]);
+
+	pw_properties_setf(props, pw_key, "[ %s, %s, %s ]",
 				spa_dtoa(fs0, sizeof(fs0), f[0]),
 				spa_dtoa(fs1, sizeof(fs1), f[1]),
 				spa_dtoa(fs2, sizeof(fs2), f[2]));
@@ -327,8 +332,14 @@ static int module_echo_cancel_prepare(struct module * const module)
 			rename_bool_prop(aec_props, "extended_filter", "webrtc.extended_filter");
 			rename_bool_prop(aec_props, "experimental_agc", "webrtc.experimental_agc");
 			rename_bool_prop(aec_props, "beamforming", "webrtc.beamforming");
-			rename_geometry(aec_props, "mic_geometry", "webrtc.mic-geometry");
-			rename_direction(aec_props, "target_direction", "webrtc.target-direction");
+			if ((res = rename_geometry(aec_props, "mic_geometry", "webrtc.mic-geometry")) < 0) {
+				pw_log_warn("failed to parse mic_geometry: %s", spa_strerror(res));
+				goto out;
+			}
+			if ((res = rename_direction(aec_props, "target_direction", "webrtc.target-direction")) < 0) {
+				pw_log_warn("failed to parse target_direction: %s", spa_strerror(res));
+				goto out;
+			}
 		}
 		pw_properties_set(props, "aec_args", NULL);
 	}

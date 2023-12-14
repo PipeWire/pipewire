@@ -1210,6 +1210,11 @@ static void on_error(void *data, uint32_t id, int seq, int res, const char *mess
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE) {
+		/* This happens when we did something on a proxy that
+		 * was destroyed on the server already */
+		if (res == -ENOENT)
+			return;
+
 		client->last_res = res;
 		if (res == -EPIPE && !client->destroyed) {
 			queue_notify(client, NOTIFY_TYPE_SHUTDOWN,
@@ -4070,6 +4075,7 @@ server_failed:
 exit_unlock:
 	pw_thread_loop_unlock(client->context.loop);
 exit:
+	pw_log_info("%p: error %d", client, *status);
 	jack_client_close((jack_client_t *) client);
 	return NULL;
 disabled:

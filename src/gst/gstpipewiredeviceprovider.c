@@ -180,9 +180,11 @@ struct node_data {
   struct pw_node_info *info;
   GstCaps *caps;
   GstDevice *dev;
+  struct spa_list ports;
 };
 
 struct port_data {
+  struct spa_list link;
   struct node_data *node_data;
   struct pw_port *proxy;
   struct spa_hook proxy_listener;
@@ -353,6 +355,9 @@ static void port_event_info(void *data, const struct pw_port_info *info)
 
   pw_log_debug("%p", port_data);
 
+  if (node_data == NULL)
+    return;
+
   if (info->change_mask & PW_PORT_CHANGE_MASK_PARAMS) {
     for (i = 0; i < info->n_params; i++) {
       uint32_t id = info->params[i].id;
@@ -374,6 +379,9 @@ static void port_event_param(void *data, int seq, uint32_t id,
   struct port_data *port_data = data;
   struct node_data *node_data = port_data->node_data;
   GstCaps *c1;
+
+  if (node_data == NULL)
+    return;
 
   c1 = gst_caps_from_format (param);
   if (c1 && node_data->caps)
@@ -438,10 +446,16 @@ static void
 destroy_node (void *data)
 {
   struct node_data *nd = data;
+  struct port_data *pd;
   GstPipeWireDeviceProvider *self = nd->self;
   GstDeviceProvider *provider = GST_DEVICE_PROVIDER (self);
 
   pw_log_debug("destroy %p", nd);
+
+  spa_list_consume(pd, &nd->ports, link) {
+	  spa_list_remove(&pd->link);
+	  pd->node_data = NULL;
+  }
 
   if (nd->dev != NULL) {
     gst_device_provider_device_remove (provider, GST_DEVICE (nd->dev));
@@ -472,6 +486,7 @@ destroy_port (void *data)
 {
   struct port_data *pd = data;
   pw_log_debug("destroy %p", pd);
+  spa_list_remove(&pd->link);
 }
 
 static const struct pw_proxy_events proxy_port_events = {
@@ -515,6 +530,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
     nd->id = id;
     if (!props || !spa_atou64(spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL), &nd->serial, 0))
       nd->serial = SPA_ID_INVALID;
+    spa_list_init(&nd->ports);
     spa_list_append(&self->nodes, &nd->link);
     pw_node_add_listener(node, &nd->node_listener, &node_events, nd);
     pw_proxy_add_listener((struct pw_proxy*)node, &nd->proxy_listener, &proxy_node_events, nd);
@@ -541,6 +557,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
     pd->id = id;
     if (!props || !spa_atou64(spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL), &pd->serial, 0))
       pd->serial = SPA_ID_INVALID;
+    spa_list_append(&nd->ports, &pd->link);
     pw_port_add_listener(port, &pd->port_listener, &port_events, pd);
     pw_proxy_add_listener((struct pw_proxy*)port, &pd->proxy_listener, &proxy_port_events, pd);
     resync(self);

@@ -272,6 +272,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 {
 	struct impl *impl;
 	const char *str;
+	char tmp[64];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	uint32_t n_params, min_samples, max_samples;
@@ -421,8 +422,9 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		impl->psamples = impl->mtu / impl->stride;
 		impl->psamples = SPA_CLAMP(impl->psamples, min_samples, max_samples);
 		if (direction == PW_DIRECTION_INPUT)
-			pw_properties_setf(props, "rtp.ptime", "%f",
-					impl->psamples * 1000.0 / impl->rate);
+			pw_properties_set(props, "rtp.ptime",
+					spa_dtoa(tmp, sizeof(tmp),
+						impl->psamples * 1000.0 / impl->rate));
 	}
 	latency_msec = pw_properties_get_uint32(props,
 			"sess.latency.msec", DEFAULT_SESS_LATENCY);
@@ -583,6 +585,5 @@ int rtp_stream_update_params(struct rtp_stream *s,
 			uint32_t n_params)
 {
 	struct impl *impl = (struct impl*)s;
-	
 	return pw_stream_update_params(impl->stream, params, n_params);
 }

@@ -253,6 +253,7 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 {
 	struct impl *impl;
 	const char *str;
+	char tmp[64];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	uint32_t n_params, min_samples, max_samples;
@@ -370,8 +371,9 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 		impl->psamples = impl->mtu / impl->stride;
 		impl->psamples = SPA_CLAMP(impl->psamples, min_samples, max_samples);
 		if (direction == PW_DIRECTION_OUTPUT)
-			pw_properties_setf(props, "vban.ptime", "%f",
-					impl->psamples * 1000.0 / impl->rate);
+			pw_properties_set(props, "vban.ptime",
+					spa_dtoa(tmp, sizeof(tmp),
+						impl->psamples * 1000.0 / impl->rate));
 	}
 	latency_msec = pw_properties_get_uint32(props,
 			"sess.latency.msec", DEFAULT_SESS_LATENCY);

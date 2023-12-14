@@ -192,10 +192,14 @@ static int rename_geometry(struct pw_properties *props, const char *pa_key, cons
 	fprintf(f, "[ ");
 	while (true) {
 		float p[3];
+		char ps0[64], ps1[64], ps2[64];
 		if ((len = parse_point(&str, p)) < 0)
 			break;
 
-		fprintf(f, "[ %f %f %f ] ", p[0], p[1], p[2]);
+		fprintf(f, "[ %s %s %s ] ",
+				spa_dtoa(ps0, sizeof(ps0), p[0]),
+				spa_dtoa(ps1, sizeof(ps1), p[1]),
+				spa_dtoa(ps2, sizeof(ps2), p[2]));
 		str += len;
 		if (*str != ',')
 			break;
@@ -216,6 +220,7 @@ static int rename_direction(struct pw_properties *props, const char *pa_key, con
 	const char *str;
 	int res;
 	float f[3];
+	char fs0[64], fs1[64], fs2[64];
 
 	if ((str = pw_properties_get(props, pa_key)) == NULL)
 		return 0;
@@ -225,7 +230,10 @@ static int rename_direction(struct pw_properties *props, const char *pa_key, con
 	if ((res = parse_point(&str, f)) < 0)
 		return res;
 
-	pw_properties_setf(props, pw_key, "[ %f %f %f ]", f[0], f[1], f[2]);
+	pw_properties_setf(props, pw_key, "[ %s %s %s ]",
+				spa_dtoa(fs0, sizeof(fs0), f[0]),
+				spa_dtoa(fs1, sizeof(fs1), f[1]),
+				spa_dtoa(fs2, sizeof(fs2), f[2]));
 	pw_properties_set(props, pa_key, NULL);
 	return 0;
 }

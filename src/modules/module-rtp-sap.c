@@ -868,7 +868,7 @@ static struct session *session_new(struct impl *impl, struct sdp_info *info)
 	struct session *session;
 	struct pw_properties *props;
 	const char *str;
-	char dst_addr[64];
+	char dst_addr[64], tmp[64];
 
 	if (impl->n_sessions >= MAX_SESSIONS) {
 		pw_log_warn("too many sessions (%u >= %u)", impl->n_sessions, MAX_SESSIONS);
@@ -908,7 +908,7 @@ static struct session *session_new(struct impl *impl, struct sdp_info *info)
 	pw_properties_setf(props, "rtp.destination.ip", "%s", dst_addr);
 	pw_properties_setf(props, "rtp.destination.port", "%u", info->dst_port);
 	pw_properties_setf(props, "rtp.payload", "%u", info->payload);
-	pw_properties_setf(props, "rtp.ptime", "%f", info->ptime);
+	pw_properties_set(props, "rtp.ptime", spa_dtoa(tmp, sizeof(tmp), info->ptime));
 	pw_properties_setf(props, "rtp.media", "%s", info->media_type);
 	pw_properties_setf(props, "rtp.mime", "%s", info->mime_type);
 	pw_properties_setf(props, "rtp.rate", "%u", info->rate);

@@ -38,8 +38,8 @@ context.objects = [
             clock.name      = "clock.system.ptp0"
             ### please select the PTP hardware clock here
             # Interface name is the preferred method of specifying the PHC
-            #clock.interface = "eth0"
-            clock.device    = "/dev/ptp0"
+            clock.interface = "eth0"
+            #clock.device    = "/dev/ptp0"
             #clock.id        = tai
             object.export   = true
         }

@@ -36,9 +36,11 @@ context.objects = [
             # This driver should only be used for network nodes marked with group
             priority.driver = 100000
             clock.name      = "clock.system.ptp0"
-            #clock.id        = tai
-            clock.device    = "/dev/ptp0"
+            ### please select the PTP hardware clock here
+            # Interface name is the preferred method of specifying the PHC
             #clock.interface = "eth0"
+            clock.device    = "/dev/ptp0"
+            #clock.id        = tai
             object.export   = true
         }
     }
@@ -60,6 +62,7 @@ context.modules = [
     { name = libpipewire-module-adapter }
     { name = libpipewire-module-rtp-sap
         args = {
+            ### please select the interface here
             local.ifname = eth0
             sap.ip = 239.255.255.255
             sap.port = 9875
@@ -98,6 +101,7 @@ context.modules = [
     },
     { name = libpipewire-module-rtp-sink
         args = {
+            ### please select the interface here
             local.ifname = eth0
             destination.ip = 239.69.150.243
             destination.port = 5004
@@ -108,6 +112,7 @@ context.modules = [
             sess.max-ptime = 1
             sess.name = "PipeWire RTP stream"
             sess.media = "audio"
+            ### please select the PTP grandmaster ID here
             sess.ts-refclk = "ptp=traceable"
             sess.ts-offset = 0
             sess.ptime = 1

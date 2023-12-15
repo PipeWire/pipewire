@@ -588,7 +588,7 @@ impl_init(const struct spa_handle_factory *factory,
 			if (this->clock_fd >= 0) {
 				close(this->clock_fd);
 			}
-			this->clock_fd = open(s, O_RDWR);
+			this->clock_fd = open(s, O_RDONLY);
 
 			if (this->clock_fd == -1) {
 				spa_log_warn(this->log, "failed to open clock device '%s'", s);
@@ -602,7 +602,7 @@ impl_init(const struct spa_handle_factory *factory,
 			} else {
 				char dev[19];
 				spa_scnprintf(dev, sizeof(dev), "/dev/ptp%d", phc_index);
-				this->clock_fd = open(dev, O_RDWR);
+				this->clock_fd = open(dev, O_RDONLY);
 			}
 
 			if (this->clock_fd == -1) {

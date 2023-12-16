@@ -550,6 +550,7 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 
 	if (sdp->channels) {
 		if (sdp->channelmap[0] != 0) {
+			// Produce Audinate format channel record. It's recognized by RAVENNA
 			spa_strbuf_append(&buf,
 				"i=%d channels: %s\n", sdp->channels,
 				sdp->channelmap);
@@ -1023,7 +1024,8 @@ static int parse_sdp_m(struct impl *impl, char *c, struct sdp_info *info)
 /* some AES67 devices have channelmap encoded in i=*
  * if `i` record is found, it matches the template
  * and channel count matches, name the channels respectively
- * `i=2 channels: 01, 08` is the format */
+ * `i=2 channels: 01, 08` is the format
+ * This is Audinate format. TODO: parse RAVENNA `i=CH1,CH2,CH3` format */
 static int parse_sdp_i(struct impl *impl, char *c, struct sdp_info *info)
 {
 	if (!strstr(c, " channels: ")) {

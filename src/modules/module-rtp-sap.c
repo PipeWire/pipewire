@@ -17,6 +17,7 @@
 
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
+#include <spa/utils/json.h>
 #include <spa/debug/types.h>
 
 #include <pipewire/pipewire.h>
@@ -56,6 +57,8 @@
  * - `net.ttl = <int>`: TTL to use, default 1
  * - `net.loop = <bool>`: loopback multicast, default false
  * - `stream.rules` = <rules>: match rules, use create-stream and announce-stream actions
+ * - `sap.preamble-extra = [strings]`: extra attributes to add to the atomic SDP preamble
+ * - `sap.end-extra = [strings]`: extra attributes to add to the end of the SDP message
  *
  * ## General options
  *
@@ -255,6 +258,9 @@ struct impl {
 
 	uint32_t n_sessions;
 	struct spa_list sessions;
+
+	char *extra_attrs_preamble;
+	char *extra_attrs_end;
 };
 
 struct format_info {
@@ -548,6 +554,9 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 			sdp->ntp,
 			sdp->media_type, sdp->dst_port, sdp->payload);
 
+	if (impl->extra_attrs_preamble)
+		spa_strbuf_append(&buf, "%s", impl->extra_attrs_preamble);
+
 	if (sdp->channels) {
 		if (sdp->channelmap[0] != 0) {
 			// Produce Audinate format channel record. It's recognized by RAVENNA
@@ -595,6 +604,9 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 		"a=tool:PipeWire %s\n"
 		"a=type:broadcast\n",
 		pw_get_library_version());
+
+	if (impl->extra_attrs_end)
+		spa_strbuf_append(&buf, "%s", impl->extra_attrs_end);
 
 	pw_log_debug("sending SAP for %u %s", sess->node->id, buffer);
 
@@ -1434,6 +1446,9 @@ static void impl_destroy(struct impl *impl)
 
 	pw_properties_free(impl->props);
 
+	free(impl->extra_attrs_preamble);
+	free(impl->extra_attrs_end);
+
 	free(impl->ifname);
 	free(impl);
 }
@@ -1545,6 +1560,39 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->ttl = pw_properties_get_uint32(props, "net.ttl", DEFAULT_TTL);
 	impl->mcast_loop = pw_properties_get_bool(props, "net.loop", DEFAULT_LOOP);
+
+	impl->extra_attrs_preamble = NULL;
+	impl->extra_attrs_end = NULL;
+	char buffer[2048];
+	struct spa_strbuf buf;
+	if ((str = pw_properties_get(props, "sap.preamble-extra")) != NULL) {
+		spa_strbuf_init(&buf, buffer, sizeof(buffer));
+		struct spa_json it[2];
+		char line[256];
+
+		spa_json_init(&it[0], str, strlen(str));
+		if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+			spa_json_init(&it[1], str, strlen(str));
+
+		while (spa_json_get_string(&it[1], line, sizeof(line)) > 0)
+			spa_strbuf_append(&buf, "%s\n", line);
+
+		impl->extra_attrs_preamble = strdup(buffer);
+	}
+	if ((str = pw_properties_get(props, "sap.end-extra")) != NULL) {
+		spa_strbuf_init(&buf, buffer, sizeof(buffer));
+		struct spa_json it[2];
+		char line[256];
+
+		spa_json_init(&it[0], str, strlen(str));
+		if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+			spa_json_init(&it[1], str, strlen(str));
+
+		while (spa_json_get_string(&it[1], line, sizeof(line)) > 0)
+			spa_strbuf_append(&buf, "%s\n", line);
+
+		impl->extra_attrs_end = strdup(buffer);
+	}
 
 	impl->core = pw_context_get_object(context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

@@ -553,6 +553,13 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 			spa_strbuf_append(&buf,
 				"i=%d channels: %s\n", sdp->channels,
 				sdp->channelmap);
+		} else {
+			spa_strbuf_append(&buf, "i=%d channels:", sdp->channels);
+			for (uint i = 1; i <= sdp->channels; i++) {
+				if (i > 1) spa_strbuf_append(&buf, ",");
+				spa_strbuf_append(&buf, " AUX%u", i);
+			}
+			spa_strbuf_append(&buf, "\n");
 		}
 		spa_strbuf_append(&buf,
 			"a=recvonly\n"

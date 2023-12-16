@@ -1081,6 +1081,16 @@ static int parse_sdp_a_rtpmap(struct impl *impl, char *c, struct sdp_info *info)
 	return 0;
 }
 
+static int parse_sdp_a_ptime(struct impl *impl, char *c, struct sdp_info *info)
+{
+	if (!spa_strstartswith(c, "a=ptime:"))
+		return 0;
+
+	c += strlen("a=ptime:");
+	spa_atof(c, &info->ptime);
+	return 0;
+}
+
 static int parse_sdp_a_mediaclk(struct impl *impl, char *c, struct sdp_info *info)
 {
 	if (!spa_strstartswith(c, "a=mediaclk:"))
@@ -1136,6 +1146,8 @@ static int parse_sdp(struct impl *impl, char *sdp, struct sdp_info *info)
 			res = parse_sdp_m(impl, s, info);
 		else if (spa_strstartswith(s, "a=rtpmap:"))
 			res = parse_sdp_a_rtpmap(impl, s, info);
+		else if (spa_strstartswith(s, "a=ptime:"))
+			res = parse_sdp_a_ptime(impl, s, info);
 		else if (spa_strstartswith(s, "a=mediaclk:"))
 			res = parse_sdp_a_mediaclk(impl, s, info);
 		else if (spa_strstartswith(s, "a=ts-refclk:"))

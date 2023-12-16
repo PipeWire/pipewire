@@ -452,6 +452,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 
 	pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%d", impl->rate);
 	if (direction == PW_DIRECTION_INPUT) {
+		// TODO: make sess.latency.msec work for sender streams
 		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%d/%d",
 				impl->psamples, impl->rate);
 	} else {

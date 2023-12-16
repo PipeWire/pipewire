@@ -67,7 +67,7 @@ context.modules = [
             sap.ip = 239.255.255.255
             sap.port = 9875
             net.ttl = 32
-            net.loop = true
+            net.loop = false
 
             stream.rules = [
                 {
@@ -81,7 +81,7 @@ context.modules = [
                             node.virtual = false
                             media.class = "Audio/Source"
                             device.api = aes67
-                            sess.latency.msec = 10
+                            sess.latency.msec = 3
                             node.group = pipewire.ptp0
                         }
                     }
@@ -103,25 +103,28 @@ context.modules = [
         args = {
             ### please select the interface here
             local.ifname = eth0
+            # if you want to create multiple output streams, please copy the
+            # whole module-rtp-sink, but change this multicast IP to another unused one
             destination.ip = 239.69.150.243
             destination.port = 5004
             net.mtu = 1280
             net.ttl = 32
-            net.loop = true
+            net.loop = false
+            # These should typically be equal
             sess.min-ptime = 1
             sess.max-ptime = 1
+            # please change this, especially for multiple streams
             sess.name = "PipeWire RTP stream"
             sess.media = "audio"
             ### please select the PTP grandmaster ID here
             sess.ts-refclk = "ptp=traceable"
             sess.ts-offset = 0
-            sess.ptime = 1
-            sess.latency.msec = 1
-            sess.announce = true
+            sess.latency.msec = 3
             audio.format = "S24BE"
             audio.rate = 48000
             audio.channels = 2
-            audio.position = [ FL FR ]
+            # These channel names will be visible both to applications and AES67 receivers
+            node.channel-names = ["CH1", "CH2"]
 
             stream.props = {
                 node.name = "rtp-sink"

@@ -202,7 +202,7 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 
 	n = sendmsg(impl->rtp_fd, &msg, MSG_NOSIGNAL);
 	if (n < 0)
-		pw_log_debug("sendmsg() failed: %m");
+		pw_log_warn("sendmsg() failed: %m");
 }
 
 static void stream_state_changed(void *data, bool started, const char *error)

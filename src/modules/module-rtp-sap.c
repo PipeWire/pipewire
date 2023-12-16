@@ -1079,7 +1079,7 @@ static int parse_sdp_a_rtpmap(struct impl *impl, char *c, struct sdp_info *info)
 	} else
 		return -EINVAL;
 
-	pw_log_debug("rate: %d, ch: %d", info->rate, info->channels);
+	pw_log_debug("a=rtpmap: rate: %d, ch: %d", info->rate, info->channels);
 
 	return 0;
 }
@@ -1134,7 +1134,7 @@ static int parse_sdp(struct impl *impl, char *sdp, struct sdp_info *info)
 			goto too_short;
 
 		s[l] = 0;
-		pw_log_debug("%d: %s", count, s);
+		pw_log_debug("SDP line: %d: %s", count, s);
 
 		if (count++ == 0 && strcmp(s, "v=0") != 0)
 			goto invalid_version;

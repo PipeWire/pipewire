@@ -16,7 +16,7 @@ static void rtp_opus_process_playback(void *data)
 	int32_t avail;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
-		pw_log_debug("Out of stream buffers: %m");
+		pw_log_info("Out of stream buffers: %m");
 		return;
 	}
 	d = buf->buffer->datas;
@@ -73,7 +73,7 @@ static void rtp_opus_process_playback(void *data)
 
 			corr = spa_dll_update(&impl->dll, error);
 
-			pw_log_debug("avail:%u target:%u error:%f corr:%f", avail,
+			pw_log_trace("avail:%u target:%u error:%f corr:%f", avail,
 					target_buffer, error, corr);
 
 			if (impl->io_rate_match) {
@@ -183,7 +183,7 @@ static int rtp_opus_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 		if (end > BUFFER_SIZE2)
 			memmove(impl->buffer, &impl->buffer[BUFFER_SIZE2], end - BUFFER_SIZE2);
 
-		pw_log_debug("receiving %zd len:%d timestamp:%d %u", plen, res, timestamp, index);
+		pw_log_info("receiving %zd len:%d timestamp:%d %u", plen, res, timestamp, index);
 		samples = res;
 
 		write += samples;
@@ -244,7 +244,7 @@ static void rtp_opus_flush_packets(struct impl *impl)
 				(const float*)&impl->buffer[offset * stride], tosend,
 				out, sizeof(out));
 
-		pw_log_debug("sending %d len:%d timestamp:%d", tosend, res, timestamp);
+		pw_log_trace("sending %d len:%d timestamp:%d", tosend, res, timestamp);
 		iov[1].iov_len = res;
 
 		rtp_stream_emit_send_packet(impl, iov, 2);
@@ -255,7 +255,7 @@ static void rtp_opus_flush_packets(struct impl *impl)
 		avail -= tosend;
 	}
 
-	pw_log_debug("move %d offset:%d", avail, offset);
+	pw_log_trace("move %d offset:%d", avail, offset);
 	memmove(impl->buffer, &impl->buffer[offset * stride], avail * stride);
 
 	spa_ringbuffer_read_update(&impl->ring, timestamp);
@@ -270,7 +270,7 @@ static void rtp_opus_process_capture(void *data)
 	int32_t filled, wanted;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
-		pw_log_debug("Out of stream buffers: %m");
+		pw_log_info("Out of stream buffers: %m");
 		return;
 	}
 	d = buf->buffer->datas;

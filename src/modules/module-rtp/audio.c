@@ -11,7 +11,7 @@ static void rtp_audio_process_playback(void *data)
 	int32_t avail;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
-		pw_log_debug("Out of stream buffers: %m");
+		pw_log_info("Out of stream buffers: %m");
 		return;
 	}
 	d = buf->buffer->datas;
@@ -68,7 +68,7 @@ static void rtp_audio_process_playback(void *data)
 
 			corr = spa_dll_update(&impl->dll, error);
 
-			pw_log_debug("avail:%u target:%u error:%f corr:%f", avail,
+			pw_log_trace("avail:%u target:%u error:%f corr:%f", avail,
 					target_buffer, error, corr);
 
 			if (impl->io_rate_match) {
@@ -165,7 +165,7 @@ static int rtp_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 				BUFFER_SIZE / stride);
 		impl->have_sync = false;
 	} else {
-		pw_log_debug("got samples:%u", samples);
+		pw_log_trace("got samples:%u", samples);
 		spa_ringbuffer_write_data(&impl->ring,
 				impl->buffer,
 				BUFFER_SIZE,
@@ -259,7 +259,7 @@ static void rtp_audio_process_capture(void *data)
 	int32_t filled, wanted;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
-		pw_log_debug("Out of stream buffers: %m");
+		pw_log_info("Out of stream buffers: %m");
 		return;
 	}
 	d = buf->buffer->datas;

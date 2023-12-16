@@ -269,7 +269,7 @@ static ssize_t send_packet(int fd, struct msghdr *msg)
 	ssize_t n;
 	n = sendmsg(fd, msg, MSG_NOSIGNAL);
 	if (n < 0)
-		pw_log_debug("sendmsg() failed: %m");
+		pw_log_warn("sendmsg() failed: %m");
 	return n;
 }
 
@@ -791,7 +791,7 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 	msg.msg_iov = iov;
 	msg.msg_iovlen = 2;
 
-	pw_log_debug("send %p %u", msg.msg_name, msg.msg_namelen);
+	pw_log_trace("send %p %u", msg.msg_name, msg.msg_namelen);
 
 	send_packet(ctrl ? impl->ctrl_source->fd : impl->data_source->fd, &msg);
 }
@@ -866,7 +866,7 @@ static void parse_apple_midi_cmd_ck(struct impl *impl, bool ctrl, uint8_t *buffe
 		return;
 	}
 
-	pw_log_debug("got CK count %d", hdr->count);
+	pw_log_trace("got CK count %d", hdr->count);
 
 	now = current_time_ns() / 10000;
 	reply = *hdr;
@@ -896,7 +896,7 @@ static void parse_apple_midi_cmd_ck(struct impl *impl, bool ctrl, uint8_t *buffe
 		latency = t3 - t1;
 		offset = ((t3 + t1) / 2) - t2;
 
-		pw_log_debug("latency:%f offset:%f", latency / 1e5, offset / 1e5);
+		pw_log_trace("latency:%f offset:%f", latency / 1e5, offset / 1e5);
 		if (hdr->count >= 2)
 			return;
 	}
@@ -912,7 +912,7 @@ static void parse_apple_midi_cmd_ck(struct impl *impl, bool ctrl, uint8_t *buffe
 	msg.msg_iov = iov;
 	msg.msg_iovlen = 1;
 
-	pw_log_debug("send %p %u", msg.msg_name, msg.msg_namelen);
+	pw_log_trace("send %p %u", msg.msg_name, msg.msg_namelen);
 
 	send_packet(ctrl ? impl->ctrl_source->fd : impl->data_source->fd, &msg);
 }

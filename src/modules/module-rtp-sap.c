@@ -704,7 +704,7 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 			sdp->ptime = 0.0;
 
 	if ((str = pw_properties_get(props, "rtp.framecount")) != NULL)
-		if (!spa_atou32(str, &sdp->framecount))
+		if (!spa_atou32(str, &sdp->framecount, 0))
 			sdp->framecount = 0;
 
 	if ((str = pw_properties_get(props, "rtp.media")) != NULL)
@@ -925,6 +925,7 @@ static struct session *session_new(struct impl *impl, struct sdp_info *info)
 	pw_properties_setf(props, "rtp.destination.port", "%u", info->dst_port);
 	pw_properties_setf(props, "rtp.payload", "%u", info->payload);
 	pw_properties_set(props, "rtp.ptime", spa_dtoa(tmp, sizeof(tmp), info->ptime));
+	pw_properties_setf(props, "rtp.framecount", "%u", info->framecount);
 	pw_properties_setf(props, "rtp.media", "%s", info->media_type);
 	pw_properties_setf(props, "rtp.mime", "%s", info->mime_type);
 	pw_properties_setf(props, "rtp.rate", "%u", info->rate);

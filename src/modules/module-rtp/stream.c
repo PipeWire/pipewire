@@ -416,8 +416,24 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		if (!spa_atof(str, &ptime))
 			ptime = 0.0;
 
-	if (ptime) {
-		impl->psamples = ptime * impl->rate / 1000;
+	uint32_t framecount = 0;
+	if ((str = pw_properties_get(props, "rtp.framecount")) != NULL)
+		if (!spa_atou32(str, &framecount, 0))
+			framecount = 0;
+
+	if (ptime > 0 || framecount > 0) {
+		if (!framecount) {
+			impl->psamples = ptime * impl->rate / 1000;
+			pw_properties_setf(props, "rtp.framecount", "%u", impl->psamples);
+		} else if (!ptime) {
+			impl->psamples = framecount;
+			pw_properties_set(props, "rtp.ptime",
+					spa_dtoa(tmp, sizeof(tmp),
+						impl->psamples * 1000.0 / impl->rate));
+		} else if (fabs((impl->psamples * 1000.0 / impl->rate) - ptime) > 0.1) {
+			impl->psamples = ptime * impl->rate / 1000;
+			pw_log_warn("rtp.ptime doesn't match rtp.framecount. Choosing rtp.ptime");
+		}
 	} else {
 		impl->psamples = impl->mtu / impl->stride;
 		impl->psamples = SPA_CLAMP(impl->psamples, min_samples, max_samples);

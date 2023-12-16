@@ -183,6 +183,7 @@ struct sdp_info {
 	uint32_t channels;
 
 	float ptime;
+	uint32_t framecount;
 
 	uint32_t ts_offset;
 	char *ts_refclk;
@@ -568,6 +569,10 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 		spa_strbuf_append(&buf,
 			"a=ptime:%.6g\n", sdp->ptime);
 
+	if (sdp->framecount > 0)
+		spa_strbuf_append(&buf,
+			"a=framecount:%u\n", sdp->framecount);
+
 	if (sdp->ts_refclk != NULL) {
 		spa_strbuf_append(&buf,
 				"a=ts-refclk:%s\n"
@@ -690,6 +695,10 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 	if ((str = pw_properties_get(props, "rtp.ptime")) != NULL)
 		if (!spa_atof(str, &sdp->ptime))
 			sdp->ptime = 0.0;
+
+	if ((str = pw_properties_get(props, "rtp.framecount")) != NULL)
+		if (!spa_atou32(str, &sdp->framecount))
+			sdp->framecount = 0;
 
 	if ((str = pw_properties_get(props, "rtp.media")) != NULL)
 		sdp->media_type = strdup(str);

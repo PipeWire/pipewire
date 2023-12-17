@@ -134,6 +134,7 @@ context.modules = [
                 sess.sap.announce = true
                 node.always-process = true
                 node.group = pipewire.ptp0
+                rtp.ntp = 0
             }
         }
     },

@@ -690,7 +690,7 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 	sess->announce = true;
 
 	sdp->hash = pw_rand32();
-	sdp->ntp = (uint32_t) time(NULL) + 2208988800U;
+	sdp->ntp = pw_properties_get_uint32(props, "rtp.ntp", (uint32_t) time(NULL) + 2208988800U);
 	sess->props = props;
 
 	if ((str = pw_properties_get(props, "sess.name")) == NULL)

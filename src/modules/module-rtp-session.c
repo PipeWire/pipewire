@@ -1158,7 +1158,6 @@ static int make_socket(const struct sockaddr_storage* sa, socklen_t salen,
 		pw_log_error("bind() failed: %m");
 		goto error;
 	}
-	/* FIXME AES67 wants IPTOS_DSCP_AF41 */
 	val = IPTOS_LOWDELAY;
 	if (setsockopt(fd, IPPROTO_IP, IP_TOS, &val, sizeof(val)) < 0)
 		pw_log_warn("setsockopt(IP_TOS) failed: %m");

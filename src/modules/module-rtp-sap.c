@@ -167,6 +167,7 @@ static const struct spa_dict_item module_info[] = {
 struct sdp_info {
 	uint16_t hash;
 	uint32_t ntp;
+	uint32_t t_ntp;
 
 	char *origin;
 	char *session_name;
@@ -551,7 +552,7 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 			user_name, sdp->ntp, src_ip4 ? "IP4" : "IP6", src_addr,
 			sdp->session_name,
 			dst_ip4 ? "IP4" : "IP6", dst_addr, dst_ttl,
-			sdp->ntp,
+			sdp->t_ntp,
 			sdp->media_type, sdp->dst_port, sdp->payload);
 
 	if (impl->extra_attrs_preamble)
@@ -695,7 +696,8 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 	sess->announce = true;
 
 	sdp->hash = pw_rand32();
-	sdp->ntp = pw_properties_get_uint32(props, "rtp.ntp", (uint32_t) time(NULL) + 2208988800U + impl->n_sessions);
+	sdp->ntp = (uint32_t) time(NULL) + 2208988800U + impl->n_sessions;
+	sdp->t_ntp = pw_properties_get_uint32(props, "rtp.ntp", sdp->ntp);
 	sess->props = props;
 
 	if ((str = pw_properties_get(props, "sess.name")) == NULL)

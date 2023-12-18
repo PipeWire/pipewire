@@ -582,6 +582,11 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 				sdp->payload, sdp->mime_type, sdp->rate);
 	}
 
+	if (is_multicast((struct sockaddr*)&sdp->dst_addr, sdp->dst_len))
+		spa_strbuf_append(&buf,
+			"a=source-filter: incl IN %s %s %s\n", dst_ip4 ? "IP4" : "IP6",
+				dst_addr, src_addr);
+
 	if (sdp->ptime > 0)
 		spa_strbuf_append(&buf,
 			"a=ptime:%.6g\n", sdp->ptime);

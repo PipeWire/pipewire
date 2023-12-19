@@ -739,8 +739,20 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 		sdp->ts_offset = atoi(str);
 	if ((str = pw_properties_get(props, "rtp.ts-refclk")) != NULL)
 		sdp->ts_refclk = strdup(str);
-	if ((str = pw_properties_get(props, PW_KEY_NODE_CHANNELNAMES)) != NULL)
-		snprintf(sdp->channelmap, sizeof(sdp->channelmap), "%s", str);
+	if ((str = pw_properties_get(props, PW_KEY_NODE_CHANNELNAMES)) != NULL) {
+		struct spa_json it[2];
+		char v[256];
+
+		spa_json_init(&it[0], str, strlen(str));
+		if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+			spa_json_init(&it[1], str, strlen(str));
+
+		if (spa_json_get_string(&it[1], v, sizeof(v)) > 0)
+			snprintf(sdp->channelmap, sizeof(sdp->channelmap) - 1, "%s", v);
+		while (spa_json_get_string(&it[1], v, sizeof(v)) > 0)
+			snprintf(sdp->channelmap + strlen(sdp->channelmap),
+				sizeof(sdp->channelmap) - strlen(sdp->channelmap) - 1, ", %s", v);
+	}
 
 	pw_log_info("created new session for node:%u", node->id);
 	node->session = sess;

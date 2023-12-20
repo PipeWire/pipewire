@@ -28,8 +28,7 @@ struct spa_pod_frame {
 
 static inline bool spa_pod_is_inside(const void *pod, uint32_t size, const void *iter)
 {
-	return SPA_POD_BODY(iter) <= SPA_PTROFF(pod, size, void) &&
-		SPA_PTROFF(iter, SPA_POD_SIZE(iter), void) <= SPA_PTROFF(pod, size, void);
+	return spa_ptrinside(pod, size, iter, SPA_POD_SIZE(iter));
 }
 
 static inline void *spa_pod_next(const void *iter)
@@ -45,8 +44,7 @@ static inline struct spa_pod_prop *spa_pod_prop_first(const struct spa_pod_objec
 static inline bool spa_pod_prop_is_inside(const struct spa_pod_object_body *body,
 		uint32_t size, const struct spa_pod_prop *iter)
 {
-	return SPA_POD_CONTENTS(struct spa_pod_prop, iter) <= SPA_PTROFF(body, size, void) &&
-		SPA_PTROFF(iter, SPA_POD_PROP_SIZE(iter), void) <= SPA_PTROFF(body, size, void);
+	return spa_ptrinside(body, size, iter, SPA_POD_PROP_SIZE(iter));
 }
 
 static inline struct spa_pod_prop *spa_pod_prop_next(const struct spa_pod_prop *iter)
@@ -62,8 +60,7 @@ static inline struct spa_pod_control *spa_pod_control_first(const struct spa_pod
 static inline bool spa_pod_control_is_inside(const struct spa_pod_sequence_body *body,
 		uint32_t size, const struct spa_pod_control *iter)
 {
-	return SPA_POD_CONTENTS(struct spa_pod_control, iter) <= SPA_PTROFF(body, size, void) &&
-		SPA_PTROFF(iter, SPA_POD_CONTROL_SIZE(iter), void) <= SPA_PTROFF(body, size, void);
+	return spa_ptrinside(body, size, iter, SPA_POD_CONTROL_SIZE(iter));
 }
 
 static inline struct spa_pod_control *spa_pod_control_next(const struct spa_pod_control *iter)
@@ -73,7 +70,7 @@ static inline struct spa_pod_control *spa_pod_control_next(const struct spa_pod_
 
 #define SPA_POD_ARRAY_BODY_FOREACH(body, _size, iter)							\
 	for ((iter) = (__typeof__(iter))SPA_PTROFF((body), sizeof(struct spa_pod_array_body), void);	\
-	     (iter) < (__typeof__(iter))SPA_PTROFF((body), (_size), void);				\
+	     spa_ptrinside(body, _size, iter, (body)->child.size);					\
 	     (iter) = (__typeof__(iter))SPA_PTROFF((iter), (body)->child.size, void))
 
 #define SPA_POD_ARRAY_FOREACH(obj, iter)							\
@@ -81,7 +78,7 @@ static inline struct spa_pod_control *spa_pod_control_next(const struct spa_pod_
 
 #define SPA_POD_CHOICE_BODY_FOREACH(body, _size, iter)							\
 	for ((iter) = (__typeof__(iter))SPA_PTROFF((body), sizeof(struct spa_pod_choice_body), void);	\
-	     (iter) < (__typeof__(iter))SPA_PTROFF((body), (_size), void);				\
+	     spa_ptrinside(body, _size, iter, (body)->child.size);					\
 	     (iter) = (__typeof__(iter))SPA_PTROFF((iter), (body)->child.size, void))
 
 #define SPA_POD_CHOICE_FOREACH(obj, iter)							\

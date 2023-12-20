@@ -178,7 +178,6 @@ struct spa_fraction {
 #define SPA_PTROFF_ALIGN(ptr_,offset_,alignment_,type_) \
    SPA_PTR_ALIGN(SPA_PTROFF(ptr_,offset_,type_),alignment_,type_)
 
-
 /**
  * Deprecated, use SPA_PTROFF and SPA_PTROFF_ALIGN instead
  */
@@ -188,6 +187,12 @@ struct spa_fraction {
 #define SPA_CONTAINER_OF(p,t,m) ((t*)((uintptr_t)(p) - offsetof(t,m)))
 
 #define SPA_PTRDIFF(p1,p2) ((intptr_t)(p1) - (intptr_t)(p2))
+
+static inline bool spa_ptrinside(const void *p1, size_t s1, const void *p2, size_t s2)
+{
+	return (uintptr_t)p1 <= (uintptr_t)p2 && s2 <= s1 &&
+		(uintptr_t)p2 - (uintptr_t)p1 <= s1 - s2;
+}
 
 #define SPA_PTR_TO_INT(p) ((int) ((intptr_t) (p)))
 #define SPA_INT_TO_PTR(u) ((void*) ((intptr_t) (u)))

@@ -234,7 +234,7 @@ static void collect_device_info(struct pw_manager_object *device, struct pw_mana
 {
 	struct pw_manager_param *p;
 
-	if (card && !monitor) {
+	if (card) {
 		spa_list_for_each(p, &card->param_list, link) {
 			uint32_t index, dev;
 			struct spa_pod *props;
@@ -251,7 +251,7 @@ static void collect_device_info(struct pw_manager_object *device, struct pw_mana
 			if (dev != dev_info->device)
 				continue;
 			dev_info->active_port = index;
-			if (props) {
+			if (props && !monitor) {
 				volume_parse_param(props, &dev_info->volume_info, monitor);
 				dev_info->have_volume = true;
 			}

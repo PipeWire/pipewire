@@ -923,8 +923,16 @@ static void check_properties(struct pw_impl_node *node)
 	bool driver, trigger;
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_PRIORITY_DRIVER))) {
-		node->priority_driver = pw_properties_parse_int(str);
-		pw_log_debug("%p: priority driver %d", node, node->priority_driver);
+		value = pw_properties_parse_int(str);
+		if (value != node->priority_driver) {
+			pw_log_debug("%p: priority driver %d -> %d", node, node->priority_driver, value);
+			node->priority_driver = value;
+			if (node->registered && node->driver) {
+				remove_driver(context, node);
+				insert_driver(context, node);
+				recalc_reason = "driver priority changed";
+			}
+		}
 	}
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_NAME)) &&
@@ -947,9 +955,8 @@ static void check_properties(struct pw_impl_node *node)
 		if (node->registered) {
 			if (driver)
 				insert_driver(context, node);
-			else {
+			else
 				remove_driver(context, node);
-			}
 		}
 		if (driver && node->driver_node == node)
 			node->driving = true;

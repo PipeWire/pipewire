@@ -9,16 +9,24 @@
 extern "C" {
 # if __cplusplus >= 201103L
 #  define SPA_STATIC_ASSERT_IMPL(expr, msg, ...) static_assert(expr, msg)
+#  define SPA_ALIGNOF alignof
 # endif
+#elif __STDC_VERSION__ >= 202311L
+#  define SPA_STATIC_ASSERT_IMPL(expr, msg, ...) static_assert(expr, msg)
+#  define SPA_ALIGNOF alignof
 #else
 # include <stdbool.h>
 # if __STDC_VERSION__ >= 201112L
 #  define SPA_STATIC_ASSERT_IMPL(expr, msg, ...) _Static_assert(expr, msg)
+#  define SPA_ALIGNOF _Alignof
 # endif
 #endif
 #ifndef SPA_STATIC_ASSERT_IMPL
 #define SPA_STATIC_ASSERT_IMPL(expr, ...) \
 	((void)sizeof(struct { int spa_static_assertion_failed : 2 * !!(expr) - 1; }))
+#endif
+#ifndef SPA_ALIGNOF
+#define SPA_ALIGNOF __alignof__
 #endif
 
 #define SPA_STATIC_ASSERT(expr, ...) SPA_STATIC_ASSERT_IMPL(expr, ## __VA_ARGS__, "`" #expr "` evaluated to false")
@@ -191,15 +199,6 @@ struct spa_fraction {
 
 #define SPA_PTRDIFF(p1,p2) ((intptr_t)(p1) - (intptr_t)(p2))
 
-static inline bool spa_ptrinside(const void *p1, size_t s1, const void *p2, size_t s2)
-{
-	return (uintptr_t)p1 <= (uintptr_t)p2 && s2 <= s1 &&
-		(uintptr_t)p2 - (uintptr_t)p1 <= s1 - s2;
-}
-
-#define SPA_PTR_TO_INT(p) ((int) ((intptr_t) (p)))
-#define SPA_INT_TO_PTR(u) ((void*) ((intptr_t) (u)))
-
 #define SPA_PTR_TO_UINT32(p) ((uint32_t) ((uintptr_t) (p)))
 #define SPA_UINT32_TO_PTR(u) ((void*) ((uintptr_t) (u)))
 
@@ -286,6 +285,40 @@ static inline bool spa_ptrinside(const void *p1, size_t s1, const void *p2, size
 #define SPA_UNLIKELY(x) (x)
 #endif
 #endif
+
+static inline bool spa_ptrinside(const void *p1, size_t s1, const void *p2, size_t s2,
+                                 size_t *remaining)
+{
+	if (SPA_LIKELY((uintptr_t)p1 <= (uintptr_t)p2 && s2 <= s1 &&
+	               (uintptr_t)p2 - (uintptr_t)p1 <= s1 - s2)) {
+		if (remaining != NULL)
+			*remaining = ((uintptr_t)p1 + s1) - ((uintptr_t)p2 + s2);
+		return true;
+	} else {
+		if (remaining != NULL)
+			*remaining = 0;
+		return false;
+	}
+}
+
+static inline bool spa_ptr_inside_and_aligned(const void *p1, size_t s1,
+                                              const void *p2, size_t s2, size_t align,
+                                              size_t *remaining)
+{
+	if (SPA_IS_ALIGNED(p2, align)) {
+		return spa_ptrinside(p1, s1, p2, s2, remaining);
+	} else {
+		if (remaining != NULL)
+			*remaining = 0;
+		return false;
+	}
+}
+
+#define spa_ptr_type_inside(p1, s1, p2, type, remaining) \
+	spa_ptr_inside_and_aligned(p1, s1, p2, sizeof(type), SPA_ALIGNOF(type), remaining)
+
+#define SPA_PTR_TO_INT(p) ((int) ((intptr_t) (p)))
+#define SPA_INT_TO_PTR(u) ((void*) ((intptr_t) (u)))
 
 #define SPA_STRINGIFY_1(...)	#__VA_ARGS__
 #define SPA_STRINGIFY(...)	SPA_STRINGIFY_1(__VA_ARGS__)

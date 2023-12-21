@@ -466,7 +466,10 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
   if (data->header) {
     data->header->seq = GST_BUFFER_OFFSET (buffer);
     data->header->pts = GST_BUFFER_PTS (buffer);
-    data->header->dts_offset = GST_BUFFER_DTS (buffer);
+    if (GST_BUFFER_DTS(buffer) != GST_CLOCK_TIME_NONE)
+      data->header->dts_offset = GST_BUFFER_DTS (buffer) - GST_BUFFER_PTS (buffer);
+    else
+      data->header->dts_offset = 0;
   }
   if (data->crop) {
     GstVideoCropMeta *meta = gst_buffer_get_video_crop_meta (buffer);

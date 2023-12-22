@@ -768,7 +768,7 @@ start_error:
 static enum pw_stream_state
 wait_started (GstPipeWireSrc *this)
 {
-  enum pw_stream_state state;
+  enum pw_stream_state state, prev_state = PW_STREAM_STATE_UNCONNECTED;
   const char *error = NULL;
   struct timespec abstime;
 
@@ -783,10 +783,9 @@ wait_started (GstPipeWireSrc *this)
     GST_DEBUG_OBJECT (this, "waiting for started signal, state now %s",
         pw_stream_state_as_string (state));
 
-    if (state == PW_STREAM_STATE_ERROR)
-      break;
-
-    if (this->flushing) {
+    if (state == PW_STREAM_STATE_ERROR ||
+        (state == PW_STREAM_STATE_UNCONNECTED && prev_state > PW_STREAM_STATE_UNCONNECTED) ||
+        this->flushing) {
       state = PW_STREAM_STATE_ERROR;
       break;
     }
@@ -798,6 +797,8 @@ wait_started (GstPipeWireSrc *this)
       state = PW_STREAM_STATE_ERROR;
       break;
     }
+
+    prev_state = state;
   }
   GST_DEBUG_OBJECT (this, "got started signal: %s",
                   pw_stream_state_as_string (state));

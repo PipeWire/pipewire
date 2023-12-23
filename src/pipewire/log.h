@@ -28,7 +28,7 @@ extern "C" {
 /** The global log level */
 extern enum spa_log_level pw_log_level;
 
-extern struct spa_log_topic *PW_LOG_TOPIC_DEFAULT;
+extern struct spa_log_topic * const PW_LOG_TOPIC_DEFAULT;
 
 /** Configure a logging module. This is usually done automatically
  * in pw_init() but you can install a custom logger before calling
@@ -74,6 +74,16 @@ pw_log_logv(enum spa_log_level level,
 	    const char *fmt, va_list args) SPA_PRINTF_FUNC(5, 0);
 
 /**
+ * Define a static \ref spa_log_topic and its constructor/destructor functions.
+ *
+ * \since 1.1.0
+ */
+#define PW_LOG_TOPIC_DEFINE_STATIC(var, topic) \
+  static struct spa_log_topic var = SPA_LOG_TOPIC(SPA_VERSION_LOG_TOPIC, topic); \
+  static void __attribute__((constructor)) var ## _register_construct(void) { pw_log_topic_register(&var); } \
+  static void __attribute__((destructor)) var ## _register_destroy(void) { pw_log_topic_unregister(&var); }
+
+/**
  * Declare a static log topic named \a var. The usual usage is:
  * \code
  *  PW_LOG_TOPIC_STATIC(my_topic);
@@ -83,26 +93,34 @@ pw_log_logv(enum spa_log_level level,
  *      pw_log_debug("bar");
  *  }
  * \endcode
+ *
+ * This macro also emits GCC attribute constructor/destructor
+ * functions that automatically call pw_log_topic_register/unregister.
  */
 #define PW_LOG_TOPIC_STATIC(var, topic) \
-  static struct spa_log_topic SPA_CONCAT(var, __LINE__) = SPA_LOG_TOPIC(0, topic); \
-  static struct spa_log_topic *var = &SPA_CONCAT(var, __LINE__)
+  PW_LOG_TOPIC_DEFINE_STATIC(var ## _value, topic) \
+  static struct spa_log_topic * const var = &(var ## _value)
 
 /**
  * Declare a static log topic named \a var.
  * See \ref PW_LOG_TOPIC_STATIC for an example usage.
  */
 #define PW_LOG_TOPIC_EXTERN(var) \
-  extern struct spa_log_topic *var
+  extern struct spa_log_topic * const var
 
 /**
  * Declare a static log topic named \a var.
  * See \ref PW_LOG_TOPIC_STATIC for an example usage.
  */
 #define PW_LOG_TOPIC(var, topic) \
-  struct spa_log_topic SPA_CONCAT(var, __LINE__) = SPA_LOG_TOPIC(0, topic); \
-  struct spa_log_topic *var = &SPA_CONCAT(var, __LINE__)
+  PW_LOG_TOPIC_DEFINE_STATIC(var ## _value, topic) \
+  struct spa_log_topic * const var = &(var ## _value)
 
+/**
+ * \deprecated Use \ref pw_log_topic_register and \ref pw_log_topic_unregister
+ * instead, or rely on the auto-registration by \ref PW_LOG_TOPIC and
+ * \ref PW_LOG_TOPIC_STATIC.
+ */
 #define PW_LOG_TOPIC_INIT(var) \
    spa_log_topic_init(pw_log_get(), var);
 

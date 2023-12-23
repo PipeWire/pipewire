@@ -26,7 +26,7 @@ enum spa_log_level pw_log_level = DEFAULT_LOG_LEVEL;
 static struct spa_log *global_log = &default_log.log;
 
 SPA_EXPORT
-struct spa_log_topic *PW_LOG_TOPIC_DEFAULT;
+struct spa_log_topic * const PW_LOG_TOPIC_DEFAULT;
 
 struct topic {
 	struct spa_list link;
@@ -43,7 +43,6 @@ struct pattern {
 static struct spa_list topics = SPA_LIST_INIT(&topics);
 static struct spa_list patterns = SPA_LIST_INIT(&patterns);
 
-PW_LOG_TOPIC_STATIC(log_topic, "pw.log"); /* log topic for this file here */
 PW_LOG_TOPIC(log_buffers, "pw.buffers");
 PW_LOG_TOPIC(log_client, "pw.client");
 PW_LOG_TOPIC(log_conf, "pw.conf");
@@ -469,33 +468,6 @@ void pw_log_log_object(enum spa_log_level level,
 void
 pw_log_init(void)
 {
-	pw_log_topic_register(PW_LOG_TOPIC_DEFAULT);
-	pw_log_topic_register(log_buffers);
-	pw_log_topic_register(log_client);
-	pw_log_topic_register(log_conf);
-	pw_log_topic_register(log_context);
-	pw_log_topic_register(log_core);
-	pw_log_topic_register(log_data_loop);
-	pw_log_topic_register(log_device);
-	pw_log_topic_register(log_factory);
-	pw_log_topic_register(log_filter);
-	pw_log_topic_register(log_global);
-	pw_log_topic_register(log_link);
-	pw_log_topic_register(log_loop);
-	pw_log_topic_register(log_main_loop);
-	pw_log_topic_register(log_mem);
-	pw_log_topic_register(log_metadata);
-	pw_log_topic_register(log_module);
-	pw_log_topic_register(log_node);
-	pw_log_topic_register(log_port);
-	pw_log_topic_register(log_properties);
-	pw_log_topic_register(log_protocol);
-	pw_log_topic_register(log_proxy);
-	pw_log_topic_register(log_resource);
-	pw_log_topic_register(log_stream);
-	pw_log_topic_register(log_thread_loop);
-	pw_log_topic_register(log_topic);
-	pw_log_topic_register(log_work_queue);
 }
 
 void

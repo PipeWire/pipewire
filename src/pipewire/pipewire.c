@@ -47,6 +47,7 @@ struct plugin {
 	void *hnd;
 	spa_handle_factory_enum_func_t enum_func;
 	int ref;
+	const struct spa_log_topic_enum *log_topic_enum;
 };
 
 struct handle {
@@ -131,8 +132,11 @@ open_plugin(struct registry *registry,
 	plugin->filename = strdup(filename);
 	plugin->hnd = hnd;
 	plugin->enum_func = enum_func;
+	plugin->log_topic_enum = dlsym(hnd, SPA_LOG_TOPIC_ENUM_NAME);
 
 	spa_list_append(&registry->plugins, &plugin->link);
+
+	pw_log_topic_register_enum(plugin->log_topic_enum);
 
 	return plugin;
 
@@ -148,6 +152,7 @@ unref_plugin(struct plugin *plugin)
 {
 	if (--plugin->ref == 0) {
 		spa_list_remove(&plugin->link);
+		pw_log_topic_unregister_enum(plugin->log_topic_enum);
 		pw_log_debug("unloaded plugin:'%s'", plugin->filename);
 		if (pw_should_dlclose())
 			dlclose(plugin->hnd);

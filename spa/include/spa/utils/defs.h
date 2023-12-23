@@ -23,6 +23,9 @@ extern "C" {
 
 #define SPA_STATIC_ASSERT(expr, ...) SPA_STATIC_ASSERT_IMPL(expr, ## __VA_ARGS__, "`" #expr "` evaluated to false")
 
+#define SPA_CONCAT_NOEXPAND(a, b) a ## b
+#define SPA_CONCAT(a, b) SPA_CONCAT_NOEXPAND(a, b)
+
 #include <inttypes.h>
 #include <signal.h>
 #include <stdlib.h>

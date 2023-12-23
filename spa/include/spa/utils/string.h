@@ -367,6 +367,8 @@ static inline void spa_strbuf_init(struct spa_strbuf *buf, char *buffer, size_t 
 	buf->buffer = buffer;
 	buf->maxsize = maxsize;
 	buf->pos = 0;
+	if (maxsize > 0)
+		buf->buffer[0] = '\0';
 }
 
 SPA_PRINTF_FUNC(2, 3)

@@ -12,9 +12,11 @@
 #include <spa/debug/format.h>
 #include <spa/pod/iter.h>
 #include <spa/utils/list.h>
+#include <spa/utils/string.h>
 
 #include <pipewire/log.h>
 #include <pipewire/private.h>
+#include <pipewire/cleanup.h>
 
 SPA_LOG_IMPL(default_log);
 
@@ -25,6 +27,21 @@ static struct spa_log *global_log = &default_log.log;
 
 SPA_EXPORT
 struct spa_log_topic *PW_LOG_TOPIC_DEFAULT;
+
+struct topic {
+	struct spa_list link;
+	struct spa_log_topic *t;
+	unsigned int refcnt;
+};
+
+struct pattern {
+	struct spa_list link;
+	enum spa_log_level level;
+	char pattern[];
+};
+
+static struct spa_list topics = SPA_LIST_INIT(&topics);
+static struct spa_list patterns = SPA_LIST_INIT(&patterns);
 
 PW_LOG_TOPIC_STATIC(log_topic, "pw.log"); /* log topic for this file here */
 PW_LOG_TOPIC(log_buffers, "pw.buffers");
@@ -54,6 +71,112 @@ PW_LOG_TOPIC(log_thread_loop, "pw.thread-loop");
 PW_LOG_TOPIC(log_work_queue, "pw.work-queue");
 
 PW_LOG_TOPIC(PW_LOG_TOPIC_DEFAULT, "default");
+
+
+static struct topic *find_topic(struct spa_log_topic *t)
+{
+	struct topic *topic;
+
+	spa_list_for_each(topic, &topics, link)
+		if (topic->t == t)
+			return topic;
+
+	return NULL;
+}
+
+static struct topic *add_topic(struct spa_log_topic *t)
+{
+	struct topic *topic;
+
+	topic = calloc(1, sizeof(struct topic));
+	if (!topic)
+		return NULL;
+
+	topic->t = t;
+	spa_list_append(&topics, &topic->link);
+	return topic;
+}
+
+static void update_topic_level(struct spa_log_topic *t)
+{
+	enum spa_log_level level = pw_log_level;
+	bool has_custom_level = false;
+	const char *topic = t->topic;
+	struct pattern *pattern;
+
+	spa_list_for_each(pattern, &patterns, link) {
+		if (fnmatch(pattern->pattern, topic, 0) != 0)
+			continue;
+
+		level = pattern->level;
+		has_custom_level = true;
+		break;
+	}
+
+	t->level = level;
+	t->has_custom_level = has_custom_level;
+}
+
+static void update_all_topic_levels(void)
+{
+	struct topic *topic;
+
+	spa_list_for_each(topic, &topics, link)
+		update_topic_level(topic->t);
+}
+
+SPA_EXPORT
+void pw_log_topic_register(struct spa_log_topic *t)
+{
+	struct topic *topic;
+
+	topic = find_topic(t);
+	if (!topic) {
+		update_topic_level(t);
+		topic = add_topic(t);
+		if (!topic)
+			return;
+	}
+
+	++topic->refcnt;
+}
+
+SPA_EXPORT
+void pw_log_topic_unregister(struct spa_log_topic *t)
+{
+	struct topic *topic;
+
+	topic = find_topic(t);
+	if (!topic)
+		return;
+
+	if (topic->refcnt-- <= 1) {
+		spa_list_remove(&topic->link);
+		free(topic);
+	}
+}
+
+void pw_log_topic_register_enum(const struct spa_log_topic_enum *e)
+{
+	struct spa_log_topic * const *t;
+
+	if (!e)
+		return;
+
+	for (t = e->topics; t < e->topics_end; ++t)
+		pw_log_topic_register(*t);
+}
+
+void pw_log_topic_unregister_enum(const struct spa_log_topic_enum *e)
+{
+	struct spa_log_topic * const *t;
+
+	if (!e)
+		return;
+
+	for (t = e->topics; t < e->topics_end; ++t)
+		pw_log_topic_unregister(*t);
+}
 
 /** Set the global log interface
  * \param log the global log to set
@@ -87,6 +210,118 @@ void pw_log_set_level(enum spa_log_level level)
 {
 	pw_log_level = level;
 	global_log->level = level;
+}
+
+static int add_pattern(struct spa_list *list, const char *str, enum spa_log_level level)
+{
+	struct pattern *pattern;
+	size_t len = strlen(str);
+
+	pattern = calloc(1, sizeof(struct pattern) + len + 1);
+	if (!pattern)
+		return -errno;
+
+	pattern->level = level;
+	memcpy(pattern->pattern, str, len);
+	spa_list_append(list, &pattern->link);
+	return 0;
+}
+
+static bool
+parse_log_level(const char *str, enum spa_log_level *l)
+{
+	uint32_t lvl;
+
+	if (!str)
+		return false;
+
+	if (strlen(str) == 1) {
+		/* SPA levels, plus a few duplicate codes that
+		 * WirePlumber supports for some GLib levels. */
+		switch (str[0]) {
+		case 'X': lvl = SPA_LOG_LEVEL_NONE; break;
+		case 'F': lvl = SPA_LOG_LEVEL_NONE; break; /* fatal */
+		case 'E': lvl = SPA_LOG_LEVEL_ERROR; break;
+		case 'W': lvl = SPA_LOG_LEVEL_WARN; break;
+		case 'N': lvl = SPA_LOG_LEVEL_WARN; break; /* notice */
+		case 'I': lvl = SPA_LOG_LEVEL_INFO; break;
+		case 'D': lvl = SPA_LOG_LEVEL_DEBUG; break;
+		case 'T': lvl = SPA_LOG_LEVEL_TRACE; break;
+		default:
+			goto check_int;
+		}
+	} else {
+	check_int:
+		if (!spa_atou32(str, &lvl, 0))
+			return false;
+		if (lvl > SPA_LOG_LEVEL_TRACE)
+			return false;
+	}
+
+	*l = lvl;
+	return true;
+}
+
+static int
+parse_log_string(const char *str, struct spa_list *list, enum spa_log_level *level)
+{
+	struct spa_list new_patterns = SPA_LIST_INIT(&new_patterns);
+	int n_tokens;
+
+	*level = DEFAULT_LOG_LEVEL;
+	if (!str || !*str)
+		return 0;
+
+	spa_auto(pw_strv) tokens = pw_split_strv(str, ",", INT_MAX, &n_tokens);
+	if (n_tokens > 0) {
+		int i;
+
+		for (i = 0; i < n_tokens; i++) {
+			int n_tok;
+			char *tok[2];
+			enum spa_log_level lvl;
+
+			n_tok = pw_split_ip(tokens[i], ":", SPA_N_ELEMENTS(tok), tok);
+			if (n_tok == 2 && parse_log_level(tok[1], &lvl)) {
+				add_pattern(&new_patterns, tok[0], lvl);
+			} else if (n_tok == 1 && parse_log_level(tok[0], &lvl)) {
+				*level = lvl;
+			} else {
+				pw_log_warn("Ignoring invalid format in log level: '%s'",
+						tokens[i]);
+			}
+		}
+	}
+
+	/* Connection namespace disabled by default */
+	add_pattern(&new_patterns, "conn.*", SPA_LOG_LEVEL_NONE);
+
+	spa_list_insert_list(list, &new_patterns);
+	return 0;
+}
+
+int pw_log_set_level_string(const char *str)
+{
+	struct spa_list new_patterns = SPA_LIST_INIT(&new_patterns);
+	struct pattern *pattern;
+	enum spa_log_level level;
+	int res;
+
+	if ((res = parse_log_string(str, &new_patterns, &level)) < 0)
+		return res;
+
+	pw_log_level = level;
+	global_log->level = level;
+
+	spa_list_consume(pattern, &patterns, link) {
+		spa_list_remove(&pattern->link);
+		free(pattern);
+	}
+
+	spa_list_insert_list(&patterns, &new_patterns);
+
+	update_all_topic_levels();
+	return 0;
 }
 
 /** Log a message for the given topic
@@ -234,31 +469,46 @@ void pw_log_log_object(enum spa_log_level level,
 void
 pw_log_init(void)
 {
-	PW_LOG_TOPIC_INIT(PW_LOG_TOPIC_DEFAULT);
-	PW_LOG_TOPIC_INIT(log_buffers);
-	PW_LOG_TOPIC_INIT(log_client);
-	PW_LOG_TOPIC_INIT(log_conf);
-	PW_LOG_TOPIC_INIT(log_context);
-	PW_LOG_TOPIC_INIT(log_core);
-	PW_LOG_TOPIC_INIT(log_data_loop);
-	PW_LOG_TOPIC_INIT(log_device);
-	PW_LOG_TOPIC_INIT(log_factory);
-	PW_LOG_TOPIC_INIT(log_filter);
-	PW_LOG_TOPIC_INIT(log_global);
-	PW_LOG_TOPIC_INIT(log_link);
-	PW_LOG_TOPIC_INIT(log_loop);
-	PW_LOG_TOPIC_INIT(log_main_loop);
-	PW_LOG_TOPIC_INIT(log_mem);
-	PW_LOG_TOPIC_INIT(log_metadata);
-	PW_LOG_TOPIC_INIT(log_module);
-	PW_LOG_TOPIC_INIT(log_node);
-	PW_LOG_TOPIC_INIT(log_port);
-	PW_LOG_TOPIC_INIT(log_properties);
-	PW_LOG_TOPIC_INIT(log_protocol);
-	PW_LOG_TOPIC_INIT(log_proxy);
-	PW_LOG_TOPIC_INIT(log_resource);
-	PW_LOG_TOPIC_INIT(log_stream);
-	PW_LOG_TOPIC_INIT(log_thread_loop);
-	PW_LOG_TOPIC_INIT(log_topic);
-	PW_LOG_TOPIC_INIT(log_work_queue);
+	pw_log_topic_register(PW_LOG_TOPIC_DEFAULT);
+	pw_log_topic_register(log_buffers);
+	pw_log_topic_register(log_client);
+	pw_log_topic_register(log_conf);
+	pw_log_topic_register(log_context);
+	pw_log_topic_register(log_core);
+	pw_log_topic_register(log_data_loop);
+	pw_log_topic_register(log_device);
+	pw_log_topic_register(log_factory);
+	pw_log_topic_register(log_filter);
+	pw_log_topic_register(log_global);
+	pw_log_topic_register(log_link);
+	pw_log_topic_register(log_loop);
+	pw_log_topic_register(log_main_loop);
+	pw_log_topic_register(log_mem);
+	pw_log_topic_register(log_metadata);
+	pw_log_topic_register(log_module);
+	pw_log_topic_register(log_node);
+	pw_log_topic_register(log_port);
+	pw_log_topic_register(log_properties);
+	pw_log_topic_register(log_protocol);
+	pw_log_topic_register(log_proxy);
+	pw_log_topic_register(log_resource);
+	pw_log_topic_register(log_stream);
+	pw_log_topic_register(log_thread_loop);
+	pw_log_topic_register(log_topic);
+	pw_log_topic_register(log_work_queue);
+}
+
+void
+pw_log_deinit(void)
+{
+	struct pattern *pattern;
+
+	spa_list_consume(pattern, &patterns, link) {
+		spa_list_remove(&pattern->link);
+		free(pattern);
+	}
+
+	/* don't free log topics, since they usually won't get re-registered */
+
+	pw_log_set(NULL);
 }

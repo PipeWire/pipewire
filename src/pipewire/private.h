@@ -1295,7 +1295,10 @@ void pw_settings_clean(struct pw_context *context);
 
 bool pw_should_dlclose(void);
 
-bool pw_parse_log_level(const char *str, enum spa_log_level *l);
+int pw_log_set_level_string(const char *str);
+
+void pw_log_topic_register_enum(const struct spa_log_topic_enum *e);
+void pw_log_topic_unregister_enum(const struct spa_log_topic_enum *e);
 
 /** \endcond */
 

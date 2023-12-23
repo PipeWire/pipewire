@@ -106,6 +106,22 @@ pw_log_logv(enum spa_log_level level,
 #define PW_LOG_TOPIC_INIT(var) \
    spa_log_topic_init(pw_log_get(), var);
 
+/**
+ * Register log topic with the logger, to enable dynamic log levels.
+ * Topic must be unregistered before freeing it or plugin unload.
+ * May be used instead of \ref PW_LOG_TOPIC_INIT
+ *
+ * \since 1.1.0
+ */
+void pw_log_topic_register(struct spa_log_topic *t);
+
+/**
+ * Unregister log topic
+ *
+ * \since 1.1.0
+ */
+void pw_log_topic_unregister(struct spa_log_topic *t);
+
 /** Check if a loglevel is enabled */
 #define pw_log_level_enabled(lev) (pw_log_level >= (lev))
 #define pw_log_topic_enabled(lev,t) ((t) && (t)->has_custom_level ? (t)->level >= (lev) : pw_log_level_enabled((lev)))

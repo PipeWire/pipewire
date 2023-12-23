@@ -142,13 +142,7 @@ static int metadata_property(void *data, uint32_t subject, const char *key,
 		return 0;
 
 	if (spa_streq(key, "log.level")) {
-		enum spa_log_level lev;
-
-		if (!value)
-			pw_log_set_level(DEFAULT_LOG_LEVEL);
-		else if (pw_parse_log_level(value, &lev))
-			pw_log_set_level(lev);
-		else
+		if (pw_log_set_level_string(value) < 0)
 			pw_log_warn("Ignoring unknown settings metadata log.level '%s'", value);
 	} else if (spa_streq(key, "clock.rate")) {
 		v = value ? atoi(value) : 0;

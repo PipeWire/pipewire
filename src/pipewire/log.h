@@ -6,6 +6,7 @@
 #define PIPEWIRE_LOG_H
 
 #include <spa/support/log.h>
+#include <spa/utils/defs.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -84,8 +85,8 @@ pw_log_logv(enum spa_log_level level,
  * \endcode
  */
 #define PW_LOG_TOPIC_STATIC(var, topic) \
-  static struct spa_log_topic var##__LINE__ = SPA_LOG_TOPIC(0, topic); \
-  static struct spa_log_topic *var = &(var##__LINE__)
+  static struct spa_log_topic SPA_CONCAT(var, __LINE__) = SPA_LOG_TOPIC(0, topic); \
+  static struct spa_log_topic *var = &SPA_CONCAT(var, __LINE__)
 
 /**
  * Declare a static log topic named \a var.
@@ -99,8 +100,8 @@ pw_log_logv(enum spa_log_level level,
  * See \ref PW_LOG_TOPIC_STATIC for an example usage.
  */
 #define PW_LOG_TOPIC(var, topic) \
-  struct spa_log_topic var##__LINE__ = SPA_LOG_TOPIC(0, topic); \
-  struct spa_log_topic *var = &(var##__LINE__)
+  struct spa_log_topic SPA_CONCAT(var, __LINE__) = SPA_LOG_TOPIC(0, topic); \
+  struct spa_log_topic *var = &SPA_CONCAT(var, __LINE__)
 
 #define PW_LOG_TOPIC_INIT(var) \
    spa_log_topic_init(pw_log_get(), var);

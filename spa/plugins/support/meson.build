@@ -1,7 +1,6 @@
 spa_support_sources = [
   'cpu.c',
   'logger.c',
-  'log-patterns.c',
   'loop.c',
   'node-driver.c',
   'null-audio-sink.c',
@@ -56,7 +55,6 @@ endif
 if systemd_dep.found()
   spa_journal_sources = [
     'journal.c',
-    'log-patterns.c',
   ]
 
   spa_journal_lib = shared_library('spa-journal',

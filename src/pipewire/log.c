@@ -299,6 +299,7 @@ parse_log_string(const char *str, struct spa_list *list, enum spa_log_level *lev
 	return 0;
 }
 
+SPA_EXPORT
 int pw_log_set_level_string(const char *str)
 {
 	struct spa_list new_patterns = SPA_LIST_INIT(&new_patterns);

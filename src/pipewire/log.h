@@ -41,6 +41,14 @@ struct spa_log *pw_log_get(void);
 /** Configure the logging level */
 void pw_log_set_level(enum spa_log_level level);
 
+/**
+ * Configure the logging level using a string
+ * in PIPEWIRE_DEBUG format.
+ *
+ * \since 1.1.0
+ */
+int pw_log_set_level_string(const char *str);
+
 /** Log a message for a topic */
 void
 pw_log_logt(enum spa_log_level level,

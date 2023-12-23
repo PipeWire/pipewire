@@ -22,7 +22,8 @@
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
 
-static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.cpu");
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.cpu");
+
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 

@@ -22,7 +22,9 @@ extern const struct spa_handle_factory spa_alsa_compress_offload_sink_factory;
 extern const struct spa_handle_factory spa_alsa_compress_offload_device_factory;
 #endif
 
-struct spa_log_topic alsa_log_topic = SPA_LOG_TOPIC(0, "spa.alsa");
+SPA_LOG_TOPIC_DEFINE(alsa_log_topic, "spa.alsa");
+
+SPA_LOG_TOPIC_ENUM_DEFINE_REGISTERED;
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)

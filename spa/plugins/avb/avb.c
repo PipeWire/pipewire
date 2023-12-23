@@ -12,7 +12,9 @@
 extern const struct spa_handle_factory spa_avb_sink_factory;
 extern const struct spa_handle_factory spa_avb_source_factory;
 
-struct spa_log_topic avb_log_topic = SPA_LOG_TOPIC(0, "spa.avb");
+SPA_LOG_TOPIC_DEFINE(avb_log_topic, "spa.avb");
+
+SPA_LOG_TOPIC_ENUM_DEFINE_REGISTERED;
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)

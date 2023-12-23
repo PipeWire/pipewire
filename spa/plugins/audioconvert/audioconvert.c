@@ -37,7 +37,7 @@
 
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
-static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.audioconvert");
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.audioconvert");
 
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2

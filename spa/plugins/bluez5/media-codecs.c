@@ -175,6 +175,8 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return 1;
 }
 
+SPA_LOG_TOPIC_ENUM_DEFINE_REGISTERED;
+
 static const struct spa_dict_item handle_info_items[] = {
         { SPA_KEY_FACTORY_DESCRIPTION, "Bluetooth codec plugin" },
 };

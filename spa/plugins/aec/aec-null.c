@@ -18,7 +18,7 @@ struct impl {
 	uint32_t channels;
 };
 
-static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.aec.null");
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.aec.null");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 
@@ -136,6 +136,8 @@ static const struct spa_handle_factory spa_aec_null_factory = {
 	impl_init,
 	impl_enum_interface_info,
 };
+
+SPA_LOG_TOPIC_ENUM_DEFINE_REGISTERED;
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)

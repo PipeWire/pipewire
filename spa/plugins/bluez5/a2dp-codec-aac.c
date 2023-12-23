@@ -17,9 +17,6 @@
 #include "media-codecs.h"
 
 static struct spa_log *log;
-static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.codecs.aac");
-#undef SPA_LOG_TOPIC_DEFAULT
-#define SPA_LOG_TOPIC_DEFAULT &log_topic
 
 #define DEFAULT_AAC_BITRATE	320000
 #define MIN_AAC_BITRATE		64000
@@ -608,7 +605,7 @@ static int codec_increase_bitpool(void *data)
 static void codec_set_log(struct spa_log *global_log)
 {
 	log = global_log;
-	spa_log_topic_init(log, &log_topic);
+	spa_log_topic_init(log, &codec_plugin_log_topic);
 }
 
 const struct media_codec a2dp_codec_aac = {

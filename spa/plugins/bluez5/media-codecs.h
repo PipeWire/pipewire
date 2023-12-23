@@ -39,10 +39,14 @@ struct spa_bluez5_codec_a2dp {
 #define MEDIA_CODEC_EXPORT_DEF(basename,...)	\
 	const char *codec_plugin_factory_name = MEDIA_CODEC_FACTORY_NAME(basename); \
 	static const struct media_codec * const codec_plugin_media_codec_list[] = { __VA_ARGS__, NULL };	\
-	const struct media_codec * const * const codec_plugin_media_codecs = codec_plugin_media_codec_list;
+	const struct media_codec * const * const codec_plugin_media_codecs = codec_plugin_media_codec_list;	\
+	SPA_LOG_TOPIC_DEFINE(codec_plugin_log_topic, "spa.bluez5.codecs." basename);
 
 extern const struct media_codec * const * const codec_plugin_media_codecs;
 extern const char *codec_plugin_factory_name;
+extern struct spa_log_topic codec_plugin_log_topic;
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &codec_plugin_log_topic
 #endif
 
 #define MEDIA_CODEC_FLAG_SINK		(1 << 0)

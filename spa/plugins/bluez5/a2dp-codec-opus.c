@@ -27,9 +27,6 @@
 #include "media-codecs.h"
 
 static struct spa_log *log;
-static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.codecs.opus");
-#undef SPA_LOG_TOPIC_DEFAULT
-#define SPA_LOG_TOPIC_DEFAULT &log_topic
 
 #define BUFSIZE_FROM_BITRATE(frame_dms,bitrate)	((bitrate)/8 * (frame_dms) / 10000 * 5/4)  /* estimate */
 
@@ -1333,7 +1330,7 @@ static int codec_increase_bitpool(void *data)
 static void codec_set_log(struct spa_log *global_log)
 {
 	log = global_log;
-	spa_log_topic_init(log, &log_topic);
+	spa_log_topic_init(log, &codec_plugin_log_topic);
 }
 
 #define OPUS_05_COMMON_DEFS					\

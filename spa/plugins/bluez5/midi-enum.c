@@ -29,7 +29,7 @@
 #define MIDI_OBJECT_PATH	"/midi"
 #define MIDI_PROFILE_PATH	MIDI_OBJECT_PATH "/profile"
 
-static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.midi");
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.midi");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 

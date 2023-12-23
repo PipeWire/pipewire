@@ -35,7 +35,7 @@
 
 #include "defs.h"
 
-static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.source.sco");
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.source.sco");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 

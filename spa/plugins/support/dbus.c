@@ -20,7 +20,8 @@
 #include <spa/support/plugin.h>
 #include <spa/support/dbus.h>
 
-static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.dbus");
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.dbus");
+
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 

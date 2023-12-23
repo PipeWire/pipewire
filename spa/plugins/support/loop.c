@@ -22,9 +22,11 @@
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/string.h>
 
-static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.loop");
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.loop");
+
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
+
 
 #define MAX_ALIGN	8
 #define ITEM_ALIGN	8

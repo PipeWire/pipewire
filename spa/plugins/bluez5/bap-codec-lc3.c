@@ -24,9 +24,6 @@
 #define MAX_PACS	64
 
 static struct spa_log *log;
-static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.codecs.lc3");
-#undef SPA_LOG_TOPIC_DEFAULT
-#define SPA_LOG_TOPIC_DEFAULT &log_topic
 
 struct impl {
 	lc3_encoder_t enc[LC3_MAX_CHANNELS];
@@ -978,7 +975,7 @@ static int codec_increase_bitpool(void *data)
 static void codec_set_log(struct spa_log *global_log)
 {
 	log = global_log;
-	spa_log_topic_init(log, &log_topic);
+	spa_log_topic_init(log, &codec_plugin_log_topic);
 }
 
 const struct media_codec bap_codec_lc3 = {

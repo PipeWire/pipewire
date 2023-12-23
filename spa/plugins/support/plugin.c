@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #include <spa/support/plugin.h>
+#include <spa/support/log.h>
 
 extern const struct spa_handle_factory spa_support_logger_factory;
 extern const struct spa_handle_factory spa_support_system_factory;
@@ -13,6 +14,8 @@ extern const struct spa_handle_factory spa_support_cpu_factory;
 extern const struct spa_handle_factory spa_support_loop_factory;
 extern const struct spa_handle_factory spa_support_node_driver_factory;
 extern const struct spa_handle_factory spa_support_null_audio_sink_factory;
+
+SPA_LOG_TOPIC_ENUM_DEFINE_REGISTERED;
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)

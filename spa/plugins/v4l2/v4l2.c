@@ -13,7 +13,9 @@ extern const struct spa_handle_factory spa_v4l2_source_factory;
 extern const struct spa_handle_factory spa_v4l2_udev_factory;
 extern const struct spa_handle_factory spa_v4l2_device_factory;
 
-struct spa_log_topic v4l2_log_topic = SPA_LOG_TOPIC(0, "spa.v4l2");
+SPA_LOG_TOPIC_DEFINE(v4l2_log_topic, "spa.v4l2");
+
+SPA_LOG_TOPIC_ENUM_DEFINE_REGISTERED;
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory,

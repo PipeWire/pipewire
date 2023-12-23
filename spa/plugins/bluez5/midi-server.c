@@ -15,8 +15,9 @@
 #include "bluez5-interface-gen.h"
 #include "dbus-monitor.h"
 
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.midi.server");
 #undef SPA_LOG_TOPIC_DEFAULT
-#define SPA_LOG_TOPIC_DEFAULT (&impl->log_topic)
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
 
 #define MIDI_SERVER_PATH	"/midiserver%u"
 #define MIDI_SERVICE_PATH	"/midiserver%u/service"
@@ -29,7 +30,6 @@ struct impl
 {
 	struct spa_bt_midi_server this;
 
-	struct spa_log_topic log_topic;
 	struct spa_log *log;
 
 	const struct spa_bt_midi_server_cb *cb;
@@ -517,9 +517,8 @@ struct spa_bt_midi_server *spa_bt_midi_server_new(const struct spa_bt_midi_serve
 	impl->user_data = user_data;
 	impl->cb = cb;
 	impl->log = log;
-	impl->log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.midi.server");
 	impl->conn = conn;
-	spa_log_topic_init(impl->log, &impl->log_topic);
+	spa_log_topic_init(impl->log, &log_topic);
 
 	if ((res = export_objects(impl)) < 0)
 		goto fail;

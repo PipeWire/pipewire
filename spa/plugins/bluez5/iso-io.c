@@ -31,7 +31,6 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.iso");
 
 struct group {
 	struct spa_log *log;
-	struct spa_log_topic log_topic;
 	struct spa_loop *data_loop;
 	struct spa_system *data_system;
 	struct spa_source source;

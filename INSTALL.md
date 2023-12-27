@@ -71,12 +71,12 @@ This will use the default config file to configure and start the daemon.
 The default config will also start `pipewire-media-session`, a default
 example media session and `pipewire-pulse`, a PulseAudio compatible server.
 
-You can also enable more debugging with the `PIPEWIRE_DEBUG` environment
-variable like so:
+You can also enable more debugging with the `PIPEWIRE_DEBUG` and
+`WIREPLUMBER_DEBUG` environment variables like so:
 
 ```
 cd builddir/
-PIPEWIRE_DEBUG="D" make run
+PIPEWIRE_DEBUG="D" WIREPLUMBER_DEBUG="D" make run
 ```
 
 You might have to stop the pipewire service/socket that might have been

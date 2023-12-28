@@ -672,6 +672,7 @@ static void impl_destroy(struct impl *impl)
 
 	pw_properties_free(impl->capture_props);
 	pw_properties_free(impl->playback_props);
+	free(impl->buffer_data);
 	free(impl);
 }
 

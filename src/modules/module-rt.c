@@ -419,11 +419,8 @@ static int pw_rtkit_make_realtime(struct impl *impl, pid_t thread, int priority)
 	dbus_uint64_t pid;
 	dbus_uint64_t u64;
 	dbus_uint32_t u32, serial;
-	DBusError error;
 	int ret;
 	struct pw_rtkit_bus *connection = impl->rtkit_bus;
-
-	dbus_error_init(&error);
 
 	if (thread == 0)
 		thread = _gettid();
@@ -448,7 +445,7 @@ static int pw_rtkit_make_realtime(struct impl *impl, pid_t thread, int priority)
 	}
 
 	if (!dbus_connection_send(connection->bus, m, &serial)) {
-		ret = translate_error(error.name);
+		ret = -EIO;
 		goto finish;
 	}
 	ret = 0;

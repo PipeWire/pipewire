@@ -66,6 +66,8 @@
 
 #define NAME "portal"
 
+#define PORTAL_SERVICE_NAME "org.freedesktop.portal.Desktop"
+
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
@@ -195,7 +197,7 @@ static void update_portal_pid(struct impl *impl)
 		return;
 
 	if (!dbus_message_append_args(m,
-				      DBUS_TYPE_STRING, &(const char *){ "org.freedesktop.portal.Desktop" },
+				      DBUS_TYPE_STRING, &(const char *){ PORTAL_SERVICE_NAME },
 				      DBUS_TYPE_INVALID))
 		return;
 
@@ -224,7 +226,7 @@ static DBusHandlerResult name_owner_changed_handler(DBusConnection *connection,
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
-	if (!spa_streq(name, "org.freedesktop.portal.Desktop"))
+	if (!spa_streq(name, PORTAL_SERVICE_NAME))
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
 	if (spa_streq(new_owner, "")) {

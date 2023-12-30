@@ -18,6 +18,7 @@
 #include <spa/utils/string.h>
 #include <spa/utils/result.h>
 #include <spa/support/dbus.h>
+#include <spa-private/dbus-helpers.h>
 
 #include "pipewire/context.h"
 #include "pipewire/impl-client.h"
@@ -179,28 +180,15 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy,
 };
 
-static void set_pending_call(struct impl *impl, DBusPendingCall *pending)
-{
-	if (impl->pending_call != NULL) {
-		dbus_pending_call_cancel(impl->pending_call);
-		dbus_pending_call_unref(impl->pending_call);
-	}
-	impl->pending_call = pending;
-}
-
 static void on_is_started_received(DBusPendingCall *pending,
 				   void *user_data)
 {
 	struct impl *impl = user_data;
-	DBusMessage *m;
-	DBusError error;
+	spa_auto(DBusError) error = DBUS_ERROR_INIT;
 	dbus_bool_t started = false;
 
-	m = dbus_pending_call_steal_reply(pending);
-	dbus_pending_call_unref(pending);
-	impl->pending_call = NULL;
-
-	dbus_error_init(&error);
+	spa_assert(impl->pending_call == pending);
+	spa_autoptr(DBusMessage) m = steal_reply_and_unref(&impl->pending_call);
 
 	if (!m) {
 		pw_log_error("Failed to receive reply");
@@ -221,7 +209,6 @@ static void on_is_started_received(DBusPendingCall *pending,
 	dbus_message_get_args(m, &error,
 			DBUS_TYPE_BOOLEAN, &started,
 			DBUS_TYPE_INVALID);
-	dbus_message_unref(m);
 
 	if (dbus_error_is_set(&error)) {
 		pw_log_warn("Could not get jackdbus state: %s", error.message);
@@ -234,37 +221,31 @@ static void on_is_started_received(DBusPendingCall *pending,
 	return;
 error:
 	impl->is_started = false;
-	dbus_error_free(&error);
 }
 
 static void check_jack_running(struct impl *impl)
 {
-	DBusMessage *m;
-	DBusPendingCall *pending;
-
 	impl->is_started = false;
+	cancel_and_unref(&impl->pending_call);
 
-	m = dbus_message_new_method_call(JACK_SERVICE_NAME,
-			JACK_INTERFACE_PATH,
-			JACK_INTERFACE_NAME,
-			"IsStarted");
+	spa_autoptr(DBusMessage) m = dbus_message_new_method_call(JACK_SERVICE_NAME,
+								  JACK_INTERFACE_PATH,
+								  JACK_INTERFACE_NAME,
+								  "IsStarted");
+	if (!m)
+		return;
 
-	dbus_connection_send_with_reply(impl->bus, m, &pending, -1);
-	dbus_pending_call_set_notify(pending, on_is_started_received, impl, NULL);
-
-	set_pending_call(impl, pending);
+	impl->pending_call = send_with_reply(impl->bus, m, on_is_started_received, impl);
 }
 
 static DBusHandlerResult filter_handler(DBusConnection *connection,
 		DBusMessage *message, void *user_data)
 {
 	struct impl *impl = user_data;
-	DBusError error;
-
-	dbus_error_init(&error);
 
 	if (dbus_message_is_signal(message, "org.freedesktop.DBus",
 				   "NameOwnerChanged")) {
+		spa_auto(DBusError) error = DBUS_ERROR_INIT;
 		const char *name, *old, *new;
 		if (!dbus_message_get_args(message, &error,
 					   DBUS_TYPE_STRING, &name,
@@ -273,14 +254,14 @@ static DBusHandlerResult filter_handler(DBusConnection *connection,
 					   DBUS_TYPE_INVALID)) {
 			pw_log_error("Failed to get OwnerChanged args: %s",
 					error.message);
-			goto not_handled;
+			return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 		}
 		if (!spa_streq(name, JACK_SERVICE_NAME))
-			goto not_handled;
+			return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
 		pw_log_info("NameOwnerChanged %s -> %s", old, new);
 		if (spa_streq(new, "")) {
-			set_pending_call(impl, NULL);
+			cancel_and_unref(&impl->pending_call);
 			set_started(impl, false);
 		} else {
 			check_jack_running(impl);
@@ -297,21 +278,15 @@ static DBusHandlerResult filter_handler(DBusConnection *connection,
 		set_started(impl, false);
 	}
 	return DBUS_HANDLER_RESULT_HANDLED;
-
-not_handled:
-	dbus_error_free(&error);
-	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
 static int init_dbus_connection(struct impl *impl)
 {
-	DBusError error;
-
 	impl->bus = spa_dbus_connection_get(impl->conn);
 	if (impl->bus == NULL)
 		return -EIO;
 
-	dbus_error_init(&error);
+	spa_auto(DBusError) error = DBUS_ERROR_INIT;
 
 	/* XXX: we don't handle dbus reconnection yet, so ref the handle instead */
 	dbus_connection_ref(impl->bus);
@@ -347,7 +322,6 @@ static int init_dbus_connection(struct impl *impl)
 	return 0;
 error:
 	pw_log_error("Failed to add listener: %s", error.message);
-	dbus_error_free(&error);
 	return -EIO;
 }
 

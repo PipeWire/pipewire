@@ -159,6 +159,8 @@ static void impl_free(struct impl *impl)
 {
 	set_started(impl, false);
 
+	cancel_and_unref(&impl->pending_call);
+
 	if (impl->bus)
 		dbus_connection_unref(impl->bus);
 	spa_dbus_connection_destroy(impl->conn);

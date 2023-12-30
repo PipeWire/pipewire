@@ -299,7 +299,8 @@ static int init_dbus_connection(struct impl *impl)
 			"type='signal',"
 			"sender='org.freedesktop.DBus',"
 			"interface='org.freedesktop.DBus',"
-			"member='NameOwnerChanged'", &error);
+			"member='NameOwnerChanged',"
+			"arg0='" JACK_SERVICE_NAME "'", &error);
 	if (dbus_error_is_set(&error))
 		goto error;
 

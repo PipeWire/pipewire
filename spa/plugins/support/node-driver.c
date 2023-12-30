@@ -510,7 +510,7 @@ impl_get_size(const struct spa_handle_factory *factory,
 	return sizeof(struct impl);
 }
 
-int get_phc_index(struct spa_system *s, const char *name) {
+static int get_phc_index(struct spa_system *s, const char *name) {
 #ifdef ETHTOOL_GET_TS_INFO
 	struct ethtool_ts_info info = {0};
 	struct ifreq ifr = {0};

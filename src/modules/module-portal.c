@@ -128,6 +128,8 @@ static void module_destroy(void *data)
 	spa_hook_remove(&impl->context_listener);
 	spa_hook_remove(&impl->module_listener);
 
+	cancel_and_unref(&impl->portal_pid_pending);
+
 	if (impl->bus)
 		dbus_connection_unref(impl->bus);
 	spa_dbus_connection_destroy(impl->conn);

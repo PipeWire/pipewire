@@ -54,6 +54,7 @@
 
 #ifdef HAVE_DBUS
 #include <spa/support/dbus.h>
+#include <spa-private/dbus-helpers.h>
 #include <dbus/dbus.h>
 #endif
 
@@ -337,42 +338,33 @@ static int translate_error(const char *name)
 static long long rtkit_get_int_property(struct impl *impl, const char *propname,
 					long long *propval)
 {
-	DBusMessage *m = NULL, *r = NULL;
+	spa_autoptr(DBusMessage) m = NULL, r = NULL;
 	DBusMessageIter iter, subiter;
 	dbus_int64_t i64;
 	dbus_int32_t i32;
-	DBusError error;
 	int current_type;
-	long long ret;
 	struct pw_rtkit_bus *connection = impl->rtkit_bus;
-
-	dbus_error_init(&error);
 
 	if (!(m = dbus_message_new_method_call(impl->service_name,
 					       impl->object_path,
 					       "org.freedesktop.DBus.Properties", "Get"))) {
-		ret = -ENOMEM;
-		goto finish;
+		return -ENOMEM;
 	}
 
 	if (!dbus_message_append_args(m,
 				      DBUS_TYPE_STRING, &impl->interface,
 				      DBUS_TYPE_STRING, &propname, DBUS_TYPE_INVALID)) {
-		ret = -ENOMEM;
-		goto finish;
+		return -ENOMEM;
 	}
 
-	if (!(r = dbus_connection_send_with_reply_and_block(connection->bus, m, -1, &error))) {
-		ret = translate_error(error.name);
-		goto finish;
-	}
+	spa_auto(DBusError) error = DBUS_ERROR_INIT;
 
-	if (dbus_set_error_from_message(&error, r)) {
-		ret = translate_error(error.name);
-		goto finish;
-	}
+	if (!(r = dbus_connection_send_with_reply_and_block(connection->bus, m, -1, &error)))
+		return translate_error(error.name);
 
-	ret = -EBADMSG;
+	if (dbus_set_error_from_message(&error, r))
+		return translate_error(error.name);
+
 	dbus_message_iter_init(r, &iter);
 	while ((current_type = dbus_message_iter_get_arg_type(&iter)) != DBUS_TYPE_INVALID) {
 
@@ -385,13 +377,13 @@ static long long rtkit_get_int_property(struct impl *impl, const char *propname,
 				if (current_type == DBUS_TYPE_INT32) {
 					dbus_message_iter_get_basic(&subiter, &i32);
 					*propval = i32;
-					ret = 0;
+					return 0;
 				}
 
 				if (current_type == DBUS_TYPE_INT64) {
 					dbus_message_iter_get_basic(&subiter, &i64);
 					*propval = i64;
-					ret = 0;
+					return 0;
 				}
 
 				dbus_message_iter_next(&subiter);
@@ -400,26 +392,15 @@ static long long rtkit_get_int_property(struct impl *impl, const char *propname,
 		dbus_message_iter_next(&iter);
 	}
 
-finish:
-
-	if (m)
-		dbus_message_unref(m);
-
-	if (r)
-		dbus_message_unref(r);
-
-	dbus_error_free(&error);
-
-	return ret;
+	return -EBADMSG;
 }
 
 static int pw_rtkit_make_realtime(struct impl *impl, pid_t thread, int priority)
 {
-	DBusMessage *m = NULL;
+	spa_autoptr(DBusMessage) m = NULL;
 	dbus_uint64_t pid;
 	dbus_uint64_t u64;
 	dbus_uint32_t u32, serial;
-	int ret;
 	struct pw_rtkit_bus *connection = impl->rtkit_bus;
 
 	if (thread == 0)
@@ -428,8 +409,7 @@ static int pw_rtkit_make_realtime(struct impl *impl, pid_t thread, int priority)
 	if (!(m = dbus_message_new_method_call(impl->service_name,
 					       impl->object_path, impl->interface,
 					       "MakeThreadRealtimeWithPID"))) {
-		ret = -ENOMEM;
-		goto finish;
+		return -ENOMEM;
 	}
 
 	pid = (dbus_uint64_t) getpid();
@@ -440,33 +420,22 @@ static int pw_rtkit_make_realtime(struct impl *impl, pid_t thread, int priority)
 				      DBUS_TYPE_UINT64, &pid,
 				      DBUS_TYPE_UINT64, &u64,
 				      DBUS_TYPE_UINT32, &u32, DBUS_TYPE_INVALID)) {
-		ret = -ENOMEM;
-		goto finish;
+		return -ENOMEM;
 	}
 
-	if (!dbus_connection_send(connection->bus, m, &serial)) {
-		ret = -EIO;
-		goto finish;
-	}
-	ret = 0;
+	if (!dbus_connection_send(connection->bus, m, &serial))
+		return -EIO;
 
-finish:
-
-	if (m)
-		dbus_message_unref(m);
-
-	return ret;
+	return 0;
 }
-
 
 static int pw_rtkit_make_high_priority(struct impl *impl, pid_t thread, int nice_level)
 {
-	DBusMessage *m = NULL;
+	spa_autoptr(DBusMessage) m = NULL;
 	dbus_uint64_t pid;
 	dbus_uint64_t u64;
 	dbus_int32_t s32;
 	dbus_uint32_t serial;
-	int ret;
 	struct pw_rtkit_bus *connection = impl->rtkit_bus;
 
 	if (thread == 0)
@@ -475,8 +444,7 @@ static int pw_rtkit_make_high_priority(struct impl *impl, pid_t thread, int nice
 	if (!(m = dbus_message_new_method_call(impl->service_name,
 					       impl->object_path, impl->interface,
 					       "MakeThreadHighPriorityWithPID"))) {
-		ret = -ENOMEM;
-		goto finish;
+		return -ENOMEM;
 	}
 
 	pid = (dbus_uint64_t) getpid();
@@ -487,21 +455,13 @@ static int pw_rtkit_make_high_priority(struct impl *impl, pid_t thread, int nice
 				      DBUS_TYPE_UINT64, &pid,
 				      DBUS_TYPE_UINT64, &u64,
 				      DBUS_TYPE_INT32, &s32, DBUS_TYPE_INVALID)) {
-		ret = -ENOMEM;
-		goto finish;
+		return -ENOMEM;
 	}
-	if (!dbus_connection_send(connection->bus, m, &serial)) {
-		ret = -EIO;
-		goto finish;
-	}
-	ret = 0;
 
-finish:
+	if (!dbus_connection_send(connection->bus, m, &serial))
+		return -EIO;
 
-	if (m)
-		dbus_message_unref(m);
-
-	return ret;
+	return 0;
 }
 #endif /* HAVE_DBUS */
 

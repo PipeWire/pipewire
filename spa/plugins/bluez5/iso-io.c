@@ -325,7 +325,7 @@ static struct stream *stream_create(struct spa_bt_transport *t, struct group *gr
 	struct spa_audio_info format = { 0 };
 	int res;
 	bool sink;
-	if((t->profile == SPA_BT_PROFILE_BAP_SINK) || 
+	if((t->profile == SPA_BT_PROFILE_BAP_SINK) ||
 		(t->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK)) {
 		sink = true;
 	} else {

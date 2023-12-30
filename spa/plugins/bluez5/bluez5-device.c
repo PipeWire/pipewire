@@ -1779,8 +1779,8 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 	case DEVICE_PROFILE_BAP:
 	{
 		uint32_t profile = device->connected_profiles &
-		      (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE 
-			  	| SPA_BT_PROFILE_BAP_BROADCAST_SOURCE 
+		      (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE
+				| SPA_BT_PROFILE_BAP_BROADCAST_SOURCE
 				| SPA_BT_PROFILE_BAP_BROADCAST_SINK);
 		size_t idx;
 		const struct media_codec *media_codec;
@@ -1792,10 +1792,10 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		if (profile == 0)
 			return NULL;
 
-		if ((profile & (SPA_BT_PROFILE_BAP_SINK)) || 
+		if ((profile & (SPA_BT_PROFILE_BAP_SINK)) ||
 			(profile & (SPA_BT_PROFILE_BAP_BROADCAST_SINK)))
 			n_sink++;
-		if ((profile & (SPA_BT_PROFILE_BAP_SOURCE)) || 
+		if ((profile & (SPA_BT_PROFILE_BAP_SOURCE)) ||
 			(profile & (SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)))
 			n_source++;
 

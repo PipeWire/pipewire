@@ -18,6 +18,7 @@
 #include <spa/utils/string.h>
 #include <spa/utils/result.h>
 #include <spa/support/dbus.h>
+#include <spa-private/dbus-helpers.h>
 
 #include "pipewire/context.h"
 #include "pipewire/impl-client.h"
@@ -145,13 +146,10 @@ static void on_portal_pid_received(DBusPendingCall *pending,
 				   void *user_data)
 {
 	struct impl *impl = user_data;
-	DBusMessage *m;
-	DBusError error;
 	uint32_t portal_pid = 0;
 
-	m = dbus_pending_call_steal_reply(pending);
-	dbus_pending_call_unref(pending);
-	impl->portal_pid_pending = NULL;
+	spa_assert(impl->portal_pid_pending == pending);
+	spa_autoptr(DBusMessage) m = steal_reply_and_unref(&impl->portal_pid_pending);
 
 	if (!m) {
 		pw_log_error("Failed to receive portal pid");
@@ -169,15 +167,13 @@ static void on_portal_pid_received(DBusPendingCall *pending,
 		return;
 	}
 
-	dbus_error_init(&error);
+	spa_auto(DBusError) error = DBUS_ERROR_INIT;
 	dbus_message_get_args(m, &error, DBUS_TYPE_UINT32, &portal_pid,
 			      DBUS_TYPE_INVALID);
-	dbus_message_unref(m);
 
 	if (dbus_error_is_set(&error)) {
 		impl->portal_pid = 0;
 		pw_log_warn("Could not get portal pid: %s", error.message);
-		dbus_error_free(&error);
 	} else {
 		pw_log_info("Got portal pid %d", portal_pid);
 		impl->portal_pid = portal_pid;
@@ -186,29 +182,22 @@ static void on_portal_pid_received(DBusPendingCall *pending,
 
 static void update_portal_pid(struct impl *impl)
 {
-	DBusMessage *m;
-	const char *name;
-	DBusPendingCall *pending;
-
 	impl->portal_pid = 0;
+	cancel_and_unref(&impl->portal_pid_pending);
 
-	m = dbus_message_new_method_call("org.freedesktop.DBus",
-					 "/org/freedesktop/DBus",
-					 "org.freedesktop.DBus",
-					 "GetConnectionUnixProcessID");
+	spa_autoptr(DBusMessage) m = dbus_message_new_method_call("org.freedesktop.DBus",
+								  "/org/freedesktop/DBus",
+								  "org.freedesktop.DBus",
+								  "GetConnectionUnixProcessID");
+	if (!m)
+		return;
 
-	name = "org.freedesktop.portal.Desktop";
-	dbus_message_append_args(m,
-				 DBUS_TYPE_STRING, &name,
-				 DBUS_TYPE_INVALID);
+	if (!dbus_message_append_args(m,
+				      DBUS_TYPE_STRING, &(const char *){ "org.freedesktop.portal.Desktop" },
+				      DBUS_TYPE_INVALID))
+		return;
 
-	dbus_connection_send_with_reply(impl->bus, m, &pending, -1);
-	dbus_pending_call_set_notify(pending, on_portal_pid_received, impl, NULL);
-	if (impl->portal_pid_pending != NULL) {
-		dbus_pending_call_cancel(impl->portal_pid_pending);
-		dbus_pending_call_unref(impl->portal_pid_pending);
-	}
-	impl->portal_pid_pending = pending;
+	impl->portal_pid_pending = send_with_reply(impl->bus, m, on_portal_pid_received, impl);
 }
 
 static DBusHandlerResult name_owner_changed_handler(DBusConnection *connection,
@@ -238,10 +227,7 @@ static DBusHandlerResult name_owner_changed_handler(DBusConnection *connection,
 
 	if (spa_streq(new_owner, "")) {
 		impl->portal_pid = 0;
-		if (impl->portal_pid_pending != NULL) {
-			dbus_pending_call_cancel(impl->portal_pid_pending);
-			dbus_pending_call_unref(impl->portal_pid_pending);
-		}
+		cancel_and_unref(&impl->portal_pid_pending);
 	}
 	else {
 		update_portal_pid(impl);
@@ -252,8 +238,6 @@ static DBusHandlerResult name_owner_changed_handler(DBusConnection *connection,
 
 static int init_dbus_connection(struct impl *impl)
 {
-	DBusError error;
-
 	impl->bus = spa_dbus_connection_get(impl->conn);
 	if (impl->bus == NULL)
 		return -EIO;
@@ -261,7 +245,7 @@ static int init_dbus_connection(struct impl *impl)
 	/* XXX: we don't handle dbus reconnection yet, so ref the handle instead */
 	dbus_connection_ref(impl->bus);
 
-	dbus_error_init(&error);
+	spa_auto(DBusError) error = DBUS_ERROR_INIT;
 
 	dbus_bus_add_match(impl->bus,
 			   "type='signal',\
@@ -272,7 +256,6 @@ static int init_dbus_connection(struct impl *impl)
 	if (dbus_error_is_set(&error)) {
 		pw_log_error("Failed to add name owner changed listener: %s",
 			     error.message);
-		dbus_error_free(&error);
 		return -EIO;
 	}
 

@@ -255,7 +255,8 @@ static int init_dbus_connection(struct impl *impl)
 			   "type='signal',\
 			   sender='org.freedesktop.DBus',\
 			   interface='org.freedesktop.DBus',\
-			   member='NameOwnerChanged'",
+			   member='NameOwnerChanged',\
+			   arg0='" PORTAL_SERVICE_NAME "'",
 			   &error);
 	if (dbus_error_is_set(&error)) {
 		pw_log_error("Failed to add name owner changed listener: %s",

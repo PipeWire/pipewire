@@ -4,8 +4,8 @@
 
 #include <errno.h>
 #include <spa/utils/string.h>
+#include <spa-private/dbus-helpers.h>
 
-#include "dbus-helpers.h"
 #include "upower.h"
 
 #define UPOWER_SERVICE "org.freedesktop.UPower"

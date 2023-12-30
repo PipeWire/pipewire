@@ -32,10 +32,10 @@
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
+#include <spa-private/dbus-helpers.h>
 
 #include "config.h"
 #include "codec-loader.h"
-#include "dbus-helpers.h"
 #include "player.h"
 #include "iso-io.h"
 #include "bap-codec-caps.h"

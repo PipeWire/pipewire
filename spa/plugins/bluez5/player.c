@@ -7,9 +7,9 @@
 #include <dbus/dbus.h>
 
 #include <spa/utils/string.h>
+#include <spa-private/dbus-helpers.h>
 
 #include "defs.h"
-#include "dbus-helpers.h"
 #include "player.h"
 
 #define PLAYER_OBJECT_PATH_BASE	"/media_player"

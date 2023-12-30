@@ -4,10 +4,10 @@
 
 #include <errno.h>
 #include <spa/utils/string.h>
+#include <spa-private/dbus-helpers.h>
 
 #include <ModemManager.h>
 
-#include "dbus-helpers.h"
 #include "modemmanager.h"
 
 #define DBUS_INTERFACE_OBJECTMANAGER "org.freedesktop.DBus.ObjectManager"

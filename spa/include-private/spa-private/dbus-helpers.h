@@ -1,9 +1,9 @@
-/* Spa Bluez5 DBus helpers */
+/* Spa DBus helpers */
 /* SPDX-FileCopyrightText: Copyright © 2023 PipeWire authors */
 /* SPDX-License-Identifier: MIT */
 
-#ifndef SPA_BLUEZ5_DBUS_HELPERS_H
-#define SPA_BLUEZ5_DBUS_HELPERS_H
+#ifndef SPA_PRIVATE_DBUS_HELPERS_H
+#define SPA_PRIVATE_DBUS_HELPERS_H
 
 #include <stdbool.h>
 
@@ -69,4 +69,4 @@ SPA_DEFINE_AUTO_CLEANUP(DBusError, DBusError, {
 	dbus_error_free(thing);
 })
 
-#endif /* SPA_BLUEZ5_DBUS_HELPERS_H */
+#endif /* SPA_PRIVATE_DBUS_HELPERS_H */

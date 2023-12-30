@@ -26,6 +26,7 @@
 #include <spa/utils/type.h>
 #include <spa/utils/json.h>
 #include <spa/param/audio/raw.h>
+#include <spa-private/dbus-helpers.h>
 
 #include "defs.h"
 
@@ -33,7 +34,6 @@
 #include <libusb.h>
 #endif
 
-#include "dbus-helpers.h"
 #include "modemmanager.h"
 #include "upower.h"
 

@@ -20,9 +20,9 @@
 #include <spa/utils/type.h>
 #include <spa/utils/result.h>
 #include <spa/param/audio/raw.h>
+#include <spa-private/dbus-helpers.h>
 
 #include "defs.h"
-#include "dbus-helpers.h"
 
 #define INITIAL_INTERVAL_NSEC	(500 * SPA_NSEC_PER_MSEC)
 #define ACTION_INTERVAL_NSEC	(3000 * SPA_NSEC_PER_MSEC)

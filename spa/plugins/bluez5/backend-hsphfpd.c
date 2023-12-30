@@ -16,9 +16,9 @@
 #include <spa/utils/string.h>
 #include <spa/utils/type.h>
 #include <spa/param/audio/raw.h>
+#include <spa-private/dbus-helpers.h>
 
 #include "defs.h"
-#include "dbus-helpers.h"
 
 SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.hsphfpd");
 #undef SPA_LOG_TOPIC_DEFAULT

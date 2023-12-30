@@ -8,6 +8,7 @@
 spa_dep = declare_dependency(
   include_directories : [
     include_directories('include'),
+    include_directories('include-private'),
   ],
   dependencies : [atomic_dep],
   version : spaversion,

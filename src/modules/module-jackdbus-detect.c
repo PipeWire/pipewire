@@ -237,6 +237,8 @@ static void check_jack_running(struct impl *impl)
 	if (!m)
 		return;
 
+	dbus_message_set_auto_start(m, false);
+
 	impl->pending_call = send_with_reply(impl->bus, m, on_is_started_received, impl);
 }
 

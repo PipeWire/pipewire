@@ -4,6 +4,7 @@
 
 #include <limits.h>
 #include <fnmatch.h>
+#include <pthread.h>
 
 #include <spa/support/log-impl.h>
 
@@ -42,6 +43,8 @@ struct pattern {
 
 static struct spa_list topics = SPA_LIST_INIT(&topics);
 static struct spa_list patterns = SPA_LIST_INIT(&patterns);
+
+static pthread_mutex_t topics_lock = PTHREAD_MUTEX_INITIALIZER;
 
 PW_LOG_TOPIC(log_buffers, "pw.buffers");
 PW_LOG_TOPIC(log_client, "pw.client");
@@ -120,8 +123,12 @@ static void update_all_topic_levels(void)
 {
 	struct topic *topic;
 
+	pthread_mutex_lock(&topics_lock);
+
 	spa_list_for_each(topic, &topics, link)
 		update_topic_level(topic->t);
+
+	pthread_mutex_unlock(&topics_lock);
 }
 
 SPA_EXPORT
@@ -129,15 +136,20 @@ void pw_log_topic_register(struct spa_log_topic *t)
 {
 	struct topic *topic;
 
+	pthread_mutex_lock(&topics_lock);
+
 	topic = find_topic(t);
 	if (!topic) {
 		update_topic_level(t);
 		topic = add_topic(t);
 		if (!topic)
-			return;
+			goto done;
 	}
 
 	++topic->refcnt;
+
+done:
+	pthread_mutex_unlock(&topics_lock);
 }
 
 SPA_EXPORT
@@ -145,14 +157,19 @@ void pw_log_topic_unregister(struct spa_log_topic *t)
 {
 	struct topic *topic;
 
+	pthread_mutex_lock(&topics_lock);
+
 	topic = find_topic(t);
 	if (!topic)
-		return;
+		goto done;
 
 	if (topic->refcnt-- <= 1) {
 		spa_list_remove(&topic->link);
 		free(topic);
 	}
+
+done:
+	pthread_mutex_unlock(&topics_lock);
 }
 
 void pw_log_topic_register_enum(const struct spa_log_topic_enum *e)
@@ -313,12 +330,16 @@ int pw_log_set_level_string(const char *str)
 	pw_log_level = level;
 	global_log->level = level;
 
+	pthread_mutex_lock(&topics_lock);
+
 	spa_list_consume(pattern, &patterns, link) {
 		spa_list_remove(&pattern->link);
 		free(pattern);
 	}
 
 	spa_list_insert_list(&patterns, &new_patterns);
+
+	pthread_mutex_unlock(&topics_lock);
 
 	update_all_topic_levels();
 	return 0;
@@ -476,10 +497,14 @@ pw_log_deinit(void)
 {
 	struct pattern *pattern;
 
+	pthread_mutex_lock(&topics_lock);
+
 	spa_list_consume(pattern, &patterns, link) {
 		spa_list_remove(&pattern->link);
 		free(pattern);
 	}
+
+	pthread_mutex_unlock(&topics_lock);
 
 	/* don't free log topics, since they usually won't get re-registered */
 

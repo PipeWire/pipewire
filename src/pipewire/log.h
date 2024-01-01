@@ -136,13 +136,14 @@ pw_log_logv(enum spa_log_level level,
  * Register log topic with the logger, to enable dynamic log levels.
  * Topic must be unregistered before freeing it or plugin unload.
  * May be used instead of \ref PW_LOG_TOPIC_INIT
+ * This function is threadsafe.
  *
  * \since 1.1.0
  */
 void pw_log_topic_register(struct spa_log_topic *t);
 
 /**
- * Unregister log topic
+ * Unregister log topic. This function is threadsafe.
  *
  * \since 1.1.0
  */

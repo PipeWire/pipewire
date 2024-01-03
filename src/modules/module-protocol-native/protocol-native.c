@@ -1342,6 +1342,9 @@ static int node_demarshal_send_command(void *object, const struct pw_protocol_na
 				SPA_POD_Pod(&command)) < 0)
 		return -EINVAL;
 
+	if (command == NULL)
+		return -EINVAL;
+
 	return pw_resource_notify(resource, struct pw_node_methods, send_command, 0, command);
 }
 

@@ -412,6 +412,9 @@ static int client_node_demarshal_event_event(void *data, const struct pw_protoco
 				SPA_POD_PodObject(&event)) < 0)
 		return -EINVAL;
 
+	if (event == NULL)
+		return -EINVAL;
+
 	pw_proxy_notify(proxy, struct pw_client_node_events, event, 0, event);
 	return 0;
 }
@@ -425,6 +428,9 @@ static int client_node_demarshal_command(void *data, const struct pw_protocol_na
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_PodObject(&command)) < 0)
+		return -EINVAL;
+
+	if (command == NULL)
 		return -EINVAL;
 
 	pw_proxy_notify(proxy, struct pw_client_node_events, command, 0, command);
@@ -1095,6 +1101,9 @@ static int client_node_demarshal_event_method(void *object, const struct pw_prot
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
 			SPA_POD_PodObject(&event)) < 0)
+		return -EINVAL;
+
+	if (event == NULL)
 		return -EINVAL;
 
 	pw_resource_notify(resource, struct pw_client_node_methods, event, 0, event);

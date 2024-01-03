@@ -356,7 +356,10 @@ struct pw_stream_events {
 	/** A command notify, Since 0.3.39:1 */
 	void (*command) (void *data, const struct spa_command *command);
 
-	/** a trigger_process completed. Since version 0.3.40:2 */
+	/** a trigger_process completed. Since version 0.3.40:2.
+	 *  This is normally called from the mainloop but since 1.1.0 it
+	 *  can also be called directly from the realtime data
+	 *  thread if the user is prepared to deal with this. */
 	void (*trigger_done) (void *data);
 };
 
@@ -401,6 +404,9 @@ enum pw_stream_flags {
 							  *  playback and when not using RT_PROCESS. It
 							  *  can be used to keep the maximum number of
 							  *  buffers queued. Since 0.3.81 */
+	PW_STREAM_FLAG_RT_TRIGGER_DONE	= (1 << 12),	/**< Call trigger_done from the realtime
+							  *  thread. You MUST use RT safe functions
+							  *  in the trigger_done callback. Since 1.1.0 */
 };
 
 /** Create a new unconneced \ref pw_stream

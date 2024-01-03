@@ -158,6 +158,7 @@ struct stream {
 	unsigned int using_trigger:1;
 	unsigned int trigger:1;
 	unsigned int early_process:1;
+	unsigned int trigger_done_rt:1;
 	int in_set_param;
 	int in_emit_param_changed;
 };
@@ -499,8 +500,14 @@ do_call_trigger_done(struct spa_loop *loop,
 
 static void call_trigger_done(struct stream *impl)
 {
-	pw_loop_invoke(impl->main_loop,
-		do_call_trigger_done, 1, NULL, 0, false, impl);
+	pw_log_trace_fp("%p: call trigger_done rt:%u", impl, impl->trigger_done_rt);
+	if (impl->trigger_done_rt) {
+		if (impl->rt_callbacks.funcs)
+			spa_callbacks_call(&impl->rt_callbacks, struct pw_stream_events, trigger_done, 2);
+	} else {
+		pw_loop_invoke(impl->main_loop,
+			do_call_trigger_done, 1, NULL, 0, false, impl);
+	}
 }
 
 static int
@@ -1921,6 +1928,7 @@ pw_stream_connect(struct pw_stream *stream,
 		impl->node_methods.process = impl_node_process_output;
 
 	impl->process_rt = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_RT_PROCESS);
+	impl->trigger_done_rt = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_RT_TRIGGER_DONE);
 	impl->early_process = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_EARLY_PROCESS);
 
 	impl->impl_node.iface = SPA_INTERFACE_INIT(

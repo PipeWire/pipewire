@@ -226,6 +226,8 @@ void pw_log_set_level(enum spa_log_level level)
 {
 	pw_log_level = level;
 	global_log->level = level;
+
+	update_all_topic_levels();
 }
 
 static int add_pattern(struct spa_list *list, const char *str, enum spa_log_level level)
@@ -327,9 +329,6 @@ int pw_log_set_level_string(const char *str)
 	if ((res = parse_log_string(str, &new_patterns, &level)) < 0)
 		return res;
 
-	pw_log_level = level;
-	global_log->level = level;
-
 	pthread_mutex_lock(&topics_lock);
 
 	spa_list_consume(pattern, &patterns, link) {
@@ -341,7 +340,7 @@ int pw_log_set_level_string(const char *str)
 
 	pthread_mutex_unlock(&topics_lock);
 
-	update_all_topic_levels();
+	pw_log_set_level(level);
 	return 0;
 }
 

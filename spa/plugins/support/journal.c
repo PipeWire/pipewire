@@ -53,6 +53,7 @@ impl_log_logtv(void *object,
 	if (impl->chain_log != NULL) {
 		va_list args_copy;
 		va_copy(args_copy, args);
+		impl->chain_log->level = impl->log.level;
 		spa_log_logtv(impl->chain_log,
 			      level, topic,
 			      file, line, func, fmt, args_copy);

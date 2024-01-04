@@ -114,6 +114,9 @@ static int core_object_message_handler(struct client *client, struct pw_manager_
 		int res = malloc_trim(0);
 		fprintf(response, "%d", res);
 #endif
+	} else if (spa_streq(message, "pipewire-pulse:log-level")) {
+		int res = pw_log_set_level_string(params);
+		fprintf(response, "%d", res);
 	} else {
 		return -ENOSYS;
 	}

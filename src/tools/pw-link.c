@@ -453,6 +453,9 @@ static int create_link_proxies(struct data *data)
 	struct object *n, *p;
 	struct object *in_node = NULL, *out_node = NULL;
 
+	spa_assert(data->opt_output);
+	spa_assert(data->opt_input);
+
 	spa_list_for_each(n, &data->objects, link) {
 		if (n->type != OBJECT_NODE)
 			continue;
@@ -522,6 +525,8 @@ static int do_unlink_ports(struct data *data)
 	struct object *l, *n, *p;
 	bool found_any = false;
 	struct object *in_node = NULL, *out_node = NULL;
+
+	spa_assert(data->opt_output);
 
 	if (data->opt_input != NULL) {
 		/* 2 args, check if they are node names */
@@ -966,9 +971,21 @@ static int run(int argc, char *argv[])
 	if (optind < argc)
 		data.opt_input = argv[optind++];
 
-	if (data.opt_mode == MODE_CONNECT && (data.opt_output == NULL || data.opt_input == NULL)) {
-		fprintf(stderr, "missing output and input port names to connect\n");
-		return -1;
+	switch (data.opt_mode) {
+	case MODE_LIST:
+		break;
+	case MODE_DISCONNECT:
+		if (data.opt_output == NULL) {
+			fprintf(stderr, "missing link-id or output and input port names to disconnect\n");
+			return -1;
+		}
+		break;
+	case MODE_CONNECT:
+		if (data.opt_output == NULL || data.opt_input == NULL) {
+			fprintf(stderr, "missing output and input port names to connect\n");
+			return -1;
+		}
+		break;
 	}
 
 	data.loop = pw_main_loop_new(NULL);
@@ -1031,10 +1048,6 @@ static int run(int argc, char *argv[])
 		do_list(&data);
 		break;
 	case MODE_DISCONNECT:
-		if (data.opt_output == NULL) {
-			fprintf(stderr, "missing link-id or output and input port names to disconnect\n");
-			return -1;
-		}
 		if ((res = do_unlink_ports(&data)) < 0) {
 			fprintf(stderr, "failed to unlink ports: %s\n", spa_strerror(res));
 			return -1;

@@ -52,17 +52,25 @@ struct target_link {
 	int result;
 };
 
+enum mode {
+	MODE_CONNECT,
+	MODE_DISCONNECT,
+	MODE_LIST,
+};
+
+enum list_target {
+	LIST_OUTPUT = 1 << 0,
+	LIST_INPUT = 1 << 1,
+	LIST_PORTS = LIST_OUTPUT | LIST_INPUT,
+	LIST_LINKS = 1 << 2,
+};
+
 struct data {
 	struct pw_main_loop *loop;
 
 	const char *opt_remote;
-#define MODE_LIST_OUTPUT	(1<<0)
-#define MODE_LIST_INPUT		(1<<1)
-#define MODE_LIST_PORTS		(MODE_LIST_OUTPUT|MODE_LIST_INPUT)
-#define MODE_LIST_LINKS		(1<<2)
-#define MODE_LIST		(MODE_LIST_PORTS|MODE_LIST_LINKS)
-#define MODE_DISCONNECT		(1<<3)
-	uint32_t opt_mode;
+	enum mode opt_mode;
+	enum list_target opt_list; /* for `MODE_LIST` */
 	bool opt_id;
 	bool opt_verbose;
 	bool opt_wait;
@@ -302,7 +310,7 @@ static void do_list_port_links(struct data *data, struct object *node, struct ob
 	struct object *o;
 	bool first = false;
 
-	if ((data->opt_mode & MODE_LIST_PORTS) == 0)
+	if (!(data->opt_list & LIST_PORTS))
 		first = true;
 
 	spa_list_for_each(o, &data->objects, link) {
@@ -387,9 +395,9 @@ static void do_list_ports(struct data *data, struct object *node,
 		if (regex && !port_regex(data, node, o, regex))
 			continue;
 
-		if (data->opt_mode & MODE_LIST_PORTS)
+		if (data->opt_list & LIST_PORTS)
 			print_port(data, "", node, o, data->opt_verbose);
-		if (data->opt_mode & MODE_LIST_LINKS)
+		if (data->opt_list & LIST_LINKS)
 			do_list_port_links(data, node, o);
 	}
 }
@@ -613,7 +621,7 @@ static int do_monitor_link(struct data *data, struct object *link)
 	char buffer1[1024], buffer2[1024], id[64] = "";
 	struct object *n1, *n2, *p1, *p2;
 
-	if (!(data->opt_mode & MODE_LIST_LINKS))
+	if (!(data->opt_list & LIST_LINKS))
 		return 0;
 
 	if ((p1 = find_object(data, OBJECT_PORT, link->data.link.output_port)) == NULL)
@@ -751,7 +759,7 @@ static void on_core_done(void *data, uint32_t id, int seq)
 		return;
 
 	/* Connect mode, look for our targets. */
-	if ((d->opt_mode & (MODE_LIST|MODE_DISCONNECT)) == 0) {
+	if (d->opt_mode == MODE_CONNECT) {
 		d->nb_links = create_link_proxies(d);
 		/* In wait mode, if none exist, keep running. */
 		if (d->opt_wait && d->nb_links == -ENOENT) {
@@ -814,7 +822,9 @@ static void show_help(struct data *data, const char *name, bool error)
 
 int main(int argc, char *argv[])
 {
-	struct data data = { 0, };
+	struct data data = {
+		.opt_mode = MODE_CONNECT,
+	};
 	int res = 0, c;
 	regex_t out_port_regex;
 	regex_t in_port_regex;
@@ -866,13 +876,16 @@ int main(int argc, char *argv[])
 			data.opt_remote = optarg;
 			break;
 		case 'o':
-			data.opt_mode |= MODE_LIST_OUTPUT;
+			data.opt_mode = MODE_LIST;
+			data.opt_list |= LIST_OUTPUT;
 			break;
 		case 'i':
-			data.opt_mode |= MODE_LIST_INPUT;
+			data.opt_mode = MODE_LIST;
+			data.opt_list |= LIST_INPUT;
 			break;
 		case 'l':
-			data.opt_mode |= MODE_LIST_LINKS;
+			data.opt_mode = MODE_LIST;
+			data.opt_list |= LIST_LINKS;
 			break;
 		case 'm':
 			data.opt_monitor = true;
@@ -893,7 +906,7 @@ int main(int argc, char *argv[])
 			pw_properties_update_string(data.props, optarg, strlen(optarg));
 			break;
 		case 'd':
-			data.opt_mode |= MODE_DISCONNECT;
+			data.opt_mode = MODE_DISCONNECT;
 			break;
 		case 'w':
 			data.opt_wait = true;
@@ -906,7 +919,7 @@ int main(int argc, char *argv[])
 	if (argc == 1)
 		show_help(&data, argv[0], true);
 
-	if (data.opt_id && (data.opt_mode & MODE_LIST) == 0) {
+	if (data.opt_id && data.opt_mode != MODE_LIST) {
 		fprintf(stderr, "-I option needs one or more of -l, -i or -o\n");
 		return -1;
 	}
@@ -919,8 +932,7 @@ int main(int argc, char *argv[])
 	if (optind < argc)
 		data.opt_input = argv[optind++];
 
-	if ((data.opt_mode & (MODE_LIST|MODE_DISCONNECT)) == 0 &&
-	    (data.opt_output == NULL || data.opt_input == NULL)) {
+	if (data.opt_mode == MODE_CONNECT && (data.opt_output == NULL || data.opt_input == NULL)) {
 		fprintf(stderr, "missing output and input port names to connect\n");
 		return -1;
 	}
@@ -964,11 +976,11 @@ int main(int argc, char *argv[])
 	core_sync(&data);
 	pw_main_loop_run(data.loop);
 
-	if ((data.opt_mode & (MODE_LIST_PORTS|MODE_LIST_LINKS)) == MODE_LIST_LINKS)
+	if ((data.opt_list & (LIST_PORTS|LIST_LINKS)) == LIST_LINKS)
 		data.list_inputs = data.list_outputs = true;
-	if ((data.opt_mode & MODE_LIST_INPUT) == MODE_LIST_INPUT)
+	if ((data.opt_list & LIST_INPUT) == LIST_INPUT)
 		data.list_inputs = true;
-	if ((data.opt_mode & MODE_LIST_OUTPUT) == MODE_LIST_OUTPUT)
+	if ((data.opt_list & LIST_OUTPUT) == LIST_OUTPUT)
 		data.list_outputs = true;
 
 	if (data.opt_output) {
@@ -980,9 +992,11 @@ int main(int argc, char *argv[])
 			data.in_regex = &in_port_regex;
 	}
 
-	if (data.opt_mode & (MODE_LIST)) {
+	switch (data.opt_mode) {
+	case MODE_LIST:
 		do_list(&data);
-	} else if (data.opt_mode & MODE_DISCONNECT) {
+		break;
+	case MODE_DISCONNECT:
 		if (data.opt_output == NULL) {
 			fprintf(stderr, "missing link-id or output and input port names to disconnect\n");
 			return -1;
@@ -991,7 +1005,8 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "failed to unlink ports: %s\n", spa_strerror(res));
 			return -1;
 		}
-	} else {
+		break;
+	case MODE_CONNECT:
 		if (data.nb_links < 0) {
 			fprintf(stderr, "failed to link ports: %s\n", spa_strerror(data.nb_links));
 			return -1;
@@ -1009,6 +1024,7 @@ int main(int argc, char *argv[])
 				}
 			}
 		}
+		break;
 	}
 
 	if (data.opt_monitor) {

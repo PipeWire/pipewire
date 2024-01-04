@@ -1,3 +1,57 @@
+# PipeWire 1.0.1 (2024-01-11)
+
+This is a bugfix release that is API and ABI compatible with previous
+1.0.x releases.
+
+## Highlights
+  - Work around the buggy ALSA backend in libcanberra by forcing the pulse
+    backend in module-x11-bell.
+  - Fix a race in the device info updates in pulse-server.
+  - Fix timing and rate matching in ALSA sequencer.
+  - Improve timing information in JACK and from the ALSA driver.
+  - More small fixes and improvements.
+
+
+## PipeWire
+  - Fix a build issue when examples where disabled.
+  - Avoid some compiler warnings.
+  - Avoid some bitfield data races. (#3706)
+
+## Modules
+  - Bump the PTP driver priority. (#3217)
+  - Support the previous "allowed" permission in the access module.
+  - Fix filename leak in module-filter-chain.
+  - Work around the buggy ALSA backend in libcanberra by forcing the pulse
+    backend in module-x11-bell. (#3688)
+  - Fix a race in the device info updates in pulse-server.
+  - Fix compatibility in RAOP. (#3698)
+
+## SPA
+  - Handle ALSA picth control errors correctly
+  - Clamp buffer-frames correctly. (#3000)
+  - Fix timing and rate matching in ALSA sequencer. (#3657)
+  - Revert a commit that could result in current time in the future in the
+    timing updates.
+  - Improve adapter state checks.
+  - Remove the timer from the ALSA pcm.
+  - Fix timeout in freewheel driver.
+
+## Pulse-server
+  - Also handle active ports for monitor sources.
+  - Fix zeroconf-publish format properties.
+
+## JACK
+  - Improve timing and transport calculations.
+  - Handle -ENOENT from the core and don't error out.
+
+## GStreamer
+  - Handle node port removal in the device provider. (#3708)
+  - Improve error handling while connecting.
+  - Fix dts_offset.
+
+Older versions:
+
+
 # PipeWire 1.0.0 (2023-11-26)
 
 The PipeWire project is immensely proud to announce the 1.0 release
@@ -75,9 +129,6 @@ Happy Holidays!
   - Add man pages for pw-dump, pw-loopback, modules, pipewire-pulse.
   - Manpages are now made with Doxygen.
   - Add docs for pulse-modules
-
-Older versions:
-
 
 # PipeWire 0.3.85 (2023-11-16)
 

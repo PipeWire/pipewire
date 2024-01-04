@@ -46,6 +46,8 @@
 #define LISTEN_BACKLOG 32
 #define MAX_CLIENTS 64
 
+PW_LOG_TOPIC_EXTERN(pulse_conn);
+
 static int handle_packet(struct client *client, struct message *msg)
 {
 	uint32_t command, tag;
@@ -67,7 +69,7 @@ static int handle_packet(struct client *client, struct message *msg)
 		goto finish;
 	}
 
-	if (debug_messages) {
+	if (pw_log_topic_custom_enabled(SPA_LOG_LEVEL_INFO, pulse_conn)) {
 		pw_log_debug("client %p: command:%s", client, commands[command].name);
 		message_dump(SPA_LOG_LEVEL_INFO, msg);
 	}

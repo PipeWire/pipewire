@@ -718,7 +718,7 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 	else
 		buf->n_fds = buf->msg.n_fds;
 
-	if (mod_topic_connection->level >= SPA_LOG_LEVEL_DEBUG) {
+	if (pw_log_topic_custom_enabled(SPA_LOG_LEVEL_DEBUG, mod_topic_connection)) {
 		pw_logt_debug(mod_topic_connection,
 			">>>>>>>>> out: id:%d op:%d size:%d seq:%d fds:%d",
 				buf->msg.id, buf->msg.opcode, size, buf->msg.seq,

@@ -310,10 +310,6 @@ parse_log_string(const char *str, struct spa_list *list, enum spa_log_level *lev
 			}
 		}
 	}
-
-	/* Connection namespace disabled by default */
-	add_pattern(&new_patterns, "conn.*", SPA_LOG_LEVEL_NONE);
-
 	spa_list_insert_list(list, &new_patterns);
 	return 0;
 }

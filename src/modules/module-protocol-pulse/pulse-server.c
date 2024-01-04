@@ -73,10 +73,6 @@
 
 #define TEMPORARY_MOVE_TIMEOUT	(SPA_NSEC_PER_SEC)
 
-PW_LOG_TOPIC_EXTERN(pulse_conn);
-
-bool debug_messages = false;
-
 struct latency_offset_data {
 	int64_t prev_latency_offset;
 	uint8_t initialized:1;
@@ -5475,8 +5471,6 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	struct impl *impl;
 	const char *str;
 	int res = 0;
-
-	debug_messages = pw_log_topic_enabled(SPA_LOG_LEVEL_INFO, pulse_conn);
 
 	impl = calloc(1, sizeof(*impl) + user_data_size);
 	if (impl == NULL)

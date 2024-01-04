@@ -82,8 +82,6 @@ void impl_add_listener(struct impl *impl,
 		struct spa_hook *listener,
 		const struct impl_events *events, void *data);
 
-extern bool debug_messages;
-
 void broadcast_subscribe_event(struct impl *impl, uint32_t mask, uint32_t event, uint32_t id);
 
 #endif

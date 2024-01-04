@@ -153,6 +153,9 @@ void pw_log_topic_unregister(struct spa_log_topic *t);
 #define pw_log_level_enabled(lev) (pw_log_level >= (lev))
 #define pw_log_topic_enabled(lev,t) ((t) && (t)->has_custom_level ? (t)->level >= (lev) : pw_log_level_enabled((lev)))
 
+/* check is a custom level was assigned to a topic. \since 1.1.0 */
+#define pw_log_topic_custom_enabled(lev,t) ((t) && (t)->has_custom_level && (t)->level >= (lev))
+
 #define pw_logtv(lev,topic,fmt,ap)						\
 ({										\
 	if (SPA_UNLIKELY(pw_log_topic_enabled(lev,topic)))			\

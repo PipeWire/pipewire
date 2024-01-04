@@ -16,15 +16,18 @@
 #include <pipewire/pipewire.h>
 #include <pipewire/filter.h>
 
+enum object_type {
+	OBJECT_ANY,
+	OBJECT_NODE,
+	OBJECT_PORT,
+	OBJECT_LINK,
+};
+
 struct object {
 	struct spa_list link;
 
 	uint32_t id;
-#define OBJECT_ANY	0
-#define OBJECT_NODE	1
-#define OBJECT_PORT	2
-#define OBJECT_LINK	3
-	uint32_t type;
+	enum object_type type;
 	struct pw_properties *props;
 	uint32_t extra[2];
 };
@@ -159,7 +162,7 @@ static void core_sync(struct data *data)
 	data->sync = pw_core_sync(data->core, PW_ID_CORE, data->sync);
 }
 
-static struct object *find_object(struct data *data, uint32_t type, uint32_t id)
+static struct object *find_object(struct data *data, enum object_type type, uint32_t id)
 {
 	struct object *o;
 	spa_list_for_each(o, &data->objects, link)
@@ -630,7 +633,8 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 				  const struct spa_dict *props)
 {
 	struct data *d = data;
-	uint32_t t, extra[2];
+	enum object_type t;
+	uint32_t extra[2];
 	struct object *obj;
 	const char *str;
 
@@ -679,6 +683,10 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 	if (d->monitoring) {
 		d->prefix = "+ ";
 		switch (obj->type) {
+		case OBJECT_ANY:
+			spa_assert_not_reached();
+		case OBJECT_NODE:
+			break;
 		case OBJECT_PORT:
 			do_monitor_port(d, obj);
 			break;
@@ -700,6 +708,10 @@ static void registry_event_global_remove(void *data, uint32_t id)
 	if (d->monitoring) {
 		d->prefix = "- ";
 		switch (obj->type) {
+		case OBJECT_ANY:
+			spa_assert_not_reached();
+		case OBJECT_NODE:
+			break;
 		case OBJECT_PORT:
 			do_monitor_port(d, obj);
 			break;

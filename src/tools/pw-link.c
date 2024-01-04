@@ -23,13 +23,24 @@ enum object_type {
 	OBJECT_LINK,
 };
 
+union object_data {
+	struct {
+		enum pw_direction direction;
+		uint32_t node;
+	} port;
+	struct {
+		uint32_t output_port;
+		uint32_t input_port;
+	} link;
+};
+
 struct object {
 	struct spa_list link;
 
 	uint32_t id;
 	enum object_type type;
 	struct pw_properties *props;
-	uint32_t extra[2];
+	union object_data data;
 };
 
 struct target_link {
@@ -179,9 +190,9 @@ static struct object *find_node_port(struct data *data, struct object *node, enu
 		const char *o_port_id;
 		if (o->type != OBJECT_PORT)
 			continue;
-		if (o->extra[1] != node->id)
+		if (o->data.port.node != node->id)
 			continue;
-		if (o->extra[0] != direction)
+		if (o->data.port.direction != direction)
 			continue;
 		if ((o_port_id = pw_properties_get(o->props, PW_KEY_PORT_ID)) == NULL)
 			continue;
@@ -281,7 +292,7 @@ static void print_port_id(struct data *data, const char *prefix, uint32_t peer)
 	struct object *n, *p;
 	if ((p = find_object(data, OBJECT_PORT, peer)) == NULL)
 		return;
-	if ((n = find_object(data, OBJECT_NODE, p->extra[1])) == NULL)
+	if ((n = find_object(data, OBJECT_NODE, p->data.port.node)) == NULL)
 		return;
 	print_port(data, prefix, n, p, false);
 }
@@ -304,14 +315,14 @@ static void do_list_port_links(struct data *data, struct object *node, struct ob
 		if (o->type != OBJECT_LINK)
 			continue;
 
-		if (port->extra[0] == PW_DIRECTION_OUTPUT &&
-		    o->extra[0] == port->id) {
-			peer = o->extra[1];
+		if (port->data.port.direction == PW_DIRECTION_OUTPUT &&
+		    o->data.link.output_port == port->id) {
+			peer = o->data.link.input_port;
 			snprintf(prefix, sizeof(prefix), "%s  |-> ", id);
 		}
-		else if (port->extra[0] == PW_DIRECTION_INPUT &&
-		    o->extra[1] == port->id) {
-			peer = o->extra[0];
+		else if (port->data.port.direction == PW_DIRECTION_INPUT &&
+		    o->data.link.input_port == port->id) {
+			peer = o->data.link.output_port;
 			snprintf(prefix, sizeof(prefix), "%s  |<- ", id);
 		}
 		else
@@ -368,9 +379,9 @@ static void do_list_ports(struct data *data, struct object *node,
 	spa_list_for_each(o, &data->objects, link) {
 		if (o->type != OBJECT_PORT)
 			continue;
-		if (o->extra[1] != node->id)
+		if (o->data.port.node != node->id)
 			continue;
-		if (o->extra[0] != direction)
+		if (o->data.port.direction != direction)
 			continue;
 
 		if (regex && !port_regex(data, node, o, regex))
@@ -448,13 +459,13 @@ static int create_link_proxies(struct data *data)
 		spa_list_for_each(p, &data->objects, link) {
 			if (p->type != OBJECT_PORT)
 				continue;
-			if (p->extra[1] != n->id)
+			if (p->data.port.node != n->id)
 				continue;
 
-			if (out_port == 0 && p->extra[0] == PW_DIRECTION_OUTPUT &&
+			if (out_port == 0 && p->data.port.direction == PW_DIRECTION_OUTPUT &&
 			    port_matches(data, n, p, data->opt_output))
 				out_port = p->id;
-			else if (in_port == 0 && p->extra[0] == PW_DIRECTION_INPUT &&
+			else if (in_port == 0 && p->data.port.direction == PW_DIRECTION_INPUT &&
 			    port_matches(data, n, p, data->opt_input))
 				in_port = p->id;
 		}
@@ -529,31 +540,31 @@ static int do_unlink_ports(struct data *data)
 				continue;
 		} else if (out_node && in_node) {
 			/* 2 args, check nodes */
-			if ((p = find_object(data, OBJECT_PORT, l->extra[0])) == NULL)
+			if ((p = find_object(data, OBJECT_PORT, l->data.link.output_port)) == NULL)
 				continue;
-			if ((n = find_object(data, OBJECT_NODE, p->extra[1])) == NULL)
+			if ((n = find_object(data, OBJECT_NODE, p->data.port.node)) == NULL)
 				continue;
 			if (n->id != out_node->id)
 				continue;
 
-			if ((p = find_object(data, OBJECT_PORT, l->extra[1])) == NULL)
+			if ((p = find_object(data, OBJECT_PORT, l->data.link.input_port)) == NULL)
 				continue;
-			if ((n = find_object(data, OBJECT_NODE, p->extra[1])) == NULL)
+			if ((n = find_object(data, OBJECT_NODE, p->data.port.node)) == NULL)
 				continue;
 			if (n->id != in_node->id)
 				continue;
 		} else {
 			/* 2 args, check port names */
-			if ((p = find_object(data, OBJECT_PORT, l->extra[0])) == NULL)
+			if ((p = find_object(data, OBJECT_PORT, l->data.link.output_port)) == NULL)
 				continue;
-			if ((n = find_object(data, OBJECT_NODE, p->extra[1])) == NULL)
+			if ((n = find_object(data, OBJECT_NODE, p->data.port.node)) == NULL)
 				continue;
 			if (!port_matches(data, n, p, data->opt_output))
 				continue;
 
-			if ((p = find_object(data, OBJECT_PORT, l->extra[1])) == NULL)
+			if ((p = find_object(data, OBJECT_PORT, l->data.link.input_port)) == NULL)
 				continue;
-			if ((n = find_object(data, OBJECT_NODE, p->extra[1])) == NULL)
+			if ((n = find_object(data, OBJECT_NODE, p->data.port.node)) == NULL)
 				continue;
 			if (!port_matches(data, n, p, data->opt_input))
 				continue;
@@ -576,18 +587,18 @@ static int do_monitor_port(struct data *data, struct object *port)
 	bool do_print = false;
 	struct object *node;
 
-	if (port->extra[0] == PW_DIRECTION_OUTPUT && data->list_outputs) {
+	if (port->data.port.direction == PW_DIRECTION_OUTPUT && data->list_outputs) {
 		regex = data->out_regex;
 		do_print = true;
 	}
-	if (port->extra[0] == PW_DIRECTION_INPUT && data->list_inputs) {
+	if (port->data.port.direction == PW_DIRECTION_INPUT && data->list_inputs) {
 		regex = data->in_regex;
 		do_print = true;
 	}
 	if (!do_print)
 		return 0;
 
-	if ((node = find_object(data, OBJECT_NODE, port->extra[1])) == NULL)
+	if ((node = find_object(data, OBJECT_NODE, port->data.port.node)) == NULL)
 		return -ENOENT;
 
 	if (regex && !port_regex(data, node, port, regex))
@@ -605,16 +616,16 @@ static int do_monitor_link(struct data *data, struct object *link)
 	if (!(data->opt_mode & MODE_LIST_LINKS))
 		return 0;
 
-	if ((p1 = find_object(data, OBJECT_PORT, link->extra[0])) == NULL)
+	if ((p1 = find_object(data, OBJECT_PORT, link->data.link.output_port)) == NULL)
 		return -ENOENT;
-	if ((n1 = find_object(data, OBJECT_NODE, p1->extra[1])) == NULL)
+	if ((n1 = find_object(data, OBJECT_NODE, p1->data.port.node)) == NULL)
 		return -ENOENT;
 	if (data->out_regex && !port_regex(data, n1, p1, data->out_regex))
 		return 0;
 
-	if ((p2 = find_object(data, OBJECT_PORT, link->extra[1])) == NULL)
+	if ((p2 = find_object(data, OBJECT_PORT, link->data.link.input_port)) == NULL)
 		return -ENOENT;
-	if ((n2 = find_object(data, OBJECT_NODE, p2->extra[1])) == NULL)
+	if ((n2 = find_object(data, OBJECT_NODE, p2->data.port.node)) == NULL)
 		return -ENOENT;
 	if (data->in_regex && !port_regex(data, n2, p2, data->in_regex))
 		return 0;
@@ -634,7 +645,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 {
 	struct data *d = data;
 	enum object_type t;
-	uint32_t extra[2];
+	union object_data extra = {0};
 	struct object *obj;
 	const char *str;
 
@@ -654,22 +665,22 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		if ((str = spa_dict_lookup(props, PW_KEY_PORT_DIRECTION)) == NULL)
 			return;
 		if (spa_streq(str, "in"))
-			extra[0] = PW_DIRECTION_INPUT;
+			extra.port.direction = PW_DIRECTION_INPUT;
 		else if (spa_streq(str, "out"))
-			extra[0] = PW_DIRECTION_OUTPUT;
+			extra.port.direction = PW_DIRECTION_OUTPUT;
 		else
 			return;
 		if ((str = spa_dict_lookup(props, PW_KEY_NODE_ID)) == NULL)
 			return;
-		extra[1] = atoi(str);
+		extra.port.node = atoi(str);
 	} else if (spa_streq(type, PW_TYPE_INTERFACE_Link)) {
 		t = OBJECT_LINK;
 		if ((str = spa_dict_lookup(props, PW_KEY_LINK_OUTPUT_PORT)) == NULL)
 			return;
-		extra[0] = atoi(str);
+		extra.link.output_port = atoi(str);
 		if ((str = spa_dict_lookup(props, PW_KEY_LINK_INPUT_PORT)) == NULL)
 			return;
-		extra[1] = atoi(str);
+		extra.link.input_port = atoi(str);
 	} else
 		return;
 
@@ -677,7 +688,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 	obj->type = t;
 	obj->id = id;
 	obj->props = pw_properties_new_dict(props);
-	memcpy(obj->extra, extra, sizeof(extra));
+	obj->data = extra;
 	spa_list_append(&d->objects, &obj->link);
 
 	if (d->monitoring) {

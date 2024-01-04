@@ -578,6 +578,8 @@ static void manager_added(void *d, struct pw_manager_object *o)
 {
 	struct service *s;
 	struct pw_node_info *info;
+	struct module_zeroconf_publish_data *data = d;
+	struct impl *impl = data->module->impl;
 
 	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
 		return;
@@ -589,7 +591,9 @@ static void manager_added(void *d, struct pw_manager_object *o)
 	if (pw_manager_object_is_network(o))
 		return;
 
-	s = create_service(d, o);
+	update_object_info(data->manager, o, &impl->defs);
+
+	s = create_service(data, o);
 	if (s == NULL)
 		return;
 

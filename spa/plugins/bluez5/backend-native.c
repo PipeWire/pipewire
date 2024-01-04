@@ -496,19 +496,19 @@ static bool rfcomm_hsp_hs(struct rfcomm *rfcomm, char* buf)
 	 *   or when the gain is changed on the AG side.
 	 * RING: Sent by AG to HS to notify of an incoming call. It can safely be ignored because
 	 *   it does not expect a reply. */
-	if (sscanf(buf, "\r\n+VGS=%d\r\n", &gain) == 1) {
+	if (sscanf(buf, "+VGS=%d", &gain) == 1) {
 		if (gain <= SPA_BT_VOLUME_HS_MAX) {
 			rfcomm_emit_volume_changed(rfcomm, SPA_BT_VOLUME_ID_RX, gain);
 		} else {
 			spa_log_debug(backend->log, "RFCOMM receive unsupported VGS gain: %s", buf);
 		}
-	} else if (sscanf(buf, "\r\n+VGM=%d\r\n", &gain) == 1) {
+	} else if (sscanf(buf, "+VGM=%d", &gain) == 1) {
 		if (gain <= SPA_BT_VOLUME_HS_MAX) {
 			rfcomm_emit_volume_changed(rfcomm, SPA_BT_VOLUME_ID_TX, gain);
 		} else {
 			spa_log_debug(backend->log, "RFCOMM receive unsupported VGM gain: %s", buf);
 		}
-	} else if (spa_strstartswith(buf, "\r\nOK\r\n")) {
+	} else if (spa_streq(buf, "OK")) {
 		if (rfcomm->hs_state == hsp_hs_init2) {
 			if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
 				rfcomm->hs_state = hsp_hs_vgs;
@@ -777,12 +777,6 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 	int xapl_product;
 	int xapl_features;
 
-	spa_debug_log_mem(backend->log, SPA_LOG_LEVEL_DEBUG, 2, buf, strlen(buf));
-
-	/* Some devices send initial \n: be permissive */
-	while (*buf == '\n')
-		++buf;
-
 	if (sscanf(buf, "AT+BRSF=%u", &features) == 1) {
 		unsigned int ag_features = SPA_BT_HFP_AG_FEATURE_NONE;
 
@@ -884,7 +878,7 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 				rfcomm_emit_volume_changed(rfcomm, -1, SPA_BT_VOLUME_INVALID);
 			}
 		}
-	} else if (spa_streq(buf, "\r")) {
+	} else if (spa_streq(buf, "")) {
 		/* No commands, reply OK (ITU-T Rec. V.250 Sec. 5.2.1 & 5.6) */
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (!rfcomm->slc_configured) {
@@ -1178,147 +1172,144 @@ next_indicator:
 	return true;
 }
 
-static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* buf)
+static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 {
 	struct impl *backend = rfcomm->backend;
 	unsigned int features, gain, selected_codec, indicator, value;
-	char* token;
 
-	while ((token = strsep(&buf, "\r\n"))) {
-		if (sscanf(token, "+BRSF:%u", &features) == 1) {
-			if (((features & (SPA_BT_HFP_AG_FEATURE_CODEC_NEGOTIATION)) != 0) &&
-			    rfcomm->msbc_supported_by_hfp)
-				rfcomm->codec_negotiation_supported = true;
-		} else if (sscanf(token, "+BCS:%u", &selected_codec) == 1 && rfcomm->codec_negotiation_supported) {
-			if (selected_codec != HFP_AUDIO_CODEC_CVSD && selected_codec != HFP_AUDIO_CODEC_MSBC) {
-				spa_log_warn(backend->log, "unsupported codec negotiation: %d", selected_codec);
+	if (sscanf(token, "+BRSF:%u", &features) == 1) {
+		if (((features & (SPA_BT_HFP_AG_FEATURE_CODEC_NEGOTIATION)) != 0) &&
+				rfcomm->msbc_supported_by_hfp)
+			rfcomm->codec_negotiation_supported = true;
+	} else if (sscanf(token, "+BCS:%u", &selected_codec) == 1 && rfcomm->codec_negotiation_supported) {
+		if (selected_codec != HFP_AUDIO_CODEC_CVSD && selected_codec != HFP_AUDIO_CODEC_MSBC) {
+			spa_log_warn(backend->log, "unsupported codec negotiation: %d", selected_codec);
+		} else {
+			spa_log_debug(backend->log, "RFCOMM selected_codec = %i", selected_codec);
+
+			/* send codec selection to AG */
+			rfcomm_send_cmd(rfcomm, "AT+BCS=%u", selected_codec);
+
+			rfcomm->hf_state = hfp_hf_bcs;
+
+			if (!rfcomm->transport || (rfcomm->transport->codec != selected_codec) ) {
+				if (rfcomm->transport)
+					spa_bt_transport_free(rfcomm->transport);
+
+				rfcomm->transport = _transport_create(rfcomm);
+				if (rfcomm->transport == NULL) {
+					spa_log_warn(backend->log, "can't create transport: %m");
+					// TODO: We should manage the missing transport
+				} else {
+					rfcomm->transport->codec = selected_codec;
+					spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
+				}
+			}
+		}
+	} else if (sscanf(token, "+VGM%*1[:=]%u", &gain) == 1) {
+		if (gain <= SPA_BT_VOLUME_HS_MAX) {
+			rfcomm_emit_volume_changed(rfcomm, SPA_BT_VOLUME_ID_TX, gain);
+		} else {
+			spa_log_debug(backend->log, "RFCOMM receive unsupported VGM gain: %s", token);
+		}
+	} else if (sscanf(token, "+VGS%*1[:=]%u", &gain) == 1) {
+		if (gain <= SPA_BT_VOLUME_HS_MAX) {
+			rfcomm_emit_volume_changed(rfcomm, SPA_BT_VOLUME_ID_RX, gain);
+		} else {
+			spa_log_debug(backend->log, "RFCOMM receive unsupported VGS gain: %s", token);
+		}
+	} else if (spa_strstartswith(token, "+CIND: (")) {
+		uint8_t i = 1;
+		while (strstr(token, "\"")) {
+			token += strcspn(token, "\"") + 1;
+			token[strcspn(token, "\"")] = 0;
+			rfcomm->hf_indicators[i] = strdup(token);
+			token += strcspn(token, "\"") + 1;
+			i++;
+			if (i == MAX_HF_INDICATORS) {
+				break;
+			}
+		}
+	} else if (spa_strstartswith(token, "+CIND: ")) {
+		token[strcspn(token, "\r")] = 0;
+		token[strcspn(token, "\n")] = 0;
+		token += strlen("+CIND: ");
+		uint8_t i = 1;
+		while (strlen(token)) {
+			if (i >= MAX_HF_INDICATORS || !rfcomm->hf_indicators[i]) {
+				break;
+			}
+			token[strcspn(token, ",")] = 0;
+			spa_log_info(backend->log, "AG indicator state: %s = %i", rfcomm->hf_indicators[i], atoi(token));
+
+			if (spa_streq(rfcomm->hf_indicators[i], "battchg")) {
+				spa_bt_device_report_battery_level(rfcomm->device, atoi(token) * 100 / 5);
+			}
+
+			token += strcspn(token, "\0") + 1;
+			i++;
+		}
+	} else if (sscanf(token, "+CIEV: %u,%u", &indicator, &value) == 2) {
+		if (indicator >= MAX_HF_INDICATORS || !rfcomm->hf_indicators[indicator]) {
+			spa_log_warn(backend->log, "indicator %u has not been registered, ignoring", indicator);
+		} else {
+			spa_log_info(backend->log, "AG indicator update: %s = %u", rfcomm->hf_indicators[indicator], value);
+
+			if (spa_streq(rfcomm->hf_indicators[indicator], "battchg")) {
+				spa_bt_device_report_battery_level(rfcomm->device, value * 100 / 5);
+			}
+		}
+	} else if (spa_strstartswith(token, "OK")) {
+		switch(rfcomm->hf_state) {
+		case hfp_hf_brsf:
+			if (rfcomm->codec_negotiation_supported) {
+				rfcomm_send_cmd(rfcomm, "AT+BAC=1,2");
+				rfcomm->hf_state = hfp_hf_bac;
 			} else {
-				spa_log_debug(backend->log, "RFCOMM selected_codec = %i", selected_codec);
-
-				/* send codec selection to AG */
-				rfcomm_send_cmd(rfcomm, "AT+BCS=%u", selected_codec);
-
-				rfcomm->hf_state = hfp_hf_bcs;
-
-				if (!rfcomm->transport || (rfcomm->transport->codec != selected_codec) ) {
-					if (rfcomm->transport)
-						spa_bt_transport_free(rfcomm->transport);
-
-					rfcomm->transport = _transport_create(rfcomm);
-					if (rfcomm->transport == NULL) {
-						spa_log_warn(backend->log, "can't create transport: %m");
-						// TODO: We should manage the missing transport
-					} else {
-						rfcomm->transport->codec = selected_codec;
-						spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
-					}
+				rfcomm_send_cmd(rfcomm, "AT+CIND=?");
+				rfcomm->hf_state = hfp_hf_cind1;
+			}
+			break;
+		case hfp_hf_bac:
+			rfcomm_send_cmd(rfcomm, "AT+CIND=?");
+			rfcomm->hf_state = hfp_hf_cind1;
+			break;
+		case hfp_hf_cind1:
+			rfcomm_send_cmd(rfcomm, "AT+CIND?");
+			rfcomm->hf_state = hfp_hf_cind2;
+			break;
+		case hfp_hf_cind2:
+			rfcomm_send_cmd(rfcomm, "AT+CMER=3,0,0,1");
+			rfcomm->hf_state = hfp_hf_cmer;
+			break;
+		case hfp_hf_cmer:
+			rfcomm->hf_state = hfp_hf_slc1;
+			rfcomm->slc_configured = true;
+			if (!rfcomm->codec_negotiation_supported) {
+				rfcomm->transport = _transport_create(rfcomm);
+				if (rfcomm->transport == NULL) {
+					spa_log_warn(backend->log, "can't create transport: %m");
+					// TODO: We should manage the missing transport
+				} else {
+					rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
+					spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 				}
 			}
-		} else if (sscanf(token, "+VGM%*1[:=]%u", &gain) == 1) {
-			if (gain <= SPA_BT_VOLUME_HS_MAX) {
-				rfcomm_emit_volume_changed(rfcomm, SPA_BT_VOLUME_ID_TX, gain);
-			} else {
-				spa_log_debug(backend->log, "RFCOMM receive unsupported VGM gain: %s", token);
-			}
-		} else if (sscanf(token, "+VGS%*1[:=]%u", &gain) == 1) {
-			if (gain <= SPA_BT_VOLUME_HS_MAX) {
-				rfcomm_emit_volume_changed(rfcomm, SPA_BT_VOLUME_ID_RX, gain);
-			} else {
-				spa_log_debug(backend->log, "RFCOMM receive unsupported VGS gain: %s", token);
-			}
-		} else if (spa_strstartswith(token, "+CIND: (")) {
-			uint8_t i = 1;
-			while (strstr(token, "\"")) {
-				token += strcspn(token, "\"") + 1;
-				token[strcspn(token, "\"")] = 0;
-				rfcomm->hf_indicators[i] = strdup(token);
-				token += strcspn(token, "\"") + 1;
-				i++;
-				if (i == MAX_HF_INDICATORS) {
-					break;
-				}
-			}
-		} else if (spa_strstartswith(token, "+CIND: ")) {
-			token[strcspn(token, "\r")] = 0;
-			token[strcspn(token, "\n")] = 0;
-			token += strlen("+CIND: ");
-			uint8_t i = 1;
-			while (strlen(token)) {
-				if (i >= MAX_HF_INDICATORS || !rfcomm->hf_indicators[i]) {
-					break;
-				}
-				token[strcspn(token, ",")] = 0;
-				spa_log_info(backend->log, "AG indicator state: %s = %i", rfcomm->hf_indicators[i], atoi(token));
-
-				if (spa_streq(rfcomm->hf_indicators[i], "battchg")) {
-					spa_bt_device_report_battery_level(rfcomm->device, atoi(token) * 100 / 5);
-				}
-
-				token += strcspn(token, "\0") + 1;
-				i++;
-			}
-		} else if (sscanf(token, "+CIEV: %u,%u", &indicator, &value) == 2) {
-			if (indicator >= MAX_HF_INDICATORS || !rfcomm->hf_indicators[indicator]) {
-				spa_log_warn(backend->log, "indicator %u has not been registered, ignoring", indicator);
-			} else {
-				spa_log_info(backend->log, "AG indicator update: %s = %u", rfcomm->hf_indicators[indicator], value);
-
-				if (spa_streq(rfcomm->hf_indicators[indicator], "battchg")) {
-					spa_bt_device_report_battery_level(rfcomm->device, value * 100 / 5);
-				}
-			}
-		} else if (spa_strstartswith(token, "OK")) {
-			switch(rfcomm->hf_state) {
-				case hfp_hf_brsf:
-					if (rfcomm->codec_negotiation_supported) {
-						rfcomm_send_cmd(rfcomm, "AT+BAC=1,2");
-						rfcomm->hf_state = hfp_hf_bac;
-					} else {
-						rfcomm_send_cmd(rfcomm, "AT+CIND=?");
-						rfcomm->hf_state = hfp_hf_cind1;
-					}
-					break;
-				case hfp_hf_bac:
-					rfcomm_send_cmd(rfcomm, "AT+CIND=?");
-					rfcomm->hf_state = hfp_hf_cind1;
-					break;
-				case hfp_hf_cind1:
-					rfcomm_send_cmd(rfcomm, "AT+CIND?");
-					rfcomm->hf_state = hfp_hf_cind2;
-					break;
-				case hfp_hf_cind2:
-					rfcomm_send_cmd(rfcomm, "AT+CMER=3,0,0,1");
-					rfcomm->hf_state = hfp_hf_cmer;
-					break;
-				case hfp_hf_cmer:
-					rfcomm->hf_state = hfp_hf_slc1;
-					rfcomm->slc_configured = true;
-					if (!rfcomm->codec_negotiation_supported) {
-						rfcomm->transport = _transport_create(rfcomm);
-						if (rfcomm->transport == NULL) {
-							spa_log_warn(backend->log, "can't create transport: %m");
-							// TODO: We should manage the missing transport
-						} else {
-							rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
-							spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
-						}
-					}
-					/* Report volume on SLC establishment */
-					if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
-						rfcomm->hf_state = hfp_hf_vgs;
-					break;
-				case hfp_hf_slc2:
-					if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
-						rfcomm->hf_state = hfp_hf_vgs;
-					break;
-				case hfp_hf_vgs:
-					rfcomm->hf_state = hfp_hf_slc1;
-					if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_TX))
-						rfcomm->hf_state = hfp_hf_vgm;
-					break;
-				default:
-					break;
-			}
+			/* Report volume on SLC establishment */
+			if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
+				rfcomm->hf_state = hfp_hf_vgs;
+			break;
+		case hfp_hf_slc2:
+			if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
+				rfcomm->hf_state = hfp_hf_vgs;
+			break;
+		case hfp_hf_vgs:
+			rfcomm->hf_state = hfp_hf_slc1;
+			if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_TX))
+				rfcomm->hf_state = hfp_hf_vgm;
+			break;
+		default:
+			break;
 		}
 	}
 
@@ -1326,6 +1317,35 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* buf)
 }
 
 #endif
+
+static void rfcomm_process_events(struct rfcomm *rfcomm, char *buf, bool ag, bool (*handler)(struct rfcomm *, char *))
+{
+	struct impl *backend = rfcomm->backend;
+	char *token;
+
+	/* Relaxed parsing of both <COMMAND>\r (AG) and \r\n<REPLY>\r\n (HF) */
+
+	while ((token = strsep(&buf, "\r"))) {
+		size_t len;
+
+		/* Skip leading and trailing \n */
+		while (*token == '\n')
+			++token;
+		for (len = strlen(token); len > 0 && token[len - 1] == '\n'; --len)
+			token[len - 1] = '\0';
+
+		/* Skip empty (only last one if AG) */
+		if (*token == '\0' && (buf == NULL || !ag))
+			continue;
+
+		spa_log_debug(backend->log, "RFCOMM event: %s", token);
+
+		if (!handler(rfcomm, token)) {
+			spa_log_debug(backend->log, "RFCOMM received unsupported event: %s", token);
+			rfcomm_send_error(rfcomm, CMEE_OPERATION_NOT_SUPPORTED);
+		}
+	}
+}
 
 static void rfcomm_event(struct spa_source *source)
 {
@@ -1341,40 +1361,36 @@ static void rfcomm_event(struct spa_source *source)
 	if (source->rmask & SPA_IO_IN) {
 		char buf[512];
 		ssize_t len;
-		bool res = false;
 
-		len = read(source->fd, buf, 511);
+		len = read(source->fd, buf, sizeof(buf) - 1);
 		if (len < 0) {
 			spa_log_error(backend->log, "RFCOMM read error: %s", strerror(errno));
 			return;
 		}
 		buf[len] = 0;
+
 		spa_log_debug(backend->log, "RFCOMM << %s", buf);
+		spa_debug_log_mem(backend->log, SPA_LOG_LEVEL_DEBUG, 2, buf, strlen(buf));
 
 		switch (rfcomm->profile) {
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 		case SPA_BT_PROFILE_HSP_HS:
-			res = rfcomm_hsp_ag(rfcomm, buf);
+			rfcomm_process_events(rfcomm, buf, true, rfcomm_hsp_ag);
 			break;
 		case SPA_BT_PROFILE_HSP_AG:
-			res = rfcomm_hsp_hs(rfcomm, buf);
+			rfcomm_process_events(rfcomm, buf, false, rfcomm_hsp_hs);
 			break;
 #endif
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
 		case SPA_BT_PROFILE_HFP_HF:
-			res = rfcomm_hfp_ag(rfcomm, buf);
+			rfcomm_process_events(rfcomm, buf, true, rfcomm_hfp_ag);
 			break;
 		case SPA_BT_PROFILE_HFP_AG:
-			res = rfcomm_hfp_hf(rfcomm, buf);
+			rfcomm_process_events(rfcomm, buf, false, rfcomm_hfp_hf);
 			break;
 #endif
 		default:
 			break;
-		}
-
-		if (!res) {
-			spa_log_debug(backend->log, "RFCOMM received unsupported command: %s", buf);
-			rfcomm_send_error(rfcomm, CMEE_OPERATION_NOT_SUPPORTED);
 		}
 	}
 }

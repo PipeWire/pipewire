@@ -9,6 +9,7 @@
 #include <regex.h>
 #include <locale.h>
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/defs.h>
@@ -716,6 +717,13 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 	}
 }
 
+static void destroy_object(struct object *obj)
+{
+	spa_list_remove(&obj->link);
+	pw_properties_free(obj->props);
+	free(obj);
+}
+
 static void registry_event_global_remove(void *data, uint32_t id)
 {
 	struct data *d = data;
@@ -740,9 +748,7 @@ static void registry_event_global_remove(void *data, uint32_t id)
 		}
 	}
 
-	spa_list_remove(&obj->link);
-	pw_properties_free(obj->props);
-	free(obj);
+	destroy_object(obj);
 }
 
 static const struct pw_registry_events registry_events = {
@@ -820,10 +826,47 @@ static void show_help(struct data *data, const char *name, bool error)
 		name);
 }
 
-int main(int argc, char *argv[])
+static void data_clear(struct data *data)
 {
-	struct data data = {
+	struct object *o;
+	spa_list_consume(o, &data->objects, link)
+		destroy_object(o);
+
+	struct target_link *tl;
+	spa_list_consume(tl, &data->target_links, link) {
+		spa_hook_remove(&tl->listener);
+		pw_proxy_destroy(tl->proxy);
+		spa_list_remove(&tl->link);
+		free(tl);
+	}
+
+	if (data->out_regex)
+		regfree(data->out_regex);
+	if (data->in_regex)
+		regfree(data->in_regex);
+
+	if (data->registry) {
+		spa_hook_remove(&data->registry_listener);
+		pw_proxy_destroy((struct pw_proxy *) data->registry);
+	}
+
+	if (data->core) {
+		spa_hook_remove(&data->core_listener);
+		pw_core_disconnect(data->core);
+	}
+
+	spa_clear_ptr(data->context, pw_context_destroy);
+	spa_clear_ptr(data->loop, pw_main_loop_destroy);
+
+	pw_properties_free(data->props);
+}
+
+static int run(int argc, char *argv[])
+{
+	spa_cleanup(data_clear) struct data data = {
 		.opt_mode = MODE_CONNECT,
+		.objects = SPA_LIST_INIT(&data.objects),
+		.target_links = SPA_LIST_INIT(&data.target_links),
 	};
 	int res = 0, c;
 	static const struct option long_options[] = {
@@ -843,13 +886,6 @@ int main(int argc, char *argv[])
 		{ "disconnect",	no_argument,		NULL, 'd' },
 		{ NULL,	0, NULL, 0}
 	};
-
-	setlocale(LC_ALL, "");
-	pw_init(&argc, &argv);
-	spa_list_init(&data.objects);
-	spa_list_init(&data.target_links);
-
-	setlinebuf(stdout);
 
 	data.props = pw_properties_new(NULL, NULL);
 	if (data.props == NULL) {
@@ -1031,24 +1067,16 @@ int main(int argc, char *argv[])
 		data.monitoring = false;
 	}
 
-	struct target_link *tl;
-	spa_list_consume(tl, &data.target_links, link) {
-		spa_hook_remove(&tl->listener);
-		pw_proxy_destroy(tl->proxy);
-		spa_list_remove(&tl->link);
-		free(tl);
-	}
+	return 0;
+}
 
-	if (data.out_regex)
-		regfree(data.out_regex);
-	if (data.in_regex)
-		regfree(data.in_regex);
-	spa_hook_remove(&data.registry_listener);
-	pw_proxy_destroy((struct pw_proxy*)data.registry);
-	spa_hook_remove(&data.core_listener);
-	pw_core_disconnect(data.core);
-	pw_context_destroy(data.context);
-	pw_main_loop_destroy(data.loop);
+int main(int argc, char *argv[])
+{
+	setlocale(LC_ALL, "");
+	setlinebuf(stdout);
+
+	pw_init(&argc, &argv);
+	int res = run(argc, argv);
 	pw_deinit();
 
 	return res;

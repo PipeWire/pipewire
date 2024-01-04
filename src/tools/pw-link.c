@@ -61,12 +61,12 @@ struct data {
 #define MODE_LIST_PORTS		(MODE_LIST_OUTPUT|MODE_LIST_INPUT)
 #define MODE_LIST_LINKS		(1<<2)
 #define MODE_LIST		(MODE_LIST_PORTS|MODE_LIST_LINKS)
-#define MODE_MONITOR		(1<<3)
-#define MODE_DISCONNECT		(1<<4)
+#define MODE_DISCONNECT		(1<<3)
 	uint32_t opt_mode;
 	bool opt_id;
 	bool opt_verbose;
 	bool opt_wait;
+	bool opt_monitor;
 	const char *opt_output;
 	const char *opt_input;
 	struct pw_properties *props;
@@ -875,7 +875,7 @@ int main(int argc, char *argv[])
 			data.opt_mode |= MODE_LIST_LINKS;
 			break;
 		case 'm':
-			data.opt_mode |= MODE_MONITOR;
+			data.opt_monitor = true;
 			break;
 		case 'I':
 			data.opt_id = true;
@@ -911,7 +911,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	if ((data.opt_mode & MODE_MONITOR) == 0)
+	if (!data.opt_monitor)
 		pw_properties_set(data.props, PW_KEY_OBJECT_LINGER, "true");
 
 	if (optind < argc)
@@ -959,7 +959,7 @@ int main(int argc, char *argv[])
 			&data.registry_listener,
 			&registry_events, &data);
 
-	data.prefix = (data.opt_mode & MODE_MONITOR) ? "= " : "";
+	data.prefix = data.opt_monitor ? "= " : "";
 
 	core_sync(&data);
 	pw_main_loop_run(data.loop);
@@ -1011,7 +1011,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (data.opt_mode & MODE_MONITOR) {
+	if (data.opt_monitor) {
 		data.monitoring = true;
 		pw_main_loop_run(data.loop);
 		data.monitoring = false;

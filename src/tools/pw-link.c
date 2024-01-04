@@ -826,8 +826,6 @@ int main(int argc, char *argv[])
 		.opt_mode = MODE_CONNECT,
 	};
 	int res = 0, c;
-	regex_t out_port_regex;
-	regex_t in_port_regex;
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
@@ -984,12 +982,12 @@ int main(int argc, char *argv[])
 		data.list_outputs = true;
 
 	if (data.opt_output) {
-		if (regcomp(&out_port_regex, data.opt_output, REG_EXTENDED | REG_NOSUB) == 0)
-			data.out_regex = &out_port_regex;
+		if (regcomp(&data.out_port_regex, data.opt_output, REG_EXTENDED | REG_NOSUB) == 0)
+			data.out_regex = &data.out_port_regex;
 	}
 	if (data.opt_input) {
-		if (regcomp(&in_port_regex, data.opt_input, REG_EXTENDED | REG_NOSUB) == 0)
-			data.in_regex = &in_port_regex;
+		if (regcomp(&data.in_port_regex, data.opt_input, REG_EXTENDED | REG_NOSUB) == 0)
+			data.in_regex = &data.in_port_regex;
 	}
 
 	switch (data.opt_mode) {

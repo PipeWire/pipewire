@@ -32,6 +32,7 @@ static const char *const pulse_module_options =
 	"source=<name of the remote source> "
 	"source_name=<name for the local source> "
 	"source_properties=<properties for the local source> "
+	"reconnect_interval_ms=<interval to try reconnects, 0 or omitted if disabled> "
 	"format=<sample format> "
 	"channels=<number of channels> "
 	"rate=<sample rate> "
@@ -178,6 +179,10 @@ static int module_tunnel_source_prepare(struct module * const module)
 	}
 	audioinfo_to_properties(&info, stream_props);
 
+	if ((str = pw_properties_get(props, "reconnect_interval_ms")) != NULL) {
+		pw_properties_set(props, "reconnect.interval.ms", str);
+		pw_properties_set(props, "reconnect_interval_ms", NULL);
+	}
 	if ((str = pw_properties_get(props, "latency_msec")) != NULL) {
 		pw_properties_set(props, "pulse.latency", str);
 		pw_properties_set(props, "latency_msec", NULL);

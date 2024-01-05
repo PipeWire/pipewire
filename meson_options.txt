@@ -61,7 +61,7 @@ option('pipewire-v4l2',
 option('jack-devel',
        description: 'Install jack development files',
        type: 'boolean',
-       value: 'false')
+       value: false)
 option('libjack-path',
        description: 'Where to install the libjack.so library',
        type: 'string')
@@ -268,7 +268,7 @@ option('libcanberra',
 option('legacy-rtkit',
        description: 'Build legacy rtkit module',
        type: 'boolean',
-       value: 'true')
+       value: true)
 option('avb',
        description: 'Enable AVB code',
        type: 'feature',
@@ -292,7 +292,7 @@ option('compress-offload',
 option('pam-defaults-install',
        description: 'Install limits.d file modifying defaults for all PAM users. Only for old kernels/systemd!',
        type: 'boolean',
-       value: 'false')
+       value: false)
 option('pam-memlock-default',
        description : 'The default memlock value for any PAM user in kilobytes. Multiples of 64 recommended.',
        type : 'integer',
@@ -301,7 +301,7 @@ option('pam-memlock-default',
 option('rlimits-install',
        description: 'Install PAM limits.d file. Voids all following rlimits-* options, if false',
        type: 'boolean',
-       value: 'true')
+       value: true)
 option('rlimits-match',
        description : 'PAM match rule for the generated limits.d file. @<name> denotes matching a group.',
        type : 'string',

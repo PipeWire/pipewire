@@ -37,7 +37,6 @@ struct device {
 	struct udev_device *dev;
 	int inotify_wd;
 	unsigned int accessible:1;
-	unsigned int ignored:1;
 	unsigned int emitted:1;
 };
 
@@ -368,8 +367,6 @@ static void process_device(struct impl *this, uint32_t action, struct udev_devic
 		return;
 
 	device = find_device(this, id);
-	if (device && device->ignored)
-		return;
 
 	switch (action) {
 	case ACTION_ADD:

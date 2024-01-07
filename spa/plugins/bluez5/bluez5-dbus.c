@@ -775,8 +775,6 @@ static void parse_endpoint_qos(struct spa_bt_monitor *monitor, DBusMessageIter *
 				qos->preferred_delay_min = value;
 			else if (spa_streq(key, "PreferredMaximumDelay"))
 				qos->preferred_delay_max = value;
-			else if (spa_streq(key, "Locations") || spa_streq(key, "Location"))
-				qos->locations = value;
 		}
 
 		dbus_message_iter_next(&dict_iter);
@@ -843,7 +841,7 @@ static int parse_endpoint_props(struct spa_bt_monitor *monitor, DBusMessageIter 
 
 			dbus_message_iter_recurse(&it[1], &it[2]);
 			parse_endpoint_qos(monitor, &it[2], qos);
-		} else if (spa_streq(key, "Locations")) {
+		} else if (spa_streq(key, "Locations") || spa_streq(key, "Location")) {
 			dbus_uint32_t value;
 
 			if (type != DBUS_TYPE_UINT32)
@@ -852,6 +850,15 @@ static int parse_endpoint_props(struct spa_bt_monitor *monitor, DBusMessageIter 
 			dbus_message_iter_get_basic(&it[1], &value);
 			spa_log_debug(monitor->log, "ep qos: %s=%d", key, (int)value);
 			qos->locations = value;
+		} else if (spa_streq(key, "ChannelAllocation")) {
+			dbus_uint32_t value;
+
+			if (type != DBUS_TYPE_UINT32)
+				goto bad_property;
+
+			dbus_message_iter_get_basic(&it[1], &value);
+			spa_log_debug(monitor->log, "ep qos: %s=%d", key, (int)value);
+			qos->channel_allocation = value;
 		}
 
 		dbus_message_iter_next(&dict_iter);
@@ -876,13 +883,14 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	bool sink;
 	const char *err_msg = "Unknown error";
 	struct spa_dict settings;
-	struct spa_dict_item setting_items[SPA_N_ELEMENTS(monitor->global_setting_items) + 2];
+	struct spa_dict_item setting_items[SPA_N_ELEMENTS(monitor->global_setting_items) + 3];
 	int i;
 
 	const char *endpoint_path = NULL;
 	uint8_t caps[A2DP_MAX_CAPS_SIZE];
 	uint8_t config[A2DP_MAX_CAPS_SIZE];
 	char locations[64] = {0};
+	char channel_allocation[64] = {0};
 	int caps_size = 0;
 	int conf_size;
 	DBusMessageIter dict;
@@ -919,6 +927,8 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 		goto error_invalid;
 	if (endpoint_qos.locations)
 		spa_scnprintf(locations, sizeof(locations), "%"PRIu32, endpoint_qos.locations);
+	if (endpoint_qos.channel_allocation)
+		spa_scnprintf(channel_allocation, sizeof(channel_allocation), "%"PRIu32, endpoint_qos.channel_allocation);
 
 	ep = remote_endpoint_find(monitor, endpoint_path);
 	if (!ep) {
@@ -934,8 +944,10 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	for (i = 0; i < (int)monitor->global_settings.n_items; ++i)
 		setting_items[i] = monitor->global_settings.items[i];
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.locations", locations);
+	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.channel-allocation", channel_allocation);
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.debug", "true");
 	settings = SPA_DICT_INIT(setting_items, i);
+	spa_assert((size_t)i <= SPA_N_ELEMENTS(setting_items));
 
 	conf_size = codec->select_config(codec, 0, caps, caps_size, &monitor->default_audio_info, &settings, config);
 	if (conf_size < 0) {

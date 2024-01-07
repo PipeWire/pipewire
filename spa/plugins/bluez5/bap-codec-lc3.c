@@ -43,6 +43,7 @@ struct pac_data {
 	size_t size;
 	int index;
 	uint32_t locations;
+	uint32_t channel_allocation;
 };
 
 typedef struct {
@@ -188,9 +189,11 @@ static int parse_bluez_pacs(const uint8_t *data, size_t data_size, struct pac_da
 	return pac + 1;
 }
 
-static uint8_t get_num_channels(uint32_t channels)
+static uint8_t get_channel_count(uint32_t channels)
 {
 	uint8_t num;
+
+	channels &= BAP_CHANNEL_ALL;
 
 	if (channels == 0)
 		return 1;  /* MONO */
@@ -202,27 +205,60 @@ static uint8_t get_num_channels(uint32_t channels)
 	return num;
 }
 
-static int select_channels(uint8_t channels, uint32_t locations, uint32_t *mapping, unsigned int max_channels)
+static bool supports_channel_count(uint8_t mask, uint8_t count)
 {
-	unsigned int i, num = 0;
+	if (count == 0 || count > 8)
+		return false;
+	return mask & (1u << (count - 1));
+}
 
-	if ((channels & LC3_CHAN_2) && max_channels >= 2)
-		num = 2;
-	else if ((channels & LC3_CHAN_1) && max_channels >= 1)
-		num = 1;
-	else
+static int select_channels(uint8_t channel_counts, uint32_t locations, uint32_t channel_allocation,
+		uint32_t *allocation)
+{
+	unsigned int i, num;
+
+	locations &= BAP_CHANNEL_ALL;
+
+	if (!channel_counts)
 		return -1;
 
 	if (!locations) {
-		*mapping = 0;  /* mono (omit Audio_Channel_Allocation) */
+		*allocation = 0;  /* mono (omit Audio_Channel_Allocation) */
+		return 0;
+	}
+
+	if (channel_allocation) {
+		channel_allocation &= locations;
+
+		/* sanity check channel allocation */
+		while (!supports_channel_count(channel_counts, get_channel_count(channel_allocation))) {
+			for (i = 32; i > 0; --i) {
+				uint32_t mask = (1u << (i-1));
+				if (channel_allocation & mask) {
+					channel_allocation &= ~mask;
+					break;
+				}
+			}
+			if (i == 0)
+				break;
+		}
+
+		*allocation = channel_allocation;
 		return 0;
 	}
 
 	/* XXX: select some channels, but upper level should tell us what */
-	*mapping = 0;
+	if ((channel_counts & LC3_CHAN_2) && get_channel_count(locations) >= 2)
+		num = 2;
+	else if ((channel_counts & LC3_CHAN_1) && get_channel_count(locations) >= 1)
+		num = 1;
+	else
+		return -1;
+
+	*allocation = 0;
 	for (i = 0; i < SPA_N_ELEMENTS(channel_bits); ++i) {
 		if (locations & channel_bits[i].bit) {
-			*mapping |= channel_bits[i].bit;
+			*allocation |= channel_bits[i].bit;
 			--num;
 			if (num == 0)
 				break;
@@ -238,7 +274,7 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 	size_t data_size = pac->size;
 	uint16_t framelen_min = 0, framelen_max = 0;
 	int max_frames = -1;
-	uint8_t channels = LC3_CHAN_1; /* Default: 1 channel (BAP v1.0.1 Sec 4.3.1) */
+	uint8_t channel_counts = LC3_CHAN_1; /* Default: 1 channel (BAP v1.0.1 Sec 4.3.1) */
 	uint8_t max_channels = 0;
 	unsigned int i;
 
@@ -297,7 +333,7 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 		case LC3_TYPE_CHAN:
 			spa_return_val_if_fail(ltv->len == 2, false);
 			{
-				channels = ltv->value[0];
+				channel_counts = ltv->value[0];
 			}
 			break;
 		case LC3_TYPE_FRAMELEN:
@@ -318,7 +354,7 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 	}
 
 	for (i = 0; i < 8; ++i)
-		if (channels & (1u << i))
+		if (channel_counts & (1u << i))
 			max_channels = i + 1;
 
 	/* Default: 1 frame per channel (BAP v1.0.1 Sec 4.3.1) */
@@ -336,13 +372,13 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 		max_frames = max_channels;
 	}
 
-	if (select_channels(channels, pac->locations, &conf->channels, max_frames) < 0) {
+	if (select_channels(channel_counts, pac->locations, pac->channel_allocation, &conf->channels) < 0) {
 		spa_debugc(debug_ctx, "invalid channel configuration: 0x%02x %u",
-				channels, max_frames);
+				channel_counts, max_frames);
 		return false;
 	}
 
-	if (max_frames < get_num_channels(conf->channels)) {
+	if (max_frames < get_channel_count(conf->channels)) {
 		spa_debugc(debug_ctx, "invalid max frames per SDU: %u", max_frames);
 		return false;
 	}
@@ -514,6 +550,7 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	bap_lc3_t conf;
 	uint8_t *data = config;
 	uint32_t locations = 0;
+	uint32_t channel_allocation = 0;
 	struct spa_debug_log_ctx debug_ctx = SPA_LOG_DEBUG_INIT(log, SPA_LOG_LEVEL_TRACE);
 	int i;
 
@@ -521,9 +558,12 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 		return -EINVAL;
 
 	if (settings) {
-		for (i = 0; i < (int)settings->n_items; ++i)
+		for (i = 0; i < (int)settings->n_items; ++i) {
 			if (spa_streq(settings->items[i].key, "bluez5.bap.locations"))
 				sscanf(settings->items[i].value, "%"PRIu32, &locations);
+			if (spa_streq(settings->items[i].key, "bluez5.bap.channel-allocation"))
+				sscanf(settings->items[i].value, "%"PRIu32, &channel_allocation);
+		}
 
 		if (spa_atob(spa_dict_lookup(settings, "bluez5.bap.debug")))
 			debug_ctx = SPA_LOG_DEBUG_INIT(log, SPA_LOG_LEVEL_DEBUG);
@@ -539,8 +579,10 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 		return -EINVAL;
 	}
 
-	for (i = 0; i < npacs; ++i)
+	for (i = 0; i < npacs; ++i) {
 		pacs[i].locations = locations;
+		pacs[i].channel_allocation = channel_allocation;
+	}
 
 	qsort(pacs, npacs, sizeof(struct pac_data), pac_cmp);
 
@@ -577,7 +619,7 @@ static int codec_caps_preference_cmp(const struct media_codec *codec, uint32_t f
 
 static uint8_t channels_to_positions(uint32_t channels, uint32_t *position)
 {
-	uint8_t n_channels = get_num_channels(channels);
+	uint8_t n_channels = get_channel_count(channels);
 	uint8_t n_positions = 0;
 
 	spa_assert(n_channels <= SPA_AUDIO_MAX_CHANNELS);
@@ -745,7 +787,7 @@ static int codec_get_qos(const struct media_codec *codec,
 		qos->phy = 0x1;
 	else
 		qos->phy = 0x2;
-	qos->sdu = conf.framelen * conf.n_blks * get_num_channels(conf.channels);
+	qos->sdu = conf.framelen * conf.n_blks * get_channel_count(conf.channels);
 	qos->interval = (conf.frame_duration == LC3_CONFIG_DURATION_7_5 ? 7500 : 10000);
 	qos->target_latency = BT_ISO_QOS_TARGET_LATENCY_RELIABILITY;
 

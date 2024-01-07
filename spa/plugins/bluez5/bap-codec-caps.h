@@ -126,6 +126,7 @@ struct bap_endpoint_qos {
 	uint32_t locations;
 	uint16_t supported_context;
 	uint16_t context;
+	uint32_t channel_allocation;
 };
 
 struct bap_codec_qos {

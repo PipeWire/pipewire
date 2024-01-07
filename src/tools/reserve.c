@@ -436,6 +436,7 @@ int rd_device_acquire(struct rd_device *d)
 int rd_device_request_release(struct rd_device *d)
 {
 	DBusMessage *m = NULL;
+	int res = 0;
 
 	if (d->priority <= INT32_MIN)
 		return -EBUSY;
@@ -446,16 +447,22 @@ int rd_device_request_release(struct rd_device *d)
 					"RequestRelease")) == NULL) {
 		return -ENOMEM;
 	}
-        if (!dbus_message_append_args(m,
+
+	if (!dbus_message_append_args(m,
 				DBUS_TYPE_INT32, &d->priority,
 				DBUS_TYPE_INVALID)) {
-		dbus_message_unref(m);
-		return -ENOMEM;
-        }
-	if (!dbus_connection_send(d->connection, m, NULL)) {
-		return -EIO;
+		res = -ENOMEM;
+		goto exit;
 	}
-	return 0;
+
+	if (!dbus_connection_send(d->connection, m, NULL)) {
+		res = -EIO;
+		goto exit;
+	}
+
+exit:
+	dbus_message_unref(m);
+	return res;
 }
 
 int rd_device_complete_release(struct rd_device *d, int res)

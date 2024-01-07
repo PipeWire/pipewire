@@ -11,7 +11,7 @@
 #include <spa/utils/string.h>
 #include <pipewire/log.h>
 
-#define SERVICE_PREFIX "org.freedesktop.ReserveDevice1."
+#define SERVICE_NAMESPACE "org.freedesktop.ReserveDevice1"
 #define OBJECT_PREFIX "/org/freedesktop/ReserveDevice1/"
 
 static const char introspection[] =
@@ -363,7 +363,7 @@ rd_device_new(DBusConnection *connection, const char *device_name, const char *a
 		res = -errno;
 		goto error_free;
 	}
-	d->service_name = spa_aprintf(SERVICE_PREFIX "%s", device_name);
+	d->service_name = spa_aprintf(SERVICE_NAMESPACE ".%s", device_name);
 	if (d->service_name == NULL) {
 		res = -errno;
 		goto error_free;
@@ -384,7 +384,7 @@ rd_device_new(DBusConnection *connection, const char *device_name, const char *a
                         "interface='org.freedesktop.DBus',member='NameAcquired'", NULL);
 	dbus_bus_add_match(d->connection,
                         "type='signal',sender='org.freedesktop.DBus',"
-                        "interface='org.freedesktop.DBus',member='NameOwnerChanged'", NULL);
+                        "interface='org.freedesktop.DBus',member='NameOwnerChanged',arg0namespace='" SERVICE_NAMESPACE "'", NULL);
 
 	dbus_connection_ref(d->connection);
 

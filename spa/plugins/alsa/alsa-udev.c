@@ -823,8 +823,6 @@ static void impl_on_notify_events(struct spa_source *source)
 		void *p, *e;
 
 		len = read(source->fd, &buf, sizeof(buf));
-		if (len < 0 && errno != EAGAIN)
-			break;
 		if (len <= 0)
 			break;
 

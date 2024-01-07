@@ -854,7 +854,7 @@ static void impl_on_notify_events(struct spa_source *source)
 					process_card(this, ACTION_DISABLE, card->udev_device);
 			}
 			/* /dev/snd/ might have been removed */
-			if ((event->mask & (IN_DELETE_SELF | IN_MOVE_SELF)))
+			if ((event->mask & (IN_IGNORED | IN_MOVE_SELF)))
 				deleted = true;
 		}
 	}
@@ -873,7 +873,7 @@ static int start_inotify(struct impl *this)
 		return -errno;
 
 	res = inotify_add_watch(notify_fd, "/dev/snd",
-			IN_ATTRIB | IN_CLOSE_WRITE | IN_DELETE_SELF | IN_MOVE_SELF);
+			IN_ATTRIB | IN_CLOSE_WRITE | IN_MOVE_SELF);
 	if (res < 0) {
 		res = -errno;
 		close(notify_fd);

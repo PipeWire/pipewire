@@ -32,7 +32,7 @@ struct rtp_header {
 	uint16_t sequence_number;
 	uint32_t timestamp;
 	uint32_t ssrc;
-	uint32_t csrc[0];
+	uint32_t csrc[];
 } __attribute__ ((packed));
 
 struct rtp_payload {

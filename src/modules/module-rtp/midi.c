@@ -2,6 +2,9 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include <inttypes.h>
+#include <limits.h>
+
 static void rtp_midi_process_playback(void *data)
 {
 	struct impl *impl = data;
@@ -96,12 +99,15 @@ static int parse_varlen(uint8_t *p, uint32_t avail, uint32_t *result)
 	uint32_t value = 0, offs = 0;
 	while (offs < avail) {
 		uint8_t b = p[offs++];
+		if (value > (UINT32_MAX >> 7))
+			return -ERANGE;
 		value = (value << 7) | (b & 0x7f);
-		if ((b & 0x80) == 0)
-			break;
+		if ((b & 0x80) == 0) {
+			*result = value;
+			return offs;
+		}
 	}
-	*result = value;
-	return offs;
+	return -EINVAL;
 }
 
 static int get_midi_size(uint8_t *p, uint32_t avail)
@@ -109,6 +115,8 @@ static int get_midi_size(uint8_t *p, uint32_t avail)
 	int size;
 	uint32_t offs = 0, value;
 
+	if (avail < 1)
+		return -EINVAL;
 	switch (p[offs++]) {
 	case 0xc0 ... 0xdf:
 		size = 2;
@@ -120,8 +128,11 @@ static int get_midi_size(uint8_t *p, uint32_t avail)
 	case 0xff:
 	case 0xf0:
 	case 0xf7:
-		size = parse_varlen(&p[offs], avail - offs, &value);
-		size += value + 1;
+		if ((size = parse_varlen(&p[offs], avail - offs, &value)) < 0)
+			return size;
+		if ((unsigned int)(INT_MAX - size - 1) > value)
+			return -EINVAL;
+		size += (int)value + 1;
 		break;
 	default:
 		return -EINVAL;
@@ -130,7 +141,11 @@ static int get_midi_size(uint8_t *p, uint32_t avail)
 }
 static int parse_journal(struct impl *impl, uint8_t *packet, uint16_t seq, uint32_t len)
 {
-	struct rtp_midi_journal *j = (struct rtp_midi_journal*)packet;
+	struct rtp_midi_journal *j;
+
+	if (len < sizeof(*j))
+		return -EINVAL;
+	j = (struct rtp_midi_journal*)packet;
 	uint16_t seqnum = ntohs(j->checkpoint_seqnum);
 	rtp_stream_emit_send_feedback(impl, seqnum);
 	return 0;
@@ -156,7 +171,7 @@ static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t ti
 		uint16_t seq, uint32_t payload_offset, uint32_t plen)
 {
 	uint32_t write;
-	struct rtp_midi_header *hdr;
+	struct rtp_midi_header hdr;
 	int32_t filled;
 	struct spa_pod_builder b;
 	struct spa_pod_frame f[1];
@@ -164,6 +179,8 @@ static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t ti
 	uint32_t offs = payload_offset, len, end;
 	bool first = true;
 
+	if (plen <= payload_offset)
+		return -EINVAL;
 	if (impl->direct_timestamp) {
 		/* in direct timestamp we attach the RTP timestamp directly on the
 		 * midi events and render them in the corresponding cycle */
@@ -219,18 +236,25 @@ static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t ti
 		return -ENOSPC;
 	}
 
-	hdr = (struct rtp_midi_header *)&packet[offs++];
-	len = hdr->len;
-	if (hdr->b) {
-		len = (len << 8) | hdr->len_b;
-		offs++;
+	SPA_STATIC_ASSERT(sizeof hdr == 2);
+	memcpy(&hdr, &packet[offs++], 1);
+	if (hdr.b) {
+		if (offs >= plen) {
+			pw_log_warn("invalid packet: no room for long length byte");
+			return -EINVAL;
+		}
+		hdr.len_b = packet[offs++];
+		len = (hdr.len << 8) | hdr.len_b;
+	} else {
+		hdr.len_b = 0;
+		len = hdr.len;
 	}
-	end = len + offs;
-	if (end > plen) {
-		pw_log_warn("invalid packet %d > %d", end, plen);
+	if (plen - offs < len) {
+		pw_log_warn("invalid packet %" PRIu64 " > %" PRIu32, (uint64_t)offs + len, plen);
 		return -EINVAL;
 	}
-	if (hdr->j)
+	end = len + offs;
+	if (hdr.j)
 		parse_journal(impl, &packet[end], seq, plen - end);
 
 	ptr = SPA_PTROFF(impl->buffer, write & BUFFER_MASK2, void);
@@ -247,17 +271,23 @@ static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t ti
 		uint8_t *d;
 		size_t s;
 
-		if (first && !hdr->z)
+		if (first && !hdr.z)
 			delta = 0;
-		else
-			offs += parse_varlen(&packet[offs], end - offs, &delta);
+		else {
+			size = parse_varlen(&packet[offs], end - offs, &delta);
+			if (size < 0) {
+				pw_log_warn("invalid offset at offset %u", offs);
+				return size;
+			}
+			offs += size;
+		}
 		timestamp += (uint32_t)(delta * impl->corr);
 
 		size = get_midi_size(&packet[offs], end - offs);
-		if (size <= 0 || offs + size > end) {
+		if (size <= 0 || (unsigned int)size > end - offs) {
 			pw_log_warn("invalid size (%08x) %d (%u %u)",
 					packet[offs], size, offs, end);
-			break;
+			return -EINVAL;
 		}
 
 		d = &packet[offs];
@@ -274,8 +304,10 @@ static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t ti
 		offs += size;
 		first = false;
 	}
-	spa_pod_builder_pop(&b, &f[0]);
-
+	if (spa_pod_builder_pop(&b, &f[0]) == NULL) {
+		pw_log_warn("overflow");
+		return -ENOSPC;
+	}
 	write += b.state.offset;
 	spa_ringbuffer_write_update(&impl->ring, write);
 
@@ -289,6 +321,7 @@ static int rtp_midi_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 	uint16_t seq;
 	uint32_t timestamp;
 
+	SPA_STATIC_ASSERT(sizeof(struct rtp_header) == 12);
 	if (len < 12)
 		goto short_packet;
 
@@ -297,7 +330,7 @@ static int rtp_midi_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 		goto invalid_version;
 
 	hlen = 12 + hdr->cc * 4;
-	if (hlen > len)
+	if (hlen >= len)
 		goto invalid_len;
 
 	if (impl->have_ssrc && impl->ssrc != hdr->ssrc)
@@ -340,25 +373,34 @@ unexpected_ssrc:
 	return -EINVAL;
 }
 
-static int write_event(uint8_t *p, uint32_t value, void *ev, uint32_t size)
+static int write_event(uint8_t *p, uint32_t buffer_size, uint32_t value, void *ev, uint32_t size)
 {
         uint64_t buffer;
         uint8_t b;
-        int count = 0;
+	unsigned int count = 0;
 
+	if (buffer_size <= size)
+		return -ENOSPC;
         buffer = value & 0x7f;
         while ((value >>= 7)) {
+		if (buffer > (UINT64_MAX >> 8))
+			return -ERANGE;
                 buffer <<= 8;
                 buffer |= ((value & 0x7f) | 0x80);
         }
         do  {
+                if (count >= buffer_size)
+                        return -ENOSPC;
 		b = buffer & 0xff;
                 p[count++] = b;
                 buffer >>= 8;
         } while (b & 0x80);
 
+	if (buffer_size - size < count ||
+	    count + size > (unsigned int)INT_MAX)
+		return -ENOSPC;
 	memcpy(&p[count], ev, size);
-        return count + size;
+        return (int)(count + size);
 }
 
 static void rtp_midi_flush_packets(struct impl *impl,
@@ -426,6 +468,10 @@ static void rtp_midi_flush_packets(struct impl *impl,
 			impl->seq++;
 			len = 0;
 		}
+		if (size > BUFFER_SIZE || len > BUFFER_SIZE - size) {
+			pw_log_error("Buffer overflow prevented!");
+			return; // FIXME: what to do instead?
+		}
 		if (len == 0) {
 			/* start new packet */
 			base = prev_offset = offset;
@@ -437,7 +483,7 @@ static void rtp_midi_flush_packets(struct impl *impl,
 		} else {
 			delta = offset - prev_offset;
 			prev_offset = offset;
-			len += write_event(&impl->buffer[len], delta, event, size);
+			len += write_event(&impl->buffer[len], BUFFER_SIZE - len, delta, event, size);
 		}
 	}
 	if (len > 0) {

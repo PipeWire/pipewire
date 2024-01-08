@@ -2832,6 +2832,7 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	const char *str;
+	unsigned int i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -2878,10 +2879,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	reset_props(&this->props);
 
-	init_node(this, &this->nodes[0], 0);
-	init_node(this, &this->nodes[1], 1);
-	init_node(this, &this->nodes[2], 2);
-	init_node(this, &this->nodes[3], 3);
+	for (i = 0; i < SPA_N_ELEMENTS(this->nodes); ++i)
+		init_node(this, &this->nodes[i], i);
 
 	this->info = SPA_DEVICE_INFO_INIT();
 	this->info_all = SPA_DEVICE_CHANGE_MASK_PROPS |

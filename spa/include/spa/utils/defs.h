@@ -272,7 +272,7 @@ struct spa_fraction {
 })
 
 
-#define SPA_PTR_ALIGNMENT(p,align)	((intptr_t)(p) & ((align)-1))
+#define SPA_PTR_ALIGNMENT(p,align)	((uintptr_t)(p) & ((align)-1))
 #define SPA_IS_ALIGNED(p,align)		(SPA_PTR_ALIGNMENT(p,align) == 0)
 #define SPA_PTR_ALIGN(p,align,type)	((type*)SPA_ROUND_UP_N((intptr_t)(p), (intptr_t)(align)))
 

@@ -320,10 +320,10 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 			spa_return_val_if_fail(ltv->len == 2, false);
 			{
 				uint8_t duration = ltv->value[0];
-				if (duration & LC3_DUR_10)
-					conf->frame_duration = LC3_CONFIG_DURATION_10;
-				else if (duration & LC3_DUR_7_5)
+				if (duration & LC3_DUR_7_5)
 					conf->frame_duration = LC3_CONFIG_DURATION_7_5;
+				else if (duration & LC3_DUR_10)
+					conf->frame_duration = LC3_CONFIG_DURATION_10;
 				else {
 					spa_debugc(debug_ctx, "unsupported duration: 0x%02x", duration);
 					return false;

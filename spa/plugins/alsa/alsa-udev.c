@@ -720,29 +720,16 @@ static bool check_access(struct impl *this, struct card *card)
 	return card->accessible;
 }
 
-static void process_card(struct impl *this, enum action action, struct udev_device *udev_device)
+static void process_card(struct impl *this, enum action action, struct card *card)
 {
-	unsigned int card_nr;
-	struct card *card;
-	bool emitted;
-	int res;
-
-	if ((card_nr = get_card_nr(this, udev_device)) == SPA_ID_INVALID)
-		return;
-
-	card = find_card(this, card_nr);
-	if (card && card->ignored)
+	if (card->ignored)
 		return;
 
 	switch (action) {
-	case ACTION_ADD:
-		if (card == NULL)
-			card = add_card(this, card_nr, udev_device);
-		if (card == NULL)
-			return;
+	case ACTION_ADD: {
 		if (!check_access(this, card))
 			return;
-		res = emit_added_object_info(this, card);
+		int res = emit_added_object_info(this, card);
 		if (res < 0) {
 			if (card->ignored)
 				spa_log_info(this->log, "ALSA card %u unavailable (%s): it is ignored",
@@ -761,16 +748,12 @@ static void process_card(struct impl *this, enum action action, struct udev_devi
 			card->unavailable = false;
 		}
 		break;
-
+	}
 	case ACTION_REMOVE: {
-		uint32_t pcm_device_id, compress_offload_device_id;
+		uint32_t pcm_device_id = card->pcm_device_id;
+		uint32_t compress_offload_device_id = card->compress_offload_device_id;
+		bool emitted = card->emitted;
 
-		if (card == NULL)
-			return;
-
-		emitted = card->emitted;
-		pcm_device_id = card->pcm_device_id;
-		compress_offload_device_id = card->compress_offload_device_id;
 		remove_card(this, card);
 
 		if (emitted) {
@@ -783,8 +766,6 @@ static void process_card(struct impl *this, enum action action, struct udev_devi
 	}
 
 	case ACTION_DISABLE:
-		if (card == NULL)
-			return;
 		if (card->emitted) {
 			uint32_t pcm_device_id, compress_offload_device_id;
 
@@ -800,6 +781,24 @@ static void process_card(struct impl *this, enum action action, struct udev_devi
 		}
 		break;
 	}
+}
+
+static void process_udev_device(struct impl *this, enum action action, struct udev_device *udev_device)
+{
+	unsigned int card_nr;
+	struct card *card;
+
+	if ((card_nr = get_card_nr(this, udev_device)) == SPA_ID_INVALID)
+		return;
+
+	card = find_card(this, card_nr);
+	if (action == ACTION_ADD && !card)
+		card = add_card(this, card_nr, udev_device);
+
+	if (!card)
+		return;
+
+	process_card(this, action, card);
 }
 
 static int stop_inotify(struct impl *this)
@@ -854,9 +853,9 @@ static void impl_on_notify_events(struct spa_source *source)
 
 				access = check_access(this, card);
 				if (access && !card->emitted)
-					process_card(this, ACTION_ADD, card->udev_device);
+					process_card(this, ACTION_ADD, card);
 				else if (!access && card->emitted)
-					process_card(this, ACTION_DISABLE, card->udev_device);
+					process_card(this, ACTION_DISABLE, card);
 			}
 			/* /dev/snd/ might have been removed */
 			if ((event->mask & (IN_IGNORED | IN_MOVE_SELF)))
@@ -919,9 +918,9 @@ static void impl_on_fd_events(struct spa_source *source)
 	start_inotify(this);
 
 	if (spa_streq(action, "change")) {
-		process_card(this, ACTION_ADD, udev_device);
+		process_udev_device(this, ACTION_ADD, udev_device);
 	} else if (spa_streq(action, "remove")) {
-		process_card(this, ACTION_REMOVE, udev_device);
+		process_udev_device(this, ACTION_REMOVE, udev_device);
 	}
 	udev_device_unref(udev_device);
 }
@@ -992,7 +991,7 @@ static int enum_cards(struct impl *this)
 		if (udev_device == NULL)
 			continue;
 
-		process_card(this, ACTION_ADD, udev_device);
+		process_udev_device(this, ACTION_ADD, udev_device);
 
 		udev_device_unref(udev_device);
 	}

@@ -441,25 +441,28 @@ static void impl_on_notify_events(struct spa_source *source)
 		for (p = &buf; p < e;
 		    p = SPA_PTROFF(p, sizeof(struct inotify_event) + event->len, void)) {
 			event = (const struct inotify_event *) p;
+			struct device *device = NULL;
 
-			if ((event->mask & IN_ATTRIB)) {
-				struct device *device = NULL;
-
-				for (size_t i = 0; i < this->n_devices; i++) {
-					if (this->devices[i].inotify_wd == event->wd) {
-						device = &this->devices[i];
-						break;
-					}
+			for (size_t i = 0; i < this->n_devices; i++) {
+				if (this->devices[i].inotify_wd == event->wd) {
+					device = &this->devices[i];
+					break;
 				}
+			}
 
-				spa_assert(device);
+			if (!device)
+				continue;
 
+			if (event->mask & IN_ATTRIB) {
 				bool access = check_access(this, device);
 				if (access && !device->emitted)
 					process_device(this, ACTION_ADD, device);
 				else if (!access && device->emitted)
 					process_device(this, ACTION_DISABLE, device);
 			}
+
+			if (event->mask & IN_IGNORED)
+				device->inotify_wd = -1;
 		}
 	}
 }

@@ -28,9 +28,11 @@
 
 #define MAX_DEVICES	64
 
-#define ACTION_ADD	0
-#define ACTION_REMOVE	1
-#define ACTION_DISABLE	2
+enum action {
+	ACTION_ADD,
+	ACTION_REMOVE,
+	ACTION_DISABLE,
+};
 
 struct device {
 	uint32_t id;
@@ -357,7 +359,7 @@ static bool check_access(struct impl *this, struct device *device)
 	return device->accessible;
 }
 
-static void process_device(struct impl *this, uint32_t action, struct udev_device *dev)
+static void process_device(struct impl *this, enum action action, struct udev_device *dev)
 {
 	uint32_t id;
 	struct device *device;

@@ -61,12 +61,10 @@ struct impl {
 static const libcamera::Span<const int64_t> cameraDevice(
 			const Camera *camera)
 {
-#ifdef HAVE_LIBCAMERA_SYSTEM_DEVICES
 	const ControlList &props = camera->properties();
 
 	if (auto devices = props.get(properties::SystemDevices))
 		return devices.value();
-#endif
 
 	return {};
 }

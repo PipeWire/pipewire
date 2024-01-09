@@ -31,9 +31,11 @@
 
 #define MAX_CARDS	64
 
-#define ACTION_ADD	0
-#define ACTION_REMOVE	1
-#define ACTION_DISABLE	2
+enum action {
+	ACTION_ADD,
+	ACTION_REMOVE,
+	ACTION_DISABLE,
+};
 
 /* Used for unavailable devices in the card structure. */
 #define ID_DEVICE_NOT_SUPPORTED 0
@@ -718,7 +720,7 @@ static bool check_access(struct impl *this, struct card *card)
 	return card->accessible;
 }
 
-static void process_card(struct impl *this, uint32_t action, struct udev_device *udev_device)
+static void process_card(struct impl *this, enum action action, struct udev_device *udev_device)
 {
 	unsigned int card_nr;
 	struct card *card;

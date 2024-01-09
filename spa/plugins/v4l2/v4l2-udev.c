@@ -24,7 +24,7 @@
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
 
-#define NAME "v4l2-udev"
+#include "v4l2.h"
 
 #define MAX_DEVICES	64
 

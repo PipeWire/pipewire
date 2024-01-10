@@ -30,6 +30,7 @@
 #define NAME "driver"
 
 #define DEFAULT_FREEWHEEL	false
+#define DEFAULT_FREEWHEEL_WAIT	10
 #define DEFAULT_CLOCK_PREFIX	"clock.system"
 #define DEFAULT_CLOCK_ID	CLOCK_MONOTONIC
 
@@ -44,6 +45,7 @@ struct props {
 	bool freewheel;
 	char clock_name[64];
 	clockid_t clock_id;
+	uint32_t freewheel_wait;
 };
 
 struct impl {
@@ -86,6 +88,7 @@ static void reset_props(struct props *props)
 	props->freewheel = DEFAULT_FREEWHEEL;
 	spa_zero(props->clock_name);
 	props->clock_id = CLOCK_MONOTONIC;
+	props->freewheel_wait = DEFAULT_FREEWHEEL_WAIT;
 }
 
 static const struct clock_info {
@@ -262,7 +265,10 @@ static void on_timeout(struct spa_source *source)
 		duration = 1024;
 		rate = 48000;
 	}
-	nsec = this->next_time;
+	if (this->props.freewheel)
+		nsec = gettime_nsec(this, this->props.clock_id);
+	else
+		nsec = this->next_time;
 
 	if (this->tracking)
 		/* we are actually following another clock */
@@ -293,7 +299,10 @@ static void on_timeout(struct spa_source *source)
 
 	this->last_time = current_time;
 
-	if (this->tracking) {
+	if (this->props.freewheel) {
+		corr = 1.0;
+		this->next_time = nsec + this->props.freewheel_wait * SPA_NSEC_PER_SEC;
+	} else if (this->tracking) {
 		corr = spa_dll_update(&this->dll, err);
 		this->next_time = nsec + duration / corr * 1e9 / rate;
 	} else {
@@ -610,6 +619,8 @@ impl_init(const struct spa_handle_factory *factory,
 			} else {
 				this->props.clock_id = FD_TO_CLOCKID(this->clock_fd);
 			}
+		} else if (spa_streq(k, "freewheel.wait")) {
+			this->props.freewheel_wait = atoi(s);
 		}
 	}
 	if (this->props.clock_name[0] == '\0') {

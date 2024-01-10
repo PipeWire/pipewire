@@ -677,7 +677,7 @@ impl_node_port_set_param(void *object,
 {
 	struct seq_state *this = object;
 	struct seq_port *port;
-	int res;
+	int res = 0;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 

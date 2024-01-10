@@ -715,7 +715,7 @@ static int impl_node_port_set_param(void *object,
 				    uint32_t id, uint32_t flags,
 				    const struct spa_pod *param)
 {
-	int res;
+	int res = 0;
 	struct impl *this = object;
 	struct port *port;
 

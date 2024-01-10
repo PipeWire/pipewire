@@ -663,7 +663,7 @@ static inline int32_t netjack2_driver_sync_wait(struct netjack2_peer *peer)
 		if (len >= (ssize_t)sizeof(sync)) {
 			//nj2_dump_packet_header(&sync);
 
-			if (strcmp(sync.type, "header") == 0 &&
+			if (strncmp(sync.type, "header", sizeof(sync.type)) == 0 &&
 			    ntohl(sync.data_type) == 's' &&
 			    ntohl(sync.data_stream) == peer->other_stream &&
 			    ntohl(sync.id) == peer->params.id)
@@ -695,7 +695,7 @@ static inline int32_t netjack2_manager_sync_wait(struct netjack2_peer *peer)
 		if (len >= (ssize_t)sizeof(sync)) {
 			//nj2_dump_packet_header(sync);
 
-			if (strcmp(sync.type, "header") == 0 &&
+			if (strncmp(sync.type, "header", sizeof(sync.type)) == 0 &&
 			    ntohl(sync.data_type) == 's' &&
 			    ntohl(sync.data_stream) == peer->other_stream &&
 			    ntohl(sync.id) == peer->params.id)

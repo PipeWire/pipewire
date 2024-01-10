@@ -776,7 +776,8 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 
 			while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
 					i < SPA_N_ELEMENTS(state->bound_ctls)) {
-				strncpy(state->bound_ctls[i].name, v, sizeof(state->bound_ctls[i].name));
+				snprintf(state->bound_ctls[i].name,
+						sizeof(state->bound_ctls[i].name), "%s", v);
 				i++;
 			}
 			state->num_bind_ctls = i;

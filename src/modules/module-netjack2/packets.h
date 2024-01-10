@@ -110,7 +110,7 @@ static inline void nj2_session_params_hton(struct nj2_session_params *net,
 }
 
 struct nj2_packet_header {
-	char type[8];			/* packet type ('headr') */
+	char type[8];			/* packet type ('header') */
 	uint32_t data_type;		/* 'a' for audio, 'm' for midi and 's' for sync */
 	uint32_t data_stream;		/* 's' for send, 'r' for return */
 	uint32_t id;			/* unique ID of the follower */

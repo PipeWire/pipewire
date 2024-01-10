@@ -920,7 +920,7 @@ on_socket_io(void *data, int fd, uint32_t mask)
 		if (len < (int)sizeof(struct nj2_session_params))
 			goto short_packet;
 
-		if (strcmp(params.type, "params") != 0)
+		if (strncmp(params.type, "params", sizeof(params.type)) != 0)
 			goto wrong_type;
 
 		switch(ntohl(params.packet_id)) {

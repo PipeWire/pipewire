@@ -8,8 +8,10 @@
 #include <spa/debug/buffer.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/string.h>
+#include <spa/debug/log.h>
 #include <pipewire/log.h>
 
+#include "commands.h"
 #include "defs.h"
 #include "format.h"
 #include "internal.h"
@@ -643,12 +645,16 @@ int message_put(struct message *m, ...)
 	return 0;
 }
 
-int message_dump(enum spa_log_level level, struct message *m)
+int message_dump(enum spa_log_level level, const char *prefix, struct message *m)
 {
 	int res;
 	uint32_t i, offset = m->offset, o;
+	struct spa_debug_log_ctx ctx = SPA_LOGF_DEBUG_INIT(pw_log_get(), level,
+			PW_LOG_TOPIC_DEFAULT, __FILE__, __LINE__, __func__ );
 
-	pw_log(level, "message: len:%d alloc:%u", m->length, m->allocated);
+	m->offset = 0;
+
+	pw_log(level, "%s message: len:%d alloc:%u", prefix, m->length, m->allocated);
 	while (true) {
 		uint8_t tag;
 
@@ -662,18 +668,18 @@ int message_dump(enum spa_log_level level, struct message *m)
 			char *val;
 			if ((res = read_string(m, &val)) < 0)
 				return res;
-			pw_log(level, "%u: string: '%s'", o, val);
+			pw_log(level, "%s %u: string: '%s'", prefix, o, val);
 			break;
 			}
 		case TAG_STRING_NULL:
-			pw_log(level, "%u: string: NULL", o);
+			pw_log(level, "%s %u: string: NULL", prefix, o);
 			break;
 		case TAG_U8:
 		{
 			uint8_t val;
 			if ((res = read_u8(m, &val)) < 0)
 				return res;
-			pw_log(level, "%u: u8: %u", o, val);
+			pw_log(level, "%s %u: u8: %u", prefix, o, val);
 			break;
 		}
 		case TAG_U32:
@@ -681,7 +687,13 @@ int message_dump(enum spa_log_level level, struct message *m)
 			uint32_t val;
 			if ((res = read_u32(m, &val)) < 0)
 				return res;
-			pw_log(level, "%u: u32: %u", o, val);
+			if (o == 0) {
+				pw_log(level, "%s %u: u32: %u (command %s)",
+						prefix, o, val,
+						val < COMMAND_MAX ? commands[val].name : "INVALID");
+			} else {
+				pw_log(level, "%s %u: u32: %u", prefix, o, val);
+			}
 			break;
 		}
 		case TAG_S64:
@@ -689,7 +701,7 @@ int message_dump(enum spa_log_level level, struct message *m)
 			uint64_t val;
 			if ((res = read_u64(m, &val)) < 0)
 				return res;
-			pw_log(level, "%u: s64: %"PRIi64"", o, (int64_t)val);
+			pw_log(level, "%s %u: s64: %"PRIi64"", prefix, o, (int64_t)val);
 			break;
 		}
 		case TAG_U64:
@@ -697,7 +709,7 @@ int message_dump(enum spa_log_level level, struct message *m)
 			uint64_t val;
 			if ((res = read_u64(m, &val)) < 0)
 				return res;
-			pw_log(level, "%u: u64: %"PRIu64"", o, val);
+			pw_log(level, "%s %u: u64: %"PRIu64"", prefix, o, val);
 			break;
 		}
 		case TAG_USEC:
@@ -705,7 +717,7 @@ int message_dump(enum spa_log_level level, struct message *m)
 			uint64_t val;
 			if ((res = read_u64(m, &val)) < 0)
 				return res;
-			pw_log(level, "%u: u64: %"PRIu64"", o, val);
+			pw_log(level, "%s %u: u64: %"PRIu64"", prefix, o, val);
 			break;
 		}
 		case TAG_SAMPLE_SPEC:
@@ -713,7 +725,7 @@ int message_dump(enum spa_log_level level, struct message *m)
 			struct sample_spec ss;
 			if ((res = read_sample_spec(m, &ss)) < 0)
 				return res;
-			pw_log(level, "%u: ss: format:%s rate:%d channels:%u", o,
+			pw_log(level, "%s %u: ss: format:%s rate:%d channels:%u", prefix, o,
 					format_id2name(ss.format), ss.rate,
 					ss.channels);
 			break;
@@ -724,21 +736,21 @@ int message_dump(enum spa_log_level level, struct message *m)
 			size_t len;
 			if ((res = read_arbitrary(m, &mem, &len)) < 0)
 				return res;
-			spa_debug_mem(0, mem, len);
+			spa_debugc_mem(&ctx.ctx, 0, mem, len);
 			break;
 		}
 		case TAG_BOOLEAN_TRUE:
-			pw_log(level, "%u: bool: true", o);
+			pw_log(level, "%s %u: bool: true", prefix, o);
 			break;
 		case TAG_BOOLEAN_FALSE:
-			pw_log(level, "%u: bool: false", o);
+			pw_log(level, "%s %u: bool: false", prefix, o);
 			break;
 		case TAG_TIMEVAL:
 		{
 			struct timeval tv;
 			if ((res = read_timeval(m, &tv)) < 0)
 				return res;
-			pw_log(level, "%u: timeval: %lu:%lu", o, tv.tv_sec, tv.tv_usec);
+			pw_log(level, "%s %u: timeval: %lu:%lu", prefix, o, tv.tv_sec, tv.tv_usec);
 			break;
 		}
 		case TAG_CHANNEL_MAP:
@@ -746,9 +758,9 @@ int message_dump(enum spa_log_level level, struct message *m)
 			struct channel_map map;
 			if ((res = read_channel_map(m, &map)) < 0)
 				return res;
-			pw_log(level, "%u: channelmap: channels:%u", o, map.channels);
+			pw_log(level, "%s %u: channelmap: channels:%u", prefix, o, map.channels);
 			for (i = 0; i < map.channels; i++)
-				pw_log(level, "    %d: %s", i, channel_id2name(map.map[i]));
+				pw_log(level, "%s     %d: %s", prefix, i, channel_id2name(map.map[i]));
 			break;
 		}
 		case TAG_CVOLUME:
@@ -756,9 +768,9 @@ int message_dump(enum spa_log_level level, struct message *m)
 			struct volume vol;
 			if ((res = read_cvolume(m, &vol)) < 0)
 				return res;
-			pw_log(level, "%u: cvolume: channels:%u", o, vol.channels);
+			pw_log(level, "%s %u: cvolume: channels:%u", prefix, o, vol.channels);
 			for (i = 0; i < vol.channels; i++)
-				pw_log(level, "    %d: %f", i, vol.values[i]);
+				pw_log(level, "%s     %d: %f", prefix, i, vol.values[i]);
 			break;
 		}
 		case TAG_PROPLIST:
@@ -767,9 +779,9 @@ int message_dump(enum spa_log_level level, struct message *m)
 			const struct spa_dict_item *it;
 			res = read_props(m, props, false);
 			if (res >= 0) {
-				pw_log(level, "%u: props: n_items:%u", o, props->dict.n_items);
+				pw_log(level, "%s %u: props: n_items:%u", prefix, o, props->dict.n_items);
 				spa_dict_for_each(it, &props->dict)
-					pw_log(level, "     '%s': '%s'", it->key, it->value);
+					pw_log(level, "%s      '%s': '%s'", prefix, it->key, it->value);
 			}
 			pw_properties_free(props);
 			if (res < 0)
@@ -781,7 +793,7 @@ int message_dump(enum spa_log_level level, struct message *m)
 			float vol;
 			if ((res = read_volume(m, &vol)) < 0)
 				return res;
-			pw_log(level, "%u: volume: %f", o, vol);
+			pw_log(level, "%s %u: volume: %f", prefix, o, vol);
 			break;
 		}
 		case TAG_FORMAT_INFO:
@@ -790,11 +802,11 @@ int message_dump(enum spa_log_level level, struct message *m)
 			const struct spa_dict_item *it;
 			if ((res = read_format_info(m, &info)) < 0)
 				return res;
-			pw_log(level, "%u: format-info: enc:%s n_items:%u",
-					o, format_encoding2name(info.encoding),
+			pw_log(level, "%s %u: format-info: enc:%s n_items:%u",
+					prefix, o, format_encoding2name(info.encoding),
 					info.props->dict.n_items);
 			spa_dict_for_each(it, &info.props->dict)
-				pw_log(level, "     '%s': '%s'", it->key, it->value);
+				pw_log(level, "%s      '%s': '%s'", prefix, it->key, it->value);
 			break;
 		}
 		}

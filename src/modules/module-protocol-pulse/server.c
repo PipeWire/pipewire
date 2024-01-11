@@ -71,7 +71,7 @@ static int handle_packet(struct client *client, struct message *msg)
 
 	if (pw_log_topic_custom_enabled(SPA_LOG_LEVEL_INFO, pulse_conn)) {
 		pw_log_debug("client %p: command:%s", client, commands[command].name);
-		message_dump(SPA_LOG_LEVEL_INFO, msg);
+		message_dump(SPA_LOG_LEVEL_INFO, "<<", msg);
 	}
 
 	const struct command *cmd = &commands[command];

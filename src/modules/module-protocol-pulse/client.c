@@ -236,7 +236,7 @@ static int client_try_flush_messages(struct client *client)
 		} else {
 			if (m->channel == SPA_ID_INVALID &&
 			    pw_log_topic_custom_enabled(SPA_LOG_LEVEL_INFO, pulse_conn))
-				message_dump(SPA_LOG_LEVEL_INFO, m);
+				message_dump(SPA_LOG_LEVEL_INFO, ">>", m);
 			message_free(m, true, false);
 			client->out_index = 0;
 			continue;

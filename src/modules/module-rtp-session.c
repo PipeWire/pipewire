@@ -22,6 +22,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/debug/types.h>
 #include <spa/debug/mem.h>
+#include <spa/debug/log.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
@@ -1010,7 +1011,7 @@ on_ctrl_io(void *data, int fd, uint32_t mask)
 		if (buffer[0] == 0xff && buffer[1] == 0xff) {
 			parse_apple_midi_cmd(impl, true, buffer, len, &sa, salen);
 		} else {
-			spa_debug_mem(0, buffer, len);
+			spa_debug_log_mem(pw_log_get(), SPA_LOG_LEVEL_DEBUG, 0, buffer, len);
 		}
 	}
 	return;
@@ -1020,7 +1021,7 @@ receive_error:
 	return;
 short_packet:
 	pw_log_warn("short packet received");
-	spa_debug_mem(0, buffer, len);
+	spa_debug_log_mem(pw_log_get(), SPA_LOG_LEVEL_DEBUG, 0, buffer, len);
 	return;
 }
 
@@ -1065,7 +1066,7 @@ receive_error:
 	return;
 short_packet:
 	pw_log_warn("short packet received");
-	spa_debug_mem(0, buffer, len);
+	spa_debug_log_mem(pw_log_get(), SPA_LOG_LEVEL_DEBUG, 0, buffer, len);
 	return;
 unknown_ssrc:
 	pw_log_debug("unknown SSRC %08x", ssrc);

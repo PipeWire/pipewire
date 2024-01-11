@@ -161,7 +161,7 @@ short_packet:
 	return -EINVAL;
 invalid_version:
 	pw_log_warn("invalid VBAN version");
-	spa_debug_mem(0, buffer, len);
+	spa_debug_log_mem(pw_log_get(), SPA_LOG_LEVEL_INFO, 0, buffer, len);
 	return -EPROTO;
 }
 

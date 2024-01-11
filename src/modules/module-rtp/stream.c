@@ -13,6 +13,7 @@
 #include <spa/control/control.h>
 #include <spa/debug/types.h>
 #include <spa/debug/mem.h>
+#include <spa/debug/log.h>
 
 #include "config.h"
 

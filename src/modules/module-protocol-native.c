@@ -32,6 +32,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
+#include <spa/debug/log.h>
 
 #ifdef HAVE_SYSTEMD
 #include <systemd/sd-daemon.h>
@@ -251,7 +252,7 @@ static void debug_msg(const char *prefix, const struct pw_protocol_native_messag
 	else
 		hex = true;
 	if (hex)
-		spa_debug_mem(0, msg->data, msg->size);
+		spa_debug_log_mem(pw_log_get(), SPA_LOG_LEVEL_DEBUG, 0, msg->data, msg->size);
 
 	pw_logt_debug(mod_topic_connection, "%s ****", prefix);
 

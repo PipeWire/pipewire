@@ -649,8 +649,6 @@ int message_dump(enum spa_log_level level, const char *prefix, struct message *m
 {
 	int res;
 	uint32_t i, offset = m->offset, o;
-	struct spa_debug_log_ctx ctx = SPA_LOGF_DEBUG_INIT(pw_log_get(), level,
-			PW_LOG_TOPIC_DEFAULT, __FILE__, __LINE__, __func__ );
 
 	m->offset = 0;
 
@@ -736,7 +734,7 @@ int message_dump(enum spa_log_level level, const char *prefix, struct message *m
 			size_t len;
 			if ((res = read_arbitrary(m, &mem, &len)) < 0)
 				return res;
-			spa_debugc_mem(&ctx.ctx, 0, mem, len);
+			spa_debug_log_mem(pw_log_get(), level, 0, mem, len);
 			break;
 		}
 		case TAG_BOOLEAN_TRUE:

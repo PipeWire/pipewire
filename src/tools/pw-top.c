@@ -165,6 +165,31 @@ static const struct pw_proxy_events proxy_events = {
 
 static void do_refresh(struct data *d, bool force_refresh);
 
+static const char *find_node_name(const struct spa_dict *props)
+{
+	static const char * const name_keys[] = {
+		PW_KEY_NODE_NAME,
+		PW_KEY_NODE_DESCRIPTION,
+		PW_KEY_APP_NAME,
+	};
+
+	SPA_FOR_EACH_ELEMENT_VAR(name_keys, key) {
+		const char *name = spa_dict_lookup(props, *key);
+		if (name)
+			return name;
+	}
+
+	return NULL;
+}
+
+static void set_node_name(struct node *n, const char *name)
+{
+	if (name)
+		snprintf(n->name, sizeof(n->name), "%s", name);
+	else
+		snprintf(n->name, sizeof(n->name), "%u", n->id);
+}
+
 static void node_info(void *data, const struct pw_node_info *info)
 {
 	struct node *n = data;
@@ -173,6 +198,9 @@ static void node_info(void *data, const struct pw_node_info *info)
 		n->state = info->state;
 		do_refresh(n->data, !n->data->batch_mode);
 	}
+
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS)
+		set_node_name(n, find_node_name(info->props));
 }
 
 static void node_param(void *data, int seq,
@@ -294,13 +322,10 @@ static struct node *add_node(struct data *d, uint32_t id, const char *name)
 	if ((n = calloc(1, sizeof(*n))) == NULL)
 		return NULL;
 
-	if (name)
-		strncpy(n->name, name, MAX_NAME);
-	else
-		snprintf(n->name, sizeof(n->name), "%u", id);
 	n->data = d;
 	n->id = id;
 	n->driver = n;
+
 	n->proxy = pw_registry_bind(d->registry, id, PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, 0);
 	if (n->proxy) {
 		uint32_t ids[1] = { SPA_PARAM_Format };
@@ -317,6 +342,8 @@ static struct node *add_node(struct data *d, uint32_t id, const char *name)
 	d->n_nodes++;
 	if (!d->batch_mode)
 		d->pending_refresh = true;
+
+	set_node_name(n, name);
 
 	return n;
 }
@@ -623,16 +650,8 @@ static void registry_event_global(void *data, uint32_t id,
 	struct pw_proxy *proxy;
 
 	if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
-		const char *str;
-
-		if ((str = spa_dict_lookup(props, PW_KEY_NODE_NAME)) == NULL &&
-			(str = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION)) == NULL) {
-				str = spa_dict_lookup(props, PW_KEY_APP_NAME);
-		}
-
-		if (add_node(d, id, str) == NULL) {
+		if (add_node(d, id, find_node_name(props)) == NULL)
 			pw_log_warn("can add node %u: %m", id);
-		}
 	} else if (spa_streq(type, PW_TYPE_INTERFACE_Profiler)) {
 		if (d->profiler != NULL) {
 			printf("Ignoring profiler %d: already attached\n", id);

@@ -90,7 +90,7 @@ include:
 .ubuntu:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2023-04-18.0'
+    FDO_DISTRIBUTION_TAG: '2024-01-12.0'
     FDO_DISTRIBUTION_VERSION: '22.04'
     FDO_DISTRIBUTION_PACKAGES: >-
       debhelper-compat

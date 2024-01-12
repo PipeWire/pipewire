@@ -171,6 +171,7 @@ static const char *find_node_name(const struct spa_dict *props)
 		PW_KEY_NODE_NAME,
 		PW_KEY_NODE_DESCRIPTION,
 		PW_KEY_APP_NAME,
+		PW_KEY_MEDIA_NAME,
 	};
 
 	SPA_FOR_EACH_ELEMENT_VAR(name_keys, key) {

@@ -17,6 +17,8 @@ extern "C" {
  * PipeWire loop object provides an implementation of
  * the spa loop interfaces. It can be used to implement various
  * event loops.
+ *
+ * The members of \ref pw_loop are read-only.
  */
 
 /**

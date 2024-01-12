@@ -58,11 +58,15 @@ extern "C" {
 
  * \li PW_DIRECTION_INPUT for a stream that *consumes* data. This can be a
  * stream that captures from a Source or a when the stream is used to
- * implement a Sink.
+ * implement a Sink. An application will use a \ref PW_DIRECTION_INPUT
+ * stream to record data. A virtual sound card will use a
+ * \ref PW_DIRECTION_INPUT stream to implement audio playback.
  *
  * \li PW_DIRECTION_OUTPUT for a stream that *produces* data. This can be a
  * stream that plays to a Sink or when the stream is used to implement
- * a Source.
+ * a Source. An application will use a \ref PW_DIRECTION_OUTPUT
+ * stream to produce data. A virtual sound card or camera will use a
+ * \ref PW_DIRECTION_OUTPUT stream to implement audio or video recording.
  *
  * \subsection ssec_stream_target Stream target
  *
@@ -140,6 +144,18 @@ extern "C" {
  *
  * The process event is emitted when PipeWire has emptied a buffer that
  * can now be refilled.
+ *
+ * \section sec_stream_driving Driving the graph
+ *
+ * Starting in 0.3.34, it is possible for a stream to drive the graph.
+ * This allows interrupt-driven scheduling for drivers implemented as
+ * PipeWire streams, without having to reimplement the stream as a SPA
+ * plugin.
+ *
+ * A stream cannot drive the graph unless it is in the
+ * \ref PW_STREAM_STATE_STREAMING state and \ref pw_stream_is_driving() returns
+ * true. It must then use pw_stream_trigger_process() to start the graph
+ * cycle.
  *
  * \section sec_stream_disconnect Disconnect
  *
@@ -528,7 +544,23 @@ int pw_stream_flush(struct pw_stream *stream, bool drain);
 bool pw_stream_is_driving(struct pw_stream *stream);
 
 /** Trigger a push/pull on the stream. One iteration of the graph will
- * scheduled and process() will be called. Since 0.3.34 */
+ * be scheduled. If it successfully finishes, process() will be called.
+ * It is possible for the graph iteration to not finish, so
+ * pw_stream_trigger_process() needs to be called again even if process()
+ * is not called.
+ *
+ * If there is a deadline after which the stream will have xrun,
+ * pw_stream_trigger_process() should be called then, whether or not
+ * process() has been called. Sound hardware will xrun if there is
+ * any delay in audio processing, so the ALSA plugin triggers the
+ * graph every quantum to ensure audio keeps flowing. Drivers that
+ * do not have a deadline, such as the freewheel driver, should
+ * use a timeout to ensure that forward progress keeps being made.
+ * A reasonable choice of deadline is three times the quantum: if
+ * the graph is taking 3x longer than normal, it is likely that it
+ * is hung and should be retriggered.
+ *
+ * Since 0.3.34 */
 int pw_stream_trigger_process(struct pw_stream *stream);
 
 /**

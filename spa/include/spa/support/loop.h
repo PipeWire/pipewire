@@ -66,19 +66,57 @@ struct spa_loop_methods {
 #define SPA_VERSION_LOOP_METHODS	0
 	uint32_t version;
 
-	/** add a source to the loop */
+	/** Add a source to the loop. Must be called from the loop's own thread.
+	 *
+	 * \param[in] object The callbacks data.
+	 * \param[in] source The source.
+	 * \return 0 on success, negative errno-style value on failure.
+	 */
 	int (*add_source) (void *object,
 			   struct spa_source *source);
 
-	/** update the source io mask */
+	/** Update the source io mask. Must be called from the loop's own thread.
+	 *
+	 * \param[in] object The callbacks data.
+	 * \param[in] source The source.
+	 * \return 0 on success, negative errno-style value on failure.
+	 */
 	int (*update_source) (void *object,
 			struct spa_source *source);
 
-	/** remove a source from the loop */
+	/** Remove a source from the loop. Must be called from the loop's own thread.
+	 *
+	 * \param[in] object The callbacks data.
+	 * \param[in] source The source.
+	 * \return 0 on success, negative errno-style value on failure.
+	 */
 	int (*remove_source) (void *object,
 			struct spa_source *source);
 
-	/** invoke a function in the context of this loop */
+	/** Invoke a function in the context of this loop.
+	 * May be called from the loop's thread, but otherwise
+	 * can only be called by a single thread at a time.
+	 * If called from the loop's thread, all callbacks previously queued with
+	 * invoke() will be run synchronously, which might cause unexpected
+	 * reentrancy problems.
+	 *
+	 * \param[in] object The callbacks data.
+	 * \param func The function to be invoked.
+	 * \param seq An opaque sequence number. This will be made
+	 *            available to func.
+	 * \param[in] data Data that will be copied into the internal ring buffer and made
+	 *             available to func. Because this data is copied, it is okay to
+	 *             pass a pointer to a local variable, but do not pass a pointer to
+	 *             an object that has identity.
+	 * \param size The size of data to copy.
+	 * \param block If \true, do not return until func has been called. Otherwise,
+	 *              returns immediately. Passing \true does not risk a deadlock because
+	 *              the data thread is never allowed to wait on any other thread.
+	 * \param user_data An opaque pointer passed to func.
+	 * \return `-EPIPE` if the internal ring buffer filled up,
+	 *         if block is \false, 0 if seq was SPA_ID_INVALID or
+	 *         seq with the ASYNC flag set
+	 *         or the return value of func otherwise. */
 	int (*invoke) (void *object,
 		       spa_invoke_func_t func,
 		       uint32_t seq,

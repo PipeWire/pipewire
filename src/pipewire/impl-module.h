@@ -45,9 +45,10 @@ struct pw_impl_module_events {
 #define PW_VERSION_IMPL_MODULE_EVENTS	0
 	uint32_t version;
 
-	/** The module is destroyed */
+	/** The module is destroyed. This is the time to unregister and
+	 * destroy any objects created by the module. */
 	void (*destroy) (void *data);
-	/** The module is freed */
+	/** The module is freed. This will be called after destroy() returns. */
 	void (*free) (void *data);
 	/** The module is initialized */
 	void (*initialized) (void *data);

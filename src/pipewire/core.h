@@ -69,11 +69,13 @@ struct pw_core_info {
 #include <pipewire/properties.h>
 #include <pipewire/proxy.h>
 
-/** Update an existing \ref pw_core_info with \a update with reset */
+/** Update an existing \ref pw_core_info with \a update with reset. When info is NULL,
+ * a new one will be allocated. Returns NULL on failure. */
 struct pw_core_info *
 pw_core_info_update(struct pw_core_info *info,
 		const struct pw_core_info *update);
-/** Update an existing \ref pw_core_info with \a update */
+/** Update an existing \ref pw_core_info with \a update. When info is NULL, a new one
+ * will be allocated. Returns NULL on failure */
 struct pw_core_info *
 pw_core_info_merge(struct pw_core_info *info,
 		const struct pw_core_info *update, bool reset);
@@ -164,6 +166,9 @@ struct pw_core_events {
 	 * global ID. It is emitted before the global becomes visible in the
 	 * registry.
 	 *
+	 * The bound_props event is an enhanced version of this event that
+	 * also contains the extra global properties.
+	 *
 	 * \param id bound object ID
 	 * \param global_id the global id bound to
 	 */
@@ -192,6 +197,19 @@ struct pw_core_events {
 	 */
 	void (*remove_mem) (void *data, uint32_t id);
 
+	/**
+	 * Notify an object binding
+	 *
+	 * This event is emitted when a local object ID is bound to a
+	 * global ID. It is emitted before the global becomes visible in the
+	 * registry.
+	 *
+	 * This is an enhanced version of the bound_id event.
+	 *
+	 * \param id bound object ID
+	 * \param global_id the global id bound to
+	 * \param props The properties of the new global object.
+	 */
 	void (*bound_props) (void *data, uint32_t id, uint32_t global_id, const struct spa_dict *props);
 };
 

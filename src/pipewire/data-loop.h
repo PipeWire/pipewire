@@ -67,13 +67,38 @@ int pw_data_loop_start(struct pw_data_loop *loop);
 /** Stop the processing thread */
 int pw_data_loop_stop(struct pw_data_loop *loop);
 
-/** Check if the current thread is the processing thread */
+/** Check if the current thread is the processing thread.
+ * May be called from any thread. */
 bool pw_data_loop_in_thread(struct pw_data_loop *loop);
 /** Get the thread object */
 struct spa_thread *pw_data_loop_get_thread(struct pw_data_loop *loop);
 
 /** invoke func in the context of the thread or in the caller thread when
- * the loop is not running. Since 0.3.3 */
+ * the loop is not running. May be called from the loop's thread, but otherwise
+ * can only be called by a single thread at a time.
+ * If called from the loop's thread, all callbacks previously queued with
+ * pw_data_loop_invoke() will be run synchronously, which might cause
+ * unexpected reentrancy problems.
+ *
+ * \param[in] loop The loop to invoke func on.
+ * \param func The function to be invoked.
+ * \param seq A sequence number, opaque to PipeWire. This will be made
+ *            available to func.
+ * \param[in] data Data that will be copied into the internal ring buffer and made
+ *             available to func. Because this data is copied, it is okay to
+ *             pass a pointer to a local variable, but do not pass a pointer to
+ *             an object that has identity.
+ * \param size The size of data to copy.
+ * \param block If \true, do not return until func has been called. Otherwise,
+ *              returns immediately. Passing \true does not risk a deadlock because
+ *              the data thread is never allowed to wait on any other thread.
+ * \param user_data An opaque pointer passed to func.
+ * \return `-EPIPE` if the internal ring buffer filled up,
+ *         if block is \false, 0 is returned when seq is SPA_ID_INVALID or the
+ *         sequence number with the ASYNC bit set otherwise. When block is \true,
+ *         the return value of func is returned.
+ *
+ * Since 0.3.3 */
 int pw_data_loop_invoke(struct pw_data_loop *loop,
 		spa_invoke_func_t func, uint32_t seq, const void *data, size_t size,
 		bool block, void *user_data);

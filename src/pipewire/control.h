@@ -45,7 +45,8 @@ struct pw_control_events {
 /** Get the control parent port or NULL when not set */
 struct pw_impl_port *pw_control_get_port(struct pw_control *control);
 
-/** Add an event listener on the control */
+/** Add an event listener on the control. May be called multiple times.
+ * Each listener must be removed, but they may be removed in any order. */
 void pw_control_add_listener(struct pw_control *control,
 			     struct spa_hook *listener,
 			     const struct pw_control_events *events,

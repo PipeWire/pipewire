@@ -120,8 +120,7 @@ struct spa_io_clock {
 	struct spa_fraction rate;	/**< rate for position/duration/delay/xrun */
 	uint64_t position;		/**< current position */
 	uint64_t duration;		/**< duration of current cycle */
-	int64_t delay;			/**< delay between position and hardware,
-					  *  positive for capture, negative for playback */
+	int64_t delay;			/**< delay between position and hardware */
 	double rate_diff;		/**< rate difference between clock and monotonic time */
 	uint64_t next_nsec;		/**< estimated next wakeup time in nanoseconds */
 

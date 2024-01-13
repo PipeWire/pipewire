@@ -5545,7 +5545,12 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 			transport = spa_bt_transport_find(monitor, path);
 			if (transport == NULL) {
 				spa_log_warn(monitor->log,
-						"Properties changed in unknown transport %s", path);
+						"Properties changed in unknown transport '%s'. "
+						"Multiple sound server instances (PipeWire/Pulseaudio/bluez-alsa) are "
+						"probably trying to use Bluetooth audio at the same time, which can "
+						"cause problems. The system configuration likely should be fixed "
+						"to have only one sound server that manages Bluetooth audio.",
+						path);
 				goto finish;
 			}
 

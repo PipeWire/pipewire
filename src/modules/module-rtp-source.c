@@ -231,6 +231,8 @@ static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname)
 {
 	int af, fd, val, res;
 	struct ifreq req;
+	struct sockaddr_storage ba = *(struct sockaddr_storage *)sa;
+	bool do_connect = false;
 
 	af = sa->sa_family;
 	if ((fd = socket(af, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
@@ -270,7 +272,11 @@ static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname)
 			mr4.imr_ifindex = req.ifr_ifindex;
 			res = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr4, sizeof(mr4));
 		} else {
-			sa4->sin_addr.s_addr = INADDR_ANY;
+			struct sockaddr_in *ba4 = (struct sockaddr_in*)&ba;
+			if (ba4->sin_addr.s_addr != INADDR_ANY) {
+				ba4->sin_addr.s_addr = INADDR_ANY;
+				do_connect = true;
+			}
 		}
 	} else if (af == AF_INET6) {
 		struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)sa;
@@ -281,7 +287,8 @@ static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname)
 			mr6.ipv6mr_interface = req.ifr_ifindex;
 			res = setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mr6, sizeof(mr6));
 		} else {
-		        sa6->sin6_addr = in6addr_any;
+			struct sockaddr_in6 *ba6 = (struct sockaddr_in6*)&ba;
+			ba6->sin6_addr = in6addr_any;
 		}
 	} else {
 		res = -EINVAL;
@@ -294,10 +301,17 @@ static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname)
 		goto error;
 	}
 
-	if (bind(fd, sa, salen) < 0) {
+	if (bind(fd, (struct sockaddr*)&ba, salen) < 0) {
 		res = -errno;
 		pw_log_error("bind() failed: %m");
 		goto error;
+	}
+	if (do_connect) {
+		if (connect(fd, sa, salen) < 0) {
+			res = -errno;
+			pw_log_error("connect() failed: %m");
+			goto error;
+		}
 	}
 	return fd;
 error:

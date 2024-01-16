@@ -2199,9 +2199,10 @@ int pw_stream_update_params(struct pw_stream *stream,
 	if ((res = update_params(impl, SPA_ID_INVALID, params, n_params)) < 0)
 		return res;
 
-	emit_node_info(impl, false);
-	emit_port_info(impl, false);
-
+	if (impl->in_emit_param_changed == 0) {
+		emit_node_info(impl, false);
+		emit_port_info(impl, false);
+	}
 	return res;
 }
 

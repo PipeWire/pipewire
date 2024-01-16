@@ -315,9 +315,10 @@ struct pw_time {
 					  *  Since 0.3.50. */
 	uint32_t queued_buffers;	/**< the number of buffers that are queued. Since 0.3.50 */
 	uint32_t avail_buffers;		/**< the number of buffers that can be dequeued. Since 0.3.50 */
-	uint64_t requested;		/**< for audio/raw playback streams, this contains the number of
-					  *  samples requested by the resampler to fill the current
-					  *  quantum. Since 1.0.5 */
+	uint64_t size;			/**< for audio/raw playback streams, this contains the number of
+					  *  samples requested by the resampler for the current
+					  *  quantum. for audio/raw capture streams this will be the number
+					  *  of samples available for the current quantum. Since 1.0.5 */
 };
 
 #include <pipewire/port.h>

@@ -1716,7 +1716,7 @@ int pw_impl_port_set_param(struct pw_impl_port *port, uint32_t id, uint32_t flag
 	pw_log_debug("%p: %d set param on node %d:%d id:%d (%s): %d (%s)", port, port->state,
 			port->direction, port->port_id, id,
 			spa_debug_type_find_name(spa_type_param, id),
-			res, spa_strerror(res));
+			res, res <= 0 ? spa_strerror(res) : "modified");
 
 	/* set the parameters on all ports of the mixer node if possible */
 	if (res >= 0) {

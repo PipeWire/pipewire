@@ -149,7 +149,6 @@ pw_context_load_module(struct pw_context *context,
 	size_t len;
 	char path_part[PATH_MAX];
 	static const char * const keys[] = {
-		PW_KEY_OBJECT_SERIAL,
 		PW_KEY_MODULE_NAME,
 		NULL
 	};

@@ -269,7 +269,6 @@ int session_init(struct session *this,
 		struct pw_properties *properties)
 {
 	static const char * const keys[] = {
-		PW_KEY_OBJECT_SERIAL,
 		PW_KEY_FACTORY_ID,
 		PW_KEY_CLIENT_ID,
 		NULL

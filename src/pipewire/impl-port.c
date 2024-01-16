@@ -1014,7 +1014,6 @@ int pw_impl_port_register(struct pw_impl_port *port,
 		     struct pw_properties *properties)
 {
 	static const char * const keys[] = {
-		PW_KEY_OBJECT_SERIAL,
 		PW_KEY_OBJECT_PATH,
 		PW_KEY_FORMAT_DSP,
 		PW_KEY_NODE_ID,

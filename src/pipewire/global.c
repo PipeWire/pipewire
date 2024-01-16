@@ -54,6 +54,7 @@ pw_global_new(struct pw_context *context,
 {
 	struct impl *impl;
 	struct pw_global *this;
+	uint64_t serial;
 	int res;
 
 	if (properties == NULL)
@@ -86,6 +87,14 @@ pw_global_new(struct pw_context *context,
 
 	spa_list_init(&this->resource_list);
 	spa_hook_list_init(&this->listener_list);
+
+	serial = pw_global_get_serial(this);
+	res = pw_properties_setf(properties, PW_KEY_OBJECT_SERIAL, "%" PRIu64, serial);
+	if (res < 0) {
+		pw_global_destroy(this);
+		errno = -res;
+		return NULL;
+	}
 
 	pw_log_debug("%p: new %s %d", this, this->type, this->id);
 

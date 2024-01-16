@@ -1496,7 +1496,6 @@ int pw_impl_link_register(struct pw_impl_link *link,
 		     struct pw_properties *properties)
 {
 	static const char * const keys[] = {
-		PW_KEY_OBJECT_SERIAL,
 		PW_KEY_OBJECT_PATH,
 		PW_KEY_MODULE_ID,
 		PW_KEY_FACTORY_ID,

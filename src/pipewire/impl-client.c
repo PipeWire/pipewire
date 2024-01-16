@@ -519,7 +519,6 @@ int pw_impl_client_register(struct pw_impl_client *client,
 		       struct pw_properties *properties)
 {
 	static const char * const keys[] = {
-		PW_KEY_OBJECT_SERIAL,
 		PW_KEY_MODULE_ID,
 		PW_KEY_PROTOCOL,
 		PW_KEY_SEC_PID,

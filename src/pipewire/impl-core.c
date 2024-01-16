@@ -573,7 +573,6 @@ int pw_impl_core_register(struct pw_impl_core *core,
 			 struct pw_properties *properties)
 {
 	static const char * const keys[] = {
-		PW_KEY_OBJECT_SERIAL,
 		PW_KEY_USER_NAME,
 		PW_KEY_HOST_NAME,
 		PW_KEY_CORE_NAME,

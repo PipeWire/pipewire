@@ -158,7 +158,6 @@ int pw_impl_factory_register(struct pw_impl_factory *factory,
 			 struct pw_properties *properties)
 {
 	static const char * const keys[] = {
-		PW_KEY_OBJECT_SERIAL,
 		PW_KEY_MODULE_ID,
 		PW_KEY_FACTORY_NAME,
 		PW_KEY_FACTORY_TYPE_NAME,

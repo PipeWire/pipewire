@@ -371,15 +371,6 @@ static void *endpoint_new(struct pw_context *context,
 			  struct pw_properties *properties)
 {
 	struct impl *impl;
-	char serial_str[32];
-	struct spa_dict_item items[1] = {
-		SPA_DICT_ITEM_INIT(PW_KEY_OBJECT_SERIAL, serial_str),
-	};
-	struct spa_dict extra_props = SPA_DICT_INIT_ARRAY(items);
-	static const char * const keys[] = {
-		PW_KEY_OBJECT_SERIAL,
-		NULL
-	};
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL) {
@@ -398,10 +389,6 @@ static void *endpoint_new(struct pw_context *context,
 		return NULL;
 	}
 	impl->resource = resource;
-
-	spa_scnprintf(serial_str, sizeof(serial_str), "%"PRIu64,
-			pw_global_get_serial(impl->global));
-	pw_global_update_keys(impl->global, &extra_props, keys);
 
 	spa_list_init(&impl->cached_params);
 

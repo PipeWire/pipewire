@@ -89,6 +89,11 @@ static uint32_t impl_peaks_in_len(struct resample *r, uint32_t out_len)
 	return out_len;
 }
 
+static uint32_t impl_peaks_out_len(struct resample *r, uint32_t in_len)
+{
+	return in_len;
+}
+
 static void impl_peaks_reset (struct resample *r)
 {
 	struct peaks_data *d = r->data;
@@ -119,6 +124,7 @@ int resample_peaks_init(struct resample *r)
 	r->reset = impl_peaks_reset;
 	r->delay = impl_peaks_delay;
 	r->in_len = impl_peaks_in_len;
+	r->out_len = impl_peaks_out_len;
 
 	spa_log_debug(r->log, "peaks %p: in:%d out:%d features:%08x:%08x", r,
 			r->i_rate, r->o_rate, r->cpu_flags, d->peaks.cpu_flags);

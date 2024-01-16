@@ -52,7 +52,8 @@
  * Options specific to the behavior of this module
  *
  * - `local.ifname = <str>`: interface name to use
- * - `source.ip = <str>`: the source ip address, default 224.0.0.56
+ * - `source.ip = <str>`: the source ip address, default 224.0.0.56. Set this to the IP address
+ *                you want to receive packets from or 0.0.0.0 to receive from any source address.
  * - `source.port = <int>`: the source port
  * - `node.always-process = <bool>`: true to receive even when not running
  * - `sess.latency.msec = <str>`: target network latency in milliseconds, default 100

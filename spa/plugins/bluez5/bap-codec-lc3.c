@@ -600,22 +600,22 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 	spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_None, 0);
 	choice = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f[1]);
 	i = 0;
-	if (conf.rate & LC3_CONFIG_FREQ_48KHZ) {
+	if (conf.rate == LC3_CONFIG_FREQ_48KHZ) {
 		if (i++ == 0)
 			spa_pod_builder_int(b, 48000);
 		spa_pod_builder_int(b, 48000);
 	}
-	if (conf.rate & LC3_CONFIG_FREQ_24KHZ) {
+	if (conf.rate == LC3_CONFIG_FREQ_24KHZ) {
 		if (i++ == 0)
 			spa_pod_builder_int(b, 24000);
 		spa_pod_builder_int(b, 24000);
 	}
-	if (conf.rate & LC3_CONFIG_FREQ_16KHZ) {
+	if (conf.rate == LC3_CONFIG_FREQ_16KHZ) {
 		if (i++ == 0)
 			spa_pod_builder_int(b, 16000);
 		spa_pod_builder_int(b, 16000);
 	}
-	if (conf.rate & LC3_CONFIG_FREQ_8KHZ) {
+	if (conf.rate == LC3_CONFIG_FREQ_8KHZ) {
 		if (i++ == 0)
 			spa_pod_builder_int(b, 8000);
 		spa_pod_builder_int(b, 8000);

@@ -367,11 +367,11 @@ static const struct format_info *find_format_info_by_media_type(uint32_t type,
 	return NULL;
 }
 
-static uint32_t
+static int
 enum_filter_format(uint32_t media_type, int32_t media_subtype,
 		   const struct spa_pod *filter, uint32_t index)
 {
-	uint32_t video_format = 0;
+	uint32_t video_format = SPA_VIDEO_FORMAT_UNKNOWN;
 
 	switch (media_type) {
 	case SPA_MEDIA_TYPE_video:
@@ -383,12 +383,12 @@ enum_filter_format(uint32_t media_type, int32_t media_subtype,
 			const uint32_t *values;
 
 			if (!(p = spa_pod_find_prop(filter, NULL, SPA_FORMAT_VIDEO_format)))
-				return SPA_VIDEO_FORMAT_UNKNOWN;
+				return -ENOENT;
 
 			val = spa_pod_get_values(&p->value, &n_values, &choice);
 
 			if (val->type != SPA_TYPE_Id)
-				return SPA_VIDEO_FORMAT_UNKNOWN;
+				return -EINVAL;
 
 			values = SPA_POD_BODY(val);
 
@@ -503,7 +503,7 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 	int res, n_fractions;
 	const struct format_info *info;
 	struct spa_pod_choice *choice;
-	uint32_t filter_media_type, filter_media_subtype, video_format;
+	uint32_t filter_media_type, filter_media_subtype;
 	struct spa_v4l2_device *dev = &port->dev;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { 0 };
@@ -545,16 +545,19 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 		if (filter) {
 			struct v4l2_format fmt;
 
-			video_format = enum_filter_format(filter_media_type,
+			res = enum_filter_format(filter_media_type,
 					    filter_media_subtype,
 					    filter, port->fmtdesc.index);
-
-			if (video_format == SPA_VIDEO_FORMAT_UNKNOWN)
+			if (res == -ENOENT)
+				goto do_enum_fmt;
+			if (res < 0)
+				goto exit;
+			if (res == SPA_VIDEO_FORMAT_UNKNOWN)
 				goto enum_end;
 
 			info = find_format_info_by_media_type(filter_media_type,
 							      filter_media_subtype,
-							      video_format, 0);
+							      res, 0);
 			if (info == NULL)
 				goto next_fmtdesc;
 
@@ -580,6 +583,7 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 			}
 
 		} else {
+do_enum_fmt:
 			if ((res = xioctl(dev->fd, VIDIOC_ENUM_FMT, &port->fmtdesc)) < 0) {
 				if (errno == EINVAL)
 					goto enum_end;

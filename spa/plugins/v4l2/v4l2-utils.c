@@ -815,6 +815,7 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 						 port->frmival.discrete.denominator,
 						 port->frmival.discrete.numerator);
 			port->frmival.index++;
+			n_fractions++;
 		} else if (port->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS ||
 			   port->frmival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
 			if (n_fractions == 0)
@@ -828,20 +829,23 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 
 			if (port->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
 				choice->body.type = SPA_CHOICE_Range;
+				n_fractions += 2;
 			} else {
 				choice->body.type = SPA_CHOICE_Step;
 				spa_pod_builder_fraction(&b,
 							 port->frmival.stepwise.step.denominator,
 							 port->frmival.stepwise.step.numerator);
+				n_fractions += 3;
 			}
 
 			port->frmsize.index++;
 			port->next_frmsize = true;
 			break;
 		}
-		n_fractions++;
 	}
-	if (n_fractions <= 1)
+	if (n_fractions == 0)
+		goto next_frmsize;
+	if (n_fractions == 1)
 		choice->body.type = SPA_CHOICE_None;
 
 	spa_pod_builder_pop(&b, &f[1]);

@@ -235,6 +235,8 @@ static int add_param(struct filter *impl, struct port *port,
 	if (param == NULL || !spa_pod_object_has_props((struct spa_pod_object*)param))
 		return 0;
 
+	pw_log_pod(SPA_LOG_LEVEL_DEBUG, param);
+
 	if (id == SPA_ID_INVALID)
 		id = SPA_POD_OBJECT_ID(param);
 

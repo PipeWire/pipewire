@@ -3,6 +3,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include "config.h"
+#include "pipewire/properties.h"
 
 #include <limits.h>
 #include <unistd.h>
@@ -24,6 +25,7 @@
 #include <pipewire/impl.h>
 
 #include <module-rtp/sap.h>
+#include <module-rtp/ptp.h>
 
 #ifdef __FreeBSD__
 #define ifr_ifindex ifr_index
@@ -164,6 +166,13 @@ static const struct spa_dict_item module_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
+#define PTP_MESSAGE_TYPE_MANAGEMENT 0x0d
+#define PTP_VERSION_1588_2008_2_1 0x12
+#define PTP_DEFAULT_LOG_MESSAGE_INTERVAL 127
+#define PTP_MGMT_ACTION_GET 0
+#define PTP_TLV_TYPE_MGMT 0x0001
+#define PTP_MGMT_ID_PARENT_DATA_SET 0x2002
+
 struct sdp_info {
 	uint16_t hash;
 	uint32_t ntp;
@@ -198,6 +207,7 @@ struct session {
 
 	bool announce;
 	uint64_t timestamp;
+	bool ts_refclk_ptp;
 
 	struct impl *impl;
 	struct node *node;
@@ -262,6 +272,13 @@ struct impl {
 
 	char *extra_attrs_preamble;
 	char *extra_attrs_end;
+
+	char *ptp_mgmt_socket;
+	char ptp_client_path[64];
+	int ptp_fd;
+	uint32_t ptp_seq;
+	uint8_t clock_id[8];
+	uint8_t gm_id[8];
 };
 
 struct format_info {
@@ -365,6 +382,37 @@ static bool is_multicast(struct sockaddr *sa, socklen_t salen)
 		return sa6->sin6_addr.s6_addr[0] == 0xff;
 	}
 	return false;
+}
+
+static int make_unix_socket(char *path, char *client_path) {
+	struct sockaddr_un client_addr, server_addr;
+	int fd;
+
+	fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+	if (fd == -1) {
+		pw_log_warn("Failed to create PTP management socket");
+		return 0;
+	}
+
+	spa_zero(client_addr);
+	client_addr.sun_family = AF_UNIX;
+	strncpy(client_addr.sun_path, client_path, strlen(client_path));
+
+	if (bind(fd, (struct sockaddr *)&client_addr, sizeof(client_addr)) == -1) {
+		pw_log_warn("Failed to bind PTP management socket");
+		return 0;
+	}
+
+	spa_zero(server_addr);
+	server_addr.sun_family = AF_UNIX;
+	strncpy(server_addr.sun_path, path, sizeof(server_addr.sun_path) - 1);
+
+	if (connect(fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
+		pw_log_warn("Failed to connect PTP management socket");
+		return 0;
+	}
+
+	return fd;
 }
 
 static int make_send_socket(
@@ -490,6 +538,96 @@ static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len, bool 
 	return 0;
 }
 
+static void update_ts_refclk(struct impl *impl)
+{
+	if (!impl->ptp_mgmt_socket || !impl->ptp_fd)
+		return;
+
+	// Read if something is left in the socket
+	int avail;
+	ioctl(impl->ptp_fd, FIONREAD, &avail);
+	if (avail) {
+		void *tmp = malloc(avail);
+		read(impl->ptp_fd, tmp, avail);
+		free(tmp);
+	}
+
+	struct ptp_management_msg req;
+	spa_zero(req);
+
+	req.major_sdo_id_message_type = PTP_MESSAGE_TYPE_MANAGEMENT;
+	req.ver = PTP_VERSION_1588_2008_2_1;
+	req.message_length_be = htobe16(sizeof(struct ptp_management_msg));
+	spa_zero(req.clock_identity);
+	req.source_port_id_be = htobe16(getpid());
+	req.log_message_interval = 127;
+	req.sequence_id_be = htobe16(impl->ptp_seq++);
+	memset(req.target_port_identity, 0xff, 8);
+	req.target_port_id_be = htobe16(0xffff);
+	req.starting_boundary_hops = 1;
+	req.boundary_hops = 1;
+	req.action = PTP_MGMT_ACTION_GET;
+	req.tlv_type_be = htobe16(PTP_TLV_TYPE_MGMT);
+	// sent empty TLV, only sending management_id
+	req.management_message_length_be = htobe16(2);
+	req.management_id_be = htobe16(PTP_MGMT_ID_PARENT_DATA_SET);
+
+	if (write(impl->ptp_fd, &req, sizeof(req)) == -1) {
+		pw_log_warn("Failed to send PTP management request: %m");
+		return;
+	}
+
+	uint8_t buf[sizeof(struct ptp_management_msg) + sizeof(struct ptp_parent_data_set)];
+	if (read(impl->ptp_fd, &buf, sizeof(buf)) == -1) {
+		pw_log_warn("Failed to send PTP management request: %m");
+		return;
+	}
+
+	struct ptp_management_msg res = *(struct ptp_management_msg *)buf;
+	struct ptp_parent_data_set parent =
+		*(struct ptp_parent_data_set *)(buf + sizeof(struct ptp_management_msg));
+
+	uint16_t data_len = be16toh(res.management_message_length_be) - 2;
+	if (data_len != sizeof(struct ptp_parent_data_set))
+		pw_log_warn("Unexpected PTP GET PARENT_DATA_SET response length %u, expected 32", data_len);
+
+	uint8_t *cid = res.clock_identity;
+	if (memcmp(cid, impl->clock_id, 8) != 0)
+		pw_log_info(
+			"Local clock ID: IEEE1588-2008:%02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X:%d",
+			cid[0],
+			cid[1],
+			cid[2],
+			cid[3],
+			cid[4],
+			cid[5],
+			cid[6],
+			cid[7],
+			0 /* domain */
+	  );
+
+	uint8_t *gmid = parent.gm_clock_id;
+	if (memcmp(gmid, impl->gm_id, 8) != 0)
+		pw_log_info(
+			"GM ID: IEEE1588-2008:%02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X:%d",
+			gmid[0],
+			gmid[1],
+			gmid[2],
+			gmid[3],
+			gmid[4],
+			gmid[5],
+			gmid[6],
+			gmid[7],
+			0 /* domain */
+	  );
+
+	// When GM is not equal to own clock we are clocked by external master
+	pw_log_debug("Synced to GM: %s", (memcmp(cid, gmid, 8) != 0) ? "true" : "false");
+
+	memcpy(impl->clock_id, cid, 8);
+	memcpy(impl->gm_id, gmid, 8);
+}
+
 static int send_sap(struct impl *impl, struct session *sess, bool bye)
 {
 	char buffer[2048], src_addr[64], dst_addr[64], dst_ttl[8];
@@ -596,12 +734,24 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 		spa_strbuf_append(&buf,
 			"a=framecount:%u\n", sdp->framecount);
 
-	if (sdp->ts_refclk != NULL) {
-		spa_strbuf_append(&buf,
-				"a=ts-refclk:%s\n"
-				"a=mediaclk:direct=%u\n",
-				sdp->ts_refclk,
-				sdp->ts_offset);
+	if (sdp->ts_refclk != NULL || sess->ts_refclk_ptp) {
+		// Only broadcast the GM ID when we are synced to external time source
+		if (sess->ts_refclk_ptp && memcmp(impl->clock_id, impl->gm_id, 8) != 0) {
+			spa_strbuf_append(&buf,
+					"a=ts-refclk:ptp=IEEE1588-2008:%02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X:%d\n",
+					impl->gm_id[0],
+					impl->gm_id[1],
+					impl->gm_id[2],
+					impl->gm_id[3],
+					impl->gm_id[4],
+					impl->gm_id[5],
+					impl->gm_id[6],
+					impl->gm_id[7],
+					0/* domain */);
+		} else {
+			spa_strbuf_append(&buf,	"a=ts-refclk:%s\n",	sdp->ts_refclk);
+		}
+		spa_strbuf_append(&buf,	"a=mediaclk:direct=%u\n",	sdp->ts_offset);
 	} else {
 		spa_strbuf_append(&buf, "a=mediaclk:sender\n");
 	}
@@ -646,6 +796,7 @@ static void on_timer_event(void *data, uint64_t expirations)
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	timestamp = SPA_TIMESPEC_TO_NSEC(&ts);
 	interval = impl->cleanup_interval * SPA_NSEC_PER_SEC;
+	update_ts_refclk(impl);
 
 	spa_list_for_each_safe(sess, tmp, &impl->sessions, link) {
 		if (sess->announce) {
@@ -739,6 +890,7 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 		sdp->ts_offset = atoi(str);
 	if ((str = pw_properties_get(props, "rtp.ts-refclk")) != NULL)
 		sdp->ts_refclk = strdup(str);
+	sess->ts_refclk_ptp = pw_properties_get_bool(props, "rtp.fetch-ts-refclk", false);
 	if ((str = pw_properties_get(props, PW_KEY_NODE_CHANNELNAMES)) != NULL) {
 		struct spa_strbuf buf;
 		spa_strbuf_init(&buf, sdp->channelmap, sizeof(sdp->channelmap));
@@ -1464,12 +1616,16 @@ static void impl_destroy(struct impl *impl)
 
 	if (impl->sap_fd != -1)
 		close(impl->sap_fd);
+	if (impl->ptp_fd != -1)
+		close(impl->ptp_fd);
 
 	pw_properties_free(impl->props);
 
 	free(impl->extra_attrs_preamble);
 	free(impl->extra_attrs_end);
 
+	free(impl->ptp_mgmt_socket);
+	unlink(impl->ptp_client_path);
 	free(impl->ifname);
 	free(impl);
 }
@@ -1538,6 +1694,20 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;
+
+	str = pw_properties_get(props, "ptp.management-socket");
+	impl->ptp_mgmt_socket = str ? strdup(str) : NULL;
+
+	if (impl->ptp_mgmt_socket) {
+		char *client_dir = getenv("PIPEWIRE_RUNTIME_DIR");
+		if (!client_dir) client_dir = getenv("XDG_RUNTIME_DIR");
+		if (!client_dir) client_dir = "/tmp";
+
+		snprintf(impl->ptp_client_path, 63, "%s/pipewire-ptp-mgmt.%d", client_dir, getpid());
+
+		// TODO: support UDP management access as well
+		impl->ptp_fd = make_unix_socket(impl->ptp_mgmt_socket, impl->ptp_client_path);
+	}
 
 	if ((str = pw_properties_get(props, "sap.ip")) == NULL)
 		str = DEFAULT_SAP_IP;

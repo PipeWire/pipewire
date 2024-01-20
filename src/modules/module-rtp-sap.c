@@ -16,6 +16,7 @@
 #include <net/if.h>
 #include <ctype.h>
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
 #include <spa/utils/json.h>
@@ -386,10 +387,9 @@ static bool is_multicast(struct sockaddr *sa, socklen_t salen)
 
 static int make_unix_socket(char *path, char *client_path) {
 	struct sockaddr_un client_addr, server_addr;
-	int fd;
 
-	fd = socket(AF_UNIX, SOCK_DGRAM, 0);
-	if (fd == -1) {
+	spa_autoclose int fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+	if (fd < 0) {
 		pw_log_warn("Failed to create PTP management socket");
 		return -1;
 	}
@@ -398,7 +398,7 @@ static int make_unix_socket(char *path, char *client_path) {
 	client_addr.sun_family = AF_UNIX;
 	strncpy(client_addr.sun_path, client_path, strlen(client_path));
 
-	if (bind(fd, (struct sockaddr *)&client_addr, sizeof(client_addr)) == -1) {
+	if (bind(fd, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
 		pw_log_warn("Failed to bind PTP management socket");
 		return -1;
 	}
@@ -407,12 +407,12 @@ static int make_unix_socket(char *path, char *client_path) {
 	server_addr.sun_family = AF_UNIX;
 	strncpy(server_addr.sun_path, path, sizeof(server_addr.sun_path) - 1);
 
-	if (connect(fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
+	if (connect(fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
 		pw_log_warn("Failed to connect PTP management socket");
 		return -1;
 	}
 
-	return fd;
+	return spa_steal_fd(fd);
 }
 
 static int make_send_socket(

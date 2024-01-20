@@ -34,7 +34,8 @@ spa_format_audio_wma_parse(const struct spa_pod *format, struct spa_audio_info_w
 }
 
 static inline struct spa_pod *
-spa_format_audio_wma_build(struct spa_pod_builder *builder, uint32_t id, struct spa_audio_info_wma *info)
+spa_format_audio_wma_build(struct spa_pod_builder *builder, uint32_t id,
+			   const struct spa_audio_info_wma *info)
 {
 	struct spa_pod_frame f;
 	spa_pod_builder_push_object(builder, &f, SPA_TYPE_OBJECT_Format, id);

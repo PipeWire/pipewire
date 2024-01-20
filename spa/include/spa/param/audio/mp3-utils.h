@@ -31,7 +31,8 @@ spa_format_audio_mp3_parse(const struct spa_pod *format, struct spa_audio_info_m
 }
 
 static inline struct spa_pod *
-spa_format_audio_mp3_build(struct spa_pod_builder *builder, uint32_t id, struct spa_audio_info_mp3 *info)
+spa_format_audio_mp3_build(struct spa_pod_builder *builder, uint32_t id,
+			   const struct spa_audio_info_mp3 *info)
 {
 	struct spa_pod_frame f;
 	spa_pod_builder_push_object(builder, &f, SPA_TYPE_OBJECT_Format, id);

@@ -40,7 +40,8 @@ spa_format_audio_dsd_parse(const struct spa_pod *format, struct spa_audio_info_d
 }
 
 static inline struct spa_pod *
-spa_format_audio_dsd_build(struct spa_pod_builder *builder, uint32_t id, struct spa_audio_info_dsd *info)
+spa_format_audio_dsd_build(struct spa_pod_builder *builder, uint32_t id,
+			   const struct spa_audio_info_dsd *info)
 {
 	struct spa_pod_frame f;
 	spa_pod_builder_push_object(builder, &f, SPA_TYPE_OBJECT_Format, id);

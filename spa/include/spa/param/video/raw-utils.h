@@ -51,7 +51,7 @@ spa_format_video_raw_parse(const struct spa_pod *format,
 
 static inline struct spa_pod *
 spa_format_video_raw_build(struct spa_pod_builder *builder, uint32_t id,
-			   struct spa_video_info_raw *info)
+			   const struct spa_video_info_raw *info)
 {
 	struct spa_pod_frame f;
 	spa_pod_builder_push_object(builder, &f, SPA_TYPE_OBJECT_Format, id);

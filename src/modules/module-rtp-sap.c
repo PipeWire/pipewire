@@ -385,7 +385,8 @@ static bool is_multicast(struct sockaddr *sa, socklen_t salen)
 	return false;
 }
 
-static int make_unix_socket(char *path, char *client_path) {
+static int make_unix_socket(const char *path, const char *client_path)
+{
 	struct sockaddr_un client_addr, server_addr;
 
 	spa_autoclose int fd = socket(AF_UNIX, SOCK_DGRAM, 0);

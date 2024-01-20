@@ -396,7 +396,7 @@ static int make_unix_socket(char *path, char *client_path) {
 
 	spa_zero(client_addr);
 	client_addr.sun_family = AF_UNIX;
-	strncpy(client_addr.sun_path, client_path, strlen(client_path));
+	strncpy(client_addr.sun_path, client_path, strlen(client_addr.sun_path));
 
 	if (bind(fd, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
 		pw_log_warn("Failed to bind PTP management socket");

@@ -495,6 +495,8 @@ int spa_vulkan_compute_use_buffers(struct vulkan_compute_state *s, struct vulkan
 						: VK_IMAGE_USAGE_SAMPLED_BIT,
 					.spa_buf = buffers[i],
 				};
+				struct vulkan_modifier_info *modifierInfo = vulkan_modifierInfo_find(&s->base, format, dsp_info->modifier);
+				CHECK(vulkan_validate_dmabuf_properties(modifierInfo, &dmabufInfo.spa_buf->n_datas, &dmabufInfo.size));
 				ret = vulkan_create_dmabuf(&s->base, &dmabufInfo, &p->buffers[i]);
 			} else {
 				spa_log_error(s->log, "Unsupported buffer type mask %d", buffers[i]->datas[0].type);
@@ -513,6 +515,8 @@ int spa_vulkan_compute_use_buffers(struct vulkan_compute_state *s, struct vulkan
 						: VK_IMAGE_USAGE_SAMPLED_BIT,
 					.spa_buf = buffers[i],
 				};
+				struct vulkan_modifier_info *modifierInfo = vulkan_modifierInfo_find(&s->base, format, dsp_info->modifier);
+				CHECK(vulkan_validate_dmabuf_properties(modifierInfo, &dmabufInfo.spa_buf->n_datas, &dmabufInfo.size));
 				ret = vulkan_import_dmabuf(&s->base, &dmabufInfo, &p->buffers[i]);
 				break;
 			case SPA_DATA_MemPtr:;

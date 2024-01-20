@@ -579,6 +579,19 @@ static int allocate_dmabuf(struct vulkan_base *s, VkFormat format, uint32_t modi
 	return 0;
 }
 
+int vulkan_validate_dmabuf_properties(const struct vulkan_modifier_info *modInfo, uint32_t *planeCount, struct spa_rectangle *dim)
+{
+	if (planeCount) {
+		if (*planeCount != modInfo->props.drmFormatModifierPlaneCount)
+			return -1;
+	}
+	if (dim) {
+		if (dim->width > modInfo->max_extent.width || dim->height > modInfo->max_extent.height)
+			return -1;
+	}
+	return 0;
+}
+
 int vulkan_fixate_modifier(struct vulkan_base *s, struct dmabuf_fixation_info *info, uint64_t *modifier)
 {
 	VULKAN_INSTANCE_FUNCTION(vkGetImageDrmFormatModifierPropertiesEXT);
@@ -616,11 +629,6 @@ int vulkan_create_dmabuf(struct vulkan_base *s, struct external_buffer_info *inf
 	};
 	int fd = -1;
 	VK_CHECK_RESULT(vkGetMemoryFdKHR(s->device, &getFdInfo, &fd));
-
-	const struct vulkan_modifier_info *modInfo = vulkan_modifierInfo_find(s, info->format, info->modifier);
-
-	if (info->spa_buf->n_datas != modInfo->props.drmFormatModifierPlaneCount)
-		return -1;
 
 	VkMemoryRequirements memoryRequirements = {0};
 	vkGetImageMemoryRequirements(s->device,
@@ -671,17 +679,7 @@ int vulkan_import_dmabuf(struct vulkan_base *s, struct external_buffer_info *inf
 	if (info->spa_buf->n_datas == 0 || info->spa_buf->n_datas > DMABUF_MAX_PLANES)
 		return -1;
 
-	struct vulkan_modifier_info *modProps = vulkan_modifierInfo_find(s, info->format, info->modifier);
-	if (!modProps)
-		return -1;
-
 	uint32_t planeCount = info->spa_buf->n_datas;
-
-	if (planeCount != modProps->props.drmFormatModifierPlaneCount)
-		return -1;
-
-	if (info->size.width > modProps->max_extent.width || info->size.height > modProps->max_extent.height)
-		return -1;
 
 	VkSubresourceLayout planeLayouts[DMABUF_MAX_PLANES] = {0};
 	for (uint32_t i = 0; i < planeCount; i++) {

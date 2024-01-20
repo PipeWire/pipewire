@@ -75,6 +75,7 @@ int vulkan_read_pixels(struct vulkan_base *s, struct vulkan_read_pixels_info *in
 int vulkan_sync_foreign_dmabuf(struct vulkan_base *s, struct vulkan_buffer *vk_buf);
 bool vulkan_sync_export_dmabuf(struct vulkan_base *s, struct vulkan_buffer *vk_buf, int sync_file_fd);
 
+int vulkan_validate_dmabuf_properties(const struct vulkan_modifier_info *modInfo, uint32_t *planeCount, struct spa_rectangle *dim);
 int vulkan_fixate_modifier(struct vulkan_base *s, struct dmabuf_fixation_info *info, uint64_t *modifier);
 int vulkan_create_dmabuf(struct vulkan_base *s, struct external_buffer_info *info, struct vulkan_buffer *vk_buf);
 int vulkan_import_dmabuf(struct vulkan_base *s, struct external_buffer_info *info, struct vulkan_buffer *vk_buf);

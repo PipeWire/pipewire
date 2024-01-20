@@ -1,0 +1,6 @@
+# This file was installed by PipeWire project for its pipewire-aes67
+#
+# This is used to give readonly access to the PTP hardware clock.
+# PipeWire uses this to follow PTP grandmaster time. It should be synced by another service
+#
+KERNEL=="ptp[0-9]*", MODE="0644"

@@ -162,3 +162,13 @@ subdir('filter-chain')
 if systemd.found()
   subdir('systemd')
 endif
+
+aes67_udevrules = [
+  '90-pipewire-aes67-ptp.rules',
+]
+
+if libudev_dep.found()
+  install_data(aes67_udevrules,
+    install_dir : udevrulesdir,
+  )
+endif

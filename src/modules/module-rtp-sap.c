@@ -391,7 +391,7 @@ static int make_unix_socket(char *path, char *client_path) {
 	fd = socket(AF_UNIX, SOCK_DGRAM, 0);
 	if (fd == -1) {
 		pw_log_warn("Failed to create PTP management socket");
-		return 0;
+		return -1;
 	}
 
 	spa_zero(client_addr);
@@ -400,7 +400,7 @@ static int make_unix_socket(char *path, char *client_path) {
 
 	if (bind(fd, (struct sockaddr *)&client_addr, sizeof(client_addr)) == -1) {
 		pw_log_warn("Failed to bind PTP management socket");
-		return 0;
+		return -1;
 	}
 
 	spa_zero(server_addr);
@@ -409,7 +409,7 @@ static int make_unix_socket(char *path, char *client_path) {
 
 	if (connect(fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
 		pw_log_warn("Failed to connect PTP management socket");
-		return 0;
+		return -1;
 	}
 
 	return fd;
@@ -540,17 +540,14 @@ static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len, bool 
 
 static void update_ts_refclk(struct impl *impl)
 {
-	if (!impl->ptp_mgmt_socket || !impl->ptp_fd)
+	if (!impl->ptp_mgmt_socket || impl->ptp_fd < 0)
 		return;
 
 	// Read if something is left in the socket
 	int avail;
 	ioctl(impl->ptp_fd, FIONREAD, &avail);
-	if (avail) {
-		void *tmp = malloc(avail);
-		read(impl->ptp_fd, tmp, avail);
-		free(tmp);
-	}
+	uint8_t tmp;
+	while (avail--) read(impl->ptp_fd, &tmp, 1);
 
 	struct ptp_management_msg req;
 	spa_zero(req);
@@ -579,7 +576,7 @@ static void update_ts_refclk(struct impl *impl)
 
 	uint8_t buf[sizeof(struct ptp_management_msg) + sizeof(struct ptp_parent_data_set)];
 	if (read(impl->ptp_fd, &buf, sizeof(buf)) == -1) {
-		pw_log_warn("Failed to send PTP management request: %m");
+		pw_log_warn("Failed to receive PTP management response: %m");
 		return;
 	}
 
@@ -589,7 +586,7 @@ static void update_ts_refclk(struct impl *impl)
 
 	uint16_t data_len = be16toh(res.management_message_length_be) - 2;
 	if (data_len != sizeof(struct ptp_parent_data_set))
-		pw_log_warn("Unexpected PTP GET PARENT_DATA_SET response length %u, expected 32", data_len);
+		pw_log_warn("Unexpected PTP GET PARENT_DATA_SET response length %u, expected %zu", data_len, sizeof(struct ptp_parent_data_set));
 
 	uint8_t *cid = res.clock_identity;
 	if (memcmp(cid, impl->clock_id, 8) != 0)
@@ -1703,7 +1700,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		if (!client_dir) client_dir = getenv("XDG_RUNTIME_DIR");
 		if (!client_dir) client_dir = "/tmp";
 
-		snprintf(impl->ptp_client_path, 63, "%s/pipewire-ptp-mgmt.%d", client_dir, getpid());
+		snprintf(impl->ptp_client_path, sizeof(impl->ptp_client_path), "%s/pipewire-ptp-mgmt.%d", client_dir, getpid());
 
 		// TODO: support UDP management access as well
 		impl->ptp_fd = make_unix_socket(impl->ptp_mgmt_socket, impl->ptp_client_path);

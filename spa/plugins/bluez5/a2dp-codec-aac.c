@@ -42,6 +42,30 @@ struct impl {
 	int samplesize;
 };
 
+static bool eld_supported()
+{
+	static bool supported = false, checked = false;
+	HANDLE_AACENCODER aacenc = NULL;
+
+	if (checked)
+		return supported;
+
+	if (aacEncOpen(&aacenc, 0, 2) != AACENC_OK)
+		goto done;
+	if (aacEncoder_SetParam(aacenc, AACENC_AOT, AOT_ER_AAC_ELD) != AACENC_OK)
+		goto done;
+	if (aacEncoder_SetParam(aacenc,  AACENC_SBR_MODE, 1) != AACENC_OK)
+		goto done;
+		
+	supported = true;
+
+done:
+	if (aacenc)
+		aacEncClose(&aacenc);
+	checked = true;
+	return supported;
+}
+
 static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 		uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
@@ -51,7 +75,7 @@ static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 			 *       not supported by the FDK-AAC library. */
 			AAC_OBJECT_TYPE_MPEG2_AAC_LC |
 			AAC_OBJECT_TYPE_MPEG4_AAC_LC |
-			AAC_OBJECT_TYPE_MPEG4_AAC_ELD,
+			(eld_supported() ? AAC_OBJECT_TYPE_MPEG4_AAC_ELD : 0),
 		AAC_INIT_FREQUENCY(
 			AAC_SAMPLING_FREQ_8000 |
 			AAC_SAMPLING_FREQ_11025 |
@@ -122,6 +146,9 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	conf = *(a2dp_aac_t*)caps;
 
 	if (codec->id == SPA_BLUETOOTH_AUDIO_CODEC_AAC_ELD) {
+		if (!eld_supported())
+			return -ENOTSUP;
+			
 		if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_ELD)
 			conf.object_type = AAC_OBJECT_TYPE_MPEG4_AAC_ELD;
 		else

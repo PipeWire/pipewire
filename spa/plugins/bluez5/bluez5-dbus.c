@@ -2680,6 +2680,19 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 next:
 		dbus_message_iter_next(props_iter);
 	}
+
+	/* BAP profile UUIDs do not appear in device UUID list.
+	 * Instead, we detect these capabilities based on available
+	 * endpoints (i.e. PACs).
+	 */
+	if (remote_endpoint->uuid && remote_endpoint->device) {
+		enum spa_bt_profile profile;
+
+		profile = spa_bt_profile_from_uuid(remote_endpoint->uuid);
+		if (profile & SPA_BT_PROFILE_BAP_AUDIO)
+			spa_bt_device_add_profile(remote_endpoint->device, profile);
+	}
+
 	return 0;
 }
 

@@ -45,10 +45,13 @@ struct impl {
 static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 		uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
+	eld = spa_streq(codec->name, "aac_eld");
+
 	static const a2dp_aac_t a2dp_aac = {
 		.object_type =
 			/* NOTE: AAC Long Term Prediction and AAC Scalable are
 			 *       not supported by the FDK-AAC library. */
+			eld ? AAC_OBJECT_TYPE_MPEG4_AAC_ELD :
 			AAC_OBJECT_TYPE_MPEG2_AAC_LC |
 			AAC_OBJECT_TYPE_MPEG4_AAC_LC,
 		AAC_INIT_FREQUENCY(
@@ -118,18 +121,27 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	if (caps_size < sizeof(conf))
 		return -EINVAL;
 
+	eld = spa_streq(codec->name, "aac_eld");
+
 	conf = *(a2dp_aac_t*)caps;
 
-	if (conf.object_type & AAC_OBJECT_TYPE_MPEG2_AAC_LC)
-		conf.object_type = AAC_OBJECT_TYPE_MPEG2_AAC_LC;
-	else if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_LC)
-		conf.object_type = AAC_OBJECT_TYPE_MPEG4_AAC_LC;
-	else if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_LTP)
-		return -ENOTSUP;  /* Not supported by FDK-AAC */
-	else if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_SCA)
-		return -ENOTSUP;  /* Not supported by FDK-AAC */
-	else
-		return -ENOTSUP;
+	if (eld) {
+		if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_ELD)
+			conf.object_type = AAC_OBJECT_TYPE_MPEG4_AAC_ELD;
+		else
+			return -ENOTSUP;
+	} else {
+		if (conf.object_type & AAC_OBJECT_TYPE_MPEG2_AAC_LC)
+			conf.object_type = AAC_OBJECT_TYPE_MPEG2_AAC_LC;
+		else if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_LC)
+			conf.object_type = AAC_OBJECT_TYPE_MPEG4_AAC_LC;
+		else if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_LTP)
+			return -ENOTSUP;  /* Not supported by FDK-AAC */
+		else if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_SCA)
+			return -ENOTSUP;  /* Not supported by FDK-AAC */
+		else
+			return -ENOTSUP;
+	}
 
 	if ((i = media_codec_select_config(aac_frequencies,
 					  SPA_N_ELEMENTS(aac_frequencies),
@@ -233,6 +245,8 @@ static int codec_validate_config(const struct media_codec *codec, uint32_t flags
 	if (caps == NULL || caps_size < sizeof(conf))
 		return -EINVAL;
 
+	eld = spa_streq(codec->name, "aac_eld");
+
 	memcpy(&conf, caps, sizeof(conf));
 
 	spa_zero(*info);
@@ -246,9 +260,14 @@ static int codec_validate_config(const struct media_codec *codec, uint32_t flags
 	 * bits for AAC object type. It's not clear if this was due to
 	 * a BlueZ bug, but we can be lax here and below in codec_init.
 	 */
-	if (!(conf.object_type & (AAC_OBJECT_TYPE_MPEG2_AAC_LC |
-					AAC_OBJECT_TYPE_MPEG4_AAC_LC)))
-		return -EINVAL;
+	if (eld) {
+		if (!(conf.object_type & AAC_OBJECT_TYPE_MPEG2_AAC_ELD))
+			return -EINVAL;
+	} else {
+		if (!(conf.object_type & (AAC_OBJECT_TYPE_MPEG2_AAC_LC |
+						AAC_OBJECT_TYPE_MPEG4_AAC_LC)))
+			return -EINVAL;
+	}
 	j = 0;
 	SPA_FOR_EACH_ELEMENT_VAR(aac_frequencies, f) {
 		if (AAC_GET_FREQUENCY(conf) & f->config) {
@@ -304,6 +323,8 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	UINT bitratemode;
 	int res;
 
+	eld = spa_streq(codec->name, "aac_eld");
+
 	this = calloc(1, sizeof(struct impl));
 	if (this == NULL) {
 		res = -errno;
@@ -327,15 +348,30 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	if (res != AACENC_OK)
 		goto error;
 
-	if (!(conf->object_type & (AAC_OBJECT_TYPE_MPEG2_AAC_LC |
-					AAC_OBJECT_TYPE_MPEG4_AAC_LC))) {
-		res = -EINVAL;
-		goto error;
-	}
+	if (eld) {
+		if (!(conf->object_type & AAC_OBJECT_TYPE_MPEG4_AAC_ELD)) {
+			res = -EINVAL;
+			goto error;
+		}
 
-	res = aacEncoder_SetParam(this->aacenc, AACENC_AOT, AOT_AAC_LC);
-	if (res != AACENC_OK)
-		goto error;
+		res = aacEncoder_SetParam(this->aacenc, AACENC_AOT, AOT_ER_AAC_ELD);
+		if (res != AACENC_OK)
+			goto error;
+
+		res = aacEncoder_SetParam(this->aacenc,  AACENC_SBR_MODE, 1);
+		if (res != AACENC_OK)
+			goto error;
+	} else {
+		if (!(conf->object_type & (AAC_OBJECT_TYPE_MPEG2_AAC_LC |
+						AAC_OBJECT_TYPE_MPEG4_AAC_LC))) {
+			res = -EINVAL;
+			goto error;
+		}
+
+		res = aacEncoder_SetParam(this->aacenc, AACENC_AOT, AOT_AAC_LC);
+		if (res != AACENC_OK)
+			goto error;
+	}
 
 	res = aacEncoder_SetParam(this->aacenc, AACENC_SAMPLERATE, this->rate);
 	if (res != AACENC_OK)
@@ -632,7 +668,32 @@ const struct media_codec a2dp_codec_aac = {
 	.set_log = codec_set_log,
 };
 
+const struct media_codec a2dp_codec_aac_eld = {
+	.id = SPA_BLUETOOTH_AUDIO_CODEC_AAC_ELD,
+	.codec_id = A2DP_CODEC_MPEG24,
+	.name = "aac_eld",
+	.description = "AAC-ELD",
+	.fill_caps = codec_fill_caps,
+	.select_config = codec_select_config,
+	.enum_config = codec_enum_config,
+	.validate_config = codec_validate_config,
+	.init_props = codec_init_props,
+	.clear_props = codec_clear_props,
+	.init = codec_init,
+	.deinit = codec_deinit,
+	.get_block_size = codec_get_block_size,
+	.start_encode = codec_start_encode,
+	.encode = codec_encode,
+	.start_decode = codec_start_decode,
+	.decode = codec_decode,
+	.abr_process = codec_abr_process,
+	.reduce_bitpool = codec_reduce_bitpool,
+	.increase_bitpool = codec_increase_bitpool,
+	.set_log = codec_set_log,
+};
+
 MEDIA_CODEC_EXPORT_DEF(
 	"aac",
-	&a2dp_codec_aac
+	&a2dp_codec_aac,
+	&a2dp_codec_aac_eld
 );

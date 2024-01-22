@@ -165,6 +165,10 @@ extern "C" {
 #define MSBC_ENCODED_SIZE       60  /* 2 bytes header + 57 mSBC payload + 1 byte padding */
 #define MSBC_PAYLOAD_SIZE       57
 
+#define LC3_SWB_DECODED_SIZE    960 /* 32 kHz mono S24_32 @ 7.5 ms */
+#define LC3_SWB_ENCODED_SIZE    60  /* 2 bytes header + 58 LC3 payload */
+#define LC3_SWB_PAYLOAD_SIZE    58
+
 enum spa_bt_media_direction {
 	SPA_BT_MEDIA_SOURCE,
 	SPA_BT_MEDIA_SINK,

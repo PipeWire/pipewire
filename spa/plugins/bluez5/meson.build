@@ -67,6 +67,10 @@ if get_option('bluez5-backend-hsphfpd').allowed()
   bluez5_sources += ['backend-hsphfpd.c']
 endif
 
+if get_option('bluez5-codec-lc3').allowed() and lc3_dep.found()
+  bluez5_deps += lc3_dep
+endif
+
 # The library uses GObject, and cannot be unloaded
 bluez5_link_args = [ '-Wl,-z', '-Wl,nodelete' ]
 

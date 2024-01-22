@@ -33,6 +33,10 @@
 
 #include "defs.h"
 
+#ifdef HAVE_LC3
+#include <lc3.h>
+#endif
+
 SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.sink.sco");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
@@ -144,6 +148,13 @@ struct impl {
 	uint8_t *buffer_next;
 	int buffer_size;
 	int msbc_seq;
+
+	/* LC3 */
+#ifdef HAVE_LC3
+	lc3_encoder_t lc3;
+#else
+	void *lc3;
+#endif
 };
 
 #define CHECK_PORT(this,d,p)	((d) == SPA_DIRECTION_INPUT && (p) == 0)
@@ -362,6 +373,28 @@ static uint32_t get_queued_frames(struct impl *this)
 	return bytes / port->frame_size;
 }
 
+static int lc3_encode_frame(struct impl *this, const void *src, size_t src_size, void *dst, size_t dst_size,
+		ssize_t *dst_out)
+{
+#ifdef HAVE_LC3
+	int res;
+
+	if (src_size < LC3_SWB_DECODED_SIZE)
+		return -EINVAL;
+	if (dst_size < LC3_SWB_PAYLOAD_SIZE)
+		return -EINVAL;
+
+	res = lc3_encode(this->lc3, LC3_PCM_FORMAT_S24, src, 1, LC3_SWB_PAYLOAD_SIZE, dst);
+	if (res != 0)
+		return -EINVAL;
+
+	*dst_out = LC3_SWB_PAYLOAD_SIZE;
+	return LC3_SWB_DECODED_SIZE;
+#else
+	return -EOPNOTSUPP;
+#endif
+}
+
 static int flush_data(struct impl *this)
 {
 	struct port *port = &this->port;
@@ -373,12 +406,12 @@ static int flush_data(struct impl *this)
 	if (this->transport == NULL || this->transport->sco_io == NULL || !this->flush_timer_source.loop)
 		return -EIO;
 
-	const uint32_t min_in_size =
-		(this->transport->codec == HFP_AUDIO_CODEC_MSBC) ?
-		MSBC_DECODED_SIZE : this->transport->write_mtu;
-	uint8_t * const packet =
-		(this->transport->codec == HFP_AUDIO_CODEC_MSBC) ?
-		this->buffer_head : port->write_buffer;
+	const bool transp_codec = (this->transport->codec == HFP_AUDIO_CODEC_MSBC) ||
+		(this->transport->codec == HFP_AUDIO_CODEC_LC3);
+	const uint32_t min_in_size = (this->transport->codec == HFP_AUDIO_CODEC_MSBC) ? MSBC_DECODED_SIZE :
+		(this->transport->codec == HFP_AUDIO_CODEC_LC3) ? LC3_SWB_DECODED_SIZE :
+		this->transport->write_mtu;
+	uint8_t * const packet = transp_codec ? this->buffer_head : port->write_buffer;
 	const uint32_t packet_samples = min_in_size / port->frame_size;
 	const uint64_t packet_time = (uint64_t)packet_samples * SPA_NSEC_PER_SEC
 		/ port->current_format.info.raw.rate;
@@ -433,26 +466,37 @@ static int flush_data(struct impl *this)
 		return 0;
 	}
 
-	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
+	if (transp_codec) {
+		uint32_t encoded_size = (this->transport->codec == HFP_AUDIO_CODEC_MSBC) ? MSBC_ENCODED_SIZE :
+			LC3_SWB_ENCODED_SIZE;
 		ssize_t out_encoded;
 
 		/* Encode */
-		if (this->buffer_next + MSBC_ENCODED_SIZE > this->buffer + this->buffer_size) {
+		if (this->buffer_next + encoded_size > this->buffer + this->buffer_size) {
 			/* Buffer overrun; shouldn't usually happen. Drop data and reset. */
 			this->buffer_head = this->buffer_next = this->buffer;
-			spa_log_warn(this->log, "sco-sink: mSBC buffer overrun, dropping data");
+			spa_log_warn(this->log, "sco-sink: mSBC/LC3 buffer overrun, dropping data");
 		}
+
 		this->buffer_next[0] = 0x01;
 		this->buffer_next[1] = sntable[this->msbc_seq % 4];
 		this->buffer_next[59] = 0x00;
 		this->msbc_seq = (this->msbc_seq + 1) % 4;
-		processed = sbc_encode(&this->msbc, port->write_buffer, port->write_buffer_size,
-				this->buffer_next + 2, MSBC_ENCODED_SIZE - 3, &out_encoded);
+
+		if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
+			processed = sbc_encode(&this->msbc, port->write_buffer, port->write_buffer_size,
+					this->buffer_next + 2, encoded_size - 3, &out_encoded);
+			out_encoded += 1; /* pad */
+		} else {
+			processed = lc3_encode_frame(this, port->write_buffer, port->write_buffer_size,
+					this->buffer_next + 2, encoded_size - 2, &out_encoded);
+		}
+
 		if (processed < 0) {
-			spa_log_warn(this->log, "sbc_encode failed: %d", processed);
+			spa_log_warn(this->log, "encode failed: %d", processed);
 			return -EINVAL;
 		}
-		this->buffer_next += out_encoded + 3;
+		this->buffer_next += out_encoded + 2;
 		port->write_buffer_size = 0;
 
 		/* Write */
@@ -468,9 +512,9 @@ static int flush_data(struct impl *this)
 
 		if (this->buffer_head == this->buffer_next)
 			this->buffer_head = this->buffer_next = this->buffer;
-		else if (this->buffer_next + MSBC_ENCODED_SIZE > this->buffer + this->buffer_size) {
+		else if (this->buffer_next + encoded_size > this->buffer + this->buffer_size) {
 			/* Written bytes is not necessarily commensurate
-			 * with MSBC_ENCODED_SIZE. If this occurs, copy data.
+			 * with encoded_size. If this occurs, copy data.
 			 */
 			int size = this->buffer_next - this->buffer_head;
 			spa_memmove(this->buffer, this->buffer_head, size);
@@ -648,6 +692,7 @@ static int lcm(int a, int b) {
 
 static int transport_start(struct impl *this)
 {
+	struct port *port = &this->port;
 	int res;
 
 	/* Don't do anything if the node has already started */
@@ -663,7 +708,7 @@ static int transport_start(struct impl *this)
 
 	spa_log_debug(this->log, "%p: start transport", this);
 
-	/* Init mSBC if needed */
+	/* Init mSBC/LC3 if needed */
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
 		res = sbc_init_msbc(&this->msbc, 0);
 		if (res < 0)
@@ -684,6 +729,26 @@ static int transport_start(struct impl *this)
 			res = -errno;
 			goto fail;
 		}
+	} else if (this->transport->codec == HFP_AUDIO_CODEC_LC3) {
+#ifdef HAVE_LC3
+		this->lc3 = lc3_setup_encoder(7500, 32000, 0,
+				calloc(1, lc3_encoder_size(7500, 32000)));
+		if (!this->lc3)
+			return -EINVAL;
+
+		spa_assert(lc3_frame_samples(7500, 32000) * port->frame_size == LC3_SWB_DECODED_SIZE);
+
+		this->buffer_size = lcm(24, lcm(60, lcm(this->transport->write_mtu, 2 * LC3_SWB_ENCODED_SIZE)));
+		this->buffer = calloc(this->buffer_size, sizeof(uint8_t));
+		this->buffer_head = this->buffer_next = this->buffer;
+		if (this->buffer == NULL) {
+			res = -errno;
+			goto fail;
+		}
+#else
+		res = -EOPNOTSUPP;
+		goto fail;
+#endif
 	}
 
 	spa_return_val_if_fail(this->transport->write_mtu <= sizeof(this->port.write_buffer), -EINVAL);
@@ -711,6 +776,8 @@ fail:
 	free(this->buffer);
 	this->buffer = NULL;
 	sbc_finish(&this->msbc);
+	free(this->lc3);
+	this->lc3 = NULL;
 	return res;
 }
 
@@ -827,6 +894,8 @@ static void transport_stop(struct impl *this)
 	}
 
 	sbc_finish(&this->msbc);
+	free(this->lc3);
+	this->lc3 = NULL;
 }
 
 static int do_stop(struct impl *this)
@@ -1021,13 +1090,21 @@ impl_node_port_enum_params(void *object, int seq,
 
 		/* set the info structure */
 		struct spa_audio_info_raw info = { 0, };
-		info.format = SPA_AUDIO_FORMAT_S16_LE;
+
+		if (this->transport->codec == HFP_AUDIO_CODEC_LC3)
+			info.format = SPA_AUDIO_FORMAT_S24_32_LE;
+		else
+			info.format = SPA_AUDIO_FORMAT_S16_LE;
 		info.channels = 1;
 		info.position[0] = SPA_AUDIO_CHANNEL_MONO;
 
 		/* CVSD format has a rate of 8kHz
-		 * MSBC format has a rate of 16kHz */
-		if (this->transport->codec == HFP_AUDIO_CODEC_MSBC)
+		 * MSBC format has a rate of 16kHz
+		 * LC3-SWB format has a rate of 32kHz
+		 */
+		if (this->transport->codec == HFP_AUDIO_CODEC_LC3)
+			info.rate = 32000;
+		else if (this->transport->codec == HFP_AUDIO_CODEC_MSBC)
 			info.rate = 16000;
 		else
 			info.rate = 8000;
@@ -1143,6 +1220,9 @@ static int port_set_format(struct impl *this, struct port *port,
 	} else {
 		struct spa_audio_info info = { 0 };
 
+		if (!this->transport)
+			return -EIO;
+
 		if ((err = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
 			return err;
 
@@ -1153,12 +1233,25 @@ static int port_set_format(struct impl *this, struct port *port,
 		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 			return -EINVAL;
 
-		if (info.info.raw.format != SPA_AUDIO_FORMAT_S16_LE ||
-		    info.info.raw.rate == 0 ||
+		if (info.info.raw.rate == 0 ||
 		    info.info.raw.channels != 1)
 			return -EINVAL;
 
-		port->frame_size = info.info.raw.channels * 2;
+		switch (info.info.raw.format) {
+		case SPA_AUDIO_FORMAT_S16_LE:
+			if (this->transport->codec == HFP_AUDIO_CODEC_LC3)
+				return -EINVAL;
+			port->frame_size = info.info.raw.channels * 2;
+			break;
+		case SPA_AUDIO_FORMAT_S24_32_LE:
+			if (this->transport->codec != HFP_AUDIO_CODEC_LC3)
+				return -EINVAL;
+			port->frame_size = info.info.raw.channels * 4;
+			break;
+		default:
+			return -EINVAL;
+		}
+
 		port->current_format = info;
 		port->have_format = true;
 	}

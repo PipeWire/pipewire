@@ -276,7 +276,6 @@ struct impl {
 	char *extra_attrs_end;
 
 	char *ptp_mgmt_socket;
-	char ptp_client_path[64];
 	int ptp_fd;
 	uint32_t ptp_seq;
 	uint8_t clock_id[8];
@@ -386,9 +385,8 @@ static bool is_multicast(struct sockaddr *sa, socklen_t salen)
 	return false;
 }
 
-static int make_unix_socket(const char *path, const char *client_path)
-{
-	struct sockaddr_un client_addr, server_addr;
+static int make_unix_socket(const char *path) {
+	struct sockaddr_un addr;
 
 	spa_autoclose int fd = socket(AF_UNIX, SOCK_DGRAM, 0);
 	if (fd < 0) {
@@ -396,20 +394,17 @@ static int make_unix_socket(const char *path, const char *client_path)
 		return -1;
 	}
 
-	spa_zero(client_addr);
-	client_addr.sun_family = AF_UNIX;
-	strncpy(client_addr.sun_path, client_path, strlen(client_addr.sun_path));
-
-	if (bind(fd, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
+	int val = 1;
+	if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &val, sizeof(val)) < 0) {
 		pw_log_warn("Failed to bind PTP management socket");
 		return -1;
 	}
 
-	spa_zero(server_addr);
-	server_addr.sun_family = AF_UNIX;
-	strncpy(server_addr.sun_path, path, sizeof(server_addr.sun_path) - 1);
+	spa_zero(addr);
+	addr.sun_family = AF_UNIX;
+	strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
 
-	if (connect(fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+	if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
 		pw_log_warn("Failed to connect PTP management socket");
 		return -1;
 	}
@@ -1649,7 +1644,6 @@ static void impl_destroy(struct impl *impl)
 	free(impl->extra_attrs_end);
 
 	free(impl->ptp_mgmt_socket);
-	unlink(impl->ptp_client_path);
 	free(impl->ifname);
 	free(impl);
 }
@@ -1722,16 +1716,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	str = pw_properties_get(props, "ptp.management-socket");
 	impl->ptp_mgmt_socket = str ? strdup(str) : NULL;
 
-	if (impl->ptp_mgmt_socket) {
-		char *client_dir = getenv("PIPEWIRE_RUNTIME_DIR");
-		if (!client_dir) client_dir = getenv("XDG_RUNTIME_DIR");
-		if (!client_dir) client_dir = "/tmp";
-
-		snprintf(impl->ptp_client_path, sizeof(impl->ptp_client_path), "%s/pipewire-ptp-mgmt.%d", client_dir, getpid());
-
-		// TODO: support UDP management access as well
-		impl->ptp_fd = make_unix_socket(impl->ptp_mgmt_socket, impl->ptp_client_path);
-	}
+	// TODO: support UDP management access as well
+	if (impl->ptp_mgmt_socket)
+		impl->ptp_fd = make_unix_socket(impl->ptp_mgmt_socket);
 
 	if ((str = pw_properties_get(props, "sap.ip")) == NULL)
 		str = DEFAULT_SAP_IP;

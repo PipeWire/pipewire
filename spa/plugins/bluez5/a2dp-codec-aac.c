@@ -69,14 +69,13 @@ done:
 static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 		uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
-	bool have_eld = eld_supported();
-	static const a2dp_aac_t a2dp_aac = {
+	const a2dp_aac_t a2dp_aac = {
 		.object_type =
 			/* NOTE: AAC Long Term Prediction and AAC Scalable are
 			 *       not supported by the FDK-AAC library. */
 			AAC_OBJECT_TYPE_MPEG2_AAC_LC |
 			AAC_OBJECT_TYPE_MPEG4_AAC_LC |
-			have_eld ? AAC_OBJECT_TYPE_MPEG4_AAC_ELD : 0,
+			(eld_supported() ? AAC_OBJECT_TYPE_MPEG4_AAC_ELD : 0),
 		AAC_INIT_FREQUENCY(
 			AAC_SAMPLING_FREQ_8000 |
 			AAC_SAMPLING_FREQ_11025 |

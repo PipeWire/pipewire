@@ -458,14 +458,19 @@ impl_node_port_enum_params(void *object, int seq,
 		break;
 
 	case SPA_PARAM_Buffers:
+	{
+		uint32_t min_buffers;
+
 		if (!this->have_format)
 			return -EIO;
 		if (result.index > 0)
 			return 0;
 
+		min_buffers = (this->quantum_limit * 4 * this->frame_scale) > this->buffer_frames ?  2 : 1;
+
 		param = spa_pod_builder_add_object(&b.b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
-			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(min_buffers, min_buffers, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(this->blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
 							this->quantum_limit * this->frame_size * this->frame_scale,
@@ -473,6 +478,7 @@ impl_node_port_enum_params(void *object, int seq,
 							INT32_MAX),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(this->frame_size));
 		break;
+	}
 
 	case SPA_PARAM_Meta:
 		switch (result.index) {

@@ -161,6 +161,7 @@ struct rfcomm {
 	unsigned int slc_configured:1;
 	unsigned int codec_negotiation_supported:1;
 	unsigned int msbc_supported_by_hfp:1;
+	unsigned int lc3_supported_by_hfp:1;
 	unsigned int hfp_ag_switching_codec:1;
 	unsigned int hfp_ag_initial_codec_setup:2;
 	unsigned int cind_call_active:1;
@@ -615,28 +616,48 @@ fail:
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
 
-static bool device_supports_required_mSBC_transport_modes(
-		struct impl *backend, struct spa_bt_device *device)
+static bool device_supports_codec(struct impl *backend, struct spa_bt_device *device, int codec)
 {
 	int res;
-	bool msbc_ok, msbc_alt1_ok;
+	bool alt6_ok = true, alt1_ok = true;
+	bool msbc_alt6_ok = true, msbc_alt1_ok = true;
 	uint32_t bt_features;
 
 	if (device->adapter == NULL)
 		return false;
 
 	if (backend->quirks && spa_bt_quirks_get_features(backend->quirks, device->adapter, device, &bt_features) == 0) {
-		msbc_ok = bt_features & SPA_BT_FEATURE_MSBC;
-		msbc_alt1_ok = bt_features & (SPA_BT_FEATURE_MSBC_ALT1 | SPA_BT_FEATURE_MSBC_ALT1_RTL);
-	} else {
-		msbc_ok = true;
-		msbc_alt1_ok = true;
+		msbc_alt1_ok = (bt_features & (SPA_BT_FEATURE_MSBC_ALT1 | SPA_BT_FEATURE_MSBC_ALT1_RTL));
+		msbc_alt6_ok = (bt_features & SPA_BT_FEATURE_MSBC);
+	}
+
+	switch (codec) {
+	case HFP_AUDIO_CODEC_CVSD:
+		return true;
+	case HFP_AUDIO_CODEC_MSBC:
+		alt1_ok = msbc_alt1_ok;
+		alt6_ok = msbc_alt6_ok;
+		break;
+	case HFP_AUDIO_CODEC_LC3:
+#ifdef HAVE_LC3
+		/* LC3-SWB has same transport requirements as msbc.
+		 * However, ALT1/ALT5 modes don't appear to work, seem
+		 * to lose frame sync so output is garbled.
+		 */
+		alt1_ok = false;
+		alt6_ok = msbc_alt6_ok;
+		break;
+#else
+		return false;
+#endif
+	default:
+		return false;
 	}
 
 	spa_log_info(backend->log,
-			"bluez-monitor/hardware.conf: msbc:%d msbc-alt1:%d", (int)msbc_ok, (int)msbc_alt1_ok);
+			"bluez-monitor/hardware.conf: alt6:%d alt1/5:%d", (int)alt6_ok, (int)alt1_ok);
 
-	if (!msbc_ok && !msbc_alt1_ok)
+	if (!alt6_ok && !alt1_ok)
 		return false;
 
 	res = spa_bt_adapter_has_msbc(device->adapter);
@@ -656,26 +677,26 @@ static bool device_supports_required_mSBC_transport_modes(
 	}
 
 	/* Check if USB ALT6 is really available on the device */
-	if (device->adapter->bus_type == BUS_TYPE_USB && !msbc_alt1_ok && msbc_ok) {
+	if (device->adapter->bus_type == BUS_TYPE_USB && !alt1_ok && alt6_ok) {
 #ifdef HAVE_LIBUSB
 		if (device->adapter->source_id == SOURCE_ID_USB) {
-			msbc_ok = check_usb_altsetting_6(backend, device->adapter->vendor_id,
+			alt6_ok = check_usb_altsetting_6(backend, device->adapter->vendor_id,
 					device->adapter->product_id);
 		} else {
-			msbc_ok = false;
+			alt6_ok = false;
 		}
-		if (!msbc_ok)
+		if (!alt6_ok)
 			spa_log_info(backend->log, "bluetooth host adapter does not support USB ALT6");
 #else
 		spa_log_info(backend->log,
-			"compiled without libusb; can't check if bluetooth adapter has USB ALT6");
-		msbc_ok = false;
+			"compiled without libusb; can't check if bluetooth adapter has USB ALT6, assuming no");
+		alt6_ok = false;
 #endif
 	}
 	if (device->adapter->bus_type != BUS_TYPE_USB)
-		msbc_alt1_ok = false;
+		alt1_ok = false;
 
-	return msbc_ok || msbc_alt1_ok;
+	return alt6_ok || alt1_ok;
 }
 
 static int codec_switch_start_timer(struct rfcomm *rfcomm, int timeout_msec);
@@ -779,6 +800,8 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 
 	if (sscanf(buf, "AT+BRSF=%u", &features) == 1) {
 		unsigned int ag_features = SPA_BT_HFP_AG_FEATURE_NONE;
+		bool codecs = device_supports_codec(backend, rfcomm->device, HFP_AUDIO_CODEC_MSBC) ||
+			device_supports_codec(backend, rfcomm->device, HFP_AUDIO_CODEC_LC3);
 
 		/*
 		 * Determine device volume control. Some headsets only support control of
@@ -787,10 +810,9 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		 */
 		rfcomm->has_volume = (features & SPA_BT_HFP_HF_FEATURE_REMOTE_VOLUME_CONTROL);
 
-		/* Decide if we want to signal that the computer supports mSBC negotiation
+		/* Decide if we want to signal that the computer supports codec negotiation
 		   This should be done when the computers bluetooth adapter supports the necessary transport mode */
-		if (device_supports_required_mSBC_transport_modes(backend, rfcomm->device)) {
-
+		if (codecs) {
 			/* set the feature bit that indicates AG (=computer) supports codec negotiation */
 			ag_features |= SPA_BT_HFP_AG_FEATURE_CODEC_NEGOTIATION;
 
@@ -802,6 +824,7 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 				/* Prepare reply: Audio Gateway (=computer) supports codec negotiation */
 				rfcomm->codec_negotiation_supported = true;
 				rfcomm->msbc_supported_by_hfp = false;
+				rfcomm->lc3_supported_by_hfp = false;
 			} else {
 				/* Codec negotiation not supported */
 				spa_log_debug(backend->log,
@@ -810,6 +833,7 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 
 				rfcomm->codec_negotiation_supported = false;
 				rfcomm->msbc_supported_by_hfp = false;
+				rfcomm->lc3_supported_by_hfp = false;
 			}
 		}
 
@@ -832,13 +856,21 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 			/* skip token 0 i.e. the "AT+BAC=" part */
 			if (cntr > 0 && sscanf(token, "%u", &codec_id) == 1) {
 				spa_log_debug(backend->log, "RFCOMM AT+BAC found codec %u", codec_id);
-				if (codec_id == HFP_AUDIO_CODEC_MSBC) {
-					rfcomm->msbc_supported_by_hfp = true;
-					spa_log_debug(backend->log, "RFCOMM headset supports mSBC codec");
-				}
+
+				if (codec_id == HFP_AUDIO_CODEC_MSBC)
+					rfcomm->msbc_supported_by_hfp =
+						device_supports_codec(backend, rfcomm->device, HFP_AUDIO_CODEC_MSBC);
+				else if (codec_id == HFP_AUDIO_CODEC_LC3)
+					rfcomm->lc3_supported_by_hfp =
+						device_supports_codec(backend, rfcomm->device, HFP_AUDIO_CODEC_LC3);
 			}
 			cntr++;
 		}
+
+		if (rfcomm->msbc_supported_by_hfp)
+			spa_log_debug(backend->log, "mSBC codec is supported");
+		if (rfcomm->lc3_supported_by_hfp)
+			spa_log_debug(backend->log, "LC3 codec is supported");
 
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+CIND=?")) {
@@ -851,6 +883,7 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+CMER")) {
 		int mode, keyp, disp, ind;
+		bool have_codecs = rfcomm->msbc_supported_by_hfp || rfcomm->lc3_supported_by_hfp;
 
 		rfcomm->slc_configured = true;
 		rfcomm_send_reply(rfcomm, "OK");
@@ -862,10 +895,13 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 			rfcomm->cind_call_notify = false;
 
 		/* switch codec to mSBC by sending unsolicited +BCS message */
-		if (rfcomm->codec_negotiation_supported && rfcomm->msbc_supported_by_hfp) {
+		if (rfcomm->codec_negotiation_supported && have_codecs) {
 			spa_log_debug(backend->log, "RFCOMM initial codec setup");
 			rfcomm->hfp_ag_initial_codec_setup = HFP_AG_INITIAL_CODEC_SETUP_SEND;
-			rfcomm_send_reply(rfcomm, "+BCS: 2");
+			if (rfcomm->lc3_supported_by_hfp)
+				rfcomm_send_reply(rfcomm, "+BCS: 3");
+			else
+				rfcomm_send_reply(rfcomm, "+BCS: 2");
 			codec_switch_start_timer(rfcomm, HFP_CODEC_SWITCH_INITIAL_TIMEOUT_MSEC);
 		} else {
 			rfcomm->transport = _transport_create(rfcomm);
@@ -898,7 +934,8 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		codec_switch_stop_timer(rfcomm);
 		volume_sync_stop_timer(rfcomm);
 
-		if (selected_codec != HFP_AUDIO_CODEC_CVSD && selected_codec != HFP_AUDIO_CODEC_MSBC) {
+		if (selected_codec != HFP_AUDIO_CODEC_CVSD && selected_codec != HFP_AUDIO_CODEC_MSBC &&
+				selected_codec != HFP_AUDIO_CODEC_LC3) {
 			spa_log_warn(backend->log, "unsupported codec negotiation: %d", selected_codec);
 			rfcomm_send_error(rfcomm, CMEE_AG_FAILURE);
 			if (was_switching_codec)
@@ -1179,10 +1216,11 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 
 	if (sscanf(token, "+BRSF:%u", &features) == 1) {
 		if (((features & (SPA_BT_HFP_AG_FEATURE_CODEC_NEGOTIATION)) != 0) &&
-				rfcomm->msbc_supported_by_hfp)
+				(rfcomm->msbc_supported_by_hfp || rfcomm->lc3_supported_by_hfp))
 			rfcomm->codec_negotiation_supported = true;
 	} else if (sscanf(token, "+BCS:%u", &selected_codec) == 1 && rfcomm->codec_negotiation_supported) {
-		if (selected_codec != HFP_AUDIO_CODEC_CVSD && selected_codec != HFP_AUDIO_CODEC_MSBC) {
+		if (selected_codec != HFP_AUDIO_CODEC_CVSD && selected_codec != HFP_AUDIO_CODEC_MSBC &&
+				selected_codec != HFP_AUDIO_CODEC_LC3) {
 			spa_log_warn(backend->log, "unsupported codec negotiation: %d", selected_codec);
 		} else {
 			spa_log_debug(backend->log, "RFCOMM selected_codec = %i", selected_codec);
@@ -1263,7 +1301,17 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 		switch(rfcomm->hf_state) {
 		case hfp_hf_brsf:
 			if (rfcomm->codec_negotiation_supported) {
-				rfcomm_send_cmd(rfcomm, "AT+BAC=1,2");
+				char buf[64];
+				struct spa_strbuf str;
+
+				spa_strbuf_init(&str, buf, sizeof(buf));
+				spa_strbuf_append(&str, "1");
+				if (rfcomm->msbc_supported_by_hfp)
+					spa_strbuf_append(&str, ",2");
+				if (rfcomm->lc3_supported_by_hfp)
+					spa_strbuf_append(&str, ",3");
+
+				rfcomm_send_cmd(rfcomm, "AT+BAC=%s", buf);
 				rfcomm->hf_state = hfp_hf_bac;
 			} else {
 				rfcomm_send_cmd(rfcomm, "AT+CIND=?");
@@ -1395,7 +1443,7 @@ static void rfcomm_event(struct spa_source *source)
 	}
 }
 
-static int sco_create_socket(struct impl *backend, struct spa_bt_adapter *adapter, bool msbc)
+static int sco_create_socket(struct impl *backend, struct spa_bt_adapter *adapter, bool transparent)
 {
 	struct sockaddr_sco addr;
 	socklen_t len;
@@ -1419,9 +1467,9 @@ static int sco_create_socket(struct impl *backend, struct spa_bt_adapter *adapte
 		return -1;
 	}
 
-	spa_log_debug(backend->log, "msbc=%d", (int)msbc);
-	if (msbc) {
-		/* set correct socket options for mSBC */
+	spa_log_debug(backend->log, "transparent=%d", (int)transparent);
+	if (transparent) {
+		/* set correct socket options for mSBC/LC3 */
 		struct bt_voice voice_config;
 		memset(&voice_config, 0, sizeof(voice_config));
 		voice_config.setting = BT_VOICE_TRANSPARENT;
@@ -1455,7 +1503,8 @@ static int sco_do_connect(struct spa_bt_transport *t)
 	str2ba(d->address, &addr.sco_bdaddr);
 
 	for (int retry = 2;;) {
-		spa_autoclose int sock = sco_create_socket(backend, d->adapter, (t->codec == HFP_AUDIO_CODEC_MSBC));
+		bool transparent = (t->codec == HFP_AUDIO_CODEC_MSBC || t->codec == HFP_AUDIO_CODEC_LC3);
+		spa_autoclose int sock = sco_create_socket(backend, d->adapter, transparent);
 		if (sock < 0)
 			return -1;
 
@@ -1468,12 +1517,13 @@ static int sco_do_connect(struct spa_bt_transport *t)
 		} else if (err < 0 && !(errno == EAGAIN || errno == EINPROGRESS)) {
 			spa_log_error(backend->log, "connect(): %s", strerror(errno));
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
-			if (errno == EOPNOTSUPP && t->codec == HFP_AUDIO_CODEC_MSBC &&
-					td->rfcomm->msbc_supported_by_hfp) {
-				/* Adapter doesn't support msbc. Renegotiate. */
+			if (errno == EOPNOTSUPP && t->codec != HFP_AUDIO_CODEC_CVSD &&
+					td->rfcomm->codec_negotiation_supported) {
+				/* Adapter doesn't support msbc/lc3. Renegotiate. */
 				d->adapter->msbc_probed = true;
 				d->adapter->has_msbc = false;
 				td->rfcomm->msbc_supported_by_hfp = false;
+				td->rfcomm->lc3_supported_by_hfp = false;
 				if (t->profile == SPA_BT_PROFILE_HFP_HF) {
 					td->rfcomm->hfp_ag_switching_codec = true;
 					rfcomm_send_reply(td->rfcomm, "+BCS: 1");
@@ -1784,8 +1834,8 @@ static void sco_listen_event(struct spa_source *source)
 		 * accepted socket. */
 		char buff;
 
-		if (t->codec == HFP_AUDIO_CODEC_MSBC) {
-			/* set correct socket options for mSBC */
+		if (t->codec == HFP_AUDIO_CODEC_MSBC || t->codec == HFP_AUDIO_CODEC_LC3) {
+			/* set correct socket options for mSBC/LC3 */
 			struct bt_voice voice_config;
 			memset(&voice_config, 0, sizeof(voice_config));
 			voice_config.setting = BT_VOICE_TRANSPARENT;
@@ -1956,11 +2006,19 @@ static int backend_native_supports_codec(void *data, struct spa_bt_device *devic
 	if (codec == HFP_AUDIO_CODEC_CVSD)
 		return 1;
 
-	return (codec == HFP_AUDIO_CODEC_MSBC &&
-	        (rfcomm->profile == SPA_BT_PROFILE_HFP_AG ||
-	         rfcomm->profile == SPA_BT_PROFILE_HFP_HF) &&
-	        rfcomm->msbc_supported_by_hfp &&
-	        rfcomm->codec_negotiation_supported) ? 1 : 0;
+	if (rfcomm->profile != SPA_BT_PROFILE_HFP_AG &&
+			rfcomm->profile != SPA_BT_PROFILE_HFP_HF)
+		return 0;
+
+	if (!rfcomm->codec_negotiation_supported)
+		return 0;
+
+	if (codec == HFP_AUDIO_CODEC_MSBC)
+		return rfcomm->msbc_supported_by_hfp;
+	else if (codec == HFP_AUDIO_CODEC_LC3)
+		return rfcomm->lc3_supported_by_hfp;
+
+	return 0;
 #else
 	return -ENOTSUP;
 #endif
@@ -2261,16 +2319,20 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	} else if (profile == SPA_BT_PROFILE_HFP_AG) {
 		/* Start SLC connection */
 		unsigned int hf_features = SPA_BT_HFP_HF_FEATURE_NONE;
+		bool has_msbc = device_supports_codec(backend, rfcomm->device, HFP_AUDIO_CODEC_MSBC);
+		bool has_lc3 = device_supports_codec(backend, rfcomm->device, HFP_AUDIO_CODEC_LC3);
 
-		/* Decide if we want to signal that the HF supports mSBC negotiation
+		/* Decide if we want to signal that the HF supports mSBC/LC3 negotiation
 		   This should be done when the bluetooth adapter supports the necessary transport mode */
-		if (device_supports_required_mSBC_transport_modes(backend, rfcomm->device)) {
+		if (has_msbc || has_lc3) {
 			/* set the feature bit that indicates HF supports codec negotiation */
 			hf_features |= SPA_BT_HFP_HF_FEATURE_CODEC_NEGOTIATION;
-			rfcomm->msbc_supported_by_hfp = true;
+			rfcomm->msbc_supported_by_hfp = has_msbc;
+			rfcomm->lc3_supported_by_hfp = has_lc3;
 			rfcomm->codec_negotiation_supported = false;
 		} else {
 			rfcomm->msbc_supported_by_hfp = false;
+			rfcomm->lc3_supported_by_hfp = false;
 			rfcomm->codec_negotiation_supported = false;
 		}
 

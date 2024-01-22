@@ -84,6 +84,7 @@ if get_option('spa-plugins').allowed()
       mm_dep = dependency('ModemManager', version : '>= 1.10.0', required : get_option('bluez5-backend-native-mm'))
       summary({'ModemManager': mm_dep.found()}, bool_yn: true, section: 'Bluetooth backends')
     endif
+    cdata.set('HAVE_LC3', get_option('bluez5-codec-lc3').allowed() and lc3_dep.found())
   endif
   jack_dep = dependency('jack', version : '>= 1.9.10', required: get_option('jack'))
   summary({'JACK2': jack_dep.found()}, bool_yn: true, section: 'Backend')

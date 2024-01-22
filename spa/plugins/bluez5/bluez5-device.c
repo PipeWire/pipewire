@@ -247,6 +247,8 @@ static unsigned int get_hfp_codec(enum spa_bluetooth_audio_codec id)
 		return HFP_AUDIO_CODEC_CVSD;
 	case SPA_BLUETOOTH_AUDIO_CODEC_MSBC:
 		return HFP_AUDIO_CODEC_MSBC;
+	case SPA_BLUETOOTH_AUDIO_CODEC_LC3_SWB:
+		return HFP_AUDIO_CODEC_LC3;
 	default:
 		return 0;
 	}
@@ -257,6 +259,8 @@ static enum spa_bluetooth_audio_codec get_hfp_codec_id(unsigned int codec)
 	switch (codec) {
 	case HFP_AUDIO_CODEC_MSBC:
 		return SPA_BLUETOOTH_AUDIO_CODEC_MSBC;
+	case HFP_AUDIO_CODEC_LC3:
+		return SPA_BLUETOOTH_AUDIO_CODEC_LC3_SWB;
 	case HFP_AUDIO_CODEC_CVSD:
 		return SPA_BLUETOOTH_AUDIO_CODEC_CVSD;
 	}
@@ -268,6 +272,8 @@ static const char *get_hfp_codec_description(unsigned int codec)
 	switch (codec) {
 	case HFP_AUDIO_CODEC_MSBC:
 		return "mSBC";
+	case HFP_AUDIO_CODEC_LC3:
+		return "LC3-SWB";
 	case HFP_AUDIO_CODEC_CVSD:
 		return "CVSD";
 	}
@@ -279,6 +285,8 @@ static const char *get_hfp_codec_name(unsigned int codec)
 	switch (codec) {
 	case HFP_AUDIO_CODEC_MSBC:
 		return "msbc";
+	case HFP_AUDIO_CODEC_LC3:
+		return "lc3_swb";
 	case HFP_AUDIO_CODEC_CVSD:
 		return "cvsd";
 	}
@@ -1900,7 +1908,7 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 			desc_and_codec = spa_aprintf(_("Headset Head Unit (HSP/HFP, codec %s)"),
 						get_hfp_codec_description(hfp_codec));
 			desc = desc_and_codec;
-			priority = 1 + hfp_codec;  /* prefer msbc over cvsd */
+			priority = 1 + hfp_codec;  /* prefer lc3_swb > msbc > cvsd */
 		} else {
 			desc = _("Headset Head Unit (HSP/HFP)");
 			priority = 1;
@@ -2256,7 +2264,7 @@ static struct spa_pod *build_prop_info_codec(struct impl *this, struct spa_pod_b
 #define FOR_EACH_MEDIA_CODEC(j, codec) \
 		for (j = -1; iterate_supported_media_codecs(this, &j, &codec);)
 #define FOR_EACH_HFP_CODEC(j) \
-		for (j = HFP_AUDIO_CODEC_MSBC; j >= HFP_AUDIO_CODEC_CVSD; --j) \
+		for (j = HFP_AUDIO_CODEC_LC3; j >= HFP_AUDIO_CODEC_CVSD; --j) \
 			if (spa_bt_device_supports_hfp_codec(this->bt_dev, j) == 1)
 
 	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
@@ -2738,6 +2746,9 @@ static int impl_set_param(void *object,
 				return set_profile(this, this->profile, codec_id, true);
 			} else if (codec_id == SPA_BLUETOOTH_AUDIO_CODEC_MSBC &&
 					spa_bt_device_supports_hfp_codec(this->bt_dev, HFP_AUDIO_CODEC_MSBC) == 1) {
+				return set_profile(this, this->profile, codec_id, true);
+			} else if (codec_id == SPA_BLUETOOTH_AUDIO_CODEC_LC3_SWB &&
+					spa_bt_device_supports_hfp_codec(this->bt_dev, HFP_AUDIO_CODEC_LC3) == 1) {
 				return set_profile(this, this->profile, codec_id, true);
 			}
 		}

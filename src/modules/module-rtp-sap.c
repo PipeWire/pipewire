@@ -171,6 +171,7 @@ static const struct spa_dict_item module_info[] = {
 #define PTP_VERSION_1588_2008_2_1 0x12
 #define PTP_DEFAULT_LOG_MESSAGE_INTERVAL 127
 #define PTP_MGMT_ACTION_GET 0
+#define PTP_MGMT_ACTION_RESPONSE 2
 #define PTP_TLV_TYPE_MGMT 0x0001
 #define PTP_MGMT_ID_PARENT_DATA_SET 0x2002
 
@@ -584,6 +585,31 @@ static void update_ts_refclk(struct impl *impl)
 	struct ptp_management_msg res = *(struct ptp_management_msg *)buf;
 	struct ptp_parent_data_set parent =
 		*(struct ptp_parent_data_set *)(buf + sizeof(struct ptp_management_msg));
+
+	if ((res.ver & 0x0f) != 2) {
+		pw_log_warn("PTP major version is %d, expected 2", res.ver);
+		return;
+	}
+
+	if ((res.major_sdo_id_message_type & 0x0f) != PTP_MESSAGE_TYPE_MANAGEMENT) {
+		pw_log_warn("PTP management returned type %x, expected management", res.major_sdo_id_message_type);
+		return;
+	}
+
+	if (res.action != PTP_MGMT_ACTION_RESPONSE) {
+		pw_log_warn("PTP management returned action %d, expected response", res.action);
+		return;
+	}
+
+	if (be16toh(res.tlv_type_be) != PTP_TLV_TYPE_MGMT) {
+		pw_log_warn("PTP management returned tlv type %d, expected management", be16toh(res.tlv_type_be));
+		return;
+	}
+
+	if (be16toh(res.management_id_be) != PTP_MGMT_ID_PARENT_DATA_SET) {
+		pw_log_warn("PTP management returned ID %d, expected PARENT_DATA_SET", be16toh(res.management_id_be));
+		return;
+	}
 
 	uint16_t data_len = be16toh(res.management_message_length_be) - 2;
 	if (data_len != sizeof(struct ptp_parent_data_set))

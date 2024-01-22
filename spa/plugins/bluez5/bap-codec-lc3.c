@@ -915,6 +915,7 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		goto error;
 
 	if (!parse_conf(&conf, config, config_len)) {
+		spa_log_error(log, "invalid LC3 config");
 		res = -ENOTSUP;
 		goto error;
 	}
@@ -936,15 +937,24 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		goto error;
 	}
 
-	spa_log_info(log, "LC3 rate:%d frame_duration:%d channels:%d framelen:%d",
-			this->samplerate, this->frame_dus, this->channels, this->framelen);
+	spa_log_info(log, "LC3 rate:%d frame_duration:%d channels:%d framelen:%d nblks:%d",
+			this->samplerate, this->frame_dus, this->channels, this->framelen, conf.n_blks);
 
-	this->samples = lc3_frame_samples(this->frame_dus, this->samplerate);
-	if (this->samples < 0) {
+	if (this->framelen * this->channels * conf.n_blks > this->mtu) {
+		spa_log_error(log, "too big LC3 frame length %u*%u*%u > %u",
+				this->framelen, this->channels, conf.n_blks, this->mtu);
 		res = -EINVAL;
 		goto error;
 	}
-	this->codesize = this->samples * this->channels * conf.n_blks * sizeof(int32_t);
+
+	res = lc3_frame_samples(this->frame_dus, this->samplerate);
+	if (res < 0) {
+		spa_log_error(log, "invalid LC3 frame samples");
+		res = -EINVAL;
+		goto error;
+	}
+	this->samples = res;
+	this->codesize = (size_t)this->samples * this->channels * conf.n_blks * sizeof(int32_t);
 
 	if (!(flags & MEDIA_CODEC_FLAG_SINK)) {
 		for (ich = 0; ich < this->channels; ich++) {
@@ -1021,18 +1031,16 @@ static int codec_encode(void *data,
 		size_t *dst_out, int *need_flush)
 {
 	struct impl *this = data;
-	int frame_bytes;
 	int ich, res;
 	int size, processed;
 
-	frame_bytes = lc3_frame_bytes(this->frame_dus, this->samplerate);
 	processed = 0;
 	size = 0;
 
 	if (src_size < (size_t)this->codesize)
-		goto done;
-	if (dst_size < (size_t)frame_bytes)
-		goto done;
+		return -EINVAL;
+	if (dst_size < (size_t)this->framelen * this->channels)
+		return -EINVAL;
 
 	for (ich = 0; ich < this->channels; ich++) {
 		uint8_t *in = (uint8_t *)src + (ich * 4);
@@ -1046,7 +1054,6 @@ static int codec_encode(void *data,
 
 	processed += this->codesize;
 
-done:
 	spa_assert(size <= this->mtu);
 	*need_flush = NEED_FLUSH_ALL;
 
@@ -1067,13 +1074,10 @@ static SPA_UNUSED int codec_decode(void *data,
 	struct impl *this = data;
 	int ich, res;
 	int consumed;
-	int samples;
 
-	spa_return_val_if_fail((size_t)(this->framelen * this->channels) == src_size, -EINVAL);
 	consumed = 0;
 
-	samples = lc3_frame_samples(this->frame_dus, this->samplerate);
-	if (samples == -1)
+	if (src_size < (size_t)this->framelen * this->channels)
 		return -EINVAL;
 	if (dst_size < this->codesize)
 		return -EINVAL;

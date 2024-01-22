@@ -42,7 +42,7 @@ struct impl {
 	int samplesize;
 };
 
-static bool eld_supported()
+static bool eld_supported(void)
 {
 	static bool supported = false, checked = false;
 	HANDLE_AACENCODER aacenc = NULL;
@@ -56,7 +56,7 @@ static bool eld_supported()
 		goto done;
 	if (aacEncoder_SetParam(aacenc,  AACENC_SBR_MODE, 1) != AACENC_OK)
 		goto done;
-		
+
 	supported = true;
 
 done:
@@ -69,13 +69,14 @@ done:
 static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 		uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
+	bool have_eld = eld_supported();
 	static const a2dp_aac_t a2dp_aac = {
 		.object_type =
 			/* NOTE: AAC Long Term Prediction and AAC Scalable are
 			 *       not supported by the FDK-AAC library. */
 			AAC_OBJECT_TYPE_MPEG2_AAC_LC |
 			AAC_OBJECT_TYPE_MPEG4_AAC_LC |
-			(eld_supported() ? AAC_OBJECT_TYPE_MPEG4_AAC_ELD : 0),
+			have_eld ? AAC_OBJECT_TYPE_MPEG4_AAC_ELD : 0,
 		AAC_INIT_FREQUENCY(
 			AAC_SAMPLING_FREQ_8000 |
 			AAC_SAMPLING_FREQ_11025 |
@@ -283,7 +284,7 @@ static int codec_validate_config(const struct media_codec *codec, uint32_t flags
 	 */
 	if (!(conf.object_type & (AAC_OBJECT_TYPE_MPEG2_AAC_LC |
 					AAC_OBJECT_TYPE_MPEG4_AAC_LC |
-					AAC_OBJECT_TYPE_MPEG2_AAC_ELD)))
+					AAC_OBJECT_TYPE_MPEG4_AAC_ELD)))
 		return -EINVAL;
 	j = 0;
 	SPA_FOR_EACH_ELEMENT_VAR(aac_frequencies, f) {

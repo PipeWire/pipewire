@@ -141,13 +141,15 @@ struct impl {
 	uint64_t prev_flush_time;
 	uint64_t next_flush_time;
 
-	/* mSBC */
-	sbc_t msbc;
+	/* Codecs */
 	uint8_t *buffer;
 	uint8_t *buffer_head;
 	uint8_t *buffer_next;
 	int buffer_size;
-	int msbc_seq;
+	int h2_seq;
+
+	/* mSBC */
+	sbc_t msbc;
 
 	/* LC3 */
 #ifdef HAVE_LC3
@@ -406,12 +408,9 @@ static int flush_data(struct impl *this)
 	if (this->transport == NULL || this->transport->sco_io == NULL || !this->flush_timer_source.loop)
 		return -EIO;
 
-	const bool transp_codec = (this->transport->codec == HFP_AUDIO_CODEC_MSBC) ||
-		(this->transport->codec == HFP_AUDIO_CODEC_LC3);
 	const uint32_t min_in_size = (this->transport->codec == HFP_AUDIO_CODEC_MSBC) ? MSBC_DECODED_SIZE :
 		(this->transport->codec == HFP_AUDIO_CODEC_LC3) ? LC3_SWB_DECODED_SIZE :
 		this->transport->write_mtu;
-	uint8_t * const packet = transp_codec ? this->buffer_head : port->write_buffer;
 	const uint32_t packet_samples = min_in_size / port->frame_size;
 	const uint64_t packet_time = (uint64_t)packet_samples * SPA_NSEC_PER_SEC
 		/ port->current_format.info.raw.rate;
@@ -466,7 +465,8 @@ static int flush_data(struct impl *this)
 		return 0;
 	}
 
-	if (transp_codec) {
+	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC ||
+			this->transport->codec == HFP_AUDIO_CODEC_LC3) {
 		uint32_t encoded_size = (this->transport->codec == HFP_AUDIO_CODEC_MSBC) ? MSBC_ENCODED_SIZE :
 			LC3_SWB_ENCODED_SIZE;
 		ssize_t out_encoded;
@@ -478,10 +478,11 @@ static int flush_data(struct impl *this)
 			spa_log_warn(this->log, "sco-sink: mSBC/LC3 buffer overrun, dropping data");
 		}
 
+		/* H2 sync header */
 		this->buffer_next[0] = 0x01;
-		this->buffer_next[1] = sntable[this->msbc_seq % 4];
+		this->buffer_next[1] = sntable[this->h2_seq % 4];
 		this->buffer_next[59] = 0x00;
-		this->msbc_seq = (this->msbc_seq + 1) % 4;
+		this->h2_seq = (this->h2_seq + 1) % 4;
 
 		if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
 			processed = sbc_encode(&this->msbc, port->write_buffer, port->write_buffer_size,
@@ -500,7 +501,7 @@ static int flush_data(struct impl *this)
 		port->write_buffer_size = 0;
 
 		/* Write */
-		written = spa_bt_sco_io_write(this->transport->sco_io, packet,
+		written = spa_bt_sco_io_write(this->transport->sco_io, this->buffer_head,
 				this->buffer_next - this->buffer_head);
 		if (written < 0) {
 			spa_log_warn(this->log, "failed to write data: %d (%s)",
@@ -522,7 +523,7 @@ static int flush_data(struct impl *this)
 			this->buffer_head = this->buffer;
 		}
 	} else {
-		written = spa_bt_sco_io_write(this->transport->sco_io, packet,
+		written = spa_bt_sco_io_write(this->transport->sco_io, port->write_buffer,
 				port->write_buffer_size);
 		if (written < 0) {
 			spa_log_warn(this->log, "sco-sink: write failure: %d (%s)",
@@ -692,7 +693,6 @@ static int lcm(int a, int b) {
 
 static int transport_start(struct impl *this)
 {
-	struct port *port = &this->port;
 	int res;
 
 	/* Don't do anything if the node has already started */
@@ -723,12 +723,6 @@ static int transport_start(struct impl *this)
 		 * is going to happen.
 		 */
 		this->buffer_size = lcm(24, lcm(60, lcm(this->transport->write_mtu, 2 * MSBC_ENCODED_SIZE)));
-		this->buffer = calloc(this->buffer_size, sizeof(uint8_t));
-		this->buffer_head = this->buffer_next = this->buffer;
-		if (this->buffer == NULL) {
-			res = -errno;
-			goto fail;
-		}
 	} else if (this->transport->codec == HFP_AUDIO_CODEC_LC3) {
 #ifdef HAVE_LC3
 		this->lc3 = lc3_setup_encoder(7500, 32000, 0,
@@ -736,19 +730,24 @@ static int transport_start(struct impl *this)
 		if (!this->lc3)
 			return -EINVAL;
 
-		spa_assert(lc3_frame_samples(7500, 32000) * port->frame_size == LC3_SWB_DECODED_SIZE);
+		spa_assert(lc3_frame_samples(7500, 32000) * this->port.frame_size == LC3_SWB_DECODED_SIZE);
 
 		this->buffer_size = lcm(24, lcm(60, lcm(this->transport->write_mtu, 2 * LC3_SWB_ENCODED_SIZE)));
+#else
+		res = -EOPNOTSUPP;
+		goto fail;
+#endif
+	} else {
+		this->buffer_size = 0;
+	}
+
+	if (this->buffer_size) {
 		this->buffer = calloc(this->buffer_size, sizeof(uint8_t));
 		this->buffer_head = this->buffer_next = this->buffer;
 		if (this->buffer == NULL) {
 			res = -errno;
 			goto fail;
 		}
-#else
-		res = -EOPNOTSUPP;
-		goto fail;
-#endif
 	}
 
 	spa_return_val_if_fail(this->transport->write_mtu <= sizeof(this->port.write_buffer), -EINVAL);

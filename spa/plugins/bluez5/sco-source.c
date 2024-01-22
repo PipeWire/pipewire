@@ -133,14 +133,16 @@ struct impl {
 	uint64_t current_time;
 	uint64_t next_time;
 
-	/* mSBC */
-	sbc_t msbc;
-	bool msbc_seq_initialized;
-	uint8_t msbc_seq;
+	/* Codecs */
+	bool h2_seq_initialized;
+	uint8_t h2_seq;
 
 	/* mSBC/LC3 frame parsing */
-	uint8_t msbc_buffer[MSBC_ENCODED_SIZE + LC3_SWB_ENCODED_SIZE];
-	uint8_t msbc_buffer_pos;
+	uint8_t recv_buffer[MSBC_ENCODED_SIZE + LC3_SWB_ENCODED_SIZE];
+	uint8_t recv_buffer_pos;
+
+	/* mSBC */
+	sbc_t msbc;
 
 	/* LC3 */
 #ifdef HAVE_LC3
@@ -354,61 +356,56 @@ static void recycle_buffer(struct impl *this, struct port *port, uint32_t buffer
 	}
 }
 
-/* Append data to msbc buffer, syncing buffer start to frame headers */
-static void msbc_buffer_append_byte(struct impl *this, uint8_t byte)
+/* Append data to recv buffer, syncing buffer start to headers */
+static void recv_buffer_append_byte(struct impl *this, uint8_t byte)
 {
-        /* Parse mSBC frame header */
-        if (this->msbc_buffer_pos == 0) {
+	unsigned int encoded_size = (this->transport->codec == HFP_AUDIO_CODEC_MSBC) ? MSBC_ENCODED_SIZE :
+		LC3_SWB_ENCODED_SIZE;
+
+        /* Parse H2 sync header */
+        if (this->recv_buffer_pos == 0) {
                 if (byte != 0x01) {
-                        this->msbc_buffer_pos = 0;
+                        this->recv_buffer_pos = 0;
                         return;
                 }
-        }
-        else if (this->msbc_buffer_pos == 1) {
+        } else if (this->recv_buffer_pos == 1) {
                 if (!((byte & 0x0F) == 0x08 &&
                       ((byte >> 4) & 1) == ((byte >> 5) & 1) &&
                       ((byte >> 6) & 1) == ((byte >> 7) & 1))) {
-                        this->msbc_buffer_pos = 0;
+                        this->recv_buffer_pos = 0;
                         return;
                 }
-        }
-	else if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
-		if (this->msbc_buffer_pos == 2) {
-			/* .. and beginning of MSBC frame: SYNCWORD + 2 nul bytes */
+        } else if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
+		/* Beginning of MSBC frame: SYNCWORD + 2 nul bytes */
+		if (this->recv_buffer_pos == 2) {
 			if (byte != 0xAD) {
-				this->msbc_buffer_pos = 0;
+				this->recv_buffer_pos = 0;
 				return;
 			}
 		}
-		else if (this->msbc_buffer_pos == 3) {
+		else if (this->recv_buffer_pos == 3) {
 			if (byte != 0x00) {
-				this->msbc_buffer_pos = 0;
+				this->recv_buffer_pos = 0;
 				return;
 			}
 		}
-		else if (this->msbc_buffer_pos == 4) {
+		else if (this->recv_buffer_pos == 4) {
 			if (byte != 0x00) {
-				this->msbc_buffer_pos = 0;
+				this->recv_buffer_pos = 0;
 				return;
 			}
                 }
-		else if (this->msbc_buffer_pos >= MSBC_ENCODED_SIZE) {
-			/* Packet completed. Reset. */
-			this->msbc_buffer_pos = 0;
-			msbc_buffer_append_byte(this, byte);
-			return;
-		}
 	}
-	else if (this->transport->codec == HFP_AUDIO_CODEC_LC3) {
-		if (this->msbc_buffer_pos >= LC3_SWB_ENCODED_SIZE) {
-			/* Packet completed. Reset. */
-			this->msbc_buffer_pos = 0;
-			msbc_buffer_append_byte(this, byte);
-			return;
-		}
+
+	if (this->recv_buffer_pos >= encoded_size) {
+		/* Packet completed. Reset. */
+		this->recv_buffer_pos = 0;
+		recv_buffer_append_byte(this, byte);
+		return;
 	}
-        this->msbc_buffer[this->msbc_buffer_pos] = byte;
-        ++this->msbc_buffer_pos;
+
+        this->recv_buffer[this->recv_buffer_pos] = byte;
+        ++this->recv_buffer_pos;
 }
 
 /* Helper function for debugging */
@@ -490,9 +487,9 @@ static uint32_t preprocess_and_decode_codec_data(void *userdata, uint8_t *read_d
 		int seq, processed;
 		size_t written;
 
-		msbc_buffer_append_byte(this, read_data[i]);
+		recv_buffer_append_byte(this, read_data[i]);
 
-		if (this->msbc_buffer_pos != encoded_size)
+		if (this->recv_buffer_pos != encoded_size)
 			continue;
 
 		/*
@@ -502,21 +499,21 @@ static uint32_t preprocess_and_decode_codec_data(void *userdata, uint8_t *read_d
 		buf = spa_bt_decode_buffer_get_write(&port->buffer, &avail);
 
 		/* Check sequence number */
-		seq = ((this->msbc_buffer[1] >> 4) & 1) |
-			((this->msbc_buffer[1] >> 6) & 2);
+		seq = ((this->recv_buffer[1] >> 4) & 1) |
+			((this->recv_buffer[1] >> 6) & 2);
 
 		spa_log_trace(this->log, "mSBC/LC3 packet seq=%u", seq);
-		if (!this->msbc_seq_initialized) {
-			this->msbc_seq_initialized = true;
-			this->msbc_seq = seq;
-		} else if (seq != this->msbc_seq) {
+		if (!this->h2_seq_initialized) {
+			this->h2_seq_initialized = true;
+			this->h2_seq = seq;
+		} else if (seq != this->h2_seq) {
 			/* TODO: PLC (too late to insert data now) */
 			spa_log_info(this->log,
-					"missing mSBC/LC3 packet: %u != %u", seq, this->msbc_seq);
-			this->msbc_seq = seq;
+					"missing mSBC/LC3 packet: %u != %u", seq, this->h2_seq);
+			this->h2_seq = seq;
 		}
 
-		this->msbc_seq = (this->msbc_seq + 1) % 4;
+		this->h2_seq = (this->h2_seq + 1) % 4;
 
 		if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
 			if (avail < decoded_size)
@@ -524,10 +521,10 @@ static uint32_t preprocess_and_decode_codec_data(void *userdata, uint8_t *read_d
 
 			/* decode frame */
 			processed = sbc_decode(
-				&this->msbc, this->msbc_buffer + 2, encoded_size - 3,
+				&this->msbc, this->recv_buffer + 2, encoded_size - 3,
 						buf, avail, &written);
 		} else {
-			processed = lc3_decode_frame(this, this->msbc_buffer + 2, encoded_size - 2,
+			processed = lc3_decode_frame(this, this->recv_buffer + 2, encoded_size - 2,
 					buf, avail, &written);
 		}
 
@@ -746,9 +743,9 @@ static int transport_start(struct impl *this)
 
 		/* Libsbc expects audio samples by default in host endianness, mSBC requires little endian */
 		this->msbc.endian = SBC_LE;
-		this->msbc_seq_initialized = false;
+		this->h2_seq_initialized = false;
 
-		this->msbc_buffer_pos = 0;
+		this->recv_buffer_pos = 0;
 	} else if (this->transport->codec == HFP_AUDIO_CODEC_LC3) {
 #ifdef HAVE_LC3
 		this->lc3 = lc3_setup_decoder(7500, 32000, 0,
@@ -758,8 +755,8 @@ static int transport_start(struct impl *this)
 
 		spa_assert(lc3_frame_samples(7500, 32000) * port->frame_size == LC3_SWB_DECODED_SIZE);
 
-		this->msbc_seq_initialized = false;
-		this->msbc_buffer_pos = 0;
+		this->h2_seq_initialized = false;
+		this->recv_buffer_pos = 0;
 #else
 		res = -EINVAL;
 		goto fail;

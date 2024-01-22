@@ -3534,7 +3534,8 @@ void spa_alsa_emit_node_info(struct state *state, bool full)
 				state->stream == SND_PCM_STREAM_PLAYBACK ? "Audio/Sink" : "Audio/Source");
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, "true");
 		if (state->have_format) {
-			snprintf(latency, sizeof(latency), "%lu/%d", state->buffer_frames / 2, state->rate);
+			snprintf(latency, sizeof(latency), "%lu/%d",
+					state->buffer_frames / (4 * state->frame_scale), state->rate);
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_MAX_LATENCY, latency);
 			snprintf(period, sizeof(period), "%lu", state->period_frames);
 			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-size", period);

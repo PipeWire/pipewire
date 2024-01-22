@@ -457,6 +457,8 @@ static const struct media_codec *media_endpoint_to_codec(struct spa_bt_monitor *
 		const char *codec_ep_name =
 			codec->endpoint_name ? codec->endpoint_name : codec->name;
 
+		if (!preferred && !codec->fill_caps)
+			continue;
 		if (!spa_streq(ep_name, codec_ep_name))
 			continue;
 		if ((*sink && !codec->decode) || (!*sink && !codec->encode))

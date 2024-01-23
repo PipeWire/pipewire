@@ -4196,7 +4196,7 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 
 	if (command == COMMAND_GET_MODULE_INFO && (sel.index & MODULE_FLAG) != 0) {
 		struct module *module;
-		module = pw_map_lookup(&impl->modules, sel.index & MODULE_INDEX_MASK);
+		module = module_lookup(impl, sel.index & MODULE_INDEX_MASK, NULL);
 		if (module == NULL)
 			goto error_noentity;
 		fill_ext_module_info(client, reply, module);
@@ -4564,9 +4564,10 @@ static int do_update_stream_sample_rate(struct client *client, uint32_t command,
 
 static int do_extension(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
+	struct impl *impl = client->impl;
 	uint32_t index;
 	const char *name;
-	const struct extension *ext;
+	struct module *module;
 
 	if (message_get(m,
 			TAG_U32, &index,
@@ -4581,11 +4582,11 @@ static int do_extension(struct client *client, uint32_t command, uint32_t tag, s
 	    (index != SPA_ID_INVALID && name != NULL))
 		return -EINVAL;
 
-	ext = extension_find(index, name);
-	if (ext == NULL)
+	module = module_lookup(impl, index, name);
+	if (module == NULL)
 		return -ENOENT;
 
-	return ext->process(client, tag, m);
+	return extension_process(module, client, tag, m);
 }
 
 static int do_set_profile(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -5069,7 +5070,7 @@ static int do_unload_module(struct client *client, uint32_t command, uint32_t ta
 	if ((module_index & MODULE_FLAG) == 0)
 		return -EPERM;
 
-	module = pw_map_lookup(&impl->modules, module_index & MODULE_INDEX_MASK);
+	module = module_lookup(impl, module_index & MODULE_INDEX_MASK, NULL);
 	if (module == NULL)
 		return -ENOENT;
 

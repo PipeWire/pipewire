@@ -375,3 +375,19 @@ error_free:
 	return NULL;
 
 }
+
+struct module *module_lookup(struct impl *impl, uint32_t index, const char *name)
+{
+	union pw_map_item *item;
+
+	if (index != SPA_ID_INVALID)
+		return pw_map_lookup(&impl->modules, index);
+
+	pw_array_for_each(item, &impl->modules.items) {
+		struct module *m = item->data;
+		if (!pw_map_item_is_free(item) &&
+		    spa_streq(m->info->name, name))
+			return m;
+	}
+	return NULL;
+}

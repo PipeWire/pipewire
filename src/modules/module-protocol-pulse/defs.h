@@ -37,7 +37,6 @@
 #define SCACHE_ENTRY_SIZE_MAX	(1024*1024*16)
 
 #define MODULE_INDEX_MASK	0xfffffffu
-#define MODULE_EXTENSION_FLAG	(1u << 28)
 #define MODULE_FLAG		(1u << 29)
 
 #define DEFAULT_SINK		"@DEFAULT_SINK@"

@@ -63,6 +63,9 @@ context.exec = [
 #      ( flags = [ nofail ] )
 pulse.cmd = [
     { cmd = "load-module" args = "module-always-sink" flags = [ ] }
+    { cmd = "load-module" args = "module-device-manager" flags = [ ] }
+    { cmd = "load-module" args = "module-device-restore" flags = [ ] }
+    { cmd = "load-module" args = "module-stream-restore" flags = [ ] }
     #{ cmd = "load-module" args = "module-switch-on-connect" }
     #{ cmd = "load-module" args = "module-gsettings" flags = [ nofail ] }
 ]

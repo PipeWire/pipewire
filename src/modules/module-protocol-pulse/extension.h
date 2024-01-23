@@ -9,19 +9,15 @@
 
 struct client;
 struct message;
-
-struct extension_sub {
-	const char *name;
-	uint32_t command;
-	int (*process)(struct client *client, uint32_t command, uint32_t tag, struct message *m);
-};
+struct module;
 
 struct extension {
 	const char *name;
-	uint32_t index;
-	int (*process)(struct client *client, uint32_t tag, struct message *m);
+	uint32_t command;
+	int (*process)(struct module *module, struct client *client, uint32_t command,
+			uint32_t tag, struct message *m);
 };
 
-const struct extension *extension_find(uint32_t index, const char *name);
+int extension_process(struct module *module, struct client *client, uint32_t tag, struct message *m);
 
 #endif /* PULSE_SERVER_EXTENSION_H */

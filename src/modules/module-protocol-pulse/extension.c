@@ -5,21 +5,45 @@
 #include <spa/utils/defs.h>
 #include <spa/utils/string.h>
 
+#include "client.h"
 #include "defs.h"
 #include "extension.h"
-#include "extensions/registry.h"
+#include "message.h"
+#include "module.h"
 
-static const struct extension extensions[] = {
-	{ "module-stream-restore", 0 | MODULE_EXTENSION_FLAG, do_extension_stream_restore, },
-	{ "module-device-restore", 1 | MODULE_EXTENSION_FLAG, do_extension_device_restore, },
-	{ "module-device-manager", 2 | MODULE_EXTENSION_FLAG, do_extension_device_manager, },
-};
-
-const struct extension *extension_find(uint32_t index, const char *name)
+static const struct extension *find_extension_command(struct module *module, uint32_t command)
 {
-	SPA_FOR_EACH_ELEMENT_VAR(extensions, ext) {
-		if (index == ext->index || spa_streq(name, ext->name))
-			return ext;
+	uint32_t i;
+
+	if (module->info->extension == NULL)
+		return NULL;
+
+	for (i = 0; module->info->extension[i].name; i++) {
+		if (module->info->extension[i].command == command)
+			return &module->info->extension[i];
 	}
 	return NULL;
+}
+
+int extension_process(struct module *module, struct client *client, uint32_t tag, struct message *m)
+{
+	uint32_t command;
+	const struct extension *ext;
+	int res;
+
+	if ((res = message_get(m,
+			TAG_U32, &command,
+			TAG_INVALID)) < 0)
+		return -EPROTO;
+
+	ext = find_extension_command(module, command);
+	if (ext == NULL)
+		return -ENOTSUP;
+	if (ext->process == NULL)
+		return -EPROTO;
+
+	pw_log_info("client %p [%s]: %s %s tag:%u",
+		    client, client->name, module->info->name, ext->name, tag);
+
+	return ext->process(module, client, command, tag, m);
 }

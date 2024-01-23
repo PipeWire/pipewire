@@ -1,6 +1,21 @@
 /* PipeWire */
-/* SPDX-FileCopyrightText: Copyright © 2021 Wim Taymans */
+/* SPDX-FileCopyrightText: Copyright © 2024 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
+
+#include <pipewire/pipewire.h>
+
+#include "../module.h"
+
+/** \page page_pulse_module_device_restore Device restore extension
+ *
+ * ## Module Name
+ *
+ * `module-device-restore`
+ *
+ * ## Module Options
+ *
+ * @pulse_module_options@
+ */
 
 #define EXT_DEVICE_RESTORE_VERSION	1
 
@@ -30,16 +45,33 @@
 #include "../message.h"
 #include "../reply.h"
 #include "../volume.h"
-#include "registry.h"
 
-PW_LOG_TOPIC_EXTERN(pulse_ext_dev_restore);
-#undef PW_LOG_TOPIC_DEFAULT
-#define PW_LOG_TOPIC_DEFAULT pulse_ext_dev_restore
+static const char *const pulse_module_options =
+	"restore_port=<Save/restore port?> "
+	"restore_volume=<Save/restore volumes?> "
+	"restore_muted=<Save/restore muted states?> "
+	"restore_formats=<Save/restore saved formats?>";
+
+#define NAME "device-restore"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
+struct module_device_restore_data {
+	struct module *module;
+};
+
+static const struct spa_dict_item module_device_restore_info[] = {
+	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ PW_KEY_MODULE_DESCRIPTION, "Automatically restore the volume/mute state of devices" },
+	{ PW_KEY_MODULE_USAGE, pulse_module_options },
+	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
+};
 
 #define DEVICE_TYPE_SINK	0
 #define DEVICE_TYPE_SOURCE	1
 
-static int do_extension_device_restore_test(struct client *client, uint32_t command, uint32_t tag, struct message *m)
+static int do_extension_device_restore_test(struct module *module, struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct message *reply;
 
@@ -51,7 +83,7 @@ static int do_extension_device_restore_test(struct client *client, uint32_t comm
 	return client_queue_message(client, reply);
 }
 
-static int do_extension_device_restore_subscribe(struct client *client, uint32_t command, uint32_t tag, struct message *m)
+static int do_extension_device_restore_subscribe(struct module *module, struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	return reply_simple_ack(client, tag);
 }
@@ -103,7 +135,7 @@ static int do_sink_read_format(void *data, struct pw_manager_object *o)
 	return 0;
 }
 
-static int do_extension_device_restore_read_formats_all(struct client *client,
+static int do_extension_device_restore_read_formats_all(struct module *module, struct client *client,
 		uint32_t command, uint32_t tag, struct message *m)
 {
 	struct pw_manager *manager = client->manager;
@@ -118,7 +150,7 @@ static int do_extension_device_restore_read_formats_all(struct client *client,
 	return client_queue_message(client, data.reply);
 }
 
-static int do_extension_device_restore_read_formats(struct client *client,
+static int do_extension_device_restore_read_formats(struct module *module, struct client *client,
 		uint32_t command, uint32_t tag, struct message *m)
 {
 	struct pw_manager *manager = client->manager;
@@ -217,7 +249,7 @@ static int set_node_codecs(struct pw_manager_object *o, uint32_t n_codecs, uint3
 }
 
 
-static int do_extension_device_restore_save_formats(struct client *client,
+static int do_extension_device_restore_save_formats(struct module *module, struct client *client,
 		uint32_t command, uint32_t tag, struct message *m)
 {
 	struct pw_manager *manager = client->manager;
@@ -285,32 +317,37 @@ static int do_extension_device_restore_save_formats(struct client *client,
 	return reply_simple_ack(client, tag);
 }
 
-static const struct extension_sub ext_device_restore[] = {
+static const struct extension module_device_restore_extension[] = {
 	{ "TEST", 0, do_extension_device_restore_test, },
 	{ "SUBSCRIBE", 1, do_extension_device_restore_subscribe, },
 	{ "EVENT", 2, },
 	{ "READ_FORMATS_ALL", 3, do_extension_device_restore_read_formats_all, },
 	{ "READ_FORMATS", 4, do_extension_device_restore_read_formats, },
 	{ "SAVE_FORMATS", 5, do_extension_device_restore_save_formats, },
+	{ NULL },
 };
 
-int do_extension_device_restore(struct client *client, uint32_t tag, struct message *m)
+static int module_device_restore_prepare(struct module * const module)
 {
-	uint32_t command;
-	int res;
+	PW_LOG_TOPIC_INIT(mod_topic);
 
-	if ((res = message_get(m,
-			TAG_U32, &command,
-			TAG_INVALID)) < 0)
-		return -EPROTO;
+	struct module_device_restore_data * const data = module->user_data;
+	data->module = module;
 
-	if (command >= SPA_N_ELEMENTS(ext_device_restore))
-		return -ENOTSUP;
-	if (ext_device_restore[command].process == NULL)
-		return -EPROTO;
-
-	pw_log_info("client %p [%s]: EXT_DEVICE_RESTORE_%s tag:%u",
-		    client, client->name, ext_device_restore[command].name, tag);
-
-	return ext_device_restore[command].process(client, command, tag, m);
+	return 0;
 }
+
+static int module_device_restore_load(struct module *module)
+{
+	return 0;
+}
+
+DEFINE_MODULE_INFO(module_device_restore) = {
+	.name = "module-device-restore",
+	.load_once = true,
+	.prepare = module_device_restore_prepare,
+	.load = module_device_restore_load,
+	.extension = module_device_restore_extension,
+	.properties = &SPA_DICT_INIT_ARRAY(module_device_restore_info),
+	.data_size = sizeof(struct module_device_restore_data),
+};

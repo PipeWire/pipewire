@@ -168,6 +168,12 @@ static void object_update_params(struct object *o)
 		}
 	}
 }
+static void object_reset_params(struct object *o)
+{
+	uint32_t i;
+	for (i = 0; i < o->this.n_params; i++)
+		o->this.params[i].user = 0;
+}
 
 static void object_data_free(struct object_data *d)
 {
@@ -311,7 +317,6 @@ static void device_event_info(void *data, const struct pw_device_info *info)
 
 			if (info->params[i].user == 0)
 				continue;
-			info->params[i].user = 0;
 
 			switch (id) {
 			case SPA_PARAM_EnumProfile:
@@ -438,7 +443,6 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 
 			if (info->params[i].user == 0)
 				continue;
-			info->params[i].user = 0;
 
 			switch (id) {
 			case SPA_PARAM_Props:
@@ -706,6 +710,7 @@ static void on_core_done(void *data, uint32_t id, int seq)
 				manager_emit_updated(m, &o->this);
 				o->changed = 0;
 			}
+			object_reset_params(o);
 		}
 	}
 }

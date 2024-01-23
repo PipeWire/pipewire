@@ -85,10 +85,12 @@ struct client {
 };
 
 struct client_events {
-#define VERSION_CLIENT_EVENTS	0
+#define VERSION_CLIENT_EVENTS	1
 	uint32_t version;
 
 	void (*disconnect) (void *data);
+
+	void (*routes_changed) (void *data);
 };
 
 struct client *client_new(struct server *server);
@@ -98,6 +100,8 @@ void client_free(struct client *client);
 int client_queue_message(struct client *client, struct message *msg);
 int client_flush_messages(struct client *client);
 int client_queue_subscribe_event(struct client *client, uint32_t mask, uint32_t event, uint32_t id);
+
+void client_update_routes(struct client *client, const char *key, const char *value);
 
 static inline void client_unref(struct client *client)
 {

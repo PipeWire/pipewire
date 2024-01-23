@@ -32,6 +32,7 @@
 PW_LOG_TOPIC_EXTERN(pulse_conn);
 
 #define client_emit_disconnect(c) spa_hook_list_call(&(c)->listener_list, struct client_events, disconnect, 0)
+#define client_emit_routes_changed(c) spa_hook_list_call(&(c)->listener_list, struct client_events, routes_changed, 0)
 
 struct client *client_new(struct server *server)
 {
@@ -167,6 +168,16 @@ void client_free(struct client *client)
 	spa_hook_list_clean(&client->listener_list);
 
 	free(client);
+}
+
+void client_update_routes(struct client *client, const char *key, const char *value)
+{
+	if (key == NULL)
+		pw_properties_clear(client->routes);
+	else
+		pw_properties_set(client->routes, key, value);
+
+	client_emit_routes_changed(client);
 }
 
 int client_queue_message(struct client *client, struct message *msg)

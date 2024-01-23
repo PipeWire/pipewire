@@ -989,12 +989,8 @@ static void manager_metadata(void *data, struct pw_manager_object *o,
 		if (changed)
 			send_default_change_subscribe_event(client, true, true);
 	}
-	if (subject == PW_ID_CORE && o == client->metadata_routes) {
-		if (key == NULL)
-			pw_properties_clear(client->routes);
-		else
-			pw_properties_set(client->routes, key, value);
-	}
+	if (subject == PW_ID_CORE && o == client->metadata_routes)
+		client_update_routes(client, key, value);
 }
 
 

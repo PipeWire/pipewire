@@ -40,6 +40,7 @@ module_sources = [
   'module-rtp-session.c',
   'module-rtp-source.c',
   'module-rtp-sink.c',
+  'module-sine-source.c',
   'module-vban-recv.c',
   'module-vban-send.c',
   'module-session-manager.c',
@@ -665,6 +666,15 @@ pipewire_module_rtp_sink = shared_library('pipewire-module-rtp-sink',
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
   dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, opus_dep],
+)
+
+pipewire_module_sine_source = shared_library('pipewire-module-sine-source',
+  [ 'module-sine-source.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
 )
 
 build_module_rtp_session = avahi_dep.found()

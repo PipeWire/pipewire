@@ -138,7 +138,7 @@ struct impl {
 	uint8_t h2_seq;
 
 	/* mSBC/LC3 frame parsing */
-	uint8_t recv_buffer[MSBC_ENCODED_SIZE + LC3_SWB_ENCODED_SIZE];
+	uint8_t recv_buffer[HFP_CODEC_PACKET_SIZE];
 	uint8_t recv_buffer_pos;
 
 	/* mSBC */
@@ -359,9 +359,6 @@ static void recycle_buffer(struct impl *this, struct port *port, uint32_t buffer
 /* Append data to recv buffer, syncing buffer start to headers */
 static void recv_buffer_append_byte(struct impl *this, uint8_t byte)
 {
-	unsigned int encoded_size = (this->transport->codec == HFP_AUDIO_CODEC_MSBC) ? MSBC_ENCODED_SIZE :
-		LC3_SWB_ENCODED_SIZE;
-
         /* Parse H2 sync header */
         if (this->recv_buffer_pos == 0) {
                 if (byte != 0x01) {
@@ -397,7 +394,7 @@ static void recv_buffer_append_byte(struct impl *this, uint8_t byte)
                 }
 	}
 
-	if (this->recv_buffer_pos >= encoded_size) {
+	if (this->recv_buffer_pos >= HFP_CODEC_PACKET_SIZE) {
 		/* Packet completed. Reset. */
 		this->recv_buffer_pos = 0;
 		recv_buffer_append_byte(this, byte);
@@ -465,8 +462,6 @@ static uint32_t preprocess_and_decode_codec_data(void *userdata, uint8_t *read_d
 	struct port *port = &this->port;
 	uint32_t decoded = 0;
 	int i;
-	uint32_t encoded_size = (this->transport->codec == HFP_AUDIO_CODEC_MSBC) ? MSBC_ENCODED_SIZE :
-		LC3_SWB_ENCODED_SIZE;
 	uint32_t decoded_size = (this->transport->codec == HFP_AUDIO_CODEC_MSBC) ? MSBC_DECODED_SIZE :
 		LC3_SWB_DECODED_SIZE;
 
@@ -489,7 +484,7 @@ static uint32_t preprocess_and_decode_codec_data(void *userdata, uint8_t *read_d
 
 		recv_buffer_append_byte(this, read_data[i]);
 
-		if (this->recv_buffer_pos != encoded_size)
+		if (this->recv_buffer_pos != HFP_CODEC_PACKET_SIZE)
 			continue;
 
 		/*
@@ -521,10 +516,10 @@ static uint32_t preprocess_and_decode_codec_data(void *userdata, uint8_t *read_d
 
 			/* decode frame */
 			processed = sbc_decode(
-				&this->msbc, this->recv_buffer + 2, encoded_size - 3,
+				&this->msbc, this->recv_buffer + 2, HFP_CODEC_PACKET_SIZE - 3,
 						buf, avail, &written);
 		} else {
-			processed = lc3_decode_frame(this, this->recv_buffer + 2, encoded_size - 2,
+			processed = lc3_decode_frame(this, this->recv_buffer + 2, HFP_CODEC_PACKET_SIZE - 2,
 					buf, avail, &written);
 		}
 
@@ -568,7 +563,7 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 #endif
 
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC ||
-			this->transport->codec == HFP_AUDIO_CODEC_LC3) {
+			this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB) {
 		decoded = preprocess_and_decode_codec_data(userdata, read_data, size_read);
 	} else {
 		uint32_t avail;
@@ -746,7 +741,7 @@ static int transport_start(struct impl *this)
 		this->h2_seq_initialized = false;
 
 		this->recv_buffer_pos = 0;
-	} else if (this->transport->codec == HFP_AUDIO_CODEC_LC3) {
+	} else if (this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB) {
 #ifdef HAVE_LC3
 		this->lc3 = lc3_setup_decoder(7500, 32000, 0,
 				calloc(1, lc3_decoder_size(7500, 32000)));
@@ -1066,7 +1061,7 @@ impl_node_port_enum_params(void *object, int seq,
 
 		/* set the info structure */
 		struct spa_audio_info_raw info = { 0, };
-		if (this->transport->codec == HFP_AUDIO_CODEC_LC3)
+		if (this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB)
 			info.format = SPA_AUDIO_FORMAT_S24_32_LE;
 		else
 			info.format = SPA_AUDIO_FORMAT_S16_LE;
@@ -1077,7 +1072,7 @@ impl_node_port_enum_params(void *object, int seq,
 		  * MSBC format has a rate of 16kHz
 		  * LC3-SWB format has a rate of 32kHz
 		  */
-		if (this->transport->codec == HFP_AUDIO_CODEC_LC3)
+		if (this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB)
 			info.rate = 32000;
 		else if (this->transport->codec == HFP_AUDIO_CODEC_MSBC)
 			info.rate = 16000;
@@ -1214,12 +1209,12 @@ static int port_set_format(struct impl *this, struct port *port,
 
 		switch (info.info.raw.format) {
 		case SPA_AUDIO_FORMAT_S16_LE:
-			if (this->transport->codec == HFP_AUDIO_CODEC_LC3)
+			if (this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB)
 				return -EINVAL;
 			port->frame_size = info.info.raw.channels * 2;
 			break;
 		case SPA_AUDIO_FORMAT_S24_32_LE:
-			if (this->transport->codec != HFP_AUDIO_CODEC_LC3)
+			if (this->transport->codec != HFP_AUDIO_CODEC_LC3_SWB)
 				return -EINVAL;
 			port->frame_size = info.info.raw.channels * 4;
 			break;

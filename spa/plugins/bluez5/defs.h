@@ -143,7 +143,7 @@ extern "C" {
 
 #define HFP_AUDIO_CODEC_CVSD	0x01
 #define HFP_AUDIO_CODEC_MSBC	0x02
-#define HFP_AUDIO_CODEC_LC3	0x03
+#define HFP_AUDIO_CODEC_LC3_SWB	0x03
 
 #define A2DP_OBJECT_MANAGER_PATH "/MediaEndpoint"
 #define A2DP_SINK_ENDPOINT	A2DP_OBJECT_MANAGER_PATH "/A2DPSink"
@@ -161,13 +161,11 @@ extern "C" {
 
 /* HFP uses SBC encoding with precisely defined parameters. Hence, the size
  * of the input (number of PCM samples) and output is known up front. */
-#define MSBC_DECODED_SIZE       240
-#define MSBC_ENCODED_SIZE       60  /* 2 bytes header + 57 mSBC payload + 1 byte padding */
-#define MSBC_PAYLOAD_SIZE       57
-
-#define LC3_SWB_DECODED_SIZE    960 /* 32 kHz mono S24_32 @ 7.5 ms */
-#define LC3_SWB_ENCODED_SIZE    60  /* 2 bytes header + 58 LC3 payload */
-#define LC3_SWB_PAYLOAD_SIZE    58
+#define MSBC_DECODED_SIZE       	240
+#define MSBC_PAYLOAD_SIZE       	57	/* 1 byte padding follows payload */
+#define LC3_SWB_DECODED_SIZE    	960	/* 32 kHz mono S24_32 @ 7.5 ms */
+#define LC3_SWB_PAYLOAD_SIZE    	58
+#define HFP_CODEC_PACKET_SIZE		60	/* 2 bytes header + payload */
 
 enum spa_bt_media_direction {
 	SPA_BT_MEDIA_SOURCE,

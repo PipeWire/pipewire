@@ -49,6 +49,9 @@ struct props {
 
 #define MAX_BUFFERS 32
 
+#define ALT1_PACKET_SIZE	24
+#define ALT6_PACKET_SIZE	60
+
 struct buffer {
 	uint32_t id;
 	unsigned int outstanding:1;
@@ -409,7 +412,7 @@ static int flush_data(struct impl *this)
 		return -EIO;
 
 	const uint32_t min_in_size = (this->transport->codec == HFP_AUDIO_CODEC_MSBC) ? MSBC_DECODED_SIZE :
-		(this->transport->codec == HFP_AUDIO_CODEC_LC3) ? LC3_SWB_DECODED_SIZE :
+		(this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB) ? LC3_SWB_DECODED_SIZE :
 		this->transport->write_mtu;
 	const uint32_t packet_samples = min_in_size / port->frame_size;
 	const uint64_t packet_time = (uint64_t)packet_samples * SPA_NSEC_PER_SEC
@@ -466,13 +469,11 @@ static int flush_data(struct impl *this)
 	}
 
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC ||
-			this->transport->codec == HFP_AUDIO_CODEC_LC3) {
-		uint32_t encoded_size = (this->transport->codec == HFP_AUDIO_CODEC_MSBC) ? MSBC_ENCODED_SIZE :
-			LC3_SWB_ENCODED_SIZE;
+			this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB) {
 		ssize_t out_encoded;
 
 		/* Encode */
-		if (this->buffer_next + encoded_size > this->buffer + this->buffer_size) {
+		if (this->buffer_next + HFP_CODEC_PACKET_SIZE > this->buffer + this->buffer_size) {
 			/* Buffer overrun; shouldn't usually happen. Drop data and reset. */
 			this->buffer_head = this->buffer_next = this->buffer;
 			spa_log_warn(this->log, "sco-sink: mSBC/LC3 buffer overrun, dropping data");
@@ -486,11 +487,11 @@ static int flush_data(struct impl *this)
 
 		if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
 			processed = sbc_encode(&this->msbc, port->write_buffer, port->write_buffer_size,
-					this->buffer_next + 2, encoded_size - 3, &out_encoded);
+					this->buffer_next + 2, HFP_CODEC_PACKET_SIZE - 3, &out_encoded);
 			out_encoded += 1; /* pad */
 		} else {
 			processed = lc3_encode_frame(this, port->write_buffer, port->write_buffer_size,
-					this->buffer_next + 2, encoded_size - 2, &out_encoded);
+					this->buffer_next + 2, HFP_CODEC_PACKET_SIZE - 2, &out_encoded);
 		}
 
 		if (processed < 0) {
@@ -513,9 +514,9 @@ static int flush_data(struct impl *this)
 
 		if (this->buffer_head == this->buffer_next)
 			this->buffer_head = this->buffer_next = this->buffer;
-		else if (this->buffer_next + encoded_size > this->buffer + this->buffer_size) {
+		else if (this->buffer_next + HFP_CODEC_PACKET_SIZE > this->buffer + this->buffer_size) {
 			/* Written bytes is not necessarily commensurate
-			 * with encoded_size. If this occurs, copy data.
+			 * with HFP_CODEC_PACKET_SIZE. If this occurs, copy data.
 			 */
 			int size = this->buffer_next - this->buffer_head;
 			spa_memmove(this->buffer, this->buffer_head, size);
@@ -722,8 +723,8 @@ static int transport_start(struct impl *this)
 		 * commensurate, we may end up doing memmoves, but nothing worse
 		 * is going to happen.
 		 */
-		this->buffer_size = lcm(24, lcm(60, lcm(this->transport->write_mtu, 2 * MSBC_ENCODED_SIZE)));
-	} else if (this->transport->codec == HFP_AUDIO_CODEC_LC3) {
+		this->buffer_size = lcm(ALT1_PACKET_SIZE, lcm(ALT6_PACKET_SIZE, lcm(this->transport->write_mtu, 2 * HFP_CODEC_PACKET_SIZE)));
+	} else if (this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB) {
 #ifdef HAVE_LC3
 		this->lc3 = lc3_setup_encoder(7500, 32000, 0,
 				calloc(1, lc3_encoder_size(7500, 32000)));
@@ -732,7 +733,7 @@ static int transport_start(struct impl *this)
 
 		spa_assert(lc3_frame_samples(7500, 32000) * this->port.frame_size == LC3_SWB_DECODED_SIZE);
 
-		this->buffer_size = lcm(24, lcm(60, lcm(this->transport->write_mtu, 2 * LC3_SWB_ENCODED_SIZE)));
+		this->buffer_size = lcm(ALT1_PACKET_SIZE, lcm(ALT6_PACKET_SIZE, lcm(this->transport->write_mtu, 2 * HFP_CODEC_PACKET_SIZE)));
 #else
 		res = -EOPNOTSUPP;
 		goto fail;
@@ -1090,7 +1091,7 @@ impl_node_port_enum_params(void *object, int seq,
 		/* set the info structure */
 		struct spa_audio_info_raw info = { 0, };
 
-		if (this->transport->codec == HFP_AUDIO_CODEC_LC3)
+		if (this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB)
 			info.format = SPA_AUDIO_FORMAT_S24_32_LE;
 		else
 			info.format = SPA_AUDIO_FORMAT_S16_LE;
@@ -1101,7 +1102,7 @@ impl_node_port_enum_params(void *object, int seq,
 		 * MSBC format has a rate of 16kHz
 		 * LC3-SWB format has a rate of 32kHz
 		 */
-		if (this->transport->codec == HFP_AUDIO_CODEC_LC3)
+		if (this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB)
 			info.rate = 32000;
 		else if (this->transport->codec == HFP_AUDIO_CODEC_MSBC)
 			info.rate = 16000;
@@ -1238,12 +1239,12 @@ static int port_set_format(struct impl *this, struct port *port,
 
 		switch (info.info.raw.format) {
 		case SPA_AUDIO_FORMAT_S16_LE:
-			if (this->transport->codec == HFP_AUDIO_CODEC_LC3)
+			if (this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB)
 				return -EINVAL;
 			port->frame_size = info.info.raw.channels * 2;
 			break;
 		case SPA_AUDIO_FORMAT_S24_32_LE:
-			if (this->transport->codec != HFP_AUDIO_CODEC_LC3)
+			if (this->transport->codec != HFP_AUDIO_CODEC_LC3_SWB)
 				return -EINVAL;
 			port->frame_size = info.info.raw.channels * 4;
 			break;

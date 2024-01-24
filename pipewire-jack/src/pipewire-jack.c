@@ -3246,18 +3246,20 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = proxy_destroy,
 };
 
+static bool node_is_active(struct client *c, struct object *n)
+{
+	return !n->node.is_jack ||
+		(c->node_id == n->id ? c->active : n->node.is_running);
+}
+
 static void node_info(void *data, const struct pw_node_info *info)
 {
 	struct object *n = data;
 	struct client *c = n->client;
-	const char *str;
+	bool active;
 
-	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS) {
-		str = spa_dict_lookup(info->props, PW_KEY_NODE_ALWAYS_PROCESS);
-		n->node.is_jack = str ? spa_atob(str) : false;
-	}
-
-	n->node.is_running = !n->node.is_jack || (info->state == PW_NODE_STATE_RUNNING);
+	n->node.is_running = info->state == PW_NODE_STATE_RUNNING;
+	active = node_is_active(c, n);
 
 	pw_log_debug("DSP node %d %08"PRIx64" jack:%u state change %s running:%d", info->id,
 			info->change_mask, n->node.is_jack,
@@ -3269,7 +3271,7 @@ static void node_info(void *data, const struct pw_node_info *info)
 			if (p->type != INTERFACE_Port || p->removed ||
 			    p->port.node_id != info->id)
 				continue;
-			if (n->node.is_running)
+			if (active)
 				queue_notify(c, NOTIFY_TYPE_PORTREGISTRATION, p, 1, NULL);
 			else {
 				spa_list_for_each(l, &c->context.objects, link) {
@@ -3497,7 +3499,7 @@ static void registry_event_global(void *data, uint32_t id,
 			o->port.latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
 			o->port.latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 
-			do_emit = !ot->node.is_jack || ot->node.is_running;
+			do_emit = node_is_active(c, ot);
 
 			o->proxy = pw_registry_bind(c->registry,
 				id, type, PW_VERSION_PORT, 0);

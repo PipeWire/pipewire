@@ -179,6 +179,7 @@ context.objects = [
             priority.driver = 19000
             node.group      = pipewire.freewheel
             node.freewheel  = true
+            #freewheel.wait = 10
         }
     }
 

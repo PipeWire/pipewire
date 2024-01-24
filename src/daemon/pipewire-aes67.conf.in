@@ -41,7 +41,7 @@ context.objects = [
             clock.interface = "eth0"
             #clock.device    = "/dev/ptp0"
             #clock.id        = tai
-            #resync.ms       = 10
+            resync.ms       = 1.5
             object.export   = true
         }
     }

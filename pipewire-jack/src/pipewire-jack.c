@@ -3258,6 +3258,14 @@ static void node_info(void *data, const struct pw_node_info *info)
 	struct client *c = n->client;
 	bool active;
 
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS) {
+		/* JACK clients always need ALWAYS_PROCESS=true or else they don't
+		 * conform to the JACK API. We would try to hide the ports of
+		 * PAUSED JACK clients, for example, even if they are active. */
+		const char *str = spa_dict_lookup(info->props, PW_KEY_NODE_ALWAYS_PROCESS);
+		n->node.is_jack = str ? spa_atob(str) : false;
+	}
+
 	n->node.is_running = info->state == PW_NODE_STATE_RUNNING;
 	active = node_is_active(c, n);
 

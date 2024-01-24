@@ -443,7 +443,6 @@ struct client {
 	unsigned int global_buffer_size:1;
 	unsigned int global_sample_rate:1;
 	unsigned int passive_links:1;
-	unsigned int graph_callback_pending:1;
 	unsigned int pending_callbacks:1;
 	int frozen_callbacks;
 	char filter_char;

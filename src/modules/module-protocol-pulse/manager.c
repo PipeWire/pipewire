@@ -373,7 +373,8 @@ static void device_event_param(void *data, int seq,
 	if (p == NULL)
 		return;
 
-	if (id == SPA_PARAM_Route && !has_param(&o->this.param_list, p)) {
+	if ((id == SPA_PARAM_Route || id == SPA_PARAM_EnumRoute) &&
+	    !has_param(&o->this.param_list, p)) {
 		uint32_t idx, device;
 		if (spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,

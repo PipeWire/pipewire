@@ -47,7 +47,7 @@ struct props {
 	char clock_name[64];
 	clockid_t clock_id;
 	uint32_t freewheel_wait;
-	uint32_t resync_ms;
+	float resync_ms;
 };
 
 struct impl {
@@ -631,7 +631,7 @@ impl_init(const struct spa_handle_factory *factory,
 		} else if (spa_streq(k, "freewheel.wait")) {
 			this->props.freewheel_wait = atoi(s);
 		} else if (spa_streq(k, "resync.ms")) {
-			this->props.resync_ms = atoi(s);
+			this->props.resync_ms = atof(s);
 		}
 	}
 	if (this->props.clock_name[0] == '\0') {

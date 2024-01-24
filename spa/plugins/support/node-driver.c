@@ -33,6 +33,7 @@
 #define DEFAULT_FREEWHEEL_WAIT	10
 #define DEFAULT_CLOCK_PREFIX	"clock.system"
 #define DEFAULT_CLOCK_ID	CLOCK_MONOTONIC
+#define DEFAULT_RESYNC_MS	10
 
 #define CLOCKFD 3
 #define FD_TO_CLOCKID(fd)	((~(clockid_t) (fd) << 3) | CLOCKFD)
@@ -46,6 +47,7 @@ struct props {
 	char clock_name[64];
 	clockid_t clock_id;
 	uint32_t freewheel_wait;
+	uint32_t resync_ms;
 };
 
 struct impl {
@@ -81,6 +83,7 @@ struct impl {
 	uint64_t base_time;
 	struct spa_dll dll;
 	double max_error;
+	double max_resync;
 };
 
 static void reset_props(struct props *props)
@@ -89,6 +92,7 @@ static void reset_props(struct props *props)
 	spa_zero(props->clock_name);
 	props->clock_id = CLOCK_MONOTONIC;
 	props->freewheel_wait = DEFAULT_FREEWHEEL_WAIT;
+	props->resync_ms = DEFAULT_RESYNC_MS;
 }
 
 static const struct clock_info {
@@ -281,6 +285,7 @@ static void on_timeout(struct spa_source *source)
 	if (this->last_time == 0) {
 		spa_dll_set_bw(&this->dll, SPA_DLL_BW_MIN, duration, rate);
 		this->max_error = rate * MAX_ERROR_MS / 1000;
+		this->max_resync = rate * this->props.resync_ms / 1000;
 		position = current_position;
 	} else if (SPA_LIKELY(this->clock)) {
 		position = this->clock->position + this->clock->duration;
@@ -288,21 +293,25 @@ static void on_timeout(struct spa_source *source)
 		position = current_position;
 	}
 
-	/* check the elapsed time of the other clock against
-	 * the graph clock elapsed time, feed this error into the
-	 * dll and adjust the timeout of our MONOTONIC clock. */
-	err = (double)position - (double)current_position;
-	if (err > this->max_error)
-		err = this->max_error;
-	else if (err < -this->max_error)
-		err = -this->max_error;
-
 	this->last_time = current_time;
 
 	if (this->props.freewheel) {
 		corr = 1.0;
 		this->next_time = nsec + this->props.freewheel_wait * SPA_NSEC_PER_SEC;
 	} else if (this->tracking) {
+		/* check the elapsed time of the other clock against
+		 * the graph clock elapsed time, feed this error into the
+		 * dll and adjust the timeout of our MONOTONIC clock. */
+		err = (double)position - (double)current_position;
+		if (fabs(err) > this->max_error) {
+			if (fabs(err) > this->max_resync) {
+				spa_dll_set_bw(&this->dll, SPA_DLL_BW_MIN, duration, rate);
+				position = current_position;
+				err = 0.0;
+			} else {
+				err = SPA_CLAMPD(err, -this->max_error, this->max_error);
+			}
+		}
 		corr = spa_dll_update(&this->dll, err);
 		this->next_time = nsec + duration / corr * 1e9 / rate;
 	} else {
@@ -621,6 +630,8 @@ impl_init(const struct spa_handle_factory *factory,
 			}
 		} else if (spa_streq(k, "freewheel.wait")) {
 			this->props.freewheel_wait = atoi(s);
+		} else if (spa_streq(k, "resync.ms")) {
+			this->props.resync_ms = atoi(s);
 		}
 	}
 	if (this->props.clock_name[0] == '\0') {

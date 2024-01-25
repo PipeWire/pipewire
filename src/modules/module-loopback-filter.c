@@ -110,6 +110,7 @@ struct loopback {
 	bool capture_ready;
 	bool capture_streaming;
 
+	char *name;
 	process_fn *process;
 	skip_fn *skip;
 };
@@ -196,15 +197,15 @@ static void playback_process(void *d) {
 			break;
 		if (in) {
 			pw_stream_queue_buffer(l->capture, in);
-			pw_log_warn("dropping capture buffers: %m");
+			pw_log_warn("%s: dropping capture buffers: %m", l->name);
 		}
 		in = t;
 	}
 	if (in == NULL)
-		pw_log_debug("out of capture buffers: %m");
+		pw_log_debug("%s: out of capture buffers: %m", l->name);
 
 	if ((out = pw_stream_dequeue_buffer(l->playback)) == NULL)
-		pw_log_warn("out of playback buffers: %m");
+		pw_log_warn("%s: out of playback buffers: %m", l->name);
 
 	if (in != NULL && out != NULL) {
 		uint32_t outsize;
@@ -321,6 +322,7 @@ static int setup_streams(struct impl *impl)
 		}
 
 		l->impl = impl;
+		l->name = strdup(str);
 		l->process = fns->process;
 		l->skip = fns->skip;
 
@@ -429,6 +431,8 @@ static void impl_destroy(struct impl *impl)
 
 		pw_properties_free(l->capture_props);
 		pw_properties_free(l->playback_props);
+
+		free(l->name);
 	}
 
 	if (impl->core && impl->do_disconnect)

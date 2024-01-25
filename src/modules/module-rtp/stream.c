@@ -431,7 +431,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 			pw_properties_set(props, "rtp.ptime",
 					spa_dtoa(tmp, sizeof(tmp),
 						impl->psamples * 1000.0 / impl->rate));
-		} else if (fabs((impl->psamples * 1000.0 / impl->rate) - ptime) > 0.1) {
+		} else if (fabs((framecount * 1000.0 / impl->rate) - ptime) > 0.1) {
 			impl->psamples = ptime * impl->rate / 1000;
 			pw_log_warn("rtp.ptime doesn't match rtp.framecount. Choosing rtp.ptime");
 		}

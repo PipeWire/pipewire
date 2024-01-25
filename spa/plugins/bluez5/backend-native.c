@@ -1803,10 +1803,12 @@ static void sco_listen_event(struct spa_source *source)
 
 	/* Find transport for local and remote address */
 	spa_list_for_each(rfcomm, &backend->rfcomm_list, link) {
-		if (rfcomm->transport && spa_streq(rfcomm->transport->device->address, remote_address) &&
-		    spa_streq(rfcomm->transport->device->adapter->address, local_address)) {
-					t = rfcomm->transport;
-					break;
+		if ((rfcomm->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY) &&
+				rfcomm->transport &&
+				spa_streq(rfcomm->device->address, remote_address) &&
+				spa_streq(rfcomm->device->adapter->address, local_address)) {
+			t = rfcomm->transport;
+			break;
 		}
 	}
 	if (!t) {
@@ -1815,12 +1817,7 @@ static void sco_listen_event(struct spa_source *source)
 		return;
 	}
 
-	/* The Synchronous Connection shall always be established by the AG, i.e. the remote profile
-	   should be a HSP AG or HFP AG profile */
-	if ((t->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY) == 0) {
-		spa_log_debug(backend->log, "transport %p: Rejecting incoming audio connection to an AG profile", t);
-		return;
-	}
+	spa_assert(t->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
 
 	if (t->fd >= 0) {
 		spa_log_debug(backend->log, "transport %p: Rejecting, audio already connected", t);
@@ -2005,10 +2002,6 @@ static int backend_native_supports_codec(void *data, struct spa_bt_device *devic
 
 	if (codec == HFP_AUDIO_CODEC_CVSD)
 		return 1;
-
-	if (rfcomm->profile != SPA_BT_PROFILE_HFP_AG &&
-			rfcomm->profile != SPA_BT_PROFILE_HFP_HF)
-		return 0;
 
 	if (!rfcomm->codec_negotiation_supported)
 		return 0;
@@ -2665,7 +2658,7 @@ static void send_ciev_for_each_rfcomm(struct impl *backend, int indicator, int v
 	struct rfcomm *rfcomm;
 
 	spa_list_for_each(rfcomm, &backend->rfcomm_list, link) {
-		if (rfcomm->slc_configured &&
+		if (rfcomm->profile == SPA_BT_PROFILE_HFP_HF && rfcomm->slc_configured &&
 		    ((indicator == CIND_CALL || indicator == CIND_CALLSETUP || indicator == CIND_CALLHELD) ||
 			(rfcomm->cind_call_notify && (rfcomm->cind_enabled_indicators & (1 << indicator)))))
 			rfcomm_send_reply(rfcomm, "+CIEV: %d,%d", indicator, value);
@@ -2694,7 +2687,7 @@ static void ring_timer_event(void *data, uint64_t expirations)
 	spa_loop_utils_update_timer(backend->loop_utils, backend->ring_timer, &ts, NULL, false);
 
 	spa_list_for_each(rfcomm, &backend->rfcomm_list, link) {
-		if (rfcomm->slc_configured) {
+		if (rfcomm->profile == SPA_BT_PROFILE_HFP_HF  && rfcomm->slc_configured) {
 			rfcomm_send_reply(rfcomm, "RING");
 			if (rfcomm->clip_notify && number)
 				rfcomm_send_reply(rfcomm, "+CLIP: \"%s\",%u", number, type);

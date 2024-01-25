@@ -262,9 +262,13 @@ static void parse_audio_info(const struct pw_properties *props, struct spa_audio
 		parse_position(info, DEFAULT_POSITION, strlen(DEFAULT_POSITION));
 }
 
-static uint32_t msec_to_samples(struct impl *impl, uint32_t msec)
+static uint32_t msec_to_samples(struct impl *impl, float msec)
 {
 	return msec * impl->rate / 1000;
+}
+static float samples_to_msec(struct impl *impl, uint32_t samples)
+{
+	return samples * 1000.0f / impl->rate;
 }
 
 struct rtp_stream *rtp_stream_new(struct pw_core *core,
@@ -409,30 +413,30 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	if (!spa_atof(str, &max_ptime))
 		max_ptime = DEFAULT_MAX_PTIME;
 
-	min_samples = min_ptime * impl->rate / 1000;
-	max_samples = max_ptime * impl->rate / 1000;
+	min_samples = msec_to_samples(impl, min_ptime);
+	max_samples = msec_to_samples(impl, max_ptime);
 
 	float ptime = 0;
 	if ((str = pw_properties_get(props, "rtp.ptime")) != NULL)
 		if (!spa_atof(str, &ptime))
-			ptime = 0.0;
+			ptime = 0.0f;
 
 	uint32_t framecount = 0;
 	if ((str = pw_properties_get(props, "rtp.framecount")) != NULL)
 		if (!spa_atou32(str, &framecount, 0))
 			framecount = 0;
 
-	if (ptime > 0 || framecount > 0) {
+	if (ptime > 0.0f || framecount > 0) {
 		if (!framecount) {
-			impl->psamples = ptime * impl->rate / 1000;
+			impl->psamples = msec_to_samples(impl, ptime);
 			pw_properties_setf(props, "rtp.framecount", "%u", impl->psamples);
 		} else if (!ptime) {
 			impl->psamples = framecount;
 			pw_properties_set(props, "rtp.ptime",
 					spa_dtoa(tmp, sizeof(tmp),
-						impl->psamples * 1000.0 / impl->rate));
-		} else if (fabs((framecount * 1000.0 / impl->rate) - ptime) > 0.1) {
-			impl->psamples = ptime * impl->rate / 1000;
+						samples_to_msec(impl, impl->psamples)));
+		} else if (fabsf((samples_to_msec(impl, framecount)) - ptime) > 0.1f) {
+			impl->psamples = msec_to_samples(impl, ptime);
 			pw_log_warn("rtp.ptime doesn't match rtp.framecount. Choosing rtp.ptime");
 		}
 	} else {
@@ -441,7 +445,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		if (direction == PW_DIRECTION_INPUT) {
 			pw_properties_set(props, "rtp.ptime",
 					spa_dtoa(tmp, sizeof(tmp),
-						impl->psamples * 1000.0 / impl->rate));
+						samples_to_msec(impl, impl->psamples)));
 
 			pw_properties_setf(props, "rtp.framecount", "%u", impl->psamples);
 		}

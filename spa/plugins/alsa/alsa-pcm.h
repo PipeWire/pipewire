@@ -40,6 +40,7 @@ extern "C" {
 #define DEFAULT_PERIOD		1024u
 #define DEFAULT_RATE		48000u
 #define DEFAULT_CHANNELS	2u
+/* CHMAP defaults to true when using UCM */
 #define DEFAULT_USE_CHMAP	false
 
 #define MAX_HTIMESTAMP_ERROR	64

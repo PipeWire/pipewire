@@ -56,7 +56,7 @@
  *                you want to receive packets from or 0.0.0.0 to receive from any source address.
  * - `source.port = <int>`: the source port
  * - `node.always-process = <bool>`: true to receive even when not running
- * - `sess.latency.msec = <str>`: target network latency in milliseconds, default 100
+ * - `sess.latency.msec = <float>`: target network latency in milliseconds, default 100
  * - `sess.ignore-ssrc = <bool>`: ignore SSRC, default false
  * - `sess.media = <string>`: the media type audio|midi|opus, default audio
  * - `stream.props = {}`: properties to be passed to the stream

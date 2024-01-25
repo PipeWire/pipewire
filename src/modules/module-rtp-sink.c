@@ -52,9 +52,14 @@
  * - `net.mtu = <int>`: MTU to use, default 1280
  * - `net.ttl = <int>`: TTL to use, default 1
  * - `net.loop = <bool>`: loopback multicast, default false
- * - `sess.min-ptime = <int>`: minimum packet time in milliseconds, default 2
- * - `sess.max-ptime = <int>`: maximum packet time in milliseconds, default 20
+ * - `sess.min-ptime = <float>`: minimum packet time in milliseconds, default 2
+ * - `sess.max-ptime = <float>`: maximum packet time in milliseconds, default 20
  * - `sess.name = <str>`: a session name
+ * - `rtp.ptime = <float>`: size of the packets in milliseconds, default up to MTU but
+ *       between sess.min-ptime and sess.max-ptime
+ * - `rtp.framecount = <int>`: number of samples per packet, default up to MTU but
+ *       between sess.min-ptime and sess.max-ptime
+ * - `sess.latency.msec = <float>`: target node latency in milliseconds, default as rtp.ptime
  * - `sess.ts-offset = <int>`: an offset to apply to the timestamp, default -1 = random offset
  * - `sess.ts-refclk = <string>`: the name of a reference clock
  * - `sess.media = <string>`: the media type audio|midi|opus, default audio

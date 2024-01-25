@@ -284,7 +284,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	float min_ptime, max_ptime;
 	const struct spa_pod *params[1];
 	enum pw_stream_flags flags;
-	int latency_msec;
+	float latency_msec;
 	int res;
 
 	impl = calloc(1, sizeof(*impl));
@@ -450,16 +450,23 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 			pw_properties_setf(props, "rtp.framecount", "%u", impl->psamples);
 		}
 	}
-	latency_msec = pw_properties_get_uint32(props,
-			"sess.latency.msec", DEFAULT_SESS_LATENCY);
+	/* For senders, the default latency is ptime and for a receiver it is
+	 * DEFAULT_SESS_LATENCY. Setting the sess.latency.msec for a sender to
+	 * something smaller/bigger will influence the quantum and the amount
+	 * of packets we send in one cycle */
+	str = pw_properties_get(props, "sess.latency.msec");
+	if (!spa_atof(str, &latency_msec)) {
+		latency_msec = direction == PW_DIRECTION_INPUT ?
+			samples_to_msec(impl, impl->psamples) :
+			DEFAULT_SESS_LATENCY;
+	}
 	impl->target_buffer = msec_to_samples(impl, latency_msec);
 	impl->max_error = msec_to_samples(impl, ERROR_MSEC);
 
 	pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%d", impl->rate);
 	if (direction == PW_DIRECTION_INPUT) {
-		// TODO: make sess.latency.msec work for sender streams
 		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%d/%d",
-				impl->psamples, impl->rate);
+				impl->target_buffer, impl->rate);
 	} else {
 		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%d/%d",
 				impl->target_buffer / 2, impl->rate);

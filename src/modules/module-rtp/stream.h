@@ -16,12 +16,12 @@ struct rtp_stream;
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_POSITION	"[ FL FR ]"
 
-#define ERROR_MSEC			2
-#define DEFAULT_SESS_LATENCY		100
+#define ERROR_MSEC		2.0f
+#define DEFAULT_SESS_LATENCY	100.0f
 
 #define DEFAULT_MTU		1280
-#define DEFAULT_MIN_PTIME	2
-#define DEFAULT_MAX_PTIME	20
+#define DEFAULT_MIN_PTIME	2.0f
+#define DEFAULT_MAX_PTIME	20.0f
 
 struct rtp_stream_events {
 #define RTP_VERSION_STREAM_EVENTS        0

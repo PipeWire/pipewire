@@ -1,3 +1,48 @@
+# PipeWire 1.0.2 (2024-01-31)
+
+This is a bugfix release that is API and ABI compatible with previous
+1.0.x releases.
+
+## Highlights
+  - Fix v4l2 enumeration with filter. This should fix negotiation in some
+    GStreamer pipelines with capsfilter. Also probe for EXPBUF support
+    before using it.
+  - Fix max-latency property and Buffer param when dealing with small
+    ALSA device buffers. This should fix stuttering with some AMD
+    based soundcards.
+  - More small cleanups an improvements.
+
+## Modules
+  - Improve netjack2 channel positions.
+  - Improve RAOP module state after suspend/resume. (#3778)
+  - Avoid crash in some LV2 plugins by configuring the Atom ports. (#3815)
+
+## SPA
+  - Bump libcamera requirements to 0.2.0.
+  - Try to avoid unaligned load exceptions. (#3790)
+  - Fix v4l2 enumeration with filter. (#1793)
+  - Fix max-latency property and Buffer param when dealing with small
+    ALSA device buffers. This should fix stuttering with some AMD
+    based soundcards. (#3744,#3622)
+  - Add a resync.ms option to node.driver to make it possible to resync
+    fast to clock jumps.
+  - Probe for EXPBUF support in v4l2 before using it. (#3821)
+
+## pulse-server
+  - Also emit change events when the port list change.
+
+## Bluetooth
+  - Log a more verbose explanation when other soundservers seem to be
+    interfering with bluetooth.
+  - Add quirks for Rockbox Brick. (#3786)
+  - Add quirks for SoundCore mini2. (#2927)
+
+## JACK
+  - Improve check for the running state of clients. (#3794)
+
+Older versions:
+
+
 # PipeWire 1.0.1 (2024-01-11)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -48,9 +93,6 @@ This is a bugfix release that is API and ABI compatible with previous
   - Handle node port removal in the device provider. (#3708)
   - Improve error handling while connecting.
   - Fix dts_offset.
-
-Older versions:
-
 
 # PipeWire 1.0.0 (2023-11-26)
 

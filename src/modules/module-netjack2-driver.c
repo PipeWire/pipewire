@@ -416,7 +416,7 @@ static void make_stream_ports(struct stream *s)
 
 		if (i < s->info.channels) {
 			str = spa_debug_type_find_short_name(spa_type_audio_channel,
-					s->info.position[i]);
+					s->info.position[i % SPA_AUDIO_MAX_CHANNELS]);
 			if (str)
 				snprintf(name, sizeof(name), "%s_%s", prefix, str);
 			else
@@ -819,6 +819,7 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 {
 	int res;
 	struct netjack2_peer *peer = &impl->peer;
+	uint32_t i;
 
 	pw_log_info("got follower setup");
 	nj2_dump_session_params(params);
@@ -842,10 +843,18 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 
 	impl->source.n_ports = peer->params.send_audio_channels + peer->params.send_midi_channels;
 	impl->source.info.rate =  peer->params.sample_rate;
-	impl->source.info.channels =  peer->params.send_audio_channels;
+	if ((uint32_t)peer->params.send_audio_channels != impl->source.info.channels) {
+		impl->source.info.channels = peer->params.send_audio_channels;
+		for (i = 0; i < SPA_MIN(impl->source.info.channels, SPA_AUDIO_MAX_CHANNELS); i++)
+			impl->source.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
+	}
 	impl->sink.n_ports = peer->params.recv_audio_channels + peer->params.recv_midi_channels;
 	impl->sink.info.rate =  peer->params.sample_rate;
-	impl->sink.info.channels =  peer->params.recv_audio_channels;
+	if ((uint32_t)peer->params.recv_audio_channels != impl->sink.info.channels) {
+		impl->sink.info.channels =  peer->params.recv_audio_channels;
+		for (i = 0; i < SPA_MIN(impl->sink.info.channels, SPA_AUDIO_MAX_CHANNELS); i++)
+			impl->sink.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
+	}
 	impl->samplerate = peer->params.sample_rate;
 	impl->period_size = peer->params.period_size;
 

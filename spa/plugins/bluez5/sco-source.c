@@ -124,6 +124,8 @@ struct impl {
 	unsigned int resampling:1;
 	unsigned int io_error:1;
 
+	unsigned int is_internal:1;
+
 	struct spa_source timer_source;
 	int timerfd;
 
@@ -929,9 +931,9 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 static void emit_node_info(struct impl *this, bool full)
 {
-	static const struct spa_dict_item hu_node_info_items[] = {
+	const struct spa_dict_item hu_node_info_items[] = {
 		{ SPA_KEY_DEVICE_API, "bluez5" },
-		{ SPA_KEY_MEDIA_CLASS, "Audio/Source" },
+		{ SPA_KEY_MEDIA_CLASS, this->is_internal ? "Audio/Source/Internal" : "Audio/Source" },
 		{ SPA_KEY_NODE_DRIVER, "true" },
 	};
 	const struct spa_dict_item ag_node_info_items[] = {
@@ -1714,6 +1716,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this->quantum_limit = 8192;
 	if (info && (str = spa_dict_lookup(info, "clock.quantum-limit")))
 		spa_atou32(str, &this->quantum_limit, 0);
+
+	if (info && (str = spa_dict_lookup(info, "api.bluez5.internal")) != NULL)
+		this->is_internal = spa_atob(str);
 
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_TRANSPORT)))
 		sscanf(str, "pointer:%p", &this->transport);

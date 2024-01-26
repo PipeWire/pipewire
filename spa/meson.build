@@ -106,7 +106,8 @@ if get_option('spa-plugins').allowed()
   cdata.set('HAVE_ALSA_COMPRESS_OFFLOAD', compress_offload_option.allowed())
 
   # common dependencies
-  libudev_dep = dependency('libudev', required: alsa_dep.found() or get_option('udev').enabled() or get_option('v4l2').enabled())
+  libudev_dep = dependency('libudev', required: get_option('udev').enabled())
+  cdata.set('HAVE_LIBUDEV', libudev_dep.found())
   summary({'Udev': libudev_dep.found()}, bool_yn: true, section: 'Backend')
 
   subdir('plugins')

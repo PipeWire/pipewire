@@ -40,8 +40,13 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 		*factory = &spa_alsa_sink_factory;
 		break;
 	case 2:
+#ifdef HAVE_LIBUDEV
 		*factory = &spa_alsa_udev_factory;
 		break;
+#else
+		(*index)++;
+		SPA_FALLTHROUGH;
+#endif
 	case 3:
 		*factory = &spa_alsa_pcm_device_factory;
 		break;

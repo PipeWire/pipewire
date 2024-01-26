@@ -1,11 +1,10 @@
 subdir('acp')
 subdir('mixer')
 
-spa_alsa_dependencies = [ spa_dep, alsa_dep, libudev_dep, mathlib, epoll_shim_dep, libinotify_dep ]
+spa_alsa_dependencies = [ spa_dep, alsa_dep, mathlib, epoll_shim_dep, libinotify_dep ]
 
 spa_alsa_sources = ['alsa.c',
                 'alsa.h',
-                'alsa-udev.c',
                 'alsa-acp-device.c',
                 'alsa-pcm-device.c',
                 'alsa-pcm-sink.c',
@@ -13,6 +12,11 @@ spa_alsa_sources = ['alsa.c',
                 'alsa-pcm.c',
                 'alsa-seq-bridge.c',
                 'alsa-seq.c']
+
+if libudev_dep.found()
+spa_alsa_sources += [ 'alsa-udev.c' ]
+spa_alsa_dependencies += [ libudev_dep ]
+endif
 
 if compress_offload_option.allowed()
   spa_alsa_sources += ['alsa-compress-offload-sink.c',

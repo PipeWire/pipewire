@@ -249,6 +249,7 @@ static inline void aec_run(struct impl *impl, const float *rec[], const float *p
 {
 	spa_audio_aec_run(impl->aec, rec, play, out, n_samples);
 
+#ifdef HAVE_SPA_PLUGINS
 	if (SPA_UNLIKELY(impl->wav_path[0])) {
 		if (impl->wav_file == NULL) {
 			struct wav_file_info info;
@@ -287,6 +288,7 @@ static inline void aec_run(struct impl *impl, const float *rec[], const float *p
 		wav_file_close(impl->wav_file);
 		impl->wav_file = NULL;
 	}
+#endif
 }
 
 static void process(struct impl *impl)

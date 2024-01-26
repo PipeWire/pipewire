@@ -32,6 +32,9 @@ pkgconfig.generate(filebase : 'lib@0@'.format(spa_name),
 
 subdir('include')
 
+jack_dep = dependency('jack', version : '>= 1.9.10', required: get_option('jack'))
+summary({'JACK2': jack_dep.found()}, bool_yn: true, section: 'Backend')
+
 if get_option('spa-plugins').allowed()
   udevrulesdir = get_option('udevrulesdir')
   if udevrulesdir == ''
@@ -87,8 +90,6 @@ if get_option('spa-plugins').allowed()
     endif
     cdata.set('HAVE_LC3', get_option('bluez5-codec-lc3').allowed() and lc3_dep.found())
   endif
-  jack_dep = dependency('jack', version : '>= 1.9.10', required: get_option('jack'))
-  summary({'JACK2': jack_dep.found()}, bool_yn: true, section: 'Backend')
 
   have_vulkan = false
   vulkan_dep = dependency('vulkan', version : '>= 1.2.170', required: get_option('vulkan'))
@@ -110,6 +111,7 @@ if get_option('spa-plugins').allowed()
   cdata.set('HAVE_LIBUDEV', libudev_dep.found())
   summary({'Udev': libudev_dep.found()}, bool_yn: true, section: 'Backend')
 
+  cdata.set('HAVE_SPA_PLUGINS', '1')
   subdir('plugins')
 endif
 

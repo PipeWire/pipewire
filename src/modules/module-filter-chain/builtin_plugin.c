@@ -784,6 +784,7 @@ static float *create_dirac(const char *filename, float gain, int delay, int offs
 static float *resample_buffer(float *samples, int *n_samples,
 		unsigned long in_rate, unsigned long out_rate, uint32_t quality)
 {
+#ifdef HAVE_SPA_PLUGINS
 	uint32_t in_len, out_len, total_out = 0;
 	int out_n_samples;
 	float *out_samples, *out_buf, *in_buf;
@@ -849,6 +850,12 @@ error:
 	free(samples);
 	free(out_samples);
 	return NULL;
+#else
+	pw_log_error("compiled without spa-plugins support, can't resample");
+	float *out_samples = calloc(*n_samples, sizeof(float));
+	memcpy(out_samples, samples, *n_samples * sizeof(float));
+	return out_samples;
+#endif
 }
 
 static void * convolver_instantiate(const struct fc_descriptor * Descriptor,

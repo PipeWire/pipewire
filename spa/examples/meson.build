@@ -6,7 +6,7 @@ spa_examples = [
   'local-v4l2',
 ]
 
-if not get_option('examples').allowed()
+if not get_option('examples').allowed() or not get_option('spa-plugins').allowed()
   subdir_done()
 endif
 

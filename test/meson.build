@@ -83,6 +83,7 @@ test('test-loop',
                link_with: pwtest_lib)
 )
 
+if get_option('spa-plugins').allowed()
 test('test-context',
     executable('test-context',
                'test-context.c',
@@ -106,6 +107,7 @@ test('test-support',
                dependencies: [spa_dep, systemd_dep, spa_support_dep, spa_journal_dep],
                link_with: [pwtest_lib])
 )
+endif
 test('test-spa',
     executable('test-spa',
                'test-spa-buffer.c',

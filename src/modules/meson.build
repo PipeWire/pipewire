@@ -69,6 +69,11 @@ pipewire_module_loopback = shared_library('pipewire-module-loopback',
   dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
 )
 
+plugin_dependencies = []
+if get_option('spa-plugins').allowed()
+  plugin_dependencies += audioconvert_dep
+endif
+
 simd_cargs = []
 simd_dependencies = []
 
@@ -122,7 +127,7 @@ filter_chain_sources = [
   'module-filter-chain/convolver.c'
 ]
 filter_chain_dependencies = [
-  mathlib, dl_lib, pipewire_dep, sndfile_dep, audioconvert_dep
+  mathlib, dl_lib, pipewire_dep, sndfile_dep, plugin_dependencies
 ]
 
 pipewire_module_filter_chain = shared_library('pipewire-module-filter-chain',
@@ -175,7 +180,7 @@ pipewire_module_echo_cancel = shared_library('pipewire-module-echo-cancel',
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep, audioconvert_dep],
+  dependencies : [mathlib, dl_lib, pipewire_dep, plugin_dependencies],
 )
 
 build_module_jack_tunnel = jack_dep.found()

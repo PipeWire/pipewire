@@ -106,6 +106,7 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
+	struct spa_loop *main_loop;
 	struct spa_loop *data_loop;
 	struct spa_system *data_system;
 
@@ -157,6 +158,8 @@ struct impl {
 
 	uint64_t prev_flush_time;
 	uint64_t next_flush_time;
+
+	uint64_t packet_delay_ns;
 
 	const struct media_codec *codec;
 	bool codec_props_changed;
@@ -371,18 +374,62 @@ static void set_latency(struct impl *this, bool emit_latency)
 	struct port *port = &this->port;
 	int64_t delay;
 
+	/* in main thread */
+
 	if (this->transport == NULL)
 		return;
 
-	delay = spa_bt_transport_get_delay_nsec(this->transport);
+	/*
+	 * We start flushing data immediately, so the delay is:
+	 *
+	 * (packet delay) + (codec internal delay) + (transport delay) + (latency offset)
+	 *
+	 * and doesn't depend on the quantum. The codec internal delay is neglected.
+	 * Kernel knows the latency due to socket/controller queue, but doesn't
+	 * tell us, so not included but hopefully in < 20 ms range.
+	 */
+
+	delay = __atomic_load_n(&this->packet_delay_ns, __ATOMIC_RELAXED);
+	delay += spa_bt_transport_get_delay_nsec(this->transport);
 	delay += SPA_CLAMP(this->props.latency_offset, -delay, INT64_MAX / 2);
+	delay = SPA_MAX(delay, 0);
+
 	port->latency.min_ns = port->latency.max_ns = delay;
+	port->latency.min_rate = port->latency.max_rate = 0;
+	port->latency.min_quantum = port->latency.max_quantum = 0.0f;
+
+	spa_log_info(this->log, "%p: total latency:%d ms", this, (int)(delay / SPA_NSEC_PER_MSEC));
 
 	if (emit_latency) {
 		port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 		port->params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
 		emit_port_info(this, port, false);
 	}
+}
+
+static int do_set_latency(struct spa_loop *loop, bool async, uint32_t seq,
+               const void *data, size_t size, void *user_data)
+{
+	struct impl *this = user_data;
+
+	/* in main thread */
+	set_latency(this, true);
+
+	return 0;
+}
+
+static void update_packet_delay(struct impl *this, uint64_t delay)
+{
+	uint64_t old_delay = this->packet_delay_ns;
+
+	/* in data thread */
+
+	delay = SPA_MAX(delay, old_delay);
+	if (delay == old_delay)
+		return;
+
+	__atomic_store_n(&this->packet_delay_ns, delay, __ATOMIC_RELAXED);
+	spa_loop_invoke(this->main_loop, do_set_latency, 0, NULL, 0, false, this);
 }
 
 static int apply_props(struct impl *this, const struct spa_pod *param)
@@ -814,6 +861,8 @@ again:
 			this->iso_pending = false;
 
 			reset_buffer(this);
+
+			update_packet_delay(this, iso_io->duration * 3/2);
 		}
 		return 0;
 	}
@@ -895,6 +944,8 @@ again:
 				this->next_flush_time = this->process_time;
 			this->next_flush_time += packet_time;
 		}
+
+		update_packet_delay(this, packet_time);
 
 		if (this->need_flush == NEED_FLUSH_FRAGMENT) {
 			reset_buffer(this);
@@ -1113,22 +1164,13 @@ static void media_on_timeout(struct spa_source *source)
 	this->next_time = now_time + duration * SPA_NSEC_PER_SEC / rate * port->ratectl.corr;
 
 	if (SPA_LIKELY(this->clock)) {
-		int64_t delay_nsec = 0;
-
 		this->clock->nsec = now_time;
 		this->clock->rate = this->clock->target_rate;
 		this->clock->position += this->clock->duration;
 		this->clock->duration = duration;
 		this->clock->rate_diff = 1 / port->ratectl.corr;
 		this->clock->next_nsec = this->next_time;
-
-		if (this->transport)
-			delay_nsec = spa_bt_transport_get_delay_nsec(this->transport);
-
-		/* Negative delay doesn't work properly, so disallow it */
-		delay_nsec += SPA_CLAMP(this->props.latency_offset, -delay_nsec, INT64_MAX / 2);
-
-		this->clock->delay = (delay_nsec * this->clock->rate.denom) / SPA_NSEC_PER_SEC;
+		this->clock->delay = 0;
 	}
 
 	status = this->transport_started ? SPA_STATUS_NEED_DATA : SPA_STATUS_HAVE_DATA;
@@ -1281,6 +1323,8 @@ static int do_start(struct impl *this)
 		return res;
 	}
 
+	this->packet_delay_ns = 0;
+
 	this->source.data = this;
 	this->source.fd = this->timerfd;
 	this->source.func = media_on_timeout;
@@ -1372,6 +1416,9 @@ static int do_stop(struct impl *this)
 		res = spa_bt_transport_release(this->transport);
 
 	this->started = false;
+
+	/* Flush latency updates */
+	spa_loop_invoke(this->main_loop, NULL, 0, NULL, 0, false, NULL);
 
 	return res;
 }
@@ -1712,6 +1759,8 @@ static int port_set_format(struct impl *this, struct port *port,
 		port->current_format = info;
 		port->have_format = true;
 	}
+
+	set_latency(this, false);
 
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	if (port->have_format) {
@@ -2066,6 +2115,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	this->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
 
@@ -2115,8 +2165,6 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info.n_params = N_PORT_PARAMS;
 
 	port->latency = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
-	port->latency.min_quantum = 1.0f;
-	port->latency.max_quantum = 1.0f;
 
 	spa_list_init(&port->ready);
 

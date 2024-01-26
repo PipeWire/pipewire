@@ -44,6 +44,7 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.sink.sco");
 #define DEFAULT_CLOCK_NAME	"clock.system.monotonic"
 
 struct props {
+	int64_t latency_offset;
 	char clock_name[64];
 };
 
@@ -143,6 +144,7 @@ struct impl {
 	uint64_t current_time;
 	uint64_t next_time;
 	uint64_t process_time;
+
 	uint64_t prev_flush_time;
 	uint64_t next_flush_time;
 
@@ -170,6 +172,7 @@ static const char sntable[4] = { 0x08, 0x38, 0xC8, 0xF8 };
 
 static void reset_props(struct props *props)
 {
+	props->latency_offset = 0;
 	strncpy(props->clock_name, DEFAULT_CLOCK_NAME, sizeof(props->clock_name));
 }
 
@@ -198,6 +201,13 @@ static int impl_node_enum_params(void *object, int seq,
 	case SPA_PARAM_PropInfo:
 	{
 		switch (result.index) {
+		case 0:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_latencyOffsetNsec),
+				SPA_PROP_INFO_description, SPA_POD_String("Latency offset (ns)"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Long(0LL, INT64_MIN, INT64_MAX));
+			break;
 		default:
 			return 0;
 		}
@@ -205,10 +215,13 @@ static int impl_node_enum_params(void *object, int seq,
 	}
 	case SPA_PARAM_Props:
 	{
+		struct props *p = &this->props;
+
 		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_Props, id);
+				SPA_TYPE_OBJECT_Props, id,
+				SPA_PROP_latencyOffsetNsec, SPA_POD_Long(p->latency_offset));
 			break;
 		default:
 			return 0;
@@ -302,6 +315,53 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 static void emit_node_info(struct impl *this, bool full);
 
+static void emit_port_info(struct impl *this, struct port *port, bool full);
+
+static void set_latency(struct impl *this, bool emit_latency)
+{
+	struct port *port = &this->port;
+	int64_t delay;
+
+	if (this->transport == NULL)
+		return;
+
+	/*
+	 * We start flushing data immediately, so the delay is:
+	 *
+	 * (transport delay) + (packet delay) + (codec internal delay) + (latency offset)
+	 *
+	 * and doesn't depend on the quantum. The codec internal delay is neglected.
+	 * Kernel knows the latency due to socket/controller queue, but doesn't
+	 * tell us, so not included but hopefully in < 20 ms range.
+	 */
+
+	switch (this->transport->codec) {
+	case HFP_AUDIO_CODEC_MSBC:
+	case HFP_AUDIO_CODEC_LC3_SWB:
+		delay = 7500 * SPA_NSEC_PER_USEC;
+		break;
+	default:
+		delay = this->transport->write_mtu / (2 * 8000);
+		break;
+	}
+
+	delay += spa_bt_transport_get_delay_nsec(this->transport);
+	delay += SPA_CLAMP(this->props.latency_offset, -delay, INT64_MAX / 2);
+	delay = SPA_MAX(delay, 0);
+
+	spa_log_info(this->log, "%p: total latency:%d ms", this, (int)(delay / SPA_NSEC_PER_MSEC));
+
+	port->latency.min_ns = port->latency.max_ns = delay;
+	port->latency.min_rate = port->latency.max_rate = 0;
+	port->latency.min_quantum = port->latency.max_quantum = 0.0f;
+
+	if (emit_latency) {
+		port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+		port->params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
+		emit_port_info(this, port, false);
+	}
+}
+
 static int apply_props(struct impl *this, const struct spa_pod *param)
 {
 	struct props new_props = this->props;
@@ -311,11 +371,16 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 		reset_props(&new_props);
 	} else {
 		spa_pod_parse_object(param,
-				SPA_TYPE_OBJECT_Props, NULL);
+				SPA_TYPE_OBJECT_Props, NULL,
+				SPA_PROP_latencyOffsetNsec, SPA_POD_OPT_Long(&new_props.latency_offset));
 	}
 
 	changed = (memcmp(&new_props, &this->props, sizeof(struct props)) != 0);
 	this->props = new_props;
+
+	if (changed)
+		set_latency(this, true);
+
 	return changed;
 }
 
@@ -473,7 +538,6 @@ static int flush_data(struct impl *this)
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC ||
 			this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB) {
 		ssize_t out_encoded;
-
 		/* Encode */
 		if (this->buffer_next + HFP_CODEC_PACKET_SIZE > this->buffer + this->buffer_size) {
 			/* Buffer overrun; shouldn't usually happen. Drop data and reset. */
@@ -754,6 +818,9 @@ static int transport_start(struct impl *this)
 	}
 
 	spa_return_val_if_fail(this->transport->write_mtu <= sizeof(this->port.write_buffer), -EINVAL);
+
+	spa_log_info(this->log, "%p: using codec %d, delay:%"PRIi64" ms", this, this->transport->codec,
+			(int64_t)(spa_bt_transport_get_delay_nsec(this->transport) / SPA_NSEC_PER_MSEC));
 
 	/* start socket i/o */
 	if ((res = spa_bt_transport_ensure_sco_io(this->transport, this->data_loop)) < 0)
@@ -1258,6 +1325,8 @@ static int port_set_format(struct impl *this, struct port *port,
 		port->have_format = true;
 	}
 
+	set_latency(this, false);
+
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	if (port->have_format) {
 		port->info.change_mask |= SPA_PORT_CHANGE_MASK_RATE;
@@ -1638,6 +1707,9 @@ impl_init(const struct spa_handle_factory *factory,
 		spa_log_error(this->log, "a transport is needed");
 		return -EINVAL;
 	}
+
+	set_latency(this, false);
+
 	spa_bt_transport_add_listener(this->transport,
 			&this->transport_listener, &transport_events, this);
 

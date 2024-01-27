@@ -8,6 +8,8 @@
 - \subpage page_pulse_module_alsa_source
 - \subpage page_pulse_module_always_sink
 - \subpage page_pulse_module_combine_sink
+- \subpage page_pulse_module_device_manager
+- \subpage page_pulse_module_device_restore
 - \subpage page_pulse_module_echo_cancel
 - \subpage page_pulse_module_gsettings
 - \subpage page_pulse_module_jackdbus_detect
@@ -27,6 +29,7 @@
 - \subpage page_pulse_module_rtp_recv
 - \subpage page_pulse_module_rtp_send
 - \subpage page_pulse_module_simple_protocol_tcp
+- \subpage page_pulse_module_stream_restore
 - \subpage page_pulse_module_switch_on_connect
 - \subpage page_pulse_module_tunnel_sink
 - \subpage page_pulse_module_tunnel_source

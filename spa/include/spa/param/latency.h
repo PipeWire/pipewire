@@ -16,14 +16,30 @@ extern "C" {
 
 #include <spa/param/param.h>
 
-/** properties for SPA_TYPE_OBJECT_ParamLatency */
+/**
+ * Properties for SPA_TYPE_OBJECT_ParamLatency
+ *
+ * The latency indicates:
+ *
+ * - for playback: time delay between start of a graph cycle, and the rendering of
+ *   the first sample of that cycle in audio output.
+ *
+ * - for capture: time delay between start of a graph cycle, and the first sample
+ *   of that cycle having occurred in audio input.
+ *
+ * For physical output/input, the latency is intended to correspond to the
+ * rendering/capture of physical audio.  However, hardware internal rendering delay is
+ * usually not included e.g. for ALSA.
+ *
+ * The latency values are adjusted by \ref SPA_PROP_latencyOffsetNsec if present.
+ */
 enum spa_param_latency {
 	SPA_PARAM_LATENCY_START,
 	SPA_PARAM_LATENCY_direction,		/**< direction, input/output (Id enum spa_direction) */
 	SPA_PARAM_LATENCY_minQuantum,		/**< min latency relative to quantum (Float) */
 	SPA_PARAM_LATENCY_maxQuantum,		/**< max latency relative to quantum (Float) */
-	SPA_PARAM_LATENCY_minRate,		/**< min latency (Int) relative to rate */
-	SPA_PARAM_LATENCY_maxRate,		/**< max latency (Int) relative to rate */
+	SPA_PARAM_LATENCY_minRate,		/**< min latency (Int) relative to graph rate */
+	SPA_PARAM_LATENCY_maxRate,		/**< max latency (Int) relative to graph rate */
 	SPA_PARAM_LATENCY_minNs,		/**< min latency (Long) in nanoseconds */
 	SPA_PARAM_LATENCY_maxNs,		/**< max latency (Long) in nanoseconds */
 };
@@ -41,11 +57,16 @@ struct spa_latency_info {
 
 #define SPA_LATENCY_INFO(dir,...) ((struct spa_latency_info) { .direction = (dir), ## __VA_ARGS__ })
 
-/** properties for SPA_TYPE_OBJECT_ParamProcessLatency */
+/**
+ * Properties for SPA_TYPE_OBJECT_ParamProcessLatency
+ *
+ * The processing latency indicates logical time delay between a sample in an input port,
+ * and a corresponding sample in an output port, relative to the graph time.
+ */
 enum spa_param_process_latency {
 	SPA_PARAM_PROCESS_LATENCY_START,
 	SPA_PARAM_PROCESS_LATENCY_quantum,	/**< latency relative to quantum (Float) */
-	SPA_PARAM_PROCESS_LATENCY_rate,		/**< latency (Int) relative to rate */
+	SPA_PARAM_PROCESS_LATENCY_rate,		/**< latency (Int) relative to graph rate */
 	SPA_PARAM_PROCESS_LATENCY_ns,		/**< latency (Long) in nanoseconds */
 };
 

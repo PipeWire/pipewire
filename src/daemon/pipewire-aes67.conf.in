@@ -120,7 +120,7 @@ context.modules = [
             sess.media = "audio"
             sess.ts-refclk = "ptp=traceable"
             sess.ts-offset = 0
-            sess.latency.msec = 3
+            # sess.latency.msec = 3
             audio.format = "S24BE"
             audio.rate = 48000
             audio.channels = 2

@@ -1360,7 +1360,7 @@ const struct media_codec a2dp_codec_opus_05 = {
 	OPUS_05_COMMON_FULL_DEFS,
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05,
 	.name = "opus_05",
-	.description = "Opus",
+	.description = "Opus 05",
 	.fill_caps = codec_fill_caps,
 };
 
@@ -1368,7 +1368,7 @@ const struct media_codec a2dp_codec_opus_05_51 = {
 	OPUS_05_COMMON_DEFS,
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_51,
 	.name = "opus_05_51",
-	.description = "Opus 5.1 Surround",
+	.description = "Opus 05 5.1 Surround",
 	.endpoint_name = "opus_05",
 	.fill_caps = NULL,
 };
@@ -1377,7 +1377,7 @@ const struct media_codec a2dp_codec_opus_05_71 = {
 	OPUS_05_COMMON_DEFS,
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_71,
 	.name = "opus_05_71",
-	.description = "Opus 7.1 Surround",
+	.description = "Opus 05 7.1 Surround",
 	.endpoint_name = "opus_05",
 	.fill_caps = NULL,
 };
@@ -1387,14 +1387,14 @@ const struct media_codec a2dp_codec_opus_05_return = {
 	OPUS_05_COMMON_FULL_DEFS,
 	.id = 0,
 	.name = "opus_05_duplex_bidi",
-	.description = "Opus Duplex Bidi channel",
+	.description = "Opus 05 Duplex Bidi channel",
 };
 
 const struct media_codec a2dp_codec_opus_05_duplex = {
 	OPUS_05_COMMON_FULL_DEFS,
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_DUPLEX,
 	.name = "opus_05_duplex",
-	.description = "Opus Duplex",
+	.description = "Opus 05 Duplex",
 	.duplex_codec = &a2dp_codec_opus_05_return,
 	.fill_caps = codec_fill_caps,
 };
@@ -1403,7 +1403,7 @@ const struct media_codec a2dp_codec_opus_05_pro = {
 	OPUS_05_COMMON_DEFS,
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_PRO,
 	.name = "opus_05_pro",
-	.description = "Opus Pro Audio",
+	.description = "Opus 05 Pro Audio",
 	.init_props = codec_init_props,
 	.clear_props = codec_clear_props,
 	.duplex_codec = &a2dp_codec_opus_05_return,

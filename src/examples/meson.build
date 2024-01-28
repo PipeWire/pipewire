@@ -7,6 +7,7 @@ examples = [
   'video-play',
   'video-src',
   'video-dsp-play',
+  'video-dsp-src',
   'video-play-pull',
   'video-play-reneg',
   'video-src-alloc',

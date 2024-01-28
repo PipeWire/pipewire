@@ -11,6 +11,11 @@ extern "C" {
 
 #include <spa/param/audio/raw.h>
 
+/**
+ * \addtogroup spa_param
+ * \{
+ */
+
 struct spa_audio_info_flac {
 	uint32_t rate;				/*< sample rate */
 	uint32_t channels;			/*< number of channels */

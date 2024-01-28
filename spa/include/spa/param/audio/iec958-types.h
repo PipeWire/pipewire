@@ -12,6 +12,11 @@ extern "C" {
 #include <spa/utils/type.h>
 #include <spa/param/audio/iec958.h>
 
+/**
+ * \addtogroup spa_param
+ * \{
+ */
+
 #define SPA_TYPE_INFO_AudioIEC958Codec		SPA_TYPE_INFO_ENUM_BASE "AudioIEC958Codec"
 #define SPA_TYPE_INFO_AUDIO_IEC958_CODEC_BASE	SPA_TYPE_INFO_AudioIEC958Codec ":"
 

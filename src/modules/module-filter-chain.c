@@ -461,13 +461,13 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * - \ref PW_KEY_NODE_GROUP
  * - \ref PW_KEY_NODE_LINK_GROUP
  * - \ref PW_KEY_NODE_VIRTUAL
- * - \ref PW_KEY_NODE_NAME: See notes below. If not specified, defaults to
- *	'filter-chain-<pid>-<module-id>'.
+ * - \ref PW_KEY_NODE_NAME : See notes below. If not specified, defaults to
+ *	'filter-chain-PID-MODULEID'.
  *
  * Stream only properties:
  *
  * - \ref PW_KEY_MEDIA_CLASS
- * - \ref PW_KEY_NODE_NAME:  if not given per stream, the global node.name will be
+ * - \ref PW_KEY_NODE_NAME :  if not given per stream, the global node.name will be
  *         prefixed with 'input.' and 'output.' to generate a capture and playback
  *         stream node.name respectively.
  *

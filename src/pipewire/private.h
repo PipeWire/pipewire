@@ -5,6 +5,8 @@
 #ifndef PIPEWIRE_PRIVATE_H
 #define PIPEWIRE_PRIVATE_H
 
+/** \privatesection */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -1297,8 +1299,6 @@ bool pw_should_dlclose(void);
 
 void pw_log_topic_register_enum(const struct spa_log_topic_enum *e);
 void pw_log_topic_unregister_enum(const struct spa_log_topic_enum *e);
-
-/** \endcond */
 
 #ifdef __cplusplus
 }

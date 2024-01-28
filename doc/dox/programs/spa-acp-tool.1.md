@@ -22,7 +22,7 @@ Show available commands
 \par quit | q
 Quit
 
-\par card <id> | c <id>
+\par card ID | c ID
 Probe card
 
 \par info | i
@@ -34,40 +34,40 @@ List all objects
 \par list-verbose | lv
 List all data
 
-\par list-profiles [id] | lpr [id]
+\par list-profiles [ID] | lpr [ID]
 List profiles
 
-\par set-profile <id> | spr <id>
+\par set-profile ID | spr ID
 Activate a profile
 
-\par list-ports [id] | lp [id]
+\par list-ports [ID] | lp [ID]
 List ports
 
-\par set-port <id> | sp <id>
+\par set-port ID | sp ID
 Activate a port
 
-\par list-devices [id] | ld [id]
+\par list-devices [ID] | ld [ID]
 List available devices
 
-\par get-volume <id> | gv <id>
+\par get-volume ID | gv ID
 Get volume from device
 
-\par set-volume <id> <vol> | v <id> <vol>
+\par set-volume ID VOL | v ID VOL
 Set volume on device
 
-\par inc-volume <id> | v+ <id>
+\par inc-volume ID | v+ ID
 Increase volume on device
 
-\par dec-volume <id> | v- <id>
+\par dec-volume ID | v- ID
 Decrease volume on device
 
-\par get-mute <id> | gm <id>
+\par get-mute ID | gm ID
 Get mute state from device
 
-\par set-mute <id> <val> | sm <id> <val>
+\par set-mute ID VAL | sm ID VAL
 Set mute on device
 
-\par toggle-mute <id>  | m <id>
+\par toggle-mute ID  | m ID
 Toggle mute on device
 
 # AUTHORS

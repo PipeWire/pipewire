@@ -1228,8 +1228,11 @@ static int transport_start(struct impl *this)
 				&port->current_format,
 				this->codec_props,
 				this->transport->write_mtu);
-		if (this->codec_data == NULL)
+		if (this->codec_data == NULL) {
+			spa_log_error(this->log, "%p: codec %s initialization failed", this,
+					this->codec->description);
 			return -EIO;
+		}
 	} else {
 		this->own_codec_data = false;
 		this->codec_data = this->transport->iso_io->codec_data;

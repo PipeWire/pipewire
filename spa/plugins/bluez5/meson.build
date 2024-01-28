@@ -153,6 +153,14 @@ if get_option('bluez5-codec-opus').allowed() and opus_dep.found()
     dependencies : [ spa_dep, opus_dep, mathlib ],
     install : true,
     install_dir : spa_plugindir / 'bluez5')
+
+  bluez_codec_opus_g = shared_library('spa-codec-bluez5-opus-g',
+    [ 'a2dp-codec-opus-g.c', 'media-codecs.c' ],
+    include_directories : [ configinc ],
+    c_args : opus_args,
+    dependencies : [ spa_dep, opus_dep, mathlib ],
+    install : true,
+    install_dir : spa_plugindir / 'bluez5')
 endif
 
 if get_option('bluez5-codec-lc3').allowed() and lc3_dep.found()

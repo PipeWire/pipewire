@@ -282,6 +282,29 @@
 #define OPUS_05_SET_BITRATE(a, v) OPUS_05_SET_UINT16(a, bitrate, v)
 
 
+#define OPUS_G_VENDOR_ID	0x000000e0
+#define OPUS_G_CODEC_ID		0x0001
+
+#define OPUS_G_FREQUENCY_MASK		0x80
+#define OPUS_G_FREQUENCY_48000		0x80
+
+#define OPUS_G_DURATION_MASK		0x18
+#define OPUS_G_DURATION_100		0x08
+#define OPUS_G_DURATION_200		0x10
+
+#define OPUS_G_CHANNELS_MASK		0x07
+#define OPUS_G_CHANNELS_MONO		0x01
+#define OPUS_G_CHANNELS_STEREO		0x02
+#define OPUS_G_CHANNELS_MONO_2		0x04
+
+#define OPUS_G_GET_FREQUENCY(a) ((a).data & OPUS_G_FREQUENCY_MASK)
+#define OPUS_G_GET_DURATION(a) ((a).data & OPUS_G_DURATION_MASK)
+#define OPUS_G_GET_CHANNELS(a) ((a).data & OPUS_G_CHANNELS_MASK)
+
+#define OPUS_G_SET(a, freq, dur, ch) \
+	(a).data = ((freq) & OPUS_G_FREQUENCY_MASK) | ((dur) & OPUS_G_DURATION_MASK) | ((ch) & OPUS_G_CHANNELS_MASK)
+
+
 typedef struct {
 	uint32_t vendor_id;
 	uint16_t codec_id;
@@ -457,5 +480,10 @@ typedef struct {
 	a2dp_opus_05_direction_t main;
 	a2dp_opus_05_direction_t bidi;
 } __attribute__ ((packed)) a2dp_opus_05_t;
+
+typedef struct {
+	a2dp_vendor_codec_t info;
+	uint8_t data;
+} __attribute__ ((packed)) a2dp_opus_g_t;
 
 #endif

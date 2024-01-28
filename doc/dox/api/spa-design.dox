@@ -10,7 +10,7 @@ Types are generally divided into two categories:
 - Integer types: These are enumerations used in the parts where high
                  performance/ease of use/low space overhead is needed.
 
-The SPA type is system is statis and very simple but still allows you
+The SPA type is system is static and very simple but still allows you
 to make and introspect complex object type hierarchies.
 
 See the type system docs for more info.

@@ -200,20 +200,26 @@ static const struct spa_bt_transport_events transport_events = {
 
 static const struct spa_bt_transport_implementation sco_transport_impl;
 
-static struct spa_bt_transport *_transport_create(struct rfcomm *rfcomm)
+static int rfcomm_new_transport(struct rfcomm *rfcomm)
 {
 	struct impl *backend = rfcomm->backend;
 	struct spa_bt_transport *t = NULL;
 	struct transport_data *td;
 	char* pathfd;
 
+	if (rfcomm->transport) {
+		spa_hook_remove(&rfcomm->transport_listener);
+		spa_bt_transport_free(rfcomm->transport);
+		rfcomm->transport = NULL;
+	}
+
 	if ((pathfd = spa_aprintf("%s/fd%d", rfcomm->path, rfcomm->source.fd)) == NULL)
-		return NULL;
+		goto fail;
 
 	t = spa_bt_transport_create(backend->monitor, pathfd, sizeof(struct transport_data));
 	if (t == NULL) {
 		free(pathfd);
-		return NULL;
+		goto fail;
 	}
 	spa_bt_transport_set_implementation(t, &sco_transport_impl, t);
 
@@ -246,7 +252,12 @@ static struct spa_bt_transport *_transport_create(struct rfcomm *rfcomm)
 
 	spa_bt_transport_add_listener(t, &rfcomm->transport_listener, &transport_events, rfcomm);
 
-	return t;
+	rfcomm->transport = t;
+	return 0;
+
+fail:
+	spa_log_warn(backend->log, "failed to create transport");
+	return -ENOMEM;
 }
 
 static int codec_switch_stop_timer(struct rfcomm *rfcomm);
@@ -905,9 +916,7 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 				rfcomm_send_reply(rfcomm, "+BCS: 2");
 			codec_switch_start_timer(rfcomm, HFP_CODEC_SWITCH_INITIAL_TIMEOUT_MSEC);
 		} else {
-			rfcomm->transport = _transport_create(rfcomm);
-			if (rfcomm->transport == NULL) {
-				spa_log_warn(backend->log, "can't create transport: %m");
+			if (rfcomm_new_transport(rfcomm) < 0) {
 				// TODO: We should manage the missing transport
 			} else {
 				rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
@@ -949,12 +958,7 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		spa_log_debug(backend->log, "RFCOMM selected_codec = %i", selected_codec);
 
 		/* Recreate transport, since previous connection may now be invalid */
-		if (rfcomm->transport)
-			spa_bt_transport_free(rfcomm->transport);
-
-		rfcomm->transport = _transport_create(rfcomm);
-		if (rfcomm->transport == NULL) {
-			spa_log_warn(backend->log, "can't create transport: %m");
+		if (rfcomm_new_transport(rfcomm) < 0) {
 			// TODO: We should manage the missing transport
 			rfcomm_send_error(rfcomm, CMEE_AG_FAILURE);
 			if (was_switching_codec)
@@ -1232,12 +1236,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			rfcomm->hf_state = hfp_hf_bcs;
 
 			if (!rfcomm->transport || (rfcomm->transport->codec != selected_codec) ) {
-				if (rfcomm->transport)
-					spa_bt_transport_free(rfcomm->transport);
-
-				rfcomm->transport = _transport_create(rfcomm);
-				if (rfcomm->transport == NULL) {
-					spa_log_warn(backend->log, "can't create transport: %m");
+				if (rfcomm_new_transport(rfcomm) < 0) {
 					// TODO: We should manage the missing transport
 				} else {
 					rfcomm->transport->codec = selected_codec;
@@ -1335,9 +1334,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			rfcomm->hf_state = hfp_hf_slc1;
 			rfcomm->slc_configured = true;
 			if (!rfcomm->codec_negotiation_supported) {
-				rfcomm->transport = _transport_create(rfcomm);
-				if (rfcomm->transport == NULL) {
-					spa_log_warn(backend->log, "can't create transport: %m");
+				if (rfcomm_new_transport(rfcomm) < 0) {
 					// TODO: We should manage the missing transport
 				} else {
 					rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
@@ -2115,10 +2112,7 @@ static void codec_switch_timer_event(struct spa_source *source)
 		/* Failure, try falling back to CVSD. */
 		rfcomm->hfp_ag_initial_codec_setup = HFP_AG_INITIAL_CODEC_SETUP_NONE;
 		if (rfcomm->transport == NULL) {
-			rfcomm->transport = _transport_create(rfcomm);
-			if (rfcomm->transport == NULL) {
-				spa_log_warn(backend->log, "can't create transport: %m");
-			} else {
+			if (rfcomm_new_transport(rfcomm) == 0) {
 				rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
 				spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 			}
@@ -2237,7 +2231,6 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	enum spa_bt_profile profile;
 	struct rfcomm *rfcomm;
 	struct spa_bt_device *d;
-	struct spa_bt_transport *t = NULL;
 	spa_autoclose int fd = -1;
 
 	if (!dbus_message_has_signature(m, "oha{sv}")) {
@@ -2295,22 +2288,20 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	spa_list_append(&backend->rfcomm_list, &rfcomm->link);
 
 	if (profile == SPA_BT_PROFILE_HSP_HS || profile == SPA_BT_PROFILE_HSP_AG) {
-		t = _transport_create(rfcomm);
-		if (t == NULL) {
-			spa_log_warn(backend->log, "can't create transport: %m");
+		if (rfcomm_new_transport(rfcomm) < 0)
 			goto fail_need_memory;
-		}
-		t->codec = HFP_AUDIO_CODEC_CVSD;
-		rfcomm->transport = t;
+
+		rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
 		rfcomm->has_volume = rfcomm_volume_enabled(rfcomm);
 
 		if (profile == SPA_BT_PROFILE_HSP_AG) {
 			rfcomm->hs_state = hsp_hs_init1;
 		}
 
-		spa_bt_device_connect_profile(t->device, profile);
+		spa_bt_device_connect_profile(rfcomm->device, profile);
 
-		spa_log_debug(backend->log, "Transport %s available for profile %s", t->path, handler);
+		spa_log_debug(backend->log, "Transport %s available for profile %s",
+				rfcomm->transport->path, handler);
 	} else if (profile == SPA_BT_PROFILE_HFP_AG) {
 		/* Start SLC connection */
 		unsigned int hf_features = SPA_BT_HFP_HF_FEATURE_NONE;

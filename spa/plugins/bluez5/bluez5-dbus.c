@@ -1469,6 +1469,7 @@ static void device_clear_sub(struct spa_bt_device *device)
 {
 	battery_remove(device);
 	spa_bt_device_release_transports(device);
+	device->preferred_codec = NULL;
 }
 
 static void device_free(struct spa_bt_device *device)

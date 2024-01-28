@@ -223,6 +223,7 @@ static struct spa_bt_transport *_transport_create(struct rfcomm *rfcomm)
 	t->backend = &backend->this;
 	t->n_channels = 1;
 	t->channels[0] = SPA_AUDIO_CHANNEL_MONO;
+	t->codec = HFP_AUDIO_CODEC_CVSD;
 
 	td = t->user_data;
 	td->rfcomm = rfcomm;
@@ -2299,6 +2300,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 			spa_log_warn(backend->log, "can't create transport: %m");
 			goto fail_need_memory;
 		}
+		t->codec = HFP_AUDIO_CODEC_CVSD;
 		rfcomm->transport = t;
 		rfcomm->has_volume = rfcomm_volume_enabled(rfcomm);
 

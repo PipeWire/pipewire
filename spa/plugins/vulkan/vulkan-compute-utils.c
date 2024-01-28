@@ -241,6 +241,39 @@ static int createCommandBuffer(struct vulkan_compute_state *s)
 	return 0;
 }
 
+static int runImportSHMBuffers(struct vulkan_compute_state *s) {
+	for (uint32_t i = 0; i < s->n_streams; i++) {
+		struct vulkan_stream *p = &s->streams[i];
+
+		if (p->direction == SPA_DIRECTION_OUTPUT)
+			continue;
+
+		struct pixel_format_info pixel_info;
+		CHECK(get_pixel_format_info(p->format, &pixel_info));
+
+		if (p->spa_buffers[p->current_buffer_id]->datas[0].type == SPA_DATA_MemPtr) {
+			struct vulkan_buffer *vk_buf = &p->buffers[p->current_buffer_id];
+			struct spa_buffer *spa_buf = p->spa_buffers[p->current_buffer_id];
+			VkBufferImageCopy copy;
+			struct vulkan_write_pixels_info writeInfo = {
+				.data = spa_buf->datas[0].data,
+				.offset = spa_buf->datas[0].chunk->offset,
+				.stride = spa_buf->datas[0].chunk->stride,
+				.bytes_per_pixel = pixel_info.bpp,
+				.size.width = s->constants.width,
+				.size.height = s->constants.height,
+				.copies = &copy,
+			};
+			CHECK(vulkan_write_pixels(&s->base, &writeInfo, &s->staging_buffer));
+
+			vkCmdCopyBufferToImage(s->commandBuffer, s->staging_buffer.buffer, vk_buf->image,
+					VK_IMAGE_LAYOUT_GENERAL, 1, &copy);
+		}
+	}
+
+	return 0;
+}
+
 static int runExportSHMBuffers(struct vulkan_compute_state *s) {
 	for (uint32_t i = 0; i < s->n_streams; i++) {
 		struct vulkan_stream *p = &s->streams[i];
@@ -284,6 +317,8 @@ static int runCommandBuffer(struct vulkan_compute_state *s)
 		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 	};
 	VK_CHECK_RESULT(vkBeginCommandBuffer(s->commandBuffer, &beginInfo));
+
+	CHECK(runImportSHMBuffers(s));
 
 	vkCmdBindPipeline(s->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, s->pipeline);
 	vkCmdPushConstants (s->commandBuffer,
@@ -444,6 +479,10 @@ static void clear_buffers(struct vulkan_compute_state *s, struct vulkan_stream *
 		p->spa_buffers[i] = NULL;
 	}
 	p->n_buffers = 0;
+	if (p->direction == SPA_DIRECTION_INPUT) {
+		vulkan_staging_buffer_destroy(&s->base, &s->staging_buffer);
+		s->staging_buffer.buffer = VK_NULL_HANDLE;
+	}
 }
 
 static void clear_streams(struct vulkan_compute_state *s)
@@ -532,7 +571,7 @@ int spa_vulkan_compute_use_buffers(struct vulkan_compute_state *s, struct vulkan
 					.size.height = s->constants.height,
 					.usage = p->direction == SPA_DIRECTION_OUTPUT
 						? VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
-						: VK_IMAGE_USAGE_SAMPLED_BIT,
+						: VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 					.spa_buf = buffers[i],
 				};
 				ret = vulkan_import_memptr(&s->base, &memptrInfo, &p->buffers[i]);
@@ -548,6 +587,13 @@ int spa_vulkan_compute_use_buffers(struct vulkan_compute_state *s, struct vulkan
 		}
 		p->spa_buffers[i] = buffers[i];
 		p->n_buffers++;
+	}
+	if (p->direction == SPA_DIRECTION_INPUT && buffers[0]->datas[0].type == SPA_DATA_MemPtr) {
+		ret = vulkan_staging_buffer_create(&s->base, buffers[0]->datas[0].maxsize, &s->staging_buffer);
+		if (ret < 0) {
+			spa_log_error(s->log, "Failed to create staging buffer");
+			return ret;
+		}
 	}
 	p->format = dsp_info->format;
 
@@ -668,7 +714,7 @@ int spa_vulkan_compute_get_buffer_caps(struct vulkan_compute_state *s, enum spa_
 {
 	switch (direction) {
 	case SPA_DIRECTION_INPUT:
-		return VULKAN_BUFFER_TYPE_CAP_DMABUF;
+		return VULKAN_BUFFER_TYPE_CAP_DMABUF | VULKAN_BUFFER_TYPE_CAP_SHM;
 	case SPA_DIRECTION_OUTPUT:
 		return VULKAN_BUFFER_TYPE_CAP_DMABUF | VULKAN_BUFFER_TYPE_CAP_SHM;
 	}

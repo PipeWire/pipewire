@@ -56,6 +56,7 @@ struct vulkan_compute_state {
 
 	VkCommandPool commandPool;
 	VkCommandBuffer commandBuffer;
+	struct vulkan_staging_buffer staging_buffer;
 
 	VkFence fence;
 	VkSemaphore pipelineSemaphore;

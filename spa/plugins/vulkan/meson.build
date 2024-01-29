@@ -4,6 +4,7 @@ spa_vulkan_sources = [
   'vulkan-compute-filter.c',
   'vulkan-compute-source.c',
   'vulkan-compute-utils.c',
+  'vulkan-blit-filter.c',
   'vulkan-blit-utils.c',
   'vulkan-utils.c',
   'utils.c',

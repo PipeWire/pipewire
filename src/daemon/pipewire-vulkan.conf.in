@@ -96,4 +96,5 @@ context.objects = [
     #{ factory = adapter            args = { factory.name = audiotestsrc node.name = my-test node.description = audiotestsrc } }
     { factory = spa-node-factory   args = { factory.name = api.vulkan.compute.source node.name = vulkan-compute-source object.export = true } }
     { factory = spa-node-factory   args = { factory.name = api.vulkan.compute.filter node.name = vulkan-compute-filter object.export = true } }
+    { factory = spa-node-factory   args = { factory.name = api.vulkan.blit.filter node.name = vulkan-blit-filter object.export = true } }
 ]

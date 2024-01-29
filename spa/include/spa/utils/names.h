@@ -134,6 +134,8 @@ extern "C" {
 					"api.vulkan.compute.source"	/**< a vulkan compute source. */
 #define SPA_NAME_API_VULKAN_COMPUTE_FILTER	\
 					"api.vulkan.compute.filter"	/**< a vulkan compute filter. */
+#define SPA_NAME_API_VULKAN_BLIT_FILTER	\
+					"api.vulkan.blit.filter"	/**< a vulkan blit filter. */
 
 /**
  * \}

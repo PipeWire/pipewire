@@ -524,9 +524,11 @@ int spa_vulkan_compute_use_buffers(struct vulkan_compute_state *s, struct vulkan
 	clear_buffers(s, p);
 	p->format = SPA_VIDEO_FORMAT_UNKNOWN;
 
+	if (n_buffers == 0)
+		return 0;
+
 	bool alloc = flags & SPA_NODE_BUFFERS_FLAG_ALLOC;
 	int ret;
-	p->n_buffers = 0;
 	for (uint32_t i = 0; i < n_buffers; i++) {
 		if (alloc) {
 			if (SPA_FLAG_IS_SET(buffers[i]->datas[0].type, 1<<SPA_DATA_DmaBuf)) {

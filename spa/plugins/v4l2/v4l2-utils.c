@@ -1584,6 +1584,7 @@ mmap_init(struct impl *this,
 
 		spa_log_debug(this->log, "data types %08x", d[0].type);
 
+again:
 		if (port->have_expbuf &&
 		    d[0].type != SPA_ID_INVALID &&
 		    (d[0].type & ((1u << SPA_DATA_DmaBuf)|(1u<<SPA_DATA_MemFd)))) {
@@ -1598,7 +1599,7 @@ mmap_init(struct impl *this,
 					spa_log_debug(this->log, "'%s' VIDIOC_EXPBUF not supported: %m",
 							this->props.device);
 					port->have_expbuf = false;
-					goto fallback;
+					goto again;
 				}
 				spa_log_error(this->log, "'%s' VIDIOC_EXPBUF: %m", this->props.device);
 				return -errno;
@@ -1614,7 +1615,6 @@ mmap_init(struct impl *this,
 			spa_log_debug(this->log, "EXPBUF fd:%d", expbuf.fd);
 			use_expbuf = true;
 		} else if (d[0].type & (1u << SPA_DATA_MemPtr)) {
-fallback:
 			d[0].type = SPA_DATA_MemPtr;
 			d[0].flags = SPA_DATA_FLAG_READABLE;
 			d[0].fd = -1;
@@ -1634,6 +1634,7 @@ fallback:
 			use_expbuf = false;
 		} else {
 			spa_log_error(this->log, "unsupported data type:%08x", d[0].type);
+			port->alloc_buffers = false;
 			return -ENOTSUP;
 		}
 		spa_v4l2_buffer_recycle(this, i);

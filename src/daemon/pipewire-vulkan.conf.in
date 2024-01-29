@@ -97,4 +97,5 @@ context.objects = [
     { factory = spa-node-factory   args = { factory.name = api.vulkan.compute.source node.name = vulkan-compute-source object.export = true } }
     { factory = spa-node-factory   args = { factory.name = api.vulkan.compute.filter node.name = vulkan-compute-filter object.export = true } }
     { factory = spa-node-factory   args = { factory.name = api.vulkan.blit.filter node.name = vulkan-blit-filter object.export = true } }
+    { factory = spa-node-factory   args = { factory.name = api.vulkan.blit.dsp-filter node.name = vulkan-blit-dsp-filter object.export = true } }
 ]

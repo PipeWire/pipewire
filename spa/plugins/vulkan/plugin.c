@@ -9,6 +9,7 @@
 extern const struct spa_handle_factory spa_vulkan_compute_filter_factory;
 extern const struct spa_handle_factory spa_vulkan_compute_source_factory;
 extern const struct spa_handle_factory spa_vulkan_blit_filter_factory;
+extern const struct spa_handle_factory spa_vulkan_blit_dsp_filter_factory;
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
@@ -25,6 +26,9 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 		break;
 	case 2:
 		*factory = &spa_vulkan_blit_filter_factory;
+		break;
+	case 3:
+		*factory = &spa_vulkan_blit_dsp_filter_factory;
 		break;
 	default:
 		return 0;

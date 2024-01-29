@@ -28,10 +28,11 @@ extern "C" {
  *   of that cycle having occurred in audio input.
  *
  * For physical output/input, the latency is intended to correspond to the
- * rendering/capture of physical audio.  However, hardware internal rendering delay is
- * usually not included e.g. for ALSA.
+ * rendering/capture of physical audio, including hardware internal rendering delay.
  *
- * The latency values are adjusted by \ref SPA_PROP_latencyOffsetNsec if present.
+ * The latency values are adjusted by \ref SPA_PROP_latencyOffsetNsec or
+ * SPA_PARAM_ProcessLatency, if present. (e.g. for ALSA this is used to adjust for
+ * the internal hardware latency).
  */
 enum spa_param_latency {
 	SPA_PARAM_LATENCY_START,

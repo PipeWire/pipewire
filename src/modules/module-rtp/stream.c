@@ -470,6 +470,9 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 			pw_properties_setf(props, "rtp.framecount", "%u", impl->psamples);
 		}
 	}
+
+	ptime = samples_to_msec(impl, impl->psamples);
+
 	/* For senders, the default latency is ptime and for a receiver it is
 	 * DEFAULT_SESS_LATENCY. Setting the sess.latency.msec for a sender to
 	 * something smaller/bigger will influence the quantum and the amount
@@ -477,11 +480,22 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	str = pw_properties_get(props, "sess.latency.msec");
 	if (!spa_atof(str, &latency_msec)) {
 		latency_msec = direction == PW_DIRECTION_INPUT ?
-			samples_to_msec(impl, impl->psamples) :
+			ptime :
 			DEFAULT_SESS_LATENCY;
 	}
 	impl->target_buffer = msec_to_samples(impl, latency_msec);
 	impl->max_error = msec_to_samples(impl, ERROR_MSEC);
+
+	if (impl->target_buffer < ptime) {
+		pw_log_warn("sess.latency.msec cannot be lower than rtp.ptime");
+		impl->target_buffer = impl->psamples;
+	}
+
+	/* We're not expecting odd ptimes, so this modulo should be 0 */
+	if (fmodf(impl->target_buffer, ptime != 0)) {
+		pw_log_warn("sess.latency.msec should be an integer multiple of rtp.ptime");
+		impl->target_buffer = (impl->target_buffer / ptime) * impl->psamples;
+	}
 
 	pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%d", impl->rate);
 	if (direction == PW_DIRECTION_INPUT) {

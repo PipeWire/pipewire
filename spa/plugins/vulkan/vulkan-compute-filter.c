@@ -25,7 +25,9 @@
 
 #include "vulkan-compute-utils.h"
 
-#define NAME "vulkan-compute-filter"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.vulkan.compute-filter");
 
 struct buffer {
 	uint32_t id;
@@ -152,7 +154,7 @@ static inline void reuse_buffer(struct impl *this, struct port *port, uint32_t i
 	struct buffer *b = &port->buffers[id];
 
 	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
-		spa_log_debug(this->log, NAME " %p: reuse buffer %d", this, id);
+		spa_log_debug(this->log, "%p: reuse buffer %d", this, id);
 
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 		spa_list_append(&port->empty, &b->link);
@@ -346,7 +348,7 @@ impl_node_port_enum_params(void *object, int seq,
 		if (result.index > 0)
 			return 0;
 
-		spa_log_debug(this->log, NAME" %p: %dx%d stride %d", this,
+		spa_log_debug(this->log, "%p: %dx%d stride %d", this,
 				this->position->video.size.width,
 				this->position->video.size.height,
 				this->position->video.stride);
@@ -403,7 +405,7 @@ impl_node_port_enum_params(void *object, int seq,
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
-		spa_log_debug(this->log, NAME " %p: clear buffers", this);
+		spa_log_debug(this->log, "%p: clear buffers", this);
 		spa_vulkan_compute_stop(&this->state);
 		spa_vulkan_compute_use_buffers(&this->state, &this->state.streams[port->stream_id], 0, &port->current_format.info.dsp, 0, NULL);
 		port->n_buffers = 0;
@@ -463,7 +465,7 @@ static int port_set_format(struct impl *this, struct port *port,
 			if (spa_vulkan_compute_fixate_modifier(&this->state, &this->state.streams[port->stream_id], &info.info.dsp, modifierCount, modifiers, &fixed_modifier) != 0)
 				return -EINVAL;
 
-			spa_log_info(this->log, NAME ": modifier fixated %"PRIu64, fixed_modifier);
+			spa_log_info(this->log, "modifier fixated %"PRIu64, fixed_modifier);
 
 			info.info.dsp.modifier = fixed_modifier;
 			info.info.dsp.flags &= ~SPA_VIDEO_FLAG_MODIFIER_FIXATION_REQUIRED;
@@ -640,7 +642,7 @@ static int impl_node_process(void *object)
 	}
 
 	if (spa_list_is_empty(&outport->empty)) {
-		spa_log_debug(this->log, NAME " %p: out of buffers", this);
+		spa_log_debug(this->log, "%p: out of buffers", this);
 		return -EPIPE;
 	}
 	b = &inport->buffers[inio->buffer_id];

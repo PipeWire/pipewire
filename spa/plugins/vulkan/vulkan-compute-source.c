@@ -26,7 +26,9 @@
 
 #include "vulkan-compute-utils.h"
 
-#define NAME "vulkan-compute-source"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.vulkan.compute-source");
 
 #define FRAMES_TO_TIME(this,f) ((this->position->video.framerate.denom * (f) * SPA_NSEC_PER_SEC) / \
                                 (this->position->video.framerate.num))
@@ -257,7 +259,7 @@ static int read_timer(struct impl *this)
 		if ((res = spa_system_timerfd_read(this->data_system,
 						this->timer_source.fd, &expirations)) < 0) {
 			if (res != -EAGAIN)
-				spa_log_error(this->log, NAME " %p: timerfd error: %s",
+				spa_log_error(this->log, "%p: timerfd error: %s",
 						this, spa_strerror(res));
 		}
 	}
@@ -281,7 +283,7 @@ static int make_buffer(struct impl *this)
 
 	if (spa_list_is_empty(&port->empty)) {
 		set_timer(this, false);
-		spa_log_error(this->log, NAME " %p: out of buffers", this);
+		spa_log_error(this->log, "%p: out of buffers", this);
 		return -EPIPE;
 	}
 	b = spa_list_first(&port->empty, struct buffer, link);
@@ -289,7 +291,7 @@ static int make_buffer(struct impl *this)
 
 	n_bytes = b->outbuf->datas[0].maxsize;
 
-	spa_log_trace(this->log, NAME " %p: dequeue buffer %d", this, b->id);
+	spa_log_trace(this->log, "%p: dequeue buffer %d", this, b->id);
 
 	this->state.constants.time = this->elapsed_time / (float) SPA_NSEC_PER_SEC;
 	this->state.constants.frame = this->frame_count;
@@ -302,7 +304,7 @@ static int make_buffer(struct impl *this)
 
 		this->state.streams[0].ready_buffer_id = SPA_ID_INVALID;
 
-		spa_log_trace(this->log, NAME " %p: ready buffer %d", this, b->id);
+		spa_log_trace(this->log, "%p: ready buffer %d", this, b->id);
 
 		b->outbuf->datas[0].chunk->offset = 0;
 		b->outbuf->datas[0].chunk->size = n_bytes;
@@ -331,7 +333,7 @@ static inline void reuse_buffer(struct impl *this, struct port *port, uint32_t i
 	struct buffer *b = &port->buffers[id];
 
 	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
-		spa_log_trace(this->log, NAME " %p: reuse buffer %d", this, id);
+		spa_log_trace(this->log, "%p: reuse buffer %d", this, id);
 
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 		spa_list_append(&port->empty, &b->link);
@@ -580,7 +582,7 @@ impl_node_port_enum_params(void *object, int seq,
 		if (result.index > 0)
 			return 0;
 
-		spa_log_debug(this->log, NAME" %p: %dx%d stride %d", this,
+		spa_log_debug(this->log, "%p: %dx%d stride %d", this,
 				this->position->video.size.width,
 				this->position->video.size.height,
 				this->position->video.stride);
@@ -638,7 +640,7 @@ impl_node_port_enum_params(void *object, int seq,
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
-		spa_log_debug(this->log, NAME " %p: clear buffers", this);
+		spa_log_debug(this->log, "%p: clear buffers", this);
 		spa_vulkan_compute_use_buffers(&this->state, &this->state.streams[0], 0, &port->current_format.info.dsp, 0, NULL);
 		port->n_buffers = 0;
 		spa_list_init(&port->empty);
@@ -698,7 +700,7 @@ static int port_set_format(struct impl *this, struct port *port,
 			if (spa_vulkan_compute_fixate_modifier(&this->state, &this->state.streams[0], &info.info.dsp, modifierCount, modifiers, &fixed_modifier) != 0)
 				return -EINVAL;
 
-			spa_log_info(this->log, NAME ": modifier fixated %"PRIu64, fixed_modifier);
+			spa_log_info(this->log, "modifier fixated %"PRIu64, fixed_modifier);
 
 			info.info.dsp.modifier = fixed_modifier;
 			info.info.dsp.flags &= ~SPA_VIDEO_FLAG_MODIFIER_FIXATION_REQUIRED;

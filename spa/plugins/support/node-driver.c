@@ -305,6 +305,8 @@ static void on_timeout(struct spa_source *source)
 		err = (double)position - (double)current_position;
 		if (fabs(err) > this->max_error) {
 			if (fabs(err) > this->max_resync) {
+				spa_log_warn(this->log, "err %f > max_resync %f, resetting",
+						err, this->max_resync);
 				spa_dll_set_bw(&this->dll, SPA_DLL_BW_MIN, duration, rate);
 				position = current_position;
 				err = 0.0;

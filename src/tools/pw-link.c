@@ -31,8 +31,10 @@ struct object {
 
 struct target_link {
 	struct spa_list link;
+	struct data *data;
 	struct pw_proxy *proxy;
-	struct spa_hook listener;
+	struct spa_hook listener, link_listener;
+	enum pw_link_state state;
 	int result;
 };
 
@@ -78,15 +80,59 @@ struct data {
 	regex_t in_port_regex, *in_regex;
 };
 
+static void link_event(struct target_link *tl, enum pw_link_state state, int result)
+{
+	/* Ignore non definitive states (negociating, allocating, etc). */
+	if (state != PW_LINK_STATE_ERROR &&
+	    state != PW_LINK_STATE_PAUSED &&
+	    state != PW_LINK_STATE_ACTIVE)
+		return;
+
+	/* Keep the first definitive state. For example, once a link is marked
+	 * as paused, we start ignoring all errors. */
+	if (tl->state == PW_LINK_STATE_INIT) {
+		tl->state = state;
+		tl->result = result;
+	}
+
+	/* End if all links have a definitive state. */
+	struct target_link *m;
+	spa_list_for_each(m, &tl->data->target_links, link) {
+		if (m->state == PW_LINK_STATE_INIT)
+			return;
+	}
+	pw_main_loop_quit(tl->data->loop);
+}
+
 static void link_proxy_error(void *data, int seq, int res, const char *message)
 {
 	struct target_link *tl = data;
-	tl->result = res;
+	link_event(tl, PW_LINK_STATE_ERROR, res);
 }
 
 static const struct pw_proxy_events link_proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
 	.error = link_proxy_error,
+};
+
+static void link_event_info(void *data, const struct pw_link_info *info)
+{
+	struct target_link *tl = data;
+	int result = 0;
+
+	/*
+	 * Invent an error code to always have one if state == error. That does
+	 * not occur currently; on link error a proxy error is raised first.
+	 */
+	if (tl->state == PW_LINK_STATE_ERROR)
+		result = -EINVAL;
+
+	link_event(tl, info->state, result);
+}
+
+static const struct pw_link_events link_events = {
+	PW_VERSION_LINK_EVENTS,
+	.info = link_event_info,
 };
 
 static void core_sync(struct data *data)
@@ -332,7 +378,10 @@ static int create_link_target(struct data *data)
 	if (tl->proxy == NULL)
 		return -errno;
 
+	tl->data = data;
+	tl->state = PW_LINK_STATE_INIT;
 	pw_proxy_add_listener(tl->proxy, &tl->listener, &link_proxy_events, tl);
+	pw_proxy_add_object_listener(tl->proxy, &tl->link_listener, &link_events, tl);
 	spa_list_append(&data->target_links, &tl->link);
 	return 0;
 }
@@ -898,12 +947,11 @@ int main(int argc, char *argv[])
 		}
 
 		if (data.nb_links > 0) {
-			core_sync(&data);
 			pw_main_loop_run(data.loop);
 
 			struct target_link *tl;
 			spa_list_for_each(tl, &data.target_links, link) {
-				if (tl->result) {
+				if (tl->state == PW_LINK_STATE_ERROR) {
 					fprintf(stderr, "failed to link ports: %s\n",
 						spa_strerror(tl->result));
 					return -1;

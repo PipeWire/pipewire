@@ -794,6 +794,12 @@ int main(int argc, char *argv[])
 	if (optind < argc)
 		data.opt_input = argv[optind++];
 
+	if ((data.opt_mode & (MODE_LIST|MODE_DISCONNECT)) == 0 &&
+	    (data.opt_output == NULL || data.opt_input == NULL)) {
+		fprintf(stderr, "missing output and input port names to connect\n");
+		return -1;
+	}
+
 	data.loop = pw_main_loop_new(NULL);
 	if (data.loop == NULL) {
 		fprintf(stderr, "can't create mainloop: %m\n");
@@ -861,11 +867,6 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 	} else {
-		if (data.opt_output == NULL ||
-		    data.opt_input == NULL) {
-			fprintf(stderr, "missing output and input port names to connect\n");
-			return -1;
-		}
 		if ((res = do_link_ports(&data)) < 0) {
 			fprintf(stderr, "failed to link ports: %s\n", spa_strerror(res));
 			return -1;

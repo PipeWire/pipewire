@@ -609,15 +609,15 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 	if (props == NULL)
 		return;
 
-	if (!d->new_object && d->opt_wait && spa_list_is_empty(&d->target_links)) {
-		d->new_object = true;
-		core_sync(d);
-	}
-
 	spa_zero(extra);
 	if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
 		t = OBJECT_NODE;
 	} else if (spa_streq(type, PW_TYPE_INTERFACE_Port)) {
+		if (!d->new_object && d->opt_wait && spa_list_is_empty(&d->target_links)) {
+			d->new_object = true;
+			core_sync(d);
+		}
+
 		t = OBJECT_PORT;
 		if ((str = spa_dict_lookup(props, PW_KEY_PORT_DIRECTION)) == NULL)
 			return;

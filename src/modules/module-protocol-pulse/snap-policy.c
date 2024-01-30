@@ -65,7 +65,13 @@ pw_sandbox_access_t pw_snap_get_audio_permissions(struct client *client, int fd,
 			// if apparmor isn't enabled, we can safely assume that there are no SNAPs in the system
 			return PW_SANDBOX_ACCESS_NOT_A_SANDBOX;
 		}
-		pw_log_warn("snap_get_audio_permissions: failed to get the AppArmor info.");
+		if  (errno == ENOPROTOOPT) {
+			// if fine grained unix mediation isn't available, we can't know if this is a snap or
+			// not, so we have no choice but give full access
+			pw_log_warn("snap_get_audio_permissions: kernel lacks 'fine grained unix mediation'; snap audio permissions won't be honored.");
+			return PW_SANDBOX_ACCESS_NOT_A_SANDBOX;
+		}
+ 		pw_log_warn("snap_get_audio_permissions: failed to get the AppArmor info: %s.", strerror(errno));
 		return PW_SANDBOX_ACCESS_NONE;
 	}
 	if (!g_str_has_prefix(aa_label, SNAP_LABEL_PREFIX)) {

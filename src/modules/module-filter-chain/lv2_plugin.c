@@ -237,6 +237,7 @@ struct instance {
 	const LV2_Worker_Interface *work_iface;
 
 	int32_t block_length;
+	LV2_Atom empty_atom;
 };
 
 static int
@@ -284,7 +285,7 @@ static void *lv2_instantiate(const struct fc_descriptor *desc,
 	struct plugin *p = d->p;
 	struct context *c = p->c;
 	struct instance *i;
-	uint32_t n_features = 0;
+	uint32_t n, n_features = 0;
 	static const int32_t min_block_length = 1;
 	static const int32_t max_block_length = 8192;
 	static const int32_t seq_size = 32768;
@@ -339,6 +340,12 @@ static void *lv2_instantiate(const struct fc_descriptor *desc,
                 i->work_iface = (const LV2_Worker_Interface*)
 			lilv_instance_get_extension_data(i->instance, LV2_WORKER__interface);
         }
+	for (n = 0; n < desc->n_ports; n++) {
+		const LilvPort *port = lilv_plugin_get_port_by_index(p->p, n);
+		if (lilv_port_is_a(p->p, port, c->atom_AtomPort)) {
+			lilv_instance_connect_port(i->instance, n, &i->empty_atom);
+		}
+	}
 
 	return i;
 }

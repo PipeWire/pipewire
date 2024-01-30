@@ -1521,8 +1521,6 @@ static void stream_state_changed(void *data, bool started, const char *error)
 		pw_impl_module_schedule_destroy(impl->module);
 		return;
 	}
-	if (started)
-		rtsp_do_record(impl);
 }
 
 static int rtsp_do_connect(struct impl *impl)

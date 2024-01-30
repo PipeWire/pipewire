@@ -50,6 +50,7 @@ struct data {
 	uint32_t opt_mode;
 	bool opt_id;
 	bool opt_verbose;
+	bool opt_wait;
 	const char *opt_output;
 	const char *opt_input;
 	struct pw_properties *props;
@@ -66,7 +67,8 @@ struct data {
 	struct spa_list target_links;
 
 	int sync;
-	int link_res;
+	int nb_links;
+	bool new_object;
 	bool monitoring;
 	bool list_inputs;
 	bool list_outputs;
@@ -558,6 +560,11 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 	if (props == NULL)
 		return;
 
+	if (!d->new_object && d->opt_wait && spa_list_is_empty(&d->target_links)) {
+		d->new_object = true;
+		core_sync(d);
+	}
+
 	spa_zero(extra);
 	if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
 		t = OBJECT_NODE;
@@ -639,8 +646,22 @@ static const struct pw_registry_events registry_events = {
 static void on_core_done(void *data, uint32_t id, int seq)
 {
 	struct data *d = data;
-	if (d->sync == seq)
-		pw_main_loop_quit(d->loop);
+
+	if (d->sync != seq)
+		return;
+
+	/* Connect mode, look for our targets. */
+	if ((d->opt_mode & (MODE_LIST|MODE_DISCONNECT)) == 0) {
+		d->nb_links = create_link_proxies(d);
+		/* In wait mode, if none exist, keep running. */
+		if (d->opt_wait && d->nb_links == -ENOENT) {
+			d->new_object = false;
+			return;
+		}
+	}
+
+	pw_main_loop_quit(d->loop);
+
 }
 
 static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
@@ -684,6 +705,7 @@ static void show_help(struct data *data, const char *name, bool error)
 		"  -L, --linger                          Linger (default, unless -m is used)\n"
 		"  -P, --passive                         Passive link\n"
 		"  -p, --props=PROPS                     Properties as JSON object\n"
+		"  -w, --wait                            Wait until link creation attempt\n"
 		"Disconnect: %1$s -d [options] output input\n"
 		"            %1$s -d [options] link-id\n"
 		"  -d, --disconnect                      Disconnect ports\n",
@@ -709,6 +731,7 @@ int main(int argc, char *argv[])
 		{ "linger",	no_argument,		NULL, 'L' },
 		{ "passive",	no_argument,		NULL, 'P' },
 		{ "props",	required_argument,	NULL, 'p' },
+		{ "wait",	no_argument,		NULL, 'w' },
 		{ "disconnect",	no_argument,		NULL, 'd' },
 		{ NULL,	0, NULL, 0}
 	};
@@ -726,7 +749,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	while ((c = getopt_long(argc, argv, "hVr:oilmIvLPp:d", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:oilmIvLPp:wd", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(&data, argv[0], NULL);
@@ -771,6 +794,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'd':
 			data.opt_mode |= MODE_DISCONNECT;
+			break;
+		case 'w':
+			data.opt_wait = true;
 			break;
 		default:
 			show_help(&data, argv[0], true);
@@ -866,13 +892,12 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 	} else {
-		int nb_links = create_link_proxies(&data);
-		if (nb_links < 0) {
-			fprintf(stderr, "failed to link ports: %s\n", spa_strerror(nb_links));
+		if (data.nb_links < 0) {
+			fprintf(stderr, "failed to link ports: %s\n", spa_strerror(data.nb_links));
 			return -1;
 		}
 
-		if (nb_links > 0) {
+		if (data.nb_links > 0) {
 			core_sync(&data);
 			pw_main_loop_run(data.loop);
 
@@ -885,7 +910,6 @@ int main(int argc, char *argv[])
 				}
 			}
 		}
-
 	}
 
 	if (data.opt_mode & MODE_MONITOR) {

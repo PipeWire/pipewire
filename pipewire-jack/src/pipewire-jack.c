@@ -3800,7 +3800,7 @@ jack_client_t * jack_client_open (const char *client_name,
 
         if (getenv("PIPEWIRE_NOJACK") != NULL ||
             getenv("PIPEWIRE_INTERNAL") != NULL ||
-	    strstr(pw_get_library_version(), "0.2") != NULL)
+	    spa_strstartswith(pw_get_library_version(), "0.2"))
 		goto disabled;
 
 	return_val_if_fail(client_name != NULL, NULL);

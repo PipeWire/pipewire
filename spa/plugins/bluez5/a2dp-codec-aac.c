@@ -63,6 +63,7 @@ done:
 	if (aacenc)
 		aacEncClose(&aacenc);
 	checked = true;
+	spa_log_debug(log, "FDK-AAC AAC-ELD support:%d", (int)supported);
 	return supported;
 }
 

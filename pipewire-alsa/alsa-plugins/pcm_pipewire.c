@@ -1298,7 +1298,7 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 	int err;
 
 	pw_init(NULL, NULL);
-	if (strstr(pw_get_library_version(), "0.2") != NULL)
+	if (spa_strstartswith(pw_get_library_version(), "0.2"))
 		return -ENOTSUP;
 
 	props = pw_properties_new(NULL, NULL);

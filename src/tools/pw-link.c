@@ -104,6 +104,17 @@ static void link_event(struct target_link *tl, enum pw_link_state state, int res
 	pw_main_loop_quit(tl->data->loop);
 }
 
+static void link_proxy_destroy(void *data)
+{
+	struct target_link *tl = data;
+
+	spa_hook_remove(&tl->listener);
+	spa_hook_remove(&tl->link_listener);
+	tl->proxy = NULL;
+
+	link_event(tl, PW_LINK_STATE_ERROR, -EINVAL);
+}
+
 static void link_proxy_error(void *data, int seq, int res, const char *message)
 {
 	struct target_link *tl = data;
@@ -112,6 +123,7 @@ static void link_proxy_error(void *data, int seq, int res, const char *message)
 
 static const struct pw_proxy_events link_proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
+	.destroy = link_proxy_destroy,
 	.error = link_proxy_error,
 };
 

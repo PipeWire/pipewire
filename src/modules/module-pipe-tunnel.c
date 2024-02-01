@@ -416,6 +416,10 @@ static void capture_stream_process(void *data)
 		}
 		impl->have_sync = false;
 	}
+	if (avail > (int32_t)(impl->target_buffer * 3)) {
+		pw_log_warn("resync %d > %u", avail, (int32_t)(impl->target_buffer * 3));
+		impl->have_sync = false;
+	}
 	if (avail > (int32_t)RINGBUFFER_SIZE) {
 		index += avail - impl->target_buffer;
 		avail = impl->target_buffer;

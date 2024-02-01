@@ -115,6 +115,12 @@ static void link_proxy_destroy(void *data)
 	link_event(tl, PW_LINK_STATE_ERROR, -EINVAL);
 }
 
+static void link_proxy_removed(void *data)
+{
+	struct target_link *tl = data;
+	pw_proxy_destroy(tl->proxy);
+}
+
 static void link_proxy_error(void *data, int seq, int res, const char *message)
 {
 	struct target_link *tl = data;
@@ -124,6 +130,7 @@ static void link_proxy_error(void *data, int seq, int res, const char *message)
 static const struct pw_proxy_events link_proxy_events = {
 	PW_VERSION_PROXY_EVENTS,
 	.destroy = link_proxy_destroy,
+	.removed = link_proxy_removed,
 	.error = link_proxy_error,
 };
 

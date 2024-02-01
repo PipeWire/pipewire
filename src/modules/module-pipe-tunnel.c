@@ -203,6 +203,7 @@ struct impl {
 
 	uint64_t next_time;
 	unsigned int have_sync:1;
+	unsigned int underrun:1;
 };
 
 static uint64_t get_time_ns(struct impl *impl)
@@ -407,7 +408,10 @@ static void capture_stream_process(void *data)
 	if (avail < (int32_t)size) {
 		memset(bd->data, 0, size);
 		if (avail >= 0) {
-			pw_log_warn("underrun %d < %u", avail, size);
+			if (!impl->underrun) {
+				pw_log_warn("underrun %d < %u", avail, size);
+				impl->underrun = true;
+			}
 			pause_stream(impl, true);
 		}
 		impl->have_sync = false;
@@ -429,6 +433,7 @@ static void capture_stream_process(void *data)
 
 		index += avail;
 		spa_ringbuffer_read_update(&impl->ring, index);
+		impl->underrun = false;
 	}
 	bd->chunk->offset = 0;
 	bd->chunk->size = size;

@@ -3483,8 +3483,8 @@ int spa_alsa_reassign_follower(struct state *state)
 	if (following != state->following) {
 		spa_log_debug(state->log, "%p: reassign follower %d->%d", state, state->following, following);
 		state->following = following;
-		setup_matching(state);
 	}
+	setup_matching(state);
 	if (state->started)
 		spa_loop_invoke(state->data_loop, do_state_sync, 0, NULL, 0, true, state);
 

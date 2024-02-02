@@ -83,6 +83,7 @@ pw_sandbox_access_t pw_snap_get_audio_permissions(struct client *client, int fd,
 	snap_id = g_strdup(aa_label + strlen(SNAP_LABEL_PREFIX));
 	separator = strchr(snap_id, '.');
 	if (separator == NULL) {
+		g_free(snap_id);
 		pw_log_info("snap_get_audio_permissions: aa_label has only one dot; not a valid ID.");
 		return PW_SANDBOX_ACCESS_NONE;
 	}

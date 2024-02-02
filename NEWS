@@ -1,3 +1,30 @@
+# PipeWire 1.0.3 (2024-02-02)
+
+This is a quick bugfix release that is API and ABI compatible with previous
+1.0.x releases.
+
+## Highlights
+  - Fix ALSA version check. This should allow the alsa plugin to work again.
+  - Some small fixes and improvements.
+
+## PipeWire
+  - Escape @DEFAULT_SINK@ in the conf files.
+
+## Modules
+  - Improve logging in module-pipe-tunnel.
+
+## SPA
+  - Always recheck rate matching in ALSA when moving drivers. This fixes a
+    potential issue where the adaptive resampler would not be activated in
+    some cases.
+
+## ALSA
+  - Fix version check. This should allow the alsa plugin to work again
+    with version 1.0.2.
+
+Older versions:
+
+
 # PipeWire 1.0.2 (2024-01-31)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -39,9 +66,6 @@ This is a bugfix release that is API and ABI compatible with previous
 
 ## JACK
   - Improve check for the running state of clients. (#3794)
-
-Older versions:
-
 
 # PipeWire 1.0.1 (2024-01-11)
 

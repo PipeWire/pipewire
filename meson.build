@@ -364,6 +364,7 @@ gst_deps_def = {
 }
 
 gst_dep = []
+gst_dma_drm_found = false
 foreach depname, kwargs: gst_deps_def
   dep = dependency(depname, required: gst_option, kwargs: kwargs)
   summary({depname: dep.found()}, bool_yn: true, section: 'GStreamer modules')
@@ -376,6 +377,10 @@ foreach depname, kwargs: gst_deps_def
     break
   endif
   gst_dep += [dep]
+
+  if depname == 'gstreamer-allocators-1.0' and dep.version().version_compare('>= 1.23.1')
+    gst_dma_drm_found = true
+  endif
 endforeach
 
 # This code relies on the array being empty if any dependency was not found
@@ -383,6 +388,9 @@ gst_dp_found = gst_dep.length() > 0
 summary({'gstreamer-device-provider': gst_dp_found}, bool_yn: true, section: 'Backend')
 
 cdata.set('HAVE_GSTREAMER_DEVICE_PROVIDER', get_option('gstreamer-device-provider').allowed())
+
+summary({'gstreamer DMA_DRM support': gst_dma_drm_found}, bool_yn: true, section: 'Backend')
+cdata.set('HAVE_GSTREAMER_DMA_DRM', gst_dma_drm_found)
 
 webrtc_dep = dependency('webrtc-audio-processing-1',
   version : ['>= 1.2' ],

@@ -5,6 +5,8 @@
 #ifndef __GST_PIPEWIRE_SRC_H__
 #define __GST_PIPEWIRE_SRC_H__
 
+#include "config.h"
+
 #include <gst/gst.h>
 #include <gst/base/gstpushsrc.h>
 
@@ -56,6 +58,9 @@ struct _GstPipeWireSrc {
 
   gboolean is_video;
   GstVideoInfo video_info;
+#ifdef HAVE_GSTREAMER_DMA_DRM
+  GstVideoInfoDmaDrm drm_info;
+#endif
 
   gboolean negotiated;
   gboolean flushing;

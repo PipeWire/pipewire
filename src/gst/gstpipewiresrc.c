@@ -15,7 +15,6 @@
 
 #define PW_ENABLE_DEPRECATED
 
-#include "config.h"
 #include "gstpipewiresrc.h"
 #include "gstpipewireformat.h"
 
@@ -851,7 +850,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   GST_DEBUG_OBJECT (basesrc, "have common caps: %" GST_PTR_FORMAT, caps);
 
   /* open a connection with these caps */
-  possible = gst_caps_to_format_all (caps, SPA_PARAM_EnumFormat);
+  possible = gst_caps_to_format_all (caps);
   gst_caps_unref (caps);
 
   /* first disconnect */
@@ -1008,13 +1007,39 @@ on_param_changed (void *data, uint32_t id,
           gst_caps_unref(pwsrc->caps);
   pwsrc->caps = gst_caps_from_format (param);
 
-  pwsrc->is_video = pwsrc->caps != NULL
-                      ? gst_video_info_from_caps (&pwsrc->video_info, pwsrc->caps)
-                      : FALSE;
+  if (pwsrc->caps && gst_caps_is_fixed (pwsrc->caps)) {
+    pwsrc->negotiated = TRUE;
 
-  pwsrc->negotiated = pwsrc->caps != NULL;
+#ifdef HAVE_GSTREAMER_DMA_DRM
+    if (gst_video_is_dma_drm_caps (pwsrc->caps)) {
+      if (!gst_video_info_dma_drm_from_caps (&pwsrc->drm_info, pwsrc->caps)) {
+        GST_WARNING_OBJECT (pwsrc, "Can't create drm video info from caps");
+        pw_stream_set_error (pwsrc->stream, -EINVAL, "internal error");
+        return;
+      }
 
-  if (pwsrc->negotiated) {
+      if (!gst_video_info_dma_drm_to_video_info (&pwsrc->drm_info,
+                                                 &pwsrc->video_info)) {
+        GST_WARNING_OBJECT (pwsrc, "Can't create video info from drm video info");
+        pw_stream_set_error (pwsrc->stream, -EINVAL, "internal error");
+        return;
+      }
+
+      pwsrc->is_video = TRUE;
+    } else {
+      gst_video_info_dma_drm_init (&pwsrc->drm_info);
+#endif
+      pwsrc->is_video = gst_video_info_from_caps (&pwsrc->video_info,
+                                                  pwsrc->caps);
+#ifdef HAVE_GSTREAMER_DMA_DRM
+    }
+#endif
+  } else {
+    pwsrc->negotiated = FALSE;
+    pwsrc->is_video = FALSE;
+  }
+
+  if (pwsrc->caps) {
     const struct spa_pod *params[4];
     struct spa_pod_builder b = { NULL };
     uint8_t buffer[512];
@@ -1022,12 +1047,7 @@ on_param_changed (void *data, uint32_t id,
     int buffertypes;
 
     buffertypes = (1<<SPA_DATA_DmaBuf);
-    if (spa_pod_find_prop (param, NULL, SPA_FORMAT_VIDEO_modifier)) {
-      gst_caps_features_remove (gst_caps_get_features (pwsrc->caps, 0),
-          GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY);
-      gst_caps_features_add (gst_caps_get_features (pwsrc->caps, 0),
-          GST_CAPS_FEATURE_MEMORY_DMABUF);
-    } else {
+    if (!spa_pod_find_prop (param, NULL, SPA_FORMAT_VIDEO_modifier)) {
       buffertypes |= ((1<<SPA_DATA_MemFd) | (1<<SPA_DATA_MemPtr));
     }
 

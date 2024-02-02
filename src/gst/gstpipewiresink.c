@@ -570,7 +570,7 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 
   pwsink = GST_PIPEWIRE_SINK (bsink);
 
-  possible = gst_caps_to_format_all (caps, SPA_PARAM_EnumFormat);
+  possible = gst_caps_to_format_all (caps);
 
   pw_thread_loop_lock (pwsink->core->loop);
   state = pw_stream_get_state (pwsink->stream, &error);

@@ -238,18 +238,6 @@ fail:
 	return NULL;
 }
 
-static void free_mix(struct port *p, struct mix *mix)
-{
-	if (mix == NULL)
-		return;
-
-	/* never realloc so it's safe to call from pw_map_foreach */
-	if (mix->mix_id < pw_map_get_size(&p->mix))
-		pw_map_insert_at(&p->mix, mix->mix_id, NULL);
-
-	free(mix);
-}
-
 static void clear_data(struct impl *impl, struct spa_data *d)
 {
 	switch (d->type) {
@@ -295,6 +283,27 @@ static int clear_buffers(struct impl *impl, struct mix *mix)
 	}
 	mix->n_buffers = 0;
 	return 0;
+}
+
+static void free_mix(struct port *p, struct mix *mix)
+{
+	struct impl *impl = p->impl;
+
+	if (mix == NULL)
+		return;
+
+	if (mix->n_buffers) {
+		/* this shouldn't happen */
+		spa_log_warn(impl->log, "%p: mix port-id:%u freeing leaked buffers", impl, mix->mix_id - 1u);
+	}
+
+	clear_buffers(impl, mix);
+
+	/* never realloc so it's safe to call from pw_map_foreach */
+	if (mix->mix_id < pw_map_get_size(&p->mix))
+		pw_map_insert_at(&p->mix, mix->mix_id, NULL);
+
+	free(mix);
 }
 
 static void mix_clear(struct impl *impl, struct mix *mix)

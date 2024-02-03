@@ -185,8 +185,9 @@ pw_sandbox_access_t pw_snap_get_audio_permissions(struct client *client, int fd,
 		for (guint q = 0; q < slots->len; q++, slot++) {
 			const gchar *slot_name = snapd_slot_ref_get_slot(*slot);
 			const gchar *snap_name = snapd_slot_ref_get_snap(*slot);
-			if (g_str_equal(snap_name, "snapd") &&
-			    g_str_equal(slot_name, plug_name))
+			if ((g_str_equal(snap_name, "snapd") ||
+			     g_str_equal(snap_name, "core")) &&
+			     g_str_equal(slot_name, plug_name))
 				permissions |= add_permission;
 		}
 	}

@@ -53,6 +53,7 @@ struct mix {
 	struct port *port;
 	uint32_t peer_id;
 	uint32_t n_buffers;
+	uint32_t impl_mix_id;
 	struct buffer buffers[MAX_BUFFERS];
 };
 
@@ -228,6 +229,7 @@ static struct mix *create_mix(struct port *p, uint32_t mix_id)
 	mix->mix_id = mix_id;
 	mix->port = p;
 	mix->n_buffers = 0;
+	mix->impl_mix_id = SPA_ID_INVALID;
 	return mix;
 
 fail:
@@ -1437,6 +1439,7 @@ static int port_init_mix(void *data, struct pw_impl_port_mix *mix)
 	*mix->io = SPA_IO_BUFFERS_INIT;
 
 	m->peer_id = mix->peer_id;
+	m->impl_mix_id = mix->id;
 
 	if (impl->resource && impl->resource->version >= 4)
 		pw_client_node_resource_port_set_mix_info(impl->resource,
@@ -1462,7 +1465,7 @@ static int port_release_mix(void *data, struct pw_impl_port_mix *mix)
 	pw_log_debug("%p: remove mix id:%d io:%p",
 			impl, mix->id, mix->io);
 
-	if ((m = find_mix(port, mix->port.port_id)) == NULL)
+	if (!pw_map_has_item(&impl->io_map, mix->id))
 		return -EINVAL;
 
 	if (impl->resource && impl->resource->version >= 4)
@@ -1471,7 +1474,13 @@ static int port_release_mix(void *data, struct pw_impl_port_mix *mix)
 					 mix->port.port_id, SPA_ID_INVALID, NULL);
 
 	pw_map_remove(&impl->io_map, mix->id);
-	free_mix(port, m);
+
+	m = find_mix(port, mix->port.port_id);
+	if (m && m->impl_mix_id == mix->id)
+		free_mix(port, m);
+	else
+		pw_log_debug("%p: already cleared mix id:%d port-id:%d",
+				impl, mix->id, mix->port.port_id);
 
 	return 0;
 }

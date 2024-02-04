@@ -607,9 +607,50 @@ static inline void emit_param_changed(struct stream *impl,
 	impl->in_emit_param_changed--;
 }
 
+static void emit_node_info(struct stream *d, bool full)
+{
+	uint32_t i;
+	uint64_t old = full ? d->info.change_mask : 0;
+	if (full)
+		d->info.change_mask = d->change_mask_all;
+	if (d->info.change_mask != 0) {
+		if (d->info.change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
+			for (i = 0; i < d->info.n_params; i++) {
+				if (d->params[i].user > 0) {
+					d->params[i].flags ^= SPA_PARAM_INFO_SERIAL;
+					d->params[i].user = 0;
+				}
+			}
+		}
+		spa_node_emit_info(&d->hooks, &d->info);
+	}
+	d->info.change_mask = old;
+}
+
+static void emit_port_info(struct stream *d, bool full)
+{
+	uint32_t i;
+	uint64_t old = full ? d->port_info.change_mask : 0;
+	if (full)
+		d->port_info.change_mask = d->port_change_mask_all;
+	if (d->port_info.change_mask != 0) {
+		if (d->port_info.change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
+			for (i = 0; i < d->port_info.n_params; i++) {
+				if (d->port_params[i].user > 0) {
+					d->port_params[i].flags ^= SPA_PARAM_INFO_SERIAL;
+					d->port_params[i].user = 0;
+				}
+			}
+		}
+		spa_node_emit_port_info(&d->hooks, d->direction, 0, &d->port_info);
+	}
+	d->port_info.change_mask = old;
+}
+
 static int impl_set_param(void *object, uint32_t id, uint32_t flags, const struct spa_pod *param)
 {
 	struct stream *impl = object;
+	struct pw_stream *stream = &impl->this;
 
 	if (id != SPA_PARAM_Props)
 		return -ENOTSUP;
@@ -617,6 +658,11 @@ static int impl_set_param(void *object, uint32_t id, uint32_t flags, const struc
 	if (impl->in_set_param == 0)
 		emit_param_changed(impl, id, param);
 
+	if (stream->state == PW_STREAM_STATE_ERROR)
+		return stream->error_res;
+
+	emit_node_info(impl, false);
+	emit_port_info(impl, false);
 	return 0;
 }
 
@@ -684,46 +730,6 @@ static int impl_send_command(void *object, const struct spa_command *command)
 	}
 	pw_stream_emit_command(stream, command);
 	return 0;
-}
-
-static void emit_node_info(struct stream *d, bool full)
-{
-	uint32_t i;
-	uint64_t old = full ? d->info.change_mask : 0;
-	if (full)
-		d->info.change_mask = d->change_mask_all;
-	if (d->info.change_mask != 0) {
-		if (d->info.change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
-			for (i = 0; i < d->info.n_params; i++) {
-				if (d->params[i].user > 0) {
-					d->params[i].flags ^= SPA_PARAM_INFO_SERIAL;
-					d->params[i].user = 0;
-				}
-			}
-		}
-		spa_node_emit_info(&d->hooks, &d->info);
-	}
-	d->info.change_mask = old;
-}
-
-static void emit_port_info(struct stream *d, bool full)
-{
-	uint32_t i;
-	uint64_t old = full ? d->port_info.change_mask : 0;
-	if (full)
-		d->port_info.change_mask = d->port_change_mask_all;
-	if (d->port_info.change_mask != 0) {
-		if (d->port_info.change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
-			for (i = 0; i < d->port_info.n_params; i++) {
-				if (d->port_params[i].user > 0) {
-					d->port_params[i].flags ^= SPA_PARAM_INFO_SERIAL;
-					d->port_params[i].user = 0;
-				}
-			}
-		}
-		spa_node_emit_port_info(&d->hooks, d->direction, 0, &d->port_info);
-	}
-	d->port_info.change_mask = old;
 }
 
 static int impl_add_listener(void *object,

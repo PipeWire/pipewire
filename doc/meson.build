@@ -33,6 +33,7 @@ extra_docs = [
   'dox/modules.dox',
   'dox/pulse-modules.dox',
   'dox/programs/index.md',
+  'dox/config/index.md',
   'dox/internals/index.dox',
   'dox/internals/design.dox',
   'dox/internals/access.dox',

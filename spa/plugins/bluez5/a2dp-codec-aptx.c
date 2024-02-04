@@ -300,8 +300,17 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		void *config, size_t config_len, const struct spa_audio_info *info,
 		void *props, size_t mtu)
 {
-	struct impl *this;
+	struct impl *this = NULL;
+	a2dp_aptx_t conf;
 	int res;
+	int frequency;
+
+	if (config_len < sizeof(conf)) {
+		res = -EINVAL;
+		goto error;
+	}
+
+	memcpy(&conf, config, sizeof(conf));
 
 	if ((this = calloc(1, sizeof(struct impl))) == NULL)
 		goto error_errno;
@@ -322,10 +331,17 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	this->frame_length = this->hd ? 6 : 4;
 	this->codesize = 4 * 3 * 2;
 
+	frequency = media_codec_get_config(aptx_frequencies, SPA_N_ELEMENTS(aptx_frequencies), conf.frequency);
+	if (frequency < 0) {
+		res = -EINVAL;
+		goto error;
+	}
+
 	if (this->hd)
 		this->max_frames = (this->mtu - sizeof(struct rtp_header)) / this->frame_length;
 	else if (codec_is_ll(codec))
-		this->max_frames = SPA_MIN(256u, this->mtu) / this->frame_length;
+		/* try to make 7.5ms packets */
+		this->max_frames = SPA_MIN((unsigned)frequency * 75u/10000u / 4u, this->mtu / this->frame_length);
 	else
 		this->max_frames = this->mtu / this->frame_length;
 

@@ -198,6 +198,9 @@ struct media_codec_config {
 int media_codec_select_config(const struct media_codec_config configs[], size_t n,
 	uint32_t cap, int preferred_value);
 
+int media_codec_get_config(const struct media_codec_config configs[], size_t n,
+	uint32_t conf);
+
 bool media_codec_check_caps(const struct media_codec *codec, unsigned int codec_id,
 	const void *caps, size_t caps_size, const struct media_codec_audio_info *info,
 	const struct spa_dict *global_settings);

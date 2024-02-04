@@ -342,7 +342,6 @@ static long long rtkit_get_int_property(struct impl *impl, const char *propname,
 	DBusMessageIter iter, subiter;
 	dbus_int64_t i64;
 	dbus_int32_t i32;
-	int current_type;
 	struct pw_rtkit_bus *connection = impl->rtkit_bus;
 
 	if (!(m = dbus_message_new_method_call(impl->service_name,
@@ -365,34 +364,30 @@ static long long rtkit_get_int_property(struct impl *impl, const char *propname,
 	if (dbus_set_error_from_message(&error, r))
 		return translate_error(error.name);
 
+	if (!dbus_message_has_signature(r, "v"))
+		return -EBADMSG;
+
 	dbus_message_iter_init(r, &iter);
-	while ((current_type = dbus_message_iter_get_arg_type(&iter)) != DBUS_TYPE_INVALID) {
 
-		if (current_type == DBUS_TYPE_VARIANT) {
-			dbus_message_iter_recurse(&iter, &subiter);
+	if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)
+		return -EBADMSG;
 
-			while ((current_type =
-				dbus_message_iter_get_arg_type(&subiter)) != DBUS_TYPE_INVALID) {
+	dbus_message_iter_recurse(&iter, &subiter);
 
-				if (current_type == DBUS_TYPE_INT32) {
-					dbus_message_iter_get_basic(&subiter, &i32);
-					*propval = i32;
-					return 0;
-				}
-
-				if (current_type == DBUS_TYPE_INT64) {
-					dbus_message_iter_get_basic(&subiter, &i64);
-					*propval = i64;
-					return 0;
-				}
-
-				dbus_message_iter_next(&subiter);
-			}
-		}
-		dbus_message_iter_next(&iter);
+	switch (dbus_message_iter_get_arg_type(&subiter)) {
+	case DBUS_TYPE_INT32:
+		dbus_message_iter_get_basic(&subiter, &i32);
+		*propval = i32;
+		break;
+	case DBUS_TYPE_INT64:
+		dbus_message_iter_get_basic(&subiter, &i64);
+		*propval = i64;
+		break;
+	default:
+		return -EBADMSG;
 	}
 
-	return -EBADMSG;
+	return 0;
 }
 
 static int pw_rtkit_make_realtime(struct impl *impl, pid_t thread, int priority)

@@ -400,7 +400,7 @@ static int pw_rtkit_make_realtime(struct impl *impl, pid_t thread, int priority)
 	spa_autoptr(DBusMessage) m = NULL;
 	dbus_uint64_t pid;
 	dbus_uint64_t u64;
-	dbus_uint32_t u32, serial;
+	dbus_uint32_t u32;
 	struct pw_rtkit_bus *connection = impl->rtkit_bus;
 
 	if (thread == 0)
@@ -423,7 +423,7 @@ static int pw_rtkit_make_realtime(struct impl *impl, pid_t thread, int priority)
 		return -ENOMEM;
 	}
 
-	if (!dbus_connection_send(connection->bus, m, &serial))
+	if (!dbus_connection_send(connection->bus, m, NULL))
 		return -EIO;
 
 	return 0;
@@ -435,7 +435,6 @@ static int pw_rtkit_make_high_priority(struct impl *impl, pid_t thread, int nice
 	dbus_uint64_t pid;
 	dbus_uint64_t u64;
 	dbus_int32_t s32;
-	dbus_uint32_t serial;
 	struct pw_rtkit_bus *connection = impl->rtkit_bus;
 
 	if (thread == 0)
@@ -458,7 +457,7 @@ static int pw_rtkit_make_high_priority(struct impl *impl, pid_t thread, int nice
 		return -ENOMEM;
 	}
 
-	if (!dbus_connection_send(connection->bus, m, &serial))
+	if (!dbus_connection_send(connection->bus, m, NULL))
 		return -EIO;
 
 	return 0;

@@ -228,10 +228,11 @@ loop_invoke(void *object,
 {
 	struct impl *impl = object;
 	struct invoke_item *item;
-	int res;
+	int res, suppressed;
 	int32_t filled;
 	uint32_t avail, idx, offset, l0;
 	size_t need;
+	uint64_t nsec;
 
 	/* the ringbuffer can only be written to from one thread, if we are
 	 * in the same thread as the loop, don't write into the ringbuffer
@@ -311,8 +312,7 @@ retry:
 	return res;
 
 xrun:
-	int suppressed;
-	uint64_t nsec = get_time_ns(impl->system);
+	nsec = get_time_ns(impl->system);
 	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, nsec)) >= 0) {
 		spa_log_warn(impl->log, "%p: queue full %d, need %zd (%d suppressed)",
 				impl, avail, need, suppressed);

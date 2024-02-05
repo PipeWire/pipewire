@@ -29,9 +29,8 @@
 #define MAX_DEVICES	64
 
 enum action {
-	ACTION_ADD,
+	ACTION_CHANGE,
 	ACTION_REMOVE,
-	ACTION_DISABLE,
 };
 
 struct device {
@@ -362,10 +361,14 @@ static bool check_access(struct impl *this, struct device *device)
 static void process_device(struct impl *this, enum action action, struct device *device)
 {
 	switch (action) {
-	case ACTION_ADD:
-		if (!check_access(this, device))
-			return;
-		emit_object_info(this, device);
+	case ACTION_CHANGE:
+		check_access(this, device);
+		if (device->accessible && !device->emitted) {
+			emit_object_info(this, device);
+		} else if (!device->accessible && device->emitted) {
+			device->emitted = false;
+			spa_device_emit_object_info(&this->hooks, device->id, NULL);
+		}
 		break;
 	case ACTION_REMOVE: {
 		bool emitted = device->emitted;
@@ -377,12 +380,6 @@ static void process_device(struct impl *this, enum action action, struct device 
 			spa_device_emit_object_info(&this->hooks, id, NULL);
 		break;
 	}
-	case ACTION_DISABLE:
-		if (device->emitted) {
-			device->emitted = false;
-			spa_device_emit_object_info(&this->hooks, device->id, NULL);
-		}
-		break;
 	}
 }
 
@@ -395,7 +392,7 @@ static void process_udev_device(struct impl *this, enum action action, struct ud
 		return;
 
 	device = find_device(this, id);
-	if (action == ACTION_ADD && !device)
+	if (action == ACTION_CHANGE && !device)
 		device = add_device(this, id, udev_device);
 
 	if (!device)
@@ -453,13 +450,8 @@ static void impl_on_notify_events(struct spa_source *source)
 			if (!device)
 				continue;
 
-			if (event->mask & IN_ATTRIB) {
-				bool access = check_access(this, device);
-				if (access && !device->emitted)
-					process_device(this, ACTION_ADD, device);
-				else if (!access && device->emitted)
-					process_device(this, ACTION_DISABLE, device);
-			}
+			if (event->mask & IN_ATTRIB)
+				process_device(this, ACTION_CHANGE, device);
 
 			if (event->mask & IN_IGNORED)
 				device->inotify_wd = -1;
@@ -510,7 +502,7 @@ static void impl_on_fd_events(struct spa_source *source)
 
 	if (spa_streq(action, "add") ||
 	    spa_streq(action, "change")) {
-		process_udev_device(this, ACTION_ADD, dev);
+		process_udev_device(this, ACTION_CHANGE, dev);
 	} else if (spa_streq(action, "remove")) {
 		process_udev_device(this, ACTION_REMOVE, dev);
 	}
@@ -582,7 +574,7 @@ static int enum_devices(struct impl *this)
 		if (dev == NULL)
 			continue;
 
-		process_udev_device(this, ACTION_ADD, dev);
+		process_udev_device(this, ACTION_CHANGE, dev);
 
 		udev_device_unref(dev);
 	}

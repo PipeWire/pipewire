@@ -305,10 +305,11 @@ static void capture_process(void *data)
 		if (res < 0) {
 			if (errno == EINTR)
 				continue;
-			if (errno != EAGAIN && errno != EWOULDBLOCK)
+			if (errno != EAGAIN && errno != EWOULDBLOCK) {
 				pw_log_warn("%p: client:%p [%s] send error %d: %m", impl,
 						client, client->name, res);
-			client_cleanup(client);
+				client_cleanup(client);
+			}
 			break;
 		}
 		offset += res;

@@ -900,7 +900,7 @@ static void impl_on_fd_events(struct spa_source *source)
 
 	start_inotify(this);
 
-	if (spa_streq(action, "change")) {
+	if (spa_streq(action, "add") || spa_streq(action, "change")) {
 		process_udev_device(this, ACTION_CHANGE, udev_device);
 	} else if (spa_streq(action, "remove")) {
 		process_udev_device(this, ACTION_REMOVE, udev_device);

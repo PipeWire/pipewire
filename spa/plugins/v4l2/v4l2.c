@@ -7,6 +7,7 @@
 #include <spa/support/plugin.h>
 #include <spa/support/log.h>
 
+#include "config.h"
 #include "v4l2.h"
 
 extern const struct spa_handle_factory spa_v4l2_source_factory;

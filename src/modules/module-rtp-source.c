@@ -378,10 +378,72 @@ static void stream_state_changed(void *data, bool started, const char *error)
 	}
 }
 
+static void stream_props_changed(struct impl *impl, uint32_t id, const struct spa_pod *param)
+{
+	struct spa_pod_object *obj = (struct spa_pod_object *)param;
+	struct spa_pod_prop *prop;
+
+	if (param == NULL)
+		return;
+
+	SPA_POD_OBJECT_FOREACH(obj, prop) {
+		if (prop->key == SPA_PROP_params) {
+			struct spa_pod *params = NULL;
+			struct spa_pod_parser prs;
+			struct spa_pod_frame f;
+			const char *key;
+			struct spa_pod *pod;
+			const char *value;
+
+			if (spa_pod_parse_object(param, SPA_TYPE_OBJECT_Props, NULL, SPA_PROP_params,
+					SPA_POD_OPT_Pod(&params)) < 0)
+				return;
+			spa_pod_parser_pod(&prs, params);
+			if (spa_pod_parser_push_struct(&prs, &f) < 0)
+				return;
+
+			while (true) {
+				if (spa_pod_parser_get_string(&prs, &key) < 0)
+					break;
+				if (spa_pod_parser_get_pod(&prs, &pod) < 0)
+					break;
+				if (spa_pod_get_string(pod, &value) < 0)
+					continue;
+				pw_log_info("key '%s', value '%s'", key, value);
+				if (!spa_streq(key, "source.ip"))
+					continue;
+				if (parse_address(value, impl->src_port, &impl->src_addr,
+						&impl->src_len) < 0) {
+					pw_log_error("invalid source.ip: '%s'", value);
+					break;
+				}
+				pw_properties_set(impl->stream_props, "rtp.source.ip", value);
+				struct spa_dict_item item[1];
+				item[0] = SPA_DICT_ITEM_INIT("rtp.source.ip", value);
+				rtp_stream_update_properties(impl->stream, &SPA_DICT_INIT(item, 1));
+				break;
+			}
+		}
+	}
+}
+
+static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *param)
+{
+	struct impl *impl = data;
+
+	switch (id) {
+	case SPA_PARAM_Props:
+		if (param != NULL)
+			stream_props_changed(impl, id, param);
+		break;
+	}
+}
+
 static const struct rtp_stream_events stream_events = {
 	RTP_VERSION_STREAM_EVENTS,
 	.destroy = stream_destroy,
 	.state_changed = stream_state_changed,
+	.param_changed = stream_param_changed,
 };
 
 static void on_timer_event(void *data, uint64_t expirations)

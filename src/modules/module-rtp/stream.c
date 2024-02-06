@@ -602,6 +602,12 @@ void rtp_stream_destroy(struct rtp_stream *s)
 	free(impl);
 }
 
+int rtp_stream_update_properties(struct rtp_stream *s, const struct spa_dict *dict)
+{
+	struct impl *impl = (struct impl*)s;
+	return pw_stream_update_properties(impl->stream, dict);
+}
+
 int rtp_stream_receive_packet(struct rtp_stream *s, uint8_t *buffer, size_t len)
 {
 	struct impl *impl = (struct impl*)s;

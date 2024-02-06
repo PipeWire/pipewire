@@ -186,47 +186,6 @@ struct impl {
 	int rtp_fd;
 };
 
-static void stream_destroy(void *d)
-{
-	struct impl *impl = d;
-	impl->stream = NULL;
-}
-
-static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
-{
-	struct impl *impl = data;
-	struct msghdr msg;
-	ssize_t n;
-
-	spa_zero(msg);
-	msg.msg_iov = iov;
-	msg.msg_iovlen = iovlen;
-	msg.msg_control = NULL;
-	msg.msg_controllen = 0;
-	msg.msg_flags = 0;
-
-	n = sendmsg(impl->rtp_fd, &msg, MSG_NOSIGNAL);
-	if (n < 0)
-		pw_log_warn("sendmsg() failed: %m");
-}
-
-static void stream_state_changed(void *data, bool started, const char *error)
-{
-	struct impl *impl = data;
-
-	if (error) {
-		pw_log_error("stream error: %s", error);
-		pw_impl_module_schedule_destroy(impl->module);
-	}
-}
-
-static const struct rtp_stream_events stream_events = {
-	RTP_VERSION_STREAM_EVENTS,
-	.destroy = stream_destroy,
-	.state_changed = stream_state_changed,
-	.send_packet = stream_send_packet,
-};
-
 static int parse_address(const char *address, uint16_t port,
 		struct sockaddr_storage *addr, socklen_t *len)
 {
@@ -314,6 +273,123 @@ error:
 	close(fd);
 	return res;
 }
+
+static void stream_destroy(void *d)
+{
+	struct impl *impl = d;
+	impl->stream = NULL;
+}
+
+static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
+{
+	struct impl *impl = data;
+	struct msghdr msg;
+	ssize_t n;
+
+	spa_zero(msg);
+	msg.msg_iov = iov;
+	msg.msg_iovlen = iovlen;
+	msg.msg_control = NULL;
+	msg.msg_controllen = 0;
+	msg.msg_flags = 0;
+
+	n = sendmsg(impl->rtp_fd, &msg, MSG_NOSIGNAL);
+	if (n < 0)
+		pw_log_warn("sendmsg() failed: %m");
+}
+
+static void stream_state_changed(void *data, bool started, const char *error)
+{
+	struct impl *impl = data;
+
+	if (error) {
+		pw_log_error("stream error: %s", error);
+		pw_impl_module_schedule_destroy(impl->module);
+	} else if (started) {
+		int res;
+
+		if ((res = make_socket(&impl->src_addr, impl->src_len,
+					&impl->dst_addr, impl->dst_len,
+					impl->mcast_loop, impl->ttl, impl->dscp,
+					impl->ifname)) < 0) {
+			pw_log_error("can't make socket: %s", spa_strerror(res));
+			return;
+		}
+		impl->rtp_fd = res;
+	} else {
+		close(impl->rtp_fd);
+		impl->rtp_fd = -1;
+	}
+}
+
+static void stream_props_changed(struct impl *impl, uint32_t id, const struct spa_pod *param)
+{
+	struct spa_pod_object *obj = (struct spa_pod_object *)param;
+	struct spa_pod_prop *prop;
+
+	if (param == NULL)
+		return;
+
+	SPA_POD_OBJECT_FOREACH(obj, prop) {
+		if (prop->key == SPA_PROP_params) {
+			struct spa_pod *params = NULL;
+			struct spa_pod_parser prs;
+			struct spa_pod_frame f;
+			const char *key;
+			struct spa_pod *pod;
+			const char *value;
+
+			if (spa_pod_parse_object(param, SPA_TYPE_OBJECT_Props, NULL, SPA_PROP_params,
+					SPA_POD_OPT_Pod(&params)) < 0)
+				return;
+			spa_pod_parser_pod(&prs, params);
+			if (spa_pod_parser_push_struct(&prs, &f) < 0)
+				return;
+
+			while (true) {
+				if (spa_pod_parser_get_string(&prs, &key) < 0)
+					break;
+				if (spa_pod_parser_get_pod(&prs, &pod) < 0)
+					break;
+				if (spa_pod_get_string(pod, &value) < 0)
+					continue;
+				pw_log_info("key '%s', value '%s'", key, value);
+				if (!spa_streq(key, "destination.ip"))
+					continue;
+				if (parse_address(value, impl->dst_port, &impl->dst_addr,
+						&impl->dst_len) < 0) {
+					pw_log_error("invalid destination.ip: '%s'", value);
+					break;
+				}
+				pw_properties_set(impl->stream_props, "rtp.destination.ip", value);
+				struct spa_dict_item item[1];
+				item[0] = SPA_DICT_ITEM_INIT("rtp.destination.ip", value);
+				rtp_stream_update_properties(impl->stream, &SPA_DICT_INIT(item, 1));
+				break;
+			}
+		}
+	}
+}
+
+static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *param)
+{
+	struct impl *impl = data;
+
+	switch (id) {
+	case SPA_PARAM_Props:
+		if (param != NULL)
+			stream_props_changed(impl, id, param);
+		break;
+	}
+}
+
+static const struct rtp_stream_events stream_events = {
+	RTP_VERSION_STREAM_EVENTS,
+	.destroy = stream_destroy,
+	.state_changed = stream_state_changed,
+	.param_changed = stream_param_changed,
+	.send_packet = stream_send_packet,
+};
 
 static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len)
 {
@@ -530,15 +606,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_core_add_listener(impl->core,
 			&impl->core_listener,
 			&core_events, impl);
-
-	if ((res = make_socket(&impl->src_addr, impl->src_len,
-					&impl->dst_addr, impl->dst_len,
-					impl->mcast_loop, impl->ttl, impl->dscp,
-					impl->ifname)) < 0) {
-		pw_log_error("can't make socket: %s", spa_strerror(res));
-		goto out;
-	}
-	impl->rtp_fd = res;
 
 	impl->stream = rtp_stream_new(impl->core,
 			PW_DIRECTION_INPUT, pw_properties_copy(stream_props),

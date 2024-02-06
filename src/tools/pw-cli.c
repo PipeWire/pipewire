@@ -213,10 +213,15 @@ static const struct command command_list[] = {
 	{ "quit", "q", "Quit", do_quit },
 };
 
+static void program_quit(struct data *data)
+{
+	data->quit = true;
+	pw_main_loop_quit(data->loop);
+}
+
 static bool do_quit(struct data *data, const char *cmd, char *args, char **error)
 {
-	pw_main_loop_quit(data->loop);
-	data->quit = true;
+	program_quit(data);
 	return true;
 }
 
@@ -446,7 +451,7 @@ static void on_core_error(void *_data, uint32_t id, int seq, int res, const char
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE && res == -EPIPE)
-		pw_main_loop_quit(data->loop);
+		program_quit(data);
 }
 
 static const struct pw_core_events remote_core_events = {
@@ -2239,8 +2244,7 @@ static void readline_cleanup(void)
 static void do_quit_on_signal(void *data, int signal_number)
 {
 	struct data *d = data;
-	d->quit = true;
-	pw_main_loop_quit(d->loop);
+	program_quit(d);
 }
 
 static void show_help(struct data *data, const char *name, bool error)

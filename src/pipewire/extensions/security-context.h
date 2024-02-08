@@ -73,7 +73,8 @@ struct pw_security_context_methods {
 	 * \param engine_name a unique sandbox engine name.
 	 * \param listen_fd the fd to listen on for new connections
 	 * \param close_fd the fd used to stop listening
-	 * \param props extra (engine_name specific) properties.
+	 * \param props extra (engine_name specific) properties. These will be
+	 *       copied on the client that connects through this context.
 	 *
 	 * See https://gitlab.freedesktop.org/wayland/wayland-protocols/-/blob/main/staging/security-context/engines.md
 	 * For a list of engine_names and the properties to set.

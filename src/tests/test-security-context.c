@@ -147,7 +147,7 @@ static void test_create(void)
 
 	roundtrip(core, loop);
 
-	pw_main_loop_run(loop);
+	unlink(temp);
 
 	pw_proxy_destroy((struct pw_proxy*)info.sec);
 	pw_proxy_destroy((struct pw_proxy*)info.registry);

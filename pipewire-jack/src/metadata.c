@@ -408,8 +408,9 @@ int jack_set_property_change_callback (jack_client_t*             client,
 	struct client *c = (struct client *) client;
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
-
+	pw_thread_loop_lock(c->context.loop);
 	c->property_callback = callback;
 	c->property_arg = arg;
+	pw_thread_loop_unlock(c->context.loop);
 	return 0;
 }

@@ -331,6 +331,7 @@ pipewire_module_protocol_native = shared_library('pipewire-module-protocol-nativ
     'module-protocol-native/protocol-native.c',
     'module-protocol-native/v0/protocol-native.c',
     'module-protocol-native/protocol-footer.c',
+    'module-protocol-native/security-context.c',
     'module-protocol-native/connection.c' ],
   include_directories : [configinc],
   install : true,

@@ -11,6 +11,7 @@
 
 #include <pipewire/impl.h>
 #include <pipewire/extensions/protocol-native.h>
+#include <pipewire/extensions/security-context.h>
 
 #include "connection.h"
 
@@ -1879,6 +1880,66 @@ static int registry_marshal_destroy(void *object, uint32_t id)
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
+static int security_context_method_marshal_add_listener(void *object,
+			struct spa_hook *listener,
+			const struct pw_security_context_events *events,
+			void *data)
+{
+	struct pw_proxy *proxy = object;
+	pw_proxy_add_object_listener(proxy, listener, events, data);
+	return 0;
+}
+
+static int security_context_marshal_create(void *object, const char *engine_name,
+		int listen_fd, int close_fd, const struct spa_dict *props)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_builder *b;
+	struct spa_pod_frame f;
+
+	b = pw_protocol_native_begin_proxy(proxy, PW_SECURITY_CONTEXT_METHOD_CREATE, NULL);
+
+	spa_pod_builder_push_struct(b, &f);
+	spa_pod_builder_add(b,
+			SPA_POD_String(engine_name),
+			SPA_POD_Fd(pw_protocol_native_add_proxy_fd(proxy, listen_fd)),
+			SPA_POD_Fd(pw_protocol_native_add_proxy_fd(proxy, close_fd)),
+			NULL);
+	push_dict(b, props);
+	spa_pod_builder_pop(b, &f);
+
+	return pw_protocol_native_end_proxy(proxy, b);
+}
+
+static int security_context_demarshal_create(void *object, const struct pw_protocol_native_message *msg)
+{
+	struct pw_resource *resource = object;
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
+	struct spa_pod_parser prs;
+	struct spa_pod_frame f[2];
+	char *engine_name;
+	int64_t listen_idx, close_idx;
+	int listen_fd, close_fd;
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0)
+		return -EINVAL;
+	if (spa_pod_parser_get(&prs,
+				SPA_POD_String(&engine_name),
+				SPA_POD_Fd(&listen_idx),
+				SPA_POD_Fd(&close_idx),
+				NULL) < 0)
+		return -EINVAL;
+	parse_dict_struct(&prs, &f[1], &props);
+
+	listen_fd = pw_protocol_native_get_resource_fd(resource, listen_idx);
+	close_fd = pw_protocol_native_get_resource_fd(resource, close_idx);
+
+	return pw_resource_notify(resource, struct pw_security_context_methods, create, 0,
+			engine_name, listen_fd, close_fd, &props);
+}
+
+
 static const struct pw_core_methods pw_protocol_native_core_method_marshal = {
 	PW_VERSION_CORE_METHODS,
 	.add_listener = &core_method_marshal_add_listener,
@@ -2253,6 +2314,40 @@ static const struct pw_protocol_marshal pw_protocol_native_link_marshal = {
 	.client_demarshal = pw_protocol_native_link_event_demarshal,
 };
 
+
+static const struct pw_security_context_methods pw_protocol_native_security_context_method_marshal = {
+	PW_VERSION_LINK_METHODS,
+	.add_listener = &security_context_method_marshal_add_listener,
+	.create = &security_context_marshal_create,
+};
+
+static const struct pw_protocol_native_demarshal
+pw_protocol_native_security_context_method_demarshal[PW_SECURITY_CONTEXT_METHOD_NUM] =
+{
+	[PW_SECURITY_CONTEXT_METHOD_ADD_LISTENER] = { NULL, 0, },
+	[PW_SECURITY_CONTEXT_METHOD_CREATE] = { &security_context_demarshal_create, 0, },
+};
+
+static const struct pw_security_context_events pw_protocol_native_security_context_event_marshal = {
+	PW_VERSION_LINK_EVENTS,
+};
+
+static const struct pw_protocol_native_demarshal
+pw_protocol_native_security_context_event_demarshal[PW_SECURITY_CONTEXT_EVENT_NUM] =
+{
+};
+
+static const struct pw_protocol_marshal pw_protocol_native_security_context_marshal = {
+	PW_TYPE_INTERFACE_SecurityContext,
+	PW_VERSION_SECURITY_CONTEXT,
+	0,
+	PW_SECURITY_CONTEXT_METHOD_NUM,
+	PW_SECURITY_CONTEXT_EVENT_NUM,
+	.client_marshal = &pw_protocol_native_security_context_method_marshal,
+	.server_demarshal = pw_protocol_native_security_context_method_demarshal,
+	.server_marshal = &pw_protocol_native_security_context_event_marshal,
+	.client_demarshal = pw_protocol_native_security_context_event_demarshal,
+};
 void pw_protocol_native_init(struct pw_protocol *protocol)
 {
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_core_marshal);
@@ -2264,4 +2359,5 @@ void pw_protocol_native_init(struct pw_protocol *protocol)
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_factory_marshal);
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_client_marshal);
 	pw_protocol_add_marshal(protocol, &pw_protocol_native_link_marshal);
+	pw_protocol_add_marshal(protocol, &pw_protocol_native_security_context_marshal);
 }

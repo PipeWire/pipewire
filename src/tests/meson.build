@@ -4,6 +4,7 @@ test_apps = [
   # 'test-remote',
   'test-stream',
   'test-filter',
+  'test-security-context',
 ]
 
 foreach a : test_apps

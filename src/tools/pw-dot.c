@@ -126,6 +126,38 @@ static void dot_data_add_string (struct dot_data * dd, const char *value)
 	dd->size += size;
 }
 
+static int escape_quotes(char *str, int size, const char *val)
+{
+	int len = 0;
+#define __PUT(c) { if (len < size) *str++ = c; len++; }
+	while (*val) {
+		switch (*val) {
+		case '"':
+			__PUT('\\'); __PUT(*val);
+			break;
+		default:
+			__PUT(*val);
+			break;
+		}
+		val++;
+	}
+	__PUT('\0');
+#undef __PUT
+	return len-1;
+}
+
+static void dot_data_add_string_escaped (struct dot_data * dd, const char *value)
+{
+	size_t escaped_size = escape_quotes (dd->data + dd->size,
+			dd->max_size - dd->size, value);
+	if (escaped_size + 1 > dd->max_size - dd->size) {
+		dot_data_ensure_max_size (dd, escaped_size);
+		escaped_size = escape_quotes (dd->data + dd->size,
+				dd->max_size - dd->size, value);
+	}
+	dd->size += escaped_size;
+}
+
 static void draw_dict(struct dot_data * dd, const char *title,
 				const struct spa_dict *props)
 {
@@ -141,13 +173,13 @@ static void draw_dict(struct dot_data * dd, const char *title,
 	spa_dict_for_each(item, props) {
 		if (item->value) {
 			dot_data_add_string(dd, "- ");
-			dot_data_add_string(dd, item->key);
+			dot_data_add_string_escaped(dd, item->key);
 			dot_data_add_string(dd, ": ");
-			dot_data_add_string(dd, item->value);
+			dot_data_add_string_escaped(dd, item->value);
 			dot_data_add_string(dd, "\\l");
 		} else {
 			dot_data_add_string(dd, "- ");
-			dot_data_add_string(dd, item->key);
+			dot_data_add_string_escaped(dd, item->key);
 			dot_data_add_string(dd, ": (null)\\l");
 		}
 	}
@@ -180,9 +212,9 @@ static void draw_port(struct global *g)
 	dot_data_add_string(dd, "port_id: ");
 	dot_data_add_uint32(dd, g->id);
 	dot_data_add_string(dd, "\\lname: ");
-	dot_data_add_string(dd, port_name ? port_name : "(null)");
+	dot_data_add_string_escaped(dd, port_name ? port_name : "(null)");
 	dot_data_add_string(dd, "\\ldirection: ");
-	dot_data_add_string(dd, pw_direction_as_string(info->direction));
+	dot_data_add_string_escaped(dd, pw_direction_as_string(info->direction));
 	dot_data_add_string(dd, "\\l");
 	if (g->data->show_detail)
 		draw_dict(dd, "properties", info->props);
@@ -223,9 +255,9 @@ static void draw_node(struct global *g)
 	dot_data_add_string(dd, "node_id: ");
 	dot_data_add_uint32(dd, g->id);
 	dot_data_add_string(dd, "\\lname: ");
-	dot_data_add_string(dd, node_name ? node_name : "(null)");
+	dot_data_add_string_escaped(dd, node_name ? node_name : "(null)");
 	dot_data_add_string(dd, "\\lmedia_class: ");
-	dot_data_add_string(dd, media_class ? media_class : "(null)");
+	dot_data_add_string_escaped(dd, media_class ? media_class : "(null)");
 	dot_data_add_string(dd, "\\l");
 	if (g->data->show_detail)
 		draw_dict(dd, "properties", info->props);
@@ -313,7 +345,7 @@ static void draw_link(struct global *g)
 	dot_data_add_string(dd, "\\linput_node_id: ");
 	dot_data_add_uint32(dd, info->input_port_id);
 	dot_data_add_string(dd, "\\lstate: ");
-	dot_data_add_string(dd, pw_link_state_as_string(info->state));
+	dot_data_add_string_escaped(dd, pw_link_state_as_string(info->state));
 	dot_data_add_string(dd, "\\l");
 	if (g->data->show_detail)
 		draw_dict(dd, "properties", info->props);
@@ -357,7 +389,7 @@ static void draw_client(struct global *g)
 	dot_data_add_string(dd, "client_id: ");
 	dot_data_add_uint32(dd, g->id);
 	dot_data_add_string(dd, "\\lname: ");
-	dot_data_add_string(dd, app_name ? app_name : "(null)");
+	dot_data_add_string_escaped(dd, app_name ? app_name : "(null)");
 	dot_data_add_string(dd, "\\lpid: ");
 	dot_data_add_string(dd, app_process_id ? app_process_id : "(null)");
 	dot_data_add_string(dd, "\\l");
@@ -400,13 +432,13 @@ static void draw_device(struct global *g)
 	dot_data_add_string(dd, "device_id: ");
 	dot_data_add_uint32(dd, g->id);
 	dot_data_add_string(dd, "\\lname: ");
-	dot_data_add_string(dd, app_name ? app_name : "(null)");
+	dot_data_add_string_escaped(dd, app_name ? app_name : "(null)");
 	dot_data_add_string(dd, "\\lmedia_class: ");
-	dot_data_add_string(dd, media_class ? media_class : "(null)");
+	dot_data_add_string_escaped(dd, media_class ? media_class : "(null)");
 	dot_data_add_string(dd, "\\lapi: ");
-	dot_data_add_string(dd, device_api ? device_api : "(null)");
+	dot_data_add_string_escaped(dd, device_api ? device_api : "(null)");
 	dot_data_add_string(dd, "\\lpath: ");
-	dot_data_add_string(dd, path ? path : "(null)");
+	dot_data_add_string_escaped(dd, path ? path : "(null)");
 	dot_data_add_string(dd, "\\l");
 	if (g->data->show_detail)
 		draw_dict(dd, "properties", info->props);
@@ -453,7 +485,7 @@ static void draw_factory(struct global *g)
 	dot_data_add_string(dd, "factory_id: ");
 	dot_data_add_uint32(dd, g->id);
 	dot_data_add_string(dd, "\\lname: ");
-	dot_data_add_string(dd, info->name);
+	dot_data_add_string_escaped(dd, info->name);
 	dot_data_add_string(dd, "\\lmodule_id: ");
 	dot_data_add_uint32(dd, module_id);
 	dot_data_add_string(dd, "\\l");
@@ -494,7 +526,7 @@ static void draw_module(struct global *g)
 	dot_data_add_string(dd, "module_id: ");
 	dot_data_add_uint32(dd, g->id);
 	dot_data_add_string(dd, "\\lname: ");
-	dot_data_add_string(dd, info->name);
+	dot_data_add_string_escaped(dd, info->name);
 	dot_data_add_string(dd, "\\l");
 	if (g->data->show_detail)
 		draw_dict(dd, "properties", info->props);

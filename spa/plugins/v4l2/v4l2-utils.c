@@ -1652,7 +1652,7 @@ again:
 				d[0].type = SPA_DATA_DmaBuf;
 			else
 				d[0].type = SPA_DATA_MemFd;
-			d[0].flags = SPA_DATA_FLAG_READABLE;
+			d[0].flags = SPA_DATA_FLAG_READABLE | SPA_DATA_FLAG_MAPPABLE;
 			d[0].fd = expbuf.fd;
 			d[0].data = NULL;
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_ALLOCATED);

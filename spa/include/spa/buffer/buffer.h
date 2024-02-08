@@ -65,6 +65,9 @@ struct spa_data {
 #define SPA_DATA_FLAG_WRITABLE	(1u<<1)	/**< data is writable */
 #define SPA_DATA_FLAG_DYNAMIC	(1u<<2)	/**< data pointer can be changed */
 #define SPA_DATA_FLAG_READWRITE	(SPA_DATA_FLAG_READABLE|SPA_DATA_FLAG_WRITABLE)
+#define SPA_DATA_FLAG_MAPPABLE	(1u<<3)	/**< data is mappable with simple mmap/munmap. Some memory
+					  *  types are not simply mappable (DmaBuf) unless explicitly
+					  *  specified with this flag. */
 	uint32_t flags;			/**< data flags */
 	int64_t fd;			/**< optional fd for data */
 	uint32_t mapoffset;		/**< offset to map fd at */

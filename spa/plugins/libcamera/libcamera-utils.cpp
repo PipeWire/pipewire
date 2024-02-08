@@ -805,6 +805,7 @@ mmap_init(struct impl *impl, struct port *port,
 
 			if (port->memtype == SPA_DATA_DmaBuf ||
 			    port->memtype == SPA_DATA_MemFd) {
+				d[j].flags |= SPA_DATA_FLAG_MAPPABLE;
 				d[j].fd = bufs[i]->planes()[j].fd.get();
 				spa_log_debug(impl->log, "Got fd = %ld for buffer: #%d", d[j].fd, i);
 				d[j].data = NULL;

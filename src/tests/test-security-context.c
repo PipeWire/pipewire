@@ -137,10 +137,11 @@ static void test_create(void)
 
 	static const struct spa_dict_item items[] = {
 		{ "pipewire.foo.bar", "baz" },
-		{ "pipewire.access", "restricted" },
+		{ PW_KEY_SEC_ENGINE, "org.flatpak" },
+		{ PW_KEY_ACCESS, "restricted" },
 	};
 
-	pw_security_context_create(info.sec, "org.flatpak",
+	pw_security_context_create(info.sec,
 			listen_fd, close_fd[1],
 			&SPA_DICT_INIT_ARRAY(items));
 

@@ -39,7 +39,12 @@ extern "C" {
 #define PW_KEY_SEC_LABEL		"pipewire.sec.label"	/**< client security label, set by protocol*/
 
 #define PW_KEY_SEC_SOCKET		"pipewire.sec.socket"	/**< client socket name, set by protocol */
-#define PW_KEY_SEC_CONTEXT		"pipewire.sec.context"	/**< client secure context, set by protocol */
+
+#define PW_KEY_SEC_ENGINE		"pipewire.sec.engine"	/**< client secure context engine, set by protocol.
+								  *  This can also be set by a client when making a
+								  *  new security context. */
+#define PW_KEY_SEC_APP_ID		"pipewire.sec.app-id"	/**< client secure application id */
+#define PW_KEY_SEC_INSTANCE_ID		"pipewire.sec.instance-id"	/**< client secure instance id */
 
 #define PW_KEY_LIBRARY_NAME_SYSTEM	"library.name.system"	/**< name of the system library to use */
 #define PW_KEY_LIBRARY_NAME_LOOP	"library.name.loop"	/**< name of the loop library to use */

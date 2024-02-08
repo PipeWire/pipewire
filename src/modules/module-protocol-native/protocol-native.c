@@ -1890,7 +1890,7 @@ static int security_context_method_marshal_add_listener(void *object,
 	return 0;
 }
 
-static int security_context_marshal_create(void *object, const char *engine_name,
+static int security_context_marshal_create(void *object,
 		int listen_fd, int close_fd, const struct spa_dict *props)
 {
 	struct pw_proxy *proxy = object;
@@ -1901,7 +1901,6 @@ static int security_context_marshal_create(void *object, const char *engine_name
 
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
-			SPA_POD_String(engine_name),
 			SPA_POD_Fd(pw_protocol_native_add_proxy_fd(proxy, listen_fd)),
 			SPA_POD_Fd(pw_protocol_native_add_proxy_fd(proxy, close_fd)),
 			NULL);
@@ -1917,7 +1916,6 @@ static int security_context_demarshal_create(void *object, const struct pw_proto
 	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
-	char *engine_name;
 	int64_t listen_idx, close_idx;
 	int listen_fd, close_fd;
 
@@ -1925,7 +1923,6 @@ static int security_context_demarshal_create(void *object, const struct pw_proto
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0)
 		return -EINVAL;
 	if (spa_pod_parser_get(&prs,
-				SPA_POD_String(&engine_name),
 				SPA_POD_Fd(&listen_idx),
 				SPA_POD_Fd(&close_idx),
 				NULL) < 0)
@@ -1936,7 +1933,7 @@ static int security_context_demarshal_create(void *object, const struct pw_proto
 	close_fd = pw_protocol_native_get_resource_fd(resource, close_idx);
 
 	return pw_resource_notify(resource, struct pw_security_context_methods, create, 0,
-			engine_name, listen_fd, close_fd, &props);
+			listen_fd, close_fd, &props);
 }
 
 

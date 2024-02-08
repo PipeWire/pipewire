@@ -70,19 +70,25 @@ struct pw_security_context_methods {
 	 * After sending this request, closing listen_fd and close_fd remains the
 	 * only valid operation on them.
 	 *
-	 * \param engine_name a unique sandbox engine name.
 	 * \param listen_fd the fd to listen on for new connections
 	 * \param close_fd the fd used to stop listening
-	 * \param props extra (engine_name specific) properties. These will be
-	 *       copied on the client that connects through this context.
+	 * \param props extra properties. These will be copied on the client
+	 *     that connects through this context.
+	 *
+	 * Some properties to set:
+	 *
+	 *  - pipewire.sec.engine with the engine name.
+	 *  - pipewire.sec.app-id with the application id, this is an opaque,
+	 *      engine specific id for an application
+	 *  - pipewire.sec.instance-id with the instance id, this is an opaque,
+	 *      engine specific id for a running instance of an application.
 	 *
 	 * See https://gitlab.freedesktop.org/wayland/wayland-protocols/-/blob/main/staging/security-context/engines.md
-	 * For a list of engine_names and the properties to set.
+	 * For a list of engine names and the properties to set.
 	 *
 	 * This requires X and W permissions on the security_context.
 	 */
 	int (*create) (void *object,
-			const char *engine_name,
 			int listen_fd,
 			int close_fd,
 			const struct spa_dict *props);

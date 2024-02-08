@@ -28,7 +28,6 @@ struct resource_data {
 };
 
 static int security_context_create(void *object,
-			const char *engine_name,
 			int listen_fd,
 			int close_fd,
 			const struct spa_dict *props)
@@ -36,12 +35,8 @@ static int security_context_create(void *object,
 	struct resource_data *d = object;
 	struct impl *impl = d->impl;
 	struct pw_impl_client *client;
-	const struct pw_properties *cp;
-	struct pw_properties *p;
+	const struct pw_properties *p;
 	int res = 0;
-
-	if (engine_name == NULL)
-		goto invalid;
 
 	if ((client = impl->context->current_client) == NULL)
 		goto not_allowed;
@@ -49,27 +44,16 @@ static int security_context_create(void *object,
 		goto not_allowed;
 
 	/* we can't make a nested security context */
-	cp = pw_impl_client_get_properties(client);
-	if (pw_properties_get(cp, PW_KEY_SEC_CONTEXT) != NULL)
+	p = pw_impl_client_get_properties(client);
+	if (pw_properties_get(p, PW_KEY_SEC_ENGINE) != NULL)
 		goto not_allowed;
-
-	p = props ? pw_properties_new_dict(props) : pw_properties_new(NULL, NULL);
-	if (p == NULL)
-		goto not_allowed;
-
-	pw_properties_set(p, PW_KEY_SEC_CONTEXT, engine_name);
 
 	if (pw_protocol_add_fd_server(impl->protocol, impl->context->core,
-			listen_fd, close_fd, &p->dict) == NULL)
+			listen_fd, close_fd, props) == NULL)
 		res = -errno;
-
-	pw_properties_free(p);
 
 	return res;
 
-invalid:
-	pw_log_warn("missing engine name");
-	return -EINVAL;
 not_allowed:
 	pw_log_warn("can't make security context");
 	return -EPERM;

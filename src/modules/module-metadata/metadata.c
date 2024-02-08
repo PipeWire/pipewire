@@ -37,7 +37,7 @@ struct resource_data {
 	pw_resource_call_res(r,struct pw_metadata_events,m,v,__VA_ARGS__)
 
 #define pw_metadata_resource_property(r,...)        \
-        pw_metadata_resource(r,property,0,__VA_ARGS__)
+	pw_metadata_resource(r,property,0,__VA_ARGS__)
 
 static int metadata_property(void *data,
 			uint32_t subject,
@@ -147,31 +147,31 @@ static const struct pw_resource_events impl_resource_events = {
 
 static int
 global_bind(void *object, struct pw_impl_client *client, uint32_t permissions,
-            uint32_t version, uint32_t id)
+		uint32_t version, uint32_t id)
 {
 	struct impl *impl = object;
 	struct pw_resource *resource;
 	struct resource_data *data;
 
 	resource = pw_resource_new(client, id, permissions, PW_TYPE_INTERFACE_Metadata, version, sizeof(*data));
-        if (resource == NULL)
-                return -errno;
+	if (resource == NULL)
+		return -errno;
 
-        data = pw_resource_get_user_data(resource);
-        data->impl = impl;
-        data->resource = resource;
+	data = pw_resource_get_user_data(resource);
+	data->impl = impl;
+	data->resource = resource;
 
 	pw_global_add_resource(impl->global, resource);
 
 	/* listen for when the resource goes away */
-        pw_resource_add_listener(resource,
-                        &data->resource_listener,
-                        &resource_events, data);
+	pw_resource_add_listener(resource,
+			&data->resource_listener,
+			&resource_events, data);
 
 	/* resource methods -> implementation */
 	pw_resource_add_object_listener(resource,
 			&data->object_listener,
-                        &metadata_methods, data);
+			&metadata_methods, data);
 
 	pw_impl_client_set_busy(client, true);
 
@@ -182,7 +182,7 @@ global_bind(void *object, struct pw_impl_client *client, uint32_t permissions,
 
 	pw_resource_add_listener(impl->resource,
 			&data->impl_resource_listener,
-                        &impl_resource_events, data);
+			&impl_resource_events, data);
 
 	data->pong_seq = pw_resource_ping(impl->resource, data->pong_seq);
 	impl->pending++;

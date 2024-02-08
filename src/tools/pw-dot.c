@@ -21,11 +21,18 @@
 
 #define GLOBAL_ID_NONE UINT32_MAX
 #define DEFAULT_DOT_PATH "pw.dot"
+#define DEFAULT_DOT_DATA_SIZE 2048
 
 struct global;
 
 typedef void (*draw_t)(struct global *g);
 typedef void *(*info_update_t) (void *info, const void *update);
+
+struct dot_data {
+	char *data;
+	size_t size;
+	size_t max_size;
+};
 
 struct data {
 	struct pw_main_loop *loop;
@@ -38,7 +45,7 @@ struct data {
 	struct spa_hook registry_listener;
 
 	struct spa_list globals;
-	char *dot_str;
+	struct dot_data dot_data;
 	const char *dot_rankdir;
 	bool dot_orthoedges;
 
@@ -72,93 +79,78 @@ struct global {
 	struct spa_hook object_listener;
 };
 
-static char *dot_str_new(void)
+static bool dot_data_init(struct dot_data * dd, size_t size)
 {
-	return strdup("");
+	if (size <= 0)
+		return false;
+
+	dd->data = malloc(sizeof (char) * size);
+	dd->data[0] = '\0';
+	dd->size = 0;
+	dd->max_size = size;
+	return true;
 }
 
-static void dot_str_clear(char **str)
+static void dot_data_clear(struct dot_data * dd)
 {
-	if (str && *str) {
-		  free(*str);
-		  *str = NULL;
+	if (dd->data) {
+		free(dd->data);
+		dd->data = NULL;
+	}
+	dd->size = 0;
+}
+
+static void dot_data_ensure_max_size (struct dot_data * dd, size_t size)
+{
+	size_t new_size = dd->size + size + 1;
+	if (new_size > dd->max_size) {
+		size_t next_size = new_size * 2;
+		dd->data = realloc (dd->data, next_size);
+		dd->max_size = next_size;
 	}
 }
 
-static SPA_PRINTF_FUNC(2,0) void dot_str_vadd(char **str, const char *fmt, va_list varargs)
+static void dot_data_add_uint32 (struct dot_data * dd, uint32_t value)
 {
-	char *res = NULL;
-	char *fmt2 = NULL;
-
-	spa_return_if_fail(str != NULL);
-	spa_return_if_fail(fmt != NULL);
-
-	if (asprintf(&fmt2, "%s%s", *str, fmt) < 0) {
-		spa_assert_not_reached();
-		return;
-	}
-
-	if (vasprintf(&res, fmt2, varargs) < 0) {
-		free (fmt2);
-		spa_assert_not_reached();
-		return;
-	}
-	free (fmt2);
-
-	free(*str);
-	*str = res;
+	int size;
+	dot_data_ensure_max_size (dd, 16);
+	size = snprintf (dd->data + dd->size, dd->max_size - dd->size, "%u", value);
+	dd->size += size;
 }
 
-static SPA_PRINTF_FUNC(2,3) void dot_str_add(char **str, const char *fmt, ...)
+static void dot_data_add_string (struct dot_data * dd, const char *value)
 {
-	va_list varargs;
-	va_start(varargs, fmt);
-	dot_str_vadd(str, fmt, varargs);
-	va_end(varargs);
+	int size;
+	dot_data_ensure_max_size (dd, strlen (value));
+	size = snprintf (dd->data + dd->size, dd->max_size - dd->size, "%s", value);
+	dd->size += size;
 }
 
-static void draw_dict(char **str, const char *title,
-		      const struct spa_dict *props)
+static void draw_dict(struct dot_data * dd, const char *title,
+				const struct spa_dict *props)
 {
 	const struct spa_dict_item *item;
 
-	dot_str_add(str, "%s:\\l", title);
+	dot_data_add_string(dd, title);
+	dot_data_add_string(dd, ":\\l");
 	if (props == NULL || props->n_items == 0) {
-		dot_str_add(str, "- none\\l");
+		dot_data_add_string(dd, "- none\\l");
 		return;
 	}
 
 	spa_dict_for_each(item, props) {
-		if (item->value)
-			dot_str_add(str, "- %s: %s\\l", item->key, item->value);
-		else
-			dot_str_add(str, "- %s: (null)\\l", item->key);
+		if (item->value) {
+			dot_data_add_string(dd, "- ");
+			dot_data_add_string(dd, item->key);
+			dot_data_add_string(dd, ": ");
+			dot_data_add_string(dd, item->value);
+			dot_data_add_string(dd, "\\l");
+		} else {
+			dot_data_add_string(dd, "- ");
+			dot_data_add_string(dd, item->key);
+			dot_data_add_string(dd, ": (null)\\l");
+		}
 	}
-}
-
-static SPA_PRINTF_FUNC(6,0) void draw_vlabel(char **str, const char *name, uint32_t id, bool detail,
-		       const struct spa_dict *props, const char *fmt, va_list varargs)
-{
-	/* draw the label header */
-	dot_str_add(str, "%s_%u [label=\"", name, id);
-
-	/* draw the label body */
-	dot_str_vadd(str, fmt, varargs);
-
-	if (detail)
-		draw_dict(str, "properties", props);
-
-	/*draw the label footer */
-	dot_str_add(str, "%s", "\"];\n");
-}
-
-static SPA_PRINTF_FUNC(6,7) void draw_label(char **str, const char *name, uint32_t id, bool detail,
-		       const struct spa_dict *props, const char *fmt, ...)
-{
-	va_list varargs;
-	va_start(varargs, fmt);
-	draw_vlabel(str, name, id, detail, props, fmt, varargs);
-	va_end(varargs);
 }
 
 static void draw_port(struct global *g)
@@ -168,25 +160,36 @@ static void draw_port(struct global *g)
 	spa_assert(g->type == INTERFACE_Port);
 
 	struct pw_port_info *info = g->info;
-	char **dot_str = &g->data->dot_str;
+	struct dot_data *dd = &g->data->dot_data;
+
+	const char *port_name = spa_dict_lookup(info->props, PW_KEY_PORT_NAME);
 
 	/* draw the box */
-	dot_str_add(dot_str,
-		"port_%u [shape=box style=filled fillcolor=%s];\n",
-		g->id,
-		info->direction == PW_DIRECTION_INPUT ? "lightslateblue" : "lightcoral"
-	);
+	dot_data_add_string(dd, "port_");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, " [shape=box style=filled fillcolor=");
+	dot_data_add_string(dd, info->direction == PW_DIRECTION_INPUT ? "lightslateblue" : "lightcoral");
+	dot_data_add_string(dd, "];");
 
-	/* draw the label */
-	draw_label(dot_str,
-		"port", g->id, g->data->show_detail, info->props,
-		"port_id: %u\\lname: %s\\ldirection: %s\\l",
-		g->id,
-		spa_dict_lookup(info->props, PW_KEY_PORT_NAME),
-		pw_direction_as_string(info->direction)
-	);
+	/* draw the label header */
+	dot_data_add_string(dd, "port_");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, " [label=\"");
+
+	/* draw the label body */
+	dot_data_add_string(dd, "port_id: ");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, "\\lname: ");
+	dot_data_add_string(dd, port_name ? port_name : "(null)");
+	dot_data_add_string(dd, "\\ldirection: ");
+	dot_data_add_string(dd, pw_direction_as_string(info->direction));
+	dot_data_add_string(dd, "\\l");
+	if (g->data->show_detail)
+		draw_dict(dd, "properties", info->props);
+
+	/* draw the label footer */
+	dot_data_add_string(dd, "\"];\n");
 }
-
 
 static void draw_node(struct global *g)
 {
@@ -195,34 +198,40 @@ static void draw_node(struct global *g)
 	spa_assert(g->type == INTERFACE_Node);
 
 	struct pw_node_info *info = g->info;
-	char **dot_str = &g->data->dot_str;
+	struct dot_data *dd = &g->data->dot_data;
 
-	const char *client_id_str, *factory_id_str;
+	const char *node_name, *media_class, *client_id_str, *factory_id_str;
 	uint32_t client_id, factory_id;
 
+	node_name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME);
+	media_class = spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS);
 	client_id_str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID);
 	factory_id_str = spa_dict_lookup(info->props, PW_KEY_FACTORY_ID);
 	client_id = client_id_str ? (uint32_t)atoi(client_id_str) : GLOBAL_ID_NONE;
 	factory_id = factory_id_str ? (uint32_t)atoi(factory_id_str) : GLOBAL_ID_NONE;
 
 	/* draw the node header */
-	dot_str_add(dot_str, "subgraph cluster_node_%u {\n", g->id);
-	dot_str_add(dot_str, "bgcolor=palegreen;\n");
+	dot_data_add_string(dd, "subgraph cluster_node_");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, "{\n");
+	dot_data_add_string(dd, "bgcolor=palegreen;\n");
 
 	/* draw the label header */
-	dot_str_add(dot_str, "label=\"");
+	dot_data_add_string(dd, "label=\"");
 
 	/* draw the label body */
-	dot_str_add(dot_str, "node_id: %u\\lname: %s\\lmedia_class: %s\\l",
-		g->id,
-		spa_dict_lookup(info->props, PW_KEY_NODE_NAME),
-		spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS));
-
+	dot_data_add_string(dd, "node_id: ");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, "\\lname: ");
+	dot_data_add_string(dd, node_name ? node_name : "(null)");
+	dot_data_add_string(dd, "\\lmedia_class: ");
+	dot_data_add_string(dd, media_class ? media_class : "(null)");
+	dot_data_add_string(dd, "\\l");
 	if (g->data->show_detail)
-		draw_dict(dot_str, "properties", info->props);
+		draw_dict(dd, "properties", info->props);
 
-	/*draw the label footer */
-	dot_str_add(dot_str, "%s", "\"\n");
+	/* draw the label footer */
+	dot_data_add_string(dd, "\"\n");
 
 	/* draw all node ports */
 	struct global *p;
@@ -243,17 +252,33 @@ static void draw_node(struct global *g)
 
 	/* draw the client/factory box if all option is enabled */
 	if (g->data->show_all) {
-		dot_str_add(dot_str, "node_%u [shape=box style=filled fillcolor=white];\n", g->id);
-		dot_str_add(dot_str, "node_%u [label=\"client_id: %u\\lfactory_id: %u\\l\"];\n", g->id, client_id, factory_id);
+		dot_data_add_string(dd, "node_");
+		dot_data_add_uint32(dd, g->id);
+		dot_data_add_string(dd, " [shape=box style=filled fillcolor=white];\n");
+		dot_data_add_string(dd, "node_");
+		dot_data_add_uint32(dd, g->id);
+		dot_data_add_string(dd, " [label=\"client_id: ");
+		dot_data_add_uint32(dd, client_id);
+		dot_data_add_string(dd, "\\lfactory_id: ");
+		dot_data_add_uint32(dd, factory_id);
+		dot_data_add_string(dd, "\\l\"];\n");
 	}
 
 	/* draw the node footer */
-	dot_str_add(dot_str, "}\n");
+	dot_data_add_string(dd, "}\n");
 
 	/* draw the client/factory arrows if all option is enabled */
 	if (g->data->show_all) {
-		dot_str_add(dot_str, "node_%u -> client_%u [style=dashed];\n", g->id, client_id);
-		dot_str_add(dot_str, "node_%u -> factory_%u [style=dashed];\n", g->id, factory_id);
+		dot_data_add_string(dd, "node_");
+		dot_data_add_uint32(dd, g->id);
+		dot_data_add_string(dd, " -> client_");
+		dot_data_add_uint32(dd, client_id);
+		dot_data_add_string(dd, " [style=dashed];\n");
+		dot_data_add_string(dd, "node_");
+		dot_data_add_uint32(dd, g->id);
+		dot_data_add_string(dd, " -> factory_");
+		dot_data_add_uint32(dd, factory_id);
+		dot_data_add_string(dd, " [style=dashed];\n");
 	}
 }
 
@@ -264,25 +289,46 @@ static void draw_link(struct global *g)
 	spa_assert(g->type == INTERFACE_Link);
 
 	struct pw_link_info *info = g->info;
-	char **dot_str = &g->data->dot_str;
+	struct dot_data *dd = &g->data->dot_data;
 
 	/* draw the box */
-	dot_str_add(dot_str, "link_%u [shape=box style=filled fillcolor=lightblue];\n", g->id);
+	dot_data_add_string(dd, "link_");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, " [shape=box style=filled fillcolor=lightblue];\n");
 
-	/* draw the label */
-	draw_label(dot_str,
-		"link", g->id, g->data->show_detail, info->props,
-		"link_id: %u\\loutput_node_id: %u\\linput_node_id: %u\\loutput_port_id: %u\\linput_port_id: %u\\lstate: %s\\l",
-		g->id,
-		info->output_node_id,
-		info->input_node_id,
-		info->output_port_id,
-		info->input_port_id,
-		pw_link_state_as_string(info->state)
-	);
+	/* draw the label header */
+	dot_data_add_string(dd, "link_");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, " [label=\"");
+
+	/* draw the label body */
+	dot_data_add_string(dd, "link_id: ");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, "\\loutput_node_id: ");
+	dot_data_add_uint32(dd, info->output_node_id);
+	dot_data_add_string(dd, "\\linput_node_id: ");
+	dot_data_add_uint32(dd, info->output_node_id);
+	dot_data_add_string(dd, "\\loutput_port_id: ");
+	dot_data_add_uint32(dd, info->output_port_id);
+	dot_data_add_string(dd, "\\linput_node_id: ");
+	dot_data_add_uint32(dd, info->input_port_id);
+	dot_data_add_string(dd, "\\lstate: ");
+	dot_data_add_string(dd, pw_link_state_as_string(info->state));
+	dot_data_add_string(dd, "\\l");
+	if (g->data->show_detail)
+		draw_dict(dd, "properties", info->props);
+
+	/* draw the label footer */
+	dot_data_add_string(dd, "\"];\n");
 
 	/* draw the arrows */
-	dot_str_add(dot_str, "port_%u -> link_%u -> port_%u;\n", info->output_port_id, g->id, info->input_port_id);
+	dot_data_add_string(dd, "port_");
+	dot_data_add_uint32(dd, info->output_port_id);
+	dot_data_add_string(dd, " -> link_");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, " -> port_");
+	dot_data_add_uint32(dd, info->input_port_id);
+	dot_data_add_string(dd, ";\n");
 }
 
 static void draw_client(struct global *g)
@@ -292,19 +338,34 @@ static void draw_client(struct global *g)
 	spa_assert(g->type == INTERFACE_Client);
 
 	struct pw_client_info *info = g->info;
-	char **dot_str = &g->data->dot_str;
+	struct dot_data *dd = &g->data->dot_data;
+
+	const char *app_name = spa_dict_lookup(info->props, PW_KEY_APP_NAME);
+	const char *app_process_id = spa_dict_lookup(info->props, PW_KEY_APP_PROCESS_ID);
 
 	/* draw the box */
-	dot_str_add(dot_str, "client_%u [shape=box style=filled fillcolor=tan1];\n", g->id);
+	dot_data_add_string(dd, "client_");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, " [shape=box style=filled fillcolor=tan1];\n");
 
-	/* draw the label */
-	draw_label(dot_str,
-		"client", g->id, g->data->show_detail, info->props,
-		"client_id: %u\\lname: %s\\lpid: %s\\l",
-		g->id,
-		spa_dict_lookup(info->props, PW_KEY_APP_NAME),
-		spa_dict_lookup(info->props, PW_KEY_APP_PROCESS_ID)
-	);
+	/* draw the label header */
+	dot_data_add_string(dd, "client_");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, " [label=\"");
+
+	/* draw the label body */
+	dot_data_add_string(dd, "client_id: ");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, "\\lname: ");
+	dot_data_add_string(dd, app_name ? app_name : "(null)");
+	dot_data_add_string(dd, "\\lpid: ");
+	dot_data_add_string(dd, app_process_id ? app_process_id : "(null)");
+	dot_data_add_string(dd, "\\l");
+	if (g->data->show_detail)
+		draw_dict(dd, "properties", info->props);
+
+	/* draw the label footer */
+	dot_data_add_string(dd, "\"];\n");
 }
 
 static void draw_device(struct global *g)
@@ -314,30 +375,56 @@ static void draw_device(struct global *g)
 	spa_assert(g->type == INTERFACE_Device);
 
 	struct pw_device_info *info = g->info;
-	char **dot_str = &g->data->dot_str;
+	struct dot_data *dd = &g->data->dot_data;
 
+	const char *app_name = spa_dict_lookup(info->props, PW_KEY_APP_NAME);
+	const char *media_class = spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS);
+	const char *device_api = spa_dict_lookup(info->props, PW_KEY_DEVICE_API);
+	const char *path = spa_dict_lookup(info->props, PW_KEY_OBJECT_PATH);
 	const char *client_id_str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID);
 	const char *factory_id_str = spa_dict_lookup(info->props, PW_KEY_FACTORY_ID);
 	uint32_t client_id = client_id_str ? (uint32_t)atoi(client_id_str) : GLOBAL_ID_NONE;
 	uint32_t factory_id = factory_id_str ? (uint32_t)atoi(factory_id_str) : GLOBAL_ID_NONE;
 
 	/* draw the box */
-	dot_str_add(dot_str, "device_%u [shape=box style=filled fillcolor=lightpink];\n", g->id);
+	dot_data_add_string(dd, "device_");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, " [shape=box style=filled fillcolor=lightpink];\n");
 
-	/* draw the label */
-	draw_label(dot_str,
-		"device", g->id, g->data->show_detail, info->props,
-		"device_id: %u\\lname: %s\\lmedia_class: %s\\lapi: %s\\lpath: %s\\l",
-		g->id,
-		spa_dict_lookup(info->props, PW_KEY_DEVICE_NAME),
-		spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS),
-		spa_dict_lookup(info->props, PW_KEY_DEVICE_API),
-		spa_dict_lookup(info->props, PW_KEY_OBJECT_PATH)
-	);
+	/* draw the label header */
+	dot_data_add_string(dd, "device_");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, " [label=\"");
+
+	/* draw the label body */
+	dot_data_add_string(dd, "device_id: ");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, "\\lname: ");
+	dot_data_add_string(dd, app_name ? app_name : "(null)");
+	dot_data_add_string(dd, "\\lmedia_class: ");
+	dot_data_add_string(dd, media_class ? media_class : "(null)");
+	dot_data_add_string(dd, "\\lapi: ");
+	dot_data_add_string(dd, device_api ? device_api : "(null)");
+	dot_data_add_string(dd, "\\lpath: ");
+	dot_data_add_string(dd, path ? path : "(null)");
+	dot_data_add_string(dd, "\\l");
+	if (g->data->show_detail)
+		draw_dict(dd, "properties", info->props);
+
+	/* draw the label footer */
+	dot_data_add_string(dd, "\"];\n");
 
 	/* draw the arrows */
-	dot_str_add(dot_str, "device_%u -> client_%u [style=dashed];\n", g->id, client_id);
-	dot_str_add(dot_str, "device_%u -> factory_%u [style=dashed];\n", g->id, factory_id);
+	dot_data_add_string(dd, "device_");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, " -> client_");
+	dot_data_add_uint32(dd, client_id);
+	dot_data_add_string(dd, " [style=dashed];\n");
+	dot_data_add_string(dd, "device_");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, " -> factory_");
+	dot_data_add_uint32(dd, factory_id);
+	dot_data_add_string(dd, " [style=dashed];\n");
 }
 
 static void draw_factory(struct global *g)
@@ -347,23 +434,41 @@ static void draw_factory(struct global *g)
 	spa_assert(g->type == INTERFACE_Factory);
 
 	struct pw_factory_info *info = g->info;
-	char **dot_str = &g->data->dot_str;
+	struct dot_data *dd = &g->data->dot_data;
 
 	const char *module_id_str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID);
 	uint32_t module_id = module_id_str ? (uint32_t)atoi(module_id_str) : GLOBAL_ID_NONE;
 
 	/* draw the box */
-	dot_str_add(dot_str, "factory_%u [shape=box style=filled fillcolor=lightyellow];\n", g->id);
+	dot_data_add_string(dd, "factory_");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, " [shape=box style=filled fillcolor=lightyellow];\n");
 
-	/* draw the label */
-	draw_label(dot_str,
-		"factory", g->id, g->data->show_detail, info->props,
-		"factory_id: %u\\lname: %s\\lmodule_id: %u\\l",
-		g->id, info->name, module_id
-	);
+	/* draw the label header */
+	dot_data_add_string(dd, "factory_");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, " [label=\"");
+
+	/* draw the label body */
+	dot_data_add_string(dd, "factory_id: ");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, "\\lname: ");
+	dot_data_add_string(dd, info->name);
+	dot_data_add_string(dd, "\\lmodule_id: ");
+	dot_data_add_uint32(dd, module_id);
+	dot_data_add_string(dd, "\\l");
+	if (g->data->show_detail)
+		draw_dict(dd, "properties", info->props);
+
+	/* draw the label footer */
+	dot_data_add_string(dd, "\"];\n");
 
 	/* draw the arrow */
-	dot_str_add(dot_str, "factory_%u -> module_%u [style=dashed];\n", g->id, module_id);
+	dot_data_add_string(dd, "factory_");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, " -> module_id");
+	dot_data_add_uint32(dd, module_id);
+	dot_data_add_string(dd, " [style=dashed];\n");
 }
 
 static void draw_module(struct global *g)
@@ -373,17 +478,29 @@ static void draw_module(struct global *g)
 	spa_assert(g->type == INTERFACE_Module);
 
 	struct pw_module_info *info = g->info;
-	char **dot_str = &g->data->dot_str;
+	struct dot_data *dd = &g->data->dot_data;
 
 	/* draw the box */
-	dot_str_add(dot_str, "module_%u [shape=box style=filled fillcolor=lightgrey];\n", g->id);
+	dot_data_add_string(dd, "module_");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, " [shape=box style=filled fillcolor=lightgrey];\n");
 
-	/* draw the label */
-	draw_label(dot_str,
-		"module", g->id, g->data->show_detail, info->props,
-		"module_id: %u\\lname: %s\\l",
-		g->id, info->name
-	);
+	/* draw the label header */
+	dot_data_add_string(dd, "module_id");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, " [label=\"");
+
+	/* draw the label body */
+	dot_data_add_string(dd, "module_id: ");
+	dot_data_add_uint32(dd, g->id);
+	dot_data_add_string(dd, "\\lname: ");
+	dot_data_add_string(dd, info->name);
+	dot_data_add_string(dd, "\\l");
+	if (g->data->show_detail)
+		draw_dict(dd, "properties", info->props);
+
+	/* draw the label footer */
+	dot_data_add_string(dd, "\"];\n");
 }
 
 static bool is_node_id_link_referenced(uint32_t id, struct spa_list *globals)
@@ -440,16 +557,18 @@ static int draw_graph(struct data *d, const char *path)
 	struct global *g;
 
 	/* draw the header */
-	dot_str_add(&d->dot_str, "digraph pipewire {\n");
+	dot_data_add_string(&d->dot_data, "digraph pipewire {\n");
 
 	if (d->dot_rankdir) {
 		/* set rank direction, if provided */
-		dot_str_add(&d->dot_str, "rankdir = \"%s\";\n", d->dot_rankdir);
+		dot_data_add_string(&d->dot_data, "rankdir = \"");
+		dot_data_add_string(&d->dot_data, d->dot_rankdir);
+		dot_data_add_string(&d->dot_data, "\";\n");
 	}
 
 	if (d->dot_orthoedges) {
 		/* enable orthogonal edges */
-		dot_str_add(&d->dot_str, "splines = ortho;\n");
+		dot_data_add_string(&d->dot_data, "splines = ortho;\n");
 	}
 
 	/* iterate the globals */
@@ -485,11 +604,11 @@ static int draw_graph(struct data *d, const char *path)
 	}
 
 	/* draw the footer */
-	dot_str_add(&d->dot_str, "}\n");
+	dot_data_add_string(&d->dot_data, "}\n");
 
 	if (spa_streq(path, "-")) {
 		/* wire the dot graph into to stdout */
-		fputs(d->dot_str, stdout);
+		fputs(d->dot_data.data, stdout);
 	} else {
 		/* open the file */
 		fp = fopen(path, "we");
@@ -499,7 +618,7 @@ static int draw_graph(struct data *d, const char *path)
 		}
 
 		/* wire the dot graph into the file */
-		fputs(d->dot_str, fp);
+		fputs(d->dot_data.data, fp);
 		fclose(fp);
 	}
 	return 0;
@@ -1124,7 +1243,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (!(data.dot_str = dot_str_new()))
+	if (!dot_data_init(&data.dot_data, DEFAULT_DOT_DATA_SIZE))
 		return -1;
 
 	spa_list_init(&data.globals);
@@ -1136,7 +1255,7 @@ int main(int argc, char *argv[])
 
 	draw_graph(&data, dot_path);
 
-	dot_str_clear(&data.dot_str);
+	dot_data_clear(&data.dot_data);
 	spa_list_consume(g, &data.globals, link) {
 		if (g->info && g->info_destroy)
 			g->info_destroy(g->info);

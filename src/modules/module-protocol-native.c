@@ -1429,8 +1429,10 @@ add_server(struct pw_protocol *protocol,
 	if ((res = add_socket(protocol, s)) < 0)
 		goto error;
 
-	if ((s->resume = pw_loop_add_event(s->loop, do_resume, s)) == NULL)
+	if ((s->resume = pw_loop_add_event(s->loop, do_resume, s)) == NULL) {
+		res = -errno;
 		goto error;
+	}
 
 	pw_log_info("%p: Listening on '%s'", protocol, name);
 

@@ -74,7 +74,7 @@ struct global {
 
 static char *dot_str_new(void)
 {
-        return strdup("");
+	return strdup("");
 }
 
 static void dot_str_clear(char **str)
@@ -388,36 +388,36 @@ static void draw_module(struct global *g)
 
 static bool is_node_id_link_referenced(uint32_t id, struct spa_list *globals)
 {
-        struct global *g;
-        struct pw_link_info *info;
-        spa_list_for_each(g, globals, link) {
-                if (g->info == NULL)
-                        continue;
-                if (g->type != INTERFACE_Link)
-                        continue;
-                info = g->info;
-                if (info->input_node_id == id || info->output_node_id == id)
-                        return true;
-        }
-        return false;
+	struct global *g;
+	struct pw_link_info *info;
+	spa_list_for_each(g, globals, link) {
+		if (g->info == NULL)
+			continue;
+		if (g->type != INTERFACE_Link)
+			continue;
+		info = g->info;
+		if (info->input_node_id == id || info->output_node_id == id)
+			return true;
+	}
+	return false;
 }
 
 static bool is_module_id_factory_referenced(uint32_t id, struct spa_list *globals)
 {
-        struct global *g;
-        struct pw_factory_info *info;
-        const char *module_id_str;
-        spa_list_for_each(g, globals, link) {
-                if (g->info == NULL)
-                        continue;
-                if (g->type != INTERFACE_Factory)
-                        continue;
-                info = g->info;
-                module_id_str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID);
-                if (module_id_str && (uint32_t)atoi(module_id_str) == id)
-                        return true;
-        }
-        return false;
+	struct global *g;
+	struct pw_factory_info *info;
+	const char *module_id_str;
+	spa_list_for_each(g, globals, link) {
+		if (g->info == NULL)
+			continue;
+		if (g->type != INTERFACE_Factory)
+			continue;
+		info = g->info;
+		module_id_str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID);
+		if (module_id_str && (uint32_t)atoi(module_id_str) == id)
+			return true;
+	}
+	return false;
 }
 
 static bool is_global_referenced(struct global *g)
@@ -507,18 +507,18 @@ static int draw_graph(struct data *d, const char *path)
 
 static void global_event_info(struct global *g, const void *info)
 {
-        if (g->info_update)
-                g->info = g->info_update(g->info, info);
+	if (g->info_update)
+		g->info = g->info_update(g->info, info);
 }
 
 static void port_event_info(void *data, const struct pw_port_info *info)
 {
-        global_event_info(data, info);
+	global_event_info(data, info);
 }
 
 static const struct pw_port_events port_events = {
-        PW_VERSION_PORT_EVENTS,
-        .info = port_event_info,
+	PW_VERSION_PORT_EVENTS,
+	.info = port_event_info,
 };
 
 static void node_event_info(void *data, const struct pw_node_info *info)
@@ -604,15 +604,15 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 				  const char *type, uint32_t version,
 				  const struct spa_dict *props)
 {
-        struct data *d = data;
-        struct pw_proxy *proxy;
-        uint32_t client_version;
+	struct data *d = data;
+	struct pw_proxy *proxy;
+	uint32_t client_version;
 	uint32_t object_type;
-        const void *events;
-        pw_destroy_t info_destroy;
-        info_update_t info_update;
-        draw_t draw;
-        struct global *g;
+	const void *events;
+	pw_destroy_t info_destroy;
+	info_update_t info_update;
+	draw_t draw;
+	struct global *g;
 
 	if (spa_streq(type, PW_TYPE_INTERFACE_Port)) {
 		events = &port_events;
@@ -696,11 +696,11 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 	g->info_update = info_update;
 	g->draw = draw;
 
-        pw_proxy_add_object_listener(proxy, &g->object_listener, events, g);
-        pw_proxy_add_listener(proxy, &g->proxy_listener, &proxy_events, g);
+	pw_proxy_add_object_listener(proxy, &g->object_listener, events, g);
+	pw_proxy_add_listener(proxy, &g->proxy_listener, &proxy_events, g);
 
-        /* add the global to the list */
-        spa_list_insert(&d->globals, &g->link);
+	/* add the global to the list */
+	spa_list_insert(&d->globals, &g->link);
 }
 
 static const struct pw_registry_events registry_events = {
@@ -1033,7 +1033,7 @@ static int get_data_from_json(struct data *data, const char *json_path)
 
 static void show_help(const char *name, bool error)
 {
-        fprintf(error ? stderr : stdout, "%s [options]\n"
+	fprintf(error ? stderr : stdout, "%s [options]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -a, --all                             Show all object types\n"

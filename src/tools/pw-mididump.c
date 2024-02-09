@@ -158,7 +158,7 @@ static int dump_filter(struct data *data)
 
 static void show_help(const char *name, bool error)
 {
-        fprintf(error ? stderr : stdout, "%s [options] [FILE]\n"
+	fprintf(error ? stderr : stdout, "%s [options] [FILE]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n",

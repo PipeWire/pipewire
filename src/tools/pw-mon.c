@@ -30,9 +30,9 @@ static struct pprefix {
 };
 
 #define with_prefix(use_prefix_) \
-   for (bool once_ = !!printf("%s", (pprefix[!!(use_prefix_)]).prefix); \
-	once_; \
-	once_ = false, printf("%s", (pprefix[!!(use_prefix_)]).suffix))
+	for (bool once_ = !!printf("%s", (pprefix[!!(use_prefix_)]).prefix); \
+		once_; \
+		once_ = false, printf("%s", (pprefix[!!(use_prefix_)]).suffix))
 
 
 struct param {
@@ -134,7 +134,7 @@ static void remove_params(struct proxy_data *data, uint32_t id, int seq)
 static void event_param(void *_data, int seq, uint32_t id,
 		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
-        struct proxy_data *data = _data;
+	struct proxy_data *data = _data;
 	struct param *p;
 
 	/* remove all params with the same id and older seq */
@@ -250,7 +250,7 @@ static void module_event_info(void *_data, const struct pw_module_info *info)
 
 static const struct pw_module_events module_events = {
 	PW_VERSION_MODULE_EVENTS,
-        .info = module_event_info,
+	.info = module_event_info,
 };
 
 static void print_node(struct proxy_data *data)
@@ -302,7 +302,7 @@ static void print_node(struct proxy_data *data)
 
 static void node_event_info(void *_data, const struct pw_node_info *info)
 {
-        struct proxy_data *data = _data;
+	struct proxy_data *data = _data;
 	uint32_t i;
 
 	info = data->info = pw_node_info_update(data->info, info);
@@ -327,8 +327,8 @@ static void node_event_info(void *_data, const struct pw_node_info *info)
 
 static const struct pw_node_events node_events = {
 	PW_VERSION_NODE_EVENTS,
-        .info = node_event_info,
-        .param = event_param
+	.info = node_event_info,
+	.param = event_param
 };
 
 static void print_port(struct proxy_data *data)
@@ -367,7 +367,7 @@ static void print_port(struct proxy_data *data)
 
 static void port_event_info(void *_data, const struct pw_port_info *info)
 {
-        struct proxy_data *data = _data;
+	struct proxy_data *data = _data;
 	uint32_t i;
 
 	info = data->info = pw_port_info_update(data->info, info);
@@ -392,13 +392,13 @@ static void port_event_info(void *_data, const struct pw_port_info *info)
 
 static const struct pw_port_events port_events = {
 	PW_VERSION_PORT_EVENTS,
-        .info = port_event_info,
-        .param = event_param
+	.info = port_event_info,
+	.param = event_param
 };
 
 static void factory_event_info(void *_data, const struct pw_factory_info *info)
 {
-        struct proxy_data *data = _data;
+	struct proxy_data *data = _data;
 	bool hide_props, print_mark;
 
 	hide_props = data->data->hide_props;
@@ -412,7 +412,7 @@ static void factory_event_info(void *_data, const struct pw_factory_info *info)
 		print_mark = true;
 	}
 
-        info = data->info = pw_factory_info_update(data->info, info);
+	info = data->info = pw_factory_info_update(data->info, info);
 
 	printf("\tid: %d\n", data->id);
 	printf("\tpermissions: "PW_PERMISSION_FORMAT"\n",
@@ -428,12 +428,12 @@ static void factory_event_info(void *_data, const struct pw_factory_info *info)
 
 static const struct pw_factory_events factory_events = {
 	PW_VERSION_FACTORY_EVENTS,
-        .info = factory_event_info
+	.info = factory_event_info
 };
 
 static void client_event_info(void *_data, const struct pw_client_info *info)
 {
-        struct proxy_data *data = _data;
+	struct proxy_data *data = _data;
 	bool hide_props, print_mark;
 
 	hide_props = data->data->hide_props;
@@ -447,7 +447,7 @@ static void client_event_info(void *_data, const struct pw_client_info *info)
 		print_mark = true;
 	}
 
-        info = data->info = pw_client_info_update(data->info, info);
+	info = data->info = pw_client_info_update(data->info, info);
 
 	printf("\tid: %d\n", data->id);
 	printf("\tpermissions: "PW_PERMISSION_FORMAT"\n",
@@ -461,12 +461,12 @@ static void client_event_info(void *_data, const struct pw_client_info *info)
 
 static const struct pw_client_events client_events = {
 	PW_VERSION_CLIENT_EVENTS,
-        .info = client_event_info
+	.info = client_event_info
 };
 
 static void link_event_info(void *_data, const struct pw_link_info *info)
 {
-        struct proxy_data *data = _data;
+	struct proxy_data *data = _data;
 	bool hide_props, print_mark;
 
 	hide_props = data->data->hide_props;
@@ -480,7 +480,7 @@ static void link_event_info(void *_data, const struct pw_link_info *info)
 		print_mark = true;
 	}
 
-        info = data->info = pw_link_info_update(data->info, info);
+	info = data->info = pw_link_info_update(data->info, info);
 
 	printf("\tid: %d\n", data->id);
 	printf("\tpermissions: "PW_PERMISSION_FORMAT"\n",
@@ -551,7 +551,7 @@ static void print_device(struct proxy_data *data)
 
 static void device_event_info(void *_data, const struct pw_device_info *info)
 {
-        struct proxy_data *data = _data;
+	struct proxy_data *data = _data;
 	uint32_t i;
 
 	info = data->info = pw_device_info_update(data->info, info);
@@ -576,13 +576,13 @@ static void device_event_info(void *_data, const struct pw_device_info *info)
 static const struct pw_device_events device_events = {
 	PW_VERSION_DEVICE_EVENTS,
 	.info = device_event_info,
-        .param = event_param
+	.param = event_param
 };
 
 static void
 removed_proxy (void *data)
 {
-        struct proxy_data *pd = data;
+	struct proxy_data *pd = data;
 	pw_proxy_destroy(pd->proxy);
 }
 
@@ -752,7 +752,7 @@ static void do_quit(void *data, int signal_number)
 
 static void show_help(const char *name, bool error)
 {
-        fprintf(error ? stderr : stdout, "%s [options]\n"
+	fprintf(error ? stderr : stdout, "%s [options]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n"

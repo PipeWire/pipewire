@@ -406,7 +406,7 @@ static void dump_scripts(struct data *d)
 
 static void profiler_profile(void *data, const struct spa_pod *pod)
 {
-        struct data *d = data;
+	struct data *d = data;
 	struct spa_pod *o;
 	struct spa_pod_prop *p;
 	struct point point;
@@ -446,7 +446,7 @@ static void profiler_profile(void *data, const struct spa_pod *pod)
 
 static const struct pw_profiler_events profiler_events = {
 	PW_VERSION_PROFILER_EVENTS,
-        .profile = profiler_profile,
+	.profile = profiler_profile,
 };
 
 static void registry_event_global(void *data, uint32_t id,
@@ -522,7 +522,7 @@ static void do_quit(void *data, int signal_number)
 
 static void show_help(const char *name, bool error)
 {
-        fprintf(error ? stderr : stdout, "%s [options]\n"
+	fprintf(error ? stderr : stdout, "%s [options]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n"

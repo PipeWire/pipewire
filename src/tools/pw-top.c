@@ -600,7 +600,7 @@ static void do_timeout(void *data, uint64_t expirations)
 
 static void profiler_profile(void *data, const struct spa_pod *pod)
 {
-        struct data *d = data;
+	struct data *d = data;
 	struct spa_pod *o;
 	struct spa_pod_prop *p;
 	struct point point;
@@ -640,7 +640,7 @@ static void profiler_profile(void *data, const struct spa_pod *pod)
 
 static const struct pw_profiler_events profiler_events = {
 	PW_VERSION_PROFILER_EVENTS,
-        .profile = profiler_profile,
+	.profile = profiler_profile,
 };
 
 static void registry_event_global(void *data, uint32_t id,
@@ -739,7 +739,7 @@ static void do_quit(void *data, int signal_number)
 
 static void show_help(const char *name, bool error)
 {
-        fprintf(error ? stderr : stdout, "Usage:\n%s [options]\n\n"
+	fprintf(error ? stderr : stdout, "Usage:\n%s [options]\n\n"
 		"Options:\n"
 		"  -b, --batch-mode		         run in non-interactive batch mode\n"
 		"  -n, --iterations = NUMBER             exit after NUMBER batch iterations\n"

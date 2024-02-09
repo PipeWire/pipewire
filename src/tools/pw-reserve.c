@@ -70,15 +70,15 @@ static void do_quit(void *data, int signal_number)
 
 static void show_help(const char *name, bool error)
 {
-        fprintf(error ? stderr : stdout, "%s [options]\n"
-             "  -h, --help                            Show this help\n"
-             "      --version                         Show version\n"
-             "  -n, --name                            Name to reserve (Audio0, Midi0, Video0, ..)\n"
-             "  -a, --appname                         Application Name (default %s)\n"
-             "  -p, --priority                        Priority (default %d)\n"
-             "  -m, --monitor                         Monitor only, don't try to acquire\n"
-             "  -r, --release                         Request release when busy\n",
-	     name, DEFAULT_APPNAME, DEFAULT_PRIORITY);
+	fprintf(error ? stderr : stdout, "%s [options]\n"
+		"  -h, --help                            Show this help\n"
+		"      --version                         Show version\n"
+		"  -n, --name                            Name to reserve (Audio0, Midi0, Video0, ..)\n"
+		"  -a, --appname                         Application Name (default %s)\n"
+		"  -p, --priority                        Priority (default %d)\n"
+		"  -m, --monitor                         Monitor only, don't try to acquire\n"
+		"  -r, --release                         Request release when busy\n",
+		name, DEFAULT_APPNAME, DEFAULT_PRIORITY);
 }
 
 int main(int argc, char *argv[])

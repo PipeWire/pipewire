@@ -987,21 +987,21 @@ static void show_usage(const char *name, bool is_error)
 
 	fp = is_error ? stderr : stdout;
 
-        fprintf(fp,
+	fprintf(fp,
 	   _("%s [options] [<file>|-]\n"
-             "  -h, --help                            Show this help\n"
-             "      --version                         Show version\n"
-             "  -v, --verbose                         Enable verbose operations\n"
+	     "  -h, --help                            Show this help\n"
+	     "      --version                         Show version\n"
+	     "  -v, --verbose                         Enable verbose operations\n"
 	     "\n"), name);
 
 	fprintf(fp,
-           _("  -R, --remote                          Remote daemon name\n"
-             "      --media-type                      Set media type (default %s)\n"
-             "      --media-category                  Set media category (default %s)\n"
-             "      --media-role                      Set media role (default %s)\n"
-             "      --target                          Set node target serial or name (default %s)\n"
+	   _("  -R, --remote                          Remote daemon name\n"
+	     "      --media-type                      Set media type (default %s)\n"
+	     "      --media-category                  Set media category (default %s)\n"
+	     "      --media-role                      Set media role (default %s)\n"
+	     "      --target                          Set node target serial or name (default %s)\n"
 	     "                                          0 means don't link\n"
-             "      --latency                         Set node latency (default %s)\n"
+	     "      --latency                         Set node latency (default %s)\n"
 	     "                                          Xunit (unit = s, ms, us, ns)\n"
 	     "                                          or direct samples (256)\n"
 	     "                                          the rate is the one of the source file\n"
@@ -1013,12 +1013,12 @@ static void show_usage(const char *name, bool is_error)
 	     DEFAULT_TARGET, DEFAULT_LATENCY_PLAY);
 
 	fprintf(fp,
-           _("      --rate                            Sample rate (req. for rec) (default %u)\n"
-             "      --channels                        Number of channels (req. for rec) (default %u)\n"
-             "      --channel-map                     Channel map\n"
+	   _("      --rate                            Sample rate (req. for rec) (default %u)\n"
+	     "      --channels                        Number of channels (req. for rec) (default %u)\n"
+	     "      --channel-map                     Channel map\n"
 	     "                                            one of: \"stereo\", \"surround-51\",... or\n"
 	     "                                            comma separated list of channel names: eg. \"FL,FR\"\n"
-             "      --format                          Sample format %s (req. for rec) (default %s)\n"
+	     "      --format                          Sample format %s (req. for rec) (default %s)\n"
 	     "      --volume                          Stream volume 0-1.0 (default %.3f)\n"
 	     "  -q  --quality                         Resampler quality (0 - 15) (default %d)\n"
 	     "\n"),
@@ -1052,7 +1052,7 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames, bool *nul
 	spa_zero(b);
 	spa_pod_builder_init(&b, src, n_frames);
 
-        spa_pod_builder_push_sequence(&b, &f, 0);
+	spa_pod_builder_push_sequence(&b, &f, 0);
 
 	first_frame = d->clock_time;
 	last_frame = first_frame + d->position->clock.duration;

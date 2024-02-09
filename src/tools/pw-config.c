@@ -66,7 +66,7 @@ static int do_merge_section(void *data, const char *location, const char *sectio
 	int l;
 	const char *value;
 
-        spa_json_init(&it[0], str, len);
+	spa_json_init(&it[0], str, len);
 	if ((l = spa_json_next(&it[0], &value)) <= 0)
 		return 0;
 
@@ -116,7 +116,7 @@ static void section_for_each(struct data *d, const char *section,
 
 static void show_help(const char *name, bool error)
 {
-        fprintf(error ? stderr : stdout, "%1$s : PipeWire config manager.\n"
+	fprintf(error ? stderr : stdout, "%1$s : PipeWire config manager.\n"
 		"Usage:\n"
 		"  %1$s [options] paths                  List config paths (default action)\n"
 		"  %1$s [options] list [SECTION]         List config section\n"

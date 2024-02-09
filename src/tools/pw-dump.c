@@ -349,7 +349,7 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 		break;
 	case SPA_TYPE_Rectangle:
 	{
-                struct spa_rectangle *r = (struct spa_rectangle *)body;
+		struct spa_rectangle *r = (struct spa_rectangle *)body;
 		put_begin(d, NULL, "{", STATE_SIMPLE);
 		put_int(d, "width", r->width);
 		put_int(d, "height", r->height);
@@ -358,7 +358,7 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 	}
 	case SPA_TYPE_Fraction:
 	{
-                struct spa_fraction *f = (struct spa_fraction *)body;
+		struct spa_fraction *f = (struct spa_fraction *)body;
 		put_begin(d, NULL, "{", STATE_SIMPLE);
 		put_int(d, "num", f->num);
 		put_int(d, "denom", f->denom);
@@ -436,7 +436,7 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 		break;
 	}
 	case SPA_TYPE_Object:
-        {
+	{
 		put_begin(d, NULL, "{", 0);
 		struct spa_pod_object_body *b = (struct spa_pod_object_body *)body;
 		struct spa_pod_prop *p;
@@ -1299,13 +1299,13 @@ destroy_proxy(void *data)
 		if (o->class->destroy)
 	                o->class->destroy(o);
 	}
-        o->proxy = NULL;
+	o->proxy = NULL;
 }
 
 static const struct pw_proxy_events proxy_events = {
-        PW_VERSION_PROXY_EVENTS,
-        .removed = destroy_removed,
-        .destroy = destroy_proxy,
+	PW_VERSION_PROXY_EVENTS,
+	.removed = destroy_removed,
+	.destroy = destroy_proxy,
 };
 
 static void registry_event_global(void *data, uint32_t id,

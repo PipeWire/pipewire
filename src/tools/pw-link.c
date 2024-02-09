@@ -757,7 +757,7 @@ static void do_quit(void *userdata, int signal_number)
 
 static void show_help(struct data *data, const char *name, bool error)
 {
-        fprintf(error ? stderr : stdout, "%1$s : PipeWire port and link manager.\n"
+	fprintf(error ? stderr : stdout, "%1$s : PipeWire port and link manager.\n"
 		"Generic: %1$s [options]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"

@@ -75,6 +75,7 @@ struct global {
 	pw_destroy_t info_destroy;
 	info_update_t info_update;
 	draw_t draw;
+	bool drawn;
 
 	struct spa_hook proxy_listener;
 	struct spa_hook object_listener;
@@ -230,6 +231,39 @@ static void draw_port(struct global *g)
 	dot_data_add_string(dd, "\"];\n");
 }
 
+static void draw_node_arrows(struct global *g)
+{
+	spa_assert(g != NULL);
+	spa_assert(g->info != NULL);
+	spa_assert(g->type == INTERFACE_Node);
+
+	struct pw_node_info *info = g->info;
+	struct dot_data *dd = &g->data->dot_data;
+
+	const char *client_id_str, *factory_id_str;
+	uint32_t client_id = GLOBAL_ID_NONE, factory_id = GLOBAL_ID_NONE;
+
+	client_id_str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID);
+	factory_id_str = spa_dict_lookup(info->props, PW_KEY_FACTORY_ID);
+	spa_atou32(client_id_str, &client_id, 10);
+	spa_atou32(factory_id_str, &factory_id, 10);
+
+	if (client_id != GLOBAL_ID_NONE) {
+		dot_data_add_string(dd, "node_");
+		dot_data_add_uint32(dd, g->id);
+		dot_data_add_string(dd, " -> client_");
+		dot_data_add_uint32(dd, client_id);
+		dot_data_add_string(dd, " [style=dashed];\n");
+	}
+	if (factory_id != GLOBAL_ID_NONE) {
+		dot_data_add_string(dd, "node_");
+		dot_data_add_uint32(dd, g->id);
+		dot_data_add_string(dd, " -> factory_");
+		dot_data_add_uint32(dd, factory_id);
+		dot_data_add_string(dd, " [style=dashed];\n");
+	}
+}
+
 static void draw_node(struct global *g)
 {
 	spa_assert(g != NULL);
@@ -240,14 +274,14 @@ static void draw_node(struct global *g)
 	struct dot_data *dd = &g->data->dot_data;
 
 	const char *node_name, *media_class, *client_id_str, *factory_id_str;
-	uint32_t client_id, factory_id;
+	uint32_t client_id = GLOBAL_ID_NONE, factory_id = GLOBAL_ID_NONE;
 
 	node_name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME);
 	media_class = spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS);
 	client_id_str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID);
 	factory_id_str = spa_dict_lookup(info->props, PW_KEY_FACTORY_ID);
-	client_id = client_id_str ? (uint32_t)atoi(client_id_str) : GLOBAL_ID_NONE;
-	factory_id = factory_id_str ? (uint32_t)atoi(factory_id_str) : GLOBAL_ID_NONE;
+	spa_atou32(client_id_str, &client_id, 10);
+	spa_atou32(factory_id_str, &factory_id, 10);
 
 	/* draw the node header */
 	dot_data_add_string(dd, "subgraph cluster_node_");
@@ -277,13 +311,15 @@ static void draw_node(struct global *g)
 	const char *prop_node_id;
 	spa_list_for_each(p, &g->data->globals, link) {
 		struct pw_port_info *pinfo;
+		uint32_t node_id = GLOBAL_ID_NONE;
 		if (p->info == NULL)
 			continue;
 		if (p->type != INTERFACE_Port)
 			continue;
 		pinfo = p->info;
 		prop_node_id = spa_dict_lookup(pinfo->props, PW_KEY_NODE_ID);
-		if (!prop_node_id || (uint32_t)atoi(prop_node_id) != g->id)
+		spa_atou32(prop_node_id, &node_id, 10);
+		if (node_id == GLOBAL_ID_NONE || node_id != g->id)
 			continue;
 		if (p->draw)
 			p->draw(p);
@@ -296,29 +332,22 @@ static void draw_node(struct global *g)
 		dot_data_add_string(dd, " [shape=box style=filled fillcolor=white];\n");
 		dot_data_add_string(dd, "node_");
 		dot_data_add_uint32(dd, g->id);
-		dot_data_add_string(dd, " [label=\"client_id: ");
-		dot_data_add_uint32(dd, client_id);
-		dot_data_add_string(dd, "\\lfactory_id: ");
-		dot_data_add_uint32(dd, factory_id);
-		dot_data_add_string(dd, "\\l\"];\n");
+		dot_data_add_string(dd, " [label=\"");
+		if (client_id != GLOBAL_ID_NONE) {
+			dot_data_add_string(dd, "client_id: ");
+			dot_data_add_uint32(dd, client_id);
+			dot_data_add_string(dd, "\\l");
+		}
+		if (factory_id != GLOBAL_ID_NONE) {
+			dot_data_add_string(dd, "factory_id: ");
+			dot_data_add_uint32(dd, factory_id);
+			dot_data_add_string(dd, "\\l");
+		}
+		dot_data_add_string(dd, "\"];\n");
 	}
 
 	/* draw the node footer */
 	dot_data_add_string(dd, "}\n");
-
-	/* draw the client/factory arrows if all option is enabled */
-	if (g->data->show_all) {
-		dot_data_add_string(dd, "node_");
-		dot_data_add_uint32(dd, g->id);
-		dot_data_add_string(dd, " -> client_");
-		dot_data_add_uint32(dd, client_id);
-		dot_data_add_string(dd, " [style=dashed];\n");
-		dot_data_add_string(dd, "node_");
-		dot_data_add_uint32(dd, g->id);
-		dot_data_add_string(dd, " -> factory_");
-		dot_data_add_uint32(dd, factory_id);
-		dot_data_add_string(dd, " [style=dashed];\n");
-	}
 }
 
 static void draw_link(struct global *g)
@@ -422,8 +451,10 @@ static void draw_device(struct global *g)
 	const char *path = spa_dict_lookup(info->props, PW_KEY_OBJECT_PATH);
 	const char *client_id_str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID);
 	const char *factory_id_str = spa_dict_lookup(info->props, PW_KEY_FACTORY_ID);
-	uint32_t client_id = client_id_str ? (uint32_t)atoi(client_id_str) : GLOBAL_ID_NONE;
-	uint32_t factory_id = factory_id_str ? (uint32_t)atoi(factory_id_str) : GLOBAL_ID_NONE;
+	uint32_t client_id = GLOBAL_ID_NONE, factory_id = GLOBAL_ID_NONE;
+
+	spa_atou32(client_id_str, &client_id, 10);
+	spa_atou32(factory_id_str, &factory_id, 10);
 
 	/* draw the box */
 	dot_data_add_string(dd, "device_");
@@ -454,16 +485,20 @@ static void draw_device(struct global *g)
 	dot_data_add_string(dd, "\"];\n");
 
 	/* draw the arrows */
-	dot_data_add_string(dd, "device_");
-	dot_data_add_uint32(dd, g->id);
-	dot_data_add_string(dd, " -> client_");
-	dot_data_add_uint32(dd, client_id);
-	dot_data_add_string(dd, " [style=dashed];\n");
-	dot_data_add_string(dd, "device_");
-	dot_data_add_uint32(dd, g->id);
-	dot_data_add_string(dd, " -> factory_");
-	dot_data_add_uint32(dd, factory_id);
-	dot_data_add_string(dd, " [style=dashed];\n");
+	if (client_id != GLOBAL_ID_NONE) {
+		dot_data_add_string(dd, "device_");
+		dot_data_add_uint32(dd, g->id);
+		dot_data_add_string(dd, " -> client_");
+		dot_data_add_uint32(dd, client_id);
+		dot_data_add_string(dd, " [style=dashed];\n");
+	}
+	if (factory_id != GLOBAL_ID_NONE) {
+		dot_data_add_string(dd, "device_");
+		dot_data_add_uint32(dd, g->id);
+		dot_data_add_string(dd, " -> factory_");
+		dot_data_add_uint32(dd, factory_id);
+		dot_data_add_string(dd, " [style=dashed];\n");
+	}
 }
 
 static void draw_factory(struct global *g)
@@ -474,9 +509,10 @@ static void draw_factory(struct global *g)
 
 	struct pw_factory_info *info = g->info;
 	struct dot_data *dd = &g->data->dot_data;
-
 	const char *module_id_str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID);
-	uint32_t module_id = module_id_str ? (uint32_t)atoi(module_id_str) : GLOBAL_ID_NONE;
+	uint32_t module_id = GLOBAL_ID_NONE;
+
+	spa_atou32(module_id_str, &module_id, 10);
 
 	/* draw the box */
 	dot_data_add_string(dd, "factory_");
@@ -493,9 +529,11 @@ static void draw_factory(struct global *g)
 	dot_data_add_uint32(dd, g->id);
 	dot_data_add_string(dd, "\\lname: ");
 	dot_data_add_string_escaped(dd, info->name);
-	dot_data_add_string(dd, "\\lmodule_id: ");
-	dot_data_add_uint32(dd, module_id);
-	dot_data_add_string(dd, "\\l");
+	if (module_id != GLOBAL_ID_NONE) {
+		dot_data_add_string(dd, "\\lmodule_id: ");
+		dot_data_add_uint32(dd, module_id);
+		dot_data_add_string(dd, "\\l");
+	}
 	if (g->data->show_detail)
 		draw_dict(dd, "properties", info->props);
 
@@ -503,11 +541,13 @@ static void draw_factory(struct global *g)
 	dot_data_add_string(dd, "\"];\n");
 
 	/* draw the arrow */
-	dot_data_add_string(dd, "factory_");
-	dot_data_add_uint32(dd, g->id);
-	dot_data_add_string(dd, " -> module_");
-	dot_data_add_uint32(dd, module_id);
-	dot_data_add_string(dd, " [style=dashed];\n");
+	if (module_id != GLOBAL_ID_NONE) {
+		dot_data_add_string(dd, "factory_");
+		dot_data_add_uint32(dd, g->id);
+		dot_data_add_string(dd, " -> module_");
+		dot_data_add_uint32(dd, module_id);
+		dot_data_add_string(dd, " [style=dashed];\n");
+	}
 }
 
 static void draw_module(struct global *g)
@@ -542,6 +582,69 @@ static void draw_module(struct global *g)
 	dot_data_add_string(dd, "\"];\n");
 }
 
+static void draw_group(struct data *d, const char *group)
+{
+	struct spa_list *globals = &d->globals;
+	struct dot_data *dd = &d->dot_data;
+	static uint32_t group_id = 0;
+
+	/* draw the group header */
+	dot_data_add_string(dd, "subgraph cluster_group_");
+	dot_data_add_uint32(dd, group_id++);
+	dot_data_add_string(dd, "{\n");
+	dot_data_add_string(dd, "bgcolor=lavender;\n");
+
+	/* draw the label header */
+	dot_data_add_string(dd, "label=\"");
+
+	/* draw the label body */
+	dot_data_add_string(dd, group);
+	dot_data_add_string(dd, "\\l");
+
+	/* draw the label footer */
+	dot_data_add_string(dd, "\"\n");
+
+	/* draw all nodes for this group */
+	struct global *n;
+	const char *node_link_group;
+	spa_list_for_each(n, globals, link) {
+		struct pw_node_info *info;
+		if (n->info == NULL)
+			continue;
+		if (n->type != INTERFACE_Node)
+			continue;
+		if (n->drawn)
+			continue;
+		info = n->info;
+		node_link_group = spa_dict_lookup(info->props, PW_KEY_NODE_LINK_GROUP);
+		if (node_link_group == NULL || !spa_streq (node_link_group, group))
+			continue;
+		if (n->draw) {
+			n->draw(n);
+			n->drawn = true;
+		}
+	}
+
+	/* draw the group footer */
+	dot_data_add_string(dd, "}\n");
+
+	/* draw the client/factory arrows if all option is enabled */
+	if (d->show_all) {
+		spa_list_for_each(n, globals, link) {
+			struct pw_node_info *info;
+			if (n->info == NULL)
+				continue;
+			if (n->type != INTERFACE_Node)
+				continue;
+			info = n->info;
+			node_link_group = spa_dict_lookup(info->props, PW_KEY_NODE_LINK_GROUP);
+			if (node_link_group == NULL || !spa_streq (node_link_group, group))
+				continue;
+			draw_node_arrows(n);
+		}
+	}
+}
+
 static bool is_node_id_link_referenced(uint32_t id, struct spa_list *globals)
 {
 	struct global *g;
@@ -564,13 +667,15 @@ static bool is_module_id_factory_referenced(uint32_t id, struct spa_list *global
 	struct pw_factory_info *info;
 	const char *module_id_str;
 	spa_list_for_each(g, globals, link) {
+		uint32_t module_id = GLOBAL_ID_NONE;
 		if (g->info == NULL)
 			continue;
 		if (g->type != INTERFACE_Factory)
 			continue;
 		info = g->info;
 		module_id_str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID);
-		if (module_id_str && (uint32_t)atoi(module_id_str) == id)
+		spa_atou32(module_id_str, &module_id, 10);
+		if (module_id != GLOBAL_ID_NONE && module_id == id)
 			return true;
 	}
 	return false;
@@ -637,9 +742,29 @@ static int draw_graph(struct data *d, const char *path)
 		if (d->show_smart && !is_global_referenced(g))
 			continue;
 
+		/* skip already drawn globals */
+		if (g->drawn)
+			continue;
+
+		/* Draw groups (nodes with node.link-group property) */
+		if (g->type == INTERFACE_Node) {
+			struct pw_node_info *info = g->info;
+			const char *group = spa_dict_lookup(info->props, PW_KEY_NODE_LINK_GROUP);
+			if (group != NULL) {
+				draw_group (d, group);
+				continue;
+			}
+		}
+
 		/* draw the global */
-		if (g->draw)
+		if (g->draw) {
 			g->draw(g);
+			g->drawn = true;
+		}
+
+		/* Draw the node arrows */
+		if (d->show_all && g->type == INTERFACE_Node)
+			draw_node_arrows (g);
 	}
 
 	/* draw the footer */
@@ -966,6 +1091,7 @@ static void handle_json_obj(struct data *data, struct pw_properties *obj)
 
 	g = calloc(1, sizeof (struct global));
 	g->data = data;
+	g->draw = false;
 
 	if (spa_streq(str, PW_TYPE_INTERFACE_Port)) {
 		g->info_destroy = (pw_destroy_t)pw_port_info_free;

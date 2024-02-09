@@ -32,8 +32,12 @@ struct data {
 	struct pw_registry *registry;
 	struct spa_hook registry_listener;
 
+	struct pw_properties *props;
+
 	struct pw_security_context *sec;
 
+	int pending_create;
+	int create_result;
 	int pending;
 	int done;
 };
@@ -64,6 +68,9 @@ static void on_core_error(void *_data, uint32_t id, int seq, int res, const char
 
 	pw_log_error("error id:%u seq:%d res:%d (%s): %s",
 			id, seq, res, spa_strerror(res), message);
+
+	if (seq == SPA_RESULT_ASYNC_SEQ(data->pending_create))
+		data->create_result = res;
 
 	if (id == PW_ID_CORE && res == -EPIPE) {
 		data->done = true;
@@ -113,14 +120,19 @@ static void do_quit(void *data, int signal_number)
 	pw_main_loop_quit(d->loop);
 }
 
-static void show_help(const char *name, bool error)
+static void show_help(struct data *d, const char *name, bool error)
 {
-        fprintf(error ? stderr : stdout, "%s [options] [application]\n"
+	FILE *out = error ? stderr : stdout;
+	fprintf(out, "%s [options] [application]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n"
 		"  -P, --properties                      Context properties\n",
 		name);
+	fprintf(out, "\nDefault Context properties:\n");
+	pw_properties_serialize_dict(out, &d->props->dict,
+			PW_PROPERTIES_FLAG_NL | PW_PROPERTIES_FLAG_ENCLOSE);
+	fprintf(out, "\n");
 }
 
 int main(int argc, char *argv[])
@@ -138,9 +150,8 @@ int main(int argc, char *argv[])
 	int c, res, listen_fd, close_fd[2];
 	char temp[PATH_MAX] = "/tmp/pipewire-XXXXXX";
 	struct sockaddr_un sockaddr = {0};
-	struct pw_properties *props;
 
-	props = pw_properties_new(
+	data.props = pw_properties_new(
 			PW_KEY_SEC_ENGINE, "org.flatpak",
 			PW_KEY_ACCESS, "restricted",
 			NULL);
@@ -151,7 +162,7 @@ int main(int argc, char *argv[])
 	while ((c = getopt_long(argc, argv, "hVr:P:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
-			show_help(argv[0], false);
+			show_help(&data, argv[0], false);
 			return 0;
 		case 'V':
 			printf("%s\n"
@@ -165,10 +176,10 @@ int main(int argc, char *argv[])
 			opt_remote = optarg;
 			break;
 		case 'P':
-			pw_properties_update_string(props, optarg, strlen(optarg));
+			pw_properties_update_string(data.props, optarg, strlen(optarg));
 			break;
 		default:
-			show_help(argv[0], true);
+			show_help(&data, argv[0], true);
 			return -1;
 		}
 	}
@@ -212,13 +223,13 @@ int main(int argc, char *argv[])
 	roundtrip(&data);
 
 	if (data.sec == NULL) {
-		fprintf(stderr, "no security context object found");
+		fprintf(stderr, "no security context object found\n");
 		return -1;
 	}
 
 	res = mkstemp(temp);
 	if (res < 0) {
-		fprintf(stderr, "can't make temp file with template %s: %m", temp);
+		fprintf(stderr, "can't make temp file with template %s: %m\n", temp);
 		return -1;
 	}
 	close(res);
@@ -226,31 +237,43 @@ int main(int argc, char *argv[])
 
 	listen_fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (listen_fd < 0) {
-		fprintf(stderr, "can't make unix socket: %m");
+		fprintf(stderr, "can't make unix socket: %m\n");
 		return -1;
 	}
 
 	sockaddr.sun_family = AF_UNIX;
 	snprintf(sockaddr.sun_path, sizeof(sockaddr.sun_path), "%s", temp);
 	if (bind(listen_fd, (struct sockaddr *) &sockaddr, sizeof (sockaddr)) != 0) {
-		fprintf(stderr, "can't bind unix socket to %s: %m", temp);
+		fprintf(stderr, "can't bind unix socket to %s: %m\n", temp);
 		return -1;
 	}
 	if (listen(listen_fd, 0) != 0) {
-		fprintf(stderr, "can't listen unix socket: %m");
+		fprintf(stderr, "can't listen unix socket: %m\n");
 		return -1;
 	}
 
 	res = pipe2(close_fd, O_CLOEXEC);
 	if (res < 0) {
-		fprintf(stderr, "can't create pipe: %m");
+		fprintf(stderr, "can't create pipe: %m\n");
 		return -1;
 	}
 	setenv("PIPEWIRE_REMOTE", temp, 1);
 
-	pw_security_context_create(data.sec, listen_fd, close_fd[1], &props->dict);
+	data.create_result = 0;
+	data.pending_create = pw_security_context_create(data.sec,
+			listen_fd, close_fd[1], &data.props->dict);
 
-	roundtrip(&data);
+	if (SPA_RESULT_IS_ASYNC(data.pending_create)) {
+		pw_log_debug("create: %d", data.pending_create);
+		roundtrip(&data);
+	}
+	pw_log_debug("create result: %d", data.create_result);
+
+	if (data.create_result < 0) {
+		fprintf(stderr, "can't create security context: %s\n",
+				spa_strerror(data.create_result));
+		return -1;
+	}
 
 	if (optind < argc) {
 		system(argv[optind++]);
@@ -266,7 +289,7 @@ int main(int argc, char *argv[])
 	spa_hook_remove(&data.core_listener);
 	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);
-	pw_properties_free(props);
+	pw_properties_free(data.props);
 	pw_deinit();
 
 	return 0;

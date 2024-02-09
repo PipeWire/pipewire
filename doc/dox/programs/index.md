@@ -7,6 +7,7 @@ Manual pages:
 - \subpage page_man_pw-cat_1
 - \subpage page_man_pw-cli_1
 - \subpage page_man_pw-config_1
+- \subpage page_man_pw-container_1
 - \subpage page_man_pw-dot_1
 - \subpage page_man_pw-dump_1
 - \subpage page_man_pw-jack_1

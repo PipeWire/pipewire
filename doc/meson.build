@@ -97,6 +97,7 @@ manpage_docs = [
   'dox/programs/pw-cat.1.md',
   'dox/programs/pw-cli.1.md',
   'dox/programs/pw-config.1.md',
+  'dox/programs/pw-container.1.md',
   'dox/programs/pw-dot.1.md',
   'dox/programs/pw-dump.1.md',
   'dox/programs/pw-jack.1.md',

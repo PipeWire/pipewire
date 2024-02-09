@@ -39,9 +39,9 @@ static int security_context_create(void *object,
 	int res = 0;
 
 	if ((client = impl->context->current_client) == NULL)
-		goto not_allowed;
+		goto invalid_state;
 	if (client->protocol != impl->protocol)
-		goto not_allowed;
+		goto invalid_state;
 
 	/* we can't make a nested security context */
 	p = pw_impl_client_get_properties(client);
@@ -49,13 +49,17 @@ static int security_context_create(void *object,
 		goto not_allowed;
 
 	if (pw_protocol_add_fd_server(impl->protocol, impl->context->core,
-			listen_fd, close_fd, props) == NULL)
+			listen_fd, close_fd, props) == NULL) {
 		res = -errno;
-
+		pw_resource_errorf(d->resource, res, "can't add fd server: %m");
+	}
 	return res;
 
+invalid_state:
+	pw_resource_errorf(d->resource, -EIO, "invalid client protocol");
+	return -EIO;
 not_allowed:
-	pw_log_warn("can't make security context");
+	pw_resource_errorf(d->resource, -EPERM, "Nested security context is not allowed");
 	return -EPERM;
 }
 

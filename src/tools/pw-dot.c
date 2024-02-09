@@ -22,6 +22,7 @@
 #define GLOBAL_ID_NONE UINT32_MAX
 #define DEFAULT_DOT_PATH "pw.dot"
 #define DEFAULT_DOT_DATA_SIZE 2048
+#define MAX_ESCAPED_LEN 128
 
 struct global;
 
@@ -140,6 +141,12 @@ static int escape_quotes(char *str, int size, const char *val)
 			break;
 		}
 		val++;
+
+		/* Truncate with "..." if string has more than escaped len characters. */
+		if (len >= MAX_ESCAPED_LEN) {
+			__PUT('.'); __PUT('.'); __PUT('.');
+			break;
+		}
 	}
 	__PUT('\0');
 #undef __PUT

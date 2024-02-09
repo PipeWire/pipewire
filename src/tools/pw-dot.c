@@ -498,7 +498,7 @@ static void draw_factory(struct global *g)
 	/* draw the arrow */
 	dot_data_add_string(dd, "factory_");
 	dot_data_add_uint32(dd, g->id);
-	dot_data_add_string(dd, " -> module_id");
+	dot_data_add_string(dd, " -> module_");
 	dot_data_add_uint32(dd, module_id);
 	dot_data_add_string(dd, " [style=dashed];\n");
 }
@@ -518,7 +518,7 @@ static void draw_module(struct global *g)
 	dot_data_add_string(dd, " [shape=box style=filled fillcolor=lightgrey];\n");
 
 	/* draw the label header */
-	dot_data_add_string(dd, "module_id");
+	dot_data_add_string(dd, "module_");
 	dot_data_add_uint32(dd, g->id);
 	dot_data_add_string(dd, " [label=\"");
 

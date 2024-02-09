@@ -51,7 +51,9 @@ static int metadata_property(void *data,
 	struct impl *impl = d->impl;
 
 	if (impl->pending == 0 || d->pong_seq != 0) {
-		if (pw_impl_client_check_permissions(client, subject, PW_PERM_R) >= 0)
+		int res = pw_impl_client_check_permissions(client, subject, PW_PERM_R);
+		if (res >= 0 ||
+		    (res == -ENOENT && key == NULL && type == NULL && value == NULL))
 			pw_metadata_resource_property(d->resource, subject, key, type, value);
 	}
 	return 0;

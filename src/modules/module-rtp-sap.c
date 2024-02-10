@@ -26,6 +26,7 @@
 
 #ifdef __FreeBSD__
 #define ifr_ifindex ifr_index
+#define SO_PASSCRED LOCAL_CREDS_PERSISTENT
 #endif
 
 /** \page page_module_rtp_sap SAP Announce and create RTP streams

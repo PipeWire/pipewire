@@ -612,6 +612,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 			if (this->clock_fd == -1) {
 				spa_log_warn(this->log, "failed to open clock device '%s'", s);
+				spa_log_warn(this->log, "ensure pipewire has sufficient access permissions to read the device");
 			} else {
 				this->props.clock_id = FD_TO_CLOCKID(this->clock_fd);
 			}
@@ -627,6 +628,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 			if (this->clock_fd == -1) {
 				spa_log_warn(this->log, "failed to open clock device '%s'", s);
+				spa_log_warn(this->log, "ensure pipewire has sufficient access permissions to read the device");
 			} else {
 				this->props.clock_id = FD_TO_CLOCKID(this->clock_fd);
 			}

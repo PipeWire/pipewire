@@ -210,6 +210,8 @@ static const struct pw_global_events global_events = {
 static void context_global_removed(void *data, struct pw_global *global)
 {
 	struct impl *impl = data;
+	pw_log_trace("Clearing properties for global %u in %u",
+				 pw_global_get_id(global), pw_global_get_id(impl->global));
 	pw_metadata_set_property(impl->metadata,
 			pw_global_get_id(global), NULL, NULL, NULL);
 }

@@ -214,6 +214,7 @@ struct pw_impl_metadata {
 	struct spa_list link;			/**< link in context metadata_list */
 	struct pw_global *global;		/**< global for this metadata */
 	struct spa_hook global_listener;
+	struct spa_hook context_listener;
 
 	struct pw_properties *properties;	/**< properties of the metadata */
 

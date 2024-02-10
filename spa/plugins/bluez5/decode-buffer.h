@@ -55,21 +55,6 @@
 	SPA_CLAMP((spike)*3/2, (packet_size), (max_buf) - 2*(packet_size))
 
 
-/** Windowed min/max */
-struct spa_bt_ptp
-{
-	union {
-		int32_t min;
-		int32_t mins[4];
-	};
-	union {
-		int32_t max;
-		int32_t maxs[4];
-	};
-	uint32_t pos;
-	uint32_t period;
-};
-
 struct spa_bt_decode_buffer
 {
 	struct spa_log *log;
@@ -101,40 +86,6 @@ struct spa_bt_decode_buffer
 	uint8_t received:1;
 	uint8_t buffering:1;
 };
-
-static void spa_bt_ptp_init(struct spa_bt_ptp *p, int32_t period)
-{
-	size_t i;
-
-	spa_zero(*p);
-	for (i = 0; i < SPA_N_ELEMENTS(p->mins); ++i) {
-		p->mins[i] = INT32_MAX;
-		p->maxs[i] = INT32_MIN;
-	}
-	p->period = period;
-}
-
-static void spa_bt_ptp_update(struct spa_bt_ptp *p, int32_t value, uint32_t duration)
-{
-	const size_t n = SPA_N_ELEMENTS(p->mins);
-	size_t i;
-
-	for (i = 0; i < n; ++i) {
-		p->mins[i] = SPA_MIN(p->mins[i], value);
-		p->maxs[i] = SPA_MAX(p->maxs[i], value);
-	}
-
-	p->pos += duration;
-	if (p->pos >= p->period / (n - 1)) {
-		p->pos = 0;
-		for (i = 1; i < SPA_N_ELEMENTS(p->mins); ++i) {
-			p->mins[i-1] = p->mins[i];
-			p->maxs[i-1] = p->maxs[i];
-		}
-		p->mins[n-1] = INT32_MAX;
-		p->maxs[n-1] = INT32_MIN;
-	}
-}
 
 static int spa_bt_decode_buffer_init(struct spa_bt_decode_buffer *this, struct spa_log *log,
 		uint32_t frame_size, uint32_t rate, uint32_t quantum_limit, uint32_t reserve)

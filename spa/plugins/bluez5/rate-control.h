@@ -7,6 +7,55 @@
 
 #include <spa/utils/defs.h>
 
+/** Windowed min/max */
+struct spa_bt_ptp
+{
+	union {
+		int32_t min;
+		int32_t mins[4];
+	};
+	union {
+		int32_t max;
+		int32_t maxs[4];
+	};
+	uint32_t pos;
+	uint32_t period;
+};
+
+static inline void spa_bt_ptp_init(struct spa_bt_ptp *p, int32_t period)
+{
+	size_t i;
+
+	spa_zero(*p);
+	for (i = 0; i < SPA_N_ELEMENTS(p->mins); ++i) {
+		p->mins[i] = INT32_MAX;
+		p->maxs[i] = INT32_MIN;
+	}
+	p->period = period;
+}
+
+static inline void spa_bt_ptp_update(struct spa_bt_ptp *p, int32_t value, uint32_t duration)
+{
+	const size_t n = SPA_N_ELEMENTS(p->mins);
+	size_t i;
+
+	for (i = 0; i < n; ++i) {
+		p->mins[i] = SPA_MIN(p->mins[i], value);
+		p->maxs[i] = SPA_MAX(p->maxs[i], value);
+	}
+
+	p->pos += duration;
+	if (p->pos >= p->period / (n - 1)) {
+		p->pos = 0;
+		for (i = 1; i < SPA_N_ELEMENTS(p->mins); ++i) {
+			p->mins[i-1] = p->mins[i];
+			p->maxs[i-1] = p->maxs[i];
+		}
+		p->mins[n-1] = INT32_MAX;
+		p->maxs[n-1] = INT32_MIN;
+	}
+}
+
 /**
  * Rate controller.
  *
@@ -98,13 +147,13 @@ struct spa_bt_rate_control
 	double corr;
 };
 
-static void spa_bt_rate_control_init(struct spa_bt_rate_control *this, double level)
+static inline void spa_bt_rate_control_init(struct spa_bt_rate_control *this, double level)
 {
 	this->avg = level;
 	this->corr = 1.0;
 }
 
-static double spa_bt_rate_control_update(struct spa_bt_rate_control *this, double level,
+static inline double spa_bt_rate_control_update(struct spa_bt_rate_control *this, double level,
 		double target, double duration, double period, double rate_diff_max)
 {
 	/*

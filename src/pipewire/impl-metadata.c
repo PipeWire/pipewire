@@ -382,7 +382,9 @@ static int metadata_resource_property(void *data,
 	struct pw_resource *resource = d->resource;
 	struct pw_impl_client *client = pw_resource_get_client(resource);
 
-	if (pw_impl_client_check_permissions(client, subject, PW_PERM_R) >= 0)
+	int res = pw_impl_client_check_permissions(client, subject, PW_PERM_R);
+	if (res >= 0 ||
+		    (res == -ENOENT && key == NULL && type == NULL && value == NULL))
 		pw_metadata_resource_property(d->resource, subject, key, type, value);
 	return 0;
 }

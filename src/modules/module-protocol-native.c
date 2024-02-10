@@ -1727,8 +1727,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args_str)
 	d->protocol = this;
 	d->module = module;
 	d->props = pw_properties_new(NULL, NULL);
-	if (d->props == NULL)
+	if (d->props == NULL) {
+		res = -ENOMEM;
 		goto error_cleanup;
+	}
 
 	props = pw_context_get_properties(context);
 	pw_properties_update_keys(d->props, &props->dict, keys);

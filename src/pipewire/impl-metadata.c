@@ -353,6 +353,7 @@ void pw_impl_metadata_destroy(struct pw_impl_metadata *metadata)
 		spa_hook_remove(&metadata->global_listener);
 		pw_global_destroy(metadata->global);
 	}
+	spa_hook_remove(&metadata->context_listener);
 
 	pw_impl_metadata_emit_free(metadata);
 	pw_log_debug("%p: free", metadata);
@@ -464,7 +465,7 @@ global_bind(void *object, struct pw_impl_client *client, uint32_t permissions,
         data->impl = this;
         data->resource = resource;
 
-	pw_log_debug("%p: bound to %d", this, resource->id);
+	pw_log_debug("%p: %u bound to %d", this, id, resource->id);
 	pw_global_add_resource(global, resource);
 
 	/* listen for when the resource goes away */
@@ -488,6 +489,20 @@ error_resource:
 	pw_log_error("%p: can't create metadata resource: %m", this);
 	return -errno;
 }
+
+static void context_global_removed(void *data, struct pw_global *global)
+{
+	struct impl *impl = data;
+	uint32_t id = pw_global_get_id(global);
+	pw_log_trace("Clearing properties for global %u in %u",
+				 id, pw_global_get_id(impl->this.global));
+	impl_set_property(&impl->def, id, NULL, NULL, NULL);
+}
+
+static const struct pw_context_events context_events = {
+	PW_VERSION_CONTEXT_EVENTS,
+	.global_removed = context_global_removed,
+};
 
 static void global_destroy(void *data)
 {
@@ -535,6 +550,8 @@ int pw_impl_metadata_register(struct pw_impl_metadata *metadata,
 
 	pw_global_update_keys(metadata->global, &metadata->properties->dict, keys);
 
+	pw_context_add_listener(context, &metadata->context_listener, &context_events,
+							SPA_CONTAINER_OF(metadata, struct impl, this));
 	pw_global_add_listener(metadata->global, &metadata->global_listener, &global_events, metadata);
 	pw_global_register(metadata->global);
 

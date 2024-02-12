@@ -194,8 +194,9 @@ static char *node_name(char *buffer, int size, struct object *n)
 	const char *name;
 	buffer[0] = '\0';
 	if ((name = pw_properties_get(n->props, PW_KEY_NODE_NAME)) == NULL)
-		return buffer;
-	snprintf(buffer, size, "%s", name);
+		snprintf(buffer, size, "node.id.%d", n->id);
+	else
+		snprintf(buffer, size, "%s", name);
 	return buffer;
 }
 
@@ -204,8 +205,9 @@ static char *node_path(char *buffer, int size, struct object *n)
 	const char *name;
 	buffer[0] = '\0';
 	if ((name = pw_properties_get(n->props, PW_KEY_OBJECT_PATH)) == NULL)
-		return buffer;
-	snprintf(buffer, size, "%s", name);
+		snprintf(buffer, size, "node.path.%d", n->id);
+	else
+		snprintf(buffer, size, "%s", name);
 	return buffer;
 }
 
@@ -213,11 +215,16 @@ static char *port_name(char *buffer, int size, struct object *n, struct object *
 {
 	const char *name1, *name2;
 	buffer[0] = '\0';
-	if ((name1 = pw_properties_get(n->props, PW_KEY_NODE_NAME)) == NULL)
-		return buffer;
-	if ((name2 = pw_properties_get(p->props, PW_KEY_PORT_NAME)) == NULL)
-		return buffer;
-	snprintf(buffer, size, "%s:%s", name1, name2);
+	name1 = pw_properties_get(n->props, PW_KEY_NODE_NAME);
+	name2 = pw_properties_get(p->props, PW_KEY_PORT_NAME);
+	if (name1 && name2)
+		snprintf(buffer, size, "%s:%s", name1, name2);
+	else if (name1)
+		snprintf(buffer, size, "%s:port.id.%d", name1, p->id);
+	else if (name2)
+		snprintf(buffer, size, "node.id.%d:%s", n->id, name2);
+	else
+		snprintf(buffer, size, "node.id.%d:port.id.%d", n->id, p->id);
 	return buffer;
 }
 
@@ -226,8 +233,9 @@ static char *port_path(char *buffer, int size, struct object *n, struct object *
 	const char *name;
 	buffer[0] = '\0';
 	if ((name = pw_properties_get(p->props, PW_KEY_OBJECT_PATH)) == NULL)
-		return buffer;
-	snprintf(buffer, size, "%s", name);
+		snprintf(buffer, size, "port.path.%d", p->id);
+	else
+		snprintf(buffer, size, "%s", name);
 	return buffer;
 }
 
@@ -236,8 +244,9 @@ static char *port_alias(char *buffer, int size, struct object *n, struct object 
 	const char *name;
 	buffer[0] = '\0';
 	if ((name = pw_properties_get(p->props, PW_KEY_PORT_ALIAS)) == NULL)
-		return buffer;
-	snprintf(buffer, size, "%s", name);
+		snprintf(buffer, size, "port_alias.%d", p->id);
+	else
+		snprintf(buffer, size, "%s", name);
 	return buffer;
 }
 

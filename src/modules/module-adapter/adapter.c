@@ -124,117 +124,6 @@ static int find_format(struct spa_node *node, enum pw_direction direction,
 	return 0;
 }
 
-static int do_auto_port_config(struct node *n, const char *str)
-{
-	uint32_t state = 0, i;
-	uint8_t buffer[4096];
-	struct spa_pod_builder b;
-#define POSITION_PRESERVE 0
-#define POSITION_AUX 1
-#define POSITION_UNKNOWN 2
-	int res, position = POSITION_PRESERVE;
-	struct spa_pod *param;
-	uint32_t media_type, media_subtype;
-	bool have_format = false, monitor = false, control = false;
-	struct spa_audio_info format = { 0, };
-	enum spa_param_port_config_mode mode = SPA_PARAM_PORT_CONFIG_MODE_none;
-	struct spa_json it[2];
-	char key[1024], val[256];
-
-	spa_json_init(&it[0], str, strlen(str));
-	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
-		return -EINVAL;
-
-	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
-		if (spa_json_get_string(&it[1], val, sizeof(val)) <= 0)
-			break;
-
-		if (spa_streq(key, "mode")) {
-			mode = spa_debug_type_find_type_short(spa_type_param_port_config_mode, val);
-			if (mode == SPA_ID_INVALID)
-				mode = SPA_PARAM_PORT_CONFIG_MODE_none;
-		} else if (spa_streq(key, "monitor")) {
-			monitor = spa_atob(val);
-		} else if (spa_streq(key, "control")) {
-			control = spa_atob(val);
-		} else if (spa_streq(key, "position")) {
-			if (spa_streq(val, "unknown"))
-				position = POSITION_UNKNOWN;
-			else if (spa_streq(val, "aux"))
-				position = POSITION_AUX;
-			else
-				position = POSITION_PRESERVE;
-		}
-        }
-
-	while (true) {
-		struct spa_audio_info info = { 0, };
-		struct spa_pod *position = NULL;
-		uint32_t n_position = 0;
-
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if ((res = spa_node_port_enum_params_sync(n->follower,
-					n->direction == PW_DIRECTION_INPUT ?
-						SPA_DIRECTION_INPUT :
-						SPA_DIRECTION_OUTPUT, 0,
-					SPA_PARAM_EnumFormat, &state,
-					NULL, &param, &b)) != 1)
-			break;
-
-		if ((res = spa_format_parse(param, &media_type, &media_subtype)) < 0)
-			continue;
-
-		if (media_type != SPA_MEDIA_TYPE_audio ||
-		    media_subtype != SPA_MEDIA_SUBTYPE_raw)
-			continue;
-
-		spa_pod_object_fixate((struct spa_pod_object*)param);
-
-		if (spa_pod_parse_object(param,
-				SPA_TYPE_OBJECT_Format, NULL,
-				SPA_FORMAT_AUDIO_format,        SPA_POD_Id(&info.info.raw.format),
-				SPA_FORMAT_AUDIO_rate,          SPA_POD_Int(&info.info.raw.rate),
-				SPA_FORMAT_AUDIO_channels,      SPA_POD_Int(&info.info.raw.channels),
-				SPA_FORMAT_AUDIO_position,      SPA_POD_OPT_Pod(&position)) < 0)
-			continue;
-
-		if (position != NULL)
-			n_position = spa_pod_copy_array(position, SPA_TYPE_Id,
-					info.info.raw.position, SPA_AUDIO_MAX_CHANNELS);
-		if (n_position == 0 || n_position != info.info.raw.channels)
-			SPA_FLAG_SET(info.info.raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED);
-
-		if (format.info.raw.channels >= info.info.raw.channels)
-			continue;
-
-		format = info;
-		have_format = true;
-	}
-	if (!have_format)
-		return -ENOENT;
-
-	if (position == POSITION_AUX) {
-		for (i = 0; i < format.info.raw.channels; i++)
-			format.info.raw.position[i] = SPA_AUDIO_CHANNEL_START_Aux + i;
-	} else if (position == POSITION_UNKNOWN) {
-		for (i = 0; i < format.info.raw.channels; i++)
-			format.info.raw.position[i] = SPA_AUDIO_CHANNEL_UNKNOWN;
-	}
-
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &format.info.raw);
-	param = spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
-		SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(n->direction),
-		SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(mode),
-		SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(monitor),
-		SPA_PARAM_PORT_CONFIG_control,   SPA_POD_Bool(control),
-		SPA_PARAM_PORT_CONFIG_format,    SPA_POD_Pod(param));
-	pw_impl_node_set_param(n->node, SPA_PARAM_PortConfig, 0, param);
-
-	return 0;
-}
-
 struct info_data {
 	struct spa_hook listener;
 	struct spa_node *node;
@@ -374,9 +263,6 @@ struct pw_impl_node *pw_adapter_new(struct pw_context *context,
 		n->user_data = SPA_PTROFF(n, sizeof(struct node), void);
 
 	pw_impl_node_add_listener(node, &n->node_listener, &node_events, n);
-
-	if ((str = pw_properties_get(props, "adapter.auto-port-config")) != NULL)
-		do_auto_port_config(n, str);
 
 	spa_dict_for_each(it, &props->dict) {
 		if (spa_strstartswith(it->key, "node.param.")) {

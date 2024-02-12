@@ -519,21 +519,19 @@ static int get_phc_index(struct spa_system *s, const char *name) {
 	info.cmd = ETHTOOL_GET_TS_INFO;
 	strncpy(ifr.ifr_name, name, IFNAMSIZ - 1);
 	ifr.ifr_data = (char *) &info;
-	fd = socket(AF_INET, SOCK_DGRAM, 0);
 
-	if (fd < 0) {
-		return -1;
-	}
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (fd < 0)
+		return -errno;
 
 	err = spa_system_ioctl(s, fd, SIOCETHTOOL, &ifr);
 	close(fd);
-	if (err < 0) {
-		return err;
-	}
+	if (err < 0)
+		return -errno;
 
 	return info.phc_index;
 #else
-	return -1;
+	return -ENOTSUP;
 #endif
 }
 
@@ -611,26 +609,25 @@ impl_init(const struct spa_handle_factory *factory,
 			this->clock_fd = open(s, O_RDONLY);
 
 			if (this->clock_fd == -1) {
-				spa_log_warn(this->log, "failed to open clock device '%s'", s);
-				spa_log_warn(this->log, "ensure pipewire has sufficient access permissions to read the device");
+				spa_log_warn(this->log, "failed to open clock device '%s': %m", s);
 			} else {
 				this->props.clock_id = FD_TO_CLOCKID(this->clock_fd);
 			}
 		} else if (spa_streq(k, "clock.interface") && this->clock_fd < 0) {
 			int phc_index = get_phc_index(this->data_system, s);
 			if (phc_index < 0) {
-				spa_log_warn(this->log, "failed to get phc device index for interface '%s'", s);
+				spa_log_warn(this->log, "failed to get phc device index for interface '%s': %s",
+						s, spa_strerror(phc_index));
 			} else {
 				char dev[19];
 				spa_scnprintf(dev, sizeof(dev), "/dev/ptp%d", phc_index);
 				this->clock_fd = open(dev, O_RDONLY);
-			}
-
-			if (this->clock_fd == -1) {
-				spa_log_warn(this->log, "failed to open clock device '%s'", s);
-				spa_log_warn(this->log, "ensure pipewire has sufficient access permissions to read the device");
-			} else {
-				this->props.clock_id = FD_TO_CLOCKID(this->clock_fd);
+				if (this->clock_fd == -1) {
+					spa_log_warn(this->log, "failed to open clock device '%s' "
+							"for interface '%s': %m", dev, s);
+				} else {
+					this->props.clock_id = FD_TO_CLOCKID(this->clock_fd);
+				}
 			}
 		} else if (spa_streq(k, "freewheel.wait")) {
 			this->props.freewheel_wait = atoi(s);

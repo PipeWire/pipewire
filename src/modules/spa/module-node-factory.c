@@ -12,6 +12,7 @@
 #include "config.h"
 
 #include "pipewire/impl.h"
+#include "pipewire/cleanup.h"
 
 #include "spa-node.h"
 
@@ -196,6 +197,7 @@ static void *create_object(void *_data,
 	int res;
 	struct pw_impl_client *client;
 	bool linger;
+	spa_autoptr(pw_properties) copy = NULL;
 
 	if (properties == NULL)
 		goto error_properties;
@@ -214,10 +216,13 @@ static void *create_object(void *_data,
 		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
 			pw_global_get_id(pw_impl_client_get_global(client)));
 	}
+
+	copy = pw_properties_copy(properties);
+
 	node = pw_spa_node_load(context,
 				factory_name,
 				PW_SPA_NODE_FLAG_ACTIVATE,
-				properties,
+				spa_steal_ptr(properties),
 				sizeof(struct node_data));
 	if (node == NULL)
 		goto error_create_node;
@@ -241,8 +246,8 @@ static void *create_object(void *_data,
 
 		pw_resource_add_listener(nd->resource, &nd->resource_listener, &resource_events, nd);
 	}
-	if (pw_properties_get_bool(properties, PW_KEY_OBJECT_EXPORT, false)) {
-		res = export_node(nd, properties);
+	if (pw_properties_get_bool(copy, PW_KEY_OBJECT_EXPORT, false)) {
+		res = export_node(nd, copy);
 		if (res < 0)
 			goto error_export;
 	}

@@ -11,6 +11,7 @@
 #include <spa/utils/string.h>
 
 #include "pipewire/impl.h"
+#include "pipewire/cleanup.h"
 #include "pipewire/private.h"
 
 PW_LOG_TOPIC_EXTERN(log_device);
@@ -765,7 +766,7 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 {
 	struct pw_context *context = device->context;
 	struct spa_handle *handle;
-	struct pw_properties *props;
+	spa_autoptr(pw_properties) props = NULL;
 	int res;
 	void *iface;
 	struct object_data *od = NULL;
@@ -775,26 +776,35 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 		return;
 	}
 
-	handle = pw_context_load_spa_handle(context, info->factory_name, info->props);
+	props = pw_properties_new(NULL, NULL);
+	if (props == NULL) {
+		pw_log_warn("%p: allocation error: %m", device);
+		return;
+	}
+	if (info->props)
+		pw_properties_update(props, info->props);
+	if ((str = pw_properties_get(device->properties, "device.object.properties")))
+		pw_properties_update_string(props, str, strlen(str));
+
+	handle = pw_context_load_spa_handle(context, info->factory_name, &props->dict);
 	if (handle == NULL) {
 		pw_log_warn("%p: can't load handle %s: %m",
 				device, info->factory_name);
-		return;
+		goto cleanup;
 	}
 
 	if ((res = spa_handle_get_interface(handle, info->type, &iface)) < 0) {
 		pw_log_error("%p: can't get %s interface: %s", device, info->type,
 				spa_strerror(res));
-		return;
+		goto cleanup;
 	}
-
-	props = pw_properties_copy(device->properties);
-	if (info->props && props)
-		pw_properties_update(props, info->props);
 
 	if (spa_streq(info->type, SPA_TYPE_INTERFACE_Node)) {
 		struct pw_impl_node *node;
-		node = pw_context_create_node(context, props, sizeof(struct object_data));
+		node = pw_context_create_node(context, spa_steal_ptr(props),
+				sizeof(struct object_data));
+		if (node == NULL)
+			goto cleanup;
 
 		od = pw_impl_node_get_user_data(node);
 		od->object = node;
@@ -803,7 +813,10 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 		pw_impl_node_set_implementation(node, iface);
 	} else if (spa_streq(info->type, SPA_TYPE_INTERFACE_Device)) {
 		struct pw_impl_device *dev;
-		dev = pw_context_create_device(context, props, sizeof(struct object_data));
+		dev = pw_context_create_device(context, spa_steal_ptr(props),
+				sizeof(struct object_data));
+		if (dev == NULL)
+			goto cleanup;
 
 		od = pw_impl_device_get_user_data(dev);
 		od->object = dev;
@@ -812,9 +825,8 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 		pw_impl_device_set_implementation(dev, iface);
 	} else {
 		pw_log_warn("%p: unknown type %s", device, info->type);
-		pw_properties_free(props);
+		goto cleanup;
 	}
-
 	if (od) {
 		od->id = id;
 		od->handle = handle;
@@ -822,6 +834,11 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 		if (device->global)
 			object_register(od, device->info.id);
 	}
+	return;
+
+cleanup:
+	if (handle)
+		pw_unload_spa_handle(handle);
 	return;
 }
 

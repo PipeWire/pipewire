@@ -770,6 +770,7 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 	struct pw_context *context = device->context;
 	struct spa_handle *handle, *subhandle = NULL;
 	spa_autoptr(pw_properties) props = NULL;
+	const struct pw_properties *p;
 	int res;
 	void *iface;
 	struct object_data *od = NULL;
@@ -790,6 +791,10 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 	if ((str = pw_properties_get(device->properties, "device.object.properties")))
 		pw_properties_update_string(props, str, strlen(str));
 
+	p = pw_context_get_properties(context);
+	pw_properties_set(props, "clock.quantum-limit",
+			pw_properties_get(p, "default.clock.quantum-limit"));
+
 	handle = pw_context_load_spa_handle(context, info->factory_name, &props->dict);
 	if (handle == NULL) {
 		pw_log_warn("%p: can't load handle %s: %m",
@@ -805,11 +810,6 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 
 	if (spa_streq(info->type, SPA_TYPE_INTERFACE_Node)) {
 		struct pw_impl_node *node;
-		const struct pw_properties *p;
-
-		p = pw_context_get_properties(context);
-		pw_properties_set(props, "clock.quantum-limit",
-				pw_properties_get(p, "default.clock.quantum-limit"));
 
 		if ((str = pw_properties_get(props, "node.adapter")) != NULL) {
 			char name[64];

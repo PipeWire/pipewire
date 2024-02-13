@@ -427,6 +427,15 @@ static int impl_enum_params(void *object, int seq,
 	return 0;
 }
 
+static uint32_t find_profile_by_name(const char *name)
+{
+	if (spa_streq(name, "off"))
+		return 0;
+	else if (spa_streq(name, "on"))
+		return 1;
+	return SPA_ID_INVALID;
+}
+
 static int impl_set_param(void *object,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod *param)
@@ -439,16 +448,29 @@ static int impl_set_param(void *object,
 	switch (id) {
 	case SPA_PARAM_Profile:
 	{
-		uint32_t idx;
+		uint32_t idx = SPA_ID_INVALID;
+		const char *name = NULL;
 
-		if ((res = spa_pod_parse_object(param,
+		if (param == NULL) {
+			idx = 1;
+		} else if ((res = spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(&idx))) < 0) {
+				SPA_PARAM_PROFILE_index, SPA_POD_OPT_Int(&idx),
+				SPA_PARAM_PROFILE_name, SPA_POD_OPT_String(&name))) < 0) {
 			spa_log_warn(this->log, "can't parse profile");
 			spa_debug_log_pod(this->log, SPA_LOG_LEVEL_DEBUG, 0, NULL, param);
 			return res;
 		}
-
+		if (idx == SPA_ID_INVALID && name == NULL) {
+			spa_log_warn(this->log, "profile needs name or index");
+			return -EINVAL;
+		}
+		if (idx == SPA_ID_INVALID)
+			idx = find_profile_by_name(name);
+		if (idx == SPA_ID_INVALID) {
+			spa_log_warn(this->log, "unknown profile %s", name);
+			return -EINVAL;
+		}
 		set_profile(this, idx);
 		break;
 	}

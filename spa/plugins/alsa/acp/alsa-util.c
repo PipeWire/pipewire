@@ -891,6 +891,10 @@ finish:
 }
 #endif
 
+static PA_PRINTF_FUNC(5,0) void alsa_local_handler(const char *file, int line, const char *function, int err, const char *fmt, va_list arg) {
+    pa_log_levelv_meta(PA_LOG_INFO, file, line, function, fmt, arg);
+}
+
 static PA_PRINTF_FUNC(5,6) void alsa_error_handler(const char *file, int line, const char *function, int err, const char *fmt,...) {
     va_list ap;
 //    char *alsa_file;
@@ -909,13 +913,17 @@ static PA_PRINTF_FUNC(5,6) void alsa_error_handler(const char *file, int line, c
 static int n_error_handler_installed = 0;
 
 typedef void (*snd_lib2_error_handler_t)(const char *file, int line, const char *function, int err, const char *fmt, ...) PA_PRINTF_FUNC(5,6) /* __attribute__ ((format (printf, 5, 6))) */;
+typedef void (*snd_lib2_local_handler_t)(const char *file, int line, const char *function, int err, const char *fmt, va_list args) PA_PRINTF_FUNC(5,0) /* __attribute__ ((format (printf, 5, 0))) */;
 
 extern int snd_lib_error_set_handler(snd_lib2_error_handler_t handler);
+extern snd_local_error_handler_t snd_lib_error_set_local(snd_lib2_local_handler_t handler);
 
 void pa_alsa_refcnt_inc(void) {
     /* This is not really thread safe, but we do our best */
-   if (n_error_handler_installed++ == 0)
+   if (n_error_handler_installed++ == 0) {
         snd_lib_error_set_handler(alsa_error_handler);
+        snd_lib_error_set_local(alsa_local_handler);
+   }
 }
 
 void pa_alsa_refcnt_dec(void) {
@@ -925,6 +933,7 @@ void pa_alsa_refcnt_dec(void) {
 
     if (r == 1) {
         snd_lib_error_set_handler(NULL);
+        snd_lib_error_set_local(NULL);
         snd_config_update_free_global();
     }
 }

@@ -36,11 +36,12 @@ context.objects = [
             # This driver should only be used for network nodes marked with group
             priority.driver = 100000
             clock.name      = "clock.system.ptp0"
-            ### please select the PTP hardware clock here
+            ### Please select the PTP hardware clock here
             # Interface name is the preferred method of specifying the PHC
             clock.interface = "eth0"
             #clock.device    = "/dev/ptp0"
             #clock.id        = tai
+            # Lower this in case of periodic out-of-sync
             resync.ms       = 1.5
             object.export   = true
         }
@@ -63,12 +64,14 @@ context.modules = [
     { name = libpipewire-module-adapter }
     { name = libpipewire-module-rtp-sap
         args = {
-            ### please select the interface here
+            ### Please select the interface here
             local.ifname = eth0
             sap.ip = 239.255.255.255
             sap.port = 9875
             net.ttl = 32
             net.loop = false
+            # If you use another PTPv2 daemon supporting management
+            # messages over a UNIX socket, specify its path here
             ptp.management-socket = "/var/run/ptp4lro"
 
             stream.rules = [
@@ -83,6 +86,7 @@ context.modules = [
                             node.virtual = false
                             media.class = "Audio/Source"
                             device.api = aes67
+                            # You can adjust the latency buffering here. Use integer values only
                             sess.latency.msec = 3
                             node.group = pipewire.ptp0
                         }
@@ -103,23 +107,28 @@ context.modules = [
     },
     { name = libpipewire-module-rtp-sink
         args = {
-            ### please select the interface here
+            ### Please select the interface here
             local.ifname = eth0
-            # if you want to create multiple output streams, please copy the
-            # whole module-rtp-sink, but change this multicast IP to another unused one
+            ### If you want to create multiple output streams, please copy the whole
+            ### module-rtp-sink block, but change this multicast IP to another unused
+            ### one keeping 239.69.x.x range unless you know you need another one
             destination.ip = 239.69.150.243
             destination.port = 5004
             net.mtu = 1280
             net.ttl = 32
             net.loop = false
             # These should typically be equal
+            # You can customize packet length, but 1 ms should work for every device
+            # Consult receiver documentation to ensure it supports the value you set
             sess.min-ptime = 1
             sess.max-ptime = 1
-            # please change this, especially for multiple streams
+            ### Please change this, especially if you create multiple sinks
             sess.name = "PipeWire RTP stream"
             sess.media = "audio"
+            # This property is used if you aren't using ptp4l 4
             sess.ts-refclk = "ptp=traceable"
             sess.ts-offset = 0
+            # You can adjust the latency buffering here. Use integer values only
             sess.latency.msec = 3
             audio.format = "S24BE"
             audio.rate = 48000
@@ -128,6 +137,7 @@ context.modules = [
             node.channel-names = ["CH1", "CH2"]
 
             stream.props = {
+                ### Please change the sink name, this is necessary when you create multiple sinks
                 node.name = "rtp-sink"
                 media.class = "Audio/Sink"
                 node.virtual = false

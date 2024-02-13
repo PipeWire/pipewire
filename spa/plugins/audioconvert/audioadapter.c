@@ -302,9 +302,14 @@ static void emit_node_info(struct impl *this, bool full)
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
-		struct spa_dict_item items[2];
+		struct spa_dict_item *items;
 		uint32_t n_items = 0;
 
+		if (this->info.props)
+			n_items = this->info.props->n_items;
+		items = alloca((n_items + 2) * sizeof(struct spa_dict_item));
+		for (i = 0; i < n_items; i++)
+			items[i] = this->info.props->items[i];
 		items[n_items++] = SPA_DICT_ITEM_INIT("adapter.auto-port-config", NULL);
 		items[n_items++] = SPA_DICT_ITEM_INIT("audio.adapt.follower", NULL);
 		this->info.props = &SPA_DICT_INIT(items, n_items);
@@ -321,6 +326,7 @@ static void emit_node_info(struct impl *this, bool full)
 		}
 		spa_node_emit_info(&this->hooks, &this->info);
 		this->info.change_mask = old;
+		spa_zero(this->info.props);
 	}
 }
 

@@ -94,14 +94,21 @@ static void object_update(struct object_data *od, const struct spa_dict *props)
 	}
 }
 
-static void object_register(struct object_data *od)
+static void object_register(struct object_data *od, uint32_t device_id)
 {
+	char id[64];
+	struct spa_dict_item it[1];
+	snprintf(id, sizeof(id), "%u", device_id);
+
+	it[0] = SPA_DICT_ITEM_INIT(PW_KEY_DEVICE_ID, id);
 	switch (od->type) {
 	case OBJECT_NODE:
+		pw_impl_node_update_properties(od->object, &SPA_DICT_INIT_ARRAY(it));
 		pw_impl_node_register(od->object, NULL);
 		pw_impl_node_set_active(od->object, true);
 		break;
 	case OBJECT_DEVICE:
+		pw_impl_device_update_properties(od->object, &SPA_DICT_INIT_ARRAY(it));
 		pw_impl_device_register(od->object, NULL);
 		break;
 	}
@@ -583,7 +590,7 @@ int pw_impl_device_register(struct pw_impl_device *device,
 	pw_global_register(device->global);
 
 	spa_list_for_each(od, &device->object_list, link)
-		object_register(od);
+		object_register(od, device->info.id);
 
 	return 0;
 
@@ -813,7 +820,7 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 		od->handle = handle;
 		spa_list_append(&device->object_list, &od->link);
 		if (device->global)
-			object_register(od);
+			object_register(od, device->info.id);
 	}
 	return;
 }

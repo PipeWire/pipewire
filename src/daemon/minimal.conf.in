@@ -44,6 +44,10 @@ context.properties = {
     vm.overrides = {
         default.clock.min-quantum = 1024
     }
+
+    # This config can use udev or hardcoded ALSA devices. Make sure to
+    # change the alsa device below when disabling udev
+    minimal.use-udev = true
 }
 
 context.spa-libs = {
@@ -54,6 +58,7 @@ context.spa-libs = {
     # that factory.
     #
     audio.convert.* = audioconvert/libspa-audioconvert
+    audio.adapt     = audioconvert/libspa-audioconvert
     api.alsa.*      = alsa/libspa-alsa
     support.*       = support/libspa-support
 }
@@ -98,6 +103,8 @@ context.modules = [
     # Creates a factory for making nodes that run in the
     # context of the PipeWire server.
     { name = libpipewire-module-spa-node-factory }
+
+    { name = libpipewire-module-spa-device-factory }
 
     # Allows creating nodes that run in the context of the
     # client. Is used by all clients that want to provide
@@ -183,6 +190,33 @@ context.objects = [
         }
     }
 
+    # This creates a ALSA udev device that will enumerate all
+    # ALSA devices. Because it is using ACP and has the audio-profile
+    # property set, this will enable a profile and create associated
+    # nodes, which will be automatically configured to their best
+    # configuration.
+    { factory = spa-device-factory
+        args = {
+            factory.name           = api.alsa.enum.udev
+            alsa.use-acp = true
+            device.object.properties = {
+                api.acp.auto-profile = true
+                api.acp.auto-port = true
+                device.object.properties = {
+                    node.adapter             = audio.adapt
+                    resample.disable         = true
+                    adapter.auto-port-config = {
+                        mode = dsp
+                        monitor = false
+                        control = false
+                        position = unknown   # unknown, preserve
+                    }
+                }
+            }
+        }
+        condition = [ { minimal.use-udev = true } ]
+    }
+
     # This creates a single PCM source device for the given
     # alsa device path hw:0. You can change source to sink
     # to make a sink in the same way.
@@ -222,7 +256,7 @@ context.objects = [
             #channelmix.rear-delay  = 12.0
             #channelmix.stereo-widen = 0.0
             #channelmix.hilbert-taps = 0
-            channelmix.disable     = true
+            #channelmix.disable     = false
             #dither.noise = 0
             #node.param.Props      = {
             #    params = [
@@ -248,6 +282,7 @@ context.objects = [
             #    }
             #}
         }
+        condition = [ { minimal.use-udev = false } ]
     }
     { factory = adapter
         args = {
@@ -284,7 +319,7 @@ context.objects = [
             #channelmix.rear-delay = 12.0
             #channelmix.stereo-widen = 0.0
             #channelmix.hilbert-taps = 0
-            channelmix.disable     = true
+            #channelmix.disable     = false
             #dither.noise = 0
             #node.param.Props      = {
             #    params = [
@@ -310,6 +345,7 @@ context.objects = [
             #    }
             #}
         }
+        condition = [ { minimal.use-udev = false } ]
     }
     # This creates a new Source node. It will have input ports
     # that you can link, to provide audio for this source.

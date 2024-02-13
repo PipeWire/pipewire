@@ -67,6 +67,7 @@ struct object_data {
 #define OBJECT_DEVICE	1
 	uint32_t type;
 	struct spa_handle *handle;
+	struct spa_handle *subhandle;
 	void *object;
 	struct spa_hook listener;
 };
@@ -610,6 +611,8 @@ static void on_object_free(void *data)
 {
 	struct object_data *od = data;
 	pw_unload_spa_handle(od->handle);
+	if (od->subhandle)
+		pw_unload_spa_handle(od->subhandle);
 }
 
 static const struct pw_impl_node_events node_object_events = {
@@ -765,11 +768,12 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 		const struct spa_device_object_info *info)
 {
 	struct pw_context *context = device->context;
-	struct spa_handle *handle;
+	struct spa_handle *handle, *subhandle = NULL;
 	spa_autoptr(pw_properties) props = NULL;
 	int res;
 	void *iface;
 	struct object_data *od = NULL;
+	const char *str;
 
 	if (info->factory_name == NULL) {
 		pw_log_debug("%p: missing factory name", device);
@@ -801,6 +805,31 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 
 	if (spa_streq(info->type, SPA_TYPE_INTERFACE_Node)) {
 		struct pw_impl_node *node;
+		const struct pw_properties *p;
+
+		p = pw_context_get_properties(context);
+		pw_properties_set(props, "clock.quantum-limit",
+				pw_properties_get(p, "default.clock.quantum-limit"));
+
+		if ((str = pw_properties_get(props, "node.adapter")) != NULL) {
+			char name[64];
+			snprintf(name, sizeof(name), "%s.follower", str);
+	                pw_properties_setf(props, name, "pointer:%p", iface);
+
+			subhandle = handle;
+
+			handle = pw_context_load_spa_handle(context, str, &props->dict);
+			if (handle == NULL) {
+				pw_log_warn("%p: can't load handle %s: %m", device, str);
+				goto cleanup;
+			}
+			if ((res = spa_handle_get_interface(handle, info->type, &iface)) < 0) {
+				pw_log_error("%p: can't get %s interface: %s", device, info->type,
+						spa_strerror(res));
+				goto cleanup;
+			}
+		}
+
 		node = pw_context_create_node(context, spa_steal_ptr(props),
 				sizeof(struct object_data));
 		if (node == NULL)
@@ -830,6 +859,7 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 	if (od) {
 		od->id = id;
 		od->handle = handle;
+		od->subhandle = subhandle;
 		spa_list_append(&device->object_list, &od->link);
 		if (device->global)
 			object_register(od, device->info.id);
@@ -839,6 +869,8 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 cleanup:
 	if (handle)
 		pw_unload_spa_handle(handle);
+	if (subhandle)
+		pw_unload_spa_handle(subhandle);
 	return;
 }
 

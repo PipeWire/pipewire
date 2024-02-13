@@ -302,6 +302,13 @@ static void emit_node_info(struct impl *this, bool full)
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
+		struct spa_dict_item items[2];
+		uint32_t n_items = 0;
+
+		items[n_items++] = SPA_DICT_ITEM_INIT("adapter.auto-port-config", NULL);
+		items[n_items++] = SPA_DICT_ITEM_INIT("audio.adapt.follower", NULL);
+		this->info.props = &SPA_DICT_INIT(items, n_items);
+
 		if (this->info.change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
 			for (i = 0; i < this->info.n_params; i++) {
 				if (this->params[i].user > 0) {
@@ -1904,6 +1911,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->target = this->convert;
 
 	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS |
+		SPA_NODE_CHANGE_MASK_PROPS |
 		SPA_NODE_CHANGE_MASK_PARAMS;
 	this->info = SPA_NODE_INFO_INIT();
 	this->info.flags = SPA_NODE_FLAG_RT |

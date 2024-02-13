@@ -211,7 +211,14 @@ context.objects = [
                         control = false
                         position = unknown   # unknown, preserve
                     }
+                    #node.param.Props    = {
+                    #    channelVolumes = [ 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.6 ]
+                    #}
                 }
+                #device.param.Profile    = {
+                #    #idx = 0
+                #    name = pro-audio
+                #}
             }
         }
         condition = [ { minimal.use-udev = true } ]
@@ -226,7 +233,7 @@ context.objects = [
             node.name              = "system"
             node.description       = "system"
             media.class            = "Audio/Source"
-            api.alsa.path          = "hw:0"
+            api.alsa.path          = "hw:4"
             #api.alsa.period-size   = 0
             #api.alsa.period-num    = 0
             #api.alsa.headroom      = 0
@@ -281,6 +288,9 @@ context.objects = [
             #        position = [ FL FR RL RR ]
             #    }
             #}
+            #node.param.Props    = {
+            #    channelVolumes = [ 0.5 0.4 0.3 0.5 ]
+            #}
         }
         condition = [ { minimal.use-udev = false } ]
     }
@@ -290,7 +300,7 @@ context.objects = [
             node.name              = "system"
             node.description       = "system"
             media.class            = "Audio/Sink"
-            api.alsa.path          = "hw:0"
+            api.alsa.path          = "hw:4"
             #api.alsa.period-size   = 0
             #api.alsa.period-num    = 0
             #api.alsa.headroom      = 0
@@ -343,6 +353,9 @@ context.objects = [
             #        rate = 48000
             #        channels = 4
             #    }
+            #}
+            #node.param.Props    = {
+            #    channelVolumes = [ 0.5 0.4 0.3 0.5 ]
             #}
         }
         condition = [ { minimal.use-udev = false } ]

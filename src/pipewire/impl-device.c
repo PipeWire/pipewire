@@ -9,6 +9,7 @@
 #include <spa/pod/filter.h>
 #include <spa/pod/dynamic.h>
 #include <spa/utils/string.h>
+#include <spa/utils/json-pod.h>
 
 #include "pipewire/impl.h"
 #include "pipewire/cleanup.h"
@@ -360,6 +361,16 @@ int pw_impl_device_for_each_param(struct pw_impl_device *device,
 
 	return res;
 }
+
+SPA_EXPORT
+int pw_impl_device_set_param(struct pw_impl_device *device,
+		uint32_t id, uint32_t flags, const struct spa_pod *param)
+{
+	pw_log_debug("%p: set_param id:%d (%s) flags:%08x param:%p", device, id,
+			spa_debug_type_find_name(spa_type_param, id), flags, param);
+	return spa_device_set_param(device->device, id, flags, param);
+}
+
 
 static int reply_param(void *data, int seq, uint32_t id,
 		uint32_t index, uint32_t next, struct spa_pod *param)
@@ -912,9 +923,36 @@ static const struct spa_device_events device_events = {
 	.object_info = device_object_info,
 };
 
+static int handle_device_param(struct pw_impl_device *device, const char *key, const char *value)
+{
+	const struct spa_type_info *ti;
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	struct spa_pod *pod;
+	int res;
+
+	ti = spa_debug_type_find_short(spa_type_param, key);
+	if (ti == NULL)
+		return -ENOENT;
+
+	if ((res = spa_json_to_pod(&b, 0, ti, value, strlen(value))) < 0)
+		return res;
+
+	if ((pod = spa_pod_builder_deref(&b, 0)) == NULL)
+		return -ENOSPC;
+
+	if ((res = pw_impl_device_set_param(device, ti->type, 0, pod)) < 0)
+		return res;
+
+	return 0;
+}
+
 SPA_EXPORT
 int pw_impl_device_set_implementation(struct pw_impl_device *device, struct spa_device *spa_device)
 {
+	int res;
+	const struct spa_dict_item *it;
+
 	pw_log_debug("%p: implementation %p", device, spa_device);
 
 	if (device->device) {
@@ -923,10 +961,19 @@ int pw_impl_device_set_implementation(struct pw_impl_device *device, struct spa_
 		return -EEXIST;
 	}
 	device->device = spa_device;
-	spa_device_add_listener(device->device,
-			&device->listener, &device_events, device);
 
-	return 0;
+again:
+	spa_dict_for_each(it, &device->properties->dict) {
+		if (spa_strstartswith(it->key, "device.param.")) {
+			if ((res = handle_device_param(device, &it->key[13], it->value)) < 0)
+				pw_log_warn("can't set device param: %s", spa_strerror(res));
+			pw_properties_set(device->properties, it->key, NULL);
+			goto again;
+		}
+	}
+	res = spa_device_add_listener(device->device,
+			&device->listener, &device_events, device);
+	return res;
 }
 
 SPA_EXPORT

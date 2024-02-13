@@ -18,6 +18,7 @@
 #include <spa/node/utils.h>
 #include <spa/debug/types.h>
 #include <spa/utils/string.h>
+#include <spa/utils/json-pod.h>
 
 #include "pipewire/impl-node.h"
 #include "pipewire/private.h"
@@ -920,6 +921,8 @@ static void check_properties(struct pw_impl_node *node)
 	struct spa_fraction frac;
 	uint32_t value;
 	bool driver, trigger;
+
+
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_PRIORITY_DRIVER))) {
 		value = pw_properties_parse_int(str);
@@ -1937,11 +1940,36 @@ static const struct spa_node_callbacks node_callbacks = {
 	.xrun = node_xrun,
 };
 
+static int handle_node_param(struct pw_impl_node *node, const char *key, const char *value)
+{
+	const struct spa_type_info *ti;
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	struct spa_pod *pod;
+	int res;
+
+	ti = spa_debug_type_find_short(spa_type_param, key);
+	if (ti == NULL)
+		return -ENOENT;
+
+	if ((res = spa_json_to_pod(&b, 0, ti, value, strlen(value))) < 0)
+		return res;
+
+	if ((pod = spa_pod_builder_deref(&b, 0)) == NULL)
+		return -ENOSPC;
+
+	if ((res = pw_impl_node_set_param(node, ti->type, 0, pod)) < 0)
+		return res;
+
+	return 0;
+}
+
 SPA_EXPORT
 int pw_impl_node_set_implementation(struct pw_impl_node *node,
 			struct spa_node *spa_node)
 {
 	int res;
+	const struct spa_dict_item *it;
 
 	pw_log_debug("%p: implementation %p", node, spa_node);
 
@@ -1952,6 +1980,17 @@ int pw_impl_node_set_implementation(struct pw_impl_node *node,
 
 	node->node = spa_node;
 	spa_node_set_callbacks(node->node, &node_callbacks, node);
+
+again:
+	spa_dict_for_each(it, &node->properties->dict) {
+		if (spa_strstartswith(it->key, "node.param.")) {
+			if ((res = handle_node_param(node, &it->key[11], it->value)) < 0)
+				pw_log_warn("can't set node param: %s", spa_strerror(res));
+			pw_properties_set(node->properties, it->key, NULL);
+			goto again;
+		}
+	}
+
 	res = spa_node_add_listener(node->node, &node->listener, &node_events, node);
 
 	if (node->registered)

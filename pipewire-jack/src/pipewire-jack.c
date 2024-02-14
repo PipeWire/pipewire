@@ -75,6 +75,10 @@ PW_LOG_TOPIC_STATIC(jack_log_topic, "jack");
 #define SELF_CONNECT_FAIL_ALL	-2
 #define SELF_CONNECT_IGNORE_ALL	2
 
+#define OTHER_CONNECT_ALLOW	1
+#define OTHER_CONNECT_FAIL	-1
+#define OTHER_CONNECT_IGNORE	0
+
 #define NOTIFY_BUFFER_SIZE	(1u<<13)
 #define NOTIFY_BUFFER_MASK	(NOTIFY_BUFFER_SIZE-1)
 
@@ -438,6 +442,7 @@ struct client {
 	unsigned int locked_process:1;
 	unsigned int default_as_system:1;
 	int self_connect_mode;
+	int other_connect_mode;
 	int rt_max;
 	unsigned int fix_midi_events:1;
 	unsigned int global_buffer_size:1;
@@ -4039,6 +4044,14 @@ jack_client_t * jack_client_open (const char *client_name,
 		else if (spa_streq(str, "ignore-all"))
 			client->self_connect_mode = SELF_CONNECT_IGNORE_ALL;
 	}
+	client->other_connect_mode = OTHER_CONNECT_ALLOW;
+	if ((str = pw_properties_get(client->props, "jack.other-connect-mode")) != NULL) {
+		if (spa_streq(str, "fail"))
+			client->other_connect_mode = OTHER_CONNECT_FAIL;
+		else if (spa_streq(str, "ignore"))
+			client->other_connect_mode = OTHER_CONNECT_IGNORE;
+	}
+
 	client->rt_max = pw_properties_get_int32(client->props, "rt.prio", DEFAULT_RT_MAX);
 
 	if (status)
@@ -5836,14 +5849,17 @@ static int check_connect(struct client *c, struct object *src, struct object *ds
 {
 	int src_self, dst_self, sum;
 
-	if (c->self_connect_mode == SELF_CONNECT_ALLOW)
-		return 1;
-
 	src_self = src->port.node_id == c->node_id ? 1 : 0;
 	dst_self = dst->port.node_id == c->node_id ? 1 : 0;
 	sum = src_self + dst_self;
-	/* check for no self connection first */
+
+	pw_log_info("sum %d %d", sum, c->self_connect_mode);
+
+	/* check for other connection first */
 	if (sum == 0)
+		return c->other_connect_mode;
+
+	if (c->self_connect_mode == SELF_CONNECT_ALLOW)
 		return 1;
 
 	/* internal connection */

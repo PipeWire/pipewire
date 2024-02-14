@@ -83,6 +83,11 @@ jack.properties = {
      # fail-all:        Fail all self connect requests
      # ignore-all:      Ignore all self connect requests
      #jack.self-connect-mode = allow
+     #
+     # allow:           Allow connect request of other ports
+     # fail:            Fail connect requests of other ports
+     # ignore:          Ignore connect requests of other ports
+     #jack.other-connect-mode = allow
      #jack.locked-process    = true
      #jack.default-as-system = false
      #jack.fix-midi-events   = true

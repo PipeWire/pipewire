@@ -995,9 +995,11 @@ int main(int argc, char *argv[])
 	}
 
 	struct target_link *tl;
-	spa_list_for_each(tl, &data.target_links, link) {
+	spa_list_consume(tl, &data.target_links, link) {
 		spa_hook_remove(&tl->listener);
 		pw_proxy_destroy(tl->proxy);
+		spa_list_remove(&tl->link);
+		free(tl);
 	}
 
 	if (data.out_regex)

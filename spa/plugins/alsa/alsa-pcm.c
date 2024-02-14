@@ -3181,56 +3181,10 @@ static uint64_t get_time_ns(struct state *state)
 	return SPA_TIMESPEC_TO_NSEC(&now);
 }
 
-static void alsa_wakeup_event(struct spa_source *source)
+static inline int alsa_do_wakeup_work(struct state *state, uint64_t current_time)
 {
-	struct state *state = source->data, *follower;
-	uint64_t expire, current_time;
-	int res, suppressed;
-
-	if (state->disable_tsched) {
-		/* ALSA poll fds need to be "demangled" to know whether it's a real wakeup */
-		int err;
-		unsigned short revents;
-
-		current_time = get_time_ns(state);
-
-		for (int i = 0; i < state->n_fds; i++) {
-			state->pfds[i].revents = state->source[i].rmask;
-			/* Reset so that we only handle all our sources' events once */
-			state->source[i].rmask = 0;
-		}
-
-		if (SPA_UNLIKELY(err = snd_pcm_poll_descriptors_revents(state->hndl,
-						state->pfds, state->n_fds, &revents))) {
-			spa_log_error(state->log, "Could not look up revents: %s",
-					snd_strerror(err));
-			return;
-		}
-
-		if (!revents) {
-			spa_log_trace_fp(state->log, "Woken up with no work to do");
-			return;
-		}
-		if (revents & POLLERR) {
-			spa_log_trace_fp(state->log, "poll error");
-			if ((res = alsa_recover(state)) < 0)
-				return;
-		}
-	} else {
-		if (SPA_LIKELY(state->started)) {
-			if (SPA_UNLIKELY((res = spa_system_timerfd_read(state->data_system,
-						state->timerfd, &expire)) < 0)) {
-			/* we can get here when the timer is changed since the last
-				 * timerfd wakeup, for example by do_reassign_follower() executed
-				 * in the same epoll wakeup cycle */
-				if (res != -EAGAIN)
-					spa_log_warn(state->log, "%p: error reading timerfd: %s",
-							state, spa_strerror(res));
-				return;
-			}
-		}
-		current_time = state->next_time;
-	}
+	struct state *follower;
+	int res;
 
 	/* first do all the sync */
 	if (state->stream == SND_PCM_STREAM_CAPTURE)
@@ -3239,7 +3193,7 @@ static void alsa_wakeup_event(struct spa_source *source)
 		res = alsa_write_sync(state, current_time);
 	/* we can get -EAGAIN when we need to wait some more */
 	if (SPA_UNLIKELY(res == -EAGAIN))
-		goto done;
+		return res;
 
 	spa_list_for_each(follower, &state->rt.followers, rt.driver_link) {
 		if (follower == state)
@@ -3262,21 +3216,78 @@ static void alsa_wakeup_event(struct spa_source *source)
 	else
 		capture_ready(state);
 
-done:
-	if (!state->disable_tsched) {
-		if (state->next_time > current_time + SPA_NSEC_PER_SEC ||
-		    current_time > state->next_time + SPA_NSEC_PER_SEC) {
-			if ((suppressed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
-				spa_log_error(state->log, "%s: impossible timeout %"
-					PRIu64" %"PRIu64" %"PRIi64" %d %"PRIi64" (%d suppressed)",
-					state->name, current_time, state->next_time,
-					state->next_time - current_time, state->threshold,
-					state->sample_count, suppressed);
-			}
-			state->next_time = current_time + state->threshold * 1e9 / state->rate;
-		}
-		set_timeout(state, state->next_time);
+	return 0;
+}
+
+static void alsa_irq_wakeup_event(struct spa_source *source)
+{
+	struct state *state = source->data;
+	uint64_t current_time;
+	int res, err;
+	unsigned short revents;
+
+	current_time = get_time_ns(state);
+
+	for (int i = 0; i < state->n_fds; i++) {
+		state->pfds[i].revents = state->source[i].rmask;
+		/* Reset so that we only handle all our sources' events once */
+		state->source[i].rmask = 0;
 	}
+
+	/* ALSA poll fds need to be "demangled" to know whether it's a real wakeup */
+	if (SPA_UNLIKELY(err = snd_pcm_poll_descriptors_revents(state->hndl,
+					state->pfds, state->n_fds, &revents))) {
+		spa_log_error(state->log, "Could not look up revents: %s",
+				snd_strerror(err));
+		return;
+	}
+
+	if (!revents) {
+		spa_log_trace_fp(state->log, "Woken up with no work to do");
+		return;
+	}
+	if (revents & POLLERR) {
+		spa_log_trace_fp(state->log, "poll error");
+		if ((res = alsa_recover(state)) < 0)
+			return;
+	}
+	alsa_do_wakeup_work(state, current_time);
+}
+
+static void alsa_timer_wakeup_event(struct spa_source *source)
+{
+	struct state *state = source->data;
+	uint64_t expire, current_time;
+	int res, suppressed;
+
+	if (SPA_LIKELY(state->started)) {
+		if (SPA_UNLIKELY((res = spa_system_timerfd_read(state->data_system,
+					state->timerfd, &expire)) < 0)) {
+		/* we can get here when the timer is changed since the last
+			 * timerfd wakeup, for example by do_reassign_follower() executed
+			 * in the same epoll wakeup cycle */
+			if (res != -EAGAIN)
+				spa_log_warn(state->log, "%p: error reading timerfd: %s",
+						state, spa_strerror(res));
+			return;
+		}
+	}
+	current_time = state->next_time;
+
+	alsa_do_wakeup_work(state, current_time);
+
+	if (state->next_time > current_time + SPA_NSEC_PER_SEC ||
+	    current_time > state->next_time + SPA_NSEC_PER_SEC) {
+		if ((suppressed = spa_ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+			spa_log_error(state->log, "%s: impossible timeout %"
+				PRIu64" %"PRIu64" %"PRIi64" %d %"PRIi64" (%d suppressed)",
+				state->name, current_time, state->next_time,
+				state->next_time - current_time, state->threshold,
+				state->sample_count, suppressed);
+		}
+		state->next_time = current_time + state->threshold * 1e9 / state->rate;
+	}
+	set_timeout(state, state->next_time);
 }
 
 static void remove_sources(struct state *state)
@@ -3386,7 +3397,7 @@ int spa_alsa_start(struct state *state)
 
 	if (!state->disable_tsched) {
 		/* Timer-based scheduling */
-		state->source[0].func = alsa_wakeup_event;
+		state->source[0].func = alsa_timer_wakeup_event;
 		state->source[0].data = state;
 		state->source[0].fd = state->timerfd;
 		state->source[0].mask = SPA_IO_IN;
@@ -3415,7 +3426,7 @@ int spa_alsa_start(struct state *state)
 		/* We only add the source to the data loop if we're driving.
 		 * This is done in setup_sources() */
 		for (int i = 0; i < state->n_fds; i++) {
-			state->source[i].func = alsa_wakeup_event;
+			state->source[i].func = alsa_irq_wakeup_event;
 			state->source[i].data = state;
 			state->source[i].fd = state->pfds[i].fd;
 			state->source[i].mask = state->pfds[i].events;

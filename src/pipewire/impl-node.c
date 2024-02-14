@@ -913,6 +913,24 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 	return 0;
 }
 
+struct match {
+	struct pw_impl_node *node;
+	int count;
+};
+#define MATCH_INIT(n) ((struct match){ .node = (n) })
+
+static int execute_match(void *data, const char *location, const char *action,
+		const char *val, size_t len)
+{
+	struct match *match = data;
+	struct pw_impl_node *this = match->node;
+	if (spa_streq(action, "update-props")) {
+		match->count += pw_properties_update_string(this->properties, val, len);
+		this->info.props = &this->properties->dict;
+	}
+	return 1;
+}
+
 static void check_properties(struct pw_impl_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
@@ -921,8 +939,11 @@ static void check_properties(struct pw_impl_node *node)
 	struct spa_fraction frac;
 	uint32_t value;
 	bool driver, trigger;
+	struct match match;
 
-
+	match = MATCH_INIT(node);
+	pw_context_conf_section_match_rules(context, "node.rules",
+			&node->properties->dict, execute_match, &match);
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_PRIORITY_DRIVER))) {
 		value = pw_properties_parse_int(str);
@@ -1980,6 +2001,7 @@ int pw_impl_node_set_implementation(struct pw_impl_node *node,
 
 	node->node = spa_node;
 	spa_node_set_callbacks(node->node, &node_callbacks, node);
+	res = spa_node_add_listener(node->node, &node->listener, &node_events, node);
 
 again:
 	spa_dict_for_each(it, &node->properties->dict) {
@@ -1990,8 +2012,6 @@ again:
 			goto again;
 		}
 	}
-
-	res = spa_node_add_listener(node->node, &node->listener, &node_events, node);
 
 	if (node->registered)
 		update_io(node);

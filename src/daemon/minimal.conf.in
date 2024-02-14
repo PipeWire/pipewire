@@ -191,10 +191,12 @@ context.objects = [
     }
 
     # This creates a ALSA udev device that will enumerate all
-    # ALSA devices. Because it is using ACP and has the audio-profile
+    # ALSA devices. Because it is using ACP and has the auto-profile
     # property set, this will enable a profile and create associated
     # nodes, which will be automatically configured to their best
-    # configuration.
+    # configuration with the auto-port-config settings.
+    # Extra node and device params can be given with node.param and
+    # device.param prefixes.
     { factory = spa-device-factory
         args = {
             factory.name           = api.alsa.enum.udev
@@ -410,4 +412,39 @@ context.exec = [
     # on another address with the -a option (eg. -a tcp:4713).
     #
     #@pulse_comment@{ path = "@pipewire_path@" args = "-c pipewire-pulse.conf" }
+]
+
+node.rules = [
+    {   matches = [
+            {
+                # all keys must match the value. ! negates. ~ starts regex.
+                #alsa.card_name = "ICUSBAUDIO7D"
+                #api.alsa.pcm.stream = "playback"
+            }
+        ]
+        actions = {
+            update-props = {
+                #node.name = "alsa_playback.ICUSBAUDIO7D"
+            }
+        }
+    }
+]
+device.rules = [
+    {   matches = [
+            {
+                #alsa.card_name = "ICUSBAUDIO7D"
+            }
+        ]
+        actions = {
+            update-props = {
+                #device.name = "alsa_card.ICUSBAUDIO7D"
+                #api.acp.auto-profile = false
+                #api.acp.auto-port = false
+                #device.param.Profile    = {
+                #    #idx = 0
+                #    name = off
+                #}
+            }
+        }
+    }
 ]

@@ -117,9 +117,33 @@ static void object_register(struct object_data *od, uint32_t device_id)
 	}
 }
 
+struct match {
+	struct pw_impl_device *device;
+	int count;
+};
+#define MATCH_INIT(n) ((struct match){ .device = (n) })
+
+static int execute_match(void *data, const char *location, const char *action,
+		const char *val, size_t len)
+{
+	struct match *match = data;
+	struct pw_impl_device *this = match->device;
+	if (spa_streq(action, "update-props")) {
+		match->count += pw_properties_update_string(this->properties, val, len);
+		this->info.props = &this->properties->dict;
+	}
+	return 1;
+}
+
 static void check_properties(struct pw_impl_device *device)
 {
+	struct pw_context *context = device->context;
 	const char *str;
+	struct match match;
+
+	match = MATCH_INIT(device);
+	pw_context_conf_section_match_rules(context, "device.rules",
+			&device->properties->dict, execute_match, &match);
 
 	if ((str = pw_properties_get(device->properties, PW_KEY_DEVICE_NAME)) &&
 	    (device->name == NULL || !spa_streq(str, device->name))) {
@@ -668,11 +692,10 @@ static int update_properties(struct pw_impl_device *device, const struct spa_dic
 
 	pw_log_debug("%p: updated %d properties", device, changed);
 
-	if (!changed)
-		return 0;
-
-	device->info.change_mask |= PW_DEVICE_CHANGE_MASK_PROPS;
-
+	if (changed) {
+		check_properties(device);
+		device->info.change_mask |= PW_DEVICE_CHANGE_MASK_PROPS;
+	}
 	return changed;
 }
 
@@ -961,6 +984,8 @@ int pw_impl_device_set_implementation(struct pw_impl_device *device, struct spa_
 		return -EEXIST;
 	}
 	device->device = spa_device;
+	res = spa_device_add_listener(device->device,
+			&device->listener, &device_events, device);
 
 again:
 	spa_dict_for_each(it, &device->properties->dict) {
@@ -971,8 +996,6 @@ again:
 			goto again;
 		}
 	}
-	res = spa_device_add_listener(device->device,
-			&device->listener, &device_events, device);
 	return res;
 }
 

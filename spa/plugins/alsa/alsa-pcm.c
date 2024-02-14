@@ -3180,7 +3180,7 @@ static void alsa_wakeup_event(struct spa_source *source)
 	uint64_t expire, current_time;
 	int res, suppressed;
 
-	if (SPA_UNLIKELY(state->disable_tsched)) {
+	if (state->disable_tsched) {
 		/* ALSA poll fds need to be "demangled" to know whether it's a real wakeup */
 		int err;
 		unsigned short revents;

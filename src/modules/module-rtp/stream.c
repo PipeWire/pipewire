@@ -87,6 +87,7 @@ struct impl {
 
 	struct pw_loop *data_loop;
 	struct spa_source *timer;
+	bool timer_running;
 
 	int (*receive_rtp)(struct impl *impl, uint8_t *buffer, ssize_t len);
 	void (*flush_timeout)(struct impl *impl, uint64_t expirations);

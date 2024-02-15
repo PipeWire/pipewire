@@ -120,6 +120,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define DEFAULT_PORT		46000
 #define DEFAULT_SOURCE_IP	"0.0.0.0"
+#define DEFAULT_SOURCE_IP6	"::"
 #define DEFAULT_DESTINATION_IP	"224.0.0.56"
 #define DEFAULT_TTL		1
 #define DEFAULT_LOOP		false
@@ -551,19 +552,19 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;
 
-	if ((str = pw_properties_get(props, "source.ip")) == NULL)
-		str = DEFAULT_SOURCE_IP;
-	if ((res = parse_address(str, 0, &impl->src_addr, &impl->src_len)) < 0) {
-		pw_log_error("invalid source.ip %s: %s", str, spa_strerror(res));
-		goto out;
-	}
-
 	impl->dst_port = DEFAULT_PORT + ((uint32_t) (pw_rand32() % 512) << 1);
 	impl->dst_port = pw_properties_get_uint32(props, "destination.port", impl->dst_port);
 	if ((str = pw_properties_get(props, "destination.ip")) == NULL)
 		str = DEFAULT_DESTINATION_IP;
 	if ((res = parse_address(str, impl->dst_port, &impl->dst_addr, &impl->dst_len)) < 0) {
 		pw_log_error("invalid destination.ip %s: %s", str, spa_strerror(res));
+		goto out;
+	}
+	if ((str = pw_properties_get(props, "source.ip")) == NULL)
+		str = impl->dst_addr.ss_family == AF_INET ?
+			DEFAULT_SOURCE_IP : DEFAULT_SOURCE_IP6;
+	if ((res = parse_address(str, 0, &impl->src_addr, &impl->src_len)) < 0) {
+		pw_log_error("invalid source.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}
 

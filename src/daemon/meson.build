@@ -11,6 +11,8 @@ conf_config.set('pipewire_path', pipewire_bindir / 'pipewire')
 conf_config.set('pipewire_pulse_path', pipewire_bindir / 'pipewire-pulse')
 conf_config.set('sm_comment', '#')
 conf_config.set('pulse_comment', '#')
+conf_config.set('rtprio_server', get_option('rtprio-server'))
+conf_config.set('rtprio_client', get_option('rtprio-client'))
 
 conf_config_uninstalled = conf_config
 conf_config_uninstalled.set('pipewire_path',

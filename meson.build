@@ -220,6 +220,8 @@ cdata.set_quoted('PIPEWIRE_CONFIG_DIR', pipewire_configdir)
 cdata.set_quoted('PLUGINDIR', spa_plugindir)
 cdata.set_quoted('SPADATADIR', spa_datadir)
 cdata.set_quoted('PA_ALSA_DATA_DIR', alsadatadir)
+cdata.set('RTPRIO_SERVER', get_option('rtprio-server'))
+cdata.set('RTPRIO_CLIENT', get_option('rtprio-client'))
 
 if host_machine.endian() == 'big'
   cdata.set('WORDS_BIGENDIAN', 1)

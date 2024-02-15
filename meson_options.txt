@@ -306,6 +306,18 @@ option('rlimits-match',
        description : 'PAM match rule for the generated limits.d file. @<name> denotes matching a group.',
        type : 'string',
        value: '@pipewire')
+option('rtprio-server',
+       description : 'PipeWire server realtime priority',
+       type : 'integer',
+       min: 11,
+       max: 99,
+       value: 88)
+option('rtprio-client',
+       description : 'PipeWire clients realtime priority',
+       type : 'integer',
+       min: 11,
+       max: 99,
+       value: 83)
 option('rlimits-rtprio',
        description : 'RR and FIFO scheduler priority permitted for realtime threads of the matching user(s)',
        type : 'integer',

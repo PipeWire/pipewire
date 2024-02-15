@@ -115,6 +115,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_POSITION	"[ FL FR ]"
 #define DEFAULT_MIDI_PORTS	1
 
+#define FFADO_RT_PRIORITY_PACKETIZER_RELATIVE   5
+
 #define MODULE_USAGE	"( remote.name=<remote> ) "				\
 			"( driver.mode=<sink|source|duplex> ) "			\
 			"( ffado.devices=<devices array size, default \"hw:0\"> ) "	\
@@ -762,7 +764,7 @@ static int open_ffado_device(struct impl *impl)
 	impl->device_options.period_size = impl->period_size;
 	impl->device_options.nb_buffers = impl->n_periods;
 	impl->device_options.realtime = 1;
-	impl->device_options.packetizer_priority = 88;
+	impl->device_options.packetizer_priority = RTPRIO_SERVER + FFADO_RT_PRIORITY_PACKETIZER_RELATIVE;
 	impl->device_options.verbose = impl->verbose;
 	impl->device_options.slave_mode = impl->slave_mode;
 	impl->device_options.snoop_mode = impl->snoop_mode;

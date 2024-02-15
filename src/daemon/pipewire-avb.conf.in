@@ -27,7 +27,7 @@ context.modules = [
     { name = libpipewire-module-rt
         args = {
             nice.level   = -11
-            #rt.prio      = 88
+            #rt.prio      = @rtprio_client@
             #rt.time.soft = -1
             #rt.time.hard = -1
         }

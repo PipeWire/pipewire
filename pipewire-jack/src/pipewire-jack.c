@@ -45,7 +45,7 @@
  * with mlockall() on many systems */
 #define THREAD_STACK 524288
 
-#define DEFAULT_RT_MAX	88
+#define DEFAULT_RT_MAX	RTPRIO_CLIENT
 
 #define JACK_CLIENT_NAME_SIZE		256
 #define JACK_PORT_NAME_SIZE		256

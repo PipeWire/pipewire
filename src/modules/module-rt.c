@@ -136,7 +136,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define DEFAULT_NICE_LEVEL	20 	/* invalid value by default, see above */
 #define DEFAULT_RT_PRIO_MIN	11
-#define DEFAULT_RT_PRIO		88
+#define DEFAULT_RT_PRIO		RTPRIO_CLIENT
 #define DEFAULT_RT_TIME_SOFT	-1
 #define DEFAULT_RT_TIME_HARD	-1
 

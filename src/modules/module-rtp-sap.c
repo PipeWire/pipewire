@@ -149,6 +149,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_SAP_PORT	9875
 
 #define DEFAULT_SOURCE_IP	"0.0.0.0"
+#define DEFAULT_SOURCE_IP6	"::"
 #define DEFAULT_TTL		1
 #define DEFAULT_LOOP		false
 
@@ -420,7 +421,7 @@ static int make_send_socket(
 {
 	int af, fd, val, res;
 
-	af = sa->ss_family;
+	af = src->ss_family;
 	if ((fd = socket(af, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		pw_log_error("socket failed: %m");
 		return -errno;
@@ -1732,13 +1733,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			"sap.cleanup.sec", DEFAULT_CLEANUP_SEC);
 
 	if ((str = pw_properties_get(props, "source.ip")) == NULL) {
-		str = DEFAULT_SOURCE_IP;
 		if (impl->ifname) {
-			int fd = socket(AF_INET, SOCK_DGRAM, 0);
+			int fd = socket(impl->sap_addr.ss_family, SOCK_DGRAM, 0);
 			if (fd >= 0) {
 				struct ifreq req;
 				spa_zero(req);
-				req.ifr_addr.sa_family = AF_INET;
+				req.ifr_addr.sa_family = impl->sap_addr.ss_family;
 				snprintf(req.ifr_name, sizeof(req.ifr_name), "%s", impl->ifname);
 				res = ioctl(fd, SIOCGIFADDR, &req);
 				if (res < 0)
@@ -1748,13 +1748,15 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 						addr, sizeof(addr));
 				if (str == NULL) {
 					pw_log_warn("can't parse interface ip: %m");
-					str = DEFAULT_SOURCE_IP;
 				} else {
 					pw_log_info("interface %s IP: %s", impl->ifname, str);
 				}
 				close(fd);
 			}
 		}
+		if (str == NULL)
+			str = impl->sap_addr.ss_family == AF_INET ?
+				DEFAULT_SOURCE_IP : DEFAULT_SOURCE_IP6;
 	}
 	if ((res = parse_address(str, 0, &impl->src_addr, &impl->src_len)) < 0) {
 		pw_log_error("invalid source.ip %s: %s", str, spa_strerror(res));

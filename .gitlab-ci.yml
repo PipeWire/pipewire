@@ -514,9 +514,9 @@ pages:
     - build_on_fedora
   script:
     - mkdir public
-    - cp -R prefix-*/share/doc/pipewire/html/* public/
+    - cp -R prefix-*/share/doc/pipewire/html/master/* public/
   artifacts:
     paths:
       - public
   only:
-    - '1.0'
+    - 'master'

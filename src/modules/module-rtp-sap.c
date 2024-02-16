@@ -511,7 +511,7 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 			mr4.imr_multiaddr = sa4->sin_addr;
 			mr4.imr_ifindex = req.ifr_ifindex;
 			get_ip(sa, addr, sizeof(addr), NULL);
-			pw_log_info("join IPV4 group: %s", addr);
+			pw_log_info("join IPv4 group: %s iface:%d", addr, req.ifr_ifindex);
 			res = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr4, sizeof(mr4));
 		} else {
 			sa4->sin_addr.s_addr = INADDR_ANY;
@@ -524,7 +524,7 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 			mr6.ipv6mr_multiaddr = sa6->sin6_addr;
 			mr6.ipv6mr_interface = req.ifr_ifindex;
 			get_ip(sa, addr, sizeof(addr), NULL);
-			pw_log_info("join IPV6 group: %s iface:%d", addr, req.ifr_ifindex);
+			pw_log_info("join IPv6 group: %s iface:%d", addr, req.ifr_ifindex);
 			res = setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mr6, sizeof(mr6));
 		} else {
 		        sa6->sin6_addr = in6addr_any;

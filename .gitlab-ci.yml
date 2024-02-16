@@ -513,10 +513,10 @@ pages:
   dependencies:
     - build_on_fedora
   script:
-    - mkdir -p public/master
-    - cp -R prefix-*/share/doc/pipewire/html/* public/master/
+    - mkdir public
+    - cp -R prefix-*/share/doc/pipewire/html/* public/
   artifacts:
     paths:
       - public
   only:
-    - 'master'
+    - '1.0'

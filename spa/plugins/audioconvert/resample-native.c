@@ -157,7 +157,7 @@ static void impl_native_update_rate(struct resample *r, double rate)
 	data->inc = data->in_rate / data->out_rate;
 	data->frac = data->in_rate % data->out_rate;
 
-	if (data->in_rate == data->out_rate) {
+	if (data->in_rate == data->out_rate && rate == 1.0) {
 		data->func = data->info->process_copy;
 		r->func_name = data->info->copy_name;
 	}

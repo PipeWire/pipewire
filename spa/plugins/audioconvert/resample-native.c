@@ -134,7 +134,8 @@ static inline uint32_t calc_gcd(uint32_t a, uint32_t b)
 static void impl_native_update_rate(struct resample *r, double rate)
 {
 	struct native_data *data = r->data;
-	uint32_t in_rate, out_rate, phase, gcd, old_out_rate;
+	uint32_t in_rate, out_rate, gcd, old_out_rate;
+	float phase;
 
 	if (SPA_LIKELY(data->rate == rate))
 		return;
@@ -149,7 +150,7 @@ static void impl_native_update_rate(struct resample *r, double rate)
 	out_rate /= gcd;
 
 	data->rate = rate;
-	data->phase = phase * out_rate / old_out_rate;
+	data->phase = phase * out_rate / (float)old_out_rate;
 	data->in_rate = in_rate;
 	data->out_rate = out_rate;
 

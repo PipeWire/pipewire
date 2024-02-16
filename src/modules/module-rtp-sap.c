@@ -1174,7 +1174,7 @@ static int parse_sap(struct impl *impl, void *data, size_t len)
 	if (header->c)
 		return -ENOTSUP;
 
-	offs = header->a ? 12 : 8;
+	offs = header->a ? 20 : 8;
 	offs += header->auth_len * 4;
 	if (len <= offs)
 		return -EINVAL;
@@ -1214,6 +1214,7 @@ static void
 on_sap_io(void *data, int fd, uint32_t mask)
 {
 	struct impl *impl = data;
+	int res;
 
 	if (mask & SPA_IO_IN) {
 		uint8_t buffer[2048];
@@ -1227,7 +1228,8 @@ on_sap_io(void *data, int fd, uint32_t mask)
 			return;
 
 		buffer[len] = 0;
-		parse_sap(impl, buffer, len);
+		if ((res = parse_sap(impl, buffer, len)) < 0)
+			pw_log_warn("error parsing SAP: %s", spa_strerror(res));
 	}
 }
 

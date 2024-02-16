@@ -11,6 +11,16 @@ PipeWire is low-level multimedia framework that provides:
 See \ref page_overview for an overview of PipeWire and \ref page_design
 for the design principles guiding PipeWire.
 
+# Documentation
+
+- \ref page_config
+- \ref page_programs
+- \ref page_modules
+- \ref page_pulse_modules
+
+See our [Wiki](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/home) for
+more information on how to configure and use PipeWire.
+
 # Components
 
 PipeWire ships with the following components:
@@ -26,11 +36,6 @@ PipeWire ships with the following components:
 # API Documentation
 
 See \ref page_api.
-
-# More Documentation
-
-See our [Wiki](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/home) for
-More information on how to configure and use PipeWire.
 
 # Resources
 

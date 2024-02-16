@@ -14,6 +14,7 @@ doxygen_env.set('PACKAGE_URL', 'https://pipewire.org')
 doxygen_env.set('PACKAGE_BUGREPORT', 'https://gitlab.freedesktop.org/pipewire/pipewire/issues')
 doxygen_env.set('PIPEWIRE_CONFIG_DIR', pipewire_configdir)
 doxygen_env.set('PIPEWIRE_CONFDATADIR', pipewire_confdatadir)
+doxygen_env.set('SPA_PLUGINDIR', spa_plugindir)
 
 dot_found = find_program('dot', required: false).found()
 summary({'dot (used with doxygen)': dot_found}, bool_yn: true, section: 'Optional programs')
@@ -32,6 +33,7 @@ extra_docs = [
   'dox/modules.dox',
   'dox/pulse-modules.dox',
   'dox/programs/index.md',
+  'dox/config/index.md',
   'dox/internals/index.dox',
   'dox/internals/design.dox',
   'dox/internals/access.dox',
@@ -80,7 +82,14 @@ manpage_docs = [
   'dox/programs/pw-mididump.1.md',
   'dox/programs/pw-mon.1.md',
   'dox/programs/pw-profiler.1.md',
+  'dox/programs/pw-reserve.1.md',
   'dox/programs/pw-top.1.md',
+  'dox/programs/pw-v4l2.1.md',
+  'dox/programs/spa-acp-tool.1.md',
+  'dox/programs/spa-inspect.1.md',
+  'dox/programs/spa-json-dump.1.md',
+  'dox/programs/spa-monitor.1.md',
+  'dox/programs/spa-resample.1.md',
 ]
 
 manpages = []

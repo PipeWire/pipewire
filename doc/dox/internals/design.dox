@@ -51,7 +51,7 @@ See \ref page_module_protocol_native for details.
 The functionality of the server is implemented and extended with modules and
 extensions. Modules are server side bits of logic that hook into various
 places to provide extra features. This mostly means controlling the processing
-graph in some way. See \ref page_pipewire_modules for a list of current
+graph in some way. See \ref page_modules for a list of current
 modules.
 
 Extensions are the client side version of the modules. Most extensions provide

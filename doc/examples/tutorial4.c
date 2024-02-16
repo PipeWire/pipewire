@@ -50,7 +50,13 @@ static void on_process(void *userdata)
 		if (data->accumulator >= M_PI_M2)
 			data->accumulator -= M_PI_M2;
 
-		val = sin(data->accumulator) * DEFAULT_VOLUME * 16767.f;
+		/* sin() gives a value between -1.0 and 1.0, we first apply
+		 * the volume and then scale with 32767.0 to get a 16 bits value
+		 * between [-32767 32767].
+		 * Another common method to convert a double to
+		 * 16 bits is to multiple by 32768.0 and then clamp to
+		 * [-32768 32767] to get the full 16 bits range. */
+		val = sin(data->accumulator) * DEFAULT_VOLUME * 32767.0;
 		for (c = 0; c < DEFAULT_CHANNELS; c++)
 			*dst++ = val;
 	}

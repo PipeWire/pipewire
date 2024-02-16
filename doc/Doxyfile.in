@@ -14,6 +14,7 @@ SHOW_INCLUDE_FILES     = NO
 GENERATE_TODOLIST      = NO
 GENERATE_TESTLIST      = NO
 GENERATE_BUGLIST       = NO
+GENERATE_DEPRECATEDLIST= NO
 QUIET                  = YES
 WARN_NO_PARAMDOC       = YES
 HAVE_DOT               = @HAVE_DOT@
@@ -23,8 +24,9 @@ FILE_PATTERNS          = "*.h" "*.c"
 RECURSIVE              = YES
 EXAMPLE_PATH           = "@top_srcdir@/src/examples" \
                          "@top_srcdir@/spa/examples" \
-                         "@top_srcdir@/doc"
-EXAMPLE_PATTERNS       = "*.c"
+                         "@top_srcdir@/doc/examples" \
+                         "@top_srcdir@/doc/dox"
+EXAMPLE_PATTERNS       = "*.c" "*.inc"
 
 GENERATE_MAN           = YES
 MAN_EXTENSION          = 3

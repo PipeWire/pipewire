@@ -4,7 +4,7 @@ Use PipeWire instead of JACK
 
 # SYNOPSIS
 
-**pw-jack** \[*options*\] *COMMAND* \[*FILE*\]
+**pw-jack** \[*options*\] *COMMAND* \[*ARGUMENTS...*\]
 
 # DESCRIPTION
 

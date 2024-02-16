@@ -519,4 +519,4 @@ pages:
     paths:
       - public
   only:
-    - 1.0
+    - '1.0'

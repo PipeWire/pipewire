@@ -1,3 +1,90 @@
+# PipeWire 1.0.4 (2024-03-13)
+
+This is a bugfix release that is API and ABI compatible with previous
+1.0.x releases.
+
+## Highlights
+
+  - Track memfd better to avoid inconsistent memory. Also make sure the
+    mixer info is removed correctly in all cases on destroyed ports.
+  - Correctly handle removed objects in the metadata.
+  - Add an option to set the server and client priorities instead of using
+    a hardcoded value of 88.
+  - The FFADO module has been fixed. Audio and MIDI now works with
+    the same latency as the JACK driver. This has now also been
+    tested with a Focusrite Saffire Pro 14.
+  - The JACK library has seen some important fixes. Some ardour crackling
+    has been fixed when looping and multiple MIDI ports on a client should
+    now work.
+  - Small bugfixes and improvements.
+
+
+## PipeWire
+  - Track memfd better to avoid inconsistent memory. Also make sure the
+    mixer info is removed correctly in all cases on destroyed ports.
+  - Fix Props param emission again in pw_stream. (#3833)
+  - Add MAPPABLE flag to buffer data to indicate that the fd can be
+    mmapped directly. Use this on DMABUF from v4l2. (#3840)
+  - Correctly handle removed object in the metadata.
+  - FreeBSD build and compatibility fixes.
+  - Add an option to set the server and client priorities instead of using
+    a hardcoded value of 88.
+  - Read config overrides in the right order.
+  - Fix PIPEWIRE_QUANTUM rate handling in pw_stream and pw_filter.
+  - Fix pw_context_parse_conf_section(), actually use the conf argument.
+  - A new pw_stream_get_nsec() and pw_filter_get_nsec() function was added
+    to get the current time of the stream/filter without having to assume a
+    particular clock.
+  - A new default.clock.quantum-floor property was added to configure the
+    absolute lowest buffer-size. (#3908)
+
+## docs
+  - Many doc updates.
+
+## tools
+  - Make sure we always quit pw-cli when the server stops. (#3837)
+  - pw-top now prints all drivers in batch mode. (#3899)
+
+## modules
+  - Don't destroy the client in protocol-simple on EAGAIN.
+  - Handle IPv6 better in the RTP modules. Fix IPv6 SAP header
+    parsing. (#3851)
+  - The FFADO module has been fixed. Audio and MIDI now works with
+    the same latency as the JACK driver. This has now also been
+    tested with a Focusrite Saffire Pro 14. (#3558)
+
+## pulse-server
+  - Make sure the peer_name is filled to avoid protocol errors.
+
+## SPA
+  - Small resampler tweaks to improve stability of adaptive resampler.
+  - Add ALSA option to control htimestamp autodisable.
+  - Avoid some potential crashes in audioconvert when ports are removed.
+  - Improve HDMI jack detection on some SOCs.
+  - The audioconvert now has a monitor.passthrough option to pass the
+    latency information on the monitor ports. (#3888)
+
+## GStreamer
+  - Don't use timeouts when autoconnect=false in pipewiresrc. (#3884)
+  - pipewiresrc and pipewiresink can now be automatically selected as
+    audio source and sink.
+  - An invalid memory access was fixed when destroying the device
+    provider.
+
+## JACK
+  - Remove properties correctly with the object id, not serial.
+  - Improve sync with the data thread by pausing the core. Also improve
+    handling of port io to avoid invalid buffer access.
+  - Fix PIPEWIRE_QUANTUM rate handling.
+  - Support multiple MIDI input ports per client. (#3901)
+  - The output buffer size is now always correctly set. (#3892)
+
+## ALSA
+  - Handle errors from eventfd_create correctly.
+
+Older versions:
+
+
 # PipeWire 1.0.3 (2024-02-02)
 
 This is a quick bugfix release that is API and ABI compatible with previous
@@ -21,9 +108,6 @@ This is a quick bugfix release that is API and ABI compatible with previous
 ## ALSA
   - Fix version check. This should allow the alsa plugin to work again
     with version 1.0.2.
-
-Older versions:
-
 
 # PipeWire 1.0.2 (2024-01-31)
 

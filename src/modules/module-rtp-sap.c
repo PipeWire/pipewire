@@ -414,6 +414,21 @@ static int make_unix_socket(const char *path) {
 	return spa_steal_fd(fd);
 }
 
+static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len, bool *ip4)
+{
+	if (sa->ss_family == AF_INET) {
+		struct sockaddr_in *in = (struct sockaddr_in*)sa;
+		inet_ntop(sa->ss_family, &in->sin_addr, ip, len);
+	} else if (sa->ss_family == AF_INET6) {
+		struct sockaddr_in6 *in = (struct sockaddr_in6*)sa;
+		inet_ntop(sa->ss_family, &in->sin6_addr, ip, len);
+	} else
+		return -EIO;
+	if (ip4)
+		*ip4 = sa->ss_family == AF_INET;
+	return 0;
+}
+
 static int make_send_socket(
 		struct sockaddr_storage *src, socklen_t src_len,
 		struct sockaddr_storage *sa, socklen_t salen,
@@ -437,13 +452,23 @@ static int make_send_socket(
 		goto error;
 	}
 	if (is_multicast((struct sockaddr*)sa, salen)) {
-		val = loop;
-		if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &val, sizeof(val)) < 0)
-			pw_log_warn("setsockopt(IP_MULTICAST_LOOP) failed: %m");
+		if (sa->ss_family == AF_INET) {
+			val = loop;
+			if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &val, sizeof(val)) < 0)
+				pw_log_warn("setsockopt(IP_MULTICAST_LOOP) failed: %m");
 
-		val = ttl;
-		if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &val, sizeof(val)) < 0)
-			pw_log_warn("setsockopt(IP_MULTICAST_TTL) failed: %m");
+			val = ttl;
+			if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &val, sizeof(val)) < 0)
+				pw_log_warn("setsockopt(IP_MULTICAST_TTL) failed: %m");
+		} else {
+			val = loop;
+			if (setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &val, sizeof(val)) < 0)
+				pw_log_warn("setsockopt(IPV6_MULTICAST_LOOP) failed: %m");
+
+			val = ttl;
+			if (setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &val, sizeof(val)) < 0)
+				pw_log_warn("setsockopt(IPV6_MULTICAST_HOPS) failed: %m");
+		}
 	}
 	return fd;
 error:
@@ -456,6 +481,7 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 {
 	int af, fd, val, res;
 	struct ifreq req;
+	char addr[128];
 
 	af = sa->ss_family;
 	if ((fd = socket(af, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
@@ -484,6 +510,8 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 			memset(&mr4, 0, sizeof(mr4));
 			mr4.imr_multiaddr = sa4->sin_addr;
 			mr4.imr_ifindex = req.ifr_ifindex;
+			get_ip(sa, addr, sizeof(addr), NULL);
+			pw_log_info("join IPV4 group: %s", addr);
 			res = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr4, sizeof(mr4));
 		} else {
 			sa4->sin_addr.s_addr = INADDR_ANY;
@@ -495,6 +523,8 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 			memset(&mr6, 0, sizeof(mr6));
 			mr6.ipv6mr_multiaddr = sa6->sin6_addr;
 			mr6.ipv6mr_interface = req.ifr_ifindex;
+			get_ip(sa, addr, sizeof(addr), NULL);
+			pw_log_info("join IPV6 group: %s iface:%d", addr, req.ifr_ifindex);
 			res = setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mr6, sizeof(mr6));
 		} else {
 		        sa6->sin6_addr = in6addr_any;
@@ -519,22 +549,6 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 error:
 	close(fd);
 	return res;
-}
-
-static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len, bool *ip4)
-{
-	if (sa->ss_family == AF_INET) {
-		struct sockaddr_in *in = (struct sockaddr_in*)sa;
-		inet_ntop(sa->ss_family, &in->sin_addr, ip, len);
-	} else if (sa->ss_family == AF_INET6) {
-		struct sockaddr_in6 *in = (struct sockaddr_in6*)sa;
-		inet_ntop(sa->ss_family, &in->sin6_addr, ip, len);
-		*ip4 = false;
-	} else
-		return -EIO;
-	if (ip4)
-		*ip4 = sa->ss_family == AF_INET;
-	return 0;
 }
 
 static void update_ts_refclk(struct impl *impl)
@@ -1470,6 +1484,7 @@ static int start_sap(struct impl *impl)
 {
 	int fd, res;
 	struct timespec value, interval;
+	char addr[128] = "invalid";
 
 	if ((fd = make_send_socket(&impl->src_addr, impl->src_len,
 					&impl->sap_addr, impl->sap_len,
@@ -1494,7 +1509,8 @@ static int start_sap(struct impl *impl)
 	if ((fd = make_recv_socket(&impl->sap_addr, impl->sap_len, impl->ifname)) < 0)
 		return fd;
 
-	pw_log_info("starting SAP listener");
+	get_ip(&impl->sap_addr, addr, sizeof(addr), NULL);
+	pw_log_info("starting SAP listener on %s", addr);
 	impl->sap_source = pw_loop_add_io(impl->loop, fd,
 				SPA_IO_IN, true, on_sap_io, impl);
 	if (impl->sap_source == NULL) {

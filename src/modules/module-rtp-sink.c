@@ -249,14 +249,26 @@ static int make_socket(struct sockaddr_storage *src, socklen_t src_len,
 		goto error;
 	}
 	if (is_multicast((struct sockaddr*)dst, dst_len)) {
-		val = loop;
-		if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &val, sizeof(val)) < 0)
-			pw_log_warn("setsockopt(IP_MULTICAST_LOOP) failed: %m");
+		if (dst->ss_family == AF_INET) {
+			val = loop;
+			if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &val, sizeof(val)) < 0)
+				pw_log_warn("setsockopt(IP_MULTICAST_LOOP) failed: %m");
 
-		val = ttl;
-		if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &val, sizeof(val)) < 0)
-			pw_log_warn("setsockopt(IP_MULTICAST_TTL) failed: %m");
+			val = ttl;
+			if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &val, sizeof(val)) < 0)
+				pw_log_warn("setsockopt(IP_MULTICAST_TTL) failed: %m");
+		} else {
+			val = loop;
+			if (setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &val, sizeof(val)) < 0)
+				pw_log_warn("setsockopt(IPV6_MULTICAST_LOOP) failed: %m");
+
+			val = ttl;
+			if (setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &val, sizeof(val)) < 0)
+				pw_log_warn("setsockopt(IPV6_MULTICAST_HOPS) failed: %m");
+		}
 	}
+
+
 #ifdef SO_PRIORITY
 	val = 6;
 	if (setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)

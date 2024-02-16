@@ -234,6 +234,7 @@ static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname)
 	struct ifreq req;
 	struct sockaddr_storage ba = *(struct sockaddr_storage *)sa;
 	bool do_connect = false;
+	char addr[128];
 
 	af = sa->sa_family;
 	if ((fd = socket(af, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
@@ -271,6 +272,8 @@ static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname)
 			memset(&mr4, 0, sizeof(mr4));
 			mr4.imr_multiaddr = sa4->sin_addr;
 			mr4.imr_ifindex = req.ifr_ifindex;
+			get_ip((struct sockaddr_storage*)sa, addr, sizeof(addr));
+			pw_log_info("join IPV6 group: %s", addr);
 			res = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr4, sizeof(mr4));
 		} else {
 			struct sockaddr_in *ba4 = (struct sockaddr_in*)&ba;
@@ -286,6 +289,8 @@ static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname)
 			memset(&mr6, 0, sizeof(mr6));
 			mr6.ipv6mr_multiaddr = sa6->sin6_addr;
 			mr6.ipv6mr_interface = req.ifr_ifindex;
+			get_ip((struct sockaddr_storage*)sa, addr, sizeof(addr));
+			pw_log_info("join IPV6 group: %s", addr);
 			res = setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mr6, sizeof(mr6));
 		} else {
 			struct sockaddr_in6 *ba6 = (struct sockaddr_in6*)&ba;

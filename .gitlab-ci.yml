@@ -515,4 +515,4 @@ pages:
     paths:
       - public
   only:
-    - master
+    - '1.0'

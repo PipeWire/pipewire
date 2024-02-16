@@ -370,7 +370,7 @@ impl_init(const struct spa_handle_factory *factory,
 	if (linebuf)
 		setlinebuf(this->file);
 
-	if (!isatty(fileno(this->file)) && !force_colors) {
+	if (this->colors && !force_colors && !isatty(fileno(this->file)) ) {
 		this->colors = false;
 	}
 

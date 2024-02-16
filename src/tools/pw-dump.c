@@ -1541,7 +1541,7 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	data.out = stdout;
-	if (isatty(fileno(data.out)) && getenv("NO_COLOR") == NULL)
+	if (getenv("NO_COLOR") == NULL && isatty(fileno(data.out)))
 		colors = true;
 	setlinebuf(data.out);
 

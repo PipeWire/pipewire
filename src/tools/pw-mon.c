@@ -786,7 +786,7 @@ int main(int argc, char *argv[])
 
 	setlinebuf(stdout);
 
-	if (isatty(STDOUT_FILENO) && getenv("NO_COLOR") == NULL)
+	if (getenv("NO_COLOR") == NULL && isatty(STDOUT_FILENO))
 		colors = true;
 
 	while ((c = getopt_long(argc, argv, "hVr:NCoa", long_options, NULL)) != -1) {

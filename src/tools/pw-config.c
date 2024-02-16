@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
 	d.opt_prefix = NULL;
 	d.opt_recurse = false;
 	d.opt_newline = true;
-	if (isatty(fileno(stdout)) && getenv("NO_COLOR") == NULL)
+	if (getenv("NO_COLOR") == NULL && isatty(fileno(stdout)))
 		d.opt_colors = true;
 	d.opt_cmd = "paths";
 

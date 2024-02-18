@@ -225,14 +225,18 @@ Use the driver provided channel map. Default is false because many drivers don't
 @PAR@ device-param  api.alsa.multi-rate
 UNDOCUMENTED
 
-@PAR@ device-param  api.alsa.htimestamp
-UNDOCUMENTED
+@PAR@ device-param  api.alsa.htimestamp = false
+Use ALSA htimestamps in scheduling, instead of the system clock.
+Some ALSA drivers produce bad timestamps, so this is not enabled by default
+and will be disabled at runtime if it looks like the ALSA timestamps are bad.
 
-@PAR@ device-param  api.alsa.disable-tsched
-UNDOCUMENTED
+@PAR@ device-param  api.alsa.disable-tsched = false
+Disable timer-based scheduling, and use IRQ for scheduling instead.
+The "Pro Audio" profile will usually enable this setting, if it is expected it works on the hardware.
 
-@PAR@ device-param  api.alsa.auto-link
-UNDOCUMENTED
+@PAR@ device-param  api.alsa.auto-link = false
+Link follower PCM devices to the driver PCM device when using IRQ-based scheduling.
+The "Pro Audio" profile will usually enable this setting, if it is expected it works on the hardware.
 
 @PAR@ device-param  latency.internal.rate
 Static set the device systemic latency, in samples at playback rate.
@@ -250,7 +254,8 @@ UNDOCUMENTED
 UNDOCUMENTED
 
 @PAR@ device-param  iec958.codecs
-UNDOCUMENTED
+Enable only specific IEC958 codecs. This can be used to disable some codecs the hardware supports.
+Available values: PCM, AC3, DTS, MPEG, MPEG2-AAC, EAC3, TRUEHD, DTSHD
 
 # BLUETOOTH PARAMETERS  @IDX@ device-param
 

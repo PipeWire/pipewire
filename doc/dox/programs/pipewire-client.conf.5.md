@@ -41,14 +41,12 @@ and if nothing is specified, it usually loads `client.conf`.
 The ALSA plugin uses the `client-rt.conf` file, as do some PipeWire
 native clients such as \ref page_man_pw-cat_1 "pw-cat(1)".
 
-The configuration file format is the same as for `pipewire.conf(5)`.
+The configuration file format and lookup logic is the same as for \ref page_man_pipewire_conf_5 "pipewire.conf(5)".
+
+Drop-in configuration files `client.conf.d/*.conf` can be used, and are recommended.
+See \ref pipewire_conf__drop-in_configuration_files "pipewire.conf(5)".
 
 # CONFIGURATION FILE SECTIONS
-
-The same sections as in \ref page_man_pipewire_conf_5 "pipewire.conf(5)"
-are available. However, a client usually sets the
-`core.daemon` property to false, and has a limited set of
-`context.spa-libs` usually only to create audio nodes and a poll loop.
 
 \par stream.properties
 Configures options for native client streams.
@@ -61,6 +59,9 @@ ALSA client configuration.
 
 \par alsa.rules
 ALSA client match rules.
+
+In addition, the PipeWire context configuration sections 
+may also be specified, see \ref page_man_pipewire_conf_5 "pipewire.conf(5)".
 
 # STREAM PROPERTIES  @IDX@ client.conf
 
@@ -111,12 +112,42 @@ as targets for linking by the session manager.
 A human readable description of the node or stream.
 
 @PAR@ client.conf  media.name
-@PAR@ client.conf  media.title
-@PAR@ client.conf  media.artist
-A user readable media name, usually the artist and title. These are usually shown in user facing applications
+A user readable media name, usually the artist and title.
+These are usually shown in user facing applications
 to inform the user about the current playing media.
 
-Other media properties exist such as copyright and icon.
+@PAR@ client.conf  media.title
+A user readable stream title.
+
+@PAR@ client.conf  media.artist
+A user readable stream artist
+
+@PAR@ client.conf  media.copyright
+User readable stream copyright information
+
+@PAR@ client.conf  media.software
+User readable stream generator software information
+
+@PAR@ client.conf  media.language
+Stream language in POSIX format. Ex: `en_GB`
+
+@PAR@ client.conf  media.filename
+File name for the stream
+
+@PAR@ client.conf  media.icon
+Icon for the media, a base64 blob with PNG image data
+
+@PAR@ client.conf  media.icon-name
+An XDG icon name for the media. Ex: `audio-x-mp3`
+
+@PAR@ client.conf  media.comment
+Extra stream comment
+
+@PAR@ client.conf  media.date
+Date of the media
+
+@PAR@ client.conf  media.format
+User readable stream format information
 
 @PAR@ client.conf  object.linger = false
 If the object should outlive its creator.

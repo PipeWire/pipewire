@@ -22,9 +22,10 @@ The PipeWire Pulseaudio server configuration file
 
 Configuration for PipeWire's PulseAudio-compatible daemon.
 
-The configuration file format is the same as for `pipewire.conf(5)`.
-There are additional sections for configuring `pipewire-pulse(1)`
-settings.
+The configuration file format and lookup logic is the same as for \ref page_man_pipewire_conf_5 "pipewire.conf(5)".
+
+Drop-in configuration files `pipewire-pulse.conf.d/*.conf` can be used, and are recommended.
+See \ref pipewire_conf__drop-in_configuration_files "pipewire.conf(5)".
 
 # CONFIGURATION FILE SECTIONS
 
@@ -50,8 +51,8 @@ clients.
 See \ref page_module_protocol_pulse "libpipewire-module-protocol-pulse(7)"
 for the detailed description.
 
-In addition, the general PipeWire daemon configuration sections apply,
-see \ref page_man_pipewire_conf_5 "pipewire.conf(5)".
+In addition, the PipeWire context configuration sections 
+may also be specified, see \ref page_man_pipewire_conf_5 "pipewire.conf(5)".
 
 # STREAM PROPERTIES  @IDX@ pipewire-pulse.conf
 

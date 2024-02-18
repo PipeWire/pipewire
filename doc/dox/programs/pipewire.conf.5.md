@@ -26,41 +26,76 @@ between devices and applications.
 On startup, the daemon reads a main configuration file to configure
 itself. It executes a series of commands listed in the config file.
 
-The config files are loaded in the order listed in the
+The config file is looked up in the order listed in the
 [SYNOPSIS](#synopsis). The environment variables `PIPEWIRE_CONFIG_DIR`,
 `PIPEWIRE_CONFIG_PREFIX` and `PIPEWIRE_CONFIG_NAME` can be used to
 specify an alternative config directory, subdirectory and file
 respectively.
 
-Next to the configuration file can be a directory with the same name as
-the file with a `.d/` suffix. All directories in the
-[SYNOPSIS](#synopsis) directory search paths are traversed in the listed
-order and the contents of the `*.conf` files inside them are appended to
-the main configuration file as overrides. Object sections are merged and
-array sections are appended.
+Other PipeWire configuration files generally follow the same lookup
+logic, replacing `pipewire.conf` with the name of the particular
+config file.
+
+# DROP-IN CONFIGURATION FILES  @IDX@ pipewire.conf
+
+All `*.conf` files in the `pipewire.conf.d/` directories are loaded
+and merged into the configuration.  Dictionary sections are merged,
+overriding properties if they already existed, and array sections are
+appended to. The drop-in files have same format as the main
+configuration file, but only contain the settings to be modified.
+
+As the `pipewire.conf` configuration file contains various parts
+that must be present for correct functioning, using drop-in files
+for configuration is recommended.
+
+## Example
+
+A configuration file `~/.config/pipewire/pipewire.conf.d/custom.conf`
+to change the value of the `default.clock.min-quantum` setting in `pipewire.conf`:
+
+```css
+context.properties = {
+    default.clock.min-quantum = 128
+}
+```
 
 # CONFIGURATION FILE FORMAT  @IDX@ pipewire.conf
 
-The configuration file is in (SPA) JSON format.
+The configuration file is in "SPA" JSON format.
 
-The configuration file format is grouped into sections. A section is
-either a dictionary, {}, or an array, \[\]. Dictionary and array entries
-are separated by whitespace and may be simple value assignment, an array
-or a dictionary. For example:
+The configuration file contains top-level keys, which are the sections.
+The value of a section is either a dictionary, `{ }`, or an
+array, `[ ]`. Section and dictionary item declarations 
+have `KEY = VALUE` form, and are separated by whitespace.
+For example:
+
 ```
-    name = value # simple assignment
+context.properties = {  # top-level dictionary section
 
-    name = { key1 = value1 key2 = value2 } # a dictionary with two entries
+    key1 = value  # a simple value
 
-    name = [ value1 value2 ] # an array with two entries
+    key2 = { key1 = value1 key2 = value2 }  # a dictionary with two entries
 
-    name = [ { k = v1 } { k = v2 } ] # an array of dictionaries
+    key3 = [ value1 value2 ]  # an array with two entries
+
+    key4 = [ { k = v1 } { k = v2 } ]  # an array of dictionaries
+
+}
+
+context.modules = [  # top-level array section
+
+    value1
+
+    value2
+
+]
 ```
 
-The configuration files can be expressed in standard JSON syntax but for
-ease of use, a relaxed format may be used where:
+The configuration files can also be written in standard JSON syntax,
+but for easier manual editing, the relaxed "SPA" variant is allowed.
+In "SPA" JSON:
 
-- `:` to delimit keys and values can be substuted by `=` or a space.
+- `:` to delimit keys and values can be substituted by `=` or a space.
 - <tt>\"</tt> around keys and string can be omitted as long as no special
   characters are used in the strings.
 - `,` to separate objects can be replaced with a whitespace character.
@@ -148,12 +183,16 @@ Default quantum used when no client specifies one.
 Maximum quantum to reserve space for.
 
 @PAR@ pipewire.conf  default.video.width
+Default video width
 
 @PAR@ pipewire.conf  default.video.height
+Default video height
 
 @PAR@ pipewire.conf  default.video.rate.num
+Default video rate numerator
 
 @PAR@ pipewire.conf  default.video.rate.denom
+Default video rate denominator
 
 @PAR@ pipewire.conf  library.name.system = support/libspa-support
 The name of the shared library to use for the system functions for the main thread.
@@ -193,10 +232,10 @@ it. Disable this if you want to globally disable DBus support in the process.
 Any property in the vm.overrides property object will override the property
 in the context.properties when PipeWire detects it is running in a VM.
 
-\par CONDITION = true / false
-The `context.modules` and `context.objects` sections can declare
-additional condition variables, which control whether a specific
-module or object to be loaded on startup.
+The context properties may also contain custom values. For example,
+the `context.modules` and `context.objects` sections can declare
+additional conditions that control whether a module or object is loaded
+depending on what properties are present.
 
 # SPA LIBRARIES  @IDX@ pipewire.conf
 
@@ -244,15 +283,17 @@ context.modules = [
 \par name
 Name of module to be loaded
 
-\par args = { KEY = VALUE }
-Argument to the module
+\par args = { }
+Arguments passed to the module
 
 \par flags = [ ]
 Loading flags. `ifexists` to only load module if it exists,
 and `nofail` to not fail PipeWire startup if the module fails to load.
 
-\par condition = [ { KEY = VALUE }, ... ]
-Named condition variables, which control whether a module is loaded.
+\par condition = [ ]
+A \ref pipewire_conf__match_rules "match rule" `matches` condition.
+The module is loaded only if one of the expressions in the array matches
+to a context property.
 
 # CONTEXT OBJECTS  @IDX@ pipewire.conf
 
@@ -270,32 +311,35 @@ context.objects = [
 ```
 This section can be used to make nodes or links between nodes.
 
-\par name
-Name of module to be loaded
+\par factory
+Name of the factory to create the object.
 
-\par args = { KEY = VALUE }
-Argument to the module
+\par args = { }
+Arguments passed to the factory.
 
 \par flags = [ ]
-Loading flags. `ifexists` to only load module if it exists,
-and `nofail` to not fail PipeWire startup if the module fails to load.
+Flag `nofail` to not fail PipeWire startup if the object fails to load.
 
-\par condition = [ { KEY = VALUE }, ... ]
-Named condition variables, which control whether a module is loaded.
+\par condition = [ ]
+A \ref pipewire_conf__match_rules "match rule" `matches` condition.
+The object is created only if one of the expressions in the array matches
+to a context property.
 
 ## Example
 
-This fragment creates a new dummy driver node:
+This fragment creates a new dummy driver node, but only if
+`core.daemon` property is true:
 
 ```json
 context.objects = [
     { factory = spa-node-factory
-        args = {
-            factory.name    = support.node.driver
-            node.name       = Dummy-Driver
-            node.group      = pipewire.dummy
-            priority.driver = 20000
-        }
+      args = {
+          factory.name    = support.node.driver
+          node.name       = Dummy-Driver
+          node.group      = pipewire.dummy
+          priority.driver = 20000
+      },
+      condition = [ { core.daemon = true } ]
     }
 ]
 ```
@@ -321,7 +365,9 @@ Program to execute.
 Arguments to the program.
 
 \par condition
-Condition variable definition.
+A \ref pipewire_conf__match_rules "match rule" `matches` condition.
+The object is created only if one of the expressions in the array matches
+to a context property.
 
 ## Example
 
@@ -351,6 +397,9 @@ The general rules object follows the following pattern:
                 # all keys must match the value. ! negates. ~ starts regex.
                 #application.process.binary = "teams"
                 #application.name = "~speech-dispatcher.*"
+
+                # Absence of property can be tested by comparing to null
+                #pipewire.sec.flatpak = null
             }
             {
                 # more matches here...

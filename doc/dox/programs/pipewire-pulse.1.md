@@ -35,12 +35,16 @@ are supported.
 
 In addition:
 
-@PAR@ pulse-env PULSE_RUNTIME_PATH
+@PAR@ pulse-env  PULSE_RUNTIME_PATH
 
-@PAR@ pulse-env XDG_RUNTIME_DIR
-
+@PAR@ pulse-env  XDG_RUNTIME_DIR
 Directory where to create the native protocol pulseaudio socket.
 
+@PAR@ pulse-env  PULSE_LATENCY_MSEC
+Extra buffering latency in milliseconds. This controls buffering
+logic in `libpulse` and may be set for PulseAudio client applications
+to adjust their buffering. (Setting it on the `pipewire-pulse` server
+has no effect.)
 
 # AUTHORS
 

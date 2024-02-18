@@ -20,29 +20,23 @@ The PipeWire JACK client configuration file.
 
 # DESCRIPTION
 
-Configuration for PipeWire native clients, and for PipeWire's ALSA
-plugin.
+Configuration for PipeWire JACK clients.
 
-A PipeWire native client program selects the default config to load,
-and if nothing is specified, it usually loads `client.conf`.
+The configuration file format and lookup logic is the same as for \ref page_man_pipewire_conf_5 "pipewire.conf(5)".
 
-The ALSA plugin uses the `client-rt.conf` file, as do some PipeWire
-native clients such as \ref page_man_pw-cat_1 "pw-cat(1)".
-
-The configuration file format is the same as for `pipewire.conf(5)`.
+Drop-in configuration files `jack.conf.d/*.conf` can be used, and are recommended.
+See \ref pipewire_conf__drop-in_configuration_files "pipewire.conf(5)".
 
 # CONFIGURATION FILE SECTIONS
-
-The same sections as in \ref page_man_pipewire_conf_5 "pipewire.conf(5)"
-are available. However, a client usually sets the
-`core.daemon` property to false, and has a limited set of
-`context.spa-libs` usually only to create audio nodes and a poll loop.
 
 \par jack.properties
 JACK client configuration.
 
 \par jack.rules
 JACK client match rules.
+
+In addition, the PipeWire context configuration sections 
+may also be specified, see \ref page_man_pipewire_conf_5 "pipewire.conf(5)".
 
 # JACK PROPERTIES  @IDX@ jack.conf
 
@@ -333,7 +327,5 @@ PipeWire is available from <$(PACKAGE_URL)>
 
 # SEE ALSO
 
-\ref page_module_protocol_pulse "libpipewire-module-protocol-pulse(7)",
-\ref page_man_pipewire_conf_5 "pipewire.conf(5)",
-\ref page_man_pipewire-pulse_1 "pipewire-pulse(1)",
-\ref page_man_pipewire-pulse-modules_7 "pipewire-pulse-modules(7)"
+\ref page_man_pw-jack_1 "pw-jack(1)",
+\ref page_man_pipewire_conf_5 "pipewire.conf(5)"

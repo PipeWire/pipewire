@@ -514,8 +514,6 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * to a stereo Dolby Surround signal.
  *
  *\code{.unparsed}
- *
- *\code{.unparsed}
  * context.modules = [
  * {   name = libpipewire-module-filter-chain
  *     args = {

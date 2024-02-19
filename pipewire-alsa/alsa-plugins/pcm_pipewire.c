@@ -525,8 +525,10 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &pw->format);
 
 	if (pw->stream != NULL) {
+		pw_stream_set_active(pw->stream, false);
 		pw_stream_update_properties(pw->stream, &pw->props->dict);
 		pw_stream_update_params(pw->stream, params, 1);
+		pw_stream_set_active(pw->stream, true);
 		goto done;
 	}
 

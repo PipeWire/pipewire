@@ -88,6 +88,7 @@ struct impl {
 
 	unsigned int add_listener:1;
 	unsigned int have_format:1;
+	unsigned int recheck_format:1;
 	unsigned int started:1;
 	unsigned int ready:1;
 	unsigned int async:1;
@@ -853,10 +854,13 @@ static int negotiate_format(struct impl *this)
 	struct spa_pod_builder b = { 0 };
 	int res;
 
-	spa_log_debug(this->log, "%p: have_format:%d", this, this->have_format);
+	spa_log_debug(this->log, "%p: have_format:%d recheck:%d", this, this->have_format,
+			this->recheck_format);
 
-	if (this->have_format)
+	if (this->have_format && !this->recheck_format)
 		return 0;
+
+	this->recheck_format = false;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
@@ -1292,6 +1296,7 @@ static void follower_port_info(void *data,
 			if (idx == IDX_EnumFormat) {
 				spa_log_debug(this->log, "new formats");
 				/* we will renegotiate when restarting */
+				this->recheck_format = true;
 			}
 
 			this->params[idx].user++;

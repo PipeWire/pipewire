@@ -251,7 +251,7 @@ Disable mmap operation of the device and use the ALSA read/write API instead. De
 Ignore the ALSA batch flag. If the batch flag is set, ALSA will need an extra period to update the read/write pointers. Ignore this flag from ALSA can reduce the latency. Default is false.
 
 @PAR@ device-param  api.alsa.use-chmap
-Use the driver provided channel map. Default is false because many drivers don't report this correctly.
+Use the driver provided channel map. Default is true.
 
 @PAR@ device-param  api.alsa.multi-rate
 UNDOCUMENTED
@@ -279,7 +279,7 @@ Static set the device systemic latency, in nanoseconds.
 UNDOCUMENTED
 
 @PAR@ device-param  api.alsa.open.ucm
-UNDOCUMENTED
+Open device using UCM.
 
 @PAR@ device-param  api.alsa.bind-ctls
 UNDOCUMENTED

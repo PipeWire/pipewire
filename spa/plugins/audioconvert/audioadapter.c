@@ -472,6 +472,13 @@ static int negotiate_buffers(struct impl *this)
 	return 0;
 }
 
+static void clear_buffers(struct impl *this)
+{
+	free(this->buffers);
+	this->buffers = NULL;
+	this->n_buffers = 0;
+}
+
 static int configure_format(struct impl *this, uint32_t flags, const struct spa_pod *format)
 {
 	uint8_t buffer[4096];
@@ -515,11 +522,11 @@ static int configure_format(struct impl *this, uint32_t flags, const struct spa_
 	}
 
 	this->have_format = format != NULL;
-	if (format == NULL) {
-		this->n_buffers = 0;
-	} else if (this->target != this->follower) {
+	clear_buffers(this);
+
+	if (format != NULL && this->target != this->follower)
 		res = negotiate_buffers(this);
-	}
+
 	return res;
 }
 
@@ -1725,10 +1732,7 @@ static int impl_clear(struct spa_handle *handle)
 
 	spa_handle_clear(this->hnd_convert);
 
-	if (this->buffers)
-		free(this->buffers);
-	this->buffers = NULL;
-
+	clear_buffers(this);
 	return 0;
 }
 

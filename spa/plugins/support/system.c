@@ -190,7 +190,7 @@ static int impl_timerfd_read(void *object, int fd, uint64_t *expirations)
 static int impl_eventfd_create(void *object, int flags)
 {
 	struct impl *impl = object;
-	int fl = 0, res;
+	int fl = 0, res, err;
 	if (flags & SPA_FD_CLOEXEC)
 		fl |= EFD_CLOEXEC;
 	if (flags & SPA_FD_NONBLOCK)
@@ -198,8 +198,9 @@ static int impl_eventfd_create(void *object, int flags)
 	if (flags & SPA_FD_EVENT_SEMAPHORE)
 		fl |= EFD_SEMAPHORE;
 	res = eventfd(0, fl);
+	err = -errno; /* save errno in case it is overwritten before return */
 	spa_log_debug(impl->log, "%p: new fd:%d", impl, res);
-	return res < 0 ? -errno : res;
+	return res < 0 ? err : res;
 }
 
 static int impl_eventfd_write(void *object, int fd, uint64_t count)

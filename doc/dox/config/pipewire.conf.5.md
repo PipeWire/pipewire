@@ -421,6 +421,70 @@ The available actions and their values depend on the specific rule
 that is used. Usually it is possible to update some properties or set
 some quirks on the object.
 
+## node.rules
+
+The node.rules are evaluated very time the properties on a node are set
+or updated. This can be used on the server side to override client set
+properties on arbitrary nodes.
+
+`node.rules` provides an `update-props` action that takes an object with
+properties that are updated on the node object.
+
+Add a `node.rules` section in the config file like this:
+
+```
+node.rules = [
+    {
+        matches = [
+            {
+                # all keys must match the value. ! negates. ~ starts regex.
+                client.name = "jack_simple_client"
+            }
+        ]
+        actions = {
+            update-props = {
+                node.force-quantum = 512
+            }
+        }
+    }
+]
+```
+
+Will set the `node.force-quantum` property of `jack_simple_client` to 512.
+
+## device.rules
+
+The device.rules are evaluated very time the properties on a device are set
+or updated. This can be used on the server side to override client set
+properties on arbitrary devices.
+
+`device.rules` provides an `update-props` action that takes an object with
+properties that are updated on the device object.
+
+Add a `device.rules` section in the config file like this:
+
+```
+device.rules = [
+    {
+        matches = [
+            {
+                # all keys must match the value. ! negates. ~ starts regex.
+                device.name = ""v4l2_device.pci-0000_00_14.0-usb-0_1.2_1.0
+            }
+        ]
+        actions = {
+            update-props = {
+                device.description = "My Webcam"
+            }
+        }
+    }
+]
+```
+
+Will set the `device.description` property of the device with the given `device.name`
+to "My Webcam".
+
+
 # AUTHORS
 
 The PipeWire Developers <$(PACKAGE_BUGREPORT)>;

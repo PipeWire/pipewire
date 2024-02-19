@@ -1359,8 +1359,8 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 
 	ctl->system = loop->system;
 	ctl->fd = spa_system_eventfd_create(ctl->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	if (ctl->fd == -1) {
-		err = -errno;
+	if (ctl->fd < 0) {
+		err = ctl->fd;
 		goto error;
 	}
 

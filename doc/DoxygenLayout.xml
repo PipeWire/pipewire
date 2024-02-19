@@ -47,8 +47,8 @@
   <class>
     <briefdescription visible="yes"/>
     <includes visible="$SHOW_HEADERFILE"/>
-    <inheritancegraph visible="yes"/>
-    <collaborationgraph visible="yes"/>
+    <inheritancegraph visible="no"/>
+    <collaborationgraph visible="no"/>
     <memberdecl>
       <nestedclasses visible="yes" title=""/>
       <publictypes title=""/>
@@ -149,8 +149,8 @@
   <file>
     <briefdescription visible="yes"/>
     <includes visible="$SHOW_INCLUDE_FILES"/>
-    <includegraph visible="yes"/>
-    <includedbygraph visible="yes"/>
+    <includegraph visible="no"/>
+    <includedbygraph visible="no"/>
     <sourcelink visible="yes"/>
     <memberdecl>
       <interfaces visible="yes" title=""/>
@@ -188,7 +188,7 @@
   <!-- Layout definition for a group page -->
   <group>
     <briefdescription visible="yes"/>
-    <groupgraph visible="yes"/>
+    <groupgraph visible="no"/>
     <memberdecl>
       <nestedgroups visible="yes" title=""/>
       <modules visible="yes" title=""/>
@@ -259,7 +259,7 @@
   <!-- Layout definition for a directory page -->
   <directory>
     <briefdescription visible="yes"/>
-    <directorygraph visible="yes"/>
+    <directorygraph visible="no"/>
     <memberdecl>
       <dirs visible="yes"/>
       <files visible="yes"/>

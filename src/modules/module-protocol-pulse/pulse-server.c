@@ -597,6 +597,8 @@ static int reply_create_playback_stream(struct stream *stream, struct pw_manager
 	if (peer && pw_manager_object_is_sink(peer)) {
 		peer_index = peer->index;
 		peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
+		if (peer_name == NULL)
+			peer_name = "unknown";
 	} else {
 		peer_index = SPA_ID_INVALID;
 		peer_name = NULL;
@@ -751,6 +753,8 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 		peer = find_linked(manager, peer->id, PW_DIRECTION_OUTPUT);
 	if (peer && pw_manager_object_is_source_or_monitor(peer)) {
 		name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
+		if (name == NULL)
+			name = "unknown";
 		peer_index = peer->index;
 		if (!pw_manager_object_is_source(peer)) {
 			size_t len = (name ? strlen(name) : 5) + 10;
@@ -860,6 +864,8 @@ static void manager_added(void *data, struct pw_manager_object *o)
 				s->peer_index = peer->index;
 
 				peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
+				if (peer_name == NULL)
+					peer_name = "unknown";
 				if (peer_name && s->direction == PW_DIRECTION_INPUT &&
 				    pw_manager_object_is_monitor(peer)) {
 					int len = strlen(peer_name) + 10;

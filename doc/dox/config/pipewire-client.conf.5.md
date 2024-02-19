@@ -46,7 +46,7 @@ The configuration file format and lookup logic is the same as for \ref page_man_
 Drop-in configuration files `client.conf.d/*.conf` can be used, and are recommended.
 See \ref pipewire_conf__drop-in_configuration_files "pipewire.conf(5)".
 
-# CONFIGURATION FILE SECTIONS
+# CONFIGURATION FILE SECTIONS  @IDX@ client.conf
 
 \par stream.properties
 Configures options for native client streams.

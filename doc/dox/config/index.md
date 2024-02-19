@@ -86,8 +86,4 @@ interfaces:
 
 **Device properties**
 
-@SECREF@ device-property
-
-**Device parameters**
-
 @SECREF@ device-param

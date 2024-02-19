@@ -101,7 +101,7 @@ In "SPA" JSON:
 - `,` to separate objects can be replaced with a whitespace character.
 - `#` can be used to start a comment until the line end
 
-# CONFIGURATION FILE SECTIONS
+# CONFIGURATION FILE SECTIONS  @IDX@ pipewire.conf
 
 \par context.properties
 Dictionary. These properties configure the PipeWire instance.
@@ -128,6 +128,15 @@ This array used to contain an entry to start the session manager but
 this mode of operation has since been demoted to development aid. Avoid
 starting a session manager in this way in production environment.
 \endparblock
+
+\par node.rules
+Array of dictionaries. Match rules for modifying node properties
+on the server.
+
+\par device.rules
+Array of dictionaries. Match rules for modifying device properties
+on the server.
+
 
 # CONTEXT PROPERTIES  @IDX@ pipewire.conf
 
@@ -381,7 +390,7 @@ context.exec = [
 
 # MATCH RULES  @IDX@ pipewire.conf
 
-Some configuration files can contain match rules. This makes it
+Some configuration file sections contain match rules. This makes it
 possible to perform some action when an object (usually a node or
 stream) is created/updated that matches certain properties.
 
@@ -421,9 +430,9 @@ The available actions and their values depend on the specific rule
 that is used. Usually it is possible to update some properties or set
 some quirks on the object.
 
-## node.rules
+# NODE RULES  @IDX@ pipewire.conf
 
-The node.rules are evaluated very time the properties on a node are set
+The node.rules are evaluated every time the properties on a node are set
 or updated. This can be used on the server side to override client set
 properties on arbitrary nodes.
 
@@ -452,9 +461,9 @@ node.rules = [
 
 Will set the `node.force-quantum` property of `jack_simple_client` to 512.
 
-## device.rules
+# DEVICE RULES  @IDX@ pipewire.conf
 
-The device.rules are evaluated very time the properties on a device are set
+The device.rules are evaluated every time the properties on a device are set
 or updated. This can be used on the server side to override client set
 properties on arbitrary devices.
 

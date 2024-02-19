@@ -27,7 +27,7 @@ The configuration file format and lookup logic is the same as for \ref page_man_
 Drop-in configuration files `jack.conf.d/*.conf` can be used, and are recommended.
 See \ref pipewire_conf__drop-in_configuration_files "pipewire.conf(5)".
 
-# CONFIGURATION FILE SECTIONS
+# CONFIGURATION FILE SECTIONS  @IDX@ jack.conf
 
 \par jack.properties
 JACK client configuration.

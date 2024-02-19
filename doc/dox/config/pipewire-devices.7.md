@@ -6,25 +6,25 @@ PipeWire device and node property reference.
 
 # DESCRIPTION
 
-Devices such as audio sinks and sources, cameras and Bluetooth
-endpoints have properties that can be set in configuration files or at
+Audio sinks and sources, cameras, Bluetooth endpoints, and other
+objects have properties that can be set in configuration files or at
 runtime.
 
-Technically, nodes and devices have both "properties" and "parameters".
-The "properties" appear in \ref page_man_pw-dump_1 "pw-dump(1)" as `"props"`,
-and generally control other aspects than hardware features.
-The "parameters" are lower-level device settings, and technically
-are the configuration of the underlying SPA device/node implementation.
+Some of the properties are "common object properties" (e.g. such as
+`node.description`) and can be set on all types of devices and
+nodes. Other properties control settings of a specific type of a
+device (ALSA, Bluetooth, ...).
 
-All device settings are usually configured in the session manager configuration.
+All the properties are usually configured in the session manager configuration.
 For how to configure them, see the session manager documentation.
 
 In minimal PipeWire setups without a session manager, they can be configured via
 \ref pipewire_conf__context_objects "context.objects in pipewire.conf(5)".
 
-# RUNTIME PARAMETERS  @IDX@ device-param
+# RUNTIME SETTINGS  @IDX@ device-param
 
-Most ALSA and virtual device parameters can be configured also at runtime.
+The settings of most ALSA and virtual device parameters can be
+configured also at runtime.
 
 The settings are available in device `Props` in the `params`
 field. They can be seen e.g. using `pw-dump <id>` for an ALSA device:
@@ -81,19 +81,22 @@ These settings are not saved and need to be reapplied for each session manager r
 
 # COMMON NODE PROPERTIES  @IDX@ device-param
 
-These are common properties for nodes.
+The properties listed in \ref client_conf__stream_properties "Stream properties"
+apply also to sink or source nodes corresponding to real or virtual devices.
 
-@PAR@ device-property  priority.driver
+In addition:
+
+@PAR@ device-param  priority.driver
 \parblock
 The priority of choosing this device as the driver in the graph. The driver is selected from all linked devices by selecting the device with the highest priority.
 
 Normally, the session manager assigns higher priority to sources so that they become the driver in the graph. The reason for this is that adaptive resampling should be done on the sinks rather than the source to avoid signal distortion when capturing audio.
 \endparblock
 
-@PAR@ device-property  priority.session
+@PAR@ device-param  priority.session
 The priority for selecting this device as the default device.
 
-@PAR@ device-property  clock.name
+@PAR@ device-param  clock.name
 \parblock
 The name of the clock. This name is auto generated from the card index and stream direction. Devices with the same clock name will not use a resampler to align the clocks. This can be used to link devices together with a shared word clock.
 
@@ -102,9 +105,37 @@ In Pro Audio mode, nodes from the same device are assumed to have the same clock
 In Non Pro Audio profile, no such assumption is made and adaptive resampling is done in all cases by default. This can also be disabled by setting the same clock.name on the nodes.
 \endparblock
 
-# AUDIO CONVERTER PARAMETERS  @IDX@ device-param
+@PAR@ device-param  node.param.PARAM = JSON
+\parblock
+Set value of a node \ref spa_param_type "Param" to a JSON value when the device is loaded.
+This works similarly as \ref page_man_pw-cli_1 "pw-cli(1)" `set-param` command.
+The `PARAM` should be replaced with the name of the Param to set,
+ie. for example `node.param.Props = { ... }` to set `Props`.
+\endparblock
 
-Most audio nodes (ALSA, Bluetooth, ...) have common parameters for the audio
+@PAR@ device-param  device.id
+ID of the device the node belongs to.
+
+# COMMON DEVICE PROPERTIES  @IDX@ device-param
+
+These are common properties for devices.
+
+@PAR@ device-param  device.name
+A (unique) name for the device. It can be used by command-line and other tools to identify the device.
+
+@PAR@ device-param  device.param.PARAM = JSON
+\parblock
+Set value of a device \ref spa_param_type "Param" to a JSON value when the device is loaded.
+This works similarly as \ref page_man_pw-cli_1 "pw-cli(1)" `set-param` command.
+The `PARAM` should be replaced with the name of the Param to set,
+ie. for example `device.Param.Props = { ... }` to set `Props`.
+\endparblock
+
+Other `device.*` properties: UNDOCUMENTED
+
+# AUDIO CONVERTER PROPERTIES  @IDX@ device-param
+
+Most audio nodes (ALSA, Bluetooth, ...) have common properties for the audio
 converter. See \ref client_conf__stream_properties "pipewire-client.conf(5) stream.properties"
 for explanations.
 
@@ -178,9 +209,9 @@ UNDOCUMENTED
 UNDOCUMENTED
 
 
-# ALSA PARAMETERS  @IDX@ device-param
+# ALSA PROPERTIES  @IDX@ device-param
 
-ALSA node parameters:
+ALSA node properties:
 
 @PAR@ device-param  audio.channels
 The number of audio channels to open the device with. Defaults depends on the profile of the device.
@@ -257,10 +288,10 @@ UNDOCUMENTED
 Enable only specific IEC958 codecs. This can be used to disable some codecs the hardware supports.
 Available values: PCM, AC3, DTS, MPEG, MPEG2-AAC, EAC3, TRUEHD, DTSHD
 
-# BLUETOOTH PARAMETERS  @IDX@ device-param
+# BLUETOOTH PROPERTIES  @IDX@ device-param
 
-The following are global Bluetooth parameters, not specific to a
-specific device or node:
+The following are settings for the Bluetooth module, not device or
+node properties:
 
 @PAR@ device-param  bluez5.roles
 \parblock
@@ -347,7 +378,7 @@ PipeWire Opus Pro audio profile duplex max bitrate.
 @PAR@ device-param  bluez5.a2dp.opus.pro.bidi.frame-dms = 400
 PipeWire Opus Pro audio profile duplex frame duration (1/10 ms).
 
-## Device parameters
+## Device properties
 
 @PAR@ device-param  bluez5.auto-connect
 Auto-connect devices on start up. Disabled by default if
@@ -378,7 +409,7 @@ PipeWire Opus Pro Audio encoding mode: audio, voip, lowdelay
 @PAR@ device-param  bluez5.a2dp.opus.pro.bidi.application = "audio"
 PipeWire Opus Pro Audio duplex encoding mode: audio, voip, lowdelay
 
-## Node parameters
+## Node properties
 
 @PAR@ device-param  bluez5.media-source-role
 \parblock

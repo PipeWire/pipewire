@@ -179,7 +179,7 @@ for explanations.
 \ref client_conf__channelmix_upmix-method "See pipewire-client.conf(5)"
 
 @PAR@ device-param  channelmix.lock-volumes
-UNDOCUMENTED
+\ref client_conf__channelmix_lock-volumes "See pipewire-client.conf(5)"
 
 @PAR@ device-param  resample.quality
 \ref client_conf__resample_quality "See pipewire-client.conf(5)"
@@ -251,10 +251,10 @@ Disable mmap operation of the device and use the ALSA read/write API instead. De
 Ignore the ALSA batch flag. If the batch flag is set, ALSA will need an extra period to update the read/write pointers. Ignore this flag from ALSA can reduce the latency. Default is false.
 
 @PAR@ device-param  api.alsa.use-chmap
-Use the driver provided channel map. Default is true.
+Use the driver provided channel map. Default is true when using UCM, false otherwise because many driver don't report this correctly.
 
 @PAR@ device-param  api.alsa.multi-rate
-UNDOCUMENTED
+Allow devices from the same card to be opened in multiple sample rates. Default is true. Some older drivers did not properly advertize the capabilities of the device and only really supported opening the device in one rate.
 
 @PAR@ device-param  api.alsa.htimestamp = false
 Use ALSA htimestamps in scheduling, instead of the system clock.

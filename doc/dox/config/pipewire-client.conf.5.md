@@ -77,6 +77,7 @@ stream.properties = {
     #channelmix.min-volume = 0.0
     #channelmix.max-volume = 10.0
     #channelmix.normalize = false
+    #channelmix.lock-volume = false
     #channelmix.mix-lfe = true
     #channelmix.upmix = true
     #channelmix.upmix-method = psd  # none, simple
@@ -378,6 +379,9 @@ Makes sure that during such mixing & resampling original 0 dB level is preserved
 While this options prevents clipping, it can in some cases produce too low volume. Increase the
 volume in that case or disable normalization.
 \endparblock
+
+@PAR@ client.conf  channelmix.lock-volumes = false
+Completely disable volume or mute changes. Defaults to false.
 
 @PAR@ client.conf  channelmix.mix-lfe = true
 Mixes the low frequency effect channel into the front center or stereo pair. This might enhance the dynamic range of the signal if there is no subwoofer and the speakers can reproduce the low frequency signal.

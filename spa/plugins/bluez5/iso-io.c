@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <errno.h>
 #include <limits.h>
-#include <sys/socket.h>
 
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
@@ -26,8 +25,13 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.iso");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 
+#include "bt-latency.h"
+
 #define IDLE_TIME	(500 * SPA_NSEC_PER_MSEC)
 #define EMPTY_BUF_SIZE	65536
+
+#define LATENCY_PERIOD		(200 * SPA_NSEC_PER_MSEC)
+#define MAX_PACKET_QUEUE	3
 
 struct group {
 	struct spa_log *log;
@@ -39,7 +43,6 @@ struct group {
 	uint8_t id;
 	uint64_t next;
 	uint64_t duration;
-	uint32_t paused;
 	bool started;
 };
 
@@ -55,6 +58,8 @@ struct stream {
 
 	const struct media_codec *codec;
 	uint32_t block_size;
+
+	struct spa_bt_latency tx_latency;
 };
 
 struct modify_info
@@ -131,15 +136,20 @@ static int set_timeout(struct group *group, uint64_t time)
 			group->timerfd, SPA_FD_TIMER_ABSTIME, &ts, NULL);
 }
 
-static int set_timers(struct group *group)
+static uint64_t get_time_ns(struct spa_system *system, clockid_t clockid)
 {
 	struct timespec now;
 
+	spa_system_clock_gettime(system, clockid, &now);
+	return SPA_TIMESPEC_TO_NSEC(&now);
+}
+
+static int set_timers(struct group *group)
+{
 	if (group->duration == 0)
 		return -EINVAL;
 
-	spa_system_clock_gettime(group->data_system, CLOCK_MONOTONIC, &now);
-	group->next = SPA_ROUND_UP(SPA_TIMESPEC_TO_NSEC(&now) + group->duration,
+	group->next = SPA_ROUND_UP(get_time_ns(group->data_system, CLOCK_MONOTONIC) + group->duration,
 			group->duration);
 
 	return set_timeout(group, group->next);
@@ -170,10 +180,6 @@ static void group_on_timeout(struct spa_source *source)
 		return;
 	}
 
-	/*
-	 * If a stream failed, pause output of all streams for a while to avoid
-	 * desynchronization.
-	 */
 	spa_list_for_each(stream, &group->streams, link) {
 		if (!stream->sink) {
 			if (!stream->pull) {
@@ -182,6 +188,8 @@ static void group_on_timeout(struct spa_source *source)
 			}
 			continue;
 		}
+
+		spa_bt_latency_recv_errqueue(&stream->tx_latency, stream->fd, group->log);
 
 		if (stream->this.need_resync) {
 			resync = true;
@@ -192,18 +200,16 @@ static void group_on_timeout(struct spa_source *source)
 			group->started = true;
 	}
 
-	if (group->paused) {
-		--group->paused;
-		spa_log_debug(group->log, "%p: ISO group:%u paused:%u", group, group->id, group->paused);
-	}
-
 	/* Produce output */
 	spa_list_for_each(stream, &group->streams, link) {
 		int res;
+		uint64_t now;
+		int32_t min_latency = INT32_MAX, max_latency = INT32_MIN;
+		struct stream *other;
 
 		if (!stream->sink)
 			continue;
-		if (group->paused || !group->started) {
+		if (!group->started) {
 			stream->this.resync = true;
 			stream->this.size = 0;
 			continue;
@@ -217,21 +223,50 @@ static void group_on_timeout(struct spa_source *source)
 			}
 		}
 
+		spa_list_for_each(other, &group->streams, link) {
+			if (!other->sink || stream == other || !other->tx_latency.valid)
+				continue;
+			min_latency = SPA_MIN(min_latency, other->tx_latency.ptp.min);
+			max_latency = SPA_MAX(max_latency, other->tx_latency.ptp.max);
+		}
+
+		if (stream->tx_latency.valid && min_latency <= max_latency &&
+				stream->tx_latency.ptp.min > min_latency + (int64_t)group->duration/2 &&
+				stream->tx_latency.ptp.max > max_latency + (int64_t)group->duration/2) {
+			spa_log_debug(group->log, "%p: ISO group:%u latency skip align fd:%d", group, group->id, stream->fd);
+			spa_bt_latency_reset(&stream->tx_latency);
+			goto stream_done;
+		}
+
+		/* TODO: this should use rate match */
+		if (stream->tx_latency.valid &&
+				stream->tx_latency.ptp.min > MAX_PACKET_QUEUE * (int64_t)group->duration) {
+			spa_log_debug(group->log, "%p: ISO group:%u latency skip fd:%d", group, group->id, stream->fd);
+			spa_bt_latency_reset(&stream->tx_latency);
+			goto stream_done;
+		}
+
+		now = get_time_ns(group->data_system, CLOCK_REALTIME);
 		res = send(stream->fd, stream->this.buf, stream->this.size, MSG_DONTWAIT | MSG_NOSIGNAL);
 		if (res < 0) {
 			res = -errno;
 			fail = true;
+		} else {
+			spa_bt_latency_sent(&stream->tx_latency, now);
 		}
 
-		spa_log_trace(group->log, "%p: ISO group:%u sent fd:%d size:%u ts:%u idle:%d res:%d",
+	stream_done:
+		spa_log_trace(group->log, "%p: ISO group:%u sent fd:%d size:%u ts:%u idle:%d res:%d latency:%d..%d us",
 				group, group->id, stream->fd, (unsigned)stream->this.size,
-				(unsigned)stream->this.timestamp, stream->idle, res);
+				(unsigned)stream->this.timestamp, stream->idle, res,
+				stream->tx_latency.valid ? stream->tx_latency.ptp.min/1000 : -1,
+				stream->tx_latency.valid ? stream->tx_latency.ptp.max/1000 : -1);
 
 		stream->this.size = 0;
 	}
 
 	if (fail)
-		group->paused = 1u + IDLE_TIME / group->duration;
+		spa_log_debug(group->log, "%p: ISO group:%d send failure", group, group->id);
 
 	/* Pull data for the next interval */
 	group->next += exp * group->duration;
@@ -399,6 +434,8 @@ static struct stream *stream_create(struct spa_bt_transport *t, struct group *gr
 	stream->this.format = format;
 	stream->block_size = block_size;
 
+	spa_bt_latency_init(&stream->tx_latency, stream->fd, LATENCY_PERIOD, group->log);
+
 	if (sink)
 		stream_silence(stream);
 
@@ -452,6 +489,8 @@ void spa_bt_iso_io_destroy(struct spa_bt_iso_io *this)
 	struct stream *stream = SPA_CONTAINER_OF(this, struct stream, this);
 
 	stream_unlink(stream);
+
+	spa_bt_latency_flush(&stream->tx_latency, stream->fd, stream->group->log);
 
 	if (spa_list_is_empty(&stream->group->streams))
 		group_destroy(stream->group);
@@ -507,4 +546,13 @@ void spa_bt_iso_io_set_cb(struct spa_bt_iso_io *this, spa_bt_iso_io_pull_t pull,
 		stream->this.size = 0;
 		return;
 	}
+}
+
+/** Must be called from data thread */
+int spa_bt_iso_io_recv_errqueue(struct spa_bt_iso_io *this)
+{
+	struct stream *stream = SPA_CONTAINER_OF(this, struct stream, this);
+	struct group *group = stream->group;
+
+	return spa_bt_latency_recv_errqueue(&stream->tx_latency, stream->fd, group->log);
 }

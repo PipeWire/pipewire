@@ -44,5 +44,6 @@ struct spa_bt_iso_io *spa_bt_iso_io_create(struct spa_bt_transport *t,
 struct spa_bt_iso_io *spa_bt_iso_io_attach(struct spa_bt_iso_io *io, struct spa_bt_transport *t);
 void spa_bt_iso_io_destroy(struct spa_bt_iso_io *io);
 void spa_bt_iso_io_set_cb(struct spa_bt_iso_io *io, spa_bt_iso_io_pull_t pull, void *user_data);
+int spa_bt_iso_io_recv_errqueue(struct spa_bt_iso_io *io);
 
 #endif

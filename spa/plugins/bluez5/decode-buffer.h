@@ -104,8 +104,8 @@ static int spa_bt_decode_buffer_init(struct spa_bt_decode_buffer *this, struct s
 
 	spa_bt_rate_control_init(&this->ctl, 0);
 
-	spa_bt_ptp_init(&this->spike, (uint64_t)this->rate * BUFFERING_LONG_MSEC / 1000);
-	spa_bt_ptp_init(&this->packet_size, (uint64_t)this->rate * BUFFERING_SHORT_MSEC / 1000);
+	spa_bt_ptp_init(&this->spike, (uint64_t)this->rate * BUFFERING_LONG_MSEC / 1000, 0);
+	spa_bt_ptp_init(&this->packet_size, (uint64_t)this->rate * BUFFERING_SHORT_MSEC / 1000, 0);
 
 	if ((this->buffer_decoded = malloc(this->buffer_size)) == NULL) {
 		this->buffer_size = 0;

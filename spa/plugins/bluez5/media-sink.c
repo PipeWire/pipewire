@@ -45,6 +45,8 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.sink.media");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 
+#include "bt-latency.h"
+
 #define DEFAULT_CLOCK_NAME	"clock.system.monotonic"
 
 struct props {
@@ -57,6 +59,7 @@ struct props {
 #define MAX_BUFFERS 32
 #define BUFFER_SIZE	(8192*8)
 #define RATE_CTL_DIFF_MAX 0.005
+#define LATENCY_PERIOD		(200 * SPA_NSEC_PER_MSEC)
 
 /* Wait for two cycles before trying to sync ISO. On start/driver reassign,
  * first cycle may have strange number of samples. */
@@ -1086,9 +1089,18 @@ static void media_on_flush_error(struct spa_source *source)
 {
 	struct impl *this = source->data;
 
+	if (source->rmask & SPA_IO_ERR) {
+		/* TX timestamp info? */
+		if (this->transport && this->transport->iso_io)
+			if (spa_bt_iso_io_recv_errqueue(this->transport->iso_io) == 0)
+				return;
+
+		/* Otherwise: actual error */
+	}
+
 	spa_log_trace(this->log, "%p: flush event", this);
 
-	if (source->rmask & (SPA_IO_ERR | SPA_IO_HUP)) {
+	if (source->rmask & (SPA_IO_HUP | SPA_IO_ERR)) {
 		spa_log_warn(this->log, "%p: error %d", this, source->rmask);
 		if (this->flush_source.loop)
 			spa_loop_remove_source(this->data_loop, &this->flush_source);
@@ -1372,7 +1384,6 @@ static int do_remove_transport_source(struct spa_loop *loop,
 
 	if (this->flush_source.loop)
 		spa_loop_remove_source(this->data_loop, &this->flush_source);
-
 	if (this->flush_timer_source.loop)
 		spa_loop_remove_source(this->data_loop, &this->flush_timer_source);
 	enable_flush_timer(this, false);

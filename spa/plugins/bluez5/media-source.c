@@ -148,6 +148,8 @@ struct impl {
 	uint8_t buffer_read[4096];
 	struct timespec now;
 	uint64_t sample_count;
+
+	uint32_t errqueue_count;
 };
 
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
@@ -455,6 +457,24 @@ static int32_t decode_data(struct impl *this, uint8_t *src, uint32_t src_size,
 	return dst_size - avail;
 }
 
+static void handle_errqueue(struct impl *this)
+{
+	int res;
+
+	/* iso-io/media-sink use these for TX latency.
+	 * Someone else should be reading them, so drop
+	 * only after yielding.
+	 */
+	if (this->errqueue_count < 4) {
+		this->errqueue_count++;
+		return;
+	}
+
+	this->errqueue_count = 0;
+	res = recv(this->fd, NULL, 0, MSG_ERRQUEUE | MSG_TRUNC);
+	spa_log_trace(this->log, "%p: ignoring errqueue data (%d)", this, res);
+}
+
 static void media_on_ready_read(struct spa_source *source)
 {
 	struct impl *this = source->data;
@@ -467,6 +487,11 @@ static void media_on_ready_read(struct spa_source *source)
 
 	/* make sure the source is an input */
 	if ((source->rmask & SPA_IO_IN) == 0) {
+		if (source->rmask & SPA_IO_ERR) {
+			handle_errqueue(this);
+			return;
+		}
+
 		spa_log_error(this->log, "source is not an input, rmask=%d", source->rmask);
 		goto stop;
 	}
@@ -474,6 +499,8 @@ static void media_on_ready_read(struct spa_source *source)
 		spa_log_debug(this->log, "no transport, stop reading");
 		goto stop;
 	}
+
+	this->errqueue_count = 0;
 
 	spa_log_trace(this->log, "socket poll");
 
@@ -688,6 +715,7 @@ static int transport_start(struct impl *this)
 	}
 
 	this->sample_count = 0;
+	this->errqueue_count = 0;
 
 	this->source.data = this;
 

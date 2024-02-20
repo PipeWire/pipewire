@@ -19,10 +19,11 @@ struct spa_bt_ptp
 		int32_t maxs[4];
 	};
 	uint32_t pos;
+	uint32_t left;
 	uint32_t period;
 };
 
-static inline void spa_bt_ptp_init(struct spa_bt_ptp *p, int32_t period)
+static inline void spa_bt_ptp_init(struct spa_bt_ptp *p, int32_t period, uint32_t min_duration)
 {
 	size_t i;
 
@@ -31,6 +32,7 @@ static inline void spa_bt_ptp_init(struct spa_bt_ptp *p, int32_t period)
 		p->mins[i] = INT32_MAX;
 		p->maxs[i] = INT32_MIN;
 	}
+	p->left = min_duration;
 	p->period = period;
 }
 
@@ -54,6 +56,16 @@ static inline void spa_bt_ptp_update(struct spa_bt_ptp *p, int32_t value, uint32
 		p->mins[n-1] = INT32_MAX;
 		p->maxs[n-1] = INT32_MIN;
 	}
+
+	if (p->left < duration)
+		p->left = 0;
+	else
+		p->left -= duration;
+}
+
+static inline bool spa_bt_ptp_valid(struct spa_bt_ptp *p)
+{
+	return p->left == 0;
 }
 
 /**

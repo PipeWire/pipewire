@@ -133,6 +133,8 @@ static int alsa_set_param(struct state *state, const char *k, const char *s)
 		state->multi_rate = spa_atob(s);
 	} else if (spa_streq(k, "api.alsa.htimestamp")) {
 		state->htimestamp = spa_atob(s);
+	} else if (spa_streq(k, "api.alsa.htimestamp.max-errors")) {
+		state->htimestamp_max_errors = atoi(s);
 	} else if (spa_streq(k, "api.alsa.auto-link")) {
 		state->auto_link = spa_atob(s);
 	} else if (spa_streq(k, "latency.internal.rate")) {
@@ -411,9 +413,17 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_type, SPA_POD_String(state->clock_name),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
+	case 18:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.htimestamp.max-errors"),
+			SPA_PROP_INFO_description, SPA_POD_String("Max errors before disabling htimestamp"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(state->htimestamp_max_errors, 0, INT32_MAX),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
 	// While adding params here, update the math in default too
 	default:
-		idx -= 17;
+		idx -= 18;
 		if (idx <= state->num_bind_ctls)
 			param = enum_bind_ctl_propinfo(state, idx - 1, b);
 		else
@@ -529,6 +539,9 @@ int spa_alsa_add_prop_params(struct state *state, struct spa_pod_builder *b)
 
 	spa_pod_builder_string(b, "api.alsa.htimestamp");
 	spa_pod_builder_bool(b, state->htimestamp);
+
+	spa_pod_builder_string(b, "api.alsa.htimestamp.max-errors");
+	spa_pod_builder_int(b, state->htimestamp_max_errors);
 
 	spa_pod_builder_string(b, "latency.internal.rate");
 	spa_pod_builder_int(b, state->process_latency.rate);
@@ -753,6 +766,7 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 
 	state->multi_rate = true;
 	state->htimestamp = false;
+	state->htimestamp_max_errors = MAX_HTIMESTAMP_ERROR;
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
@@ -2490,8 +2504,8 @@ static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes
 			if (SPA_ABS(diff) < state->threshold * 3) {
 				*delay += SPA_CLAMP(diff, -((int64_t)state->threshold), (int64_t)state->threshold);
 				state->htimestamp_error = 0;
-			} else {
-				if (++state->htimestamp_error > MAX_HTIMESTAMP_ERROR) {
+			} else if (state->htimestamp_max_errors) {
+				if (++state->htimestamp_error > state->htimestamp_max_errors) {
 					spa_log_error(state->log, "%s: wrong htimestamps from driver, disabling",
 						state->name);
 					state->htimestamp_error = 0;

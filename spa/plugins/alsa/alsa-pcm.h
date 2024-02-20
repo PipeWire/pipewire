@@ -203,6 +203,7 @@ struct state {
 	uint32_t min_delay;
 	uint32_t max_delay;
 	uint32_t htimestamp_error;
+	uint32_t htimestamp_max_errors;
 
 	struct spa_fraction driver_rate;
 	uint32_t driver_duration;

@@ -245,6 +245,10 @@ Use ALSA htimestamps in scheduling, instead of the system clock.
 Some ALSA drivers produce bad timestamps, so this is not enabled by default
 and will be disabled at runtime if it looks like the ALSA timestamps are bad.
 
+@PAR@ device-param  api.alsa.htimestamp.max-errors
+Specify the number of consecutive errors before htimestamp is disabled.
+Setting this to 0 makes htimestamp never get disabled.
+
 @PAR@ device-param  api.alsa.disable-tsched = false
 Disable timer-based scheduling, and use IRQ for scheduling instead.
 The "Pro Audio" profile will usually enable this setting, if it is expected it works on the hardware.

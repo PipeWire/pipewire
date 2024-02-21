@@ -2760,9 +2760,11 @@ static int
 do_memmap_free(struct spa_loop *loop,
                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
-	struct pw_memmap *mm = user_data;
+	struct client *c = user_data;
+	struct pw_memmap *mm = *((struct pw_memmap **)data);
 	pw_log_trace("memmap %p free", mm);
 	pw_memmap_free(mm);
+	pw_core_set_paused(c->core, false);
 	return 0;
 }
 
@@ -2771,8 +2773,7 @@ do_queue_memmap_free(struct spa_loop *loop,
                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct client *c = user_data;
-	struct pw_memmap *mm = *((struct pw_memmap **)data);
-	pw_loop_invoke(c->context.l, do_memmap_free, 0, NULL, 0, false, mm);
+	pw_loop_invoke(c->context.l, do_memmap_free, 0, data, size, false, c);
 	return 0;
 }
 
@@ -2827,6 +2828,7 @@ static int client_node_port_set_io(void *data,
 		mix_set_io(mix, ptr);
 		if (old != NULL) {
 			old->tag[0] = SPA_ID_INVALID;
+			pw_core_set_paused(c->core, true);
 			pw_data_loop_invoke(c->loop,
 				do_queue_memmap_free, SPA_ID_INVALID, &old, sizeof(&old), false, c);
 			old = NULL;

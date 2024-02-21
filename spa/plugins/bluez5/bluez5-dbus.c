@@ -980,6 +980,7 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 		struct bap_codec_qos qos;
 		DBusMessageIter entry, variant, qos_dict;
 		const char *entry_key = "QoS";
+		uint8_t cig = 0xff;
 
 		spa_zero(qos);
 
@@ -990,10 +991,18 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 			goto error_invalid;
 		}
 
+		if (ep->device->settings) {
+			const char *str = spa_dict_lookup(ep->device->settings, "bluez5.bap.cig");
+			uint32_t value;
+
+			if (spa_atou32(str, &value, 0))
+				cig = value;
+		}
+
 		spa_log_debug(monitor->log, "select qos: interval:%d framing:%d phy:%d sdu:%d "
-				"rtn:%d latency:%d delay:%d target_latency:%d",
+				"rtn:%d latency:%d delay:%d target_latency:%d cig:%u",
 				qos.interval, qos.framing, qos.phy, qos.sdu, qos.retransmission,
-				qos.latency, (int)qos.delay, qos.target_latency);
+				qos.latency, (int)qos.delay, qos.target_latency, cig);
 
 		dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
 		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &entry_key);
@@ -1014,6 +1023,9 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 		append_basic_variant_dict_entry(&qos_dict, "Latency", DBUS_TYPE_UINT16, "q", &qos.latency);
 		append_basic_variant_dict_entry(&qos_dict, "PresentationDelay", DBUS_TYPE_UINT32, "u", &qos.delay);
 		append_basic_variant_dict_entry(&qos_dict, "TargetLatency", DBUS_TYPE_BYTE, "y", &qos.target_latency);
+
+		if (cig < 0xf0)
+			append_basic_variant_dict_entry(&qos_dict, "CIG", DBUS_TYPE_BYTE, "y", &cig);
 
 		dbus_message_iter_close_container(&variant, &qos_dict);
 		dbus_message_iter_close_container(&entry, &variant);

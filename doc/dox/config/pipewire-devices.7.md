@@ -413,6 +413,10 @@ PipeWire Opus Pro Audio encoding mode: audio, voip, lowdelay
 @PAR@ device-param  bluez5.a2dp.opus.pro.bidi.application = "audio"
 PipeWire Opus Pro Audio duplex encoding mode: audio, voip, lowdelay
 
+@PAR@ device-param  bluez5.bap.cig = INTEGER
+Set CIG ID for BAP unicast streams of the device.
+Default: "auto" (automatic).
+
 ## Node properties
 
 @PAR@ device-param  bluez5.media-source-role

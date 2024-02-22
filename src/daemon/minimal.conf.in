@@ -48,6 +48,9 @@ context.properties = {
     # This config can use udev or hardcoded ALSA devices. Make sure to
     # change the alsa device below when disabling udev
     minimal.use-udev = true
+
+    # Load the pulseaudio emulation daemon
+    minimal.use-pulse = true
 }
 
 context.spa-libs = {
@@ -139,7 +142,22 @@ context.modules = [
 
     # Makes a factory for creating links between ports.
     { name = libpipewire-module-link-factory }
+
+    { name = libpipewire-module-protocol-pulse
+      condition = [ { minimal.use-pulse = true } ]
+    }
 ]
+
+pulse.properties = {
+    # the addresses this server listens on
+    server.address = [
+        "unix:native"
+    ]
+}
+
+stream.properties = {
+    adapter.auto-port-config = { mode = dsp }
+}
 
 context.objects = [
     #{ factory = <factory-name>
@@ -206,12 +224,12 @@ context.objects = [
                 api.acp.auto-port = true
                 device.object.properties = {
                     node.adapter             = audio.adapt
-                    resample.disable         = true
+                    resample.disable         = false
                     adapter.auto-port-config = {
                         mode = dsp
                         monitor = false
                         control = false
-                        position = unknown   # unknown, preserve
+                        position = preserve   # unknown, aux
                     }
                     #node.param.Props    = {
                     #    channelVolumes = [ 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.6 ]

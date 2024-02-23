@@ -1325,6 +1325,11 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 		i = dir->n_ports++;
 		init_port(this, direction, i, 0, false, false, true);
 	}
+	/* when output is convert mode, we are in OUTPUT (merge) mode, we always output all
+	 * the incomming data to output. When output is DSP, we need to output quantum size
+	 * chunks. */
+	this->direction = this->dir[SPA_DIRECTION_OUTPUT].mode == SPA_PARAM_PORT_CONFIG_MODE_convert ?
+		SPA_DIRECTION_OUTPUT : SPA_DIRECTION_INPUT;
 
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS | SPA_NODE_CHANGE_MASK_PARAMS;
 	this->info.flags &= ~SPA_NODE_FLAG_NEED_CONFIGURE;
@@ -1834,7 +1839,7 @@ static uint32_t resample_update_rate_match(struct impl *this, bool passthrough, 
 	}
 	match_size -= SPA_MIN(match_size, queued);
 
-	spa_log_trace_fp(this->log, "%p: next match %u", this, match_size);
+	spa_log_trace_fp(this->log, "%p: next match %u %u %u", this, match_size, size, queued);
 
 	if (this->io_rate_match) {
 		this->io_rate_match->delay = delay + queued;
@@ -3422,12 +3427,6 @@ impl_init(const struct spa_handle_factory *factory,
 		else if (spa_streq(k, "resample.prefill"))
 			SPA_FLAG_UPDATE(this->resample.options,
 				RESAMPLE_OPTION_PREFILL, spa_atob(s));
-		else if (spa_streq(k, "factory.mode")) {
-			if (spa_streq(s, "merge"))
-				this->direction = SPA_DIRECTION_OUTPUT;
-			else
-				this->direction = SPA_DIRECTION_INPUT;
-		}
 		else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
 			if (s != NULL)
 	                        this->props.n_channels = parse_position(this->props.channel_map, s, strlen(s));

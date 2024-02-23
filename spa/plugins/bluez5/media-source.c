@@ -1560,6 +1560,12 @@ static void process_buffering(struct impl *this)
 
 	if (this->update_delay_event) {
 		int32_t target = spa_bt_decode_buffer_get_target_latency(&port->buffer);
+		uint32_t decoder_delay = 0;
+
+		if (this->codec->get_delay)
+			this->codec->get_delay(this->codec_data, NULL, &decoder_delay);
+
+		target += decoder_delay;
 
 		if (target != this->delay.buffer || duration != this->delay.duration) {
 			struct delay_info info = { .buffer = target, .duration = duration };

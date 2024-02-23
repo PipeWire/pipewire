@@ -165,6 +165,8 @@ struct impl {
 	uint64_t packet_delay_ns;
 	struct spa_source *update_delay_event;
 
+	uint32_t encoder_delay;
+
 	const struct media_codec *codec;
 	bool codec_props_changed;
 	void *codec_props;
@@ -380,7 +382,7 @@ static void set_latency(struct impl *this, bool emit_latency)
 
 	/* in main loop */
 
-	if (this->transport == NULL)
+	if (this->transport == NULL || !port->have_format)
 		return;
 
 	/*
@@ -388,12 +390,13 @@ static void set_latency(struct impl *this, bool emit_latency)
 	 *
 	 * (packet delay) + (codec internal delay) + (transport delay) + (latency offset)
 	 *
-	 * and doesn't depend on the quantum. The codec internal delay is neglected.
-	 * Kernel knows the latency due to socket/controller queue, but doesn't
-	 * tell us, so not included but hopefully in < 20 ms range.
+	 * and doesn't depend on the quantum. Kernel knows the latency due to
+	 * socket/controller queue, but doesn't tell us, so not included but
+	 * hopefully in < 10 ms range.
 	 */
 
 	delay = __atomic_load_n(&this->packet_delay_ns, __ATOMIC_RELAXED);
+	delay += (int64_t)this->encoder_delay * SPA_NSEC_PER_SEC / port->current_format.info.raw.rate;
 	delay += spa_bt_transport_get_delay_nsec(this->transport);
 	delay += SPA_CLAMP(this->props.latency_offset, -delay, INT64_MAX / 2);
 	delay = SPA_MAX(delay, 0);
@@ -1250,9 +1253,14 @@ static int transport_start(struct impl *this)
 		this->codec_props_changed = true;
 	}
 
-	spa_log_info(this->log, "%p: using %s codec %s, delay:%"PRIi64" ms", this,
+	this->encoder_delay = 0;
+	if (this->codec->get_delay)
+		this->codec->get_delay(this->codec_data, &this->encoder_delay, NULL);
+
+	spa_log_info(this->log, "%p: using %s codec %s, delay:%.2f ms, codec-delay:%.2f ms", this,
 			this->codec->bap ? "BAP" : "A2DP", this->codec->description,
-			(int64_t)(spa_bt_transport_get_delay_nsec(this->transport) / SPA_NSEC_PER_MSEC));
+			(double)spa_bt_transport_get_delay_nsec(this->transport) / SPA_NSEC_PER_MSEC,
+			(double)this->encoder_delay * SPA_MSEC_PER_SEC / port->current_format.info.raw.rate);
 
 	this->seqnum = UINT16_MAX;
 

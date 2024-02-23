@@ -29,6 +29,8 @@ struct impl {
 
 	int min_bitpool;
 	int max_bitpool;
+
+	uint32_t enc_delay;
 };
 
 static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
@@ -497,9 +499,11 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	switch (conf->subbands) {
 	case SBC_SUBBANDS_4:
 		this->sbc.subbands = SBC_SB_4;
+		this->enc_delay = 37;
 		break;
 	case SBC_SUBBANDS_8:
 		this->sbc.subbands = SBC_SB_8;
+		this->enc_delay = 73;
 		break;
 	default:
 		res = -EINVAL;
@@ -618,6 +622,16 @@ static int codec_decode(void *data,
 	return res;
 }
 
+static void codec_get_delay(void *data, uint32_t *encoder, uint32_t *decoder)
+{
+	struct impl *this = data;
+
+	if (encoder)
+		*encoder = this->enc_delay;
+	if (decoder)
+		*decoder = 0;
+}
+
 const struct media_codec a2dp_codec_sbc = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_SBC,
 	.codec_id = A2DP_CODEC_SBC,
@@ -638,6 +652,7 @@ const struct media_codec a2dp_codec_sbc = {
 	.decode = codec_decode,
 	.reduce_bitpool = codec_reduce_bitpool,
 	.increase_bitpool = codec_increase_bitpool,
+	.get_delay = codec_get_delay,
 };
 
 const struct media_codec a2dp_codec_sbc_xq = {
@@ -661,6 +676,7 @@ const struct media_codec a2dp_codec_sbc_xq = {
 	.decode = codec_decode,
 	.reduce_bitpool = codec_reduce_bitpool,
 	.increase_bitpool = codec_increase_bitpool,
+	.get_delay = codec_get_delay,
 };
 
 MEDIA_CODEC_EXPORT_DEF(

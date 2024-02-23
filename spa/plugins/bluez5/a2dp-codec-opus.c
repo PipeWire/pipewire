@@ -80,6 +80,8 @@ struct dec_data {
 	int fragment_size;
 	int fragment_count;
 	uint8_t fragment[OPUS_05_MAX_BYTES];
+
+	int32_t delay;
 };
 
 struct abr {
@@ -119,6 +121,8 @@ struct enc_data {
 
 	int frame_dms;
 	int application;
+
+	int32_t delay;
 };
 
 struct impl {
@@ -1005,6 +1009,7 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	this->e.samples = this->e.frame_dms * this->samplerate / 10000;
 	this->e.codesize = this->e.samples * (int)this->channels * sizeof(float);
 
+	opus_multistream_encoder_ctl(this->enc, OPUS_GET_LOOKAHEAD(&this->e.delay));
 
 	/*
 	 * Setup decoder
@@ -1019,6 +1024,8 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		res = -EINVAL;
 		goto error;
 	}
+
+	opus_multistream_decoder_ctl(this->dec, OPUS_GET_LOOKAHEAD(&this->d.delay));
 
 	return this;
 
@@ -1325,6 +1332,16 @@ static int codec_increase_bitpool(void *data)
 	return 0;
 }
 
+static void codec_get_delay(void *data, uint32_t *encoder, uint32_t *decoder)
+{
+	struct impl *this = data;
+
+	if (encoder)
+		*encoder = this->e.delay;
+	if (decoder)
+		*decoder = this->d.delay;
+}
+
 static void codec_set_log(struct spa_log *global_log)
 {
 	log = global_log;
@@ -1347,7 +1364,8 @@ static void codec_set_log(struct spa_log *global_log)
 	.encode = codec_encode,					\
 	.reduce_bitpool = codec_reduce_bitpool,			\
 	.increase_bitpool = codec_increase_bitpool,		\
-	.set_log = codec_set_log
+	.set_log = codec_set_log,				\
+	.get_delay = codec_get_delay
 
 #define OPUS_05_COMMON_FULL_DEFS				\
 	OPUS_05_COMMON_DEFS,					\

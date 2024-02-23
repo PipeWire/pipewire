@@ -551,6 +551,25 @@ static int codec_encode(void *data,
 	return src_used;
 }
 
+static void codec_get_delay(void *data, uint32_t *encoder, uint32_t *decoder)
+{
+	struct impl *this = data;
+
+	if (encoder) {
+		switch (this->frequency) {
+		case 96000:
+		case 88200:
+			*encoder = 256;
+			break;
+		default:
+			*encoder = 128;
+			break;
+		}
+	}
+	if (decoder)
+		*decoder = 0;
+}
+
 const struct media_codec a2dp_codec_ldac = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_LDAC,
 	.codec_id = A2DP_CODEC_VENDOR,
@@ -577,6 +596,7 @@ const struct media_codec a2dp_codec_ldac = {
 	.encode = codec_encode,
 	.reduce_bitpool = codec_reduce_bitpool,
 	.increase_bitpool = codec_increase_bitpool,
+	.get_delay = codec_get_delay,
 };
 
 MEDIA_CODEC_EXPORT_DEF(

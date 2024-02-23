@@ -26,6 +26,7 @@
 static struct spa_log *log;
 
 struct dec_data {
+	int32_t delay;
 };
 
 struct enc_data {
@@ -37,6 +38,8 @@ struct enc_data {
 	int frame_dms;
 	int bitrate;
 	int packet_size;
+
+	int32_t delay;
 };
 
 struct impl {
@@ -334,6 +337,8 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 
 	opus_encoder_ctl(this->enc, OPUS_SET_BITRATE(this->e.bitrate));
 
+	opus_encoder_ctl(this->enc, OPUS_GET_LOOKAHEAD(&this->e.delay));
+
 	/*
 	 * Setup decoder
 	 */
@@ -342,6 +347,8 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		res = -EINVAL;
 		goto error;
 	}
+
+	opus_decoder_ctl(this->dec, OPUS_GET_LOOKAHEAD(&this->d.delay));
 
 	return this;
 
@@ -487,6 +494,16 @@ static int codec_increase_bitpool(void *data)
 	return 0;
 }
 
+static void codec_get_delay(void *data, uint32_t *encoder, uint32_t *decoder)
+{
+	struct impl *this = data;
+
+	if (encoder)
+		*encoder = this->e.delay;
+	if (decoder)
+		*decoder = this->d.delay;
+}
+
 static void codec_set_log(struct spa_log *global_log)
 {
 	log = global_log;
@@ -516,6 +533,7 @@ const struct media_codec a2dp_codec_opus_g = {
 	.name = "opus_g",
 	.description = "Opus",
 	.fill_caps = codec_fill_caps,
+	.get_delay = codec_get_delay,
 };
 
 MEDIA_CODEC_EXPORT_DEF(

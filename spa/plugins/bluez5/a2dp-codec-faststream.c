@@ -554,6 +554,14 @@ static int duplex_decode(void *data,
 	return res;
 }
 
+static void codec_get_delay(void *data, uint32_t *encoder, uint32_t *decoder)
+{
+	if (encoder)
+		*encoder = 73;
+	if (decoder)
+		*decoder = 0;
+}
+
 /* Voice channel SBC, not a real A2DP codec */
 static const struct media_codec duplex_codec = {
 	.codec_id = A2DP_CODEC_VENDOR,
@@ -590,7 +598,8 @@ static const struct media_codec duplex_codec = {
 	.start_encode = codec_start_encode,		\
 	.encode = codec_encode,				\
 	.reduce_bitpool = codec_reduce_bitpool,		\
-	.increase_bitpool = codec_increase_bitpool
+	.increase_bitpool = codec_increase_bitpool,	\
+	.get_delay = codec_get_delay
 
 const struct media_codec a2dp_codec_faststream = {
 	FASTSTREAM_COMMON_DEFS,

@@ -14,6 +14,7 @@ examples = [
   'video-src-reneg',
   'video-src-fixate',
   'video-play-fixate',
+  'midi-src',
   'internal',
   'export-sink',
   'export-source',

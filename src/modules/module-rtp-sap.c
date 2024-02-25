@@ -27,6 +27,7 @@
 
 #include <module-rtp/sap.h>
 #include <module-rtp/ptp.h>
+#include "network-utils.h"
 
 #ifdef __FreeBSD__
 #define ifr_ifindex ifr_index
@@ -354,26 +355,6 @@ static void session_free(struct session *sess)
 	free(sess);
 }
 
-static int parse_address(const char *address, uint16_t port,
-		struct sockaddr_storage *addr, socklen_t *len)
-{
-	struct sockaddr_in *sa4 = (struct sockaddr_in*)addr;
-	struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)addr;
-
-	if (inet_pton(AF_INET, address, &sa4->sin_addr) > 0) {
-		sa4->sin_family = AF_INET;
-		sa4->sin_port = htons(port);
-		*len = sizeof(*sa4);
-	} else if (inet_pton(AF_INET6, address, &sa6->sin6_addr) > 0) {
-		sa6->sin6_family = AF_INET6;
-		sa6->sin6_port = htons(port);
-		*len = sizeof(*sa6);
-	} else
-		return -EINVAL;
-
-	return 0;
-}
-
 static bool is_multicast(struct sockaddr *sa, socklen_t salen)
 {
 	if (sa->sa_family == AF_INET) {
@@ -412,21 +393,6 @@ static int make_unix_socket(const char *path) {
 	}
 
 	return spa_steal_fd(fd);
-}
-
-static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len, bool *ip4)
-{
-	if (sa->ss_family == AF_INET) {
-		struct sockaddr_in *in = (struct sockaddr_in*)sa;
-		inet_ntop(sa->ss_family, &in->sin_addr, ip, len);
-	} else if (sa->ss_family == AF_INET6) {
-		struct sockaddr_in6 *in = (struct sockaddr_in6*)sa;
-		inet_ntop(sa->ss_family, &in->sin6_addr, ip, len);
-	} else
-		return -EIO;
-	if (ip4)
-		*ip4 = sa->ss_family == AF_INET;
-	return 0;
 }
 
 static int make_send_socket(
@@ -510,7 +476,7 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 			memset(&mr4, 0, sizeof(mr4));
 			mr4.imr_multiaddr = sa4->sin_addr;
 			mr4.imr_ifindex = req.ifr_ifindex;
-			get_ip(sa, addr, sizeof(addr), NULL);
+			get_ip(sa, addr, sizeof(addr), NULL, NULL);
 			pw_log_info("join IPv4 group: %s iface:%d", addr, req.ifr_ifindex);
 			res = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr4, sizeof(mr4));
 		} else {
@@ -523,7 +489,7 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 			memset(&mr6, 0, sizeof(mr6));
 			mr6.ipv6mr_multiaddr = sa6->sin6_addr;
 			mr6.ipv6mr_interface = req.ifr_ifindex;
-			get_ip(sa, addr, sizeof(addr), NULL);
+			get_ip(sa, addr, sizeof(addr), NULL, NULL);
 			pw_log_info("join IPv6 group: %s iface:%d", addr, req.ifr_ifindex);
 			res = setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mr6, sizeof(mr6));
 		} else {
@@ -687,7 +653,7 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 	iov[0].iov_base = &header;
 	iov[0].iov_len = sizeof(header);
 
-	if ((res = get_ip(&impl->src_addr, src_addr, sizeof(src_addr), &src_ip4)) < 0)
+	if ((res = get_ip(&impl->src_addr, src_addr, sizeof(src_addr), &src_ip4, NULL)) < 0)
 		return res;
 
 	if (src_ip4) {
@@ -701,7 +667,7 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 	iov[2].iov_base = SAP_MIME_TYPE;
 	iov[2].iov_len = sizeof(SAP_MIME_TYPE);
 
-	if ((res = get_ip(&sdp->dst_addr, dst_addr, sizeof(dst_addr), &dst_ip4)) < 0)
+	if ((res = get_ip(&sdp->dst_addr, dst_addr, sizeof(dst_addr), &dst_ip4, NULL)) < 0)
 		return res;
 
 	if ((user_name = pw_get_user_name()) == NULL)
@@ -1141,7 +1107,7 @@ static struct session *session_new(struct impl *impl, struct sdp_info *info)
 		pw_properties_set(props, PW_KEY_MEDIA_NAME, "RTP Stream");
 	}
 
-	get_ip(&info->dst_addr, dst_addr, sizeof(dst_addr), NULL);
+	get_ip(&info->dst_addr, dst_addr, sizeof(dst_addr), NULL, NULL);
 	pw_properties_setf(props, "rtp.destination.ip", "%s", dst_addr);
 	pw_properties_setf(props, "rtp.destination.port", "%u", info->dst_port);
 	pw_properties_setf(props, "rtp.payload", "%u", info->payload);
@@ -1511,7 +1477,7 @@ static int start_sap(struct impl *impl)
 	if ((fd = make_recv_socket(&impl->sap_addr, impl->sap_len, impl->ifname)) < 0)
 		return fd;
 
-	get_ip(&impl->sap_addr, addr, sizeof(addr), NULL);
+	get_ip(&impl->sap_addr, addr, sizeof(addr), NULL, NULL);
 	pw_log_info("starting SAP listener on %s", addr);
 	impl->sap_source = pw_loop_add_io(impl->loop, fd,
 				SPA_IO_IN, true, on_sap_io, impl);

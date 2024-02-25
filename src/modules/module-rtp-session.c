@@ -37,6 +37,7 @@
 #include <module-rtp/rtp.h>
 #include <module-rtp/apple-midi.h>
 #include <module-rtp/stream.h>
+#include "network-utils.h"
 
 #ifdef __FreeBSD__
 #define ifr_ifindex ifr_index
@@ -603,24 +604,9 @@ static bool cmp_ip(const struct sockaddr_storage *sa, const struct sockaddr_stor
 	} else if (sa->ss_family == AF_INET6 && sb->ss_family == AF_INET6) {
 		struct sockaddr_in6 *ia = (struct sockaddr_in6*)sa;
 		struct sockaddr_in6 *ib = (struct sockaddr_in6*)sb;
-		return ia->sin6_addr.s6_addr == ib->sin6_addr.s6_addr;
+		return ia->sin6_addr.s6_addr == ib->sin6_addr.s6_addr && ia->sin6_scope_id == ib->sin6_scope_id;
 	}
 	return false;
-}
-
-static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len, uint16_t *port)
-{
-	if (sa->ss_family == AF_INET) {
-		struct sockaddr_in *in = (struct sockaddr_in*)sa;
-		inet_ntop(sa->ss_family, &in->sin_addr, ip, len);
-		*port = ntohs(in->sin_port);
-	} else if (sa->ss_family == AF_INET6) {
-		struct sockaddr_in6 *in = (struct sockaddr_in6*)sa;
-		inet_ntop(sa->ss_family, &in->sin6_addr, ip, len);
-		*port = ntohs(in->sin6_port);
-	} else
-		return -EIO;
-	return 0;
 }
 
 static struct session *make_session(struct impl *impl, struct pw_properties *props)
@@ -729,7 +715,7 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 	initiator = ntohl(hdr->initiator);
 	ssrc = ntohl(hdr->ssrc);
 
-	get_ip(sa, addr, sizeof(addr), &port);
+	get_ip(sa, addr, sizeof(addr), NULL, &port);
 	pw_log_info("IN from %s:%d %s ssrc:%08x initiator:%08x",
 			addr, port, hdr->name, ssrc, initiator);
 
@@ -1268,26 +1254,6 @@ static const struct pw_core_events core_events = {
 	PW_VERSION_CORE_EVENTS,
 	.error = on_core_error,
 };
-
-static int parse_address(const char *address, uint16_t port,
-		struct sockaddr_storage *addr, socklen_t *len)
-{
-	struct sockaddr_in *sa4 = (struct sockaddr_in*)addr;
-	struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)addr;
-
-	if (inet_pton(AF_INET, address, &sa4->sin_addr) > 0) {
-		sa4->sin_family = AF_INET;
-		sa4->sin_port = htons(port);
-		*len = sizeof(*sa4);
-	} else if (inet_pton(AF_INET6, address, &sa6->sin6_addr) > 0) {
-		sa6->sin6_family = AF_INET6;
-		sa6->sin6_port = htons(port);
-		*len = sizeof(*sa6);
-	} else
-		return -EINVAL;
-
-	return 0;
-}
 
 static void free_service(struct service *s)
 {

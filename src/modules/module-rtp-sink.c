@@ -26,6 +26,7 @@
 #include <pipewire/impl.h>
 
 #include <module-rtp/stream.h>
+#include "network-utils.h"
 
 #ifndef IPTOS_DSCP
 #define IPTOS_DSCP_MASK 0xfc
@@ -186,26 +187,6 @@ struct impl {
 
 	int rtp_fd;
 };
-
-static int parse_address(const char *address, uint16_t port,
-		struct sockaddr_storage *addr, socklen_t *len)
-{
-	struct sockaddr_in *sa4 = (struct sockaddr_in*)addr;
-	struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)addr;
-
-	if (inet_pton(AF_INET, address, &sa4->sin_addr) > 0) {
-		sa4->sin_family = AF_INET;
-		sa4->sin_port = htons(port);
-		*len = sizeof(*sa4);
-	} else if (inet_pton(AF_INET6, address, &sa6->sin6_addr) > 0) {
-		sa6->sin6_family = AF_INET6;
-		sa6->sin6_port = htons(port);
-		*len = sizeof(*sa6);
-	} else
-		return -EINVAL;
-
-	return 0;
-}
 
 static bool is_multicast(struct sockaddr *sa, socklen_t salen)
 {
@@ -404,19 +385,6 @@ static const struct rtp_stream_events stream_events = {
 	.send_packet = stream_send_packet,
 };
 
-static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len)
-{
-	if (sa->ss_family == AF_INET) {
-		struct sockaddr_in *in = (struct sockaddr_in*)sa;
-		inet_ntop(sa->ss_family, &in->sin_addr, ip, len);
-	} else if (sa->ss_family == AF_INET6) {
-		struct sockaddr_in6 *in = (struct sockaddr_in6*)sa;
-		inet_ntop(sa->ss_family, &in->sin6_addr, ip, len);
-	} else
-		return -EIO;
-	return 0;
-}
-
 static void core_destroy(void *d)
 {
 	struct impl *impl = d;
@@ -589,9 +557,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		ts_offset = pw_rand32();
 	pw_properties_setf(stream_props, "rtp.sender-ts-offset", "%u", (uint32_t)ts_offset);
 
-	get_ip(&impl->src_addr, addr, sizeof(addr));
+	get_ip(&impl->src_addr, addr, sizeof(addr), NULL, NULL);
 	pw_properties_set(stream_props, "rtp.source.ip", addr);
-	get_ip(&impl->dst_addr, addr, sizeof(addr));
+	get_ip(&impl->dst_addr, addr, sizeof(addr), NULL, NULL);
 	pw_properties_set(stream_props, "rtp.destination.ip", addr);
 	pw_properties_setf(stream_props, "rtp.destination.port", "%u", impl->dst_port);
 	pw_properties_setf(stream_props, "rtp.ttl", "%u", impl->ttl);

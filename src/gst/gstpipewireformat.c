@@ -1176,3 +1176,43 @@ gst_caps_from_format (const struct spa_pod *format)
   }
   return res;
 }
+
+static gboolean
+filter_dmabuf_caps (GstCapsFeatures *features,
+                    GstStructure    *structure,
+                    gpointer         user_data)
+{
+  const GValue *value;
+  const char *v;
+
+  if (!gst_caps_features_contains (features, GST_CAPS_FEATURE_MEMORY_DMABUF))
+    return TRUE;
+
+  if (!(value = gst_structure_get_value (structure, "format")) ||
+      !(v = get_nth_string (value, 0)))
+    return FALSE;
+
+#ifdef HAVE_GSTREAMER_DMA_DRM
+  {
+    int idx;
+
+    idx = gst_video_format_from_string (v);
+    if (idx == GST_VIDEO_FORMAT_UNKNOWN)
+      return FALSE;
+
+    if (idx == GST_VIDEO_FORMAT_DMA_DRM &&
+        !gst_structure_get_value (structure, "drm-format"))
+      return FALSE;
+  }
+#endif
+
+  return TRUE;
+}
+
+GstCaps *
+gst_caps_sanitize (GstCaps *caps)
+{
+  caps = gst_caps_make_writable (caps);
+  gst_caps_filter_and_map_in_place (caps, filter_dmabuf_caps, NULL);
+  return caps;
+}

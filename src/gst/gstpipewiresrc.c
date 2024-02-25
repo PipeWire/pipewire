@@ -844,10 +844,14 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
     /* no peer, work with our own caps then */
     caps = thiscaps;
   }
+
+  GST_DEBUG_OBJECT (basesrc, "have common caps: %" GST_PTR_FORMAT, caps);
+  gst_caps_sanitize (caps);
+
   if (caps == NULL || gst_caps_is_empty (caps))
     goto no_common_caps;
 
-  GST_DEBUG_OBJECT (basesrc, "have common caps: %" GST_PTR_FORMAT, caps);
+  GST_DEBUG_OBJECT (basesrc, "have common caps (sanitized): %" GST_PTR_FORMAT, caps);
 
   /* open a connection with these caps */
   possible = gst_caps_to_format_all (caps);

@@ -3959,7 +3959,7 @@ jack_client_t * jack_client_open (const char *client_name,
 		struct spa_fraction q;
 		if (sscanf(str, "%u/%u", &q.num, &q.denom) == 2 && q.denom != 0) {
 			pw_properties_setf(client->props, PW_KEY_NODE_FORCE_RATE,
-					"1/%u", q.denom);
+					"%u", q.denom);
 			pw_properties_setf(client->props, PW_KEY_NODE_FORCE_QUANTUM,
 					"%u", q.num);
 		} else {

@@ -1662,7 +1662,7 @@ pw_filter_connect(struct pw_filter *filter,
 		struct spa_fraction q;
 		if (sscanf(str, "%u/%u", &q.num, &q.denom) == 2 && q.denom != 0) {
 			pw_properties_setf(filter->properties, PW_KEY_NODE_FORCE_RATE,
-					"1/%u", q.denom);
+					"%u", q.denom);
 			pw_properties_setf(filter->properties, PW_KEY_NODE_FORCE_QUANTUM,
 					"%u", q.num);
 		}

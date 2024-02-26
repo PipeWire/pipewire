@@ -2042,7 +2042,7 @@ pw_stream_connect(struct pw_stream *stream,
 		struct spa_fraction q;
 		if (sscanf(str, "%u/%u", &q.num, &q.denom) == 2 && q.denom != 0) {
 			pw_properties_setf(stream->properties, PW_KEY_NODE_FORCE_RATE,
-					"1/%u", q.denom);
+					"%u", q.denom);
 			pw_properties_setf(stream->properties, PW_KEY_NODE_FORCE_QUANTUM,
 					"%u", q.num);
 		}

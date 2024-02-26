@@ -428,7 +428,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if ((str = pw_properties_get(props, "source.ip")) == NULL)
 		str = DEFAULT_SOURCE_IP;
-	if ((res = parse_address(str, 0, &impl->src_addr, &impl->src_len)) < 0) {
+	if ((res = pw_net_parse_address(str, 0, &impl->src_addr, &impl->src_len)) < 0) {
 		pw_log_error("invalid source.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}
@@ -436,7 +436,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->dst_port = pw_properties_get_uint32(props, "destination.port", DEFAULT_PORT);
 	if ((str = pw_properties_get(props, "destination.ip")) == NULL)
 		str = DEFAULT_DESTINATION_IP;
-	if ((res = parse_address(str, impl->dst_port, &impl->dst_addr, &impl->dst_len)) < 0) {
+	if ((res = pw_net_parse_address(str, impl->dst_port, &impl->dst_addr, &impl->dst_len)) < 0) {
 		pw_log_error("invalid destination.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}
@@ -445,9 +445,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->mcast_loop = pw_properties_get_bool(props, "net.loop", DEFAULT_LOOP);
 	impl->dscp = pw_properties_get_uint32(props, "net.dscp", DEFAULT_DSCP);
 
-	get_ip(&impl->src_addr, addr, sizeof(addr), NULL, NULL);
+	pw_net_get_ip(&impl->src_addr, addr, sizeof(addr), NULL, NULL);
 	pw_properties_set(stream_props, "vban.source.ip", addr);
-	get_ip(&impl->dst_addr, addr, sizeof(addr), NULL, NULL);
+	pw_net_get_ip(&impl->dst_addr, addr, sizeof(addr), NULL, NULL);
 	pw_properties_set(stream_props, "vban.destination.ip", addr);
 	pw_properties_setf(stream_props, "vban.destination.port", "%u", impl->dst_port);
 	pw_properties_setf(stream_props, "vban.ttl", "%u", impl->ttl);

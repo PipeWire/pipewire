@@ -927,7 +927,7 @@ static int send_follower_available(struct impl *impl)
 
 	pw_loop_update_io(impl->main_loop, impl->setup_socket, SPA_IO_IN);
 
-	pw_log_info("sending AVAILABLE to %s", get_ip_fmt(&impl->dst_addr, buffer, sizeof(buffer)));
+	pw_log_info("sending AVAILABLE to %s", pw_net_get_ip_fmt(&impl->dst_addr, buffer, sizeof(buffer)));
 
 	client_name = pw_properties_get(impl->props, "netjack2.client-name");
 	if (client_name == NULL)
@@ -964,11 +964,11 @@ static int create_netjack2_socket(struct impl *impl)
 		port = DEFAULT_NET_PORT;
 	if ((str = pw_properties_get(impl->props, "net.ip")) == NULL)
 		str = DEFAULT_NET_IP;
-	if ((res = parse_address(str, port, &impl->dst_addr, &impl->dst_len)) < 0) {
+	if ((res = pw_net_parse_address(str, port, &impl->dst_addr, &impl->dst_len)) < 0) {
 		pw_log_error("invalid net.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}
-	if ((res = parse_address("0.0.0.0", 0, &impl->src_addr, &impl->src_len)) < 0) {
+	if ((res = pw_net_parse_address("0.0.0.0", 0, &impl->src_addr, &impl->src_len)) < 0) {
 		pw_log_error("invalid source.ip: %s", spa_strerror(res));
 		goto out;
 	}

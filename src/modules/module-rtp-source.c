@@ -240,7 +240,7 @@ static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname)
 			memset(&mr4, 0, sizeof(mr4));
 			mr4.imr_multiaddr = sa4->sin_addr;
 			mr4.imr_ifindex = req.ifr_ifindex;
-			get_ip((struct sockaddr_storage*)sa, addr, sizeof(addr), NULL, NULL);
+			pw_net_get_ip((struct sockaddr_storage*)sa, addr, sizeof(addr), NULL, NULL);
 			pw_log_info("join IPv4 group: %s", addr);
 			res = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr4, sizeof(mr4));
 		} else {
@@ -257,7 +257,7 @@ static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname)
 			memset(&mr6, 0, sizeof(mr6));
 			mr6.ipv6mr_multiaddr = sa6->sin6_addr;
 			mr6.ipv6mr_interface = req.ifr_ifindex;
-			get_ip((struct sockaddr_storage*)sa, addr, sizeof(addr), NULL, NULL);
+			pw_net_get_ip((struct sockaddr_storage*)sa, addr, sizeof(addr), NULL, NULL);
 			pw_log_info("join IPv6 group: %s", addr);
 			res = setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mr6, sizeof(mr6));
 		} else {
@@ -385,7 +385,7 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 				pw_log_info("key '%s', value '%s'", key, value);
 				if (!spa_streq(key, "source.ip"))
 					continue;
-				if (parse_address(value, impl->src_port, &impl->src_addr,
+				if (pw_net_parse_address(value, impl->src_port, &impl->src_addr,
 						&impl->src_len) < 0) {
 					pw_log_error("invalid source.ip: '%s'", value);
 					break;
@@ -581,11 +581,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 	if ((str = pw_properties_get(props, "source.ip")) == NULL)
 		str = DEFAULT_SOURCE_IP;
-	if ((res = parse_address(str, impl->src_port, &impl->src_addr, &impl->src_len)) < 0) {
+	if ((res = pw_net_parse_address(str, impl->src_port, &impl->src_addr, &impl->src_len)) < 0) {
 		pw_log_error("invalid source.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}
-	get_ip(&impl->src_addr, addr, sizeof(addr), NULL, NULL);
+	pw_net_get_ip(&impl->src_addr, addr, sizeof(addr), NULL, NULL);
 	pw_properties_set(stream_props, "rtp.source.ip", addr);
 	pw_properties_setf(stream_props, "rtp.source.port", "%u", impl->src_port);
 

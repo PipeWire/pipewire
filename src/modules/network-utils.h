@@ -8,7 +8,7 @@
 #include <net/if.h>
 #include <errno.h>
 
-static int parse_address(const char *address, uint16_t port,
+static int pw_net_parse_address(const char *address, uint16_t port,
 		struct sockaddr_storage *addr, socklen_t *len)
 {
 	struct addrinfo hints;
@@ -25,9 +25,8 @@ static int parse_address(const char *address, uint16_t port,
 
 	res = getaddrinfo(address, port_str, &hints, &result);
 
-	if (res != 0) {
+	if (res != 0)
 		return -EINVAL;
-	}
 
 	for (rp = result; rp != NULL; rp = rp->ai_next) {
 		memcpy(addr, rp->ai_addr, rp->ai_addrlen);
@@ -39,7 +38,7 @@ static int parse_address(const char *address, uint16_t port,
 	return 0;
 }
 
-static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len, bool *ip4, uint16_t *port)
+static int pw_net_get_ip(const struct sockaddr_storage *sa, char *ip, size_t len, bool *ip4, uint16_t *port)
 {
 	if (sa->ss_family == AF_INET) {
 		struct sockaddr_in *in = (struct sockaddr_in*)sa;
@@ -51,16 +50,15 @@ static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len, bool 
 		inet_ntop(sa->ss_family, &in->sin6_addr, ip, len);
 		if (port)
 			*port = ntohs(in->sin6_port);
-		if (in->sin6_scope_id == 0 || len <= 1) {
+		if (in->sin6_scope_id == 0 || len <= 1)
 			goto finish;
-		}
+
 		size_t curlen = strlen(ip);
 		if (len-(curlen+1) >= IFNAMSIZ) {
 			ip += curlen+1;
 			ip[-1] = '%';
-			if (if_indextoname(in->sin6_scope_id, ip) == NULL) {
+			if (if_indextoname(in->sin6_scope_id, ip) == NULL)
 				ip[-1] = 0;
-			}
 		}
 	} else
 		return -EINVAL;
@@ -70,11 +68,10 @@ finish:
 	return 0;
 }
 
-static inline char *get_ip_fmt(const struct sockaddr_storage *sa, char *ip, size_t len)
+static inline char *pw_net_get_ip_fmt(const struct sockaddr_storage *sa, char *ip, size_t len)
 {
-	if (get_ip(sa, ip, len, NULL, NULL) != 0) {
+	if (pw_net_get_ip(sa, ip, len, NULL, NULL) != 0)
 		snprintf(ip, len, "invalid ip");
-	}
 	return ip;
 }
 

@@ -476,7 +476,7 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 			memset(&mr4, 0, sizeof(mr4));
 			mr4.imr_multiaddr = sa4->sin_addr;
 			mr4.imr_ifindex = req.ifr_ifindex;
-			get_ip(sa, addr, sizeof(addr), NULL, NULL);
+			pw_net_get_ip(sa, addr, sizeof(addr), NULL, NULL);
 			pw_log_info("join IPv4 group: %s iface:%d", addr, req.ifr_ifindex);
 			res = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr4, sizeof(mr4));
 		} else {
@@ -489,7 +489,7 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 			memset(&mr6, 0, sizeof(mr6));
 			mr6.ipv6mr_multiaddr = sa6->sin6_addr;
 			mr6.ipv6mr_interface = req.ifr_ifindex;
-			get_ip(sa, addr, sizeof(addr), NULL, NULL);
+			pw_net_get_ip(sa, addr, sizeof(addr), NULL, NULL);
 			pw_log_info("join IPv6 group: %s iface:%d", addr, req.ifr_ifindex);
 			res = setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mr6, sizeof(mr6));
 		} else {
@@ -653,7 +653,7 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 	iov[0].iov_base = &header;
 	iov[0].iov_len = sizeof(header);
 
-	if ((res = get_ip(&impl->src_addr, src_addr, sizeof(src_addr), &src_ip4, NULL)) < 0)
+	if ((res = pw_net_get_ip(&impl->src_addr, src_addr, sizeof(src_addr), &src_ip4, NULL)) < 0)
 		return res;
 
 	if (src_ip4) {
@@ -667,7 +667,7 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 	iov[2].iov_base = SAP_MIME_TYPE;
 	iov[2].iov_len = sizeof(SAP_MIME_TYPE);
 
-	if ((res = get_ip(&sdp->dst_addr, dst_addr, sizeof(dst_addr), &dst_ip4, NULL)) < 0)
+	if ((res = pw_net_get_ip(&sdp->dst_addr, dst_addr, sizeof(dst_addr), &dst_ip4, NULL)) < 0)
 		return res;
 
 	if ((user_name = pw_get_user_name()) == NULL)
@@ -864,7 +864,7 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 
 	if ((str = pw_properties_get(props, "rtp.destination.ip")) == NULL)
 		goto error_free;
-	if ((res = parse_address(str, sdp->dst_port, &sdp->dst_addr, &sdp->dst_len)) < 0) {
+	if ((res = pw_net_parse_address(str, sdp->dst_port, &sdp->dst_addr, &sdp->dst_len)) < 0) {
 		pw_log_error("invalid destination.ip %s: %s", str, spa_strerror(res));
 		goto error_free;
 	}
@@ -1107,7 +1107,7 @@ static struct session *session_new(struct impl *impl, struct sdp_info *info)
 		pw_properties_set(props, PW_KEY_MEDIA_NAME, "RTP Stream");
 	}
 
-	get_ip(&info->dst_addr, dst_addr, sizeof(dst_addr), NULL, NULL);
+	pw_net_get_ip(&info->dst_addr, dst_addr, sizeof(dst_addr), NULL, NULL);
 	pw_properties_setf(props, "rtp.destination.ip", "%s", dst_addr);
 	pw_properties_setf(props, "rtp.destination.port", "%u", info->dst_port);
 	pw_properties_setf(props, "rtp.payload", "%u", info->payload);
@@ -1477,7 +1477,7 @@ static int start_sap(struct impl *impl)
 	if ((fd = make_recv_socket(&impl->sap_addr, impl->sap_len, impl->ifname)) < 0)
 		return fd;
 
-	get_ip(&impl->sap_addr, addr, sizeof(addr), NULL, NULL);
+	pw_net_get_ip(&impl->sap_addr, addr, sizeof(addr), NULL, NULL);
 	pw_log_info("starting SAP listener on %s", addr);
 	impl->sap_source = pw_loop_add_io(impl->loop, fd,
 				SPA_IO_IN, true, on_sap_io, impl);
@@ -1709,7 +1709,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if ((str = pw_properties_get(props, "sap.ip")) == NULL)
 		str = DEFAULT_SAP_IP;
 	port = pw_properties_get_uint32(props, "sap.port", DEFAULT_SAP_PORT);
-	if ((res = parse_address(str, port, &impl->sap_addr, &impl->sap_len)) < 0) {
+	if ((res = pw_net_parse_address(str, port, &impl->sap_addr, &impl->sap_len)) < 0) {
 		pw_log_error("invalid sap.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}
@@ -1742,7 +1742,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			str = impl->sap_addr.ss_family == AF_INET ?
 				DEFAULT_SOURCE_IP : DEFAULT_SOURCE_IP6;
 	}
-	if ((res = parse_address(str, 0, &impl->src_addr, &impl->src_len)) < 0) {
+	if ((res = pw_net_parse_address(str, 0, &impl->src_addr, &impl->src_len)) < 0) {
 		pw_log_error("invalid source.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}

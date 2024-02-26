@@ -350,7 +350,7 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 				pw_log_info("key '%s', value '%s'", key, value);
 				if (!spa_streq(key, "destination.ip"))
 					continue;
-				if (parse_address(value, impl->dst_port, &impl->dst_addr,
+				if (pw_net_parse_address(value, impl->dst_port, &impl->dst_addr,
 						&impl->dst_len) < 0) {
 					pw_log_error("invalid destination.ip: '%s'", value);
 					break;
@@ -536,14 +536,14 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->dst_port = pw_properties_get_uint32(props, "destination.port", impl->dst_port);
 	if ((str = pw_properties_get(props, "destination.ip")) == NULL)
 		str = DEFAULT_DESTINATION_IP;
-	if ((res = parse_address(str, impl->dst_port, &impl->dst_addr, &impl->dst_len)) < 0) {
+	if ((res = pw_net_parse_address(str, impl->dst_port, &impl->dst_addr, &impl->dst_len)) < 0) {
 		pw_log_error("invalid destination.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}
 	if ((str = pw_properties_get(props, "source.ip")) == NULL)
 		str = impl->dst_addr.ss_family == AF_INET ?
 			DEFAULT_SOURCE_IP : DEFAULT_SOURCE_IP6;
-	if ((res = parse_address(str, 0, &impl->src_addr, &impl->src_len)) < 0) {
+	if ((res = pw_net_parse_address(str, 0, &impl->src_addr, &impl->src_len)) < 0) {
 		pw_log_error("invalid source.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}
@@ -557,9 +557,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		ts_offset = pw_rand32();
 	pw_properties_setf(stream_props, "rtp.sender-ts-offset", "%u", (uint32_t)ts_offset);
 
-	get_ip(&impl->src_addr, addr, sizeof(addr), NULL, NULL);
+	pw_net_get_ip(&impl->src_addr, addr, sizeof(addr), NULL, NULL);
 	pw_properties_set(stream_props, "rtp.source.ip", addr);
-	get_ip(&impl->dst_addr, addr, sizeof(addr), NULL, NULL);
+	pw_net_get_ip(&impl->dst_addr, addr, sizeof(addr), NULL, NULL);
 	pw_properties_set(stream_props, "rtp.destination.ip", addr);
 	pw_properties_setf(stream_props, "rtp.destination.port", "%u", impl->dst_port);
 	pw_properties_setf(stream_props, "rtp.ttl", "%u", impl->ttl);

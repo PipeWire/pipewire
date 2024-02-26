@@ -715,7 +715,7 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 	initiator = ntohl(hdr->initiator);
 	ssrc = ntohl(hdr->ssrc);
 
-	get_ip(sa, addr, sizeof(addr), NULL, &port);
+	pw_net_get_ip(sa, addr, sizeof(addr), NULL, &port);
 	pw_log_info("IN from %s:%d %s ssrc:%08x initiator:%08x",
 			addr, port, hdr->name, ssrc, initiator);
 
@@ -1405,10 +1405,10 @@ static struct service *make_service(struct impl *impl, const struct service_info
 	}
 	s->sess = sess;
 
-	if ((res = parse_address(at, s->info.port, &sess->ctrl_addr, &sess->ctrl_len)) < 0) {
+	if ((res = pw_net_parse_address(at, s->info.port, &sess->ctrl_addr, &sess->ctrl_len)) < 0) {
 		pw_log_error("invalid address %s: %s", at, spa_strerror(res));
 	}
-	if ((res = parse_address(at, s->info.port+1, &sess->data_addr, &sess->data_len)) < 0) {
+	if ((res = pw_net_parse_address(at, s->info.port+1, &sess->data_addr, &sess->data_len)) < 0) {
 		pw_log_error("invalid address %s: %s", at, spa_strerror(res));
 	}
 	return s;
@@ -1748,11 +1748,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->ctrl_port = port;
 
-	if ((res = parse_address(str, port, &impl->ctrl_addr, &impl->ctrl_len)) < 0) {
+	if ((res = pw_net_parse_address(str, port, &impl->ctrl_addr, &impl->ctrl_len)) < 0) {
 		pw_log_error("invalid control.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}
-	if ((res = parse_address(str, port ? port+1 : 0, &impl->data_addr, &impl->data_len)) < 0) {
+	if ((res = pw_net_parse_address(str, port ? port+1 : 0, &impl->data_addr, &impl->data_len)) < 0) {
 		pw_log_error("invalid data.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}

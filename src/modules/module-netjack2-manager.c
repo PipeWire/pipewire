@@ -1006,7 +1006,8 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 
 	nj2_session_params_hton(params, &peer->params);
 	params->packet_id = htonl(NJ2_ID_FOLLOWER_SETUP);
-	pw_log_info("sending follower setup to %s", get_ip_fmt(addr, buffer, sizeof(buffer)));
+	pw_log_info("sending follower setup to %s",
+			pw_net_get_ip_fmt(addr, buffer, sizeof(buffer)));
 	nj2_dump_session_params(params);
 	send(follower->socket->fd, params, sizeof(*params), 0);
 
@@ -1079,7 +1080,7 @@ static int create_netjack2_socket(struct impl *impl)
 	if ((str = pw_properties_get(impl->props, "net.ip")) == NULL)
 		str = DEFAULT_NET_IP;
 
-	if ((res = parse_address(str, port, &impl->src_addr, &impl->src_len)) < 0) {
+	if ((res = pw_net_parse_address(str, port, &impl->src_addr, &impl->src_len)) < 0) {
 		pw_log_error("invalid net.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}
@@ -1105,7 +1106,7 @@ static int create_netjack2_socket(struct impl *impl)
 		goto out;
 	}
 	pw_log_info("listening for AVAILABLE on %s",
-			get_ip_fmt(&impl->src_addr, buffer, sizeof(buffer)));
+			pw_net_get_ip_fmt(&impl->src_addr, buffer, sizeof(buffer)));
 	return 0;
 out:
 	return res;

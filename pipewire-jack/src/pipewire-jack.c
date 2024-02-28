@@ -4786,12 +4786,29 @@ SPA_EXPORT
 int jack_set_freewheel(jack_client_t* client, int onoff)
 {
 	struct client *c = (struct client *) client;
+	const char *str;
 
 	pw_log_info("%p: freewheel %d", client, onoff);
 
 	pw_thread_loop_lock(c->context.loop);
-	pw_properties_set(c->props, "node.group",
-			onoff ? "pipewire.freewheel" : "");
+	str = pw_properties_get(c->props, PW_KEY_NODE_GROUP);
+	if (str != NULL) {
+		char *p = strstr(str, ",pipewire.freewheel");
+		if (p == NULL)
+			p = strstr(str, "pipewire.freewheel");
+		if (p == NULL && onoff)
+			pw_properties_setf(c->props, PW_KEY_NODE_GROUP,
+					"%s,pipewire.freewheel", str);
+		else if (p != NULL && !onoff) {
+			pw_log_info("%s %d %s %.*s", p, (int)(p - str),
+					str, (int)(p - str), str);
+			pw_properties_setf(c->props, PW_KEY_NODE_GROUP,
+					"%.*s", (int)(p - str), str);
+		}
+	} else {
+		pw_properties_set(c->props, PW_KEY_NODE_GROUP,
+				onoff ? "pipewire.freewheel" : NULL);
+	}
 
 	c->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
 	c->info.props = &c->props->dict;

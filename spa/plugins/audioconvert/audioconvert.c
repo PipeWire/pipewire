@@ -151,6 +151,7 @@ struct port {
 	unsigned int have_latency:1;
 
 	struct spa_audio_info format;
+	unsigned int valid:1;
 	unsigned int have_format:1;
 	unsigned int is_dsp:1;
 	unsigned int is_monitor:1;
@@ -370,6 +371,7 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 		port->blocks = 1;
 		port->stride = 1;
 	}
+	port->valid = true;
 	spa_list_init(&port->queue);
 
 	spa_log_debug(this->log, "%p: add port %d:%d position:%s %d %d %d",
@@ -377,6 +379,16 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 			is_monitor, is_control);
 	emit_port_info(this, port, true);
 
+	return 0;
+}
+
+static int deinit_port(struct impl *this, enum spa_direction direction, uint32_t port_id)
+{
+	struct port *port = GET_PORT(this, direction, port_id);
+	if (port == NULL || !port->valid)
+		return -ENOENT;
+	port->valid = false;
+	spa_node_emit_port_info(&this->hooks, direction, port_id, NULL);
 	return 0;
 }
 
@@ -1274,9 +1286,9 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 			control, mode, dir->n_ports);
 
 	for (i = 0; i < dir->n_ports; i++) {
-		spa_node_emit_port_info(&this->hooks, direction, i, NULL);
+		deinit_port(this, direction, i);
 		if (this->monitor && direction == SPA_DIRECTION_INPUT)
-			spa_node_emit_port_info(&this->hooks, SPA_DIRECTION_OUTPUT, i+1, NULL);
+			deinit_port(this, SPA_DIRECTION_OUTPUT, i+1);
 	}
 
 	this->monitor = monitor;
@@ -1934,6 +1946,7 @@ impl_node_add_listener(void *object,
 	struct impl *this = object;
 	uint32_t i;
 	struct spa_hook_list save;
+	struct port *p;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -1942,10 +1955,12 @@ impl_node_add_listener(void *object,
 
 	emit_node_info(this, true);
 	for (i = 0; i < this->dir[SPA_DIRECTION_INPUT].n_ports; i++) {
-		emit_port_info(this, GET_IN_PORT(this, i), true);
+		if ((p = GET_IN_PORT(this, i)) && p->valid)
+			emit_port_info(this, p, true);
 	}
 	for (i = 0; i < this->dir[SPA_DIRECTION_OUTPUT].n_ports; i++) {
-		emit_port_info(this, GET_OUT_PORT(this, i), true);
+		if ((p = GET_OUT_PORT(this, i)) && p->valid)
+			emit_port_info(this, p, true);
 	}
 	spa_hook_list_join(&this->hooks, &save);
 

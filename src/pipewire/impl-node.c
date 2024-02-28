@@ -1847,6 +1847,7 @@ again:
 			uint32_t id = t->id;
 
 			ta->status = PW_NODE_ACTIVATION_NOT_TRIGGERED;
+			ta->driver_id = driver->info.id;
 			pw_node_activation_state_reset(&ta->state[0]);
 
 			/* this is the node with reposition info */

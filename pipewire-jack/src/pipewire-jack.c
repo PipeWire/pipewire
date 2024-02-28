@@ -4807,7 +4807,7 @@ int jack_set_freewheel(jack_client_t* client, int onoff)
 		}
 	} else {
 		pw_properties_set(c->props, PW_KEY_NODE_GROUP,
-				onoff ? "pipewire.freewheel" : NULL);
+				onoff ? "pipewire.freewheel" : "");
 	}
 
 	c->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;

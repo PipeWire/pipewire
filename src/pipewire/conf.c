@@ -1225,16 +1225,16 @@ int pw_context_parse_conf_section(struct pw_context *context,
 	int res;
 
 	if (spa_streq(section, "context.spa-libs"))
-		res = pw_context_conf_section_for_each(context, section,
+		res = pw_conf_section_for_each(&conf->dict, section,
 				parse_spa_libs, &data);
 	else if (spa_streq(section, "context.modules"))
-		res = pw_context_conf_section_for_each(context, section,
+		res = pw_conf_section_for_each(&conf->dict, section,
 				parse_modules, &data);
 	else if (spa_streq(section, "context.objects"))
-		res = pw_context_conf_section_for_each(context, section,
+		res = pw_conf_section_for_each(&conf->dict, section,
 				parse_objects, &data);
 	else if (spa_streq(section, "context.exec"))
-		res = pw_context_conf_section_for_each(context, section,
+		res = pw_conf_section_for_each(&conf->dict, section,
 				parse_exec, &data);
 	else
 		res = -EINVAL;

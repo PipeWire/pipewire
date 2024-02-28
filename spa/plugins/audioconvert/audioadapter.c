@@ -1065,6 +1065,9 @@ static void follower_convert_port_info(void *data,
 	uint32_t i;
 	int res;
 
+	if (info == NULL)
+		return;
+
 	spa_log_debug(this->log, "%p: convert port info %s %p %08"PRIx64, this,
 			this->direction == SPA_DIRECTION_INPUT ?
 				"Input" : "Output", info, info->change_mask);
@@ -1241,6 +1244,9 @@ static void follower_port_info(void *data,
 	struct impl *this = data;
 	uint32_t i;
 	int res;
+
+	if (info == NULL)
+		return;
 
 	if (this->follower_removing) {
 	      spa_node_emit_port_info(&this->hooks, direction, port_id, NULL);

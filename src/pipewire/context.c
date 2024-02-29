@@ -1221,7 +1221,7 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 	const uint32_t *rates;
 	uint32_t max_quantum, min_quantum, def_quantum, lim_quantum, rate_quantum;
 	uint32_t n_rates, def_rate;
-	bool freewheel = false, global_force_rate, global_force_quantum;
+	bool freewheel, global_force_rate, global_force_quantum, transport_start;
 	struct spa_list collect;
 
 	pw_log_info("%p: busy:%d reason:%s", context, impl->recalc, reason);
@@ -1233,6 +1233,8 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 
 again:
 	impl->recalc = true;
+	freewheel = false;
+	transport_start = false;
 
 	/* clean up the flags first */
 	spa_list_for_each(n, &context->node_list, link) {
@@ -1574,12 +1576,20 @@ again:
 
 		/* first change the node states of the followers to the new target */
 		spa_list_for_each(s, &n->follower_list, follower_link) {
+			if (s->transport)
+				transport_start = true;
 			if (s == n)
 				continue;
 			pw_log_debug("%p: follower %p: active:%d '%s'",
 					context, s, s->active, s->name);
 			ensure_state(s, running);
 		}
+
+		SPA_ATOMIC_STORE(n->rt.target.activation->command,
+				transport_start ?
+					PW_NODE_ACTIVATION_COMMAND_START :
+					PW_NODE_ACTIVATION_COMMAND_STOP);
+
 		/* now that all the followers are ready, start the driver */
 		ensure_state(n, running);
 	}

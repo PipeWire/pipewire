@@ -139,6 +139,7 @@ extern "C" {
 								  *  in the same group are always scheduled
 								  *  with the same driver. Can be an array of
 								  *  group names. */
+#define PW_KEY_NODE_TRANSPORT		"node.transport"	/**< if the transport is active or not */
 #define PW_KEY_NODE_EXCLUSIVE		"node.exclusive"	/**< node wants exclusive access to resources */
 #define PW_KEY_NODE_AUTOCONNECT		"node.autoconnect"	/**< node wants to be automatically connected
 								  *  to a compatible node */

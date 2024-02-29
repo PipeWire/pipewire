@@ -938,7 +938,7 @@ static void check_properties(struct pw_impl_node *node)
 	const char *str, *recalc_reason = NULL;
 	struct spa_fraction frac;
 	uint32_t value;
-	bool driver, trigger;
+	bool driver, trigger, transport;
 	struct match match;
 
 	match = MATCH_INIT(node);
@@ -1019,6 +1019,13 @@ static void check_properties(struct pw_impl_node *node)
 		node->link_groups = impl->link_group ?
 			pw_strv_parse(impl->link_group, strlen(impl->link_group), INT_MAX, NULL) : NULL;
 		recalc_reason = "link group changed";
+	}
+
+	transport = pw_properties_get_bool(node->properties, PW_KEY_NODE_TRANSPORT, false);
+	if (transport != node->transport) {
+		pw_log_info("%p: transport %d -> %d", node, node->transport, transport);
+		node->transport = transport;
+		recalc_reason = "transport changed";
 	}
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_MEDIA_CLASS)) != NULL &&

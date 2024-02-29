@@ -199,8 +199,8 @@ static void context_do_profile(void *data)
 			SPA_POD_Long(pos->clock.duration),
 			SPA_POD_Long(pos->clock.delay),
 			SPA_POD_Double(pos->clock.rate_diff),
-			SPA_POD_Long(pos->clock.next_nsec));
-
+			SPA_POD_Long(pos->clock.next_nsec),
+			SPA_POD_Int(pos->state));
 
 	spa_pod_builder_prop(&b, SPA_PROFILER_driverBlock, 0);
 	spa_pod_builder_add_struct(&b,

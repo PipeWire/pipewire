@@ -29,6 +29,7 @@ struct driver {
 	float cpu_load[3];
 	struct spa_io_clock clock;
 	uint32_t xrun_count;
+	uint32_t transport_state;
 };
 
 struct measurement {
@@ -130,7 +131,8 @@ static int process_clock(struct data *d, const struct spa_pod *pod, struct drive
 			SPA_POD_Long(&info->clock.duration),
 			SPA_POD_Long(&info->clock.delay),
 			SPA_POD_Double(&info->clock.rate_diff),
-			SPA_POD_Long(&info->clock.next_nsec));
+			SPA_POD_Long(&info->clock.next_nsec),
+			SPA_POD_OPT_Int(&info->transport_state));
 }
 
 static struct node *find_node(struct data *d, uint32_t id)
@@ -455,7 +457,7 @@ static const char *print_perc(char *buf, bool active, size_t len, uint64_t val, 
 	return buf;
 }
 
-static const char *state_as_string(enum pw_node_state state)
+static const char *state_as_string(enum pw_node_state state, uint32_t transport)
 {
 	switch (state) {
 	case PW_NODE_STATE_ERROR:
@@ -467,7 +469,14 @@ static const char *state_as_string(enum pw_node_state state)
 	case PW_NODE_STATE_IDLE:
 		return "I";
 	case PW_NODE_STATE_RUNNING:
-		return "R";
+		switch (transport) {
+		case SPA_IO_POSITION_STATE_STARTING:
+			return "t";
+		case SPA_IO_POSITION_STATE_RUNNING:
+			return "T";
+		default:
+			return "R";
+		}
 	}
 	return "!";
 }
@@ -512,7 +521,7 @@ static void print_node(struct data *d, struct driver *i, struct node *n, int y)
 		busy = -1;
 
 	print_mode_dependent(d, y, 0, "%s %4.1u %6.1u %6.1u %s %s %s %s  %3.1u %16.16s %s%s",
-			state_as_string(n->state),
+			state_as_string(n->state, i->transport_state),
 			n->id,
 			frac.num, frac.denom,
 			print_time(buf1, active, 64, waiting),

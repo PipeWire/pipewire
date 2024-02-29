@@ -27,6 +27,8 @@ Node status.
 - S = SUSPENDED
 - I = IDLE
 - R = RUNNING
+- t = RUNNING + transport starting
+- T = RUNNING + transport running
 \endparblock
 
 \par ID

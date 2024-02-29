@@ -27,6 +27,7 @@ context.spa-libs = {
     #
     audio.convert.* = audioconvert/libspa-audioconvert
     support.*       = support/libspa-support
+    video.convert.* = videoconvert/libspa-videoconvert
 }
 
 context.modules = [

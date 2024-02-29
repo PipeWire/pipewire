@@ -139,6 +139,11 @@ extern "C" {
 								  *  in the same group are always scheduled
 								  *  with the same driver. Can be an array of
 								  *  group names. */
+#define PW_KEY_NODE_SYNC_GROUP		"node.sync-group"	/**< the sync group this node is part of. Nodes
+								  *  in the same sync group are always scheduled
+								  *  together with the same driver when the sync
+								  *  is active. Can be an array of sync names. */
+#define PW_KEY_NODE_SYNC		"node.sync"		/**< if the sync-group is active or not */
 #define PW_KEY_NODE_TRANSPORT		"node.transport"	/**< if the transport is active or not */
 #define PW_KEY_NODE_EXCLUSIVE		"node.exclusive"	/**< node wants exclusive access to resources */
 #define PW_KEY_NODE_AUTOCONNECT		"node.autoconnect"	/**< node wants to be automatically connected

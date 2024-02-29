@@ -232,6 +232,7 @@ context.objects = [
             factory.name    = support.node.driver
             node.name       = Dummy-Driver
             node.group      = pipewire.dummy
+            node.sync-group  = sync.dummy
             priority.driver = 20000
             #clock.id       = monotonic # realtime | tai | monotonic-raw | boottime
             #clock.name     = "clock.system.monotonic"
@@ -243,6 +244,7 @@ context.objects = [
             node.name       = Freewheel-Driver
             priority.driver = 19000
             node.group      = pipewire.freewheel
+            node.sync-group  = sync.dummy
             node.freewheel  = true
             #freewheel.wait = 10
         }

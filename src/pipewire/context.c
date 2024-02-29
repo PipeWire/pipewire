@@ -33,6 +33,7 @@ PW_LOG_TOPIC_EXTERN(log_context);
 #define PW_LOG_TOPIC_DEFAULT log_context
 
 #define MAX_HOPS	64
+#define MAX_SYNC	4u
 
 /** \cond */
 struct impl {
@@ -895,7 +896,8 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
  * This ensures that we only activate the paths from the runnable nodes to the
  * driver nodes and leave the other nodes idle.
  */
-static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, struct spa_list *collect)
+static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, struct spa_list *collect,
+		char **sync)
 {
 	struct spa_list queue;
 	struct pw_impl_node *n, *t;
@@ -919,6 +921,11 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 
 		if (!n->active)
 			continue;
+
+		if (sync[0] != NULL) {
+			if (pw_strv_find_common(n->sync_groups, sync) < 0)
+				continue;
+		}
 
 		spa_list_for_each(p, &n->input_ports, link) {
 			spa_list_for_each(l, &p->links, input_link) {
@@ -964,13 +971,15 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 		}
 		/* now go through all the nodes that have the same group and
 		 * that are not yet visited */
-		if (n->groups != NULL || n->link_groups != NULL) {
+		if (n->groups != NULL || n->link_groups != NULL || sync[0] != NULL) {
 			spa_list_for_each(t, &context->node_list, link) {
 				if (t->exported || !t->active || t->visited)
 					continue;
 				if (pw_strv_find_common(t->groups, n->groups) < 0 &&
-				    pw_strv_find_common(t->link_groups, n->link_groups) < 0)
+				    pw_strv_find_common(t->link_groups, n->link_groups) < 0 &&
+				    pw_strv_find_common(t->sync_groups, sync) < 0)
 					continue;
+
 				pw_log_debug("%p: %s join group of %s",
 						t, t->name, n->name);
 				t->visited = true;
@@ -1220,9 +1229,10 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 	struct pw_impl_node *n, *s, *target, *fallback;
 	const uint32_t *rates;
 	uint32_t max_quantum, min_quantum, def_quantum, lim_quantum, rate_quantum;
-	uint32_t n_rates, def_rate;
+	uint32_t n_rates, def_rate, n_sync;
 	bool freewheel, global_force_rate, global_force_quantum, transport_start;
 	struct spa_list collect;
+	char *sync[MAX_SYNC+1];
 
 	pw_log_info("%p: busy:%d reason:%s", context, impl->recalc, reason);
 
@@ -1236,11 +1246,23 @@ again:
 	freewheel = false;
 	transport_start = false;
 
-	/* clean up the flags first */
+	/* clean up the flags first and collect sync */
+	n_sync = 0;
+	sync[0] = NULL;
 	spa_list_for_each(n, &context->node_list, link) {
 		n->visited = false;
 		n->checked = 0;
 		n->runnable = n->always_process && n->active;
+		if (n->sync) {
+			for (uint32_t i = 0; n->sync_groups[i]; i++) {
+				if (n_sync >= MAX_SYNC)
+					break;
+				if (pw_strv_find(sync, n->sync_groups[i]) >= 0)
+					continue;
+				sync[n_sync++] = n->sync_groups[i];
+				sync[n_sync] = NULL;
+			}
+		}
 	}
 
 	get_quantums(context, &def_quantum, &min_quantum, &max_quantum, &lim_quantum, &rate_quantum);
@@ -1260,7 +1282,7 @@ again:
 
 		if (!n->visited) {
 			spa_list_init(&collect);
-			collect_nodes(context, n, &collect);
+			collect_nodes(context, n, &collect, sync);
 			move_to_driver(context, &collect, n);
 		}
 		/* from now on we are only interested in active driving nodes
@@ -1314,7 +1336,7 @@ again:
 
 		/* collect all nodes in this group */
 		spa_list_init(&collect);
-		collect_nodes(context, n, &collect);
+		collect_nodes(context, n, &collect, sync);
 
 		driver = NULL;
 		spa_list_for_each(t, &collect, sort_link) {

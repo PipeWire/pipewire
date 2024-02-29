@@ -650,6 +650,7 @@ struct pw_impl_node {
 	uint32_t priority_driver;	/** priority for being driver */
 	char **groups;			/** groups to schedule this node in */
 	char **link_groups;		/** groups this node is linked to */
+	char **sync_groups;		/** sync groups this node is in */
 	uint64_t spa_flags;
 
 	unsigned int registered:1;
@@ -683,6 +684,7 @@ struct pw_impl_node {
 					  *  trigger to start processing. */
 	unsigned int can_suspend:1;
 	unsigned int checked;		/**< for sorting */
+	unsigned int sync:1;		/**< the sync-groups are active */
 	unsigned int transport:1;	/**< the transport is active */
 
 	uint32_t port_user_data_size;	/**< extra size for port user data */

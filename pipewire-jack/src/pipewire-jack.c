@@ -6803,6 +6803,7 @@ static int transport_update(struct client* c, int active)
 	pw_log_info("%p: transport %d", c, active);
 
 	pw_thread_loop_lock(c->context.loop);
+	pw_properties_set(c->props, PW_KEY_NODE_SYNC, "true");
 	pw_properties_set(c->props, PW_KEY_NODE_TRANSPORT,
 			active ? "true" : "false");
 

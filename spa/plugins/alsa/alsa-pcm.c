@@ -3239,8 +3239,19 @@ static void alsa_irq_wakeup_event(struct spa_source *source)
 	uint64_t current_time;
 	int res, err;
 	unsigned short revents;
+	snd_pcm_uframes_t havail;
+	snd_htimestamp_t tstamp;
 
+	// First, take a snapshot of the wakeup time
 	current_time = get_time_ns(state);
+	// If the hi-res timestamps are working, we will get a timestamp that
+	// is earlier then current_time
+	if ((res = snd_pcm_htimestamp(state->hndl, &havail, &tstamp)) == 0) {
+		uint64_t htime = SPA_TIMESPEC_TO_NSEC(&tstamp);
+		if (htime < current_time) {
+			current_time = htime;
+		}
+	}
 
 	for (int i = 0; i < state->n_fds; i++) {
 		state->pfds[i].revents = state->source[i].rmask;

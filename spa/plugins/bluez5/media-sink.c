@@ -109,9 +109,9 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
-	struct spa_loop *main_loop;
 	struct spa_loop *data_loop;
 	struct spa_system *data_system;
+	struct spa_loop_utils *loop_utils;
 
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
@@ -163,6 +163,7 @@ struct impl {
 	uint64_t next_flush_time;
 
 	uint64_t packet_delay_ns;
+	struct spa_source *update_delay_event;
 
 	const struct media_codec *codec;
 	bool codec_props_changed;
@@ -377,7 +378,7 @@ static void set_latency(struct impl *this, bool emit_latency)
 	struct port *port = &this->port;
 	int64_t delay;
 
-	/* in main thread */
+	/* in main loop */
 
 	if (this->transport == NULL)
 		return;
@@ -410,15 +411,12 @@ static void set_latency(struct impl *this, bool emit_latency)
 	}
 }
 
-static int do_set_latency(struct spa_loop *loop, bool async, uint32_t seq,
-               const void *data, size_t size, void *user_data)
+static void update_delay_event(void *data, uint64_t count)
 {
-	struct impl *this = user_data;
+	struct impl *this = data;
 
-	/* in main thread */
+	/* in main loop */
 	set_latency(this, true);
-
-	return 0;
 }
 
 static void update_packet_delay(struct impl *this, uint64_t delay)
@@ -432,7 +430,8 @@ static void update_packet_delay(struct impl *this, uint64_t delay)
 		return;
 
 	__atomic_store_n(&this->packet_delay_ns, delay, __ATOMIC_RELAXED);
-	spa_loop_invoke(this->main_loop, do_set_latency, 0, NULL, 0, false, this);
+	if (this->update_delay_event)
+		spa_loop_utils_signal_event(this->loop_utils, this->update_delay_event);
 }
 
 static int apply_props(struct impl *this, const struct spa_pod *param)
@@ -1290,6 +1289,8 @@ static int transport_start(struct impl *this)
 
 	spa_bt_rate_control_init(&port->ratectl, 0);
 
+	this->update_delay_event = spa_loop_utils_add_event(this->loop_utils, update_delay_event, this);
+
 	if (!this->transport->iso_io) {
 		this->flush_timer_source.data = this;
 		this->flush_timer_source.fd = this->flush_timerfd;
@@ -1368,6 +1369,12 @@ static int do_remove_source(struct spa_loop *loop,
 	if (this->source.loop)
 		spa_loop_remove_source(this->data_loop, &this->source);
 	set_timeout(this, 0);
+
+	if (this->update_delay_event) {
+		spa_loop_utils_destroy_source(this->loop_utils, this->update_delay_event);
+		this->update_delay_event = NULL;
+	}
+
 	return 0;
 }
 
@@ -1430,9 +1437,6 @@ static int do_stop(struct impl *this)
 		res = spa_bt_transport_release(this->transport);
 
 	this->started = false;
-
-	/* Flush latency updates */
-	spa_loop_invoke(this->main_loop, NULL, 0, NULL, 0, false, NULL);
 
 	return res;
 }
@@ -2129,9 +2133,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	this->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
+	this->loop_utils = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_LoopUtils);
 
 	spa_log_topic_init(this->log, &log_topic);
 
@@ -2141,6 +2145,10 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	if (this->data_system == NULL) {
 		spa_log_error(this->log, "a data system is needed");
+		return -EINVAL;
+	}
+	if (this->loop_utils == NULL) {
+		spa_log_error(this->log, "loop utils are needed");
 		return -EINVAL;
 	}
 

@@ -145,6 +145,15 @@ static int set_timers(struct group *group)
 	return set_timeout(group, group->next);
 }
 
+static void drop_rx(int fd)
+{
+	ssize_t res;
+
+	do {
+		res = recv(fd, NULL, 0, MSG_TRUNC | MSG_DONTWAIT);
+	} while (res >= 0);
+}
+
 static void group_on_timeout(struct spa_source *source)
 {
 	struct group *group = source->data;
@@ -166,8 +175,13 @@ static void group_on_timeout(struct spa_source *source)
 	 * desynchronization.
 	 */
 	spa_list_for_each(stream, &group->streams, link) {
-		if (!stream->sink)
+		if (!stream->sink) {
+			if (!stream->pull) {
+				/* Source not running: drop any incoming data */
+				drop_rx(stream->fd);
+			}
 			continue;
+		}
 
 		if (stream->this.need_resync) {
 			resync = true;
@@ -453,9 +467,12 @@ static bool group_is_enabled(struct group *group)
 {
 	struct stream *stream;
 
-	spa_list_for_each(stream, &group->streams, link)
+	spa_list_for_each(stream, &group->streams, link) {
+		if (!stream->sink)
+			continue;
 		if (stream->pull)
 			return true;
+	}
 
 	return false;
 }

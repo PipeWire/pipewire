@@ -35,6 +35,7 @@
 #include "defs.h"
 #include "rtp.h"
 #include "media-codecs.h"
+#include "iso-io.h"
 
 SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.source.media");
 #undef SPA_LOG_TOPIC_DEFAULT
@@ -526,6 +527,8 @@ static void media_on_ready_read(struct spa_source *source)
 stop:
 	if (this->source.loop)
 		spa_loop_remove_source(this->data_loop, &this->source);
+	if (this->transport && this->transport->iso_io)
+		spa_bt_iso_io_set_cb(this->transport->iso_io, NULL, NULL);
 }
 
 static int setup_matching(struct impl *this)
@@ -612,6 +615,21 @@ static void media_on_timeout(struct spa_source *source)
 	set_timeout(this, this->next_time);
 }
 
+static void media_iso_pull(struct spa_bt_iso_io *iso_io)
+{
+	/* TODO: eventually use iso-io here, currently this is used just to indicate to
+	 * iso-io whether this source is running or not. */
+}
+
+static int do_start_iso_io(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct impl *this = user_data;
+
+	spa_bt_iso_io_set_cb(this->transport->iso_io, media_iso_pull, this);
+	return 0;
+}
+
 static int transport_start(struct impl *this)
 {
 	int res, val;
@@ -669,6 +687,8 @@ static int transport_start(struct impl *this)
 				port->current_format.info.raw.rate * 80 / 1000);
 	}
 
+	this->sample_count = 0;
+
 	this->source.data = this;
 
 	this->source.fd = this->fd;
@@ -679,7 +699,8 @@ static int transport_start(struct impl *this)
 		spa_log_error(this->log, "%p: failed to add poll source: %s", this,
 				spa_strerror(res));
 
-	this->sample_count = 0;
+	if (this->transport->iso_io)
+		spa_loop_invoke(this->data_loop, do_start_iso_io, 0, NULL, 0, true, this);
 
 	this->transport_started = true;
 
@@ -737,6 +758,8 @@ static int do_remove_source(struct spa_loop *loop,
 
 	if (this->timer_source.loop)
 		spa_loop_remove_source(this->data_loop, &this->timer_source);
+	if (this->transport && this->transport->iso_io)
+		spa_bt_iso_io_set_cb(this->transport->iso_io, NULL, NULL);
 	set_timeout(this, 0);
 
 	return 0;
@@ -757,6 +780,8 @@ static int do_remove_transport_source(struct spa_loop *loop,
 
 	if (this->source.loop)
 		spa_loop_remove_source(this->data_loop, &this->source);
+	if (this->transport->iso_io)
+		spa_bt_iso_io_set_cb(this->transport->iso_io, NULL, NULL);
 
 	return 0;
 }

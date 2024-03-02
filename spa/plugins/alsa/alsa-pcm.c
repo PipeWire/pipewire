@@ -640,6 +640,21 @@ static void fill_device_name(struct state *state, const char *params, char devic
 			state->props.device, params ? params : "");
 }
 
+static void device_name_to_card_name(const char *device_name, char *card_name, size_t card_len)
+{
+	size_t card_name_len = strcspn(device_name, ",");
+	snprintf(card_name, card_len, "%.*s", (int) card_name_len, device_name);
+}
+
+static void fill_card_name(struct state *state, const char *params, char *card_name, size_t len)
+{
+	char device_name[256];
+	size_t max_len = SPA_MIN(len, sizeof(device_name));
+
+	fill_device_name(state, params, device_name, max_len);
+	device_name_to_card_name(device_name, card_name, max_len);
+}
+
 static void bind_ctl_event(struct spa_source *source)
 {
 	// We don't know if a bound element changed or not, so let's find out
@@ -687,14 +702,14 @@ static void bind_ctls_for_params(struct state *state)
 		return;
 
 	if (!state->ctl) {
-		char device_name[256];
+		char card_name[256];
 
-		fill_device_name(state, NULL, device_name, sizeof(device_name));
+		fill_card_name(state, NULL, card_name, sizeof(card_name));
 
-		err = snd_ctl_open(&state->ctl, device_name, SND_CTL_NONBLOCK);
+		err = snd_ctl_open(&state->ctl, card_name, SND_CTL_NONBLOCK);
 		if (err < 0) {
-			spa_log_info(state->log, "%s could not find ctl device: %s",
-					state->props.device, snd_strerror(err));
+			spa_log_info(state->log, "%s could not find ctl card: %s",
+					card_name, snd_strerror(err));
 			state->ctl = NULL;
 			return;
 		}
@@ -891,10 +906,13 @@ static int probe_pitch_ctl(struct state *state, const char* device_name)
 	snd_lib_error_set_handler(silence_error_handler);
 
 	if (!state->ctl) {
-		err = snd_ctl_open(&state->ctl, device_name, SND_CTL_NONBLOCK);
+		char card_name[256];
+		device_name_to_card_name(device_name, card_name, sizeof(card_name));
+
+		err = snd_ctl_open(&state->ctl, card_name, SND_CTL_NONBLOCK);
 		if (err < 0) {
-			spa_log_info(state->log, "%s could not find ctl device: %s",
-					device_name, snd_strerror(err));
+			spa_log_info(state->log, "%s could not find ctl card: %s",
+					card_name, snd_strerror(err));
 			state->ctl = NULL;
 			goto error;
 		}

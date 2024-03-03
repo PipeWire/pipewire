@@ -693,6 +693,85 @@ static void bind_ctl_event(struct spa_source *source)
 	}
 }
 
+static void fetch_bind_ctls(struct state *state)
+{
+	snd_ctl_elem_list_t* element_list;
+	unsigned int elem_count = 0;
+	int err;
+
+	if (!state->num_bind_ctls)
+		return;
+
+	snd_ctl_elem_list_alloca(&element_list);
+
+	/* Get number of elements */
+	err = snd_ctl_elem_list(state->ctl, element_list);
+	if (SPA_UNLIKELY(err < 0)) {
+		spa_log_warn(state->log, "Couldn't get elem list count. Error: %s",
+			     snd_strerror(err));
+		return;
+	}
+
+	elem_count = snd_ctl_elem_list_get_count(element_list);
+	err = snd_ctl_elem_list_alloc_space(element_list, elem_count);
+	if (SPA_UNLIKELY(err < 0)) {
+		spa_log_error(state->log, "Couldn't allocate elem_list space. Error: %s",
+			      snd_strerror(err));
+		return;
+	}
+
+	/* Get identifiers */
+	err = snd_ctl_elem_list(state->ctl, element_list);
+	if (SPA_UNLIKELY(err < 0)) {
+		spa_log_warn(state->log, "Couldn't get elem list. Error: %s",
+			     snd_strerror(err));
+		goto cleanup;
+	}
+
+
+	for (unsigned int i = 0; i < state->num_bind_ctls; i++) {
+		unsigned int numid = 0;
+
+		for (unsigned int j = 0; i < elem_count; j++) {
+			const char* element_name = snd_ctl_elem_list_get_name(element_list, j);
+
+			if (!strcmp(element_name, state->bound_ctls[i].name)) {
+				numid = snd_ctl_elem_list_get_numid(element_list, j);
+				break;
+			}
+		}
+
+		/* zero = invalid numid */
+		if (SPA_UNLIKELY(!numid)) {
+			spa_log_warn(state->log, "Didn't find ctl: '%s', count: %u",
+				     state->bound_ctls[i].name, elem_count);
+			continue;
+		}
+
+		snd_ctl_elem_info_malloc(&state->bound_ctls[i].info);
+		snd_ctl_elem_info_set_numid(state->bound_ctls[i].info, numid);
+
+		err = snd_ctl_elem_info(state->ctl, state->bound_ctls[i].info);
+		if (SPA_UNLIKELY(err < 0)) {
+			spa_log_warn(state->log, "Could not read elem info for '%s': %s",
+				     state->bound_ctls[i].name, snd_strerror(err));
+
+			snd_ctl_elem_info_free(state->bound_ctls[i].info);
+			state->bound_ctls[i].info = NULL;
+			continue;
+		}
+
+		snd_ctl_elem_value_malloc(&state->bound_ctls[i].value);
+		snd_ctl_elem_value_set_numid(state->bound_ctls[i].value, numid);
+
+		spa_log_debug(state->log, "Binding ctl for '%s'",
+			      snd_ctl_elem_info_get_name(state->bound_ctls[i].info));
+	}
+
+cleanup:
+	snd_ctl_elem_list_free_space(element_list);
+}
+
 static void bind_ctls_for_params(struct state *state)
 {
 	struct pollfd pfds[16];
@@ -737,32 +816,7 @@ static void bind_ctls_for_params(struct state *state)
 		spa_loop_add_source(state->main_loop, &state->ctl_sources[i]);
 	}
 
-	for (unsigned int i = 0; i < state->num_bind_ctls; i++) {
-		snd_ctl_elem_id_t *id;
-
-		snd_ctl_elem_id_alloca(&id);
-		snd_ctl_elem_id_set_name(id, state->bound_ctls[i].name);
-		snd_ctl_elem_id_set_interface(id, SND_CTL_ELEM_IFACE_PCM);
-
-		snd_ctl_elem_info_malloc(&state->bound_ctls[i].info);
-		snd_ctl_elem_info_set_id(state->bound_ctls[i].info, id);
-
-		err = snd_ctl_elem_info(state->ctl, state->bound_ctls[i].info);
-		if (err < 0) {
-			spa_log_warn(state->log, "Could not read elem info for '%s': %s",
-					state->bound_ctls[i].name, snd_strerror(err));
-
-			snd_ctl_elem_info_free(state->bound_ctls[i].info);
-			state->bound_ctls[i].info = NULL;
-			continue;
-		}
-
-		snd_ctl_elem_value_malloc(&state->bound_ctls[i].value);
-		snd_ctl_elem_value_set_id(state->bound_ctls[i].value, id);
-
-		spa_log_debug(state->log, "Binding ctl for '%s'",
-				snd_ctl_elem_info_get_name(state->bound_ctls[i].info));
-	}
+	fetch_bind_ctls(state);
 }
 
 int spa_alsa_init(struct state *state, const struct spa_dict *info)

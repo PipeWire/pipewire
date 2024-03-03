@@ -435,36 +435,54 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 static void add_bind_ctl_param(struct state *state, const snd_ctl_elem_value_t *elem, const snd_ctl_elem_info_t *info,
 		struct spa_pod_builder *b)
 {
+	struct spa_pod_frame f[1];
 	char param_name[1024];
+	unsigned int count = snd_ctl_elem_info_get_count(info);
+	int type = snd_ctl_elem_info_get_type(info);
+	bool is_array = count > 1 && type != SND_CTL_ELEM_TYPE_BYTES;
 
 	snprintf(param_name, sizeof(param_name), "api.alsa.bind-ctl.%s",
 			snd_ctl_elem_info_get_name(info));
 	spa_pod_builder_string(b, param_name);
 
-	switch (snd_ctl_elem_info_get_type(info)) {
+	if (is_array)
+		spa_pod_builder_push_array(b, &f[0]);
+
+	switch (type) {
 		case SND_CTL_ELEM_TYPE_BOOLEAN:
-			spa_pod_builder_bool(b, snd_ctl_elem_value_get_boolean(elem, 0));
+			for (unsigned int i = 0; i < count; i++)
+				spa_pod_builder_bool(b, snd_ctl_elem_value_get_boolean(elem, i));
 			break;
 
 		case SND_CTL_ELEM_TYPE_INTEGER:
-			spa_pod_builder_int(b, snd_ctl_elem_value_get_integer(elem, 0));
+			for (unsigned int i = 0; i < count; i++)
+				spa_pod_builder_int(b, snd_ctl_elem_value_get_integer(elem, i));
 			break;
 
 		case SND_CTL_ELEM_TYPE_INTEGER64:
-			spa_pod_builder_long(b, snd_ctl_elem_value_get_integer64(elem, 0));
+			for (unsigned int i = 0; i < count; i++)
+				spa_pod_builder_long(b, snd_ctl_elem_value_get_integer64(elem, i));
 			break;
 
 		case SND_CTL_ELEM_TYPE_ENUMERATED:
-			spa_pod_builder_int(b, snd_ctl_elem_value_get_enumerated(elem, 0));
+			for (unsigned int i = 0; i < count; i++)
+				spa_pod_builder_int(b, snd_ctl_elem_value_get_enumerated(elem, i));
+			break;
+
+		case SND_CTL_ELEM_TYPE_BYTES:
+			const void* bytes = snd_ctl_elem_value_get_bytes(elem);
+			spa_pod_builder_bytes(b, bytes, count);
 			break;
 
 		default:
-			// FIXME: we can probably support bytes but the length seems unknown in the API
 			spa_log_warn(state->log, "%s ctl '%s' not supported",
 					snd_ctl_elem_type_name(snd_ctl_elem_info_get_type(info)),
 					snd_ctl_elem_info_get_name(info));
 			break;
 	}
+
+	if (is_array)
+		spa_pod_builder_pop(b, &f[0]);
 }
 
 static void add_bind_ctl_params(struct state *state, struct spa_pod_builder *b)

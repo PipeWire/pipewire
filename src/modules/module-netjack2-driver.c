@@ -608,13 +608,6 @@ static int create_filters(struct impl *impl)
 }
 
 
-static inline uint64_t get_time_ns(void)
-{
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return SPA_TIMESPEC_TO_NSEC(&ts);
-}
-
 static void
 on_data_io(void *data, int fd, uint32_t mask)
 {
@@ -634,7 +627,7 @@ on_data_io(void *data, int fd, uint32_t mask)
 		if (nframes == 0)
 			return;
 
-		nsec = get_time_ns();
+		nsec = pw_filter_get_nsec(impl->source.filter);
 
 		if (!impl->done) {
 			impl->pw_xrun++;

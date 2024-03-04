@@ -325,11 +325,16 @@ static void clear_sdp_info(struct sdp_info *info)
 	spa_zero(*info);
 }
 
-static void session_touch(struct session *sess)
+static uint64_t get_time_nsec(struct impl *impl)
 {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	sess->timestamp = SPA_TIMESPEC_TO_NSEC(&ts);
+	return SPA_TIMESPEC_TO_NSEC(&ts);
+}
+
+static void session_touch(struct session *sess)
+{
+	sess->timestamp = get_time_nsec(sess->impl);
 }
 
 static void session_free(struct session *sess)
@@ -791,11 +796,9 @@ static void on_timer_event(void *data, uint64_t expirations)
 {
 	struct impl *impl = data;
 	struct session *sess, *tmp;
-	struct timespec ts;
 	uint64_t timestamp, interval;
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	timestamp = SPA_TIMESPEC_TO_NSEC(&ts);
+	timestamp = get_time_nsec(impl);
 	interval = impl->cleanup_interval * SPA_NSEC_PER_SEC;
 	update_ts_refclk(impl);
 

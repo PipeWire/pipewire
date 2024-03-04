@@ -137,16 +137,16 @@ static int parse_journal(struct impl *impl, uint8_t *packet, uint16_t seq, uint3
 
 static double get_time(struct impl *impl)
 {
-	struct timespec ts;
+	uint64_t now;
 	struct spa_io_position *pos;
 	double t;
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
+	now = pw_stream_get_nsec(impl->stream);
 	if ((pos = impl->io_position) != NULL) {
 		t = pos->clock.position / (double) pos->clock.rate.denom;
-		t += (SPA_TIMESPEC_TO_NSEC(&ts) - pos->clock.nsec) / (double)SPA_NSEC_PER_SEC;
+		t += (now - pos->clock.nsec) / (double)SPA_NSEC_PER_SEC;
 	} else {
-		t = SPA_TIMESPEC_TO_NSEC(&ts);
+		t = now;
 	}
 	return t;
 }

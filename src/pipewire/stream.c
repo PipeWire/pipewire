@@ -2409,6 +2409,14 @@ int pw_stream_get_time_n(struct pw_stream *stream, struct pw_time *time, size_t 
 	return 0;
 }
 
+SPA_EXPORT
+uint64_t pw_stream_get_nsec(struct pw_stream *stream)
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return SPA_TIMESPEC_TO_NSEC(&ts);
+}
+
 static int
 do_trigger_deprecated(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)

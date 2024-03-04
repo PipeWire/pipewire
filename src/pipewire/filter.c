@@ -1994,6 +1994,14 @@ int pw_filter_get_time(struct pw_filter *filter, struct pw_time *time)
 }
 
 SPA_EXPORT
+uint64_t pw_filter_get_nsec(struct pw_filter *filter)
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return SPA_TIMESPEC_TO_NSEC(&ts);
+}
+
+SPA_EXPORT
 struct pw_buffer *pw_filter_dequeue_buffer(void *port_data)
 {
 	struct port *p = SPA_CONTAINER_OF(port_data, struct port, user_data);

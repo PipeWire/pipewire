@@ -679,13 +679,6 @@ static int create_filters(struct impl *impl)
 	return res;
 }
 
-static inline uint64_t get_time_ns(void)
-{
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return SPA_TIMESPEC_TO_NSEC(&ts);
-}
-
 static void *ffado_process_thread(void *arg)
 {
 	struct impl *impl = arg;
@@ -696,7 +689,7 @@ static void *ffado_process_thread(void *arg)
 		ffado_wait_response response;
 
 		response = ffado_streaming_wait(impl->dev);
-		nsec = get_time_ns();
+		nsec = pw_filter_get_nsec(impl->source.filter);
 
 		switch (response) {
 		case ffado_wait_ok:

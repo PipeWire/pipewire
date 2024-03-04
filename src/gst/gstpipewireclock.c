@@ -31,27 +31,26 @@ gst_pipewire_clock_get_internal_time (GstClock * clock)
 {
   GstPipeWireClock *pclock = (GstPipeWireClock *) clock;
   GstClockTime result;
-  struct timespec ts;
+  uint64_t now;
 
-  clock_gettime(CLOCK_MONOTONIC, &ts);
+  now = pw_stream_get_nsec(pclock->stream);
 #if 0
   struct pw_time t;
   if (pclock->stream == NULL ||
-      pw_stream_get_time (pclock->stream, &t) < 0 ||
+      pw_stream_get_time_n (pclock->stream, &t, sizeof(t)) < 0 ||
       t.rate.denom == 0)
     return pclock->last_time;
 
   result = gst_util_uint64_scale_int (t.ticks, GST_SECOND * t.rate.num, t.rate.denom);
-  result += SPA_TIMESPEC_TO_NSEC(&ts) - t.now;
+  result += now - t.now;
 
   result += pclock->time_offset;
   pclock->last_time = result;
 
-  GST_DEBUG ("%"PRId64", %d/%d %"PRId64" %"PRId64,
-                t.ticks, t.rate.num, t.rate.denom, t.now, result);
+  GST_DEBUG ("%"PRId64", %d/%d %"PRId64" %"PRId64" %"PRId64,
+                t.ticks, t.rate.num, t.rate.denom, t.now, result, now);
 #else
-  result = SPA_TIMESPEC_TO_NSEC(&ts);
-  result += pclock->time_offset;
+  result = now + pclock->time_offset;
   pclock->last_time = result;
 #endif
 

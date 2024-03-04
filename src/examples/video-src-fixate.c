@@ -164,9 +164,7 @@ static void on_process(void *userdata)
 
 	if ((h = spa_buffer_find_meta_data(buf, SPA_META_Header, sizeof(*h)))) {
 #if 0
-		struct timespec now;
-		clock_gettime(CLOCK_MONOTONIC, &now);
-		h->pts = SPA_TIMESPEC_TO_NSEC(&now);
+		h->pts = pw_stream_get_nsec(data->stream);
 #else
 		h->pts = -1;
 #endif

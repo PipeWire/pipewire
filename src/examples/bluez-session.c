@@ -58,8 +58,6 @@ struct object {
 };
 
 struct impl {
-	struct timespec now;
-
 	struct pw_main_loop *loop;
 	struct pw_context *context;
 
@@ -352,8 +350,6 @@ int main(int argc, char *argv[])
 
 	impl.loop = pw_main_loop_new(NULL);
 	impl.context = pw_context_new(pw_main_loop_get_loop(impl.loop), NULL, 0);
-
-	clock_gettime(CLOCK_MONOTONIC, &impl.now);
 
 	spa_list_init(&impl.device_list);
 

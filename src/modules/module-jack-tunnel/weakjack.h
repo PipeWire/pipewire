@@ -21,6 +21,7 @@ struct weakjack {
 	jack_nframes_t (*cycle_wait) (jack_client_t* client);
 	void (*cycle_signal) (jack_client_t* client, int status);
 
+	jack_time_t (*get_time) (void);
 	jack_nframes_t (*frame_time) (const jack_client_t *);
 	int (*get_cycle_times) (const jack_client_t *client,
 			jack_nframes_t *current_frames,
@@ -111,6 +112,7 @@ static inline int weakjack_load_by_path(struct weakjack *jack, const char *path)
 	spa_zero(*jack);
 	LOAD_SYM(cycle_wait);
 	LOAD_SYM(cycle_signal);
+	LOAD_SYM(get_time);
 	LOAD_SYM(frame_time);
 	LOAD_SYM(get_cycle_times);
 	LOAD_SYM(transport_query);

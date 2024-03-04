@@ -679,6 +679,18 @@ static int create_filters(struct impl *impl)
 	return res;
 }
 
+static inline uint64_t get_time_nsec(struct impl *impl)
+{
+	uint64_t nsec;
+	if (impl->sink.filter)
+		nsec = pw_filter_get_nsec(impl->sink.filter);
+	else if (impl->source.filter)
+		nsec = pw_filter_get_nsec(impl->source.filter);
+	else
+		nsec = 0;
+	return nsec;
+}
+
 static void *ffado_process_thread(void *arg)
 {
 	struct impl *impl = arg;
@@ -689,7 +701,7 @@ static void *ffado_process_thread(void *arg)
 		ffado_wait_response response;
 
 		response = ffado_streaming_wait(impl->dev);
-		nsec = pw_filter_get_nsec(impl->source.filter);
+		nsec = get_time_nsec(impl);
 
 		switch (response) {
 		case ffado_wait_ok:

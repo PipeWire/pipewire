@@ -402,8 +402,8 @@ gst_pipewire_src_class_init (GstPipeWireSrcClass * klass)
   gstelement_class->send_event = gst_pipewire_src_send_event;
 
   gst_element_class_set_static_metadata (gstelement_class,
-      "PipeWire source", "Source/Video",
-      "Uses PipeWire to create video", "Wim Taymans <wim.taymans@gmail.com>");
+      "PipeWire source", "Source/Audio/Video",
+      "Uses PipeWire to create audio/video", "Wim Taymans <wim.taymans@gmail.com>");
 
   gst_element_class_add_pad_template (gstelement_class,
       gst_static_pad_template_get (&gst_pipewire_src_template));

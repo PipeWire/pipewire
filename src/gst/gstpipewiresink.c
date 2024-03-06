@@ -209,8 +209,8 @@ gst_pipewire_sink_class_init (GstPipeWireSinkClass * klass)
   gstelement_class->change_state = gst_pipewire_sink_change_state;
 
   gst_element_class_set_static_metadata (gstelement_class,
-      "PipeWire sink", "Sink/Video",
-      "Send video to PipeWire", "Wim Taymans <wim.taymans@gmail.com>");
+      "PipeWire sink", "Sink/Audio/Video",
+      "Send audio/video to PipeWire", "Wim Taymans <wim.taymans@gmail.com>");
 
   gst_element_class_add_pad_template (gstelement_class,
       gst_static_pad_template_get (&gst_pipewire_sink_template));

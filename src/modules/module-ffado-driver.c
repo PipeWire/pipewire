@@ -170,8 +170,9 @@ struct stream {
 struct impl {
 	struct pw_context *context;
 	struct pw_loop *main_loop;
+	struct pw_loop *data_loop;
 	struct spa_system *system;
-	struct spa_thread_utils *utils;
+	struct spa_source *ffado_timer;
 
 	ffado_device_info_t device_info;
 	ffado_options_t device_options;
@@ -215,13 +216,15 @@ struct impl {
 	uint32_t ffado_xrun;
 	uint32_t frame_time;
 
+	unsigned int do_disconnect:1;
+	unsigned int fix_midi:1;
+	unsigned int started:1;
+
 	pthread_t thread;
 
-	unsigned int do_disconnect:1;
 	unsigned int done:1;
 	unsigned int triggered:1;
 	unsigned int new_xrun:1;
-	unsigned int fix_midi:1;
 };
 
 static void reset_volume(struct volume *vol, uint32_t n_volumes)
@@ -306,6 +309,60 @@ static void ffado_to_midi(float *dst, float *src, uint32_t size)
 	spa_pod_builder_pop(&b, &f);
 }
 
+static inline uint64_t get_time_ns(struct impl *impl)
+{
+	uint64_t nsec;
+	if (impl->sink.filter)
+		nsec = pw_filter_get_nsec(impl->sink.filter);
+	else if (impl->source.filter)
+		nsec = pw_filter_get_nsec(impl->source.filter);
+	else
+		nsec = 0;
+	return nsec;
+}
+
+static int set_timeout(struct impl *impl, uint64_t time)
+{
+	struct timespec timeout, interval;
+	timeout.tv_sec = time / SPA_NSEC_PER_SEC;
+	timeout.tv_nsec = time % SPA_NSEC_PER_SEC;
+	interval.tv_sec = 0;
+	interval.tv_nsec = 0;
+	pw_loop_update_timer(impl->data_loop,
+                                impl->ffado_timer, &timeout, &interval, true);
+	return 0;
+}
+
+static int start_ffado_device(struct impl *impl)
+{
+	if (impl->started)
+		return 0;
+
+	if (ffado_streaming_start(impl->dev)) {
+		pw_log_error("Could not start FFADO streaming");
+		return -EIO;
+	}
+	pw_log_info("FFADO started streaming");
+	impl->started = true;
+	impl->done = true;
+	set_timeout(impl, get_time_ns(impl));
+	return 0;
+}
+
+static int stop_ffado_device(struct impl *impl)
+{
+	if (!impl->started)
+		return 0;
+
+	impl->started = false;
+	set_timeout(impl, 0);
+	if (ffado_streaming_stop(impl->dev))
+		pw_log_error("Could not stop FFADO streaming");
+	else
+		pw_log_info("FFADO stopped streaming");
+	return 0;
+}
+
 static void stream_destroy(void *d)
 {
 	struct stream *s = d;
@@ -321,13 +378,17 @@ static void stream_state_changed(void *d, enum pw_filter_state old,
 	switch (state) {
 	case PW_FILTER_STATE_ERROR:
 	case PW_FILTER_STATE_UNCONNECTED:
+		pw_log_error("filter state %d error: %s", state, error);
 		pw_impl_module_schedule_destroy(impl->module);
 		break;
 	case PW_FILTER_STATE_PAUSED:
 		s->running = false;
+		if (!impl->sink.running && !impl->source.running)
+			stop_ffado_device(impl);
 		break;
 	case PW_FILTER_STATE_STREAMING:
 		s->running = true;
+		start_ffado_device(impl);
 		break;
 	default:
 		break;
@@ -340,7 +401,8 @@ static void sink_process(void *d, struct spa_io_position *position)
 	struct impl *impl = s->impl;
 	uint32_t i, n_samples = position->clock.duration;
 
-	if (impl->mode & MODE_SINK && impl->triggered) {
+	pw_log_trace_fp("process %d", impl->triggered);
+	if (impl->mode == MODE_SINK && impl->triggered) {
 		impl->triggered = false;
 		return;
 	}
@@ -352,8 +414,10 @@ static void sink_process(void *d, struct spa_io_position *position)
 			continue;
 
 		src = pw_filter_get_dsp_buffer(p, n_samples);
-		if (src == NULL)
+		if (src == NULL) {
+			memset(p->buffer, 0, n_samples * sizeof(float));
 			continue;
+		}
 
 		if (SPA_UNLIKELY(p->is_midi))
 			midi_to_ffado(impl, p->buffer, src, n_samples);
@@ -362,10 +426,24 @@ static void sink_process(void *d, struct spa_io_position *position)
 	}
 	ffado_streaming_transfer_playback_buffers(impl->dev);
 
-	pw_log_trace_fp("done %u", impl->frame_time);
-	if (impl->mode & MODE_SINK) {
+	if (impl->mode == MODE_SINK) {
+		pw_log_trace_fp("done %u", impl->frame_time);
 		impl->done = true;
+		set_timeout(impl, position->clock.nsec);
 	}
+}
+
+static void silence_playback(struct impl *impl)
+{
+	uint32_t i;
+	struct stream *s = &impl->sink;
+
+	for (i = 0; i < s->n_ports; i++) {
+		struct port *p = s->ports[i];
+		if (p != NULL)
+			memset(p->buffer, 0, impl->period_size * sizeof(float));
+	}
+	ffado_streaming_transfer_playback_buffers(impl->dev);
 }
 
 static void source_process(void *d, struct spa_io_position *position)
@@ -374,11 +452,15 @@ static void source_process(void *d, struct spa_io_position *position)
 	struct impl *impl = s->impl;
 	uint32_t i, n_samples = position->clock.duration;
 
-	if (impl->mode == MODE_SOURCE && !impl->triggered) {
+	pw_log_trace_fp("process %d", impl->triggered);
+
+	if (!impl->triggered) {
 		pw_log_trace_fp("done %u", impl->frame_time);
 		impl->done = true;
+		set_timeout(impl, position->clock.nsec);
 		return;
 	}
+
 	impl->triggered = false;
 
 	ffado_streaming_transfer_capture_buffers(impl->dev);
@@ -441,13 +523,13 @@ static void make_stream_ports(struct stream *s)
 	struct spa_pod_builder b;
 	struct spa_latency_info latency;
 	const struct spa_pod *params[2];
-	uint32_t i, n_params = 0;
+	uint32_t i, n_params = 0, n_channels = 0;
 	bool is_midi;
 
 	for (i = 0; i < s->n_ports; i++) {
 		struct port *port = s->ports[i];
 		ffado_streaming_stream_type stream_type;
-		char portname[256];
+		char portname[256], channel[32];
 
 		if (port != NULL) {
 			s->ports[i] = NULL;
@@ -464,6 +546,7 @@ static void make_stream_ports(struct stream *s)
 			stream_type = ffado_streaming_get_capture_stream_type(impl->dev, i);
 			snprintf(name, sizeof(name), "%s_in", portname);
 		}
+		snprintf(channel, sizeof(channel), "AUX%u", n_channels % SPA_AUDIO_MAX_CHANNELS);
 
 		switch (stream_type) {
 		case ffado_stream_type_audio:
@@ -471,8 +554,10 @@ static void make_stream_ports(struct stream *s)
 					PW_KEY_FORMAT_DSP, "32 bit float mono audio",
 					PW_KEY_PORT_PHYSICAL, "true",
 					PW_KEY_PORT_NAME, name,
+					PW_KEY_AUDIO_CHANNEL, channel,
 					NULL);
 			is_midi = false;
+			n_channels++;
 			break;
 		case ffado_stream_type_midi:
 			props = pw_properties_new(
@@ -679,86 +764,89 @@ static int create_filters(struct impl *impl)
 	return res;
 }
 
-static inline uint64_t get_time_nsec(struct impl *impl)
+static void on_ffado_timeout(void *data, uint64_t expirations)
 {
-	uint64_t nsec;
-	if (impl->sink.filter)
-		nsec = pw_filter_get_nsec(impl->sink.filter);
-	else if (impl->source.filter)
-		nsec = pw_filter_get_nsec(impl->source.filter);
-	else
-		nsec = 0;
-	return nsec;
-}
-
-static void *ffado_process_thread(void *arg)
-{
-	struct impl *impl = arg;
+	struct impl *impl = data;
 	bool source_running, sink_running;
 	uint64_t nsec;
+	ffado_wait_response response;
 
-	while (true) {
-		ffado_wait_response response;
-
-		response = ffado_streaming_wait(impl->dev);
-		nsec = get_time_nsec(impl);
-
-		switch (response) {
-		case ffado_wait_ok:
-			break;
-		case ffado_wait_xrun:
-			pw_log_warn("FFADO xrun");
-			break;
-		case ffado_wait_shutdown:
-			pw_log_info("FFADO shutdown");
-			return NULL;
-		case ffado_wait_error:
-		default:
-			pw_log_error("FFADO error");
-			return NULL;
-		}
-		source_running = impl->source.running;
-		sink_running = impl->sink.running;
-
-		pw_log_trace_fp("process %d %u %u %p %d", impl->period_size, source_running,
-				sink_running, impl->position, impl->frame_time);
-
-		if (impl->new_xrun) {
-			pw_log_warn("Xrun FFADO:%u PipeWire:%u", impl->ffado_xrun, impl->pw_xrun);
-			impl->new_xrun = false;
-		}
-
-		if (impl->position) {
-			struct spa_io_clock *c = &impl->position->clock;
-
-			c->nsec = nsec;
-			c->rate = SPA_FRACTION(1, impl->sample_rate);
-			c->position += impl->period_size;
-			c->duration = impl->period_size;
-			c->delay = 0;
-			c->rate_diff = 1.0;
-			c->next_nsec = nsec;
-
-			c->target_rate = c->rate;
-			c->target_duration = c->duration;
-		}
-		if (impl->mode & MODE_SINK && sink_running) {
-			impl->done = false;
-			impl->triggered = true;
-			pw_filter_trigger_process(impl->sink.filter);
-		} else if (impl->mode == MODE_SOURCE && source_running) {
-			impl->done = false;
-			impl->triggered = true;
-			pw_filter_trigger_process(impl->source.filter);
-		}
+	if (!impl->done) {
+		impl->pw_xrun++;
+		impl->new_xrun = true;
+		ffado_streaming_reset(impl->dev);
 	}
-	return NULL;
+again:
+	response = ffado_streaming_wait(impl->dev);
+	nsec = get_time_ns(impl);
+
+	switch (response) {
+	case ffado_wait_ok:
+		break;
+	case ffado_wait_xrun:
+		pw_log_debug("FFADO xrun");
+		impl->ffado_xrun++;
+		impl->new_xrun = true;
+		goto again;
+	case ffado_wait_shutdown:
+		pw_log_info("FFADO shutdown");
+		return;
+	case ffado_wait_error:
+	default:
+		pw_log_error("FFADO error");
+		return;
+	}
+	source_running = impl->source.running;
+	sink_running = impl->sink.running;
+
+	if (!source_running)
+		ffado_streaming_transfer_capture_buffers(impl->dev);
+	if (!sink_running)
+		silence_playback(impl);
+
+	pw_log_trace_fp("process %d %u %u %p %d", impl->period_size, source_running,
+			sink_running, impl->position, impl->frame_time);
+
+	if (impl->new_xrun) {
+		pw_log_warn("Xrun FFADO:%u PipeWire:%u source:%d sink:%d",
+				impl->ffado_xrun, impl->pw_xrun, source_running, sink_running);
+		impl->new_xrun = false;
+	}
+
+	if (impl->position) {
+		struct spa_io_clock *c = &impl->position->clock;
+
+		c->nsec = nsec;
+		c->rate = SPA_FRACTION(1, impl->sample_rate);
+		c->position += impl->period_size;
+		c->duration = impl->period_size;
+		c->delay = 0;
+		c->rate_diff = 1.0;
+		c->next_nsec = nsec;
+
+		c->target_rate = c->rate;
+		c->target_duration = c->duration;
+	}
+	if (impl->mode & MODE_SOURCE && source_running) {
+		impl->done = false;
+		impl->triggered = true;
+		set_timeout(impl, nsec + SPA_NSEC_PER_SEC);
+		pw_filter_trigger_process(impl->source.filter);
+	} else if (impl->mode == MODE_SINK && sink_running) {
+		impl->done = false;
+		impl->triggered = true;
+		set_timeout(impl, nsec + SPA_NSEC_PER_SEC);
+		pw_filter_trigger_process(impl->sink.filter);
+	} else {
+		impl->done = true;
+		set_timeout(impl, nsec);
+	}
 }
 
 static int open_ffado_device(struct impl *impl)
 {
 	ffado_streaming_stream_type stream_type;
-	uint32_t i;
+	uint32_t i, n_channels;
 
 	spa_zero(impl->device_info);
 	impl->device_info.device_spec_strings = impl->devices;
@@ -793,64 +881,46 @@ static int open_ffado_device(struct impl *impl)
 	impl->source.info.rate = impl->sample_rate;
 	impl->sink.info.rate = impl->sample_rate;
 
-	impl->source.info.channels = 0;
 	impl->source.n_ports = ffado_streaming_get_nb_capture_streams(impl->dev);
+
+	n_channels = 0;
 	for (i = 0; i < impl->source.n_ports; i++) {
 		stream_type = ffado_streaming_get_capture_stream_type(impl->dev, i);
 		switch (stream_type) {
 		case ffado_stream_type_audio:
-			impl->source.info.channels++;
+			n_channels++;
 			break;
 		default:
 			break;
 		}
 	}
-	impl->sink.info.channels = 0;
+	if (impl->source.info.channels != n_channels) {
+		impl->source.info.channels = n_channels;
+		for (i = 0; i < SPA_MIN(impl->source.info.channels, SPA_AUDIO_MAX_CHANNELS); i++)
+			impl->source.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
+	}
+
+	n_channels = 0;
 	impl->sink.n_ports = ffado_streaming_get_nb_playback_streams(impl->dev);
 	for (i = 0; i < impl->sink.n_ports; i++) {
 		stream_type = ffado_streaming_get_playback_stream_type(impl->dev, i);
 		switch (stream_type) {
 		case ffado_stream_type_audio:
-			impl->sink.info.channels++;
+			n_channels++;
 			break;
 		default:
 			break;
 		}
 	}
+	if (impl->sink.info.channels != n_channels) {
+		impl->sink.info.channels = n_channels;
+		for (i = 0; i < SPA_MIN(impl->sink.info.channels, SPA_AUDIO_MAX_CHANNELS); i++)
+			impl->sink.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
+	}
 	if (ffado_streaming_prepare(impl->dev)) {
 		pw_log_error("Could not prepare streaming");
 		return -EIO;
 	}
-	return 0;
-}
-
-static int start_ffado_device(struct impl *impl)
-{
-	struct spa_thread *thr;
-
-	if (ffado_streaming_start(impl->dev)) {
-		pw_log_error("Could not start streaming");
-		return -EIO;
-	}
-
-	thr = spa_thread_utils_create(impl->utils, NULL, ffado_process_thread, impl);
-	impl->thread = (pthread_t)thr;
-	if (thr == NULL) {
-		pw_log_error("%p: can't create thread: %m", impl);
-		return -errno;
-	}
-	spa_thread_utils_acquire_rt(impl->utils, thr, -1);
-
-	return 0;
-}
-
-static int stop_ffado_device(struct impl *impl)
-{
-	if (ffado_streaming_stop(impl->dev)) {
-		pw_log_error("Could not stop streaming");
-	}
-	spa_thread_utils_join(impl->utils, (struct spa_thread*)impl->thread, NULL);
-
 	return 0;
 }
 
@@ -897,6 +967,8 @@ static void impl_destroy(struct impl *impl)
 		pw_filter_destroy(impl->sink.filter);
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
+	if (impl->ffado_timer)
+		pw_loop_destroy_source(impl->data_loop, impl->ffado_timer);
 
 	pw_properties_free(impl->sink.props);
 	pw_properties_free(impl->source.props);
@@ -992,6 +1064,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_properties *props = NULL;
+	struct pw_data_loop *data_loop;
 	struct impl *impl;
 	const char *str;
 	int res;
@@ -1035,7 +1108,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			"latency.internal.input", 0);
 	impl->output_latency = pw_properties_get_uint32(props,
 			"latency.internal.output", 0);
-	impl->utils = pw_thread_utils_get();
 
 	impl->quantum_limit = pw_properties_get_uint32(
 			pw_context_get_properties(context),
@@ -1052,6 +1124,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->module = module;
 	impl->context = context;
 	impl->main_loop = pw_context_get_main_loop(context);
+	data_loop = pw_context_get_data_loop(context);
+	impl->data_loop = pw_data_loop_get_loop(data_loop);
 	impl->system = impl->main_loop->system;
 
 	impl->source.impl = impl;
@@ -1073,21 +1147,27 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			goto error;
 		}
 	}
+	impl->ffado_timer = pw_loop_add_timer(impl->data_loop, on_ffado_timeout, impl);
+	if (impl->ffado_timer == NULL) {
+		pw_log_error("can't create ffado timer: %m");
+		res = -errno;
+		goto error;
+	}
 
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_GROUP, "ffado-group");
-	if (pw_properties_get(props, PW_KEY_NODE_ALWAYS_PROCESS) == NULL)
-		pw_properties_set(props, PW_KEY_NODE_ALWAYS_PROCESS, "true");
+	if (pw_properties_get(props, PW_KEY_NODE_LINK_GROUP) == NULL)
+		pw_properties_set(props, PW_KEY_NODE_LINK_GROUP, "ffado-group");
 
 	pw_properties_set(impl->sink.props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
-	pw_properties_set(impl->sink.props, PW_KEY_PRIORITY_DRIVER, "35001");
+	pw_properties_set(impl->sink.props, PW_KEY_PRIORITY_DRIVER, "35000");
 	pw_properties_set(impl->sink.props, PW_KEY_NODE_NAME, "ffado_sink");
 	pw_properties_set(impl->sink.props, PW_KEY_NODE_DESCRIPTION, "FFADO Sink");
 
 	pw_properties_set(impl->source.props, PW_KEY_MEDIA_CLASS, "Audio/Source");
-	pw_properties_set(impl->source.props, PW_KEY_PRIORITY_DRIVER, "35000");
+	pw_properties_set(impl->source.props, PW_KEY_PRIORITY_DRIVER, "35001");
 	pw_properties_set(impl->source.props, PW_KEY_NODE_NAME, "ffado_source");
 	pw_properties_set(impl->source.props, PW_KEY_NODE_DESCRIPTION, "FFADO Source");
 
@@ -1130,9 +1210,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 
 	if ((res = create_filters(impl)) < 0)
-		goto error;
-
-	if ((res = start_ffado_device(impl)) < 0)
 		goto error;
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);

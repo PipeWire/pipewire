@@ -540,7 +540,7 @@ static void do_refresh(struct data *d, bool force_refresh)
 				continue;
 
 			print_node(d, &n->info, f, y++);
-			if(y > LINES)
+			if(!d->batch_mode && y > LINES)
 				break;
 
 		}

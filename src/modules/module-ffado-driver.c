@@ -143,6 +143,7 @@ struct port {
 	struct spa_latency_info latency[2];
 	bool latency_changed[2];
 	unsigned int is_midi:1;
+	unsigned int cleared:1;
 	void *buffer;
 };
 
@@ -216,6 +217,13 @@ struct impl {
 	uint32_t ffado_xrun;
 	uint32_t frame_time;
 
+	uint8_t event_byte;
+	uint8_t event_type;
+	uint32_t buffer_time;
+	uint8_t buffer[512];
+	uint32_t buffer_pos;
+	int buffer_pending;
+
 	unsigned int do_disconnect:1;
 	unsigned int fix_midi:1;
 	unsigned int started:1;
@@ -251,6 +259,14 @@ static inline void do_volume(float *dst, const float *src, struct volume *vol, u
 	}
 }
 
+static void clear_port_buffer(struct port *p, uint32_t n_samples)
+{
+	if (!p->cleared) {
+		memset(p->buffer, 0, n_samples * sizeof(uint32_t));
+		p->cleared = true;
+	}
+}
+
 static inline void fix_midi_event(uint8_t *data, size_t size)
 {
 	/* fixup NoteOn with vel 0 */
@@ -260,11 +276,13 @@ static inline void fix_midi_event(uint8_t *data, size_t size)
 	}
 }
 
-static void midi_to_ffado(struct impl *impl, float *dst, float *src, uint32_t n_samples)
+static void midi_to_ffado(struct impl *impl, struct port *p, float *src, uint32_t n_samples)
 {
 	struct spa_pod *pod;
 	struct spa_pod_sequence *seq;
 	struct spa_pod_control *c;
+	uint32_t index = 0;
+	uint32_t *dst = p->buffer;
 
 	if (src == NULL)
 		return;
@@ -276,6 +294,8 @@ static void midi_to_ffado(struct impl *impl, float *dst, float *src, uint32_t n_
 
 	seq = (struct spa_pod_sequence*)pod;
 
+	clear_port_buffer(p, n_samples);
+
 	SPA_POD_SEQUENCE_FOREACH(seq, c) {
 		switch(c->type) {
 		case SPA_CONTROL_Midi:
@@ -283,9 +303,12 @@ static void midi_to_ffado(struct impl *impl, float *dst, float *src, uint32_t n_
 			uint8_t *data = SPA_POD_BODY(&c->value);
 			size_t size = SPA_POD_BODY_SIZE(&c->value);
 
-			if (impl->fix_midi)
-				fix_midi_event(data, size);
-
+			if (index < c->offset)
+				index = SPA_ROUND_UP_N(c->offset, 8);
+			for (uint32_t i = 0; i < size; i++) {
+				dst[index] = 0x01000000 | (uint32_t) data[i];
+				index += 8;
+			}
 			break;
 		}
 		default:
@@ -294,18 +317,123 @@ static void midi_to_ffado(struct impl *impl, float *dst, float *src, uint32_t n_
 	}
 }
 
-static void ffado_to_midi(float *dst, float *src, uint32_t size)
+static int take_bytes(struct impl *impl, uint32_t *frame, uint8_t **bytes, size_t *size)
+{
+	if (impl->buffer_pos == 0)
+		return 0;
+	*frame = impl->buffer_time;
+	*bytes = impl->buffer;
+	*size = impl->buffer_pos;
+	return 1;
+}
+
+static const int status_len[] = {
+	2,		/* noteoff */
+	2,		/* noteon */
+	2,		/* keypress */
+	2,		/* controller */
+	1,		/* pgmchange */
+	1,		/* chanpress */
+	2,		/* pitchbend */
+	-1,		/* invalid */
+	1,		/* sysex 0xf0 */
+	1,		/* qframe 0xf1 */
+	2,		/* songpos 0xf2 */
+	1,		/* songsel 0xf3 */
+	-1,		/* none 0xf4 */
+	-1,		/* none 0xf5 */
+	0,		/* tune request 0xf6 */
+	-1,		/* none 0xf7 */
+	0,		/* clock 0xf8 */
+	-1,		/* none 0xf9 */
+	0,		/* start 0xfa */
+	0,		/* continue 0xfb */
+	0,		/* stop 0xfc */
+	-1,		/* none 0xfd */
+	0,		/* sensing 0xfe */
+	0,		/* reset 0xff */
+};
+
+static int process_byte(struct impl *impl, uint32_t time, uint8_t byte,
+		uint32_t *frame, uint8_t **bytes, size_t *size)
+{
+	int res = 0;
+	if (byte >= 0xf8) {
+		if (byte == 0xfd) {
+			pw_log_warn("droping invalid MIDI status bytes %08x", byte);
+			return false;
+		}
+		impl->event_byte = byte;
+		*frame = time;
+		*bytes = &impl->event_byte;
+		*size = 1;
+		return 1;
+	}
+	if ((byte & 0x80) && (byte != 0xf7 || impl->event_type != 8)) {
+		/* new command */
+		impl->buffer[0] = byte;
+		impl->buffer_time = time;
+		if ((byte & 0xf0) == 0xf0) /* system message */
+			impl->event_type = (byte & 0x0f) + 8;
+		else
+			impl->event_type = (byte >> 4) & 0x07;
+		impl->buffer_pos = 1;
+		impl->buffer_pending = status_len[impl->event_type];
+	} else {
+		 if (impl->buffer_pending > 0) {
+			/* rest of command */
+			if (impl->buffer_pos < sizeof(impl->buffer))
+				impl->buffer[impl->buffer_pos++] = byte;
+			if (impl->event_type != 8)
+				impl->buffer_pending--;
+		} else {
+			/* running status */
+			impl->buffer[1] = byte;
+			impl->buffer_time = time;
+			impl->buffer_pending = status_len[impl->event_type] - 1;
+			impl->buffer_pos = 2;
+		}
+	}
+	if (impl->buffer_pending == 0) {
+		res = take_bytes(impl, frame, bytes, size);
+		if (impl->event_type >= 8)
+			impl->event_type = 7;
+	} else if (impl->event_type == 8) {
+		if (byte == 0xf7 || impl->buffer_pos >= sizeof(impl->buffer)) {
+			res = take_bytes(impl, frame, bytes, size);
+			impl->buffer_pos = 0;
+			if (byte == 0xf7) {
+				impl->buffer_pending = 0;
+				impl->event_type = 7;
+			}
+		}
+	}
+	return res;
+}
+
+static void ffado_to_midi(struct impl *impl, float *dst, uint32_t *src, uint32_t size)
 {
 	struct spa_pod_builder b = { 0, };
 	uint32_t i, count;
 	struct spa_pod_frame f;
 
-	count = src ? 0 : 0;
+	count = src ? size : 0;
 
 	spa_pod_builder_init(&b, dst, size);
 	spa_pod_builder_push_sequence(&b, &f, 0);
 	for (i = 0; i < count; i++) {
-	}
+		uint32_t data = src[i], frame;
+		uint8_t *bytes;
+		size_t size;
+
+		if ((data & 0xff000000) == 0)
+			continue;
+
+		if (process_byte(impl, i, data & 0xff, &frame, &bytes, &size)) {
+			spa_pod_builder_control(&b, frame, SPA_CONTROL_Midi);
+	                spa_pod_builder_bytes(&b, bytes, size);
+		}
+        }
 	spa_pod_builder_pop(&b, &f);
 }
 
@@ -415,14 +543,16 @@ static void sink_process(void *d, struct spa_io_position *position)
 
 		src = pw_filter_get_dsp_buffer(p, n_samples);
 		if (src == NULL) {
-			memset(p->buffer, 0, n_samples * sizeof(float));
+			clear_port_buffer(p, n_samples);
 			continue;
 		}
 
 		if (SPA_UNLIKELY(p->is_midi))
-			midi_to_ffado(impl, p->buffer, src, n_samples);
+			midi_to_ffado(impl, p, src, n_samples);
 		else
 			do_volume(p->buffer, src, &s->volume, i, n_samples);
+
+		p->cleared = false;
 	}
 	ffado_streaming_transfer_playback_buffers(impl->dev);
 
@@ -441,7 +571,7 @@ static void silence_playback(struct impl *impl)
 	for (i = 0; i < s->n_ports; i++) {
 		struct port *p = s->ports[i];
 		if (p != NULL)
-			memset(p->buffer, 0, impl->period_size * sizeof(float));
+			clear_port_buffer(p, impl->period_size);
 	}
 	ffado_streaming_transfer_playback_buffers(impl->dev);
 }
@@ -477,7 +607,7 @@ static void source_process(void *d, struct spa_io_position *position)
 			continue;
 
 		if (SPA_UNLIKELY(p->is_midi))
-			ffado_to_midi(dst, p->buffer, n_samples);
+			ffado_to_midi(impl, dst, p->buffer, n_samples);
 		else
 			do_volume(dst, p->buffer, &s->volume, i, n_samples);
 	}

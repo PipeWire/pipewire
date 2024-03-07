@@ -470,8 +470,7 @@ static void add_bind_ctl_param(struct state *state, const snd_ctl_elem_value_t *
 			break;
 
 		case SND_CTL_ELEM_TYPE_BYTES:
-			const void* bytes = snd_ctl_elem_value_get_bytes(elem);
-			spa_pod_builder_bytes(b, bytes, count);
+			spa_pod_builder_bytes(b, snd_ctl_elem_value_get_bytes(elem), count);
 			break;
 
 		default:

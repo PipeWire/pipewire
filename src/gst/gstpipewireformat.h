@@ -15,7 +15,7 @@ GPtrArray *      gst_caps_to_format_all  (GstCaps *caps);
 
 GstCaps *        gst_caps_from_format    (const struct spa_pod *format);
 
-GstCaps *        gst_caps_sanitize       (GstCaps *caps);
+void             gst_caps_sanitize       (GstCaps **caps);
 
 G_END_DECLS
 

@@ -846,9 +846,9 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   }
 
   GST_DEBUG_OBJECT (basesrc, "have common caps: %" GST_PTR_FORMAT, caps);
-  gst_caps_sanitize (caps);
+  gst_caps_sanitize (&caps);
 
-  if (caps == NULL || gst_caps_is_empty (caps))
+  if (gst_caps_is_empty (caps))
     goto no_common_caps;
 
   GST_DEBUG_OBJECT (basesrc, "have common caps (sanitized): %" GST_PTR_FORMAT, caps);

@@ -1209,10 +1209,11 @@ filter_dmabuf_caps (GstCapsFeatures *features,
   return TRUE;
 }
 
-GstCaps *
-gst_caps_sanitize (GstCaps *caps)
+void
+gst_caps_sanitize (GstCaps **caps)
 {
-  caps = gst_caps_make_writable (caps);
-  gst_caps_filter_and_map_in_place (caps, filter_dmabuf_caps, NULL);
-  return caps;
+  g_return_if_fail (GST_IS_CAPS (*caps));
+
+  *caps = gst_caps_make_writable (*caps);
+  gst_caps_filter_and_map_in_place (*caps, filter_dmabuf_caps, NULL);
 }

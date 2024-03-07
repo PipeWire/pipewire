@@ -27,13 +27,19 @@
 #include <spa/node/utils.h>
 #include <spa/param/param.h>
 
-#define NAME "driver"
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.driver");
+
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
 
 #define DEFAULT_FREEWHEEL	false
 #define DEFAULT_FREEWHEEL_WAIT	10
 #define DEFAULT_CLOCK_PREFIX	"clock.system"
 #define DEFAULT_CLOCK_ID	CLOCK_MONOTONIC
 #define DEFAULT_RESYNC_MS	10
+
+#define CLOCK_OFFSET_NAVG	20
+#define CLOCK_OFFSET_MAX_ERR	(50 * SPA_NSEC_PER_USEC)
 
 #define CLOCKFD 3
 #define FD_TO_CLOCKID(fd)	((~(clockid_t) (fd) << 3) | CLOCKFD)
@@ -48,6 +54,11 @@ struct props {
 	clockid_t clock_id;
 	uint32_t freewheel_wait;
 	float resync_ms;
+};
+
+struct clock_offset {
+	int64_t offset;
+	int64_t err;
 };
 
 struct impl {
@@ -84,6 +95,8 @@ struct impl {
 	struct spa_dll dll;
 	double max_error;
 	double max_resync;
+
+	struct clock_offset nsec_offset;
 };
 
 static void reset_props(struct props *props)
@@ -190,6 +203,68 @@ static int do_set_timers(struct spa_loop *loop,
 	return 0;
 }
 
+static int64_t get_nsec_offset(struct impl *this, uint64_t *now)
+{
+	struct timespec ts1, ts2, ts3;
+	int64_t t1, t2, t3;
+
+	/* Offset between timer clock and monotonic */
+	if (this->timer_clockid == CLOCK_MONOTONIC)
+		return 0;
+
+	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &ts1);
+	spa_system_clock_gettime(this->data_system, this->timer_clockid, &ts2);
+	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &ts3);
+
+	t1 = SPA_TIMESPEC_TO_NSEC(&ts1);
+	t2 = SPA_TIMESPEC_TO_NSEC(&ts2);
+	t3 = SPA_TIMESPEC_TO_NSEC(&ts3);
+
+	if (now)
+		*now = t3;
+
+	return t1 + (t3 - t1) / 2 - t2;
+}
+
+static int64_t clock_offset_update(struct clock_offset *off, int64_t offset, struct spa_log *log)
+{
+	const int64_t max_resync = CLOCK_OFFSET_MAX_ERR;
+	const int64_t n = CLOCK_OFFSET_NAVG;
+	int64_t err;
+
+	/* Moving average smoothing, discarding outliers */
+	err = offset - off->offset;
+
+	if (SPA_ABS(err) > max_resync) {
+		/* Clock jump */
+		spa_log_info(log, "nsec err %"PRIi64" > max_resync %"PRIi64", resetting",
+				err, max_resync);
+		off->offset = offset;
+		off->err = 0;
+		err = 0;
+	} else if (SPA_ABS(err) / 2 <= off->err) {
+		off->offset += err / n;
+	}
+
+	off->err += (SPA_ABS(err) - off->err) / n;
+
+	spa_log_trace(log, "clock offset %"PRIi64" err:%"PRIi64" abs-err:%"PRIi64,
+			off->offset, err, off->err);
+
+	return off->offset;
+}
+
+static int64_t smooth_nsec_offset(struct impl *this, uint64_t *now)
+{
+	int64_t offset;
+
+	if (this->timer_clockid == CLOCK_MONOTONIC)
+		return 0;
+
+	offset = get_nsec_offset(this, now);
+	return clock_offset_update(&this->nsec_offset, offset, this->log);
+}
+
 static int reassign_follower(struct impl *this)
 {
 	bool following;
@@ -203,7 +278,7 @@ static int reassign_follower(struct impl *this)
 
 	following = is_following(this);
 	if (following != this->following) {
-		spa_log_debug(this->log, NAME" %p: reassign follower %d->%d", this, this->following, following);
+		spa_log_debug(this->log, "%p: reassign follower %d->%d", this, this->following, following);
 		this->following = following;
 		spa_loop_invoke(this->data_loop, do_set_timers, 0, NULL, 0, true, this);
 	}
@@ -258,7 +333,7 @@ static void on_timeout(struct spa_source *source)
 	if ((res = spa_system_timerfd_read(this->data_system,
 				this->timer_source.fd, &expirations)) < 0) {
 		if (res != -EAGAIN)
-			spa_log_error(this->log, NAME " %p: timerfd error: %s",
+			spa_log_error(this->log, "%p: timerfd error: %s",
 					this, spa_strerror(res));
 		return;
 	}
@@ -270,7 +345,7 @@ static void on_timeout(struct spa_source *source)
 		rate = 48000;
 	}
 	if (this->props.freewheel)
-		nsec = gettime_nsec(this, this->props.clock_id);
+		nsec = gettime_nsec(this, this->timer_clockid);
 	else
 		nsec = this->next_time;
 
@@ -330,13 +405,16 @@ static void on_timeout(struct spa_source *source)
 	}
 
 	if (SPA_LIKELY(this->clock)) {
-		this->clock->nsec = nsec;
+		uint64_t nsec_now = nsec;
+		int64_t nsec_offset = smooth_nsec_offset(this, &nsec_now);
+
+		this->clock->nsec = SPA_MIN(nsec + nsec_offset, nsec_now);
 		this->clock->rate = this->clock->target_rate;
 		this->clock->position = position;
 		this->clock->duration = duration;
 		this->clock->delay = 0;
 		this->clock->rate_diff = corr;
-		this->clock->next_nsec = this->next_time;
+		this->clock->next_nsec = this->next_time + nsec_offset;
 	}
 
 	spa_node_call_ready(&this->callbacks,
@@ -644,6 +722,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this->tracking = !clock_for_timerfd(this->props.clock_id);
 	this->timer_clockid = this->tracking ? CLOCK_MONOTONIC : this->props.clock_id;
 	this->max_error = 128;
+
+	this->nsec_offset.offset = get_nsec_offset(this, NULL);
+	this->nsec_offset.err = 0;
 
 	this->timer_source.func = on_timeout;
 	this->timer_source.data = this;

@@ -193,6 +193,8 @@ struct impl {
 	struct spa_hook core_proxy_listener;
 	struct spa_hook core_listener;
 
+	uint32_t reset_work_id;
+
 	struct spa_io_position *position;
 
 	uint32_t latency[2];
@@ -234,6 +236,8 @@ struct impl {
 	unsigned int triggered:1;
 	unsigned int new_xrun:1;
 };
+
+static void schedule_reset_ffado_device(struct impl *impl);
 
 static void reset_volume(struct volume *vol, uint32_t n_volumes)
 {
@@ -281,7 +285,7 @@ static void midi_to_ffado(struct impl *impl, struct port *p, float *src, uint32_
 	struct spa_pod *pod;
 	struct spa_pod_sequence *seq;
 	struct spa_pod_control *c;
-	uint32_t index = 0;
+	uint32_t i, index = 0, unhandled = 0;
 	uint32_t *dst = p->buffer;
 
 	if (src == NULL)
@@ -296,6 +300,13 @@ static void midi_to_ffado(struct impl *impl, struct port *p, float *src, uint32_
 
 	clear_port_buffer(p, n_samples);
 
+	/* first leftovers from previous cycle, always start at offset 0 */
+	for (i = 0; i < impl->buffer_pos; i++) {
+		dst[index] = 0x01000000 | (uint32_t) impl->buffer[i];
+		index += 8;
+	}
+	impl->buffer_pos = 0;
+
 	SPA_POD_SEQUENCE_FOREACH(seq, c) {
 		switch(c->type) {
 		case SPA_CONTROL_Midi:
@@ -305,8 +316,16 @@ static void midi_to_ffado(struct impl *impl, struct port *p, float *src, uint32_
 
 			if (index < c->offset)
 				index = SPA_ROUND_UP_N(c->offset, 8);
-			for (uint32_t i = 0; i < size; i++) {
-				dst[index] = 0x01000000 | (uint32_t) data[i];
+			for (i = 0; i < size; i++) {
+				if (index >= n_samples) {
+					/* keep events that don't fit for the next cycle */
+					if (impl->buffer_pos < sizeof(impl->buffer))
+						impl->buffer[impl->buffer_pos++] = data[i];
+					else
+						unhandled++;
+				}
+				else
+					dst[index] = 0x01000000 | (uint32_t) data[i];
 				index += 8;
 			}
 			break;
@@ -315,6 +334,10 @@ static void midi_to_ffado(struct impl *impl, struct port *p, float *src, uint32_
 			break;
 		}
 	}
+	if (unhandled > 0)
+		pw_log_warn("%u MIDI events dropped (index %d)", unhandled, index);
+	else if (impl->buffer_pos > 0)
+		pw_log_debug("%u MIDI events saved (index %d)", impl->buffer_pos, index);
 }
 
 static int take_bytes(struct impl *impl, uint32_t *frame, uint8_t **bytes, size_t *size)
@@ -370,6 +393,9 @@ static int process_byte(struct impl *impl, uint32_t time, uint8_t byte,
 		return 1;
 	}
 	if ((byte & 0x80) && (byte != 0xf7 || impl->event_type != 8)) {
+		if (impl->buffer_pending > 0)
+			pw_log_warn("incomplete MIDI message %02x droped %u",
+					impl->event_type, impl->buffer_pending);
 		/* new command */
 		impl->buffer[0] = byte;
 		impl->buffer_time = time;
@@ -435,6 +461,9 @@ static void ffado_to_midi(struct impl *impl, float *dst, uint32_t *src, uint32_t
 		}
         }
 	spa_pod_builder_pop(&b, &f);
+	if (impl->buffer_pending > 0)
+		/* make sure the rest of the MIDI message is sent first in the next cycle */
+		impl->buffer_time = 0;
 }
 
 static inline uint64_t get_time_ns(struct impl *impl)
@@ -467,7 +496,8 @@ static int start_ffado_device(struct impl *impl)
 		return 0;
 
 	if (ffado_streaming_start(impl->dev)) {
-		pw_log_error("Could not start FFADO streaming");
+		pw_log_warn("Could not start FFADO streaming, try reset");
+		schedule_reset_ffado_device(impl);
 		return -EIO;
 	}
 	pw_log_info("FFADO started streaming");
@@ -494,8 +524,16 @@ static int stop_ffado_device(struct impl *impl)
 static void stream_destroy(void *d)
 {
 	struct stream *s = d;
+	uint32_t i;
+	for (i = 0; i < s->n_ports; i++) {
+		struct port *p = s->ports[i];
+		free(p->buffer);
+		spa_zero(*p);
+	}
+	s->n_ports = 0;
 	spa_hook_remove(&s->listener);
 	s->filter = NULL;
+	s->running = false;
 }
 
 static void stream_state_changed(void *d, enum pw_filter_state old,
@@ -852,11 +890,11 @@ static int make_stream(struct stream *s, const char *name)
 	n_params = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	s->filter = pw_filter_new(impl->core, name, s->props);
-	s->props = NULL;
+	s->filter = pw_filter_new(impl->core, name, pw_properties_copy(s->props));
 	if (s->filter == NULL)
 		return -errno;
 
+	spa_zero(s->listener);
 	if (s->direction == PW_DIRECTION_INPUT) {
 		pw_filter_add_listener(s->filter, &s->listener,
 				&sink_events, s);
@@ -881,17 +919,10 @@ static int make_stream(struct stream *s, const char *name)
 			params, n_params);
 }
 
-static int create_filters(struct impl *impl)
+static void destroy_stream(struct stream *s)
 {
-	int res = 0;
-
-	if (impl->mode & MODE_SINK)
-		res = make_stream(&impl->sink, "FFADO Sink");
-
-	if (impl->mode & MODE_SOURCE)
-		res = make_stream(&impl->source, "FFADO Source");
-
-	return res;
+	if (s->filter)
+		pw_filter_destroy(s->filter);
 }
 
 static void on_ffado_timeout(void *data, uint64_t expirations)
@@ -977,6 +1008,7 @@ static int open_ffado_device(struct impl *impl)
 {
 	ffado_streaming_stream_type stream_type;
 	uint32_t i, n_channels;
+	int res;
 
 	spa_zero(impl->device_info);
 	impl->device_info.device_spec_strings = impl->devices;
@@ -1049,9 +1081,52 @@ static int open_ffado_device(struct impl *impl)
 	}
 	if (ffado_streaming_prepare(impl->dev)) {
 		pw_log_error("Could not prepare streaming");
-		return -EIO;
+		res = -EIO;
+		goto error;
+	}
+	if (impl->mode & MODE_SINK) {
+		if ((res = make_stream(&impl->sink, "FFADO Sink")) < 0)
+			goto error;
+	}
+	if (impl->mode & MODE_SOURCE) {
+		if ((res = make_stream(&impl->source, "FFADO Source")) < 0)
+			goto error;
 	}
 	return 0;
+
+error:
+	ffado_streaming_finish(impl->dev);
+	impl->dev = NULL;
+	return res;
+}
+
+static void close_ffado_device(struct impl *impl)
+{
+	destroy_stream(&impl->source);
+	destroy_stream(&impl->sink);
+	if (impl->dev) {
+		stop_ffado_device(impl);
+		ffado_streaming_finish(impl->dev);
+		impl->dev = NULL;
+	}
+}
+
+static void do_reset_ffado(void *obj, void *data, int res, uint32_t id)
+{
+	struct impl *impl = obj;
+
+	impl->reset_work_id = SPA_ID_INVALID;
+	close_ffado_device(impl);
+	open_ffado_device(impl);
+}
+
+static void schedule_reset_ffado_device(struct impl *impl)
+{
+	if (impl->reset_work_id != SPA_ID_INVALID)
+		return;
+
+	impl->reset_work_id = pw_work_queue_add(pw_context_get_work_queue(impl->context),
+						  impl, 0, do_reset_ffado, NULL);
 }
 
 static void core_error(void *data, uint32_t id, int seq, int res, const char *message)
@@ -1086,15 +1161,12 @@ static void impl_destroy(struct impl *impl)
 {
 	uint32_t i;
 
-	if (impl->dev) {
-		stop_ffado_device(impl);
-		ffado_streaming_finish(impl->dev);
-		impl->dev = NULL;
-	}
-	if (impl->source.filter)
-		pw_filter_destroy(impl->source.filter);
-	if (impl->sink.filter)
-		pw_filter_destroy(impl->sink.filter);
+	if (impl->reset_work_id != SPA_ID_INVALID)
+		pw_work_queue_cancel(pw_context_get_work_queue(impl->context),
+				     impl, SPA_ID_INVALID);
+
+	close_ffado_device(impl);
+
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
 	if (impl->ffado_timer)
@@ -1257,6 +1329,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	data_loop = pw_context_get_data_loop(context);
 	impl->data_loop = pw_data_loop_get_loop(data_loop);
 	impl->system = impl->main_loop->system;
+	impl->reset_work_id = SPA_ID_INVALID;
 
 	impl->source.impl = impl;
 	impl->source.direction = PW_DIRECTION_OUTPUT;
@@ -1337,9 +1410,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			&core_events, impl);
 
 	if ((res = open_ffado_device(impl)) < 0)
-		goto error;
-
-	if ((res = create_filters(impl)) < 0)
 		goto error;
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);

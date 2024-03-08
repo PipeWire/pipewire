@@ -5267,7 +5267,8 @@ static void *get_buffer_input_float(struct port *p, jack_nframes_t frames)
 static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 {
 	struct mix *mix;
-	void *ptr = midi_scratch;
+	void *ptr = p->emptyptr;
+	struct midi_buffer *mb = (struct midi_buffer*)midi_scratch;
 	struct spa_pod_sequence *seq[MAX_MIX];
 	uint32_t n_seq = 0;
 
@@ -5296,8 +5297,17 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 		if (n_seq == MAX_MIX)
 			break;
 	}
-	midi_init_buffer(ptr, MIDI_SCRATCH_FRAMES);
-	convert_to_midi(seq, n_seq, ptr, p->client->fix_midi_events);
+	midi_init_buffer(mb, MIDI_SCRATCH_FRAMES);
+	/* first convert to a thread local scratch buffer, then memcpy into
+	 * the per port buffer. This makes it possible to call this function concurrently
+	 * but also have different pointers per port */
+	convert_to_midi(seq, n_seq, mb, p->client->fix_midi_events);
+	memcpy(ptr, mb, sizeof(struct midi_buffer) + (mb->event_count
+                              * sizeof(struct midi_event)));
+	if (mb->write_pos) {
+		size_t offs = mb->buffer_size - 1 - mb->write_pos;
+		memcpy(ptr, SPA_PTROFF(mb, offs, void), mb->write_pos);
+	}
 	return ptr;
 }
 

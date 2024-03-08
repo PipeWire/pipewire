@@ -145,6 +145,14 @@ struct port {
 	unsigned int is_midi:1;
 	unsigned int cleared:1;
 	void *buffer;
+
+	uint8_t event_byte;
+	uint8_t event_type;
+	uint32_t event_time;
+	uint8_t event_buffer[512];
+	uint32_t event_pos;
+	int event_pending;
+
 };
 
 struct volume {
@@ -219,13 +227,6 @@ struct impl {
 	uint32_t ffado_xrun;
 	uint32_t frame_time;
 
-	uint8_t event_byte;
-	uint8_t event_type;
-	uint32_t buffer_time;
-	uint8_t buffer[512];
-	uint32_t buffer_pos;
-	int buffer_pending;
-
 	unsigned int do_disconnect:1;
 	unsigned int fix_midi:1;
 	unsigned int started:1;
@@ -280,7 +281,7 @@ static inline void fix_midi_event(uint8_t *data, size_t size)
 	}
 }
 
-static void midi_to_ffado(struct impl *impl, struct port *p, float *src, uint32_t n_samples)
+static void midi_to_ffado(struct port *p, float *src, uint32_t n_samples)
 {
 	struct spa_pod *pod;
 	struct spa_pod_sequence *seq;
@@ -301,11 +302,11 @@ static void midi_to_ffado(struct impl *impl, struct port *p, float *src, uint32_
 	clear_port_buffer(p, n_samples);
 
 	/* first leftovers from previous cycle, always start at offset 0 */
-	for (i = 0; i < impl->buffer_pos; i++) {
-		dst[index] = 0x01000000 | (uint32_t) impl->buffer[i];
+	for (i = 0; i < p->event_pos; i++) {
+		dst[index] = 0x01000000 | (uint32_t) p->event_buffer[i];
 		index += 8;
 	}
-	impl->buffer_pos = 0;
+	p->event_pos = 0;
 
 	SPA_POD_SEQUENCE_FOREACH(seq, c) {
 		switch(c->type) {
@@ -319,8 +320,8 @@ static void midi_to_ffado(struct impl *impl, struct port *p, float *src, uint32_
 			for (i = 0; i < size; i++) {
 				if (index >= n_samples) {
 					/* keep events that don't fit for the next cycle */
-					if (impl->buffer_pos < sizeof(impl->buffer))
-						impl->buffer[impl->buffer_pos++] = data[i];
+					if (p->event_pos < sizeof(p->event_buffer))
+						p->event_buffer[p->event_pos++] = data[i];
 					else
 						unhandled++;
 				}
@@ -336,17 +337,17 @@ static void midi_to_ffado(struct impl *impl, struct port *p, float *src, uint32_
 	}
 	if (unhandled > 0)
 		pw_log_warn("%u MIDI events dropped (index %d)", unhandled, index);
-	else if (impl->buffer_pos > 0)
-		pw_log_debug("%u MIDI events saved (index %d)", impl->buffer_pos, index);
+	else if (p->event_pos > 0)
+		pw_log_debug("%u MIDI events saved (index %d)", p->event_pos, index);
 }
 
-static int take_bytes(struct impl *impl, uint32_t *frame, uint8_t **bytes, size_t *size)
+static int take_bytes(struct port *p, uint32_t *frame, uint8_t **bytes, size_t *size)
 {
-	if (impl->buffer_pos == 0)
+	if (p->event_pos == 0)
 		return 0;
-	*frame = impl->buffer_time;
-	*bytes = impl->buffer;
-	*size = impl->buffer_pos;
+	*frame = p->event_time;
+	*bytes = p->event_buffer;
+	*size = p->event_pos;
 	return 1;
 }
 
@@ -377,7 +378,7 @@ static const int status_len[] = {
 	0,		/* reset 0xff */
 };
 
-static int process_byte(struct impl *impl, uint32_t time, uint8_t byte,
+static int process_byte(struct port *p, uint32_t time, uint8_t byte,
 		uint32_t *frame, uint8_t **bytes, size_t *size)
 {
 	int res = 0;
@@ -386,58 +387,58 @@ static int process_byte(struct impl *impl, uint32_t time, uint8_t byte,
 			pw_log_warn("droping invalid MIDI status bytes %08x", byte);
 			return false;
 		}
-		impl->event_byte = byte;
+		p->event_byte = byte;
 		*frame = time;
-		*bytes = &impl->event_byte;
+		*bytes = &p->event_byte;
 		*size = 1;
 		return 1;
 	}
-	if ((byte & 0x80) && (byte != 0xf7 || impl->event_type != 8)) {
-		if (impl->buffer_pending > 0)
-			pw_log_warn("incomplete MIDI message %02x droped %u",
-					impl->event_type, impl->buffer_pending);
+	if ((byte & 0x80) && (byte != 0xf7 || p->event_type != 8)) {
+		if (p->event_pending > 0)
+			pw_log_warn("incomplete MIDI message %02x dropped %u time:%u",
+					p->event_type, p->event_pending, time);
 		/* new command */
-		impl->buffer[0] = byte;
-		impl->buffer_time = time;
+		p->event_buffer[0] = byte;
+		p->event_time = time;
 		if ((byte & 0xf0) == 0xf0) /* system message */
-			impl->event_type = (byte & 0x0f) + 8;
+			p->event_type = (byte & 0x0f) + 8;
 		else
-			impl->event_type = (byte >> 4) & 0x07;
-		impl->buffer_pos = 1;
-		impl->buffer_pending = status_len[impl->event_type];
+			p->event_type = (byte >> 4) & 0x07;
+		p->event_pos = 1;
+		p->event_pending = status_len[p->event_type];
 	} else {
-		 if (impl->buffer_pending > 0) {
+		 if (p->event_pending > 0) {
 			/* rest of command */
-			if (impl->buffer_pos < sizeof(impl->buffer))
-				impl->buffer[impl->buffer_pos++] = byte;
-			if (impl->event_type != 8)
-				impl->buffer_pending--;
+			if (p->event_pos < sizeof(p->event_buffer))
+				p->event_buffer[p->event_pos++] = byte;
+			if (p->event_type != 8)
+				p->event_pending--;
 		} else {
 			/* running status */
-			impl->buffer[1] = byte;
-			impl->buffer_time = time;
-			impl->buffer_pending = status_len[impl->event_type] - 1;
-			impl->buffer_pos = 2;
+			p->event_buffer[1] = byte;
+			p->event_time = time;
+			p->event_pending = status_len[p->event_type] - 1;
+			p->event_pos = 2;
 		}
 	}
-	if (impl->buffer_pending == 0) {
-		res = take_bytes(impl, frame, bytes, size);
-		if (impl->event_type >= 8)
-			impl->event_type = 7;
-	} else if (impl->event_type == 8) {
-		if (byte == 0xf7 || impl->buffer_pos >= sizeof(impl->buffer)) {
-			res = take_bytes(impl, frame, bytes, size);
-			impl->buffer_pos = 0;
+	if (p->event_pending == 0) {
+		res = take_bytes(p, frame, bytes, size);
+		if (p->event_type >= 8)
+			p->event_type = 7;
+	} else if (p->event_type == 8) {
+		if (byte == 0xf7 || p->event_pos >= sizeof(p->event_buffer)) {
+			res = take_bytes(p, frame, bytes, size);
+			p->event_pos = 0;
 			if (byte == 0xf7) {
-				impl->buffer_pending = 0;
-				impl->event_type = 7;
+				p->event_pending = 0;
+				p->event_type = 7;
 			}
 		}
 	}
 	return res;
 }
 
-static void ffado_to_midi(struct impl *impl, float *dst, uint32_t *src, uint32_t size)
+static void ffado_to_midi(struct port *p, float *dst, uint32_t *src, uint32_t size)
 {
 	struct spa_pod_builder b = { 0, };
 	uint32_t i, count;
@@ -455,15 +456,15 @@ static void ffado_to_midi(struct impl *impl, float *dst, uint32_t *src, uint32_t
 		if ((data & 0xff000000) == 0)
 			continue;
 
-		if (process_byte(impl, i, data & 0xff, &frame, &bytes, &size)) {
+		if (process_byte(p, i, data & 0xff, &frame, &bytes, &size)) {
 			spa_pod_builder_control(&b, frame, SPA_CONTROL_Midi);
 	                spa_pod_builder_bytes(&b, bytes, size);
 		}
         }
 	spa_pod_builder_pop(&b, &f);
-	if (impl->buffer_pending > 0)
+	if (p->event_pending > 0)
 		/* make sure the rest of the MIDI message is sent first in the next cycle */
-		impl->buffer_time = 0;
+		p->event_time = 0;
 }
 
 static inline uint64_t get_time_ns(struct impl *impl)
@@ -586,7 +587,7 @@ static void sink_process(void *d, struct spa_io_position *position)
 		}
 
 		if (SPA_UNLIKELY(p->is_midi))
-			midi_to_ffado(impl, p, src, n_samples);
+			midi_to_ffado(p, src, n_samples);
 		else
 			do_volume(p->buffer, src, &s->volume, i, n_samples);
 
@@ -645,7 +646,7 @@ static void source_process(void *d, struct spa_io_position *position)
 			continue;
 
 		if (SPA_UNLIKELY(p->is_midi))
-			ffado_to_midi(impl, dst, p->buffer, n_samples);
+			ffado_to_midi(p, dst, p->buffer, n_samples);
 		else
 			do_volume(dst, p->buffer, &s->volume, i, n_samples);
 	}

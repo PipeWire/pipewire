@@ -112,9 +112,9 @@ static struct device *add_device(struct impl *impl, std::shared_ptr<Camera> came
 
 	if (impl->n_devices >= MAX_DEVICES)
 		return NULL;
-	id = get_free_id(impl);;
+	id = get_free_id(impl);
 	device = &impl->devices[id];
-	device->id = get_free_id(impl);;
+	device->id = id;
 	device->camera = std::move(camera);
 	impl->n_devices++;
 	return device;

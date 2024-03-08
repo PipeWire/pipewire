@@ -60,14 +60,6 @@ struct buffer {
 	void *ptr;
 };
 
-#define MAX_CONTROLS	64
-
-struct control {
-	uint32_t id;
-	uint32_t ctrl_id;
-	double value;
-};
-
 struct port {
 	struct impl *impl;
 
@@ -77,9 +69,6 @@ struct port {
 	StreamConfiguration streamConfig;
 
 	uint32_t memtype = 0;
-
-	struct control controls[MAX_CONTROLS];
-	uint32_t n_controls = 0;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers = 0;

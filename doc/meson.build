@@ -7,14 +7,33 @@ doxyfile_conf.set('top_srcdir', meson.project_source_root())
 doxyfile_conf.set('top_builddir', meson.project_build_root())
 doxyfile_conf.set('output_directory', meson.current_build_dir())
 
+doc_prefix_value = get_option('doc-prefix-value')
+doc_sysconfdir_value = get_option('doc-sysconfdir-value')
+
+if doc_prefix_value == '' and doc_sysconfdir_value == ''
+   doc_spa_plugindir = spa_plugindir
+   doc_pipewire_configdir = pipewire_configdir
+   doc_pipewire_confdatadir = pipewire_confdatadir
+else
+   if doc_prefix_value == ''
+     doc_prefix_value = get_option('prefix')
+   endif
+   if doc_sysconfdir_value == ''
+     doc_sysconfdir_value = get_option('sysconfdir')
+   endif
+   doc_spa_plugindir = doc_prefix_value / get_option('libdir') / spa_name
+   doc_pipewire_configdir = doc_prefix_value / doc_sysconfdir_value / 'pipewire'
+   doc_pipewire_confdatadir = doc_prefix_value / get_option('datadir') / 'pipewire'
+endif
+
 doxygen_env = environment()
 doxygen_env.set('PACKAGE_NAME', meson.project_name())
 doxygen_env.set('PACKAGE_VERSION', meson.project_version())
 doxygen_env.set('PACKAGE_URL', 'https://pipewire.org')
 doxygen_env.set('PACKAGE_BUGREPORT', 'https://gitlab.freedesktop.org/pipewire/pipewire/issues')
-doxygen_env.set('PIPEWIRE_CONFIG_DIR', pipewire_configdir)
-doxygen_env.set('PIPEWIRE_CONFDATADIR', pipewire_confdatadir)
-doxygen_env.set('SPA_PLUGINDIR', spa_plugindir)
+doxygen_env.set('PIPEWIRE_CONFIG_DIR', doc_pipewire_configdir)
+doxygen_env.set('PIPEWIRE_CONFDATADIR', doc_pipewire_confdatadir)
+doxygen_env.set('SPA_PLUGINDIR', doc_spa_plugindir)
 doxygen_env.set('BUILD_DIR', meson.current_build_dir())
 
 dot_found = find_program('dot', required: false).found()

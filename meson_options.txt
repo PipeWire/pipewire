@@ -342,3 +342,11 @@ option('libffado',
        description: 'Enable code that depends on libffado',
        type: 'feature',
        value: 'auto')
+option('doc-prefix-value',
+       description : 'Installation prefix to show in documentation instead of the actual value.',
+       type : 'string',
+       value : '')
+option('doc-sysconfdir-value',
+       description : 'Sysconf data directory to show in documentation instead of the actual value.',
+       type : 'string',
+       value : '')

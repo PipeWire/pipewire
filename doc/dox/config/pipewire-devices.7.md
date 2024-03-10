@@ -86,17 +86,17 @@ apply also to sink or source nodes corresponding to real or virtual devices.
 
 In addition:
 
-@PAR@ device-param  priority.driver
+@PAR@ device-param  priority.driver    # integer
 \parblock
 The priority of choosing this device as the driver in the graph. The driver is selected from all linked devices by selecting the device with the highest priority.
 
 Normally, the session manager assigns higher priority to sources so that they become the driver in the graph. The reason for this is that adaptive resampling should be done on the sinks rather than the source to avoid signal distortion when capturing audio.
 \endparblock
 
-@PAR@ device-param  priority.session
+@PAR@ device-param  priority.session    # integer
 The priority for selecting this device as the default device.
 
-@PAR@ device-param  clock.name
+@PAR@ device-param  clock.name    # string
 \parblock
 The name of the clock. This name is auto generated from the card index and stream direction. Devices with the same clock name will not use a resampler to align the clocks. This can be used to link devices together with a shared word clock.
 
@@ -112,7 +112,7 @@ ID of the device the node belongs to.
 
 These are common properties for devices.
 
-@PAR@ device-param  device.name
+@PAR@ device-param  device.name    # string
 A (unique) name for the device. It can be used by command-line and other tools to identify the device.
 
 Other `device.*` properties: UNDOCUMENTED
@@ -122,6 +122,8 @@ Other `device.*` properties: UNDOCUMENTED
 Most audio nodes (ALSA, Bluetooth, ...) have common properties for the audio
 converter. See \ref client_conf__stream_properties "pipewire-client.conf(5) stream.properties"
 for explanations.
+
+## Node properties
 
 @PAR@ device-param  clock.quantum-limit
 \ref pipewire_conf__default_clock_quantum-limit "See pipewire.conf(5)"
@@ -195,93 +197,111 @@ UNDOCUMENTED
 
 # ALSA PROPERTIES  @IDX@ device-param
 
-ALSA node properties:
+## Monitor properties
 
-@PAR@ device-param  audio.channels
+@PAR@ device-param  alsa.use-acp    # boolean
+Use \ref device-param__alsa_card_profiles "ALSA Card Profiles" (ACP) for device configuration.
+
+## Device properties
+
+@PAR@ device-param  api.alsa.path    # string
+ALSA device path as can be used in snd_pcm_open() and snd_ctl_open().
+
+@PAR@ device-param  api.acp.auto-port    # boolean
+Select reasonable port on device startup. Available for ACP devices.
+
+@PAR@ device-param  api.acp.auto-profile    # boolean
+Select reasonable profile on device startup. Available for ACP devices.
+
+## Node properties
+
+@PAR@ device-param  audio.channels    # integer
 The number of audio channels to open the device with. Defaults depends on the profile of the device.
 
-@PAR@ device-param  audio.rate
+@PAR@ device-param  audio.rate    # integer
 The audio rate to open the device with. Default is 0, which means to open the device with a rate as close to the graph rate as possible.
 
-@PAR@ device-param  audio.format
+@PAR@ device-param  audio.format    # string
 The audio format to open the device in. By default this is "UNKNOWN", which will open the device in the best possible bits (32/24/16/8..). You can force a format like S16_LE or S32_LE.
 
-@PAR@ device-param  audio.position
+@PAR@ device-param  audio.position    # JSON array of strings
 The audio position of the channels in the device. This is auto detected based on the profile. You can configure an array of channel positions, like "[ FL, FR ]".
 
-@PAR@ device-param  audio.allowed-rates
+@PAR@ device-param  audio.allowed-rates    # JSON array of integers
 \parblock
 The allowed audio rates to open the device with. Default is "[ ]", which means the device can be opened in any supported rate.
 
 Only rates from the array will be used to open the device. When the graph is running with a rate not listed in the allowed-rates, the resampler will be used to resample to the nearest allowed rate.
 \endparblock
 
-@PAR@ device-param  api.alsa.period-size
+@PAR@ device-param  api.alsa.period-size    # integer
 The period size to open the device in. By default this is 0, which will open the device in the default period size to minimize latency.
 
-@PAR@ device-param  api.alsa.period-num
+@PAR@ device-param  api.alsa.period-num    # integer
 The amount of periods to use in the device. By default this is 0, which means to use as many as possible.
 
-@PAR@ device-param  api.alsa.headroom
+@PAR@ device-param  api.alsa.headroom    # integer
 The amount of extra space to keep in the ringbuffer. The default is 0. Higher values can be configured when the device read and write pointers are not accurately reported.
 
-@PAR@ device-param  api.alsa.start-delay
+@PAR@ device-param  api.alsa.start-delay    # integer
 Some devices require a startup period. The default is 0. Higher values can be set to send silence samples to the device first.
 
-@PAR@ device-param  api.alsa.disable-mmap
+@PAR@ device-param  api.alsa.disable-mmap    # boolean
 Disable mmap operation of the device and use the ALSA read/write API instead. Default is false, mmap is preferred.
 
-@PAR@ device-param  api.alsa.disable-batch
+@PAR@ device-param  api.alsa.disable-batch    # boolean
 Ignore the ALSA batch flag. If the batch flag is set, ALSA will need an extra period to update the read/write pointers. Ignore this flag from ALSA can reduce the latency. Default is false.
 
-@PAR@ device-param  api.alsa.use-chmap
+@PAR@ device-param  api.alsa.use-chmap    # boolean
 Use the driver provided channel map. Default is false because many drivers don't report this correctly.
 
-@PAR@ device-param  api.alsa.multi-rate
+@PAR@ device-param  api.alsa.multi-rate    # boolean
 Allow devices from the same card to be opened in multiple sample rates. Default is true. Some older drivers did not properly advertize the capabilities of the device and only really supported opening the device in one rate.
 
-@PAR@ device-param  api.alsa.htimestamp = false
+@PAR@ device-param  api.alsa.htimestamp = false    # boolean
 Use ALSA htimestamps in scheduling, instead of the system clock.
 Some ALSA drivers produce bad timestamps, so this is not enabled by default
 and will be disabled at runtime if it looks like the ALSA timestamps are bad.
 
-@PAR@ device-param  api.alsa.htimestamp.max-errors
+@PAR@ device-param  api.alsa.htimestamp.max-errors    # integer
 Specify the number of consecutive errors before htimestamp is disabled.
 Setting this to 0 makes htimestamp never get disabled.
 
-@PAR@ device-param  api.alsa.disable-tsched = false
+@PAR@ device-param  api.alsa.disable-tsched = false    # boolean
 Disable timer-based scheduling, and use IRQ for scheduling instead.
 The "Pro Audio" profile will usually enable this setting, if it is expected it works on the hardware.
 
-@PAR@ device-param  api.alsa.auto-link = false
+@PAR@ device-param  api.alsa.auto-link = false    # boolean
 Link follower PCM devices to the driver PCM device when using IRQ-based scheduling.
 The "Pro Audio" profile will usually enable this setting, if it is expected it works on the hardware.
 
-@PAR@ device-param  latency.internal.rate
+@PAR@ device-param  latency.internal.rate    # integer
 Static set the device systemic latency, in samples at playback rate.
 
-@PAR@ device-param  latency.internal.ns
+@PAR@ device-param  latency.internal.ns    # integer
 Static set the device systemic latency, in nanoseconds.
 
-@PAR@ device-param  api.alsa.path
+@PAR@ device-param  api.alsa.path    # string
 UNDOCUMENTED
 
-@PAR@ device-param  api.alsa.open.ucm
+@PAR@ device-param  api.alsa.open.ucm    # boolean
 Open device using UCM.
 
-@PAR@ device-param  api.alsa.bind-ctls
+@PAR@ device-param  api.alsa.bind-ctls    # boolean
 UNDOCUMENTED
 
-@PAR@ device-param  iec958.codecs
+@PAR@ device-param  iec958.codecs    # JSON array of string
 Enable only specific IEC958 codecs. This can be used to disable some codecs the hardware supports.
 Available values: PCM, AC3, DTS, MPEG, MPEG2-AAC, EAC3, TRUEHD, DTSHD
 
 # BLUETOOTH PROPERTIES  @IDX@ device-param
 
-The following are settings for the Bluetooth module, not device or
+## Monitor properties
+
+The following are settings for the Bluetooth device monitor, not device or
 node properties:
 
-@PAR@ device-param  bluez5.roles
+@PAR@ device-param  bluez5.roles   # JSON array of string
 \parblock
 Enabled roles (default: [ a2dp_sink a2dp_source bap_sink bap_source hfp_hf hfp_ag ])
 
@@ -299,35 +319,35 @@ Supported roles:
 - bap_source (LE Audio Basic Audio Profile Source)
 \endparblock
 
-@PAR@ device-param  bluez5.codecs
+@PAR@ device-param  bluez5.codecs   # JSON array of string
 Enabled A2DP codecs (default: all).
 Possible values: sbc sbc_xq aac aac_eld aptx aptx_hd aptx_ll aptx_ll_duplex faststream faststream_duplex lc3plus_h3 ldac opus_05 opus_05_51 opus_05_71 opus_05_duplex opus_05_pro opus_g lc3
 
-@PAR@ device-param  bluez5.default.rate
+@PAR@ device-param  bluez5.default.rate   # integer
 Default audio rate.
 
-@PAR@ device-param  bluez5.default.channels
+@PAR@ device-param  bluez5.default.channels   # integer
 Default audio channels.
 
-@PAR@ device-param  bluez5.hfphsp-backend
+@PAR@ device-param  bluez5.hfphsp-backend   # integer
 HFP/HSP backend (default: native). Available values: any, none, hsphfpd, ofono, native
 
-@PAR@ device-param  bluez5.hfphsp-backend-native-modem
+@PAR@ device-param  bluez5.hfphsp-backend-native-modem   # string
 
-@PAR@ device-param  bluez5.dummy-avrcp player
+@PAR@ device-param  bluez5.dummy-avrcp player   # boolean
 Register dummy AVRCP player. Some devices have wrongly functioning
 volume or playback controls if this is not enabled. Default: false
 
-@PAR@ device-param  bluez5.enable-sbc-xq
+@PAR@ device-param  bluez5.enable-sbc-xq   # boolean
 Override device quirk list and enable SBC-XQ for devices for which it is disabled.
 
-@PAR@ device-param  bluez5.enable-msbc
+@PAR@ device-param  bluez5.enable-msbc   # boolean
 Override device quirk list and enable MSBC for devices for which it is disabled.
 
-@PAR@ device-param  bluez5.enable-hw-volume
+@PAR@ device-param  bluez5.enable-hw-volume   # boolean
 Override device quirk list and enable hardware volume fo devices for which it is disabled.
 
-@PAR@ device-param  bluez5.hw-offload-sco
+@PAR@ device-param  bluez5.hw-offload-sco   # boolean
 \parblock
 HFP/HSP hardware offload SCO support (default: false).
 
@@ -336,50 +356,50 @@ in a platform-specific way. See `tests/examples/bt-pinephone.lua` in WirePlumber
 Do not enable this setting if you don't know what all this means, as it won't work.
 \endparblock
 
-@PAR@ device-param  bluez5.a2dp.opus.pro.channels = 3
+@PAR@ device-param  bluez5.a2dp.opus.pro.channels = 3   # integer
 PipeWire Opus Pro audio profile channel count.
 
-@PAR@ device-param  bluez5.a2dp.opus.pro.coupled-streams = 1
+@PAR@ device-param  bluez5.a2dp.opus.pro.coupled-streams = 1   # integer
 PipeWire Opus Pro audio profile coupled stream count.
 
-@PAR@ device-param  bluez5.a2dp.opus.pro.locations = "FL,FR,LFE"
+@PAR@ device-param  bluez5.a2dp.opus.pro.locations = "FL,FR,LFE"   # string
 PipeWire Opus Pro audio profile audio channel locations.
 
-@PAR@ device-param  bluez5.a2dp.opus.pro.max-bitrate = 600000
+@PAR@ device-param  bluez5.a2dp.opus.pro.max-bitrate = 600000   # integer
 PipeWire Opus Pro audio profile max bitrate.
 
-@PAR@ device-param  bluez5.a2dp.opus.pro.frame-dms = 50
+@PAR@ device-param  bluez5.a2dp.opus.pro.frame-dms = 50   # integer
 PipeWire Opus Pro audio profile frame duration (1/10 ms).
 
-@PAR@ device-param  bluez5.a2dp.opus.pro.bidi.channels = 1
+@PAR@ device-param  bluez5.a2dp.opus.pro.bidi.channels = 1   # integer
 PipeWire Opus Pro audio profile duplex channels.
 
-@PAR@ device-param  bluez5.a2dp.opus.pro.bidi.coupled-streams = 0
+@PAR@ device-param  bluez5.a2dp.opus.pro.bidi.coupled-streams = 0   # integer
 PipeWire Opus Pro audio profile duplex coupled stream count.
 
-@PAR@ device-param  bluez5.a2dp.opus.pro.bidi.locations = "FC"
+@PAR@ device-param  bluez5.a2dp.opus.pro.bidi.locations = "FC"   # string
 PipeWire Opus Pro audio profile duplex coupled channel locations.
 
-@PAR@ device-param  bluez5.a2dp.opus.pro.bidi.max-bitrate = 160000
+@PAR@ device-param  bluez5.a2dp.opus.pro.bidi.max-bitrate = 160000   # integer
 PipeWire Opus Pro audio profile duplex max bitrate.
 
-@PAR@ device-param  bluez5.a2dp.opus.pro.bidi.frame-dms = 400
+@PAR@ device-param  bluez5.a2dp.opus.pro.bidi.frame-dms = 400   # integer
 PipeWire Opus Pro audio profile duplex frame duration (1/10 ms).
 
 ## Device properties
 
-@PAR@ device-param  bluez5.auto-connect
+@PAR@ device-param  bluez5.auto-connect   # boolean
 Auto-connect devices on start up. Disabled by default if
 the property is not specified.
 
-@PAR@ device-param  bluez5.hw-volume = [ PROFILE1 PROFILE2... ]
+@PAR@ device-param  bluez5.hw-volume = [ PROFILE1 PROFILE2... ]   # JSON array of string
 Profiles for which to enable hardware volume control (default: [ hfp_ag hsp_ag a2dp_source ]).
 
-@PAR@ device-param  bluez5.profile
+@PAR@ device-param  bluez5.profile   # string
 Initial device profile. This usually has no effect as the session manager
 overrides it.
 
-@PAR@ device-param  bluez5.a2dp.ldac.quality
+@PAR@ device-param  bluez5.a2dp.ldac.quality   # string
 LDAC encoding quality
 Available values:
 - auto (Adaptive Bitrate, default)
@@ -387,19 +407,19 @@ Available values:
 - sq   (Standard Quality, 660/606kbps)
 - mq   (Mobile use Quality, 330/303kbps)
 
-@PAR@ device-param  bluez5.a2dp.aac.bitratemode
+@PAR@ device-param  bluez5.a2dp.aac.bitratemode   # integer
 AAC variable bitrate mode.
 Available values: 0 (cbr, default), 1-5 (quality level)
 
-@PAR@ device-param  bluez5.a2dp.opus.pro.application = "audio"
+@PAR@ device-param  bluez5.a2dp.opus.pro.application = "audio"   # string
 PipeWire Opus Pro Audio encoding mode: audio, voip, lowdelay
 
-@PAR@ device-param  bluez5.a2dp.opus.pro.bidi.application = "audio"
+@PAR@ device-param  bluez5.a2dp.opus.pro.bidi.application = "audio"   # string
 PipeWire Opus Pro Audio duplex encoding mode: audio, voip, lowdelay
 
 ## Node properties
 
-@PAR@ device-param  bluez5.media-source-role
+@PAR@ device-param  bluez5.media-source-role   # string
 \parblock
 Media source role for Bluetooth clients connecting to
 this instance. Available values:

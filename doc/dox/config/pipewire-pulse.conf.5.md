@@ -74,7 +74,7 @@ Some of these properties map to the PulseAudio `/etc/pulse/default.pa` config en
 ## Example
 
 ```css
-pulse.properties = {
+stream.properties = {
     #node.latency = 1024/48000
     #node.autoconnect = true
     #resample.disable = false

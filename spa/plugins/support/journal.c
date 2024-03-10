@@ -21,7 +21,9 @@
 
 #include <systemd/sd-journal.h>
 
-#define NAME "journal"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.journal");
 
 #define DEFAULT_LOG_LEVEL SPA_LOG_LEVEL_INFO
 
@@ -250,7 +252,7 @@ impl_init(const struct spa_handle_factory *factory,
 	else
 		impl->chain_log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 
-	spa_log_debug(&impl->log, NAME " %p: initialized", impl);
+	spa_log_debug(&impl->log, "%p: initialized", impl);
 
 	return 0;
 }
@@ -289,6 +291,7 @@ static const struct spa_handle_factory journal_factory = {
 	.enum_interface_info = impl_enum_interface_info,
 };
 
+SPA_LOG_TOPIC_ENUM_DEFINE_REGISTERED;
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)

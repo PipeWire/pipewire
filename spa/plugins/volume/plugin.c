@@ -5,8 +5,11 @@
 #include <errno.h>
 
 #include <spa/support/plugin.h>
+#include <spa/support/log.h>
 
 extern const struct spa_handle_factory spa_volume_factory;
+
+SPA_LOG_TOPIC_ENUM_DEFINE_REGISTERED;
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)

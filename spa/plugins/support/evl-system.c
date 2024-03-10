@@ -24,7 +24,9 @@
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 
-#define NAME "evl-system"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.evl-system");
 
 #define MAX_POLL	512
 
@@ -465,11 +467,11 @@ impl_init(const struct spa_handle_factory *factory,
 	impl->pid = getpid();
 
 	if ((res = evl_init()) < 0) {
-		spa_log_error(impl->log, NAME " %p: init failed: %s", impl, spa_strerror(res));
+		spa_log_error(impl->log, "%p: init failed: %s", impl, spa_strerror(res));
 		return res;
 	}
 
-	spa_log_info(impl->log, NAME " %p: initialized", impl);
+	spa_log_info(impl->log, "%p: initialized", impl);
 
 	return 0;
 }

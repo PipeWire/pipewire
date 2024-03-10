@@ -17,7 +17,9 @@
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
 
-#define NAME "volume"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.volume");
 
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
@@ -417,7 +419,7 @@ impl_node_port_enum_params(void *object, int seq,
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
-		spa_log_debug(this->log, NAME " %p: clear buffers", this);
+		spa_log_debug(this->log, "%p: clear buffers", this);
 		port->n_buffers = 0;
 		spa_list_init(&port->empty);
 	}
@@ -529,7 +531,7 @@ impl_node_port_use_buffers(void *object,
 			b->ptr = d[0].data;
 			b->size = d[0].maxsize;
 		} else {
-			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
+			spa_log_error(this->log, "%p: invalid memory on buffer %p", this,
 				      buffers[i]);
 			return -EINVAL;
 		}
@@ -572,13 +574,13 @@ static void recycle_buffer(struct impl *this, uint32_t id)
 	struct buffer *b = &port->buffers[id];
 
 	if (!SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
-		spa_log_warn(this->log, NAME " %p: buffer %d not outstanding", this, id);
+		spa_log_warn(this->log, "%p: buffer %d not outstanding", this, id);
 		return;
 	}
 
 	spa_list_append(&port->empty, &b->link);
 	SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
-	spa_log_trace(this->log, NAME " %p: recycle buffer %d", this, id);
+	spa_log_trace(this->log, "%p: recycle buffer %d", this, id);
 }
 
 static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
@@ -695,13 +697,13 @@ static int impl_node_process(void *object)
 	}
 
 	if ((dbuf = find_free_buffer(this, out_port)) == NULL) {
-                spa_log_error(this->log, NAME " %p: out of buffers", this);
+                spa_log_error(this->log, "%p: out of buffers", this);
 		return -EPIPE;
 	}
 
 	sbuf = &in_port->buffers[input->buffer_id];
 
-	spa_log_trace(this->log, NAME " %p: do volume %d -> %d", this, sbuf->id, dbuf->id);
+	spa_log_trace(this->log, "%p: do volume %d -> %d", this, sbuf->id, dbuf->id);
 	do_volume(this, dbuf->outbuf, sbuf->outbuf);
 
 	output->buffer_id = dbuf->id;
@@ -866,7 +868,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_volume_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	"volume",
 	NULL,
 	impl_get_size,
 	impl_init,

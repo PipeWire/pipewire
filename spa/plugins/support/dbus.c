@@ -558,6 +558,8 @@ static const struct spa_handle_factory dbus_factory = {
 	impl_enum_interface_info,
 };
 
+SPA_LOG_TOPIC_ENUM_DEFINE_REGISTERED;
+
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
 {

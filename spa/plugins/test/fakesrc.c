@@ -22,7 +22,9 @@
 #include <spa/pod/parser.h>
 #include <spa/pod/filter.h>
 
-#define NAME "fakesrc"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.fakesrc");
 
 struct props {
 	bool live;
@@ -220,7 +222,7 @@ static inline int read_timer(struct impl *this)
 		if ((res = spa_system_timerfd_read(this->data_system,
 					this->timer_source.fd, &expirations)) < 0) {
 			if (res != -EAGAIN)
-				spa_log_error(this->log, NAME " %p: timerfd error: %s",
+				spa_log_error(this->log, "%p: timerfd error: %s",
 						this, spa_strerror(res));
 		}
 	}
@@ -240,7 +242,7 @@ static int make_buffer(struct impl *this)
 	if (spa_list_is_empty(&port->empty)) {
 		set_timer(this, false);
 		this->underrun = true;
-		spa_log_error(this->log, NAME " %p: out of buffers", this);
+		spa_log_error(this->log, "%p: out of buffers", this);
 		return -EPIPE;
 	}
 	b = spa_list_first(&port->empty, struct buffer, link);
@@ -249,7 +251,7 @@ static int make_buffer(struct impl *this)
 
 	n_bytes = b->outbuf->datas[0].maxsize;
 
-	spa_log_trace(this->log, NAME " %p: dequeue buffer %d", this, b->id);
+	spa_log_trace(this->log, "%p: dequeue buffer %d", this, b->id);
 
 	fill_buffer(this, b);
 
@@ -518,7 +520,7 @@ impl_node_port_enum_params(void *object, int seq,
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
-		spa_log_debug(this->log, NAME " %p: clear buffers", this);
+		spa_log_debug(this->log, "%p: clear buffers", this);
 		port->n_buffers = 0;
 		spa_list_init(&port->empty);
 		this->started = false;
@@ -595,7 +597,7 @@ impl_node_port_use_buffers(void *object,
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
 		if (d[0].data == NULL) {
-			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
+			spa_log_error(this->log, "%p: invalid memory on buffer %p", this,
 				      buffers[i]);
 		}
 		spa_list_append(&port->empty, &b->link);
@@ -633,7 +635,7 @@ static inline void reuse_buffer(struct impl *this, struct port *port, uint32_t i
 	struct buffer *b = &port->buffers[id];
 	spa_return_if_fail(b->outstanding);
 
-	spa_log_trace(this->log, NAME " %p: reuse buffer %d", this, id);
+	spa_log_trace(this->log, "%p: reuse buffer %d", this, id);
 
 	b->outstanding = false;
 	spa_list_append(&port->empty, &b->link);
@@ -848,7 +850,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 const struct spa_handle_factory spa_fakesrc_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	"fakesrc",
 	NULL,
 	impl_get_size,
 	impl_init,

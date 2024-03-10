@@ -28,7 +28,9 @@
 
 #include "jack-client.h"
 
-#define NAME  "jack-device"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.jack-device");
 
 #define MAX_DEVICES	64
 
@@ -108,7 +110,7 @@ static int activate_profile(struct impl *this, uint32_t id)
 
 	res = spa_jack_client_open(&this->client, "PipeWire", NULL);
 	if (res < 0) {
-		spa_log_error(this->log, NAME" %p: can't open client: %s",
+		spa_log_error(this->log, "%p: can't open client: %s",
 				this, spa_strerror(res));
 		return res;
 	}

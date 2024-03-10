@@ -19,6 +19,10 @@
 
 #include "ffmpeg.h"
 
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.ffmpeg.enc");
+
 #define IS_VALID_PORT(this,d,id)	((id) == 0)
 #define GET_IN_PORT(this,p)		(&this->in_ports[p])
 #define GET_OUT_PORT(this,p)		(&this->out_ports[p])

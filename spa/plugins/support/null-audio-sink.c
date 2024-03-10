@@ -29,7 +29,9 @@
 #include <spa/pod/filter.h>
 #include <spa/control/control.h>
 
-#define NAME "null-audio-sink"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.null-audio-sink");
 
 #define DEFAULT_CLOCK_NAME	"clock.system.monotonic"
 
@@ -227,7 +229,7 @@ static int reassign_follower(struct impl *this)
 
 	following = is_following(this);
 	if (following != this->following) {
-		spa_log_debug(this->log, NAME" %p: reassign follower %d->%d", this, this->following, following);
+		spa_log_debug(this->log, "%p: reassign follower %d->%d", this, this->following, following);
 		this->following = following;
 		spa_loop_invoke(this->data_loop, do_set_timers, 0, NULL, 0, true, this);
 	}
@@ -274,7 +276,7 @@ static void on_timeout(struct spa_source *source)
 	if ((res = spa_system_timerfd_read(this->data_system,
 				this->timer_source.fd, &expirations)) < 0) {
 		if (res != -EAGAIN)
-			spa_log_error(this->log, NAME " %p: timerfd error: %s",
+			spa_log_error(this->log, "%p: timerfd error: %s",
 					this, spa_strerror(res));
 		return;
 	}
@@ -573,7 +575,7 @@ impl_node_port_enum_params(void *object, int seq,
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
-		spa_log_info(this->log, NAME " %p: clear buffers", this);
+		spa_log_info(this->log, "%p: clear buffers", this);
 		port->n_buffers = 0;
 		this->started = false;
 	}
@@ -728,7 +730,7 @@ impl_node_port_use_buffers(void *object,
 		b->outbuf = buffers[i];
 
 		if (d[0].data == NULL) {
-			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
+			spa_log_error(this->log, "%p: invalid memory on buffer %p", this,
 				      buffers[i]);
 			return -EINVAL;
 		}
@@ -994,7 +996,7 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->props.n_pos > 0)
 		this->props.channels = this->props.n_pos;
 
-	spa_log_info(this->log, NAME " %p: initialized", this);
+	spa_log_info(this->log, "%p: initialized", this);
 
 	return 0;
 }

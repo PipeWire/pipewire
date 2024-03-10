@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #include <spa/support/plugin.h>
+#include <spa/support/log.h>
 #include <spa/node/node.h>
 
 #include <libavcodec/avcodec.h>
@@ -103,6 +104,8 @@ static const AVCodec *find_codec_by_index(uint32_t index)
 	return last_codec;
 }
 #endif
+
+SPA_LOG_TOPIC_ENUM_DEFINE_REGISTERED;
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)

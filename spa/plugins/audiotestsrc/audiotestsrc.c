@@ -25,7 +25,9 @@
 #include <spa/pod/filter.h>
 #include <spa/control/control.h>
 
-#define NAME "audiotestsrc"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.audiotestsrc");
 
 #define SAMPLES_TO_TIME(this,s)   ((s) * SPA_NSEC_PER_SEC / (port)->current_format.info.raw.rate)
 #define BYTES_TO_SAMPLES(this,b)  ((b)/(port)->bpf)
@@ -338,7 +340,7 @@ static int read_timer(struct impl *this)
 		if ((res = spa_system_timerfd_read(this->data_system,
 				this->timer_source.fd, &expirations)) < 0) {
 			if (res != -EAGAIN)
-				spa_log_error(this->log, NAME " %p: timerfd error: %s",
+				spa_log_error(this->log, "%p: timerfd error: %s",
 						this, spa_strerror(res));
 		}
 	}
@@ -369,7 +371,7 @@ static int make_buffer(struct impl *this)
 
 	if (spa_list_is_empty(&port->empty)) {
 		set_timer(this, false);
-		spa_log_error(this->log, NAME " %p: out of buffers", this);
+		spa_log_error(this->log, "%p: out of buffers", this);
 		return -EPIPE;
 	}
 	b = spa_list_first(&port->empty, struct buffer, link);
@@ -382,7 +384,7 @@ static int make_buffer(struct impl *this)
 
 	n_bytes = maxsize;
 
-	spa_log_trace(this->log, NAME " %p: dequeue buffer %d %d %d", this, b->id,
+	spa_log_trace(this->log, "%p: dequeue buffer %d %d %d", this, b->id,
 		      maxsize, n_bytes);
 
 	filled = 0;
@@ -704,7 +706,7 @@ impl_node_port_enum_params(void *object, int seq,
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
-		spa_log_info(this->log, NAME " %p: clear buffers", this);
+		spa_log_info(this->log, "%p: clear buffers", this);
 		port->n_buffers = 0;
 		spa_list_init(&port->empty);
 		this->started = false;
@@ -837,7 +839,7 @@ impl_node_port_use_buffers(void *object,
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
 		if (d[0].data == NULL) {
-			spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
+			spa_log_error(this->log, "%p: invalid memory on buffer %p", this,
 				      buffers[i]);
 			return -EINVAL;
 		}
@@ -882,7 +884,7 @@ static inline void reuse_buffer(struct impl *this, struct port *port, uint32_t i
 	struct buffer *b = &port->buffers[id];
 	spa_return_if_fail(b->outstanding);
 
-	spa_log_trace(this->log, NAME " %p: reuse buffer %d", this, id);
+	spa_log_trace(this->log, "%p: reuse buffer %d", this, id);
 
 	b->outstanding = false;
 	spa_list_append(&port->empty, &b->link);
@@ -1102,7 +1104,7 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info.n_params = 5;
 	spa_list_init(&port->empty);
 
-	spa_log_info(this->log, NAME " %p: initialized", this);
+	spa_log_info(this->log, "%p: initialized", this);
 
 	return 0;
 }
@@ -1141,7 +1143,7 @@ static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
 const struct spa_handle_factory spa_audiotestsrc_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	NAME,
+	"audiotestsrc",
 	&info,
 	impl_get_size,
 	impl_init,

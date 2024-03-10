@@ -24,7 +24,9 @@
 #define CLOCK_MONOTONIC_RAW CLOCK_MONOTONIC
 #endif
 
-#define NAME "logger"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.logger");
 
 #define DEFAULT_LOG_LEVEL SPA_LOG_LEVEL_INFO
 
@@ -357,7 +359,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_ringbuffer_init(&this->trace_rb);
 
-	spa_log_debug(&this->log, NAME " %p: initialized to %s linebuf:%u", this, dest, linebuf);
+	spa_log_debug(&this->log, "%p: initialized to %s linebuf:%u", this, dest, linebuf);
 
 	return 0;
 }

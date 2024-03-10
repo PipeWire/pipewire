@@ -20,7 +20,9 @@
 #include <spa/pod/filter.h>
 #include <spa/debug/types.h>
 
-#define NAME "test-source"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.test-source");
 
 #define DEFAULT_RATE		44100
 #define DEFAULT_CHANNELS	2
@@ -135,7 +137,7 @@ impl_node_add_listener(void *object,
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	spa_log_trace(this->log, NAME" %p: add listener %p", this, listener);
+	spa_log_trace(this->log, "%p: add listener %p", this, listener);
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
 	emit_info(this, true);
@@ -494,7 +496,7 @@ impl_node_port_enum_params(void *object, int seq,
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
-		spa_log_debug(this->log, NAME " %p: clear buffers %p", this, port);
+		spa_log_debug(this->log, "%p: clear buffers %p", this, port);
 		port->n_buffers = 0;
 		spa_list_init(&port->queue);
 	}
@@ -571,7 +573,7 @@ static int port_set_format(void *object,
 		port->have_format = true;
 		port->format = info;
 
-		spa_log_debug(this->log, NAME " %p: set format on port %d %d", this, port_id, res);
+		spa_log_debug(this->log, "%p: set format on port %d %d", this, port_id, res);
 	}
 
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
@@ -599,7 +601,7 @@ impl_node_port_set_param(void *object,
 	spa_return_val_if_fail(object != NULL, -EINVAL);
 	spa_return_val_if_fail(CHECK_PORT(object, direction, port_id), -EINVAL);
 
-	spa_log_debug(this->log, NAME" %p: set param %d", this, id);
+	spa_log_debug(this->log, "%p: set param %d", this, id);
 
 	switch (id) {
 	case SPA_PARAM_Format:
@@ -616,7 +618,7 @@ static void recycle_buffer(struct impl *this, struct port *port, struct buffer *
 	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
 		spa_list_append(&port->queue, &b->link);
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
-		spa_log_trace_fp(this->log, NAME " %p: recycle buffer %d", this, b->id);
+		spa_log_trace_fp(this->log, "%p: recycle buffer %d", this, b->id);
 	}
 }
 
@@ -637,7 +639,7 @@ impl_node_port_use_buffers(void *object,
 
 	spa_return_val_if_fail(port->have_format, -EIO);
 
-	spa_log_debug(this->log, NAME " %p: use buffers %d on port %d", this, n_buffers, port_id);
+	spa_log_debug(this->log, "%p: use buffers %d on port %d", this, n_buffers, port_id);
 
 	clear_buffers(this, port);
 
@@ -659,12 +661,12 @@ impl_node_port_use_buffers(void *object,
 				return -EINVAL;
 
 			if (d[j].data == NULL) {
-				spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
+				spa_log_error(this->log, "%p: invalid memory on buffer %p", this,
 					      buffers[i]);
 				return -EINVAL;
 			}
 			if (!SPA_IS_ALIGNED(d[j].data, 16)) {
-				spa_log_warn(this->log, NAME " %p: memory %d on buffer %d not aligned",
+				spa_log_warn(this->log, "%p: memory %d on buffer %d not aligned",
 						this, j, i);
 			}
 		}
@@ -742,7 +744,7 @@ static int impl_node_process(void *object)
 	if ((io = port->io) == NULL)
 		return -EIO;
 
-	spa_log_trace_fp(this->log, NAME " %p: status %d", this, io->status);
+	spa_log_trace_fp(this->log, "%p: status %d", this, io->status);
 
 	if (io->status == SPA_STATUS_HAVE_DATA)
 		goto done;
@@ -839,7 +841,7 @@ impl_init(const struct spa_handle_factory *factory,
 			spa_atou32(s, &this->quantum_limit, 0);
 	}
 
-	spa_log_debug(this->log, NAME " %p: init", this);
+	spa_log_debug(this->log, "%p: init", this);
 	spa_hook_list_init(&this->hooks);
 
 	this->node.iface = SPA_INTERFACE_INIT(

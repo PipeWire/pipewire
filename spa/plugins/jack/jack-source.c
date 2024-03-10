@@ -27,7 +27,9 @@
 
 #include "jack-client.h"
 
-#define NAME "jack-source"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.jack-source");
 
 #define MAX_PORTS 128
 #define MAX_BUFFERS 8
@@ -209,7 +211,7 @@ static inline void reuse_buffer(struct impl *this, struct port *port, uint32_t i
 	struct buffer *b = &port->buffers[id];
 
 	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
-		spa_log_trace(this->log, NAME " %p: reuse buffer %d", this, id);
+		spa_log_trace(this->log, "%p: reuse buffer %d", this, id);
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 		spa_list_append(&port->empty, &b->link);
 	}
@@ -404,7 +406,7 @@ static int init_ports(struct impl *this)
 			NULL, JACK_DEFAULT_AUDIO_TYPE,
                         JackPortIsPhysical|JackPortIsOutput);
 	if (ports == NULL) {
-		spa_log_error(this->log, NAME" %p: can't enumerate ports", this);
+		spa_log_error(this->log, "%p: can't enumerate ports", this);
 		res = -ENODEV;
 		goto exit;
 	}
@@ -421,7 +423,7 @@ static int init_ports(struct impl *this)
 				jack_port_type(p),
 				JackPortIsInput, 0);
 		if (port->jack_port == NULL) {
-			spa_log_error(this->log, NAME" %p: jack_port_register() %d (%s) failed",
+			spa_log_error(this->log, "%p: jack_port_register() %d (%s) failed",
 					this, i, ports[i]);
 			res = -EFAULT;
 			goto exit_free;
@@ -452,7 +454,7 @@ static int init_ports(struct impl *this)
 	for (i = 0; ports[i]; i++) {
 		struct port *port = GET_OUT_PORT(this, i);
 		if (jack_connect(client, ports[i], jack_port_name(port->jack_port))) {
-			spa_log_warn(this->log, NAME" %p: Failed to connect %s to %s",
+			spa_log_warn(this->log, "%p: Failed to connect %s to %s",
 					this, jack_port_name(port->jack_port), ports[i]);
             }
 	}
@@ -591,7 +593,7 @@ impl_node_port_enum_params(void *object, int seq,
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
-		spa_log_debug(this->log, NAME " %p: clear buffers", this);
+		spa_log_debug(this->log, "%p: clear buffers", this);
 		port->n_buffers = 0;
 		spa_list_init(&port->empty);
 		this->started = false;
@@ -753,7 +755,7 @@ static int impl_node_process(void *object)
 	uint32_t i;
 	int res = 0;
 
-	spa_log_trace(this->log, NAME" %p: process %d", this, this->n_out_ports);
+	spa_log_trace(this->log, "%p: process %d", this, this->n_out_ports);
 
 	for (i = 0; i < this->n_out_ports; i++) {
 		struct port *port = GET_OUT_PORT(this, i);
@@ -772,7 +774,7 @@ static int impl_node_process(void *object)
 		}
 
 		if ((b = dequeue_buffer(this, port)) == NULL) {
-			spa_log_trace(this->log, NAME" %p: out of buffers", this);
+			spa_log_trace(this->log, "%p: out of buffers", this);
 			io->status = -EPIPE;
 			continue;
 		}
@@ -865,7 +867,7 @@ impl_init(const struct spa_handle_factory *factory,
 		sscanf(str, "pointer:%p", &this->client);
 
 	if (this->client == NULL) {
-		spa_log_error(this->log, NAME" %p: missing "SPA_KEY_API_JACK_CLIENT
+		spa_log_error(this->log, "%p: missing "SPA_KEY_API_JACK_CLIENT
 				" property", this);
 		return -EINVAL;
 	}

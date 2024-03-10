@@ -23,7 +23,9 @@
 
 #include "v4l2.h"
 
-#define NAME "v4l2-device"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.v4l2-device");
 
 static const char default_device[] = "/dev/video0";
 

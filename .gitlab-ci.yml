@@ -265,6 +265,8 @@ build_on_fedora:
   variables:
     MESON_OPTIONS: >-
         -Ddocs=enabled
+        -Ddoc-prefix-value=/usr
+        -Ddoc-sysconfdir-value=/etc
         -Dinstalled_tests=enabled
         -Dsystemd-system-service=enabled
         -Dbluez5-backend-hsphfpd=enabled

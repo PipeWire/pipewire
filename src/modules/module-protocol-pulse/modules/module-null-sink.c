@@ -196,6 +196,8 @@ static int module_null_sink_prepare(struct module * const module)
 
 	if (pw_properties_get(props, "monitor.channel-volumes") == NULL)
 		pw_properties_set(props, "monitor.channel-volumes", "true");
+	if (pw_properties_get(props, "monitor.passthrough") == NULL)
+		pw_properties_set(props, "monitor.passthrough", "true");
 
 	return 0;
 }

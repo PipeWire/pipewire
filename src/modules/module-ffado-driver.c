@@ -1364,6 +1364,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(props, PW_KEY_NODE_GROUP, "ffado-group");
 	if (pw_properties_get(props, PW_KEY_NODE_LINK_GROUP) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_LINK_GROUP, "ffado-group");
+	if (pw_properties_get(props, PW_KEY_NODE_PAUSE_ON_IDLE) == NULL)
+		pw_properties_set(props, PW_KEY_NODE_PAUSE_ON_IDLE, "false");
 
 	pw_properties_set(impl->sink.props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 	pw_properties_set(impl->sink.props, PW_KEY_PRIORITY_DRIVER, "35000");
@@ -1383,6 +1385,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_LINK_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
+	copy_props(impl, props, PW_KEY_NODE_PAUSE_ON_IDLE);
 
 	parse_audio_info(impl->source.props, &impl->source.info);
 	parse_audio_info(impl->sink.props, &impl->sink.info);

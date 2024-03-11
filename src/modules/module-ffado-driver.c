@@ -1380,7 +1380,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if ((str = pw_properties_get(props, "source.props")) != NULL)
 		pw_properties_update_string(impl->source.props, str, strlen(str));
 
-	copy_props(impl, props, PW_KEY_NODE_ALWAYS_PROCESS);
+	copy_props(impl, props, PW_KEY_NODE_LINK_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
 

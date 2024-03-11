@@ -319,6 +319,7 @@ context.objects = [
     #        node.description = "Microphone"
     #        media.class      = "Audio/Source/Virtual"
     #        audio.position   = "FL,FR"
+    #        monitor.passthrough = true
     #        adapter.auto-port-config = {
     #            mode = dsp
     #            monitor = true

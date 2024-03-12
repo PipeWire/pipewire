@@ -110,6 +110,7 @@ struct globals {
 	struct pw_array descriptions;
 	struct spa_list free_objects;
 	struct spa_thread_utils *thread_utils;
+	uint32_t max_frames;
 };
 
 static struct globals globals;
@@ -2585,18 +2586,18 @@ static int client_node_port_set_param(void *data,
 	return 0;
 }
 
-static void midi_init_buffer(void *data, uint32_t max_frames)
+static void midi_init_buffer(void *data, uint32_t max_frames, uint32_t nframes)
 {
 	struct midi_buffer *mb = data;
 	mb->magic = MIDI_BUFFER_MAGIC;
 	mb->buffer_size = max_frames * sizeof(float);
-	mb->nframes = max_frames;
+	mb->nframes = nframes;
 	mb->write_pos = 0;
 	mb->event_count = 0;
 	mb->lost_events = 0;
 }
 
-static inline void *init_buffer(struct port *p)
+static inline void *init_buffer(struct port *p, uint32_t nframes)
 {
 	struct client *c = p->client;
 	void *data = p->emptyptr;
@@ -2605,8 +2606,9 @@ static inline void *init_buffer(struct port *p)
 
 	if (p->object->port.type_id == TYPE_ID_MIDI) {
 		struct midi_buffer *mb = data;
-		midi_init_buffer(data, c->max_frames);
-		pw_log_debug("port %p: init midi buffer size:%d", p, mb->buffer_size);
+		midi_init_buffer(data, c->max_frames, nframes);
+		pw_log_debug("port %p: init midi buffer size:%d frames:%d", p,
+				mb->buffer_size, nframes);
 	} else
 		memset(data, 0, c->max_frames * sizeof(float));
 
@@ -3883,7 +3885,7 @@ jack_client_t * jack_client_open (const char *client_name,
 		goto no_props;
 	client->context.nl = pw_thread_loop_get_loop(client->context.notify);
 
-	client->max_frames = client->context.context->settings.clock_quantum_limit;
+	globals.max_frames = client->max_frames = client->context.context->settings.clock_quantum_limit;
 
 	client->notify_source = pw_loop_add_event(client->context.nl,
 			on_notify_event, client);
@@ -5026,7 +5028,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	strcpy(o->port.name, name);
 	o->port.type_id = type_id;
 
-	init_buffer(p);
+	init_buffer(p, c->max_frames);
 
 	if (direction == SPA_DIRECTION_INPUT) {
 		switch (type_id) {
@@ -5260,7 +5262,7 @@ static void *get_buffer_input_float(struct port *p, jack_nframes_t frames)
 		p->zeroed = false;
 	}
 	if (ptr == NULL)
-		ptr = init_buffer(p);
+		ptr = init_buffer(p, frames);
 	return ptr;
 }
 
@@ -5297,7 +5299,7 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 		if (n_seq == MAX_MIX)
 			break;
 	}
-	midi_init_buffer(mb, MIDI_SCRATCH_FRAMES);
+	midi_init_buffer(mb, MIDI_SCRATCH_FRAMES, frames);
 	/* first convert to a thread local scratch buffer, then memcpy into
 	 * the per port buffer. This makes it possible to call this function concurrently
 	 * but also have different pointers per port */
@@ -5335,7 +5337,7 @@ static void *get_buffer_output_empty(struct port *p, jack_nframes_t frames)
 
 static void *get_buffer_input_empty(struct port *p, jack_nframes_t frames)
 {
-	return init_buffer(p);
+	return init_buffer(p, frames);
 }
 
 SPA_EXPORT
@@ -5344,17 +5346,22 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	struct object *o = port_to_object(port);
 	struct port *p = NULL;
 	void *ptr = NULL;
+	struct client *c;
 
 	return_val_if_fail(o != NULL, NULL);
 
-	if (o->type != INTERFACE_Port || o->client == NULL)
+	c = o->client;
+	if (o->type != INTERFACE_Port || c == NULL)
+		goto done;
+
+	if (frames > c->max_frames)
 		goto done;
 
 	if ((p = o->port.port) == NULL) {
 		struct mix *mix;
 		struct buffer *b;
 
-		if ((mix = find_mix_peer(o->client, o->id)) == NULL)
+		if ((mix = find_mix_peer(c, o->id)) == NULL)
 			goto done;
 
 		pw_log_trace("peer mix: %p %d", mix, mix->peer_id);
@@ -5368,7 +5375,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 			void *pod;
 
 			ptr = midi_scratch;
-			midi_init_buffer(ptr, MIDI_SCRATCH_FRAMES);
+			midi_init_buffer(ptr, MIDI_SCRATCH_FRAMES, frames);
 
 			d = &b->datas[0];
 			if ((pod = spa_pod_from_data(d->data, d->maxsize,
@@ -5377,7 +5384,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 			if (!spa_pod_is_sequence(pod))
 				goto done;
 			seq[0] = pod;
-			convert_to_midi(seq, 1, ptr, o->client->fix_midi_events);
+			convert_to_midi(seq, 1, ptr, c->fix_midi_events);
 		} else {
 			ptr = get_buffer_data(b, frames);
 		}
@@ -5385,7 +5392,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 		ptr = p->get_buffer(p, frames);
 	}
 done:
-	pw_log_trace_fp("%p: port %p buffer %p", o->client, p, ptr);
+	pw_log_trace_fp("%p: port:%p buffer:%p frames:%d", c, p, ptr, frames);
 	return ptr;
 }
 
@@ -7115,8 +7122,8 @@ int jack_midi_event_get(jack_midi_event_t *event,
 {
 	struct midi_buffer *mb = port_buffer;
 	struct midi_event *ev = SPA_PTROFF(mb, sizeof(*mb), struct midi_event);
-	return_val_if_fail(mb != NULL, -EINVAL);
-	return_val_if_fail(ev != NULL, -EINVAL);
+	if (mb == NULL || mb->magic != MIDI_BUFFER_MAGIC)
+		return -EINVAL;
 	if (event_index >= mb->event_count)
 		return -ENOBUFS;
 	ev += event_index;
@@ -7130,7 +7137,8 @@ SPA_EXPORT
 void jack_midi_clear_buffer(void *port_buffer)
 {
 	struct midi_buffer *mb = port_buffer;
-	return_if_fail(mb != NULL);
+	if (mb == NULL || mb->magic != MIDI_BUFFER_MAGIC)
+		return;
 	mb->event_count = 0;
 	mb->write_pos = 0;
 	mb->lost_events = 0;
@@ -7139,7 +7147,7 @@ void jack_midi_clear_buffer(void *port_buffer)
 SPA_EXPORT
 void jack_midi_reset_buffer(void *port_buffer)
 {
-	jack_midi_clear_buffer(port_buffer);
+	midi_init_buffer(port_buffer, globals.max_frames, globals.max_frames);
 }
 
 SPA_EXPORT
@@ -7148,7 +7156,8 @@ size_t jack_midi_max_event_size(void* port_buffer)
 	struct midi_buffer *mb = port_buffer;
 	size_t buffer_size;
 
-	return_val_if_fail(mb != NULL, 0);
+	if (mb == NULL || mb->magic != MIDI_BUFFER_MAGIC)
+		return 0;
 
 	buffer_size = mb->buffer_size;
 
@@ -7174,18 +7183,21 @@ jack_midi_data_t* jack_midi_event_reserve(void *port_buffer,
                         size_t data_size)
 {
 	struct midi_buffer *mb = port_buffer;
-	struct midi_event *events = SPA_PTROFF(mb, sizeof(*mb), struct midi_event);
-	size_t buffer_size;
+	struct midi_event *events;
 
-	return_val_if_fail(mb != NULL, NULL);
-
-	buffer_size = mb->buffer_size;
-
+	if (SPA_UNLIKELY(mb == NULL)) {
+		pw_log_warn("port buffer is NULL");
+		return NULL;
+	}
+	if (SPA_UNLIKELY(mb->magic != MIDI_BUFFER_MAGIC)) {
+		pw_log_warn("port buffer is invalid");
+		return NULL;
+	}
 	if (SPA_UNLIKELY(time >= mb->nframes)) {
 		pw_log_warn("midi %p: time:%d frames:%d", port_buffer, time, mb->nframes);
 		goto failed;
 	}
-
+	events = SPA_PTROFF(mb, sizeof(*mb), struct midi_event);
 	if (SPA_UNLIKELY(mb->event_count > 0 && time < events[mb->event_count - 1].time)) {
 		pw_log_warn("midi %p: time:%d ev:%d", port_buffer, time, mb->event_count);
 		goto failed;
@@ -7208,7 +7220,7 @@ jack_midi_data_t* jack_midi_event_reserve(void *port_buffer,
 			res = ev->inline_data;
 		} else {
 			mb->write_pos += data_size;
-			ev->byte_offset = buffer_size - 1 - mb->write_pos;
+			ev->byte_offset = mb->buffer_size - 1 - mb->write_pos;
 			res = SPA_PTROFF(mb, ev->byte_offset, uint8_t);
 		}
 		mb->event_count += 1;
@@ -7232,7 +7244,8 @@ SPA_EXPORT
 uint32_t jack_midi_get_lost_event_count(void *port_buffer)
 {
 	struct midi_buffer *mb = port_buffer;
-	return_val_if_fail(mb != NULL, 0);
+	if (mb == NULL || mb->magic != MIDI_BUFFER_MAGIC)
+		return 0;
 	return mb->lost_events;
 }
 

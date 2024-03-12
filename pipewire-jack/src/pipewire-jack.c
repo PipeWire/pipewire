@@ -1525,7 +1525,7 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 		}
 		d = &b->datas[0];
 		d->chunk->offset = 0;
-		d->chunk->size = frames * sizeof(float);
+		d->chunk->size = c->buffer_frames * sizeof(float);
 		d->chunk->stride = stride;
 
 		io->buffer_id = b->id;

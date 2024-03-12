@@ -26,6 +26,7 @@
 #define DEFAULT_CLOCK_MIN_QUANTUM		32u
 #define DEFAULT_CLOCK_MAX_QUANTUM		2048u
 #define DEFAULT_CLOCK_QUANTUM_LIMIT		8192u
+#define DEFAULT_CLOCK_QUANTUM_FLOOR		4u
 #define DEFAULT_CLOCK_POWER_OF_TWO_QUANTUM	true
 #define DEFAULT_VIDEO_WIDTH			640
 #define DEFAULT_VIDEO_HEIGHT			480
@@ -212,6 +213,7 @@ void pw_settings_init(struct pw_context *this)
 	d->clock_min_quantum = get_default_int(p, "default.clock.min-quantum", DEFAULT_CLOCK_MIN_QUANTUM);
 	d->clock_max_quantum = get_default_int(p, "default.clock.max-quantum", DEFAULT_CLOCK_MAX_QUANTUM);
 	d->clock_quantum_limit = get_default_int(p, "default.clock.quantum-limit", DEFAULT_CLOCK_QUANTUM_LIMIT);
+	d->clock_quantum_floor = get_default_int(p, "default.clock.quantum-floor", DEFAULT_CLOCK_QUANTUM_FLOOR);
 	d->video_size.width = get_default_int(p, "default.video.width", DEFAULT_VIDEO_WIDTH);
 	d->video_size.height = get_default_int(p, "default.video.height", DEFAULT_VIDEO_HEIGHT);
 	d->video_rate.num = get_default_int(p, "default.video.rate.num", DEFAULT_VIDEO_RATE_NUM);
@@ -228,11 +230,13 @@ void pw_settings_init(struct pw_context *this)
 	d->check_rate = get_default_bool(p, "settings.check-rate", DEFAULT_CHECK_RATE);
 
 	d->clock_quantum_limit = SPA_CLAMP(d->clock_quantum_limit,
-			CLOCK_MIN_QUANTUM, CLOCK_MAX_QUANTUM);
+			CLOCK_QUANTUM_FLOOR, CLOCK_QUANTUM_LIMIT);
+	d->clock_quantum_floor = SPA_CLAMP(d->clock_quantum_floor,
+			CLOCK_QUANTUM_FLOOR, d->clock_quantum_limit);
 	d->clock_max_quantum = SPA_CLAMP(d->clock_max_quantum,
-			CLOCK_MIN_QUANTUM, d->clock_quantum_limit);
+			d->clock_quantum_floor, d->clock_quantum_limit);
 	d->clock_min_quantum = SPA_CLAMP(d->clock_min_quantum,
-			CLOCK_MIN_QUANTUM, d->clock_max_quantum);
+			d->clock_quantum_floor, d->clock_max_quantum);
 	d->clock_quantum = SPA_CLAMP(d->clock_quantum,
 			d->clock_min_quantum, d->clock_max_quantum);
 }

@@ -32,6 +32,7 @@ context.properties = {
     #default.clock.min-quantum   = 32
     #default.clock.max-quantum   = 2048
     #default.clock.quantum-limit = 8192
+    #default.clock.quantum-floor = 4
     #default.video.width         = 640
     #default.video.height        = 480
     #default.video.rate.num      = 25

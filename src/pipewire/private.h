@@ -30,8 +30,8 @@ struct ucred {
 #endif
 
 #define MAX_RATES				32u
-#define CLOCK_MIN_QUANTUM			4u
-#define CLOCK_MAX_QUANTUM			65536u
+#define CLOCK_QUANTUM_FLOOR			1u
+#define CLOCK_QUANTUM_LIMIT			65536u
 #define DEFAULT_LOG_LEVEL			SPA_LOG_LEVEL_WARN
 
 struct settings {
@@ -42,7 +42,8 @@ struct settings {
 	uint32_t clock_quantum;			/* default quantum */
 	uint32_t clock_min_quantum;		/* min quantum */
 	uint32_t clock_max_quantum;		/* max quantum */
-	uint32_t clock_quantum_limit;		/* quantum limit */
+	uint32_t clock_quantum_limit;		/* quantum limit (upper bound) */
+	uint32_t clock_quantum_floor;		/* quantum floor (lower bound) */
 	struct spa_rectangle video_size;
 	struct spa_fraction video_rate;
 	uint32_t link_max_buffers;

@@ -1023,7 +1023,7 @@ static void remove_from_driver(struct pw_context *context, struct spa_list *node
 }
 
 static inline void get_quantums(struct pw_context *context, uint32_t *def,
-		uint32_t *min, uint32_t *max, uint32_t *limit, uint32_t *rate)
+		uint32_t *min, uint32_t *max, uint32_t *rate, uint32_t *floor, uint32_t *ceil)
 {
 	struct settings *s = &context->settings;
 	if (s->clock_force_quantum != 0) {
@@ -1035,7 +1035,8 @@ static inline void get_quantums(struct pw_context *context, uint32_t *def,
 		*max = s->clock_max_quantum;
 		*rate = s->clock_rate;
 	}
-	*limit = s->clock_quantum_limit;
+	*floor = s->clock_quantum_floor;
+	*ceil = s->clock_quantum_limit;
 }
 
 static inline const uint32_t *get_rates(struct pw_context *context, uint32_t *def, uint32_t *n_rates,
@@ -1228,7 +1229,7 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 	struct settings *settings = &context->settings;
 	struct pw_impl_node *n, *s, *target, *fallback;
 	const uint32_t *rates;
-	uint32_t max_quantum, min_quantum, def_quantum, lim_quantum, rate_quantum;
+	uint32_t max_quantum, min_quantum, def_quantum, rate_quantum, floor_quantum, ceil_quantum;
 	uint32_t n_rates, def_rate, n_sync;
 	bool freewheel, global_force_rate, global_force_quantum, transport_start;
 	struct spa_list collect;
@@ -1265,7 +1266,8 @@ again:
 		}
 	}
 
-	get_quantums(context, &def_quantum, &min_quantum, &max_quantum, &lim_quantum, &rate_quantum);
+	get_quantums(context, &def_quantum, &min_quantum, &max_quantum, &rate_quantum,
+			&floor_quantum, &ceil_quantum);
 	rates = get_rates(context, &def_rate, &n_rates, &global_force_rate);
 
 	global_force_quantum = rate_quantum == 0;
@@ -1544,7 +1546,7 @@ again:
 			if (latency.denom != 0)
 				target_quantum = (latency.num * current_rate / latency.denom);
 			target_quantum = SPA_CLAMP(target_quantum, node_min_quantum, node_max_quantum);
-			target_quantum = SPA_MIN(target_quantum, lim_quantum);
+			target_quantum = SPA_CLAMP(target_quantum, floor_quantum, ceil_quantum);
 
 			if (settings->clock_power_of_two_quantum && !force_quantum)
 				target_quantum = flp2(target_quantum);

@@ -177,7 +177,8 @@ the quantums.
 It is possible to specify up to 32 alternative sample rates. The graph
 sample rate will be switched when devices are idle. Note that this is
 not enabled by default for now because of various kernel and Bluetooth
-issues.
+issues. Note that the min/max/default quantum values are scaled when
+the samplerate changes.
 
 @PAR@ pipewire.conf  default.clock.min-quantum = 32
 Default minimum quantum.
@@ -189,7 +190,12 @@ Default maximum quantum.
 Default quantum used when no client specifies one.
 
 @PAR@ pipewire.conf  default.clock.quantum-limit = 8192
-Maximum quantum to reserve space for.
+Maximum quantum to reserve space for. This is the maximum buffer size used
+in the graph, regardless of the samplerate.
+
+@PAR@ pipewire.conf  default.clock.quantum-floor = 4
+Minimum quantum to reserve space for. This is the minimum buffer size used
+in the graph, regardless of the samplerate.
 
 @PAR@ pipewire.conf  default.video.width
 Default video width

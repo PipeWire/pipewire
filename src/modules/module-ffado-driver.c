@@ -528,8 +528,11 @@ static void stream_destroy(void *d)
 	uint32_t i;
 	for (i = 0; i < s->n_ports; i++) {
 		struct port *p = s->ports[i];
-		free(p->buffer);
-		spa_zero(*p);
+		if (p != NULL) {
+			s->ports[i] = NULL;
+			free(p->buffer);
+			spa_zero(*p);
+		}
 	}
 	s->n_ports = 0;
 	spa_hook_remove(&s->listener);
@@ -697,14 +700,16 @@ static void make_stream_ports(struct stream *s)
 
 	for (i = 0; i < s->n_ports; i++) {
 		struct port *port = s->ports[i];
-		ffado_streaming_stream_type stream_type;
-		char portname[256], channel[32];
-
 		if (port != NULL) {
 			s->ports[i] = NULL;
 			free(port->buffer);
 			pw_filter_remove_port(port);
 		}
+	}
+	for (i = 0; i < s->n_ports; i++) {
+		struct port *port = s->ports[i];
+		ffado_streaming_stream_type stream_type;
+		char portname[256], channel[32];
 
 		if (s->direction == PW_DIRECTION_INPUT) {
 			ffado_streaming_get_playback_stream_name(impl->dev, i, portname, sizeof(portname));
@@ -722,6 +727,7 @@ static void make_stream_ports(struct stream *s)
 			props = pw_properties_new(
 					PW_KEY_FORMAT_DSP, "32 bit float mono audio",
 					PW_KEY_PORT_PHYSICAL, "true",
+					PW_KEY_PORT_TERMINAL, "true",
 					PW_KEY_PORT_NAME, name,
 					PW_KEY_AUDIO_CHANNEL, channel,
 					NULL);
@@ -733,6 +739,8 @@ static void make_stream_ports(struct stream *s)
 					PW_KEY_FORMAT_DSP, "8 bit raw midi",
 					PW_KEY_PORT_NAME, name,
 					PW_KEY_PORT_PHYSICAL, "true",
+					PW_KEY_PORT_TERMINAL, "true",
+					PW_KEY_PORT_CONTROL, "true",
 					NULL);
 
 			is_midi = true;

@@ -486,7 +486,10 @@ destroy_port (void *data)
 {
   struct port_data *pd = data;
   pw_log_debug("destroy %p", pd);
-  spa_list_remove(&pd->link);
+  if (pd->node_data != NULL) {
+    spa_list_remove(&pd->link);
+    pd->node_data = NULL;
+  }
 }
 
 static const struct pw_proxy_events proxy_port_events = {

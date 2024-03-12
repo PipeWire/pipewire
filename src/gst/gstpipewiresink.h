@@ -76,6 +76,9 @@ struct _GstPipeWireSink {
   GstPipeWireSinkMode mode;
 
   GstPipeWirePool *pool;
+
+  GstClock *clock;
+  GstClockTime last_time;
 };
 
 struct _GstPipeWireSinkClass {

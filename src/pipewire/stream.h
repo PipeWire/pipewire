@@ -190,7 +190,12 @@ enum pw_stream_state {
   * structure can grow as more field are added in the future */
 struct pw_buffer {
 	struct spa_buffer *buffer;	/**< the spa buffer */
-	void *user_data;		/**< user data attached to the buffer */
+	void *user_data;		/**< user data attached to the buffer. The user of
+					  *  the stream can set custom data associated with the
+					  *  buffer, typically in the add_buffer event. Any
+					  *  cleanup should be performed in the remove_buffer
+					  *  event. The user data is returned unmodified each
+					  *  time a buffer is dequeued. */
 	uint64_t size;			/**< This field is set by the user and the sum of
 					  *  all queued buffer is returned in the time info.
 					  *  For audio, it is advised to use the number of
@@ -287,12 +292,12 @@ struct pw_stream_control {
  *\endcode
  */
 struct pw_time {
-	int64_t now;			/**< the monotonic time in nanoseconds. This is the time
-					  *  when this time report was updated. It is usually
-					  *  updated every graph cycle. You can use the current
-					  *  monotonic time to calculate the elapsed time between
-					  *  this report and the current state and calculate
-					  *  updated ticks and delay values. */
+	int64_t now;			/**< the time in nanoseconds. This is the time when this
+					  *  time report was updated. It is usually updated every
+					  *  graph cycle. You can use pw_stream_get_nsec() to
+					  *  calculate the elapsed time between this report and
+					  *  the current time and calculate updated ticks and delay
+					  *  values. */
 	struct spa_fraction rate;	/**< the rate of \a ticks and delay. This is usually
 					  *  expressed in 1/<samplerate>. */
 	uint64_t ticks;			/**< the ticks at \a now. This is the current time that

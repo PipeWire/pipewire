@@ -80,11 +80,14 @@ PW_LOG_TOPIC(mod_topic_connection, "conn." NAME);
  *
  * The module supports the following arguments:
  *
- * - `sockets`: `[ { name = "socket-name", owner = "owner", group = "group", mode = "mode", selinux.context = "context" }, ... ]`
+ * - `sockets`: `[ { name = "socket-name", owner = "owner", group = "group", mode = "mode", selinux.context = "context" }, props = { ... }, ... ]`
  *
  *   Array of Unix socket names and (optionally) owner/permissions to serve,
  *   if the context is a server. If not absolute paths, the sockets are created
  *   in the default runtime directory.
+ *
+ *   The props are copied directly to any client that connects trough this server
+ *   socket and can be used to configure special permissions.
  *
  *   Has the default value `[ { name = "CORENAME" }, { name = "CORENAME-manager" } ]`,
  *   where `CORENAME` is the name of the PipeWire core, usually `pipewire-0`.
@@ -138,7 +141,16 @@ PW_LOG_TOPIC(mod_topic_connection, "conn." NAME);
  *\code{.unparsed}
  * context.modules = [
  *  { name = libpipewire-module-protocol-native,
- *    args = { sockets = [ { name = "pipewire-0" }, { name = "pipewire-0-manager" } ] } }
+ *    args = {
+ *        sockets = [
+ *            { name = "pipewire-0" }
+ *            { name = "pipewire-0-manager" }
+ *            { name = "pipewire-1"
+ *              props = { my.connection = "the other one" }
+ *            }
+ *        ]
+ *    }
+ *  }
  * ]
  *\endcode
  */
@@ -1573,13 +1585,14 @@ static int create_servers(struct pw_protocol *this, struct pw_impl_core *core,
 {
 	const char *sockets = args ? pw_properties_get(args, "sockets") : NULL;
 	struct spa_json it[3];
+	spa_autoptr(pw_properties) p = pw_properties_copy(props);
 
 	if (sockets == NULL) {
 		struct socket_info info = {0};
 		spa_autofree char *manager_name = NULL;
 
-		info.name = (char *)get_server_name(&props->dict);
-		if (add_server(this, core, &props->dict, &info) == NULL)
+		info.name = (char *)get_server_name(&p->dict);
+		if (add_server(this, core, &p->dict, &info) == NULL)
 			return -errno;
 
 		manager_name = spa_aprintf("%s-manager", info.name);
@@ -1587,7 +1600,7 @@ static int create_servers(struct pw_protocol *this, struct pw_impl_core *core,
 			return -ENOMEM;
 
 		info.name = manager_name;
-		if (add_server(this, core, &props->dict, &info) == NULL)
+		if (add_server(this, core, &p->dict, &info) == NULL)
 			return -errno;
 
 		return 0;
@@ -1606,6 +1619,9 @@ static int create_servers(struct pw_protocol *this, struct pw_impl_core *core,
 
 		info.uid = getuid();
 		info.gid = getgid();
+
+		pw_properties_clear(p);
+		pw_properties_copy(props);
 
 		while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
 			const char *value;
@@ -1669,13 +1685,18 @@ static int create_servers(struct pw_protocol *this, struct pw_impl_core *core,
 					goto error_invalid;
 
 				info.has_mode = true;
+			} else if (spa_streq(key, "props")) {
+				if (spa_json_is_container(value, len))
+	                                len = spa_json_container_len(&it[2], value, len);
+
+				pw_properties_update_string(p, value, len);
 			}
 		}
 
 		if (info.name == NULL)
 			goto error_invalid;
 
-		if (add_server(this, core, &props->dict, &info) == NULL)
+		if (add_server(this, core, &p->dict, &info) == NULL)
 			return -errno;
 	}
 

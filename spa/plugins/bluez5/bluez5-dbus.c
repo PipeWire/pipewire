@@ -2612,7 +2612,7 @@ static struct spa_bt_remote_endpoint *remote_endpoint_find(struct spa_bt_monitor
 	return NULL;
 }
 
-static struct spa_bt_device *create_bcast_device(struct spa_bt_monitor *monitor, const char *adapter_path, 
+static struct spa_bt_device *create_bcast_device(struct spa_bt_monitor *monitor, const char *adapter_path,
 		const char *transport_path)
 {
 	struct spa_bt_device *d;
@@ -2678,7 +2678,7 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 				if(spa_streq(remote_endpoint->uuid, SPA_BT_UUID_BAP_BROADCAST_SINK))
 					/* Set remote endpoint as an acceptor for a broadcast sink.
 					 * So the transport is an initiator.
-					 */ 
+					 */
 					remote_endpoint->acceptor = true;
 			}
 			else if (spa_streq(key, "Device")) {
@@ -5569,6 +5569,18 @@ static void interfaces_removed(struct spa_bt_monitor *monitor, DBusMessageIter *
 				remote_endpoint_free(ep);
 				if (d)
 					spa_bt_device_emit_profiles_changed(d, d->profiles, d->connected_profiles);
+			}
+		} else if (spa_streq(interface_name, BLUEZ_MEDIA_TRANSPORT_INTERFACE)) {
+			struct spa_bt_transport *transport;
+			transport = spa_bt_transport_find(monitor, object_path);
+			if (transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) {
+				if (transport != NULL) {
+					struct spa_bt_device *d = transport->device;
+					if (d != NULL){
+						device_free(d);
+					}		
+				}
+				spa_bt_transport_free(transport);
 			}
 		}
 

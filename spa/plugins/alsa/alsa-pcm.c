@@ -642,45 +642,85 @@ static void fill_device_name(struct state *state, const char *params, char devic
 
 static void bind_ctl_event(struct spa_source *source)
 {
-	// We don't know if a bound element changed or not, so let's find out
 	struct state *state = source->data;
+	snd_ctl_event_t *ev;
+	snd_ctl_elem_id_t *id, *bound_id;
 	snd_ctl_elem_value_t *old_value;
-	bool changed = false;
+	unsigned short revents;
+	int err;
 
+	// Do the same demangling of revents we do for PCM pollfds
+	for (int i = 0; i < state->ctl_n_fds; i++) {
+		state->ctl_pfds[i].revents = state->ctl_sources[i].rmask;
+		state->ctl_sources[i].rmask = 0;
+	}
+
+	err = snd_ctl_poll_descriptors_revents(state->ctl, state->ctl_pfds, state->ctl_n_fds, &revents);
+	if (SPA_UNLIKELY(err < 0)) {
+		spa_log_warn(state->log, "Could not read ctl revents: %s", snd_strerror(err));
+		return;
+	}
+
+	if (!revents) {
+		spa_log_trace(state->log, "Got a bind ctl wakeup but no actual event");
+		return;
+	}
+
+	snd_ctl_event_alloca(&ev);
+	snd_ctl_elem_id_alloca(&id);
+	snd_ctl_elem_id_alloca(&bound_id);
 	snd_ctl_elem_value_alloca(&old_value);
 
-	for (unsigned int i = 0; i < state->num_bind_ctls; i++) {
-		int err;
+	while ((err = snd_ctl_read(state->ctl, ev) > 0)) {
+		bool changed = false;
 
-		snd_ctl_elem_value_copy(old_value, state->bound_ctls[i].value);
-
-		err = snd_ctl_elem_read(state->ctl, state->bound_ctls[i].value);
-		if (err < 0) {
-			spa_log_warn(state->log, "Could not read ctl '%s': %s",
-					state->bound_ctls[i].name, snd_strerror(err));
+		if (snd_ctl_event_get_type(ev) != SND_CTL_EVENT_ELEM)
 			continue;
+
+		snd_ctl_event_elem_get_id(ev, id);
+
+		for (unsigned int i = 0; i < state->num_bind_ctls; i++) {
+			int err;
+
+			// Check if we have the right element
+			snd_ctl_elem_value_get_id(state->bound_ctls[i].value, bound_id);
+			if (snd_ctl_elem_id_compare_set(id, bound_id) ||
+					snd_ctl_elem_id_compare_numid(id, bound_id)) {
+				continue;
+			}
+
+			snd_ctl_elem_value_copy(old_value, state->bound_ctls[i].value);
+
+			err = snd_ctl_elem_read(state->ctl, state->bound_ctls[i].value);
+			if (err < 0) {
+				spa_log_warn(state->log, "Could not read ctl '%s': %s",
+						state->bound_ctls[i].name, snd_strerror(err));
+				continue;
+			}
+
+			if (snd_ctl_elem_value_compare(old_value, state->bound_ctls[i].value) != 0) {
+				// We don't need to check all the ctls, if one changed,
+				// we'll emit a notification and they'll be read when
+				// the props are read
+				spa_log_debug(state->log, "bound ctl '%s' has changed", state->bound_ctls[i].name);
+				changed = true;
+				break;
+			}
 		}
 
-		if (snd_ctl_elem_value_compare(old_value, state->bound_ctls[i].value) != 0) {
-			// We don't need to check all the ctls, if one changed,
-			// we'll emit a notification and they'll be read when
-			// the props are read
-			spa_log_debug(state->log, "bound ctl '%s' has changed", state->bound_ctls[i].name);
-			changed = true;
-			break;
+		if (changed) {
+			state->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+			state->params[NODE_Props].user++;
+			spa_alsa_emit_node_info(state, false);
 		}
 	}
 
-	if (changed) {
-		state->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
-		state->params[NODE_Props].user++;
-		spa_alsa_emit_node_info(state, false);
-	}
+	if (err < 0 && err != -EAGAIN)
+		spa_log_warn(state->log, "Could not read ctl: %s", snd_strerror(err));
 }
 
 static void bind_ctls_for_params(struct state *state)
 {
-	struct pollfd pfds[16];
 	int err;
 
 	if (state->num_bind_ctls == 0)
@@ -706,7 +746,7 @@ static void bind_ctls_for_params(struct state *state)
 		state->ctl_n_fds = SPA_N_ELEMENTS(state->ctl_sources);
 	}
 
-	if ((err = snd_ctl_poll_descriptors(state->ctl, pfds, state->ctl_n_fds)) < 0) {
+	if ((err = snd_ctl_poll_descriptors(state->ctl, state->ctl_pfds, state->ctl_n_fds)) < 0) {
 		spa_log_warn(state->log, "Could not get poll descriptors: %s", snd_strerror(err));
 		return;
 	}
@@ -716,7 +756,7 @@ static void bind_ctls_for_params(struct state *state)
 	for (int i = 0; i < state->ctl_n_fds; i++) {
 		state->ctl_sources[i].func = bind_ctl_event;
 		state->ctl_sources[i].data = state;
-		state->ctl_sources[i].fd = pfds[i].fd;
+		state->ctl_sources[i].fd = state->ctl_pfds[i].fd;
 		state->ctl_sources[i].mask = SPA_IO_IN;
 		state->ctl_sources[i].rmask = 0;
 		spa_loop_add_source(state->main_loop, &state->ctl_sources[i]);

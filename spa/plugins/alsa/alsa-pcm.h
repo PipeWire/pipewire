@@ -258,6 +258,7 @@ struct state {
 	/* ALSA ctls exposed as params */
 	unsigned int num_bind_ctls;
 	struct bound_ctl bound_ctls[16];
+	struct pollfd ctl_pfds[MAX_POLL];
 	struct spa_source ctl_sources[MAX_POLL];
 	int ctl_n_fds;
 

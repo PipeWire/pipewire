@@ -187,7 +187,7 @@ enum pw_stream_state {
 };
 
 /** a buffer structure obtained from pw_stream_dequeue_buffer(). The size of this
-  * structure can grow as more field are added in the future */
+  * structure can grow as more fields are added in the future */
 struct pw_buffer {
 	struct spa_buffer *buffer;	/**< the spa buffer */
 	void *user_data;		/**< user data attached to the buffer. The user of
@@ -197,7 +197,7 @@ struct pw_buffer {
 					  *  event. The user data is returned unmodified each
 					  *  time a buffer is dequeued. */
 	uint64_t size;			/**< This field is set by the user and the sum of
-					  *  all queued buffer is returned in the time info.
+					  *  all queued buffers is returned in the time info.
 					  *  For audio, it is advised to use the number of
 					  *  samples in the buffer for this field. */
 	uint64_t requested;		/**< For playback streams, this field contains the
@@ -205,6 +205,11 @@ struct pw_buffer {
 					  *  streams this will be the amount of samples
 					  *  required by the resampler. This field is 0
 					  *  when no suggestion is provided. Since 0.3.49 */
+	uint64_t time;			/**< For capture streams, this field contains the
+					  *  cycle time in nanoseconds when this buffer was
+					  *  queued in the stream. It can be compared against
+					  *  the pw_time values or pw_stream_get_nsec()
+					  *  Since 1.0.5 */
 };
 
 struct pw_stream_control {

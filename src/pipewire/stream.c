@@ -1036,7 +1036,7 @@ static int impl_node_process_input(void *object)
 	struct stream *impl = object;
 	struct pw_stream *stream = &impl->this;
 	struct spa_io_buffers *io = impl->io;
-	struct buffer *b;
+	struct buffer *b = NULL;
 
 	if (io == NULL)
 		return -EIO;
@@ -1055,6 +1055,8 @@ static int impl_node_process_input(void *object)
 	}
 
 	copy_position(impl, impl->dequeued.incount);
+	if (b != NULL)
+		b->this.time = impl->time.now;
 
 	if (!queue_is_empty(impl, &impl->dequeued))
 		call_process(impl);

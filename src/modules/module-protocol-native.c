@@ -1684,7 +1684,7 @@ static int create_servers(struct pw_protocol *this, struct pw_impl_core *core,
 		info.gid = getgid();
 
 		pw_properties_clear(p);
-		pw_properties_copy(props);
+		pw_properties_update(p, &props->dict);
 
 		while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
 			const char *value;

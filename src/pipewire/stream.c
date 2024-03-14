@@ -425,7 +425,6 @@ static inline uint32_t update_requested(struct stream *impl)
 {
 	uint32_t index, id;
 	struct buffer *buffer;
-	struct spa_io_rate_match *r = impl->rate_match;
 
 	if (spa_ringbuffer_get_read_index(&impl->dequeued.ring, &index) < 1) {
 		pw_log_debug("%p: no free buffers %d", impl, impl->n_buffers);
@@ -434,7 +433,7 @@ static inline uint32_t update_requested(struct stream *impl)
 
 	id = impl->dequeued.ids[index & MASK_BUFFERS];
 	buffer = &impl->buffers[id];
-	buffer->this.requested = r ? r->size : impl->quantum;
+	buffer->this.requested = impl->rate_size;
 
 	pw_log_trace_fp("%p: update buffer:%u req:%"PRIu64, impl, id, buffer->this.requested);
 
@@ -691,6 +690,9 @@ static inline void copy_position(struct stream *impl, int64_t queued)
 	if (SPA_LIKELY(impl->rate_match != NULL)) {
 		impl->rate_queued = impl->rate_match->delay;
 		impl->rate_size = impl->rate_match->size;
+	} else {
+		impl->rate_queued = 0;
+		impl->rate_size = impl->quantum;
 	}
 	SPA_SEQ_WRITE(impl->seq);
 }
@@ -1068,10 +1070,11 @@ static int impl_node_process_input(void *object)
 				SPA_ATOMIC_INC(b->busy->count);
 		}
 	}
-	if (!queue_is_empty(impl, &impl->dequeued)) {
-		copy_position(impl, impl->dequeued.incount);
+
+	copy_position(impl, impl->dequeued.incount);
+
+	if (!queue_is_empty(impl, &impl->dequeued))
 		call_process(impl);
-	}
 
 	if (io->status != SPA_STATUS_NEED_DATA || io->buffer_id == SPA_ID_INVALID) {
 		/* pop buffer to recycle */

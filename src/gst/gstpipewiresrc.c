@@ -585,6 +585,9 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
         GST_BUFFER_DTS (buf) = GST_BUFFER_PTS (buf) + h->dts_offset;
     }
     GST_BUFFER_OFFSET (buf) = h->seq;
+  } else {
+    GST_BUFFER_PTS (buf) = b->time;
+    GST_BUFFER_DTS (buf) = b->time;
   }
   crop = data->crop;
   if (crop) {

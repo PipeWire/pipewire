@@ -1001,17 +1001,18 @@ connect_error:
 }
 
 static void
-on_param_changed (void *data, uint32_t id,
+handle_format_change (GstPipeWireSrc *pwsrc,
                    const struct spa_pod *param)
 {
-  GstPipeWireSrc *pwsrc = data;
-
-  if (param == NULL || id != SPA_PARAM_Format) {
-    GST_DEBUG_OBJECT (pwsrc, "clear format");
-    return;
-  }
   if (pwsrc->caps)
           gst_caps_unref(pwsrc->caps);
+  if (param == NULL) {
+    GST_DEBUG_OBJECT (pwsrc, "clear format");
+    pwsrc->caps = NULL;
+    pwsrc->negotiated = FALSE;
+    pwsrc->is_video = FALSE;
+    return;
+  }
   pwsrc->caps = gst_caps_from_format (param);
 
   if (pwsrc->caps && gst_caps_is_fixed (pwsrc->caps)) {
@@ -1091,6 +1092,18 @@ on_param_changed (void *data, uint32_t id,
     pw_stream_set_error (pwsrc->stream, -EINVAL, "unhandled format");
   }
   pw_thread_loop_signal (pwsrc->core->loop, FALSE);
+}
+
+static void
+on_param_changed (void *data, uint32_t id,
+                   const struct spa_pod *param)
+{
+  GstPipeWireSrc *pwsrc = data;
+  switch (id) {
+    case SPA_PARAM_Format:
+      handle_format_change(pwsrc, param);
+      break;
+  }
 }
 
 static gboolean

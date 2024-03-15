@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <unistd.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/main-loop.h>

@@ -15,6 +15,7 @@ PW_LOG_TOPIC_EXTERN(mod_topic_connection);
 struct impl {
 	struct pw_context *context;
 	struct pw_global *global;
+	struct spa_hook listener;
 
 	struct pw_protocol *protocol;
 };
@@ -114,7 +115,30 @@ global_bind(void *object, struct pw_impl_client *client, uint32_t permissions,
 	return 0;
 }
 
-int protocol_native_security_context_init(struct pw_impl_module *module, struct pw_protocol *protocol)
+
+static void global_free(void *data)
+{
+	struct impl *impl = data;
+	if (impl->global) {
+		spa_hook_remove(&impl->listener);
+		impl->global = NULL;
+	}
+}
+
+static const struct pw_global_events global_events = {
+	PW_VERSION_GLOBAL_EVENTS,
+	.free = global_free
+};
+
+void protocol_native_security_context_free(void *data)
+{
+	struct impl *impl = data;
+	if (impl->global)
+		pw_global_destroy(impl->global);
+	free(impl);
+}
+
+void *protocol_native_security_context_init(struct pw_impl_module *module, struct pw_protocol *protocol)
 {
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct impl *impl;
@@ -130,7 +154,7 @@ int protocol_native_security_context_init(struct pw_impl_module *module, struct 
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
-		return -errno;
+		return NULL;
 
 	impl->context = context;
 	impl->protocol = protocol;
@@ -143,13 +167,15 @@ int protocol_native_security_context_init(struct pw_impl_module *module, struct 
 			global_bind, impl);
 	if (impl->global == NULL) {
 		free(impl);
-		return -errno;
+		return NULL;
 	}
 	spa_scnprintf(serial_str, sizeof(serial_str), "%"PRIu64,
 			pw_global_get_serial(impl->global));
 	pw_global_update_keys(impl->global, &extra_props, keys);
 
+	pw_global_add_listener(impl->global, &impl->listener, &global_events, impl);
+
 	pw_global_register(impl->global);
 
-	return 0;
+	return impl;
 }

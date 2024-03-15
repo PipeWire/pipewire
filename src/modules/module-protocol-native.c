@@ -175,7 +175,8 @@ static const struct spa_dict_item module_props[] = {
 
 void pw_protocol_native_init(struct pw_protocol *protocol);
 void pw_protocol_native0_init(struct pw_protocol *protocol);
-int protocol_native_security_context_init(struct pw_impl_module *module, struct pw_protocol *protocol);
+void *protocol_native_security_context_init(struct pw_impl_module *module, struct pw_protocol *protocol);
+void protocol_native_security_context_free(void *data);
 
 struct protocol_data {
 	struct pw_impl_module *module;
@@ -183,6 +184,7 @@ struct protocol_data {
 	struct pw_protocol *protocol;
 
 	struct pw_properties *props;
+	void *security;
 
 	struct server *local;
 };
@@ -1620,6 +1622,7 @@ static void module_destroy(void *data)
 {
 	struct protocol_data *d = data;
 
+	protocol_native_security_context_free(d->security);
 	spa_hook_remove(&d->module_listener);
 	pw_properties_free(d->props);
 
@@ -1816,7 +1819,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args_str)
 		goto error_cleanup;
 	}
 
-	protocol_native_security_context_init(module, this);
+	d->security = protocol_native_security_context_init(module, this);
 
 	props = pw_context_get_properties(context);
 	pw_properties_update_keys(d->props, &props->dict, keys);

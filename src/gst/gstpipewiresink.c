@@ -595,13 +595,19 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   enum pw_stream_state state;
   const char *error = NULL;
   gboolean res = FALSE;
-  GstStructure *config;
+  GstStructure *config, *s;
   guint size;
   guint min_buffers;
   guint max_buffers;
   struct timespec abstime;
+  gint rate;
 
   pwsink = GST_PIPEWIRE_SINK (bsink);
+
+  s = gst_caps_get_structure (caps, 0);
+  rate = 0;
+  if (gst_structure_has_name (s, "audio/x-raw"))
+    gst_structure_get_int (s, "rate", &rate);
 
   possible = gst_caps_to_format_all (caps);
 
@@ -614,6 +620,9 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   if (state == PW_STREAM_STATE_UNCONNECTED) {
     enum pw_stream_flags flags;
     uint32_t target_id;
+    struct spa_dict_item items[3];
+    uint32_t n_items = 0;
+    char buf[64];
 
     flags = PW_STREAM_FLAG_ASYNC;
     if (pwsink->mode != GST_PIPEWIRE_SINK_MODE_PROVIDE)
@@ -624,25 +633,24 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     target_id = pwsink->path ? (uint32_t)atoi(pwsink->path) : PW_ID_ANY;
 
     if (pwsink->target_object) {
-      struct spa_dict_item items[2] = {
-        SPA_DICT_ITEM_INIT(PW_KEY_TARGET_OBJECT, pwsink->target_object),
-        /* XXX deprecated but the portal and some example apps only
-         * provide the object id */
-        SPA_DICT_ITEM_INIT(PW_KEY_NODE_TARGET, NULL),
-      };
-      struct spa_dict dict = SPA_DICT_INIT_ARRAY(items);
       uint64_t serial;
 
-      /* If target.object is a name, set it also to node.target */
-      if (spa_atou64(pwsink->target_object, &serial, 0)) {
-        dict.n_items = 1;
-      } else {
-        target_id = PW_ID_ANY;
-        items[1].value = pwsink->target_object;
-      }
+      items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_TARGET_OBJECT, pwsink->target_object);
 
-      pw_stream_update_properties (pwsink->stream, &dict);
+      /* If target.object is a name, set it also to node.target */
+      if (!spa_atou64(pwsink->target_object, &serial, 0)) {
+        target_id = PW_ID_ANY;
+        /* XXX deprecated but the portal and some example apps only
+         * provide the object id */
+        items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_TARGET, pwsink->target_object);
+      }
     }
+    if (rate != 0) {
+      snprintf(buf, sizeof(buf), "1/%u", rate);
+      items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_RATE, buf);
+    }
+    if (n_items > 0)
+	    pw_stream_update_properties (pwsink->stream, &SPA_DICT_INIT(items, n_items));
 
     pw_stream_connect (pwsink->stream,
                           PW_DIRECTION_OUTPUT,

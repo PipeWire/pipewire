@@ -405,7 +405,7 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *     - `/dirac` creates a [Dirac function](https://en.wikipedia.org/wiki/Dirac_delta_function) that
  *                 can be used as gain.
  *     - A filename to load as the IR. This needs to be a file format supported
- *               by sndfile.
+ *               by sndfile or be an inline IR with "/ir:<rate>,<value1>,<value2>".
  *     - [ filename, ... ] an array of filenames. The file with the closest samplerate match
  *               with the graph samplerate will be used.
  * - `offset`  The sample offset in the file as the start of the IR.

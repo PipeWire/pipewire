@@ -11,6 +11,7 @@ pipewire_ext_headers = [
   'metadata.h',
   'profiler.h',
   'protocol-native.h',
+  'security-context.h',
   'session-manager.h',
 ]
 

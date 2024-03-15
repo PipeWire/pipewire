@@ -105,7 +105,7 @@ static void test_create(void)
 	spa_assert_se(context != NULL);
 	core = pw_context_connect(context, NULL, 0);
 	if (core == NULL && errno == EHOSTDOWN)
-		return;
+		goto cleanup;
 	spa_assert_se(core != NULL);
 
 	spa_zero(info);
@@ -155,6 +155,7 @@ static void test_create(void)
 	pw_proxy_destroy((struct pw_proxy*)info.sec);
 	pw_proxy_destroy((struct pw_proxy*)info.registry);
 
+cleanup:
 	pw_context_destroy(context);
 	pw_main_loop_destroy(loop);
 }

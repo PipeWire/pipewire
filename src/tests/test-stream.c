@@ -47,8 +47,8 @@ static void test_abi(void)
 	TEST_FUNC(ev, test, trigger_done);
 
 #if defined(__x86_64__) && defined(__LP64__)
-	spa_assert_se(sizeof(struct pw_buffer) == 32);
-	spa_assert_se(sizeof(struct pw_time) == 56);
+	spa_assert_se(sizeof(struct pw_buffer) == 40);
+	spa_assert_se(sizeof(struct pw_time) == 64);
 #else
 	fprintf(stderr, "%zd\n", sizeof(struct pw_buffer));
 	fprintf(stderr, "%zd\n", sizeof(struct pw_time));

@@ -441,6 +441,8 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
   src->resend_last = DEFAULT_RESEND_LAST;
   src->keepalive_time = DEFAULT_KEEPALIVE_TIME;
   src->autoconnect = DEFAULT_AUTOCONNECT;
+  src->min_latency = 0;
+  src->max_latency = GST_CLOCK_TIME_NONE;
 
   src->client_name = g_strdup(pw_get_client_name ());
 
@@ -549,6 +551,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
   struct spa_meta_header *h;
   struct spa_meta_region *crop;
   struct spa_meta_videotransform *videotransform;
+  struct pw_time time;
   guint i;
 
   b = pw_stream_dequeue_buffer (pwsrc->stream);
@@ -565,6 +568,17 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
   if (!data->queued) {
     GST_ERROR_OBJECT (pwsrc, "buffer %p was not recycled", data->buf);
     return NULL;
+  }
+
+  pw_stream_get_time_n(pwsrc->stream, &time, sizeof(time));
+
+  if (pwsrc->delay != time.delay && time.rate.denom != 0) {
+    pwsrc->min_latency = time.delay * GST_SECOND * time.rate.num / time.rate.denom;
+    GST_LOG_OBJECT (pwsrc, "latency changed %"PRIi64" -> %"PRIi64" %"PRIu64,
+		    pwsrc->delay, time.delay, pwsrc->min_latency);
+    pwsrc->delay = time.delay;
+    gst_element_post_message (GST_ELEMENT_CAST (pwsrc),
+      gst_message_new_latency (GST_OBJECT_CAST (pwsrc)));
   }
 
   GST_LOG_OBJECT (pwsrc, "got new buffer %p", data->buf);
@@ -586,8 +600,8 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
     }
     GST_BUFFER_OFFSET (buf) = h->seq;
   } else {
-    GST_BUFFER_PTS (buf) = b->time;
-    GST_BUFFER_DTS (buf) = b->time;
+    GST_BUFFER_PTS (buf) = b->time - pwsrc->delay;
+    GST_BUFFER_DTS (buf) = b->time - pwsrc->delay;
   }
   crop = data->crop;
   if (crop) {
@@ -704,12 +718,6 @@ parse_stream_properties (GstPipeWireSrc *pwsrc, const struct pw_properties *prop
   GST_OBJECT_LOCK (pwsrc);
   var = pw_properties_get (props, PW_KEY_STREAM_IS_LIVE);
   is_live = pwsrc->is_live = var ? pw_properties_parse_bool(var) : TRUE;
-
-  var = pw_properties_get (props, PW_KEY_STREAM_LATENCY_MIN);
-  pwsrc->min_latency = var ? (GstClockTime) atoi (var) : 0;
-
-  var = pw_properties_get (props, PW_KEY_STREAM_LATENCY_MAX);
-  pwsrc->max_latency = var ? (GstClockTime) atoi (var) : GST_CLOCK_TIME_NONE;
   GST_OBJECT_UNLOCK (pwsrc);
 
   GST_DEBUG_OBJECT (pwsrc, "live %d", is_live);
@@ -1171,8 +1179,6 @@ gst_pipewire_src_query (GstBaseSrc * src, GstQuery * query)
   switch (GST_QUERY_TYPE (query)) {
     case GST_QUERY_LATENCY:
       GST_OBJECT_LOCK (pwsrc);
-      pwsrc->min_latency = 10000000;
-      pwsrc->max_latency = GST_CLOCK_TIME_NONE;
       gst_query_set_latency (query, pwsrc->is_live, pwsrc->min_latency, pwsrc->max_latency);
       GST_OBJECT_UNLOCK (pwsrc);
       res = TRUE;

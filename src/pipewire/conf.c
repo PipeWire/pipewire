@@ -606,18 +606,25 @@ static bool find_match(struct spa_json *arr, const struct spa_dict *props)
 		int len;
 
 		while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
-			bool success = false;
+			bool success = false, is_null;
 			int skip = 0;
 
 			if ((len = spa_json_next(&it[0], &value)) <= 0)
 				break;
 
+			if (len > 0 && value[0] == '!') {
+				success = !success;
+				skip++;
+			}
+
 			str = spa_dict_lookup(props, key);
 
-			if (spa_json_is_null(value, len)) {
-				success = str == NULL;
+			is_null = spa_json_is_null(value+skip, len-skip);
+			if (is_null || str == NULL) {
+				if (is_null && str == NULL)
+					success = !success;
 			} else {
-				if (spa_json_parse_stringn(value, len, val, sizeof(val)) < 0)
+				if (spa_json_parse_stringn(value+skip, len-skip, val, sizeof(val)) < 0)
 					continue;
 				value = val;
 				len = strlen(val);
@@ -625,8 +632,6 @@ static bool find_match(struct spa_json *arr, const struct spa_dict *props)
 					success = !success;
 					skip++;
 				}
-			}
-			if (str != NULL) {
 				if (value[skip] == '~') {
 					regex_t preg;
 					int res;

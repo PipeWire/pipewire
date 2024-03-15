@@ -71,11 +71,17 @@
  *     #pulse.min.quantum      = 128/48000     # 2.7ms
  *     #pulse.default.format   = F32
  *     #pulse.default.position = [ FL FR ]
- *     # These overrides are only applied when running in a vm.
- *     vm.overrides = {
- *         pulse.min.quantum = 1024/48000      # 22ms
- *     }
  * }
+ * pulse.properties.rules = [
+ *     {   matches = [ { cpu.vm.name = !null } ]
+ *         actions = {
+ *             update-props = {
+ *                 # These overrides are only applied when running in a vm.
+ *                 pulse.min.quantum = 1024/48000      # 22ms
+ *             }
+ *         }
+ *     }
+ * ]
  *\endcode
  *
  * ### Connection options
@@ -185,19 +191,6 @@
  * This is equivalent to the PulseAudio `default-sample-channels` and
  * `default-channel-map` options in `/etc/pulse/daemon.conf`.
  *
- * ### VM options
- *
- *\code{.unparsed}
- *     vm.overrides = {
- *         pulse.min.quantum = 1024/48000      # 22ms
- *     }
- *\endcode
- *
- * When running in a VM, the `vm.override` section will override the properties
- * in pulse.properties with the given values. This might be interesting because
- * VMs usually can't support the low latency settings that are possible on real
- * hardware.
- *
  * ### Quirk options
  *
  *\code{.unparsed}
@@ -240,6 +233,30 @@
  *     #{ cmd = "load-module" args = "module-gsettings" flags = [ "nofail" ] }
  * ]
  *\endcode
+
+ * ## Dynamic properties
+ *
+ * The pulse.properties can be dyanmically updated with rules. It supports
+ * an `update-props` action. The matches will be performed on the values in
+ * context.properties.
+ *
+ *\code{.unparsed}
+ * pulse.properties.rules = [
+ *     {   matches = [ { cpu.vm.name = !null } ]
+ *         actions = {
+ *             update-props = {
+ *                 # These overrides are only applied when running in a vm.
+ *                 pulse.min.quantum = 1024/48000      # 22ms
+ *             }
+ *         }
+ *     }
+ * ]
+ *\endcode
+ *
+ * In the above example, when running in a VM, the rule will override the properties
+ * in pulse.properties with the given values. This might be interesting because
+ * VMs usually can't support the low latency settings that are possible on real
+ * hardware.
  *
  * ## Stream settings and rules
  *

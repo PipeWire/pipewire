@@ -110,11 +110,18 @@ pulse.properties = {
     #pulse.idle.timeout     = 0             # don't pause after underruns
     #pulse.default.format   = F32
     #pulse.default.position = [ FL FR ]
-    # These overrides are only applied when running in a vm.
-    vm.overrides = {
-        pulse.min.quantum = 1024/48000      # 22ms
-    }
 }
+
+pulse.properties.rules = [
+    {   matches = [ { cpu.vm.name = !null } ]
+        actions = {
+            update-props = {
+            # These overrides are only applied when running in a vm.
+                pulse.min.quantum = 1024/48000      # 22ms
+	    }
+        }
+    }
+]
 
 # client/stream specific properties
 pulse.rules = [

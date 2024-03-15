@@ -167,6 +167,11 @@ PipeWire socket clients can connect to.
 Configures the CPU to zero denormals automatically. This will be
 enabled for the data processing thread only, when enabled.
 
+@PAR@ pipewire.conf  cpu.vm.name = null
+This will be set automatically when the context is created and will
+contain the name of the VM. It is typically used to write match rules
+to set extra properties.
+
 @PAR@ pipewire.conf  default.clock.rate  = 48000
 The default clock rate determines the real time duration of the
 min/max/default quantums. You might want to change the quantums when
@@ -245,7 +250,8 @@ it. Disable this if you want to globally disable DBus support in the process.
 
 @PAR@ pipewire.conf  vm.overrides = { default.clock.min-quantum = 1024 }
 Any property in the vm.overrides property object will override the property
-in the context.properties when PipeWire detects it is running in a VM.
+in the context.properties when PipeWire detects it is running in a VM. This
+is deprected, use the context.properties.rules instead.
 
 The context properties may also contain custom values. For example,
 the `context.modules` and `context.objects` sections can declare
@@ -435,6 +441,28 @@ when a match is found.
 The available actions and their values depend on the specific rule
 that is used. Usually it is possible to update some properties or set
 some quirks on the object.
+
+# CONTEXT PROPERTIES RULES  @IDX@ pipewire.conf
+
+`context.properties.rules` can be used to dynamically update the properties
+based on other properties.
+
+A typical case is to update custom settings when running inside a VM.
+The `cpu.vm.name` is automatically set when running in a VM with the name of
+the VM. A match rule can be written to set custom properties like this:
+
+```
+context.properties.rules = [
+    {   matches = [ { cpu.vm.name = !null } ]
+        actions = {
+            update-props = {
+                # These overrides are only applied when running in a vm.
+                default.clock.min-quantum = 1024
+	    }
+        }
+    }
+}
+```
 
 # NODE RULES  @IDX@ pipewire.conf
 

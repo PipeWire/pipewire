@@ -24,6 +24,10 @@ int pw_conf_save_state(const char *prefix, const char *name, const struct pw_pro
 int pw_conf_section_update_props(const struct spa_dict *conf,
 		const char *section, struct pw_properties *props);
 
+int pw_conf_section_update_props_rules(const struct spa_dict *conf,
+		const struct spa_dict *context, const char *section,
+		struct pw_properties *props);
+
 int pw_conf_section_for_each(const struct spa_dict *conf, const char *section,
 		int (*callback) (void *data, const char *location, const char *section,
 			const char *str, size_t len),

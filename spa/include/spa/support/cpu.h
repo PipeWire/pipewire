@@ -87,6 +87,46 @@ struct spa_cpu { struct spa_interface iface; };
 #define SPA_CPU_VM_ACRN			(1 << 13)
 #define SPA_CPU_VM_POWERVM		(1 << 14)
 
+static inline const char *spa_cpu_vm_type_to_string(uint32_t vm_type)
+{
+	switch(vm_type) {
+	case SPA_CPU_VM_NONE:
+		return NULL;
+	case SPA_CPU_VM_KVM:
+		return "kvm";
+	case SPA_CPU_VM_QEMU:
+		return "qemu";
+	case SPA_CPU_VM_BOCHS:
+		return "bochs";
+	case SPA_CPU_VM_XEN:
+		return "xen";
+	case SPA_CPU_VM_UML:
+		return "uml";
+	case SPA_CPU_VM_VMWARE:
+		return "vmware";
+	case SPA_CPU_VM_ORACLE:
+		return "oracle";
+	case SPA_CPU_VM_MICROSOFT:
+		return "microsoft";
+	case SPA_CPU_VM_ZVM:
+		return "zvm";
+	case SPA_CPU_VM_PARALLELS:
+		return "parallels";
+	case SPA_CPU_VM_BHYVE:
+		return "bhyve";
+	case SPA_CPU_VM_QNX:
+		return "qnx";
+	case SPA_CPU_VM_ACRN:
+		return "acrn";
+	case SPA_CPU_VM_POWERVM:
+		return "powervm";
+	case SPA_CPU_VM_OTHER:
+		return "other";
+	default:
+		return "unknown";
+	}
+}
+
 /**
  * methods
  */

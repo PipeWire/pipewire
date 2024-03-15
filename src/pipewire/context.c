@@ -180,7 +180,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	struct pw_context *this;
 	const char *lib, *str;
 	void *dbus_iface = NULL;
-	uint32_t n_support;
+	uint32_t n_support, vm_type;
 	struct pw_properties *pr, *conf;
 	struct spa_cpu *cpu;
 	int res = 0;
@@ -244,6 +244,10 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	n_support = pw_get_support(this->support, SPA_N_ELEMENTS(this->support) - 6);
 	cpu = spa_support_find(this->support, n_support, SPA_TYPE_INTERFACE_CPU);
 
+	vm_type = SPA_CPU_VM_NONE;
+	if (cpu != NULL && (vm_type = spa_cpu_get_vm_type(cpu)) != SPA_CPU_VM_NONE)
+		pw_properties_set(properties, "cpu.vm.name", spa_cpu_vm_type_to_string(vm_type));
+
 	res = pw_context_conf_update_props(this, "context.properties", properties);
 	pw_log_info("%p: parsed %d context.properties items", this, res);
 
@@ -253,7 +257,9 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	}
 
 	if ((str = pw_properties_get(properties, "vm.overrides")) != NULL) {
-		if (cpu != NULL && spa_cpu_get_vm_type(cpu) != SPA_CPU_VM_NONE)
+		pw_log_warn("vm.overrides in context.properties are deprecated, "
+				"use context.properties.rules instead");
+		if (vm_type != SPA_CPU_VM_NONE)
 			pw_properties_update_string(properties, str, strlen(str));
 		pw_properties_set(properties, "vm.overrides", NULL);
 	}

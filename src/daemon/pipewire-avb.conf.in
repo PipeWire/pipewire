@@ -67,7 +67,14 @@ avb.properties = {
     # the addresses this server listens on
     #ifname = "eth0.2"
     ifname = "enp3s0"
-    # These overrides are only applied when running in a vm.
-    vm.overrides = {
+}
+
+avb.properties.rules = [
+    {   matches = [ { cpu.vm.name = !null } ]
+        actions = {
+            update-props = {
+                # These overrides are only applied when running in a vm.
+	    }
+        }
     }
 }

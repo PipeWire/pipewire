@@ -986,24 +986,36 @@ static int update_props(void *user_data, const char *location, const char *key,
 }
 
 SPA_EXPORT
-int pw_conf_section_update_props(const struct spa_dict *conf,
-		const char *section, struct pw_properties *props)
+int pw_conf_section_update_props_rules(const struct spa_dict *conf,
+		const struct spa_dict *context, const char *section,
+		struct pw_properties *props)
 {
 	struct data data = { .props = props };
 	int res;
 	const char *str;
+	char key[128];
 
 	res = pw_conf_section_for_each(conf, section,
 			update_props, &data);
 
 	str = pw_properties_get(props, "config.ext");
 	if (res == 0 && str != NULL) {
-		char key[128];
 		snprintf(key, sizeof(key), "%s.%s", section, str);
 		res = pw_conf_section_for_each(conf, key,
 				update_props, &data);
 	}
+	if (res == 0 && context != NULL) {
+		snprintf(key, sizeof(key), "%s.rules", section);
+		res = pw_conf_section_match_rules(conf, key, context, update_props, &data);
+	}
 	return res == 0 ? data.count : res;
+}
+
+SPA_EXPORT
+int pw_conf_section_update_props(const struct spa_dict *conf,
+		const char *section, struct pw_properties *props)
+{
+	return pw_conf_section_update_props_rules(conf, NULL, section, props);
 }
 
 static bool valid_conf_name(const char *str)
@@ -1208,8 +1220,8 @@ SPA_EXPORT
 int pw_context_conf_update_props(struct pw_context *context,
 		const char *section, struct pw_properties *props)
 {
-	return pw_conf_section_update_props(&context->conf->dict,
-			section, props);
+	return pw_conf_section_update_props_rules(&context->conf->dict,
+			&context->properties->dict, section, props);
 }
 
 SPA_EXPORT

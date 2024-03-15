@@ -40,11 +40,6 @@ context.properties = {
     #
     settings.check-quantum      = true
     settings.check-rate         = true
-    #
-    # These overrides are only applied when running in a vm.
-    vm.overrides = {
-        default.clock.min-quantum = 1024
-    }
 
     # This config can use udev or hardcoded ALSA devices. Make sure to
     # change the alsa device below when disabling udev
@@ -52,6 +47,17 @@ context.properties = {
 
     # Load the pulseaudio emulation daemon
     minimal.use-pulse = true
+}
+
+context.properties.rules = [
+    {   matches = [ { cpu.vm.name = !null } ]
+        actions = {
+            update-props = {
+                # These overrides are only applied when running in a vm.
+                default.clock.min-quantum = 1024
+	    }
+        }
+    }
 }
 
 context.spa-libs = {

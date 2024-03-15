@@ -32,6 +32,8 @@ struct pw_avb *pw_avb_new(struct pw_context *context,
 	pw_context_conf_update_props(context, "avb.properties", props);
 
 	if ((str = pw_properties_get(props, "vm.overrides")) != NULL) {
+		pw_log_warn("vm.overrides in avb.properties are deprecated, "
+				"use avb.properties.rules instead");
 		if (cpu != NULL && spa_cpu_get_vm_type(cpu) != SPA_CPU_VM_NONE)
 			pw_properties_update_string(props, str, strlen(str));
 		pw_properties_set(props, "vm.overrides", NULL);

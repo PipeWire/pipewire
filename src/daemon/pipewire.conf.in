@@ -40,11 +40,6 @@ context.properties = {
     #
     #settings.check-quantum      = false
     #settings.check-rate         = false
-    #
-    # These overrides are only applied when running in a vm.
-    vm.overrides = {
-        default.clock.min-quantum = 1024
-    }
 
     # keys checked below to disable module loading
     module.x11.bell = true
@@ -53,6 +48,17 @@ context.properties = {
     module.access = true
     # enables autoloading of module-jackdbus-detect
     module.jackdbus-detect = true
+}
+
+context.properties.rules = [
+    {   matches = [ { cpu.vm.name = !null } ]
+        actions = {
+            update-props = {
+                # These overrides are only applied when running in a vm.
+                default.clock.min-quantum = 1024
+	    }
+        }
+    }
 }
 
 context.spa-libs = {

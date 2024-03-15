@@ -103,6 +103,8 @@ static void test_create(void)
 	context = pw_context_new(pw_main_loop_get_loop(loop), NULL, 12);
 	spa_assert_se(context != NULL);
 	core = pw_context_connect(context, NULL, 0);
+	if (core == NULL && errno == EHOSTDOWN)
+		return;
 	spa_assert_se(core != NULL);
 
 	spa_zero(info);

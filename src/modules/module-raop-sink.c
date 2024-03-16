@@ -26,6 +26,7 @@
 #include <openssl/engine.h>
 #include <openssl/aes.h>
 #include <openssl/md5.h>
+#include <openssl/evp.h>
 
 #include "config.h"
 

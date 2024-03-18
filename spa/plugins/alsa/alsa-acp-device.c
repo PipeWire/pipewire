@@ -130,12 +130,12 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	struct spa_dict_item *items;
 	const struct acp_dict_item *it;
 	uint32_t n_items, i;
-	char device_name[128], path[180], channels[16], ch[12], routes[16];
-	char card_index[16], *p;
+	char device_name[128], path[210], channels[16], ch[12], routes[16];
+	char card_index[16], card_name[64], *p;
 	char positions[SPA_AUDIO_MAX_CHANNELS * 12];
 	struct spa_device_object_info info;
 	struct acp_card *card = this->card;
-	const char *stream, *devstr;
+	const char *stream, *devstr, *card_id;
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
 	info.type = SPA_TYPE_INTERFACE_Node;
@@ -154,6 +154,8 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	n_items = 0;
 
 	snprintf(card_index, sizeof(card_index), "%d", card->index);
+	card_id = acp_dict_lookup(&card->props, "alsa.id");
+	snprintf(card_name, sizeof(card_name), "%s", card_id ? card_id : card_index);
 
 	devstr = dev->device_strings[0];
 	p = strstr(devstr, "%f");
@@ -164,7 +166,8 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	} else {
 		snprintf(device_name, sizeof(device_name), "%s", devstr);
 	}
-	snprintf(path, sizeof(path), "alsa:pcm:%s:%s:%s", card_index, device_name, stream);
+
+	snprintf(path, sizeof(path), "alsa:acp:%s:%d:%s", card_name, dev->index, stream);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_OBJECT_PATH, path);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH, device_name);
 	if (dev->flags & ACP_DEVICE_UCM_DEVICE)
@@ -204,6 +207,7 @@ static int emit_info(struct impl *this, bool full)
 	struct acp_card *card = this->card;
 	char path[128];
 	uint64_t old = full ? this->info.change_mask : 0;
+	const char *card_id;
 
 	if (full)
 		this->info.change_mask = this->info_all;
@@ -211,11 +215,16 @@ static int emit_info(struct impl *this, bool full)
 		n_items = card->props.n_items + 4;
 		items = alloca(n_items * sizeof(*items));
 
+		card_id = acp_dict_lookup(&card->props, "alsa.id");
+
 		n_items = 0;
 #define ADD_ITEM(key, value) items[n_items++] = SPA_DICT_ITEM_INIT(key, value)
-		snprintf(path, sizeof(path), "alsa:pcm:%d", card->index);
+		if (card_id)
+			snprintf(path, sizeof(path), "alsa:acp:%s", card_id);
+		else
+			snprintf(path, sizeof(path), "alsa:acp:%d", card->index);
 		ADD_ITEM(SPA_KEY_OBJECT_PATH, path);
-		ADD_ITEM(SPA_KEY_DEVICE_API, "alsa:pcm");
+		ADD_ITEM(SPA_KEY_DEVICE_API, "alsa:acp");
 		ADD_ITEM(SPA_KEY_MEDIA_CLASS, "Audio/Device");
 		ADD_ITEM(SPA_KEY_API_ALSA_PATH,	(char *)this->props.device);
 		acp_dict_for_each(it, &card->props)

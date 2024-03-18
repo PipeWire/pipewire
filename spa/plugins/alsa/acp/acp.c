@@ -1625,16 +1625,6 @@ static void prune_singleton_availability_groups(pa_hashmap *ports) {
     pa_hashmap_free(group_counts);
 }
 
-static const char *acp_dict_lookup(const struct acp_dict *dict, const char *key)
-{
-	const struct acp_dict_item *it;
-	acp_dict_for_each(it, dict) {
-		if (spa_streq(key, it->key))
-			return it->value;
-	}
-	return NULL;
-}
-
 struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 {
 	pa_card *impl;

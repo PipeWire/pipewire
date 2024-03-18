@@ -15,6 +15,7 @@ extern "C" {
 #include <stdarg.h>
 #include <stdint.h>
 #include <poll.h>
+#include <string.h>
 
 #ifdef __GNUC__
 #define ACP_PRINTF_FUNC(fmt, arg1) __attribute__((format(printf, fmt, arg1)))
@@ -102,6 +103,15 @@ struct acp_format {
 	for ((item) = (dict)->items;				\
 	     (item) < &(dict)->items[(dict)->n_items];		\
 	     (item)++)
+
+static inline const char *acp_dict_lookup(const struct acp_dict *dict, const char *key)
+{
+	const struct acp_dict_item *it;
+	acp_dict_for_each(it, dict)
+		if (strcmp(key, it->key) == 0)
+			return it->value;
+	return NULL;
+}
 
 enum acp_direction {
 	ACP_DIRECTION_PLAYBACK = 1,

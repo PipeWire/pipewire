@@ -123,9 +123,7 @@ void pa_alsa_refcnt_dec(void);
 void pa_alsa_init_proplist_pcm_info(pa_core *c, pa_proplist *p, snd_pcm_info_t *pcm_info);
 void pa_alsa_init_proplist_card(pa_core *c, pa_proplist *p, int card);
 void pa_alsa_init_proplist_pcm(pa_core *c, pa_proplist *p, snd_pcm_t *pcm);
-#if 0
 void pa_alsa_init_proplist_ctl(pa_proplist *p, const char *name);
-#endif
 bool pa_alsa_init_description(pa_proplist *p, pa_card *card);
 
 #if 0

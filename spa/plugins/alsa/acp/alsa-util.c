@@ -929,7 +929,7 @@ bool pa_alsa_init_description(pa_proplist *p, pa_card *card) {
 }
 
 void pa_alsa_init_proplist_card(pa_core *c, pa_proplist *p, int card) {
-    char *cn, *lcn, *dn;
+    char *cn, *lcn, *dn, name[64];
 
     pa_assert(p);
     pa_assert(card >= 0);
@@ -950,6 +950,9 @@ void pa_alsa_init_proplist_card(pa_core *c, pa_proplist *p, int card) {
         pa_proplist_sets(p, "alsa.driver_name", dn);
         pa_xfree(dn);
     }
+
+    snprintf(name, sizeof(name), "hw:%d", card);
+    pa_alsa_init_proplist_ctl(p, name);
 
 #ifdef HAVE_UDEV
     pa_udev_get_info(card, p);
@@ -1037,7 +1040,6 @@ void pa_alsa_init_proplist_pcm(pa_core *c, pa_proplist *p, snd_pcm_t *pcm) {
         pa_alsa_init_proplist_pcm_info(c, p, info);
 }
 
-#if 0
 void pa_alsa_init_proplist_ctl(pa_proplist *p, const char *name) {
     int err;
     snd_ctl_t *ctl;
@@ -1065,9 +1067,13 @@ void pa_alsa_init_proplist_ctl(pa_proplist *p, const char *name) {
     if ((t = snd_ctl_card_info_get_components(info)) && *t)
         pa_proplist_sets(p, "alsa.components", t);
 
+    if ((t = snd_ctl_card_info_get_id(info)) && *t)
+        pa_proplist_sets(p, "alsa.id", t);
+
     snd_ctl_close(ctl);
 }
 
+#if 0
 int pa_alsa_recover_from_poll(snd_pcm_t *pcm, int revents) {
     snd_pcm_state_t state;
     snd_pcm_hw_params_t *hwparams;

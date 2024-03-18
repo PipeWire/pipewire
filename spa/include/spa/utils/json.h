@@ -339,7 +339,7 @@ static inline int spa_json_parse_stringn(const char *val, int len, char *result,
 		return -1;
 	if (!spa_json_is_string(val, len)) {
 		if (result != val)
-			strncpy(result, val, len);
+			memmove(result, val, len);
 		result += len;
 	} else {
 		for (p = val+1; p < val + len; p++) {

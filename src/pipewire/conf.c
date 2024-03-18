@@ -594,6 +594,14 @@ static int load_module(struct pw_context *context, const char *key, const char *
  *     <key> = <value>
  *     ...
  * }
+ *
+ * Some things that can match:
+ *
+ *  null -> matches when the property is not found
+ *  "null" -> matches when the property is found and has the string "null"
+ *  !null -> matches when the property is found (any value)
+ *  "!null" -> same as !null
+ *  !"null" and "!\"null\"" matches anything that is not the string "null"
  */
 static bool find_match(struct spa_json *arr, const struct spa_dict *props)
 {
@@ -606,47 +614,66 @@ static bool find_match(struct spa_json *arr, const struct spa_dict *props)
 		int len;
 
 		while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
-			bool success = false, is_null;
+			bool success = false, is_null, reg = false, parse_string = true;
 			int skip = 0;
 
 			if ((len = spa_json_next(&it[0], &value)) <= 0)
 				break;
 
-			if (len > 0 && value[0] == '!') {
+			/* first decode a string, when there was a string, we assume it
+			 * can not be null but the "null" string, unless there is a modifier,
+			 * see below. */
+			if (spa_json_is_string(value, len)) {
+				if (spa_json_parse_stringn(value, len, val, sizeof(val)) < 0)
+					continue;
+				value = val;
+				len = strlen(val);
+				parse_string = false;
+			}
+
+			/* parse the modifiers, after the modifier we unescape the string
+			 * again to be able to detect and handle null and "null" */
+			if (len > skip && value[skip] == '!') {
 				success = !success;
 				skip++;
+				parse_string = true;
+			}
+			if (len > skip && value[skip] == '~') {
+				reg = true;
+				skip++;
+				parse_string = true;
 			}
 
 			str = spa_dict_lookup(props, key);
 
-			is_null = spa_json_is_null(value+skip, len-skip);
+			/* parse the remaining part of the string, if there was a modifier,
+			 * we need to check for null again. Otherwise null was in quotes without
+			 * a modifier. */
+			is_null = parse_string && spa_json_is_null(value+skip, len-skip);
 			if (is_null || str == NULL) {
 				if (is_null && str == NULL)
 					success = !success;
 			} else {
-				if (spa_json_parse_stringn(value+skip, len-skip, val, sizeof(val)) < 0)
+				/* only unescape string once or again after modifier */
+				if (!parse_string) {
+					memmove(val, value+skip, len-skip);
+					val[len-skip] = '\0';
+				} else if (spa_json_parse_stringn(value+skip, len-skip, val, sizeof(val)) < 0)
 					continue;
-				value = val;
-				len = strlen(val);
-				if (len > 0 && value[0] == '!') {
-					success = !success;
-					skip++;
-				}
-				if (value[skip] == '~') {
+
+				if (reg) {
 					regex_t preg;
 					int res;
-					skip++;
-					if ((res = regcomp(&preg, value+skip, REG_EXTENDED | REG_NOSUB)) != 0) {
+					if ((res = regcomp(&preg, val, REG_EXTENDED | REG_NOSUB)) != 0) {
 						char errbuf[1024];
 						regerror(res, &preg, errbuf, sizeof(errbuf));
-						pw_log_warn("invalid regex %s: %s", value+skip, errbuf);
+						pw_log_warn("invalid regex %s: %s", val, errbuf);
 					} else {
 						if (regexec(&preg, str, 0, NULL, 0) == 0)
 							success = !success;
 						regfree(&preg);
 					}
-				} else if (strncmp(str, value+skip, len-skip) == 0 &&
-				    strlen(str) == (size_t)(len-skip)) {
+				} else if (strcmp(str, val) == 0) {
 					success = !success;
 				}
 			}

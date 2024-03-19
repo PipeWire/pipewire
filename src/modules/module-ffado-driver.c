@@ -962,6 +962,21 @@ again:
 	if (impl->position) {
 		struct spa_io_clock *c = &impl->position->clock;
 
+#if 0
+		if (c->target_duration != (uint64_t) impl->period_size) {
+			ffado_streaming_transfer_capture_buffers(impl->dev);
+			silence_playback(impl);
+
+			if (ffado_streaming_set_period_size(impl->dev, c->target_duration) != 0) {
+				pw_log_warn("can't change period size");
+			} else {
+				sleep(1);
+				impl->period_size = c->target_duration;
+			}
+			goto again;
+		}
+#endif
+
 		c->nsec = nsec;
 		c->rate = SPA_FRACTION(1, impl->sample_rate);
 		c->position += impl->period_size;
@@ -1059,8 +1074,9 @@ static int open_ffado_device(struct impl *impl)
 		return -EIO;
 	}
 
-	pw_log_info("opened FFADO device %s source:%d sink:%d",
-			impl->devices[0], impl->source.n_ports, impl->sink.n_ports);
+	pw_log_info("opened FFADO device %s source:%d sink:%d rate:%d period:%d %p",
+			impl->devices[0], impl->source.n_ports, impl->sink.n_ports,
+			impl->sample_rate, impl->period_size, impl->position);
 
 	return 0;
 }

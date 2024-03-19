@@ -138,8 +138,15 @@ static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
+struct port_data {
+	struct port *port;
+};
+
 struct port {
 	enum spa_direction direction;
+	ffado_streaming_stream_type stream_type;
+	char name[280];
+
 	struct spa_latency_info latency[2];
 	bool latency_changed[2];
 	unsigned int is_midi:1;
@@ -153,6 +160,7 @@ struct port {
 	uint32_t event_pos;
 	int event_pending;
 
+	struct port_data *data;
 };
 
 struct volume {
@@ -238,6 +246,8 @@ struct impl {
 	unsigned int new_xrun:1;
 };
 
+static int stop_ffado_device(struct impl *impl);
+static int start_ffado_device(struct impl *impl);
 static void schedule_reset_ffado_device(struct impl *impl);
 
 static void reset_volume(struct volume *vol, uint32_t n_volumes)
@@ -491,37 +501,6 @@ static int set_timeout(struct impl *impl, uint64_t time)
 	return 0;
 }
 
-static int start_ffado_device(struct impl *impl)
-{
-	if (impl->started)
-		return 0;
-
-	if (ffado_streaming_start(impl->dev)) {
-		pw_log_warn("Could not start FFADO streaming, try reset");
-		schedule_reset_ffado_device(impl);
-		return -EIO;
-	}
-	pw_log_info("FFADO started streaming");
-	impl->started = true;
-	impl->done = true;
-	set_timeout(impl, get_time_ns(impl));
-	return 0;
-}
-
-static int stop_ffado_device(struct impl *impl)
-{
-	if (!impl->started)
-		return 0;
-
-	impl->started = false;
-	set_timeout(impl, 0);
-	if (ffado_streaming_stop(impl->dev))
-		pw_log_error("Could not stop FFADO streaming");
-	else
-		pw_log_info("FFADO stopped streaming");
-	return 0;
-}
-
 static void stream_destroy(void *d)
 {
 	struct stream *s = d;
@@ -531,7 +510,7 @@ static void stream_destroy(void *d)
 		if (p != NULL) {
 			s->ports[i] = NULL;
 			free(p->buffer);
-			spa_zero(*p);
+			free(p);
 		}
 	}
 	s->n_ports = 0;
@@ -557,8 +536,8 @@ static void stream_state_changed(void *d, enum pw_filter_state old,
 			stop_ffado_device(impl);
 		break;
 	case PW_FILTER_STATE_STREAMING:
-		s->running = true;
-		start_ffado_device(impl);
+		if (start_ffado_device(impl) >= 0)
+			s->running = true;
 		break;
 	default:
 		break;
@@ -580,10 +559,10 @@ static void sink_process(void *d, struct spa_io_position *position)
 	for (i = 0; i < s->n_ports; i++) {
 		struct port *p = s->ports[i];
 		float *src;
-		if (p == NULL)
+		if (p == NULL || p->data == NULL)
 			continue;
 
-		src = pw_filter_get_dsp_buffer(p, n_samples);
+		src = pw_filter_get_dsp_buffer(p->data, n_samples);
 		if (src == NULL) {
 			clear_port_buffer(p, n_samples);
 			continue;
@@ -641,10 +620,10 @@ static void source_process(void *d, struct spa_io_position *position)
 		struct port *p = s->ports[i];
 		float *dst;
 
-		if (p == NULL || p->buffer == NULL)
+		if (p == NULL || p->data == NULL || p->buffer == NULL)
 			continue;
 
-		dst = pw_filter_get_dsp_buffer(p, n_samples);
+		dst = pw_filter_get_dsp_buffer(p->data, n_samples);
 		if (dst == NULL)
 			continue;
 
@@ -671,8 +650,9 @@ static void stream_io_changed(void *data, void *port_data, uint32_t id, void *ar
 }
 
 static void param_latency_changed(struct stream *s, const struct spa_pod *param,
-		struct port *port)
+		struct port_data *data)
 {
+	struct port *port = data->port;
 	struct spa_latency_info latency;
 	bool update = false;
 	enum spa_direction direction = port->direction;
@@ -690,7 +670,6 @@ static void make_stream_ports(struct stream *s)
 {
 	struct impl *impl = s->impl;
 	struct pw_properties *props;
-	char name[512];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	struct spa_latency_info latency;
@@ -700,35 +679,25 @@ static void make_stream_ports(struct stream *s)
 
 	for (i = 0; i < s->n_ports; i++) {
 		struct port *port = s->ports[i];
-		if (port != NULL) {
-			s->ports[i] = NULL;
+		if (port->data != NULL) {
 			free(port->buffer);
-			pw_filter_remove_port(port);
+			pw_filter_remove_port(port->data);
+			port->data = NULL;
 		}
 	}
 	for (i = 0; i < s->n_ports; i++) {
 		struct port *port = s->ports[i];
-		ffado_streaming_stream_type stream_type;
-		char portname[256], channel[32];
+		char channel[32];
 
-		if (s->direction == PW_DIRECTION_INPUT) {
-			ffado_streaming_get_playback_stream_name(impl->dev, i, portname, sizeof(portname));
-			stream_type = ffado_streaming_get_playback_stream_type(impl->dev, i);
-			snprintf(name, sizeof(name), "%s_out", portname);
-		} else {
-			ffado_streaming_get_capture_stream_name(impl->dev, i, portname, sizeof(portname));
-			stream_type = ffado_streaming_get_capture_stream_type(impl->dev, i);
-			snprintf(name, sizeof(name), "%s_in", portname);
-		}
 		snprintf(channel, sizeof(channel), "AUX%u", n_channels % SPA_AUDIO_MAX_CHANNELS);
 
-		switch (stream_type) {
+		switch (port->stream_type) {
 		case ffado_stream_type_audio:
 			props = pw_properties_new(
 					PW_KEY_FORMAT_DSP, "32 bit float mono audio",
 					PW_KEY_PORT_PHYSICAL, "true",
 					PW_KEY_PORT_TERMINAL, "true",
-					PW_KEY_PORT_NAME, name,
+					PW_KEY_PORT_NAME, port->name,
 					PW_KEY_AUDIO_CHANNEL, channel,
 					NULL);
 			is_midi = false;
@@ -737,7 +706,7 @@ static void make_stream_ports(struct stream *s)
 		case ffado_stream_type_midi:
 			props = pw_properties_new(
 					PW_KEY_FORMAT_DSP, "8 bit raw midi",
-					PW_KEY_PORT_NAME, name,
+					PW_KEY_PORT_NAME, port->name,
 					PW_KEY_PORT_PHYSICAL, "true",
 					PW_KEY_PORT_TERMINAL, "true",
 					PW_KEY_PORT_CONTROL, "true",
@@ -747,7 +716,7 @@ static void make_stream_ports(struct stream *s)
 			break;
 		default:
 			pw_log_info("not registering unknown stream %d %s (type %d)", i,
-					name, stream_type);
+					port->name, port->stream_type);
 			continue;
 
 		}
@@ -761,15 +730,15 @@ static void make_stream_ports(struct stream *s)
 		n_params = 0;
 		params[n_params++] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
 
-		port = pw_filter_add_port(s->filter,
+		port->data = pw_filter_add_port(s->filter,
                         s->direction,
                         PW_FILTER_PORT_FLAG_MAP_BUFFERS,
-                        sizeof(struct port),
-			props, params, n_params);
-		if (port == NULL) {
+                        sizeof(struct port_data), props, params, n_params);
+		if (port->data == NULL) {
 			pw_log_error("Can't create port: %m");
 			return;
 		}
+		port->data->port = port;
 
 		port->latency[s->direction] = latency;
 		port->is_midi = is_midi;
@@ -778,21 +747,28 @@ static void make_stream_ports(struct stream *s)
 			pw_log_error("Can't create port buffer: %m");
 			return;
 		}
+	}
+}
+
+static void setup_stream_ports(struct stream *s)
+{
+	struct impl *impl = s->impl;
+	uint32_t i;
+	for (i = 0; i < s->n_ports; i++) {
+		struct port *port = s->ports[i];
 		if (s->direction == PW_DIRECTION_INPUT) {
 			if (ffado_streaming_set_playback_stream_buffer(impl->dev, i, port->buffer))
-				pw_log_error("cannot configure port buffer for %s", name);
+				pw_log_error("cannot configure port buffer for %s", port->name);
 
 			if (ffado_streaming_playback_stream_onoff(impl->dev, i, 1))
-				pw_log_error("cannot enable port %s", name);
+				pw_log_error("cannot enable port %s", port->name);
 		} else {
 			if (ffado_streaming_set_capture_stream_buffer(impl->dev, i, port->buffer))
-				pw_log_error("cannot configure port buffer for %s", name);
+				pw_log_error("cannot configure port buffer for %s", port->name);
 
 			if (ffado_streaming_capture_stream_onoff(impl->dev, i, 1))
-				pw_log_error("cannot enable port %s", name);
+				pw_log_error("cannot enable port %s", port->name);
 		}
-
-		s->ports[i] = port;
 	}
 }
 
@@ -1013,19 +989,41 @@ again:
 	}
 }
 
+static void close_ffado_device(struct impl *impl)
+{
+	if (impl->dev == NULL)
+		return;
+
+	stop_ffado_device(impl);
+	ffado_streaming_finish(impl->dev);
+	impl->dev = NULL;
+
+	pw_log_info("closed FFADO device %s", impl->devices[0]);
+}
+
 static int open_ffado_device(struct impl *impl)
 {
-	ffado_streaming_stream_type stream_type;
-	uint32_t i, n_channels;
-	int res;
+	int32_t target_rate, target_period;
+
+	if (impl->dev != NULL)
+		return 0;
+
+	if (impl->position) {
+		struct spa_io_clock *c = &impl->position->clock;
+		target_rate = c->target_rate.denom;
+		target_period = c->target_duration;
+	} else {
+		target_rate = impl->sample_rate;
+		target_period = impl->period_size;
+	}
 
 	spa_zero(impl->device_info);
 	impl->device_info.device_spec_strings = impl->devices;
 	impl->device_info.nb_device_spec_strings = impl->n_devices;
 
 	spa_zero(impl->device_options);
-	impl->device_options.sample_rate = impl->sample_rate;
-	impl->device_options.period_size = impl->period_size;
+	impl->device_options.sample_rate = target_rate;
+	impl->device_options.period_size = target_period;
 	impl->device_options.nb_buffers = impl->n_periods;
 	impl->device_options.realtime = 1;
 	impl->device_options.packetizer_priority = RTPRIO_SERVER + FFADO_RT_PRIORITY_PACKETIZER_RELATIVE;
@@ -1049,21 +1047,53 @@ static int open_ffado_device(struct impl *impl)
 	ffado_streaming_set_audio_datatype(impl->dev, ffado_audio_datatype_float);
 
 	impl->sample_rate = impl->device_options.sample_rate;
+	impl->period_size = impl->device_options.period_size;
 	impl->source.info.rate = impl->sample_rate;
 	impl->sink.info.rate = impl->sample_rate;
 
 	impl->source.n_ports = ffado_streaming_get_nb_capture_streams(impl->dev);
+	impl->sink.n_ports = ffado_streaming_get_nb_playback_streams(impl->dev);
+
+	if (impl->source.n_ports == 0 && impl->sink.n_ports == 0) {
+		close_ffado_device(impl);
+		return -EIO;
+	}
+
+	pw_log_info("opened FFADO device %s source:%d sink:%d",
+			impl->devices[0], impl->source.n_ports, impl->sink.n_ports);
+
+	return 0;
+}
+
+static int probe_ffado_device(struct impl *impl)
+{
+	int res;
+	uint32_t i, n_channels;
+	struct port *port;
+	char name[256];
+
+	if ((res = open_ffado_device(impl)) < 0)
+		return res;
 
 	n_channels = 0;
 	for (i = 0; i < impl->source.n_ports; i++) {
-		stream_type = ffado_streaming_get_capture_stream_type(impl->dev, i);
-		switch (stream_type) {
+		port = calloc(1, sizeof(struct port));
+		if (port == NULL)
+			return -errno;
+
+		port->direction = impl->source.direction;
+		port->stream_type = ffado_streaming_get_capture_stream_type(impl->dev, i);
+		ffado_streaming_get_capture_stream_name(impl->dev, i, name, sizeof(name));
+		snprintf(port->name, sizeof(port->name), "%s_out", name);
+
+		switch (port->stream_type) {
 		case ffado_stream_type_audio:
 			n_channels++;
 			break;
 		default:
 			break;
 		}
+		impl->source.ports[i] = port;
 	}
 	if (impl->source.info.channels != n_channels) {
 		impl->source.info.channels = n_channels;
@@ -1072,53 +1102,95 @@ static int open_ffado_device(struct impl *impl)
 	}
 
 	n_channels = 0;
-	impl->sink.n_ports = ffado_streaming_get_nb_playback_streams(impl->dev);
 	for (i = 0; i < impl->sink.n_ports; i++) {
-		stream_type = ffado_streaming_get_playback_stream_type(impl->dev, i);
-		switch (stream_type) {
+		port = calloc(1, sizeof(struct port));
+		if (port == NULL)
+			return -errno;
+
+		port->direction = impl->sink.direction;
+		port->stream_type = ffado_streaming_get_playback_stream_type(impl->dev, i);
+		ffado_streaming_get_playback_stream_name(impl->dev, i, name, sizeof(name));
+		snprintf(port->name, sizeof(port->name), "%s_in", name);
+
+		switch (port->stream_type) {
 		case ffado_stream_type_audio:
 			n_channels++;
 			break;
 		default:
 			break;
 		}
+		impl->sink.ports[i] = port;
 	}
 	if (impl->sink.info.channels != n_channels) {
 		impl->sink.info.channels = n_channels;
 		for (i = 0; i < SPA_MIN(impl->sink.info.channels, SPA_AUDIO_MAX_CHANNELS); i++)
 			impl->sink.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 	}
-	if (ffado_streaming_prepare(impl->dev)) {
-		pw_log_error("Could not prepare streaming");
-		res = -EIO;
-		goto error;
-	}
+
 	if (impl->mode & MODE_SINK) {
 		if ((res = make_stream(&impl->sink, "FFADO Sink")) < 0)
-			goto error;
+			goto exit;
 	}
 	if (impl->mode & MODE_SOURCE) {
 		if ((res = make_stream(&impl->source, "FFADO Source")) < 0)
-			goto error;
+			goto exit;
 	}
-	return 0;
+exit:
+	close_ffado_device(impl);
 
-error:
-	ffado_streaming_finish(impl->dev);
-	impl->dev = NULL;
 	return res;
 }
 
-static void close_ffado_device(struct impl *impl)
+
+static int start_ffado_device(struct impl *impl)
 {
-	destroy_stream(&impl->source);
-	destroy_stream(&impl->sink);
-	if (impl->dev) {
-		stop_ffado_device(impl);
-		ffado_streaming_finish(impl->dev);
-		impl->dev = NULL;
+	int res;
+
+	if (impl->started)
+		return 0;
+
+	if ((res = open_ffado_device(impl)) < 0)
+		return res;
+
+	setup_stream_ports(&impl->source);
+	setup_stream_ports(&impl->sink);
+
+	if (ffado_streaming_prepare(impl->dev)) {
+		pw_log_error("Could not prepare streaming");
+		schedule_reset_ffado_device(impl);
+		return -EIO;
 	}
+
+	if (ffado_streaming_start(impl->dev)) {
+		pw_log_warn("Could not start FFADO streaming, try reset");
+		schedule_reset_ffado_device(impl);
+		return -EIO;
+	}
+	pw_log_info("FFADO started streaming");
+
+	impl->started = true;
+	impl->done = true;
+	set_timeout(impl, get_time_ns(impl));
+	return 0;
 }
+
+static int stop_ffado_device(struct impl *impl)
+{
+	if (!impl->started)
+		return 0;
+
+	impl->started = false;
+	set_timeout(impl, 0);
+	if (ffado_streaming_stop(impl->dev))
+		pw_log_error("Could not stop FFADO streaming");
+	else
+		pw_log_info("FFADO stopped streaming");
+
+	close_ffado_device(impl);
+
+	return 0;
+}
+
 
 static void do_reset_ffado(void *obj, void *data, int res, uint32_t id)
 {
@@ -1175,6 +1247,9 @@ static void impl_destroy(struct impl *impl)
 				     impl, SPA_ID_INVALID);
 
 	close_ffado_device(impl);
+
+	destroy_stream(&impl->source);
+	destroy_stream(&impl->sink);
 
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
@@ -1421,7 +1496,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			&impl->core_listener,
 			&core_events, impl);
 
-	if ((res = open_ffado_device(impl)) < 0)
+	if ((res = probe_ffado_device(impl)) < 0)
 		goto error;
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);

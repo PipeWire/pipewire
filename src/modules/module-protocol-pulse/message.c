@@ -122,6 +122,9 @@ static int read_props(struct message *m, struct pw_properties *props, bool remap
 				TAG_INVALID)) < 0)
 			return res;
 
+		if (length != size)
+			return -EINVAL;
+
 		if (remap && (map = str_map_find(props_key_map, NULL, key)) != NULL) {
 			key = map->pw_str;
 			if (map->child != NULL &&

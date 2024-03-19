@@ -125,6 +125,9 @@ static int read_props(struct message *m, struct pw_properties *props, bool remap
 		if (length != size)
 			return -EINVAL;
 
+		if (strnlen(data, size) != size - 1)
+			continue;
+
 		if (remap && (map = str_map_find(props_key_map, NULL, key)) != NULL) {
 			key = map->pw_str;
 			if (map->child != NULL &&

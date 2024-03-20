@@ -7,10 +7,10 @@
 
 #define spa_exchange(var, new_value) \
 __extension__ ({ \
-	__typeof__(var) *_ptr = &(var); \
-	__typeof__(var) _old_value = *_ptr; \
-	*_ptr = (new_value); \
-	_old_value; \
+	__typeof__(var) *_ptr_ = &(var); \
+	__typeof__(var) _old_value_ = *_ptr_; \
+	*_ptr_ = (new_value); \
+	_old_value_; \
 })
 
 /* ========================================================================== */

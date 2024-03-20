@@ -59,7 +59,7 @@ context.properties.rules = [
 	    }
         }
     }
-}
+]
 
 context.spa-libs = {
     #<factory-name regex> = <library-name>

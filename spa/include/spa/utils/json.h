@@ -281,12 +281,20 @@ static inline int spa_json_is_container(const char *val, int len)
 	return len > 0 && (*val == '{'  || *val == '[');
 }
 
+/**
+ * Return length of container at current position, starting at \a value.
+ *
+ * \return Length of container including {} or [], or 0 on error.
+ */
 static inline int spa_json_container_len(struct spa_json *iter, const char *value, int len SPA_UNUSED)
 {
 	const char *val;
 	struct spa_json sub;
+	int res;
 	spa_json_enter(iter, &sub);
-	while (spa_json_next(&sub, &val) > 0);
+	while ((res = spa_json_next(&sub, &val)) > 0);
+	if (res < 0)
+		return 0;
 	return sub.cur + 1 - value;
 }
 

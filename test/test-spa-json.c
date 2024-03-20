@@ -81,6 +81,26 @@ static void expect_end(struct spa_json *it)
 	pwtest_int_eq(memcmp(&it2, it, sizeof(*it)), 0);
 }
 
+static void expect_parse_error(struct spa_json *it, const char *str, int line, int col)
+{
+	const char *value;
+	struct spa_json it2;
+	int linepos, colpos;
+
+	pwtest_int_eq(spa_json_next(it, &value), -1);
+	pwtest_bool_true(spa_json_get_error(it, str, &linepos, &colpos));
+	pwtest_int_eq(linepos, line);
+	pwtest_int_eq(colpos, col);
+
+	/* parse error is idempotent also for parents */
+	while (it) {
+		memcpy(&it2, it, sizeof(*it));
+		pwtest_int_eq(spa_json_next(it, &value), -1);
+		pwtest_int_eq(memcmp(&it2, it, sizeof(*it)), 0);
+		it = it->parent;
+	}
+}
+
 static void expect_array(struct spa_json *it, struct spa_json *sub)
 {
 	pwtest_int_eq(spa_json_enter_array(it, sub), 1);
@@ -99,7 +119,7 @@ static void expect_string(struct spa_json *it, const char *str)
 	pwtest_int_gt((len = spa_json_next(it, &value)), 0);
 	check_type(TYPE_STRING, value, len);
 	s = alloca(len+1);
-	spa_json_parse_stringn(value, len, s, len+1);
+	pwtest_int_eq(spa_json_parse_stringn(value, len, s, len+1), 1);
 	pwtest_str_eq(s, str);
 }
 
@@ -158,9 +178,11 @@ static void expect_null(struct spa_json *it)
 
 PWTEST(json_parse)
 {
+	char buf[1024];
+	int i;
 	struct spa_json it[5];
 	const char *json = " { "
-			"\"foo\": \"bar\","
+			"\"foo\": \"bar\", # comment\n"
 			"\"foo\\\"  \":   true,       "
 			"\"foo \\n\\r\\t\": false,"
 			"  \"  arr\": [ true, false, null, 5, 5.7, \"str]\"],"
@@ -198,6 +220,8 @@ PWTEST(json_parse)
 	expect_float(&it[1], -1.8f);
 	expect_string(&it[1], "foo 6");
 	expect_float(&it[1], +2.8f);
+	expect_end(&it[1]);
+	expect_end(&it[0]);
 	/* in the array */
 	expect_type(&it[2], TYPE_TRUE);
 	expect_type(&it[2], TYPE_FALSE);
@@ -217,6 +241,79 @@ PWTEST(json_parse)
 	spa_json_enter(&it[3], &it[4]);
 	expect_string(&it[3], "1.9");
 	expect_float(&it[3], 1.9f);
+
+	expect_end(&it[3]);
+	expect_end(&it[2]);
+
+	pwtest_bool_false(spa_json_get_error(&it[0], NULL, NULL, NULL));
+	pwtest_bool_false(spa_json_get_error(&it[1], NULL, NULL, NULL));
+	pwtest_bool_false(spa_json_get_error(&it[2], NULL, NULL, NULL));
+	pwtest_bool_false(spa_json_get_error(&it[3], NULL, NULL, NULL));
+
+	json = "section={\"key\":value}, section2=[item1,item2]";
+
+	spa_json_init(&it[0], json, strlen(json));
+	expect_string_or_bare(&it[0], "section");
+	expect_object(&it[0], &it[1]);
+	expect_string_or_bare(&it[0], "section2");
+	expect_array(&it[0], &it[1]);
+	expect_end(&it[0]);
+
+	spa_json_init(&it[0], json, strlen(json));
+	expect_string_or_bare(&it[0], "section");
+	expect_object(&it[0], &it[1]);
+	expect_string(&it[1], "key");
+	expect_string_or_bare(&it[1], "value");
+	expect_string_or_bare(&it[0], "section2");
+	expect_array(&it[0], &it[1]);
+	expect_string_or_bare(&it[1], "item1");
+	expect_string_or_bare(&it[1], "item2");
+	expect_end(&it[0]);
+
+	/* 2-byte utf8 */
+	json = "\"\xc3\xa4\", \"\xc3\xa4\"";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_string(&it[0], "\xc3\xa4");
+	expect_string(&it[0], "\xc3\xa4");
+	expect_end(&it[0]);
+
+	/* 3-byte utf8 */
+	json = "\"\xe6\xad\xa3\", \"\xe6\xad\xa3\"";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_string(&it[0], "\xe6\xad\xa3");
+	expect_string(&it[0], "\xe6\xad\xa3");
+	expect_end(&it[0]);
+
+	/* 4-byte utf8 */
+	json = "\"\xf0\x92\x80\x80\", \"\xf0\x92\x80\x80\"";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_string(&it[0], "\xf0\x92\x80\x80");
+	expect_string(&it[0], "\xf0\x92\x80\x80");
+	expect_end(&it[0]);
+
+	/* run-in comment in bare */
+	json = "foo#comment";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_string_or_bare(&it[0], "foo");
+	expect_end(&it[0]);
+
+	/* end of parsing idempotent */
+	json = "{}";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_object(&it[0], &it[1]);
+	expect_end(&it[0]);
+	expect_end(&it[0]);
+
+	/* overflowing parser nesting stack is not an error */
+	for (i = 0; i < 256; ++i)
+		buf[i] = '[';
+	for (; i < 512; ++i)
+		buf[i] = ']';
+	buf[i++] = '\0';
+
+	spa_json_init(&it[0], buf, strlen(buf));
+	pwtest_int_eq(spa_json_next(&it[0], &value), 1);
+	expect_end(&it[0]);
 
 	/* non-null terminated strings OK */
 	json = "1.234";
@@ -263,6 +360,149 @@ PWTEST(json_parse)
 	spa_json_init(&it[0], json, 7);
 	expect_string(&it[0], "hello");
 	expect_end(&it[0]);
+
+	return PWTEST_PASS;
+}
+
+PWTEST(json_parse_fail)
+{
+	char buf[1024];
+	struct spa_json it[5];
+	const char *json, *value;
+	int i;
+
+	/* = in array */
+	json = "[ foo = bar ]";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_array(&it[0], &it[1]);
+	expect_string_or_bare(&it[1], "foo");
+	expect_parse_error(&it[1], json, 1, 7);
+	expect_parse_error(&it[1], json, 1, 7);  /* parse error is idempotent */
+	expect_parse_error(&it[0], json, 1, 7);  /* parse error visible in parent */
+
+	/* : in array */
+	json = "[ foo, bar\n : quux ]";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_array(&it[0], &it[1]);
+	expect_string_or_bare(&it[1], "foo");
+	expect_string_or_bare(&it[1], "bar");
+	expect_parse_error(&it[1], json, 2, 2);
+
+	/* missing ] */
+	json = "[ foo, bar";
+	spa_json_init(&it[0], json, strlen(json));
+	pwtest_int_eq(spa_json_next(&it[0], &value), 1);
+	expect_parse_error(&it[0], json, 1, 11);
+
+	/* spurious ] */
+	json = "foo, bar ]";
+	spa_json_init(&it[0], json, strlen(json));
+	pwtest_int_eq(spa_json_next(&it[0], &value), 3);
+	pwtest_int_eq(spa_json_next(&it[0], &value), 3);
+	expect_parse_error(&it[0], json, 1, 10);
+
+	/* spurious } */
+	json = "{ foo, bar } }";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_object(&it[0], &it[1]);
+	expect_parse_error(&it[0], json, 1, 14);
+
+	/* bad nesting */
+	json = "{ {[{[{[{[{[{[{[{[{[{[{[{[ ]}]}]}]}]}]}]}]}]}]}]}]} ]";
+	spa_json_init(&it[0], json, strlen(json));
+	pwtest_int_eq(spa_json_next(&it[0], &value), 1);
+	expect_parse_error(&it[0], json, 1, strlen(json));
+
+	/* bad nesting */
+	json = "[ {[{[{[{[{[{[{[{[{[{[{[{[ ]}]}]}]}]}]}]}]}]}]}]}]} }";
+	spa_json_init(&it[0], json, strlen(json));
+	pwtest_int_eq(spa_json_next(&it[0], &value), 1);
+	expect_parse_error(&it[0], json, 1, strlen(json));
+
+	/* unclosed string */
+	json = "\"foo";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_parse_error(&it[0], json, 1, 5);
+
+	/* unclosed string */
+	json = "foo\"";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_string_or_bare(&it[0], "foo");
+	expect_parse_error(&it[0], json, 1, 5);
+
+	/* unclosed string */
+	json = "foo\"bar";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_string_or_bare(&it[0], "foo");
+	expect_parse_error(&it[0], json, 1, 8);
+
+	/* unclosed escape */
+	json = "\"\\";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_parse_error(&it[0], json, 1, 3);
+
+	/* bare escape */
+	json = "foo\\n";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_parse_error(&it[0], json, 1, 4);
+
+	/* bare escape */
+	json = "\\nfoo";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_parse_error(&it[0], json, 1, 1);
+
+	/* bad nesting in subparser */
+	json = "{[]";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_object(&it[0], &it[1]);
+	expect_array(&it[1], &it[2]);
+	expect_parse_error(&it[1], json, 1, 4);
+
+	/* entered parser assumes nesting */
+	json = "[]";
+	spa_json_init(&it[0], json, strlen(json));
+	spa_json_enter(&it[0], &it[1]);
+	expect_array(&it[1], &it[2]);
+	expect_parse_error(&it[1], json, 1, 3);
+
+	/* overflowing parser nesting stack */
+	for (i = 0; i < 256; ++i)
+		buf[i] = '[';
+	for (; i < 511; ++i)
+		buf[i] = ']';
+	buf[i++] = '}';
+	buf[i++] = '\0';
+
+	spa_json_init(&it[0], buf, strlen(buf));
+	pwtest_int_eq(spa_json_next(&it[0], &value), 1);
+	expect_parse_error(&it[0], buf, 1, strlen(buf));
+
+	/* bad utf8 */
+	json = "\"\xc0\"";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_parse_error(&it[0], json, 1, 3);
+
+	json = "\"\xe6\xad\"";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_parse_error(&it[0], json, 1, 4);
+
+	json = "\"\xf0\x92\x80\"";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_parse_error(&it[0], json, 1, 5);
+
+	/* bad string */
+	json = "\"\x01\"";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_parse_error(&it[0], json, 1, 2);
+
+	json = "\"\x0f\"";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_parse_error(&it[0], json, 1, 2);
+
+	/* bad escape */
+	json = "\"\\z\"";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_parse_error(&it[0], json, 1, 3);
 
 	return PWTEST_PASS;
 }
@@ -431,6 +671,7 @@ PWTEST_SUITE(spa_json)
 {
 	pwtest_add(json_abi, PWTEST_NOARG);
 	pwtest_add(json_parse, PWTEST_NOARG);
+	pwtest_add(json_parse_fail, PWTEST_NOARG);
 	pwtest_add(json_encode, PWTEST_NOARG);
 	pwtest_add(json_array, PWTEST_NOARG);
 	pwtest_add(json_overflow, PWTEST_NOARG);

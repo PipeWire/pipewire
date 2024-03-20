@@ -207,7 +207,7 @@ PWTEST(properties_new_string)
 
 	pw_properties_free(props);
 
-	props = pw_properties_new_string("foo=bar bar=\"baz");
+	props = pw_properties_new_string("foo=bar bar=\"baz\"");
 	pwtest_ptr_notnull(props);
 	pwtest_int_eq(props->flags, 0U);
 	pwtest_int_eq(props->dict.n_items, 2U);

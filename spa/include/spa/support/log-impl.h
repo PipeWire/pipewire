@@ -108,6 +108,7 @@ struct {					\
 	    spa_log_impl_logv,				\
 	    spa_log_impl_logt,				\
 	    spa_log_impl_logtv,				\
+	    spa_log_impl_topic_init,			\
 	  } }
 
 #define SPA_LOG_IMPL(name)			\

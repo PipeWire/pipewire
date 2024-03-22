@@ -82,7 +82,6 @@ struct port {
 
 	bool have_format;
 	struct spa_video_info current_format;
-	struct spa_fraction rate;
 
 	struct spa_v4l2_device dev;
 
@@ -696,11 +695,19 @@ static int port_set_format(struct impl *this, struct port *port,
     done:
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+	port->params[PORT_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
 	if (port->have_format) {
+		uint64_t latency;
+		latency = port->info.rate.num * SPA_NSEC_PER_SEC / port->info.rate.denom;
+		this->latency[SPA_DIRECTION_OUTPUT] =
+			SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT,
+					.min_ns = latency,
+					.max_ns = latency);
 		port->params[PORT_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
 		port->params[PORT_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
 		this->params[NODE_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READ);
 	} else {
+		this->latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 		port->params[PORT_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 		port->params[PORT_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 		this->params[NODE_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, 0);

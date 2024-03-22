@@ -1012,10 +1012,6 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	dev->have_format = true;
 	size->width = fmt.fmt.pix.width;
 	size->height = fmt.fmt.pix.height;
-	port->rate.denom = framerate->num = streamparm.parm.capture.timeperframe.denominator;
-	port->rate.num = framerate->denom = streamparm.parm.capture.timeperframe.numerator;
-
-	probe_expbuf(this);
 
 	port->fmt = fmt;
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS | SPA_PORT_CHANGE_MASK_RATE;
@@ -1023,7 +1019,10 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 		SPA_PORT_FLAG_LIVE |
 		SPA_PORT_FLAG_PHYSICAL |
 		SPA_PORT_FLAG_TERMINAL;
-	port->info.rate = SPA_FRACTION(port->rate.num, port->rate.denom);
+	port->info.rate.num = streamparm.parm.capture.timeperframe.numerator;
+	port->info.rate.denom = streamparm.parm.capture.timeperframe.denominator;
+
+	probe_expbuf(this);
 
 	return match ? 0 : 1;
 }
@@ -1376,16 +1375,16 @@ static int mmap_read(struct impl *this)
 	if (this->clock) {
 		/* FIXME, we should follow the driver clock and target_ values.
 		 * for now we ignore and use our own. */
-		this->clock->target_rate = port->rate;
+		this->clock->target_rate = port->info.rate;
 		this->clock->target_duration = 1;
 
 		this->clock->nsec = pts;
-		this->clock->rate = port->rate;
+		this->clock->rate = port->info.rate;
 		this->clock->position = buf.sequence;
 		this->clock->duration = 1;
 		this->clock->delay = 0;
 		this->clock->rate_diff = 1.0;
-		this->clock->next_nsec = pts + 1000000000LL / port->rate.denom;
+		this->clock->next_nsec = pts + port->info.rate.num * SPA_NSEC_PER_SEC / port->info.rate.denom;
 	}
 
 	b = &port->buffers[buf.index];

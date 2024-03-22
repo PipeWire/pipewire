@@ -16,6 +16,7 @@
 #include <spa/param/video/format-utils.h>
 #include <spa/param/tag-utils.h>
 #include <spa/param/props.h>
+#include <spa/param/latency-utils.h>
 #include <spa/debug/format.h>
 #include <spa/debug/pod.h>
 
@@ -89,6 +90,7 @@ on_process(void *_data)
 	int sstride, dstride, ostride;
 	struct spa_meta_region *mc;
 	struct spa_meta_cursor *mcs;
+	struct spa_meta_header *h;
 	uint32_t i, j;
 	uint8_t *src, *dst;
 	bool render_cursor = false;
@@ -115,6 +117,12 @@ on_process(void *_data)
 
 	if ((sdata = buf->datas[0].data) == NULL)
 		goto done;
+
+	if ((h = spa_buffer_find_meta_data(buf, SPA_META_Header, sizeof(*h)))) {
+		uint64_t now = pw_stream_get_nsec(stream);
+		pw_log_debug("now:%"PRIu64" pts:%"PRIu64" diff:%"PRIi64,
+				now, h->pts, now - h->pts);
+	}
 
 	/* get the videocrop metadata if any */
 	if ((mc = spa_buffer_find_meta_data(buf, SPA_META_VideoCrop, sizeof(*mc))) &&
@@ -282,6 +290,12 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 
 	if (param != NULL && id == SPA_PARAM_Tag) {
 		spa_debug_pod(0, NULL, param);
+		return;
+	}
+	if (param != NULL && id == SPA_PARAM_Latency) {
+		struct spa_latency_info info;
+		if (spa_latency_parse(param, &info) >= 0)
+			fprintf(stderr, "got latency: %"PRIu64"\n", (info.min_ns + info.max_ns) / 2);
 		return;
 	}
 	/* NULL means to clear the format */

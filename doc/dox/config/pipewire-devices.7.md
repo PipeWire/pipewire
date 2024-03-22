@@ -218,6 +218,10 @@ UNDOCUMENTED
 @PAR@ device-param  alsa.use-acp    # boolean
 Use \ref device-param__alsa_card_profiles "ALSA Card Profiles" (ACP) for device configuration.
 
+@PAR@ device-param  alsa.udev.expose-busy    # boolean
+Expose the ALSA card even if it is busy/in use. Default false. This can be useful when some
+of the PCMs are in use by other applications but the other free PCMs should still be exposed.
+
 ## Device properties
 
 @PAR@ device-param  api.alsa.path    # string

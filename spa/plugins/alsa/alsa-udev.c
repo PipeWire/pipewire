@@ -92,6 +92,7 @@ struct impl {
 	struct spa_source source;
 	struct spa_source notify;
 	unsigned int use_acp:1;
+	unsigned int expose_busy:1;
 };
 
 static int impl_udev_open(struct impl *this)
@@ -381,6 +382,8 @@ static int check_pcm_device_availability(struct impl *this, struct card *card,
 	 */
 
 	res = 0;
+	if (this->expose_busy)
+		return res;
 
 	spa_scnprintf(path, sizeof(path), "/proc/asound/card%u", card->card_nr);
 
@@ -1141,6 +1144,8 @@ impl_init(const struct spa_handle_factory *factory,
 	if (info) {
 		if ((str = spa_dict_lookup(info, "alsa.use-acp")) != NULL)
 			this->use_acp = spa_atob(str);
+		else if ((str = spa_dict_lookup(info, "alsa.udev.expose-busy")) != NULL)
+			this->expose_busy = spa_atob(str);
 	}
 
 	return 0;

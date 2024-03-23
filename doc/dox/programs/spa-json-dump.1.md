@@ -4,11 +4,11 @@ SPA JSON to JSON converter
 
 # SYNOPSIS
 
-**spa-json** *FILE*
+**spa-json** *[FILE]*
 
 # DESCRIPTION
 
-Reads a SPA JSON file, and outputs it as standard JSON.
+Reads a SPA JSON file or stdin, and outputs it as standard JSON.
 
 # EXAMPLES
 

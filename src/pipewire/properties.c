@@ -8,6 +8,7 @@
 #include <spa/utils/ansi.h>
 #include <spa/utils/json.h>
 #include <spa/utils/string.h>
+#include <spa/utils/cleanup.h>
 
 #include "pipewire/array.h"
 #include "pipewire/log.h"
@@ -128,6 +129,42 @@ struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
 	return &impl->this;
 }
 
+static bool update_string(struct pw_properties *props, const char *str, size_t size,
+		int *count, int *err_line, int *err_col)
+{
+	struct spa_json it[2];
+	char key[1024];
+
+	spa_json_init(&it[0], str, size);
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+		spa_json_init(&it[1], str, size);
+
+	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+		int len;
+		const char *value;
+		spa_autofree char *val = NULL;
+
+		if ((len = spa_json_next(&it[1], &value)) <= 0)
+			break;
+
+		if (spa_json_is_null(value, len))
+			val = NULL;
+		else {
+			if (spa_json_is_container(value, len))
+				len = spa_json_container_len(&it[1], value, len);
+			if (len <= 0)
+				break;
+
+			if (props && (val = malloc(len+1)) != NULL)
+				spa_json_parse_stringn(value, len, val, len+1);
+		}
+		if (props)
+			*count += pw_properties_set(props, key, val);
+	}
+
+	return !spa_json_get_error(&it[1], str, err_line, err_col);
+}
+
 /** Update the properties from the given string, overwriting any
  * existing keys with the new values from \a str.
  *
@@ -139,35 +176,23 @@ struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
 SPA_EXPORT
 int pw_properties_update_string(struct pw_properties *props, const char *str, size_t size)
 {
-	struct properties *impl = SPA_CONTAINER_OF(props, struct properties, this);
-	struct spa_json it[2];
-	char key[1024], *val;
 	int count = 0;
 
-	spa_json_init(&it[0], str, size);
-	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
-		spa_json_init(&it[1], str, size);
-
-	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
-		int len;
-		const char *value;
-
-		if ((len = spa_json_next(&it[1], &value)) <= 0)
-			break;
-
-		if (spa_json_is_null(value, len))
-			val = NULL;
-		else {
-			if (spa_json_is_container(value, len))
-				len = spa_json_container_len(&it[1], value, len);
-
-			if ((val = malloc(len+1)) != NULL)
-				spa_json_parse_stringn(value, len, val, len+1);
-		}
-		count += pw_properties_set(&impl->this, key, val);
-		free(val);
-	}
+	update_string(props, str, size, &count, NULL, NULL);
 	return count;
+}
+
+/** Check \a str is a well-formed properties JSON string.
+ *
+ * \param line  Return value for parse error line position
+ * \param col  Return value for parse error column position
+ * \return true if string is valid
+ * \since 1.1.0
+ */
+SPA_EXPORT
+bool pw_properties_check_string(const char *str, size_t size, int *line, int *col)
+{
+	return update_string(NULL, str, size, NULL, line, col);
 }
 
 /** Make a new properties object from the given str

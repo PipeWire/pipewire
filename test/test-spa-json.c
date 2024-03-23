@@ -29,6 +29,7 @@ PWTEST(json_abi)
 #define TYPE_TRUE	5
 #define TYPE_FALSE	6
 #define TYPE_FLOAT	7
+#define TYPE_INT	8
 
 static void check_type(int type, const char *value, int len)
 {
@@ -38,9 +39,25 @@ static void check_type(int type, const char *value, int len)
 	pwtest_bool_eq(spa_json_is_bool(value, len),
 			(type == TYPE_BOOL || type == TYPE_TRUE || type == TYPE_FALSE));
 	pwtest_bool_eq(spa_json_is_null(value, len), (type == TYPE_NULL));
-	pwtest_bool_eq(spa_json_is_true(value, len), (type == TYPE_TRUE || type == TYPE_BOOL));
-	pwtest_bool_eq(spa_json_is_false(value, len), (type == TYPE_FALSE || type == TYPE_BOOL));
-	pwtest_bool_eq(spa_json_is_float(value, len), (type == TYPE_FLOAT));
+	if (type == TYPE_BOOL) {
+		pwtest_bool_true(spa_json_is_true(value, len) || spa_json_is_false(value, len));
+	} else {
+		pwtest_bool_eq(spa_json_is_true(value, len), type == TYPE_TRUE);
+		pwtest_bool_eq(spa_json_is_false(value, len), type == TYPE_FALSE);
+	}
+
+	switch (type) {
+	case TYPE_FLOAT:
+		pwtest_bool_true(spa_json_is_float(value, len));
+		break;
+	case TYPE_INT:
+		pwtest_bool_true(spa_json_is_int(value, len));
+		break;
+	default:
+		pwtest_bool_false(spa_json_is_float(value, len));
+		pwtest_bool_false(spa_json_is_int(value, len));
+		break;
+	}
 }
 
 static void expect_type(struct spa_json *it, int type)
@@ -49,6 +66,29 @@ static void expect_type(struct spa_json *it, int type)
 	int len;
 	pwtest_int_gt((len = spa_json_next(it, &value)), 0);
 	check_type(type, value, len);
+}
+
+static void expect_end(struct spa_json *it)
+{
+	const char *value;
+	struct spa_json it2;
+
+	pwtest_int_eq(spa_json_next(it, &value), 0);
+
+	/* end is idempotent */
+	memcpy(&it2, it, sizeof(*it));
+	pwtest_int_eq(spa_json_next(it, &value), 0);
+	pwtest_int_eq(memcmp(&it2, it, sizeof(*it)), 0);
+}
+
+static void expect_array(struct spa_json *it, struct spa_json *sub)
+{
+	pwtest_int_eq(spa_json_enter_array(it, sub), 1);
+}
+
+static void expect_object(struct spa_json *it, struct spa_json *sub)
+{
+	pwtest_int_eq(spa_json_enter_object(it, sub), 1);
 }
 
 static void expect_string(struct spa_json *it, const char *str)
@@ -62,6 +102,18 @@ static void expect_string(struct spa_json *it, const char *str)
 	spa_json_parse_stringn(value, len, s, len+1);
 	pwtest_str_eq(s, str);
 }
+
+static void expect_string_or_bare(struct spa_json *it, const char *str)
+{
+	const char *value;
+	int len;
+	char *s;
+	pwtest_int_gt((len = spa_json_next(it, &value)), 0);
+	s = alloca(len+1);
+	pwtest_int_eq(spa_json_parse_stringn(value, len, s, len+1), 1);
+	pwtest_str_eq(s, str);
+}
+
 static void expect_float(struct spa_json *it, float val)
 {
 	const char *value;
@@ -71,6 +123,37 @@ static void expect_float(struct spa_json *it, float val)
 	check_type(TYPE_FLOAT, value, len);
 	pwtest_int_gt(spa_json_parse_float(value, len, &f), 0);
 	pwtest_double_eq(f, val);
+}
+
+static void expect_int(struct spa_json *it, int val)
+{
+	const char *value;
+	int len;
+	int f = 0;
+	pwtest_int_gt((len = spa_json_next(it, &value)), 0);
+	check_type(TYPE_INT, value, len);
+	pwtest_int_gt(spa_json_parse_int(value, len, &f), 0);
+	pwtest_int_eq(f, val);
+}
+
+static void expect_bool(struct spa_json *it, bool val)
+{
+	const char *value;
+	int len;
+	bool f = false;
+	pwtest_int_gt((len = spa_json_next(it, &value)), 0);
+	check_type(TYPE_BOOL, value, len);
+	check_type(val ? TYPE_TRUE : TYPE_FALSE, value, len);
+	pwtest_int_gt(spa_json_parse_bool(value, len, &f), 0);
+	pwtest_int_eq(f, val);
+}
+
+static void expect_null(struct spa_json *it)
+{
+	const char *value;
+	int len;
+	pwtest_int_gt((len = spa_json_next(it, &value)), 0);
+	check_type(TYPE_NULL, value, len);
 }
 
 PWTEST(json_parse)
@@ -134,6 +217,52 @@ PWTEST(json_parse)
 	spa_json_enter(&it[3], &it[4]);
 	expect_string(&it[3], "1.9");
 	expect_float(&it[3], 1.9f);
+
+	/* non-null terminated strings OK */
+	json = "1.234";
+	spa_json_init(&it[0], json, 4);
+	expect_float(&it[0], 1.23);
+	expect_end(&it[0]);
+
+	json = "1234";
+	spa_json_init(&it[0], json, 3);
+	expect_int(&it[0], 123);
+	expect_end(&it[0]);
+
+	json = "truey";
+	spa_json_init(&it[0], json, 4);
+	expect_bool(&it[0], true);
+	expect_end(&it[0]);
+
+	json = "falsey";
+	spa_json_init(&it[0], json, 5);
+	expect_bool(&it[0], false);
+	expect_end(&it[0]);
+
+	json = "nully";
+	spa_json_init(&it[0], json, 4);
+	expect_null(&it[0]);
+	expect_end(&it[0]);
+
+	json = "{}y{]";
+	spa_json_init(&it[0], json, 2);
+	expect_object(&it[0], &it[1]);
+	expect_end(&it[0]);
+
+	json = "[]y{]";
+	spa_json_init(&it[0], json, 2);
+	expect_array(&it[0], &it[1]);
+	expect_end(&it[0]);
+
+	json = "helloy";
+	spa_json_init(&it[0], json, 5);
+	expect_string_or_bare(&it[0], "hello");
+	expect_end(&it[0]);
+
+	json = "\"hello\"y";
+	spa_json_init(&it[0], json, 7);
+	expect_string(&it[0], "hello");
+	expect_end(&it[0]);
 
 	return PWTEST_PASS;
 }

@@ -219,11 +219,25 @@ static inline bool spa_json_is_null(const char *val, int len)
 /* float */
 static inline int spa_json_parse_float(const char *val, int len, float *result)
 {
+	char buf[96];
 	char *end;
-	if (strspn(val, "+-0123456789.Ee") < (size_t)len)
+	int pos;
+
+	if (len >= (int)sizeof(buf))
 		return 0;
-	*result = spa_strtof(val, &end);
-	return len > 0 && end == val + len;
+
+	for (pos = 0; pos < len; ++pos) {
+		switch (val[pos]) {
+		case '+': case '-': case '0' ... '9': case '.': case 'e': case 'E': break;
+		default: return 0;
+		}
+	}
+
+	memcpy(buf, val, len);
+	buf[len] = '\0';
+
+	*result = spa_strtof(buf, &end);
+	return len > 0 && end == buf + len;
 }
 
 static inline bool spa_json_is_float(const char *val, int len)
@@ -256,9 +270,17 @@ static inline char *spa_json_format_float(char *str, int size, float val)
 /* int */
 static inline int spa_json_parse_int(const char *val, int len, int *result)
 {
+	char buf[64];
 	char *end;
-	*result = strtol(val, &end, 0);
-	return len > 0 && end == val + len;
+
+	if (len >= (int)sizeof(buf))
+		return 0;
+
+	memcpy(buf, val, len);
+	buf[len] = '\0';
+
+	*result = strtol(buf, &end, 0);
+	return len > 0 && end == buf + len;
 }
 static inline bool spa_json_is_int(const char *val, int len)
 {

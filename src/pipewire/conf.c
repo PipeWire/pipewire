@@ -387,6 +387,8 @@ static int conf_load(const char *path, struct pw_properties *conf)
 	char *data;
 	struct stat sbuf;
 	int count;
+	int line = -1, col = -1;
+	int res;
 
 	spa_autoclose int fd = open(path,  O_CLOEXEC | O_RDONLY);
 	if (fd < 0)
@@ -399,6 +401,11 @@ static int conf_load(const char *path, struct pw_properties *conf)
 		if ((data = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED)
 			goto error;
 
+		if (!pw_properties_check_string(data, sbuf.st_size, &line, &col)) {
+			errno = EINVAL;
+			goto error;
+		}
+
 		count = pw_properties_update_string(conf, data, sbuf.st_size);
 		munmap(data, sbuf.st_size);
 	} else {
@@ -410,8 +417,12 @@ static int conf_load(const char *path, struct pw_properties *conf)
 	return 0;
 
 error:
-	pw_log_warn("%p: error loading config '%s': %m", conf, path);
-	return -errno;
+	res = -errno;
+	if (line != -1)
+		pw_log_warn("%p: syntax error in config '%s': line:%d col:%d", conf, path, line, col);
+	else
+		pw_log_warn("%p: error loading config '%s': %m", conf, path);
+	return res;
 }
 
 static bool check_override(struct pw_properties *conf, const char *name, int level)

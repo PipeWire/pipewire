@@ -44,7 +44,7 @@ static inline void spa_json_init(struct spa_json * iter, const char *data, size_
 {
 	*iter =  SPA_JSON_INIT(data, size);
 }
-#define SPA_JSON_ENTER(iter) ((struct spa_json) { (iter)->cur, (iter)->end, (iter), (iter)->state & 0xf0, 0 })
+#define SPA_JSON_ENTER(iter) ((struct spa_json) { (iter)->cur, (iter)->end, (iter), (iter)->state & 0xff0, 0 })
 
 static inline void spa_json_enter(struct spa_json * iter, struct spa_json * sub)
 {
@@ -60,13 +60,14 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 	int utf8_remain = 0;
 	enum {
 		__NONE, __STRUCT, __BARE, __STRING, __UTF8, __ESC, __COMMENT,
-		__ARRAY_FLAG = 0x10,
-		__OBJECT_FLAG = 0x20,
+		__ARRAY_FLAG = 0x10,		/* in array context */
+		__PREV_ARRAY_FLAG = 0x20,	/* depth=0 array context flag */
 		__ERROR_FLAG = 0x40,
-		__FLAGS = 0xf0,
+		__KEY_FLAG = 0x80,		/* inside object key */
+		__SUB_FLAG = 0x100,		/* not at top-level */
+		__FLAGS = 0xff0,
 	};
-	uint8_t object_stack[16] = {0};
-	uint8_t array_stack[SPA_N_ELEMENTS(object_stack)] = {0};
+	uint64_t array_stack[8] = {0};		/* array context flags of depths 1...512 */
 
 	*value = iter->cur;
 
@@ -81,6 +82,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 		flag = iter->state & __FLAGS;
 		switch (iter->state & ~__FLAGS) {
 		case __NONE:
+			flag &= ~(__KEY_FLAG | __PREV_ARRAY_FLAG);
 			iter->state = __STRUCT | flag;
 			iter->depth = 0;
 			goto again;
@@ -91,21 +93,48 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 			case ':': case '=':
 				if (flag & __ARRAY_FLAG)
 					goto error;
+				if (!(flag & __KEY_FLAG))
+					goto error;
+				iter->state |= __SUB_FLAG;
 				continue;
 			case '#':
 				iter->state = __COMMENT | flag;
 				continue;
 			case '"':
+				if (flag & __KEY_FLAG)
+					flag |= __SUB_FLAG;
+				if (!(flag & __ARRAY_FLAG))
+					SPA_FLAG_UPDATE(flag, __KEY_FLAG, !(flag & __KEY_FLAG));
 				*value = iter->cur;
 				iter->state = __STRING | flag;
 				continue;
 			case '[': case '{':
-				iter->state = __STRUCT | (cur == '[' ? __ARRAY_FLAG : __OBJECT_FLAG);
-				if ((iter->depth >> 3) < SPA_N_ELEMENTS(object_stack)) {
-					uint8_t mask = 1 << (iter->depth & 0x7);
-					SPA_FLAG_UPDATE(object_stack[iter->depth >> 3], mask, flag & __OBJECT_FLAG);
-					SPA_FLAG_UPDATE(array_stack[iter->depth >> 3], mask, flag & __ARRAY_FLAG);
+				if (!(flag & __ARRAY_FLAG)) {
+					/* At top-level we may be either in object context
+					 * or in single-item context, and then we need ot
+					 * accept array/object here.
+					 */
+					if ((iter->state & __SUB_FLAG) && !(flag & __KEY_FLAG))
+						goto error;
+					SPA_FLAG_CLEAR(flag, __KEY_FLAG);
 				}
+				iter->state = __STRUCT | __SUB_FLAG | flag;
+				SPA_FLAG_UPDATE(iter->state, __ARRAY_FLAG, cur == '[');
+
+				/* We need to remember previous array state across calls
+				 * for depth=0, so store that in state. Others bits go to
+				 * temporary stack.
+				 */
+				if (iter->depth == 0) {
+					SPA_FLAG_UPDATE(iter->state, __PREV_ARRAY_FLAG, flag & __ARRAY_FLAG);
+				} else if (((iter->depth-1) >> 6) < SPA_N_ELEMENTS(array_stack)) {
+					uint64_t mask = 1ULL << ((iter->depth-1) & 0x3f);
+					SPA_FLAG_UPDATE(array_stack[(iter->depth-1) >> 6], mask, flag & __ARRAY_FLAG);
+				} else {
+					/* too deep */
+					goto error;
+				}
+
 				*value = iter->cur;
 				if (++iter->depth > 1)
 					continue;
@@ -114,9 +143,13 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 			case '}': case ']':
 				if ((flag & __ARRAY_FLAG) && cur != ']')
 					goto error;
-				if ((flag & __OBJECT_FLAG) && cur != '}')
+				if (!(flag & __ARRAY_FLAG) && cur != '}')
 					goto error;
-				iter->state = __STRUCT;
+				if (flag & __KEY_FLAG) {
+					/* incomplete key-value pair */
+					goto error;
+				}
+				iter->state = __STRUCT | __SUB_FLAG | flag;
 				if (iter->depth == 0) {
 					if (iter->parent)
 						iter->parent->cur = iter->cur;
@@ -125,12 +158,15 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 					return 0;
 				}
 				--iter->depth;
-				if ((iter->depth >> 3) < SPA_N_ELEMENTS(object_stack)) {
-					uint8_t mask = 1 << (iter->depth & 0x7);
-					if (SPA_FLAG_IS_SET(object_stack[iter->depth >> 3], mask))
-						iter->state |= __OBJECT_FLAG;
-					if (SPA_FLAG_IS_SET(array_stack[iter->depth >> 3], mask))
-						iter->state |= __ARRAY_FLAG;
+				if (iter->depth == 0) {
+					SPA_FLAG_UPDATE(iter->state, __ARRAY_FLAG, flag & __PREV_ARRAY_FLAG);
+				} else if (((iter->depth-1) >> 6) < SPA_N_ELEMENTS(array_stack)) {
+					uint64_t mask = 1ULL << ((iter->depth-1) & 0x3f);
+					SPA_FLAG_UPDATE(iter->state, __ARRAY_FLAG,
+							SPA_FLAG_IS_SET(array_stack[(iter->depth-1) >> 6], mask));
+				} else {
+					/* too deep */
+					goto error;
 				}
 				continue;
 			case '\\':
@@ -140,6 +176,10 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 				/* allow bare ascii */
 				if (!(cur >= 32 && cur <= 126))
 					goto error;
+				if (flag & __KEY_FLAG)
+					flag |= __SUB_FLAG;
+				if (!(flag & __ARRAY_FLAG))
+					SPA_FLAG_UPDATE(flag, __KEY_FLAG, !(flag & __KEY_FLAG));
 				*value = iter->cur;
 				iter->state = __BARE | flag;
 			}
@@ -225,6 +265,11 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 	case __COMMENT:
 		/* trailing comment */
 		return 0;
+	}
+
+	if ((iter->state & __SUB_FLAG) && (iter->state & __KEY_FLAG)) {
+		/* incomplete key-value pair */
+		goto error;
 	}
 
 	if ((iter->state & ~__FLAGS) != __STRUCT) {

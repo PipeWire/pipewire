@@ -137,12 +137,16 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 				/* disallow bare escape */
 				goto error;
 			default:
+				/* allow bare ascii */
+				if (!(cur >= 32 && cur <= 126))
+					goto error;
 				*value = iter->cur;
 				iter->state = __BARE | flag;
 			}
 			continue;
 		case __BARE:
 			switch (cur) {
+			case '\0':
 			case '\t': case ' ': case '\r': case '\n':
 			case '"': case '#':
 			case ':': case ',': case '=': case ']': case '}':
@@ -153,8 +157,12 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 			case '\\':
 				/* disallow bare escape */
 				goto error;
+			default:
+				/* allow bare ascii */
+				if (cur >= 32 && cur <= 126)
+					continue;
 			}
-			continue;
+			goto error;
 		case __STRING:
 			switch (cur) {
 			case '\\':

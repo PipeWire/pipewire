@@ -506,6 +506,19 @@ PWTEST(json_parse_fail)
 	spa_json_init(&it[0], json, strlen(json));
 	expect_parse_error(&it[0], json, 1, 3);
 
+	/* bad bare */
+	json = "\x01x";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_parse_error(&it[0], json, 1, 1);
+
+	json = "x\x01";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_parse_error(&it[0], json, 1, 2);
+
+	json = "\xc3\xa4";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_parse_error(&it[0], json, 1, 1);
+
 	return PWTEST_PASS;
 }
 
@@ -890,6 +903,7 @@ PWTEST(json_data)
 		"n_structure_null-byte-outside-string.json",
 		"n_structure_object_with_trailing_garbage.json",
 		"n_structure_trailing_#.json",
+		"n_multidigit_number_then_00.json",
 
 		/* SPA JSON accepts more number formats */
 		"n_number_-01.json",

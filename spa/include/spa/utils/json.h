@@ -176,7 +176,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 				iter->state = __UTF8 | flag;
 				continue;
 			default:
-				if (cur >= 32 && cur <= 126)
+				if (cur >= 32 && cur <= 127)
 					continue;
 			}
 			goto error;

@@ -787,6 +787,7 @@ static void set_test_env(struct pwtest_context *ctx, struct pwtest_test *t)
 	replace_env(t, "ACP_PATHS_DIR", SOURCE_ROOT "/spa/plugins/alsa/mixer/paths");
 	replace_env(t, "ACP_PROFILES_DIR", SOURCE_ROOT "/spa/plugins/alsa/mixer/profile-sets");
 	replace_env(t, "PIPEWIRE_LOG_SYSTEMD", "false");
+	replace_env(t, "PWTEST_DATA_DIR", SOURCE_ROOT "/test/data");
 }
 
 static void close_pipes(int fds[_FD_LAST])

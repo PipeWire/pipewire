@@ -3,12 +3,14 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <locale.h>
+#include <stdio.h>
 
 #include "pwtest.h"
 
 #include <spa/utils/defs.h>
 #include <spa/utils/json.h>
 #include <spa/utils/string.h>
+#include <spa/utils/cleanup.h>
 
 PWTEST(json_abi)
 {
@@ -667,6 +669,343 @@ PWTEST(json_int)
 	return PWTEST_PASS;
 }
 
+static char *read_json_testcase(FILE *f, char **name, size_t *size, char **result, size_t *result_size)
+{
+	ssize_t res;
+	spa_autofree char *data = NULL;
+	spa_autofree char *resdata = NULL;
+	spa_autofree char *buf = NULL;
+	size_t alloc = 0;
+	size_t len = 0;
+	size_t resdata_len = 0;
+	char **dst = &data;
+	size_t *dst_len = &len;
+
+	*name = NULL;
+
+	do {
+		res = getline(&buf, &alloc, f);
+		if (res <= 0)
+			return NULL;
+
+		if (spa_strstartswith(buf, "<<< ")) {
+			size_t k = strcspn(buf + 4, " \t\n");
+			free(*name);
+			*name = strndup(buf + 4, k);
+			continue;
+		} else if (spa_strstartswith(buf, "==")) {
+			dst = &resdata;
+			dst_len = &resdata_len;
+			continue;
+		} else if (spa_strstartswith(buf, ">>>")) {
+			break;
+		} else if (!*name) {
+			continue;
+		}
+
+		if (!*dst) {
+			*dst = spa_steal_ptr(buf);
+			*dst_len = res;
+			buf = NULL;
+			alloc = 0;
+		} else {
+			char *p = realloc(*dst, len + res + 1);
+
+			pwtest_ptr_notnull(p);
+
+			*dst = p;
+			memcpy(*dst + len, buf, res);
+			*dst_len += res;
+			(*dst)[len] = '\0';
+		}
+	} while (1);
+
+	if (!*name)
+		return NULL;
+
+	*result = spa_steal_ptr(resdata);
+	*result_size = resdata_len;
+
+	*size = len;
+	return spa_steal_ptr(data);
+}
+
+static int validate_strict_json(struct spa_json *it, int depth, FILE *f)
+{
+	struct spa_json sub;
+	int res = 0, len;
+	char key[1024];
+	const char *value;
+
+	len = spa_json_next(it, &value);
+	if (len <= 0)
+		goto done;
+
+	if (depth > 50) {
+		/* stop descending */
+		while ((len = spa_json_next(it, &value)) > 0);
+		goto done;
+	}
+
+	if (spa_json_is_array(value, len)) {
+		bool empty = true;
+
+		fputc('[', f);
+		spa_json_enter(it, &sub);
+		while ((res = validate_strict_json(&sub, depth+1, f)) > 0) {
+			empty = false;
+			fputc(',', f);
+		}
+		if (res < 0)
+			return res;
+		if (!empty)
+			fseek(f, -1, SEEK_CUR);
+		fputc(']', f);
+	} else if (spa_json_is_object(value, len)) {
+		bool empty = true;
+
+		spa_json_enter(it, &sub);
+
+		fputc('{', f);
+		while (spa_json_get_string(&sub, key, sizeof(key)) > 0) {
+			fprintf(f, "\"%s\":", key);
+
+			res = validate_strict_json(&sub, depth+1, f);
+			if (res < 0)
+				return res;
+			if (res == 0)
+				return -2; /* empty object body */
+			fputc(',', f);
+			empty = false;
+		}
+		if (!empty)
+			fseek(f, -1, SEEK_CUR);
+		fputc('}', f);
+	} else if (spa_json_is_string(value, len)) {
+		char buf[1024];
+		int i;
+
+		spa_json_parse_stringn(value, len, buf, sizeof(buf));
+
+		fputc('"', f);
+		for (i = 0; buf[i]; ++i) {
+			uint8_t c = buf[i];
+			switch (c) {
+			case '\n': fputs("\\n", f); break;
+			case '\b': fputs("\\b", f); break;
+			case '\f': fputs("\\f", f); break;
+			case '\t': fputs("\\t", f); break;
+			case '\r': fputs("\\r", f); break;
+			case '"': fputs("\\\"", f); break;
+			case '\\': fputs("\\\\", f); break;
+			default:
+				if (c < 32 || c == 0x7f) {
+					fprintf(f, "\\u%04x", c);
+				} else {
+					fputc(c, f);
+				}
+				break;
+			}
+		}
+		fputc('"', f);
+	} else if (spa_json_is_null(value, len)) {
+		fprintf(f, "null");
+	} else if (spa_json_is_bool(value, len)) {
+		fprintf(f, spa_json_is_true(value, len) ? "true" : "false");
+	} else if (spa_json_is_int(value, len)) {
+		int v;
+		spa_json_parse_int(value, len, &v);
+		fprintf(f, "%d", v);
+	} else if (spa_json_is_float(value, len)) {
+		float v;
+		spa_json_parse_float(value, len, &v);
+		fprintf(f, "%G", v);
+	} else {
+		/* bare value: error here, as we want to test
+		 * int/float/etc parsing */
+		return -2;
+	}
+
+done:
+	if (spa_json_get_error(it, NULL, NULL, NULL))
+		return -1;
+
+	return len;
+}
+
+PWTEST(json_data)
+{
+	static const char * const extra_success[] = {
+		/* indeterminate cases that succeed */
+		"i_number_double_huge_neg_exp.json",
+		"i_number_neg_int_huge_exp.json",
+		"i_number_pos_double_huge_exp.json",
+		"i_number_real_neg_overflow.json",
+		"i_number_real_pos_overflow.json",
+		"i_number_real_underflow.json",
+		"i_number_too_big_neg_int.json",
+		"i_number_too_big_pos_int.json",
+		"i_number_very_big_negative_int.json",
+		"i_object_key_lone_2nd_surrogate.json",
+		"i_string_1st_surrogate_but_2nd_missing.json",
+		"i_string_1st_valid_surrogate_2nd_invalid.json",
+		"i_string_incomplete_surrogate_and_escape_valid.json",
+		"i_string_incomplete_surrogate_pair.json",
+		"i_string_incomplete_surrogates_escape_valid.json",
+		"i_string_invalid_lonely_surrogate.json",
+		"i_string_invalid_surrogate.json",
+		"i_string_inverted_surrogates_U+1D11E.json",
+		"i_string_lone_second_surrogate.json",
+		"i_string_not_in_unicode_range.json",
+		"i_string_overlong_sequence_2_bytes.json",
+		"i_string_UTF8_surrogate_U+D800.json",
+		"i_structure_500_nested_arrays.json",
+
+		/* relaxed JSON parsing */
+		"n_array_1_true_without_comma.json",
+		"n_array_comma_after_close.json",
+		"n_array_comma_and_number.json",
+		"n_array_double_comma.json",
+		"n_array_double_extra_comma.json",
+		"n_array_extra_comma.json",
+		"n_array_just_comma.json",
+		"n_array_missing_value.json",
+		"n_array_number_and_comma.json",
+		"n_array_number_and_several_commas.json",
+		"n_object_comma_instead_of_colon.json",
+		"n_object_double_colon.json",
+		"n_object_missing_semicolon.json",
+		"n_object_non_string_key_but_huge_number_instead.json",
+		"n_object_non_string_key.json",
+		"n_object_repeated_null_null.json",
+		"n_object_several_trailing_commas.json",
+		"n_object_single_quote.json",
+		"n_object_trailing_comma.json",
+		"n_object_two_commas_in_a_row.json",
+		"n_object_unquoted_key.json",
+		"n_object_with_trailing_garbage.json",
+		"n_single_space.json",
+		"n_structure_double_array.json",
+		"n_structure_no_data.json",
+		"n_structure_null-byte-outside-string.json",
+		"n_structure_object_with_trailing_garbage.json",
+		"n_structure_trailing_#.json",
+
+		/* SPA JSON accepts more number formats */
+		"n_number_-01.json",
+		"n_number_0.e1.json",
+		"n_number_1_000.json",
+		"n_number_+1.json",
+		"n_number_2.e+3.json",
+		"n_number_2.e-3.json",
+		"n_number_2.e3.json",
+		"n_number_.2e-3.json",
+		"n_number_-2..json",
+		"n_number_hex_1_digit.json",
+		"n_number_hex_2_digits.json",
+		"n_number_neg_int_starting_with_zero.json",
+		"n_number_neg_real_without_int_part.json",
+		"n_number_real_without_fractional_part.json",
+		"n_number_starting_with_dot.json",
+		"n_number_with_leading_zero.json",
+
+		/* \u escape not validated */
+		"n_string_1_surrogate_then_escape_u1.json",
+		"n_string_1_surrogate_then_escape_u1x.json",
+		"n_string_1_surrogate_then_escape_u.json",
+		"n_string_incomplete_escaped_character.json",
+		"n_string_incomplete_surrogate.json",
+		"n_string_invalid_unicode_escape.json",
+	};
+
+	static const char * const ignore_result[] = {
+		/* Filtering duplicates is for upper layer */
+		"y_object_duplicated_key_and_value.json",
+		"y_object_duplicated_key.json",
+
+		/* spa_json_parse_string API doesn't do \0 */
+		"y_object_escaped_null_in_key.json",
+		"y_string_null_escape.json",
+
+		/* XXX: something with surrogate handling? */
+		"y_string_last_surrogates_1_and_2.json",
+		"y_string_unicode_U+10FFFE_nonchar.json",
+	};
+
+	const char *basedir = getenv("PWTEST_DATA_DIR");
+	char path[PATH_MAX];
+	spa_autoptr(FILE) f = NULL;
+
+	pwtest_ptr_notnull(basedir);
+	spa_scnprintf(path, sizeof(path), "%s/test-spa-json.txt", basedir);
+	f = fopen(path, "r");
+	pwtest_ptr_notnull(f);
+
+	while (1) {
+		spa_autofree char *data = NULL;
+		spa_autofree char *result = NULL;
+		spa_autofree char *name = NULL;
+		size_t size;
+		size_t result_size;
+		struct spa_json it;
+		int expect = -1;
+		int res;
+		spa_autofree char *f_ptr = NULL;
+		size_t f_size;
+		FILE *fres;
+
+		data = read_json_testcase(f, &name, &size, &result, &result_size);
+		if (!data)
+			break;
+
+		spa_json_init(&it, data, size);
+
+		fres = open_memstream(&f_ptr, &f_size);
+
+		while ((res = validate_strict_json(&it, 0, fres)) > 0);
+
+		fclose(fres);
+
+		SPA_FOR_EACH_ELEMENT_VAR(extra_success, suc) {
+			if (spa_streq(*suc, name)) {
+				expect = false;
+				break;
+			}
+		}
+		if (expect < 0) {
+			if (spa_strstartswith(name, "y_"))
+				expect = false;
+			if (spa_strstartswith(name, "t_"))
+				expect = false;
+		}
+
+		SPA_FOR_EACH_ELEMENT_VAR(ignore_result, suc) {
+			if (spa_streq(*suc, name)) {
+				free(result);
+				result = NULL;
+				break;
+			}
+		}
+
+		fprintf(stdout, "%s (expect %s)\n", name, expect ? "fail" : "ok");
+		fflush(stdout);
+		pwtest_bool_eq(res == -2 || spa_json_get_error(&it, NULL, NULL, NULL), expect);
+		if (res == -2)
+			pwtest_bool_false(spa_json_get_error(&it, NULL, NULL, NULL));
+
+		if (result) {
+			while (strlen(result) > 0 && result[strlen(result) - 1] == '\n')
+				result[strlen(result) - 1] = '\0';
+
+			fprintf(stdout, "\tgot: >>%s<< expected: >>%s<<\n", f_ptr, result);
+			fflush(stdout);
+			pwtest_bool_true(spa_streq(f_ptr, result));
+		}
+	}
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(spa_json)
 {
 	pwtest_add(json_abi, PWTEST_NOARG);
@@ -678,6 +1017,7 @@ PWTEST_SUITE(spa_json)
 	pwtest_add(json_float, PWTEST_NOARG);
 	pwtest_add(json_float_check, PWTEST_NOARG);
 	pwtest_add(json_int, PWTEST_NOARG);
+	pwtest_add(json_data, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

@@ -8,7 +8,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <fcntl.h>
-#if !defined(__FreeBSD__) && !defined(__MidnightBSD__)
+#ifdef __linux__
 #include <linux/ethtool.h>
 #include <linux/sockios.h>
 #endif

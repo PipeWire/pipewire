@@ -873,7 +873,7 @@ static int run(int argc, char *argv[])
 		.objects = SPA_LIST_INIT(&data.objects),
 		.target_links = SPA_LIST_INIT(&data.target_links),
 	};
-	int res = 0, c;
+	int res = 0, c, line, col;
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
@@ -942,6 +942,10 @@ static int run(int argc, char *argv[])
 			pw_properties_set(data.props, PW_KEY_LINK_PASSIVE, "true");
 			break;
 		case 'p':
+			if (!pw_properties_check_string(optarg, strlen(optarg), &line, &col)) {
+				fprintf(stderr, "error: syntax error in --props at line:%d col:%d\n", line, col);
+				return -1;
+			}
 			pw_properties_update_string(data.props, optarg, strlen(optarg));
 			break;
 		case 'd':

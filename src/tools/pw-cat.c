@@ -1606,7 +1606,7 @@ int main(int argc, char *argv[])
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	const char *prog;
-	int exit_code = EXIT_FAILURE, c, ret;
+	int exit_code = EXIT_FAILURE, c, ret, line, col;
 	enum pw_stream_flags flags = 0;
 
 	setlocale(LC_ALL, "");
@@ -1729,6 +1729,10 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'P':
+			if (!pw_properties_check_string(optarg, strlen(optarg), &line, &col)) {
+				fprintf(stderr, "error: syntax error in --properties at line:%d col:%d\n", line, col);
+				goto error_usage;
+			}
 			pw_properties_update_string(data.props, optarg, strlen(optarg));
 			break;
 

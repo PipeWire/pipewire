@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
 		{ "properties",		required_argument,	NULL, 'P' },
 		{ NULL,	0, NULL, 0}
 	};
-	int c, res, listen_fd, close_fd[2];
+	int c, res, listen_fd, close_fd[2], line, col;
 	char temp[PATH_MAX] = "/tmp/pipewire-XXXXXX";
 	struct sockaddr_un sockaddr = {0};
 
@@ -176,6 +176,10 @@ int main(int argc, char *argv[])
 			opt_remote = optarg;
 			break;
 		case 'P':
+			if (!pw_properties_check_string(optarg, strlen(optarg), &line, &col)) {
+				fprintf(stderr, "error: syntax error in --properties at line:%d col:%d\n", line, col);
+				return -1;
+			}
 			pw_properties_update_string(data.props, optarg, strlen(optarg));
 			break;
 		default:

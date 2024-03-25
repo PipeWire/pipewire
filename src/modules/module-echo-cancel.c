@@ -526,17 +526,38 @@ static void capture_state_changed(void *data, enum pw_stream_state old,
 		enum pw_stream_state state, const char *error)
 {
 	struct impl *impl = data;
+	int res;
+
 	switch (state) {
 	case PW_STREAM_STATE_PAUSED:
 		pw_stream_flush(impl->source, false);
 		pw_stream_flush(impl->capture, false);
+
+		if (old == PW_STREAM_STATE_STREAMING) {
+			if (pw_stream_get_state(impl->sink, NULL) != PW_STREAM_STATE_STREAMING) {
+				pw_log_debug("%p: deactivate %s", impl, impl->aec->name);
+				res = spa_audio_aec_deactivate(impl->aec);
+				if (res < 0 && res != -EOPNOTSUPP) {
+					pw_log_error("aec plugin %s deactivate failed: %s", impl->aec->name, spa_strerror(res));
+				}
+			}
+		}
+		break;
+	case PW_STREAM_STATE_STREAMING:
+		if (pw_stream_get_state(impl->sink, NULL) == PW_STREAM_STATE_STREAMING) {
+			pw_log_debug("%p: activate %s", impl, impl->aec->name);
+			res = spa_audio_aec_activate(impl->aec);
+			if (res < 0 && res != -EOPNOTSUPP) {
+				pw_log_error("aec plugin %s activate failed: %s", impl->aec->name, spa_strerror(res));
+			}
+		}
 		break;
 	case PW_STREAM_STATE_UNCONNECTED:
-		pw_log_info("%p: input unconnected", impl);
+		pw_log_info("%p: capture unconnected", impl);
 		pw_impl_module_schedule_destroy(impl->module);
 		break;
 	case PW_STREAM_STATE_ERROR:
-		pw_log_info("%p: input error: %s", impl, error);
+		pw_log_info("%p: capture error: %s", impl, error);
 		break;
 	default:
 		break;
@@ -547,34 +568,18 @@ static void source_state_changed(void *data, enum pw_stream_state old,
 		enum pw_stream_state state, const char *error)
 {
 	struct impl *impl = data;
-	int res;
 
 	switch (state) {
 	case PW_STREAM_STATE_PAUSED:
 		pw_stream_flush(impl->source, false);
 		pw_stream_flush(impl->capture, false);
-
-		if (old == PW_STREAM_STATE_STREAMING) {
-			pw_log_debug("%p: deactivate %s", impl, impl->aec->name);
-			res = spa_audio_aec_deactivate(impl->aec);
-			if (res < 0 && res != -EOPNOTSUPP) {
-				pw_log_error("aec plugin %s deactivate failed: %s", impl->aec->name, spa_strerror(res));
-			}
-		}
-		break;
-	case PW_STREAM_STATE_STREAMING:
-		pw_log_debug("%p: activate %s", impl, impl->aec->name);
-		res = spa_audio_aec_activate(impl->aec);
-		if (res < 0 && res != -EOPNOTSUPP) {
-			pw_log_error("aec plugin %s activate failed: %s", impl->aec->name, spa_strerror(res));
-		}
 		break;
 	case PW_STREAM_STATE_UNCONNECTED:
-		pw_log_info("%p: input unconnected", impl);
+		pw_log_info("%p: source unconnected", impl);
 		pw_impl_module_schedule_destroy(impl->module);
 		break;
 	case PW_STREAM_STATE_ERROR:
-		pw_log_info("%p: input error: %s", impl, error);
+		pw_log_info("%p: source error: %s", impl, error);
 		break;
 	default:
 		break;
@@ -745,7 +750,7 @@ static const struct pw_stream_events source_events = {
 	.param_changed = input_param_changed
 };
 
-static void output_state_changed(void *data, enum pw_stream_state old,
+static void playback_state_changed(void *data, enum pw_stream_state old,
 		enum pw_stream_state state, const char *error)
 {
 	struct impl *impl = data;
@@ -759,11 +764,55 @@ static void output_state_changed(void *data, enum pw_stream_state old,
 		}
 		break;
 	case PW_STREAM_STATE_UNCONNECTED:
-		pw_log_info("%p: output unconnected", impl);
+		pw_log_info("%p: playback unconnected", impl);
 		pw_impl_module_schedule_destroy(impl->module);
 		break;
 	case PW_STREAM_STATE_ERROR:
-		pw_log_info("%p: output error: %s", impl, error);
+		pw_log_info("%p: playback error: %s", impl, error);
+		break;
+	default:
+		break;
+	}
+}
+
+static void sink_state_changed(void *data, enum pw_stream_state old,
+		enum pw_stream_state state, const char *error)
+{
+	struct impl *impl = data;
+	int res;
+
+	switch (state) {
+	case PW_STREAM_STATE_PAUSED:
+		pw_stream_flush(impl->sink, false);
+		if (impl->playback != NULL)
+			pw_stream_flush(impl->playback, false);
+		if (old == PW_STREAM_STATE_STREAMING) {
+			impl->current_delay = 0;
+
+			if (pw_stream_get_state(impl->capture, NULL) != PW_STREAM_STATE_STREAMING) {
+				pw_log_debug("%p: deactivate %s", impl, impl->aec->name);
+				res = spa_audio_aec_deactivate(impl->aec);
+				if (res < 0 && res != -EOPNOTSUPP) {
+					pw_log_error("aec plugin %s deactivate failed: %s", impl->aec->name, spa_strerror(res));
+				}
+			}
+		}
+		break;
+	case PW_STREAM_STATE_STREAMING:
+		if (pw_stream_get_state(impl->capture, NULL) == PW_STREAM_STATE_STREAMING) {
+			pw_log_debug("%p: activate %s", impl, impl->aec->name);
+			res = spa_audio_aec_activate(impl->aec);
+			if (res < 0 && res != -EOPNOTSUPP) {
+				pw_log_error("aec plugin %s activate failed: %s", impl->aec->name, spa_strerror(res));
+			}
+		}
+		break;
+	case PW_STREAM_STATE_UNCONNECTED:
+		pw_log_info("%p: sink unconnected", impl);
+		pw_impl_module_schedule_destroy(impl->module);
+		break;
+	case PW_STREAM_STATE_ERROR:
+		pw_log_info("%p: sink error: %s", impl, error);
 		break;
 	default:
 		break;
@@ -889,14 +938,14 @@ static void playback_destroy(void *d)
 static const struct pw_stream_events playback_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = playback_destroy,
-	.state_changed = output_state_changed,
+	.state_changed = playback_state_changed,
 	.param_changed = output_param_changed
 };
 static const struct pw_stream_events sink_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = sink_destroy,
 	.process = sink_process,
-	.state_changed = output_state_changed,
+	.state_changed = sink_state_changed,
 	.param_changed = output_param_changed
 };
 

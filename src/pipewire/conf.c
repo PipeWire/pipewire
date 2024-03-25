@@ -562,6 +562,8 @@ static int parse_spa_libs(void *user_data, const char *location,
 		if (spa_json_get_string(&it[1], value, sizeof(value)) > 0) {
 			pw_context_add_spa_lib(context, key, value);
 			d->count++;
+		} else {
+			pw_log_warn("config file error: missing spa-libs library name for '%s'", key);
 		}
 	}
 	return 0;
@@ -748,6 +750,8 @@ static int parse_modules(void *user_data, const char *location,
 					break;
 				spa_json_enter(&it[2], &it[3]);
 				have_match = find_match(&it[3], &context->properties->dict);
+			} else {
+				pw_log_warn("unknown module key '%s'", key);
 			}
 		}
 		if (!have_match)
@@ -848,6 +852,8 @@ static int parse_objects(void *user_data, const char *location,
 					break;
 				spa_json_enter(&it[2], &it[3]);
 				have_match = find_match(&it[3], &context->properties->dict);
+			} else {
+				pw_log_warn("unknown object key '%s'", key);
 			}
 		}
 		if (!have_match)
@@ -956,6 +962,8 @@ static int parse_exec(void *user_data, const char *location,
 					break;
 				spa_json_enter(&it[2], &it[3]);
 				have_match = find_match(&it[3], &context->properties->dict);
+			} else {
+				pw_log_warn("unknown exec key '%s'", key);
 			}
 		}
 		if (!have_match)
@@ -1178,8 +1186,11 @@ int pw_conf_match_rules(const char *str, size_t len, const char *location,
 				if (spa_json_enter_object(&it[2], &actions) > 0)
 					have_actions = true;
 			}
-			else if (spa_json_next(&it[2], &val) <= 0)
-                                break;
+			else {
+				pw_log_warn("unknown match key '%s'", key);
+				if (spa_json_next(&it[2], &val) <= 0)
+					break;
+			}
 		}
 		if (!have_match || !have_actions)
 			continue;

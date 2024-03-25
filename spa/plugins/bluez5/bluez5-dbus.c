@@ -5328,6 +5328,11 @@ static void get_managed_objects_reply(DBusPendingCall *pending, void *user_data)
 		return;
 	}
 
+	if (dbus_message_is_error(r, DBUS_ERROR_NAME_HAS_NO_OWNER)) {
+		spa_log_warn(monitor->log, "BlueZ system service is not available");
+		return;
+	}
+
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
 		spa_log_error(monitor->log, "GetManagedObjects() failed: %s",
 				dbus_message_get_error_name(r));

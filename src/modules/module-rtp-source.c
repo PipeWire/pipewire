@@ -206,8 +206,9 @@ static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname)
 
 	af = sa->sa_family;
 	if ((fd = socket(af, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
+		res = -errno;
 		pw_log_error("socket failed: %m");
-		return -errno;
+		return res;
 	}
 #ifdef SO_TIMESTAMP
 	val = 1;

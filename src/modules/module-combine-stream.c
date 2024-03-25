@@ -730,6 +730,9 @@ static void stream_state_changed(void *d, enum pw_stream_state old,
 	case PW_STREAM_STATE_UNCONNECTED:
 		stream_destroy(s);
 		break;
+	case PW_STREAM_STATE_STREAMING:
+		update_latency(s->impl);
+		break;
 	default:
 		break;
 	}

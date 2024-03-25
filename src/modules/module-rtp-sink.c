@@ -307,6 +307,7 @@ static void stream_state_changed(void *data, bool started, const char *error)
 					impl->mcast_loop, impl->ttl, impl->dscp,
 					impl->ifname)) < 0) {
 			pw_log_error("can't make socket: %s", spa_strerror(res));
+			rtp_stream_set_error(impl->stream, res, "Can't make socket");
 			return;
 		}
 		impl->rtp_fd = res;

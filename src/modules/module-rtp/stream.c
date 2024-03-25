@@ -642,6 +642,12 @@ void rtp_stream_set_first(struct rtp_stream *s)
 	impl->first = true;
 }
 
+void rtp_stream_set_error(struct rtp_stream *s, int res, const char *error)
+{
+	struct impl *impl = (struct impl*)s;
+	pw_stream_set_error(impl->stream, res, "%s: %s", error, spa_strerror(res));
+}
+
 enum pw_stream_state rtp_stream_get_state(struct rtp_stream *s, const char **error)
 {
 	struct impl *impl = (struct impl*)s;

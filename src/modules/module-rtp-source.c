@@ -305,7 +305,7 @@ static int stream_start(struct impl *impl)
 	if ((fd = make_socket((const struct sockaddr *)&impl->src_addr,
 					impl->src_len, impl->ifname)) < 0) {
 		pw_log_error("failed to create socket: %m");
-		return fd;
+		return -errno;
 	}
 
 	impl->source = pw_loop_add_io(impl->data_loop, fd,
@@ -338,13 +338,16 @@ static void stream_destroy(void *d)
 static void stream_state_changed(void *data, bool started, const char *error)
 {
 	struct impl *impl = data;
+	int res;
 
 	if (error) {
 		pw_log_error("stream error: %s", error);
 		pw_impl_module_schedule_destroy(impl->module);
 	} else if (started) {
-		if ((errno = -stream_start(impl)) < 0)
-			pw_log_error("failed to start RTP stream: %m");
+		if ((res = stream_start(impl)) < 0) {
+			pw_log_error("failed to start RTP stream: %s", spa_strerror(res));
+			rtp_stream_set_error(impl->stream, res, "Can't start RTP stream");
+		}
 	} else {
 		if (!impl->always_process)
 			stream_stop(impl);

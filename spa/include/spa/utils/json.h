@@ -323,7 +323,10 @@ static inline bool spa_json_get_error(struct spa_json *iter, const char *start, 
 static inline int spa_json_enter_container(struct spa_json *iter, struct spa_json *sub, char type)
 {
 	const char *value;
-	if (spa_json_next(iter, &value) <= 0 || *value != type)
+	int len;
+	if ((len = spa_json_next(iter, &value)) <= 0)
+		return len;
+	if (*value != type)
 		return -1;
 	spa_json_enter(iter, sub);
 	return 1;
@@ -411,7 +414,7 @@ static inline int spa_json_get_float(struct spa_json *iter, float *res)
 	const char *value;
 	int len;
 	if ((len = spa_json_next(iter, &value)) <= 0)
-		return -1;
+		return len;
 	return spa_json_parse_float(value, len, res);
 }
 
@@ -453,7 +456,7 @@ static inline int spa_json_get_int(struct spa_json *iter, int *res)
 	const char *value;
 	int len;
 	if ((len = spa_json_next(iter, &value)) <= 0)
-		return -1;
+		return len;
 	return spa_json_parse_int(value, len, res);
 }
 
@@ -486,7 +489,7 @@ static inline int spa_json_get_bool(struct spa_json *iter, bool *res)
 	const char *value;
 	int len;
 	if ((len = spa_json_next(iter, &value)) <= 0)
-		return -1;
+		return len;
 	return spa_json_parse_bool(value, len, res);
 }
 
@@ -588,7 +591,7 @@ static inline int spa_json_get_string(struct spa_json *iter, char *res, int maxl
 	const char *value;
 	int len;
 	if ((len = spa_json_next(iter, &value)) <= 0)
-		return -1;
+		return len;
 	return spa_json_parse_stringn(value, len, res, maxlen);
 }
 

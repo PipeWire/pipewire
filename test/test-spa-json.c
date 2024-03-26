@@ -87,7 +87,7 @@ static void expect_parse_error(struct spa_json *it, const char *str, int line, i
 {
 	const char *value;
 	struct spa_json it2;
-	int linepos, colpos;
+	int linepos = 0, colpos = 0;
 
 	pwtest_int_eq(spa_json_next(it, &value), -1);
 	pwtest_bool_true(spa_json_get_error(it, str, &linepos, &colpos));
@@ -666,7 +666,7 @@ PWTEST(json_float)
 		{ "00.000100", 00.000100f },
 		{ "-0.000100", -0.000100f },
 	};
-	float v;
+	float v = 0.0f;
 	unsigned i;
 	char buf1[128], buf2[128], *b1 = buf1, *b2 = buf2;
 
@@ -878,12 +878,12 @@ static int validate_strict_json(struct spa_json *it, int depth, FILE *f)
 		fprintf(f, spa_json_is_true(value, len) ? "true" : "false");
 	} else if (spa_json_is_int(value, len)) {
 		int v;
-		spa_json_parse_int(value, len, &v);
-		fprintf(f, "%d", v);
+		if (spa_json_parse_int(value, len, &v) > 0)
+			fprintf(f, "%d", v);
 	} else if (spa_json_is_float(value, len)) {
 		float v;
-		spa_json_parse_float(value, len, &v);
-		fprintf(f, "%G", v);
+		if (spa_json_parse_float(value, len, &v) > 0)
+			fprintf(f, "%G", v);
 	} else {
 		/* bare value: error here, as we want to test
 		 * int/float/etc parsing */

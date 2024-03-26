@@ -384,7 +384,7 @@ static inline int spa_json_parse_float(const char *val, int len, float *result)
 	char *end;
 	int pos;
 
-	if (len >= (int)sizeof(buf))
+	if (len <= 0 || len >= (int)sizeof(buf))
 		return 0;
 
 	for (pos = 0; pos < len; ++pos) {
@@ -434,7 +434,7 @@ static inline int spa_json_parse_int(const char *val, int len, int *result)
 	char buf[64];
 	char *end;
 
-	if (len >= (int)sizeof(buf))
+	if (len <= 0 || len >= (int)sizeof(buf))
 		return 0;
 
 	memcpy(buf, val, len);

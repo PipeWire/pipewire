@@ -80,15 +80,17 @@ if build_vk
 endif
 
 foreach c : conf_files
-  configure_file(input : '@0@.in'.format(c),
+  res = configure_file(input : '@0@.in'.format(c),
                  output : c,
                  configuration : conf_config,
                  install_dir : pipewire_confdatadir)
+  test(f'validate-json-@c@', spa_json_dump_exe, args : res)
 endforeach
 
-configure_file(input : 'pipewire.conf.in',
+res = configure_file(input : 'pipewire.conf.in',
                output : 'pipewire-uninstalled.conf',
                configuration : conf_config_uninstalled)
+test('validate-json-pipewire-uninstalled.conf', spa_json_dump_exe, args : res)
 
 conf_avail_folders = [
   'pipewire.conf.avail',

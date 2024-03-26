@@ -12,8 +12,9 @@ conf_files = [
 ]
 
 foreach c : conf_files
-  configure_file(input : c.get(0),
+  res = configure_file(input : c.get(0),
                  output : c.get(1),
                  configuration : conf_config,
                  install_dir : pipewire_confdatadir / 'filter-chain')
+  test('validate-json-filter-chain-' + c.get(0), spa_json_dump_exe, args : res)
 endforeach

@@ -385,7 +385,7 @@ int pw_conf_save_state(const char *prefix, const char *name, const struct pw_pro
 
 static int conf_load(const char *path, struct pw_properties *conf)
 {
-	char *data = NULL;
+	char *data = MAP_FAILED;
 	struct stat sbuf;
 	int count;
 	struct spa_error_location loc = { 0 };
@@ -423,6 +423,10 @@ error:
 				"%p: error in config '%s': %s", conf, path, loc.reason);
 	else
 		pw_log_warn("%p: error loading config '%s': %m", conf, path);
+
+	if (data != MAP_FAILED)
+		munmap(data, sbuf.st_size);
+
 	return res;
 }
 

@@ -35,7 +35,7 @@ struct spa_debug_context {
 static inline void spa_debugc_error_location(struct spa_debug_context *c,
 		struct spa_error_location *loc)
 {
-	int i, skip = loc->col > 80 ? loc->col - 40 : 0;
+	int i, skip = loc->col > 80 ? loc->col - 40 : 0, lc = loc->col-skip-1;
 	char buf[80];
 
 	for (i = 0; (size_t)i < sizeof(buf)-1; i++) {
@@ -45,10 +45,10 @@ static inline void spa_debugc_error_location(struct spa_debug_context *c,
 		buf[i] = isspace(ch) ? ' ' : ch;
 	}
 	buf[i] = '\0';
-	spa_debugc(c, "line: %6d | %s%s", loc->line, skip ? "..." : "", buf);
+	spa_debugc(c, "line:%6d | %s%s", loc->line, skip ? "..." : "", buf);
 	for (i = 0; buf[i]; i++)
-		buf[i] = i+skip+1 == loc->col ? '^' : ' ';
-	spa_debugc(c, "col:  %6d | %s%s", loc->col, skip ? "   " : "", buf);
+		buf[i] = i < lc ? '-' : i == lc ? '^' : ' ';
+	spa_debugc(c, "column:%4d |-%s%s", loc->col, skip ? "---" : "", buf);
 }
 
 /**

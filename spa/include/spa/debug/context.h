@@ -38,7 +38,7 @@ static inline void spa_debugc_error_location(struct spa_debug_context *c,
 	int i, skip = loc->col > 80 ? loc->col - 40 : 0, lc = loc->col-skip-1;
 	char buf[80];
 
-	for (i = 0; (size_t)i < sizeof(buf)-1; i++) {
+	for (i = 0; (size_t)i < sizeof(buf)-1 && (size_t)(i + skip) < loc->len; i++) {
 		char ch = loc->location[i + skip];
 		if (ch == '\n' || ch == '\0')
 			break;

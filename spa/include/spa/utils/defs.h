@@ -330,6 +330,7 @@ static inline bool spa_ptr_inside_and_aligned(const void *p1, size_t s1,
 struct spa_error_location {
 	int line;
 	int col;
+	size_t len;
 	const char *location;
 	const char *reason;
 };

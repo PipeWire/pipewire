@@ -350,6 +350,7 @@ static inline bool spa_json_get_error(struct spa_json *iter, const char *start,
 		loc->line = linepos;
 		loc->col = colpos;
 		loc->location = l;
+		loc->len = SPA_PTRDIFF(iter->end, loc->location) / sizeof(char);
 		loc->reason = code == 0 ? strerror(errno) : reasons[code];
 	}
 	return true;

@@ -2336,14 +2336,15 @@ static int set_swparams(struct state *state)
 	CHECK(snd_pcm_sw_params_set_start_threshold(hndl, params, LONG_MAX), "set_start_threshold");
 
 	if (state->disable_tsched) {
-		snd_pcm_uframes_t avail_min;
+		snd_pcm_uframes_t avail_min = 0;
 
 		if (state->stream == SND_PCM_STREAM_PLAYBACK) {
 			/* wake up when buffer has target frames or less data (will underrun soon) */
-			avail_min = state->buffer_frames - state->threshold;
+			if (state->buffer_frames >= (state->threshold + state->headroom))
+				avail_min = state->buffer_frames - (state->threshold + state->headroom);
 		} else {
 			/* wake up when there's target frames or more (enough for us to read and push a buffer) */
-			avail_min = state->threshold;
+			avail_min = SPA_MIN(state->threshold + state->headroom, state->buffer_frames);
 		}
 
 		CHECK(snd_pcm_sw_params_set_avail_min(hndl, params, avail_min), "set_avail_min");

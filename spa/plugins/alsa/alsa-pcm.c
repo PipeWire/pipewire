@@ -1939,7 +1939,10 @@ static void recalc_headroom(struct state *state)
 		if (state->stream == SND_PCM_STREAM_CAPTURE)
 			state->headroom = SPA_MAX(state->headroom, 32u);
 	}
-	state->headroom = SPA_MIN(state->headroom, state->buffer_frames);
+	if (SPA_LIKELY(state->buffer_frames >= state->threshold))
+		state->headroom = SPA_MIN(state->headroom, state->buffer_frames - state->threshold);
+	else
+		state->headroom = 0;
 
 	latency = SPA_MAX(state->min_delay, SPA_MIN(state->max_delay, state->headroom));
 	if (rate != 0 && state->rate != 0)

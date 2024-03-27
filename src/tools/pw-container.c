@@ -18,6 +18,7 @@
 #include <spa/debug/pod.h>
 #include <spa/debug/format.h>
 #include <spa/debug/types.h>
+#include <spa/debug/file.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/security-context.h>
@@ -147,7 +148,8 @@ int main(int argc, char *argv[])
 		{ "properties",		required_argument,	NULL, 'P' },
 		{ NULL,	0, NULL, 0}
 	};
-	int c, res, listen_fd, close_fd[2], line, col;
+	struct spa_error_location loc;
+	int c, res, listen_fd, close_fd[2];
 	char temp[PATH_MAX] = "/tmp/pipewire-XXXXXX";
 	struct sockaddr_un sockaddr = {0};
 
@@ -176,11 +178,12 @@ int main(int argc, char *argv[])
 			opt_remote = optarg;
 			break;
 		case 'P':
-			if (!pw_properties_check_string(optarg, strlen(optarg), &line, &col)) {
-				fprintf(stderr, "error: syntax error in --properties at line:%d col:%d\n", line, col);
+			if (pw_properties_update_string_checked(data.props, optarg, strlen(optarg), &loc) < 0) {
+				spa_debug_file_error_location(stderr, &loc,
+						"error: syntax error in --properties: %s",
+						loc.reason);
 				return -1;
 			}
-			pw_properties_update_string(data.props, optarg, strlen(optarg));
 			break;
 		default:
 			show_help(&data, argv[0], true);

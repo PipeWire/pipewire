@@ -36,6 +36,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/json.h>
 #include <spa/utils/string.h>
+#include <spa/debug/log.h>
 
 #include "defs.h"
 
@@ -159,7 +160,7 @@ static void load_quirks(struct spa_bt_quirks *this, const char *str, size_t len)
 	struct spa_json data = SPA_JSON_INIT(str, len);
 	struct spa_json rules;
 	char key[1024];
-	int line, col;
+	struct spa_error_location loc;
 
 	if (spa_json_enter_object(&data, &rules) <= 0)
 		spa_json_init(&rules, str, len);
@@ -184,8 +185,9 @@ static void load_quirks(struct spa_bt_quirks *this, const char *str, size_t len)
 			this->device_rules = strndup(value, sz);
 	}
 
-	if (spa_json_get_error(&rules, str, &line, &col))
-		spa_log_error(this->log, "spa.bluez5 quirks syntax error, line:%d col:%d", line, col);
+	if (spa_json_get_error(&rules, str, &loc))
+		spa_debug_log_error_location(this->log, SPA_LOG_LEVEL_ERROR, &loc,
+				"spa.bluez5 quirks syntax error: %s", loc.reason);
 }
 
 static int load_conf(struct spa_bt_quirks *this, const char *path)

@@ -27,6 +27,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
+#include <spa/debug/log.h>
 
 #include <pipewire/cleanup.h>
 #include <pipewire/impl.h>
@@ -384,10 +385,10 @@ int pw_conf_save_state(const char *prefix, const char *name, const struct pw_pro
 
 static int conf_load(const char *path, struct pw_properties *conf)
 {
-	char *data;
+	char *data = NULL;
 	struct stat sbuf;
 	int count;
-	int line = -1, col = -1;
+	struct spa_error_location loc = { 0 };
 	int res;
 
 	spa_autoclose int fd = open(path,  O_CLOEXEC | O_RDONLY);
@@ -401,12 +402,11 @@ static int conf_load(const char *path, struct pw_properties *conf)
 		if ((data = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED)
 			goto error;
 
-		if (!pw_properties_check_string(data, sbuf.st_size, &line, &col)) {
+		count = pw_properties_update_string_checked(conf, data, sbuf.st_size, &loc);
+		if (count < 0) {
 			errno = EINVAL;
 			goto error;
 		}
-
-		count = pw_properties_update_string(conf, data, sbuf.st_size);
 		munmap(data, sbuf.st_size);
 	} else {
 		count = 0;
@@ -418,8 +418,9 @@ static int conf_load(const char *path, struct pw_properties *conf)
 
 error:
 	res = -errno;
-	if (line != -1)
-		pw_log_warn("%p: syntax error in config '%s': line:%d col:%d", conf, path, line, col);
+	if (loc.line != 0)
+		spa_debug_log_error_location(pw_log_get(), SPA_LOG_LEVEL_WARN, &loc,
+				"%p: error in config '%s': %s", conf, path, loc.reason);
 	else
 		pw_log_warn("%p: error loading config '%s': %m", conf, path);
 	return res;

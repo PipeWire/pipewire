@@ -327,6 +327,13 @@ static inline bool spa_ptr_inside_and_aligned(const void *p1, size_t s1,
 #define SPA_STRINGIFY_1(...)	#__VA_ARGS__
 #define SPA_STRINGIFY(...)	SPA_STRINGIFY_1(__VA_ARGS__)
 
+struct spa_error_location {
+	int line;
+	int col;
+	const char *location;
+	const char *reason;
+};
+
 #define spa_return_if_fail(expr)					\
 	do {								\
 		if (SPA_UNLIKELY(!(expr))) {				\

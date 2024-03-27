@@ -41,6 +41,10 @@ struct pw_properties *
 pw_properties_new_string(const char *args);
 
 struct pw_properties *
+pw_properties_new_string_checked(const char *args, size_t size,
+		struct spa_error_location *loc);
+
+struct pw_properties *
 pw_properties_copy(const struct pw_properties *properties);
 
 int pw_properties_update_keys(struct pw_properties *props,
@@ -51,11 +55,13 @@ int pw_properties_update_ignore(struct pw_properties *props,
 /* Update props with all key/value pairs from dict */
 int pw_properties_update(struct pw_properties *props,
 		     const struct spa_dict *dict);
+
 /* Update props with all key/value pairs from str */
 int pw_properties_update_string(struct pw_properties *props,
 		const char *str, size_t size);
 
-bool pw_properties_check_string(const char *str, size_t size, int *line, int *col);
+int pw_properties_update_string_checked(struct pw_properties *props,
+		const char *str, size_t size, struct spa_error_location *loc);
 
 int pw_properties_add(struct pw_properties *oldprops,
 		     const struct spa_dict *dict);

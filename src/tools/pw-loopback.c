@@ -16,6 +16,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/raw.h>
 #include <spa/utils/json.h>
+#include <spa/debug/file.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
@@ -110,7 +111,8 @@ int main(int argc, char *argv[])
 		{ "playback-props",	required_argument,	NULL, 'o' },
 		{ NULL, 0, NULL, 0}
 	};
-	int c, res = -1, line, col;
+	int c, res = -1;
+	struct spa_error_location loc;
 
 	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
@@ -170,18 +172,22 @@ int main(int argc, char *argv[])
 			pw_properties_set(data.playback_props, PW_KEY_TARGET_OBJECT, optarg);
 			break;
 		case 'i':
-			if (!pw_properties_check_string(optarg, strlen(optarg), &line, &col)) {
-				fprintf(stderr, "error: syntax error in --capture-props at line:%d col:%d\n", line, col);
+			if (pw_properties_update_string_checked(data.capture_props,
+						optarg, strlen(optarg), &loc) < 0) {
+				spa_debug_file_error_location(stderr, &loc,
+						"error: syntax error in --capture-props: %s",
+						loc.reason);
 				return -1;
 			}
-			pw_properties_update_string(data.capture_props, optarg, strlen(optarg));
 			break;
 		case 'o':
-			if (!pw_properties_check_string(optarg, strlen(optarg), &line, &col)) {
-				fprintf(stderr, "error: syntax error in --playback-props at line:%d col:%d\n", line, col);
+			if (pw_properties_update_string_checked(data.playback_props,
+						optarg, strlen(optarg), &loc) < 0) {
+				spa_debug_file_error_location(stderr, &loc,
+						"error: syntax error in --playback-props: %s",
+						loc.reason);
 				return -1;
 			}
-			pw_properties_update_string(data.playback_props, optarg, strlen(optarg));
 			break;
 		default:
 			show_help(&data, argv[0], true);

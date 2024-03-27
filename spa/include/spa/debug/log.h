@@ -83,6 +83,15 @@ static inline void spa_debug_log_log(struct spa_debug_context *ctx, const char *
 		spa_debugc_dict(&c.ctx, indent, dict);				\
 })
 
+#define spa_debug_log_error_location(l,lev,loc,fmt,...)					\
+({											\
+	struct spa_debug_log_ctx c = SPA_LOG_DEBUG_INIT(l,lev);				\
+	if (SPA_UNLIKELY(spa_log_level_topic_enabled(c.log, c.topic, c.level))) {	\
+		if (fmt) spa_debugc(&c.ctx, fmt, __VA_ARGS__);				\
+		spa_debugc_error_location(&c.ctx, loc);					\
+	}										\
+})
+
 /**
  * \}
  */

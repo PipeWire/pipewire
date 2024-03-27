@@ -16,6 +16,7 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/debug/types.h>
+#include <spa/debug/file.h>
 
 #include <pipewire/pipewire.h>
 
@@ -1277,7 +1278,7 @@ static int get_data_from_json(struct data *data, const char *json_path)
 	struct stat sbuf;
 	struct spa_json it[2];
 	const char *value;
-	int line, col;
+	struct spa_error_location loc;
 
 	if ((fd = open(json_path,  O_CLOEXEC | O_RDONLY)) < 0) {
 		fprintf(stderr, "error opening file '%s': %m\n", json_path);
@@ -1314,8 +1315,10 @@ static int get_data_from_json(struct data *data, const char *json_path)
 
 	munmap(json, sbuf.st_size);
 
-	if (spa_json_get_error(&it[0], json, &line, &col)) {
-		fprintf(stderr, "JSON syntax error on line:%d col:%d\n", line, col);
+	if (spa_json_get_error(&it[0], json, &loc)) {
+		spa_debug_file_error_location(stderr, &loc,
+				"JSON syntax error: %s\n",
+				loc.reason);
 		return -1;
 	}
 

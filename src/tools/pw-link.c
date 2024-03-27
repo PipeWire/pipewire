@@ -13,6 +13,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/defs.h>
+#include <spa/debug/file.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/filter.h>
@@ -873,7 +874,8 @@ static int run(int argc, char *argv[])
 		.objects = SPA_LIST_INIT(&data.objects),
 		.target_links = SPA_LIST_INIT(&data.target_links),
 	};
-	int res = 0, c, line, col;
+	int res = 0, c;
+	struct spa_error_location loc;
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
@@ -942,11 +944,11 @@ static int run(int argc, char *argv[])
 			pw_properties_set(data.props, PW_KEY_LINK_PASSIVE, "true");
 			break;
 		case 'p':
-			if (!pw_properties_check_string(optarg, strlen(optarg), &line, &col)) {
-				fprintf(stderr, "error: syntax error in --props at line:%d col:%d\n", line, col);
+			if (pw_properties_update_string_checked(data.props, optarg, strlen(optarg), &loc) < 0) {
+				spa_debug_file_error_location(stderr, &loc,
+						"error: syntax error in --props: %s", loc.reason);
 				return -1;
 			}
-			pw_properties_update_string(data.props, optarg, strlen(optarg));
 			break;
 		case 'd':
 			data.opt_mode = MODE_DISCONNECT;

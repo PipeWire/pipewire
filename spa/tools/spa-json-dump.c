@@ -110,7 +110,7 @@ static int dump(FILE *file, int indent, struct spa_json *it, const char *value, 
 		encode_string(file, value, len);
 	}
 
-	if (spa_json_get_error(it, NULL, NULL, NULL))
+	if (spa_json_get_error(it, NULL, NULL))
 		return -EINVAL;
 
 	return 0;
@@ -140,10 +140,11 @@ static int process_json(const char *filename, void *buf, size_t size)
 	fflush(stdout);
 
 	if (res < 0) {
-		int line, col;
+		struct spa_error_location loc;
 
-		if (spa_json_get_error(&it, buf, &line, &col))
-			fprintf(stderr, "syntax error in file '%s': at line:%d col:%d\n", filename, line, col);
+		if (spa_json_get_error(&it, buf, &loc))
+			fprintf(stderr, "syntax error in file '%s': at line:%d col:%d: %s\n",
+					filename, loc.line, loc.col, loc.reason);
 		else
 			fprintf(stderr, "error parsing file '%s': %s\n", filename, spa_strerror(res));
 

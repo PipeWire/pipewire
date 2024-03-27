@@ -34,6 +34,7 @@ struct spa_json {
 	const char *cur;
 	const char *end;
 	struct spa_json *parent;
+#define SPA_JSON_ERROR_FLAG	0x100
 	uint32_t state;
 	uint32_t depth;
 };
@@ -57,27 +58,40 @@ static inline void spa_json_enter(struct spa_json * iter, struct spa_json * sub)
  * is the length. Returns -1 on parse error, 0 on end of input. */
 static inline int spa_json_next(struct spa_json * iter, const char **value)
 {
-	int utf8_remain = 0;
+	int utf8_remain = 0, err = 0;
 	enum {
 		__NONE, __STRUCT, __BARE, __STRING, __UTF8, __ESC, __COMMENT,
 		__ARRAY_FLAG = 0x10,		/* in array context */
 		__PREV_ARRAY_FLAG = 0x20,	/* depth=0 array context flag */
-		__ERROR_FLAG = 0x40,
-		__KEY_FLAG = 0x80,		/* inside object key */
-		__SUB_FLAG = 0x100,		/* not at top-level */
+		__KEY_FLAG = 0x40,		/* inside object key */
+		__SUB_FLAG = 0x80,		/* not at top-level */
 		__FLAGS = 0xff0,
+		__ERROR_SYSTEM = SPA_JSON_ERROR_FLAG,
+		__ERROR_INVALID_ARRAY_SEPARATOR,
+		__ERROR_EXPECTED_OBJECT_KEY,
+		__ERROR_EXPECTED_OBJECT_VALUE,
+		__ERROR_TOO_DEEP_NESTING,
+		__ERROR_EXPECTED_ARRAY_CLOSE,
+		__ERROR_EXPECTED_OBJECT_CLOSE,
+		__ERROR_MISMATCHED_BRACKET,
+		__ERROR_ESCAPE_NOT_ALLOWED,
+		__ERROR_CHARACTERS_NOT_ALLOWED,
+		__ERROR_INVALID_ESCAPE,
+		__ERROR_INVALID_STATE,
+		__ERROR_UNFINISHED_STRING,
 	};
 	uint64_t array_stack[8] = {0};		/* array context flags of depths 1...512 */
 
 	*value = iter->cur;
 
-	if (iter->state & __ERROR_FLAG)
+	if (iter->state & SPA_JSON_ERROR_FLAG)
 		return -1;
 
 	for (; iter->cur < iter->end; iter->cur++) {
 		unsigned char cur = (unsigned char)*iter->cur;
 		uint32_t flag;
 
+#define _SPA_ERROR(reason)	{ err = __ERROR_ ## reason; goto error; }
  again:
 		flag = iter->state & __FLAGS;
 		switch (iter->state & ~__FLAGS) {
@@ -92,9 +106,9 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 				continue;
 			case ':': case '=':
 				if (flag & __ARRAY_FLAG)
-					goto error;
+					_SPA_ERROR(INVALID_ARRAY_SEPARATOR);
 				if (!(flag & __KEY_FLAG))
-					goto error;
+					_SPA_ERROR(EXPECTED_OBJECT_KEY);
 				iter->state |= __SUB_FLAG;
 				continue;
 			case '#':
@@ -115,7 +129,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 					 * accept array/object here.
 					 */
 					if ((iter->state & __SUB_FLAG) && !(flag & __KEY_FLAG))
-						goto error;
+						_SPA_ERROR(EXPECTED_OBJECT_KEY);
 					SPA_FLAG_CLEAR(flag, __KEY_FLAG);
 				}
 				iter->state = __STRUCT | __SUB_FLAG | flag;
@@ -132,7 +146,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 					SPA_FLAG_UPDATE(array_stack[(iter->depth-1) >> 6], mask, flag & __ARRAY_FLAG);
 				} else {
 					/* too deep */
-					goto error;
+					_SPA_ERROR(TOO_DEEP_NESTING);
 				}
 
 				*value = iter->cur;
@@ -142,19 +156,19 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 				return 1;
 			case '}': case ']':
 				if ((flag & __ARRAY_FLAG) && cur != ']')
-					goto error;
+					_SPA_ERROR(EXPECTED_ARRAY_CLOSE);
 				if (!(flag & __ARRAY_FLAG) && cur != '}')
-					goto error;
+					_SPA_ERROR(EXPECTED_OBJECT_CLOSE);
 				if (flag & __KEY_FLAG) {
 					/* incomplete key-value pair */
-					goto error;
+					_SPA_ERROR(EXPECTED_OBJECT_VALUE);
 				}
 				iter->state = __STRUCT | __SUB_FLAG | flag;
 				if (iter->depth == 0) {
 					if (iter->parent)
 						iter->parent->cur = iter->cur;
 					else
-						goto error;
+						_SPA_ERROR(MISMATCHED_BRACKET);
 					return 0;
 				}
 				--iter->depth;
@@ -166,16 +180,16 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 							SPA_FLAG_IS_SET(array_stack[(iter->depth-1) >> 6], mask));
 				} else {
 					/* too deep */
-					goto error;
+					_SPA_ERROR(TOO_DEEP_NESTING);
 				}
 				continue;
 			case '\\':
 				/* disallow bare escape */
-				goto error;
+				_SPA_ERROR(ESCAPE_NOT_ALLOWED);
 			default:
 				/* allow bare ascii */
 				if (!(cur >= 32 && cur <= 126))
-					goto error;
+					_SPA_ERROR(CHARACTERS_NOT_ALLOWED);
 				if (flag & __KEY_FLAG)
 					flag |= __SUB_FLAG;
 				if (!(flag & __ARRAY_FLAG))
@@ -196,13 +210,13 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 				return iter->cur - *value;
 			case '\\':
 				/* disallow bare escape */
-				goto error;
+				_SPA_ERROR(ESCAPE_NOT_ALLOWED);
 			default:
 				/* allow bare ascii */
 				if (cur >= 32 && cur <= 126)
 					continue;
 			}
-			goto error;
+			_SPA_ERROR(CHARACTERS_NOT_ALLOWED);
 		case __STRING:
 			switch (cur) {
 			case '\\':
@@ -227,7 +241,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 				if (cur >= 32 && cur <= 127)
 					continue;
 			}
-			goto error;
+			_SPA_ERROR(CHARACTERS_NOT_ALLOWED);
 		case __UTF8:
 			switch (cur) {
 			case 128 ... 191:
@@ -235,7 +249,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 					iter->state = __STRING | flag;
 				continue;
 			}
-			goto error;
+			_SPA_ERROR(CHARACTERS_NOT_ALLOWED);
 		case __ESC:
 			switch (cur) {
 			case '"': case '\\': case '/': case 'b': case 'f':
@@ -243,7 +257,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 				iter->state = __STRING | flag;
 				continue;
 			}
-			goto error;
+			_SPA_ERROR(INVALID_ESCAPE);
 		case __COMMENT:
 			switch (cur) {
 			case '\n': case '\r':
@@ -251,17 +265,17 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 			}
 			break;
 		default:
-			goto error;
+			_SPA_ERROR(INVALID_STATE);
 		}
 
 	}
 	if (iter->depth != 0 || iter->parent)
-		goto error;
+		_SPA_ERROR(MISMATCHED_BRACKET);
 
 	switch (iter->state & ~__FLAGS) {
 	case __STRING: case __UTF8: case __ESC:
 		/* string/escape not closed */
-		goto error;
+		_SPA_ERROR(UNFINISHED_STRING);
 	case __COMMENT:
 		/* trailing comment */
 		return 0;
@@ -269,7 +283,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 
 	if ((iter->state & __SUB_FLAG) && (iter->state & __KEY_FLAG)) {
 		/* incomplete key-value pair */
-		goto error;
+		_SPA_ERROR(EXPECTED_OBJECT_VALUE);
 	}
 
 	if ((iter->state & ~__FLAGS) != __STRUCT) {
@@ -277,13 +291,14 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 		return iter->cur - *value;
 	}
 	return 0;
+#undef _SPA_ERROR
 
 error:
-	iter->state |= __ERROR_FLAG;
+	iter->state = err;
 	while (iter->parent) {
-		if (iter->parent->state & __ERROR_FLAG)
+		if (iter->parent->state & SPA_JSON_ERROR_FLAG)
 			break;
-		iter->parent->state |= __ERROR_FLAG;
+		iter->parent->state = err;
 		iter->parent->cur = iter->cur;
 		iter = iter->parent;
 	}
@@ -291,32 +306,52 @@ error:
 }
 
 /**
- * Return whether parse error occurred, and its possible location.
+ * Return it there was a parse error, and its possible location.
  *
  * \since 1.1.0
  */
-static inline bool spa_json_get_error(struct spa_json *iter, const char *start, int *line, int *col)
+static inline bool spa_json_get_error(struct spa_json *iter, const char *start,
+		struct spa_error_location *loc)
 {
-	int linepos = 1, colpos = 1;
-	const char *p;
+	static const char *reasons[] = {
+		"System error",
+		"Invalid array separator",
+		"Expected Object key",
+		"Expected Object value",
+		"Too deep nesting",
+		"Expected array close backet",
+		"Expected object close backet",
+		"Mismatched backet",
+		"Escape not allowed",
+		"Character not allowed",
+		"Invalid escape",
+		"Invalid state",
+		"Unfinished string",
+		"Expected key separtor",
+	};
 
-	if (!(iter->state & 0x40))
+	if (!(iter->state & SPA_JSON_ERROR_FLAG))
 		return false;
 
-	for (p = start; p && p != iter->cur; ++p) {
-		if (*p == '\n') {
-			linepos++;
-			colpos = 1;
-		} else {
-			colpos++;
+	if (loc) {
+		int linepos = 1, colpos = 1, code;
+		const char *p, *l;
+
+		for (l = p = start; p && p != iter->cur; ++p) {
+			if (*p == '\n') {
+				linepos++;
+				colpos = 1;
+				l = p+1;
+			} else {
+				colpos++;
+			}
 		}
+		code = SPA_CLAMP(iter->state & 0xff, 0u, SPA_N_ELEMENTS(reasons)-1);
+		loc->line = linepos;
+		loc->col = colpos;
+		loc->location = l;
+		loc->reason = code == 0 ? strerror(errno) : reasons[code];
 	}
-
-	if (line)
-		*line = linepos;
-	if (col)
-		*col = colpos;
-
 	return true;
 }
 

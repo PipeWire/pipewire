@@ -87,12 +87,12 @@ static void expect_parse_error(struct spa_json *it, const char *str, int line, i
 {
 	const char *value;
 	struct spa_json it2;
-	int linepos = 0, colpos = 0;
+	struct spa_error_location loc = { 0 };
 
 	pwtest_int_eq(spa_json_next(it, &value), -1);
-	pwtest_bool_true(spa_json_get_error(it, str, &linepos, &colpos));
-	pwtest_int_eq(linepos, line);
-	pwtest_int_eq(colpos, col);
+	pwtest_bool_true(spa_json_get_error(it, str, &loc));
+	pwtest_int_eq(loc.line, line);
+	pwtest_int_eq(loc.col, col);
 
 	/* parse error is idempotent also for parents */
 	while (it) {
@@ -245,10 +245,10 @@ PWTEST(json_parse)
 	expect_end(&it[3]);
 	expect_end(&it[2]);
 
-	pwtest_bool_false(spa_json_get_error(&it[0], NULL, NULL, NULL));
-	pwtest_bool_false(spa_json_get_error(&it[1], NULL, NULL, NULL));
-	pwtest_bool_false(spa_json_get_error(&it[2], NULL, NULL, NULL));
-	pwtest_bool_false(spa_json_get_error(&it[3], NULL, NULL, NULL));
+	pwtest_bool_false(spa_json_get_error(&it[0], NULL, NULL));
+	pwtest_bool_false(spa_json_get_error(&it[1], NULL, NULL));
+	pwtest_bool_false(spa_json_get_error(&it[2], NULL, NULL));
+	pwtest_bool_false(spa_json_get_error(&it[3], NULL, NULL));
 
 	json = "section={\"key\":value}, section2=[item1,item2]";
 
@@ -891,7 +891,7 @@ static int validate_strict_json(struct spa_json *it, int depth, FILE *f)
 	}
 
 done:
-	if (spa_json_get_error(it, NULL, NULL, NULL))
+	if (spa_json_get_error(it, NULL, NULL))
 		return -1;
 
 	return len;
@@ -1052,9 +1052,9 @@ PWTEST(json_data)
 
 		fprintf(stdout, "%s (expect %s)\n", name, expect ? "fail" : "ok");
 		fflush(stdout);
-		pwtest_bool_eq(res == -2 || spa_json_get_error(&it, NULL, NULL, NULL), expect);
+		pwtest_bool_eq(res == -2 || spa_json_get_error(&it, NULL, NULL), expect);
 		if (res == -2)
-			pwtest_bool_false(spa_json_get_error(&it, NULL, NULL, NULL));
+			pwtest_bool_false(spa_json_get_error(&it, NULL, NULL));
 
 		if (result) {
 			while (strlen(result) > 0 && result[strlen(result) - 1] == '\n')

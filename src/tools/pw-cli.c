@@ -1405,17 +1405,13 @@ static bool do_info(struct data *data, const char *cmd, char *args, char **error
 static struct pw_properties *properties_new_checked(const char *str, char **error)
 {
 	struct pw_properties *props;
-	int line, col;
+	struct spa_error_location loc;
 
-	if (!pw_properties_check_string(str, strlen(str), &line, &col)) {
-		*error = spa_aprintf("syntax error in properties, line:%d col:%d", line, col);
-		return NULL;
+	props = pw_properties_new_string_checked(str, strlen(str), &loc);
+	if (!props) {
+		*error = spa_aprintf("syntax error in properties, line:%d col:%d: %s",
+				loc.line, loc.col, loc.reason);
 	}
-
-	props = pw_properties_new_string(str);
-	if (!props)
-		*error = spa_aprintf("failed to allocate properties");
-
 	return props;
 }
 

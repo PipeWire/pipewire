@@ -11,6 +11,7 @@ extern "C" {
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <ctype.h>
 
 #include <spa/utils/defs.h>
 /**
@@ -30,6 +31,25 @@ struct spa_debug_context {
 };
 
 #define spa_debugc(_c,_fmt,...)	(_c)?((_c)->log((_c),_fmt, ## __VA_ARGS__)):(void)spa_debug(_fmt, ## __VA_ARGS__)
+
+static inline void spa_debugc_error_location(struct spa_debug_context *c,
+		struct spa_error_location *loc)
+{
+	int i, skip = loc->col > 80 ? loc->col - 40 : 0;
+	char buf[80];
+
+	for (i = 0; (size_t)i < sizeof(buf)-1; i++) {
+		char ch = loc->location[i + skip];
+		if (ch == '\n' || ch == '\0')
+			break;
+		buf[i] = isspace(ch) ? ' ' : ch;
+	}
+	buf[i] = '\0';
+	spa_debugc(c, "line: %6d | %s%s", loc->line, skip ? "..." : "", buf);
+	for (i = 0; buf[i]; i++)
+		buf[i] = i+skip+1 == loc->col ? '^' : ' ';
+	spa_debugc(c, "col:  %6d | %s%s", loc->col, skip ? "   " : "", buf);
+}
 
 /**
  * \}

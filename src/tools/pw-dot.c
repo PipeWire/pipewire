@@ -1317,8 +1317,7 @@ static int get_data_from_json(struct data *data, const char *json_path)
 
 	if (spa_json_get_error(&it[0], json, &loc)) {
 		spa_debug_file_error_location(stderr, &loc,
-				"JSON syntax error: %s\n",
-				loc.reason);
+				"JSON syntax error: %s\n", loc.reason);
 		return -1;
 	}
 

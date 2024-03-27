@@ -14,6 +14,7 @@
 
 #include <spa/utils/result.h>
 #include <spa/utils/json.h>
+#include <spa/debug/file.h>
 
 static void encode_string(FILE *f, const char *val, int len)
 {
@@ -143,8 +144,9 @@ static int process_json(const char *filename, void *buf, size_t size)
 		struct spa_error_location loc;
 
 		if (spa_json_get_error(&it, buf, &loc))
-			fprintf(stderr, "syntax error in file '%s': at line:%d col:%d: %s\n",
-					filename, loc.line, loc.col, loc.reason);
+			spa_debug_file_error_location(stderr, &loc,
+					"syntax error in file '%s': %s",
+					filename, loc.reason);
 		else
 			fprintf(stderr, "error parsing file '%s': %s\n", filename, spa_strerror(res));
 

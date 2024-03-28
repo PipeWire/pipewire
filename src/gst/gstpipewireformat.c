@@ -436,6 +436,7 @@ add_video_format (gpointer format_ptr,
   ConvertData *d = user_data;
   struct spa_pod_dynamic_builder b;
   struct spa_pod_frame f;
+  int n_mods;
 
   spa_pod_dynamic_builder_init (&b, NULL, 0, 1024);
 
@@ -450,29 +451,35 @@ add_video_format (gpointer format_ptr,
   spa_pod_builder_prop (&b.b, SPA_FORMAT_VIDEO_format, 0);
   spa_pod_builder_id (&b.b, format);
 
-  if (g_hash_table_size (modifiers) > 0) {
+  n_mods = g_hash_table_size (modifiers);
+  if (n_mods > 0) {
+    struct spa_pod_frame f2;
     GHashTableIter iter;
     gpointer key, value;
+    uint32_t flags, choice_type;
+
+    flags = SPA_POD_PROP_FLAG_MANDATORY;
+    if (n_mods > 1) {
+      choice_type = SPA_CHOICE_Enum;
+      flags |= SPA_POD_PROP_FLAG_DONT_FIXATE;
+    } else {
+      choice_type = SPA_CHOICE_None;
+    }
+
+    spa_pod_builder_prop (&b.b, SPA_FORMAT_VIDEO_modifier, flags);
+    spa_pod_builder_push_choice (&b.b, &f2, choice_type, 0);
 
     g_hash_table_iter_init (&iter, modifiers);
-    if (g_hash_table_size (modifiers) > 1) {
-      struct spa_pod_frame f2;
+    g_hash_table_iter_next (&iter, &key, &value);
+    spa_pod_builder_long (&b.b, (uint64_t) key);
 
-      spa_pod_builder_prop (&b.b, SPA_FORMAT_VIDEO_modifier,
-                            (SPA_POD_PROP_FLAG_MANDATORY | SPA_POD_PROP_FLAG_DONT_FIXATE));
-      spa_pod_builder_push_choice (&b.b, &f2, SPA_CHOICE_Enum, 0);
-      g_hash_table_iter_next (&iter, &key, &value);
-      spa_pod_builder_long (&b.b, (uint64_t) key);
+    if (n_mods > 1) {
       do {
         spa_pod_builder_long (&b.b, (uint64_t) key);
       } while (g_hash_table_iter_next (&iter, &key, &value));
-      spa_pod_builder_pop (&b.b, &f2);
-    } else {
-      g_hash_table_iter_next (&iter, &key, &value);
-      spa_pod_builder_prop (&b.b, SPA_FORMAT_VIDEO_modifier,
-                            SPA_POD_PROP_FLAG_MANDATORY);
-      spa_pod_builder_long (&b.b, (uint64_t) key);
     }
+
+    spa_pod_builder_pop (&b.b, &f2);
   }
 
   add_limits (&b, d);

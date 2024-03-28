@@ -253,6 +253,11 @@ Any property in the vm.overrides property object will override the property
 in the context.properties when PipeWire detects it is running in a VM. This
 is deprected, use the context.properties.rules instead.
 
+@PAR@ pipewire.conf  context.modules.allow-empty = false
+By default, a warning is logged when there are no context.modules loaded because this
+likely indicates there is a problem. Some applications might load the modules themselves
+and when they set this property to true, no warning will be logged.
+
 The context properties may also contain custom values. For example,
 the `context.modules` and `context.objects` sections can declare
 additional conditions that control whether a module or object is loaded

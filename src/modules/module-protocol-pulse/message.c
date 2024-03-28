@@ -811,6 +811,7 @@ int message_dump(enum spa_log_level level, const char *prefix, struct message *m
 					info.props->dict.n_items);
 			spa_dict_for_each(it, &info.props->dict)
 				pw_log(level, "%s      '%s': '%s'", prefix, it->key, it->value);
+			format_info_clear(&info);
 			break;
 		}
 		}

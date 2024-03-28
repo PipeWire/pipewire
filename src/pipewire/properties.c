@@ -27,24 +27,38 @@ struct properties {
 };
 /** \endcond */
 
-static int add_func(struct pw_properties *this, char *key, char *value)
+static int add_item(struct properties *impl, const char *key, bool take_key, const char *value, bool take_value)
 {
 	struct spa_dict_item *item;
-	struct properties *impl = SPA_CONTAINER_OF(this, struct properties, this);
+	const char *k, *v;
+
+	k = take_key ? key : NULL;
+	v = take_value ? value: NULL;
+
+	if (!take_key && key && (k = strdup(key)) == NULL)
+		goto error;
+	if (!take_value && value && (v = strdup(value)) == NULL)
+		goto error;
 
 	item = pw_array_add(&impl->items, sizeof(struct spa_dict_item));
-	if (item == NULL) {
-		free(key);
-		free(value);
-		return -errno;
-	}
+	if (item == NULL)
+		goto error;
 
-	item->key = key;
-	item->value = value;
-
-	this->dict.items = impl->items.data;
-	this->dict.n_items++;
+	item->key = k;
+	item->value = v;
 	return 0;
+
+error:
+	free((char*)k);
+	free((char*)v);
+	return -errno;
+}
+
+static void update_dict(struct pw_properties *properties)
+{
+	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);
+	properties->dict.items = impl->items.data;
+	properties->dict.n_items = pw_array_get_len(&impl->items, struct spa_dict_item);
 }
 
 static void clear_item(struct spa_dict_item *item)
@@ -53,26 +67,20 @@ static void clear_item(struct spa_dict_item *item)
 	free((char *) item->value);
 }
 
-static int find_index(const struct pw_properties *this, const char *key)
+static void properties_init(struct properties *impl, int prealloc)
 {
-	const struct spa_dict_item *item;
-	item = spa_dict_lookup_item(&this->dict, key);
-	if (item == NULL)
-		return -1;
-	return item - this->dict.items;
+	pw_array_init(&impl->items, 16);
+	pw_array_ensure_size(&impl->items, sizeof(struct spa_dict_item) * prealloc);
 }
 
 static struct properties *properties_new(int prealloc)
 {
 	struct properties *impl;
 
-	impl = calloc(1, sizeof(struct properties));
-	if (impl == NULL)
+	if ((impl = calloc(1, sizeof(struct properties))) == NULL)
 		return NULL;
 
-	pw_array_init(&impl->items, 16);
-	pw_array_ensure_size(&impl->items, sizeof(struct spa_dict_item) * prealloc);
-
+	properties_init(impl, prealloc);
 	return impl;
 }
 
@@ -88,6 +96,7 @@ struct pw_properties *pw_properties_new(const char *key, ...)
 	struct properties *impl;
 	va_list varargs;
 	const char *value;
+	int res = 0;
 
 	impl = properties_new(16);
 	if (impl == NULL)
@@ -97,12 +106,18 @@ struct pw_properties *pw_properties_new(const char *key, ...)
 	while (key != NULL) {
 		value = va_arg(varargs, char *);
 		if (value && key[0])
-			add_func(&impl->this, strdup(key), strdup(value));
+			if ((res = add_item(impl, key, false, value, false)) < 0)
+				goto error;
 		key = va_arg(varargs, char *);
 	}
 	va_end(varargs);
+	update_dict(&impl->this);
 
 	return &impl->this;
+error:
+	pw_properties_free(&impl->this);
+	errno = -res;
+	return NULL;
 }
 
 /** Make a new properties object from the given dictionary
@@ -115,6 +130,7 @@ struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
 {
 	uint32_t i;
 	struct properties *impl;
+	int res;
 
 	impl = properties_new(SPA_ROUND_UP_N(dict->n_items, 16));
 	if (impl == NULL)
@@ -123,11 +139,71 @@ struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
 	for (i = 0; i < dict->n_items; i++) {
 		const struct spa_dict_item *it = &dict->items[i];
 		if (it->key != NULL && it->key[0] && it->value != NULL)
-			add_func(&impl->this, strdup(it->key),
-				 strdup(it->value));
+			if ((res = add_item(impl, it->key, false, it->value, false)) < 0)
+				goto error;
 	}
+	update_dict(&impl->this);
 
 	return &impl->this;
+
+error:
+	pw_properties_free(&impl->this);
+	errno = -res;
+	return NULL;
+}
+
+static int do_replace(struct pw_properties *properties, const char *key, bool take_key,
+		const char *value, bool take_value)
+{
+	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);
+	struct spa_dict_item *item;
+	int res = 0;
+
+	if (key == NULL || key[0] == 0)
+		goto exit_noupdate;
+
+	item = (struct spa_dict_item*) spa_dict_lookup_item(&properties->dict, key);
+
+	if (item == NULL) {
+		if (value == NULL)
+			goto exit_noupdate;
+		if ((res = add_item(impl, key, take_key, value, take_value)) < 0)
+			return res;
+		SPA_FLAG_CLEAR(properties->dict.flags, SPA_DICT_FLAG_SORTED);
+	} else {
+		if (value && spa_streq(item->value, value))
+			goto exit_noupdate;
+
+		if (value == NULL) {
+			struct spa_dict_item *last = pw_array_get_unchecked(&impl->items,
+						     pw_array_get_len(&impl->items, struct spa_dict_item) - 1,
+						     struct spa_dict_item);
+			clear_item(item);
+			item->key = last->key;
+			item->value = last->value;
+			impl->items.size -= sizeof(struct spa_dict_item);
+			SPA_FLAG_CLEAR(properties->dict.flags, SPA_DICT_FLAG_SORTED);
+		} else {
+			char *v = NULL;
+			if (!take_value && value && (v = strdup(value)) == NULL) {
+				res = -errno;
+				goto exit_noupdate;
+			}
+			free((char *) item->value);
+			item->value = take_value ? value : v;
+		}
+		if (take_key)
+			free((char*)key);
+	}
+	update_dict(properties);
+	return 1;
+
+exit_noupdate:
+	if (take_key)
+		free((char*)key);
+	if (take_value)
+		free((char*)value);
+	return res;
 }
 
 static int update_string(struct pw_properties *props, const char *str, size_t size,
@@ -138,6 +214,10 @@ static int update_string(struct pw_properties *props, const char *str, size_t si
 	struct spa_error_location el;
 	bool err;
 	int cnt = 0;
+	struct properties changes;
+
+	if (props)
+		properties_init(&changes, 16);
 
 	spa_json_init(&it[0], str, size);
 	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
@@ -146,7 +226,7 @@ static int update_string(struct pw_properties *props, const char *str, size_t si
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 		int len;
 		const char *value;
-		spa_autofree char *val = NULL;
+		char *val = NULL;
 
 		if ((len = spa_json_next(&it[1], &value)) <= 0)
 			break;
@@ -161,15 +241,25 @@ static int update_string(struct pw_properties *props, const char *str, size_t si
 
 			if (props) {
 				if ((val = malloc(len+1)) == NULL) {
-					errno = ENOMEM;
 					it[1].state = SPA_JSON_ERROR_FLAG;
 					break;
 				}
 				spa_json_parse_stringn(value, len, val, len+1);
 			}
 		}
-		if (props)
-			cnt += pw_properties_set(props, key, val);
+		if (props) {
+			const struct spa_dict_item *item;
+			item = spa_dict_lookup_item(&props->dict, key);
+			if (item && spa_streq(item->value, val)) {
+				free(val);
+				continue;
+			}
+			/* item changed or added, apply changes later */
+			if ((errno = -add_item(&changes, key, false, val, true) < 0)) {
+				it[1].state = SPA_JSON_ERROR_FLAG;
+				break;
+			}
+		}
 	}
 	if ((err = spa_json_get_error(&it[1], str, &el))) {
 		if (loc == NULL)
@@ -179,8 +269,20 @@ static int update_string(struct pw_properties *props, const char *str, size_t si
 		else
 			*loc = el;
 	}
+	if (props) {
+		struct spa_dict_item *item;
+		if (loc == NULL || !err) {
+			pw_array_for_each(item, &changes.items)
+				cnt += do_replace(props, item->key, true, item->value, true);
+		} else {
+			pw_array_for_each(item, &changes.items)
+				clear_item(item);
+		}
+		pw_array_clear(&changes.items);
+	}
 	if (count)
 		*count = cnt;
+
 	return !err;
 }
 
@@ -223,10 +325,8 @@ int pw_properties_update_string_checked(struct pw_properties *props,
 		const char *str, size_t size, struct spa_error_location *loc)
 {
 	int count = 0;
-	if (!update_string(NULL, str, size, NULL, loc))
+	if (!update_string(props, str, size, &count, loc))
 		return -EINVAL;
-	if (props)
-		update_string(props, str, size, &count, NULL);
 	return count;
 }
 
@@ -441,50 +541,6 @@ void pw_properties_free(struct pw_properties *properties)
 	free(impl);
 }
 
-static int do_replace(struct pw_properties *properties, const char *key, char *value, bool copy)
-{
-	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);
-	int index;
-
-	if (key == NULL || key[0] == 0)
-		goto exit_noupdate;
-
-	index = find_index(properties, key);
-
-	if (index == -1) {
-		if (value == NULL)
-			return 0;
-		add_func(properties, strdup(key), copy ? strdup(value) : value);
-		SPA_FLAG_CLEAR(properties->dict.flags, SPA_DICT_FLAG_SORTED);
-	} else {
-		struct spa_dict_item *item =
-		    pw_array_get_unchecked(&impl->items, index, struct spa_dict_item);
-
-		if (value && spa_streq(item->value, value))
-			goto exit_noupdate;
-
-		if (value == NULL) {
-			struct spa_dict_item *last = pw_array_get_unchecked(&impl->items,
-						     pw_array_get_len(&impl->items, struct spa_dict_item) - 1,
-						     struct spa_dict_item);
-			clear_item(item);
-			item->key = last->key;
-			item->value = last->value;
-			impl->items.size -= sizeof(struct spa_dict_item);
-			properties->dict.n_items--;
-			SPA_FLAG_CLEAR(properties->dict.flags, SPA_DICT_FLAG_SORTED);
-		} else {
-			free((char *) item->value);
-			item->value = copy ? strdup(value) : value;
-		}
-	}
-	return 1;
-exit_noupdate:
-	if (!copy)
-		free(value);
-	return 0;
-}
-
 /** Set a property value
  *
  * \param properties the properties to change
@@ -492,7 +548,7 @@ exit_noupdate:
  * \param value a value or NULL to remove the key
  * \return 1 if the properties were changed. 0 if nothing was changed because
  *  the property already existed with the same value or because the key to remove
- *  did not exist.
+ *  did not exist. < 0 if an error occured and nothing was changed.
  *
  * Set the property in \a properties with \a key to \a value. Any previous value
  * of \a key will be overwritten. When \a value is NULL, the key will be
@@ -501,7 +557,7 @@ exit_noupdate:
 SPA_EXPORT
 int pw_properties_set(struct pw_properties *properties, const char *key, const char *value)
 {
-	return do_replace(properties, key, (char*)value, true);
+	return do_replace(properties, key, false, (char*)value, false);
 }
 
 SPA_EXPORT
@@ -513,7 +569,7 @@ int pw_properties_setva(struct pw_properties *properties,
 		if (vasprintf(&value, format, args) < 0)
 			return -errno;
 	}
-	return do_replace(properties, key, value, false);
+	return do_replace(properties, key, false, value, true);
 }
 
 /** Set a property value by format
@@ -553,13 +609,7 @@ int pw_properties_setf(struct pw_properties *properties, const char *key, const 
 SPA_EXPORT
 const char *pw_properties_get(const struct pw_properties *properties, const char *key)
 {
-	struct properties *impl = SPA_CONTAINER_OF(properties, struct properties, this);
-	int index = find_index(properties, key);
-
-	if (index == -1)
-		return NULL;
-
-	return pw_array_get_unchecked(&impl->items, index, struct spa_dict_item)->value;
+	return spa_dict_lookup(&properties->dict, key);
 }
 
 /** Fetch a property as uint32_t.

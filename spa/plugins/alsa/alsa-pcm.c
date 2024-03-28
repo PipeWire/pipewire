@@ -3603,16 +3603,17 @@ int spa_alsa_start(struct state *state)
 			return err;
 	}
 
-	state->started = true;
-	spa_loop_invoke(state->data_loop, do_state_sync, 0, NULL, 0, true, state);
-
 	/* playback will start after first write. Without tsched, we start
 	 * right away so that the fds become active in poll right away. */
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
-		if (state->disable_tsched)
+		if (state->disable_tsched || state->start_delay > 0)
 			if ((err = do_start(state)) < 0)
 				return err;
 	}
+
+	state->started = true;
+	spa_loop_invoke(state->data_loop, do_state_sync, 0, NULL, 0, true, state);
+
 	return 0;
 }
 

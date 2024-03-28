@@ -23,6 +23,7 @@
 #include <spa/param/tag-utils.h>
 #include <spa/pod/dynamic.h>
 #include <spa/debug/types.h>
+#include <spa/debug/log.h>
 
 #include <pipewire/utils.h>
 #include <pipewire/impl.h>
@@ -1872,24 +1873,35 @@ exit:
  */
 static int parse_config(struct node *node, struct spa_json *config)
 {
-	const char *val;
-	int len;
+	const char *val, *s = config->cur;
+	int res = 0, len;
+	struct spa_error_location loc;
 
-	if ((len = spa_json_next(config, &val)) <= 0)
-		return len;
-
+	if ((len = spa_json_next(config, &val)) <= 0) {
+		res = -EINVAL;
+		goto done;
+	}
 	if (spa_json_is_null(val, len))
-		return 0;
+		goto done;
 
-	if (spa_json_is_container(val, len))
+	if (spa_json_is_container(val, len)) {
 		len = spa_json_container_len(config, val, len);
-
-	if ((node->config = malloc(len+1)) == NULL)
-		return -errno;
+		if (len == 0) {
+			res = -EINVAL;
+			goto done;
+		}
+	}
+	if ((node->config = malloc(len+1)) == NULL) {
+		res = -errno;
+		goto done;
+	}
 
 	spa_json_parse_stringn(val, len, node->config, len+1);
-
-	return 0;
+done:
+	if (spa_json_get_error(config, s, &loc))
+		spa_debug_log_error_location(pw_log_get(), SPA_LOG_LEVEL_WARN,
+				&loc, "error: %s", loc.reason);
+	return res;
 }
 
 /**

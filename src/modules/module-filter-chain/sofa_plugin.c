@@ -42,12 +42,16 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 	char filename[PATH_MAX] = "";
 
 	errno = EINVAL;
-	if (config == NULL)
+	if (config == NULL) {
+		pw_log_error("spatializer: no config was given");
 		return NULL;
+	}
 
 	spa_json_init(&it[0], config, strlen(config));
-	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0) {
+		pw_log_error("spatializer: expected object in config");
 		return NULL;
+	}
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL) {

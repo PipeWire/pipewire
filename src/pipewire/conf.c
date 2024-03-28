@@ -804,13 +804,12 @@ static int parse_modules(void *user_data, const char *location,
 		if (!have_match)
 			continue;
 
-		if (name != NULL)
+		if (name != NULL) {
 			res = load_module(context, name, args, flags);
-
-		if (res < 0)
-			break;
-
-		d->count++;
+			if (res < 0)
+				break;
+			d->count++;
+		}
 	}
 	if (r < 0)
 		pw_log_warn("malformed object array in '%.*s'", (int)len, str);
@@ -915,12 +914,12 @@ static int parse_objects(void *user_data, const char *location,
 		if (!have_match)
 			continue;
 
-		if (factory != NULL)
+		if (factory != NULL) {
 			res = create_object(context, factory, args, flags);
-
-		if (res < 0)
-			break;
-		d->count++;
+			if (res < 0)
+				break;
+			d->count++;
+		}
 	}
 	if (r < 0)
 		pw_log_warn("malformed object array in '%.*s'", (int)len, str);
@@ -1035,13 +1034,12 @@ static int parse_exec(void *user_data, const char *location,
 		if (!have_match)
 			continue;
 
-		if (path != NULL)
+		if (path != NULL) {
 			res = do_exec(context, path, args);
-
-		if (res < 0)
-			break;
-
-		d->count++;
+			if (res < 0)
+				break;
+			d->count++;
+		}
 	}
 	if (r < 0)
 		pw_log_warn("malformed object array in '%.*s'", (int)len, str);

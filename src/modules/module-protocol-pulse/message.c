@@ -421,9 +421,9 @@ static void write_string(struct message *m, const char *s)
 {
 	write_8(m, s ? TAG_STRING : TAG_STRING_NULL);
 	if (s != NULL) {
-		int len = strlen(s) + 1;
+		size_t len = strlen(s) + 1;
 		if (ensure_size(m, len) > 0)
-			strcpy(SPA_PTROFF(m->data, m->length, char), s);
+			memcpy(SPA_PTROFF(m->data, m->length, char), s, len);
 		m->length += len;
 	}
 }

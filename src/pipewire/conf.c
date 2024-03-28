@@ -567,6 +567,7 @@ static int parse_spa_libs(void *user_data, const char *location,
 	struct pw_context *context = d->context;
 	struct spa_json it[2];
 	char key[512], value[512];
+	int res;
 
 	spa_json_init(&it[0], str, len);
 	if (spa_json_enter_object(&it[0], &it[1]) < 0) {
@@ -577,7 +578,11 @@ static int parse_spa_libs(void *user_data, const char *location,
 
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 		if (spa_json_get_string(&it[1], value, sizeof(value)) > 0) {
-			pw_context_add_spa_lib(context, key, value);
+			if ((res = pw_context_add_spa_lib(context, key, value)) < 0) {
+				pw_log_error("error adding spa-libs for '%s' in '%.*s': %s",
+					key, (int)len, str, spa_strerror(res));
+				return res;
+			}
 			d->count++;
 		} else {
 			pw_log_warn("config file error: missing spa-libs "

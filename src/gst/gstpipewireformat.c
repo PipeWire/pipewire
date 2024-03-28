@@ -877,8 +877,7 @@ handle_dmabuf_prop (const struct spa_pod_prop *prop,
   const struct spa_pod *pod_modifier;
   struct spa_pod *val;
   uint32_t *id, n_fmts, n_mods, choice, i, j;
-  uint64_t *mods;
-
+  uint64_t *mods, single_modifier;
 
   val = spa_pod_get_values (&prop->value, &n_fmts, &choice);
   if (val->type != SPA_TYPE_Id)
@@ -891,11 +890,22 @@ handle_dmabuf_prop (const struct spa_pod_prop *prop,
   }
 
   pod_modifier = &prop_modifier->value;
-  mods = SPA_POD_CHOICE_VALUES (pod_modifier);
-  n_mods = SPA_POD_CHOICE_N_VALUES (pod_modifier);
-  if (n_mods > 1) {
-    n_mods--;
-    mods++;
+  if (spa_pod_is_long (pod_modifier) &&
+      spa_pod_get_long (pod_modifier, (int64_t *) &single_modifier)) {
+    mods = &single_modifier;
+    n_mods = 1;
+  } else if (spa_pod_is_choice (pod_modifier) &&
+             SPA_POD_CHOICE_TYPE (pod_modifier) == SPA_CHOICE_Enum &&
+             SPA_POD_CHOICE_VALUE_TYPE (pod_modifier) == SPA_TYPE_Long) {
+    mods = SPA_POD_CHOICE_VALUES (pod_modifier);
+    n_mods = SPA_POD_CHOICE_N_VALUES (pod_modifier);
+
+    if (n_mods > 1) {
+      n_mods--;
+      mods++;
+    }
+  } else {
+    return;
   }
 
   fmt_array = g_ptr_array_new_with_free_func (g_free);

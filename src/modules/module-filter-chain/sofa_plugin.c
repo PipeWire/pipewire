@@ -95,8 +95,75 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 	impl->sofa = mysofa_open_cached(filename, SampleRate, &impl->n_samples, &ret);
 
 	if (ret != MYSOFA_OK) {
-		pw_log_error("Unable to load HRTF from %s: %d", filename, ret);
-		errno = ENOENT;
+		const char *reason;
+		switch (ret) {
+		case MYSOFA_INVALID_FORMAT:
+			reason = "Invalid format";
+			errno = EINVAL;
+			break;
+		case MYSOFA_UNSUPPORTED_FORMAT:
+			reason = "Unsupported format";
+			errno = ENOTSUP;
+			break;
+		case MYSOFA_NO_MEMORY:
+			reason = "No memory";
+			errno = ENOMEM;
+			break;
+		case MYSOFA_READ_ERROR:
+			reason = "Read error";
+			errno = ENOENT;
+			break;
+		case MYSOFA_INVALID_ATTRIBUTES:
+			reason = "Invalid attributes";
+			errno = EINVAL;
+			break;
+		case MYSOFA_INVALID_DIMENSIONS:
+			reason = "Invalid dimensions";
+			errno = EINVAL;
+			break;
+		case MYSOFA_INVALID_DIMENSION_LIST:
+			reason = "Invalid dimension list";
+			errno = EINVAL;
+			break;
+		case MYSOFA_INVALID_COORDINATE_TYPE:
+			reason = "Invalid coordinate type";
+			errno = EINVAL;
+			break;
+		case MYSOFA_ONLY_EMITTER_WITH_ECI_SUPPORTED:
+			reason = "Only emitter with ECI supported";
+			errno = ENOTSUP;
+			break;
+		case MYSOFA_ONLY_DELAYS_WITH_IR_OR_MR_SUPPORTED:
+			reason = "Only delays with IR or MR supported";
+			errno = ENOTSUP;
+			break;
+		case MYSOFA_ONLY_THE_SAME_SAMPLING_RATE_SUPPORTED:
+			reason = "Only the same sampling rate supported";
+			errno = ENOTSUP;
+			break;
+		case MYSOFA_RECEIVERS_WITH_RCI_SUPPORTED:
+			reason = "Receivers with RCI supported";
+			errno = ENOTSUP;
+			break;
+		case MYSOFA_RECEIVERS_WITH_CARTESIAN_SUPPORTED:
+			reason = "Receivers with cartesian supported";
+			errno = ENOTSUP;
+			break;
+		case MYSOFA_INVALID_RECEIVER_POSITIONS:
+			reason = "Invalid receiver positions";
+			errno = EINVAL;
+			break;
+		case MYSOFA_ONLY_SOURCES_WITH_MC_SUPPORTED:
+			reason = "Only sources with MC supported";
+			errno = ENOTSUP;
+			break;
+		default:
+		case MYSOFA_INTERNAL_ERROR:
+			errno = EIO;
+			reason = "Internal error";
+			break;
+		}
+		pw_log_error("Unable to load HRTF from %s: %s (%d)", filename, reason, ret);
 		goto error;
 	}
 

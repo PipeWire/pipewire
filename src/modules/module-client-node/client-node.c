@@ -692,14 +692,18 @@ static int do_port_set_io(struct impl *impl,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
 			port_id, mix_id, data, size);
 
-	port = GET_PORT(impl, direction, port_id);
-	if (port == NULL)
-		return data == NULL ? 0 : -EINVAL;
-
-	if ((mix = find_mix(port, mix_id)) == NULL)
-		return -EINVAL;
-
 	old = pw_mempool_find_tag(impl->client_pool, tag, sizeof(tag));
+
+	port = GET_PORT(impl, direction, port_id);
+	if (port == NULL) {
+		pw_memmap_free(old);
+		return data == NULL ? 0 : -EINVAL;
+	}
+
+	if ((mix = find_mix(port, mix_id)) == NULL) {
+		pw_memmap_free(old);
+		return -EINVAL;
+	}
 
 	if (data) {
 		mm = pw_mempool_import_map(impl->client_pool,

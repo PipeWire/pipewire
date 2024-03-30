@@ -853,6 +853,21 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
 
   GST_DEBUG_OBJECT (basesrc, "have common caps: %" GST_PTR_FORMAT, possible_caps);
 
+  if (pw_stream_get_state(pwsrc->stream, NULL) == PW_STREAM_STATE_STREAMING) {
+    g_autoptr (GstCaps) current_caps = NULL;
+    g_autoptr (GstCaps) preferred_new_caps = NULL;
+
+    current_caps = gst_pad_get_current_caps (GST_BASE_SRC_PAD (pwsrc));
+    preferred_new_caps = gst_caps_copy_nth (possible_caps, 0);
+
+    if (gst_caps_is_equal (current_caps, preferred_new_caps)) {
+      GST_DEBUG_OBJECT (pwsrc,
+                        "Stream running and new caps equal current ones. "
+                        "Skipping renegotiation.");
+      goto no_nego_needed;
+    }
+  }
+
   /* open a connection with these caps */
   possible = gst_caps_to_format_all (possible_caps, SPA_PARAM_EnumFormat);
 

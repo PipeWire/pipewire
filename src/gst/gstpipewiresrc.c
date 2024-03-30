@@ -825,11 +825,12 @@ static gboolean
 gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
 {
   GstPipeWireSrc *pwsrc = GST_PIPEWIRE_SRC (basesrc);
-  GstCaps *thiscaps;
-  GstCaps *caps = NULL;
-  GstCaps *peercaps = NULL;
+  g_autoptr (GstCaps) thiscaps = NULL;
+  g_autoptr (GstCaps) possible_caps = NULL;
+  g_autoptr (GstCaps) negotiated_caps = NULL;
+  g_autoptr (GstCaps) peercaps = NULL;
+  g_autoptr (GPtrArray) possible = NULL;
   gboolean result = FALSE;
-  GPtrArray *possible;
   const char *error = NULL;
   struct timespec abstime;
   uint32_t target_id;
@@ -849,24 +850,22 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   GST_DEBUG_OBJECT (basesrc, "caps of peer: %" GST_PTR_FORMAT, peercaps);
   if (peercaps) {
     /* The result is already a subset of our caps */
-    caps = peercaps;
-    gst_caps_unref (thiscaps);
+    possible_caps = g_steal_pointer (&peercaps);
   } else {
     /* no peer, work with our own caps then */
-    caps = thiscaps;
+    possible_caps = g_steal_pointer (&thiscaps);
   }
 
-  GST_DEBUG_OBJECT (basesrc, "have common caps: %" GST_PTR_FORMAT, caps);
-  gst_caps_sanitize (&caps);
+  GST_DEBUG_OBJECT (basesrc, "have common caps: %" GST_PTR_FORMAT, possible_caps);
+  gst_caps_sanitize (&possible_caps);
 
-  if (gst_caps_is_empty (caps))
+  if (gst_caps_is_empty (possible_caps))
     goto no_common_caps;
 
-  GST_DEBUG_OBJECT (basesrc, "have common caps (sanitized): %" GST_PTR_FORMAT, caps);
+  GST_DEBUG_OBJECT (basesrc, "have common caps (sanitized): %" GST_PTR_FORMAT, possible_caps);
 
   /* open a connection with these caps */
-  possible = gst_caps_to_format_all (caps);
-  gst_caps_unref (caps);
+  possible = gst_caps_to_format_all (possible_caps);
 
   /* first disconnect */
   pw_thread_loop_lock (pwsrc->core->loop);
@@ -880,10 +879,8 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
       if (state == PW_STREAM_STATE_UNCONNECTED)
         break;
 
-      if (state == PW_STREAM_STATE_ERROR || pwsrc->flushing) {
-        g_ptr_array_unref (possible);
+      if (state == PW_STREAM_STATE_ERROR || pwsrc->flushing)
         goto connect_error;
-      }
 
       pw_thread_loop_wait (pwsrc->core->loop);
     }
@@ -926,7 +923,6 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
                      flags,
                      (const struct spa_pod **)possible->pdata,
                      possible->len);
-  g_ptr_array_free (possible, TRUE);
 
   pw_thread_loop_get_time (pwsrc->core->loop, &abstime,
                   GST_PIPEWIRE_DEFAULT_TIMEOUT * SPA_NSEC_PER_SEC);
@@ -948,18 +944,17 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
       pw_thread_loop_wait (pwsrc->core->loop);
     }
   }
-  caps = pwsrc->caps;
-  pwsrc->caps = NULL;
+
+  negotiated_caps = g_steal_pointer (&pwsrc->caps);
   pw_thread_loop_unlock (pwsrc->core->loop);
 
-  if (caps == NULL)
+  if (negotiated_caps == NULL)
     goto no_caps;
 
   gst_pipewire_clock_reset (GST_PIPEWIRE_CLOCK (pwsrc->clock), 0);
 
-  GST_DEBUG_OBJECT (pwsrc, "set format %" GST_PTR_FORMAT, caps);
-  result = gst_base_src_set_caps (GST_BASE_SRC (pwsrc), caps);
-  gst_caps_unref (caps);
+  GST_DEBUG_OBJECT (pwsrc, "set format %" GST_PTR_FORMAT, negotiated_caps);
+  result = gst_base_src_set_caps (GST_BASE_SRC (pwsrc), negotiated_caps);
 
   result = gst_pipewire_src_stream_start (pwsrc);
 
@@ -970,8 +965,6 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
 no_nego_needed:
   {
     GST_DEBUG_OBJECT (basesrc, "no negotiation needed");
-    if (thiscaps)
-      gst_caps_unref (thiscaps);
     return TRUE;
   }
 no_caps:
@@ -982,9 +975,6 @@ no_caps:
         ("%s", error_string),
         ("This element did not produce valid caps"));
     pw_stream_set_error (pwsrc->stream, -EINVAL, "%s", error_string);
-
-    if (thiscaps)
-      gst_caps_unref (thiscaps);
     return FALSE;
   }
 no_common_caps:
@@ -995,9 +985,6 @@ no_common_caps:
         ("%s", error_string),
         ("This element does not have formats in common with the peer"));
     pw_stream_set_error (pwsrc->stream, -EPIPE, "%s", error_string);
-
-    if (caps)
-      gst_caps_unref (caps);
     return FALSE;
   }
 connect_error:

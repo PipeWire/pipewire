@@ -133,6 +133,8 @@ ATTRS{idVendor}=="1038", ATTRS{idProduct}=="12c4", ENV{ACP_PROFILE_SET}="usb-gam
 ATTRS{idVendor}=="2f12", ATTRS{idProduct}=="0109", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 # ID 9886:002c is for the Astro A50 Gen4
 ATTRS{idVendor}=="9886", ATTRS{idProduct}=="002c", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
+# ID 9886:0038 is for the Astro Mixamp Pro TR
+ATTRS{idVendor}=="9886", ATTRS{idProduct}=="0038", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 # ID 9886:0045 is for the Astro A20 Gen2
 ATTRS{idVendor}=="9886", ATTRS{idProduct}=="0045", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 # ID 1532:0520 is for the Razer Kraken Tournament Edition

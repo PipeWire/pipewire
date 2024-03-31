@@ -263,6 +263,7 @@ build_on_fedora:
   variables:
     MESON_OPTIONS: >-
         -Ddocs=enabled
+        -Dman=enabled
         -Ddoc-prefix-value=/usr
         -Ddoc-sysconfdir-value=/etc
         -Dinstalled_tests=enabled
@@ -282,6 +283,47 @@ build_on_fedora:
     paths:
       - build-*/meson-logs
       - prefix-*
+
+build_on_fedora_html_docs:
+  extends:
+    - .build_on_fedora
+  variables:
+    MESON_OPTIONS: >-
+        -Ddocs=enabled
+        -Dman=enabled
+        -Ddoc-prefix-value=/usr
+        -Ddoc-sysconfdir-value=/etc
+        -Dinstalled_tests=enabled
+        -Dsystemd-system-service=enabled
+        -Dbluez5-backend-hsphfpd=enabled
+        -Daudiotestsrc=enabled
+        -Dtest=enabled
+        -Dvideotestsrc=enabled
+        -Dvolume=enabled
+        -Dvulkan=enabled
+        -Dsdl2=enabled
+        -Dsndfile=enabled
+        -Dsession-managers=[]
+  before_script:
+    - git fetch origin 1.0 master
+    - git branch -f 1.0 origin/1.0
+    - git branch -f master origin/master
+    - git clone -b 1.0 . branch-1.0
+    - git clone -b master . branch-master
+    - !reference [.build, before_script]
+  script:
+    - cd branch-1.0
+    - meson setup builddir $MESON_OPTIONS
+    - meson compile -C builddir doc/pipewire-docs
+    - cd ../branch-master
+    - meson setup builddir $MESON_OPTIONS
+    - meson compile -C builddir doc/pipewire-docs
+  artifacts:
+    name: pipewire-$CI_COMMIT_SHA
+    when: always
+    paths:
+      - branch-*/builddir/meson-logs
+      - branch-*/builddir/doc/html
 
 build_on_alpine:
   extends:
@@ -509,12 +551,14 @@ pages:
     - .not_coverity
   stage: pages
   dependencies:
-    - build_on_fedora
+    - build_on_fedora_html_docs
   script:
-    - mkdir public
-    - cp -R prefix-*/share/doc/pipewire/html/* public/
+    - mkdir public public/devel
+    - cp -R branch-1.0/builddir/doc/html/* public/
+    - cp -R branch-master/builddir/doc/html/* public/devel/
   artifacts:
     paths:
       - public
   only:
+    - 'master'
     - '1.0'

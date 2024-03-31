@@ -78,6 +78,8 @@ extern "C" {
 									  *  used in open() */
 #define SPA_KEY_API_LIBCAMERA_LOCATION	"api.libcamera.location"	/**< location of the camera:
 									  * "front", "back" or "external" */
+#define SPA_KEY_API_LIBCAMERA_ROTATION	"api.libcamera.rotation"	/**< rotation of the camera:
+									  * "0", "90", "180" or "270" */
 
 /** info from libcamera_capability */
 #define SPA_KEY_API_LIBCAMERA_CAP_DRIVER	"api.libcamera.cap.driver"	/**< driver from capbility */

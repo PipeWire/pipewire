@@ -135,6 +135,9 @@ static int set_timers(struct group *group)
 {
 	struct timespec now;
 
+	if (group->duration == 0)
+		return -EINVAL;
+
 	spa_system_clock_gettime(group->data_system, CLOCK_MONOTONIC, &now);
 	group->next = SPA_ROUND_UP(SPA_TIMESPEC_TO_NSEC(&now) + group->duration,
 			group->duration);
@@ -244,11 +247,6 @@ static struct group *group_create(struct spa_bt_transport *t,
 	struct group *group;
 	uint8_t id;
 
-	if (t->bap_interval <= 5000) {
-		errno = EINVAL;
-		return NULL;
-	}
-
 	if (t->profile & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE)) {
 		id = t->bap_cig;
 	} else if (t->profile & (SPA_BT_PROFILE_BAP_BROADCAST_SINK | SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)) {
@@ -268,7 +266,7 @@ static struct group *group_create(struct spa_bt_transport *t,
 	group->log = log;
 	group->data_loop = data_loop;
 	group->data_system = data_system;
-	group->duration = t->bap_interval * SPA_NSEC_PER_USEC;
+	group->duration = 0;
 
 	spa_list_init(&group->streams);
 
@@ -325,20 +323,22 @@ static struct stream *stream_create(struct spa_bt_transport *t, struct group *gr
 	struct spa_audio_info format = { 0 };
 	int res;
 	bool sink;
-	if((t->profile == SPA_BT_PROFILE_BAP_SINK) ||
-		(t->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK)) {
+
+	if (t->profile == SPA_BT_PROFILE_BAP_SINK ||
+			t->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) {
 		sink = true;
 	} else {
 		sink = false;
 	}
 
-
-	if (!t->media_codec->bap) {
+	if (!t->media_codec->bap || !t->media_codec->get_interval) {
 		res = -EINVAL;
 		goto fail;
 	}
 
 	if (sink) {
+		uint64_t interval;
+
 		res = t->media_codec->validate_config(t->media_codec, 0, t->configuration, t->configuration_len, &format);
 		if (res < 0)
 			goto fail;
@@ -355,6 +355,20 @@ static struct stream *stream_create(struct spa_bt_transport *t, struct group *gr
 			res = -EINVAL;
 			goto fail;
 		}
+
+		interval = t->media_codec->get_interval(codec_data);
+		if (interval <= 5000) {
+			res = -EINVAL;
+			goto fail;
+		}
+
+		if (group->duration == 0) {
+			group->duration = interval;
+		} else if (interval != group->duration) {
+			/* SDU_Interval in ISO group must be same for each direction */
+			res = -EINVAL;
+			goto fail;
+		}
 	}
 
 	stream = calloc(1, sizeof(struct stream));
@@ -364,7 +378,7 @@ static struct stream *stream_create(struct spa_bt_transport *t, struct group *gr
 	stream->fd = t->fd;
 	stream->sink = sink;
 	stream->group = group;
-	stream->this.duration = group->duration;
+	stream->this.duration = sink ? group->duration : 0;
 
 	stream->codec = t->media_codec;
 	stream->this.codec_data = codec_data;
@@ -451,6 +465,9 @@ void spa_bt_iso_io_set_cb(struct spa_bt_iso_io *this, spa_bt_iso_io_pull_t pull,
 {
 	struct stream *stream = SPA_CONTAINER_OF(this, struct stream, this);
 	bool was_enabled, enabled;
+
+	if (!stream->sink)
+		return;
 
 	was_enabled = group_is_enabled(stream->group);
 

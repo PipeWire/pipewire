@@ -1008,6 +1008,13 @@ static int codec_get_block_size(void *data)
 	return this->codesize;
 }
 
+static uint64_t codec_get_interval(void *data)
+{
+	struct impl *this = data;
+
+	return (uint64_t)this->frame_dus * 1000;
+}
+
 static int codec_abr_process (void *data, size_t unsent)
 {
 	return -ENOTSUP;
@@ -1120,6 +1127,7 @@ const struct media_codec bap_codec_lc3 = {
 	.init = codec_init,
 	.deinit = codec_deinit,
 	.get_block_size = codec_get_block_size,
+	.get_interval = codec_get_interval,
 	.abr_process = codec_abr_process,
 	.start_encode = codec_start_encode,
 	.encode = codec_encode,

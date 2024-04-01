@@ -3357,7 +3357,6 @@ static int transport_update_props(struct spa_bt_transport *transport,
 			transport->bap_bis = qos.bis;
 			transport->delay_us = qos.qos.delay;
 			transport->latency_us = (unsigned int)qos.qos.latency * 1000;
-			transport->bap_interval = qos.qos.interval;
 
 			spa_bt_transport_emit_delay_changed(transport);
 		}

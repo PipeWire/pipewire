@@ -659,7 +659,6 @@ struct spa_bt_transport {
 	uint8_t bap_cis;
 	uint8_t bap_big;
 	uint8_t bap_bis;
-	uint32_t bap_interval;
 
 	struct spa_bt_iso_io *iso_io;
 	struct spa_bt_sco_io *sco_io;

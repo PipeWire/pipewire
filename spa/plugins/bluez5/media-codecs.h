@@ -26,7 +26,7 @@
 
 #define SPA_TYPE_INTERFACE_Bluez5CodecMedia	SPA_TYPE_INFO_INTERFACE_BASE "Bluez5:Codec:Media:Private"
 
-#define SPA_VERSION_BLUEZ5_CODEC_MEDIA		7
+#define SPA_VERSION_BLUEZ5_CODEC_MEDIA		8
 
 struct spa_bluez5_codec_a2dp {
 	struct spa_interface iface;
@@ -81,8 +81,6 @@ struct media_codec {
 
 	const struct media_codec *duplex_codec;	/**< Codec for non-standard A2DP duplex channel */
 
-	struct spa_log *log;
-
 	/** If fill_caps is NULL, no endpoint is registered (for sharing with another codec). */
 	int (*fill_caps) (const struct media_codec *codec, uint32_t flags,
 			uint8_t caps[A2DP_MAX_CAPS_SIZE]);
@@ -125,6 +123,16 @@ struct media_codec {
 
 	/** Number of bytes needed for encoding */
 	int (*get_block_size) (void *data);
+
+	/**
+	 * Duration of the next packet in nanoseconds.
+	 *
+	 * For BAP this shall be constant and equal to the SDU interval.
+	 *
+	 * \param data Codec data from init()
+	 * \return Duration in nanoseconds.
+	 */
+	uint64_t (*get_interval) (void *data);
 
 	int (*abr_process) (void *data, size_t unsent);
 

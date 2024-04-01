@@ -1527,10 +1527,12 @@ stream_new(struct pw_context *context, const char *name,
 
 	if (pw_properties_get(props, PW_KEY_STREAM_IS_LIVE) == NULL)
 		pw_properties_set(props, PW_KEY_STREAM_IS_LIVE, "true");
-	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL && extra) {
-		str = pw_properties_get(extra, PW_KEY_APP_NAME);
-		if (str == NULL)
-			str = pw_properties_get(extra, PW_KEY_APP_PROCESS_BINARY);
+	if ((str = pw_properties_get(props, PW_KEY_NODE_NAME)) == NULL) {
+		if (extra) {
+			str = pw_properties_get(extra, PW_KEY_APP_NAME);
+			if (str == NULL)
+				str = pw_properties_get(extra, PW_KEY_APP_PROCESS_BINARY);
+		}
 		if (str == NULL)
 			str = name;
 		pw_properties_set(props, PW_KEY_NODE_NAME, str);

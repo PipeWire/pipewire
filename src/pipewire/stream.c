@@ -865,9 +865,12 @@ static void clear_buffers(struct pw_stream *stream)
 		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_MAPPED)) {
 			for (j = 0; j < b->this.buffer->n_datas; j++) {
 				struct spa_data *d = &b->this.buffer->datas[j];
-				pw_log_debug("%p: clear buffer %d mem",
-						stream, b->id);
-				unmap_data(impl, d);
+				if (SPA_FLAG_IS_SET(d->flags, SPA_DATA_FLAG_MAPPABLE) ||
+				    (mappable_dataTypes & (1<<d->type)) > 0) {
+					pw_log_debug("%p: clear buffer %d mem",
+							stream, b->id);
+					unmap_data(impl, d);
+				}
 			}
 		}
 	}

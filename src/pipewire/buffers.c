@@ -187,7 +187,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	struct spa_pod **params;
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	uint32_t i, offset, n_params, n_metas;
+	uint32_t i, j, offset, n_params, n_metas;
 	struct spa_meta *metas;
 	uint32_t max_buffers, blocks;
 	size_t minsize, stride, align;
@@ -264,10 +264,11 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	for (i = 0; i < n_params; i++) {
 		uint32_t qmax_buffers = max_buffers,
 		    qminsize = minsize, qstride = stride, qalign = align;
-		uint32_t qtypes = types, qblocks = blocks;
+		uint32_t qtypes = types, qblocks = blocks, qmetas = 0;
 
 		if (!spa_pod_is_object_type (params[i], SPA_TYPE_OBJECT_ParamBuffers))
 			continue;
+
 		if (spa_pod_parse_object(params[i],
 				SPA_TYPE_OBJECT_ParamBuffers, NULL,
 				SPA_PARAM_BUFFERS_buffers,  SPA_POD_OPT_Int(&qmax_buffers),
@@ -275,10 +276,15 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 				SPA_PARAM_BUFFERS_size,     SPA_POD_OPT_Int(&qminsize),
 				SPA_PARAM_BUFFERS_stride,   SPA_POD_OPT_Int(&qstride),
 				SPA_PARAM_BUFFERS_align,    SPA_POD_OPT_Int(&qalign),
-				SPA_PARAM_BUFFERS_dataType, SPA_POD_OPT_Int(&qtypes)) < 0) {
+				SPA_PARAM_BUFFERS_dataType, SPA_POD_OPT_Int(&qtypes),
+				SPA_PARAM_BUFFERS_metaType, SPA_POD_OPT_Int(&qmetas)) < 0) {
 			pw_log_warn("%p: invalid Buffers param", result);
 			continue;
 		}
+		for (j = 0; qmetas != 0 && j < n_metas; j++)
+			SPA_FLAG_CLEAR(qmetas, 1<<metas[j].type);
+		if (qmetas != 0)
+			continue;
 
 		max_buffers =
 		    qmax_buffers == 0 ? max_buffers : SPA_MIN(qmax_buffers,

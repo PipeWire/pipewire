@@ -855,6 +855,7 @@ do_port_use_buffers(struct impl *impl,
 			switch (d->type) {
 			case SPA_DATA_DmaBuf:
 			case SPA_DATA_MemFd:
+			case SPA_DATA_GenericFd:
 			{
 				uint32_t flags = PW_MEMBLOCK_FLAG_DONT_CLOSE;
 

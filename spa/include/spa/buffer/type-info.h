@@ -35,6 +35,7 @@ static const struct spa_type_info spa_type_data_type[] = {
 	{ SPA_DATA_MemFd, SPA_TYPE_Int, SPA_TYPE_INFO_DATA_FD_BASE "MemFd", NULL },
 	{ SPA_DATA_DmaBuf, SPA_TYPE_Int, SPA_TYPE_INFO_DATA_FD_BASE "DmaBuf", NULL },
 	{ SPA_DATA_MemId, SPA_TYPE_Int, SPA_TYPE_INFO_DATA_BASE "MemId", NULL },
+	{ SPA_DATA_GenericFd, SPA_TYPE_Int, SPA_TYPE_INFO_DATA_BASE "GenericFd", NULL },
 	{ 0, 0, NULL, NULL },
 };
 

@@ -17,7 +17,8 @@ PWTEST(buffer_abi_types)
 	pwtest_int_eq(SPA_DATA_MemFd, 2);
 	pwtest_int_eq(SPA_DATA_DmaBuf, 3);
 	pwtest_int_eq(SPA_DATA_MemId, 4);
-	pwtest_int_eq(_SPA_DATA_LAST, 5);
+	pwtest_int_eq(SPA_DATA_GenericFd, 5);
+	pwtest_int_eq(_SPA_DATA_LAST, 6);
 
 	/* meta */
 	pwtest_int_eq(SPA_META_Invalid, 0);

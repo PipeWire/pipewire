@@ -27,9 +27,17 @@ enum spa_data_type {
 	SPA_DATA_Invalid,
 	SPA_DATA_MemPtr,		/**< pointer to memory, the data field in
 					  *  struct spa_data is set. */
-	SPA_DATA_MemFd,			/**< generic fd, mmap to get to memory */
-	SPA_DATA_DmaBuf,		/**< fd to dmabuf memory */
-	SPA_DATA_MemId,			/**< memory is identified with an id */
+	SPA_DATA_MemFd,			/**< memfd, mmap to get to memory. */
+	SPA_DATA_DmaBuf,		/**< fd to dmabuf memory. This might not be readily
+					  *  mappable (unless the MAPPABLE flag is set) and should
+					  *  normally be handled with DMABUF apis. */
+	SPA_DATA_MemId,			/**< memory is identified with an id. The actual memory
+					  *  can be obtained in some other way and can be identified
+					  *  with this id. */
+	SPA_DATA_GenericFd,		/**< generic fd, type and usage might be in metadata. If
+					  *  there is a size and MAPPABLE flag, this can be mmapped
+					  *  to obtain a memory region. The semantics of memfd might
+					  *  not be available (SEALING, ...) */
 
 	_SPA_DATA_LAST,			/**< not part of ABI */
 };

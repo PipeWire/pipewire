@@ -17,7 +17,8 @@ PWTEST(buffer_abi_types)
 	pwtest_int_eq(SPA_DATA_MemFd, 2);
 	pwtest_int_eq(SPA_DATA_DmaBuf, 3);
 	pwtest_int_eq(SPA_DATA_MemId, 4);
-	pwtest_int_eq(_SPA_DATA_LAST, 5);
+	pwtest_int_eq(SPA_DATA_SyncObj, 5);
+	pwtest_int_eq(_SPA_DATA_LAST, 6);
 
 	/* meta */
 	pwtest_int_eq(SPA_META_Invalid, 0);
@@ -29,7 +30,8 @@ PWTEST(buffer_abi_types)
 	pwtest_int_eq(SPA_META_Control, 6);
 	pwtest_int_eq(SPA_META_Busy, 7);
 	pwtest_int_eq(SPA_META_VideoTransform, 8);
-	pwtest_int_eq(_SPA_META_LAST, 9);
+	pwtest_int_eq(SPA_META_SyncTimeline, 9);
+	pwtest_int_eq(_SPA_META_LAST, 10);
 
 	return PWTEST_PASS;
 }

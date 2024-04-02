@@ -28,6 +28,7 @@ enum spa_meta_type {
 					  *  associated with the data */
 	SPA_META_Busy,			/**< don't write to buffer when count > 0 */
 	SPA_META_VideoTransform,	/**< struct spa_meta_transform */
+	SPA_META_SyncTimeline,		/**< struct spa_meta_sync_timeline */
 
 	_SPA_META_LAST,			/**< not part of ABI/API */
 };
@@ -159,6 +160,21 @@ enum spa_meta_videotransform_value {
 struct spa_meta_videotransform {
 	uint32_t transform;			/**< orientation transformation that was applied to the buffer,
 						  *  one of enum spa_meta_videotransform_value */
+};
+
+/**
+ * A timeline point for explicit sync
+ *
+ * Metadata to describe the time on the timeline when the buffer
+ * can be acquired and when it can be reused.
+ */
+struct spa_meta_sync_timeline {
+	uint32_t flags;
+	uint32_t padding;
+	uint64_t acquire_point;			/**< the timeline acquire point, this is when the data
+						  *  can be accessed. */
+	uint64_t release_point;			/**< the timeline release point, this timeline point should
+						  *  be signaled when the data is no longer accessed. */
 };
 
 /**

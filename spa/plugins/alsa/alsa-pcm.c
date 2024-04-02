@@ -2497,7 +2497,7 @@ static inline int do_start(struct state *state)
 	return 0;
 }
 
-static inline int check_position_config(struct state *state);
+static inline int check_position_config(struct state *state, bool starting);
 
 static int alsa_recover(struct state *state)
 {
@@ -2564,7 +2564,7 @@ recover:
 	spa_list_for_each(follower, &driver->rt.followers, rt.driver_link) {
 		if (follower != driver && follower->linked) {
 			do_drop(follower);
-			check_position_config(follower);
+			check_position_config(follower, false);
 		}
 	}
 	do_prepare(driver);
@@ -2809,7 +2809,7 @@ static void update_sources(struct state *state, bool active)
 	}
 }
 
-static inline int check_position_config(struct state *state)
+static inline int check_position_config(struct state *state, bool starting)
 {
 	uint64_t target_duration;
 	struct spa_fraction target_rate;
@@ -2819,7 +2819,7 @@ static inline int check_position_config(struct state *state)
 		return 0;
 
 	if (state->force_position ||
-	    (state->disable_tsched && state->started && !state->following)) {
+	    (state->disable_tsched && (starting || state->started) && !state->following)) {
 		target_duration = state->period_frames;
 		target_rate = SPA_FRACTION(1, state->rate);
 		pos->clock.target_duration = target_duration;
@@ -2855,7 +2855,7 @@ static int alsa_write_sync(struct state *state, uint64_t current_time)
 	snd_pcm_uframes_t avail, delay, target;
 	bool following = state->following;
 
-	if (SPA_UNLIKELY((res = check_position_config(state)) < 0))
+	if (SPA_UNLIKELY((res = check_position_config(state, false)) < 0))
 		return res;
 
 	if (SPA_UNLIKELY((res = get_status(state, current_time, &avail, &delay, &target)) < 0)) {
@@ -3116,7 +3116,7 @@ static int alsa_read_sync(struct state *state, uint64_t current_time)
 	if (SPA_UNLIKELY(!state->alsa_started))
 		return 0;
 
-	if (SPA_UNLIKELY((res = check_position_config(state)) < 0))
+	if (SPA_UNLIKELY((res = check_position_config(state, false)) < 0))
 		return res;
 
 	if (SPA_UNLIKELY((res = get_status(state, current_time, &avail, &delay, &target)) < 0)) {
@@ -3520,7 +3520,7 @@ int spa_alsa_prepare(struct state *state)
 	if (state->prepared)
 		return 0;
 
-	if (check_position_config(state) < 0) {
+	if (check_position_config(state, true) < 0) {
 		spa_log_error(state->log, "%s: invalid position config", state->name);
 		return -EIO;
 	}

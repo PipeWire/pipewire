@@ -6,6 +6,7 @@
 #include <spa/pod/parser.h>
 #include <spa/param/param.h>
 #include <spa/buffer/alloc.h>
+#include <spa/debug/types.h>
 
 #include "pipewire/keys.h"
 #include "pipewire/private.h"
@@ -27,8 +28,8 @@ struct port {
 /* Allocate an array of buffers that can be shared */
 static int alloc_buffers(struct pw_mempool *pool,
 			 uint32_t n_buffers,
-			 uint32_t n_params,
-			 struct spa_pod **params,
+			 uint32_t n_metas,
+			 struct spa_meta *metas,
 			 uint32_t n_datas,
 			 uint32_t *data_sizes,
 			 int32_t *data_strides,
@@ -40,8 +41,6 @@ static int alloc_buffers(struct pw_mempool *pool,
 	struct spa_buffer **buffers;
 	void *skel, *data;
 	uint32_t i;
-	uint32_t n_metas;
-	struct spa_meta *metas;
 	struct spa_data *datas;
 	struct pw_memblock *m;
 	struct spa_buffer_alloc_info info = { 0, };
@@ -49,29 +48,7 @@ static int alloc_buffers(struct pw_mempool *pool,
 	if (!SPA_FLAG_IS_SET(flags, PW_BUFFERS_FLAG_SHARED))
 		SPA_FLAG_SET(info.flags, SPA_BUFFER_ALLOC_FLAG_INLINE_ALL);
 
-	n_metas = 0;
-
-	metas = alloca(sizeof(struct spa_meta) * n_params);
 	datas = alloca(sizeof(struct spa_data) * n_datas);
-
-	/* collect metadata */
-	for (i = 0; i < n_params; i++) {
-		if (spa_pod_is_object_type (params[i], SPA_TYPE_OBJECT_ParamMeta)) {
-			uint32_t type, size;
-
-			if (spa_pod_parse_object(params[i],
-				SPA_TYPE_OBJECT_ParamMeta, NULL,
-				SPA_PARAM_META_type, SPA_POD_Id(&type),
-				SPA_PARAM_META_size, SPA_POD_Int(&size)) < 0)
-				continue;
-
-			pw_log_debug("%p: enable meta %d %d", allocation, type, size);
-
-			metas[n_metas].type = type;
-			metas[n_metas].size = size;
-			n_metas++;
-		}
-	}
 
 	for (i = 0; i < n_datas; i++) {
 		struct spa_data *d = &datas[i];
@@ -201,27 +178,17 @@ param_filter(struct pw_buffers *this,
 	return num;
 }
 
-static struct spa_pod *find_param(struct spa_pod **params, uint32_t n_params, uint32_t type)
-{
-	uint32_t i;
-
-	for (i = 0; i < n_params; i++) {
-		if (spa_pod_is_object_type(params[i], type))
-			return params[i];
-	}
-	return NULL;
-}
-
 SPA_EXPORT
 int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		struct spa_node *outnode, uint32_t out_port_id,
 		struct spa_node *innode, uint32_t in_port_id,
 		struct pw_buffers *result)
 {
-	struct spa_pod **params, *param;
+	struct spa_pod **params;
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	uint32_t i, offset, n_params;
+	uint32_t i, offset, n_params, n_metas;
+	struct spa_meta *metas;
 	uint32_t max_buffers, blocks;
 	size_t minsize, stride, align;
 	uint32_t *data_sizes;
@@ -238,6 +205,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		input = tmp;
 	}
 
+	/* collect buffers */
 	res = param_filter(result, &input, &output, SPA_PARAM_Buffers, &b);
 	if (res < 0) {
 		pw_context_debug_port_params(context, input.node, input.direction,
@@ -248,17 +216,41 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 				"output param");
 		return res;
 	}
+
+	/* collect metadata */
 	n_params = res;
 	if ((res = param_filter(result, &input, &output, SPA_PARAM_Meta, &b)) > 0)
 		n_params += res;
 
+	metas = alloca(sizeof(struct spa_meta) * n_params);
+
+	n_metas = 0;
 	params = alloca(n_params * sizeof(struct spa_pod *));
 	for (i = 0, offset = 0; i < n_params; i++) {
+		uint32_t type, size;
+
 		params[i] = SPA_PTROFF(buffer, offset, struct spa_pod);
 		spa_pod_fixate(params[i]);
 		pw_log_debug("%p: fixated param %d:", result, i);
 		pw_log_pod(SPA_LOG_LEVEL_DEBUG, params[i]);
 		offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
+
+		if (!spa_pod_is_object_type (params[i], SPA_TYPE_OBJECT_ParamMeta))
+			continue;
+		if (spa_pod_parse_object(params[i],
+					SPA_TYPE_OBJECT_ParamMeta, NULL,
+					SPA_PARAM_META_type, SPA_POD_Id(&type),
+					SPA_PARAM_META_size, SPA_POD_Int(&size)) < 0) {
+			pw_log_warn("%p: invalid Meta param", result);
+			continue;
+		}
+
+		pw_log_debug("%p: enable meta %s size:%d", result,
+				spa_debug_type_find_name(spa_type_meta_type, type), size);
+
+		metas[n_metas].type = type;
+		metas[n_metas].size = size;
+		n_metas++;
 	}
 
 	max_buffers = context->settings.link_max_buffers;
@@ -269,20 +261,24 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	types = SPA_ID_INVALID; /* bitmask of allowed types */
 	blocks = 1;
 
-	param = find_param(params, n_params, SPA_TYPE_OBJECT_ParamBuffers);
-	if (param) {
+	for (i = 0; i < n_params; i++) {
 		uint32_t qmax_buffers = max_buffers,
 		    qminsize = minsize, qstride = stride, qalign = align;
 		uint32_t qtypes = types, qblocks = blocks;
 
-		spa_pod_parse_object(param,
-			SPA_TYPE_OBJECT_ParamBuffers, NULL,
-			SPA_PARAM_BUFFERS_buffers,  SPA_POD_OPT_Int(&qmax_buffers),
-			SPA_PARAM_BUFFERS_blocks,   SPA_POD_OPT_Int(&qblocks),
-			SPA_PARAM_BUFFERS_size,     SPA_POD_OPT_Int(&qminsize),
-			SPA_PARAM_BUFFERS_stride,   SPA_POD_OPT_Int(&qstride),
-			SPA_PARAM_BUFFERS_align,    SPA_POD_OPT_Int(&qalign),
-			SPA_PARAM_BUFFERS_dataType, SPA_POD_OPT_Int(&qtypes));
+		if (!spa_pod_is_object_type (params[i], SPA_TYPE_OBJECT_ParamBuffers))
+			continue;
+		if (spa_pod_parse_object(params[i],
+				SPA_TYPE_OBJECT_ParamBuffers, NULL,
+				SPA_PARAM_BUFFERS_buffers,  SPA_POD_OPT_Int(&qmax_buffers),
+				SPA_PARAM_BUFFERS_blocks,   SPA_POD_OPT_Int(&qblocks),
+				SPA_PARAM_BUFFERS_size,     SPA_POD_OPT_Int(&qminsize),
+				SPA_PARAM_BUFFERS_stride,   SPA_POD_OPT_Int(&qstride),
+				SPA_PARAM_BUFFERS_align,    SPA_POD_OPT_Int(&qalign),
+				SPA_PARAM_BUFFERS_dataType, SPA_POD_OPT_Int(&qtypes)) < 0) {
+			pw_log_warn("%p: invalid Buffers param", result);
+			continue;
+		}
 
 		max_buffers =
 		    qmax_buffers == 0 ? max_buffers : SPA_MIN(qmax_buffers,
@@ -299,7 +295,9 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		pw_log_debug("%p: %d %d %d %d %d %d -> %d %zd %zd %d %zd %d", result,
 				qblocks, qminsize, qstride, qmax_buffers, qalign, qtypes,
 				blocks, minsize, stride, max_buffers, align, types);
-	} else {
+		break;
+	}
+	if (i == n_params) {
 		pw_log_warn("%p: no buffers param", result);
 		minsize = context->settings.clock_quantum_limit;
 		max_buffers = 2;
@@ -329,8 +327,8 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 
 	if ((res = alloc_buffers(context->pool,
 				 max_buffers,
-				 n_params,
-				 params,
+				 n_metas,
+				 metas,
 				 blocks,
 				 data_sizes, data_strides,
 				 data_aligns, data_types,

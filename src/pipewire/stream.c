@@ -34,8 +34,6 @@ PW_LOG_TOPIC_EXTERN(log_stream);
 
 static bool mlock_warned = false;
 
-static uint32_t mappable_dataTypes = (1<<SPA_DATA_MemFd);
-
 struct buffer {
 	struct pw_buffer this;
 	uint32_t id;
@@ -222,7 +220,7 @@ static void fix_datatype(struct spa_pod *param)
 	pw_log_debug("dataType: %u", dataType);
 	if (dataType & (1u << SPA_DATA_MemPtr)) {
 		SPA_POD_VALUE(struct spa_pod_int, &vals[0]) =
-			dataType | mappable_dataTypes;
+			dataType | (1<<SPA_DATA_MemFd);
 		pw_log_debug("Change dataType: %u -> %u", dataType,
 				SPA_POD_VALUE(struct spa_pod_int, &vals[0]));
 	}
@@ -865,8 +863,7 @@ static void clear_buffers(struct pw_stream *stream)
 		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_MAPPED)) {
 			for (j = 0; j < b->this.buffer->n_datas; j++) {
 				struct spa_data *d = &b->this.buffer->datas[j];
-				if (SPA_FLAG_IS_SET(d->flags, SPA_DATA_FLAG_MAPPABLE) ||
-				    (mappable_dataTypes & (1<<d->type)) > 0) {
+				if (SPA_FLAG_IS_SET(d->flags, SPA_DATA_FLAG_MAPPABLE)) {
 					pw_log_debug("%p: clear buffer %d mem",
 							stream, b->id);
 					unmap_data(impl, d);
@@ -1000,8 +997,7 @@ static int impl_port_use_buffers(void *object,
 		if (SPA_FLAG_IS_SET(impl_flags, PW_STREAM_FLAG_MAP_BUFFERS)) {
 			for (j = 0; j < buffers[i]->n_datas; j++) {
 				struct spa_data *d = &buffers[i]->datas[j];
-				if (SPA_FLAG_IS_SET(d->flags, SPA_DATA_FLAG_MAPPABLE) ||
-				    (mappable_dataTypes & (1<<d->type)) > 0) {
+				if (SPA_FLAG_IS_SET(d->flags, SPA_DATA_FLAG_MAPPABLE)) {
 					if ((res = map_data(impl, d, prot)) < 0)
 						return res;
 					SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
@@ -1011,15 +1007,16 @@ static int impl_port_use_buffers(void *object,
 					return -EINVAL;
 				}
 				buf_size += d->maxsize;
+				pw_log_debug("%p:  data:%d type:%d flags:%08x size:%d", stream, j,
+						d->type, d->flags, d->maxsize);
 			}
-
 			if (size > 0 && buf_size != size) {
 				pw_log_error("%p: invalid buffer size %d", stream, buf_size);
 				return -EINVAL;
 			} else
 				size = buf_size;
 		}
-		pw_log_debug("%p: got buffer id:%d datas:%d, mapped size %d", stream, i,
+		pw_log_debug("%p: got buffer id:%d datas:%d mapped size %d", stream, i,
 				buffers[i]->n_datas, size);
 	}
 	impl->n_buffers = n_buffers;

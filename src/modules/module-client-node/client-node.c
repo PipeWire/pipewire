@@ -858,6 +858,8 @@ do_port_use_buffers(struct impl *impl,
 			{
 				uint32_t flags = PW_MEMBLOCK_FLAG_DONT_CLOSE;
 
+				if (d->flags & SPA_DATA_FLAG_MAPPABLE)
+					flags |= PW_MEMBLOCK_FLAG_MAPPABLE;
 				if (d->flags & SPA_DATA_FLAG_READABLE)
 					flags |= PW_MEMBLOCK_FLAG_READABLE;
 				if (d->flags & SPA_DATA_FLAG_WRITABLE)
@@ -1084,16 +1086,27 @@ static int client_node_port_buffers(void *data,
 		for (j = 0; j < b->buffer.n_datas; j++) {
 			struct spa_chunk *oldchunk = oldbuf->datas[j].chunk;
 			struct spa_data *d = &newbuf->datas[j];
+			uint32_t flags = d->flags;
+
+			if (d->type == SPA_DATA_MemFd &&
+			    !SPA_FLAG_IS_SET(flags, SPA_DATA_FLAG_MAPPABLE)) {
+				spa_log_debug(impl->log, "buffer:%d data:%d has non mappable MemFd, "
+						"fixing to ensure backwards compatibility.",
+						i, j);
+				flags |= SPA_DATA_FLAG_MAPPABLE;
+			}
 
 			/* overwrite everything except the chunk */
 			oldbuf->datas[j] = *d;
+			oldbuf->datas[j].flags = flags;
 			oldbuf->datas[j].chunk = oldchunk;
 
 			b->datas[j].type = d->type;
+			b->datas[j].flags = flags;
 			b->datas[j].fd = d->fd;
 
 			spa_log_debug(impl->log, " data %d type:%d fl:%08x fd:%d, offs:%d max:%d",
-					j, d->type, d->flags, (int) d->fd, d->mapoffset,
+					j, d->type, flags, (int) d->fd, d->mapoffset,
 					d->maxsize);
 		}
 	}
@@ -1342,8 +1355,9 @@ static int add_area(struct impl *impl)
 
 	area = pw_mempool_alloc(impl->context_pool,
 			PW_MEMBLOCK_FLAG_READWRITE |
-			PW_MEMBLOCK_FLAG_MAP |
-			PW_MEMBLOCK_FLAG_SEAL,
+			PW_MEMBLOCK_FLAG_SEAL |
+			PW_MEMBLOCK_FLAG_MAPPABLE |
+			PW_MEMBLOCK_FLAG_MAP,
 			SPA_DATA_MemFd, size);
 	if (area == NULL)
                 return -errno;

@@ -78,7 +78,7 @@ static void core_event_add_mem(void *data, uint32_t id, uint32_t type, int fd, u
 	struct pw_core *this = data;
 	struct pw_memblock *m;
 
-	pw_log_debug("%p: add mem %u type:%u fd:%d flags:%u", this, id, type, fd, flags);
+	pw_log_debug("%p: add mem %u type:%u fd:%d flags:%08x", this, id, type, fd, flags);
 
 	m = pw_mempool_import(this->pool, flags, type, fd);
 	if (m->id != id) {

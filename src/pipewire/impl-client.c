@@ -382,7 +382,7 @@ static void pool_added(void *data, struct pw_memblock *block)
 	if (client->core_resource) {
 		pw_core_resource_add_mem(client->core_resource,
 				block->id, block->type, block->fd,
-				block->flags & PW_MEMBLOCK_FLAG_READWRITE);
+				block->flags & (PW_MEMBLOCK_FLAG_READWRITE | PW_MEMBLOCK_FLAG_MAPPABLE));
 	}
 }
 

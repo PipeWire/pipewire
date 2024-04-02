@@ -701,14 +701,14 @@ client_node_port_use_buffers(void *_data,
 				d->type = bm->type;
 				d->data = NULL;
 
-				pw_log_debug(" data %d %u -> fd %d maxsize %d",
-						j, bm->id, bm->fd, d->maxsize);
+				pw_log_debug(" data %d %u -> fd %d maxsize %d flags:%08x",
+						j, bm->id, bm->fd, d->maxsize, d->flags);
 			} else if (d->type == SPA_DATA_MemPtr) {
 				int offs = SPA_PTR_TO_INT(d->data);
 				d->data = SPA_PTROFF(mm->ptr, offs, void);
 				d->fd = -1;
-				pw_log_debug(" data %d id:%u -> mem:%p offs:%d maxsize:%d",
-						j, bid->id, d->data, offs, d->maxsize);
+				pw_log_debug(" data %d id:%u -> mem:%p offs:%d maxsize:%d flags:%08x",
+						j, bid->id, d->data, offs, d->maxsize, d->flags);
 			} else {
 				pw_log_warn("unknown buffer data type %d", d->type);
 			}

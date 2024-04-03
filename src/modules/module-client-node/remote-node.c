@@ -527,7 +527,7 @@ static int clear_buffers(struct node_data *data, struct mix *mix)
 	int res;
 
         pw_log_debug("port %p: clear %zd buffers mix:%d", port,
-			pw_array_get_len(&mix->buffers, struct buffer *),
+			pw_array_get_len(&mix->buffers, struct buffer),
 			mix->mix.id);
 
 	if ((res = pw_impl_port_use_buffers(port, &mix->mix, 0, NULL, 0)) < 0) {

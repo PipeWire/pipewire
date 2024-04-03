@@ -588,6 +588,9 @@ static int do_allocation(struct pw_impl_link *this)
 		flags = 0;
 		/* always shared buffers for the link */
 		alloc_flags = PW_BUFFERS_FLAG_SHARED;
+		/* always enable async mode */
+		alloc_flags |= PW_BUFFERS_FLAG_ASYNC;
+
 		if (output->node->remote || input->node->remote)
 			alloc_flags |= PW_BUFFERS_FLAG_SHARED_MEM;
 

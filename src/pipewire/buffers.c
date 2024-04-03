@@ -308,7 +308,6 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 
 	if (SPA_FLAG_IS_SET(flags, PW_BUFFERS_FLAG_ASYNC))
 		max_buffers = SPA_MAX(2u, max_buffers);
-	max_buffers = SPA_MAX(context->settings.link_min_buffers, max_buffers);
 
 	if (SPA_FLAG_IS_SET(flags, PW_BUFFERS_FLAG_SHARED_MEM)) {
 		if (types != SPA_ID_INVALID)

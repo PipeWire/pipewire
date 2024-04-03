@@ -46,7 +46,6 @@ struct settings {
 	uint32_t clock_quantum_floor;		/* quantum floor (lower bound) */
 	struct spa_rectangle video_size;
 	struct spa_fraction video_rate;
-	uint32_t link_min_buffers;
 	uint32_t link_max_buffers;
 	unsigned int mem_warn_mlock:1;
 	unsigned int mem_allow_mlock:1;

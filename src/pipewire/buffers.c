@@ -98,8 +98,8 @@ static int alloc_buffers(struct pw_mempool *pool,
 		data = NULL;
 	}
 
-	pw_log_debug("%p: layout buffers skel:%p data:%p buffers:%p",
-			allocation, skel, data, buffers);
+	pw_log_debug("%p: layout buffers skel:%p data:%p n_buffers:%d buffers:%p",
+			allocation, skel, data, n_buffers, buffers);
 	spa_buffer_alloc_layout_array(&info, n_buffers, buffers, skel, data);
 
 	allocation->mem = m;
@@ -295,9 +295,6 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		align = SPA_MAX(align, qalign);
 		types = qtypes;
 
-		if (SPA_FLAG_IS_SET(flags, PW_BUFFERS_FLAG_ASYNC))
-			max_buffers = SPA_MAX(2u, max_buffers);
-
 		pw_log_debug("%p: %d %d %d %d %d %d -> %d %zd %zd %d %zd %d", result,
 				qblocks, qminsize, qstride, qmax_buffers, qalign, qtypes,
 				blocks, minsize, stride, max_buffers, align, types);
@@ -306,8 +303,12 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	if (i == n_params) {
 		pw_log_warn("%p: no buffers param", result);
 		minsize = context->settings.clock_quantum_limit;
-		max_buffers = 2;
+		max_buffers = 2u;
 	}
+
+	if (SPA_FLAG_IS_SET(flags, PW_BUFFERS_FLAG_ASYNC))
+		max_buffers = SPA_MAX(2u, max_buffers);
+	max_buffers = SPA_MAX(context->settings.link_min_buffers, max_buffers);
 
 	if (SPA_FLAG_IS_SET(flags, PW_BUFFERS_FLAG_SHARED_MEM)) {
 		if (types != SPA_ID_INVALID)

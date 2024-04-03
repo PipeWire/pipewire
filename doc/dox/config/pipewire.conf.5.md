@@ -217,6 +217,10 @@ Default video rate denominator
 @PAR@ pipewire.conf  library.name.system = support/libspa-support
 The name of the shared library to use for the system functions for the main thread.
 
+@PAR@ pipewire.conf  link.min-buffers = 2
+The minimum number of buffers to negotiate between nodes. Using 1 buffer will consume
+less memory but might cause glitches when using async nodes.
+
 @PAR@ pipewire.conf  link.max-buffers = 64
 The maximum number of buffers to negotiate between nodes. Note that version < 3 clients
 can only support 16 buffers. More buffers is almost always worse than less, latency

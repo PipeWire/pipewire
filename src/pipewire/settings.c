@@ -32,6 +32,7 @@
 #define DEFAULT_VIDEO_HEIGHT			480
 #define DEFAULT_VIDEO_RATE_NUM			25u
 #define DEFAULT_VIDEO_RATE_DENOM		1u
+#define DEFAULT_LINK_MIN_BUFFERS		2u
 #define DEFAULT_LINK_MAX_BUFFERS		64u
 #define DEFAULT_MEM_WARN_MLOCK			false
 #define DEFAULT_MEM_ALLOW_MLOCK			true
@@ -222,12 +223,16 @@ void pw_settings_init(struct pw_context *this)
 	d->log_level = get_default_int(p, "log.level", pw_log_level);
 	d->clock_power_of_two_quantum = get_default_bool(p, "clock.power-of-two-quantum",
 			DEFAULT_CLOCK_POWER_OF_TWO_QUANTUM);
+	d->link_min_buffers = get_default_int(p, "link.min-buffers", DEFAULT_LINK_MIN_BUFFERS);
 	d->link_max_buffers = get_default_int(p, "link.max-buffers", DEFAULT_LINK_MAX_BUFFERS);
 	d->mem_warn_mlock = get_default_bool(p, "mem.warn-mlock", DEFAULT_MEM_WARN_MLOCK);
 	d->mem_allow_mlock = get_default_bool(p, "mem.allow-mlock", DEFAULT_MEM_ALLOW_MLOCK);
 
 	d->check_quantum = get_default_bool(p, "settings.check-quantum", DEFAULT_CHECK_QUANTUM);
 	d->check_rate = get_default_bool(p, "settings.check-rate", DEFAULT_CHECK_RATE);
+
+	d->link_min_buffers = SPA_MAX(d->link_min_buffers, 1u);
+	d->link_max_buffers = SPA_MAX(d->link_max_buffers, d->link_min_buffers);
 
 	d->clock_quantum_limit = SPA_CLAMP(d->clock_quantum_limit,
 			CLOCK_QUANTUM_FLOOR, CLOCK_QUANTUM_LIMIT);

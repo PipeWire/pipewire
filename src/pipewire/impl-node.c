@@ -1209,6 +1209,12 @@ static inline uint64_t get_time_ns(struct spa_system *system)
 	return SPA_TIMESPEC_TO_NSEC(&ts);
 }
 
+static inline void wake_target(struct pw_node_target *t)
+{
+	if (SPA_UNLIKELY(spa_system_eventfd_write(t->system, t->fd, 1) < 0))
+		pw_log_warn("%p: write failed %m", t->node);
+}
+
 /* called from data-loop decrement the dependency counter of the target and when
  * there are no more dependencies, trigger the node. */
 static inline void trigger_target(struct pw_node_target *t, uint64_t nsec)
@@ -1222,8 +1228,7 @@ static inline void trigger_target(struct pw_node_target *t, uint64_t nsec)
 	if (pw_node_activation_state_dec(state)) {
 		a->status = PW_NODE_ACTIVATION_TRIGGERED;
 		a->signal_time = nsec;
-		if (SPA_UNLIKELY(spa_system_eventfd_write(t->system, t->fd, 1) < 0))
-			pw_log_warn("%p: write failed %m", t->node);
+		wake_target(t);
 	}
 }
 
@@ -1838,12 +1843,14 @@ static int node_ready(void *data, int status)
 		int sync_type, all_ready, update_sync, target_sync;
 		uint32_t owner[2], reposition_owner;
 		uint64_t min_timeout = UINT64_MAX;
+		int32_t pending;
 
-		if (SPA_UNLIKELY(a->status != PW_NODE_ACTIVATION_FINISHED)) {
+		if (SPA_UNLIKELY((pending = pw_node_activation_state_xchg(state)) != 0)) {
 			pw_log_debug("(%s-%u) graph not finished: state:%p quantum:%"PRIu64
 					" pending %d/%d", node->name, node->info.id,
 					state, a->position.clock.duration,
-					state->pending, state->required);
+					pending, state->required);
+			wake_target(&node->rt.target);
 			check_states(node, nsec);
 			pw_impl_node_rt_emit_incomplete(node);
 		}

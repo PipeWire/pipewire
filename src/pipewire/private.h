@@ -526,6 +526,7 @@ static inline void pw_node_activation_state_reset(struct pw_node_activation_stat
 }
 
 #define pw_node_activation_state_dec(s) (SPA_ATOMIC_DEC(s->pending) == 0)
+#define pw_node_activation_state_xchg(s) SPA_ATOMIC_XCHG(s->pending, 0)
 
 struct pw_node_target {
 	struct spa_list link;

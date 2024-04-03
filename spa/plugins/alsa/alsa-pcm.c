@@ -790,7 +790,7 @@ static void fetch_bind_ctls(struct state *state)
 	for (unsigned int i = 0; i < state->num_bind_ctls; i++) {
 		unsigned int numid = 0;
 
-		for (unsigned int j = 0; i < elem_count; j++) {
+		for (unsigned int j = 0; j < elem_count; j++) {
 			const char* element_name = snd_ctl_elem_list_get_name(element_list, j);
 
 			if (!strcmp(element_name, state->bound_ctls[i].name)) {

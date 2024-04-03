@@ -50,10 +50,14 @@
  * - `ffado.slave-mode`: slave mode
  * - `ffado.snoop-mode`: snoop mode
  * - `ffado.verbose`: ffado verbose level
+ * - `ffado.rtprio`: ffado realtime priority, this is by default the PipeWire server
+ *                   priority + 5
+ * - `ffado.realtime`: ffado realtime mode. this requires correctly configured rlimits
+ *                     to acquire FIFO scheduling at the ffado.rtprio priority
  * - `latency.internal.input`: extra input latency in frames
  * - `latency.internal.output`: extra output latency in frames
- * - `source.props`: Extra properties for the source filter.
- * - `sink.props`: Extra properties for the sink filter.
+ * - `source.props`: Extra properties for the source filter
+ * - `sink.props`: Extra properties for the sink filter
  *
  * ## General options
  *
@@ -82,6 +86,8 @@
  *         #ffado.slave-mode  = false
  *         #ffado.snoop-mode  = false
  *         #ffado.verbose     = 0
+ *         #ffado.rtprio      = 65
+ *         #ffado.realtime    = true
  *         #latency.internal.input  = 0
  *         #latency.internal.output = 0
  *         #audio.position    = [ FL FR ]
@@ -103,6 +109,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
 #define MAX_PORTS	128
+#define FFADO_RT_PRIORITY_PACKETIZER_RELATIVE   5
 
 #define DEFAULT_DEVICES		"[ \"hw:0\" ]"
 #define DEFAULT_PERIOD_SIZE	1024
@@ -111,23 +118,25 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_SLAVE_MODE	false
 #define DEFAULT_SNOOP_MODE	false
 #define DEFAULT_VERBOSE		0
+#define DEFAULT_RTPRIO		(RTPRIO_SERVER + FFADO_RT_PRIORITY_PACKETIZER_RELATIVE)
+#define DEFAULT_REALTIME	true
 
 #define DEFAULT_POSITION	"[ FL FR ]"
 #define DEFAULT_MIDI_PORTS	1
 
-#define FFADO_RT_PRIORITY_PACKETIZER_RELATIVE   5
-
-#define MODULE_USAGE	"( remote.name=<remote> ) "				\
-			"( driver.mode=<sink|source|duplex> ) "			\
-			"( ffado.devices=<devices array size, default \"hw:0\"> ) "	\
-			"( ffado.period-size=<period size, default 1024> ) "	\
-			"( ffado.period-num=<period num, default 3> ) "		\
-			"( ffado.sample-rate=<sampe rate, default 48000> ) "	\
-			"( ffado.slave-mode=<slave mode, default false> ) "	\
-			"( ffado.snoop-mode=<snoop mode, default false> ) "	\
-			"( ffado.verbose=<verbose level, default 0> ) "		\
-			"( audio.position=<channel map> ) "			\
-			"( source.props=<properties> ) "			\
+#define MODULE_USAGE	"( remote.name=<remote> ) "					\
+			"( driver.mode=<sink|source|duplex, default duplex> ) "		\
+			"( ffado.devices=<devices array, default "DEFAULT_DEVICES"> ) "	\
+			"( ffado.period-size=<period size, default 1024> ) "		\
+			"( ffado.period-num=<period num, default 3> ) "			\
+			"( ffado.sample-rate=<sampe rate, default 48000> ) "		\
+			"( ffado.slave-mode=<slave mode, default false> ) "		\
+			"( ffado.snoop-mode=<snoop mode, default false> ) "		\
+			"( ffado.verbose=<verbose level, default 0> ) "			\
+			"( ffado.rtprio=<realtime priority, default "SPA_STRINGIFY(DEFAULT_RTPRIO)"> ) "	\
+			"( ffado.realtime=<realtime mode, default true> ) "		\
+			"( audio.position=<channel map> ) "				\
+			"( source.props=<properties> ) "				\
 			"( sink.props=<properties> ) "
 
 
@@ -226,6 +235,8 @@ struct impl {
 	bool slave_mode;
 	bool snoop_mode;
 	uint32_t verbose;
+	int32_t rtprio;
+	bool realtime;
 
 	uint32_t input_latency;
 	uint32_t output_latency;
@@ -526,8 +537,9 @@ static void stream_state_changed(void *d, enum pw_filter_state old,
 	struct impl *impl = s->impl;
 	switch (state) {
 	case PW_FILTER_STATE_ERROR:
-	case PW_FILTER_STATE_UNCONNECTED:
 		pw_log_error("filter state %d error: %s", state, error);
+		SPA_FALLTHROUGH;
+	case PW_FILTER_STATE_UNCONNECTED:
 		pw_impl_module_schedule_destroy(impl->module);
 		break;
 	case PW_FILTER_STATE_PAUSED:
@@ -1040,8 +1052,8 @@ static int open_ffado_device(struct impl *impl)
 	impl->device_options.sample_rate = target_rate;
 	impl->device_options.period_size = target_period;
 	impl->device_options.nb_buffers = impl->n_periods;
-	impl->device_options.realtime = 1;
-	impl->device_options.packetizer_priority = RTPRIO_SERVER + FFADO_RT_PRIORITY_PACKETIZER_RELATIVE;
+	impl->device_options.realtime = impl->realtime;
+	impl->device_options.packetizer_priority = impl->rtprio;
 	impl->device_options.verbose = impl->verbose;
 	impl->device_options.slave_mode = impl->slave_mode;
 	impl->device_options.snoop_mode = impl->snoop_mode;
@@ -1406,6 +1418,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			"ffado.snoop-mode", DEFAULT_SNOOP_MODE);
 	impl->verbose = pw_properties_get_uint32(props,
 			"ffado.verbose", DEFAULT_VERBOSE);
+	impl->rtprio = pw_properties_get_uint32(props,
+			"ffado.rtprio", DEFAULT_RTPRIO);
+	impl->realtime = pw_properties_get_bool(props,
+			"ffado.realtime", DEFAULT_REALTIME);
 	impl->input_latency = pw_properties_get_uint32(props,
 			"latency.internal.input", 0);
 	impl->output_latency = pw_properties_get_uint32(props,

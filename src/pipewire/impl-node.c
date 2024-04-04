@@ -833,10 +833,11 @@ do_move_nodes(struct spa_loop *loop,
 		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct impl *impl = user_data;
-	struct pw_impl_node *driver = *(struct pw_impl_node **)data;
+	struct pw_impl_node *old = *(struct pw_impl_node **)data;
 	struct pw_impl_node *node = &impl->this;
+	struct pw_impl_node *driver = node->driver_node;
 
-	pw_log_trace("%p: driver:%p->%p", node, node->driver_node, driver);
+	pw_log_trace("%p: driver:%p->%p", node, old, driver);
 
 	pw_log_trace("%p: set position %p", node, &driver->rt.target.activation->position);
 	node->rt.position = &driver->rt.target.activation->position;
@@ -904,8 +905,8 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 	}
 
 	pw_loop_invoke(node->data_loop,
-		       do_move_nodes, SPA_ID_INVALID, &driver, sizeof(struct pw_impl_node *),
-		       true, impl);
+			do_move_nodes, SPA_ID_INVALID, &old, sizeof(struct pw_impl_node *),
+			true, impl);
 
 	pw_impl_node_emit_driver_changed(node, old, driver);
 

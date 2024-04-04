@@ -1888,13 +1888,16 @@ static inline void signal_sync(struct client *c)
 				state->pending, state->required);
 
 		if (pw_node_activation_state_dec(state)) {
-			l->activation->status = PW_NODE_ACTIVATION_TRIGGERED;
-			l->activation->signal_time = nsec;
+			if (SPA_ATOMIC_CAS(l->activation->status,
+					PW_NODE_ACTIVATION_NOT_TRIGGERED,
+					PW_NODE_ACTIVATION_TRIGGERED)) {
+				l->activation->signal_time = nsec;
 
-			pw_log_trace_fp("%p: signal %p %p", c, l, state);
+				pw_log_trace_fp("%p: signal %p %p", c, l, state);
 
-			if (SPA_UNLIKELY(write(l->signalfd, &cmd, sizeof(cmd)) != sizeof(cmd)))
-				pw_log_warn("%p: write failed %m", c);
+				if (SPA_UNLIKELY(write(l->signalfd, &cmd, sizeof(cmd)) != sizeof(cmd)))
+					pw_log_warn("%p: write failed %m", c);
+			}
 		}
 	}
 }

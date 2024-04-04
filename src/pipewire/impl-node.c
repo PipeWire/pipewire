@@ -1210,10 +1210,17 @@ static inline uint64_t get_time_ns(struct spa_system *system)
 	return SPA_TIMESPEC_TO_NSEC(&ts);
 }
 
-static inline void wake_target(struct pw_node_target *t)
+static inline void wake_target(struct pw_node_target *t, uint64_t nsec)
 {
-	if (SPA_UNLIKELY(spa_system_eventfd_write(t->system, t->fd, 1) < 0))
-		pw_log_warn("%p: write failed %m", t->node);
+	struct pw_node_activation *a = t->activation;
+
+	if (SPA_ATOMIC_CAS(a->status,
+				PW_NODE_ACTIVATION_NOT_TRIGGERED,
+				PW_NODE_ACTIVATION_TRIGGERED)) {
+		a->signal_time = nsec;
+		if (SPA_UNLIKELY(spa_system_eventfd_write(t->system, t->fd, 1) < 0))
+			pw_log_warn("%p: write failed %m", t->node);
+	}
 }
 
 /* called from data-loop decrement the dependency counter of the target and when
@@ -1226,22 +1233,20 @@ static inline void trigger_target(struct pw_node_target *t, uint64_t nsec)
 	pw_log_trace_fp("%p: (%s-%u) state:%p pending:%d/%d", t->node,
 			t->name, t->id, state, state->pending, state->required);
 
-	if (pw_node_activation_state_dec(state)) {
-		a->status = PW_NODE_ACTIVATION_TRIGGERED;
-		a->signal_time = nsec;
-		wake_target(t);
-	}
+	if (pw_node_activation_state_dec(state))
+		wake_target(t, nsec);
 }
 
 /* called from data-loop when all the targets of a node need to be triggered */
-static inline int trigger_targets(struct pw_impl_node *this, int status, uint64_t nsec)
+static inline int trigger_targets(struct pw_node_target *t, int status, uint64_t nsec)
 {
-	struct pw_node_target *t;
+	struct pw_node_target *ta;
 
-	pw_log_trace_fp("%p: %s trigger targets %"PRIu64, this, this->name, nsec);
+	pw_log_trace_fp("%p: (%s-%u) trigger targets %"PRIu64,
+			t->node, t->name, t->id, nsec);
 
-	spa_list_for_each(t, &this->rt.target_list, link)
-		trigger_target(t, nsec);
+	spa_list_for_each(ta, &t->node->rt.target_list, link)
+		trigger_target(ta, nsec);
 
 	return 0;
 }
@@ -1323,7 +1328,7 @@ static inline int process_node(void *data)
 	/* we don't need to trigger targets when the node was driving the
 	 * graph because that means we finished the graph. */
 	if (SPA_LIKELY(!this->driving)) {
-		trigger_targets(this, status, nsec);
+		trigger_targets(&this->rt.target, status, nsec);
 	} else {
 		/* calculate CPU time when finished */
 		a->signal_time = this->driver_start;
@@ -1852,7 +1857,7 @@ static int node_ready(void *data, int status)
 					" pending %d/%d", node->name, node->info.id,
 					state, a->position.clock.duration,
 					pending, state->required);
-			wake_target(&node->rt.target);
+			wake_target(&node->rt.target, nsec);
 			check_states(node, nsec);
 			pw_impl_node_rt_emit_incomplete(node);
 		}
@@ -1912,9 +1917,6 @@ again:
 		a->prev_signal_time = a->signal_time;
 		node->driver_start = nsec;
 
-		a->status = PW_NODE_ACTIVATION_TRIGGERED;
-		a->signal_time = nsec;
-
 		a->sync_timeout = SPA_MIN(min_timeout, DEFAULT_SYNC_TIMEOUT);
 
 		if (SPA_UNLIKELY(reposition_target != NULL)) {
@@ -1946,7 +1948,7 @@ again:
 			spa_node_process_fast(p->mix);
 	}
 	/* now signal all the nodes we drive */
-	return trigger_targets(node, status, nsec);
+	return trigger_targets(&node->rt.target, status, nsec);
 }
 
 static int node_reuse_buffer(void *data, uint32_t port_id, uint32_t buffer_id)

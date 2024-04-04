@@ -1282,8 +1282,9 @@ static inline int process_node(void *data)
 	uint64_t nsec;
 
 	nsec = get_time_ns(data_system);
-	pw_log_trace_fp("%p: %s process remote:%u exported:%u %"PRIu64,
-			this, this->name, this->remote, this->exported, nsec);
+	pw_log_trace_fp("%p: %s process remote:%u exported:%u %"PRIu64" %"PRIu64,
+			this, this->name, this->remote, this->exported,
+			a->signal_time, nsec);
 	a->status = PW_NODE_ACTIVATION_AWAKE;
 	a->awake_time = nsec;
 
@@ -1846,7 +1847,7 @@ static int node_ready(void *data, int status)
 		uint64_t min_timeout = UINT64_MAX;
 		int32_t pending;
 
-		if (SPA_UNLIKELY((pending = pw_node_activation_state_xchg(state)) != 0)) {
+		if (SPA_UNLIKELY((pending = pw_node_activation_state_xchg(state)) > 0)) {
 			pw_log_debug("(%s-%u) graph not finished: state:%p quantum:%"PRIu64
 					" pending %d/%d", node->name, node->info.id,
 					state, a->position.clock.duration,

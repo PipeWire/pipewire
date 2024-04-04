@@ -88,7 +88,7 @@ struct pw_impl_node_rt_events {
 	void (*complete) (void *data);
 	/** the driver node did not complete processing */
 	void (*incomplete) (void *data);
-	/** the node had */
+	/** the node had a timeout */
 	void (*timeout) (void *data);
 };
 

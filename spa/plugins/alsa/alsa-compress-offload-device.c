@@ -47,6 +47,13 @@ struct impl {
 
 	struct spa_log *log;
 
+	uint32_t info_all;
+	struct spa_device_info device_info;
+
+#define IDX_EnumProfile		0
+#define IDX_Profile		1
+	struct spa_param_info params[2];
+
 	struct spa_hook_list hooks;
 
 	struct props props;
@@ -215,6 +222,9 @@ static int set_profile(struct impl *this, uint32_t id)
 	this->n_playback = n_play;
 	this->n_nodes = i;
 
+	this->device_info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
+	this->params[IDX_Profile].user++;
+
 finish:
 	if (snd_dir != NULL)
 		closedir(snd_dir);
@@ -234,56 +244,58 @@ static int emit_info(struct impl *this, bool full)
 	uint32_t n_items = 0;
 	snd_ctl_t *ctl_hndl;
 	snd_ctl_card_info_t *info;
-	struct spa_device_info dinfo;
-	struct spa_param_info params[2];
 	char path[128];
 	char device_name[200];
 	char device_desc[200];
 
-	spa_log_debug(this->log, "open card %s", this->props.device);
-	if ((err = snd_ctl_open(&ctl_hndl, this->props.device, 0)) < 0) {
-		spa_log_error(this->log, "can't open control for card %s: %s",
-		              this->props.device, snd_strerror(err));
-		return err;
+	if (full)
+		this->device_info.change_mask = this->info_all;
+
+	if (this->device_info.change_mask) {
+		spa_log_debug(this->log, "open card %s", this->props.device);
+		if ((err = snd_ctl_open(&ctl_hndl, this->props.device, 0)) < 0) {
+			spa_log_error(this->log, "can't open control for card %s: %s",
+			              this->props.device, snd_strerror(err));
+			return err;
+		}
+
+		snd_ctl_card_info_alloca(&info);
+		if ((err = snd_ctl_card_info(ctl_hndl, info)) < 0) {
+			spa_log_error(this->log, "error hardware info: %s", snd_strerror(err));
+			goto finish;
+		}
+
+		snprintf(path, sizeof(path), "alsa:compressed:%s", snd_ctl_card_info_get_id(info));
+		snprintf(device_name, sizeof(device_name), "comprC%u", this->props.card_nr);
+		snprintf(device_desc, sizeof(device_desc), "Compress-Offload device (ALSA card %u)", this->props.card_nr);
+
+		ADD_DICT_ITEM(SPA_KEY_OBJECT_PATH,              path);
+		ADD_DICT_ITEM(SPA_KEY_DEVICE_API,               "alsa:compressed");
+		ADD_DICT_ITEM(SPA_KEY_DEVICE_NICK,              "alsa:compressed");
+		ADD_DICT_ITEM(SPA_KEY_DEVICE_NAME,              device_name);
+		ADD_DICT_ITEM(SPA_KEY_DEVICE_DESCRIPTION,       device_desc);
+		ADD_DICT_ITEM(SPA_KEY_MEDIA_CLASS,              "Audio/Device");
+		ADD_DICT_ITEM(SPA_KEY_API_ALSA_PATH,	        (char *)this->props.device);
+		ADD_DICT_ITEM(SPA_KEY_API_ALSA_CARD_ID,         snd_ctl_card_info_get_id(info));
+		ADD_DICT_ITEM(SPA_KEY_API_ALSA_CARD_COMPONENTS, snd_ctl_card_info_get_components(info));
+		ADD_DICT_ITEM(SPA_KEY_API_ALSA_CARD_DRIVER,     snd_ctl_card_info_get_driver(info));
+		ADD_DICT_ITEM(SPA_KEY_API_ALSA_CARD_NAME,       snd_ctl_card_info_get_name(info));
+		ADD_DICT_ITEM(SPA_KEY_API_ALSA_CARD_LONGNAME,   snd_ctl_card_info_get_longname(info));
+		ADD_DICT_ITEM(SPA_KEY_API_ALSA_CARD_MIXERNAME,  snd_ctl_card_info_get_mixername(info));
+
+		this->device_info.props = &SPA_DICT_INIT(items, n_items);
+
+		if (this->device_info.change_mask & SPA_DEVICE_CHANGE_MASK_PARAMS) {
+			SPA_FOR_EACH_ELEMENT_VAR(this->params, p) {
+				if (p->user > 0) {
+					p->flags ^= SPA_PARAM_INFO_SERIAL;
+					p->user = 0;
+				}
+			}
+		}
+		spa_device_emit_info(&this->hooks, &this->device_info);
+		this->device_info.change_mask = 0;
 	}
-
-	snd_ctl_card_info_alloca(&info);
-	if ((err = snd_ctl_card_info(ctl_hndl, info)) < 0) {
-		spa_log_error(this->log, "error hardware info: %s", snd_strerror(err));
-		goto finish;
-	}
-
-	dinfo = SPA_DEVICE_INFO_INIT();
-
-	dinfo.change_mask = SPA_DEVICE_CHANGE_MASK_PROPS;
-
-	snprintf(path, sizeof(path), "alsa:compressed:%s", snd_ctl_card_info_get_id(info));
-	snprintf(device_name, sizeof(device_name), "comprC%u", this->props.card_nr);
-	snprintf(device_desc, sizeof(device_desc), "Compress-Offload device (ALSA card %u)", this->props.card_nr);
-
-	ADD_DICT_ITEM(SPA_KEY_OBJECT_PATH,              path);
-	ADD_DICT_ITEM(SPA_KEY_DEVICE_API,               "alsa:compressed");
-	ADD_DICT_ITEM(SPA_KEY_DEVICE_NICK,              "alsa:compressed");
-	ADD_DICT_ITEM(SPA_KEY_DEVICE_NAME,              device_name);
-	ADD_DICT_ITEM(SPA_KEY_DEVICE_DESCRIPTION,       device_desc);
-	ADD_DICT_ITEM(SPA_KEY_MEDIA_CLASS,              "Audio/Device");
-	ADD_DICT_ITEM(SPA_KEY_API_ALSA_PATH,	        (char *)this->props.device);
-	ADD_DICT_ITEM(SPA_KEY_API_ALSA_CARD_ID,         snd_ctl_card_info_get_id(info));
-	ADD_DICT_ITEM(SPA_KEY_API_ALSA_CARD_COMPONENTS, snd_ctl_card_info_get_components(info));
-	ADD_DICT_ITEM(SPA_KEY_API_ALSA_CARD_DRIVER,     snd_ctl_card_info_get_driver(info));
-	ADD_DICT_ITEM(SPA_KEY_API_ALSA_CARD_NAME,       snd_ctl_card_info_get_name(info));
-	ADD_DICT_ITEM(SPA_KEY_API_ALSA_CARD_LONGNAME,   snd_ctl_card_info_get_longname(info));
-	ADD_DICT_ITEM(SPA_KEY_API_ALSA_CARD_MIXERNAME,  snd_ctl_card_info_get_mixername(info));
-
-	dinfo.props = &SPA_DICT_INIT(items, n_items);
-
-	dinfo.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumProfile, SPA_PARAM_INFO_READ);
-	params[1] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_READWRITE);
-	dinfo.n_params = SPA_N_ELEMENTS(params);
-	dinfo.params = params;
-
-	spa_device_emit_info(&this->hooks, &dinfo);
 
 finish:
 	spa_log_debug(this->log, "close card %s", this->props.device);
@@ -469,6 +481,7 @@ static int impl_set_param(void *object,
 			return -EINVAL;
 
 		set_profile(this, idx);
+		emit_info(this, false);
 		break;
 	}
 	default:
@@ -561,6 +574,15 @@ static int impl_init(const struct spa_handle_factory *factory,
 			}
 		}
 	}
+
+	this->device_info = SPA_DEVICE_INFO_INIT();
+	this->info_all = SPA_DEVICE_CHANGE_MASK_PROPS |
+		SPA_DEVICE_CHANGE_MASK_PARAMS;
+
+	this->params[IDX_EnumProfile] = SPA_PARAM_INFO(SPA_PARAM_EnumProfile, SPA_PARAM_INFO_READ);
+	this->params[IDX_Profile] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_READWRITE);
+	this->device_info.params = this->params;
+	this->device_info.n_params = SPA_N_ELEMENTS(this->params);
 
 	return 0;
 }

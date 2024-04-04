@@ -148,7 +148,7 @@ struct spa_io_clock {
 	uint64_t target_duration;		/**< Target duration of next cycle */
 	uint32_t target_seq;			/**< Seq counter. must be equal at start and
 						  *  end of read and lower bit must be 0 */
-	uint32_t padding;
+	uint32_t cycle;			/**< incremented each time the graph is started */
 	uint64_t xrun;			/**< Estimated accumulated xrun duration */
 };
 

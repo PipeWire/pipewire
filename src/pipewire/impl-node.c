@@ -1907,10 +1907,11 @@ again:
 			}
 		}
 
-		a->status = PW_NODE_ACTIVATION_TRIGGERED;
 		a->prev_signal_time = a->signal_time;
-		a->signal_time = nsec;
 		node->driver_start = nsec;
+
+		a->status = PW_NODE_ACTIVATION_TRIGGERED;
+		a->signal_time = nsec;
 
 		a->sync_timeout = SPA_MIN(min_timeout, DEFAULT_SYNC_TIMEOUT);
 
@@ -1925,6 +1926,7 @@ again:
 		update_position(node, all_ready, nsec);
 
 		pw_impl_node_rt_emit_start(node);
+		a->position.clock.cycle++;
 	}
 	/* this should not happen, driver nodes that are not currently driving
 	 * should not emit the ready callback */

@@ -175,14 +175,12 @@ include:
       tar xf /tmp/cov-analysis-linux64.tgz ;
       mv cov-analysis-linux64-* coverity ;
       rm /tmp/cov-analysis-linux64.tgz
-  only:
-    variables:
-      - $COVERITY
+  rules:
+    - if: $COVERITY != null
 
 .not_coverity:
-  except:
-    variables:
-      - $COVERITY
+  rules:
+    - if: $COVERITY == null
 
 .build:
   before_script:
@@ -563,6 +561,6 @@ pages:
   artifacts:
     paths:
       - public
-  only:
-    - 'master'
-    - '1.0'
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'master'
+    - if: $CI_COMMIT_BRANCH == '1.0'

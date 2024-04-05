@@ -1250,6 +1250,8 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 
 int pw_impl_node_trigger(struct pw_impl_node *node);
 
+int pw_impl_node_set_io(struct pw_impl_node *node, uint32_t id, void *data, size_t size);
+
 /** Prepare a link
   * Starts the negotiation of formats and buffers on \a link */
 int pw_impl_link_prepare(struct pw_impl_link *link);

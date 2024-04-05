@@ -71,9 +71,6 @@ struct node_data {
 	struct spa_hook proxy_client_node_listener;
 
 	struct spa_list links;
-
-	struct spa_io_clock *clock;
-	struct spa_io_position *position;
 };
 
 struct link {
@@ -209,9 +206,13 @@ static int client_node_transport(void *_data,
 	}
 
 	node->rt.target.activation = data->activation->ptr;
-	node->rt.position = &node->rt.target.activation->position;
-	node->info.id = node->rt.target.activation->position.clock.id;
-	node->rt.target.id = node->info.id;
+
+	pw_impl_node_set_io(node, SPA_IO_Clock,
+			&node->rt.target.activation->position.clock,
+			sizeof(struct spa_io_clock));
+	pw_impl_node_set_io(node, SPA_IO_Position,
+			&node->rt.target.activation->position,
+			sizeof(struct spa_io_position));
 
 	pw_log_debug("remote-node %p: fds:%d %d node:%u activation:%p",
 		proxy, readfd, writefd, data->remote_id, data->activation->ptr);
@@ -424,18 +425,7 @@ client_node_set_io(void *_data,
 	pw_log_debug("node %p: set io %s %p", proxy,
 			spa_debug_type_find_name(spa_type_io, id), ptr);
 
-	switch(id) {
-	case SPA_IO_Clock:
-		data->clock = size >= sizeof(*data->clock) ? ptr : NULL;
-		break;
-	case SPA_IO_Position:
-		data->position = size >= sizeof(*data->position) ? ptr : NULL;
-		break;
-	}
-	node->driving = data->clock && data->position &&
-		data->position->clock.id == data->clock->id;
-
-	res =  spa_node_set_io(node->node, id, ptr, size);
+	res =  pw_impl_node_set_io(node, id, ptr, size);
 
 	pw_memmap_free(old);
 exit:

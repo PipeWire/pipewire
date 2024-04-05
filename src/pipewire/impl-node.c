@@ -707,34 +707,56 @@ static inline void remove_driver(struct pw_context *context, struct pw_impl_node
 	pw_context_emit_driver_removed(context, node);
 }
 
+static int
+do_update_position(struct spa_loop *loop,
+		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct pw_impl_node *node = user_data;
+	void *position = *(void**)data;
+	pw_log_trace("%p: set position %p", node, position);
+	node->rt.position = position;
+	node->target_rate = node->rt.position->clock.target_rate;
+	node->target_quantum = node->rt.position->clock.target_duration;
+	return 0;
+}
+
+SPA_EXPORT
+int pw_impl_node_set_io(struct pw_impl_node *this, uint32_t id, void *data, size_t size)
+{
+	int res;
+
+	res = spa_node_set_io(this->node, id, data, size);
+
+	switch (id) {
+	case SPA_IO_Position:
+		pw_log_debug("%p: set position %p: %s", this, data, spa_strerror(res));
+		pw_loop_invoke(this->data_loop,
+				do_update_position, SPA_ID_INVALID, &data, sizeof(void*), true, this);
+		break;
+	case SPA_IO_Clock:
+		pw_log_debug("%p: set clock %p: %s", this, data, spa_strerror(res));
+		this->rt.clock = data;
+		this->info.id = this->rt.clock->id;
+		this->rt.target.id = this->info.id;
+		break;
+	}
+	this->driving = this->rt.clock && this->rt.position &&
+		this->rt.position->clock.id == this->rt.clock->id;
+	return res;
+}
+
 static void update_io(struct pw_impl_node *node)
 {
 	struct pw_node_target *t = &node->rt.target;
 
 	pw_log_debug("%p: id:%d", node, node->info.id);
 
-	if (spa_node_set_io(node->node,
-			    SPA_IO_Position,
-			    &t->activation->position,
-			    sizeof(struct spa_io_position)) >= 0) {
-		pw_log_debug("%p: set position %p", node, &t->activation->position);
-		node->rt.position = &t->activation->position;
+	pw_impl_node_set_io(node, SPA_IO_Clock, &t->activation->position.clock,
+                            sizeof(struct spa_io_clock));
+	pw_impl_node_set_io(node, SPA_IO_Position, &t->activation->position,
+                            sizeof(struct spa_io_position));
 
-		node->target_rate = node->rt.position->clock.target_rate;
-		node->target_quantum = node->rt.position->clock.target_duration;
-		node->target_pending = false;
-
-		pw_impl_node_emit_peer_added(node, node);
-	} else if (node->driver) {
-		pw_log_warn("%p: can't set position on driver", node);
-	}
-	if (spa_node_set_io(node->node,
-			    SPA_IO_Clock,
-			    &t->activation->position.clock,
-			    sizeof(struct spa_io_clock)) >= 0) {
-		pw_log_debug("%p: set clock %p", node, &t->activation->position.clock);
-		node->rt.clock = &t->activation->position.clock;
-	}
+	pw_impl_node_emit_peer_added(node, node);
 }
 
 SPA_EXPORT
@@ -787,9 +809,7 @@ int pw_impl_node_register(struct pw_impl_node *this,
 
 	this->rt.target.activation->position.clock.id = this->global->id;
 
-	this->info.id = this->global->id;
-	this->rt.target.id = this->info.id;
-	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->info.id);
+	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->global->id);
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(this->global));
 	this->info.props = &this->properties->dict;
@@ -839,12 +859,6 @@ do_move_nodes(struct spa_loop *loop,
 
 	pw_log_trace("%p: driver:%p->%p", node, old, driver);
 
-	pw_log_trace("%p: set position %p", node, &driver->rt.target.activation->position);
-	node->rt.position = &driver->rt.target.activation->position;
-
-	node->target_rate = node->rt.position->clock.target_rate;
-	node->target_quantum = node->rt.position->clock.target_duration;
-
 	if (node->added) {
 		remove_node(node);
 		add_node(node, driver);
@@ -864,7 +878,6 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_impl_node *old = node->driver_node;
-	int res;
 	bool was_driving;
 
 	if (driver == NULL)
@@ -879,7 +892,10 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 	remove_segment_owner(old, node->info.id);
 
 	was_driving = node->driving;
-	node->driving = node->driver && driver == node;
+
+	pw_impl_node_set_io(node, SPA_IO_Position,
+			&driver->rt.target.activation->position,
+			sizeof(struct spa_io_position));
 
 	/* When a node was driver (and is waiting for all nodes to complete
 	 * the Start command) cancel the pending state and let the new driver
@@ -896,13 +912,6 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 
 	node->driver_node = driver;
 	node->moved = true;
-
-	if ((res = spa_node_set_io(node->node,
-		    SPA_IO_Position,
-		    &driver->rt.target.activation->position,
-		    sizeof(struct spa_io_position))) < 0) {
-		pw_log_debug("%p: set position: %s", node, spa_strerror(res));
-	}
 
 	pw_loop_invoke(node->data_loop,
 			do_move_nodes, SPA_ID_INVALID, &old, sizeof(struct pw_impl_node *),
@@ -984,8 +993,6 @@ static void check_properties(struct pw_impl_node *node)
 			else
 				remove_driver(context, node);
 		}
-		if (driver && node->driver_node == node)
-			node->driving = true;
 		recalc_reason = "driver changed";
 	}
 
@@ -1504,7 +1511,6 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 
 	this->driver_node = this;
 	spa_list_append(&this->follower_list, &this->follower_link);
-	this->driving = this->driver;
 
 	return this;
 

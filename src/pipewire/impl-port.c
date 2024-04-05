@@ -698,6 +698,12 @@ int pw_impl_port_set_mix(struct pw_impl_port *port, struct spa_node *node, uint3
 			     pw_direction_reverse(port->direction), 0,
 			     SPA_IO_Buffers,
 			     &port->rt.io, sizeof(port->rt.io));
+
+		if (port->node && port->node->rt.position)
+			spa_node_set_io(port->mix,
+				     SPA_IO_Position,
+				     port->node->rt.position,
+				     sizeof(struct spa_io_position));
 	}
 	return 0;
 }

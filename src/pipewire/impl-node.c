@@ -724,6 +724,7 @@ SPA_EXPORT
 int pw_impl_node_set_io(struct pw_impl_node *this, uint32_t id, void *data, size_t size)
 {
 	int res;
+	struct pw_impl_port *port;
 
 	res = spa_node_set_io(this->node, id, data, size);
 
@@ -742,6 +743,11 @@ int pw_impl_node_set_io(struct pw_impl_node *this, uint32_t id, void *data, size
 	}
 	this->driving = this->rt.clock && this->rt.position &&
 		this->rt.position->clock.id == this->rt.clock->id;
+
+	spa_list_for_each(port, &this->input_ports, link)
+		spa_node_set_io(port->mix, id, data, size);
+	spa_list_for_each(port, &this->output_ports, link)
+		spa_node_set_io(port->mix, id, data, size);
 
 	return res;
 }

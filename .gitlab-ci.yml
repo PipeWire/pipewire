@@ -288,6 +288,7 @@ build_on_fedora:
 build_on_fedora_html_docs:
   extends:
     - .build_on_fedora
+  stage: pages
   variables:
     MESON_OPTIONS: >-
         -Ddocs=enabled
@@ -325,6 +326,8 @@ build_on_fedora_html_docs:
     paths:
       - branch-*/builddir/meson-logs
       - branch-*/builddir/doc/html
+  rules:
+    - !reference [pages, rules]
 
 build_on_alpine:
   extends:

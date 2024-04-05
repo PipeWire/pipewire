@@ -742,6 +742,7 @@ int pw_impl_node_set_io(struct pw_impl_node *this, uint32_t id, void *data, size
 	}
 	this->driving = this->rt.clock && this->rt.position &&
 		this->rt.position->clock.id == this->rt.clock->id;
+
 	return res;
 }
 
@@ -807,6 +808,7 @@ int pw_impl_node_register(struct pw_impl_node *this,
 		insert_driver(context, this);
 	this->registered = true;
 
+	this->info.id = this->global->id;
 	this->rt.target.activation->position.clock.id = this->global->id;
 
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->global->id);

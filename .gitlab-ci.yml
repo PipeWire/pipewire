@@ -531,7 +531,7 @@ doccheck:
   stage: analysis
   script:
     # Check that each pipewire module has a \subpage entry
-    - git grep -h -o -e "\\\page page_module_\w\+" | cut -f2 -d' ' > pipewire_module_pages
+    - git grep -h -o -e "\\\page page_module_\w\+" | cut -f2 -d ' ' > pipewire_module_pages
     - cat pipewire_module_pages
     - |
       for page in $(cat pipewire_module_pages); do

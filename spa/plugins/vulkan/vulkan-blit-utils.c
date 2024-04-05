@@ -97,13 +97,46 @@ static int runExportSHMBuffers(struct vulkan_blit_state *s) {
 	return 0;
 }
 
-/** runCommandBuffer
- *  The return value of this functions means the following:
- *  ret < 0: Error
- *  ret = 0: queueSubmit was succsessful, but manual synchronization is required
- *  ret = 1: queueSubmit was succsessful and buffers can be released without synchronization
- */
-static int runCommandBuffer(struct vulkan_blit_state *s)
+static int runImportSync(struct vulkan_blit_state *s)
+{
+	int ret = 0;
+	for (uint32_t i = 0; i < s->n_streams; i++) {
+		struct vulkan_stream *p = &s->streams[i];
+		struct vulkan_buffer *current_buffer = &p->buffers[p->current_buffer_id];
+		struct spa_buffer *current_spa_buffer = p->spa_buffers[p->current_buffer_id];
+
+		if (current_spa_buffer->datas[0].type != SPA_DATA_DmaBuf)
+			continue;
+
+		if (vulkan_buffer_import_implicit_syncfd(&s->base, current_buffer) >= 0)
+			continue;
+		if (vulkan_buffer_wait_dmabuf_fence(&s->base, current_buffer) < 0) {
+			spa_log_warn(s->log, "Failed to wait for foreign buffer DMA-BUF fence");
+			ret = -1;
+		}
+	}
+	return ret;
+}
+
+static int runExportSync(struct vulkan_blit_state *s, int sync_file_fd)
+{
+	int ret = 0;
+	for (uint32_t i = 0; i < s->n_streams; i++) {
+		struct vulkan_stream *p = &s->streams[i];
+		struct spa_buffer *current_spa_buffer = p->spa_buffers[p->current_buffer_id];
+
+		if (current_spa_buffer->datas[0].type != SPA_DATA_DmaBuf)
+			continue;
+
+		if (!vulkan_sync_export_dmabuf(&s->base, &p->buffers[p->current_buffer_id], sync_file_fd)) {
+			ret = -1;
+		}
+	}
+
+	return ret;
+}
+
+static int runCommandBuffer(struct vulkan_blit_state *s, int *sync_file_fd)
 {
 	VULKAN_INSTANCE_FUNCTION(vkQueueSubmit2KHR);
 	VULKAN_INSTANCE_FUNCTION(vkGetSemaphoreFdKHR);
@@ -161,7 +194,6 @@ static int runCommandBuffer(struct vulkan_blit_state *s)
 	for (i = 0; i < s->n_streams; i++) {
 		struct vulkan_stream *p = &s->streams[i];
 		struct vulkan_buffer *current_buffer = &p->buffers[p->current_buffer_id];
-		struct spa_buffer *current_spa_buffer = p->spa_buffers[p->current_buffer_id];
 
 		VkAccessFlags access_flags;
 		if (p->direction == SPA_DIRECTION_INPUT) {
@@ -198,19 +230,12 @@ static int runCommandBuffer(struct vulkan_blit_state *s)
 			.subresourceRange.layerCount = 1,
 		};
 
-		if (current_spa_buffer->datas[0].type != SPA_DATA_DmaBuf)
-			continue;
-
-		if (vulkan_sync_foreign_dmabuf(&s->base, current_buffer) < 0) {
-			spa_log_warn(s->log, "Failed to wait for foreign buffer DMA-BUF fence");
-		} else {
-			if (current_buffer->foreign_semaphore != VK_NULL_HANDLE) {
-				semaphore_wait_info[semaphore_wait_info_len++] = (VkSemaphoreSubmitInfo) {
-					.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-					.semaphore = current_buffer->foreign_semaphore,
-					.stageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-				};
-			}
+		if (current_buffer->foreign_semaphore != VK_NULL_HANDLE) {
+			semaphore_wait_info[semaphore_wait_info_len++] = (VkSemaphoreSubmitInfo) {
+				.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+				.semaphore = current_buffer->foreign_semaphore,
+				.stageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+			};
 		}
 	}
 
@@ -264,29 +289,16 @@ static int runCommandBuffer(struct vulkan_blit_state *s)
         VK_CHECK_RESULT(vkQueueSubmit2KHR(s->base.queue, 1, &submitInfo, s->fence));
 	s->started = true;
 
-	VkSemaphoreGetFdInfoKHR get_fence_fd_info = {
-		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR,
-		.semaphore = s->pipelineSemaphore,
-		.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
-	};
-	int sync_file_fd = -1;
-	VK_CHECK_RESULT(vkGetSemaphoreFdKHR(s->base.device, &get_fence_fd_info, &sync_file_fd));
-
-	int ret = 1;
-	for (uint32_t i = 0; i < s->n_streams; i++) {
-		struct vulkan_stream *p = &s->streams[i];
-		struct spa_buffer *current_spa_buffer = p->spa_buffers[p->current_buffer_id];
-
-		if (current_spa_buffer->datas[0].type != SPA_DATA_DmaBuf)
-			continue;
-
-		if (!vulkan_sync_export_dmabuf(&s->base, &p->buffers[p->current_buffer_id], sync_file_fd)) {
-			ret = 0;
-		}
+	if (sync_file_fd) {
+		VkSemaphoreGetFdInfoKHR get_fence_fd_info = {
+			.sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR,
+			.semaphore = s->pipelineSemaphore,
+			.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+		};
+		VK_CHECK_RESULT(vkGetSemaphoreFdKHR(s->base.device, &get_fence_fd_info, sync_file_fd));
 	}
-	close(sync_file_fd);
 
-	return ret;
+	return 0;
 }
 
 static void clear_buffers(struct vulkan_blit_state *s, struct vulkan_stream *p)
@@ -559,6 +571,7 @@ int spa_vulkan_blit_ready(struct vulkan_blit_state *s)
 
 int spa_vulkan_blit_process(struct vulkan_blit_state *s)
 {
+	int sync_fd = -1;
 	if (!s->initialized) {
 		spa_log_warn(s->log, "Renderer not initialized");
 		return -1;
@@ -568,7 +581,12 @@ int spa_vulkan_blit_process(struct vulkan_blit_state *s)
 		return -1;
 	}
 	CHECK(updateBuffers(s));
-	CHECK(runCommandBuffer(s));
+	CHECK(runImportSync(s));
+	CHECK(runCommandBuffer(s, &sync_fd));
+	if (sync_fd != -1) {
+		runExportSync(s, sync_fd);
+		close(sync_fd);
+	}
 	CHECK(vulkan_wait_idle(&s->base));
 	CHECK(runExportSHMBuffers(s));
 

@@ -301,56 +301,16 @@ int vulkan_read_pixels(struct vulkan_base *s, struct vulkan_read_pixels_info *in
 
 int vulkan_sync_foreign_dmabuf(struct vulkan_base *s, struct vulkan_buffer *vk_buf)
 {
-	VULKAN_INSTANCE_FUNCTION(vkImportSemaphoreFdKHR);
-
 	if (!s->implicit_sync_interop) {
-		struct pollfd pollfd = {
-			.fd = vk_buf->fd,
-			.events = POLLIN,
-		};
-		int timeout_ms = 1000;
-		int ret = poll(&pollfd, 1, timeout_ms);
-		if (ret < 0) {
-			spa_log_error(s->log, "Failed to wait for DMA-BUF fence");
-			return -1;
-		} else if (ret == 0) {
-			spa_log_error(s->log, "Timed out waiting for DMA-BUF fence");
-			return -1;
-		}
-		return 0;
+		return vulkan_buffer_wait_dmabuf_fence(s, vk_buf);
 	}
 
-	int sync_file_fd = dmabuf_export_sync_file(s->log, vk_buf->fd, DMA_BUF_SYNC_READ);
-	if (sync_file_fd < 0) {
-		spa_log_error(s->log, "Failed to extract for DMA-BUF fence");
-		return -1;
-	}
-
-	if (vk_buf->foreign_semaphore == VK_NULL_HANDLE) {
-		VkSemaphoreCreateInfo semaphore_info = {
-			.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-		};
-		VK_CHECK_RESULT_WITH_CLEANUP(vkCreateSemaphore(s->device, &semaphore_info, NULL, &vk_buf->foreign_semaphore), close(sync_file_fd));
-	}
-
-	VkImportSemaphoreFdInfoKHR import_info = {
-		.sType = VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_FD_INFO_KHR,
-		.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
-		.flags = VK_SEMAPHORE_IMPORT_TEMPORARY_BIT_KHR,
-		.semaphore = vk_buf->foreign_semaphore,
-		.fd = sync_file_fd,
-	};
-	VK_CHECK_RESULT_WITH_CLEANUP(vkImportSemaphoreFdKHR(s->device, &import_info), close(sync_file_fd));
-
-	return 0;
+	return vulkan_buffer_import_implicit_syncfd(s, vk_buf);
 }
 
 bool vulkan_sync_export_dmabuf(struct vulkan_base *s, struct vulkan_buffer *vk_buf, int sync_file_fd)
 {
-	if (!s->implicit_sync_interop)
-		return false;
-
-	return dmabuf_import_sync_file(s->log, vk_buf->fd, DMA_BUF_SYNC_WRITE, sync_file_fd);
+	return vulkan_buffer_set_implicit_syncfd(s, vk_buf, sync_file_fd);
 }
 
 int vulkan_fence_create(struct vulkan_base *s, VkFence *fence)
@@ -428,6 +388,73 @@ struct vulkan_modifier_info *vulkan_modifierInfo_find(struct vulkan_format_infos
 			return &f_info->infos[i];
 	}
 	return NULL;
+}
+
+int vulkan_buffer_get_implicit_syncfd(struct vulkan_base *s, struct vulkan_buffer *vk_buf)
+{
+	if (!s->implicit_sync_interop)
+		return -1;
+
+	return dmabuf_export_sync_file(s->log, vk_buf->fd, DMA_BUF_SYNC_READ);
+}
+
+bool vulkan_buffer_set_implicit_syncfd(struct vulkan_base *s, struct vulkan_buffer *vk_buf, int sync_file_fd)
+{
+	if (!s->implicit_sync_interop)
+		return false;
+
+	return dmabuf_import_sync_file(s->log, vk_buf->fd, DMA_BUF_SYNC_WRITE, sync_file_fd);
+}
+
+int vulkan_buffer_import_implicit_syncfd(struct vulkan_base *s, struct vulkan_buffer *vk_buf)
+{
+	int sync_file_fd = vulkan_buffer_get_implicit_syncfd(s, vk_buf);
+	if (sync_file_fd < 0) {
+		spa_log_error(s->log, "Failed to extract for DMA-BUF fence");
+		return -1;
+	}
+	return vulkan_buffer_import_syncfd(s, vk_buf, sync_file_fd);
+}
+
+int vulkan_buffer_wait_dmabuf_fence(struct vulkan_base *s, struct vulkan_buffer *vk_buf)
+{
+	struct pollfd pollfd = {
+		.fd = vk_buf->fd,
+		.events = POLLIN,
+	};
+	int timeout_ms = 1000;
+	int ret = poll(&pollfd, 1, timeout_ms);
+	if (ret < 0) {
+		spa_log_error(s->log, "Failed to wait for DMA-BUF fence");
+		return -1;
+	} else if (ret == 0) {
+		spa_log_error(s->log, "Timed out waiting for DMA-BUF fence");
+		return -1;
+	}
+	return 0;
+}
+
+int vulkan_buffer_import_syncfd(struct vulkan_base *s, struct vulkan_buffer *vk_buf, int sync_file_fd)
+{
+	VULKAN_INSTANCE_FUNCTION(vkImportSemaphoreFdKHR);
+
+	if (vk_buf->foreign_semaphore == VK_NULL_HANDLE) {
+		VkSemaphoreCreateInfo semaphore_info = {
+			.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+		};
+		VK_CHECK_RESULT_WITH_CLEANUP(vkCreateSemaphore(s->device, &semaphore_info, NULL, &vk_buf->foreign_semaphore), close(sync_file_fd));
+	}
+
+	VkImportSemaphoreFdInfoKHR import_info = {
+		.sType = VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_FD_INFO_KHR,
+		.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+		.flags = VK_SEMAPHORE_IMPORT_TEMPORARY_BIT_KHR,
+		.semaphore = vk_buf->foreign_semaphore,
+		.fd = sync_file_fd,
+	};
+	VK_CHECK_RESULT_WITH_CLEANUP(vkImportSemaphoreFdKHR(s->device, &import_info), close(sync_file_fd));
+
+	return 0;
 }
 
 void vulkan_buffer_clear(struct vulkan_base *s, struct vulkan_buffer *buffer)

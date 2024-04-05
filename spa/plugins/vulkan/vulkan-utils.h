@@ -104,6 +104,11 @@ uint32_t vulkan_memoryType_find(struct vulkan_base *s,
 struct vulkan_format_info *vulkan_formatInfo_find(struct vulkan_format_infos *fmtInfo, VkFormat format);
 struct vulkan_modifier_info *vulkan_modifierInfo_find(struct vulkan_format_infos *fmtInfo, VkFormat format, uint64_t modifier);
 
+int vulkan_buffer_get_implicit_syncfd(struct vulkan_base *s, struct vulkan_buffer *vk_buf);
+bool vulkan_buffer_set_implicit_syncfd(struct vulkan_base *s, struct vulkan_buffer *vk_buf, int sync_file_fd);
+int vulkan_buffer_import_implicit_syncfd(struct vulkan_base *s, struct vulkan_buffer *vk_buf);
+int vulkan_buffer_wait_dmabuf_fence(struct vulkan_base *s, struct vulkan_buffer *vk_buf);
+int vulkan_buffer_import_syncfd(struct vulkan_base *s, struct vulkan_buffer *vk_buf, int sync_file_fd);
 void vulkan_buffer_clear(struct vulkan_base *s, struct vulkan_buffer *buffer);
 
 uint32_t vulkan_vkformat_to_id(VkFormat vkFormat);

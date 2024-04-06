@@ -288,7 +288,6 @@ build_on_fedora:
 build_on_fedora_html_docs:
   extends:
     - .build_on_fedora
-  stage: pages
   variables:
     MESON_OPTIONS: >-
         -Ddocs=enabled

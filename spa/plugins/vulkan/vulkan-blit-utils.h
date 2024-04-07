@@ -21,6 +21,8 @@ struct vulkan_pass {
 	uint32_t out_buffer_id;
 	uint32_t out_stream_id;
 
+	VkBufferImageCopy in_copy;
+
 	int sync_fd;
 };
 

@@ -79,9 +79,7 @@ static int runImportSHMBuffers(struct vulkan_blit_state *s, struct vulkan_pass *
 	struct vulkan_stream *p = &s->streams[pass->in_stream_id];
 
 	if (p->spa_buffers[pass->in_buffer_id]->datas[0].type == SPA_DATA_MemPtr) {
-		struct vulkan_buffer *vk_buf = &p->buffers[pass->in_buffer_id];
 		struct spa_buffer *spa_buf = p->spa_buffers[pass->in_buffer_id];
-		VkBufferImageCopy copy;
 		struct vulkan_write_pixels_info writeInfo = {
 			.data = spa_buf->datas[0].data,
 			.offset = 0,
@@ -89,12 +87,9 @@ static int runImportSHMBuffers(struct vulkan_blit_state *s, struct vulkan_pass *
 			.bytes_per_pixel = p->bpp,
 			.size.width = p->dim.width,
 			.size.height = p->dim.height,
-			.copies = &copy,
+			.copies = &pass->in_copy,
 		};
 		CHECK(vulkan_write_pixels(&s->base, &writeInfo, &s->staging_buffer));
-
-		vkCmdCopyBufferToImage(s->commandBuffer, s->staging_buffer.buffer, vk_buf->image,
-				VK_IMAGE_LAYOUT_GENERAL, 1, &copy);
 	}
 
 	return 0;
@@ -171,14 +166,37 @@ static int runCommandBuffer(struct vulkan_blit_state *s, struct vulkan_pass *pas
 	};
 	VK_CHECK_RESULT(vkBeginCommandBuffer(s->commandBuffer, &beginInfo));
 
-	CHECK(runImportSHMBuffers(s, pass));
-
 	uint32_t i;
 	struct vulkan_stream *stream_input = &s->streams[pass->in_stream_id];
 	struct vulkan_stream *stream_output = &s->streams[pass->out_stream_id];
 
 	VkImage src_image = stream_input->buffers[pass->in_buffer_id].image;
 	VkImage dst_image = stream_output->buffers[pass->out_buffer_id].image;
+
+	if (stream_input->spa_buffers[pass->in_buffer_id]->datas[0].type == SPA_DATA_MemPtr) {
+		vkCmdCopyBufferToImage(s->commandBuffer, s->staging_buffer.buffer, src_image,
+				VK_IMAGE_LAYOUT_GENERAL, 1, &pass->in_copy);
+
+		VkImageMemoryBarrier copy_barrier = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.srcQueueFamilyIndex = s->base.queueFamilyIndex,
+			.dstQueueFamilyIndex = s->base.queueFamilyIndex,
+			.image = src_image,
+			.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+			.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.subresourceRange.levelCount = 1,
+			.subresourceRange.layerCount = 1,
+		};
+
+		vkCmdPipelineBarrier(s->commandBuffer,
+					VK_PIPELINE_STAGE_TRANSFER_BIT,
+					VK_PIPELINE_STAGE_TRANSFER_BIT,
+					0, 0, NULL, 0, NULL,
+					1, &copy_barrier);
+	}
 
 	VkImageBlit imageBlitRegion = {
 		.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -220,10 +238,15 @@ static int runCommandBuffer(struct vulkan_blit_state *s, struct vulkan_pass *pas
 		struct vulkan_buffer *current_buffer = &p->buffers[GET_BUFFER_ID_FROM_STREAM(p, pass)];
 
 		VkAccessFlags access_flags;
+		VkAccessFlags release_flags;
 		if (p->direction == SPA_DIRECTION_INPUT) {
-			access_flags = VK_ACCESS_TRANSFER_READ_BIT;
+			access_flags = p->spa_buffers[pass->in_buffer_id]->datas[0].type == SPA_DATA_DmaBuf
+				? VK_ACCESS_TRANSFER_READ_BIT
+				: VK_ACCESS_TRANSFER_WRITE_BIT;
+			release_flags = VK_ACCESS_TRANSFER_READ_BIT;
 		} else {
 			access_flags = VK_ACCESS_TRANSFER_WRITE_BIT;
+			release_flags = VK_ACCESS_TRANSFER_WRITE_BIT;
 		}
 
 		acquire_barrier[i]= (VkImageMemoryBarrier) {
@@ -247,7 +270,7 @@ static int runCommandBuffer(struct vulkan_blit_state *s, struct vulkan_pass *pas
 			.image = current_buffer->image,
 			.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
 			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
-			.srcAccessMask = access_flags,
+			.srcAccessMask = release_flags,
 			.dstAccessMask = 0,
 			.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 			.subresourceRange.levelCount = 1,
@@ -605,6 +628,7 @@ int spa_vulkan_blit_process(struct vulkan_blit_state *s)
 	CHECK(updateBuffers(s));
 	CHECK(updatePass(s, &pass));
 	CHECK(runImportSync(s, &pass));
+	CHECK(runImportSHMBuffers(s, &pass));
 	CHECK(runCommandBuffer(s, &pass));
 	if (pass.sync_fd != -1) {
 		runExportSync(s, &pass);

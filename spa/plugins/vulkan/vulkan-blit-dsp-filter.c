@@ -45,7 +45,13 @@ struct port {
 	struct spa_port_info info;
 
 	enum spa_direction direction;
-	struct spa_param_info params[5];
+#define IDX_EnumFormat	0
+#define IDX_Meta	1
+#define IDX_IO		2
+#define IDX_Format	3
+#define IDX_Buffer	4
+#define N_PORT_PARAMS	5
+	struct spa_param_info params[N_PORT_PARAMS];
 
 	struct spa_io_buffers *io;
 
@@ -70,7 +76,10 @@ struct impl {
 
 	uint64_t info_all;
 	struct spa_node_info info;
-	struct spa_param_info params[2];
+#define IDX_PropInfo	0
+#define IDX_Props	1
+#define N_NODE_PARAMS	2
+	struct spa_param_info params[N_NODE_PARAMS];
 
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
@@ -529,7 +538,7 @@ static int port_set_format(struct impl *this, struct port *port,
 
 		if (modifier_fixed) {
 			port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-			port->params[0].flags ^= SPA_PARAM_INFO_SERIAL;
+			port->params[IDX_EnumFormat].flags ^= SPA_PARAM_INFO_SERIAL;
 			emit_port_info(this, port, false);
 			return 0;
 		}
@@ -537,11 +546,11 @@ static int port_set_format(struct impl *this, struct port *port,
 
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	if (port->have_format) {
-		port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
-		port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+		port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
+		port->params[IDX_Buffer] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
 	} else {
-		port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-		port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+		port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+		port->params[IDX_Buffer] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	}
 	emit_port_info(this, port, false);
 
@@ -802,10 +811,10 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.max_output_ports = 1;
 	this->info.max_input_ports = 1;
 	this->info.flags = SPA_NODE_FLAG_RT;
-	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
-	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
+	this->params[IDX_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
+	this->params[IDX_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
 	this->info.params = this->params;
-	this->info.n_params = 2;
+	this->info.n_params = N_NODE_PARAMS;
 
 	port = &this->port[SPA_DIRECTION_INPUT];
 	port->stream_id = SPA_DIRECTION_INPUT;
@@ -815,13 +824,13 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_PORT_CHANGE_MASK_PROPS;
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.flags = SPA_PORT_FLAG_NO_REF;
-	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
-	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
-	port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-	port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	port->params[IDX_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	port->params[IDX_Meta] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+	port->params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+	port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	port->params[IDX_Buffer] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	port->info.params = port->params;
-	port->info.n_params = 5;
+	port->info.n_params = N_PORT_PARAMS;
 	spa_vulkan_blit_init_stream(&this->state, &this->state.streams[port->stream_id],
 			SPA_DIRECTION_INPUT, NULL);
 	spa_list_init(&port->empty);
@@ -835,13 +844,13 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_PORT_CHANGE_MASK_PROPS;
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.flags = SPA_PORT_FLAG_NO_REF | SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
-	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
-	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
-	port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-	port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	port->params[IDX_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	port->params[IDX_Meta] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+	port->params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+	port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	port->params[IDX_Buffer] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	port->info.params = port->params;
-	port->info.n_params = 5;
+	port->info.n_params = N_PORT_PARAMS;
 	spa_list_init(&port->empty);
 	spa_list_init(&port->ready);
 	spa_vulkan_blit_init_stream(&this->state, &this->state.streams[port->stream_id],

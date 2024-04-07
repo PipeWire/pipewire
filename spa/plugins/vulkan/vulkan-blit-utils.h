@@ -14,6 +14,16 @@
 
 #define MAX_STREAMS 2
 
+struct vulkan_pass {
+	uint32_t in_buffer_id;
+	uint32_t in_stream_id;
+
+	uint32_t out_buffer_id;
+	uint32_t out_stream_id;
+
+	int sync_fd;
+};
+
 struct vulkan_stream {
 	enum spa_direction direction;
 

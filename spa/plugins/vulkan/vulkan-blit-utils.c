@@ -33,6 +33,9 @@
 #define VULKAN_INSTANCE_FUNCTION(name)						\
 	PFN_##name name = (PFN_##name)vkGetInstanceProcAddr(s->base.instance, #name)
 
+#define GET_BUFFER_ID_FROM_STREAM(s, pass)	\
+	(s->direction == SPA_DIRECTION_INPUT ? pass->in_buffer_id : pass->out_buffer_id)
+
 static int updateBuffers(struct vulkan_blit_state *s)
 {
 	uint32_t i;
@@ -53,12 +56,31 @@ static int updateBuffers(struct vulkan_blit_state *s)
 	return 0;
 }
 
-static int runImportSHMBuffers(struct vulkan_blit_state *s) {
-	struct vulkan_stream *p = &s->streams[SPA_DIRECTION_INPUT];
+static int updatePass(struct vulkan_blit_state *s, struct vulkan_pass *pass)
+{
+	uint32_t i;
 
-	if (p->spa_buffers[p->current_buffer_id]->datas[0].type == SPA_DATA_MemPtr) {
-		struct vulkan_buffer *vk_buf = &p->buffers[p->current_buffer_id];
-		struct spa_buffer *spa_buf = p->spa_buffers[p->current_buffer_id];
+	for (i = 0; i < s->n_streams; i++) {
+		struct vulkan_stream *p = &s->streams[i];
+
+		if (p->direction == SPA_DIRECTION_INPUT) {
+			pass->in_stream_id = i;
+			pass->in_buffer_id = p->current_buffer_id;
+		} else {
+			pass->out_stream_id = i;
+			pass->out_buffer_id = p->current_buffer_id;
+		}
+	}
+
+	return 0;
+}
+
+static int runImportSHMBuffers(struct vulkan_blit_state *s, struct vulkan_pass *pass) {
+	struct vulkan_stream *p = &s->streams[pass->in_stream_id];
+
+	if (p->spa_buffers[pass->in_buffer_id]->datas[0].type == SPA_DATA_MemPtr) {
+		struct vulkan_buffer *vk_buf = &p->buffers[pass->in_buffer_id];
+		struct spa_buffer *spa_buf = p->spa_buffers[pass->in_buffer_id];
 		VkBufferImageCopy copy;
 		struct vulkan_write_pixels_info writeInfo = {
 			.data = spa_buf->datas[0].data,
@@ -78,11 +100,11 @@ static int runImportSHMBuffers(struct vulkan_blit_state *s) {
 	return 0;
 }
 
-static int runExportSHMBuffers(struct vulkan_blit_state *s) {
-	struct vulkan_stream *p = &s->streams[SPA_DIRECTION_OUTPUT];
+static int runExportSHMBuffers(struct vulkan_blit_state *s, struct vulkan_pass *pass) {
+	struct vulkan_stream *p = &s->streams[pass->out_stream_id];
 
-	if (p->spa_buffers[p->current_buffer_id]->datas[0].type == SPA_DATA_MemPtr) {
-		struct spa_buffer *spa_buf = p->spa_buffers[p->current_buffer_id];
+	if (p->spa_buffers[pass->out_buffer_id]->datas[0].type == SPA_DATA_MemPtr) {
+		struct spa_buffer *spa_buf = p->spa_buffers[pass->out_buffer_id];
 		struct vulkan_read_pixels_info readInfo = {
 			.data = spa_buf->datas[0].data,
 			.offset = 0,
@@ -91,19 +113,20 @@ static int runExportSHMBuffers(struct vulkan_blit_state *s) {
 			.size.width = p->dim.width,
 			.size.height = p->dim.height,
 		};
-		CHECK(vulkan_read_pixels(&s->base, &readInfo, &p->buffers[p->current_buffer_id]));
+		CHECK(vulkan_read_pixels(&s->base, &readInfo, &p->buffers[pass->out_buffer_id]));
 	}
 
 	return 0;
 }
 
-static int runImportSync(struct vulkan_blit_state *s)
+static int runImportSync(struct vulkan_blit_state *s, struct vulkan_pass *pass)
 {
 	int ret = 0;
 	for (uint32_t i = 0; i < s->n_streams; i++) {
 		struct vulkan_stream *p = &s->streams[i];
-		struct vulkan_buffer *current_buffer = &p->buffers[p->current_buffer_id];
-		struct spa_buffer *current_spa_buffer = p->spa_buffers[p->current_buffer_id];
+		uint32_t current_buffer_id = GET_BUFFER_ID_FROM_STREAM(p, pass);
+		struct vulkan_buffer *current_buffer = &p->buffers[current_buffer_id];
+		struct spa_buffer *current_spa_buffer = p->spa_buffers[current_buffer_id];
 
 		if (current_spa_buffer->datas[0].type != SPA_DATA_DmaBuf)
 			continue;
@@ -118,17 +141,18 @@ static int runImportSync(struct vulkan_blit_state *s)
 	return ret;
 }
 
-static int runExportSync(struct vulkan_blit_state *s, int sync_file_fd)
+static int runExportSync(struct vulkan_blit_state *s, struct vulkan_pass *pass)
 {
 	int ret = 0;
 	for (uint32_t i = 0; i < s->n_streams; i++) {
 		struct vulkan_stream *p = &s->streams[i];
-		struct spa_buffer *current_spa_buffer = p->spa_buffers[p->current_buffer_id];
+		uint32_t current_buffer_id = GET_BUFFER_ID_FROM_STREAM(p, pass);
+		struct spa_buffer *current_spa_buffer = p->spa_buffers[current_buffer_id];
 
 		if (current_spa_buffer->datas[0].type != SPA_DATA_DmaBuf)
 			continue;
 
-		if (!vulkan_sync_export_dmabuf(&s->base, &p->buffers[p->current_buffer_id], sync_file_fd)) {
+		if (!vulkan_sync_export_dmabuf(&s->base, &p->buffers[current_buffer_id], pass->sync_fd)) {
 			ret = -1;
 		}
 	}
@@ -136,7 +160,7 @@ static int runExportSync(struct vulkan_blit_state *s, int sync_file_fd)
 	return ret;
 }
 
-static int runCommandBuffer(struct vulkan_blit_state *s, int *sync_file_fd)
+static int runCommandBuffer(struct vulkan_blit_state *s, struct vulkan_pass *pass)
 {
 	VULKAN_INSTANCE_FUNCTION(vkQueueSubmit2KHR);
 	VULKAN_INSTANCE_FUNCTION(vkGetSemaphoreFdKHR);
@@ -147,14 +171,14 @@ static int runCommandBuffer(struct vulkan_blit_state *s, int *sync_file_fd)
 	};
 	VK_CHECK_RESULT(vkBeginCommandBuffer(s->commandBuffer, &beginInfo));
 
-	CHECK(runImportSHMBuffers(s));
+	CHECK(runImportSHMBuffers(s, pass));
 
 	uint32_t i;
-	struct vulkan_stream *stream_input = &s->streams[SPA_DIRECTION_INPUT];
-	struct vulkan_stream *stream_output = &s->streams[SPA_DIRECTION_OUTPUT];
+	struct vulkan_stream *stream_input = &s->streams[pass->in_stream_id];
+	struct vulkan_stream *stream_output = &s->streams[pass->out_stream_id];
 
-	VkImage src_image = stream_input->buffers[stream_input->current_buffer_id].image;
-	VkImage dst_image = stream_output->buffers[stream_output->current_buffer_id].image;
+	VkImage src_image = stream_input->buffers[pass->in_buffer_id].image;
+	VkImage dst_image = stream_output->buffers[pass->out_buffer_id].image;
 
 	VkImageBlit imageBlitRegion = {
 		.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -178,8 +202,8 @@ static int runCommandBuffer(struct vulkan_blit_state *s, int *sync_file_fd)
 		}
 	};
 	spa_log_trace_fp(s->log, "Blitting from (%p, %d, %d) %d,%dx%d,%d to (%p, %d, %d) %d,%dx%d,%d",
-			stream_input, stream_input->current_buffer_id, stream_input->direction, 0, 0, stream_input->dim.width, stream_input->dim.height,
-			stream_output, stream_output->current_buffer_id, stream_output->direction, 0, 0, stream_output->dim.width, stream_output->dim.height);
+			stream_input, pass->in_buffer_id, stream_input->direction, 0, 0, stream_input->dim.width, stream_input->dim.height,
+			stream_output, pass->out_buffer_id, stream_output->direction, 0, 0, stream_output->dim.width, stream_output->dim.height);
 	vkCmdBlitImage(s->commandBuffer, src_image, VK_IMAGE_LAYOUT_GENERAL,
 			dst_image, VK_IMAGE_LAYOUT_GENERAL,
 			1, &imageBlitRegion, VK_FILTER_NEAREST);
@@ -193,7 +217,7 @@ static int runCommandBuffer(struct vulkan_blit_state *s, int *sync_file_fd)
 
 	for (i = 0; i < s->n_streams; i++) {
 		struct vulkan_stream *p = &s->streams[i];
-		struct vulkan_buffer *current_buffer = &p->buffers[p->current_buffer_id];
+		struct vulkan_buffer *current_buffer = &p->buffers[GET_BUFFER_ID_FROM_STREAM(p, pass)];
 
 		VkAccessFlags access_flags;
 		if (p->direction == SPA_DIRECTION_INPUT) {
@@ -289,14 +313,12 @@ static int runCommandBuffer(struct vulkan_blit_state *s, int *sync_file_fd)
         VK_CHECK_RESULT(vkQueueSubmit2KHR(s->base.queue, 1, &submitInfo, s->fence));
 	s->started = true;
 
-	if (sync_file_fd) {
-		VkSemaphoreGetFdInfoKHR get_fence_fd_info = {
-			.sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR,
-			.semaphore = s->pipelineSemaphore,
-			.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
-		};
-		VK_CHECK_RESULT(vkGetSemaphoreFdKHR(s->base.device, &get_fence_fd_info, sync_file_fd));
-	}
+	VkSemaphoreGetFdInfoKHR get_fence_fd_info = {
+		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR,
+		.semaphore = s->pipelineSemaphore,
+		.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+	};
+	VK_CHECK_RESULT(vkGetSemaphoreFdKHR(s->base.device, &get_fence_fd_info, &pass->sync_fd));
 
 	return 0;
 }
@@ -571,7 +593,7 @@ int spa_vulkan_blit_ready(struct vulkan_blit_state *s)
 
 int spa_vulkan_blit_process(struct vulkan_blit_state *s)
 {
-	int sync_fd = -1;
+	struct vulkan_pass pass = {.sync_fd = -1};
 	if (!s->initialized) {
 		spa_log_warn(s->log, "Renderer not initialized");
 		return -1;
@@ -581,14 +603,15 @@ int spa_vulkan_blit_process(struct vulkan_blit_state *s)
 		return -1;
 	}
 	CHECK(updateBuffers(s));
-	CHECK(runImportSync(s));
-	CHECK(runCommandBuffer(s, &sync_fd));
-	if (sync_fd != -1) {
-		runExportSync(s, sync_fd);
-		close(sync_fd);
+	CHECK(updatePass(s, &pass));
+	CHECK(runImportSync(s, &pass));
+	CHECK(runCommandBuffer(s, &pass));
+	if (pass.sync_fd != -1) {
+		runExportSync(s, &pass);
+		close(pass.sync_fd);
 	}
 	CHECK(vulkan_wait_idle(&s->base));
-	CHECK(runExportSHMBuffers(s));
+	CHECK(runExportSHMBuffers(s, &pass));
 
 	return 0;
 }

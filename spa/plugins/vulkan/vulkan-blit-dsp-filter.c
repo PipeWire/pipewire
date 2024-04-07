@@ -91,6 +91,7 @@ struct impl {
 	pthread_rwlock_t renderlock;
 
 	struct vulkan_blit_state state;
+	struct vulkan_pass pass;
 	struct port port[2];
 };
 
@@ -736,18 +737,24 @@ static int impl_node_process(void *object)
 		return -EBUSY;
 	}
 
+	spa_vulkan_blit_init_pass(&this->state, &this->pass);
+
 	b = &inport->buffers[inio->buffer_id];
-	this->state.streams[inport->stream_id].pending_buffer_id = b->id;
+	this->pass.in_stream_id = SPA_DIRECTION_INPUT;
+	this->pass.in_buffer_id = b->id;
 	inio->status = SPA_STATUS_NEED_DATA;
 
 	b = spa_list_first(&outport->empty, struct buffer, link);
 	spa_list_remove(&b->link);
 	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
-	this->state.streams[outport->stream_id].pending_buffer_id = b->id;
+	this->pass.out_stream_id = SPA_DIRECTION_OUTPUT;
+	this->pass.out_buffer_id = b->id;
 
 	spa_log_debug(this->log, "filter into %d", b->id);
 
-	spa_vulkan_blit_process(&this->state);
+	spa_vulkan_blit_process(&this->state, &this->pass);
+	spa_vulkan_blit_clear_pass(&this->state, &this->pass);
+
 
 	b->outbuf->datas[0].chunk->offset = 0;
 	b->outbuf->datas[0].chunk->size = b->outbuf->datas[0].maxsize;

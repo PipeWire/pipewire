@@ -29,11 +29,6 @@ struct vulkan_pass {
 struct vulkan_stream {
 	enum spa_direction direction;
 
-	uint32_t pending_buffer_id;
-	uint32_t current_buffer_id;
-	uint32_t busy_buffer_id;
-	uint32_t ready_buffer_id;
-
 	struct spa_rectangle dim;
 	uint32_t bpp;
 
@@ -64,6 +59,9 @@ struct vulkan_blit_state {
 	struct vulkan_stream streams[MAX_STREAMS];
 };
 
+int spa_vulkan_blit_init_pass(struct vulkan_blit_state *s, struct vulkan_pass *pass);
+int spa_vulkan_blit_clear_pass(struct vulkan_blit_state *s, struct vulkan_pass *pass);
+
 int spa_vulkan_blit_init_stream(struct vulkan_blit_state *s, struct vulkan_stream *stream, enum spa_direction,
 		struct spa_dict *props);
 
@@ -83,7 +81,7 @@ int spa_vulkan_blit_unprepare(struct vulkan_blit_state *s);
 int spa_vulkan_blit_start(struct vulkan_blit_state *s);
 int spa_vulkan_blit_stop(struct vulkan_blit_state *s);
 int spa_vulkan_blit_ready(struct vulkan_blit_state *s);
-int spa_vulkan_blit_process(struct vulkan_blit_state *s);
+int spa_vulkan_blit_process(struct vulkan_blit_state *s, struct vulkan_pass *pass);
 int spa_vulkan_blit_cleanup(struct vulkan_blit_state *s);
 
 int spa_vulkan_blit_get_buffer_caps(struct vulkan_blit_state *s, enum spa_direction direction);

@@ -36,45 +36,6 @@
 #define GET_BUFFER_ID_FROM_STREAM(s, pass)	\
 	(s->direction == SPA_DIRECTION_INPUT ? pass->in_buffer_id : pass->out_buffer_id)
 
-static int updateBuffers(struct vulkan_blit_state *s)
-{
-	uint32_t i;
-
-	for (i = 0; i < s->n_streams; i++) {
-		struct vulkan_stream *p = &s->streams[i];
-
-		if (p->current_buffer_id == p->pending_buffer_id ||
-		    p->pending_buffer_id == SPA_ID_INVALID)
-			continue;
-
-		p->current_buffer_id = p->pending_buffer_id;
-		p->busy_buffer_id = p->current_buffer_id;
-		p->pending_buffer_id = SPA_ID_INVALID;
-
-	}
-
-	return 0;
-}
-
-static int updatePass(struct vulkan_blit_state *s, struct vulkan_pass *pass)
-{
-	uint32_t i;
-
-	for (i = 0; i < s->n_streams; i++) {
-		struct vulkan_stream *p = &s->streams[i];
-
-		if (p->direction == SPA_DIRECTION_INPUT) {
-			pass->in_stream_id = i;
-			pass->in_buffer_id = p->current_buffer_id;
-		} else {
-			pass->out_stream_id = i;
-			pass->out_buffer_id = p->current_buffer_id;
-		}
-	}
-
-	return 0;
-}
-
 static int runImportSHMBuffers(struct vulkan_blit_state *s, struct vulkan_pass *pass) {
 	struct vulkan_stream *p = &s->streams[pass->in_stream_id];
 
@@ -537,9 +498,33 @@ static int vulkan_stream_init(struct vulkan_stream *stream, enum spa_direction d
 {
 	spa_zero(*stream);
 	stream->direction = direction;
-	stream->current_buffer_id = SPA_ID_INVALID;
-	stream->busy_buffer_id = SPA_ID_INVALID;
-	stream->ready_buffer_id = SPA_ID_INVALID;
+	return 0;
+}
+
+int spa_vulkan_blit_init_pass(struct vulkan_blit_state *s, struct vulkan_pass *pass)
+{
+	pass->in_buffer_id = SPA_ID_INVALID;
+	pass->in_stream_id = SPA_ID_INVALID;
+	pass->out_buffer_id = SPA_ID_INVALID;
+	pass->out_stream_id = SPA_ID_INVALID;
+
+	pass->sync_fd = -1;
+
+	return 0;
+}
+
+int spa_vulkan_blit_clear_pass(struct vulkan_blit_state *s, struct vulkan_pass *pass)
+{
+	pass->in_buffer_id = SPA_ID_INVALID;
+	pass->in_stream_id = SPA_ID_INVALID;
+	pass->out_buffer_id = SPA_ID_INVALID;
+	pass->out_stream_id = SPA_ID_INVALID;
+
+	if (pass->sync_fd != -1) {
+		close(pass->sync_fd);
+		pass->sync_fd = -1;
+	}
+
 	return 0;
 }
 
@@ -572,14 +557,6 @@ int spa_vulkan_blit_unprepare(struct vulkan_blit_state *s)
 
 int spa_vulkan_blit_start(struct vulkan_blit_state *s)
 {
-	uint32_t i;
-
-	for (i = 0; i < s->n_streams; i++) {
-		struct vulkan_stream *p = &s->streams[i];
-		p->current_buffer_id = SPA_ID_INVALID;
-		p->busy_buffer_id = SPA_ID_INVALID;
-		p->ready_buffer_id = SPA_ID_INVALID;
-	}
 	return 0;
 }
 
@@ -591,32 +568,8 @@ int spa_vulkan_blit_stop(struct vulkan_blit_state *s)
 	return 0;
 }
 
-int spa_vulkan_blit_ready(struct vulkan_blit_state *s)
+int spa_vulkan_blit_process(struct vulkan_blit_state *s, struct vulkan_pass *pass)
 {
-	uint32_t i;
-	VkResult result;
-
-	if (!s->started)
-		return 0;
-
-	result = vkGetFenceStatus(s->base.device, s->fence);
-	if (result == VK_NOT_READY)
-		return -EBUSY;
-	VK_CHECK_RESULT(result);
-
-	s->started = false;
-
-	for (i = 0; i < s->n_streams; i++) {
-		struct vulkan_stream *p = &s->streams[i];
-		p->ready_buffer_id = p->busy_buffer_id;
-		p->busy_buffer_id = SPA_ID_INVALID;
-	}
-	return 0;
-}
-
-int spa_vulkan_blit_process(struct vulkan_blit_state *s)
-{
-	struct vulkan_pass pass = {.sync_fd = -1};
 	if (!s->initialized) {
 		spa_log_warn(s->log, "Renderer not initialized");
 		return -1;
@@ -625,17 +578,14 @@ int spa_vulkan_blit_process(struct vulkan_blit_state *s)
 		spa_log_warn(s->log, "Renderer not prepared");
 		return -1;
 	}
-	CHECK(updateBuffers(s));
-	CHECK(updatePass(s, &pass));
-	CHECK(runImportSync(s, &pass));
-	CHECK(runImportSHMBuffers(s, &pass));
-	CHECK(runCommandBuffer(s, &pass));
-	if (pass.sync_fd != -1) {
-		runExportSync(s, &pass);
-		close(pass.sync_fd);
+	CHECK(runImportSync(s, pass));
+	CHECK(runImportSHMBuffers(s, pass));
+	CHECK(runCommandBuffer(s, pass));
+	if (pass->sync_fd != -1) {
+		runExportSync(s, pass);
 	}
 	CHECK(vulkan_wait_idle(&s->base));
-	CHECK(runExportSHMBuffers(s, &pass));
+	CHECK(runExportSHMBuffers(s, pass));
 
 	return 0;
 }

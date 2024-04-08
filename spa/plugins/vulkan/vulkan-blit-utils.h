@@ -29,6 +29,7 @@ struct vulkan_pass {
 struct vulkan_stream {
 	enum spa_direction direction;
 
+	enum spa_data_type buffer_type;
 	struct spa_rectangle dim;
 	uint32_t bpp;
 

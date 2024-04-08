@@ -39,7 +39,7 @@
 static int runImportSHMBuffers(struct vulkan_blit_state *s, struct vulkan_pass *pass) {
 	struct vulkan_stream *p = &s->streams[pass->in_stream_id];
 
-	if (p->spa_buffers[pass->in_buffer_id]->datas[0].type == SPA_DATA_MemPtr) {
+	if (p->buffer_type == SPA_DATA_MemPtr) {
 		struct spa_buffer *spa_buf = p->spa_buffers[pass->in_buffer_id];
 		struct vulkan_write_pixels_info writeInfo = {
 			.data = spa_buf->datas[0].data,
@@ -59,7 +59,7 @@ static int runImportSHMBuffers(struct vulkan_blit_state *s, struct vulkan_pass *
 static int runExportSHMBuffers(struct vulkan_blit_state *s, struct vulkan_pass *pass) {
 	struct vulkan_stream *p = &s->streams[pass->out_stream_id];
 
-	if (p->spa_buffers[pass->out_buffer_id]->datas[0].type == SPA_DATA_MemPtr) {
+	if (p->buffer_type == SPA_DATA_MemPtr) {
 		struct spa_buffer *spa_buf = p->spa_buffers[pass->out_buffer_id];
 		struct vulkan_read_pixels_info readInfo = {
 			.data = spa_buf->datas[0].data,
@@ -82,9 +82,8 @@ static int runImportSync(struct vulkan_blit_state *s, struct vulkan_pass *pass)
 		struct vulkan_stream *p = &s->streams[i];
 		uint32_t current_buffer_id = GET_BUFFER_ID_FROM_STREAM(p, pass);
 		struct vulkan_buffer *current_buffer = &p->buffers[current_buffer_id];
-		struct spa_buffer *current_spa_buffer = p->spa_buffers[current_buffer_id];
 
-		if (current_spa_buffer->datas[0].type != SPA_DATA_DmaBuf)
+		if (p->buffer_type != SPA_DATA_DmaBuf)
 			continue;
 
 		if (vulkan_buffer_import_implicit_syncfd(&s->base, current_buffer) >= 0)
@@ -102,13 +101,11 @@ static int runExportSync(struct vulkan_blit_state *s, struct vulkan_pass *pass)
 	int ret = 0;
 	for (uint32_t i = 0; i < s->n_streams; i++) {
 		struct vulkan_stream *p = &s->streams[i];
-		uint32_t current_buffer_id = GET_BUFFER_ID_FROM_STREAM(p, pass);
-		struct spa_buffer *current_spa_buffer = p->spa_buffers[current_buffer_id];
 
-		if (current_spa_buffer->datas[0].type != SPA_DATA_DmaBuf)
+		if (p->buffer_type != SPA_DATA_DmaBuf)
 			continue;
 
-		if (!vulkan_sync_export_dmabuf(&s->base, &p->buffers[current_buffer_id], pass->sync_fd)) {
+		if (!vulkan_sync_export_dmabuf(&s->base, &p->buffers[GET_BUFFER_ID_FROM_STREAM(p, pass)], pass->sync_fd)) {
 			ret = -1;
 		}
 	}
@@ -134,7 +131,7 @@ static int runCommandBuffer(struct vulkan_blit_state *s, struct vulkan_pass *pas
 	VkImage src_image = stream_input->buffers[pass->in_buffer_id].image;
 	VkImage dst_image = stream_output->buffers[pass->out_buffer_id].image;
 
-	if (stream_input->spa_buffers[pass->in_buffer_id]->datas[0].type == SPA_DATA_MemPtr) {
+	if (stream_input->buffer_type == SPA_DATA_MemPtr) {
 		vkCmdCopyBufferToImage(s->commandBuffer, s->staging_buffer.buffer, src_image,
 				VK_IMAGE_LAYOUT_GENERAL, 1, &pass->in_copy);
 
@@ -201,7 +198,7 @@ static int runCommandBuffer(struct vulkan_blit_state *s, struct vulkan_pass *pas
 		VkAccessFlags access_flags;
 		VkAccessFlags release_flags;
 		if (p->direction == SPA_DIRECTION_INPUT) {
-			access_flags = p->spa_buffers[pass->in_buffer_id]->datas[0].type == SPA_DATA_DmaBuf
+			access_flags = p->buffer_type == SPA_DATA_DmaBuf
 				? VK_ACCESS_TRANSFER_READ_BIT
 				: VK_ACCESS_TRANSFER_WRITE_BIT;
 			release_flags = VK_ACCESS_TRANSFER_READ_BIT;
@@ -316,6 +313,7 @@ static void clear_buffers(struct vulkan_blit_state *s, struct vulkan_stream *p)
 		p->spa_buffers[i] = NULL;
 	}
 	p->n_buffers = 0;
+	p->buffer_type = SPA_DATA_Invalid;
 	if (p->direction == SPA_DIRECTION_INPUT) {
 		vulkan_staging_buffer_destroy(&s->base, &s->staging_buffer);
 		s->staging_buffer.buffer = VK_NULL_HANDLE;
@@ -400,6 +398,14 @@ int spa_vulkan_blit_use_buffers(struct vulkan_blit_state *s, struct vulkan_strea
 	bool alloc = flags & SPA_NODE_BUFFERS_FLAG_ALLOC;
 	int ret;
 	for (uint32_t i = 0; i < n_buffers; i++) {
+		if (p->buffer_type == SPA_DATA_Invalid) {
+			p->buffer_type = buffers[i]->datas->type;
+		} else {
+			if (p->buffer_type != buffers[i]->datas->type) {
+				spa_log_error(s->log, "Buffers are of different type %d:%d", p->buffer_type, buffers[i]->datas[0].type);
+				return -1;
+			}
+		}
 		externalBufferInfo.usage = p->direction == SPA_DIRECTION_OUTPUT
 			? VK_IMAGE_USAGE_TRANSFER_DST_BIT
 			: VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -436,7 +442,7 @@ int spa_vulkan_blit_use_buffers(struct vulkan_blit_state *s, struct vulkan_strea
 		p->spa_buffers[i] = buffers[i];
 		p->n_buffers++;
 	}
-	if (p->direction == SPA_DIRECTION_INPUT && buffers[0]->datas[0].type == SPA_DATA_MemPtr) {
+	if (p->direction == SPA_DIRECTION_INPUT && p->buffer_type == SPA_DATA_MemPtr) {
 		ret = vulkan_staging_buffer_create(&s->base, buffers[0]->datas[0].maxsize, &s->staging_buffer);
 		if (ret < 0) {
 			spa_log_error(s->log, "Failed to create staging buffer");

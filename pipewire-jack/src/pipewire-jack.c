@@ -1804,11 +1804,16 @@ static inline uint32_t cycle_run(struct client *c)
 		}
 		break;
 	}
-	if (SPA_UNLIKELY(cmd > 1))
-		pw_log_info("%p: missed %"PRIu64" wakeups", c, cmd - 1);
-
 	activation->status = PW_NODE_ACTIVATION_AWAKE;
 	activation->awake_time = get_time_ns();
+
+	if (SPA_UNLIKELY(cmd > 1)) {
+		pw_log_info("%p: missed %"PRIu64" wakeups", c, cmd - 1);
+		activation->xrun_count += cmd - 1;
+		activation->xrun_time = activation->awake_time;
+		activation->xrun_delay = 0;
+		activation->max_delay = SPA_MAX(activation->max_delay, 0u);
+	}
 
 	if (SPA_UNLIKELY(c->first)) {
 		if (c->thread_init_callback)

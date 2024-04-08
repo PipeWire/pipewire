@@ -1169,9 +1169,9 @@ static const char *str_status(uint32_t status)
 	return "unknown";
 }
 
-static void update_xrun_stats(struct pw_node_activation *a, uint64_t trigger, uint64_t delay)
+static void update_xrun_stats(struct pw_node_activation *a, uint32_t count, uint64_t trigger, uint64_t delay)
 {
-	a->xrun_count++;
+	a->xrun_count += count;
 	a->xrun_time = trigger;
 	a->xrun_delay = delay;
 	a->max_delay = SPA_MAX(a->max_delay, delay);
@@ -1197,7 +1197,7 @@ static void check_states(struct pw_impl_node *driver, uint64_t nsec)
 
 		if (a->status == PW_NODE_ACTIVATION_TRIGGERED ||
 		    a->status == PW_NODE_ACTIVATION_AWAKE) {
-			update_xrun_stats(a, nsec / 1000, 0);
+			update_xrun_stats(a, 1, nsec / 1000, 0);
 
 			pw_log(level, "(%s-%u) client too slow! rate:%u/%u pos:%"PRIu64" status:%s (%u suppressed)",
 				t->name, t->id,
@@ -1377,9 +1377,12 @@ static void node_on_fd_events(struct spa_source *source)
 
 		if (SPA_UNLIKELY(spa_system_eventfd_read(this->data_system, this->source.fd, &cmd) < 0))
 			pw_log_warn("%p: read failed %m", this);
-		else if (SPA_UNLIKELY(cmd > 1))
+		else if (SPA_UNLIKELY(cmd > 1)) {
 			pw_log_info("(%s-%u) client missed %"PRIu64" wakeups",
 				this->name, this->info.id, cmd - 1);
+			update_xrun_stats(this->rt.target.activation, cmd - 1,
+					get_time_ns(this->data_system) / 1000, 0);
+		}
 
 		pw_log_trace_fp("%p: remote:%u exported:%u %s got process", this, this->remote,
 				this->exported, this->name);
@@ -1988,7 +1991,7 @@ static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_po
 	uint64_t nsec = get_time_ns(data_system);
 	int suppressed;
 
-	update_xrun_stats(a, trigger, delay);
+	update_xrun_stats(a, 1, trigger, delay);
 
 	if ((suppressed = spa_ratelimit_test(&this->rt.rate_limit, nsec)) >= 0) {
 		struct spa_fraction rate;

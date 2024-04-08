@@ -1871,7 +1871,7 @@ static int node_ready(void *data, int status)
 					" pending %d/%d", node->name, node->info.id,
 					state, a->position.clock.duration,
 					pending, state->required);
-			wake_target(&node->rt.target, nsec);
+			process_node(node);
 			check_states(node, nsec);
 			pw_impl_node_rt_emit_incomplete(node);
 		}

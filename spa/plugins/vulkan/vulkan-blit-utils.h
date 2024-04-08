@@ -22,6 +22,11 @@ struct vulkan_pass {
 	uint32_t out_stream_id;
 
 	VkBufferImageCopy in_copy;
+	struct vulkan_staging_buffer in_staging_buffer;
+
+	VkCommandBuffer commandBuffer;
+	VkSemaphore pipelineSemaphore;
+	VkFence fence;
 
 	int sync_fd;
 };
@@ -32,6 +37,7 @@ struct vulkan_stream {
 	enum spa_data_type buffer_type;
 	struct spa_rectangle dim;
 	uint32_t bpp;
+	uint32_t maxsize;
 
 	struct vulkan_buffer buffers[MAX_BUFFERS];
 	struct spa_buffer *spa_buffers[MAX_BUFFERS];
@@ -47,11 +53,7 @@ struct vulkan_blit_state {
 	struct vulkan_format_infos formatInfosDSP;
 
 	VkCommandPool commandPool;
-	VkCommandBuffer commandBuffer;
-	struct vulkan_staging_buffer staging_buffer;
 
-	VkFence fence;
-	VkSemaphore pipelineSemaphore;
 	unsigned int initialized:1;
 	unsigned int prepared:1;
 	unsigned int started:1;
@@ -61,6 +63,7 @@ struct vulkan_blit_state {
 };
 
 int spa_vulkan_blit_init_pass(struct vulkan_blit_state *s, struct vulkan_pass *pass);
+int spa_vulkan_blit_reset_pass(struct vulkan_blit_state *s, struct vulkan_pass *pass);
 int spa_vulkan_blit_clear_pass(struct vulkan_blit_state *s, struct vulkan_pass *pass);
 
 int spa_vulkan_blit_init_stream(struct vulkan_blit_state *s, struct vulkan_stream *stream, enum spa_direction,

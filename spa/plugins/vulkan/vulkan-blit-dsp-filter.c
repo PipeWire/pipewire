@@ -479,6 +479,7 @@ static int clear_buffers(struct impl *this, struct port *port)
 		spa_log_debug(this->log, "%p: clear buffers", this);
 		lock_renderer(this);
 		spa_vulkan_blit_use_buffers(&this->state, &this->state.streams[port->stream_id], 0, &port->current_format, 0, NULL);
+		spa_vulkan_blit_clear_pass(&this->state, &this->pass);
 		unlock_renderer(this);
 		port->n_buffers = 0;
 		spa_list_init(&port->empty);
@@ -649,6 +650,8 @@ impl_node_port_use_buffers(void *object,
 	}
 	spa_vulkan_blit_use_buffers(&this->state, &this->state.streams[port->stream_id], flags, &port->current_format, n_buffers, buffers);
 	port->n_buffers = n_buffers;
+	if (n_buffers > 0)
+		spa_vulkan_blit_init_pass(&this->state, &this->pass);
 	unlock_renderer(this);
 
 	return 0;
@@ -737,8 +740,6 @@ static int impl_node_process(void *object)
 		return -EBUSY;
 	}
 
-	spa_vulkan_blit_init_pass(&this->state, &this->pass);
-
 	b = &inport->buffers[inio->buffer_id];
 	this->pass.in_stream_id = SPA_DIRECTION_INPUT;
 	this->pass.in_buffer_id = b->id;
@@ -753,8 +754,7 @@ static int impl_node_process(void *object)
 	spa_log_debug(this->log, "filter into %d", b->id);
 
 	spa_vulkan_blit_process(&this->state, &this->pass);
-	spa_vulkan_blit_clear_pass(&this->state, &this->pass);
-
+	spa_vulkan_blit_reset_pass(&this->state, &this->pass);
 
 	b->outbuf->datas[0].chunk->offset = 0;
 	b->outbuf->datas[0].chunk->size = b->outbuf->datas[0].maxsize;

@@ -168,6 +168,12 @@ next:
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
 			break;
+		case 1:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamIO, id,
+				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_AsyncBuffers),
+				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
+			break;
 		default:
 			return 0;
 		}
@@ -242,13 +248,22 @@ static int port_set_io(void *object,
 	if (mix == NULL)
 		return -ENOENT;
 
-	if (id == SPA_IO_Buffers) {
+	switch (id) {
+	case SPA_IO_Buffers:
+	case SPA_IO_AsyncBuffers:
 		if (data == NULL || size == 0) {
 			pw_loop_invoke(this->node->data_loop,
 			       do_remove_mix, SPA_ID_INVALID, NULL, 0, true, mix);
-			mix->io = NULL;
+			mix->io_data = mix->io[0] = mix->io[1] = NULL;
 		} else if (data != NULL && size >= sizeof(struct spa_io_buffers)) {
-			mix->io = data;
+			if (size >= sizeof(struct spa_io_async_buffers)) {
+				struct spa_io_async_buffers *ab = data;
+				mix->io_data = data;
+				mix->io[0] = &ab->buffers[0];
+				mix->io[1] = &ab->buffers[1];
+			} else {
+				mix->io_data = mix->io[0] = mix->io[1] = data;
+			}
 			pw_loop_invoke(this->node->data_loop,
 			       do_add_mix, SPA_ID_INVALID, NULL, 0, false, mix);
 		}
@@ -262,12 +277,13 @@ static int tee_process(void *object)
 	struct pw_impl_port *this = &impl->this;
 	struct pw_impl_port_mix *mix;
 	struct spa_io_buffers *io = &this->rt.io;
+	uint32_t cycle = (this->node->rt.position->clock.cycle + 1) & 1;
 
 	pw_log_trace_fp("%p: tee input %d %d", this, io->status, io->buffer_id);
 	spa_list_for_each(mix, &impl->mix_list, rt_link) {
 		pw_log_trace_fp("%p: port %d %p->%p %d", this,
-				mix->port.port_id, io, mix->io, mix->io->buffer_id);
-		*mix->io = *io;
+				mix->port.port_id, io, mix->io[cycle], mix->io[cycle]->buffer_id);
+		*mix->io[cycle] = *io;
 	}
 	io->status = SPA_STATUS_NEED_DATA;
 
@@ -299,15 +315,17 @@ static int schedule_mix_input(void *object)
 	struct pw_impl_port *this = &impl->this;
 	struct spa_io_buffers *io = &this->rt.io;
 	struct pw_impl_port_mix *mix;
+	uint32_t cycle = (this->node->rt.position->clock.cycle + 1) & 1;
 
 	if (SPA_UNLIKELY(PW_IMPL_PORT_IS_CONTROL(this)))
 		return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
 
 	spa_list_for_each(mix, &impl->mix_list, rt_link) {
 		pw_log_trace_fp("%p: mix input %d %p->%p %d %d", this,
-				mix->port.port_id, mix->io, io, mix->io->status, mix->io->buffer_id);
-		*io = *mix->io;
-		mix->io->status = SPA_STATUS_NEED_DATA;
+				mix->port.port_id, mix->io[cycle], io,
+				mix->io[cycle]->status, mix->io[cycle]->buffer_id);
+		*io = *mix->io[cycle];
+		mix->io[cycle]->status = SPA_STATUS_NEED_DATA;
 		break;
 	}
         return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
@@ -541,6 +559,9 @@ static int check_param_io(void *data, int seq, uint32_t id,
 		pw_control_new(node->context, port, pid, psize, 0);
 		SPA_FLAG_SET(port->flags, PW_IMPL_PORT_FLAG_CONTROL);
 		break;
+	case SPA_IO_AsyncBuffers:
+		SPA_FLAG_SET(port->flags, PW_IMPL_PORT_FLAG_ASYNC);
+		SPA_FALLTHROUGH;
 	case SPA_IO_Buffers:
 		SPA_FLAG_SET(port->flags, PW_IMPL_PORT_FLAG_BUFFERS);
 		break;
@@ -615,6 +636,7 @@ static void check_params(struct pw_impl_port *port)
 		port->info.params[i].user = 0;
 
 	port->flags &= ~(PW_IMPL_PORT_FLAG_CONTROL |
+			PW_IMPL_PORT_FLAG_ASYNC |
 			PW_IMPL_PORT_FLAG_BUFFERS);
 
 	pw_impl_port_for_each_param(port, 0, SPA_PARAM_IO, 0, 0, NULL, check_param_io, port);

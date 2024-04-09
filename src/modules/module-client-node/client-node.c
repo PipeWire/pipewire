@@ -31,7 +31,8 @@ PW_LOG_TOPIC_EXTERN(mod_topic);
 #define MAX_BUFFERS	64
 #define MAX_METAS	16u
 #define MAX_DATAS	64u
-#define AREA_SIZE	(4096u / sizeof(struct spa_io_buffers))
+#define AREA_SLOT	(sizeof(struct spa_io_async_buffers))
+#define AREA_SIZE	(4096u / AREA_SLOT)
 #define MAX_AREAS	32
 
 #define CHECK_FREE_PORT(impl,d,p)	(p <= pw_map_get_size(&impl->ports[d]) && !CHECK_PORT(impl,d,p))
@@ -1363,7 +1364,7 @@ static int add_area(struct impl *impl)
 	size_t size;
 	struct pw_memblock *area;
 
-	size = sizeof(struct spa_io_buffers) * AREA_SIZE;
+	size = AREA_SLOT * AREA_SIZE;
 
 	area = pw_mempool_alloc(impl->context_pool,
 			PW_MEMBLOCK_FLAG_READWRITE |
@@ -1449,6 +1450,7 @@ static int port_init_mix(void *data, struct pw_impl_port_mix *mix)
 	struct mix *m;
 	uint32_t idx, pos, len;
 	struct pw_memblock *area;
+	struct spa_io_async_buffers *ab;
 
 	if ((m = create_mix(port, mix->port.port_id)) == NULL)
 		return -ENOMEM;
@@ -1472,9 +1474,12 @@ static int port_init_mix(void *data, struct pw_impl_port_mix *mix)
 	}
 	area = *pw_array_get_unchecked(&impl->io_areas, idx, struct pw_memblock*);
 
-	mix->io = SPA_PTROFF(area->map->ptr,
-			pos * sizeof(struct spa_io_buffers), void);
-	*mix->io = SPA_IO_BUFFERS_INIT;
+	ab = SPA_PTROFF(area->map->ptr, pos * AREA_SLOT, void);
+	mix->io_data = ab;
+	mix->io[0] = &ab->buffers[0];
+	mix->io[1] = &ab->buffers[1];
+	*mix->io[0] = SPA_IO_BUFFERS_INIT;
+	*mix->io[1] = SPA_IO_BUFFERS_INIT;
 
 	m->peer_id = mix->peer_id;
 	m->impl_mix_id = mix->id;
@@ -1484,8 +1489,8 @@ static int port_init_mix(void *data, struct pw_impl_port_mix *mix)
 					 mix->port.direction, mix->p->port_id,
 					 mix->port.port_id, mix->peer_id, NULL);
 
-	pw_log_debug("%p: init mix id:%d io:%p base:%p", impl,
-			mix->id, mix->io, area->map->ptr);
+	pw_log_debug("%p: init mix id:%d io:%p/%p base:%p", impl,
+			mix->id, mix->io[0], mix->io[1], area->map->ptr);
 
 	return 0;
 no_mem:
@@ -1606,11 +1611,24 @@ static int impl_mix_port_set_io(void *object,
 	if (mix == NULL)
 		return -EINVAL;
 
-	if (id == SPA_IO_Buffers) {
+	switch (id) {
+	case SPA_IO_Buffers:
 		if (data && size >= sizeof(struct spa_io_buffers))
-			mix->io = data;
+			mix->io[0] = mix->io[1] = data;
 		else
-			mix->io = NULL;
+			mix->io[0] = mix->io[1] = NULL;
+		break;
+	case SPA_IO_AsyncBuffers:
+		if (data && size >= sizeof(struct spa_io_async_buffers)) {
+			struct spa_io_async_buffers *ab = data;
+			mix->io[0] = &ab->buffers[0];
+			mix->io[1] = &ab->buffers[1];
+		}
+		else
+			mix->io[0] = mix->io[1] = NULL;
+		break;
+	default:
+		break;
 	}
 	return do_port_set_io(impl,
 			      direction, port->port_id, mix->port.port_id,

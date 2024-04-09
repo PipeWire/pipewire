@@ -44,9 +44,10 @@ struct impl {
 	struct spa_hook output_node_listener;
 	struct spa_hook output_global_listener;
 
-	struct spa_io_buffers io;
+	struct spa_io_buffers io[2];
 
 	struct pw_impl_node *inode, *onode;
+	bool async;
 };
 
 /** \endcond */
@@ -98,7 +99,8 @@ static void pw_node_peer_activate(struct pw_node_peer *peer)
 	if (peer->active_count++ == 0) {
 		spa_list_append(&peer->output->rt.target_list, &peer->target.link);
 		if (!peer->target.active && peer->output->rt.driver_target.node != NULL) {
-			state->required++;
+			if (!peer->output->async)
+				state->required++;
 			peer->target.active = true;
 		}
 	}
@@ -115,7 +117,8 @@ static void pw_node_peer_deactivate(struct pw_node_peer *peer)
 		spa_list_remove(&peer->target.link);
 
 		if (peer->target.active) {
-			state->required--;
+			if (!peer->output->async)
+				state->required--;
 			peer->target.active = false;
 		}
 	}
@@ -534,14 +537,15 @@ static void select_io(struct pw_impl_link *this)
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct spa_io_buffers *io;
 
-	io = this->rt.in_mix.io;
+	io = this->rt.in_mix.io_data;
 	if (io == NULL)
-		io = this->rt.out_mix.io;
+		io = this->rt.out_mix.io_data;
 	if (io == NULL)
-		io = &impl->io;
+		io = impl->io;
 
 	this->io = io;
-	*this->io = SPA_IO_BUFFERS_INIT;
+	this->io[0] = SPA_IO_BUFFERS_INIT;
+	this->io[1] = SPA_IO_BUFFERS_INIT;
 }
 
 static int do_allocation(struct pw_impl_link *this)
@@ -678,6 +682,7 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res;
+	uint32_t io_type, io_size;
 
 	pw_log_debug("%p: activate activated:%d state:%s", this, impl->activated,
 			pw_link_state_as_string(this->info.state));
@@ -686,11 +691,19 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 		!impl->inode->runnable || !impl->onode->runnable)
 		return 0;
 
-	if ((res = port_set_io(this, this->input, SPA_IO_Buffers, this->io,
-			sizeof(struct spa_io_buffers), &this->rt.in_mix)) < 0)
+	if (impl->async) {
+		io_type = SPA_IO_AsyncBuffers;
+		io_size = sizeof(struct spa_io_async_buffers);
+	} else {
+		io_type = SPA_IO_Buffers;
+		io_size = sizeof(struct spa_io_buffers);
+	}
+
+	if ((res = port_set_io(this, this->input, io_type, this->io,
+					io_size, &this->rt.in_mix)) < 0)
 		goto error;
-	if ((res = port_set_io(this, this->output, SPA_IO_Buffers, this->io,
-			sizeof(struct spa_io_buffers), &this->rt.out_mix)) < 0)
+	if ((res = port_set_io(this, this->output, io_type, this->io,
+					io_size, &this->rt.out_mix)) < 0)
 		goto error_clean;
 
 	pw_loop_invoke(this->output->node->data_loop,
@@ -703,7 +716,7 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 	return 0;
 
 error_clean:
-	port_set_io(this, this->input, SPA_IO_Buffers, NULL, 0, &this->rt.in_mix);
+	port_set_io(this, this->input, io_type, NULL, 0, &this->rt.in_mix);
 error:
 	pw_log_error("%p: can't activate link: %s", this, spa_strerror(res));
 	return res;
@@ -892,7 +905,7 @@ int pw_impl_link_deactivate(struct pw_impl_link *this)
 
 	impl->activated = false;
 	pw_log_info("(%s) deactivated", this->name);
-	
+
 	if (this->info.state < PW_LINK_STATE_PAUSED || this->destroyed)
 		link_update_state(this, PW_LINK_STATE_INIT, 0, NULL);
 	else
@@ -1385,6 +1398,13 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 	if (this->passive && str == NULL)
 		 pw_properties_set(properties, PW_KEY_LINK_PASSIVE, "true");
 
+	impl->async = (output_node->async || input_node->async) &&
+		SPA_FLAG_IS_SET(output->flags, PW_IMPL_PORT_FLAG_ASYNC) &&
+		SPA_FLAG_IS_SET(input->flags, PW_IMPL_PORT_FLAG_ASYNC);
+
+	if (impl->async)
+		 pw_properties_set(properties, PW_KEY_LINK_ASYNC, "true");
+
 	spa_hook_list_init(&this->listener_list);
 
 	impl->format_filter = format_filter;
@@ -1414,8 +1434,6 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 	spa_list_append(&output->links, &this->output_link);
 	spa_list_append(&input->links, &this->input_link);
 
-	impl->io = SPA_IO_BUFFERS_INIT;
-
 	select_io(this);
 
 	if (this->feedback) {
@@ -1434,7 +1452,8 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 	this->name = spa_aprintf("%d.%d.%d -> %d.%d.%d",
 			output_node->info.id, output->port_id, this->rt.out_mix.port.port_id,
 			input_node->info.id, input->port_id, this->rt.in_mix.port.port_id);
-	pw_log_info("(%s) (%s) -> (%s)", this->name, output_node->name, input_node->name);
+	pw_log_info("(%s) (%s) -> (%s) async:%04x:%04x:%d", this->name, output_node->name,
+			input_node->name, output->flags, input->flags, impl->async);
 
 	pw_impl_port_emit_link_added(output, this);
 	pw_impl_port_emit_link_added(input, this);

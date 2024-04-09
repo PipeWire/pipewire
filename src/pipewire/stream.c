@@ -2033,6 +2033,9 @@ pw_stream_connect(struct pw_stream *stream,
 	    impl->media_subtype == SPA_MEDIA_SUBTYPE_control)
 		pw_properties_set(impl->port_props, PW_KEY_FORMAT_DSP, "8 bit raw midi");
 
+	if ((str = pw_properties_get(stream->properties, PW_KEY_NODE_ASYNC)) != NULL && spa_atob(str))
+		SPA_FLAG_SET(impl->info.flags, SPA_NODE_FLAG_ASYNC);
+
 	match = MATCH_INIT(stream);
 	pw_context_conf_section_match_rules(impl->context, "stream.rules",
 			&stream->properties->dict, execute_match, &match);

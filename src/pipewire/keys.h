@@ -182,6 +182,7 @@ extern "C" {
 #define PW_KEY_NODE_CACHE_PARAMS	"node.cache-params"	/**< cache the node params */
 #define PW_KEY_NODE_TRANSPORT_SYNC	"node.transport.sync"	/**< the node handles transport sync */
 #define PW_KEY_NODE_DRIVER		"node.driver"		/**< node can drive the graph */
+#define PW_KEY_NODE_ASYNC		"node.async"		/**< the node wants async scheduling */
 #define PW_KEY_NODE_STREAM		"node.stream"		/**< node is a stream, the server side should
 								  *  add a converter */
 #define PW_KEY_NODE_VIRTUAL		"node.virtual"		/**< the node is some sort of virtual
@@ -230,6 +231,7 @@ extern "C" {
 #define PW_KEY_LINK_FEEDBACK		"link.feedback"		/**< indicate that a link is a feedback
 								  *  link and the target will receive data
 								  *  in the next cycle */
+#define PW_KEY_LINK_ASYNC		"link.async"		/**< the link is using async io */
 
 /** device properties */
 #define PW_KEY_DEVICE_ID		"device.id"		/**< device id */

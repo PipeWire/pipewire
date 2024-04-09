@@ -113,7 +113,8 @@ static void add_node(struct pw_impl_node *this, struct pw_impl_node *driver)
 	spa_list_for_each(t, &this->rt.target_list, link) {
 		dstate = &t->activation->state[0];
 		if (!t->active) {
-			dstate->required++;
+			if (!this->async)
+				dstate->required++;
 			t->active = true;
 		}
 		pw_log_trace("%p: driver state:%p pending:%d/%d, node state:%p pending:%d/%d",
@@ -146,7 +147,8 @@ static void remove_node(struct pw_impl_node *this)
 	spa_list_for_each(t, &this->rt.target_list, link) {
 		dstate = &t->activation->state[0];
 		if (t->active) {
-			dstate->required--;
+			if (!this->async)
+				dstate->required--;
 			t->active = false;
 		}
 		pw_log_trace("%p: driver state:%p pending:%d/%d, node state:%p pending:%d/%d",
@@ -973,7 +975,7 @@ static void check_properties(struct pw_impl_node *node)
 	const char *str, *recalc_reason = NULL;
 	struct spa_fraction frac;
 	uint32_t value;
-	bool driver, trigger, transport, sync;
+	bool driver, trigger, transport, sync, async;
 	struct match match;
 
 	match = MATCH_INIT(node);
@@ -1081,6 +1083,11 @@ static void check_properties(struct pw_impl_node *node)
 		pw_log_info("%p: transport %d -> %d", node, node->transport, transport);
 		node->transport = transport;
 		recalc_reason = "transport changed";
+	}
+	async = pw_properties_get_bool(node->properties, PW_KEY_NODE_ASYNC, false);
+	if (async != node->async) {
+		pw_log_info("%p: async %d -> %d", node, node->async, async);
+		node->async = async;
 	}
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_MEDIA_CLASS)) != NULL &&
@@ -1360,7 +1367,8 @@ static inline int process_node(void *data)
 	/* we don't need to trigger targets when the node was driving the
 	 * graph because that means we finished the graph. */
 	if (SPA_LIKELY(!this->driving)) {
-		trigger_targets(&this->rt.target, status, nsec);
+		if (!this->async)
+			trigger_targets(&this->rt.target, status, nsec);
 	} else {
 		/* calculate CPU time when finished */
 		a->signal_time = this->driver_start;

@@ -1019,7 +1019,7 @@ static int impl_node_process(void *object)
 	bool drained = true;
 	int res = 0;
 
-	pw_log_trace_fp("%p: do process %p", impl, impl->rt.position);
+	pw_log_trace_fp("%p: do process %p", impl, impl->this.node->rt.position);
 
 	/** first dequeue and recycle buffers */
 	spa_list_for_each(p, &impl->port_list, link) {

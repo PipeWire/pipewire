@@ -842,7 +842,7 @@ handle_id_prop (const struct spa_pod_prop *prop, const char *key, id_to_string_f
   uint32_t i, n_items, choice;
 
   val = spa_pod_get_values(&prop->value, &n_items, &choice);
-  if (val->type != SPA_TYPE_Id)
+  if (val->type != SPA_TYPE_Id || n_items == 0)
           return;
 
   id = SPA_POD_BODY(val);
@@ -887,7 +887,7 @@ handle_dmabuf_prop (const struct spa_pod_prop *prop,
   uint64_t *mods;
 
   val = spa_pod_get_values (&prop->value, &n_fmts, &choice);
-  if (val->type != SPA_TYPE_Id)
+  if (val->type != SPA_TYPE_Id || n_fmts == 0)
     return;
   if (choice != SPA_CHOICE_None && choice != SPA_CHOICE_Enum)
     return;
@@ -899,7 +899,7 @@ handle_dmabuf_prop (const struct spa_pod_prop *prop,
   }
 
   pod_modifier = spa_pod_get_values (&prop_modifier->value, &n_mods, &choice);
-  if (pod_modifier->type != SPA_TYPE_Long)
+  if (pod_modifier->type != SPA_TYPE_Long || n_mods == 0)
     return;
   if (choice != SPA_CHOICE_None && choice != SPA_CHOICE_Enum)
     return;
@@ -991,7 +991,7 @@ handle_int_prop (const struct spa_pod_prop *prop, const char *key, GstCaps *res)
   uint32_t i, n_items, choice;
 
   val = spa_pod_get_values(&prop->value, &n_items, &choice);
-  if (val->type != SPA_TYPE_Int)
+  if (val->type != SPA_TYPE_Int || n_items == 0)
           return;
 
   ints = SPA_POD_BODY(val);
@@ -1035,7 +1035,7 @@ handle_rect_prop (const struct spa_pod_prop *prop, const char *width, const char
   uint32_t i, n_items, choice;
 
   val = spa_pod_get_values(&prop->value, &n_items, &choice);
-  if (val->type != SPA_TYPE_Rectangle)
+  if (val->type != SPA_TYPE_Rectangle || n_items == 0)
           return;
 
   rect = SPA_POD_BODY(val);
@@ -1088,7 +1088,7 @@ handle_fraction_prop (const struct spa_pod_prop *prop, const char *key, GstCaps 
   uint32_t i, n_items, choice;
 
   val = spa_pod_get_values(&prop->value, &n_items, &choice);
-  if (val->type != SPA_TYPE_Fraction)
+  if (val->type != SPA_TYPE_Fraction || n_items == 0)
           return;
 
   fract = SPA_POD_BODY(val);

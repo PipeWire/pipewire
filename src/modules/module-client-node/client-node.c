@@ -1515,7 +1515,7 @@ impl_mix_port_enum_params(void *object, int seq,
 	if (port->direction != direction)
 		return -ENOTSUP;
 
-	return impl_node_port_enum_params(&port->impl->node, seq, direction, port->id,
+	return impl_node_port_enum_params(port->impl, seq, direction, port->id,
 			id, start, num, filter);
 }
 
@@ -1587,7 +1587,7 @@ static int
 impl_mix_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 {
 	struct port *p = object;
-	return impl_node_port_reuse_buffer(&p->impl->node, p->id, buffer_id);
+	return impl_node_port_reuse_buffer(p->impl, p->id, buffer_id);
 }
 
 static int impl_mix_process(void *object)

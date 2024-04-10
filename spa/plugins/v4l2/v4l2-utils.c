@@ -386,9 +386,8 @@ enum_filter_format(uint32_t media_type, int32_t media_subtype,
 				return -ENOENT;
 
 			val = spa_pod_get_values(&p->value, &n_values, &choice);
-
-			if (val->type != SPA_TYPE_Id)
-				return -EINVAL;
+			if (val->type != SPA_TYPE_Id || n_values == 0)
+				return SPA_VIDEO_FORMAT_UNKNOWN;
 
 			values = SPA_POD_BODY(val);
 
@@ -614,7 +613,7 @@ do_enum_fmt:
 				goto do_frmsize;
 
 			val = spa_pod_get_values(&p->value, &n_vals, &choice);
-			if (val->type != SPA_TYPE_Rectangle)
+			if (val->type != SPA_TYPE_Rectangle || n_vals == 0)
 				goto enum_end;
 
 			if (choice == SPA_CHOICE_None) {
@@ -652,7 +651,7 @@ do_enum_fmt:
 				goto have_size;
 
 			val = spa_pod_get_values(&p->value, &n_values, &choice);
-			if (val->type != SPA_TYPE_Rectangle)
+			if (val->type != SPA_TYPE_Rectangle || n_values == 0)
 				goto have_size;
 
 			values = SPA_POD_BODY_CONST(val);
@@ -772,8 +771,7 @@ do_enum_fmt:
 				goto have_framerate;
 
 			val = spa_pod_get_values(&p->value, &n_values, &choice);
-
-			if (val->type != SPA_TYPE_Fraction)
+			if (val->type != SPA_TYPE_Fraction || n_values == 0)
 				goto enum_end;
 
 			values = SPA_POD_BODY(val);

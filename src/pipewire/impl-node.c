@@ -741,8 +741,12 @@ int pw_impl_node_set_io(struct pw_impl_node *this, uint32_t id, void *data, size
 		this->rt.target.id = this->info.id;
 		break;
 	}
-	this->driving = this->rt.clock && this->rt.position &&
+	this->driving = this->driver && this->rt.clock && this->rt.position &&
 		this->rt.position->clock.id == this->rt.clock->id;
+
+	pw_log_debug("%p: driving:%d %d %d", this, this->driving,
+			this->rt.clock ? this->rt.clock->id : SPA_ID_INVALID,
+			this->rt.position ? this->rt.position->clock.id : SPA_ID_INVALID);
 
 	spa_list_for_each(port, &this->input_ports, link)
 		spa_node_set_io(port->mix, id, data, size);

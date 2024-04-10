@@ -1271,6 +1271,10 @@ static int node_event_param(void *object, int seq,
 		}
 
 		pod = spa_pod_get_values(type, &n_vals, &choice);
+		if (n_vals == 0) {
+			free(c);
+			return -EINVAL;
+		}
 
 		c->type = SPA_POD_TYPE(pod);
 		if (spa_pod_is_float(pod))

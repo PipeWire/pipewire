@@ -687,6 +687,9 @@ static int add_int(struct format_info *info, const char *k, struct spa_pod *para
 	if (val->type != SPA_TYPE_Int)
 		return -ENOTSUP;
 
+	if (n_values == 0)
+		return -ENOENT;
+
 	values = SPA_POD_BODY(val);
 
 	switch (choice) {

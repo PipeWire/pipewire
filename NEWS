@@ -1,3 +1,58 @@
+# PipeWire 1.0.5 (2024-04-15)
+
+This is a bugfix release that is API and ABI compatible with previous
+1.0.x releases.
+
+## Highlights
+  - pw_stream can now report timestamps on buffers and the expected
+    amount of samples for the resampler.
+  - The GStreamer element now has more correct timestamps using the new
+    pw_stream timestamps as a fallback.
+  - The FFADO module now handles suspend and resume better.
+  - A regression in v4l2 was fixed when parsing malformed filters.
+  - A potential memory/fd leak was fixed in client-node.
+  - Many more small bugfixes and improvements.
+
+
+## PipeWire
+  - pw_stream now reports the expected resampler input or output size in
+    the pw_time structure. (#3750)
+  - pw_stream now also adds a time field to the buffer, which contains the
+    time of the graph when the buffer was received in the stream.
+  - Fix a compiler error when compiling with -Werror=shadow. (#3915)
+  - The config parser will warn when invalid config is detected.
+
+## Modules
+  - The FFADO module now opens and closes when suspending. This fixes some
+    problems when FFADO properties are changed while suspended. (#3558)
+  - Filter-chain will now warn when invalid config is detected.
+  - Echo-cancel will now handle manage the state of the echo-cancel plugin
+    better, making sure run() is not called after deactivate().
+  - Fix some potential memory/fd leaks in client-node.
+
+## SPA
+  - Improve reading the bound ALSA controls.
+  - The resampler can now also report the number of expected output samples.
+  - The ALSA ACP device objects have some more properties like the card.id
+    and alsa.components. (#3912)
+  - Fix a potential string corruption when parsing JSON strings.
+  - V4l2 now sets the latency on the port. (#3910)
+  - alsa-udev now has an option to expose the device even if busy. (#3914)
+  - Improve null-audio-sink channel handling. (#3931)
+  - v4l2 will now drop the first frame because it often contains wrong
+    timestamps or garbage. (#3910)
+  - A regression in v4l2 was fixed where invalid/empty properties in the
+    filter would make it error early. (#3959)
+
+## GStreamer
+  - The source now falls back to the new pw_buffer time for the timestamps.
+
+## Docs
+  - Sync with the master branch.
+
+Older versions:
+
+
 # PipeWire 1.0.4 (2024-03-13)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -81,9 +136,6 @@ This is a bugfix release that is API and ABI compatible with previous
 
 ## ALSA
   - Handle errors from eventfd_create correctly.
-
-Older versions:
-
 
 # PipeWire 1.0.3 (2024-02-02)
 

@@ -323,7 +323,7 @@ static struct mapping * memblock_map(struct memblock *b,
 		return NULL;
 	}
 
-	if (!(b->this.flags & PW_MEMBLOCK_FLAG_MAPPABLE)) {
+	if ((b->this.flags & PW_MEMBLOCK_FLAG_UNMAPPABLE)) {
 		pw_log_error("%p: block:%p can't be mmaped", p, &b->this);
 		errno = EPERM;
 		return NULL;

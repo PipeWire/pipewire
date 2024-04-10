@@ -1479,7 +1479,6 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	this->activation = pw_mempool_alloc(this->context->pool,
 			PW_MEMBLOCK_FLAG_READWRITE |
 			PW_MEMBLOCK_FLAG_SEAL |
-			PW_MEMBLOCK_FLAG_MAPPABLE |
 			PW_MEMBLOCK_FLAG_MAP,
 			SPA_DATA_MemFd, size);
 	if (this->activation == NULL) {

@@ -859,8 +859,8 @@ do_port_use_buffers(struct impl *impl,
 			{
 				uint32_t flags = PW_MEMBLOCK_FLAG_DONT_CLOSE;
 
-				if (d->flags & SPA_DATA_FLAG_MAPPABLE)
-					flags |= PW_MEMBLOCK_FLAG_MAPPABLE;
+				if (!(d->flags & SPA_DATA_FLAG_MAPPABLE))
+					flags |= PW_MEMBLOCK_FLAG_UNMAPPABLE;
 				if (d->flags & SPA_DATA_FLAG_READABLE)
 					flags |= PW_MEMBLOCK_FLAG_READABLE;
 				if (d->flags & SPA_DATA_FLAG_WRITABLE)
@@ -1357,7 +1357,6 @@ static int add_area(struct impl *impl)
 	area = pw_mempool_alloc(impl->context_pool,
 			PW_MEMBLOCK_FLAG_READWRITE |
 			PW_MEMBLOCK_FLAG_SEAL |
-			PW_MEMBLOCK_FLAG_MAPPABLE |
 			PW_MEMBLOCK_FLAG_MAP,
 			SPA_DATA_MemFd, size);
 	if (area == NULL)

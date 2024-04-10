@@ -170,7 +170,6 @@ int pw_control_add_link(struct pw_control *control, uint32_t cmix,
 		impl->mem = pw_mempool_alloc(control->context->pool,
 						PW_MEMBLOCK_FLAG_READWRITE |
 						PW_MEMBLOCK_FLAG_SEAL |
-						PW_MEMBLOCK_FLAG_MAPPABLE |
 						PW_MEMBLOCK_FLAG_MAP,
 						SPA_DATA_MemFd, size);
 		if (impl->mem == NULL) {

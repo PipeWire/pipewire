@@ -29,7 +29,7 @@ enum pw_memblock_flags {
 	PW_MEMBLOCK_FLAG_MAP =		(1 << 3),	/**< mmap the fd */
 	PW_MEMBLOCK_FLAG_DONT_CLOSE =	(1 << 4),	/**< don't close fd */
 	PW_MEMBLOCK_FLAG_DONT_NOTIFY =	(1 << 5),	/**< don't notify events */
-	PW_MEMBLOCK_FLAG_MAPPABLE =	(1 << 6),	/**< the fd can be mmapped */
+	PW_MEMBLOCK_FLAG_UNMAPPABLE =	(1 << 6),	/**< the fd can not be mmapped */
 
 	PW_MEMBLOCK_FLAG_READWRITE = PW_MEMBLOCK_FLAG_READABLE | PW_MEMBLOCK_FLAG_WRITABLE,
 };

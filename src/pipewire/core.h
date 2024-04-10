@@ -209,6 +209,8 @@ struct pw_core_events {
 	 * \param id bound object ID
 	 * \param global_id the global id bound to
 	 * \param props The properties of the new global object.
+	 *
+	 * Since version 4:1
 	 */
 	void (*bound_props) (void *data, uint32_t id, uint32_t global_id, const struct spa_dict *props);
 };

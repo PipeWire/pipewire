@@ -83,7 +83,6 @@ static int alloc_buffers(struct pw_mempool *pool,
 		m = pw_mempool_alloc(pool,
 				PW_MEMBLOCK_FLAG_READWRITE |
 				PW_MEMBLOCK_FLAG_SEAL |
-				PW_MEMBLOCK_FLAG_MAPPABLE |
 				PW_MEMBLOCK_FLAG_MAP,
 				SPA_DATA_MemFd,
 				n_buffers * info.mem_size);

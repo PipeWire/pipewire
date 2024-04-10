@@ -860,7 +860,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
     current_caps = gst_pad_get_current_caps (GST_BASE_SRC_PAD (pwsrc));
     preferred_new_caps = gst_caps_copy_nth (possible_caps, 0);
 
-    if (gst_caps_is_equal (current_caps, preferred_new_caps)) {
+    if (current_caps && gst_caps_is_equal (current_caps, preferred_new_caps)) {
       GST_DEBUG_OBJECT (pwsrc,
                         "Stream running and new caps equal current ones. "
                         "Skipping renegotiation.");

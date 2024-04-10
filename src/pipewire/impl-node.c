@@ -715,8 +715,10 @@ do_update_position(struct spa_loop *loop,
 	void *position = *(void**)data;
 	pw_log_trace("%p: set position %p", node, position);
 	node->rt.position = position;
-	node->target_rate = node->rt.position->clock.target_rate;
-	node->target_quantum = node->rt.position->clock.target_duration;
+	if (position) {
+		node->target_rate = node->rt.position->clock.target_rate;
+		node->target_quantum = node->rt.position->clock.target_duration;
+	}
 	return 0;
 }
 
@@ -726,19 +728,23 @@ int pw_impl_node_set_io(struct pw_impl_node *this, uint32_t id, void *data, size
 	int res;
 	struct pw_impl_port *port;
 
-	res = spa_node_set_io(this->node, id, data, size);
-
 	switch (id) {
 	case SPA_IO_Position:
-		pw_log_debug("%p: set position %p: %s", this, data, spa_strerror(res));
+		if (data != NULL && size < sizeof(struct spa_io_position))
+			return -EINVAL;
+		pw_log_debug("%p: set position %p", this, data);
 		pw_loop_invoke(this->data_loop,
 				do_update_position, SPA_ID_INVALID, &data, sizeof(void*), true, this);
 		break;
 	case SPA_IO_Clock:
-		pw_log_debug("%p: set clock %p: %s", this, data, spa_strerror(res));
+		if (data != NULL && size < sizeof(struct spa_io_clock))
+			return -EINVAL;
+		pw_log_debug("%p: set clock %p", this, data);
 		this->rt.clock = data;
-		this->info.id = this->rt.clock->id;
-		this->rt.target.id = this->info.id;
+		if (this->rt.clock) {
+			this->info.id = this->rt.clock->id;
+			this->rt.target.id = this->info.id;
+		}
 		break;
 	}
 	this->driving = this->driver && this->rt.clock && this->rt.position &&
@@ -752,6 +758,10 @@ int pw_impl_node_set_io(struct pw_impl_node *this, uint32_t id, void *data, size
 		spa_node_set_io(port->mix, id, data, size);
 	spa_list_for_each(port, &this->output_ports, link)
 		spa_node_set_io(port->mix, id, data, size);
+
+	res = spa_node_set_io(this->node, id, data, size);
+
+	pw_log_debug("%p: set io: %s", this, spa_strerror(res));
 
 	return res;
 }

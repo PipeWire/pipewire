@@ -1845,6 +1845,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args_str)
 	return 0;
 
 error_cleanup:
+	pw_properties_free(d->props);
+	if (d->security)
+		protocol_native_security_context_free(d->security);
 	pw_protocol_destroy(this);
 	return res;
 }

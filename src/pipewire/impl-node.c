@@ -815,6 +815,7 @@ int pw_impl_node_register(struct pw_impl_node *this,
 	this->registered = true;
 
 	this->info.id = this->global->id;
+	this->rt.target.id = this->info.id;
 	this->rt.target.activation->position.clock.id = this->global->id;
 
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->global->id);
@@ -1001,6 +1002,8 @@ static void check_properties(struct pw_impl_node *node)
 			else
 				remove_driver(context, node);
 		}
+		if (driver && node->driver_node == node)
+			node->driving = true;
 		recalc_reason = "driver changed";
 	}
 
@@ -1518,10 +1521,10 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	this->rt.rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
 	this->rt.rate_limit.burst = 1;
 
-	check_properties(this);
-
 	this->driver_node = this;
 	spa_list_append(&this->follower_list, &this->follower_link);
+
+	check_properties(this);
 
 	return this;
 

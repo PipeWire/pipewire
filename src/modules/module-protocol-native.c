@@ -262,16 +262,24 @@ struct client_data {
 static void debug_msg(const char *prefix, const struct pw_protocol_native_message *msg, bool hex)
 {
 	struct spa_pod *pod;
+	struct spa_debug_log_ctx c;
+
+	if (!pw_log_topic_custom_enabled(SPA_LOG_LEVEL_DEBUG, mod_topic_connection))
+		return;
+
+	c = SPA_LOGT_DEBUG_INIT(pw_log_get(),
+				SPA_LOG_LEVEL_DEBUG, mod_topic_connection);
+
 	pw_logt_debug(mod_topic_connection,
 		      "%s: id:%d op:%d size:%d seq:%d fds:%d", prefix,
 		      msg->id, msg->opcode, msg->size, msg->seq, msg->n_fds);
 
 	if ((pod = get_first_pod_from_data(msg->data, msg->size, 0)) != NULL)
-		spa_debug_pod(0, NULL, pod);
+		spa_debugc_pod(&c.ctx, 0, NULL, pod);
 	else
 		hex = true;
 	if (hex)
-		spa_debug_log_mem(pw_log_get(), SPA_LOG_LEVEL_DEBUG, 0, msg->data, msg->size);
+		spa_debugc_mem(&c.ctx, 0, msg->data, msg->size);
 
 	pw_logt_debug(mod_topic_connection, "%s ****", prefix);
 

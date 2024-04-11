@@ -66,6 +66,7 @@ typedef struct {
 	uint8_t n_blks;
 	bool sink;
 	bool duplex;
+	unsigned int priority;
 } bap_lc3_t;
 
 static const struct {
@@ -490,6 +491,7 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 	conf->rate = bap_qos->rate;
 	conf->frame_duration = bap_qos->frame_duration;
 	conf->framelen = bap_qos->framelen;
+	conf->priority = bap_qos->priority;
 
 	return true;
 }
@@ -573,17 +575,11 @@ static int conf_cmp(const bap_lc3_t *conf1, int res1, const bap_lc3_t *conf2, in
 
 	PREFER_BOOL(conf->channels & LC3_CHAN_2);
 	PREFER_BOOL(conf->channels & LC3_CHAN_1);
-	PREFER_BOOL(conf->rate & (LC3_CONFIG_FREQ_48KHZ | LC3_CONFIG_FREQ_32KHZ | \
-		LC3_CONFIG_FREQ_24KHZ | LC3_CONFIG_FREQ_16KHZ | LC3_CONFIG_FREQ_8KHZ));
 
 	if (conf->sink && conf->duplex)
 		PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_16KHZ);
 
-	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_48KHZ);
-	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_32KHZ);
-	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_24KHZ);
-	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_16KHZ);
-	PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_8KHZ);
+	PREFER_EXPR(conf->priority);
 
 	return 0;
 

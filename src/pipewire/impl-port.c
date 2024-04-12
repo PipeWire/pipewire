@@ -827,7 +827,8 @@ static int setup_mixer(struct pw_impl_port *port, const struct spa_pod *param)
 		return res;
 	}
 
-	pw_log_debug("mix node handle:%p iface:%p", handle, iface);
+	pw_log_debug("mix node %s (%s) handle:%p iface:%p", factory_name, fallback_lib,
+			handle, iface);
 	pw_impl_port_set_mix(port, (struct spa_node*)iface,
 			PW_IMPL_PORT_MIX_FLAG_MULTI |
 			PW_IMPL_PORT_MIX_FLAG_NEGOTIATE);

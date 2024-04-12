@@ -450,6 +450,9 @@ struct spa_node_methods {
 	 * Enumerate all possible parameters of \a id on \a port_id of \a node
 	 * that are compatible with \a filter.
 	 *
+	 * When SPA_ID_INVALID is given as the port_id, the node will reply with
+	 * the params that would be returned for a new port in the given direction.
+	 *
 	 * The result parameters can be queried and modified and ultimately be used
 	 * to call port_set_param.
 	 *
@@ -464,7 +467,7 @@ struct spa_node_methods {
 	 * \param seq a sequence number to pass to the result event when
 	 *	this method is executed synchronously.
 	 * \param direction an spa_direction
-	 * \param port_id the port to query
+	 * \param port_id the port to query or SPA_ID_INVALID
 	 * \param id the parameter id to query
 	 * \param start the first index to query, 0 to get the first item
 	 * \param max the maximum number of params to query

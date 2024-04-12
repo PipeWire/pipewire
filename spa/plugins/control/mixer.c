@@ -85,13 +85,16 @@ struct impl {
 };
 
 #define PORT_VALID(p)                ((p) != NULL && (p)->valid)
+#define CHECK_ANY_IN(this,d,p)       ((d) == SPA_DIRECTION_INPUT && (p) == SPA_ID_INVALID)
 #define CHECK_FREE_IN_PORT(this,d,p) ((d) == SPA_DIRECTION_INPUT && (p) < MAX_PORTS && !PORT_VALID(this->in_ports[(p)]))
 #define CHECK_IN_PORT(this,d,p)      ((d) == SPA_DIRECTION_INPUT && (p) < MAX_PORTS && PORT_VALID(this->in_ports[(p)]))
 #define CHECK_OUT_PORT(this,d,p)     ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
 #define CHECK_PORT(this,d,p)         (CHECK_OUT_PORT(this,d,p) || CHECK_IN_PORT (this,d,p))
+#define CHECK_PORT_ANY(this,d,p)     (CHECK_ANY_IN(this,d,p) || CHECK_PORT(this,d,p))
 #define GET_IN_PORT(this,p)          (this->in_ports[p])
 #define GET_OUT_PORT(this,p)         (&this->out_ports[p])
 #define GET_PORT(this,d,p)           (d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,p) : GET_OUT_PORT(this,p))
+#define GET_PORT_ANY(this,d,p)       (CHECK_ANY_IN(this,d,p) ? NULL : GET_PORT(this,d,p))
 
 static int impl_node_enum_params(void *object, int seq,
 				 uint32_t id, uint32_t start, uint32_t num,
@@ -269,8 +272,7 @@ impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_
 	return 0;
 }
 
-static int port_enum_formats(void *object,
-			     enum spa_direction direction, uint32_t port_id,
+static int port_enum_formats(void *object, struct port *port,
 			     uint32_t index,
 			     struct spa_pod **param,
 			     struct spa_pod_builder *builder)
@@ -318,19 +320,19 @@ next:
 
 	switch (id) {
 	case SPA_PARAM_EnumFormat:
-		if ((res = port_enum_formats(this, direction, port_id, result.index, &param, &b)) <= 0)
+		if ((res = port_enum_formats(this, port, result.index, &param, &b)) <= 0)
 			return res;
 		break;
 
 	case SPA_PARAM_Format:
-		if (!port->have_format)
+		if (port == NULL || !port->have_format)
 			return -EIO;
-		if ((res = port_enum_formats(this, direction, port_id, result.index, &param, &b)) <= 0)
+		if ((res = port_enum_formats(this, port, result.index, &param, &b)) <= 0)
 			return res;
 		break;
 
 	case SPA_PARAM_Buffers:
-		if (!port->have_format)
+		if (port == NULL || !port->have_format)
 			return -EIO;
 		if (result.index > 0)
 			return 0;

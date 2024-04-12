@@ -202,7 +202,7 @@ static void group_on_timeout(struct spa_source *source)
 
 	/* Produce output */
 	spa_list_for_each(stream, &group->streams, link) {
-		int res;
+		int res = 0;
 		uint64_t now;
 		int32_t min_latency = INT32_MAX, max_latency = INT32_MIN;
 		struct stream *other;

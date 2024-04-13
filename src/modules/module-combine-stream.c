@@ -21,6 +21,7 @@
 #include <spa/utils/json.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/debug/types.h>
+#include <spa/debug/log.h>
 #include <spa/pod/builder.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/raw.h>
@@ -1439,6 +1440,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct impl *impl;
 	const char *str, *prefix;
 	int res;
+	struct spa_error_location loc = {};
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -1455,10 +1457,14 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (args == NULL)
 		args = "";
 
-	props = pw_properties_new_string(args);
+	props = pw_properties_new_string_checked(args, strlen(args), &loc);
 	if (props == NULL) {
 		res = -errno;
-		pw_log_error( "can't create properties: %m");
+		if (loc.reason)
+			spa_debug_log_error_location(pw_log_get(), SPA_LOG_LEVEL_ERROR, &loc,
+					"invalid module arguments: %s", loc.reason);
+		else
+			pw_log_error("can't create properties: %m");
 		goto error;
 	}
 	impl->props = props;

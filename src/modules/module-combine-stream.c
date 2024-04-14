@@ -1548,6 +1548,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(props, impl->combine_props, PW_KEY_NODE_VIRTUAL);
 	copy_props(props, impl->combine_props, PW_KEY_MEDIA_CLASS);
 	copy_props(props, impl->combine_props, "resample.prefill");
+	copy_props(props, impl->combine_props, "resample.disable");
 
 	parse_audio_info(impl->combine_props, &impl->info);
 
@@ -1555,6 +1556,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(props, impl->stream_props, PW_KEY_NODE_VIRTUAL);
 	copy_props(props, impl->stream_props, PW_KEY_NODE_LINK_GROUP);
 	copy_props(props, impl->stream_props, "resample.prefill");
+	copy_props(props, impl->stream_props, "resample.disable");
 
 	if (pw_properties_get(impl->stream_props, PW_KEY_MEDIA_ROLE) == NULL)
 		pw_properties_set(props, PW_KEY_MEDIA_ROLE, "filter");

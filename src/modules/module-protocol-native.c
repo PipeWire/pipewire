@@ -1630,7 +1630,8 @@ static void module_destroy(void *data)
 {
 	struct protocol_data *d = data;
 
-	protocol_native_security_context_free(d->security);
+	if (d->security)
+		protocol_native_security_context_free(d->security);
 	spa_hook_remove(&d->module_listener);
 	pw_properties_free(d->props);
 
@@ -1828,6 +1829,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args_str)
 	}
 
 	d->security = protocol_native_security_context_init(module, this);
+	if (d->security == NULL) {
+		res = -errno;
+		goto error_cleanup;
+	}
 
 	props = pw_context_get_properties(context);
 	pw_properties_update_keys(d->props, &props->dict, keys);

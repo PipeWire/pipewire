@@ -31,6 +31,9 @@ Show version information.
 \par -c | \--config=FILE
 Load the given config file (Default: pipewire.conf).
 
+\par -P | \--properties=PROPS
+Add the given properties as a SPA JSON object to the context.
+
 # RUNTIME SETTINGS  @IDX@ pipewire
 
 A PipeWire daemon will also expose a settings metadata object that can

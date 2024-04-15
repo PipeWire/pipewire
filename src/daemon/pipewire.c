@@ -28,6 +28,7 @@ static void show_help(const char *name, const char *config_name)
 {
 	fprintf(stdout, _("%s [options]\n"
 		"  -h, --help                            Show this help\n"
+		"  -v, --verbose                         Increase verbosity by one level\n"
 		"      --version                         Show version\n"
 		"  -c, --config                          Load config (Default %s)\n"
 		"  -P  --properties                      Set context properties\n"),
@@ -52,7 +53,7 @@ int main(int argc, char *argv[])
 	int c, res = 0;
 	char path[PATH_MAX];
 	const char *config_name;
-	enum spa_log_level level = pw_log_level;
+	enum spa_log_level level;
 	struct spa_error_location loc;
 
 	if (setenv("PIPEWIRE_INTERNAL", "1", 1) < 0)
@@ -63,6 +64,8 @@ int main(int argc, char *argv[])
 
 	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
+
+	level = pw_log_level;
 
 	properties = pw_properties_new(
 				PW_KEY_CONFIG_NAME, config_name,

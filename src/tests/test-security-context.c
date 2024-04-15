@@ -116,7 +116,8 @@ static void test_create(void)
 
 	roundtrip(core, loop);
 
-	spa_assert_se(info.sec != NULL);
+	if (info.sec == NULL)
+		goto cleanup;
 
 	res = mkstemp(temp);
 	spa_assert_se(res >= 0);

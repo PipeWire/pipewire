@@ -3039,6 +3039,9 @@ static int impl_node_process(void *object)
 						volume *= this->props.channel.mute ? 0.0f :
 							this->props.channel.volumes[remap];
 
+					volume = SPA_CLAMPF(volume, this->props.min_volume,
+							this->props.max_volume);
+
 					mon_max = SPA_MIN(bd->maxsize / port->stride, max_in);
 
 					volume_process(&this->volume, bd->data, src_datas[remap],

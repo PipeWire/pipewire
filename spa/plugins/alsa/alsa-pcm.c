@@ -2601,6 +2601,7 @@ static inline int do_start(struct state *state)
 }
 
 static inline int check_position_config(struct state *state, bool starting);
+static void update_sources(struct state *state, bool active);
 
 static int alsa_recover(struct state *state)
 {
@@ -2680,6 +2681,8 @@ recover:
 		if (follower != driver && follower->linked)
 			do_start(follower);
 	}
+
+	update_sources(state, true);
 	return 0;
 }
 

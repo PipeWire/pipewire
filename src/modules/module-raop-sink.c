@@ -124,7 +124,7 @@
 
 #define NAME "raop-sink"
 
-PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+PW_LOG_TOPIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
 #define BUFFER_SIZE		(1u<<22)

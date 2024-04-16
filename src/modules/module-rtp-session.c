@@ -126,7 +126,7 @@
 
 #define NAME "rtp-session"
 
-PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+PW_LOG_TOPIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
 #define DEFAULT_CONTROL_IP	"0.0.0.0"

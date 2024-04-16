@@ -24,6 +24,9 @@
 #include <module-rtp/stream.h>
 #include <module-rtp/apple-midi.h>
 
+PW_LOG_TOPIC_EXTERN(mod_topic);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define BUFFER_SIZE			(1u<<22)
 #define BUFFER_MASK			(BUFFER_SIZE-1)
 #define BUFFER_SIZE2			(BUFFER_SIZE>>1)

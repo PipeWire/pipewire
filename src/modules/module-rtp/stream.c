@@ -85,6 +85,7 @@ struct impl {
 	unsigned receiving:1;
 	unsigned first:1;
 
+	struct pw_loop *main_loop;
 	struct pw_loop *data_loop;
 	struct spa_source *timer;
 	bool timer_running;
@@ -92,6 +93,15 @@ struct impl {
 	int (*receive_rtp)(struct impl *impl, uint8_t *buffer, ssize_t len);
 	void (*flush_timeout)(struct impl *impl, uint64_t expirations);
 };
+
+static int do_emit_state_changed(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct impl *impl = user_data;
+	bool *started = (bool *)data;
+
+	rtp_stream_emit_state_changed(impl, *started, NULL);
+	return 0;
+}
 
 #include "module-rtp/audio.c"
 #include "module-rtp/midi.c"
@@ -154,7 +164,9 @@ static int stream_stop(struct impl *impl)
 	if (!impl->started)
 		return 0;
 
-	rtp_stream_emit_state_changed(impl, false, NULL);
+	/* if timer is running, the state changed event must be emitted by the timer after all packets have been sent */
+	if (!impl->timer_running)
+		rtp_stream_emit_state_changed(impl, false, NULL);
 
 	impl->started = false;
 	return 0;
@@ -171,7 +183,6 @@ static void on_stream_state_changed(void *d, enum pw_stream_state old,
 			break;
 		case PW_STREAM_STATE_ERROR:
 			pw_log_error("stream error: %s", error);
-			rtp_stream_emit_state_changed(impl, false, error);
 			break;
 		case PW_STREAM_STATE_STREAMING:
 			if ((errno = -stream_start(impl)) < 0)
@@ -309,6 +320,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	spa_hook_list_init(&impl->listener_list);
 	impl->stream_events = stream_events;
 	context = pw_core_get_context(core);
+	impl->main_loop = pw_context_get_main_loop(context);
 	data_loop = pw_context_get_data_loop(context);
 	impl->data_loop = pw_data_loop_get_loop(data_loop);
 	impl->timer = pw_loop_add_timer(impl->data_loop, on_flush_timeout, impl);

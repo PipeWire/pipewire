@@ -224,9 +224,15 @@ static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets)
 	avail = spa_ringbuffer_get_read_index(&impl->ring, &timestamp);
 	tosend = impl->psamples;
 	if (avail < tosend)
-		goto done;
-
-	num_packets = SPA_MIN(num_packets, (uint32_t)(avail / tosend));
+		if (impl->started)
+			goto done;
+		else {
+			/* send last packet before emitting state_changed */
+			tosend = avail;
+			num_packets = 1;
+		}
+	else
+		num_packets = SPA_MIN(num_packets, (uint32_t)(avail / tosend));
 
 	stride = impl->stride;
 
@@ -264,8 +270,19 @@ static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets)
 	}
 	spa_ringbuffer_read_update(&impl->ring, timestamp);
 done:
-	if (avail < tosend && impl->timer_running)
-		set_timer(impl, 0, 0);
+	if (impl->timer_running) {
+		if (impl->started) {
+			if (avail < tosend) {
+				set_timer(impl, 0, 0);
+			}
+		} else if (avail <= 0) {
+			bool started = false;
+
+			/* the stream has been stopped and all packets have been sent */
+			set_timer(impl, 0, 0);
+			pw_loop_invoke(impl->main_loop, do_emit_state_changed, SPA_ID_INVALID, &started, sizeof started, false, impl);
+		}
+	}
 }
 
 static void rtp_audio_flush_timeout(struct impl *impl, uint64_t expirations)

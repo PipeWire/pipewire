@@ -434,7 +434,7 @@ static void param_format_changed(struct impl *impl, const struct spa_pod *param,
 
 static void recalculate_buffer(struct impl *impl)
 {
-	if (impl->target_delay > 0.0f) {
+	if (impl->target_delay > 0.0f && impl->channels > 0 && impl->rate > 0) {
 		uint32_t delay = impl->rate * impl->target_delay;
 		void *data;
 

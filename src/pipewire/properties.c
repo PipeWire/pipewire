@@ -9,6 +9,7 @@
 #include <spa/utils/json.h>
 #include <spa/utils/string.h>
 #include <spa/utils/cleanup.h>
+#include <spa/utils/result.h>
 #include <spa/debug/log.h>
 
 #include "pipewire/array.h"
@@ -213,7 +214,7 @@ static int update_string(struct pw_properties *props, const char *str, size_t si
 	char key[1024];
 	struct spa_error_location el;
 	bool err;
-	int cnt = 0;
+	int res, cnt = 0;
 	struct properties changes;
 
 	if (props)
@@ -273,7 +274,11 @@ static int update_string(struct pw_properties *props, const char *str, size_t si
 		struct spa_dict_item *item;
 		if (loc == NULL || !err) {
 			pw_array_for_each(item, &changes.items)
-				cnt += do_replace(props, item->key, true, item->value, true);
+				if ((res = do_replace(props, item->key, true, item->value, true)) < 0)
+					pw_log_warn("error updating property: %s", spa_strerror(res));
+				else
+					cnt += res;
+
 		} else {
 			pw_array_for_each(item, &changes.items)
 				clear_item(item);
@@ -402,12 +407,17 @@ SPA_EXPORT
 int pw_properties_update_keys(struct pw_properties *props,
 		const struct spa_dict *dict, const char * const keys[])
 {
-	int i, changed = 0;
+	int i, res, changed = 0;
 	const char *str;
 
 	for (i = 0; keys[i]; i++) {
-		if ((str = spa_dict_lookup(dict, keys[i])) != NULL)
-			changed += pw_properties_set(props, keys[i], str);
+		if ((str = spa_dict_lookup(dict, keys[i])) != NULL) {
+			if ((res = pw_properties_set(props, keys[i], str)) < 0)
+				pw_log_warn("error updating property %s:%s: %s",
+						keys[i], str, spa_strerror(res));
+			else
+				changed += res;
+		}
 	}
 	return changed;
 }
@@ -427,11 +437,16 @@ int pw_properties_update_ignore(struct pw_properties *props,
 		const struct spa_dict *dict, const char * const ignore[])
 {
 	const struct spa_dict_item *it;
-	int changed = 0;
+	int res, changed = 0;
 
 	spa_dict_for_each(it, dict) {
-		if (ignore == NULL || !has_key(ignore, it->key))
-			changed += pw_properties_set(props, it->key, it->value);
+		if (ignore == NULL || !has_key(ignore, it->key)) {
+			if ((res = pw_properties_set(props, it->key, it->value)) < 0)
+				pw_log_warn("error updating property %s:%s: %s",
+						it->key, it->value, spa_strerror(res));
+			else
+				changed += res;
+		}
 	}
 	return changed;
 }
@@ -466,11 +481,15 @@ int pw_properties_update(struct pw_properties *props,
 		         const struct spa_dict *dict)
 {
 	const struct spa_dict_item *it;
-	int changed = 0;
+	int res, changed = 0;
 
-	spa_dict_for_each(it, dict)
-		changed += pw_properties_set(props, it->key, it->value);
-
+	spa_dict_for_each(it, dict) {
+		if ((res = pw_properties_set(props, it->key, it->value)) < 0)
+			pw_log_warn("error updating property %s:%s: %s",
+					it->key, it->value, spa_strerror(res));
+		else
+			changed += res;
+	}
 	return changed;
 }
 
@@ -487,11 +506,17 @@ int pw_properties_add(struct pw_properties *props,
 		         const struct spa_dict *dict)
 {
 	uint32_t i;
-	int added = 0;
+	int res, added = 0;
 
 	for (i = 0; i < dict->n_items; i++) {
-		if (pw_properties_get(props, dict->items[i].key) == NULL)
-			added += pw_properties_set(props, dict->items[i].key, dict->items[i].value);
+		const struct spa_dict_item *it = &dict->items[i];
+		if (pw_properties_get(props, it->key) == NULL) {
+			if ((res = pw_properties_set(props, it->key, it->value)) < 0)
+				pw_log_warn("error updating property %s:%s: %s",
+						it->key, it->value, spa_strerror(res));
+			else
+				added += res;
+		}
 	}
 	return added;
 }
@@ -511,14 +536,19 @@ int pw_properties_add_keys(struct pw_properties *props,
 		const struct spa_dict *dict, const char * const keys[])
 {
 	uint32_t i;
-	int added = 0;
+	int res, added = 0;
 	const char *str;
 
 	for (i = 0; keys[i]; i++) {
 		if ((str = spa_dict_lookup(dict, keys[i])) == NULL)
 			continue;
-		if (pw_properties_get(props, keys[i]) == NULL)
-			added += pw_properties_set(props, keys[i], str);
+		if (pw_properties_get(props, keys[i]) == NULL) {
+			if ((res = pw_properties_set(props, keys[i], str)) < 0)
+				pw_log_warn("error updating property %s:%s: %s",
+						keys[i], str, spa_strerror(res));
+			else
+				added += res;
+		}
 	}
 	return added;
 }

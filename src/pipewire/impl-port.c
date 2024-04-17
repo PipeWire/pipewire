@@ -440,6 +440,37 @@ static void emit_params(struct pw_impl_port *port, uint32_t *changed_ids, uint32
 	}
 }
 
+static int check_param_io(void *data, int seq, uint32_t id,
+		uint32_t index, uint32_t next, struct spa_pod *param)
+{
+	struct pw_impl_port *port = data;
+	struct pw_impl_node *node = port->node;
+	uint32_t pid, psize;
+
+	if (spa_pod_parse_object(param,
+			SPA_TYPE_OBJECT_ParamIO, NULL,
+			SPA_PARAM_IO_id,   SPA_POD_Id(&pid),
+			SPA_PARAM_IO_size, SPA_POD_Int(&psize)) < 0)
+		return 0;
+
+	pw_log_debug("%p: got io id:%d (%s)", port, pid,
+			spa_debug_type_find_name(spa_type_io, pid));
+
+	switch (pid) {
+	case SPA_IO_Control:
+	case SPA_IO_Notify:
+		pw_control_new(node->context, port, pid, psize, 0);
+		SPA_FLAG_SET(port->flags, PW_IMPL_PORT_FLAG_CONTROL);
+		break;
+	case SPA_IO_Buffers:
+		SPA_FLAG_SET(port->flags, PW_IMPL_PORT_FLAG_BUFFERS);
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
 static int process_latency_param(void *data, int seq,
 		uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
 {
@@ -496,6 +527,20 @@ static int process_tag_param(void *data, int seq,
 		pw_impl_port_emit_tag_changed(this);
 
 	return 0;
+}
+
+static void check_params(struct pw_impl_port *port)
+{
+	uint32_t i;
+	for (i = 0; i < port->info.n_params; i++)
+		port->info.params[i].user = 0;
+
+	port->flags &= ~(PW_IMPL_PORT_FLAG_CONTROL |
+			PW_IMPL_PORT_FLAG_BUFFERS);
+
+	pw_impl_port_for_each_param(port, 0, SPA_PARAM_IO, 0, 0, NULL, check_param_io, port);
+	pw_impl_port_for_each_param(port, 0, SPA_PARAM_Latency, 0, 0, NULL, process_latency_param, port);
+	pw_impl_port_for_each_param(port, 0, SPA_PARAM_Tag, 0, 0, NULL, process_tag_param, port);
 }
 
 static void update_info(struct pw_impl_port *port, const struct spa_port_info *info)
@@ -864,37 +909,6 @@ static int do_add_port(struct spa_loop *loop,
 	return 0;
 }
 
-static int check_param_io(void *data, int seq, uint32_t id,
-		uint32_t index, uint32_t next, struct spa_pod *param)
-{
-	struct pw_impl_port *port = data;
-	struct pw_impl_node *node = port->node;
-	uint32_t pid, psize;
-
-	if (spa_pod_parse_object(param,
-			SPA_TYPE_OBJECT_ParamIO, NULL,
-			SPA_PARAM_IO_id,   SPA_POD_Id(&pid),
-			SPA_PARAM_IO_size, SPA_POD_Int(&psize)) < 0)
-		return 0;
-
-	pw_log_debug("%p: got io id:%d (%s)", port, pid,
-			spa_debug_type_find_name(spa_type_io, pid));
-
-	switch (pid) {
-	case SPA_IO_Control:
-	case SPA_IO_Notify:
-		pw_control_new(node->context, port, pid, psize, 0);
-		SPA_FLAG_SET(port->flags, PW_IMPL_PORT_FLAG_CONTROL);
-		break;
-	case SPA_IO_Buffers:
-		SPA_FLAG_SET(port->flags, PW_IMPL_PORT_FLAG_BUFFERS);
-		break;
-	default:
-		break;
-	}
-	return 0;
-}
-
 static int reply_param(void *data, int seq, uint32_t id,
 		uint32_t index, uint32_t next, struct spa_pod *param)
 {
@@ -1104,9 +1118,7 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 
 	pw_impl_node_emit_port_init(node, port);
 
-	pw_impl_port_for_each_param(port, 0, SPA_PARAM_IO, 0, 0, NULL, check_param_io, port);
-	pw_impl_port_for_each_param(port, 0, SPA_PARAM_Latency, 0, 0, NULL, process_latency_param, port);
-	pw_impl_port_for_each_param(port, 0, SPA_PARAM_Tag, 0, 0, NULL, process_tag_param, port);
+	check_params(port);
 
 	nprops = pw_impl_node_get_properties(node);
 	media_class = pw_properties_get(nprops, PW_KEY_MEDIA_CLASS);

@@ -40,6 +40,7 @@ enum spa_io_type {
 	SPA_IO_Position,	/**< position information in the graph, struct spa_io_position */
 	SPA_IO_RateMatch,	/**< rate matching between nodes, struct spa_io_rate_match */
 	SPA_IO_Memory,		/**< memory pointer, struct spa_io_memory (currently not used in PipeWire) */
+	SPA_IO_AsyncBuffers,	/**< async area to exchange buffers, struct spa_io_async_buffers */
 };
 
 /**
@@ -305,6 +306,12 @@ struct spa_io_rate_match {
 #define SPA_IO_RATE_MATCH_FLAG_ACTIVE	(1 << 0)
 	uint32_t flags;			/**< extra flags */
 	uint32_t padding[7];
+};
+
+/** async buffers */
+struct spa_io_async_buffers {
+	struct spa_io_buffers buffers[2];	/**< async buffers, writers write to current (cycle+1)&1,
+						  *  readers read from (cycle)&1 */
 };
 
 /**

@@ -71,6 +71,7 @@ PWTEST(node_io_abi)
 	pwtest_int_eq(SPA_IO_Position, 7);
 	pwtest_int_eq(SPA_IO_RateMatch, 8);
 	pwtest_int_eq(SPA_IO_Memory, 9);
+	pwtest_int_eq(SPA_IO_AsyncBuffers, 10);
 
 	/* position state */
 	pwtest_int_eq(SPA_IO_POSITION_STATE_STOPPED, 0);

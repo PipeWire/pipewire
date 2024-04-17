@@ -2007,11 +2007,25 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(stream->properties, PW_KEY_NODE_TRIGGER, "true");
 		impl->trigger = true;
 	}
-	if ((pw_properties_get(stream->properties, PW_KEY_MEDIA_CLASS) == NULL)) {
+	if (((str = pw_properties_get(stream->properties, PW_KEY_MEDIA_CLASS)) == NULL)) {
 		const char *media_type = pw_properties_get(stream->properties, PW_KEY_MEDIA_TYPE);
 		pw_properties_setf(stream->properties, PW_KEY_MEDIA_CLASS, "Stream/%s/%s",
 				direction == PW_DIRECTION_INPUT ? "Input" : "Output",
 				media_type ? media_type : get_media_class(impl));
+	} else {
+		enum pw_direction expected;
+
+		if (strstr(str, "Input") || strstr(str, "Sink"))
+			expected = PW_DIRECTION_INPUT;
+		else if (strstr(str, "Output") || strstr(str, "Source"))
+			expected = PW_DIRECTION_OUTPUT;
+		else
+			expected = direction;
+
+		if (direction != expected)
+			pw_log_warn("media.class %s does not expect %s stream direction", str,
+					direction == PW_DIRECTION_INPUT ? "Input" : "Output");
+
 	}
 	if ((str = pw_properties_get(stream->properties, PW_KEY_FORMAT_DSP)) != NULL)
 		pw_properties_set(impl->port_props, PW_KEY_FORMAT_DSP, str);

@@ -70,6 +70,7 @@ struct port {
 	uint32_t id;
 
 	struct spa_node mix_node;
+	struct spa_hook_list mix_hooks;
 
 	struct spa_port_info info;
 	struct pw_properties *properties;
@@ -583,12 +584,11 @@ impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_
 }
 
 static int
-impl_node_port_enum_params(void *object, int seq,
+node_port_enum_params(struct impl *impl, int seq,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t id, uint32_t start, uint32_t num,
-			   const struct spa_pod *filter)
+			   const struct spa_pod *filter, struct spa_hook_list *hooks)
 {
-	struct impl *impl = object;
 	struct port *port;
 	uint8_t buffer[1024];
 	struct spa_pod_dynamic_builder b;
@@ -628,7 +628,7 @@ impl_node_port_enum_params(void *object, int seq,
 		spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
 		if (spa_pod_filter(&b.b, &result.param, param, filter) == 0) {
 			pw_log_debug("%p: %d param %u", impl, seq, result.index);
-			spa_node_emit_result(&impl->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+			spa_node_emit_result(hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 			count++;
 		}
 		spa_pod_dynamic_builder_clean(&b);
@@ -637,6 +637,17 @@ impl_node_port_enum_params(void *object, int seq,
 			break;
 	}
 	return found ? 0 : -ENOENT;
+}
+
+static int
+impl_node_port_enum_params(void *object, int seq,
+			   enum spa_direction direction, uint32_t port_id,
+			   uint32_t id, uint32_t start, uint32_t num,
+			   const struct spa_pod *filter)
+{
+	struct impl *impl = object;
+	return node_port_enum_params(impl, seq, direction, port_id, id,
+			start, num, filter, &impl->hooks);
 }
 
 static int clear_buffers_cb(void *item, void *data)
@@ -1519,18 +1530,27 @@ static const struct pw_impl_port_implementation port_impl = {
 };
 
 static int
+impl_mix_add_listener(void *object, struct spa_hook *listener,
+		const struct spa_node_events *events, void *data)
+{
+	struct port *port = object;
+	spa_hook_list_append(&port->mix_hooks, listener, events, data);
+	return 0;
+}
+
+static int
 impl_mix_port_enum_params(void *object, int seq,
-			   enum spa_direction direction, uint32_t port_id,
-			   uint32_t id, uint32_t start, uint32_t num,
-			   const struct spa_pod *filter)
+		enum spa_direction direction, uint32_t port_id,
+		uint32_t id, uint32_t start, uint32_t num,
+		const struct spa_pod *filter)
 {
 	struct port *port = object;
 
 	if (port->direction != direction)
 		return -ENOTSUP;
 
-	return impl_node_port_enum_params(port->impl, seq, direction, port->id,
-			id, start, num, filter);
+	return node_port_enum_params(port->impl, seq, direction, port->id,
+			id, start, num, filter, &port->mix_hooks);
 }
 
 static int
@@ -1611,6 +1631,7 @@ static int impl_mix_process(void *object)
 
 static const struct spa_node_methods impl_port_mix = {
 	SPA_VERSION_NODE_METHODS,
+	.add_listener = impl_mix_add_listener,
 	.port_enum_params = impl_mix_port_enum_params,
 	.port_set_param = impl_mix_port_set_param,
 	.add_port = impl_mix_add_port,
@@ -1635,6 +1656,7 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 	p->id = port->port_id;
 	p->impl = impl;
 	pw_map_init(&p->mix, 2, 2);
+	spa_hook_list_init(&p->mix_hooks);
 	p->mix_node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,

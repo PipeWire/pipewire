@@ -735,7 +735,7 @@ int pw_impl_port_set_mix(struct pw_impl_port *port, struct spa_node *node, uint3
 	port->mix_flags = flags;
 	port->mix = node;
 
-	if (port->mix) {
+	if (port->mix && !port->destroying) {
 		spa_list_for_each(mix, &port->mix_list, link)
 			spa_node_add_port(port->mix, mix->port.direction, mix->port.port_id, NULL);
 

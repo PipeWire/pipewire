@@ -1887,9 +1887,9 @@ static int node_ready(void *data, int status)
 
 		if (SPA_UNLIKELY((pending = pw_node_activation_state_xchg(state)) > 0)) {
 			pw_log_debug("(%s-%u) graph not finished: state:%p quantum:%"PRIu64
-					" pending %d/%d", node->name, node->info.id,
+					" pending %d/%d cycle:%u", node->name, node->info.id,
 					state, a->position.clock.duration,
-					pending, state->required);
+					pending, state->required, a->position.clock.cycle);
 			process_node(node);
 			check_states(node, nsec);
 			pw_impl_node_rt_emit_incomplete(node);
@@ -1962,8 +1962,8 @@ again:
 
 		update_position(node, all_ready, nsec);
 
-		pw_impl_node_rt_emit_start(node);
 		a->position.clock.cycle++;
+		pw_impl_node_rt_emit_start(node);
 	}
 	/* this should not happen, driver nodes that are not currently driving
 	 * should not emit the ready callback */

@@ -853,11 +853,13 @@ int pw_impl_port_set_mix(struct pw_impl_port *port, struct spa_node *node, uint3
 			     SPA_IO_Buffers,
 			     &port->rt.io, sizeof(port->rt.io));
 
-		if (port->node && port->node->rt.position)
+		if (port->node && port->node->rt.position) {
 			spa_node_set_io(port->mix,
 				     SPA_IO_Position,
 				     port->node->rt.position,
 				     sizeof(struct spa_io_position));
+		}
+		check_params(port);
 	}
 	return 0;
 }
@@ -1530,7 +1532,6 @@ int pw_impl_port_for_each_param(struct pw_impl_port *port,
 {
 	int res;
 	struct impl *impl = SPA_CONTAINER_OF(port, struct impl, this);
-	struct pw_impl_node *node = port->node;
 	struct result_port_params_data user_data = { impl, data, callback, seq, false };
 	struct spa_hook listener;
 	struct spa_param_info *pi;
@@ -1589,11 +1590,10 @@ int pw_impl_port_for_each_param(struct pw_impl_port *port,
 			pw_param_add(&impl->pending_list, seq, param_id, NULL);
 
 		spa_zero(listener);
-		spa_node_add_listener(node->node, &listener, &node_events, &user_data);
-		res = spa_node_port_enum_params(node->node, seq,
-						port->direction, port->port_id,
-						param_id, index, max,
-						filter);
+		spa_node_add_listener(port->mix, &listener, &node_events, &user_data);
+		res = spa_node_port_enum_params(port->mix, seq,
+				port->direction, SPA_ID_INVALID,
+				param_id, index, max, filter);
 		spa_hook_remove(&listener);
 
 		if (user_data.cache) {

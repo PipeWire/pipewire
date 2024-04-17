@@ -1158,7 +1158,9 @@ struct pw_control {
 /** Find a good format between 2 ports */
 int pw_context_find_format(struct pw_context *context,
 			struct pw_impl_port *output,
+			uint32_t output_mix,
 			struct pw_impl_port *input,
+			uint32_t input_mix,
 			struct pw_properties *props,
 			uint32_t n_format_filters,
 			struct spa_pod **format_filters,

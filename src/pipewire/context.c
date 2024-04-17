@@ -670,7 +670,9 @@ SPA_PRINTF_FUNC(7, 8) int pw_context_debug_port_params(struct pw_context *this,
  */
 int pw_context_find_format(struct pw_context *context,
 			struct pw_impl_port *output,
+			uint32_t output_mix,
 			struct pw_impl_port *input,
+			uint32_t input_mix,
 			struct pw_properties *props,
 			uint32_t n_format_filters,
 			struct spa_pod **format_filters,
@@ -684,9 +686,26 @@ int pw_context_find_format(struct pw_context *context,
 	struct spa_pod_builder fb = { 0 };
 	uint8_t fbuf[4096];
 	struct spa_pod *filter;
+	struct spa_node *in_node, *out_node;
+	uint32_t in_port, out_port;
 
 	out_state = output->state;
 	in_state = input->state;
+
+	if (output_mix == SPA_ID_INVALID) {
+		out_node = output->node->node;
+		out_port = output->port_id;
+	} else {
+		out_node = output->mix;
+		out_port = output_mix;
+	}
+	if (input_mix == SPA_ID_INVALID) {
+		in_node = input->node->node;
+		in_port = input->port_id;
+	} else {
+		in_node = input->mix;
+		in_port = input_mix;
+	}
 
 	pw_log_debug("%p: finding best format %d %d", context, out_state, in_state);
 
@@ -701,8 +720,8 @@ int pw_context_find_format(struct pw_context *context,
 	if (in_state == PW_IMPL_PORT_STATE_CONFIGURE && out_state > PW_IMPL_PORT_STATE_CONFIGURE) {
 		/* only input needs format */
 		spa_pod_builder_init(&fb, fbuf, sizeof(fbuf));
-		if ((res = spa_node_port_enum_params_sync(output->node->node,
-						     output->direction, output->port_id,
+		if ((res = spa_node_port_enum_params_sync(out_node,
+						     output->direction, out_port,
 						     SPA_PARAM_Format, &oidx,
 						     NULL, &filter, &fb)) != 1) {
 			if (res < 0)
@@ -714,8 +733,8 @@ int pw_context_find_format(struct pw_context *context,
 		pw_log_debug("%p: Got output format:", context);
 		pw_log_format(SPA_LOG_LEVEL_DEBUG, filter);
 
-		if ((res = spa_node_port_enum_params_sync(input->node->node,
-						     input->direction, input->port_id,
+		if ((res = spa_node_port_enum_params_sync(in_node,
+						     input->direction, in_port,
 						     SPA_PARAM_EnumFormat, &iidx,
 						     filter, format, builder)) <= 0) {
 			if (res == -ENOENT || res == 0) {
@@ -730,8 +749,8 @@ int pw_context_find_format(struct pw_context *context,
 	} else if (out_state >= PW_IMPL_PORT_STATE_CONFIGURE && in_state > PW_IMPL_PORT_STATE_CONFIGURE) {
 		/* only output needs format */
 		spa_pod_builder_init(&fb, fbuf, sizeof(fbuf));
-		if ((res = spa_node_port_enum_params_sync(input->node->node,
-						     input->direction, input->port_id,
+		if ((res = spa_node_port_enum_params_sync(in_node,
+						     input->direction, in_port,
 						     SPA_PARAM_Format, &iidx,
 						     NULL, &filter, &fb)) != 1) {
 			if (res < 0)
@@ -743,8 +762,8 @@ int pw_context_find_format(struct pw_context *context,
 		pw_log_debug("%p: Got input format:", context);
 		pw_log_format(SPA_LOG_LEVEL_DEBUG, filter);
 
-		if ((res = spa_node_port_enum_params_sync(output->node->node,
-						     output->direction, output->port_id,
+		if ((res = spa_node_port_enum_params_sync(out_node,
+						     output->direction, out_port,
 						     SPA_PARAM_EnumFormat, &oidx,
 						     filter, format, builder)) <= 0) {
 			if (res == -ENOENT || res == 0) {
@@ -761,8 +780,8 @@ int pw_context_find_format(struct pw_context *context,
 		/* both ports need a format */
 		pw_log_debug("%p: do enum input %d", context, iidx);
 		spa_pod_builder_init(&fb, fbuf, sizeof(fbuf));
-		if ((res = spa_node_port_enum_params_sync(input->node->node,
-						     input->direction, input->port_id,
+		if ((res = spa_node_port_enum_params_sync(in_node,
+						     input->direction, in_port,
 						     SPA_PARAM_EnumFormat, &iidx,
 						     NULL, &filter, &fb)) != 1) {
 			if (res == -ENOENT) {
@@ -779,8 +798,8 @@ int pw_context_find_format(struct pw_context *context,
 		pw_log_debug("%p: enum output %d with filter: %p", context, oidx, filter);
 		pw_log_format(SPA_LOG_LEVEL_DEBUG, filter);
 
-		if ((res = spa_node_port_enum_params_sync(output->node->node,
-						     output->direction, output->port_id,
+		if ((res = spa_node_port_enum_params_sync(out_node,
+						     output->direction, out_port,
 						     SPA_PARAM_EnumFormat, &oidx,
 						     filter, format, builder)) != 1) {
 			if (res == 0 && filter != NULL) {

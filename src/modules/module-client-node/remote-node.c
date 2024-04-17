@@ -317,9 +317,9 @@ static int add_port_update(struct node_data *data, struct pw_impl_port *port, ui
 			for (idx = 0;;) {
 				spa_pod_dynamic_builder_init(&b, buf, sizeof(buf), 4096);
 
-	                        res = spa_node_port_enum_params_sync(port->node->node,
-							port->direction, port->port_id,
-							id, &idx, NULL, &param, &b.b);
+				res = spa_node_port_enum_params_sync(port->mix,
+						port->direction, SPA_ID_INVALID,
+						id, &idx, NULL, &param, &b.b);
 				if (res == 1) {
 					void *p;
 					p = pw_reallocarray(params, n_params + 1, sizeof(struct spa_pod*));

@@ -686,14 +686,10 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 
 	if ((res = port_set_io(this, this->input, SPA_IO_Buffers, this->io,
 			sizeof(struct spa_io_buffers), &this->rt.in_mix)) < 0)
-		return res;
-
+		goto error;
 	if ((res = port_set_io(this, this->output, SPA_IO_Buffers, this->io,
-			sizeof(struct spa_io_buffers), &this->rt.out_mix)) < 0) {
-		port_set_io(this, this->input, SPA_IO_Buffers, NULL, 0,
-				&this->rt.in_mix);
-		return res;
-	}
+			sizeof(struct spa_io_buffers), &this->rt.out_mix)) < 0)
+		goto error_clean;
 
 	pw_loop_invoke(this->output->node->data_loop,
 	       do_activate_link, SPA_ID_INVALID, NULL, 0, false, this);
@@ -703,7 +699,14 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 	link_update_state(this, PW_LINK_STATE_ACTIVE, 0, NULL);
 
 	return 0;
+
+error_clean:
+	port_set_io(this, this->input, SPA_IO_Buffers, NULL, 0, &this->rt.in_mix);
+error:
+	pw_log_error("%p: can't activate link: %s", this, spa_strerror(res));
+	return res;
 }
+
 static void check_states(void *obj, void *user_data, int res, uint32_t id)
 {
 	struct pw_impl_link *this = obj;

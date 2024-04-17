@@ -1242,11 +1242,11 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 	if (is_control) {
 		pw_log_debug("%p: setting node control", port);
 	} else {
-		pw_log_debug("%p: setting mixer io", port);
-		spa_node_port_set_io(port->mix,
-			     pw_direction_reverse(port->direction), 0,
-			     SPA_IO_Buffers,
-			     &port->rt.io, sizeof(port->rt.io));
+		pw_log_debug("%p: setting mixer position io", port);
+		spa_node_set_io(port->mix,
+			     SPA_IO_Position,
+			     node->rt.position,
+			     sizeof(struct spa_io_position));
 	}
 
 	pw_log_debug("%p: %d add to node %p", port, port_id, node);

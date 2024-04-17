@@ -348,7 +348,7 @@ int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix 
 		spa_node_port_set_io(node->node,
 				     port->direction, port->port_id,
 				     SPA_IO_Buffers,
-				     NULL, sizeof(port->rt.io));
+				     NULL, 0);
 
 		pw_impl_port_set_param(port, SPA_PARAM_Format, 0, NULL);
 	}

@@ -86,7 +86,7 @@ static int emit_info(struct impl *this, bool full)
 	/* encode device number into a json array */
 	spa_strbuf_init(&buf, devices_str, sizeof(devices_str));
 	spa_strbuf_append(&buf, "[ ");
-	spa_strbuf_append(&buf, (char *)this->props.devnum);
+	spa_strbuf_append(&buf, "%s", this->props.devnum);
 	spa_strbuf_append(&buf, " ]");
 	ADD_ITEM(SPA_KEY_DEVICE_DEVIDS, devices_str);
 

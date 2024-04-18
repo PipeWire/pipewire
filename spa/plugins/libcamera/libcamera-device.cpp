@@ -133,10 +133,12 @@ static int emit_info(struct impl *impl, bool full)
 	if (!device_numbers.empty()) {
 		spa_strbuf_init(&buf, devices_str, sizeof(devices_str));
 
-		/* created a space separated string of all the device numbers */
-		for (int64_t device_number : device_numbers)
+		/* encode device numbers into a json array */
+		spa_strbuf_append(&buf, "[ ");
+		for(int64_t device_number : device_numbers)
 			spa_strbuf_append(&buf, "%" PRId64 " ", device_number);
 
+		spa_strbuf_append(&buf, "]");
 		ADD_ITEM(SPA_KEY_DEVICE_DEVIDS, devices_str);
 	}
 

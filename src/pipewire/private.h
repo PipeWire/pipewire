@@ -442,6 +442,8 @@ struct pw_context {
 struct pw_data_loop {
 	struct pw_loop *loop;
 
+	char *name;
+	char *affinity;
 	struct spa_hook_list listener_list;
 
 	struct spa_thread_utils *thread_utils;

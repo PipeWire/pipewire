@@ -108,10 +108,14 @@ static struct pw_data_loop *loop_new(struct pw_loop *loop, const struct spa_dict
 	}
 	this->loop = loop;
 
-	if (props != NULL &&
-	    (str = spa_dict_lookup(props, "loop.cancel")) != NULL)
-		this->cancel = pw_properties_parse_bool(str);
-
+	if (props != NULL) {
+		if ((str = spa_dict_lookup(props, "loop.cancel")) != NULL)
+			this->cancel = pw_properties_parse_bool(str);
+		if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_NAME)) != NULL)
+			this->name = strdup(str);
+		if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_AFFINITY)) != NULL)
+			this->affinity = strdup(str);
+	}
 	spa_hook_list_init(&this->listener_list);
 
 	return this;
@@ -151,6 +155,8 @@ void pw_data_loop_destroy(struct pw_data_loop *loop)
 
 	spa_hook_list_clean(&loop->listener_list);
 
+	free(loop->name);
+	free(loop->affinity);
 	free(loop);
 }
 
@@ -183,17 +189,21 @@ int pw_data_loop_start(struct pw_data_loop *loop)
 	if (!loop->running) {
 		struct spa_thread_utils *utils;
 		struct spa_thread *thr;
+		struct spa_dict_item items[2];
+		uint32_t n_items = 0;
 
 		loop->running = true;
 
 		if ((utils = loop->thread_utils) == NULL)
 			utils = pw_thread_utils_get();
 
-		static const struct spa_dict_item items[] = {
-			{ SPA_KEY_THREAD_NAME, "pw-data-loop" },
-		};
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_THREAD_NAME,
+				loop->name ? loop->name : "pw-data-loop");
+		if (loop->affinity)
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_THREAD_AFFINITY,
+					loop->affinity);
 
-		thr = spa_thread_utils_create(utils, &SPA_DICT_INIT_ARRAY(items), do_loop, loop);
+		thr = spa_thread_utils_create(utils, &SPA_DICT_INIT(items, n_items), do_loop, loop);
 		loop->thread = (pthread_t)thr;
 		if (thr == NULL) {
 			pw_log_error("%p: can't create thread: %m", loop);

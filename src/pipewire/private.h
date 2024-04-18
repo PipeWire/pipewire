@@ -420,7 +420,6 @@ struct pw_context {
 	struct spa_thread_utils *thread_utils;
 	struct pw_loop *main_loop;		/**< main loop for control */
 	struct pw_loop *data_loop;		/**< data loop for data passing */
-	struct spa_system *data_system;		/**< data system for data passing */
 	struct pw_work_queue *work_queue;	/**< work queue */
 
 	struct spa_support support[16];	/**< support for spa plugins */

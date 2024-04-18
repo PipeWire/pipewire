@@ -303,7 +303,6 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	}
 
 	this->data_loop = pw_data_loop_get_loop(impl->data_loop_impl);
-	this->data_system = this->data_loop->system;
 	this->main_loop = main_loop;
 
 	this->work_queue = pw_work_queue_new(this->main_loop);
@@ -317,7 +316,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_System, this->main_loop->system);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Loop, this->main_loop->loop);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, this->main_loop->utils);
-	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataSystem, this->data_system);
+	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataSystem, this->data_loop->system);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, this->data_loop->loop);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_PluginLoader, &impl->plugin_loader);
 

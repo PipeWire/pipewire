@@ -62,7 +62,8 @@ static int emit_info(struct impl *this, bool full)
 	uint32_t n_items = 0;
 	struct spa_device_info info;
 	struct spa_param_info params[2];
-	char path[128], version[16], capabilities[16], device_caps[16];
+	char path[128], version[16], capabilities[16], device_caps[16], devices_str[16];
+	struct spa_strbuf buf;
 
 	if ((res = spa_v4l2_open(&this->dev, this->props.device)) < 0)
 		return res;
@@ -81,7 +82,14 @@ static int emit_info(struct impl *this, bool full)
 	if (this->props.vendor_id[0])
 		ADD_ITEM(SPA_KEY_DEVICE_VENDOR_ID, this->props.vendor_id);
 	ADD_ITEM(SPA_KEY_API_V4L2_PATH, (char *)this->props.device);
-	ADD_ITEM(SPA_KEY_DEVICE_DEVIDS, (char *)this->props.devnum);
+
+	/* encode device number into a json array */
+	spa_strbuf_init(&buf, devices_str, sizeof(devices_str));
+	spa_strbuf_append(&buf, "[ ");
+	spa_strbuf_append(&buf, (char *)this->props.devnum);
+	spa_strbuf_append(&buf, " ]");
+	ADD_ITEM(SPA_KEY_DEVICE_DEVIDS, devices_str);
+
 	ADD_ITEM(SPA_KEY_API_V4L2_CAP_DRIVER, (char *)this->dev.cap.driver);
 	ADD_ITEM(SPA_KEY_API_V4L2_CAP_CARD, (char *)this->dev.cap.card);
 	ADD_ITEM(SPA_KEY_API_V4L2_CAP_BUS_INFO, (char *)this->dev.cap.bus_info);

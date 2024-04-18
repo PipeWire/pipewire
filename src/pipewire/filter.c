@@ -144,7 +144,6 @@ struct filter {
 	unsigned int drained:1;
 	unsigned int allow_mlock:1;
 	unsigned int warn_mlock:1;
-	unsigned int process_rt:1;
 	unsigned int trigger:1;
 	int in_emit_param_changed;
 };
@@ -970,28 +969,12 @@ static int impl_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffe
 	return 0;
 }
 
-static int
-do_call_process(struct spa_loop *loop,
-                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct filter *impl = user_data;
-	struct pw_filter *filter = &impl->this;
-	pw_log_trace("%p: do process", filter);
-	pw_filter_emit_process(filter, filter->node->rt.position);
-	return 0;
-}
-
 static void call_process(struct filter *impl)
 {
 	pw_log_trace_fp("%p: call process", impl);
-	if (SPA_FLAG_IS_SET(impl->flags, PW_FILTER_FLAG_RT_PROCESS)) {
-		if (impl->rt_callbacks.funcs)
-			spa_callbacks_call_fast(&impl->rt_callbacks, struct pw_filter_events,
-					process, 0, impl->this.node->rt.position);
-	} else {
-		pw_loop_invoke(impl->main_loop,
-			do_call_process, 1, NULL, 0, false, impl);
-	}
+	if (impl->rt_callbacks.funcs)
+		spa_callbacks_call_fast(&impl->rt_callbacks, struct pw_filter_events,
+				process, 0, impl->this.node->rt.position);
 }
 
 static int
@@ -1577,8 +1560,6 @@ pw_filter_connect(struct pw_filter *filter,
 	pw_log_debug("%p: connect", filter);
 	impl->flags = flags;
 
-	impl->process_rt = SPA_FLAG_IS_SET(flags, PW_FILTER_FLAG_RT_PROCESS);
-
 	impl->warn_mlock = pw_properties_get_bool(filter->properties, "mem.warn-mlock", impl->warn_mlock);
 
 	impl->impl_node.iface = SPA_INTERFACE_INIT(
@@ -1595,7 +1576,7 @@ pw_filter_connect(struct pw_filter *filter,
 	impl->info.max_input_ports = UINT32_MAX;
 	impl->info.max_output_ports = UINT32_MAX;
 	impl->info.flags = SPA_NODE_FLAG_RT;
-	if (!impl->process_rt || SPA_FLAG_IS_SET(flags, PW_FILTER_FLAG_ASYNC))
+	if (SPA_FLAG_IS_SET(flags, PW_FILTER_FLAG_ASYNC))
 		impl->info.flags |= SPA_NODE_FLAG_ASYNC;
 	impl->info.props = &filter->properties->dict;
 	impl->params[NODE_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, 0);
@@ -1615,6 +1596,10 @@ pw_filter_connect(struct pw_filter *filter,
 	impl->draining = false;
 	filter_set_state(filter, PW_FILTER_STATE_CONNECTING, 0, NULL);
 
+	if (!SPA_FLAG_IS_SET(flags, PW_FILTER_FLAG_RT_PROCESS)) {
+		pw_properties_set(filter->properties, PW_KEY_NODE_DATA_LOOP, "main-loop.*");
+		pw_properties_set(filter->properties, PW_KEY_NODE_ASYNC, "true");
+	}
 	if (flags & PW_FILTER_FLAG_DRIVER)
 		pw_properties_set(filter->properties, PW_KEY_NODE_DRIVER, "true");
 	if (flags & PW_FILTER_FLAG_TRIGGER) {

@@ -1180,6 +1180,7 @@ int pw_proxy_init(struct pw_proxy *proxy, struct pw_core *core, const char *type
 void pw_proxy_remove(struct pw_proxy *proxy);
 
 int pw_context_recalc_graph(struct pw_context *context, const char *reason);
+struct pw_loop *pw_context_find_loop(struct pw_context *context, const char *name);
 
 void pw_impl_port_update_info(struct pw_impl_port *port, const struct spa_port_info *info);
 

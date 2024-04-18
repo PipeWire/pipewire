@@ -1452,6 +1452,7 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 {
 	struct impl *impl;
 	struct pw_impl_node *this;
+	const char *str;
 	size_t size;
 	int res;
 
@@ -1467,12 +1468,7 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	this = &impl->this;
 	this->context = context;
 	this->name = strdup("node");
-
-	this->data_loop = pw_context_get_data_loop(context)->loop;
-	this->data_system = this->data_loop->system;
-
-	if (user_data_size > 0)
-                this->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
+	this->source.fd = -1;
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
@@ -1480,6 +1476,21 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 		res = -errno;
 		goto error_clean;
 	}
+
+	if ((str = pw_properties_get(properties, PW_KEY_NODE_DATA_LOOP)) == NULL)
+		str = "data-loop.*";
+
+	this->data_loop = pw_context_find_loop(context, str);
+	if (this->data_loop == NULL) {
+		pw_log_error("unknown data-loop name '%s'", str);
+		res = -ENOENT;
+		goto error_clean;
+	}
+
+	this->data_system = this->data_loop->system;
+
+	if (user_data_size > 0)
+                this->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
 
 	this->properties = properties;
 
@@ -1554,6 +1565,7 @@ error_clean:
 		pw_memblock_unref(this->activation);
 	if (this->source.fd != -1)
 		spa_system_close(this->data_system, this->source.fd);
+	free(this->name);
 	free(impl);
 error_exit:
 	pw_properties_free(properties);

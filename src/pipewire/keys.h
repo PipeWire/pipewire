@@ -183,6 +183,7 @@ extern "C" {
 #define PW_KEY_NODE_TRANSPORT_SYNC	"node.transport.sync"	/**< the node handles transport sync */
 #define PW_KEY_NODE_DRIVER		"node.driver"		/**< node can drive the graph */
 #define PW_KEY_NODE_ASYNC		"node.async"		/**< the node wants async scheduling */
+#define PW_KEY_NODE_DATA_LOOP		"node.data-loop"	/**< the data loops to run in */
 #define PW_KEY_NODE_STREAM		"node.stream"		/**< node is a stream, the server side should
 								  *  add a converter */
 #define PW_KEY_NODE_VIRTUAL		"node.virtual"		/**< the node is some sort of virtual

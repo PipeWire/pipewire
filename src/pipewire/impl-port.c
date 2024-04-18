@@ -279,9 +279,9 @@ static int tee_process(void *object)
 	struct spa_io_buffers *io = &this->rt.io;
 	uint32_t cycle = (this->node->rt.position->clock.cycle + 1) & 1;
 
-	pw_log_trace_fp("%p: tee input %d %d", this, io->status, io->buffer_id);
+	pw_log_trace_fp("%p: tee input status:%d id:%d cycle:%d", this, io->status, io->buffer_id, cycle);
 	spa_list_for_each(mix, &impl->mix_list, rt_link) {
-		pw_log_trace_fp("%p: port %d %p->%p %d", this,
+		pw_log_trace_fp("%p: port %d %p->%p id:%d", this,
 				mix->port.port_id, io, mix->io[cycle], mix->io[cycle]->buffer_id);
 		*mix->io[cycle] = *io;
 	}
@@ -321,9 +321,9 @@ static int schedule_mix_input(void *object)
 		return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
 
 	spa_list_for_each(mix, &impl->mix_list, rt_link) {
-		pw_log_trace_fp("%p: mix input %d %p->%p %d %d", this,
+		pw_log_trace_fp("%p: mix input %d %p->%p status:%d id:%d cycle:%d", this,
 				mix->port.port_id, mix->io[cycle], io,
-				mix->io[cycle]->status, mix->io[cycle]->buffer_id);
+				mix->io[cycle]->status, mix->io[cycle]->buffer_id, cycle);
 		*io = *mix->io[cycle];
 		mix->io[cycle]->status = SPA_STATUS_NEED_DATA;
 		break;

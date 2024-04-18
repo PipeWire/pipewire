@@ -147,7 +147,6 @@ struct stream {
 	unsigned int drained:1;
 	unsigned int allow_mlock:1;
 	unsigned int warn_mlock:1;
-	unsigned int process_rt:1;
 	unsigned int using_trigger:1;
 	unsigned int trigger:1;
 	unsigned int early_process:1;
@@ -432,31 +431,14 @@ static inline uint32_t update_requested(struct stream *impl)
 	return buffer->this.requested > 0 ? 1 : 0;
 }
 
-static int
-do_call_process(struct spa_loop *loop,
-                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct stream *impl = user_data;
-	struct pw_stream *stream = &impl->this;
-	pw_log_trace_fp("%p: do process", stream);
-	if (!impl->disconnecting)
-		pw_stream_emit_process(stream);
-	return 0;
-}
-
 static inline void call_process(struct stream *impl)
 {
-	pw_log_trace_fp("%p: call process rt:%u buffers:%d", impl, impl->process_rt, impl->n_buffers);
+	pw_log_trace_fp("%p: call process buffers:%d", impl, impl->n_buffers);
 	if (impl->n_buffers == 0 ||
 	    (impl->direction == SPA_DIRECTION_OUTPUT && update_requested(impl) <= 0))
 		return;
-	if (impl->process_rt) {
-		if (impl->rt_callbacks.funcs)
-			spa_callbacks_call_fast(&impl->rt_callbacks, struct pw_stream_events, process, 0);
-	} else {
-		pw_loop_invoke(impl->main_loop,
-			do_call_process, 1, NULL, 0, false, impl);
-	}
+	if (impl->rt_callbacks.funcs)
+		spa_callbacks_call_fast(&impl->rt_callbacks, struct pw_stream_events, process, 0);
 }
 
 static int
@@ -688,11 +670,6 @@ static int impl_send_command(void *object, const struct spa_command *command)
 			if (impl->direction == SPA_DIRECTION_INPUT) {
 				if (impl->io != NULL)
 					impl->io->status = SPA_STATUS_NEED_DATA;
-			}
-			else {
-				copy_position(impl, impl->queued.incount);
-				if (!impl->process_rt && !stream->node->driving)
-					call_process(impl);
 			}
 			stream_set_state(stream, PW_STREAM_STATE_STREAMING, 0, NULL);
 		}
@@ -1089,16 +1066,6 @@ again:
 			impl->drained = false;
 			io->buffer_id = b->id;
 			res = io->status = SPA_STATUS_HAVE_DATA;
-			/* we have a buffer, if we are not rt and don't follow
-			 * any rate matching and there are no more
-			 * buffers queued and there is a buffer to dequeue, ask for
-			 * more buffers so that we have one in the next round.
-			 * If we are using rate matching we need to wait until the
-			 * rate matching node (audioconvert) has been scheduled to
-			 * update the values. */
-			ask_more = !impl->process_rt && impl->rate_match == NULL &&
-				(impl->early_process || queue_is_empty(impl, &impl->queued)) &&
-				!queue_is_empty(impl, &impl->dequeued);
 			pw_log_trace_fp("%p: pop %d %p ask_more:%u %p", stream, b->id, io,
 					ask_more, impl->rate_match);
 		} else if (impl->draining || impl->drained) {
@@ -1113,25 +1080,16 @@ again:
 			pw_log_trace_fp("%p: no more buffers %p", stream, io);
 			ask_more = true;
 		}
-	} else {
-		ask_more = !impl->process_rt &&
-			(impl->early_process || queue_is_empty(impl, &impl->queued)) &&
-			!queue_is_empty(impl, &impl->dequeued);
 	}
 
 	copy_position(impl, impl->queued.outcount);
 
-	if (!impl->draining && !stream->node->driving) {
+	if (!impl->draining && !stream->node->driving && ask_more) {
 		/* we're not draining, not a driver check if we need to get
 		 * more buffers */
-		if (ask_more) {
-			call_process(impl);
-			/* realtime, we can try again now if there is something.
-			 * non-realtime, we will have to try in the next round */
-			if (impl->process_rt &&
-			    (impl->draining || !queue_is_empty(impl, &impl->queued)))
-				goto again;
-		}
+		call_process(impl);
+		if (impl->draining || !queue_is_empty(impl, &impl->queued))
+			goto again;
 	}
 
 	pw_log_trace_fp("%p: res %d", stream, res);
@@ -1911,7 +1869,6 @@ pw_stream_connect(struct pw_stream *stream,
 	else
 		impl->node_methods.process = impl_node_process_output;
 
-	impl->process_rt = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_RT_PROCESS);
 	impl->trigger_done_rt = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_RT_TRIGGER_DONE);
 	impl->early_process = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_EARLY_PROCESS);
 
@@ -1936,9 +1893,7 @@ pw_stream_connect(struct pw_stream *stream,
 	/* we're always RT safe, if the stream was marked RT_PROCESS,
 	 * the callback must be RT safe */
 	impl->info.flags = SPA_NODE_FLAG_RT;
-	/* if the callback was not marked RT_PROCESS, we will offload
-	 * the process callback in the main thread and we are ASYNC */
-	if (!impl->process_rt || SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_ASYNC))
+	if (SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_ASYNC))
 		impl->info.flags |= SPA_NODE_FLAG_ASYNC;
 	impl->info.props = &stream->properties->dict;
 	impl->params[NODE_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, 0);
@@ -2001,6 +1956,10 @@ pw_stream_connect(struct pw_stream *stream,
 		if (pw_properties_get(stream->properties, PW_KEY_NODE_DONT_RECONNECT) == NULL)
 			pw_properties_set(stream->properties, PW_KEY_NODE_DONT_RECONNECT, "true");
 
+	if (!SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_RT_PROCESS)) {
+		pw_properties_set(stream->properties, PW_KEY_NODE_DATA_LOOP, "main-loop.*");
+		pw_properties_set(stream->properties, PW_KEY_NODE_ASYNC, "true");
+	}
 	if (flags & PW_STREAM_FLAG_DRIVER)
 		pw_properties_set(stream->properties, PW_KEY_NODE_DRIVER, "true");
 	if (flags & PW_STREAM_FLAG_TRIGGER) {
@@ -2541,8 +2500,7 @@ do_trigger_driver(struct spa_loop *loop,
 	struct stream *impl = user_data;
 	int res;
 	if (impl->direction == SPA_DIRECTION_OUTPUT) {
-		if (impl->process_rt)
-			call_process(impl);
+		call_process(impl);
 		res = impl->node_methods.process(impl);
 	} else {
 		res = SPA_STATUS_NEED_DATA;
@@ -2578,8 +2536,6 @@ int pw_stream_trigger_process(struct pw_stream *stream)
 	if (impl->trigger) {
 		pw_impl_node_trigger(stream->node);
 	} else if (stream->node->driving) {
-		if (!impl->process_rt)
-			call_process(impl);
 		res = pw_loop_invoke(impl->data_loop,
 			do_trigger_driver, 1, NULL, 0, false, impl);
 	} else {

@@ -1664,11 +1664,7 @@ static int impl_node_process(void *object)
 				break;
 
 			done = (status & (SPA_STATUS_HAVE_DATA | SPA_STATUS_DRAINED));
-
-			/* when not async, we can return the data when we are done.
-			 * In async mode we might first need to wake up the follower
-			 * to asynchronously provide more data for the next round. */
-			if (!this->async && done)
+			if (done)
 				break;
 
 			if (status & SPA_STATUS_NEED_DATA) {
@@ -1684,10 +1680,6 @@ static int impl_node_process(void *object)
 				if ((fstatus & (SPA_STATUS_HAVE_DATA | SPA_STATUS_DRAINED)) == 0)
 					break;
 			}
-			/* converter produced something or is drained and we
-			 * scheduled the follower above, we can stop now*/
-			if (done)
-				break;
 		}
 		if (!done)
 			spa_node_call_xrun(&this->callbacks, 0, 0, NULL);

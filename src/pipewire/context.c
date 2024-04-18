@@ -511,6 +511,17 @@ struct pw_data_loop *pw_context_get_data_loop(struct pw_context *context)
 }
 
 SPA_EXPORT
+struct pw_loop *pw_context_find_loop(struct pw_context *context, const char *name)
+{
+	if (spa_strstartswith(name, "main-loop."))
+		return context->main_loop;
+	else if (spa_strstartswith(name, "data-loop."))
+		return context->data_loop;
+	else
+		return NULL;
+}
+
+SPA_EXPORT
 struct pw_work_queue *pw_context_get_work_queue(struct pw_context *context)
 {
 	return context->work_queue;

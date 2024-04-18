@@ -10,6 +10,7 @@
 #include <spa/utils/dict.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
+#include <spa/utils/json.h>
 
 #include <pipewire/log.h>
 #include <pipewire/private.h>
@@ -37,6 +38,22 @@ void *pw_thread_fill_attr(const struct spa_dict *props, void *_attr)
 	pthread_attr_init(attr);
 	if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_STACK_SIZE)) != NULL)
 		CHECK(pthread_attr_setstacksize(attr, atoi(str)), error);
+	if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_AFFINITY)) != NULL) {
+		struct spa_json it[2];
+		int v;
+		cpu_set_t set;
+
+		CPU_ZERO(&set);
+		spa_json_init(&it[0], str, strlen(str));
+		if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+			spa_json_init(&it[1], str, strlen(str));
+
+		while (spa_json_get_int(&it[1], &v) > 0) {
+			if (v >= 0 && v < CPU_SETSIZE)
+				CPU_SET(v, &set);
+	        }
+		CHECK(pthread_attr_setaffinity_np(attr, sizeof(set), &set), error);
+	}
 	return attr;
 error:
 	errno = -res;

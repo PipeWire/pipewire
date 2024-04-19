@@ -368,6 +368,17 @@ static int port_enum_formats(void *object, struct port *port,
 	return 1;
 }
 
+static void peer_result(void *data, int seq, int res, uint32_t type, const void *result)
+{
+	struct impl *this = data;
+	spa_node_emit_result(&this->hooks, seq, res, type, result);
+}
+
+static const struct spa_node_events peer_node_events = {
+	SPA_VERSION_NODE_EVENTS,
+	.result = peer_result,
+};
+
 static int
 impl_node_port_enum_params(void *object, int seq,
 			enum spa_direction direction, uint32_t port_id,
@@ -457,6 +468,12 @@ impl_node_port_enum_params(void *object, int seq,
 			return 0;
 		}
 		break;
+	case SPA_PARAM_Latency:
+	case SPA_PARAM_Tag:
+		res = -ENOTSUP;
+		spa_node_emit_peer_enum_params(&this->hooks, seq, direction, port_id,
+				id, start, num, filter, &peer_node_events, this, &res);
+		return res;
 	default:
 		return -ENOENT;
 	}

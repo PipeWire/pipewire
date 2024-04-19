@@ -262,6 +262,16 @@ When the node is not linked anymore, it becomes idle. Normally idle nodes keep p
 When the session manager does not suspend nodes (or when there is no session manager), the node.suspend-on-idle property can be used instead.
 \endparblock
 
+@PAR@ client.conf  node.loop.name = null
+@PAR@ client.conf  node.loop.class = data.rt
+\parblock
+Add the node to a specific loop name or loop class. By default the node is added to the
+data.rt loop class. You can make more specific data loops and then assign the nodes to those.
+
+Other well known names are main-loop.0 and the main node.loop.class which runs the node data processing
+in the main loop.
+\endparblock
+
 ## Session Manager Properties  @IDX@ client.conf
 
 @PAR@ client.conf  node.autoconnect = true

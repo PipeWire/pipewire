@@ -4,12 +4,14 @@
 
 #include <pthread.h>
 #include <errno.h>
+#include <limits.h>
 #include <sys/resource.h>
 
 #include "pipewire/log.h"
 #include "pipewire/data-loop.h"
 #include "pipewire/private.h"
 #include "pipewire/thread.h"
+#include "pipewire/utils.h"
 
 PW_LOG_TOPIC_EXTERN(log_data_loop);
 #define PW_LOG_TOPIC_DEFAULT log_data_loop
@@ -86,7 +88,7 @@ static int do_stop(struct spa_loop *loop, bool async, uint32_t seq,
 static struct pw_data_loop *loop_new(struct pw_loop *loop, const struct spa_dict *props)
 {
 	struct pw_data_loop *this;
-	const char *str;
+	const char *str, *name = NULL, *class = NULL;
 	int res;
 
 	this = calloc(1, sizeof(struct pw_data_loop));
@@ -107,15 +109,28 @@ static struct pw_data_loop *loop_new(struct pw_loop *loop, const struct spa_dict
 		goto error_free;
 	}
 	this->loop = loop;
+	this->rt_prio = -1;
 
 	if (props != NULL) {
 		if ((str = spa_dict_lookup(props, "loop.cancel")) != NULL)
 			this->cancel = pw_properties_parse_bool(str);
+		if ((str = spa_dict_lookup(props, "loop.class")) != NULL)
+			class = str;
+		if ((str = spa_dict_lookup(props, "loop.rt-prio")) != NULL)
+			this->rt_prio = atoi(str);
 		if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_NAME)) != NULL)
-			this->name = strdup(str);
+			name = str;
 		if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_AFFINITY)) != NULL)
 			this->affinity = strdup(str);
 	}
+	if (class == NULL)
+		class = this->rt_prio != 0 ? "data.rt" : "data";
+	if (name == NULL)
+		name = "pw-data-loop";
+
+	this->class = strdup(class);
+	this->classes = pw_strv_parse(class, strlen(class), INT_MAX, NULL);
+	this->name = strdup(name);
 	spa_hook_list_init(&this->listener_list);
 
 	return this;
@@ -157,6 +172,8 @@ void pw_data_loop_destroy(struct pw_data_loop *loop)
 
 	free(loop->name);
 	free(loop->affinity);
+	free(loop->class);
+	pw_free_strv(loop->classes);
 	free(loop);
 }
 
@@ -197,8 +214,9 @@ int pw_data_loop_start(struct pw_data_loop *loop)
 		if ((utils = loop->thread_utils) == NULL)
 			utils = pw_thread_utils_get();
 
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_THREAD_NAME,
-				loop->name ? loop->name : "pw-data-loop");
+		if (loop->name)
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_THREAD_NAME,
+					loop->name);
 		if (loop->affinity)
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_THREAD_AFFINITY,
 					loop->affinity);
@@ -210,7 +228,8 @@ int pw_data_loop_start(struct pw_data_loop *loop)
 			loop->running = false;
 			return -errno;
 		}
-		spa_thread_utils_acquire_rt(utils, thr, -1);
+		if (loop->rt_prio != 0)
+			spa_thread_utils_acquire_rt(utils, thr, loop->rt_prio);
 	}
 	return 0;
 }

@@ -419,7 +419,6 @@ struct pw_context {
 
 	struct spa_thread_utils *thread_utils;
 	struct pw_loop *main_loop;		/**< main loop for control */
-	struct pw_loop *data_loop;		/**< data loop for data passing */
 	struct pw_work_queue *work_queue;	/**< work queue */
 
 	struct spa_support support[16];	/**< support for spa plugins */
@@ -444,6 +443,9 @@ struct pw_data_loop {
 
 	char *name;
 	char *affinity;
+	char *class;
+	char **classes;
+	int rt_prio;
 	struct spa_hook_list listener_list;
 
 	struct spa_thread_utils *thread_utils;
@@ -1181,7 +1183,9 @@ int pw_proxy_init(struct pw_proxy *proxy, struct pw_core *core, const char *type
 void pw_proxy_remove(struct pw_proxy *proxy);
 
 int pw_context_recalc_graph(struct pw_context *context, const char *reason);
-struct pw_loop *pw_context_find_loop(struct pw_context *context, const char *name);
+
+struct pw_loop *pw_context_acquire_loop(struct pw_context *context, const struct spa_dict *props);
+void pw_context_release_loop(struct pw_context *context, struct pw_loop *loop);
 
 void pw_impl_port_update_info(struct pw_impl_port *port, const struct spa_port_info *info);
 

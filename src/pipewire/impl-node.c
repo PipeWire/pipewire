@@ -1452,7 +1452,6 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 {
 	struct impl *impl;
 	struct pw_impl_node *this;
-	const char *str;
 	size_t size;
 	int res;
 
@@ -1477,12 +1476,9 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 		goto error_clean;
 	}
 
-	if ((str = pw_properties_get(properties, PW_KEY_NODE_DATA_LOOP)) == NULL)
-		str = "data-loop.*";
-
-	this->data_loop = pw_context_find_loop(context, str);
+	this->data_loop = pw_context_acquire_loop(context, &properties->dict);
 	if (this->data_loop == NULL) {
-		pw_log_error("unknown data-loop name '%s'", str);
+		pw_log_error("can't find data-loop");
 		res = -ENOENT;
 		goto error_clean;
 	}
@@ -1565,6 +1561,8 @@ error_clean:
 		pw_memblock_unref(this->activation);
 	if (this->source.fd != -1)
 		spa_system_close(this->data_system, this->source.fd);
+	if (this->data_loop)
+		pw_context_release_loop(context, this->data_loop);
 	free(this->name);
 	free(impl);
 error_exit:
@@ -2262,6 +2260,10 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	clear_info(node);
 
 	spa_system_close(node->data_system, node->source.fd);
+
+	if (node->data_loop)
+		pw_context_release_loop(context, node->data_loop);
+
 	free(impl->group);
 	free(impl->link_group);
 	free(impl->sync_group);

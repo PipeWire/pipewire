@@ -22,6 +22,20 @@ context.properties = {
     #log.level                             = 2
     #cpu.zero.denormals                    = false
 
+    #loop.rt-prio = -1            # -1 = use module-rt prio, 0 disable rt
+    #loop.class = data.rt
+    #thread.affinity = [ 0 1 ]    # optional array of CPUs
+    #context.num-data-loops = 1   # -1 = num-cpus, 0 = no data loops
+    #
+    #context.data-loops = [
+    #    {   loop.rt-prio = -1
+    #        loop.class = [ data.rt audio.rt ]
+    #        #library.name.system = support/libspa-support
+    #        thread.name = data-loop.0
+    #        #thread.affinity = [ 0 1 ]    # optional array of CPUs
+    #    }
+    #]
+
     core.daemon = true              # listening for socket connections
     core.name   = pipewire-0        # core name and socket name
 

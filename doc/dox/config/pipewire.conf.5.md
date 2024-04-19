@@ -153,6 +153,41 @@ The name of the shared library to use for the system functions for the data proc
 thread. This can typically be changed if the data thread is running on a realtime
 kernel such as EVL.
 
+@PAR@ pipewire.conf  loop.rt-prio = -1
+The priority of the data loops. The data loops are used to schedule the nodes in the graph.
+A value of -1 uses the default realtime priority from the module-rt. A value of 0 disables
+realtime scheduling for the data loops.
+
+@PAR@ pipewire.conf  loop.class = [ data.rt .. ]
+An array of classes of the data loops. Normally nodes are assigned to a loop by name or by class.
+Nodes are by default assigned to the data.rt class so it is good to have a data loop
+of this class as well.
+
+@PAR@ pipewire.conf  context.num-data-loops = 1
+The number of data loops to create. By default 1 data-loop is created and all nodes are
+scheduled in this thread. A value of 0 disables the real-time data loops and schedules
+all nodes in the main thread. A value of -1 spawns as many data threads as there are
+cpu cores.
+
+@PAR@ pipewire.conf  context.data-loops = [ ... ]
+This controls the data loops that will be created for the context. Is is an array of
+data loop specifications, one entry for each data loop to start:
+```json
+context.data-loops = [
+    {
+         #library.name.system = support/libspa-support
+         loop.rt-prio = -1
+         loop.class = [ data.rt .. ]
+         thread.name = data-loop.0
+         thread.affinity = [ 0 1 ]
+    }
+    ...
+]
+```
+A specific priority, classes and name can be given with loop.rt-prio, loop.class and
+thread.name respectively. It is also possible to pin the data loop to specific CPU
+cores with the thread.affinity property.
+
 @PAR@ pipewire.conf  core.daemon = false
 Makes the PipeWire process, started with this config, a daemon
 process. This means that it will manage and schedule a graph for

@@ -94,7 +94,6 @@ struct impl {
 	struct pw_properties *properties;
 
 	struct pw_loop *main_loop;
-	struct pw_loop *data_loop;
 
 	struct spa_hook context_listener;
 	struct spa_hook module_listener;
@@ -461,7 +460,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->context = context;
 	impl->properties = props;
 	impl->main_loop = pw_context_get_main_loop(impl->context);
-	impl->data_loop = pw_data_loop_get_loop(pw_context_get_data_loop(impl->context));
 
 	impl->global = pw_global_new(context,
 			PW_TYPE_INTERFACE_Profiler,

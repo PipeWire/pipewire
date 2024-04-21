@@ -516,7 +516,7 @@ endif
 
 generate_docs = get_option('man').enabled() or get_option('docs').enabled()
 if get_option('man').allowed() or get_option('docs').allowed()
-  doxygen = find_program('doxygen', required : generate_docs)
+  doxygen = find_program('doxygen', required : generate_docs, version : '>=1.9')
   pymod = import('python')
   python = pymod.find_installation('python3', required: generate_docs)
   generate_docs = doxygen.found() and python.found()

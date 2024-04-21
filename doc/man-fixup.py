@@ -28,6 +28,9 @@ def main():
     if not fn.exists():
         page2 = page.replace("page_man_", "md_doc_dox_programs_").replace("-", "_")
         fn = mandir / f"{page2}.3"
+        if not fn.exists():
+            page2 = page.replace("page_man_", "md_doc_dox_config_").replace("-", "_")
+            fn = mandir / f"{page2}.3"
     else:
         page2 = None
 

@@ -1957,6 +1957,13 @@ uint64_t pw_filter_get_nsec(struct pw_filter *filter)
 }
 
 SPA_EXPORT
+struct pw_loop *pw_filter_get_data_loop(struct pw_filter *filter)
+{
+	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
+	return impl->data_loop;
+}
+
+SPA_EXPORT
 struct pw_buffer *pw_filter_dequeue_buffer(void *port_data)
 {
 	struct port *p = SPA_CONTAINER_OF(port_data, struct port, user_data);

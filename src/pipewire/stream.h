@@ -447,7 +447,7 @@ pw_stream_new(struct pw_core *core,		/**< a \ref pw_core */
 	      struct pw_properties *props	/**< stream properties, ownership is taken */);
 
 struct pw_stream *
-pw_stream_new_simple(struct pw_loop *loop,	/**< a \ref pw_loop to use */
+pw_stream_new_simple(struct pw_loop *loop,	/**< a \ref pw_loop to use as the main loop */
 		     const char *name,		/**< a stream media name */
 		     struct pw_properties *props,/**< stream properties, ownership is taken */
 		     const struct pw_stream_events *events,	/**< stream events */
@@ -535,6 +535,10 @@ int pw_stream_get_time_n(struct pw_stream *stream, struct pw_time *time, size_t 
 /** Get the current time in nanoseconds. This value can be compared with
  * the pw_time_now value. Since 1.1.0 */
 uint64_t pw_stream_get_nsec(struct pw_stream *stream);
+
+/** Get the data loop that is doing the processing of this stream. This loop
+ * is assigned after pw_stream_connect().  * Since 1.1.0 */
+struct pw_loop *pw_stream_get_data_loop(struct pw_stream *stream);
 
 /** Query the time on the stream, deprecated since 0.3.50,
  * use pw_stream_get_time_n() to get the fields added since 0.3.50. */

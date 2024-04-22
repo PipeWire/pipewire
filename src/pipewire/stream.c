@@ -2369,6 +2369,13 @@ uint64_t pw_stream_get_nsec(struct pw_stream *stream)
 	return SPA_TIMESPEC_TO_NSEC(&ts);
 }
 
+SPA_EXPORT
+struct pw_loop *pw_stream_get_data_loop(struct pw_stream *stream)
+{
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	return impl->data_loop;
+}
+
 static int
 do_trigger_deprecated(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)

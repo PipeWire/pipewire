@@ -336,6 +336,8 @@ static int do_negotiate(struct pw_impl_link *this)
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	uint32_t index, busy_id;
 	uint32_t in_state, out_state;
+	struct spa_node *in_node, *out_node;
+	uint32_t in_port, out_port;
 
 	if (this->info.state >= PW_LINK_STATE_NEGOTIATING)
 		return 0;
@@ -355,11 +357,22 @@ static int do_negotiate(struct pw_impl_link *this)
 
 	input = this->input;
 	output = this->output;
+#if 0
+	in_node = input->mix;
+	in_port = this->rt.in_mix.port.port_id;
+	out_node = output->mix;
+	out_port = this->rt.out_mix.port.port_id;
+#else
+	in_node = input->node->node;
+	in_port = input->port_id;
+	out_node = output->node->node;
+	out_port = output->port_id;
+#endif
 
 	/* find a common format for the ports */
 	if ((res = pw_context_find_format(context,
-					output, this->rt.out_mix.port.port_id,
-					input, this->rt.in_mix.port.port_id,
+					output, SPA_ID_INVALID,
+					input, SPA_ID_INVALID,
 					NULL, 0, NULL,
 					&format, &b, &error)) < 0) {
 		format = NULL;
@@ -374,8 +387,8 @@ static int do_negotiate(struct pw_impl_link *this)
 	/* if output port had format and is idle, check if it changed. If so, renegotiate */
 	if (out_state > PW_IMPL_PORT_STATE_CONFIGURE && output->node->info.state == PW_NODE_STATE_IDLE) {
 		index = 0;
-		res = spa_node_port_enum_params_sync(output->mix,
-				this->rt.out_mix.port.direction, this->rt.out_mix.port.port_id,
+		res = spa_node_port_enum_params_sync(out_node,
+				output->direction, out_port,
 				SPA_PARAM_Format, &index,
 				NULL, &current, &b);
 		switch (res) {
@@ -408,8 +421,8 @@ static int do_negotiate(struct pw_impl_link *this)
 	/* if input port had format and is idle, check if it changed. If so, renegotiate */
 	if (in_state > PW_IMPL_PORT_STATE_CONFIGURE && input->node->info.state == PW_NODE_STATE_IDLE) {
 		index = 0;
-		res = spa_node_port_enum_params_sync(input->mix,
-				this->rt.in_mix.port.direction, this->rt.in_mix.port.port_id,
+		res = spa_node_port_enum_params_sync(in_node,
+				input->direction, in_port,
 				SPA_PARAM_Format, &index,
 				NULL, &current, &b);
 		switch (res) {
@@ -497,11 +510,11 @@ static int do_negotiate(struct pw_impl_link *this)
 	return res;
 
 error:
-	pw_context_debug_port_params(context, input->mix,
-			this->rt.in_mix.port.direction, this->rt.in_mix.port.port_id,
+	pw_context_debug_port_params(context, in_node,
+			input->direction, in_port,
 			SPA_PARAM_EnumFormat, res, "input format (%s)", error);
-	pw_context_debug_port_params(context, output->mix,
-			this->rt.out_mix.port.direction, this->rt.out_mix.port.port_id,
+	pw_context_debug_port_params(context, out_node,
+			output->direction, out_port,
 			SPA_PARAM_EnumFormat, res, "output format (%s)", error);
 	link_update_state(this, PW_LINK_STATE_ERROR, res, error);
 	free(format);
@@ -590,6 +603,8 @@ static int do_allocation(struct pw_impl_link *this)
 		this->rt.out_mix.have_buffers = true;
 	} else {
 		uint32_t flags, alloc_flags;
+		struct spa_node *in_node, *out_node;
+		uint32_t in_port, out_port;
 
 		flags = 0;
 		/* always shared buffers for the link */
@@ -608,10 +623,21 @@ static int do_allocation(struct pw_impl_link *this)
 			SPA_FLAG_SET(alloc_flags, PW_BUFFERS_FLAG_NO_MEM);
 			flags |= SPA_NODE_BUFFERS_FLAG_ALLOC;
 		}
+#if 0
+		in_node = input->mix;
+		in_port = this->rt.in_mix.port.port_id;
+		out_node = output->mix;
+		out_port = this->rt.out_mix.port.port_id;
+#else
+		in_node = input->node->node;
+		in_port = input->port_id;
+		out_node = output->node->node;
+		out_port = output->port_id;
+#endif
 
 		if ((res = pw_buffers_negotiate(this->context, alloc_flags,
-						output->mix, this->rt.out_mix.port.port_id,
-						input->mix, this->rt.in_mix.port.port_id,
+						out_node, out_port,
+						in_node, in_port,
 						&output->buffers)) < 0) {
 			error = spa_aprintf("error alloc buffers: %s", spa_strerror(res));
 			goto error;

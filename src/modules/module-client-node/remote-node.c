@@ -315,11 +315,25 @@ static int add_port_update(struct node_data *data, struct pw_impl_port *port, ui
 				continue;
 
 			for (idx = 0;;) {
+				struct spa_node *qnode;
+				uint32_t qport;
+
 				spa_pod_dynamic_builder_init(&b, buf, sizeof(buf), 4096);
 
-				res = spa_node_port_enum_params_sync(port->mix,
-						port->direction, SPA_ID_INVALID,
+				switch (id) {
+				case SPA_PARAM_IO:
+					qnode = port->mix;
+					qport = SPA_ID_INVALID;
+					break;
+				default:
+					qnode = port->node->node;
+					qport = port->port_id;
+					break;
+				}
+				res = spa_node_port_enum_params_sync(qnode,
+						port->direction, qport,
 						id, &idx, NULL, &param, &b.b);
+
 				if (res == 1) {
 					void *p;
 					p = pw_reallocarray(params, n_params + 1, sizeof(struct spa_pod*));

@@ -1605,6 +1605,9 @@ int pw_impl_port_for_each_param(struct pw_impl_port *port,
 		}
 		res = 0;
 	} else {
+		struct spa_node *qnode;
+		uint32_t qport;
+
 		user_data.cache = impl->cache_params &&
 			(filter == NULL && index == 0 && max == UINT32_MAX);
 
@@ -1612,9 +1615,19 @@ int pw_impl_port_for_each_param(struct pw_impl_port *port,
 			pw_param_add(&impl->pending_list, seq, param_id, NULL);
 
 		spa_zero(listener);
-		spa_node_add_listener(port->mix, &listener, &node_events, &user_data);
-		res = spa_node_port_enum_params(port->mix, seq,
-				port->direction, SPA_ID_INVALID,
+		switch (param_id) {
+		case SPA_PARAM_IO:
+			qnode = port->mix;
+			qport = SPA_ID_INVALID;
+			break;
+		default:
+			qnode = port->node->node;
+			qport = port->port_id;
+			break;
+		}
+		spa_node_add_listener(qnode, &listener, &node_events, &user_data);
+		res = spa_node_port_enum_params(qnode, seq,
+				port->direction, qport,
 				param_id, index, max, filter);
 		spa_hook_remove(&listener);
 

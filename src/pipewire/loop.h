@@ -31,6 +31,7 @@ struct pw_loop {
 	struct spa_loop *loop;			/**< wrapped loop */
 	struct spa_loop_control *control;	/**< loop control */
 	struct spa_loop_utils *utils;		/**< loop utils */
+	const char *name;
 };
 
 struct pw_loop *
@@ -38,6 +39,8 @@ pw_loop_new(const struct spa_dict *props);
 
 void
 pw_loop_destroy(struct pw_loop *loop);
+
+int pw_loop_set_name(struct pw_loop *loop, const char *name);
 
 #define pw_loop_add_source(l,...)	spa_loop_add_source((l)->loop,__VA_ARGS__)
 #define pw_loop_update_source(l,...)	spa_loop_update_source((l)->loop,__VA_ARGS__)

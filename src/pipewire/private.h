@@ -441,7 +441,6 @@ struct pw_context {
 struct pw_data_loop {
 	struct pw_loop *loop;
 
-	char *name;
 	char *affinity;
 	char *class;
 	char **classes;

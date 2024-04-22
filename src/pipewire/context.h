@@ -129,7 +129,8 @@ const struct spa_support *pw_context_get_support(struct pw_context *context, uin
 /** Get the context main loop. Returns the value passed to pw_context_new(). */
 struct pw_loop *pw_context_get_main_loop(struct pw_context *context);
 
-/** Get the context data loop. This loop runs on the realtime thread.
+/** Get the context data loop. This loop runs on the realtime thread. This
+ * acquires a loop from the generic data.rt class.
  * Since 0.3.56 */
 struct pw_data_loop *pw_context_get_data_loop(struct pw_context *context);
 

@@ -22,6 +22,8 @@ PW_LOG_TOPIC_EXTERN(log_loop);
 struct impl {
 	struct pw_loop this;
 
+	char name[16];
+
 	struct spa_handle *system_handle;
 	struct spa_handle *loop_handle;
 
@@ -42,7 +44,7 @@ struct pw_loop *pw_loop_new(const struct spa_dict *props)
 	void *iface;
 	struct spa_support support[32];
 	uint32_t n_support;
-	const char *lib;
+	const char *lib, *str, *name = NULL;
 
 	n_support = pw_get_support(support, 32);
 
@@ -125,6 +127,14 @@ struct pw_loop *pw_loop_new(const struct spa_dict *props)
         }
 	this->utils = iface;
 
+	if (props != NULL) {
+		if ((str = spa_dict_lookup(props, "loop.name")) != NULL)
+			name = str;
+	}
+	if (name)
+		snprintf(impl->name, sizeof(impl->name), "%s", name);
+	this->name = impl->name;
+
 	return this;
 
 error_unload_loop:
@@ -158,6 +168,14 @@ pw_loop_set_callbacks(struct pw_loop *loop, const struct pw_loop_callbacks *cb, 
 
 	impl->user_data = data;
 	impl->cb = cb;
+}
+
+SPA_EXPORT
+int pw_loop_set_name(struct pw_loop *loop, const char *name)
+{
+	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
+	snprintf(impl->name, sizeof(impl->name), "%s", name);
+	return 0;
 }
 
 SPA_EXPORT

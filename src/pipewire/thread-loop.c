@@ -24,7 +24,6 @@ PW_LOG_TOPIC_EXTERN(log_thread_loop);
 /** \cond */
 struct pw_thread_loop {
 	struct pw_loop *loop;
-	char name[16];
 
 	struct spa_hook_list listener_list;
 
@@ -159,7 +158,7 @@ static struct pw_thread_loop *loop_new(struct pw_loop *loop,
 		goto clean_this;
 	}
 	this->loop = loop;
-	snprintf(this->name, sizeof(this->name), "%s", name ? name : "pw-thread-loop");
+	pw_loop_set_name(loop, name ? name : "thread-loop");
 
 	spa_hook_list_init(&this->listener_list);
 
@@ -323,7 +322,7 @@ int pw_thread_loop_start(struct pw_thread_loop *loop)
 
 		loop->running = true;
 
-		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_THREAD_NAME, loop->name);
+		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_THREAD_NAME, loop->loop->name);
 		thr = pw_thread_utils_create(&SPA_DICT_INIT_ARRAY(items), do_loop, loop);
 		if (thr == NULL)
 			goto error;

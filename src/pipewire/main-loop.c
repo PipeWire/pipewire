@@ -29,8 +29,6 @@ static struct pw_main_loop *loop_new(struct pw_loop *loop, const struct spa_dict
 		goto error_cleanup;
 	}
 
-	pw_log_debug("%p: new", this);
-
 	if (loop == NULL) {
 		loop = pw_loop_new(props);
 		this->created = true;
@@ -41,7 +39,11 @@ static struct pw_main_loop *loop_new(struct pw_loop *loop, const struct spa_dict
 	}
 	this->loop = loop;
 
+	if (!this->loop->name[0])
+		pw_loop_set_name(this->loop, "main-loop");
 	spa_hook_list_init(&this->listener_list);
+
+	pw_log_debug("%p: new '%s'", this, loop->name);
 
 	return this;
 

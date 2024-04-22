@@ -266,6 +266,7 @@ static int setup_data_loops(struct impl *impl)
 				res = -errno;
 				goto exit;
 			}
+			pw_log_info("created data loop '%s'", impl->data_loops[i].impl->loop->name);
 		}
 	}
 	pw_log_info("created %d data-loops", impl->n_data_loops);
@@ -629,9 +630,10 @@ static struct pw_data_loop *acquire_data_loop(struct impl *impl, const char *nam
 
 	for (i = 0; i < impl->n_data_loops; i++) {
 		struct data_loop *l = &impl->data_loops[i];
+		const char *ln = l->impl->loop->name;
 		int score = 0;
 
-		if (name && l->impl->name && fnmatch(name, l->impl->name, FNM_EXTMATCH) == 0)
+		if (name && ln && fnmatch(name, ln, FNM_EXTMATCH) == 0)
 			score += 2;
 		if (klass && l->impl->classes) {
 			for (j = 0; l->impl->classes[j]; j++) {
@@ -643,7 +645,7 @@ static struct pw_data_loop *acquire_data_loop(struct impl *impl, const char *nam
 		}
 
 		pw_log_debug("%d: name:'%s' class:'%s' score:%d ref:%d", i,
-				l->impl->name, l->impl->class, score, l->ref);
+				ln, l->impl->class, score, l->ref);
 
 		if ((best_loop == NULL) ||
 		    (score > best_score) ||
@@ -656,7 +658,7 @@ static struct pw_data_loop *acquire_data_loop(struct impl *impl, const char *nam
 		return NULL;
 
 	best_loop->ref++;
-	pw_log_info("using name:'%s' class:'%s' ref:%d", best_loop->impl->name,
+	pw_log_info("using name:'%s' class:'%s' ref:%d", best_loop->impl->loop->name,
 			best_loop->impl->class, best_loop->ref);
 
 	return best_loop->impl;
@@ -682,7 +684,7 @@ struct pw_loop *pw_context_acquire_loop(struct pw_context *context, const struct
 	pw_log_info("looking for name:'%s' class:'%s'", name, klass);
 
 	if ((impl->n_data_loops == 0) ||
-	    (name && fnmatch(name, "main-loop.0", FNM_EXTMATCH) == 0) ||
+	    (name && fnmatch(name, context->main_loop->name, FNM_EXTMATCH) == 0) ||
 	    (klass && fnmatch(klass, "main", FNM_EXTMATCH) == 0)) {
 		pw_log_info("using main loop num-data-loops:%d", impl->n_data_loops);
 		return context->main_loop;
@@ -702,7 +704,7 @@ void pw_context_release_loop(struct pw_context *context, struct pw_loop *loop)
 		struct data_loop *l = &impl->data_loops[i];
 		if (l->impl->loop == loop) {
 			l->ref--;
-			pw_log_info("release name:'%s' class:'%s' ref:%d", l->impl->name,
+			pw_log_info("release name:'%s' class:'%s' ref:%d", l->impl->loop->name,
 					l->impl->class, l->ref);
 			return;
 		}

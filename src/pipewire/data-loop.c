@@ -126,11 +126,12 @@ static struct pw_data_loop *loop_new(struct pw_loop *loop, const struct spa_dict
 	if (class == NULL)
 		class = this->rt_prio != 0 ? "data.rt" : "data";
 	if (name == NULL)
-		name = "pw-data-loop";
+		name = "data-loop";
 
 	this->class = strdup(class);
 	this->classes = pw_strv_parse(class, strlen(class), INT_MAX, NULL);
-	this->name = strdup(name);
+	if (!this->loop->name[0])
+		pw_loop_set_name(this->loop, name);
 	spa_hook_list_init(&this->listener_list);
 
 	return this;
@@ -170,7 +171,6 @@ void pw_data_loop_destroy(struct pw_data_loop *loop)
 
 	spa_hook_list_clean(&loop->listener_list);
 
-	free(loop->name);
 	free(loop->affinity);
 	free(loop->class);
 	pw_free_strv(loop->classes);
@@ -205,7 +205,7 @@ pw_data_loop_get_loop(struct pw_data_loop *loop)
 SPA_EXPORT
 const char * pw_data_loop_get_name(struct pw_data_loop *loop)
 {
-	return loop->name;
+	return loop->loop->name;
 }
 
 /** Get the loop class
@@ -244,9 +244,7 @@ int pw_data_loop_start(struct pw_data_loop *loop)
 		if ((utils = loop->thread_utils) == NULL)
 			utils = pw_thread_utils_get();
 
-		if (loop->name)
-			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_THREAD_NAME,
-					loop->name);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_THREAD_NAME, loop->loop->name);
 		if (loop->affinity)
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_THREAD_AFFINITY,
 					loop->affinity);

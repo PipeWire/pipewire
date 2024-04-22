@@ -618,36 +618,11 @@ struct pw_loop *pw_context_get_main_loop(struct pw_context *context)
 	return context->main_loop;
 }
 
-SPA_EXPORT
-struct pw_data_loop *pw_context_get_data_loop(struct pw_context *context)
+static struct pw_data_loop *acquire_data_loop(struct impl *impl, const char *name, const char *klass)
 {
-	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
-	if (impl->n_data_loops > 0)
-		return impl->data_loops[0].impl;
-	else
-		return NULL;
-}
-
-SPA_EXPORT
-struct pw_loop *pw_context_acquire_loop(struct pw_context *context, const struct spa_dict *props)
-{
-	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
-	const char *name, *klass;
 	uint32_t i, j;
 	struct data_loop *best_loop = NULL;
 	int best_score = 0;
-
-	name = spa_dict_lookup(props, PW_KEY_NODE_LOOP_NAME);
-	klass = spa_dict_lookup(props, PW_KEY_NODE_LOOP_CLASS);
-
-	pw_log_info("looking for name:'%s' class:'%s'", name, klass);
-
-	if ((impl->n_data_loops == 0) ||
-	    (name && fnmatch(name, "main-loop.0", FNM_EXTMATCH) == 0) ||
-	    (klass && fnmatch(klass, "main", FNM_EXTMATCH) == 0)) {
-		pw_log_info("using main loop num-data-loops:%d", impl->n_data_loops);
-		return context->main_loop;
-	}
 
 	if (klass == NULL)
 		klass = "data.rt";
@@ -684,7 +659,37 @@ struct pw_loop *pw_context_acquire_loop(struct pw_context *context, const struct
 	pw_log_info("using name:'%s' class:'%s' ref:%d", best_loop->impl->name,
 			best_loop->impl->class, best_loop->ref);
 
-	return best_loop->impl->loop;
+	return best_loop->impl;
+}
+
+SPA_EXPORT
+struct pw_data_loop *pw_context_get_data_loop(struct pw_context *context)
+{
+	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
+	return acquire_data_loop(impl, NULL, NULL);
+}
+
+SPA_EXPORT
+struct pw_loop *pw_context_acquire_loop(struct pw_context *context, const struct spa_dict *props)
+{
+	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
+	const char *name, *klass;
+	struct pw_data_loop *loop;
+
+	name = spa_dict_lookup(props, PW_KEY_NODE_LOOP_NAME);
+	klass = spa_dict_lookup(props, PW_KEY_NODE_LOOP_CLASS);
+
+	pw_log_info("looking for name:'%s' class:'%s'", name, klass);
+
+	if ((impl->n_data_loops == 0) ||
+	    (name && fnmatch(name, "main-loop.0", FNM_EXTMATCH) == 0) ||
+	    (klass && fnmatch(klass, "main", FNM_EXTMATCH) == 0)) {
+		pw_log_info("using main loop num-data-loops:%d", impl->n_data_loops);
+		return context->main_loop;
+	}
+
+	loop = acquire_data_loop(impl, name, klass);
+	return loop ? loop->loop : NULL;
 }
 
 SPA_EXPORT

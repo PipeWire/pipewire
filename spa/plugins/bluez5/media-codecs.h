@@ -81,6 +81,10 @@ struct media_codec {
 
 	const struct media_codec *duplex_codec;	/**< Codec for non-standard A2DP duplex channel */
 
+	int (*get_bis_config)(const struct media_codec *codec, uint8_t *caps,
+			 uint8_t *caps_size, char *preset, int channel_allocation,
+			 struct bap_codec_qos *qos);
+
 	/** If fill_caps is NULL, no endpoint is registered (for sharing with another codec). */
 	int (*fill_caps) (const struct media_codec *codec, uint32_t flags,
 			uint8_t caps[A2DP_MAX_CAPS_SIZE]);

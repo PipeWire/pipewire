@@ -236,7 +236,7 @@ static const struct spa_dict_item module_props[] = {
 struct impl {
 	struct pw_context *context;
 	struct pw_loop *main_loop;
-	struct pw_data_loop *data_loop;
+	struct pw_loop *data_loop;
 
 	struct pw_properties *props;
 
@@ -540,7 +540,7 @@ static void resize_delay(struct stream *stream, uint32_t size)
 	for (i = 0; i < channels; ++i)
 		ringbuffer_init(&info.delay[i], SPA_PTROFF(info.buf, i*size, void), size);
 
-	pw_data_loop_invoke(stream->impl->data_loop, do_replace_delay, 0, NULL, 0, true, &info);
+	pw_loop_invoke(stream->impl->data_loop, do_replace_delay, 0, NULL, 0, true, &info);
 
 	free(info.buf);
 }
@@ -603,7 +603,7 @@ static int do_clear_delaybuf(struct spa_loop *loop, bool async, uint32_t seq,
 
 static void clear_delaybuf(struct impl *impl)
 {
-	pw_data_loop_invoke(impl->data_loop, do_clear_delaybuf, 0, NULL, 0, true, impl);
+	pw_loop_invoke(impl->data_loop, do_clear_delaybuf, 0, NULL, 0, true, impl);
 }
 
 static int do_add_stream(struct spa_loop *loop, bool async, uint32_t seq,
@@ -635,7 +635,7 @@ static void remove_stream(struct stream *s, bool destroy)
 {
 	pw_log_debug("destroy stream %d", s->id);
 
-	pw_data_loop_invoke(s->impl->data_loop, do_remove_stream, 0, NULL, 0, true, s);
+	pw_loop_invoke(s->impl->data_loop, do_remove_stream, 0, NULL, 0, true, s);
 
 	if (destroy && s->stream) {
 		spa_hook_remove(&s->stream_listener);
@@ -861,7 +861,7 @@ static int create_stream(struct stream_info *info)
 			direction, PW_ID_ANY, flags, params, n_params)) < 0)
 		goto error;
 
-	pw_data_loop_invoke(impl->data_loop, do_add_stream, 0, NULL, 0, true, s);
+	pw_loop_invoke(impl->data_loop, do_add_stream, 0, NULL, 0, true, s);
 	update_delay(impl);
 	return 0;
 
@@ -1385,6 +1385,8 @@ static void impl_destroy(struct impl *impl)
 			pw_core_disconnect(impl->core);
 		impl->core = NULL;
 	}
+	if (impl->data_loop)
+		pw_context_release_loop(impl->context, impl->data_loop);
 
 	pw_properties_free(impl->stream_props);
 	pw_properties_free(impl->combine_props);
@@ -1434,8 +1436,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		return -errno;
 
 	pw_log_debug("module %p: new %s", impl, args);
-	impl->main_loop = pw_context_get_main_loop(context);
-	impl->data_loop = pw_context_get_data_loop(context);
+	impl->module = module;
+	impl->context = context;
 
 	spa_list_init(&impl->streams);
 
@@ -1453,6 +1455,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 	impl->props = props;
+
+	impl->main_loop = pw_context_get_main_loop(context);
+	impl->data_loop = pw_context_acquire_loop(context, &props->dict);
 
 	if ((str = pw_properties_get(props, "combine.mode")) == NULL)
 		str = "sink";
@@ -1488,8 +1493,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 
-	impl->module = module;
-	impl->context = context;
+	pw_properties_set(props, PW_KEY_NODE_LOOP_NAME, impl->data_loop->name);
 
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_GROUP, "combine-%s-%u-%u",
@@ -1523,6 +1527,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if ((str = pw_properties_get(props, "stream.props")) != NULL)
 		pw_properties_update_string(impl->stream_props, str, strlen(str));
 
+	copy_props(props, impl->combine_props, PW_KEY_NODE_LOOP_NAME);
 	copy_props(props, impl->combine_props, PW_KEY_AUDIO_CHANNELS);
 	copy_props(props, impl->combine_props, SPA_KEY_AUDIO_POSITION);
 	copy_props(props, impl->combine_props, PW_KEY_NODE_NAME);
@@ -1537,6 +1542,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	parse_audio_info(impl->combine_props, &impl->info);
 
+	copy_props(props, impl->stream_props, PW_KEY_NODE_LOOP_NAME);
 	copy_props(props, impl->stream_props, PW_KEY_NODE_GROUP);
 	copy_props(props, impl->stream_props, PW_KEY_NODE_VIRTUAL);
 	copy_props(props, impl->stream_props, PW_KEY_NODE_LINK_GROUP);

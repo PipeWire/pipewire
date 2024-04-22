@@ -1183,9 +1183,6 @@ void pw_proxy_remove(struct pw_proxy *proxy);
 
 int pw_context_recalc_graph(struct pw_context *context, const char *reason);
 
-struct pw_loop *pw_context_acquire_loop(struct pw_context *context, const struct spa_dict *props);
-void pw_context_release_loop(struct pw_context *context, struct pw_loop *loop);
-
 void pw_impl_port_update_info(struct pw_impl_port *port, const struct spa_port_info *info);
 
 int pw_impl_port_register(struct pw_impl_port *port,

@@ -1124,6 +1124,9 @@ static void impl_destroy(struct impl *impl)
 	if (impl->timer)
 		pw_loop_destroy_source(impl->main_loop, impl->timer);
 
+	if (impl->data_loop)
+		pw_context_release_loop(impl->context, impl->data_loop);
+
 	pw_properties_free(impl->sink.props);
 	pw_properties_free(impl->source.props);
 	pw_properties_free(impl->props);
@@ -1200,7 +1203,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_properties *props = NULL;
-	struct pw_data_loop *data_loop;
 	struct impl *impl;
 	const char *str;
 	int res;
@@ -1210,6 +1212,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
 		return -errno;
+
+	impl->module = module;
+	impl->context = context;
 
 	pw_log_debug("module %p: new %s", impl, args);
 
@@ -1223,8 +1228,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 	impl->props = props;
-	data_loop = pw_context_get_data_loop(context);
-	impl->data_loop = pw_data_loop_get_loop(data_loop);
+	impl->data_loop = pw_context_acquire_loop(context, &props->dict);
 	impl->quantum_limit = pw_properties_get_uint32(
 			pw_context_get_properties(context),
 			"default.clock.quantum-limit", 8192u);
@@ -1237,8 +1241,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 
-	impl->module = module;
-	impl->context = context;
 	impl->main_loop = pw_context_get_main_loop(context);
 	impl->system = impl->main_loop->system;
 
@@ -1264,6 +1266,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->latency = pw_properties_get_uint32(impl->props, "netjack2.latency",
 			DEFAULT_NETWORK_LATENCY);
 
+	pw_properties_set(props, PW_KEY_NODE_LOOP_NAME, impl->data_loop->name);
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
@@ -1284,6 +1287,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if ((str = pw_properties_get(props, "source.props")) != NULL)
 		pw_properties_update_string(impl->source.props, str, strlen(str));
 
+	copy_props(impl, props, PW_KEY_NODE_LOOP_NAME);
 	copy_props(impl, props, PW_KEY_AUDIO_CHANNELS);
 	copy_props(impl, props, SPA_KEY_AUDIO_POSITION);
 	copy_props(impl, props, PW_KEY_NODE_ALWAYS_PROCESS);

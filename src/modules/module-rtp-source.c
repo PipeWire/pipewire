@@ -461,6 +461,9 @@ static void impl_destroy(struct impl *impl)
 	if (impl->timer)
 		pw_loop_destroy_source(impl->loop, impl->timer);
 
+	if (impl->data_loop)
+		pw_context_release_loop(impl->context, impl->data_loop);
+
 	pw_properties_free(impl->stream_props);
 	pw_properties_free(impl->props);
 
@@ -537,11 +540,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->module = module;
 	impl->context = context;
 	impl->loop = pw_context_get_main_loop(context);
-	impl->data_loop = pw_data_loop_get_loop(pw_context_get_data_loop(context));
+	impl->data_loop = pw_context_acquire_loop(context, &props->dict);
 
 	if ((sess_name = pw_properties_get(props, "sess.name")) == NULL)
 		sess_name = pw_get_host_name();
 
+	pw_properties_set(props, PW_KEY_NODE_LOOP_NAME, impl->data_loop->name);
 	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_NAME, "rtp_session.%s", sess_name);
 	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
@@ -553,6 +557,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if ((str = pw_properties_get(props, "stream.props")) != NULL)
 		pw_properties_update_string(stream_props, str, strlen(str));
 
+	copy_props(impl, props, PW_KEY_NODE_LOOP_NAME);
 	copy_props(impl, props, PW_KEY_AUDIO_FORMAT);
 	copy_props(impl, props, PW_KEY_AUDIO_RATE);
 	copy_props(impl, props, PW_KEY_AUDIO_CHANNELS);

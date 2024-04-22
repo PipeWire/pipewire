@@ -731,6 +731,8 @@ static void impl_destroy(struct impl *impl)
 	if (impl->fd >= 0)
 		close(impl->fd);
 
+	pw_context_release_loop(impl->context, impl->data_loop);
+
 	pw_properties_free(impl->stream_props);
 	pw_properties_free(impl->props);
 
@@ -857,7 +859,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_properties *props = NULL;
 	struct impl *impl;
 	const char *str, *media_class = NULL;
-	struct pw_data_loop *data_loop;
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -891,8 +892,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->module = module;
 	impl->context = context;
 	impl->main_loop = pw_context_get_main_loop(context);
-	data_loop = pw_context_get_data_loop(context);
-	impl->data_loop = pw_data_loop_get_loop(data_loop);
+	impl->data_loop = pw_context_acquire_loop(context, &props->dict);
 
 	if ((str = pw_properties_get(props, "tunnel.mode")) == NULL)
 		str = "playback";
@@ -923,6 +923,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if ((str = pw_properties_get(props, "tunnel.may-pause")) != NULL)
 		impl->may_pause = spa_atob(str);
 
+	pw_properties_set(props, PW_KEY_NODE_LOOP_NAME, impl->data_loop->name);
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
@@ -931,6 +932,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if ((str = pw_properties_get(props, "stream.props")) != NULL)
 		pw_properties_update_string(impl->stream_props, str, strlen(str));
 
+	copy_props(impl, props, PW_KEY_NODE_LOOP_NAME);
 	copy_props(impl, props, PW_KEY_AUDIO_FORMAT);
 	copy_props(impl, props, PW_KEY_AUDIO_RATE);
 	copy_props(impl, props, PW_KEY_AUDIO_CHANNELS);

@@ -44,6 +44,8 @@ struct impl {
 	struct spa_audio_info info;
 	struct spa_audio_info stream_info;
 
+	struct pw_context *context;
+
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 	struct pw_stream_events stream_events;
@@ -311,8 +313,6 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	enum pw_stream_flags flags;
 	float latency_msec;
 	int res;
-	struct pw_data_loop *data_loop;
-	struct pw_context *context;
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL) {
@@ -322,10 +322,9 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	impl->first = true;
 	spa_hook_list_init(&impl->listener_list);
 	impl->stream_events = stream_events;
-	context = pw_core_get_context(core);
-	impl->main_loop = pw_context_get_main_loop(context);
-	data_loop = pw_context_get_data_loop(context);
-	impl->data_loop = pw_data_loop_get_loop(data_loop);
+	impl->context = pw_core_get_context(core);
+	impl->main_loop = pw_context_get_main_loop(impl->context);
+	impl->data_loop = pw_context_acquire_loop(impl->context, &props->dict);
 	impl->timer = pw_loop_add_timer(impl->data_loop, on_flush_timeout, impl);
 	if (impl->timer == NULL) {
 		res = -errno;
@@ -613,6 +612,9 @@ void rtp_stream_destroy(struct rtp_stream *s)
 
 	if (impl->timer)
 		pw_loop_destroy_source(impl->data_loop, impl->timer);
+
+	if (impl->data_loop)
+		pw_context_release_loop(impl->context, impl->data_loop);
 
 	spa_hook_list_clean(&impl->listener_list);
 	free(impl);

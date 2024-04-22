@@ -1284,6 +1284,9 @@ static void impl_destroy(struct impl *impl)
 	if (impl->ffado_timer)
 		pw_loop_destroy_source(impl->data_loop, impl->ffado_timer);
 
+	if (impl->data_loop)
+		pw_context_release_loop(impl->context, impl->data_loop);
+
 	pw_properties_free(impl->sink.props);
 	pw_properties_free(impl->source.props);
 	pw_properties_free(impl->props);
@@ -1378,7 +1381,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_properties *props = NULL;
-	struct pw_data_loop *data_loop;
 	struct impl *impl;
 	const char *str;
 	int res;
@@ -1442,8 +1444,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->module = module;
 	impl->context = context;
 	impl->main_loop = pw_context_get_main_loop(context);
-	data_loop = pw_context_get_data_loop(context);
-	impl->data_loop = pw_data_loop_get_loop(data_loop);
+	impl->data_loop = pw_context_acquire_loop(context, &props->dict);
 	impl->system = impl->main_loop->system;
 	impl->reset_work_id = SPA_ID_INVALID;
 
@@ -1473,6 +1474,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 
+	pw_properties_set(props, PW_KEY_NODE_LOOP_NAME, impl->data_loop->name);
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
@@ -1497,6 +1499,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if ((str = pw_properties_get(props, "source.props")) != NULL)
 		pw_properties_update_string(impl->source.props, str, strlen(str));
 
+	copy_props(impl, props, PW_KEY_NODE_LOOP_NAME);
 	copy_props(impl, props, PW_KEY_NODE_LINK_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);

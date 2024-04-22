@@ -1218,6 +1218,9 @@ static void impl_destroy(struct impl *impl)
 	if (impl->client)
 		avahi_client_free(impl->client);
 
+	if (impl->data_loop)
+		pw_context_release_loop(impl->context, impl->data_loop);
+
 	pw_properties_free(impl->stream_props);
 	pw_properties_free(impl->props);
 
@@ -1691,7 +1694,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->module = module;
 	impl->context = context;
 	impl->loop = pw_context_get_main_loop(context);
-	impl->data_loop = pw_data_loop_get_loop(pw_context_get_data_loop(context));
+	impl->data_loop = pw_context_acquire_loop(context, &props->dict);
+
+	pw_properties_set(props, PW_KEY_NODE_LOOP_NAME, impl->data_loop->name);
 
 	if (pw_properties_get(props, "sess.media") == NULL)
 		pw_properties_set(props, "sess.media", "midi");
@@ -1699,6 +1704,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if ((str = pw_properties_get(props, "stream.props")) != NULL)
 		pw_properties_update_string(stream_props, str, strlen(str));
 
+	copy_props(impl, props, PW_KEY_NODE_LOOP_NAME);
 	copy_props(impl, props, PW_KEY_AUDIO_FORMAT);
 	copy_props(impl, props, PW_KEY_AUDIO_RATE);
 	copy_props(impl, props, PW_KEY_AUDIO_CHANNELS);

@@ -130,9 +130,16 @@ const struct spa_support *pw_context_get_support(struct pw_context *context, uin
 struct pw_loop *pw_context_get_main_loop(struct pw_context *context);
 
 /** Get the context data loop. This loop runs on the realtime thread. This
- * acquires a loop from the generic data.rt class.
+ * acquires a loop from the generic data.rt class. Use pw_context_acquire_loop() instead.
  * Since 0.3.56 */
 struct pw_data_loop *pw_context_get_data_loop(struct pw_context *context);
+
+/** Get a data-loop.
+ * Since 1.1.0 */
+struct pw_loop *pw_context_acquire_loop(struct pw_context *context, const struct spa_dict *props);
+/** Release a data-loop.
+ * Since 1.1.0 */
+void pw_context_release_loop(struct pw_context *context, struct pw_loop *loop);
 
 /** Get the work queue from the context: Since 0.3.26 */
 struct pw_work_queue *pw_context_get_work_queue(struct pw_context *context);

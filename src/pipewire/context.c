@@ -97,6 +97,10 @@ static void fill_properties(struct pw_context *context)
 		pw_properties_set(properties, PW_KEY_WINDOW_X11_DISPLAY,
 				  getenv("DISPLAY"));
 	}
+}
+static void fill_core_properties(struct pw_context *context)
+{
+	struct pw_properties *properties = context->properties;
 	pw_properties_set(properties, PW_KEY_CORE_VERSION, context->core->info.version);
 	pw_properties_set(properties, PW_KEY_CORE_NAME, context->core->info.name);
 }
@@ -338,6 +342,8 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	}
 	this->properties = properties;
 
+	fill_properties(this);
+
 	conf = pw_properties_new(NULL, NULL);
 	if (conf == NULL) {
 		res = -errno;
@@ -451,7 +457,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	}
 	pw_impl_core_register(this->core, NULL);
 
-	fill_properties(this);
+	fill_core_properties(this);
 
 	if ((res = pw_context_parse_conf_section(this, conf, "context.spa-libs")) < 0)
 		goto error_free;

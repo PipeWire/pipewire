@@ -58,6 +58,11 @@ void pw_data_loop_exit(struct pw_data_loop *loop);
 struct pw_loop *
 pw_data_loop_get_loop(struct pw_data_loop *loop);
 
+/** Get the loop name. Since 1.1.0 */
+const char * pw_data_loop_get_name(struct pw_data_loop *loop);
+/** Get the loop class. Since 1.1.0 */
+const char * pw_data_loop_get_class(struct pw_data_loop *loop);
+
 /** Destroy the loop */
 void pw_data_loop_destroy(struct pw_data_loop *loop);
 

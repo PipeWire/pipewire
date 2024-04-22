@@ -193,6 +193,36 @@ pw_data_loop_get_loop(struct pw_data_loop *loop)
 	return loop->loop;
 }
 
+/** Get the loop name
+ * \param loop the data loop to query
+ * \return the data loop name
+ *
+ * Get the name of the data loop. The data loop name is a unique name that
+ * identifies this data loop.
+ *
+ * \since 1.1.0
+ */
+SPA_EXPORT
+const char * pw_data_loop_get_name(struct pw_data_loop *loop)
+{
+	return loop->name;
+}
+
+/** Get the loop class
+ * \param loop the data loop to query
+ * \return the data loop class
+ *
+ * Get the class of the data loop. Multiple data loop can have the same class
+ * and processing can be assigned to any data loop from the same class.
+ *
+ * \since 1.1.0
+ */
+SPA_EXPORT
+const char * pw_data_loop_get_class(struct pw_data_loop *loop)
+{
+	return loop->class;
+}
+
 /** Start a data loop
  * \param loop the data loop to start
  * \return 0 if ok, -1 on error

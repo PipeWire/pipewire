@@ -181,6 +181,7 @@ struct stream {
 	struct port *ports[MAX_PORTS];
 	struct volume volume;
 
+	unsigned int ready:1;
 	unsigned int running:1;
 };
 
@@ -277,7 +278,8 @@ static inline void do_volume(float *dst, const float *src, struct volume *vol, u
 static void clear_port_buffer(struct port *p, uint32_t n_samples)
 {
 	if (!p->cleared) {
-		memset(p->buffer, 0, n_samples * sizeof(uint32_t));
+		if (p->buffer)
+			memset(p->buffer, 0, n_samples * sizeof(uint32_t));
 		p->cleared = true;
 	}
 }
@@ -516,7 +518,15 @@ static void stream_destroy(void *d)
 	s->n_ports = 0;
 	spa_hook_remove(&s->listener);
 	s->filter = NULL;
+	s->ready = false;
 	s->running = false;
+}
+
+static void check_start(struct impl *impl)
+{
+	if ((!(impl->mode & MODE_SINK) || (impl->sink.ready && impl->sink.running)) &&
+	    (!(impl->mode & MODE_SOURCE) || (impl->source.ready && impl->source.running)))
+		start_ffado_device(impl);
 }
 
 static void stream_state_changed(void *d, enum pw_filter_state old,
@@ -536,8 +546,8 @@ static void stream_state_changed(void *d, enum pw_filter_state old,
 			stop_ffado_device(impl);
 		break;
 	case PW_FILTER_STATE_STREAMING:
-		if (start_ffado_device(impl) >= 0)
-			s->running = true;
+		s->running = true;
+		check_start(impl);
 		break;
 	default:
 		break;
@@ -666,7 +676,7 @@ static void param_latency_changed(struct stream *s, const struct spa_pod *param,
 	}
 }
 
-static void make_stream_ports(struct stream *s)
+static int make_stream_ports(struct stream *s)
 {
 	struct impl *impl = s->impl;
 	struct pw_properties *props;
@@ -736,7 +746,7 @@ static void make_stream_ports(struct stream *s)
                         sizeof(struct port_data), props, params, n_params);
 		if (port->data == NULL) {
 			pw_log_error("Can't create port: %m");
-			return;
+			return -errno;
 		}
 		port->data->port = port;
 
@@ -745,9 +755,10 @@ static void make_stream_ports(struct stream *s)
 		port->buffer = calloc(impl->quantum_limit, sizeof(float));
 		if (port->buffer == NULL) {
 			pw_log_error("Can't create port buffer: %m");
-			return;
+			return -errno;
 		}
 	}
+	return 0;
 }
 
 static void setup_stream_ports(struct stream *s)
@@ -824,6 +835,7 @@ static void stream_param_changed(void *data, void *port_data, uint32_t id,
 		const struct spa_pod *param)
 {
 	struct stream *s = data;
+
 	if (port_data != NULL) {
 		switch (id) {
 		case SPA_PARAM_Latency:
@@ -834,7 +846,10 @@ static void stream_param_changed(void *data, void *port_data, uint32_t id,
 		switch (id) {
 		case SPA_PARAM_PortConfig:
 			pw_log_debug("PortConfig");
-			make_stream_ports(s);
+			if (make_stream_ports(s) >= 0) {
+				s->ready = true;
+				check_start(s->impl);
+			}
 			break;
 		case SPA_PARAM_Props:
 			pw_log_debug("Props");
@@ -942,8 +957,8 @@ again:
 		pw_log_error("FFADO error");
 		return;
 	}
-	source_running = impl->source.running;
-	sink_running = impl->sink.running;
+	source_running = impl->source.running && impl->sink.ready;
+	sink_running = impl->sink.running && impl->source.ready;
 
 	if (!source_running)
 		ffado_streaming_transfer_capture_buffers(impl->dev);

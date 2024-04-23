@@ -101,6 +101,7 @@ cc_flags = common_flags + [
   '-DFASTPATH',
 # '-DSPA_DEBUG_MEMCPY',
   '-Werror=implicit-function-declaration',
+  '-Werror=incompatible-pointer-types',
   '-Werror=int-conversion',
   '-Werror=old-style-declaration',
   '-Werror=old-style-definition',

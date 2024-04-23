@@ -67,6 +67,7 @@
  * - \ref PW_KEY_NODE_LATENCY
  * - \ref PW_KEY_NODE_RATE
  * - \ref PW_KEY_STREAM_CAPTURE_SINK
+ * - \ref PW_KEY_NODE_NAME
  *
  * By default the server will work with stereo 16 bits samples at 44.1KHz.
  *
@@ -438,6 +439,7 @@ static int create_streams(struct impl *impl, struct client *client)
 			PW_KEY_STREAM_CAPTURE_SINK, pw_properties_get(impl->props,
 				PW_KEY_STREAM_CAPTURE_SINK),
 			PW_KEY_NODE_NETWORK, "true",
+			PW_KEY_NODE_NAME, pw_properties_get(impl->props, PW_KEY_NODE_NAME),
 			NULL);
 		if (props == NULL)
 			return -errno;
@@ -459,6 +461,7 @@ static int create_streams(struct impl *impl, struct client *client)
 			PW_KEY_NODE_RATE, pw_properties_get(impl->props, PW_KEY_NODE_RATE),
 			PW_KEY_TARGET_OBJECT, pw_properties_get(impl->props, "playback.node"),
 			PW_KEY_NODE_NETWORK, "true",
+			PW_KEY_NODE_NAME, pw_properties_get(impl->props, PW_KEY_NODE_NAME),
 			NULL);
 		if (props == NULL)
 			return -errno;

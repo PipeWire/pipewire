@@ -41,6 +41,10 @@ PW_LOG_TOPIC_EXTERN(log_context);
 
 #define DEFAULT_DATA_LOOPS	1
 
+#if !defined(FNM_EXTMATCH)
+#define FNM_EXTMATCH 0
+#endif
+
 struct data_loop {
 	struct pw_data_loop *impl;
 	int ref;

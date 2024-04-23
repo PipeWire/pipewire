@@ -128,7 +128,7 @@ struct pw_loop *pw_loop_new(const struct spa_dict *props)
 	this->utils = iface;
 
 	if (props != NULL) {
-		if ((str = spa_dict_lookup(props, "loop.name")) != NULL)
+		if ((str = spa_dict_lookup(props, PW_KEY_LOOP_NAME)) != NULL)
 			name = str;
 	}
 	if (name)

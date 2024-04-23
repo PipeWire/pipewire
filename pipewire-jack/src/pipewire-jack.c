@@ -3906,7 +3906,7 @@ jack_client_t * jack_client_open (const char *client_name,
 		client->server_name = NULL;
 
 	client->props = pw_properties_new(
-			"loop.cancel", "true",
+			PW_KEY_LOOP_CANCEL, "true",
 			PW_KEY_REMOTE_NAME, client->server_name,
 			PW_KEY_CLIENT_NAME, client_name,
 			PW_KEY_CLIENT_API, "jack",

@@ -112,11 +112,11 @@ static struct pw_data_loop *loop_new(struct pw_loop *loop, const struct spa_dict
 	this->rt_prio = -1;
 
 	if (props != NULL) {
-		if ((str = spa_dict_lookup(props, "loop.cancel")) != NULL)
+		if ((str = spa_dict_lookup(props, PW_KEY_LOOP_CANCEL)) != NULL)
 			this->cancel = pw_properties_parse_bool(str);
-		if ((str = spa_dict_lookup(props, "loop.class")) != NULL)
+		if ((str = spa_dict_lookup(props, PW_KEY_LOOP_CLASS)) != NULL)
 			class = str;
-		if ((str = spa_dict_lookup(props, "loop.rt-prio")) != NULL)
+		if ((str = spa_dict_lookup(props, PW_KEY_LOOP_RT_PRIO)) != NULL)
 			this->rt_prio = atoi(str);
 		if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_NAME)) != NULL)
 			name = str;

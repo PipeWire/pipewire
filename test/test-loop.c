@@ -387,7 +387,7 @@ static int ctwd_add_source(struct spa_loop *loop, bool async, uint32_t seq,
 PWTEST(cancel_thread_while_dispatching)
 {
 	static const struct spa_dict_item data_loop_props_items[] = {
-		{ "loop.cancel", "true" },
+		{ PW_KEY_LOOP_CANCEL, "true" },
 	};
 	static const struct spa_dict data_loop_props = SPA_DICT_INIT_ARRAY(data_loop_props_items);
 

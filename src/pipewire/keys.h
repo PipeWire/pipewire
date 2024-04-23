@@ -69,6 +69,15 @@ extern "C" {
 #define PW_KEY_CONFIG_OVERRIDE_PREFIX	"config.override.prefix"	/**< a config override prefix directory */
 #define PW_KEY_CONFIG_OVERRIDE_NAME	"config.override.name"	/**< a config override file name */
 
+/* loop */
+#define PW_KEY_LOOP_NAME		"loop.name"		/**< the name of a loop */
+#define PW_KEY_LOOP_CLASS		"loop.class"		/**< the classes this loop handles, array of strings */
+#define PW_KEY_LOOP_RT_PRIO		"loop.rt-prio"		/**< realtime priority of the loop */
+#define PW_KEY_LOOP_CANCEL		"loop.cancel"		/**< if the loop can be canceled */
+#define PW_KEY_LOOP_RETRY_TIMEOUT	"loop.retry-timeout"	/**< when the loop invoke queue is full, the timeout
+								  *  in microseconds before retrying.
+								  *  default = 1 second, 0 = disable */
+
 /* context */
 #define PW_KEY_CONTEXT_PROFILE_MODULES	"context.profile.modules"	/**< a context profile for modules, deprecated */
 #define PW_KEY_USER_NAME		"context.user-name"	/**< The user name that runs pipewire */
@@ -183,8 +192,8 @@ extern "C" {
 #define PW_KEY_NODE_TRANSPORT_SYNC	"node.transport.sync"	/**< the node handles transport sync */
 #define PW_KEY_NODE_DRIVER		"node.driver"		/**< node can drive the graph */
 #define PW_KEY_NODE_ASYNC		"node.async"		/**< the node wants async scheduling */
-#define PW_KEY_NODE_LOOP_NAME		"node.loop.name"	/**< the loop name to run in */
-#define PW_KEY_NODE_LOOP_CLASS		"node.loop.class"	/**< the loop class to run in */
+#define PW_KEY_NODE_LOOP_NAME		"node.loop.name"	/**< the loop name fnmatch pattern to run in */
+#define PW_KEY_NODE_LOOP_CLASS		"node.loop.class"	/**< the loop class fnmatch pattern to run in */
 #define PW_KEY_NODE_STREAM		"node.stream"		/**< node is a stream, the server side should
 								  *  add a converter */
 #define PW_KEY_NODE_VIRTUAL		"node.virtual"		/**< the node is some sort of virtual

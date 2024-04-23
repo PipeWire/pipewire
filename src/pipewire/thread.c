@@ -25,6 +25,23 @@ do {									\
 	}								\
 } while(false);
 
+static int parse_affinity(const char *affinity, cpu_set_t *set)
+{
+	struct spa_json it[2];
+	int v;
+
+	CPU_ZERO(set);
+	spa_json_init(&it[0], affinity, strlen(affinity));
+	if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+		spa_json_init(&it[1], affinity, strlen(affinity));
+
+	while (spa_json_get_int(&it[1], &v) > 0) {
+		if (v >= 0 && v < CPU_SETSIZE)
+			CPU_SET(v, set);
+        }
+	return 0;
+}
+
 SPA_EXPORT
 void *pw_thread_fill_attr(const struct spa_dict *props, void *_attr)
 {
@@ -38,22 +55,6 @@ void *pw_thread_fill_attr(const struct spa_dict *props, void *_attr)
 	pthread_attr_init(attr);
 	if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_STACK_SIZE)) != NULL)
 		CHECK(pthread_attr_setstacksize(attr, atoi(str)), error);
-	if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_AFFINITY)) != NULL) {
-		struct spa_json it[2];
-		int v;
-		cpu_set_t set;
-
-		CPU_ZERO(&set);
-		spa_json_init(&it[0], str, strlen(str));
-		if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-			spa_json_init(&it[1], str, strlen(str));
-
-		while (spa_json_get_int(&it[1], &v) > 0) {
-			if (v >= 0 && v < CPU_SETSIZE)
-				CPU_SET(v, &set);
-	        }
-		CHECK(pthread_attr_setaffinity_np(attr, sizeof(set), &set), error);
-	}
 	return attr;
 error:
 	errno = -res;
@@ -73,6 +74,13 @@ int pthread_setname_np(pthread_t thread, const char *name)
 #if defined(__GNU__)
 int pthread_setname_np(pthread_t thread, const char *name) { return 0; }
 #endif
+
+static int thread_setaffinity(pthread_t thread, const char *affinity)
+{
+	cpu_set_t set;
+	parse_affinity(affinity, &set);
+	return -pthread_setaffinity_np(thread, sizeof(set), &set);
+}
 
 static struct spa_thread *impl_create(void *object,
 			const struct spa_dict *props,
@@ -98,6 +106,9 @@ static struct spa_thread *impl_create(void *object,
 		if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_NAME)) != NULL &&
 		    (err = pthread_setname_np(pt, str)) != 0)
 			pw_log_warn("pthread_setname error: %s", strerror(err));
+		if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_AFFINITY)) != NULL &&
+		    (err = thread_setaffinity(pt, str)) != 0)
+			pw_log_warn("pthread_setaffinity error: %s", strerror(err));
 	}
 	return (struct spa_thread*)pt;
 }

@@ -754,7 +754,8 @@ int message_dump(enum spa_log_level level, const char *prefix, struct message *m
 			struct timeval tv;
 			if ((res = read_timeval(m, &tv)) < 0)
 				return res;
-			pw_log(level, "%s %u: timeval: %lu:%lu", prefix, o, tv.tv_sec, tv.tv_usec);
+			pw_log(level, "%s %u: timeval: %jd:%jd", prefix, o,
+				(intmax_t) tv.tv_sec, (intmax_t) tv.tv_usec);
 			break;
 		}
 		case TAG_CHANNEL_MAP:

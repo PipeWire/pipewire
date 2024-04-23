@@ -832,7 +832,7 @@ static int negotiate_formats(struct data *data)
 	if ((res = spa_node_port_use_buffers(data->source_node,
 		SPA_DIRECTION_OUTPUT, 0, 0, data->source_buffers, 1)) < 0)
 		return res;
-	printf("allocated and assigned buffer(%ld) to source node %p\n", buffer_size, data->source_node);
+	printf("allocated and assigned buffer (%zu) to source node %p\n", buffer_size, data->source_node);
 	if ((res = spa_node_port_use_buffers(data->sink_node,
 		SPA_DIRECTION_INPUT, 0, 0, data->source_buffers, 1)) < 0)
 		return res;

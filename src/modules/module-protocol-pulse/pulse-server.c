@@ -204,7 +204,7 @@ static int send_object_event(struct client *client, struct pw_manager_object *o,
 {
 	uint32_t event = 0, mask = 0, res_index = o->index;
 
-	pw_log_debug("index:%d id:%d %08lx type:%u", o->index, o->id, o->change_mask, type);
+	pw_log_debug("index:%d id:%d %08" PRIx64 " type:%u", o->index, o->id, o->change_mask, type);
 
 	if (pw_manager_object_is_sink(o) && o->change_mask & PW_MANAGER_OBJECT_FLAG_SINK) {
 		client_queue_subscribe_event(client,

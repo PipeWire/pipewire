@@ -6514,7 +6514,7 @@ static inline void get_frame_times(struct client *c, struct frame_times *times)
 		u1 = c->jack_position.unique_1;
 		*times = c->jack_times;
 		if (++count == 10) {
-			pw_log_warn("could not get snapshot %lu %lu", u1, c->jack_position.unique_2);
+			pw_log_warn("could not get snapshot %" PRIu64 " %" PRIu64, u1, c->jack_position.unique_2);
 			break;
 		}
 	} while (u1 != c->jack_position.unique_2);
@@ -6807,7 +6807,7 @@ jack_transport_state_t jack_transport_query (const jack_client_t *client,
 		if (pos != NULL)
 			*pos = c->jack_position;
 		if (++count == 10) {
-			pw_log_warn("could not get snapshot %lu %lu", u1, c->jack_position.unique_2);
+			pw_log_warn("could not get snapshot %" PRIu64 " %" PRIu64, u1, c->jack_position.unique_2);
 			break;
 		}
 	} while (u1 != c->jack_position.unique_2);

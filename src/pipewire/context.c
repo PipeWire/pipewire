@@ -47,6 +47,8 @@ PW_LOG_TOPIC_EXTERN(log_context);
 
 struct data_loop {
 	struct pw_data_loop *impl;
+	bool autostart;
+	bool started;
 	int ref;
 };
 
@@ -280,6 +282,29 @@ exit:
 	return res;
 }
 
+static int data_loop_start(struct impl *impl, struct data_loop *loop)
+{
+	int res;
+	if (loop->started || loop->impl == NULL)
+		return 0;
+
+	pw_log_info("starting data loop %s", loop->impl->loop->name);
+	if ((res = pw_data_loop_start(loop->impl)) < 0)
+		return res;
+
+	pw_data_loop_invoke(loop->impl, do_data_loop_setup, 0, NULL, 0, false, &impl->this);
+	loop->started = true;
+	return 0;
+}
+
+static void data_loop_stop(struct impl *impl, struct data_loop *loop)
+{
+	if (!loop->started || loop->impl == NULL)
+		return;
+	pw_data_loop_stop(loop->impl);
+	loop->started = false;
+}
+
 /** Create a new context object
  *
  * \param main_loop the main loop to use
@@ -475,11 +500,11 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	pw_log_info("%p: parsed %d context.exec items", this, res);
 
 	for (i = 0; i < impl->n_data_loops; i++) {
-		if ((res = pw_data_loop_start(impl->data_loops[i].impl)) < 0)
+		struct data_loop *dl = &impl->data_loops[i];
+		if (!dl->autostart)
+			continue;
+		if ((res = data_loop_start(impl, dl)) < 0)
 			goto error_free;
-
-		pw_data_loop_invoke(impl->data_loops[i].impl,
-				do_data_loop_setup, 0, NULL, 0, false, this);
 	}
 
 	pw_settings_expose(this);
@@ -533,10 +558,8 @@ void pw_context_destroy(struct pw_context *context)
 	spa_list_consume(resource, &context->registry_resource_list, link)
 		pw_resource_destroy(resource);
 
-	for (i = 0; i < impl->n_data_loops; i++) {
-		if (impl->data_loops[i].impl)
-			pw_data_loop_stop(impl->data_loops[i].impl);
-	}
+	for (i = 0; i < impl->n_data_loops; i++)
+		data_loop_stop(impl, &impl->data_loops[i]);
 
 	spa_list_consume(module, &context->module_list, link)
 		pw_impl_module_destroy(module);
@@ -672,6 +695,11 @@ static struct pw_data_loop *acquire_data_loop(struct impl *impl, const char *nam
 		return NULL;
 
 	best_loop->ref++;
+	if ((res = data_loop_start(impl, best_loop)) < 0) {
+		errno = -res;
+		return NULL;
+	}
+
 	pw_log_info("using name:'%s' class:'%s' ref:%d", best_loop->impl->loop->name,
 			best_loop->impl->class, best_loop->ref);
 

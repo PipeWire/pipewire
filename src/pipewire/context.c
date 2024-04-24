@@ -117,8 +117,9 @@ static int context_set_freewheel(struct pw_context *context, bool freewheel)
 	int res = 0;
 
 	for (i = 0; i < impl->n_data_loops; i++) {
-		if ((thr = pw_data_loop_get_thread(impl->data_loops[i].impl)) == NULL)
-			return -EIO;
+		if (impl->data_loops[i].impl == NULL ||
+		    (thr = pw_data_loop_get_thread(impl->data_loops[i].impl)) == NULL)
+			continue;
 
 		if (freewheel) {
 			pw_log_info("%p: enter freewheel", context);

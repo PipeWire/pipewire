@@ -1151,8 +1151,12 @@ int pw_conf_match_rules(const char *str, size_t len, const char *location,
 					break;
 			}
 		}
-		if (!have_match || !have_actions)
+		if (!have_match)
 			continue;
+		if (!have_actions) {
+			pw_log_warn("no actions for match rule '%.*s'", (int)len, str);
+			continue;
+		}
 
 		while (spa_json_get_string(&actions, key, sizeof(key)) > 0) {
 			int res, len;

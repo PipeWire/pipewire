@@ -425,13 +425,6 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_System, this->main_loop->system);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Loop, this->main_loop->loop);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, this->main_loop->utils);
-	if (impl->n_data_loops > 0) {
-		this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataSystem, impl->data_loops[0].impl->loop->system);
-		this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, impl->data_loops[0].impl->loop->loop);
-	} else {
-		this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataSystem, this->main_loop->system);
-		this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, this->main_loop->loop);
-	}
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_PluginLoader, &impl->plugin_loader);
 
 	if ((str = pw_properties_get(properties, "support.dbus")) == NULL ||
@@ -611,11 +604,25 @@ void pw_context_add_listener(struct pw_context *context,
 	spa_hook_list_append(&context->listener_list, listener, events, data);
 }
 
+const struct spa_support *context_get_support(struct pw_context *context, uint32_t *n_support,
+		const struct spa_dict *info)
+{
+	uint32_t n = context->n_support;
+	struct pw_loop *loop;
+
+	loop = pw_context_acquire_loop(context, info);
+	if (loop != NULL) {
+		context->support[n++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataSystem, loop->system);
+		context->support[n++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, loop->loop);
+	}
+	*n_support = n;
+	return context->support;
+}
+
 SPA_EXPORT
 const struct spa_support *pw_context_get_support(struct pw_context *context, uint32_t *n_support)
 {
-	*n_support = context->n_support;
-	return context->support;
+	return context_get_support(context, n_support, NULL);
 }
 
 SPA_EXPORT
@@ -628,15 +635,17 @@ static struct pw_data_loop *acquire_data_loop(struct impl *impl, const char *nam
 {
 	uint32_t i, j;
 	struct data_loop *best_loop = NULL;
-	int best_score = 0;
-
-	if (klass == NULL)
-		klass = "data.rt";
+	int best_score = 0, res;
 
 	for (i = 0; i < impl->n_data_loops; i++) {
 		struct data_loop *l = &impl->data_loops[i];
 		const char *ln = l->impl->loop->name;
 		int score = 0;
+
+		if (!name && !klass) {
+			best_loop = l;
+			break;
+		}
 
 		if (name && ln && fnmatch(name, ln, FNM_EXTMATCH) == 0)
 			score += 2;
@@ -683,8 +692,8 @@ struct pw_loop *pw_context_acquire_loop(struct pw_context *context, const struct
 	const char *name, *klass;
 	struct pw_data_loop *loop;
 
-	name = spa_dict_lookup(props, PW_KEY_NODE_LOOP_NAME);
-	klass = spa_dict_lookup(props, PW_KEY_NODE_LOOP_CLASS);
+	name = props ? spa_dict_lookup(props, PW_KEY_NODE_LOOP_NAME) : NULL;
+	klass = props ? spa_dict_lookup(props, PW_KEY_NODE_LOOP_CLASS) : NULL;
 
 	pw_log_info("looking for name:'%s' class:'%s'", name, klass);
 
@@ -1916,7 +1925,7 @@ struct spa_handle *pw_context_load_spa_handle(struct pw_context *context,
 		return NULL;
 	}
 
-	support = pw_context_get_support(context, &n_support);
+	support = context_get_support(context, &n_support, info);
 
 	handle = pw_load_spa_handle(lib, factory_name,
 			info, n_support, support);

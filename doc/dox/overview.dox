@@ -32,11 +32,126 @@ a user-space daemon is needed to make this possible:
   from clients.
 - For Pro audio, we use JACK to manage the graph of nodes.
 
-None of these solutions (except perhaps to some extent Wayland) however 
+None of these solutions (except perhaps to some extent Wayland) however
 were designed to support the security features that are required when
 dealing with flatpaks or other containerized applications. PipeWire
 aims to solve this problem and provides a unified framework to run both
 consumer and pro audio as well as video capture and processing in a
 secure way.
+
+# Concepts
+
+Let's walk through some PipeWire concepts that should be helpful while looking
+through configuration, `pw-dump` output, or while starting to work with the
+code. We'll start with some common entities that you will encounter.
+
+## Server
+
+There is one PipeWire process that acts as the server, and manages the data
+processing graphs on the system. It can load a number of entities described
+below, and also owns a UNIX domain socket over which clients communicate with
+it using the PipeWire native protocol.
+
+## Clients
+
+PipeWire look quite similar to the PipeWire server: they also load a number of
+the entities below, but they do not act as a server of the native protocol.
+Instead, they "export" some their entities to the server, which in turn is able
+to use them like it would its own local entities.
+
+## Context
+
+The context (`pw_context` in code) is the entry point for the PipeWire server
+and clients. The server and clients follow a similar structure, where they:
+
+  - Start a main loop
+  - Load configuration for this process (could be server, client,
+    pipewire-pulse, AES67, ...)
+  - Load a bunch of support libraries
+  - Using configuration, to
+    - Set some global properties (`context.properties`)
+    - Load SPA libraries (PipeWire-s low-level plugin API) (`context.spa-libs`)
+    - Load PipeWire modules (`context.modules`)
+    - Creates objects (`context.objects`)
+    - Execs misc commands (`context.exec`)
+  - If necessary, start a real time loop for data processing
+
+## Modules
+
+PipeWire modules are dynamic libraries that can be loaded at run time and do
+arbitrary things, such as creating devices or provide the ability for clients
+to create links, nodes, etc.
+
+One difference if you’re coming from the PulseAudio world is that the PipeWire
+daemon does not dynamically load modules (i.e. the equivalent of `pactl
+load-module`). Equivalent functionality exists, because clients can load
+modules and expose entities to the server (and in fact, WirePlumber supports
+dynamically loading modules).
+
+## Devices
+
+Devices are objects that create and manage nodes. There are a few ways that
+devices can be created, but typically this involves a module that monitors
+sources of devices (like udev, BlueZ, etc.), which in turn dynamically loads
+and exposes those devices.
+
+## Nodes
+
+Nodes are the core data processing entity in PipeWire. They may produce data
+(capture devices, signal generators, ...), consume data (playback devices,
+network endpoints, ...) or both (filters).
+
+## Ports
+
+Ports are the entry and exit point of data for a Node. A port can either be
+used for input or output (but not both), and carries various kinds of
+configuration, depending on the kind of data that might flow through.
+
+For nodes that work with audio, one type of configuration is whether they have
+`"dsp"` ports or a `"passthrough"` port. In `"dsp"` mode, there is one port for
+channel of multichannel audio (so two ports for stereo audio, for example), and
+data is always in 32-bit floating point format. In `"passthrough"` mode, there
+is one port for multichannel data in a format that is negotiated between ports.
+
+## Links
+
+Data flows between nodes when there is a Link between their ports. Links may be
+`"passive"` in which case the existence of the link does not automatically
+cause data to flow between those nodes (some link in the graph must be
+`"active"` for the graph to have data flow).
+
+## Configuration
+
+### Load-time properties (`props`)
+
+Many of the entities listed above take a set of properties at load-time to
+configure how they are loaded and what they should do. These are commonly seen
+in configuration and `pw-dump` output as an object called `"props"`, which is a
+set of key-value pairs with some meaning to than entity (for example, an audio
+stream might have an `audio.rate` key in its props, whose integer value would
+configure the sample rate of the stream.
+
+These properties are configured when the entity is loaded, and cannot be
+changed afterward.
+
+### Run-time parameters (`params`)
+
+Some of the entities above (notably devices, nodes and ports), support run-time
+configuration via a mechanism called `param`s. These might include
+user-visible, such as the list for device profiles (`EnumProfile` param) or
+node formats (`EnumFormat` param), the currently selected device profile
+(`Profile` param) or port format (`Format` param).
+
+This mechanism is also used in code to configure run-time values for entities,
+examples including I/O areas (`IO` param) or buffers (`Buffers`).
+
+### Run-time properties (the `Props` parameter)
+
+One class of `params` bear special mention, namely properties. Entities
+(primarily nodes and ports) might have some properties that can be queried
+and/or set at run-time. The `PropInfo` param can be used to list the set of
+such properties supported by an entity (names, descriptions, types and ranges).
+The `Props` param allows queying the current value of these properties, as well
+as setting a new value, where it is supported.
 
 */

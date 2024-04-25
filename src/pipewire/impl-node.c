@@ -172,7 +172,7 @@ do_node_add(struct spa_loop *loop, bool async, uint32_t seq,
 		int res;
 
 		/* clear the eventfd in case it was written to while the node was stopped */
-		res = spa_system_eventfd_read(this->data_system, this->source.fd, &dummy);
+		res = spa_system_eventfd_read(this->rt.target.system, this->source.fd, &dummy);
 		if (SPA_UNLIKELY(res != -EAGAIN && res != 0))
 			pw_log_warn("%p: read failed %m", this);
 
@@ -1321,7 +1321,7 @@ static inline int process_node(void *data)
 	struct pw_impl_node *this = data;
 	struct pw_impl_port *p;
 	struct pw_node_activation *a = this->rt.target.activation;
-	struct spa_system *data_system = this->data_system;
+	struct spa_system *data_system = this->rt.target.system;
 	int status;
 	uint64_t nsec;
 
@@ -1384,7 +1384,7 @@ static inline int process_node(void *data)
 
 int pw_impl_node_trigger(struct pw_impl_node *node)
 {
-	uint64_t nsec = get_time_ns(node->data_system);
+	uint64_t nsec = get_time_ns(node->rt.target.system);
 	trigger_target(&node->rt.target, nsec);
 	return 0;
 }
@@ -1399,14 +1399,15 @@ static void node_on_fd_events(struct spa_source *source)
 	}
 	if (SPA_LIKELY(source->rmask & SPA_IO_IN)) {
 		uint64_t cmd;
+		struct spa_system *data_system = this->rt.target.system;
 
-		if (SPA_UNLIKELY(spa_system_eventfd_read(this->data_system, this->source.fd, &cmd) < 0))
+		if (SPA_UNLIKELY(spa_system_eventfd_read(data_system, this->source.fd, &cmd) < 0))
 			pw_log_warn("%p: read failed %m", this);
 		else if (SPA_UNLIKELY(cmd > 1)) {
 			pw_log_info("(%s-%u) client missed %"PRIu64" wakeups",
 				this->name, this->info.id, cmd - 1);
 			update_xrun_stats(this->rt.target.activation, cmd - 1,
-					get_time_ns(this->data_system) / 1000, 0);
+					get_time_ns(data_system) / 1000, 0);
 		}
 
 		pw_log_trace_fp("%p: remote:%u exported:%u %s got process", this, this->remote,
@@ -1483,15 +1484,13 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 		goto error_clean;
 	}
 
-	this->data_system = this->data_loop->system;
-
 	if (user_data_size > 0)
                 this->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
 
 	this->properties = properties;
 
 	/* the eventfd used to signal the node */
-	if ((res = spa_system_eventfd_create(this->data_system,
+	if ((res = spa_system_eventfd_create(this->data_loop->system,
 					SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
 		goto error_clean;
 
@@ -1539,7 +1538,7 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 
 	this->rt.target.activation = this->activation->map->ptr;
 	this->rt.target.node = this;
-	this->rt.target.system = this->data_system;
+	this->rt.target.system = this->data_loop->system;
 	this->rt.target.fd = this->source.fd;
 
 	reset_position(this, &this->rt.target.activation->position);
@@ -1560,7 +1559,7 @@ error_clean:
 	if (this->activation)
 		pw_memblock_unref(this->activation);
 	if (this->source.fd != -1)
-		spa_system_close(this->data_system, this->source.fd);
+		spa_system_close(this->data_loop->system, this->source.fd);
 	if (this->data_loop)
 		pw_context_release_loop(context, this->data_loop);
 	free(this->name);
@@ -1877,7 +1876,7 @@ static int node_ready(void *data, int status)
 	struct pw_impl_node *node = data;
 	struct pw_impl_node *driver = node->driver_node;
 	struct pw_node_activation *a = node->rt.target.activation;
-	struct spa_system *data_system = node->data_system;
+	struct spa_system *data_system = node->rt.target.system;
 	struct pw_node_target *t, *reposition_target = NULL;;
 	struct pw_impl_port *p;
 	uint64_t nsec;
@@ -2021,7 +2020,7 @@ static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_po
 	struct pw_impl_node *this = data;
 	struct pw_node_activation *a = this->rt.target.activation;
 	struct pw_node_activation *da = this->rt.driver_target.activation;
-	struct spa_system *data_system = this->data_system;
+	struct spa_system *data_system = this->rt.target.system;
 	uint64_t nsec = get_time_ns(data_system);
 	int suppressed;
 
@@ -2259,7 +2258,7 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 
 	clear_info(node);
 
-	spa_system_close(node->data_system, node->source.fd);
+	spa_system_close(node->rt.target.system, node->source.fd);
 
 	if (node->data_loop)
 		pw_context_release_loop(context, node->data_loop);

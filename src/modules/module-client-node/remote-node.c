@@ -218,7 +218,7 @@ static int client_node_transport(void *_data,
 		proxy, readfd, writefd, data->remote_id, data->activation->ptr);
 
 	data->rtwritefd = writefd;
-	spa_system_close(node->data_system, node->source.fd);
+	spa_system_close(node->rt.target.system, node->source.fd);
 	node->rt.target.fd = node->source.fd = readfd;
 
 	data->have_transport = true;

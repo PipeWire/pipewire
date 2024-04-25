@@ -715,7 +715,6 @@ struct pw_impl_node {
 	struct spa_hook_list rt_listener_list;
 
 	struct pw_loop *data_loop;		/**< the data loop for this node */
-	struct spa_system *data_system;
 
 	struct spa_fraction latency;		/**< requested latency */
 	struct spa_fraction max_latency;	/**< maximum latency */

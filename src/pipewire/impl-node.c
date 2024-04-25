@@ -167,7 +167,7 @@ do_node_add(struct spa_loop *loop, bool async, uint32_t seq,
 	struct pw_impl_node *this = user_data;
 	struct pw_impl_node *driver = this->driver_node;
 
-	if (!this->added) {
+	if (!this->rt.added) {
 		uint64_t dummy;
 		int res;
 
@@ -176,7 +176,7 @@ do_node_add(struct spa_loop *loop, bool async, uint32_t seq,
 		if (SPA_UNLIKELY(res != -EAGAIN && res != 0))
 			pw_log_warn("%p: read failed %m", this);
 
-		this->added = true;
+		this->rt.added = true;
 		/* remote nodes have their source added in client-node instead */
 		if (!this->remote)
 			spa_loop_add_source(loop, &this->source);
@@ -190,11 +190,11 @@ do_node_remove(struct spa_loop *loop, bool async, uint32_t seq,
 		const void *data, size_t size, void *user_data)
 {
 	struct pw_impl_node *this = user_data;
-	if (this->added) {
+	if (this->rt.added) {
 		if (!this->remote)
 			spa_loop_remove_source(loop, &this->source);
 		remove_node(this);
-		this->added = false;
+		this->rt.added = false;
 	}
 	return 0;
 }
@@ -273,7 +273,7 @@ static int start_node(struct pw_impl_node *this)
 		return 0;
 
 	pw_log_debug("%p: start node driving:%d driver:%d added:%d", this,
-			this->driving, this->driver, this->added);
+			this->driving, this->driver, this->rt.added);
 
 	if (!(this->driving && this->driver)) {
 		impl->pending_play = true;
@@ -373,7 +373,7 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 	switch (state) {
 	case PW_NODE_STATE_RUNNING:
 		pw_log_debug("%p: start node driving:%d driver:%d added:%d", node,
-				node->driving, node->driver, node->added);
+				node->driving, node->driver, node->rt.added);
 
 		if (res >= 0) {
 			pw_loop_invoke(node->data_loop, do_node_add, 1, NULL, 0, true, node);
@@ -447,7 +447,7 @@ static int suspend_node(struct pw_impl_node *this)
 	node_deactivate(this);
 
 	pw_log_debug("%p: suspend node driving:%d driver:%d added:%d", this,
-			this->driving, this->driver, this->added);
+			this->driving, this->driver, this->rt.added);
 
 	res = spa_node_send_command(this->node,
 				    &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Suspend));
@@ -884,7 +884,7 @@ do_move_nodes(struct spa_loop *loop,
 
 	pw_log_trace("%p: driver:%p->%p", node, old, driver);
 
-	if (node->added) {
+	if (node->rt.added) {
 		remove_node(node);
 		add_node(node, driver);
 	}
@@ -1336,7 +1336,7 @@ static inline int process_node(void *data)
 	if (SPA_UNLIKELY(!this->transport_sync))
 		a->pending_sync = false;
 
-	if (SPA_LIKELY(this->added)) {
+	if (SPA_LIKELY(this->rt.added)) {
 		/* process input mixers */
 		spa_list_for_each(p, &this->rt.input_mix, rt.node_link)
 			spa_node_process_fast(p->mix);
@@ -1882,9 +1882,9 @@ static int node_ready(void *data, int status)
 	uint64_t nsec;
 
 	pw_log_trace_fp("%p: ready driver:%d exported:%d %p status:%d added:%d", node,
-			node->driver, node->exported, driver, status, node->added);
+			node->driver, node->exported, driver, status, node->rt.added);
 
-	if (SPA_UNLIKELY(!node->added)) {
+	if (SPA_UNLIKELY(!node->rt.added)) {
 		/* This can happen when we are stopping a node and removed it from the
 		 * graph but we still have not completed the Pause/Suspend command on
 		 * the node. In that case, the node might still emit ready events,

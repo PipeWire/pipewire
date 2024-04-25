@@ -1192,12 +1192,8 @@ static const struct spa_node_methods impl_node = {
 
 static int
 impl_init(struct impl *impl,
-	  struct spa_dict *info,
-	  const struct spa_support *support,
-	  uint32_t n_support)
+	  struct spa_dict *info)
 {
-	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-
 	impl->node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
@@ -1759,8 +1755,6 @@ struct pw_impl_client_node *pw_impl_client_node_new(struct pw_resource *resource
 	struct pw_impl_client_node *this;
 	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct pw_context *context = pw_impl_client_get_context(client);
-	const struct spa_support *support;
-	uint32_t n_support;
 	int res;
 
 	impl = calloc(1, sizeof(struct impl));
@@ -1785,8 +1779,8 @@ struct pw_impl_client_node *pw_impl_client_node_new(struct pw_resource *resource
 	impl->data_source.fd = -1;
 	pw_log_debug("%p: new", &impl->node);
 
-	support = pw_context_get_support(impl->context, &n_support);
-	impl_init(impl, NULL, support, n_support);
+	impl_init(impl, NULL);
+	impl->log = pw_log_get();
 	impl->resource = resource;
 	impl->client = client;
 	impl->client_pool = pw_impl_client_get_mempool(client);

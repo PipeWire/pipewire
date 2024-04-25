@@ -35,7 +35,7 @@ static const struct spa_type_info spa_type_data_type[] = {
 	{ SPA_DATA_MemFd, SPA_TYPE_Int, SPA_TYPE_INFO_DATA_FD_BASE "MemFd", NULL },
 	{ SPA_DATA_DmaBuf, SPA_TYPE_Int, SPA_TYPE_INFO_DATA_FD_BASE "DmaBuf", NULL },
 	{ SPA_DATA_MemId, SPA_TYPE_Int, SPA_TYPE_INFO_DATA_BASE "MemId", NULL },
-	{ SPA_DATA_GenericFd, SPA_TYPE_Int, SPA_TYPE_INFO_DATA_BASE "GenericFd", NULL },
+	{ SPA_DATA_SyncObj, SPA_TYPE_Int, SPA_TYPE_INFO_DATA_BASE "SyncObj", NULL },
 	{ 0, 0, NULL, NULL },
 };
 
@@ -61,6 +61,7 @@ static const struct spa_type_info spa_type_meta_type[] = {
 	{ SPA_META_Control, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_BASE "Control", NULL },
 	{ SPA_META_Busy, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_BASE "Busy", NULL },
 	{ SPA_META_VideoTransform, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_BASE "VideoTransform", NULL },
+	{ SPA_META_SyncTimeline, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_BASE "SyncTimeline", NULL },
 	{ 0, 0, NULL, NULL },
 };
 

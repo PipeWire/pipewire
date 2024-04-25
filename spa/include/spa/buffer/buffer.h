@@ -34,10 +34,8 @@ enum spa_data_type {
 	SPA_DATA_MemId,			/**< memory is identified with an id. The actual memory
 					  *  can be obtained in some other way and can be identified
 					  *  with this id. */
-	SPA_DATA_GenericFd,		/**< generic fd, type and usage might be in metadata. If
-					  *  there is a size and MAPPABLE flag, this can be mmapped
-					  *  to obtain a memory region. The semantics of memfd might
-					  *  not be available (SEALING, ...) */
+	SPA_DATA_SyncObj,		/**< a syncobj, usually requires a spa_meta_sync_timeline metadata
+					  *  with timeline points. */
 
 	_SPA_DATA_LAST,			/**< not part of ABI */
 };

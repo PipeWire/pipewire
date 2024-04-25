@@ -670,7 +670,6 @@ struct pw_impl_node {
 	unsigned int transport_sync:1;	/**< supports transport sync */
 	unsigned int target_pending:1;	/**< a quantum/rate update is pending */
 	unsigned int moved:1;		/**< the node was moved drivers */
-	unsigned int added:1;		/**< the node was add to graph */
 	unsigned int pause_on_idle:1;	/**< Pause processing when IDLE */
 	unsigned int suspend_on_idle:1;
 	unsigned int need_resume:1;
@@ -729,6 +728,8 @@ struct pw_impl_node {
 		struct spa_list driver_link;		/* our link in driver */
 
 		struct spa_ratelimit rate_limit;
+
+		bool added;				/**< the node was add to graph */
 	} rt;
 	struct spa_fraction target_rate;
 	uint64_t target_quantum;
@@ -741,7 +742,6 @@ struct pw_impl_node {
 
 struct pw_impl_port_mix {
 	struct spa_list link;
-	struct spa_list rt_link;
 	struct pw_impl_port *p;
 	struct {
 		enum spa_direction direction;
@@ -750,8 +750,12 @@ struct pw_impl_port_mix {
 	struct spa_io_buffers *io;
 	uint32_t id;
 	uint32_t peer_id;
-	unsigned int have_buffers:1;
-	unsigned int active:1;
+	bool have_buffers;
+
+	struct {
+		bool active;
+		struct spa_list link;
+	} rt;
 };
 
 struct pw_impl_port_implementation {

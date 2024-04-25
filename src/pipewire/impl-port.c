@@ -29,7 +29,9 @@ PW_LOG_TOPIC_EXTERN(log_port);
 struct impl {
 	struct pw_impl_port this;
 	struct spa_node mix_node;	/**< mix node implementation */
-	struct spa_list mix_list;
+	struct {
+		struct spa_list mix_list;
+	} rt;
 
 	struct spa_list param_list;
 	struct spa_list pending_list;
@@ -134,9 +136,9 @@ do_add_mix(struct spa_loop *loop,
 	struct pw_impl_port *this = mix->p;
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	pw_log_trace("%p: add mix %p", this, mix);
-	if (!mix->active) {
-		spa_list_append(&impl->mix_list, &mix->rt_link);
-		mix->active = true;
+	if (!mix->rt.active) {
+		spa_list_append(&impl->rt.mix_list, &mix->rt.link);
+		mix->rt.active = true;
 	}
 	return 0;
 }
@@ -148,9 +150,9 @@ do_remove_mix(struct spa_loop *loop,
 	struct pw_impl_port_mix *mix = user_data;
 	struct pw_impl_port *this = mix->p;
 	pw_log_trace("%p: remove mix %p", this, mix);
-	if (mix->active) {
-		spa_list_remove(&mix->rt_link);
-		mix->active = false;
+	if (mix->rt.active) {
+		spa_list_remove(&mix->rt.link);
+		mix->rt.active = false;
 	}
 	return 0;
 }
@@ -189,7 +191,7 @@ static int tee_process(void *object)
 	struct spa_io_buffers *io = &this->rt.io;
 
 	pw_log_trace_fp("%p: tee input %d %d", this, io->status, io->buffer_id);
-	spa_list_for_each(mix, &impl->mix_list, rt_link) {
+	spa_list_for_each(mix, &impl->rt.mix_list, rt.link) {
 		pw_log_trace_fp("%p: port %d %p->%p %d", this,
 				mix->port.port_id, io, mix->io, mix->io->buffer_id);
 		*mix->io = *io;
@@ -226,7 +228,7 @@ static int schedule_mix_input(void *object)
 	if (SPA_UNLIKELY(PW_IMPL_PORT_IS_CONTROL(this)))
 		return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
 
-	spa_list_for_each(mix, &impl->mix_list, rt_link) {
+	spa_list_for_each(mix, &impl->rt.mix_list, rt.link) {
 		pw_log_trace_fp("%p: mix input %d %p->%p %d %d", this,
 				mix->port.port_id, mix->io, io, mix->io->status, mix->io->buffer_id);
 		*io = *mix->io;
@@ -241,7 +243,7 @@ static int schedule_mix_reuse_buffer(void *object, uint32_t port_id, uint32_t bu
 	struct impl *impl = object;
 	struct pw_impl_port_mix *mix;
 
-	spa_list_for_each(mix, &impl->mix_list, rt_link) {
+	spa_list_for_each(mix, &impl->rt.mix_list, rt.link) {
 		pw_log_trace_fp("%p: reuse buffer %d %d", impl, port_id, buffer_id);
 		/* FIXME send reuse buffer to peer */
 		break;
@@ -585,7 +587,7 @@ struct pw_impl_port *pw_context_create_port(
 	spa_list_init(&impl->param_list);
 	spa_list_init(&impl->pending_list);
 	impl->cache_params = true;
-	spa_list_init(&impl->mix_list);
+	spa_list_init(&impl->rt.mix_list);
 
 	this = &impl->this;
 

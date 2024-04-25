@@ -54,10 +54,10 @@ it using the PipeWire native protocol.
 
 ## Clients
 
-PipeWire look quite similar to the PipeWire server: they also load a number of
-the entities below, but they do not act as a server of the native protocol.
-Instead, they "export" some their entities to the server, which in turn is able
-to use them like it would its own local entities.
+PipeWire clients look quite similar to the PipeWire server: they also load a
+number of the entities below, but they do not act as a server of the native
+protocol. Instead, they "export" some their entities to the server, which in
+turn is able to use them like it would its own local entities.
 
 ## Context
 
@@ -70,9 +70,10 @@ and clients. The server and clients follow a similar structure, where they:
   - Load a bunch of support libraries
   - Using configuration, to
     - Set some global properties (`context.properties`)
-    - Load SPA libraries (PipeWire-s low-level plugin API) (`context.spa-libs`)
+    - Identify what SPA libraries to load (PipeWire-s low-level plugin API)
+      (`context.spa-libs`)
     - Load PipeWire modules (`context.modules`)
-    - Creates objects (`context.objects`)
+    - Create objects (`context.objects`)
     - Execs misc commands (`context.exec`)
   - If necessary, start a real time loop for data processing
 

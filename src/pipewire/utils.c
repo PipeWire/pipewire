@@ -14,6 +14,7 @@
 #include <time.h>
 
 #include <spa/utils/json.h>
+#include <spa/debug/log.h>
 
 #include <pipewire/array.h>
 #include <pipewire/log.h>
@@ -130,28 +131,54 @@ char **pw_strv_parse(const char *val, size_t len, int max_tokens, int *n_tokens)
 {
 	struct pw_array arr;
 	struct spa_json it[2];
-	char v[256];
-	int n = 0;
+	char *s, **result;
+	int n = 0, l, res;
+	const char *value;
+	struct spa_error_location el;
 
 	if (val == NULL)
 		return NULL;
 
-	pw_array_init(&arr, 16);
+	pw_array_init(&arr, sizeof(char*) * 16);
 
 	spa_json_init(&it[0], val, len);
         if (spa_json_enter_array(&it[0], &it[1]) <= 0)
                 spa_json_init(&it[1], val, len);
 
-	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 && n + 1 < max_tokens) {
-		pw_array_add_ptr(&arr, strdup(v));
+	while ((l = spa_json_next(&it[1], &value)) > 0 && n + 1 < max_tokens) {
+		if ((s = malloc(l+1)) == NULL)
+			goto error_errno;
+
+		spa_json_parse_stringn(value, l, s, l+1);
+
+		if ((res = pw_array_add_ptr(&arr, s)) < 0) {
+			free(s);
+			goto error;
+		}
 		n++;
 	}
-	pw_array_add_ptr(&arr, NULL);
-
+	if ((res = pw_array_add_ptr(&arr, NULL)) < 0)
+		goto error;
+done:
+	if ((res = spa_json_get_error(&it[1], val, &el))) {
+		spa_debug_log_error_location(pw_log_get(), SPA_LOG_LEVEL_WARN,
+				&el, "error parsing strv: %s", el.reason);
+		pw_array_for_each(s, &arr)
+			free(s);
+		pw_array_clear(&arr);
+		n = 0;
+	}
 	if (n_tokens != NULL)
 		*n_tokens = n;
 
 	return arr.data;
+
+error_errno:
+	res = -errno;
+error:
+	it[1].state = SPA_JSON_ERROR_FLAG;
+	errno = -res;
+	goto done;
 }
 
 /** Find a string in a NULL terminated array of strings.

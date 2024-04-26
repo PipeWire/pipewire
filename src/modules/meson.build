@@ -24,6 +24,7 @@ module_sources = [
   'module-metadata.c',
   'module-netjack2-driver.c',
   'module-netjack2-manager.c',
+  'module-parametric-equalizer.c',
   'module-pipe-tunnel.c',
   'module-portal.c',
   'module-profiler.c',
@@ -249,6 +250,15 @@ pipewire_module_netjack2_manager = shared_library('pipewire-module-netjack2-mana
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
   dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep, opus_custom_dep],
+)
+
+pipewire_module_parametric_equalizer = shared_library('pipewire-module-parametric-equalizer',
+  [ 'module-parametric-equalizer.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [filter_chain_dependencies],
 )
 
 pipewire_module_profiler = shared_library('pipewire-module-profiler',

@@ -413,7 +413,7 @@ part of the initialization of the PipeWire program.
 ```json
 context.exec = [
     #{   path = <program-name>
-    #    ( args = "<arguments>" )
+    #    ( args = "<arguments>" | [ <arg1> <arg2> ... ] )
     #    ( condition = [ { <key> = <value> ... } ... ] )
     #}
 ]

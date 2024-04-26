@@ -319,7 +319,7 @@ context.objects = [
 
 context.exec = [
     #{   path = <program-name>
-    #    ( args = "<arguments>" )
+    #    ( args = "<arguments>" | [ <arg1> <arg2> ... ] )
     #    ( condition = [ { <key> = <value> ... } ... ] )
     #}
     #
@@ -339,6 +339,6 @@ context.exec = [
     # It can be interesting to start another daemon here that listens
     # on another address with the -a option (eg. -a tcp:4713).
     #
-    @pulse_comment@{ path = "@pipewire_path@" args = "-c pipewire-pulse.conf"
+    @pulse_comment@{ path = "@pipewire_path@" args = [ "-c" "pipewire-pulse.conf" ]
     @pulse_comment@  condition = [ { exec.pipewire-pulse = null } { exec.pipewire-pulse = true } ] }
 ]

@@ -927,38 +927,69 @@ static int parse_objects(void *user_data, const char *location,
 	return res;
 }
 
-static int do_exec(struct pw_context *context, const char *key, const char *args)
+static char **pw_strv_insert_at(char **strv, int len, int pos, const char *str)
 {
-	int pid, res, n_args;
+	char **n;
+
+	if (len < 0) {
+		len = 0;
+		while (strv != NULL && strv[len] != NULL)
+			len++;
+	}
+	if (pos < 0 || pos > len)
+		pos = len+1;
+
+	n = realloc(strv, sizeof(char*) * (len + 2));
+	if (n == NULL) {
+		free(strv);
+		return NULL;
+	}
+	strv = n;
+
+	memmove(strv+pos+1, strv+pos, sizeof(char*) * (len+1-pos));
+	strv[pos] = strdup(str);
+	return strv;
+}
+
+static int do_exec(struct pw_context *context, const char *path, const char *args)
+{
+	int pid, res;
 
 	pid = fork();
 
 	if (pid == 0) {
-		char *cmd, **argv;
+		char **arg;
+		int n_args;
 
 		/* Double fork to avoid zombies; we don't want to set SIGCHLD handler */
 		pid = fork();
 
 		if (pid < 0) {
 			pw_log_error("fork error: %m");
-			exit(1);
+			goto done;
 		} else if (pid != 0) {
 			exit(0);
 		}
 
-		cmd = spa_aprintf("%s %s", key, args ? args : "");
-		argv = pw_split_strv(cmd, " \t", INT_MAX, &n_args);
-		free(cmd);
-
-		pw_log_info("exec %s '%s'", key, args);
-		res = execvp(key, argv);
-		pw_free_strv(argv);
+		arg = pw_strv_parse(args, strlen(args), INT_MAX, &n_args);
+		if (arg == NULL) {
+			pw_log_error("error parsing arguments: %m");
+			goto done;
+		}
+		arg = pw_strv_insert_at(arg, n_args, 0, path);
+		if (arg == NULL) {
+			pw_log_error("error constructing arguments: %m");
+			goto done;
+		}
+		pw_log_info("exec %s '%s'", path, args);
+		res = execvp(path, arg);
+		pw_free_strv(arg);
 
 		if (res == -1) {
 			res = -errno;
-			pw_log_error("execvp error '%s': %m", key);
+			pw_log_error("execvp error '%s': %m", path);
 		}
-
+done:
 		exit(1);
 	} else if (pid < 0) {
 		pw_log_error("fork error: %m");
@@ -976,7 +1007,7 @@ static int do_exec(struct pw_context *context, const char *key, const char *args
 /*
  * context.exec = [
  *   {   path = <program-name>
- *       ( args = "<arguments>" )
+ *       ( args = "<arguments>" | [ <arg1> <arg2> ... ] )
  *       ( condition = [ { key = value, .. } .. ] )
  *   }
  * ]
@@ -1016,6 +1047,8 @@ static int parse_exec(void *user_data, const char *location,
 				path = (char*)val;
 				spa_json_parse_stringn(val, l, path, l+1);
 			} else if (spa_streq(key, "args")) {
+				if (spa_json_is_container(val, l))
+					l = spa_json_container_len(&it[2], val, l);
 				args = (char*)val;
 				spa_json_parse_stringn(val, l, args, l+1);
 			} else if (spa_streq(key, "condition")) {

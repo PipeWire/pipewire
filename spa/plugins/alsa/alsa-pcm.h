@@ -228,7 +228,7 @@ struct state {
 	unsigned int auto_link:1;
 	unsigned int linked:1;
 	unsigned int is_batch:1;
-	unsigned int force_position:1;
+	unsigned int force_rate:1;
 
 	uint64_t iec958_codecs;
 

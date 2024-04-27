@@ -303,6 +303,7 @@ extern "C" {
 #define PW_KEY_MEDIA_NAME		"media.name"		/**< media name. Ex: "Pink Floyd: Time" */
 #define PW_KEY_MEDIA_TITLE		"media.title"		/**< title. Ex: "Time" */
 #define PW_KEY_MEDIA_ARTIST		"media.artist"		/**< artist. Ex: "Pink Floyd" */
+#define PW_KEY_MEDIA_ALBUM		"media.album"		/**< album. Ex: "Dark Side of the Moon" */
 #define PW_KEY_MEDIA_COPYRIGHT		"media.copyright"	/**< copyright string */
 #define PW_KEY_MEDIA_SOFTWARE		"media.software"	/**< generator software */
 #define PW_KEY_MEDIA_LANGUAGE		"media.language"	/**< language in POSIX format. Ex: en_GB */

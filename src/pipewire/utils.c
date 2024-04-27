@@ -131,7 +131,6 @@ char **pw_strv_parse(const char *val, size_t len, int max_tokens, int *n_tokens)
 {
 	struct pw_array arr;
 	struct spa_json it[2];
-	char *s, **result;
 	int n = 0, l, res;
 	const char *value;
 	struct spa_error_location el;
@@ -146,6 +145,8 @@ char **pw_strv_parse(const char *val, size_t len, int max_tokens, int *n_tokens)
                 spa_json_init(&it[1], val, len);
 
 	while ((l = spa_json_next(&it[1], &value)) > 0 && n + 1 < max_tokens) {
+		char *s;
+
 		if ((s = malloc(l+1)) == NULL)
 			goto error_errno;
 
@@ -163,8 +164,10 @@ done:
 	if ((res = spa_json_get_error(&it[1], val, &el))) {
 		spa_debug_log_error_location(pw_log_get(), SPA_LOG_LEVEL_WARN,
 				&el, "error parsing strv: %s", el.reason);
+
+		char **s;
 		pw_array_for_each(s, &arr)
-			free(s);
+			free(*s);
 		pw_array_clear(&arr);
 		n = 0;
 	}

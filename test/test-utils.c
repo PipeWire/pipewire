@@ -223,11 +223,35 @@ PWTEST(utils_strip)
 	return PWTEST_PASS;
 }
 
+PWTEST(utils_strv_parse)
+{
+	char **res = NULL;
+	int n_tokens = -1;
+
+	static const char test1[] = "[ x \"y\" \" z \" ]";
+	res = pw_strv_parse(test1, strlen(test1), INT_MAX, &n_tokens);
+	pwtest_ptr_notnull(res);
+	pwtest_int_eq(n_tokens, 3);
+	pwtest_ptr_eq(res[n_tokens], NULL);
+	spa_assert_se(spa_streq(res[0], "x"));
+	spa_assert_se(spa_streq(res[1], "y"));
+	spa_assert_se(spa_streq(res[2], " z "));
+	pw_free_strv(res);
+
+	static const char test2[] = "[ x y { [ 1 = 2 ] }";
+	res = pw_strv_parse(test2, strlen(test2), INT_MAX, &n_tokens);
+	pwtest_ptr_null(res);
+	pwtest_int_eq(n_tokens, 0);
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(utils)
 {
 	pwtest_add(utils_abi, PWTEST_NOARG);
 	pwtest_add(utils_split, PWTEST_NOARG);
 	pwtest_add(utils_strip, PWTEST_NOARG);
+	pwtest_add(utils_strv_parse, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

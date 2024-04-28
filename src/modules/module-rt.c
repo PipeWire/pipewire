@@ -573,6 +573,7 @@ static bool check_realtime_privileges(struct impl *impl)
 			pw_log_warn("Failed to check RLIMIT_RTPRIO: %s", strerror(err));
 			break;
 		}
+		min = max = 0;
 		if ((err = get_rt_priority_range(&min, &max)) < 0) {
 			pw_log_warn("Failed to get priority range: %s", strerror(err));
 			break;
@@ -696,6 +697,7 @@ static int acquire_rt_sched(struct spa_thread *thread, int priority)
 	struct sched_param sp;
 	pthread_t pt = (pthread_t)thread;
 
+	min = max = 0;
 	if ((err = get_rt_priority_range(&min, &max)) < 0)
 		return err;
 

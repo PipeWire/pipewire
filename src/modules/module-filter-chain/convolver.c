@@ -123,8 +123,8 @@ static struct convolver1 *convolver1_new(int block, const float *ir, int irlen)
 	if (conv->fft_buffer == NULL)
 		goto error;
 
-	conv->segments = calloc(sizeof(float*), conv->segCount);
-	conv->segmentsIr = calloc(sizeof(float*), conv->segCount);
+	conv->segments = calloc(conv->segCount, sizeof(float*));
+	conv->segmentsIr = calloc(conv->segCount, sizeof(float*));
 
 	for (i = 0; i < conv->segCount; i++) {
 		int left = irlen - (i * conv->blockSize);

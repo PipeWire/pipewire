@@ -45,6 +45,7 @@ impl_log_logtv(void *object,
 	      const char *fmt,
 	      va_list args)
 {
+	static const char * const levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
 	struct impl *impl = object;
 	char line_buffer[32];
 	char file_buffer[strlen("CODE_FILE=") + strlen(file) + 1];
@@ -80,9 +81,26 @@ impl_log_logtv(void *object,
 		break;
 	}
 
-	if (topic)
+	if (spa_log_level_topic_enabled(&impl->log, topic, SPA_LOG_LEVEL_DEBUG)) {
+		const char *lev = levels[SPA_CLAMP(level, 0u, SPA_N_ELEMENTS(levels) - 1u)];
+		const char *tp = topic ? topic->topic : "";
+
+		if (file && func) {
+			const char *f = strrchr(file, '/');
+
+			f = f ? f+1 : file;
+			sz = spa_scnprintf(message_buffer, sizeof(message_buffer),
+					"%s %s%s[%s:%d:%s]: ",
+					lev, tp, topic ? " " : "",
+					f, line, func);
+		} else {
+			sz = spa_scnprintf(message_buffer, sizeof(message_buffer),
+					"%s %s%s", lev, tp, topic ? ": " : "");
+		}
+	} else if (topic) {
 		sz = spa_scnprintf(message_buffer, sizeof(message_buffer),
-				   "%s: ", topic->topic);
+				"%s: ", topic->topic);
+	}
 
 	/* we'll be using the low-level journal API, which expects us to provide
 	 * the location explicitly. line and file are to be passed as preformatted

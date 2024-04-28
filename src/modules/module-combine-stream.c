@@ -25,6 +25,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/raw.h>
 #include <spa/param/latency-utils.h>
+#include <spa/param/tag-utils.h>
 
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
@@ -616,6 +617,27 @@ static int do_add_stream(struct spa_loop *loop, bool async, uint32_t seq,
 		s->added = true;
 	}
 	return 0;
+}
+
+static void param_tag_changed(struct impl *impl, const struct spa_pod *param)
+{
+	if (param == NULL)
+		return;
+
+	pw_log_debug("tag update");
+	struct stream *s;
+	struct spa_tag_info tag;
+	const struct spa_pod *params[1] = { param };
+	void *state = NULL;
+
+	if (spa_tag_parse(param, &tag, &state) < 0)
+		return;
+	spa_list_for_each(s, &impl->streams, link) {
+		if (s->stream == NULL)
+			continue;
+		pw_log_debug("updating stream %d", s->id);
+		pw_stream_update_params(s->stream, params, 1);
+	}
 }
 
 static int do_remove_stream(struct spa_loop *loop, bool async, uint32_t seq,
@@ -1245,6 +1267,10 @@ static void combine_param_changed(void *d, uint32_t id, const struct spa_pod *pa
 		pw_stream_update_params(impl->combine, &p, 1);
 
 		update_latency(impl);
+		break;
+	}
+	case SPA_PARAM_Tag: {
+		param_tag_changed(impl, param);
 		break;
 	}
 	default:

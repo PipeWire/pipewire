@@ -94,8 +94,7 @@ struct spa_loop_methods {
 			struct spa_source *source);
 
 	/** Invoke a function in the context of this loop.
-	 * May be called from the loop's thread, but otherwise
-	 * can only be called by a single thread at a time.
+	 * May be called from any thread and multiple threads at the same time.
 	 * If called from the loop's thread, all callbacks previously queued with
 	 * invoke() will be run synchronously, which might cause unexpected
 	 * reentrancy problems.

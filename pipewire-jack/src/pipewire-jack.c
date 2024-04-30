@@ -5244,10 +5244,10 @@ done:
 	return res;
 }
 
-static struct buffer *get_mix_buffer(struct port *p, struct mix *mix, jack_nframes_t frames)
+static struct buffer *get_mix_buffer(struct client *c, struct mix *mix, jack_nframes_t frames)
 {
 	struct spa_io_buffers *io;
-	uint32_t cycle = p->client->rt.position->clock.cycle & 1;
+	uint32_t cycle = c->rt.position->clock.cycle & 1;
 
 	if (mix->peer_port != NULL)
 		prepare_output(mix->peer_port, frames);
@@ -5290,7 +5290,7 @@ static void *get_buffer_input_float(struct port *p, jack_nframes_t frames)
 		pw_log_trace_fp("%p: port %s mix %d.%d get buffer %d",
 				p->client, p->object->port.name, p->port_id, mix->id, frames);
 
-		if ((b = get_mix_buffer(p, mix, frames)) == NULL)
+		if ((b = get_mix_buffer(p->client, mix, frames)) == NULL)
 			continue;
 
 		if ((np = get_buffer_data(b, frames)) == NULL)
@@ -5334,7 +5334,7 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 		pw_log_trace_fp("%p: port %p mix %d.%d get buffer %d",
 				p->client, p, p->port_id, mix->id, frames);
 
-		if ((b = get_mix_buffer(p, mix, frames)) == NULL)
+		if ((b = get_mix_buffer(p->client, mix, frames)) == NULL)
 			continue;
 
 		d = &b->datas[0];
@@ -5415,7 +5415,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 
 		pw_log_trace("peer mix: %p %d", mix, mix->peer_id);
 
-		if ((b = get_mix_buffer(p, mix, frames)) == NULL)
+		if ((b = get_mix_buffer(c, mix, frames)) == NULL)
 			goto done;
 
 		if (o->port.type_id == TYPE_ID_MIDI) {

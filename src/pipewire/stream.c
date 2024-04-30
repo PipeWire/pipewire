@@ -1957,7 +1957,8 @@ pw_stream_connect(struct pw_stream *stream,
 			pw_properties_set(stream->properties, PW_KEY_NODE_DONT_RECONNECT, "true");
 
 	if (!SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_RT_PROCESS)) {
-		pw_properties_set(stream->properties, PW_KEY_NODE_LOOP_CLASS, "main");
+		if (pw_properties_get(stream->properties, PW_KEY_NODE_LOOP_CLASS) == NULL)
+			pw_properties_set(stream->properties, PW_KEY_NODE_LOOP_CLASS, "main");
 		pw_properties_set(stream->properties, PW_KEY_NODE_ASYNC, "true");
 	}
 	if (flags & PW_STREAM_FLAG_DRIVER)

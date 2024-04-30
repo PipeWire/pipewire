@@ -1597,7 +1597,8 @@ pw_filter_connect(struct pw_filter *filter,
 	filter_set_state(filter, PW_FILTER_STATE_CONNECTING, 0, NULL);
 
 	if (!SPA_FLAG_IS_SET(flags, PW_FILTER_FLAG_RT_PROCESS)) {
-		pw_properties_set(filter->properties, PW_KEY_NODE_LOOP_CLASS, "main");
+		if (pw_properties_get(filter->properties, PW_KEY_NODE_LOOP_CLASS) == NULL)
+			pw_properties_set(filter->properties, PW_KEY_NODE_LOOP_CLASS, "main");
 		pw_properties_set(filter->properties, PW_KEY_NODE_ASYNC, "true");
 	}
 	if (flags & PW_FILTER_FLAG_DRIVER)

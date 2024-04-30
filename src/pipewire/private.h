@@ -739,7 +739,7 @@ struct pw_impl_node {
 
 		struct spa_ratelimit rate_limit;
 
-		bool added;				/**< the node was add to graph */
+		bool added;				/**< the node was added to driver */
 	} rt;
 	struct spa_fraction target_rate;
 	uint64_t target_quantum;

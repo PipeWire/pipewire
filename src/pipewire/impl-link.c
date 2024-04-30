@@ -98,6 +98,7 @@ static void pw_node_peer_activate(struct pw_node_peer *peer)
 
 	if (peer->active_count++ == 0) {
 		spa_list_append(&peer->output->rt.target_list, &peer->target.link);
+
 		if (!peer->target.active && peer->output->rt.driver_target.node != NULL) {
 			if (!peer->output->async)
 				state->required++;
@@ -113,7 +114,6 @@ static void pw_node_peer_deactivate(struct pw_node_peer *peer)
 	struct pw_node_activation_state *state;
 	state = &peer->target.activation->state[0];
 	if (--peer->active_count == 0) {
-
 		spa_list_remove(&peer->target.link);
 
 		if (peer->target.active) {
@@ -125,7 +125,6 @@ static void pw_node_peer_deactivate(struct pw_node_peer *peer)
 	pw_log_trace("%p: node:%s state:%p pending:%d/%d", peer->output,
 			peer->target.name, state, state->pending, state->required);
 }
-
 
 static void info_changed(struct pw_impl_link *link)
 {

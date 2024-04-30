@@ -894,7 +894,7 @@ static int setup_mixer(struct pw_impl_port *port, const struct spa_pod *param)
 	int res;
 	const char *fallback_lib, *factory_name;
 	struct spa_handle *handle;
-	struct spa_dict_item items[2];
+	struct spa_dict_item items[3];
 	char quantum_limit[16];
 	void *iface;
 	struct pw_context *context = port->node->context;
@@ -902,7 +902,7 @@ static int setup_mixer(struct pw_impl_port *port, const struct spa_pod *param)
 	if ((res = spa_format_parse(param, &media_type, &media_subtype)) < 0)
 		return res;
 
-	pw_log_debug("%p: %s/%s", port,
+	pw_log_debug("%p/%p: %s/%s", port->node, port,
 			spa_debug_type_find_name(spa_type_media_type, media_type),
 			spa_debug_type_find_name(spa_type_media_subtype, media_subtype));
 
@@ -950,6 +950,7 @@ static int setup_mixer(struct pw_impl_port *port, const struct spa_pod *param)
 	spa_scnprintf(quantum_limit, sizeof(quantum_limit), "%u",
 			context->settings.clock_quantum_limit);
 	items[1] = SPA_DICT_ITEM_INIT("clock.quantum-limit", quantum_limit);
+	items[2] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LOOP_NAME, port->node->data_loop->name);
 
 	handle = pw_context_load_spa_handle(context, factory_name,
 			&SPA_DICT_INIT_ARRAY(items));

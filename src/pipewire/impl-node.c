@@ -1561,7 +1561,7 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 					SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
 		goto error_clean;
 
-	pw_log_debug("%p: new fd:%d", this, res);
+	pw_log_debug("%p: new fd:%d loop:%s", this, res, this->data_loop->name);
 
 	this->source.fd = res;
 	this->source.func = node_on_fd_events;

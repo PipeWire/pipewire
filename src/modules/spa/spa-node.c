@@ -10,6 +10,7 @@
 
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
+#include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
 #include <spa/param/props.h>
 #include <spa/pod/iter.h>
@@ -223,16 +224,27 @@ struct pw_impl_node *pw_spa_node_load(struct pw_context *context,
 	struct spa_handle *handle;
 	void *iface;
 	const struct pw_properties *p;
+	struct pw_loop *loop;
 
 	if (properties) {
 		p = pw_context_get_properties(context);
 		pw_properties_set(properties, "clock.quantum-limit",
 				pw_properties_get(p, "default.clock.quantum-limit"));
+	} else {
+		properties = pw_properties_new(NULL, NULL);
+		if (properties == NULL)
+			return NULL;
+	}
+	loop =  pw_context_acquire_loop(context, &properties->dict);
+	if (loop == NULL) {
+		res = -errno;
+		goto error_exit;
 	}
 
-	handle = pw_context_load_spa_handle(context,
-			factory_name,
-			properties ? &properties->dict : NULL);
+	pw_properties_set(properties, PW_KEY_NODE_LOOP_NAME, loop->name);
+	pw_context_release_loop(context, loop);
+
+	handle = pw_context_load_spa_handle(context, factory_name, &properties->dict);
 	if (handle == NULL) {
 		res = -errno;
 		goto error_exit;
@@ -247,20 +259,15 @@ struct pw_impl_node *pw_spa_node_load(struct pw_context *context,
 
 	spa_node = iface;
 
-	if (properties != NULL) {
-		if ((res = setup_props(context, spa_node, properties)) < 0) {
-			pw_log_warn("can't setup properties: %s", spa_strerror(res));
-		}
-	}
+	if ((res = setup_props(context, spa_node, properties)) < 0)
+		pw_log_warn("can't setup properties: %s", spa_strerror(res));
 
 	this = pw_spa_node_new(context, flags,
-			       spa_node, handle, properties, user_data_size);
+			       spa_node, handle, spa_steal_ptr(properties), user_data_size);
 	if (this == NULL) {
 		res = -errno;
-		properties = NULL;
 		goto error_exit_unload;
 	}
-
 	return this;
 
 error_exit_unload:

@@ -700,7 +700,8 @@ static struct pw_data_loop *acquire_data_loop(struct impl *impl, const char *nam
 		return NULL;
 	}
 
-	pw_log_info("using name:'%s' class:'%s' ref:%d", best_loop->impl->loop->name,
+	pw_log_info("%p: using name:'%s' class:'%s' ref:%d", impl,
+			best_loop->impl->loop->name,
 			best_loop->impl->class, best_loop->ref);
 
 	return best_loop->impl;
@@ -723,12 +724,12 @@ struct pw_loop *pw_context_acquire_loop(struct pw_context *context, const struct
 	name = props ? spa_dict_lookup(props, PW_KEY_NODE_LOOP_NAME) : NULL;
 	klass = props ? spa_dict_lookup(props, PW_KEY_NODE_LOOP_CLASS) : NULL;
 
-	pw_log_info("looking for name:'%s' class:'%s'", name, klass);
+	pw_log_info("%p: looking for name:'%s' class:'%s'", context, name, klass);
 
 	if ((impl->n_data_loops == 0) ||
 	    (name && fnmatch(name, context->main_loop->name, FNM_EXTMATCH) == 0) ||
 	    (klass && fnmatch(klass, "main", FNM_EXTMATCH) == 0)) {
-		pw_log_info("using main loop num-data-loops:%d", impl->n_data_loops);
+		pw_log_info("%p: using main loop num-data-loops:%d", context, impl->n_data_loops);
 		return context->main_loop;
 	}
 

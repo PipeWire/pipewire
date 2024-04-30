@@ -1015,6 +1015,7 @@ void pa_alsa_init_proplist_pcm_info(pa_core *c, pa_proplist *p, snd_pcm_info_t *
     snd_pcm_subclass_t subclass;
     const char *n, *id, *sdn;
     int card;
+    snd_pcm_sync_id_t sync_id;
 
     pa_assert(p);
     pa_assert(pcm_info);
@@ -1049,6 +1050,10 @@ void pa_alsa_init_proplist_pcm_info(pa_core *c, pa_proplist *p, snd_pcm_info_t *
 
     if ((card = snd_pcm_info_get_card(pcm_info)) >= 0)
         pa_alsa_init_proplist_card(c, p, card);
+
+    sync_id = snd_pcm_info_get_sync(pcm_info);
+    pa_proplist_setf(p, "alsa.sync.id", "%08x:%08x:%08x:%08x",
+			sync_id.id32[0], sync_id.id32[1], sync_id.id32[2], sync_id.id32[3]);
 }
 
 void pa_alsa_init_proplist_pcm(pa_core *c, pa_proplist *p, snd_pcm_t *pcm) {

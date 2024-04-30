@@ -1,158 +1,147 @@
 /** \page page_overview Overview
 
-PipeWire is a new low-level multimedia framework designed from scratch that
-aims to provide:
-
-- Graph based processing.
-- Support for out-of-process processing graphs with minimal overhead.
-- Flexible and extensible media format negotiation and buffer allocation.
-- Hard real-time capable plugins.
-- Achieve very low-latency for both audio and video processing.
-
-The framework is used to build a modular daemon that can be configured to:
-
-- Be a low-latency audio server with features like PulseAudio and/or JACK.
-- A video capture server that can manage hardware video capture devices and
-  provide access to them.
-- A central hub where video can be made available for other applications
-  such as the gnome-shell screencast API.
-
-
-# Motivation
-
-Linux has no unified framework for exchanging multimedia content between
-applications or even devices. In most cases, developers realized that
-a user-space daemon is needed to make this possible:
-
-- For video content, we typically rely on the compositor to render our
-  data.
-- For video capture, we usually go directly to the hardware devices, with
-  all security implications and inflexible routing that this brings.
-- For consumer audio, we use PulseAudio to manage and mix multiple streams
-  from clients.
-- For Pro audio, we use JACK to manage the graph of nodes.
-
-None of these solutions (except perhaps to some extent Wayland) however
-were designed to support the security features that are required when
-dealing with flatpaks or other containerized applications. PipeWire
-aims to solve this problem and provides a unified framework to run both
-consumer and pro audio as well as video capture and processing in a
-secure way.
-
 # Concepts
 
-Let's walk through some PipeWire concepts that should be helpful while looking
-through configuration, `pw-dump` output, or while starting to work with the
-code. We'll start with some common entities that you will encounter.
+## The PipeWire Server
 
-## Server
+PipeWire is a graph-based processing framework, that focuses on handling multimedia data (audio, video and MIDI mainly).
 
-There is one PipeWire process that acts as the server, and manages the data
-processing graphs on the system. It can load a number of entities described
-below, and also owns a UNIX domain socket over which clients communicate with
-it using the PipeWire native protocol.
+A PipeWire graph is composed of nodes.
+Each node takes an arbitrary number of inputs called ports, does some processing over this multimedia data, and sends data out of its output ports.
+The edges in the graph are here called links.
+They are capable of connecting an output port to an input port.
 
-## Clients
+Nodes can have an arbitrary number of ports.
+A node with only output ports is often called a source, and a sink is a node that only possesses input ports.
 
-PipeWire clients look quite similar to the PipeWire server: they also load a
-number of the entities below, but they do not act as a server of the native
-protocol. Instead, they "export" some their entities to the server, which in
-turn is able to use them like it would its own local entities.
+The PipeWire server provides the implementation of some of these nodes itself.
+Most importantly, it uses alsa-lib like any other ALSA client to expose statically configured ALSA devices as nodes.
+For example
+
+- a stereo ALSA PCM playback device can appear as a sink with two input ports: front-left and front-right or
+- a virtual ALSA device, to which clients which attempt to use ALSA directly connect, can appear as a source with two output ports: front-left and front right.
+
+Similar mechanisms exist to interface with and accomodate applications which use JACK or Pulseaudio.
+
+NOTE: `pw-jack` modifies the `LD_LIBRARY_PATH` environment variable so that applications will load PipeWire’s reimplementation of the JACK client libraries instead of JACK’s own libraries. This results in JACK clients being redirected to PipeWire.
+
+Other nodes are implemented by PipeWire clients.
+
+## The PipeWire clients
+
+PipeWire clients can be any process.
+They can speak to the PipeWire server through a UNIX domain socket using the PipeWire native protocol.
+Besides implementing nodes, they may control the graph.
+
+### Graph control
+
+The PipeWire server itself does not perform any management of the graph;
+context-dependent behaviour such as monitoring for new ALSA devices, and configuring them so that they appear as nodes, or linking nodes is not done automatically.
+It rather provides an API that allows spawning, linking and controlling these nodes.
+This API is then relied upon by clients to control the graph structure, without having to worry about the graph execution process.
+
+A recommended pattern that is often used is a single client be a daemon that deals with the session and policy management. Two implementations are known as of today:
+
+- pipewire-media-session, which was the first implementation of a session manager.c
+  Today, it is used mainly in debugging scenarios.
+- WirePlumber, which takes a modular approach:
+  It provides another, higher-level API compared to the PipeWire one, and runs Lua scripts that implement the management logic using the said API.
+  It ships with default scripts and configuration that handle linking policies as well as monitoring and automatic spawning of ALSA, bluez, libcamera and v4l2 devices.
+  The API is available for any process, not only from WirePlumber’s Lua scripts.
+ 
+### Node implementation 
+ 
+With the nodes which they implement, clients can send multimedia data into the graph or obtain multimedia data from the graph.
+A client can create multiple PipeWire nodes.
+That allows one to create more complex applications;
+a browser would for example be able to create a node per tab that requests the ability to play audio, letting the session manager handle the routing:
+This allows the user to route different tab sources to different sinks.
+Another example would be an application that requires many inputs.
+
+## API Semantics
+
+The current state of the PipeWire server and its capabilities, and the PipeWire graph are exposed towards clients -- including introspection tools like `pw-dump` -- as a collection of objects, each of which has a specific type.
+These objects have associated parameters, and properties, methods, events, and permissions.
+
+Parameters of an object are data with a specific, well defined meaning, which can be modified and read-out in a controlled fashion through the PipeWire API.
+They are used to configure the object at run-time.
+Parameters are the key that allow WirePlumber to negotiate data formats and port configuration with nodes by providing information such as:
+
+- Multiple, supported sample rates
+- Channel count
+- Positions sample format
+- Available monitor ports
+
+Properties of an object are additional data which have been attached on the behalf of modules and of which the PipeWire server has no native understanding.
+Certain properties are, by convention, expected for specific object types.
+
+Each object type has a list of methods that it needs to implement.
+
+The session manager is responsible for defining the list of permissions each client has. Each permission entry is an object ID and four flags. The four flags are:
+
+- Read: the object can be seen and events can be received;
+- Write: the object can be modified, usually through methods (which requires the execute flag)
+- eXecute: methods can be called;
+- Metadata: metadata can be set on the object.
+
+### Object types
+
+The following are the known types and their most important, spezialized parameters and methods:
+
+#### Core
+
+The core is the heart of the PipeWire server.
+There can only be one core per server and it has the identifier zero.
+It represents global properties of the server.
+
+#### Clients
+
+A client object is the representation of an open connection with a client process with the server.
+
+#### Modules
+
+Modules are dynamic libraries that are loaded at run time and do arbitrary things, such as creating devices or provide methods to create links, nodes, etc.
+Modules are loaded by clients and exposed to the server and other clients via the API.
+
+#### Nodes
+
+Nodes are the core data processing entities in PipeWire.
+They may produce data (capture devices, signal generators, ...), consume data (playback devices, network endpoints, ...) or both (filters).
+Notes have a method `process`, which eats up data from input ports and provides data for each output port.
+
+#### Ports
+
+Ports are the entry and exit point of data for a Node.
+A port can either be used for input or output (but not both).
+For nodes that work with audio, one type of configuration is whether they have `dsp` ports or a `passthrough` port.
+In `dsp` mode, there is one port for channel of multichannel audio (so two ports for stereo audio, for example), and data is always in 32-bit floating point format.
+In `passthrough` mode, there is one port for multichannel data in a format that is negotiated between ports.
+
+#### Links
+
+Data flows between nodes when there is a Link between their ports.
+Links may be `"passive"` in which case the existence of the link does not automatically cause data to flow between those nodes (some link in the graph must be `"active"` for the graph to have data flow).
+
+#### Devices
+
+A device is a handle representing an underlying API, which is then used to create nodes or other devices.
+Examples of devices are ALSA PCM cards or V4L2 devices.
+A device has a profile, which allows one to configure them.
+
+#### Factories
+
+A factory is an object whose sole capability is to create other objects.
+Once a factory is created, it can only emit the type of object it declared.
+Those are most often delivered as a module: the module creates the factory and stays alive to keep it accessible for clients.
+
+### Common parameters and methods
+
+Every object implement at least the add_listener method, that allows any client to register event listeners.
+Events are used through the PipeWire API to expose information about an object that might change over time (the state of a node for example).
 
 ## Context
 
-The context (`pw_context` in code) is the entry point for the PipeWire server
-and clients. The server and clients follow a similar structure, where they:
-
-  - Start a main loop
-  - Load configuration for this process (could be server, client,
-    pipewire-pulse, AES67, ...)
-  - Load a bunch of support libraries
-  - Using configuration, to
-    - Set some global properties (`context.properties`)
-    - Identify what SPA libraries to load (PipeWire-s low-level plugin API)
-      (`context.spa-libs`)
-    - Load PipeWire modules (`context.modules`)
-    - Create objects (`context.objects`)
-    - Execs misc commands (`context.exec`)
-  - If necessary, start a real time loop for data processing
-
-## Modules
-
-PipeWire modules are dynamic libraries that can be loaded at run time and do
-arbitrary things, such as creating devices or provide the ability for clients
-to create links, nodes, etc.
-
-One difference if you’re coming from the PulseAudio world is that the PipeWire
-daemon does not dynamically load modules (i.e. the equivalent of `pactl
-load-module`). Equivalent functionality exists, because clients can load
-modules and expose entities to the server (and in fact, WirePlumber supports
-dynamically loading modules).
-
-## Devices
-
-Devices are objects that create and manage nodes. There are a few ways that
-devices can be created, but typically this involves a module that monitors
-sources of devices (like udev, BlueZ, etc.), which in turn dynamically loads
-and exposes those devices.
-
-## Nodes
-
-Nodes are the core data processing entity in PipeWire. They may produce data
-(capture devices, signal generators, ...), consume data (playback devices,
-network endpoints, ...) or both (filters).
-
-## Ports
-
-Ports are the entry and exit point of data for a Node. A port can either be
-used for input or output (but not both), and carries various kinds of
-configuration, depending on the kind of data that might flow through.
-
-For nodes that work with audio, one type of configuration is whether they have
-`"dsp"` ports or a `"passthrough"` port. In `"dsp"` mode, there is one port for
-channel of multichannel audio (so two ports for stereo audio, for example), and
-data is always in 32-bit floating point format. In `"passthrough"` mode, there
-is one port for multichannel data in a format that is negotiated between ports.
-
-## Links
-
-Data flows between nodes when there is a Link between their ports. Links may be
-`"passive"` in which case the existence of the link does not automatically
-cause data to flow between those nodes (some link in the graph must be
-`"active"` for the graph to have data flow).
-
-## Configuration
-
-### Load-time properties (`props`)
-
-Many of the entities listed above take a set of properties at load-time to
-configure how they are loaded and what they should do. These are commonly seen
-in configuration and `pw-dump` output as an object called `"props"`, which is a
-set of key-value pairs with some meaning to than entity (for example, an audio
-stream might have an `audio.rate` key in its props, whose integer value would
-configure the sample rate of the stream.
-
-These properties are configured when the entity is loaded, and cannot be
-changed afterward.
-
-### Run-time parameters (`params`)
-
-Some of the entities above (notably devices, nodes and ports), support run-time
-configuration via a mechanism called `param`s. These might include
-user-visible, such as the list for device profiles (`EnumProfile` param) or
-node formats (`EnumFormat` param), the currently selected device profile
-(`Profile` param) or port format (`Format` param).
-
-This mechanism is also used in code to configure run-time values for entities,
-examples including I/O areas (`IO` param) or buffers (`Buffers`).
-
-### Run-time properties (the `Props` parameter)
-
-One class of `params` bear special mention, namely properties. Entities
-(primarily nodes and ports) might have some properties that can be queried
-and/or set at run-time. The `PropInfo` param can be used to list the set of
-such properties supported by an entity (names, descriptions, types and ranges).
-The `Props` param allows queying the current value of these properties, as well
-as setting a new value, where it is supported.
+The PipeWire server and PipeWire clients use the PipeWire API through their respective `pw_context`, the so called PipeWire context.
+When a PipeWire context is created, it finds and parses a configuration file from the filesystem according to the rules of loading configuration files.
 
 */

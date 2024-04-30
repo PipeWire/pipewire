@@ -217,7 +217,7 @@ struct spa_bt_quirks *spa_bt_quirks_create(const struct spa_dict *info, struct s
 	const char *str;
 
 	if (!info) {
-		errno = -EINVAL;
+		errno = EINVAL;
 		return NULL;
 	}
 

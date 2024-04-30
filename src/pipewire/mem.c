@@ -382,7 +382,7 @@ struct pw_memmap * pw_memblock_map(struct pw_memblock *block,
 		(int64_t) sb.st_size);
 
 	if (!valid) {
-		errno = -EINVAL;
+		errno = EINVAL;
 		return NULL;
 	}
 

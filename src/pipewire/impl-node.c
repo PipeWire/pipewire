@@ -206,25 +206,83 @@ do_node_remove(struct spa_loop *loop, bool async, uint32_t seq,
 	return 0;
 }
 
+static int
+do_node_prepare_add(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct pw_impl_node *this = user_data;
+	do_node_prepare(loop, async, seq, data, size, user_data);
+	if (!this->exported)
+		do_node_add(loop, async, seq, data, size, user_data);
+	return 0;
+}
+
 static void add_node_to_graph(struct pw_impl_node *node)
 {
 	struct pw_impl_node *driver = node->driver_node;
-	if (!node->rt.added) {
+
+	if (node->rt.added)
+		return;
+
+	if (node->data_loop == driver->data_loop) {
+		pw_loop_invoke(node->data_loop, do_node_prepare_add, 1, NULL, 0, true, node);
+	} else {
 		pw_loop_invoke(node->data_loop, do_node_prepare, 1, NULL, 0, true, node);
 		if (!node->exported)
 			pw_loop_invoke(driver->data_loop, do_node_add, 1, NULL, 0, true, node);
-		node->rt.added = true;
 	}
+	node->rt.added = true;
+}
+
+static int
+do_node_remove_unprepare(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct pw_impl_node *this = user_data;
+	if (!this->exported)
+		do_node_remove(loop, async, seq, data, size, user_data);
+	do_node_unprepare(loop, async, seq, data, size, user_data);
+	return 0;
 }
 
 static void remove_node_from_graph(struct pw_impl_node *node)
 {
 	struct pw_impl_node *driver = node->driver_node;
-	if (node->rt.added) {
+
+	if (!node->rt.added)
+		return;
+
+	if (node->data_loop == driver->data_loop) {
+		pw_loop_invoke(node->data_loop, do_node_remove_unprepare, 1, NULL, 0, true, node);
+	} else {
 		if (!node->exported)
 			pw_loop_invoke(driver->data_loop, do_node_remove, 1, NULL, 0, true, node);
 		pw_loop_invoke(node->data_loop, do_node_unprepare, 1, NULL, 0, true, node);
-		node->rt.added = false;
+	}
+	node->rt.added = false;
+}
+
+static int
+do_node_move(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	do_node_remove_unprepare(loop, async, seq, data, size, user_data);
+	do_node_prepare_add(loop, async, seq, data, size, user_data);
+	return 0;
+}
+
+static void move_node_to_graph(struct pw_impl_node *node)
+{
+	struct pw_impl_node *driver = node->driver_node;
+
+	if (!node->rt.added)
+		return;
+
+	if (node->data_loop == driver->data_loop) {
+		pw_loop_invoke(node->data_loop, do_node_move, 1, NULL, 0, true, node);
+	} else {
+		remove_node_from_graph(node);
+		add_node_to_graph(node);
 	}
 }
 
@@ -949,8 +1007,7 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 	node->driver_node = driver;
 	node->moved = true;
 
-	remove_node_from_graph(node);
-	add_node_to_graph(node);
+	move_node_to_graph(node);
 
 	pw_impl_node_emit_driver_changed(node, old, driver);
 

@@ -51,7 +51,11 @@ static GstPipeWireCore *make_core (int fd)
   core->refcount = 1;
   core->fd = fd;
   core->loop = pw_thread_loop_new ("pipewire-main-loop", NULL);
+  if (core->loop == NULL)
+    goto loop_failed;
   core->context = pw_context_new (pw_thread_loop_get_loop(core->loop), NULL, 0);
+  if (core->context == NULL)
+    goto context_failed;
   core->last_seq = -1;
   core->last_error = 0;
   GST_DEBUG ("loop %p context %p", core->loop, core->context);
@@ -78,6 +82,19 @@ static GstPipeWireCore *make_core (int fd)
 
   return core;
 
+loop_failed:
+  {
+    GST_ERROR ("error creating threadloop");
+    g_free (core);
+    return NULL;
+  }
+context_failed:
+  {
+    GST_ERROR ("error creating context");
+    pw_thread_loop_destroy (core->loop);
+    g_free (core);
+    return NULL;
+  }
 mainloop_failed:
   {
     GST_ERROR ("error starting mainloop");

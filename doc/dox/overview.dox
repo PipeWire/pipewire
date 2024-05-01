@@ -86,7 +86,7 @@ The session manager is responsible for defining the list of permissions each cli
 
 ### Object types
 
-The following are the known types and their most important, spezialized parameters and methods:
+The following are the known types and their most important, specialized parameters and methods:
 
 #### Core
 

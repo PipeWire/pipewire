@@ -591,7 +591,7 @@ static gboolean
 gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 {
   GstPipeWireSink *pwsink;
-  GPtrArray *possible;
+  g_autoptr(GPtrArray) possible = NULL;
   enum pw_stream_state state;
   const char *error = NULL;
   gboolean res = FALSE;
@@ -696,7 +696,6 @@ start_error:
   {
     GST_ERROR ("could not start stream: %s", error);
     pw_thread_loop_unlock (pwsink->core->loop);
-    g_ptr_array_unref (possible);
     return FALSE;
   }
 }

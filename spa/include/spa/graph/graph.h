@@ -223,7 +223,7 @@ static inline int spa_graph_node_impl_sub_process(void *data SPA_UNUSED, struct 
 }
 
 static const struct spa_graph_node_callbacks spa_graph_node_sub_impl_default = {
-	SPA_VERSION_GRAPH_NODE_CALLBACKS,
+	.version = SPA_VERSION_GRAPH_NODE_CALLBACKS,
 	.process = spa_graph_node_impl_sub_process,
 };
 
@@ -330,7 +330,7 @@ static inline int spa_graph_node_impl_reuse_buffer(void *data, struct spa_graph_
 }
 
 static const struct spa_graph_node_callbacks spa_graph_node_impl_default = {
-	SPA_VERSION_GRAPH_NODE_CALLBACKS,
+	.version = SPA_VERSION_GRAPH_NODE_CALLBACKS,
 	.process = spa_graph_node_impl_process,
 	.reuse_buffer = spa_graph_node_impl_reuse_buffer,
 };

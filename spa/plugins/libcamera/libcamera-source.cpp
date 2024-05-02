@@ -905,7 +905,7 @@ static int impl_node_process(void *object)
 }
 
 static const struct spa_node_methods impl_node = {
-	SPA_VERSION_NODE_METHODS,
+	.version = SPA_VERSION_NODE_METHODS,
 	.add_listener = impl_node_add_listener,
 	.set_callbacks = impl_node_set_callbacks,
 	.sync = impl_node_sync,

@@ -352,7 +352,7 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 }
 
 static const struct spa_device_methods impl_device = {
-	SPA_VERSION_DEVICE_METHODS,
+	.version = SPA_VERSION_DEVICE_METHODS,
 	.add_listener = impl_device_add_listener,
 };
 

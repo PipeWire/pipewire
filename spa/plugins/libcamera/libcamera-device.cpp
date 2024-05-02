@@ -239,7 +239,7 @@ static int impl_set_param(void *object,
 }
 
 static const struct spa_device_methods impl_device = {
-	SPA_VERSION_DEVICE_METHODS,
+	.version = SPA_VERSION_DEVICE_METHODS,
 	.add_listener = impl_add_listener,
 	.sync = impl_sync,
 	.enum_params = impl_enum_params,

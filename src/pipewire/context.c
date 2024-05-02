@@ -665,10 +665,8 @@ static struct pw_data_loop *acquire_data_loop(struct impl *impl, const char *nam
 		const char *ln = l->impl->loop->name;
 		int score = 0;
 
-		if (!name && !klass) {
-			best_loop = l;
-			break;
-		}
+		if (klass == NULL)
+			klass = l->impl->class;
 
 		if (name && ln && fnmatch(name, ln, FNM_EXTMATCH) == 0)
 			score += 2;

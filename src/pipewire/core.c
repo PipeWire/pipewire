@@ -81,7 +81,10 @@ static void core_event_add_mem(void *data, uint32_t id, uint32_t type, int fd, u
 	pw_log_debug("%p: add mem %u type:%u fd:%d flags:%08x", this, id, type, fd, flags);
 
 	m = pw_mempool_import(this->pool, flags, type, fd);
-	if (m->id != id) {
+	if (m == NULL) {
+		pw_log_error("%p: can't import mem id:%u fd:%d: %m", this, id, fd);
+		pw_proxy_errorf(&this->proxy, -errno, "can't import mem id:%u: %m", id);
+	} else if (m->id != id) {
 		pw_log_error("%p: invalid mem id %u, fd:%d expected %u",
 				this, id, fd, m->id);
 		pw_proxy_errorf(&this->proxy, -EINVAL, "invalid mem id %u, expected %u", id, m->id);

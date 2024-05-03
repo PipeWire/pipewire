@@ -2583,7 +2583,7 @@ recover:
 static inline snd_pcm_sframes_t alsa_avail(struct state *state)
 {
 	snd_pcm_sframes_t avail;
-	if (state->disable_tsched && !state->resample)
+	if (!state->matching && state->disable_tsched && !state->resample)
 		avail = snd_pcm_avail_update(state->hndl);
 	else
 		avail = snd_pcm_avail(state->hndl);

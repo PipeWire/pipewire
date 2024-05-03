@@ -773,14 +773,14 @@ static char *read_json_testcase(FILE *f, char **name, size_t *size, char **resul
 			buf = NULL;
 			alloc = 0;
 		} else {
-			char *p = realloc(*dst, len + res + 1);
+			char *p = realloc(*dst, *dst_len + res + 1);
 
 			pwtest_ptr_notnull(p);
 
 			*dst = p;
-			memcpy(*dst + len, buf, res);
+			memcpy(*dst + *dst_len, buf, res);
 			*dst_len += res;
-			(*dst)[len] = '\0';
+			(*dst)[*dst_len] = '\0';
 		}
 	} while (1);
 

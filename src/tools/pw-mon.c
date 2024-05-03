@@ -58,6 +58,7 @@ struct data {
 
 	bool hide_params;
 	bool hide_props;
+	bool print_separator;
 };
 
 struct proxy_data {
@@ -217,6 +218,8 @@ static void on_core_info(void *_data, const struct pw_core_info *info)
 	if (!hide_props) {
 		print_properties(info->props, MARK_CHANGE(PW_CORE_CHANGE_MASK_PROPS));
 	}
+	if (data->print_separator)
+		printf("\n");
 }
 
 static void module_event_info(void *_data, const struct pw_module_info *info)
@@ -246,6 +249,8 @@ static void module_event_info(void *_data, const struct pw_module_info *info)
 	if (!hide_props) {
 		print_properties(info->props, MARK_CHANGE(PW_MODULE_CHANGE_MASK_PROPS));
 	}
+	if (data->data->print_separator)
+		printf("\n");
 }
 
 static const struct pw_module_events module_events = {
@@ -298,6 +303,8 @@ static void print_node(struct proxy_data *data)
 	if (!hide_props) {
 		print_properties(info->props, MARK_CHANGE(PW_NODE_CHANGE_MASK_PROPS));
 	}
+	if (data->data->print_separator)
+		printf("\n");
 }
 
 static void node_event_info(void *_data, const struct pw_node_info *info)
@@ -363,6 +370,8 @@ static void print_port(struct proxy_data *data)
 	if (!hide_props) {
 		print_properties(info->props, MARK_CHANGE(PW_PORT_CHANGE_MASK_PROPS));
 	}
+	if (data->data->print_separator)
+		printf("\n");
 }
 
 static void port_event_info(void *_data, const struct pw_port_info *info)
@@ -424,6 +433,8 @@ static void factory_event_info(void *_data, const struct pw_factory_info *info)
 	if (!hide_props) {
 		print_properties(info->props, MARK_CHANGE(PW_FACTORY_CHANGE_MASK_PROPS));
 	}
+	if (data->data->print_separator)
+		printf("\n");
 }
 
 static const struct pw_factory_events factory_events = {
@@ -457,6 +468,8 @@ static void client_event_info(void *_data, const struct pw_client_info *info)
 	if (!hide_props) {
 		print_properties(info->props, MARK_CHANGE(PW_CLIENT_CHANGE_MASK_PROPS));
 	}
+	if (data->data->print_separator)
+		printf("\n");
 }
 
 static const struct pw_client_events client_events = {
@@ -509,6 +522,8 @@ static void link_event_info(void *_data, const struct pw_link_info *info)
 		}
 		print_properties(info->props, MARK_CHANGE(PW_LINK_CHANGE_MASK_PROPS));
 	}
+	if (data->data->print_separator)
+		printf("\n");
 }
 
 static const struct pw_link_events link_events = {
@@ -546,6 +561,8 @@ static void print_device(struct proxy_data *data)
 	if (!hide_props) {
 		print_properties(info->props, MARK_CHANGE(PW_DEVICE_CHANGE_MASK_PROPS));
 	}
+	if (data->data->print_separator)
+		printf("\n");
 }
 
 
@@ -663,6 +680,8 @@ static void registry_event_global(void *data, uint32_t id,
 				PW_PERMISSION_ARGS(permissions));
 		printf("\ttype: %s (version %d)\n", type, version);
 		print_properties(props, false);
+		if (d->print_separator)
+			printf("\n");
 		return;
 	}
 
@@ -712,6 +731,8 @@ static void registry_event_global_remove(void *data, uint32_t id)
 
 	printf("removed:\n");
 	printf("\tid: %u\n", id);
+	if (d->print_separator)
+		printf("\n");
 
 	pd = find_proxy(d, id);
 	if (pd == NULL)
@@ -759,7 +780,8 @@ static void show_help(const char *name, bool error)
 		"  -N, --no-colors                       disable color output\n"
 		"  -C, --color[=WHEN]                    whether to enable color support. WHEN is `never`, `always`, or `auto`\n"
 		"  -o, --hide-props                      hide node properties\n"
-		"  -a, --hide-params                     hide node properties\n",
+		"  -a, --hide-params                     hide node properties\n"
+		"  -p, --print-separator                 print empty line after every event to help streaming parser\n",
 		name);
 }
 
@@ -776,6 +798,7 @@ int main(int argc, char *argv[])
 		{ "color",		optional_argument,	NULL, 'C' },
 		{ "hide-props",		no_argument,		NULL, 'o' },
 		{ "hide-params",	no_argument,		NULL, 'a' },
+		{ "print-separator",	no_argument,		NULL, 'p' },
 		{ NULL,	0, NULL, 0}
 	};
 	int c;
@@ -789,7 +812,7 @@ int main(int argc, char *argv[])
 	if (getenv("NO_COLOR") == NULL && isatty(STDOUT_FILENO))
 		colors = true;
 
-	while ((c = getopt_long(argc, argv, "hVr:NCoa", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:NCoap", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(argv[0], false);
@@ -827,6 +850,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'a':
 			data.hide_params = true;
+			break;
+		case 'p':
+			data.print_separator = true;
 			break;
 		default:
 			show_help(argv[0], true);

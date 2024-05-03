@@ -629,11 +629,11 @@ static int load_module(struct pw_context *context, const char *key, const char *
  *  "!null" -> same as !null
  *  !"null" and "!\"null\"" matches anything that is not the string "null"
  */
-static bool find_match(struct spa_json *arr, const struct spa_dict *props)
+static bool find_match(struct spa_json *arr, const struct spa_dict *props, bool condition)
 {
 	struct spa_json it[1];
 	const char *as = arr->cur;
-	int az = (int)(arr->end - arr->cur), r;
+	int az = (int)(arr->end - arr->cur), r, count = 0;
 
 	while ((r = spa_json_enter_object(arr, &it[0])) > 0) {
 		char key[256], val[1024];
@@ -727,9 +727,13 @@ static bool find_match(struct spa_json *arr, const struct spa_dict *props)
 		}
 		if (match > 0 && fail == 0)
 			return true;
+		count++;
 	}
 	if (r < 0)
 		pw_log_warn("malformed object array in '%.*s'", az, as);
+	else if (count == 0 && condition)
+		/* empty match for condition means success */
+		return true;
 
 	return false;
 }
@@ -795,7 +799,7 @@ static int parse_modules(void *user_data, const char *location,
 					break;
 				}
 				spa_json_enter(&it[2], &it[3]);
-				have_match = find_match(&it[3], &context->properties->dict);
+				have_match = find_match(&it[3], &context->properties->dict, true);
 			} else {
 				pw_log_warn("unknown module key '%s' in '%.*s'", key,
 						(int)len, str);
@@ -905,7 +909,7 @@ static int parse_objects(void *user_data, const char *location,
 					break;
 				}
 				spa_json_enter(&it[2], &it[3]);
-				have_match = find_match(&it[3], &context->properties->dict);
+				have_match = find_match(&it[3], &context->properties->dict, true);
 			} else {
 				pw_log_warn("unknown object key '%s' in '%.*s'", key,
 						(int)len, str);
@@ -1058,7 +1062,7 @@ static int parse_exec(void *user_data, const char *location,
 					break;
 				}
 				spa_json_enter(&it[2], &it[3]);
-				have_match = find_match(&it[3], &context->properties->dict);
+				have_match = find_match(&it[3], &context->properties->dict, true);
 			} else {
 				pw_log_warn("unknown exec key '%s' in '%.*s'", key,
 						(int)len, str);
@@ -1285,7 +1289,7 @@ int pw_conf_match_rules(const char *str, size_t len, const char *location,
 					break;
 				}
 
-				have_match = find_match(&it[3], props);
+				have_match = find_match(&it[3], props, false);
 			}
 			else if (spa_streq(key, "actions")) {
 				if (spa_json_enter_object(&it[2], &actions) > 0)

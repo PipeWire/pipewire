@@ -665,12 +665,13 @@ static int impl_send_command(void *object, const struct spa_command *command)
 		break;
 	case SPA_NODE_COMMAND_Start:
 		if (stream->state == PW_STREAM_STATE_PAUSED) {
-			pw_log_debug("%p: start %d", stream, impl->direction);
+			pw_log_debug("%p: start direction:%d", stream, impl->direction);
 
 			if (impl->direction == SPA_DIRECTION_INPUT) {
 				if (impl->io != NULL)
 					impl->io->status = SPA_STATUS_NEED_DATA;
 			}
+			copy_position(impl, impl->queued.incount);
 			stream_set_state(stream, PW_STREAM_STATE_STREAMING, 0, NULL);
 		}
 		break;

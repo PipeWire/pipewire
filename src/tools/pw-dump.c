@@ -1329,6 +1329,7 @@ static void registry_event_global(void *data, uint32_t id,
 	spa_list_init(&o->param_list);
 	spa_list_init(&o->pending_list);
 	spa_list_init(&o->data_list);
+	spa_list_append(&d->object_list, &o->link);
 
 	o->class = find_class(type, version);
 	if (o->class != NULL) {
@@ -1350,15 +1351,13 @@ static void registry_event_global(void *data, uint32_t id,
 	} else {
 		o->changed++;
 	}
-	spa_list_append(&d->object_list, &o->link);
 
 	core_sync(d);
 	return;
 
 bind_failed:
 	pw_log_error("can't bind object for %u %s/%d: %m", id, type, version);
-	pw_properties_free(o->props);
-	free(o);
+	object_destroy(o);
 	return;
 }
 

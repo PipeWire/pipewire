@@ -1395,20 +1395,20 @@ static void registry_event_global_remove(void *data, uint32_t id)
 	if ((o = find_object(d, id)) == NULL)
 		return;
 
-	d->state = STATE_FIRST;
-	if (d->pattern != NULL && !object_matches(o, d->pattern))
-		return;
-	if (d->state == STATE_FIRST)
-		put_begin(d, NULL, "[", 0);
-	put_begin(d, NULL, "{", 0);
-	put_int(d, "id", o->id);
-	if (o->class && o->class->dump)
-		put_value(d, "info", NULL);
-	else if (o->props)
-		put_value(d, "props", NULL);
-	put_end(d, "}", 0);
-	if (d->state != STATE_FIRST)
-		put_end(d, "]\n", 0);
+	if (!d->pattern || object_matches(o, d->pattern)) {
+		d->state = STATE_FIRST;
+		if (d->state == STATE_FIRST)
+			put_begin(d, NULL, "[", 0);
+		put_begin(d, NULL, "{", 0);
+		put_int(d, "id", o->id);
+		if (o->class && o->class->dump)
+			put_value(d, "info", NULL);
+		else if (o->props)
+			put_value(d, "props", NULL);
+		put_end(d, "}", 0);
+		if (d->state != STATE_FIRST)
+			put_end(d, "]\n", 0);
+	}
 
 	object_destroy(o);
 }

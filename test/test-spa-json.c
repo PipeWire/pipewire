@@ -989,10 +989,6 @@ PWTEST(json_data)
 		/* spa_json_parse_string API doesn't do \0 */
 		"y_object_escaped_null_in_key.json",
 		"y_string_null_escape.json",
-
-		/* XXX: something with surrogate handling? */
-		"y_string_last_surrogates_1_and_2.json",
-		"y_string_unicode_U+10FFFE_nonchar.json",
 	};
 
 	const char *basedir = getenv("PWTEST_DATA_DIR");

@@ -594,7 +594,7 @@ static inline int spa_json_parse_stringn(const char *val, int len, char *result,
 						    v < 0xdc00 || v > 0xdfff)
 							continue;
 						p += 6;
-						cp = 0x010000 | ((cp & 0x3ff) << 10) | (v & 0x3ff);
+						cp = 0x010000 + (((cp & 0x3ff) << 10) | (v & 0x3ff));
 					} else if (cp >= 0xdc00 && cp <= 0xdfff)
 						continue;
 

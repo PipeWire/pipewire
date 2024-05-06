@@ -189,11 +189,14 @@ for explanations.
 @PAR@ device-param  resample.disable
 \ref client_conf__resample_disable "See pipewire-client.conf(5)"
 
-@PAR@ device-param  resample.peaks
-UNDOCUMENTED
+@PAR@ device-param  resample.peaks = false # boolean
+Instead of actually resampling, produce peak amplitude values as output.
+This is used for volume monitoring, where it is set as a property
+of the "recording" stream.
 
-@PAR@ device-param  resample.prefill
-UNDOCUMENTED
+@PAR@ device-param  resample.prefill = false # boolean
+Prefill resampler buffers with silence. This affects the initial
+samples produced by the resampler.
 
 @PAR@ device-param  monitor.channel-volumes
 \ref client_conf__monitor_channel-volumes "See pipewire-client.conf(5)"
@@ -207,9 +210,23 @@ UNDOCUMENTED
 @PAR@ device-param  debug.wav-path
 \ref client_conf__debug_wav-path "See pipewire-client.conf(5)"
 
-@PAR@ device-param  adapter.auto-port-config
-UNDOCUMENTED
+@PAR@ device-param  adapter.auto-port-config = null # JSON
+\parblock
+If specified, configure the ports of the node when it is created, instead of
+leaving that to the session manager to do. This is useful (only) for minimal
+configurations without a session manager.
 
+Value is SPA JSON of the form:
+```json
+{
+    mode = "none",          # "none", "passthrough", "convert", "dsp"
+    monitor = false,        # boolean
+    control = false,        # boolean
+    position = "preserve"   # "unknown", "aux", "preserve"
+}
+```
+See \ref spa_param_port_config for the meaning.
+\endparblock
 
 # ALSA PROPERTIES  @IDX@ device-param
 

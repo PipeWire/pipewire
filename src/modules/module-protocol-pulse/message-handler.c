@@ -21,6 +21,7 @@
 #include "collect.h"
 #include "log.h"
 #include "manager.h"
+#include "module.h"
 #include "message-handler.h"
 
 static int bluez_card_object_message_handler(struct client *client, struct pw_manager_object *o, const char *message, const char *params, FILE *response)
@@ -117,6 +118,30 @@ static int core_object_message_handler(struct client *client, struct pw_manager_
 	} else if (spa_streq(message, "pipewire-pulse:log-level")) {
 		int res = pw_log_set_level_string(params);
 		fprintf(response, "%d", res);
+	} else if (spa_streq(message, "pipewire-pulse:describe-module")) {
+		const struct module_info *i = module_info_find(client->impl, params);
+
+		if (i != NULL) {
+			fprintf(response, "Name: %s\n", i->name);
+		        if (i->properties == NULL) {
+				fprintf(response, "No module information available\n");
+			} else {
+				const char *s;
+				if ((s = spa_dict_lookup(i->properties, PW_KEY_MODULE_VERSION)))
+					fprintf(response, "Version: %s\n", s);
+				if ((s = spa_dict_lookup(i->properties, PW_KEY_MODULE_DESCRIPTION)))
+					fprintf(response, "Description: %s\n", s);
+				if ((s = spa_dict_lookup(i->properties, PW_KEY_MODULE_AUTHOR)))
+					fprintf(response, "Author: %s\n", s);
+				if ((s = spa_dict_lookup(i->properties, PW_KEY_MODULE_USAGE)))
+					fprintf(response, "Usage: %s\n", s);
+				fprintf(response, "Load Once: %s\n", i->load_once ? "Yes": "No");
+				if ((s = spa_dict_lookup(i->properties, PW_KEY_MODULE_DEPRECATED)))
+					fprintf(response, "Warning, deprecated: %s\n", s);
+			}
+		} else {
+			fprintf(response, "Failed to open module.\n");
+		}
 	} else {
 		return -ENOSYS;
 	}

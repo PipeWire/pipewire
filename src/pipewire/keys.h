@@ -293,6 +293,7 @@ extern "C" {
 #define PW_KEY_MODULE_USAGE		"module.usage"		/**< a human readable usage description of
 								  *  the module's arguments. */
 #define PW_KEY_MODULE_VERSION		"module.version"	/**< a version string for the module. */
+#define PW_KEY_MODULE_DEPRECATED	"module.deprecated"	/**< the module is deprecated with this message */
 
 /** Factory properties */
 #define PW_KEY_FACTORY_ID		"factory.id"		/**< the factory id */

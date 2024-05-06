@@ -293,7 +293,7 @@ void audioinfo_to_properties(struct spa_audio_info_raw *info, struct pw_properti
 	}
 }
 
-static const struct module_info *find_module_info(const char *name)
+const struct module_info *module_info_find(struct impl *impl, const char *name)
 {
 	extern const struct module_info __start_pw_mod_pulse_modules[];
 	extern const struct module_info __stop_pw_mod_pulse_modules[];
@@ -323,7 +323,7 @@ struct module *module_create(struct impl *impl, const char *name, const char *ar
 	struct module *module;
 	int res;
 
-	info = find_module_info(name);
+	info = module_info_find(impl, name);
 	if (info == NULL) {
 		errno = ENOENT;
 		return NULL;

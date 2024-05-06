@@ -1262,7 +1262,8 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
 	pw_core_add_listener(pw->core, &pw->core_listener, &core_events, pw);
 	pw_thread_loop_unlock(pw->main_loop);
 
-	pw->fd = spa_system_eventfd_create(pw->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	pw->fd = spa_system_eventfd_create(pw->system,
+			SPA_FD_EVENT_SEMAPHORE | SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	if (pw->fd < 0) {
 		err = pw->fd;
 		goto error;

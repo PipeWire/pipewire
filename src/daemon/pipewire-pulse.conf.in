@@ -101,6 +101,7 @@ pulse.properties = {
         #}
     ]
     #server.dbus-name       = "org.pulseaudio.Server"
+    #pulse.allow-module-loading = true
     #pulse.min.req          = 128/48000     # 2.7ms
     #pulse.default.req      = 960/48000     # 20 milliseconds
     #pulse.min.frag         = 128/48000     # 2.7ms

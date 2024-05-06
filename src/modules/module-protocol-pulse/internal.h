@@ -25,6 +25,7 @@ struct pw_work_queue;
 struct pw_properties;
 
 struct defs {
+	bool allow_module_loading;
 	struct spa_fraction min_req;
 	struct spa_fraction default_req;
 	struct spa_fraction min_frag;

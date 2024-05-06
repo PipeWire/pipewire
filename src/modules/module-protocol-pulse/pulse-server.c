@@ -56,6 +56,7 @@
 #include "utils.h"
 #include "volume.h"
 
+#define DEFAULT_ALLOW_MODULE_LOADING 	"true"
 #define DEFAULT_MIN_REQ		"128/48000"
 #define DEFAULT_DEFAULT_REQ	"960/48000"
 #define DEFAULT_MIN_FRAG	"128/48000"
@@ -5014,6 +5015,9 @@ static int do_load_module(struct client *client, uint32_t command, uint32_t tag,
 	struct pending_module *pm;
 	int r;
 
+	if (!impl->defs.allow_module_loading)
+		return -EACCES;
+
 	if (message_get(m,
 			TAG_STRING, &name,
 			TAG_STRING, &argument,
@@ -5058,6 +5062,9 @@ static int do_unload_module(struct client *client, uint32_t command, uint32_t ta
 	struct impl *impl = client->impl;
 	struct module *module;
 	uint32_t module_index;
+
+	if (!impl->defs.allow_module_loading)
+		return -EACCES;
 
 	if (message_get(m,
 			TAG_U32, &module_index,
@@ -5449,9 +5456,22 @@ static int parse_uint32(struct pw_properties *props, const char *key, const char
 	pw_log_info(": defaults: %s = %u", key, *res);
 	return 0;
 }
+static int parse_bool(struct pw_properties *props, const char *key, const char *def,
+		bool *res)
+{
+	const char *str;
+	if (props == NULL ||
+	    (str = pw_properties_get(props, key)) == NULL)
+		str = def;
+	*res = spa_atob(str);
+	pw_log_info(": defaults: %s = %s", key, *res ? "true" : "false");
+	return 0;
+}
 
 static void load_defaults(struct defs *def, struct pw_properties *props)
 {
+	parse_bool(props, "pulse.allow-module-loading", DEFAULT_ALLOW_MODULE_LOADING,
+			&def->allow_module_loading);
 	parse_frac(props, "pulse.min.req", DEFAULT_MIN_REQ, &def->min_req);
 	parse_frac(props, "pulse.default.req", DEFAULT_DEFAULT_REQ, &def->default_req);
 	parse_frac(props, "pulse.min.frag", DEFAULT_MIN_FRAG, &def->min_frag);

@@ -128,7 +128,7 @@ struct impl {
 struct eq_node_param {
 	char filter_type[4];
 	char filter[4];
-	float freq;
+	uint32_t freq;
 	float gain;
 	float q_fact;
 };
@@ -168,7 +168,7 @@ void add_eq_node(FILE *f, struct eq_node_param *param, uint32_t eq_band_idx) {
 		fprintf(f, "label = bq_peaking\n");
 	}
 
-	fprintf(f, "control = { \"Freq\" = %f \"Q\" = %f \"Gain\" = %f }\n", param->freq, param->q_fact, param->gain);
+	fprintf(f, "control = { \"Freq\" = %d \"Q\" = %f \"Gain\" = %f }\n", param->freq, param->q_fact, param->gain);
 
 	fprintf(f, "}\n");
 }
@@ -237,7 +237,7 @@ int32_t parse_eq_filter_file(struct impl *impl, FILE *f)
 	 */
 	spa_zero(eq_param);
 	nread = getline(&line, &len, f);
-	if (nread != -1 && sscanf(line, "%*s %f %*s", &eq_param.gain) == 1) {
+	if (nread != -1 && sscanf(line, "%*s %6f %*s", &eq_param.gain) == 1) {
 		memcpy(eq_param.filter, "ON", 2);
 		memcpy(eq_param.filter_type, "HSC", 3);
 		eq_param.freq = 0;
@@ -253,7 +253,18 @@ int32_t parse_eq_filter_file(struct impl *impl, FILE *f)
 	while ((nread = getline(&line, &len, f)) != -1) {
 		spa_zero(eq_param);
 
-		if (sscanf(line, "%*s %*d: %s %s %*s %f %*s %*s %f %*s %*c %f", eq_param.filter, eq_param.filter_type, &eq_param.freq, &eq_param.gain, &eq_param.q_fact) == 5) {
+		/*
+		 * On field widths:
+		 * - filter can be ON or OFF
+		 * - filter type can be PK, LSC, HSC
+		 * - freq can be at most 5 decimal digits
+		 * - gain can be -xy.z
+		 * - Q can be x.y00
+		 *
+		 * Use a field width of 6 for gain and Q to account for any
+		 * possible zeros.
+		 */
+		if (sscanf(line, "%*s %*d: %3s %3s %*s %5d %*s %*s %6f %*s %*c %6f", eq_param.filter, eq_param.filter_type, &eq_param.freq, &eq_param.gain, &eq_param.q_fact) == 5) {
 			if (strcmp(eq_param.filter, "ON") == 0) {
 				add_eq_node(memstream, &eq_param, eq_band_idx);
 

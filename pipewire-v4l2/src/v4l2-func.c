@@ -58,7 +58,7 @@ SPA_EXPORT int open64(const char *path, int oflag, ...)
 
 SPA_EXPORT int __open64_2(const char *path, int oflag)
 {
-        return open(path, oflag);
+        return open64(path, oflag);
 }
 #endif
 
@@ -88,7 +88,7 @@ SPA_EXPORT int openat64(int dirfd, const char *path, int oflag, ...)
 
 SPA_EXPORT int __openat64_2(int dirfd, const char *path, int oflag)
 {
-	return openat(dirfd, path, oflag);
+	return openat64(dirfd, path, oflag);
 }
 #endif
 

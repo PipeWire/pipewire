@@ -58,8 +58,6 @@ typedef struct {
 	unsigned int hw_params_changed:1;
 	unsigned int negotiated:1;
 
-	bool active;
-
 	snd_pcm_uframes_t hw_ptr;
 	snd_pcm_uframes_t boundary;
 	snd_pcm_uframes_t min_avail;
@@ -94,9 +92,9 @@ static int update_active(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 	snd_pcm_sframes_t avail;
-	bool active, old;
+	bool active;
+	uint64_t val;
 
-retry:
 	avail = snd_pcm_ioplug_avail(io, pw->hw_ptr, io->appl_ptr);
 
 	if (pw->error > 0) {
@@ -114,23 +112,17 @@ retry:
 	else {
 		active = false;
 	}
-	old = SPA_ATOMIC_LOAD(pw->active);
-	if (old != active) {
-		uint64_t val;
 
-		pw_log_trace("%p: avail:%lu min-avail:%lu state:%s hw:%lu appl:%lu active:%d->%d state:%s",
-			pw, avail, pw->min_avail, snd_pcm_state_name(io->state),
-			pw->hw_ptr, io->appl_ptr, pw->active, active,
-			snd_pcm_state_name(io->state));
+	pw_log_trace("%p: avail:%lu min-avail:%lu state:%s hw:%lu appl:%lu active:%d state:%s",
+		pw, avail, pw->min_avail, snd_pcm_state_name(io->state),
+		pw->hw_ptr, io->appl_ptr, active,
+		snd_pcm_state_name(io->state));
 
-		if (active)
-			spa_system_eventfd_write(pw->system, io->poll_fd, 1);
-		else
-			spa_system_eventfd_read(pw->system, io->poll_fd, &val);
+	if (active)
+		spa_system_eventfd_write(pw->system, io->poll_fd, 1);
+	else
+		spa_system_eventfd_read(pw->system, io->poll_fd, &val);
 
-		if (!SPA_ATOMIC_CAS(pw->active, old, active))
-			goto retry;
-	}
 	return active;
 }
 

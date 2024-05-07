@@ -83,6 +83,7 @@ The session manager is responsible for defining the list of permissions each cli
 - Write: the object can be modified, usually through methods (which requires the execute flag)
 - eXecute: methods can be called;
 - Metadata: metadata can be set on the object.
+- Link: any link can be made even to a port that is not visible by the owner of the port.
 
 ### Object types
 
@@ -100,8 +101,9 @@ A client object is the representation of an open connection with a client proces
 
 #### Modules
 
-Modules are dynamic libraries that are loaded at run time and do arbitrary things, such as creating devices or provide methods to create links, nodes, etc.
-Modules are loaded by clients and exposed to the server and other clients via the API.
+Modules are dynamic libraries that are loaded at run time in the clients and in the server and do arbitrary things, such as creating devices or provide methods to create links, nodes, etc.
+
+Modules in PipeWire can only be loaded in their own process. A client, for example, can not load a module in the server.
 
 #### Nodes
 

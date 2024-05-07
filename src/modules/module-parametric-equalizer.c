@@ -12,7 +12,7 @@
 
 #include <pipewire/impl.h>
 
-/** \page page_module_parametric_eq Load Parametric Equalizer Configuration
+/** \page page_module_parametric_equalizer Parametric-Equalizer
  *
  * The `parametric-equalizer` module loads parametric equalizer configuration
  * generated from the AutoEQ project or Squiglink. Both the projects allow

@@ -1,3 +1,58 @@
+# PipeWire 1.0.6 (2024-05-09)
+
+This is a bugfix release that is API and ABI compatible with previous
+1.0.x releases.
+
+## Highlights
+  - A bitfield race was fixed that could cause some crashes or undefined
+    behaviour whem moving nodes between drivers.
+  - Fix to some invalid memory access in the pw-mon and pw-dump.
+  - A regression in kodi with IEC958 formats playback was fixed.
+  - A race in the ALSA plugin was fixed when updating the eventfd.
+  - Improvements and fixes to module-combine-stream.
+  - Negotiation was improved in pipewiresrc.
+  - Some more small fixes and improvements.
+
+## PipeWire
+  - Context properties are now set early so that client properties can be
+    matched with rules.
+  - A bitfield race was fixed that could cause some crashes or undefined
+    behaviour when moving nodes between drivers.
+
+## Tools
+  - Fix failure to hide properties in pw-mon. (#3997)
+  - Fix some memleaks and a crash in pw-dump. (#4001)
+
+## Modules
+  - The combine-stream module now prevents resampling to avoid broken
+    audio because of different samplerates.
+  - Fix a potential double free in module-loopback when calculating the
+    delay. (#3748)
+  - The FFADO module now only starts when ports are negotiated to avoid
+    startup races. (#3968)
+  - The combine-stream module will now forward tags.
+
+## SPA
+  - Monitor volumes are now also clamped to the min/max volumes. (#3962)
+  - V4l2 and libcamera now encodes the device ids into a JSON array. This
+    is part of the deduplication code of devices.
+  - A regression in kodi with IEC958 formats playback was fixed.
+
+## Bluetooth
+  - Improved buffer handling and queued data when stopping.
+
+## ALSA
+  - A race was fixed when updating the eventfd. (#3711)
+
+## GStreamer
+  - Handle some errors better instead of crashing. (#3994)
+  - Fix a memleak in the stream params handling.
+  - Negotiation was improved in pipewiresrc.
+
+
+Older versions:
+
+
 # PipeWire 1.0.5 (2024-04-15)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -49,9 +104,6 @@ This is a bugfix release that is API and ABI compatible with previous
 
 ## Docs
   - Sync with the master branch.
-
-Older versions:
-
 
 # PipeWire 1.0.4 (2024-03-13)
 

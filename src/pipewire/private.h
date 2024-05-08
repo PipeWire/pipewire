@@ -739,6 +739,7 @@ struct pw_impl_node {
 
 		struct spa_ratelimit rate_limit;
 
+		bool prepared;				/**< the node was added to loop */
 		bool added;				/**< the node was added to driver */
 	} rt;
 	struct spa_fraction target_rate;

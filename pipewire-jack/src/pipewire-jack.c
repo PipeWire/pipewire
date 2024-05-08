@@ -578,8 +578,8 @@ do_mix_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 	info->mix->io_data = info->data;
 	if (info->mix->io_data) {
 		if (info->size >= sizeof(struct spa_io_async_buffers)) {
-			info->mix->io[0] = &info->mix->io_data[0];
-			info->mix->io[1] = &info->mix->io_data[1];
+			info->mix->io[0] = &info->mix->io_data[port->direction];
+			info->mix->io[1] = &info->mix->io_data[port->direction^1];
 		} else if (info->size >= sizeof(struct spa_io_buffers)) {
 			info->mix->io[0] = &info->mix->io_data[0];
 			info->mix->io[1] = &info->mix->io_data[0];
@@ -1512,7 +1512,7 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 	struct buffer *b;
 	struct spa_data *d;
 	struct spa_io_buffers *io;
-	uint32_t cycle = (p->client->rt.position->clock.cycle + 1) & 1;
+	uint32_t cycle = p->client->rt.position->clock.cycle & 1;
 
 	if (frames == 0 || !p->valid)
 		return NULL;
@@ -1596,11 +1596,10 @@ static inline void process_empty(struct port *p, uint32_t frames)
 	}
 }
 
-static void prepare_output(struct port *p, uint32_t frames)
+static void prepare_output(struct port *p, uint32_t frames, uint32_t cycle)
 {
 	struct mix *mix;
 	struct spa_io_buffers *io;
-	uint32_t cycle = (p->client->rt.position->clock.cycle + 1) & 1;
 
 	if (SPA_UNLIKELY(p->empty_out || p->tied))
 		process_empty(p, frames);
@@ -1619,7 +1618,7 @@ static void complete_process(struct client *c, uint32_t frames)
 	struct port *p;
 	struct mix *mix;
 	union pw_map_item *item;
-	uint32_t cycle = (c->rt.position->clock.cycle + 1) & 1;
+	uint32_t cycle = c->rt.position->clock.cycle & 1;
 
 	pw_array_for_each(item, &c->ports[SPA_DIRECTION_OUTPUT].items) {
                 if (pw_map_item_is_free(item))
@@ -1627,7 +1626,7 @@ static void complete_process(struct client *c, uint32_t frames)
 		p = item->data;
 		if (!p->valid)
 			continue;
-		prepare_output(p, frames);
+		prepare_output(p, frames, cycle);
 		p->io[cycle].status = SPA_STATUS_NEED_DATA;
 	}
 	pw_array_for_each(item, &c->ports[SPA_DIRECTION_INPUT].items) {
@@ -5250,7 +5249,7 @@ static struct buffer *get_mix_buffer(struct client *c, struct mix *mix, jack_nfr
 	uint32_t cycle = c->rt.position->clock.cycle & 1;
 
 	if (mix->peer_port != NULL)
-		prepare_output(mix->peer_port, frames);
+		prepare_output(mix->peer_port, frames, cycle);
 
 	io = mix->io[cycle];
 	if (io == NULL ||

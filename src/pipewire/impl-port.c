@@ -261,8 +261,8 @@ static int port_set_io(void *object,
 			if (size >= sizeof(struct spa_io_async_buffers)) {
 				struct spa_io_async_buffers *ab = data;
 				mix->io_data = data;
-				mix->io[0] = &ab->buffers[0];
-				mix->io[1] = &ab->buffers[1];
+				mix->io[0] = &ab->buffers[this->direction];
+				mix->io[1] = &ab->buffers[this->direction^1];
 			} else {
 				mix->io_data = mix->io[0] = mix->io[1] = data;
 			}
@@ -279,7 +279,7 @@ static int tee_process(void *object)
 	struct pw_impl_port *this = &impl->this;
 	struct pw_impl_port_mix *mix;
 	struct spa_io_buffers *io = &this->rt.io;
-	uint32_t cycle = (this->node->rt.position->clock.cycle + 1) & 1;
+	uint32_t cycle = this->node->rt.position->clock.cycle & 1;
 
 	pw_log_trace_fp("%p: tee input status:%d id:%d cycle:%d", this, io->status, io->buffer_id, cycle);
 	spa_list_for_each(mix, &impl->rt.mix_list, rt.link) {

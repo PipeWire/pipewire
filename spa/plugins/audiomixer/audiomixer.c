@@ -726,8 +726,8 @@ static int do_port_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 	struct io_info *info = user_data;
 	if (info->size >= sizeof(struct spa_io_async_buffers)) {
 		struct spa_io_async_buffers *ab = info->data;
-		info->port->io[0] = &ab->buffers[0];
-		info->port->io[1] = &ab->buffers[1];
+		info->port->io[0] = &ab->buffers[info->port->direction];
+		info->port->io[1] = &ab->buffers[info->port->direction^1];
 	} else if (info->size >= sizeof(struct spa_io_buffers)) {
 		info->port->io[0] = info->data;
 		info->port->io[1] = info->data;

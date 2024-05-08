@@ -317,7 +317,7 @@ static int schedule_mix_input(void *object)
 	struct pw_impl_port *this = &impl->this;
 	struct spa_io_buffers *io = &this->rt.io;
 	struct pw_impl_port_mix *mix;
-	uint32_t cycle = (this->node->rt.position->clock.cycle + 1) & 1;
+	uint32_t cycle = this->node->rt.position->clock.cycle & 1;
 
 	if (SPA_UNLIKELY(PW_IMPL_PORT_IS_CONTROL(this)))
 		return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;

@@ -21,6 +21,7 @@
 
 #include <spa/utils/atomic.h>
 #include <spa/utils/result.h>
+#include <spa/utils/keys.h>
 #include <spa/pod/iter.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/filter.h>
@@ -912,7 +913,7 @@ static int v4l2_close(int fd)
 static int vidioc_querycap(struct file *file, struct v4l2_capability *arg)
 {
 	int res = 0;
-	const char *str = NULL;
+	const char *card = NULL, *bus_info = NULL;
 	struct pw_node_info *info;
 
 	if (file->node == NULL)
@@ -921,15 +922,19 @@ static int vidioc_querycap(struct file *file, struct v4l2_capability *arg)
 	info = file->node->info;
 
 	if (info != NULL && info->props != NULL) {
-		str = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION);
+		card = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION);
+		bus_info = spa_dict_lookup(info->props, SPA_KEY_API_V4L2_CAP_BUS_INFO);
 	}
-	if (str == NULL)
-		str = DEFAULT_CARD;
+	if (card == NULL)
+		card = DEFAULT_CARD;
 
 	spa_scnprintf((char*)arg->driver, sizeof(arg->driver), "%s", DEFAULT_DRIVER);
-	spa_scnprintf((char*)arg->card, sizeof(arg->card), "%s", str);
-	spa_scnprintf((char*)arg->bus_info, sizeof(arg->bus_info), "platform:%s-%d",
-			DEFAULT_BUS_INFO, file->node->id);
+	spa_scnprintf((char*)arg->card, sizeof(arg->card), "%s", card);
+	if (bus_info == NULL)
+		spa_scnprintf((char*)arg->bus_info, sizeof(arg->bus_info), "platform:%s-%d",
+				DEFAULT_BUS_INFO, file->node->id);
+	else
+		spa_scnprintf((char*)arg->bus_info, sizeof(arg->bus_info), "%s", bus_info);
 
 	arg->version = KERNEL_VERSION(5, 2, 0);
 	arg->device_caps = V4L2_CAP_VIDEO_CAPTURE

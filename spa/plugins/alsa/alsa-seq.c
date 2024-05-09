@@ -546,8 +546,8 @@ static int process_read(struct seq_state *state)
 		else
 			offset = 0;
 
-		spa_log_trace_fp(state->log, "event time:%"PRIu64" offset:%d size:%ld port:%d.%d",
-				ev_time, offset, size, addr->client, addr->port);
+		spa_log_trace_fp(state->log, "event %d time:%"PRIu64" offset:%d size:%ld port:%d.%d",
+				ev->type, ev_time, offset, size, addr->client, addr->port);
 
 		spa_pod_builder_control(&port->builder, offset, SPA_CONTROL_Midi);
 		spa_pod_builder_bytes(&port->builder, data, size);
@@ -620,6 +620,7 @@ static int process_write(struct seq_state *state)
 		snd_seq_event_t ev;
 		uint64_t out_time;
 		snd_seq_real_time_t out_rt;
+		long size = 0;
 
 		if (!port->valid || io == NULL)
 			continue;
@@ -643,21 +644,29 @@ static int process_write(struct seq_state *state)
 		}
 
 		SPA_POD_SEQUENCE_FOREACH(pod, c) {
-			long size;
+			long s;
 
 			if (c->type != SPA_CONTROL_Midi)
 				continue;
 
-			snd_seq_ev_clear(&ev);
-
-			snd_midi_event_reset_encode(stream->codec);
-			if ((size = snd_midi_event_encode(stream->codec,
+			if (size == 0) {
+				/* only reset when we start decoding a new message */
+				snd_seq_ev_clear(&ev);
+				snd_midi_event_reset_encode(stream->codec);
+			}
+			if ((s = snd_midi_event_encode(stream->codec,
 						SPA_POD_BODY(&c->value),
 						SPA_POD_BODY_SIZE(&c->value), &ev)) <= 0) {
 				spa_log_warn(state->log, "failed to encode event: %s",
-						snd_strerror(size));
+						snd_strerror(s));
+				size = 0;
 	                        continue;
 			}
+			size += s;
+			if (ev.type == SND_SEQ_EVENT_NONE)
+				/* this can happen when the event is not complete yet, like
+				 * a sysex message and we need to get some more data. */
+				continue;
 
 			snd_seq_ev_set_source(&ev, state->event.addr.port);
 			snd_seq_ev_set_dest(&ev, port->addr.client, port->addr.port);
@@ -668,13 +677,14 @@ static int process_write(struct seq_state *state)
 			out_rt.tv_sec = out_time / SPA_NSEC_PER_SEC;
 			snd_seq_ev_schedule_real(&ev, state->event.queue_id, 0, &out_rt);
 
-			spa_log_trace_fp(state->log, "event time:%"PRIu64" offset:%d size:%ld port:%d.%d",
-				out_time, c->offset, size, port->addr.client, port->addr.port);
+			spa_log_trace_fp(state->log, "event %d time:%"PRIu64" offset:%d size:%ld port:%d.%d",
+				ev.type, out_time, c->offset, size, port->addr.client, port->addr.port);
 
 			if ((err = snd_seq_event_output(state->event.hndl, &ev)) < 0) {
 				spa_log_warn(state->log, "failed to output event: %s",
 						snd_strerror(err));
 			}
+			size = 0;
 		}
 	}
 	snd_seq_drain_output(state->event.hndl);

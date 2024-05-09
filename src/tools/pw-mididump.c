@@ -76,12 +76,12 @@ static void on_process(void *_data, struct spa_io_position *position)
 	d = &buf->datas[0];
 
 	if (d->data == NULL)
-		return;
+		goto done;
 
 	if ((pod = spa_pod_from_data(d->data, d->maxsize, d->chunk->offset, d->chunk->size)) == NULL)
-		return;
+		goto done;
 	if (!spa_pod_is_sequence(pod))
-		return;
+		goto done;
 
 	SPA_POD_SEQUENCE_FOREACH((struct spa_pod_sequence*)pod, c) {
 		struct midi_event ev;
@@ -98,6 +98,7 @@ static void on_process(void *_data, struct spa_io_position *position)
 		midi_file_dump_event(stdout, &ev);
 	}
 
+done:
 	pw_filter_queue_buffer(data->in_port, b);
 }
 

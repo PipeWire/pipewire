@@ -644,47 +644,54 @@ static int process_write(struct seq_state *state)
 		}
 
 		SPA_POD_SEQUENCE_FOREACH(pod, c) {
-			long s;
+			long s, body_size;
+			uint8_t *body;
 
 			if (c->type != SPA_CONTROL_Midi)
 				continue;
 
-			if (size == 0)
-				/* only reset when we start decoding a new message */
-				snd_seq_ev_clear(&ev);
+			body = SPA_POD_BODY(&c->value);
+			body_size = SPA_POD_BODY_SIZE(&c->value);
 
-			if ((s = snd_midi_event_encode(stream->codec,
-						SPA_POD_BODY(&c->value),
-						SPA_POD_BODY_SIZE(&c->value), &ev)) < 0) {
-				spa_log_warn(state->log, "failed to encode event: %s",
-						snd_strerror(s));
-				snd_midi_event_reset_encode(stream->codec);
+			while (body_size > 0) {
+				if (size == 0)
+					/* only reset when we start decoding a new message */
+					snd_seq_ev_clear(&ev);
+
+				if ((s = snd_midi_event_encode(stream->codec,
+							body, body_size, &ev)) < 0) {
+					spa_log_warn(state->log, "failed to encode event: %s",
+							snd_strerror(s));
+					snd_midi_event_reset_encode(stream->codec);
+					size = 0;
+					break;
+				}
+				body += s;
+				body_size -= s;
+				size += s;
+				if (ev.type == SND_SEQ_EVENT_NONE)
+					/* this can happen when the event is not complete yet, like
+					 * a sysex message and we need to encode some more data. */
+					break;
+
+				snd_seq_ev_set_source(&ev, state->event.addr.port);
+				snd_seq_ev_set_dest(&ev, port->addr.client, port->addr.port);
+
+				out_time = state->queue_time + NSEC_FROM_CLOCK(&state->rate, c->offset);
+
+				out_rt.tv_nsec = out_time % SPA_NSEC_PER_SEC;
+				out_rt.tv_sec = out_time / SPA_NSEC_PER_SEC;
+				snd_seq_ev_schedule_real(&ev, state->event.queue_id, 0, &out_rt);
+
+				spa_log_info(state->log, "event %d time:%"PRIu64" offset:%d size:%ld port:%d.%d",
+					ev.type, out_time, c->offset, size, port->addr.client, port->addr.port);
+
+				if ((err = snd_seq_event_output(state->event.hndl, &ev)) < 0) {
+					spa_log_warn(state->log, "failed to output event: %s",
+							snd_strerror(err));
+				}
 				size = 0;
-	                        continue;
 			}
-			size += s;
-			if (ev.type == SND_SEQ_EVENT_NONE)
-				/* this can happen when the event is not complete yet, like
-				 * a sysex message and we need to get some more data. */
-				continue;
-
-			snd_seq_ev_set_source(&ev, state->event.addr.port);
-			snd_seq_ev_set_dest(&ev, port->addr.client, port->addr.port);
-
-			out_time = state->queue_time + NSEC_FROM_CLOCK(&state->rate, c->offset);
-
-			out_rt.tv_nsec = out_time % SPA_NSEC_PER_SEC;
-			out_rt.tv_sec = out_time / SPA_NSEC_PER_SEC;
-			snd_seq_ev_schedule_real(&ev, state->event.queue_id, 0, &out_rt);
-
-			spa_log_trace_fp(state->log, "event %d time:%"PRIu64" offset:%d size:%ld port:%d.%d",
-				ev.type, out_time, c->offset, size, port->addr.client, port->addr.port);
-
-			if ((err = snd_seq_event_output(state->event.hndl, &ev)) < 0) {
-				spa_log_warn(state->log, "failed to output event: %s",
-						snd_strerror(err));
-			}
-			size = 0;
 		}
 	}
 	snd_seq_drain_output(state->event.hndl);

@@ -649,16 +649,16 @@ static int process_write(struct seq_state *state)
 			if (c->type != SPA_CONTROL_Midi)
 				continue;
 
-			if (size == 0) {
+			if (size == 0)
 				/* only reset when we start decoding a new message */
 				snd_seq_ev_clear(&ev);
-				snd_midi_event_reset_encode(stream->codec);
-			}
+
 			if ((s = snd_midi_event_encode(stream->codec,
 						SPA_POD_BODY(&c->value),
-						SPA_POD_BODY_SIZE(&c->value), &ev)) <= 0) {
+						SPA_POD_BODY_SIZE(&c->value), &ev)) < 0) {
 				spa_log_warn(state->log, "failed to encode event: %s",
 						snd_strerror(s));
+				snd_midi_event_reset_encode(stream->codec);
 				size = 0;
 	                        continue;
 			}

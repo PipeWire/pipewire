@@ -571,6 +571,12 @@ static int process_read(struct seq_state *state)
 			port->buffer->buf->datas[0].chunk->offset = 0;
 			port->buffer->buf->datas[0].chunk->size = port->builder.state.offset;
 
+			if (port->builder.state.offset > port->buffer->buf->datas[0].maxsize) {
+				spa_log_warn(state->log, "control overflow: %d > %d",
+						port->builder.state.offset,
+						port->buffer->buf->datas[0].maxsize);
+			}
+
 			/* move buffer to ready queue */
 			spa_list_remove(&port->buffer->link);
 			SPA_FLAG_SET(port->buffer->flags, BUFFER_FLAG_OUT);

@@ -784,6 +784,12 @@ static int impl_node_process(void *object)
 	}
 	spa_pod_builder_pop(&builder, &f);
 
+	if (builder.state.offset > d->maxsize) {
+		spa_log_warn(this->log, "%p: control overflow %d > %d",
+				this, builder.state.offset, d->maxsize);
+		builder.state.offset = 0;
+	}
+
 	d->chunk->offset = 0;
 	d->chunk->size = builder.state.offset;
 	d->chunk->stride = 1;

@@ -329,9 +329,9 @@ impl_node_port_enum_params(void *object, int seq,
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
+	spa_return_val_if_fail(CHECK_PORT_ANY(this, direction, port_id), -EINVAL);
 
-	port = GET_PORT(this, direction, port_id);
+	port = GET_PORT_ANY(this, direction, port_id);
 
 	result.id = id;
 	result.next = start;

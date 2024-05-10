@@ -5356,7 +5356,7 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
                               * sizeof(struct midi_event)));
 	if (mb->write_pos) {
 		size_t offs = mb->buffer_size - 1 - mb->write_pos;
-		memcpy(ptr, SPA_PTROFF(mb, offs, void), mb->write_pos);
+		memcpy(SPA_PTROFF(ptr, offs, void), SPA_PTROFF(mb, offs, void), mb->write_pos);
 	}
 	return ptr;
 }

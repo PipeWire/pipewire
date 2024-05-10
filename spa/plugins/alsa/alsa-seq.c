@@ -553,6 +553,13 @@ static int process_read(struct seq_state *state)
 		spa_pod_builder_bytes(&port->builder, data, size);
 
 		snd_seq_free_event(ev);
+
+		/* make sure we can fit at least one control event of max size otherwise
+		 * we keep the event in the queue and try to copy it in the next cycle */
+		if (port->builder.state.offset +
+		    sizeof(struct spa_pod_control) +
+		    MAX_EVENT_SIZE > port->buffer->buf->datas[0].maxsize)
+			break;
         }
 
 	/* prepare a buffer on each port, some ports might have their

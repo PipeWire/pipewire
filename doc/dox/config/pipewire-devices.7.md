@@ -425,26 +425,23 @@ PipeWire Opus Pro audio profile duplex frame duration (1/10 ms).
 
 @PAR@ device-param  bluez5.bcast_source.config   # JSON
 \parblock
-example JSON
-{
-    "broadcast_code": [ // broadcast code
-    			1, 2, 104, 5, 83, 241, 65, 90, 162, 101, 187, 175, 198, 234, 3, 184
-    		],
+Example:
+```
+bluez5.bcast_source.config = [
+  {
+    "broadcast_code": [ 1, 2, 104, 5, 83, 241, 65, 90, 162, 101, 187, 175, 198, 234, 3, 184 ],
     "bis": [
-        { // BIS configuration
-            "qos_preset": "16_2_1", // QOS preset name from table Table 6.4 from BAP_v1.0.1.
-            "audio_channel_allocation": 1, // audio channel allocation configuration for the BIS
-            "metadata": [ // metadata configurations for the BIS
-                {
-                    "type": 1,
-                    "value": [
-                        1, 1
-                    ]
-                }
-            ]
-        }
+      { # BIS configuration
+        "qos_preset": "16_2_1", # QOS preset name from table Table 6.4 from BAP_v1.0.1.
+        "audio_channel_allocation": 1, # audio channel allocation configuration for the BIS
+        "metadata": [ # metadata configurations for the BIS
+           { "type": 1, "value": [ 1, 1 ] }
+        ]
+      }
     ]
-}
+  }
+]
+```
 \endparblock
 
 ## Device properties

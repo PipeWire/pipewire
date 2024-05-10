@@ -1174,7 +1174,7 @@ static int codec_get_bis_config(const struct media_codec *codec, uint8_t *caps,
 		return -EINVAL;
 
 	SPA_FOR_EACH_ELEMENT_VAR(bap_bcast_qos_configs, c) {
-		if (strcmp(c->name, preset) == 0) {
+		if (spa_streq(c->name, preset)) {
 			preset_found = true;
 			break;
 		}

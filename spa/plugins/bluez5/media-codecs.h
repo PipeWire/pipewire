@@ -26,7 +26,7 @@
 
 #define SPA_TYPE_INTERFACE_Bluez5CodecMedia	SPA_TYPE_INFO_INTERFACE_BASE "Bluez5:Codec:Media:Private"
 
-#define SPA_VERSION_BLUEZ5_CODEC_MEDIA		8
+#define SPA_VERSION_BLUEZ5_CODEC_MEDIA		9
 
 struct spa_bluez5_codec_a2dp {
 	struct spa_interface iface;
@@ -82,8 +82,8 @@ struct media_codec {
 	const struct media_codec *duplex_codec;	/**< Codec for non-standard A2DP duplex channel */
 
 	int (*get_bis_config)(const struct media_codec *codec, uint8_t *caps,
-			 uint8_t *caps_size, char *preset, int channel_allocation,
-			 struct bap_codec_qos *qos);
+				uint8_t *caps_size,	struct spa_dict *settings,
+				struct bap_codec_qos *qos);
 
 	/** If fill_caps is NULL, no endpoint is registered (for sharing with another codec). */
 	int (*fill_caps) (const struct media_codec *codec, uint32_t flags,

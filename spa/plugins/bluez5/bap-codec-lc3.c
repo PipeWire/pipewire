@@ -48,6 +48,7 @@ struct pac_data {
 };
 
 struct bap_qos {
+	char *name;
 	uint8_t rate;
 	uint8_t frame_duration;
 	bool framing;
@@ -103,100 +104,91 @@ static const struct {
 	{ BAP_CHANNEL_RS,   SPA_AUDIO_CHANNEL_SR }, /* is it the right mapping? */
 };
 
-struct bap_qos_preset {
-	char *name;
-	struct bap_qos qos;
-};
-
-#define BAP_QOS(rate_, duration_, framing_, framelen_, rtn_, latency_, delay_, priority_) \
-	((struct bap_qos){ .rate = (rate_), .frame_duration = (duration_), .framing = (framing_), \
+#define BAP_QOS(name_, rate_, duration_, framing_, framelen_, rtn_, latency_, delay_, priority_) \
+	((struct bap_qos){ .name = (name_), .rate = (rate_), .frame_duration = (duration_), .framing = (framing_), \
 			 .framelen = (framelen_), .retransmission = (rtn_), .latency = (latency_),	\
 			 .delay = (delay_), .priority = (priority_) })
-
-#define BAP_PRESET_QOS(name_, rate_, duration_, framing_, framelen_, rtn_, latency_, delay_, priority_) \
-	((struct bap_qos_preset){ .name = name_, .qos = BAP_QOS(rate_, duration_, framing_, framelen_, \
-			rtn_, latency_, delay_, priority_)})
 
 static const struct bap_qos bap_qos_configs[] = {
 	/* Priority: low-latency > high-reliability, 7.5ms > 10ms,
 	 * bigger frequency and sdu better */
 
 	/* BAP v1.0.1 Table 5.2; low-latency */
-	BAP_QOS(LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_7_5, false,  26, 2,  8, 40000, 30), /* 8_1_1 */
-	BAP_QOS(LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_10,  false,  30, 2, 10, 40000, 20), /* 8_2_1 */
-	BAP_QOS(LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_7_5, false,  30, 2,  8, 40000, 31), /* 16_1_1 */
-	BAP_QOS(LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_10,  false,  40, 2, 10, 40000, 21), /* 16_2_1 (mandatory) */
-	BAP_QOS(LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_7_5, false,  45, 2,  8, 40000, 32), /* 24_1_1 */
-	BAP_QOS(LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_10,  false,  60, 2, 10, 40000, 22), /* 24_2_1 */
-	BAP_QOS(LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_7_5, false,  60, 2,  8, 40000, 33), /* 32_1_1 */
-	BAP_QOS(LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_10,  false,  80, 2, 10, 40000, 23), /* 32_2_1 */
-	BAP_QOS(LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_7_5,  true,  97, 5, 24, 40000, 34), /* 441_1_1 */
-	BAP_QOS(LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_10,   true, 130, 5, 31, 40000, 24), /* 441_2_1 */
-	BAP_QOS(LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  75, 5, 15, 40000, 35), /* 48_1_1 */
-	BAP_QOS(LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 100, 5, 20, 40000, 25), /* 48_2_1 */
-	BAP_QOS(LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  90, 5, 15, 40000, 36), /* 48_3_1 */
-	BAP_QOS(LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 120, 5, 20, 40000, 26), /* 48_4_1 */
-	BAP_QOS(LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false, 117, 5, 15, 40000, 37), /* 48_5_1 */
-	BAP_QOS(LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 155, 5, 20, 40000, 27), /* 48_6_1 */
+	BAP_QOS("8_1_1",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_7_5, false,  26, 2,  8, 40000, 30), /* 8_1_1 */
+	BAP_QOS("8_2_1",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_10,  false,  30, 2, 10, 40000, 20), /* 8_2_1 */
+	BAP_QOS("16_1_1",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_7_5, false,  30, 2,  8, 40000, 31), /* 16_1_1 */
+	BAP_QOS("16_2_1",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_10,  false,  40, 2, 10, 40000, 21), /* 16_2_1 (mandatory) */
+	BAP_QOS("24_1_1",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_7_5, false,  45, 2,  8, 40000, 32), /* 24_1_1 */
+	BAP_QOS("24_2_1",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_10,  false,  60, 2, 10, 40000, 22), /* 24_2_1 */
+	BAP_QOS("32_1_1",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_7_5, false,  60, 2,  8, 40000, 33), /* 32_1_1 */
+	BAP_QOS("32_2_1",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_10,  false,  80, 2, 10, 40000, 23), /* 32_2_1 */
+	BAP_QOS("441_1_1", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_7_5,  true,  97, 5, 24, 40000, 34), /* 441_1_1 */
+	BAP_QOS("441_2_1", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_10,   true, 130, 5, 31, 40000, 24), /* 441_2_1 */
+	BAP_QOS("48_1_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  75, 5, 15, 40000, 35), /* 48_1_1 */
+	BAP_QOS("48_2_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 100, 5, 20, 40000, 25), /* 48_2_1 */
+	BAP_QOS("48_3_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  90, 5, 15, 40000, 36), /* 48_3_1 */
+	BAP_QOS("48_4_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 120, 5, 20, 40000, 26), /* 48_4_1 */
+	BAP_QOS("48_5_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false, 117, 5, 15, 40000, 37), /* 48_5_1 */
+	BAP_QOS("48_6_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 155, 5, 20, 40000, 27), /* 48_6_1 */
 
 	/* BAP v1.0.1 Table 5.2; high-reliability */
-	BAP_QOS(LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_7_5, false,  26, 13,  75, 40000, 10), /* 8_1_2 */
-	BAP_QOS(LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_10,  false,  30, 13,  95, 40000,  0), /* 8_2_2 */
-	BAP_QOS(LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_7_5, false,  30, 13,  75, 40000, 11), /* 16_1_2 */
-	BAP_QOS(LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_10,  false,  40, 13,  95, 40000,  1), /* 16_2_2 */
-	BAP_QOS(LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_7_5, false,  45, 13,  75, 40000, 12), /* 24_1_2 */
-	BAP_QOS(LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_10,  false,  60, 13,  95, 40000,  2), /* 24_2_2 */
-	BAP_QOS(LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_7_5, false,  60, 13,  75, 40000, 13), /* 32_1_2 */
-	BAP_QOS(LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_10,  false,  80, 13,  95, 40000,  3), /* 32_2_2 */
-	BAP_QOS(LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_7_5,  true,  97, 13,  80, 40000, 14), /* 441_1_2 */
-	BAP_QOS(LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_10,   true, 130, 13,  85, 40000,  4), /* 441_2_2 */
-	BAP_QOS(LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  75, 13,  75, 40000, 15), /* 48_1_2 */
-	BAP_QOS(LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 100, 13,  95, 40000,  5), /* 48_2_2 */
-	BAP_QOS(LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  90, 13,  75, 40000, 16), /* 48_3_2 */
-	BAP_QOS(LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 120, 13, 100, 40000,  6), /* 48_4_2 */
-	BAP_QOS(LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false, 117, 13,  75, 40000, 17), /* 48_5_2 */
-	BAP_QOS(LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 155, 13, 100, 40000,  7), /* 48_6_2 */
+	BAP_QOS("8_1_2",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_7_5, false,  26, 13,  75, 40000, 10), /* 8_1_2 */
+	BAP_QOS("8_2_2",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_10,  false,  30, 13,  95, 40000,  0), /* 8_2_2 */
+	BAP_QOS("16_1_2",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_7_5, false,  30, 13,  75, 40000, 11), /* 16_1_2 */
+	BAP_QOS("16_2_2",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_10,  false,  40, 13,  95, 40000,  1), /* 16_2_2 */
+	BAP_QOS("24_1_2",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_7_5, false,  45, 13,  75, 40000, 12), /* 24_1_2 */
+	BAP_QOS("24_2_2",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_10,  false,  60, 13,  95, 40000,  2), /* 24_2_2 */
+	BAP_QOS("32_1_2",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_7_5, false,  60, 13,  75, 40000, 13), /* 32_1_2 */
+	BAP_QOS("32_2_2",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_10,  false,  80, 13,  95, 40000,  3), /* 32_2_2 */
+	BAP_QOS("441_1_2", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_7_5,  true,  97, 13,  80, 40000, 14), /* 441_1_2 */
+	BAP_QOS("441_2_2", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_10,   true, 130, 13,  85, 40000,  4), /* 441_2_2 */
+	BAP_QOS("48_1_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  75, 13,  75, 40000, 15), /* 48_1_2 */
+	BAP_QOS("48_2_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 100, 13,  95, 40000,  5), /* 48_2_2 */
+	BAP_QOS("48_3_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  90, 13,  75, 40000, 16), /* 48_3_2 */
+	BAP_QOS("48_4_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 120, 13, 100, 40000,  6), /* 48_4_2 */
+	BAP_QOS("48_5_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false, 117, 13,  75, 40000, 17), /* 48_5_2 */
+	BAP_QOS("48_6_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 155, 13, 100, 40000,  7), /* 48_6_2 */
 };
 
-static const struct bap_qos_preset bap_bcast_qos_configs[] = {
+static const struct bap_qos bap_bcast_qos_configs[] = {
 	/* Priority: low-latency > high-reliability, 7.5ms > 10ms,
 	 * bigger frequency and sdu better */
 
 	/* BAP v1.0.1 Table 6.4; low-latency */
-	BAP_PRESET_QOS("8_1_1",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_7_5, false,  26, 2,  8, 40000, 30), /* 8_1_1 */
-	BAP_PRESET_QOS("8_2_1",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_10,  false,  30, 2, 10, 40000, 20), /* 8_2_1 */
-	BAP_PRESET_QOS("16_1_1",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_7_5, false,  30, 2,  8, 40000, 31), /* 16_1_1 */
-	BAP_PRESET_QOS("16_2_1",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_10,  false,  40, 2, 10, 40000, 21), /* 16_2_1 (mandatory) */
-	BAP_PRESET_QOS("24_1_1",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_7_5, false,  45, 2,  8, 40000, 32), /* 24_1_1 */
-	BAP_PRESET_QOS("24_2_1",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_10,  false,  60, 2, 10, 40000, 22), /* 24_2_1 */
-	BAP_PRESET_QOS("32_1_1",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_7_5, false,  60, 2,  8, 40000, 33), /* 32_1_1 */
-	BAP_PRESET_QOS("32_2_1",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_10,  false,  80, 2, 10, 40000, 23), /* 32_2_1 */
-	BAP_PRESET_QOS("441_1_1", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_7_5, true,   97, 4, 24, 40000, 34), /* 441_1_1 */
-	BAP_PRESET_QOS("441_2_1", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_10,  true,  130, 4, 31, 40000, 24), /* 441_2_1 */
-	BAP_PRESET_QOS("48_1_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  75, 4, 15, 40000, 35), /* 48_1_1 */
-	BAP_PRESET_QOS("48_2_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 100, 4, 20, 40000, 25), /* 48_2_1 */
-	BAP_PRESET_QOS("48_3_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  90, 4, 15, 40000, 36), /* 48_3_1 */
-	BAP_PRESET_QOS("48_4_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 120, 4, 20, 40000, 26), /* 48_4_1 */
-	BAP_PRESET_QOS("48_5_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false, 117, 4, 15, 40000, 37), /* 48_5_1 */
-	BAP_PRESET_QOS("48_6_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 155, 4, 20, 40000, 27), /* 48_6_1 */
+	BAP_QOS("8_1_1",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_7_5, false,  26, 2,  8, 40000, 30), /* 8_1_1 */
+	BAP_QOS("8_2_1",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_10,  false,  30, 2, 10, 40000, 20), /* 8_2_1 */
+	BAP_QOS("16_1_1",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_7_5, false,  30, 2,  8, 40000, 31), /* 16_1_1 */
+	BAP_QOS("16_2_1",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_10,  false,  40, 2, 10, 40000, 21), /* 16_2_1 (mandatory) */
+	BAP_QOS("24_1_1",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_7_5, false,  45, 2,  8, 40000, 32), /* 24_1_1 */
+	BAP_QOS("24_2_1",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_10,  false,  60, 2, 10, 40000, 22), /* 24_2_1 */
+	BAP_QOS("32_1_1",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_7_5, false,  60, 2,  8, 40000, 33), /* 32_1_1 */
+	BAP_QOS("32_2_1",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_10,  false,  80, 2, 10, 40000, 23), /* 32_2_1 */
+	BAP_QOS("441_1_1", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_7_5, true,   97, 4, 24, 40000, 34), /* 441_1_1 */
+	BAP_QOS("441_2_1", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_10,  true,  130, 4, 31, 40000, 24), /* 441_2_1 */
+	BAP_QOS("48_1_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  75, 4, 15, 40000, 35), /* 48_1_1 */
+	BAP_QOS("48_2_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 100, 4, 20, 40000, 25), /* 48_2_1 */
+	BAP_QOS("48_3_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  90, 4, 15, 40000, 36), /* 48_3_1 */
+	BAP_QOS("48_4_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 120, 4, 20, 40000, 26), /* 48_4_1 */
+	BAP_QOS("48_5_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false, 117, 4, 15, 40000, 37), /* 48_5_1 */
+	BAP_QOS("48_6_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 155, 4, 20, 40000, 27), /* 48_6_1 */
 
 	/* BAP v1.0.1 Table 6.4; high-reliability */
-	BAP_PRESET_QOS("8_1_2",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_7_5, false,  26, 4,  45, 40000, 10), /* 8_1_2 */
-	BAP_PRESET_QOS("8_1_2",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_10,  false,  30, 4,  60, 40000,  0), /* 8_1_2 */
-	BAP_PRESET_QOS("16_1_2",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_7_5, false,  30, 4,  45, 40000, 11), /* 16_1_2 */
-	BAP_PRESET_QOS("16_2_2",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_10,  false,  40, 4,  60, 40000,  1), /* 16_2_2 */
-	BAP_PRESET_QOS("24_1_2",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_7_5, false,  45, 4,  45, 40000, 12), /* 24_1_2 */
-	BAP_PRESET_QOS("24_2_2",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_10,  false,  60, 4,  60, 40000,  2), /* 24_2_2 */
-	BAP_PRESET_QOS("32_1_2",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_7_5, false,  60, 4,  45, 40000, 13), /* 32_1_2 */
-	BAP_PRESET_QOS("32_2_2",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_10,  false,  80, 4,  60, 40000,  3), /* 32_2_2 */
-	BAP_PRESET_QOS("441_1_2", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_7_5, true,   97, 4,  54, 40000, 14), /* 441_1_2 */
-	BAP_PRESET_QOS("441_2_2", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_10,  true,  130, 4,  60, 40000,  4), /* 441_2_2 */
-	BAP_PRESET_QOS("48_1_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  75, 4,  50, 40000, 15), /* 48_1_2 */
-	BAP_PRESET_QOS("48_2_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 100, 4,  65, 40000,  5), /* 48_2_2 */
-	BAP_PRESET_QOS("48_3_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  90, 4,  50, 40000, 16), /* 48_3_2 */
-	BAP_PRESET_QOS("48_4_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 120, 4,  65, 40000,  6), /* 48_4_2 */
-	BAP_PRESET_QOS("48_5_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false, 117, 4,  50, 40000, 17), /* 48_5_2 */
-	BAP_PRESET_QOS("48_6_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 155, 4,  65, 40000,  7), /* 48_6_2 */
+	BAP_QOS("8_1_2",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_7_5, false,  26, 4,  45, 40000, 10), /* 8_1_2 */
+	BAP_QOS("8_2_2",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_10,  false,  30, 4,  60, 40000,  0), /* 8_2_2 */
+	BAP_QOS("16_1_2",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_7_5, false,  30, 4,  45, 40000, 11), /* 16_1_2 */
+	BAP_QOS("16_2_2",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_10,  false,  40, 4,  60, 40000,  1), /* 16_2_2 */
+	BAP_QOS("24_1_2",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_7_5, false,  45, 4,  45, 40000, 12), /* 24_1_2 */
+	BAP_QOS("24_2_2",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_10,  false,  60, 4,  60, 40000,  2), /* 24_2_2 */
+	BAP_QOS("32_1_2",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_7_5, false,  60, 4,  45, 40000, 13), /* 32_1_2 */
+	BAP_QOS("32_2_2",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_10,  false,  80, 4,  60, 40000,  3), /* 32_2_2 */
+	BAP_QOS("441_1_2", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_7_5, true,   97, 4,  54, 40000, 14), /* 441_1_2 */
+	BAP_QOS("441_2_2", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_10,  true,  130, 4,  60, 40000,  4), /* 441_2_2 */
+	BAP_QOS("48_1_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  75, 4,  50, 40000, 15), /* 48_1_2 */
+	BAP_QOS("48_2_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 100, 4,  65, 40000,  5), /* 48_2_2 */
+	BAP_QOS("48_3_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  90, 4,  50, 40000, 16), /* 48_3_2 */
+	BAP_QOS("48_4_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 120, 4,  65, 40000,  6), /* 48_4_2 */
+	BAP_QOS("48_5_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false, 117, 4,  50, 40000, 17), /* 48_5_2 */
+	BAP_QOS("48_6_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 155, 4,  65, 40000,  7), /* 48_6_2 */
 };
 
 static unsigned int get_rate_mask(uint8_t rate) {
@@ -1158,25 +1150,41 @@ static void codec_set_log(struct spa_log *global_log)
 }
 
 static int codec_get_bis_config(const struct media_codec *codec, uint8_t *caps,
-				uint8_t *caps_size, char *preset, int channel_allocation, 
+				uint8_t *caps_size, struct spa_dict *settings,
 				struct bap_codec_qos *qos)
 {
 	int index = 0x0;
-
-	if (!codec)
-		return -ENOTSUP;
-
+	bool preset_found = false;
+	const char *preset = NULL;
+	int channel_allocation = 0;
 	uint8_t *data = caps;
 	*caps_size = 0;
+	int i;
+
+	if (settings) {
+		for (i = 0; i < (int)settings->n_items; ++i) {
+			if (spa_streq(settings->items[i].key, "channel_allocation"))
+				sscanf(settings->items[i].value, "%"PRIu32, &channel_allocation);
+			if (spa_streq(settings->items[i].key, "preset"))
+				preset = spa_dict_lookup(settings, "preset");
+		}
+	}
+
+	if ((preset == NULL) || (channel_allocation == 0))
+		return -EINVAL;
 
 	SPA_FOR_EACH_ELEMENT_VAR(bap_bcast_qos_configs, c) {
 		if (strcmp(c->name, preset) == 0) {
+			preset_found = true;
 			break;
 		}
 		index++;
 	}
 
-	switch (bap_bcast_qos_configs[index].qos.rate) {
+	if (!preset_found)
+		return -EINVAL;
+
+	switch (bap_bcast_qos_configs[index].rate) {
 	case LC3_CONFIG_FREQ_48KHZ:
 		data += write_ltv_uint8(data, LC3_TYPE_FREQ, LC3_CONFIG_FREQ_48KHZ);
 		break;
@@ -1195,26 +1203,26 @@ static int codec_get_bis_config(const struct media_codec *codec, uint8_t *caps,
 	default:
 		return -EINVAL;
 	}
-	*caps_size = *caps_size + 3;
+	*caps_size += 3;
 
-	data += write_ltv_uint16(data, LC3_TYPE_FRAMELEN, htobs(bap_bcast_qos_configs[index].qos.framelen));
-	*caps_size = *caps_size + 4;
-	data += write_ltv_uint8(data, LC3_TYPE_DUR, bap_bcast_qos_configs[index].qos.frame_duration);
-	*caps_size = *caps_size + 3;
+	data += write_ltv_uint16(data, LC3_TYPE_FRAMELEN, htobs(bap_bcast_qos_configs[index].framelen));
+	*caps_size += 4;
+	data += write_ltv_uint8(data, LC3_TYPE_DUR, bap_bcast_qos_configs[index].frame_duration);
+	*caps_size += 3;
 	data += write_ltv_uint32(data, LC3_TYPE_CHAN, htobl(channel_allocation));
-	*caps_size = *caps_size + 6;
+	*caps_size += 6;
 
-	if(bap_bcast_qos_configs[index].qos.framing)
+	if(bap_bcast_qos_configs[index].framing)
 		qos->framing = 1;
 	else
 		qos->framing = 0;
-	qos->sdu = bap_bcast_qos_configs[index].qos.framelen * get_channel_count(channel_allocation);
-	qos->retransmission = bap_bcast_qos_configs[index].qos.retransmission;
-	qos->latency = bap_bcast_qos_configs[index].qos.latency;
-	qos->delay = bap_bcast_qos_configs[index].qos.delay;
+	qos->sdu = bap_bcast_qos_configs[index].framelen * get_channel_count(channel_allocation);
+	qos->retransmission = bap_bcast_qos_configs[index].retransmission;
+	qos->latency = bap_bcast_qos_configs[index].latency;
+	qos->delay = bap_bcast_qos_configs[index].delay;
 	qos->phy = 2;
-	qos->interval = 10000;
-	
+	qos->interval = (bap_bcast_qos_configs[index].frame_duration == LC3_CONFIG_DURATION_7_5 ? 7500 : 10000);
+
 	return true;
 }
 

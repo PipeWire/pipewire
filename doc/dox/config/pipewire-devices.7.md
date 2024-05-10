@@ -436,7 +436,6 @@ example JSON
             "audio_channel_allocation": 1, // audio channel allocation configuration for the BIS
             "metadata": [ // metadata configurations for the BIS
                 {
-                    "length": 3,
                     "type": 1,
                     "value": [
                         1, 1

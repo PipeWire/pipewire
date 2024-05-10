@@ -6127,24 +6127,22 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 								while (spa_json_enter_object(&it_array[2], &it[3]) > 0) {
 									metadata_entry = calloc(1, sizeof(struct spa_bt_metadata));
 									while (spa_json_get_string(&it[3], qos_key, sizeof(qos_key)) > 0) {
-										if (spa_streq(qos_key, "length")) {
-											if (spa_json_get_int(&it[3], &metadata_entry->length) <= 0)
-												goto parse_failed;
-											spa_log_debug(monitor->log, "metadata_entry->length %d", metadata_entry->length);
-										} else if (spa_streq(qos_key, "type")) {
+										if (spa_streq(qos_key, "type")) {
 											if (spa_json_get_int(&it[3], &metadata_entry->type) <= 0)
 												goto parse_failed;
 											spa_log_debug(monitor->log, "metadata_entry->type %d", metadata_entry->type);
 										} else if (spa_streq(qos_key, "value")) {
 											if (spa_json_enter_array(&it[3], &it_array[3]) <= 0)
 												goto parse_failed;
-											cursor = 0;
 											for (cursor = 0; cursor < METADATA_MAX_LEN; cursor++) {
 												if (spa_json_get_int(&it_array[3], &temp_val) <= 0)
 													break;
 												metadata_entry->value[cursor] = (uint8_t)temp_val;
 												spa_log_debug(monitor->log, "metadata_entry->value[cursor] %d", metadata_entry->value[cursor]);
 											}
+											/* length is size of value plus 1 octet for type */
+											metadata_entry->length = cursor + 1;
+											spa_log_debug(monitor->log, "metadata_entry->length %d", metadata_entry->length);
 											spa_log_debug(monitor->log, "metadata_entry->value_size %d", cursor);
 											spa_list_append(&bis_entry->metadata_list, &metadata_entry->link);
 											metadata_entry = NULL;

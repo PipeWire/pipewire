@@ -696,7 +696,7 @@ static int process_write(struct seq_state *state)
 				out_rt.tv_sec = out_time / SPA_NSEC_PER_SEC;
 				snd_seq_ev_schedule_real(&ev, state->event.queue_id, 0, &out_rt);
 
-				spa_log_info(state->log, "event %d time:%"PRIu64" offset:%d size:%ld port:%d.%d",
+				spa_log_trace_fp(state->log, "event %d time:%"PRIu64" offset:%d size:%ld port:%d.%d",
 					ev.type, out_time, c->offset, size, port->addr.client, port->addr.port);
 
 				if ((err = snd_seq_event_output(state->event.hndl, &ev)) < 0) {

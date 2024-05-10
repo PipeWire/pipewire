@@ -563,7 +563,7 @@ impl_node_port_enum_params(void *object, int seq,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
-							4096, 4096, INT32_MAX),
+							this->quantum_limit, this->quantum_limit, INT32_MAX),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(1));
 		break;
 
@@ -927,6 +927,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.n_params = N_NODE_PARAMS;
 	reset_props(&this->props);
 
+	this->quantum_limit = 8192;
+
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
@@ -936,6 +938,8 @@ impl_init(const struct spa_handle_factory *factory,
 		} else if (spa_streq(k, "clock.name")) {
 			spa_scnprintf(this->props.clock_name,
 					sizeof(this->props.clock_name), "%s", s);
+		} else if (spa_streq(k, "clock.quantum-limit")) {
+			spa_atou32(s, &this->quantum_limit, 0);
 		} else if (spa_streq(k, SPA_KEY_API_ALSA_DISABLE_LONGNAME)) {
 			this->props.disable_longname = spa_atob(s);
 		}

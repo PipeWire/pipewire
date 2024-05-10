@@ -131,6 +131,8 @@ struct seq_state {
 	struct spa_io_clock *clock;
 	struct spa_io_position *position;
 
+	uint32_t quantum_limit;
+
 	int rate_denom;
 	uint32_t duration;
 	uint32_t threshold;

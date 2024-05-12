@@ -7,11 +7,11 @@
 #include <string.h>
 #include <ctype.h>
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/string.h>
-#include <pipewire/cleanup.h>
 #include <pipewire/log.h>
 #include <pipewire/map.h>
 #include <pipewire/properties.h>

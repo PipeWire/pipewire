@@ -13,6 +13,7 @@
 #include <spa/param/format-utils.h>
 #include <spa/node/io.h>
 #include <spa/node/utils.h>
+#include <spa/utils/cleanup.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/pod/filter.h>
 #include <spa/pod/dynamic.h>
@@ -20,7 +21,6 @@
 
 #define PW_ENABLE_DEPRECATED
 
-#include <pipewire/cleanup.h>
 #include "pipewire/pipewire.h"
 #include "pipewire/stream.h"
 #include "pipewire/private.h"

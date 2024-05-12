@@ -12,7 +12,6 @@
 #include "config.h"
 
 #include "pipewire/impl.h"
-#include "pipewire/cleanup.h"
 
 #include "spa-node.h"
 

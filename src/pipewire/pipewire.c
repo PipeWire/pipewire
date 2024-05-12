@@ -25,7 +25,6 @@
 #include <spa/support/cpu.h>
 #include <spa/support/i18n.h>
 
-#include <pipewire/cleanup.h>
 #include "pipewire.h"
 #include "private.h"
 #include "i18n.h"

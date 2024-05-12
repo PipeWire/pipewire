@@ -12,7 +12,6 @@
 #include <spa/utils/json-pod.h>
 
 #include "pipewire/impl.h"
-#include "pipewire/cleanup.h"
 #include "pipewire/private.h"
 
 PW_LOG_TOPIC_EXTERN(log_device);

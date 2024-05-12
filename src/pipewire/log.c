@@ -17,7 +17,6 @@
 
 #include <pipewire/log.h>
 #include <pipewire/private.h>
-#include <pipewire/cleanup.h>
 
 SPA_LOG_IMPL(default_log);
 

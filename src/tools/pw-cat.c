@@ -28,7 +28,6 @@
 #include <spa/debug/types.h>
 #include <spa/debug/file.h>
 
-#include <pipewire/cleanup.h>
 #include <pipewire/pipewire.h>
 #include <pipewire/i18n.h>
 #include <pipewire/extensions/metadata.h>

@@ -10,7 +10,6 @@
 #include <getopt.h>
 #include <limits.h>
 
-#include <pipewire/cleanup.h>
 #include <pipewire/impl.h>
 
 #include "spa-node.h"

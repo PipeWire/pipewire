@@ -16,6 +16,7 @@
 #include "log.h"
 
 #include <spa/support/cpu.h>
+#include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/debug/dict.h>
@@ -28,7 +29,6 @@
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/json.h>
 
-#include <pipewire/cleanup.h>
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/metadata.h>
 

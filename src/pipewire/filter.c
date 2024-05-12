@@ -12,13 +12,13 @@
 #include <spa/param/props.h>
 #include <spa/node/io.h>
 #include <spa/node/utils.h>
+#include <spa/utils/cleanup.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/string.h>
 #include <spa/pod/filter.h>
 #include <spa/pod/dynamic.h>
 #include <spa/debug/types.h>
 
-#include <pipewire/cleanup.h>
 #include "pipewire/pipewire.h"
 #include "pipewire/filter.h"
 #include "pipewire/private.h"

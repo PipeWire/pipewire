@@ -13,9 +13,9 @@
 #include <sys/stat.h>
 #include <errno.h>
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/string.h>
 
-#include <pipewire/cleanup.h>
 #include "pipewire/impl.h"
 #include "pipewire/private.h"
 

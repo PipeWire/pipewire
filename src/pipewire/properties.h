@@ -11,6 +11,7 @@ extern "C" {
 
 #include <stdarg.h>
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/dict.h>
 #include <spa/utils/string.h>
 
@@ -183,6 +184,10 @@ static inline double pw_properties_parse_double(const char *value) {
 /**
  * \}
  */
+
+SPA_DEFINE_AUTOPTR_CLEANUP(pw_properties, struct pw_properties, {
+	spa_clear_ptr(*thing, pw_properties_free);
+})
 
 #ifdef __cplusplus
 }

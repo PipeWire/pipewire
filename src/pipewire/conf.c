@@ -24,12 +24,12 @@
 #endif
 #endif
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/debug/log.h>
 
-#include <pipewire/cleanup.h>
 #include <pipewire/impl.h>
 #include <pipewire/private.h>
 

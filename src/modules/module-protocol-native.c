@@ -29,6 +29,7 @@
 #include <spa/pod/iter.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/builder.h>
+#include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
@@ -44,7 +45,6 @@
 
 #include <pipewire/impl.h>
 #include <pipewire/extensions/protocol-native.h>
-#include <pipewire/cleanup.h>
 
 #include "pipewire/private.h"
 

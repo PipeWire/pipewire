@@ -21,6 +21,7 @@ extern "C" {
 #define ENODATA 9919
 #endif
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/defs.h>
 #include <spa/pod/pod.h>
 
@@ -98,6 +99,10 @@ void* pw_reallocarray(void *ptr, size_t nmemb, size_t size);
 /**
  * \}
  */
+
+SPA_DEFINE_AUTO_CLEANUP(pw_strv, char **, {
+	spa_clear_ptr(*thing, pw_free_strv);
+})
 
 #ifdef __cplusplus
 } /* extern "C" */

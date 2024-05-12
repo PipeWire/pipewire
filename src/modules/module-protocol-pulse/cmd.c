@@ -2,9 +2,9 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/json.h>
 
-#include <pipewire/cleanup.h>
 #include <pipewire/utils.h>
 
 #include "module.h"

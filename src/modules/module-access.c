@@ -20,12 +20,12 @@
 #include <sys/mount.h>
 #endif
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 
 #include <pipewire/impl.h>
-#include <pipewire/cleanup.h>
 
 #include "flatpak-utils.h"
 

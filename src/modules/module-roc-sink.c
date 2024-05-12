@@ -19,7 +19,6 @@
 #include <roc/log.h>
 #include <roc/sender.h>
 
-#include <pipewire/cleanup.h>
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
 

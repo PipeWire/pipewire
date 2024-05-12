@@ -30,6 +30,7 @@
 
 #include "config.h"
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
@@ -40,7 +41,6 @@
 #include <spa/param/audio/raw.h>
 #include <spa/param/latency-utils.h>
 
-#include <pipewire/cleanup.h>
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
 

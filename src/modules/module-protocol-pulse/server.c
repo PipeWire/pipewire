@@ -25,10 +25,10 @@
 #include <systemd/sd-daemon.h>
 #endif
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/json.h>
 #include <spa/utils/result.h>
-#include <pipewire/cleanup.h>
 #include <pipewire/pipewire.h>
 
 #include "client.h"

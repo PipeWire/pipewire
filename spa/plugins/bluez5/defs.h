@@ -571,7 +571,7 @@ struct spa_bt_iso_io;
 
 struct spa_bt_sco_io;
 
-struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_loop *data_loop, int fd, uint16_t read_mtu, uint16_t write_mtu);
+struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_bt_transport *transport, struct spa_loop *data_loop, struct spa_log *log);
 void spa_bt_sco_io_destroy(struct spa_bt_sco_io *io);
 void spa_bt_sco_io_set_source_cb(struct spa_bt_sco_io *io, int (*source_cb)(void *userdata, uint8_t *data, int size), void *userdata);
 void spa_bt_sco_io_set_sink_cb(struct spa_bt_sco_io *io, int (*sink_cb)(void *userdata), void *userdata);

@@ -1733,8 +1733,8 @@ static void sco_event(struct spa_source *source)
 		}
 	}
 
-	if (source->rmask & SPA_IO_IN) {
-		SPA_FLAG_UPDATE(source->mask, SPA_IO_IN, false);
+	if (source->rmask & (SPA_IO_OUT | SPA_IO_IN)) {
+		SPA_FLAG_CLEAR(source->mask, SPA_IO_OUT | SPA_IO_IN);
 		spa_loop_update_source(backend->main_loop, source);
 		sco_ready(t);
 	}
@@ -1750,15 +1750,25 @@ static void sco_start_source(struct spa_bt_transport *t)
 
 	td->err = -EINPROGRESS;
 
-	/*
-	 * We on purpose wait for POLLIN when connecting (not POLLOUT as usual), to
-	 * indicate ready only after we are sure the device is sending data.
-	 */
 	td->sco.func = sco_event;
 	td->sco.data = t;
 	td->sco.fd = t->fd;
-	td->sco.mask = SPA_IO_HUP | SPA_IO_ERR | SPA_IO_IN;
+	td->sco.mask = SPA_IO_HUP | SPA_IO_ERR;
 	td->sco.rmask = 0;
+
+	switch (t->device->adapter->bus_type) {
+	case BUS_TYPE_USB:
+		/* With USB controllers, we have to determine packet size from incoming
+		 * packets before we can send. Wait for POLLIN when connecting (not
+		 * POLLOUT as usual).
+		 */
+		td->sco.mask |= SPA_IO_IN;
+		break;
+	default:
+		td->sco.mask |= SPA_IO_OUT;
+		break;
+	}
+
 	spa_loop_add_source(backend->main_loop, &td->sco);
 }
 

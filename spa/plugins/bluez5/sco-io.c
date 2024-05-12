@@ -30,6 +30,10 @@
 
 #include "defs.h"
 
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.sco-io");
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+
 
 /* We'll use the read rx data size to find the correct packet size for writing,
  * since kernel might not report it as the socket MTU, see
@@ -54,6 +58,7 @@ struct spa_bt_sco_io {
 	uint16_t read_mtu;
 	uint16_t write_mtu;
 
+	struct spa_log *log;
 	struct spa_loop *data_loop;
 	struct spa_source source;
 
@@ -102,6 +107,9 @@ static void sco_io_on_ready(struct spa_source *source)
 			/* error */
 			goto stop;
 		}
+
+		if (res != (int)io->read_size)
+			spa_log_trace(io->log, "%p: packet size:%d", io, res);
 
 		io->read_size = res;
 
@@ -185,23 +193,42 @@ int spa_bt_sco_io_write(struct spa_bt_sco_io *io, uint8_t *buf, int size)
 }
 
 
-struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_loop *data_loop,
-                                           int fd,
-                                           uint16_t read_mtu,
-                                           uint16_t write_mtu)
+struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_bt_transport *transport, struct spa_loop *data_loop, struct spa_log *log)
 {
 	struct spa_bt_sco_io *io;
+
+	spa_log_topic_init(log, &log_topic);
 
 	io = calloc(1, sizeof(struct spa_bt_sco_io));
 	if (io == NULL)
 		return io;
 
-	io->fd = fd;
-	io->read_mtu = read_mtu;
-	io->write_mtu = write_mtu;
+	io->fd = transport->fd;
+	io->read_mtu = transport->read_mtu;
+	io->write_mtu = transport->write_mtu;
 	io->data_loop = data_loop;
+	io->log = log;
 
-	io->read_size = 0;
+	if (transport->device->adapter->bus_type == BUS_TYPE_USB) {
+		/* For USB we need to wait for RX to know it. Using wrong size doesn't
+		 * work anyway, and may result to errors printed to dmesg if too big.
+		 */
+		io->read_size = 0;
+	} else {
+		/* Set some sensible initial packet size */
+		switch (transport->codec) {
+		case HFP_AUDIO_CODEC_CVSD:
+			io->read_size = 48;  /* 3ms S16_LE 8000 Hz */
+			break;
+		case HFP_AUDIO_CODEC_MSBC:
+		case HFP_AUDIO_CODEC_LC3_SWB:
+		default:
+			io->read_size = HFP_CODEC_PACKET_SIZE;
+			break;
+		}
+	}
+
+	spa_log_debug(io->log, "%p: initial packet size:%d", io, io->read_size);
 
 	/* Add the ready callback */
 	io->source.data = io;

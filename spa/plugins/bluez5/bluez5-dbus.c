@@ -151,11 +151,17 @@ struct spa_bt_remote_endpoint {
 #define METADATA_MAX_LEN	255
 #define CC_MAX_LEN	255
 
+/*
+ * This structure stores metadata as defined
+ * in Assigned Numbers chapter 6.12.6 Metadata
+ * LTV structures. Length contains the size of
+ * type and value.
+ */
 struct spa_bt_metadata {
 	struct spa_list link;
 	int length;
 	int type;
-	uint8_t value[METADATA_MAX_LEN];
+	uint8_t value[METADATA_MAX_LEN - 1];
 };
 
 struct spa_bt_bis {
@@ -5261,7 +5267,6 @@ static void configure_bis(struct spa_bt_monitor *monitor,
 	DBusMessageIter iter, entry, variant, qos_dict;
 	spa_autoptr(DBusMessage) msg = NULL;
 	DBusMessageIter dict;
-	const char *entry_key = "QoS";
 	int bis_id = 0xFF;
 	uint8_t caps [CC_MAX_LEN];
 	uint8_t metadata [METADATA_MAX_LEN];
@@ -5318,7 +5323,7 @@ static void configure_bis(struct spa_bt_monitor *monitor,
 	append_basic_array_variant_dict_entry(&dict, "Metadata", "ay", "y", DBUS_TYPE_BYTE, metadata, metadata_size);
 
 	dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
-	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &entry_key);
+	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &(const char *) { "QoS" });
 	dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "a{sv}", &variant);
 
 	dbus_message_iter_open_container(&variant, DBUS_TYPE_ARRAY,
@@ -6154,7 +6159,7 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 									} else if (spa_streq(qos_key, "value")) {
 										if (spa_json_enter_array(&it[3], &it_array[3]) <= 0)
 											goto parse_failed;
-										for (cursor = 0; cursor < METADATA_MAX_LEN; cursor++) {
+										for (cursor = 0; cursor < METADATA_MAX_LEN - 1; cursor++) {
 											int temp_val = 0;
 											if (spa_json_get_int(&it_array[3], &temp_val) <= 0)
 												break;

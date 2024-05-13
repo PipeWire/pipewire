@@ -503,7 +503,7 @@ static int process_read(struct seq_state *state)
 	int res;
 
 	/* copy all new midi events into their port buffers */
-	while (snd_seq_event_input(state->event.hndl, &ev) > 0) {
+	while ((res = snd_seq_event_input(state->event.hndl, &ev)) > 0) {
 		const snd_seq_addr_t *addr = &ev->source;
 		struct seq_port *port;
 		uint64_t ev_time, diff;
@@ -561,6 +561,8 @@ static int process_read(struct seq_state *state)
 		    MAX_EVENT_SIZE > port->buffer->buf->datas[0].maxsize)
 			break;
         }
+	if (res < 0 && res != -EAGAIN)
+		spa_log_warn(state->log, "event read failed: %s", snd_strerror(res));
 
 	/* prepare a buffer on each port, some ports might have their
 	 * buffer filled above */

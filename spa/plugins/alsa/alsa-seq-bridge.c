@@ -928,6 +928,8 @@ impl_init(const struct spa_handle_factory *factory,
 	reset_props(&this->props);
 
 	this->quantum_limit = 8192;
+	this->min_pool_size = 500;
+	this->max_pool_size = 2000;
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
@@ -942,6 +944,10 @@ impl_init(const struct spa_handle_factory *factory,
 			spa_atou32(s, &this->quantum_limit, 0);
 		} else if (spa_streq(k, SPA_KEY_API_ALSA_DISABLE_LONGNAME)) {
 			this->props.disable_longname = spa_atob(s);
+		} else if (spa_streq(k, "api.alsa.seq.min-pool")) {
+			spa_atou32(s, &this->min_pool_size, 0);
+		} else if (spa_streq(k, "api.alsa.seq.max-pool")) {
+			spa_atou32(s, &this->max_pool_size, 0);
 		}
 	}
 
@@ -978,7 +984,14 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 static const struct spa_dict_item info_items[] = {
 	{ SPA_KEY_FACTORY_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ SPA_KEY_FACTORY_DESCRIPTION, "Bridge midi ports with the alsa sequencer API" },
-	{ SPA_KEY_FACTORY_USAGE, "["SPA_KEY_API_ALSA_PATH"=<device>]" },
+	{ SPA_KEY_FACTORY_USAGE,
+		"["SPA_KEY_API_ALSA_PATH"=<device, default \"default\">] "
+		"[ clock.name=<clock name, default \"clock.system.monotonic\">] "
+		"[ clock.quantum-limit=<limit, default 8192>] "
+		"["SPA_KEY_API_ALSA_DISABLE_LONGNAME"=<bool, default false>] "
+		"[ api.alsa.seq.min-pool=<min-pool, default 500>] "
+		"[ api.alsa.seq.max-pool=<max-pool, default 2000>]"
+	},
 };
 
 static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);

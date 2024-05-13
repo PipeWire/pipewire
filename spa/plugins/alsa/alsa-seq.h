@@ -35,7 +35,7 @@ struct props {
 	bool disable_longname;
 };
 
-#define MAX_EVENT_SIZE 1024
+#define MAX_EVENT_SIZE 256
 #define MAX_PORTS 256
 #define MAX_BUFFERS 32
 
@@ -132,6 +132,8 @@ struct seq_state {
 	struct spa_io_position *position;
 
 	uint32_t quantum_limit;
+	uint32_t min_pool_size;
+	uint32_t max_pool_size;
 
 	int rate_denom;
 	uint32_t duration;

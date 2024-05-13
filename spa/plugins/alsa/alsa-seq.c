@@ -250,7 +250,9 @@ int spa_alsa_seq_open(struct seq_state *state)
 	snd_seq_port_subscribe_t *sub;
 	snd_seq_addr_t addr;
 	snd_seq_queue_timer_t *timer;
+	snd_seq_client_pool_t *pool;
 	struct seq_conn reserve[16];
+	size_t pool_size;
 
 	if (state->opened)
 		return 0;
@@ -317,6 +319,31 @@ int spa_alsa_seq_open(struct seq_state *state)
 	snd_seq_queue_timer_set_resolution(timer, INT_MAX);
 	if ((res = snd_seq_set_queue_timer(state->event.hndl, state->event.queue_id, timer)) < 0) {
 		spa_log_warn(state->log, "failed to set queue timer: %s", snd_strerror(res));
+	}
+
+	/* Increase client pool sizes. This determines the max sysex message that
+	 * can be received. */
+	snd_seq_client_pool_alloca(&pool);
+	if ((res = snd_seq_get_client_pool(state->event.hndl, pool)) < 0) {
+		spa_log_warn(state->log, "failed to get pool: %s", snd_strerror(res));
+	} else {
+		/* make sure we at least use the default size */
+		pool_size = snd_seq_client_pool_get_output_pool(pool);
+		pool_size = SPA_MAX(pool_size, snd_seq_client_pool_get_input_pool(pool));
+
+		/* The pool size is in cells, which are about 24 bytes long. Try to
+		 * make sure we can fit sysex of at least twice the quantum limit. */
+		pool_size = SPA_MAX(pool_size, state->quantum_limit * 2 / 24);
+		/* The kernel ignores values larger than 2000 (by default) so clamp
+		 * this here. It's configurable in case the kernel was modified. */
+		pool_size = SPA_CLAMP(pool_size, state->min_pool_size, state->max_pool_size);
+
+		snd_seq_client_pool_set_input_pool(pool, pool_size);
+		snd_seq_client_pool_set_output_pool(pool, pool_size);
+
+		if ((res = snd_seq_set_client_pool(state->event.hndl, pool)) < 0) {
+			spa_log_warn(state->log, "failed to set pool: %s", snd_strerror(res));
+		}
 	}
 
 	init_ports(state);

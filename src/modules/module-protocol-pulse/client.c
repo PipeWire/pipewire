@@ -368,6 +368,9 @@ int client_queue_subscribe_event(struct client *client, uint32_t mask, uint32_t 
 		return 0;
 
 	struct message *reply = message_alloc(client->impl, -1, 0);
+	if (!reply)
+		return -errno;
+
 	reply->extra[0] = COMMAND_SUBSCRIBE_EVENT;
 	reply->extra[1] = event;
 	reply->extra[2] = index;

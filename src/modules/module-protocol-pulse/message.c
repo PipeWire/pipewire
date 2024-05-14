@@ -847,7 +847,7 @@ struct message *message_alloc(struct impl *impl, uint32_t channel, uint32_t size
 		return NULL;
 	}
 
-	spa_zero(msg->extra);
+	msg->type = MESSAGE_TYPE_UNSPECIFIED;
 	msg->channel = channel;
 	msg->offset = 0;
 	msg->length = size;

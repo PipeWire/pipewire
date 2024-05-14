@@ -310,11 +310,11 @@ static bool client_prune_subscribe_events(struct client *client, uint32_t event,
 
 	/* NOTE: reverse iteration */
 	spa_list_for_each_safe_reverse(m, t, &client->out_messages, link) {
-		if (m->extra[0] != COMMAND_SUBSCRIBE_EVENT)
+		if (m->type != MESSAGE_TYPE_SUBSCRIPTION_EVENT)
 			continue;
-		if ((m->extra[1] ^ event) & SUBSCRIPTION_EVENT_FACILITY_MASK)
+		if ((m->u.subscription_event.event ^ event) & SUBSCRIPTION_EVENT_FACILITY_MASK)
 			continue;
-		if (m->extra[2] != index)
+		if (m->u.subscription_event.index != index)
 			continue;
 
 		if ((event & SUBSCRIPTION_EVENT_TYPE_MASK) == SUBSCRIPTION_EVENT_REMOVE) {
@@ -322,7 +322,7 @@ static bool client_prune_subscribe_events(struct client *client, uint32_t event,
 			 * point in keeping the old events regarding
 			 * entry in the queue. */
 
-			bool is_new = (m->extra[1] & SUBSCRIPTION_EVENT_TYPE_MASK) == SUBSCRIPTION_EVENT_NEW;
+			bool is_new = (m->u.subscription_event.event & SUBSCRIPTION_EVENT_TYPE_MASK) == SUBSCRIPTION_EVENT_NEW;
 
 			if (drop_from_out_queue(client, m)) {
 				pw_log_debug("client %p: dropped redundant event due to remove event for object %u",
@@ -371,9 +371,9 @@ int client_queue_subscribe_event(struct client *client, uint32_t mask, uint32_t 
 	if (!reply)
 		return -errno;
 
-	reply->extra[0] = COMMAND_SUBSCRIBE_EVENT;
-	reply->extra[1] = event;
-	reply->extra[2] = index;
+	reply->type = MESSAGE_TYPE_SUBSCRIPTION_EVENT;
+	reply->u.subscription_event.event = event;
+	reply->u.subscription_event.index = index;
 
 	message_put(reply,
 		TAG_U32, COMMAND_SUBSCRIBE_EVENT,

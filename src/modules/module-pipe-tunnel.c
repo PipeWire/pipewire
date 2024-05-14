@@ -958,7 +958,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (impl->info.rate != 0 &&
 	    pw_properties_get(props, PW_KEY_NODE_RATE) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_RATE,
-				"1/%u", impl->info.rate),
+				"1/%u", impl->info.rate);
 
 	copy_props(impl, props, PW_KEY_NODE_RATE);
 

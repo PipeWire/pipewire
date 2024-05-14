@@ -191,6 +191,8 @@ extern "C" {
 #define PW_KEY_NODE_CACHE_PARAMS	"node.cache-params"	/**< cache the node params */
 #define PW_KEY_NODE_TRANSPORT_SYNC	"node.transport.sync"	/**< the node handles transport sync */
 #define PW_KEY_NODE_DRIVER		"node.driver"		/**< node can drive the graph */
+#define PW_KEY_NODE_DRIVER_ID		"node.driver-id"	/**< the node id of the node assigned as driver
+								  *   for this node */
 #define PW_KEY_NODE_ASYNC		"node.async"		/**< the node wants async scheduling */
 #define PW_KEY_NODE_LOOP_NAME		"node.loop.name"	/**< the loop name fnmatch pattern to run in */
 #define PW_KEY_NODE_LOOP_CLASS		"node.loop.class"	/**< the loop class fnmatch pattern to run in */

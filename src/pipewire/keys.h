@@ -191,6 +191,8 @@ extern "C" {
 									*		or disable the prefix completely if an empty string is provided */
 
 /** Port keys */
+#define PW_KEY_NODE_DRIVER_ID		"node.driver-id"	/**< the node id of the node assigned as driver
+								  *   for this node */
 #define PW_KEY_PORT_ID			"port.id"		/**< port id */
 #define PW_KEY_PORT_NAME		"port.name"		/**< port name */
 #define PW_KEY_PORT_DIRECTION		"port.direction"	/**< the port direction, one of "in" or "out"

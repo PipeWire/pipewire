@@ -862,9 +862,9 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_impl_node *old = node->driver_node;
 	int res;
-	bool was_driving;
+	bool was_driving, no_driver = (driver == NULL);
 
-	if (driver == NULL)
+	if (no_driver)
 		driver = node;
 
 	spa_list_remove(&node->follower_link);
@@ -909,6 +909,18 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 
 	pw_impl_node_emit_peer_removed(old, node);
 	pw_impl_node_emit_peer_added(driver, node);
+
+	if (no_driver) {
+		/* We don't have a driver, so remove the property */
+		pw_properties_set(node->properties, PW_KEY_NODE_DRIVER_ID, NULL);
+	} else if (node->driver_node->global) {
+		/* Expose the driver ID if it is available as a global */
+		pw_properties_setf(node->properties, PW_KEY_NODE_DRIVER_ID, "%u",
+				pw_global_get_id(node->driver_node->global));
+	}
+
+	node->info.change_mask |= PW_NODE_CHANGE_MASK_PROPS;
+	pw_impl_node_emit_info_changed(driver, &node->info);
 
 	return 0;
 }

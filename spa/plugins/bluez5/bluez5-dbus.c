@@ -2635,8 +2635,7 @@ static struct spa_bt_device *create_bcast_device(struct spa_bt_monitor *monitor,
 	d->adapter_path = strdup(adapter->path);
 	d->alias = strdup(adapter->alias);
 	d->name = strdup(adapter->name);
-	if (asprintf(&d->address , "00:00:00:00:00:00.%d",d->id) < 0)
-	 	return NULL;
+	d->address = spa_aprintf("00:00:00:00:00:00.%d", d->id);
 	d->reconnect_state = BT_DEVICE_RECONNECT_STOP;
 
 	device_update_hw_volume_profiles(d);

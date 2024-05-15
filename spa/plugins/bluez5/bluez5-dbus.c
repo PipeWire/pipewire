@@ -5572,8 +5572,8 @@ static void interfaces_removed(struct spa_bt_monitor *monitor, DBusMessageIter *
 		} else if (spa_streq(interface_name, BLUEZ_MEDIA_TRANSPORT_INTERFACE)) {
 			struct spa_bt_transport *transport;
 			transport = spa_bt_transport_find(monitor, object_path);
-			if (transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) {
-				if (transport != NULL) {
+			if (transport != NULL) {
+				if (transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) {
 					struct spa_bt_device *d = transport->device;
 					if (d != NULL){
 						device_free(d);

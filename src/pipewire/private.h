@@ -859,8 +859,8 @@ struct pw_impl_port {
 	struct {
 		struct spa_io_buffers io;	/**< io area of the port */
 		struct spa_list node_link;
+		bool added;
 	} rt;					/**< data only accessed from the data thread */
-	unsigned int added:1;
 	unsigned int destroying:1;
 	unsigned int passive:1;
 	int busy_count;

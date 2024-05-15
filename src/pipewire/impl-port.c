@@ -1037,11 +1037,16 @@ static int do_add_port(struct spa_loop *loop,
 {
         struct pw_impl_port *this = user_data;
 
-	pw_log_trace("%p: add port", this);
+	pw_log_trace("%p: add port, added:%d", this, this->rt.added);
+
+	if (this->rt.added)
+		return 0;
+
 	if (this->direction == PW_DIRECTION_INPUT)
 		spa_list_append(&this->node->rt.input_mix, &this->rt.node_link);
 	else
 		spa_list_append(&this->node->rt.output_mix, &this->rt.node_link);
+	this->rt.added = true;
 
 	return 0;
 }
@@ -1425,8 +1430,11 @@ static int do_remove_port(struct spa_loop *loop,
 {
 	struct pw_impl_port *this = user_data;
 
-	pw_log_trace("%p: remove port", this);
-	spa_list_remove(&this->rt.node_link);
+	pw_log_trace("%p: remove port, added:%d", this, this->rt.added);
+	if (this->rt.added) {
+		spa_list_remove(&this->rt.node_link);
+		this->rt.added = false;
+	}
 
 	return 0;
 }
@@ -1439,13 +1447,9 @@ static void pw_impl_port_remove(struct pw_impl_port *port)
 	if (node == NULL)
 		return;
 
-	pw_log_debug("%p: remove added:%d", port, port->added);
+	pw_log_debug("%p: remove", port);
 
-	if (port->added) {
-		pw_loop_invoke(node->data_loop, do_remove_port,
-			       SPA_ID_INVALID, NULL, 0, true, port);
-		port->added = false;
-	}
+	pw_loop_invoke(node->data_loop, do_remove_port, SPA_ID_INVALID, NULL, 0, true, port);
 
 	if (SPA_FLAG_IS_SET(port->flags, PW_IMPL_PORT_FLAG_TO_REMOVE)) {
 		if ((res = spa_node_remove_port(node->node, port->direction, port->port_id)) < 0)
@@ -1906,10 +1910,7 @@ int pw_impl_port_set_param(struct pw_impl_port *port, uint32_t id, uint32_t flag
 	if (id == SPA_PARAM_Format) {
 		pw_log_debug("%p: %d %p %d", port, port->state, param, res);
 
-		if (port->added) {
-			pw_loop_invoke(node->data_loop, do_remove_port, SPA_ID_INVALID, NULL, 0, true, port);
-			port->added = false;
-		}
+		pw_loop_invoke(node->data_loop, do_remove_port, SPA_ID_INVALID, NULL, 0, true, port);
 		/* setting the format always destroys the negotiated buffers */
 		if (port->direction == PW_DIRECTION_OUTPUT) {
 			struct pw_impl_link *l;
@@ -1955,10 +1956,7 @@ static int negotiate_mixer_buffers(struct pw_impl_port *port, uint32_t flags,
 				port, port->direction, port->port_id, n_buffers, node->node,
 				alloc_flags);
 
-		if (port->added) {
-			pw_loop_invoke(node->data_loop, do_remove_port, SPA_ID_INVALID, NULL, 0, true, port);
-			port->added = false;
-		}
+		pw_loop_invoke(node->data_loop, do_remove_port, SPA_ID_INVALID, NULL, 0, true, port);
 
 		pw_buffers_clear(&port->mix_buffers);
 
@@ -1989,10 +1987,8 @@ static int negotiate_mixer_buffers(struct pw_impl_port *port, uint32_t flags,
 			     pw_direction_reverse(port->direction), 0,
 			     0, buffers, n_buffers);
 	}
-	if (!port->added && n_buffers > 0) {
+	if (n_buffers > 0)
 		pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, NULL, 0, false, port);
-		port->added = true;
-	}
 	return res;
 }
 

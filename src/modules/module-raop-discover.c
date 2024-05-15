@@ -45,6 +45,8 @@
  *
  * Options specific to the behavior of this module
  *
+ * - `roap.discover-local` = allow discovery of local services as well.
+ *    false by default.
  * - `raop.latency.ms` = latency for all streams in microseconds. This
  *    can be overwritten in the stream rules.
  * - `stream.rules` = <rules>: match rules, use create-stream actions. See
@@ -56,6 +58,7 @@
  * context.modules = [
  * {   name = libpipewire-raop-discover
  *     args = {
+ *         #roap.discover-local = false;
  *         #raop.latency.ms = 1000
  *         stream.rules = [
  *             {   matches = [
@@ -116,6 +119,8 @@ static const struct spa_dict_item module_props[] = {
 
 struct impl {
 	struct pw_context *context;
+
+	bool discover_local;
 
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
@@ -366,7 +371,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	const char *str, *link_local_range = "169.254.";
 	AvahiStringList *l;
 	struct pw_properties *props = NULL;
-	char at[AVAHI_ADDRESS_STR_MAX];
+	char at[AVAHI_ADDRESS_STR_MAX], if_suffix[16] = "";
 
 	if (event != AVAHI_RESOLVER_FOUND) {
 		pw_log_error("Resolving of '%s' failed: %s", name,
@@ -400,7 +405,13 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		goto done;
 	}
 
-	pw_properties_setf(props, "raop.ip", "%s", at);
+	if (a->proto == AVAHI_PROTO_INET6 &&
+	    a->data.ipv6.address[0] == 0xfe &&
+	    (a->data.ipv6.address[1] & 0xc0) == 0x80)
+		snprintf(if_suffix, sizeof(if_suffix), "%%%d", interface);
+
+	pw_properties_setf(props, "raop.ip", "%s%s", at, if_suffix);
+	pw_properties_setf(props, "raop.ifindex", "%d", interface);
 	pw_properties_setf(props, "raop.port", "%u", port);
 	pw_properties_setf(props, "raop.name", "%s", name);
 	pw_properties_setf(props, "raop.hostname", "%s", host_name);
@@ -449,7 +460,7 @@ static void browser_cb(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProt
 	struct tunnel_info info;
 	struct tunnel *t;
 
-	if (flags & AVAHI_LOOKUP_RESULT_LOCAL)
+	if ((flags & AVAHI_LOOKUP_RESULT_LOCAL) && !impl->discover_local)
 		return;
 
 	info = TUNNEL_INFO(.name = name);
@@ -582,6 +593,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->module = module;
 	impl->context = context;
 	impl->properties = props;
+
+	impl->discover_local =  pw_properties_get_bool(impl->properties,
+			"raop.discover-local", false);
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 

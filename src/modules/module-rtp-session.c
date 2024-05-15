@@ -68,6 +68,7 @@
  * - `net.mtu = <int>`: MTU to use, default 1280
  * - `net.ttl = <int>`: TTL to use, default 1
  * - `net.loop = <bool>`: loopback multicast, default false
+ *   `sess.discover-local`: discover local services as well, default false
  * - `sess.min-ptime = <int>`: minimum packet time in milliseconds, default 2
  * - `sess.max-ptime = <int>`: maximum packet time in milliseconds, default 20
  * - `sess.latency.msec = <int>`: receiver latency in milliseconds, default 100
@@ -105,6 +106,7 @@
  *         #net.mtu = 1280
  *         #net.ttl = 1
  *         #net.loop = false
+ *         #sess.discover-local = false
  *         #sess.min-ptime = 2
  *         #sess.max-ptime = 20
  *         #sess.name = "PipeWire RTP stream"
@@ -226,6 +228,7 @@ struct impl {
 	struct spa_hook module_listener;
 	struct pw_properties *props;
 
+	bool discover_local;
 	AvahiPoll *avahi_poll;
 	AvahiClient *client;
 	AvahiServiceBrowser *browser;
@@ -1287,7 +1290,7 @@ static struct service *make_service(struct impl *impl, const struct service_info
 		AvahiStringList *txt)
 {
 	struct service *s = NULL;
-	char at[AVAHI_ADDRESS_STR_MAX];
+	char at[AVAHI_ADDRESS_STR_MAX], if_suffix[16] = "";
 	struct session *sess;
 	int res, ipv;
 	struct pw_properties *props = NULL;
@@ -1384,9 +1387,15 @@ static struct service *make_service(struct impl *impl, const struct service_info
 	avahi_address_snprint(at, sizeof(at), &s->info.address);
 	pw_log_info("create session: %s %s:%u %s", s->info.name, at, s->info.port, s->info.type);
 
+	if (s->info.protocol == AVAHI_PROTO_INET6 &&
+	    s->info.address.data.ipv6.address[0] == 0xfe &&
+	    (s->info.address.data.ipv6.address[1] & 0xc0) == 0x80)
+		snprintf(if_suffix, sizeof(if_suffix), "%%%d", s->info.interface);
+
 	ipv = s->info.protocol == AVAHI_PROTO_INET ? 4 : 6;
 	pw_properties_set(props, "sess.name", s->info.name);
-	pw_properties_setf(props, "destination.ip", "%s", at);
+	pw_properties_setf(props, "destination.ip", "%s%s", at, if_suffix);
+	pw_properties_setf(props, "destination.ifindex", "%u", s->info.interface);
 	pw_properties_setf(props, "destination.port", "%u", s->info.port);
 
 	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
@@ -1473,7 +1482,7 @@ static void browser_cb(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProt
 	struct service_info info;
 	struct service *s;
 
-	if (flags & AVAHI_LOOKUP_RESULT_LOCAL)
+	if ((flags & AVAHI_LOOKUP_RESULT_LOCAL) && !impl->discover_local)
 		return;
 
 	info = SERVICE_INFO(.interface = interface,
@@ -1682,6 +1691,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto out;
 	}
 	impl->props = props;
+
+	impl->discover_local =  pw_properties_get_bool(impl->props,
+			"sess.discover-local", false);
 
 	stream_props = pw_properties_new(NULL, NULL);
 	if (stream_props == NULL) {

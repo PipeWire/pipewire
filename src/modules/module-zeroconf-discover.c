@@ -40,6 +40,8 @@
  *
  * ## Module Options
  *
+ * - `pulse.discover-local` = allow discovery of local services as well.
+ *    false by default.
  * - `pulse.latency`: the latency to end-to-end latency in milliseconds to
  *                    maintain (Default 200ms).
  *
@@ -80,6 +82,7 @@ struct impl {
 
 	struct pw_properties *properties;
 
+	bool discover_local;
 	AvahiPoll *avahi_poll;
 	AvahiClient *client;
 	AvahiServiceBrowser *sink_browser;
@@ -375,7 +378,7 @@ static void browser_cb(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProt
 	struct tunnel_info info;
 	struct tunnel *t;
 
-	if (flags & AVAHI_LOOKUP_RESULT_LOCAL)
+	if ((flags & AVAHI_LOOKUP_RESULT_LOCAL) && !impl->discover_local)
 		return;
 
 	info = TUNNEL_INFO(.name = name);
@@ -518,6 +521,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->module = module;
 	impl->context = context;
 	impl->properties = props;
+
+	impl->discover_local =  pw_properties_get_bool(impl->properties,
+			"pulse.discover-local", false);
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 

@@ -44,6 +44,8 @@
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
 
+#include "network-utils.h"
+
 #include "module-raop/rtsp-client.h"
 #include "module-rtp/rtp.h"
 #include "module-rtp/stream.h"
@@ -587,38 +589,25 @@ error:
 static int connect_socket(struct impl *impl, int type, int fd, uint16_t port)
 {
 	const char *host;
-	struct sockaddr_in sa4;
-	struct sockaddr_in6 sa6;
-	struct sockaddr *sa;
-	size_t salen;
-	int res, af;
+	struct sockaddr_storage addr;
+	socklen_t len = 0;
+	int res;
 
 	host = pw_properties_get(impl->props, "raop.ip");
 	if (host == NULL)
 		return -EINVAL;
 
-	if (inet_pton(AF_INET, host, &sa4.sin_addr) > 0) {
-		sa4.sin_family = af = AF_INET;
-		sa4.sin_port = htons(port);
-		sa = (struct sockaddr *) &sa4;
-		salen = sizeof(sa4);
-	} else if (inet_pton(AF_INET6, host, &sa6.sin6_addr) > 0) {
-		sa6.sin6_family = af = AF_INET6;
-		sa6.sin6_port = htons(port);
-		sa = (struct sockaddr *) &sa6;
-		salen = sizeof(sa6);
-	} else {
-		pw_log_error("Invalid host '%s'", host);
+	if ((res = pw_net_parse_address(host, port, &addr, &len)) < 0) {
+		pw_log_error("Invalid host '%s' port:%d", host, port);
 		return -EINVAL;
 	}
-
 	if (fd < 0 &&
-	    (fd = socket(af, type | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
+	    (fd = socket(addr.ss_family, type | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		pw_log_error("socket failed: %m");
 		return -errno;
 	}
 
-	res = connect(fd, sa, salen);
+	res = connect(fd, (struct sockaddr*)&addr, len);
 	if (res < 0 && errno != EINPROGRESS) {
 		res = -errno;
 		pw_log_error("connect failed: %m");

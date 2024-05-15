@@ -8,7 +8,7 @@
 #include <net/if.h>
 #include <errno.h>
 
-static int pw_net_parse_address(const char *address, uint16_t port,
+static inline int pw_net_parse_address(const char *address, uint16_t port,
 		struct sockaddr_storage *addr, socklen_t *len)
 {
 	struct addrinfo hints;
@@ -38,7 +38,7 @@ static int pw_net_parse_address(const char *address, uint16_t port,
 	return 0;
 }
 
-static int pw_net_get_ip(const struct sockaddr_storage *sa, char *ip, size_t len, bool *ip4, uint16_t *port)
+static inline int pw_net_get_ip(const struct sockaddr_storage *sa, char *ip, size_t len, bool *ip4, uint16_t *port)
 {
 	if (sa->ss_family == AF_INET) {
 		struct sockaddr_in *in = (struct sockaddr_in*)sa;

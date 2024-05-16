@@ -35,6 +35,7 @@ extern "C" {
 #include <stdlib.h>
 #include <unistd.h>
 #include <math.h>
+#include <limits.h>
 
 #include <spa/utils/string.h>
 
@@ -662,6 +663,8 @@ static inline char *pa_readlink(const char *p) {
         ssize_t n;
 
         c = pa_xmalloc(l);
+        if (c == NULL)
+            return NULL;
 
         if ((n = readlink(p, c, l-1)) < 0) {
             pa_xfree(c);
@@ -674,6 +677,9 @@ static inline char *pa_readlink(const char *p) {
         }
 
         pa_xfree(c);
+
+        if (l >= (size_t)(INT_MAX / 2))
+            return NULL;
         l *= 2;
     }
 #else

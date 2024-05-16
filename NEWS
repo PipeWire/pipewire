@@ -47,7 +47,7 @@ also contains some new features:
     flatpak. The session manager can then assign permissions based on the connection
     properties.
   - Support for fixed arrays in pw_array was improved.
-  - Pipewire server and clients can now use multiple threads to process the nodes
+  - PipeWire server and clients can now use multiple threads to process the nodes
     in parallel.
   - device.rules and node.rules were added to update device and node properties
     based on rules.

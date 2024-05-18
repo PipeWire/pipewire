@@ -175,6 +175,16 @@ struct spa_fraction {
 	x;				\
 })
 
+/** 3-way comparison. NaN > NaN and NaN > finite numbers */
+#define SPA_CMP(a, b)					\
+({							\
+	__typeof__(a) _a = (a);				\
+	__typeof__(b) _b = (b);				\
+	(_a > _b) ? 1 : (_a == _b) ? 0 : (_a < _b) ? -1 \
+		: (_a == _a) ? -1 : (_b == _b) ? 1 	\
+		: 1;					\
+})
+
 /**
  * Return the address (buffer + offset) as pointer of \a type
  */

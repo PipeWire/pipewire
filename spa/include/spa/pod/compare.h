@@ -31,16 +31,17 @@ static inline int spa_pod_compare_value(uint32_t type, const void *r1, const voi
 	case SPA_TYPE_None:
 		return 0;
 	case SPA_TYPE_Bool:
+		return SPA_CMP(!!*(int32_t *)r1, !!*(int32_t *)r2);
 	case SPA_TYPE_Id:
-		return *(uint32_t *) r1 == *(uint32_t *) r2 ? 0 : 1;
+		return SPA_CMP(*(uint32_t *)r1, *(uint32_t *)r2);
 	case SPA_TYPE_Int:
-		return *(int32_t *) r1 - *(int32_t *) r2;
+		return SPA_CMP(*(int32_t *)r1, *(int32_t *)r2);
 	case SPA_TYPE_Long:
-		return *(int64_t *) r1 - *(int64_t *) r2;
+		return SPA_CMP(*(int64_t *)r1, *(int64_t *)r2);
 	case SPA_TYPE_Float:
-		return *(float *) r1 - *(float *) r2;
+		return SPA_CMP(*(float *)r1, *(float *)r2);
 	case SPA_TYPE_Double:
-		return *(double *) r1 - *(double *) r2;
+		return SPA_CMP(*(double *)r1, *(double *)r2);
 	case SPA_TYPE_String:
 		return strcmp((char *)r1, (char *)r2);
 	case SPA_TYPE_Bytes:
@@ -60,15 +61,10 @@ static inline int spa_pod_compare_value(uint32_t type, const void *r1, const voi
 	{
 		const struct spa_fraction *f1 = (struct spa_fraction *) r1,
 		    *f2 = (struct spa_fraction *) r2;
-		int64_t n1, n2;
-		n1 = ((int64_t) f1->num) * f2->denom;
-		n2 = ((int64_t) f2->num) * f1->denom;
-		if (n1 < n2)
-			return -1;
-		else if (n1 > n2)
-			return 1;
-		else
-			return 0;
+		uint64_t n1, n2;
+		n1 = ((uint64_t) f1->num) * f2->denom;
+		n2 = ((uint64_t) f2->num) * f1->denom;
+		return SPA_CMP(n1, n2);
 	}
 	default:
 		break;

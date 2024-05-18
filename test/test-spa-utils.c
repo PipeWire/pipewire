@@ -6,6 +6,7 @@
 #include <locale.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <math.h>
 
 #include <valgrind/valgrind.h>
 
@@ -149,6 +150,13 @@ PWTEST(utils_macros)
 	pwtest_int_eq(SPA_CLAMP(23, 1, 16), 16);
 	pwtest_int_eq(SPA_CLAMP(-1, 1, 16), 1);
 	pwtest_int_eq(SPA_CLAMP(8, 1, 16), 8);
+
+	pwtest_int_eq(SPA_CMP(INT64_MAX, INT64_MIN), 1);
+	pwtest_int_eq(SPA_CMP(INT64_MIN, INT64_MAX), -1);
+	pwtest_int_eq(SPA_CMP(INT64_MAX, INT64_MAX), 0);
+	pwtest_int_eq(SPA_CMP(1, nan("")), -1);
+	pwtest_int_eq(SPA_CMP(nan(""), 1), 1);
+	pwtest_int_eq(SPA_CMP(nan(""), nan("")), 1);
 
 	/* SPA_MEMBER exists for backwards compatibility but should no
 	 * longer be used, let's make sure it does what we expect it to */

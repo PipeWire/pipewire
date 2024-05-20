@@ -78,7 +78,7 @@ typedef struct {
 	struct spa_hook stream_listener;
 
 	int64_t delay;
-	uint64_t transfered;
+	uint64_t transferred;
 	uint64_t buffered;
 	int64_t now;
 	uintptr_t seq;
@@ -202,7 +202,7 @@ static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delay
 	do {
 		seq1 = SPA_SEQ_READ(pw->seq);
 
-		delay = pw->delay + pw->transfered;
+		delay = pw->delay + pw->transferred;
 		now = pw->now;
 		if (io->stream == SND_PCM_STREAM_PLAYBACK)
 			avail = snd_pcm_ioplug_hw_avail(io, pw->hw_ptr, io->appl_ptr);
@@ -416,7 +416,7 @@ static void on_stream_process(void *data)
 	SPA_SEQ_WRITE(pw->seq);
 
 	if (pw->now != pwt.now) {
-		pw->transfered = pw->buffered;
+		pw->transferred = pw->buffered;
 		pw->buffered = 0;
 	}
 
@@ -425,10 +425,10 @@ static void on_stream_process(void *data)
 	pw->delay = delay;
 	/* the buffer is now queued in the stream and consumed */
 	if (io->stream == SND_PCM_STREAM_PLAYBACK)
-		pw->transfered += xfer;
+		pw->transferred += xfer;
 
-	/* more then requested data transfered, use them in next iteration */
-	pw->buffered = (want == 0 || pw->transfered < want) ?  0 : (pw->transfered % want);
+	/* more then requested data transferred, use them in next iteration */
+	pw->buffered = (want == 0 || pw->transferred < want) ?  0 : (pw->transferred % want);
 
 	pw->now = pwt.now;
 	SPA_SEQ_WRITE(pw->seq);

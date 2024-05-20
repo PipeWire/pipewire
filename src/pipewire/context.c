@@ -1412,7 +1412,7 @@ static uint32_t find_best_rate(const uint32_t *rates, uint32_t n_rates, uint32_t
 
 	/* first find higher nearest GCD. This tries to find next bigest rate that
 	 * requires the least amount of resample filter banks. Usually these are
-	 * rates that are multiples of eachother or multiples of a common rate.
+	 * rates that are multiples of each other or multiples of a common rate.
 	 *
 	 * 44100 and [ 32000 56000 88200 96000 ]  -> 88200
 	 * 48000 and [ 32000 56000 88200 96000 ]  -> 96000

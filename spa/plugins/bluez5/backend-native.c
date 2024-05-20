@@ -1152,7 +1152,7 @@ next_indicator:
 
 	/* *****
 	 * Following commands requires a Service Level Connection
-	 * and acces to a modem
+	 * and access to a modem
 	 * ***** */
 
 	} else if (!backend->modem.network_has_service) {
@@ -1162,7 +1162,7 @@ next_indicator:
 
 	/* *****
 	 * Following commands requires a Service Level Connection,
-	 * acces to a modem and to the network
+	 * access to a modem and to the network
 	 * ***** */
 
 	} else if (spa_strstartswith(buf, "ATA")) {

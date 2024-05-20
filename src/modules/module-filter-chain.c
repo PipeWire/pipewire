@@ -129,7 +129,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * use a mixer if you want the output of multiple filters to go into one
  * filter input port.
  *
- * links can be omited when the graph has just 1 filter.
+ * links can be omitted when the graph has just 1 filter.
  *
  * ### Inputs and Outputs
  *
@@ -390,7 +390,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * It has an output port "Out" and also a control output port "notify".
  *
  * "Freq", "Ampl", "Offset" and "Phase" can be used to control the sine wave
- * frequence, amplitude, offset and phase.
+ * frequency, amplitude, offset and phase.
  *
  * ## SOFA filter
  *

@@ -157,7 +157,7 @@ The id and seq should be copied from the Ping event.
 
 ### Core::Error (Opcode 4)
 
-An error occured in an object on the client.
+An error occurred in an object on the client.
 
 ```
    Struct(
@@ -274,11 +274,11 @@ Destroy an object.
 
 ## Core Events
 
-Core events are emited by the server.
+Core events are emitted by the server.
 
 ### Core::Info (Opcode 0)
 
-Emited by the server upon connection with the more information about the
+Emitted by the server upon connection with the more information about the
 server.
 
 ```
@@ -309,7 +309,7 @@ server.
 
 ### Core::Done (Opcode 1)
 
-Emited as a result of a client Sync method.
+Emitted as a result of a client Sync method.
 
 ```
    Struct(
@@ -322,7 +322,7 @@ id and seq are passed from the client Sync request.
 
 ### Core::Ping (Opcode 2)
 
-Emited by the server when it wants to check if a client is alive or ensure
+Emitted by the server when it wants to check if a client is alive or ensure
 that it has processed the previous events.
 
 ```
@@ -1236,7 +1236,7 @@ about the the newly allocated buffer memory.
 - type: the plane memory type
 - memfd: the plane memfd
 - mapoffset: the start offset of where the buffer memory starts
-- maxsize: the maxiumum size of the memory.
+- maxsize: the maximum size of the memory.
 
 ## ClientNode events
 

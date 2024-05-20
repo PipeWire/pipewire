@@ -190,7 +190,7 @@ pw_work_queue_add(struct pw_work_queue *queue, void *obj, int res, pw_work_func_
 /** Cancel a work item
  * \param queue the work queue
  * \param obj the owner object
- * \param id the wotk id to cancel
+ * \param id the work id to cancel
  *
  */
 SPA_EXPORT

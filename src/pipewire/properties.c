@@ -578,7 +578,7 @@ void pw_properties_free(struct pw_properties *properties)
  * \param value a value or NULL to remove the key
  * \return 1 if the properties were changed. 0 if nothing was changed because
  *  the property already existed with the same value or because the key to remove
- *  did not exist. < 0 if an error occured and nothing was changed.
+ *  did not exist. < 0 if an error occurred and nothing was changed.
  *
  * Set the property in \a properties with \a key to \a value. Any previous value
  * of \a key will be overwritten. When \a value is NULL, the key will be

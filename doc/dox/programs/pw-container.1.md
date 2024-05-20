@@ -43,7 +43,7 @@ Show version information.
 
 # EXIT STATUS
 
-If the security context was successfuly created, **pw-container** does
+If the security context was successfully created, **pw-container** does
 not exit until terminated with a signal. It exits with status 0 if terminated by
 SIGINT or SIGTERM in this case.
 

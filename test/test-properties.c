@@ -162,7 +162,7 @@ PWTEST(properties_new)
 	p = pw_properties_new(NULL, NULL);
 	pwtest_ptr_notnull(p);
 	pwtest_ptr_null(pw_properties_get(p, "k1"));
-	pw_properties_free(p); /* sefault/valgrind only check */
+	pw_properties_free(p); /* segfault/valgrind only check */
 
 	p = pw_properties_new_string("k1=v1 k2 = v2\tk3\t=\tv3\nk4\n=\nv4");
 	pwtest_str_eq(pw_properties_get(p, "k1"), "v1");

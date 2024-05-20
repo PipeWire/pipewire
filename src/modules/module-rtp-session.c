@@ -49,7 +49,7 @@
  * with avahi/mDNS/Bonjour.
  *
  * Other machines on the network that run a compatible session will see
- * eachother and will be able to send audio/midi between eachother.
+ * each other and will be able to send audio/midi between each other.
  *
  * The session setup is based on apple-midi and is compatible with
  * apple-midi when the session is using midi.

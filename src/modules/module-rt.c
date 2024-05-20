@@ -956,7 +956,7 @@ static int rtkit_get_bus(struct impl *impl)
 			impl->interface = RTKIT_INTERFACE;
 		} else {
 			res = -errno;
-			pw_log_warn("Realtime scheduling disabled: unsufficient realtime privileges, "
+			pw_log_warn("Realtime scheduling disabled: insufficient realtime privileges, "
 				"Portal not found on session bus, and no system bus for RTKit: %m");
 			return res;
 		}

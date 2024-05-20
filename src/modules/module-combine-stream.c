@@ -98,7 +98,7 @@
  *             {
  *                 matches = [
  *                     # any of the items in matches needs to match, if one does,
- *                     # actions are emited.
+ *                     # actions are emitted.
  *                     {
  *                         # all keys must match the value. ! negates. ~ starts regex.
  *                         #node.name = "~alsa_input.*"

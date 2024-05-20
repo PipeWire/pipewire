@@ -86,7 +86,7 @@
  *         stream.rules = [
  *             {   matches = [
  *                     # any of the items in matches needs to match, if one does,
- *                     # actions are emited.
+ *                     # actions are emitted.
  *                     {   # all keys must match the value. ! negates. ~ starts regex.
  *                         #rtp.origin = "wim 3883629975 0 IN IP4 0.0.0.0"
  *                         #rtp.payload = "127"

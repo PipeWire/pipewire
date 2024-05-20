@@ -264,7 +264,7 @@
 
  * ## Dynamic properties
  *
- * The pulse.properties can be dyanmically updated with rules. It supports
+ * The pulse.properties can be dynamically updated with rules. It supports
  * an `update-props` action. The matches will be performed on the values in
  * context.properties.
  *

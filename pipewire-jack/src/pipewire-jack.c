@@ -6392,13 +6392,13 @@ const char ** jack_get_ports (jack_client_t *client,
 
 	if (port_name_pattern && port_name_pattern[0]) {
 		if ((r = regcomp(&port_regex, port_name_pattern, REG_EXTENDED | REG_NOSUB)) != 0) {
-			pw_log_error("cant compile regex %s: %d", port_name_pattern, r);
+			pw_log_error("can't compile regex %s: %d", port_name_pattern, r);
 			return NULL;
 		}
 	}
 	if (type_name_pattern && type_name_pattern[0]) {
 		if ((r = regcomp(&type_regex, type_name_pattern, REG_EXTENDED | REG_NOSUB)) != 0) {
-			pw_log_error("cant compile regex %s: %d", type_name_pattern, r);
+			pw_log_error("can't compile regex %s: %d", type_name_pattern, r);
 			return NULL;
 		}
 	}

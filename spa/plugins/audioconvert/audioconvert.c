@@ -1339,7 +1339,7 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 		init_port(this, direction, i, 0, false, false, true);
 	}
 	/* when output is convert mode, we are in OUTPUT (merge) mode, we always output all
-	 * the incomming data to output. When output is DSP, we need to output quantum size
+	 * the incoming data to output. When output is DSP, we need to output quantum size
 	 * chunks. */
 	this->direction = this->dir[SPA_DIRECTION_OUTPUT].mode == SPA_PARAM_PORT_CONFIG_MODE_convert ?
 		SPA_DIRECTION_OUTPUT : SPA_DIRECTION_INPUT;

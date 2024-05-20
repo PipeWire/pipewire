@@ -100,7 +100,7 @@ The priority for selecting this device as the default device.
 \parblock
 The name of the clock. This name is auto generated from the card index and stream direction. Devices with the same clock name will not use a resampler to align the clocks. This can be used to link devices together with a shared word clock.
 
-In Pro Audio mode, nodes from the same device are assumed to have the same clock and no resampling will happen when linked togther. So, linking a capture port to a playback port will not use any adaptive resampling in Pro Audio mode.
+In Pro Audio mode, nodes from the same device are assumed to have the same clock and no resampling will happen when linked together. So, linking a capture port to a playback port will not use any adaptive resampling in Pro Audio mode.
 
 In Non Pro Audio profile, no such assumption is made and adaptive resampling is done in all cases by default. This can also be disabled by setting the same clock.name on the nodes.
 \endparblock
@@ -293,7 +293,7 @@ Ignore the ALSA batch flag. If the batch flag is set, ALSA will need an extra pe
 Use the driver provided channel map. Default is true when using UCM, false otherwise because many driver don't report this correctly.
 
 @PAR@ device-param  api.alsa.multi-rate    # boolean
-Allow devices from the same card to be opened in multiple sample rates. Default is true. Some older drivers did not properly advertize the capabilities of the device and only really supported opening the device in one rate.
+Allow devices from the same card to be opened in multiple sample rates. Default is true. Some older drivers did not properly advertise the capabilities of the device and only really supported opening the device in one rate.
 
 @PAR@ device-param  api.alsa.htimestamp = false    # boolean
 Use ALSA htimestamps in scheduling, instead of the system clock.

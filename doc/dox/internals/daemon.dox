@@ -139,7 +139,7 @@ more debugging. This variable supports the following format:
   shell globs to match on log topics and the levels are the respective
   log level to set for that topic. Globs are applied in order and a matching
   glob overrides an earlier glob for that category. A level without a glob
-  prefix will set the global log level and is a more preformant version of
+  prefix will set the global log level and is a more performant version of
   `*:<level>`.  For example, `PIPEWIRE_DEBUG=E,mod.*:D,mod.foo:X` enables global error messages,
   debugging on all modules but no messages on the foo module.
 - `<level>` specifies the log level:

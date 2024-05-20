@@ -81,7 +81,7 @@ also contains some new features:
   - The UCM conflicting devices patches were merged.
   - Profiles and Routes can now also be set by name.
   - Hires timestamps are now used when possible in IRQ based scheduling to
-    get more accurate wakup times.
+    get more accurate wakeup times.
   - udev can now be an optional dependency.
   - audioadapter now has an option to automatically configure its ports.
   - Camera rotation was added to the libcamera node.
@@ -467,7 +467,7 @@ It is API and ABI compatible with previous 0.3.x releases.
 
  "From the beginning of the libcamera project, we have always seen
  PipeWire as the solution to handle desktop and mobile integration and
- give a seemless multimedia integration to users while providing security
+ give a seamless multimedia integration to users while providing security
  features and resource sharing between applications."
     - Kieran Bingham, libcamera author
 
@@ -779,7 +779,7 @@ with previous 0.3.x releases.
     nodes adapt to the new quantum. This is important for Pro-Audio nodes
     that need to reconfigure the hardware to a new period.
   - The stream now has an EARLY_PROCESS option that can be used to implement
-    custum buffer fill levels. (#3480)
+    custom buffer fill levels. (#3480)
   - Fix a regression in regex parsing. (#3528)
   - Fix a bug in position reporting in the driver node. (#3189) (#3544)
   - Destroying a link will now recalculate the graph correctly.
@@ -889,7 +889,7 @@ This is a bugfix release that is API and ABI compatible with previous
   - Some fixes for LE audio support (#3479)
 
 ## JACK
-  - Also emit unregister notify even when supressed when creating the
+  - Also emit unregister notify even when suppressed when creating the
     client.
   - The notify callbacks now match JACK2 behaviour more.
   - The mixer io areas are updated and handled safely now to avoid
@@ -1009,7 +1009,7 @@ This is a quick bugfix release that is API and ABI compatible with previous
   - Fix a bug in ALSA source where the available number of samples was miscaluclated
     and resulted in xruns in some cases.
   - A new L permission was added to make it possible to force a link between
-    nodes even when the nodes can't see eachother.
+    nodes even when the nodes can't see each other.
   - The VBAN module now supports midi send and receive as well.
   - Many cleanups and small fixes.
 
@@ -1018,7 +1018,7 @@ This is a quick bugfix release that is API and ABI compatible with previous
   - Global objects now only show permissions that apply to them. The permissions
     required to perform various API calls are documented.
   - A new L permission was added to make it possible to force a link between
-    nodes even when the nodes can't see eachother.
+    nodes even when the nodes can't see each other.
   - Config files need to end with .conf.
   - The client.api is added the to global properties of a node.
 
@@ -1107,7 +1107,7 @@ This is a bugfix release that is API and ABI compatible with previous
 
 ## PipeWire
   - Permissions for links between nodes are now enforced. The link will now check
-    that the owner clients of the nodes can see eachother before allowing the link.
+    that the owner clients of the nodes can see each other before allowing the link.
     This avoids screensharing clients to accidentally being linked to the camera
     nodes by the session manager. A side effect is that patchbay tools will no longer
     be able to link portal managed screencast nodes to the camera, for this we need
@@ -1360,7 +1360,7 @@ This is a bugfix release that is API and ABI compatible with previous
     graph as a synchronous JACK client with no added latency.
   - Many performance improvements. Activation of remote nodes is more
     efficient, fewer eventfds are required on the clients, less callback
-    overhead in performence critical paths and an optimized poll function
+    overhead in performance critical paths and an optimized poll function
     was added. This was mainly driven by the jackdbus module to get the lowest
     possible overhead when running the graph.
   - The JACK notify callback implementation was reworked to emulate better what
@@ -1385,7 +1385,7 @@ This is a bugfix release that is API and ABI compatible with previous
   - A potential out-of-buffers case was fixed in capture pw-streams where buffers
     were not moved to the recycle queue when the node suspended.
   - Nodes are now always woken up with the eventfd. Previously there were
-    some optimiztions in the server to directly call into the node process
+    some optimizations in the server to directly call into the node process
     function but that optimization is not necessary. Without this optimization
     it is now possible to run nodes in different threads.
   - pw-stream trigger is now implemented correctly in all cases.
@@ -1472,7 +1472,7 @@ This is a bugfix release that is API and ABI compatible with previous
   - Improve some error reporting.
   - The JACK headers were updated to a newer version.
   - JACK callbacks are now managed with an event queue to simulate
-    more what JACK does. This avoids emiting callbacks when a method is blocking
+    more what JACK does. This avoids emitting callbacks when a method is blocking
     for a reply and causing deadlocks. (#3183)
   - Assign unique names to JACK clients. (#2833)
   - Fix a potential crash when the thread_utils was used after free.
@@ -1538,7 +1538,7 @@ This is a quick bugfix release that is API and ABI compatible with previous
 ## SPA
   - One ALSA commit was not correctly reverted and might cause crashes.
   - The ALSA sink and source now calculate the ALSA ringbuffer memory
-    location more correctly wich might improve compatibility with some
+    location more correctly which might improve compatibility with some
     hardware.
   - v4l2 now sets the values of the controls in the Props param.
 
@@ -1568,7 +1568,7 @@ This is a quick bugfix release that is API and ABI compatible with previous
     again. (#3153)
   - ALSA rate matching for sources was fixed. It would previously wait too
     long for rate matching and then cause drift. This should reduce
-    crackling and stuttering whan capturing in low latency.
+    crackling and stuttering when capturing in low latency.
   - Fix the GStreamer clock to make cheese video recording work again. (#3149)
   - More fixes and improvements.
 
@@ -1594,7 +1594,7 @@ This is a quick bugfix release that is API and ABI compatible with previous
   - More ALSA IRQ based scheduling improvements.
   - ALSA rate matching for sources was fixed. It would previously wait too
     long for rate matching and then cause drift. This should reduce
-    crackling and stuttering whan capturing in low latency.
+    crackling and stuttering when capturing in low latency.
   - The echo-cancel plugin API has a new method to make it possible to have
     different channels for capture, source and playback.
   - Reverted the UCM changes, they seem to cause regressions causing audio
@@ -1852,7 +1852,7 @@ This is a bugfix release that is API and ABI compatible with previous
     example is the X11-bell module that can now be disabled with a custom
     property override.
   - Filter-chain has a new mysofa based spacializer plugin.
-  - Suport was added for different clocks that allow the RTP modules to work
+  - Support was added for different clocks that allow the RTP modules to work
     with a PTP clock, for example.
   - Many bugfixes and improvements.
 
@@ -1861,7 +1861,7 @@ This is a bugfix release that is API and ABI compatible with previous
   - Avoid rate switches when the graph is idle.
   - The rate selection algorithm was improved. This ensures minimal performance
     and quality loss when resampling.
-  - The default min.quantum was set to 32 again after it got erronously changed
+  - The default min.quantum was set to 32 again after it got erroneously changed
     to (the too low) 16 in version 0.3.45.
   - Fix compilation issues with rust bindings because of macros in defines.
     Work around it for now. (#2952)
@@ -2026,7 +2026,7 @@ This is a bugfix release that is API and ABI compatible with previous
     This can be set per application using the rules.
 
 ## GStreamer
-  - pipewiresrc will now advertize DMABUF support if the pipeline suports
+  - pipewiresrc will now advertise DMABUF support if the pipeline supports
     this.
   - pipewiresrc will now always be a live source unless told otherwise.
 
@@ -2372,7 +2372,7 @@ This is a bugfix release that is API and ABI compatible with previous
   - Codecs can now share endpoints. This reduces the amount of endpoints and
     avoids problems with devices that can't handle a large amount of
     codec endpoints.
-  - Report batery status to UPower for HFP AG.
+  - Report battery status to UPower for HFP AG.
   - Fix bitpool increase.
 
 ## SPA
@@ -2593,10 +2593,10 @@ This is a bugfix release that is API and ABI compatible with previous
   - Support masking of conf.d/ files. (#2629)
   - Use org.freedesktop.portal.Realtime when available. This does the
     correct PID/TID mappings to make realtime also work from flatpaks.
-  - Fix rate adjustement logic in pulse-tunnel. This would cause
+  - Fix rate adjustment logic in pulse-tunnel. This would cause
     increasing delays and hickups when using tunnels. (#2548)
   - Add OPUS as a new vendor codec. Add OPUS-A2DP spec. PipeWire can now
-    send and reveive OPUS data over bluetooth.
+    send and receive OPUS data over bluetooth.
   - An AAC decoder was added so that PipeWire can now also function as
     an A2DP AAC receiver.
   - Fix some issues where the wrong samplerate was used. (#2614)
@@ -2633,13 +2633,13 @@ This is a bugfix release that is API and ABI compatible with previous
   - Implement PIPEWIRE_NOTIFICATION_FD for notification when the socket
     is ready.
   - Try to use rtkit if set_nice() fails.
-  - Fix rate adjustement logic in pulse-tunnel. This would cause
+  - Fix rate adjustment logic in pulse-tunnel. This would cause
     increasing delays and hickups when using tunnels. (#2548)
   - Handle disconnect in pulse-tunnel.
 
 ## Bluetooth
   - Add OPUS as a new vendor codec. Add OPUS-A2DP spec. PipeWire can now
-    send and reveive OPUS data over bluetooth.
+    send and receive OPUS data over bluetooth.
   - An AAC decoder was added so that PipeWire can now also function as
     an A2DP AAC receiver.
 
@@ -2995,7 +2995,7 @@ This is a bugfix release that is API and ABI compatible with previous
 
 ## pulse-server
   - Add initial stream latency property so that devices can be started
-    with a resonably accurate latency.
+    with a reasonably accurate latency.
   - Fix ringbuffer underrun case. (#2366)
   - module-native-protocol-tcp now has a auth-anonymous option to give
     full access to the clients.
@@ -3114,7 +3114,7 @@ This is a bugfix release that is API and ABI compatible with previous
   - There is a new module-roc-sink-input module, the the PulseAudio equivalent.
   - The ROC source and sink-input module now have a much lower latency.
   - The ROC module now has an option to select FEC mode.
-  - Playback and record rate adjustements should work now. (#1159)
+  - Playback and record rate adjustments should work now. (#1159)
 
 ## JACK
   - Remove some useless pthread attributes. This makes JACK work in QEMU with
@@ -3188,13 +3188,13 @@ This is a bugfix release that is API and ABI compatible with previous
 ## SPA
   - The channelmixer now has PSD upmixing enabled again. We used the
     simple upmixing in the previous release but that just sounds too
-    aweful to be a good default. (#861) and (#2219)
+    awful to be a good default. (#861) and (#2219)
   - The channelmixer will not upmix FC and LFE anymore when upmixing is
     explicitly disabled. (#2266)
   - The channelmixer will only lowpass filter FC and LFE channels when
     they were upmixed. (#2280)
   - The defaults of the channelmixer were tweaked a little. There is now
-    a little bit more bass in the LFE channel and more high fequencies
+    a little bit more bass in the LFE channel and more high frequencies
     in the FC channel when upmixing. Also the channel widening has been
     disabled by default.
   - Locale independent float parsing now uses a more portable solution
@@ -3333,7 +3333,7 @@ This is a bugfix release that is API and ABI compatible with previous
   - The channelmix parameters can be changed at runtime now.
   - Many improvements to the upmixing algorithms. Rear channels are now
     constructed from the ambient sound and can have delay and phase shift
-    applied to them to improve spacialization. The stereo channels can
+    applied to them to improve specialization. The stereo channels can
     be filtered so that the dialog is more concentrated in the center
     channel. (#861)
 
@@ -3452,7 +3452,7 @@ This is a bugfix release that is API and ABI compatible with previous
     more quickly and accurately.
 
 ## JACK
-  - Add an option to name the defauld device as `system` to improve
+  - Add an option to name the default device as `system` to improve
     compatibility with some applications,
   - Use lock-quantum by default. This makes sure that all dynamic quantum
     changes are disabled while a JACK app is running. The only way to force
@@ -3500,7 +3500,7 @@ This is a bugfix release that is API and ABI compatible with previous
   - TI2902 chips as found in various Behringer cards should have inputs
     again.
   - Better handling of busy devices in udev, retry when the inotify close
-    event is emited.
+    event is emitted.
 
 ## SPA
   - plugins now handle alignment properly and only expect the max alignment
@@ -3563,7 +3563,7 @@ This is a bugfix release that is API and ABI compatible with previous
   - Fix a potential file descriptor leak in the connection.
   - A new minimal.conf file was added to demonstrate a static setup
     of a daemon that doesn't require a session manager and is able to
-    run JACK applicaions.
+    run JACK applications.
   - Nice levels are now only changed on the servers, not the clients.
   - Add an option to suspend nodes when idle.
   - Make it possible to avoid quantum and rate changes with
@@ -3798,7 +3798,7 @@ This is a bugfix release that is API and ABI compatible with previous
     that newer clients can now bind to older servers, which is
     a typical case for a flatpak.
   - A bug in the latency calculations was fixed where it would in
-    some cases report the wrong minumum latency.
+    some cases report the wrong minimum latency.
 
 ## modules
   - module-echo-cancel has voice-detection enabled now.

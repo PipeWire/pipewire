@@ -304,8 +304,8 @@ static int runExportSHMBuffers(struct vulkan_compute_state *s) {
 /** runCommandBuffer
  *  The return value of this functions means the following:
  *  ret < 0: Error
- *  ret = 0: queueSubmit was succsessful, but manual synchronization is required
- *  ret = 1: queueSubmit was succsessful and buffers can be released without synchronization
+ *  ret = 0: queueSubmit was successful, but manual synchronization is required
+ *  ret = 1: queueSubmit was successful and buffers can be released without synchronization
  */
 static int runCommandBuffer(struct vulkan_compute_state *s)
 {

@@ -125,7 +125,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 			case '[': case '{':
 				if (!(flag & __ARRAY_FLAG)) {
 					/* At top-level we may be either in object context
-					 * or in single-item context, and then we need ot
+					 * or in single-item context, and then we need to
 					 * accept array/object here.
 					 */
 					if ((iter->state & __SUB_FLAG) && !(flag & __KEY_FLAG))

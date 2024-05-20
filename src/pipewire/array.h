@@ -122,7 +122,7 @@ static inline int pw_array_ensure_size(struct pw_array *arr, size_t size)
 }
 
 /** Add \a ref size bytes to \a arr. A pointer to memory that can
- * hold at least \a size bytes is returned or NULL when an error occured
+ * hold at least \a size bytes is returned or NULL when an error occurred
  * and errno will be set.*/
 static inline void *pw_array_add(struct pw_array *arr, size_t size)
 {

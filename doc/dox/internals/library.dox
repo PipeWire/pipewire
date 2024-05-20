@@ -56,7 +56,7 @@ for state changes.
 # Versioning
 
 All interfaces have a version number. The maximum supported version
-number of an interface is advertized in the registry global event.
+number of an interface is advertised in the registry global event.
 
 A client asks for a specific version of an interface when it binds
 to them. It is the task of the server to adapt to the version of the

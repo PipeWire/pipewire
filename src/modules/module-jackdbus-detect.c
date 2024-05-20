@@ -28,7 +28,7 @@
 
 /** \page page_module_jackdbus_detect JACK DBus detect
  *
- * Automaticall creates a sink/source when a jackdbus server is started
+ * Automatically creates a sink/source when a jackdbus server is started
  * and connect to JACK.
  *
  * ## Module Name

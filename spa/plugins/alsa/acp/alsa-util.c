@@ -1718,7 +1718,7 @@ static int mixer_class_event(snd_mixer_class_t *class, unsigned int mask,
     // NOTE: The remove event defined as '~0U`.
     if (mask == SND_CTL_EVENT_MASK_REMOVE) {
         // NOTE: unless remove pointer to melem from link-list at private_data of helem, hits
-	// assersion in alsa-lib since the list is not empty.
+	// assertion in alsa-lib since the list is not empty.
         _helem = snd_mixer_elem_get_private(melem);
         *_helem = NULL;
         snd_mixer_elem_detach(melem, helem);

@@ -407,7 +407,7 @@ static int process_byte(struct port *p, uint32_t time, uint8_t byte,
 	int res = 0;
 	if (byte >= 0xf8) {
 		if (byte == 0xfd) {
-			pw_log_warn("droping invalid MIDI status bytes %08x", byte);
+			pw_log_warn("dropping invalid MIDI status bytes %08x", byte);
 			return false;
 		}
 		p->event_byte = byte;

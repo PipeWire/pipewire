@@ -282,7 +282,7 @@ static int parse_bluez_pacs(const uint8_t *data, size_t data_size, struct pac_da
 		struct spa_debug_context *debug_ctx)
 {
 	/*
-	 * BlueZ capabilites for the same codec may contain multiple
+	 * BlueZ capabilities for the same codec may contain multiple
 	 * PACs separated by zero-length LTV (see BlueZ b907befc2d80)
 	 */
 	int pac = 0;

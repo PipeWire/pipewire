@@ -21,7 +21,7 @@ For example
 - a stereo ALSA PCM playback device can appear as a sink with two input ports: front-left and front-right or
 - a virtual ALSA device, to which clients which attempt to use ALSA directly connect, can appear as a source with two output ports: front-left and front right.
 
-Similar mechanisms exist to interface with and accomodate applications which use JACK or Pulseaudio.
+Similar mechanisms exist to interface with and accommodate applications which use JACK or Pulseaudio.
 
 NOTE: `pw-jack` modifies the `LD_LIBRARY_PATH` environment variable so that applications will load PipeWire’s reimplementation of the JACK client libraries instead of JACK’s own libraries. This results in JACK clients being redirected to PipeWire.
 

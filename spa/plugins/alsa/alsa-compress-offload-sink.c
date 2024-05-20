@@ -961,7 +961,7 @@ static int write_queued_output_buffers(struct impl *this)
 
 	/* In here, we write as much data as possible. The device may
 	 * initially not have sufficient space, but it is possible
-	 * that due to ongoing data consumption, it can accomodate
+	 * that due to ongoing data consumption, it can accommodate
 	 * for more data in a next attempt, hence the "again" label.
 	 *
 	 * If during the write attempts, only a portion of a chunk

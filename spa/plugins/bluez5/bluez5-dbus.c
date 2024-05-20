@@ -976,7 +976,7 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	duplex = SPA_FLAG_IS_SET(ep->device->profiles, SPA_BT_PROFILE_BAP_DUPLEX);
 
 	/* Call of SelectProperties means that local device acts as an initiator
-	 * and therefor remote endpoint is an acceptor
+	 * and therefore remote endpoint is an acceptor
 	 */
 	ep->acceptor = true;
 
@@ -3660,7 +3660,7 @@ finish:
 			spa_log_error(monitor->log, "transport %p: transport_create_iso_io failed",
 					transport);
 		/* For broadcast the initiator moves the transport state to SPA_BT_TRANSPORT_STATE_ACTIVE */
-		/* TODO: handeling multiple BIGs support */
+		/* TODO: handling multiple BIGs support */
 		if ((transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) ||
 			(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE))	{
 			spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ACTIVE);
@@ -3832,7 +3832,7 @@ static int do_transport_release(struct spa_bt_transport *transport)
 	}
 
 	/* For LE Audio, multiple transport stream (CIS) can be linked together (CIG).
-	 * If they are part of the same device they re-use the same fd, and call to
+	 * If they are part of the same device they reuse the same fd, and call to
 	 * release should be done for the last one only.
 	 */
 	spa_list_for_each(t_linked, &transport->bap_transport_linked, bap_transport_linked) {

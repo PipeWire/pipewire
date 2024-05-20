@@ -188,7 +188,7 @@ The driver calculates some stats about cpu time etc.
 
 # Remote nodes.
 
-For remote nodes, the eventfd and the activation is transfered from the server
+For remote nodes, the eventfd and the activation is transferred from the server
 to the client.
 
 This means that writing to the remote client eventfd will wake the client directly

@@ -48,7 +48,7 @@
  *
  * - `source.ip =<str>`: source IP address, default "0.0.0.0"
  * - `destination.ip =<str>`: destination IP address, default "224.0.0.56"
- * - `destination.port =<int>`: destination port, default random beteen 46000 and 47024
+ * - `destination.port =<int>`: destination port, default random between 46000 and 47024
  * - `local.ifname = <str>`: interface name to use
  * - `net.mtu = <int>`: MTU to use, default 1280
  * - `net.ttl = <int>`: TTL to use, default 1
@@ -131,7 +131,7 @@ PW_LOG_TOPIC(mod_topic, "mod." NAME);
 
 #define USAGE	"( source.ip=<source IP address, default:"DEFAULT_SOURCE_IP"> ) "			\
 		"( destination.ip=<destination IP address, default:"DEFAULT_DESTINATION_IP"> ) "	\
- 		"( destination.port=<int, default random beteen 46000 and 47024> ) "			\
+		"( destination.port=<int, default random between 46000 and 47024> ) "			\
 		"( local.ifname=<local interface name to use> ) "					\
 		"( net.mtu=<desired MTU, default:"SPA_STRINGIFY(DEFAULT_MTU)"> ) "			\
 		"( net.ttl=<desired TTL, default:"SPA_STRINGIFY(DEFAULT_TTL)"> ) "			\
@@ -140,7 +140,7 @@ PW_LOG_TOPIC(mod_topic, "mod." NAME);
 		"( sess.name=<a name for the session> ) "						\
 		"( sess.min-ptime=<minimum packet time in milliseconds, default:2> ) "			\
 		"( sess.max-ptime=<maximum packet time in milliseconds, default:20> ) "			\
- 		"( sess.media=<string, the media type audio|midi|opus, default audio> ) "		\
+		"( sess.media=<string, the media type audio|midi|opus, default audio> ) "		\
 		"( audio.format=<format, default:"DEFAULT_FORMAT"> ) "					\
 		"( audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> ) "			\
 		"( audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> ) "	\

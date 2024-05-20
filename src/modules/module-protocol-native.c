@@ -86,7 +86,7 @@ PW_LOG_TOPIC(mod_topic_connection, "conn." NAME);
  *   if the context is a server. If not absolute paths, the sockets are created
  *   in the default runtime directory.
  *
- *   The props are copied directly to any client that connects trough this server
+ *   The props are copied directly to any client that connects through this server
  *   socket and can be used to configure special permissions.
  *
  *   Has the default value `[ { name = "CORENAME" }, { name = "CORENAME-manager" } ]`,

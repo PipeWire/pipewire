@@ -250,7 +250,7 @@ static void pw_properties_from_avahi_string(const char *key, const char *value,
 			value = "none";
 		pw_properties_set(props, "raop.encryption.type", value);
 	} else if (spa_streq(key, "cn")) {
-		/* Suported audio codecs:
+		/* Supported audio codecs:
 		 *  0 = PCM,
 		 *  1 = ALAC,
 		 *  2 = AAC,

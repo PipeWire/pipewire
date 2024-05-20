@@ -287,7 +287,7 @@ deprecated, the target.object property should be used instead, which uses the mo
 a possible target.
 
 @PAR@ client.conf  target.object = <node.name|object.serial>
-Where the node should link to ths can be a node.name or an object.serial.
+Where the node should link to, this can be a node.name or an object.serial.
 
 @PAR@ client.conf  node.dont-reconnect = false
 \parblock
@@ -437,7 +437,7 @@ This option is only active when the up-mix is enabled.
 @PAR@ client.conf  channelmix.rear-delay = 12.0
 \parblock
 Apply a delay in milliseconds when up-mixing the rear channels. This improves
-spacialization of the sound. A typical delay of 12 milliseconds is the default.
+specialization of the sound. A typical delay of 12 milliseconds is the default.
 
 This is only active when the `psd` up-mix method is used.
 \endparblock
@@ -452,7 +452,7 @@ This is only active when up-mix is enabled and a Front Center channel is mixed.
 
 @PAR@ client.conf  channelmix.hilbert-taps = 0
 \parblock
-This option will apply a 90 degree phase shift to the rear channels to improve spacialization.
+This option will apply a 90 degree phase shift to the rear channels to improve specialization.
 Taps needs to be between 15 and 255 with more accurate results (and more CPU consumption)
 for higher values.
 
@@ -489,7 +489,7 @@ disabled otherwise.
 ## Debug Parameters
 
 @PAR@ client.conf  debug.wav-path = ""
-Make the stream to also write the raw samples to a WAV file for debugging puposes.
+Make the stream to also write the raw samples to a WAV file for debugging purposes.
 
 ## Format Properties
 

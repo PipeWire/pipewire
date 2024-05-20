@@ -211,7 +211,7 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 	// drift compensation on all sinks and sources linked to this echo-canceler
 	apm->echo_cancellation()->enable_drift_compensation(false);
 	apm->echo_cancellation()->Enable(true);
-	// TODO: wire up supression levels to args
+	// TODO: wire up suppression levels to args
 	apm->echo_cancellation()->set_suppression_level(webrtc::EchoCancellation::kHighSuppression);
 	apm->noise_suppression()->set_level(webrtc::NoiseSuppression::kHigh);
 	apm->noise_suppression()->Enable(noise_suppression);

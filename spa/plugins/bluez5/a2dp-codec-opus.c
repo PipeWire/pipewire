@@ -179,7 +179,7 @@ struct surround_encoder_mapping {
 #define BT_AUDIO_LOCATION_BC	0x00200000  /* Bottom Front Center */
 #define BT_AUDIO_LOCATION_BLC	0x00400000  /* Bottom Front Left */
 #define BT_AUDIO_LOCATION_BRC	0x00800000  /* Bottom Front Right */
-#define BT_AUDIO_LOCATION_FLW	0x01000000  /* Fron Left Wide */
+#define BT_AUDIO_LOCATION_FLW	0x01000000  /* Front Left Wide */
 #define BT_AUDIO_LOCATION_FRW	0x02000000  /* Front Right Wide */
 #define BT_AUDIO_LOCATION_SSL	0x04000000  /* Left Surround */
 #define BT_AUDIO_LOCATION_SSR	0x08000000  /* Right Surround */

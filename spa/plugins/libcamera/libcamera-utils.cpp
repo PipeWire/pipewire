@@ -920,7 +920,7 @@ static int spa_libcamera_stream_on(struct impl *impl)
 	int res;
 
 	if (!port->current_format) {
-		spa_log_error(impl->log, "Exting %s with -EIO", __FUNCTION__);
+		spa_log_error(impl->log, "Exiting %s with -EIO", __FUNCTION__);
 		return -EIO;
 	}
 

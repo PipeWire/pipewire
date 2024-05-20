@@ -106,7 +106,7 @@ struct data {
 
 static void link_event(struct target_link *tl, enum pw_link_state state, int result)
 {
-	/* Ignore non definitive states (negociating, allocating, etc). */
+	/* Ignore non definitive states (negotiating, allocating, etc). */
 	if (state != PW_LINK_STATE_ERROR &&
 	    state != PW_LINK_STATE_PAUSED &&
 	    state != PW_LINK_STATE_ACTIVE)

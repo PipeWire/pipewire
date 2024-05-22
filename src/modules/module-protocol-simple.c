@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -28,6 +29,8 @@
 #include <spa/param/audio/format-utils.h>
 
 #include <pipewire/impl.h>
+
+#include "network-utils.h"
 
 /** \page page_module_protocol_simple Protocol Simple
  *
@@ -166,7 +169,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_PORT 4711
 #define DEFAULT_SERVER "[ \"tcp:"SPA_STRINGIFY(DEFAULT_PORT)"\" ]"
 
-#define DEFAULT_FORMAT "S16"
+#define DEFAULT_FORMAT "S16LE"
 #define DEFAULT_RATE 44100
 #define DEFAULT_CHANNELS 2
 #define DEFAULT_POSITION "[ FL FR ]"
@@ -242,9 +245,9 @@ struct server {
 
 #define SERVER_TYPE_INVALID	0
 #define SERVER_TYPE_UNIX	1
-#define SERVER_TYPE_INET	2
+#define SERVER_TYPE_TCP		2
 	uint32_t type;
-	struct sockaddr_un addr;
+	struct sockaddr_storage addr;
 	struct spa_source *source;
 
 	struct spa_list client_list;
@@ -369,6 +372,7 @@ static void capture_process(void *data)
 		offset += res;
 		size -= res;
 	}
+	pw_log_info("send %d", offset);
 	pw_stream_queue_buffer(client->capture, buf);
 }
 
@@ -613,11 +617,11 @@ on_connect(void *data, int fd, uint32_t mask)
 
 	pw_properties_setf(props,
 			"protocol.server.type", "%s",
-			server->type == SERVER_TYPE_INET ? "tcp" : "unix");
+			server->type == SERVER_TYPE_TCP ? "tcp" : "unix");
 
 	if (server->type == SERVER_TYPE_UNIX) {
 		goto error;
-	} else if (server->type == SERVER_TYPE_INET) {
+	} else if (server->type == SERVER_TYPE_TCP) {
 		val = 1;
 		if (setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY,
 					(const void *) &val, sizeof(val)) < 0)
@@ -651,32 +655,51 @@ error:
 	return;
 }
 
-static int make_inet_socket(struct server *server, const char *name)
+static uint16_t parse_port(const char *str, uint16_t def)
 {
-	struct sockaddr_in addr;
+	uint32_t val;
+	if (spa_atou32(str, &val, 0) && val <= 65535u)
+		return val;
+	return def;
+}
+
+static int make_tcp_socket(struct server *server, const char *name)
+{
+	struct sockaddr_storage addr;
 	int res, fd, on;
-	uint32_t address = INADDR_ANY;
 	uint16_t port;
-	char *col;
+	char *br = NULL, *col, *n;
+	socklen_t len = 0;
 
-	col = strchr(name, ':');
-	if (col) {
-		struct in_addr ipv4;
-		char *n;
-		port = atoi(col+1);
-		n = strndupa(name, col - name);
-		if (inet_pton(AF_INET, n, &ipv4) > 0)
-			address = ntohl(ipv4.s_addr);
-		else
-			address = INADDR_ANY;
+	n = strdupa(name);
+
+	col = strrchr(n, ':');
+	if (n[0] == '[') {
+		br = strchr(n, ']');
+		if (br == NULL)
+			return -EINVAL;
+		n++;
+		*br = 0;
 	} else {
-		address = INADDR_ANY;
-		port = atoi(name);
 	}
-	if (port == 0)
-		port = DEFAULT_PORT;
+	if (br && col && col < br)
+		col = NULL;
 
-	if ((fd = socket(PF_INET, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
+	if (col) {
+		*col = '\0';
+		port = parse_port(col+1, DEFAULT_PORT);
+	} else {
+		port = parse_port(n, DEFAULT_PORT);
+		n = strdupa("0.0.0.0");
+	}
+
+	if ((res = pw_net_parse_address(n, port, &addr, &len)) < 0) {
+		pw_log_error("%p: can't parse address:%s port:%d: %s", server,
+				n, port, spa_strerror(res));
+		goto error;
+	}
+
+	if ((fd = socket(addr.ss_family, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		res = -errno;
 		pw_log_error("%p: socket() failed: %m", server);
 		goto error;
@@ -686,12 +709,7 @@ static int make_inet_socket(struct server *server, const char *name)
 	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const void *) &on, sizeof(on)) < 0)
 		pw_log_warn("%p: setsockopt(): %m", server);
 
-	spa_zero(addr);
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(port);
-	addr.sin_addr.s_addr = htonl(address);
-
-	if (bind(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+	if (bind(fd, (struct sockaddr *) &addr, len) < 0) {
 		res = -errno;
 		pw_log_error("%p: bind() failed: %m", server);
 		goto error_close;
@@ -701,8 +719,14 @@ static int make_inet_socket(struct server *server, const char *name)
 		pw_log_error("%p: listen() failed: %m", server);
 		goto error_close;
 	}
-	server->type = SERVER_TYPE_INET;
-	pw_log_info("listening on tcp:%08x:%u", address, port);
+	if (getsockname(fd, (struct sockaddr *)&addr, &len) < 0) {
+		res = -errno;
+		pw_log_error("%p: getsockname() failed: %m", server);
+		goto error_close;
+	}
+
+	server->type = SERVER_TYPE_TCP;
+	server->addr = addr;
 
 	return fd;
 
@@ -741,8 +765,9 @@ static struct server *create_server(struct impl *impl, const char *address)
 	spa_list_append(&impl->server_list, &server->link);
 
 	if (spa_strstartswith(address, "tcp:")) {
-		fd = make_inet_socket(server, address+4);
+		fd = make_tcp_socket(server, address+4);
 	} else {
+		pw_log_error("address %s does not start with tcp:", address);
 		fd = -EINVAL;
 	}
 	if (fd < 0) {
@@ -986,7 +1011,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_properties *props;
 	struct impl *impl;
+	struct server *s;
+	FILE *f;
+	char *str;
+	size_t size;
 	int res;
+	struct spa_dict_item it[1];
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -1014,6 +1044,32 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if ((res = parse_params(impl)) < 0)
 		goto error_free;
+
+	if ((f = open_memstream(&str, &size)) == NULL) {
+		res = -errno;
+		pw_log_error("Can't open memstream: %m");
+		goto error_free;
+	}
+
+	fprintf(f, "[");
+
+	spa_list_for_each(s, &impl->server_list, link) {
+		char ip[128];
+		uint16_t port = 0;
+		bool ipv4;
+
+		if (pw_net_get_ip(&s->addr, ip, sizeof(ip), &ipv4, &port) >= 0)
+			fprintf(f, " \"%s%s%s:%d\"", ipv4 ? "" : "[",
+					ip, ipv4 ? "" : "]", port);
+	}
+	fprintf(f, " ]");
+	fclose(f);
+
+	pw_log_info("listening on %s", str);
+	it[0] = SPA_DICT_ITEM_INIT("server.address", str);
+	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(it));
+
+	free(str);
 
 	return 0;
 

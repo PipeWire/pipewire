@@ -295,7 +295,10 @@ static void move_node_to_graph(struct pw_impl_node *node)
 {
 	struct pw_impl_node *driver = node->driver_node;
 
-	pw_log_debug("%p: driver:%p", node, driver);
+	pw_log_debug("%p: driver:%p prepared:%d", node, driver, node->rt.prepared);
+
+	if (!node->rt.prepared)
+		return;
 
 	if (node->data_loop == driver->data_loop) {
 		pw_loop_invoke(node->data_loop, do_node_move, 1, NULL, 0, true, node);

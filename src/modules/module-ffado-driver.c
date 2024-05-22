@@ -1483,11 +1483,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	pw_properties_set(impl->sink.props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 	pw_properties_set(impl->sink.props, PW_KEY_PRIORITY_DRIVER, "35000");
+	pw_properties_set(impl->sink.props, PW_KEY_PRIORITY_SESSION, "2000");
 	pw_properties_set(impl->sink.props, PW_KEY_NODE_NAME, "ffado_sink");
 	pw_properties_set(impl->sink.props, PW_KEY_NODE_DESCRIPTION, "FFADO Sink");
 
 	pw_properties_set(impl->source.props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 	pw_properties_set(impl->source.props, PW_KEY_PRIORITY_DRIVER, "35001");
+	pw_properties_set(impl->source.props, PW_KEY_PRIORITY_SESSION, "2001");
 	pw_properties_set(impl->source.props, PW_KEY_NODE_NAME, "ffado_source");
 	pw_properties_set(impl->source.props, PW_KEY_NODE_DESCRIPTION, "FFADO Source");
 

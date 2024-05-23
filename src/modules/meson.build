@@ -39,6 +39,7 @@ module_sources = [
   'module-rtp-session.c',
   'module-rtp-source.c',
   'module-rtp-sink.c',
+  'module-snapcast-discover.c',
   'module-vban-recv.c',
   'module-vban-send.c',
   'module-session-manager.c',
@@ -640,6 +641,20 @@ if build_module_raop_discover
   )
 endif
 summary({'raop-discover (needs Avahi)': build_module_raop_discover}, bool_yn: true, section: 'Optional Modules')
+
+build_module_snapcast_discover = avahi_dep.found()
+if build_module_snapcast_discover
+  pipewire_module_snapcast_discover = shared_library('pipewire-module-snapcast-discover',
+    [ 'module-snapcast-discover.c',
+      'module-zeroconf-discover/avahi-poll.c' ],
+    include_directories : [configinc],
+    install : true,
+    install_dir : modules_install_dir,
+    install_rpath: modules_install_dir,
+    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, avahi_dep],
+  )
+endif
+summary({'snapcast-discover (needs Avahi)': build_module_snapcast_discover}, bool_yn: true, section: 'Optional Modules')
 
 build_module_raop = openssl_lib.found()
 if build_module_raop

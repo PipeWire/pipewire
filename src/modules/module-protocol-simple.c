@@ -872,7 +872,6 @@ static int calc_frame_size(struct spa_audio_info_raw *info)
 	}
 }
 
-
 static int parse_audio_info(const struct pw_properties *props, struct spa_audio_info_raw *info)
 {
 	const char *str;

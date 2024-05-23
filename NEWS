@@ -1,3 +1,58 @@
+# PipeWire 1.1.82 (2024-05-24)
+
+This is the second 1.2 release candidate that is API and ABI
+compatible with previous 1.0.x releases.
+
+Not so many things needed to be fixed so this might already be the
+last prerelease if everything goes well...
+
+## Highlights
+  - Fix problem when moving nodes that could cause nodes to be scheduled
+    wrongly and cause errors. (#4017)
+  - Add snapcast-discover module to stream to snapcast servers.
+  - Work around wrong kernel provided MTU for USB controllers.
+  - Fix some spelling mistakes all over the codebase.
+  - More small fixes and improvements.
+
+
+## PipeWire
+  - Remove the private cleanup.h header and use the public SPA version.
+  - Fix problem when moving nodes that could cause nodes to be scheduled
+    wrongly and cause errors. (#4017)
+
+## Modules
+  - Handle IPv6 in module-protocol-simple and support port allocation.
+  - Add snapcast-discover module to stream to snapcast servers.
+
+## Bluetooth
+  - Work around wrong kernel provided MTU for USB controllers.
+
+Older versions:
+
+
+# PipeWire 1.0.7 (2024-05-24)
+
+This is a small bugfix release that is API and ABI compatible with previous
+1.0.x releases.
+
+## Highlights
+  - Fix a potential race/crash.
+  - Fix some problems with negotiation of large integers and floats.
+  - Fix JACK sysex MIDI event handling.
+  - Some more smaller fixes and improvements.
+
+## PipeWire
+  - Fix a potential race when adding/removing a port to be scheduled.
+
+## Modules
+  - Fix FFADO default device handling. (#4023)
+
+## SPA
+  - Fix in integer overflow and float/double compare in POD.
+
+## JACK
+  - Copy larger MIDI events correctly.
+
 # PipeWire 1.1.81 (2024-05-16)
 
 This is the first 1.2 release candidate that is API and ABI
@@ -133,9 +188,6 @@ also contains some new features:
   - pw-dot handles properties with quotes better. Nodes are grouped with the
     node.link-group.
   - pw-link has a --wait option to wait for all links to be created.
-
-Older versions:
-
 
 # PipeWire 1.0.6 (2024-05-09)
 

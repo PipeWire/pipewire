@@ -372,7 +372,6 @@ static void capture_process(void *data)
 		offset += res;
 		size -= res;
 	}
-	pw_log_info("send %d", offset);
 	pw_stream_queue_buffer(client->capture, buf);
 }
 

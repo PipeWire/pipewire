@@ -1,5 +1,5 @@
 project('pipewire', ['c' ],
-  version : '1.0.6',
+  version : '1.0.7',
   license : [ 'MIT', 'LGPL-2.1-or-later', 'GPL-2.0-only' ],
   meson_version : '>= 0.61.1',
   default_options : [ 'warning_level=3',

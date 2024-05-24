@@ -1,3 +1,29 @@
+# PipeWire 1.0.7 (2024-05-24)
+
+This is a small bugfix release that is API and ABI compatible with previous
+1.0.x releases.
+
+## Highlights
+  - Fix a potential race/crash.
+  - Fix some problems with negotiation of large integers and floats.
+  - Fix JACK sysex MIDI event handling.
+  - Some more smaller fixes and improvements.
+
+## PipeWire
+  - Fix a potential race when adding/removing a port to be scheduled.
+
+## Modules
+  - Fix FFADO default device handling. (#4023)
+
+## SPA
+  - Fix in integer overflow and float/double compare in POD.
+
+## JACK
+  - Copy larger MIDI events correctly.
+
+Older versions:
+
+
 # PipeWire 1.0.6 (2024-05-09)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -48,9 +74,6 @@ This is a bugfix release that is API and ABI compatible with previous
   - Handle some errors better instead of crashing. (#3994)
   - Fix a memleak in the stream params handling.
   - Negotiation was improved in pipewiresrc.
-
-
-Older versions:
 
 
 # PipeWire 1.0.5 (2024-04-15)

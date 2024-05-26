@@ -14,15 +14,16 @@
 #include <spa/utils/defs.h>
 #include <spa/support/log.h>
 
+#include "defs.h"
 #include "rate-control.h"
 
 /* New kernel API */
 #ifndef BT_SCM_ERROR
 #define BT_SCM_ERROR 0x04
 #endif
-#ifndef BT_POLL_ERRQUEUE
-#define BT_POLL_ERRQUEUE 21
-#endif
+
+#define NEW_SOF_TIMESTAMPING_TX_COMPLETION	(1 << 18)
+#define NEW_SCM_TSTAMP_COMPLETION		(SCM_TSTAMP_ACK + 1)
 
 /**
  * Bluetooth latency tracking.
@@ -32,46 +33,45 @@ struct spa_bt_latency
 	uint64_t value;
 	struct spa_bt_ptp ptp;
 	bool valid;
-	bool disabled;
+	bool enabled;
+	uint32_t queue;
+	uint32_t kernel_queue;
+	size_t unsent;
 
 	struct {
 		int64_t send[64];
+		size_t size[64];
 		uint32_t pos;
 		int64_t prev_tx;
 	} impl;
 };
 
-static inline void spa_bt_latency_init(struct spa_bt_latency *lat, int fd,
+static inline void spa_bt_latency_init(struct spa_bt_latency *lat, struct spa_bt_transport *transport,
 		uint32_t period, struct spa_log *log)
 {
-	int so_timestamping = (SOF_TIMESTAMPING_TX_SOFTWARE | SOF_TIMESTAMPING_SOFTWARE |
-					SOF_TIMESTAMPING_OPT_ID | SOF_TIMESTAMPING_OPT_TSONLY);
-	uint32_t flag;
+	int so_timestamping = (NEW_SOF_TIMESTAMPING_TX_COMPLETION | SOF_TIMESTAMPING_TX_SOFTWARE |
+			SOF_TIMESTAMPING_SOFTWARE | SOF_TIMESTAMPING_OPT_ID | SOF_TIMESTAMPING_OPT_TSONLY);
 	int res;
 
 	spa_zero(*lat);
 
-	flag = 0;
-	res = setsockopt(fd, SOL_BLUETOOTH, BT_POLL_ERRQUEUE, &flag, sizeof(flag));
-	if (res < 0) {
-		spa_log_warn(log, "setsockopt(BT_POLL_ERRQUEUE) failed (kernel feature not enabled?): %d (%m)", errno);
-		lat->disabled = true;
+	if (!transport->device->adapter->tx_timestamping_supported)
 		return;
-	}
 
-	res = setsockopt(fd, SOL_SOCKET, SO_TIMESTAMPING, &so_timestamping, sizeof(so_timestamping));
+	res = setsockopt(transport->fd, SOL_SOCKET, SO_TIMESTAMPING, &so_timestamping, sizeof(so_timestamping));
 	if (res < 0) {
-		spa_log_warn(log, "setsockopt(SO_TIMESTAMPING) failed (kernel feature not enabled?): %d (%m)", errno);
-		lat->disabled = true;
+		spa_log_info(log, "setsockopt(SO_TIMESTAMPING) failed (kernel feature not enabled?): %d (%m)", errno);
 		return;
 	}
 
 	/* Flush errqueue on start */
 	do {
-		res = recv(fd, NULL, 0, MSG_ERRQUEUE | MSG_DONTWAIT | MSG_TRUNC);
+		res = recv(transport->fd, NULL, 0, MSG_ERRQUEUE | MSG_DONTWAIT | MSG_TRUNC);
 	} while (res == 0);
 
 	spa_bt_ptp_init(&lat->ptp, period, period / 2);
+
+	lat->enabled = true;
 }
 
 static inline void spa_bt_latency_reset(struct spa_bt_latency *lat)
@@ -81,16 +81,27 @@ static inline void spa_bt_latency_reset(struct spa_bt_latency *lat)
 	spa_bt_ptp_init(&lat->ptp, lat->ptp.period, lat->ptp.period / 2);
 }
 
-static inline void spa_bt_latency_sent(struct spa_bt_latency *lat, uint64_t now)
+static inline ssize_t spa_bt_send(int fd, const void *buf, size_t size,
+		struct spa_bt_latency *lat, uint64_t now)
 {
-	const unsigned int n = SPA_N_ELEMENTS(lat->impl.send);
+	ssize_t res = send(fd, buf, size, MSG_DONTWAIT | MSG_NOSIGNAL);
 
-	if (lat->disabled)
-		return;
+	if (!lat || !lat->enabled)
+		return res;
 
-	lat->impl.send[lat->impl.pos++] = now;
-	if (lat->impl.pos >= n)
-		lat->impl.pos = 0;
+	if (res >= 0) {
+		lat->impl.send[lat->impl.pos] = now;
+		lat->impl.size[lat->impl.pos] = size;
+		lat->impl.pos++;
+		if (lat->impl.pos >= SPA_N_ELEMENTS(lat->impl.send))
+			lat->impl.pos = 0;
+
+		lat->queue++;
+		lat->kernel_queue++;
+		lat->unsent += size;
+	}
+
+	return res;
 }
 
 static inline int spa_bt_latency_recv_errqueue(struct spa_bt_latency *lat, int fd, struct spa_log *log)
@@ -100,7 +111,7 @@ static inline int spa_bt_latency_recv_errqueue(struct spa_bt_latency *lat, int f
 		char control[512];
 	} control;
 
-	if (lat->disabled)
+	if (!lat->enabled)
 		return -EOPNOTSUPP;
 
 	do {
@@ -137,19 +148,37 @@ static inline int spa_bt_latency_recv_errqueue(struct spa_bt_latency *lat, int f
 
 		if (!tss || !serr || serr->ee_errno != ENOMSG || serr->ee_origin != SO_EE_ORIGIN_TIMESTAMPING)
 			return -EINVAL;
-		if (serr->ee_info != SCM_TSTAMP_SND)
+
+		switch (serr->ee_info) {
+		case SCM_TSTAMP_SND:
+			if (lat->kernel_queue)
+				lat->kernel_queue--;
 			continue;
+		case NEW_SCM_TSTAMP_COMPLETION:
+			break;
+		default:
+			continue;
+		}
 
 		struct timespec *ts = &tss->ts[0];
 		int64_t tx_time = SPA_TIMESPEC_TO_NSEC(ts);
 		uint32_t tx_pos = serr->ee_data % SPA_N_ELEMENTS(lat->impl.send);
 
 		lat->value = tx_time - lat->impl.send[tx_pos];
+		if (lat->unsent > lat->impl.size[tx_pos])
+			lat->unsent -= lat->impl.size[tx_pos];
+		else
+			lat->unsent = 0;
 
 		if (lat->impl.prev_tx && tx_time > lat->impl.prev_tx)
 			spa_bt_ptp_update(&lat->ptp, lat->value, tx_time - lat->impl.prev_tx);
 
 		lat->impl.prev_tx = tx_time;
+
+		if (lat->queue > 0)
+			lat->queue--;
+		if (!lat->queue)
+			lat->unsent = 0;
 
 		spa_log_trace(log, "fd:%d latency[%d] nsec:%"PRIu64" range:%d..%d ms",
 				fd, tx_pos, lat->value,
@@ -166,11 +195,14 @@ static inline void spa_bt_latency_flush(struct spa_bt_latency *lat, int fd, stru
 {
 	int so_timestamping = 0;
 
+	if (!lat->enabled)
+		return;
+
 	/* Disable timestamping and flush errqueue */
 	setsockopt(fd, SOL_SOCKET, SO_TIMESTAMPING, &so_timestamping, sizeof(so_timestamping));
 	spa_bt_latency_recv_errqueue(lat, fd, log);
 
-	lat->disabled = true;
+	lat->enabled = false;
 }
 
 #endif

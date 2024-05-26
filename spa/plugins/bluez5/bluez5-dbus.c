@@ -1297,8 +1297,28 @@ static int adapter_media_update_props(struct spa_bt_adapter *adapter,
 
 				dbus_message_iter_next(&iter);
 			}
-		}
-		else
+		} else if (spa_streq(key, "SupportedFeatures")) {
+			DBusMessageIter iter;
+
+			if (!check_iter_signature(&it[1], "as"))
+				goto next;
+
+			dbus_message_iter_recurse(&it[1], &iter);
+
+			while (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_INVALID) {
+				const char *feature;
+
+				dbus_message_iter_get_basic(&iter, &feature);
+
+				if (spa_streq(feature, "tx-timestamping")) {
+					adapter->tx_timestamping_supported = true;
+					spa_log_info(monitor->log, "Adapter %s: TX timestamping supported",
+							adapter->path);
+				}
+
+				dbus_message_iter_next(&iter);
+			}
+		} else
 			spa_log_debug(monitor->log, "media: unhandled key %s", key);
 
 next:

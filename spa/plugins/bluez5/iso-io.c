@@ -434,7 +434,7 @@ static struct stream *stream_create(struct spa_bt_transport *t, struct group *gr
 	stream->this.format = format;
 	stream->block_size = block_size;
 
-	spa_bt_latency_init(&stream->tx_latency, stream->fd, LATENCY_PERIOD, group->log);
+	spa_bt_latency_init(&stream->tx_latency, t, LATENCY_PERIOD, group->log);
 
 	if (sink)
 		stream_silence(stream);

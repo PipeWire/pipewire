@@ -224,7 +224,14 @@ set_config (GstBufferPool * pool, GstStructure * config)
     return FALSE;
   }
 
-  has_video = gst_video_info_from_caps (&p->video_info, caps);
+  if (g_str_has_prefix (gst_structure_get_name (
+          gst_caps_get_structure (caps, 0)),
+        "video/")) {
+    has_video = TRUE;
+    gst_video_info_from_caps (&p->video_info, caps);
+  } else {
+    has_video = FALSE;
+  }
 
   p->add_metavideo = has_video && gst_buffer_pool_config_has_option (config,
       GST_BUFFER_POOL_OPTION_VIDEO_META);

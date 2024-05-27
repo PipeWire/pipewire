@@ -1801,13 +1801,6 @@ static inline int check_sample_rate(struct client *c, struct spa_io_position *po
 	return c->sample_rate == sample_rate;
 }
 
-static inline uint64_t get_time_ns(void)
-{
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return SPA_TIMESPEC_TO_NSEC(&ts);
-}
-
 static inline uint32_t cycle_run(struct client *c)
 {
 	uint64_t cmd;
@@ -1826,9 +1819,6 @@ static inline uint32_t cycle_run(struct client *c)
 		}
 		break;
 	}
-	activation->status = PW_NODE_ACTIVATION_AWAKE;
-	activation->awake_time = get_time_ns();
-
 	if (SPA_UNLIKELY(cmd > 1)) {
 		pw_log_info("%p: missed %"PRIu64" wakeups", c, cmd - 1);
 		activation->xrun_count += cmd - 1;
@@ -1836,6 +1826,13 @@ static inline uint32_t cycle_run(struct client *c)
 		activation->xrun_delay = 0;
 		activation->max_delay = SPA_MAX(activation->max_delay, 0u);
 	}
+
+	if (!SPA_ATOMIC_CAS(activation->status,
+				PW_NODE_ACTIVATION_TRIGGERED,
+				PW_NODE_ACTIVATION_AWAKE))
+		return 0;
+
+	activation->awake_time = get_time_ns(c->l->system);
 
 	if (SPA_UNLIKELY(c->first)) {
 		if (c->thread_init_callback)
@@ -1895,14 +1892,15 @@ static inline void signal_sync(struct client *c)
 	uint64_t cmd, nsec;
 	struct link *l;
 	struct pw_node_activation *activation = c->activation;
+	int old_status;
 
 	complete_process(c, c->buffer_frames);
 
-	nsec = get_time_ns();
-	activation->status = PW_NODE_ACTIVATION_FINISHED;
+	nsec = get_time_ns(c->l->system);
+	old_status = SPA_ATOMIC_XCHG(activation->status, PW_NODE_ACTIVATION_FINISHED);
 	activation->finish_time = nsec;
 
-	if (c->async)
+	if (c->async || old_status != PW_NODE_ACTIVATION_AWAKE)
 		return;
 
 	cmd = 1;
@@ -6529,7 +6527,7 @@ jack_nframes_t jack_frames_since_cycle_start (const jack_client_t *client)
 	return_val_if_fail(c != NULL, 0);
 
 	get_frame_times(c, &times);
-	diff = get_time_ns() - times.nsec;
+	diff = get_time_ns(c->l->system) - times.nsec;
 	return (jack_nframes_t) floor(((double)times.sample_rate * diff) / SPA_NSEC_PER_SEC);
 }
 
@@ -6627,7 +6625,9 @@ jack_nframes_t jack_time_to_frames(const jack_client_t *client, jack_time_t usec
 SPA_EXPORT
 jack_time_t jack_get_time(void)
 {
-	return get_time_ns()/SPA_NSEC_PER_USEC;
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return SPA_TIMESPEC_TO_NSEC(&ts);
 }
 
 SPA_EXPORT
@@ -6828,7 +6828,7 @@ jack_nframes_t jack_get_current_transport_frame (const jack_client_t *client)
 	res = pos.frame;
 
 	if (state == JackTransportRolling) {
-		float usecs = get_time_ns()/1000 - pos.usecs;
+		float usecs = get_time_ns(c->l->system)/1000 - pos.usecs;
 		res += (jack_nframes_t)floor((((float) pos.frame_rate) / 1000000.0f) * usecs);
 	}
 	return res;

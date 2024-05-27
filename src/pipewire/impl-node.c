@@ -198,6 +198,7 @@ do_node_remove(struct spa_loop *loop, bool async, uint32_t seq,
 	struct pw_impl_node *this = user_data;
 	struct pw_node_activation_state *dstate, *nstate;
 	struct pw_node_target *t;
+	int old_state;
 
 	pw_log_trace("%p: remove from driver %s %p %p %d",
 			this, this->rt.driver_target.name,
@@ -206,6 +207,8 @@ do_node_remove(struct spa_loop *loop, bool async, uint32_t seq,
 
 	if (!this->rt.added)
 		return 0;
+
+	old_state = SPA_ATOMIC_XCHG(this->rt.target.activation->status, PW_NODE_ACTIVATION_FINISHED);
 
 	/* remove from driver */
 	spa_list_remove(&this->rt.target.link);
@@ -218,8 +221,11 @@ do_node_remove(struct spa_loop *loop, bool async, uint32_t seq,
 	spa_list_for_each(t, &this->rt.target_list, link) {
 		dstate = &t->activation->state[0];
 		if (t->active) {
-			if (!this->async)
+			if (!this->async) {
 				dstate->required--;
+				if (old_state != PW_NODE_ACTIVATION_FINISHED)
+					trigger_target(t, get_time_ns(this->rt.target.system));
+			}
 			t->active = false;
 		}
 		pw_log_trace("%p: driver state:%p pending:%d/%d, node state:%p pending:%d/%d",
@@ -1343,40 +1349,6 @@ static void check_states(struct pw_impl_node *driver, uint64_t nsec)
 	}
 }
 
-static inline uint64_t get_time_ns(struct spa_system *system)
-{
-	struct timespec ts;
-	spa_system_clock_gettime(system, CLOCK_MONOTONIC, &ts);
-	return SPA_TIMESPEC_TO_NSEC(&ts);
-}
-
-static inline void wake_target(struct pw_node_target *t, uint64_t nsec)
-{
-	struct pw_node_activation *a = t->activation;
-
-	if (SPA_ATOMIC_CAS(a->status,
-				PW_NODE_ACTIVATION_NOT_TRIGGERED,
-				PW_NODE_ACTIVATION_TRIGGERED)) {
-		a->signal_time = nsec;
-		if (SPA_UNLIKELY(spa_system_eventfd_write(t->system, t->fd, 1) < 0))
-			pw_log_warn("%p: write failed %m", t->node);
-	}
-}
-
-/* called from data-loop decrement the dependency counter of the target and when
- * there are no more dependencies, trigger the node. */
-static inline void trigger_target(struct pw_node_target *t, uint64_t nsec)
-{
-	struct pw_node_activation *a = t->activation;
-	struct pw_node_activation_state *state = &a->state[0];
-
-	pw_log_trace_fp("%p: (%s-%u) state:%p pending:%d/%d", t->node,
-			t->name, t->id, state, state->pending, state->required);
-
-	if (pw_node_activation_state_dec(state))
-		wake_target(t, nsec);
-}
-
 /* called from data-loop when all the targets of a node need to be triggered */
 static inline int trigger_targets(struct pw_node_target *t, int status, uint64_t nsec)
 {
@@ -1423,14 +1395,18 @@ static inline int process_node(void *data)
 	struct pw_impl_port *p;
 	struct pw_node_activation *a = this->rt.target.activation;
 	struct spa_system *data_system = this->rt.target.system;
-	int status;
+	int status, old_status;
 	uint64_t nsec;
+
+	if (!SPA_ATOMIC_CAS(a->status,
+				PW_NODE_ACTIVATION_TRIGGERED,
+				PW_NODE_ACTIVATION_AWAKE))
+		return 0;
 
 	nsec = get_time_ns(data_system);
 	pw_log_trace_fp("%p: %s process remote:%u exported:%u %"PRIu64" %"PRIu64,
 			this, this->name, this->remote, this->exported,
 			a->signal_time, nsec);
-	a->status = PW_NODE_ACTIVATION_AWAKE;
 	a->awake_time = nsec;
 
 	/* when transport sync is not supported, just clear the flag */
@@ -1462,13 +1438,13 @@ static inline int process_node(void *data)
 	nsec = get_time_ns(data_system);
 
 	pw_log_trace_fp("%p: finished status:%d %"PRIu64, this, status, nsec);
-	a->status = PW_NODE_ACTIVATION_FINISHED;
+	old_status = SPA_ATOMIC_XCHG(a->status, PW_NODE_ACTIVATION_FINISHED);
 	a->finish_time = nsec;
 
 	/* we don't need to trigger targets when the node was driving the
 	 * graph because that means we finished the graph. */
 	if (SPA_LIKELY(!this->driving)) {
-		if (!this->async)
+		if (!this->async && old_status == PW_NODE_ACTIVATION_AWAKE)
 			trigger_targets(&this->rt.target, status, nsec);
 	} else {
 		/* calculate CPU time when finished */
@@ -1645,6 +1621,7 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	reset_position(this, &this->rt.target.activation->position);
 	this->rt.target.activation->sync_timeout = DEFAULT_SYNC_TIMEOUT;
 	this->rt.target.activation->sync_left = 0;
+	this->rt.target.activation->status = PW_NODE_ACTIVATION_FINISHED;
 
 	this->rt.rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
 	this->rt.rate_limit.burst = 1;
@@ -2009,6 +1986,7 @@ static int node_ready(void *data, int status)
 					" pending %d/%d cycle:%u", node->name, node->info.id,
 					state, a->position.clock.duration,
 					pending, state->required, a->position.clock.cycle);
+			SPA_ATOMIC_XCHG(a->status, PW_NODE_ACTIVATION_TRIGGERED);
 			process_node(node);
 			check_states(node, nsec);
 			pw_impl_node_rt_emit_incomplete(node);

@@ -117,8 +117,10 @@ static void pw_node_peer_deactivate(struct pw_node_peer *peer)
 		spa_list_remove(&peer->target.link);
 
 		if (peer->target.active) {
-			if (!peer->output->async)
+			if (!peer->output->async) {
 				state->required--;
+				trigger_target(&peer->target, get_time_ns(peer->target.system));
+			}
 			peer->target.active = false;
 		}
 	}

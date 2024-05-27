@@ -1998,6 +1998,7 @@ static int node_ready(void *data, int status)
 
 	if (SPA_LIKELY(node == driver)) {
 		struct pw_node_activation_state *state = &a->state[0];
+		struct spa_io_clock *cl = &node->rt.position->clock;
 		int sync_type, all_ready, update_sync, target_sync;
 		uint32_t owner[2], reposition_owner;
 		uint64_t min_timeout = UINT64_MAX;
@@ -2017,16 +2018,14 @@ static int node_ready(void *data, int status)
 		 * before calling the ready callback so that it can use the new target
 		 * duration and rate to schedule the next update. We do this here to
 		 * help drivers that don't support this yet */
-		if (SPA_UNLIKELY(node->rt.position->clock.duration != node->rt.position->clock.target_duration ||
-		    node->rt.position->clock.rate.denom != node->rt.position->clock.target_rate.denom)) {
+		if (SPA_UNLIKELY(cl->duration != cl->target_duration ||
+		    cl->rate.denom != cl->target_rate.denom)) {
 			pw_log_warn("driver %s did not update duration/rate (%"PRIu64"/%"PRIu64" %u/%u)",
 					node->name,
-					node->rt.position->clock.duration,
-					node->rt.position->clock.target_duration,
-					node->rt.position->clock.rate.denom,
-					node->rt.position->clock.target_rate.denom);
-			node->rt.position->clock.duration = node->rt.position->clock.target_duration;
-			node->rt.position->clock.rate = node->rt.position->clock.target_rate;
+					cl->duration, cl->target_duration,
+					cl->rate.denom, cl->target_rate.denom);
+			cl->duration = cl->target_duration;
+			cl->rate = cl->target_rate;
 		}
 
 		sync_type = check_updates(node, &reposition_owner);

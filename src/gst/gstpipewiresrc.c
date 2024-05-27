@@ -603,6 +603,15 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
     GST_BUFFER_PTS (buf) = b->time - pwsrc->delay;
     GST_BUFFER_DTS (buf) = b->time - pwsrc->delay;
   }
+
+  if (pwsrc->is_video) {
+    GST_BUFFER_DURATION (buf) = gst_util_uint64_scale (GST_SECOND,
+        pwsrc->video_info.fps_d, pwsrc->video_info.fps_n);
+  } else {
+    GST_BUFFER_DURATION (buf) = gst_util_uint64_scale (GST_SECOND,
+        time.size * time.rate.num, time.rate.denom);
+  }
+
   crop = data->crop;
   if (crop) {
     GstVideoCropMeta *meta = gst_buffer_get_video_crop_meta(buf);

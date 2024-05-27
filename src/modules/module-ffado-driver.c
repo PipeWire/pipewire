@@ -944,12 +944,15 @@ static void on_ffado_timeout(void *data, uint64_t expirations)
 	uint64_t nsec;
 	ffado_wait_response response;
 
+	pw_log_trace_fp("wakeup %d", impl->done);
+
 	if (!impl->done) {
 		impl->pw_xrun++;
 		impl->new_xrun = true;
 		ffado_streaming_reset(impl->dev);
 	}
 again:
+	pw_log_trace_fp("FFADO wait");
 	response = ffado_streaming_wait(impl->dev);
 	nsec = get_time_ns(impl);
 
@@ -977,8 +980,8 @@ again:
 	if (!sink_running)
 		silence_playback(impl);
 
-	pw_log_trace_fp("process %d %u %u %p %d", impl->period_size, source_running,
-			sink_running, impl->position, impl->frame_time);
+	pw_log_trace_fp("process %d %u %u %p %d %"PRIu64, impl->period_size, source_running,
+			sink_running, impl->position, impl->frame_time, nsec);
 
 	if (impl->new_xrun) {
 		pw_log_warn("Xrun FFADO:%u PipeWire:%u source:%d sink:%d",
@@ -1010,7 +1013,7 @@ again:
 		c->duration = impl->period_size;
 		c->delay = 0;
 		c->rate_diff = 1.0;
-		c->next_nsec = nsec;
+		c->next_nsec = nsec + (c->duration * SPA_NSEC_PER_SEC) / impl->sample_rate;
 
 		c->target_rate = c->rate;
 		c->target_duration = c->duration;

@@ -53,7 +53,7 @@
 
 #define LC3_MAX_CHANNELS 28
 
-#define BAP_CHANNEL_NOT_ALLOWED	0x00000000
+#define BAP_CHANNEL_MONO	0x00000000 /* mono */
 #define BAP_CHANNEL_FL		0x00000001 /* front left */
 #define BAP_CHANNEL_FR		0x00000002 /* front right */
 #define BAP_CHANNEL_FC		0x00000004 /* front center */

@@ -55,6 +55,7 @@ struct _GstPipeWireSrc {
   gboolean autoconnect;
 
   GstCaps *caps;
+  GstCaps *possible_caps;
 
   gboolean is_video;
   GstVideoInfo video_info;

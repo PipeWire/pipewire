@@ -937,7 +937,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
 
   GST_DEBUG_OBJECT (basesrc, "connect capture with path %s, target-object %s",
                     pwsrc->path, pwsrc->target_object);
-  pwsrc->negotiated = FALSE;
+
   enum pw_stream_flags flags;
   flags = PW_STREAM_FLAG_DONT_RECONNECT |
 	  PW_STREAM_FLAG_ASYNC;
@@ -952,6 +952,9 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
 
   pw_thread_loop_get_time (pwsrc->core->loop, &abstime,
                   GST_PIPEWIRE_DEFAULT_TIMEOUT * SPA_NSEC_PER_SEC);
+
+  pwsrc->possible_caps = possible_caps;
+  pwsrc->negotiated = FALSE;
 
   while (TRUE) {
     enum pw_stream_state state = pw_stream_get_state (pwsrc->stream, &error);
@@ -972,6 +975,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   }
 
   negotiated_caps = g_steal_pointer (&pwsrc->caps);
+  pwsrc->possible_caps = NULL;
   pw_thread_loop_unlock (pwsrc->core->loop);
 
   if (negotiated_caps == NULL)
@@ -1015,6 +1019,8 @@ no_common_caps:
   }
 connect_error:
   {
+    g_clear_pointer (&pwsrc->caps, gst_caps_unref);
+    pwsrc->possible_caps = NULL;
     GST_DEBUG_OBJECT (basesrc, "connect error");
     pw_thread_loop_unlock (pwsrc->core->loop);
     return FALSE;
@@ -1025,16 +1031,23 @@ static void
 handle_format_change (GstPipeWireSrc *pwsrc,
                    const struct spa_pod *param)
 {
-  if (pwsrc->caps)
-          gst_caps_unref(pwsrc->caps);
+  g_autoptr (GstCaps) pw_peer_caps = NULL;
+
+  g_clear_pointer (&pwsrc->caps, gst_caps_unref);
   if (param == NULL) {
     GST_DEBUG_OBJECT (pwsrc, "clear format");
-    pwsrc->caps = NULL;
     pwsrc->negotiated = FALSE;
     pwsrc->is_video = FALSE;
     return;
   }
-  pwsrc->caps = gst_caps_from_format (param);
+
+  pw_peer_caps = gst_caps_from_format (param);
+  if (pw_peer_caps) {
+    pwsrc->caps = gst_caps_intersect_full (pw_peer_caps,
+                                           pwsrc->possible_caps,
+                                           GST_CAPS_INTERSECT_FIRST);
+    gst_caps_maybe_fixate_dma_format (pwsrc->caps);
+  }
 
   if (pwsrc->caps && gst_caps_is_fixed (pwsrc->caps)) {
     pwsrc->negotiated = TRUE;

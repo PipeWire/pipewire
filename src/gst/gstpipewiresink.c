@@ -528,7 +528,7 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
         video_size += d->chunk->size;
       }
     } else {
-      GST_ERROR ("plane num not matching, meta:%u buffer:%u", meta->n_planes, b->n_datas);
+      GST_ERROR_OBJECT (pwsink, "plane num not matching, meta:%u buffer:%u", meta->n_planes, b->n_datas);
     }
   }
 
@@ -542,7 +542,7 @@ static void
 on_process (void *data)
 {
   GstPipeWireSink *pwsink = data;
-  GST_DEBUG ("signal");
+  GST_DEBUG_OBJECT (pwsink, "signal");
   g_cond_signal (&pwsink->pool->cond);
 }
 
@@ -694,7 +694,7 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 
 start_error:
   {
-    GST_ERROR ("could not start stream: %s", error);
+    GST_ERROR_OBJECT (pwsink, "could not start stream: %s", error);
     pw_thread_loop_unlock (pwsink->core->loop);
     return FALSE;
   }

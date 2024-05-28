@@ -542,6 +542,7 @@ struct pw_node_target {
 	struct spa_system *system;
 	int fd;
 	unsigned int active:1;
+	unsigned int added:1;
 };
 
 static inline void copy_target(struct pw_node_target *dst, const struct pw_node_target *src)
@@ -554,11 +555,26 @@ static inline void copy_target(struct pw_node_target *dst, const struct pw_node_
 	dst->fd = src->fd;
 }
 
+/* nodes start as INACTIVE, when they are ready to be scheduled, they add their
+ * fd to the loop and change status to FINISHED. When the node shuts down, the
+ * status is set back to INACTIVE.
+ *
+ * We have status changes (using compare-and-swap) from
+ *
+ *   INACTIVE -> FINISHED (node is added to loop and can be scheduled)
+ *   * -> INACTIVE (node can not be scheduled anymore)
+ *
+ *   !INACTIVE -> NOT_TRIGGERED (node is prepared by the driver)
+ *   NOT_TRIGGERED -> TRIGGERED (eventfd is written)
+ *   TRIGGERED -> AWAKE (eventfd is read, node starts processing)
+ *   AWAKE -> FINISHED (node completed processing and triggered the peers)
+ */
 struct pw_node_activation {
 #define PW_NODE_ACTIVATION_NOT_TRIGGERED	0
 #define PW_NODE_ACTIVATION_TRIGGERED		1
 #define PW_NODE_ACTIVATION_AWAKE		2
 #define PW_NODE_ACTIVATION_FINISHED		3
+#define PW_NODE_ACTIVATION_INACTIVE		4
 	uint32_t status;
 
 	unsigned int version:1;
@@ -774,7 +790,7 @@ struct pw_impl_node {
 		struct spa_ratelimit rate_limit;
 
 		bool prepared;				/**< the node was added to loop */
-		bool added;				/**< the node was added to driver */
+		void (*trigger_targets) (struct pw_impl_node *node, int status, uint64_t nsec);
 	} rt;
 	struct spa_fraction target_rate;
 	uint64_t target_quantum;
@@ -923,7 +939,6 @@ struct pw_control_link {
 
 struct pw_node_peer {
 	int ref;
-	int active_count;
 	struct spa_list link;			/**< link in peer list */
 	struct pw_impl_node *output;		/**< the output node */
 	struct pw_node_target target;		/**< target of the input node */
@@ -1296,6 +1311,9 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 int pw_impl_node_trigger(struct pw_impl_node *node);
 
 int pw_impl_node_set_io(struct pw_impl_node *node, uint32_t id, void *data, size_t size);
+
+int pw_impl_node_add_target(struct pw_impl_node *node, struct pw_node_target *t);
+int pw_impl_node_remove_target(struct pw_impl_node *node, struct pw_node_target *t);
 
 /** Prepare a link
   * Starts the negotiation of formats and buffers on \a link */

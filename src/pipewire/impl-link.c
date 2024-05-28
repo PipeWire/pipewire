@@ -101,7 +101,7 @@ static void pw_node_peer_activate(struct pw_node_peer *peer)
 
 		if (!peer->target.active && peer->output->rt.driver_target.node != NULL) {
 			if (!peer->output->async)
-				state->required++;
+				SPA_ATOMIC_INC(state->required);
 			peer->target.active = true;
 		}
 	}
@@ -118,7 +118,7 @@ static void pw_node_peer_deactivate(struct pw_node_peer *peer)
 
 		if (peer->target.active) {
 			if (!peer->output->async) {
-				state->required--;
+				SPA_ATOMIC_DEC(state->required);
 				trigger_target(&peer->target, get_time_ns(peer->target.system));
 			}
 			peer->target.active = false;

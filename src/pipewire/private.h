@@ -524,7 +524,7 @@ struct pw_node_activation_state {
 
 static inline void pw_node_activation_state_reset(struct pw_node_activation_state *state)
 {
-        state->pending = state->required;
+	SPA_ATOMIC_STORE(state->pending, SPA_ATOMIC_LOAD(state->required));
 }
 
 #define pw_node_activation_state_dec(s) (SPA_ATOMIC_DEC(s->pending) == 0)

@@ -170,7 +170,7 @@ do_node_add(struct spa_loop *loop, bool async, uint32_t seq,
 	spa_list_append(&driver->rt.target_list, &this->rt.target.link);
 	nstate = &this->rt.target.activation->state[0];
 	if (!this->rt.target.active) {
-		nstate->required++;
+		SPA_ATOMIC_INC(nstate->required);
 		this->rt.target.active = true;
 	}
 	/* now increment the required states of all this node targets, including
@@ -179,7 +179,7 @@ do_node_add(struct spa_loop *loop, bool async, uint32_t seq,
 		dstate = &t->activation->state[0];
 		if (!t->active) {
 			if (!this->async)
-				dstate->required++;
+				SPA_ATOMIC_INC(dstate->required);
 			t->active = true;
 		}
 		pw_log_trace("%p: driver state:%p pending:%d/%d, node state:%p pending:%d/%d",
@@ -214,7 +214,7 @@ do_node_remove(struct spa_loop *loop, bool async, uint32_t seq,
 	spa_list_remove(&this->rt.target.link);
 	nstate = &this->rt.target.activation->state[0];
 	if (this->rt.target.active) {
-		nstate->required--;
+		SPA_ATOMIC_DEC(nstate->required);
 		this->rt.target.active = false;
 	}
 
@@ -222,7 +222,7 @@ do_node_remove(struct spa_loop *loop, bool async, uint32_t seq,
 		dstate = &t->activation->state[0];
 		if (t->active) {
 			if (!this->async) {
-				dstate->required--;
+				SPA_ATOMIC_DEC(dstate->required);
 				if (old_state != PW_NODE_ACTIVATION_FINISHED)
 					trigger_target(t, get_time_ns(this->rt.target.system));
 			}
@@ -1135,9 +1135,9 @@ static void check_properties(struct pw_impl_node *node)
 	if (trigger != node->trigger) {
 		node->trigger = trigger;
 		if (trigger)
-			node->rt.target.activation->state[0].required++;
+			SPA_ATOMIC_INC(node->rt.target.activation->state[0].required);
 		else
-			node->rt.target.activation->state[0].required--;
+			SPA_ATOMIC_DEC(node->rt.target.activation->state[0].required);
 	}
 
 	/* group defines what nodes are scheduled together */

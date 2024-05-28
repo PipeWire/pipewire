@@ -533,7 +533,7 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 int pw_stream_get_time_n(struct pw_stream *stream, struct pw_time *time, size_t size);
 
 /** Get the current time in nanoseconds. This value can be compared with
- * the pw_time_now value. Since 1.1.0 */
+ * the \ref pw_time.now value. Since 1.1.0 */
 uint64_t pw_stream_get_nsec(struct pw_stream *stream);
 
 /** Get the data loop that is doing the processing of this stream. This loop

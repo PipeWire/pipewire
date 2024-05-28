@@ -605,8 +605,10 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
   }
 
   if (pwsrc->is_video) {
-    GST_BUFFER_DURATION (buf) = gst_util_uint64_scale (GST_SECOND,
-        pwsrc->video_info.fps_d, pwsrc->video_info.fps_n);
+    if (pwsrc->video_info.fps_n) {
+      GST_BUFFER_DURATION (buf) = gst_util_uint64_scale (GST_SECOND,
+          pwsrc->video_info.fps_d, pwsrc->video_info.fps_n);
+    }
   } else {
     GST_BUFFER_DURATION (buf) = gst_util_uint64_scale (GST_SECOND,
         time.size * time.rate.num, time.rate.denom);

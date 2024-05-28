@@ -69,9 +69,6 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *buf
 
 GstPipeWirePoolData *gst_pipewire_pool_get_data (GstBuffer *buffer);
 
-//gboolean        gst_pipewire_pool_add_buffer    (GstPipeWirePool *pool, GstBuffer *buffer);
-//gboolean        gst_pipewire_pool_remove_buffer (GstPipeWirePool *pool, GstBuffer *buffer);
-
 G_END_DECLS
 
 #endif /* __GST_PIPEWIRE_POOL_H__ */

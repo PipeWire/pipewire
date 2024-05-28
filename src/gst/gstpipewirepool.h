@@ -46,6 +46,7 @@ struct _GstPipeWirePool {
   GstBufferPool parent;
 
   struct pw_stream *stream;
+  guint n_buffers;
 
   gboolean add_metavideo;
   GstVideoInfo video_info;
@@ -66,6 +67,12 @@ GstPipeWirePool *  gst_pipewire_pool_new           (void);
 
 void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *buffer);
 void gst_pipewire_pool_remove_buffer (GstPipeWirePool *pool, struct pw_buffer *buffer);
+
+static inline gboolean
+gst_pipewire_pool_has_buffers (GstPipeWirePool *pool)
+{
+  return pool->n_buffers > 0;
+}
 
 GstPipeWirePoolData *gst_pipewire_pool_get_data (GstBuffer *buffer);
 

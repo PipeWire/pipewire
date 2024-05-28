@@ -475,6 +475,13 @@ on_remove_buffer (void *_data, struct pw_buffer *b)
   GstPipeWireSink *pwsink = _data;
   GST_DEBUG_OBJECT (pwsink, "remove pw_buffer %p", b);
   gst_pipewire_pool_remove_buffer (pwsink->pool, b);
+
+  if (!gst_pipewire_pool_has_buffers (pwsink->pool) &&
+      !GST_BUFFER_POOL_IS_FLUSHING (GST_BUFFER_POOL_CAST (pwsink->pool))) {
+    GST_ELEMENT_ERROR (pwsink, RESOURCE, NOT_FOUND,
+        ("all buffers have been removed"),
+        ("PipeWire link to remote node was destroyed"));
+  }
 }
 
 static void

@@ -117,6 +117,8 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
                              data,
                              pool_data_destroy);
   b->user_data = data;
+
+  pool->n_buffers++;
 }
 
 void gst_pipewire_pool_remove_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
@@ -132,6 +134,8 @@ void gst_pipewire_pool_remove_buffer (GstPipeWirePool *pool, struct pw_buffer *b
 
   /* this will also destroy the pool data, if this is the last reference */
   gst_clear_buffer (&data->buf);
+
+  pool->n_buffers--;
 }
 
 GstPipeWirePoolData *gst_pipewire_pool_get_data (GstBuffer *buffer)

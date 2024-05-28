@@ -46,7 +46,6 @@ struct _GstPipeWirePool {
   GstBufferPool parent;
 
   struct pw_stream *stream;
-  struct pw_type *t;
 
   gboolean add_metavideo;
   GstVideoInfo video_info;

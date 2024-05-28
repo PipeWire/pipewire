@@ -2613,7 +2613,7 @@ static struct spa_bt_remote_endpoint *remote_endpoint_find(struct spa_bt_monitor
 }
 
 static struct spa_bt_device *create_bcast_device(struct spa_bt_monitor *monitor, const char *adapter_path,
-		const char *transport_path)
+		const char *transport_path, const char *address)
 {
 	struct spa_bt_device *d;
 	struct spa_bt_adapter *adapter;
@@ -2633,9 +2633,9 @@ static struct spa_bt_device *create_bcast_device(struct spa_bt_monitor *monitor,
 
 	d->adapter = adapter;
 	d->adapter_path = strdup(adapter->path);
-	d->alias = strdup(adapter->alias);
-	d->name = strdup(adapter->name);
-	d->address = spa_aprintf("00:00:00:00:00:00.%d", d->id);
+	d->address = spa_aprintf("%s.%d", address, d->id);
+	d->alias = strdup(d->address);
+	d->name = strdup(d->address);
 	d->reconnect_state = BT_DEVICE_RECONNECT_STOP;
 
 	device_update_hw_volume_profiles(d);
@@ -3297,6 +3297,7 @@ static int transport_update_props(struct spa_bt_transport *transport,
 					spa_bt_transport_set_state(transport, state);
 			}
 			else if (spa_streq(key, "Device")) {
+				char *pos;
 				struct spa_bt_device *device = spa_bt_device_find(monitor, value);
 				if ((device == NULL) &&
 					(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK)) {
@@ -3309,9 +3310,28 @@ static int transport_update_props(struct spa_bt_transport *transport,
 					*/
 					device = spa_bt_device_find(monitor, transport->path);
 					if (device == NULL) {
-						device = create_bcast_device(monitor, value, transport->path);
+						device = create_bcast_device(monitor, value, transport->path, "00:00:00:00:00:00");
 						if (device == NULL) {
 							spa_log_warn(monitor->log, "could not find device %s", value);
+						} else
+							device_set_connected(device, 1);
+					}
+				} if ((device != NULL) &&
+					(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)) {
+					/*
+					 * For each transport that has a broadcast source profile,
+					 * we need to create a new node for each BIS.
+					 * example of transport path = /org/bluez/hci0/dev_2D_9D_93_F9_D7_5E/bis1/fd0
+					 * Create new devices only for a case of a big with multiple BISes,
+					 * for this case will have the scanned device to the transport
+					 * "/fd0" and create new devices for the other transports from this device
+					 * that appear only in case of multiple BISes per BIG.
+					 */
+					pos = strstr(transport->path, "/fd0");
+					if (pos == NULL) {
+						device = create_bcast_device(monitor, device->adapter_path, transport->path, device->address);
+						if (device == NULL) {
+							spa_log_warn(monitor->log, "could not find device created");
 						} else
 							device_set_connected(device, 1);
 					}
@@ -5578,6 +5598,25 @@ static void interfaces_removed(struct spa_bt_monitor *monitor, DBusMessageIter *
 					if (d != NULL){
 						device_free(d);
 					}		
+				} else if (transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE) {
+					/*
+					 * For each transport that has a broadcast source profile,
+					 * we need to create a new node for each BIS.
+					 * example of transport path = /org/bluez/hci0/dev_2D_9D_93_F9_D7_5E/bis1/fd0
+					 * Create new devices only for a case of a big with multiple BISes,
+					 * for this case will have the scanned device to the transport
+					 * "/fd0" and create new devices for the other transports from this device
+					 * that appear only in case of multiple BISes per BIG.
+					 * 
+					 * Here we delete the created devices.
+					 */
+					char *pos = strstr(transport->path, "/fd0");
+					if (pos == NULL) {
+						struct spa_bt_device *d = transport->device;
+						if (d != NULL){
+							device_free(d);
+						}
+					}
 				}
 				spa_bt_transport_free(transport);
 			}

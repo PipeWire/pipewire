@@ -1045,24 +1045,24 @@ handle_format_change (GstPipeWireSrc *pwsrc,
       pwsrc->is_video = TRUE;
 
 #ifdef HAVE_GSTREAMER_DMA_DRM
-    if (gst_video_is_dma_drm_caps (pwsrc->caps)) {
-      if (!gst_video_info_dma_drm_from_caps (&pwsrc->drm_info, pwsrc->caps)) {
-        GST_WARNING_OBJECT (pwsrc, "Can't create drm video info from caps");
-        pw_stream_set_error (pwsrc->stream, -EINVAL, "internal error");
-        return;
-      }
+      if (gst_video_is_dma_drm_caps (pwsrc->caps)) {
+        if (!gst_video_info_dma_drm_from_caps (&pwsrc->drm_info, pwsrc->caps)) {
+          GST_WARNING_OBJECT (pwsrc, "Can't create drm video info from caps");
+          pw_stream_set_error (pwsrc->stream, -EINVAL, "internal error");
+          return;
+        }
 
-      if (!gst_video_info_dma_drm_to_video_info (&pwsrc->drm_info,
-                                                 &pwsrc->video_info)) {
-        GST_WARNING_OBJECT (pwsrc, "Can't create video info from drm video info");
-        pw_stream_set_error (pwsrc->stream, -EINVAL, "internal error");
-        return;
-      }
-    } else {
-      gst_video_info_dma_drm_init (&pwsrc->drm_info);
+        if (!gst_video_info_dma_drm_to_video_info (&pwsrc->drm_info,
+                                                   &pwsrc->video_info)) {
+          GST_WARNING_OBJECT (pwsrc, "Can't create video info from drm video info");
+          pw_stream_set_error (pwsrc->stream, -EINVAL, "internal error");
+          return;
+        }
+      } else {
+        gst_video_info_dma_drm_init (&pwsrc->drm_info);
 #endif
-      gst_video_info_from_caps (&pwsrc->video_info,
-          pwsrc->caps);
+        gst_video_info_from_caps (&pwsrc->video_info,
+            pwsrc->caps);
       }
 #ifdef HAVE_GSTREAMER_DMA_DRM
     }

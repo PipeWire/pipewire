@@ -472,11 +472,8 @@ static void
 on_remove_buffer (void *_data, struct pw_buffer *b)
 {
   GstPipeWireSink *pwsink = _data;
-  GstPipeWirePoolData *data = b->user_data;
-
-  GST_LOG_OBJECT (pwsink, "remove buffer");
-
-  gst_buffer_unref (data->buf);
+  GST_DEBUG_OBJECT (pwsink, "remove pw_buffer %p", b);
+  gst_pipewire_pool_remove_buffer (pwsink->pool, b);
 }
 
 static void

@@ -66,6 +66,7 @@ GType gst_pipewire_pool_get_type (void);
 GstPipeWirePool *  gst_pipewire_pool_new           (void);
 
 void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *buffer);
+void gst_pipewire_pool_remove_buffer (GstPipeWirePool *pool, struct pw_buffer *buffer);
 
 GstPipeWirePoolData *gst_pipewire_pool_get_data (GstBuffer *buffer);
 

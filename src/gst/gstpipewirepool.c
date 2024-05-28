@@ -119,6 +119,21 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
   b->user_data = data;
 }
 
+void gst_pipewire_pool_remove_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
+{
+  GstPipeWirePoolData *data = b->user_data;
+
+  data->b = NULL;
+  data->header = NULL;
+  data->crop = NULL;
+  data->videotransform = NULL;
+
+  gst_buffer_remove_all_memory (data->buf);
+
+  /* this will also destroy the pool data, if this is the last reference */
+  gst_clear_buffer (&data->buf);
+}
+
 GstPipeWirePoolData *gst_pipewire_pool_get_data (GstBuffer *buffer)
 {
   return gst_mini_object_get_qdata (GST_MINI_OBJECT_CAST (buffer), pool_data_quark);

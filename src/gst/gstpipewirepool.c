@@ -166,7 +166,7 @@ acquire_buffer (GstBufferPool * pool, GstBuffer ** buffer,
   *buffer = data->buf;
 
   GST_OBJECT_UNLOCK (pool);
-  GST_LOG_OBJECT (pool, "acquire buffer %p", buffer);
+  GST_LOG_OBJECT (pool, "acquire buffer %p", *buffer);
 
   return GST_FLOW_OK;
 

@@ -465,6 +465,7 @@ static void
 on_add_buffer (void *_data, struct pw_buffer *b)
 {
   GstPipeWireSink *pwsink = _data;
+  GST_DEBUG_OBJECT (pwsink, "add pw_buffer %p", b);
   gst_pipewire_pool_wrap_buffer (pwsink->pool, b);
 }
 
@@ -485,6 +486,8 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
   struct spa_buffer *b;
 
   data = gst_pipewire_pool_get_data(buffer);
+
+  GST_LOG_OBJECT (pwsink, "queue buffer %p, pw_buffer %p", buffer, data->b);
 
   b = data->b->buffer;
 
@@ -758,7 +761,6 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
       goto done_unlock;
   }
 
-  GST_DEBUG ("push buffer");
   do_send_buffer (pwsink, buffer);
   if (unref_buffer)
     gst_buffer_unref (buffer);

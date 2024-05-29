@@ -5,6 +5,8 @@
 #ifndef __GST_PIPEWIRE_SINK_H__
 #define __GST_PIPEWIRE_SINK_H__
 
+#include "gstpipewirestream.h"
+
 #include <gst/gst.h>
 #include <gst/base/gstbasesink.h>
 
@@ -57,28 +59,12 @@ struct _GstPipeWireSink {
   GstBaseSink element;
 
   /*< private >*/
-  gchar *path;
-  gchar *target_object;
-  gchar *client_name;
-  int fd;
+  GstPipeWireStream *stream;
 
   /* video state */
   gboolean negotiated;
 
-  GstPipeWireCore *core;
-  struct spa_hook core_listener;
-  GstStructure *client_properties;
-
-  struct pw_stream *stream;
-  struct spa_hook stream_listener;
-
-  GstStructure *stream_properties;
   GstPipeWireSinkMode mode;
-
-  GstPipeWirePool *pool;
-
-  GstClock *clock;
-  GstClockTime last_time;
 };
 
 struct _GstPipeWireSinkClass {

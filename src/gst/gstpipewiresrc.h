@@ -7,6 +7,8 @@
 
 #include "config.h"
 
+#include "gstpipewirestream.h"
+
 #include <gst/gst.h>
 #include <gst/base/gstpushsrc.h>
 
@@ -42,14 +44,12 @@ typedef struct _GstPipeWireSrcClass GstPipeWireSrcClass;
 struct _GstPipeWireSrc {
   GstPushSrc element;
 
+  GstPipeWireStream *stream;
+
   /*< private >*/
-  gchar *path;
-  gchar *target_object;
-  gchar *client_name;
   gboolean always_copy;
   gint min_buffers;
   gint max_buffers;
-  int fd;
   gboolean resend_last;
   gint keepalive_time;
   gboolean autoconnect;
@@ -73,21 +73,7 @@ struct _GstPipeWireSrc {
   GstClockTime min_latency;
   GstClockTime max_latency;
 
-  GstStructure *client_properties;
-  GstPipeWireCore *core;
-  struct spa_hook core_listener;
-  int last_seq;
-  int pending_seq;
-
-  struct pw_stream *stream;
-  struct spa_hook stream_listener;
-
   GstBuffer *last_buffer;
-  GstStructure *stream_properties;
-
-  GstPipeWirePool *pool;
-  GstClock *clock;
-  GstClockTime last_time;
 
   enum spa_meta_videotransform_value transform_value;
 };

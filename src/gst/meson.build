@@ -6,6 +6,7 @@ pipewire_gst_sources = [
   'gstpipewirepool.c',
   'gstpipewiresink.c',
   'gstpipewiresrc.c',
+  'gstpipewirestream.c',
 ]
 
 if get_option('gstreamer-device-provider').allowed()
@@ -20,6 +21,7 @@ pipewire_gst_headers = [
   'gstpipewirepool.h',
   'gstpipewiresink.h',
   'gstpipewiresrc.h',
+  'gstpipewirestream.h',
 ]
 
 pipewire_gst = shared_library('gstpipewire',

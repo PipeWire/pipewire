@@ -58,7 +58,7 @@ PW_LOG_TOPIC(mod_topic, "mod." NAME);
 
 #define TMP_BUFFER		(16 * 1024)
 #define DATA_BUFFER		(32 * 1024)
-#define FLUSH_BUFFER		(8 * 1024 * 1024)
+#define FLUSH_BUFFER		(8 * 1024)
 
 int pw_protocol_native_ext_profiler_init(struct pw_context *context);
 
@@ -107,12 +107,8 @@ struct impl {
 	struct spa_source *flush_event;
 	unsigned int listening:1;
 
-#ifdef max_align_t
-	alignas(max_align_t)
-#else
-	alignas(64)
-#endif
-	uint8_t flush[FLUSH_BUFFER + sizeof(struct spa_pod_struct)];
+	uint8_t *flush;
+	size_t flush_size;
 };
 
 struct resource_data {
@@ -138,16 +134,27 @@ static void do_flush_event(void *data, uint64_t count)
 
 		avail = spa_ringbuffer_get_read_index(&n->buffer, &idx);
 
-		pw_log_trace("%p avail %d", impl, avail);
+		pw_log_trace("%p: avail %d", impl, avail);
 
 		if (avail > 0) {
-			if (total + avail < FLUSH_BUFFER) {
-				spa_ringbuffer_read_data(&n->buffer, n->data, DATA_BUFFER,
-						idx % DATA_BUFFER,
-						SPA_PTROFF(p, sizeof(struct spa_pod_struct) + total, void),
-						avail);
-				total += avail;
+			size_t size = total + avail + sizeof(struct spa_pod_struct);
+			if (size > impl->flush_size) {
+				uint8_t *flush;
+				flush = realloc(impl->flush, size);
+				if (flush == NULL) {
+					pw_log_warn("%p: failed to realloc flush size %zu", impl, impl->flush_size);
+					continue;
+				}
+				impl->flush = flush;
+				impl->flush_size = size;
+				pw_log_debug("%p: new flush buffer size %zu", impl, impl->flush_size);
+				p = (struct spa_pod_struct *)impl->flush;
 			}
+			spa_ringbuffer_read_data(&n->buffer, n->data, DATA_BUFFER,
+					idx % DATA_BUFFER,
+					SPA_PTROFF(p, sizeof(struct spa_pod_struct) + total, void),
+					avail);
+			total += avail;
 			spa_ringbuffer_read_update(&n->buffer, idx + avail);
 		}
 	}
@@ -411,6 +418,7 @@ static void module_destroy(void *data)
 
 	pw_loop_destroy_source(impl->main_loop, impl->flush_event);
 
+	free(impl->flush);
 	free(impl);
 }
 
@@ -450,6 +458,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
 		return -errno;
+	impl->flush_size = FLUSH_BUFFER + sizeof(struct spa_pod_struct);
+	impl->flush = malloc(impl->flush_size);
+	if (impl->flush == NULL) {
+		free(impl);
+		return -errno;
+	}
 
 	spa_list_init(&impl->node_list);
 	pw_protocol_native_ext_profiler_init(context);
@@ -472,6 +486,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			pw_properties_copy(props),
 			global_bind, impl);
 	if (impl->global == NULL) {
+		free(impl->flush);
 		free(impl);
 		return -errno;
 	}

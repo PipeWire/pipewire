@@ -1229,3 +1229,58 @@ gst_caps_sanitize (GstCaps **caps)
   *caps = gst_caps_make_writable (*caps);
   gst_caps_filter_and_map_in_place (*caps, filter_dmabuf_caps, NULL);
 }
+
+void
+gst_caps_maybe_fixate_dma_format (GstCaps *caps)
+{
+#ifdef HAVE_GSTREAMER_DMA_DRM
+  GstCapsFeatures *features;
+  GstStructure *structure;
+  const GValue *format_value;
+  const GValue *drm_format_value;
+  const char *format_string;
+  const char *drm_format_string;
+  uint32_t fourcc;
+  uint64_t mod;
+  int drm_idx;
+  int i;
+
+  g_return_if_fail (GST_IS_CAPS (caps));
+
+  if (gst_caps_is_fixed (caps) || gst_caps_get_size(caps) != 1)
+    return;
+
+  features = gst_caps_get_features (caps, 0);
+  if (!gst_caps_features_contains (features, GST_CAPS_FEATURE_MEMORY_DMABUF))
+    return;
+
+  structure = gst_caps_get_structure (caps, 0);
+  if (!gst_structure_has_field (structure, "format") ||
+      !gst_structure_has_field (structure, "drm-format"))
+    return;
+
+  format_value = gst_structure_get_value (structure, "format");
+  drm_format_value = gst_structure_get_value (structure, "drm-format");
+  if (G_VALUE_TYPE (format_value) != GST_TYPE_LIST ||
+      ((GArray *) g_value_peek_pointer (format_value))->len != 2 ||
+      G_VALUE_TYPE (drm_format_value) != G_TYPE_STRING)
+    return;
+
+  drm_format_string = g_value_get_string (drm_format_value);
+  fourcc = gst_video_dma_drm_fourcc_from_string (drm_format_string, &mod);
+  drm_idx = gst_video_dma_drm_fourcc_to_format (fourcc);
+  if (drm_idx == GST_VIDEO_FORMAT_UNKNOWN || mod != DRM_FORMAT_MOD_LINEAR)
+    return;
+
+  for (i = 0; (format_string = get_nth_string (format_value, i)); i++) {
+    int idx;
+
+    idx = gst_video_format_from_string (format_string);
+    if (idx != GST_VIDEO_FORMAT_DMA_DRM && idx != drm_idx)
+      return;
+  }
+
+  gst_caps_set_simple (caps, "format", G_TYPE_STRING, "DMA_DRM", NULL);
+  g_warn_if_fail (gst_caps_is_fixed (caps));
+#endif
+}

@@ -17,6 +17,8 @@ GstCaps *        gst_caps_from_format    (const struct spa_pod *format);
 
 void             gst_caps_sanitize       (GstCaps **caps);
 
+void             gst_caps_maybe_fixate_dma_format (GstCaps *caps);
+
 G_END_DECLS
 
 #endif

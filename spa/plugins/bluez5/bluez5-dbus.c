@@ -176,6 +176,7 @@ struct spa_bt_bis {
 struct spa_bt_big {
 	struct spa_list link;
 	int broadcast_code[BROADCAST_CODE_LEN];
+	bool encryption;
 	int presentation_delay;
 	struct spa_list bis_list;
 	int big_id;
@@ -5370,6 +5371,7 @@ static void configure_bis(struct spa_bt_monitor *monitor,
 	append_basic_variant_dict_entry(&qos_dict, "MSE", DBUS_TYPE_BYTE, "y", &mse);
 	append_basic_variant_dict_entry(&qos_dict, "Timeout", DBUS_TYPE_UINT16, "q", &timeout);
 	append_basic_array_variant_dict_entry(&qos_dict, "BCode", "ay", "y", DBUS_TYPE_BYTE, big->broadcast_code, BROADCAST_CODE_LEN);
+	append_basic_variant_dict_entry(&qos_dict, "Encryption", DBUS_TYPE_BYTE, "y", &big->encryption);
 	append_basic_variant_dict_entry(&qos_dict, "Interval", DBUS_TYPE_UINT32, "u", &qos.interval);
 	append_basic_variant_dict_entry(&qos_dict, "Framing", DBUS_TYPE_BYTE, "y", &qos.framing);
 	append_basic_variant_dict_entry(&qos_dict, "PHY", DBUS_TYPE_BYTE, "y", &qos.phy);
@@ -6176,6 +6178,10 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 						goto parse_failed;
 					spa_log_debug(monitor->log, "big_entry->broadcast_code[%d] %d", cursor, big_entry->broadcast_code[cursor]);
 				}
+			} else if (spa_streq(key, "encryption")) {
+				if (spa_json_get_bool(&it[1], &big_entry->encryption) <= 0)
+					goto parse_failed;
+				spa_log_debug(monitor->log, "big_entry->encryption %d", big_entry->encryption);
 			} else if (spa_streq(key, "bis")) {
 				if (spa_json_enter_array(&it[1], &it_array[1]) <= 0)
 					goto parse_failed;

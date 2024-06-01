@@ -5,8 +5,10 @@
 #ifndef __GST_PIPEWIRE_CLOCK_H__
 #define __GST_PIPEWIRE_CLOCK_H__
 
-#include <gst/gst.h>
+#include "config.h"
+#include "gstpipewirestream.h"
 
+#include <gst/gst.h>
 #include <pipewire/pipewire.h>
 
 G_BEGIN_DECLS
@@ -30,7 +32,8 @@ typedef struct _GstPipeWireClockClass GstPipeWireClockClass;
 struct _GstPipeWireClock {
   GstSystemClock parent;
 
-  struct pw_stream *stream;
+  GWeakRef stream;
+
   GstClockTime last_time;
   GstClockTimeDiff time_offset;
 };
@@ -41,7 +44,7 @@ struct _GstPipeWireClockClass {
 
 GType gst_pipewire_clock_get_type (void);
 
-GstClock *      gst_pipewire_clock_new           (struct pw_stream *stream,
+GstClock *      gst_pipewire_clock_new           (GstPipeWireStream *stream,
                                                   GstClockTime last_time);
 void            gst_pipewire_clock_reset         (GstPipeWireClock *clock,
                                                   GstClockTime time);

@@ -35,11 +35,12 @@ static guint pool_signals[LAST_SIGNAL] = { 0 };
 static GQuark pool_data_quark;
 
 GstPipeWirePool *
-gst_pipewire_pool_new (void)
+gst_pipewire_pool_new (GstPipeWireStream *stream)
 {
   GstPipeWirePool *pool;
 
   pool = g_object_new (GST_TYPE_PIPEWIRE_POOL, NULL);
+  g_weak_ref_set (&pool->stream, stream);
 
   return pool;
 }
@@ -148,15 +149,19 @@ acquire_buffer (GstBufferPool * pool, GstBuffer ** buffer,
         GstBufferPoolAcquireParams * params)
 {
   GstPipeWirePool *p = GST_PIPEWIRE_POOL (pool);
+  g_autoptr (GstPipeWireStream) s = g_weak_ref_get (&p->stream);
   GstPipeWirePoolData *data;
   struct pw_buffer *b;
+
+  if (G_UNLIKELY (!s))
+    return GST_FLOW_ERROR;
 
   GST_OBJECT_LOCK (pool);
   while (TRUE) {
     if (G_UNLIKELY (GST_BUFFER_POOL_IS_FLUSHING (pool)))
       goto flushing;
 
-    if ((b = pw_stream_dequeue_buffer(p->stream)))
+    if ((b = pw_stream_dequeue_buffer(s->pwstream)))
       break;
 
     if (params && (params->flags & GST_BUFFER_POOL_ACQUIRE_FLAG_DONTWAIT))
@@ -262,6 +267,7 @@ gst_pipewire_pool_finalize (GObject * object)
   GstPipeWirePool *pool = GST_PIPEWIRE_POOL (object);
 
   GST_DEBUG_OBJECT (pool, "finalize");
+  g_weak_ref_set (&pool->stream, NULL);
   g_object_unref (pool->fd_allocator);
   g_object_unref (pool->dmabuf_allocator);
 

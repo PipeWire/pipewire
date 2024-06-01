@@ -5,6 +5,8 @@
 #ifndef __GST_PIPEWIRE_POOL_H__
 #define __GST_PIPEWIRE_POOL_H__
 
+#include "gstpipewirestream.h"
+
 #include <gst/gst.h>
 
 #include <gst/video/video.h>
@@ -45,7 +47,7 @@ struct _GstPipeWirePoolData {
 struct _GstPipeWirePool {
   GstBufferPool parent;
 
-  struct pw_stream *stream;
+  GWeakRef stream;
   guint n_buffers;
 
   gboolean add_metavideo;
@@ -63,7 +65,7 @@ struct _GstPipeWirePoolClass {
 
 GType gst_pipewire_pool_get_type (void);
 
-GstPipeWirePool *  gst_pipewire_pool_new           (void);
+GstPipeWirePool *  gst_pipewire_pool_new (GstPipeWireStream *stream);
 
 void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *buffer);
 void gst_pipewire_pool_remove_buffer (GstPipeWirePool *pool, struct pw_buffer *buffer);

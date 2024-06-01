@@ -5,6 +5,9 @@
 
 #include "gstpipewirestream.h"
 
+#include "gstpipewirepool.h"
+#include "gstpipewireclock.h"
+
 GST_DEBUG_CATEGORY_STATIC (pipewire_stream_debug);
 #define GST_CAT_DEFAULT pipewire_stream_debug
 
@@ -15,7 +18,7 @@ gst_pipewire_stream_init (GstPipeWireStream * self)
 {
   self->fd = -1;
   self->client_name = g_strdup (pw_get_client_name());
-  self->pool = gst_pipewire_pool_new ();
+  self->pool = gst_pipewire_pool_new (self);
 }
 
 static void
@@ -120,9 +123,7 @@ gst_pipewire_stream_open (GstPipeWireStream * self,
                          self->element);
 
   /* create clock */
-  self->clock = gst_pipewire_clock_new (self->pwstream, 0);
-
-  self->pool->stream = self->pwstream;
+  self->clock = gst_pipewire_clock_new (self, 0);
 
   pw_thread_loop_unlock (self->core->loop);
 
@@ -149,13 +150,10 @@ gst_pipewire_stream_close (GstPipeWireStream * self)
 {
   GST_DEBUG_OBJECT (self, "close");
 
-  self->pool->stream = NULL;
-
   /* destroy the clock */
   gst_element_post_message (GST_ELEMENT (self->element),
     gst_message_new_clock_lost (GST_OBJECT_CAST (self->element), self->clock));
-
-  GST_PIPEWIRE_CLOCK (self->clock)->stream = NULL;
+  g_weak_ref_set (&GST_PIPEWIRE_CLOCK (self->clock)->stream, NULL);
   g_clear_object (&self->clock);
 
   /* destroy the pw stream */

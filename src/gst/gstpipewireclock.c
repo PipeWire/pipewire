@@ -14,12 +14,12 @@ GST_DEBUG_CATEGORY_STATIC (gst_pipewire_clock_debug_category);
 G_DEFINE_TYPE (GstPipeWireClock, gst_pipewire_clock, GST_TYPE_SYSTEM_CLOCK);
 
 GstClock *
-gst_pipewire_clock_new (struct pw_stream *stream, GstClockTime last_time)
+gst_pipewire_clock_new (GstPipeWireStream *stream, GstClockTime last_time)
 {
   GstPipeWireClock *clock;
 
   clock = g_object_new (GST_TYPE_PIPEWIRE_CLOCK, NULL);
-  clock->stream = stream;
+  g_weak_ref_set (&clock->stream, stream);
   clock->last_time = last_time;
   clock->time_offset = last_time;
 
@@ -30,14 +30,18 @@ static GstClockTime
 gst_pipewire_clock_get_internal_time (GstClock * clock)
 {
   GstPipeWireClock *pclock = (GstPipeWireClock *) clock;
+  g_autoptr (GstPipeWireStream) s = g_weak_ref_get (&pclock->stream);
   GstClockTime result;
   uint64_t now;
 
-  now = pw_stream_get_nsec(pclock->stream);
+  if (G_UNLIKELY (!s))
+    return pclock->last_time;
+
+  now = pw_stream_get_nsec(s->pwstream);
 #if 0
   struct pw_time t;
-  if (pclock->stream == NULL ||
-      pw_stream_get_time_n (pclock->stream, &t, sizeof(t)) < 0 ||
+  if (s->pwstream == NULL ||
+      pw_stream_get_time_n (s->pwstream, &t, sizeof(t)) < 0 ||
       t.rate.denom == 0)
     return pclock->last_time;
 
@@ -63,6 +67,8 @@ gst_pipewire_clock_finalize (GObject * object)
   GstPipeWireClock *clock = GST_PIPEWIRE_CLOCK (object);
 
   GST_DEBUG_OBJECT (clock, "finalize");
+
+  g_weak_ref_set (&clock->stream, NULL);
 
   G_OBJECT_CLASS (gst_pipewire_clock_parent_class)->finalize (object);
 }

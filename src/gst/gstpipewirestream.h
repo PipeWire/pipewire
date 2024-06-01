@@ -9,13 +9,13 @@
 #include "config.h"
 
 #include "gstpipewirecore.h"
-#include "gstpipewirepool.h"
-#include "gstpipewireclock.h"
 
 #include <gst/gst.h>
 #include <pipewire/pipewire.h>
 
 G_BEGIN_DECLS
+
+typedef struct _GstPipeWirePool GstPipeWirePool;
 
 #define GST_TYPE_PIPEWIRE_STREAM (gst_pipewire_stream_get_type())
 G_DECLARE_FINAL_TYPE(GstPipeWireStream, gst_pipewire_stream, GST, PIPEWIRE_STREAM, GstObject)

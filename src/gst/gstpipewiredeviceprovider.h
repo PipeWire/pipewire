@@ -14,16 +14,9 @@
 
 G_BEGIN_DECLS
 
-typedef struct _GstPipeWireDevice GstPipeWireDevice;
-typedef struct _GstPipeWireDeviceClass GstPipeWireDeviceClass;
-
-#define GST_TYPE_PIPEWIRE_DEVICE                 (gst_pipewire_device_get_type())
-#define GST_IS_PIPEWIRE_DEVICE(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GST_TYPE_PIPEWIRE_DEVICE))
-#define GST_IS_PIPEWIRE_DEVICE_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), GST_TYPE_PIPEWIRE_DEVICE))
-#define GST_PIPEWIRE_DEVICE_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), GST_TYPE_PIPEWIRE_DEVICE, GstPipeWireDeviceClass))
-#define GST_PIPEWIRE_DEVICE(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), GST_TYPE_PIPEWIRE_DEVICE, GstPipeWireDevice))
-#define GST_PIPEWIRE_DEVICE_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), GST_TYPE_DEVICE, GstPipeWireDeviceClass))
-#define GST_PIPEWIRE_DEVICE_CAST(obj)            ((GstPipeWireDevice *)(obj))
+#define GST_TYPE_PIPEWIRE_DEVICE (gst_pipewire_device_get_type())
+#define GST_PIPEWIRE_DEVICE_CAST(obj) ((GstPipeWireDevice *)(obj))
+G_DECLARE_FINAL_TYPE (GstPipeWireDevice, gst_pipewire_device, GST, PIPEWIRE_DEVICE, GstDevice)
 
 typedef enum {
   GST_PIPEWIRE_DEVICE_TYPE_UNKNOWN,
@@ -42,22 +35,9 @@ struct _GstPipeWireDevice {
   int                 priority;
 };
 
-struct _GstPipeWireDeviceClass {
-  GstDeviceClass    parent_class;
-};
-
-GType        gst_pipewire_device_get_type (void);
-
-typedef struct _GstPipeWireDeviceProvider GstPipeWireDeviceProvider;
-typedef struct _GstPipeWireDeviceProviderClass GstPipeWireDeviceProviderClass;
-
-#define GST_TYPE_PIPEWIRE_DEVICE_PROVIDER                 (gst_pipewire_device_provider_get_type())
-#define GST_IS_PIPEWIRE_DEVICE_PROVIDER(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GST_TYPE_PIPEWIRE_DEVICE_PROVIDER))
-#define GST_IS_PIPEWIRE_DEVICE_PROVIDER_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), GST_TYPE_PIPEWIRE_DEVICE_PROVIDER))
-#define GST_PIPEWIRE_DEVICE_PROVIDER_GET_CLASS(obj)       (G_TYPE_INSTANCE_GET_CLASS ((obj), GST_TYPE_PIPEWIRE_DEVICE_PROVIDER, GstPipeWireDeviceProviderClass))
-#define GST_PIPEWIRE_DEVICE_PROVIDER(obj)                 (G_TYPE_CHECK_INSTANCE_CAST ((obj), GST_TYPE_PIPEWIRE_DEVICE_PROVIDER, GstPipeWireDeviceProvider))
-#define GST_PIPEWIRE_DEVICE_PROVIDER_CLASS(klass)         (G_TYPE_CHECK_CLASS_CAST ((klass), GST_TYPE_DEVICE_PROVIDER, GstPipeWireDeviceProviderClass))
-#define GST_PIPEWIRE_DEVICE_PROVIDER_CAST(obj)            ((GstPipeWireDeviceProvider *)(obj))
+#define GST_TYPE_PIPEWIRE_DEVICE_PROVIDER (gst_pipewire_device_provider_get_type())
+#define GST_PIPEWIRE_DEVICE_PROVIDER_CAST(obj) ((GstPipeWireDeviceProvider *)(obj))
+G_DECLARE_FINAL_TYPE (GstPipeWireDeviceProvider, gst_pipewire_device_provider, GST, PIPEWIRE_DEVICE_PROVIDER, GstDeviceProvider)
 
 struct _GstPipeWireDeviceProvider {
   GstDeviceProvider         parent;
@@ -77,12 +57,6 @@ struct _GstPipeWireDeviceProvider {
   gboolean list_only;
   GList *devices;
 };
-
-struct _GstPipeWireDeviceProviderClass {
-  GstDeviceProviderClass    parent_class;
-};
-
-GType        gst_pipewire_device_provider_get_type (void);
 
 G_END_DECLS
 

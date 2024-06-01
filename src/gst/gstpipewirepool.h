@@ -15,23 +15,10 @@
 
 G_BEGIN_DECLS
 
-#define GST_TYPE_PIPEWIRE_POOL \
-  (gst_pipewire_pool_get_type())
-#define GST_PIPEWIRE_POOL(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_PIPEWIRE_POOL,GstPipeWirePool))
-#define GST_PIPEWIRE_POOL_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_PIPEWIRE_POOL,GstPipeWirePoolClass))
-#define GST_IS_PIPEWIRE_POOL(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_PIPEWIRE_POOL))
-#define GST_IS_PIPEWIRE_POOL_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_PIPEWIRE_POOL))
-#define GST_PIPEWIRE_POOL_GET_CLASS(klass) \
-  (G_TYPE_INSTANCE_GET_CLASS ((klass), GST_TYPE_PIPEWIRE_POOL, GstPipeWirePoolClass))
+#define GST_TYPE_PIPEWIRE_POOL (gst_pipewire_pool_get_type())
+G_DECLARE_FINAL_TYPE (GstPipeWirePool, gst_pipewire_pool, GST, PIPEWIRE_POOL, GstBufferPool)
 
 typedef struct _GstPipeWirePoolData GstPipeWirePoolData;
-typedef struct _GstPipeWirePool GstPipeWirePool;
-typedef struct _GstPipeWirePoolClass GstPipeWirePoolClass;
-
 struct _GstPipeWirePoolData {
   GstPipeWirePool *pool;
   void *owner;
@@ -58,12 +45,6 @@ struct _GstPipeWirePool {
 
   GCond cond;
 };
-
-struct _GstPipeWirePoolClass {
-  GstBufferPoolClass parent_class;
-};
-
-GType gst_pipewire_pool_get_type (void);
 
 GstPipeWirePool *  gst_pipewire_pool_new (GstPipeWireStream *stream);
 

@@ -16,22 +16,9 @@
 
 G_BEGIN_DECLS
 
-#define GST_TYPE_PIPEWIRE_SINK \
-  (gst_pipewire_sink_get_type())
-#define GST_PIPEWIRE_SINK(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_PIPEWIRE_SINK,GstPipeWireSink))
-#define GST_PIPEWIRE_SINK_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_PIPEWIRE_SINK,GstPipeWireSinkClass))
-#define GST_IS_PIPEWIRE_SINK(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_PIPEWIRE_SINK))
-#define GST_IS_PIPEWIRE_SINK_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_PIPEWIRE_SINK))
-#define GST_PIPEWIRE_SINK_CAST(obj) \
-  ((GstPipeWireSink *) (obj))
-
-typedef struct _GstPipeWireSink GstPipeWireSink;
-typedef struct _GstPipeWireSinkClass GstPipeWireSinkClass;
-
+#define GST_TYPE_PIPEWIRE_SINK (gst_pipewire_sink_get_type())
+#define GST_PIPEWIRE_SINK_CAST(obj) ((GstPipeWireSink *) (obj))
+G_DECLARE_FINAL_TYPE (GstPipeWireSink, gst_pipewire_sink, GST, PIPEWIRE_SINK, GstBaseSink)
 
 /**
  * GstPipeWireSinkMode:
@@ -67,11 +54,6 @@ struct _GstPipeWireSink {
   GstPipeWireSinkMode mode;
 };
 
-struct _GstPipeWireSinkClass {
-  GstBaseSinkClass parent_class;
-};
-
-GType gst_pipewire_sink_get_type (void);
 GType gst_pipewire_sink_mode_get_type (void);
 
 G_END_DECLS

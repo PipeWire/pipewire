@@ -33,6 +33,9 @@ jack_version_minor = libversion_minor
 # libjack[server] version has 0 for major (for compatibility with other implementations),
 # 3 for minor, and "1000*major + 100*minor + micro" as micro version (the minor libpipewire soversion number)
 libjackversion = '@0@.@1@.@2@'.format(soversion, jack_version_major, jack_version_minor)
+# jack[server] version has 3 for major
+# and pipewire's "1000*major + 100*minor + micro" as minor version
+jackversion = '@0@.@1@.@2@'.format(jack_version_major, jack_version_minor, 0)
 
 pipewire_name = 'pipewire-@0@'.format(apiversion)
 spa_name = 'spa-@0@'.format(spaversion)

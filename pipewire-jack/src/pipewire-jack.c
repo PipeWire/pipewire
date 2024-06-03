@@ -4124,7 +4124,7 @@ static int execute_match(void *data, const char *location, const char *action,
 SPA_EXPORT
 jack_client_t * jack_client_open (const char *client_name,
                                   jack_options_t options,
-                                  jack_status_t *status, ...)
+                                  jack_status_t *status_ptr, ...)
 {
 	struct client *client;
 	const struct spa_support *support;
@@ -4133,7 +4133,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	struct spa_cpu *cpu_iface;
 	const struct pw_properties *props;
 	va_list ap;
-
+        jack_status_t status;
         if (getenv("PIPEWIRE_NOJACK") != NULL ||
             getenv("PIPEWIRE_INTERNAL") != NULL ||
 	    spa_strstartswith(pw_get_library_version(), "0.2"))
@@ -4147,7 +4147,7 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	pw_log_info("%p: open '%s' options:%d", client, client_name, options);
 
-	va_start(ap, status);
+	va_start(ap, status_ptr);
 	varargs_parse(client, options, ap);
 	va_end(ap);
 
@@ -4386,8 +4386,9 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	client->rt_max = pw_properties_get_int32(client->props, "rt.prio", DEFAULT_RT_MAX);
 
-	if (status)
-		*status = 0;
+	status = 0;
+	if (status_ptr)
+		*status_ptr = status;
 
 	client->pending_sync = pw_proxy_sync((struct pw_proxy*)client->core, client->pending_sync);
 
@@ -4402,8 +4403,9 @@ jack_client_t * jack_client_open (const char *client_name,
 	}
 
 	if (!spa_streq(client->name, client_name)) {
-		if (status)
-			*status |= JackNameNotUnique;
+		status |= JackNameNotUnique;
+		if (status_ptr)
+			*status_ptr = status;
 		if (options & JackUseExactName)
 			goto exit_unlock;
 	}
@@ -4415,27 +4417,31 @@ jack_client_t * jack_client_open (const char *client_name,
 	return (jack_client_t *)client;
 
 no_props:
-	if (status)
-		*status = JackFailure | JackInitFailure;
+	status = JackFailure | JackInitFailure;
+	if (status_ptr)
+		*status_ptr = status;
 	goto exit;
 init_failed:
-	if (status)
-		*status = JackFailure | JackInitFailure;
+	status = JackFailure | JackInitFailure;
+	if (status_ptr)
+		*status_ptr = status;
 	goto exit_unlock;
 server_failed:
-	if (status)
-		*status = JackFailure | JackServerFailed;
+	status = JackFailure | JackServerFailed;
+	if (status_ptr)
+		*status_ptr = status;
 	goto exit_unlock;
 exit_unlock:
 	pw_thread_loop_unlock(client->context.loop);
 exit:
-	pw_log_info("%p: error %d", client, *status);
+	pw_log_info("%p: error %d", client, status);
 	jack_client_close((jack_client_t *) client);
 	return NULL;
 disabled:
 	pw_log_warn("JACK is disabled");
-	if (status)
-		*status = JackFailure | JackInitFailure;
+	status = JackFailure | JackInitFailure;
+	if (status_ptr)
+		*status_ptr = status;
 	return NULL;
 }
 

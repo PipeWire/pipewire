@@ -91,6 +91,13 @@ if get_option('jack-devel') == true
   version : jackversion,
   extra_cflags : '-D_REENTRANT',
   unescaped_variables: ['server_libs=-L${libdir} -ljackserver', 'jack_implementation=pipewire'])
+
+  pkgconfig.generate(filebase : 'jackserver',
+  libraries : [pipewire_jackserver],
+  name : 'jackserver',
+  description : 'PipeWire JACK Control API',
+  version : jackversion,
+  unescaped_variables: ['jack_implementation=pipewire'])
 endif
 
 if sdl_dep.found()

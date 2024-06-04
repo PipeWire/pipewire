@@ -135,5 +135,8 @@ int pw_main_loop_run(struct pw_main_loop *loop)
 		}
 	}
 	pw_loop_leave(loop->loop);
+
+	if (res > 0) // This is the number of fds last polled, not useful for the caller.
+		res = 0;
 	return res;
 }

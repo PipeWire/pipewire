@@ -49,7 +49,10 @@ struct pw_loop * pw_main_loop_get_loop(struct pw_main_loop *loop);
 /** Destroy a loop */
 void pw_main_loop_destroy(struct pw_main_loop *loop);
 
-/** Run a main loop. This blocks until \ref pw_main_loop_quit is called */
+/** Run a main loop. This blocks until \ref pw_main_loop_quit is called.
+ *
+ * @return 0 on success, otherwise a negative number.
+ */
 int pw_main_loop_run(struct pw_main_loop *loop);
 
 /** Quit a main loop */

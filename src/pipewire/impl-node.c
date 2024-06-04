@@ -154,17 +154,19 @@ do_node_prepare(struct spa_loop *loop, bool async, uint32_t seq,
 	if (this->rt.prepared)
 		return 0;
 
-	/* clear the eventfd in case it was written to while the node was stopped */
-	res = spa_system_eventfd_read(this->rt.target.system, this->source.fd, &dummy);
-	if (SPA_UNLIKELY(res != -EAGAIN && res != 0))
-		pw_log_warn("%p: read failed %m", this);
+	if (!this->server_prepare) {
+		/* clear the eventfd in case it was written to while the node was stopped */
+		res = spa_system_eventfd_read(this->rt.target.system, this->source.fd, &dummy);
+		if (SPA_UNLIKELY(res != -EAGAIN && res != 0))
+			pw_log_warn("%p: read failed %m", this);
 
+		spa_loop_add_source(loop, &this->source);
+	}
 	SPA_ATOMIC_STORE(this->rt.target.activation->status, PW_NODE_ACTIVATION_FINISHED);
-	spa_loop_add_source(loop, &this->source);
 
 	spa_list_for_each(t, &this->rt.target_list, link) {
 		/* we can now trigger ourself */
-		if (t->id == this->info.id)
+		if (t->id == this->info.id || this->server_prepare)
 			activate_target(this, t);
 	}
 
@@ -200,7 +202,8 @@ do_node_unprepare(struct spa_loop *loop, bool async, uint32_t seq,
 	spa_list_for_each(t, &this->rt.target_list, link)
 		deactivate_target(this, t, trigger);
 
-	spa_loop_remove_source(loop, &this->source);
+	if (!this->server_prepare)
+		spa_loop_remove_source(loop, &this->source);
 
 	this->rt.prepared = false;
 	return 0;
@@ -208,7 +211,7 @@ do_node_unprepare(struct spa_loop *loop, bool async, uint32_t seq,
 
 static void add_node_to_graph(struct pw_impl_node *node)
 {
-	if (node->remote)
+	if (node->remote && !node->server_prepare)
 		return;
 
 	pw_loop_invoke(node->data_loop, do_node_prepare, 1, NULL, 0, true, node);
@@ -216,7 +219,7 @@ static void add_node_to_graph(struct pw_impl_node *node)
 
 static void remove_node_from_graph(struct pw_impl_node *node)
 {
-	if (node->remote)
+	if (node->remote && !node->server_prepare)
 		return;
 
 	pw_loop_invoke(node->data_loop, do_node_unprepare, 1, NULL, 0, true, node);

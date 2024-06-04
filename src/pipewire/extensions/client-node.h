@@ -22,7 +22,12 @@ extern "C" {
  */
 #define PW_TYPE_INTERFACE_ClientNode		PW_TYPE_INFO_INTERFACE_BASE "ClientNode"
 
-#define PW_VERSION_CLIENT_NODE			5
+/*
+ * version 4: new port_set_mix_info event added
+ * version 5: driver nodes are scheduled on the client
+ * version 6: nodes activate peer links themselves when ready
+ */
+#define PW_VERSION_CLIENT_NODE			6
 struct pw_client_node;
 
 #define PW_EXTENSION_MODULE_CLIENT_NODE		PIPEWIRE_MODULE_PREFIX "module-client-node"

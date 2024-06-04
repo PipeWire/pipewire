@@ -2874,7 +2874,7 @@ exit:
 }
 
 static int
-do_activate_link(struct spa_loop *loop,
+do_add_link(struct spa_loop *loop,
                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct link *link = user_data;
@@ -2885,7 +2885,7 @@ do_activate_link(struct spa_loop *loop,
 }
 
 static int
-do_deactivate_link(struct spa_loop *loop,
+do_remove_link(struct spa_loop *loop,
                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct link *link = user_data;
@@ -2945,7 +2945,7 @@ static int client_node_set_activation(void *data,
 		spa_list_append(&c->links, &link->link);
 
 		pw_data_loop_invoke(c->loop,
-                       do_activate_link, SPA_ID_INVALID, NULL, 0, false, link);
+                       do_add_link, SPA_ID_INVALID, NULL, 0, false, link);
 	}
 	else {
 		link = find_activation(&c->links, node_id);
@@ -2956,7 +2956,7 @@ static int client_node_set_activation(void *data,
 		spa_list_remove(&link->link);
 
 		pw_data_loop_invoke(c->loop,
-                       do_deactivate_link, SPA_ID_INVALID, NULL, 0, false, link);
+                       do_remove_link, SPA_ID_INVALID, NULL, 0, false, link);
 	}
 
 	if (c->driver_id == node_id)

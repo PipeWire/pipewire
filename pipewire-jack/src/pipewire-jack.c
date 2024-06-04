@@ -414,6 +414,9 @@ struct client {
 		struct spa_io_position *position;
 		struct pw_node_activation *driver_activation;
 		struct spa_list target_links;
+		unsigned int prepared:1;
+		unsigned int first:1;
+		unsigned int thread_entered:1;
 	} rt;
 
 	pthread_mutex_t rt_lock;
@@ -423,8 +426,6 @@ struct client {
 	unsigned int started:1;
 	unsigned int active:1;
 	unsigned int destroyed:1;
-	unsigned int first:1;
-	unsigned int thread_entered:1;
 	unsigned int has_transport:1;
 	unsigned int allow_mlock:1;
 	unsigned int warn_mlock:1;
@@ -1799,10 +1800,10 @@ static inline uint32_t cycle_run(struct client *c)
 	activation->status = PW_NODE_ACTIVATION_AWAKE;
 	activation->awake_time = get_time_ns();
 
-	if (SPA_UNLIKELY(c->first)) {
+	if (SPA_UNLIKELY(c->rt.first)) {
 		if (c->thread_init_callback)
 			c->thread_init_callback(c->thread_init_arg);
-		c->first = false;
+		c->rt.first = false;
 	}
 
 	if (SPA_UNLIKELY(pos == NULL)) {
@@ -1925,8 +1926,8 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 		return;
 	}
 	if (SPA_UNLIKELY(c->thread_callback)) {
-		if (!c->thread_entered) {
-			c->thread_entered = true;
+		if (!c->rt.thread_entered) {
+			c->rt.thread_entered = true;
 			c->thread_callback(c->thread_arg);
 		}
 	} else if (SPA_LIKELY(mask & SPA_IO_IN)) {
@@ -2064,7 +2065,7 @@ do_update_driver_activation(struct spa_loop *loop,
 	c->rt.position = c->position;
 	c->rt.driver_activation = c->driver_activation;
 	if (c->position) {
-		pw_log_info("%p: driver:%d clock:%s", c,
+		pw_log_debug("%p: driver:%d clock:%s", c,
 				c->driver_id, c->position->clock.name);
 		check_sample_rate(c, c->position);
 		check_buffer_frames(c, c->position);
@@ -2152,6 +2153,39 @@ static int client_node_event(void *data, const struct spa_event *event)
 	return -ENOTSUP;
 }
 
+static int do_prepare_client(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct client *c = user_data;
+
+	if (c->rt.prepared)
+		return 0;
+
+	pw_loop_update_io(c->l,
+			  c->socket_source,
+			  SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
+
+	c->rt.first = true;
+	c->rt.thread_entered = false;
+	c->rt.prepared = true;
+	return 0;
+}
+
+static int do_unprepare_client(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct client *c = user_data;
+
+	if (!c->rt.prepared)
+		return 0;
+
+	pw_loop_update_io(c->l,
+			  c->socket_source, SPA_IO_ERR | SPA_IO_HUP);
+
+	c->rt.prepared = false;
+	return 0;
+}
+
 static int client_node_command(void *data, const struct spa_command *command)
 {
 	struct client *c = (struct client *) data;
@@ -2162,8 +2196,8 @@ static int client_node_command(void *data, const struct spa_command *command)
 	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Pause:
 		if (c->started) {
-			pw_loop_update_io(c->l,
-					  c->socket_source, SPA_IO_ERR | SPA_IO_HUP);
+			pw_data_loop_invoke(c->loop,
+				do_unprepare_client, SPA_ID_INVALID, NULL, 0, false, c);
 
 			c->started = false;
 		}
@@ -2171,12 +2205,9 @@ static int client_node_command(void *data, const struct spa_command *command)
 
 	case SPA_NODE_COMMAND_Start:
 		if (!c->started) {
-			pw_loop_update_io(c->l,
-					  c->socket_source,
-					  SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP);
+			pw_data_loop_invoke(c->loop,
+				do_prepare_client, SPA_ID_INVALID, NULL, 0, false, c);
 			c->started = true;
-			c->first = true;
-			c->thread_entered = false;
 		}
 		break;
 	default:

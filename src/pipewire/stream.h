@@ -439,7 +439,7 @@ enum pw_stream_flags {
 							  *  in the trigger_done callback. Since 1.1.0 */
 };
 
-/** Create a new unconneced \ref pw_stream
+/** Create a new unconnected \ref pw_stream
  * \return a newly allocated \ref pw_stream */
 struct pw_stream *
 pw_stream_new(struct pw_core *core,		/**< a \ref pw_core */

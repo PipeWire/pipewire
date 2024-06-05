@@ -127,7 +127,7 @@ enum pw_filter_port_flags {
 								  *  data of the buffer should be set */
 };
 
-/** Create a new unconneced \ref pw_filter
+/** Create a new unconnected \ref pw_filter
  * \return a newly allocated \ref pw_filter */
 struct pw_filter *
 pw_filter_new(struct pw_core *core,		/**< a \ref pw_core */

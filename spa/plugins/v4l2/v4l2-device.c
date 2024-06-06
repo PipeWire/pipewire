@@ -32,8 +32,8 @@ static const char default_device[] = "/dev/video0";
 struct props {
 	char device[64];
 	char devnum[32];
-	char product_id[6];
-	char vendor_id[6];
+	char product_id[7];
+	char vendor_id[7];
 	int device_fd;
 };
 
@@ -244,13 +244,13 @@ impl_init(const struct spa_handle_factory *factory,
 	reset_props(&this->props);
 
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_V4L2_PATH)))
-		strncpy(this->props.device, str, 63);
+		strncpy(this->props.device, str, sizeof(this->props.device)-1);
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_DEVICE_DEVIDS)))
-		strncpy(this->props.devnum, str, 31);
+		strncpy(this->props.devnum, str, sizeof(this->props.devnum)-1);
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_DEVICE_PRODUCT_ID)))
-		strncpy(this->props.product_id, str, 5);
+		strncpy(this->props.product_id, str, sizeof(this->props.product_id)-1);
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_DEVICE_VENDOR_ID)))
-		strncpy(this->props.vendor_id, str, 5);
+		strncpy(this->props.vendor_id, str, sizeof(this->props.vendor_id)-1);
 
 	return 0;
 }

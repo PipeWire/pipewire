@@ -1400,6 +1400,9 @@ static int mmap_read(struct impl *this)
 		b->h->pts = pts;
 		b->h->dts_offset = 0;
 	}
+	if (b->vt) {
+		b->vt->transform = this->transform;
+	}
 
 	d = b->outbuf->datas;
 	d[0].chunk->offset = 0;
@@ -1507,6 +1510,7 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 		b->outbuf = buffers[i];
 		b->flags = BUFFER_FLAG_OUTSTANDING;
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
+		b->vt = spa_buffer_find_meta_data(buffers[i], SPA_META_VideoTransform, sizeof(*b->vt));
 
 		spa_log_debug(this->log, "import buffer %p", buffers[i]);
 
@@ -1602,6 +1606,7 @@ mmap_init(struct impl *this,
 		b->outbuf = buffers[i];
 		b->flags = BUFFER_FLAG_OUTSTANDING;
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
+		b->vt = spa_buffer_find_meta_data(buffers[i], SPA_META_VideoTransform, sizeof(*b->vt));
 
 		spa_zero(b->v4l2_buffer);
 		b->v4l2_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;

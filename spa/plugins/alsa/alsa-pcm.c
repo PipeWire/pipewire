@@ -489,6 +489,10 @@ static void add_bind_ctl_params(struct state *state, struct spa_pod_builder *b)
 	int err;
 
 	for (unsigned int i = 0; i < state->num_bind_ctls; i++) {
+
+		if(!state->bound_ctls[i].value || !state->bound_ctls[i].info)
+			continue;
+
 		err = snd_ctl_elem_read(state->ctl, state->bound_ctls[i].value);
 		if (err < 0) {
 			spa_log_warn(state->log, "Could not read elem value for '%s': %s",
@@ -698,6 +702,9 @@ static void bind_ctl_event(struct spa_source *source)
 
 		for (unsigned int i = 0; i < state->num_bind_ctls; i++) {
 			int err;
+
+			if(!state->bound_ctls[i].value || !state->bound_ctls[i].info)
+				continue;
 
 			// Check if we have the right element
 			snd_ctl_elem_value_get_id(state->bound_ctls[i].value, bound_id);

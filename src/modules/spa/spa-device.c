@@ -92,6 +92,22 @@ void *pw_spa_device_get_user_data(struct pw_impl_device *device)
 	return impl->user_data;
 }
 
+struct match {
+	struct pw_properties *props;
+	int count;
+};
+#define MATCH_INIT(p) ((struct match){ .props = (p) })
+
+static int execute_match(void *data, const char *location, const char *action,
+		const char *val, size_t len)
+{
+	struct match *match = data;
+	if (spa_streq(action, "update-props")) {
+		match->count += pw_properties_update_string(match->props, val, len);
+	}
+	return 1;
+}
+
 struct pw_impl_device *pw_spa_device_load(struct pw_context *context,
 				 const char *factory_name,
 				 enum pw_spa_device_flags flags,
@@ -102,7 +118,13 @@ struct pw_impl_device *pw_spa_device_load(struct pw_context *context,
 	struct spa_handle *handle;
 	void *iface;
 	int res;
+	struct match match;
 
+	if (properties) {
+		match = MATCH_INIT(properties);
+		pw_context_conf_section_match_rules(context, "device.rules",
+				&properties->dict, execute_match, &match);
+	}
 	handle = pw_context_load_spa_handle(context, factory_name,
 			properties ? &properties->dict : NULL);
 	if (handle == NULL)

@@ -211,6 +211,22 @@ setup_props(struct pw_context *context, struct spa_node *spa_node, struct pw_pro
 	return 0;
 }
 
+struct match {
+	struct pw_properties *props;
+	int count;
+};
+#define MATCH_INIT(p) ((struct match){ .props = (p) })
+
+static int execute_match(void *data, const char *location, const char *action,
+		const char *val, size_t len)
+{
+	struct match *match = data;
+	if (spa_streq(action, "update-props")) {
+		match->count += pw_properties_update_string(match->props, val, len);
+	}
+	return 1;
+}
+
 
 struct pw_impl_node *pw_spa_node_load(struct pw_context *context,
 				 const char *factory_name,
@@ -225,6 +241,7 @@ struct pw_impl_node *pw_spa_node_load(struct pw_context *context,
 	void *iface;
 	const struct pw_properties *p;
 	struct pw_loop *loop;
+	struct match match;
 
 	if (properties) {
 		p = pw_context_get_properties(context);
@@ -235,6 +252,11 @@ struct pw_impl_node *pw_spa_node_load(struct pw_context *context,
 		if (properties == NULL)
 			return NULL;
 	}
+
+	match = MATCH_INIT(properties);
+	pw_context_conf_section_match_rules(context, "node.rules",
+			&properties->dict, execute_match, &match);
+
 	loop =  pw_context_acquire_loop(context, &properties->dict);
 	if (loop == NULL) {
 		res = -errno;

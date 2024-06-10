@@ -132,7 +132,7 @@ bool jackctl_server_close(jackctl_server_t * server)
 {
 	// stub
 	pw_log_warn("%p: not implemented", server);
-	return false;
+	return true;
 }
 
 SPA_EXPORT

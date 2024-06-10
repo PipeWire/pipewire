@@ -229,7 +229,6 @@ struct mix {
 	struct port *peer_port;
 
 	struct spa_io_buffers *io[2];
-	struct spa_io_buffers *io_data;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -577,26 +576,24 @@ do_mix_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 {
 	const struct io_info *info = data;
 	struct port *port = info->mix->port;
-	info->mix->io_data = info->data;
-	if (info->mix->io_data) {
+	if (info->data) {
 		if (info->size >= sizeof(struct spa_io_async_buffers)) {
-			info->mix->io[0] = &info->mix->io_data[port->direction];
-			info->mix->io[1] = &info->mix->io_data[port->direction^1];
+			struct spa_io_async_buffers *ab = info->data;
+			info->mix->io[0] = &ab->buffers[port->direction];
+			info->mix->io[1] = &ab->buffers[port->direction^1];
 		} else if (info->size >= sizeof(struct spa_io_buffers)) {
-			info->mix->io[0] = &info->mix->io_data[0];
-			info->mix->io[1] = &info->mix->io_data[0];
+			info->mix->io[0] = info->data;
+			info->mix->io[1] = info->data;
 		} else {
 			info->mix->io[0] = NULL;
 			info->mix->io[1] = NULL;
 		}
 		if (port->n_mix++ == 0 && port->global_mix != NULL) {
-			port->global_mix->io_data = port->io;
 			port->global_mix->io[0] = &port->io[0];
 			port->global_mix->io[1] = &port->io[1];
 		}
 	} else {
 		if (--port->n_mix == 0 && port->global_mix != NULL) {
-			port->global_mix->io_data = NULL;
 			port->global_mix->io[0] = NULL;
 			port->global_mix->io[1] = NULL;
 		}
@@ -618,7 +615,6 @@ static void init_mix(struct mix *mix, uint32_t mix_id, struct port *port, uint32
 	mix->peer_id = peer_id;
 	mix->port = port;
 	mix->peer_port = NULL;
-	mix->io_data = NULL;
 	mix->io[0] = mix->io[1] = NULL;
 	mix->n_buffers = 0;
 	spa_list_init(&mix->queue);

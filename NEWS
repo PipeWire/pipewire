@@ -1,3 +1,64 @@
+# PipeWire 1.1.83 (2024-06-17)
+
+This is the third and hopefully the last 1.2 release candidate that is
+API and ABI compatible with previous 1.0.x releases.
+
+Some last minute changes went in to clean up the node activation and
+scheduling that justify another pre-release.
+
+## Highlights
+  - Rework how peers are linked and the counters are updated. Resume the
+    peers when a node is unlinked and not yet processed. This should cause
+    less occasional dropouts in the graph when reconnecting things.
+  - Improve xruns in module-ffado.
+  - Many GStreamer element updates.
+  - More fixes and improvements.
+
+
+## PipeWire
+  - Rework how peers are linked and the counters are updated. Resume the
+    peers when a node is unlinked and not yet processed. This should cause
+    less dropouts in the graph when reconnecting. (#4026)
+  - Improve debug of xruns.
+  - Evaluate node.rules and device.rules before loading the plugin so that
+    extra properties can be passed to the plugin init function.
+
+## Modules
+  - Improve timing reporting in module-ffado some more.
+  - Prealloc less memory in the profiler by default.
+  - Improve xrun handling in module-ffado.
+
+## Tools
+  - Fix a crash in pw-link when a link fails.
+  - Fix pw-dump update for metadata. (#4053)
+
+## SPA
+  - Improve handling of controls. (#4028)
+  - Fix the string size in v4l2 to hold the device and vendor id.
+  - Support meta_videotransform on buffers in v4l2. This can be used to
+    signal that the buffer was rotated for example.
+  - Add HDMI/AC3 profile to ALSA when supported.
+  - Make it possible to disable the webrtc dependency
+
+## GStreamer
+  - Improve caps handling in the elements.
+  - Set buffer duration when we can.
+  - Post an element error when all the elements buffers are removed.
+    (#1980)
+  - Improve DMA_DRM caps selection.
+  - Some refactoring work.
+  - Improve state handling in the elements.
+
+## JACK
+  - Improve how links are activated.
+  - Fix some races when freeing memory.
+
+## Bluetooth
+  - Support multiple BIS in the broadcast source.
+
+Older versions:
+
+
 # PipeWire 1.1.82 (2024-05-24)
 
 This is the second 1.2 release candidate that is API and ABI
@@ -26,9 +87,6 @@ last prerelease if everything goes well...
 
 ## Bluetooth
   - Work around wrong kernel provided MTU for USB controllers.
-
-Older versions:
-
 
 # PipeWire 1.0.7 (2024-05-24)
 

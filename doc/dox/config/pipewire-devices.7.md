@@ -429,7 +429,7 @@ Example:
 ```
 bluez5.bcast_source.config = [
   {
-    "broadcast_code": [ 1, 2, 104, 5, 83, 241, 65, 90, 162, 101, 187, 175, 198, 234, 3, 184 ],
+    "broadcast_code": "Børne House",
     "encryption: false,
     "bis": [
       { # BIS configuration

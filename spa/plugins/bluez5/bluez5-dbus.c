@@ -175,7 +175,7 @@ struct spa_bt_bis {
 
 struct spa_bt_big {
 	struct spa_list link;
-	int broadcast_code[BROADCAST_CODE_LEN];
+	char broadcast_code[BROADCAST_CODE_LEN];
 	bool encryption;
 	int presentation_delay;
 	struct spa_list bis_list;
@@ -6171,13 +6171,23 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 		/* Iterate on all BIG values */
 		while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 			if (spa_streq(key, "broadcast_code")) {
-				if (spa_json_enter_array(&it[1], &it_array[1]) <= 0)
-					goto parse_failed;
-				for (cursor = 0; cursor < BROADCAST_CODE_LEN; cursor++) {
-					if (spa_json_get_int(&it_array[1], &big_entry->broadcast_code[cursor]) <= 0)
+				/* Len is BROADCAST_CODE_LEN plus 2 (for the quotes, as they count towards the string length
+				 * even if they don't appear in the final big_entry->broadcast_code string) plus 1 for the
+				 * null string terminator.
+				 */
+				if (spa_json_get_string(&it[1], big_entry->broadcast_code,BROADCAST_CODE_LEN + 2 + 1) <= 0)
 						goto parse_failed;
-					spa_log_debug(monitor->log, "big_entry->broadcast_code[%d] %d", cursor, big_entry->broadcast_code[cursor]);
-				}
+				/* BLUETOOTH CORE SPECIFICATION Version 5.4 | Vol 3, Part C
+				 * 3.2.6.3 Representation
+				 *
+				 * The transformation from string to number shall be by
+				 * representing the string in UTF-8, placing the resulting bytes in 8-bit fields of the
+				 * value starting at the least significant bit, and then padding with zeros in the
+				 * most significant bits if necessary.
+				*/
+				for (int i = 0; i <= BROADCAST_CODE_LEN/2 - 1; i++)
+					SPA_SWAP(big_entry->broadcast_code[i], big_entry->broadcast_code[BROADCAST_CODE_LEN - 1 -i]);
+				spa_log_debug(monitor->log, "big_entry->broadcast_code %s", big_entry->broadcast_code);
 			} else if (spa_streq(key, "encryption")) {
 				if (spa_json_get_bool(&it[1], &big_entry->encryption) <= 0)
 					goto parse_failed;

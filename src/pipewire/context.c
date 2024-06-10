@@ -1930,25 +1930,6 @@ const char *pw_context_find_spa_lib(struct pw_context *context, const char *fact
 	return NULL;
 }
 
-struct match {
-	const struct spa_dict *info;
-	struct pw_properties *props;
-	int count;
-};
-#define MATCH_INIT(i) ((struct match){ .info = (i) })
-
-static int execute_match(void *data, const char *location, const char *action,
-		const char *val, size_t len)
-{
-	struct match *match = data;
-	if (spa_streq(action, "update-props")) {
-		if (match->props == NULL)
-			match->props = pw_properties_new_dict(match->info);
-		match->count += pw_properties_update_string(match->props, val, len);
-	}
-	return 1;
-}
-
 SPA_EXPORT
 struct spa_handle *pw_context_load_spa_handle(struct pw_context *context,
 		const char *factory_name,
@@ -1958,7 +1939,6 @@ struct spa_handle *pw_context_load_spa_handle(struct pw_context *context,
 	const struct spa_support *support;
 	uint32_t n_support;
 	struct spa_handle *handle;
-	struct match match;
 
 	pw_log_debug("%p: load factory %s", context, factory_name);
 
@@ -1972,19 +1952,10 @@ struct spa_handle *pw_context_load_spa_handle(struct pw_context *context,
 		return NULL;
 	}
 
-	match = MATCH_INIT(info);
-	if (info) {
-		pw_context_conf_section_match_rules(context, "loader.rules",
-				info, execute_match, &match);
-
-		if (match.props)
-			info = &match.props->dict;
-	}
 	support = context_get_support(context, &n_support, info);
+
 	handle = pw_load_spa_handle(lib, factory_name,
 			info, n_support, support);
-
-	pw_properties_free(match.props);
 
 	return handle;
 }

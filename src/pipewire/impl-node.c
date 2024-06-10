@@ -74,7 +74,7 @@ static inline void activate_target(struct pw_impl_node *node, struct pw_node_tar
 {
 	struct pw_node_activation_state *state = &t->activation->state[0];
 	if (!t->active) {
-		if (!node->async) {
+		if (!node->async || node->driving) {
 			SPA_ATOMIC_INC(state->required);
 			SPA_ATOMIC_INC(state->pending);
 		}
@@ -88,7 +88,7 @@ static inline void deactivate_target(struct pw_impl_node *node, struct pw_node_t
 {
 	if (t->active) {
 		struct pw_node_activation_state *state = &t->activation->state[0];
-		if (!node->async) {
+		if (!node->async || node->driving) {
 			/* the driver copies the required to the pending state
 			 * so first try to resume the node and then decrement the
 			 * required state. This way we either resume with the old value

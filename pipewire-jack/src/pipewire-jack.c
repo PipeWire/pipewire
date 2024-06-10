@@ -1610,7 +1610,7 @@ static void prepare_output(struct port *p, uint32_t frames, uint32_t cycle)
 		return;
 
 	spa_list_for_each(mix, &p->mix, port_link) {
-		if (SPA_LIKELY(mix->io != NULL))
+		if (SPA_LIKELY(mix->io[cycle] != NULL))
 			*mix->io[cycle] = *io;
 	}
 }

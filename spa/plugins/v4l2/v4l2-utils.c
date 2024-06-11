@@ -951,8 +951,9 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	info = find_format_info_by_media_type(format->media_type,
 					      format->media_subtype, video_format, 0);
 	if (info == NULL || size == NULL || framerate == NULL) {
-		spa_log_error(this->log, "unknown media type %d %d %d", format->media_type,
-			      format->media_subtype, video_format);
+		spa_log_error(this->log, "%s: unknown media type %d %d %d",
+				this->props.device, format->media_type,
+				format->media_subtype, video_format);
 		return -EINVAL;
 	}
 
@@ -983,14 +984,15 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 
 	/* some cheap USB cam's won't accept any change */
 	if (xioctl(dev->fd, VIDIOC_S_PARM, &streamparm) < 0)
-		spa_log_warn(this->log, "VIDIOC_S_PARM: %m");
+		spa_log_warn(this->log, "%s: VIDIOC_S_PARM: %m", this->props.device);
 
 	match = (reqfmt.fmt.pix.pixelformat == fmt.fmt.pix.pixelformat &&
 			reqfmt.fmt.pix.width == fmt.fmt.pix.width &&
 			reqfmt.fmt.pix.height == fmt.fmt.pix.height);
 
 	if (!match && !SPA_FLAG_IS_SET(flags, SPA_NODE_PARAM_FLAG_NEAREST)) {
-		spa_log_error(this->log, "wanted %.4s %dx%d, got %.4s %dx%d",
+		spa_log_error(this->log, "%s: wanted %.4s %dx%d, got %.4s %dx%d",
+				this->props.device,
 				(char *)&reqfmt.fmt.pix.pixelformat,
 				reqfmt.fmt.pix.width, reqfmt.fmt.pix.height,
 				(char *)&fmt.fmt.pix.pixelformat,
@@ -1481,7 +1483,8 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 		} else if (d[0].type == SPA_DATA_DmaBuf) {
 			port->memtype = V4L2_MEMORY_DMABUF;
 		} else {
-			spa_log_error(this->log, "can't use buffers of type %d", d[0].type);
+			spa_log_error(this->log, "%s: can't use buffers of type %d",
+					this->props.device, d[0].type);
 			return -EINVAL;
 		}
 	}
@@ -1512,10 +1515,11 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 		b->vt = spa_buffer_find_meta_data(buffers[i], SPA_META_VideoTransform, sizeof(*b->vt));
 
-		spa_log_debug(this->log, "import buffer %p", buffers[i]);
+		spa_log_debug(this->log, "%s: import buffer %p", this->props.device, buffers[i]);
 
 		if (buffers[i]->n_datas < 1) {
-			spa_log_error(this->log, "invalid memory on buffer %p", buffers[i]);
+			spa_log_error(this->log, "%s: invalid memory on buffer %p",
+					this->props.device, buffers[i]);
 			return -EINVAL;
 		}
 		d = buffers[i]->datas;
@@ -1550,8 +1554,8 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 			b->v4l2_buffer.m.fd = d[0].fd;
 		}
 		else {
-			spa_log_error(this->log, "invalid port memory %d",
-					port->memtype);
+			spa_log_error(this->log, "%s: invalid port memory %d",
+					this->props.device, port->memtype);
 			return -EIO;
 		}
 
@@ -1597,7 +1601,8 @@ mmap_init(struct impl *this,
 		struct spa_data *d;
 
 		if (buffers[i]->n_datas < 1) {
-			spa_log_error(this->log, "invalid buffer data");
+			spa_log_error(this->log, "%s: invalid buffer data",
+					this->props.device);
 			return -EINVAL;
 		}
 
@@ -1684,7 +1689,8 @@ again:
 			spa_log_debug(this->log, "mmap offset:%u data:%p", d[0].mapoffset, b->ptr);
 			use_expbuf = false;
 		} else {
-			spa_log_error(this->log, "unsupported data type:%08x", d[0].type);
+			spa_log_error(this->log, "%s: unsupported data type:%08x",
+					this->props.device, d[0].type);
 			port->alloc_buffers = false;
 			return -ENOTSUP;
 		}
@@ -1728,8 +1734,8 @@ spa_v4l2_alloc_buffers(struct impl *this,
 		if ((res = read_init(this)) < 0)
 			return res;
 	} else {
-		spa_log_error(this->log, "invalid capabilities %08x",
-					dev->cap.capabilities);
+		spa_log_error(this->log, "%s: invalid capabilities %08x",
+				this->props.device, dev->cap.capabilities);
 		return -EIO;
 	}
 

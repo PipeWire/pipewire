@@ -2897,6 +2897,16 @@ do_queue_memmap_free(struct spa_loop *loop,
 	return 0;
 }
 
+static void queue_memmap_free(struct client *c, struct pw_memmap *mem)
+{
+	if (mem != NULL) {
+		mem->tag[0] = SPA_ID_INVALID;
+		pw_core_set_paused(c->core, true);
+		pw_data_loop_invoke(c->loop,
+			do_queue_memmap_free, SPA_ID_INVALID, &mem, sizeof(&mem), false, c);
+	}
+}
+
 static int client_node_port_set_io(void *data,
                              enum spa_direction direction,
                              uint32_t port_id,
@@ -2947,17 +2957,13 @@ static int client_node_port_set_io(void *data,
 	case SPA_IO_Buffers:
 	case SPA_IO_AsyncBuffers:
 		mix_set_io(mix, ptr, size);
-		if (old != NULL) {
-			old->tag[0] = SPA_ID_INVALID;
-			pw_core_set_paused(c->core, true);
-			pw_data_loop_invoke(c->loop,
-				do_queue_memmap_free, SPA_ID_INVALID, &old, sizeof(&old), false, c);
-			old = NULL;
-		}
+		queue_memmap_free(c, old);
+		old = NULL;
 		break;
 	default:
 		break;
 	}
+
 exit_free:
 	pw_memmap_free(old);
 exit:
@@ -2994,8 +3000,34 @@ do_remove_link(struct spa_loop *loop,
 			trigger = get_time_ns(c->l->system);
 		deactivate_link(c, link, trigger);
 	}
-	free_link(link);
 	return 0;
+}
+
+static int
+do_free_link(struct spa_loop *loop,
+                bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct client *c = user_data;
+	struct link *l = *((struct link **)data);
+	free_link(l);
+	pw_core_set_paused(c->core, false);
+	return 0;
+}
+
+static int
+do_queue_free_link(struct spa_loop *loop,
+                bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct client *c = user_data;
+	pw_loop_invoke(c->context.l, do_free_link, 0, data, size, false, c);
+	return 0;
+}
+
+static void queue_free_link(struct client *c, struct link *l)
+{
+	pw_core_set_paused(c->core, true);
+	pw_data_loop_invoke(c->loop,
+		do_queue_free_link, SPA_ID_INVALID, &l, sizeof(&l), false, c);
 }
 
 static int client_node_set_activation(void *data,
@@ -3060,6 +3092,7 @@ static int client_node_set_activation(void *data,
 
 		pw_data_loop_invoke(c->loop,
                        do_remove_link, SPA_ID_INVALID, NULL, 0, false, link);
+		queue_free_link(c, link);
 	}
 
 	if (c->driver_id == node_id)

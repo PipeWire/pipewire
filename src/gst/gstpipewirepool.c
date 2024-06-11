@@ -204,6 +204,7 @@ set_config (GstBufferPool * pool, GstStructure * config)
 {
   GstPipeWirePool *p = GST_PIPEWIRE_POOL (pool);
   GstCaps *caps;
+  GstStructure *structure;
   guint size, min_buffers, max_buffers;
   gboolean has_video;
 
@@ -217,9 +218,9 @@ set_config (GstBufferPool * pool, GstStructure * config)
     return FALSE;
   }
 
-  if (g_str_has_prefix (gst_structure_get_name (
-          gst_caps_get_structure (caps, 0)),
-        "video/")) {
+  structure = gst_caps_get_structure (caps, 0);
+  if (g_str_has_prefix (gst_structure_get_name (structure), "video/") ||
+      g_str_has_prefix (gst_structure_get_name (structure), "image/")) {
     has_video = TRUE;
     gst_video_info_from_caps (&p->video_info, caps);
   } else {

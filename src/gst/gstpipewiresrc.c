@@ -1019,6 +1019,7 @@ static void
 handle_format_change (GstPipeWireSrc *pwsrc,
                    const struct spa_pod *param)
 {
+  GstStructure *structure;
   g_autoptr (GstCaps) pw_peer_caps = NULL;
 
   g_clear_pointer (&pwsrc->caps, gst_caps_unref);
@@ -1040,9 +1041,9 @@ handle_format_change (GstPipeWireSrc *pwsrc,
   if (pwsrc->caps && gst_caps_is_fixed (pwsrc->caps)) {
     pwsrc->negotiated = TRUE;
 
-    if (g_str_has_prefix (gst_structure_get_name (
-            gst_caps_get_structure (pwsrc->caps, 0)),
-          "video/")) {
+    structure = gst_caps_get_structure (pwsrc->caps, 0);
+    if (g_str_has_prefix (gst_structure_get_name (structure), "video/") ||
+        g_str_has_prefix (gst_structure_get_name (structure), "image/")) {
       pwsrc->is_video = TRUE;
 
 #ifdef HAVE_GSTREAMER_DMA_DRM
@@ -1062,8 +1063,7 @@ handle_format_change (GstPipeWireSrc *pwsrc,
       } else {
         gst_video_info_dma_drm_init (&pwsrc->drm_info);
 #endif
-        gst_video_info_from_caps (&pwsrc->video_info,
-            pwsrc->caps);
+        gst_video_info_from_caps (&pwsrc->video_info, pwsrc->caps);
 #ifdef HAVE_GSTREAMER_DMA_DRM
       }
 #endif

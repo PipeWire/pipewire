@@ -1064,10 +1064,10 @@ handle_format_change (GstPipeWireSrc *pwsrc,
 #endif
         gst_video_info_from_caps (&pwsrc->video_info,
             pwsrc->caps);
-      }
 #ifdef HAVE_GSTREAMER_DMA_DRM
-    }
+      }
 #endif
+    }
   } else {
     pwsrc->negotiated = FALSE;
     pwsrc->is_video = FALSE;

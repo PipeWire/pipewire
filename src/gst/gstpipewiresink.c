@@ -792,6 +792,15 @@ gst_pipewire_sink_change_state (GstElement * element, GstStateChange transition)
         goto open_failed;
       break;
     case GST_STATE_CHANGE_READY_TO_PAUSED:
+      /* the initial stream state is active, which is needed for linking and
+       * negotiation to happen and the bufferpool to be set up. We don't know
+       * if we'll go to plaing, so we deactivate the stream until that
+       * transition happens. This is janky, but because of how bins propagate
+       * state changes one transition at a time, there may not be a better way
+       * to do this. PAUSED -> READY -> PAUSED transitions, this is a noop */
+      pw_thread_loop_lock (this->stream->core->loop);
+      pw_stream_set_active(this->stream->pwstream, false);
+      pw_thread_loop_unlock (this->stream->core->loop);
       break;
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
       /* uncork and start play */

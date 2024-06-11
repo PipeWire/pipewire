@@ -427,8 +427,10 @@ static int create_link_target(struct data *data)
 	tl->proxy = pw_core_create_object(data->core,
 			"link-factory", PW_TYPE_INTERFACE_Link,
 			PW_VERSION_LINK, &data->props->dict, 0);
-	if (tl->proxy == NULL)
+	if (tl->proxy == NULL) {
+		free(tl);
 		return -errno;
+	}
 
 	tl->data = data;
 	tl->state = PW_LINK_STATE_INIT;

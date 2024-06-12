@@ -1231,6 +1231,7 @@ static int metadata_property(void *data,
 		e->changed++;
 	}
 	o->changed++;
+	core_sync(o->data);
 	return 0;
 }
 

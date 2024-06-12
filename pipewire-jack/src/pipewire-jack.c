@@ -2107,6 +2107,37 @@ static int update_driver_activation(struct client *c)
 	return 0;
 }
 
+static int
+do_memmap_free(struct spa_loop *loop,
+                bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct client *c = user_data;
+	struct pw_memmap *mm = *((struct pw_memmap **)data);
+	pw_log_trace("memmap %p free", mm);
+	pw_memmap_free(mm);
+	pw_core_set_paused(c->core, false);
+	return 0;
+}
+
+static int
+do_queue_memmap_free(struct spa_loop *loop,
+                bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct client *c = user_data;
+	pw_loop_invoke(c->context.l, do_memmap_free, 0, data, size, false, c);
+	return 0;
+}
+
+static void queue_memmap_free(struct client *c, struct pw_memmap *mem)
+{
+	if (mem != NULL) {
+		mem->tag[0] = SPA_ID_INVALID;
+		pw_core_set_paused(c->core, true);
+		pw_data_loop_invoke(c->loop,
+			do_queue_memmap_free, SPA_ID_INVALID, &mem, sizeof(&mem), false, c);
+	}
+}
+
 static int client_node_set_io(void *data,
 			uint32_t id,
 			uint32_t mem_id,
@@ -2139,6 +2170,8 @@ static int client_node_set_io(void *data,
 		c->position = ptr;
 		c->driver_id = ptr ? c->position->clock.id : SPA_ID_INVALID;
 		update_driver_activation(c);
+		queue_memmap_free(c, old);
+		old = NULL;
 		break;
 	default:
 		break;
@@ -2782,37 +2815,6 @@ static int client_node_port_use_buffers(void *data,
 	if (res < 0)
 		pw_proxy_error((struct pw_proxy*)c->node, res, spa_strerror(res));
 	return res;
-}
-
-static int
-do_memmap_free(struct spa_loop *loop,
-                bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct client *c = user_data;
-	struct pw_memmap *mm = *((struct pw_memmap **)data);
-	pw_log_trace("memmap %p free", mm);
-	pw_memmap_free(mm);
-	pw_core_set_paused(c->core, false);
-	return 0;
-}
-
-static int
-do_queue_memmap_free(struct spa_loop *loop,
-                bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct client *c = user_data;
-	pw_loop_invoke(c->context.l, do_memmap_free, 0, data, size, false, c);
-	return 0;
-}
-
-static void queue_memmap_free(struct client *c, struct pw_memmap *mem)
-{
-	if (mem != NULL) {
-		mem->tag[0] = SPA_ID_INVALID;
-		pw_core_set_paused(c->core, true);
-		pw_data_loop_invoke(c->loop,
-			do_queue_memmap_free, SPA_ID_INVALID, &mem, sizeof(&mem), false, c);
-	}
 }
 
 static int client_node_port_set_io(void *data,

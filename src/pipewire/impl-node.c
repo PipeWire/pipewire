@@ -992,10 +992,6 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 
 	was_driving = node->driving;
 
-	pw_impl_node_set_io(node, SPA_IO_Position,
-			&driver->rt.target.activation->position,
-			sizeof(struct spa_io_position));
-
 	/* When a node was driver (and is waiting for all nodes to complete
 	 * the Start command) cancel the pending state and let the new driver
 	 * calculate a new state so that the Start command is sent to the
@@ -1009,15 +1005,26 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 			node->name, node->info.id,
 			old->name, old->info.id, driver->name, driver->info.id);
 
+	/* make sure the old driver doesn't trigger the node anymore */
 	pw_impl_node_remove_target(old, &node->rt.target);
+	/* make sure the node doesn't trigger the old driver anymore */
 	pw_impl_node_remove_target(node, &node->rt.driver_target);
 	spa_zero(node->rt.driver_target);
 
 	node->driver_node = driver;
 	node->moved = true;
 
+	/* first send new driver target to node, the node is not yet being
+	 * scheduled so it won't trigger yet */
 	copy_target(&node->rt.driver_target, &driver->rt.target);
 	pw_impl_node_add_target(node, &node->rt.driver_target);
+
+	/* then set the new driver node activation */
+	pw_impl_node_set_io(node, SPA_IO_Position,
+			&driver->rt.target.activation->position,
+			sizeof(struct spa_io_position));
+
+	/* and then make the driver trigger the node */
 	pw_impl_node_add_target(driver, &node->rt.target);
 
 	pw_impl_node_emit_driver_changed(node, old, driver);

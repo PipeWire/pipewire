@@ -190,11 +190,11 @@ static int on_source_ready(void *_data, int status)
 		sdata = datas[0].data;
 		if (datas[0].type == SPA_DATA_MemFd ||
 		    datas[0].type == SPA_DATA_DmaBuf) {
-			map = mmap(NULL, datas[0].maxsize + datas[0].mapoffset, PROT_READ,
-				   MAP_PRIVATE, datas[0].fd, 0);
+			map = mmap(NULL, datas[0].maxsize, PROT_READ,
+				   MAP_PRIVATE, datas[0].fd, datas[0].mapoffset);
 			if (map == MAP_FAILED)
 				return -errno;
-			sdata = SPA_PTROFF(map, datas[0].mapoffset, uint8_t);
+			sdata = map;
 		} else if (datas[0].type == SPA_DATA_MemPtr) {
 			map = NULL;
 			sdata = datas[0].data;
@@ -215,7 +215,7 @@ static int on_source_ready(void *_data, int status)
 		SDL_RenderPresent(data->renderer);
 
 		if (map)
-			munmap(map, datas[0].maxsize + datas[0].mapoffset);
+			munmap(map, datas[0].maxsize);
 	}
 
 	if ((res = spa_node_process(data->source)) < 0)

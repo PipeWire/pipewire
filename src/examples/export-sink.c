@@ -369,9 +369,9 @@ static int do_render(struct spa_loop *loop, bool async, uint32_t seq,
 
 	if (buf->datas[0].type == SPA_DATA_MemFd ||
 	    buf->datas[0].type == SPA_DATA_DmaBuf) {
-		map = mmap(NULL, buf->datas[0].maxsize + buf->datas[0].mapoffset, PROT_READ,
-			   MAP_PRIVATE, buf->datas[0].fd, 0);
-		sdata = SPA_PTROFF(map, buf->datas[0].mapoffset, uint8_t);
+		map = mmap(NULL, buf->datas[0].maxsize, PROT_READ,
+			   MAP_PRIVATE, buf->datas[0].fd, buf->datas[0].mapoffset);
+		sdata = map;
 	} else if (buf->datas[0].type == SPA_DATA_MemPtr) {
 		map = NULL;
 		sdata = buf->datas[0].data;
@@ -413,7 +413,7 @@ static int do_render(struct spa_loop *loop, bool async, uint32_t seq,
 	SDL_RenderPresent(d->renderer);
 
 	if (map)
-		munmap(map, buf->datas[0].maxsize + buf->datas[0].mapoffset);
+		munmap(map, buf->datas[0].maxsize);
 
 	return 0;
 }

@@ -319,14 +319,13 @@ static int impl_port_use_buffers(void *object,
 		}
 		else if (datas[0].type == SPA_DATA_MemFd ||
 			 datas[0].type == SPA_DATA_DmaBuf) {
-			b->ptr = mmap(NULL, datas[0].maxsize + datas[0].mapoffset, PROT_WRITE,
-				      MAP_SHARED, datas[0].fd, 0);
+			b->ptr = mmap(NULL, datas[0].maxsize, PROT_WRITE,
+				      MAP_SHARED, datas[0].fd, datas[0].mapoffset);
 			if (b->ptr == MAP_FAILED) {
 				pw_log_error("failed to buffer mem");
 				return -errno;
 
 			}
-			b->ptr = SPA_PTROFF(b->ptr, datas[0].mapoffset, void);
 			b->mapped = true;
 		}
 		else {

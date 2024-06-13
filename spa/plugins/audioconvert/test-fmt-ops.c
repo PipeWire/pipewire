@@ -335,10 +335,12 @@ static void test_s32_f32(void)
 		0x80000100, 0x40000000, 0xc0000000, 0x0080, 0xFFFFFF80, 0x0100,
 		0xFFFFFF00, 0x0200, 0xFFFFFE00
 	};
-	static const float out[] = { 0.e+00f, 9.9999988079071044921875e-01f, -1.e+00f,
+
+	static const float out[] = { 0.e+00f, 9.99999940395355224609375e-01f, -1.e+00f,
 		9.9999988079071044921875e-01f, -9.9999988079071044921875e-01f, 5.e-01f,
-		-5.e-01f, 0.e+00f, -1.1920928955078125e-07f, 1.1920928955078125e-07f,
-		-1.1920928955078125e-07f, 2.384185791015625e-07f, -2.384185791015625e-07f
+		-5.e-01f, 5.9604644775390625e-08f, -5.9604644775390625e-08f,
+		1.1920928955078125e-07f, -1.1920928955078125e-07f,
+		2.384185791015625e-07f, -2.384185791015625e-07f
 	};
 
 	run_test("test_s32_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
@@ -630,38 +632,28 @@ static void test_lossless_s25_32_to_f32_to_s25_32(void)
 	}
 }
 
-static void test_lossless_s25_32_to_s32_to_f32_to_s25_32_XFAIL(void)
+static void test_lossless_s25_32_to_s32_to_f32_to_s25_32(void)
 {
 	int32_t i;
 
-	int all_lossless = 1;
-	int32_t max_abs_err = -1;
 	fprintf(stderr, "test %s:\n", __func__);
 	for (i = S25_MIN; i <= S25_MAX; i+=1) {
 		float v = S32_TO_F32(S25_32_TO_S32(i));
 		int32_t t = F32_TO_S25_32(v);
-		all_lossless &= i == t;
-		max_abs_err = SPA_MAX(max_abs_err, SPA_ABS(i - t));
+		spa_assert_se(i == t);
 	}
-	spa_assert_se(!all_lossless);
-	spa_assert_se(max_abs_err == 1);
 }
 
-static void test_lossless_s25_32_to_s32_to_f32_to_s32_to_s25_32_XFAIL(void)
+static void test_lossless_s25_32_to_s32_to_f32_to_s32_to_s25_32(void)
 {
 	int32_t i;
 
-	int all_lossless = 1;
-	int32_t max_abs_err = -1;
 	fprintf(stderr, "test %s:\n", __func__);
 	for (i = S25_MIN; i <= S25_MAX; i+=1) {
 		float v = S32_TO_F32(S25_32_TO_S32(i));
 		int32_t t = S32_TO_S25_32(F32_TO_S32(v));
-		all_lossless &= i == t;
-		max_abs_err = SPA_MAX(max_abs_err, SPA_ABS(i - t));
+		spa_assert_se(i == t);
 	}
-	spa_assert_se(!all_lossless);
-	spa_assert_se(max_abs_err == 1);
 }
 
 static void test_lossless_s25_32_to_f32_to_s32_to_s25_32(void)
@@ -681,7 +673,7 @@ static void test_lossless_s32(void)
 	int64_t i;
 
 	int32_t max_abs_err = -1;
-	const int32_t expected_max_abs_err = 255;
+	const int32_t expected_max_abs_err = 127;
 	fprintf(stderr, "test %s:\n", __func__);
 	for (i = S32_MIN; i < S32_MAX; i += (expected_max_abs_err >> 1)) {
 		float v = S32_TO_F32(i);
@@ -708,7 +700,7 @@ static void test_lossless_s32_lossless_subset(void)
 		}
 	}
 	spa_assert_se(!all_lossless);
-	spa_assert_se(max_abs_err == 255);
+	spa_assert_se(max_abs_err == 127);
 }
 
 static void test_lossless_u32(void)
@@ -875,8 +867,8 @@ int main(int argc, char *argv[])
 	test_lossless_s24();
 	test_lossless_u24();
 	test_lossless_s25_32_to_f32_to_s25_32();
-	test_lossless_s25_32_to_s32_to_f32_to_s25_32_XFAIL();
-	test_lossless_s25_32_to_s32_to_f32_to_s32_to_s25_32_XFAIL();
+	test_lossless_s25_32_to_s32_to_f32_to_s25_32();
+	test_lossless_s25_32_to_s32_to_f32_to_s32_to_s25_32();
 	test_lossless_s25_32_to_f32_to_s32_to_s25_32();
 	test_lossless_s32();
 	test_lossless_s32_lossless_subset();

@@ -460,9 +460,20 @@ This is only active when the `psd` up-mix method is used.
 \endparblock
 
 @PAR@ client.conf  dither.noise = 0
-This option will add N bits of random data to the signal. This can be used
-to keep some amplifiers alive during silent periods. This is usually used together with
+\parblock
+This option will add N bits of random data to the signal. When no dither.method is
+specified, the random data will flip between [-(1<<(N-1)), 0] every 1024 samples. With
+a dither.method, the dither noise is amplified with 1<<(N-1) bits.
+
+This can be used to keep some amplifiers alive during silent periods. One or two bits of noise is
+usually enough, otherwise the noise will become audible. This is usually used together with
 `session.suspend-timeout-seconds` to disable suspend in the session manager.
+
+Note that PipeWire uses floating point operations with 24 bits precission for all of the audio
+processing. Conversion to 24 bits integer sample formats is lossless and conversion to 32 bits
+integer sample formats are simply padded with 0 bits at the end. This means that the dither noise
+is always only in the 24 most significant bits.
+\endparblock
 
 @PAR@ client.conf  dither.method = none
 \parblock
@@ -472,8 +483,11 @@ output signal.
 There are 6 modes available:
 
 1. none           No dithering is done.
-2. rectangular    Dithering with a rectangular noise distribution.
-3. triangular     Dithering with a triangular noise distribution.
+2. rectangular    Dithering with a rectangular noise distribution. This adds random
+                  bits in the [-0.5, 0.5] range to the signal with even distribution.
+3. triangular     Dithering with a triangular noise distribution. This add random
+                  bits in the [-1.0, 1.0] range to the signal with triangular distribution
+                  around 0.0.
 4. triangular-hf  Dithering with a sloped triangular noise distribution.
 5. wannamaker3    Additional noise shaping is performed on the sloped triangular
                   dithering to move the noise to the more inaudible range. This is using

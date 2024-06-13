@@ -468,6 +468,8 @@ int convert_init(struct convert *conv)
 	const struct noise_info *ninfo;
 	uint32_t i, conv_flags, data_size[3];
 
+	/* we generate int32 bits of random values. With this scale
+	 * factor, we bring this in the [-1.0, 1.0] range */
 	conv->scale = 1.0f / (float)(INT32_MAX);
 
 	/* disable dither if not needed */
@@ -483,6 +485,9 @@ int convert_init(struct convert *conv)
 		switch (conv->noise_method) {
 		case NOISE_METHOD_NONE:
 			conv->noise_method = NOISE_METHOD_PATTERN;
+			/* the pattern method does not use a random number
+			 * but flips the noise between [-(1<<(N-1)), 0] every
+			 * 1024 samples. */
 			conv->scale = -1.0f * (1 << (conv->noise_bits-1));
 			break;
 		case NOISE_METHOD_RECTANGULAR:
@@ -490,10 +495,13 @@ int convert_init(struct convert *conv)
 			SPA_FALLTHROUGH;
 		case NOISE_METHOD_TRIANGULAR:
 		case NOISE_METHOD_TRIANGULAR_HF:
+			/* Amplify the random noise, with additional
+			 * N-1 bits of noise. */
 			conv->scale *= (1 << (conv->noise_bits-1));
 			break;
 		}
 	}
+	/* RECTANGULAR dither goes from [-0.5, 0.5] */
 	if (conv->noise_method < NOISE_METHOD_TRIANGULAR)
 		conv->scale *= 0.5f;
 

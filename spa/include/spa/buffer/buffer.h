@@ -76,7 +76,7 @@ struct spa_data {
 					  *  specified with this flag. */
 	uint32_t flags;			/**< data flags */
 	int64_t fd;			/**< optional fd for data */
-	uint32_t mapoffset;		/**< offset to map fd at */
+	uint32_t mapoffset;		/**< offset to map fd at, this is page aligned */
 	uint32_t maxsize;		/**< max size of data */
 	void *data;			/**< optional data pointer */
 	struct spa_chunk *chunk;	/**< valid chunk of memory */

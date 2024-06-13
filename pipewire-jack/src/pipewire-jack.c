@@ -278,7 +278,6 @@ struct link {
 	struct pw_memmap *mem;
 	struct pw_node_activation *activation;
 	int signalfd;
-	bool active;
 };
 
 struct context {
@@ -1909,29 +1908,8 @@ static void trigger_link(struct link *l, uint64_t nsec)
 	}
 }
 
-static inline void activate_link(struct client *c, struct link *l)
-{
-	if (SPA_UNLIKELY(!l->active)) {
-		if (!c->async) {
-			struct pw_node_activation_state *state = &l->activation->state[0];
-			SPA_ATOMIC_INC(state->required);
-                        SPA_ATOMIC_INC(state->pending);
-		}
-		l->active = true;
-	}
-}
-
 static inline void deactivate_link(struct client *c, struct link *l, uint64_t trigger)
 {
-	if (SPA_UNLIKELY(l->active)) {
-		if (!c->async) {
-			struct pw_node_activation_state *state = &l->activation->state[0];
-			if (trigger != 0)
-				trigger_link(l, trigger);
-			SPA_ATOMIC_DEC(state->required);
-		}
-		l->active = false;
-	}
 }
 
 static inline void signal_sync(struct client *c)
@@ -1954,7 +1932,6 @@ static inline void signal_sync(struct client *c)
 		if (SPA_UNLIKELY(l->activation == NULL))
 			continue;
 
-		activate_link(c, l);
 		trigger_link(l, nsec);
 	}
 }
@@ -2261,6 +2238,7 @@ static int do_prepare_client(struct spa_loop *loop, bool async, uint32_t seq,
 {
 	struct client *c = user_data;
 
+	pw_log_debug("%p prepared:%d ", c, c->rt.prepared);
 	if (c->rt.prepared)
 		return 0;
 
@@ -2283,6 +2261,7 @@ static int do_unprepare_client(struct spa_loop *loop, bool async, uint32_t seq,
 	uint64_t trigger = 0;
 	struct link *l;
 
+	pw_log_debug("%p prepared:%d ", c, c->rt.prepared);
 	if (!c->rt.prepared)
 		return 0;
 
@@ -2290,8 +2269,10 @@ static int do_unprepare_client(struct spa_loop *loop, bool async, uint32_t seq,
 	if (old_state != PW_NODE_ACTIVATION_FINISHED)
 		trigger = get_time_ns(c->l->system);
 
-	spa_list_for_each(l, &c->rt.target_links, target_link)
-		deactivate_link(c, l, trigger);
+	spa_list_for_each(l, &c->rt.target_links, target_link) {
+		if (!c->async && trigger != 0)
+			trigger_link(l, trigger);
+	}
 
 	pw_loop_update_io(c->l,
 			  c->socket_source, SPA_IO_ERR | SPA_IO_HUP);
@@ -2980,7 +2961,7 @@ do_add_link(struct spa_loop *loop,
 {
 	struct link *link = user_data;
 	struct client *c = link->client;
-	pw_log_trace("link %p activate", link);
+	pw_log_trace("link %p", link);
 	spa_list_append(&c->rt.target_links, &link->target_link);
 	return 0;
 }
@@ -2992,7 +2973,7 @@ do_remove_link(struct spa_loop *loop,
 	struct link *link = user_data;
 	struct client *c = link->client;
 
-	pw_log_trace("link %p activate", link);
+	pw_log_trace("link %p", link);
 	spa_list_remove(&link->target_link);
 
 	if (c->rt.prepared) {

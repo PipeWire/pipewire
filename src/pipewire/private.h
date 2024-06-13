@@ -740,7 +740,6 @@ struct pw_impl_node {
 	unsigned int sync:1;		/**< the sync-groups are active */
 	unsigned int transport:1;	/**< the transport is active */
 	unsigned int async:1;		/**< async processing, one cycle latency */
-	unsigned int server_prepare:1;	/**< prepare links server side for old clients */
 
 	uint32_t port_user_data_size;	/**< extra size for port user data */
 
@@ -791,7 +790,6 @@ struct pw_impl_node {
 		struct spa_ratelimit rate_limit;
 
 		bool prepared;				/**< the node was added to loop */
-		void (*trigger_targets) (struct pw_impl_node *node, int status, uint64_t nsec);
 	} rt;
 	struct spa_fraction target_rate;
 	uint64_t target_quantum;

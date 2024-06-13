@@ -1802,10 +1802,6 @@ struct pw_impl_client_node *pw_impl_client_node_new(struct pw_resource *resource
 	if (resource->version < 5) {
 		pw_log_warn("using server side driver for old client version %d", resource->version);
 	}
-	if (resource->version < 6) {
-		this->node->server_prepare = true;
-		pw_log_warn("using server side prepare for old client version %d", resource->version);
-	}
 
 	pw_resource_add_listener(this->resource,
 				&impl->resource_listener,

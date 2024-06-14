@@ -298,15 +298,14 @@ static void test_f32_s32(void)
 		1.0f/0x40000000, -1.0f/0x40000000, 1.0f/0x80000000, -1.0f/0x80000000,
 		1.0f/0x100000000, -1.0f/0x100000000, 1.0f/0x200000000, -1.0f/0x200000000,
 	};
-	static const int32_t out[] = { 0x00000000, 0x7fffff00, 0x80000000,
-		0x40000000, 0xc0000000, 0x7fffff00, 0x80000000, 0x00000100,
-		0xffffff00, 0x00000100, 0xffffff00, 0x00000000, 0x00000000,
+	static const int32_t out[] = { 0x00000000, 0x7fffff80, 0x80000000,
+		0x40000000, 0xc0000000, 0x7fffff80, 0x80000000, 0x00000100,
+		0xffffff00, 0x00000100, 0xffffff00, 0x00000080, 0xffffff80,
 		0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
 		0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
 		0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
 		0x00000000, 0x00000000, 0x00000000,
 	};
-
 
 	run_test("test_f32_s32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, true, conv_f32_to_s32_c);
@@ -665,21 +664,16 @@ static void test_lossless_s25_32_to_s32_to_f32_to_s32_to_s25_32_XFAIL(void)
 	spa_assert_se(max_abs_err == 1);
 }
 
-static void test_lossless_s25_32_to_f32_to_s32_to_s25_32_XFAIL(void)
+static void test_lossless_s25_32_to_f32_to_s32_to_s25_32(void)
 {
 	int32_t i;
 
-	int all_lossless = 1;
-	int32_t max_abs_err = -1;
 	fprintf(stderr, "test %s:\n", __func__);
 	for (i = S25_MIN; i <= S25_MAX; i+=1) {
 		float v = S25_32_TO_F32(i);
 		int32_t t = S32_TO_S25_32(F32_TO_S32(v));
-		all_lossless &= i == t;
-		max_abs_err = SPA_MAX(max_abs_err, SPA_ABS(i - t));
+		spa_assert_se(i == t);
 	}
-	spa_assert_se(!all_lossless);
-	spa_assert_se(max_abs_err == 1);
 }
 
 static void test_lossless_s32(void)
@@ -883,7 +877,7 @@ int main(int argc, char *argv[])
 	test_lossless_s25_32_to_f32_to_s25_32();
 	test_lossless_s25_32_to_s32_to_f32_to_s25_32_XFAIL();
 	test_lossless_s25_32_to_s32_to_f32_to_s32_to_s25_32_XFAIL();
-	test_lossless_s25_32_to_f32_to_s32_to_s25_32_XFAIL();
+	test_lossless_s25_32_to_f32_to_s32_to_s25_32();
 	test_lossless_s32();
 	test_lossless_s32_lossless_subset();
 	test_lossless_u32();

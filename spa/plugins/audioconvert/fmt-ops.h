@@ -123,8 +123,8 @@
 #define S32_MAX			(S24_MAX * 256)
 #define S32_TO_F32(v)		ITOF(int32_t, S32_TO_S24_32(v), S24_SCALE, 0.0f)
 #define S32S_TO_F32(v)		S32_TO_F32(bswap_32(v))
-#define F32_TO_S32(v)		S24_32_TO_S32(F32_TO_S24_32(v))
-#define F32_TO_S32_D(v,d)	S24_32_TO_S32(F32_TO_S24_32_D(v,d))
+#define F32_TO_S32_D(v,d)	S25_32_TO_S32(F32_TO_S25_32_D(v,d))
+#define F32_TO_S32(v)		F32_TO_S32_D(v, 0.0f)
 #define F32_TO_S32S(v)		bswap_32(F32_TO_S32(v))
 #define F32_TO_S32S_D(v,d)	bswap_32(F32_TO_S32_D(v,d))
 

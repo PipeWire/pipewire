@@ -316,7 +316,7 @@ conv_s32_to_f32d_4s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	float *d0 = dst[0], *d1 = dst[1], *d2 = dst[2], *d3 = dst[3];
 	uint32_t n, unrolled;
 	__m256i in[4];
-	__m256 out[4], factor = _mm256_set1_ps(1.0f / S25_SCALE);
+	__m256 out[4], factor = _mm256_set1_ps(1.0f / S32_SCALE);
 	__m256i mask1 = _mm256_setr_epi32(0*n_channels, 1*n_channels, 2*n_channels, 3*n_channels,
 					  4*n_channels, 5*n_channels, 6*n_channels, 7*n_channels);
 
@@ -333,11 +333,6 @@ conv_s32_to_f32d_4s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 		in[1] = _mm256_i32gather_epi32((int*)&s[1], mask1, 4);
 		in[2] = _mm256_i32gather_epi32((int*)&s[2], mask1, 4);
 		in[3] = _mm256_i32gather_epi32((int*)&s[3], mask1, 4);
-
-		in[0] = _mm256_srai_epi32(in[0], 7);
-		in[1] = _mm256_srai_epi32(in[1], 7);
-		in[2] = _mm256_srai_epi32(in[2], 7);
-		in[3] = _mm256_srai_epi32(in[3], 7);
 
 		out[0] = _mm256_cvtepi32_ps(in[0]);
 		out[1] = _mm256_cvtepi32_ps(in[1]);
@@ -357,11 +352,11 @@ conv_s32_to_f32d_4s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 		s += 8*n_channels;
 	}
 	for(; n < n_samples; n++) {
-        __m128 out[4], factor = _mm_set1_ps(1.0f / S25_SCALE);
-		out[0] = _mm_cvtsi32_ss(factor, s[0] >> 7);
-		out[1] = _mm_cvtsi32_ss(factor, s[1] >> 7);
-		out[2] = _mm_cvtsi32_ss(factor, s[2] >> 7);
-		out[3] = _mm_cvtsi32_ss(factor, s[3] >> 7);
+        __m128 out[4], factor = _mm_set1_ps(1.0f / S32_SCALE);
+		out[0] = _mm_cvtsi32_ss(factor, s[0]);
+		out[1] = _mm_cvtsi32_ss(factor, s[1]);
+		out[2] = _mm_cvtsi32_ss(factor, s[2]);
+		out[3] = _mm_cvtsi32_ss(factor, s[3]);
 		out[0] = _mm_mul_ss(out[0], factor);
 		out[1] = _mm_mul_ss(out[1], factor);
 		out[2] = _mm_mul_ss(out[2], factor);
@@ -382,7 +377,7 @@ conv_s32_to_f32d_2s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	float *d0 = dst[0], *d1 = dst[1];
 	uint32_t n, unrolled;
 	__m256i in[4];
-	__m256 out[4], factor = _mm256_set1_ps(1.0f / S25_SCALE);
+	__m256 out[4], factor = _mm256_set1_ps(1.0f / S32_SCALE);
 	__m256i mask1 = _mm256_setr_epi32(0*n_channels, 1*n_channels, 2*n_channels, 3*n_channels,
 					  4*n_channels, 5*n_channels, 6*n_channels, 7*n_channels);
 
@@ -396,9 +391,6 @@ conv_s32_to_f32d_2s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 		in[0] = _mm256_i32gather_epi32((int*)&s[0], mask1, 4);
 		in[1] = _mm256_i32gather_epi32((int*)&s[1], mask1, 4);
 
-		in[0] = _mm256_srai_epi32(in[0], 7);
-		in[1] = _mm256_srai_epi32(in[1], 7);
-
 		out[0] = _mm256_cvtepi32_ps(in[0]);
 		out[1] = _mm256_cvtepi32_ps(in[1]);
 
@@ -411,9 +403,9 @@ conv_s32_to_f32d_2s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 		s += 8*n_channels;
 	}
 	for(; n < n_samples; n++) {
-		__m128 out[2], factor = _mm_set1_ps(1.0f / S25_SCALE);
-		out[0] = _mm_cvtsi32_ss(factor, s[0] >> 7);
-		out[1] = _mm_cvtsi32_ss(factor, s[1] >> 7);
+		__m128 out[2], factor = _mm_set1_ps(1.0f / S32_SCALE);
+		out[0] = _mm_cvtsi32_ss(factor, s[0]);
+		out[1] = _mm_cvtsi32_ss(factor, s[1]);
 		out[0] = _mm_mul_ss(out[0], factor);
 		out[1] = _mm_mul_ss(out[1], factor);
 		_mm_store_ss(&d0[n], out[0]);
@@ -430,7 +422,7 @@ conv_s32_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	float *d0 = dst[0];
 	uint32_t n, unrolled;
 	__m256i in[2];
-	__m256 out[2], factor = _mm256_set1_ps(1.0f / S25_SCALE);
+	__m256 out[2], factor = _mm256_set1_ps(1.0f / S32_SCALE);
 	__m256i mask1 = _mm256_setr_epi32(0*n_channels, 1*n_channels, 2*n_channels, 3*n_channels,
 					  4*n_channels, 5*n_channels, 6*n_channels, 7*n_channels);
 
@@ -442,9 +434,6 @@ conv_s32_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	for(n = 0; n < unrolled; n += 16) {
 		in[0] = _mm256_i32gather_epi32(&s[0*n_channels], mask1, 4);
 		in[1] = _mm256_i32gather_epi32(&s[8*n_channels], mask1, 4);
-
-		in[0] = _mm256_srai_epi32(in[0], 7);
-		in[1] = _mm256_srai_epi32(in[1], 7);
 
 		out[0] = _mm256_cvtepi32_ps(in[0]);
 		out[1] = _mm256_cvtepi32_ps(in[1]);
@@ -458,8 +447,8 @@ conv_s32_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 		s += 16*n_channels;
 	}
 	for(; n < n_samples; n++) {
-		__m128 out, factor = _mm_set1_ps(1.0f / S25_SCALE);
-		out = _mm_cvtsi32_ss(factor, s[0] >> 7);
+		__m128 out, factor = _mm_set1_ps(1.0f / S32_SCALE);
+		out = _mm_cvtsi32_ss(factor, s[0]);
 		out = _mm_mul_ss(out, factor);
 		_mm_store_ss(&d0[n], out);
 		s += n_channels;

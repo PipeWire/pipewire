@@ -335,7 +335,7 @@ conv_s32_to_f32d_1s_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	float *d0 = dst[0];
 	uint32_t n, unrolled;
 	__m128i in;
-	__m128 out, factor = _mm_set1_ps(1.0f / S25_SCALE);
+	__m128 out, factor = _mm_set1_ps(1.0f / S32_SCALE);
 
 	if (SPA_IS_ALIGNED(d0, 16))
 		unrolled = n_samples & ~3;
@@ -347,14 +347,13 @@ conv_s32_to_f32d_1s_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 				    s[1*n_channels],
 				    s[2*n_channels],
 				    s[3*n_channels]);
-		in = _mm_srai_epi32(in, 7);
 		out = _mm_cvtepi32_ps(in);
 		out = _mm_mul_ps(out, factor);
 		_mm_store_ps(&d0[n], out);
 		s += 4*n_channels;
 	}
 	for(; n < n_samples; n++) {
-		out = _mm_cvtsi32_ss(factor, s[0]>>7);
+		out = _mm_cvtsi32_ss(factor, s[0]);
 		out = _mm_mul_ss(out, factor);
 		_mm_store_ss(&d0[n], out);
 		s += n_channels;

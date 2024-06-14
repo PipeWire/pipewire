@@ -336,7 +336,7 @@ static void test_s32_f32(void)
 		0xFFFFFF00, 0x0200, 0xFFFFFE00
 	};
 
-	static const float out[] = { 0.e+00f, 9.99999940395355224609375e-01f, -1.e+00f,
+	static const float out[] = { 0.e+00f, 1.e+00f, -1.e+00f,
 		9.9999988079071044921875e-01f, -9.9999988079071044921875e-01f, 5.e-01f,
 		-5.e-01f, 5.9604644775390625e-08f, -5.9604644775390625e-08f,
 		1.1920928955078125e-07f, -1.1920928955078125e-07f,
@@ -672,15 +672,15 @@ static void test_lossless_s32(void)
 {
 	int64_t i;
 
-	int32_t max_abs_err = -1;
-	const int32_t expected_max_abs_err = 127;
 	fprintf(stderr, "test %s:\n", __func__);
-	for (i = S32_MIN; i < S32_MAX; i += (expected_max_abs_err >> 1)) {
+	for (i = S32_MIN; i < S32_MAX; i += 63) {
 		float v = S32_TO_F32(i);
 		int32_t t = F32_TO_S32(v);
-		max_abs_err = SPA_MAX(max_abs_err, SPA_ABS(i - t));
+		spa_assert_se(SPA_ABS(i - t) <= 126);
+		// NOTE: 126 is the maximal absolute error given step=1,
+		// for wider steps it may (errneously) be lower,
+		// because we may not check some integer that would bump it.
 	}
-	spa_assert_se(max_abs_err == expected_max_abs_err);
 }
 
 static void test_lossless_s32_lossless_subset(void)
@@ -700,7 +700,7 @@ static void test_lossless_s32_lossless_subset(void)
 		}
 	}
 	spa_assert_se(!all_lossless);
-	spa_assert_se(max_abs_err == 127);
+	spa_assert_se(max_abs_err == 64);
 }
 
 static void test_lossless_u32(void)

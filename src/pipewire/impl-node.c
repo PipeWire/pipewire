@@ -899,9 +899,8 @@ int pw_impl_node_register(struct pw_impl_node *this,
 	this->rt.target.id = this->info.id;
 	this->rt.target.activation->position.clock.id = this->global->id;
 
-	copy_target(&this->rt.driver_target, &this->rt.target);
-	pw_impl_node_add_target(this, &this->rt.driver_target);
-	pw_impl_node_add_target(this, &this->rt.target);
+	this->from_driver_peer = pw_node_peer_ref(this, this);
+	this->to_driver_peer = pw_node_peer_ref(this, this);
 
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->global->id);
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
@@ -983,18 +982,16 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 			old->name, old->info.id, driver->name, driver->info.id);
 
 	/* make sure the old driver doesn't trigger the node anymore */
-	pw_impl_node_remove_target(old, &node->rt.target);
+	pw_node_peer_unref(spa_steal_ptr(node->from_driver_peer));
 	/* make sure the node doesn't trigger the old driver anymore */
-	pw_impl_node_remove_target(node, &node->rt.driver_target);
-	spa_zero(node->rt.driver_target);
+	pw_node_peer_unref(spa_steal_ptr(node->to_driver_peer));
 
 	node->driver_node = driver;
 	node->moved = true;
 
 	/* first send new driver target to node, the node is not yet being
 	 * scheduled so it won't trigger yet */
-	copy_target(&node->rt.driver_target, &driver->rt.target);
-	pw_impl_node_add_target(node, &node->rt.driver_target);
+	node->to_driver_peer = pw_node_peer_ref(node, driver);
 
 	/* then set the new driver node activation */
 	pw_impl_node_set_io(node, SPA_IO_Position,
@@ -1002,7 +999,7 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 			sizeof(struct spa_io_position));
 
 	/* and then make the driver trigger the node */
-	pw_impl_node_add_target(driver, &node->rt.target);
+	node->from_driver_peer = pw_node_peer_ref(driver, node);
 
 	pw_impl_node_emit_driver_changed(node, old, driver);
 
@@ -2117,7 +2114,6 @@ static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_po
 {
 	struct pw_impl_node *this = data;
 	struct pw_node_activation *a = this->rt.target.activation;
-	struct pw_node_activation *da = this->rt.driver_target.activation;
 	struct spa_system *data_system = this->rt.target.system;
 	uint64_t nsec = get_time_ns(data_system);
 	int suppressed;
@@ -2126,8 +2122,8 @@ static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_po
 
 	if ((suppressed = spa_ratelimit_test(&this->rt.rate_limit, nsec)) >= 0) {
 		struct spa_fraction rate;
-		if (da) {
-			struct spa_io_clock *cl = &da->position.clock;
+		if (a) {
+			struct spa_io_clock *cl = &a->position.clock;
 			rate.num = cl->rate.num * cl->duration;
 			rate.denom = cl->rate.denom;
 		} else {
@@ -2303,8 +2299,8 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 
 	/* remove ourself as a follower from the driver node */
 	spa_list_remove(&node->follower_link);
-	pw_impl_node_remove_target(node, &node->rt.driver_target);
-	pw_impl_node_remove_target(node->driver_node, &node->rt.target);
+	pw_node_peer_unref(spa_steal_ptr(node->from_driver_peer));
+	pw_node_peer_unref(spa_steal_ptr(node->to_driver_peer));
 	remove_segment_owner(node->driver_node, node->info.id);
 
 	spa_list_consume(follower, &node->follower_list, follower_link) {

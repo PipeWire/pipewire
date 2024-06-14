@@ -1210,8 +1210,8 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 	/* the node might have been registered and added to a driver. When we export,
 	 * we will be assigned a new driver target from the server and we can forget our
 	 * local ones. */
-	pw_impl_node_remove_target(node, &node->rt.driver_target);
-	pw_impl_node_remove_target(node->driver_node, &node->rt.target);
+	pw_node_peer_unref(spa_steal_ptr(node->from_driver_peer));
+	pw_node_peer_unref(spa_steal_ptr(node->to_driver_peer));
 
 	data->allow_mlock = pw_properties_get_bool(node->properties, "mem.allow-mlock",
 						   data->context->settings.mem_allow_mlock);

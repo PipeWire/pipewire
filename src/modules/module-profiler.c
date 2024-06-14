@@ -225,7 +225,7 @@ static void context_do_profile(void *data)
 		struct pw_node_activation *na;
 		struct spa_fraction latency;
 
-		if (t->id == id || t->flags & PW_NODE_TARGET_PEER)
+		if (t->id == id)
 			continue;
 
 		if (n != NULL) {

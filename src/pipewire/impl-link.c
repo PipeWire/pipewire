@@ -52,7 +52,8 @@ struct impl {
 
 /** \endcond */
 
-static struct pw_node_peer *pw_node_peer_ref(struct pw_impl_node *onode, struct pw_impl_node *inode)
+SPA_EXPORT
+struct pw_node_peer *pw_node_peer_ref(struct pw_impl_node *onode, struct pw_impl_node *inode)
 {
 	struct pw_node_peer *peer;
 
@@ -70,7 +71,6 @@ static struct pw_node_peer *pw_node_peer_ref(struct pw_impl_node *onode, struct 
 	peer->ref = 1;
 	peer->output = onode;
 	copy_target(&peer->target, &inode->rt.target);
-	peer->target.flags = PW_NODE_TARGET_PEER;
 
 	spa_list_append(&onode->peer_list, &peer->link);
 	pw_log_debug("new peer %p from %p to %p", peer, onode, inode);
@@ -79,9 +79,10 @@ static struct pw_node_peer *pw_node_peer_ref(struct pw_impl_node *onode, struct 
 	return peer;
 }
 
-static void pw_node_peer_unref(struct pw_node_peer *peer)
+SPA_EXPORT
+void pw_node_peer_unref(struct pw_node_peer *peer)
 {
-	if (--peer->ref > 0)
+	if (peer == NULL || --peer->ref > 0)
 		return;
 	spa_list_remove(&peer->link);
 	pw_log_debug("remove peer %p from %p to %p", peer, peer->output, peer->target.node);

@@ -532,8 +532,6 @@ static inline void pw_node_activation_state_reset(struct pw_node_activation_stat
 
 struct pw_node_target {
 	struct spa_list link;
-#define PW_NODE_TARGET_NONE	0
-#define PW_NODE_TARGET_PEER	1
 	uint32_t flags;
 	uint32_t id;
 	char name[128];
@@ -661,6 +659,16 @@ static inline void trigger_target(struct pw_node_target *t, uint64_t nsec)
 		wake_target(t, nsec);
 }
 
+struct pw_node_peer {
+	int ref;
+	struct spa_list link;			/**< link in peer list */
+	struct pw_impl_node *output;		/**< the output node */
+	struct pw_node_target target;		/**< target of the input node */
+};
+
+struct pw_node_peer *pw_node_peer_ref(struct pw_impl_node *onode, struct pw_impl_node *inode);
+void pw_node_peer_unref(struct pw_node_peer *peer);
+
 #define pw_impl_node_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_impl_node_events, m, v, ##__VA_ARGS__)
 #define pw_impl_node_emit_destroy(n)			pw_impl_node_emit(n, destroy, 0)
 #define pw_impl_node_emit_free(n)			pw_impl_node_emit(n, free, 0)
@@ -779,7 +787,6 @@ struct pw_impl_node {
 
 		struct spa_list target_list;		/* list of targets to signal after
 							 * this node */
-		struct pw_node_target driver_target;	/* driver target that we signal */
 		struct spa_list input_mix;		/* our input ports (and mixers) */
 		struct spa_list output_mix;		/* output ports (and mixers) */
 
@@ -791,6 +798,8 @@ struct pw_impl_node {
 
 		bool prepared;				/**< the node was added to loop */
 	} rt;
+	struct pw_node_peer *to_driver_peer;		/* node -> driver */
+	struct pw_node_peer *from_driver_peer;		/* driver -> node */
 	struct spa_fraction target_rate;
 	uint64_t target_quantum;
 
@@ -934,13 +943,6 @@ struct pw_control_link {
 	uint32_t out_port;
 	uint32_t in_port;
 	unsigned int valid:1;
-};
-
-struct pw_node_peer {
-	int ref;
-	struct spa_list link;			/**< link in peer list */
-	struct pw_impl_node *output;		/**< the output node */
-	struct pw_node_target target;		/**< target of the input node */
 };
 
 #define pw_impl_link_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_impl_link_events, m, v, ##__VA_ARGS__)

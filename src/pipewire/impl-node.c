@@ -147,9 +147,10 @@ do_node_prepare(struct spa_loop *loop, bool async, uint32_t seq,
 			pw_log_warn("%p: read failed %m", this);
 
 		spa_loop_add_source(loop, &this->source);
-
-		SPA_ATOMIC_STORE(this->rt.target.activation->status, PW_NODE_ACTIVATION_FINISHED);
 	}
+	if (!this->remote || this->server_status)
+		SPA_ATOMIC_STORE(this->rt.target.activation->status, PW_NODE_ACTIVATION_FINISHED);
+
 	spa_list_for_each(t, &this->rt.target_list, link)
 		activate_target(this, t);
 
@@ -178,7 +179,7 @@ do_node_unprepare(struct spa_loop *loop, bool async, uint32_t seq,
 	if (!this->rt.prepared)
 		return 0;
 
-	if (!this->remote) {
+	if (!this->remote || this->server_status) {
 		/* We mark ourself as finished now, this will avoid going further into the process loop
 		 * in case our fd was ready (removing ourselfs from the loop should avoid that as well).
 		 * If we were supposed to be scheduled make sure we continue the graph for the peers we
@@ -186,9 +187,10 @@ do_node_unprepare(struct spa_loop *loop, bool async, uint32_t seq,
 		old_state = SPA_ATOMIC_XCHG(this->rt.target.activation->status, PW_NODE_ACTIVATION_INACTIVE);
 		if (old_state != PW_NODE_ACTIVATION_FINISHED)
 			trigger = get_time_ns(this->rt.target.system);
-
-		spa_loop_remove_source(loop, &this->source);
 	}
+	if (!this->remote)
+		spa_loop_remove_source(loop, &this->source);
+
 	spa_list_for_each(t, &this->rt.target_list, link)
 		deactivate_target(this, t, trigger);
 

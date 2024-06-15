@@ -570,7 +570,7 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 		const char *path;
 		struct call *call_object;
 		const char *mm_call_interface = MM_DBUS_INTERFACE_CALL;
-		spa_autoptr(DBusMessage) m = NULL;
+		spa_autoptr(DBusMessage) m2 = NULL;
 
 		if (!spa_streq(this->modem.path, dbus_message_get_path(m)))
 			goto finish;
@@ -590,12 +590,12 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 		call_object->path = strdup(path);
 		spa_list_append(&this->call_list, &call_object->link);
 
-		m = dbus_message_new_method_call(MM_DBUS_SERVICE, path, DBUS_INTERFACE_PROPERTIES, "GetAll");
-		if (m == NULL)
+		m2 = dbus_message_new_method_call(MM_DBUS_SERVICE, path, DBUS_INTERFACE_PROPERTIES, "GetAll");
+		if (m2 == NULL)
 			goto finish;
-		dbus_message_append_args(m, DBUS_TYPE_STRING, &mm_call_interface, DBUS_TYPE_INVALID);
+		dbus_message_append_args(m2, DBUS_TYPE_STRING, &mm_call_interface, DBUS_TYPE_INVALID);
 
-		call_object->pending = send_with_reply(this->conn, m, mm_get_call_properties_reply, call_object);
+		call_object->pending = send_with_reply(this->conn, m2, mm_get_call_properties_reply, call_object);
 		if (!call_object->pending) {
 			spa_log_error(this->log, "dbus call failure");
 			goto finish;

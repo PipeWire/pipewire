@@ -1,5 +1,6 @@
 /* PipeWire */
 /* SPDX-FileCopyrightText: Copyright © 2018 Wim Taymans */
+/* SPDX-FileCopyrightText: Copyright © 2024 Nedko Arnaudov */
 /* SPDX-License-Identifier: MIT */
 
 #include "config.h"
@@ -142,11 +143,16 @@ struct object {
 #define INTERFACE_Port		1
 #define INTERFACE_Node		2
 #define INTERFACE_Link		3
+#define INTERFACE_Client	4
 	uint32_t type;
 	uint32_t id;
 	uint32_t serial;
 
 	union {
+		struct {
+			char name[1024];
+			int32_t pid;
+		} pwclient;
 		struct {
 			char name[JACK_CLIENT_NAME_SIZE+1];
 			char node_name[512];
@@ -877,6 +883,11 @@ static struct object *find_type(struct client *c, uint32_t id, uint32_t type, bo
 	if (o != NULL && o->type == type)
 		return o;
 	return NULL;
+}
+
+static struct object *find_client(struct client *c, uint32_t client_id)
+{
+	return find_type(c, client_id, INTERFACE_Client, false);
 }
 
 static struct object *find_link(struct client *c, uint32_t src, uint32_t dst)
@@ -3681,6 +3692,7 @@ static void registry_event_global(void *data, uint32_t id,
 	const char *str;
 	bool do_emit = true, do_sync = false;
 	uint32_t serial;
+	const char *app;
 
 	if (props == NULL)
 		return;
@@ -3691,8 +3703,30 @@ static void registry_event_global(void *data, uint32_t id,
 
 	pw_log_debug("new %s id:%u serial:%u", type, id, serial);
 
-	if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
-		const char *app, *node_name;
+	if (spa_streq(type, PW_TYPE_INTERFACE_Client)) {
+		app = spa_dict_lookup(props, PW_KEY_APP_NAME);
+
+		if ((str = spa_dict_lookup(props, PW_KEY_SEC_PID)) != NULL) {
+			pw_log_debug("%p: pid of \"%s\" is \"%s\"", c, app, str);
+		} else {
+			pw_log_debug("%p: pid of \"%s\" is unknown", c, app);
+		}
+
+		o = alloc_object(c, INTERFACE_Client);
+		if (o == NULL)
+			goto exit;
+
+		o->pwclient.pid = (int32_t)atoi(str);
+		snprintf(o->pwclient.name, sizeof(o->pwclient.name), "%s", app);
+
+		pw_log_debug("%p: add pw client %d (%s) pid %llu", c, id, app, (unsigned long long)o->pwclient.pid);
+
+		pthread_mutex_lock(&c->context.lock);
+		spa_list_append(&c->context.objects, &o->link);
+		pthread_mutex_unlock(&c->context.lock);
+	}
+	else if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
+		const char *node_name;
 		char tmp[JACK_CLIENT_NAME_SIZE+1];
 
 		o = alloc_object(c, INTERFACE_Node);
@@ -4051,6 +4085,9 @@ static void registry_event_global_remove(void *data, uint32_t id)
 	o->removing = true;
 
 	switch (o->type) {
+	case INTERFACE_Client:
+		free_object(c, o);
+		break;
 	case INTERFACE_Node:
 		if (c->metadata) {
 			if (spa_streq(o->node.node_name, c->metadata->default_audio_sink))
@@ -4120,6 +4157,8 @@ static int execute_match(void *data, const char *location, const char *action,
 		pw_properties_update_string(client->props, val, len);
 	return 1;
 }
+
+static struct client * g_first_client;
 
 SPA_EXPORT
 jack_client_t * jack_client_open (const char *client_name,
@@ -4411,6 +4450,9 @@ jack_client_t * jack_client_open (const char *client_name,
 	}
 	pw_thread_loop_unlock(client->context.loop);
 
+	if (g_first_client == NULL)
+		g_first_client = client;
+
 	pw_thread_loop_start(client->context.notify);
 
 	pw_log_info("%p: opened", client);
@@ -4467,6 +4509,9 @@ int jack_client_close (jack_client_t *client)
 	return_val_if_fail(c != NULL, -EINVAL);
 
 	pw_log_info("%p: close", client);
+
+	if (g_first_client == c)
+		g_first_client = NULL;
 
 	c->destroyed = true;
 
@@ -4774,8 +4819,25 @@ int jack_deactivate (jack_client_t *client)
 SPA_EXPORT
 int jack_get_client_pid (const char *name)
 {
-	pw_log_error("not implemented on library side");
-	return 0;
+	struct object *on, *oc;
+
+	if (g_first_client == NULL) return 0;
+
+	on = find_node(g_first_client, name);
+	if (on == NULL) {
+		pw_log_warn("unknown (jack-client) node \"%s\"", name);
+		return 0;
+	}
+
+	oc = find_client(g_first_client, on->node.client_id);
+	if (oc == NULL) {
+		pw_log_warn("unknown (pw) client %d", (int)on->node.client_id);
+		return 0;
+	}
+
+	pw_log_info("pid %d (%s)", (int)oc->pwclient.pid, oc->pwclient.name);
+
+	return (int)oc->pwclient.pid;
 }
 
 SPA_EXPORT

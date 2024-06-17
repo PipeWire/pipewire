@@ -6140,6 +6140,7 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 	char key[256];
 	char bis_key[256];
 	char qos_key[256];
+	char bcode[BROADCAST_CODE_LEN + 3];
 	int cursor;
 	int big_id = 0;
 	struct spa_json it[4], it_array[4];
@@ -6171,22 +6172,10 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 		/* Iterate on all BIG values */
 		while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 			if (spa_streq(key, "broadcast_code")) {
-				/* Len is BROADCAST_CODE_LEN plus 2 (for the quotes, as they count towards the string length
-				 * even if they don't appear in the final big_entry->broadcast_code string) plus 1 for the
-				 * null string terminator.
-				 */
-				if (spa_json_get_string(&it[1], big_entry->broadcast_code,BROADCAST_CODE_LEN + 2 + 1) <= 0)
+				if (spa_json_get_string(&it[1], bcode, sizeof(bcode)) <= 0)
 						goto parse_failed;
-				/* BLUETOOTH CORE SPECIFICATION Version 5.4 | Vol 3, Part C
-				 * 3.2.6.3 Representation
-				 *
-				 * The transformation from string to number shall be by
-				 * representing the string in UTF-8, placing the resulting bytes in 8-bit fields of the
-				 * value starting at the least significant bit, and then padding with zeros in the
-				 * most significant bits if necessary.
-				*/
-				for (int i = 0; i <= BROADCAST_CODE_LEN/2 - 1; i++)
-					SPA_SWAP(big_entry->broadcast_code[i], big_entry->broadcast_code[BROADCAST_CODE_LEN - 1 -i]);
+				if (strlen(bcode) <= 16)
+					memcpy(big_entry->broadcast_code, bcode, strlen(bcode));
 				spa_log_debug(monitor->log, "big_entry->broadcast_code %s", big_entry->broadcast_code);
 			} else if (spa_streq(key, "encryption")) {
 				if (spa_json_get_bool(&it[1], &big_entry->encryption) <= 0)

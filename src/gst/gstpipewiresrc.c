@@ -768,6 +768,7 @@ gst_pipewire_src_stream_start (GstPipeWireSrc *pwsrc)
 start_error:
   {
     GST_DEBUG_OBJECT (pwsrc, "error starting stream: %s", error);
+    pwsrc->started = FALSE;
     pw_thread_loop_signal (pwsrc->stream->core->loop, FALSE);
     pw_thread_loop_unlock (pwsrc->stream->core->loop);
     return FALSE;
@@ -780,11 +781,20 @@ wait_started (GstPipeWireSrc *this)
   enum pw_stream_state state, prev_state = PW_STREAM_STATE_UNCONNECTED;
   const char *error = NULL;
   struct timespec abstime;
+  gboolean restart = FALSE;
 
   pw_thread_loop_lock (this->stream->core->loop);
 
   pw_thread_loop_get_time (this->stream->core->loop, &abstime,
                   GST_PIPEWIRE_DEFAULT_TIMEOUT * SPA_NSEC_PER_SEC);
+
+  /* when started already is true then expects a re-start, so allow prev_state
+   * degrade until turned around. */
+  if (this->started) {
+    GST_DEBUG_OBJECT (this, "restart in progress");
+    restart = TRUE;
+    this->started = FALSE;
+  }
 
   while (TRUE) {
     state = pw_stream_get_state (this->stream->pwstream, &error);
@@ -793,7 +803,7 @@ wait_started (GstPipeWireSrc *this)
         pw_stream_state_as_string (state));
 
     if (state == PW_STREAM_STATE_ERROR ||
-        (state == PW_STREAM_STATE_UNCONNECTED && prev_state > PW_STREAM_STATE_UNCONNECTED) ||
+        (state == PW_STREAM_STATE_UNCONNECTED && prev_state > PW_STREAM_STATE_UNCONNECTED && !restart) ||
         this->flushing) {
       state = PW_STREAM_STATE_ERROR;
       break;
@@ -811,6 +821,8 @@ wait_started (GstPipeWireSrc *this)
       pw_thread_loop_wait (this->stream->core->loop);
     }
 
+    if (restart)
+      restart = state != PW_STREAM_STATE_UNCONNECTED;
     prev_state = state;
   }
   GST_DEBUG_OBJECT (this, "got started signal: %s",
@@ -973,10 +985,10 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
 
   GST_DEBUG_OBJECT (pwsrc, "set format %" GST_PTR_FORMAT, negotiated_caps);
   result = gst_base_src_set_caps (GST_BASE_SRC (pwsrc), negotiated_caps);
+  if (!result)
+    goto no_caps;
 
   result = gst_pipewire_src_stream_start (pwsrc);
-
-  pwsrc->started = result;
 
   return result;
 
@@ -1431,13 +1443,13 @@ gst_pipewire_src_change_state (GstElement * element, GstStateChange transition)
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
       /* uncork and start recording */
       pw_thread_loop_lock (this->stream->core->loop);
-      pw_stream_set_active(this->stream->pwstream, true);
+      pw_stream_set_active (this->stream->pwstream, true);
       pw_thread_loop_unlock (this->stream->core->loop);
       break;
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
       /* stop recording ASAP by corking */
       pw_thread_loop_lock (this->stream->core->loop);
-      pw_stream_set_active(this->stream->pwstream, false);
+      pw_stream_set_active (this->stream->pwstream, false);
       pw_thread_loop_unlock (this->stream->core->loop);
       break;
     default:
@@ -1450,6 +1462,16 @@ gst_pipewire_src_change_state (GstElement * element, GstStateChange transition)
     case GST_STATE_CHANGE_READY_TO_PAUSED:
       if (wait_started (this) == PW_STREAM_STATE_ERROR)
         goto open_failed;
+
+      pw_thread_loop_lock (this->stream->core->loop);
+      /* the initial stream state is active, which is needed for linking and
+       * negotiation to happen and the bufferpool to be set up. We don't know
+       * if we'll go to playing, so we deactivate the stream until that
+       * transition happens. This is janky, but because of how bins propagate
+       * state changes one transition at a time, there may not be a better way
+       * to do this. */
+      pw_stream_set_active (this->stream->pwstream, false);
+      pw_thread_loop_unlock (this->stream->core->loop);
 
       if (gst_base_src_is_live (GST_BASE_SRC (element)))
         ret = GST_STATE_CHANGE_NO_PREROLL;

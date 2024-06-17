@@ -1799,12 +1799,10 @@ struct pw_impl_client_node *pw_impl_client_node_new(struct pw_resource *resource
 
 	this->node->remote = true;
 	this->flags = 0;
-	if (resource->version < 5) {
-		pw_log_warn("using server side driver for old client version %d", resource->version);
-	}
-	if (resource->version < 6) {
-		pw_log_warn("using server side status for old client version %d", resource->version);
-		this->node->server_status = true;
+	if (resource->version < PW_VERSION_CLIENT_NODE) {
+		pw_log_warn("detected old client version %d", resource->version);
+		if (resource->version < 6)
+			this->node->rt.target.activation->client_version = 0;
 	}
 
 	pw_resource_add_listener(this->resource,

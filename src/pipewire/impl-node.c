@@ -94,7 +94,7 @@ static inline void deactivate_target(struct pw_impl_node *node, struct pw_node_t
 			 * required state. This way we either resume with the old value
 			 * or we don't when the driver has not yet copied */
 			if (trigger != 0)
-				trigger_target(t, trigger);
+				t->trigger(t, trigger);
 			if (!node->exported)
 				SPA_ATOMIC_DEC(state->required);
 		}
@@ -113,7 +113,7 @@ static inline void trigger_targets(struct pw_impl_node *node, int status, uint64
 			node, node->name, node->info.id, nsec);
 
 	spa_list_for_each(ta, &node->rt.target_list, link)
-		trigger_target(ta, nsec);
+		ta->trigger(ta, nsec);
 }
 
 /** \endcond */
@@ -148,7 +148,7 @@ do_node_prepare(struct spa_loop *loop, bool async, uint32_t seq,
 
 		spa_loop_add_source(loop, &this->source);
 	}
-	if (!this->remote || this->server_status)
+	if (!this->remote || this->rt.target.activation->client_version < 1)
 		SPA_ATOMIC_STORE(this->rt.target.activation->status, PW_NODE_ACTIVATION_FINISHED);
 
 	spa_list_for_each(t, &this->rt.target_list, link)
@@ -179,7 +179,7 @@ do_node_unprepare(struct spa_loop *loop, bool async, uint32_t seq,
 	if (!this->rt.prepared)
 		return 0;
 
-	if (!this->remote || this->server_status) {
+	if (!this->remote || this->rt.target.activation->client_version < 1) {
 		/* We mark ourself as finished now, this will avoid going further into the process loop
 		 * in case our fd was ready (removing ourselfs from the loop should avoid that as well).
 		 * If we were supposed to be scheduled make sure we continue the graph for the peers we
@@ -1312,9 +1312,6 @@ static inline void debug_xrun_graph(struct pw_impl_node *driver, uint64_t nsec)
 		struct pw_node_activation *a = t->activation;
 		struct pw_node_activation_state *state = &a->state[0];
 
-		if (t->id == driver->info.id)
-			continue;
-
 		if (a->status == PW_NODE_ACTIVATION_TRIGGERED ||
 		    a->status == PW_NODE_ACTIVATION_AWAKE) {
 			pw_log(level, "(%s-%u) xrun state:%p pending:%d/%d s:%"PRIu64" a:%"PRIu64" f:%"PRIu64
@@ -1443,7 +1440,7 @@ static inline int process_node(void *data, uint64_t nsec)
 	/* we don't need to trigger targets when the node was driving the
 	 * graph because that means we finished the graph. */
 	if (SPA_LIKELY(!this->driving)) {
-		if (!this->async && old_status == PW_NODE_ACTIVATION_AWAKE)
+		if ((!this->async || a->server_version < 1) && old_status == PW_NODE_ACTIVATION_AWAKE)
 			trigger_targets(this, status, nsec);
 	} else {
 		/* calculate CPU time when finished */
@@ -1461,7 +1458,8 @@ static inline int process_node(void *data, uint64_t nsec)
 int pw_impl_node_trigger(struct pw_impl_node *node)
 {
 	uint64_t nsec = get_time_ns(node->rt.target.system);
-	trigger_target(&node->rt.target, nsec);
+	struct pw_node_target *t = &node->rt.target;
+	t->trigger(t, nsec);
 	return 0;
 }
 
@@ -1619,11 +1617,14 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	this->rt.target.node = this;
 	this->rt.target.system = this->data_loop->system;
 	this->rt.target.fd = this->source.fd;
+	this->rt.target.trigger = trigger_target_v1;
 
 	reset_position(this, &this->rt.target.activation->position);
 	this->rt.target.activation->sync_timeout = DEFAULT_SYNC_TIMEOUT;
 	this->rt.target.activation->sync_left = 0;
 	this->rt.target.activation->status = PW_NODE_ACTIVATION_INACTIVE;
+	this->rt.target.activation->server_version = PW_VERSION_NODE_ACTIVATION;
+	this->rt.target.activation->client_version = PW_VERSION_NODE_ACTIVATION;
 
 	this->rt.rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
 	this->rt.rate_limit.burst = 1;

@@ -278,6 +278,7 @@ struct link {
 	struct pw_memmap *mem;
 	struct pw_node_activation *activation;
 	int signalfd;
+	void (*trigger) (struct link *l, uint64_t nsec);
 };
 
 struct context {
@@ -1884,7 +1885,7 @@ static inline uint32_t cycle_wait(struct client *c)
 	return nframes;
 }
 
-static void trigger_link(struct link *l, uint64_t nsec)
+static void trigger_link_v1(struct link *l, uint64_t nsec)
 {
 	struct client *c = l->client;
 	struct pw_node_activation *a = l->activation;
@@ -1896,8 +1897,8 @@ static void trigger_link(struct link *l, uint64_t nsec)
 
 	if (pw_node_activation_state_dec(state)) {
 		if (SPA_ATOMIC_CAS(a->status,
-				PW_NODE_ACTIVATION_NOT_TRIGGERED,
-				PW_NODE_ACTIVATION_TRIGGERED)) {
+					PW_NODE_ACTIVATION_NOT_TRIGGERED,
+					PW_NODE_ACTIVATION_TRIGGERED)) {
 			a->signal_time = nsec;
 
 			pw_log_trace_fp("%p: signal %p %p", c, l, state);
@@ -1908,8 +1909,31 @@ static void trigger_link(struct link *l, uint64_t nsec)
 	}
 }
 
+static void trigger_link_v0(struct link *l, uint64_t nsec)
+{
+	struct client *c = l->client;
+	struct pw_node_activation *a = l->activation;
+	struct pw_node_activation_state *state = &a->state[0];
+	uint64_t cmd = 1;
+
+	pw_log_trace_fp("%p: link %p-%d %p %d/%d", c, l, l->node_id, state,
+			state->pending, state->required);
+
+	if (pw_node_activation_state_dec(state)) {
+		SPA_ATOMIC_STORE(a->status, PW_NODE_ACTIVATION_TRIGGERED);
+		a->signal_time = nsec;
+
+		pw_log_trace_fp("%p: signal %p %p", c, l, state);
+
+		if (SPA_UNLIKELY(write(l->signalfd, &cmd, sizeof(cmd)) != sizeof(cmd)))
+			pw_log_warn("%p: write failed %m", c);
+	}
+}
+
 static inline void deactivate_link(struct client *c, struct link *l, uint64_t trigger)
 {
+	if (!c->async && trigger != 0)
+		l->trigger(l, trigger);
 }
 
 static inline void signal_sync(struct client *c)
@@ -1928,12 +1952,8 @@ static inline void signal_sync(struct client *c)
 	if (c->async || old_status != PW_NODE_ACTIVATION_AWAKE)
 		return;
 
-	spa_list_for_each(l, &c->rt.target_links, target_link) {
-		if (SPA_UNLIKELY(l->activation == NULL))
-			continue;
-
-		trigger_link(l, nsec);
-	}
+	spa_list_for_each(l, &c->rt.target_links, target_link)
+		l->trigger(l, nsec);
 }
 
 static inline void cycle_signal(struct client *c, int status)
@@ -2048,6 +2068,8 @@ static int client_node_transport(void *data,
 
 	pw_log_debug("%p: create client transport with fds %d %d for node %u",
 			c, readfd, writefd, c->node_id);
+
+	c->activation->client_version = PW_VERSION_NODE_ACTIVATION;
 
 	close(writefd);
 	c->socket_source = pw_loop_add_io(c->l,
@@ -2271,7 +2293,7 @@ static int do_unprepare_client(struct spa_loop *loop, bool async, uint32_t seq,
 
 	spa_list_for_each(l, &c->rt.target_links, target_link) {
 		if (!c->async && trigger != 0)
-			trigger_link(l, trigger);
+			l->trigger(l, trigger);
 	}
 
 	pw_loop_update_io(c->l,
@@ -3060,6 +3082,7 @@ static int client_node_set_activation(void *data,
 		link->mem = mm;
 		link->activation = ptr;
 		link->signalfd = signalfd;
+		link->trigger = link->activation->server_version < 1 ? trigger_link_v0 : trigger_link_v1;
 		spa_list_append(&c->links, &link->link);
 
 		pw_data_loop_invoke(c->loop,
@@ -6958,6 +6981,14 @@ int  jack_transport_reposition (jack_client_t *client,
 	return 0;
 }
 
+static void update_command(struct client *c, uint32_t command)
+{
+	struct pw_node_activation *a = c->rt.driver_activation;
+	if (!a)
+		return;
+	SPA_ATOMIC_STORE(a->command, command);
+}
+
 static int transport_update(struct client* c, int active)
 {
 	pw_log_info("%p: transport %d", c, active);
@@ -6984,7 +7015,10 @@ void jack_transport_start (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
 	return_if_fail(c != NULL);
-	transport_update(c, true);
+	if (c->activation->server_version < 1)
+		update_command(c, PW_NODE_ACTIVATION_COMMAND_START);
+	else
+		transport_update(c, true);
 }
 
 SPA_EXPORT
@@ -6992,7 +7026,10 @@ void jack_transport_stop (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
 	return_if_fail(c != NULL);
-	transport_update(c, false);
+	if (c->activation->server_version < 1)
+		update_command(c, PW_NODE_ACTIVATION_COMMAND_STOP);
+	else
+		transport_update(c, false);
 }
 
 SPA_EXPORT

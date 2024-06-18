@@ -70,6 +70,44 @@ struct resource_data {
 	struct spa_hook listener;
 };
 
+SPA_EXPORT
+struct pw_node_peer *pw_node_peer_ref(struct pw_impl_node *onode, struct pw_impl_node *inode)
+{
+	struct pw_node_peer *peer;
+
+	spa_list_for_each(peer, &onode->peer_list, link) {
+		if (peer->target.id == inode->info.id) {
+			pw_log_debug("exiting peer %p from %p to %p", peer, onode, inode);
+			peer->ref++;
+			return peer;
+		}
+	}
+	peer = calloc(1, sizeof(*peer));
+	if (peer == NULL)
+		return NULL;
+
+	peer->ref = 1;
+	peer->output = onode;
+	copy_target(&peer->target, &inode->rt.target);
+
+	spa_list_append(&onode->peer_list, &peer->link);
+	pw_log_debug("new peer %p from %p to %p", peer, onode, inode);
+	pw_impl_node_add_target(onode, &peer->target);
+
+	return peer;
+}
+
+SPA_EXPORT
+void pw_node_peer_unref(struct pw_node_peer *peer)
+{
+	if (peer == NULL || --peer->ref > 0)
+		return;
+	spa_list_remove(&peer->link);
+	pw_log_debug("remove peer %p from %p to %p", peer, peer->output, peer->target.node);
+	pw_impl_node_remove_target(peer->output, &peer->target);
+	free(peer);
+}
+
 static inline void activate_target(struct pw_impl_node *node, struct pw_node_target *t)
 {
 	struct pw_node_activation_state *state = &t->activation->state[0];

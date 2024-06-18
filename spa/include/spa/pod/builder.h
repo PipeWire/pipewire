@@ -481,7 +481,7 @@ do {										\
 		spa_pod_builder_long(builder, va_arg(args, int64_t));		\
 		break;								\
 	case 'f':								\
-		spa_pod_builder_float(builder, va_arg(args, double));		\
+		spa_pod_builder_float(builder, (float)va_arg(args, double));	\
 		break;								\
 	case 'd':								\
 		spa_pod_builder_double(builder, va_arg(args, double));		\

@@ -94,6 +94,7 @@ common_flags = [
   '-Wdeprecated-declarations',
   '-Wunused-result',
   '-Werror=return-type',
+  '-Werror=float-conversion',
 ]
 
 cc_flags = common_flags + [

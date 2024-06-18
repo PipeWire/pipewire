@@ -307,7 +307,7 @@ PWTEST(json_parse)
 	/* non-null terminated strings OK */
 	json = "1.234";
 	spa_json_init(&it[0], json, 4);
-	expect_float(&it[0], 1.23);
+	expect_float(&it[0], 1.23f);
 	expect_end(&it[0]);
 
 	json = "1234";

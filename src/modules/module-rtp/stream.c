@@ -285,7 +285,7 @@ static void parse_audio_info(const struct pw_properties *props, struct spa_audio
 
 static uint32_t msec_to_samples(struct impl *impl, float msec)
 {
-	return msec * impl->rate / 1000;
+	return (uint32_t)(msec * impl->rate / 1000);
 }
 static float samples_to_msec(struct impl *impl, uint32_t samples)
 {
@@ -509,7 +509,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	/* We're not expecting odd ptimes, so this modulo should be 0 */
 	if (fmodf(impl->target_buffer, ptime != 0)) {
 		pw_log_warn("sess.latency.msec should be an integer multiple of rtp.ptime");
-		impl->target_buffer = (impl->target_buffer / ptime) * impl->psamples;
+		impl->target_buffer = (uint32_t)((impl->target_buffer / ptime) * impl->psamples);
 	}
 
 	pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%d", impl->rate);

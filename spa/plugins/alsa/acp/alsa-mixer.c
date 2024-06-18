@@ -1147,7 +1147,7 @@ static int element_set_volume(pa_alsa_element *e, snd_mixer_t *m, const pa_chann
             int rounding;
 
             if (e->volume_limit >= 0 && value > (e->max_dB * 100))
-                value = e->max_dB * 100;
+                value = (long) (e->max_dB * 100);
 
             if (e->direction == PA_ALSA_DIRECTION_OUTPUT) {
                 /* If we call set_playback_volume() without checking first

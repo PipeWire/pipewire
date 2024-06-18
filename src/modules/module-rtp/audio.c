@@ -66,7 +66,7 @@ static void rtp_audio_process_playback(void *data)
 			error = (float)target_buffer - (float)avail;
 			error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
 
-			corr = spa_dll_update(&impl->dll, error);
+			corr = (float)spa_dll_update(&impl->dll, error);
 
 			pw_log_trace("avail:%u target:%u error:%f corr:%f", avail,
 					target_buffer, error, corr);
@@ -321,7 +321,7 @@ static void rtp_audio_process_capture(void *data)
 		uint32_t rate = pos->clock.rate.denom;
 		timestamp = pos->clock.position * impl->rate / rate;
 		next_nsec = pos->clock.next_nsec;
-		quantum = pos->clock.duration * SPA_NSEC_PER_SEC / (rate * pos->clock.rate_diff);
+		quantum = (uint64_t)(pos->clock.duration * SPA_NSEC_PER_SEC / (rate * pos->clock.rate_diff));
 	} else {
 		timestamp = expected_timestamp;
 		next_nsec = 0;

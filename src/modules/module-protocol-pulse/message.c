@@ -636,7 +636,7 @@ int message_put(struct message *m, ...)
 			write_dict(m, va_arg(va, struct spa_dict*), true);
 			break;
 		case TAG_VOLUME:
-			write_volume(m, va_arg(va, double));
+			write_volume(m, (float)va_arg(va, double));
 			break;
 		case TAG_FORMAT_INFO:
 			write_format_info(m, va_arg(va, struct format_info*));

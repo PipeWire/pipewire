@@ -19,11 +19,11 @@ static void set_coefficient(struct biquad *bq, double b0, double b1, double b2,
 			    double a0, double a1, double a2)
 {
 	double a0_inv = 1 / a0;
-	bq->b0 = b0 * a0_inv;
-	bq->b1 = b1 * a0_inv;
-	bq->b2 = b2 * a0_inv;
-	bq->a1 = a1 * a0_inv;
-	bq->a2 = a2 * a0_inv;
+	bq->b0 = (float)(b0 * a0_inv);
+	bq->b1 = (float)(b1 * a0_inv);
+	bq->b2 = (float)(b2 * a0_inv);
+	bq->a1 = (float)(a1 * a0_inv);
+	bq->a2 = (float)(a2 * a0_inv);
 }
 
 static void biquad_lowpass(struct biquad *bq, double cutoff, double resonance)

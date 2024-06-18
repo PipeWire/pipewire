@@ -72,8 +72,8 @@ static int build_filter(float *taps, uint32_t stride, uint32_t n_taps, uint32_t 
 		for (j = 0; j < n_taps12; j++, t += 1.0) {
 			/* exploit symmetry in filter taps */
 			taps[(n_phases - i) * stride + n_taps12 + j] =
-				taps[i * stride + (n_taps12 - j - 1)] =
-					cutoff * sinc(t * cutoff) * window(t, n_taps);
+				taps[i * stride + (n_taps12 - j - 1)] = (float)
+					(cutoff * sinc(t * cutoff) * window(t, n_taps));
 		}
 	}
 	return 0;
@@ -141,7 +141,7 @@ static void impl_native_update_rate(struct resample *r, double rate)
 		return;
 
 	old_out_rate = data->out_rate;
-	in_rate = r->i_rate / rate;
+	in_rate = (uint32_t)(r->i_rate / rate);
 	out_rate = r->o_rate;
 	phase = data->phase;
 
@@ -180,7 +180,7 @@ static uint32_t impl_native_in_len(struct resample *r, uint32_t out_len)
 	struct native_data *data = r->data;
 	uint32_t in_len;
 
-	in_len = (data->phase + out_len * data->frac) / data->out_rate;
+	in_len = (uint32_t)((data->phase + out_len * data->frac) / data->out_rate);
 	in_len += out_len * data->inc +	(data->n_taps - data->hist);
 
 	spa_log_trace_fp(r->log, "native %p: hist:%d %d->%d", r, data->hist, out_len, in_len);
@@ -194,7 +194,7 @@ static uint32_t impl_native_out_len(struct resample *r, uint32_t in_len)
 	uint32_t out_len;
 
 	in_len = in_len - SPA_MIN(in_len, (data->n_taps - data->hist) + 1);
-	out_len = in_len * data->out_rate - data->phase;
+	out_len = (uint32_t)(in_len * data->out_rate - data->phase);
 	out_len = (out_len + data->in_rate - 1) / data->in_rate;
 
 	spa_log_trace_fp(r->log, "native %p: hist:%d %d->%d", r, data->hist, in_len, out_len);

@@ -182,8 +182,8 @@ static void dump_point(struct data *d, struct point *point)
 	int64_t d1, d2;
 	int64_t delay, period_usecs;
 
-#define CLOCK_AS_USEC(cl,val) (val * (float)SPA_USEC_PER_SEC / (cl)->rate.denom)
-#define CLOCK_AS_SUSEC(cl,val) (val * (float)SPA_USEC_PER_SEC / ((cl)->rate.denom * (cl)->rate_diff))
+#define CLOCK_AS_USEC(cl,val) (int64_t)(val * (float)SPA_USEC_PER_SEC / (cl)->rate.denom)
+#define CLOCK_AS_SUSEC(cl,val) (int64_t)(val * (float)SPA_USEC_PER_SEC / ((cl)->rate.denom * (cl)->rate_diff))
 
 	delay = CLOCK_AS_USEC(&point->clock, point->clock.delay);
 	period_usecs = CLOCK_AS_SUSEC(&point->clock, point->clock.duration);
@@ -193,7 +193,7 @@ static void dump_point(struct data *d, struct point *point)
 
 	if (d1 > period_usecs * 1.3 ||
 	    d2 > period_usecs * 1.3)
-		d1 = d2 = period_usecs * 1.4;
+		d1 = d2 = (int64_t)(period_usecs * 1.4);
 
 	/* 4 columns for the driver */
 	fprintf(d->output, "%"PRIi64"\t%"PRIi64"\t%"PRIi64"\t%"PRIi64"\t",

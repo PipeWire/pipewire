@@ -969,7 +969,8 @@ conv_deinterleave_32s_1s_sse2(void *data, void * SPA_RESTRICT dst[], const void 
 		s += 4*n_channels;
 	}
 	for(; n < n_samples; n++) {
-		d0[n] = bswap_32(*s);
+		uint32_t *di = (uint32_t*)&d0[n], *si = (uint32_t*)s;
+		*di = bswap_32(*si);
 		s += n_channels;
 	}
 }
@@ -1011,10 +1012,10 @@ conv_deinterleave_32s_4s_sse2(void *data, void * SPA_RESTRICT dst[], const void 
 		s += 4 * n_channels;
 	}
 	for(; n < n_samples; n++) {
-		d0[n] = bswap_32(s[0]);
-		d1[n] = bswap_32(s[1]);
-		d2[n] = bswap_32(s[2]);
-		d3[n] = bswap_32(s[3]);
+		*((uint32_t*)&d0[n]) = bswap_32(*((uint32_t*)&s[0]));
+		*((uint32_t*)&d1[n]) = bswap_32(*((uint32_t*)&s[1]));
+		*((uint32_t*)&d2[n]) = bswap_32(*((uint32_t*)&s[2]));
+		*((uint32_t*)&d3[n]) = bswap_32(*((uint32_t*)&s[3]));
 		s += n_channels;
 	}
 }

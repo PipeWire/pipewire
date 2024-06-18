@@ -4559,7 +4559,7 @@ static int do_update_stream_sample_rate(struct client *client, uint32_t command,
 
 	stream->rate = rate;
 
-	corr = (double)rate/(double)stream->ss.rate;
+	corr = (float)rate/(float)stream->ss.rate;
 	pw_stream_set_control(stream->stream, SPA_PROP_rate, 1, &corr, NULL);
 
 	return reply_simple_ack(client, tag);

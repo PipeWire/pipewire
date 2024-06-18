@@ -215,7 +215,7 @@ endpoint_init(struct endpoint * self)
 	self->info.params = param_info;
 	self->info.n_params = SPA_N_ELEMENTS (param_info);
 
-	self->props.volume = 0.9;
+	self->props.volume = 0.9f;
 	self->props.mute = false;
 }
 

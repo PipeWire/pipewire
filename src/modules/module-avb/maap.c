@@ -78,10 +78,10 @@ static void maap_message_debug(struct maap *maap, const struct avb_packet_maap *
 	pw_log_info("  conflict-count: %d", AVB_PACKET_MAAP_GET_CONFLICT_COUNT(p));
 }
 
-#define PROBE_TIMEOUT(n) ((n) + (MAAP_PROBE_INTERVAL_MS + \
-                        drand48() * MAAP_PROBE_INTERVAL_VAR_MS) * SPA_NSEC_PER_MSEC)
-#define ANNOUNCE_TIMEOUT(n) ((n) + (MAAP_ANNOUNCE_INTERVAL_MS + \
-                        drand48() * MAAP_ANNOUNCE_INTERVAL_VAR_MS) * SPA_NSEC_PER_MSEC)
+#define PROBE_TIMEOUT(n) (uint64_t)(((n) + (MAAP_PROBE_INTERVAL_MS + \
+                        drand48() * MAAP_PROBE_INTERVAL_VAR_MS) * SPA_NSEC_PER_MSEC))
+#define ANNOUNCE_TIMEOUT(n) (uint64_t)(((n) + (MAAP_ANNOUNCE_INTERVAL_MS + \
+                        drand48() * MAAP_ANNOUNCE_INTERVAL_VAR_MS) * SPA_NSEC_PER_MSEC))
 
 static int make_new_address(struct maap *maap, uint64_t now, int range)
 {

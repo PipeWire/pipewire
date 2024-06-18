@@ -23,7 +23,7 @@
 
 #include <pipewire/pipewire.h>
 
-#define M_PI_M2 ( M_PI + M_PI )
+#define M_PI_M2f ( M_PIf + M_PIf )
 
 #define BUFFER_SAMPLES	128
 #define MAX_BUFFERS	32
@@ -64,8 +64,8 @@ struct data {
 	uint32_t n_buffers;
 	struct spa_list empty;
 
-	double accumulator;
-	double volume_accum;
+	float accumulator;
+	float volume_accum;
 };
 
 static void update_volume(struct data *data)
@@ -81,13 +81,13 @@ static void update_volume(struct data *data)
 	spa_pod_builder_control(&b, 0, SPA_CONTROL_Properties);
 	spa_pod_builder_push_object(&b, &f[1], SPA_TYPE_OBJECT_Props, 0);
 	spa_pod_builder_prop(&b, SPA_PROP_volume, 0);
-	spa_pod_builder_float(&b, (sin(data->volume_accum) / 2.0) + 0.5);
+	spa_pod_builder_float(&b, (sinf(data->volume_accum) / 2.0f) + 0.5f);
 	spa_pod_builder_pop(&b, &f[1]);
 	spa_pod_builder_pop(&b, &f[0]);
 
-        data->volume_accum += M_PI_M2 / 1000.0;
-        if (data->volume_accum >= M_PI_M2)
-                data->volume_accum -= M_PI_M2;
+        data->volume_accum += M_PI_M2f / 1000.0f;
+        if (data->volume_accum >= M_PI_M2f)
+                data->volume_accum -= M_PI_M2f;
 }
 
 static int impl_send_command(void *object, const struct spa_command *command)
@@ -364,11 +364,11 @@ static void fill_f32(struct data *d, void *dest, int avail)
         for (i = 0; i < n_samples; i++) {
 		float val;
 
-                d->accumulator += M_PI_M2 * 440 / d->format.rate;
-                if (d->accumulator >= M_PI_M2)
-                        d->accumulator -= M_PI_M2;
+                d->accumulator += M_PI_M2f * 440 / d->format.rate;
+                if (d->accumulator >= M_PI_M2f)
+                        d->accumulator -= M_PI_M2f;
 
-                val = sin(d->accumulator);
+                val = sinf(d->accumulator);
 
                 for (c = 0; c < d->format.channels; c++)
                         *dst++ = val;
@@ -385,11 +385,11 @@ static void fill_s16(struct data *d, void *dest, int avail)
         for (i = 0; i < n_samples; i++) {
                 int16_t val;
 
-                d->accumulator += M_PI_M2 * 440 / d->format.rate;
-                if (d->accumulator >= M_PI_M2)
-                        d->accumulator -= M_PI_M2;
+                d->accumulator += M_PI_M2f * 440 / d->format.rate;
+                if (d->accumulator >= M_PI_M2f)
+                        d->accumulator -= M_PI_M2f;
 
-                val = (int16_t) (sin(d->accumulator) * 32767.0);
+                val = (int16_t) (sinf(d->accumulator) * 32767.0f);
 
                 for (c = 0; c < d->format.channels; c++)
                         *dst++ = val;

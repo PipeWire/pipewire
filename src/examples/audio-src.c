@@ -17,17 +17,17 @@
 
 #include <pipewire/pipewire.h>
 
-#define M_PI_M2 ( M_PI + M_PI )
+#define M_PI_M2f ( M_PIf + M_PIf )
 
 #define DEFAULT_RATE		44100
 #define DEFAULT_CHANNELS	2
-#define DEFAULT_VOLUME		0.7
+#define DEFAULT_VOLUME		0.7f
 
 struct data {
 	struct pw_main_loop *loop;
 	struct pw_stream *stream;
 
-	double accumulator;
+	float accumulator;
 };
 
 static void fill_f32(struct data *d, void *dest, int n_frames)
@@ -36,11 +36,11 @@ static void fill_f32(struct data *d, void *dest, int n_frames)
 	int i, c;
 
         for (i = 0; i < n_frames; i++) {
-                d->accumulator += M_PI_M2 * 440 / DEFAULT_RATE;
-                if (d->accumulator >= M_PI_M2)
-                        d->accumulator -= M_PI_M2;
+                d->accumulator += M_PI_M2f * 440 / DEFAULT_RATE;
+                if (d->accumulator >= M_PI_M2f)
+                        d->accumulator -= M_PI_M2f;
 
-                val = sin(d->accumulator) * DEFAULT_VOLUME;
+                val = sinf(d->accumulator) * DEFAULT_VOLUME;
                 for (c = 0; c < DEFAULT_CHANNELS; c++)
                         *dst++ = val;
         }

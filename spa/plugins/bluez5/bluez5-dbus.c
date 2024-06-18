@@ -3172,7 +3172,7 @@ static void spa_bt_transport_volume_changed(struct spa_bt_transport *transport)
 
 	if (t_volume->hw_volume != t_volume->new_hw_volume) {
 		t_volume->hw_volume = t_volume->new_hw_volume;
-		t_volume->volume = spa_bt_volume_hw_to_linear(t_volume->hw_volume,
+		t_volume->volume = (float)spa_bt_volume_hw_to_linear(t_volume->hw_volume,
 					t_volume->hw_volume_max);
 		spa_log_debug(monitor->log, "transport %p: volume changed %d(%f) ",
 			transport, t_volume->new_hw_volume, t_volume->volume);

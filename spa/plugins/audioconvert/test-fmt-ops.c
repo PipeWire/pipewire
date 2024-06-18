@@ -321,7 +321,7 @@ static void test_f32_s32(void)
 static void test_s32_f32(void)
 {
 	static const int32_t in[] = { 0, 0x7fffff00, 0x80000000, 0x40000000, 0xc0000000 };
-	static const float out[] = { 0.0f, 0.999999880791, -1.0f, 0.5, -0.5, };
+	static const float out[] = { 0.0f, 0.999999880791f, -1.0f, 0.5, -0.5, };
 
 	run_test("test_s32_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, false, conv_s32_to_f32d_c);

@@ -581,7 +581,7 @@ static void emit_device_set_node(struct impl *this, uint32_t id)
 
 	for (i = 0; i < node->n_channels; ++i) {
 		/* Session manager will override this, so put in some safe number */
-		node->volumes[i] = node->soft_volumes[i] = 0.064;
+		node->volumes[i] = node->soft_volumes[i] = 0.064f;
 	}
 
 	/* Produce member info json */

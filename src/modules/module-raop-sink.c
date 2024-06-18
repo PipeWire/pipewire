@@ -1639,7 +1639,7 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 					soft_vols[i] = 1.0f;
 				}
 				volume /= n_vols;
-				volume = SPA_CLAMPF(cbrt(volume) * 30 - 30, VOLUME_MIN, VOLUME_MAX);
+				volume = SPA_CLAMPF(cbrtf(volume) * 30 - 30, VOLUME_MIN, VOLUME_MAX);
 				impl->volume = volume;
 
 				rtsp_send_volume(impl);

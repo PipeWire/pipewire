@@ -636,14 +636,14 @@ PWTEST(utils_strtof)
 	pwtest_bool_true(spa_atof("0x1", &v));	pwtest_double_eq(v, 1.0f);
 
 	v = 0xabcd;
-	pwtest_bool_false(spa_atof("0,00", &v));  pwtest_int_eq(v, 0xabcd);
-	pwtest_bool_false(spa_atof("fabc", &v));  pwtest_int_eq(v, 0xabcd);
-	pwtest_bool_false(spa_atof("1.bogus", &v));pwtest_int_eq(v, 0xabcd);
-	pwtest_bool_false(spa_atof("1.0a", &v));  pwtest_int_eq(v, 0xabcd);
-	pwtest_bool_false(spa_atof("  ", &v));	  pwtest_int_eq(v, 0xabcd);
-	pwtest_bool_false(spa_atof(" ", &v));	  pwtest_int_eq(v, 0xabcd);
-	pwtest_bool_false(spa_atof("", &v));	  pwtest_int_eq(v, 0xabcd);
-	pwtest_bool_false(spa_atof(NULL, &v));	  pwtest_int_eq(v, 0xabcd);
+	pwtest_bool_false(spa_atof("0,00", &v));  pwtest_int_eq((int)v, 0xabcd);
+	pwtest_bool_false(spa_atof("fabc", &v));  pwtest_int_eq((int)v, 0xabcd);
+	pwtest_bool_false(spa_atof("1.bogus", &v));pwtest_int_eq((int)v, 0xabcd);
+	pwtest_bool_false(spa_atof("1.0a", &v));  pwtest_int_eq((int)v, 0xabcd);
+	pwtest_bool_false(spa_atof("  ", &v));	  pwtest_int_eq((int)v, 0xabcd);
+	pwtest_bool_false(spa_atof(" ", &v));	  pwtest_int_eq((int)v, 0xabcd);
+	pwtest_bool_false(spa_atof("", &v));	  pwtest_int_eq((int)v, 0xabcd);
+	pwtest_bool_false(spa_atof(NULL, &v));	  pwtest_int_eq((int)v, 0xabcd);
 
 	return PWTEST_PASS;
 }
@@ -659,14 +659,14 @@ PWTEST(utils_strtod)
 	pwtest_bool_true(spa_atod("0x1", &v));		pwtest_double_eq(v, 1.0);
 
 	v = 0xabcd;
-	pwtest_bool_false(spa_atod("0,00", &v));	pwtest_int_eq(v, 0xabcd);
-	pwtest_bool_false(spa_atod("fabc", &v));	pwtest_int_eq(v, 0xabcd);
-	pwtest_bool_false(spa_atod("1.bogus", &v));	pwtest_int_eq(v, 0xabcd);
-	pwtest_bool_false(spa_atod("1.0a", &v));	pwtest_int_eq(v, 0xabcd);
-	pwtest_bool_false(spa_atod("  ", &v));		pwtest_int_eq(v, 0xabcd);
-	pwtest_bool_false(spa_atod(" ", &v));		pwtest_int_eq(v, 0xabcd);
-	pwtest_bool_false(spa_atod("", &v));		pwtest_int_eq(v, 0xabcd);
-	pwtest_bool_false(spa_atod(NULL, &v));		pwtest_int_eq(v, 0xabcd);
+	pwtest_bool_false(spa_atod("0,00", &v));	pwtest_int_eq((int)v, 0xabcd);
+	pwtest_bool_false(spa_atod("fabc", &v));	pwtest_int_eq((int)v, 0xabcd);
+	pwtest_bool_false(spa_atod("1.bogus", &v));	pwtest_int_eq((int)v, 0xabcd);
+	pwtest_bool_false(spa_atod("1.0a", &v));	pwtest_int_eq((int)v, 0xabcd);
+	pwtest_bool_false(spa_atod("  ", &v));		pwtest_int_eq((int)v, 0xabcd);
+	pwtest_bool_false(spa_atod(" ", &v));		pwtest_int_eq((int)v, 0xabcd);
+	pwtest_bool_false(spa_atod("", &v));		pwtest_int_eq((int)v, 0xabcd);
+	pwtest_bool_false(spa_atod(NULL, &v));		pwtest_int_eq((int)v, 0xabcd);
 
 	return PWTEST_PASS;
 }

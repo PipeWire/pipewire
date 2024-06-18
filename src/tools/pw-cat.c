@@ -1069,7 +1069,7 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames, bool *nul
 			return res;
 		}
 
-		frame = ev.sec * d->position->clock.rate.denom;
+		frame = (uint32_t)(ev.sec * d->position->clock.rate.denom);
 		if (frame < first_frame)
 			frame = 0;
 		else if (frame < last_frame)
@@ -1573,13 +1573,13 @@ static int setup_properties(struct data *data)
 		nom = data->latency_value * data->rate;
 		break;
 	case unit_msec:
-		nom = nearbyint((data->latency_value * data->rate) / 1000.0);
+		nom = (unsigned int)nearbyint((data->latency_value * data->rate) / 1000.0);
 		break;
 	case unit_usec:
-		nom = nearbyint((data->latency_value * data->rate) / 1000000.0);
+		nom = (unsigned int)nearbyint((data->latency_value * data->rate) / 1000000.0);
 		break;
 	case unit_nsec:
-		nom = nearbyint((data->latency_value * data->rate) / 1000000000.0);
+		nom = (unsigned int)nearbyint((data->latency_value * data->rate) / 1000000000.0);
 		break;
 	case unit_samples:
 		nom = data->latency_value;
@@ -1778,7 +1778,7 @@ int main(int argc, char *argv[])
 			break;
 
 		case OPT_VOLUME:
-			data.volume = atof(optarg);
+			data.volume = (float)atof(optarg);
 			break;
 		default:
 			goto error_usage;

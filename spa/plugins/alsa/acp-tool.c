@@ -388,7 +388,7 @@ static int cmd_set_volume(struct data *data, const struct command *cmd, int argc
 		return -EINVAL;
 	}
 	dev_id = atoi(argv[1]);
-	vol = atof(argv[2]);
+	vol = (float)atof(argv[2]);
 
 	if (dev_id >= card->n_devices)
 		return -EINVAL;
@@ -418,12 +418,12 @@ static int adjust_volume(struct data *data, const struct command *cmd, int argc,
 
 static int cmd_inc_volume(struct data *data, const struct command *cmd, int argc, char *argv[])
 {
-	return adjust_volume(data, cmd, argc, argv, 0.2);
+	return adjust_volume(data, cmd, argc, argv, 0.2f);
 }
 
 static int cmd_dec_volume(struct data *data, const struct command *cmd, int argc, char *argv[])
 {
-	return adjust_volume(data, cmd, argc, argv, -0.2);
+	return adjust_volume(data, cmd, argc, argv, -0.2f);
 }
 
 static int cmd_get_mute(struct data *data, const struct command *cmd, int argc, char *argv[])

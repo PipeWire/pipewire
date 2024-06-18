@@ -667,7 +667,7 @@ static void sco_on_timeout(struct spa_source *source)
 
 	setup_matching(this);
 
-	this->next_time = now_time + duration * SPA_NSEC_PER_SEC / port->buffer.corr / rate;
+	this->next_time = (uint64_t)(now_time + duration * SPA_NSEC_PER_SEC / port->buffer.corr / rate);
 
 	if (SPA_LIKELY(this->clock)) {
 		this->clock->nsec = now_time;

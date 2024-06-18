@@ -598,7 +598,7 @@ again:
 				-SPA_CLAMP(err_nsec, -20*SPA_NSEC_PER_MSEC, 20*SPA_NSEC_PER_MSEC)
 				* this->rate / SPA_NSEC_PER_SEC);
 		tcorr = SPA_MIN(device_elapsed, SPA_NSEC_PER_SEC) * (corr - 1);
-		sync->device_time += tcorr;
+		sync->device_time += (uint64_t)tcorr;
 
 		/* reset if too much off */
 		if (err_nsec < -50 * SPA_NSEC_PER_MSEC ||

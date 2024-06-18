@@ -18,14 +18,14 @@ static uint32_t cpu_flags;
 
 SPA_LOG_IMPL(logger);
 
-#define MATRIX(...) (float[]) { __VA_ARGS__ }
+#define MATRIX(...) (double[]) { __VA_ARGS__ }
 
 #include "test-helper.h"
 #include "channelmix-ops.c"
 
 #define CLOSE_ENOUGH(a,b)	(fabs((a)-(b)) < 0.000001f)
 
-static void dump_matrix(struct channelmix *mix, float *coeff)
+static void dump_matrix(struct channelmix *mix, double *coeff)
 {
 	uint32_t i, j;
 
@@ -33,13 +33,13 @@ static void dump_matrix(struct channelmix *mix, float *coeff)
 		for (j = 0; j < mix->src_chan; j++) {
 			float v = mix->matrix[i][j];
 			spa_log_debug(mix->log, "%d %d: %f <-> %f", i, j, v, *coeff);
-			spa_assert_se(CLOSE_ENOUGH(v, *coeff));
+			spa_assert_se(CLOSE_ENOUGH(v, (float)*coeff));
 			coeff++;
 		}
 	}
 }
 
-static void test_mix(uint32_t src_chan, uint32_t src_mask, uint32_t dst_chan, uint32_t dst_mask, uint32_t options, float *coeff)
+static void test_mix(uint32_t src_chan, uint32_t src_mask, uint32_t dst_chan, uint32_t dst_mask, uint32_t options, double *coeff)
 {
 	struct channelmix mix;
 
@@ -336,7 +336,7 @@ static void test_n_m_impl(void)
 
 	for (i = 0; i < 16; i++) {
 		for (j = 0; j < N_SAMPLES; j++)
-			src_data[i][j] = (drand48() - 0.5f) * 2.5f;
+			src_data[i][j] = (float)((drand48() - 0.5f) * 2.5f);
 		src[i] = src_data[i];
 	}
 
@@ -360,7 +360,7 @@ static void test_n_m_impl(void)
 	/* random matrix */
 	for (i = 0; i < mix.dst_chan; i++) {
 		for (j = 0; j < mix.src_chan; j++) {
-			mix.matrix_orig[i][j] = drand48() - 0.5f;
+			mix.matrix_orig[i][j] = (float)(drand48() - 0.5f);
 		}
 	}
 	channelmix_set_volume(&mix, 1.0f, false, 0, NULL);

@@ -1736,7 +1736,7 @@ static inline jack_transport_state_t position_to_jack(struct pw_node_activation 
 		running = s->clock.position - s->offset;
 		if (running >= seg->start &&
 		    (seg->duration == 0 || running < seg->start + seg->duration))
-			d->frame = (running - seg->start) * seg->rate + seg->position;
+			d->frame = (unsigned int)((running - seg->start) * seg->rate + seg->position);
 		else
 			d->frame = seg->position;
 	}
@@ -1758,12 +1758,12 @@ static inline jack_transport_state_t position_to_jack(struct pw_node_activation 
 
 		abs_beat = seg->bar.beat;
 
-		d->bar = abs_beat / d->beats_per_bar;
-		beats = d->bar * d->beats_per_bar;
+		d->bar = (int32_t) (abs_beat / d->beats_per_bar);
+		beats = (long int) (d->bar * d->beats_per_bar);
 		d->bar_start_tick = beats * d->ticks_per_beat;
-		d->beat = abs_beat - beats;
+		d->beat = (int32_t) (abs_beat - beats);
 		beats += d->beat;
-		d->tick = (abs_beat - beats) * d->ticks_per_beat;
+		d->tick = (int32_t) ((abs_beat - beats) * d->ticks_per_beat);
 		d->bar++;
 		d->beat++;
 	}
@@ -6322,10 +6322,10 @@ void jack_port_get_latency_range (jack_port_t *port, jack_latency_callback_mode_
 	rate = jack_get_sample_rate((jack_client_t*)c);
 	info = &o->port.latency[direction];
 
-	range->min = (info->min_quantum * nframes) +
-		info->min_rate + (info->min_ns * rate) / SPA_NSEC_PER_SEC;
-	range->max = (info->max_quantum * nframes) +
-		info->max_rate + (info->max_ns * rate) / SPA_NSEC_PER_SEC;
+	range->min = (jack_nframes_t)((info->min_quantum * nframes) +
+		info->min_rate + (info->min_ns * rate) / SPA_NSEC_PER_SEC);
+	range->max = (jack_nframes_t)((info->max_quantum * nframes) +
+		info->max_rate + (info->max_ns * rate) / SPA_NSEC_PER_SEC);
 
 	pw_log_debug("%p: %s get %d latency range %d %d", c, o->port.name,
 			mode, range->min, range->max);
@@ -6688,8 +6688,8 @@ int jack_get_cycle_times(const jack_client_t *client,
 
 	*current_frames = times.frames;
 	*next_usecs = times.next_nsec / SPA_NSEC_PER_USEC;
-	*period_usecs = times.buffer_frames *
-			(float)SPA_USEC_PER_SEC / (times.sample_rate * times.rate_diff);
+	*period_usecs = (float)(times.buffer_frames *
+			SPA_USEC_PER_SEC / (times.sample_rate * times.rate_diff));
 	*current_usecs = *next_usecs - (jack_time_t)*period_usecs;
 
 	pw_log_trace("%p: %d %"PRIu64" %"PRIu64" %f", c, *current_frames,

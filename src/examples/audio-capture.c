@@ -63,7 +63,7 @@ static void on_process(void *userdata)
 		for (n = c; n < n_samples; n += n_channels)
 			max = fmaxf(max, fabsf(samples[n]));
 
-		peak = SPA_CLAMP(max * 30, 0, 39);
+		peak = (uint32_t)SPA_CLAMPF(max * 30, 0.f, 39.f);
 
 		fprintf(stdout, "channel %d: |%*s%*s| peak:%f\n",
 				c, peak+1, "*", 40 - peak, "", max);

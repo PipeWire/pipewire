@@ -1219,11 +1219,11 @@ static int node_event_param(void *object, int seq,
 			vals = SPA_POD_BODY(pod);
 		else if (spa_pod_is_double(pod)) {
 			double *v = SPA_POD_BODY(pod);
-			dbl[0] = v[0];
+			dbl[0] = (float)v[0];
 			if (n_vals > 1)
-				dbl[1] = v[1];
+				dbl[1] = (float)v[1];
 			if (n_vals > 2)
-				dbl[2] = v[2];
+				dbl[2] = (float)v[2];
 			vals = dbl;
 		}
 		else if (spa_pod_is_bool(pod) && n_vals > 0) {
@@ -1301,7 +1301,7 @@ static int node_event_param(void *object, int seq,
 				if (spa_pod_get_double(&prop->value, &value_d) < 0)
 					continue;
 				n_values = 1;
-				value_f = value_d;
+				value_f = (float)value_d;
 				values = &value_f;
 				break;
 			case SPA_TYPE_Bool:
@@ -2337,7 +2337,7 @@ int pw_stream_get_time_n(struct pw_stream *stream, struct pw_time *time, size_t 
 	else
 		time->queued = (int64_t)(impl->queued.incount - time->queued);
 
-	time->delay += ((impl->latency.min_quantum + impl->latency.max_quantum) / 2) * quantum;
+	time->delay += (int64_t)(((impl->latency.min_quantum + impl->latency.max_quantum) / 2.0f) * quantum);
 	time->delay += (impl->latency.min_rate + impl->latency.max_rate) / 2;
 	time->delay += ((impl->latency.min_ns + impl->latency.max_ns) / 2) * time->rate.denom / SPA_NSEC_PER_SEC;
 

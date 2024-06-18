@@ -29,7 +29,7 @@
 
 #include "sdl.h"
 
-#define M_PI_M2 ( M_PI + M_PI )
+#define M_PI_M2f ( M_PIf + M_PIf )
 
 #define MAX_BUFFERS	64
 
@@ -65,7 +65,7 @@ struct data {
 	struct spa_io_buffers *io;
 	struct spa_io_sequence *io_notify;
 	uint32_t io_notify_size;
-	double param_accum;
+	float param_accum;
 
 	uint8_t buffer[1024];
 
@@ -106,13 +106,13 @@ static void update_param(struct data *data)
 	spa_pod_builder_control(&b, 0, SPA_CONTROL_Properties);
 	spa_pod_builder_push_object(&b, &f[1], SPA_TYPE_OBJECT_Props, 0);
 	spa_pod_builder_prop(&b, SPA_PROP_contrast, 0);
-	spa_pod_builder_float(&b, (sin(data->param_accum) * 127.0) + 127.0);
+	spa_pod_builder_float(&b, (sinf(data->param_accum) * 127.0f) + 127.0f);
 	spa_pod_builder_pop(&b, &f[1]);
 	spa_pod_builder_pop(&b, &f[0]);
 
-        data->param_accum += M_PI_M2 / 30.0;
-        if (data->param_accum >= M_PI_M2)
-                data->param_accum -= M_PI_M2;
+        data->param_accum += M_PI_M2f / 30.0f;
+        if (data->param_accum >= M_PI_M2f)
+                data->param_accum -= M_PI_M2f;
 }
 
 static int impl_send_command(void *object, const struct spa_command *command)

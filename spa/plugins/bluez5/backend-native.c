@@ -246,7 +246,7 @@ static int rfcomm_new_transport(struct rfcomm *rfcomm)
 		t->volumes[i].active = rfcomm->volumes[i].active;
 		t->volumes[i].hw_volume_max = SPA_BT_VOLUME_HS_MAX;
 		if (rfcomm->volumes[i].active && rfcomm->volumes[i].hw_volume != SPA_BT_VOLUME_INVALID)
-			t->volumes[i].volume =
+			t->volumes[i].volume = (float)
 				spa_bt_volume_hw_to_linear(rfcomm->volumes[i].hw_volume, t->volumes[i].hw_volume_max);
 	}
 
@@ -424,7 +424,7 @@ static void rfcomm_emit_volume_changed(struct rfcomm *rfcomm, int id, int hw_vol
 	for (int i = 0; i < SPA_BT_VOLUME_ID_TERM ; ++i) {
 		t_volume = &rfcomm->transport->volumes[i];
 		t_volume->active = rfcomm->volumes[i].active;
-		t_volume->volume =
+		t_volume->volume = (float)
 			spa_bt_volume_hw_to_linear(rfcomm->volumes[i].hw_volume, t_volume->hw_volume_max);
 	}
 

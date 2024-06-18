@@ -17,9 +17,9 @@ static inline void blackman_window(float *taps, int n_taps)
 {
 	int n;
 	for (n = 0; n < n_taps; n++) {
-		float w = 2 * M_PI * n / (n_taps-1);
-		taps[n] = 0.3635819 - 0.4891775 * cos(w)
-			+ 0.1365995 * cos(2 * w) - 0.0106411 * cos(3 * w);
+		float w = 2.0f * M_PIf * n / (n_taps-1);
+		taps[n] = 0.3635819f - 0.4891775f * cosf(w)
+			+ 0.1365995f * cosf(2 * w) - 0.0106411f * cosf(3 * w);
 	}
 }
 
@@ -33,7 +33,7 @@ static inline int hilbert_generate(float *taps, int n_taps)
 	for (i = 0; i < n_taps; i++) {
 		int k = -(n_taps / 2) + i;
 		if (k & 1) {
-			float pk = M_PI * k;
+			float pk = M_PIf * k;
 			taps[i] *= (1.0f - cosf(pk)) / pk;
 		} else {
 			taps[i] = 0.0f;

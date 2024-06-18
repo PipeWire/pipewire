@@ -253,7 +253,7 @@ static void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint
 		level = SPA_MAX(level, -max_level);
 		this->prev_consumed = SPA_MIN(this->prev_consumed, avg_period);
 
-		spa_bt_ptp_update(&this->spike, this->ctl.avg - level, this->prev_consumed);
+		spa_bt_ptp_update(&this->spike, (int32_t)(this->ctl.avg - level), this->prev_consumed);
 
 		/* Update target level */
 		if (this->target)

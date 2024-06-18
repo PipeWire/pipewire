@@ -206,10 +206,10 @@ static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t ti
 		}
 		pw_log_trace("%f %f %f %f", t, estimated, diff, impl->corr);
 
-		timestamp = t * impl->rate;
+		timestamp = (uint32_t)(t * impl->rate);
 
-		impl->last_timestamp = ts;
-		impl->last_time = t;
+		impl->last_timestamp = (float)ts;
+		impl->last_time = (float)t;
 	}
 
 	filled = spa_ringbuffer_get_write_index(&impl->ring, &write);
@@ -248,7 +248,7 @@ static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t ti
 		else
 			offs += parse_varlen(&packet[offs], end - offs, &delta);
 
-		timestamp += delta * impl->corr;
+		timestamp += (uint32_t)(delta * impl->corr);
 		spa_pod_builder_control(&b, timestamp, SPA_CONTROL_Midi);
 
 		size = get_midi_size(&packet[offs], end - offs);

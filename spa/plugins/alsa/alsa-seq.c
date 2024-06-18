@@ -797,9 +797,9 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool follower)
 	 * use the rate correction, else we will use the rate correction only for the new
 	 * timeout. */
 	if (state->following)
-		state->queue_next += state->threshold * corr * 1e9 / state->rate.denom;
+		state->queue_next += (uint64_t)(state->threshold * corr * 1e9 / state->rate.denom);
 	else
-		state->queue_next += state->threshold * 1e9 / state->rate.denom;
+		state->queue_next += (uint64_t)(state->threshold * 1e9 / state->rate.denom);
 
 	if ((state->next_time - state->base_time) > BW_PERIOD) {
 		state->base_time = state->next_time;
@@ -807,14 +807,14 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool follower)
 				state, follower, corr, state->dll.bw, err,
 				state->dll.z1, state->dll.z2, state->dll.z3);
 	}
-	state->next_time += state->threshold / corr * 1e9 / state->rate.denom;
+	state->next_time += (uint64_t)(state->threshold / corr * 1e9 / state->rate.denom);
 
 	if (!follower && state->clock) {
 		state->clock->nsec = nsec;
 		state->clock->rate = state->rate;
 		state->clock->position += state->clock->duration;
 		state->clock->duration = state->duration;
-		state->clock->delay = state->duration * corr;
+		state->clock->delay = (int64_t)(state->duration * corr);
 		state->clock->rate_diff = corr;
 		state->clock->next_nsec = state->next_time;
 	}

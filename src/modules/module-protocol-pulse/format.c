@@ -868,7 +868,7 @@ int format_info_to_spec(const struct format_info *info, struct sample_spec *ss,
 	if (spa_json_is_float(val, len)) {
 		if (spa_json_parse_float(val, len, &f) <= 0)
 			return -EINVAL;
-		ss->channels = f;
+		ss->channels = (uint8_t)f;
 	} else if (spa_json_is_array(val, len)) {
 		return -ENOTSUP;
 	} else if (spa_json_is_object(val, len)) {

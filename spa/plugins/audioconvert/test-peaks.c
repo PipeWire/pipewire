@@ -30,7 +30,7 @@ static void test_impl(void)
 	float min[2] = { 0.0f, 0.0f }, max[2] = { 0.0f, 0.0f }, absmax[2] = { 0.0f, 0.0f };
 
 	for (i = 0; i < SPA_N_ELEMENTS(vals); i++)
-		vals[i] = (drand48() - 0.5f) * 2.5f;
+		vals[i] = (float)((drand48() - 0.5f) * 2.5f);
 
 	peaks_min_max_c(&peaks, &vals[1], SPA_N_ELEMENTS(vals) - 1, &min[0], &max[0]);
 	printf("c peaks min:%f max:%f\n", min[0], max[0]);

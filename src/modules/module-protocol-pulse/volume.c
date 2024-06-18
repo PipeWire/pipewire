@@ -79,7 +79,7 @@ int volume_parse_param(const struct spa_pod *param, struct volume_info *info, bo
 		{
 			float step;
 			if (spa_pod_get_float(&prop->value, &step) >= 0)
-				info->steps = 0x10000u * step;
+				info->steps = (uint32_t)(0x10000u * step);
 			break;
 		}
 		case SPA_PROP_channelMap:

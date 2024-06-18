@@ -1045,7 +1045,7 @@ static void media_iso_pull(struct spa_bt_iso_io *iso_io)
 	max_err = iso_io->duration;
 
 	if (iso_io->resync && err >= 0) {
-		unsigned int req = err * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC;
+		unsigned int req = (unsigned int)(err * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC);
 
 		if (req > 0) {
 			spa_bt_rate_control_init(&port->ratectl, 0);
@@ -1053,7 +1053,7 @@ static void media_iso_pull(struct spa_bt_iso_io *iso_io)
 		}
 		spa_log_debug(this->log, "%p: ISO sync skip frames:%u", this, req);
 	} else if (iso_io->resync && -err >= 0) {
-		unsigned int req = -err * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC;
+		unsigned int req = (unsigned int)(-err * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC);
 		static const uint8_t empty[8192] = {0};
 
 		if (req > 0) {
@@ -1172,7 +1172,7 @@ static void media_on_timeout(struct spa_source *source)
 
 	setup_matching(this);
 
-	this->next_time = now_time + duration * SPA_NSEC_PER_SEC / rate * port->ratectl.corr;
+	this->next_time = (uint64_t)(now_time + duration * SPA_NSEC_PER_SEC / rate * port->ratectl.corr);
 
 	if (SPA_LIKELY(this->clock)) {
 		this->clock->nsec = now_time;

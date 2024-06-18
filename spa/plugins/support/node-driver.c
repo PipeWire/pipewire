@@ -318,7 +318,7 @@ static inline uint64_t scale_u64(uint64_t val, uint32_t num, uint32_t denom)
 #if 0
 	return ((__uint128_t)val * num) / denom;
 #else
-	return (double)val / denom * num;
+	return (uint64_t)((double)val / denom * num);
 #endif
 }
 
@@ -390,7 +390,7 @@ static void on_timeout(struct spa_source *source)
 			}
 		}
 		corr = spa_dll_update(&this->dll, err);
-		this->next_time = nsec + duration / corr * 1e9 / rate;
+		this->next_time = (uint64_t)(nsec + duration / corr * 1e9 / rate);
 	} else {
 		corr = 1.0;
 		this->next_time = scale_u64(position + duration, SPA_NSEC_PER_SEC, rate);
@@ -710,7 +710,7 @@ impl_init(const struct spa_handle_factory *factory,
 		} else if (spa_streq(k, "freewheel.wait")) {
 			this->props.freewheel_wait = atoi(s);
 		} else if (spa_streq(k, "resync.ms")) {
-			this->props.resync_ms = atof(s);
+			this->props.resync_ms = (float)atof(s);
 		}
 	}
 	if (this->props.clock_name[0] == '\0') {

@@ -433,7 +433,7 @@ int midi_file_write_event(struct midi_file *mf, const struct midi_event *event)
 
 	tr = &mf->tracks[event->track];
 
-	tick = event->sec * (1000000.0 * mf->info.division) / (double)mf->tempo;
+	tick = (uint32_t)(event->sec * (1000000.0 * mf->info.division) / (double)mf->tempo);
 
 	CHECK_RES(write_varlen(mf, tr, tick - tr->tick));
 	tr->tick = tick;

@@ -77,17 +77,17 @@ static inline int spa_json_to_pod_part(struct spa_pod_builder *b, uint32_t flags
 			spa_pod_builder_bool(b, val >= 0.5f);
 			break;
 		case SPA_TYPE_Id:
-			spa_pod_builder_id(b, val);
+			spa_pod_builder_id(b, (uint32_t)val);
 			break;
 		case SPA_TYPE_Int:
-			spa_pod_builder_int(b, val);
+			spa_pod_builder_int(b, (int32_t)val);
 			break;
 		case SPA_TYPE_Long:
-			spa_pod_builder_long(b, val);
+			spa_pod_builder_long(b, (int64_t)val);
 			break;
 		case SPA_TYPE_Struct:
 			if (spa_json_is_int(value, len))
-				spa_pod_builder_int(b, val);
+				spa_pod_builder_int(b, (int32_t)val);
 			else
 				spa_pod_builder_float(b, val);
 			break;

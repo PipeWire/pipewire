@@ -339,7 +339,7 @@ static void update_rate(struct impl *impl, uint32_t filled)
 	error = (float)impl->target_latency - (float)(current_latency);
 	error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
 
-	corr = spa_dll_update(&impl->dll, error);
+	corr = (float)spa_dll_update(&impl->dll, error);
 	pw_log_debug("error:%f corr:%f current:%u target:%u",
 			error, corr,
 			current_latency, impl->target_latency);
@@ -853,7 +853,7 @@ do_stream_sync_volumes(struct spa_loop *loop,
 	float soft_vols[SPA_AUDIO_MAX_CHANNELS];
 
 	for (i = 0; i < impl->volume.channels; i++) {
-		vols[i] = pa_sw_volume_to_linear(impl->volume.values[i]);
+		vols[i] = (float)pa_sw_volume_to_linear(impl->volume.values[i]);
 		soft_vols[i] = 1.0f;
 	}
 

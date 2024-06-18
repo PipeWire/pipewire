@@ -57,7 +57,7 @@ static void vban_audio_process_playback(void *data)
 		error = (float)target_buffer - (float)avail;
 		error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
 
-		corr = spa_dll_update(&impl->dll, error);
+		corr = (float)spa_dll_update(&impl->dll, error);
 
 		pw_log_debug("avail:%u target:%u error:%f corr:%f", avail,
 				target_buffer, error, corr);

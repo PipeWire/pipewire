@@ -2283,11 +2283,11 @@ int spa_alsa_update_rate_match(struct state *state)
 	 * means that to adjust the playback rate, we need to apply the inverse
 	 * of the given rate. */
 	if (state->stream == SND_PCM_STREAM_CAPTURE) {
-		pitch = 1000000 * state->rate_match->rate;
-		last_pitch = 1000000 * state->last_rate;
+		pitch = (uint64_t)(1000000 * state->rate_match->rate);
+		last_pitch = (uint64_t)(1000000 * state->last_rate);
 	} else {
-		pitch = 1000000 / state->rate_match->rate;
-		last_pitch = 1000000 / state->last_rate;
+		pitch = (uint64_t)(1000000 / state->rate_match->rate);
+		last_pitch = (uint64_t)(1000000 / state->last_rate);
 	}
 
 	/* The pitch adjustment is limited to 1 ppm */
@@ -2727,7 +2727,7 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 		corr = 1.0;
 
 	if (diff < 0)
-		state->next_time += diff / corr * 1e9 / state->rate;
+		state->next_time += (uint64_t)(diff / corr * 1e9 / state->rate);
 
 	if (SPA_UNLIKELY((state->next_time - state->base_time) > BW_PERIOD)) {
 		state->base_time = state->next_time;
@@ -2751,7 +2751,7 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 			SPA_FLAG_UPDATE(state->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE, state->matching);
 	}
 
-	state->next_time += state->threshold / corr * 1e9 / state->rate;
+	state->next_time += (uint64_t)(state->threshold / corr * 1e9 / state->rate);
 
 	if (SPA_LIKELY(!follower && state->clock)) {
 		state->clock->nsec = current_time;
@@ -2859,7 +2859,7 @@ static int alsa_write_sync(struct state *state, uint64_t current_time)
 
 	if (SPA_UNLIKELY((res = get_status(state, current_time, &avail, &delay, &target)) < 0)) {
 		spa_log_error(state->log, "get_status error: %s", spa_strerror(res));
-		state->next_time += state->threshold * 1e9 / state->rate;
+		state->next_time += (uint64_t)(state->threshold * 1e9 / state->rate);
 		return res;
 	}
 
@@ -3120,7 +3120,7 @@ static int alsa_read_sync(struct state *state, uint64_t current_time)
 
 	if (SPA_UNLIKELY((res = get_status(state, current_time, &avail, &delay, &target)) < 0)) {
 		spa_log_error(state->log, "get_status error: %s", spa_strerror(res));
-		state->next_time += state->threshold * 1e9 / state->rate;
+		state->next_time += (uint64_t)(state->threshold * 1e9 / state->rate);
 		return res;
 	}
 
@@ -3442,7 +3442,7 @@ static void alsa_timer_wakeup_event(struct spa_source *source)
 				state->next_time - current_time, state->threshold,
 				state->sample_count, suppressed);
 		}
-		state->next_time = current_time + state->threshold * 1e9 / state->rate;
+		state->next_time = (uint64_t)(current_time + state->threshold * 1e9 / state->rate);
 	}
 	set_timeout(state, state->next_time);
 }

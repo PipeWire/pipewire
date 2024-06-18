@@ -1335,7 +1335,7 @@ static void mixer_volume_init(pa_card *impl, pa_alsa_device *dev)
 		pa_log_info("Using hardware volume control. Hardware dB scale %s.",
 				dev->mixer_path->has_dB ? "supported" : "not supported");
 	}
-	dev->device.base_volume = pa_sw_volume_to_linear(dev->base_volume);
+	dev->device.base_volume = (float)pa_sw_volume_to_linear(dev->base_volume);
 	dev->device.volume_step = 1.0f / dev->n_volume_steps;
 
 	if (impl->soft_mixer || !dev->mixer_path || !dev->mixer_path->has_mute) {
@@ -2022,7 +2022,7 @@ static int get_volume(pa_cvolume *v, float *volume, uint32_t n_volume)
 	if (v->channels == 0)
 		return -EIO;
 	for (i = 0; i < n_volume; i++)
-		volume[i] = pa_sw_volume_to_linear(v->values[i % v->channels]);
+		volume[i] = (float)pa_sw_volume_to_linear(v->values[i % v->channels]);
 	return 0;
 }
 

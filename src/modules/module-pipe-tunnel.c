@@ -199,7 +199,7 @@ struct impl {
 
 	struct spa_dll dll;
 	float max_error;
-	float corr;
+	double corr;
 
 	uint64_t next_time;
 	unsigned int have_sync:1;
@@ -244,7 +244,7 @@ static void on_timeout(void *d, uint64_t expirations)
 	pw_log_debug("timeout %"PRIu64, duration);
 
 	current_time = impl->next_time;
-	impl->next_time += duration / impl->corr * 1e9 / rate;
+	impl->next_time += (uint64_t)(duration / impl->corr * 1e9 / rate);
 	avail = spa_ringbuffer_get_read_index(&impl->ring, &index);
 
 	if (SPA_LIKELY(pos)) {
@@ -376,7 +376,7 @@ static void update_rate(struct impl *impl, uint32_t filled)
 
 	if (!impl->driving) {
 		SPA_FLAG_SET(impl->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE);
-		impl->rate_match->rate = 1.0f / impl->corr;
+		impl->rate_match->rate = 1.0 / impl->corr;
 	}
 }
 

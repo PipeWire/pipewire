@@ -279,7 +279,7 @@ static void put_double(struct data *d, const char *key, double val)
 {
 	char buf[128];
 	put_fmt(d, key, "%s%s%s", NUMBER,
-			spa_json_format_float(buf, sizeof(buf), val), NORMAL);
+			spa_json_format_float(buf, sizeof(buf), (float)val), NORMAL);
 }
 
 static void put_value(struct data *d, const char *key, const char *val)

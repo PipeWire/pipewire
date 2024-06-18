@@ -649,7 +649,7 @@ done:
 						spa_debug_type_find_short_name(spa_type_audio_channel, j + _SH));
 
 			mix->matrix_orig[ic][jc++] = matrix[i][j];
-			sum += fabs(matrix[i][j]);
+			sum += fabsf(matrix[i][j]);
 
 			if (matrix[i][j] == 0.0f)
 				spa_strbuf_append(&sb1, "      ");
@@ -772,7 +772,7 @@ int channelmix_init(struct channelmix *mix)
 	mix->process = info->process;
 	mix->set_volume = impl_channelmix_set_volume;
 	mix->cpu_flags = info->cpu_flags;
-	mix->delay = mix->rear_delay * mix->freq / 1000.0f;
+	mix->delay = (uint32_t)(mix->rear_delay * mix->freq / 1000.0f);
 	mix->func_name = info->name;
 
 	spa_log_debug(mix->log, "selected %s delay:%d options:%08x", info->name, mix->delay,

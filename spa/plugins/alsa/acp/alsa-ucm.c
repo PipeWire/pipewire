@@ -1206,7 +1206,7 @@ static unsigned devset_playback_priority(pa_idxset *devices, bool invert) {
     }
 
     if (priority > 0 && invert)
-        return 1.0 / priority;
+        return (unsigned)(1.0 / priority);
 
     return (unsigned) priority;
 }
@@ -1224,7 +1224,7 @@ static unsigned devset_capture_priority(pa_idxset *devices, bool invert) {
     }
 
     if (priority > 0 && invert)
-        return 1.0 / priority;
+        return (unsigned)(1.0 / priority);
 
     return (unsigned) priority;
 }

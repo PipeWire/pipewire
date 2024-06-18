@@ -16,17 +16,17 @@
 #include <pipewire/pipewire.h>
 #include <pipewire/filter.h>
 
-#define M_PI_M2 ( M_PI + M_PI )
+#define M_PI_M2f ( M_PIf + M_PIf )
 
 #define DEFAULT_RATE		44100
 #define DEFAULT_FREQ		440
-#define DEFAULT_VOLUME		0.7
+#define DEFAULT_VOLUME		0.7f
 
 struct data;
 
 struct port {
 	struct data *data;
-	double accumulator;
+	float accumulator;
 };
 
 struct data {
@@ -61,11 +61,11 @@ static void on_process(void *userdata, struct spa_io_position *position)
 		return;
 
 	for (i = 0; i < n_samples; i++) {
-		out_port->accumulator += M_PI_M2 * DEFAULT_FREQ / DEFAULT_RATE;
-		if (out_port->accumulator >= M_PI_M2)
-			out_port->accumulator -= M_PI_M2;
+		out_port->accumulator += M_PI_M2f * DEFAULT_FREQ / DEFAULT_RATE;
+		if (out_port->accumulator >= M_PI_M2f)
+			out_port->accumulator -= M_PI_M2f;
 
-		*out++ = sin(out_port->accumulator) * DEFAULT_VOLUME;
+		*out++ = sinf(out_port->accumulator) * DEFAULT_VOLUME;
 	}
 }
 

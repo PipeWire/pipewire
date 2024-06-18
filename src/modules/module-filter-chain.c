@@ -1022,12 +1022,12 @@ static struct spa_pod *get_prop_info(struct graph *graph, struct spa_pod_builder
 		}
 	} else if (p->hint & FC_HINT_INTEGER) {
 		if (min == max) {
-			spa_pod_builder_int(b, def);
+			spa_pod_builder_int(b, (int32_t)def);
 		} else {
 			spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_Range, 0);
-			spa_pod_builder_int(b, def);
-			spa_pod_builder_int(b, min);
-			spa_pod_builder_int(b, max);
+			spa_pod_builder_int(b, (int32_t)def);
+			spa_pod_builder_int(b, (int32_t)min);
+			spa_pod_builder_int(b, (int32_t)max);
 			spa_pod_builder_pop(b, &f[1]);
 		}
 	} else {
@@ -1073,7 +1073,7 @@ static struct spa_pod *get_props_param(struct graph *graph, struct spa_pod_build
 		if (p->hint & FC_HINT_BOOLEAN) {
 			spa_pod_builder_bool(b, port->control_data[0] <= 0.0f ? false : true);
 		} else if (p->hint & FC_HINT_INTEGER) {
-			spa_pod_builder_int(b, port->control_data[0]);
+			spa_pod_builder_int(b, (int32_t)port->control_data[0]);
 		} else {
 			spa_pod_builder_float(b, port->control_data[0]);
 		}
@@ -1140,7 +1140,7 @@ static int parse_params(struct graph *graph, const struct spa_pod *pod)
 		if (spa_pod_parser_get_float(&prs, &value) >= 0) {
 			val = &value;
 		} else if (spa_pod_parser_get_double(&prs, &dbl_val) >= 0) {
-			value = dbl_val;
+			value = (float)dbl_val;
 			val = &value;
 		} else if (spa_pod_parser_get_int(&prs, &int_val) >= 0) {
 			value = int_val;
@@ -1217,7 +1217,7 @@ static int sync_volume(struct graph *graph, struct volume *vol)
 		float v = vol->mute ? 0.0f : vol->volumes[i];
 		switch (vol->scale[n_port]) {
 		case SCALE_CUBIC:
-			v = cbrt(v);
+			v = cbrtf(v);
 			break;
 		}
 		v = v * (vol->max[n_port] - vol->min[n_port]) + vol->min[n_port];

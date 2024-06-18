@@ -752,10 +752,10 @@ static float *create_hilbert(const char *filename, float gain, int delay, int of
         if (samples == NULL)
 		return NULL;
 
-	gain *= 2 / M_PI;
+	gain *= 2 / M_PIf;
 	h = length / 2;
 	for (i = 1; i < h; i += 2) {
-		v = (gain / i) * (0.43f + 0.57f * cosf(i * M_PI / h));
+		v = (gain / i) * (0.43f + 0.57f * cosf(i * M_PIf / h));
 		samples[delay + h + i] = -v;
 		samples[delay + h - i] =  v;
 	}
@@ -1134,7 +1134,7 @@ static void *delay_instantiate(const struct fc_descriptor * Descriptor,
 		return NULL;
 
 	impl->rate = SampleRate;
-	impl->buffer_samples = max_delay * impl->rate;
+	impl->buffer_samples = (uint32_t)(max_delay * impl->rate);
 	pw_log_info("max-delay:%f seconds rate:%lu samples:%d", max_delay, impl->rate, impl->buffer_samples);
 
 	impl->buffer = calloc(impl->buffer_samples, sizeof(float));
@@ -1163,7 +1163,7 @@ static void delay_run(void * Instance, unsigned long SampleCount)
 	uint32_t r, w;
 
 	if (delay != impl->delay) {
-		impl->delay_samples = SPA_CLAMP(delay * impl->rate, 0, impl->buffer_samples-1);
+		impl->delay_samples = SPA_CLAMP((uint32_t)(delay * impl->rate), 0u, impl->buffer_samples-1);
 		impl->delay = delay;
 	}
 	r = impl->ptr;
@@ -1453,7 +1453,7 @@ static struct fc_port exp_ports[] = {
 	{ .index = 4,
 	  .name = "Base",
 	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
-	  .def = M_E, .min = -10.0f, .max = 10.0f
+	  .def = M_Ef, .min = -10.0f, .max = 10.0f
 	},
 };
 
@@ -1510,7 +1510,7 @@ static struct fc_port log_ports[] = {
 	{ .index = 4,
 	  .name = "Base",
 	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
-	  .def = M_E, .min = 2.0f, .max = 100.0f
+	  .def = M_Ef, .min = 2.0f, .max = 100.0f
 	},
 	{ .index = 5,
 	  .name = "M1",
@@ -1611,7 +1611,7 @@ static const struct fc_descriptor mult_desc = {
 	.cleanup = builtin_cleanup,
 };
 
-#define M_PI_M2 ( M_PI + M_PI )
+#define M_PI_M2f ( M_PIf + M_PIf )
 
 /* sine */
 static void sine_run(void * Instance, unsigned long SampleCount)
@@ -1626,13 +1626,13 @@ static void sine_run(void * Instance, unsigned long SampleCount)
 
 	for (n = 0; n < SampleCount; n++) {
 		if (out != NULL)
-			out[n] = sin(impl->accum) * ampl + offs;
+			out[n] = sinf(impl->accum) * ampl + offs;
 		if (notify != NULL && n == 0)
-			notify[0] = sin(impl->accum) * ampl + offs;
+			notify[0] = sinf(impl->accum) * ampl + offs;
 
-		impl->accum += M_PI_M2 * freq / impl->rate;
-		if (impl->accum >= M_PI_M2)
-			impl->accum -= M_PI_M2;
+		impl->accum += M_PI_M2f * freq / impl->rate;
+		if (impl->accum >= M_PI_M2f)
+			impl->accum -= M_PI_M2f;
 	}
 }
 
@@ -1658,7 +1658,7 @@ static struct fc_port sine_ports[] = {
 	{ .index = 4,
 	  .name = "Phase",
 	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
-	  .def = 0.0f, .min = -M_PI, .max = M_PI
+	  .def = 0.0f, .min = -M_PIf, .max = M_PIf
 	},
 	{ .index = 5,
 	  .name = "Offset",

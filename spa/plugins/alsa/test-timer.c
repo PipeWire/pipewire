@@ -16,7 +16,7 @@
 
 #define DEFAULT_DEVICE	"hw:0"
 
-#define M_PI_M2 (M_PI + M_PI)
+#define M_PI_M2f (M_PIf + M_PIf)
 
 #define BW_PERIOD	(SPA_NSEC_PER_SEC * 3)
 
@@ -63,10 +63,10 @@ static int set_timeout(struct state *state, uint64_t time)
 	type *samples, v;										\
 	samples = (type*)((uint8_t*)areas[0].addr + (areas[0].first + offset*areas[0].step) / 8);	\
 	for (i = 0; i < frames; i++) {									\
-		state->accumulator += M_PI_M2 * 440 / state->rate;					\
-		if (state->accumulator >= M_PI_M2)							\
-			state->accumulator -= M_PI_M2;							\
-		v = sin(state->accumulator) * scale;							\
+		state->accumulator += M_PI_M2f * 440.0f / state->rate;					\
+		if (state->accumulator >= M_PI_M2f)							\
+			state->accumulator -= M_PI_M2f;							\
+		v = (type)(sin(state->accumulator) * scale);						\
 		for (j = 0; j < state->channels; j++)							\
 			*samples++ = v;									\
 	}												\
@@ -135,7 +135,7 @@ static int on_timer_wakeup(struct state *state)
 	/* set our new adjusted timeout. alternatively, this value can
 	 * instead be used to drive a resampler if this device is
 	 * slaved. */
-	state->next_time += state->period / corr * 1e9 / state->rate;
+	state->next_time += (uint64_t)(state->period / corr * 1e9 / state->rate);
 	set_timeout(state, state->next_time);
 
 	if (state->next_time - state->prev_time > BW_PERIOD) {

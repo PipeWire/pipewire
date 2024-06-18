@@ -651,7 +651,7 @@ static void do_volume(struct impl *this, struct spa_buffer *dbuf, struct spa_buf
 
 		n_samples = n_bytes / sizeof(int16_t);
 		for (i = 0; i < n_samples; i++)
-			dst[i] = src[i] * volume;
+			dst[i] = (int16_t)(src[i] * volume);
 
 		sindex += n_bytes;
 		dindex += n_bytes;

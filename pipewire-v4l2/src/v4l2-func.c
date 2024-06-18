@@ -11,8 +11,9 @@
 #undef _FORTIFY_SOURCE
 #endif
 
+#include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <sys/mman.h>
@@ -31,10 +32,15 @@
 	va_end(ap);			\
 }
 
+static inline bool needs_mode(int flags)
+{
+	return (flags & O_CREAT) || ((flags & O_TMPFILE) == O_TMPFILE);
+}
+
 SPA_EXPORT int open(const char *path, int oflag, ...)
 {
 	mode_t mode = 0;
-	if (oflag & O_CREAT || oflag & O_TMPFILE)
+	if (needs_mode(oflag))
 		extract_va_arg(mode_t, mode, oflag);
 
 	return get_fops()->openat(AT_FDCWD, path, oflag, mode);
@@ -43,6 +49,7 @@ SPA_EXPORT int open(const char *path, int oflag, ...)
 /* _FORTIFY_SOURCE redirects open to __open_2 */
 SPA_EXPORT int __open_2(const char *path, int oflag)
 {
+	assert(!needs_mode(oflag));
 	return open(path, oflag);
 }
 
@@ -50,7 +57,7 @@ SPA_EXPORT int __open_2(const char *path, int oflag)
 SPA_EXPORT int open64(const char *path, int oflag, ...)
 {
 	mode_t mode = 0;
-	if (oflag & O_CREAT || oflag & O_TMPFILE)
+	if (needs_mode(oflag))
 		extract_va_arg(mode_t, mode, oflag);
 
 	return get_fops()->openat(AT_FDCWD, path, oflag | O_LARGEFILE, mode);
@@ -58,14 +65,15 @@ SPA_EXPORT int open64(const char *path, int oflag, ...)
 
 SPA_EXPORT int __open64_2(const char *path, int oflag)
 {
-        return open64(path, oflag);
+	assert(!needs_mode(oflag));
+	return open64(path, oflag);
 }
 #endif
 
 SPA_EXPORT int openat(int dirfd, const char *path, int oflag, ...)
 {
 	mode_t mode = 0;
-	if (oflag & O_CREAT || oflag & O_TMPFILE)
+	if (needs_mode(oflag))
 		extract_va_arg(mode_t, mode, oflag);
 
 	return get_fops()->openat(dirfd, path, oflag, mode);
@@ -73,6 +81,7 @@ SPA_EXPORT int openat(int dirfd, const char *path, int oflag, ...)
 
 SPA_EXPORT int __openat_2(int dirfd, const char *path, int oflag)
 {
+	assert(!needs_mode(oflag));
 	return openat(dirfd, path, oflag);
 }
 
@@ -80,7 +89,7 @@ SPA_EXPORT int __openat_2(int dirfd, const char *path, int oflag)
 SPA_EXPORT int openat64(int dirfd, const char *path, int oflag, ...)
 {
 	mode_t mode = 0;
-	if (oflag & O_CREAT || oflag & O_TMPFILE)
+	if (needs_mode(oflag))
 		extract_va_arg(mode_t, mode, oflag);
 
 	return get_fops()->openat(dirfd, path, oflag | O_LARGEFILE, mode);
@@ -88,6 +97,7 @@ SPA_EXPORT int openat64(int dirfd, const char *path, int oflag, ...)
 
 SPA_EXPORT int __openat64_2(int dirfd, const char *path, int oflag)
 {
+	assert(!needs_mode(oflag));
 	return openat64(dirfd, path, oflag);
 }
 #endif

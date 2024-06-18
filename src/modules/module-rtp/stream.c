@@ -507,7 +507,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	}
 
 	/* We're not expecting odd ptimes, so this modulo should be 0 */
-	if (fmodf(impl->target_buffer, ptime != 0)) {
+	if (fmodf(impl->target_buffer, ptime) != 0) {
 		pw_log_warn("sess.latency.msec should be an integer multiple of rtp.ptime");
 		impl->target_buffer = (uint32_t)((impl->target_buffer / ptime) * impl->psamples);
 	}

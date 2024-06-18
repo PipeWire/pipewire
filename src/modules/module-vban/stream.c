@@ -361,12 +361,12 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 	min_samples = (uint32_t)(min_ptime * impl->rate / 1000);
 	max_samples = SPA_MIN(256u, (uint32_t)(max_ptime * impl->rate / 1000));
 
-	float ptime = 0;
+	float ptime = 0.f;
 	if ((str = pw_properties_get(props, "vban.ptime")) != NULL)
 		if (!spa_atof(str, &ptime))
-			ptime = 0.0;
+			ptime = 0.0f;
 
-	if (ptime) {
+	if (ptime != 0.f) {
 		impl->psamples = (uint32_t)(ptime * impl->rate / 1000);
 	} else {
 		impl->psamples = impl->mtu / impl->stride;

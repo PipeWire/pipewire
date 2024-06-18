@@ -663,7 +663,7 @@ static int impl_node_process(void *object)
 	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 	this->state.streams[outport->stream_id].pending_buffer_id = b->id;
 
-	this->state.constants.time += 0.025;
+	this->state.constants.time += 0.025f;
 	this->state.constants.frame++;
 
 	spa_log_debug(this->log, "filter into %d", b->id);

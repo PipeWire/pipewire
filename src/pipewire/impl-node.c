@@ -767,6 +767,9 @@ int pw_impl_node_set_io(struct pw_impl_node *this, uint32_t id, void *data, size
 
 	res = spa_node_set_io(this->node, id, data, size);
 
+	if (res >= 0 && !SPA_RESULT_IS_ASYNC(res) && this->rt.position)
+		this->rt.target.activation->active_driver_id = this->rt.position->clock.id;
+
 	pw_log_debug("%p: set io: %s", this, spa_strerror(res));
 
 	return res;

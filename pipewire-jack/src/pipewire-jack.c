@@ -2239,6 +2239,7 @@ static int client_node_set_io(void *data,
 		c->position = ptr;
 		c->driver_id = ptr ? c->position->clock.id : SPA_ID_INVALID;
 		update_driver_activation(c);
+		c->activation->active_driver_id = c->driver_id;
 		queue_memmap_free(c, old);
 		old = NULL;
 		break;

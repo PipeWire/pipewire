@@ -606,11 +606,11 @@ struct pw_node_activation {
 	uint32_t segment_owner[16];			/* id of owners for each segment info struct.
 							 * nodes that want to update segment info need to
 							 * CAS their node id in this array. */
-	uint32_t padding[11];
-	uint32_t client_version;
-	uint32_t server_version;
+	uint32_t padding[11];				/* must be 0 */
+	uint32_t client_version;			/* verions of client, see above */
+	uint32_t server_version;			/* verions of server, see above */
 
-	uint32_t active_driver_id;
+	uint32_t active_driver_id;			/* driver active on client */
 	uint32_t driver_id;				/* the current node driver id */
 #define PW_NODE_ACTIVATION_FLAG_NONE		0
 #define PW_NODE_ACTIVATION_FLAG_PROFILER	(1<<0)	/* the profiler is running */

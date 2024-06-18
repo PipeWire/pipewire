@@ -16,7 +16,7 @@
 
 #define DEFAULT_DEVICE	"hw:0"
 
-#define M_PI_M2f (M_PIf + M_PIf)
+#define M_PI_M2f (float)(M_PI+M_PI)
 
 #define BW_PERIOD	(SPA_NSEC_PER_SEC * 3)
 

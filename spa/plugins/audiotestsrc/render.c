@@ -4,7 +4,7 @@
 
 #include <math.h>
 
-#define M_PI_M2f ( M_PIf + M_PIf )
+#define M_PI_M2f (float)(M_PI+M_PI)
 
 #define DEFINE_SINE(type,scale)								\
 static void										\

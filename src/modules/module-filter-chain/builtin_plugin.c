@@ -752,10 +752,10 @@ static float *create_hilbert(const char *filename, float gain, int delay, int of
         if (samples == NULL)
 		return NULL;
 
-	gain *= 2 / M_PIf;
+	gain *= 2 / (float)M_PI;
 	h = length / 2;
 	for (i = 1; i < h; i += 2) {
-		v = (gain / i) * (0.43f + 0.57f * cosf(i * M_PIf / h));
+		v = (gain / i) * (0.43f + 0.57f * cosf(i * (float)M_PI / h));
 		samples[delay + h + i] = -v;
 		samples[delay + h - i] =  v;
 	}
@@ -1453,7 +1453,7 @@ static struct fc_port exp_ports[] = {
 	{ .index = 4,
 	  .name = "Base",
 	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
-	  .def = M_Ef, .min = -10.0f, .max = 10.0f
+	  .def = (float)M_E, .min = -10.0f, .max = 10.0f
 	},
 };
 
@@ -1510,7 +1510,7 @@ static struct fc_port log_ports[] = {
 	{ .index = 4,
 	  .name = "Base",
 	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
-	  .def = M_Ef, .min = 2.0f, .max = 100.0f
+	  .def = (float)M_E, .min = 2.0f, .max = 100.0f
 	},
 	{ .index = 5,
 	  .name = "M1",
@@ -1611,7 +1611,7 @@ static const struct fc_descriptor mult_desc = {
 	.cleanup = builtin_cleanup,
 };
 
-#define M_PI_M2f ( M_PIf + M_PIf )
+#define M_PI_M2f (float)(M_PI+M_PI)
 
 /* sine */
 static void sine_run(void * Instance, unsigned long SampleCount)
@@ -1658,7 +1658,7 @@ static struct fc_port sine_ports[] = {
 	{ .index = 4,
 	  .name = "Phase",
 	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
-	  .def = 0.0f, .min = -M_PIf, .max = M_PIf
+	  .def = 0.0f, .min = (float)-M_PI, .max = (float)M_PI
 	},
 	{ .index = 5,
 	  .name = "Offset",

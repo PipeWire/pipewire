@@ -16,7 +16,7 @@
 #include <pipewire/pipewire.h>
 #include <pipewire/filter.h>
 
-#define M_PI_M2f ( M_PIf + M_PIf )
+#define M_PI_M2f (float)(M_PI+M_PI)
 
 #define DEFAULT_RATE		44100
 #define DEFAULT_FREQ		440

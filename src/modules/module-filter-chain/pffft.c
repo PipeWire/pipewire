@@ -1273,7 +1273,7 @@ static void rffti1_ps(int n, float *wa, int *ifac)
 	int k1, j, ii;
 
 	int nf = decompose(n, ifac, ntryh);
-	float argh = (2 * M_PIf) / n;
+	float argh = (2 * (float)M_PI) / n;
 	int is = 0;
 	int nfm1 = nf - 1;
 	int l1 = 1;
@@ -1306,7 +1306,7 @@ static void cffti1_ps(int n, float *wa, int *ifac)
 	int k1, j, ii;
 
 	int nf = decompose(n, ifac, ntryh);
-	float argh = (2 * M_PIf) / (float)n;
+	float argh = (2 * (float)M_PI) / (float)n;
 	int i = 1;
 	int l1 = 1;
 	for (k1 = 1; k1 <= nf; k1++) {
@@ -1440,7 +1440,7 @@ static PFFFT_Setup *new_setup_simd(int N, pffft_transform_t transform)
 			int i = k / SIMD_SZ;
 			int j = k % SIMD_SZ;
 			for (m = 0; m < SIMD_SZ - 1; ++m) {
-				float A = -2 * M_PIf * (m + 1) * k / N;
+				float A = -2 * (float)M_PI * (m + 1) * k / N;
 				s->e[(2 * (i * 3 + m) + 0) * SIMD_SZ + j] =
 				    cosf(A);
 				s->e[(2 * (i * 3 + m) + 1) * SIMD_SZ + j] =
@@ -1453,7 +1453,7 @@ static PFFFT_Setup *new_setup_simd(int N, pffft_transform_t transform)
 			int i = k / SIMD_SZ;
 			int j = k % SIMD_SZ;
 			for (m = 0; m < SIMD_SZ - 1; ++m) {
-				float A = -2 * M_PIf * (m + 1) * k / N;
+				float A = -2 * (float)M_PI * (m + 1) * k / N;
 				s->e[(2 * (i * 3 + m) + 0) * SIMD_SZ + j] =
 				    cosf(A);
 				s->e[(2 * (i * 3 + m) + 1) * SIMD_SZ + j] =
@@ -1765,7 +1765,7 @@ static NEVER_INLINE(void) pffft_real_finalize(int Ncvec, const v4sf * in,
 	v4sf_union cr, ci, *uout = (v4sf_union *) out;
 	v4sf save = in[7], zero = VZERO();
 	float xr0, xi0, xr1, xi1, xr2, xi2, xr3, xi3;
-	static const float s = M_SQRT2f / 2;
+	static const float s = (float)M_SQRT2 / 2;
 
 	cr.v = in[0];
 	ci.v = in[Ncvec * 2 - 1];
@@ -1871,7 +1871,7 @@ static NEVER_INLINE(void) pffft_real_preprocess(int Ncvec, const v4sf * in,
 
 	v4sf_union Xr, Xi, *uout = (v4sf_union *) out;
 	float cr0, ci0, cr1, ci1, cr2, ci2, cr3, ci3;
-	static const float s = M_SQRT2f;
+	static const float s = (float)M_SQRT2;
 	assert(in != out);
 	for (k = 0; k < 4; ++k) {
 		Xr.f[k] = ((float *)in)[8 * k];

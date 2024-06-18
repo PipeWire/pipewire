@@ -229,7 +229,7 @@ static void spatializer_reload(void * Instance)
 	);
 
 	// TODO: make use of delay
-	if ((left_delay || right_delay) && (!isnan(left_delay) || !isnan(right_delay))) {
+	if ((left_delay != 0.0f || right_delay != 0.0f) && (!isnan(left_delay) || !isnan(right_delay))) {
 		pw_log_warn("delay dropped l: %f, r: %f", left_delay, right_delay);
 	}
 

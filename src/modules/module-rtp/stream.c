@@ -465,7 +465,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		if (!framecount) {
 			impl->psamples = msec_to_samples(impl, ptime);
 			pw_properties_setf(props, "rtp.framecount", "%u", impl->psamples);
-		} else if (!ptime) {
+		} else if (ptime == 0.0f) {
 			impl->psamples = framecount;
 			pw_properties_set(props, "rtp.ptime",
 					spa_dtoa(tmp, sizeof(tmp),

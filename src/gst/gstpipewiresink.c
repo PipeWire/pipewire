@@ -543,7 +543,8 @@ on_state_changed (void *data, enum pw_stream_state old, enum pw_stream_state sta
 {
   GstPipeWireSink *pwsink = data;
 
-  GST_DEBUG ("got stream state %d", state);
+  GST_DEBUG_OBJECT (pwsink, "got stream state \"%s\" (%d)",
+      pw_stream_state_as_string(state), state);
 
   switch (state) {
     case PW_STREAM_STATE_UNCONNECTED:

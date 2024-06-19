@@ -534,7 +534,7 @@ static void
 on_process (void *data)
 {
   GstPipeWireSink *pwsink = data;
-  GST_DEBUG_OBJECT (pwsink, "signal");
+  GST_LOG_OBJECT (pwsink, "signal");
   g_cond_signal (&pwsink->stream->pool->cond);
 }
 

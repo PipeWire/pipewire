@@ -297,7 +297,7 @@ static void
 pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
 {
   GST_DEBUG_OBJECT (pool, "activated");
-  gst_pipewire_sink_update_params (sink);
+  g_cond_signal (&sink->stream->pool->cond);
 }
 
 static void
@@ -580,12 +580,19 @@ static void
 on_param_changed (void *data, uint32_t id, const struct spa_pod *param)
 {
   GstPipeWireSink *pwsink = data;
+  GstPipeWirePool *pool = pwsink->stream->pool;
 
   if (param == NULL || id != SPA_PARAM_Format)
     return;
 
-  if (gst_buffer_pool_is_active (GST_BUFFER_POOL_CAST (pwsink->stream->pool)))
-    gst_pipewire_sink_update_params (pwsink);
+  GST_OBJECT_LOCK (pool);
+  while (!gst_buffer_pool_is_active (GST_BUFFER_POOL (pool))) {
+    GST_DEBUG_OBJECT (pool, "waiting for pool to become active");
+    g_cond_wait(&pool->cond, GST_OBJECT_GET_LOCK (pool));
+  }
+  GST_OBJECT_UNLOCK (pool);
+
+  gst_pipewire_sink_update_params (pwsink);
 }
 
 static gboolean

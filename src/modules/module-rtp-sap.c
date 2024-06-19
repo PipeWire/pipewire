@@ -975,6 +975,10 @@ static int session_load_source(struct session *session, struct pw_properties *pr
 	if ((media = pw_properties_get(props, "sess.media")) == NULL)
 		media = "audio";
 
+	if ((str = pw_properties_get(props, "cleanup.sec")) != NULL) {
+		fprintf(f, "\"cleanup.sec\" = \"%s\", ", str);
+	}
+
 	if (spa_streq(media, "audio")) {
 		const char *mime;
 		const struct format_info *format_info;

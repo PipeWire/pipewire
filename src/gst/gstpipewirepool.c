@@ -70,8 +70,8 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
     struct spa_data *d = &b->buffer->datas[i];
     GstMemory *gmem = NULL;
 
-    GST_DEBUG_OBJECT (pool, "wrap data (%s) %d %d",
-        spa_debug_type_find_short_name(spa_type_data_type, d->type),
+    GST_DEBUG_OBJECT (pool, "wrap data (%s %d) %d %d",
+        spa_debug_type_find_short_name(spa_type_data_type, d->type), d->type,
         d->mapoffset, d->maxsize);
     if (d->type == SPA_DATA_MemFd) {
       gmem = gst_fd_allocator_alloc (pool->fd_allocator, dup(d->fd),

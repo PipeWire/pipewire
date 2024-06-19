@@ -244,8 +244,9 @@ gst_pipewire_sink_class_init (GstPipeWireSinkClass * klass)
 }
 
 static void
-pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
+gst_pipewire_sink_update_params (GstPipeWireSink *sink)
 {
+  GstPipeWirePool *pool = sink->stream->pool;
   GstStructure *config;
   GstCaps *caps;
   guint size;
@@ -290,6 +291,13 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
   pw_thread_loop_lock (sink->stream->core->loop);
   pw_stream_update_params (sink->stream->pwstream, port_params, 3);
   pw_thread_loop_unlock (sink->stream->core->loop);
+}
+
+static void
+pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
+{
+  GST_DEBUG_OBJECT (pool, "activated");
+  gst_pipewire_sink_update_params (sink);
 }
 
 static void
@@ -577,7 +585,7 @@ on_param_changed (void *data, uint32_t id, const struct spa_pod *param)
     return;
 
   if (gst_buffer_pool_is_active (GST_BUFFER_POOL_CAST (pwsink->stream->pool)))
-    pool_activated (pwsink->stream->pool, pwsink);
+    gst_pipewire_sink_update_params (pwsink);
 }
 
 static gboolean

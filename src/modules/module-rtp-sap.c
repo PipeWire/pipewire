@@ -3,7 +3,6 @@
 /* SPDX-License-Identifier: MIT */
 
 #include "config.h"
-#include "pipewire/properties.h"
 
 #include <limits.h>
 #include <unistd.h>

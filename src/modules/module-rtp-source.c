@@ -182,8 +182,10 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 		if (len < 12)
 			goto short_packet;
 
-		if (SPA_LIKELY(impl->stream))
-			rtp_stream_receive_packet(impl->stream, buffer, len);
+		if (SPA_LIKELY(impl->stream)) {
+			if (rtp_stream_receive_packet(impl->stream, buffer, len) < 0)
+				goto receive_error;
+		}
 
 		impl->receiving = true;
 	}

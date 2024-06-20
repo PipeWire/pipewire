@@ -126,12 +126,6 @@ PWTEST(node_node_abi)
 		void (*result) (void *data, int seq, int res,
 			uint32_t type, const void *result);
 		void (*event) (void *data, const struct spa_event *event);
-		void (*peer_enum_params) (void *data, int seq,
-			enum spa_direction direction, uint32_t port_id,
-			uint32_t id, uint32_t start, uint32_t max,
-			const struct spa_pod *filter,
-			const struct spa_node_events *events, void *events_data,
-			int *res);
 	} events = { SPA_VERSION_NODE_EVENTS, };
 	struct {
 		uint32_t version;
@@ -195,8 +189,7 @@ PWTEST(node_node_abi)
 	TEST_FUNC(e, events, port_info, SPA_NODE_EVENT_PORT_INFO);
 	TEST_FUNC(e, events, result, SPA_NODE_EVENT_RESULT);
 	TEST_FUNC(e, events, event, SPA_NODE_EVENT_EVENT);
-	TEST_FUNC(e, events, peer_enum_params, SPA_NODE_EVENT_PEER_ENUM_PARAM);
-	pwtest_int_eq(SPA_NODE_EVENT_NUM, 5);
+	pwtest_int_eq(SPA_NODE_EVENT_NUM, 4);
 	pwtest_int_eq(sizeof(e), sizeof(events));
 
 	TEST_FUNC(c, callbacks, version, 0);

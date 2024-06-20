@@ -30,7 +30,7 @@ extern "C" {
 
 #define SPA_TYPE_INTERFACE_Node		SPA_TYPE_INFO_INTERFACE_BASE "Node"
 
-#define SPA_VERSION_NODE		1
+#define SPA_VERSION_NODE		0
 struct spa_node { struct spa_interface iface; };
 
 /**
@@ -126,8 +126,7 @@ struct spa_result_node_params {
 #define SPA_NODE_EVENT_PORT_INFO	1
 #define SPA_NODE_EVENT_RESULT		2
 #define SPA_NODE_EVENT_EVENT		3
-#define SPA_NODE_EVENT_PEER_ENUM_PARAM	4
-#define SPA_NODE_EVENT_NUM		5
+#define SPA_NODE_EVENT_NUM		4
 
 /** events from the spa_node.
  *
@@ -136,7 +135,7 @@ struct spa_result_node_params {
  * spa_node_add_listener().
  */
 struct spa_node_events {
-#define SPA_VERSION_NODE_EVENTS	1
+#define SPA_VERSION_NODE_EVENTS	0
 	uint32_t version;	/**< version of this structure */
 
 	/** Emitted when info changes */
@@ -174,21 +173,6 @@ struct spa_node_events {
 	 * on \a node.
 	 */
 	void (*event) (void *data, const struct spa_event *event);
-
-	/**
-	 * \param data the data when registering the listener
-	 *
-	 * Register the given events and data as a listener to the
-	 * peer of the given port and enumerate the params.
-	 *
-	 * since 1:1
-	 */
-	void (*peer_enum_params) (void *data, int seq,
-				enum spa_direction direction, uint32_t port_id,
-				uint32_t id, uint32_t start, uint32_t max,
-				const struct spa_pod *filter,
-				const struct spa_node_events *events, void *events_data,
-				int *res);
 };
 
 #define SPA_NODE_CALLBACK_READY		0

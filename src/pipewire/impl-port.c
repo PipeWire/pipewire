@@ -30,7 +30,6 @@ struct impl {
 	struct pw_impl_port this;
 	struct spa_node mix_node;	/**< mix node implementation */
 	struct spa_hook_list mix_hooks;
-	struct spa_hook mix_listener;
 
 	struct {
 		struct spa_list mix_list;
@@ -128,17 +127,6 @@ static int mix_add_listener(void *object, struct spa_hook *listener,
 	return 0;
 }
 
-static void mix_result(void *data, int seq, int res, uint32_t type, const void *result)
-{
-	struct impl *impl = data;
-	spa_node_emit_result(&impl->mix_hooks, seq, res, type, result);
-}
-
-static const struct spa_node_events mix_node_events = {
-	SPA_VERSION_NODE_EVENTS,
-	.result = mix_result,
-};
-
 static int mix_port_enum_params(void *object, int seq,
 		enum spa_direction direction, uint32_t port_id,
 		uint32_t id, uint32_t start, uint32_t max,
@@ -182,8 +170,6 @@ next:
 		break;
 	default:
 		res = -ENOTSUP;
-		spa_node_emit_peer_enum_params(&impl->mix_hooks, seq, direction, port_id,
-				id, start, max, filter, &mix_node_events, impl, &res);
 		return res;
 	}
 
@@ -810,30 +796,6 @@ error_no_mem:
 	return NULL;
 }
 
-static void mix_peer_enum_params(void *data, int seq,
-		enum spa_direction direction, uint32_t port_id,
-		uint32_t id, uint32_t start, uint32_t max,
-		const struct spa_pod *filter,
-		const struct spa_node_events *events, void *events_data,
-		int *res)
-{
-	struct impl *impl = data;
-	struct pw_impl_port *port = &impl->this;
-	struct spa_hook listener;
-
-	spa_zero(listener);
-	spa_node_add_listener(port->node->node, &listener, events, events_data);
-	*res = spa_node_port_enum_params(port->node->node, seq,
-			port->direction, port->port_id,
-			id, start, max, filter);
-	spa_hook_remove(&listener);
-}
-
-static const struct spa_node_events mix_peer_node_events = {
-	SPA_VERSION_NODE_EVENTS,
-	.peer_enum_params = mix_peer_enum_params,
-};
-
 SPA_EXPORT
 int pw_impl_port_set_mix(struct pw_impl_port *port, struct spa_node *node, uint32_t flags)
 {
@@ -855,8 +817,6 @@ int pw_impl_port_set_mix(struct pw_impl_port *port, struct spa_node *node, uint3
 			     pw_direction_reverse(port->direction), 0,
 			     SPA_IO_Buffers, NULL, 0);
 	}
-	if (port->mix)
-		spa_hook_remove(&impl->mix_listener);
 
 	if (port->mix_handle != NULL) {
 		pw_unload_spa_handle(port->mix_handle);
@@ -865,8 +825,6 @@ int pw_impl_port_set_mix(struct pw_impl_port *port, struct spa_node *node, uint3
 
 	port->mix_flags = flags;
 	port->mix = node;
-	if (port->mix)
-		spa_node_add_listener(port->mix, &impl->mix_listener, &mix_peer_node_events, impl);
 
 	if (port->mix && !port->destroying) {
 		spa_list_for_each(mix, &port->mix_list, link)

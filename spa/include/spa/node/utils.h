@@ -113,7 +113,6 @@ static inline int spa_node_port_enum_params_sync(struct spa_node *node,
 #define spa_node_emit_port_info(hooks,...)	spa_node_emit(hooks,port_info, 0, __VA_ARGS__)
 #define spa_node_emit_result(hooks,...)		spa_node_emit(hooks,result, 0, __VA_ARGS__)
 #define spa_node_emit_event(hooks,...)		spa_node_emit(hooks,event, 0, __VA_ARGS__)
-#define spa_node_emit_peer_enum_params(hooks,...)	spa_node_emit(hooks,peer_enum_params,1, __VA_ARGS__)
 
 
 #define spa_node_call(callbacks,method,version,...)			\

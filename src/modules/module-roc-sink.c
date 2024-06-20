@@ -264,6 +264,7 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 	sender_config.frame_encoding.rate = data->rate;
 	sender_config.frame_encoding.channels = ROC_CHANNEL_LAYOUT_STEREO;
 	sender_config.frame_encoding.format = ROC_FORMAT_PCM_FLOAT32;
+	sender_config.packet_encoding = ROC_PACKET_ENCODING_AVP_L16_STEREO;
 	sender_config.fec_encoding = data->fec_code;
 
 	info.rate = data->rate;

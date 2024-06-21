@@ -66,6 +66,7 @@ struct data {
 	struct pw_map vars;
 	unsigned int interactive:1;
 	unsigned int monitoring:1;
+	unsigned int monitoring_info:1;
 	unsigned int quit:1;
 };
 
@@ -656,18 +657,20 @@ static void info_node(struct proxy_data *pd)
 	info_global(pd);
 	if (info == NULL)
 		return;
-	printf("%c\tinput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_INPUT_PORTS),
-			info->n_input_ports, info->max_input_ports);
-	printf("%c\toutput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_OUTPUT_PORTS),
-			info->n_output_ports, info->max_output_ports);
-	printf("%c\tstate: \"%s\"", MARK_CHANGE(PW_NODE_CHANGE_MASK_STATE),
-			pw_node_state_as_string(info->state));
+	if (info->change_mask & PW_NODE_CHANGE_MASK_INPUT_PORTS)
+		printf("%c\tinput ports: %u/%u\n", '*', info->n_input_ports, info->max_input_ports);
+	if (info->change_mask & PW_NODE_CHANGE_MASK_OUTPUT_PORTS)
+		printf("%c\toutput ports: %u/%u\n", '*', info->n_output_ports, info->max_output_ports);
+	if (info->change_mask & PW_NODE_CHANGE_MASK_STATE)
+		printf("%c\tstate: \"%s\"", '*', pw_node_state_as_string(info->state));
 	if (info->state == PW_NODE_STATE_ERROR && info->error)
 		printf(" \"%s\"\n", info->error);
 	else
 		printf("\n");
-	print_properties(info->props, MARK_CHANGE(PW_NODE_CHANGE_MASK_PROPS), true);
-	print_params(info->params, info->n_params, MARK_CHANGE(PW_NODE_CHANGE_MASK_PARAMS), true);
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS)
+		print_properties(info->props, '*', true);
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS)
+		print_params(info->params, info->n_params, '*', true);
 	info->change_mask = 0;
 }
 
@@ -679,8 +682,10 @@ static void info_port(struct proxy_data *pd)
 	if (info == NULL)
 		return;
 	printf("\tdirection: \"%s\"\n", pw_direction_as_string(info->direction));
-	print_properties(info->props, MARK_CHANGE(PW_PORT_CHANGE_MASK_PROPS), true);
-	print_params(info->params, info->n_params, MARK_CHANGE(PW_PORT_CHANGE_MASK_PARAMS), true);
+	if (info->change_mask & PW_PORT_CHANGE_MASK_PROPS)
+		print_properties(info->props, '*', true);
+	if (info->change_mask & PW_PORT_CHANGE_MASK_PARAMS)
+		print_params(info->params, info->n_params, '*', true);
 	info->change_mask = 0;
 }
 
@@ -720,18 +725,20 @@ static void info_link(struct proxy_data *pd)
 	printf("\tinput-node-id: %u\n", info->input_node_id);
 	printf("\tinput-port-id: %u\n", info->input_port_id);
 
-	printf("%c\tstate: \"%s\"", MARK_CHANGE(PW_LINK_CHANGE_MASK_STATE),
-			pw_link_state_as_string(info->state));
+	if (info->change_mask & PW_LINK_CHANGE_MASK_STATE)
+		printf("%c\tstate: \"%s\"", '*', pw_link_state_as_string(info->state));
 	if (info->state == PW_LINK_STATE_ERROR && info->error)
 		printf(" \"%s\"\n", info->error);
 	else
 		printf("\n");
-	printf("%c\tformat:\n", MARK_CHANGE(PW_LINK_CHANGE_MASK_FORMAT));
+	if (info->change_mask & PW_LINK_CHANGE_MASK_FORMAT)
+		printf("%c\tformat:\n", '*');
 	if (info->format)
 		spa_debug_pod(2, NULL, info->format);
 	else
 		printf("\t\tnone\n");
-	print_properties(info->props, MARK_CHANGE(PW_LINK_CHANGE_MASK_PROPS), true);
+	if (info->change_mask & PW_LINK_CHANGE_MASK_STATE)
+		print_properties(info->props, '*', true);
 	info->change_mask = 0;
 }
 
@@ -742,8 +749,10 @@ static void info_device(struct proxy_data *pd)
 	info_global(pd);
 	if (info == NULL)
 		return;
-	print_properties(info->props, MARK_CHANGE(PW_DEVICE_CHANGE_MASK_PROPS), true);
-	print_params(info->params, info->n_params, MARK_CHANGE(PW_DEVICE_CHANGE_MASK_PARAMS), true);
+	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS)
+		print_properties(info->props, '*', true);
+	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS)
+		print_params(info->params, info->n_params, '*', true);
 	info->change_mask = 0;
 }
 
@@ -815,7 +824,7 @@ static void core_event_info(void *data, const struct pw_core_info *info)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_core(pd);
-		pd->global->info_pending = false;
+		pd->global->info_pending = rd->data->monitoring_info;
 	}
 }
 
@@ -836,7 +845,7 @@ static void module_event_info(void *data, const struct pw_module_info *info)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_module(pd);
-		pd->global->info_pending = false;
+		pd->global->info_pending = rd->data->monitoring_info;
 	}
 }
 
@@ -856,7 +865,7 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_node(pd);
-		pd->global->info_pending = false;
+		pd->global->info_pending = rd->data->monitoring_info;
 	}
 }
 
@@ -891,7 +900,7 @@ static void port_event_info(void *data, const struct pw_port_info *info)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_port(pd);
-		pd->global->info_pending = false;
+		pd->global->info_pending = rd->data->monitoring_info;
 	}
 }
 
@@ -912,7 +921,7 @@ static void factory_event_info(void *data, const struct pw_factory_info *info)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_factory(pd);
-		pd->global->info_pending = false;
+		pd->global->info_pending = rd->data->monitoring_info;
 	}
 }
 
@@ -932,7 +941,7 @@ static void client_event_info(void *data, const struct pw_client_info *info)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_client(pd);
-		pd->global->info_pending = false;
+		pd->global->info_pending = rd->data->monitoring_info;
 	}
 }
 
@@ -973,7 +982,7 @@ static void link_event_info(void *data, const struct pw_link_info *info)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_link(pd);
-		pd->global->info_pending = false;
+		pd->global->info_pending = rd->data->monitoring_info;
 	}
 }
 
@@ -994,7 +1003,7 @@ static void device_event_info(void *data, const struct pw_device_info *info)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_device(pd);
-		pd->global->info_pending = false;
+		pd->global->info_pending = rd->data->monitoring_info;
 	}
 }
 
@@ -1039,7 +1048,7 @@ static void session_event_info(void *data,
 		pd->global = pw_map_lookup(&rd->globals, update->id);
 	if (pd->global && pd->global->info_pending) {
 		info_session(pd);
-		pd->global->info_pending = false;
+		pd->global->info_pending = rd->data->monitoring_info;
 	}
 }
 
@@ -1095,7 +1104,7 @@ static void endpoint_event_info(void *data,
 		pd->global = pw_map_lookup(&rd->globals, update->id);
 	if (pd->global && pd->global->info_pending) {
 		info_endpoint(pd);
-		pd->global->info_pending = false;
+		pd->global->info_pending = rd->data->monitoring_info;
 	}
 }
 
@@ -1144,7 +1153,7 @@ static void endpoint_stream_event_info(void *data,
 		pd->global = pw_map_lookup(&rd->globals, update->id);
 	if (pd->global && pd->global->info_pending) {
 		info_endpoint_stream(pd);
-		pd->global->info_pending = false;
+		pd->global->info_pending = rd->data->monitoring_info;
 	}
 }
 
@@ -1358,6 +1367,7 @@ static bool do_global_info(struct global *global, char **error)
 		pd = pw_proxy_get_user_data(global->proxy);
 		if (pd->class->info)
 			pd->class->info(pd);
+		pd->global->info_pending = rd->data->monitoring_info;
 	}
 	return true;
 }
@@ -2384,6 +2394,9 @@ int main(int argc, char *argv[])
 			p = stpcpy(p, argv[i]);
 			p = stpcpy(p, " ");
 		}
+
+		// If we're monitoring, surface info changes as well
+		data.monitoring_info = monitor;
 
 		pw_main_loop_run(data.loop);
 

@@ -8,14 +8,14 @@
 # Thomas Canniot <mrtom@fedoraproject.org>, 2009, 2012.
 # Cédric Valmary (Tot en Òc) <cvalmary@yahoo.fr>, 2015.
 # Cédric Valmary (totenoc.eu) <cvalmary@yahoo.fr>, 2016.
-# Quentin PAGÈS, 2023.
+# Quentin PAGÈS, 2023.-2024
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire trunk\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
-"POT-Creation-Date: 2022-06-30 12:50+0200\n"
-"PO-Revision-Date: 2023-02-11 00:11+0100\n"
+"POT-Creation-Date: 2024-02-25 03:43+0300\n"
+"PO-Revision-Date: 2024-06-24 11:53+0200\n"
 "Last-Translator: Quentin PAGÈS\n"
 "Language-Team: Tot En Òc\n"
 "Language: oc\n"
@@ -23,10 +23,10 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
-"X-Generator: Poedit 3.2.2\n"
+"X-Generator: Poedit 3.4.3\n"
 "X-Launchpad-Export-Date: 2016-10-12 20:12+0000\n"
 
-#: src/daemon/pipewire.c:46
+#: src/daemon/pipewire.c:26
 #, c-format
 msgid ""
 "%s [options]\n"
@@ -39,36 +39,44 @@ msgstr ""
 "      --version                         Afichar la version\n"
 "  -c, --config                          Cargar la conf. (Defaut %s)\n"
 
-#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:180
-#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:180
-#, c-format
-msgid "Tunnel to %s/%s"
-msgstr "Tunèl cap a %s/%s"
+#: src/daemon/pipewire.desktop.in:4
+msgid "PipeWire Media System"
+msgstr "Sistèma mèdia PipeWire"
 
-#: src/modules/module-fallback-sink.c:51
+#: src/daemon/pipewire.desktop.in:5
+msgid "Start the PipeWire Media System"
+msgstr "Aviar lo sistèma mèdia PipeWire"
+
+#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:159
+#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:159
+#, c-format
+msgid "Tunnel to %s%s%s"
+msgstr "Tunèl cap a %s%s%s"
+
+#: src/modules/module-fallback-sink.c:40
 msgid "Dummy Output"
 msgstr "Sortida factícia"
 
-#: src/modules/module-pulse-tunnel.c:662
+#: src/modules/module-pulse-tunnel.c:774
 #, c-format
 msgid "Tunnel for %s@%s"
 msgstr "Tunèl per %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:332
+#: src/modules/module-zeroconf-discover.c:315
 msgid "Unknown device"
 msgstr "Periferic desconegut"
 
-#: src/modules/module-zeroconf-discover.c:344
+#: src/modules/module-zeroconf-discover.c:327
 #, c-format
 msgid "%s on %s@%s"
 msgstr "%s sus %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:348
+#: src/modules/module-zeroconf-discover.c:331
 #, c-format
 msgid "%s on %s"
 msgstr "%s sus %s"
 
-#: src/tools/pw-cat.c:784
+#: src/tools/pw-cat.c:991
 #, c-format
 msgid ""
 "%s [options] [<file>|-]\n"
@@ -83,14 +91,15 @@ msgstr ""
 "  -v, --verbose                         Activar las operacions verbosas\n"
 "\n"
 
-#: src/tools/pw-cat.c:791
+#: src/tools/pw-cat.c:998
 #, c-format
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
 "      --media-type                      Set media type (default %s)\n"
 "      --media-category                  Set media category (default %s)\n"
 "      --media-role                      Set media role (default %s)\n"
-"      --target                          Set node target (default %s)\n"
+"      --target                          Set node target serial or name "
+"(default %s)\n"
 "                                          0 means don't link\n"
 "      --latency                         Set node latency (default %s)\n"
 "                                          Xunit (unit = s, ms, us, ns)\n"
@@ -100,8 +109,25 @@ msgid ""
 "  -P  --properties                      Set node properties\n"
 "\n"
 msgstr ""
+"  -R, --remote                          Nom del demòni distant\n"
+"      --media-type                      Definir lo tipe de mèdia (per defaut "
+"%s)\n"
+"      --media-category                  Definir la categoria de mèdia (per "
+"defaut %s)\n"
+"      --media-role                      Definir lo ròtle del mèdia (per "
+"defaut %s)\n"
+"      --target                          Definir lo numèro de seria o lo nom "
+"de la cibla del nos (per defaut %s)\n"
+"                                          0 significa ligar pas\n"
+"      --latency                         Definir la laténcia del nos (per "
+"defaut %s)\n"
+"                                          Xunit (unit = s, ms, us, ns)\n"
+"                                          o escandalhatge dirècte (256)\n"
+"                                          lo taus es çò del fichièr font\n"
+"  -P  --properties                      Definir las proprietats del nos\n"
+"\n"
 
-#: src/tools/pw-cat.c:809
+#: src/tools/pw-cat.c:1016
 #, c-format
 msgid ""
 "      --rate                            Sample rate (req. for rec) (default "
@@ -120,22 +146,41 @@ msgid ""
 "%d)\n"
 "\n"
 msgstr ""
+"      --rate                            Taus d'escandalhatge (req. per rec) "
+"(per defaut %u)\n"
+"      --channels                        Nombre de canals (req. per rec) (per "
+"defaut %u)\n"
+"      --channel-map                     Mapa de canal\n"
+"                                            un de : \"stereo\", "
+"\"surround-51\",... o\n"
+"                                            lista de nom de canal separats "
+"per de virgula : ex. \"FL,FR\"\n"
+"      --format                          Format d'escandalhatge %s (req. per "
+"rec) (per defaut %s)\n"
+"      --volume                          Volum del flux 0-1.0 (per defaut "
+"%.3f)\n"
+"  -q  --quality                         Qualitat del aus reescandalhatge (0 "
+"- 15) (per defaut %d)\n"
+"\n"
 
-#: src/tools/pw-cat.c:826
+#: src/tools/pw-cat.c:1033
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"
 "  -m, --midi                            Midi mode\n"
 "  -d, --dsd                             DSD mode\n"
+"  -o, --encoded                         Encoded mode\n"
 "\n"
 msgstr ""
 "  -p, --playback                        Mòde lectura\n"
 "  -r, --record                          Mòde enregistrament\n"
 "  -m, --midi                            Mòde Midi\n"
 "  -d, --dsd                             Mòde DSD\n"
+"  -o, --encoded                         %òde encodat\n"
+"\n"
 "\n"
 
-#: src/tools/pw-cli.c:2250
+#: src/tools/pw-cli.c:2252
 #, c-format
 msgid ""
 "%s [options] [command]\n"
@@ -143,6 +188,7 @@ msgid ""
 "      --version                         Show version\n"
 "  -d, --daemon                          Start as daemon (Default false)\n"
 "  -r, --remote                          Remote daemon name\n"
+"  -m, --monitor                         Monitor activity\n"
 "\n"
 msgstr ""
 "%s [opcions] [comanda]\n"
@@ -150,15 +196,17 @@ msgstr ""
 "      --version                         Afichar la version\n"
 "  -d, --daemon                          Aviar coma demòni (Per defaut "
 "false)\n"
-"  -r, --remote                          Remote daemon name\n"
+"  -r, --remote                          Nom del demòni distant\n"
+"  -m, --monitor                         Susvelhar l’activitat\n"
+"\n"
 "\n"
 
-#: spa/plugins/alsa/acp/acp.c:321
+#: spa/plugins/alsa/acp/acp.c:327
 msgid "Pro Audio"
-msgstr ""
+msgstr "Àudio pro"
 
-#: spa/plugins/alsa/acp/acp.c:444 spa/plugins/alsa/acp/alsa-mixer.c:4648
-#: spa/plugins/bluez5/bluez5-device.c:1236
+#: spa/plugins/alsa/acp/acp.c:488 spa/plugins/alsa/acp/alsa-mixer.c:4633
+#: spa/plugins/bluez5/bluez5-device.c:1701
 msgid "Off"
 msgstr "Atudat"
 
@@ -185,7 +233,7 @@ msgstr "Entrada linha"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2657
 #: spa/plugins/alsa/acp/alsa-mixer.c:2741
-#: spa/plugins/bluez5/bluez5-device.c:1454
+#: spa/plugins/bluez5/bluez5-device.c:1989
 msgid "Microphone"
 msgstr "Microfòn"
 
@@ -251,7 +299,7 @@ msgid "No Bass Boost"
 msgstr "Pas d'amplificacion de las bassas"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2672
-#: spa/plugins/bluez5/bluez5-device.c:1460
+#: spa/plugins/bluez5/bluez5-device.c:1995
 msgid "Speaker"
 msgstr "Nautparlaire"
 
@@ -333,15 +381,15 @@ msgstr "Entrada messatjariá"
 msgid "Virtual Surround 7.1"
 msgstr "Surround 7.1 virtual"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4471
+#: spa/plugins/alsa/acp/alsa-mixer.c:4456
 msgid "Analog Mono"
 msgstr "Mono analogic"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4472
+#: spa/plugins/alsa/acp/alsa-mixer.c:4457
 msgid "Analog Mono (Left)"
 msgstr "Mono analogic (esquèrra)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4473
+#: spa/plugins/alsa/acp/alsa-mixer.c:4458
 msgid "Analog Mono (Right)"
 msgstr "Mono analogic (drecha)"
 
@@ -350,147 +398,147 @@ msgstr "Mono analogic (drecha)"
 #. * here would lead to the source name to become "Analog Stereo Input
 #. * Input". The same logic applies to analog-stereo-output,
 #. * multichannel-input and multichannel-output.
-#: spa/plugins/alsa/acp/alsa-mixer.c:4474
-#: spa/plugins/alsa/acp/alsa-mixer.c:4482
-#: spa/plugins/alsa/acp/alsa-mixer.c:4483
+#: spa/plugins/alsa/acp/alsa-mixer.c:4459
+#: spa/plugins/alsa/acp/alsa-mixer.c:4467
+#: spa/plugins/alsa/acp/alsa-mixer.c:4468
 msgid "Analog Stereo"
 msgstr "Estereo analogic"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4475
+#: spa/plugins/alsa/acp/alsa-mixer.c:4460
 msgid "Mono"
 msgstr "Mono"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4476
+#: spa/plugins/alsa/acp/alsa-mixer.c:4461
 msgid "Stereo"
 msgstr "Estereo"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4484
-#: spa/plugins/alsa/acp/alsa-mixer.c:4642
-#: spa/plugins/bluez5/bluez5-device.c:1442
+#: spa/plugins/alsa/acp/alsa-mixer.c:4469
+#: spa/plugins/alsa/acp/alsa-mixer.c:4627
+#: spa/plugins/bluez5/bluez5-device.c:1977
 msgid "Headset"
 msgstr "Casc àudio"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4485
-#: spa/plugins/alsa/acp/alsa-mixer.c:4643
+#: spa/plugins/alsa/acp/alsa-mixer.c:4470
+#: spa/plugins/alsa/acp/alsa-mixer.c:4628
 msgid "Speakerphone"
 msgstr "Nautparlaire"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4486
-#: spa/plugins/alsa/acp/alsa-mixer.c:4487
+#: spa/plugins/alsa/acp/alsa-mixer.c:4471
+#: spa/plugins/alsa/acp/alsa-mixer.c:4472
 msgid "Multichannel"
 msgstr "Multicanal"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4488
+#: spa/plugins/alsa/acp/alsa-mixer.c:4473
 msgid "Analog Surround 2.1"
 msgstr "Surround analogic 2.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4489
+#: spa/plugins/alsa/acp/alsa-mixer.c:4474
 msgid "Analog Surround 3.0"
 msgstr "Surround analogic 3.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4490
+#: spa/plugins/alsa/acp/alsa-mixer.c:4475
 msgid "Analog Surround 3.1"
 msgstr "Surround analogic 3.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4491
+#: spa/plugins/alsa/acp/alsa-mixer.c:4476
 msgid "Analog Surround 4.0"
 msgstr "Surround analogic 4.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4492
+#: spa/plugins/alsa/acp/alsa-mixer.c:4477
 msgid "Analog Surround 4.1"
 msgstr "Surround analogic 4.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4493
+#: spa/plugins/alsa/acp/alsa-mixer.c:4478
 msgid "Analog Surround 5.0"
 msgstr "Surround analogic 5.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4494
+#: spa/plugins/alsa/acp/alsa-mixer.c:4479
 msgid "Analog Surround 5.1"
 msgstr "Surround analogic 5.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4495
+#: spa/plugins/alsa/acp/alsa-mixer.c:4480
 msgid "Analog Surround 6.0"
 msgstr "Surround analogic 6.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4496
+#: spa/plugins/alsa/acp/alsa-mixer.c:4481
 msgid "Analog Surround 6.1"
 msgstr "Surround analogic 6.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4497
+#: spa/plugins/alsa/acp/alsa-mixer.c:4482
 msgid "Analog Surround 7.0"
 msgstr "Surround analogic 7.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4498
+#: spa/plugins/alsa/acp/alsa-mixer.c:4483
 msgid "Analog Surround 7.1"
 msgstr "Surround analogic 7.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4499
+#: spa/plugins/alsa/acp/alsa-mixer.c:4484
 msgid "Digital Stereo (IEC958)"
 msgstr "Estereo numeric (IEC958)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4500
+#: spa/plugins/alsa/acp/alsa-mixer.c:4485
 msgid "Digital Surround 4.0 (IEC958/AC3)"
 msgstr "Surround numeric 4.0 (IEC958/AC3)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4501
+#: spa/plugins/alsa/acp/alsa-mixer.c:4486
 msgid "Digital Surround 5.1 (IEC958/AC3)"
 msgstr "Surround numeric 5.1 (IEC958/AC3)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4502
+#: spa/plugins/alsa/acp/alsa-mixer.c:4487
 msgid "Digital Surround 5.1 (IEC958/DTS)"
 msgstr "Digital Surround 5.1 (IEC958/DTS)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4503
+#: spa/plugins/alsa/acp/alsa-mixer.c:4488
 msgid "Digital Stereo (HDMI)"
 msgstr "Estereo numeric (HDMI)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4504
+#: spa/plugins/alsa/acp/alsa-mixer.c:4489
 msgid "Digital Surround 5.1 (HDMI)"
 msgstr "Digital Surround 5.1 (HDMI)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4505
+#: spa/plugins/alsa/acp/alsa-mixer.c:4490
 msgid "Chat"
 msgstr "Messatjariá instantanèa"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4506
+#: spa/plugins/alsa/acp/alsa-mixer.c:4491
 msgid "Game"
 msgstr "Jòc"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4640
+#: spa/plugins/alsa/acp/alsa-mixer.c:4625
 msgid "Analog Mono Duplex"
 msgstr "Duplèx Mono analogic"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4641
+#: spa/plugins/alsa/acp/alsa-mixer.c:4626
 msgid "Analog Stereo Duplex"
 msgstr "Duplèx esterèo analogic"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4644
+#: spa/plugins/alsa/acp/alsa-mixer.c:4629
 msgid "Digital Stereo Duplex (IEC958)"
 msgstr "Duplèx estèreo numeric (IEC958)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4645
+#: spa/plugins/alsa/acp/alsa-mixer.c:4630
 msgid "Multichannel Duplex"
 msgstr "Duplèx multicanal"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4646
+#: spa/plugins/alsa/acp/alsa-mixer.c:4631
 msgid "Stereo Duplex"
 msgstr "Duplèx estereo"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4647
+#: spa/plugins/alsa/acp/alsa-mixer.c:4632
 msgid "Mono Chat + 7.1 Surround"
 msgstr "Messatjariá mono + Surround 7.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4754
+#: spa/plugins/alsa/acp/alsa-mixer.c:4733
 #, c-format
 msgid "%s Output"
 msgstr "%s Sortida"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4761
+#: spa/plugins/alsa/acp/alsa-mixer.c:4741
 #, c-format
 msgid "%s Input"
 msgstr "%s Entrada"
 
-#: spa/plugins/alsa/acp/alsa-util.c:1187 spa/plugins/alsa/acp/alsa-util.c:1281
+#: spa/plugins/alsa/acp/alsa-util.c:1220 spa/plugins/alsa/acp/alsa-util.c:1314
 #, c-format
 msgid ""
 "snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu "
@@ -513,7 +561,7 @@ msgstr[1] ""
 "Es fòrt probablament un bug dins lo pilòt ALSA « %s ». Senhalatz-lo als "
 "desvolopaires d’ALSA."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1253
+#: spa/plugins/alsa/acp/alsa-util.c:1286
 #, c-format
 msgid ""
 "snd_pcm_delay() returned a value that is exceptionally large: %li byte (%s"
@@ -536,7 +584,7 @@ msgstr[1] ""
 "Es fòrt probablament un bug dins lo pilòt ALSA « %s ». Senhalatz-lo als "
 "desvolopaires d’ALSA."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1300
+#: spa/plugins/alsa/acp/alsa-util.c:1333
 #, c-format
 msgid ""
 "snd_pcm_avail_delay() returned strange values: delay %lu is less than avail "
@@ -549,7 +597,7 @@ msgstr ""
 "Es fòrt probablament un bug dins lo pilòt ALSA « %s ». Senhalatz-lo als "
 "desvolopaires d’ALSA."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1343
+#: spa/plugins/alsa/acp/alsa-util.c:1376
 #, c-format
 msgid ""
 "snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu byte "
@@ -576,100 +624,108 @@ msgstr[1] ""
 msgid "(invalid)"
 msgstr "(invalid)"
 
-#: spa/plugins/alsa/acp/compat.c:189
+#: spa/plugins/alsa/acp/compat.c:193
 msgid "Built-in Audio"
 msgstr "Àudio integrat"
 
-#: spa/plugins/alsa/acp/compat.c:194
+#: spa/plugins/alsa/acp/compat.c:198
 msgid "Modem"
 msgstr "Modèm"
 
-#: spa/plugins/bluez5/bluez5-device.c:1247
+#: spa/plugins/bluez5/bluez5-device.c:1712
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr "Palanca àudio (Font A2DP & HSP/HFP AG)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1272
+#: spa/plugins/bluez5/bluez5-device.c:1760
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr "Lectura nauta fidelitat (A2DP Sink, codec %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1275
+#: spa/plugins/bluez5/bluez5-device.c:1763
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr "Duplèx nauta fidelitat (A2DP Source/Sink, codec %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1283
+#: spa/plugins/bluez5/bluez5-device.c:1771
 msgid "High Fidelity Playback (A2DP Sink)"
 msgstr "Lectura nauta fidelitat (A2DP Sink)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1285
+#: spa/plugins/bluez5/bluez5-device.c:1773
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
 msgstr "Duplèx nauta fidelitat (A2DP Source/Sink)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1322
+#: spa/plugins/bluez5/bluez5-device.c:1823
 #, c-format
 msgid "High Fidelity Playback (BAP Sink, codec %s)"
 msgstr "Lectura nauta fidelitat (A2DP Sink, codec %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1326
+#: spa/plugins/bluez5/bluez5-device.c:1828
 #, c-format
 msgid "High Fidelity Input (BAP Source, codec %s)"
 msgstr "Duplèx nauta fidelitat (Font BAP, codec %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1330
+#: spa/plugins/bluez5/bluez5-device.c:1832
 #, c-format
 msgid "High Fidelity Duplex (BAP Source/Sink, codec %s)"
 msgstr "Duplèx nauta fidelitat (Font BAP/Sink, codec %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1359
+#: spa/plugins/bluez5/bluez5-device.c:1841
+msgid "High Fidelity Playback (BAP Sink)"
+msgstr "Lectura nauta fidelitat (receptor BAP)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1845
+msgid "High Fidelity Input (BAP Source)"
+msgstr "Duplèx nauta fidelitat (Font BAP)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1848
+msgid "High Fidelity Duplex (BAP Source/Sink)"
+msgstr "Duplèx nauta fidelitat (Font/Receptor BAP)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1897
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
-msgstr ""
+msgstr "Controlador de casc (HSP/HFP, codec %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1364
-msgid "Headset Head Unit (HSP/HFP)"
-msgstr ""
-
-#: spa/plugins/bluez5/bluez5-device.c:1443
-#: spa/plugins/bluez5/bluez5-device.c:1448
-#: spa/plugins/bluez5/bluez5-device.c:1455
-#: spa/plugins/bluez5/bluez5-device.c:1461
-#: spa/plugins/bluez5/bluez5-device.c:1467
-#: spa/plugins/bluez5/bluez5-device.c:1473
-#: spa/plugins/bluez5/bluez5-device.c:1479
-#: spa/plugins/bluez5/bluez5-device.c:1485
-#: spa/plugins/bluez5/bluez5-device.c:1491
+#: spa/plugins/bluez5/bluez5-device.c:1978
+#: spa/plugins/bluez5/bluez5-device.c:1983
+#: spa/plugins/bluez5/bluez5-device.c:1990
+#: spa/plugins/bluez5/bluez5-device.c:1996
+#: spa/plugins/bluez5/bluez5-device.c:2002
+#: spa/plugins/bluez5/bluez5-device.c:2008
+#: spa/plugins/bluez5/bluez5-device.c:2014
+#: spa/plugins/bluez5/bluez5-device.c:2020
+#: spa/plugins/bluez5/bluez5-device.c:2026
 msgid "Handsfree"
 msgstr "Mans liuras"
 
-#: spa/plugins/bluez5/bluez5-device.c:1449
+#: spa/plugins/bluez5/bluez5-device.c:1984
 msgid "Handsfree (HFP)"
 msgstr "Mans liuras (HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1466
+#: spa/plugins/bluez5/bluez5-device.c:2001
 msgid "Headphone"
 msgstr "Escotador"
 
-#: spa/plugins/bluez5/bluez5-device.c:1472
+#: spa/plugins/bluez5/bluez5-device.c:2007
 msgid "Portable"
 msgstr "Portable"
 
-#: spa/plugins/bluez5/bluez5-device.c:1478
+#: spa/plugins/bluez5/bluez5-device.c:2013
 msgid "Car"
 msgstr "Telefòn de veitura"
 
-#: spa/plugins/bluez5/bluez5-device.c:1484
+#: spa/plugins/bluez5/bluez5-device.c:2019
 msgid "HiFi"
 msgstr "HiFi"
 
-#: spa/plugins/bluez5/bluez5-device.c:1490
+#: spa/plugins/bluez5/bluez5-device.c:2025
 msgid "Phone"
 msgstr "Telefòn"
 
-#: spa/plugins/bluez5/bluez5-device.c:1497
+#: spa/plugins/bluez5/bluez5-device.c:2032
 msgid "Bluetooth"
 msgstr "Bluetooth"
 
-#: spa/plugins/bluez5/bluez5-device.c:1498
+#: spa/plugins/bluez5/bluez5-device.c:2033
 msgid "Bluetooth (HFP)"
 msgstr "Bluetooth (HFP)"

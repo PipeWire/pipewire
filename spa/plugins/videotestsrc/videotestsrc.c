@@ -84,7 +84,7 @@ struct impl {
 
 	struct spa_log *log;
 	struct spa_loop *data_loop;
-	struct spa_system *data_system;
+	struct spa_loop_utils *loop_utils;
 
 	uint64_t info_all;
 	struct spa_node_info info;
@@ -98,7 +98,7 @@ struct impl {
 	struct spa_callbacks callbacks;
 
 	bool async;
-	struct spa_source timer_source;
+	struct spa_source *timer_source;
 	struct itimerspec timerspec;
 
 	bool started;
@@ -277,25 +277,8 @@ static void set_timer(struct impl *this, bool enabled)
 			this->timerspec.it_value.tv_sec = 0;
 			this->timerspec.it_value.tv_nsec = 0;
 		}
-		spa_system_timerfd_settime(this->data_system,
-				this->timer_source.fd, SPA_FD_TIMER_ABSTIME, &this->timerspec, NULL);
+		spa_loop_utils_update_timer(this->loop_utils, this->timer_source, &this->timerspec.it_value, &this->timerspec.it_interval, true);
 	}
-}
-
-static int read_timer(struct impl *this)
-{
-	uint64_t expirations;
-	int res = 0;
-
-	if (this->async || this->props.live) {
-		if ((res = spa_system_timerfd_read(this->data_system,
-						this->timer_source.fd, &expirations)) < 0) {
-			if (res != -EAGAIN)
-				spa_log_error(this->log, "%p: timerfd error: %s",
-						this, spa_strerror(res));
-		}
-	}
-	return res;
 }
 
 static int make_buffer(struct impl *this)
@@ -304,9 +287,6 @@ static int make_buffer(struct impl *this)
 	struct port *port = &this->port;
 	struct spa_io_buffers *io = port->io;
 	uint32_t n_bytes;
-
-	if (read_timer(this) < 0)
-		return 0;
 
 	if (spa_list_is_empty(&port->empty)) {
 		set_timer(this, false);
@@ -343,9 +323,9 @@ static int make_buffer(struct impl *this)
 	return io->status;
 }
 
-static void on_output(struct spa_source *source)
+static void on_output(void* data, uint64_t expirations)
 {
-	struct impl *this = source->data;
+	struct impl *this = data;
 	int res;
 
 	res = make_buffer(this);
@@ -859,7 +839,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 static int do_remove_timer(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct impl *this = user_data;
-	spa_loop_remove_source(this->data_loop, &this->timer_source);
+	spa_loop_remove_source(this->data_loop, this->timer_source);
 	return 0;
 }
 
@@ -873,7 +853,7 @@ static int impl_clear(struct spa_handle *handle)
 
 	if (this->data_loop)
 		spa_loop_invoke(this->data_loop, do_remove_timer, 0, NULL, 0, true, this);
-	spa_system_close(this->data_system, this->timer_source.fd);
+	spa_loop_utils_destroy_source(this->loop_utils, this->timer_source);
 
 	return 0;
 }
@@ -905,7 +885,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
-	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
+	this->loop_utils = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_LoopUtils);
 
 	spa_hook_list_init(&this->hooks);
 
@@ -926,19 +906,11 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.n_params = 2;
 	reset_props(&this->props);
 
-	this->timer_source.func = on_output;
-	this->timer_source.data = this;
-	this->timer_source.fd = spa_system_timerfd_create(this->data_system, CLOCK_MONOTONIC,
-							  SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	this->timer_source.mask = SPA_IO_IN;
-	this->timer_source.rmask = 0;
+	this->timer_source = spa_loop_utils_add_timer(this->loop_utils, on_output, this);
 	this->timerspec.it_value.tv_sec = 0;
 	this->timerspec.it_value.tv_nsec = 0;
 	this->timerspec.it_interval.tv_sec = 0;
 	this->timerspec.it_interval.tv_nsec = 0;
-
-	if (this->data_loop)
-		spa_loop_add_source(this->data_loop, &this->timer_source);
 
 	port = &this->port;
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |

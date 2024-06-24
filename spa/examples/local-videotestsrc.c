@@ -1,10 +1,11 @@
 /* Spa */
-/* SPDX-FileCopyrightText: Copyright © 2018 Wim Taymans */
+/* SPDX-FileCopyrightText: Copyright © 2020 Collabora Ltd. */
+/*                         @author Raghavendra Rao Sidlagatta <raghavendra.rao@collabora.com> */
 /* SPDX-License-Identifier: MIT */
 
 /*
  [title]
- Example using libspa-v4l2, with only \ref api_spa
+ Example using libspa-videotestsrc, with only \ref api_spa
  [title]
  */
 
@@ -36,10 +37,14 @@
 #include <spa/param/video/format-utils.h>
 #include <spa/debug/pod.h>
 
+#define WIDTH   640
+#define HEIGHT  480
+
 static SPA_LOG_IMPL(default_log);
 
 #define MAX_BUFFERS     8
 #define LOOP_TIMEOUT_MS 100
+#define USE_BUFFER 		true
 
 struct buffer {
 	struct spa_buffer buffer;
@@ -56,8 +61,9 @@ struct data {
 	struct spa_system *system;
 	struct spa_loop *loop;
 	struct spa_loop_control *control;
+	struct spa_loop_utils *loop_utils;
 
-	struct spa_support support[5];
+	struct spa_support support[6];
 	uint32_t n_support;
 
 	struct spa_node *source;
@@ -84,6 +90,7 @@ static int load_handle(struct data *data, struct spa_handle **handle, const char
 	void *hnd;
 	spa_handle_factory_enum_func_t enum_func;
 	uint32_t i;
+
 	char *path = NULL;
 
 	if ((path = spa_aprintf("%s/%s", data->plugin_dir, lib)) == NULL) {
@@ -92,12 +99,12 @@ static int load_handle(struct data *data, struct spa_handle **handle, const char
 	if ((hnd = dlopen(path, RTLD_NOW)) == NULL) {
 		printf("can't load %s: %s\n", path, dlerror());
 		free(path);
-		return -ENOENT;
+		return -errno;
 	}
 	free(path);
 	if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		printf("can't find enum function\n");
-		return -ENOENT;
+		return -errno;
 	}
 
 	for (i = 0;;) {
@@ -108,8 +115,6 @@ static int load_handle(struct data *data, struct spa_handle **handle, const char
 				printf("can't enumerate factories: %s\n", spa_strerror(res));
 			break;
 		}
-		if (factory->version < 1)
-			continue;
 		if (!spa_streq(factory->name, name))
 			continue;
 
@@ -155,7 +160,7 @@ static int on_source_ready(void *_data, int status)
 	struct spa_io_buffers *io = &data->source_output[0];
 
 	if (io->status != SPA_STATUS_HAVE_DATA ||
-	    io->buffer_id >= MAX_BUFFERS)
+		io->buffer_id >= MAX_BUFFERS)
 		return -EINVAL;
 
 	b = &data->buffers[io->buffer_id];
@@ -167,15 +172,22 @@ static int on_source_ready(void *_data, int status)
 		SDL_Texture *texture = b->texture;
 
 		SDL_UnlockTexture(texture);
-
-		SDL_RenderClear(data->renderer);
-		SDL_RenderCopy(data->renderer, texture, NULL, NULL);
+		if (SDL_RenderClear(data->renderer) < 0) {
+			fprintf(stderr, "Couldn't render clear: %s\n", SDL_GetError());
+			return -EIO;
+		}
+		if (SDL_RenderCopy(data->renderer, texture, NULL, NULL) < 0) {
+			fprintf(stderr, "Couldn't render copy: %s\n", SDL_GetError());
+			return -EIO;
+		}
 		SDL_RenderPresent(data->renderer);
 
 		if (SDL_LockTexture(texture, NULL, &sdata, &sstride) < 0) {
 			fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
 			return -EIO;
 		}
+
+		datas[0].data = sdata;
 	} else {
 		uint8_t *map;
 
@@ -199,7 +211,7 @@ static int on_source_ready(void *_data, int status)
 
 		sstride = datas[0].chunk->stride;
 
-		for (i = 0; i < 240; i++) {
+		for (i = 0; i < HEIGHT; i++) {
 			src = ((uint8_t *) sdata + i * sstride);
 			dst = ((uint8_t *) ddata + i * dstride);
 			memcpy(dst, src, SPA_MIN(sstride, dstride));
@@ -225,7 +237,7 @@ static const struct spa_node_callbacks source_callbacks = {
 	.ready = on_source_ready,
 };
 
-static int make_nodes(struct data *data, const char *device)
+static int make_nodes(struct data *data, uint32_t pattern)
 {
 	int res;
 	struct spa_pod *props;
@@ -235,9 +247,9 @@ static int make_nodes(struct data *data, const char *device)
 
 	if ((res =
 	     make_node(data, &data->source,
-		     "v4l2/libspa-v4l2.so",
-		     SPA_NAME_API_V4L2_SOURCE)) < 0) {
-		printf("can't create v4l2-source: %d\n", res);
+		     "videotestsrc/libspa-videotestsrc.so",
+		     "videotestsrc")) < 0) {
+		printf("can't create videotestsrc: %d\n", res);
 		return res;
 	}
 
@@ -253,7 +265,7 @@ static int make_nodes(struct data *data, const char *device)
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	props = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_Props, 0,
-		SPA_PROP_device, SPA_POD_String(device ? device : "/dev/video0"));
+		SPA_PROP_patternType, SPA_POD_Int(pattern));
 
 	if ((res = spa_node_set_param(data->source, SPA_PARAM_Props, 0, props)) < 0)
 		printf("got set_props error %d\n", res);
@@ -285,7 +297,7 @@ static int setup_buffers(struct data *data)
 		b->metas[0].data = &b->header;
 		b->metas[0].size = sizeof(b->header);
 
-		b->datas[0].type = 0;
+		b->datas[0].type = SPA_DATA_DmaBuf;
 		b->datas[0].flags = 0;
 		b->datas[0].fd = -1;
 		b->datas[0].mapoffset = 0;
@@ -311,8 +323,8 @@ static int sdl_alloc_buffers(struct data *data)
 		int stride;
 
 		texture = SDL_CreateTexture(data->renderer,
-					    SDL_PIXELFORMAT_YUY2,
-					    SDL_TEXTUREACCESS_STREAMING, 320, 240);
+					    SDL_PIXELFORMAT_RGB24,
+					    SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
 		if (!texture) {
 			printf("can't create texture: %s\n", SDL_GetError());
 			return -ENOMEM;
@@ -323,11 +335,11 @@ static int sdl_alloc_buffers(struct data *data)
 		}
 		b->texture = texture;
 
-		b->datas[0].type = SPA_DATA_MemPtr;
-		b->datas[0].maxsize = stride * 240;
+		b->datas[0].type = SPA_DATA_DmaBuf;
+		b->datas[0].maxsize = stride * HEIGHT;
 		b->datas[0].data = ptr;
 		b->datas[0].chunk->offset = 0;
-		b->datas[0].chunk->size = stride * 240;
+		b->datas[0].chunk->size = stride * HEIGHT;
 		b->datas[0].chunk->stride = stride;
 	}
 	return 0;
@@ -351,8 +363,8 @@ static int negotiate_formats(struct data *data)
 
 	format = spa_format_video_raw_build(&b, 0,
 			&SPA_VIDEO_INFO_RAW_INIT(
-				.format =  SPA_VIDEO_FORMAT_YUY2,
-				.size = SPA_RECTANGLE(320, 240),
+				.format =  SPA_VIDEO_FORMAT_RGB,
+				.size = SPA_RECTANGLE(WIDTH, HEIGHT),
 				.framerate = SPA_FRACTION(25,1)));
 
 	if ((res = spa_node_port_set_param(data->source,
@@ -378,8 +390,8 @@ static int negotiate_formats(struct data *data)
 		unsigned int n_buffers;
 
 		data->texture = SDL_CreateTexture(data->renderer,
-						  SDL_PIXELFORMAT_YUY2,
-						  SDL_TEXTUREACCESS_STREAMING, 320, 240);
+						  SDL_PIXELFORMAT_RGB24,
+						  SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
 		if (!data->texture) {
 			printf("can't create texture: %s\n", SDL_GetError());
 			return -1;
@@ -437,6 +449,7 @@ int main(int argc, char *argv[])
 	const char *str;
 	struct spa_handle *handle = NULL;
 	void *iface;
+	uint32_t pattern = 0;
 
 	if ((str = getenv("SPA_PLUGIN_DIR")) == NULL)
 		str = PLUGINDIR;
@@ -453,6 +466,7 @@ int main(int argc, char *argv[])
 	}
 	data.system = iface;
 	data.support[data.n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_System, data.system);
+	data.support[data.n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataSystem, data.system);
 
 	if ((res = load_handle(&data, &handle,
 					"support/libspa-support.so",
@@ -469,8 +483,13 @@ int main(int argc, char *argv[])
 		return res;
 	}
 	data.control = iface;
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_LoopUtils, &iface)) < 0) {
+		printf("can't get interface %d\n", res);
+		return res;
+	}
+	data.loop_utils = iface;
 
-	data.use_buffer = true;
+	data.use_buffer = USE_BUFFER;
 
 	data.log = &default_log.log;
 
@@ -480,6 +499,7 @@ int main(int argc, char *argv[])
 	data.support[data.n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, data.log);
 	data.support[data.n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Loop, data.loop);
 	data.support[data.n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, data.loop);
+	data.support[data.n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, data.loop_utils);
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("can't initialize SDL: %s\n", SDL_GetError());
@@ -487,16 +507,19 @@ int main(int argc, char *argv[])
 	}
 
 	if (SDL_CreateWindowAndRenderer
-	    (320, 240, SDL_WINDOW_RESIZABLE, &data.window, &data.renderer)) {
+	    (WIDTH, HEIGHT, SDL_WINDOW_RESIZABLE, &data.window, &data.renderer)) {
 		printf("can't create window: %s\n", SDL_GetError());
 		return -1;
 	}
 
+	if (argv[1] != NULL)
+		pattern = atoi(argv[1]);
 
-	if ((res = make_nodes(&data, argv[1])) < 0) {
+	if ((res = make_nodes(&data, pattern)) < 0) {
 		printf("can't make nodes: %d\n", res);
 		return -1;
 	}
+
 	if ((res = negotiate_formats(&data)) < 0) {
 		printf("can't negotiate nodes: %d\n", res);
 		return -1;

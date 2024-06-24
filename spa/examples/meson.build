@@ -4,6 +4,7 @@ spa_examples = [
   'example-control',
   'local-libcamera',
   'local-v4l2',
+  'local-videotestsrc',
 ]
 
 if not get_option('examples').allowed() or not get_option('spa-plugins').allowed()
@@ -12,6 +13,7 @@ endif
 
 spa_examples_extra_deps = {
   'local-v4l2': [sdl_dep],
+  'local-videotestsrc': [sdl_dep],
   'local-libcamera': [sdl_dep, libcamera_dep],
 }
 

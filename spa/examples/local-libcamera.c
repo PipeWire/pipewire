@@ -43,7 +43,7 @@
 static SPA_LOG_IMPL(default_log);
 
 #define MAX_BUFFERS     8
-
+#define LOOP_TIMEOUT_MS 100
 #define USE_BUFFER 		false
 
 struct buffer {
@@ -401,56 +401,32 @@ static int negotiate_formats(struct data *data)
 	return 0;
 }
 
-static void *loop(void *user_data)
+static void loop(struct data *data)
 {
-	struct data *data = user_data;
-
-	printf("enter thread\n");
-    spa_loop_control_enter(data->control);
-
-    while (data->running) {
-		spa_loop_control_iterate(data->control, -1);
-	}
-
-	printf("leave thread\n");
-    spa_loop_control_leave(data->control);
-	return NULL;
-}
-
-static void run_async_source(struct data *data)
-{
-	int res, err;
+	int res;
 	struct spa_command cmd;
 	SDL_Event event;
-	bool running = true;
 
 	printf("starting...\n\n");
 	cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start);
 	if ((res = spa_node_send_command(data->source, &cmd)) < 0)
 		printf("got error %d\n", res);
 
-	spa_loop_control_leave(data->control);
-
 	data->running = true;
-	if ((err = pthread_create(&data->thread, NULL, loop, data)) != 0) {
-		printf("can't create thread: %d %s", err, strerror(err));
-		data->running = false;
-	}
 
-	while (running && SDL_WaitEvent(&event)) {
-		switch (event.type) {
-		case SDL_QUIT:
-			running = false;
-			break;
+	while (data->running) {
+		// must be called from the thread that created the renderer
+		while (SDL_PollEvent(&event)) {
+			switch (event.type) {
+			case SDL_QUIT:
+				data->running = false;
+				break;
+			}
 		}
-	}
 
-	if (data->running) {
-		data->running = false;
-		pthread_join(data->thread, NULL);
+		// small timeout to make sure we don't starve the SDL loop
+		spa_loop_control_iterate(data->control, LOOP_TIMEOUT_MS);
 	}
-
-	spa_loop_control_enter(data->control);
 
 	printf("pausing...\n\n");
 	cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Pause);
@@ -531,7 +507,7 @@ int main(int argc, char *argv[])
 	}
 
 	spa_loop_control_enter(data.control);
-	run_async_source(&data);
+	loop(&data);
 	spa_loop_control_leave(data.control);
 
 	SDL_DestroyRenderer(data.renderer);

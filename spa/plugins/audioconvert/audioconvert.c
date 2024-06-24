@@ -240,6 +240,8 @@ struct impl {
 	unsigned int port_ignore_latency:1;
 	unsigned int monitor_passthrough:1;
 
+	char group_name[128];
+
 	uint32_t scratch_size;
 	uint32_t scratch_ports;
 	float *empty;
@@ -287,7 +289,7 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 	if (full)
 		port->info.change_mask = port->info_all;
 	if (port->info.change_mask) {
-		struct spa_dict_item items[4];
+		struct spa_dict_item items[5];
 		uint32_t n_items = 0;
 
 		if (PORT_IS_DSP(this, port->direction, port->id)) {
@@ -301,6 +303,8 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_NAME, "control");
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "8 bit raw midi");
 		}
+		if (this->group_name[0] != '\0')
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_GROUP, this->group_name);
 		port->info.props = &SPA_DICT_INIT(items, n_items);
 
 		if (port->info.change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
@@ -3465,6 +3469,8 @@ impl_init(const struct spa_handle_factory *factory,
 		}
 		else if (spa_streq(k, SPA_KEY_PORT_IGNORE_LATENCY))
 			this->port_ignore_latency = spa_atob(s);
+		else if (spa_streq(k, SPA_KEY_PORT_GROUP))
+			spa_scnprintf(this->group_name, sizeof(this->group_name), "%s", s);
 		else if (spa_streq(k, "monitor.passthrough"))
 			this->monitor_passthrough = spa_atob(s);
 		else

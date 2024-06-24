@@ -2011,11 +2011,13 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "8 bit raw midi"),
 			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_NAME, "in"),
 			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_ALIAS, "in"),
+			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_GROUP, "group.0"),
 		};
 		static const struct spa_dict_item out_port_items[] = {
 			SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "8 bit raw midi"),
 			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_NAME, "out"),
 			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_ALIAS, "out"),
+			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_GROUP, "group.0"),
 		};
 		static const struct spa_dict in_port_props = SPA_DICT_INIT_ARRAY(in_port_items);
 		static const struct spa_dict out_port_props = SPA_DICT_INIT_ARRAY(out_port_items);

@@ -225,7 +225,7 @@ static void emit_port_info(struct seq_state *this, struct seq_port *port, bool f
 	if (full)
 		port->info.change_mask = port->info_all;
 	if (port->info.change_mask) {
-		struct spa_dict_item items[5];
+		struct spa_dict_item items[6];
 		uint32_t n_items = 0;
 		int id;
 		snd_seq_port_info_t *info;
@@ -234,6 +234,7 @@ static void emit_port_info(struct seq_state *this, struct seq_port *port, bool f
 		char name[256];
 		char path[128];
 		char alias[128];
+		char stream[32];
 
 		snd_seq_port_info_alloca(&info);
 		snd_seq_get_any_port_info(this->sys.hndl,
@@ -273,9 +274,12 @@ static void emit_port_info(struct seq_state *this, struct seq_port *port, bool f
 		}
 		clean_name(name);
 
-		snprintf(path, sizeof(path), "alsa:seq:%s:client_%d:%s_%d",
+		snprintf(stream, sizeof(stream), "client_%d", port->addr.client);
+		clean_name(stream);
+
+		snprintf(path, sizeof(path), "alsa:seq:%s:%s:%s_%d",
 				this->props.device,
-				port->addr.client,
+				stream,
 				port->direction == SPA_DIRECTION_OUTPUT ? "capture" : "playback",
 				port->addr.port);
 		clean_name(path);
@@ -285,10 +289,12 @@ static void emit_port_info(struct seq_state *this, struct seq_port *port, bool f
 				snd_seq_port_info_get_name(info));
 		clean_name(alias);
 
+
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "8 bit raw midi");
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_OBJECT_PATH, path);
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_NAME, name);
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_ALIAS, alias);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_GROUP, stream);
 		if ((id = snd_seq_client_info_get_card(client_info)) != -1) {
 			snprintf(card, sizeof(card), "%d", id);
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD, card);

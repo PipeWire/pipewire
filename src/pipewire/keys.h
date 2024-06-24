@@ -231,6 +231,7 @@ extern "C" {
 								  *  should be prefixed. "jack:flags:56" */
 #define PW_KEY_PORT_PASSIVE		"port.passive"		/**< the ports wants passive links, since 0.3.67 */
 #define PW_KEY_PORT_IGNORE_LATENCY	"port.ignore-latency"	/**< latency ignored by peers, since 0.3.71 */
+#define PW_KEY_PORT_GROUP		"port.group"		/**< the port group of the port 1.2.0 */
 
 /** link properties */
 #define PW_KEY_LINK_ID			"link.id"		/**< a link id */

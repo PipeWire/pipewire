@@ -12,6 +12,7 @@
 #include <alsa/asoundlib.h>
 
 #include <spa/node/node.h>
+#include <spa/node/keys.h>
 #include <spa/utils/type.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
@@ -150,7 +151,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 
 	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 
-	items = alloca((dev->props.n_items + 8) * sizeof(*items));
+	items = alloca((dev->props.n_items + 9) * sizeof(*items));
 	n_items = 0;
 
 	snprintf(card_index, sizeof(card_index), "%d", card->index);
@@ -174,6 +175,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_OPEN_UCM, "true");
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_CARD, card_index);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_STREAM, stream);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_GROUP, stream);
 
 	snprintf(channels, sizeof(channels), "%d", dev->format.channels);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_CHANNELS, channels);

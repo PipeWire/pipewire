@@ -3758,7 +3758,10 @@ void spa_alsa_emit_port_info(struct state *state, bool full)
 		state->port_info.change_mask = state->port_info_all;
 	if (state->port_info.change_mask) {
 		uint32_t i;
-
+		static const struct spa_dict_item info_items[] = {
+			{ SPA_KEY_PORT_GROUP, "stream.0" },
+		};
+		state->port_info.props = &SPA_DICT_INIT_ARRAY(info_items);
 		if (state->port_info.change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
 			for (i = 0; i < state->port_info.n_params; i++) {
 				if (state->port_params[i].user > 0) {

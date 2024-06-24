@@ -1793,6 +1793,9 @@ void *pw_filter_add_port(struct pw_filter *filter,
 	if ((p = alloc_port(impl, direction, port_data_size)) == NULL)
 		goto error_cleanup;
 
+	if (pw_properties_get(props, PW_KEY_PORT_GROUP) == NULL)
+		pw_properties_setf(props, PW_KEY_PORT_GROUP, "stream.%u", p->id);
+
 	p->props = props;
 	p->flags = flags;
 

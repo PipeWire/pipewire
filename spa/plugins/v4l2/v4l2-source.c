@@ -153,15 +153,14 @@ struct impl {
 
 #include "v4l2-utils.c"
 
-static const struct spa_dict_item info_items[] = {
-	{ SPA_KEY_DEVICE_API, "v4l2" },
-	{ SPA_KEY_MEDIA_CLASS, "Video/Source" },
-	{ SPA_KEY_MEDIA_ROLE, "Camera" },
-	{ SPA_KEY_NODE_DRIVER, "true" },
-};
-
 static void emit_node_info(struct impl *this, bool full)
 {
+	static const struct spa_dict_item info_items[] = {
+		{ SPA_KEY_DEVICE_API, "v4l2" },
+		{ SPA_KEY_MEDIA_CLASS, "Video/Source" },
+		{ SPA_KEY_MEDIA_ROLE, "Camera" },
+		{ SPA_KEY_NODE_DRIVER, "true" },
+	};
 	uint64_t old = full ? this->info.change_mask : 0;
 	if (full)
 		this->info.change_mask = this->info_all;
@@ -174,10 +173,14 @@ static void emit_node_info(struct impl *this, bool full)
 
 static void emit_port_info(struct impl *this, struct port *port, bool full)
 {
+	static const struct spa_dict_item info_items[] = {
+		{ SPA_KEY_PORT_GROUP, "stream.0" },
+	};
 	uint64_t old = full ? port->info.change_mask : 0;
 	if (full)
 		port->info.change_mask = port->info_all;
 	if (port->info.change_mask) {
+		port->info.props = &SPA_DICT_INIT_ARRAY(info_items);
 		spa_node_emit_port_info(&this->hooks,
 				SPA_DIRECTION_OUTPUT, 0, &port->info);
 		port->info.change_mask = old;
@@ -1023,6 +1026,7 @@ impl_init(const struct spa_handle_factory *factory,
 	port->impl = this;
 	spa_list_init(&port->queue);
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
+			SPA_PORT_CHANGE_MASK_PROPS |
 			SPA_PORT_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.flags = SPA_PORT_FLAG_LIVE |

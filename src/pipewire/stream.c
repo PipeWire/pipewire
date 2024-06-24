@@ -1993,6 +1993,8 @@ pw_stream_connect(struct pw_stream *stream,
 	else if (impl->media_type == SPA_MEDIA_TYPE_application &&
 	    impl->media_subtype == SPA_MEDIA_SUBTYPE_control)
 		pw_properties_set(impl->port_props, PW_KEY_FORMAT_DSP, "8 bit raw midi");
+	if (pw_properties_get(impl->port_props, PW_KEY_PORT_GROUP) == NULL)
+		pw_properties_set(impl->port_props, PW_KEY_PORT_GROUP, "stream.0");
 
 	if ((str = pw_properties_get(stream->properties, PW_KEY_NODE_ASYNC)) != NULL && spa_atob(str))
 		SPA_FLAG_SET(impl->info.flags, SPA_NODE_FLAG_ASYNC);
@@ -2028,8 +2030,6 @@ pw_stream_connect(struct pw_stream *stream,
 	if ((str = pw_properties_get(stream->properties, "mem.allow-mlock")) != NULL)
 		impl->allow_mlock = pw_properties_parse_bool(str);
 
-	impl->port_info.props = &impl->port_props->dict;
-
 	if (stream->core == NULL) {
 		stream->core = pw_context_connect(impl->context,
 				pw_properties_copy(stream->properties), 0);
@@ -2056,6 +2056,8 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(props, "channelmix.normalize", "true");
 		pw_properties_set(props, PW_KEY_PORT_IGNORE_LATENCY, "true");
 	}
+	if (pw_properties_get(props, PW_KEY_PORT_GROUP) == NULL)
+		pw_properties_set(props, PW_KEY_PORT_GROUP, "stream.0");
 
 	if (impl->media_type == SPA_MEDIA_TYPE_audio
 			|| (impl->media_type == SPA_MEDIA_TYPE_video

@@ -176,6 +176,9 @@ struct pw_impl_node *pw_adapter_new(struct pw_context *context,
 	if ((str = pw_properties_get(props, PW_KEY_NODE_ID)) != NULL)
 		pw_properties_set(props, PW_KEY_NODE_SESSION, str);
 
+	if (pw_properties_get(props, PW_KEY_PORT_GROUP) == NULL)
+		pw_properties_setf(props, PW_KEY_PORT_GROUP, "stream.0");
+
 	if ((res = find_format(follower, direction, &media_type, &media_subtype)) < 0)
 		goto error;
 

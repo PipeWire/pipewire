@@ -171,6 +171,8 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 #else
 	webrtc::AudioProcessing::Config config;
 	config.echo_canceller.enabled = true;
+	config.pipeline.multi_channel_capture = rec_info->channels > 1;
+	config.pipeline.multi_channel_render = play_info->channels > 1;
 	// FIXME: Example code enables both gain controllers, but that seems sus
 	config.gain_controller1.enabled = gain_control;
 	config.gain_controller1.mode = webrtc::AudioProcessing::Config::GainController1::Mode::kAdaptiveDigital;

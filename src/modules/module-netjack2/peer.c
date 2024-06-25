@@ -1,5 +1,5 @@
 
-#include <byteswap.h>
+#include <spa/utils/endian.h>
 
 #ifdef HAVE_OPUS_CUSTOM
 #include <opus/opus.h>

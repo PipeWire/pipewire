@@ -8,15 +8,13 @@
 #include <stddef.h>
 #include <errno.h>
 #include <arpa/inet.h>
-#if __BYTE_ORDER != __LITTLE_ENDIAN
-#include <byteswap.h>
-#endif
 
 #include <spa/debug/types.h>
 #include <spa/param/audio/type-info.h>
 #include <spa/param/audio/raw.h>
 #include <spa/utils/string.h>
 #include <spa/utils/dict.h>
+#include <spa/utils/endian.h>
 #include <spa/param/audio/format.h>
 #include <spa/param/audio/format-utils.h>
 

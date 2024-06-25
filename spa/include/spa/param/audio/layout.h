@@ -9,9 +9,7 @@
 extern "C" {
 #endif
 
-#if !defined(__FreeBSD__) && !defined(__MidnightBSD__)
-#include <endian.h>
-#endif
+#include <spa/utils/endian.h>
 
 /**
  * \addtogroup spa_param

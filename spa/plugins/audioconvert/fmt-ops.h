@@ -3,16 +3,9 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <math.h>
-#if defined(__FreeBSD__) || defined(__MidnightBSD__)
-#include <sys/endian.h>
-#define bswap_16 bswap16
-#define bswap_32 bswap32
-#define bswap_64 bswap64
-#else
-#include <byteswap.h>
-#endif
 
 #include <spa/utils/defs.h>
+#include <spa/utils/endian.h>
 #include <spa/utils/string.h>
 
 #define f32_round(a)	lrintf(a)

@@ -5,9 +5,6 @@
 #define __USE_GNU
 
 #include <limits.h>
-#if !defined(__FreeBSD__) && !defined(__MidnightBSD__)
-#include <byteswap.h>
-#endif
 #include <sys/shm.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -20,6 +17,7 @@
 #include <spa/debug/types.h>
 #include <spa/param/props.h>
 #include <spa/utils/atomic.h>
+#include <spa/utils/endian.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>

@@ -121,10 +121,14 @@
 
 #define S32_MIN			-2147483648
 #define S32_MAX			2147483647
-#define S32_SCALE		2147483648.0f
-#define S32_TO_F32(v)		ITOF(int32_t, v, S32_SCALE, 0.0f)
+#define S32_SCALE_I2F		2147483648.0f
+#define S32_TO_F32(v)		ITOF(int32_t, v, S32_SCALE_I2F, 0.0f)
 #define S32S_TO_F32(v)		S32_TO_F32(bswap_32(v))
-#define F32_TO_S32_D(v,d)	S25_32_TO_S32(F32_TO_S25_32_D(v,d))
+
+#define S32_MIN_F2I		((int32_t)(((uint32_t)(S25_MIN)) << 7))
+#define S32_MAX_F2I		((S25_MAX) << 7)
+#define S32_SCALE_F2I		(-((float)(S32_MIN_F2I)))
+#define F32_TO_S32_D(v,d)	FTOI(int32_t, v, S32_SCALE_F2I, 0.0f, d, S32_MIN_F2I, S32_MAX_F2I)
 #define F32_TO_S32(v)		F32_TO_S32_D(v, 0.0f)
 #define F32_TO_S32S(v)		bswap_32(F32_TO_S32(v))
 #define F32_TO_S32S_D(v,d)	bswap_32(F32_TO_S32_D(v,d))

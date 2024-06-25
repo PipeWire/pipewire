@@ -1,3 +1,77 @@
+# PipeWire 1.2.0 (2024-06-27)
+
+This is the 1.2 release that is API and ABI compatible with previous
+1.1.x and 1.0.x releases.
+
+This release contains some of the bigger changes that happened since
+the 1.0 release last year, including:
+
+  * Support for asynchronous processing has been implemented. Nodes can choose
+    (or be forced) to be scheduled asynchronously. The graph will not wait for
+    the output of the node to continue processing but it will use the output
+    of the previous cycle (or silence) instead. This adds one cycle of latency
+    but it can avoid having some nodes blocking the processing graph. Non realtime
+    streams and filters now also use this asynchronous processing instead of
+    their own slightly broken version.
+  * The concept of node.sync-group was added. This groups nodes with overlapping
+    sync-group together when one of them sets the node.sync = true. This is now
+    used to make sure all nodes are scheduled together when JACK transport is
+    started so that they all see the same transport time.
+  * Config parsing errors are reported earlier and much better with line and
+    column numbers where the parsing started to fail.
+  * Add support for mandatory metadata when negotiating buffer parameters. This
+    can be used to only negotiate extra buffer planes when certain metadata is
+    negotiated. One use case is the explicit sync support that requires 2
+    extra fds for the timelines.
+  * Explicit sync metadata and support was added.
+  * Support was added for making and using multiple data-loops in the server
+    and clients. Support for CPU affinity and priorities was added to the
+    data-loops as well.
+  * The log topic debug levels can now be changed at runtime with metadata.
+    The log levels in the pulse server can be dynamically changed with a
+    /core message.
+  * The UCM conflicting devices patches were merged.
+  * Add snapcast-discover module to stream to snapcast servers.
+  * Rework how peers are linked and the counters are updated. Resume the
+    peers when a node is unlinked and not yet processed. This should cause
+    less occasional dropouts in the graph when reconnecting things.
+  * Many GStreamer element updates.
+  * Many more fixes and improvements.
+
+Enjoy the summer vacation!
+
+
+## Highlights (since the previous 1.1.83 release)
+  - Small fixes here and there.
+
+## PipeWire
+  - Compilation fixes after enabling -Werror=float-conversion
+
+## Modules
+  - The module-rtp-sap now propagates the cleanup.sec property to the
+    rtp-source and the rtp-source now sets a property with the receiving
+    status.
+  - Fix for ROC 0.3, explicitly specify sender encoding. (#4070)
+  - Some fixes to the RAOP sink module, including a format fix for 32 bit
+    machines.
+
+## Tools
+  - Fix pw-cli monitoring code.
+
+## SPA
+  - Revert peer_enum_params again because it was not used and flawed.
+  - Fix multichannel processing in webrtc AEC.
+
+## GStreamer
+  - Logging improvements.
+  - Fix a race in the bufferpool activation.
+
+## Bluetooth
+  - Improvements to BAP broadcast code parsing.
+
+Older versions:
+
+
 # PipeWire 1.1.83 (2024-06-17)
 
 This is the third and hopefully the last 1.2 release candidate that is
@@ -55,9 +129,6 @@ scheduling that justify another pre-release.
 
 ## Bluetooth
   - Support multiple BIS in the broadcast source.
-
-Older versions:
-
 
 # PipeWire 1.1.82 (2024-05-24)
 

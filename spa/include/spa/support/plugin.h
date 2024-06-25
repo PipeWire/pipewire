@@ -35,12 +35,12 @@ struct spa_handle {
 	 *
 	 * \param handle a spa_handle
 	 * \param type the interface type
-	 * \param interface result to hold the interface.
+	 * \param iface result to hold the interface.
 	 * \return 0 on success
 	 *         -ENOTSUP when there are no interfaces
 	 *         -EINVAL when handle or info is NULL
 	 */
-	int (*get_interface) (struct spa_handle *handle, const char *type, void **interface);
+	int (*get_interface) (struct spa_handle *handle, const char *type, void **iface);
 	/**
 	 * Clean up the memory of \a handle. After this, \a handle should not be used
 	 * anymore.

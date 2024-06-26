@@ -19,17 +19,18 @@ extern "C" {
 /** properties of SPA_TYPE_OBJECT_PropInfo */
 enum spa_prop_info {
 	SPA_PROP_INFO_START,
-	SPA_PROP_INFO_id,		/**< associated id of the property */
-	SPA_PROP_INFO_name,		/**< name of the property */
+	SPA_PROP_INFO_id,		/**< (Id) associated id of the property */
+	SPA_PROP_INFO_name,		/**< (String) name of the property */
 	SPA_PROP_INFO_type,		/**< type and range/enums of property */
 	SPA_PROP_INFO_labels,		/**< labels of property if any, this is a
 					  *  struct with pairs of values, the first one
 					  *  is of the type of the property, the second
 					  *  one is a string with a user readable label
 					  *  for the value. */
-	SPA_PROP_INFO_container,	/**< type of container if any (Id) */
-	SPA_PROP_INFO_params,		/**< is part of params property (Bool) */
-	SPA_PROP_INFO_description,	/**< User readable description */
+	SPA_PROP_INFO_container,	/**< (Id) type of container if any */
+	SPA_PROP_INFO_params,		/**< (Bool) is part of params property */
+	SPA_PROP_INFO_description,	/**< (String) User readable description */
+	SPA_PROP_INFO_group,		/**< (String) the property group name */
 };
 
 /** predefined properties for SPA_TYPE_OBJECT_Props */
@@ -37,6 +38,7 @@ enum spa_prop {
 	SPA_PROP_START,
 
 	SPA_PROP_unknown,		/**< an unknown property */
+	SPA_PROP_group,			/**< (String) the property group name */
 
 	SPA_PROP_START_Device	= 0x100,	/**< device related properties */
 	SPA_PROP_device,

@@ -575,208 +575,220 @@ static int node_param_prop_info(struct impl *this, uint32_t id, uint32_t index,
 	struct props *p = &this->props;
 	struct spa_pod_frame f[2];
 
+	if (index >= 33) {
+		if (this->filter_graph[0] && this->filter_graph[0]->graph) {
+			return spa_filter_graph_enum_prop_info(this->filter_graph[0]->graph,
+					index - 33, b, param);
+		}
+		return 0;
+	}
+	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
+	if (this->group_name[0]) {
+		spa_pod_builder_add(b,
+			SPA_PROP_INFO_group, SPA_POD_String(this->group_name),
+			0);
+	}
 	switch (index) {
 	case 0:
-		*param = spa_pod_builder_add_object(b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_volume),
-				SPA_PROP_INFO_description, SPA_POD_String("Volume"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume,
-					DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME));
+		spa_pod_builder_add(b,
+			SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_volume),
+			SPA_PROP_INFO_description, SPA_POD_String("Volume"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume,
+				DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
+			0);
 		break;
 	case 1:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_mute),
 			SPA_PROP_INFO_description, SPA_POD_String("Mute"),
-			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->channel.mute));
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->channel.mute),
+			0);
 		break;
 	case 2:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_channelVolumes),
 			SPA_PROP_INFO_description, SPA_POD_String("Channel Volumes"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume,
 				DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
-			SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
+			SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array),
+			0);
 		break;
 	case 3:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_channelMap),
 			SPA_PROP_INFO_description, SPA_POD_String("Channel Map"),
 			SPA_PROP_INFO_type, SPA_POD_Id(SPA_AUDIO_CHANNEL_UNKNOWN),
-			SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
+			SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array),
+			0);
 		break;
 	case 4:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_monitorMute),
 			SPA_PROP_INFO_description, SPA_POD_String("Monitor Mute"),
-			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->monitor.mute));
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->monitor.mute),
+			0);
 		break;
 	case 5:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_monitorVolumes),
 			SPA_PROP_INFO_description, SPA_POD_String("Monitor Volumes"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume,
 				DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
-			SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
+			SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array),
+			0);
 		break;
 	case 6:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_softMute),
 			SPA_PROP_INFO_description, SPA_POD_String("Soft Mute"),
-			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->soft.mute));
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->soft.mute),
+			0);
 		break;
 	case 7:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_softVolumes),
 			SPA_PROP_INFO_description, SPA_POD_String("Soft Volumes"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume,
 				DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
-			SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
+			SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array),
+			0);
 		break;
 	case 8:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("monitor.channel-volumes"),
 			SPA_PROP_INFO_description, SPA_POD_String("Monitor channel volume"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
 				this->monitor_channel_volumes),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 9:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.disable"),
 			SPA_PROP_INFO_description, SPA_POD_String("Disable Channel mixing"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->mix_disabled),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 10:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.min-volume"),
 			SPA_PROP_INFO_description, SPA_POD_String("Minimum volume level"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->min_volume,
 				DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 11:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.max-volume"),
 			SPA_PROP_INFO_description, SPA_POD_String("Maximum volume level"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->max_volume,
 				DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 12:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.normalize"),
 			SPA_PROP_INFO_description, SPA_POD_String("Normalize Volumes"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
 				SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_NORMALIZE)),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 13:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.mix-lfe"),
 			SPA_PROP_INFO_description, SPA_POD_String("Mix LFE into channels"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
 				SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_MIX_LFE)),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 14:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.upmix"),
 			SPA_PROP_INFO_description, SPA_POD_String("Enable upmixing"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
 				SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_UPMIX)),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 15:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.lfe-cutoff"),
 			SPA_PROP_INFO_description, SPA_POD_String("LFE cutoff frequency"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
 				this->mix.lfe_cutoff, 0.0, 1000.0),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 16:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.fc-cutoff"),
 			SPA_PROP_INFO_description, SPA_POD_String("FC cutoff frequency (Hz)"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
 				this->mix.fc_cutoff, 0.0, 48000.0),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 17:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.rear-delay"),
 			SPA_PROP_INFO_description, SPA_POD_String("Rear channels delay (ms)"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
 				this->mix.rear_delay, 0.0, 1000.0),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 18:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.stereo-widen"),
 			SPA_PROP_INFO_description, SPA_POD_String("Stereo widen"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
 				this->mix.widen, 0.0, 1.0),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 19:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.center-level"),
 			SPA_PROP_INFO_description, SPA_POD_String("Center up/downmix level"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
 				this->mix.center_level, 0.0, 10.0),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 20:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.surround-level"),
 			SPA_PROP_INFO_description, SPA_POD_String("Surround up/downmix level"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
 				this->mix.surround_level, 0.0, 10.0),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 21:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.lfe-level"),
 			SPA_PROP_INFO_description, SPA_POD_String("LFE up/downmix level"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
 				this->mix.lfe_level, 0.0, 10.0),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 
 	case 22:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.hilbert-taps"),
 			SPA_PROP_INFO_description, SPA_POD_String("Taps for phase shift of rear"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(
 				this->mix.hilbert_taps, 0, MAX_TAPS),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 23:
-		spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
 		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.upmix-method"),
 			SPA_PROP_INFO_description, SPA_POD_String("Upmix method to use"),
@@ -792,42 +804,40 @@ static int node_param_prop_info(struct impl *this, uint32_t id, uint32_t index,
 			spa_pod_builder_string(b, i->description);
 		}
 		spa_pod_builder_pop(b, &f[1]);
-		*param = spa_pod_builder_pop(b, &f[0]);
 		break;
 	case 24:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_rate),
 			SPA_PROP_INFO_description, SPA_POD_String("Rate scaler"),
-			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Double(p->rate, 0.0, 10.0));
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Double(p->rate, 0.0, 10.0),
+			0);
 		break;
 	case 25:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_quality),
 			SPA_PROP_INFO_name, SPA_POD_String("resample.quality"),
 			SPA_PROP_INFO_description, SPA_POD_String("Resample Quality"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->resample_quality, 0, 14),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 26:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("resample.disable"),
 			SPA_PROP_INFO_description, SPA_POD_String("Disable Resampling"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->resample_disabled),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 27:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("dither.noise"),
 			SPA_PROP_INFO_description, SPA_POD_String("Add noise bits"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(this->dir[1].conv.noise_bits, 0, 16),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 28:
-		spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
 		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("dither.method"),
 			SPA_PROP_INFO_description, SPA_POD_String("The dithering method"),
@@ -842,47 +852,41 @@ static int node_param_prop_info(struct impl *this, uint32_t id, uint32_t index,
 			spa_pod_builder_string(b, i->description);
 		}
 		spa_pod_builder_pop(b, &f[1]);
-		*param = spa_pod_builder_pop(b, &f[0]);
 		break;
 	case 29:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("debug.wav-path"),
 			SPA_PROP_INFO_description, SPA_POD_String("Path to WAV file"),
 			SPA_PROP_INFO_type, SPA_POD_String(p->wav_path),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 30:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.lock-volumes"),
 			SPA_PROP_INFO_description, SPA_POD_String("Disable volume updates"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->lock_volumes),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 31:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("audioconvert.filter-graph.disable"),
 			SPA_PROP_INFO_description, SPA_POD_String("Disable Filter graph updates"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->filter_graph_disabled),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
 	case 32:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
+		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("audioconvert.filter-graph.N"),
 			SPA_PROP_INFO_description, SPA_POD_String("A filter graph to load"),
 			SPA_PROP_INFO_type, SPA_POD_String(""),
-			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
 		break;
-	default:
-		if (this->filter_graph[0] && this->filter_graph[0]->graph) {
-			return spa_filter_graph_enum_prop_info(this->filter_graph[0]->graph,
-					index - 33, b, param);
-		}
-		return 0;
 	}
+	*param = spa_pod_builder_pop(b, &f[0]);
 	return 1;
 }
 
@@ -897,6 +901,11 @@ static int node_param_props(struct impl *this, uint32_t id, uint32_t index,
 	case 0:
 		spa_pod_builder_push_object(b, &f[0],
                                SPA_TYPE_OBJECT_Props, id);
+		if (this->group_name[0]) {
+			spa_pod_builder_add(b,
+				SPA_PROP_group, SPA_POD_String(this->group_name),
+				0);
+		}
 		spa_pod_builder_add(b,
 			SPA_PROP_volume,		SPA_POD_Float(p->volume),
 			SPA_PROP_mute,			SPA_POD_Bool(p->channel.mute),

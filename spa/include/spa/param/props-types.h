@@ -25,6 +25,7 @@ extern "C" {
 static const struct spa_type_info spa_type_props[] = {
 	{ SPA_PROP_START, SPA_TYPE_Id, SPA_TYPE_INFO_PROPS_BASE, spa_type_param, },
 	{ SPA_PROP_unknown, SPA_TYPE_None, SPA_TYPE_INFO_PROPS_BASE "unknown", NULL },
+	{ SPA_PROP_group, SPA_TYPE_String, SPA_TYPE_INFO_PROPS_BASE "group", NULL },
 	{ SPA_PROP_device, SPA_TYPE_String, SPA_TYPE_INFO_PROPS_BASE "device", NULL },
 	{ SPA_PROP_deviceName, SPA_TYPE_String, SPA_TYPE_INFO_PROPS_BASE "deviceName", NULL },
 	{ SPA_PROP_deviceFd, SPA_TYPE_Fd, SPA_TYPE_INFO_PROPS_BASE "deviceFd", NULL },
@@ -95,6 +96,7 @@ static const struct spa_type_info spa_type_prop_info[] = {
 	{ SPA_PROP_INFO_container, SPA_TYPE_Id, SPA_TYPE_INFO_PROP_INFO_BASE "container", NULL },
 	{ SPA_PROP_INFO_params, SPA_TYPE_Bool, SPA_TYPE_INFO_PROP_INFO_BASE "params", NULL },
 	{ SPA_PROP_INFO_description, SPA_TYPE_String, SPA_TYPE_INFO_PROP_INFO_BASE "description", NULL },
+	{ SPA_PROP_INFO_group, SPA_TYPE_String, SPA_TYPE_INFO_PROP_INFO_BASE "group", NULL },
 	{ 0, 0, NULL, NULL },
 };
 

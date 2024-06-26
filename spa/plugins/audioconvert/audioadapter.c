@@ -171,15 +171,34 @@ static int convert_enum_port_config(struct impl *this,
 		int seq, uint32_t id, uint32_t start, uint32_t num,
 		const struct spa_pod *filter, struct spa_pod_builder *builder)
 {
-	struct spa_pod *f1, *f2 = NULL;
+	struct spa_pod *f1, *f2 = NULL, *format = NULL;
+	struct spa_pod_frame f[1];
+	uint32_t fmt_id, fmt_start = 0;
 	int res;
 
 	if (this->convert == NULL)
 		return 0;
 
-	f1 = spa_pod_builder_add_object(builder,
-		SPA_TYPE_OBJECT_ParamPortConfig, id,
-			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(this->direction));
+	if (id == SPA_PARAM_EnumPortConfig)
+		fmt_id = SPA_PARAM_EnumFormat;
+	else
+		fmt_id = SPA_PARAM_Format;
+
+	res = spa_node_port_enum_params_sync(this->follower,
+			this->direction, 0,
+			fmt_id, &fmt_start, NULL, &format, builder);
+
+	spa_pod_builder_push_object(builder, &f[0],
+		SPA_TYPE_OBJECT_ParamPortConfig, id);
+	spa_pod_builder_add(builder,
+			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(this->direction),
+			0);
+	if (res > 0) {
+		spa_pod_builder_add(builder,
+			SPA_PARAM_PORT_CONFIG_format, SPA_POD_Pod(format),
+			0);
+	}
+	f1 = spa_pod_builder_pop(builder, &f[0]);
 
 	if (filter) {
 		if ((res = spa_pod_filter(builder, &f2, f1, filter)) < 0)
@@ -222,13 +241,19 @@ next:
 	case SPA_PARAM_EnumPortConfig:
 	case SPA_PARAM_PortConfig:
 		if (this->mode == SPA_PARAM_PORT_CONFIG_MODE_passthrough) {
+			struct spa_pod *format = NULL;
+			res = spa_node_port_enum_params_sync(this->follower,
+					this->direction, 0,
+					SPA_PARAM_Format, &result.index, NULL, &format, &b.b);
+
 			switch (result.index) {
 			case 0:
 				result.param = spa_pod_builder_add_object(&b.b,
 					SPA_TYPE_OBJECT_ParamPortConfig, id,
 					SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(this->direction),
 					SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(
-						SPA_PARAM_PORT_CONFIG_MODE_passthrough));
+						SPA_PARAM_PORT_CONFIG_MODE_passthrough),
+					SPA_PARAM_PORT_CONFIG_format, SPA_POD_Pod(format));
 				result.next++;
 				res = 1;
 				break;
@@ -1448,20 +1473,33 @@ static void follower_port_info(void *data,
 			if (this->add_listener)
 				continue;
 
-			if (idx == IDX_Latency && this->in_recalc == 0) {
-				res = recalc_latency(this, this->follower, direction, port_id, this->target);
-				spa_log_debug(this->log, "latency: %d (%s)", res,
-						spa_strerror(res));
-			}
-			if (idx == IDX_Tag && this->in_recalc == 0) {
-				res = recalc_tag(this, this->follower, direction, port_id, this->target);
-				spa_log_debug(this->log, "tag: %d (%s)", res,
-						spa_strerror(res));
-			}
-			if (idx == IDX_EnumFormat) {
-				spa_log_debug(this->log, "new EnumFormat from follower");
+			switch (idx) {
+			case IDX_Latency:
+				if (this->in_recalc == 0) {
+					res = recalc_latency(this, this->follower, direction, port_id, this->target);
+					spa_log_debug(this->log, "latency: %d (%s)", res,
+							spa_strerror(res));
+				}
+				break;
+			case IDX_Tag:
+				if (this->in_recalc == 0) {
+					res = recalc_tag(this, this->follower, direction, port_id, this->target);
+					spa_log_debug(this->log, "tag: %d (%s)", res,
+							spa_strerror(res));
+				}
+				break;
+			case IDX_Format:
+				spa_log_debug(this->log, "new format");
+				this->params[IDX_PortConfig].user++;
+				break;
+			case IDX_EnumFormat:
+				spa_log_debug(this->log, "new formats");
+				this->params[IDX_EnumPortConfig].user++;
 				/* we will renegotiate when restarting */
 				this->recheck_format = true;
+				break;
+			default:
+				break;
 			}
 
 			this->params[idx].user++;

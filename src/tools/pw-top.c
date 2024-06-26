@@ -227,110 +227,118 @@ static void node_info(void *data, const struct pw_node_info *info)
 		set_node_name(n, find_node_name(info->props));
 }
 
+static void handle_format(struct node *n, const struct spa_pod *param)
+{
+	uint32_t media_type, media_subtype;
+
+	if (param == NULL) {
+		spa_zero(n->format);
+		return;
+	}
+
+	if (spa_format_parse(param, &media_type, &media_subtype) < 0)
+		return;
+
+	switch(media_type) {
+	case SPA_MEDIA_TYPE_audio:
+		switch(media_subtype) {
+		case SPA_MEDIA_SUBTYPE_raw:
+		{
+			struct spa_audio_info_raw info = { 0 };
+			if (spa_format_audio_raw_parse(param, &info) >= 0) {
+				snprintf(n->format, sizeof(n->format), "%6.6s %d %d",
+					spa_debug_type_find_short_name(
+						spa_type_audio_format, info.format),
+					info.channels, info.rate);
+			}
+			break;
+		}
+		case SPA_MEDIA_SUBTYPE_dsd:
+		{
+			struct spa_audio_info_dsd info = { 0 };
+			if (spa_format_audio_dsd_parse(param, &info) >= 0) {
+				snprintf(n->format, sizeof(n->format), "DSD%d %d ",
+					8 * info.rate / 44100, info.channels);
+
+			}
+			break;
+		}
+		case SPA_MEDIA_SUBTYPE_iec958:
+		{
+			struct spa_audio_info_iec958 info = { 0 };
+			if (spa_format_audio_iec958_parse(param, &info) >= 0) {
+				snprintf(n->format, sizeof(n->format), "IEC958 %s %d",
+					spa_debug_type_find_short_name(
+						spa_type_audio_iec958_codec, info.codec),
+					info.rate);
+
+			}
+			break;
+		}
+		}
+		break;
+	case SPA_MEDIA_TYPE_video:
+		switch(media_subtype) {
+		case SPA_MEDIA_SUBTYPE_raw:
+		{
+			struct spa_video_info_raw info = { 0 };
+			if (spa_format_video_raw_parse(param, &info) >= 0) {
+				snprintf(n->format, sizeof(n->format), "%6.6s %dx%d",
+					spa_debug_type_find_short_name(spa_type_video_format, info.format),
+					info.size.width, info.size.height);
+			}
+			break;
+		}
+		case SPA_MEDIA_SUBTYPE_mjpg:
+		{
+			struct spa_video_info_mjpg info = { 0 };
+			if (spa_format_video_mjpg_parse(param, &info) >= 0) {
+				snprintf(n->format, sizeof(n->format), "MJPG %dx%d",
+					info.size.width, info.size.height);
+			}
+			break;
+		}
+		case SPA_MEDIA_SUBTYPE_h264:
+		{
+			struct spa_video_info_h264 info = { 0 };
+			if (spa_format_video_h264_parse(param, &info) >= 0) {
+				snprintf(n->format, sizeof(n->format), "H264 %dx%d",
+					info.size.width, info.size.height);
+			}
+			break;
+		}
+		}
+		break;
+	case SPA_MEDIA_TYPE_application:
+		switch(media_subtype) {
+		case SPA_MEDIA_SUBTYPE_control:
+			snprintf(n->format, sizeof(n->format), "%s", "CONTROL");
+			break;
+		}
+		break;
+	}
+}
+
 static void node_param(void *data, int seq,
 			uint32_t id, uint32_t index, uint32_t next,
 			const struct spa_pod *param)
 {
 	struct node *n = data;
 
-	if (param == NULL) {
-		spa_zero(n->format);
-		goto done;
-	}
-
 	switch (id) {
-	case SPA_PARAM_Format:
+	case SPA_PARAM_PortConfig:
 	{
-		uint32_t media_type, media_subtype;
-
-		if (spa_format_parse(param, &media_type, &media_subtype) < 0)
-			goto done;
-
-		switch(media_type) {
-		case SPA_MEDIA_TYPE_audio:
-			switch(media_subtype) {
-			case SPA_MEDIA_SUBTYPE_raw:
-			{
-				struct spa_audio_info_raw info = { 0 };
-				if (spa_format_audio_raw_parse(param, &info) >= 0) {
-					snprintf(n->format, sizeof(n->format), "%6.6s %d %d",
-						spa_type_audio_format_to_short_name(info.format),
-						info.channels, info.rate);
-				}
-				break;
-			}
-			case SPA_MEDIA_SUBTYPE_dsd:
-			{
-				struct spa_audio_info_dsd info = { 0 };
-				if (spa_format_audio_dsd_parse(param, &info) >= 0) {
-					snprintf(n->format, sizeof(n->format), "DSD%d %d ",
-						8 * info.rate / 44100, info.channels);
-
-				}
-				break;
-			}
-			case SPA_MEDIA_SUBTYPE_iec958:
-			{
-				struct spa_audio_info_iec958 info = { 0 };
-				if (spa_format_audio_iec958_parse(param, &info) >= 0) {
-					/* MAX_FORMAT is 16 bytes + \0: 8 bytes in this string, upto 6 bytes for the rate,
-					 * leaving us 2 for the format */
-					snprintf(n->format, sizeof(n->format), "IEC958 %2.2s %d",
-						spa_debug_type_find_short_name(
-							spa_type_audio_iec958_codec, info.codec),
-						info.rate);
-
-				}
-				break;
-			}
-			}
-			break;
-		case SPA_MEDIA_TYPE_video:
-			switch(media_subtype) {
-			case SPA_MEDIA_SUBTYPE_raw:
-			{
-				struct spa_video_info_raw info = { 0 };
-				if (spa_format_video_raw_parse(param, &info) >= 0) {
-					snprintf(n->format, sizeof(n->format), "%6.6s %dx%d",
-						spa_type_video_format_to_short_name(info.format),
-						info.size.width, info.size.height);
-				}
-				break;
-			}
-			case SPA_MEDIA_SUBTYPE_mjpg:
-			{
-				struct spa_video_info_mjpg info = { 0 };
-				if (spa_format_video_mjpg_parse(param, &info) >= 0) {
-					snprintf(n->format, sizeof(n->format), "MJPG %dx%d",
-						info.size.width, info.size.height);
-				}
-				break;
-			}
-			case SPA_MEDIA_SUBTYPE_h264:
-			{
-				struct spa_video_info_h264 info = { 0 };
-				if (spa_format_video_h264_parse(param, &info) >= 0) {
-					snprintf(n->format, sizeof(n->format), "H264 %dx%d",
-						info.size.width, info.size.height);
-				}
-				break;
-			}
-			}
-			break;
-		case SPA_MEDIA_TYPE_application:
-			switch(media_subtype) {
-			case SPA_MEDIA_SUBTYPE_control:
-				snprintf(n->format, sizeof(n->format), "%s", "CONTROL");
-				break;
-			}
-			break;
-		}
+		const struct spa_pod *format = NULL;
+		if (spa_pod_parse_object(param,
+				SPA_TYPE_OBJECT_ParamPortConfig, NULL,
+				SPA_PARAM_PORT_CONFIG_format,		SPA_POD_OPT_Pod(&format)) < 0)
+			return;
+		handle_format(n, format);
 		break;
 	}
 	default:
 		break;
 	}
-done:
 	do_refresh(n->data, !n->data->batch_mode);
 }
 
@@ -353,7 +361,7 @@ static struct node *add_node(struct data *d, uint32_t id, const char *name)
 
 	n->proxy = pw_registry_bind(d->registry, id, PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, 0);
 	if (n->proxy) {
-		uint32_t ids[1] = { SPA_PARAM_Format };
+		uint32_t ids[] = { SPA_PARAM_PortConfig };
 
 		pw_proxy_add_listener(n->proxy,
 				&n->proxy_listener, &proxy_events, n);
@@ -361,7 +369,7 @@ static struct node *add_node(struct data *d, uint32_t id, const char *name)
 				&n->object_listener, &node_events, n);
 
 		pw_node_subscribe_params((struct pw_node*)n->proxy,
-						ids, 1);
+						ids, SPA_N_ELEMENTS(ids));
 	}
 	spa_list_append(&d->node_list, &n->link);
 	d->n_nodes++;

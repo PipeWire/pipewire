@@ -33,6 +33,7 @@ enum spa_param_port_config {
 	SPA_PARAM_PORT_CONFIG_monitor,		/**< (Bool) enable monitor output ports on input ports */
 	SPA_PARAM_PORT_CONFIG_control,		/**< (Bool) enable control ports */
 	SPA_PARAM_PORT_CONFIG_format,		/**< (Object) format filter */
+	SPA_PARAM_PORT_CONFIG_group,		/**< (String) the port group name */
 };
 
 /**

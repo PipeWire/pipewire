@@ -508,8 +508,10 @@ static int node_param_enum_port_config(struct impl *this, uint32_t id, uint32_t 
 	case 0 ... 1:
 	{
 		struct dir *dir = &this->dir[index];
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_ParamPortConfig, id,
+		struct spa_pod_frame f[1];
+
+		spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_ParamPortConfig, id);
+		spa_pod_builder_add(b,
 			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(dir->direction),
 			SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_CHOICE_ENUM_Id(4,
 				SPA_PARAM_PORT_CONFIG_MODE_none,
@@ -517,7 +519,14 @@ static int node_param_enum_port_config(struct impl *this, uint32_t id, uint32_t 
 				SPA_PARAM_PORT_CONFIG_MODE_dsp,
 				SPA_PARAM_PORT_CONFIG_MODE_convert),
 			SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_CHOICE_Bool(false),
-			SPA_PARAM_PORT_CONFIG_control,   SPA_POD_CHOICE_Bool(false));
+			SPA_PARAM_PORT_CONFIG_control,   SPA_POD_CHOICE_Bool(false),
+			0);
+		if (this->group_name[0]) {
+			spa_pod_builder_add(b,
+				SPA_PARAM_PORT_CONFIG_group, SPA_POD_String(this->group_name),
+				0);
+		}
+		*param = spa_pod_builder_pop(b, &f[0]);
 		break;
 	}
 	default:
@@ -542,7 +551,11 @@ static int node_param_port_config(struct impl *this, uint32_t id, uint32_t index
 			SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(this->monitor),
 			SPA_PARAM_PORT_CONFIG_control,   SPA_POD_Bool(dir->control),
 			0);
-
+		if (this->group_name[0]) {
+			spa_pod_builder_add(b,
+				SPA_PARAM_PORT_CONFIG_group, SPA_POD_String(this->group_name),
+				0);
+		}
 		if (dir->have_format) {
 			spa_pod_builder_prop(b, SPA_PARAM_PORT_CONFIG_format, 0);
 			spa_format_audio_raw_build(b, id, &dir->format.info.raw);
@@ -2037,6 +2050,7 @@ static int node_set_param_port_config(struct impl *this, uint32_t flags,
 {
 	struct spa_audio_info info = { 0, }, *infop = NULL;
 	struct spa_pod *format = NULL;
+	const char *group = NULL;
 	enum spa_direction direction;
 	enum spa_param_port_config_mode mode;
 	bool monitor = false, control = false;
@@ -2051,8 +2065,12 @@ static int node_set_param_port_config(struct impl *this, uint32_t flags,
 			SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(&mode),
 			SPA_PARAM_PORT_CONFIG_monitor,		SPA_POD_OPT_Bool(&monitor),
 			SPA_PARAM_PORT_CONFIG_control,		SPA_POD_OPT_Bool(&control),
-			SPA_PARAM_PORT_CONFIG_format,		SPA_POD_OPT_Pod(&format)) < 0)
+			SPA_PARAM_PORT_CONFIG_format,		SPA_POD_OPT_Pod(&format),
+			SPA_PARAM_PORT_CONFIG_group,		SPA_POD_OPT_String(&group)) < 0)
 		return -EINVAL;
+
+	if (group != NULL && this->group_name[0] && !spa_streq(group, this->group_name))
+		return -ENOENT;
 
 	if (format) {
 		if (!spa_pod_is_object_type(format, SPA_TYPE_OBJECT_Format))

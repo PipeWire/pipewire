@@ -48,7 +48,7 @@ int rtp_stream_update_properties(struct rtp_stream *s, const struct spa_dict *di
 
 int rtp_stream_receive_packet(struct rtp_stream *s, uint8_t *buffer, size_t len);
 
-uint64_t rtp_stream_get_time(struct rtp_stream *s, uint64_t *rate);
+uint64_t rtp_stream_get_time(struct rtp_stream *s, uint32_t *rate);
 
 uint16_t rtp_stream_get_seq(struct rtp_stream *s);
 

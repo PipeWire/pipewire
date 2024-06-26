@@ -255,7 +255,7 @@ struct impl {
 	struct spa_source *server_source;
 
 	uint32_t psamples;
-	uint64_t rate;
+	uint32_t rate;
 	uint32_t mtu;
 	uint32_t stride;
 	uint32_t latency;
@@ -854,7 +854,7 @@ static void rtsp_do_post_feedback(void *data, uint64_t expirations)
 
 static uint32_t msec_to_samples(struct impl *impl, uint32_t msec)
 {
-	return msec * impl->rate / 1000;
+	return (uint64_t) msec * impl->rate / 1000;
 }
 
 static int rtsp_record_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
@@ -1244,7 +1244,7 @@ static int rtsp_do_announce(struct impl *impl)
 				"a=rtpmap:96 AppleLossless\r\n"
 				"a=fmtp:96 %d 0 16 40 10 14 2 255 0 0 %u\r\n",
 				impl->session_id, ip_version, local_ip,
-				ip_version, host, impl->psamples, (uint32_t)impl->rate);
+				ip_version, host, impl->psamples, impl->rate);
 		if (!sdp)
 			return -errno;
 		break;
@@ -1259,7 +1259,7 @@ static int rtsp_do_announce(struct impl *impl)
 				"a=fmtp:96 %d 0 16 40 10 14 2 255 0 0 %u\r\n"
 				"a=min-latency:%d",
 				impl->session_id, ip_version, local_ip,
-				ip_version, host, impl->psamples, (uint32_t)impl->rate,
+				ip_version, host, impl->psamples, impl->rate,
 				rtp_latency);
 		if (!sdp)
 			return -errno;
@@ -1296,7 +1296,7 @@ static int rtsp_do_announce(struct impl *impl)
 				"a=rsaaeskey:%s\r\n"
 				"a=aesiv:%s\r\n",
 				impl->session_id, ip_version, local_ip,
-				ip_version, host, impl->psamples, (uint32_t)impl->rate,
+				ip_version, host, impl->psamples, impl->rate,
 				key, iv);
 		if (!sdp)
 			return -errno;
@@ -1881,7 +1881,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(props, PW_KEY_AUDIO_FORMAT) == NULL)
 		pw_properties_setf(props, PW_KEY_AUDIO_FORMAT, "%s", RAOP_FORMAT);
 	if (pw_properties_get(props, PW_KEY_AUDIO_RATE) == NULL)
-		pw_properties_setf(props, PW_KEY_AUDIO_RATE, "%ld", impl->rate);
+		pw_properties_setf(props, PW_KEY_AUDIO_RATE, "%u", impl->rate);
 	if (pw_properties_get(props, PW_KEY_DEVICE_ICON_NAME) == NULL)
 		pw_properties_set(props, PW_KEY_DEVICE_ICON_NAME, "audio-speakers");
 	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
@@ -1892,7 +1892,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION, "%s", name);
 	if (pw_properties_get(props, PW_KEY_NODE_LATENCY) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%d/%ld",
+		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u",
 				impl->psamples, impl->rate);
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");

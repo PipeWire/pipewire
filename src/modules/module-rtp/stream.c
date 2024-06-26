@@ -633,7 +633,7 @@ int rtp_stream_receive_packet(struct rtp_stream *s, uint8_t *buffer, size_t len)
 	return impl->receive_rtp(impl, buffer, len);
 }
 
-uint64_t rtp_stream_get_time(struct rtp_stream *s, uint64_t *rate)
+uint64_t rtp_stream_get_time(struct rtp_stream *s, uint32_t *rate)
 {
 	struct impl *impl = (struct impl*)s;
 	struct spa_io_position *pos = impl->io_position;

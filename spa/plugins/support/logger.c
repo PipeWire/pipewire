@@ -22,6 +22,10 @@
 
 #if defined(__FreeBSD__) || defined(__MidnightBSD__)
 #define CLOCK_MONOTONIC_RAW CLOCK_MONOTONIC
+#elif defined(_MSC_VER)
+static inline void setlinebuf(FILE* stream) {
+	setvbuf(stream, NULL, _IOLBF, 0);
+}
 #endif
 
 #undef SPA_LOG_TOPIC_DEFAULT

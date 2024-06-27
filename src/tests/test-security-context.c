@@ -97,7 +97,7 @@ static void test_create(void)
 	struct registry_info info;
 	struct spa_hook listener;
 	int res, listen_fd, close_fd[2];
-	char temp[PATH_MAX] = "/tmp/pipewire-XXXXXX";
+	char temp[] = "/tmp/pipewire-XXXXXX";
 	struct sockaddr_un sockaddr = {0};
 
 	loop = pw_main_loop_new(NULL);

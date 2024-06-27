@@ -96,8 +96,8 @@ static void core_event_done(void *object, uint32_t id, int seq)
 static int roundtrip(struct data *data)
 {
 	struct spa_hook core_listener;
-	const struct pw_core_events core_events = {
-	PW_VERSION_CORE_EVENTS,
+	static const struct pw_core_events core_events = {
+		PW_VERSION_CORE_EVENTS,
 		.done = core_event_done,
 	};
 	spa_zero(core_listener);

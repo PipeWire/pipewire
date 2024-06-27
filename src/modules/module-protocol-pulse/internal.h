@@ -83,6 +83,6 @@ void impl_add_listener(struct impl *impl,
 		struct spa_hook *listener,
 		const struct impl_events *events, void *data);
 
-void broadcast_subscribe_event(struct impl *impl, uint32_t mask, uint32_t event, uint32_t id);
+void broadcast_subscribe_event(struct impl *impl, uint32_t facility, uint32_t type, uint32_t id);
 
 #endif

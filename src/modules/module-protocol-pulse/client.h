@@ -99,7 +99,7 @@ void client_disconnect(struct client *client);
 void client_free(struct client *client);
 int client_queue_message(struct client *client, struct message *msg);
 int client_flush_messages(struct client *client);
-int client_queue_subscribe_event(struct client *client, uint32_t mask, uint32_t event, uint32_t id);
+int client_queue_subscribe_event(struct client *client, uint32_t facility, uint32_t type, uint32_t index);
 
 void client_update_routes(struct client *client, const char *key, const char *value);
 

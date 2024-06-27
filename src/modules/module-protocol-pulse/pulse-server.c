@@ -100,13 +100,13 @@ static struct sample *find_sample(struct impl *impl, uint32_t index, const char 
 	return NULL;
 }
 
-void broadcast_subscribe_event(struct impl *impl, uint32_t mask, uint32_t event, uint32_t index)
+void broadcast_subscribe_event(struct impl *impl, uint32_t facility, uint32_t type, uint32_t index)
 {
 	struct server *s;
 	spa_list_for_each(s, &impl->servers, link) {
 		struct client *c;
 		spa_list_for_each(c, &s->clients, link)
-			client_queue_subscribe_event(c, mask, event, index);
+			client_queue_subscribe_event(c, facility, type, index);
 	}
 }
 
@@ -203,46 +203,36 @@ static struct stream *find_stream(struct client *client, uint32_t index)
 static int send_object_event(struct client *client, struct pw_manager_object *o,
 		uint32_t type)
 {
-	uint32_t event = 0, mask = 0, res_index = o->index;
+	uint32_t event = 0, res_index = o->index;
 
 	pw_log_debug("index:%d id:%d %08" PRIx64 " type:%u", o->index, o->id, o->change_mask, type);
 
 	if (pw_manager_object_is_sink(o) && o->change_mask & PW_MANAGER_OBJECT_FLAG_SINK) {
 		client_queue_subscribe_event(client,
-				SUBSCRIPTION_MASK_SINK,
-				SUBSCRIPTION_EVENT_SINK | type,
+				SUBSCRIPTION_EVENT_SINK,
+				type,
 				res_index);
 	}
-	if (pw_manager_object_is_source_or_monitor(o) && o->change_mask & PW_MANAGER_OBJECT_FLAG_SOURCE) {
-		mask = SUBSCRIPTION_MASK_SOURCE;
+
+	if (pw_manager_object_is_source_or_monitor(o) && o->change_mask & PW_MANAGER_OBJECT_FLAG_SOURCE)
 		event = SUBSCRIPTION_EVENT_SOURCE;
-	}
-	else if (pw_manager_object_is_sink_input(o)) {
-		mask = SUBSCRIPTION_MASK_SINK_INPUT;
+	else if (pw_manager_object_is_sink_input(o))
 		event = SUBSCRIPTION_EVENT_SINK_INPUT;
-	}
-	else if (pw_manager_object_is_source_output(o)) {
-		mask = SUBSCRIPTION_MASK_SOURCE_OUTPUT;
+	else if (pw_manager_object_is_source_output(o))
 		event = SUBSCRIPTION_EVENT_SOURCE_OUTPUT;
-	}
-	else if (pw_manager_object_is_module(o)) {
-		mask = SUBSCRIPTION_MASK_MODULE;
+	else if (pw_manager_object_is_module(o))
 		event = SUBSCRIPTION_EVENT_MODULE;
-	}
-	else if (pw_manager_object_is_client(o)) {
-		mask = SUBSCRIPTION_MASK_CLIENT;
+	else if (pw_manager_object_is_client(o))
 		event = SUBSCRIPTION_EVENT_CLIENT;
-	}
-	else if (pw_manager_object_is_card(o)) {
-		mask = SUBSCRIPTION_MASK_CARD;
+	else if (pw_manager_object_is_card(o))
 		event = SUBSCRIPTION_EVENT_CARD;
-	} else
+	else
 		event = SPA_ID_INVALID;
 
 	if (event != SPA_ID_INVALID)
 		client_queue_subscribe_event(client,
-				mask,
-				event | type,
+				event,
+				type,
 				res_index);
 	return 0;
 }
@@ -370,8 +360,8 @@ static void send_latency_offset_subscribe_event(struct client *client, struct pw
 
 	if (changed)
 		client_queue_subscribe_event(client,
-				SUBSCRIPTION_MASK_CARD,
-				SUBSCRIPTION_EVENT_CARD | SUBSCRIPTION_EVENT_CHANGE,
+				SUBSCRIPTION_EVENT_CARD,
+				SUBSCRIPTION_EVENT_CHANGE,
 				id_to_index(manager, card_id));
 }
 
@@ -398,9 +388,8 @@ static void send_default_change_subscribe_event(struct client *client, bool sink
 
 	if (changed)
 		client_queue_subscribe_event(client,
-				SUBSCRIPTION_MASK_SERVER,
-				SUBSCRIPTION_EVENT_CHANGE |
 				SUBSCRIPTION_EVENT_SERVER,
+				SUBSCRIPTION_EVENT_CHANGE,
 				-1);
 }
 
@@ -2381,8 +2370,8 @@ static int do_finish_upload_stream(struct client *client, uint32_t command, uint
 	stream_free(stream);
 
 	broadcast_subscribe_event(impl,
-			SUBSCRIPTION_MASK_SAMPLE_CACHE,
-			event | SUBSCRIPTION_EVENT_SAMPLE_CACHE,
+			SUBSCRIPTION_EVENT_SAMPLE_CACHE,
+			event,
 			sample->index);
 
 	return reply_simple_ack(client, tag);
@@ -2591,9 +2580,8 @@ static int do_remove_sample(struct client *client, uint32_t command, uint32_t ta
 		return -ENOENT;
 
 	broadcast_subscribe_event(impl,
-			SUBSCRIPTION_MASK_SAMPLE_CACHE,
-			SUBSCRIPTION_EVENT_REMOVE |
 			SUBSCRIPTION_EVENT_SAMPLE_CACHE,
+			SUBSCRIPTION_EVENT_REMOVE,
 			sample->index);
 
 	pw_map_remove(&impl->samples, sample->index);
@@ -4848,8 +4836,8 @@ static void handle_module_loaded(struct module *module, struct client *client, u
 		module->loaded = true;
 
 		broadcast_subscribe_event(impl,
-			SUBSCRIPTION_MASK_MODULE,
-			SUBSCRIPTION_EVENT_NEW | SUBSCRIPTION_EVENT_MODULE,
+			SUBSCRIPTION_EVENT_MODULE,
+			SUBSCRIPTION_EVENT_NEW,
 			module->index);
 
 		if (client != NULL) {

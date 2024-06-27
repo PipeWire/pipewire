@@ -106,8 +106,8 @@ int module_unload(struct module *module)
 
 	if (module->loaded)
 		broadcast_subscribe_event(impl,
-			SUBSCRIPTION_MASK_MODULE,
-			SUBSCRIPTION_EVENT_REMOVE | SUBSCRIPTION_EVENT_MODULE,
+			SUBSCRIPTION_EVENT_MODULE,
+			SUBSCRIPTION_EVENT_REMOVE,
 			module->index);
 
 	module_free(module);

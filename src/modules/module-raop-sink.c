@@ -1905,7 +1905,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(props, "rtp.sender-ts-offset") == NULL)
 		pw_properties_setf(props, "rtp.sender-ts-offset", "%d", 0);
 	if (pw_properties_get(props, "sess.ts-direct") == NULL)
-		pw_properties_set(props, "sess.ts-direct", 0);
+		pw_properties_setf(props, "sess.ts-direct", "%d", 0);
 	if (pw_properties_get(props, "sess.media") == NULL)
 		pw_properties_set(props, "sess.media", "raop");
 	if (pw_properties_get(props, "sess.latency.msec") == NULL)

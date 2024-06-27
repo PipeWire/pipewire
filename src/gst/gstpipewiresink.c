@@ -704,7 +704,6 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   g_autoptr(GPtrArray) possible = NULL;
   enum pw_stream_state state;
   const char *error = NULL;
-  gboolean res = FALSE;
   GstStructure *config, *s;
   guint size;
   guint min_buffers;
@@ -795,7 +794,6 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
       }
     }
   }
-  res = TRUE;
 
   gst_pipewire_clock_reset (GST_PIPEWIRE_CLOCK (pwsink->stream->clock), 0);
 
@@ -806,9 +804,9 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 
   pw_thread_loop_unlock (pwsink->stream->core->loop);
 
-  pwsink->negotiated = res;
+  pwsink->negotiated = TRUE;
 
-  return res;
+  return TRUE;
 
 start_error:
   {

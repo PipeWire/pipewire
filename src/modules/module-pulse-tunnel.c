@@ -750,7 +750,7 @@ static void stream_latency_update_cb(pa_stream *s, void *userdata)
 	pa_usec_t usec;
 	int negative;
 	pa_stream_get_latency(s, &usec, &negative);
-	pw_log_debug("latency %ld negative %d", usec, negative);
+	pw_log_debug("latency %" PRIu64 " negative %d", usec, negative);
 }
 
 static int create_pulse_stream(struct impl *impl)

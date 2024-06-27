@@ -81,7 +81,8 @@ common_flags = [
   '-Wsign-compare',
   '-Wpointer-arith',
   '-Wpointer-sign',
-  '-Wformat',
+  '-Werror=format',
+  '-Wno-error=format-overflow', # avoid some "‘%s’ directive argument is null"
   '-Wformat-security',
   '-Wimplicit-fallthrough',
   '-Wmissing-braces',

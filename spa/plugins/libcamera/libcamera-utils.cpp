@@ -807,7 +807,7 @@ mmap_init(struct impl *impl, struct port *port,
 			    port->memtype == SPA_DATA_MemFd) {
 				d[j].flags |= SPA_DATA_FLAG_MAPPABLE;
 				d[j].fd = bufs[i]->planes()[j].fd.get();
-				spa_log_debug(impl->log, "Got fd = %ld for buffer: #%d", d[j].fd, i);
+				spa_log_debug(impl->log, "Got fd = %" PRId64 " for buffer: #%d", d[j].fd, i);
 				d[j].data = NULL;
 				SPA_FLAG_SET(b->flags, BUFFER_FLAG_ALLOCATED);
 			}

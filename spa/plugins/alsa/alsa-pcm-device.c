@@ -247,14 +247,15 @@ static int emit_info(struct impl *this, bool full)
 	int err = 0;
 	struct spa_dict_item items[20];
 	uint32_t n_items = 0;
-	snd_ctl_t *ctl_hndl;
-	snd_ctl_card_info_t *info;
 	char path[128];
 
 	if (full)
 		this->device_info.change_mask = this->info_all;
 
 	if (this->device_info.change_mask) {
+		snd_ctl_card_info_t *info;
+		snd_ctl_t *ctl_hndl;
+
 		spa_log_debug(this->log, "open card %s", this->props.device);
 		if ((err = snd_ctl_open(&ctl_hndl, this->props.device, 0)) < 0) {
 			spa_log_error(this->log, "can't open control for card %s: %s",
@@ -263,9 +264,14 @@ static int emit_info(struct impl *this, bool full)
 		}
 
 		snd_ctl_card_info_alloca(&info);
-		if ((err = snd_ctl_card_info(ctl_hndl, info)) < 0) {
+		err = snd_ctl_card_info(ctl_hndl, info);
+
+		spa_log_debug(this->log, "close card %s", this->props.device);
+		snd_ctl_close(ctl_hndl);
+
+		if (err < 0) {
 			spa_log_error(this->log, "error hardware info: %s", snd_strerror(err));
-			goto exit;
+			return err;
 		}
 
 #define ADD_ITEM(key, value) items[n_items++] = SPA_DICT_ITEM_INIT(key, value)
@@ -296,10 +302,7 @@ static int emit_info(struct impl *this, bool full)
 		this->device_info.change_mask = 0;
 	}
 
-exit:
-	spa_log_debug(this->log, "close card %s", this->props.device);
-	snd_ctl_close(ctl_hndl);
-	return err;
+	return 0;
 }
 
 static int impl_add_listener(void *object,

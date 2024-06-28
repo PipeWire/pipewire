@@ -884,8 +884,9 @@ loop_update_timer(void *object, struct spa_source *source,
 	if (SPA_LIKELY(value)) {
 		its.it_value = *value;
 	} else if (interval) {
+		// timer initially fires after one interval
 		its.it_value = *interval;
-		absolute = true;
+		absolute = false;
 	}
 	if (SPA_UNLIKELY(interval))
 		its.it_interval = *interval;

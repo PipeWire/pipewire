@@ -91,6 +91,66 @@ static void release_card(struct card *c)
 	free(c);
 }
 
+#define CHECK(s,msg,...) if ((err = (s)) < 0) { spa_log_error(state->log, msg ": %s", ##__VA_ARGS__, snd_strerror(err)); return err; }
+
+static int write_bind_ctl_param(struct state *state, const char *name, const char *param) {
+	int err;
+	unsigned int count, idx;
+	char _name[1024];
+
+	for (unsigned int i = 0; i < state->num_bind_ctls; i++) {
+		snd_ctl_elem_info_t *info = state->bound_ctls[i].info;
+		bool changed = false;
+		bool is_array;
+		int type;
+		struct spa_pod_builder *builder;
+
+		if(!state->bound_ctls[i].value || !info)
+			continue;
+
+		snprintf(_name, sizeof(_name), "api.alsa.bind-ctl.%s",
+				snd_ctl_elem_info_get_name(info));
+
+		if (!spa_streq(name, _name))
+			continue;
+
+		type = snd_ctl_elem_info_get_type(info);
+		count = snd_ctl_elem_info_get_count(info);
+
+		switch (type) {
+		case SND_CTL_ELEM_TYPE_BOOLEAN: {
+				bool b = spa_atob(param);
+
+				for (idx = 0; idx < count; idx++)
+					snd_ctl_elem_value_set_boolean(state->bound_ctls[i].value, idx, b);
+				changed = true;
+			}
+			break;
+
+		case SND_CTL_ELEM_TYPE_INTEGER: {
+				long l = (long) atoi(param);
+
+				for (idx = 0; idx < count; idx++)
+					snd_ctl_elem_value_set_integer(state->bound_ctls[i].value, idx, l);
+				changed = true;
+			}
+			break;
+
+		default:
+			spa_log_warn(state->log, "%s ctl '%s' not supported",
+					snd_ctl_elem_type_name(snd_ctl_elem_info_get_type(info)),
+					snd_ctl_elem_info_get_name(info));
+			break;
+		}
+
+		if(changed)
+			CHECK(snd_ctl_elem_write(state->ctl, state->bound_ctls[i].value), "snd_ctl_elem_write");
+		return 0;
+	}
+
+	return 0;
+}
+
 static int alsa_set_param(struct state *state, const char *k, const char *s)
 {
 	int fmt_change = 0;
@@ -144,6 +204,9 @@ static int alsa_set_param(struct state *state, const char *k, const char *s)
 	} else if (spa_streq(k, "clock.name")) {
 		spa_scnprintf(state->clock_name,
 				sizeof(state->clock_name), "%s", s);
+	} else if (spa_strstartswith(k,  "api.alsa.bind-ctl.")) {
+		write_bind_ctl_param(state, k, s);
+		fmt_change++;
 	} else
 		return 0;
 
@@ -628,7 +691,6 @@ int spa_alsa_parse_prop_params(struct state *state, struct spa_pod *params)
 	return changed;
 }
 
-#define CHECK(s,msg,...) if ((err = (s)) < 0) { spa_log_error(state->log, msg ": %s", ##__VA_ARGS__, snd_strerror(err)); return err; }
 
 static ssize_t log_write(void *cookie, const char *buf, size_t size)
 {

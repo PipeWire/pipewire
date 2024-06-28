@@ -333,6 +333,8 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 			const char *key;
 			struct spa_pod *pod;
 			const char *value;
+			struct spa_dict_item items[2];
+			unsigned int n_items = 0;
 
 			if (spa_pod_parse_object(param, SPA_TYPE_OBJECT_Props, NULL, SPA_PROP_params,
 					SPA_POD_OPT_Pod(&params)) < 0)
@@ -341,7 +343,7 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 			if (spa_pod_parser_push_struct(&prs, &f) < 0)
 				return;
 
-			while (true) {
+			while (n_items < SPA_N_ELEMENTS(items)) {
 				if (spa_pod_parser_get_string(&prs, &key) < 0)
 					break;
 				if (spa_pod_parser_get_pod(&prs, &pod) < 0)
@@ -349,19 +351,21 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 				if (spa_pod_get_string(pod, &value) < 0)
 					continue;
 				pw_log_info("key '%s', value '%s'", key, value);
-				if (!spa_streq(key, "destination.ip"))
-					continue;
-				if (pw_net_parse_address(value, impl->dst_port, &impl->dst_addr,
-						&impl->dst_len) < 0) {
-					pw_log_error("invalid destination.ip: '%s'", value);
-					break;
+				if (spa_streq(key, "destination.ip")) {
+					if (pw_net_parse_address(value, impl->dst_port, &impl->dst_addr,
+								&impl->dst_len) < 0) {
+						pw_log_error("invalid destination.ip: '%s'", value);
+						break;
+					}
+					pw_properties_set(impl->stream_props, "rtp.destination.ip", value);
+					items[n_items++] = SPA_DICT_ITEM_INIT("rtp.destination.ip", value);
+				} else if (spa_streq(key, "sess.name")) {
+					pw_properties_set(impl->stream_props, "sess.name", value);
+					items[n_items++] = SPA_DICT_ITEM_INIT("sess.name", value);
 				}
-				pw_properties_set(impl->stream_props, "rtp.destination.ip", value);
-				struct spa_dict_item item[1];
-				item[0] = SPA_DICT_ITEM_INIT("rtp.destination.ip", value);
-				rtp_stream_update_properties(impl->stream, &SPA_DICT_INIT(item, 1));
-				break;
 			}
+
+			rtp_stream_update_properties(impl->stream, &SPA_DICT_INIT(items, n_items));
 		}
 	}
 }

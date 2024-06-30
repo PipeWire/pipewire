@@ -278,10 +278,11 @@ static void strtolower(char *src, char *dst, int maxsize)
 		*dst = '\0';
 }
 
-int spa_bt_quirks_get_features(const struct spa_bt_quirks *this,
+static int get_features(const struct spa_bt_quirks *this,
 		const struct spa_bt_adapter *adapter,
 		const struct spa_bt_device *device,
-		uint32_t *features)
+		uint32_t *features,
+		bool debug)
 {
 	struct spa_dict props;
 	struct spa_dict_item items[5];
@@ -294,15 +295,18 @@ int spa_bt_quirks_get_features(const struct spa_bt_quirks *this,
 		uint32_t no_features = 0;
 		int nitems = 0;
 		struct utsname name;
+
 		if ((res = uname(&name)) < 0)
 			return res;
 		items[nitems++] = SPA_DICT_ITEM_INIT("sysname", name.sysname);
 		items[nitems++] = SPA_DICT_ITEM_INIT("release", name.release);
 		items[nitems++] = SPA_DICT_ITEM_INIT("version", name.version);
 		props = SPA_DICT_INIT(items, nitems);
-		log_props(this->log, &props);
+		if (debug)
+			log_props(this->log, &props);
 		do_match(this->kernel_rules, &props, &no_features);
-		spa_log_debug(this->log, "kernel quirks:%08x", no_features);
+		if (debug)
+			spa_log_debug(this->log, "kernel quirks:%08x", no_features);
 		*features &= ~no_features;
 	}
 
@@ -325,9 +329,11 @@ int spa_bt_quirks_get_features(const struct spa_bt_quirks *this,
 			items[nitems++] = SPA_DICT_ITEM_INIT("address", address);
 		}
 		props = SPA_DICT_INIT(items, nitems);
-		log_props(this->log, &props);
+		if (debug)
+			log_props(this->log, &props);
 		do_match(this->adapter_rules, &props, &no_features);
-		spa_log_debug(this->log, "adapter quirks:%08x", no_features);
+		if (debug)
+			spa_log_debug(this->log, "adapter quirks:%08x", no_features);
 		*features &= ~no_features;
 	}
 
@@ -352,9 +358,11 @@ int spa_bt_quirks_get_features(const struct spa_bt_quirks *this,
 			items[nitems++] = SPA_DICT_ITEM_INIT("address", address);
 		}
 		props = SPA_DICT_INIT(items, nitems);
-		log_props(this->log, &props);
+		if (debug)
+			log_props(this->log, &props);
 		do_match(this->device_rules, &props, &no_features);
-		spa_log_debug(this->log, "device quirks:%08x", no_features);
+		if (debug)
+			spa_log_debug(this->log, "device quirks:%08x", no_features);
 		*features &= ~no_features;
 	}
 
@@ -378,4 +386,22 @@ int spa_bt_quirks_get_features(const struct spa_bt_quirks *this,
 		SPA_FLAG_UPDATE(*features, SPA_BT_FEATURE_A2DP_DUPLEX, this->force_a2dp_duplex);
 
 	return 0;
+}
+
+int spa_bt_quirks_get_features(const struct spa_bt_quirks *this,
+		const struct spa_bt_adapter *adapter,
+		const struct spa_bt_device *device,
+		uint32_t *features)
+{
+	return get_features(this, adapter, device, features, false);
+}
+
+void spa_bt_quirks_log_features(const struct spa_bt_quirks *this,
+		const struct spa_bt_adapter *adapter,
+		const struct spa_bt_device *device)
+{
+	uint32_t features = 0;
+
+	get_features(this, adapter, device, &features, true);
+	spa_log_debug(this->log, "features:%08x", features);
 }

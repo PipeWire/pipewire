@@ -2075,9 +2075,10 @@ static void device_set_connected(struct spa_bt_device *device, int connected)
 	if (device->connected && !connected)
 		device->connected_profiles = 0;
 
-	if (connected)
+	if (connected) {
+		spa_bt_quirks_log_features(monitor->quirks, device->adapter, device);
 		spa_bt_device_check_profiles(device, false);
-	else {
+	} else {
 		/* Stop codec switch on disconnect */
 		struct spa_bt_media_codec_switch *sw;
 		spa_list_consume(sw, &device->codec_switch_list, device_link)

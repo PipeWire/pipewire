@@ -778,6 +778,9 @@ int spa_bt_quirks_get_features(const struct spa_bt_quirks *quirks,
 		const struct spa_bt_adapter *adapter,
 		const struct spa_bt_device *device,
 		uint32_t *features);
+void spa_bt_quirks_log_features(const struct spa_bt_quirks *this,
+		const struct spa_bt_adapter *adapter,
+		const struct spa_bt_device *device);
 void spa_bt_quirks_destroy(struct spa_bt_quirks *quirks);
 
 int spa_bt_adapter_has_msbc(struct spa_bt_adapter *adapter);

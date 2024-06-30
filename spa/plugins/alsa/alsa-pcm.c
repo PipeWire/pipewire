@@ -101,9 +101,7 @@ static int write_bind_ctl_param(struct state *state, const char *name, const cha
 	for (unsigned int i = 0; i < state->num_bind_ctls; i++) {
 		snd_ctl_elem_info_t *info = state->bound_ctls[i].info;
 		bool changed = false;
-		bool is_array;
 		int type;
-		struct spa_pod_builder *builder;
 
 		if(!state->bound_ctls[i].value || !info)
 			continue;

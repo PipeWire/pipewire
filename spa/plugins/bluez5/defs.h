@@ -475,7 +475,6 @@ static inline enum spa_bt_form_factor spa_bt_form_factor_from_class(uint32_t blu
 	return SPA_BT_FORM_FACTOR_UNKNOWN;
 }
 
-struct spa_bt_media_codec_switch;
 struct spa_bt_transport;
 
 struct spa_bt_device_events {

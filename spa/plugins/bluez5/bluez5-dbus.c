@@ -151,10 +151,12 @@ struct spa_bt_remote_endpoint {
 	char *uuid;
 	unsigned int codec;
 	struct spa_bt_device *device;
-	uint8_t *capabilities;
+	uint8_t capabilities[A2DP_MAX_CAPS_SIZE];
 	int capabilities_len;
 	bool delay_reporting;
 	bool acceptor;
+
+	struct bap_endpoint_qos qos;
 
 	bool asha_right_side;
 	uint64_t hisyncid;
@@ -876,10 +878,6 @@ static int parse_endpoint_props(struct spa_bt_monitor *monitor, DBusMessageIter 
 	const char *key = NULL;
 	int type = 0;
 
-	memset(caps, 0, A2DP_MAX_CAPS_SIZE);
-	*endpoint_path = NULL;
-	memset(qos, 0, sizeof(*qos));
-
 	if (!check_iter_signature(&dict_iter, "{sv}")) {
 		spa_log_warn(monitor->log, "Invalid BAP Endpoint QoS in DBus");
 		return -EINVAL;
@@ -897,6 +895,9 @@ static int parse_endpoint_props(struct spa_bt_monitor *monitor, DBusMessageIter 
 
 		if (spa_streq(key, "Capabilities")) {
 			uint8_t *buf;
+
+			if (!caps)
+				goto next;
 
 			if (type != DBUS_TYPE_ARRAY)
 				goto bad_property;
@@ -916,6 +917,9 @@ static int parse_endpoint_props(struct spa_bt_monitor *monitor, DBusMessageIter 
 			spa_log_info(monitor->log, "%p: %s size:%d", monitor, key, *caps_size);
 			spa_debug_log_mem(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', caps, (size_t)*caps_size);
 		} else if (spa_streq(key, "Endpoint")) {
+			if (!endpoint_path)
+				goto next;
+
 			if (type != DBUS_TYPE_OBJECT_PATH)
 				goto bad_property;
 
@@ -923,6 +927,9 @@ static int parse_endpoint_props(struct spa_bt_monitor *monitor, DBusMessageIter 
 
 			spa_log_info(monitor->log, "%p: %s %s", monitor, key, *endpoint_path);
 		} else if (spa_streq(key, "QoS")) {
+			if (!qos)
+				goto next;
+
 			if (!check_iter_signature(&it[1], "a{sv}"))
 				goto bad_property;
 
@@ -930,6 +937,9 @@ static int parse_endpoint_props(struct spa_bt_monitor *monitor, DBusMessageIter 
 			parse_endpoint_qos(monitor, &it[2], qos);
 		} else if (spa_streq(key, "Locations") || spa_streq(key, "Location")) {
 			dbus_uint32_t value;
+
+			if (!qos)
+				goto next;
 
 			if (type != DBUS_TYPE_UINT32)
 				goto bad_property;
@@ -940,14 +950,34 @@ static int parse_endpoint_props(struct spa_bt_monitor *monitor, DBusMessageIter 
 		} else if (spa_streq(key, "ChannelAllocation")) {
 			dbus_uint32_t value;
 
+			if (!qos)
+				goto next;
+
 			if (type != DBUS_TYPE_UINT32)
 				goto bad_property;
 
 			dbus_message_iter_get_basic(&it[1], &value);
 			spa_log_debug(monitor->log, "ep qos: %s=%d", key, (int)value);
 			qos->channel_allocation = value;
+		} else if (spa_streq(key, "Context") || spa_streq(key, "SupportedContext")) {
+			dbus_uint16_t value;
+
+			if (!qos)
+				goto next;
+
+			if (type != DBUS_TYPE_UINT16)
+				goto bad_property;
+
+			dbus_message_iter_get_basic(&it[1], &value);
+			spa_log_debug(monitor->log, "ep qos: %s=%d", key, (int)value);
+
+			if (spa_streq(key, "Context"))
+				qos->context = value;
+			else if (spa_streq(key, "SupportedContext"))
+				qos->supported_context = value;
 		}
 
+next:
 		dbus_message_iter_next(&dict_iter);
 	}
 
@@ -974,16 +1004,11 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	unsigned int i, j;
 
 	const char *endpoint_path = NULL;
-	uint8_t caps[A2DP_MAX_CAPS_SIZE];
 	uint8_t config[A2DP_MAX_CAPS_SIZE];
 	char locations[64] = {0};
 	char channel_allocation[64] = {0};
-	int caps_size = 0;
 	int conf_size;
 	DBusMessageIter dict;
-	struct bap_endpoint_qos endpoint_qos;
-
-	spa_zero(endpoint_qos);
 
 	if (!dbus_message_iter_init(m, &args) || !spa_streq(dbus_message_get_signature(m), "a{sv}")) {
 		spa_log_error(monitor->log, "Invalid signature for method SelectProperties()");
@@ -1009,26 +1034,33 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 		goto error;
 	}
 
-	/* Parse endpoint properties */
-	if (parse_endpoint_props(monitor, &props, caps, &caps_size, &endpoint_path, &endpoint_qos) < 0)
+	/* Find endpoint */
+	iter = props;
+	if (parse_endpoint_props(monitor, &iter, NULL, NULL, &endpoint_path, NULL) < 0)
 		goto error_invalid;
-	if (endpoint_qos.locations)
-		spa_scnprintf(locations, sizeof(locations), "%"PRIu32, endpoint_qos.locations);
-	if (endpoint_qos.channel_allocation)
-		spa_scnprintf(channel_allocation, sizeof(channel_allocation), "%"PRIu32, endpoint_qos.channel_allocation);
 
 	ep = remote_endpoint_find(monitor, endpoint_path);
-	if (!ep || !ep->device) {
+	if (!ep || !ep->device || !ep->uuid) {
 		spa_log_warn(monitor->log, "Unable to find remote endpoint for %s", endpoint_path);
 		goto error_invalid;
 	}
 
-	duplex = SPA_FLAG_IS_SET(ep->device->profiles, SPA_BT_PROFILE_BAP_DUPLEX);
-
-	/* Call of SelectProperties means that local device acts as an initiator
-	 * and therefore remote endpoint is an acceptor
+	/* Call of SelectProperties means that local device is BAP Client
+	 * and therefore remote endpoint is BAP Server / acceptor
 	 */
 	ep->acceptor = true;
+
+	/* Parse endpoint properties */
+	iter = props;
+	if (parse_endpoint_props(monitor, &iter, ep->capabilities, &ep->capabilities_len, NULL, &ep->qos) < 0)
+		goto error_invalid;
+
+	if (ep->qos.locations)
+		spa_scnprintf(locations, sizeof(locations), "%"PRIu32, ep->qos.locations);
+	if (ep->qos.channel_allocation)
+		spa_scnprintf(channel_allocation, sizeof(channel_allocation), "%"PRIu32, ep->qos.channel_allocation);
+
+	duplex = SPA_FLAG_IS_SET(ep->device->profiles, SPA_BT_PROFILE_BAP_DUPLEX);
 
 	i = 0;
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.locations", locations);
@@ -1041,7 +1073,8 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 			setting_items[i] = ep->device->settings->items[j];
 	settings = SPA_DICT_INIT(setting_items, i);
 
-	conf_size = codec->select_config(codec, 0, caps, caps_size, &monitor->default_audio_info, &settings, config);
+	conf_size = codec->select_config(codec, 0, ep->capabilities, ep->capabilities_len,
+			&monitor->default_audio_info, &settings, config);
 	if (conf_size < 0) {
 		spa_log_error(monitor->log, "can't select config: %d (%s)",
 				conf_size, spa_strerror(conf_size));
@@ -1070,7 +1103,7 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 
 		spa_zero(qos);
 
-		res = codec->get_qos(codec, config, conf_size, &endpoint_qos, &qos, &settings);
+		res = codec->get_qos(codec, config, conf_size, &ep->qos, &qos, &settings);
 		if (res < 0) {
 			spa_log_error(monitor->log, "can't select QOS config: %d (%s)",
 					res, spa_strerror(res));
@@ -2756,6 +2789,11 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 				DBusMessageIter *invalidated_iter)
 {
 	struct spa_bt_monitor *monitor = remote_endpoint->monitor;
+	DBusMessageIter copy_iter = *props_iter;
+
+	parse_endpoint_props(monitor, &copy_iter,
+			remote_endpoint->capabilities, &remote_endpoint->capabilities_len, NULL,
+			&remote_endpoint->qos);
 
 	while (dbus_message_iter_get_arg_type(props_iter) != DBUS_TYPE_INVALID) {
 		DBusMessageIter it[2];
@@ -2769,7 +2807,12 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 
 		type = dbus_message_iter_get_arg_type(&it[1]);
 
-		if (type == DBUS_TYPE_STRING || type == DBUS_TYPE_OBJECT_PATH) {
+		if (spa_streq(key, "Capabilities") || spa_streq(key, "Locations") ||
+				spa_streq(key, "QoS") || spa_streq(key, "Context") ||
+				spa_streq(key, "SupportedContext")) {
+			/* parsed by parse_endpoint_props */
+		}
+		else if (type == DBUS_TYPE_STRING || type == DBUS_TYPE_OBJECT_PATH) {
 			const char *value;
 
 			dbus_message_iter_get_basic(&it[1], &value);
@@ -2790,9 +2833,8 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 				struct spa_bt_device *device;
 
 				device = spa_bt_device_find(monitor, value);
-				if (device == NULL) {
+				if (device == NULL)
 					goto next;
-				}
 
 				spa_log_debug(monitor->log, "remote_endpoint %p: device -> %p", remote_endpoint, device);
 
@@ -2803,17 +2845,17 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 					if (device != NULL)
 						spa_list_append(&device->remote_endpoint_list, &remote_endpoint->device_link);
 				}
-			}
-			/* For ASHA */
-			else if (spa_streq(key, "Transport")) {
+			} else if (spa_streq(key, "Transport")) {
+				/* For ASHA */
 				free(remote_endpoint->transport_path);
 				remote_endpoint->transport_path = strdup(value);
-			}
-			else if (spa_streq(key, "Side")) {
+			} else if (spa_streq(key, "Side")) {
 				if (spa_streq(value, "right"))
 					remote_endpoint->asha_right_side = true;
 				else
 					remote_endpoint->asha_right_side = false;
+			} else {
+				goto unhandled;
 			}
 		}
 		else if (type == DBUS_TYPE_BOOLEAN) {
@@ -2825,6 +2867,8 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 
 			if (spa_streq(key, "DelayReporting")) {
 				remote_endpoint->delay_reporting = value;
+			} else {
+				goto unhandled;
 			}
 		}
 		else if (type == DBUS_TYPE_BYTE) {
@@ -2836,39 +2880,20 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 
 			if (spa_streq(key, "Codec")) {
 				remote_endpoint->codec = value;
+			} else {
+				goto unhandled;
 			}
 		}
-		/* Codecs property is present for ASHA */
 		else if (type == DBUS_TYPE_UINT16) {
+			/* Codecs property is present for ASHA */
 			uint16_t value;
 
 			dbus_message_iter_get_basic(&it[1], &value);
 
 			if (spa_streq(key, "Codecs")) {
 				spa_log_debug(monitor->log, "remote_endpoint %p: %s=%02x", remote_endpoint, key, value);
-			}
-		}
-		else if (spa_streq(key, "Capabilities")) {
-			DBusMessageIter iter;
-			uint8_t *value;
-			int len;
-
-			if (!check_iter_signature(&it[1], "ay"))
-				goto next;
-
-			dbus_message_iter_recurse(&it[1], &iter);
-			dbus_message_iter_get_fixed_array(&iter, &value, &len);
-
-			spa_log_debug(monitor->log, "remote_endpoint %p: %s=%d", remote_endpoint, key, len);
-			spa_debug_log_mem(monitor->log, SPA_LOG_LEVEL_DEBUG, 2, value, (size_t)len);
-
-			free(remote_endpoint->capabilities);
-			remote_endpoint->capabilities_len = 0;
-
-			remote_endpoint->capabilities = malloc(len);
-			if (remote_endpoint->capabilities) {
-				memcpy(remote_endpoint->capabilities, value, len);
-				remote_endpoint->capabilities_len = len;
+			} else {
+				goto unhandled;
 			}
 		}
 		/*
@@ -2893,8 +2918,10 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 
 			spa_log_debug(monitor->log, "remote_endpoint %p: %s=%"PRIu64, remote_endpoint, key, remote_endpoint->hisyncid);
 		}
-		else
+		else {
+unhandled:
 			spa_log_debug(monitor->log, "remote_endpoint %p: unhandled key %s", remote_endpoint, key);
+		}
 
 next:
 		dbus_message_iter_next(props_iter);
@@ -2950,7 +2977,6 @@ static void remote_endpoint_free(struct spa_bt_remote_endpoint *remote_endpoint)
 	free(remote_endpoint->path);
 	free(remote_endpoint->transport_path);
 	free(remote_endpoint->uuid);
-	free(remote_endpoint->capabilities);
 	free(remote_endpoint);
 }
 
@@ -4316,7 +4342,7 @@ static bool codec_switch_check_endpoint(struct spa_bt_remote_endpoint *ep,
 	spa_autofree char *path = NULL;
 	uint32_t ep_profile;
 
-	if (!ep->uuid || !ep->capabilities || !ep->device)
+	if (!ep->uuid || !ep->device)
 		return false;
 
 	ep_profile = spa_bt_profile_from_uuid(ep->uuid);
@@ -4550,9 +4576,9 @@ static int codec_switch_cmp(const void *a, const void *b)
 	ep1 = device_remote_endpoint_find(sw->device, path1);
 	ep2 = device_remote_endpoint_find(sw->device, path2);
 
-	if (ep1 != NULL && (ep1->uuid == NULL || ep1->codec != codec->codec_id || ep1->capabilities == NULL))
+	if (ep1 != NULL && (ep1->uuid == NULL || ep1->codec != codec->codec_id))
 		ep1 = NULL;
-	if (ep2 != NULL && (ep2->uuid == NULL || ep2->codec != codec->codec_id || ep2->capabilities == NULL))
+	if (ep2 != NULL && (ep2->uuid == NULL || ep2->codec != codec->codec_id))
 		ep2 = NULL;
 	if (ep1 && ep2 && !spa_streq(ep1->uuid, ep2->uuid)) {
 		ep1 = NULL;

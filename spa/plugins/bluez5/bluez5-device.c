@@ -62,6 +62,15 @@ enum {
 	DEVICE_PROFILE_LAST,
 };
 
+enum {
+	ROUTE_INPUT = 0,
+	ROUTE_OUTPUT,
+	ROUTE_HF_OUTPUT,
+	ROUTE_SET_INPUT,
+	ROUTE_SET_OUTPUT,
+	ROUTE_LAST,
+};
+
 struct props {
 	enum spa_bluetooth_audio_codec codec;
 	bool offload_active;
@@ -1554,33 +1563,33 @@ static uint32_t profile_direction_mask(struct impl *this, uint32_t index, enum s
 
 static uint32_t get_profile_from_index(struct impl *this, uint32_t index, uint32_t *next, enum spa_bluetooth_audio_codec *codec)
 {
-	if (index < DEVICE_PROFILE_LAST) {
-		*codec = 0;
-		*next = index + 1;
-		return index;
-	} else if (index != SPA_ID_INVALID) {
-		const struct spa_type_info *info;
-		uint32_t profile;
+	uint32_t profile = (index >> 16);
+	const struct spa_type_info *info;
 
-		*codec = index - DEVICE_PROFILE_LAST;
-		*next = SPA_ID_INVALID;
+	switch (profile) {
+	case DEVICE_PROFILE_OFF:
+	case DEVICE_PROFILE_AG:
+		*codec = 0;
+		*next = (profile + 1) << 16;
+		return profile;
+	case DEVICE_PROFILE_A2DP:
+	case DEVICE_PROFILE_HSP_HFP:
+	case DEVICE_PROFILE_BAP:
+		*codec = (index & 0xffff);
+		*next = (profile + 1) << 16;
 
 		for (info = spa_type_bluetooth_audio_codec; info->type; ++info)
 			if (info->type > *codec)
-				*next = SPA_MIN(info->type + DEVICE_PROFILE_LAST, *next);
-
-		if (get_hfp_codec(*codec))
-			profile = DEVICE_PROFILE_HSP_HFP;
-		else if (*codec == SPA_BLUETOOTH_AUDIO_CODEC_LC3)
-			profile = DEVICE_PROFILE_BAP;
-		else
-			profile = DEVICE_PROFILE_A2DP;
-
+				*next = SPA_MIN(*next, (profile << 16) | (info->type & 0xffff));
 		return profile;
+	default:
+		*codec = 0;
+		*next = SPA_ID_INVALID;
+		profile = SPA_ID_INVALID;
+		break;
 	}
 
-	*next = SPA_ID_INVALID;
-	return SPA_ID_INVALID;
+	return profile;
 }
 
 static uint32_t get_index_from_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_audio_codec codec)
@@ -1588,14 +1597,14 @@ static uint32_t get_index_from_profile(struct impl *this, uint32_t profile, enum
 	switch (profile) {
 	case DEVICE_PROFILE_OFF:
 	case DEVICE_PROFILE_AG:
-		return profile;
+		return (profile << 16);
 
 	case DEVICE_PROFILE_A2DP:
 	case DEVICE_PROFILE_BAP:
 	case DEVICE_PROFILE_HSP_HFP:
 		if (!codec)
 			return SPA_ID_INVALID;
-		return codec + DEVICE_PROFILE_LAST;
+		return (profile << 16) | (codec & 0xffff);
 	}
 
 	return SPA_ID_INVALID;
@@ -1950,8 +1959,41 @@ static bool validate_profile(struct impl *this, uint32_t profile,
 	return (build_profile(this, &b, 0, 0, profile, codec, false) != NULL);
 }
 
+static bool profile_has_route(uint32_t profile, uint32_t route)
+{
+	switch (profile) {
+	case DEVICE_PROFILE_OFF:
+	case DEVICE_PROFILE_AG:
+		break;
+	case DEVICE_PROFILE_A2DP:
+		switch (route) {
+		case ROUTE_INPUT:
+		case ROUTE_OUTPUT:
+			return true;
+		}
+		break;
+	case DEVICE_PROFILE_HSP_HFP:
+		switch (route) {
+		case ROUTE_INPUT:
+		case ROUTE_HF_OUTPUT:
+			return true;
+		}
+		break;
+	case DEVICE_PROFILE_BAP:
+		switch (route) {
+		case ROUTE_INPUT:
+		case ROUTE_OUTPUT:
+		case ROUTE_SET_INPUT:
+		case ROUTE_SET_OUTPUT:
+			return true;
+		}
+		break;
+	}
+	return false;
+}
+
 static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
-		uint32_t id, uint32_t port, uint32_t profile)
+		uint32_t id, uint32_t route, uint32_t profile)
 {
 	struct spa_bt_device *device = this->bt_dev;
 	struct spa_pod_frame f[2];
@@ -1962,7 +2004,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 	enum spa_param_availability available;
 	char name[128];
 	uint32_t i, j, mask, next;
-	uint32_t dev = SPA_ID_INVALID, enum_dev;
+	uint32_t dev;
 
 	ff = spa_bt_form_factor_from_class(device->bluetooth_class);
 
@@ -2030,86 +2072,57 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		break;
 	}
 
-	switch (port) {
-	case 0:
+	switch (route) {
+	case ROUTE_INPUT:
 		direction = SPA_DIRECTION_INPUT;
 		snprintf(name, sizeof(name), "%s-input", name_prefix);
-		enum_dev = DEVICE_ID_SOURCE;
+		dev = DEVICE_ID_SOURCE;
 
 		if ((this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SINK) &&
 				!(this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE) &&
 				!(this->bt_dev->connected_profiles & SPA_BT_PROFILE_BAP_AUDIO) &&
 				(this->bt_dev->connected_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT))
 			description = hfp_description;
-
-		if (profile == DEVICE_PROFILE_A2DP || profile == DEVICE_PROFILE_BAP ||
-				profile == DEVICE_PROFILE_HSP_HFP)
-			dev = enum_dev;
-		else if (profile != SPA_ID_INVALID)
-			enum_dev = SPA_ID_INVALID;
 		break;
-	case 1:
+	case ROUTE_OUTPUT:
 		direction = SPA_DIRECTION_OUTPUT;
 		snprintf(name, sizeof(name), "%s-output", name_prefix);
-		enum_dev = DEVICE_ID_SINK;
-		if (profile == DEVICE_PROFILE_A2DP || profile == DEVICE_PROFILE_BAP)
-			dev = enum_dev;
-		else if (profile != SPA_ID_INVALID)
-			enum_dev = SPA_ID_INVALID;
+		dev = DEVICE_ID_SINK;
 		break;
-	case 2:
+	case ROUTE_HF_OUTPUT:
 		direction = SPA_DIRECTION_OUTPUT;
 		snprintf(name, sizeof(name), "%s-hf-output", name_prefix);
 		description = hfp_description;
-		enum_dev = DEVICE_ID_SINK;
-		if (profile == DEVICE_PROFILE_HSP_HFP)
-			dev = enum_dev;
-		else if (profile != SPA_ID_INVALID)
-			enum_dev = SPA_ID_INVALID;
+		dev = DEVICE_ID_SINK;
 		break;
-	case 3:
-		if (!this->device_set.leader) {
-			errno = EINVAL;
+	case ROUTE_SET_INPUT:
+		if (!this->device_set.leader)
 			return NULL;
-		}
 		direction = SPA_DIRECTION_INPUT;
 		snprintf(name, sizeof(name), "%s-set-input", name_prefix);
-		enum_dev = DEVICE_ID_SOURCE_SET;
-		if (profile == DEVICE_PROFILE_BAP)
-			dev = enum_dev;
-		else if (profile != SPA_ID_INVALID)
-			enum_dev = SPA_ID_INVALID;
+		dev = DEVICE_ID_SOURCE_SET;
 		break;
-	case 4:
-		if (!this->device_set.leader) {
-			errno = EINVAL;
+	case ROUTE_SET_OUTPUT:
+		if (!this->device_set.leader)
 			return NULL;
-		}
 		direction = SPA_DIRECTION_OUTPUT;
 		snprintf(name, sizeof(name), "%s-set-output", name_prefix);
-		enum_dev = DEVICE_ID_SINK_SET;
-		if (profile == DEVICE_PROFILE_BAP)
-			dev = enum_dev;
-		else if (profile != SPA_ID_INVALID)
-			enum_dev = SPA_ID_INVALID;
+		dev = DEVICE_ID_SINK_SET;
 		break;
 	default:
-		errno = EINVAL;
 		return NULL;
 	}
 
-	if (enum_dev == SPA_ID_INVALID) {
-		errno = EINVAL;
+	if (profile != SPA_ID_INVALID && !profile_has_route(profile, route))
 		return NULL;
-	}
 
 	available = SPA_PARAM_AVAILABILITY_yes;
-	if (this->device_set.path && !(port == 4 || port == 5))
+	if (this->device_set.path && !(route == ROUTE_SET_INPUT || route == ROUTE_SET_OUTPUT))
 		available = SPA_PARAM_AVAILABILITY_no;
 
 	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_ParamRoute, id);
 	spa_pod_builder_add(b,
-		SPA_PARAM_ROUTE_index, SPA_POD_Int(port),
+		SPA_PARAM_ROUTE_index, SPA_POD_Int(route),
 		SPA_PARAM_ROUTE_direction,  SPA_POD_Id(direction),
 		SPA_PARAM_ROUTE_name,  SPA_POD_String(name),
 		SPA_PARAM_ROUTE_description,  SPA_POD_String(description),
@@ -2128,14 +2141,10 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 	spa_pod_builder_push_array(b, &f[1]);
 
 	mask = 0;
-	for (i = 1; (j = get_profile_from_index(this, i, &next, &codec)) != SPA_ID_INVALID; i = next) {
+	for (i = 0; (j = get_profile_from_index(this, i, &next, &codec)) != SPA_ID_INVALID; i = next) {
 		uint32_t profile_mask;
 
-		if (j == DEVICE_PROFILE_A2DP && !(port == 0 || port == 1))
-			continue;
-		if (j == DEVICE_PROFILE_BAP && !(port == 0 || port == 1 || port == 3 || port == 4))
-			continue;
-		if (j == DEVICE_PROFILE_HSP_HFP && !(port == 0 || port == 2))
+		if (!profile_has_route(j, route))
 			continue;
 
 		profile_mask = profile_direction_mask(this, j, codec, false);
@@ -2156,7 +2165,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		return NULL;
 	}
 
-	if (dev != SPA_ID_INVALID) {
+	if (profile != SPA_ID_INVALID) {
 		struct node *node = &this->nodes[dev];
 		struct spa_bt_transport_volume *t_volume;
 
@@ -2201,17 +2210,16 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 
 		spa_pod_builder_prop(b, SPA_PARAM_ROUTE_save, 0);
 		spa_pod_builder_bool(b, node->save);
+
+		spa_pod_builder_prop(b, SPA_PARAM_ROUTE_profile, 0);
+		spa_pod_builder_int(b, profile);
 	}
 
 	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_devices, 0);
 	spa_pod_builder_push_array(b, &f[1]);
-	spa_pod_builder_int(b, enum_dev);
+	spa_pod_builder_int(b, dev);
 	spa_pod_builder_pop(b, &f[1]);
 
-	if (profile != SPA_ID_INVALID) {
-		spa_pod_builder_prop(b, SPA_PARAM_ROUTE_profile, 0);
-		spa_pod_builder_int(b, profile);
-	}
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
@@ -2339,20 +2347,12 @@ static int impl_enum_params(void *object, int seq,
 		enum spa_bluetooth_audio_codec codec;
 
 		profile = get_profile_from_index(this, result.index, &result.next, &codec);
-
-		switch (profile) {
-		case DEVICE_PROFILE_OFF:
-		case DEVICE_PROFILE_AG:
-		case DEVICE_PROFILE_A2DP:
-		case DEVICE_PROFILE_BAP:
-		case DEVICE_PROFILE_HSP_HFP:
-			param = build_profile(this, &b, id, result.index, profile, codec, false);
-			if (param == NULL)
-				goto next;
-			break;
-		default:
+		if (profile == SPA_ID_INVALID)
 			return 0;
-		}
+
+		param = build_profile(this, &b, id, result.index, profile, codec, false);
+		if (param == NULL)
+			goto next;
 		break;
 	}
 	case SPA_PARAM_Profile:
@@ -2373,26 +2373,23 @@ static int impl_enum_params(void *object, int seq,
 	}
 	case SPA_PARAM_EnumRoute:
 	{
-		switch (result.index) {
-		case 0: case 1: case 2: case 3: case 4:
+		if (result.index < ROUTE_LAST) {
 			param = build_route(this, &b, id, result.index, SPA_ID_INVALID);
 			if (param == NULL)
 				goto next;
-			break;
-		default:
+		} else {
 			return 0;
 		}
 		break;
 	}
 	case SPA_PARAM_Route:
 	{
-		switch (result.index) {
-		case 0: case 1: case 2: case 3: case 4: case 5:
+		if (result.index < ROUTE_LAST) {
 			param = build_route(this, &b, id, result.index, this->profile);
 			if (param == NULL)
 				goto next;
 			break;
-		default:
+		} else {
 			return 0;
 		}
 		break;

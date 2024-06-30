@@ -433,11 +433,11 @@ if avahi_dep.found()
   cdata.set('HAVE_AVAHI', true)
 endif
 
-if gio_dep.found()
+if gsettings_gio_dep.found()
   pipewire_module_protocol_pulse_sources += [
     'module-protocol-pulse/modules/module-gsettings.c',
   ]
-  pipewire_module_protocol_pulse_deps += gio_dep
+  pipewire_module_protocol_pulse_deps += gsettings_gio_dep
   cdata.set('HAVE_GIO', true)
   if get_option('gsettings-pulse-schema').enabled()
     install_data(['module-protocol-pulse/modules/org.freedesktop.pulseaudio.gschema.xml'],

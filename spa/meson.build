@@ -47,12 +47,12 @@ if get_option('spa-plugins').allowed()
   summary({'ALSA': alsa_dep.found()}, bool_yn: true, section: 'Backend')
 
   bluez_dep = dependency('bluez', version : '>= 4.101', required: get_option('bluez5'))
-  gio_dep = dependency('gio-2.0', required : get_option('bluez5'))
-  gio_unix_dep = dependency('gio-unix-2.0', required : get_option('bluez5'))
+  bluez_gio_dep = dependency('gio-2.0', required : get_option('bluez5'))
+  bluez_gio_unix_dep = dependency('gio-unix-2.0', required : get_option('bluez5'))
   bluez_glib2_dep = dependency('glib-2.0', required : get_option('bluez5'))
   sbc_dep = dependency('sbc', required: get_option('bluez5'))
   summary({'SBC': sbc_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
-  bluez5_deps = [ mathlib, dbus_dep, sbc_dep, bluez_dep, bluez_glib2_dep, gio_dep, gio_unix_dep ]
+  bluez5_deps = [ mathlib, dbus_dep, sbc_dep, bluez_dep, bluez_glib2_dep, bluez_gio_dep, bluez_gio_unix_dep ]
   bluez_deps_found = get_option('bluez5').allowed()
   foreach dep: bluez5_deps
       if get_option('bluez5').enabled() and not dep.found()

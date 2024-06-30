@@ -626,7 +626,7 @@ int vulkan_create_dmabuf(struct vulkan_base *s, struct external_buffer_info *inf
 	vkGetImageMemoryRequirements(s->device,
 			vk_buf->image, &memoryRequirements);
 
-	spa_log_info(s->log, "export DMABUF %zd", memoryRequirements.size);
+	spa_log_info(s->log, "export DMABUF %" PRIu64, memoryRequirements.size);
 
 	for (uint32_t i = 0; i < info->spa_buf->n_datas; i++) {
 		VkImageSubresource subresource = {

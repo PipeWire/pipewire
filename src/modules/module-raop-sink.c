@@ -508,7 +508,7 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 	out_vec[msg.msg_iovlen++] = (struct iovec) { header, 12 };
 	out_vec[msg.msg_iovlen++] = (struct iovec) { out, len };
 
-	pw_log_debug("raop sending %ld", out_vec[0].iov_len + out_vec[1].iov_len + out_vec[2].iov_len);
+	pw_log_debug("raop sending %zu", out_vec[0].iov_len + out_vec[1].iov_len + out_vec[2].iov_len);
 
 	send_packet(impl->server_fd, &msg);
 }

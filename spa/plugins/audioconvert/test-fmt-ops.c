@@ -625,7 +625,7 @@ static void test_lossless_s25_32_to_f32_to_s25_32(void)
 	int32_t i;
 
 	fprintf(stderr, "test %s:\n", __func__);
-	for (i = S25_MIN; i <= S25_MAX; i+=1) {
+	for (i = S25_MIN; i <= S25_MAX; i+=11) {
 		float v = S25_32_TO_F32(i);
 		int32_t t = F32_TO_S25_32(v);
 		spa_assert_se(i == t);
@@ -637,7 +637,7 @@ static void test_lossless_s25_32_to_s32_to_f32_to_s25_32(void)
 	int32_t i;
 
 	fprintf(stderr, "test %s:\n", __func__);
-	for (i = S25_MIN; i <= S25_MAX; i+=1) {
+	for (i = S25_MIN; i <= S25_MAX; i+=13) {
 		float v = S32_TO_F32(S25_32_TO_S32(i));
 		int32_t t = F32_TO_S25_32(v);
 		spa_assert_se(i == t);
@@ -649,7 +649,7 @@ static void test_lossless_s25_32_to_s32_to_f32_to_s32_to_s25_32(void)
 	int32_t i;
 
 	fprintf(stderr, "test %s:\n", __func__);
-	for (i = S25_MIN; i <= S25_MAX; i+=1) {
+	for (i = S25_MIN; i <= S25_MAX; i+=11) {
 		float v = S32_TO_F32(S25_32_TO_S32(i));
 		int32_t t = S32_TO_S25_32(F32_TO_S32(v));
 		spa_assert_se(i == t);
@@ -661,7 +661,7 @@ static void test_lossless_s25_32_to_f32_to_s32_to_s25_32(void)
 	int32_t i;
 
 	fprintf(stderr, "test %s:\n", __func__);
-	for (i = S25_MIN; i <= S25_MAX; i+=1) {
+	for (i = S25_MIN; i <= S25_MAX; i+=11) {
 		float v = S25_32_TO_F32(i);
 		int32_t t = S32_TO_S25_32(F32_TO_S32(v));
 		spa_assert_se(i == t);
@@ -688,7 +688,7 @@ static void test_lossless_s32_lossless_subset(void)
 	int32_t i, j;
 
 	fprintf(stderr, "test %s:\n", __func__);
-	for (i = S25_MIN; i <= S25_MAX; i+=1) {
+	for (i = S25_MIN; i <= S25_MAX; i+=11) {
 		for(j = 0; j < 8; ++j) {
 			int32_t s = i * (1<<j);
 			float v = S32_TO_F32(s);

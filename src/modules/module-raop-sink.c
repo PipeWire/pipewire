@@ -1643,10 +1643,10 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 				impl->volume = volume;
 
 				rtsp_send_volume(impl);
+				spa_pod_builder_prop(&b, SPA_PROP_softVolumes, 0);
+				spa_pod_builder_array(&b, sizeof(float), SPA_TYPE_Float,
+						n_vols, soft_vols);
 			}
-			spa_pod_builder_prop(&b, SPA_PROP_softVolumes, 0);
-			spa_pod_builder_array(&b, sizeof(float), SPA_TYPE_Float,
-					n_vols, soft_vols);
 			spa_pod_builder_raw_padded(&b, prop, SPA_POD_PROP_SIZE(prop));
 			break;
 		}

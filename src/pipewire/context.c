@@ -1163,13 +1163,14 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
  * This ensures that we only activate the paths from the runnable nodes to the
  * driver nodes and leave the other nodes idle.
  */
-static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, struct spa_list *collect,
-		char **sync)
+static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, struct spa_list *collect)
 {
 	struct spa_list queue;
 	struct pw_impl_node *n, *t;
 	struct pw_impl_port *p;
 	struct pw_impl_link *l;
+	uint32_t n_sync;
+	char *sync[MAX_SYNC+1];
 
 	pw_log_debug("node %p: '%s'", node, node->name);
 
@@ -1178,20 +1179,30 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 	spa_list_append(&queue, &node->sort_link);
 	node->visited = true;
 
+	n_sync = 0;
+	sync[0] = NULL;
+
 	/* now follow all the links from the nodes in the queue
 	 * and add the peers to the queue. */
 	spa_list_consume(n, &queue, sort_link) {
 		spa_list_remove(&n->sort_link);
 		spa_list_append(collect, &n->sort_link);
 
-		pw_log_debug(" next node %p: '%s' runnable:%u", n, n->name, n->runnable);
+		pw_log_debug(" next node %p: '%s' runnable:%u active:%d",
+				n, n->name, n->runnable, n->active);
 
 		if (!n->active)
 			continue;
 
-		if (sync[0] != NULL) {
-			if (pw_strv_find_common(n->sync_groups, sync) < 0)
-				continue;
+		if (n->sync) {
+			for (uint32_t i = 0; n->sync_groups[i]; i++) {
+				if (n_sync >= MAX_SYNC)
+					break;
+				if (pw_strv_find(sync, n->sync_groups[i]) >= 0)
+					continue;
+				sync[n_sync++] = n->sync_groups[i];
+				sync[n_sync] = NULL;
+			}
 		}
 
 		spa_list_for_each(p, &n->input_ports, link) {
@@ -1242,6 +1253,8 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 			spa_list_for_each(t, &context->node_list, link) {
 				if (t->exported || !t->active || t->visited)
 					continue;
+				/* the other node will be scheduled with this one if it's in
+				 * the same group or link group */
 				if (pw_strv_find_common(t->groups, n->groups) < 0 &&
 				    pw_strv_find_common(t->link_groups, n->link_groups) < 0 &&
 				    pw_strv_find_common(t->sync_groups, sync) < 0)
@@ -1253,7 +1266,8 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 				spa_list_append(&queue, &t->sort_link);
 			}
 		}
-		pw_log_debug(" next node %p: '%s' runnable:%u", n, n->name, n->runnable);
+		pw_log_debug(" next node %p: '%s' runnable:%u %p %p %p", n, n->name, n->runnable,
+				n->groups, n->link_groups, sync);
 	}
 	spa_list_for_each(n, collect, sort_link)
 		if (!n->driving && n->runnable) {
@@ -1497,10 +1511,9 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 	struct pw_impl_node *n, *s, *target, *fallback;
 	const uint32_t *rates;
 	uint32_t max_quantum, min_quantum, def_quantum, rate_quantum, floor_quantum, ceil_quantum;
-	uint32_t n_rates, def_rate, n_sync;
+	uint32_t n_rates, def_rate;
 	bool freewheel, global_force_rate, global_force_quantum, transport_start;
 	struct spa_list collect;
-	char *sync[MAX_SYNC+1];
 
 	pw_log_info("%p: busy:%d reason:%s", context, impl->recalc, reason);
 
@@ -1514,23 +1527,11 @@ again:
 	freewheel = false;
 	transport_start = false;
 
-	/* clean up the flags first and collect sync */
-	n_sync = 0;
-	sync[0] = NULL;
+	/* clean up the flags first */
 	spa_list_for_each(n, &context->node_list, link) {
 		n->visited = false;
 		n->checked = 0;
 		n->runnable = n->always_process && n->active;
-		if (n->sync) {
-			for (uint32_t i = 0; n->sync_groups[i]; i++) {
-				if (n_sync >= MAX_SYNC)
-					break;
-				if (pw_strv_find(sync, n->sync_groups[i]) >= 0)
-					continue;
-				sync[n_sync++] = n->sync_groups[i];
-				sync[n_sync] = NULL;
-			}
-		}
 	}
 
 	get_quantums(context, &def_quantum, &min_quantum, &max_quantum, &rate_quantum,
@@ -1551,7 +1552,7 @@ again:
 
 		if (!n->visited) {
 			spa_list_init(&collect);
-			collect_nodes(context, n, &collect, sync);
+			collect_nodes(context, n, &collect);
 			move_to_driver(context, &collect, n);
 		}
 		/* from now on we are only interested in active driving nodes
@@ -1605,7 +1606,7 @@ again:
 
 		/* collect all nodes in this group */
 		spa_list_init(&collect);
-		collect_nodes(context, n, &collect, sync);
+		collect_nodes(context, n, &collect);
 
 		driver = NULL;
 		spa_list_for_each(t, &collect, sort_link) {

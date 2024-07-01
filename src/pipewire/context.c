@@ -1181,18 +1181,18 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 	/* now follow all the links from the nodes in the queue
 	 * and add the peers to the queue. */
 	spa_list_consume(n, &queue, sort_link) {
+		bool in_sync;
+
 		spa_list_remove(&n->sort_link);
 		spa_list_append(collect, &n->sort_link);
 
-		pw_log_debug(" next node %p: '%s' runnable:%u", n, n->name, n->runnable);
+		pw_log_debug(" next node %p: '%s' runnable:%u active:%d",
+				n, n->name, n->runnable, n->active);
 
 		if (!n->active)
 			continue;
 
-		if (sync[0] != NULL) {
-			if (pw_strv_find_common(n->sync_groups, sync) < 0)
-				continue;
-		}
+		in_sync = pw_strv_find_common(n->sync_groups, sync) >= 0;
 
 		spa_list_for_each(p, &n->input_ports, link) {
 			spa_list_for_each(l, &p->links, input_link) {
@@ -1242,9 +1242,11 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 			spa_list_for_each(t, &context->node_list, link) {
 				if (t->exported || !t->active || t->visited)
 					continue;
+				/* the other node will be scheduled with this one if it's in
+				 * the same group or link group */
 				if (pw_strv_find_common(t->groups, n->groups) < 0 &&
 				    pw_strv_find_common(t->link_groups, n->link_groups) < 0 &&
-				    pw_strv_find_common(t->sync_groups, sync) < 0)
+				    (!in_sync || pw_strv_find_common(t->sync_groups, sync) < 0))
 					continue;
 
 				pw_log_debug("%p: %s join group of %s",
@@ -1253,7 +1255,8 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 				spa_list_append(&queue, &t->sort_link);
 			}
 		}
-		pw_log_debug(" next node %p: '%s' runnable:%u", n, n->name, n->runnable);
+		pw_log_debug(" next node %p: '%s' runnable:%u %p %p %p", n, n->name, n->runnable,
+				n->groups, n->link_groups, sync);
 	}
 	spa_list_for_each(n, collect, sort_link)
 		if (!n->driving && n->runnable) {

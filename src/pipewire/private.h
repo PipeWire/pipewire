@@ -541,6 +541,7 @@ struct pw_node_target {
 	int fd;
 	void (*trigger)(struct pw_node_target *t, uint64_t nsec);
 	unsigned int active:1;
+	unsigned int active_driving:1;
 	unsigned int added:1;
 };
 

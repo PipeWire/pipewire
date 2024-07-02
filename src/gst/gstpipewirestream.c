@@ -158,7 +158,12 @@ gst_pipewire_stream_close (GstPipeWireStream * self)
 
   /* destroy the pw stream */
   pw_thread_loop_lock (self->core->loop);
-  g_clear_pointer (&self->pwstream, pw_stream_destroy);
+  if (self->pwstream) {
+     /* Do not use g_clear_pointer() here as pw_stream_destroy() may chain up to
+      * code requiring the pointer to still be around */
+     pw_stream_destroy (self->pwstream);
+     self->pwstream = NULL;
+  }
   pw_thread_loop_unlock (self->core->loop);
 
   /* release the core */

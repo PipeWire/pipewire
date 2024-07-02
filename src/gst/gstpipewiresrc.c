@@ -435,6 +435,8 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
   src->autoconnect = DEFAULT_AUTOCONNECT;
   src->min_latency = 0;
   src->max_latency = GST_CLOCK_TIME_NONE;
+
+  src->transform_value = UINT32_MAX;
 }
 
 static gboolean
@@ -538,7 +540,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
   GstPipeWirePoolData *data;
   struct spa_meta_header *h;
   struct spa_meta_region *crop;
-  struct spa_meta_videotransform *videotransform;
+  enum spa_meta_videotransform_value transform_value;
   struct pw_time time;
   guint i;
 
@@ -613,24 +615,22 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
     }
   }
 
-  videotransform = data->videotransform;
-  if (videotransform) {
-    if (pwsrc->transform_value != videotransform->transform) {
-      GstEvent *tag_event;
-      const char* tag_string;
+  transform_value = data->videotransform ? data->videotransform->transform :
+                                           SPA_META_TRANSFORMATION_None;
+  if (transform_value != pwsrc->transform_value) {
+    GstEvent *tag_event;
+    const char* tag_string;
 
-      tag_string =
-          spa_transform_value_to_gst_image_orientation(videotransform->transform);
+    tag_string = spa_transform_value_to_gst_image_orientation(transform_value);
 
-      GST_LOG_OBJECT (pwsrc, "got new videotransform: %u / %s",
-          videotransform->transform, tag_string);
+    GST_LOG_OBJECT (pwsrc, "got new videotransform: %u / %s",
+        transform_value, tag_string);
 
-      tag_event = gst_event_new_tag(gst_tag_list_new(GST_TAG_IMAGE_ORIENTATION,
-          tag_string, NULL));
-      gst_pad_push_event (GST_BASE_SRC_PAD (pwsrc), tag_event);
+    tag_event = gst_event_new_tag(gst_tag_list_new(GST_TAG_IMAGE_ORIENTATION,
+        tag_string, NULL));
+    gst_pad_push_event (GST_BASE_SRC_PAD (pwsrc), tag_event);
 
-      pwsrc->transform_value = videotransform->transform;
-    }
+    pwsrc->transform_value = transform_value;
   }
 
   if (pwsrc->is_video) {
@@ -1391,6 +1391,7 @@ gst_pipewire_src_stop (GstBaseSrc * basesrc)
   pwsrc->eos = false;
   gst_buffer_replace (&pwsrc->last_buffer, NULL);
   gst_caps_replace(&pwsrc->caps, NULL);
+  pwsrc->transform_value = UINT32_MAX;
   pw_thread_loop_unlock (pwsrc->stream->core->loop);
 
   return TRUE;

@@ -112,13 +112,12 @@ static inline void activate_target(struct pw_impl_node *node, struct pw_node_tar
 {
 	struct pw_node_activation_state *state = &t->activation->state[0];
 	if (!t->active) {
-		if (!node->async || node->driving) {
+		if (!node->async) {
 			if (!node->exported) {
 				SPA_ATOMIC_INC(state->required);
 				SPA_ATOMIC_INC(state->pending);
 			}
 		}
-		t->active_driving = node->driving;
 		t->active = true;
 		pw_log_debug("%p: target state:%p id:%d pending:%d/%d %d:%d:%d",
 				node, state, t->id, state->pending, state->required,
@@ -130,7 +129,7 @@ static inline void deactivate_target(struct pw_impl_node *node, struct pw_node_t
 {
 	if (t->active) {
 		struct pw_node_activation_state *state = &t->activation->state[0];
-		if (!node->async || t->active_driving) {
+		if (!node->async) {
 			/* the driver copies the required to the pending state
 			 * so first try to resume the node and then decrement the
 			 * required state. This way we either resume with the old value
@@ -141,7 +140,6 @@ static inline void deactivate_target(struct pw_impl_node *node, struct pw_node_t
 				SPA_ATOMIC_DEC(state->required);
 		}
 		t->active = false;
-		t->active_driving = false;
 		pw_log_debug("%p: target state:%p id:%d pending:%d/%d %d:%d:%d trigger:%"PRIu64,
 				node, state, t->id, state->pending, state->required,
 				node->async, node->driving, node->exported, trigger);
@@ -1202,6 +1200,7 @@ static void check_properties(struct pw_impl_node *node)
 		recalc_reason = "transport changed";
 	}
 	async = pw_properties_get_bool(node->properties, PW_KEY_NODE_ASYNC, false);
+	async &= !node->driver;
 	if (async != node->async) {
 		pw_log_info("%p: async %d -> %d", node, node->async, async);
 		node->async = async;

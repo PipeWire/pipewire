@@ -221,7 +221,7 @@ do_node_unprepare(struct spa_loop *loop, bool async, uint32_t seq,
 	if (!this->rt.prepared)
 		return 0;
 
-	if (!this->remote || this->rt.target.activation->client_version < 1) {
+	if (!this->exported) {
 		/* We mark ourself as finished now, this will avoid going further into the process loop
 		 * in case our fd was ready (removing ourselfs from the loop should avoid that as well).
 		 * If we were supposed to be scheduled make sure we continue the graph for the peers we

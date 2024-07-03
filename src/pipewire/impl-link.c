@@ -1321,7 +1321,8 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 	if (this->passive && str == NULL)
 		 pw_properties_set(properties, PW_KEY_LINK_PASSIVE, "true");
 
-	impl->async = (output_node->async || input_node->async) &&
+	impl->async = !output_node->driver &&
+		(output_node->async || input_node->async) &&
 		SPA_FLAG_IS_SET(output->flags, PW_IMPL_PORT_FLAG_ASYNC) &&
 		SPA_FLAG_IS_SET(input->flags, PW_IMPL_PORT_FLAG_ASYNC);
 
@@ -1375,8 +1376,9 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 	this->name = spa_aprintf("%d.%d.%d -> %d.%d.%d",
 			output_node->info.id, output->port_id, this->rt.out_mix.port.port_id,
 			input_node->info.id, input->port_id, this->rt.in_mix.port.port_id);
-	pw_log_info("(%s) (%s) -> (%s) async:%04x:%04x:%d", this->name, output_node->name,
-			input_node->name, output->flags, input->flags, impl->async);
+	pw_log_info("(%s) (%s) -> (%s) async:%d:%04x:%04x:%d", this->name, output_node->name,
+			input_node->name, output_node->driving,
+			output->flags, input->flags, impl->async);
 
 	pw_impl_port_emit_link_added(output, this);
 	pw_impl_port_emit_link_added(input, this);

@@ -2352,8 +2352,10 @@ int spa_alsa_update_rate_match(struct state *state)
 		last_pitch = (uint64_t)(1000000 / state->last_rate);
 	}
 
-	/* The pitch adjustment is limited to 1 ppm */
-	if (pitch == last_pitch)
+	/* The pitch adjustment is limited to 1 ppm according to the spec, but
+	 * let's avoid very granular changes so that we don't spam the host
+	 * (and ourselves, if bind-ctls are enabled). */
+	if (SPA_ABS((int)pitch - (int)last_pitch) < 10)
 		return 0;
 
 	snd_ctl_elem_value_set_integer(state->pitch_elem, 0, pitch);

@@ -945,9 +945,10 @@ static char **pw_strv_insert_at(char **strv, int len, int pos, const char *str)
 
 	n = realloc(strv, sizeof(char*) * (len + 2));
 	if (n == NULL) {
-		free(strv);
+		pw_free_strv(strv);
 		return NULL;
 	}
+
 	strv = n;
 
 	memmove(strv+pos+1, strv+pos, sizeof(char*) * (len+1-pos));
@@ -955,15 +956,16 @@ static char **pw_strv_insert_at(char **strv, int len, int pos, const char *str)
 	return strv;
 }
 
-static int do_exec(struct pw_context *context, const char *path, const char *args)
+static int do_exec(struct pw_context *context, char *const *argv)
 {
 	int pid, res;
 
 	pid = fork();
 
 	if (pid == 0) {
-		char **arg;
-		int n_args;
+		char buf[1024];
+		char *const *p;
+		struct spa_strbuf s;
 
 		/* Double fork to avoid zombies; we don't want to set SIGCHLD handler */
 		pid = fork();
@@ -975,23 +977,16 @@ static int do_exec(struct pw_context *context, const char *path, const char *arg
 			exit(0);
 		}
 
-		arg = pw_strv_parse(args, strlen(args), INT_MAX, &n_args);
-		if (arg == NULL) {
-			pw_log_error("error parsing arguments: %m");
-			goto done;
-		}
-		arg = pw_strv_insert_at(arg, n_args, 0, path);
-		if (arg == NULL) {
-			pw_log_error("error constructing arguments: %m");
-			goto done;
-		}
-		pw_log_info("exec %s '%s'", path, args);
-		res = execvp(path, arg);
-		pw_free_strv(arg);
+		spa_strbuf_init(&s, buf, sizeof(buf));
+		for (p = argv; *p; ++p)
+			spa_strbuf_append(&s, " '%s'", *p);
+
+		pw_log_info("exec%s", s.buffer);
+		res = execvp(argv[0], argv);
 
 		if (res == -1) {
 			res = -errno;
-			pw_log_error("execvp error '%s': %m", path);
+			pw_log_error("execvp error '%s': %m", argv[0]);
 		}
 done:
 		exit(1);
@@ -1016,6 +1011,36 @@ done:
  *   }
  * ]
  */
+
+static char **make_exec_argv(const char *path, const char *value, int len)
+{
+	char **argv = NULL;
+	int n_args;
+
+	if (spa_json_is_container(value, len)) {
+		if (!spa_json_is_array(value, len)) {
+			errno = EINVAL;
+			return NULL;
+		}
+		argv = pw_strv_parse(value, len, INT_MAX, &n_args);
+	} else {
+		spa_autofree char *s = calloc(1, len + 1);
+		if (!s)
+			return NULL;
+
+		if (spa_json_parse_stringn(value, len, s, len + 1) < 0) {
+			errno = EINVAL;
+			return NULL;
+		}
+		argv = pw_split_strv(s, " \t", INT_MAX, &n_args);
+	}
+
+	if (!argv)
+		return NULL;
+
+	return pw_strv_insert_at(argv, n_args, 0, path);
+}
+
 static int parse_exec(void *user_data, const char *location,
 		const char *section, const char *str, size_t len)
 {
@@ -1034,7 +1059,9 @@ static int parse_exec(void *user_data, const char *location,
 	}
 
 	while ((r = spa_json_enter_object(&it[1], &it[2])) > 0) {
-		char *path = NULL, *args = NULL;
+		char *path = NULL;
+		const char *args_val = "[]";
+		int args_len = 2;
 		bool have_match = true;
 
 		while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
@@ -1053,13 +1080,13 @@ static int parse_exec(void *user_data, const char *location,
 			} else if (spa_streq(key, "args")) {
 				if (spa_json_is_container(val, l))
 					l = spa_json_container_len(&it[2], val, l);
-				args = (char*)val;
-				spa_json_parse_stringn(val, l, args, l+1);
+				args_val = val;
+				args_len = l;
 			} else if (spa_streq(key, "condition")) {
 				if (!spa_json_is_array(val, l)) {
 					pw_log_warn("expected array for condition in '%.*s'",
 							(int)len, str);
-					break;
+					goto next;
 				}
 				spa_json_enter(&it[2], &it[3]);
 				have_match = find_match(&it[3], &context->properties->dict, true);
@@ -1072,11 +1099,23 @@ static int parse_exec(void *user_data, const char *location,
 			continue;
 
 		if (path != NULL) {
-			res = do_exec(context, path, args);
+			char **argv = make_exec_argv(path, args_val, args_len);
+
+			if (!argv) {
+				pw_log_warn("expected array or string for args in '%.*s'",
+						(int)len, str);
+				goto next;
+			}
+
+			res = do_exec(context, argv);
+			pw_free_strv(argv);
 			if (res < 0)
 				break;
 			d->count++;
 		}
+
+	next:
+		continue;
 	}
 	if (r < 0)
 		pw_log_warn("malformed object array in '%.*s'", (int)len, str);

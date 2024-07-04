@@ -835,6 +835,10 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 	uint32_t port;
 	int res;
 
+	// We want to recreate the session with updated parameters, maybe
+	if (node->session)
+		session_free(node->session);
+
 	if (impl->n_sessions >= MAX_SESSIONS) {
 		pw_log_warn("too many sessions (%u >= %u)", impl->n_sessions, MAX_SESSIONS);
 		errno = EMFILE;
@@ -1504,7 +1508,12 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 	struct impl *impl = n->impl;
 	const char *str;
 
-	if (n->session != NULL || info == NULL)
+	if (info == NULL)
+		return;
+
+	// We only really want to do anything here if properties are updated,
+	// or if we don't have a session for this node already
+	if (!(info->change_mask & PW_NODE_CHANGE_MASK_PROPS) && n->session != NULL)
 		return;
 
 	n->info = pw_node_info_merge(n->info, info, true);

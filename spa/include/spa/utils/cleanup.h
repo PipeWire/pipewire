@@ -31,6 +31,7 @@ __extension__ ({ \
 
 /* ========================================================================== */
 
+#include <errno.h>
 #include <unistd.h>
 
 #define spa_steal_fd(fd) spa_exchange((fd), -1)
@@ -53,7 +54,9 @@ __extension__ ({ \
 typedef __typeof__(type) _spa_auto_cleanup_type_ ## name; \
 static inline void _spa_auto_cleanup_func_ ## name (__typeof__(type) *thing) \
 { \
+	int _save_errno = errno; \
 	__VA_ARGS__ \
+	errno = _save_errno; \
 }
 
 #define spa_auto(name) \
@@ -64,7 +67,9 @@ static inline void _spa_auto_cleanup_func_ ## name (__typeof__(type) *thing) \
 typedef __typeof__(type) * _spa_autoptr_cleanup_type_ ## name; \
 static inline void _spa_autoptr_cleanup_func_ ## name (__typeof__(type) **thing) \
 { \
+	int _save_errno = errno; \
 	__VA_ARGS__ \
+	errno = _save_errno; \
 }
 
 #define spa_autoptr(name) \
@@ -77,7 +82,9 @@ static inline void _spa_autoptr_cleanup_func_ ## name (__typeof__(type) **thing)
 
 static inline void _spa_autofree_cleanup_func(void *p)
 {
+	int save_errno = errno;
 	free(*(void **) p);
+	errno = save_errno;
 }
 #define spa_autofree spa_cleanup(_spa_autofree_cleanup_func)
 
@@ -85,7 +92,9 @@ static inline void _spa_autofree_cleanup_func(void *p)
 
 static inline void _spa_autoclose_cleanup_func(int *fd)
 {
+	int save_errno = errno;
 	spa_clear_fd(*fd);
+	errno = save_errno;
 }
 #define spa_autoclose spa_cleanup(_spa_autoclose_cleanup_func)
 

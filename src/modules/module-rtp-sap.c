@@ -179,7 +179,7 @@ static const struct spa_dict_item module_info[] = {
 
 struct sdp_info {
 	uint16_t hash;
-	uint32_t ntp;
+	uint32_t session_id;
 	uint32_t t_ntp;
 
 	char *origin;
@@ -692,7 +692,7 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 			"c=IN %s %s%s\n"
 			"t=%u 0\n"
 			"m=%s %u RTP/AVP %i\n",
-			user_name, sdp->ntp, src_ip4 ? "IP4" : "IP6", src_addr,
+			user_name, sdp->session_id, src_ip4 ? "IP4" : "IP6", src_addr,
 			sdp->session_name,
 			dst_ip4 ? "IP4" : "IP6", dst_addr, dst_ttl,
 			sdp->t_ntp,
@@ -854,8 +854,17 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 	sess->announce = true;
 
 	sdp->hash = pw_rand32();
-	sdp->ntp = (uint32_t) time(NULL) + 2208988800U + impl->n_sessions;
-	sdp->t_ntp = pw_properties_get_uint32(props, "rtp.ntp", sdp->ntp);
+	if ((str = pw_properties_get(props, "sess.id")) != NULL) {
+		if (!spa_atou32(str, &sdp->session_id, 10)) {
+			pw_log_error("Invalid session id: %s (must be a uint32)", str);
+			goto error_free;
+		}
+		sdp->t_ntp = pw_properties_get_uint32(props, "rtp.ntp",
+				(uint32_t) time(NULL) + 2208988800U + impl->n_sessions);
+	} else {
+		sdp->session_id = (uint32_t) time(NULL) + 2208988800U + impl->n_sessions;
+		sdp->t_ntp = pw_properties_get_uint32(props, "rtp.ntp", sdp->session_id);
+	}
 	sess->props = props;
 
 	if ((str = pw_properties_get(props, "sess.name")) == NULL)

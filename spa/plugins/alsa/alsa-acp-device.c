@@ -126,6 +126,29 @@ static int setup_sources(struct impl *this)
 	return 0;
 }
 
+static int replace_string(const char *str, const char *val, const char *rep,
+		char *buf, size_t size)
+{
+	struct spa_strbuf s;
+	const char *p;
+	size_t len = strlen(val);
+
+	spa_assert(len > 0);
+	spa_strbuf_init(&s, buf, size);
+
+	while (1) {
+		p = strstr(str, val);
+		if (!p)
+			break;
+
+		spa_strbuf_append(&s, "%.*s%s", (int)SPA_PTRDIFF(p, str), str, rep);
+		str = p + len;
+	}
+
+	spa_strbuf_append(&s, "%s", str);
+	return 0;
+}
+
 static int emit_node(struct impl *this, struct acp_device *dev)
 {
 	struct spa_dict_item *items;
@@ -136,7 +159,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	char positions[SPA_AUDIO_MAX_CHANNELS * 12];
 	struct spa_device_object_info info;
 	struct acp_card *card = this->card;
-	const char *stream, *devstr, *card_id;
+	const char *stream, *card_id;
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
 	info.type = SPA_TYPE_INTERFACE_Node;
@@ -158,15 +181,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	card_id = acp_dict_lookup(&card->props, "alsa.id");
 	snprintf(card_name, sizeof(card_name), "%s", card_id ? card_id : card_index);
 
-	devstr = dev->device_strings[0];
-	p = strstr(devstr, "%f");
-	if (p) {
-		snprintf(device_name, sizeof(device_name), "%.*s%d%s",
-				(int)SPA_PTRDIFF(p, devstr), devstr,
-				card->index, p+2);
-	} else {
-		snprintf(device_name, sizeof(device_name), "%s", devstr);
-	}
+	replace_string(dev->device_strings[0], "%f", card_index, device_name, sizeof(device_name));
 
 	snprintf(path, sizeof(path), "alsa:acp:%s:%d:%s", card_name, dev->index, stream);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_OBJECT_PATH, path);

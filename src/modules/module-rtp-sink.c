@@ -530,6 +530,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, "sess.media");
 	copy_props(impl, props, "sess.name");
 	copy_props(impl, props, "sess.id");
+	copy_props(impl, props, "sess.version");
 	copy_props(impl, props, "sess.min-ptime");
 	copy_props(impl, props, "sess.max-ptime");
 	copy_props(impl, props, "sess.latency.msec");

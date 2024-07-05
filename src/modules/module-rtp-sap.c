@@ -180,6 +180,7 @@ static const struct spa_dict_item module_info[] = {
 struct sdp_info {
 	uint16_t hash;
 	uint32_t session_id;
+	uint32_t session_version;
 	uint32_t t_ntp;
 
 	char *origin;
@@ -687,12 +688,12 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 	   the end. */
 	spa_strbuf_append(&buf,
 			"v=0\n"
-			"o=%s %u 0 IN %s %s\n"
+			"o=%s %u %u IN %s %s\n"
 			"s=%s\n"
 			"c=IN %s %s%s\n"
 			"t=%u 0\n"
 			"m=%s %u RTP/AVP %i\n",
-			user_name, sdp->session_id, src_ip4 ? "IP4" : "IP6", src_addr,
+			user_name, sdp->session_id, sdp->session_version, src_ip4 ? "IP4" : "IP6", src_addr,
 			sdp->session_name,
 			dst_ip4 ? "IP4" : "IP6", dst_addr, dst_ttl,
 			sdp->t_ntp,
@@ -864,6 +865,14 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 	} else {
 		sdp->session_id = (uint32_t) time(NULL) + 2208988800U + impl->n_sessions;
 		sdp->t_ntp = pw_properties_get_uint32(props, "rtp.ntp", sdp->session_id);
+	}
+	if ((str = pw_properties_get(props, "sess.version")) != NULL) {
+		if (!spa_atou32(str, &sdp->session_version, 10)) {
+			pw_log_error("Invalid session version: %s (must be a uint32)", str);
+			goto error_free;
+		}
+	} else {
+		sdp->session_version = sdp->t_ntp;
 	}
 	sess->props = props;
 

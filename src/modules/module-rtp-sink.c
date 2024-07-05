@@ -332,8 +332,7 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 			struct spa_pod_frame f;
 			const char *key;
 			struct spa_pod *pod;
-			const char *value;
-			struct spa_dict_item items[2];
+			struct spa_dict_item items[4];
 			unsigned int n_items = 0;
 
 			if (spa_pod_parse_object(param, SPA_TYPE_OBJECT_Props, NULL, SPA_PROP_params,
@@ -344,24 +343,39 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 				return;
 
 			while (n_items < SPA_N_ELEMENTS(items)) {
+				const char *value_str = NULL;
+				int value_int = -1;
+
 				if (spa_pod_parser_get_string(&prs, &key) < 0)
 					break;
 				if (spa_pod_parser_get_pod(&prs, &pod) < 0)
 					break;
-				if (spa_pod_get_string(pod, &value) < 0)
+				if (spa_pod_get_string(pod, &value_str) < 0 &&
+						spa_pod_get_int(pod, &value_int) < 0)
 					continue;
-				pw_log_info("key '%s', value '%s'", key, value);
+				pw_log_info("key '%s', value '%s'/%u", key, value_str, value_int);
 				if (spa_streq(key, "destination.ip")) {
-					if (pw_net_parse_address(value, impl->dst_port, &impl->dst_addr,
+					if (!value_str || pw_net_parse_address(value_str, impl->dst_port, &impl->dst_addr,
 								&impl->dst_len) < 0) {
-						pw_log_error("invalid destination.ip: '%s'", value);
+						pw_log_error("invalid destination.ip: '%s'", value_str);
 						break;
 					}
-					pw_properties_set(impl->stream_props, "rtp.destination.ip", value);
-					items[n_items++] = SPA_DICT_ITEM_INIT("rtp.destination.ip", value);
+					pw_properties_set(impl->stream_props, "rtp.destination.ip", value_str);
+					items[n_items++] = SPA_DICT_ITEM_INIT("rtp.destination.ip", value_str);
 				} else if (spa_streq(key, "sess.name")) {
-					pw_properties_set(impl->stream_props, "sess.name", value);
-					items[n_items++] = SPA_DICT_ITEM_INIT("sess.name", value);
+					if (!value_str) {
+						pw_log_error("invalid sess.name");
+						break;
+					}
+					pw_properties_set(impl->stream_props, "sess.name", value_str);
+					items[n_items++] = SPA_DICT_ITEM_INIT("sess.name", value_str);
+				} else if (spa_streq(key, "sess.id") || spa_streq(key, "sess.version")) {
+					if (value_int < 0 || (unsigned int)value_int > UINT32_MAX) {
+						pw_log_error("invalid %s: '%d'", key, value_int);
+						break;
+					}
+					pw_properties_setf(impl->stream_props, key, "%d", value_int);
+					items[n_items++] = SPA_DICT_ITEM_INIT(key, pw_properties_get(impl->stream_props, key));
 				}
 			}
 

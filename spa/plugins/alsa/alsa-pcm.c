@@ -2245,7 +2245,9 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 
 	state->max_delay = state->buffer_frames / 2;
 	if (spa_strstartswith(state->props.device, "a52") ||
-	    spa_strstartswith(state->props.device, "dca"))
+			spa_strstartswith(state->props.device, "dca") ||
+			(spa_strstartswith(state->props.device, "plug:") &&
+					strstr(state->props.device, "a52:")))
 		state->min_delay = SPA_MIN(2048u, state->buffer_frames);
 	else
 		state->min_delay = 0;

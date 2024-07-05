@@ -376,7 +376,7 @@ static bool is_multicast(struct sockaddr *sa, socklen_t salen)
 static int make_unix_socket(const char *path) {
 	struct sockaddr_un addr;
 
-	spa_autoclose int fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+	spa_autoclose int fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
 	if (fd < 0) {
 		pw_log_warn("Failed to create PTP management socket");
 		return -1;
@@ -529,9 +529,11 @@ static void update_ts_refclk(struct impl *impl)
 
 	// Read if something is left in the socket
 	int avail;
-	ioctl(impl->ptp_fd, FIONREAD, &avail);
 	uint8_t tmp;
-	while (avail--) read(impl->ptp_fd, &tmp, 1);
+
+	ioctl(impl->ptp_fd, FIONREAD, &avail);
+	pw_log_debug("Flushing stale data: %u bytes", avail);
+	while (avail-- && read(impl->ptp_fd, &tmp, 1));
 
 	struct ptp_management_msg req;
 	spa_zero(req);

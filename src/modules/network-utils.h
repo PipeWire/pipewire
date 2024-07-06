@@ -38,6 +38,44 @@ static inline int pw_net_parse_address(const char *address, uint16_t port,
 	return 0;
 }
 
+static inline uint16_t pw_net_parse_port(const char *str, uint16_t def)
+{
+	uint32_t val;
+	if (spa_atou32(str, &val, 0) && val <= 65535u)
+		return val;
+	return def;
+}
+
+static inline int pw_net_parse_address_port(const char *address,
+		const char *default_address, uint16_t default_port,
+		struct sockaddr_storage *addr, socklen_t *len)
+{
+	uint16_t port;
+	char *br = NULL, *col, *n;
+
+	n = strdupa(address);
+
+	col = strrchr(n, ':');
+	if (n[0] == '[') {
+		br = strchr(n, ']');
+		if (br == NULL)
+			return -EINVAL;
+		n++;
+		*br = 0;
+	}
+	if (br && col && col < br)
+		col = NULL;
+
+	if (col) {
+		*col = '\0';
+		port = pw_net_parse_port(col+1, default_port);
+	} else {
+		port = pw_net_parse_port(n, default_port);
+		n = strdupa(default_address ? default_address : "0.0.0.0");
+	}
+	return pw_net_parse_address(n, port, addr, len);
+}
+
 static inline int pw_net_get_ip(const struct sockaddr_storage *sa, char *ip, size_t len, bool *ip4, uint16_t *port)
 {
 	if (sa->ss_family == AF_INET) {
@@ -74,5 +112,18 @@ static inline char *pw_net_get_ip_fmt(const struct sockaddr_storage *sa, char *i
 		snprintf(ip, len, "invalid ip");
 	return ip;
 }
+
+static inline bool pw_net_addr_is_any(struct sockaddr_storage *addr)
+{
+	if (addr->ss_family == AF_INET) {
+		struct sockaddr_in *sa = (struct sockaddr_in*)addr;
+		return sa->sin_addr.s_addr == INADDR_ANY;
+	} else if (addr->ss_family == AF_INET6) {
+		struct sockaddr_in6 *sa = (struct sockaddr_in6*)addr;
+		return memcmp(&sa->sin6_addr, &in6addr_any, sizeof(sa->sin6_addr));
+	}
+	return false;
+}
+
 
 #endif /* NETWORK_UTILS_H */

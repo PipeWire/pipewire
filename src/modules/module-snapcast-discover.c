@@ -35,6 +35,8 @@
 #include "module-protocol-pulse/format.h"
 #include "module-zeroconf-discover/avahi-poll.h"
 
+#include "network-utils.h"
+
 /** \page page_module_snapcast_discover Snapcast Discover
  *
  * Automatically creates a Snapcast sink device based on zeroconf
@@ -465,9 +467,9 @@ static int add_snapcast_stream(struct impl *impl, struct tunnel *t,
 	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0) {
 		t->server_address = strdup(v);
 		snapcast_connect(t);
-		break;
+		return 0;
 	}
-	return 0;
+	return -ENOENT;
 }
 
 static inline uint32_t format_from_name(const char *name, size_t len)
@@ -688,6 +690,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	ifreq.ifr_ifindex = interface;
 	ioctl(fd, SIOCGIFNAME, &ifreq, sizeof(ifreq));
 	pw_properties_setf(props, "snapcast.ifname", "%s", ifreq.ifr_name);
+	pw_properties_setf(props, "local.ifname", "%s", ifreq.ifr_name);
 
 	struct ifaddrs *if_addr, *ifp;
 	if (getifaddrs(&if_addr) < 0)
@@ -708,6 +711,10 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 						sizeof(struct sockaddr_in6),
 				hbuf, sizeof(hbuf), NULL, 0, NI_NUMERICHOST)) == 0) {
 			pw_properties_setf(props, "server.address", "[ \"tcp:%s%s%s:0\" ]",
+					family == AF_INET ? "" : "[",
+					hbuf,
+					family == AF_INET ? "" : "]");
+			pw_properties_setf(props, "local.ifaddress", "%s%s%s",
 					family == AF_INET ? "" : "[",
 					hbuf,
 					family == AF_INET ? "" : "]");

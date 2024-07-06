@@ -56,6 +56,8 @@
  *               sink for each connected client.
  *  - `playback`: boolean if playback is enabled. This will create a playback or
  *               source stream for each connected client.
+ *  - `local.ifname = <str>`: interface name to use
+ *  - `local.ifaddress = <str>`: interface address to use
  *  - `server.address = []`: an array of server addresses to listen on as
  *                            tcp:(<ip>:)<port>.
  *  - `capture.props`: optional properties for the capture stream
@@ -208,6 +210,8 @@ struct impl {
 	struct pw_properties *capture_props;
 	struct pw_properties *playback_props;
 
+	char *ifname;
+	char *ifaddress;
 	bool capture;
 	bool playback;
 
@@ -654,47 +658,16 @@ error:
 	return;
 }
 
-static uint16_t parse_port(const char *str, uint16_t def)
-{
-	uint32_t val;
-	if (spa_atou32(str, &val, 0) && val <= 65535u)
-		return val;
-	return def;
-}
-
-static int make_tcp_socket(struct server *server, const char *name)
+static int make_tcp_socket(struct server *server, const char *name, const char *ifname,
+		const char *ifaddress)
 {
 	struct sockaddr_storage addr;
 	int res, fd, on;
-	uint16_t port;
-	char *br = NULL, *col, *n;
 	socklen_t len = 0;
 
-	n = strdupa(name);
-
-	col = strrchr(n, ':');
-	if (n[0] == '[') {
-		br = strchr(n, ']');
-		if (br == NULL)
-			return -EINVAL;
-		n++;
-		*br = 0;
-	} else {
-	}
-	if (br && col && col < br)
-		col = NULL;
-
-	if (col) {
-		*col = '\0';
-		port = parse_port(col+1, DEFAULT_PORT);
-	} else {
-		port = parse_port(n, DEFAULT_PORT);
-		n = strdupa("0.0.0.0");
-	}
-
-	if ((res = pw_net_parse_address(n, port, &addr, &len)) < 0) {
-		pw_log_error("%p: can't parse address:%s port:%d: %s", server,
-				n, port, spa_strerror(res));
+	if ((res = pw_net_parse_address_port(name, ifaddress, DEFAULT_PORT, &addr, &len)) < 0) {
+		pw_log_error("%p: can't parse address %s: %s", server,
+				name, spa_strerror(res));
 		goto error;
 	}
 
@@ -703,7 +676,13 @@ static int make_tcp_socket(struct server *server, const char *name)
 		pw_log_error("%p: socket() failed: %m", server);
 		goto error;
 	}
-
+#ifdef SO_BINDTODEVICE
+	if (ifname && setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, ifname, strlen(ifname)) < 0) {
+		res = -errno;
+		pw_log_error("%p: setsockopt(SO_BINDTODEVICE) failed: %m", server);
+		goto error;
+	}
+#endif
 	on = 1;
 	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const void *) &on, sizeof(on)) < 0)
 		pw_log_warn("%p: setsockopt(): %m", server);
@@ -764,7 +743,7 @@ static struct server *create_server(struct impl *impl, const char *address)
 	spa_list_append(&impl->server_list, &server->link);
 
 	if (spa_strstartswith(address, "tcp:")) {
-		fd = make_tcp_socket(server, address+4);
+		fd = make_tcp_socket(server, address+4, impl->ifname, impl->ifaddress);
 	} else {
 		pw_log_error("address %s does not start with tcp:", address);
 		fd = -EINVAL;
@@ -799,6 +778,8 @@ static void impl_free(struct impl *impl)
 	pw_properties_free(impl->capture_props);
 	pw_properties_free(impl->playback_props);
 	pw_properties_free(impl->props);
+	free(impl->ifname);
+	free(impl->ifaddress);
 	free(impl);
 }
 
@@ -976,6 +957,11 @@ static int parse_params(struct impl *impl)
 		pw_properties_setf(impl->playback_props, PW_KEY_NODE_RATE,
 				"1/%u", impl->playback_info.rate);
 
+	str = pw_properties_get(impl->props, "local.ifname");
+	impl->ifname = str ? strdup(str) : NULL;
+	str = pw_properties_get(impl->props, "local.ifaddress");
+	impl->ifaddress = str ? strdup(str) : NULL;
+
 	if ((str = pw_properties_get(impl->props, "server.address")) == NULL)
 		str = DEFAULT_SERVER;
 
@@ -1056,9 +1042,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		uint16_t port = 0;
 		bool ipv4;
 
-		if (pw_net_get_ip(&s->addr, ip, sizeof(ip), &ipv4, &port) >= 0)
-			fprintf(f, " \"%s%s%s:%d\"", ipv4 ? "" : "[",
-					ip, ipv4 ? "" : "]", port);
+		if (pw_net_get_ip(&s->addr, ip, sizeof(ip), &ipv4, &port) < 0)
+			continue;
+
+		fprintf(f, " \"%s%s%s:%d\"", ipv4 ? "" : "[", ip, ipv4 ? "" : "]", port);
 	}
 	fprintf(f, " ]");
 	fclose(f);

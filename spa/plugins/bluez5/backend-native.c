@@ -36,6 +36,7 @@
 
 #include "modemmanager.h"
 #include "upower.h"
+#include "telephony.h"
 
 SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.native");
 #undef SPA_LOG_TOPIC_DEFAULT
@@ -108,6 +109,7 @@ struct impl {
 	void *modemmanager;
 	struct spa_source *ring_timer;
 	void *upower;
+	struct spa_bt_telephony *telephony;
 };
 
 struct transport_data {
@@ -2843,6 +2845,8 @@ static int backend_native_free(void *data)
 		backend->upower = NULL;
 	}
 
+	spa_clear_ptr(backend->telephony, telephony_free);
+
 	if (backend->ring_timer)
 		spa_loop_utils_destroy_source(backend->loop_utils, backend->ring_timer);
 
@@ -2976,6 +2980,7 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 
 	backend->modemmanager = mm_register(backend->log, backend->conn, info, &mm_ops, backend);
 	backend->upower = upower_register(backend->log, backend->conn, set_battery_level, backend);
+	backend->telephony = telephony_new(backend->log, backend->dbus, info);
 
 	return &backend->this;
 

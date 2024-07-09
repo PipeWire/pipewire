@@ -3074,31 +3074,27 @@ static struct spa_thread *impl_create(void *object,
 			void *(*start)(void*), void *arg)
 {
 	struct client *c = (struct client *) object;
-	struct spa_thread *thr;
-	int res = 0;
+	struct spa_dict_item *items;
+	struct spa_dict copy;
+	char creator_ptr[64];
 
 	pw_log_info("create thread");
 	if (globals.creator != NULL) {
-		pthread_t pt;
-		pthread_attr_t *attr = NULL, attributes;
+		uint32_t i, n_items = props ? props->n_items : 0;
 
-		attr = pw_thread_fill_attr(props, &attributes);
+		items = alloca((n_items) + 1 * sizeof(*items));
 
-		res = -globals.creator(&pt, attr, start, arg);
-		if (attr)
-			pthread_attr_destroy(attr);
-		if (res != 0)
-			goto error;
-		thr = (struct spa_thread*)pt;
-	} else {
-		thr = spa_thread_utils_create(c->context.old_thread_utils, props, start, arg);
+		for (i = 0; i < n_items; i++)
+			items[i] = props->items[i];
+
+		snprintf(creator_ptr, sizeof(creator_ptr), "pointer:%p", globals.creator);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_THREAD_CREATOR,
+				creator_ptr);
+
+		copy = SPA_DICT_INIT(items, n_items);
+		props = &copy;
 	}
-	return thr;
-error:
-	pw_log_warn("create RT thread failed: %s", strerror(res));
-	errno = -res;
-	return NULL;
-
+	return spa_thread_utils_create(c->context.old_thread_utils, props, start, arg);
 }
 
 static int impl_join(void *object,

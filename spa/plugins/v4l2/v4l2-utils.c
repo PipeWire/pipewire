@@ -507,13 +507,17 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 	uint32_t filter_media_type, filter_media_subtype;
 	struct spa_v4l2_device *dev = &port->dev;
 	uint8_t buffer[1024];
-	struct spa_pod_builder b = { 0 };
+	spa_auto(spa_pod_dynamic_builder) b = { 0 };
+	struct spa_pod_builder_state state;
 	struct spa_pod_frame f[2];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
 
 	if ((res = spa_v4l2_open(dev, this->props.device)) < 0)
 		return res;
+
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+	spa_pod_builder_get_state(&b.b, &state);
 
 	result.id = SPA_PARAM_EnumFormat;
 	result.next = start;
@@ -632,14 +636,31 @@ do_enum_fmt:
 		}
 	      do_frmsize:
 		if ((res = xioctl(dev->fd, VIDIOC_ENUM_FRAMESIZES, &port->frmsize)) < 0) {
-			if (errno == EINVAL || errno == ENOTTY)
+			if (errno == ENOTTY)
 				goto next_fmtdesc;
+			if (errno == EINVAL) {
+				if (port->frmsize.index == 0) {
+					port->frmsize.type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
+					port->frmsize.stepwise.min_width = 16;
+					port->frmsize.stepwise.min_height = 16;
+					port->frmsize.stepwise.max_width = 16384;
+					port->frmsize.stepwise.max_height = 16384;
+					port->frmsize.stepwise.step_width = 16;
+					port->frmsize.stepwise.step_height = 16;
+					port->fmtdesc.index++;
+					port->next_fmtdesc = true;
+					goto do_frmsize_filter;
+				}
+				else
+					goto next_fmtdesc;
+			}
 
 			res = -errno;
 			spa_log_error(this->log, "'%s' VIDIOC_ENUM_FRAMESIZES: %m",
 					this->props.device);
 			goto exit;
 		}
+do_frmsize_filter:
 		if (filter) {
 			static const struct spa_rectangle step = {1, 1};
 
@@ -697,34 +718,35 @@ do_enum_fmt:
 		}
 	}
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
-	spa_pod_builder_add(&b,
+	spa_pod_builder_reset(&b.b, &state);
+	spa_pod_builder_push_object(&b.b, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+	spa_pod_builder_add(&b.b,
 			SPA_FORMAT_mediaType,    SPA_POD_Id(info->media_type),
 			SPA_FORMAT_mediaSubtype, SPA_POD_Id(info->media_subtype),
 			0);
 
 	if (info->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
-		spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_format, 0);
-		spa_pod_builder_id(&b, info->format);
+		spa_pod_builder_prop(&b.b, SPA_FORMAT_VIDEO_format, 0);
+		spa_pod_builder_id(&b.b, info->format);
 	}
-	spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_size, 0);
+
+	spa_pod_builder_prop(&b.b, SPA_FORMAT_VIDEO_size, 0);
 	if (port->frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
-		spa_pod_builder_rectangle(&b,
+		spa_pod_builder_rectangle(&b.b,
 				port->frmsize.discrete.width,
 				port->frmsize.discrete.height);
 	} else if (port->frmsize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS ||
 		   port->frmsize.type == V4L2_FRMSIZE_TYPE_STEPWISE) {
-		spa_pod_builder_push_choice(&b, &f[1], SPA_CHOICE_None, 0);
-		choice = (struct spa_pod_choice*)spa_pod_builder_frame(&b, &f[1]);
+		spa_pod_builder_push_choice(&b.b, &f[1], SPA_CHOICE_None, 0);
+		choice = (struct spa_pod_choice*)spa_pod_builder_frame(&b.b, &f[1]);
 
-		spa_pod_builder_rectangle(&b,
+		spa_pod_builder_rectangle(&b.b,
 				port->frmsize.stepwise.min_width,
 				port->frmsize.stepwise.min_height);
-		spa_pod_builder_rectangle(&b,
+		spa_pod_builder_rectangle(&b.b,
 				port->frmsize.stepwise.min_width,
 				port->frmsize.stepwise.min_height);
-		spa_pod_builder_rectangle(&b,
+		spa_pod_builder_rectangle(&b.b,
 				port->frmsize.stepwise.max_width,
 				port->frmsize.stepwise.max_height);
 
@@ -732,35 +754,43 @@ do_enum_fmt:
 			choice->body.type = SPA_CHOICE_Range;
 		} else {
 			choice->body.type = SPA_CHOICE_Step;
-			spa_pod_builder_rectangle(&b,
+			spa_pod_builder_rectangle(&b.b,
 					port->frmsize.stepwise.max_width,
 					port->frmsize.stepwise.max_height);
 		}
-		spa_pod_builder_pop(&b, &f[1]);
+		spa_pod_builder_pop(&b.b, &f[1]);
 	}
 
-	spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_framerate, 0);
+	spa_pod_builder_prop(&b.b, SPA_FORMAT_VIDEO_framerate, 0);
 
 	n_fractions = 0;
 
-	spa_pod_builder_push_choice(&b, &f[1], SPA_CHOICE_None, 0);
-	choice = (struct spa_pod_choice*)spa_pod_builder_frame(&b, &f[1]);
+	spa_pod_builder_push_choice(&b.b, &f[1], SPA_CHOICE_None, 0);
+	choice = (struct spa_pod_choice*)spa_pod_builder_frame(&b.b, &f[1]);
 	port->frmival.index = 0;
 
 	while (true) {
 		if ((res = xioctl(dev->fd, VIDIOC_ENUM_FRAMEINTERVALS, &port->frmival)) < 0) {
 			res = -errno;
+			port->frmsize.index++;
+			port->next_frmsize = true;
 			if (errno == EINVAL || errno == ENOTTY) {
-				port->frmsize.index++;
-				port->next_frmsize = true;
-				if (port->frmival.index == 0)
-					goto next_frmsize;
-				break;
+				if (port->frmival.index == 0) {
+					port->frmival.type = V4L2_FRMIVAL_TYPE_CONTINUOUS;
+					port->frmival.stepwise.min.denominator = 1;
+					port->frmival.stepwise.min.numerator = 1;
+					port->frmival.stepwise.max.denominator = 120;
+					port->frmival.stepwise.max.numerator = 1;
+					goto do_frminterval_filter;
+				}
+				else
+					break;
 			}
 			spa_log_error(this->log, "'%s' VIDIOC_ENUM_FRAMEINTERVALS: %m",
 					this->props.device);
 			goto exit;
 		}
+do_frminterval_filter:
 		if (filter) {
 			static const struct spa_fraction step = {1, 1};
 
@@ -812,10 +842,10 @@ do_enum_fmt:
 		if (port->frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
 			choice->body.type = SPA_CHOICE_Enum;
 			if (n_fractions == 0)
-				spa_pod_builder_fraction(&b,
+				spa_pod_builder_fraction(&b.b,
 							 port->frmival.discrete.denominator,
 							 port->frmival.discrete.numerator);
-			spa_pod_builder_fraction(&b,
+			spa_pod_builder_fraction(&b.b,
 						 port->frmival.discrete.denominator,
 						 port->frmival.discrete.numerator);
 			port->frmival.index++;
@@ -823,11 +853,11 @@ do_enum_fmt:
 		} else if (port->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS ||
 			   port->frmival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
 			if (n_fractions == 0)
-				spa_pod_builder_fraction(&b, 25, 1);
-			spa_pod_builder_fraction(&b,
+				spa_pod_builder_fraction(&b.b, 25, 1);
+			spa_pod_builder_fraction(&b.b,
 						 port->frmival.stepwise.min.denominator,
 						 port->frmival.stepwise.min.numerator);
-			spa_pod_builder_fraction(&b,
+			spa_pod_builder_fraction(&b.b,
 						 port->frmival.stepwise.max.denominator,
 						 port->frmival.stepwise.max.numerator);
 
@@ -836,7 +866,7 @@ do_enum_fmt:
 				n_fractions += 2;
 			} else {
 				choice->body.type = SPA_CHOICE_Step;
-				spa_pod_builder_fraction(&b,
+				spa_pod_builder_fraction(&b.b,
 							 port->frmival.stepwise.step.denominator,
 							 port->frmival.stepwise.step.numerator);
 				n_fractions += 3;
@@ -851,9 +881,9 @@ do_enum_fmt:
 		goto next_frmsize;
 	if (n_fractions == 1)
 		choice->body.type = SPA_CHOICE_None;
+	spa_pod_builder_pop(&b.b, &f[1]);
 
-	spa_pod_builder_pop(&b, &f[1]);
-	result.param = spa_pod_builder_pop(&b, &f[0]);
+	result.param = spa_pod_builder_pop(&b.b, &f[0]);
 
 	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
@@ -966,7 +996,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	streamparm.parm.capture.timeperframe.numerator = framerate->denom;
 	streamparm.parm.capture.timeperframe.denominator = framerate->num;
 
-	spa_log_debug(this->log, "set %.4s %dx%d %d/%d", (char *)&fmt.fmt.pix.pixelformat,
+	spa_log_info(this->log, "set %.4s %dx%d %d/%d", (char *)&fmt.fmt.pix.pixelformat,
 		     fmt.fmt.pix.width, fmt.fmt.pix.height,
 		     streamparm.parm.capture.timeperframe.denominator,
 		     streamparm.parm.capture.timeperframe.numerator);
@@ -1004,6 +1034,9 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 
 	if (flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)
 		return match ? 0 : 1;
+
+	if (streamparm.parm.capture.timeperframe.denominator == 0)
+		streamparm.parm.capture.timeperframe.denominator = 1;
 
 	spa_log_info(this->log, "'%s' got %.4s %dx%d %d/%d",
 			dev->path, (char *)&fmt.fmt.pix.pixelformat,

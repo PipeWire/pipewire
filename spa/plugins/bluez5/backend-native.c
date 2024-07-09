@@ -125,6 +125,7 @@ enum hfp_hf_state {
 	hfp_hf_cind1,
 	hfp_hf_cind2,
 	hfp_hf_cmer,
+	hfp_hf_clip,
 	hfp_hf_slc1,
 	hfp_hf_slc2,
 	hfp_hf_vgs,
@@ -142,6 +143,12 @@ enum hsp_hs_state {
 struct rfcomm_volume {
 	bool active;
 	int hw_volume;
+};
+
+struct rfcomm_call_data {
+	struct rfcomm *rfcomm;
+	struct spa_bt_telephony_call *call;
+	struct spa_hook listener;
 };
 
 struct rfcomm {
@@ -175,6 +182,7 @@ struct rfcomm {
 	unsigned int codec;
 	uint32_t cind_enabled_indicators;
 	char *hf_indicators[MAX_HF_INDICATORS];
+	struct spa_bt_telephony_ag *telephony_ag;
 #endif
 };
 
@@ -269,6 +277,10 @@ static void volume_sync_stop_timer(struct rfcomm *rfcomm);
 static void rfcomm_free(struct rfcomm *rfcomm)
 {
 	codec_switch_stop_timer(rfcomm);
+	if (rfcomm->telephony_ag) {
+		telephony_ag_destroy(rfcomm->telephony_ag);
+		rfcomm->telephony_ag = NULL;
+	}
 	for (int i = 0; i < MAX_HF_INDICATORS; i++) {
 		if (rfcomm->hf_indicators[i]) {
 			free(rfcomm->hf_indicators[i]);
@@ -1223,10 +1235,87 @@ next_indicator:
 	return true;
 }
 
+static int hfp_hf_answer(void *data) {
+	struct rfcomm_call_data *call_data = telephony_call_get_user_data(data);
+
+	if (call_data->call->state != CALL_STATE_INCOMING)
+		return -1;
+
+	rfcomm_send_cmd(call_data->rfcomm, "ATA");
+
+	return 0;
+}
+
+static int hfp_hf_hangup(void *data) {
+	struct rfcomm_call_data *call_data = telephony_call_get_user_data(data);
+
+	if (call_data->call->state == CALL_STATE_INCOMING || call_data->call->state == CALL_STATE_ACTIVE) {
+		rfcomm_send_cmd(call_data->rfcomm, "AT+CHUP");
+		return 0;
+	}
+
+	return -1;
+}
+
+static const struct spa_bt_telephony_call_events telephony_call_events = {
+	SPA_VERSION_BT_TELEPHONY_AG_EVENTS,
+	.answer = hfp_hf_answer,
+	.hangup = hfp_hf_hangup,
+};
+
+static struct spa_bt_telephony_call *hfp_hf_add_call(struct rfcomm *rfcomm, struct spa_bt_telephony_ag *ag, enum spa_bt_telephony_call_state state,
+                                                     const char *number)
+{
+	struct spa_bt_telephony_call *call;
+	struct rfcomm_call_data *data;
+
+	call = telephony_call_new(ag, sizeof(*data));
+	call->state = state;
+	if (number)
+		call->line_identification = strdup(number);
+	data = telephony_call_get_user_data(call);
+	data->rfcomm = rfcomm;
+	data->call = call;
+	telephony_call_add_listener(call, &data->listener, &telephony_call_events, call);
+	telephony_call_register(call);
+
+	return call;
+}
+
+static int hfp_hf_dial(void *data, const char *number)
+{
+	struct rfcomm *rfcomm = data;
+	struct impl *backend = rfcomm->backend;
+	struct spa_bt_telephony_call *call;
+
+	spa_log_info(backend->log, "Dialing: \"%s\"", number);
+
+	call = hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, CALL_STATE_DIALING, number);
+	if (!call)
+		return -1;
+
+	rfcomm_send_cmd(rfcomm, "ATD%s;", number);
+
+	return 0;
+}
+
+static const struct spa_bt_telephony_ag_events telephony_ag_events = {
+	SPA_VERSION_BT_TELEPHONY_AG_EVENTS,
+	.dial = hfp_hf_dial,
+	.swap_calls = NULL,
+	.release_and_answer = NULL,
+	.release_and_swap = NULL,
+	.hold_and_answer = NULL,
+	.hangup_all = NULL,
+	.create_multiparty = NULL,
+	.send_tones = NULL
+};
+
 static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 {
 	struct impl *backend = rfcomm->backend;
-	unsigned int features, gain, selected_codec, indicator, value;
+	unsigned int features, gain, selected_codec, indicator, value, type;
+	char number[17];
 
 	if (sscanf(token, "+BRSF:%u", &features) == 1) {
 		if (((features & (SPA_BT_HFP_AG_FEATURE_CODEC_NEGOTIATION)) != 0) &&
@@ -1304,6 +1393,64 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 
 			if (spa_streq(rfcomm->hf_indicators[indicator], "battchg")) {
 				spa_bt_device_report_battery_level(rfcomm->device, value * 100 / 5);
+			} else if (spa_streq(rfcomm->hf_indicators[indicator], "callsetup")) {
+				if (value == CIND_CALLSETUP_NONE) {
+					struct spa_bt_telephony_call *call, *tcall;
+					spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
+						if (call->state == CALL_STATE_DIALING || call->state == CALL_STATE_ALERTING ||
+						    call->state == CALL_STATE_INCOMING) {
+							call->state = CALL_STATE_DISCONNECTED;
+							telephony_call_notify_updated_props(call);
+							telephony_call_destroy(call);
+						}
+					}
+				} else if (value == CIND_CALLSETUP_INCOMING) {
+					spa_log_info(backend->log, "Incoming call");
+
+					if (hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, CALL_STATE_INCOMING, NULL) == NULL) {
+						spa_log_warn(backend->log, "failed to create incoming call");
+					}
+				} else if (value == CIND_CALLSETUP_ALERTING) {
+					struct spa_bt_telephony_call *call;
+					spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+						if (call->state == CALL_STATE_DIALING) {
+							call->state = CALL_STATE_ALERTING;
+							telephony_call_notify_updated_props(call);
+						}
+					}
+				}
+			} else if (spa_streq(rfcomm->hf_indicators[indicator], "call")) {
+				if (value == 0) {
+					struct spa_bt_telephony_call *call, *tcall;
+					spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
+						if (call->state == CALL_STATE_DIALING || call->state == CALL_STATE_ALERTING ||
+						    call->state == CALL_STATE_INCOMING ||call->state == CALL_STATE_ACTIVE) {
+							call->state = CALL_STATE_DISCONNECTED;
+							telephony_call_notify_updated_props(call);
+							telephony_call_destroy(call);
+						}
+					}
+				} else if (value == 1) {
+					struct spa_bt_telephony_call *call;
+					spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+						if (call->state == CALL_STATE_DIALING || call->state == CALL_STATE_ALERTING ||
+						    call->state == CALL_STATE_INCOMING) {
+							call->state = CALL_STATE_ACTIVE;
+							telephony_call_notify_updated_props(call);
+						}
+					}
+				}
+			}
+		}
+	} else if (sscanf(token, "+CLIP: \"%16[^\"]\",%u", number, &type) == 2) {
+		struct spa_bt_telephony_call *call;
+		spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+			if (call->state == CALL_STATE_INCOMING && !spa_streq(number, call->line_identification)) {
+				if (call->line_identification)
+					free(call->line_identification);
+				call->line_identification = strdup(number);
+				telephony_call_notify_updated_props(call);
+				break;
 			}
 		}
 	} else if (spa_strstartswith(token, "OK")) {
@@ -1340,6 +1487,10 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			rfcomm->hf_state = hfp_hf_cmer;
 			break;
 		case hfp_hf_cmer:
+			rfcomm_send_cmd(rfcomm, "AT+CLIP=1");
+			rfcomm->hf_state = hfp_hf_clip;
+			break;
+		case hfp_hf_clip:
 			rfcomm->hf_state = hfp_hf_slc1;
 			rfcomm->slc_configured = true;
 			if (!rfcomm->codec_negotiation_supported) {
@@ -1353,6 +1504,11 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			/* Report volume on SLC establishment */
 			if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
 				rfcomm->hf_state = hfp_hf_vgs;
+
+			rfcomm->telephony_ag = telephony_ag_new(backend->telephony, sizeof(struct spa_hook));
+			telephony_ag_add_listener(rfcomm->telephony_ag, telephony_ag_get_user_data(rfcomm->telephony_ag),
+						  &telephony_ag_events, rfcomm);
+			telephony_ag_register(rfcomm->telephony_ag);
 			break;
 		case hfp_hf_slc2:
 			if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))

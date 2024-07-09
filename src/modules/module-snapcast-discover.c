@@ -149,6 +149,7 @@ struct impl {
 	AvahiServiceBrowser *sink_browser;
 
 	struct spa_list tunnel_list;
+	uint32_t id;
 };
 
 struct tunnel_info {
@@ -287,6 +288,7 @@ static int handle_connect(struct tunnel *t, int fd)
 	int res;
 	socklen_t len;
 	char *str;
+	struct impl *impl = t->impl;
 
 	len = sizeof(res);
 	if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &res, &len) < 0) {
@@ -299,22 +301,23 @@ static int handle_connect(struct tunnel *t, int fd)
 	t->connecting = false;
 	pw_log_info("connected");
 
-	str = "{\"id\":8,\"jsonrpc\": \"2.0\",\"method\":\"Server.GetRPCVersion\"}\r\n";
-	res = write(t->source->fd, str, strlen(str));
-	pw_log_info("wrote %s: %d", str, res);
-
-	str = spa_aprintf("{\"id\":4,\"jsonrpc\":\"2.0\",\"method\":\"Stream.RemoveStream\","
-			"\"params\":{\"id\":\"%s\"}}\r\n", t->stream_name);
+	str = spa_aprintf("{\"id\":%u,\"jsonrpc\": \"2.0\",\"method\":\"Server.GetRPCVersion\"}\r\n",
+			impl->id++);
 	res = write(t->source->fd, str, strlen(str));
 	pw_log_info("wrote %s: %d", str, res);
 	free(str);
 
-	str = spa_aprintf("{\"id\":4,\"jsonrpc\":\"2.0\",\"method\":\"Stream.AddStream\""
+	str = spa_aprintf("{\"id\":%u,\"jsonrpc\":\"2.0\",\"method\":\"Stream.RemoveStream\","
+			"\"params\":{\"id\":\"%s\"}}\r\n", impl->id++, t->stream_name);
+	res = write(t->source->fd, str, strlen(str));
+	pw_log_info("wrote %s: %d", str, res);
+	free(str);
+
+	str = spa_aprintf("{\"id\":%u,\"jsonrpc\":\"2.0\",\"method\":\"Stream.AddStream\""
 		",\"params\":{\"streamUri\":\"tcp://%s?name=%s&mode=client&"
-		"sampleformat=%d:%d:%d&codec=pcm&chunk_ms=20\"}}\r\n",
+		"sampleformat=%d:%d:%d&codec=pcm&chunk_ms=20\"}}\r\n", impl->id++,
 		t->server_address, t->stream_name, t->audio_info.rate,
 		get_bps(t->audio_info.format), t->audio_info.channels);
-
 	res = write(t->source->fd, str, strlen(str));
 	pw_log_info("wrote %s: %d", str, res);
 	free(str);
@@ -329,7 +332,6 @@ static int process_input(struct tunnel *t)
 
 	while (true) {
 		res = read(t->source->fd, buffer, sizeof(buffer));
-		pw_log_info("%d", res);
 		if (res == 0)
 			return -EPIPE;
 		if (res < 0) {
@@ -342,7 +344,7 @@ static int process_input(struct tunnel *t)
 		}
 	}
 
-	pw_log_info("%s", buffer);
+	pw_log_info("received: %s", buffer);
 	return 0;
 }
 

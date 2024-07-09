@@ -11,6 +11,8 @@
 #include <sys/mman.h>
 #include <poll.h>
 
+#include <spa/pod/dynamic.h>
+#include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
 
 static int xioctl(int fd, int request, void *arg)
@@ -1118,7 +1120,8 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 	struct spa_v4l2_device *dev = &port->dev;
 	struct v4l2_query_ext_ctrl queryctrl;
 	struct spa_pod *param;
-	struct spa_pod_builder b = { 0 };
+	spa_auto(spa_pod_dynamic_builder) b = { 0 };
+	struct spa_pod_builder_state state;
 	uint32_t prop_id, ctrl_id;
 	uint8_t buffer[1024];
 	int res;
@@ -1129,6 +1132,9 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 
 	if ((res = spa_v4l2_open(dev, this->props.device)) < 0)
 		return res;
+
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+	spa_pod_builder_get_state(&b.b, &state);
 
 	result.id = SPA_PARAM_PropInfo;
 	result.next = start;
@@ -1180,7 +1186,7 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 
 	ctrl_id = queryctrl.id & ~next_fl;
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_reset(&b.b, &state);
 
 	prop_id = control_to_prop_id(this, ctrl_id);
 
@@ -1193,7 +1199,7 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 	switch (queryctrl.type) {
 	case V4L2_CTRL_TYPE_INTEGER:
 		port->controls[port->n_controls].type = SPA_TYPE_Int;
-		param = spa_pod_builder_add_object(&b,
+		param = spa_pod_builder_add_object(&b.b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_id,   SPA_POD_Id(prop_id),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_STEP_Int(
@@ -1205,7 +1211,7 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 		break;
 	case V4L2_CTRL_TYPE_BOOLEAN:
 		port->controls[port->n_controls].type = SPA_TYPE_Bool;
-		param = spa_pod_builder_add_object(&b,
+		param = spa_pod_builder_add_object(&b.b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_id,   SPA_POD_Id(prop_id),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool((bool)queryctrl.default_value),
@@ -1214,11 +1220,10 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 	case V4L2_CTRL_TYPE_MENU:
 	{
 		struct v4l2_querymenu querymenu;
-		struct spa_pod_builder_state state;
 
 		port->controls[port->n_controls].type = SPA_TYPE_Int;
-		spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
-		spa_pod_builder_add(&b,
+		spa_pod_builder_push_object(&b.b, &f[0], SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
+		spa_pod_builder_add(&b.b,
 			SPA_PROP_INFO_id,    SPA_POD_Id(prop_id),
 			SPA_PROP_INFO_type,  SPA_POD_CHOICE_ENUM_Int(1, (int32_t)queryctrl.default_value),
 			SPA_PROP_INFO_description,  SPA_POD_String(queryctrl.name),
@@ -1227,25 +1232,19 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 		spa_zero(querymenu);
 		querymenu.id = queryctrl.id;
 
-		spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
+		spa_pod_builder_prop(&b.b, SPA_PROP_INFO_labels, 0);
 
-		spa_pod_builder_get_state(&b, &state);
-		spa_pod_builder_push_struct(&b, &f[1]);
+		spa_pod_builder_push_struct(&b.b, &f[1]);
 		for (querymenu.index = queryctrl.minimum;
 		    querymenu.index <= queryctrl.maximum;
 		    querymenu.index++) {
 			if (xioctl(dev->fd, VIDIOC_QUERYMENU, &querymenu) == 0) {
-				spa_pod_builder_int(&b, querymenu.index);
-				spa_pod_builder_string(&b, (const char *)querymenu.name);
+				spa_pod_builder_int(&b.b, querymenu.index);
+				spa_pod_builder_string(&b.b, (const char *)querymenu.name);
 			}
 		}
-		if (spa_pod_builder_pop(&b, &f[1]) == NULL) {
-			spa_log_warn(this->log, "can't create Control '%s' overflow %d",
-					queryctrl.name, b.state.offset);
-			spa_pod_builder_reset(&b, &state);
-			spa_pod_builder_none(&b);
-		}
-		param = spa_pod_builder_pop(&b, &f[0]);
+		spa_pod_builder_pop(&b.b, &f[1]);
+		param = spa_pod_builder_pop(&b.b, &f[0]);
 		break;
 	}
 	case V4L2_CTRL_TYPE_INTEGER_MENU:
@@ -1260,7 +1259,7 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 
 	port->n_controls++;
 
-	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
+	if (spa_pod_filter(&b.b, &result.param, param, filter) < 0)
 		goto next;
 
 	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);

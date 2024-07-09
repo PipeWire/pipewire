@@ -90,10 +90,16 @@ static struct spa_thread *impl_create(void *object,
 	pthread_attr_t *attr = NULL, attributes;
 	const char *str;
 	int err;
+	int (*create_func)(pthread_t *, const pthread_attr_t *attr, void *(*start)(void*), void *) = NULL;
 
 	attr = pw_thread_fill_attr(props, &attributes);
 
-	err = pthread_create(&pt, attr, start, arg);
+	if (props == NULL ||
+	   (str = spa_dict_lookup(props, SPA_KEY_THREAD_CREATOR)) == NULL ||
+	   sscanf(str, "pointer:%p", &create_func) != 1)
+		create_func = pthread_create;
+
+	err = create_func(&pt, attr, start, arg);
 
 	if (attr)
 		pthread_attr_destroy(attr);

@@ -23,7 +23,6 @@
 #endif
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
-#include <openssl/engine.h>
 #include <openssl/aes.h>
 #include <openssl/md5.h>
 #include <openssl/evp.h>

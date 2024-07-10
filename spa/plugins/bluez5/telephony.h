@@ -63,8 +63,12 @@ struct spa_bt_telephony *telephony_new(struct spa_log *log, struct spa_dbus *dbu
 void telephony_free(struct spa_bt_telephony *telephony);
 
 /* create/destroy the ag object */
-struct spa_bt_telephony_ag * telephony_ag_new(struct spa_bt_telephony *telephony);
+struct spa_bt_telephony_ag * telephony_ag_new(struct spa_bt_telephony *telephony,
+					      size_t user_data_size);
 void telephony_ag_destroy(struct spa_bt_telephony_ag *ag);
+
+/* get the user data structure; struct size is set when creating the AG */
+void *telephony_ag_get_user_data(struct spa_bt_telephony_ag *ag);
 
 void telephony_ag_add_listener(struct spa_bt_telephony_ag *ag,
 			       struct spa_hook *listener,
@@ -80,8 +84,12 @@ void telephony_ag_unregister(struct spa_bt_telephony_ag *ag);
 //void telephony_ag_iterate_calls(struct spa_bt_telephony_ag *ag, callback, userdata);
 
 /* create/destroy the call object */
-struct spa_bt_telephony_call * telephony_call_new(struct spa_bt_telephony_ag *ag);
+struct spa_bt_telephony_call * telephony_call_new(struct spa_bt_telephony_ag *ag,
+						  size_t user_data_size);
 void telephony_call_destroy(struct spa_bt_telephony_call *call);
+
+/* get the user data structure; struct size is set when creating the Call */
+void *telephony_call_get_user_data(struct spa_bt_telephony_call *call);
 
 /* register/unregister Call object on the bus */
 int telephony_call_register(struct spa_bt_telephony_call *call);

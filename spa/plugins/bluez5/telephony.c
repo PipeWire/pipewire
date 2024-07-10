@@ -155,6 +155,7 @@ struct agimpl {
 	char *path;
 	struct spa_list call_list;
 	struct spa_hook_list listener_list;
+	void *user_data;
 
 	bool dial_in_progress;
 	struct callimpl *dial_return;
@@ -166,6 +167,7 @@ struct callimpl {
 	int id;
 	char *path;
 	struct spa_hook_list listener_list;
+	void *user_data;
 };
 
 #define ag_emit(ag,m,v,...) 		spa_hook_list_call(&ag->listener_list, struct spa_bt_telephony_ag_events, m, v, ##__VA_ARGS__)
@@ -576,12 +578,14 @@ static DBusHandlerResult ag_handler(DBusConnection *c, DBusMessage *m, void *use
 }
 
 struct spa_bt_telephony_ag *
-telephony_ag_new(struct spa_bt_telephony *telephony)
+telephony_ag_new(struct spa_bt_telephony *telephony, size_t user_data_size)
 {
 	struct impl *impl = SPA_CONTAINER_OF(telephony, struct impl, this);
 	struct agimpl *agimpl;
 
-	agimpl = calloc(1, sizeof(*agimpl));
+	spa_assert(user_data_size < SIZE_MAX - sizeof(*agimpl));
+
+	agimpl = calloc(1, sizeof(*agimpl) + user_data_size);
 	if (agimpl == NULL)
 		return NULL;
 
@@ -591,6 +595,9 @@ telephony_ag_new(struct spa_bt_telephony *telephony)
 	spa_hook_list_init(&agimpl->listener_list);
 
 	spa_list_append(&impl->ag_list, &agimpl->link);
+
+	if (user_data_size > 0)
+		agimpl->user_data = SPA_PTROFF(agimpl, sizeof(struct agimpl), void);
 
 	return &agimpl->this;
 }
@@ -609,6 +616,12 @@ void telephony_ag_destroy(struct spa_bt_telephony_ag *ag)
 	spa_hook_list_clean(&agimpl->listener_list);
 
 	free(agimpl);
+}
+
+void *telephony_ag_get_user_data(struct spa_bt_telephony_ag *ag)
+{
+	struct agimpl *agimpl = SPA_CONTAINER_OF(ag, struct agimpl, this);
+	return agimpl->user_data;
 }
 
 int telephony_ag_register(struct spa_bt_telephony_ag *ag)
@@ -706,12 +719,14 @@ void telephony_ag_add_listener(struct spa_bt_telephony_ag *ag,
 }
 
 struct spa_bt_telephony_call *
-telephony_call_new(struct spa_bt_telephony_ag *ag)
+telephony_call_new(struct spa_bt_telephony_ag *ag, size_t user_data_size)
 {
 	struct agimpl *agimpl = SPA_CONTAINER_OF(ag, struct agimpl, this);
 	struct callimpl *callimpl;
 
-	callimpl = calloc(1, sizeof(*callimpl));
+	spa_assert(user_data_size < SIZE_MAX - sizeof(*callimpl));
+
+	callimpl = calloc(1, sizeof(*callimpl) + user_data_size);
 	if (callimpl == NULL)
 		return NULL;
 
@@ -720,6 +735,9 @@ telephony_call_new(struct spa_bt_telephony_ag *ag)
 	spa_hook_list_init(&callimpl->listener_list);
 
 	spa_list_append(&agimpl->call_list, &callimpl->link);
+
+	if (user_data_size > 0)
+		callimpl->user_data = SPA_PTROFF(callimpl, sizeof(struct callimpl), void);
 
 	/* mark this object as the return value of the Dial method */
 	if (agimpl->dial_in_progress)
@@ -741,6 +759,12 @@ void telephony_call_destroy(struct spa_bt_telephony_call *call)
 	free(call->name);
 
 	free(callimpl);
+}
+
+void *telephony_call_get_user_data(struct spa_bt_telephony_call *call)
+{
+	struct callimpl *callimpl = SPA_CONTAINER_OF(call, struct callimpl, this);
+	return callimpl->user_data;
 }
 
 static const char * const call_state_to_string[] = {

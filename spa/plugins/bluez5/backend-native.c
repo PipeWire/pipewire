@@ -4,6 +4,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <errno.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <stdarg.h>
 #include <sys/types.h>
@@ -125,7 +126,9 @@ enum hfp_hf_state {
 	hfp_hf_cind1,
 	hfp_hf_cind2,
 	hfp_hf_cmer,
+	hfp_hf_chld,
 	hfp_hf_clip,
+	hfp_hf_ccwa,
 	hfp_hf_slc1,
 	hfp_hf_slc2,
 	hfp_hf_vgs,
@@ -177,6 +180,7 @@ struct rfcomm {
 	unsigned int cind_call_notify:1;
 	unsigned int extended_error_reporting:1;
 	unsigned int clip_notify:1;
+	unsigned int chld_supported:1;
 	enum hfp_hf_state hf_state;
 	enum hsp_hs_state hs_state;
 	unsigned int codec;
@@ -1252,6 +1256,9 @@ static int hfp_hf_hangup(void *data) {
 	if (call_data->call->state == CALL_STATE_INCOMING || call_data->call->state == CALL_STATE_ACTIVE) {
 		rfcomm_send_cmd(call_data->rfcomm, "AT+CHUP");
 		return 0;
+	} else if (call_data->call->state == CALL_STATE_WAITING) {
+		rfcomm_send_cmd(call_data->rfcomm, "AT+CHLD=0");
+		return 0;
 	}
 
 	return -1;
@@ -1299,16 +1306,265 @@ static int hfp_hf_dial(void *data, const char *number)
 	return 0;
 }
 
+static int hfp_hf_swap_calls(void *data)
+{
+	struct rfcomm *rfcomm = data;
+	struct impl *backend = rfcomm->backend;
+	struct spa_bt_telephony_call *call;
+	bool found_active = false;
+	bool found_held = false;
+
+	if (!rfcomm->chld_supported)
+		return -1;
+
+	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+		if (call->state == CALL_STATE_WAITING) {
+			spa_log_debug(backend->log, "call waiting before swapping");
+			return -1;
+		} else if (call->state == CALL_STATE_ACTIVE)
+			found_active = true;
+		else if (call->state == CALL_STATE_HELD)
+			found_held = true;
+	}
+
+	if (!found_active || !found_held) {
+		spa_log_debug(backend->log, "no active and held calls");
+		return -1;
+	}
+
+	rfcomm_send_cmd(rfcomm, "AT+CHLD=2");
+
+	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+		bool changed = false;
+		if (call->state == CALL_STATE_ACTIVE) {
+			call->state = CALL_STATE_HELD;
+			changed = true;
+		} else if (call->state == CALL_STATE_HELD) {
+			call->state = CALL_STATE_ACTIVE;
+			changed = true;
+		}
+
+		if (changed)
+			telephony_call_notify_updated_props(call);
+	}
+
+	return 0;
+}
+
+static int hfp_hf_release_and_answer(void *data)
+{
+	struct rfcomm *rfcomm = data;
+	struct impl *backend = rfcomm->backend;
+	struct spa_bt_telephony_call *call, *tcall;
+	bool found_active = false;
+	bool found_waiting = false;
+
+	if (!rfcomm->chld_supported)
+		return -1;
+
+	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+		if (call->state == CALL_STATE_ACTIVE)
+			found_active = true;
+		else if (call->state == CALL_STATE_WAITING)
+			found_waiting = true;
+	}
+
+	if (!found_active || !found_waiting) {
+		spa_log_debug(backend->log, "no active and waiting calls");
+		return -1;
+	}
+
+	rfcomm_send_cmd(rfcomm, "AT+CHLD=1");
+
+	spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
+		if (call->state == CALL_STATE_ACTIVE) {
+			call->state = CALL_STATE_DISCONNECTED;
+			telephony_call_notify_updated_props(call);
+			telephony_call_destroy(call);
+		} else if (call->state == CALL_STATE_WAITING) {
+			call->state = CALL_STATE_ACTIVE;
+			telephony_call_notify_updated_props(call);
+		}
+	}
+
+	return 0;
+}
+
+static int hfp_hf_release_and_swap(void *data)
+{
+	struct rfcomm *rfcomm = data;
+	struct impl *backend = rfcomm->backend;
+	struct spa_bt_telephony_call *call, *tcall;
+	bool found_active = false;
+	bool found_held = false;
+
+	if (!rfcomm->chld_supported)
+		return -1;
+
+	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+		if (call->state == CALL_STATE_WAITING) {
+			spa_log_debug(backend->log, "call waiting before release and swap");
+			return -1;
+		} else if (call->state == CALL_STATE_ACTIVE)
+			found_active = true;
+		else if (call->state == CALL_STATE_HELD)
+			found_held = true;
+	}
+
+	if (!found_active || !found_held) {
+		spa_log_debug(backend->log, "no active and held calls");
+		return -1;
+	}
+
+	rfcomm_send_cmd(rfcomm, "AT+CHLD=1");
+
+	spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
+		if (call->state == CALL_STATE_ACTIVE) {
+			call->state = CALL_STATE_DISCONNECTED;
+			telephony_call_notify_updated_props(call);
+			telephony_call_destroy(call);
+		} else if (call->state == CALL_STATE_HELD) {
+			call->state = CALL_STATE_ACTIVE;
+			telephony_call_notify_updated_props(call);
+		}
+	}
+
+	return 0;
+}
+
+static int hfp_hf_hold_and_answer(void *data)
+{
+	struct rfcomm *rfcomm = data;
+	struct impl *backend = rfcomm->backend;
+	struct spa_bt_telephony_call *call;
+	bool found_active = false;
+	bool found_waiting = false;
+
+	if (!rfcomm->chld_supported)
+		return -1;
+
+	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+		if (call->state == CALL_STATE_ACTIVE)
+			found_active = true;
+		else if (call->state == CALL_STATE_WAITING)
+			found_waiting = true;
+	}
+
+	if (!found_active || !found_waiting) {
+		spa_log_debug(backend->log, "no active and waiting calls");
+		return -1;
+	}
+
+	rfcomm_send_cmd(rfcomm, "AT+CHLD=2");
+
+	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+		bool changed = false;
+		if (call->state == CALL_STATE_ACTIVE) {
+			call->state = CALL_STATE_HELD;
+			changed = true;
+		} else if (call->state == CALL_STATE_WAITING) {
+			call->state = CALL_STATE_ACTIVE;
+			changed = true;
+		}
+
+		if (changed)
+			telephony_call_notify_updated_props(call);
+	}
+
+	return 0;
+}
+
+static int hfp_hf_hangup_all(void *data)
+{
+	struct rfcomm *rfcomm = data;
+
+	/* Hangup held calls */
+	if (rfcomm->chld_supported)
+		rfcomm_send_cmd(rfcomm, "AT+CHLD=0");
+
+	/* Hangup active calls */
+	rfcomm_send_cmd(rfcomm, "AT+CHUP");
+
+	return 0;
+}
+
+static int hfp_hf_create_multiparty(void *data)
+{
+	struct rfcomm *rfcomm = data;
+	struct impl *backend = rfcomm->backend;
+	struct spa_bt_telephony_call *call;
+	bool found_active = false;
+	bool found_held = false;
+
+	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+		if (call->state == CALL_STATE_WAITING) {
+			spa_log_debug(backend->log, "call waiting before creating multiparty");
+			return -1;
+		} else if (call->state == CALL_STATE_ACTIVE)
+			found_active = true;
+		else if (call->state == CALL_STATE_HELD)
+			found_held = true;
+	}
+
+	if (!found_active || !found_held) {
+		spa_log_debug(backend->log, "no active and held calls");
+		return -1;
+	}
+
+	rfcomm_send_cmd(rfcomm, "AT+CHLD=3");
+
+	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+		bool changed = false;
+		if (call->state == CALL_STATE_ACTIVE) {
+			call->multiparty = true;
+			changed = true;
+		} else if (call->state == CALL_STATE_HELD) {
+			call->state = CALL_STATE_ACTIVE;
+			call->multiparty = true;
+			changed = true;
+		}
+
+		if (changed)
+			telephony_call_notify_updated_props(call);
+	}
+
+	return 0;
+}
+
+static int hfp_hf_send_tones(void *data, const char *tones)
+{
+	struct rfcomm *rfcomm = data;
+	struct impl *backend = rfcomm->backend;
+	struct spa_bt_telephony_call *call;
+	bool found = false;
+
+	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+		if (call->state == CALL_STATE_ACTIVE) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		spa_log_debug(backend->log, "no active call");
+		return -1;
+	}
+
+	rfcomm_send_cmd(rfcomm, "AT+VTS=%s", tones);
+
+	return 0;
+}
+
 static const struct spa_bt_telephony_ag_events telephony_ag_events = {
 	SPA_VERSION_BT_TELEPHONY_AG_EVENTS,
 	.dial = hfp_hf_dial,
-	.swap_calls = NULL,
-	.release_and_answer = NULL,
-	.release_and_swap = NULL,
-	.hold_and_answer = NULL,
-	.hangup_all = NULL,
-	.create_multiparty = NULL,
-	.send_tones = NULL
+	.swap_calls = hfp_hf_swap_calls,
+	.release_and_answer = hfp_hf_release_and_answer,
+	.release_and_swap = hfp_hf_release_and_swap,
+	.hold_and_answer = hfp_hf_hold_and_answer,
+	.hangup_all = hfp_hf_hangup_all,
+	.create_multiparty = hfp_hf_create_multiparty,
+	.send_tones = hfp_hf_send_tones
 };
 
 static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
@@ -1385,6 +1641,26 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			token += strcspn(token, "\0") + 1;
 			i++;
 		}
+	} else if (spa_strstartswith(token, "+CHLD: (")) {
+		int chlds = 0;
+		token[strcspn(token, "\r")] = 0;
+		token[strcspn(token, "\n")] = 0;
+		token[strcspn(token, ")")] = 0;
+		token += strlen("+CHLD: (");
+		while (strlen(token)) {
+			token[strcspn(token, ",")] = 0;
+			if (spa_streq(token, "0"))
+				chlds |= 1 << 0;
+			else if (spa_streq(token, "1"))
+				chlds |= 1 << 1;
+			else if (spa_streq(token, "2"))
+				chlds |= 1 << 2;
+			else if (spa_streq(token, "3"))
+				chlds |= 1 << 3;
+			token += strcspn(token, "\0") + 1;
+		}
+		rfcomm->chld_supported = (chlds == 0x0F);
+		spa_log_debug(backend->log, "AT+CHLD supported: %d (0x%X)", rfcomm->chld_supported, chlds);
 	} else if (sscanf(token, "+CIEV: %u,%u", &indicator, &value) == 2) {
 		if (indicator >= MAX_HF_INDICATORS || !rfcomm->hf_indicators[indicator]) {
 			spa_log_warn(backend->log, "indicator %u has not been registered, ignoring", indicator);
@@ -1405,10 +1681,21 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 						}
 					}
 				} else if (value == CIND_CALLSETUP_INCOMING) {
-					spa_log_info(backend->log, "Incoming call");
+					struct spa_bt_telephony_call *call;
+					bool found = false;
 
-					if (hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, CALL_STATE_INCOMING, NULL) == NULL) {
-						spa_log_warn(backend->log, "failed to create incoming call");
+					spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+						if (call->state == CALL_STATE_INCOMING || call->state == CALL_STATE_WAITING) {
+							spa_log_info(backend->log, "incoming call already in progress (%d)", call->state);
+							found = true;
+							break;
+						}
+					}
+
+					if (!found) {
+						spa_log_info(backend->log, "Incoming call");
+						if (hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, CALL_STATE_INCOMING, NULL) == NULL)
+							spa_log_warn(backend->log, "failed to create incoming call");
 					}
 				} else if (value == CIND_CALLSETUP_ALERTING) {
 					struct spa_bt_telephony_call *call;
@@ -1440,6 +1727,41 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 						}
 					}
 				}
+			} else if (spa_streq(rfcomm->hf_indicators[indicator], "callheld")) {
+				if (value == 0) {	/* Reject waiting call or no held calls */
+					struct spa_bt_telephony_call *call, *tcall;
+					bool found_waiting = false;
+					spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
+						if (call->state == CALL_STATE_WAITING) {
+							call->state = CALL_STATE_DISCONNECTED;
+							telephony_call_notify_updated_props(call);
+							telephony_call_destroy(call);
+							found_waiting = true;
+							break;
+						}
+					}
+					if (!found_waiting) {
+						spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
+							if (call->state == CALL_STATE_HELD) {
+								call->state = CALL_STATE_DISCONNECTED;
+								telephony_call_notify_updated_props(call);
+								telephony_call_destroy(call);
+							}
+						}
+					}
+				} else if (value == 2) {	/* No active calls, place waiting on hold */
+					struct spa_bt_telephony_call *call;
+					spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+						bool changed = false;
+						if (call->state == CALL_STATE_ACTIVE || call->state == CALL_STATE_WAITING) {
+							call->state = CALL_STATE_HELD;
+							changed = true;
+						}
+
+						if (changed)
+							telephony_call_notify_updated_props(call);
+					}
+				}
 			}
 		}
 	} else if (sscanf(token, "+CLIP: \"%16[^\"]\",%u", number, &type) == 2) {
@@ -1453,6 +1775,12 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 				break;
 			}
 		}
+	} else if (sscanf(token, "+CCWA: \"%16[^\"]\",%u", number, &type) == 2) {
+		struct spa_bt_telephony_call *call;
+		spa_log_info(backend->log, "Waiting call");
+		call = hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, CALL_STATE_WAITING, number);
+		if (call == NULL)
+			spa_log_warn(backend->log, "failed to create waiting call");
 	} else if (spa_strstartswith(token, "OK")) {
 		switch(rfcomm->hf_state) {
 		case hfp_hf_brsf:
@@ -1487,10 +1815,21 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			rfcomm->hf_state = hfp_hf_cmer;
 			break;
 		case hfp_hf_cmer:
+			rfcomm_send_cmd(rfcomm, "AT+CHLD=?");
+			rfcomm->hf_state = hfp_hf_chld;
+			break;
+		case hfp_hf_chld:
 			rfcomm_send_cmd(rfcomm, "AT+CLIP=1");
 			rfcomm->hf_state = hfp_hf_clip;
 			break;
 		case hfp_hf_clip:
+			if (rfcomm->chld_supported) {
+				rfcomm_send_cmd(rfcomm, "AT+CCWA=1");
+				rfcomm->hf_state = hfp_hf_ccwa;
+				break;
+			}
+			SPA_FALLTHROUGH;
+		case hfp_hf_ccwa:
 			rfcomm->hf_state = hfp_hf_slc1;
 			rfcomm->slc_configured = true;
 			if (!rfcomm->codec_negotiation_supported) {

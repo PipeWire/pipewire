@@ -125,7 +125,8 @@ struct spa_io_range {
  * \ref spa_io_position.clock.id in \ref SPA_IO_Position are the same.
  */
 struct spa_io_clock {
-#define SPA_IO_CLOCK_FLAG_FREEWHEEL (1u<<0)
+#define SPA_IO_CLOCK_FLAG_FREEWHEEL	(1u<<0) /* graph is freewheeling */
+#define SPA_IO_CLOCK_FLAG_XRUN_RECOVER	(1u<<1) /* recovering from xrun */
 	uint32_t flags;			/**< Clock flags */
 	uint32_t id;			/**< Unique clock id, set by host application */
 	char name[64];			/**< Clock name prefixed with API, set by node when it receives

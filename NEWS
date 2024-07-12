@@ -1,3 +1,50 @@
+# PipeWire 1.2.1 (2024-07-12)
+
+This is a bugfix release that is API and ABI compatible with previous
+the previous 1.2.0 release and the 1.0.x releases.
+
+## Highlights
+  - Fix a regression in the node activation counters that would break audio
+    when using KODI.
+  - Fix a regression in ardour export because of mishandling of sync groups.
+  - Fix a regression in KDE screen preview because of the new async
+    scheduling.
+  - Fix a regression in context.exec argument parsing that would break some
+    existing scripts.
+  - More small bug fixes and improvements.
+
+
+## PipeWire
+  - Fix a regression in the node activation counters that would break audio
+    when using KODI. (#4087)
+  - Fix a regression in ardour export because of mishandling of sync groups.
+    (#4083)
+  - Fix a regression in KDE screen preview because of the new async
+    scheduling. Disable async for driver nodes. (#4092)
+  - Slightly improve node shutdown to cause less xruns.
+  - Fix a regression in context.exec argument parsing that would break some
+    existing scripts.
+  - Support custom thread create functions.
+
+## Modules
+  - Improve snapcast address parsing. (#4093)
+
+## SPA
+  - Fix multiple %f parsing in ACP for the new plug+a52 profiles.
+  - Improve v4l2 param generation. Improve recovery when framesize or rates
+    are unknown, support vivid. (#4063)
+
+## JACK
+  - Use the custom thread create function to correctly let module-rt kit
+    manage threads so that we don't end up with priorities on the wrong
+    threads. (#4099)
+
+## GStreamer
+  - Fix a crash when destroying a stream.
+
+Older versions:
+
+
 # PipeWire 1.2.0 (2024-06-27)
 
 This is the 1.2 release that is API and ABI compatible with previous
@@ -68,9 +115,6 @@ Enjoy the summer vacation!
 
 ## Bluetooth
   - Improvements to BAP broadcast code parsing.
-
-Older versions:
-
 
 # PipeWire 1.1.83 (2024-06-17)
 

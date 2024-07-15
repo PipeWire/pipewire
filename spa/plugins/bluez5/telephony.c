@@ -153,7 +153,6 @@ struct agimpl {
 	struct spa_list link;
 	int id;
 	char *path;
-	struct spa_list call_list;
 	struct spa_hook_list listener_list;
 	void *user_data;
 
@@ -163,7 +162,6 @@ struct agimpl {
 
 struct callimpl {
 	struct spa_bt_telephony_call this;
-	struct spa_list link;
 	int id;
 	char *path;
 	struct spa_hook_list listener_list;
@@ -186,7 +184,7 @@ struct callimpl {
 
 static void dbus_iter_append_call_properties(DBusMessageIter *i, struct spa_bt_telephony_call *call);
 
-#define find_free_object_id(list, obj_type)	\
+#define find_free_object_id(list, obj_type, link)	\
 ({						\
 	int id = 0;				\
 	obj_type *object;			\
@@ -389,7 +387,7 @@ static DBusMessage *ag_get_managed_objects(struct agimpl *agimpl, DBusMessage *m
 	dbus_message_iter_init_append(r, &iter);
 	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{oa{sa{sv}}}", &array1);
 
-	spa_list_for_each (callimpl, &agimpl->call_list, link) {
+	spa_list_for_each (callimpl, &agimpl->this.call_list, this.link) {
 		dbus_message_iter_open_container(&array1, DBUS_TYPE_DICT_ENTRY, NULL, &entry1);
 		dbus_message_iter_append_basic(&entry1, DBUS_TYPE_OBJECT_PATH, &callimpl->path);
 		dbus_message_iter_open_container(&entry1, DBUS_TYPE_ARRAY, "{sa{sv}}", &array2);
@@ -498,7 +496,7 @@ static DBusMessage *ag_create_multiparty(struct agimpl *agimpl, DBusMessage *m)
 	dbus_message_iter_init_append(r, &i);
 	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY, "{o}", &oi);
 
-	spa_list_for_each (callimpl, &agimpl->call_list, link) {
+	spa_list_for_each (callimpl, &agimpl->this.call_list, this.link) {
 		if (callimpl->this.multiparty)
 			dbus_message_iter_append_basic(&oi, DBUS_TYPE_OBJECT_PATH,
 				&callimpl->path);
@@ -590,8 +588,8 @@ telephony_ag_new(struct spa_bt_telephony *telephony, size_t user_data_size)
 		return NULL;
 
 	agimpl->this.telephony = telephony;
-	agimpl->id = find_free_object_id(&impl->ag_list, struct agimpl);
-	agimpl->call_list = SPA_LIST_INIT(&agimpl->call_list);
+	agimpl->id = find_free_object_id(&impl->ag_list, struct agimpl, link);
+	spa_list_init(&agimpl->this.call_list);
 	spa_hook_list_init(&agimpl->listener_list);
 
 	spa_list_append(&impl->ag_list, &agimpl->link);
@@ -607,7 +605,7 @@ void telephony_ag_destroy(struct spa_bt_telephony_ag *ag)
 	struct agimpl *agimpl = SPA_CONTAINER_OF(ag, struct agimpl, this);
 	struct callimpl *callimpl;
 
-	spa_list_consume (callimpl, &agimpl->call_list, link) {
+	spa_list_consume (callimpl, &agimpl->this.call_list, this.link) {
 		telephony_call_destroy(&callimpl->this);
 	}
 
@@ -731,10 +729,10 @@ telephony_call_new(struct spa_bt_telephony_ag *ag, size_t user_data_size)
 		return NULL;
 
 	callimpl->this.ag = ag;
-	callimpl->id = find_free_object_id(&agimpl->call_list, struct callimpl);
+	callimpl->id = find_free_object_id(&ag->call_list, struct callimpl, this.link);
 	spa_hook_list_init(&callimpl->listener_list);
 
-	spa_list_append(&agimpl->call_list, &callimpl->link);
+	spa_list_append(&ag->call_list, &callimpl->this.link);
 
 	if (user_data_size > 0)
 		callimpl->user_data = SPA_PTROFF(callimpl, sizeof(struct callimpl), void);
@@ -751,7 +749,7 @@ void telephony_call_destroy(struct spa_bt_telephony_call *call)
 	struct callimpl *callimpl = SPA_CONTAINER_OF(call, struct callimpl, this);
 
 	telephony_call_unregister(call);
-	spa_list_remove(&callimpl->link);
+	spa_list_remove(&call->link);
 	spa_hook_list_clean(&callimpl->listener_list);
 
 	free(call->line_identification);

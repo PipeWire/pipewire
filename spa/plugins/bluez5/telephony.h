@@ -23,10 +23,12 @@ struct spa_bt_telephony {
 
 struct spa_bt_telephony_ag {
 	struct spa_bt_telephony *telephony;
+	struct spa_list call_list;
 };
 
 struct spa_bt_telephony_call {
 	struct spa_bt_telephony_ag *ag;
+	struct spa_list link;	/* link in ag->call_list */
 
 	/* D-Bus properties */
 	char *line_identification;
@@ -62,6 +64,7 @@ struct spa_bt_telephony *telephony_new(struct spa_log *log, struct spa_dbus *dbu
 					const struct spa_dict *info);
 void telephony_free(struct spa_bt_telephony *telephony);
 
+
 /* create/destroy the ag object */
 struct spa_bt_telephony_ag * telephony_ag_new(struct spa_bt_telephony *telephony,
 					      size_t user_data_size);
@@ -79,9 +82,6 @@ void telephony_ag_add_listener(struct spa_bt_telephony_ag *ag,
 int telephony_ag_register(struct spa_bt_telephony_ag *ag);
 void telephony_ag_unregister(struct spa_bt_telephony_ag *ag);
 
-//TODO
-//struct spa_bt_telephony_call *telephony_ag_find_call_by_????(struct spa_bt_telephony_ag *ag, ???);
-//void telephony_ag_iterate_calls(struct spa_bt_telephony_ag *ag, callback, userdata);
 
 /* create/destroy the call object */
 struct spa_bt_telephony_call * telephony_call_new(struct spa_bt_telephony_ag *ag,

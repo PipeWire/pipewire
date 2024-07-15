@@ -1388,7 +1388,8 @@ static void rfcomm_process_events(struct rfcomm *rfcomm, char *buf, bool ag, boo
 
 		if (!handler(rfcomm, token)) {
 			spa_log_debug(backend->log, "RFCOMM received unsupported event: %s", token);
-			rfcomm_send_error(rfcomm, CMEE_OPERATION_NOT_SUPPORTED);
+			if (ag)
+				rfcomm_send_error(rfcomm, CMEE_OPERATION_NOT_SUPPORTED);
 		}
 	}
 }

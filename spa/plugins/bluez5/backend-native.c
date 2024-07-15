@@ -5,6 +5,8 @@
 
 #include <errno.h>
 #include <stdbool.h>
+#include <string.h>
+#include <sys/poll.h>
 #include <unistd.h>
 #include <stdarg.h>
 #include <sys/types.h>
@@ -1239,29 +1241,115 @@ next_indicator:
 	return true;
 }
 
+static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token);
+
+static bool hfp_hf_wait_for_reply(struct rfcomm *rfcomm, char *buf, size_t len)
+{
+	struct impl *backend = rfcomm->backend;
+	struct pollfd fds[1];
+	bool reply_found = false;
+
+	fds[0].fd = rfcomm->source.fd;
+	fds[0].events = POLLIN;
+	while (!reply_found) {
+		int ret;
+		char tmp_buf[512];
+		ssize_t tmp_len;
+		char *ptr, *token;
+
+		ret = poll(fds, 1, 2000);
+		if (ret < 0) {
+			spa_log_error(backend->log, "RFCOMM poll error: %s", strerror(errno));
+			return false;
+		} else if (ret == 0) {
+			spa_log_error(backend->log, "RFCOMM poll timeout");
+			return false;
+		}
+
+		if (fds[0].revents & (POLLHUP | POLLERR)) {
+			spa_log_info(backend->log, "lost RFCOMM connection.");
+			rfcomm_free(rfcomm);
+			return false;
+		}
+
+		if (fds[0].revents & POLLIN) {
+			tmp_len = read(rfcomm->source.fd, tmp_buf, sizeof(tmp_buf) - 1);
+			if (tmp_len < 0) {
+				spa_log_error(backend->log, "RFCOMM read error: %s", strerror(errno));
+				return false;
+			}
+			tmp_buf[tmp_len] = '\0';
+
+			/* Relaxed parsing of \r\n<REPLY>\r\n */
+			ptr = tmp_buf;
+			while ((token = strsep(&ptr, "\r"))) {
+				size_t ptr_len;
+
+				/* Skip leading and trailing \n */
+				while (*token == '\n')
+					++token;
+				for (ptr_len = strlen(token); ptr_len > 0 && token[ptr_len - 1] == '\n'; --ptr_len)
+					token[ptr_len - 1] = '\0';
+
+				/* Skip empty */
+				if (*token == '\0' /*&& buf == NULL*/)
+					continue;
+
+				spa_log_debug(backend->log, "RFCOMM event: %s", token);
+				if (spa_strstartswith(token, "OK") || spa_strstartswith(token, "ERROR")) {
+					spa_log_debug(backend->log, "RFCOMM reply found: %s", token);
+					reply_found = true;
+					strncpy(buf, token, len);
+					buf[len-1] = '\0';
+				} else if (!rfcomm_hfp_hf(rfcomm, token)) {
+					spa_log_debug(backend->log, "RFCOMM received unsupported event: %s", token);
+				}
+			}
+		}
+	}
+
+	return reply_found;
+}
+
 static int hfp_hf_answer(void *data) {
 	struct rfcomm_call_data *call_data = telephony_call_get_user_data(data);
+	struct rfcomm *rfcomm = call_data->rfcomm;
+	struct impl *backend = rfcomm->backend;
+	char reply[20];
 
 	if (call_data->call->state != CALL_STATE_INCOMING)
 		return -1;
 
-	rfcomm_send_cmd(call_data->rfcomm, "ATA");
+	rfcomm_send_cmd(rfcomm, "ATA");
+	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
+		spa_log_info(backend->log, "Failed to answer call");
+		return -1;
+	}
 
 	return 0;
 }
 
 static int hfp_hf_hangup(void *data) {
 	struct rfcomm_call_data *call_data = telephony_call_get_user_data(data);
+	struct rfcomm *rfcomm = call_data->rfcomm;
+	struct impl *backend = rfcomm->backend;
+	char reply[20];
 
 	if (call_data->call->state == CALL_STATE_INCOMING || call_data->call->state == CALL_STATE_ACTIVE) {
-		rfcomm_send_cmd(call_data->rfcomm, "AT+CHUP");
-		return 0;
+		rfcomm_send_cmd(rfcomm, "AT+CHUP");
 	} else if (call_data->call->state == CALL_STATE_WAITING) {
-		rfcomm_send_cmd(call_data->rfcomm, "AT+CHLD=0");
-		return 0;
+		rfcomm_send_cmd(rfcomm, "AT+CHLD=0");
+	} else {
+		spa_log_info(backend->log, "Call not incoming, waiting or active: skip hangup");
+		return -1;
 	}
 
-	return -1;
+	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
+		spa_log_info(backend->log, "Failed to hangup call");
+		return -1;
+	}
+
+	return 0;
 }
 
 static const struct spa_bt_telephony_call_events telephony_call_events = {
@@ -1293,15 +1381,19 @@ static int hfp_hf_dial(void *data, const char *number)
 {
 	struct rfcomm *rfcomm = data;
 	struct impl *backend = rfcomm->backend;
-	struct spa_bt_telephony_call *call;
+	char reply[20];
 
 	spa_log_info(backend->log, "Dialing: \"%s\"", number);
-
-	call = hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, CALL_STATE_DIALING, number);
-	if (!call)
-		return -1;
-
 	rfcomm_send_cmd(rfcomm, "ATD%s;", number);
+	if (hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) && spa_strstartswith(reply, "OK")) {
+		struct spa_bt_telephony_call *call;
+		call = hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, CALL_STATE_DIALING, number);
+		if (!call)
+			return -1;
+	} else {
+		spa_log_info(backend->log, "Failed to dial: \"%s\"", number);
+		return -1;
+	}
 
 	return 0;
 }
@@ -1313,6 +1405,7 @@ static int hfp_hf_swap_calls(void *data)
 	struct spa_bt_telephony_call *call;
 	bool found_active = false;
 	bool found_held = false;
+	char reply[20];
 
 	if (!rfcomm->chld_supported)
 		return -1;
@@ -1333,6 +1426,10 @@ static int hfp_hf_swap_calls(void *data)
 	}
 
 	rfcomm_send_cmd(rfcomm, "AT+CHLD=2");
+	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
+		spa_log_info(backend->log, "Failed to swap calls");
+		return -1;
+	}
 
 	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
 		bool changed = false;
@@ -1358,6 +1455,7 @@ static int hfp_hf_release_and_answer(void *data)
 	struct spa_bt_telephony_call *call, *tcall;
 	bool found_active = false;
 	bool found_waiting = false;
+	char reply[20];
 
 	if (!rfcomm->chld_supported)
 		return -1;
@@ -1375,6 +1473,10 @@ static int hfp_hf_release_and_answer(void *data)
 	}
 
 	rfcomm_send_cmd(rfcomm, "AT+CHLD=1");
+	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
+		spa_log_info(backend->log, "Failed to release and answer calls");
+		return -1;
+	}
 
 	spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
 		if (call->state == CALL_STATE_ACTIVE) {
@@ -1397,6 +1499,7 @@ static int hfp_hf_release_and_swap(void *data)
 	struct spa_bt_telephony_call *call, *tcall;
 	bool found_active = false;
 	bool found_held = false;
+	char reply[20];
 
 	if (!rfcomm->chld_supported)
 		return -1;
@@ -1417,6 +1520,10 @@ static int hfp_hf_release_and_swap(void *data)
 	}
 
 	rfcomm_send_cmd(rfcomm, "AT+CHLD=1");
+	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
+		spa_log_info(backend->log, "Failed to release and swap calls");
+		return -1;
+	}
 
 	spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
 		if (call->state == CALL_STATE_ACTIVE) {
@@ -1439,6 +1546,7 @@ static int hfp_hf_hold_and_answer(void *data)
 	struct spa_bt_telephony_call *call;
 	bool found_active = false;
 	bool found_waiting = false;
+	char reply[20];
 
 	if (!rfcomm->chld_supported)
 		return -1;
@@ -1456,6 +1564,10 @@ static int hfp_hf_hold_and_answer(void *data)
 	}
 
 	rfcomm_send_cmd(rfcomm, "AT+CHLD=2");
+	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
+		spa_log_info(backend->log, "Failed to hold and answer calls");
+		return -1;
+	}
 
 	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
 		bool changed = false;
@@ -1477,15 +1589,27 @@ static int hfp_hf_hold_and_answer(void *data)
 static int hfp_hf_hangup_all(void *data)
 {
 	struct rfcomm *rfcomm = data;
+	struct impl *backend = rfcomm->backend;
+	char reply[20];
+	int ret = 0;
 
 	/* Hangup held calls */
-	if (rfcomm->chld_supported)
+	if (rfcomm->chld_supported) {
 		rfcomm_send_cmd(rfcomm, "AT+CHLD=0");
+		if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
+			spa_log_info(backend->log, "Failed to hangup held calls");
+			ret = -1;
+		}
+	}
 
 	/* Hangup active calls */
 	rfcomm_send_cmd(rfcomm, "AT+CHUP");
+	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
+		spa_log_info(backend->log, "Failed to hangup active calls");
+		ret = -1;
+	}
 
-	return 0;
+	return ret;
 }
 
 static int hfp_hf_create_multiparty(void *data)
@@ -1495,6 +1619,7 @@ static int hfp_hf_create_multiparty(void *data)
 	struct spa_bt_telephony_call *call;
 	bool found_active = false;
 	bool found_held = false;
+	char reply[20];
 
 	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
 		if (call->state == CALL_STATE_WAITING) {
@@ -1512,6 +1637,10 @@ static int hfp_hf_create_multiparty(void *data)
 	}
 
 	rfcomm_send_cmd(rfcomm, "AT+CHLD=3");
+	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
+		spa_log_info(backend->log, "Failed to create multiparty");
+		return -1;
+	}
 
 	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
 		bool changed = false;
@@ -1537,6 +1666,7 @@ static int hfp_hf_send_tones(void *data, const char *tones)
 	struct impl *backend = rfcomm->backend;
 	struct spa_bt_telephony_call *call;
 	bool found = false;
+	char reply[20];
 
 	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
 		if (call->state == CALL_STATE_ACTIVE) {
@@ -1551,6 +1681,10 @@ static int hfp_hf_send_tones(void *data, const char *tones)
 	}
 
 	rfcomm_send_cmd(rfcomm, "AT+VTS=%s", tones);
+	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
+		spa_log_info(backend->log, "Failed to send tones: %s", tones);
+		return -1;
+	}
 
 	return 0;
 }

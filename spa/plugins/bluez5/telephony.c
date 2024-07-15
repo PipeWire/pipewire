@@ -777,6 +777,12 @@ static const char * const call_state_to_string[] = {
 	"disconnected",
 };
 
+static inline const void *safe_string(char **str)
+{
+	static const char *empty_string = "";
+	return *str ? (const char **) str : &empty_string;
+}
+
 static void
 dbus_iter_append_call_properties(DBusMessageIter *i, struct spa_bt_telephony_call *call)
 {
@@ -790,7 +796,8 @@ dbus_iter_append_call_properties(DBusMessageIter *i, struct spa_bt_telephony_cal
 	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &line_identification);
 	dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
 					 DBUS_TYPE_STRING_AS_STRING, &variant);
-	dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &call->line_identification);
+	dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING,
+					safe_string (&call->line_identification));
 	dbus_message_iter_close_container(&entry, &variant);
 	dbus_message_iter_close_container(&dict, &entry);
 
@@ -800,7 +807,8 @@ dbus_iter_append_call_properties(DBusMessageIter *i, struct spa_bt_telephony_cal
 	dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
 					 DBUS_TYPE_STRING_AS_STRING,
 					 &variant);
-	dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &call->incoming_line);
+	dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING,
+					safe_string (&call->incoming_line));
 	dbus_message_iter_close_container(&entry, &variant);
 	dbus_message_iter_close_container(&dict, &entry);
 
@@ -810,7 +818,8 @@ dbus_iter_append_call_properties(DBusMessageIter *i, struct spa_bt_telephony_cal
 	dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
 					 DBUS_TYPE_STRING_AS_STRING,
 					 &variant);
-	dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &call->name);
+	dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING,
+					safe_string (&call->name));
 	dbus_message_iter_close_container(&entry, &variant);
 	dbus_message_iter_close_container(&dict, &entry);
 

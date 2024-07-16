@@ -591,10 +591,12 @@ struct pw_node_activation {
 
 	struct pw_node_activation_state state[2];	/* one current state and one next state,
 							 * as version flag */
-	uint64_t signal_time;
-	uint64_t awake_time;
-	uint64_t finish_time;
-	uint64_t prev_signal_time;
+	uint64_t signal_time;                           /* time at which the node was triggered (i.e. marked
+							 * as ready to start processing in the current loop
+							 * iteration) */
+	uint64_t awake_time;                            /* time at which processing actually started */
+	uint64_t finish_time;                           /* time at which processing was completed */
+	uint64_t prev_signal_time;                      /* previous time at which the node was triggered */
 
 	/* updates */
 	struct spa_io_segment reposition;		/* reposition info, used when driver reposition_owner

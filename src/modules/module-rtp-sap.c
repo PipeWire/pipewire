@@ -61,6 +61,7 @@
  * - `net.ttl = <int>`: TTL to use, default 1
  * - `net.loop = <bool>`: loopback multicast, default false
  * - `stream.rules` = <rules>: match rules, use create-stream and announce-stream actions
+ * - `sap.max-sessions = <int>`: maximum number of concurrent send/receive sessions to track
  * - `sap.preamble-extra = [strings]`: extra attributes to add to the atomic SDP preamble
  * - `sap.end-extra = [strings]`: extra attributes to add to the end of the SDP message
  *
@@ -134,7 +135,7 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define MAX_SESSIONS		64
+#define DEFAULT_MAX_SESSIONS		64
 
 #define DEFAULT_ANNOUNCE_RULES	\
 	"[ { matches = [ { sess.sap.announce = true } ] actions = { announce-stream = { } } } ]"
@@ -272,6 +273,7 @@ struct impl {
 	struct spa_source *sap_source;
 	uint32_t cleanup_interval;
 
+	uint32_t max_sessions;
 	uint32_t n_sessions;
 	struct spa_list sessions;
 
@@ -842,8 +844,8 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 	if (node->session)
 		session_free(node->session);
 
-	if (impl->n_sessions >= MAX_SESSIONS) {
-		pw_log_warn("too many sessions (%u >= %u)", impl->n_sessions, MAX_SESSIONS);
+	if (impl->n_sessions >= impl->max_sessions) {
+		pw_log_warn("too many sessions (%u >= %u)", impl->n_sessions, impl->max_sessions);
 		errno = EMFILE;
 		return NULL;
 	}
@@ -1103,8 +1105,8 @@ static struct session *session_new(struct impl *impl, struct sdp_info *info)
 	const char *str;
 	char dst_addr[64], tmp[64];
 
-	if (impl->n_sessions >= MAX_SESSIONS) {
-		pw_log_warn("too many sessions (%u >= %u)", impl->n_sessions, MAX_SESSIONS);
+	if (impl->n_sessions >= impl->max_sessions) {
+		pw_log_warn("too many sessions (%u >= %u)", impl->n_sessions, impl->max_sessions);
 		errno = EMFILE;
 		return NULL;
 	}
@@ -1784,6 +1786,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->ttl = pw_properties_get_uint32(props, "net.ttl", DEFAULT_TTL);
 	impl->mcast_loop = pw_properties_get_bool(props, "net.loop", DEFAULT_LOOP);
+	impl->max_sessions = pw_properties_get_uint32(props, "sap.max-sessions", DEFAULT_MAX_SESSIONS);
 
 	impl->extra_attrs_preamble = NULL;
 	impl->extra_attrs_end = NULL;

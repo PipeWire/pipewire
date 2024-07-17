@@ -1361,6 +1361,14 @@ spa_v4l2_set_control(struct impl *this, uint32_t id,
 		control.value = val;
 		break;
 	}
+	case SPA_TYPE_Float:
+	{
+		float val;
+		if ((res = spa_pod_get_float(&prop->value, &val)) < 0)
+			goto done;
+		control.value = (int32_t) val;
+		break;
+	}
 	case SPA_TYPE_Int:
 	{
 		int32_t val;

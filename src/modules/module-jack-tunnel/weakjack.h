@@ -101,7 +101,7 @@ static inline int weakjack_load_by_path(struct weakjack *jack, const char *path)
 
 	hnd = dlopen(path, RTLD_NOW);
 	if (hnd == NULL)
-		return -errno;
+		return -ENOENT;
 
 	pw_log_info("opened libjack: %s", path);
 

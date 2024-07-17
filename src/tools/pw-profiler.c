@@ -323,9 +323,9 @@ static void dump_scripts(struct data *d)
 			"set title \"Audio driver timing\"\n"
 			"set xlabel \"audio cycles\"\n"
 			"set ylabel \"usec\"\n"
-			"plot \"%1$s\" using 3 title \"Audio driver delay\" with lines, "
-			"\"%1$s\" using 1 title \"Audio period\" with lines,"
-			"\"%1$s\" using 4 title \"Audio estimated\" with lines\n"
+			"plot \"%1$s\" using 3 title \"Audio driver delay (h/w ptr - wakeup time)\" with lines, "
+			"\"%1$s\" using 1 title \"Audio period (current wakeup - prev wakeup)\" with lines,"
+			"\"%1$s\" using 4 title \"Audio estimated (cycle period or quantum)\" with lines\n"
 			"unset multiplot\n"
 			"unset output\n", d->filename);
 		fclose(out);
@@ -339,7 +339,7 @@ static void dump_scripts(struct data *d)
 			"set output 'Timing2.svg\n"
 			"set terminal svg\n"
 			"set grid\n"
-			"set title \"Driver end date\"\n"
+			"set title \"Driver end date (total cycle processing time)\"\n"
 			"set xlabel \"audio cycles\"\n"
 			"set ylabel \"usec\"\n"
 			"plot  \"%s\" using 2 title \"Driver end date\" with lines \n"
@@ -356,7 +356,7 @@ static void dump_scripts(struct data *d)
 			"set terminal svg\n"
 			"set multiplot\n"
 			"set grid\n"
-			"set title \"Clients end date\"\n"
+			"set title \"Clients end date (scheduled -> finished)\"\n"
 			"set xlabel \"audio cycles\"\n"
 			"set ylabel \"usec\"\n"
 			"plot "
@@ -386,7 +386,7 @@ static void dump_scripts(struct data *d)
 			"set terminal svg\n"
 			"set multiplot\n"
 			"set grid\n"
-			"set title \"Clients scheduling latency\"\n"
+			"set title \"Clients scheduling latency (scheduled -> active)\"\n"
 			"set xlabel \"audio cycles\"\n"
 			"set ylabel \"usec\"\n"
 			"plot ");
@@ -413,7 +413,7 @@ static void dump_scripts(struct data *d)
 			"set terminal svg\n"
 			"set multiplot\n"
 			"set grid\n"
-			"set title \"Clients duration\"\n"
+			"set title \"Clients duration (active -> finished)\"\n"
 			"set xlabel \"audio cycles\"\n"
 			"set ylabel \"usec\"\n"
 			"plot ");

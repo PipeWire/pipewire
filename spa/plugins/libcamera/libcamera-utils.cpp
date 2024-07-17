@@ -598,7 +598,7 @@ static int do_update_ctrls(struct spa_loop *loop,
 		impl->ctrls.set(d->id, d->f_val);
 		break;
 	case ControlTypeInteger32:
-		//impl->ctrls.set(d->id, (int32_t)d->i_val);
+		impl->ctrls.set(d->id, (int32_t)d->i_val);
 		break;
 	default:
 		break;

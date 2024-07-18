@@ -1444,12 +1444,41 @@ static inline void fix_midi_event(uint8_t *data, size_t size)
 	}
 }
 
+static inline jack_midi_data_t* midi_event_reserve(void *port_buffer,
+                        jack_nframes_t  time, size_t data_size)
+{
+	struct midi_buffer *mb = port_buffer;
+	uint8_t *res = NULL;
+
+	/* Check if data_size is >0 and there is enough space in the buffer for the event. */
+	if (SPA_UNLIKELY(data_size <= 0)) {
+		pw_log_warn("midi %p: data_size:%zd", port_buffer, data_size);
+	} else if (SPA_UNLIKELY(jack_midi_max_event_size (port_buffer) < data_size)) {
+		pw_log_warn("midi %p: event too large: data_size:%zd", port_buffer, data_size);
+	} else {
+		struct midi_event *events = SPA_PTROFF(mb, sizeof(*mb), struct midi_event);
+		struct midi_event *ev = &events[mb->event_count];
+
+		ev->time = time;
+		ev->size = data_size;
+		if (SPA_LIKELY(data_size <= MIDI_INLINE_MAX)) {
+			res = ev->inline_data;
+		} else {
+			mb->write_pos += data_size;
+			ev->byte_offset = mb->buffer_size - 1 - mb->write_pos;
+			res = SPA_PTROFF(mb, ev->byte_offset, uint8_t);
+		}
+		mb->event_count += 1;
+	}
+	return res;
+}
+
 static inline int midi_event_write(void *port_buffer,
                       jack_nframes_t time,
                       const jack_midi_data_t *data,
                       size_t data_size, bool fix)
 {
-	jack_midi_data_t *retbuf = jack_midi_event_reserve (port_buffer, time, data_size);
+	jack_midi_data_t *retbuf = midi_event_reserve (port_buffer, time, data_size);
         if (SPA_UNLIKELY(retbuf == NULL))
                 return -ENOBUFS;
 	memcpy (retbuf, data, data_size);
@@ -5471,6 +5500,8 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 		size_t offs = mb->buffer_size - 1 - mb->write_pos;
 		memcpy(SPA_PTROFF(ptr, offs, void), SPA_PTROFF(mb, offs, void), mb->write_pos);
 	}
+	if (mb->event_count > 0)
+		spa_debug_mem(0, ptr, 64);
 	return ptr;
 }
 
@@ -5553,7 +5584,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 		ptr = p->get_buffer(p, frames);
 	}
 done:
-	pw_log_trace_fp("%p: port:%p buffer:%p frames:%d", c, p, ptr, frames);
+	pw_log_warn("%p: port:%p buffer:%p frames:%d", c, p, ptr, frames);
 	return ptr;
 }
 
@@ -7354,55 +7385,45 @@ size_t jack_midi_max_event_size(void* port_buffer)
         }
 }
 
-SPA_EXPORT
-jack_midi_data_t* jack_midi_event_reserve(void *port_buffer,
-                        jack_nframes_t  time,
-                        size_t data_size)
+static inline int midi_buffer_check(void *port_buffer, jack_nframes_t  time)
 {
 	struct midi_buffer *mb = port_buffer;
 	struct midi_event *events;
 
 	if (SPA_UNLIKELY(mb == NULL)) {
 		pw_log_warn("port buffer is NULL");
-		return NULL;
+		return -EINVAL;
 	}
 	if (SPA_UNLIKELY(mb->magic != MIDI_BUFFER_MAGIC)) {
 		pw_log_warn("port buffer is invalid");
-		return NULL;
+		return -EINVAL;
 	}
 	if (SPA_UNLIKELY(time >= mb->nframes)) {
 		pw_log_warn("midi %p: time:%d frames:%d", port_buffer, time, mb->nframes);
-		goto failed;
+		return -EINVAL;
 	}
 	events = SPA_PTROFF(mb, sizeof(*mb), struct midi_event);
 	if (SPA_UNLIKELY(mb->event_count > 0 && time < events[mb->event_count - 1].time)) {
 		pw_log_warn("midi %p: time:%d ev:%d", port_buffer, time, mb->event_count);
-		goto failed;
+		return -EINVAL;
 	}
+	return 0;
+}
 
-	/* Check if data_size is >0 and there is enough space in the buffer for the event. */
-	if (SPA_UNLIKELY(data_size <= 0)) {
-		pw_log_warn("midi %p: data_size:%zd", port_buffer, data_size);
-		goto failed; // return NULL?
-	} else if (SPA_UNLIKELY(jack_midi_max_event_size (port_buffer) < data_size)) {
-		pw_log_warn("midi %p: event too large: data_size:%zd", port_buffer, data_size);
+SPA_EXPORT
+jack_midi_data_t* jack_midi_event_reserve(void *port_buffer,
+                        jack_nframes_t  time,
+                        size_t data_size)
+{
+	struct midi_buffer *mb = port_buffer;
+	jack_midi_data_t *res;
+
+	if (midi_buffer_check(port_buffer, time) < 0)
 		goto failed;
-	} else {
-		struct midi_event *ev = &events[mb->event_count];
-		uint8_t *res;
 
-		ev->time = time;
-		ev->size = data_size;
-		if (SPA_LIKELY(data_size <= MIDI_INLINE_MAX)) {
-			res = ev->inline_data;
-		} else {
-			mb->write_pos += data_size;
-			ev->byte_offset = mb->buffer_size - 1 - mb->write_pos;
-			res = SPA_PTROFF(mb, ev->byte_offset, uint8_t);
-		}
-		mb->event_count += 1;
+	res = midi_event_reserve(port_buffer, time, data_size);
+	if (res != NULL)
 		return res;
-	}
 failed:
 	mb->lost_events++;
 	return NULL;
@@ -7414,7 +7435,17 @@ int jack_midi_event_write(void *port_buffer,
                       const jack_midi_data_t *data,
                       size_t data_size)
 {
-	return midi_event_write(port_buffer, time, data, data_size, false);
+	jack_midi_data_t *ptr;
+	int res;
+
+	if ((res = midi_buffer_check(port_buffer, time)) < 0)
+		return res;
+
+	if ((ptr = midi_event_reserve(port_buffer, time, data_size)) == NULL)
+		return -ENOBUFS;
+
+	memcpy (ptr, data, data_size);
+	return 0;
 }
 
 SPA_EXPORT

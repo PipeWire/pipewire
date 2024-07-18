@@ -3643,7 +3643,7 @@ int spa_alsa_start(struct state *state)
 		}
 
 		/* We only add the source to the data loop if we're driving.
-		 * This is done in setup_sources() */
+		 * This is done in add_sources() */
 		for (int i = 0; i < state->n_fds; i++) {
 			state->source[i].func = alsa_irq_wakeup_event;
 			state->source[i].data = state;

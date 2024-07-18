@@ -306,9 +306,11 @@ static void stream_state_changed(void *d, enum pw_filter_state old,
 	struct stream *s = d;
 	struct impl *impl = s->impl;
 	switch (state) {
-	case PW_FILTER_STATE_ERROR:
 	case PW_FILTER_STATE_UNCONNECTED:
 		pw_impl_module_schedule_destroy(impl->module);
+		break;
+	case PW_FILTER_STATE_ERROR:
+		pw_log_warn("stream %p: error: %s", s, error);
 		break;
 	case PW_FILTER_STATE_PAUSED:
 		s->running = false;

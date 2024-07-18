@@ -563,6 +563,8 @@ static inline void copy_target(struct pw_node_target *dst, const struct pw_node_
  */
 #define PW_VERSION_NODE_ACTIVATION	1
 
+#define PW_NODE_ACTIVATION_PENDING_TRIGGER(status) ((status) <= PW_NODE_ACTIVATION_AWAKE)
+
 /* nodes start as INACTIVE, when they are ready to be scheduled, they add their
  * fd to the loop and change status to FINISHED. When the node shuts down, the
  * status is set back to INACTIVE.

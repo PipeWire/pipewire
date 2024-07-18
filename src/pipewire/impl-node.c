@@ -177,7 +177,8 @@ do_node_prepare(struct spa_loop *loop, bool async, uint32_t seq,
 	uint64_t dummy;
 	int res;
 
-	pw_log_trace("%p: prepare %d remote:%d", this, this->rt.prepared, this->remote);
+	pw_log_trace("%p: prepare %d remote:%d exported:%d", this, this->rt.prepared,
+			this->remote, this->exported);
 
 	if (this->rt.prepared)
 		return 0;
@@ -216,10 +217,8 @@ do_node_unprepare(struct spa_loop *loop, bool async, uint32_t seq,
 	int old_state;
 	uint64_t trigger = 0;
 
-	pw_log_trace("%p: unprepare %d remote:%d", this, this->rt.prepared, this->remote);
-
-	if (!this->rt.prepared)
-		return 0;
+	pw_log_trace("%p: unprepare %d remote:%d exported:%d", this, this->rt.prepared,
+			this->remote, this->exported);
 
 	if (!this->exported) {
 		/* We mark ourself as finished now, this will avoid going further into the process loop
@@ -227,9 +226,12 @@ do_node_unprepare(struct spa_loop *loop, bool async, uint32_t seq,
 		 * If we were supposed to be scheduled make sure we continue the graph for the peers we
 		 * were supposed to trigger */
 		old_state = SPA_ATOMIC_XCHG(this->rt.target.activation->status, PW_NODE_ACTIVATION_INACTIVE);
-		if (old_state != PW_NODE_ACTIVATION_FINISHED)
+		if (PW_NODE_ACTIVATION_PENDING_TRIGGER(old_state))
 			trigger = get_time_ns(this->rt.target.system);
 	}
+	if (!this->rt.prepared)
+		return 0;
+
 	if (!this->remote)
 		spa_loop_remove_source(loop, &this->source);
 
@@ -861,7 +863,7 @@ do_remove_target(struct spa_loop *loop,
 		if (node->rt.prepared) {
 			int old_state = SPA_ATOMIC_LOAD(node->rt.target.activation->status);
 			uint64_t trigger = 0;
-			if (old_state != PW_NODE_ACTIVATION_FINISHED)
+			if (PW_NODE_ACTIVATION_PENDING_TRIGGER(old_state))
 				trigger = get_time_ns(node->rt.target.system);
 			deactivate_target(node, t, trigger);
 		}

@@ -519,21 +519,13 @@ static void make_stream_ports(struct stream *s)
 	struct follower *follower = s->follower;
 	uint32_t i;
 	struct pw_properties *props;
-	const char *str, *prefix;
+	const char *str;
 	char name[256];
 	bool is_midi;
 	uint8_t buffer[512];
 	struct spa_pod_builder b;
 	struct spa_latency_info latency;
 	const struct spa_pod *params[1];
-
-	if (s->direction == PW_DIRECTION_INPUT) {
-		/* sink */
-		prefix = "playback";
-	} else {
-		/* source */
-		prefix = "capture";
-	}
 
 	for (i = 0; i < s->n_ports; i++) {
 		struct port *port = s->ports[i];
@@ -545,25 +537,20 @@ static void make_stream_ports(struct stream *s)
 		if (i < s->info.channels) {
 			str = spa_debug_type_find_short_name(spa_type_audio_channel,
 					s->info.position[i]);
-			if (str)
-				snprintf(name, sizeof(name), "%s_%s", prefix, str);
-			else
-				snprintf(name, sizeof(name), "%s_%d", prefix, i);
 
 			props = pw_properties_new(
 					PW_KEY_FORMAT_DSP, "32 bit float mono audio",
 					PW_KEY_AUDIO_CHANNEL, str ? str : "UNK",
 					PW_KEY_PORT_PHYSICAL, "true",
-					PW_KEY_PORT_NAME, name,
 					NULL);
 
 			is_midi = false;
 		} else {
-			snprintf(name, sizeof(name), "%s_%d", prefix, i - s->info.channels);
+			snprintf(name, sizeof(name), "midi%d", i - s->info.channels);
 			props = pw_properties_new(
 					PW_KEY_FORMAT_DSP, "8 bit raw midi",
-					PW_KEY_PORT_NAME, name,
 					PW_KEY_PORT_PHYSICAL, "true",
+					PW_KEY_AUDIO_CHANNEL, name,
 					NULL);
 
 			is_midi = true;

@@ -6773,7 +6773,7 @@ jack_time_t jack_get_time(void)
 {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return SPA_TIMESPEC_TO_NSEC(&ts);
+	return SPA_TIMESPEC_TO_USEC(&ts);
 }
 
 SPA_EXPORT

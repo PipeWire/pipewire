@@ -392,11 +392,8 @@ static void follower_free(struct follower *follower)
 	free(follower);
 }
 
-static int
-do_stop_follower(struct spa_loop *loop,
-	bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+static int stop_follower(struct follower *follower)
 {
-	struct follower *follower = user_data;
 	follower->started = false;
 	if (follower->source.filter)
 		pw_filter_set_active(follower->source.filter, false);
@@ -423,12 +420,10 @@ static void
 on_setup_io(void *data, int fd, uint32_t mask)
 {
 	struct follower *follower = data;
-	struct impl *impl = follower->impl;
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_warn("error:%08x", mask);
-		pw_loop_destroy_source(impl->main_loop, follower->setup_socket);
-		follower->setup_socket = NULL;
+		stop_follower(follower);
 		return;
 	}
 	if (mask & SPA_IO_IN) {
@@ -473,7 +468,6 @@ on_data_io(void *data, int fd, uint32_t mask)
 		pw_log_warn("error:%08x", mask);
 		pw_loop_destroy_source(impl->data_loop, follower->socket);
 		follower->socket = NULL;
-		pw_loop_invoke(impl->main_loop, do_stop_follower, 1, NULL, 0, false, follower);
 		return;
 	}
 	if (mask & SPA_IO_IN) {

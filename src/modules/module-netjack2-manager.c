@@ -65,7 +65,7 @@
  * - `net.ttl = <int>`: TTL to use, default 1
  * - `net.loop = <bool>`: loopback multicast, default false
  * - `netjack2.connect`: if jack ports should be connected automatically. Can also be
- *                   placed per stream.
+ *                   placed per stream, default false.
  * - `netjack2.sample-rate`: the sample rate to use, default 48000
  * - `netjack2.period-size`: the buffer size to use, default 1024
  * - `netjack2.encoding`: the encoding, float|opus|int, default float
@@ -133,6 +133,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define NETWORK_MAX_LATENCY	30
 
+#define DEFAULT_CONNECT		false
 #define DEFAULT_SAMPLE_RATE	48000
 #define DEFAULT_PERIOD_SIZE	1024
 #define DEFAULT_ENCODING	"float"
@@ -148,7 +149,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"( net.mtu=<MTU to use, default 1500> ) "		\
 			"( net.ttl=<TTL to use, default 1> ) "			\
 			"( net.loop=<loopback, default false> ) "		\
-			"( netjack2.connect=<bool, autoconnect ports> ) "	\
+			"( netjack2.connect=<autoconnect ports, default false> ) "	\
 			"( netjack2.sample-rate=<sampl erate, default 48000> ) "\
 			"( netjack2.period-size=<period size, default 1024> ) "	\
 			"( midi.ports=<number of midi ports> ) "		\
@@ -1312,10 +1313,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(props, PW_KEY_NODE_LOCK_RATE) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_LOCK_RATE, "true");
 
-	pw_properties_set(impl->sink_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 	pw_properties_set(impl->sink_props, PW_KEY_NODE_NAME, "netjack2_manager_send");
-
-	pw_properties_set(impl->source_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 	pw_properties_set(impl->source_props, PW_KEY_NODE_NAME, "netjack2_manager_recv");
 
 	if ((str = pw_properties_get(props, "sink.props")) != NULL)
@@ -1332,6 +1330,26 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_LOCK_RATE);
 	copy_props(impl, props, PW_KEY_AUDIO_CHANNELS);
 	copy_props(impl, props, SPA_KEY_AUDIO_POSITION);
+	copy_props(impl, props, "netjack2.connect");
+
+	if (pw_properties_get_bool(impl->sink_props, "netjack2.connect", DEFAULT_CONNECT)) {
+		if (pw_properties_get(impl->sink_props, PW_KEY_NODE_AUTOCONNECT) == NULL)
+			pw_properties_set(impl->sink_props, PW_KEY_NODE_AUTOCONNECT, "true");
+		if (pw_properties_get(impl->sink_props, PW_KEY_MEDIA_CLASS) == NULL)
+			pw_properties_set(impl->sink_props, PW_KEY_MEDIA_CLASS, "Stream/Input/Audio");
+	} else {
+		if (pw_properties_get(impl->sink_props, PW_KEY_MEDIA_CLASS) == NULL)
+			pw_properties_set(impl->sink_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
+	}
+	if (pw_properties_get_bool(impl->source_props, "netjack2.connect", DEFAULT_CONNECT)) {
+		if (pw_properties_get(impl->source_props, PW_KEY_NODE_AUTOCONNECT) == NULL)
+			pw_properties_set(impl->source_props, PW_KEY_NODE_AUTOCONNECT, "true");
+		if (pw_properties_get(impl->source_props, PW_KEY_MEDIA_CLASS) == NULL)
+			pw_properties_set(impl->source_props, PW_KEY_MEDIA_CLASS, "Stream/Output/Audio");
+	} else {
+		if (pw_properties_get(impl->source_props, PW_KEY_MEDIA_CLASS) == NULL)
+			pw_properties_set(impl->source_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
+	}
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

@@ -452,7 +452,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	min_samples = msec_to_samples(impl, min_ptime);
 	max_samples = msec_to_samples(impl, max_ptime);
 
-	float ptime = 0;
+	float ptime = 0.0f;
 	if ((str = pw_properties_get(props, "rtp.ptime")) != NULL)
 		if (!spa_atof(str, &ptime))
 			ptime = 0.0f;
@@ -502,14 +502,16 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	impl->target_buffer = msec_to_samples(impl, latency_msec);
 	impl->max_error = msec_to_samples(impl, ERROR_MSEC);
 
-	if (impl->target_buffer < ptime) {
-		pw_log_warn("sess.latency.msec cannot be lower than rtp.ptime");
+	if (impl->target_buffer < impl->psamples) {
+		pw_log_warn("sess.latency.msec %f cannot be lower than rtp.ptime %f",
+				latency_msec, ptime);
 		impl->target_buffer = impl->psamples;
 	}
 
 	/* We're not expecting odd ptimes, so this modulo should be 0 */
-	if (fmodf(impl->target_buffer, ptime) != 0) {
-		pw_log_warn("sess.latency.msec should be an integer multiple of rtp.ptime");
+	if (fmodf(impl->target_buffer, impl->psamples) != 0) {
+		pw_log_warn("sess.latency.msec %f should be an integer multiple of rtp.ptime %f",
+				latency_msec, ptime);
 		impl->target_buffer = (uint32_t)((impl->target_buffer / ptime) * impl->psamples);
 	}
 

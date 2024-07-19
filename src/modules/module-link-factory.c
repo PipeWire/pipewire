@@ -163,8 +163,7 @@ static void link_state_changed(void *data, enum pw_link_state old,
 
 	switch (state) {
 	case PW_LINK_STATE_ERROR:
-		if (ld->linger)
-			pw_work_queue_add(d->work, ld, 0, destroy_link, ld);
+		pw_work_queue_add(d->work, ld, 0, destroy_link, ld);
 		break;
 	default:
 		break;

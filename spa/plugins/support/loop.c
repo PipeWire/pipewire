@@ -338,6 +338,7 @@ xrun:
 		spa_log_warn(impl->log, "%p: queue full %d, need %zd (%d suppressed)",
 				queue, avail, need, suppressed);
 	}
+	loop_signal_event(impl, impl->wakeup);
 	if (impl->retry_timeout == 0)
 		return -EPIPE;
 	usleep(impl->retry_timeout);

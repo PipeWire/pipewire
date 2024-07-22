@@ -737,7 +737,7 @@ static bool is_multicast(struct sockaddr *sa, socklen_t salen)
 }
 
 static int make_data_socket(struct sockaddr_storage *sa, socklen_t salen,
-		bool loop, int ttl, int dscp, char *ifname)
+		bool loop, int ttl, int dscp, const char *ifname)
 {
 	int af, fd, val, res;
 	struct timeval timeout;
@@ -747,6 +747,13 @@ static int make_data_socket(struct sockaddr_storage *sa, socklen_t salen,
 		pw_log_error("socket failed: %m");
 		return -errno;
 	}
+#ifdef SO_BINDTODEVICE
+	if (ifname && setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, ifname, strlen(ifname)) < 0) {
+		res = -errno;
+		pw_log_error("setsockopt(SO_BINDTODEVICE) failed: %m");
+		goto error;
+	}
+#endif
 	if (connect(fd, (struct sockaddr*)sa, salen) < 0) {
 		res = -errno;
 		pw_log_error("connect() failed: %m");
@@ -779,7 +786,7 @@ error:
 }
 
 static int make_announce_socket(struct sockaddr_storage *sa, socklen_t salen,
-		char *ifname)
+		const char *ifname)
 {
 	int af, fd, val, res;
 	struct ifreq req;
@@ -947,7 +954,8 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 		goto create_failed;
 
 	fd = make_data_socket(addr, addr_len, impl->loop,
-			impl->ttl, impl->dscp, NULL);
+			impl->ttl, impl->dscp,
+			pw_properties_get(impl->props, "local.ifname"));
 	if (fd < 0)
 		goto socket_failed;
 
@@ -1073,8 +1081,10 @@ static int create_netjack2_socket(struct impl *impl)
 	impl->ttl = pw_properties_get_uint32(impl->props, "net.ttl", DEFAULT_NET_TTL);
 	impl->loop = pw_properties_get_bool(impl->props, "net.loop", DEFAULT_NET_LOOP);
 	impl->dscp = pw_properties_get_uint32(impl->props, "net.dscp", DEFAULT_NET_DSCP);
+	str = pw_properties_get(impl->props, "local.ifname");
 
-	fd = make_announce_socket(&impl->src_addr, impl->src_len, NULL);
+	fd = make_announce_socket(&impl->src_addr, impl->src_len,
+			pw_properties_get(impl->props, "local.ifname"));
 	if (fd < 0) {
 		res = fd;
 		pw_log_error("can't create socket: %s", spa_strerror(res));

@@ -69,7 +69,7 @@
  *
  *\code{.unparsed}
  * context.modules = [
- * {   name = libpipewire-snapcast-discover
+ * {   name = libpipewire-module-snapcast-discover
  *     args = {
  *         stream.rules = [
  *             {   matches = [

@@ -720,7 +720,7 @@ static inline enum spa_bt_transport_state spa_bt_transport_state_from_string(con
 {
 	if (strcasecmp("idle", value) == 0)
 		return SPA_BT_TRANSPORT_STATE_IDLE;
-	else if (strcasecmp("pending", value) == 0)
+	else if ((strcasecmp("pending", value) == 0) || (strcasecmp("broadcasting", value) == 0))
 		return SPA_BT_TRANSPORT_STATE_PENDING;
 	else if (strcasecmp("active", value) == 0)
 		return SPA_BT_TRANSPORT_STATE_ACTIVE;

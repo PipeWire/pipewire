@@ -88,7 +88,7 @@ manpage_docs = [
   'dox/config/pipewire.conf.5.md',
   'dox/config/pipewire-client.conf.5.md',
   'dox/config/pipewire-jack.conf.5.md',
-  'dox/config/pipewire-devices.7.md',
+  'dox/config/pipewire-props.7.md',
   'dox/config/pipewire-filter-chain.conf.5.md',
   'dox/config/pipewire-pulse-modules.7.md',
   'dox/config/libpipewire-modules.7.md',

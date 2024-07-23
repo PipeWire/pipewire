@@ -30,7 +30,7 @@ Configuration of daemons:
 Configuration of devices:
 
 - [WirePlumber configuration](https://pipewire.pages.freedesktop.org/wireplumber/daemon/configuration.html)
-- \ref page_man_pipewire-devices_7 "Device and node property reference"
+- \ref page_man_pipewire-props_7 "Object property reference"
 
 Configuration for client applications, either connecting via the
 native PipeWire interface, or the emulated ALSA, JACK, or PulseAudio
@@ -47,7 +47,7 @@ interfaces:
 - \subpage page_man_pipewire-pulse_conf_5
 - \subpage page_man_pipewire-jack_conf_5
 - \subpage page_man_pipewire-filter-chain_conf_5
-- \subpage page_man_pipewire-devices_7
+- \subpage page_man_pipewire-props_7
 - \subpage page_man_pipewire-pulse-modules_7
 - \subpage page_man_libpipewire-modules_7
 
@@ -77,6 +77,28 @@ interfaces:
 
 @SECREF@ pipewire-env client-env jack-env pulse-env
 
+**Object properties**
+
+@SECREF@ props
+
+**Monitor properties**
+
+@SECREF@ monitor-prop
+
 **Device properties**
 
-@SECREF@ device-param
+@SECREF@ device-prop
+
+**Node properties**
+
+@SECREF@ node-prop
+
+**Port properties**
+
+@SECREF@ port-prop
+
+**Client properties**
+
+@SECREF@ client-prop
+
+\see pw_keys in API documentation.

@@ -306,17 +306,24 @@ build_on_fedora_html_docs:
         -Dsndfile=enabled
         -Dsession-managers=[]
   before_script:
-    - git fetch origin 1.0 master
+    - git fetch origin 1.0 1.2 master
     - git branch -f 1.0 origin/1.0
-    - git branch -f master origin/master
     - git clone -b 1.0 . branch-1.0
+    - git branch -f 1.2 origin/1.2
+    - git clone -b 1.2 . branch-1.2
+    - git branch -f master origin/master
     - git clone -b master . branch-master
     - !reference [.build, before_script]
   script:
     - cd branch-1.0
     - meson setup builddir $MESON_OPTIONS
     - meson compile -C builddir doc/pipewire-docs
-    - cd ../branch-master
+    - cd ..
+    - cd branch-1.2
+    - meson setup builddir $MESON_OPTIONS
+    - meson compile -C builddir doc/pipewire-docs
+    - cd ..
+    - cd branch-master
     - meson setup builddir $MESON_OPTIONS
     - meson compile -C builddir doc/pipewire-docs
   artifacts:
@@ -557,12 +564,15 @@ pages:
   dependencies:
     - build_on_fedora_html_docs
   script:
-    - mkdir public public/devel
-    - cp -R branch-1.0/builddir/doc/html/* public/
+    - mkdir public public/1.0 public/1.2 public/devel
+    - cp -R branch-1.0/builddir/doc/html/* public/1.0/
+    - cp -R branch-1.2/builddir/doc/html/* public/1.2/
     - cp -R branch-master/builddir/doc/html/* public/devel/
+    - (cd public && ln -s 1.2/* .)
   artifacts:
     paths:
       - public
   rules:
     - if: $CI_COMMIT_BRANCH == 'master'
     - if: $CI_COMMIT_BRANCH == '1.0'
+    - if: $CI_COMMIT_BRANCH == '1.2'

@@ -19,6 +19,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/param.h>
 #include <spa/control/control.h>
+#include <spa/control/ump-utils.h>
 #include <spa/pod/filter.h>
 
 #undef SPA_LOG_TOPIC_DEFAULT
@@ -49,6 +50,8 @@ struct port {
 
 	unsigned int valid:1;
 	unsigned int have_format:1;
+
+	uint32_t types;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
@@ -449,7 +452,7 @@ static int port_set_format(void *object,
 			clear_buffers(this, port);
 		}
 	} else {
-		uint32_t media_type, media_subtype;
+		uint32_t media_type, media_subtype, types = 0;
 		if ((res = spa_format_parse(format, &media_type, &media_subtype)) < 0)
 			return res;
 
@@ -457,11 +460,17 @@ static int port_set_format(void *object,
 		    media_subtype != SPA_MEDIA_SUBTYPE_control)
 			return -EINVAL;
 
+		if ((res = spa_pod_parse_object(format,
+				SPA_TYPE_OBJECT_Format, NULL,
+				SPA_FORMAT_CONTROL_types,  SPA_POD_OPT_Int(&types))) < 0)
+			return res;
+
 		this->have_format = true;
 
 		if (!port->have_format) {
 			this->n_formats++;
 			port->have_format = true;
+			port->types = types;
 			spa_log_debug(this->log, "%p: set format on port %d:%d",
 					this, direction, port_id);
 		}
@@ -620,6 +629,17 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 	return queue_buffer(this, port, &port->buffers[buffer_id]);
 }
 
+static inline int event_compare(uint8_t s1, uint8_t s2)
+{
+	/* 11 (controller) > 12 (program change) >
+	 * 8 (note off) > 9 (note on) > 10 (aftertouch) >
+	 * 13 (channel pressure) > 14 (pitch bend) */
+	static int priotab[] = { 5,4,3,7,6,2,1,0 };
+	if ((s1 & 0xf) != (s2 & 0xf))
+		return 0;
+	return priotab[(s2>>4) & 7] - priotab[(s1>>4) & 7];
+}
+
 static inline int event_sort(struct spa_pod_control *a, struct spa_pod_control *b)
 {
 	if (a->offset < b->offset)
@@ -631,21 +651,20 @@ static inline int event_sort(struct spa_pod_control *a, struct spa_pod_control *
 	switch(a->type) {
 	case SPA_CONTROL_Midi:
 	{
-		/* 11 (controller) > 12 (program change) >
-		 * 8 (note off) > 9 (note on) > 10 (aftertouch) >
-		 * 13 (channel pressure) > 14 (pitch bend) */
-		static int priotab[] = { 5,4,3,7,6,2,1,0 };
-		uint8_t *da, *db;
-
-		if (SPA_POD_BODY_SIZE(&a->value) < 1 ||
-		    SPA_POD_BODY_SIZE(&b->value) < 1)
+		uint8_t *da = SPA_POD_BODY(&a->value), *db = SPA_POD_BODY(&b->value);
+		if (SPA_POD_BODY_SIZE(&a->value) < 1 || SPA_POD_BODY_SIZE(&b->value) < 1)
 			return 0;
-
-		da = SPA_POD_BODY(&a->value);
-		db = SPA_POD_BODY(&b->value);
-		if ((da[0] & 0xf) != (db[0] & 0xf))
+		return event_compare(da[0], db[0]);
+	}
+	case SPA_CONTROL_UMP:
+	{
+		uint32_t *da = SPA_POD_BODY(&a->value), *db = SPA_POD_BODY(&b->value);
+		if (SPA_POD_BODY_SIZE(&a->value) < 4 || SPA_POD_BODY_SIZE(&b->value) < 4)
 			return 0;
-		return priotab[(db[0]>>4) & 7] - priotab[(da[0]>>4) & 7];
+		if ((da[0] >> 28) != 2 || (da[0] >> 28) != 4 ||
+		    (db[0] >> 28) != 2 || (db[0] >> 28) != 4)
+			return 0;
+		return event_compare(da[0] >> 16, db[0] >> 16);
 	}
 	default:
 		return 0;
@@ -763,8 +782,39 @@ static int impl_node_process(void *object)
 		if (next == NULL)
 			break;
 
-		spa_pod_builder_control(&builder, next->offset, next->type);
-		spa_pod_builder_primitive(&builder, &next->value);
+		if (outport->types && (outport->types & (1u << next->type)) == 0) {
+			uint8_t *data = SPA_POD_BODY(&next->value);
+			size_t size = SPA_POD_BODY_SIZE(&next->value);
+
+			switch (next->type) {
+			case SPA_CONTROL_Midi:
+			{
+				uint32_t ump[4];
+				uint64_t state = 0;
+				while (size > 0) {
+					int ump_size = spa_ump_from_midi(&data, &size, ump, sizeof(ump), 0, &state);
+					if (ump_size <= 0)
+						break;
+					spa_pod_builder_control(&builder, next->offset, SPA_CONTROL_UMP);
+					spa_pod_builder_bytes(&builder, ump, ump_size);
+				}
+				break;
+			}
+			case SPA_CONTROL_UMP:
+			{
+				uint8_t ev[8];
+				int ev_size = spa_ump_to_midi((uint32_t*)data, size, ev, sizeof(ev));
+				if (ev_size <= 0)
+					break;
+				spa_pod_builder_control(&builder, next->offset, SPA_CONTROL_Midi);
+				spa_pod_builder_bytes(&builder, ev, ev_size);
+				break;
+			}
+			}
+		} else {
+			spa_pod_builder_control(&builder, next->offset, next->type);
+			spa_pod_builder_primitive(&builder, &next->value);
+		}
 
 		ctrl[next_index] = spa_pod_control_next(ctrl[next_index]);
 	}

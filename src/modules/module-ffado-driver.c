@@ -24,6 +24,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/latency-utils.h>
 #include <spa/param/audio/raw.h>
+#include <spa/control/ump-utils.h>
 
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
@@ -333,30 +334,30 @@ static void midi_to_ffado(struct port *p, float *src, uint32_t n_samples)
 	p->event_pos = 0;
 
 	SPA_POD_SEQUENCE_FOREACH(seq, c) {
-		switch(c->type) {
-		case SPA_CONTROL_Midi:
-		{
-			uint8_t *data = SPA_POD_BODY(&c->value);
-			size_t size = SPA_POD_BODY_SIZE(&c->value);
+		uint8_t data[16];
+		int j, size;
 
-			if (index < c->offset)
-				index = SPA_ROUND_UP_N(c->offset, 8);
-			for (i = 0; i < size; i++) {
-				if (index >= n_samples) {
-					/* keep events that don't fit for the next cycle */
-					if (p->event_pos < sizeof(p->event_buffer))
-						p->event_buffer[p->event_pos++] = data[i];
-					else
-						unhandled++;
-				}
+		if (c->type != SPA_CONTROL_UMP)
+			continue;
+
+		size = spa_ump_to_midi(SPA_POD_BODY(&c->value),
+				SPA_POD_BODY_SIZE(&c->value), data, sizeof(data));
+		if (size <= 0)
+			continue;
+
+		if (index < c->offset)
+			index = SPA_ROUND_UP_N(c->offset, 8);
+		for (j = 0; j < size; j++) {
+			if (index >= n_samples) {
+				/* keep events that don't fit for the next cycle */
+				if (p->event_pos < sizeof(p->event_buffer))
+					p->event_buffer[p->event_pos++] = data[j];
 				else
-					dst[index] = 0x01000000 | (uint32_t) data[i];
-				index += 8;
+					unhandled++;
 			}
-			break;
-		}
-		default:
-			break;
+			else
+				dst[index] = 0x01000000 | (uint32_t) data[j];
+			index += 8;
 		}
 	}
 	if (unhandled > 0)
@@ -481,8 +482,16 @@ static void ffado_to_midi(struct port *p, float *dst, uint32_t *src, uint32_t si
 			continue;
 
 		if (process_byte(p, i, data & 0xff, &frame, &bytes, &size)) {
-			spa_pod_builder_control(&b, frame, SPA_CONTROL_Midi);
-	                spa_pod_builder_bytes(&b, bytes, size);
+			uint64_t state = 0;
+			while (size > 0) {
+				uint32_t ev[4];
+				int ev_size = spa_ump_from_midi(&bytes, &size, ev, sizeof(ev), 0, &state);
+				if (ev_size <= 0)
+					break;
+
+				spa_pod_builder_control(&b, frame, SPA_CONTROL_UMP);
+		                spa_pod_builder_bytes(&b, ev, ev_size);
+			}
 		}
         }
 	spa_pod_builder_pop(&b, &f);
@@ -733,7 +742,7 @@ static int make_stream_ports(struct stream *s)
 			break;
 		case ffado_stream_type_midi:
 			props = pw_properties_new(
-					PW_KEY_FORMAT_DSP, "8 bit raw midi",
+					PW_KEY_FORMAT_DSP, "32 bit raw UMP",
 					PW_KEY_PORT_NAME, port->name,
 					PW_KEY_PORT_PHYSICAL, "true",
 					PW_KEY_PORT_TERMINAL, "true",

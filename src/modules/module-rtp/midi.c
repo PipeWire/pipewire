@@ -66,7 +66,7 @@ static void rtp_midi_process_playback(void *data)
 			} else {
 				timestamp = target;
 			}
-			spa_pod_builder_control(&b, target - timestamp, SPA_CONTROL_Midi);
+			spa_pod_builder_control(&b, target - timestamp, c->type);
 			spa_pod_builder_bytes(&b,
 					SPA_POD_BODY(&c->value),
 					SPA_POD_BODY_SIZE(&c->value));
@@ -242,25 +242,34 @@ static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t ti
 	while (offs < end) {
 		uint32_t delta;
 		int size;
+		uint64_t state = 0;
+		uint8_t *d;
+		size_t s;
 
 		if (first && !hdr->z)
 			delta = 0;
 		else
 			offs += parse_varlen(&packet[offs], end - offs, &delta);
-
 		timestamp += (uint32_t)(delta * impl->corr);
-		spa_pod_builder_control(&b, timestamp, SPA_CONTROL_Midi);
 
 		size = get_midi_size(&packet[offs], end - offs);
-
 		if (size <= 0 || offs + size > end) {
 			pw_log_warn("invalid size (%08x) %d (%u %u)",
 					packet[offs], size, offs, end);
 			break;
 		}
 
-		spa_pod_builder_bytes(&b, &packet[offs], size);
+		d = &packet[offs];
+		s = size;
+		while (s > 0) {
+			uint32_t ump[4];
+			int ump_size = spa_ump_from_midi(&d, &s, ump, sizeof(ump), 0, &state);
+			if (ump_size <= 0)
+				break;
 
+			spa_pod_builder_control(&b, timestamp, SPA_CONTROL_UMP);
+	                spa_pod_builder_bytes(&b, ump, ump_size);
+		}
 		offs += size;
 		first = false;
 	}
@@ -373,14 +382,17 @@ static void rtp_midi_flush_packets(struct impl *impl,
 	prev_offset = len = base = 0;
 
 	SPA_POD_SEQUENCE_FOREACH(sequence, c) {
-		void *ev;
-		uint32_t size, delta, offset;
+		uint32_t delta, offset;
+		uint8_t event[16];
+		size_t size;
 
-		if (c->type != SPA_CONTROL_Midi)
+		if (c->type != SPA_CONTROL_UMP)
 			continue;
 
-		ev = SPA_POD_BODY(&c->value),
-                size = SPA_POD_BODY_SIZE(&c->value);
+		size = spa_ump_to_midi(SPA_POD_BODY(&c->value),
+				SPA_POD_BODY_SIZE(&c->value), event, sizeof(event));
+		if (size <= 0)
+			continue;
 
 		offset = c->offset * impl->rate / rate;
 
@@ -414,12 +426,12 @@ static void rtp_midi_flush_packets(struct impl *impl,
 			header.sequence_number = htons(impl->seq);
 			header.timestamp = htonl(impl->ts_offset + timestamp + base);
 
-			memcpy(&impl->buffer[len], ev, size);
+			memcpy(&impl->buffer[len], event, size);
 			len += size;
 		} else {
 			delta = offset - prev_offset;
 			prev_offset = offset;
-			len += write_event(&impl->buffer[len], delta, ev, size);
+			len += write_event(&impl->buffer[len], delta, event, size);
 		}
 	}
 	if (len > 0) {

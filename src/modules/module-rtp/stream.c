@@ -11,6 +11,7 @@
 #include <spa/utils/dll.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/control/control.h>
+#include <spa/control/ump-utils.h>
 #include <spa/debug/types.h>
 #include <spa/debug/mem.h>
 #include <spa/debug/log.h>
@@ -385,7 +386,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 			res = -EINVAL;
 			goto out;
 		}
-		pw_properties_set(props, PW_KEY_FORMAT_DSP, "8 bit raw midi");
+		pw_properties_set(props, PW_KEY_FORMAT_DSP, "32 bit raw UMP");
 		impl->stride = impl->format_info->size;
 		impl->rate = pw_properties_get_uint32(props, "midi.rate", 10000);
 		if (impl->rate == 0)

@@ -103,7 +103,7 @@ static void on_process(void *userdata, struct spa_io_position *position)
 	while (sample_offset < position->clock.duration) {
 		if (cycle % 2 == 0) {
 			/* MIDI note on, channel 0, middle C, max velocity */
-			uint8_t buf[] = { 0x90, 0x3c, 0x7f };
+			uint32_t event = 0x20903c7f;
 
 			/* The time position of the message in the graph cycle
 			 * is given as offset from the cycle start, in
@@ -111,18 +111,18 @@ static void on_process(void *userdata, struct spa_io_position *position)
 			 * samples, and the sample offset should satisfy
 			 * 0 <= sample_offset < position->clock.duration.
 			 */
-			spa_pod_builder_control(&builder, sample_offset, SPA_CONTROL_Midi);
+			spa_pod_builder_control(&builder, sample_offset, SPA_CONTROL_UMP);
 
 			/* Raw MIDI data for the message */
-			spa_pod_builder_bytes(&builder, buf, sizeof(buf));
+			spa_pod_builder_bytes(&builder, &event, sizeof(event));
 
 			pw_log_info("note on at %"PRIu64, sample_position + sample_offset);
 		} else {
 			/* MIDI note off, channel 0, middle C, max velocity */
-			uint8_t buf[] = { 0x80, 0x3c, 0x7f };
+			uint32_t event = 0x20803c7f;
 
-			spa_pod_builder_control(&builder, sample_offset, SPA_CONTROL_Midi);
-			spa_pod_builder_bytes(&builder, buf, sizeof(buf));
+			spa_pod_builder_control(&builder, sample_offset, SPA_CONTROL_UMP);
+			spa_pod_builder_bytes(&builder, &event, sizeof(event));
 
 			pw_log_info("note off at %"PRIu64, sample_position + sample_offset);
 		}
@@ -213,7 +213,7 @@ int main(int argc, char *argv[])
 			PW_FILTER_PORT_FLAG_MAP_BUFFERS,
 			sizeof(struct port),
 			pw_properties_new(
-				PW_KEY_FORMAT_DSP, "8 bit raw midi",
+				PW_KEY_FORMAT_DSP, "32 bit raw UMP",
 				PW_KEY_PORT_NAME, "output",
 				NULL),
 			NULL, 0);

@@ -23,6 +23,7 @@
 #include <spa/utils/ringbuffer.h>
 #include <spa/monitor/device.h>
 #include <spa/control/control.h>
+#include <spa/control/ump-utils.h>
 
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
@@ -449,7 +450,7 @@ static void midi_event_recv(void *user_data, uint16_t timestamp, uint8_t *data, 
 	struct impl *this = user_data;
 	struct port *port = &this->ports[PORT_OUT];
 	struct time_sync *sync = &port->sync;
-	uint64_t time;
+	uint64_t time, state = 0;
 	int res;
 
 	spa_assert(size > 0);
@@ -459,11 +460,19 @@ static void midi_event_recv(void *user_data, uint16_t timestamp, uint8_t *data, 
 	spa_log_trace(this->log, "%p: event:0x%x size:%d timestamp:%d time:%"PRIu64"",
 			this, (int)data[0], (int)size, (int)timestamp, (uint64_t)time);
 
-	res = midi_event_ringbuffer_push(&this->event_rbuf, time, data, size);
-	if (res < 0) {
-		midi_event_ringbuffer_init(&this->event_rbuf);
-		spa_log_warn(this->log, "%p: MIDI receive buffer overflow: %s",
-				this, spa_strerror(res));
+	while (size > 0) {
+		uint32_t ump[4];
+		int ump_size = spa_ump_from_midi(&data, &size,
+					ump, sizeof(ump), 0, &state);
+		if (ump_size <= 0)
+			break;
+
+		res = midi_event_ringbuffer_push(&this->event_rbuf, time, (uint8_t*)ump, ump_size);
+		if (res < 0) {
+			midi_event_ringbuffer_init(&this->event_rbuf);
+			spa_log_warn(this->log, "%p: MIDI receive buffer overflow: %s",
+					this, spa_strerror(res));
+		}
 	}
 }
 
@@ -704,7 +713,7 @@ static int process_output(struct impl *this)
 			offset = time * this->rate / SPA_NSEC_PER_SEC;
 			offset = SPA_CLAMP(offset, 0u, this->duration - 1);
 
-			spa_pod_builder_control(&port->builder, offset, SPA_CONTROL_Midi);
+			spa_pod_builder_control(&port->builder, offset, SPA_CONTROL_UMP);
 			buf = spa_pod_builder_reserve_bytes(&port->builder, size);
 			if (buf) {
 				midi_event_ringbuffer_pop(&this->event_rbuf, buf, size);
@@ -773,15 +782,18 @@ static int write_data(struct impl *this, struct spa_data *d)
 	time = 0;
 
 	SPA_POD_SEQUENCE_FOREACH(pod, c) {
-		uint8_t *event;
-		size_t size;
+		int size;
+		uint8_t event[32];
 
-		if (c->type != SPA_CONTROL_Midi)
+		if (c->type != SPA_CONTROL_UMP)
 			continue;
 
 		time = SPA_MAX(time, this->current_time + c->offset * SPA_NSEC_PER_SEC / this->rate);
-		event = SPA_POD_BODY(&c->value);
-		size = SPA_POD_BODY_SIZE(&c->value);
+
+		size = spa_ump_to_midi(SPA_POD_BODY(&c->value),
+				SPA_POD_BODY_SIZE(&c->value), event, sizeof(event));
+		if (size <= 0)
+			continue;
 
 		spa_log_trace(this->log, "%p: output event:0x%x time:%"PRIu64, this,
 				(size > 0) ? event[0] : 0, time);
@@ -1555,7 +1567,8 @@ next:
 		param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 				SPA_FORMAT_mediaType,	   SPA_POD_Id(SPA_MEDIA_TYPE_application),
-				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
+				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
+				SPA_FORMAT_CONTROL_types,  SPA_POD_CHOICE_FLAGS_Int(1u<<SPA_CONTROL_UMP));
 		break;
 
 	case SPA_PARAM_Format:
@@ -1567,7 +1580,8 @@ next:
 		param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
 				SPA_FORMAT_mediaType,	   SPA_POD_Id(SPA_MEDIA_TYPE_application),
-				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
+				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
+				SPA_FORMAT_CONTROL_types,  SPA_POD_Int(1u<<SPA_CONTROL_UMP));
 		break;
 
 	case SPA_PARAM_Buffers:
@@ -2008,13 +2022,13 @@ impl_init(const struct spa_handle_factory *factory,
 	for (i = 0; i < N_PORTS; ++i) {
 		struct port *port = &this->ports[i];
 		static const struct spa_dict_item in_port_items[] = {
-			SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "8 bit raw midi"),
+			SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "32 bit raw UMP"),
 			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_NAME, "in"),
 			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_ALIAS, "in"),
 			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_GROUP, "group.0"),
 		};
 		static const struct spa_dict_item out_port_items[] = {
-			SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "8 bit raw midi"),
+			SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "32 bit raw UMP"),
 			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_NAME, "out"),
 			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_ALIAS, "out"),
 			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_GROUP, "group.0"),

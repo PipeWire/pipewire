@@ -24,6 +24,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/latency-utils.h>
 #include <spa/param/audio/raw.h>
+#include <spa/control/ump-utils.h>
 
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
@@ -254,23 +255,23 @@ static void midi_to_jack(struct impl *impl, float *dst, float *src, uint32_t n_s
 	seq = (struct spa_pod_sequence*)pod;
 
 	SPA_POD_SEQUENCE_FOREACH(seq, c) {
-		switch(c->type) {
-		case SPA_CONTROL_Midi:
-		{
-			uint8_t *data = SPA_POD_BODY(&c->value);
-			size_t size = SPA_POD_BODY_SIZE(&c->value);
+		uint8_t data[16];
+		int size;
 
-			if (impl->fix_midi)
-				fix_midi_event(data, size);
+		if (c->type != SPA_CONTROL_UMP)
+			continue;
 
-			if ((res = jack.midi_event_write(dst, c->offset, data, size)) < 0)
-				pw_log_warn("midi %p: can't write event: %s", dst,
-						spa_strerror(res));
-			break;
-		}
-		default:
-			break;
-		}
+		size = spa_ump_to_midi(SPA_POD_BODY(&c->value),
+				SPA_POD_BODY_SIZE(&c->value), data, sizeof(data));
+		if (size <= 0)
+			continue;
+
+		if (impl->fix_midi)
+			fix_midi_event(data, size);
+
+		if ((res = jack.midi_event_write(dst, c->offset, data, size)) < 0)
+			pw_log_warn("midi %p: can't write event: %s", dst,
+					spa_strerror(res));
 	}
 }
 
@@ -286,9 +287,19 @@ static void jack_to_midi(float *dst, float *src, uint32_t size)
 	spa_pod_builder_push_sequence(&b, &f, 0);
 	for (i = 0; i < count; i++) {
 		jack_midi_event_t ev;
+		uint64_t state = 0;
+
 		jack.midi_event_get(&ev, src, i);
-		spa_pod_builder_control(&b, ev.time, SPA_CONTROL_Midi);
-		spa_pod_builder_bytes(&b, ev.buffer, ev.size);
+
+		while (ev.size > 0) {
+			uint32_t ump[4];
+			int ump_size = spa_ump_from_midi(&ev.buffer, &ev.size, ump, sizeof(ump), 0, &state);
+			if (ump_size <= 0)
+				break;
+
+			spa_pod_builder_control(&b, ev.time, SPA_CONTROL_UMP);
+	                spa_pod_builder_bytes(&b, ump, ump_size);
+		}
 	}
 	spa_pod_builder_pop(&b, &f);
 }
@@ -487,7 +498,7 @@ static void make_stream_ports(struct stream *s)
 		} else {
 			snprintf(name, sizeof(name), "%s_%d", prefix, i - s->info.channels);
 			props = pw_properties_new(
-					PW_KEY_FORMAT_DSP, "8 bit raw midi",
+					PW_KEY_FORMAT_DSP, "32 bit raw UMP",
 					PW_KEY_PORT_NAME, name,
 					PW_KEY_PORT_PHYSICAL, "true",
 					NULL);

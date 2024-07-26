@@ -543,7 +543,7 @@ static void make_stream_ports(struct stream *s)
 		} else {
 			snprintf(name, sizeof(name), "midi%d", i - s->info.channels);
 			props = pw_properties_new(
-					PW_KEY_FORMAT_DSP, "8 bit raw midi",
+					PW_KEY_FORMAT_DSP, "32 bit raw UMP",
 					PW_KEY_PORT_PHYSICAL, "true",
 					PW_KEY_AUDIO_CHANNEL, name,
 					NULL);

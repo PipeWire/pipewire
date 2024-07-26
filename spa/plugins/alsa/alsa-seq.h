@@ -13,6 +13,7 @@ extern "C" {
 #include <math.h>
 
 #include <alsa/asoundlib.h>
+#include <alsa/ump_msg.h>
 
 #include <spa/support/plugin.h>
 #include <spa/support/loop.h>

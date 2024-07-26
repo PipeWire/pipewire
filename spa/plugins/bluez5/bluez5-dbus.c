@@ -5310,7 +5310,8 @@ static void configure_bis(struct spa_bt_monitor *monitor,
 	int options = 0;
 	int skip = 0;
 	int sync_cte_type = 0;
-	int sync_factor = 1;
+	/* sync_factor should be >=2 to avoid invalid extended advertising interval value */
+	int sync_factor = 2;
 	int sync_timeout = 2000;
 	int timeout = 2000;
 

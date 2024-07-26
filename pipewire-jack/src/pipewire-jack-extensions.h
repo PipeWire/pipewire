@@ -25,6 +25,13 @@ int jack_get_video_image_size(jack_client_t *client, jack_image_size_t *size);
 
 int jack_set_sample_rate (jack_client_t *client, jack_nframes_t nframes);
 
+/* raw OSC message */
+#define JACK_DEFAULT_OSC_TYPE "8 bit raw OSC"
+
+/* MIDI 2.0 UMP type. This contains raw UMP data, which can have MIDI 1.0 or
+ * MIDI 2.0 packets. The data is an array of 32 bit ints. */
+#define JACK_DEFAULT_UMP_TYPE "32 bit raw UMP"
+
 #ifdef __cplusplus
 }
 #endif

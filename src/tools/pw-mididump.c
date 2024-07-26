@@ -13,6 +13,7 @@
 #include <spa/control/control.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
+#include <spa/debug/mem.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/filter.h>
@@ -86,15 +87,16 @@ static void on_process(void *_data, struct spa_io_position *position)
 	SPA_POD_SEQUENCE_FOREACH((struct spa_pod_sequence*)pod, c) {
 		struct midi_event ev;
 
-		if (c->type != SPA_CONTROL_Midi)
+		if (c->type != SPA_CONTROL_UMP)
 			continue;
 
 		ev.track = 0;
 		ev.sec = (frame + c->offset) / (float) position->clock.rate.denom;
 		ev.data = SPA_POD_BODY(&c->value),
 		ev.size = SPA_POD_BODY_SIZE(&c->value);
+		ev.type = MIDI_EVENT_TYPE_UMP;
 
-		printf("%4d: ", c->offset);
+		fprintf(stdout, "%4d: ", c->offset);
 		midi_file_dump_event(stdout, &ev);
 	}
 
@@ -139,7 +141,7 @@ static int dump_filter(struct data *data)
 			PW_FILTER_PORT_FLAG_MAP_BUFFERS,
 			sizeof(struct port),
 			pw_properties_new(
-				PW_KEY_FORMAT_DSP, "8 bit raw midi",
+				PW_KEY_FORMAT_DSP, "32 bit raw UMP",
 				PW_KEY_PORT_NAME, "input",
 				NULL),
 			NULL, 0);

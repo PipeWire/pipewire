@@ -9,6 +9,9 @@
 struct midi_file;
 
 struct midi_event {
+#define MIDI_EVENT_TYPE_MIDI1		0
+#define MIDI_EVENT_TYPE_UMP		1
+	uint32_t type;
 	uint32_t track;
 	double sec;
 	uint8_t *data;

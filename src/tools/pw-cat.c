@@ -27,6 +27,7 @@
 #include <spa/utils/json.h>
 #include <spa/debug/types.h>
 #include <spa/debug/file.h>
+#include <spa/control/ump-utils.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/i18n.h>
@@ -1082,11 +1083,34 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames, bool *nul
 		if (d->verbose)
 			midi_file_dump_event(stdout, &ev);
 
-		if (ev.data[0] == 0xff)
+		if (ev.type == MIDI_EVENT_TYPE_MIDI1) {
+			size_t size;
+			uint8_t *data;
+			uint64_t state = 0;
+
+			if (ev.data[0] == 0xff)
+				continue;
+
+			data = ev.data;
+			size = ev.size;
+
+			while (size > 0) {
+				uint32_t ump[4];
+				int ump_size = spa_ump_from_midi(&data, &size,
+						ump, sizeof(ump), 0, &state);
+				if (ump_size <= 0)
+					break;
+
+				spa_pod_builder_control(&b, frame, SPA_CONTROL_UMP);
+				spa_pod_builder_bytes(&b, ump, ump_size);
+			}
+		} else if (ev.type == MIDI_EVENT_TYPE_UMP) {
+			spa_pod_builder_control(&b, frame, SPA_CONTROL_UMP);
+			spa_pod_builder_bytes(&b, ev.data, ev.size);
+		}
+		else
 			continue;
 
-		spa_pod_builder_control(&b, frame, SPA_CONTROL_Midi);
-		spa_pod_builder_bytes(&b, ev.data, ev.size);
 		have_data = true;
 	}
 	spa_pod_builder_pop(&b, &f);
@@ -1111,13 +1135,14 @@ static int midi_record(struct data *d, void *src, unsigned int n_frames, bool *n
 	SPA_POD_SEQUENCE_FOREACH((struct spa_pod_sequence*)pod, c) {
 		struct midi_event ev;
 
-		if (c->type != SPA_CONTROL_Midi)
+		if (c->type != SPA_CONTROL_UMP)
 			continue;
 
 		ev.track = 0;
 		ev.sec = (frame + c->offset) / (float) d->position->clock.rate.denom;
 		ev.data = SPA_POD_BODY(&c->value),
 		ev.size = SPA_POD_BODY_SIZE(&c->value);
+		ev.type = MIDI_EVENT_TYPE_UMP;
 
 		if (d->verbose)
 			midi_file_dump_event(stdout, &ev);
@@ -1951,7 +1976,7 @@ int main(int argc, char *argv[])
 				SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_application),
 				SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 
-		pw_properties_set(data.props, PW_KEY_FORMAT_DSP, "8 bit raw midi");
+		pw_properties_set(data.props, PW_KEY_FORMAT_DSP, "32 bit raw UMP");
 		break;
 	case TYPE_DSD:
 	{

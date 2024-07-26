@@ -1992,7 +1992,7 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(impl->port_props, PW_KEY_FORMAT_DSP, str);
 	else if (impl->media_type == SPA_MEDIA_TYPE_application &&
 	    impl->media_subtype == SPA_MEDIA_SUBTYPE_control)
-		pw_properties_set(impl->port_props, PW_KEY_FORMAT_DSP, "8 bit raw midi");
+		pw_properties_set(impl->port_props, PW_KEY_FORMAT_DSP, "32 bit raw UMP");
 	if (pw_properties_get(impl->port_props, PW_KEY_PORT_GROUP) == NULL)
 		pw_properties_set(impl->port_props, PW_KEY_PORT_GROUP, "stream.0");
 

@@ -1758,17 +1758,26 @@ static void add_video_dsp_port_params(struct filter *impl, struct port *port)
 			SPA_FORMAT_VIDEO_format,   SPA_POD_Id(SPA_VIDEO_FORMAT_DSP_F32)));
 }
 
-static void add_control_dsp_port_params(struct filter *impl, struct port *port)
+static void add_control_dsp_port_params(struct filter *impl, struct port *port, uint32_t types)
 {
 	uint8_t buffer[4096];
 	struct spa_pod_builder b;
+	struct spa_pod_frame f[1];
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_push_object(&b, &f[0],
+		SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+	spa_pod_builder_add(&b,
+		SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
+		SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
+		0);
+	if (types != 0) {
+		spa_pod_builder_add(&b,
+			SPA_FORMAT_CONTROL_types, SPA_POD_CHOICE_FLAGS_Int(types),
+			0);
+	}
 	add_param(impl, port, SPA_PARAM_EnumFormat, PARAM_FLAG_LOCKED,
-		spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control)));
+			spa_pod_builder_pop(&b, &f[0]));
 }
 
 SPA_EXPORT
@@ -1824,9 +1833,12 @@ void *pw_filter_add_port(struct pw_filter *filter,
 			add_audio_dsp_port_params(impl, p);
 		else if (spa_streq(str, "32 bit float RGBA video"))
 			add_video_dsp_port_params(impl, p);
-		else if (spa_streq(str, "8 bit raw midi") ||
-		    spa_streq(str, "8 bit raw control"))
-			add_control_dsp_port_params(impl, p);
+		else if (spa_streq(str, "8 bit raw midi"))
+			add_control_dsp_port_params(impl, p, 1u << SPA_CONTROL_Midi);
+		else if (spa_streq(str, "8 bit raw control"))
+			add_control_dsp_port_params(impl, p, 0);
+		else if (spa_streq(str, "32 bit raw UMP"))
+			add_control_dsp_port_params(impl, p, 1u << SPA_CONTROL_UMP);
 	}
 	/* then override with user provided if any */
 	if (update_params(impl, p, SPA_ID_INVALID, params, n_params) < 0)

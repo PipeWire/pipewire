@@ -31,6 +31,7 @@ Configuration of devices:
 
 - [WirePlumber configuration](https://pipewire.pages.freedesktop.org/wireplumber/daemon/configuration.html)
 - \ref page_man_pipewire-props_7 "Object property reference"
+- \subpage page_config_xref "Configuration Index"
 
 Configuration for client applications, either connecting via the
 native PipeWire interface, or the emulated ALSA, JACK, or PulseAudio
@@ -50,55 +51,3 @@ interfaces:
 - \subpage page_man_pipewire-props_7
 - \subpage page_man_pipewire-pulse-modules_7
 - \subpage page_man_libpipewire-modules_7
-
-# Configuration Index
-
-\ref page_man_pipewire_conf_5 "pipewire.conf"
-
-@SECREF@ pipewire.conf
-
-\ref page_man_pipewire-pulse_conf_5 "pipewire-pulse.conf"
-
-@SECREF@ pipewire-pulse.conf
-
-\ref page_man_pipewire-client_conf_5 "client.conf, client-rt.conf"
-
-@SECREF@ client.conf
-
-\ref page_man_pipewire-jack_conf_5 "jack.conf"
-
-@SECREF@ jack.conf
-
-**Runtime settings**
-
-@SECREF@ pipewire-settings
-
-**Environment variables**
-
-@SECREF@ pipewire-env client-env jack-env pulse-env
-
-**Object properties**
-
-@SECREF@ props
-
-**Monitor properties**
-
-@SECREF@ monitor-prop
-
-**Device properties**
-
-@SECREF@ device-prop
-
-**Node properties**
-
-@SECREF@ node-prop
-
-**Port properties**
-
-@SECREF@ port-prop
-
-**Client properties**
-
-@SECREF@ client-prop
-
-\see pw_keys in API documentation.

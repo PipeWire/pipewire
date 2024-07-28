@@ -54,6 +54,7 @@ extra_docs = [
   'dox/pulse-modules.dox',
   'dox/programs/index.md',
   'dox/config/index.md',
+  'dox/config/xref.md',
   'dox/internals/index.dox',
   'dox/internals/design.dox',
   'dox/internals/access.dox',

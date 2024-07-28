@@ -1119,6 +1119,28 @@ applications.
 The Profiler and SecurityContext objects only provide corresponding
 PipeWire APIs.
 
+# INDEX {#pipewire-props__index}
+
+## Monitor properties
+
+@SECREF@ monitor-prop
+
+## Device properties
+
+@SECREF@ device-prop
+
+## Node properties
+
+@SECREF@ node-prop
+
+## Port properties
+
+@SECREF@ port-prop
+
+## Client properties
+
+@SECREF@ client-prop
+
 # AUTHORS
 
 The PipeWire Developers <$(PACKAGE_BUGREPORT)>;

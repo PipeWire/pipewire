@@ -122,6 +122,10 @@ ie. for example `device.Param.Props = { ... }` to set `Props`.
 \copydoc PW_KEY_DEVICE_INTENDED_ROLES
 \endparblock
 
+@PAR@ device-prop  device.disabled = false  # boolean
+Disable the creation of this device in session manager.
+
+
 There are other common `device.*` properties for technical purposes
 and not usually user-configurable.
 
@@ -394,6 +398,10 @@ This works similarly as \ref page_man_pw-cli_1 "pw-cli(1)" `set-param` command.
 The `PARAM` should be replaced with the name of the Param to set,
 ie. for example `node.param.Props = { ... }` to set `Props`.
 \endparblock
+
+@PAR@ node-prop  node.disabled = false  # boolean
+Disable the creation of this node in session manager.
+
 
 # AUDIO ADAPTER PROPERTIES  @IDX@ props
 

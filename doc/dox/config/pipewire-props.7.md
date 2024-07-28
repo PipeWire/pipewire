@@ -333,7 +333,7 @@ a sink or source.
 If this node wants to be linked exclusively to the sink/source.
 
 @PAR@ node-prop  node.target = <node.name|object.id>
-Where this node should be linked to. This can be a node.name or an object.id of a node. This property is 
+Where this node should be linked to. This can be a node.name or an object.id of a node. This property is
 deprecated, the target.object property should be used instead, which uses the more unique object.serial as
 a possible target.
 
@@ -405,7 +405,7 @@ All properties listed below are node properties.
 
 ## Merger Parameters
 
-The merger is used as the input for a sink device node or a capture stream. It takes the various channels and merges them into a single stream for further processing. 
+The merger is used as the input for a sink device node or a capture stream. It takes the various channels and merges them into a single stream for further processing.
 
 The merger will also provide the monitor ports of the input channels and can
 apply a software volume on the monitor signal.
@@ -506,7 +506,7 @@ with the `channelmix-upmix-method` property.
 
 3. psd. The rear channels as produced from the front left and right ambient sound (the
 difference between the channels). A delay and optional phase shift are added to the rear signal
-to make the sound bigger. 
+to make the sound bigger.
 \endparblock
 
 @PAR@ node-prop  channelmix.lfe-cutoff = 150
@@ -648,6 +648,56 @@ Select reasonable port on device startup. Available for ACP devices.
 @PAR@ device-prop  api.acp.auto-profile    # boolean
 Select reasonable profile on device startup. Available for ACP devices.
 
+@PAR@ device-prop api.alsa.use-ucm = true  # boolean
+\parblock
+When ACP is enabled and a UCM configuration is available for a device, by
+default it is used instead of the ACP profiles. This option allows you to
+disable this and use the ACP profiles instead.
+
+This option does nothing if `api.alsa.use-acp` is set to `false`.
+\endparblock
+
+@PAR@ device-prop  api.alsa.soft-mixer = false  # boolean
+Setting this option to `true` will disable the hardware mixer for volume
+control and mute. All volume handling will then use software volume and mute,
+leaving the hardware mixer untouched. The hardware mixer will still be used
+to mute unused audio paths in the device.
+
+@PAR@ device-prop  api.alsa.ignore-dB = false  # boolean
+Setting this option to `true` will ignore the decibel setting configured by
+the driver. Use this when the driver reports wrong settings.
+
+@PAR@ device-prop  device.profile-set  # string
+This option can be used to select a custom ACP profile-set name for the
+device. This can be configured in UDev rules, but it can also be specified
+here. The default is to use "default.conf" unless there is a matching udev rule.
+
+@PAR@ device-prop  device.profile  # string
+The initial active profile name. The default is to start from the "Off"
+profile and then let session manager select the best profile based on its
+policy.
+
+@PAR@ device-prop  api.acp.auto-profile = true  # boolean
+Automatically select the best profile for the device. The session manager
+usually disables this, as it handles this task instead. This can be
+enabled in custom configurations without the session manager handling this.
+
+@PAR@ device-prop  api.acp.auto-port = true  # boolean
+Automatically select the highest priority port that is available ("port" is a
+PulseAudio/ACP term, the equivalent of a "Route" in PipeWire). The session manager
+usually disables this, as it handles this task instead. This can be
+enabled in custom configurations without the session manager handling this.
+
+@PAR@ device-prop  api.acp.probe-rate   # integer
+Sets the samplerate used for probing the ALSA devices and collecting the
+profiles and ports.
+
+@PAR@ device-prop  api.acp.pro-channels  # integer
+Sets the number of channels to use when probing the "Pro Audio" profile.
+Normally, the maximum amount of channels will be used but with this setting
+this can be reduced, which can make it possible to use other samplerates on
+some devices.
+
 ## Node properties
 
 @PAR@ node-prop  audio.channels    # integer
@@ -678,10 +728,12 @@ The amount of periods to use in the device. By default this is 0, which means to
 @PAR@ node-prop  api.alsa.headroom    # integer
 The amount of extra space to keep in the ringbuffer. The default is 0. Higher values can be configured when the device read and write pointers are not accurately reported.
 
-@PAR@ node-prop  api.alsa.start-delay    # integer
-Some devices require a startup period. The default is 0. Higher values can be set to send silence samples to the device first.
+@PAR@ node-prop  api.alsa.start-delay = 0  # integer
+Some devices need some time before they can report accurate hardware pointer
+positions. In those cases, an extra start delay can be added to compensate
+for this startup delay. This sets the startup delay in samples.
 
-@PAR@ node-prop  api.alsa.disable-mmap    # boolean
+@PAR@ node-prop  api.alsa.disable-mmap = false    # boolean
 Disable mmap operation of the device and use the ALSA read/write API instead. Default is false, mmap is preferred.
 
 @PAR@ node-prop  api.alsa.disable-batch    # boolean
@@ -736,27 +788,32 @@ Available values: PCM, AC3, DTS, MPEG, MPEG2-AAC, EAC3, TRUEHD, DTSHD
 The following are settings for the Bluetooth device monitor, not device or
 node properties:
 
-@PAR@ monitor-prop  bluez5.roles   # JSON array of string
+@PAR@ monitor-prop  bluez5.roles = [ a2dp_sink a2dp_source bap_sink bap_source bap_bcast_sink bap_bcast_source hfp_hf hfp_ag ]   # JSON array of string
 \parblock
-Enabled roles (default: [ a2dp_sink a2dp_source bap_sink bap_source hfp_hf hfp_ag ])
+Enabled roles.
 
 Currently some headsets (Sony WH-1000XM3) are not working with
 both hsp_ag and hfp_ag enabled, so by default we enable only HFP.
 
 Supported roles:
-- hsp_hs (HSP Headset),
-- hsp_ag (HSP Audio Gateway),
-- hfp_hf (HFP Hands-Free),
-- hfp_ag (HFP Audio Gateway)
-- a2dp_sink (A2DP Audio Sink)
-- a2dp_source (A2DP Audio Source)
-- bap_sink (LE Audio Basic Audio Profile Sink)
-- bap_source (LE Audio Basic Audio Profile Source)
+- `hsp_hs` (HSP Headset),
+- `hsp_ag` (HSP Audio Gateway),
+- `hfp_hf` (HFP Hands-Free),
+- `hfp_ag` (HFP Audio Gateway)
+- `a2dp_sink` (A2DP Audio Sink)
+- `a2dp_source` (A2DP Audio Source)
+- `bap_sink` (LE Audio Basic Audio Profile Sink)
+- `bap_source` (LE Audio Basic Audio Profile Source)
+- `bap_bcast_sink` (LE Audio Basic Audio Profile Broadcast Sink)
+- `bap_bcast_source` (LE Audio Basic Audio Profile Broadcast Source)
 \endparblock
 
 @PAR@ monitor-prop  bluez5.codecs   # JSON array of string
-Enabled A2DP codecs (default: all).
-Possible values: sbc sbc_xq aac aac_eld aptx aptx_hd aptx_ll aptx_ll_duplex faststream faststream_duplex lc3plus_h3 ldac opus_05 opus_05_51 opus_05_71 opus_05_duplex opus_05_pro opus_g lc3
+Enabled A2DP codecs (default: all).  Possible values: `sbc`, `sbc_xq`,
+`aac`, `aac_eld`, `aptx`, `aptx_hd`, `aptx_ll`, `aptx_ll_duplex`,
+`faststream`, `faststream_duplex`, `lc3plus_h3`, `ldac`, `opus_05`,
+`opus_05_51`, `opus_05_71`, `opus_05_duplex`, `opus_05_pro`, `opus_g`,
+`lc3`.
 
 @PAR@ monitor-prop  bluez5.default.rate   # integer
 Default audio rate.
@@ -821,7 +878,7 @@ PipeWire Opus Pro audio profile duplex max bitrate.
 @PAR@ monitor-prop  bluez5.a2dp.opus.pro.bidi.frame-dms = 400   # integer
 PipeWire Opus Pro audio profile duplex frame duration (1/10 ms).
 
-@PAR@ monitor-prop  bluez5.bcast_source.config   # JSON
+@PAR@ monitor-prop  bluez5.bcast_source.config = []  # JSON
 \parblock
 Example:
 ```
@@ -849,14 +906,14 @@ bluez5.bcast_source.config = [
 Auto-connect devices on start up. Disabled by default if
 the property is not specified.
 
-@PAR@ device-prop  bluez5.hw-volume = [ PROFILE1 PROFILE2... ]   # JSON array of string
-Profiles for which to enable hardware volume control (default: [ hfp_ag hsp_ag a2dp_source ]).
+@PAR@ device-prop  bluez5.hw-volume = [ hfp_ag hsp_ag a2dp_source ]  # JSON array of string
+Profiles for which to enable hardware volume control.
 
 @PAR@ device-prop  bluez5.profile   # string
 Initial device profile. This usually has no effect as the session manager
 overrides it.
 
-@PAR@ device-prop  bluez5.a2dp.ldac.quality   # string
+@PAR@ device-prop  bluez5.a2dp.ldac.quality = "auto"   # string
 LDAC encoding quality
 Available values:
 - auto (Adaptive Bitrate, default)
@@ -864,7 +921,7 @@ Available values:
 - sq   (Standard Quality, 660/606kbps)
 - mq   (Mobile use Quality, 330/303kbps)
 
-@PAR@ device-prop  bluez5.a2dp.aac.bitratemode   # integer
+@PAR@ device-prop  bluez5.a2dp.aac.bitratemode = 0   # integer
 AAC variable bitrate mode.
 Available values: 0 (cbr, default), 1-5 (quality level)
 
@@ -874,9 +931,8 @@ PipeWire Opus Pro Audio encoding mode: audio, voip, lowdelay
 @PAR@ device-prop  bluez5.a2dp.opus.pro.bidi.application = "audio"   # string
 PipeWire Opus Pro Audio duplex encoding mode: audio, voip, lowdelay
 
-@PAR@ device-prop  bluez5.bap.cig = auto   # integer, or 'auto'
+@PAR@ device-prop  bluez5.bap.cig = "auto"   # integer, or 'auto'
 Set CIG ID for BAP unicast streams of the device.
-Default: "auto" (automatic).
 
 ## Node properties
 
@@ -1026,7 +1082,7 @@ For ACP, PipeWire looks for the profile configuration files under
 
 - ~/.config/alsa-card-profile
 - /etc/alsa-card-profile
-- /usr/share/alsa-card-profile/mixer`. 
+- /usr/share/alsa-card-profile/mixer`.
 
 The `path` and `profile-set` files are in subdirectories `paths` and `profile-sets` of these directories.
 It is possible to override individual files locally by putting a modified copy into the ACP directories under `~/.config` or `/etc`.

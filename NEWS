@@ -1,3 +1,52 @@
+# PipeWire 1.2.2 (2024-07-31)
+
+This is a bugfix release that is API and ABI compatible with the
+previous 1.2.x and 1.0.x releases.
+
+## Highlights
+  - Fix some more fallout of the async nodes rewrite. Fixes some
+    crackling, xruns and possibly also some crashes in some cases.
+  - Fix freewheeling timeouts in case of xruns. This fixes ardour export.
+  - Fix event mixdown in JACK. Fixes qsynth and possibly other apps.
+  - Some more small fixes and improvements.
+
+
+## PipeWire
+  - Add a new SPA_IO_CLOCK_FLAG_XRUN_RECOVER flag when the process function
+    is called because of xrun recovery.
+  - Properly stop nodes in all cases, this avoids spurious xruns and
+    scheduling errors. (#4122)
+  - Make sure async nodes receive an async link in all cases. Do the
+    processing of source output ports slightly differently to make sure we
+    don't cause latency for sources. (#4138) (#4133)
+  - Fix some races when negotiating and starting nodes. (#4094)
+  - Actually include the config.h header to use malloc_trim() to reduce
+    memory usage in pulse-server.
+
+## Modules
+  - Avoid unloading some modules on stream errors because it is possible to
+    recover from the error. (#4121)
+  - Fix a (harmless) warning in module-rtp because of comparing samples and
+    time. (#4095)
+
+## SPA
+  - Let the freewheel driver detect xrun recovery and handle the timeouts
+    correctly. This fixes an issue with ardour export.
+  - Remove the HDMI/AC3 profiles. they turn out to fail on some hardware
+    with no way to detect this.
+  - Signal the eventfd when the loop is full to make sure the other thread
+    is woken up to process the queue.
+
+## JACK
+  - Don't check timestamps when mixing down events. The timestamps are only
+    checked when writing new events with the public API. This fixes an
+    issue where qsynth would not receive midi events anymore.
+  - Fix the jack_get_time() function, it was returning nano instead of micro
+    seconds.
+
+Older versions:
+
+
 # PipeWire 1.2.1 (2024-07-12)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -41,9 +90,6 @@ the previous 1.2.0 release and the 1.0.x releases.
 
 ## GStreamer
   - Fix a crash when destroying a stream.
-
-Older versions:
-
 
 # PipeWire 1.2.0 (2024-06-27)
 

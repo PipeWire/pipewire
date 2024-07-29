@@ -193,6 +193,7 @@ struct impl {
 
 	struct spa_log *log;
 	struct spa_cpu *cpu;
+	struct spa_loop *data_loop;
 
 	uint32_t cpu_flags;
 	uint32_t max_align;
@@ -2448,7 +2449,7 @@ static int port_set_format(void *object,
 
 	port = GET_PORT(this, direction, port_id);
 
-	spa_log_debug(this->log, "%p: set format", this);
+	spa_log_debug(this->log, "%p: %d:%d set format", this, direction, port_id);
 
 	if (format == NULL) {
 		port->have_format = false;
@@ -2677,6 +2678,20 @@ impl_node_port_use_buffers(void *object,
 	return 0;
 }
 
+struct io_data {
+	struct port *port;
+	void *data;
+	size_t size;
+};
+
+static int do_set_port_io(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	const struct io_data *d = user_data;
+	d->port->io = d->data;
+	return 0;
+}
+
 static int
 impl_node_port_set_io(void *object,
 		      enum spa_direction direction, uint32_t port_id,
@@ -2696,7 +2711,12 @@ impl_node_port_set_io(void *object,
 
 	switch (id) {
 	case SPA_IO_Buffers:
-		port->io = data;
+		if (this->data_loop) {
+			struct io_data d = { .port = port, .data = data, .size = size };
+			spa_loop_invoke(this->data_loop, do_set_port_io, 0, NULL, 0, true, &d);
+		}
+		else
+			port->io = data;
 		break;
 	case SPA_IO_RateMatch:
 		this->io_rate_match = data;
@@ -3432,6 +3452,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this = (struct impl *) handle;
 
+	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	spa_log_topic_init(this->log, &log_topic);
 

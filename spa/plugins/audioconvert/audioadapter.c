@@ -268,23 +268,31 @@ static int link_io(struct impl *this)
 			res, spa_strerror(res));
 	}
 
+	return 0;
+}
+
+static int activate_io(struct impl *this, bool active)
+{
+	int res;
+	struct spa_io_buffers *data = active ? &this->io_buffers : NULL;
+	uint32_t size = active ? sizeof(this->io_buffers) : 0;
+
 	if (this->follower == this->target)
 		return 0;
 
-	this->io_buffers = SPA_IO_BUFFERS_INIT;
+	if (active)
+		this->io_buffers = SPA_IO_BUFFERS_INIT;
 
 	if ((res = spa_node_port_set_io(this->follower,
 			this->direction, 0,
-			SPA_IO_Buffers,
-			&this->io_buffers, sizeof(this->io_buffers))) < 0) {
+			SPA_IO_Buffers, data, size)) < 0) {
 		spa_log_warn(this->log, "%p: set Buffers on follower failed %d %s", this,
 			res, spa_strerror(res));
 		return res;
 	}
 	else if ((res = spa_node_port_set_io(this->convert,
 			SPA_DIRECTION_REVERSE(this->direction), 0,
-			SPA_IO_Buffers,
-			&this->io_buffers, sizeof(this->io_buffers))) < 0) {
+			SPA_IO_Buffers, data, size)) < 0) {
 		spa_log_warn(this->log, "%p: set Buffers on convert failed %d %s", this,
 			res, spa_strerror(res));
 		return res;
@@ -484,6 +492,8 @@ static int negotiate_buffers(struct impl *this)
 		       this->buffers, this->n_buffers)) < 0)
 		return res;
 
+	activate_io(this, true);
+
 	return 0;
 }
 
@@ -499,12 +509,20 @@ static int configure_format(struct impl *this, uint32_t flags, const struct spa_
 	uint8_t buffer[4096];
 	int res;
 
+	spa_log_debug(this->log, "%p: configure format:", this);
+
 	if (format == NULL && !this->have_format)
 		return 0;
 
-	spa_log_debug(this->log, "%p: configure format:", this);
-	if (format)
+
+	if (format == NULL) {
+		if (!this->have_format)
+			return 0;
+		activate_io(this, false);
+	}
+	else {
 		spa_debug_log_format(this->log, SPA_LOG_LEVEL_DEBUG, 0, NULL, format);
+	}
 
 	if ((res = spa_node_port_set_param(this->follower,
 					   this->direction, 0,

@@ -345,7 +345,6 @@ SPA_EXPORT
 int pw_impl_port_init_mix(struct pw_impl_port *port, struct pw_impl_port_mix *mix)
 {
 	uint32_t port_id;
-	struct pw_impl_node *node = port->node;
 	int res = 0;
 
 	port_id = pw_map_insert_new(&port->mix_port_map, mix);
@@ -389,13 +388,6 @@ int pw_impl_port_init_mix(struct pw_impl_port *port, struct pw_impl_port_mix *mi
 			port->n_mix, port->port_id, mix->port.port_id,
 			mix->id, mix->peer_id, mix->io, spa_strerror(res));
 
-	if (port->n_mix == 1) {
-		pw_log_debug("%p: setting port io", port);
-		spa_node_port_set_io(node->node,
-				     port->direction, port->port_id,
-				     SPA_IO_Buffers,
-				     &port->rt.io, sizeof(port->rt.io));
-	}
 	return res;
 
 error_remove_port:
@@ -410,7 +402,6 @@ int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix 
 {
 	int res = 0;
 	uint32_t port_id = mix->port.port_id;
-	struct pw_impl_node *node = port->node;
 
 	pw_map_remove(&port->mix_port_map, port_id);
 	spa_list_remove(&mix->link);
@@ -430,11 +421,6 @@ int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix 
 
 	if (port->n_mix == 0) {
 		pw_log_debug("%p: clearing port io", port);
-		spa_node_port_set_io(node->node,
-				     port->direction, port->port_id,
-				     SPA_IO_Buffers,
-				     NULL, 0);
-
 		pw_impl_port_set_param(port, SPA_PARAM_Format, 0, NULL);
 	}
 	return res;
@@ -829,11 +815,6 @@ int pw_impl_port_set_mix(struct pw_impl_port *port, struct spa_node *node, uint3
 	if (port->mix && !port->destroying) {
 		spa_list_for_each(mix, &port->mix_list, link)
 			spa_node_add_port(port->mix, mix->port.direction, mix->port.port_id, NULL);
-
-		spa_node_port_set_io(port->mix,
-			     pw_direction_reverse(port->direction), 0,
-			     SPA_IO_Buffers,
-			     &port->rt.io, sizeof(port->rt.io));
 
 		if (port->node && port->node->rt.position) {
 			spa_node_set_io(port->mix,
@@ -1836,6 +1817,13 @@ int pw_impl_port_set_param(struct pw_impl_port *port, uint32_t id, uint32_t flag
 
 	pw_log_debug("%p: %d set param %d %p", port, port->state, id, param);
 
+	if (id == SPA_PARAM_Format) {
+		pw_loop_invoke(node->data_loop, do_remove_port, SPA_ID_INVALID, NULL, 0, true, port);
+		spa_node_port_set_io(node->node,
+				     port->direction, port->port_id,
+				     SPA_IO_Buffers, NULL, 0);
+	}
+
 	/* set parameter on node */
 	res = spa_node_port_set_param(node->node,
 			port->direction, port->port_id,
@@ -1867,9 +1855,6 @@ int pw_impl_port_set_param(struct pw_impl_port *port, uint32_t id, uint32_t flag
 	}
 
 	if (id == SPA_PARAM_Format) {
-		pw_log_debug("%p: %d %p %d", port, port->state, param, res);
-
-		pw_loop_invoke(node->data_loop, do_remove_port, SPA_ID_INVALID, NULL, 0, true, port);
 		/* setting the format always destroys the negotiated buffers */
 		if (port->direction == PW_DIRECTION_OUTPUT) {
 			struct pw_impl_link *l;
@@ -1915,6 +1900,10 @@ static int negotiate_mixer_buffers(struct pw_impl_port *port, uint32_t flags,
 				port, port->direction, port->port_id, n_buffers, node->node,
 				alloc_flags);
 
+		spa_node_port_set_io(node->node,
+				     port->direction, port->port_id,
+				     SPA_IO_Buffers, NULL, 0);
+
 		pw_loop_invoke(node->data_loop, do_remove_port, SPA_ID_INVALID, NULL, 0, true, port);
 
 		pw_buffers_clear(&port->mix_buffers);
@@ -1946,8 +1935,17 @@ static int negotiate_mixer_buffers(struct pw_impl_port *port, uint32_t flags,
 			     pw_direction_reverse(port->direction), 0,
 			     0, buffers, n_buffers);
 	}
-	if (n_buffers > 0)
+	if (n_buffers > 0) {
+		spa_node_port_set_io(node->node,
+				     port->direction, port->port_id,
+				     SPA_IO_Buffers,
+				     &port->rt.io, sizeof(port->rt.io));
+		spa_node_port_set_io(port->mix,
+			     pw_direction_reverse(port->direction), 0,
+			     SPA_IO_Buffers,
+			     &port->rt.io, sizeof(port->rt.io));
 		pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, NULL, 0, false, port);
+	}
 	return res;
 }
 
@@ -1972,11 +1970,15 @@ int pw_impl_port_use_buffers(struct pw_impl_port *port, struct pw_impl_port_mix 
 		mix->have_buffers = false;
 		if (port->n_mix == 1)
 			pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_READY, 0, NULL);
+
+		spa_node_port_set_io(port->mix,
+				mix->port.direction, mix->port.port_id,
+				SPA_IO_Buffers, NULL, 0);
 	}
 
 	/* first negotiate with the node, this makes it possible to let the
 	 * node allocate buffer memory if needed */
-	if (port->state == PW_IMPL_PORT_STATE_READY) {
+	if (port->state == PW_IMPL_PORT_STATE_READY && !port->destroying) {
 		res = negotiate_mixer_buffers(port, flags, buffers, n_buffers);
 
 		if (res < 0) {

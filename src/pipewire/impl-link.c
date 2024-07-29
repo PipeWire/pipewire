@@ -754,9 +754,11 @@ static void input_remove(struct pw_impl_link *this, struct pw_impl_port *port)
 	pw_impl_port_recalc_latency(this->input);
 	pw_impl_port_recalc_tag(this->input);
 
-	if ((res = pw_impl_port_use_buffers(port, mix, 0, NULL, 0)) < 0) {
+	if ((res = port_set_io(this, this->input, SPA_IO_Buffers, NULL, 0, mix)) < 0)
+		pw_log_warn("%p: port %p set_io error %s", this, port, spa_strerror(res));
+	if ((res = pw_impl_port_use_buffers(port, mix, 0, NULL, 0)) < 0)
 		pw_log_warn("%p: port %p clear error %s", this, port, spa_strerror(res));
-	}
+
 	pw_impl_port_release_mix(port, mix);
 
 	pw_work_queue_cancel(impl->work, &this->input_link, SPA_ID_INVALID);

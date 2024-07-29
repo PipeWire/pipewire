@@ -111,6 +111,7 @@ endif
 test('test-spa',
     executable('test-spa',
                'test-spa-buffer.c',
+               'test-spa-control.c',
                'test-spa-json.c',
                'test-spa-utils.c',
                'test-spa-log.c',

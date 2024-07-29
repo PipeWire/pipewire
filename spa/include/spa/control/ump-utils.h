@@ -106,8 +106,8 @@ static inline int spa_ump_from_midi(uint8_t **midi, size_t *midi_size,
 		uint32_t *ump, size_t ump_maxsize, uint8_t group, uint64_t *state)
 {
 	int size = 0;
-	uint32_t prefix = group << 24, to_consume = 0, bytes;
-	uint8_t status, *m = (*midi);
+	uint32_t i, prefix = group << 24, to_consume = 0, bytes;
+	uint8_t status, *m = (*midi), end;
 
 	if (*midi_size < 1)
 		return 0;
@@ -117,41 +117,54 @@ static inline int spa_ump_from_midi(uint8_t **midi, size_t *midi_size,
 	status = m[0];
 
 	/* SysEx */
-	if (*state == 0 && status == 0xf0)
-		*state = 1; /* sysex start */
+	if (*state == 0) {
+		if (status == 0xf0)
+			*state = 1; /* sysex start */
+		else if (status == 0xf7)
+			*state = 2; /* sysex continue */
+	}
 	if (*state & 3) {
 		prefix |= 0x30000000;
-		if (*state == 1) {
+		if (status & 0x80) {
 			m++;
 			to_consume++;
 		}
-		bytes = SPA_CLAMP(*midi_size - to_consume, 0u, 6u);
-		to_consume += bytes;
-		if (bytes > 0 && m[bytes-1] == 0xf7) {
-			bytes--;
-			if (*state == 2)
-				prefix |= 0x3 << 20;
-			*state = 0;
-		} else if (*state == 1) {
-			prefix |= 0x1 << 20;
-			*state = 2; /* sysex continue */
-		} else {
-			prefix |= 0x2 << 20;
-		}
+		bytes = SPA_CLAMP(*midi_size - to_consume, 0u, 7u);
 		if (bytes > 0) {
-			ump[size++] = prefix | bytes << 16 | (m[0] & 0x7f) << 8;
+			end = m[bytes-1];
+			if (end & 0x80) {
+				bytes--; /* skip terminator */
+				to_consume++;
+			}
+			else
+				end = 0xf0; /* pretend there is a continue terminator */
+
+			bytes = SPA_CLAMP(bytes, 0u, 6u);
+			to_consume += bytes;
+
+			if (end == 0xf7) {
+				if (*state == 2) {
+					/* continue and done */
+					prefix |= 0x3 << 20;
+					*state = 0;
+				}
+			} else if (*state == 1) {
+				/* first packet but not finished */
+				prefix |= 0x1 << 20;
+				*state = 2; /* sysex continue */
+			} else {
+				/* continue and not finished */
+				prefix |= 0x2 << 20;
+			}
+			ump[size++] = prefix | bytes << 16;
 			ump[size++] = 0;
+			for (i = 0 ; i < bytes; i++)
+				/* ump[0] |= (m[0] & 0x7f) << 8
+				 * ump[0] |= (m[1] & 0x7f)
+				 * ump[1] |= (m[2] & 0x7f) << 24
+				 * ... */
+				ump[(i+2)/4] |= (m[i] & 0x7f) << ((5-i)%4 * 8);
 		}
-		if (bytes > 1)
-			ump[0] |= (m[1] & 0x7f);
-		if (bytes > 2)
-			ump[1] |= (m[2] & 0x7f) << 24;
-		if (bytes > 3)
-			ump[1] |= (m[3] & 0x7f) << 16;
-		if (bytes > 4)
-			ump[1] |= (m[4] & 0x7f) << 8;
-		if (bytes > 5)
-			ump[1] |= (m[5] & 0x7f);
 	} else {
 		/* regular messages */
 		switch (status) {

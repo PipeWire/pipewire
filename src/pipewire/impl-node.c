@@ -1015,17 +1015,7 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 
 	remove_segment_owner(old, node->info.id);
 
-	was_driving = node->driving;
-
-	/* When a node was driver (and is waiting for all nodes to complete
-	 * the Start command) cancel the pending state and let the new driver
-	 * calculate a new state so that the Start command is sent to the
-	 * node */
-	if (was_driving && !node->driving)
-		impl->pending_state = node->info.state;
-
-	pw_log_debug("%p: driver %p driving:%u", node,
-		driver, node->driving);
+	pw_log_debug("%p: driver %p driving:%u", node, driver, node->driving);
 	pw_log_info("(%s-%u) -> change driver (%s-%d -> %s-%d)",
 			node->name, node->info.id,
 			old->name, old->info.id, driver->name, driver->info.id);
@@ -1042,10 +1032,19 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 	 * scheduled so it won't trigger yet */
 	node->to_driver_peer = pw_node_peer_ref(node, driver);
 
+	was_driving = node->driving;
+
 	/* then set the new driver node activation */
 	pw_impl_node_set_io(node, SPA_IO_Position,
 			&driver->rt.target.activation->position,
 			sizeof(struct spa_io_position));
+
+	/* When a node was driver (and is waiting for all nodes to complete
+	 * the Start command) cancel the pending state and let the new driver
+	 * calculate a new state so that the Start command is sent to the
+	 * node */
+	if (was_driving && !node->driving)
+		impl->pending_state = node->info.state;
 
 	/* and then make the driver trigger the node */
 	node->from_driver_peer = pw_node_peer_ref(driver, node);

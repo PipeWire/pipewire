@@ -11,6 +11,8 @@
 #include <malloc.h>
 #include <limits.h>
 
+#include "config.h"
+
 #include <spa/support/system.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/filter.h>

@@ -10,9 +10,6 @@
 #include <signal.h>
 #include <string.h>
 #include <ctype.h>
-#if !defined(__FreeBSD__) && !defined(__MidnightBSD__)
-#include <alloca.h>
-#endif
 #include <getopt.h>
 #include <fnmatch.h>
 #ifdef HAVE_READLINE
@@ -2161,15 +2158,6 @@ children_of(struct remote_data *rd, uint32_t parent_id,
 	}
 	return count;
 }
-
-#define INDENT(_level) \
-	({ \
-		int __level = (_level); \
-		char *_indent = alloca(__level + 1); \
-		memset(_indent, '\t', __level); \
-		_indent[__level] = '\0'; \
-		(const char *)_indent; \
-	})
 
 static bool parse(struct data *data, char *buf, char **error)
 {

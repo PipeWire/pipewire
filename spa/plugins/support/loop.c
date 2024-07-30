@@ -212,9 +212,12 @@ static void flush_all_queues(struct impl *impl)
 		 * read index before we call the function because then the item
 		 * might get overwritten. */
 		func = spa_steal_ptr(item->func);
-		if (func)
+		if (func) {
+			pthread_mutex_unlock(&impl->queue_lock);
 			item->res = func(&impl->loop, true, item->seq, item->data,
 				item->size, item->user_data);
+			pthread_mutex_lock(&impl->queue_lock);
+		}
 
 		/* if this function did a recursive invoke, it now flushed the
 		 * ringbuffer and we can exit */

@@ -625,7 +625,7 @@ static void silence_playback(struct impl *impl)
 	for (i = 0; i < s->n_ports; i++) {
 		struct port *p = s->ports[i];
 		if (p != NULL)
-			clear_port_buffer(p, impl->period_size);
+			clear_port_buffer(p, impl->device_options.period_size);
 	}
 	ffado_streaming_transfer_playback_buffers(impl->dev);
 	s->transfered = true;
@@ -1000,7 +1000,8 @@ again:
 	if (!sink_running)
 		silence_playback(impl);
 
-	pw_log_trace_fp("process %d %u %u %p %d %"PRIu64, impl->period_size, source_running,
+	pw_log_trace_fp("process %d %u %u %p %d %"PRIu64,
+			impl->device_options.period_size, source_running,
 			sink_running, impl->position, impl->frame_time, nsec);
 
 	if (impl->new_xrun) {
@@ -1013,7 +1014,7 @@ again:
 		struct spa_io_clock *c = &impl->position->clock;
 
 #if 0
-		if (c->target_duration != (uint64_t) impl->period_size) {
+		if (c->target_duration != (uint64_t) impl->device_options.period_size) {
 			ffado_streaming_transfer_capture_buffers(impl->dev);
 			silence_playback(impl);
 
@@ -1021,19 +1022,19 @@ again:
 				pw_log_warn("can't change period size");
 			} else {
 				sleep(1);
-				impl->period_size = c->target_duration;
+				impl->device_options.period_size = c->target_duration;
 			}
 			goto again;
 		}
 #endif
 
 		c->nsec = nsec;
-		c->rate = SPA_FRACTION(1, impl->sample_rate);
-		c->position += impl->period_size;
-		c->duration = impl->period_size;
+		c->rate = SPA_FRACTION(1, impl->device_options.sample_rate);
+		c->position += impl->device_options.period_size;
+		c->duration = impl->device_options.period_size;
 		c->delay = 0;
 		c->rate_diff = 1.0;
-		c->next_nsec = nsec + (c->duration * SPA_NSEC_PER_SEC) / impl->sample_rate;
+		c->next_nsec = nsec + (c->duration * SPA_NSEC_PER_SEC) / impl->device_options.sample_rate;
 
 		c->target_rate = c->rate;
 		c->target_duration = c->duration;
@@ -1073,13 +1074,15 @@ static int open_ffado_device(struct impl *impl)
 	if (impl->dev != NULL)
 		return 0;
 
+	target_rate = impl->sample_rate;
+	target_period = impl->period_size;
+
 	if (impl->position) {
 		struct spa_io_clock *c = &impl->position->clock;
-		target_rate = c->target_rate.denom;
-		target_period = c->target_duration;
-	} else {
-		target_rate = impl->sample_rate;
-		target_period = impl->period_size;
+		if (target_rate == 0)
+			target_rate = c->target_rate.denom;
+		if (target_period == 0)
+			target_period = c->target_duration;
 	}
 
 	spa_zero(impl->device_info);
@@ -1111,10 +1114,8 @@ static int open_ffado_device(struct impl *impl)
 
 	ffado_streaming_set_audio_datatype(impl->dev, ffado_audio_datatype_float);
 
-	impl->sample_rate = impl->device_options.sample_rate;
-	impl->period_size = impl->device_options.period_size;
-	impl->source.info.rate = impl->sample_rate;
-	impl->sink.info.rate = impl->sample_rate;
+	impl->source.info.rate = impl->device_options.sample_rate;
+	impl->sink.info.rate = impl->device_options.sample_rate;
 
 	impl->source.n_ports = ffado_streaming_get_nb_capture_streams(impl->dev);
 	impl->sink.n_ports = ffado_streaming_get_nb_playback_streams(impl->dev);
@@ -1126,7 +1127,8 @@ static int open_ffado_device(struct impl *impl)
 
 	pw_log_info("opened FFADO device %s source:%d sink:%d rate:%d period:%d %p",
 			impl->devices[0], impl->source.n_ports, impl->sink.n_ports,
-			impl->sample_rate, impl->period_size, impl->position);
+			impl->device_options.sample_rate,
+			impl->device_options.period_size, impl->position);
 
 	return 0;
 }

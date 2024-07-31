@@ -32,7 +32,7 @@
 #include <spa/debug/pod.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/json-pod.h>
-#include <spa/pod/builder.h>
+#include <spa/pod/dynamic.h>
 
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
@@ -1748,9 +1748,11 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 	uint32_t param_id;
 	struct global *global;
 	uint8_t buffer[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	spa_auto(spa_pod_dynamic_builder) b = { 0 };
 	const struct spa_type_info *ti;
 	struct spa_pod *pod;
+
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
 
 	n = pw_split_ip(args, WHITESPACE, 3, a);
 	if (n < 3) {
@@ -1773,11 +1775,11 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 		*error = spa_aprintf("%s: unknown param type: %s", cmd, a[1]);
 		return false;
 	}
-	if ((res = spa_json_to_pod(&b, 0, ti, a[2], strlen(a[2]))) < 0) {
+	if ((res = spa_json_to_pod(&b.b, 0, ti, a[2], strlen(a[2]))) < 0) {
 		*error = spa_aprintf("%s: can't make pod: %s", cmd, spa_strerror(res));
 		return false;
 	}
-	if ((pod = spa_pod_builder_deref(&b, 0)) == NULL) {
+	if ((pod = spa_pod_builder_deref(&b.b, 0)) == NULL) {
 		*error = spa_aprintf("%s: can't make pod", cmd);
 		return false;
 	}
@@ -1882,9 +1884,11 @@ static bool do_send_command(struct data *data, const char *cmd, char *args, char
 	int res, n;
 	struct global *global;
 	uint8_t buffer[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	spa_auto(spa_pod_dynamic_builder) b = { 0 };
 	const struct spa_type_info *ti;
 	struct spa_pod *pod;
+
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
 
 	n = pw_split_ip(args, WHITESPACE, 3, a);
 	if (n < 3) {
@@ -1914,11 +1918,11 @@ static bool do_send_command(struct data *data, const char *cmd, char *args, char
 		*error = spa_aprintf("%s: unknown node command type: %s", cmd, a[1]);
 		return false;
 	}
-	if ((res = spa_json_to_pod(&b, 0, ti, a[2], strlen(a[2]))) < 0) {
+	if ((res = spa_json_to_pod(&b.b, 0, ti, a[2], strlen(a[2]))) < 0) {
 		*error = spa_aprintf("%s: can't make pod: %s", cmd, spa_strerror(res));
 		return false;
 	}
-	if ((pod = spa_pod_builder_deref(&b, 0)) == NULL) {
+	if ((pod = spa_pod_builder_deref(&b.b, 0)) == NULL) {
 		*error = spa_aprintf("%s: can't make pod", cmd);
 		return false;
 	}
@@ -2358,20 +2362,23 @@ int main(int argc, char *argv[])
 		readline_cleanup();
 #endif
 	} else {
-		char buf[4096], *p, *error;
+		FILE *buf;
+		char *error, *ptr;
+		size_t size;
 
-		p = buf;
-		for (i = optind; i < argc; i++) {
-			p = stpcpy(p, argv[i]);
-			p = stpcpy(p, " ");
-		}
+		buf = open_memstream(&ptr, &size);
+		for (i = optind; i < argc; i++)
+			fprintf(buf, "%s%s", i == optind ? "" : " ", argv[i]);
+		fclose(buf);
 
 		pw_main_loop_run(data.loop);
 
-		if (!parse(&data, buf, &error)) {
+		if (!parse(&data, ptr, &error)) {
 			fprintf(stderr, "Error: \"%s\"\n", error);
 			free(error);
 		}
+		free(ptr);
+
 		if (data.current != NULL)
 			data.current->prompt_pending = pw_core_sync(data.current->core, 0, 0);
 

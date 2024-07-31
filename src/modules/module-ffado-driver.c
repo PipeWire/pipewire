@@ -44,9 +44,9 @@
  *
  * - `driver.mode`: the driver mode, sink|source|duplex, default duplex
  * - `ffado.devices`: array of devices to open, default "hw:0"
- * - `ffado.period-size`: period size,default 1024
+ * - `ffado.period-size`: period size,default 1024. A value of 0 will use the graph duration.
  * - `ffado.period-num`: period number,default 3
- * - `ffado.sample-rate`: sample-rate, default 48000
+ * - `ffado.sample-rate`: sample-rate, default 48000. A value of 0 will use the graph rate.
  * - `ffado.slave-mode`: slave mode
  * - `ffado.snoop-mode`: snoop mode
  * - `ffado.verbose`: ffado verbose level

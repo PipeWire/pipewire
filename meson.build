@@ -285,10 +285,14 @@ cdata.set('HAVE_DBUS', dbus_dep.found())
 sdl_dep = dependency('sdl2', required : get_option('sdl2'))
 summary({'SDL2 (video examples)': sdl_dep.found()}, bool_yn: true, section: 'Misc dependencies')
 drm_dep = dependency('libdrm', required : false)
-readline_dep = dependency('readline', required : get_option('readline'))
 
-if not readline_dep.found()
-  readline_dep = cc.find_library('readline', required : get_option('readline'))
+if get_option('readline').disabled()
+  readline_dep = dependency('', required: false)
+else
+  readline_dep = dependency('readline', required : false)
+  if not readline_dep.found()
+    readline_dep = cc.find_library('readline', required : get_option('readline'))
+  endif
 endif
 
 # Both the FFmpeg SPA plugin and the pw-cat FFmpeg integration use libavcodec.

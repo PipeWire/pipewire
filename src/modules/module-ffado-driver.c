@@ -883,6 +883,31 @@ static const struct pw_filter_events source_events = {
 	.process = source_process,
 };
 
+static int update_stream_format(struct stream *s, uint32_t samplerate)
+{
+	uint8_t buffer[1024];
+	struct spa_pod_builder b;
+	uint32_t n_params;
+	const struct spa_pod *params[2];
+
+	if (s->info.rate == samplerate)
+		return 0;
+
+	s->info.rate = samplerate;
+
+	if (s->filter == NULL)
+		return 0;
+
+	n_params = 0;
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	params[n_params++] = spa_format_audio_raw_build(&b,
+			SPA_PARAM_EnumFormat, &s->info);
+	params[n_params++] = spa_format_audio_raw_build(&b,
+			SPA_PARAM_Format, &s->info);
+
+	return pw_filter_update_params(s->filter, NULL, params, n_params);
+}
+
 static int make_stream(struct stream *s, const char *name)
 {
 	struct impl *impl = s->impl;
@@ -890,11 +915,6 @@ static int make_stream(struct stream *s, const char *name)
 	const struct spa_pod *params[4];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
-	struct spa_latency_info latency;
-
-	spa_zero(latency);
-	n_params = 0;
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	s->filter = pw_filter_new(impl->core, name, pw_properties_copy(s->props));
 	if (s->filter == NULL)
@@ -910,6 +930,8 @@ static int make_stream(struct stream *s, const char *name)
 	}
 
 	reset_volume(&s->volume, s->info.channels);
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	n_params = 0;
 	params[n_params++] = spa_format_audio_raw_build(&b,
@@ -1063,6 +1085,10 @@ static int open_ffado_device(struct impl *impl)
 		if (target_period == 0)
 			target_period = c->target_duration;
 	}
+	if (target_rate == 0)
+		target_rate = DEFAULT_SAMPLE_RATE;
+	if (target_period == 0)
+		target_period = DEFAULT_PERIOD_SIZE;
 
 	spa_zero(impl->device_info);
 	impl->device_info.device_spec_strings = impl->devices;
@@ -1093,9 +1119,6 @@ static int open_ffado_device(struct impl *impl)
 
 	ffado_streaming_set_audio_datatype(impl->dev, ffado_audio_datatype_float);
 
-	impl->source.info.rate = impl->device_options.sample_rate;
-	impl->sink.info.rate = impl->device_options.sample_rate;
-
 	impl->source.n_ports = ffado_streaming_get_nb_capture_streams(impl->dev);
 	impl->sink.n_ports = ffado_streaming_get_nb_playback_streams(impl->dev);
 
@@ -1103,6 +1126,9 @@ static int open_ffado_device(struct impl *impl)
 		close_ffado_device(impl);
 		return -EIO;
 	}
+
+	update_stream_format(&impl->source, impl->device_options.sample_rate);
+	update_stream_format(&impl->sink, impl->device_options.sample_rate);
 
 	pw_log_info("opened FFADO device %s source:%d sink:%d rate:%d period:%d %p",
 			impl->devices[0], impl->source.n_ports, impl->sink.n_ports,

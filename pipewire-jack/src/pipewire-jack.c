@@ -5500,8 +5500,6 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 		size_t offs = mb->buffer_size - 1 - mb->write_pos;
 		memcpy(SPA_PTROFF(ptr, offs, void), SPA_PTROFF(mb, offs, void), mb->write_pos);
 	}
-	if (mb->event_count > 0)
-		spa_debug_mem(0, ptr, 64);
 	return ptr;
 }
 

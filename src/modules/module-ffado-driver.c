@@ -241,6 +241,7 @@ struct impl {
 	unsigned int do_disconnect:1;
 	unsigned int fix_midi:1;
 	unsigned int started:1;
+	unsigned int freewheel:1;
 
 	pthread_t thread;
 
@@ -659,10 +660,28 @@ static void stream_io_changed(void *data, void *port_data, uint32_t id, void *ar
 {
 	struct stream *s = data;
 	struct impl *impl = s->impl;
+	bool freewheel;
+
 	if (port_data == NULL) {
 		switch (id) {
 		case SPA_IO_Position:
 			impl->position = area;
+			freewheel = impl->position != NULL &&
+				SPA_FLAG_IS_SET(impl->position->clock.flags, SPA_IO_CLOCK_FLAG_FREEWHEEL);
+			if (impl->freewheel != freewheel) {
+				pw_log_info("freewheel: %d -> %d", impl->freewheel, freewheel);
+				impl->freewheel = freewheel;
+				if (impl->started) {
+					if (freewheel) {
+						set_timeout(impl, 0);
+						ffado_streaming_stop(impl->dev);
+					} else {
+						ffado_streaming_start(impl->dev);
+						impl->rt.done = true;
+						set_timeout(impl, get_time_ns(impl));
+					}
+				}
+			}
 			break;
 		default:
 			break;
@@ -966,6 +985,9 @@ static void on_ffado_timeout(void *data, uint64_t expirations)
 	ffado_wait_response response;
 
 	pw_log_trace_fp("wakeup %d", impl->rt.done);
+
+	if (impl->freewheel)
+		return;
 
 	if (!impl->rt.done) {
 		impl->rt.pw_xrun++;

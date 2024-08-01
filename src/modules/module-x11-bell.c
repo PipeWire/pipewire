@@ -50,7 +50,7 @@
  * ## Example configuration
  *\code{.unparsed}
  * context.modules = [
- *  {   name = libpipewire-x11-bell }
+ *  {   name = libpipewire-module-x11-bell }
  *      args = {
  *          #sink.name = @DEFAULT_SINK@
  *          sample.name = "bell-window-system"

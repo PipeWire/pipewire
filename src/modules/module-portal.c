@@ -58,7 +58,7 @@
  * ## Example configuration
  *\code{.unparsed}
  * context.modules = [
- *  {   name = libpipewire-portal }
+ *  {   name = libpipewire-module-portal }
  * ]
  *\endcode
  *

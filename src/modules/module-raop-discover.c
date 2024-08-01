@@ -56,7 +56,7 @@
  *
  *\code{.unparsed}
  * context.modules = [
- * {   name = libpipewire-raop-discover
+ * {   name = libpipewire-module-raop-discover
  *     args = {
  *         #roap.discover-local = false;
  *         #raop.latency.ms = 1000

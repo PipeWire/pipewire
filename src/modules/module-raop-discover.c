@@ -54,7 +54,7 @@
  *
  *\code{.unparsed}
  * context.modules = [
- * {   name = libpipewire-raop-discover
+ * {   name = libpipewire-module-raop-discover
  *     args = {
  *         #raop.latency.ms = 1000
  *         stream.rules = [

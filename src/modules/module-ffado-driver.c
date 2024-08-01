@@ -183,7 +183,10 @@ struct stream {
 
 	unsigned int ready:1;
 	unsigned int running:1;
-	unsigned int transfered:1;
+
+	struct {
+		unsigned int transfered:1;
+	} rt;
 };
 
 struct impl {
@@ -233,8 +236,6 @@ struct impl {
 	uint32_t output_latency;
 	uint32_t quantum_limit;
 
-	uint32_t pw_xrun;
-	uint32_t ffado_xrun;
 	uint32_t frame_time;
 
 	unsigned int do_disconnect:1;
@@ -243,9 +244,13 @@ struct impl {
 
 	pthread_t thread;
 
-	unsigned int done:1;
-	unsigned int triggered:1;
-	unsigned int new_xrun:1;
+	struct {
+		unsigned int done:1;
+		unsigned int triggered:1;
+		unsigned int new_xrun:1;
+		uint32_t pw_xrun;
+		uint32_t ffado_xrun;
+	} rt;
 };
 
 static int stop_ffado_device(struct impl *impl);
@@ -561,9 +566,9 @@ static void sink_process(void *d, struct spa_io_position *position)
 	struct impl *impl = s->impl;
 	uint32_t i, n_samples = position->clock.duration;
 
-	pw_log_trace_fp("process %d", impl->triggered);
-	if (impl->mode == MODE_SINK && impl->triggered) {
-		impl->triggered = false;
+	pw_log_trace_fp("process %d", impl->rt.triggered);
+	if (impl->mode == MODE_SINK && impl->rt.triggered) {
+		impl->rt.triggered = false;
 		return;
 	}
 
@@ -587,11 +592,11 @@ static void sink_process(void *d, struct spa_io_position *position)
 		p->cleared = false;
 	}
 	ffado_streaming_transfer_playback_buffers(impl->dev);
-	s->transfered = true;
+	s->rt.transfered = true;
 
 	if (impl->mode == MODE_SINK) {
 		pw_log_trace_fp("done %u", impl->frame_time);
-		impl->done = true;
+		impl->rt.done = true;
 		set_timeout(impl, position->clock.nsec);
 	}
 }
@@ -607,7 +612,7 @@ static void silence_playback(struct impl *impl)
 			clear_port_buffer(p, impl->device_options.period_size);
 	}
 	ffado_streaming_transfer_playback_buffers(impl->dev);
-	s->transfered = true;
+	s->rt.transfered = true;
 }
 
 static void source_process(void *d, struct spa_io_position *position)
@@ -616,21 +621,21 @@ static void source_process(void *d, struct spa_io_position *position)
 	struct impl *impl = s->impl;
 	uint32_t i, n_samples = position->clock.duration;
 
-	pw_log_trace_fp("process %d", impl->triggered);
+	pw_log_trace_fp("process %d", impl->rt.triggered);
 
-	if (!impl->triggered) {
+	if (!impl->rt.triggered) {
 		pw_log_trace_fp("done %u", impl->frame_time);
-		impl->done = true;
-		if (!impl->sink.transfered)
+		impl->rt.done = true;
+		if (!impl->sink.rt.transfered)
 			silence_playback(impl);
 		set_timeout(impl, position->clock.nsec);
 		return;
 	}
 
-	impl->triggered = false;
+	impl->rt.triggered = false;
 
 	ffado_streaming_transfer_capture_buffers(impl->dev);
-	s->transfered = true;
+	s->rt.transfered = true;
 
 	for (i = 0; i < s->n_ports; i++) {
 		struct port *p = s->ports[i];
@@ -960,11 +965,11 @@ static void on_ffado_timeout(void *data, uint64_t expirations)
 	uint64_t nsec;
 	ffado_wait_response response;
 
-	pw_log_trace_fp("wakeup %d", impl->done);
+	pw_log_trace_fp("wakeup %d", impl->rt.done);
 
-	if (!impl->done) {
-		impl->pw_xrun++;
-		impl->new_xrun = true;
+	if (!impl->rt.done) {
+		impl->rt.pw_xrun++;
+		impl->rt.new_xrun = true;
 		ffado_streaming_reset(impl->dev);
 	}
 again:
@@ -977,8 +982,8 @@ again:
 		break;
 	case ffado_wait_xrun:
 		pw_log_debug("FFADO xrun");
-		impl->ffado_xrun++;
-		impl->new_xrun = true;
+		impl->rt.ffado_xrun++;
+		impl->rt.new_xrun = true;
 		goto again;
 	case ffado_wait_shutdown:
 		pw_log_info("FFADO shutdown");
@@ -991,12 +996,12 @@ again:
 	source_running = impl->source.running && impl->sink.ready;
 	sink_running = impl->sink.running && impl->source.ready;
 
-	impl->source.transfered = false;
-	impl->sink.transfered = false;
+	impl->source.rt.transfered = false;
+	impl->sink.rt.transfered = false;
 
 	if (!source_running) {
 		ffado_streaming_transfer_capture_buffers(impl->dev);
-		impl->source.transfered = true;
+		impl->source.rt.transfered = true;
 	}
 	if (!sink_running)
 		silence_playback(impl);
@@ -1005,10 +1010,10 @@ again:
 			impl->device_options.period_size, source_running,
 			sink_running, impl->position, impl->frame_time, nsec);
 
-	if (impl->new_xrun) {
+	if (impl->rt.new_xrun) {
 		pw_log_warn("Xrun FFADO:%u PipeWire:%u source:%d sink:%d",
-				impl->ffado_xrun, impl->pw_xrun, source_running, sink_running);
-		impl->new_xrun = false;
+				impl->rt.ffado_xrun, impl->rt.pw_xrun, source_running, sink_running);
+		impl->rt.new_xrun = false;
 	}
 
 	if (impl->position) {
@@ -1041,17 +1046,17 @@ again:
 		c->target_duration = c->duration;
 	}
 	if (impl->mode & MODE_SOURCE && source_running) {
-		impl->done = false;
-		impl->triggered = true;
+		impl->rt.done = false;
+		impl->rt.triggered = true;
 		set_timeout(impl, nsec + SPA_NSEC_PER_SEC);
 		pw_filter_trigger_process(impl->source.filter);
 	} else if (impl->mode == MODE_SINK && sink_running) {
-		impl->done = false;
-		impl->triggered = true;
+		impl->rt.done = false;
+		impl->rt.triggered = true;
 		set_timeout(impl, nsec + SPA_NSEC_PER_SEC);
 		pw_filter_trigger_process(impl->sink.filter);
 	} else {
-		impl->done = true;
+		impl->rt.done = true;
 		set_timeout(impl, nsec);
 	}
 }
@@ -1242,7 +1247,7 @@ static int start_ffado_device(struct impl *impl)
 	pw_log_info("FFADO started streaming");
 
 	impl->started = true;
-	impl->done = true;
+	impl->rt.done = true;
 	set_timeout(impl, get_time_ns(impl));
 	return 0;
 }

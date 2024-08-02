@@ -81,7 +81,8 @@ typedef struct {
 	int64_t now;
 	uintptr_t seq;
 
-	struct spa_audio_info_raw format;
+	struct spa_audio_info requested;
+	struct spa_audio_info format;
 } snd_pcm_pipewire_t;
 
 static int snd_pcm_pipewire_stop(snd_pcm_ioplug_t *io);
@@ -344,6 +345,25 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 	if (param == NULL || id != SPA_PARAM_Format)
 		return;
 
+	if (spa_format_audio_parse(param, &pw->format) < 0) {
+		pw->error = -EINVAL;
+	} else {
+		switch (pw->format.media_subtype) {
+		case SPA_MEDIA_SUBTYPE_raw:
+			break;
+		case SPA_MEDIA_SUBTYPE_dsd:
+			if (pw->format.info.dsd.interleave != pw->requested.info.dsd.interleave ||
+			    pw->format.info.dsd.bitorder != pw->requested.info.dsd.bitorder) {
+				pw->error = -EINVAL;
+			}
+			break;
+		}
+	}
+	if (pw->error < 0) {
+		pw_thread_loop_signal(pw->main_loop, false);
+		return;
+	}
+
 	io->period_size = pw->min_avail;
 
 	buffers = SPA_CLAMP(io->buffer_size / io->period_size, MIN_BUFFERS, MAX_BUFFERS);
@@ -525,7 +545,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	pw_properties_setf(pw->props, PW_KEY_NODE_LATENCY, "%lu/%u", pw->min_avail, io->rate);
 	pw_properties_setf(pw->props, PW_KEY_NODE_RATE, "1/%u", io->rate);
 
-	params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &pw->format);
+	params[0] = spa_format_audio_build(&b, SPA_PARAM_EnumFormat, &pw->format);
 
 	if (pw->stream != NULL) {
 		pw_stream_set_active(pw->stream, false);
@@ -622,29 +642,29 @@ static int snd_pcm_pipewire_pause(snd_pcm_ioplug_t * io, int enable)
 #define _FORMAT_BE(p, fmt)  p ? SPA_AUDIO_FORMAT_UNKNOWN : SPA_AUDIO_FORMAT_ ## fmt ## _OE
 #endif
 
-static int set_default_channels(struct spa_audio_info_raw *info)
+static int set_default_channels(uint32_t channels, uint32_t position[SPA_AUDIO_MAX_CHANNELS])
 {
-	switch (info->channels) {
+	switch (channels) {
 	case 8:
-		info->position[6] = SPA_AUDIO_CHANNEL_SL;
-		info->position[7] = SPA_AUDIO_CHANNEL_SR;
+		position[6] = SPA_AUDIO_CHANNEL_SL;
+		position[7] = SPA_AUDIO_CHANNEL_SR;
 		SPA_FALLTHROUGH
 	case 6:
-		info->position[5] = SPA_AUDIO_CHANNEL_LFE;
+		position[5] = SPA_AUDIO_CHANNEL_LFE;
 		SPA_FALLTHROUGH
 	case 5:
-		info->position[4] = SPA_AUDIO_CHANNEL_FC;
+		position[4] = SPA_AUDIO_CHANNEL_FC;
 		SPA_FALLTHROUGH
 	case 4:
-		info->position[2] = SPA_AUDIO_CHANNEL_RL;
-		info->position[3] = SPA_AUDIO_CHANNEL_RR;
+		position[2] = SPA_AUDIO_CHANNEL_RL;
+		position[3] = SPA_AUDIO_CHANNEL_RR;
 		SPA_FALLTHROUGH
 	case 2:
-		info->position[0] = SPA_AUDIO_CHANNEL_FL;
-		info->position[1] = SPA_AUDIO_CHANNEL_FR;
+		position[0] = SPA_AUDIO_CHANNEL_FL;
+		position[1] = SPA_AUDIO_CHANNEL_FR;
 		return 1;
 	case 1:
-		info->position[0] = SPA_AUDIO_CHANNEL_MONO;
+		position[0] = SPA_AUDIO_CHANNEL_MONO;
 		return 1;
 	default:
 		return 0;
@@ -656,6 +676,7 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 	bool planar;
+	const char *fmt_str = NULL;
 
 	snd_pcm_hw_params_dump(params, pw->output);
 	fflush(pw->log_file);
@@ -676,48 +697,98 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 		return -EINVAL;
 	}
 
+	pw->requested.media_type = SPA_MEDIA_TYPE_audio;
 	switch(io->format) {
 	case SND_PCM_FORMAT_U8:
-		pw->format.format = planar ? SPA_AUDIO_FORMAT_U8P : SPA_AUDIO_FORMAT_U8;
+		pw->requested.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+		pw->requested.info.raw.format = planar ? SPA_AUDIO_FORMAT_U8P : SPA_AUDIO_FORMAT_U8;
 		break;
 	case SND_PCM_FORMAT_S16_LE:
-		pw->format.format = _FORMAT_LE(planar, S16);
+		pw->requested.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+		pw->requested.info.raw.format = _FORMAT_LE(planar, S16);
 		break;
 	case SND_PCM_FORMAT_S16_BE:
-		pw->format.format = _FORMAT_BE(planar, S16);
+		pw->requested.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+		pw->requested.info.raw.format = _FORMAT_BE(planar, S16);
 		break;
 	case SND_PCM_FORMAT_S24_LE:
-		pw->format.format = _FORMAT_LE(planar, S24_32);
+		pw->requested.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+		pw->requested.info.raw.format = _FORMAT_LE(planar, S24_32);
 		break;
 	case SND_PCM_FORMAT_S24_BE:
-		pw->format.format = _FORMAT_BE(planar, S24_32);
+		pw->requested.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+		pw->requested.info.raw.format = _FORMAT_BE(planar, S24_32);
 		break;
 	case SND_PCM_FORMAT_S32_LE:
-		pw->format.format = _FORMAT_LE(planar, S32);
+		pw->requested.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+		pw->requested.info.raw.format = _FORMAT_LE(planar, S32);
 		break;
 	case SND_PCM_FORMAT_S32_BE:
-		pw->format.format = _FORMAT_BE(planar, S32);
+		pw->requested.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+		pw->requested.info.raw.format = _FORMAT_BE(planar, S32);
 		break;
 	case SND_PCM_FORMAT_S24_3LE:
-		pw->format.format = _FORMAT_LE(planar, S24);
+		pw->requested.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+		pw->requested.info.raw.format = _FORMAT_LE(planar, S24);
 		break;
 	case SND_PCM_FORMAT_S24_3BE:
-		pw->format.format = _FORMAT_BE(planar, S24);
+		pw->requested.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+		pw->requested.info.raw.format = _FORMAT_BE(planar, S24);
 		break;
 	case SND_PCM_FORMAT_FLOAT_LE:
-		pw->format.format = _FORMAT_LE(planar, F32);
+		pw->requested.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+		pw->requested.info.raw.format = _FORMAT_LE(planar, F32);
 		break;
 	case SND_PCM_FORMAT_FLOAT_BE:
-		pw->format.format = _FORMAT_BE(planar, F32);
+		pw->requested.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+		pw->requested.info.raw.format = _FORMAT_BE(planar, F32);
+		break;
+	case SND_PCM_FORMAT_DSD_U32_BE:
+		pw->requested.media_subtype = SPA_MEDIA_SUBTYPE_dsd;
+		pw->requested.info.dsd.interleave = 4;
+		break;
+	case SND_PCM_FORMAT_DSD_U32_LE:
+		pw->requested.media_subtype = SPA_MEDIA_SUBTYPE_dsd;
+		pw->requested.info.dsd.interleave = -4;
+		break;
+	case SND_PCM_FORMAT_DSD_U16_BE:
+		pw->requested.media_subtype = SPA_MEDIA_SUBTYPE_dsd;
+		pw->requested.info.dsd.interleave = 2;
+		break;
+	case SND_PCM_FORMAT_DSD_U16_LE:
+		pw->requested.media_subtype = SPA_MEDIA_SUBTYPE_dsd;
+		pw->requested.info.dsd.interleave = -2;
+		break;
+	case SND_PCM_FORMAT_DSD_U8:
+		pw->requested.media_subtype = SPA_MEDIA_SUBTYPE_dsd;
+		pw->requested.info.dsd.interleave = 1;
 		break;
 	default:
 		SNDERR("PipeWire: invalid format: %d\n", io->format);
 		return -EINVAL;
 	}
-	pw->format.channels = io->channels;
-	pw->format.rate = io->rate;
-
-	set_default_channels(&pw->format);
+	switch (pw->requested.media_subtype) {
+	case SPA_MEDIA_SUBTYPE_raw:
+		pw->requested.info.raw.channels = io->channels;
+		pw->requested.info.raw.rate = io->rate;
+		set_default_channels(io->channels, pw->requested.info.raw.position);
+		fmt_str = spa_debug_type_find_name(spa_type_audio_format, pw->requested.info.raw.format);
+		pw->format = pw->requested;
+		break;
+	case SPA_MEDIA_SUBTYPE_dsd:
+		pw->requested.info.dsd.bitorder = SPA_PARAM_BITORDER_msb;
+		pw->requested.info.dsd.channels = io->channels;
+		pw->requested.info.dsd.rate = io->rate * SPA_ABS(pw->requested.info.dsd.interleave);
+		set_default_channels(io->channels, pw->requested.info.dsd.position);
+		pw->format = pw->requested;
+		/* we need to let the server decide these values */
+		pw->format.info.dsd.bitorder = 0;
+		pw->format.info.dsd.interleave = 0;
+		fmt_str = "DSD";
+		break;
+	default:
+		return -EIO;
+	}
 
 	pw->sample_bits = snd_pcm_format_physical_width(io->format);
 	if (planar) {
@@ -728,8 +799,7 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 		pw->stride = (io->channels * pw->sample_bits) / 8;
 	}
 	pw->hw_params_changed = true;
-	pw_log_info("%p: format:%s channels:%d rate:%d stride:%d blocks:%d", pw,
-			spa_debug_type_find_name(spa_type_audio_format, pw->format.format),
+	pw_log_info("%p: format:%s channels:%d rate:%d stride:%d blocks:%d", pw, fmt_str,
 			io->channels, io->rate, pw->stride, pw->blocks);
 
 	return 0;
@@ -831,14 +901,26 @@ static int snd_pcm_pipewire_set_chmap(snd_pcm_ioplug_t * io,
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 	unsigned int i;
+	uint32_t *position;
 
-	pw->format.channels = map->channels;
+	switch (pw->requested.media_subtype) {
+	case SPA_MEDIA_SUBTYPE_raw:
+		pw->requested.info.raw.channels = map->channels;
+		position = pw->requested.info.raw.position;
+		break;
+	case SPA_MEDIA_SUBTYPE_dsd:
+		pw->requested.info.dsd.channels = map->channels;
+		position = pw->requested.info.dsd.position;
+		break;
+	default:
+		return -EINVAL;
+	}
 	for (i = 0; i < map->channels; i++) {
-		pw->format.position[i] = chmap_to_channel(map->pos[i]);
+		position[i] = chmap_to_channel(map->pos[i]);
 		pw_log_debug("map %d: %s / %s", i,
 				snd_pcm_chmap_name(map->pos[i]),
 				spa_debug_type_find_short_name(spa_type_audio_channel,
-					pw->format.position[i]));
+					position[i]));
 	}
 	return 1;
 }
@@ -847,13 +929,26 @@ static snd_pcm_chmap_t * snd_pcm_pipewire_get_chmap(snd_pcm_ioplug_t * io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 	snd_pcm_chmap_t *map;
-	uint32_t i;
+	uint32_t i, channels, *position;
+
+	switch (pw->requested.media_subtype) {
+	case SPA_MEDIA_SUBTYPE_raw:
+		channels = pw->requested.info.raw.channels;
+		position = pw->requested.info.raw.position;
+		break;
+	case SPA_MEDIA_SUBTYPE_dsd:
+		channels = pw->requested.info.dsd.channels;
+		position = pw->requested.info.dsd.position;
+		break;
+	default:
+		return NULL;
+	}
 
 	map = calloc(1, sizeof(snd_pcm_chmap_t) +
-				 pw->format.channels * sizeof(unsigned int));
-	map->channels = pw->format.channels;
-	for (i = 0; i < pw->format.channels; i++)
-		map->pos[i] = channel_to_chmap(pw->format.position[i]);
+				 channels * sizeof(unsigned int));
+	map->channels = channels;
+	for (i = 0; i < channels; i++)
+		map->pos[i] = channel_to_chmap(position[i]);
 
 	return map;
 }
@@ -989,7 +1084,16 @@ struct param_info infos[] = {
 			SND_PCM_FORMAT_S24_3BE,
 			SND_PCM_FORMAT_S16_BE,
 #endif
-			SND_PCM_FORMAT_U8 }, 7, collect_format },
+			SND_PCM_FORMAT_U8,
+			/* we don't add DSD formats here, use alsa.formats to
+			 * force this. Because we can't convert to/from DSD, enabling this
+			 * might fail when the system has no native DSD
+			 * SND_PCM_FORMAT_DSD_U32_BE,
+			 * SND_PCM_FORMAT_DSD_U32_LE,
+			 * SND_PCM_FORMAT_DSD_U16_BE,
+			 * SND_PCM_FORMAT_DSD_U16_LE,
+			 * SND_PCM_FORMAT_DSD_U8 */
+		}, 7, collect_format },
 	{ "alsa.rate", SND_PCM_IOPLUG_HW_RATE, TYPE_MIN_MAX,
 		{ 1, MAX_RATE }, 2, collect_int },
 	{ "alsa.channels", SND_PCM_IOPLUG_HW_CHANNELS, TYPE_MIN_MAX,

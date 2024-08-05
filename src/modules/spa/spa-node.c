@@ -243,15 +243,14 @@ struct pw_impl_node *pw_spa_node_load(struct pw_context *context,
 	struct pw_loop *loop;
 	struct match match;
 
-	if (properties) {
-		p = pw_context_get_properties(context);
-		pw_properties_set(properties, "clock.quantum-limit",
-				pw_properties_get(p, "default.clock.quantum-limit"));
-	} else {
+	if (properties == NULL) {
 		properties = pw_properties_new(NULL, NULL);
 		if (properties == NULL)
 			return NULL;
 	}
+	p = pw_context_get_properties(context);
+	pw_properties_set(properties, "clock.quantum-limit",
+			pw_properties_get(p, "default.clock.quantum-limit"));
 
 	match = MATCH_INIT(properties);
 	pw_context_conf_section_match_rules(context, "node.rules",

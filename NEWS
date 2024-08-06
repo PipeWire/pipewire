@@ -1,3 +1,47 @@
+# PipeWire 1.2.3 (2024-08-22)
+
+This is a bugfix release that is API and ABI compatible with the
+previous 1.2.x and 1.0.x releases.
+
+## Highlights
+  - Implement freewheeling support in the FFADO driver. Also improve
+    buffersize and samplerate handling.
+  - Improve some locking on spa_loop. Remove a possible deadlock when
+    the queue was full.
+  - Allocate more space for the libcamera devices string to properly
+    deduplicate libcamera and v4l2 devices.
+  - Some more bugfixes and improvements.
+
+
+## PipeWire
+  - Improve activation state changes and xrun detection some more.
+    (#4182)
+  - Avoid a memory leak when a link in error is destroyed.
+
+## Modules
+  - Improve samplerate and buffersize handling in FFADO driver so that
+    it is possible to force a rate and buffer size.
+  - Implement freewheeling support in the ffado driver.
+  - Always set the server side clock.quantum-limit on nodes. This fixes
+    a buffer size problem in Midi-bridge. (#4005)
+
+## SPA
+  - Improve some locking on spa_loop. Remove a possible deadlock when
+    the queue was full. (#4114)
+  - Allocate more space for the libcamera devices string to properly
+    deduplicate libcamera and v4l2 devices.
+  - Fix a potential race when enumerating v4l2 udev devices. (#3960)
+
+## Bluetooth
+  - Improve compatibility with some devices (Soundcore Motion 300).
+
+## Tools
+  - pw-cli can now handle arbitrarily large input and params. (#4166)
+  - Avoid some compiler warnings in pw-top.
+
+Older versions:
+
+
 # PipeWire 1.2.2 (2024-07-31)
 
 This is a bugfix release that is API and ABI compatible with the
@@ -43,9 +87,6 @@ previous 1.2.x and 1.0.x releases.
     issue where qsynth would not receive midi events anymore.
   - Fix the jack_get_time() function, it was returning nano instead of micro
     seconds.
-
-Older versions:
-
 
 # PipeWire 1.2.1 (2024-07-12)
 

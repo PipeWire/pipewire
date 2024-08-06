@@ -119,7 +119,7 @@ static int emit_info(struct impl *impl, bool full)
 	uint32_t n_items = 0;
 	struct spa_device_info info;
 	struct spa_param_info params[2];
-	char path[256], name[256], devices_str[128];
+	char path[256], name[256], devices_str[256];
 	struct spa_strbuf buf;
 
 	info = SPA_DEVICE_INFO_INIT();

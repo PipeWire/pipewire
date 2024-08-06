@@ -74,9 +74,6 @@ extern "C" {
 #define PW_KEY_LOOP_CLASS		"loop.class"		/**< the classes this loop handles, array of strings */
 #define PW_KEY_LOOP_RT_PRIO		"loop.rt-prio"		/**< realtime priority of the loop */
 #define PW_KEY_LOOP_CANCEL		"loop.cancel"		/**< if the loop can be canceled */
-#define PW_KEY_LOOP_RETRY_TIMEOUT	"loop.retry-timeout"	/**< when the loop invoke queue is full, the timeout
-								  *  in microseconds before retrying.
-								  *  default = 1 second, 0 = disable */
 
 /* context */
 #define PW_KEY_CONTEXT_PROFILE_MODULES	"context.profile.modules"	/**< a context profile for modules, deprecated */
@@ -368,9 +365,11 @@ extern "C" {
 # ifdef PW_ENABLE_DEPRECATED
 #  define PW_KEY_PRIORITY_MASTER	"priority.master"	/**< deprecated, use priority.driver */
 #  define PW_KEY_NODE_TARGET		"node.target"		/**< deprecated since 0.3.64, use target.object. */
+#  define PW_KEY_LOOP_RETRY_TIMEOUT	"loop.retry-timeout"	/**< deprecated since 1.3.0 */
 # else
 #  define PW_KEY_PRIORITY_MASTER	PW_DEPRECATED("priority.master")
 #  define PW_KEY_NODE_TARGET		PW_DEPRECATED("node.target")
+#  define PW_KEY_LOOP_RETRY_TIMEOUT	PW_DEPRECATED("loop.retry-timeout")
 # endif /* PW_ENABLE_DEPRECATED */
 #endif /* PW_REMOVE_DEPRECATED */
 

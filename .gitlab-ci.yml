@@ -1,3 +1,13 @@
+# Create merge request pipelines for open merge requests, branch pipelines
+# otherwise. This allows MRs for new users to run CI, and prevents duplicate
+# pipelines for branches with open MRs.
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+
 stages:
   - container
   - container_coverity

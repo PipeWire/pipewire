@@ -628,10 +628,10 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 
 	emit_device_info(this, true);
 
-	if ((res = enum_devices(this)) < 0)
+	if ((res = start_monitor(this)) < 0)
 		return res;
 
-	if ((res = start_monitor(this)) < 0)
+	if ((res = enum_devices(this)) < 0)
 		return res;
 
         spa_hook_list_join(&this->hooks, &save);

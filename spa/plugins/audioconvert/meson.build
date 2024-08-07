@@ -105,10 +105,40 @@ if have_neon
   simd_dependencies += audioconvert_neon
 endif
 
+sparesampledumpcoeffs_sources = [
+  'resample-native.c',
+  'resample-native-c.c',
+  'spa-resample-dump-coeffs.c',
+]
+
+sparesampledumpcoeffs = executable(
+  'spa-resample-dump-coeffs',
+  sparesampledumpcoeffs_sources,
+  c_args : [ cc_flags_native, '-DRESAMPLE_DISABLE_PRECOMP' ],
+  dependencies : [ spa_dep, mathlib_native ],
+  install : false,
+  native : true,
+)
+
+precomptuples = []
+foreach tuple : get_option('resampler-precomp-tuples')
+  precomptuples += '-t ' + tuple
+endforeach
+
+resample_native_precomp_h = custom_target(
+  'resample-native-precomp.h',
+  output : 'resample-native-precomp.h',
+  capture : true,
+  command : [
+    sparesampledumpcoeffs,
+  ] + precomptuples
+)
+
 audioconvert_lib = static_library('audioconvert',
   ['fmt-ops.c',
     'channelmix-ops.c',
     'peaks-ops.c',
+    resample_native_precomp_h,
     'resample-native.c',
     'resample-peaks.c',
     'wavfile.c',

@@ -7,6 +7,9 @@
 #include <spa/param/audio/format.h>
 
 #include "resample-native-impl.h"
+#ifndef RESAMPLE_DISABLE_PRECOMP
+#include "resample-native-precomp.h"
+#endif
 
 struct quality {
 	uint32_t n_taps;
@@ -375,7 +378,25 @@ int resample_native_init(struct resample *r)
 	for (c = 0; c < r->channels; c++)
 		d->history[c] = SPA_PTROFF(d->hist_mem, c * history_stride, float);
 
-	build_filter(d->filter, d->filter_stride, n_taps, n_phases, scale);
+#ifndef RESAMPLE_DISABLE_PRECOMP
+	/* See if we have precomputed coefficients */
+	for (c = 0; precomp_coeffs[c].filter; c++) {
+		if (precomp_coeffs[c].in_rate == r->i_rate &&
+				precomp_coeffs[c].out_rate == r->o_rate &&
+				precomp_coeffs[c].quality == r->quality)
+			break;
+	}
+
+	if (precomp_coeffs[c].filter) {
+		spa_log_debug(r->log, "using precomputed filter for %u->%u(%u)",
+				r->i_rate, r->o_rate, r->quality);
+		spa_memcpy(d->filter, precomp_coeffs[c].filter, filter_size);
+	} else {
+#endif
+		build_filter(d->filter, d->filter_stride, n_taps, n_phases, scale);
+#ifndef RESAMPLE_DISABLE_PRECOMP
+	}
+#endif
 
 	d->info = find_resample_info(SPA_AUDIO_FORMAT_F32, r->cpu_flags);
 	if (SPA_UNLIKELY(d->info == NULL)) {

@@ -50,6 +50,7 @@ pipewire_confdatadir = pipewire_datadir / 'pipewire'
 modules_install_dir = pipewire_libdir / pipewire_name
 
 cc = meson.get_compiler('c')
+cc_native = meson.get_compiler('c', native: true)
 
 if cc.has_header('features.h') and cc.get_define('__GLIBC__', prefix: '#include <features.h>') != ''
   # glibc ld.so interprets ${LIB} in a library loading path with an
@@ -111,6 +112,8 @@ cc_flags = common_flags + [
   '-Werror=strict-prototypes',
 ]
 add_project_arguments(cc.get_supported_arguments(cc_flags), language: 'c')
+
+cc_flags_native = cc_native.get_supported_arguments(cc_flags)
 
 have_cpp = add_languages('cpp', native: false, required : false)
 
@@ -276,6 +279,7 @@ configure_file(input : 'Makefile.in',
 
 # Find dependencies
 mathlib = cc.find_library('m', required : false)
+mathlib_native = cc_native.find_library('m', required : false)
 rt_lib = cc.find_library('rt', required : false) # clock_gettime
 dl_lib = cc.find_library('dl', required : false)
 pthread_lib = dependency('threads')

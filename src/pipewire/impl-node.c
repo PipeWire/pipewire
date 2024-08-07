@@ -1442,7 +1442,8 @@ static inline int process_node(void *data, uint64_t nsec)
 	struct pw_impl_port *p;
 	struct pw_node_activation *a = this->rt.target.activation;
 	struct spa_system *data_system = this->rt.target.system;
-	int status, old_status;
+	int status;
+	bool was_awake;
 
 	if (!SPA_ATOMIC_CAS(a->status,
 				PW_NODE_ACTIVATION_TRIGGERED,
@@ -1481,7 +1482,9 @@ static inline int process_node(void *data, uint64_t nsec)
 	a->state[0].status = status;
 
 	nsec = get_time_ns(data_system);
-	old_status = SPA_ATOMIC_XCHG(a->status, PW_NODE_ACTIVATION_FINISHED);
+	was_awake = SPA_ATOMIC_CAS(a->status,
+				PW_NODE_ACTIVATION_AWAKE,
+				PW_NODE_ACTIVATION_FINISHED);
 	a->finish_time = nsec;
 
 	pw_log_trace_fp("%p: finished status:%d %"PRIu64, this, status, nsec);
@@ -1489,7 +1492,7 @@ static inline int process_node(void *data, uint64_t nsec)
 	/* we don't need to trigger targets when the node was driving the
 	 * graph because that means we finished the graph. */
 	if (SPA_LIKELY(!this->driving)) {
-		if ((!this->async || a->server_version < 1) && old_status == PW_NODE_ACTIVATION_AWAKE)
+		if ((!this->async || a->server_version < 1) && was_awake)
 			trigger_targets(this, status, nsec);
 	} else {
 		/* calculate CPU time when finished */

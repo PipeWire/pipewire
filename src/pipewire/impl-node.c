@@ -2038,11 +2038,11 @@ static int node_ready(void *data, int status)
 		pw_impl_node_rt_emit_incomplete(driver);
 		old_status = SPA_ATOMIC_LOAD(a->status);
 		if (old_status != PW_NODE_ACTIVATION_FINISHED) {
+			debug_xrun_graph(node, nsec);
 			SPA_ATOMIC_STORE(a->status, PW_NODE_ACTIVATION_TRIGGERED);
 			SPA_FLAG_SET(cl->flags, SPA_IO_CLOCK_FLAG_XRUN_RECOVER);
 			process_node(node, nsec);
 			SPA_FLAG_CLEAR(cl->flags, SPA_IO_CLOCK_FLAG_XRUN_RECOVER);
-			debug_xrun_graph(node, nsec);
 		}
 	}
 

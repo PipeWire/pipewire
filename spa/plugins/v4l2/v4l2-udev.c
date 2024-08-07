@@ -477,9 +477,6 @@ static int start_inotify(struct impl *this)
 
 	spa_loop_add_source(this->main_loop, &this->notify);
 
-	for (size_t i = 0; i < this->n_devices; i++)
-		start_watching_device(this, &this->devices[i]);
-
 	return 0;
 }
 

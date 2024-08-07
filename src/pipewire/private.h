@@ -656,17 +656,21 @@ static inline void trigger_target_v1(struct pw_node_target *t, uint64_t nsec)
 {
 	struct pw_node_activation *a = t->activation;
 	struct pw_node_activation_state *state = &a->state[0];
+	int32_t pending = SPA_ATOMIC_DEC(state->pending);
 
 	pw_log_trace_fp("%p: (%s-%u) state:%p pending:%d/%d", t->node,
-			t->name, t->id, state, state->pending, state->required);
+				t->name, t->id, state, pending, state->required);
 
-	if (pw_node_activation_state_dec(state)) {
+	if (pending == 0) {
 		if (SPA_ATOMIC_CAS(a->status,
 					PW_NODE_ACTIVATION_NOT_TRIGGERED,
 					PW_NODE_ACTIVATION_TRIGGERED)) {
 			a->signal_time = nsec;
 			if (SPA_UNLIKELY(spa_system_eventfd_write(t->system, t->fd, 1) < 0))
 				pw_log_warn("%p: write failed %m", t->node);
+		} else {
+			pw_log_trace_fp("%p: (%s-%u) not ready %d", t->node,
+					t->name, t->id, a->status);
 		}
 	}
 }
@@ -675,11 +679,12 @@ static inline void trigger_target_v0(struct pw_node_target *t, uint64_t nsec)
 {
 	struct pw_node_activation *a = t->activation;
 	struct pw_node_activation_state *state = &a->state[0];
+	int32_t pending = SPA_ATOMIC_DEC(state->pending);
 
 	pw_log_trace_fp("%p: (%s-%u) state:%p pending:%d/%d", t->node,
-			t->name, t->id, state, state->pending, state->required);
+			t->name, t->id, state, pending, state->required);
 
-	if (pw_node_activation_state_dec(state)) {
+	if (pending == 0) {
 		SPA_ATOMIC_STORE(a->status, PW_NODE_ACTIVATION_TRIGGERED);
 		a->signal_time = nsec;
 		if (SPA_UNLIKELY(spa_system_eventfd_write(t->system, t->fd, 1) < 0))

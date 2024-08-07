@@ -1360,9 +1360,10 @@ static inline void debug_xrun_graph(struct pw_impl_node *driver, uint64_t nsec)
 	spa_list_for_each(t, &driver->rt.target_list, link) {
 		struct pw_node_activation *a = t->activation;
 		struct pw_node_activation_state *state = &a->state[0];
+		uint32_t status = SPA_ATOMIC_LOAD(a->status);
 
-		if (a->status == PW_NODE_ACTIVATION_TRIGGERED ||
-		    a->status == PW_NODE_ACTIVATION_AWAKE) {
+		if (status == PW_NODE_ACTIVATION_TRIGGERED ||
+		    status == PW_NODE_ACTIVATION_AWAKE) {
 			pw_log(level, "(%s-%u) xrun state:%p pending:%d/%d s:%"PRIu64" a:%"PRIu64" f:%"PRIu64
 					" waiting:%"PRIu64" process:%"PRIu64" status:%s",
 					t->name, t->id, state,
@@ -1372,7 +1373,7 @@ static inline void debug_xrun_graph(struct pw_impl_node *driver, uint64_t nsec)
 					a->finish_time,
 					a->awake_time - a->signal_time,
 					a->finish_time - a->awake_time,
-					str_status(a->status));
+					str_status(status));
 
 		}
 	}
@@ -1393,6 +1394,7 @@ static void debug_sync_timeout(struct pw_impl_node *driver, uint64_t nsec)
 	spa_list_for_each(t, &driver->rt.target_list, link) {
 		struct pw_node_activation *a = t->activation;
 		struct pw_node_activation_state *state = &a->state[0];
+		uint32_t status = SPA_ATOMIC_LOAD(a->status);
 
 		if (!a->pending_sync)
 			continue;
@@ -1406,7 +1408,7 @@ static void debug_sync_timeout(struct pw_impl_node *driver, uint64_t nsec)
 				a->finish_time,
 				a->awake_time - a->signal_time,
 				a->finish_time - a->awake_time,
-				str_status(a->status));
+				str_status(status));
 	}
 }
 
@@ -1451,8 +1453,8 @@ static inline int process_node(void *data, uint64_t nsec)
 		return 0;
 
 	a->awake_time = nsec;
-	pw_log_trace_fp("%p: %s process remote:%u exported:%u %"PRIu64" %"PRIu64,
-			this, this->name, this->remote, this->exported,
+	pw_log_trace_fp("%p: %s-%d process remote:%u exported:%u %"PRIu64" %"PRIu64,
+			this, this->name, this->info.id, this->remote, this->exported,
 			a->signal_time, nsec);
 
 	/* when transport sync is not supported, just clear the flag */
@@ -1487,7 +1489,8 @@ static inline int process_node(void *data, uint64_t nsec)
 				PW_NODE_ACTIVATION_FINISHED);
 	a->finish_time = nsec;
 
-	pw_log_trace_fp("%p: finished status:%d %"PRIu64, this, status, nsec);
+	pw_log_trace_fp("%p: finished status:%d %"PRIu64" was_awake:%d",
+			this, status, nsec, was_awake);
 
 	/* we don't need to trigger targets when the node was driving the
 	 * graph because that means we finished the graph. */
@@ -1538,8 +1541,9 @@ static void node_on_fd_events(struct spa_source *source)
 					nsec / 1000, 0);
 		}
 
-		pw_log_trace_fp("%p: remote:%u exported:%u %s got process %"PRIu64,
-				this, this->remote, this->exported, this->name, nsec);
+		pw_log_trace_fp("%p: remote:%u exported:%u %s-%d got process %"PRIu64,
+				this, this->remote, this->exported, this->name, this->info.id,
+				nsec);
 
 		process_node(this, nsec);
 	}

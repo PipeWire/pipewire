@@ -253,7 +253,9 @@ static void node_param(void *data, int seq,
 			{
 				struct spa_audio_info_iec958 info = { 0 };
 				if (spa_format_audio_iec958_parse(param, &info) >= 0) {
-					snprintf(n->format, sizeof(n->format), "IEC958 %s %d",
+					/* MAX_FORMAT is 16 bytes + \0: 8 bytes in this string, upto 6 bytes for the rate,
+					 * leaving us 2 for the format */
+					snprintf(n->format, sizeof(n->format), "IEC958 %2.2s %d",
 						spa_debug_type_find_short_name(
 							spa_type_audio_iec958_codec, info.codec),
 						info.rate);

@@ -2314,12 +2314,13 @@ static int do_unprepare_client(struct spa_loop *loop, bool async, uint32_t seq,
 	struct link *l;
 
 	pw_log_debug("%p prepared:%d ", c, c->rt.prepared);
-	if (!c->rt.prepared)
-		return 0;
 
 	old_state = SPA_ATOMIC_XCHG(c->activation->status, PW_NODE_ACTIVATION_INACTIVE);
 	if (old_state != PW_NODE_ACTIVATION_FINISHED)
 		trigger = get_time_ns(c->l->system);
+
+	if (!c->rt.prepared)
+		return 0;
 
 	spa_list_for_each(l, &c->rt.target_links, target_link) {
 		if (!c->async && trigger != 0)

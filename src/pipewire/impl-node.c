@@ -222,15 +222,14 @@ do_node_unprepare(struct spa_loop *loop, bool async, uint32_t seq,
 	pw_log_trace("%p: unprepare %d remote:%d exported:%d", this, this->rt.prepared,
 			this->remote, this->exported);
 
-	if (!this->exported) {
-		/* We mark ourself as finished now, this will avoid going further into the process loop
-		 * in case our fd was ready (removing ourselfs from the loop should avoid that as well).
-		 * If we were supposed to be scheduled make sure we continue the graph for the peers we
-		 * were supposed to trigger */
-		old_state = SPA_ATOMIC_XCHG(this->rt.target.activation->status, PW_NODE_ACTIVATION_INACTIVE);
-		if (PW_NODE_ACTIVATION_PENDING_TRIGGER(old_state))
-			trigger = get_time_ns(this->rt.target.system);
-	}
+	/* We mark ourself as finished now, this will avoid going further into the process loop
+	 * in case our fd was ready (removing ourselfs from the loop should avoid that as well).
+	 * If we were supposed to be scheduled make sure we continue the graph for the peers we
+	 * were supposed to trigger */
+	old_state = SPA_ATOMIC_XCHG(this->rt.target.activation->status, PW_NODE_ACTIVATION_INACTIVE);
+	if (PW_NODE_ACTIVATION_PENDING_TRIGGER(old_state))
+		trigger = get_time_ns(this->rt.target.system);
+
 	if (!this->rt.prepared)
 		return 0;
 

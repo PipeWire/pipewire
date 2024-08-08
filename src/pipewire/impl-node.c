@@ -1344,7 +1344,7 @@ static inline void debug_xrun_target(struct pw_impl_node *driver,
 		str_status(status), suppressed);
 }
 
-static inline void debug_xrun_graph(struct pw_impl_node *driver, uint64_t nsec)
+static inline void debug_xrun_graph(struct pw_impl_node *driver, uint64_t nsec, uint32_t old_status)
 {
 	int suppressed;
 	enum spa_log_level level = SPA_LOG_LEVEL_DEBUG;
@@ -1353,8 +1353,8 @@ static inline void debug_xrun_graph(struct pw_impl_node *driver, uint64_t nsec)
 	if ((suppressed = spa_ratelimit_test(&driver->rt.rate_limit, nsec)) >= 0)
 		level = SPA_LOG_LEVEL_WARN;
 
-	pw_log(level, "(%s-%u) graph xrun (%d suppressed)",
-			driver->name, driver->info.id, suppressed);
+	pw_log(level, "(%s-%u) graph xrun %s (%d suppressed)",
+			driver->name, driver->info.id, str_status(old_status), suppressed);
 
 	spa_list_for_each(t, &driver->rt.target_list, link) {
 		struct pw_node_activation *a = t->activation;
@@ -2010,13 +2010,12 @@ static int node_ready(void *data, int status)
 	struct pw_impl_node *node = data;
 	struct pw_impl_node *driver = node->driver_node;
 	struct pw_node_activation *a = node->rt.target.activation;
-	struct pw_node_activation_state *state = &a->state[0];
 	struct spa_system *data_system = node->rt.target.system;
 	struct pw_node_target *t, *reposition_target = NULL;;
 	struct pw_impl_port *p;
 	struct spa_io_clock *cl = &node->rt.position->clock;
 	int sync_type, all_ready, update_sync, target_sync, old_status;
-	uint32_t owner[2], reposition_owner, pending;
+	uint32_t owner[2], reposition_owner;
 	uint64_t min_timeout = UINT64_MAX, nsec;
 
 	pw_log_trace_fp("%p: ready driver:%d exported:%d %p status:%d prepared:%d", node,
@@ -2037,15 +2036,25 @@ static int node_ready(void *data, int status)
 
 	nsec = get_time_ns(data_system);
 
-	if (SPA_UNLIKELY((pending = pw_node_activation_state_xchg(state)) > 0)) {
-		pw_impl_node_rt_emit_incomplete(driver);
+	while (true) {
 		old_status = SPA_ATOMIC_LOAD(a->status);
-		if (old_status != PW_NODE_ACTIVATION_FINISHED) {
-			debug_xrun_graph(node, nsec);
-			SPA_ATOMIC_STORE(a->status, PW_NODE_ACTIVATION_TRIGGERED);
+		if (SPA_LIKELY(old_status == PW_NODE_ACTIVATION_FINISHED))
+			/* all good, graph completed */
+			break;
+		if (SPA_ATOMIC_CAS(a->status, old_status, PW_NODE_ACTIVATION_TRIGGERED)) {
+			/* if we got triggered but did not run the processing yet we don't
+			 * really have an error so we can skip the error reporting. We need
+			 * to run recovery anyway because the ready callback is already
+			 * emitted */
+			if (old_status != PW_NODE_ACTIVATION_TRIGGERED) {
+				/* otherwise, something was wrong and we debug */
+				debug_xrun_graph(node, nsec, old_status);
+				pw_impl_node_rt_emit_incomplete(driver);
+			}
 			SPA_FLAG_SET(cl->flags, SPA_IO_CLOCK_FLAG_XRUN_RECOVER);
 			process_node(node, nsec);
 			SPA_FLAG_CLEAR(cl->flags, SPA_IO_CLOCK_FLAG_XRUN_RECOVER);
+			break;
 		}
 	}
 

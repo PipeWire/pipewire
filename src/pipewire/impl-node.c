@@ -2080,6 +2080,7 @@ again:
 	all_ready = sync_type == SYNC_CHECK;
 	update_sync = !all_ready;
 	target_sync = sync_type == SYNC_START ? true : false;
+	pending = 0;
 
 	spa_list_for_each(t, &driver->rt.target_list, link) {
 		struct pw_node_activation *ta = t->activation;
@@ -2088,6 +2089,10 @@ again:
 		ta->driver_id = driver->info.id;
 retry_status:
 		pw_node_activation_state_reset(&ta->state[0]);
+
+		if (ta->active_driver_id != ta->driver_id)
+			continue;
+
 		/* we don't change the state of inactive nodes and don't use them
 		 * for reposition. The pending will be at least 1 and they might
 		 * get decremented to 0 but since the status is inactive, we don't
@@ -2100,6 +2105,8 @@ retry_status:
 		/* if this fails, the node might just have stopped and we need to retry */
 		if (SPA_UNLIKELY(!SPA_ATOMIC_CAS(ta->status, old_status, PW_NODE_ACTIVATION_NOT_TRIGGERED)))
 			goto retry_status;
+
+		pending++;
 
 		if (old_status == PW_NODE_ACTIVATION_TRIGGERED ||
 		    old_status == PW_NODE_ACTIVATION_AWAKE) {
@@ -2139,6 +2146,7 @@ retry_status:
 		reposition_target = NULL;
 		goto again;
 	}
+	state->pending = pending;
 
 	update_position(node, all_ready, nsec);
 

@@ -1012,6 +1012,13 @@ next_indicator:
 		}
 
 		rfcomm_send_reply(rfcomm, "OK");
+	} else if (spa_strstartswith(buf, "AT+CCWA=")) {
+		/*
+		 * Claim that call waiting notifications are supported.
+		 * Required for some devices (e.g. Soundcore Motion 300),
+		 * as they stop sending commands if the reply to CCWA is not OK.
+		 */
+		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+CLCC")) {
 		struct spa_list *calls;
 		struct call *call;

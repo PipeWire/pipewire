@@ -2,7 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2019 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
-#include "spa/utils/dict.h"
+#include <spa/utils/dict.h>
 #include <spa/support/plugin.h>
 #include <spa/support/plugin-loader.h>
 #include <spa/support/log.h>
@@ -1879,7 +1879,12 @@ impl_init(const struct spa_handle_factory *factory,
 		spa_node_add_listener(this->convert,
 				&this->convert_listener, &convert_node_events, this);
 
-		configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_convert);
+		if (strcmp(this->convertname, "video.convert.dummy") == 0) {
+			configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_none);
+			reconfigure_mode(this, true, this->direction, NULL);
+		} else {
+			configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_convert);
+		}
 	} else {
 		reconfigure_mode(this, true, this->direction, NULL);
 	}

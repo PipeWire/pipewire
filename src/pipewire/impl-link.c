@@ -1557,6 +1557,7 @@ void pw_impl_link_destroy(struct pw_impl_link *link)
 
 	free(link->name);
 	free(link->info.format);
+	free((char *) link->info.error);
 	free(impl);
 }
 

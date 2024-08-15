@@ -135,6 +135,10 @@ context.modules = [
             audio.channels = 2
             # These channel names will be visible both to applications and AES67 receivers
             node.channel-names = ["CH1", "CH2"]
+            # Uncomment this and comment node.group in send/recv stream.props to allow
+            # separate drivers for the RTP sink and PTP sending (i.e. force rate matching on
+            # the AES67 node rather than other nodes)
+            #aes67.driver-group = "pipewire.ptp0"
 
             stream.props = {
                 ### Please change the sink name, this is necessary when you create multiple sinks

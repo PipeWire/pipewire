@@ -65,6 +65,8 @@
  * - `sess.ts-refclk = <string>`: the name of a reference clock
  * - `sess.media = <string>`: the media type audio|midi|opus, default audio
  * - `stream.props = {}`: properties to be passed to the stream
+ * - `aes67.driver-group = <string>`: for AES67 streams, can be specified in order to allow
+ *       the sink to be driven by a different node than the PTP driver.
  *
  * ## General options
  *
@@ -145,6 +147,7 @@ PW_LOG_TOPIC(mod_topic, "mod." NAME);
 		"( audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> ) "			\
 		"( audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> ) "	\
 		"( audio.position=<channel map, default:"DEFAULT_POSITION"> ) "				\
+		"( aes67.driver-group=<driver driving the PTP send> ) "					\
 		"( stream.props= { key=value ... } ) "
 
 static const struct spa_dict_item module_info[] = {
@@ -549,6 +552,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, "sess.max-ptime");
 	copy_props(impl, props, "sess.latency.msec");
 	copy_props(impl, props, "sess.ts-refclk");
+	copy_props(impl, props, "aes67.driver-group");
 
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;

@@ -337,7 +337,7 @@ static void rtp_audio_process_capture(void *data)
 		expected_timestamp = timestamp;
 		filled = 0;
 	} else {
-		if (SPA_ABS((int32_t)expected_timestamp - (int32_t)timestamp) > 32) {
+		if (SPA_ABS((int)expected_timestamp - (int)timestamp) > (int)quantum) {
 			pw_log_warn("expected %u != timestamp %u", expected_timestamp, timestamp);
 			impl->have_sync = false;
 		} else if (filled + wanted > (int32_t)(BUFFER_SIZE / stride)) {

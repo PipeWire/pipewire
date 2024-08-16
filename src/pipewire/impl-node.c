@@ -1206,6 +1206,7 @@ static void check_properties(struct pw_impl_node *node)
 	if (async != node->async) {
 		pw_log_info("%p: async %d -> %d", node, node->async, async);
 		node->async = async;
+		SPA_FLAG_UPDATE(node->rt.target.activation->flags, PW_NODE_ACTIVATION_FLAG_ASYNC, async);
 	}
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_MEDIA_CLASS)) != NULL &&
@@ -2106,7 +2107,8 @@ retry_status:
 		if (SPA_UNLIKELY(!SPA_ATOMIC_CAS(ta->status, old_status, PW_NODE_ACTIVATION_NOT_TRIGGERED)))
 			goto retry_status;
 
-		pending++;
+		if (!SPA_FLAG_IS_SET(ta->flags, PW_NODE_ACTIVATION_FLAG_ASYNC))
+			pending++;
 
 		if (old_status == PW_NODE_ACTIVATION_TRIGGERED ||
 		    old_status == PW_NODE_ACTIVATION_AWAKE) {

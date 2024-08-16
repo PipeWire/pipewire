@@ -618,6 +618,7 @@ struct pw_node_activation {
 	uint32_t driver_id;				/* the current node driver id */
 #define PW_NODE_ACTIVATION_FLAG_NONE		0
 #define PW_NODE_ACTIVATION_FLAG_PROFILER	(1<<0)	/* the profiler is running */
+#define PW_NODE_ACTIVATION_FLAG_ASYNC		(1<<1)	/* the node is async */
 	uint32_t flags;					/* extra flags */
 	struct spa_io_position position;		/* contains current position and segment info.
 							 * extra info is updated by nodes that have set

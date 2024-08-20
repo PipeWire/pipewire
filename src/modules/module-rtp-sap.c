@@ -45,10 +45,6 @@
  * sess.sap.announce = true and it will create a receiver for all announced
  * streams.
  *
- * If `sap.announcer` is set to `false`, the announce-stream action will not
- * work. Use this to avoid opening a send socket if you are not going to use
- * this functionality.
- *
  * ## Module Name
  *
  * `libpipewire-module-rtp-sap`
@@ -68,7 +64,6 @@
  * - `sap.max-sessions = <int>`: maximum number of concurrent send/receive sessions to track
  * - `sap.preamble-extra = [strings]`: extra attributes to add to the atomic SDP preamble
  * - `sap.end-extra = [strings]`: extra attributes to add to the end of the SDP message
- * - `sap.announcer = <bool>`: enable announcing local streams, default true
  *
  * ## General options
  *
@@ -270,7 +265,6 @@ struct impl {
 
 	struct sockaddr_storage src_addr;
 	socklen_t src_len;
-	bool announcer;
 
 	uint16_t sap_port;
 	struct sockaddr_storage sap_addr;
@@ -856,6 +850,49 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 		return NULL;
 	}
 
+	if (impl->sap_fd == -1) {
+		int fd;
+		char addr[64];
+
+		if ((str = pw_properties_get(props, "source.ip")) == NULL) {
+			if (impl->ifname) {
+				int fd = socket(impl->sap_addr.ss_family, SOCK_DGRAM, 0);
+				if (fd >= 0) {
+					struct ifreq req;
+					spa_zero(req);
+					req.ifr_addr.sa_family = impl->sap_addr.ss_family;
+					snprintf(req.ifr_name, sizeof(req.ifr_name), "%s", impl->ifname);
+					res = ioctl(fd, SIOCGIFADDR, &req);
+					if (res < 0)
+						pw_log_warn("SIOCGIFADDR %s failed: %m", impl->ifname);
+					str = inet_ntop(req.ifr_addr.sa_family,
+							&((struct sockaddr_in *)&req.ifr_addr)->sin_addr,
+							addr, sizeof(addr));
+					if (str == NULL) {
+						pw_log_warn("can't parse interface ip: %m");
+					} else {
+						pw_log_info("interface %s IP: %s", impl->ifname, str);
+					}
+					close(fd);
+				}
+			}
+			if (str == NULL)
+				str = impl->sap_addr.ss_family == AF_INET ?
+					DEFAULT_SOURCE_IP : DEFAULT_SOURCE_IP6;
+		}
+		if ((res = pw_net_parse_address(str, 0, &impl->src_addr, &impl->src_len)) < 0) {
+			pw_log_error("invalid source.ip %s: %s", str, spa_strerror(res));
+			return NULL;
+		}
+
+		if ((fd = make_send_socket(&impl->src_addr, impl->src_len,
+						&impl->sap_addr, impl->sap_len,
+						impl->mcast_loop, impl->ttl)) < 0)
+			return NULL;
+
+		impl->sap_fd = fd;
+	}
+
 	sess = calloc(1, sizeof(struct session));
 	if (sess == NULL)
 		return NULL;
@@ -1091,7 +1128,7 @@ static int rule_matched(void *data, const char *location, const char *action,
 
 		session_load_source(i->session, i->props);
 	}
-	else if (i->node && i->impl->announcer && spa_streq(action, "announce-stream")) {
+	else if (i->node && spa_streq(action, "announce-stream")) {
 		struct pw_properties *props;
 
 		if ((props = pw_properties_new_dict(i->node->info->props)) == NULL)
@@ -1492,15 +1529,6 @@ static int start_sap(struct impl *impl)
 	struct timespec value, interval;
 	char addr[128] = "invalid";
 
-	if (impl->announcer) {
-		if ((fd = make_send_socket(&impl->src_addr, impl->src_len,
-						&impl->sap_addr, impl->sap_len,
-						impl->mcast_loop, impl->ttl)) < 0)
-			return fd;
-
-		impl->sap_fd = fd;
-	}
-
 	pw_log_info("starting SAP timer");
 	impl->timer = pw_loop_add_timer(impl->loop, on_timer_event, impl);
 	if (impl->timer == NULL) {
@@ -1717,7 +1745,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	uint32_t port;
 	const char *str;
 	int res = 0;
-	char addr[64];
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -1742,8 +1769,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->module = module;
 	impl->loop = pw_context_get_main_loop(context);
 
-	impl->announcer = pw_properties_get_bool(props, "sap.announcer", true);
-
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;
 
@@ -1763,37 +1788,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 	impl->cleanup_interval = pw_properties_get_uint32(impl->props,
 			"sap.cleanup.sec", DEFAULT_CLEANUP_SEC);
-
-	if ((str = pw_properties_get(props, "source.ip")) == NULL) {
-		if (impl->ifname && impl->announcer) {
-			int fd = socket(impl->sap_addr.ss_family, SOCK_DGRAM, 0);
-			if (fd >= 0) {
-				struct ifreq req;
-				spa_zero(req);
-				req.ifr_addr.sa_family = impl->sap_addr.ss_family;
-				snprintf(req.ifr_name, sizeof(req.ifr_name), "%s", impl->ifname);
-				res = ioctl(fd, SIOCGIFADDR, &req);
-				if (res < 0)
-					pw_log_warn("SIOCGIFADDR %s failed: %m", impl->ifname);
-				str = inet_ntop(req.ifr_addr.sa_family,
-						&((struct sockaddr_in *)&req.ifr_addr)->sin_addr,
-						addr, sizeof(addr));
-				if (str == NULL) {
-					pw_log_warn("can't parse interface ip: %m");
-				} else {
-					pw_log_info("interface %s IP: %s", impl->ifname, str);
-				}
-				close(fd);
-			}
-		}
-		if (str == NULL)
-			str = impl->sap_addr.ss_family == AF_INET ?
-				DEFAULT_SOURCE_IP : DEFAULT_SOURCE_IP6;
-	}
-	if ((res = pw_net_parse_address(str, 0, &impl->src_addr, &impl->src_len)) < 0) {
-		pw_log_error("invalid source.ip %s: %s", str, spa_strerror(res));
-		goto out;
-	}
 
 	impl->ttl = pw_properties_get_uint32(props, "net.ttl", DEFAULT_TTL);
 	impl->mcast_loop = pw_properties_get_bool(props, "net.loop", DEFAULT_LOOP);

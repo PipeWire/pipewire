@@ -1488,7 +1488,7 @@ on_sap_io(void *data, int fd, uint32_t mask)
 
 static int start_sap(struct impl *impl)
 {
-	int fd, res;
+	int fd = -1, res;
 	struct timespec value, interval;
 	char addr[128] = "invalid";
 
@@ -1528,7 +1528,8 @@ static int start_sap(struct impl *impl)
 
 	return 0;
 error:
-	close(fd);
+	if (fd > 0)
+		close(fd);
 	return res;
 }
 

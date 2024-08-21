@@ -812,7 +812,9 @@ int pw_impl_node_set_io(struct pw_impl_node *this, uint32_t id, void *data, size
 
 	res = spa_node_set_io(this->node, id, data, size);
 
-	if (res >= 0 && !SPA_RESULT_IS_ASYNC(res) && this->rt.position)
+	if (this->rt.position &&
+	    ((res >= 0 && !SPA_RESULT_IS_ASYNC(res)) ||
+	    this->rt.target.activation->client_version < 1))
 		this->rt.target.activation->active_driver_id = this->rt.position->clock.id;
 
 	pw_log_debug("%p: set io: %s", this, spa_strerror(res));
@@ -2091,8 +2093,12 @@ again:
 retry_status:
 		pw_node_activation_state_reset(&ta->state[0]);
 
-		if (ta->active_driver_id != ta->driver_id)
+		if (ta->active_driver_id != ta->driver_id) {
+			pw_log_trace_fp("%p: (%s-%u) %d waiting for driver %d<>%d", t->node,
+					t->name, t->id, ta->status,
+					ta->active_driver_id, ta->driver_id);
 			continue;
+		}
 
 		/* we don't change the state of inactive nodes and don't use them
 		 * for reposition. The pending will be at least 1 and they might

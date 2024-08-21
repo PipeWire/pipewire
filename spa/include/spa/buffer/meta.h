@@ -167,6 +167,10 @@ struct spa_meta_videotransform {
  *
  * Metadata to describe the time on the timeline when the buffer
  * can be acquired and when it can be reused.
+ *
+ * This metadata will usually also require negotiation of 2 extra
+ * buffer datas of type SPA_DATA_SyncObj with 2 fds for the acquire
+ * and release timelines respectively.
  */
 struct spa_meta_sync_timeline {
 	uint32_t flags;

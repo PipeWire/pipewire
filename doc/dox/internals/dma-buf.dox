@@ -110,7 +110,9 @@ Check the type of the dequeued buffer. If its \ref SPA_DATA_MemFd or
 \ref SPA_DATA_MemPtr use the fallback SHM import mechanism.
 If it's \ref SPA_DATA_DmaBuf
 get the DMA-BUF FDs (the plane count is encoded in the `n_datas` variable of the
-`spa_buffer` struct) and import them with the graphics API.
+`spa_buffer` struct) and import them with the graphics API. Note: that the n_datas
+might also contain extra fds for things like sync_timelime metadata, you need
+to take this into account when persing the planes.
 
 Note: Some graphics APIs have separated functions for the modifier-less case
 (`DRM_FORMAT_MOD_INVALID`) or are omitting the modifier, since it might be used

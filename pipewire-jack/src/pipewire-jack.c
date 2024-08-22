@@ -3252,7 +3252,7 @@ static int client_node_port_set_mix_info(void *data,
 	int res = 0;
 
 	if (p == NULL || !p->valid) {
-		res = -EINVAL;
+		res = peer_id == SPA_ID_INVALID ? 0 : -EINVAL;
 		goto exit;
 	}
 

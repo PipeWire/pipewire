@@ -2915,7 +2915,8 @@ static int client_node_port_use_buffers(void *data,
 
 	if (n_buffers > MAX_BUFFERS) {
 		pw_log_error("%p: too many buffers %u > %u", c, n_buffers, MAX_BUFFERS);
-		return -ENOSPC;
+		res = -ENOSPC;
+		goto done;
 	}
 
 	fl = PW_MEMMAP_FLAG_READ;
@@ -3029,9 +3030,11 @@ static int client_node_port_use_buffers(void *data,
 	mix->n_buffers = n_buffers;
 	res = 0;
 
-      done:
+done:
 	if (res < 0)
-		pw_proxy_error((struct pw_proxy*)c->node, res, spa_strerror(res));
+		pw_proxy_errorf((struct pw_proxy*)c->node, res,
+				"port_use_buffers(%u:%u:%u): %s", direction, port_id,
+				mix_id, spa_strerror(res));
 	return res;
 }
 
@@ -3096,7 +3099,9 @@ exit_free:
 	pw_memmap_free(old);
 exit:
 	if (res < 0)
-		pw_proxy_error((struct pw_proxy*)c->node, res, spa_strerror(res));
+		pw_proxy_errorf((struct pw_proxy*)c->node, res,
+				"port_set_io(%u:%u:%u %u): %s", direction, port_id,
+				mix_id, id, spa_strerror(res));
 	return res;
 }
 
@@ -3229,7 +3234,8 @@ static int client_node_set_activation(void *data,
 
       exit:
 	if (res < 0)
-		pw_proxy_error((struct pw_proxy*)c->node, res, spa_strerror(res));
+		pw_proxy_errorf((struct pw_proxy*)c->node, res,
+				"set_activation(%u): %s", node_id, spa_strerror(res));
 	return res;
 }
 
@@ -3270,7 +3276,9 @@ static int client_node_port_set_mix_info(void *data,
 	}
 exit:
 	if (res < 0)
-		pw_proxy_error((struct pw_proxy*)c->node, res, spa_strerror(res));
+		pw_proxy_errorf((struct pw_proxy*)c->node, res,
+				"set_mix_info(%u:%u:%u %u): %s", direction, port_id,
+				mix_id, peer_id, spa_strerror(res));
 	return res;
 }
 

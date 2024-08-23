@@ -46,7 +46,7 @@ static int dump_file(const char *filename)
 		return -1;
 	}
 
-	printf("opened %s\n", filename);
+	printf("opened %s format:%u ntracks:%u division:%u\n", filename, info.format, info.ntracks, info.division);
 
 	while (midi_file_read_event(file, &ev) == 1) {
 		midi_file_dump_event(stdout, &ev);

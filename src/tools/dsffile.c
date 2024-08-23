@@ -14,16 +14,14 @@
 #include "dsffile.h"
 
 struct dsf_file {
-	uint8_t *data;
-	size_t size;
+	uint8_t *buffer;
+	size_t offset;
 
 	int mode;
-	int fd;
+	bool close;
+	FILE *file;
 
 	struct dsf_file_info info;
-
-	uint8_t *p;
-	size_t offset;
 };
 
 static inline uint32_t parse_le32(const uint8_t *in)
@@ -44,104 +42,110 @@ static inline uint64_t parse_le64(const uint8_t *in)
 	return res;
 }
 
-static inline int f_avail(struct dsf_file *f)
+static inline int f_skip(struct dsf_file *f, size_t bytes)
 {
-	if (f->p < f->data + f->size)
-		return f->size + f->data - f->p;
+	uint8_t data[256];
+	while (bytes > 0) {
+		size_t s = fread(data, 1, SPA_MIN(bytes, sizeof(data)), f->file);
+		bytes -= s;
+	}
 	return 0;
 }
 
 static int read_DSD(struct dsf_file *f)
 {
+	size_t s;
 	uint64_t size;
+	uint8_t data[28];
 
-	if (f_avail(f) < 28 ||
-	    memcmp(f->p, "DSD ", 4) != 0)
+	s = fread(data, 1, 28, f->file);
+	if (s < 28 || memcmp(data, "DSD ", 4) != 0)
 		return -EINVAL;
 
-	size = parse_le64(f->p + 4);	/* size of this chunk */
-	parse_le64(f->p + 12);		/* total size */
-	parse_le64(f->p + 20);		/* metadata */
-	f->p += size;
+	size = parse_le64(data + 4);	/* size of this chunk */
+	parse_le64(data + 12);		/* total size */
+	parse_le64(data + 20);		/* metadata */
+	if (size > s)
+		f_skip(f, size - s);
 	return 0;
 }
 
 static int read_fmt(struct dsf_file *f)
 {
+	size_t s;
 	uint64_t size;
+	uint8_t data[52];
 
-	if (f_avail(f) < 52 ||
-	    memcmp(f->p, "fmt ", 4) != 0)
+	s = fread(data, 1, 52, f->file);
+	if (s < 52 || memcmp(data, "fmt ", 4) != 0)
 		return -EINVAL;
 
-	size = parse_le64(f->p + 4);	/* size of this chunk */
-	if (parse_le32(f->p + 12) != 1)	/* version */
+	size = parse_le64(data + 4);	/* size of this chunk */
+	if (parse_le32(data + 12) != 1)	/* version */
 		return -EINVAL;
-	if (parse_le32(f->p + 16) != 0)	/* format id */
+	if (parse_le32(data + 16) != 0)	/* format id */
 		return -EINVAL;
 
-	f->info.channel_type = parse_le32(f->p + 20);
-	f->info.channels = parse_le32(f->p + 24);
-	f->info.rate = parse_le32(f->p + 28);
-	f->info.lsb = parse_le32(f->p + 32) == 1;
-	f->info.samples = parse_le64(f->p + 36);
-	f->info.blocksize = parse_le32(f->p + 44);
-	f->p += size;
+	f->info.channel_type = parse_le32(data + 20);
+	f->info.channels = parse_le32(data + 24);
+	f->info.rate = parse_le32(data + 28);
+	f->info.lsb = parse_le32(data + 32) == 1;
+	f->info.samples = parse_le64(data + 36);
+	f->info.blocksize = parse_le32(data + 44);
+	if (size > s)
+		f_skip(f, size - s);
+
+	f->buffer = calloc(1, f->info.blocksize * f->info.channels);
+	if (f->buffer == NULL)
+		return -errno;
+
 	return 0;
 }
 
 static int read_data(struct dsf_file *f)
 {
+	size_t s;
 	uint64_t size;
+	uint8_t data[12];
 
-	if (f_avail(f) < 12 ||
-	    memcmp(f->p, "data", 4) != 0)
+	s = fread(data, 1, 12, f->file);
+	if (s < 12 || memcmp(data, "data", 4) != 0)
 		return -EINVAL;
 
-	size = parse_le64(f->p + 4);	/* size of this chunk */
+	size = parse_le64(data + 4);	/* size of this chunk */
 	f->info.length = size - 12;
-	f->p += 12;
 	return 0;
 }
 
 static int open_read(struct dsf_file *f, const char *filename, struct dsf_file_info *info)
 {
 	int res;
-	struct stat st;
 
-	if ((f->fd = open(filename, O_RDONLY)) < 0) {
-		res = -errno;
-		goto exit;
+	if (strcmp(filename, "-") != 0) {
+		if ((f->file = fopen(filename, "r")) == NULL) {
+			res = -errno;
+			goto exit;
+		}
+		f->close = true;
+	} else {
+		f->close = false;
+		f->file = stdin;
 	}
-	if (fstat(f->fd, &st) < 0) {
-		res = -errno;
-		goto exit_close;
-	}
-	f->size = st.st_size;
-
-	f->data = mmap(NULL, f->size, PROT_READ, MAP_SHARED, f->fd, 0);
-	if (f->data == MAP_FAILED) {
-		res = -errno;
-		goto exit_close;
-	}
-
-	f->p = f->data;
 
 	if ((res = read_DSD(f)) < 0)
-		goto exit_unmap;
+		goto exit_close;
 	if ((res = read_fmt(f)) < 0)
-		goto exit_unmap;
+		goto exit_close;
 	if ((res = read_data(f)) < 0)
-		goto exit_unmap;
+		goto exit_close;
 
 	f->mode = 1;
 	*info = f->info;
 	return 0;
 
-exit_unmap:
-	munmap(f->data, f->size);
 exit_close:
-	close(f->fd);
+	if (f->close)
+		fclose(f->file);
 exit:
 	return res;
 }
@@ -197,21 +201,28 @@ dsf_file_read(struct dsf_file *f, void *data, size_t samples, const struct dsf_l
 	int step = SPA_ABS(layout->interleave);
 	bool rev = layout->lsb != f->info.lsb;
 	size_t total, block, offset, pos, scale;
+	size_t blocksize = f->info.blocksize * f->info.channels;
 
 	block = f->offset / f->info.blocksize;
-	offset = block * f->info.blocksize * f->info.channels;
+	offset = block * blocksize;
 	pos = f->offset % f->info.blocksize;
 	scale = SPA_CLAMP(f->info.rate / (44100u * 64u), 1u, 4u);
 
 	samples *= step;
 	samples *= scale;
 
-	for (total = 0; total < samples && offset + pos < f->info.length; total++) {
-		const uint8_t *s = f->p + offset + pos;
+	for (total = 0; total < samples; total++) {
 		uint32_t i;
 
+		if (pos == 0) {
+			if (fread(f->buffer, 1, blocksize, f->file) != blocksize)
+				break;
+		}
+		if (f->info.length > 0 && offset + pos >= f->info.length) {
+			break;
+		}
 		for (i = 0; i < layout->channels; i++) {
-			const uint8_t *c = &s[f->info.blocksize * i];
+			const uint8_t *c = &f->buffer[f->info.blocksize * i + pos];
 			int j;
 
 			if (layout->interleave > 0) {
@@ -225,7 +236,7 @@ dsf_file_read(struct dsf_file *f, void *data, size_t samples, const struct dsf_l
 		pos += step;
 		if (pos == f->info.blocksize) {
 			pos = 0;
-			offset += f->info.blocksize * f->info.channels;
+			offset += blocksize;
 		}
 	}
 	f->offset += total * step;
@@ -235,12 +246,9 @@ dsf_file_read(struct dsf_file *f, void *data, size_t samples, const struct dsf_l
 
 int dsf_file_close(struct dsf_file *f)
 {
-	if (f->mode == 1) {
-		munmap(f->data, f->size);
-	} else
-		return -EINVAL;
-
-	close(f->fd);
+	if (f->close)
+		fclose(f->file);
+	free(f->buffer);
 	free(f);
 	return 0;
 }

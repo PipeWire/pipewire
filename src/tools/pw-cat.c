@@ -103,6 +103,7 @@ struct data {
 #define TYPE_ENCODED    3
 #endif
 	int data_type;
+	bool raw;
 	const char *remote_name;
 	const char *media_type;
 	const char *media_category;
@@ -980,6 +981,7 @@ static const struct option long_options[] = {
 	{ "format",		required_argument, NULL, OPT_FORMAT },
 	{ "volume",		required_argument, NULL, OPT_VOLUME },
 	{ "quality",		required_argument, NULL, 'q' },
+	{ "raw",		no_argument, NULL, 'a' },
 
 	{ NULL, 0, NULL, 0 }
 };
@@ -1024,6 +1026,7 @@ static void show_usage(const char *name, bool is_error)
 	     "      --format                          Sample format %s (req. for rec) (default %s)\n"
 	     "      --volume                          Stream volume 0-1.0 (default %.3f)\n"
 	     "  -q  --quality                         Resampler quality (0 - 15) (default %d)\n"
+	     "  -a, --raw                             RAW mode\n"
 	     "\n"),
 	     DEFAULT_RATE,
 	     DEFAULT_CHANNELS,
@@ -1691,9 +1694,9 @@ int main(int argc, char *argv[])
 	}
 
 #ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
-	while ((c = getopt_long(argc, argv, "hvprmdoR:q:P:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hvprmdoR:q:P:a", long_options, NULL)) != -1) {
 #else
-	while ((c = getopt_long(argc, argv, "hvprmdR:q:P:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hvprmdR:q:P:a", long_options, NULL)) != -1) {
 #endif
 
 		switch (c) {
@@ -1743,6 +1746,10 @@ int main(int argc, char *argv[])
 
 		case 'q':
 			data.quality = atoi(optarg);
+			break;
+
+		case 'a':
+			data.raw = true;
 			break;
 
 		case OPT_MEDIA_TYPE:
@@ -1893,7 +1900,7 @@ int main(int argc, char *argv[])
 	}
 	pw_core_add_listener(data.core, &data.core_listener, &core_events, &data);
 
-	if (spa_streq(data.filename, "-")) {
+	if (data.raw) {
 		ret = setup_pipe(&data);
 	} else {
 		switch (data.data_type) {

@@ -14,22 +14,25 @@
 
 #include "dfffile.h"
 
+#define BLOCKSIZE	8192
+
 struct dff_file {
-	uint8_t *data;
-	size_t size;
+	uint8_t *buffer;
+	size_t blocksize;
+	size_t offset;
 
 	int mode;
-	int fd;
+	bool close;
+	FILE *file;
+	size_t pos;
 
 	struct dff_file_info info;
-
-	uint8_t *p;
-	size_t offset;
 };
 
 struct dff_chunk {
 	uint32_t id;
 	uint64_t size;
+	uint64_t pos;
 	void *data;
 };
 
@@ -57,28 +60,44 @@ static inline uint64_t parse_be64(const uint8_t *in)
 	return res;
 }
 
-static inline int f_avail(struct dff_file *f)
+static inline int f_read(struct dff_file *f, void *data, size_t size)
 {
-	if (f->p < f->data + f->size)
-		return f->size + f->data - f->p;
+	size_t s = fread(data, 1, size, f->file);
+	f->pos += s;
+	if (s < size)
+		return -1;
 	return 0;
 }
 
 static int read_chunk(struct dff_file *f, struct dff_chunk *c)
 {
-	if (f_avail(f) < 12)
+	uint8_t data[12];
+
+	if (f_read(f, data, sizeof(data)) < 0)
 		return -ENOSPC;
 
-	c->id = parse_be32(f->p);	/* id of this chunk */
-	c->size = parse_be64(f->p + 4);	/* size of this chunk */
-	f->p += 12;
-	c->data = f->p;
+	c->id = parse_be32(data);	/* id of this chunk */
+	c->size = parse_be64(data + 4);	/* size of this chunk */
+	c->pos = f->pos;
 	return 0;
 }
 
 static int skip_chunk(struct dff_file *f, const struct dff_chunk *c)
 {
-	f->p = SPA_PTROFF(c->data, c->size, uint8_t);
+	size_t bytes;
+	uint8_t data[256];
+
+	if (c->pos + c->size <= f->pos)
+		return 0;
+
+	bytes = c->size + c->pos - f->pos;
+	while (bytes > 0) {
+		size_t s = fread(data, 1, SPA_MIN(bytes, sizeof(data)), f->file);
+		if (s == 0)
+			break;
+		f->pos += s;
+		bytes -= s;
+	}
 	return 0;
 }
 
@@ -86,22 +105,26 @@ static int read_PROP(struct dff_file *f, struct dff_chunk *prop)
 {
 	struct dff_chunk c[1];
 	int res;
+	uint8_t data[4];
 
-	if (f_avail(f) < 4 ||
-	    memcmp(prop->data, "SND ", 4) != 0)
+	if (f_read(f, data, sizeof(data)) < 0 ||
+	    memcmp(data, "SND ", 4) != 0)
 		return -EINVAL;
-	f->p += 4;
 
-	while (f->p < SPA_PTROFF(prop->data, prop->size, uint8_t)) {
+	while (f->pos < prop->pos + prop->size) {
 		if ((res = read_chunk(f, &c[0])) < 0)
 			return res;
 
 		switch (c[0].id) {
 		case FOURCC('F', 'S', ' ', ' '):
-			f->info.rate = parse_be32(f->p);
+			if (f_read(f, data, 4) < 0)
+				return -EINVAL;
+			f->info.rate = parse_be32(data);
 			break;
 		case FOURCC('C', 'H', 'N', 'L'):
-			f->info.channels = parse_be16(f->p);
+			if (f_read(f, data, 2) < 0)
+				return -EINVAL;
+			f->info.channels = parse_be16(data);
 			switch (f->info.channels) {
 			case 2:
 				f->info.channel_type = 2;
@@ -116,7 +139,9 @@ static int read_PROP(struct dff_file *f, struct dff_chunk *prop)
 			break;
 		case FOURCC('C', 'M', 'P', 'R'):
 		{
-			uint32_t cmpr = parse_be32(f->p);
+			if (f_read(f, data, 4) < 0)
+				return -EINVAL;
+			uint32_t cmpr = parse_be32(data);
 			if (cmpr != FOURCC('D', 'S', 'D', ' '))
 				return -ENOTSUP;
 			break;
@@ -138,15 +163,16 @@ static int read_FRM8(struct dff_file *f)
 	struct dff_chunk c[2];
 	int res;
 	bool found_dsd = false;
+	uint8_t data[4];
 
 	if ((res = read_chunk(f, &c[0])) < 0)
 		return res;
 	if (c[0].id != FOURCC('F','R','M','8'))
 		return -EINVAL;
-	if (f_avail(f) < 4 ||
-	    memcmp(c[0].data, "DSD ", 4) != 0)
+
+	if (f_read(f, data, sizeof(data)) < 0 ||
+	    memcmp(data, "DSD ", 4) != 0)
 		return -EINVAL;
-	f->p += 4;
 
 	while (true) {
 		if ((res = read_chunk(f, &c[1])) < 0)
@@ -181,37 +207,33 @@ static int read_FRM8(struct dff_file *f)
 static int open_read(struct dff_file *f, const char *filename, struct dff_file_info *info)
 {
 	int res;
-	struct stat st;
 
-	if ((f->fd = open(filename, O_RDONLY)) < 0) {
-		res = -errno;
-		goto exit;
+	if (strcmp(filename, "-") != 0) {
+		if ((f->file = fopen(filename, "r")) == NULL) {
+			res = -errno;
+			goto exit;
+		}
+		f->close = true;
+	} else {
+		f->close = false;
+		f->file = stdin;
 	}
-	if (fstat(f->fd, &st) < 0) {
-		res = -errno;
-		goto exit_close;
-	}
-	f->size = st.st_size;
-
-	f->data = mmap(NULL, f->size, PROT_READ, MAP_SHARED, f->fd, 0);
-	if (f->data == MAP_FAILED) {
-		res = -errno;
-		goto exit_close;
-	}
-
-	f->p = f->data;
-
 	if ((res = read_FRM8(f)) < 0)
-		goto exit_unmap;
+		goto exit_close;
 
+	f->blocksize = BLOCKSIZE * f->info.channels;
+	f->buffer = calloc(1, f->blocksize);
+	if (f->buffer == NULL) {
+		res = -errno;
+		goto exit_close;
+	}
 	f->mode = 1;
 	*info = f->info;
 	return 0;
 
-exit_unmap:
-	munmap(f->data, f->size);
 exit_close:
-	close(f->fd);
+	if (f->close)
+		fclose(f->file);
 exit:
 	return res;
 }
@@ -267,18 +289,26 @@ dff_file_read(struct dff_file *f, void *data, size_t samples, const struct dff_l
 	int32_t step = SPA_ABS(layout->interleave);
 	uint32_t channels = f->info.channels;
 	bool rev = layout->lsb != f->info.lsb;
-	size_t total, offset, scale;
+	size_t total, offset, scale, pos;
 
 	offset = f->offset;
+	pos = offset % f->blocksize;
 	scale = SPA_CLAMP(f->info.rate / (44100u * 64u), 1u, 4u);
 
 	samples *= step;
 	samples *= scale;
 
-	for (total = 0; total < samples && offset < f->info.length; total++) {
+	for (total = 0; total < samples; total++) {
 		uint32_t i;
 		int32_t j;
-		const uint8_t *s = f->p + offset;
+		const uint8_t *s = f->buffer + pos;
+
+		if (pos == 0) {
+			if (fread(f->buffer, 1, f->blocksize, f->file) != f->blocksize)
+				break;
+		}
+		if (f->info.length > 0 && offset >= f->info.length)
+			break;
 
 		for (i = 0; i < layout->channels; i++) {
 			if (layout->interleave > 0) {
@@ -294,6 +324,9 @@ dff_file_read(struct dff_file *f, void *data, size_t samples, const struct dff_l
 			}
 		}
 		offset += step * channels;
+		pos += step * channels;
+		if (pos == f->blocksize)
+			pos = 0;
 	}
 	f->offset = offset;
 
@@ -302,12 +335,9 @@ dff_file_read(struct dff_file *f, void *data, size_t samples, const struct dff_l
 
 int dff_file_close(struct dff_file *f)
 {
-	if (f->mode == 1) {
-		munmap(f->data, f->size);
-	} else
-		return -EINVAL;
-
-	close(f->fd);
+	if (f->close)
+		fclose(f->file);
+	free(f->buffer);
 	free(f);
 	return 0;
 }

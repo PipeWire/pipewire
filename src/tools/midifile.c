@@ -435,7 +435,6 @@ int midi_file_write_event(struct midi_file *mf, const struct midi_event *event)
 	spa_return_val_if_fail(mf != NULL, -EINVAL);
 	spa_return_val_if_fail(event->track == 0, -EINVAL);
 	spa_return_val_if_fail(event->size > 1, -EINVAL);
-	spa_return_val_if_fail(event->type == MIDI_EVENT_TYPE_MIDI1, -EINVAL);
 
 	switch (event->type) {
 	case MIDI_EVENT_TYPE_MIDI1:

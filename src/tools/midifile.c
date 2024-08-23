@@ -683,19 +683,21 @@ static int dump_event_midi1(FILE *out, const struct midi_event *ev)
 		fprintf(out, "Active Sensing");
 		break;
 	case 0xff:
+	{
+		uint8_t *meta = &ev->data[ev->meta.offset];
 		fprintf(out, "Meta: ");
 		switch (ev->data[1]) {
 		case 0x00:
-			fprintf(out, "Sequence Number %3d %3d", ev->data[3], ev->data[4]);
+			fprintf(out, "Sequence Number %3d %3d", meta[0], meta[1]);
 			break;
 		case 0x01 ... 0x09:
-			fprintf(out, "%s: %s", event_names[ev->data[1] - 1], &ev->data[ev->meta.offset]);
+			fprintf(out, "%s: %s", event_names[ev->data[1] - 1], meta);
 			break;
 		case 0x20:
-			fprintf(out, "Channel Prefix: %03d", ev->data[3]);
+			fprintf(out, "Channel Prefix: %03d", meta[0]);
 			break;
 		case 0x21:
-			fprintf(out, "Midi Port: %03d", ev->data[3]);
+			fprintf(out, "Midi Port: %03d", meta[0]);
 			break;
 		case 0x2f:
 			fprintf(out, "End Of Track");
@@ -707,20 +709,20 @@ static int dump_event_midi1(FILE *out, const struct midi_event *ev)
 			break;
 		case 0x54:
 			fprintf(out, "SMPTE Offset: %s %02d:%02d:%02d:%02d.%03d",
-					smpte_rates[(ev->data[3] & 0x60) >> 5],
-					ev->data[3] & 0x1f, ev->data[4], ev->data[5],
-					ev->data[6], ev->data[7]);
+					smpte_rates[(meta[0] & 0x60) >> 5],
+					meta[0] & 0x1f, meta[1], meta[2],
+					meta[3], meta[4]);
 			break;
 		case 0x58:
 			fprintf(out, "Time Signature: %d/%d, %d clocks per click, %d notated 32nd notes per quarter note",
-				ev->data[3], (int)pow(2, ev->data[4]), ev->data[5], ev->data[6]);
+				meta[0], (int)pow(2, meta[1]), meta[2], meta[3]);
 			break;
 		case 0x59:
 		{
-			int sf = ev->data[3];
+			int sf = meta[0];
 			fprintf(out, "Key Signature: %d %s: %s", abs(sf),
 					sf > 0 ? "sharps" : "flats",
-					ev->data[4] == 0 ?
+					meta[1] == 0 ?
 						major_keys[SPA_CLAMP(sf + 9, 0, 18)] :
 						minor_keys[SPA_CLAMP(sf + 9, 0, 18)]);
 			break;
@@ -732,6 +734,7 @@ static int dump_event_midi1(FILE *out, const struct midi_event *ev)
 			dump_mem(out, "Invalid", ev->data, ev->size);
 		}
 		break;
+	}
 	default:
 		dump_mem(out, "Unknown", ev->data, ev->size);
 		break;

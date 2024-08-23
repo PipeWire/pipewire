@@ -92,8 +92,11 @@
  *                         #snapcast.stream-name = "PipeWire"
  *                         #
  *                         #capture = true
+ *                         #server.address = [ "tcp:4711" ]
  *                         #capture.props = {
  *                             #target.object = ""
+ *                             #node.name = "Snapcast Sink"
+ *                             #node.latency = 2048/48000
  *                             #media.class = "Audio/Sink"
  *                         #}
  *                     }

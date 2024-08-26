@@ -391,6 +391,40 @@ static void ringbuffer_memcpy(struct ringbuffer *r, void *dst, void *src, uint32
 	}
 }
 
+static void mix_f32(float *dst, float *src, uint32_t size)
+{
+	uint32_t i, s = size / sizeof(float);
+	for (i = 0; i < s; i++)
+		dst[i] += src[i];
+}
+
+static void ringbuffer_mix(struct ringbuffer *r, void *dst, void *src, uint32_t size)
+{
+	uint32_t avail;
+
+	avail = SPA_MIN(size, r->size);
+
+	/* buf to dst */
+	if (dst && avail > 0) {
+		uint32_t l0 = SPA_MIN(avail, r->size - r->idx), l1 = avail - l0;
+		mix_f32(dst, SPA_PTROFF(r->buf, r->idx, void), l0);
+		if (SPA_UNLIKELY(l1 > 0))
+			mix_f32(SPA_PTROFF(dst, l0, void), r->buf, l1);
+		dst = SPA_PTROFF(dst, avail, void);
+	}
+	/* src to dst */
+	if (size > avail) {
+		if (dst)
+			mix_f32(dst, src, size - avail);
+		src = SPA_PTROFF(src, size - avail, void);
+	}
+	/* src to buf */
+	if (avail > 0) {
+		spa_ringbuffer_write_data(NULL, r->buf, r->size, r->idx, src, avail);
+		r->idx = (r->idx + avail) % r->size;
+	}
+}
+
 static void ringbuffer_copy(struct ringbuffer *dst, struct ringbuffer *src)
 {
 	uint32_t l0, l1;
@@ -1172,11 +1206,14 @@ static void combine_output_process(void *d)
 	struct pw_buffer *in, *out;
 	struct stream *s;
 	bool delay_changed = false;
+	bool mix[SPA_AUDIO_MAX_CHANNELS];
 
 	if ((out = pw_stream_dequeue_buffer(impl->combine)) == NULL) {
 		pw_log_debug("%p: out of output buffers: %m", impl);
 		return;
 	}
+	for (uint32_t i = 0; i < out->buffer->n_datas; i++)
+		mix[i] = false;
 
 	spa_list_for_each(s, &impl->streams, link) {
 		uint32_t j;
@@ -1220,8 +1257,14 @@ static void combine_output_process(void *d)
 				size = SPA_MIN(ds->chunk->size, ds->maxsize - offs);
 				size = SPA_MIN(size, dd->maxsize);
 
-				ringbuffer_memcpy(&s->delay[j],
-					dd->data, SPA_PTROFF(ds->data, offs, void), size);
+				if (mix[remap]) {
+					ringbuffer_mix(&s->delay[j],
+						dd->data, SPA_PTROFF(ds->data, offs, void), size);
+				} else {
+					ringbuffer_memcpy(&s->delay[j],
+						dd->data, SPA_PTROFF(ds->data, offs, void), size);
+					mix[remap] = true;
+				}
 
 				outsize = SPA_MAX(outsize, size);
 				stride = SPA_MAX(stride, ds->chunk->stride);

@@ -769,7 +769,7 @@ static int create_stream(struct stream_info *info)
 	int res;
 	uint32_t n_params, i, j;
 	const struct spa_pod *params[1];
-	const char *str, *node_name;
+	const char *str, *node_name, *dir_name;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	struct spa_audio_info_raw remap_info, tmp_info;
@@ -796,6 +796,22 @@ static int create_stream(struct stream_info *info)
 
 	s->id = info->id;
 	s->impl = impl;
+	s->stream_events = stream_events;
+
+	flags = PW_STREAM_FLAG_AUTOCONNECT |
+			PW_STREAM_FLAG_MAP_BUFFERS |
+			PW_STREAM_FLAG_RT_PROCESS |
+			PW_STREAM_FLAG_ASYNC;
+
+	if (impl->mode == MODE_SINK || impl->mode == MODE_CAPTURE) {
+		direction = PW_DIRECTION_OUTPUT;
+		flags = PW_STREAM_FLAG_TRIGGER;
+		dir_name = "output";
+	} else {
+		direction = PW_DIRECTION_INPUT;
+		s->stream_events.process = stream_input_process;
+		dir_name = "input";
+	}
 
 	s->info = impl->info;
 	if ((str = pw_properties_get(info->stream_props, SPA_KEY_AUDIO_POSITION)) != NULL)
@@ -829,10 +845,10 @@ static int create_stream(struct stream_info *info)
 
 	if (pw_properties_get(info->stream_props, PW_KEY_MEDIA_NAME) == NULL)
 		pw_properties_setf(info->stream_props, PW_KEY_MEDIA_NAME,
-				"%s output", str);
+				"%s %s", str, dir_name);
 	if (pw_properties_get(info->stream_props, PW_KEY_NODE_DESCRIPTION) == NULL)
 		pw_properties_setf(info->stream_props, PW_KEY_NODE_DESCRIPTION,
-				"%s output", str);
+				"%s %s", str, dir_name);
 
 	str = pw_properties_get(impl->props, PW_KEY_NODE_NAME);
 	if (str == NULL)
@@ -840,7 +856,7 @@ static int create_stream(struct stream_info *info)
 
 	if (pw_properties_get(info->stream_props, PW_KEY_NODE_NAME) == NULL)
 		pw_properties_setf(info->stream_props, PW_KEY_NODE_NAME,
-				"output.%s_%s", str, node_name);
+				"%s.%s_%s", dir_name, str, node_name);
 
 	if (info->on_demand_id) {
 		s->on_demand_id = strdup(info->on_demand_id);
@@ -854,21 +870,6 @@ static int create_stream(struct stream_info *info)
 	info->stream_props = NULL;
 	if (s->stream == NULL)
 		goto error_errno;
-
-	s->stream_events = stream_events;
-
-	flags = PW_STREAM_FLAG_AUTOCONNECT |
-			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS |
-			PW_STREAM_FLAG_ASYNC;
-
-	if (impl->mode == MODE_SINK || impl->mode == MODE_CAPTURE) {
-		direction = PW_DIRECTION_OUTPUT;
-		flags |= PW_STREAM_FLAG_TRIGGER;
-	} else {
-		direction = PW_DIRECTION_INPUT;
-		s->stream_events.process = stream_input_process;
-	}
 
 	pw_stream_add_listener(s->stream,
 			&s->stream_listener,

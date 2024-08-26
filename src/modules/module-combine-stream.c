@@ -1246,7 +1246,6 @@ static void combine_output_process(void *d)
 
 			ds = &in->buffer->datas[j];
 
-			/* FIXME, need to do mixing for overlapping streams */
 			remap = s->remap[j];
 			if (remap < out->buffer->n_datas) {
 				uint32_t offs, size;

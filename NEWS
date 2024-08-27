@@ -1,3 +1,148 @@
+# PipeWire 1.3.81 (2025-01-23)
+
+This is the first 1.4 release candidate that is API and ABI
+compatible with previous 1.2.x and 1.0.x releases.
+
+In addition to all the changes backported to 1.2.x, this release
+also contains some new features:
+
+## Highlights
+  - UMP support was added with MIDI 1.0 and MIDI 2.0 support in the ALSA
+    sequencer plugin. By default PipeWire will now use MIDI 2.0 in UMP
+    messages to transport MIDI in the graph, with conversions to/from legacy
+    MIDI where required. This requires UMP support in the kernel.
+  - client-rt.conf is no longer supported. Custom changes made to this
+    config should be moved to client.conf. Clients that try to load the
+    client-rt.conf will emit a warning and be directed to client.conf
+    automatically for backwards compatibility.
+  - The module-filter-chain code was moved to a new filter-graph plugin. This
+    made it possible to add filter-graph support directly in audioconvert. It
+    is now possible to run up to 8 run-time swappable filter-graphs inside
+    streams and nodes. This should make it easier to add effects to streams
+    and device nodes.
+  - Bluetooth support for BAP broadcast links and support for hearing aids
+    using ASHA was added.
+  - Many more bugfixes and improvements.
+
+## PipeWire
+  - Nodes are now only scheduled when ready to signal the driver.
+  - Add slovenian translation. (#4156)
+  - Link errors are handled better.
+  - The videoadapter is now enabled by default but no videoconverter
+    is loaded yet by default.
+  - Streams now have support for ProcessLatency.
+  - Streams now have a method to emit events.
+  - The RequestProcess event and command can now pass around extra
+    properties.
+  - Local timestamps are now used for logging.
+  - client-rt.conf is no longer supported. Custom changes made to this
+    config should be moved to client.conf. Clients that try to load the
+    client-rt.conf will emit a warning and be directed to cliert.conf
+    automatically to preserve backwards compatibility.
+  - pw_stream now has an API to return unused buffers.
+
+## modules
+  - module-combine-stream can now mix streams.
+  - Links in error are now destroyed by link-factory.
+  - The netjack2 driver can now also create streams that autoconnect when
+    specified. (#4125)
+  - Many updates and bugfixes to the RTP modules.
+  - The netjack2 driver can now bind to a custom IP and port pair. (#4144)
+  - The loopback module and module-raop have support for ProcessLatency, which
+    can be used to query and update the latency.
+  - The profiler module can now reduce the sampling rate.
+  - The filter-chain was optimized some more.
+  - The filter-chain gained some more plugins: param_eq, ebur128, dcblock.
+  - Support for fftw based convolver was added.
+  - Some module arguments can now be overridden.
+  - The VBAN receiver now creates new streams per stream name. (#4400)
+  - The RTP SAP module is now smarter with generating new SAP messages.
+  - The RTP source can now be paused when no data is received. (#4456)
+
+## tools
+  - pw-cat can now stream most formats from stdin/stdout.
+  - pw-profiler has a JSON dump option to dump the raw profiler data.
+  - pw-cli now supports unload-module. (#4276)
+
+## SPA
+  - The resampler can precompute some common coeficients now at compile
+    time.
+  - UMP support was added with MIDI 1.0 and MIDI 2.0 support in the ALSA
+    sequencer plugin. By default PipeWire will now use MIDI 2.0 in UMP
+    messages to transport MIDI in the graph, with conversions to/from legacy
+    MIDI where required.
+  - Control types can now be negotiated.
+  - Support for writing ALSA bind controls was added.
+  - The ALSA sequencer now has better names for the ports.
+  - The F32 to S32 conversion now uses 25 bits for an extra bit of
+    precision.
+  - libcamera controls can now be set in all cases.
+  - The videoadapter has been improved and a dummy and ffmpeg based
+    videoconverter plugin was added.
+  - Negotiation was improved in audioadapter. First a passthrough format
+    is tried.
+  - Some JSON helper functions were added and some duplicate code removed
+    or simplified.
+  - Add support for RISC V CPU detection and add many optimizations in
+    the audio converters.
+  - Add an option to disable ALSA mixer path select. (#4311)
+  - Fix a potential bug with the cleanup of the loop queues.
+  - ALSA nodes now dynamically adjust the DLL bandwidth based on average
+    measured variance.
+  - The loop invoke queue was made more efficient and make it possible to
+    invoke from multiple threads.
+  - The filter-chain code was moved to a new filter-graph plugin.
+  - Most function macros are now static inlined and can also be built into a
+    libspa.so file. This should improve language bindings.
+  - V4l2 clock information was improved.
+  - Supported IEC958 codecs are now autodetected via ELD info.
+  - Audioconvert was optimized some more.
+  - Audioconvert can now include filter-graphs in its processing.
+  - webrtc-audio-processing-2 is now supported in AEC.
+  - The resampler now reports the delay and subsample delay. Also the
+    delay is reported in the samplerate of the input.
+  - The ALSA sequencer now handle kernels without UMP support. (#4507)
+
+## Pulse-server
+  - Add quirk to block clients from making record and playback streams.
+  - The corked state is now set on stream to always report this state
+    correctly to other clients.
+  - Readiness notification was added to the pulse server with the
+    PIPEWIRE_PULSE_NOTIFICATION_FD environment variable. (#4347)
+  - The pulse.cmd config now supports conditions.
+  - A bug in clearing the ringbuffer was fixed. (#4464)
+
+## GStreamer
+  - Support for the default devices was added to the deviceprovider. (#4268)
+  - The graph clock is now used as the source for the GStreamer clock.
+  - The sink now does some rate control.
+
+## ALSA
+  - The ALSA plugin now supports DSD when explicitly enabled.
+
+## JACK
+  - JACK now supports 2 new extension formats for OSC and UMP.
+  - JACK clients can receive UMP MIDI1 or MIDI2 messages when using
+    the new UMP port format extension.
+  - JACK now reports the PipeWire version in the minor/micro/proto.
+  - Implement more jackserver functions.
+
+## Bluetooth
+  - Support BAP broadcast links.
+  - Support for ASHA was added.
+  - Delay reporting in A2DP sources was improved.
+
+## Examples
+  - 2 new examples of pw-stream using spa_ringbuffer were added.
+
+## Docs
+  - Many updates to the man pages.
+  - More documentation about thread safety of functions in stream
+    and filters. (#4521)
+
+
+Older versions:
+
 # PipeWire 1.2.7 (2024-11-26)
 
 This is a bugfix release that is API and ABI compatible with the previous
@@ -47,9 +192,6 @@ This is a bugfix release that is API and ABI compatible with the previous
 
 ## Tools
   - Fix pw-dot link labels.
-
-Older versions:
-
 
 # PipeWire 1.2.6 (2024-10-23)
 
@@ -445,9 +587,6 @@ Enjoy the summer vacation!
 
 ## Bluetooth
   - Improvements to BAP broadcast code parsing.
-
-Older versions:
-
 
 # PipeWire 1.1.83 (2024-06-17)
 

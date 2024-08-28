@@ -438,7 +438,7 @@ static void ptp_sender_process(void *d, struct spa_io_position *position)
 		return;
 	}
 
-	pw_log_trace("sink nsec:%lu, sink next_nsec:%lu, ptp nsec:%lu, ptp next_sec:%lu",
+	pw_log_trace("sink nsec:%"PRIu64", sink next_nsec:%"PRIu64", ptp nsec:%"PRIu64", ptp next_sec:%"PRIu64,
 			impl->sink_nsec, impl->sink_next_nsec, nsec, next_nsec);
 
 	/* If send is lagging by more than 2 or more quanta, reset */

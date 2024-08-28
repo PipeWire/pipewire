@@ -1778,7 +1778,8 @@ int main(int argc, char *argv[])
 			break;
 
 		case OPT_VOLUME:
-			data.volume = (float)atof(optarg);
+			if (!spa_atof(optarg, &data.volume))
+				data.volume = (float)atof(optarg);
 			break;
 		default:
 			goto error_usage;

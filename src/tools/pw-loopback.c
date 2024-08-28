@@ -163,7 +163,8 @@ int main(int argc, char *argv[])
 			data.latency = atoi(optarg) * DEFAULT_RATE / SPA_MSEC_PER_SEC;
 			break;
 		case 'd':
-			data.delay = (float)atof(optarg);
+			if (!spa_atof(optarg, &data.delay))
+				data.delay = (float)atof(optarg);
 			break;
 		case 'C':
 			pw_properties_set(data.capture_props, PW_KEY_TARGET_OBJECT, optarg);

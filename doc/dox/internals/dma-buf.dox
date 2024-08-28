@@ -89,6 +89,8 @@ modifier-aware one, or supporting both.
   \ref SPA_CHOICE_Enum. In this case announce the \ref SPA_PARAM_Buffers accordingly
   to the selected format and modifier. It is important to query the plane count
   of the used format modifier pair and set `SPA_PARAM_BUFFERS_blocks` accordingly.
+  You might also want to add the option of adding explicit sync support to the
+  buffers, as explained below.
 
 Note: When test allocating a buffer, collect all possible modifiers, while omitting
 `DRM_FORMAT_MOD_INVALID` from the \ref SPA_FORMAT_VIDEO_modifier property and
@@ -176,5 +178,128 @@ no modifier is present, if it can guarantee, that the used buffer is mmapable.
 
 Note: For now v4l2 uses planar buffers without modifiers. This is the reason for
 this special case.
+
+# Explicit sync
+
+In addition to DMABUF, a set of synchronization primitives (a SyncObjTimeline) and
+associated metadata can be negotiated on the buffers.
+
+The explicit sync step is performed *after* the Format has been negotiated.
+
+## Query support for explicit sync in the driver.
+
+You might first want to check that the drm render you are using is capable of explicit
+sync by checking support for DRM_CAP_SYNCOBJ and DRM_CAP_SYNCOBJ_TIMELINE before
+attempting to negotiate explicit sync.
+
+## Provide space in the buffer for explicit sync
+
+Explicit sync requires two extra fds in the buffers and an extra
+\ref SPA_META_SyncTimeline metadata structure.
+
+The metadata structure will only be allocated when both sides support explicit
+sync. We can use this to make a fallback \ref SPA_PARAM_Buffers so that we can
+support both explicit sync and a fallback to implicit sync.
+
+So, first announce support for \ref SPA_META_SyncTimeline by adding the
+\ref SPA_TYPE_OBJECT_ParamMeta object to the stream:
+
+```
+  params[n_params++] = spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
+			SPA_PARAM_META_type, SPA_POD_Id(SPA_META_SyncTimeline),
+			SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_sync_timeline)));
+```
+
+Next make a \ref SPA_PARAM_Buffers that depends on the negotiation of the SyncTimelime metadata:
+
+```
+    spa_pod_builder_push_object(&b, &f, SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers);
+    spa_pod_builder_add(&b,
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(3),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(size),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(data->stride),
+			SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int((1<<SPA_DATA_DmaBuf)),
+			0);
+    spa_pod_builder_prop(&b, SPA_PARAM_BUFFERS_metaType, SPA_POD_PROP_FLAG_MANDATORY);
+    spa_pod_builder_int(&b, 1<<SPA_META_SyncTimeline);
+    params[n_params++] = spa_pod_builder_pop(&b, &f);
+```
+
+Note the mandatory \ref SPA_PARAM_BUFFERS_metaType with the \ref SPA_META_SyncTimeline
+bit set. This forces this buffer layout to be used when SyncTimeline metadata was
+negotiated. Also note the \ref SPA_PARAM_BUFFERS_blocks that is now set to the number
+of DMABUF planes + 2. In this case we have 1 plane/fd for the DMABUF and 2 fds for the
+SyncObjTimelines.
+
+You can also add a fallback \ref SPA_PARAM_Buffers when the \ref SPA_META_SyncTimeline
+was not negotiated:
+
+```
+    params[n_params++] = spa_pod_builder_add_object(&b,
+		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
+		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
+		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(size),
+		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(data->stride),
+		SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int((1<<SPA_DATA_DmaBuf)));
+```
+
+This one has just 1 data block with the DMABUF fd and plane info.
+
+## Check if SPA_META_SyncTimeline was negotiated
+
+After sending the \ref SPA_PARAM_Buffers, the buffer will be allocated by the PipeWire
+server.
+
+In the pw-stream::add_buffer event, check if the \ref SPA_META_SyncTimeline is available
+on the buffer:
+
+```
+    struct spa_meta_sync_timeline *stl;
+    stl = spa_buffer_find_meta_data(buf, SPA_META_SyncTimeline, sizeof(*stl));
+```
+
+When the metadata is available, the SyncObj fds are in the last 2 data planes
+of the buffer, the acquire and release syncobj respectively. You can keep a ref to the
+\ref struct spa_meta_sync_timeline because we will need this later when processing
+the buffers.
+
+If the producer is allocating buffers, when the stream has the \ref PW_STREAM_FLAG_ALLOC_BUFFERS
+flag, it should allocate the DMABUF and syncobj now and place them in the buffer data.
+First the plane fds and then the 2 syncobj fds.
+
+The consumer can directly use the fds. The SyncObj fds can be converted to a handle,
+for example, to make things easier later:
+
+```
+  uint32_t acquire_handle, release_handle;
+  drmSyncobjFDToHandle(drm_fd, buf->datas[buf->n_datas - 2].fd, &acquire_handle);
+  drmSyncobjFDToHandle(drm_fd, buf->datas[buf->n_datas - 1].fd, &release_handle);
+```
+
+## Use the SPA_META_SyncTimeline when processing buffers
+
+The \ref struct spa_meta_sync_timeline contains 2 fields: the acquire_point and
+release_point.
+
+Producers will start a render operation on the DMABUF of the buffer and place
+the acquire_point in the \ref struct spa_meta_sync_timeline. When the rendering is
+complete, the producer should signal the acquire_point on the acquire SyncObjTimeline.
+
+Producers will also add a release_point on the release SyncObjTimeline. They are
+only allowed to reuse the buffer when the release_point has been signaled.
+
+Consumers use the acquire_point to wait for rendering to complete before processing
+the buffer. This can be offloaded to the hardware when submitting the rendering
+operation or it can be done explicitly with drmSyncobjTimelineWait() on the acquire
+SyncObjTimeline handle and the acquire_point of the metadata.
+
+Consumers should then also signal the release_point on the release SyncObjTimeline when
+they complete processing the buffer. This can be done in the hardware as part of
+the render pipeline or explicitly with drmSyncobjTimelineSignal() on the release
+handle and the release_point of the metadata.
+
 
 */

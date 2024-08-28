@@ -162,6 +162,33 @@
  * ]
  *\endcode
  *
+ * ## Example configuration of a downmix source
+ *
+ * This Virtual source has 2 input channels and a mono output channel. It will perform
+ * downmixing from the two first AUX channels of a pro-audio device.
+ *
+ *\code{.unparsed}
+ * context.modules = [
+ * {   name = libpipewire-module-loopback
+ *     args = {
+ *         node.description = "Downmix Source"
+ *         audio.position = [ AUX0 AUX1 ]
+ *         capture.props = {
+ *             node.name = "effect_input.downmix"
+ *             target.object = "alsa_input.usb-BEHRINGER_UMC404HD_192k-00.pro-input-0"
+ *             node.passive = true
+ *             stream.dont-remix = true
+ *         }
+ *         playback.props = {
+ *             node.name = "effect_output.downmix"
+ *             media.class = Audio/Source
+ *             audio.position = [ MONO ]
+ *         }
+ *     }
+ * }
+ * ]
+ *\endcode
+ *
  * ## See also
  *
  * `pw-loopback` : a tool that loads the loopback module with given parameters.

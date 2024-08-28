@@ -938,11 +938,11 @@ void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto
 	if (major_ptr)
 		*major_ptr = 3;
 	if (minor_ptr)
-		*minor_ptr = 0;
+		*minor_ptr = PW_MAJOR;
 	if (micro_ptr)
-		*micro_ptr = 0;
+		*micro_ptr = PW_MINOR;
 	if (proto_ptr)
-		*proto_ptr = 0;
+		*proto_ptr = PW_MICRO;
 }
 
 #define do_callback_expr(c,expr,callback,do_emit,...)		\
@@ -989,7 +989,10 @@ const char *
 jack_get_version_string(void)
 {
 	static char name[1024];
-	snprintf(name, sizeof(name), "3.0.0.0 (using PipeWire %s)", pw_get_library_version());
+	int major, minor, micro, proto;
+	jack_get_version(&major, &minor, &micro, &proto);
+	snprintf(name, sizeof(name), "%d.%d.%d.%d (using PipeWire %s)",
+			major, minor, micro, proto, pw_get_library_version());
 	return name;
 }
 

@@ -55,10 +55,12 @@
  * - `driver.mode`: the driver mode, sink|source|duplex, default duplex
  * - `local.ifname = <str>`: interface name to use
  * - `net.ip =<str>`: multicast IP address, default "225.3.19.154"
- * - `net.port =<int>`: control port, default "19000"
+ * - `net.port =<int>`: control port, default 19000
  * - `net.mtu = <int>`: MTU to use, default 1500
  * - `net.ttl = <int>`: TTL to use, default 1
  * - `net.loop = <bool>`: loopback multicast, default false
+ * - `source.ip =<str>`: IP address to bind to, default "0.0.0.0"
+ * - `source.port =<int>`: port to bind to, default 0 (allocate)
  * - `netjack2.client-name`: the name of the NETJACK2 client.
  * - `netjack2.save`: if jack port connections should be save automatically. Can also be
  *                   placed per stream.
@@ -121,6 +123,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_NET_LOOP	false
 #define DEFAULT_NET_DSCP	34 /* Default to AES-67 AF41 (34) */
 #define MAX_MTU			9000
+#define DEFAULT_SOURCE_IP	"0.0.0.0"
+#define DEFAULT_SOURCE_PORT	0
 
 #define DEFAULT_NETWORK_LATENCY	2
 #define NETWORK_MAX_LATENCY	30
@@ -141,6 +145,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"( net.mtu=<MTU to use, default 1500> ) "		\
 			"( net.ttl=<TTL to use, default 1> ) "			\
 			"( net.loop=<loopback, default false> ) "		\
+			"( source.ip=<ip address to bind, default 0.0.0.0> ) "	\
+			"( source.port=<port to bind, default 0> ) "		\
 			"( netjack2.client-name=<name of the NETJACK2 client> ) "	\
 			"( netjack2.save=<bool, save ports> ) "			\
 			"( netjack2.latency=<latency in cycles, default 2> ) "	\
@@ -957,11 +963,15 @@ static int create_netjack2_socket(struct impl *impl)
 	if ((str = pw_properties_get(impl->props, "net.ip")) == NULL)
 		str = DEFAULT_NET_IP;
 	if ((res = pw_net_parse_address(str, port, &impl->dst_addr, &impl->dst_len)) < 0) {
-		pw_log_error("invalid net.ip %s: %s", str, spa_strerror(res));
+		pw_log_error("invalid net.ip:%s port:%d: %s", str, port, spa_strerror(res));
 		goto out;
 	}
-	if ((res = pw_net_parse_address("0.0.0.0", 0, &impl->src_addr, &impl->src_len)) < 0) {
-		pw_log_error("invalid source.ip: %s", spa_strerror(res));
+
+	port = pw_properties_get_uint32(impl->props, "source.port", DEFAULT_SOURCE_PORT);
+	if ((str = pw_properties_get(impl->props, "source.ip")) == NULL)
+		str = DEFAULT_SOURCE_IP;
+	if ((res = pw_net_parse_address(str, port, &impl->src_addr, &impl->src_len)) < 0) {
+		pw_log_error("invalid source.ip:%s port:%d: %s", str, port, spa_strerror(res));
 		goto out;
 	}
 

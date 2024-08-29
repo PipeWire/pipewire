@@ -444,7 +444,7 @@ static void ptp_sender_process(void *d, struct spa_io_position *position)
 	/* If send is lagging by more than 2 or more quanta, reset */
 	if (!impl->refilling && impl->rtp_last_ts &&
 			SPA_ABS((int32_t)ptp_timestamp - (int32_t)impl->rtp_last_ts) >= (int32_t)(2 * quantum)) {
-		pw_log_warn("expected %u - timestamp %u = %d >= 2 * %lu quantum", rtp_timestamp, impl->rtp_last_ts,
+		pw_log_warn("expected %u - timestamp %u = %d >= 2 * %"PRIu64" quantum", rtp_timestamp, impl->rtp_last_ts,
 				(int)rtp_timestamp - (int)impl->rtp_last_ts, quantum);
 		goto resync;
 	}
@@ -470,7 +470,7 @@ static void ptp_sender_process(void *d, struct spa_io_position *position)
 			/* Store the offset for the PTP time at which we start sending */
 			impl->rtp_base_ts = ptp_timestamp - read_idx;
 			rtp_timestamp = impl->rtp_base_ts + read_idx; /* = ptp_timestamp */
-			pw_log_debug("start sending. sink quantum:%lu, ptp quantum:%lu", impl->sink_quantum, quantum_nsec);
+			pw_log_debug("start sending. sink quantum:%"PRIu64", ptp quantum:%"PRIu64"", impl->sink_quantum, quantum_nsec);
 		}
 
 		if (!impl->refilling) {
@@ -493,7 +493,7 @@ static void ptp_sender_process(void *d, struct spa_io_position *position)
 			}
 		}
 	} else {
-		pw_log_warn("PTP node wake up time out of bounds !(%lu < %lu < %lu)",
+		pw_log_warn("PTP node wake up time out of bounds !(%"PRIu64" < %"PRIu64" < %"PRIu64")",
 				impl->sink_nsec, nsec, impl->sink_next_nsec);
 		goto resync;
 	}

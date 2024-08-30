@@ -149,6 +149,7 @@ static int spa_libcamera_clear_buffers(struct impl *impl, struct port *port)
 
 	freeBuffers(impl, port);
 	port->n_buffers = 0;
+	port->ring = SPA_RINGBUFFER_INIT();
 
 	return 0;
 }

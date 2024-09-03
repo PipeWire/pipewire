@@ -75,7 +75,7 @@ spa_format_video_raw_build(struct spa_pod_builder *builder, uint32_t id,
 	}
 	if (info->max_framerate.denom != 0)
 		spa_pod_builder_add(builder,
-			SPA_FORMAT_VIDEO_maxFramerate,	SPA_POD_Fraction(info->max_framerate), 0);
+			SPA_FORMAT_VIDEO_maxFramerate,	SPA_POD_Fraction(&info->max_framerate), 0);
 	if (info->views != 0)
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_views,		SPA_POD_Int(info->views), 0);
@@ -84,7 +84,7 @@ spa_format_video_raw_build(struct spa_pod_builder *builder, uint32_t id,
 			SPA_FORMAT_VIDEO_interlaceMode,	SPA_POD_Id(info->interlace_mode), 0);
 	if (info->pixel_aspect_ratio.denom != 0)
 		spa_pod_builder_add(builder,
-			SPA_FORMAT_VIDEO_pixelAspectRatio,SPA_POD_Fraction(info->pixel_aspect_ratio), 0);
+			SPA_FORMAT_VIDEO_pixelAspectRatio, SPA_POD_Fraction(&info->pixel_aspect_ratio), 0);
 	if (info->multiview_mode != 0)
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_multiviewMode,	SPA_POD_Id(info->multiview_mode), 0);

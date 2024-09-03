@@ -49,7 +49,7 @@ spa_format_video_h264_build(struct spa_pod_builder *builder, uint32_t id,
 			SPA_FORMAT_VIDEO_framerate,	SPA_POD_Fraction(&info->framerate), 0);
 	if (info->max_framerate.denom != 0)
 		spa_pod_builder_add(builder,
-			SPA_FORMAT_VIDEO_maxFramerate,	SPA_POD_Fraction(info->max_framerate), 0);
+			SPA_FORMAT_VIDEO_maxFramerate,	SPA_POD_Fraction(&info->max_framerate), 0);
 	if (info->stream_format != 0)
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_H264_streamFormat, SPA_POD_Id(info->stream_format), 0);

@@ -399,6 +399,9 @@ void pw_global_destroy(struct pw_global *global)
 	struct pw_resource *resource;
 	struct pw_context *context = global->context;
 
+	if (global->destroyed)
+		return;
+
 	global->destroyed = true;
 
 	pw_log_debug("%p: destroy %u", global, global->id);

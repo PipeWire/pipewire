@@ -3489,6 +3489,10 @@ static int do_state_sync(struct spa_loop *loop, bool async, uint32_t seq,
 				spa_list_append(&state->driver->rt.followers, &rt->driver_link);
 			rt->driver = state->driver;
 			spa_log_debug(state->log, "state:%p -> driver:%p", state, state->driver);
+
+			if(state->linked && state->matching) {
+				try_unlink(state);
+			}
 		}
 		if (state->following) {
 			remove_sources(state);

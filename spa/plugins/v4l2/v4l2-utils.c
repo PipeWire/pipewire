@@ -1401,8 +1401,10 @@ static int mmap_read(struct impl *this)
 
 	/* Drop the first frame in order to work around common firmware
 	 * timestamp issues */
-	if (buf.sequence == 0)
+	if (buf.sequence == 0) {
+		xioctl(dev->fd, VIDIOC_QBUF, &buf);
 		return 0;
+	}
 
 	pts = SPA_TIMEVAL_TO_NSEC(&buf.timestamp);
 	spa_log_trace(this->log, "v4l2 %p: have output %d", this, buf.index);

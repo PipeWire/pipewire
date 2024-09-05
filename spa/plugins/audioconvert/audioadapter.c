@@ -58,7 +58,7 @@ struct impl {
 	struct spa_handle *hnd_convert;
 	struct spa_node *convert;
 	struct spa_hook convert_listener;
-	uint64_t convert_flags;
+	uint64_t convert_port_flags;
 
 	uint32_t n_buffers;
 	struct spa_buffer **buffers;
@@ -437,8 +437,8 @@ static int negotiate_buffers(struct impl *this)
 
 	spa_pod_fixate(param);
 
-	follower_flags = this->follower_flags;
-	conv_flags = this->convert_flags;
+	follower_flags = this->follower_port_flags;
+	conv_flags = this->convert_port_flags;
 
 	follower_alloc = SPA_FLAG_IS_SET(follower_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
 	conv_alloc = SPA_FLAG_IS_SET(conv_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
@@ -1092,6 +1092,8 @@ static void follower_convert_port_info(void *data,
 			this->direction == SPA_DIRECTION_INPUT ?
 				"Input" : "Output", info, info->change_mask);
 
+	this->convert_port_flags = info->flags;
+
 	if (info->change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
 			uint32_t idx;
@@ -1152,7 +1154,10 @@ static void convert_port_info(void *data,
 			port_id--;
 	} else if (info) {
 		pi = *info;
-		pi.flags = this->follower_port_flags;
+		pi.flags = this->follower_port_flags &
+			(SPA_PORT_FLAG_LIVE |
+			 SPA_PORT_FLAG_PHYSICAL |
+			 SPA_PORT_FLAG_TERMINAL);
 		info = &pi;
 	}
 
@@ -1273,10 +1278,7 @@ static void follower_port_info(void *data,
 	      return;
 	}
 
-	this->follower_port_flags = info->flags &
-		(SPA_PORT_FLAG_LIVE |
-		 SPA_PORT_FLAG_PHYSICAL |
-		 SPA_PORT_FLAG_TERMINAL);
+	this->follower_port_flags = info->flags;
 
 	spa_log_debug(this->log, "%p: follower port info %s %p %08"PRIx64" recalc:%u", this,
 			this->direction == SPA_DIRECTION_INPUT ?

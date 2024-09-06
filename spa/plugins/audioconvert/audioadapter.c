@@ -660,11 +660,12 @@ static int recalc_tag(struct impl *this, struct spa_node *src, enum spa_directio
 }
 
 
-static int reconfigure_mode(struct impl *this, bool passthrough,
+static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode mode,
                 enum spa_direction direction, struct spa_pod *format)
 {
 	int res = 0;
 	struct spa_hook l;
+	bool passthrough = mode == SPA_PARAM_PORT_CONFIG_MODE_passthrough;
 
 	spa_log_debug(this->log, "%p: passthrough mode %d", this, passthrough);
 
@@ -697,7 +698,7 @@ static int reconfigure_mode(struct impl *this, bool passthrough,
 			spa_hook_remove(&l);
 		} else {
 			/* add converter ports */
-			configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_dsp);
+			configure_convert(this, mode);
 		}
 		link_io(this);
 	}
@@ -779,12 +780,12 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		case SPA_PARAM_PORT_CONFIG_MODE_none:
 			return -ENOTSUP;
 		case SPA_PARAM_PORT_CONFIG_MODE_passthrough:
-			if ((res = reconfigure_mode(this, true, dir, format)) < 0)
+			if ((res = reconfigure_mode(this, mode, dir, format)) < 0)
 				return res;
 			break;
 		case SPA_PARAM_PORT_CONFIG_MODE_convert:
 		case SPA_PARAM_PORT_CONFIG_MODE_dsp:
-			if ((res = reconfigure_mode(this, false, dir, NULL)) < 0)
+			if ((res = reconfigure_mode(this, mode, dir, NULL)) < 0)
 				return res;
 			break;
 		default:

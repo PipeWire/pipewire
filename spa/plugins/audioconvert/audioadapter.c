@@ -878,11 +878,11 @@ static struct spa_pod *merge_objects(struct impl *this, struct spa_pod_builder *
 
 static int negotiate_format(struct impl *this)
 {
-	uint32_t state;
+	uint32_t fstate, tstate;
 	struct spa_pod *format, *def;
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = { 0 };
-	int res;
+	int res, fres;
 
 	spa_log_debug(this->log, "%p: have_format:%d recheck:%d", this, this->have_format,
 			this->recheck_format);
@@ -900,36 +900,56 @@ static int negotiate_format(struct impl *this)
 	spa_node_send_command(this->follower,
 			&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_ParamBegin));
 
-	state = 0;
-	format = NULL;
-	if ((res = spa_node_port_enum_params_sync(this->follower,
-				this->direction, 0,
-				SPA_PARAM_EnumFormat, &state,
-				format, &format, &b)) < 0) {
+	/* first try the ideal converter format, which is likely passthrough */
+	tstate = 0;
+	fres = spa_node_port_enum_params_sync(this->target,
+				SPA_DIRECTION_REVERSE(this->direction), 0,
+				SPA_PARAM_EnumFormat, &tstate,
+				NULL, &format, &b);
+	if (fres == 1) {
+		fstate = 0;
+		res = spa_node_port_enum_params_sync(this->follower,
+					this->direction, 0,
+					SPA_PARAM_EnumFormat, &fstate,
+					format, &format, &b);
+		if (res == 1)
+			goto found;
+	}
+
+	/* then try something the follower can accept */
+	for (fstate = 0;;) {
+		format = NULL;
+		res = spa_node_port_enum_params_sync(this->follower,
+					this->direction, 0,
+					SPA_PARAM_EnumFormat, &fstate,
+					NULL, &format, &b);
+
 		if (res == -ENOENT)
 			format = NULL;
-		else {
-			debug_params(this, this->follower, this->direction, 0,
-					SPA_PARAM_EnumFormat, format, "follower format", res);
-			goto done;
-		}
+		else if (res <= 0)
+			break;
+
+		tstate = 0;
+		fres = spa_node_port_enum_params_sync(this->target,
+					SPA_DIRECTION_REVERSE(this->direction), 0,
+					SPA_PARAM_EnumFormat, &tstate,
+					format, &format, &b);
+		if (fres == 0 && res == 1)
+			continue;
+
+		res = fres;
+		break;
 	}
-	state = 0;
-	if ((res = spa_node_port_enum_params_sync(this->target,
-				SPA_DIRECTION_REVERSE(this->direction), 0,
-				SPA_PARAM_EnumFormat, &state,
-				format, &format, &b)) != 1) {
+found:
+	if (format == NULL) {
+		debug_params(this, this->follower, this->direction, 0,
+				SPA_PARAM_EnumFormat, format, "follower format", res);
 		debug_params(this, this->target,
 				SPA_DIRECTION_REVERSE(this->direction), 0,
 				SPA_PARAM_EnumFormat, format, "convert format", res);
 		res = -ENOTSUP;
 		goto done;
 	}
-	if (format == NULL) {
-		res = -ENOTSUP;
-		goto done;
-	}
-
 	def = spa_format_audio_build(&b,
 			SPA_PARAM_Format, &this->default_format);
 

@@ -2059,9 +2059,8 @@ pw_stream_connect(struct pw_stream *stream,
 	if (pw_properties_get(props, PW_KEY_PORT_GROUP) == NULL)
 		pw_properties_set(props, PW_KEY_PORT_GROUP, "stream.0");
 
-	if (impl->media_type == SPA_MEDIA_TYPE_audio
-			|| (impl->media_type == SPA_MEDIA_TYPE_video
-				&& pw_properties_get(props, "video.adapt.converter"))) {
+	if (impl->media_type == SPA_MEDIA_TYPE_audio ||
+	    impl->media_type == SPA_MEDIA_TYPE_video) {
 		factory = pw_context_find_factory(impl->context, "adapter");
 		if (factory == NULL) {
 			pw_log_error("%p: no adapter factory found", stream);

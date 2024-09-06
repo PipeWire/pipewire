@@ -1018,7 +1018,7 @@ static void input_node_result(void *data, int seq, int res, uint32_t type, const
 {
 	struct impl *impl = data;
 	struct pw_impl_port *port = impl->this.input;
-	pw_log_info("%p: input port %p result seq:%d %d res:%d type:%u",
+	pw_log_trace("%p: input port %p result seq:%d %d res:%d type:%u",
 			impl, port, seq, SPA_RESULT_ASYNC_SEQ(seq), res, type);
 
 	if (type == SPA_RESULT_TYPE_NODE_ERROR && impl->input_pending_seq == seq)
@@ -1031,7 +1031,7 @@ static void output_node_result(void *data, int seq, int res, uint32_t type, cons
 {
 	struct impl *impl = data;
 	struct pw_impl_port *port = impl->this.output;
-	pw_log_info("%p: output port %p result seq:%d %d res:%d type:%u",
+	pw_log_trace("%p: output port %p result seq:%d %d res:%d type:%u",
 			impl, port, seq, SPA_RESULT_ASYNC_SEQ(seq), res, type);
 
 	if (type == SPA_RESULT_TYPE_NODE_ERROR && impl->output_pending_seq == seq)

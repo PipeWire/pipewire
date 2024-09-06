@@ -731,12 +731,9 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		if (param == NULL)
 			return -EINVAL;
 
-		if ((res = spa_format_parse(param, &info.media_type, &info.media_subtype)) < 0)
-			return res;
-		if (info.media_type != SPA_MEDIA_TYPE_audio ||
-			info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
-				return -EINVAL;
-		if (spa_format_audio_raw_parse(param, &info.info.raw) < 0)
+		if (spa_format_audio_parse(param, &info) < 0)
+			return -EINVAL;
+		if (info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
 			return -EINVAL;
 
 		this->follower_current_format = info;
@@ -764,13 +761,9 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			struct spa_audio_info info;
 
 			spa_zero(info);
-			if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
-				return res;
-			if (info.media_type != SPA_MEDIA_TYPE_audio ||
-			    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
-				return -ENOTSUP;
-
-			if (spa_format_audio_raw_parse(format, &info.info.raw) >= 0) {
+			if (spa_format_audio_parse(format, &info) >= 0) {
+				if (info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+					return -ENOTSUP;
 				info.info.raw.rate = 0;
 				this->default_format = info;
 			}
@@ -934,8 +927,8 @@ static int negotiate_format(struct impl *this)
 		goto done;
 	}
 
-	def = spa_format_audio_raw_build(&b,
-			SPA_PARAM_Format, &this->default_format.info.raw);
+	def = spa_format_audio_build(&b,
+			SPA_PARAM_Format, &this->default_format);
 
 	format = merge_objects(this, &b, SPA_PARAM_Format,
 			(struct spa_pod_object*)format,
@@ -1747,7 +1740,6 @@ static int do_auto_port_config(struct impl *this, const char *str)
 #define POSITION_UNKNOWN 2
 	int res, position = POSITION_PRESERVE;
 	struct spa_pod *param;
-	uint32_t media_type, media_subtype;
 	bool have_format = false, monitor = false, control = false;
 	struct spa_audio_info format = { 0, };
 	enum spa_param_port_config_mode mode = SPA_PARAM_PORT_CONFIG_MODE_none;
@@ -1782,8 +1774,6 @@ static int do_auto_port_config(struct impl *this, const char *str)
 
 	while (true) {
 		struct spa_audio_info info = { 0, };
-		struct spa_pod *position = NULL;
-		uint32_t n_position = 0;
 
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		if ((res = spa_node_port_enum_params_sync(this->follower,
@@ -1792,30 +1782,14 @@ static int do_auto_port_config(struct impl *this, const char *str)
 					NULL, &param, &b)) != 1)
 			break;
 
-		if ((res = spa_format_parse(param, &media_type, &media_subtype)) < 0)
-			continue;
-
-		if (media_type != SPA_MEDIA_TYPE_audio ||
-		    media_subtype != SPA_MEDIA_SUBTYPE_raw)
+		if ((res = spa_format_audio_parse(param, &info)) < 0)
 			continue;
 
 		spa_pod_object_fixate((struct spa_pod_object*)param);
 
-		if (spa_pod_parse_object(param,
-				SPA_TYPE_OBJECT_Format, NULL,
-				SPA_FORMAT_AUDIO_format,        SPA_POD_Id(&info.info.raw.format),
-				SPA_FORMAT_AUDIO_rate,          SPA_POD_Int(&info.info.raw.rate),
-				SPA_FORMAT_AUDIO_channels,      SPA_POD_Int(&info.info.raw.channels),
-				SPA_FORMAT_AUDIO_position,      SPA_POD_OPT_Pod(&position)) < 0)
-			continue;
-
-		if (position != NULL)
-			n_position = spa_pod_copy_array(position, SPA_TYPE_Id,
-					info.info.raw.position, SPA_AUDIO_MAX_CHANNELS);
-		if (n_position == 0 || n_position != info.info.raw.channels)
-			SPA_FLAG_SET(info.info.raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED);
-
-		if (format.info.raw.channels >= info.info.raw.channels)
+		if (info.media_subtype == SPA_MEDIA_SUBTYPE_raw &&
+		    format.media_subtype == SPA_MEDIA_SUBTYPE_raw &&
+		    format.info.raw.channels >= info.info.raw.channels)
 			continue;
 
 		format = info;
@@ -1824,16 +1798,18 @@ static int do_auto_port_config(struct impl *this, const char *str)
 	if (!have_format)
 		return -ENOENT;
 
-	if (position == POSITION_AUX) {
-		for (i = 0; i < format.info.raw.channels; i++)
-			format.info.raw.position[i] = SPA_AUDIO_CHANNEL_START_Aux + i;
-	} else if (position == POSITION_UNKNOWN) {
-		for (i = 0; i < format.info.raw.channels; i++)
-			format.info.raw.position[i] = SPA_AUDIO_CHANNEL_UNKNOWN;
+	if (format.media_subtype == SPA_MEDIA_SUBTYPE_raw) {
+		if (position == POSITION_AUX) {
+			for (i = 0; i < format.info.raw.channels; i++)
+				format.info.raw.position[i] = SPA_AUDIO_CHANNEL_START_Aux + i;
+		} else if (position == POSITION_UNKNOWN) {
+			for (i = 0; i < format.info.raw.channels; i++)
+				format.info.raw.position[i] = SPA_AUDIO_CHANNEL_UNKNOWN;
+		}
 	}
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &format.info.raw);
+	param = spa_format_audio_build(&b, SPA_PARAM_Format, &format);
 	param = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
 		SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(this->direction),

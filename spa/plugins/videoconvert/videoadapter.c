@@ -748,12 +748,9 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		if (param == NULL)
 			return -EINVAL;
 
-		if ((res = spa_format_parse(param, &info.media_type, &info.media_subtype)) < 0)
-			return res;
-		if (info.media_type != SPA_MEDIA_TYPE_video ||
-			info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
-				return -EINVAL;
 		if (spa_format_video_parse(param, &info) < 0)
+			return -EINVAL;
+		if (info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
 			return -EINVAL;
 
 		this->follower_current_format = info;

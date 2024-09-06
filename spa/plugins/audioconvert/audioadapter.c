@@ -761,12 +761,15 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			struct spa_audio_info info;
 
 			spa_zero(info);
-			if (spa_format_audio_parse(format, &info) >= 0) {
-				if (info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
-					return -ENOTSUP;
+			if ((res = spa_format_audio_parse(format, &info)) < 0)
+				return res;
+
+			if (info.media_subtype == SPA_MEDIA_SUBTYPE_raw)
 				info.info.raw.rate = 0;
-				this->default_format = info;
-			}
+			else
+				return -ENOTSUP;
+
+			this->default_format = info;
 		}
 
 		switch (mode) {

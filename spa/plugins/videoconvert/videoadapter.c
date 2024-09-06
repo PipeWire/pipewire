@@ -140,6 +140,9 @@ static int convert_enum_port_config(struct impl *this,
 	struct spa_pod *f1, *f2 = NULL;
 	int res;
 
+	if (this->convert == NULL)
+		return 0;
+
 	f1 = spa_pod_builder_add_object(builder,
 		SPA_TYPE_OBJECT_ParamPortConfig, id,
 			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(this->direction));
@@ -183,8 +186,6 @@ next:
 
 	switch (id) {
 	case SPA_PARAM_EnumPortConfig:
-		if (this->convert == NULL)
-			return 0;
 		return convert_enum_port_config(this, seq, id, start, num, filter, &b.b);
 	case SPA_PARAM_PortConfig:
 		if (this->passthrough) {
@@ -202,8 +203,6 @@ next:
 				return 0;
 			}
 		} else {
-			if (this->convert == NULL)
-				return 0;
 			return convert_enum_port_config(this, seq, id, start, num, filter, &b.b);
 		}
 		break;
@@ -247,9 +246,6 @@ static int link_io(struct impl *this)
 	int res;
 	struct spa_io_rate_match *rate_match;
 	size_t rate_match_size;
-
-	if (this->convert == NULL)
-		return 0;
 
 	spa_log_debug(this->log, "%p: controls", this);
 
@@ -612,9 +608,6 @@ static int recalc_latency(struct impl *this, struct spa_node *src, enum spa_dire
 	if (this->target == this->follower)
 		return 0;
 
-	if (dst == NULL)
-		return 0;
-
 	while (true) {
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		if ((res = spa_node_port_enum_params_sync(src,
@@ -652,9 +645,6 @@ static int recalc_tag(struct impl *this, struct spa_node *src, enum spa_directio
 	if (this->target == this->follower)
 		return 0;
 
-	if (dst == NULL)
-		return 0;
-
 	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 2048);
 	spa_pod_builder_get_state(&b.b, &state);
 
@@ -685,6 +675,9 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	bool passthrough = mode == SPA_PARAM_PORT_CONFIG_MODE_passthrough;
 
 	spa_log_debug(this->log, "%p: passthrough mode %d", this, passthrough);
+
+	if (!passthrough && this->convert == NULL)
+		return -ENOTSUP;
 
 	if (this->passthrough != passthrough) {
 		if (passthrough) {
@@ -793,8 +786,6 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			break;
 		case SPA_PARAM_PORT_CONFIG_MODE_convert:
 		case SPA_PARAM_PORT_CONFIG_MODE_dsp:
-			if (this->convert == NULL)
-				return -ENOTSUP;
 			if ((res = reconfigure_mode(this, mode, dir, NULL)) < 0)
 				return res;
 			break;
@@ -1125,7 +1116,7 @@ static void follower_convert_port_info(void *data,
 
 	this->convert_port_flags = info->flags;
 
-	if (this->convert && info->change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
+	if (info->change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
 			uint32_t idx;
 
@@ -1832,7 +1823,7 @@ static int load_plugin_from(struct impl *this, const struct spa_dict *info,
 {
 	struct spa_handle *hnd_convert = NULL;
 	void *iface_conv = NULL;
-	hnd_convert = spa_plugin_loader_load(this->ploader, convertname, NULL);
+	hnd_convert = spa_plugin_loader_load(this->ploader, convertname, info);
 	if (!hnd_convert)
 		return -EINVAL;
 
@@ -1958,11 +1949,18 @@ impl_init(const struct spa_handle_factory *factory,
 			&impl_node, this);
 
 	ret = load_converter(this, info);
-	spa_log_debug(this->log, "%p: loaded converter %s, hnd %p, convert %p", this,
+	spa_log_info(this->log, "%p: loaded converter %s, hnd %p, convert %p", this,
 			this->convertname, this->hnd_convert, this->convert);
 	if (ret < 0)
 		return ret;
-	this->target = this->convert;
+
+	if (this->convert == NULL) {
+		this->target = this->follower;
+		this->passthrough = true;
+	} else {
+		this->target = this->convert;
+		this->passthrough = false;
+	}
 
 	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS |
 		SPA_NODE_CHANGE_MASK_PROPS |
@@ -2001,7 +1999,6 @@ impl_init(const struct spa_handle_factory *factory,
 	} else {
 		reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_passthrough, this->direction, NULL);
 	}
-
 	link_io(this);
 
 	return 0;

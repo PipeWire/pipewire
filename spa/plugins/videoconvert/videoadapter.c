@@ -1994,12 +1994,12 @@ impl_init(const struct spa_handle_factory *factory,
 
 		if (strcmp(this->convertname, "video.convert.dummy") == 0) {
 			configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_none);
-			reconfigure_mode(this, true, this->direction, NULL);
+			reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_passthrough, this->direction, NULL);
 		} else {
 			configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_convert);
 		}
 	} else {
-		reconfigure_mode(this, true, this->direction, NULL);
+		reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_passthrough, this->direction, NULL);
 	}
 
 	link_io(this);

@@ -6,6 +6,7 @@
 
 #include <string.h>
 
+#include <spa/utils/json.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 
@@ -224,16 +225,27 @@ new_node (GstPipeWireDeviceProvider *self, struct node_data *data)
     return NULL;
   }
 
-  props = gst_structure_new_empty ("pipewire-proplist");
+  props = gst_structure_new ("pipewire-proplist", "is-default", G_TYPE_BOOLEAN, FALSE, NULL);
   if (info->props) {
     const struct spa_dict_item *item;
     const char *str;
 
-    spa_dict_for_each (item, info->props)
-      gst_structure_set (props, item->key, G_TYPE_STRING, item->value, NULL);
+    klass = spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS);
+    name = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION);
 
-    klass = spa_dict_lookup (info->props, PW_KEY_MEDIA_CLASS);
-    name = spa_dict_lookup (info->props, PW_KEY_NODE_DESCRIPTION);
+    spa_dict_for_each (item, info->props) {
+      gst_structure_set (props, item->key, G_TYPE_STRING, item->value, NULL);
+      if (spa_streq(item->key, "node.name") && klass) {
+        if (spa_streq(klass, "Audio/Source") && spa_streq(item->value, self->default_audio_source_name))
+          gst_structure_set(props, "is-default", G_TYPE_BOOLEAN, TRUE, NULL);
+        else if (spa_streq(klass, "Audio/Sink") &&
+            spa_streq(item->value, self->default_audio_sink_name))
+          gst_structure_set(props, "is-default", G_TYPE_BOOLEAN, TRUE, NULL);
+        else if (spa_streq(klass, "Video/Source") &&
+            spa_streq(item->value, self->default_video_source_name))
+          gst_structure_set(props, "is-default", G_TYPE_BOOLEAN, TRUE, NULL);
+      }
+    }
 
     if ((str = spa_dict_lookup(info->props, PW_KEY_PRIORITY_SESSION)))
       priority = atoi(str);
@@ -498,6 +510,71 @@ static const struct pw_proxy_events proxy_port_events = {
   .destroy = destroy_port,
 };
 
+static int json_object_find(const char *obj, const char *key, char *value,
+                            size_t len) {
+  struct spa_json it[2];
+  const char *v;
+  char k[128];
+
+  spa_json_init(&it[0], obj, strlen(obj));
+  if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+    return -EINVAL;
+
+  while (spa_json_get_string(&it[1], k, sizeof(k)) > 0) {
+    if (spa_streq(k, key)) {
+      if (spa_json_get_string(&it[1], value, len) <= 0)
+        continue;
+      return 0;
+    } else {
+      if (spa_json_next(&it[1], &v) <= 0)
+        break;
+    }
+  }
+  return -ENOENT;
+}
+
+static int metadata_property(void *data, uint32_t id, const char *key,
+                             const char *type, const char *value) {
+  GstPipeWireDeviceProvider *self = data;
+  char name[1024];
+
+  if (value == NULL)
+    return 0;
+
+  if (spa_streq(key, "default.audio.source")) {
+    if (!spa_streq(type, "Spa:String:JSON"))
+      return 0;
+
+    g_free(self->default_audio_source_name);
+    if (json_object_find(value, "name", name, sizeof(name)) >= 0)
+      self->default_audio_source_name = g_strdup(name);
+    return 0;
+  }
+  if (spa_streq(key, "default.audio.sink")) {
+    if (!spa_streq(type, "Spa:String:JSON"))
+      return 0;
+
+    g_free(self->default_audio_sink_name);
+    if (json_object_find(value, "name", name, sizeof(name)) >= 0)
+      self->default_audio_sink_name = g_strdup(name);
+    return 0;
+  }
+  if (spa_streq(key, "default.video.source")) {
+    if (!spa_streq(type, "Spa:String:JSON"))
+      return 0;
+
+    g_free(self->default_video_source_name);
+    if (json_object_find(value, "name", name, sizeof(name)) >= 0)
+      self->default_video_source_name = g_strdup(name);
+    return 0;
+  }
+
+  return 0;
+}
+
+static const struct pw_metadata_events metadata_events = {
+    PW_VERSION_METADATA_EVENTS, .property = metadata_property};
+
 static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
                                 const char *type, uint32_t version,
                                 const struct spa_dict *props)
@@ -564,6 +641,20 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
     pw_port_add_listener(port, &pd->port_listener, &port_events, pd);
     pw_proxy_add_listener((struct pw_proxy*)port, &pd->proxy_listener, &proxy_port_events, pd);
     resync(self);
+  } else if (spa_streq(type, PW_TYPE_INTERFACE_Metadata) && props) {
+    const char *name;
+
+    name = spa_dict_lookup(props, PW_KEY_METADATA_NAME);
+    if (name == NULL)
+      return;
+
+    if (!spa_streq(name, "default"))
+      return;
+
+    self->metadata =
+        pw_registry_bind(self->registry, id, type, PW_VERSION_METADATA, 0);
+    pw_metadata_add_listener(self->metadata, &self->metadata_listener,
+                             &metadata_events, self);
   }
 
   return;
@@ -689,6 +780,12 @@ gst_pipewire_device_provider_stop (GstDeviceProvider * provider)
   }
   GST_DEBUG_OBJECT (self, "stopping provider");
 
+  if (self->metadata) {
+    spa_hook_remove(&self->metadata_listener);
+    pw_proxy_destroy((struct pw_proxy *)self->metadata);
+    self->metadata = NULL;
+  }
+
   g_clear_pointer ((struct pw_proxy**)&self->registry, pw_proxy_destroy);
   if (self->core != NULL) {
     pw_thread_loop_unlock (self->core->loop);
@@ -751,6 +848,9 @@ gst_pipewire_device_provider_finalize (GObject * object)
   GstPipeWireDeviceProvider *self = GST_PIPEWIRE_DEVICE_PROVIDER (object);
 
   g_free (self->client_name);
+  g_free (self->default_audio_source_name);
+  g_free (self->default_audio_sink_name);
+  g_free (self->default_video_source_name);
 
   G_OBJECT_CLASS (gst_pipewire_device_provider_parent_class)->finalize (object);
 }

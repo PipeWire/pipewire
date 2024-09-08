@@ -9,8 +9,9 @@
 
 #include <gst/gst.h>
 
-#include <pipewire/pipewire.h>
 #include <gst/gstpipewirecore.h>
+#include <pipewire/extensions/metadata.h>
+#include <pipewire/pipewire.h>
 
 G_BEGIN_DECLS
 
@@ -49,6 +50,14 @@ struct _GstPipeWireDeviceProvider {
   struct spa_hook core_listener;
   struct pw_registry *registry;
   struct spa_hook registry_listener;
+
+  struct pw_metadata *metadata;
+  struct spa_hook metadata_listener;
+
+  gchar *default_audio_source_name;
+  gchar *default_audio_sink_name;
+  gchar *default_video_source_name;
+
   struct spa_list nodes;
   int seq;
 

@@ -363,7 +363,7 @@ gst_deps_def = {
   'gio-2.0': {},
   'gio-unix-2.0': {},
   'gstreamer-1.0': {'version': '>= 1.10.0'},
-  'gstreamer-plugins-base-1.0': {},
+  'gstreamer-base-1.0': {},
   'gstreamer-video-1.0': {},
   'gstreamer-audio-1.0': {},
   'gstreamer-allocators-1.0': {},

@@ -495,8 +495,6 @@ static void impl_on_fd_events(struct spa_source *source)
 
 	spa_log_debug(this->log, "action %s", action);
 
-	start_inotify(this);
-
 	if (spa_streq(action, "add") ||
 	    spa_streq(action, "change")) {
 		process_udev_device(this, ACTION_CHANGE, dev);

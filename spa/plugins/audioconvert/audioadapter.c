@@ -58,6 +58,7 @@ struct impl {
 	int in_set_param;
 
 	struct spa_handle *hnd_convert;
+	bool unload_handle;
 	struct spa_node *convert;
 	struct spa_hook convert_listener;
 	uint64_t convert_port_flags;
@@ -1765,44 +1766,51 @@ static const struct spa_node_methods impl_node = {
 	.process = impl_node_process,
 };
 
-static int load_plugin_from(struct impl *this, const struct spa_dict *info,
-		const char *convertname, struct spa_handle **handle, struct spa_node **iface)
+static int load_converter(struct impl *this, const struct spa_dict *info,
+		const struct spa_support *support, uint32_t n_support)
 {
+	const char* factory_name = NULL;
 	struct spa_handle *hnd_convert = NULL;
 	void *iface_conv = NULL;
-	hnd_convert = spa_plugin_loader_load(this->ploader, convertname, info);
-	if (!hnd_convert)
-		return -EINVAL;
+	bool unload_handle = false;
 
-	spa_handle_get_interface(hnd_convert, SPA_TYPE_INTERFACE_Node, &iface_conv);
-	if (iface_conv == NULL) {
-		spa_plugin_loader_unload(this->ploader, hnd_convert);
-		return -EINVAL;
-	}
-
-	*handle = hnd_convert;
-	*iface = iface_conv;
-
-	return 0;
-}
-
-static int load_converter(struct impl *this, const struct spa_dict *info)
-{
-	int ret;
-	if (!this->ploader || !info)
-		return -EINVAL;
-
-	const char* factory_name = spa_dict_lookup(info, "audio.adapt.converter");
+	if (info)
+		factory_name = spa_dict_lookup(info, "audio.adapt.converter");
 	if (factory_name == NULL)
 		factory_name = SPA_NAME_AUDIO_CONVERT;
 
-	if (factory_name) {
-		ret = load_plugin_from(this, info, factory_name, &this->hnd_convert, &this->convert);
-		if (ret >= 0) {
-			this->convertname = strdup(factory_name);
-			return ret;
-		}
+	if (spa_streq(factory_name, SPA_NAME_AUDIO_CONVERT)) {
+		size_t size = spa_handle_factory_get_size(&spa_audioconvert_factory, info);
+
+		hnd_convert = calloc(1, size);
+		if (hnd_convert == NULL)
+			return -errno;
+
+		spa_handle_factory_init(&spa_audioconvert_factory,
+				hnd_convert, info, support, n_support);
+	} else if (this->ploader) {
+		hnd_convert = spa_plugin_loader_load(this->ploader, factory_name, info);
+		if (!hnd_convert)
+			return -EINVAL;
+		unload_handle = true;
+	} else {
+		return -ENOTSUP;
 	}
+
+	spa_handle_get_interface(hnd_convert, SPA_TYPE_INTERFACE_Node, &iface_conv);
+	if (iface_conv == NULL) {
+		if (unload_handle)
+			spa_plugin_loader_unload(this->ploader, hnd_convert);
+		else
+			free(hnd_convert);
+		return -EINVAL;
+	}
+
+	this->hnd_convert = hnd_convert;
+	this->convert = iface_conv;
+	this->unload_handle = unload_handle;
+	this->convertname = strdup(factory_name);
+
 	return 0;
 }
 
@@ -1928,7 +1936,10 @@ static int impl_clear(struct spa_handle *handle)
 	spa_node_set_callbacks(this->follower, NULL, NULL);
 
 	if (this->hnd_convert) {
-		spa_plugin_loader_unload(this->ploader, this->hnd_convert);
+		if (this->unload_handle)
+			spa_plugin_loader_unload(this->ploader, this->hnd_convert);
+		else
+			free(this->hnd_convert);
 		free(this->convertname);
 	}
 
@@ -1990,7 +2001,7 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_VERSION_NODE,
 			&impl_node, this);
 
-	ret = load_converter(this, info);
+	ret = load_converter(this, info, support, n_support);
 	spa_log_info(this->log, "%p: loaded converter %s, hnd %p, convert %p", this,
 			this->convertname, this->hnd_convert, this->convert);
 	if (ret < 0)

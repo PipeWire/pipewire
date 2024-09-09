@@ -753,10 +753,10 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 					impl->gm_id[6],
 					impl->gm_id[7],
 					0/* domain */);
-		} else {
-			spa_strbuf_append(&buf,	"a=ts-refclk:%s\n",	sdp->ts_refclk);
+		} else if (sdp->ts_refclk != NULL) {
+			spa_strbuf_append(&buf, "a=ts-refclk:%s\n", sdp->ts_refclk);
 		}
-		spa_strbuf_append(&buf,	"a=mediaclk:direct=%u\n",	sdp->ts_offset);
+		spa_strbuf_append(&buf, "a=mediaclk:direct=%u\n", sdp->ts_offset);
 	} else {
 		spa_strbuf_append(&buf, "a=mediaclk:sender\n");
 	}

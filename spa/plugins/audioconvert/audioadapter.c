@@ -1801,8 +1801,10 @@ static int load_converter(struct impl *this, const struct spa_dict *info,
 	if (iface_conv == NULL) {
 		if (unload_handle)
 			spa_plugin_loader_unload(this->ploader, hnd_convert);
-		else
+		else {
+			spa_handle_clear(hnd_convert);
 			free(hnd_convert);
+		}
 		return -EINVAL;
 	}
 
@@ -1938,8 +1940,10 @@ static int impl_clear(struct spa_handle *handle)
 	if (this->hnd_convert) {
 		if (this->unload_handle)
 			spa_plugin_loader_unload(this->ploader, this->hnd_convert);
-		else
+		else {
+			spa_handle_clear(this->hnd_convert);
 			free(this->hnd_convert);
+		}
 		free(this->convertname);
 	}
 

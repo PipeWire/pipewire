@@ -1087,7 +1087,7 @@ static void on_notify_event(void *data, uint64_t count)
 			do_recompute_capture = do_recompute_playback = true;
 			break;
 		case NOTIFY_TYPE_BUFFER_FRAMES:
-			pw_log_debug("%p: buffer frames %d", c, notify->arg1);
+			pw_log_debug("%p: buffer frames %d -> %d", c, c->buffer_frames, notify->arg1);
 			if (c->buffer_frames != (uint32_t)notify->arg1) {
 				do_callback_expr(c, c->buffer_frames = notify->arg1,
 						bufsize_callback, c->active,
@@ -1096,7 +1096,7 @@ static void on_notify_event(void *data, uint64_t count)
 			}
 			break;
 		case NOTIFY_TYPE_SAMPLE_RATE:
-			pw_log_debug("%p: sample rate %d", c, notify->arg1);
+			pw_log_debug("%p: sample rate %d -> %d", c, c->sample_rate, notify->arg1);
 			if (c->sample_rate != (uint32_t)notify->arg1) {
 				do_callback_expr(c, c->sample_rate = notify->arg1,
 						srate_callback, c->active,

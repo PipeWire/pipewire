@@ -115,11 +115,12 @@ struct stream {
 
 	uint64_t change_mask_all;
 	struct spa_node_info info;
-#define NODE_PropInfo	0
-#define NODE_Props	1
-#define NODE_EnumFormat	2
-#define NODE_Format	3
-#define N_NODE_PARAMS	4
+#define NODE_PropInfo		0
+#define NODE_Props		1
+#define NODE_EnumFormat		2
+#define NODE_Format		3
+#define NODE_ProcessLatency	4
+#define N_NODE_PARAMS		5
 	struct spa_param_info params[N_NODE_PARAMS];
 
 	uint32_t media_type;
@@ -166,6 +167,8 @@ static int get_param_index(uint32_t id)
 		return NODE_EnumFormat;
 	case SPA_PARAM_Format:
 		return NODE_Format;
+	case SPA_PARAM_ProcessLatency:
+		return NODE_ProcessLatency;
 	default:
 		return -1;
 	}
@@ -245,10 +248,13 @@ static int add_param(struct stream *impl,
 	memcpy(p->param, param, SPA_POD_SIZE(param));
 	SPA_POD_OBJECT_ID(p->param) = id;
 
-	if (id == SPA_PARAM_Buffers &&
-	    SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_MAP_BUFFERS) &&
-	    impl->direction == SPA_DIRECTION_INPUT)
-		fix_datatype(p->param);
+	switch (id) {
+	case SPA_PARAM_Buffers:
+		if (impl->direction == SPA_DIRECTION_INPUT &&
+		    SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_MAP_BUFFERS))
+			fix_datatype(p->param);
+		break;
+	}
 
 	spa_list_append(&impl->param_list, &p->link);
 
@@ -306,7 +312,7 @@ static void clear_params(struct stream *impl, uint32_t id)
 	}
 }
 
-static int update_params(struct stream *impl, uint32_t id,
+static int update_params(struct stream *impl, uint32_t id, uint32_t flags,
 		const struct spa_pod **params, uint32_t n_params)
 {
 	uint32_t i;
@@ -322,7 +328,7 @@ static int update_params(struct stream *impl, uint32_t id,
 		}
 	}
 	for (i = 0; i < n_params; i++) {
-		if ((res = add_param(impl, id, 0, params[i])) < 0)
+		if ((res = add_param(impl, id, flags, params[i])) < 0)
 			break;
 	}
 	return res;
@@ -601,8 +607,13 @@ static int impl_set_param(void *object, uint32_t id, uint32_t flags, const struc
 	struct stream *impl = object;
 	struct pw_stream *stream = &impl->this;
 
-	if (id != SPA_PARAM_Props)
+	switch (id) {
+	case SPA_PARAM_Props:
+	case SPA_PARAM_ProcessLatency:
+		break;
+	default:
 		return -ENOTSUP;
+	}
 
 	if (impl->in_set_param == 0)
 		emit_param_changed(impl, id, param);
@@ -873,7 +884,7 @@ static int impl_port_set_param(void *object,
 	if (param)
 		pw_log_pod(SPA_LOG_LEVEL_DEBUG, param);
 
-	if ((res = update_params(impl, id, &param, param ? 1 : 0)) < 0)
+	if ((res = update_params(impl, id, 0, &param, param ? 1 : 0)) < 0)
 		return res;
 
 	switch (id) {
@@ -1901,6 +1912,7 @@ pw_stream_connect(struct pw_stream *stream,
 	impl->params[NODE_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_WRITE);
 	impl->params[NODE_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
 	impl->params[NODE_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	impl->params[NODE_ProcessLatency] = SPA_PARAM_INFO(SPA_PARAM_ProcessLatency, SPA_PARAM_INFO_READWRITE);
 	impl->info.params = impl->params;
 	impl->info.n_params = N_NODE_PARAMS;
 	impl->info.change_mask = impl->change_mask_all;
@@ -2177,7 +2189,7 @@ int pw_stream_update_params(struct pw_stream *stream,
 	ensure_loop(impl->main_loop, return -EIO);
 
 	pw_log_debug("%p: update params", stream);
-	if ((res = update_params(impl, SPA_ID_INVALID, params, n_params)) < 0)
+	if ((res = update_params(impl, SPA_ID_INVALID, 0, params, n_params)) < 0)
 		return res;
 
 	if (impl->in_emit_param_changed == 0) {

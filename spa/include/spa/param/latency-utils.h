@@ -146,6 +146,17 @@ spa_process_latency_info_add(const struct spa_process_latency_info *process,
 	return 0;
 }
 
+static inline int
+spa_process_latency_info_compare(const struct spa_process_latency_info *a,
+		const struct spa_process_latency_info *b)
+{
+	if (a->quantum == b->quantum &&
+	    a->rate == b->rate &&
+	    a->ns == b->ns)
+		return 0;
+	return 1;
+}
+
 /**
  * \}
  */

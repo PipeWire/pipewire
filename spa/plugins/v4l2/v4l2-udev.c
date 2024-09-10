@@ -24,7 +24,12 @@
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
 
+#include "config.h"
 #include "v4l2.h"
+
+#ifdef HAVE_SYSTEMD
+#include <systemd/sd-login.h>
+#endif
 
 #define MAX_DEVICES	64
 
@@ -61,6 +66,10 @@ struct impl {
 
 	struct spa_source source;
 	struct spa_source notify;
+#ifdef HAVE_SYSTEMD
+	struct spa_source logind;
+	sd_login_monitor *logind_monitor;
+#endif
 };
 
 static int impl_udev_open(struct impl *this)
@@ -463,6 +472,12 @@ static int start_inotify(struct impl *this)
 {
 	int notify_fd;
 
+#ifdef HAVE_SYSTEMD
+	/* Do not use inotify when using logind session monitoring */
+	if (this->logind_monitor)
+		return 0;
+#endif
+
 	if (this->notify.fd != -1)
 		return 0;
 
@@ -479,6 +494,65 @@ static int start_inotify(struct impl *this)
 
 	return 0;
 }
+
+#ifdef HAVE_SYSTEMD
+static void impl_on_logind_events(struct spa_source *source)
+{
+	struct impl *this = source->data;
+
+	/* Recheck access on all v4l2 devices on logind session changes */
+	for (size_t i = 0; i < this->n_devices; i++)
+		process_device(this, ACTION_CHANGE, &this->devices[i]);
+
+	sd_login_monitor_flush(this->logind_monitor);
+}
+
+static int start_logind(struct impl *this)
+{
+	int res;
+
+	if (this->logind_monitor)
+		return 0;
+
+	/* If we are not actually running logind become a NOP */
+	if (access("/run/systemd/seats/", F_OK) < 0)
+		return 0;
+
+	res = sd_login_monitor_new("session", &this->logind_monitor);
+	if (res < 0)
+		return res;
+
+	spa_log_info(this->log, "start logind monitoring");
+
+	this->logind.func = impl_on_logind_events;
+	this->logind.data = this;
+	this->logind.fd = sd_login_monitor_get_fd(this->logind_monitor);
+	this->logind.mask = SPA_IO_IN | SPA_IO_ERR;
+
+	spa_loop_add_source(this->main_loop, &this->logind);
+
+	return 0;
+}
+
+static void stop_logind(struct impl *this)
+{
+	if (this->logind_monitor) {
+		spa_loop_remove_source(this->main_loop, &this->logind);
+		sd_login_monitor_unref(this->logind_monitor);
+		this->logind_monitor = NULL;
+	}
+}
+#else
+/* Stubs to avoid more ifdefs below */
+static int start_logind(struct impl *this)
+{
+	return 0;
+}
+
+static void stop_logind(struct impl *this)
+{
+}
+#endif
 
 static void impl_on_fd_events(struct spa_source *source)
 {
@@ -527,6 +601,9 @@ static int start_monitor(struct impl *this)
 	spa_log_debug(this->log, "monitor %p", this->umonitor);
 	spa_loop_add_source(this->main_loop, &this->source);
 
+	if ((res = start_logind(this)) < 0)
+		return res;
+
 	if ((res = start_inotify(this)) < 0)
 		return res;
 
@@ -545,6 +622,7 @@ static int stop_monitor(struct impl *this)
 	this->umonitor = NULL;
 
 	stop_inotify(this);
+	stop_logind(this);
 
 	return 0;
 }
@@ -691,6 +769,9 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this = (struct impl *) handle;
 	this->notify.fd = -1;
+#ifdef HAVE_SYSTEMD
+	this->logind_monitor = NULL;
+#endif
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	this->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);

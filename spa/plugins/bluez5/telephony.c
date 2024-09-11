@@ -20,9 +20,11 @@
 #define PW_TELEPHONY_AG_IFACE "org.freedesktop.PipeWire.Telephony.AudioGateway1"
 #define PW_TELEPHONY_CALL_IFACE "org.freedesktop.PipeWire.Telephony.Call1"
 
-#define PW_TELEPHONY_MANAGER_INTROSPECT_XML \
-	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE				\
-	"<node>"		 						\
+#define OFONO_MANAGER_IFACE "org.ofono.Manager"
+#define OFONO_VOICE_CALL_MANAGER_IFACE "org.ofono.VoiceCallManager"
+#define OFONO_VOICE_CALL_IFACE "org.ofono.VoiceCall"
+
+#define DBUS_OBJECT_MANAGER_IFACE_INTROSPECT_XML				\
 	" <interface name='" DBUS_INTERFACE_OBJECT_MANAGER "'>"			\
 	"  <method name='GetManagedObjects'>"		 			\
 	"   <arg name='objects' direction='out' type='a{oa{sa{sv}}}'/>"		\
@@ -35,72 +37,9 @@
 	"   <arg name='object' type='o'/>"					\
 	"   <arg name='interfaces' type='as'/>"	 				\
 	"  </signal>"								\
-	" </interface>"								\
-	" <interface name='" DBUS_INTERFACE_INTROSPECTABLE "'>"			\
-	"  <method name='Introspect'>"						\
-	"   <arg name='xml' type='s' direction='out'/>"				\
-	"  </method>"								\
-	" </interface>"			 					\
-	"</node>"
+	" </interface>"
 
-#define PW_TELEPHONY_AG_INTROSPECT_XML \
-	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE				\
-	"<node>"		 						\
-	" <interface name='" PW_TELEPHONY_AG_IFACE "'>"				\
-	"  <method name='Dial'>"						\
-	"   <arg name='number' direction='in' type='s'/>"			\
-	"  </method>"								\
-	"  <method name='SwapCalls'>"						\
-	"  </method>"								\
-	"  <method name='ReleaseAndAnswer'>"					\
-	"  </method>"								\
-	"  <method name='ReleaseAndSwap'>"					\
-	"  </method>"								\
-	"  <method name='HoldAndAnswer'>"					\
-	"  </method>"								\
-	"  <method name='HangupAll'>"						\
-	"  </method>"								\
-	"  <method name='CreateMultiparty'>"					\
-	"   <arg name='calls' direction='out' type='a{o}'/>"			\
-	"  </method>"								\
-	"  <method name='SendTones'>"						\
-	"   <arg name='tones' direction='in' type='s'/>"			\
-	"  </method>"								\
-	" </interface>"								\
-	" <interface name='" DBUS_INTERFACE_OBJECT_MANAGER "'>"			\
-	"  <method name='GetManagedObjects'>"		 			\
-	"   <arg name='objects' direction='out' type='a{oa{sa{sv}}}'/>"		\
-	"  </method>"								\
-	"  <signal name='InterfacesAdded'>"					\
-	"   <arg name='object' type='o'/>"					\
-	"   <arg name='interfaces' type='a{sa{sv}}'/>"				\
-	"  </signal>"								\
-	"  <signal name='InterfacesRemoved'>"					\
-	"   <arg name='object' type='o'/>"					\
-	"   <arg name='interfaces' type='as'/>"	 				\
-	"  </signal>"								\
-	" </interface>"								\
-	" <interface name='" DBUS_INTERFACE_INTROSPECTABLE "'>"			\
-	"  <method name='Introspect'>"						\
-	"   <arg name='xml' type='s' direction='out'/>"				\
-	"  </method>"								\
-	" </interface>"			 					\
-	"</node>"
-
-#define PW_TELEPHONY_CALL_INTROSPECT_XML \
-	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE				\
-	"<node>"								\
-	" <interface name='" PW_TELEPHONY_CALL_IFACE "'>"			\
-	"  <method name='Answer'>"						\
-	"  </method>"								\
-	"  <method name='Hangup'>"						\
-	"  </method>"								\
-	"  <property name='LineIdentification' type='s' access='read'/>"	\
-	"  <property name='IncomingLine' type='s' access='read'/>"		\
-	"  <property name='Name' type='s' access='read'/>"			\
-	"  <property name='Multiparty' type='b' access='read'/>"		\
-	"  <property name='State' type='s' access='read'/>"			\
-	" </interface>"								\
+#define DBUS_PROPERTIES_IFACE_INTROSPECT_XML					\
 	" <interface name='" DBUS_INTERFACE_PROPERTIES "'>"			\
 	"  <method name='Get'>"							\
 	"   <arg name='interface' type='s' direction='in' />"			\
@@ -121,12 +60,107 @@
 	"   <arg name='changed_properties' type='a{sv}' />"			\
 	"   <arg name='invalidated_properties' type='as' />"			\
 	"  </signal>"								\
-	" </interface>"								\
+	" </interface>"
+
+#define DBUS_INTROSPECTABLE_IFACE_INTROSPECT_XML				\
 	" <interface name='" DBUS_INTERFACE_INTROSPECTABLE "'>"			\
 	"  <method name='Introspect'>"						\
 	"   <arg name='xml' type='s' direction='out'/>"				\
 	"  </method>"								\
+	" </interface>"
+
+#define PW_TELEPHONY_MANAGER_INTROSPECT_XML \
+	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE				\
+	"<node>"		 						\
+	" <interface name='" OFONO_MANAGER_IFACE "'>"				\
+	"  <method name='GetModems'>"		 				\
+	"   <arg name='objects' direction='out' type='a{oa{sv}}'/>"		\
+	"  </method>"								\
+	"  <signal name='ModemAdded'>"						\
+	"   <arg name='path' type='o'/>"					\
+	"   <arg name='properties' type='a{sv}'/>"				\
+	"  </signal>"								\
+	"  <signal name='ModemRemoved'>"					\
+	"   <arg name='path' type='o'/>"					\
+	"  </signal>"								\
 	" </interface>"								\
+	DBUS_OBJECT_MANAGER_IFACE_INTROSPECT_XML				\
+	DBUS_INTROSPECTABLE_IFACE_INTROSPECT_XML				\
+	"</node>"
+
+#define PW_TELEPHONY_AG_COMMON_INTROSPECT_XML					\
+	"  <method name='Dial'>"						\
+	"   <arg name='number' direction='in' type='s'/>"			\
+	"  </method>"								\
+	"  <method name='SwapCalls'>"						\
+	"  </method>"								\
+	"  <method name='ReleaseAndAnswer'>"					\
+	"  </method>"								\
+	"  <method name='ReleaseAndSwap'>"					\
+	"  </method>"								\
+	"  <method name='HoldAndAnswer'>"					\
+	"  </method>"								\
+	"  <method name='HangupAll'>"						\
+	"  </method>"								\
+	"  <method name='CreateMultiparty'>"					\
+	"   <arg name='calls' direction='out' type='a{o}'/>"			\
+	"  </method>"								\
+	"  <method name='SendTones'>"						\
+	"   <arg name='tones' direction='in' type='s'/>"			\
+	"  </method>"
+
+#define PW_TELEPHONY_AG_INTROSPECT_XML \
+	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE				\
+	"<node>"		 						\
+	" <interface name='" PW_TELEPHONY_AG_IFACE "'>"				\
+	PW_TELEPHONY_AG_COMMON_INTROSPECT_XML					\
+	" </interface>"								\
+	" <interface name='" OFONO_VOICE_CALL_MANAGER_IFACE "'>"		\
+	PW_TELEPHONY_AG_COMMON_INTROSPECT_XML					\
+	"  <method name='GetCalls'>"		 				\
+	"   <arg name='objects' direction='out' type='a{oa{sv}}'/>"		\
+	"  </method>"								\
+	"  <signal name='CallAdded'>"						\
+	"   <arg name='path' type='o'/>"					\
+	"   <arg name='properties' type='a{sv}'/>"				\
+	"  </signal>"								\
+	"  <signal name='CallRemoved'>"						\
+	"   <arg name='path' type='o'/>"					\
+	"  </signal>"								\
+	" </interface>"								\
+	DBUS_OBJECT_MANAGER_IFACE_INTROSPECT_XML				\
+	DBUS_INTROSPECTABLE_IFACE_INTROSPECT_XML				\
+	"</node>"
+
+#define PW_TELEPHONY_CALL_COMMON_INTROSPECT_XML					\
+	"  <method name='Answer'>"						\
+	"  </method>"								\
+	"  <method name='Hangup'>"						\
+	"  </method>"
+
+#define PW_TELEPHONY_CALL_INTROSPECT_XML \
+	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE				\
+	"<node>"								\
+	" <interface name='" PW_TELEPHONY_CALL_IFACE "'>"			\
+	PW_TELEPHONY_CALL_COMMON_INTROSPECT_XML					\
+	"  <property name='LineIdentification' type='s' access='read'/>"	\
+	"  <property name='IncomingLine' type='s' access='read'/>"		\
+	"  <property name='Name' type='s' access='read'/>"			\
+	"  <property name='Multiparty' type='b' access='read'/>"		\
+	"  <property name='State' type='s' access='read'/>"			\
+	" </interface>"								\
+	" <interface name='" OFONO_VOICE_CALL_IFACE "'>"			\
+	PW_TELEPHONY_CALL_COMMON_INTROSPECT_XML					\
+	"  <method name='GetProperties'>"					\
+	"   <arg name='properties' type='a{sv}' direction='out' />"		\
+	"  </method>"								\
+	"  <signal name='PropertyChanged'>"					\
+	"   <arg name='property' type='s' />"					\
+	"   <arg name='value' type='v' />"					\
+	"  </signal>"								\
+	" </interface>"								\
+	DBUS_PROPERTIES_IFACE_INTROSPECT_XML					\
+	DBUS_INTROSPECTABLE_IFACE_INTROSPECT_XML				\
 	"</node>"
 
 SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.telephony");
@@ -141,10 +175,10 @@ struct impl {
 	struct spa_log *log;
 	struct spa_dbus *dbus;
 
-	/* session bus */
 	struct spa_dbus_connection *dbus_connection;
 	DBusConnection *conn;
 
+	const char *path;
 	struct spa_list ag_list;
 };
 
@@ -166,6 +200,15 @@ struct callimpl {
 	char *path;
 	struct spa_hook_list listener_list;
 	void *user_data;
+
+	/* previous values of properties */
+	struct {
+		char *line_identification;
+		char *incoming_line;
+		char *name;
+		bool multiparty;
+		enum spa_bt_telephony_call_state state;
+	} prev;
 };
 
 #define ag_emit(ag,m,v,...) 		spa_hook_list_call(&ag->listener_list, struct spa_bt_telephony_ag_events, m, v, ##__VA_ARGS__)
@@ -182,7 +225,7 @@ struct callimpl {
 #define call_emit_answer(s)	call_emit(s,answer,0)
 #define call_emit_hangup(s)	call_emit(s,hangup,0)
 
-static void dbus_iter_append_call_properties(DBusMessageIter *i, struct spa_bt_telephony_call *call);
+static void dbus_iter_append_call_properties(DBusMessageIter *i, struct spa_bt_telephony_call *call, bool all);
 
 #define find_free_object_id(list, obj_type, link)	\
 ({						\
@@ -206,7 +249,7 @@ static DBusMessage *manager_introspect(struct impl *impl, DBusMessage *m)
 	return spa_steal_ptr(r);
 }
 
-static DBusMessage *manager_get_managed_objects(struct impl *impl, DBusMessage *m)
+static DBusMessage *manager_get_managed_objects(struct impl *impl, DBusMessage *m, bool ofono_compat)
 {
 	struct agimpl *agimpl;
 	spa_autoptr(DBusMessage) r = NULL;
@@ -217,19 +260,25 @@ static DBusMessage *manager_get_managed_objects(struct impl *impl, DBusMessage *
 		return NULL;
 
 	dbus_message_iter_init_append(r, &iter);
-	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{oa{sa{sv}}}", &array1);
+	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY,
+		ofono_compat ? "{oa{sv}}" : "{oa{sa{sv}}}", &array1);
 
 	spa_list_for_each (agimpl, &impl->ag_list, link) {
 		if (agimpl->path) {
 			dbus_message_iter_open_container(&array1, DBUS_TYPE_DICT_ENTRY, NULL, &entry1);
 			dbus_message_iter_append_basic(&entry1, DBUS_TYPE_OBJECT_PATH, &agimpl->path);
-			dbus_message_iter_open_container(&entry1, DBUS_TYPE_ARRAY, "{sa{sv}}", &array2);
-			dbus_message_iter_open_container(&array2, DBUS_TYPE_DICT_ENTRY, NULL, &entry2);
-			dbus_message_iter_append_basic(&entry2, DBUS_TYPE_STRING, &interface);
-			dbus_message_iter_open_container(&entry2, DBUS_TYPE_ARRAY, "{sv}", &props_dict);
-			dbus_message_iter_close_container(&entry2, &props_dict);
-			dbus_message_iter_close_container(&array2, &entry2);
-			dbus_message_iter_close_container(&entry1, &array2);
+			if (ofono_compat) {
+				dbus_message_iter_open_container(&entry1, DBUS_TYPE_ARRAY, "{sv}", &props_dict);
+				dbus_message_iter_close_container(&entry1, &props_dict);
+			} else {
+				dbus_message_iter_open_container(&entry1, DBUS_TYPE_ARRAY, "{sa{sv}}", &array2);
+				dbus_message_iter_open_container(&array2, DBUS_TYPE_DICT_ENTRY, NULL, &entry2);
+				dbus_message_iter_append_basic(&entry2, DBUS_TYPE_STRING, &interface);
+				dbus_message_iter_open_container(&entry2, DBUS_TYPE_ARRAY, "{sv}", &props_dict);
+				dbus_message_iter_close_container(&entry2, &props_dict);
+				dbus_message_iter_close_container(&array2, &entry2);
+				dbus_message_iter_close_container(&entry1, &array2);
+			}
 			dbus_message_iter_close_container(&array1, &entry1);
 		}
 	}
@@ -254,7 +303,9 @@ static DBusHandlerResult manager_handler(DBusConnection *c, DBusMessage *m, void
 	if (dbus_message_is_method_call(m, DBUS_INTERFACE_INTROSPECTABLE, "Introspect")) {
 		r = manager_introspect(impl, m);
 	} else if (dbus_message_is_method_call(m, DBUS_INTERFACE_OBJECT_MANAGER, "GetManagedObjects")) {
-		r = manager_get_managed_objects(impl, m);
+		r = manager_get_managed_objects(impl, m, false);
+	} else if (dbus_message_is_method_call(m, OFONO_MANAGER_IFACE, "GetModems")) {
+		r = manager_get_managed_objects(impl, m, true);
 	} else {
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
@@ -272,6 +323,8 @@ telephony_new(struct spa_log *log, struct spa_dbus *dbus, const struct spa_dict 
 	struct impl *impl = NULL;
 	spa_auto(DBusError) err = DBUS_ERROR_INIT;
 	bool service_enabled = true;
+	bool ofono_service_compat = false;
+	enum spa_dbus_type bus_type = SPA_DBUS_TYPE_SESSION;
 	int res;
 
 	static const DBusObjectPathVTable vtable_manager = {
@@ -288,6 +341,13 @@ telephony_new(struct spa_log *log, struct spa_dbus *dbus, const struct spa_dict 
 		if ((str = spa_dict_lookup(info, "bluez5.telephony-dbus-service")) != NULL) {
 			service_enabled = spa_atob(str);
 		}
+		if ((str = spa_dict_lookup(info, "bluez5.telephony.use-system-bus")) != NULL) {
+			bus_type = spa_atob(str) ? SPA_DBUS_TYPE_SYSTEM : SPA_DBUS_TYPE_SESSION;
+		}
+		if ((str = spa_dict_lookup(info, "bluez5.telephony.provide-ofono")) != NULL) {
+			ofono_service_compat = spa_atob(str);
+			bus_type = SPA_DBUS_TYPE_SYSTEM;
+		}
 	}
 
 	if (!service_enabled) {
@@ -303,7 +363,7 @@ telephony_new(struct spa_log *log, struct spa_dbus *dbus, const struct spa_dict 
 	impl->dbus = dbus;
 	impl->ag_list = SPA_LIST_INIT(&impl->ag_list);
 
-	impl->dbus_connection = spa_dbus_get_connection(impl->dbus, SPA_DBUS_TYPE_SESSION);
+	impl->dbus_connection = spa_dbus_get_connection(impl->dbus, bus_type);
 	if (impl->dbus_connection == NULL) {
 		spa_log_warn(impl->log, "no session dbus connection");
 		goto fail;
@@ -319,7 +379,9 @@ telephony_new(struct spa_log *log, struct spa_dbus *dbus, const struct spa_dict 
 	 */
 	dbus_connection_ref(impl->conn);
 
-	res = dbus_bus_request_name(impl->conn, PW_TELEPHONY_SERVICE, DBUS_NAME_FLAG_DO_NOT_QUEUE, &err);
+	res = dbus_bus_request_name(impl->conn,
+				    ofono_service_compat ? OFONO_SERVICE : PW_TELEPHONY_SERVICE,
+				    DBUS_NAME_FLAG_DO_NOT_QUEUE, &err);
 	if (res < 0) {
 		spa_log_warn(impl->log, "D-Bus RequestName() error: %s", err.message);
 		goto fail;
@@ -329,7 +391,9 @@ telephony_new(struct spa_log *log, struct spa_dbus *dbus, const struct spa_dict 
 		goto fail;
 	}
 
-	if (!dbus_connection_register_object_path(impl->conn, PW_TELEPHONY_OBJECT_PATH,
+	impl->path = ofono_service_compat ? "/" : PW_TELEPHONY_OBJECT_PATH;
+
+	if (!dbus_connection_register_object_path(impl->conn, impl->path,
 						  &vtable_manager, impl)) {
 		goto fail;
 	}
@@ -374,7 +438,7 @@ static DBusMessage *ag_introspect(struct agimpl *agimpl, DBusMessage *m)
 	return spa_steal_ptr(r);
 }
 
-static DBusMessage *ag_get_managed_objects(struct agimpl *agimpl, DBusMessage *m)
+static DBusMessage *ag_get_managed_objects(struct agimpl *agimpl, DBusMessage *m, bool ofono_compat)
 {
 	struct callimpl *callimpl;
 	spa_autoptr(DBusMessage) r = NULL;
@@ -385,17 +449,22 @@ static DBusMessage *ag_get_managed_objects(struct agimpl *agimpl, DBusMessage *m
 		return NULL;
 
 	dbus_message_iter_init_append(r, &iter);
-	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{oa{sa{sv}}}", &array1);
+	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY,
+		ofono_compat ? "{oa{sv}}" : "{oa{sa{sv}}}", &array1);
 
 	spa_list_for_each (callimpl, &agimpl->this.call_list, this.link) {
 		dbus_message_iter_open_container(&array1, DBUS_TYPE_DICT_ENTRY, NULL, &entry1);
 		dbus_message_iter_append_basic(&entry1, DBUS_TYPE_OBJECT_PATH, &callimpl->path);
-		dbus_message_iter_open_container(&entry1, DBUS_TYPE_ARRAY, "{sa{sv}}", &array2);
-		dbus_message_iter_open_container(&array2, DBUS_TYPE_DICT_ENTRY, NULL, &entry2);
-		dbus_message_iter_append_basic(&entry2, DBUS_TYPE_STRING, &interface);
-		dbus_iter_append_call_properties(&entry2, &callimpl->this);
-		dbus_message_iter_close_container(&array2, &entry2);
-		dbus_message_iter_close_container(&entry1, &array2);
+		if (ofono_compat) {
+			dbus_iter_append_call_properties(&entry1, &callimpl->this, true);
+		} else {
+			dbus_message_iter_open_container(&entry1, DBUS_TYPE_ARRAY, "{sa{sv}}", &array2);
+			dbus_message_iter_open_container(&array2, DBUS_TYPE_DICT_ENTRY, NULL, &entry2);
+			dbus_message_iter_append_basic(&entry2, DBUS_TYPE_STRING, &interface);
+			dbus_iter_append_call_properties(&entry2, &callimpl->this, true);
+			dbus_message_iter_close_container(&array2, &entry2);
+			dbus_message_iter_close_container(&entry1, &array2);
+		}
 		dbus_message_iter_close_container(&array1, &entry1);
 	}
 	dbus_message_iter_close_container(&iter, &array1);
@@ -547,23 +616,33 @@ static DBusHandlerResult ag_handler(DBusConnection *c, DBusMessage *m, void *use
 	if (dbus_message_is_method_call(m, DBUS_INTERFACE_INTROSPECTABLE, "Introspect")) {
 		r = ag_introspect(agimpl, m);
 	} else if (dbus_message_is_method_call(m, DBUS_INTERFACE_OBJECT_MANAGER, "GetManagedObjects")) {
-		r = ag_get_managed_objects(agimpl, m);
-	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_AG_IFACE, "Dial")) {
+		r = ag_get_managed_objects(agimpl, m, false);
+	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_AG_IFACE, "Dial") ||
+		   dbus_message_is_method_call(m, OFONO_VOICE_CALL_MANAGER_IFACE, "Dial")) {
 		r = ag_dial(agimpl, m);
-	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_AG_IFACE, "SwapCalls")) {
+	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_AG_IFACE, "SwapCalls") ||
+		   dbus_message_is_method_call(m, OFONO_VOICE_CALL_MANAGER_IFACE, "SwapCalls")) {
 		r = ag_swap_calls(agimpl, m);
-	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_AG_IFACE, "ReleaseAndAnswer")) {
+	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_AG_IFACE, "ReleaseAndAnswer") ||
+		   dbus_message_is_method_call(m, OFONO_VOICE_CALL_MANAGER_IFACE, "ReleaseAndAnswer")) {
 		r = ag_release_and_answer(agimpl, m);
-	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_AG_IFACE, "ReleaseAndSwap")) {
+	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_AG_IFACE, "ReleaseAndSwap") ||
+		   dbus_message_is_method_call(m, OFONO_VOICE_CALL_MANAGER_IFACE, "ReleaseAndSwap")) {
 		r = ag_release_and_swap(agimpl, m);
-	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_AG_IFACE, "HoldAndAnswer")) {
+	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_AG_IFACE, "HoldAndAnswer") ||
+		   dbus_message_is_method_call(m, OFONO_VOICE_CALL_MANAGER_IFACE, "HoldAndAnswer")) {
 		r = ag_hold_and_answer(agimpl, m);
-	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_AG_IFACE, "HangupAll")) {
+	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_AG_IFACE, "HangupAll") ||
+		   dbus_message_is_method_call(m, OFONO_VOICE_CALL_MANAGER_IFACE, "HangupAll")) {
 		r = ag_hangup_all(agimpl, m);
-	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_AG_IFACE, "CreateMultiparty")) {
+	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_AG_IFACE, "CreateMultiparty") ||
+		   dbus_message_is_method_call(m, OFONO_VOICE_CALL_MANAGER_IFACE, "CreateMultiparty")) {
 		r = ag_create_multiparty(agimpl, m);
-	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_AG_IFACE, "SendTones")) {
+	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_AG_IFACE, "SendTones") ||
+		   dbus_message_is_method_call(m, OFONO_VOICE_CALL_MANAGER_IFACE, "SendTones")) {
 		r = ag_send_tones(agimpl, m);
+	} else if (dbus_message_is_method_call(m, OFONO_VOICE_CALL_MANAGER_IFACE, "GetCalls")) {
+		r = ag_get_managed_objects(agimpl, m, true);
 	} else {
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
@@ -626,11 +705,7 @@ int telephony_ag_register(struct spa_bt_telephony_ag *ag)
 {
 	struct agimpl *agimpl = SPA_CONTAINER_OF(ag, struct agimpl, this);
 	struct impl *impl = SPA_CONTAINER_OF(agimpl->this.telephony, struct impl, this);
-
-	spa_autoptr(DBusMessage) msg = NULL;
-	DBusMessageIter iter, entry, dict, props_dict;
 	char *path;
-	const char *interface = PW_TELEPHONY_AG_IFACE;
 
 	const DBusObjectPathVTable vtable = {
 		.message_function = ag_handler,
@@ -645,25 +720,48 @@ int telephony_ag_register(struct spa_bt_telephony_ag *ag)
 	}
 	agimpl->path = strdup(path);
 
-	/* notify on ObjectManager of the parent object */
-	msg = dbus_message_new_signal(PW_TELEPHONY_OBJECT_PATH,
-				      DBUS_INTERFACE_OBJECT_MANAGER,
-				      "InterfacesAdded");
+	/* notify on ObjectManager of the Manager object */
+	{
+		spa_autoptr(DBusMessage) msg = NULL;
+		DBusMessageIter iter, entry, dict, props_dict;
+		const char *interface = PW_TELEPHONY_AG_IFACE;
 
-	dbus_message_iter_init_append(msg, &iter);
-	dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &path);
-	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sa{sv}}", &dict);
-	dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
-	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &interface);
-	dbus_message_iter_open_container(&entry, DBUS_TYPE_ARRAY, "{sv}", &props_dict);
-	dbus_message_iter_close_container(&entry, &props_dict);
-	dbus_message_iter_close_container(&dict, &entry);
-	dbus_message_iter_close_container(&iter, &dict);
+		msg = dbus_message_new_signal(impl->path, DBUS_INTERFACE_OBJECT_MANAGER,
+						"InterfacesAdded");
+		dbus_message_iter_init_append(msg, &iter);
+		dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &path);
+		dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sa{sv}}", &dict);
+		dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &interface);
+		dbus_message_iter_open_container(&entry, DBUS_TYPE_ARRAY, "{sv}", &props_dict);
+		dbus_message_iter_close_container(&entry, &props_dict);
+		dbus_message_iter_close_container(&dict, &entry);
+		dbus_message_iter_close_container(&iter, &dict);
 
-	if (!dbus_connection_send(impl->conn, msg, NULL)) {
-		spa_log_error(impl->log, "failed to send InterfacesAdded for %s", path);
-		telephony_ag_unregister(ag);
-		return -EIO;
+		if (!dbus_connection_send(impl->conn, msg, NULL)) {
+			spa_log_error(impl->log, "failed to send InterfacesAdded for %s", path);
+			telephony_ag_unregister(ag);
+			return -EIO;
+		}
+	}
+
+	/* emit ModemAdded on the Manager object */
+	{
+		spa_autoptr(DBusMessage) msg = NULL;
+		DBusMessageIter iter, props_dict;
+
+		msg = dbus_message_new_signal(impl->path, OFONO_MANAGER_IFACE,
+						"ModemAdded");
+		dbus_message_iter_init_append(msg, &iter);
+		dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &path);
+		dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sv}", &props_dict);
+		dbus_message_iter_close_container(&iter, &props_dict);
+
+		if (!dbus_connection_send(impl->conn, msg, NULL)) {
+			spa_log_error(impl->log, "failed to send ModemAdded for %s", path);
+			telephony_ag_unregister(ag);
+			return -EIO;
+		}
 	}
 
 	spa_log_debug(impl->log, "registered AudioGateway: %s", path);
@@ -676,29 +774,43 @@ void telephony_ag_unregister(struct spa_bt_telephony_ag *ag)
 	struct agimpl *agimpl = SPA_CONTAINER_OF(ag, struct agimpl, this);
 	struct impl *impl = SPA_CONTAINER_OF(agimpl->this.telephony, struct impl, this);
 
-	spa_autoptr(DBusMessage) msg = NULL;
-	DBusMessageIter iter, entry;
-	const char *interface = PW_TELEPHONY_AG_IFACE;
-
 	if (!agimpl->path)
 		return;
 
 	spa_log_debug(impl->log, "removing AudioGateway: %s", agimpl->path);
 
-	msg = dbus_message_new_signal(PW_TELEPHONY_OBJECT_PATH,
-				      DBUS_INTERFACE_OBJECT_MANAGER,
-				      "InterfacesRemoved");
+	{
+		spa_autoptr(DBusMessage) msg = NULL;
+		DBusMessageIter iter, entry;
+		const char *interface = PW_TELEPHONY_AG_IFACE;
 
-	dbus_message_iter_init_append(msg, &iter);
-	dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &agimpl->path);
-	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY,
-					 DBUS_TYPE_STRING_AS_STRING, &entry);
-	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &interface);
-	dbus_message_iter_close_container(&iter, &entry);
+		msg = dbus_message_new_signal(impl->path, DBUS_INTERFACE_OBJECT_MANAGER,
+						"InterfacesRemoved");
+		dbus_message_iter_init_append(msg, &iter);
+		dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &agimpl->path);
+		dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY,
+						DBUS_TYPE_STRING_AS_STRING, &entry);
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &interface);
+		dbus_message_iter_close_container(&iter, &entry);
 
-	if (!dbus_connection_send(impl->conn, msg, NULL)) {
-		spa_log_warn(impl->log, "sending InterfacesRemoved failed");
+		if (!dbus_connection_send(impl->conn, msg, NULL)) {
+			spa_log_warn(impl->log, "sending InterfacesRemoved failed");
+		}
 	}
+	{
+		spa_autoptr(DBusMessage) msg = NULL;
+		DBusMessageIter iter;
+
+		msg = dbus_message_new_signal(impl->path, OFONO_MANAGER_IFACE,
+						"ModemRemoved");
+		dbus_message_iter_init_append(msg, &iter);
+		dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &agimpl->path);
+
+		if (!dbus_connection_send(impl->conn, msg, NULL)) {
+			spa_log_warn(impl->log, "sending ModemRemoved failed");
+		}
+	}
+
 	if (!dbus_connection_unregister_object_path(impl->conn, agimpl->path)) {
 		spa_log_warn(impl->log, "failed to unregister %s", agimpl->path);
 	}
@@ -752,6 +864,10 @@ void telephony_call_destroy(struct spa_bt_telephony_call *call)
 	spa_list_remove(&call->link);
 	spa_hook_list_clean(&callimpl->listener_list);
 
+	free(callimpl->prev.line_identification);
+	free(callimpl->prev.incoming_line);
+	free(callimpl->prev.name);
+
 	free(call->line_identification);
 	free(call->incoming_line);
 	free(call->name);
@@ -763,6 +879,28 @@ void *telephony_call_get_user_data(struct spa_bt_telephony_call *call)
 {
 	struct callimpl *callimpl = SPA_CONTAINER_OF(call, struct callimpl, this);
 	return callimpl->user_data;
+}
+
+static void telephony_call_commit_properties(struct spa_bt_telephony_call *call)
+{
+	struct callimpl *callimpl = SPA_CONTAINER_OF(call, struct callimpl, this);
+
+	if (!spa_streq (call->line_identification, callimpl->prev.line_identification)) {
+		free(callimpl->prev.line_identification);
+		callimpl->prev.line_identification = call->line_identification ?
+			strdup (call->line_identification) : NULL;
+	}
+	if (!spa_streq (call->incoming_line, callimpl->prev.incoming_line)) {
+		free(callimpl->prev.incoming_line);
+		callimpl->prev.incoming_line = call->incoming_line ?
+			strdup (call->incoming_line) : NULL;
+	}
+	if (!spa_streq (call->name, callimpl->prev.name)) {
+		free(callimpl->prev.name);
+		callimpl->prev.name = call->name ? strdup (call->name) : NULL;
+	}
+	callimpl->prev.multiparty = call->multiparty;
+	callimpl->prev.state = call->state;
 }
 
 static const char * const call_state_to_string[] = {
@@ -782,65 +920,76 @@ static inline const void *safe_string(char **str)
 }
 
 static void
-dbus_iter_append_call_properties(DBusMessageIter *i, struct spa_bt_telephony_call *call)
+dbus_iter_append_call_properties(DBusMessageIter *i, struct spa_bt_telephony_call *call, bool all)
 {
+	struct callimpl *callimpl = SPA_CONTAINER_OF(call, struct callimpl, this);
 	DBusMessageIter dict, entry, variant;
 
 	dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "{sv}", &dict);
 
-	dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL,
-					 &entry);
-	const char *line_identification = "LineIdentification";
-	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &line_identification);
-	dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
-					 DBUS_TYPE_STRING_AS_STRING, &variant);
-	dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING,
-					safe_string (&call->line_identification));
-	dbus_message_iter_close_container(&entry, &variant);
-	dbus_message_iter_close_container(&dict, &entry);
+	if (all || !spa_streq (call->line_identification, callimpl->prev.line_identification)) {
+		dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL,
+						&entry);
+		const char *line_identification = "LineIdentification";
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &line_identification);
+		dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
+						DBUS_TYPE_STRING_AS_STRING, &variant);
+		dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING,
+						safe_string (&call->line_identification));
+		dbus_message_iter_close_container(&entry, &variant);
+		dbus_message_iter_close_container(&dict, &entry);
+	}
 
-	dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
-	const char *incoming_line = "IncomingLine";
-	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &incoming_line);
-	dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
-					 DBUS_TYPE_STRING_AS_STRING,
-					 &variant);
-	dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING,
-					safe_string (&call->incoming_line));
-	dbus_message_iter_close_container(&entry, &variant);
-	dbus_message_iter_close_container(&dict, &entry);
+	if (all || !spa_streq (call->incoming_line, callimpl->prev.incoming_line)) {
+		dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
+		const char *incoming_line = "IncomingLine";
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &incoming_line);
+		dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
+						DBUS_TYPE_STRING_AS_STRING,
+						&variant);
+		dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING,
+						safe_string (&call->incoming_line));
+		dbus_message_iter_close_container(&entry, &variant);
+		dbus_message_iter_close_container(&dict, &entry);
+	}
 
-	dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
-	const char *name = "Name";
-	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &name);
-	dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
-					 DBUS_TYPE_STRING_AS_STRING,
-					 &variant);
-	dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING,
-					safe_string (&call->name));
-	dbus_message_iter_close_container(&entry, &variant);
-	dbus_message_iter_close_container(&dict, &entry);
+	if (all || !spa_streq (call->name, callimpl->prev.name)) {
+		dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
+		const char *name = "Name";
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &name);
+		dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
+						DBUS_TYPE_STRING_AS_STRING,
+						&variant);
+		dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING,
+						safe_string (&call->name));
+		dbus_message_iter_close_container(&entry, &variant);
+		dbus_message_iter_close_container(&dict, &entry);
+	}
 
-	dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
-	const char *multiparty = "Multiparty";
-	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &multiparty);
-	dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
-					 DBUS_TYPE_BOOLEAN_AS_STRING,
-					 &variant);
-	dbus_message_iter_append_basic(&variant, DBUS_TYPE_BOOLEAN, &call->multiparty);
-	dbus_message_iter_close_container(&entry, &variant);
-	dbus_message_iter_close_container(&dict, &entry);
+	if (all || call->multiparty != callimpl->prev.multiparty) {
+		dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
+		const char *multiparty = "Multiparty";
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &multiparty);
+		dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
+						DBUS_TYPE_BOOLEAN_AS_STRING,
+						&variant);
+		dbus_message_iter_append_basic(&variant, DBUS_TYPE_BOOLEAN, &call->multiparty);
+		dbus_message_iter_close_container(&entry, &variant);
+		dbus_message_iter_close_container(&dict, &entry);
+	}
 
-	dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
-	const char *state = "State";
-	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &state);
-	dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
-					 DBUS_TYPE_STRING_AS_STRING,
-					 &variant);
-	dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING,
-					&call_state_to_string[call->state]);
-	dbus_message_iter_close_container(&entry, &variant);
-	dbus_message_iter_close_container(&dict, &entry);
+	if (all || call->state != callimpl->prev.state) {
+		dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
+		const char *state = "State";
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &state);
+		dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
+						DBUS_TYPE_STRING_AS_STRING,
+						&variant);
+		dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING,
+						&call_state_to_string[call->state]);
+		dbus_message_iter_close_container(&entry, &variant);
+		dbus_message_iter_close_container(&dict, &entry);
+	}
 
 	dbus_message_iter_close_container(i, &dict);
 }
@@ -913,28 +1062,30 @@ static DBusMessage *call_properties_get(struct callimpl *callimpl, DBusMessage *
 			"No such property");
 }
 
-static DBusMessage *call_properties_get_all(struct callimpl *callimpl, DBusMessage *m)
+static DBusMessage *call_properties_get_all(struct callimpl *callimpl, DBusMessage *m, bool ofono_compat)
 {
-	const char *iface, *name;
 	DBusMessage *r;
 	DBusMessageIter i;
 
-	if (!dbus_message_get_args(m, NULL,
-				DBUS_TYPE_STRING, &iface,
-				DBUS_TYPE_STRING, &name,
-				DBUS_TYPE_INVALID))
-		return NULL;
+	if (!ofono_compat) {
+		const char *iface;
 
-	if (!spa_streq(iface, PW_TELEPHONY_CALL_IFACE))
-		return dbus_message_new_error(m, DBUS_ERROR_UNKNOWN_INTERFACE,
-				"No such interface");
+		if (!dbus_message_get_args(m, NULL,
+					DBUS_TYPE_STRING, &iface,
+					DBUS_TYPE_INVALID))
+			return NULL;
+
+		if (!spa_streq(iface, PW_TELEPHONY_CALL_IFACE))
+			return dbus_message_new_error(m, DBUS_ERROR_UNKNOWN_INTERFACE,
+					"No such interface");
+	}
 
 	r = dbus_message_new_method_return(m);
 	if (r == NULL)
 		return NULL;
 
 	dbus_message_iter_init_append(r, &i);
-	dbus_iter_append_call_properties(&i, &callimpl->this);
+	dbus_iter_append_call_properties(&i, &callimpl->this, true);
 	return r;
 }
 
@@ -976,13 +1127,17 @@ static DBusHandlerResult call_handler(DBusConnection *c, DBusMessage *m, void *u
 	} else if (dbus_message_is_method_call(m, DBUS_INTERFACE_PROPERTIES, "Get")) {
 		r = call_properties_get(callimpl, m);
 	} else if (dbus_message_is_method_call(m, DBUS_INTERFACE_PROPERTIES, "GetAll")) {
-		r = call_properties_get_all(callimpl, m);
+		r = call_properties_get_all(callimpl, m, false);
 	} else if (dbus_message_is_method_call(m, DBUS_INTERFACE_PROPERTIES, "Set")) {
 		r = call_properties_set(callimpl, m);
-	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_CALL_IFACE, "Answer")) {
+	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_CALL_IFACE, "Answer") ||
+		   dbus_message_is_method_call(m, OFONO_VOICE_CALL_IFACE, "Answer")) {
 		r = call_answer(callimpl, m);
-	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_CALL_IFACE, "Hangup")) {
+	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_CALL_IFACE, "Hangup") ||
+		   dbus_message_is_method_call(m, OFONO_VOICE_CALL_IFACE, "Hangup")) {
 		r = call_hangup(callimpl, m);
+	} else if (dbus_message_is_method_call(m, OFONO_VOICE_CALL_IFACE, "GetProperties")) {
+		r = call_properties_get_all(callimpl, m, true);
 	} else {
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
@@ -999,11 +1154,7 @@ int telephony_call_register(struct spa_bt_telephony_call *call)
 	struct callimpl *callimpl = SPA_CONTAINER_OF(call, struct callimpl, this);
 	struct agimpl *agimpl = SPA_CONTAINER_OF(callimpl->this.ag, struct agimpl, this);
 	struct impl *impl = SPA_CONTAINER_OF(agimpl->this.telephony, struct impl, this);
-
-	spa_autoptr(DBusMessage) msg = NULL;
-	DBusMessageIter iter, entry, dict;
 	char *path;
-	const char *interface = PW_TELEPHONY_CALL_IFACE;
 
 	const DBusObjectPathVTable vtable = {
 		.message_function = call_handler,
@@ -1018,25 +1169,51 @@ int telephony_call_register(struct spa_bt_telephony_call *call)
 	}
 	callimpl->path = strdup(path);
 
-	/* notify on ObjectManager of the parent object */
-	msg = dbus_message_new_signal(agimpl->path,
-				      DBUS_INTERFACE_OBJECT_MANAGER,
-				      "InterfacesAdded");
+	/* notify on ObjectManager of the AudioGateway object */
+	{
+		spa_autoptr(DBusMessage) msg = NULL;
+		DBusMessageIter iter, entry, dict;
+		const char *interface = PW_TELEPHONY_CALL_IFACE;
 
-	dbus_message_iter_init_append(msg, &iter);
-	dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &path);
-	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sa{sv}}", &dict);
-	dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
-	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &interface);
-	dbus_iter_append_call_properties(&entry, call);
-	dbus_message_iter_close_container(&dict, &entry);
-	dbus_message_iter_close_container(&iter, &dict);
+		msg = dbus_message_new_signal(agimpl->path,
+					DBUS_INTERFACE_OBJECT_MANAGER,
+					"InterfacesAdded");
+		dbus_message_iter_init_append(msg, &iter);
+		dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &path);
+		dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sa{sv}}", &dict);
+		dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &interface);
+		dbus_iter_append_call_properties(&entry, call, true);
+		dbus_message_iter_close_container(&dict, &entry);
+		dbus_message_iter_close_container(&iter, &dict);
 
-	if (!dbus_connection_send(impl->conn, msg, NULL)) {
-		spa_log_error(impl->log, "failed to send InterfacesAdded for %s", path);
-		telephony_call_unregister(call);
-		return -EIO;
+		if (!dbus_connection_send(impl->conn, msg, NULL)) {
+			spa_log_error(impl->log, "failed to send InterfacesAdded for %s", path);
+			telephony_call_unregister(call);
+			return -EIO;
+		}
 	}
+
+	/* emit CallAdded on the AudioGateway object */
+	{
+		spa_autoptr(DBusMessage) msg = NULL;
+		DBusMessageIter iter;
+
+		msg = dbus_message_new_signal(agimpl->path,
+					OFONO_VOICE_CALL_MANAGER_IFACE,
+					"CallAdded");
+		dbus_message_iter_init_append(msg, &iter);
+		dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &path);
+		dbus_iter_append_call_properties(&iter, call, true);
+
+		if (!dbus_connection_send(impl->conn, msg, NULL)) {
+			spa_log_error(impl->log, "failed to send CallAdded for %s", path);
+			telephony_call_unregister(call);
+			return -EIO;
+		}
+	}
+
+	telephony_call_commit_properties(call);
 
 	spa_log_debug(impl->log, "registered Call: %s", path);
 
@@ -1049,29 +1226,45 @@ void telephony_call_unregister(struct spa_bt_telephony_call *call)
 	struct agimpl *agimpl = SPA_CONTAINER_OF(callimpl->this.ag, struct agimpl, this);
 	struct impl *impl = SPA_CONTAINER_OF(agimpl->this.telephony, struct impl, this);
 
-	spa_autoptr(DBusMessage) msg = NULL;
-	DBusMessageIter iter, entry;
-	const char *interface = PW_TELEPHONY_CALL_IFACE;
-
 	if (!callimpl->path)
 		return;
 
 	spa_log_debug(impl->log, "removing Call: %s", callimpl->path);
 
-	msg = dbus_message_new_signal(agimpl->path,
-				      DBUS_INTERFACE_OBJECT_MANAGER,
-				      "InterfacesRemoved");
+	{
+		spa_autoptr(DBusMessage) msg = NULL;
+		DBusMessageIter iter, entry;
+		const char *interface = PW_TELEPHONY_CALL_IFACE;
 
-	dbus_message_iter_init_append(msg, &iter);
-	dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &callimpl->path);
-	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY,
-					 DBUS_TYPE_STRING_AS_STRING, &entry);
-	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &interface);
-	dbus_message_iter_close_container(&iter, &entry);
+		msg = dbus_message_new_signal(agimpl->path,
+					DBUS_INTERFACE_OBJECT_MANAGER,
+					"InterfacesRemoved");
+		dbus_message_iter_init_append(msg, &iter);
+		dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &callimpl->path);
+		dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY,
+						DBUS_TYPE_STRING_AS_STRING, &entry);
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &interface);
+		dbus_message_iter_close_container(&iter, &entry);
 
-	if (!dbus_connection_send(impl->conn, msg, NULL)) {
-		spa_log_warn(impl->log, "sending InterfacesRemoved failed");
+		if (!dbus_connection_send(impl->conn, msg, NULL)) {
+			spa_log_warn(impl->log, "sending InterfacesRemoved failed");
+		}
 	}
+	{
+		spa_autoptr(DBusMessage) msg = NULL;
+		DBusMessageIter iter;
+
+		msg = dbus_message_new_signal(agimpl->path,
+					OFONO_VOICE_CALL_MANAGER_IFACE,
+					"CallRemoved");
+		dbus_message_iter_init_append(msg, &iter);
+		dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &callimpl->path);
+
+		if (!dbus_connection_send(impl->conn, msg, NULL)) {
+			spa_log_warn(impl->log, "sending CallRemoved failed");
+		}
+	}
+
 	if (!dbus_connection_unregister_object_path(impl->conn, callimpl->path)) {
 		spa_log_warn(impl->log, "failed to unregister %s", callimpl->path);
 	}
@@ -1087,26 +1280,143 @@ void telephony_call_notify_updated_props(struct spa_bt_telephony_call *call)
 	struct agimpl *agimpl = SPA_CONTAINER_OF(callimpl->this.ag, struct agimpl, this);
 	struct impl *impl = SPA_CONTAINER_OF(agimpl->this.telephony, struct impl, this);
 
-	spa_autoptr(DBusMessage) msg = NULL;
-	const char *interface = PW_TELEPHONY_CALL_IFACE;
-	DBusMessageIter i, a;
+	{
+		spa_autoptr(DBusMessage) msg = NULL;
+		const char *interface = PW_TELEPHONY_CALL_IFACE;
+		DBusMessageIter i, a;
 
-	msg = dbus_message_new_signal(callimpl->path,
-				      DBUS_INTERFACE_PROPERTIES,
-				      "PropertiesChanged");
+		msg = dbus_message_new_signal(callimpl->path,
+					DBUS_INTERFACE_PROPERTIES,
+					"PropertiesChanged");
 
-	dbus_message_iter_init_append(msg, &i);
-	dbus_message_iter_append_basic(&i, DBUS_TYPE_STRING, &interface);
+		dbus_message_iter_init_append(msg, &i);
+		dbus_message_iter_append_basic(&i, DBUS_TYPE_STRING, &interface);
 
-	dbus_iter_append_call_properties(&i, call);
+		dbus_iter_append_call_properties(&i, call, false);
 
-	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY,
-			DBUS_TYPE_STRING_AS_STRING, &a);
-	dbus_message_iter_close_container(&i, &a);
+		dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY,
+				DBUS_TYPE_STRING_AS_STRING, &a);
+		dbus_message_iter_close_container(&i, &a);
 
-	if (!dbus_connection_send(impl->conn, msg, NULL)){
-		spa_log_warn(impl->log, "sending PropertiesChanged failed");
+		if (!dbus_connection_send(impl->conn, msg, NULL)){
+			spa_log_warn(impl->log, "sending PropertiesChanged failed");
+		}
 	}
+
+	if (!spa_streq (call->line_identification, callimpl->prev.line_identification)) {
+		spa_autoptr(DBusMessage) msg = NULL;
+		DBusMessageIter entry, variant;
+
+		msg = dbus_message_new_signal(callimpl->path,
+					OFONO_VOICE_CALL_IFACE,
+					"PropertyChanged");
+
+		const char *line_identification = "LineIdentification";
+		dbus_message_iter_init_append(msg, &entry);
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &line_identification);
+		dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
+						DBUS_TYPE_STRING_AS_STRING, &variant);
+		dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING,
+						safe_string (&call->line_identification));
+		dbus_message_iter_close_container(&entry, &variant);
+
+		if (!dbus_connection_send(impl->conn, msg, NULL)){
+			spa_log_warn(impl->log, "sending PropertyChanged failed");
+		}
+	}
+
+	if (!spa_streq (call->incoming_line, callimpl->prev.incoming_line)) {
+		spa_autoptr(DBusMessage) msg = NULL;
+		DBusMessageIter entry, variant;
+
+		msg = dbus_message_new_signal(callimpl->path,
+					OFONO_VOICE_CALL_IFACE,
+					"PropertyChanged");
+
+		const char *incoming_line = "IncomingLine";
+		dbus_message_iter_init_append(msg, &entry);
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &incoming_line);
+		dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
+						DBUS_TYPE_STRING_AS_STRING,
+						&variant);
+		dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING,
+						safe_string (&call->incoming_line));
+		dbus_message_iter_close_container(&entry, &variant);
+
+		if (!dbus_connection_send(impl->conn, msg, NULL)){
+			spa_log_warn(impl->log, "sending PropertyChanged failed");
+		}
+	}
+
+	if (!spa_streq (call->name, callimpl->prev.name)) {
+		spa_autoptr(DBusMessage) msg = NULL;
+		DBusMessageIter entry, variant;
+
+		msg = dbus_message_new_signal(callimpl->path,
+					OFONO_VOICE_CALL_IFACE,
+					"PropertyChanged");
+
+		const char *name = "Name";
+		dbus_message_iter_init_append(msg, &entry);
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &name);
+		dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
+						DBUS_TYPE_STRING_AS_STRING,
+						&variant);
+		dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING,
+						safe_string (&call->name));
+		dbus_message_iter_close_container(&entry, &variant);
+
+		if (!dbus_connection_send(impl->conn, msg, NULL)){
+			spa_log_warn(impl->log, "sending PropertyChanged failed");
+		}
+	}
+
+	if (call->multiparty != callimpl->prev.multiparty) {
+		spa_autoptr(DBusMessage) msg = NULL;
+		DBusMessageIter entry, variant;
+
+		msg = dbus_message_new_signal(callimpl->path,
+					OFONO_VOICE_CALL_IFACE,
+					"PropertyChanged");
+
+		const char *multiparty = "Multiparty";
+		dbus_message_iter_init_append(msg, &entry);
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &multiparty);
+		dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
+						DBUS_TYPE_BOOLEAN_AS_STRING,
+						&variant);
+		dbus_message_iter_append_basic(&variant, DBUS_TYPE_BOOLEAN, &call->multiparty);
+		dbus_message_iter_close_container(&entry, &variant);
+
+		if (!dbus_connection_send(impl->conn, msg, NULL)){
+			spa_log_warn(impl->log, "sending PropertyChanged failed");
+		}
+	}
+
+	if (call->state != callimpl->prev.state) {
+		spa_autoptr(DBusMessage) msg = NULL;
+		DBusMessageIter entry, variant;
+
+		msg = dbus_message_new_signal(callimpl->path,
+					OFONO_VOICE_CALL_IFACE,
+					"PropertyChanged");
+
+		const char *state = "State";
+		dbus_message_iter_init_append(msg, &entry);
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &state);
+		dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
+						DBUS_TYPE_STRING_AS_STRING,
+						&variant);
+		dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING,
+						&call_state_to_string[call->state]);
+		dbus_message_iter_close_container(&entry, &variant);
+
+		if (!dbus_connection_send(impl->conn, msg, NULL)){
+			spa_log_warn(impl->log, "sending PropertyChanged failed");
+		}
+	}
+
+	telephony_call_commit_properties(call);
 }
 
 void telephony_call_add_listener(struct spa_bt_telephony_call *call,

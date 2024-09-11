@@ -1,47 +1,106 @@
 # PipeWire Bluetooth Telephony service
 
-The Telephony service is a D-Bus user session service that allows applications
-to communicate with the HFP native backend in order to control phone calls.
-Phone call features are a core part of the HFP specification and are available
-when a mobile phone is paired (therefore, PipeWire acts as the Hands-Free and
-the phone is the Audio Gateway).
+The Telephony service is a D-Bus service that allows applications to communicate
+with the HFP native backend in order to control phone calls. Phone call features
+are a core part of the HFP specification and are available when a mobile phone
+is paired (therefore, PipeWire acts as the Hands-Free and the phone is the Audio
+Gateway).
 
-The service is exposed on the session bus and registered under the well-known
-name "org.freedesktop.PipeWire.Telephony".
+The service is exposed on the user session bus by default, but there is an
+option to make it available on the system bus instead.
+
+The service implements its own interfaces alongside the standard DBus
+Introspectable, ObjectManager and Properties interfaces, where needed.
+These interfaces are mostly compatible with the ofono Manager, VoiceCallManager
+and VoiceCall interfaces. For compatibility, the `org.ofono.Manager`,
+`org.ofono.VoiceCallManager` and `org.ofono.VoiceCall` are also implemented
+with any additional compatibility methods & signals are necessary to allow
+ofono-based applications to be able to work just by modifying the service name,
+the manager object path and the operating bus (session vs system).
+
+In addition, to the compatibility interfaces, there is a runtime option to
+also register the service as `org.ofono` on the system bus, making it a drop-in
+replacement for ofono. Note, however, that this service is not a full replacement,
+but only for the Bluetooth-based voice calls.
 
 ## Manager Object
 
 ```
 Service         org.freedesktop.PipeWire.Telephony
+            or  org.ofono
 Object path     /org/freedesktop/PipeWire/Telephony
-Implements      org.freedesktop.DBus.Introspectable
+            or  /
+Implements      org.ofono.Manager
+                org.freedesktop.DBus.Introspectable
                 org.freedesktop.DBus.ObjectManager
 ```
 
 The manager object is always available and allows applications to get access to
 the connected audio gateways.
 
-AudioGateway objects are announced via the standard DBus ObjectManager interface.
+The object path is set to `/` when ofono service compatibility is enabled,
+in which case the service name `org.ofono` is also registered instead of
+`org.freedesktop.PipeWire.Telephony`.
 
-## AudioGateway Interface
+The methods and signals below are made available on the `org.ofono.Manager`
+interface, for compatibility. AudioGateway objects are normally announced via
+the standard DBus ObjectManager interface.
+
+### Methods
+
+`array{object,dict} GetModems()`
+
+Get an array of AudioGateway objects and properties that represents the
+currently connected audio gateways.
+
+### Signals
+
+`ModemAdded(object path, dict properties)`
+
+Signal that is sent when a new audio gateway is added. It contains the object
+path of the new audio gateway and also its properties.
+
+`ModemRemoved(object path)`
+
+Signal that is sent when an audio gateway has been removed. The object path is
+no longer accessible after this signal and only emitted for reference.
+
+## AudioGateway Object
 
 ```
 Service         org.freedesktop.PipeWire.Telephony
-Interface       org.freedesktop.PipeWire.Telephony.AudioGateway1
-Requires        org.freedesktop.DBus.Introspectable
-                org.freedesktop.DBus.ObjectManager
+            or  org.ofono
 Object path     /org/freedesktop/PipeWire/Telephony/{ag0,ag1,...}
+Implements      org.freedesktop.PipeWire.Telephony.AudioGateway1
+                org.ofono.VoiceCallManager
+                org.freedesktop.DBus.Introspectable
+                org.freedesktop.DBus.ObjectManager
 ```
 
 Audio gateway objects represent the currently connected AG devices (typically
-mobile phones) and should implement the `org.freedesktop.PipeWire.Telephony.AudioGateway1`
-interface as well the standard `org.freedesktop.DBus.Introspectable`,
-`org.freedesktop.DBus.Properties` and `org.freedesktop.DBus.ObjectManager`
-interfaces.
+mobile phones).
 
-Call objects are announced via the standard DBus ObjectManager interface.
+The methods, signals and properties listed below are made available on both
+`org.freedesktop.PipeWire.Telephony.AudioGateway1` and
+`org.ofono.VoiceCallManager` interfaces, unless explicitly documented otherwise.
+
+Call objects are announced via both the standard DBus ObjectManager interface
+and via the `org.ofono.VoiceCallManager` interface, for compatibility.
 
 ### Methods
+
+`array{object,dict} GetCalls()`
+
+Get an array of call object paths and properties that represents the currently
+present calls.
+
+This method call should only be used once when an application starts up.
+Further call additions and removal shall be monitored via CallAdded and
+CallRemoved signals.
+
+NOTE: This method is implemented only on the `org.ofono.VoiceCallManager`
+interface, for compatibility. Call announcements are normally made available via
+the standard `org.freedesktop.DBus.ObjectManager` interface.
 
 `object Dial(string number)`
 
@@ -142,20 +201,54 @@ Possible Errors:
  * org.freedesktop.DBus.Error.InvalidArgs
  * org.freedesktop.DBus.Error.Failed
 
+### Signals
 
-## Call Interface
+`CallAdded(object path, dict properties)`
+
+Signal that is sent when a new call is added.  It contains the object path of
+the new voice call and also its properties.
+
+NOTE: This method is implemented only on the `org.ofono.VoiceCallManager`
+interface, for compatibility. Call announcements are normally made available via
+the standard `org.freedesktop.DBus.ObjectManager` interface.
+
+`CallRemoved(object path)`
+
+Signal that is sent when a voice call has been released. The object path is no
+longer accessible after this signal and only emitted for reference.
+
+NOTE: This method is implemented only on the `org.ofono.VoiceCallManager`
+interface, for compatibility. Call announcements are normally made available via
+the standard `org.freedesktop.DBus.ObjectManager` interface.
+
+## Call Object
 
 ```
 Service         org.freedesktop.PipeWire.Telephony
-Interface       org.freedesktop.PipeWire.Telephony.Call1
-Requires        org.freedesktop.DBus.Introspectable
-                org.freedesktop.DBus.Properties
+            or  org.ofono
 Object path     /org/freedesktop/PipeWire/Telephony/{ag0,ag1,...}/{call0,call1,...}
+Implements      org.freedesktop.PipeWire.Telephony.Call1
+                org.ofono.VoiceCall
+                org.freedesktop.DBus.Introspectable
+                org.freedesktop.DBus.Properties
 ```
 
-Call objects represent active calls and allows managing them.
+Call objects represent active calls and allow managing them.
+
+The methods, signals and properties listed below are made available on both
+`org.freedesktop.PipeWire.Telephony.Call1` and `org.ofono.VoiceCall`
+interfaces, unless explicitly documented otherwise.
 
 ### Methods
+
+`dict GetProperties()`
+
+Returns all properties for this object. See the properties section for available
+properties.
+
+NOTE: This method is implemented only on the `org.ofono.VoiceCall` interface,
+for compatibility. Properties are normally made available via the standard
+`org.freedesktop.DBus.Properties` interface.
 
 `void Answer()`
 
@@ -196,6 +289,17 @@ Possible Errors:
  * org.freedesktop.PipeWire.Telephony.Error.InvalidState
  * org.freedesktop.DBus.Error.Failed
 
+### Signals
+
+`PropertyChanged(string property, variant value)`
+
+Signal is emitted whenever a property has changed. The new value is passed as
+the signal argument.
+
+NOTE: This method is implemented only on the `org.ofono.VoiceCall` interface,
+for compatibility. Properties are normally made available via the standard
+`org.freedesktop.DBus.Properties` interface.
+
 ### Properties
 
 `string LineIdentification [readonly]`
@@ -204,6 +308,10 @@ Contains the Line Identification information returned by the network, if
 present. For incoming calls this is effectively the CLIP. For outgoing calls
 this attribute will hold the dialed number, or the COLP if received by the
 audio gateway.
+
+Please note that COLP may be different from the dialed number. A special
+"withheld" value means the remote party refused to provide caller ID and the
+"override category" option was not provisioned for the current subscriber.
 
 `string IncomingLine [readonly, optional]`
 
@@ -221,6 +329,8 @@ present.
 `boolean Multiparty [readonly]`
 
 Contains the indication if the call is part of a multiparty call or not.
+
+Notifications if a call becomes part or leaves a multiparty call are sent.
 
 `string State [readonly]`
 

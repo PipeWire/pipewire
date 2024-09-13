@@ -806,8 +806,7 @@ static uint32_t format_info_get_format(const struct format_info *info)
 	if ((str = pw_properties_get(info->props, "format.sample_format")) == NULL)
 		return SPA_AUDIO_FORMAT_UNKNOWN;
 
-	spa_json_init(&it[0], str, strlen(str));
-	if ((len = spa_json_next(&it[0], &val)) <= 0)
+	if ((len = spa_json_begin(&it[0], str, strlen(str), &val)) <= 0)
 		return SPA_AUDIO_FORMAT_UNKNOWN;
 
 	if (spa_json_is_string(val, len))
@@ -825,8 +824,7 @@ static int format_info_get_rate(const struct format_info *info)
 	if ((str = pw_properties_get(info->props, "format.rate")) == NULL)
 		return -ENOENT;
 
-	spa_json_init(&it[0], str, strlen(str));
-	if ((len = spa_json_next(&it[0], &val)) <= 0)
+	if ((len = spa_json_begin(&it[0], str, strlen(str), &val)) <= 0)
 		return -EINVAL;
 	if (spa_json_is_int(val, len)) {
 		if (spa_json_parse_int(val, len, &v) <= 0)
@@ -862,8 +860,7 @@ int format_info_to_spec(const struct format_info *info, struct sample_spec *ss,
 	if ((str = pw_properties_get(info->props, "format.channels")) == NULL)
 		return -ENOENT;
 
-	spa_json_init(&it[0], str, strlen(str));
-	if ((len = spa_json_next(&it[0], &val)) <= 0)
+	if ((len = spa_json_begin(&it[0], str, strlen(str), &val)) <= 0)
 		return -EINVAL;
 	if (spa_json_is_float(val, len)) {
 		if (spa_json_parse_float(val, len, &f) <= 0)
@@ -877,8 +874,7 @@ int format_info_to_spec(const struct format_info *info, struct sample_spec *ss,
 		return -ENOTSUP;
 
 	if ((str = pw_properties_get(info->props, "format.channel_map")) != NULL) {
-		spa_json_init(&it[0], str, strlen(str));
-		if ((len = spa_json_next(&it[0], &val)) <= 0)
+		if ((len = spa_json_begin(&it[0], str, strlen(str), &val)) <= 0)
 			return -EINVAL;
 		if (!spa_json_is_string(val, len))
 			return -EINVAL;

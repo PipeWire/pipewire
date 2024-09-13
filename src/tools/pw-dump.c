@@ -1144,8 +1144,7 @@ static void json_dump(struct data *d, const char *key, const char *value)
 	struct spa_json it[1];
 	int len;
 	const char *val;
-	spa_json_init(&it[0], value, strlen(value));
-	if ((len = spa_json_next(&it[0], &val)) >= 0)
+	if ((len = spa_json_begin(&it[0], value, strlen(value), &val)) >= 0)
 		json_dump_val(d, key, &it[0], val, len);
 }
 

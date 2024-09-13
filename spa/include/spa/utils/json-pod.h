@@ -139,8 +139,7 @@ static inline int spa_json_to_pod(struct spa_pod_builder *b, uint32_t flags,
 	struct spa_json iter;
 	const char *val;
 
-	spa_json_init(&iter, value, len);
-	if ((len = spa_json_next(&iter, &val)) <= 0)
+	if ((len = spa_json_begin(&iter, value, len, &val)) <= 0)
 		return -EINVAL;
 
 	return spa_json_to_pod_part(b, flags, info->type, info, &iter, val, len);

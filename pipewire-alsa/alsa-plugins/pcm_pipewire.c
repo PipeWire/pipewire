@@ -1122,8 +1122,7 @@ static int parse_value(const char *str, struct param_info *info)
 	const char *val;
 	int len;
 
-	spa_json_init(&it[0], str, strlen(str));
-	if ((len = spa_json_next(&it[0], &val)) <= 0)
+	if ((len = spa_json_begin(&it[0], str, strlen(str), &val)) <= 0)
 		return -EINVAL;
 
 	if (spa_json_is_array(val, len)) {

@@ -123,8 +123,7 @@ static int process_json(const char *filename, void *buf, size_t size)
 	struct spa_json it;
 	const char *value;
 
-	spa_json_init(&it, buf, size);
-	if ((len = spa_json_next(&it, &value)) <= 0) {
+	if ((len = spa_json_begin(&it, buf, size, &value)) <= 0) {
                 fprintf(stderr, "not a valid file '%s': %s\n", filename, spa_strerror(len));
 		return -EINVAL;
 	}

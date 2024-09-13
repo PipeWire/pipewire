@@ -66,8 +66,7 @@ static int do_merge_section(void *data, const char *location, const char *sectio
 	int l;
 	const char *value;
 
-	spa_json_init(&it[0], str, len);
-	if ((l = spa_json_next(&it[0], &value)) <= 0)
+	if ((l = spa_json_begin(&it[0], str, len, &value)) <= 0)
 		return 0;
 
 	if (spa_json_is_array(value, l)) {

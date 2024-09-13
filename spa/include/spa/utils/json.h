@@ -356,6 +356,12 @@ static inline bool spa_json_get_error(struct spa_json *iter, const char *start,
 	return true;
 }
 
+static inline int spa_json_begin(struct spa_json * iter, const char *data, size_t size, const char **val)
+{
+	spa_json_init(iter, data, size);
+	return spa_json_next(iter, val);
+}
+
 static inline int spa_json_enter_container(struct spa_json *iter, struct spa_json *sub, char type)
 {
 	const char *value;

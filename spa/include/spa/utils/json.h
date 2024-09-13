@@ -39,7 +39,7 @@ struct spa_json {
 	uint32_t depth;
 };
 
-#define SPA_JSON_INIT(data,size) ((struct spa_json) { (data), (data)+(size), 0, 0, 0 })
+#define SPA_JSON_INIT(data,size) ((struct spa_json) { (data), (data)+(size), NULL, 0, 0 })
 
 static inline void spa_json_init(struct spa_json * iter, const char *data, size_t size)
 {
@@ -53,6 +53,8 @@ static inline void spa_json_enter(struct spa_json * iter, struct spa_json * sub)
 }
 
 #define SPA_JSON_SAVE(iter) ((struct spa_json) { (iter)->cur, (iter)->end, NULL, (iter)->state, 0 })
+
+#define SPA_JSON_START(iter,p) ((struct spa_json) { (p), (iter)->end, NULL, 0, 0 })
 
 /** Get the next token. \a value points to the token and the return value
  * is the length. Returns -1 on parse error, 0 on end of input. */
@@ -594,7 +596,7 @@ static inline int spa_json_parse_stringn(const char *val, int len, char *result,
 {
 	const char *p;
 	if (maxlen <= len)
-		return -1;
+		return -ENOSPC;
 	if (!spa_json_is_string(val, len)) {
 		if (result != val)
 			memmove(result, val, len);
@@ -710,6 +712,19 @@ static inline int spa_json_encode_string(char *str, int size, const char *val)
 	__PUT('\0');
 #undef __PUT
 	return len-1;
+}
+
+static inline int spa_json_object_next(struct spa_json *iter, char *key, int maxkeylen, const char **value)
+{
+	int res1, res2;
+	while (true) {
+		res1 = spa_json_get_string(iter, key, maxkeylen);
+		if (res1 <= 0 && res1 != -ENOSPC)
+			return res1;
+		res2 = spa_json_next(iter, value);
+		if (res2 <= 0 || res1 != -ENOSPC)
+			return res2;
+	}
 }
 
 /**

@@ -217,6 +217,8 @@ static int setup_data_loops(struct impl *impl)
 		}
 		while ((r = spa_json_enter_object(&it[0], &it[1])) > 0) {
 			char *props = NULL;
+			const char *val;
+			int l;
 
 			if (i >= MAX_LOOPS) {
 				pw_log_warn("too many context.data-loops, using first %d",
@@ -228,15 +230,7 @@ static int setup_data_loops(struct impl *impl)
 			pw_properties_update(pr, &this->properties->dict);
 			pw_properties_set(pr, PW_KEY_LIBRARY_NAME_SYSTEM, lib_name);
 
-			while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
-				const char *val;
-				int l;
-
-				if ((l = spa_json_next(&it[1], &val)) <= 0) {
-					pw_log_warn("malformed data-loop: key '%s' has no "
-							"value in '%.*s'", key, (int)len, str);
-					break;
-				}
+			while ((l = spa_json_object_next(&it[1], key, sizeof(key), &val)) > 0) {
 				if (spa_json_is_container(val, l))
 					l = spa_json_container_len(&it[1], val, l);
 

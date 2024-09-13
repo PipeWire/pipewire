@@ -73,15 +73,10 @@ static int fill_metadata(struct pw_metadata *metadata, const char *str)
 
 	while (spa_json_enter_object(&it[0], &it[1]) > 0) {
 		char key[256], *k = NULL, *v = NULL, *t = NULL;
-		int id = 0;
+		int id = 0, len;
+		const char *val;
 
-		while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
-			int len;
-			const char *val;
-
-			if ((len = spa_json_next(&it[1], &val)) <= 0)
-				return -EINVAL;
-
+		while ((len = spa_json_object_next(&it[1], key, sizeof(key), &val)) > 0) {
 			if (spa_streq(key, "id")) {
 				if (spa_json_parse_int(val, len, &id) <= 0)
 					return -EINVAL;

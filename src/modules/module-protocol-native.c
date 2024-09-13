@@ -1689,6 +1689,8 @@ static int create_servers(struct pw_protocol *this, struct pw_impl_core *core,
 		char key[256];
 		char name[PATH_MAX];
 		char selinux_context[PATH_MAX];
+		const char *value;
+		int len;
 
 		info.uid = getuid();
 		info.gid = getgid();
@@ -1696,13 +1698,7 @@ static int create_servers(struct pw_protocol *this, struct pw_impl_core *core,
 		pw_properties_clear(p);
 		pw_properties_update(p, &props->dict);
 
-		while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
-			const char *value;
-			int len;
-
-			if ((len = spa_json_next(&it[1], &value)) <= 0)
-				goto error_invalid;
-
+		while ((len = spa_json_object_next(&it[1], key, sizeof(key), &value)) > 0) {
 			if (spa_streq(key, "name")) {
 				if (spa_json_parse_stringn(value, len, name, sizeof(name)) < 0)
 					goto error_invalid;

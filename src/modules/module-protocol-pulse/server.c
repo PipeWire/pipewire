@@ -997,10 +997,7 @@ int servers_create_and_start(struct impl *impl, const char *addresses, struct pw
 
 		if (spa_json_is_object(v, len)) {
 			spa_json_enter(&it[0], &it[1]);
-			while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
-				if ((len = spa_json_next(&it[1], &v)) <= 0)
-					break;
-
+			while ((len = spa_json_object_next(&it[1], key, sizeof(key), &v)) > 0) {
 				if (spa_streq(key, "address")) {
 					spa_json_parse_stringn(v, len, addr_str, sizeof(addr_str));
 				} else if (spa_streq(key, "max-clients")) {

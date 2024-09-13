@@ -1140,9 +1140,7 @@ static int parse_value(const char *str, struct param_info *info)
 		info->type = TYPE_MIN_MAX;
 		info->n_vals = 2;
 		spa_json_enter(&it[0], &it[1]);
-                while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
-                        if ((len = spa_json_next(&it[1], &val)) <= 0)
-                                break;
+                while ((len = spa_json_object_next(&it[1], key, sizeof(key), &val)) > 0) {
 			if (info->collect(val, len, &v) < 0)
 				continue;
 			if (spa_streq(key, "min"))

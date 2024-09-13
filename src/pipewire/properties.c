@@ -214,8 +214,9 @@ static int update_string(struct pw_properties *props, const char *str, size_t si
 	char key[1024];
 	struct spa_error_location el;
 	bool err;
-	int res, cnt = 0;
+	int len, res, cnt = 0;
 	struct properties changes;
+	const char *value;
 
 	if (props)
 		properties_init(&changes, 16);
@@ -223,13 +224,8 @@ static int update_string(struct pw_properties *props, const char *str, size_t si
 	if ((res = spa_json_begin_object_relax(&it[0], str, size)) <= 0)
 		return res;
 
-	while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
-		int len;
-		const char *value;
+	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &value)) > 0) {
 		char *val = NULL;
-
-		if ((len = spa_json_next(&it[0], &value)) <= 0)
-			break;
 
 		if (spa_json_is_null(value, len))
 			val = NULL;
@@ -887,14 +883,12 @@ static int dump(struct dump_config *c, int indent, struct spa_json *it, const ch
 		fprintf(file, "{");
 		spa_json_enter(it, &sub);
 		indent += c->indent;
-		while (spa_json_get_string(&sub, key, sizeof(key)) > 0) {
+		while ((len = spa_json_object_next(&sub, key, sizeof(key), &value)) > 0) {
 			fprintf(file, "%s%s%*s",
 					count++ > 0 ? "," : "",
 					c->sep, indent, "");
 			encode_string(c, KEY(c), key, strlen(key), NORMAL(c));
 			fprintf(file, ": ");
-			if ((len = spa_json_next(&sub, &value)) <= 0)
-				break;
 			dump(c, indent, &sub, value, len);
 		}
 		indent -= c->indent;

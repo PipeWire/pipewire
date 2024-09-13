@@ -286,17 +286,14 @@ static int do_discover(struct adp *adp, const char *args, FILE *out)
 	struct spa_json it[1];
 	char key[128];
 	uint64_t entity_id = 0ULL;
+	int len;
+	const char *value;
 
 	if (spa_json_begin_object(&it[0], args, strlen(args)) <= 0)
 		return -EINVAL;
 
-	while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
-		int len;
-		const char *value;
+	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &value)) > 0) {
 		uint64_t id_val;
-
-		if ((len = spa_json_next(&it[0], &value)) <= 0)
-			break;
 
 		if (spa_json_is_null(value, len))
 			continue;

@@ -87,25 +87,23 @@ static int do_match(const char *rules, struct spa_dict *dict, uint32_t *no_featu
 
 	while (spa_json_enter_object(&rules_arr, &it[0]) > 0) {
 		char key[256];
-		int match = true;
+		int match = true, len;
 		uint32_t no_features_cur = 0;
+		const char *value;
 
-		while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
+		while ((len = spa_json_object_next(&it[0], key, sizeof(key), &value)) > 0) {
 			char val[4096];
-			const char *str, *value;
-			int len;
+			const char *str;
 			bool success = false;
 
 			if (spa_streq(key, "no-features")) {
-				if (spa_json_enter_array(&it[0], &it[1]) > 0) {
+				if (spa_json_is_array(value, len) > 0) {
+					spa_json_enter(&it[0], &it[1]);
 					while (spa_json_get_string(&it[1], val, sizeof(val)) > 0)
 						no_features_cur |= parse_feature(val);
 				}
 				continue;
 			}
-
-			if ((len = spa_json_next(&it[0], &value)) <= 0)
-				break;
 
 			if (spa_json_is_null(value, len)) {
 				value = NULL;
@@ -161,17 +159,13 @@ static void load_quirks(struct spa_bt_quirks *this, const char *str, size_t len)
 	struct spa_json rules;
 	char key[1024];
 	struct spa_error_location loc;
+	int sz;
+	const char *value;
 
 	if (spa_json_enter_object(&data, &rules) <= 0)
 		spa_json_init(&rules, str, len);
 
-	while (spa_json_get_string(&rules, key, sizeof(key)) > 0) {
-		int sz;
-		const char *value;
-
-		if ((sz = spa_json_next(&rules, &value)) <= 0)
-			break;
-
+	while ((sz = spa_json_object_next(&rules, key, sizeof(key), &value)) > 0) {
 		if (!spa_json_is_container(value, sz))
 			continue;
 

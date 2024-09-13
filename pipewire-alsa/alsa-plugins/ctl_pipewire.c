@@ -1023,20 +1023,15 @@ static int json_object_find(const char *obj, const char *key, char *value, size_
 {
 	struct spa_json it[1];
 	const char *v;
-	char k[128];
+	int l, kl = strlen(key) + 3;
+	char k[kl];
 
 	if (spa_json_begin_object(&it[0], obj, strlen(obj)) <= 0)
 		return -EINVAL;
 
-	while (spa_json_get_string(&it[0], k, sizeof(k)) > 0) {
-		if (spa_streq(k, key)) {
-			if (spa_json_get_string(&it[1], value, len) <= 0)
-				continue;
-			return 0;
-		} else {
-			if (spa_json_next(&it[1], &v) <= 0)
-				break;
-		}
+	while ((l = spa_json_object_next(&it[0], k, kl, &v)) > 0) {
+		if (spa_streq(k, key))
+			return spa_json_parse_stringn(v, l, value, len);
 	}
 	return -ENOENT;
 }

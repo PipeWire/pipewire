@@ -185,6 +185,7 @@ static int do_extension_stream_restore_read(struct module *module, struct client
 		struct volume vol = VOLUME_INIT;
 		struct channel_map map = CHANNEL_MAP_INIT;
 		float volume = 0.0f;
+		int len;
 
 		if (key_to_name(item->key, name, sizeof(name)) < 0)
 			continue;
@@ -194,29 +195,31 @@ static int do_extension_stream_restore_read(struct module *module, struct client
 		if (spa_json_begin_object(&it[0], item->value, strlen(item->value)) <= 0)
 			continue;
 
-		while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
+		while ((len = spa_json_object_next(&it[0], key, sizeof(key), &value)) > 0) {
 			if (spa_streq(key, "volume")) {
-				if (spa_json_get_float(&it[0], &volume) <= 0)
+				if (spa_json_parse_float(value, len, &volume) <= 0)
 					continue;
 			}
 			else if (spa_streq(key, "mute")) {
-				if (spa_json_get_bool(&it[0], &mute) <= 0)
+				if (spa_json_parse_bool(value, len, &mute) <= 0)
 					continue;
 			}
 			else if (spa_streq(key, "volumes")) {
 				vol = VOLUME_INIT;
-				if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+				if (!spa_json_is_array(value, len))
 					continue;
 
+				spa_json_enter(&it[0], &it[1]);
 				for (vol.channels = 0; vol.channels < CHANNELS_MAX; vol.channels++) {
 					if (spa_json_get_float(&it[1], &vol.values[vol.channels]) <= 0)
 						break;
 				}
 			}
 			else if (spa_streq(key, "channels")) {
-				if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+				if (!spa_json_is_array(value, len))
 					continue;
 
+				spa_json_enter(&it[0], &it[1]);
 				for (map.channels = 0; map.channels < CHANNELS_MAX; map.channels++) {
 					char chname[16];
 					if (spa_json_get_string(&it[1], chname, sizeof(chname)) <= 0)
@@ -225,11 +228,9 @@ static int do_extension_stream_restore_read(struct module *module, struct client
 				}
 			}
 			else if (spa_streq(key, "target-node")) {
-				if (spa_json_get_string(&it[0], device_name, sizeof(device_name)) <= 0)
+				if (spa_json_parse_stringn(value, len, device_name, sizeof(device_name)) <= 0)
 					continue;
 			}
-			else if (spa_json_next(&it[0], &value) <= 0)
-				break;
 		}
 		message_put(reply,
 			TAG_STRING, name,

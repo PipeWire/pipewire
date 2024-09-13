@@ -80,14 +80,10 @@ static int parse_cmd(void *user_data, const char *location,
 
 	while (spa_json_enter_object(&it[0], &it[1]) > 0) {
 		char *cmd = NULL, *args = NULL, *flags = NULL;
+		const char *val;
+		int len;
 
-		while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
-			const char *val;
-			int len;
-
-			if ((len = spa_json_next(&it[1], &val)) <= 0)
-				break;
-
+		while ((len = spa_json_object_next(&it[1], key, sizeof(key), &val)) > 0) {
 			if (spa_streq(key, "cmd")) {
 				cmd = (char*)val;
 				spa_json_parse_stringn(val, len, cmd, len+1);
@@ -99,6 +95,8 @@ static int parse_cmd(void *user_data, const char *location,
 					len = spa_json_container_len(&it[1], val, len);
 				flags = (char*)val;
 				spa_json_parse_stringn(val, len, flags, len+1);
+			} else {
+				pw_log_warn("unknown pulse.cmd key %s", key);
 			}
 		}
 		if (cmd != NULL)
@@ -106,7 +104,6 @@ static int parse_cmd(void *user_data, const char *location,
 		if (res < 0)
 			break;
 	}
-
 	return res;
 }
 

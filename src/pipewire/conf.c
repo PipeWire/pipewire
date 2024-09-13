@@ -640,15 +640,9 @@ static bool find_match(struct spa_json *arr, const struct spa_dict *props, bool 
 		int match = 0, fail = 0;
 		int len;
 
-		while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
+		while ((len = spa_json_object_next(&it[0], key, sizeof(key), &value)) > 0) {
 			bool success = false, is_null, reg = false, parse_string = true;
 			int skip = 0;
-
-			if ((len = spa_json_next(&it[0], &value)) <= 0) {
-				pw_log_warn("malformed match rule: key '%s' has "
-						"no value in '%.*s'", key, az, as);
-				break;
-			}
 
 			/* first decode a string, when there was a string, we assume it
 			 * can not be null but the "null" string, unless there is a modifier,
@@ -765,17 +759,10 @@ static int parse_modules(void *user_data, const char *location,
 	while ((r = spa_json_enter_object(&it[0], &it[1])) > 0) {
 		char *name = NULL, *args = NULL, *flags = NULL;
 		bool have_match = true;
+		const char *val;
+		int l;
 
-		while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
-			const char *val;
-			int l;
-
-			if ((l = spa_json_next(&it[1], &val)) <= 0) {
-				pw_log_warn("malformed module: key '%s' has no "
-						"value in '%.*s'", key, (int)len, str);
-				break;
-			}
-
+		while ((l = spa_json_object_next(&it[1], key, sizeof(key), &val)) > 0) {
 			if (spa_streq(key, "name")) {
 				name = (char*)val;
 				spa_json_parse_stringn(val, l, name, l+1);
@@ -873,17 +860,10 @@ static int parse_objects(void *user_data, const char *location,
 	while ((r = spa_json_enter_object(&it[0], &it[1])) > 0) {
 		char *factory = NULL, *args = NULL, *flags = NULL;
 		bool have_match = true;
+		const char *val;
+		int l;
 
-		while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
-			const char *val;
-			int l;
-
-			if ((l = spa_json_next(&it[1], &val)) <= 0) {
-				pw_log_warn("malformed object: key '%s' has no "
-						"value in '%.*s'", key, (int)len, str);
-				break;
-			}
-
+		while ((l = spa_json_object_next(&it[1], key, sizeof(key), &val)) > 0) {
 			if (spa_streq(key, "factory")) {
 				factory = (char*)val;
 				spa_json_parse_stringn(val, l, factory, l+1);
@@ -1056,20 +1036,11 @@ static int parse_exec(void *user_data, const char *location,
 
 	while ((r = spa_json_enter_object(&it[0], &it[1])) > 0) {
 		char *path = NULL;
-		const char *args_val = "[]";
-		int args_len = 2;
+		const char *args_val = "[]", *val;
+		int args_len = 2, l;
 		bool have_match = true;
 
-		while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
-			const char *val;
-			int l;
-
-			if ((l = spa_json_next(&it[1], &val)) <= 0) {
-				pw_log_warn("malformed exec: key '%s' has no "
-						"value in '%.*s'", key, (int)len, str);
-				break;
-			}
-
+		while ((l = spa_json_object_next(&it[1], key, sizeof(key), &val)) > 0) {
 			if (spa_streq(key, "path")) {
 				path = (char*)val;
 				spa_json_parse_stringn(val, l, path, l+1);
@@ -1314,31 +1285,30 @@ int pw_conf_match_rules(const char *str, size_t len, const char *location,
 	while ((r = spa_json_enter_object(&it[0], &it[1])) > 0) {
 		char key[64];
 		bool have_match = false, have_actions = false;
+		int res, l;
 
-		while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+		while ((l = spa_json_object_next(&it[1], key, sizeof(key), &val)) > 0) {
 			if (spa_streq(key, "matches")) {
-				if (spa_json_enter_array(&it[1], &it[2]) < 0) {
+				if (!spa_json_is_array(val, l)) {
 					pw_log_warn("expected array as matches in '%.*s'",
 							(int)len, str);
 					break;
 				}
 
+				spa_json_enter(&it[1], &it[2]);
 				have_match = find_match(&it[2], props, false);
 			}
 			else if (spa_streq(key, "actions")) {
-				if (spa_json_enter_object(&it[1], &actions) > 0)
-					have_actions = true;
-				else
+				if (!spa_json_is_object(val, l)) {
 					pw_log_warn("expected object as match actions in '%.*s'",
 							(int)len, str);
+				} else {
+					have_actions = true;
+					spa_json_enter(&it[1], &actions);
+				}
 			}
 			else {
 				pw_log_warn("unknown match key '%s'", key);
-				if (spa_json_next(&it[1], &val) <= 0) {
-					pw_log_warn("malformed match rule: key '%s' has "
-							"no value in '%.*s'", key, (int)len, str);
-					break;
-				}
 			}
 		}
 		if (!have_match)
@@ -1348,15 +1318,8 @@ int pw_conf_match_rules(const char *str, size_t len, const char *location,
 			continue;
 		}
 
-		while (spa_json_get_string(&actions, key, sizeof(key)) > 0) {
-			int res, len;
+		while ((len = spa_json_object_next(&actions, key, sizeof(key), &val)) > 0) {
 			pw_log_debug("action %s", key);
-
-			if ((len = spa_json_next(&actions, &val)) <= 0) {
-				pw_log_warn("malformed action: key '%s' has no value in '%.*s'",
-						key, (int)len, str);
-				break;
-			}
 
 			if (spa_json_is_container(val, len))
 				len = spa_json_container_len(&actions, val, len);

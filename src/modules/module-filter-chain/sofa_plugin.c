@@ -40,6 +40,7 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 	const char *val;
 	char key[256];
 	char filename[PATH_MAX] = "";
+	int len;
 
 	errno = EINVAL;
 	if (config == NULL) {
@@ -58,30 +59,28 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 		return NULL;
 	}
 
-	while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
+	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
 		if (spa_streq(key, "blocksize")) {
-			if (spa_json_get_int(&it[0], &impl->blocksize) <= 0) {
+			if (spa_json_parse_int(val, len, &impl->blocksize) <= 0) {
 				pw_log_error("spatializer:blocksize requires a number");
 				errno = EINVAL;
 				goto error;
 			}
 		}
 		else if (spa_streq(key, "tailsize")) {
-			if (spa_json_get_int(&it[0], &impl->tailsize) <= 0) {
+			if (spa_json_parse_int(val, len, &impl->tailsize) <= 0) {
 				pw_log_error("spatializer:tailsize requires a number");
 				errno = EINVAL;
 				goto error;
 			}
 		}
 		else if (spa_streq(key, "filename")) {
-			if (spa_json_get_string(&it[0], filename, sizeof(filename)) <= 0) {
+			if (spa_json_parse_stringn(val, len, filename, sizeof(filename)) <= 0) {
 				pw_log_error("spatializer:filename requires a string");
 				errno = EINVAL;
 				goto error;
 			}
 		}
-		else if (spa_json_next(&it[0], &val) < 0)
-			break;
 	}
 	if (!filename[0]) {
 		pw_log_error("spatializer:filename was not given");

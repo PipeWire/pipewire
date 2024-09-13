@@ -1825,20 +1825,21 @@ static int do_auto_port_config(struct impl *this, const char *str)
 #define POSITION_PRESERVE 0
 #define POSITION_AUX 1
 #define POSITION_UNKNOWN 2
-	int res, position = POSITION_PRESERVE;
+	int l, res, position = POSITION_PRESERVE;
 	struct spa_pod *param;
 	bool have_format = false, monitor = false, control = false;
 	struct spa_audio_info format = { 0, };
 	enum spa_param_port_config_mode mode = SPA_PARAM_PORT_CONFIG_MODE_none;
 	struct spa_json it[1];
 	char key[1024], val[256];
+	const char *v;
 
 	if (spa_json_begin_object(&it[0], str, strlen(str)) <= 0)
 		return -EINVAL;
 
-	while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
-		if (spa_json_get_string(&it[0], val, sizeof(val)) <= 0)
-			break;
+	while ((l = spa_json_object_next(&it[0], key, sizeof(key), &v)) > 0) {
+		if (spa_json_parse_stringn(v, l, val, sizeof(val)) <= 0)
+			continue;
 
 		if (spa_streq(key, "mode")) {
 			mode = spa_debug_type_find_type_short(spa_type_param_port_config_mode, val);

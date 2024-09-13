@@ -42,10 +42,8 @@ static inline int spa_json_to_pod_part(struct spa_pod_builder *b, uint32_t flags
 		spa_pod_builder_push_object(b, &f[0], info->parent, id);
 
 		spa_json_enter(iter, &it[0]);
-		while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
+		while ((l = spa_json_object_next(&it[0], key, sizeof(key), &v)) > 0) {
 			const struct spa_type_info *pi;
-			if ((l = spa_json_next(&it[0], &v)) <= 0)
-				break;
 			if ((pi = spa_debug_type_find_short(ti->values, key)) != NULL)
 				type = pi->type;
 			else if (!spa_atou32(key, &type, 0))

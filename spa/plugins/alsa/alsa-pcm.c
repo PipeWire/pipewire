@@ -968,16 +968,15 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 		} else if (spa_streq(k, "clock.quantum-limit")) {
 			spa_atou32(s, &state->quantum_limit, 0);
 		} else if (spa_streq(k, SPA_KEY_API_ALSA_BIND_CTLS)) {
-			struct spa_json it[2];
+			struct spa_json it[1];
 			char v[256];
 			unsigned int i = 0;
 
 			/* Read a list of ALSA control names to bind as params */
-			spa_json_init(&it[0], s, strlen(s));
-			if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-				spa_json_init(&it[1], s, strlen(s));
+			if (spa_json_begin_array_relax(&it[0], s, strlen(s)) <= 0)
+				continue;
 
-			while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
+			while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
 					i < SPA_N_ELEMENTS(state->bound_ctls)) {
 				snprintf(state->bound_ctls[i].name,
 						sizeof(state->bound_ctls[i].name), "%s", v);

@@ -1416,15 +1416,14 @@ static uint32_t channel_from_name(const char *name)
 
 static void parse_devices(struct impl *impl, const char *val, size_t len)
 {
-	struct spa_json it[2];
+	struct spa_json it[1];
 	char v[FFADO_MAX_SPECSTRING_LENGTH];
 
-	spa_json_init(&it[0], val, len);
-        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-                spa_json_init(&it[1], val, len);
+        if (spa_json_begin_array_relax(&it[0], val, len) <= 0)
+		return;
 
 	impl->n_devices = 0;
-	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
+	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
 	    impl->n_devices < FFADO_MAX_SPECSTRINGS) {
 		impl->devices[impl->n_devices++] = strdup(v);
 	}
@@ -1435,12 +1434,11 @@ static void parse_position(struct spa_audio_info_raw *info, const char *val, siz
 	struct spa_json it[2];
 	char v[256];
 
-	spa_json_init(&it[0], val, len);
-        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-                spa_json_init(&it[1], val, len);
+        if (spa_json_begin_array_relax(&it[0], val, len) <= 0)
+		return;
 
 	info->channels = 0;
-	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
+	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
 	    info->channels < SPA_AUDIO_MAX_CHANNELS) {
 		info->position[info->channels++] = channel_from_name(v);
 	}

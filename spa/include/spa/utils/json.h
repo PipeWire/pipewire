@@ -362,23 +362,37 @@ static inline int spa_json_begin(struct spa_json * iter, const char *data, size_
 	return spa_json_next(iter, val);
 }
 
+static inline int spa_json_is_container(const char *val, int len)
+{
+	return len > 0 && (*val == '{'  || *val == '[');
+}
+
 static inline int spa_json_enter_container(struct spa_json *iter, struct spa_json *sub, char type)
 {
 	const char *value;
 	int len;
 	if ((len = spa_json_next(iter, &value)) <= 0)
 		return len;
+	if (!spa_json_is_container(value, len))
+		return -EPROTO;
 	if (*value != type)
-		return -1;
+		return -EINVAL;
 	spa_json_enter(iter, sub);
 	return 1;
 }
 
-static inline int spa_json_is_container(const char *val, int len)
+static inline int spa_json_begin_container(struct spa_json * iter,
+		const char *data, size_t size, char type, bool relax)
 {
-	return len > 0 && (*val == '{'  || *val == '[');
+	int res;
+	spa_json_init(iter, data, size);
+	res = spa_json_enter_container(iter, iter, type);
+	if (res == -EPROTO && relax)
+		spa_json_init(iter, data, size);
+	else if (res <= 0)
+		return res;
+	return 1;
 }
-
 /**
  * Return length of container at current position, starting at \a value.
  *
@@ -405,6 +419,14 @@ static inline int spa_json_enter_object(struct spa_json *iter, struct spa_json *
 {
 	return spa_json_enter_container(iter, sub, '{');
 }
+static inline int spa_json_begin_object_relax(struct spa_json * iter, const char *data, size_t size)
+{
+	return spa_json_begin_container(iter, data, size, '{', true);
+}
+static inline int spa_json_begin_object(struct spa_json * iter, const char *data, size_t size)
+{
+	return spa_json_begin_container(iter, data, size, '{', false);
+}
 
 /* array */
 static inline bool spa_json_is_array(const char *val, int len)
@@ -414,6 +436,14 @@ static inline bool spa_json_is_array(const char *val, int len)
 static inline int spa_json_enter_array(struct spa_json *iter, struct spa_json *sub)
 {
 	return spa_json_enter_container(iter, sub, '[');
+}
+static inline int spa_json_begin_array_relax(struct spa_json * iter, const char *data, size_t size)
+{
+	return spa_json_begin_container(iter, data, size, '[', true);
+}
+static inline int spa_json_begin_array(struct spa_json * iter, const char *data, size_t size)
+{
+	return spa_json_begin_container(iter, data, size, '[', false);
 }
 
 /* null */

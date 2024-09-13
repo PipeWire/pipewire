@@ -278,7 +278,7 @@ static void *bq_instantiate(const struct fc_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct builtin *impl;
-	struct spa_json it[4];
+	struct spa_json it[3];
 	const char *val;
 	char key[256];
 	uint32_t best_rate = 0;
@@ -298,69 +298,68 @@ static void *bq_instantiate(const struct fc_descriptor * Descriptor,
 		goto error;
 	}
 
-	spa_json_init(&it[0], config, strlen(config));
-	if (spa_json_enter_object(&it[0], &it[1]) <= 0) {
+	if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
 		pw_log_error("biquads:config section must be an object");
 		goto error;
 	}
 
-	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+	while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
 		if (spa_streq(key, "coefficients")) {
-			if (spa_json_enter_array(&it[1], &it[2]) <= 0) {
+			if (spa_json_enter_array(&it[0], &it[1]) <= 0) {
 				pw_log_error("biquads:coefficients require an array");
 				goto error;
 			}
-			while (spa_json_enter_object(&it[2], &it[3]) > 0) {
+			while (spa_json_enter_object(&it[1], &it[2]) > 0) {
 				int32_t rate = 0;
 				float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f;
 				float a0 = 1.0f, a1 = 0.0f, a2 = 0.0f;
 
-				while (spa_json_get_string(&it[3], key, sizeof(key)) > 0) {
+				while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
 					if (spa_streq(key, "rate")) {
-						if (spa_json_get_int(&it[3], &rate) <= 0) {
+						if (spa_json_get_int(&it[2], &rate) <= 0) {
 							pw_log_error("biquads:rate requires a number");
 							goto error;
 						}
 					}
 					else if (spa_streq(key, "b0")) {
-						if (spa_json_get_float(&it[3], &b0) <= 0) {
+						if (spa_json_get_float(&it[2], &b0) <= 0) {
 							pw_log_error("biquads:b0 requires a float");
 							goto error;
 						}
 					}
 					else if (spa_streq(key, "b1")) {
-						if (spa_json_get_float(&it[3], &b1) <= 0) {
+						if (spa_json_get_float(&it[2], &b1) <= 0) {
 							pw_log_error("biquads:b1 requires a float");
 							goto error;
 						}
 					}
 					else if (spa_streq(key, "b2")) {
-						if (spa_json_get_float(&it[3], &b2) <= 0) {
+						if (spa_json_get_float(&it[2], &b2) <= 0) {
 							pw_log_error("biquads:b2 requires a float");
 							goto error;
 						}
 					}
 					else if (spa_streq(key, "a0")) {
-						if (spa_json_get_float(&it[3], &a0) <= 0) {
+						if (spa_json_get_float(&it[2], &a0) <= 0) {
 							pw_log_error("biquads:a0 requires a float");
 							goto error;
 						}
 					}
 					else if (spa_streq(key, "a1")) {
-						if (spa_json_get_float(&it[3], &a1) <= 0) {
+						if (spa_json_get_float(&it[2], &a1) <= 0) {
 							pw_log_error("biquads:a1 requires a float");
 							goto error;
 						}
 					}
 					else if (spa_streq(key, "a2")) {
-						if (spa_json_get_float(&it[3], &a2) <= 0) {
+						if (spa_json_get_float(&it[2], &a2) <= 0) {
 							pw_log_error("biquads:a0 requires a float");
 							goto error;
 						}
 					}
 					else {
 						pw_log_warn("biquads: ignoring coefficients key: '%s'", key);
-						if (spa_json_next(&it[3], &val) < 0)
+						if (spa_json_next(&it[2], &val) < 0)
 							break;
 					}
 				}
@@ -373,7 +372,7 @@ static void *bq_instantiate(const struct fc_descriptor * Descriptor,
 		}
 		else {
 			pw_log_warn("biquads: ignoring config key: '%s'", key);
-			if (spa_json_next(&it[1], &val) < 0)
+			if (spa_json_next(&it[0], &val) < 0)
 				break;
 		}
 	}
@@ -865,7 +864,7 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	float *samples;
 	int offset = 0, length = 0, channel = index, n_samples = 0, len;
 	uint32_t i = 0;
-	struct spa_json it[3];
+	struct spa_json it[2];
 	const char *val;
 	char key[256], v[256];
 	char *filenames[MAX_RATES] = { 0 };
@@ -881,45 +880,44 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 		return NULL;
 	}
 
-	spa_json_init(&it[0], config, strlen(config));
-	if (spa_json_enter_object(&it[0], &it[1]) <= 0) {
+	if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
 		pw_log_error("convolver:config must be an object");
 		return NULL;
 	}
 
-	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+	while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
 		if (spa_streq(key, "blocksize")) {
-			if (spa_json_get_int(&it[1], &blocksize) <= 0) {
+			if (spa_json_get_int(&it[0], &blocksize) <= 0) {
 				pw_log_error("convolver:blocksize requires a number");
 				return NULL;
 			}
 		}
 		else if (spa_streq(key, "tailsize")) {
-			if (spa_json_get_int(&it[1], &tailsize) <= 0) {
+			if (spa_json_get_int(&it[0], &tailsize) <= 0) {
 				pw_log_error("convolver:tailsize requires a number");
 				return NULL;
 			}
 		}
 		else if (spa_streq(key, "gain")) {
-			if (spa_json_get_float(&it[1], &gain) <= 0) {
+			if (spa_json_get_float(&it[0], &gain) <= 0) {
 				pw_log_error("convolver:gain requires a number");
 				return NULL;
 			}
 		}
 		else if (spa_streq(key, "delay")) {
-			if (spa_json_get_int(&it[1], &delay) <= 0) {
+			if (spa_json_get_int(&it[0], &delay) <= 0) {
 				pw_log_error("convolver:delay requires a number");
 				return NULL;
 			}
 		}
 		else if (spa_streq(key, "filename")) {
-			if ((len = spa_json_next(&it[1], &val)) <= 0) {
+			if ((len = spa_json_next(&it[0], &val)) <= 0) {
 				pw_log_error("convolver:filename requires a string or an array");
 				return NULL;
 			}
 			if (spa_json_is_array(val, len)) {
-				spa_json_enter(&it[1], &it[2]);
-				while (spa_json_get_string(&it[2], v, sizeof(v)) > 0 &&
+				spa_json_enter(&it[0], &it[1]);
+				while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
 					i < SPA_N_ELEMENTS(filenames)) {
 						filenames[i] = strdup(v);
 						i++;
@@ -933,32 +931,32 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 			}
 		}
 		else if (spa_streq(key, "offset")) {
-			if (spa_json_get_int(&it[1], &offset) <= 0) {
+			if (spa_json_get_int(&it[0], &offset) <= 0) {
 				pw_log_error("convolver:offset requires a number");
 				return NULL;
 			}
 		}
 		else if (spa_streq(key, "length")) {
-			if (spa_json_get_int(&it[1], &length) <= 0) {
+			if (spa_json_get_int(&it[0], &length) <= 0) {
 				pw_log_error("convolver:length requires a number");
 				return NULL;
 			}
 		}
 		else if (spa_streq(key, "channel")) {
-			if (spa_json_get_int(&it[1], &channel) <= 0) {
+			if (spa_json_get_int(&it[0], &channel) <= 0) {
 				pw_log_error("convolver:channel requires a number");
 				return NULL;
 			}
 		}
 		else if (spa_streq(key, "resample_quality")) {
-			if (spa_json_get_int(&it[1], &resample_quality) <= 0) {
+			if (spa_json_get_int(&it[0], &resample_quality) <= 0) {
 				pw_log_error("convolver:resample_quality requires a number");
 				return NULL;
 			}
 		}
 		else {
 			pw_log_warn("convolver: ignoring config key: '%s'", key);
-			if (spa_json_next(&it[1], &val) < 0)
+			if (spa_json_next(&it[0], &val) < 0)
 				break;
 		}
 	}
@@ -1097,7 +1095,7 @@ static void *delay_instantiate(const struct fc_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct delay_impl *impl;
-	struct spa_json it[2];
+	struct spa_json it[1];
 	const char *val;
 	char key[256];
 	float max_delay = 1.0f;
@@ -1108,21 +1106,20 @@ static void *delay_instantiate(const struct fc_descriptor * Descriptor,
 		return NULL;
 	}
 
-	spa_json_init(&it[0], config, strlen(config));
-	if (spa_json_enter_object(&it[0], &it[1]) <= 0) {
+	if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
 		pw_log_error("delay:config must be an object");
 		return NULL;
 	}
 
-	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+	while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
 		if (spa_streq(key, "max-delay")) {
-			if (spa_json_get_float(&it[1], &max_delay) <= 0) {
+			if (spa_json_get_float(&it[0], &max_delay) <= 0) {
 				pw_log_error("delay:max-delay requires a number");
 				return NULL;
 			}
 		} else {
 			pw_log_warn("delay: ignoring config key: '%s'", key);
-			if (spa_json_next(&it[1], &val) < 0)
+			if (spa_json_next(&it[0], &val) < 0)
 				break;
 		}
 	}

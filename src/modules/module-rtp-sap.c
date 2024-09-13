@@ -965,19 +965,16 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 	sess->ts_refclk_ptp = pw_properties_get_bool(props, "rtp.fetch-ts-refclk", false);
 	if ((str = pw_properties_get(props, PW_KEY_NODE_CHANNELNAMES)) != NULL) {
 		struct spa_strbuf buf;
+		struct spa_json it[1];
+		char v[256];
+		int count = 0;
+
 		spa_strbuf_init(&buf, sdp->channelmap, sizeof(sdp->channelmap));
 
-		struct spa_json it[2];
-		char v[256];
-
-		spa_json_init(&it[0], str, strlen(str));
-		if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-			spa_json_init(&it[1], str, strlen(str));
-
-		if (spa_json_get_string(&it[1], v, sizeof(v)) > 0)
-			spa_strbuf_append(&buf, "%s", v);
-		while (spa_json_get_string(&it[1], v, sizeof(v)) > 0)
-			spa_strbuf_append(&buf, ", %s", v);
+		if (spa_json_begin_array_relax(&it[0], str, strlen(str)) > 0) {
+			while (spa_json_get_string(&it[0], v, sizeof(v)) > 0)
+				spa_strbuf_append(&buf, "%s%s", count++ > 0 ? ", " : "", v);
+		}
 	}
 
 	pw_log_info("created new session for node:%u", node->id);
@@ -1799,30 +1796,24 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct spa_strbuf buf;
 	if ((str = pw_properties_get(props, "sap.preamble-extra")) != NULL) {
 		spa_strbuf_init(&buf, buffer, sizeof(buffer));
-		struct spa_json it[2];
+		struct spa_json it[1];
 		char line[256];
 
-		spa_json_init(&it[0], str, strlen(str));
-		if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-			spa_json_init(&it[1], str, strlen(str));
-
-		while (spa_json_get_string(&it[1], line, sizeof(line)) > 0)
-			spa_strbuf_append(&buf, "%s\n", line);
-
+		if (spa_json_begin_array_relax(&it[0], str, strlen(str)) > 0) {
+			while (spa_json_get_string(&it[0], line, sizeof(line)) > 0)
+				spa_strbuf_append(&buf, "%s\n", line);
+		}
 		impl->extra_attrs_preamble = strdup(buffer);
 	}
 	if ((str = pw_properties_get(props, "sap.end-extra")) != NULL) {
 		spa_strbuf_init(&buf, buffer, sizeof(buffer));
-		struct spa_json it[2];
+		struct spa_json it[1];
 		char line[256];
 
-		spa_json_init(&it[0], str, strlen(str));
-		if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-			spa_json_init(&it[1], str, strlen(str));
-
-		while (spa_json_get_string(&it[1], line, sizeof(line)) > 0)
-			spa_strbuf_append(&buf, "%s\n", line);
-
+		if (spa_json_begin_array_relax(&it[0], str, strlen(str)) > 0) {
+			while (spa_json_get_string(&it[0], line, sizeof(line)) > 0)
+				spa_strbuf_append(&buf, "%s\n", line);
+		}
 		impl->extra_attrs_end = strdup(buffer);
 	}
 

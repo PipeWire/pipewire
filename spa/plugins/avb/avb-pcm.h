@@ -286,15 +286,14 @@ static inline uint32_t spa_avb_channel_from_name(const char *name)
 
 static inline void spa_avb_parse_position(struct channel_map *map, const char *val, size_t len)
 {
-	struct spa_json it[2];
+	struct spa_json it[1];
 	char v[256];
 
-	spa_json_init(&it[0], val, len);
-        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-                spa_json_init(&it[1], val, len);
+        if (spa_json_begin_array_relax(&it[0], val, len) <= 0)
+		return;
 
 	map->channels = 0;
-	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
+	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
 	    map->channels < SPA_AUDIO_MAX_CHANNELS) {
 		map->pos[map->channels++] = spa_avb_channel_from_name(v);
 	}
@@ -302,16 +301,15 @@ static inline void spa_avb_parse_position(struct channel_map *map, const char *v
 
 static inline uint32_t spa_avb_parse_rates(uint32_t *rates, uint32_t max, const char *val, size_t len)
 {
-	struct spa_json it[2];
+	struct spa_json it[1];
 	char v[256];
 	uint32_t count;
 
-	spa_json_init(&it[0], val, len);
-        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-                spa_json_init(&it[1], val, len);
+        if (spa_json_begin_array_relax(&it[0], val, len) <= 0)
+		return 0;
 
 	count = 0;
-	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 && count < max)
+	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 && count < max)
 		rates[count++] = atoi(v);
 	return count;
 }

@@ -36,7 +36,7 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct spatializer_impl *impl;
-	struct spa_json it[2];
+	struct spa_json it[1];
 	const char *val;
 	char key[256];
 	char filename[PATH_MAX] = "";
@@ -47,8 +47,7 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 		return NULL;
 	}
 
-	spa_json_init(&it[0], config, strlen(config));
-	if (spa_json_enter_object(&it[0], &it[1]) <= 0) {
+	if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
 		pw_log_error("spatializer: expected object in config");
 		return NULL;
 	}
@@ -59,29 +58,29 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 		return NULL;
 	}
 
-	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+	while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
 		if (spa_streq(key, "blocksize")) {
-			if (spa_json_get_int(&it[1], &impl->blocksize) <= 0) {
+			if (spa_json_get_int(&it[0], &impl->blocksize) <= 0) {
 				pw_log_error("spatializer:blocksize requires a number");
 				errno = EINVAL;
 				goto error;
 			}
 		}
 		else if (spa_streq(key, "tailsize")) {
-			if (spa_json_get_int(&it[1], &impl->tailsize) <= 0) {
+			if (spa_json_get_int(&it[0], &impl->tailsize) <= 0) {
 				pw_log_error("spatializer:tailsize requires a number");
 				errno = EINVAL;
 				goto error;
 			}
 		}
 		else if (spa_streq(key, "filename")) {
-			if (spa_json_get_string(&it[1], filename, sizeof(filename)) <= 0) {
+			if (spa_json_get_string(&it[0], filename, sizeof(filename)) <= 0) {
 				pw_log_error("spatializer:filename requires a string");
 				errno = EINVAL;
 				goto error;
 			}
 		}
-		else if (spa_json_next(&it[1], &val) < 0)
+		else if (spa_json_next(&it[0], &val) < 0)
 			break;
 	}
 	if (!filename[0]) {

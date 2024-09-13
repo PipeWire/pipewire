@@ -27,15 +27,14 @@ do {									\
 
 static int parse_affinity(const char *affinity, cpu_set_t *set)
 {
-	struct spa_json it[2];
+	struct spa_json it[1];
 	int v;
 
 	CPU_ZERO(set);
-	spa_json_init(&it[0], affinity, strlen(affinity));
-	if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-		spa_json_init(&it[1], affinity, strlen(affinity));
+	if (spa_json_begin_array_relax(&it[0], affinity, strlen(affinity)) <= 0)
+		return 0;
 
-	while (spa_json_get_int(&it[1], &v) > 0) {
+	while (spa_json_get_int(&it[0], &v) > 0) {
 		if (v >= 0 && v < CPU_SETSIZE)
 			CPU_SET(v, set);
         }

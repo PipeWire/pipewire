@@ -204,19 +204,18 @@ static int setup_data_loops(struct impl *impl)
 	lib_name = pw_properties_get(this->properties, "context.data-loop." PW_KEY_LIBRARY_NAME_SYSTEM);
 
 	if ((str = pw_properties_get(this->properties, "context.data-loops")) != NULL) {
-		struct spa_json it[4];
+		struct spa_json it[2];
 		char key[512];
 		int r, len = strlen(str);
 		spa_autofree char *s = strndup(str, len);
 
 		i = 0;
-		spa_json_init(&it[0], s, len);
-		if (spa_json_enter_array(&it[0], &it[1]) < 0) {
+		if (spa_json_begin_array(&it[0], s, len) < 0) {
 			pw_log_error("context.data-loops is not an array in '%s'", str);
 			res = -EINVAL;
 			goto exit;
 		}
-		while ((r = spa_json_enter_object(&it[1], &it[2])) > 0) {
+		while ((r = spa_json_enter_object(&it[0], &it[1])) > 0) {
 			char *props = NULL;
 
 			if (i >= MAX_LOOPS) {
@@ -229,17 +228,17 @@ static int setup_data_loops(struct impl *impl)
 			pw_properties_update(pr, &this->properties->dict);
 			pw_properties_set(pr, PW_KEY_LIBRARY_NAME_SYSTEM, lib_name);
 
-			while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
+			while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 				const char *val;
 				int l;
 
-				if ((l = spa_json_next(&it[2], &val)) <= 0) {
+				if ((l = spa_json_next(&it[1], &val)) <= 0) {
 					pw_log_warn("malformed data-loop: key '%s' has no "
 							"value in '%.*s'", key, (int)len, str);
 					break;
 				}
 				if (spa_json_is_container(val, l))
-					l = spa_json_container_len(&it[2], val, l);
+					l = spa_json_container_len(&it[1], val, l);
 
 				props = (char*)val;
 				spa_json_parse_stringn(val, l, props, l+1);

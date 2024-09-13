@@ -152,7 +152,7 @@ int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
 					    void *data)
 {
 	const char *name;
-	struct spa_json it[2];
+	struct spa_json it[1];
 	char path[PATH_MAX];
 	int res = -EINVAL;
 
@@ -160,12 +160,10 @@ int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
 	if (name == NULL)
 		return -EINVAL;
 
-	spa_json_init(&it[0], name, strlen(name));
-
-	if (spa_json_enter_array(&it[0], &it[1]) < 0)
+	if (spa_json_begin_array(&it[0], name, strlen(name)) <= 0)
 		return try_connect_name(client, name, done_callback, data);
 
-	while (spa_json_get_string(&it[1], path, sizeof(path)) > 0) {
+	while (spa_json_get_string(&it[0], path, sizeof(path)) > 0) {
 		res = try_connect_name(client, path, done_callback, data);
 		if (res < 0)
 			continue;

@@ -1276,7 +1276,7 @@ static int get_data_from_json(struct data *data, const char *json_path)
 	int fd, len;
 	void *json;
 	struct stat sbuf;
-	struct spa_json it[2];
+	struct spa_json it[1];
 	const char *value;
 	struct spa_error_location loc;
 
@@ -1296,18 +1296,16 @@ static int get_data_from_json(struct data *data, const char *json_path)
 	}
 
 	close(fd);
-	spa_json_init(&it[0], json, sbuf.st_size);
-
-	if (spa_json_enter_array(&it[0], &it[1]) <= 0) {
+	if (spa_json_begin_array(&it[0], json, sbuf.st_size) <= 0) {
 		fprintf(stderr, "expected top-level array in JSON file '%s'\n", json_path);
 		munmap(json, sbuf.st_size);
 		return -1;
 	}
 
-	while ((len = spa_json_next(&it[1], &value)) > 0 && spa_json_is_object(value, len)) {
+	while ((len = spa_json_next(&it[0], &value)) > 0 && spa_json_is_object(value, len)) {
 		struct pw_properties *obj;
 		obj = pw_properties_new(NULL, NULL);
-		len = spa_json_container_len(&it[1], value, len);
+		len = spa_json_container_len(&it[0], value, len);
 		pw_properties_update_string(obj, value, len);
 		handle_json_obj(data, obj);
 		pw_properties_free(obj);

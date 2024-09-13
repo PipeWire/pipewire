@@ -1282,20 +1282,18 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 
 	channel_names = pw_properties_get(nprops, PW_KEY_NODE_CHANNELNAMES);
 	if (channel_names != NULL) {
-		struct spa_json it[2];
+		struct spa_json it[1];
 		char v[256];
                 uint32_t i;
 
-		spa_json_init(&it[0], channel_names, strlen(channel_names));
-		if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-			spa_json_init(&it[1], channel_names, strlen(channel_names));
+		if (spa_json_begin_array_relax(&it[0], channel_names, strlen(channel_names)) > 0) {
+			for (i = 0; i < port->port_id + 1; i++)
+				if (spa_json_get_string(&it[0], v, sizeof(v)) <= 0)
+					break;
 
-		for (i = 0; i < port->port_id + 1; i++)
-			if (spa_json_get_string(&it[1], v, sizeof(v)) <= 0)
-				break;
-
-		if (i == port->port_id + 1 && strlen(v) > 0)
-			snprintf(position, sizeof(position), "%s", v);
+			if (i == port->port_id + 1 && strlen(v) > 0)
+				snprintf(position, sizeof(position), "%s", v);
+		}
 	}
 
 	if (pw_properties_get(port->properties, PW_KEY_PORT_NAME) == NULL) {

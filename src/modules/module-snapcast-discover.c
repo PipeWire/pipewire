@@ -486,14 +486,13 @@ static int snapcast_connect(struct tunnel *t)
 static int add_snapcast_stream(struct impl *impl, struct tunnel *t,
 		struct pw_properties *props, const char *servers)
 {
-	struct spa_json it[2];
+	struct spa_json it[1];
 	char v[256];
 
-	spa_json_init(&it[0], servers, strlen(servers));
-        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-                spa_json_init(&it[1], servers, strlen(servers));
+        if (spa_json_begin_array_relax(&it[0], servers, strlen(servers)) <= 0)
+		return -EINVAL;
 
-	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0) {
+	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0) {
 		t->server_address = strdup(v);
 		snapcast_connect(t);
 		return 0;
@@ -523,15 +522,14 @@ static inline uint32_t channel_from_name(const char *name)
 
 static void parse_position(struct spa_audio_info_raw *info, const char *val, size_t len)
 {
-	struct spa_json it[2];
+	struct spa_json it[1];
 	char v[256];
 
-	spa_json_init(&it[0], val, len);
-        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-                spa_json_init(&it[1], val, len);
+        if (spa_json_begin_array_relax(&it[0], val, len) <= 0)
+		return;
 
 	info->channels = 0;
-	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
+	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
 	    info->channels < SPA_AUDIO_MAX_CHANNELS) {
 		info->position[info->channels++] = channel_from_name(v);
 	}

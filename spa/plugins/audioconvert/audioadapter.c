@@ -1830,15 +1830,14 @@ static int do_auto_port_config(struct impl *this, const char *str)
 	bool have_format = false, monitor = false, control = false;
 	struct spa_audio_info format = { 0, };
 	enum spa_param_port_config_mode mode = SPA_PARAM_PORT_CONFIG_MODE_none;
-	struct spa_json it[2];
+	struct spa_json it[1];
 	char key[1024], val[256];
 
-	spa_json_init(&it[0], str, strlen(str));
-	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+	if (spa_json_begin_object(&it[0], str, strlen(str)) <= 0)
 		return -EINVAL;
 
-	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
-		if (spa_json_get_string(&it[1], val, sizeof(val)) <= 0)
+	while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
+		if (spa_json_get_string(&it[0], val, sizeof(val)) <= 0)
 			break;
 
 		if (spa_streq(key, "mode")) {

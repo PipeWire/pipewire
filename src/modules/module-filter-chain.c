@@ -2714,7 +2714,7 @@ error:
  */
 static int load_graph(struct graph *graph, struct pw_properties *props)
 {
-	struct spa_json it[3];
+	struct spa_json it[2];
 	struct spa_json inputs, outputs, *pinputs = NULL, *poutputs = NULL;
 	struct spa_json cvolumes, pvolumes, *pcvolumes = NULL, *ppvolumes = NULL;
 	struct spa_json nodes, *pnodes = NULL, links, *plinks = NULL;
@@ -2730,57 +2730,56 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 		return -EINVAL;
 	}
 
-	spa_json_init(&it[0], json, strlen(json));
-        if (spa_json_enter_object(&it[0], &it[1]) <= 0) {
+        if (spa_json_begin_object(&it[0], json, strlen(json)) <= 0) {
 		pw_log_error("filter.graph must be an object");
 		return -EINVAL;
 	}
 
-	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+	while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
 		if (spa_streq("nodes", key)) {
-			if (spa_json_enter_array(&it[1], &nodes) <= 0) {
+			if (spa_json_enter_array(&it[0], &nodes) <= 0) {
 				pw_log_error("nodes expects an array");
 				return -EINVAL;
 			}
 			pnodes = &nodes;
 		}
 		else if (spa_streq("links", key)) {
-			if (spa_json_enter_array(&it[1], &links) <= 0) {
+			if (spa_json_enter_array(&it[0], &links) <= 0) {
 				pw_log_error("links expects an array");
 				return -EINVAL;
 			}
 			plinks = &links;
 		}
 		else if (spa_streq("inputs", key)) {
-			if (spa_json_enter_array(&it[1], &inputs) <= 0) {
+			if (spa_json_enter_array(&it[0], &inputs) <= 0) {
 				pw_log_error("inputs expects an array");
 				return -EINVAL;
 			}
 			pinputs = &inputs;
 		}
 		else if (spa_streq("outputs", key)) {
-			if (spa_json_enter_array(&it[1], &outputs) <= 0) {
+			if (spa_json_enter_array(&it[0], &outputs) <= 0) {
 				pw_log_error("outputs expects an array");
 				return -EINVAL;
 			}
 			poutputs = &outputs;
 		}
 		else if (spa_streq("capture.volumes", key)) {
-			if (spa_json_enter_array(&it[1], &cvolumes) <= 0) {
+			if (spa_json_enter_array(&it[0], &cvolumes) <= 0) {
 				pw_log_error("capture.volumes expects an array");
 				return -EINVAL;
 			}
 			pcvolumes = &cvolumes;
 		}
 		else if (spa_streq("playback.volumes", key)) {
-			if (spa_json_enter_array(&it[1], &pvolumes) <= 0) {
+			if (spa_json_enter_array(&it[0], &pvolumes) <= 0) {
 				pw_log_error("playback.volumes expects an array");
 				return -EINVAL;
 			}
 			ppvolumes = &pvolumes;
 		} else {
 			pw_log_warn("unexpected graph key '%s'", key);
-			if (spa_json_next(&it[1], &val) < 0)
+			if (spa_json_next(&it[0], &val) < 0)
 				break;
 		}
 	}
@@ -2788,25 +2787,25 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 		pw_log_error("filter.graph is missing a nodes array");
 		return -EINVAL;
 	}
-	while (spa_json_enter_object(pnodes, &it[2]) > 0) {
-		if ((res = load_node(graph, &it[2])) < 0)
+	while (spa_json_enter_object(pnodes, &it[1]) > 0) {
+		if ((res = load_node(graph, &it[1])) < 0)
 			return res;
 	}
 	if (plinks != NULL) {
-		while (spa_json_enter_object(plinks, &it[2]) > 0) {
-			if ((res = parse_link(graph, &it[2])) < 0)
+		while (spa_json_enter_object(plinks, &it[1]) > 0) {
+			if ((res = parse_link(graph, &it[1])) < 0)
 				return res;
 		}
 	}
 	if (pcvolumes != NULL) {
-		while (spa_json_enter_object(pcvolumes, &it[2]) > 0) {
-			if ((res = parse_volume(graph, &it[2], true)) < 0)
+		while (spa_json_enter_object(pcvolumes, &it[1]) > 0) {
+			if ((res = parse_volume(graph, &it[1], true)) < 0)
 				return res;
 		}
 	}
 	if (ppvolumes != NULL) {
-		while (spa_json_enter_object(ppvolumes, &it[2]) > 0) {
-			if ((res = parse_volume(graph, &it[2], false)) < 0)
+		while (spa_json_enter_object(ppvolumes, &it[1]) > 0) {
+			if ((res = parse_volume(graph, &it[1], false)) < 0)
 				return res;
 		}
 	}
@@ -2913,15 +2912,14 @@ static uint32_t channel_from_name(const char *name)
 
 static void parse_position(struct spa_audio_info_raw *info, const char *val, size_t len)
 {
-	struct spa_json it[2];
+	struct spa_json it[1];
 	char v[256];
 
-	spa_json_init(&it[0], val, len);
-        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-                spa_json_init(&it[1], val, len);
+        if (spa_json_begin_array_relax(&it[0], val, len) <= 0)
+		return;
 
 	info->channels = 0;
-	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
+	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
 	    info->channels < SPA_AUDIO_MAX_CHANNELS) {
 		info->position[info->channels++] = channel_from_name(v);
 	}

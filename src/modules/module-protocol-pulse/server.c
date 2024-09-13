@@ -977,29 +977,28 @@ int servers_create_and_start(struct impl *impl, const char *addresses, struct pw
 {
 	int len, res, count = 0, err = 0; /* store the first error to return when no servers could be created */
 	const char *v;
-	struct spa_json it[3];
+	struct spa_json it[2];
 
 	/* update `err` if it hasn't been set to an errno */
 #define UPDATE_ERR(e) do { if (err == 0) err = (e); } while (false)
 
 	/* collect addresses into an array of `struct sockaddr_storage` */
-	spa_json_init(&it[0], addresses, strlen(addresses));
 
 	/* [ <server-spec> ... ] */
-	if (spa_json_enter_array(&it[0], &it[1]) < 0)
+	if (spa_json_begin_array(&it[0], addresses, strlen(addresses)) < 0)
 		return -EINVAL;
 
 	/* a server-spec is either an address or an object */
-	while ((len = spa_json_next(&it[1], &v)) > 0) {
+	while ((len = spa_json_next(&it[0], &v)) > 0) {
 		char addr_str[FORMATTED_SOCKET_ADDR_STRLEN] = { 0 };
 		char key[128], client_access[64] = { 0 };
 		struct sockaddr_storage addrs[2];
 		int i, max_clients = MAX_CLIENTS, listen_backlog = LISTEN_BACKLOG, n_addr;
 
 		if (spa_json_is_object(v, len)) {
-			spa_json_enter(&it[1], &it[2]);
-			while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
-				if ((len = spa_json_next(&it[2], &v)) <= 0)
+			spa_json_enter(&it[0], &it[1]);
+			while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+				if ((len = spa_json_next(&it[1], &v)) <= 0)
 					break;
 
 				if (spa_streq(key, "address")) {

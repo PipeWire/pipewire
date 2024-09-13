@@ -130,7 +130,7 @@ SPA_EXPORT
 char **pw_strv_parse(const char *val, size_t len, int max_tokens, int *n_tokens)
 {
 	struct pw_array arr;
-	struct spa_json it[2];
+	struct spa_json it[1];
 	int n = 0, l, res;
 	const char *value;
 	struct spa_error_location el;
@@ -140,11 +140,10 @@ char **pw_strv_parse(const char *val, size_t len, int max_tokens, int *n_tokens)
 
 	pw_array_init(&arr, sizeof(char*) * 16);
 
-	spa_json_init(&it[0], val, len);
-        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-                spa_json_init(&it[1], val, len);
+        if (spa_json_begin_array_relax(&it[0], val, len) <= 0)
+		return NULL;
 
-	while ((l = spa_json_next(&it[1], &value)) > 0 && n + 1 < max_tokens) {
+	while ((l = spa_json_next(&it[0], &value)) > 0 && n + 1 < max_tokens) {
 		char *s;
 
 		if ((s = malloc(l+1)) == NULL)
@@ -161,7 +160,7 @@ char **pw_strv_parse(const char *val, size_t len, int max_tokens, int *n_tokens)
 	if ((res = pw_array_add_ptr(&arr, NULL)) < 0)
 		goto error;
 done:
-	if ((res = spa_json_get_error(&it[1], val, &el))) {
+	if ((res = spa_json_get_error(&it[0], val, &el))) {
 		spa_debug_log_error_location(pw_log_get(), SPA_LOG_LEVEL_WARN,
 				&el, "error parsing strv: %s", el.reason);
 
@@ -179,7 +178,7 @@ done:
 error_errno:
 	res = -errno;
 error:
-	it[1].state = SPA_JSON_ERROR_FLAG;
+	it[0].state = SPA_JSON_ERROR_FLAG;
 	errno = -res;
 	goto done;
 }

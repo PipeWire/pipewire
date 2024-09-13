@@ -805,15 +805,14 @@ static inline uint32_t channel_from_name(const char *name)
 
 static void parse_position(struct spa_audio_info_raw *info, const char *val, size_t len)
 {
-	struct spa_json it[2];
+	struct spa_json it[1];
 	char v[256];
 
-	spa_json_init(&it[0], val, len);
-        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-                spa_json_init(&it[1], val, len);
+        if (spa_json_begin_array_relax(&it[0], val, len) <= 0)
+		return;
 
 	info->channels = 0;
-	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
+	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
 	    info->channels < SPA_AUDIO_MAX_CHANNELS) {
 		info->position[info->channels++] = channel_from_name(v);
 	}
@@ -890,7 +889,7 @@ static void copy_props(struct impl *impl, const char *key)
 static int parse_params(struct impl *impl)
 {
 	const char *str;
-	struct spa_json it[2];
+	struct spa_json it[1];
 	char value[512];
 
 	pw_properties_fetch_bool(impl->props, "capture", &impl->capture);
@@ -965,9 +964,8 @@ static int parse_params(struct impl *impl)
 	if ((str = pw_properties_get(impl->props, "server.address")) == NULL)
 		str = DEFAULT_SERVER;
 
-        spa_json_init(&it[0], str, strlen(str));
-        if (spa_json_enter_array(&it[0], &it[1]) > 0) {
-                while (spa_json_get_string(&it[1], value, sizeof(value)) > 0) {
+        if (spa_json_begin_array_relax(&it[0], str, strlen(str)) > 0) {
+                while (spa_json_get_string(&it[0], value, sizeof(value)) > 0) {
                         if (create_server(impl, value) == NULL) {
 				pw_log_warn("%p: can't create server for %s: %m",
 					impl, value);

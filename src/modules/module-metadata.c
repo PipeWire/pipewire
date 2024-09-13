@@ -66,21 +66,20 @@ struct factory_data {
  */
 static int fill_metadata(struct pw_metadata *metadata, const char *str)
 {
-	struct spa_json it[3];
+	struct spa_json it[2];
 
-	spa_json_init(&it[0], str, strlen(str));
-	if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+	if (spa_json_begin_array(&it[0], str, strlen(str)) <= 0)
 		return -EINVAL;
 
-	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
+	while (spa_json_enter_object(&it[0], &it[1]) > 0) {
 		char key[256], *k = NULL, *v = NULL, *t = NULL;
 		int id = 0;
 
-		while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
+		while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 			int len;
 			const char *val;
 
-			if ((len = spa_json_next(&it[2], &val)) <= 0)
+			if ((len = spa_json_next(&it[1], &val)) <= 0)
 				return -EINVAL;
 
 			if (spa_streq(key, "id")) {
@@ -94,7 +93,7 @@ static int fill_metadata(struct pw_metadata *metadata, const char *str)
 					spa_json_parse_stringn(val, len, t, len+1);
 			} else if (spa_streq(key, "value")) {
 				if (spa_json_is_container(val, len))
-					len = spa_json_container_len(&it[2], val, len);
+					len = spa_json_container_len(&it[1], val, len);
 				if ((v = malloc(len+1)) != NULL)
 					spa_json_parse_stringn(val, len, v, len+1);
 			}

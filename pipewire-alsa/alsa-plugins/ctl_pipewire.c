@@ -1021,15 +1021,14 @@ static const struct global_info node_info = {
 /** metadata */
 static int json_object_find(const char *obj, const char *key, char *value, size_t len)
 {
-	struct spa_json it[2];
+	struct spa_json it[1];
 	const char *v;
 	char k[128];
 
-	spa_json_init(&it[0], obj, strlen(obj));
-	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+	if (spa_json_begin_object(&it[0], obj, strlen(obj)) <= 0)
 		return -EINVAL;
 
-	while (spa_json_get_string(&it[1], k, sizeof(k)) > 0) {
+	while (spa_json_get_string(&it[0], k, sizeof(k)) > 0) {
 		if (spa_streq(k, key)) {
 			if (spa_json_get_string(&it[1], value, len) <= 0)
 				continue;

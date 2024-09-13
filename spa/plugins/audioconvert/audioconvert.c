@@ -3425,15 +3425,14 @@ static uint32_t channel_from_name(const char *name)
 
 static inline uint32_t parse_position(uint32_t *pos, const char *val, size_t len)
 {
-	struct spa_json it[2];
+	struct spa_json it[1];
 	char v[256];
 	uint32_t i = 0;
 
-	spa_json_init(&it[0], val, len);
-	if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-		spa_json_init(&it[1], val, len);
+	if (spa_json_begin_array_relax(&it[0], val, len) <= 0)
+		return 0;
 
-	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
+	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
 			i < SPA_AUDIO_MAX_CHANNELS) {
 		pos[i++] = channel_from_name(v);
 	}

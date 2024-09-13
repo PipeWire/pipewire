@@ -90,14 +90,13 @@ static bool uint32_array_contains(uint32_t *vals, uint32_t n_vals, uint32_t val)
 static uint32_t parse_uint32_array(const char *str, uint32_t *vals, uint32_t max, uint32_t def)
 {
 	uint32_t count = 0, r;
-	struct spa_json it[2];
+	struct spa_json it[1];
 	char v[256];
 
-	spa_json_init(&it[0], str, strlen(str));
-	if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-		spa_json_init(&it[1], str, strlen(str));
+	if (spa_json_begin_array_relax(&it[0], str, strlen(str)) <= 0)
+		return 0;
 
-	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
+	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
 	    count < max) {
 		if (spa_atou32(v, &r, 0))
 	                vals[count++] = r;

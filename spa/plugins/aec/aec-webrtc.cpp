@@ -70,10 +70,9 @@ static int parse_mic_geometry(struct impl_data *impl, const char *mic_geometry,
 {
 	int res;
 	size_t i;
-	struct spa_json it[2];
+	struct spa_json it[1];
 
-	spa_json_init(&it[0], mic_geometry, strlen(mic_geometry));
-	if (spa_json_enter_array(&it[0], &it[1]) <= 0) {
+	if (spa_json_begin_array(&it[0], mic_geometry, strlen(mic_geometry)) <= 0) {
 		spa_log_error(impl->log, "Error: webrtc.mic-geometry expects an array");
 		return -EINVAL;
 	}
@@ -81,7 +80,7 @@ static int parse_mic_geometry(struct impl_data *impl, const char *mic_geometry,
 	for (i = 0; i < geometry.size(); i++) {
 		float f[3];
 
-		if ((res = parse_point(&it[1], f)) < 0) {
+		if ((res = parse_point(&it[0], f)) < 0) {
 			spa_log_error(impl->log, "Error: can't parse webrtc.mic-geometry points: %d", res);
 			return res;
 		}

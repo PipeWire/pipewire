@@ -1659,7 +1659,7 @@ static int create_servers(struct pw_protocol *this, struct pw_impl_core *core,
 		const struct pw_properties *props, const struct pw_properties *args)
 {
 	const char *sockets = args ? pw_properties_get(args, "sockets") : NULL;
-	struct spa_json it[3];
+	struct spa_json it[2];
 	spa_autoptr(pw_properties) p = pw_properties_copy(props);
 
 	if (sockets == NULL) {
@@ -1681,12 +1681,10 @@ static int create_servers(struct pw_protocol *this, struct pw_impl_core *core,
 		return 0;
 	}
 
-	spa_json_init(&it[0], sockets, strlen(sockets));
-
-	if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+	if (spa_json_begin_array(&it[0], sockets, strlen(sockets)) <= 0)
 		goto error_invalid;
 
-	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
+	while (spa_json_enter_object(&it[0], &it[1]) > 0) {
 		struct socket_info info = {0};
 		char key[256];
 		char name[PATH_MAX];
@@ -1698,11 +1696,11 @@ static int create_servers(struct pw_protocol *this, struct pw_impl_core *core,
 		pw_properties_clear(p);
 		pw_properties_update(p, &props->dict);
 
-		while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
+		while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 			const char *value;
 			int len;
 
-			if ((len = spa_json_next(&it[2], &value)) <= 0)
+			if ((len = spa_json_next(&it[1], &value)) <= 0)
 				goto error_invalid;
 
 			if (spa_streq(key, "name")) {
@@ -1762,7 +1760,7 @@ static int create_servers(struct pw_protocol *this, struct pw_impl_core *core,
 				info.has_mode = true;
 			} else if (spa_streq(key, "props")) {
 				if (spa_json_is_container(value, len))
-	                                len = spa_json_container_len(&it[2], value, len);
+	                                len = spa_json_container_len(&it[1], value, len);
 
 				pw_properties_update_string(p, value, len);
 			}

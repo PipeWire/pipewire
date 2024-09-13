@@ -210,7 +210,7 @@ exit_noupdate:
 static int update_string(struct pw_properties *props, const char *str, size_t size,
 		int *count, struct spa_error_location *loc)
 {
-	struct spa_json it[2];
+	struct spa_json it[1];
 	char key[1024];
 	struct spa_error_location el;
 	bool err;
@@ -220,29 +220,28 @@ static int update_string(struct pw_properties *props, const char *str, size_t si
 	if (props)
 		properties_init(&changes, 16);
 
-	spa_json_init(&it[0], str, size);
-	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
-		spa_json_init(&it[1], str, size);
+	if ((res = spa_json_begin_object_relax(&it[0], str, size)) <= 0)
+		return res;
 
-	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+	while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
 		int len;
 		const char *value;
 		char *val = NULL;
 
-		if ((len = spa_json_next(&it[1], &value)) <= 0)
+		if ((len = spa_json_next(&it[0], &value)) <= 0)
 			break;
 
 		if (spa_json_is_null(value, len))
 			val = NULL;
 		else {
 			if (spa_json_is_container(value, len))
-				len = spa_json_container_len(&it[1], value, len);
+				len = spa_json_container_len(&it[0], value, len);
 			if (len <= 0)
 				break;
 
 			if (props) {
 				if ((val = malloc(len+1)) == NULL) {
-					it[1].state = SPA_JSON_ERROR_FLAG;
+					it[0].state = SPA_JSON_ERROR_FLAG;
 					break;
 				}
 				spa_json_parse_stringn(value, len, val, len+1);
@@ -257,12 +256,12 @@ static int update_string(struct pw_properties *props, const char *str, size_t si
 			}
 			/* item changed or added, apply changes later */
 			if ((errno = -add_item(&changes, key, false, val, true) < 0)) {
-				it[1].state = SPA_JSON_ERROR_FLAG;
+				it[0].state = SPA_JSON_ERROR_FLAG;
 				break;
 			}
 		}
 	}
-	if ((err = spa_json_get_error(&it[1], str, &el))) {
+	if ((err = spa_json_get_error(&it[0], str, &el))) {
 		if (loc == NULL)
 			spa_debug_log_error_location(pw_log_get(), SPA_LOG_LEVEL_WARN,
 					&el, "error parsing more than %d properties: %s",

@@ -452,17 +452,16 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 
 static bool contains_string(const char *arr, const char *str)
 {
-	struct spa_json it[2];
+	struct spa_json it[1];
 	char v[256];
 
 	if (arr == NULL || str == NULL)
 		return false;
 
-	spa_json_init(&it[0], arr, strlen(arr));
-        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-                spa_json_init(&it[1], arr, strlen(arr));
+        if (spa_json_begin_array_relax(&it[0], arr, strlen(arr)) <= 0)
+		return false;
 
-	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0) {
+	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0) {
 		if (spa_streq(v, str))
 			return true;
 	}

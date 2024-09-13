@@ -440,15 +440,14 @@ void channel_map_parse(const char *str, struct channel_map *map)
 
 void channel_map_parse_position(const char *str, struct channel_map *map)
 {
-	struct spa_json it[2];
+	struct spa_json it[1];
 	char v[256];
 
-	spa_json_init(&it[0], str, strlen(str));
-	if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-		spa_json_init(&it[1], str, strlen(str));
+	if (spa_json_begin_array_relax(&it[0], str, strlen(str)) <= 0)
+		return;
 
 	map->channels = 0;
-	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
+	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
 	    map->channels < SPA_AUDIO_MAX_CHANNELS) {
 		map->map[map->channels++] = channel_name2id(v);
 	}

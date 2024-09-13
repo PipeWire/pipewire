@@ -6075,13 +6075,11 @@ impl_get_size(const struct spa_handle_factory *factory,
 
 int spa_bt_profiles_from_json_array(const char *str)
 {
-	struct spa_json it, it_array;
+	struct spa_json it_array;
 	char role_name[256];
 	enum spa_bt_profile profiles = SPA_BT_PROFILE_NULL;
 
-	spa_json_init(&it, str, strlen(str));
-
-	if (spa_json_enter_array(&it, &it_array) <= 0)
+	if (spa_json_begin_array(&it_array, str, strlen(str)) <= 0)
 		return -EINVAL;
 
 	while (spa_json_get_string(&it_array, role_name, sizeof(role_name)) > 0) {
@@ -6144,7 +6142,7 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 	char bcode[BROADCAST_CODE_LEN + 3];
 	int cursor;
 	int big_id = 0;
-	struct spa_json it[4], it_array[4];
+	struct spa_json it[3], it_array[4];
 	struct spa_list big_list = SPA_LIST_INIT(&big_list);
 	struct spa_error_location loc;
 	struct spa_bt_big *big;
@@ -6153,14 +6151,12 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 	if (!(info && (str = spa_dict_lookup(info, "bluez5.bcast_source.config"))))
 		return;
 
-	spa_json_init(&it[0], str, strlen(str));
-
 	/* Verify is an array of BIGS */
-	if (spa_json_enter_array(&it[0], &it_array[0]) <= 0)
+	if (spa_json_begin_array(&it_array[0], str, strlen(str)) <= 0)
 		goto parse_failed;
 
 	/* Iterate on all BIG objects */
-	while (spa_json_enter_object(&it_array[0], &it[1]) > 0) {
+	while (spa_json_enter_object(&it_array[0], &it[0]) > 0) {
 		struct spa_bt_big *big_entry = calloc(1, sizeof(struct spa_bt_big));
 
 		if (!big_entry)
@@ -6171,22 +6167,22 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 		spa_list_append(&big_list, &big_entry->link);
 
 		/* Iterate on all BIG values */
-		while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+		while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
 			if (spa_streq(key, "broadcast_code")) {
-				if (spa_json_get_string(&it[1], bcode, sizeof(bcode)) <= 0)
+				if (spa_json_get_string(&it[0], bcode, sizeof(bcode)) <= 0)
 						goto parse_failed;
 				if (strlen(bcode) > BROADCAST_CODE_LEN)
 					goto parse_failed;
 				memcpy(big_entry->broadcast_code, bcode, strlen(bcode));
 				spa_log_debug(monitor->log, "big_entry->broadcast_code %s", big_entry->broadcast_code);
 			} else if (spa_streq(key, "encryption")) {
-				if (spa_json_get_bool(&it[1], &big_entry->encryption) <= 0)
+				if (spa_json_get_bool(&it[0], &big_entry->encryption) <= 0)
 					goto parse_failed;
 				spa_log_debug(monitor->log, "big_entry->encryption %d", big_entry->encryption);
 			} else if (spa_streq(key, "bis")) {
-				if (spa_json_enter_array(&it[1], &it_array[1]) <= 0)
+				if (spa_json_enter_array(&it[0], &it_array[1]) <= 0)
 					goto parse_failed;
-				while (spa_json_enter_object(&it_array[1], &it[2]) > 0) {
+				while (spa_json_enter_object(&it_array[1], &it[1]) > 0) {
 					/* Iterate on all BIS values */
 					struct spa_bt_bis *bis_entry = calloc(1, sizeof(struct spa_bt_bis));
 
@@ -6196,19 +6192,19 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 					spa_list_init(&bis_entry->metadata_list);
 					spa_list_append(&big_entry->bis_list, &bis_entry->link);
 
-					while (spa_json_get_string(&it[2], bis_key, sizeof(bis_key)) > 0) {
+					while (spa_json_get_string(&it[1], bis_key, sizeof(bis_key)) > 0) {
 						if (spa_streq(bis_key, "qos_preset")) {
-							if (spa_json_get_string(&it[2], bis_entry->qos_preset, sizeof(bis_entry->qos_preset)) <= 0)
+							if (spa_json_get_string(&it[1], bis_entry->qos_preset, sizeof(bis_entry->qos_preset)) <= 0)
 								goto parse_failed;
 							spa_log_debug(monitor->log, "bis_entry->qos_preset %s", bis_entry->qos_preset);
 						} else if (spa_streq(bis_key, "audio_channel_allocation")) {
-							if (spa_json_get_int(&it[2], &bis_entry->channel_allocation) <= 0)
+							if (spa_json_get_int(&it[1], &bis_entry->channel_allocation) <= 0)
 								goto parse_failed;
 							spa_log_debug(monitor->log, "bis_entry->channel_allocation %d", bis_entry->channel_allocation);
 						} else if (spa_streq(bis_key, "metadata")) {
-							if (spa_json_enter_array(&it[2], &it_array[2]) <= 0)
+							if (spa_json_enter_array(&it[1], &it_array[2]) <= 0)
 								goto parse_failed;
-							while (spa_json_enter_object(&it_array[2], &it[3]) > 0) {
+							while (spa_json_enter_object(&it_array[2], &it[2]) > 0) {
 								struct spa_bt_metadata *metadata_entry = calloc(1, sizeof(struct spa_bt_metadata));
 
 								if (!metadata_entry)
@@ -6216,13 +6212,13 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 
 								spa_list_append(&bis_entry->metadata_list, &metadata_entry->link);
 
-								while (spa_json_get_string(&it[3], qos_key, sizeof(qos_key)) > 0) {
+								while (spa_json_get_string(&it[2], qos_key, sizeof(qos_key)) > 0) {
 									if (spa_streq(qos_key, "type")) {
-										if (spa_json_get_int(&it[3], &metadata_entry->type) <= 0)
+										if (spa_json_get_int(&it[2], &metadata_entry->type) <= 0)
 											goto parse_failed;
 										spa_log_debug(monitor->log, "metadata_entry->type %d", metadata_entry->type);
 									} else if (spa_streq(qos_key, "value")) {
-										if (spa_json_enter_array(&it[3], &it_array[3]) <= 0)
+										if (spa_json_enter_array(&it[2], &it_array[3]) <= 0)
 											goto parse_failed;
 										for (cursor = 0; cursor < METADATA_MAX_LEN - 1; cursor++) {
 											int temp_val = 0;
@@ -6254,7 +6250,7 @@ errno_failed:
 
 parse_failed:
 	str = spa_dict_lookup(info, "bluez5.bcast_source.config");
-	if (spa_json_get_error(&it[0], str, &loc)) {
+	if (spa_json_get_error(&it_array[0], str, &loc)) {
 		spa_debug_log_error_location(monitor->log, SPA_LOG_LEVEL_WARN,
 			&loc, "malformed bluez5.bcast_source.config: %s", loc.reason);
 	} else {
@@ -6272,7 +6268,7 @@ static int parse_codec_array(struct spa_bt_monitor *this, const struct spa_dict 
 	const struct media_codec * const * const media_codecs = this->media_codecs;
 	const char *str;
 	struct spa_dict_item *codecs;
-	struct spa_json it, it_array;
+	struct spa_json it_array;
 	char codec_name[256];
 	size_t num_codecs;
 	int i;
@@ -6290,9 +6286,7 @@ static int parse_codec_array(struct spa_bt_monitor *this, const struct spa_dict 
 	if (info == NULL || (str = spa_dict_lookup(info, "bluez5.codecs")) == NULL)
 		goto fallback;
 
-	spa_json_init(&it, str, strlen(str));
-
-	if (spa_json_enter_array(&it, &it_array) <= 0) {
+	if (spa_json_begin_array(&it_array, str, strlen(str)) <= 0) {
 		spa_log_error(this->log, "property bluez5.codecs '%s' is not an array", str);
 		goto fallback;
 	}

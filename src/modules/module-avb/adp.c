@@ -283,20 +283,19 @@ static int do_help(struct adp *adp, const char *args, FILE *out)
 
 static int do_discover(struct adp *adp, const char *args, FILE *out)
 {
-	struct spa_json it[2];
+	struct spa_json it[1];
 	char key[128];
 	uint64_t entity_id = 0ULL;
 
-	spa_json_init(&it[0], args, strlen(args));
-	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+	if (spa_json_begin_object(&it[0], args, strlen(args)) <= 0)
 		return -EINVAL;
 
-	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+	while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
 		int len;
 		const char *value;
 		uint64_t id_val;
 
-		if ((len = spa_json_next(&it[1], &value)) <= 0)
+		if ((len = spa_json_next(&it[0], &value)) <= 0)
 			break;
 
 		if (spa_json_is_null(value, len))

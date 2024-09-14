@@ -66,7 +66,9 @@ may also be specified, see \ref page_man_pipewire_conf_5 "pipewire.conf(5)".
 # STREAM PROPERTIES  @IDX@ client.conf
 
 The client configuration files contain a stream.properties section that configures the options for client streams:
-```
+```css
+# ~/.config/pipewire/client.conf.d/custom.conf
+
 stream.properties = {
     #node.latency = 1024/48000
     #node.autoconnect = true
@@ -118,7 +120,9 @@ object of the stream and filter.
 Add a `stream.rules` or `filter.rules` section in the config file like
 this:
 
-```
+```css
+# ~/.config/pipewire/client.conf.d/custom.conf
+
 stream.rules = [
     {
         matches = [
@@ -144,6 +148,8 @@ An `alsa.properties` section can be added to configure client applications
 that connect via the PipeWire ALSA plugin.
 
 ```css
+# ~/.config/pipewire/client-rt.conf.d/custom.conf
+
 alsa.properties = {
     #alsa.deny = false
     #alsa.format = 0
@@ -185,7 +191,10 @@ It is possible to set ALSA client specific properties by using
 set any of the above ALSA properties or any of the `stream.properties`.
 
 ### Example
-```
+
+```css
+# ~/.config/pipewire/client-rt.conf.d/custom.conf
+
 alsa.rules = [
     {   matches = [ { application.process.binary = "resolve" } ]
         actions = {

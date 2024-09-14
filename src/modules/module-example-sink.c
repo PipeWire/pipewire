@@ -63,6 +63,8 @@
  * ## Example configuration
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-example-sink.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-example-sink
  *     args = {

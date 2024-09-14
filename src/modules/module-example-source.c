@@ -63,6 +63,8 @@
  * ## Example configuration
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-example-source.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-example-source
  *     args = {

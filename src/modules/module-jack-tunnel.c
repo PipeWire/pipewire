@@ -75,6 +75,8 @@
  * ## Example configuration of a duplex sink/source
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-jack-tunnel.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-jack-tunnel
  *     args = {

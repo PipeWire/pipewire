@@ -53,7 +53,9 @@ for configuration is recommended.
 A configuration file `~/.config/pipewire/pipewire.conf.d/custom.conf`
 to change the value of the `default.clock.min-quantum` setting in `pipewire.conf`:
 
-```css
+```
+# ~/.config/pipewire/pipewire.conf.d/custom.conf
+
 context.properties = {
     default.clock.min-quantum = 128
 }
@@ -172,7 +174,9 @@ cpu cores.
 @PAR@ pipewire.conf  context.data-loops = [ ... ]
 This controls the data loops that will be created for the context. Is is an array of
 data loop specifications, one entry for each data loop to start:
-```json
+```
+# ~/.config/pipewire/pipewire.conf.d/custom.conf
+
 context.data-loops = [
     {
          #library.name.system = support/libspa-support
@@ -310,7 +314,9 @@ plugin. The plugin is loaded from the first matching factory-name.
 
 ## Example
 
-```json
+```
+# ~/.config/pipewire/pipewire.conf.d/custom.conf
+
 context.spa-libs = {
     audio.convert.* = audioconvert/libspa-audioconvert
     avb.*           = avb/libspa-avb
@@ -330,7 +336,9 @@ context.spa-libs = {
 PipeWire modules to be loaded. See
 \ref page_man_libpipewire-modules_7 "libpipewire-modules(7)".
 
-```json
+```
+# ~/.config/pipewire/pipewire.conf.d/custom.conf
+
 context.modules = [
     #{ name = MODULENAME
     #    ( args  = { KEY = VALUE ... } )
@@ -361,7 +369,9 @@ to a context property.
 The `context.objects` section allows you to make some objects from factories (usually created
 by loading modules in `context.modules`).
 
-```json
+```
+# ~/.config/pipewire/pipewire.conf.d/custom.conf
+
 context.objects = [
     #{ factory = <factory-name>
     #    ( args  = { <key> = <value> ... } )
@@ -391,7 +401,9 @@ to a context property.
 This fragment creates a new dummy driver node, but only if
 `core.daemon` property is true:
 
-```json
+```
+# ~/.config/pipewire/pipewire.conf.d/custom.conf
+
 context.objects = [
     { factory = spa-node-factory
       args = {
@@ -410,7 +422,9 @@ context.objects = [
 The `context.exec` section can be used to start arbitrary commands as
 part of the initialization of the PipeWire program.
 
-```json
+```
+# ~/.config/pipewire/pipewire.conf.d/custom.conf
+
 context.exec = [
     #{   path = <program-name>
     #    ( args = "<arguments>" | [ <arg1> <arg2> ... ] )
@@ -434,7 +448,9 @@ to a context property.
 
 The following fragment executes a pactl command with the given arguments:
 
-```json
+```
+# ~/.config/pipewire/pipewire.conf.d/custom.conf
+
 context.exec = [
     { path = "pactl" args = "load-module module-always-sink" }
 ]
@@ -447,7 +463,7 @@ possible to perform some action when an object (usually a node or
 stream) is created/updated that matches certain properties.
 
 The general rules object follows the following pattern:
-```json
+```css
 <rules> = [
     {
         matches = [
@@ -494,7 +510,7 @@ which is used to update the properties of the matched object.
 In the matches array, it is also possible to use regular expressions to match property values.
 For example, to match all nodes with a name that starts with my_, you can use the following condition:
 
-```
+```css
 matches = [
   {
     node.name = "~my_.*"
@@ -508,7 +524,7 @@ expressions is the POSIX extended regex syntax, as described in the regex (7) ma
 In addition to regular expressions, you may also use the ! character to negate a condition. For
 example, to match all nodes with a name that does not start with my_, you can use the following condition:
 
-```
+```css
 matches = [
   {
     node.name = "!~my_.*"
@@ -519,7 +535,7 @@ matches = [
 The ! character can be used with or without a regular expression. For example, to match all
 nodes with a name that is not equal to my_node, you can use the following condition:
 
-```
+```css
 matches = [
   {
     node.name = "!my_node"
@@ -530,7 +546,7 @@ matches = [
 The null value has a special meaning; it checks if the property is not available
 (or unset). To check if a property is not set:
 
-```
+```css
 matches = [
   {
     node.name = null
@@ -540,7 +556,7 @@ matches = [
 
 To check the existence of a property, one can use the !null condition, for example:
 
-```
+```css
 matches = [
   {
     node.name = "!null"
@@ -553,7 +569,7 @@ matches = [
 To handle the "null" string, one needs to escape the string. For example, to check
 if a property has the string value "null", use:
 
-```
+```css
 matches = [
   {
     node.name = "null"
@@ -562,7 +578,7 @@ matches = [
 ```
 To handle anything but the "null" string, use:
 
-```
+```css
 matches = [
   {
     node.name = "!\"null\""
@@ -583,7 +599,9 @@ A typical case is to update custom settings when running inside a VM.
 The `cpu.vm.name` is automatically set when running in a VM with the name of
 the VM. A match rule can be written to set custom properties like this:
 
-```
+```css
+# ~/.config/pipewire/pipewire.conf.d/custom.conf
+
 context.properties.rules = [
     {   matches = [ { cpu.vm.name = !null } ]
         actions = {
@@ -607,7 +625,9 @@ properties that are updated on the node object.
 
 Add a `node.rules` section in the config file like this:
 
-```
+```css
+# ~/.config/pipewire/pipewire.conf.d/custom.conf
+
 node.rules = [
     {
         matches = [
@@ -638,7 +658,9 @@ properties that are updated on the device object.
 
 Add a `device.rules` section in the config file like this:
 
-```
+```css
+# ~/.config/pipewire/pipewire.conf.d/custom.conf
+
 device.rules = [
     {
         matches = [

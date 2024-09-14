@@ -55,6 +55,8 @@
  * ## Example configuration
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-raop-discover.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-raop-discover
  *     args = {

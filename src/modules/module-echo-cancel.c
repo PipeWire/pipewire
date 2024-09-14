@@ -117,6 +117,8 @@
  *
  * ## Example configuration
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-echo-cancel.conf
+ *
  * context.modules = [
  *  {   name = libpipewire-module-echo-cancel
  *      args = {

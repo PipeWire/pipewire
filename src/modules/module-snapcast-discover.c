@@ -88,6 +88,8 @@
  * ## Example configuration
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-snapcast-discover.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-snapcast-discover
  *     args = {

@@ -82,6 +82,8 @@
  * This Virtual sink routes stereo input to the rear channels of a 7.1 sink.
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-loopback-1.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-loopback
  *     args = {
@@ -111,6 +113,8 @@
  * This is useful for splitting up multi-channel inputs from USB audio interfaces that are not yet fully supported by alsa.
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-loopback-2.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-loopback
  *     args = {
@@ -137,6 +141,8 @@
  * using the PSD algorithm on the playback stream.
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-loopback-3.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-loopback
  *     args = {
@@ -168,6 +174,8 @@
  * downmixing from the two first AUX channels of a pro-audio device.
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-loopback-4.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-loopback
  *     args = {

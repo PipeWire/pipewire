@@ -76,6 +76,8 @@
  * ## Example configuration of a duplex sink/source
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-ffado-driver.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-ffado-driver
  *     args = {

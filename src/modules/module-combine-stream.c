@@ -82,6 +82,8 @@
  * ## Example configuration
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-combine-stream-1.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-combine-stream
  *     args = {
@@ -122,6 +124,8 @@
  * from 3 separate stereo sinks.
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-combine-stream-2.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-combine-stream
  *     args = {
@@ -170,6 +174,8 @@
  * from 2 separate stereo sources.
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-combine-stream-3.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-combine-stream
  *     args = {

@@ -87,6 +87,8 @@
  * ## Example configuration of a duplex sink/source
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-netjack2-driver.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-netjack2-driver
  *     args = {

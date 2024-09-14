@@ -42,6 +42,8 @@
  *
  * ## Example configuration
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-jack-dbus-detect.conf
+ *
  * context.modules = [
  *  {   name = libpipewire-module-jackdbus-detect
  *      args {

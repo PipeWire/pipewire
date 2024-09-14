@@ -477,7 +477,12 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * This example uses the rnnoise LADSPA plugin to create a new
  * virtual source.
  *
+ * Run with `pipewire -c filter-chain.conf`. The configuration can also
+ * be put under `pipewire.conf.d/` to run it inside the PipeWire server.
+ *
  *\code{.unparsed}
+ * # ~/.config/pipewire/filter-chain.conf.d/my-filter-chain-1.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-filter-chain
  *     args = {
@@ -515,6 +520,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * to a stereo Dolby Surround signal.
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/filter-chain.conf.d/my-filter-chain-2.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-filter-chain
  *     args = {

@@ -69,6 +69,8 @@
  *
  * ## Example configuration
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-parametric-equalizer.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-parametric-equalizer
  *     args = {

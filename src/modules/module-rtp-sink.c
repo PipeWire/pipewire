@@ -87,6 +87,8 @@
  *
  * ## Example configuration
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-rtp-sink.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-rtp-sink
  *     args = {

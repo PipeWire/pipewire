@@ -59,6 +59,8 @@
  *
  * ## Example configuration
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-roc-source.conf
+ *
  * context.modules = [
  *  {   name = libpipewire-module-roc-source
  *      args = {

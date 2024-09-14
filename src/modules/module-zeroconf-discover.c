@@ -48,6 +48,8 @@
  * ## Example configuration
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-zeroconf-discover.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-zeroconf-discover
  *     args = { }

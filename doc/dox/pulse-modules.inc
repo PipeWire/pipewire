@@ -10,6 +10,8 @@ can also added to `pipewire-pulse.conf`, typically by a drop-in file
 in `~/.config/pipewire/pipewire-pulse.conf.d/` containing the module
 name and its arguments
 ```
+# ~/.config/pipewire/pipewire-pulse.conf.d/custom.conf
+
 pulse.cmd = [
     { cmd = "load-module" args = "module-null-sink sink_name=foo" flags = [ ] }
 ]

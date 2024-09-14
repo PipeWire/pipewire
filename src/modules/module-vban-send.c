@@ -78,6 +78,8 @@
  *
  * ## Example configuration
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-vban-send.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-vban-send
  *     args = {

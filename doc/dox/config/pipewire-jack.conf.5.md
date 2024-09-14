@@ -41,8 +41,9 @@ may also be specified, see \ref page_man_pipewire_conf_5 "pipewire.conf(5)".
 # JACK PROPERTIES  @IDX@ jack.conf
 
 The configuration file can contain an extra JACK specific section called `jack.properties` like this:
-```
-...
+```css
+# ~/.config/pipewire/jack.conf.d/custom.conf
+
 jack.properties = {
     #rt.prio             = 88
     #node.latency        = 1024/48000
@@ -204,7 +205,9 @@ on the client and node object of the jack client.
 
 Add a `jack.rules` section in the config file like this:
 
-```
+```css
+# ~/.config/pipewire/jack.conf.d/custom.conf
+
 jack.rules = [
     {
         matches = [

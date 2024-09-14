@@ -48,6 +48,8 @@
  * A config section with server properties can be given.
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire-pulse.conf.d/custom.conf
+ *
  * pulse.properties = {
  *     # the addresses this server listens on
  *     server.address = [
@@ -297,6 +299,8 @@
  * section with a `quirks` and an `update-props` action.
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire-pulse.conf.d/custom.conf
+ *
  * pulse.rules = [
  *     {
  *         # skype does not want to use devices that don't have an S16 sample format.
@@ -343,6 +347,8 @@
  * ## Example configuration
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire-pulse.conf.d/custom.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-protocol-pulse
  *     args = { }

@@ -74,6 +74,8 @@ Some of these properties map to the PulseAudio `/etc/pulse/default.pa` config en
 ## Example
 
 ```css
+# ~/.config/pipewire/pipewire-pulse.conf.d/custom.conf
+
 stream.properties = {
     #node.latency = 1024/48000
     #node.autoconnect = true
@@ -124,6 +126,8 @@ for available options.
 ## Example
 
 ```css
+# ~/.config/pipewire/pipewire-pulse.conf.d/custom.conf
+
 pulse.rules = [
     {
         # skype does not want to use devices that don't have an S16 sample format.
@@ -154,7 +158,8 @@ additional commands with the `pulse.cmd` section in
 `pipewire-pulse.conf`.
 
 ```css
-...
+# ~/.config/pipewire/pipewire-pulse.conf.d/custom.conf
+
 pulse.cmd = [
     { cmd = "load-module" args = "module-always-sink" flags = [ ] }
     { cmd = "load-module" args = "module-switch-on-connect" }

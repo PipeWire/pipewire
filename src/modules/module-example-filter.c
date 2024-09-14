@@ -65,6 +65,8 @@
  * ## Example configuration of a virtual source
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-example-filter.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-example-filter
  *     args = {

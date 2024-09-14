@@ -56,6 +56,8 @@
  *
  * ## Example configuration
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-roc-sink.conf
+ *
  * context.modules = [
  *  {   name = libpipewire-module-roc-sink
  *      args = {

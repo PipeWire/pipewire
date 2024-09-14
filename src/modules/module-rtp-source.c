@@ -77,6 +77,8 @@
  *
  * ## Example configuration
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-rtp-source.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-rtp-source
  *     args = {

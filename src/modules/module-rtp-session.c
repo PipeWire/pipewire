@@ -93,6 +93,8 @@
  *
  * ## Example configuration
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-rtp-session.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-rtp-session
  *     args = {

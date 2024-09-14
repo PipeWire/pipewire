@@ -93,6 +93,8 @@
  * ## Example configuration of a pipe playback stream
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-pipe-tunnel.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-pipe-tunnel
  *     args = {

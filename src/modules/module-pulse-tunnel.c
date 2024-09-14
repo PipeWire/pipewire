@@ -83,6 +83,8 @@
  * ## Example configuration of a virtual sink
  *
  *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-pulse-tunnel.conf
+ *
  * context.modules = [
  * {   name = libpipewire-module-pulse-tunnel
  *     args = {

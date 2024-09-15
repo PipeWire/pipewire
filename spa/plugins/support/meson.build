@@ -14,11 +14,13 @@ if have_sse
   simd_cargs += [sse_args, '-DHAVE_SSE']
 endif
 
+stdthreads_lib = cc.find_library('stdthreads', required: false)
+
 spa_support_lib = shared_library('spa-support',
   spa_support_sources,
   c_args : [ simd_cargs ],
   include_directories : [ configinc ],
-  dependencies : [ spa_dep, pthread_lib, epoll_shim_dep, mathlib ],
+  dependencies : [ spa_dep, pthread_lib, epoll_shim_dep, mathlib, stdthreads_lib ],
   install : true,
   install_dir : spa_plugindir / 'support')
 spa_support_dep = declare_dependency(link_with: spa_support_lib)

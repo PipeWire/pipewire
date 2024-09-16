@@ -1019,23 +1019,6 @@ static const struct global_info node_info = {
 };
 
 /** metadata */
-static int json_object_find(const char *obj, const char *key, char *value, size_t len)
-{
-	struct spa_json it[1];
-	const char *v;
-	int l, kl = strlen(key) + 3;
-	char k[kl];
-
-	if (spa_json_begin_object(&it[0], obj, strlen(obj)) <= 0)
-		return -EINVAL;
-
-	while ((l = spa_json_object_next(&it[0], k, kl, &v)) > 0) {
-		if (spa_streq(k, key))
-			return spa_json_parse_stringn(v, l, value, len);
-	}
-	return -ENOENT;
-}
-
 static int metadata_property(void *data,
                         uint32_t subject,
                         const char *key,
@@ -1048,14 +1031,14 @@ static int metadata_property(void *data,
 	if (subject == PW_ID_CORE) {
 		if (key == NULL || spa_streq(key, "default.audio.sink")) {
 			if (value == NULL ||
-			    json_object_find(value, "name",
+			    spa_json_str_object_find(value, strlen(value), "name",
 					ctl->default_sink, sizeof(ctl->default_sink)) < 0)
 				ctl->default_sink[0] = '\0';
 			pw_log_debug("found default sink: %s", ctl->default_sink);
 		}
 		if (key == NULL || spa_streq(key, "default.audio.source")) {
 			if (value == NULL ||
-			    json_object_find(value, "name",
+			    spa_json_str_object_find(value, strlen(value), "name",
 					ctl->default_source, sizeof(ctl->default_source)) < 0)
 				ctl->default_source[0] = '\0';
 			pw_log_debug("found default source: %s", ctl->default_source);

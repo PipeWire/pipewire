@@ -928,26 +928,6 @@ static void manager_object_data_timeout(void *data, struct pw_manager_object *o,
 		temporary_move_target_timeout(client, o);
 }
 
-static int json_object_find(const char *obj, const char *key, char *value, size_t len)
-{
-	struct spa_json it[1];
-	const char *v;
-	char k[128];
-	int l;
-
-	if (spa_json_begin_object(&it[0], obj, strlen(obj)) <= 0)
-		return -EINVAL;
-
-	while ((l = spa_json_object_next(&it[0], k, sizeof(k), &v)) > 0) {
-		if (spa_streq(k, key)) {
-			if (spa_json_parse_stringn(v, l, value, len) <= 0)
-				continue;
-			return 0;
-		}
-	}
-	return -ENOENT;
-}
-
 static void manager_metadata(void *data, struct pw_manager_object *o,
 		uint32_t subject, const char *key, const char *type, const char *value)
 {
@@ -962,7 +942,7 @@ static void manager_metadata(void *data, struct pw_manager_object *o,
 
 		if (key == NULL || spa_streq(key, "default.audio.sink")) {
 			if (value != NULL) {
-				if (json_object_find(value,
+				if (spa_json_str_object_find(value, strlen(value),
 						"name", name, sizeof(name)) < 0)
 					value = NULL;
 				else
@@ -977,7 +957,7 @@ static void manager_metadata(void *data, struct pw_manager_object *o,
 		}
 		if (key == NULL || spa_streq(key, "default.audio.source")) {
 			if (value != NULL) {
-				if (json_object_find(value,
+				if (spa_json_str_object_find(value, strlen(value),
 						"name", name, sizeof(name)) < 0)
 					value = NULL;
 				else

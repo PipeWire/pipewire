@@ -1065,6 +1065,38 @@ PWTEST(json_data)
 	return PWTEST_PASS;
 }
 
+PWTEST(json_object_find)
+{
+	const char *json = " { "
+		"\"foo\": \"bar\","
+		"\"int-key\": 42,"
+		"\"list-key\": [],"
+		"\"obj-key\": {},"
+		"\"bool-key\": true,"
+		"\"float-key\": 66.6"
+		" } ";
+	char value[128];
+
+	pwtest_int_eq(spa_json_str_object_find(json, strlen(json), "unknown-key", value, 128), -2);
+	pwtest_int_eq(spa_json_str_object_find("{", 1, "key", value, 128), -2);
+	pwtest_int_eq(spa_json_str_object_find("this is no json", 15, "key", value, 128), -22);
+	pwtest_int_eq(spa_json_str_object_find(json, strlen(json), "foo", value, 128), 1);
+	pwtest_str_eq(value, "bar");
+	pwtest_int_eq(spa_json_str_object_find(json, strlen(json), "int-key", value, 128), 1);
+	pwtest_str_eq(value, "42");
+	pwtest_int_eq(spa_json_str_object_find(json, strlen(json), "list-key", value, 128), 1);
+	pwtest_str_eq(value, "[");
+	pwtest_int_eq(spa_json_str_object_find(json, strlen(json), "obj-key", value, 128), 1);
+	pwtest_str_eq(value, "{");
+	pwtest_int_eq(spa_json_str_object_find(json, strlen(json), "bool-key", value, 128), 1);
+	pwtest_str_eq(value, "true");
+	pwtest_int_eq(spa_json_str_object_find(json, strlen(json), "float-key", value, 128), 1);
+	pwtest_str_eq(value, "66.6");
+
+	return PWTEST_PASS;
+}
+
+
 PWTEST_SUITE(spa_json)
 {
 	pwtest_add(json_abi, PWTEST_NOARG);
@@ -1077,6 +1109,7 @@ PWTEST_SUITE(spa_json)
 	pwtest_add(json_float_check, PWTEST_NOARG);
 	pwtest_add(json_int, PWTEST_NOARG);
 	pwtest_add(json_data, PWTEST_NOARG);
+	pwtest_add(json_object_find, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

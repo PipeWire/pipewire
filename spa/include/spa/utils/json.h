@@ -145,6 +145,32 @@ static inline int spa_json_object_next(struct spa_json *iter, char *key, int max
 	}
 }
 
+static inline int spa_json_object_find(struct spa_json *iter, const char *key, const char **value)
+{
+	struct spa_json obj = SPA_JSON_SAVE(iter);
+	int res, len = strlen(key) + 3;
+	char k[len];
+
+	while ((res = spa_json_object_next(&obj, k, len, value)) > 0)
+		if (spa_streq(k, key))
+			return res;
+	return -ENOENT;
+}
+
+static inline int spa_json_str_object_find(const char *obj, size_t obj_len,
+		const char *key, char *value, size_t maxlen)
+{
+	struct spa_json iter;
+	int l;
+	const char *v;
+
+	if (spa_json_begin_object(&iter, obj, obj_len) <= 0)
+		return -EINVAL;
+	if ((l = spa_json_object_find(&iter, key, &v)) <= 0)
+		return l;
+	return spa_json_parse_stringn(v, l, value, maxlen);
+}
+
 /* array */
 static inline int spa_json_enter_array(struct spa_json *iter, struct spa_json *sub)
 {

@@ -510,29 +510,6 @@ static const struct pw_proxy_events proxy_port_events = {
   .destroy = destroy_port,
 };
 
-static int json_object_find(const char *obj, const char *key, char *value,
-                            size_t len) {
-  struct spa_json it[2];
-  const char *v;
-  char k[128];
-
-  spa_json_init(&it[0], obj, strlen(obj));
-  if (spa_json_enter_object(&it[0], &it[1]) <= 0)
-    return -EINVAL;
-
-  while (spa_json_get_string(&it[1], k, sizeof(k)) > 0) {
-    if (spa_streq(k, key)) {
-      if (spa_json_get_string(&it[1], value, len) <= 0)
-        continue;
-      return 0;
-    } else {
-      if (spa_json_next(&it[1], &v) <= 0)
-        break;
-    }
-  }
-  return -ENOENT;
-}
-
 static int metadata_property(void *data, uint32_t id, const char *key,
                              const char *type, const char *value) {
   GstPipeWireDeviceProvider *self = data;
@@ -546,7 +523,7 @@ static int metadata_property(void *data, uint32_t id, const char *key,
       return 0;
 
     g_free(self->default_audio_source_name);
-    if (json_object_find(value, "name", name, sizeof(name)) >= 0)
+    if (spa_json_str_object_find(value, strlen(value), "name", name, sizeof(name)) >= 0)
       self->default_audio_source_name = g_strdup(name);
     return 0;
   }
@@ -555,7 +532,7 @@ static int metadata_property(void *data, uint32_t id, const char *key,
       return 0;
 
     g_free(self->default_audio_sink_name);
-    if (json_object_find(value, "name", name, sizeof(name)) >= 0)
+    if (spa_json_str_object_find(value, strlen(value), "name", name, sizeof(name)) >= 0)
       self->default_audio_sink_name = g_strdup(name);
     return 0;
   }
@@ -564,7 +541,7 @@ static int metadata_property(void *data, uint32_t id, const char *key,
       return 0;
 
     g_free(self->default_video_source_name);
-    if (json_object_find(value, "name", name, sizeof(name)) >= 0)
+    if (spa_json_str_object_find(value, strlen(value), "name", name, sizeof(name)) >= 0)
       self->default_video_source_name = g_strdup(name);
     return 0;
   }

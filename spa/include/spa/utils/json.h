@@ -308,7 +308,7 @@ error:
 }
 
 /**
- * Return it there was a parse error, and its possible location.
+ * Return if there was a parse error, and its possible location.
  *
  * \since 1.1.0
  */
@@ -358,58 +358,9 @@ static inline bool spa_json_get_error(struct spa_json *iter, const char *start,
 	return true;
 }
 
-static inline int spa_json_begin(struct spa_json * iter, const char *data, size_t size, const char **val)
-{
-	spa_json_init(iter, data, size);
-	return spa_json_next(iter, val);
-}
-
 static inline int spa_json_is_container(const char *val, int len)
 {
 	return len > 0 && (*val == '{'  || *val == '[');
-}
-
-static inline int spa_json_enter_container(struct spa_json *iter, struct spa_json *sub, char type)
-{
-	const char *value;
-	int len;
-	if ((len = spa_json_next(iter, &value)) <= 0)
-		return len;
-	if (!spa_json_is_container(value, len))
-		return -EPROTO;
-	if (*value != type)
-		return -EINVAL;
-	spa_json_enter(iter, sub);
-	return 1;
-}
-
-static inline int spa_json_begin_container(struct spa_json * iter,
-		const char *data, size_t size, char type, bool relax)
-{
-	int res;
-	spa_json_init(iter, data, size);
-	res = spa_json_enter_container(iter, iter, type);
-	if (res == -EPROTO && relax)
-		spa_json_init(iter, data, size);
-	else if (res <= 0)
-		return res;
-	return 1;
-}
-/**
- * Return length of container at current position, starting at \a value.
- *
- * \return Length of container including {} or [], or 0 on error.
- */
-static inline int spa_json_container_len(struct spa_json *iter, const char *value, int len SPA_UNUSED)
-{
-	const char *val;
-	struct spa_json sub;
-	int res;
-	spa_json_enter(iter, &sub);
-	while ((res = spa_json_next(&sub, &val)) > 0);
-	if (res < 0)
-		return 0;
-	return sub.cur + 1 - value;
 }
 
 /* object */
@@ -417,35 +368,11 @@ static inline int spa_json_is_object(const char *val, int len)
 {
 	return len > 0 && *val == '{';
 }
-static inline int spa_json_enter_object(struct spa_json *iter, struct spa_json *sub)
-{
-	return spa_json_enter_container(iter, sub, '{');
-}
-static inline int spa_json_begin_object_relax(struct spa_json * iter, const char *data, size_t size)
-{
-	return spa_json_begin_container(iter, data, size, '{', true);
-}
-static inline int spa_json_begin_object(struct spa_json * iter, const char *data, size_t size)
-{
-	return spa_json_begin_container(iter, data, size, '{', false);
-}
 
 /* array */
 static inline bool spa_json_is_array(const char *val, int len)
 {
 	return len > 0 && *val == '[';
-}
-static inline int spa_json_enter_array(struct spa_json *iter, struct spa_json *sub)
-{
-	return spa_json_enter_container(iter, sub, '[');
-}
-static inline int spa_json_begin_array_relax(struct spa_json * iter, const char *data, size_t size)
-{
-	return spa_json_begin_container(iter, data, size, '[', true);
-}
-static inline int spa_json_begin_array(struct spa_json * iter, const char *data, size_t size)
-{
-	return spa_json_begin_container(iter, data, size, '[', false);
 }
 
 /* null */
@@ -483,14 +410,6 @@ static inline bool spa_json_is_float(const char *val, int len)
 	float dummy;
 	return spa_json_parse_float(val, len, &dummy);
 }
-static inline int spa_json_get_float(struct spa_json *iter, float *res)
-{
-	const char *value;
-	int len;
-	if ((len = spa_json_next(iter, &value)) <= 0)
-		return len;
-	return spa_json_parse_float(value, len, res);
-}
 
 static inline char *spa_json_format_float(char *str, int size, float val)
 {
@@ -525,14 +444,6 @@ static inline bool spa_json_is_int(const char *val, int len)
 	int dummy;
 	return spa_json_parse_int(val, len, &dummy);
 }
-static inline int spa_json_get_int(struct spa_json *iter, int *res)
-{
-	const char *value;
-	int len;
-	if ((len = spa_json_next(iter, &value)) <= 0)
-		return len;
-	return spa_json_parse_int(value, len, res);
-}
 
 /* bool */
 static inline bool spa_json_is_true(const char *val, int len)
@@ -557,14 +468,6 @@ static inline int spa_json_parse_bool(const char *val, int len, bool *result)
 	if (!(*result = !spa_json_is_false(val, len)))
 		return 1;
 	return -1;
-}
-static inline int spa_json_get_bool(struct spa_json *iter, bool *res)
-{
-	const char *value;
-	int len;
-	if ((len = spa_json_next(iter, &value)) <= 0)
-		return len;
-	return spa_json_parse_bool(value, len, res);
 }
 
 /* string */
@@ -660,15 +563,6 @@ static inline int spa_json_parse_string(const char *val, int len, char *result)
 	return spa_json_parse_stringn(val, len, result, len+1);
 }
 
-static inline int spa_json_get_string(struct spa_json *iter, char *res, int maxlen)
-{
-	const char *value;
-	int len;
-	if ((len = spa_json_next(iter, &value)) <= 0)
-		return len;
-	return spa_json_parse_stringn(value, len, res, maxlen);
-}
-
 static inline int spa_json_encode_string(char *str, int size, const char *val)
 {
 	int len = 0;
@@ -714,18 +608,7 @@ static inline int spa_json_encode_string(char *str, int size, const char *val)
 	return len-1;
 }
 
-static inline int spa_json_object_next(struct spa_json *iter, char *key, int maxkeylen, const char **value)
-{
-	int res1, res2;
-	while (true) {
-		res1 = spa_json_get_string(iter, key, maxkeylen);
-		if (res1 <= 0 && res1 != -ENOSPC)
-			return res1;
-		res2 = spa_json_next(iter, value);
-		if (res2 <= 0 || res1 != -ENOSPC)
-			return res2;
-	}
-}
+#include <spa/utils/json-utils.h>
 
 /**
  * \}

@@ -64,6 +64,10 @@ static char *spa_cpu_read_file(const char *name, char *buffer, size_t len)
 #include "cpu-arm.c"
 #define init(t)	arm_init(t)
 #define impl_cpu_zero_denormals arm_zero_denormals
+# elif defined (__riscv)
+#include "cpu-riscv.c"
+#define init(t)	riscv_init(t)
+#define impl_cpu_zero_denormals riscv_zero_denormals
 # else
 #define init(t)
 #define impl_cpu_zero_denormals NULL

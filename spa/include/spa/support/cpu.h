@@ -68,6 +68,9 @@ struct spa_cpu { struct spa_interface iface; };
 #define SPA_CPU_FLAG_NEON		(1 << 5)
 #define SPA_CPU_FLAG_ARMV8		(1 << 6)
 
+/* RISCV specific */
+#define SPA_CPU_FLAG_RISCV_V		(1 << 0)
+
 #define SPA_CPU_FORCE_AUTODETECT	((uint32_t)-1)
 
 #define SPA_CPU_VM_NONE			(0)

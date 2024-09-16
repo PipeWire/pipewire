@@ -1324,6 +1324,11 @@ spa_v4l2_update_controls(struct impl *this)
 		spa_zero(control);
 		control.id = c->ctrl_id;
 		if (xioctl(dev->fd, VIDIOC_G_CTRL, &control) < 0) {
+			/* Write only controls like relative pan/tilt return EACCES */
+			if (errno == EACCES) {
+				c->value = 0;
+				continue;
+			}
 			res = -errno;
 			goto done;
 		}

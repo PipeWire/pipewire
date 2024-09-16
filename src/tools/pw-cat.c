@@ -19,7 +19,7 @@
 
 #include <spa/param/audio/layout.h>
 #include <spa/param/audio/format-utils.h>
-#include <spa/param/audio/type-info.h>
+#include <spa/utils/type-info.h>
 #include <spa/param/tag-utils.h>
 #include <spa/param/props.h>
 #include <spa/utils/result.h>

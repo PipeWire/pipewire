@@ -20,10 +20,6 @@ extern "C" {
 #define SPA_TYPE_ROOT	spa_types
 #endif
 
-static inline bool spa_type_is_a(const char *type, const char *parent)
-{
-	return type != NULL && parent != NULL && strncmp(type, parent, strlen(parent)) == 0;
-}
 
 #include <spa/utils/type.h>
 #include <spa/utils/enum-types.h>

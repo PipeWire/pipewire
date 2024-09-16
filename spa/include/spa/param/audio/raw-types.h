@@ -15,6 +15,7 @@ extern "C" {
  */
 
 #include <spa/utils/type.h>
+#include <spa/utils/string.h>
 #include <spa/param/audio/raw.h>
 
 #define SPA_TYPE_INFO_AudioFormat		SPA_TYPE_INFO_ENUM_BASE "AudioFormat"
@@ -246,6 +247,17 @@ static const struct spa_type_info spa_type_audio_channel[] = {
 	{ SPA_AUDIO_CHANNEL_AUX63, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_CHANNEL_BASE "AUX63", NULL },
 	{ 0, 0, NULL, NULL },
 };
+
+static inline uint32_t spa_type_audio_channel_from_short_name(const char *name)
+{
+	int i;
+	for (i = 0; spa_type_audio_channel[i].name; i++) {
+		if (spa_streq(name, spa_type_short_name(spa_type_audio_channel[i].name)))
+			return spa_type_audio_channel[i].type;
+	}
+	return SPA_AUDIO_CHANNEL_UNKNOWN;
+}
+
 
 /**
  * \}

@@ -39,10 +39,7 @@ static inline const struct spa_type_info *spa_debug_type_find(const struct spa_t
 
 static inline const char *spa_debug_type_short_name(const char *name)
 {
-	const char *h;
-	if ((h = strrchr(name, ':')) != NULL)
-		name = h + 1;
-	return name;
+	return spa_type_short_name(name);
 }
 
 static inline const char *spa_debug_type_find_name(const struct spa_type_info *info, uint32_t type)

@@ -123,6 +123,19 @@ struct spa_type_info {
 	const struct spa_type_info *values;
 };
 
+static inline bool spa_type_is_a(const char *type, const char *parent)
+{
+	return type != NULL && parent != NULL && strncmp(type, parent, strlen(parent)) == 0;
+}
+
+static inline const char *spa_type_short_name(const char *name)
+{
+	const char *h;
+	if ((h = strrchr(name, ':')) != NULL)
+		name = h + 1;
+	return name;
+}
+
 /**
  * \}
  */

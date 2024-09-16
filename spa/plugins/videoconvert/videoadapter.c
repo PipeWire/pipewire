@@ -1386,7 +1386,8 @@ static void follower_event(void *data, const struct spa_event *event)
 
 	switch (SPA_NODE_EVENT_ID(event)) {
 	case SPA_NODE_EVENT_Error:
-		/* Forward errors */
+	case SPA_NODE_EVENT_RequestProcess:
+		/* Forward errors and process requests */
 		spa_node_emit_event(&this->hooks, event);
 		break;
 	default:

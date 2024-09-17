@@ -440,6 +440,9 @@ DEFINE_FUNCTION(s16_to_f32d_2, neon);
 DEFINE_FUNCTION(s16_to_f32d, neon);
 DEFINE_FUNCTION(f32d_to_s16, neon);
 #endif
+#if defined(HAVE_RVV)
+DEFINE_FUNCTION(f32_to_s16, rvv);
+#endif
 #if defined(HAVE_SSE2)
 DEFINE_FUNCTION(s16_to_f32d_2, sse2);
 DEFINE_FUNCTION(s16_to_f32d, sse2);

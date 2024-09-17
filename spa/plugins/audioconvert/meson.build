@@ -105,6 +105,17 @@ if have_neon
   simd_dependencies += audioconvert_neon
 endif
 
+if have_rvv
+  audioconvert_rvv = static_library('audioconvert_rvv',
+    ['fmt-ops-rvv.c' ],
+    c_args : ['-O3', '-DHAVE_RVV'],
+    dependencies : [ spa_dep ],
+    install : false
+    )
+  simd_cargs += ['-DHAVE_RVV']
+  simd_dependencies += audioconvert_rvv
+endif
+
 sparesampledumpcoeffs_sources = [
   'resample-native.c',
   'resample-native-c.c',

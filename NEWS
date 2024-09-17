@@ -1,3 +1,34 @@
+# PipeWire 1.2.4 (2024-09-19)
+
+This is a bugfix release that is API and ABI compatible with the
+previous 1.2.x and 1.0.x releases.
+
+## Highlights
+  - Avoid a crash in cleanup of globals. (#4250)
+  - Use systemd-logind to scan for new devices in v4l2.
+  - Some more bugfixes and improvements.
+
+
+## PipeWire
+  - Avoid a crash in cleanup of globals. (#4250)
+  - Improve RequestProcess dispatch.
+
+## Tools
+  - Improve float parsing. (#4234)
+
+## SPA
+  - Clear the ringbuffer when stopping in libcamera.
+  - Use systemd-logind to scan for new devices in v4l2. (#3539, #3960)
+  - Queue dropped first buffer in v4l2.
+  - Unlink pcm devices when moving drivers to avoid broken pipe.
+
+## JACK
+  - Emit buffer_size callback in jack_activate() to improve
+    compatibility with GStreamer. (#4260)
+
+Older versions:
+
+
 # PipeWire 1.2.3 (2024-08-22)
 
 This is a bugfix release that is API and ABI compatible with the
@@ -38,9 +69,6 @@ previous 1.2.x and 1.0.x releases.
 ## Tools
   - pw-cli can now handle arbitrarily large input and params. (#4166)
   - Avoid some compiler warnings in pw-top.
-
-Older versions:
-
 
 # PipeWire 1.2.2 (2024-07-31)
 

@@ -1,3 +1,50 @@
+# PipeWire 1.0.8 (2024-09-19)
+
+This is a small bugfix release that is API and ABI compatible with previous
+1.0.x releases.
+
+## Highlights
+  - Backport support for explicit sync.
+  - FFADO backport fixes.
+  - Fix some races in JACK.
+  - More small fixes and improvements.
+
+
+## PipeWire
+  - Add support for mandatory metadata and explicit sync metadata.
+  - Fix RequestProcess again.
+  - Include config.h to use malloc_trim() when cleaning nodes.
+  - Avoid crash when destroying a global. (#4250)
+
+## Modules
+  - FFADO fixes: improve timing reporting, avoid some xruns, improve
+    samplerate and period size handling, implement freewheeling.
+  - Decrease memory usage of the profiler.
+
+## Tools
+  - Fix pw-dump metadata changes fix. (#4053)
+  - Support large params in pw-cli. (#4166)
+
+## SPA
+  - Improve libcamera devices reporting to properly filter out duplicates in
+    all cases.
+  - Improve property reporting in v4l2.
+  - Fix lost buffer in v4l2.
+
+## Bluetooth
+  - Improve compatibility with some devices.
+
+## JACK
+  - Fix some races when shutting down.
+  - Fix rt-priority on the main thread when using custom thread create
+    function. (#4099)
+
+## ALSA
+  - Handle format renegotiation. (#3856)
+
+Older versions:
+
+
 # PipeWire 1.0.7 (2024-05-24)
 
 This is a small bugfix release that is API and ABI compatible with previous
@@ -20,9 +67,6 @@ This is a small bugfix release that is API and ABI compatible with previous
 
 ## JACK
   - Copy larger MIDI events correctly.
-
-Older versions:
-
 
 # PipeWire 1.0.6 (2024-05-09)
 

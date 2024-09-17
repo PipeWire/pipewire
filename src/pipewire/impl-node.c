@@ -1894,7 +1894,7 @@ static void node_event(void *data, const struct spa_event *event)
 		break;
 	case SPA_NODE_EVENT_RequestProcess:
 		pw_log_debug("request process");
-		if (!node->driving) {
+		if (!node->driving && !node->exported) {
 			pw_impl_node_send_command(node->driver_node,
 				    &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_RequestProcess));
 		}

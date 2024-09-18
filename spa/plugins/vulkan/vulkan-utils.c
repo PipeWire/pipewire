@@ -244,11 +244,8 @@ int vulkan_write_pixels(struct vulkan_base *s, struct vulkan_write_pixels_info *
 	void *vmap;
 	VK_CHECK_RESULT(vkMapMemory(s->device, vk_sbuf->memory, 0, VK_WHOLE_SIZE, 0, &vmap));
 
-	char *map = (char *)vmap;
-
 	// upload data
-	const char *pdata = info->data;
-	memcpy(map, pdata, info->stride * info->size.height);
+	memcpy(vmap, info->data, info->stride * info->size.height);
 
 	info->copies[0] = (VkBufferImageCopy) {
 		.imageExtent.width = info->size.width,

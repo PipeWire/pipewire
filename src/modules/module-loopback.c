@@ -772,15 +772,13 @@ static const struct pw_impl_module_events module_events = {
 
 static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_raw *info)
 {
-	const char *str;
-
-	*info = SPA_AUDIO_INFO_RAW_INIT(
-			.format = SPA_AUDIO_FORMAT_F32P);
-	info->rate = pw_properties_get_int32(props, PW_KEY_AUDIO_RATE, 0);
-	info->channels = pw_properties_get_uint32(props, PW_KEY_AUDIO_CHANNELS, 0);
-	info->channels = SPA_MIN(info->channels, SPA_AUDIO_MAX_CHANNELS);
-	if ((str = pw_properties_get(props, SPA_KEY_AUDIO_POSITION)) != NULL)
-		spa_audio_parse_position(str, strlen(str), info->position, &info->channels);
+	spa_audio_info_raw_init_dict_keys(info,
+			&SPA_DICT_ITEMS(
+				 SPA_DICT_ITEM(SPA_KEY_AUDIO_FORMAT, "F32P")),
+			&props->dict,
+			SPA_KEY_AUDIO_RATE,
+			SPA_KEY_AUDIO_CHANNELS,
+			SPA_KEY_AUDIO_POSITION, NULL);
 }
 
 static void copy_props(struct impl *impl, struct pw_properties *props, const char *key)

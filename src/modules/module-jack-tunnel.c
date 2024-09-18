@@ -109,7 +109,6 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define MAX_PORTS	128
 
 #define DEFAULT_CLIENT_NAME	"PipeWire"
-#define DEFAULT_CHANNELS	2
 #define DEFAULT_POSITION	"[ FL FR ]"
 #define DEFAULT_MIDI_PORTS	1
 
@@ -994,18 +993,13 @@ static const struct pw_impl_module_events module_events = {
 
 static void parse_audio_info(const struct pw_properties *props, struct spa_audio_info_raw *info)
 {
-	const char *str;
-
-	spa_zero(*info);
-	info->format = SPA_AUDIO_FORMAT_F32P;
-	info->rate = 0;
-	info->channels = pw_properties_get_uint32(props, PW_KEY_AUDIO_CHANNELS, info->channels);
-	info->channels = SPA_MIN(info->channels, SPA_AUDIO_MAX_CHANNELS);
-	if ((str = pw_properties_get(props, SPA_KEY_AUDIO_POSITION)) != NULL)
-		spa_audio_parse_position(str, strlen(str), info->position, &info->channels);
-	if (info->channels == 0)
-		spa_audio_parse_position(DEFAULT_POSITION, strlen(DEFAULT_POSITION),
-				info->position, &info->channels);
+	spa_audio_info_raw_init_dict_keys(info,
+			&SPA_DICT_ITEMS(
+				 SPA_DICT_ITEM(SPA_KEY_AUDIO_FORMAT, "F32P"),
+				 SPA_DICT_ITEM(SPA_KEY_AUDIO_POSITION, DEFAULT_POSITION)),
+			&props->dict,
+			SPA_KEY_AUDIO_CHANNELS,
+			SPA_KEY_AUDIO_POSITION, NULL);
 }
 
 static void copy_props(struct impl *impl, struct pw_properties *props, const char *key)

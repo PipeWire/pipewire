@@ -327,17 +327,13 @@ struct stream {
 
 static void parse_audio_info(const struct pw_properties *props, struct spa_audio_info_raw *info)
 {
-	const char *str;
-
-	spa_zero(*info);
-	info->format = SPA_AUDIO_FORMAT_F32P;
-	info->channels = pw_properties_get_uint32(props, PW_KEY_AUDIO_CHANNELS, 0);
-	info->channels = SPA_MIN(info->channels, SPA_AUDIO_MAX_CHANNELS);
-	if ((str = pw_properties_get(props, SPA_KEY_AUDIO_POSITION)) != NULL)
-		spa_audio_parse_position(str, strlen(str), info->position, &info->channels);
-	if (info->channels == 0)
-		spa_audio_parse_position(DEFAULT_POSITION, strlen(DEFAULT_POSITION),
-				info->position, &info->channels);
+	spa_audio_info_raw_init_dict_keys(info,
+			&SPA_DICT_ITEMS(
+				SPA_DICT_ITEM(SPA_KEY_AUDIO_FORMAT, "F32P"),
+				SPA_DICT_ITEM(SPA_KEY_AUDIO_POSITION, DEFAULT_POSITION)),
+			&props->dict,
+			SPA_KEY_AUDIO_CHANNELS,
+			SPA_KEY_AUDIO_POSITION, NULL);
 }
 
 static void ringbuffer_init(struct ringbuffer *r, void *buf, uint32_t size)

@@ -14,7 +14,9 @@ extern "C" {
  * \{
  */
 
+#include <spa/utils/dict.h>
 #include <spa/utils/json.h>
+#include <spa/param/audio/raw.h>
 #include <spa/param/audio/raw-types.h>
 
 static inline int
@@ -34,6 +36,51 @@ spa_audio_parse_position(const char *str, size_t len,
         }
 	*n_channels = channels;
 	return channels;
+}
+
+static inline int
+spa_audio_info_raw_update(struct spa_audio_info_raw *info, const char *key, const char *val, bool force)
+{
+	uint32_t v;
+	if (spa_streq(key, SPA_KEY_AUDIO_FORMAT)) {
+		if (force || info->format == 0)
+			info->format = (enum spa_audio_format)spa_type_audio_format_from_short_name(val);
+	} else if (spa_streq(key, SPA_KEY_AUDIO_RATE)) {
+		if (spa_atou32(val, &v, 0) && (force || info->rate == 0))
+			info->rate = v;
+	} else if (spa_streq(key, SPA_KEY_AUDIO_CHANNELS)) {
+		if (spa_atou32(val, &v, 0) && (force || info->channels == 0))
+			info->channels = SPA_MIN(v, SPA_AUDIO_MAX_CHANNELS);
+	} else if (spa_streq(key, SPA_KEY_AUDIO_POSITION)) {
+		if (force || info->channels == 0)
+			spa_audio_parse_position(val, strlen(val), info->position, &info->channels);
+	}
+	return 0;
+}
+
+static inline int SPA_SENTINEL
+spa_audio_info_raw_init_dict_keys(struct spa_audio_info_raw *info,
+		const struct spa_dict *defaults,
+		const struct spa_dict *dict, ...)
+{
+	spa_zero(*info);
+	if (dict) {
+		const char *val, *key;
+		va_list args;
+		va_start(args, dict);
+		while ((key = va_arg(args, const char *))) {
+			if ((val = spa_dict_lookup(dict, key)) == NULL)
+				continue;
+			spa_audio_info_raw_update(info, key, val, true);
+		}
+		va_end(args);
+	}
+	if (defaults) {
+		const struct spa_dict_item *it;
+		spa_dict_for_each(it, defaults)
+			spa_audio_info_raw_update(info, it->key, it->value, false);
+	}
+	return 0;
 }
 
 /**

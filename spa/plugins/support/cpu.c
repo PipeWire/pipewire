@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2018 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <stddef.h>
 #include <unistd.h>
 #include <string.h>

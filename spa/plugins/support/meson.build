@@ -14,17 +14,10 @@ if have_sse
   simd_cargs += [sse_args, '-DHAVE_SSE']
 endif
 
-header_cargs = []
-
-if host_machine.cpu_family() == 'riscv64'
-  if cdata.get('HAVE_SYS_AUXV_H')
-    header_cargs += ['-DHAVE_SYS_AUXV_H']
-  endif
-endif
-
 spa_support_lib = shared_library('spa-support',
   spa_support_sources,
-  c_args : [ simd_cargs, header_cargs ],
+  c_args : [ simd_cargs ],
+  include_directories : [ configinc ],
   dependencies : [ spa_dep, pthread_lib, epoll_shim_dep, mathlib ],
   install : true,
   install_dir : spa_plugindir / 'support')

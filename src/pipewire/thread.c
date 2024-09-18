@@ -117,7 +117,7 @@ static struct spa_thread *impl_create(void *object,
 			pw_log_warn("pthread_setname error: %s", strerror(err));
 		if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_AFFINITY)) != NULL &&
 		    (err = thread_setaffinity(pt, str)) != 0)
-			pw_log_warn("pthread_setaffinity error: %s", strerror(err));
+			pw_log_warn("pthread_setaffinity error: %s", strerror(-err));
 	}
 	return (struct spa_thread*)pt;
 }

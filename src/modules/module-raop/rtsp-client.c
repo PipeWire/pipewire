@@ -576,7 +576,7 @@ int pw_rtsp_client_url_send(struct pw_rtsp_client *client, const char *url,
 	if ((f = open_memstream((char**)&msg, &len)) == NULL)
 		return -errno;
 
-	fseek(f, sizeof(*msg), SEEK_SET);
+	fseek(f, offsetof(struct message, data), SEEK_SET);
 
 	cseq = ++client->cseq;
 
@@ -598,7 +598,7 @@ int pw_rtsp_client_url_send(struct pw_rtsp_client *client, const char *url,
 
 	fclose(f);
 
-	msg->len = len - sizeof(*msg);
+	msg->len = len - offsetof(struct message, data);
 	msg->offset = 0;
 	msg->reply = reply;
 	msg->user_data = user_data;

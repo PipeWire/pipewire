@@ -686,15 +686,15 @@ struct convolver_impl {
 };
 
 #ifdef HAVE_SNDFILE
-static float *read_samples_from_sf(SNDFILE *f, SF_INFO info, float gain, int delay,
+static float *read_samples_from_sf(SNDFILE *f, const SF_INFO *info, float gain, int delay,
 		int offset, int length, int channel, long unsigned *rate, int *n_samples) {
 	float *samples;
 	int i, n;
 
 	if (length <= 0)
-		length = info.frames;
+		length = info->frames;
 	else
-		length = SPA_MIN(length, info.frames);
+		length = SPA_MIN(length, info->frames);
 
 	length -= SPA_MIN(offset, length);
 
@@ -702,21 +702,21 @@ static float *read_samples_from_sf(SNDFILE *f, SF_INFO info, float gain, int del
 	if (n == 0)
 		return NULL;
 
-	samples = calloc(n * info.channels, sizeof(float));
+	samples = calloc(n * info->channels, sizeof(float));
 	if (samples == NULL)
 		return NULL;
 
 	if (offset > 0)
 		sf_seek(f, offset, SEEK_SET);
-	sf_readf_float(f, samples + (delay * info.channels), length);
+	sf_readf_float(f, samples + (delay * info->channels), length);
 
-	channel = channel % info.channels;
+	channel = channel % info->channels;
 
 	for (i = 0; i < n; i++)
-		samples[i] = samples[info.channels * i + channel] * gain;
+		samples[i] = samples[info->channels * i + channel] * gain;
 
 	*n_samples = n;
-	*rate = info.samplerate;
+	*rate = info->samplerate;
 	return samples;
 }
 #endif
@@ -748,7 +748,7 @@ static float *read_closest(struct plugin *pl, char **filenames, float gain, floa
 	}
 	if (fs[best] != NULL) {
 		spa_log_info(pl->log, "loading best rate:%u %s", infos[best].samplerate, filenames[best]);
-		samples = read_samples_from_sf(fs[best], infos[best], gain,
+		samples = read_samples_from_sf(fs[best], &infos[best], gain,
 				(int) (delay_sec * infos[best].samplerate), offset, length,
 				channel, rate, n_samples);
 	} else {

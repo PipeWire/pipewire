@@ -21,6 +21,7 @@
 #include <spa/support/cpu.h>
 #include <spa/param/latency-utils.h>
 #include <spa/param/tag-utils.h>
+#include <spa/param/audio/raw-json.h>
 #include <spa/pod/dynamic.h>
 #include <spa/debug/types.h>
 #include <spa/debug/log.h>
@@ -2904,31 +2905,6 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy,
 };
 
-static uint32_t channel_from_name(const char *name)
-{
-	int i;
-	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)))
-			return spa_type_audio_channel[i].type;
-	}
-	return SPA_AUDIO_CHANNEL_UNKNOWN;
-}
-
-static void parse_position(struct spa_audio_info_raw *info, const char *val, size_t len)
-{
-	struct spa_json it[1];
-	char v[256];
-
-        if (spa_json_begin_array_relax(&it[0], val, len) <= 0)
-		return;
-
-	info->channels = 0;
-	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
-	    info->channels < SPA_AUDIO_MAX_CHANNELS) {
-		info->position[info->channels++] = channel_from_name(v);
-	}
-}
-
 static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_raw *info)
 {
 	const char *str;
@@ -2939,7 +2915,7 @@ static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_
 	info->channels = pw_properties_get_int32(props, PW_KEY_AUDIO_CHANNELS, info->channels);
 	info->channels = SPA_MIN(info->channels, SPA_AUDIO_MAX_CHANNELS);
 	if ((str = pw_properties_get(props, SPA_KEY_AUDIO_POSITION)) != NULL)
-		parse_position(info, str, strlen(str));
+		spa_audio_parse_position(str, strlen(str), info->position, &info->channels);
 }
 
 static void copy_props(struct impl *impl, struct pw_properties *props, const char *key)

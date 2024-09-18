@@ -25,6 +25,7 @@
 #include <spa/pod/builder.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/raw.h>
+#include <spa/param/audio/raw-json.h>
 #include <spa/param/latency-utils.h>
 #include <spa/param/tag-utils.h>
 
@@ -324,31 +325,6 @@ struct stream {
 	unsigned int have_latency:1;
 };
 
-static uint32_t channel_from_name(const char *name)
-{
-	int i;
-	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)))
-			return spa_type_audio_channel[i].type;
-	}
-	return SPA_AUDIO_CHANNEL_UNKNOWN;
-}
-
-static void parse_position(struct spa_audio_info_raw *info, const char *val, size_t len)
-{
-	struct spa_json it[1];
-	char v[256];
-
-        if (spa_json_begin_array_relax(&it[0], val, len) <= 0)
-		return;
-
-	info->channels = 0;
-	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
-	    info->channels < SPA_AUDIO_MAX_CHANNELS) {
-		info->position[info->channels++] = channel_from_name(v);
-	}
-}
-
 static void parse_audio_info(const struct pw_properties *props, struct spa_audio_info_raw *info)
 {
 	const char *str;
@@ -358,9 +334,10 @@ static void parse_audio_info(const struct pw_properties *props, struct spa_audio
 	info->channels = pw_properties_get_uint32(props, PW_KEY_AUDIO_CHANNELS, 0);
 	info->channels = SPA_MIN(info->channels, SPA_AUDIO_MAX_CHANNELS);
 	if ((str = pw_properties_get(props, SPA_KEY_AUDIO_POSITION)) != NULL)
-		parse_position(info, str, strlen(str));
+		spa_audio_parse_position(str, strlen(str), info->position, &info->channels);
 	if (info->channels == 0)
-		parse_position(info, DEFAULT_POSITION, strlen(DEFAULT_POSITION));
+		spa_audio_parse_position(DEFAULT_POSITION, strlen(DEFAULT_POSITION),
+				info->position, &info->channels);
 }
 
 static void ringbuffer_init(struct ringbuffer *r, void *buf, uint32_t size)
@@ -854,13 +831,13 @@ static int create_stream(struct stream_info *info)
 
 	s->info = impl->info;
 	if ((str = pw_properties_get(info->stream_props, SPA_KEY_AUDIO_POSITION)) != NULL)
-		parse_position(&s->info, str, strlen(str));
+		spa_audio_parse_position(str, strlen(str), s->info.position, &s->info.channels);
 	if (s->info.channels == 0)
 		s->info = impl->info;
 
 	spa_zero(remap_info);
 	if ((str = pw_properties_get(info->stream_props, "combine.audio.position")) != NULL)
-		parse_position(&remap_info, str, strlen(str));
+		spa_audio_parse_position(str, strlen(str), remap_info.position, &remap_info.channels);
 	if (remap_info.channels == 0)
 		remap_info = s->info;
 

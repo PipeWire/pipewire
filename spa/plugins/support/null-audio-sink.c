@@ -22,6 +22,7 @@
 #include <spa/node/io.h>
 #include <spa/node/keys.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/audio/raw-json.h>
 #include <spa/debug/types.h>
 #include <spa/debug/mem.h>
 #include <spa/param/audio/type-info.h>
@@ -859,41 +860,6 @@ impl_get_size(const struct spa_handle_factory *factory,
 	return sizeof(struct impl);
 }
 
-static uint32_t format_from_name(const char *name)
-{
-	int i;
-	for (i = 0; spa_type_audio_format[i].name; i++) {
-		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_format[i].name)))
-			return spa_type_audio_format[i].type;
-	}
-	return SPA_AUDIO_FORMAT_UNKNOWN;
-}
-
-static uint32_t channel_from_name(const char *name)
-{
-	int i;
-	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)))
-			return spa_type_audio_channel[i].type;
-	}
-	return SPA_AUDIO_CHANNEL_UNKNOWN;
-}
-
-static inline void parse_position(struct impl *this, const char *val, size_t len)
-{
-	struct spa_json it[1];
-	char v[256];
-
-        if (spa_json_begin_array_relax(&it[0], val, len) <= 0)
-		return;
-
-	this->props.channels = 0;
-	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
-	    this->props.channels < SPA_AUDIO_MAX_CHANNELS) {
-		this->props.pos[this->props.channels++] = channel_from_name(v);
-	}
-}
-
 static int
 impl_init(const struct spa_handle_factory *factory,
 	  struct spa_handle *handle,
@@ -975,7 +941,7 @@ impl_init(const struct spa_handle_factory *factory,
 		if (spa_streq(k, "clock.quantum-limit")) {
 			spa_atou32(s, &this->quantum_limit, 0);
 		} else if (spa_streq(k, SPA_KEY_AUDIO_FORMAT)) {
-			this->props.format = format_from_name(s);
+			this->props.format = spa_type_audio_format_from_short_name(s);
 		} else if (spa_streq(k, SPA_KEY_AUDIO_CHANNELS)) {
 			this->props.channels = atoi(s);
 		} else if (spa_streq(k, SPA_KEY_AUDIO_RATE)) {
@@ -983,7 +949,7 @@ impl_init(const struct spa_handle_factory *factory,
 		} else if (spa_streq(k, SPA_KEY_NODE_DRIVER)) {
 			this->props.driver = spa_atob(s);
 		} else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
-			parse_position(this, s, strlen(s));
+			spa_audio_parse_position(s, strlen(s), this->props.pos, &this->props.channels);
 		} else if (spa_streq(k, "clock.name")) {
 			spa_scnprintf(this->props.clock_name,
 					sizeof(this->props.clock_name),

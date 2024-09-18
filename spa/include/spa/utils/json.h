@@ -185,6 +185,24 @@ static inline int spa_json_begin_array(struct spa_json * iter, const char *data,
 	return spa_json_begin_container(iter, data, size, '[', false);
 }
 
+#define spa_json_make_str_array_unpack(maxlen,type,conv)			\
+{										\
+	struct spa_json iter;							\
+	char v[maxlen];								\
+	uint32_t count = 0;							\
+        if (spa_json_begin_array_relax(&iter, arr, arr_len) <= 0)		\
+		return -EINVAL;							\
+	while (spa_json_get_string(&iter, v, sizeof(v)) > 0 && count < max)	\
+		values[count++] = conv(v);					\
+	return count;								\
+}
+
+static inline int spa_json_str_array_uint32(const char *arr, size_t arr_len,
+		uint32_t *values, size_t max)
+{
+	spa_json_make_str_array_unpack(32,uint32_t, atoi);
+}
+
 /**
  * \}
  */

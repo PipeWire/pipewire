@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 #include <spa/utils/defs.h>
+#include <spa/utils/string.h>
 
 /** \defgroup spa_types Types
  * Data type information enumerations
@@ -134,6 +135,34 @@ static inline const char *spa_type_short_name(const char *name)
 	if ((h = strrchr(name, ':')) != NULL)
 		name = h + 1;
 	return name;
+}
+
+static inline uint32_t spa_type_from_short_name(const char *name,
+		const struct spa_type_info *info, uint32_t unknown)
+{
+	int i;
+	for (i = 0; info[i].name; i++) {
+		if (spa_streq(name, spa_type_short_name(info[i].name)))
+			return info[i].type;
+	}
+	return unknown;
+}
+static inline const char * spa_type_to_name(uint32_t type,
+		const struct spa_type_info *info, const char *unknown)
+{
+	int i;
+	for (i = 0; info[i].name; i++) {
+		if (info[i].type == type)
+			return info[i].name;
+	}
+	return unknown;
+}
+
+static inline const char * spa_type_to_short_name(uint32_t type,
+		const struct spa_type_info *info, const char *unknown)
+{
+	const char *n = spa_type_to_name(type, info, unknown);
+	return n ? spa_type_short_name(n) : NULL;
 }
 
 /**

@@ -33,6 +33,7 @@ extern "C" {
 #include <spa/param/param.h>
 #include <spa/param/latency-utils.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/audio/raw-json.h>
 
 #include "avb.h"
 
@@ -263,41 +264,6 @@ int spa_avb_read(struct state *state);
 int spa_avb_skip(struct state *state);
 
 void spa_avb_recycle_buffer(struct state *state, struct port *port, uint32_t buffer_id);
-
-static inline uint32_t spa_avb_format_from_name(const char *name, size_t len)
-{
-	int i;
-	for (i = 0; spa_type_audio_format[i].name; i++) {
-		if (strncmp(name, spa_debug_type_short_name(spa_type_audio_format[i].name), len) == 0)
-			return spa_type_audio_format[i].type;
-	}
-	return SPA_AUDIO_FORMAT_UNKNOWN;
-}
-
-static inline uint32_t spa_avb_channel_from_name(const char *name)
-{
-	int i;
-	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (strcmp(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)) == 0)
-			return spa_type_audio_channel[i].type;
-	}
-	return SPA_AUDIO_CHANNEL_UNKNOWN;
-}
-
-static inline void spa_avb_parse_position(struct channel_map *map, const char *val, size_t len)
-{
-	struct spa_json it[1];
-	char v[256];
-
-        if (spa_json_begin_array_relax(&it[0], val, len) <= 0)
-		return;
-
-	map->channels = 0;
-	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
-	    map->channels < SPA_AUDIO_MAX_CHANNELS) {
-		map->pos[map->channels++] = spa_avb_channel_from_name(v);
-	}
-}
 
 static inline uint32_t spa_avb_parse_rates(uint32_t *rates, uint32_t max, const char *val, size_t len)
 {

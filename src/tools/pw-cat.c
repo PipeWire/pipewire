@@ -19,6 +19,7 @@
 
 #include <spa/param/audio/layout.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/audio/raw-json.h>
 #include <spa/utils/type-info.h>
 #include <spa/param/tag-utils.h>
 #include <spa/param/props.h>
@@ -79,8 +80,8 @@ struct data;
 typedef int (*fill_fn)(struct data *d, void *dest, unsigned int n_frames, bool *null_frame);
 
 struct channelmap {
-	int n_channels;
-	int channels[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t n_channels;
+	uint32_t channels[SPA_AUDIO_MAX_CHANNELS];
 };
 
 struct data {
@@ -119,7 +120,7 @@ struct data {
 
 	unsigned int bitrate;
 	unsigned int rate;
-	int channels;
+	uint32_t channels;
 	struct channelmap channelmap;
 	unsigned int stride;
 	enum unit latency_unit;
@@ -566,10 +567,10 @@ static int channelmap_from_sf(struct channelmap *map)
 		[SF_CHANNEL_MAP_TOP_REAR_RIGHT] =        SPA_AUDIO_CHANNEL_TRR,
 		[SF_CHANNEL_MAP_TOP_REAR_CENTER] =       SPA_AUDIO_CHANNEL_TRC
 	};
-	int i;
+	uint32_t i;
 
 	for (i = 0; i < map->n_channels; i++) {
-		if (map->channels[i] >= 0 && map->channels[i] < (int) SPA_N_ELEMENTS(table))
+		if (map->channels[i] < SPA_N_ELEMENTS(table))
 			map->channels[i] = table[map->channels[i]];
 		else
 			map->channels[i] = SPA_AUDIO_CHANNEL_UNKNOWN;
@@ -578,8 +579,8 @@ static int channelmap_from_sf(struct channelmap *map)
 }
 struct mapping {
 	const char *name;
-	unsigned int channels;
-	unsigned int values[32];
+	uint32_t channels;
+	uint32_t values[32];
 };
 
 static const struct mapping maps[] =
@@ -599,21 +600,8 @@ static const struct mapping maps[] =
 	{ "surround-71",  SPA_AUDIO_LAYOUT_7_1 },
 };
 
-static unsigned int find_channel(const char *name)
-{
-	int i;
-
-	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)))
-			return spa_type_audio_channel[i].type;
-	}
-	return SPA_AUDIO_CHANNEL_UNKNOWN;
-}
-
 static int parse_channelmap(const char *channel_map, struct channelmap *map)
 {
-	int i, nch;
-
 	SPA_FOR_EACH_ELEMENT_VAR(maps, m) {
 		if (spa_streq(m->name, channel_map)) {
 			map->n_channels = m->channels;
@@ -623,16 +611,7 @@ static int parse_channelmap(const char *channel_map, struct channelmap *map)
 		}
 	}
 
-	spa_auto(pw_strv) ch = pw_split_strv(channel_map, ",", SPA_AUDIO_MAX_CHANNELS, &nch);
-	if (ch == NULL)
-		return -1;
-
-	map->n_channels = nch;
-	for (i = 0; i < map->n_channels; i++) {
-		int c = find_channel(ch[i]);
-		map->channels[i] = c;
-	}
-
+	spa_audio_parse_position(channel_map, strlen(channel_map), map->channels, &map->n_channels);
 	return 0;
 }
 
@@ -673,13 +652,11 @@ static int channelmap_default(struct channelmap *map, int n_channels)
 
 static void channelmap_print(struct channelmap *map)
 {
-	int i;
+	uint32_t i;
 
 	for (i = 0; i < map->n_channels; i++) {
-		const char *name = spa_debug_type_find_name(spa_type_audio_channel, map->channels[i]);
-		if (name == NULL)
-			name = ":UNK";
-		fprintf(stderr, "%s%s", spa_debug_type_short_name(name), i + 1 < map->n_channels ? "," : "");
+		const char *name = spa_type_audio_channel_to_short_name(map->channels[i]);
+		fprintf(stderr, "%s%s", name, i + 1 < map->n_channels ? "," : "");
 	}
 }
 
@@ -1499,7 +1476,7 @@ static int setup_sndfile(struct data *data)
 	if (data->verbose)
 		fprintf(stderr, "sndfile: opened file \"%s\" format %08x channels:%d rate:%d\n",
 				data->filename, info.format, info.channels, info.samplerate);
-	if (data->channels > 0 && info.channels != data->channels) {
+	if (data->channels > 0 && info.channels != (int)data->channels) {
 		fprintf(stderr, "sndfile: given channels (%u) don't match file channels (%d)\n",
 				data->channels, info.channels);
 		return -EINVAL;

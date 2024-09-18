@@ -7,6 +7,7 @@
 #include <spa/param/audio/format.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/raw.h>
+#include <spa/param/audio/raw-json.h>
 #include <spa/utils/json.h>
 
 #include "format.h"
@@ -130,22 +131,12 @@ uint32_t format_pa2id(enum sample_format format)
 
 const char *format_id2name(uint32_t format)
 {
-	int i;
-	for (i = 0; spa_type_audio_format[i].name; i++) {
-		if (spa_type_audio_format[i].type == format)
-			return spa_debug_type_short_name(spa_type_audio_format[i].name);
-	}
-	return "UNKNOWN";
+	return spa_type_audio_format_to_short_name(format);
 }
 
 uint32_t format_name2id(const char *name)
 {
-	int i;
-	for (i = 0; spa_type_audio_format[i].name; i++) {
-		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_format[i].name)))
-			return spa_type_audio_format[i].type;
-	}
-	return SPA_AUDIO_FORMAT_UNKNOWN;
+	return spa_type_audio_format_from_short_name(name);
 }
 
 uint32_t format_paname2id(const char *name, size_t size)
@@ -289,22 +280,12 @@ uint32_t channel_pa2id(enum channel_position channel)
 
 const char *channel_id2name(uint32_t channel)
 {
-	int i;
-	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (spa_type_audio_channel[i].type == channel)
-			return spa_debug_type_short_name(spa_type_audio_channel[i].name);
-	}
-	return "UNK";
+	return spa_type_audio_channel_to_short_name(channel);
 }
 
 uint32_t channel_name2id(const char *name)
 {
-	int i;
-	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (strcmp(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)) == 0)
-			return spa_type_audio_channel[i].type;
-	}
-	return SPA_AUDIO_CHANNEL_UNKNOWN;
+	return spa_type_audio_channel_from_short_name(name);
 }
 
 enum channel_position channel_id2pa(uint32_t id, uint32_t *aux)
@@ -352,6 +333,13 @@ void channel_map_to_positions(const struct channel_map *map, uint32_t *pos)
 	int i;
 	for (i = 0; i < map->channels; i++)
 		pos[i] = map->map[i];
+}
+
+void positions_to_channel_map(const uint32_t *pos, uint32_t channels, struct channel_map *map)
+{
+	uint32_t i;
+	for (i = 0; i < channels; i++)
+		map->map[i] = pos[i];
 }
 
 void channel_map_parse(const char *str, struct channel_map *map)
@@ -440,17 +428,9 @@ void channel_map_parse(const char *str, struct channel_map *map)
 
 void channel_map_parse_position(const char *str, struct channel_map *map)
 {
-	struct spa_json it[1];
-	char v[256];
-
-	if (spa_json_begin_array_relax(&it[0], str, strlen(str)) <= 0)
-		return;
-
-	map->channels = 0;
-	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
-	    map->channels < SPA_AUDIO_MAX_CHANNELS) {
-		map->map[map->channels++] = channel_name2id(v);
-	}
+	uint32_t channels = 0, position[SPA_AUDIO_MAX_CHANNELS];
+	spa_audio_parse_position(str, strlen(str), position, &channels);
+	positions_to_channel_map(position, channels, map);
 }
 
 bool channel_map_valid(const struct channel_map *map)

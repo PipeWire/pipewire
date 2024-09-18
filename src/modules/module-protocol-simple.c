@@ -27,6 +27,7 @@
 #include <spa/debug/types.h>
 #include <spa/param/audio/type-info.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/audio/raw-json.h>
 
 #include <pipewire/impl.h>
 
@@ -785,41 +786,6 @@ static void impl_free(struct impl *impl)
 	free(impl);
 }
 
-static inline uint32_t format_from_name(const char *name, size_t len)
-{
-	int i;
-	for (i = 0; spa_type_audio_format[i].name; i++) {
-		if (strncmp(name, spa_debug_type_short_name(spa_type_audio_format[i].name), len) == 0)
-			return spa_type_audio_format[i].type;
-	}
-	return SPA_AUDIO_FORMAT_UNKNOWN;
-}
-
-static inline uint32_t channel_from_name(const char *name)
-{
-	int i;
-	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)))
-			return spa_type_audio_channel[i].type;
-	}
-	return SPA_AUDIO_CHANNEL_UNKNOWN;
-}
-
-static void parse_position(struct spa_audio_info_raw *info, const char *val, size_t len)
-{
-	struct spa_json it[1];
-	char v[256];
-
-        if (spa_json_begin_array_relax(&it[0], val, len) <= 0)
-		return;
-
-	info->channels = 0;
-	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
-	    info->channels < SPA_AUDIO_MAX_CHANNELS) {
-		info->position[info->channels++] = channel_from_name(v);
-	}
-}
-
 static int calc_frame_size(struct spa_audio_info_raw *info)
 {
 	int res = info->channels;
@@ -861,7 +827,7 @@ static int parse_audio_info(const struct pw_properties *props, struct spa_audio_
 	spa_zero(*info);
 	if ((str = pw_properties_get(props, PW_KEY_AUDIO_FORMAT)) == NULL)
 		str = DEFAULT_FORMAT;
-	info->format = format_from_name(str, strlen(str));
+	info->format = spa_type_audio_format_from_short_name(str);
 
 	info->rate = pw_properties_get_uint32(props, PW_KEY_AUDIO_RATE, info->rate);
 	if (info->rate == 0)
@@ -870,9 +836,10 @@ static int parse_audio_info(const struct pw_properties *props, struct spa_audio_
 	info->channels = pw_properties_get_uint32(props, PW_KEY_AUDIO_CHANNELS, info->channels);
 	info->channels = SPA_MIN(info->channels, SPA_AUDIO_MAX_CHANNELS);
 	if ((str = pw_properties_get(props, SPA_KEY_AUDIO_POSITION)) != NULL)
-		parse_position(info, str, strlen(str));
+		spa_audio_parse_position(str, strlen(str), info->position, &info->channels);
 	if (info->channels == 0)
-		parse_position(info, DEFAULT_POSITION, strlen(DEFAULT_POSITION));
+		spa_audio_parse_position(DEFAULT_POSITION, strlen(DEFAULT_POSITION),
+				info->position, &info->channels);
 
 	return calc_frame_size(info);
 }

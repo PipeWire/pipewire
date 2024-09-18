@@ -159,7 +159,7 @@ static int alsa_set_param(struct state *state, const char *k, const char *s)
 		state->default_rate = atoi(s);
 		fmt_change++;
 	} else if (spa_streq(k, SPA_KEY_AUDIO_FORMAT)) {
-		state->default_format = spa_alsa_format_from_name(s, strlen(s));
+		state->default_format = spa_type_audio_format_from_short_name(s);
 		fmt_change++;
 	} else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
 		spa_alsa_parse_position(&state->default_pos, s, strlen(s));
@@ -2041,7 +2041,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		unsigned aes3;
 
 		spa_log_info(state->log, "using IEC958 Codec:%s rate:%d",
-				spa_debug_type_find_short_name(spa_type_audio_iec958_codec, f->codec),
+				spa_type_audio_iec958_codec_to_short_name(f->codec),
 				f->rate);
 
 		rformat = SND_PCM_FORMAT_S16_LE;

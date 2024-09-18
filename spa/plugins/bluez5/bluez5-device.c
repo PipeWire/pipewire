@@ -502,12 +502,7 @@ static void get_channels(struct spa_bt_transport *t, bool a2dp_duplex, uint32_t 
 
 static const char *get_channel_name(uint32_t channel)
 {
-        int i;
-        for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (spa_type_audio_channel[i].type == channel)
-			return spa_debug_type_short_name(spa_type_audio_channel[i].name);
-        }
-        return NULL;
+	return spa_type_to_short_name(channel, spa_type_audio_channel, NULL);
 }
 
 static int channel_position_cmp(const void *pa, const void *pb)

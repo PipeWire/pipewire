@@ -22,6 +22,7 @@
 #include <spa/node/utils.h>
 #include <spa/node/keys.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/audio/raw-json.h>
 #include <spa/param/param.h>
 #include <spa/param/latency-utils.h>
 #include <spa/param/tag-utils.h>
@@ -3413,33 +3414,6 @@ impl_get_size(const struct spa_handle_factory *factory,
 	return sizeof(struct impl);
 }
 
-static uint32_t channel_from_name(const char *name)
-{
-	int i;
-	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)))
-			return spa_type_audio_channel[i].type;
-	}
-	return SPA_AUDIO_CHANNEL_UNKNOWN;
-}
-
-static inline uint32_t parse_position(uint32_t *pos, const char *val, size_t len)
-{
-	struct spa_json it[1];
-	char v[256];
-	uint32_t i = 0;
-
-	if (spa_json_begin_array_relax(&it[0], val, len) <= 0)
-		return 0;
-
-	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
-			i < SPA_AUDIO_MAX_CHANNELS) {
-		pos[i++] = channel_from_name(v);
-	}
-	return i;
-}
-
-
 static int
 impl_init(const struct spa_handle_factory *factory,
 	  struct spa_handle *handle,
@@ -3492,7 +3466,8 @@ impl_init(const struct spa_handle_factory *factory,
 				RESAMPLE_OPTION_PREFILL, spa_atob(s));
 		else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
 			if (s != NULL)
-	                        this->props.n_channels = parse_position(this->props.channel_map, s, strlen(s));
+				spa_audio_parse_position(s, strlen(s), this->props.channel_map,
+						&this->props.n_channels);
 		}
 		else if (spa_streq(k, SPA_KEY_PORT_IGNORE_LATENCY))
 			this->port_ignore_latency = spa_atob(s);

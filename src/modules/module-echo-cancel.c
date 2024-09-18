@@ -21,6 +21,7 @@
 #include <spa/debug/types.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/raw.h>
+#include <spa/param/audio/raw-json.h>
 #include <spa/param/latency-utils.h>
 #include <spa/pod/builder.h>
 #include <spa/pod/dynamic.h>
@@ -1191,31 +1192,6 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy,
 };
 
-static uint32_t channel_from_name(const char *name)
-{
-	int i;
-	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)))
-			return spa_type_audio_channel[i].type;
-	}
-	return SPA_AUDIO_CHANNEL_UNKNOWN;
-}
-
-static void parse_position(struct spa_audio_info_raw *info, const char *val, size_t len)
-{
-	struct spa_json it[1];
-	char v[256];
-
-        if (spa_json_begin_array_relax(&it[0], val, len) <= 0)
-		return;
-
-	info->channels = 0;
-	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
-	    info->channels < SPA_AUDIO_MAX_CHANNELS) {
-		info->position[info->channels++] = channel_from_name(v);
-	}
-}
-
 static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_raw *info)
 {
 	const char *str;
@@ -1229,9 +1205,10 @@ static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_
 	info->channels = pw_properties_get_uint32(props, PW_KEY_AUDIO_CHANNELS, info->channels);
 	info->channels = SPA_MIN(info->channels, SPA_AUDIO_MAX_CHANNELS);
 	if ((str = pw_properties_get(props, SPA_KEY_AUDIO_POSITION)) != NULL)
-		parse_position(info, str, strlen(str));
+		spa_audio_parse_position(str, strlen(str), info->position, &info->channels);
 	if (info->channels == 0)
-		parse_position(info, DEFAULT_POSITION, strlen(DEFAULT_POSITION));
+		spa_audio_parse_position(DEFAULT_POSITION, strlen(DEFAULT_POSITION),
+				info->position, &info->channels);
 }
 
 static void copy_props(struct impl *impl, struct pw_properties *props, const char *key)
@@ -1389,17 +1366,21 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 
 	if ((str = pw_properties_get(impl->capture_props, SPA_KEY_AUDIO_POSITION)) != NULL) {
-		parse_position(&impl->capture_info, str, strlen(str));
+		spa_audio_parse_position(str, strlen(str),
+				impl->capture_info.position, &impl->capture_info.channels);
 	}
 	if ((str = pw_properties_get(impl->source_props, SPA_KEY_AUDIO_POSITION)) != NULL) {
-		parse_position(&impl->source_info, str, strlen(str));
+		spa_audio_parse_position(str, strlen(str),
+				impl->source_info.position, &impl->source_info.channels);
 	}
 	if ((str = pw_properties_get(impl->sink_props, SPA_KEY_AUDIO_POSITION)) != NULL) {
-		parse_position(&impl->sink_info, str, strlen(str));
+		spa_audio_parse_position(str, strlen(str),
+				impl->sink_info.position, &impl->sink_info.channels);
 		impl->playback_info = impl->sink_info;
 	}
 	if ((str = pw_properties_get(impl->playback_props, SPA_KEY_AUDIO_POSITION)) != NULL) {
-		parse_position(&impl->playback_info, str, strlen(str));
+		spa_audio_parse_position(str, strlen(str),
+				impl->playback_info.position, &impl->playback_info.channels);
 		if (impl->playback_info.channels != impl->sink_info.channels)
 			impl->playback_info = impl->sink_info;
 	}

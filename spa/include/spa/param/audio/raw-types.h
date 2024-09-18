@@ -129,6 +129,15 @@ static const struct spa_type_info spa_type_audio_format[] = {
 	{ 0, 0, NULL, NULL },
 };
 
+static inline uint32_t spa_type_audio_format_from_short_name(const char *name)
+{
+	return spa_type_from_short_name(name, spa_type_audio_format, SPA_AUDIO_FORMAT_UNKNOWN);
+}
+static inline const char * spa_type_audio_format_to_short_name(uint32_t type)
+{
+	return spa_type_to_short_name(type, spa_type_audio_format, "UNKNOWN");
+}
+
 #define SPA_TYPE_INFO_AudioFlags	SPA_TYPE_INFO_FLAGS_BASE "AudioFlags"
 #define SPA_TYPE_INFO_AUDIO_FLAGS_BASE	SPA_TYPE_INFO_AudioFlags ":"
 
@@ -250,12 +259,11 @@ static const struct spa_type_info spa_type_audio_channel[] = {
 
 static inline uint32_t spa_type_audio_channel_from_short_name(const char *name)
 {
-	int i;
-	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (spa_streq(name, spa_type_short_name(spa_type_audio_channel[i].name)))
-			return spa_type_audio_channel[i].type;
-	}
-	return SPA_AUDIO_CHANNEL_UNKNOWN;
+	return spa_type_from_short_name(name, spa_type_audio_channel, SPA_AUDIO_CHANNEL_UNKNOWN);
+}
+static inline const char * spa_type_audio_channel_to_short_name(uint32_t type)
+{
+	return spa_type_to_short_name(type, spa_type_audio_channel, "UNK");
 }
 
 

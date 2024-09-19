@@ -21,7 +21,7 @@ static inline int pw_net_parse_address(const char *address, uint16_t port,
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_DGRAM;
-	hints.ai_flags = AI_NUMERICHOST | AI_NUMERICSERV;
+	hints.ai_flags = AI_NUMERICSERV;
 
 	res = getaddrinfo(address, port_str, &hints, &result);
 

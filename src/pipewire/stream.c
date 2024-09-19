@@ -648,7 +648,7 @@ static int impl_send_command(void *object, const struct spa_command *command)
 	struct pw_stream *stream = &impl->this;
 	uint32_t id = SPA_NODE_COMMAND_ID(command);
 
-	pw_log_info("%p: command %s", impl,
+	pw_log_debug("%p: command %s", impl,
 			spa_debug_type_find_name(spa_type_node_command_id, id));
 
 	switch (id) {
@@ -658,7 +658,6 @@ static int impl_send_command(void *object, const struct spa_command *command)
 		pw_loop_invoke(impl->main_loop,
 			NULL, 0, NULL, 0, false, impl);
 		if (stream->state == PW_STREAM_STATE_STREAMING) {
-
 			pw_log_debug("%p: pause", stream);
 			stream_set_state(stream, PW_STREAM_STATE_PAUSED, 0, NULL);
 		}
@@ -666,13 +665,11 @@ static int impl_send_command(void *object, const struct spa_command *command)
 	case SPA_NODE_COMMAND_Start:
 		if (stream->state == PW_STREAM_STATE_PAUSED) {
 			pw_log_debug("%p: start direction:%d", stream, impl->direction);
-
 			if (impl->direction == SPA_DIRECTION_INPUT) {
 				if (impl->io != NULL)
 					impl->io->status = SPA_STATUS_NEED_DATA;
 			}
 			copy_position(impl, impl->queued.incount);
-			stream_set_state(stream, PW_STREAM_STATE_STREAMING, 0, NULL);
 		}
 		break;
 	default:
@@ -1377,10 +1374,29 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 	}
 }
 
+static void node_state_changed(void *data, enum pw_node_state old,
+		enum pw_node_state state, const char *error)
+{
+	struct pw_stream *stream = data;
+
+	switch (state) {
+	case PW_NODE_STATE_RUNNING:
+		if (stream->state == PW_STREAM_STATE_PAUSED)
+			stream_set_state(stream, PW_STREAM_STATE_STREAMING, 0, NULL);
+		break;
+	case PW_NODE_STATE_ERROR:
+		stream_set_state(stream, PW_STREAM_STATE_ERROR, -EIO, error);
+		break;
+	default:
+		break;
+	}
+}
+
 static const struct pw_impl_node_events node_events = {
 	PW_VERSION_IMPL_NODE_EVENTS,
 	.destroy = node_event_destroy,
 	.info_changed = node_event_info,
+	.state_changed = node_state_changed,
 };
 
 static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)

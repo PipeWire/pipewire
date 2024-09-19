@@ -837,6 +837,8 @@ struct pw_impl_node {
 	uint64_t driver_start;
 	uint64_t elapsed;		/* elapsed time in playing */
 
+	uint32_t pending_request_process;
+
 	void *user_data;                /**< extra user data */
 };
 

@@ -1396,8 +1396,9 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 	this->name = spa_aprintf("%d.%d.%d -> %d.%d.%d",
 			output_node->info.id, output->port_id, this->rt.out_mix.port.port_id,
 			input_node->info.id, input->port_id, this->rt.in_mix.port.port_id);
-	pw_log_info("(%s) (%s) -> (%s) async:%d:%04x:%04x:%d", this->name, output_node->name,
+	pw_log_info("(%s) (%s) -> (%s) async:%d:%d:%d:%04x:%04x:%d", this->name, output_node->name,
 			input_node->name, output_node->driving,
+			output_node->async, input_node->async,
 			output->flags, input->flags, impl->async);
 
 	pw_impl_port_emit_link_added(output, this);

@@ -130,7 +130,7 @@ include:
 .alpine:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2024-05-30.0'
+    FDO_DISTRIBUTION_TAG: '2024-09-20.0'
     FDO_DISTRIBUTION_VERSION: '3.20'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-dev
@@ -141,6 +141,7 @@ include:
       g++
       dbus-dev
       doxygen
+      elogind-dev
       eudev-dev
       fdk-aac-dev
       git
@@ -336,7 +337,7 @@ build_on_alpine:
     - .build
   stage: build
   variables:
-    MESON_OPTIONS: "-Dsession-managers=[] -Dsnap=disabled"
+    MESON_OPTIONS: "-Dsession-managers=[] -Dsnap=disabled -Dlogind=enabled -Dlogind-provider=libelogind"
 
 # build with all auto() options enabled
 build_all:

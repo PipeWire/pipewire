@@ -34,6 +34,15 @@ option('systemd',
        description: 'Enable systemd integration',
        type: 'feature',
        value: 'auto')
+option('logind',
+       description: 'Enable logind integration',
+       type: 'feature',
+       value: 'auto')
+option('logind-provider',
+       description: 'Provider for logind integration',
+       type: 'combo',
+       choices: ['libelogind', 'libsystemd'],
+       value: 'libsystemd')
 option('systemd-system-service',
        description: 'Install systemd system service file',
        type: 'feature',

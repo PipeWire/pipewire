@@ -212,6 +212,7 @@ int main(int argc, char *argv[])
 	pw_main_loop_run(data.main_loop);
 
 	pw_stream_destroy(data.stream);
+	pw_loop_destroy_source(data.loop, data.refill_event);
 	pw_main_loop_destroy(data.main_loop);
 	pw_deinit();
 

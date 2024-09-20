@@ -6,8 +6,8 @@ v4l2_dependencies = [ spa_dep, libinotify_dep ]
 if libudev_dep.found()
   v4l2_sources += [ 'v4l2-udev.c' ]
   v4l2_dependencies += [ libudev_dep ]
-  if systemd_dep.found()
-    v4l2_dependencies += [ systemd_dep ]
+  if logind_dep.found()
+    v4l2_dependencies += [ logind_dep ]
   endif
 endif
 

@@ -27,7 +27,7 @@
 #include "config.h"
 #include "v4l2.h"
 
-#ifdef HAVE_SYSTEMD
+#ifdef HAVE_LOGIND
 #include <systemd/sd-login.h>
 #endif
 
@@ -66,7 +66,7 @@ struct impl {
 
 	struct spa_source source;
 	struct spa_source notify;
-#ifdef HAVE_SYSTEMD
+#ifdef HAVE_LOGIND
 	struct spa_source logind;
 	sd_login_monitor *logind_monitor;
 #endif
@@ -472,7 +472,7 @@ static int start_inotify(struct impl *this)
 {
 	int notify_fd;
 
-#ifdef HAVE_SYSTEMD
+#ifdef HAVE_LOGIND
 	/* Do not use inotify when using logind session monitoring */
 	if (this->logind_monitor)
 		return 0;
@@ -495,7 +495,7 @@ static int start_inotify(struct impl *this)
 	return 0;
 }
 
-#ifdef HAVE_SYSTEMD
+#ifdef HAVE_LOGIND
 static void impl_on_logind_events(struct spa_source *source)
 {
 	struct impl *this = source->data;
@@ -769,7 +769,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this = (struct impl *) handle;
 	this->notify.fd = -1;
-#ifdef HAVE_SYSTEMD
+#ifdef HAVE_LOGIND
 	this->logind_monitor = NULL;
 #endif
 

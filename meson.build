@@ -273,6 +273,10 @@ summary({'systemd conf data': systemd.found()}, bool_yn: true)
 summary({'libsystemd': systemd_dep.found()}, bool_yn: true)
 cdata.set('HAVE_SYSTEMD', systemd.found() and systemd_dep.found())
 
+logind_dep = dependency(get_option('logind-provider'), required: get_option('logind'))
+summary({'logind': logind_dep.found()}, bool_yn: true)
+cdata.set('HAVE_LOGIND', logind_dep.found())
+
 selinux_dep = dependency('libselinux', required: get_option('selinux'))
 summary({'libselinux': selinux_dep.found()}, bool_yn: true)
 cdata.set('HAVE_SELINUX', selinux_dep.found())

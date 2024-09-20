@@ -1,6 +1,7 @@
 # Examples, in order from simple to complicated
 examples = [
   'audio-src',
+  'audio-src-ring',
   'audio-dsp-src',
   'audio-dsp-filter',
   'audio-capture',

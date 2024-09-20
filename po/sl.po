@@ -8,8 +8,8 @@ msgstr ""
 "Project-Id-Version: PipeWire master\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/"
 "issues\n"
-"POT-Creation-Date: 2024-07-26 03:30+0000\n"
-"PO-Revision-Date: 2024-07-26 14:06+0200\n"
+"POT-Creation-Date: 2024-09-09 16:36+0000\n"
+"PO-Revision-Date: 2024-09-20 08:27+0200\n"
 "Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
 "Language-Team: Slovenian <gnome-si@googlegroups.com>\n"
 "Language: sl\n"
@@ -75,7 +75,7 @@ msgstr "%s na %s@%s"
 msgid "%s on %s"
 msgstr "%s na %s"
 
-#: src/tools/pw-cat.c:991
+#: src/tools/pw-cat.c:996
 #, c-format
 msgid ""
 "%s [options] [<file>|-]\n"
@@ -91,7 +91,7 @@ msgstr ""
 "\n"
 "</file>\n"
 
-#: src/tools/pw-cat.c:998
+#: src/tools/pw-cat.c:1003
 #, c-format
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
@@ -128,7 +128,7 @@ msgstr ""
 "  -P  --properties                      Nastavi lastnosti vozlišča\n"
 "\n"
 
-#: src/tools/pw-cat.c:1016
+#: src/tools/pw-cat.c:1021
 #, c-format
 msgid ""
 "      --rate                            Sample rate (req. for rec) (default "
@@ -145,6 +145,7 @@ msgid ""
 "      --volume                          Stream volume 0-1.0 (default %.3f)\n"
 "  -q  --quality                         Resampler quality (0 - 15) (default "
 "%d)\n"
+"  -a, --raw                             RAW mode\n"
 "\n"
 msgstr ""
 "      --rate                            Mera vzorčenja (zahtevano za rec) "
@@ -161,9 +162,11 @@ msgstr ""
 "      --volume                          Glasnost toka 0-1.0 (privzeto %.3f)\n"
 "  -q  --quality                         Kakovost prevzorčenja (0 - 15) "
 "(privzeto %d)\n"
+"  -a, --raw                             neobdelan način (RAW)\n"
+"\n"
 "\n"
 
-#: src/tools/pw-cat.c:1033
+#: src/tools/pw-cat.c:1039
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"
@@ -179,7 +182,7 @@ msgstr ""
 "  -o, --encoded                         Kodiran način\n"
 "\n"
 
-#: src/tools/pw-cli.c:2281
+#: src/tools/pw-cli.c:2285
 #, c-format
 msgid ""
 "%s [options] [command]\n"

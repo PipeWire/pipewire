@@ -133,7 +133,19 @@ extern "C" {
  * When the buffer has been processed, call \ref pw_stream_queue_buffer()
  * to let PipeWire reuse the buffer.
  *
+ * Although not strictly required, it is recommended to call \ref
+ * pw_stream_dequeue_buffer() and pw_stream_queue_buffer() from the
+ * process() callback to minimize the amount of buffering and
+ * maximize the amount of buffer reuse in the stream.
+ *
+ * It is also possible to dequeue the buffer from the process event,
+ * then process and queue the buffer from a helper thread. It is also
+ * possible to dequeue, process and queue a buffer from a helper thread
+ * after receiving the process event.
+ *
  * \subsection ssec_produce Produce data
+ *
+ * The process event is emitted when a new buffer should be queued.
  *
  * \ref pw_stream_dequeue_buffer() gives an empty buffer that can be filled.
  *
@@ -142,8 +154,13 @@ extern "C" {
  *
  * Filled buffers should be queued with \ref pw_stream_queue_buffer().
  *
- * The process event is emitted when PipeWire has emptied a buffer that
- * can now be refilled.
+ * Although not strictly required, it is recommended to call \ref
+ * pw_stream_dequeue_buffer() and pw_stream_queue_buffer() from the
+ * process() callback to minimize the amount of buffering and
+ * maximize the amount of buffer reuse in the stream.
+ *
+ * Buffers that are queued after the process event completes will be delayed
+ * to the next processing cycle.
  *
  * \section sec_stream_driving Driving the graph
  *
@@ -156,6 +173,26 @@ extern "C" {
  * \ref PW_STREAM_STATE_STREAMING state and \ref pw_stream_is_driving() returns
  * true. It must then use pw_stream_trigger_process() to start the graph
  * cycle.
+ *
+ * \ref pw_stream_trigger_process() will result in a process event, where a buffer
+ * should be dequeued, and queued again. This is the recommended behaviour that
+ * minimizes buffering and maximized buffer reuse.
+ *
+ * Producers of data that drive the graph can also dequeue a buffer in a helper
+ * thread, fill it with data and then call \ref pw_stream_trigger_process() to
+ * start the graph cycle. In the process event they will then queue the filled
+ * buffer and dequeue a new empty buffer to fill again in the helper thread,
+ *
+ * Consumers of data that drive the graph (pull based scheduling) will use
+ * \ref pw_stream_trigger_process() to start the graph and will dequeue, process
+ * and queue the buffers in the process event.
+ *
+ * \section sec_stream_process_requests Request processing
+ *
+ * A stream that is not driving the graph can request a new graph cycle by doing
+ * \ref pw_stream_trigger_process(). This will result in a RequestProcess command
+ * in the driver stream. If the driver supports this, it can then perform
+ * \ref pw_stream_trigger_process() to start the actual graph cycle.
  *
  * \section sec_stream_disconnect Disconnect
  *

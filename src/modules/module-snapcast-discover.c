@@ -635,7 +635,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	char hbuf[NI_MAXHOST];
 	char if_suffix[16] = "";
 	struct ifreq ifreq;
-	int fd, res, family;
+	int res, family;
 
 	if (event != AVAHI_RESOLVER_FOUND) {
 		pw_log_error("Resolving of '%s' failed: %s", name,
@@ -688,9 +688,8 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	family = protocol == AVAHI_PROTO_INET ? AF_INET : AF_INET6;
 
 	spa_zero(ifreq);
-	fd = socket(family, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
 	ifreq.ifr_ifindex = interface;
-	ioctl(fd, SIOCGIFNAME, &ifreq, sizeof(ifreq));
+	if_indextoname(interface, ifreq.ifr_name);
 	pw_properties_setf(props, "snapcast.ifname", "%s", ifreq.ifr_name);
 	pw_properties_setf(props, "local.ifname", "%s", ifreq.ifr_name);
 
@@ -725,7 +724,6 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		}
 	}
 	freeifaddrs(if_addr);
-	close(fd);
 
 	for (l = txt; l; l = l->next) {
 		char *key, *value;

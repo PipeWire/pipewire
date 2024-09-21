@@ -39,10 +39,6 @@
 #include <module-rtp/stream.h>
 #include "network-utils.h"
 
-#ifdef __FreeBSD__
-#define ifr_ifindex ifr_index
-#endif
-
 /** \page page_module_rtp_session RTP session
  *
  * The `rtp-session` module creates a media session that is announced

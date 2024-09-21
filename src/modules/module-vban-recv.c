@@ -32,10 +32,6 @@
 #include <module-vban/stream.h>
 #include "network-utils.h"
 
-#ifdef __FreeBSD__
-#define ifr_ifindex ifr_index
-#endif
-
 /** \page page_module_vban_recv VBAN receiver
  *
  * The `vban-recv` module creates a PipeWire source that receives audio

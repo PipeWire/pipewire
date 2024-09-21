@@ -29,7 +29,6 @@
 #include "network-utils.h"
 
 #ifdef __FreeBSD__
-#define ifr_ifindex ifr_index
 #define SO_PASSCRED LOCAL_CREDS_PERSISTENT
 #endif
 

@@ -517,16 +517,6 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 	send_packet(impl->server_fd, &msg);
 }
 
-static inline void
-set_iovec(struct spa_ringbuffer *rbuf, void *buffer, uint32_t size,
-		uint32_t offset, struct iovec *iov, uint32_t len)
-{
-	iov[0].iov_len = SPA_MIN(len, size - offset);
-	iov[0].iov_base = SPA_PTROFF(buffer, offset, void);
-	iov[1].iov_len = len - iov[0].iov_len;
-	iov[1].iov_base = buffer;
-}
-
 static int create_udp_socket(struct impl *impl, uint16_t *port)
 {
 	int res, ip_version, fd, val, i, af;

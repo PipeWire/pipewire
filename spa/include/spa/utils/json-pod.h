@@ -135,16 +135,32 @@ static inline int spa_json_to_pod_part(struct spa_pod_builder *b, uint32_t flags
 	return 0;
 }
 
-static inline int spa_json_to_pod(struct spa_pod_builder *b, uint32_t flags,
-		const struct spa_type_info *info, const char *value, int len)
+static inline int spa_json_to_pod_checked(struct spa_pod_builder *b, uint32_t flags,
+		const struct spa_type_info *info, const char *value, int len,
+		struct spa_error_location *loc)
 {
 	struct spa_json iter;
 	const char *val;
+	int res;
 
-	if ((len = spa_json_begin(&iter, value, len, &val)) <= 0)
-		return -EINVAL;
+	if (loc)
+		spa_zero(*loc);
 
-	return spa_json_to_pod_part(b, flags, info->type, info, &iter, val, len);
+	if ((res = spa_json_begin(&iter, value, len, &val)) <= 0)
+		goto error;
+
+	res = spa_json_to_pod_part(b, flags, info->type, info, &iter, val, len);
+
+error:
+	if (res < 0 && loc)
+		spa_json_get_error(&iter, value, loc);
+	return res;
+}
+
+static inline int spa_json_to_pod(struct spa_pod_builder *b, uint32_t flags,
+		const struct spa_type_info *info, const char *value, int len)
+{
+	return spa_json_to_pod_checked(b, flags, info, value, len, NULL);
 }
 
 /**

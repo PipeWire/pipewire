@@ -30,6 +30,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/debug/pod.h>
+#include <spa/debug/file.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/json-pod.h>
 #include <spa/pod/dynamic.h>
@@ -1780,6 +1781,7 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 	spa_auto(spa_pod_dynamic_builder) b = { 0 };
 	const struct spa_type_info *ti;
 	struct spa_pod *pod;
+	struct spa_error_location loc;
 
 	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
 
@@ -1804,8 +1806,13 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 		*error = spa_aprintf("%s: unknown param type: %s", cmd, a[1]);
 		return false;
 	}
-	if ((res = spa_json_to_pod(&b.b, 0, ti, a[2], strlen(a[2]))) < 0) {
-		*error = spa_aprintf("%s: can't make pod: %s", cmd, spa_strerror(res));
+	if ((res = spa_json_to_pod_checked(&b.b, 0, ti, a[2], strlen(a[2]), &loc)) < 0) {
+		if (loc.line != 0) {
+			spa_debug_file_error_location(stderr, &loc,
+					"syntax error in json '%s': %s",
+					a[2], loc.reason);
+		}
+		*error = spa_aprintf("%s: invalid pod: %s", cmd, loc.reason);
 		return false;
 	}
 	if ((pod = spa_pod_builder_deref(&b.b, 0)) == NULL) {

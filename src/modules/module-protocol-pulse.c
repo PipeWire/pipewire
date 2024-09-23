@@ -338,6 +338,8 @@
  * * `block-source-volume` blocks the client from updating any source volumes. This can be used
  *                    to disable things like automatic gain control.
  * * `block-sink-volume` blocks the client from updating any sink volumes.
+ * * `block-record-stream` blocks the client from creating any record stream.
+ * * `block-playback-stream` blocks the client from creating any playback stream.
  *
  * ### update-props
  *

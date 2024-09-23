@@ -12,6 +12,8 @@
 #define QUIRK_REMOVE_CAPTURE_DONT_MOVE		(1ull<<1)	/** removes the capture stream DONT_MOVE flag */
 #define QUIRK_BLOCK_SOURCE_VOLUME		(1ull<<2)	/** block volume changes to sources */
 #define QUIRK_BLOCK_SINK_VOLUME			(1ull<<3)	/** block volume changes to sinks */
+#define QUIRK_BLOCK_RECORD_STREAM		(1ull<<4)	/** block creating a record stream */
+#define QUIRK_BLOCK_PLAYBACK_STREAM		(1ull<<5)	/** block creating a playback stream */
 
 int client_update_quirks(struct client *client);
 

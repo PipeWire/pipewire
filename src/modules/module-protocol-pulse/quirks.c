@@ -19,6 +19,8 @@ static uint64_t parse_quirks(const char *str)
 		{ "remove-capture-dont-move", QUIRK_REMOVE_CAPTURE_DONT_MOVE },
 		{ "block-source-volume", QUIRK_BLOCK_SOURCE_VOLUME },
 		{ "block-sink-volume", QUIRK_BLOCK_SINK_VOLUME },
+		{ "block-record-stream", QUIRK_BLOCK_RECORD_STREAM },
+		{ "block-playback-stream", QUIRK_BLOCK_PLAYBACK_STREAM },
 	};
 	SPA_FOR_EACH_ELEMENT_VAR(quirk_keys, i) {
 		if (spa_streq(str, i->key))

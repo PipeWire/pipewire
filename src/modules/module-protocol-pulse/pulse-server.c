@@ -1726,6 +1726,9 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	if (n_valid_formats == 0)
 		goto error_no_formats;
 
+	if (client->quirks & QUIRK_BLOCK_PLAYBACK_STREAM)
+		goto error_no_permission;
+
 	stream = stream_new(client, STREAM_TYPE_PLAYBACK, tag, &ss, &map, &attr);
 	if (stream == NULL)
 		goto error_errno;
@@ -1797,6 +1800,9 @@ error_protocol:
 	goto error;
 error_no_formats:
 	res = -ENOTSUP;
+	goto error;
+error_no_permission:
+	res = -EPERM;
 	goto error;
 error_invalid:
 	res = -EINVAL;
@@ -1992,6 +1998,9 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	if (n_valid_formats == 0)
 		goto error_no_formats;
 
+	if (client->quirks & QUIRK_BLOCK_RECORD_STREAM)
+		goto error_no_permission;
+
 	stream = stream_new(client, STREAM_TYPE_RECORD, tag, &ss, &map, &attr);
 	if (stream == NULL)
 		goto error_errno;
@@ -2077,6 +2086,9 @@ error_protocol:
 	goto error;
 error_no_formats:
 	res = -ENOTSUP;
+	goto error;
+error_no_permission:
+	res = -EPERM;
 	goto error;
 error_invalid:
 	res = -EINVAL;

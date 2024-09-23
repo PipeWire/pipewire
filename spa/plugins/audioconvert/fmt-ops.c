@@ -180,6 +180,7 @@ static struct conv_info conv_table[] =
 #if defined (HAVE_RVV)
 	MAKE(F32, S16, 0, conv_f32_to_s16_rvv, SPA_CPU_FLAG_RISCV_V),
 	MAKE(F32P, S16P, 0, conv_f32d_to_s16d_rvv, SPA_CPU_FLAG_RISCV_V),
+	MAKE(F32P, S16, 0, conv_f32d_to_s16_rvv, SPA_CPU_FLAG_RISCV_V),
 #endif
 	MAKE(F32, S16, 0, conv_f32_to_s16_c),
 

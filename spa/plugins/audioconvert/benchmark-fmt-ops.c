@@ -137,6 +137,7 @@ static void test_f32_s16(void)
 	if (cpu_flags & SPA_CPU_FLAG_RISCV_V) {
 		run_test("test_f32_s16", "rvv", true, true, conv_f32_to_s16_rvv);
 		run_test("test_f32d_s16d", "rvv", false, false, conv_f32d_to_s16d_rvv);
+		run_test("test_f32d_s16", "rvv", false, true, conv_f32d_to_s16_rvv);
 	}
 #endif
 	run_test("test_f32_s16d", "c", true, false, conv_f32_to_s16d_c);

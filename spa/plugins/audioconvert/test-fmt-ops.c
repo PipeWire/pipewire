@@ -234,6 +234,8 @@ static void test_f32_s16(void)
 			true, true, conv_f32_to_s16_rvv);
 		run_test("test_f32d_s16d_rvv", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			false, false, conv_f32d_to_s16d_rvv);
+		run_test("test_f32d_s16_rvv", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			false, true, conv_f32d_to_s16_rvv);
 	}
 #endif
 }

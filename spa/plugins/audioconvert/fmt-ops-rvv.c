@@ -79,12 +79,11 @@ f32d_to_s16(void *data, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[]
 		"vfmul.vf      v8, v8, fa5                              \n\t"
 		"vsetvli       zero, zero, e16, m4, ta, ma              \n\t"
 		"vfncvt.x.f.w  v8, v8                                   \n\t"
-		"slli          t2, t0, 1                                \n\t"
+		"slli          t2, t0, 2                                \n\t"
+		"mul           t3, t0, %[stride]                        \n\t"
 		"vsse16.v      v8, (%[dst]), %[stride]                  \n\t"
 		"add           %[s], %[s], t2                           \n\t"
-		"add           %[s], %[s], t2                           \n\t"
-		"mul           t0, t0, %[stride]                        \n\t"
-		"add           %[dst], %[dst], t0                       \n\t"
+		"add           %[dst], %[dst], t3                       \n\t"
 		"bnez          %[n_samples], 1b                         \n\t"
 		: [n_samples] "+r" (n_samples),
 		  [s] "+r" (s),

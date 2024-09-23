@@ -55,6 +55,8 @@ static void fill_f32(struct data *d, uint32_t offset, int n_frames)
         }
 }
 
+/* this is called from the main-thread when we need to fill up the ringbuffer
+ * with more data */
 static void do_refill(void *userdata, uint64_t count)
 {
 	struct data *data = userdata;
@@ -84,6 +86,8 @@ static void do_refill(void *userdata, uint64_t count)
  *  b = pw_stream_dequeue_buffer(stream);
  *
  *  .. generate stuff in the buffer ...
+ *  In this case we read samples from a ringbuffer. The ringbuffer is
+ *  filled up by another thread.
  *
  *  pw_stream_queue_buffer(stream, b);
  */
@@ -92,10 +96,9 @@ static void on_process(void *userdata)
 	struct data *data = userdata;
 	struct pw_buffer *b;
 	struct spa_buffer *buf;
-	int n_frames, stride;
 	uint8_t *p;
-	uint32_t index;
-	int32_t avail;
+	uint32_t index, to_read, to_silence;
+	int32_t avail, n_frames, stride;
 
 	if ((b = pw_stream_dequeue_buffer(data->stream)) == NULL) {
 		pw_log_warn("out of buffers: %m");
@@ -112,32 +115,35 @@ static void on_process(void *userdata)
 	stride = sizeof(float) * DEFAULT_CHANNELS;
 	n_frames = buf->datas[0].maxsize / stride;
 	if (b->requested)
-		n_frames = SPA_MIN((int)b->requested, n_frames);
+		n_frames = SPA_MIN((int32_t)b->requested, n_frames);
 
-	if (avail < (int32_t)n_frames) {
-		/* there is not enough data available in the ringbuffer,
-		 * fill with silence and hope it will be filled next time */
-		memset(p, 0, n_frames * stride);
-		pw_log_warn("underrun");
-	} else {
-		/* enough data in the ringbuffer, copy it into the buffer data.
-		 * We use the number of samples as the read/write counters so we
-		 * need to multiply with the stride to get the byte offsets. */
+	/* we can read if there is something available */
+	to_read = avail > 0 ? SPA_MIN(avail, n_frames) : 0;
+	/* and fill the remainder with silence */
+	to_silence = n_frames - to_read;
+
+	if (to_read > 0) {
+		/* read data into the buffer */
 		spa_ringbuffer_read_data(&data->ring,
 				data->buffer, BUFFER_SIZE * stride,
 				(index % BUFFER_SIZE) * stride,
-				p, n_frames * stride);
+				p, to_read * stride);
 		/* update the read pointer */
-		spa_ringbuffer_read_update(&data->ring, index + n_frames);
-
+		spa_ringbuffer_read_update(&data->ring, index + to_read);
 	}
+	if (to_silence > 0)
+		/* set the rest of the buffer to silence */
+		memset(SPA_PTROFF(p, to_read * stride, void), 0, to_silence * stride);
+
 	buf->datas[0].chunk->offset = 0;
 	buf->datas[0].chunk->stride = stride;
 	buf->datas[0].chunk->size = n_frames * stride;
 
 	pw_stream_queue_buffer(data->stream, b);
 
-	/* signal the main thread to fill the ringbuffer */
+	/* signal the main thread to fill the ringbuffer, we can only do this, for
+	 * example when the available ringbuffer space falls below a certain
+	 * level. */
 	pw_loop_signal_event(data->loop, data->refill_event);
 }
 

@@ -164,14 +164,17 @@ static void print_params(struct spa_param_info *params, uint32_t n_params, char 
 	}
 }
 
+#if 0
 static bool do_not_implemented(struct data *data, const char *cmd, char *args, char **error)
 {
 	*error = spa_aprintf("Command \"%s\" not yet implemented", cmd);
 	return false;
 }
+#endif
 
 static bool do_help(struct data *data, const char *cmd, char *args, char **error);
 static bool do_load_module(struct data *data, const char *cmd, char *args, char **error);
+static bool do_unload_module(struct data *data, const char *cmd, char *args, char **error);
 static bool do_list_objects(struct data *data, const char *cmd, char *args, char **error);
 static bool do_connect(struct data *data, const char *cmd, char *args, char **error);
 static bool do_disconnect(struct data *data, const char *cmd, char *args, char **error);
@@ -195,7 +198,7 @@ static bool do_quit(struct data *data, const char *cmd, char *args, char **error
 static const struct command command_list[] = {
 	{ "help", "h", "Show this help", do_help },
 	{ "load-module", "lm", "Load a module. <module-name> [<module-arguments>]", do_load_module },
-	{ "unload-module", "um", "Unload a module. <module-var>", do_not_implemented },
+	{ "unload-module", "um", "Unload a module. <module-var>", do_unload_module },
 	{ "connect", "con", "Connect to a remote. [<remote-name>]", do_connect },
 	{ "disconnect", "dis", "Disconnect from a remote. [<remote-var>]", do_disconnect },
 	{ "list-remotes", "lr", "List connected remotes.", do_list_remotes },
@@ -261,6 +264,29 @@ static bool do_load_module(struct data *data, const char *cmd, char *args, char 
 	if (data->interactive)
 		printf("%d = @module:%d\n", id, pw_global_get_id(pw_impl_module_get_global(module)));
 
+	return true;
+}
+
+static bool do_unload_module(struct data *data, const char *cmd, char *args, char **error)
+{
+	char *a[1];
+	int n;
+	struct pw_impl_module *module;
+	uint32_t idx;
+
+	n = pw_split_ip(args, WHITESPACE, 1, a);
+	if (n < 1) {
+		*error = spa_aprintf("%s <module-var>", cmd);
+		return false;
+	}
+	idx = atoi(a[0]);
+	module = pw_map_lookup(&data->vars, idx);
+	if (module == NULL) {
+		*error = spa_aprintf("%s: unknown module '%s'", cmd, a[0]);
+		return false;
+	}
+	pw_map_remove(&data->vars, idx);
+	pw_impl_module_destroy(module);
 	return true;
 }
 

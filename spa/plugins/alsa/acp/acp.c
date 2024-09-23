@@ -1377,7 +1377,8 @@ static int setup_mixer(pa_card *impl, pa_alsa_device *dev, bool ignore_dB)
 			data = PA_DEVICE_PORT_DATA(dev->active_port);
 			dev->mixer_path = data->path;
 
-			pa_alsa_path_select(data->path, data->setting, dev->mixer_handle, dev->muted);
+			if (!impl->soft_mixer)
+				pa_alsa_path_select(data->path, data->setting, dev->mixer_handle, dev->muted);
 		} else {
 			pa_alsa_ucm_port_data *data;
 
@@ -1386,7 +1387,8 @@ static int setup_mixer(pa_card *impl, pa_alsa_device *dev, bool ignore_dB)
 			/* Now activate volume controls, if any */
 			if (data->path) {
 				dev->mixer_path = data->path;
-				pa_alsa_path_select(dev->mixer_path, NULL, dev->mixer_handle, dev->muted);
+				if (!impl->soft_mixer)
+					pa_alsa_path_select(dev->mixer_path, NULL, dev->mixer_handle, dev->muted);
 			}
 		}
 	} else {
@@ -1395,8 +1397,9 @@ static int setup_mixer(pa_card *impl, pa_alsa_device *dev, bool ignore_dB)
 
 		if (dev->mixer_path) {
 			/* Hmm, we have only a single path, then let's activate it */
-			pa_alsa_path_select(dev->mixer_path, dev->mixer_path->settings,
-					dev->mixer_handle, dev->muted);
+			if (!impl->soft_mixer)
+				pa_alsa_path_select(dev->mixer_path, dev->mixer_path->settings,
+						dev->mixer_handle, dev->muted);
 		} else
 			return 0;
 	}
@@ -1864,6 +1867,7 @@ int acp_card_handle_events(struct acp_card *card)
 static void sync_mixer(pa_alsa_device *d, pa_device_port *port)
 {
 	pa_alsa_setting *setting = NULL;
+	pa_card *impl = d->card;
 
 	if (!d->mixer_path)
 		return;
@@ -1876,7 +1880,7 @@ static void sync_mixer(pa_alsa_device *d, pa_device_port *port)
 		setting = data->setting;
 	}
 
-	if (d->mixer_handle)
+	if (d->mixer_handle && !impl->soft_mixer)
 		pa_alsa_path_select(d->mixer_path, setting, d->mixer_handle, d->muted);
 
 	if (d->set_mute)

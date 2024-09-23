@@ -52,6 +52,8 @@ static inline int spa_json_to_pod_part(struct spa_pod_builder *b, uint32_t flags
 			if ((res = spa_json_to_pod_part(b, flags, id, pi, &it[0], v, l)) < 0)
 				return res;
 		}
+		if (l < 0)
+			return l;
 		spa_pod_builder_pop(b, &f[0]);
 	}
 	else if (spa_json_is_array(value, len)) {
@@ -65,6 +67,8 @@ static inline int spa_json_to_pod_part(struct spa_pod_builder *b, uint32_t flags
 		while ((l = spa_json_next(&it[0], &v)) > 0)
 			if ((res = spa_json_to_pod_part(b, flags, id, info, &it[0], v, l)) < 0)
 				return res;
+		if (l < 0)
+			return l;
 		spa_pod_builder_pop(b, &f[0]);
 	}
 	else if (spa_json_is_float(value, len)) {

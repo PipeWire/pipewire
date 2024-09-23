@@ -69,6 +69,9 @@ static struct conv_info conv_table[] =
 	MAKE(S16, F32P, 2, conv_s16_to_f32d_2_sse2, SPA_CPU_FLAG_SSE2),
 	MAKE(S16, F32P, 0, conv_s16_to_f32d_sse2, SPA_CPU_FLAG_SSE2),
 #endif
+#if defined (HAVE_RVV)
+	MAKE(S16, F32P, 0, conv_s16_to_f32d_rvv, SPA_CPU_FLAG_RISCV_V),
+#endif
 	MAKE(S16, F32P, 0, conv_s16_to_f32d_c),
 	MAKE(S16P, F32, 0, conv_s16d_to_f32_c),
 

@@ -161,6 +161,11 @@ static void test_s16_f32(void)
 		run_testc("test_s16_f32d_2", "avx2", true, false, conv_s16_to_f32d_2_avx2, 2);
 	}
 #endif
+#if defined (HAVE_RVV)
+	if (cpu_flags & SPA_CPU_FLAG_RISCV_V) {
+		run_test("test_s16_f32d", "rvv", true, false, conv_s16_to_f32d_rvv);
+	}
+#endif
 	run_test("test_s16d_f32d", "c", false, false, conv_s16d_to_f32d_c);
 }
 

@@ -271,6 +271,12 @@ static void test_s16_f32(void)
 			true, false, conv_s16_to_f32d_neon);
 	}
 #endif
+#if defined(HAVE_RVV)
+	if (cpu_flags & SPA_CPU_FLAG_RISCV_V) {
+		run_test("test_s16_f32d_rvv", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			true, false, conv_s16_to_f32d_rvv);
+	}
+#endif
 }
 
 static void test_f32_u32(void)

@@ -108,4 +108,53 @@ conv_f32d_to_s16_rvv(struct convert *conv, void * SPA_RESTRICT dst[], const void
 	for(i = 0; i < n_channels; i++)
 		f32d_to_s16(conv, &d[i], &src[i], n_channels, n_samples);
 }
+
+static void
+s16_to_f32d(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+		uint32_t n_channels, uint32_t n_samples)
+{
+	float *d = dst[0];
+	uint32_t stride = n_channels << 1;
+
+	asm __volatile__ (
+		".option       arch, +v                                 \n\t"
+		"li            t0, 939524096                            \n\t"
+		"fmv.w.x       fa5, t0                                  \n\t"
+		"1:                                                     \n\t"
+		"vsetvli       t0, %[n_samples], e16, m4, ta, ma        \n\t"
+		"vlse16.v      v8, (%[src]), %[stride]                  \n\t"
+		"sub           %[n_samples], %[n_samples], t0           \n\t"
+		"vfwcvt.f.x.v  v16, v8                                  \n\t"
+		"vsetvli       zero, zero, e32, m8, ta, ma              \n\t"
+		"mul           t4, t0, %[stride]                        \n\t"
+		"vfmul.vf      v8, v16, fa5                             \n\t"
+		"slli          t3, t0, 2                                \n\t"
+		"vse32.v       v8, (%[d])                               \n\t"
+		"add           %[src], %[src], t4                       \n\t"
+		"add           %[d], %[d], t3                           \n\t"
+		"bnez          %[n_samples], 1b                         \n\t"
+		: [n_samples] "+r" (n_samples),
+		  [src] "+r" (src),
+		  [d] "+r" (d)
+		: [stride] "r" (stride)
+		: "cc", "memory"
+	);
+
+}
+
+void
+conv_s16_to_f32d_rvv(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	if (n_samples <= 4) {
+		conv_s16_to_f32d_c(conv, dst, src, n_samples);
+		return;
+	}
+
+	const int16_t *s = src[0];
+	uint32_t i = 0, n_channels = conv->n_channels;
+
+	for(i = 0; i < n_channels; i++)
+		s16_to_f32d(conv, &dst[i], &s[i], n_channels, n_samples);
+}
 #endif

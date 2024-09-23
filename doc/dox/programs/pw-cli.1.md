@@ -133,11 +133,14 @@ This command returns a *device variable*.
 \parblock
 Create a link between 2 nodes and ports.
 
-Port *ids* can be *-1* to automatically select an available port.
+Port *ids* and Node *ids* can be set to `-` to automatically select a node or
+a port.
+
+Port *ids* can be `*` to automatically link matching ports ids in the nodes.
 
 Properties are key=value pairs separated by whitespace.
 
-This command returns a *link variable*.
+This command returns one or more *link variables*.
 \endparblock
 
 # GLOBALS MANAGEMENT

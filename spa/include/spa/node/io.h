@@ -191,7 +191,9 @@ struct spa_io_segment_bar {
 	float signature_denom;		/**< time signature denominator */
 	double bpm;			/**< beats per minute */
 	double beat;			/**< current beat in segment */
-	uint32_t padding[8];
+	double bar_start_tick;
+	double ticks_per_beat;
+	uint32_t padding[4];
 };
 
 /** video frame segment */

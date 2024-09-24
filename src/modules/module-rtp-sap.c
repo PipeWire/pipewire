@@ -455,6 +455,8 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 {
 	int af, fd, val, res;
 	struct ifreq req;
+	struct sockaddr_storage ba = *sa;
+	bool do_connect = false;
 	char addr[128];
 
 	af = sa->ss_family;
@@ -488,7 +490,11 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 			pw_log_info("join IPv4 group: %s iface:%d", addr, req.ifr_ifindex);
 			res = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr4, sizeof(mr4));
 		} else {
-			sa4->sin_addr.s_addr = INADDR_ANY;
+			struct sockaddr_in *ba4 = (struct sockaddr_in*)&ba;
+			if (ba4->sin_addr.s_addr != INADDR_ANY) {
+				ba4->sin_addr.s_addr = INADDR_ANY;
+				do_connect = true;
+			}
 		}
 	} else if (af == AF_INET6) {
 		struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)sa;
@@ -501,7 +507,8 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 			pw_log_info("join IPv6 group: %s iface:%d", addr, req.ifr_ifindex);
 			res = setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mr6, sizeof(mr6));
 		} else {
-		        sa6->sin6_addr = in6addr_any;
+			struct sockaddr_in6 *ba6 = (struct sockaddr_in6*)&ba;
+			ba6->sin6_addr = in6addr_any;
 		}
 	} else {
 		res = -EINVAL;
@@ -514,10 +521,17 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 		goto error;
 	}
 
-	if (bind(fd, (struct sockaddr*)sa, salen) < 0) {
+	if (bind(fd, (struct sockaddr*)&ba, salen) < 0) {
 		res = -errno;
 		pw_log_error("bind() failed: %m");
 		goto error;
+	}
+	if (do_connect) {
+		if (connect(fd, (struct sockaddr*)sa, salen) < 0) {
+			res = -errno;
+			pw_log_error("connect() failed: %m");
+			goto error;
+		}
 	}
 	return fd;
 error:

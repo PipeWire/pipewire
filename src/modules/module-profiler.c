@@ -34,6 +34,12 @@
  *
  * `libpipewire-module-profiler`
  *
+ * ## Module Options
+ *
+ * - `profile.interval.ms`: Can be used to avoid gathering profiling information
+ *			    on every processing cycle. This allows trading off
+ *			    CPU usage for profiling accuracy.
+ *
  * ## Example configuration
  *
  * The module has no arguments and is usually added to the config file of
@@ -68,9 +74,14 @@ int pw_protocol_native_ext_profiler_init(struct pw_context *context);
 #define pw_profiler_resource_profile(r,...)        \
         pw_profiler_resource(r,profile,0,__VA_ARGS__)
 
+#define DEFAULT_INTERVAL	0
+
+#define MODULE_USAGE	"( profile.interval.ms=<minimum interval for sampling data (in ms) ) "
+
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Generate Profiling data" },
+	{ PW_KEY_MODULE_USAGE, MODULE_USAGE },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -109,6 +120,9 @@ struct impl {
 
 	uint8_t *flush;
 	size_t flush_size;
+
+	uint32_t interval;
+	uint64_t last_signal_time;
 };
 
 struct resource_data {
@@ -181,6 +195,11 @@ static void context_do_profile(void *data)
 
 	if (SPA_FLAG_IS_SET(pos->clock.flags, SPA_IO_CLOCK_FLAG_FREEWHEEL))
 		return;
+
+	if (a->signal_time - impl->last_signal_time < impl->interval)
+		goto done;
+
+	impl->last_signal_time = a->signal_time;
 
 	spa_pod_builder_init(&b, n->tmp, sizeof(n->tmp));
 	spa_pod_builder_push_object(&b, &f[0],
@@ -474,6 +493,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->context = context;
 	impl->properties = props;
 	impl->main_loop = pw_context_get_main_loop(impl->context);
+
+	impl->interval = SPA_NSEC_PER_MSEC *
+		pw_properties_get_uint32(props, "profile.interval.ms", DEFAULT_INTERVAL);
+	impl->last_signal_time = 0;
 
 	impl->global = pw_global_new(context,
 			PW_TYPE_INTERFACE_Profiler,

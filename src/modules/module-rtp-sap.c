@@ -650,6 +650,7 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 	struct spa_strbuf buf;
 	struct sdp_info *sdp = &sess->info;
 	bool src_ip4, dst_ip4;
+	bool multicast;
 	int res;
 
 	if (!sess->has_sent_sap && bye)
@@ -683,8 +684,10 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 	if ((user_name = pw_get_user_name()) == NULL)
 		user_name = "-";
 
+	multicast = is_multicast((struct sockaddr*)&sdp->dst_addr, sdp->dst_len);
+
 	spa_zero(dst_ttl);
-	if (is_multicast((struct sockaddr*)&sdp->dst_addr, sdp->dst_len))
+	if (multicast)
 		snprintf(dst_ttl, sizeof(dst_ttl), "/%d", sdp->ttl);
 
 	spa_strbuf_init(&buf, buffer, sizeof(buffer));
@@ -700,7 +703,7 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 			"m=%s %u RTP/AVP %i\n",
 			user_name, sdp->session_id, sdp->session_version, src_ip4 ? "IP4" : "IP6", src_addr,
 			sdp->session_name,
-			dst_ip4 ? "IP4" : "IP6", dst_addr, dst_ttl,
+			(multicast ? dst_ip4 : src_ip4) ? "IP4" : "IP6", multicast ? dst_addr : src_addr, dst_ttl,
 			sdp->t_ntp,
 			sdp->media_type, sdp->dst_port, sdp->payload);
 

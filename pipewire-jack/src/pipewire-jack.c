@@ -1671,39 +1671,41 @@ static void complete_process(struct client *c, uint32_t frames)
 
 static inline void debug_position(struct client *c, jack_position_t *p)
 {
-	pw_log_trace_fp("usecs:       %"PRIu64, p->usecs);
-	pw_log_trace_fp("frame_rate:  %u", p->frame_rate);
-	pw_log_trace_fp("frame:       %u", p->frame);
-	pw_log_trace_fp("valid:       %08x", p->valid);
+#define pw_log_custom pw_log_trace_fp
+	pw_log_custom("usecs:       %"PRIu64, p->usecs);
+	pw_log_custom("frame_rate:  %u", p->frame_rate);
+	pw_log_custom("frame:       %u", p->frame);
+	pw_log_custom("valid:       %08x", p->valid);
 
 	if (p->valid & JackPositionBBT) {
-		pw_log_trace_fp("BBT");
-		pw_log_trace_fp(" bar:              %u", p->bar);
-		pw_log_trace_fp(" beat:             %u", p->beat);
-		pw_log_trace_fp(" tick:             %u", p->tick);
-		pw_log_trace_fp(" bar_start_tick:   %f", p->bar_start_tick);
-		pw_log_trace_fp(" beats_per_bar:    %f", p->beats_per_bar);
-		pw_log_trace_fp(" beat_type:        %f", p->beat_type);
-		pw_log_trace_fp(" ticks_per_beat:   %f", p->ticks_per_beat);
-		pw_log_trace_fp(" beats_per_minute: %f", p->beats_per_minute);
+		pw_log_custom("BBT");
+		pw_log_custom(" bar:              %u", p->bar);
+		pw_log_custom(" beat:             %u", p->beat);
+		pw_log_custom(" tick:             %u", p->tick);
+		pw_log_custom(" bar_start_tick:   %f", p->bar_start_tick);
+		pw_log_custom(" beats_per_bar:    %f", p->beats_per_bar);
+		pw_log_custom(" beat_type:        %f", p->beat_type);
+		pw_log_custom(" ticks_per_beat:   %f", p->ticks_per_beat);
+		pw_log_custom(" beats_per_minute: %f", p->beats_per_minute);
 	}
 	if (p->valid & JackPositionTimecode) {
-		pw_log_trace_fp("Timecode:");
-		pw_log_trace_fp(" frame_time:       %f", p->frame_time);
-		pw_log_trace_fp(" next_time:        %f", p->next_time);
+		pw_log_custom("Timecode:");
+		pw_log_custom(" frame_time:       %f", p->frame_time);
+		pw_log_custom(" next_time:        %f", p->next_time);
 	}
 	if (p->valid & JackBBTFrameOffset) {
-		pw_log_trace_fp("BBTFrameOffset:");
-		pw_log_trace_fp(" bbt_offset:       %u", p->bbt_offset);
+		pw_log_custom("BBTFrameOffset:");
+		pw_log_custom(" bbt_offset:       %u", p->bbt_offset);
 	}
 	if (p->valid & JackAudioVideoRatio) {
-		pw_log_trace_fp("AudioVideoRatio:");
-		pw_log_trace_fp(" audio_frames_per_video_frame: %f", p->audio_frames_per_video_frame);
+		pw_log_custom("AudioVideoRatio:");
+		pw_log_custom(" audio_frames_per_video_frame: %f", p->audio_frames_per_video_frame);
 	}
 	if (p->valid & JackVideoFrameOffset) {
-		pw_log_trace_fp("JackVideoFrameOffset:");
-		pw_log_trace_fp(" video_offset:     %u", p->video_offset);
+		pw_log_custom("JackVideoFrameOffset:");
+		pw_log_custom(" video_offset:     %u", p->video_offset);
 	}
+#undef pw_log_custom
 }
 
 static inline void jack_to_position(jack_position_t *s, struct pw_node_activation *a)
@@ -1718,8 +1720,10 @@ static inline void jack_to_position(jack_position_t *s, struct pw_node_activatio
 			d->bar.offset = 0;
 		d->bar.signature_num = s->beats_per_bar;
 		d->bar.signature_denom = s->beat_type;
+		d->bar.ticks_per_beat = s->ticks_per_beat;
+		d->bar.bar_start_tick = s->bar_start_tick;
 		d->bar.bpm = s->beats_per_minute;
-		d->bar.beat = (s->bar - 1) * s->beats_per_bar + (s->beat - 1) +
+		d->bar.beat = s->bar * s->beats_per_bar + (s->beat-1) +
 			(s->tick / s->ticks_per_beat);
 	}
 }
@@ -1782,18 +1786,17 @@ static inline jack_transport_state_t position_to_jack(struct pw_node_activation 
 
 		d->beats_per_bar = seg->bar.signature_num;
 		d->beat_type = seg->bar.signature_denom;
-		d->ticks_per_beat = 1920.0f;
+		d->ticks_per_beat = seg->bar.ticks_per_beat;
+		d->bar_start_tick = seg->bar.bar_start_tick;
 		d->beats_per_minute = seg->bar.bpm;
 
 		abs_beat = seg->bar.beat;
 
 		d->bar = (int32_t) (abs_beat / d->beats_per_bar);
 		beats = (long int) (d->bar * d->beats_per_bar);
-		d->bar_start_tick = beats * d->ticks_per_beat;
 		d->beat = (int32_t) (abs_beat - beats);
 		beats += d->beat;
 		d->tick = (int32_t) ((abs_beat - beats) * d->ticks_per_beat);
-		d->bar++;
 		d->beat++;
 	}
 	d->unique_2 = d->unique_1;

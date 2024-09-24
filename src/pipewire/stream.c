@@ -668,8 +668,10 @@ static int impl_send_command(void *object, const struct spa_command *command)
 	case SPA_NODE_COMMAND_Pause:
 		pw_loop_invoke(impl->main_loop,
 			NULL, 0, NULL, 0, false, impl);
-		if (stream->state == PW_STREAM_STATE_STREAMING)
+		if (stream->state == PW_STREAM_STATE_STREAMING) {
 			pw_log_debug("%p: pause", stream);
+			stream_set_state(stream, PW_STREAM_STATE_PAUSED, 0, NULL);
+		}
 		break;
 	case SPA_NODE_COMMAND_Start:
 		if (stream->state == PW_STREAM_STATE_PAUSED) {
@@ -1389,10 +1391,6 @@ static void node_state_changed(void *data, enum pw_node_state old,
 	struct pw_stream *stream = data;
 
 	switch (state) {
-	case PW_NODE_STATE_IDLE:
-		if (stream->state == PW_STREAM_STATE_STREAMING)
-			stream_set_state(stream, PW_STREAM_STATE_PAUSED, 0, NULL);
-		break;
 	case PW_NODE_STATE_RUNNING:
 		if (stream->state == PW_STREAM_STATE_PAUSED)
 			stream_set_state(stream, PW_STREAM_STATE_STREAMING, 0, NULL);

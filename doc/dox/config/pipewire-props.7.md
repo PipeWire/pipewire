@@ -668,8 +668,19 @@ This option does nothing if `api.alsa.use-acp` is set to `false`.
 @PAR@ device-prop  api.alsa.soft-mixer = false  # boolean
 Setting this option to `true` will disable the hardware mixer for volume
 control and mute. All volume handling will then use software volume and mute,
-leaving the hardware mixer untouched. The hardware mixer will still be used
-to mute unused audio paths in the device.
+leaving the hardware mixer untouched. This can be interesting to work around
+bugs in the mixer detection or decibel reporting. The hardware mixer will still
+be used to mute unused audio paths in the device. Use `api.alsa.disable-mixer-path`
+to also disable mixer path selection.
+
+@PAR@ device-prop  api.alsa.disable-mixer-path = false  # boolean
+Setting this option to `true` will disable the hardware mixer path selection.
+The hardware mixer path is the configuration of the mixer depending on the
+jacks that are inserted in the card. If this is disabled, you will have to
+manually enable and disable mixer controls but it can be used to work around
+bugs in the mixer. The hardware mixer will still be used for
+volume and mute. Use `api.alsa.soft-mixer` to also disable hardware volume
+and mute.
 
 @PAR@ device-prop  api.alsa.ignore-dB = false  # boolean
 Setting this option to `true` will ignore the decibel setting configured by

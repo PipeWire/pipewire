@@ -44,6 +44,7 @@ struct pa_card {
 
 	bool use_ucm;
 	bool soft_mixer;
+	bool disable_mixer_path;
 	bool auto_profile;
 	bool auto_port;
 	bool ignore_dB;

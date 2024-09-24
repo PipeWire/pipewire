@@ -1377,7 +1377,7 @@ static int setup_mixer(pa_card *impl, pa_alsa_device *dev, bool ignore_dB)
 			data = PA_DEVICE_PORT_DATA(dev->active_port);
 			dev->mixer_path = data->path;
 
-			if (!impl->soft_mixer)
+			if (!impl->disable_mixer_path)
 				pa_alsa_path_select(data->path, data->setting, dev->mixer_handle, dev->muted);
 		} else {
 			pa_alsa_ucm_port_data *data;
@@ -1387,7 +1387,7 @@ static int setup_mixer(pa_card *impl, pa_alsa_device *dev, bool ignore_dB)
 			/* Now activate volume controls, if any */
 			if (data->path) {
 				dev->mixer_path = data->path;
-				if (!impl->soft_mixer)
+				if (!impl->disable_mixer_path)
 					pa_alsa_path_select(dev->mixer_path, NULL, dev->mixer_handle, dev->muted);
 			}
 		}
@@ -1397,7 +1397,7 @@ static int setup_mixer(pa_card *impl, pa_alsa_device *dev, bool ignore_dB)
 
 		if (dev->mixer_path) {
 			/* Hmm, we have only a single path, then let's activate it */
-			if (!impl->soft_mixer)
+			if (!impl->disable_mixer_path)
 				pa_alsa_path_select(dev->mixer_path, dev->mixer_path->settings,
 						dev->mixer_handle, dev->muted);
 		} else
@@ -1662,6 +1662,8 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 			impl->use_ucm = spa_atob(s);
 		if ((s = acp_dict_lookup(props, "api.alsa.soft-mixer")) != NULL)
 			impl->soft_mixer = spa_atob(s);
+		if ((s = acp_dict_lookup(props, "api.alsa.disable-mixer-path")) != NULL)
+			impl->disable_mixer_path = spa_atob(s);
 		if ((s = acp_dict_lookup(props, "api.alsa.ignore-dB")) != NULL)
 			impl->ignore_dB = spa_atob(s);
 		if ((s = acp_dict_lookup(props, "device.profile-set")) != NULL)
@@ -1880,7 +1882,7 @@ static void sync_mixer(pa_alsa_device *d, pa_device_port *port)
 		setting = data->setting;
 	}
 
-	if (d->mixer_handle && !impl->soft_mixer)
+	if (d->mixer_handle && !impl->disable_mixer_path)
 		pa_alsa_path_select(d->mixer_path, setting, d->mixer_handle, d->muted);
 
 	if (d->set_mute)

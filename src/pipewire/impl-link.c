@@ -139,7 +139,7 @@ static void link_update_state(struct pw_impl_link *link, enum pw_link_state stat
 		link->prepared = true;
 		link->preparing = false;
 		pw_context_recalc_graph(link->context, "link prepared");
-	} else if (old == PW_LINK_STATE_PAUSED && state < PW_LINK_STATE_PAUSED) {
+	} else if (old >= PW_LINK_STATE_PAUSED && state < PW_LINK_STATE_PAUSED) {
 		link->prepared = false;
 		link->preparing = false;
 		pw_context_recalc_graph(link->context, "link unprepared");

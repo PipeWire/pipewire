@@ -49,7 +49,7 @@ struct spa_pod_builder {
 	struct spa_callbacks callbacks;
 };
 
-#define SPA_POD_BUILDER_INIT(buffer,size)  ((struct spa_pod_builder){ (buffer), (size), 0, {}, {} })
+#define SPA_POD_BUILDER_INIT(buffer,size)  ((struct spa_pod_builder){ (buffer), (size), 0, {0}, {0} })
 
 static inline void
 spa_pod_builder_get_state(struct spa_pod_builder *builder, struct spa_pod_builder_state *state)

@@ -55,7 +55,7 @@
 #define MAX_MIX				1024
 #define MAX_CLIENT_PORTS		768
 
-#define MAX_ALIGN			16
+#define MAX_ALIGN			32
 #define MAX_BUFFERS			2
 #define MAX_BUFFER_DATAS		1u
 
@@ -119,8 +119,6 @@ static thread_local float midi_scratch[MIDI_SCRATCH_FRAMES];
 #define RECYCLE_THRESHOLD	128
 
 typedef void (*mix_func) (float *dst, float *src[], uint32_t n_src, bool aligned, uint32_t n_samples);
-
-static mix_func mix_function;
 
 struct object {
 	struct spa_list link;
@@ -453,6 +451,8 @@ struct client {
 	unsigned int writable_input:1;
 
 	uint32_t max_frames;
+	uint32_t max_align;
+	mix_func mix_function;
 
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
@@ -703,7 +703,7 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 	}
 
 	if (spa_list_is_empty(&c->free_ports)) {
-		port_size = sizeof(struct port) + (c->max_frames * sizeof(float)) + MAX_ALIGN;
+		port_size = sizeof(struct port) + (c->max_frames * sizeof(float)) + c->max_align;
 
 		p = calloc(OBJECT_CHUNK, port_size);
 		if (p == NULL)
@@ -734,7 +734,7 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 	p->props = pw_properties_new(NULL, NULL);
 
 	p->direction = direction;
-	p->emptyptr = SPA_PTR_ALIGN(p->empty, MAX_ALIGN, float);
+	p->emptyptr = SPA_PTR_ALIGN(p->empty, c->max_align, float);
 	p->port_id = pw_map_insert_new(&c->ports[direction], p);
 	c->n_ports++;
 
@@ -3955,14 +3955,17 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	support = pw_context_get_support(client->context.context, &n_support);
 
-	mix_function = mix_c;
+	client->mix_function = mix_c;
 	cpu_iface = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 	if (cpu_iface) {
 #if defined (__SSE__)
 		uint32_t flags = spa_cpu_get_flags(cpu_iface);
 		if (flags & SPA_CPU_FLAG_SSE)
-			mix_function = mix_sse;
+			client->mix_function = mix_sse;
 #endif
+		client->max_align = spa_cpu_get_max_align(cpu_iface);
+	} else {
+		client->max_align = MAX_ALIGN;
 	}
 	client->context.old_thread_utils =
 		pw_context_get_object(client->context.context,
@@ -5258,13 +5261,14 @@ static void *get_buffer_input_float(struct port *p, jack_nframes_t frames)
 	float *mix_ptr[MAX_MIX], *np;
 	uint32_t n_ptr = 0;
 	bool ptr_aligned = true;
+	struct client *c = p->client;
 
 	spa_list_for_each(mix, &p->mix, port_link) {
 		if (mix->id == SPA_ID_INVALID)
 			continue;
 
 		pw_log_trace_fp("%p: port %s mix %d.%d get buffer %d",
-				p->client, p->object->port.name, p->port_id, mix->id, frames);
+				c, p->object->port.name, p->port_id, mix->id, frames);
 
 		if ((b = get_mix_buffer(mix, frames)) == NULL)
 			continue;
@@ -5283,7 +5287,7 @@ static void *get_buffer_input_float(struct port *p, jack_nframes_t frames)
 		ptr = mix_ptr[0];
 	} else if (n_ptr > 1) {
 		ptr = p->emptyptr;
-		mix_function(ptr, mix_ptr, n_ptr, ptr_aligned, frames);
+		c->mix_function(ptr, mix_ptr, n_ptr, ptr_aligned, frames);
 		p->zeroed = false;
 	}
 	if (ptr == NULL)

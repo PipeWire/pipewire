@@ -1,3 +1,52 @@
+# PipeWire 1.2.5 (2024-09-27)
+
+This is an important bugfix release that is API and ABI compatible with the
+previous 1.2.x and 1.0.x releases.
+
+## Highlights
+  - Fix an fd mismatch in the protocol in some cases that could lead to
+    fd leaks and crashes.
+  - Fix a bug where the mixer was not updated after setting the port, which would
+    cause muted audio at boot or resume from suspend.
+  - Fix a potential use-after-free in module-rt when stopping a thread.
+  - Cached objects are now freed in the JACK API to avoid memory leaks.
+  - Some more fixes and improvements.
+
+
+## PipeWire
+  - RequestProcess commands are now only sent after the node completes
+    the state change to RUNNING.
+  - More FreeBSD fixes.
+  - Handle ACTIVE links going to < PAUSED as well. This improves
+    renegotiation in some cases.
+  - Fix an fd mismatch in the protocol in some cases that could lead to
+    fd leaks and crashes.
+
+## Modules
+  - Many of the network modules can now also accept hostnames instead of
+    IP addresses.
+  - Fix a potential use-after-free in module-rt when stopping the thread.
+
+## SPA
+  - Support for elogind was added.
+  - Some more errors are checked when converting JSON to POD. (#4313)
+  - Fix a bug where the mixer was not updated after setting the port, which would
+    cause muted audio at boot or resume from suspend. (#4084)
+
+## JACK
+  - The BBT transport handling was improved. Some fields were added to be able
+    to handle the JACK semantics correctly. (#4314)
+  - Buffers are now aligned according to the maximum CPU alignment instead of
+    the hardcoded 16 bytes alignment.
+  - Cached objects are now freed correctly.
+
+## Doc
+  - Some small doc updates. (#4272)
+
+
+Older versions:
+
+
 # PipeWire 1.2.4 (2024-09-19)
 
 This is a bugfix release that is API and ABI compatible with the
@@ -25,9 +74,6 @@ previous 1.2.x and 1.0.x releases.
 ## JACK
   - Emit buffer_size callback in jack_activate() to improve
     compatibility with GStreamer. (#4260)
-
-Older versions:
-
 
 # PipeWire 1.2.3 (2024-08-22)
 

@@ -441,6 +441,7 @@ DEFINE_FUNCTION(s16_to_f32d, neon);
 DEFINE_FUNCTION(f32d_to_s16, neon);
 #endif
 #if defined(HAVE_RVV)
+DEFINE_FUNCTION(f32d_to_s32, rvv);
 DEFINE_FUNCTION(f32_to_s16, rvv);
 DEFINE_FUNCTION(f32d_to_s16d, rvv);
 DEFINE_FUNCTION(f32d_to_s16, rvv);

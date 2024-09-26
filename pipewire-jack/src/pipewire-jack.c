@@ -181,6 +181,7 @@ struct object {
 	unsigned int visible;
 	unsigned int removing:1;
 	unsigned int removed:1;
+	unsigned int to_free:1;
 };
 
 struct midi_buffer {
@@ -228,9 +229,11 @@ struct mix {
 
 	struct spa_io_buffers *io[2];
 
+	struct spa_list queue;
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
-	struct spa_list queue;
+
+	unsigned int to_free:1;
 };
 
 struct port {
@@ -261,6 +264,7 @@ struct port {
 
 	unsigned int empty_out:1;
 	unsigned int zeroed:1;
+	unsigned int to_free:1;
 
 	void *(*get_buffer) (struct port *p, jack_nframes_t frames);
 
@@ -505,6 +509,7 @@ static struct object * alloc_object(struct client *c, int type)
 			pthread_mutex_unlock(&globals.lock);
 			return NULL;
 		}
+		o[0].to_free = true;
 		for (i = 0; i < OBJECT_CHUNK; i++)
 			spa_list_append(&globals.free_objects, &o[i].link);
 	}
@@ -525,9 +530,10 @@ static void recycle_objects(struct client *c, uint32_t remain)
 	struct object *o, *t;
 	pthread_mutex_lock(&globals.lock);
 	spa_list_for_each_safe(o, t, &c->context.objects, link) {
+		pw_log_debug("%p: recycle object:%p remived:%d type:%d id:%u/%u %u/%u",
+				c, o, o->removed, o->type, o->id, o->serial,
+				c->context.free_count, remain);
 		if (o->removed) {
-			pw_log_debug("%p: recycle object:%p type:%d id:%u/%u",
-					c, o, o->type, o->id, o->serial);
 			spa_list_remove(&o->link);
 			memset(o, 0, sizeof(struct object));
 			spa_list_append(&globals.free_objects, &o->link);
@@ -543,13 +549,14 @@ static void recycle_objects(struct client *c, uint32_t remain)
  * move it to the end of the queue. */
 static void free_object(struct client *c, struct object *o)
 {
-	pw_log_debug("%p: object:%p type:%d", c, o, o->type);
+	pw_log_debug("%p: object:%p type:%d %u/%u", c, o, o->type,
+			c->context.free_count, RECYCLE_THRESHOLD);
 	pthread_mutex_lock(&c->context.lock);
 	spa_list_remove(&o->link);
 	o->removed = true;
 	o->id = SPA_ID_INVALID;
 	spa_list_append(&c->context.objects, &o->link);
-	if (++c->context.free_count > RECYCLE_THRESHOLD)
+	if (++c->context.free_count >= RECYCLE_THRESHOLD)
 		recycle_objects(c, RECYCLE_THRESHOLD / 2);
 	pthread_mutex_unlock(&c->context.lock);
 
@@ -666,6 +673,7 @@ static struct mix *create_mix(struct client *c, struct port *port,
 		mix = calloc(OBJECT_CHUNK, sizeof(struct mix));
 		if (mix == NULL)
 			return NULL;
+		mix[0].to_free = true;
 		for (i = 0; i < OBJECT_CHUNK; i++)
 			spa_list_append(&c->free_mix, &mix[i].link);
 	}
@@ -730,6 +738,7 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 		p = calloc(OBJECT_CHUNK, port_size);
 		if (p == NULL)
 			return NULL;
+		p[0].to_free = true;
 		for (i = 0; i < OBJECT_CHUNK; i++) {
 			struct port *t = SPA_PTROFF(p, port_size * i, struct port);
 			spa_list_append(&c->free_ports, &t->link);
@@ -4330,6 +4339,9 @@ int jack_client_close (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
 	struct object *o;
+	union pw_map_item *item;
+	struct mix *m, *tm;
+	struct port *p, *tp;
 	int res;
 
 	return_val_if_fail(c != NULL, -EINVAL);
@@ -4384,10 +4396,40 @@ int jack_client_close (jack_client_t *client)
 
 	pw_log_debug("%p: free", client);
 
-	spa_list_consume(o, &c->context.objects, link)
-		free_object(c, o);
-	recycle_objects(c, 0);
+	pw_array_for_each(item, &c->ports[SPA_DIRECTION_OUTPUT].items) {
+                if (pw_map_item_is_free(item))
+			continue;
+		free_port(c, item->data, false);
+	}
+	pw_array_for_each(item, &c->ports[SPA_DIRECTION_INPUT].items) {
+                if (pw_map_item_is_free(item))
+			continue;
+		free_port(c, item->data, false);
+	}
+	spa_list_consume(o, &c->context.objects, link) {
+		bool to_free = o->to_free;
+		spa_list_remove(&o->link);
+		memset(o, 0, sizeof(struct object));
+		o->to_free = to_free;
+		spa_list_append(&globals.free_objects, &o->link);
+	}
 
+	spa_list_for_each_safe(m, tm, &c->free_mix, link) {
+		if (!m->to_free)
+			spa_list_remove(&m->link);
+	}
+	spa_list_consume(m, &c->free_mix, link) {
+		spa_list_remove(&m->link);
+		free(m);
+	}
+	spa_list_for_each_safe(p, tp, &c->free_ports, link) {
+		if (!p->to_free)
+			spa_list_remove(&p->link);
+	}
+	spa_list_consume(p, &c->free_ports, link) {
+		spa_list_remove(&p->link);
+		free(p);
+	}
 	pw_map_clear(&c->ports[SPA_DIRECTION_INPUT]);
 	pw_map_clear(&c->ports[SPA_DIRECTION_OUTPUT]);
 
@@ -7513,4 +7555,18 @@ static void reg(void)
 	pthread_mutex_init(&globals.lock, NULL);
 	pw_array_init(&globals.descriptions, 16);
 	spa_list_init(&globals.free_objects);
+}
+static void unreg(void) __attribute__ ((destructor));
+static void unreg(void)
+{
+	struct object *o, *to;
+	spa_list_for_each_safe(o, to, &globals.free_objects, link) {
+		if (!o->to_free)
+			spa_list_remove(&o->link);
+	}
+	spa_list_consume(o, &globals.free_objects, link) {
+		spa_list_remove(&o->link);
+		free(o);
+	}
+	pw_deinit();
 }

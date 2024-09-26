@@ -4566,6 +4566,7 @@ int jack_client_close (jack_client_t *client)
 			continue;
 		free_port(c, item->data, false);
 	}
+	pthread_mutex_lock(&globals.lock);
 	spa_list_consume(o, &c->context.objects, link) {
 		bool to_free = o->to_free;
 		spa_list_remove(&o->link);
@@ -4573,6 +4574,7 @@ int jack_client_close (jack_client_t *client)
 		o->to_free = to_free;
 		spa_list_append(&globals.free_objects, &o->link);
 	}
+	pthread_mutex_unlock(&globals.lock);
 
 	spa_list_for_each_safe(m, tm, &c->free_mix, link) {
 		if (!m->to_free)
@@ -7745,6 +7747,7 @@ static void unreg(void) __attribute__ ((destructor));
 static void unreg(void)
 {
 	struct object *o, *to;
+	pthread_mutex_lock(&globals.lock);
 	spa_list_for_each_safe(o, to, &globals.free_objects, link) {
 		if (!o->to_free)
 			spa_list_remove(&o->link);
@@ -7753,5 +7756,6 @@ static void unreg(void)
 		spa_list_remove(&o->link);
 		free(o);
 	}
+	pthread_mutex_unlock(&globals.lock);
 	pw_deinit();
 }

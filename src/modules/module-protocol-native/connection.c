@@ -490,12 +490,14 @@ void pw_protocol_native_connection_destroy(struct pw_protocol_native_connection 
 	free(impl);
 }
 
-static int prepare_packet(struct pw_protocol_native_connection *conn, struct buffer *buf)
+static int prepare_packet(struct pw_protocol_native_connection *conn, struct buffer *buf,
+			struct pw_protocol_native_message *msg)
 {
 	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
 	uint8_t *data;
 	size_t size, len;
 	uint32_t *p;
+	int *fds;
 
 	data = buf->buffer_data + buf->offset;
 	size = buf->buffer_size - buf->offset;
@@ -546,6 +548,12 @@ static int prepare_packet(struct pw_protocol_native_connection *conn, struct buf
 	buf->offset += impl->hdr_size + len;
 	buf->fds_offset += buf->msg.n_fds;
 
+	fds = msg->fds;
+	*msg = buf->msg;
+	if (buf->msg.n_fds > 0)
+		memcpy(fds, buf->msg.fds, buf->msg.n_fds * sizeof(int));
+	msg->fds = buf->msg.fds = fds;
+
 	if (buf->offset >= buf->buffer_size)
 		clear_buffer(buf, false);
 
@@ -574,7 +582,6 @@ pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *con
 	int len, res;
 	struct buffer *buf;
 	struct pw_protocol_native_message *return_msg;
-	int *fds;
 
 	if ((res = ensure_stack_level(impl, &return_msg)) < 0)
 		return res;
@@ -582,7 +589,7 @@ pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *con
 	buf = &impl->in;
 
 	while (1) {
-		len = prepare_packet(conn, buf);
+		len = prepare_packet(conn, buf, return_msg);
 		if (len < 0)
 			return len;
 		if (len == 0)
@@ -595,13 +602,6 @@ pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *con
 	}
 
 	/* Returned msg struct should be safe vs. reentering */
-	fds = return_msg->fds;
-	*return_msg = buf->msg;
-	if (buf->msg.n_fds > 0) {
-		memcpy(fds, buf->msg.fds, buf->msg.n_fds * sizeof(int));
-	}
-	return_msg->fds = fds;
-
 	*msg = return_msg;
 
 	return 1;

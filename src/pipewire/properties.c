@@ -218,11 +218,11 @@ static int update_string(struct pw_properties *props, const char *str, size_t si
 	struct properties changes;
 	const char *value;
 
-	if (props)
-		properties_init(&changes, 16);
-
 	if ((res = spa_json_begin_object_relax(&it[0], str, size)) <= 0)
 		return res;
+
+	if (props)
+		properties_init(&changes, 16);
 
 	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &value)) > 0) {
 		char *val = NULL;

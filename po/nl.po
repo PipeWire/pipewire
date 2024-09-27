@@ -257,7 +257,7 @@ msgstr "Analoge mono-uitvoer"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2811
 msgid "Line Out"
-msgstr "Lijn-in"
+msgstr "Lijn-uit"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2812
 msgid "Analog Mono Output"

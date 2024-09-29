@@ -206,6 +206,11 @@ static void test_s32_f32(void)
 		run_test("test_s32_f32d", "avx2", true, false, conv_s32_to_f32d_avx2);
 	}
 #endif
+#if defined (HAVE_RVV)
+	if (cpu_flags & SPA_CPU_FLAG_RISCV_V) {
+		run_test("test_s32_f32d", "rvv", true, false, conv_s32_to_f32d_rvv);
+	}
+#endif
 	run_test("test_s32_f32d", "c", true, false, conv_s32_to_f32d_c);
 	run_test("test_s32d_f32d", "c", false, false, conv_s32d_to_f32d_c);
 }

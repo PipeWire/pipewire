@@ -91,6 +91,7 @@ struct queue {
 
 	int ack_fd;
 	struct spa_ratelimit rate_limit;
+	struct queue **tss_queue;
 
 	struct spa_ringbuffer buffer;
 	uint8_t *buffer_data;
@@ -417,20 +418,42 @@ static void loop_queue_destroy(void *data)
 
 	if (queue->flags & QUEUE_FLAG_ACK_FD)
 		spa_system_close(impl->system, queue->ack_fd);
+	if (queue->tss_queue)
+		*queue->tss_queue = NULL;
 	free(queue);
+}
+
+static void loop_queue_destroy_tss(void *data)
+{
+	struct queue **qp = data;
+	if (*qp)
+		loop_queue_destroy(*qp);
+	free(qp);
 }
 
 static int loop_invoke(void *object, spa_invoke_func_t func, uint32_t seq,
 		const void *data, size_t size, bool block, void *user_data)
 {
 	struct impl *impl = object;
-	struct queue *local_queue = tss_get(impl->queue_tss_id);
+	struct queue *local_queue, **qp;
 
-	if (local_queue == NULL) {
-		local_queue = loop_create_queue(impl, QUEUE_FLAG_ACK_FD);
-		if (local_queue == NULL)
+	qp = tss_get(impl->queue_tss_id);
+	if (qp == NULL) {
+		qp = malloc(sizeof(struct queue **));
+		if (qp == NULL)
 			return -errno;
-		tss_set(impl->queue_tss_id, local_queue);
+
+		local_queue = loop_create_queue(impl, QUEUE_FLAG_ACK_FD);
+		if (local_queue == NULL) {
+			free(qp);
+			return -errno;
+		}
+		*qp = local_queue;
+		local_queue->tss_queue = qp;
+		tss_set(impl->queue_tss_id, qp);
+	} else {
+		if ((local_queue = *qp) == NULL)
+			return -ESTALE;
 	}
 	return loop_queue_invoke(local_queue, func, seq, data, size, block, user_data);
 }
@@ -1171,7 +1194,7 @@ impl_init(const struct spa_handle_factory *factory,
 		goto error_exit_free_poll;
 	}
 
-	if (tss_create(&impl->queue_tss_id, (tss_dtor_t)loop_queue_destroy) != thrd_success) {
+	if (tss_create(&impl->queue_tss_id, (tss_dtor_t)loop_queue_destroy_tss) != thrd_success) {
 		res = -errno;
 		spa_log_error(impl->log, "%p: can't create tss: %m", impl);
 		goto error_exit_free_wakeup;

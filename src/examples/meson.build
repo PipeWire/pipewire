@@ -2,6 +2,7 @@
 examples = [
   'audio-src',
   'audio-src-ring',
+  'audio-src-ring2',
   'audio-dsp-src',
   'audio-dsp-filter',
   'audio-capture',

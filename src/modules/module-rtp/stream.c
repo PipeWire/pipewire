@@ -513,7 +513,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	if (fmodf(impl->target_buffer, impl->psamples) != 0) {
 		pw_log_warn("sess.latency.msec %f should be an integer multiple of rtp.ptime %f",
 				latency_msec, ptime);
-		impl->target_buffer = (uint32_t)((impl->target_buffer / ptime) * impl->psamples);
+		impl->target_buffer = SPA_ROUND_DOWN(impl->target_buffer, impl->psamples);
 	}
 
 	aes67_driver = pw_properties_get(props, "aes67.driver-group");

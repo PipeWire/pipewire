@@ -33,7 +33,7 @@ struct spa_pod_parser {
 	struct spa_pod_parser_state state;
 };
 
-#define SPA_POD_PARSER_INIT(buffer,size)  ((struct spa_pod_parser){ (buffer), (size), 0, {0} })
+#define SPA_POD_PARSER_INIT(buffer,size)  ((struct spa_pod_parser){ (buffer), (size), 0, {0,0,NULL}})
 
 static inline void spa_pod_parser_init(struct spa_pod_parser *parser,
 				       const void *data, uint32_t size)

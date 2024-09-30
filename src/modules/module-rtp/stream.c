@@ -518,7 +518,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	if (fmodf(impl->target_buffer, impl->psamples) != 0) {
 		pw_log_warn("sess.latency.msec %f should be an integer multiple of rtp.ptime %f",
 				latency_msec, ptime);
-		impl->target_buffer = (uint32_t)((impl->target_buffer / ptime) * impl->psamples);
+		impl->target_buffer = SPA_ROUND_DOWN(impl->target_buffer, impl->psamples);
 	}
 
 	pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%d", impl->rate);

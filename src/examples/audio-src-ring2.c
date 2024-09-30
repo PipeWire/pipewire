@@ -29,6 +29,11 @@
 
 #define BUFFER_SIZE		(16*1024)
 
+#define MIN_SIZE	256
+#define MAX_SIZE	BUFFER_SIZE
+
+static float samples[BUFFER_SIZE * DEFAULT_CHANNELS];
+
 struct data {
 	struct pw_thread_loop *thread_loop;
 	struct pw_loop *loop;
@@ -42,7 +47,7 @@ struct data {
 	float buffer[BUFFER_SIZE * DEFAULT_CHANNELS];
 };
 
-static void fill_f32(struct data *d, uint32_t offset, int n_frames)
+static void fill_f32(struct data *d, float *samples, int n_frames)
 {
 	float val;
 	int i, c;
@@ -54,40 +59,52 @@ static void fill_f32(struct data *d, uint32_t offset, int n_frames)
 
                 val = sinf(d->accumulator) * DEFAULT_VOLUME;
                 for (c = 0; c < DEFAULT_CHANNELS; c++)
-                        d->buffer[((offset + i) % BUFFER_SIZE) * DEFAULT_CHANNELS + c] = val;
+			samples[i * DEFAULT_CHANNELS + c] = val;
         }
 }
 
-/* this is called from the main-thread as fast as possible. It will block until
- * more data can be written */
-static void push_refill(void *userdata)
+/* this can be called from any thread with a block of samples to write into
+ * the ringbuffer. It will block until all data has been written */
+static void push_samples(void *userdata, float *samples, uint32_t n_samples)
 {
 	struct data *data = userdata;
 	int32_t filled;
-	uint32_t index, avail;
+	uint32_t index, avail, stride = sizeof(float) * DEFAULT_CHANNELS;
 	uint64_t count;
+	float *s = samples;
 
-	while (true) {
-		filled = spa_ringbuffer_get_write_index(&data->ring, &index);
-		/* we xrun, this can not happen because we never read more
-		 * than what there is in the ringbuffer and we never write more than
-		 * what is left */
-		spa_assert(filled >= 0);
-		spa_assert(filled <= BUFFER_SIZE);
+	while (n_samples > 0) {
+		while (true) {
+			filled = spa_ringbuffer_get_write_index(&data->ring, &index);
+			/* we xrun, this can not happen because we never read more
+			 * than what there is in the ringbuffer and we never write more than
+			 * what is left */
+			spa_assert(filled >= 0);
+			spa_assert(filled <= BUFFER_SIZE);
 
-		/* this is how much samples we can write */
-		avail = BUFFER_SIZE - filled;
-		if (avail > 0)
-			break;
+			/* this is how much samples we can write */
+			avail = BUFFER_SIZE - filled;
+			if (avail > 0)
+				break;
 
-		/* no space.. block and wait for free space */
-		spa_system_eventfd_read(data->loop->system, data->eventfd, &count);
+			/* no space.. block and wait for free space */
+			spa_system_eventfd_read(data->loop->system, data->eventfd, &count);
+		}
+		if (avail > n_samples)
+			avail = n_samples;
+
+		spa_ringbuffer_write_data(&data->ring,
+				data->buffer, BUFFER_SIZE * stride,
+				(index % BUFFER_SIZE) * stride,
+				s, avail * stride);
+
+		s += avail * DEFAULT_CHANNELS;
+		n_samples -= avail;
+
+		/* and advance the ringbuffer */
+		spa_ringbuffer_write_update(&data->ring, index + avail);
 	}
-	/* write new samples to the ringbuffer from the given index */
-	fill_f32(data, index, avail);
 
-	/* and advance the ringbuffer */
-	spa_ringbuffer_write_update(&data->ring, index + avail);
 }
 
 /* our data processing function is in general:
@@ -226,15 +243,19 @@ int main(int argc, char *argv[])
 			  params, 1);
 
 	/* prefill the ringbuffer */
-	push_refill(&data);
+	fill_f32(&data, samples, BUFFER_SIZE);
+	push_samples(&data, samples, BUFFER_SIZE);
+
+	srand(time(NULL));
 
 	pw_thread_loop_start(data.thread_loop);
 	pw_thread_loop_unlock(data.thread_loop);
 
 	while (data.running) {
-		/* just keep on pushing data as fast as we can, this can be done
-		 * from any thread. */
-		push_refill(&data);
+		uint32_t size = rand() % ((MAX_SIZE - MIN_SIZE + 1) + MIN_SIZE);
+		/* make new random sized block of samples and push */
+		fill_f32(&data, samples, size);
+		push_samples(&data, samples, size);
 	}
 
 	pw_thread_loop_lock(data.thread_loop);

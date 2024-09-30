@@ -1743,6 +1743,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	stream->is_underrun = true;
 	stream->underrun_for = -1;
 
+	pw_properties_set(props, "pulse.corked", corked ? "true" : "false");
+
 	if (rate != 0) {
 		struct spa_fraction lat;
 		fix_playback_buffer_attr(stream, &attr, ss_rate, &lat);
@@ -2015,6 +2017,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 
 	if (client->quirks & QUIRK_REMOVE_CAPTURE_DONT_MOVE)
 		no_move = false;
+
+	pw_properties_set(props, "pulse.corked", corked ? "true" : "false");
 
 	if (rate != 0) {
 		struct spa_fraction lat;
@@ -2625,8 +2629,7 @@ static int do_cork_stream(struct client *client, uint32_t command, uint32_t tag,
 	if (stream == NULL || stream->type == STREAM_TYPE_UPLOAD)
 		return -ENOENT;
 
-	stream->corked = cork;
-	stream_set_paused(stream, cork, "cork request");
+	stream_set_corked(stream, cork);
 	if (cork) {
 		stream->is_underrun = true;
 	} else {
@@ -4012,6 +4015,7 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 	uint32_t module_id = SPA_ID_INVALID, client_id = SPA_ID_INVALID;
 	uint32_t peer_index;
 	struct device_info dev_info;
+	bool corked;
 
 	if (!pw_manager_object_is_sink_input(o) || info == NULL || info->props == NULL)
 		return -ENOENT;
@@ -4039,6 +4043,10 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 		else
 			peer_index = SPA_ID_INVALID;
 	}
+	if ((str = spa_dict_lookup(info->props, "pulse.corked")) != NULL)
+		corked = spa_atob(str);
+	else
+		corked = dev_info.state != STATE_RUNNING;
 
 	message_put(m,
 		TAG_U32, o->index,				/* sink_input index */
@@ -4064,7 +4072,7 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 			TAG_INVALID);
 	if (client->version >= 19)
 		message_put(m,
-			TAG_BOOLEAN, dev_info.state != STATE_RUNNING,		/* corked */
+			TAG_BOOLEAN, corked,		/* corked */
 			TAG_INVALID);
 	if (client->version >= 20)
 		message_put(m,
@@ -4091,6 +4099,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 	uint32_t module_id = SPA_ID_INVALID, client_id = SPA_ID_INVALID;
 	uint32_t peer_index;
 	struct device_info dev_info;
+	bool corked;
 
 	if (!pw_manager_object_is_source_output(o) || info == NULL || info->props == NULL)
 		return -ENOENT;
@@ -4118,6 +4127,10 @@ static int fill_source_output_info(struct client *client, struct message *m,
 		else
 			peer_index = SPA_ID_INVALID;
 	}
+	if ((str = spa_dict_lookup(info->props, "pulse.corked")) != NULL)
+		corked = spa_atob(str);
+	else
+		corked = dev_info.state != STATE_RUNNING;
 
 	message_put(m,
 		TAG_U32, o->index,				/* source_output index */
@@ -4138,7 +4151,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 			TAG_INVALID);
 	if (client->version >= 19)
 		message_put(m,
-			TAG_BOOLEAN, dev_info.state != STATE_RUNNING,		/* corked */
+			TAG_BOOLEAN, corked,		/* corked */
 			TAG_INVALID);
 	if (client->version >= 22) {
 		struct format_info fi;

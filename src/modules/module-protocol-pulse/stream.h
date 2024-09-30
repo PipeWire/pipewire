@@ -107,6 +107,7 @@ void stream_free(struct stream *stream);
 void stream_flush(struct stream *stream);
 uint32_t stream_pop_missing(struct stream *stream);
 
+void stream_set_corked(struct stream *stream, bool corked);
 void stream_set_paused(struct stream *stream, bool paused, const char *reason);
 
 int stream_send_underflow(struct stream *stream, int64_t offset);

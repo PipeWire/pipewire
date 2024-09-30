@@ -211,6 +211,16 @@ void stream_set_paused(struct stream *stream, bool paused, const char *reason)
 	pw_stream_set_active(stream->stream, !paused);
 }
 
+void stream_set_corked(struct stream *stream, bool cork)
+{
+	stream->corked = cork;
+	pw_log_info("cork %d", cork);
+	pw_stream_update_properties(stream->stream,
+			&SPA_DICT_ITEMS(
+				SPA_DICT_ITEM("pulse.corked", cork ? "true" : "false")));
+	stream_set_paused(stream, cork, "cork request");
+}
+
 int stream_send_underflow(struct stream *stream, int64_t offset)
 {
 	struct client *client = stream->client;

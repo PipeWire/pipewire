@@ -1020,6 +1020,9 @@ void pa_alsa_init_proplist_pcm_info(pa_core *c, pa_proplist *p, snd_pcm_info_t *
     pa_assert(p);
     pa_assert(pcm_info);
 
+    if ((card = snd_pcm_info_get_card(pcm_info)) >= 0)
+        pa_alsa_init_proplist_card(c, p, card);
+
     pa_proplist_sets(p, PA_PROP_DEVICE_API, "alsa");
 
     if ((class = snd_pcm_info_get_class(pcm_info)) <= SND_PCM_CLASS_LAST) {
@@ -1047,9 +1050,6 @@ void pa_alsa_init_proplist_pcm_info(pa_core *c, pa_proplist *p, snd_pcm_info_t *
         pa_proplist_sets(p, "alsa.subdevice_name", sdn);
 
     pa_proplist_setf(p, "alsa.device", "%u", snd_pcm_info_get_device(pcm_info));
-
-    if ((card = snd_pcm_info_get_card(pcm_info)) >= 0)
-        pa_alsa_init_proplist_card(c, p, card);
 
     sync_id = snd_pcm_info_get_sync(pcm_info);
     pa_proplist_setf(p, "alsa.sync.id", "%08x:%08x:%08x:%08x",

@@ -7,6 +7,14 @@
 
 #include "defs.h"
 
+enum spa_bt_telephony_error {
+	BT_TELEPHONY_ERROR_NONE = 0,
+	BT_TELEPHONY_ERROR_FAILED,
+	BT_TELEPHONY_ERROR_NOT_SUPPORTED,
+	BT_TELEPHONY_ERROR_INVALID_FORMAT,
+	BT_TELEPHONY_ERROR_INVALID_STATE,
+};
+
 enum spa_bt_telephony_call_state {
 	CALL_STATE_ACTIVE,
 	CALL_STATE_HELD,
@@ -42,22 +50,22 @@ struct spa_bt_telephony_ag_events {
 #define SPA_VERSION_BT_TELEPHONY_AG_EVENTS	0
 	uint32_t version;
 
-	int (*dial)(void *data, const char *number);
-	int (*swap_calls)(void *data);
-	int (*release_and_answer)(void *data);
-	int (*release_and_swap)(void *data);
-	int (*hold_and_answer)(void *data);
-	int (*hangup_all)(void *data);
-	int (*create_multiparty)(void *data);
-	int (*send_tones)(void *data, const char *tones);
+	void (*dial)(void *data, const char *number, enum spa_bt_telephony_error *err);
+	void (*swap_calls)(void *data, enum spa_bt_telephony_error *err);
+	void (*release_and_answer)(void *data, enum spa_bt_telephony_error *err);
+	void (*release_and_swap)(void *data, enum spa_bt_telephony_error *err);
+	void (*hold_and_answer)(void *data, enum spa_bt_telephony_error *err);
+	void (*hangup_all)(void *data, enum spa_bt_telephony_error *err);
+	void (*create_multiparty)(void *data, enum spa_bt_telephony_error *err);
+	void (*send_tones)(void *data, const char *tones, enum spa_bt_telephony_error *err);
 };
 
 struct spa_bt_telephony_call_events {
 #define SPA_VERSION_BT_TELEPHONY_CALL_EVENTS	0
 	uint32_t version;
 
-	int (*answer)(void *data);
-	int (*hangup)(void *data);
+	void (*answer)(void *data, enum spa_bt_telephony_error *err);
+	void (*hangup)(void *data, enum spa_bt_telephony_error *err);
 };
 
 struct spa_bt_telephony *telephony_new(struct spa_log *log, struct spa_dbus *dbus,

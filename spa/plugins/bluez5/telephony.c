@@ -211,21 +211,58 @@ struct callimpl {
 	} prev;
 };
 
-#define ag_emit(ag,m,v,...) 		spa_hook_list_call(&ag->listener_list, struct spa_bt_telephony_ag_events, m, v, ##__VA_ARGS__)
-#define ag_emit_dial(s,n)		ag_emit(s,dial,0,n)
-#define ag_emit_swap_calls(s)		ag_emit(s,swap_calls,0)
-#define ag_emit_release_and_answer(s)	ag_emit(s,release_and_answer,0)
-#define ag_emit_release_and_swap(s)	ag_emit(s,release_and_swap,0)
-#define ag_emit_hold_and_answer(s)	ag_emit(s,hold_and_answer,0)
-#define ag_emit_hangup_all(s)		ag_emit(s,hangup_all,0)
-#define ag_emit_create_multiparty(s)	ag_emit(s,create_multiparty,0)
-#define ag_emit_send_tones(s,t)		ag_emit(s,send_tones,0,t)
+#define ag_emit(ag,m,v,...) 		spa_hook_list_call_once(&ag->listener_list, struct spa_bt_telephony_ag_events, m, v, ##__VA_ARGS__)
+#define ag_emit_dial(s,n,e)		ag_emit(s,dial,0,n,e)
+#define ag_emit_swap_calls(s,e)		ag_emit(s,swap_calls,0,e)
+#define ag_emit_release_and_answer(s,e)	ag_emit(s,release_and_answer,0,e)
+#define ag_emit_release_and_swap(s,e)	ag_emit(s,release_and_swap,0,e)
+#define ag_emit_hold_and_answer(s,e)	ag_emit(s,hold_and_answer,0,e)
+#define ag_emit_hangup_all(s,e)		ag_emit(s,hangup_all,0,e)
+#define ag_emit_create_multiparty(s,e)	ag_emit(s,create_multiparty,0,e)
+#define ag_emit_send_tones(s,t,e)	ag_emit(s,send_tones,0,t,e)
 
-#define call_emit(c,m,v,...) 	spa_hook_list_call(&c->listener_list, struct spa_bt_telephony_call_events, m, v, ##__VA_ARGS__)
-#define call_emit_answer(s)	call_emit(s,answer,0)
-#define call_emit_hangup(s)	call_emit(s,hangup,0)
+#define call_emit(c,m,v,...) 	spa_hook_list_call_once(&c->listener_list, struct spa_bt_telephony_call_events, m, v, ##__VA_ARGS__)
+#define call_emit_answer(s,e)	call_emit(s,answer,0,e)
+#define call_emit_hangup(s,e)	call_emit(s,hangup,0,e)
 
 static void dbus_iter_append_call_properties(DBusMessageIter *i, struct spa_bt_telephony_call *call, bool all);
+
+#define PW_TELEPHONY_ERROR_FAILED "org.freedesktop.PipeWire.Telephony.Error.Failed"
+#define PW_TELEPHONY_ERROR_NOT_SUPPORTED "org.freedesktop.PipeWire.Telephony.Error.NotSupported"
+#define PW_TELEPHONY_ERROR_INVALID_FORMAT "org.freedesktop.PipeWire.Telephony.Error.InvalidFormat"
+#define PW_TELEPHONY_ERROR_INVALID_STATE "org.freedesktop.PipeWire.Telephony.Error.InvalidState"
+
+static const char *telephony_error_to_dbus (enum spa_bt_telephony_error err)
+{
+	switch (err) {
+	case BT_TELEPHONY_ERROR_FAILED:
+		return PW_TELEPHONY_ERROR_FAILED;
+	case BT_TELEPHONY_ERROR_NOT_SUPPORTED:
+		return PW_TELEPHONY_ERROR_NOT_SUPPORTED;
+	case BT_TELEPHONY_ERROR_INVALID_FORMAT:
+		return PW_TELEPHONY_ERROR_INVALID_FORMAT;
+	case BT_TELEPHONY_ERROR_INVALID_STATE:
+		return PW_TELEPHONY_ERROR_INVALID_STATE;
+	default:
+		return "";
+	}
+}
+
+static const char *telephony_error_to_description (enum spa_bt_telephony_error err)
+{
+	switch (err) {
+	case BT_TELEPHONY_ERROR_FAILED:
+		return "Method call failed";
+	case BT_TELEPHONY_ERROR_NOT_SUPPORTED:
+		return "Method is not supported on this Audio Gateway";
+	case BT_TELEPHONY_ERROR_INVALID_FORMAT:
+		return "Invalid phone number or tones";
+	case BT_TELEPHONY_ERROR_INVALID_STATE:
+		return "The current state does not allow this method call";
+	default:
+		return "";
+	}
+}
 
 #define find_free_object_id(list, obj_type, link)	\
 ({						\
@@ -472,10 +509,41 @@ static DBusMessage *ag_get_managed_objects(struct agimpl *agimpl, DBusMessage *m
 	return spa_steal_ptr(r);
 }
 
+static bool validate_phone_number(const char *number)
+{
+	const char *c;
+	int count = 0;
+
+	if (!number)
+		return false;
+	for (c = number; *c != '\0'; c++) {
+		if (!(*c >= '0' && *c <= '9') && !(*c >= 'A' && *c <= 'D') &&
+			*c != '#' && *c != '*' && *c != '+' && *c != ',' )
+			return false;
+		count++;
+	}
+	if (count < 1 || count > 80)
+		return false;
+	return true;
+}
+
+static bool validate_tones(const char *tones)
+{
+	const char *c;
+	if (!tones)
+		return false;
+	for (c = tones; *c != '\0'; c++) {
+		if (!(*c >= '0' && *c <= '9') && !(*c >= 'A' && *c <= 'D') &&
+				*c != '#' && *c != '*')
+			return false;
+	}
+	return true;
+}
+
 static DBusMessage *ag_dial(struct agimpl *agimpl, DBusMessage *m)
 {
-	const char *number = NULL, *c;
-	int count = 0;
+	const char *number = NULL;
+	enum spa_bt_telephony_error err = BT_TELEPHONY_ERROR_FAILED;
 	spa_autoptr(DBusMessage) r = NULL;
 
 	if (!dbus_message_get_args(m, NULL,
@@ -483,23 +551,22 @@ static DBusMessage *ag_dial(struct agimpl *agimpl, DBusMessage *m)
 				DBUS_TYPE_INVALID))
 		return NULL;
 
-	/* validate number */
-	if (!number)
-		goto invalid_argument;
-	for (c = number; *c != '\0'; c++) {
-		if (!(*c >= '0' && *c <= '9') && !(*c >= 'A' && *c <= 'D') &&
-			*c != '#' && *c != '*' && *c != '+' && *c != ',' )
-			goto invalid_argument;
-		count++;
+	if (!validate_phone_number(number)) {
+		err = BT_TELEPHONY_ERROR_INVALID_FORMAT;
+		goto failed;
 	}
-	if (count < 1 || count > 80)
-		goto invalid_argument;
 
 	agimpl->dial_in_progress = true;
-	ag_emit_dial(agimpl, number);
+	if (!ag_emit_dial(agimpl, number, &err)) {
+		agimpl->dial_in_progress = false;
+		goto failed;
+	}
 	agimpl->dial_in_progress = false;
 
 	if (!agimpl->dial_return || !agimpl->dial_return->path)
+		err = BT_TELEPHONY_ERROR_FAILED;
+
+	if (err != BT_TELEPHONY_ERROR_NONE)
 		goto failed;
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)
@@ -512,43 +579,64 @@ static DBusMessage *ag_dial(struct agimpl *agimpl, DBusMessage *m)
 
 	return spa_steal_ptr(r);
 
-invalid_argument:
-	return dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS,
-		"Dial number is not a valid phone number");
-
 failed:
-	return dbus_message_new_error(m, DBUS_ERROR_FAILED,
-		"Dial did not create a new Call object");
+	return dbus_message_new_error(m, telephony_error_to_dbus (err),
+		telephony_error_to_description (err));
 }
 
 static DBusMessage *ag_swap_calls(struct agimpl *agimpl, DBusMessage *m)
 {
-	ag_emit_swap_calls(agimpl);
-	return dbus_message_new_method_return(m);
+	enum spa_bt_telephony_error err = BT_TELEPHONY_ERROR_FAILED;
+
+	if (ag_emit_swap_calls(agimpl, &err) && err == BT_TELEPHONY_ERROR_NONE)
+		return dbus_message_new_method_return(m);
+
+	return dbus_message_new_error(m, telephony_error_to_dbus (err),
+		telephony_error_to_description (err));
 }
 
 static DBusMessage *ag_release_and_answer(struct agimpl *agimpl, DBusMessage *m)
 {
-	ag_emit_release_and_answer(agimpl);
-	return dbus_message_new_method_return(m);
+	enum spa_bt_telephony_error err = BT_TELEPHONY_ERROR_FAILED;
+
+	if (ag_emit_release_and_answer(agimpl, &err) && err == BT_TELEPHONY_ERROR_NONE)
+		return dbus_message_new_method_return(m);
+
+	return dbus_message_new_error(m, telephony_error_to_dbus (err),
+		telephony_error_to_description (err));
 }
 
 static DBusMessage *ag_release_and_swap(struct agimpl *agimpl, DBusMessage *m)
 {
-	ag_emit_release_and_swap(agimpl);
-	return dbus_message_new_method_return(m);
+	enum spa_bt_telephony_error err = BT_TELEPHONY_ERROR_FAILED;
+
+	if (ag_emit_release_and_swap(agimpl, &err) && err == BT_TELEPHONY_ERROR_NONE)
+		return dbus_message_new_method_return(m);
+
+	return dbus_message_new_error(m, telephony_error_to_dbus (err),
+		telephony_error_to_description (err));
 }
 
 static DBusMessage *ag_hold_and_answer(struct agimpl *agimpl, DBusMessage *m)
 {
-	ag_emit_hold_and_answer(agimpl);
-	return dbus_message_new_method_return(m);
+	enum spa_bt_telephony_error err = BT_TELEPHONY_ERROR_FAILED;
+
+	if (ag_emit_hold_and_answer(agimpl, &err) && err == BT_TELEPHONY_ERROR_NONE)
+		return dbus_message_new_method_return(m);
+
+	return dbus_message_new_error(m, telephony_error_to_dbus (err),
+		telephony_error_to_description (err));
 }
 
 static DBusMessage *ag_hangup_all(struct agimpl *agimpl, DBusMessage *m)
 {
-	ag_emit_hangup_all(agimpl);
-	return dbus_message_new_method_return(m);
+	enum spa_bt_telephony_error err = BT_TELEPHONY_ERROR_FAILED;
+
+	if (ag_emit_hangup_all(agimpl, &err) && err == BT_TELEPHONY_ERROR_NONE)
+		return dbus_message_new_method_return(m);
+
+	return dbus_message_new_error(m, telephony_error_to_dbus (err),
+		telephony_error_to_description (err));
 }
 
 static DBusMessage *ag_create_multiparty(struct agimpl *agimpl, DBusMessage *m)
@@ -556,8 +644,10 @@ static DBusMessage *ag_create_multiparty(struct agimpl *agimpl, DBusMessage *m)
 	struct callimpl *callimpl;
 	spa_autoptr(DBusMessage) r = NULL;
 	DBusMessageIter i, oi;
+	enum spa_bt_telephony_error err = BT_TELEPHONY_ERROR_FAILED;
 
-	ag_emit_create_multiparty(agimpl);
+	if (!ag_emit_create_multiparty(agimpl, &err) || err != BT_TELEPHONY_ERROR_NONE)
+		goto failed;
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)
 		return NULL;
@@ -572,31 +662,33 @@ static DBusMessage *ag_create_multiparty(struct agimpl *agimpl, DBusMessage *m)
 	}
 	dbus_message_iter_close_container(&i, &oi);
 	return spa_steal_ptr(r);
+
+failed:
+	return dbus_message_new_error(m, telephony_error_to_dbus (err),
+		telephony_error_to_description (err));
 }
 
 static DBusMessage *ag_send_tones(struct agimpl *agimpl, DBusMessage *m)
 {
-	const char *tones = NULL, *c;
+	const char *tones = NULL;
+	enum spa_bt_telephony_error err = BT_TELEPHONY_ERROR_FAILED;
 
 	if (!dbus_message_get_args(m, NULL,
 				DBUS_TYPE_STRING, &tones,
 				DBUS_TYPE_INVALID))
 		return NULL;
 
-	if (!tones)
-		goto invalid_argument;
-	for (c = tones; *c != '\0'; c++) {
-		if (!(*c >= '0' && *c <= '9') && !(*c >= 'A' && *c <= 'D') &&
-				*c != '#' && *c != '*')
-			goto invalid_argument;
+	if (!validate_tones(tones)) {
+		err = BT_TELEPHONY_ERROR_INVALID_FORMAT;
+		goto failed;
 	}
 
-	ag_emit_send_tones(agimpl, tones);
-	return dbus_message_new_method_return(m);
+	if (ag_emit_send_tones(agimpl, tones, &err) && err == BT_TELEPHONY_ERROR_NONE)
+		return dbus_message_new_method_return(m);
 
-invalid_argument:
-	return dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS,
-		"SendTones argument is not a valid DTMF tones string");
+failed:
+	return dbus_message_new_error(m, telephony_error_to_dbus (err),
+		telephony_error_to_description (err));
 }
 
 static DBusHandlerResult ag_handler(DBusConnection *c, DBusMessage *m, void *userdata)
@@ -1097,14 +1189,24 @@ static DBusMessage *call_properties_set(struct callimpl *callimpl, DBusMessage *
 
 static DBusMessage *call_answer(struct callimpl *callimpl, DBusMessage *m)
 {
-	call_emit_answer(callimpl);
-	return dbus_message_new_method_return(m);
+	enum spa_bt_telephony_error err = BT_TELEPHONY_ERROR_FAILED;
+
+	if (call_emit_answer(callimpl, &err) && err == BT_TELEPHONY_ERROR_NONE)
+		return dbus_message_new_method_return(m);
+
+	return dbus_message_new_error(m, telephony_error_to_dbus (err),
+		telephony_error_to_description (err));
 }
 
 static DBusMessage *call_hangup(struct callimpl *callimpl, DBusMessage *m)
 {
-	call_emit_hangup(callimpl);
-	return dbus_message_new_method_return(m);
+	enum spa_bt_telephony_error err = BT_TELEPHONY_ERROR_FAILED;
+
+	if (call_emit_hangup(callimpl, &err) && err == BT_TELEPHONY_ERROR_NONE)
+		return dbus_message_new_method_return(m);
+
+	return dbus_message_new_error(m, telephony_error_to_dbus (err),
+		telephony_error_to_description (err));
 }
 
 static DBusHandlerResult call_handler(DBusConnection *c, DBusMessage *m, void *userdata)

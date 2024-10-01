@@ -1311,25 +1311,30 @@ static bool hfp_hf_wait_for_reply(struct rfcomm *rfcomm, char *buf, size_t len)
 	return reply_found;
 }
 
-static int hfp_hf_answer(void *data) {
+static void hfp_hf_answer(void *data, enum spa_bt_telephony_error *err)
+{
 	struct rfcomm_call_data *call_data = telephony_call_get_user_data(data);
 	struct rfcomm *rfcomm = call_data->rfcomm;
 	struct impl *backend = rfcomm->backend;
 	char reply[20];
 
-	if (call_data->call->state != CALL_STATE_INCOMING)
-		return -1;
+	if (call_data->call->state != CALL_STATE_INCOMING) {
+		*err = BT_TELEPHONY_ERROR_INVALID_STATE;
+		return;
+	}
 
 	rfcomm_send_cmd(rfcomm, "ATA");
 	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
 		spa_log_info(backend->log, "Failed to answer call");
-		return -1;
+		*err = BT_TELEPHONY_ERROR_FAILED;
+		return;
 	}
 
-	return 0;
+	*err = BT_TELEPHONY_ERROR_NONE;
 }
 
-static int hfp_hf_hangup(void *data) {
+static void hfp_hf_hangup(void *data, enum spa_bt_telephony_error *err)
+{
 	struct rfcomm_call_data *call_data = telephony_call_get_user_data(data);
 	struct rfcomm *rfcomm = call_data->rfcomm;
 	struct impl *backend = rfcomm->backend;
@@ -1341,15 +1346,17 @@ static int hfp_hf_hangup(void *data) {
 		rfcomm_send_cmd(rfcomm, "AT+CHLD=0");
 	} else {
 		spa_log_info(backend->log, "Call not incoming, waiting or active: skip hangup");
-		return -1;
+		*err = BT_TELEPHONY_ERROR_INVALID_STATE;
+		return;
 	}
 
 	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
 		spa_log_info(backend->log, "Failed to hangup call");
-		return -1;
+		*err = BT_TELEPHONY_ERROR_FAILED;
+		return;
 	}
 
-	return 0;
+	*err = BT_TELEPHONY_ERROR_NONE;
 }
 
 static const struct spa_bt_telephony_call_events telephony_call_events = {
@@ -1365,6 +1372,8 @@ static struct spa_bt_telephony_call *hfp_hf_add_call(struct rfcomm *rfcomm, stru
 	struct rfcomm_call_data *data;
 
 	call = telephony_call_new(ag, sizeof(*data));
+	if (!call)
+		return NULL;
 	call->state = state;
 	if (number)
 		call->line_identification = strdup(number);
@@ -1377,7 +1386,7 @@ static struct spa_bt_telephony_call *hfp_hf_add_call(struct rfcomm *rfcomm, stru
 	return call;
 }
 
-static int hfp_hf_dial(void *data, const char *number)
+static void hfp_hf_dial(void *data, const char *number, enum spa_bt_telephony_error *err)
 {
 	struct rfcomm *rfcomm = data;
 	struct impl *backend = rfcomm->backend;
@@ -1388,17 +1397,14 @@ static int hfp_hf_dial(void *data, const char *number)
 	if (hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) && spa_strstartswith(reply, "OK")) {
 		struct spa_bt_telephony_call *call;
 		call = hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, CALL_STATE_DIALING, number);
-		if (!call)
-			return -1;
+		*err = call ? BT_TELEPHONY_ERROR_NONE : BT_TELEPHONY_ERROR_FAILED;
 	} else {
 		spa_log_info(backend->log, "Failed to dial: \"%s\"", number);
-		return -1;
+		*err = BT_TELEPHONY_ERROR_FAILED;
 	}
-
-	return 0;
 }
 
-static int hfp_hf_swap_calls(void *data)
+static void hfp_hf_swap_calls(void *data, enum spa_bt_telephony_error *err)
 {
 	struct rfcomm *rfcomm = data;
 	struct impl *backend = rfcomm->backend;
@@ -1407,13 +1413,16 @@ static int hfp_hf_swap_calls(void *data)
 	bool found_held = false;
 	char reply[20];
 
-	if (!rfcomm->chld_supported)
-		return -1;
+	if (!rfcomm->chld_supported) {
+		*err = BT_TELEPHONY_ERROR_NOT_SUPPORTED;
+		return;
+	}
 
 	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
 		if (call->state == CALL_STATE_WAITING) {
 			spa_log_debug(backend->log, "call waiting before swapping");
-			return -1;
+			*err = BT_TELEPHONY_ERROR_INVALID_STATE;
+			return;
 		} else if (call->state == CALL_STATE_ACTIVE)
 			found_active = true;
 		else if (call->state == CALL_STATE_HELD)
@@ -1422,13 +1431,15 @@ static int hfp_hf_swap_calls(void *data)
 
 	if (!found_active || !found_held) {
 		spa_log_debug(backend->log, "no active and held calls");
-		return -1;
+		*err = BT_TELEPHONY_ERROR_INVALID_STATE;
+		return;
 	}
 
 	rfcomm_send_cmd(rfcomm, "AT+CHLD=2");
 	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
 		spa_log_info(backend->log, "Failed to swap calls");
-		return -1;
+		*err = BT_TELEPHONY_ERROR_FAILED;
+		return;
 	}
 
 	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
@@ -1445,10 +1456,10 @@ static int hfp_hf_swap_calls(void *data)
 			telephony_call_notify_updated_props(call);
 	}
 
-	return 0;
+	*err = BT_TELEPHONY_ERROR_NONE;
 }
 
-static int hfp_hf_release_and_answer(void *data)
+static void hfp_hf_release_and_answer(void *data, enum spa_bt_telephony_error *err)
 {
 	struct rfcomm *rfcomm = data;
 	struct impl *backend = rfcomm->backend;
@@ -1457,8 +1468,10 @@ static int hfp_hf_release_and_answer(void *data)
 	bool found_waiting = false;
 	char reply[20];
 
-	if (!rfcomm->chld_supported)
-		return -1;
+	if (!rfcomm->chld_supported) {
+		*err = BT_TELEPHONY_ERROR_NOT_SUPPORTED;
+		return;
+	}
 
 	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
 		if (call->state == CALL_STATE_ACTIVE)
@@ -1469,13 +1482,15 @@ static int hfp_hf_release_and_answer(void *data)
 
 	if (!found_active || !found_waiting) {
 		spa_log_debug(backend->log, "no active and waiting calls");
-		return -1;
+		*err = BT_TELEPHONY_ERROR_INVALID_STATE;
+		return;
 	}
 
 	rfcomm_send_cmd(rfcomm, "AT+CHLD=1");
 	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
 		spa_log_info(backend->log, "Failed to release and answer calls");
-		return -1;
+		*err = BT_TELEPHONY_ERROR_FAILED;
+		return;
 	}
 
 	spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
@@ -1489,10 +1504,10 @@ static int hfp_hf_release_and_answer(void *data)
 		}
 	}
 
-	return 0;
+	*err = BT_TELEPHONY_ERROR_NONE;
 }
 
-static int hfp_hf_release_and_swap(void *data)
+static void hfp_hf_release_and_swap(void *data, enum spa_bt_telephony_error *err)
 {
 	struct rfcomm *rfcomm = data;
 	struct impl *backend = rfcomm->backend;
@@ -1501,13 +1516,16 @@ static int hfp_hf_release_and_swap(void *data)
 	bool found_held = false;
 	char reply[20];
 
-	if (!rfcomm->chld_supported)
-		return -1;
+	if (!rfcomm->chld_supported) {
+		*err = BT_TELEPHONY_ERROR_NOT_SUPPORTED;
+		return;
+	}
 
 	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
 		if (call->state == CALL_STATE_WAITING) {
 			spa_log_debug(backend->log, "call waiting before release and swap");
-			return -1;
+			*err = BT_TELEPHONY_ERROR_INVALID_STATE;
+			return;
 		} else if (call->state == CALL_STATE_ACTIVE)
 			found_active = true;
 		else if (call->state == CALL_STATE_HELD)
@@ -1516,13 +1534,15 @@ static int hfp_hf_release_and_swap(void *data)
 
 	if (!found_active || !found_held) {
 		spa_log_debug(backend->log, "no active and held calls");
-		return -1;
+		*err = BT_TELEPHONY_ERROR_INVALID_STATE;
+		return;
 	}
 
 	rfcomm_send_cmd(rfcomm, "AT+CHLD=1");
 	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
 		spa_log_info(backend->log, "Failed to release and swap calls");
-		return -1;
+		*err = BT_TELEPHONY_ERROR_FAILED;
+		return;
 	}
 
 	spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
@@ -1536,10 +1556,10 @@ static int hfp_hf_release_and_swap(void *data)
 		}
 	}
 
-	return 0;
+	*err = BT_TELEPHONY_ERROR_NONE;
 }
 
-static int hfp_hf_hold_and_answer(void *data)
+static void hfp_hf_hold_and_answer(void *data, enum spa_bt_telephony_error *err)
 {
 	struct rfcomm *rfcomm = data;
 	struct impl *backend = rfcomm->backend;
@@ -1548,8 +1568,10 @@ static int hfp_hf_hold_and_answer(void *data)
 	bool found_waiting = false;
 	char reply[20];
 
-	if (!rfcomm->chld_supported)
-		return -1;
+	if (!rfcomm->chld_supported) {
+		*err = BT_TELEPHONY_ERROR_NOT_SUPPORTED;
+		return;
+	}
 
 	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
 		if (call->state == CALL_STATE_ACTIVE)
@@ -1560,13 +1582,15 @@ static int hfp_hf_hold_and_answer(void *data)
 
 	if (!found_active || !found_waiting) {
 		spa_log_debug(backend->log, "no active and waiting calls");
-		return -1;
+		*err = BT_TELEPHONY_ERROR_INVALID_STATE;
+		return;
 	}
 
 	rfcomm_send_cmd(rfcomm, "AT+CHLD=2");
 	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
 		spa_log_info(backend->log, "Failed to hold and answer calls");
-		return -1;
+		*err = BT_TELEPHONY_ERROR_FAILED;
+		return;
 	}
 
 	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
@@ -1583,22 +1607,23 @@ static int hfp_hf_hold_and_answer(void *data)
 			telephony_call_notify_updated_props(call);
 	}
 
-	return 0;
+	*err = BT_TELEPHONY_ERROR_NONE;
 }
 
-static int hfp_hf_hangup_all(void *data)
+static void hfp_hf_hangup_all(void *data, enum spa_bt_telephony_error *err)
 {
 	struct rfcomm *rfcomm = data;
 	struct impl *backend = rfcomm->backend;
 	char reply[20];
-	int ret = 0;
+
+	*err = BT_TELEPHONY_ERROR_NONE;
 
 	/* Hangup held calls */
 	if (rfcomm->chld_supported) {
 		rfcomm_send_cmd(rfcomm, "AT+CHLD=0");
 		if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
 			spa_log_info(backend->log, "Failed to hangup held calls");
-			ret = -1;
+			*err = BT_TELEPHONY_ERROR_FAILED;
 		}
 	}
 
@@ -1606,13 +1631,11 @@ static int hfp_hf_hangup_all(void *data)
 	rfcomm_send_cmd(rfcomm, "AT+CHUP");
 	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
 		spa_log_info(backend->log, "Failed to hangup active calls");
-		ret = -1;
+		*err = BT_TELEPHONY_ERROR_FAILED;
 	}
-
-	return ret;
 }
 
-static int hfp_hf_create_multiparty(void *data)
+static void hfp_hf_create_multiparty(void *data, enum spa_bt_telephony_error *err)
 {
 	struct rfcomm *rfcomm = data;
 	struct impl *backend = rfcomm->backend;
@@ -1621,10 +1644,16 @@ static int hfp_hf_create_multiparty(void *data)
 	bool found_held = false;
 	char reply[20];
 
+	if (!rfcomm->chld_supported) {
+		*err = BT_TELEPHONY_ERROR_NOT_SUPPORTED;
+		return;
+	}
+
 	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
 		if (call->state == CALL_STATE_WAITING) {
 			spa_log_debug(backend->log, "call waiting before creating multiparty");
-			return -1;
+			*err = BT_TELEPHONY_ERROR_INVALID_STATE;
+			return;
 		} else if (call->state == CALL_STATE_ACTIVE)
 			found_active = true;
 		else if (call->state == CALL_STATE_HELD)
@@ -1633,13 +1662,15 @@ static int hfp_hf_create_multiparty(void *data)
 
 	if (!found_active || !found_held) {
 		spa_log_debug(backend->log, "no active and held calls");
-		return -1;
+		*err = BT_TELEPHONY_ERROR_INVALID_STATE;
+		return;
 	}
 
 	rfcomm_send_cmd(rfcomm, "AT+CHLD=3");
 	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
 		spa_log_info(backend->log, "Failed to create multiparty");
-		return -1;
+		*err = BT_TELEPHONY_ERROR_FAILED;
+		return;
 	}
 
 	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
@@ -1657,10 +1688,10 @@ static int hfp_hf_create_multiparty(void *data)
 			telephony_call_notify_updated_props(call);
 	}
 
-	return 0;
+	*err = BT_TELEPHONY_ERROR_NONE;
 }
 
-static int hfp_hf_send_tones(void *data, const char *tones)
+static void hfp_hf_send_tones(void *data, const char *tones, enum spa_bt_telephony_error *err)
 {
 	struct rfcomm *rfcomm = data;
 	struct impl *backend = rfcomm->backend;
@@ -1677,16 +1708,18 @@ static int hfp_hf_send_tones(void *data, const char *tones)
 
 	if (!found) {
 		spa_log_debug(backend->log, "no active call");
-		return -1;
+		*err = BT_TELEPHONY_ERROR_INVALID_STATE;
+		return;
 	}
 
 	rfcomm_send_cmd(rfcomm, "AT+VTS=%s", tones);
 	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
 		spa_log_info(backend->log, "Failed to send tones: %s", tones);
-		return -1;
+		*err = BT_TELEPHONY_ERROR_FAILED;
+		return;
 	}
 
-	return 0;
+	*err = BT_TELEPHONY_ERROR_NONE;
 }
 
 static const struct spa_bt_telephony_ag_events telephony_ag_events = {

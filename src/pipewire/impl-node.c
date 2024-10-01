@@ -2797,9 +2797,17 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 		 * will wait until all previous items in the work queue are
 		 * completed */
 		impl->pending_state = state;
-		impl->pending_id = pw_work_queue_add(impl->work,
-				node, res == EBUSY ? -EBUSY : res,
-				on_state_complete, SPA_INT_TO_PTR(state));
+		if (node->exported) {
+			/* exported nodes must complete immediately. This is important
+			 * because the server sends ping to check completion. The server
+			 * will only send Start to driver nodes when all clients are
+			 * ready for processing. */
+			on_state_complete(node, SPA_INT_TO_PTR(state), -EBUSY, 0);
+		} else {
+			impl->pending_id = pw_work_queue_add(impl->work,
+					node, res == EBUSY ? -EBUSY : res,
+					on_state_complete, SPA_INT_TO_PTR(state));
+		}
 	}
 	return res;
 }

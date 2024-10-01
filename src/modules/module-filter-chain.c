@@ -1095,13 +1095,15 @@ static int port_set_control_value(struct port *port, float *value, uint32_t id)
 	struct node *node = port->node;
 	struct descriptor *desc = node->desc;
 	float old;
+	bool changed;
 
 	old = port->control_data[id];
 	port->control_data[id] = value ? *value : desc->default_control[port->idx];
 	pw_log_info("control %d %d ('%s') from %f to %f", port->idx, id,
 			desc->desc->ports[port->p].name, old, port->control_data[id]);
-	node->control_changed = old != port->control_data[id];
-	return node->control_changed ? 1 : 0;
+	changed = old != port->control_data[id];
+	node->control_changed |= changed;
+	return changed ? 1 : 0;
 }
 
 static int set_control_value(struct node *node, const char *name, float *value)

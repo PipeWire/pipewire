@@ -91,7 +91,8 @@ struct queue {
 
 	int ack_fd;
 	struct spa_ratelimit rate_limit;
-	struct queue **tss_queue;
+	bool destroyed;
+	bool in_tss;
 
 	struct spa_ringbuffer buffer;
 	uint8_t *buffer_data;
@@ -412,48 +413,45 @@ static void loop_queue_destroy(void *data)
 	struct queue *queue = data;
 	struct impl *impl = queue->impl;
 
-	pthread_mutex_lock(&impl->queue_lock);
-	spa_list_remove(&queue->link);
-	pthread_mutex_unlock(&impl->queue_lock);
+	if (!queue->destroyed) {
+		queue->destroyed = true;
 
-	if (queue->flags & QUEUE_FLAG_ACK_FD)
-		spa_system_close(impl->system, queue->ack_fd);
-	if (queue->tss_queue)
-		*queue->tss_queue = NULL;
-	free(queue);
+		pthread_mutex_lock(&impl->queue_lock);
+		spa_list_remove(&queue->link);
+		pthread_mutex_unlock(&impl->queue_lock);
+
+		if (queue->overflow)
+			loop_queue_destroy(queue->overflow);
+
+		if (queue->flags & QUEUE_FLAG_ACK_FD)
+			spa_system_close(impl->system, queue->ack_fd);
+	}
+	if (!queue->in_tss)
+		free(queue);
 }
 
 static void loop_queue_destroy_tss(void *data)
 {
-	struct queue **qp = data;
-	if (*qp)
-		loop_queue_destroy(*qp);
-	free(qp);
+	struct queue *queue = data;
+	if (queue) {
+		queue->in_tss = false;
+		loop_queue_destroy(queue);
+	}
 }
 
 static int loop_invoke(void *object, spa_invoke_func_t func, uint32_t seq,
 		const void *data, size_t size, bool block, void *user_data)
 {
 	struct impl *impl = object;
-	struct queue *local_queue, **qp;
+	struct queue *local_queue;
 
-	qp = tss_get(impl->queue_tss_id);
-	if (qp == NULL) {
-		qp = malloc(sizeof(struct queue **));
-		if (qp == NULL)
-			return -errno;
-
+	local_queue = tss_get(impl->queue_tss_id);
+	if (local_queue == NULL) {
 		local_queue = loop_create_queue(impl, QUEUE_FLAG_ACK_FD);
-		if (local_queue == NULL) {
-			free(qp);
+		if (local_queue == NULL)
 			return -errno;
-		}
-		*qp = local_queue;
-		local_queue->tss_queue = qp;
-		tss_set(impl->queue_tss_id, qp);
-	} else {
-		if ((local_queue = *qp) == NULL)
-			return -ESTALE;
+		local_queue->in_tss = true;
+		tss_set(impl->queue_tss_id, local_queue);
 	}
 	return loop_queue_invoke(local_queue, func, seq, data, size, block, user_data);
 }
@@ -1102,7 +1100,7 @@ static int impl_clear(struct spa_handle *handle)
 		loop_queue_destroy(queue);
 
 	/* free the tss from this thread if any */
-	free(tss_get(impl->queue_tss_id));
+	loop_queue_destroy_tss(tss_get(impl->queue_tss_id));
 
 	spa_system_close(impl->system, impl->poll_fd);
 	pthread_mutex_destroy(&impl->queue_lock);

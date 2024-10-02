@@ -1101,6 +1101,9 @@ static int impl_clear(struct spa_handle *handle)
 	spa_list_consume(queue, &impl->queue_list, link)
 		loop_queue_destroy(queue);
 
+	/* free the tss from this thread if any */
+	free(tss_get(impl->queue_tss_id));
+
 	spa_system_close(impl->system, impl->poll_fd);
 	pthread_mutex_destroy(&impl->queue_lock);
 	tss_delete(impl->queue_tss_id);

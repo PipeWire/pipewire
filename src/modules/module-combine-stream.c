@@ -817,7 +817,7 @@ static int create_stream(struct stream_info *info)
 
 	if (impl->mode == MODE_SINK || impl->mode == MODE_CAPTURE) {
 		direction = PW_DIRECTION_OUTPUT;
-		flags = PW_STREAM_FLAG_TRIGGER;
+		flags |= PW_STREAM_FLAG_TRIGGER;
 		dir_name = "output";
 	} else {
 		direction = PW_DIRECTION_INPUT;

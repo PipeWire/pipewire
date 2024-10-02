@@ -187,7 +187,9 @@ extern "C" {
 #define PW_KEY_NODE_SUSPEND_ON_IDLE	"node.suspend-on-idle"	/**< suspend the node when idle */
 #define PW_KEY_NODE_CACHE_PARAMS	"node.cache-params"	/**< cache the node params */
 #define PW_KEY_NODE_TRANSPORT_SYNC	"node.transport.sync"	/**< the node handles transport sync */
-#define PW_KEY_NODE_DRIVER		"node.driver"		/**< node can drive the graph */
+#define PW_KEY_NODE_DRIVER		"node.driver"		/**< node can drive the graph. When the node is
+								  *  selected as the driver, it needs to start
+								  *  the graph periodically. */
 #define PW_KEY_NODE_DRIVER_ID		"node.driver-id"	/**< the node id of the node assigned as driver
 								  *   for this node */
 #define PW_KEY_NODE_ASYNC		"node.async"		/**< the node wants async scheduling */
@@ -207,12 +209,14 @@ extern "C" {
 #define PW_KEY_NODE_TRIGGER		"node.trigger"		/**< the node is not scheduled automatically
 								  *   based on the dependencies in the graph
 								  *   but it will be triggered explicitly. */
-#define PW_KEY_NODE_CHANNELNAMES		"node.channel-names"		/**< names of node's
-									*   channels (unrelated to positions) */
-#define PW_KEY_NODE_DEVICE_PORT_NAME_PREFIX			"node.device-port-name-prefix"		/** override
-									*		port name prefix for device ports, like capture and playback
-									*		or disable the prefix completely if an empty string is provided */
-
+#define PW_KEY_NODE_CHANNELNAMES	"node.channel-names"	/**< names of node's
+								*   channels (unrelated to positions) */
+#define PW_KEY_NODE_DEVICE_PORT_NAME_PREFIX	\
+					"node.device-port-name-prefix"	/**< override port name prefix for
+									  *  device ports, like capture and
+									  *  playback or disable the prefix
+									  *  completely if an empty string
+									  *  is provided */
 /** Port keys */
 #define PW_KEY_PORT_ID			"port.id"		/**< port id */
 #define PW_KEY_PORT_NAME		"port.name"		/**< port name */

@@ -2546,18 +2546,21 @@ do_trigger_driver(struct spa_loop *loop,
 	return spa_node_call_ready(&impl->callbacks, res);
 }
 
-static int do_trigger_request_process(struct spa_loop *loop,
+static int do_emit_event(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct stream *impl = user_data;
-	uint8_t buffer[1024];
-	struct spa_pod_builder b = { 0 };
-
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_node_emit_event(&impl->hooks,
-			spa_pod_builder_add_object(&b,
-				SPA_TYPE_EVENT_Node, SPA_NODE_EVENT_RequestProcess));
+	const struct spa_event *event = data;
+	spa_node_emit_event(&impl->hooks, event);
 	return 0;
+}
+
+SPA_EXPORT
+int pw_stream_emit_event(struct pw_stream *stream, const struct spa_event *event)
+{
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	return pw_loop_invoke(impl->main_loop,
+		do_emit_event, 1, event, SPA_POD_SIZE(&event->pod), false, impl);
 }
 
 SPA_EXPORT
@@ -2577,8 +2580,8 @@ int pw_stream_trigger_process(struct pw_stream *stream)
 		res = pw_loop_invoke(impl->data_loop,
 			do_trigger_driver, 1, NULL, 0, false, impl);
 	} else {
-		res = pw_loop_invoke(impl->main_loop,
-			do_trigger_request_process, 1, NULL, 0, false, impl);
+		pw_stream_emit_event(stream,
+				&SPA_NODE_EVENT_INIT(SPA_NODE_EVENT_RequestProcess));
 	}
 	return res;
 }

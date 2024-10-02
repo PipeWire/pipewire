@@ -29,6 +29,7 @@ struct pw_filter;
 #include <spa/node/io.h>
 #include <spa/param/param.h>
 #include <spa/pod/command.h>
+#include <spa/pod/event.h>
 
 #include <pipewire/core.h>
 #include <pipewire/stream.h>
@@ -249,6 +250,10 @@ bool pw_filter_is_driving(struct pw_filter *filter);
 /** Trigger a push/pull on the filter. One iteration of the graph will
  * be scheduled and process() will be called. Since 0.3.66 */
 int pw_filter_trigger_process(struct pw_filter *filter);
+
+/** Emit an event from this filter.
+ * Since 1.2.6 */
+int pw_filter_emit_event(struct pw_filter *filter, const struct spa_event *event);
 
 /**
  * \}

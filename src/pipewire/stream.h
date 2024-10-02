@@ -229,6 +229,7 @@ struct pw_stream;
 #include <spa/buffer/buffer.h>
 #include <spa/param/param.h>
 #include <spa/pod/command.h>
+#include <spa/pod/event.h>
 
 /** \enum pw_stream_state The state of a stream */
 enum pw_stream_state {
@@ -621,6 +622,10 @@ bool pw_stream_is_driving(struct pw_stream *stream);
  *
  * Since 0.3.34 */
 int pw_stream_trigger_process(struct pw_stream *stream);
+
+/** Emit an event from this stream.
+ * Since 1.2.6 */
+int pw_stream_emit_event(struct pw_stream *stream, const struct spa_event *event);
 
 /**
  * \}

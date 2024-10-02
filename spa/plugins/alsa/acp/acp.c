@@ -956,7 +956,7 @@ static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 {
 	pa_card *impl = snd_mixer_elem_get_callback_private(melem);
 	snd_hctl_elem_t **_elem = snd_mixer_elem_get_private(melem), *elem;
-	int device;
+	int device, i;
 	const char *old_monitor_name;
 	pa_device_port *p;
 	pa_hdmi_eld eld;
@@ -977,6 +977,15 @@ static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 
 	if (pa_alsa_get_hdmi_eld(elem, &eld) < 0)
 		memset(&eld, 0, sizeof(eld));
+
+	// Strip trailing whitespace from monitor_name (primarily an NVidia driver bug for now)
+	for (i = strlen(eld.monitor_name) - 1; i >= 0; i--) {
+		if (eld.monitor_name[i] == '\n' || eld.monitor_name[i] == '\r' || eld.monitor_name[i] == '\t' ||
+				eld.monitor_name[i] == ' ')
+			eld.monitor_name[i] = 0;
+		else
+			break;
+	}
 
 	old_monitor_name = pa_proplist_gets(p->proplist, PA_PROP_DEVICE_PRODUCT_NAME);
 	if (eld.monitor_name[0] == '\0') {

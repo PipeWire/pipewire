@@ -47,6 +47,8 @@ struct impl {
 	unsigned int cache_params:1;
 	unsigned int pending_play:1;
 
+	struct spa_command *pending_request_process;
+
 	char *group;
 	char *link_group;
 	char *sync_group;
@@ -331,7 +333,7 @@ static int start_node(struct pw_impl_node *this)
 	} else {
 		/* driver nodes will wait until all other nodes are started before
 		 * they are started */
-		this->pending_request_process = 0;
+		spa_clear_ptr(impl->pending_request_process, free);
 		res = EBUSY;
 	}
 
@@ -436,7 +438,7 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 				state = PW_NODE_STATE_ERROR;
 				error = spa_aprintf("Start error: %s", spa_strerror(res));
 				remove_node_from_graph(node);
-			} else if (node->pending_request_process > 0) {
+			} else if (impl->pending_request_process != NULL) {
 				emit_pending_request_process = true;
 			}
 		}
@@ -472,10 +474,9 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 	pw_impl_node_emit_state_changed(node, old, state, error);
 
 	if (emit_pending_request_process) {
-		pw_log_debug("%p: request process:%d", node, node->pending_request_process);
-		node->pending_request_process = 0;
-		spa_node_send_command(node->node,
-			    &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_RequestProcess));
+		pw_log_debug("%p: request process:%p", node, impl->pending_request_process);
+		spa_node_send_command(node->node, impl->pending_request_process);
+		spa_clear_ptr(impl->pending_request_process, free);
 	}
 
 	node->info.change_mask |= PW_NODE_CHANGE_MASK_STATE;
@@ -1891,16 +1892,16 @@ static void node_result(void *data, int seq, int res, uint32_t type, const void 
 	pw_impl_node_emit_result(node, seq, res, type, result);
 }
 
-static void handle_request_process(struct pw_impl_node *node)
+static void handle_request_process_command(struct pw_impl_node *node, const struct spa_command *command)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	if (node->driving) {
 		pw_log_debug("request process %d %d", node->info.state, impl->pending_state);
 		if (node->info.state == PW_NODE_STATE_RUNNING) {
-			spa_node_send_command(node->driver_node->node,
-				    &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_RequestProcess));
+			spa_node_send_command(node->driver_node->node, command);
 		} else if (impl->pending_state == PW_NODE_STATE_RUNNING) {
-			node->pending_request_process++;
+			spa_clear_ptr(impl->pending_request_process, free);
+			impl->pending_request_process = (struct spa_command*)spa_pod_copy(&command->pod);
 		}
 	}
 }
@@ -1922,9 +1923,18 @@ static void node_event(void *data, const struct spa_event *event)
 		break;
 	case SPA_NODE_EVENT_RequestProcess:
 		if (!node->driving && !node->exported) {
+			struct spa_command *command;
+			size_t size = SPA_POD_SIZE(&event->pod);
+
+			/* turn the event and all the arguments into a command */
+			command = alloca(size);
+			memcpy(command, event, size);
+			command->body.body.type = SPA_TYPE_COMMAND_Node;
+			command->body.body.id = SPA_NODE_COMMAND_RequestProcess;
+
 			/* send the request process to the driver but only on the
 			 * server size */
-			handle_request_process(node->driver_node);
+			handle_request_process_command(node->driver_node, command);
 		}
 		break;
 	default:
@@ -2452,6 +2462,7 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	pw_work_queue_cancel(impl->work, node, SPA_ID_INVALID);
 
 	pw_properties_free(node->properties);
+	spa_clear_ptr(impl->pending_request_process, free);
 
 	clear_info(node);
 
@@ -2848,7 +2859,7 @@ int pw_impl_node_send_command(struct pw_impl_node *node, const struct spa_comman
 
 	switch (id) {
 	case SPA_NODE_COMMAND_RequestProcess:
-		handle_request_process(node);
+		handle_request_process_command(node, command);
 		break;
 	default:
 		res = spa_node_send_command(node->node, command);

@@ -216,6 +216,8 @@ static void spatializer_reload(void * Instance)
 	for (uint8_t i = 0; i < 3; i++)
 		coords[i] = impl->port[3 + i][0];
 
+	pw_log_info("making spatializer with %f %f %f", coords[0], coords[2], coords[2]);
+
 	mysofa_s2c(coords);
 	mysofa_getfilter_float(
 		impl->sofa,
@@ -229,9 +231,8 @@ static void spatializer_reload(void * Instance)
 	);
 
 	// TODO: make use of delay
-	if ((left_delay != 0.0f || right_delay != 0.0f) && (!isnan(left_delay) || !isnan(right_delay))) {
+	if ((left_delay != 0.0f || right_delay != 0.0f) && (!isnan(left_delay) || !isnan(right_delay)))
 		pw_log_warn("delay dropped l: %f, r: %f", left_delay, right_delay);
-	}
 
 	if (impl->l_conv[2])
 		convolver_free(impl->l_conv[2]);
@@ -331,7 +332,6 @@ static void spatializer_cleanup(void * Instance)
 
 static void spatializer_control_changed(void * Instance)
 {
-	pw_log_info("control changed");
 	spatializer_reload(Instance);
 }
 

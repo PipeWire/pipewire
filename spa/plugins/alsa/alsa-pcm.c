@@ -2746,7 +2746,7 @@ static int get_status(struct state *state, uint64_t current_time, snd_pcm_uframe
 static int update_time(struct state *state, uint64_t current_time, snd_pcm_sframes_t delay,
 		snd_pcm_sframes_t target, bool follower)
 {
-	double err, corr;
+	double err, corr, avg;
 	int32_t diff;
 
 	if (state->disable_tsched && !follower) {
@@ -2784,10 +2784,16 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 			err = -state->max_error;
 	}
 
-	if (!follower || state->matching)
+	if (!follower || state->matching) {
 		corr = spa_dll_update(&state->dll, err);
-	else
+
+		avg = (state->err_avg * state->err_wdw + (err - state->err_avg)) / (state->err_wdw + 1.0);
+		state->err_var = (state->err_var * state->err_wdw +
+				(err - state->err_avg) * (err - avg)) / (state->err_wdw + 1.0);
+		state->err_avg = avg;
+	} else {
 		corr = 1.0;
+	}
 
 	if (diff < 0)
 		state->next_time += (uint64_t)(diff / corr * 1e9 / state->rate);
@@ -2796,10 +2802,14 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 		state->base_time = state->next_time;
 
 		spa_log_debug(state->log, "%s: follower:%d match:%d rate:%f "
-				"bw:%f thr:%u del:%ld target:%ld err:%f max:%f",
+				"bw:%f thr:%u del:%ld target:%ld err:%f max:%f var:%f:%f:%f",
 				state->name, follower, state->matching,
 				corr, state->dll.bw, state->threshold, delay, target,
-				err, state->max_error);
+				err, state->max_error, state->err_avg, state->err_var, state->err_wdw);
+
+		spa_dll_set_bw(&state->dll,
+				SPA_CLAMPD(sqrt(state->err_var)/1000.0, 0.001, SPA_DLL_BW_MAX),
+				state->threshold, state->rate);
 	}
 
 	if (state->rate_match) {
@@ -2904,6 +2914,7 @@ static inline int check_position_config(struct state *state, bool starting)
 		state->threshold = SPA_SCALE32_UP(state->driver_duration, state->rate, state->driver_rate.denom);
 		state->max_error = SPA_MAX(256.0f, state->threshold / 2.0f);
 		state->max_resync = SPA_MIN(state->threshold, state->max_error);
+		state->err_wdw = (double)state->driver_rate.denom/state->driver_duration;
 		state->resample = !state->pitch_elem &&
 			(((uint32_t)state->rate != state->driver_rate.denom) || state->matching);
 		state->alsa_sync = true;

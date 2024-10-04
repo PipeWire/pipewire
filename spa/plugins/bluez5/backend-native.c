@@ -1340,11 +1340,17 @@ static void hfp_hf_hangup(void *data, enum spa_bt_telephony_error *err)
 	struct impl *backend = rfcomm->backend;
 	char reply[20];
 
-	if (call_data->call->state == CALL_STATE_INCOMING || call_data->call->state == CALL_STATE_ACTIVE) {
+	switch (call_data->call->state) {
+	case CALL_STATE_ACTIVE:
+	case CALL_STATE_DIALING:
+	case CALL_STATE_ALERTING:
+	case CALL_STATE_INCOMING:
 		rfcomm_send_cmd(rfcomm, "AT+CHUP");
-	} else if (call_data->call->state == CALL_STATE_WAITING) {
+		break;
+	case CALL_STATE_WAITING:
 		rfcomm_send_cmd(rfcomm, "AT+CHLD=0");
-	} else {
+		break;
+	default:
 		spa_log_info(backend->log, "Call not incoming, waiting or active: skip hangup");
 		*err = BT_TELEPHONY_ERROR_INVALID_STATE;
 		return;

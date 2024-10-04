@@ -39,7 +39,6 @@ struct data {
 	FILE *output;
 	bool json_dump;
 	uint32_t iterations;
-	bool need_comma;
 
 	int64_t count;
 	int64_t start_status;
@@ -74,6 +73,23 @@ struct point {
 	struct measurement follower[MAX_FOLLOWERS];
 };
 
+static const char *status_to_string(int status)
+{
+	switch (status) {
+	case 0:
+		return "not-triggered";
+	case 1:
+		return "triggered";
+	case 2:
+		return "awake";
+	case 3:
+		return "finished";
+	case 4:
+		return "inactive";
+	}
+	return "unknown";
+}
+
 static int process_info(struct data *d, const struct spa_pod *pod, struct point *point)
 {
 	int res;
@@ -85,14 +101,12 @@ static int process_info(struct data *d, const struct spa_pod *pod, struct point 
 			SPA_POD_Float(&point->cpu_load[1]),
 			SPA_POD_Float(&point->cpu_load[2]));
 	if (d->json_dump) {
-		fprintf(stdout, "%s\n{ \"type\": \"info\", \"count\": %"PRIu64", "
-				"\"cpu_load0\": %s, \"cpu_load1\": %s, \"cpu_load2\": %s }",
-				d->need_comma ? "," : "",
+		fprintf(stdout, "{ \"type\": \"info\", \"count\": %"PRIu64", "
+				"\"cpu_load0\": %s, \"cpu_load1\": %s, \"cpu_load2\": %s },\n",
 				point->count,
 				spa_json_format_float(cpu_load0, sizeof(cpu_load0), point->cpu_load[0]),
 				spa_json_format_float(cpu_load1, sizeof(cpu_load1), point->cpu_load[1]),
 				spa_json_format_float(cpu_load2, sizeof(cpu_load2), point->cpu_load[2]));
-		d->need_comma = true;
 	}
 	return res;
 }
@@ -113,18 +127,16 @@ static int process_clock(struct data *d, const struct spa_pod *pod, struct point
 			SPA_POD_Double(&point->clock.rate_diff),
 			SPA_POD_Long(&point->clock.next_nsec));
 	if (d->json_dump) {
-		fprintf(stdout, "%s\n{ \"type\": \"clock\", \"flags\": %u, \"id\": %u, "
+		fprintf(stdout, "{ \"type\": \"clock\", \"flags\": %u, \"id\": %u, "
 				"\"name\": \"%s\", \"nsec\": %"PRIu64", \"rate\": \"%u/%u\", "
 				"\"position\": %"PRIu64", \"duration\": %"PRIu64", "
-				"\"delay\": %"PRIu64", \"diff\": %s, \"next_nsec\": %"PRIu64" }",
-				d->need_comma ? "," : "",
+				"\"delay\": %"PRIu64", \"diff\": %s, \"next_nsec\": %"PRIu64" },\n",
 				point->clock.flags, point->clock.id, point->clock.name,
 				point->clock.nsec, point->clock.rate.num, point->clock.rate.denom,
 				point->clock.position, point->clock.duration,
 				point->clock.delay,
 				spa_json_format_float(val, sizeof(val), (float)point->clock.rate_diff),
 				point->clock.next_nsec);
-		d->need_comma = true;
 	}
 	return res;
 }
@@ -150,16 +162,14 @@ static int process_driver_block(struct data *d, const struct spa_pod *pod, struc
 		return res;
 
 	if (d->json_dump) {
-		fprintf(stdout, "%s\n{ \"type\": \"driver\", \"id\": %u, \"name\": \"%s\", \"prev\": %"PRIu64", "
+		fprintf(stdout, "{ \"type\": \"driver\", \"id\": %u, \"name\": \"%s\", \"prev\": %"PRIu64", "
 				"\"signal\": %"PRIu64", \"awake\": %"PRIu64", "
-				"\"finish\": %"PRIu64", \"status\": %d, \"latency\": \"%u/%u\", "
-				"\"xrun_count\": %u }",
-				d->need_comma ? "," : "",
+				"\"finish\": %"PRIu64", \"status\": \"%s\", \"latency\": \"%u/%u\", "
+				"\"xrun_count\": %u },\n",
 				driver_id, name, driver.prev_signal, driver.signal,
-				driver.awake, driver.finish, driver.status,
+				driver.awake, driver.finish, status_to_string(driver.status),
 				driver.latency.num, driver.latency.denom,
 				driver.xrun_count);
-		d->need_comma = true;
 	}
 
 	if (d->driver_id == 0) {
@@ -222,16 +232,14 @@ static int process_follower_block(struct data *d, const struct spa_pod *pod, str
 		return res;
 
 	if (d->json_dump) {
-		fprintf(stdout, "%s\n{ \"type\": \"follower\", \"id\": %u, \"name\": \"%s\", \"prev\": %"PRIu64", "
+		fprintf(stdout, "{ \"type\": \"follower\", \"id\": %u, \"name\": \"%s\", \"prev\": %"PRIu64", "
 				"\"signal\": %"PRIu64", \"awake\": %"PRIu64", "
-				"\"finish\": %"PRIu64", \"status\": %d, \"latency\": \"%u/%u\", "
-				"\"xrun_count\": %u }",
-				d->need_comma ? "," : "",
+				"\"finish\": %"PRIu64", \"status\": \"%s\", \"latency\": \"%u/%u\", "
+				"\"xrun_count\": %u },\n",
 				id, name, m.prev_signal, m.signal,
-				m.awake, m.finish, m.status,
+				m.awake, m.finish, status_to_string(m.status),
 				m.latency.num, m.latency.denom,
 				m.xrun_count);
-		d->need_comma = true;
 	}
 
 
@@ -730,7 +738,7 @@ int main(int argc, char *argv[])
 		fclose(data.output);
 		dump_scripts(&data);
 	} else {
-		printf("\n]\n");
+		printf("{ } ]\n");
 	}
 
 	pw_deinit();

@@ -1620,12 +1620,32 @@ static void hfp_hf_hangup_all(void *data, enum spa_bt_telephony_error *err)
 {
 	struct rfcomm *rfcomm = data;
 	struct impl *backend = rfcomm->backend;
+	struct spa_bt_telephony_call *call;
+	bool found_active = false;
+	bool found_held = false;
 	char reply[20];
+
+	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+		switch (call->state) {
+		case CALL_STATE_ACTIVE:
+		case CALL_STATE_DIALING:
+		case CALL_STATE_ALERTING:
+		case CALL_STATE_INCOMING:
+			found_active = true;
+			break;
+		case CALL_STATE_HELD:
+		case CALL_STATE_WAITING:
+			found_held = true;
+			break;
+		default:
+			break;
+		}
+	}
 
 	*err = BT_TELEPHONY_ERROR_NONE;
 
 	/* Hangup held calls */
-	if (rfcomm->chld_supported) {
+	if (found_held) {
 		rfcomm_send_cmd(rfcomm, "AT+CHLD=0");
 		if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
 			spa_log_info(backend->log, "Failed to hangup held calls");
@@ -1634,10 +1654,12 @@ static void hfp_hf_hangup_all(void *data, enum spa_bt_telephony_error *err)
 	}
 
 	/* Hangup active calls */
-	rfcomm_send_cmd(rfcomm, "AT+CHUP");
-	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
-		spa_log_info(backend->log, "Failed to hangup active calls");
-		*err = BT_TELEPHONY_ERROR_FAILED;
+	if (found_active) {
+		rfcomm_send_cmd(rfcomm, "AT+CHUP");
+		if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
+			spa_log_info(backend->log, "Failed to hangup active calls");
+			*err = BT_TELEPHONY_ERROR_FAILED;
+		}
 	}
 }
 

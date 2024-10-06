@@ -600,7 +600,9 @@ do_mix_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 			port->global_mix->io[1] = &port->io[1];
 		}
 	} else {
-		if (--port->n_mix == 0 && port->global_mix != NULL) {
+		info->mix->io[0] = NULL;
+		info->mix->io[1] = NULL;
+		if (port->n_mix > 0 && --port->n_mix == 0 && port->global_mix != NULL) {
 			port->global_mix->io[0] = NULL;
 			port->global_mix->io[1] = NULL;
 		}

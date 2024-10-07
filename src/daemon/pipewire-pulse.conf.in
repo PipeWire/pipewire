@@ -152,6 +152,7 @@ pulse.rules = [
         matches = [
              { application.process.binary = "teams" }
              { application.process.binary = "teams-insiders" }
+             { application.process.binary = "teams-for-linux" }
              { application.process.binary = "skypeforlinux" }
         ]
         actions = { quirks = [ force-s16-info ] }

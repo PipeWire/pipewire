@@ -34,6 +34,7 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.audioadapter");
 #define DEFAULT_ALIGN	16
 
 #define MAX_PORTS	(SPA_AUDIO_MAX_CHANNELS+1)
+#define MAX_RETRY	64
 
 /** \cond */
 
@@ -1427,7 +1428,7 @@ static int follower_ready(void *data, int status)
 		this->driver = true;
 
 		if (this->direction == SPA_DIRECTION_OUTPUT) {
-			int retry = 8;
+			int retry = MAX_RETRY;
 			while (retry--) {
 				status = spa_node_process_fast(this->target);
 				if (status & SPA_STATUS_HAVE_DATA)
@@ -1656,7 +1657,7 @@ impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 static int impl_node_process(void *object)
 {
 	struct impl *this = object;
-	int status = 0, fstatus, retry = 8;
+	int status = 0, fstatus, retry = MAX_RETRY;
 
 	if (!this->ready) {
 		if (!this->warned)

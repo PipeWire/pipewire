@@ -1,3 +1,48 @@
+# PipeWire 1.2.6 (2024-10-23)
+
+This is a bugfix release that is API and ABI compatible with the previous
+1.2.x and 1.0.x releases.
+
+## Highlights
+  - The filter-chain param changes were not aggregated correctly, causing some
+    param changes to be ignored. (#4331)
+  - Clear the JACK io ports correctly when stopping to avoid crashes. (#4337)
+  - Some more small fixes and improvements.
+
+
+## PipeWire
+  - Stream states are now updated based on the underlying node state.
+  - Exported nodes now have their state change done synchronously so that the
+    server can immediately start the driver and avoid some initial xruns.
+  - Improve stream flush handling and improve the docs.
+  - Don't send mix_info to destroyed ports to avoid some errors in the
+    JACK clients.
+
+## Modules
+  - The filter-chain param changes were not aggregated correctly, causing some
+    param changes to be ignored. (#4331)
+  - The filter-chain now correctly optimizes unlinked nodes in all cases.
+
+## SPA
+  - ALSA PCM node properties are now no longer overwritten with card properties.
+    (#4135)
+  - Increase the adapter retry count to avoid xruns in some cases. (#4334)
+  - Fix potential crash in cleanup of ALSA nodes.
+
+## Bluetooth
+  - Fix a crash with broadcast sinks.
+  - Improve compatibility with Phonak hearing aids.
+  - Don't exit when DBus goes down.
+
+## JACK
+  - Clear the io ports correctly when stopping to avoid crashes. (#4337)
+
+## Docs
+  - Backport docs from master.
+
+Older versions:
+
+
 # PipeWire 1.2.5 (2024-09-27)
 
 This is an important bugfix release that is API and ABI compatible with the
@@ -42,9 +87,6 @@ previous 1.2.x and 1.0.x releases.
 
 ## Doc
   - Some small doc updates. (#4272)
-
-
-Older versions:
 
 
 # PipeWire 1.2.4 (2024-09-19)

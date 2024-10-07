@@ -182,6 +182,7 @@ struct rfcomm {
 	unsigned int cind_call_notify:1;
 	unsigned int extended_error_reporting:1;
 	unsigned int clip_notify:1;
+	unsigned int hfp_hf_3way:1;
 	unsigned int chld_supported:1;
 	enum hfp_hf_state hf_state;
 	enum hsp_hs_state hs_state;
@@ -1772,6 +1773,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 		if (((features & (SPA_BT_HFP_AG_FEATURE_CODEC_NEGOTIATION)) != 0) &&
 				(rfcomm->msbc_supported_by_hfp || rfcomm->lc3_supported_by_hfp))
 			rfcomm->codec_negotiation_supported = true;
+		rfcomm->hfp_hf_3way = (features & SPA_BT_HFP_AG_FEATURE_3WAY) != 0;
 	} else if (sscanf(token, "+BCS:%u", &selected_codec) == 1 && rfcomm->codec_negotiation_supported) {
 		if (selected_codec != HFP_AUDIO_CODEC_CVSD && selected_codec != HFP_AUDIO_CODEC_MSBC &&
 				selected_codec != HFP_AUDIO_CODEC_LC3_SWB) {
@@ -2010,9 +2012,12 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			rfcomm->hf_state = hfp_hf_cmer;
 			break;
 		case hfp_hf_cmer:
-			rfcomm_send_cmd(rfcomm, "AT+CHLD=?");
-			rfcomm->hf_state = hfp_hf_chld;
-			break;
+			if (rfcomm->hfp_hf_3way) {
+				rfcomm_send_cmd(rfcomm, "AT+CHLD=?");
+				rfcomm->hf_state = hfp_hf_chld;
+				break;
+			}
+			SPA_FALLTHROUGH;
 		case hfp_hf_chld:
 			rfcomm_send_cmd(rfcomm, "AT+CLIP=1");
 			rfcomm->hf_state = hfp_hf_clip;
@@ -3014,7 +3019,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 				rfcomm->transport->path, handler);
 	} else if (profile == SPA_BT_PROFILE_HFP_AG) {
 		/* Start SLC connection */
-		unsigned int hf_features = SPA_BT_HFP_HF_FEATURE_NONE;
+		unsigned int hf_features = SPA_BT_HFP_HF_FEATURE_CLIP | SPA_BT_HFP_HF_FEATURE_3WAY;
 		bool has_msbc = device_supports_codec(backend, rfcomm->device, HFP_AUDIO_CODEC_MSBC);
 		bool has_lc3 = device_supports_codec(backend, rfcomm->device, HFP_AUDIO_CODEC_LC3_SWB);
 

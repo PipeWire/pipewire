@@ -668,7 +668,7 @@ static int impl_send_command(void *object, const struct spa_command *command)
 	case SPA_NODE_COMMAND_Pause:
 		pw_loop_invoke(impl->main_loop,
 			NULL, 0, NULL, 0, false, impl);
-		if (stream->state == PW_STREAM_STATE_STREAMING) {
+		if (stream->state == PW_STREAM_STATE_STREAMING && id != SPA_NODE_COMMAND_Flush) {
 			pw_log_debug("%p: pause", stream);
 			stream_set_state(stream, PW_STREAM_STATE_PAUSED, 0, NULL);
 		}
@@ -2325,8 +2325,11 @@ int pw_stream_set_active(struct pw_stream *stream, bool active)
 
 	pw_impl_node_set_active(stream->node, active);
 
-	if (!active || impl->drained)
+	if (!active || impl->drained) {
+		if (impl->drained && impl->io != NULL)
+			impl->io->status = SPA_STATUS_NEED_DATA;
 		impl->drained = impl->draining = false;
+	}
 	return 0;
 }
 

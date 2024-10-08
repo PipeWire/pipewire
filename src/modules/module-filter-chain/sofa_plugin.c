@@ -214,7 +214,7 @@ static void spatializer_reload(void * Instance)
 	for (uint8_t i = 0; i < 3; i++)
 		coords[i] = impl->port[3 + i][0];
 
-	pw_log_info("making spatializer with %f %f %f", coords[0], coords[2], coords[2]);
+	pw_log_info("making spatializer with %f %f %f", coords[0], coords[1], coords[2]);
 
 	mysofa_s2c(coords);
 	mysofa_getfilter_float(

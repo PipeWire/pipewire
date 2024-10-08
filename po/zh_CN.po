@@ -6,106 +6,127 @@
 # Cheng-Chia Tseng <pswo10680@gmail.com>, 2010, 2012.
 # Frank Hill <hxf.prc@gmail.com>, 2015.
 # Mingye Wang (Arthur2e5) <arthur200126@gmail.com>, 2015.
+# lumingzh <lumingzh@qq.com>, 2024.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire.master-tx\n"
-"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
-"issues/new\n"
-"POT-Creation-Date: 2021-04-18 10:47+0800\n"
-"PO-Revision-Date: 2021-04-18 10:56+0800\n"
-"Last-Translator: Huang-Huang Bao <i@eh5.me>\n"
-"Language-Team: Huang-Huang Bao <i@eh5.me>\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/"
+"issues\n"
+"POT-Creation-Date: 2024-09-09 16:36+0000\n"
+"PO-Revision-Date: 2024-10-08 09:41+0800\n"
+"Last-Translator: lumingzh <lumingzh@qq.com>\n"
+"Language-Team: Chinese (China) <i18n-zh@googlegroups.com>\n"
 "Language: zh_CN\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "X-Launchpad-Export-Date: 2016-03-22 13:23+0000\n"
-"X-Generator: Poedit 2.4.1\n"
+"X-Generator: Gtranslator 47.0\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: src/daemon/pipewire.c:43
+#: src/daemon/pipewire.c:29
 #, c-format
 msgid ""
 "%s [options]\n"
 "  -h, --help                            Show this help\n"
+"  -v, --verbose                         Increase verbosity by one level\n"
 "      --version                         Show version\n"
 "  -c, --config                          Load config (Default %s)\n"
+"  -P  --properties                      Set context properties\n"
 msgstr ""
 "%s [选项]\n"
 "  -h, --help                            显示此帮助信息\n"
+"  -v, --verbose                         增加一级的详尽程度\n"
 "      --version                         显示版本\n"
-"  -c, --config                          加载配置文件 (默认 %s)\n"
+"  -c, --config                          加载配置 (默认 %s)\n"
+"  -P  --properties                      设置上下文属性\n"
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
-msgstr "PipeWire多媒体系统"
+msgstr "PipeWire 多媒体系统"
 
 #: src/daemon/pipewire.desktop.in:5
 msgid "Start the PipeWire Media System"
-msgstr "启动PipeWire多媒体系统"
+msgstr "启动 PipeWire 多媒体系统"
 
-#: src/examples/media-session/alsa-monitor.c:526
-#: spa/plugins/alsa/acp/compat.c:187
-msgid "Built-in Audio"
-msgstr "内置音频"
+#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:159
+#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:159
+#, c-format
+msgid "Tunnel to %s%s%s"
+msgstr "至 %s%s%s 的隧道"
 
-#: src/examples/media-session/alsa-monitor.c:530
-#: spa/plugins/alsa/acp/compat.c:192
-msgid "Modem"
-msgstr "调制解调器"
+#: src/modules/module-fallback-sink.c:40
+msgid "Dummy Output"
+msgstr "虚拟输出"
 
-#: src/examples/media-session/alsa-monitor.c:539
+#: src/modules/module-pulse-tunnel.c:774
+#, c-format
+msgid "Tunnel for %s@%s"
+msgstr "用于 %s@%s 的隧道"
+
+#: src/modules/module-zeroconf-discover.c:318
 msgid "Unknown device"
 msgstr "未知设备"
 
-#: src/tools/pw-cat.c:991
+#: src/modules/module-zeroconf-discover.c:330
+#, c-format
+msgid "%s on %s@%s"
+msgstr "%2$s@%3$s 上的 %1$s"
+
+#: src/modules/module-zeroconf-discover.c:334
+#, c-format
+msgid "%s on %s"
+msgstr "%2$s 上的 %1$s"
+
+#: src/tools/pw-cat.c:996
 #, c-format
 msgid ""
-"%s [options] <file>\n"
+"%s [options] [<file>|-]\n"
 "  -h, --help                            Show this help\n"
 "      --version                         Show version\n"
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
-"%s [选项] <文件>\n"
+"%s [选项] [<文件>|-]\n"
 "  -h, --help                            显示此帮助信息\n"
 "      --version                         显示版本\n"
 "  -v, --verbose                         输出详细操作\n"
 "\n"
 
-#: src/tools/pw-cat.c:998
+#: src/tools/pw-cat.c:1003
 #, c-format
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
 "      --media-type                      Set media type (default %s)\n"
 "      --media-category                  Set media category (default %s)\n"
 "      --media-role                      Set media role (default %s)\n"
-"      --target                          Set node target (default %s)\n"
+"      --target                          Set node target serial or name "
+"(default %s)\n"
 "                                          0 means don't link\n"
 "      --latency                         Set node latency (default %s)\n"
 "                                          Xunit (unit = s, ms, us, ns)\n"
 "                                          or direct samples (256)\n"
 "                                          the rate is the one of the source "
 "file\n"
-"      --list-targets                    List available targets for --target\n"
+"  -P  --properties                      Set node properties\n"
 "\n"
 msgstr ""
 "  -R, --remote                          远程守护程序名\n"
 "      --media-type                      设置媒体类型 (默认 %s)\n"
 "      --media-category                  设置媒体类别 (默认 %s)\n"
 "      --media-role                      设置媒体角色 (默认 %s)\n"
-"      --target                          设置目标节点 (默认 %s)\n"
-"                                          设为0则不链接节点\n"
+"      --target                          设置节点目标序列或名称 (默认 %s)\n"
+"                                          设为 0 则不链接节点\n"
 "      --latency                         设置节点延迟 (默认 %s)\n"
 "                                          时间 (单位可为 s, ms, us, ns)\n"
 "                                          或样本数 (如256)\n"
 "                                          对应的采样率则是媒体源文件采样率的"
 "其一\n"
-"      --list-targets                    列出可用的 --target 目标\n"
+"  -P  --properties                      设置节点属性\n"
 "\n"
 
-#: src/tools/pw-cat.c:1016
+#: src/tools/pw-cat.c:1021
 #, c-format
 msgid ""
 "      --rate                            Sample rate (req. for rec) (default "
@@ -122,6 +143,7 @@ msgid ""
 "      --volume                          Stream volume 0-1.0 (default %.3f)\n"
 "  -q  --quality                         Resampler quality (0 - 15) (default "
 "%d)\n"
+"  -a, --raw                             RAW mode\n"
 "\n"
 msgstr ""
 "      --rate                            采样率 (录制模式需要) (默认 %u)\n"
@@ -135,21 +157,26 @@ msgstr ""
 "%s)\n"
 "      --volume                          媒体流音量 0-1.0 (默认 %.3f)\n"
 "  -q  --quality                         重采样质量 (0 - 15) (默认 %d)\n"
+"  -a, --raw                             原生模式\n"
 "\n"
 
-#: src/tools/pw-cat.c:1033
+#: src/tools/pw-cat.c:1039
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"
 "  -m, --midi                            Midi mode\n"
+"  -d, --dsd                             DSD mode\n"
+"  -o, --encoded                         Encoded mode\n"
 "\n"
 msgstr ""
 "  -p, --playback                        回放模式\n"
 "  -r, --record                          录制模式\n"
-"  -m, --midi                            Midi模式\n"
+"  -m, --midi                            Midi 模式\n"
+"  -d, --dsd                             DSD 模式\n"
+"  -o, --encoded                         编码模式\n"
 "\n"
 
-#: src/tools/pw-cli.c:2932
+#: src/tools/pw-cli.c:2285
 #, c-format
 msgid ""
 "%s [options] [command]\n"
@@ -157,208 +184,205 @@ msgid ""
 "      --version                         Show version\n"
 "  -d, --daemon                          Start as daemon (Default false)\n"
 "  -r, --remote                          Remote daemon name\n"
+"  -m, --monitor                         Monitor activity\n"
 "\n"
 msgstr ""
 "%s [选项] [命令]\n"
 "  -h, --help                            显示此帮助信息\n"
 "      --version                         显示版本\n"
 "  -d, --daemon                          以守护程序方式启动 (默认关闭)\n"
-"  -r, --remote                          远程守护程序名\n"
+"  -m, --monitor                         监视器活动\n"
 "\n"
 
-#: spa/plugins/alsa/acp/acp.c:290
+#: spa/plugins/alsa/acp/acp.c:327
 msgid "Pro Audio"
 msgstr "专业音频"
 
-#: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4704
-#: spa/plugins/bluez5/bluez5-device.c:1000
+#: spa/plugins/alsa/acp/acp.c:488 spa/plugins/alsa/acp/alsa-mixer.c:4633
+#: spa/plugins/bluez5/bluez5-device.c:1701
 msgid "Off"
 msgstr "关"
 
-#: spa/plugins/alsa/acp/channelmap.h:466
-msgid "(invalid)"
-msgstr "(无效)"
-
-#: spa/plugins/alsa/acp/alsa-mixer.c:2709
+#: spa/plugins/alsa/acp/alsa-mixer.c:2652
 msgid "Input"
 msgstr "输入"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2710
+#: spa/plugins/alsa/acp/alsa-mixer.c:2653
 msgid "Docking Station Input"
 msgstr "扩展坞输入"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2711
+#: spa/plugins/alsa/acp/alsa-mixer.c:2654
 msgid "Docking Station Microphone"
 msgstr "扩展坞话筒"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2712
+#: spa/plugins/alsa/acp/alsa-mixer.c:2655
 msgid "Docking Station Line In"
 msgstr "扩展坞线输入"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2713
-#: spa/plugins/alsa/acp/alsa-mixer.c:2804
+#: spa/plugins/alsa/acp/alsa-mixer.c:2656
+#: spa/plugins/alsa/acp/alsa-mixer.c:2747
 msgid "Line In"
 msgstr "输入插孔"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2714
-#: spa/plugins/alsa/acp/alsa-mixer.c:2798
-#: spa/plugins/bluez5/bluez5-device.c:1145
+#: spa/plugins/alsa/acp/alsa-mixer.c:2657
+#: spa/plugins/alsa/acp/alsa-mixer.c:2741
+#: spa/plugins/bluez5/bluez5-device.c:1989
 msgid "Microphone"
 msgstr "话筒"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2715
-#: spa/plugins/alsa/acp/alsa-mixer.c:2799
+#: spa/plugins/alsa/acp/alsa-mixer.c:2658
+#: spa/plugins/alsa/acp/alsa-mixer.c:2742
 msgid "Front Microphone"
 msgstr "前麦克风"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2716
-#: spa/plugins/alsa/acp/alsa-mixer.c:2800
+#: spa/plugins/alsa/acp/alsa-mixer.c:2659
+#: spa/plugins/alsa/acp/alsa-mixer.c:2743
 msgid "Rear Microphone"
 msgstr "后麦克风"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2717
+#: spa/plugins/alsa/acp/alsa-mixer.c:2660
 msgid "External Microphone"
 msgstr "外部话筒"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2718
-#: spa/plugins/alsa/acp/alsa-mixer.c:2802
+#: spa/plugins/alsa/acp/alsa-mixer.c:2661
+#: spa/plugins/alsa/acp/alsa-mixer.c:2745
 msgid "Internal Microphone"
 msgstr "内部话筒"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2719
-#: spa/plugins/alsa/acp/alsa-mixer.c:2805
+#: spa/plugins/alsa/acp/alsa-mixer.c:2662
+#: spa/plugins/alsa/acp/alsa-mixer.c:2748
 msgid "Radio"
 msgstr "无线电"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2720
-#: spa/plugins/alsa/acp/alsa-mixer.c:2806
+#: spa/plugins/alsa/acp/alsa-mixer.c:2663
+#: spa/plugins/alsa/acp/alsa-mixer.c:2749
 msgid "Video"
 msgstr "视频"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2721
+#: spa/plugins/alsa/acp/alsa-mixer.c:2664
 msgid "Automatic Gain Control"
 msgstr "自动增益控制"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2722
+#: spa/plugins/alsa/acp/alsa-mixer.c:2665
 msgid "No Automatic Gain Control"
 msgstr "无自动增益控制"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2723
+#: spa/plugins/alsa/acp/alsa-mixer.c:2666
 msgid "Boost"
 msgstr "增强"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2724
+#: spa/plugins/alsa/acp/alsa-mixer.c:2667
 msgid "No Boost"
 msgstr "无增强"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2725
+#: spa/plugins/alsa/acp/alsa-mixer.c:2668
 msgid "Amplifier"
 msgstr "功放"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2726
+#: spa/plugins/alsa/acp/alsa-mixer.c:2669
 msgid "No Amplifier"
 msgstr "无功放"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2727
+#: spa/plugins/alsa/acp/alsa-mixer.c:2670
 msgid "Bass Boost"
 msgstr "重低音增强"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2728
+#: spa/plugins/alsa/acp/alsa-mixer.c:2671
 msgid "No Bass Boost"
 msgstr "无重低音增强"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2729
-#: spa/plugins/bluez5/bluez5-device.c:1150
+#: spa/plugins/alsa/acp/alsa-mixer.c:2672
+#: spa/plugins/bluez5/bluez5-device.c:1995
 msgid "Speaker"
 msgstr "扬声器"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2730
-#: spa/plugins/alsa/acp/alsa-mixer.c:2808
+#: spa/plugins/alsa/acp/alsa-mixer.c:2673
+#: spa/plugins/alsa/acp/alsa-mixer.c:2751
 msgid "Headphones"
 msgstr "模拟耳机"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2797
+#: spa/plugins/alsa/acp/alsa-mixer.c:2740
 msgid "Analog Input"
 msgstr "模拟输入"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2801
+#: spa/plugins/alsa/acp/alsa-mixer.c:2744
 msgid "Dock Microphone"
 msgstr "扩展坞麦克风"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2803
+#: spa/plugins/alsa/acp/alsa-mixer.c:2746
 msgid "Headset Microphone"
 msgstr "头挂麦克风"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2807
+#: spa/plugins/alsa/acp/alsa-mixer.c:2750
 msgid "Analog Output"
 msgstr "模拟输出"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2809
+#: spa/plugins/alsa/acp/alsa-mixer.c:2752
 msgid "Headphones 2"
 msgstr "模拟耳机 2"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2810
+#: spa/plugins/alsa/acp/alsa-mixer.c:2753
 msgid "Headphones Mono Output"
 msgstr "模拟单声道输出"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2811
+#: spa/plugins/alsa/acp/alsa-mixer.c:2754
 msgid "Line Out"
 msgstr "线缆输出"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2812
+#: spa/plugins/alsa/acp/alsa-mixer.c:2755
 msgid "Analog Mono Output"
 msgstr "模拟单声道输出"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2813
+#: spa/plugins/alsa/acp/alsa-mixer.c:2756
 msgid "Speakers"
 msgstr "扬声器"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2814
+#: spa/plugins/alsa/acp/alsa-mixer.c:2757
 msgid "HDMI / DisplayPort"
 msgstr "HDMI / DisplayPort"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2815
+#: spa/plugins/alsa/acp/alsa-mixer.c:2758
 msgid "Digital Output (S/PDIF)"
 msgstr "数字输出 (S/PDIF)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2816
+#: spa/plugins/alsa/acp/alsa-mixer.c:2759
 msgid "Digital Input (S/PDIF)"
 msgstr "数字输入 (S/PDIF)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2817
+#: spa/plugins/alsa/acp/alsa-mixer.c:2760
 msgid "Multichannel Input"
 msgstr "多声道输入"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2818
+#: spa/plugins/alsa/acp/alsa-mixer.c:2761
 msgid "Multichannel Output"
 msgstr "多声道输出"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2819
+#: spa/plugins/alsa/acp/alsa-mixer.c:2762
 msgid "Game Output"
 msgstr "游戏输出"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2820
-#: spa/plugins/alsa/acp/alsa-mixer.c:2821
+#: spa/plugins/alsa/acp/alsa-mixer.c:2763
+#: spa/plugins/alsa/acp/alsa-mixer.c:2764
 msgid "Chat Output"
 msgstr "语音输出"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2822
+#: spa/plugins/alsa/acp/alsa-mixer.c:2765
 msgid "Chat Input"
 msgstr "语音输入"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2823
+#: spa/plugins/alsa/acp/alsa-mixer.c:2766
 msgid "Virtual Surround 7.1"
 msgstr "虚拟环绕 7.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4527
+#: spa/plugins/alsa/acp/alsa-mixer.c:4456
 msgid "Analog Mono"
 msgstr "模拟单声道"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4528
+#: spa/plugins/alsa/acp/alsa-mixer.c:4457
 msgid "Analog Mono (Left)"
 msgstr "模拟单声道 (左声道)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4529
+#: spa/plugins/alsa/acp/alsa-mixer.c:4458
 msgid "Analog Mono (Right)"
 msgstr "模拟单声道 (右声道)"
 
@@ -367,147 +391,147 @@ msgstr "模拟单声道 (右声道)"
 #. * here would lead to the source name to become "Analog Stereo Input
 #. * Input". The same logic applies to analog-stereo-output,
 #. * multichannel-input and multichannel-output.
-#: spa/plugins/alsa/acp/alsa-mixer.c:4530
-#: spa/plugins/alsa/acp/alsa-mixer.c:4538
-#: spa/plugins/alsa/acp/alsa-mixer.c:4539
+#: spa/plugins/alsa/acp/alsa-mixer.c:4459
+#: spa/plugins/alsa/acp/alsa-mixer.c:4467
+#: spa/plugins/alsa/acp/alsa-mixer.c:4468
 msgid "Analog Stereo"
 msgstr "模拟立体声"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4531
+#: spa/plugins/alsa/acp/alsa-mixer.c:4460
 msgid "Mono"
 msgstr "单声道"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4532
+#: spa/plugins/alsa/acp/alsa-mixer.c:4461
 msgid "Stereo"
 msgstr "立体声"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4540
-#: spa/plugins/alsa/acp/alsa-mixer.c:4698
-#: spa/plugins/bluez5/bluez5-device.c:1135
+#: spa/plugins/alsa/acp/alsa-mixer.c:4469
+#: spa/plugins/alsa/acp/alsa-mixer.c:4627
+#: spa/plugins/bluez5/bluez5-device.c:1977
 msgid "Headset"
 msgstr "耳机"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4541
-#: spa/plugins/alsa/acp/alsa-mixer.c:4699
+#: spa/plugins/alsa/acp/alsa-mixer.c:4470
+#: spa/plugins/alsa/acp/alsa-mixer.c:4628
 msgid "Speakerphone"
 msgstr "扬声麦克风"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4542
-#: spa/plugins/alsa/acp/alsa-mixer.c:4543
+#: spa/plugins/alsa/acp/alsa-mixer.c:4471
+#: spa/plugins/alsa/acp/alsa-mixer.c:4472
 msgid "Multichannel"
 msgstr "多声道"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4544
+#: spa/plugins/alsa/acp/alsa-mixer.c:4473
 msgid "Analog Surround 2.1"
 msgstr "模拟环绕 2.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4545
+#: spa/plugins/alsa/acp/alsa-mixer.c:4474
 msgid "Analog Surround 3.0"
 msgstr "模拟环绕 3.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4546
+#: spa/plugins/alsa/acp/alsa-mixer.c:4475
 msgid "Analog Surround 3.1"
 msgstr "模拟环绕 3.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4547
+#: spa/plugins/alsa/acp/alsa-mixer.c:4476
 msgid "Analog Surround 4.0"
 msgstr "模拟环绕 4.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4548
+#: spa/plugins/alsa/acp/alsa-mixer.c:4477
 msgid "Analog Surround 4.1"
 msgstr "模拟环绕 4.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4549
+#: spa/plugins/alsa/acp/alsa-mixer.c:4478
 msgid "Analog Surround 5.0"
 msgstr "模拟环绕 5.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4550
+#: spa/plugins/alsa/acp/alsa-mixer.c:4479
 msgid "Analog Surround 5.1"
 msgstr "模拟环绕 5.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4551
+#: spa/plugins/alsa/acp/alsa-mixer.c:4480
 msgid "Analog Surround 6.0"
 msgstr "模拟环绕 6.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4552
+#: spa/plugins/alsa/acp/alsa-mixer.c:4481
 msgid "Analog Surround 6.1"
 msgstr "模拟环绕 6.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4553
+#: spa/plugins/alsa/acp/alsa-mixer.c:4482
 msgid "Analog Surround 7.0"
 msgstr "模拟环绕 7.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4554
+#: spa/plugins/alsa/acp/alsa-mixer.c:4483
 msgid "Analog Surround 7.1"
 msgstr "模拟环绕 7.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4555
+#: spa/plugins/alsa/acp/alsa-mixer.c:4484
 msgid "Digital Stereo (IEC958)"
-msgstr "数字立体声(IEC958)"
+msgstr "数字立体声 (IEC958)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4556
+#: spa/plugins/alsa/acp/alsa-mixer.c:4485
 msgid "Digital Surround 4.0 (IEC958/AC3)"
-msgstr "数字环绕 4.0(IEC958/AC3)"
+msgstr "数字环绕 4.0 (IEC958/AC3)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4557
+#: spa/plugins/alsa/acp/alsa-mixer.c:4486
 msgid "Digital Surround 5.1 (IEC958/AC3)"
-msgstr "数字环绕 5.1(IEC958/AC3)"
+msgstr "数字环绕 5.1 (IEC958/AC3)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4558
+#: spa/plugins/alsa/acp/alsa-mixer.c:4487
 msgid "Digital Surround 5.1 (IEC958/DTS)"
-msgstr "数字环绕 5.1（IEC958/DTS）"
+msgstr "数字环绕 5.1 (IEC958/DTS)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4559
+#: spa/plugins/alsa/acp/alsa-mixer.c:4488
 msgid "Digital Stereo (HDMI)"
-msgstr "数字立体声(HDMI)"
+msgstr "数字立体声 (HDMI)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4560
+#: spa/plugins/alsa/acp/alsa-mixer.c:4489
 msgid "Digital Surround 5.1 (HDMI)"
-msgstr "数字环绕 5.1（HDMI）"
+msgstr "数字环绕 5.1 (HDMI)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4561
+#: spa/plugins/alsa/acp/alsa-mixer.c:4490
 msgid "Chat"
 msgstr "语音"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4562
+#: spa/plugins/alsa/acp/alsa-mixer.c:4491
 msgid "Game"
 msgstr "游戏"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4696
+#: spa/plugins/alsa/acp/alsa-mixer.c:4625
 msgid "Analog Mono Duplex"
 msgstr "模拟单声道双工"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4697
+#: spa/plugins/alsa/acp/alsa-mixer.c:4626
 msgid "Analog Stereo Duplex"
 msgstr "模拟立体声双工"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4700
+#: spa/plugins/alsa/acp/alsa-mixer.c:4629
 msgid "Digital Stereo Duplex (IEC958)"
-msgstr "数字立体声双工(IEC958)"
+msgstr "数字立体声双工 (IEC958)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4701
+#: spa/plugins/alsa/acp/alsa-mixer.c:4630
 msgid "Multichannel Duplex"
 msgstr "多声道双工"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4702
+#: spa/plugins/alsa/acp/alsa-mixer.c:4631
 msgid "Stereo Duplex"
 msgstr "模拟立体声双工"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4703
+#: spa/plugins/alsa/acp/alsa-mixer.c:4632
 msgid "Mono Chat + 7.1 Surround"
 msgstr "单声道语音 + 7.1 环绕声"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4806
+#: spa/plugins/alsa/acp/alsa-mixer.c:4733
 #, c-format
 msgid "%s Output"
 msgstr "%s 输出"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4813
+#: spa/plugins/alsa/acp/alsa-mixer.c:4741
 #, c-format
 msgid "%s Input"
 msgstr "%s 输入"
 
-#: spa/plugins/alsa/acp/alsa-util.c:1175 spa/plugins/alsa/acp/alsa-util.c:1269
+#: spa/plugins/alsa/acp/alsa-util.c:1231 spa/plugins/alsa/acp/alsa-util.c:1325
 #, c-format
 msgid ""
 "snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu "
@@ -523,23 +547,23 @@ msgstr[0] ""
 "snd_pcm_avail() 返回的值非常大：%lu 字节(%lu 毫秒)。\n"
 "这很可能是由 ALSA 驱动程序 %s 的缺陷导致的。请向 ALSA 开发者报告这个问题。"
 
-#: spa/plugins/alsa/acp/alsa-util.c:1241
+#: spa/plugins/alsa/acp/alsa-util.c:1297
 #, c-format
 msgid ""
-"snd_pcm_delay() returned a value that is exceptionally large: %li byte (%s"
-"%lu ms).\n"
+"snd_pcm_delay() returned a value that is exceptionally large: %li byte "
+"(%s%lu ms).\n"
 "Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
 "to the ALSA developers."
 msgid_plural ""
-"snd_pcm_delay() returned a value that is exceptionally large: %li bytes (%s"
-"%lu ms).\n"
+"snd_pcm_delay() returned a value that is exceptionally large: %li bytes "
+"(%s%lu ms).\n"
 "Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
 "to the ALSA developers."
 msgstr[0] ""
 "snd_pcm_delay() 返回的值非常大：%li 字节(%s%lu 毫秒)。\n"
 "这很可能是由 ALSA 驱动程序 %s 的缺陷导致的。请向 ALSA 开发者报告这个问题。"
 
-#: spa/plugins/alsa/acp/alsa-util.c:1288
+#: spa/plugins/alsa/acp/alsa-util.c:1344
 #, c-format
 msgid ""
 "snd_pcm_avail_delay() returned strange values: delay %lu is less than avail "
@@ -550,7 +574,7 @@ msgstr ""
 "snd_pcm_avail_delay() 返回的值非常很奇怪：延迟 %lu 小于可用 (avail) %lu。\n"
 "这很可能是由 ALSA 驱动程序 %s 的缺陷导致的。请向 ALSA 开发者报告这个问题。"
 
-#: spa/plugins/alsa/acp/alsa-util.c:1331
+#: spa/plugins/alsa/acp/alsa-util.c:1387
 #, c-format
 msgid ""
 "snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu byte "
@@ -566,61 +590,115 @@ msgstr[0] ""
 "snd_pcm_mmap_begin() 返回的值非常大：%lu 字节(%lu ms)。\n"
 "这很可能是由 ALSA 驱动程序 %s 的缺陷导致的。请向 ALSA 开发者报告这个问题。"
 
-#: spa/plugins/bluez5/bluez5-device.c:1010
+#: spa/plugins/alsa/acp/channelmap.h:457
+msgid "(invalid)"
+msgstr "(无效)"
+
+#: spa/plugins/alsa/acp/compat.c:193
+msgid "Built-in Audio"
+msgstr "内置音频"
+
+#: spa/plugins/alsa/acp/compat.c:198
+msgid "Modem"
+msgstr "调制解调器"
+
+#: spa/plugins/bluez5/bluez5-device.c:1712
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr "音频网关 (A2DP 信源 或 HSP/HFP 网关)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1033
+#: spa/plugins/bluez5/bluez5-device.c:1760
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr "高保真回放 (A2DP 信宿, 编码 %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1035
+#: spa/plugins/bluez5/bluez5-device.c:1763
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr "高保真双工 (A2DP 信源/信宿, 编码 %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1041
+#: spa/plugins/bluez5/bluez5-device.c:1771
 msgid "High Fidelity Playback (A2DP Sink)"
 msgstr "高保真回放 (A2DP 信宿)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1043
+#: spa/plugins/bluez5/bluez5-device.c:1773
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
 msgstr "高保真双工 (A2DP 信源/信宿)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1070
+#: spa/plugins/bluez5/bluez5-device.c:1823
+#, c-format
+msgid "High Fidelity Playback (BAP Sink, codec %s)"
+msgstr "高保真回放 (BAP 信宿, 编码 %s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1828
+#, c-format
+msgid "High Fidelity Input (BAP Source, codec %s)"
+msgstr "高保真输入 (BAP 信源, 编码 %s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1832
+#, c-format
+msgid "High Fidelity Duplex (BAP Source/Sink, codec %s)"
+msgstr "高保真双工 (BAP 信源/信宿, 编码 %s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1841
+msgid "High Fidelity Playback (BAP Sink)"
+msgstr "高保真回放 (BAP 信宿)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1845
+msgid "High Fidelity Input (BAP Source)"
+msgstr "高保真输入 (BAP 信源)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1848
+msgid "High Fidelity Duplex (BAP Source/Sink)"
+msgstr "高保真双工 (BAP 信源/信宿)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1897
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
 msgstr "头戴式耳机单元 (HSP/HFP, 编码 %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1074
-msgid "Headset Head Unit (HSP/HFP)"
-msgstr "头戴式耳机单元 (HSP/HFP)"
-
-#: spa/plugins/bluez5/bluez5-device.c:1140
+#: spa/plugins/bluez5/bluez5-device.c:1978
+#: spa/plugins/bluez5/bluez5-device.c:1983
+#: spa/plugins/bluez5/bluez5-device.c:1990
+#: spa/plugins/bluez5/bluez5-device.c:1996
+#: spa/plugins/bluez5/bluez5-device.c:2002
+#: spa/plugins/bluez5/bluez5-device.c:2008
+#: spa/plugins/bluez5/bluez5-device.c:2014
+#: spa/plugins/bluez5/bluez5-device.c:2020
+#: spa/plugins/bluez5/bluez5-device.c:2026
 msgid "Handsfree"
 msgstr "免手操作"
 
-#: spa/plugins/bluez5/bluez5-device.c:1155
+#: spa/plugins/bluez5/bluez5-device.c:1984
+msgid "Handsfree (HFP)"
+msgstr "免手操作 (HFP)"
+
+#: spa/plugins/bluez5/bluez5-device.c:2001
 msgid "Headphone"
 msgstr "头戴耳机"
 
-#: spa/plugins/bluez5/bluez5-device.c:1160
+#: spa/plugins/bluez5/bluez5-device.c:2007
 msgid "Portable"
 msgstr "便携式"
 
-#: spa/plugins/bluez5/bluez5-device.c:1165
+#: spa/plugins/bluez5/bluez5-device.c:2013
 msgid "Car"
 msgstr "车内"
 
-#: spa/plugins/bluez5/bluez5-device.c:1170
+#: spa/plugins/bluez5/bluez5-device.c:2019
 msgid "HiFi"
 msgstr "高保真"
 
-#: spa/plugins/bluez5/bluez5-device.c:1175
+#: spa/plugins/bluez5/bluez5-device.c:2025
 msgid "Phone"
 msgstr "电话"
 
-#: spa/plugins/bluez5/bluez5-device.c:1181
+#: spa/plugins/bluez5/bluez5-device.c:2032
 msgid "Bluetooth"
 msgstr "蓝牙"
+
+#: spa/plugins/bluez5/bluez5-device.c:2033
+msgid "Bluetooth (HFP)"
+msgstr "蓝牙 (HFP)"
+
+#~ msgid "Headset Head Unit (HSP/HFP)"
+#~ msgstr "头戴式耳机单元 (HSP/HFP)"

@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
                         SPA_KEY_LIBRARY_NAME, "audiotestsrc/libspa-audiotestsrc",
                         SPA_KEY_FACTORY_NAME, "audiotestsrc",
                         PW_KEY_NODE_NAME, "test_source",
-			"Spa:Pod:Object:Param:Props:live", "false",
+			"node.param.Props", "{ live = false }",
                         NULL);
 	data.source = pw_core_create_object(data.core,
 			"spa-node-factory",

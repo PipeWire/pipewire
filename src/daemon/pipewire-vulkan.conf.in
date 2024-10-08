@@ -87,11 +87,11 @@ context.objects = [
     # If condition is given, the object is created only when the context properties
     # all match the match rules.
     #
-    #{ factory = spa-node-factory   args = { factory.name = videotestsrc node.name = videotestsrc node.description = videotestsrc "Spa:Pod:Object:Param:Props:patternType" = 1 } }
+    #{ factory = spa-node-factory   args = { factory.name = videotestsrc node.name = videotestsrc node.description = videotestsrc node.param.Props = { patternType = 1 } } }
     #{ factory = spa-device-factory args = { factory.name = api.jack.device foo=bar } flags = [ nofail ] }
     #{ factory = spa-device-factory args = { factory.name = api.alsa.enum.udev } }
     #{ factory = spa-node-factory   args = { factory.name = api.alsa.seq.bridge node.name = Internal-MIDI-Bridge } }
-    #{ factory = adapter            args = { factory.name = audiotestsrc node.name = my-test node.description = audiotestsrc } }
+    #{ factory = adapter            args = { factory.name = audiotestsrc node.name = my-test node.description = audiotestsrc node.param.Props = { live = false } } }
     { factory = spa-node-factory   args = { factory.name = api.vulkan.compute.source node.name = vulkan-compute-source object.export = true } }
     { factory = spa-node-factory   args = { factory.name = api.vulkan.compute.filter node.name = vulkan-compute-filter object.export = true } }
     { factory = spa-node-factory   args = { factory.name = api.vulkan.blit.filter node.name = vulkan-blit-filter object.export = true } }

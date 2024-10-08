@@ -133,84 +133,6 @@ void *pw_spa_node_get_user_data(struct pw_impl_node *node)
 	return impl->user_data;
 }
 
-static int
-setup_props(struct pw_context *context, struct spa_node *spa_node, struct pw_properties *pw_props)
-{
-	int res;
-	struct spa_pod *props;
-	void *state = NULL;
-	const char *key;
-	uint32_t index = 0;
-	uint8_t buf[4096];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-	const struct spa_pod_prop *prop = NULL;
-
-	res = spa_node_enum_params_sync(spa_node,
-					SPA_PARAM_Props, &index, NULL, &props,
-					&b);
-	if (res != 1) {
-		if (res < 0)
-			pw_log_debug("spa_node_get_props result: %s", spa_strerror(res));
-		if (res == -ENOTSUP || res == -ENOENT)
-			res = 0;
-		return res;
-	}
-
-	while ((key = pw_properties_iterate(pw_props, &state))) {
-		uint32_t type = 0;
-
-		type = spa_debug_type_find_type(spa_type_props, key);
-		if (type == SPA_TYPE_None)
-			continue;
-
-		if ((prop = spa_pod_find_prop(props, prop, type))) {
-			const char *value = pw_properties_get(pw_props, key);
-
-			if (value == NULL)
-				continue;
-
-			pw_log_debug("configure prop %s to %s", key, value);
-
-			switch(prop->value.type) {
-			case SPA_TYPE_Bool:
-				SPA_POD_VALUE(struct spa_pod_bool, &prop->value) =
-					pw_properties_parse_bool(value);
-				break;
-			case SPA_TYPE_Id:
-				SPA_POD_VALUE(struct spa_pod_id, &prop->value) =
-					pw_properties_parse_int(value);
-				break;
-			case SPA_TYPE_Int:
-				SPA_POD_VALUE(struct spa_pod_int, &prop->value) =
-					pw_properties_parse_int(value);
-				break;
-			case SPA_TYPE_Long:
-				SPA_POD_VALUE(struct spa_pod_long, &prop->value) =
-					pw_properties_parse_int64(value);
-				break;
-			case SPA_TYPE_Float:
-				SPA_POD_VALUE(struct spa_pod_float, &prop->value) =
-					pw_properties_parse_float(value);
-				break;
-			case SPA_TYPE_Double:
-				SPA_POD_VALUE(struct spa_pod_double, &prop->value) =
-					pw_properties_parse_double(value);
-				break;
-			case SPA_TYPE_String:
-				break;
-			default:
-				break;
-			}
-		}
-	}
-
-	if ((res = spa_node_set_param(spa_node, SPA_PARAM_Props, 0, props)) < 0) {
-		pw_log_debug("spa_node_set_props failed: %s", spa_strerror(res));
-		return res;
-	}
-	return 0;
-}
-
 struct match {
 	struct pw_properties *props;
 	int count;
@@ -279,9 +201,6 @@ struct pw_impl_node *pw_spa_node_load(struct pw_context *context,
 		flags |= PW_SPA_NODE_FLAG_ASYNC;
 
 	spa_node = iface;
-
-	if ((res = setup_props(context, spa_node, properties)) < 0)
-		pw_log_warn("can't setup properties: %s", spa_strerror(res));
 
 	this = pw_spa_node_new(context, flags,
 			       spa_node, handle, spa_steal_ptr(properties), user_data_size);

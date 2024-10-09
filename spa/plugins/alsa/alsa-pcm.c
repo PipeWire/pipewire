@@ -2826,7 +2826,7 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 
 	state->next_time += (uint64_t)(state->threshold / corr * 1e9 / state->rate);
 
-	if (SPA_LIKELY(!follower && state->clock)) {
+	if (SPA_LIKELY(state->clock)) {
 		state->clock->nsec = current_time;
 		state->clock->rate = state->driver_rate;
 		state->clock->position += state->clock->duration;

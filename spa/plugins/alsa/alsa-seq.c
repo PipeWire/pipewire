@@ -784,7 +784,7 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool follower)
 	}
 	state->next_time += (uint64_t)(state->threshold / corr * 1e9 / state->rate.denom);
 
-	if (!follower && state->clock) {
+	if (SPA_LIKELY(state->clock)) {
 		state->clock->nsec = nsec;
 		state->clock->rate = state->rate;
 		state->clock->position += state->clock->duration;

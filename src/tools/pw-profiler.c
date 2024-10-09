@@ -69,6 +69,7 @@ struct point {
 	int64_t count;
 	float cpu_load[3];
 	struct spa_io_clock clock;
+	int transport_state;
 	struct measurement driver;
 	struct measurement follower[MAX_FOLLOWERS];
 };
@@ -86,6 +87,18 @@ static const char *status_to_string(int status)
 		return "finished";
 	case 4:
 		return "inactive";
+	}
+	return "unknown";
+}
+static const char *transport_to_string(int state)
+{
+	switch(state) {
+	case SPA_IO_POSITION_STATE_STOPPED:
+		return "stopped";
+	case SPA_IO_POSITION_STATE_STARTING:
+		return "starting";
+	case SPA_IO_POSITION_STATE_RUNNING:
+		return "running";
 	}
 	return "unknown";
 }
@@ -125,18 +138,23 @@ static int process_clock(struct data *d, const struct spa_pod *pod, struct point
 			SPA_POD_Long(&point->clock.duration),
 			SPA_POD_Long(&point->clock.delay),
 			SPA_POD_Double(&point->clock.rate_diff),
-			SPA_POD_Long(&point->clock.next_nsec));
+			SPA_POD_Long(&point->clock.next_nsec),
+			SPA_POD_Int(&point->transport_state),
+			SPA_POD_OPT_Int(&point->clock.cycle),
+			SPA_POD_OPT_Long(&point->clock.xrun));
 	if (d->json_dump) {
 		fprintf(stdout, "{ \"type\": \"clock\", \"flags\": %u, \"id\": %u, "
 				"\"name\": \"%s\", \"nsec\": %"PRIu64", \"rate\": \"%u/%u\", "
 				"\"position\": %"PRIu64", \"duration\": %"PRIu64", "
-				"\"delay\": %"PRIu64", \"diff\": %s, \"next_nsec\": %"PRIu64" },\n",
+				"\"delay\": %"PRIu64", \"diff\": %s, \"next_nsec\": %"PRIu64", "
+				"\"transport\": \"%s\", \"cycle\": %u, \"xrun\": %"PRIu64" },\n",
 				point->clock.flags, point->clock.id, point->clock.name,
 				point->clock.nsec, point->clock.rate.num, point->clock.rate.denom,
 				point->clock.position, point->clock.duration,
 				point->clock.delay,
 				spa_json_format_float(val, sizeof(val), (float)point->clock.rate_diff),
-				point->clock.next_nsec);
+				point->clock.next_nsec, transport_to_string(point->transport_state),
+				point->clock.cycle, point->clock.xrun);
 	}
 	return res;
 }
@@ -251,6 +269,39 @@ static int process_follower_block(struct data *d, const struct spa_pod *pod, str
 	}
 	point->follower[idx] = m;
 	return 0;
+}
+
+static int process_follower_clock(struct data *d, const struct spa_pod *pod, struct point *point)
+{
+	int res;
+	char val[128];
+	struct spa_io_clock clock;
+
+	res = spa_pod_parse_struct(pod,
+			SPA_POD_Int(&clock.id),
+			SPA_POD_Stringn(clock.name, sizeof(clock.name)),
+			SPA_POD_Long(&clock.nsec),
+			SPA_POD_Fraction(&clock.rate),
+			SPA_POD_Long(&clock.position),
+			SPA_POD_Long(&clock.duration),
+			SPA_POD_Long(&clock.delay),
+			SPA_POD_Double(&clock.rate_diff),
+			SPA_POD_Long(&clock.next_nsec),
+			SPA_POD_Long(&clock.xrun));
+	if (d->json_dump) {
+		fprintf(stdout, "{ \"type\": \"followerClock\", \"id\": %u, "
+				"\"name\": \"%s\", \"nsec\": %"PRIu64", \"rate\": \"%u/%u\", "
+				"\"position\": %"PRIu64", \"duration\": %"PRIu64", "
+				"\"delay\": %"PRIu64", \"diff\": %s, \"next_nsec\": %"PRIu64", "
+				"\"xrun\": %"PRIu64" },\n",
+				clock.id, clock.name,
+				clock.nsec, clock.rate.num, clock.rate.denom,
+				clock.position, clock.duration,
+				clock.delay,
+				spa_json_format_float(val, sizeof(val), (float)clock.rate_diff),
+				clock.next_nsec, clock.xrun);
+	}
+	return res;
 }
 
 static void dump_point(struct data *d, struct point *point)
@@ -510,6 +561,9 @@ static void profiler_profile(void *data, const struct spa_pod *pod)
 				break;
 			case SPA_PROFILER_followerBlock:
 				process_follower_block(d, &p->value, &point);
+				break;
+			case SPA_PROFILER_followerClock:
+				process_follower_clock(d, &p->value, &point);
 				break;
 			default:
 				break;

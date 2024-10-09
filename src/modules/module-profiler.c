@@ -225,7 +225,9 @@ static void context_do_profile(void *data)
 			SPA_POD_Long(pos->clock.delay),
 			SPA_POD_Double(pos->clock.rate_diff),
 			SPA_POD_Long(pos->clock.next_nsec),
-			SPA_POD_Int(pos->state));
+			SPA_POD_Int(pos->state),
+			SPA_POD_Int(pos->clock.cycle),
+			SPA_POD_Long(pos->clock.xrun));
 
 	spa_pod_builder_prop(&b, SPA_PROFILER_driverBlock, 0);
 	spa_pod_builder_add_struct(&b,
@@ -243,6 +245,8 @@ static void context_do_profile(void *data)
 		struct pw_impl_node *n = t->node;
 		struct pw_node_activation *na;
 		struct spa_fraction latency;
+		struct pw_node_activation *a = n->rt.target.activation;
+		struct spa_io_position *pos = &a->position;
 
 		if (t->id == id)
 			continue;
@@ -271,6 +275,21 @@ static void context_do_profile(void *data)
 			SPA_POD_Int(na->status),
 			SPA_POD_Fraction(&latency),
 			SPA_POD_Int(na->xrun_count));
+
+		if (n->driver) {
+			spa_pod_builder_prop(&b, SPA_PROFILER_followerClock, 0);
+			spa_pod_builder_add_struct(&b,
+				SPA_POD_Int(pos->clock.id),
+				SPA_POD_String(pos->clock.name),
+				SPA_POD_Long(pos->clock.nsec),
+				SPA_POD_Fraction(&pos->clock.rate),
+				SPA_POD_Long(pos->clock.position),
+				SPA_POD_Long(pos->clock.duration),
+				SPA_POD_Long(pos->clock.delay),
+				SPA_POD_Double(pos->clock.rate_diff),
+				SPA_POD_Long(pos->clock.next_nsec),
+				SPA_POD_Long(pos->clock.xrun));
+		}
 	}
 	spa_pod_builder_pop(&b, &f[0]);
 

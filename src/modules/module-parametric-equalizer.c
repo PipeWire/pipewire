@@ -57,7 +57,9 @@
  * - `equalizer.description = <str>`: Name which will show up in
  * - `audio.channels = <int>`: Number of audio channels, default 2
  * - `audio.position = <str>`: Channel map, default "[FL, FR]"
- * - `remote.name =<str>`: environment with remote name, default "pipewire-0"
+ * - `remote.name = <str>`: environment with remote name, default "pipewire-0"
+ * - `capture.props = {}`: properties passed to the input stream, default `{ media.class = "Audio/Sink", node.name = "effect_input.eq<number of nodes>" }`
+ * - `playback.props = {}`: properties passed to the output stream, default `{ node.passive = true, node.name = "effect_output.eq<number of nodes>" }`
  *
  * ## General options
  *
@@ -79,6 +81,12 @@
  *         #equalizer.description = "Parametric EQ Sink"
  *         #audio.channels = 2
  *         #audio.position = [FL, FR]
+ *         #capture.props = {
+ *         #  node.name = "Parametric EQ input"
+ *         #}
+ *         #playback.props = {
+ *         #  node.name = "Parametric EQ output"
+ *         #}
  *     }
  * }
  * ]
@@ -99,8 +107,10 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define MODULE_USAGE	"( remote.name=<remote> ) "			\
 			"( equalizer.filepath=<filepath> )"		\
 			"( equalizer.description=<description> )"	\
-			"( audio.channels=<number of channels>)"	\
-			"( audio.position=<channel map>)"
+			"( audio.channels=<number of channels> )"	\
+			"( audio.position=<channel map> )"		\
+			"( capture.props=<properties> )"		\
+			"( playback.props=<properties> )"
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
@@ -176,6 +186,10 @@ void add_eq_node(FILE *f, struct eq_node_param *param, uint32_t eq_band_idx) {
 }
 
 void end_eq_node(struct impl *impl, FILE *f, uint32_t number_of_nodes) {
+	struct pw_properties *capture_props, *playback_props;
+	const uint32_t serialize_flags = PW_PROPERTIES_FLAG_NL | PW_PROPERTIES_FLAG_ENCLOSE | PW_PROPERTIES_FLAG_RECURSE;
+	const char* str = NULL;
+
 	fprintf(f, "]\n");
 
 	fprintf(f, "links = [\n");
@@ -188,17 +202,26 @@ void end_eq_node(struct impl *impl, FILE *f, uint32_t number_of_nodes) {
 	fprintf(f, "audio.channels = %d\n", impl->channels);
 	fprintf(f, "audio.position = %s\n", impl->position);
 
-	fprintf(f, "capture.props = {\n");
-	fprintf(f, "node.name = \"effect_input.eq%d\"\n", number_of_nodes);
-	fprintf(f, "media.class = Audio/Sink\n");
+	capture_props = pw_properties_new("media.class", "Audio/Sink", NULL, NULL);
+	pw_properties_setf(capture_props, "node.name", "effect_input.eq%d", number_of_nodes);
+	if((str = pw_properties_get(impl->props, "capture.props")) != NULL)
+		pw_properties_update_string(capture_props, str, strlen(str));
+	fprintf(f, "capture.props = ");
+	pw_properties_serialize_dict(f, &capture_props->dict, serialize_flags);
+	fprintf(f, "\n");
+
+	playback_props = pw_properties_new("node.passive", "true", NULL, NULL);
+	pw_properties_setf(playback_props, "node.name", "effect_output.eq%d", number_of_nodes);
+	if((str = pw_properties_get(impl->props, "playback.props")) != NULL)
+		pw_properties_update_string(playback_props, str, strlen(str));
+	fprintf(f, "playback.props = ");
+	pw_properties_serialize_dict(f, &playback_props->dict, serialize_flags);
+	fprintf(f, "\n");
+
 	fprintf(f, "}\n");
 
-	fprintf(f, "playback.props = {\n");
-	fprintf(f, "node.name = \"effect_output.eq%d\"\n", number_of_nodes);
-	fprintf(f, "node.passive = true\n");
-	fprintf(f, "}\n");
-
-	fprintf(f, "}\n");
+	pw_properties_free(capture_props);
+	pw_properties_free(playback_props);
 }
 
 int32_t parse_eq_filter_file(struct impl *impl, FILE *f)

@@ -29,6 +29,7 @@
  * Parametric equalizer configuration generated from AutoEQ or Squiglink looks
  * like below.
  *
+ * \code{.unparsed}
  * Preamp: -6.8 dB
  * Filter 1: ON PK Fc 21 Hz Gain 6.7 dB Q 1.100
  * Filter 2: ON PK Fc 85 Hz Gain 6.9 dB Q 3.000
@@ -36,6 +37,7 @@
  * Filter 4: ON PK Fc 210 Hz Gain 5.9 dB Q 2.100
  * Filter 5: ON PK Fc 710 Hz Gain -1.0 dB Q 0.600
  * Filter 6: ON PK Fc 1600 Hz Gain 2.3 dB Q 2.700
+ * \endcode
  *
  * Fc, Gain and Q specify the frequency, gain and Q factor respectively.
  * The fourth column can be one of PK, LSC or HSC specifying peaking, low

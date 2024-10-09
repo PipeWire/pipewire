@@ -901,9 +901,12 @@ static int rtsp_record_reply(void *data, int status, const struct spa_dict *head
 	interval.tv_sec = 2;
 	interval.tv_nsec = 0;
 
-	if (!impl->feedback_timer)
+	// feedback timer is only needed for auth_setup	encryption
+	if (impl->encryption == CRYPTO_AUTH_SETUP && !impl->feedback_timer) {
+
 		impl->feedback_timer = pw_loop_add_timer(impl->loop, rtsp_do_post_feedback, impl);
-	pw_loop_update_timer(impl->loop, impl->feedback_timer, &timeout, &interval, false);
+		pw_loop_update_timer(impl->loop, impl->feedback_timer, &timeout, &interval, false);
+	}
 
 	if ((str = spa_dict_lookup(headers, "Audio-Latency")) != NULL) {
 		uint32_t l;

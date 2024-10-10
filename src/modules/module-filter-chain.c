@@ -233,6 +233,75 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * }
  *\endcode
  *
+ * ### Parametric EQ
+ *
+ * The parametric EQ chains a number of biquads together. It is more efficient than
+ * specifying a number of chained biquads and it can also load configuration from a
+ * file.
+ *
+ *\code{.unparsed}
+ * filter.graph = {
+ *     nodes = [
+ *         {
+ *             type   = builtin
+ *             name   = ...
+ *             label  = param_eq
+ *             config = {
+ *                 filename = "..."
+ *                 filters = [
+ *                     { type = ..., freq = ..., gain = ..., q = ... },
+ *                     { type = ..., freq = ..., gain = ..., q = ... },
+ *                     ....
+ *                 ]
+ *             }
+ *             ...
+ *         }
+ *     }
+ *     ...
+ * }
+ *\endcode
+ *
+ * Either a `filename` or a `filters` array can be specified.
+ *
+ * The `filename` must point to a parametric equalizer configuration
+ * generated from the AutoEQ project or Squiglink. Both the projects allow
+ * equalizing headphones or an in-ear monitor to a target curve.
+ *
+ * A popular example of the above being EQ'ing to the Harman target curve
+ * or EQ'ing one headphone/IEM to another.
+ *
+ * For AutoEQ, see https://github.com/jaakkopasanen/AutoEq.
+ * For SquigLink, see https://squig.link/.
+ *
+ * Parametric equalizer configuration generated from AutoEQ or Squiglink looks
+ * like below.
+ *
+ * \code{.unparsed}
+ * Preamp: -6.8 dB
+ * Filter 1: ON PK Fc 21 Hz Gain 6.7 dB Q 1.100
+ * Filter 2: ON PK Fc 85 Hz Gain 6.9 dB Q 3.000
+ * Filter 3: ON PK Fc 110 Hz Gain -2.6 dB Q 2.700
+ * Filter 4: ON PK Fc 210 Hz Gain 5.9 dB Q 2.100
+ * Filter 5: ON PK Fc 710 Hz Gain -1.0 dB Q 0.600
+ * Filter 6: ON PK Fc 1600 Hz Gain 2.3 dB Q 2.700
+ * \endcode
+ *
+ * Fc, Gain and Q specify the frequency, gain and Q factor respectively.
+ * The fourth column can be one of PK, LSC or HSC specifying peaking, low
+ * shelf and high shelf filter respectively. More often than not only peaking
+ * filters are involved.
+ *
+ * The `filters` can contain an array of filter specification object with the following
+ * keys:
+ *
+ *   `type` specifies the filter type, choose one from the available biquad labels.
+ *   `freq` is the frequency passed to the biquad.
+ *   `gain` is the gain passed to the biquad.
+ *   `q` is the Q passed to the biquad.
+ *
+ * This makes it possible to also use the param eq without a file and with all the
+ * available biquads.
+ *
  * ### Convolver
  *
  * The convolver can be used to apply an impulse response to a signal. It is usually used

@@ -8,6 +8,7 @@
 #include "config.h"
 
 #include <spa/utils/result.h>
+#include <spa/utils/json-core.h>
 #include <spa/param/audio/raw.h>
 
 #include <pipewire/impl.h>
@@ -159,7 +160,8 @@ static const struct pw_impl_module_events filter_chain_module_events = {
 	.destroy = filter_chain_module_destroy,
 };
 
-void init_eq_node(FILE *f, const char *node_desc) {
+void init_eq_node(FILE *f, const char *node_desc)
+{
 	fprintf(f, "{\n");
 	fprintf(f, "node.description = \"%s\"\n", node_desc);
 	fprintf(f, "media.name = \"%s\"\n", node_desc);
@@ -167,7 +169,10 @@ void init_eq_node(FILE *f, const char *node_desc) {
 	fprintf(f, "nodes = [\n");
 }
 
-void add_eq_node(FILE *f, struct eq_node_param *param, uint32_t eq_band_idx) {
+void add_eq_node(FILE *f, struct eq_node_param *param, uint32_t eq_band_idx)
+{
+	char str1[64], str2[64];
+
 	fprintf(f, "{\n");
 	fprintf(f, "type = builtin\n");
 	fprintf(f, "name = eq_band_%d\n", eq_band_idx);
@@ -182,14 +187,18 @@ void add_eq_node(FILE *f, struct eq_node_param *param, uint32_t eq_band_idx) {
 		fprintf(f, "label = bq_peaking\n");
 	}
 
-	fprintf(f, "control = { \"Freq\" = %d \"Q\" = %f \"Gain\" = %f }\n", param->freq, param->q_fact, param->gain);
+	fprintf(f, "control = { \"Freq\" = %d \"Q\" = %s \"Gain\" = %s }\n", param->freq,
+			spa_json_format_float(str1, sizeof(str1), param->q_fact),
+			spa_json_format_float(str2, sizeof(str2), param->gain));
 
 	fprintf(f, "}\n");
 }
 
-void end_eq_node(struct impl *impl, FILE *f, uint32_t number_of_nodes) {
+void end_eq_node(struct impl *impl, FILE *f, uint32_t number_of_nodes)
+{
 	struct pw_properties *capture_props, *playback_props;
-	const uint32_t serialize_flags = PW_PROPERTIES_FLAG_NL | PW_PROPERTIES_FLAG_ENCLOSE | PW_PROPERTIES_FLAG_RECURSE;
+	const uint32_t serialize_flags = PW_PROPERTIES_FLAG_NL |
+		PW_PROPERTIES_FLAG_ENCLOSE | PW_PROPERTIES_FLAG_RECURSE;
 	const char* str = NULL;
 
 	fprintf(f, "]\n");
@@ -291,7 +300,9 @@ int32_t parse_eq_filter_file(struct impl *impl, FILE *f)
 		 * Use a field width of 6 for gain and Q to account for any
 		 * possible zeros.
 		 */
-		if (sscanf(line, "%*s %*d: %3s %3s %*s %5d %*s %*s %6f %*s %*c %6f", eq_param.filter, eq_param.filter_type, &eq_param.freq, &eq_param.gain, &eq_param.q_fact) == 5) {
+		if (sscanf(line, "%*s %*d: %3s %3s %*s %5d %*s %*s %6f %*s %*c %6f",
+					eq_param.filter, eq_param.filter_type, &eq_param.freq,
+					&eq_param.gain, &eq_param.q_fact) == 5) {
 			if (strcmp(eq_param.filter, "ON") == 0) {
 				add_eq_node(memstream, &eq_param, eq_band_idx);
 

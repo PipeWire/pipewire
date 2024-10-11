@@ -4,6 +4,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <errno.h>
+#include <limits.h>
 
 #include "config.h"
 

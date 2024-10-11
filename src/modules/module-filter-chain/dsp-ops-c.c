@@ -135,6 +135,24 @@ void dsp_biquad_run_c(struct dsp_ops *ops, struct biquad *bq,
 #undef F
 }
 
+void dsp_biquadn_run_c(struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq,
+		float * SPA_RESTRICT out[], const float * SPA_RESTRICT in[],
+		uint32_t n_src, uint32_t n_samples)
+{
+	uint32_t i, j;
+	const float *s;
+	float *d;
+	struct biquad *b = bq;
+	for (i = 0; i < n_src; i++, bq+=n_src) {
+		s = in[i];
+		d = out[i];
+		for (j = 0; j < n_bq; j++) {
+			dsp_biquad_run_c(ops, &b[j], d, s, n_samples);
+			s = d;
+		}
+	}
+}
+
 void dsp_sum_c(struct dsp_ops *ops, float * dst,
 		const float * SPA_RESTRICT a, const float * SPA_RESTRICT b, uint32_t n_samples)
 {

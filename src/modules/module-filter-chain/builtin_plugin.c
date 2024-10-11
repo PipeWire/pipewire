@@ -1882,13 +1882,10 @@ static void param_eq_connect_port(void * Instance, unsigned long Port,
 static void param_eq_run(void * Instance, unsigned long SampleCount)
 {
 	struct param_eq_impl *impl = Instance;
-	float *in = impl->port[1];
-	float *out = impl->port[0];
+	const float *in[] = { impl->port[1] };
+	float *out[] = { impl->port[0] };
 
-	for (uint32_t i = 0; i < impl->n_bq; i++) {
-		dsp_ops_biquad_run(dsp_ops, &impl->bq[i], out, in, SampleCount);
-		in = out;
-	}
+	dsp_ops_biquadn_run(dsp_ops, impl->bq, impl->n_bq, out, in, 1, SampleCount);
 }
 
 static const struct fc_descriptor param_eq_desc = {

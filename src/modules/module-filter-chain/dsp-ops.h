@@ -43,6 +43,9 @@ struct dsp_ops_funcs {
 	void (*mult) (struct dsp_ops *ops,
 			void * SPA_RESTRICT dst,
 			const void * SPA_RESTRICT src[], uint32_t n_src, uint32_t n_samples);
+	void (*biquadn_run) (struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq,
+			float * SPA_RESTRICT out[], const float * SPA_RESTRICT in[],
+			uint32_t n_src, uint32_t n_samples);
 };
 
 struct dsp_ops {
@@ -56,6 +59,7 @@ struct dsp_ops {
 };
 
 int dsp_ops_init(struct dsp_ops *ops, uint32_t cpu_flags);
+int dsp_ops_benchmark(void);
 
 #define dsp_ops_free(ops)		(ops)->free(ops)
 
@@ -66,6 +70,7 @@ int dsp_ops_init(struct dsp_ops *ops, uint32_t cpu_flags);
 #define dsp_ops_sum(ops,...)		(ops)->funcs.sum(ops, __VA_ARGS__)
 #define dsp_ops_linear(ops,...)		(ops)->funcs.linear(ops, __VA_ARGS__)
 #define dsp_ops_mult(ops,...)		(ops)->funcs.mult(ops, __VA_ARGS__)
+#define dsp_ops_biquadn_run(ops,...)	(ops)->funcs.biquadn_run(ops, __VA_ARGS__)
 
 #define dsp_ops_fft_new(ops,...)	(ops)->funcs.fft_new(ops, __VA_ARGS__)
 #define dsp_ops_fft_free(ops,...)	(ops)->funcs.fft_free(ops, __VA_ARGS__)
@@ -93,6 +98,9 @@ void dsp_linear_##arch (struct dsp_ops *ops, float * SPA_RESTRICT dst, \
 #define MAKE_MULT_FUNC(arch) \
 void dsp_mult_##arch(struct dsp_ops *ops, void * SPA_RESTRICT dst,	\
 	const void * SPA_RESTRICT src[], uint32_t n_src, uint32_t n_samples)
+#define MAKE_BIQUADN_RUN_FUNC(arch) \
+void dsp_biquadn_run_##arch (struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, \
+	float * SPA_RESTRICT out[], const float * SPA_RESTRICT in[], uint32_t n_src, uint32_t n_samples)
 
 #define MAKE_FFT_NEW_FUNC(arch) \
 void *dsp_fft_new_##arch(struct dsp_ops *ops, int32_t size, bool real)
@@ -111,6 +119,7 @@ void dsp_fft_cmuladd_##arch(struct dsp_ops *ops, void *fft,		\
 	const float * SPA_RESTRICT a, const float * SPA_RESTRICT b,	\
 	uint32_t len, const float scale)
 
+
 MAKE_CLEAR_FUNC(c);
 MAKE_COPY_FUNC(c);
 MAKE_MIX_GAIN_FUNC(c);
@@ -118,6 +127,7 @@ MAKE_BIQUAD_RUN_FUNC(c);
 MAKE_SUM_FUNC(c);
 MAKE_LINEAR_FUNC(c);
 MAKE_MULT_FUNC(c);
+MAKE_BIQUADN_RUN_FUNC(c);
 
 MAKE_FFT_NEW_FUNC(c);
 MAKE_FFT_FREE_FUNC(c);
@@ -128,6 +138,8 @@ MAKE_FFT_CMULADD_FUNC(c);
 #if defined (HAVE_SSE)
 MAKE_MIX_GAIN_FUNC(sse);
 MAKE_SUM_FUNC(sse);
+MAKE_BIQUAD_RUN_FUNC(sse);
+MAKE_BIQUADN_RUN_FUNC(sse);
 #endif
 #if defined (HAVE_AVX)
 MAKE_SUM_FUNC(avx);

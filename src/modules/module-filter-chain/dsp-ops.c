@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#include <time.h>
 
 #include <spa/support/cpu.h>
 #include <spa/utils/defs.h>
@@ -25,7 +26,7 @@ static struct dsp_info dsp_table[] =
 		.funcs.clear = dsp_clear_c,
 		.funcs.copy = dsp_copy_c,
 		.funcs.mix_gain = dsp_mix_gain_sse,
-		.funcs.biquad_run = dsp_biquad_run_c,
+		.funcs.biquad_run = dsp_biquad_run_sse,
 		.funcs.sum = dsp_sum_avx,
 		.funcs.linear = dsp_linear_c,
 		.funcs.mult = dsp_mult_c,
@@ -34,6 +35,7 @@ static struct dsp_info dsp_table[] =
 		.funcs.fft_run = dsp_fft_run_c,
 		.funcs.fft_cmul = dsp_fft_cmul_c,
 		.funcs.fft_cmuladd = dsp_fft_cmuladd_c,
+		.funcs.biquadn_run = dsp_biquadn_run_sse,
 	},
 #endif
 #if defined (HAVE_SSE)
@@ -41,7 +43,7 @@ static struct dsp_info dsp_table[] =
 		.funcs.clear = dsp_clear_c,
 		.funcs.copy = dsp_copy_c,
 		.funcs.mix_gain = dsp_mix_gain_sse,
-		.funcs.biquad_run = dsp_biquad_run_c,
+		.funcs.biquad_run = dsp_biquad_run_sse,
 		.funcs.sum = dsp_sum_sse,
 		.funcs.linear = dsp_linear_c,
 		.funcs.mult = dsp_mult_c,
@@ -50,6 +52,7 @@ static struct dsp_info dsp_table[] =
 		.funcs.fft_run = dsp_fft_run_c,
 		.funcs.fft_cmul = dsp_fft_cmul_c,
 		.funcs.fft_cmuladd = dsp_fft_cmuladd_c,
+		.funcs.biquadn_run = dsp_biquadn_run_sse,
 	},
 #endif
 	{ 0,
@@ -65,6 +68,7 @@ static struct dsp_info dsp_table[] =
 		.funcs.fft_run = dsp_fft_run_c,
 		.funcs.fft_cmul = dsp_fft_cmul_c,
 		.funcs.fft_cmuladd = dsp_fft_cmuladd_c,
+		.funcs.biquadn_run = dsp_biquadn_run_c,
 	},
 };
 
@@ -97,5 +101,45 @@ int dsp_ops_init(struct dsp_ops *ops, uint32_t cpu_flags)
 	ops->free = impl_dsp_ops_free;
 	ops->funcs = info->funcs;
 
+	return 0;
+}
+
+int dsp_ops_benchmark(void)
+{
+	struct dsp_ops ops[3];
+	uint32_t i;
+	struct biquad bq;
+	float in[2048], out[2048];
+	struct timespec ts;
+	uint64_t t1, t2, t3, t4;
+
+	dsp_ops_init(&ops[0], 0);
+	dsp_ops_init(&ops[1], SPA_CPU_FLAG_SSE);
+	dsp_ops_init(&ops[2], SPA_CPU_FLAG_AVX);
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+        t1 = SPA_TIMESPEC_TO_NSEC(&ts);
+
+	for (i = 0; i < 8192; i++)
+		dsp_ops_biquad_run(&ops[0], &bq, out, in, 2048);
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+        t2 = SPA_TIMESPEC_TO_NSEC(&ts);
+
+	for (i = 0; i < 8192; i++)
+		dsp_ops_biquad_run(&ops[1], &bq, out, in, 2048);
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+        t3 = SPA_TIMESPEC_TO_NSEC(&ts);
+
+	for (i = 0; i < 8192; i++)
+		dsp_ops_biquad_run(&ops[2], &bq, out, in, 2048);
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+        t4 = SPA_TIMESPEC_TO_NSEC(&ts);
+
+	fprintf(stderr, "%"PRIu64" %"PRIu64" %"PRIu64" speedup:%f\n",
+			t2-t1, t3-t2, t4-t3,
+			((double)(t2-t1))/(t3-t2));
 	return 0;
 }

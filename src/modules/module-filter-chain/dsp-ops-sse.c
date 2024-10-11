@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#include <float.h>
 
 #include <spa/utils/defs.h>
 
@@ -118,5 +119,102 @@ void dsp_sum_sse(struct dsp_ops *ops, float *r, const float *a, const float *b, 
 		in[0] = _mm_load_ss(&a[n]);
 		in[0] = _mm_add_ss(in[0], _mm_load_ss(&b[n]));
 		_mm_store_ss(&r[n], in[0]);
+	}
+}
+
+void dsp_biquad_run_sse(struct dsp_ops *ops, struct biquad *bq,
+		float *out, const float *in, uint32_t n_samples)
+{
+	__m128 x, y, z;
+	__m128 b012;
+	__m128 a12;
+	__m128 x12;
+	uint32_t i;
+
+	b012 = _mm_setr_ps(bq->b0, bq->b1, bq->b2, 0.0f);  /* b0  b1  b2  0 */
+	a12 = _mm_setr_ps(0.0f, bq->a1, bq->a2, 0.0f);	  /* 0   a1  a2  0 */
+	x12 = _mm_setr_ps(bq->x1, bq->x2, 0.0f, 0.0f);	  /* x1  x2  0   0 */
+
+	for (i = 0; i < n_samples; i++) {
+		x = _mm_load1_ps(&in[i]);		/*  x         x         x      x */
+		z = _mm_mul_ps(x, b012);		/*  b0*x      b1*x      b2*x   0 */
+		z = _mm_add_ps(z, x12); 		/*  b0*x+x1   b1*x+x2   b2*x   0 */
+		_mm_store_ss(&out[i], z);		/*  out[i] = b0*x+x1 */
+		y = _mm_shuffle_ps(z, z, _MM_SHUFFLE(0,0,0,0));	/*  b0*x+x1  b0*x+x1  b0*x+x1  b0*x+x1 = y*/
+		y = _mm_mul_ps(y, a12);		        /*  0        a1*y     a2*y     0 */
+		y = _mm_sub_ps(z, y);	 		/*  y        x1       x2       0 */
+		x12 = _mm_shuffle_ps(y, y, _MM_SHUFFLE(3,3,2,1));    /*  x1  x2  0  0*/
+	}
+#define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
+	bq->x1 = F(x12[0]);
+	bq->x2 = F(x12[1]);
+#undef F
+}
+
+static void dsp_biquad_run2_sse(struct dsp_ops *ops, struct biquad *bq0, struct biquad *bq1,
+		float *out, const float *in, uint32_t n_samples)
+{
+	__m128 x, y, z;
+	__m128 b0, b1;
+	__m128 a0, a1;
+	__m128 x0, x1;
+	uint32_t i;
+
+	b0 = _mm_setr_ps(bq0->b0, bq0->b1, bq0->b2, 0.0f);  /* b0  b1  b2  0 */
+	a0 = _mm_setr_ps(0.0f, bq0->a1, bq0->a2, 0.0f);	    /* 0   a1  a2  0 */
+	x0 = _mm_setr_ps(bq0->x1, bq0->x2, 0.0f, 0.0f);	    /* x1  x2  0   0 */
+
+	b1 = _mm_setr_ps(bq1->b0, bq1->b1, bq1->b2, 0.0f);  /* b0  b1  b2  0 */
+	a1 = _mm_setr_ps(0.0f, bq1->a1, bq1->a2, 0.0f);	    /* 0   a1  a2  0 */
+	x1 = _mm_setr_ps(bq1->x1, bq1->x2, 0.0f, 0.0f);	    /* x1  x2  0   0 */
+
+	for (i = 0; i < n_samples; i++) {
+		x = _mm_load1_ps(&in[i]);			/*  x         x         x      x */
+
+		z = _mm_mul_ps(x, b0);				/*  b0*x      b1*x      b2*x   0 */
+		z = _mm_add_ps(z, x0); 				/*  b0*x+x1   b1*x+x2   b2*x   0 */
+		y = _mm_shuffle_ps(z, z, _MM_SHUFFLE(0,0,0,0));	/*  b0*x+x1  b0*x+x1  b0*x+x1  b0*x+x1 = y*/
+		x = _mm_mul_ps(y, a0);			        /*  0        a1*y     a2*y     0 */
+		x = _mm_sub_ps(z, x);	 			/*  y        x1       x2       0 */
+		x0 = _mm_shuffle_ps(x, x, _MM_SHUFFLE(3,3,2,1));    /*  x1  x2  0  0*/
+
+		z = _mm_mul_ps(y, b1);				/*  b0*x      b1*x      b2*x   0 */
+		z = _mm_add_ps(z, x1); 				/*  b0*x+x1   b1*x+x2   b2*x   0 */
+		x = _mm_shuffle_ps(z, z, _MM_SHUFFLE(0,0,0,0));	/*  b0*x+x1  b0*x+x1  b0*x+x1  b0*x+x1 = y*/
+		y = _mm_mul_ps(x, a1);			        /*  0        a1*y     a2*y     0 */
+		y = _mm_sub_ps(z, y);	 			/*  y        x1       x2       0 */
+		x1 = _mm_shuffle_ps(y, y, _MM_SHUFFLE(3,3,2,1));    /*  x1  x2  0  0*/
+
+		_mm_store_ss(&out[i], x);			/*  out[i] = b0*x+x1 */
+	}
+#define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
+	bq0->x1 = F(x0[0]);
+	bq0->x2 = F(x0[1]);
+	bq1->x1 = F(x1[0]);
+	bq1->x2 = F(x1[1]);
+#undef F
+}
+
+void dsp_biquadn_run_sse(struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq,
+		float * SPA_RESTRICT out[], const float * SPA_RESTRICT in[],
+		uint32_t n_src, uint32_t n_samples)
+{
+	uint32_t i, j;
+	const float *s;
+	float *d;
+	uint32_t unrolled = n_bq & ~1;
+	struct biquad *b = bq;
+
+	for (i = 0; i < n_src; i++, b+=n_src) {
+		s = in[i];
+		d = out[i];
+		for (j = 0; j < unrolled; j+=2) {
+			dsp_biquad_run2_sse(ops, &b[j], &b[j+1], d, s, n_samples);
+			s = d;
+		}
+		for (; j < n_bq; j++) {
+			dsp_biquad_run_sse(ops, &b[j], d, s, n_samples);
+			s = d;
+		}
 	}
 }

@@ -135,8 +135,6 @@ struct impl {
 	struct spa_hook module_listener;
 	struct spa_hook eq_module_listener;
 
-	char position[64];
-	uint32_t channels;
 	unsigned int do_disconnect:1;
 };
 
@@ -160,168 +158,82 @@ static const struct pw_impl_module_events filter_chain_module_events = {
 	.destroy = filter_chain_module_destroy,
 };
 
-void init_eq_node(FILE *f, const char *node_desc)
+static int enhance_properties(struct pw_properties *props, const char *key, ...)
 {
-	fprintf(f, "{\n");
-	fprintf(f, "node.description = \"%s\"\n", node_desc);
-	fprintf(f, "media.name = \"%s\"\n", node_desc);
-	fprintf(f, "filter.graph = {\n");
-	fprintf(f, "nodes = [\n");
-}
-
-void add_eq_node(FILE *f, struct eq_node_param *param, uint32_t eq_band_idx)
-{
-	char str1[64], str2[64];
-
-	fprintf(f, "{\n");
-	fprintf(f, "type = builtin\n");
-	fprintf(f, "name = eq_band_%d\n", eq_band_idx);
-
-	if (strcmp(param->filter_type, "PK") == 0) {
-		fprintf(f, "label = bq_peaking\n");
-	} else if (strcmp(param->filter_type, "LSC") == 0) {
-		fprintf(f, "label = bq_lowshelf\n");
-	} else if (strcmp(param->filter_type, "HSC") == 0) {
-		fprintf(f, "label = bq_highshelf\n");
-	} else {
-		fprintf(f, "label = bq_peaking\n");
-	}
-
-	fprintf(f, "control = { \"Freq\" = %d \"Q\" = %s \"Gain\" = %s }\n", param->freq,
-			spa_json_format_float(str1, sizeof(str1), param->q_fact),
-			spa_json_format_float(str2, sizeof(str2), param->gain));
-
-	fprintf(f, "}\n");
-}
-
-void end_eq_node(struct impl *impl, FILE *f, uint32_t number_of_nodes)
-{
-	struct pw_properties *capture_props, *playback_props;
-	const uint32_t serialize_flags = PW_PROPERTIES_FLAG_NL |
-		PW_PROPERTIES_FLAG_ENCLOSE | PW_PROPERTIES_FLAG_RECURSE;
-	const char* str = NULL;
-
-	fprintf(f, "]\n");
-
-	fprintf(f, "links = [\n");
-	for (uint32_t i = 1; i < number_of_nodes; i++) {
-		fprintf(f, "{ output = \"eq_band_%d:Out\" input = \"eq_band_%d:In\" }\n", i, i + 1);
-	}
-	fprintf(f, "]\n");
-
-	fprintf(f, "}\n");
-	fprintf(f, "audio.channels = %d\n", impl->channels);
-	fprintf(f, "audio.position = %s\n", impl->position);
-
-	capture_props = pw_properties_new("media.class", "Audio/Sink", NULL, NULL);
-	pw_properties_setf(capture_props, "node.name", "effect_input.eq%d", number_of_nodes);
-	if((str = pw_properties_get(impl->props, "capture.props")) != NULL)
-		pw_properties_update_string(capture_props, str, strlen(str));
-	fprintf(f, "capture.props = ");
-	pw_properties_serialize_dict(f, &capture_props->dict, serialize_flags);
-	fprintf(f, "\n");
-
-	playback_props = pw_properties_new("node.passive", "true", NULL, NULL);
-	pw_properties_setf(playback_props, "node.name", "effect_output.eq%d", number_of_nodes);
-	if((str = pw_properties_get(impl->props, "playback.props")) != NULL)
-		pw_properties_update_string(playback_props, str, strlen(str));
-	fprintf(f, "playback.props = ");
-	pw_properties_serialize_dict(f, &playback_props->dict, serialize_flags);
-	fprintf(f, "\n");
-
-	fprintf(f, "}\n");
-
-	pw_properties_free(capture_props);
-	pw_properties_free(playback_props);
-}
-
-int32_t parse_eq_filter_file(struct impl *impl, FILE *f)
-{
-	struct eq_node_param eq_param;
-	FILE *memstream = NULL;
-	const char* str;
-
+	FILE *f;
+	spa_autoptr(pw_properties) p = NULL;
 	char *args = NULL;
-	char *line = NULL;
-	ssize_t nread;
-	size_t len, size;
-	uint32_t eq_band_idx = 1;
-	uint32_t eq_bands = 0;
-	int32_t res = 0;
+	const char *str;
+	size_t size;
+        va_list varargs;
+	int res;
 
-	if ((memstream = open_memstream(&args, &size)) == NULL) {
+	if ((str = pw_properties_get(props, key)) == NULL)
+		str = "{}";
+	if ((p = pw_properties_new_string(str)) == NULL)
+		return -errno;
+
+	va_start(varargs, key);
+        while (true) {
+		char *k, *v;
+                k = va_arg(varargs, char *);
+		if (k == NULL)
+			break;
+                v = va_arg(varargs, char *);
+		if (v == NULL || pw_properties_get(p, k) == NULL)
+			pw_properties_set(p, k, v);
+        }
+        va_end(varargs);
+
+	if ((f = open_memstream(&args, &size)) == NULL) {
+		res = -errno;
+		pw_log_error("Can't open memstream: %m");
+		return res;
+	}
+	pw_properties_serialize_dict(f, &p->dict, PW_PROPERTIES_FLAG_ENCLOSE);
+	fclose(f);
+
+	pw_properties_set(props, key, args);
+	free(args);
+	return 0;
+}
+
+static int create_eq_filter(struct impl *impl, const char *filename)
+{
+	FILE *f = NULL;
+	const char* str;
+	char *args = NULL;
+	size_t size;
+	int32_t res = 0;
+	char path[PATH_MAX];
+
+	if ((str = pw_properties_get(impl->props, "equalizer.description")) != NULL) {
+		if (pw_properties_get(impl->props, PW_KEY_NODE_DESCRIPTION) == NULL)
+			pw_properties_set(impl->props, PW_KEY_NODE_DESCRIPTION, str);
+		if (pw_properties_get(impl->props, PW_KEY_MEDIA_NAME) == NULL)
+			pw_properties_set(impl->props, PW_KEY_MEDIA_NAME, str);
+	}
+
+	spa_json_encode_string(path, sizeof(path), filename);
+	pw_properties_setf(impl->props, "filter.graph",
+			"{"
+			"  nodes = [ "
+			"    { type = builtin name = eq label = param_eq "
+			"      config = { filename = %s } "
+			"    } "
+			"  ] "
+			"}", path);
+
+	enhance_properties(impl->props, "capture.props", PW_KEY_MEDIA_CLASS, "Audio/Sink", NULL);
+	enhance_properties(impl->props, "playback.props", PW_KEY_NODE_PASSIVE, "true", NULL);
+
+	if ((f = open_memstream(&args, &size)) == NULL) {
 		res = -errno;
 		pw_log_error("Can't open memstream: %m");
 		goto done;
 	}
-
-	if ((str = pw_properties_get(impl->props, "equalizer.description")) == NULL)
-		str = DEFAULT_DESCRIPTION;
-	init_eq_node(memstream, str);
-
-	/*
-	 * Read the Preamp gain line.
-	 * Example: Preamp: -6.8 dB
-	 *
-	 * When a pre-amp gain is required, which is usually the case when
-	 * applying EQ, we need to modify the first EQ band to apply a
-	 * bq_highshelf filter at frequency 0 Hz with the provided negative
-	 * gain.
-	 *
-	 * Pre-amp gain is always negative to offset the effect of possible
-	 * clipping introduced by the amplification resulting from EQ.
-	 */
-	spa_zero(eq_param);
-	nread = getline(&line, &len, f);
-	if (nread != -1 && sscanf(line, "%*s %6f %*s", &eq_param.gain) == 1) {
-		memcpy(eq_param.filter, "ON", 2);
-		memcpy(eq_param.filter_type, "HSC", 3);
-		eq_param.freq = 0;
-		eq_param.q_fact = 1.0;
-
-		add_eq_node(memstream, &eq_param, eq_band_idx);
-
-		eq_band_idx++;
-		eq_bands++;
-	}
-
-	/* Read the filter bands */
-	while ((nread = getline(&line, &len, f)) != -1) {
-		spa_zero(eq_param);
-
-		/*
-		 * On field widths:
-		 * - filter can be ON or OFF
-		 * - filter type can be PK, LSC, HSC
-		 * - freq can be at most 5 decimal digits
-		 * - gain can be -xy.z
-		 * - Q can be x.y00
-		 *
-		 * Use a field width of 6 for gain and Q to account for any
-		 * possible zeros.
-		 */
-		if (sscanf(line, "%*s %*d: %3s %3s %*s %5d %*s %*s %6f %*s %*c %6f",
-					eq_param.filter, eq_param.filter_type, &eq_param.freq,
-					&eq_param.gain, &eq_param.q_fact) == 5) {
-			if (strcmp(eq_param.filter, "ON") == 0) {
-				add_eq_node(memstream, &eq_param, eq_band_idx);
-
-				eq_band_idx++;
-				eq_bands++;
-			}
-		}
-	}
-
-	if (eq_bands > 0) {
-		end_eq_node(impl, memstream, eq_bands);
-	} else {
-		pw_log_error("failed to parse equalizer configuration");
-		res = -errno;
-		goto done;
-	}
-
-	fclose(memstream);
-	memstream = NULL;
+	pw_properties_serialize_dict(f, &impl->props->dict, PW_PROPERTIES_FLAG_ENCLOSE);
+	fclose(f);
 
 	pw_log_info("loading new module-filter-chain with args: %s", args);
 	impl->eq_module = pw_context_load_module(impl->context,
@@ -341,10 +253,7 @@ int32_t parse_eq_filter_file(struct impl *impl, FILE *f)
 	res = 0;
 
 done:
-	if (memstream != NULL)
-		fclose(memstream);
 	free(args);
-
 	return res;
 }
 
@@ -403,7 +312,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_properties *props = NULL;
 	struct impl *impl;
 	const char *str;
-	FILE *f = NULL;
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -452,38 +360,16 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			&impl->core_listener,
 			&core_events, impl);
 
-	impl->channels = pw_properties_get_uint32(impl->props, PW_KEY_AUDIO_CHANNELS, DEFAULT_CHANNELS);
-	if (impl->channels == 0) {
-		res = -EINVAL;
-		pw_log_error("invalid channels '%d'", impl->channels);
-		goto error;
-	}
-
-	if ((str = pw_properties_get(impl->props, SPA_KEY_AUDIO_POSITION)) == NULL)
-		str = DEFAULT_POSITION;
-	strncpy(impl->position, str, strlen(str));
-
 	if ((str = pw_properties_get(props, "equalizer.filepath")) == NULL) {
-		res = -errno;
-		pw_log_error( "missing property equalizer.filepath: %m");
+		res = -ENOENT;
+		pw_log_error( "missing property equalizer.filepath: %s", spa_strerror(res));
 		goto error;
 	}
 
-	pw_log_info("Loading equalizer file %s for parsing", str);
-
-	if ((f = fopen(str, "r")) == NULL) {
-		res = -errno;
-		pw_log_error("failed to open equalizer file: %m");
+	if ((res = create_eq_filter(impl, str)) < 0) {
+		pw_log_error("failed to parse equalizer file: %s", spa_strerror(res));
 		goto error;
 	}
-
-	if (parse_eq_filter_file(impl, f) == -1) {
-		res = -EINVAL;
-		pw_log_error("failed to parse equalizer file: %m");
-		goto error;
-	}
-
-	fclose(f);
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
@@ -492,10 +378,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	return 0;
 
 error:
-	if (f != NULL)
-		fclose(f);
-
 	impl_destroy(impl);
-
 	return res;
 }

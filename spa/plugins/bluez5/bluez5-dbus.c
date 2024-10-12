@@ -5504,7 +5504,7 @@ static void interface_added(struct spa_bt_monitor *monitor,
 			spa_autofree char *local_endpoint = NULL;
 			/* get local endpoint */
 
-			for (i = 0; monitor->media_codecs; i++) {
+			for (i = 0; monitor->media_codecs[i]; i++) {
 				if (!monitor->media_codecs[i]->bap)
 					continue;
 				if (!is_media_codec_enabled(monitor, monitor->media_codecs[i]))

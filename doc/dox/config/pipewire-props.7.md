@@ -42,6 +42,8 @@ documentation. In minimal PipeWire setups without a session manager,
 they can be configured via
 \ref pipewire_conf__context_objects "context.objects in pipewire.conf(5)".
 
+\see [WirePlumber configuration](https://pipewire.pages.freedesktop.org/wireplumber/daemon/configuration.html)
+
 # COMMON DEVICE PROPERTIES  @IDX@ props
 
 These are common properties for devices.
@@ -649,12 +651,6 @@ of the PCMs are in use by other applications but the other free PCMs should stil
 
 @PAR@ device-prop  api.alsa.path    # string
 ALSA device path as can be used in snd_pcm_open() and snd_ctl_open().
-
-@PAR@ device-prop  api.acp.auto-port    # boolean
-Select reasonable port on device startup. Available for ACP devices.
-
-@PAR@ device-prop  api.acp.auto-profile    # boolean
-Select reasonable profile on device startup. Available for ACP devices.
 
 @PAR@ device-prop api.alsa.use-ucm = true  # boolean
 \parblock

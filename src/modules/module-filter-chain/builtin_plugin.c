@@ -245,6 +245,31 @@ static int bq_type_from_name(const char *name)
 	return BQ_NONE;
 }
 
+static const char *bq_name_from_type(int type)
+{
+	switch (type) {
+	case BQ_LOWPASS:
+		return "lowpass";
+	case BQ_HIGHPASS:
+		return "highpass";
+	case BQ_BANDPASS:
+		return "bandpass";
+	case BQ_LOWSHELF:
+		return "lowshelf";
+	case BQ_HIGHSHELF:
+		return "highshelf";
+	case BQ_PEAKING:
+		return "peaking";
+	case BQ_NOTCH:
+		return "notch";
+	case BQ_ALLPASS:
+		return "allpass";
+	case BQ_NONE:
+		return "raw";
+	}
+	return "unknown";
+}
+
 static void bq_raw_update(struct builtin *impl, float b0, float b1, float b2,
 		float a0, float a1, float a2)
 {
@@ -1709,8 +1734,11 @@ static int load_eq_bands(const char *filename, int rate, struct biquad *bq, uint
 	 */
 	nread = getline(&line, &linelen, f);
 	if (nread != -1 && sscanf(line, "%*s %6s %*s", gain) == 1) {
-		if (spa_json_parse_float(gain, strlen(gain), &vg))
+		if (spa_json_parse_float(gain, strlen(gain), &vg)) {
+			pw_log_info("%d %s freq:0 q:1.0 gain:%f", n,
+					bq_name_from_type(BQ_HIGHSHELF), vg);
 			biquad_set(&bq[n++], BQ_HIGHSHELF, 0.0f, 1.0f, vg);
+		}
 	}
 	/* Read the filter bands */
 	while ((nread = getline(&line, &linelen, f)) != -1) {
@@ -1744,8 +1772,11 @@ static int load_eq_bands(const char *filename, int rate, struct biquad *bq, uint
 					continue;
 
 				if (spa_json_parse_float(gain, strlen(gain), &vg) &&
-				    spa_json_parse_float(q, strlen(q), &vq))
+				    spa_json_parse_float(q, strlen(q), &vq)) {
+					pw_log_info("%d %s freq:%d q:%f gain:%f", n,
+							bq_name_from_type(type), freq, vq, vg);
 					biquad_set(&bq[n++], type, freq * 2.0f / rate, vq, vg);
+				}
 			}
 		}
 	}
@@ -1813,6 +1844,9 @@ static int parse_filters(struct spa_json *iter, int rate, struct biquad *bq, uin
 		}
 		if (n == max_bq)
 			return -ENOSPC;
+
+		pw_log_info("%d %s freq:%f q:%f gain:%f", n,
+					bq_name_from_type(type), freq, q, gain);
 		biquad_set(&bq[n++], type, freq * 2 / rate, q, gain);
 	}
 	*n_bq = n;
@@ -1870,6 +1904,7 @@ static void *param_eq_instantiate(const struct fc_descriptor * Descriptor,
 				pw_log_error("param_eq: failed to parse configuration from '%s'", filename);
 				goto error;
 			}
+			pw_log_info("loaded %d biquads for channel %d", impl->n_bq, idx);
 		}
 		else if (spa_strstartswith(key, "filters")) {
 			if (!spa_json_is_array(val, len)) {
@@ -1886,6 +1921,7 @@ static void *param_eq_instantiate(const struct fc_descriptor * Descriptor,
 				pw_log_error("param_eq: failed to parse configuration");
 				goto error;
 			}
+			pw_log_info("parsed %d biquads for channel %d", impl->n_bq, idx);
 		} else {
 			pw_log_warn("param_eq: ignoring config key: '%s'", key);
 		}
@@ -1895,7 +1931,6 @@ static void *param_eq_instantiate(const struct fc_descriptor * Descriptor,
 						sizeof(struct biquad) * PARAM_EQ_MAX);
 		}
 	}
-	pw_log_info("loaded %d biquads", impl->n_bq);
 	return impl;
 error:
 	free(impl);

@@ -1894,6 +1894,23 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 						if (hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, CALL_STATE_INCOMING, NULL) == NULL)
 							spa_log_warn(backend->log, "failed to create incoming call");
 					}
+				} else if (value == CIND_CALLSETUP_DIALING) {
+					struct spa_bt_telephony_call *call;
+					bool found = false;
+
+					spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+						if (call->state == CALL_STATE_DIALING || call->state == CALL_STATE_ALERTING) {
+							spa_log_info(backend->log, "dialing call already in progress (%d)", call->state);
+							found = true;
+							break;
+						}
+					}
+
+					if (!found) {
+						spa_log_info(backend->log, "Dialing call");
+						if (hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, CALL_STATE_DIALING, NULL) == NULL)
+							spa_log_warn(backend->log, "failed to create dialing call");
+					}
 				} else if (value == CIND_CALLSETUP_ALERTING) {
 					struct spa_bt_telephony_call *call;
 					spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {

@@ -2357,14 +2357,20 @@ static void node_cleanup(struct node *node)
 static int port_ensure_data(struct port *port, uint32_t i, uint32_t max_samples)
 {
 	float *data;
+	struct node *node = port->node;
+	const struct fc_descriptor *d = node->desc->desc;
+
 	if ((data = port->audio_data[i]) == NULL) {
 		data = calloc(max_samples, sizeof(float));
 		if (data == NULL) {
 			pw_log_error("cannot create port data: %m");
 			return -errno;
 		}
+		port->audio_data[i] = data;
 	}
-	port->audio_data[i] = data;
+	pw_log_info("connect output port %s[%d]:%s %p",
+			node->name, i, d->ports[port->p].name, data);
+	d->connect_port(port->node->hndl[i], port->p, data);
 	return 0;
 }
 
@@ -2453,12 +2459,11 @@ static int graph_instantiate(struct graph *graph)
 			}
 			for (j = 0; j < desc->n_output; j++) {
 				port = &node->output_port[j];
-				if ((res = port_ensure_data(port, i, max_samples)) < 0)
-					goto error;
-				pw_log_info("connect output port %s[%d]:%s %p",
-						node->name, i, d->ports[port->p].name,
-						port->audio_data[i]);
-				d->connect_port(node->hndl[i], port->p, port->audio_data[i]);
+				if (port->audio_data[i] == NULL) {
+					pw_log_info("connect output port %s[%d]:%s %p",
+						node->name, i, d->ports[port->p].name, dd);
+					d->connect_port(node->hndl[i], port->p, dd);
+				}
 			}
 			for (j = 0; j < desc->n_control; j++) {
 				port = &node->control_port[j];

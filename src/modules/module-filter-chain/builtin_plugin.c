@@ -1694,7 +1694,7 @@ static int load_eq_bands(struct param_eq_impl *impl, const char *filename)
 	FILE *f = NULL;
 	char *line = NULL;
 	ssize_t nread;
-	size_t linelen, n = 0;
+	size_t linelen;
 	uint32_t freq;
 	char filter_type[4];
 	char filter[4];
@@ -1726,7 +1726,7 @@ static int load_eq_bands(struct param_eq_impl *impl, const char *filename)
 	}
 	/* Read the filter bands */
 	while ((nread = getline(&line, &linelen, f)) != -1) {
-		if (n == PARAM_EQ_MAX) {
+		if (impl->n_bq == PARAM_EQ_MAX) {
 			res = -ENOSPC;
 			goto exit;
 		}

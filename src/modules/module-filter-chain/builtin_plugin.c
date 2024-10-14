@@ -1668,34 +1668,22 @@ static const struct fc_descriptor sine_desc = {
 	.cleanup = builtin_cleanup,
 };
 
-#define PARAM_EQ_NUM_PORTS		2
-static struct fc_port param_eq_ports[] = {
-	{ .index = 0,
-	  .name = "Out",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
-	},
-	{ .index = 1,
-	  .name = "In",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
-	},
-};
-
-#define PARAM_EQ_MAX	128
+#define PARAM_EQ_MAX		64
 struct param_eq_impl {
 	unsigned long rate;
-	float *port[2];
+	float *port[8*2];
 
 	uint32_t n_bq;
-	struct biquad bq[PARAM_EQ_MAX];
+	struct biquad bq[PARAM_EQ_MAX * 8];
 };
 
-static int load_eq_bands(struct param_eq_impl *impl, const char *filename)
+static int load_eq_bands(const char *filename, int rate, struct biquad *bq, uint32_t max_bq, uint32_t *n_bq)
 {
 	FILE *f = NULL;
 	char *line = NULL;
 	ssize_t nread;
 	size_t linelen;
-	uint32_t freq;
+	uint32_t freq, n = 0;
 	char filter_type[4];
 	char filter[4];
 	char q[7], gain[7];
@@ -1722,11 +1710,11 @@ static int load_eq_bands(struct param_eq_impl *impl, const char *filename)
 	nread = getline(&line, &linelen, f);
 	if (nread != -1 && sscanf(line, "%*s %6s %*s", gain) == 1) {
 		if (spa_json_parse_float(gain, strlen(gain), &vg))
-			biquad_set(&impl->bq[impl->n_bq++], BQ_HIGHSHELF, 0.0f, 1.0f, vg);
+			biquad_set(&bq[n++], BQ_HIGHSHELF, 0.0f, 1.0f, vg);
 	}
 	/* Read the filter bands */
 	while ((nread = getline(&line, &linelen, f)) != -1) {
-		if (impl->n_bq == PARAM_EQ_MAX) {
+		if (n == PARAM_EQ_MAX) {
 			res = -ENOSPC;
 			goto exit;
 		}
@@ -1757,37 +1745,95 @@ static int load_eq_bands(struct param_eq_impl *impl, const char *filename)
 
 				if (spa_json_parse_float(gain, strlen(gain), &vg) &&
 				    spa_json_parse_float(q, strlen(q), &vq))
-					biquad_set(&impl->bq[impl->n_bq++], type, freq * 2.0f / impl->rate, vq, vg);
+					biquad_set(&bq[n++], type, freq * 2.0f / rate, vq, vg);
 			}
 		}
 	}
+	*n_bq = n;
 exit:
 	if (f)
 		fclose(f);
 	return res;
 }
+
+
+
+/*
+ * [
+ *   { type=bq_peaking freq=21 gain=6.7 q=1.100 }
+ *   { type=bq_peaking freq=85 gain=6.9 q=3.000 }
+ *   { type=bq_peaking freq=110 gain=-2.6 q=2.700 }
+ *   { type=bq_peaking freq=210 gain=5.9 q=2.100 }
+ *   { type=bq_peaking freq=710 gain=-1.0 q=0.600 }
+ *   { type=bq_peaking freq=1600 gain=2.3 q=2.700 }
+ * ]
+ */
+static int parse_filters(struct spa_json *iter, int rate, struct biquad *bq, uint32_t max_bq, uint32_t *n_bq)
+{
+	struct spa_json it[1];
+	const char *val;
+	char key[256];
+	char type_str[17];
+	int len;
+	uint32_t n = 0;
+
+	while (spa_json_enter_object(iter, &it[0]) > 0) {
+		float freq = 0.0f, gain = 0.0f, q = 1.0f;
+		int type = BQ_NONE;
+
+		while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
+			if (spa_streq(key, "type")) {
+				if (spa_json_parse_stringn(val, len, type_str, sizeof(type_str)) <= 0) {
+					pw_log_error("param_eq:type requires a string");
+					return -EINVAL;
+				}
+				type = bq_type_from_name(type_str);
+			}
+			else if (spa_streq(key, "freq")) {
+				if (spa_json_parse_float(val, len, &freq) <= 0) {
+					pw_log_error("param_eq:rate requires a number");
+					return -EINVAL;
+				}
+			}
+			else if (spa_streq(key, "q")) {
+				if (spa_json_parse_float(val, len, &q) <= 0) {
+					pw_log_error("param_eq:q requires a float");
+					return -EINVAL;
+				}
+			}
+			else if (spa_streq(key, "gain")) {
+				if (spa_json_parse_float(val, len, &gain) <= 0) {
+					pw_log_error("param_eq:gain requires a float");
+					return -EINVAL;
+				}
+			}
+			else {
+				pw_log_warn("param_eq: ignoring filter key: '%s'", key);
+			}
+		}
+		if (n == max_bq)
+			return -ENOSPC;
+		biquad_set(&bq[n++], type, freq * 2 / rate, q, gain);
+	}
+	*n_bq = n;
+	return 0;
+}
+
 /*
  * {
  *   filename = "...",
- *   filters = [
- *     { type=bq_peaking freq=21 gain=6.7 q=1.100 }
- *     { type=bq_peaking freq=85 gain=6.9 q=3.000 }
- *     { type=bq_peaking freq=110 gain=-2.6 q=2.700 }
- *     { type=bq_peaking freq=210 gain=5.9 q=2.100 }
- *     { type=bq_peaking freq=710 gain=-1.0 q=0.600 }
- *     { type=bq_peaking freq=1600 gain=2.3 q=2.700 }
- *   }
- * ]
+ *   filenameX = "...", # to load channel X
+ *   filters = [ ... ]
+ *   filtersX = [ ... ] # to load channel X
+ * }
  */
-
 static void *param_eq_instantiate(const struct fc_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct spa_json it[3];
 	const char *val;
 	char key[256], filename[PATH_MAX];
-	char type_str[17];
-	int len, res;
+	int i, len, res;
 	struct param_eq_impl *impl;
 
 	if (config == NULL) {
@@ -1808,61 +1854,45 @@ static void *param_eq_instantiate(const struct fc_descriptor * Descriptor,
 	impl->rate = SampleRate;
 
 	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
-		if (spa_streq(key, "filename")) {
+		int32_t idx = 0;
+		struct biquad *bq = impl->bq;
+
+		if (spa_strstartswith(key, "filename")) {
 			if (spa_json_parse_stringn(val, len, filename, sizeof(filename)) <= 0) {
 				pw_log_error("param_eq: filename requires a string");
 				goto error;
 			}
-			res = load_eq_bands(impl, filename);
+			if (spa_atoi32(key+8, &idx, 0))
+				bq = &impl->bq[(SPA_CLAMP(idx, 1, 8) - 1) * PARAM_EQ_MAX];
+
+			res = load_eq_bands(filename, impl->rate, bq, PARAM_EQ_MAX, &impl->n_bq);
 			if (res < 0) {
-				pw_log_error("failed to parse param_eq configuration from %s", filename);
+				pw_log_error("param_eq: failed to parse configuration from '%s'", filename);
 				goto error;
 			}
 		}
-		else if (spa_streq(key, "filters")) {
+		else if (spa_strstartswith(key, "filters")) {
 			if (!spa_json_is_array(val, len)) {
 				pw_log_error("param_eq:filters require an array");
 				goto error;
 			}
 			spa_json_enter(&it[0], &it[1]);
-			while (spa_json_enter_object(&it[1], &it[2]) > 0) {
-				float freq = 0.0f, gain = 0.0f, q = 1.0f;
-				int type = BQ_NONE;
 
-				while ((len = spa_json_object_next(&it[2], key, sizeof(key), &val)) > 0) {
-					if (spa_streq(key, "type")) {
-						if (spa_json_parse_stringn(val, len, type_str, sizeof(type_str)) <= 0) {
-							pw_log_error("param_eq:type requires a string");
-							goto error;
-						}
-						type = bq_type_from_name(type_str);
-					}
-					else if (spa_streq(key, "freq")) {
-						if (spa_json_parse_float(val, len, &freq) <= 0) {
-							pw_log_error("param_eq:rate requires a number");
-							goto error;
-						}
-					}
-					else if (spa_streq(key, "q")) {
-						if (spa_json_parse_float(val, len, &q) <= 0) {
-							pw_log_error("param_eq:q requires a float");
-							goto error;
-						}
-					}
-					else if (spa_streq(key, "gain")) {
-						if (spa_json_parse_float(val, len, &gain) <= 0) {
-							pw_log_error("param_eq:gain requires a float");
-							goto error;
-						}
-					}
-					else {
-						pw_log_warn("param_eq: ignoring filter key: '%s'", key);
-					}
-				}
-				biquad_set(&impl->bq[impl->n_bq++], type, freq * 2 / impl->rate, q, gain);
+			if (spa_atoi32(key+7, &idx, 0))
+				bq = &impl->bq[(SPA_CLAMP(idx, 1, 8) - 1) * PARAM_EQ_MAX];
+
+			res = parse_filters(&it[1], impl->rate, bq, PARAM_EQ_MAX, &impl->n_bq);
+			if (res < 0) {
+				pw_log_error("param_eq: failed to parse configuration");
+				goto error;
 			}
 		} else {
-			pw_log_warn("delay: ignoring config key: '%s'", key);
+			pw_log_warn("param_eq: ignoring config key: '%s'", key);
+		}
+		if (idx == 0) {
+			for (i = 1; i < 8; i++)
+				memcpy(&impl->bq[i*PARAM_EQ_MAX], impl->bq,
+						sizeof(struct biquad) * PARAM_EQ_MAX);
 		}
 	}
 	pw_log_info("loaded %d biquads", impl->n_bq);
@@ -1882,16 +1912,83 @@ static void param_eq_connect_port(void * Instance, unsigned long Port,
 static void param_eq_run(void * Instance, unsigned long SampleCount)
 {
 	struct param_eq_impl *impl = Instance;
-	const float *in[] = { impl->port[1] };
-	float *out[] = { impl->port[0] };
-
-	dsp_ops_biquadn_run(dsp_ops, impl->bq, impl->n_bq, out, in, 1, SampleCount);
+	dsp_ops_biquadn_run(dsp_ops, impl->bq, impl->n_bq, PARAM_EQ_MAX,
+			&impl->port[8], (const float**)impl->port, 8, SampleCount);
 }
+
+static struct fc_port param_eq_ports[] = {
+	{ .index = 0,
+	  .name = "In 1",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "In 2",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 2,
+	  .name = "In 3",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 3,
+	  .name = "In 4",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 4,
+	  .name = "In 5",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 5,
+	  .name = "In 6",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 6,
+	  .name = "In 7",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 7,
+	  .name = "In 8",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+
+	{ .index = 8,
+	  .name = "Out 1",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 9,
+	  .name = "Out 2",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 10,
+	  .name = "Out 3",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 11,
+	  .name = "Out 4",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 12,
+	  .name = "Out 5",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 13,
+	  .name = "Out 6",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 14,
+	  .name = "Out 7",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 15,
+	  .name = "Out 8",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+};
 
 static const struct fc_descriptor param_eq_desc = {
 	.name = "param_eq",
+	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
-	.n_ports = PARAM_EQ_NUM_PORTS,
+	.n_ports = SPA_N_ELEMENTS(param_eq_ports),
 	.ports = param_eq_ports,
 
 	.instantiate = param_eq_instantiate,

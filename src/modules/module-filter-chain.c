@@ -239,6 +239,10 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * specifying a number of chained biquads and it can also load configuration from a
  * file.
  *
+ * The parametric EQ supports multichannel processing and has 8 input and 8 output ports
+ * that don't all need to be connected. The ports are named `In 1` to `In 8` and
+ * `Out 1` to `Out 8`.
+ *
  *\code{.unparsed}
  * filter.graph = {
  *     nodes = [
@@ -248,11 +252,13 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *             label  = param_eq
  *             config = {
  *                 filename = "..."
+ *                 #filename1 = "...", filename2 = "...", ...
  *                 filters = [
  *                     { type = ..., freq = ..., gain = ..., q = ... },
  *                     { type = ..., freq = ..., gain = ..., q = ... },
  *                     ....
  *                 ]
+ *                 #filters1 = [ ... ], filters2 = [ ... ], ...
  *             }
  *             ...
  *         }
@@ -261,7 +267,10 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * }
  *\endcode
  *
- * Either a `filename` or a `filters` array can be specified.
+ * Either a `filename` or a `filters` array can be specified. The configuration
+ * will be used for all channels. Alternatively `filenameX` or `filtersX` where
+ * X is the channel number (between 1 and 8) can be used to load a channel
+ * specific configuration.
  *
  * The `filename` must point to a parametric equalizer configuration
  * generated from the AutoEQ project or Squiglink. Both the projects allow
@@ -291,8 +300,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * shelf and high shelf filter respectively. More often than not only peaking
  * filters are involved.
  *
- * The `filters` can contain an array of filter specification object with the following
- * keys:
+ * The `filters` (or channel specific `filtersX` where X is the channel between 1 and
+ * 8) can contain an array of filter specification object with the following keys:
  *
  *   `type` specifies the filter type, choose one from the available biquad labels.
  *   `freq` is the frequency passed to the biquad.
@@ -2524,6 +2533,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 	struct descriptor *desc;
 	const struct fc_descriptor *d;
 	char v[256];
+	bool allow_unused;
 
 	first = spa_list_first(&graph->node_list, struct node, link);
 	last = spa_list_last(&graph->node_list, struct node, link);
@@ -2532,16 +2542,22 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 	 * If we have a list of inputs/outputs, just count them. Otherwise
 	 * we count all input ports of the first node and all output
 	 * ports of the last node */
-	if (inputs != NULL) {
+	if (inputs != NULL)
 		n_input = count_array(inputs);
-	} else {
+	else
 		n_input = first->desc->n_input;
-	}
-	if (outputs != NULL) {
+
+	if (outputs != NULL)
 		n_output = count_array(outputs);
-	} else {
+	else
 		n_output = last->desc->n_output;
-	}
+
+	/* we allow unconnected ports when not explicitly given and the nodes support
+	 * NULL data */
+	allow_unused = inputs == NULL && outputs == NULL &&
+	    SPA_FLAG_IS_SET(first->desc->desc->flags, FC_DESCRIPTOR_SUPPORTS_NULL_DATA) &&
+	    SPA_FLAG_IS_SET(last->desc->desc->flags, FC_DESCRIPTOR_SUPPORTS_NULL_DATA);
+
 	if (n_input == 0) {
 		pw_log_error("no inputs");
 		res = -EINVAL;
@@ -2578,7 +2594,8 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 	}
 	if (n_hndl == 0) {
 		n_hndl = 1;
-		pw_log_warn("The capture stream has %1$d channels and "
+		if (!allow_unused)
+			pw_log_warn("The capture stream has %1$d channels and "
 				"the filter has %2$d inputs. The playback stream has %3$d channels "
 				"and the filter has %4$d outputs. Some filter ports will be "
 				"unconnected..",

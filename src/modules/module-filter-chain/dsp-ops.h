@@ -43,7 +43,7 @@ struct dsp_ops_funcs {
 	void (*mult) (struct dsp_ops *ops,
 			void * SPA_RESTRICT dst,
 			const void * SPA_RESTRICT src[], uint32_t n_src, uint32_t n_samples);
-	void (*biquadn_run) (struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq,
+	void (*biquadn_run) (struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, uint32_t bq_stride,
 			float * SPA_RESTRICT out[], const float * SPA_RESTRICT in[],
 			uint32_t n_src, uint32_t n_samples);
 };
@@ -99,7 +99,7 @@ void dsp_linear_##arch (struct dsp_ops *ops, float * SPA_RESTRICT dst, \
 void dsp_mult_##arch(struct dsp_ops *ops, void * SPA_RESTRICT dst,	\
 	const void * SPA_RESTRICT src[], uint32_t n_src, uint32_t n_samples)
 #define MAKE_BIQUADN_RUN_FUNC(arch) \
-void dsp_biquadn_run_##arch (struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, \
+void dsp_biquadn_run_##arch (struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, uint32_t bq_stride, \
 	float * SPA_RESTRICT out[], const float * SPA_RESTRICT in[], uint32_t n_src, uint32_t n_samples)
 
 #define MAKE_FFT_NEW_FUNC(arch) \

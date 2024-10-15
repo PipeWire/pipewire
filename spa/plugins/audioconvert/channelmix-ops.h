@@ -24,7 +24,7 @@
 #define MASK_7_1	_M(FL)|_M(FR)|_M(FC)|_M(LFE)|_M(SL)|_M(SR)|_M(RL)|_M(RR)
 
 #define BUFFER_SIZE 4096
-#define MAX_TAPS 255
+#define MAX_TAPS 255u
 
 struct channelmix {
 	uint32_t src_chan;

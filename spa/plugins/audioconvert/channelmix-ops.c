@@ -776,7 +776,7 @@ int channelmix_init(struct channelmix *mix)
 	mix->func_name = info->name;
 
 	if (mix->hilbert_taps > 0) {
-		mix->n_taps = SPA_CLAMP(mix->hilbert_taps, 15u, 255u) | 1;
+		mix->n_taps = SPA_CLAMP(mix->hilbert_taps, 15u, MAX_TAPS) | 1;
 		blackman_window(mix->taps, mix->n_taps);
 		hilbert_generate(mix->taps, mix->n_taps);
 		reverse_taps(mix->taps, mix->n_taps);

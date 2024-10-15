@@ -43,6 +43,13 @@ static inline int hilbert_generate(float *taps, int n_taps)
 	return 0;
 }
 
+static inline void reverse_taps(float *taps, int n_taps)
+{
+	int i;
+	for (i = 0; i < n_taps/2; i++)
+		SPA_SWAP(taps[i], taps[n_taps-1-i]);
+}
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

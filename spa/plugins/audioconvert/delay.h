@@ -14,14 +14,15 @@ static inline void delay_run(float *buffer, uint32_t *pos,
 		float *dst, const float *src, const float vol, uint32_t n_samples)
 {
 	uint32_t i;
-	uint32_t p = *pos;
+	uint32_t w = *pos;
+	uint32_t o = n_buffer - delay;
 
 	for (i = 0; i < n_samples; i++) {
-		buffer[p] = src[i];
-		dst[i] = buffer[(p - delay) & (n_buffer-1)] * vol;
-		p = (p + 1) & (n_buffer-1);
+		buffer[w] = buffer[w + n_buffer] = src[i];
+		dst[i] = buffer[w + o] * vol;
+		w = w + 1 >= n_buffer ? 0 : w + 1;
 	}
-	*pos = p;
+	*pos = w;
 }
 
 static inline void delay_convolve_run(float *buffer, uint32_t *pos,
@@ -30,19 +31,24 @@ static inline void delay_convolve_run(float *buffer, uint32_t *pos,
 		float *dst, const float *src, const float vol, uint32_t n_samples)
 {
 	uint32_t i, j;
-	uint32_t p = *pos;
+	uint32_t w = *pos;
+	uint32_t o = n_buffer - delay - n_taps-1;
 
+	if (n_taps == 1) {
+		delay_run(buffer, pos, n_buffer, delay, dst, src, vol, n_samples);
+		return;
+	}
 	for (i = 0; i < n_samples; i++) {
 		float sum = 0.0f;
 
-		buffer[p] = src[i];
+		buffer[w] = buffer[w + n_buffer] = src[i];
 		for (j = 0; j < n_taps; j++)
-			sum += (taps[j] * buffer[((p - delay) - j) & (n_buffer-1)]);
+			sum += taps[j] * buffer[w+o+j];
 		dst[i] = sum * vol;
 
-		p = (p + 1) & (n_buffer-1);
+		w = w + 1 >= n_buffer ? 0 : w + 1;
 	}
-	*pos = p;
+	*pos = w;
 }
 
 #ifdef __cplusplus

@@ -11,7 +11,8 @@ static inline void clear_c(float *d, uint32_t n_samples)
 
 static inline void copy_c(float *d, const float *s, uint32_t n_samples)
 {
-	spa_memcpy(d, s, n_samples * sizeof(float));
+	if (d != s)
+		spa_memcpy(d, s, n_samples * sizeof(float));
 }
 
 static inline void vol_c(float *d, const float *s, float vol, uint32_t n_samples)

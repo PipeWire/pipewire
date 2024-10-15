@@ -775,6 +775,7 @@ int channelmix_init(struct channelmix *mix)
 	mix->delay = (uint32_t)(mix->rear_delay * mix->freq / 1000.0f);
 	mix->func_name = info->name;
 
+	spa_zero(mix->taps);
 	if (mix->hilbert_taps > 0) {
 		mix->n_taps = SPA_CLAMP(mix->hilbert_taps, 15u, MAX_TAPS) | 1;
 		blackman_window(mix->taps, mix->n_taps);

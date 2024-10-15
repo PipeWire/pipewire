@@ -10,7 +10,6 @@
 #include <spa/param/audio/raw.h>
 
 #include "crossover.h"
-#include "delay.h"
 
 #define VOLUME_MIN 0.0f
 #define VOLUME_NORM 1.0f

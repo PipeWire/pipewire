@@ -32,11 +32,15 @@ struct spa_bt_telephony {
 struct spa_bt_telephony_ag {
 	struct spa_bt_telephony *telephony;
 	struct spa_list call_list;
+
+	int id;
 };
 
 struct spa_bt_telephony_call {
 	struct spa_bt_telephony_ag *ag;
 	struct spa_list link;	/* link in ag->call_list */
+
+	int id;
 
 	/* D-Bus properties */
 	char *line_identification;

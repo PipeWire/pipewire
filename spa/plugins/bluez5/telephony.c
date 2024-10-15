@@ -185,7 +185,6 @@ struct impl {
 struct agimpl {
 	struct spa_bt_telephony_ag this;
 	struct spa_list link;
-	int id;
 	char *path;
 	struct spa_hook_list listener_list;
 	void *user_data;
@@ -196,7 +195,6 @@ struct agimpl {
 
 struct callimpl {
 	struct spa_bt_telephony_call this;
-	int id;
 	char *path;
 	struct spa_hook_list listener_list;
 	void *user_data;
@@ -266,11 +264,11 @@ static const char *telephony_error_to_description (enum spa_bt_telephony_error e
 
 #define find_free_object_id(list, obj_type, link)	\
 ({						\
-	int id = 0;				\
+	int id = 1;				\
 	obj_type *object;			\
 	spa_list_for_each(object, list, link) {	\
-		if (object->id <= id)		\
-			id = object->id + 1;	\
+		if (object->this.id <= id)		\
+			id = object->this.id + 1;	\
 	}					\
 	id;					\
 })
@@ -759,7 +757,7 @@ telephony_ag_new(struct spa_bt_telephony *telephony, size_t user_data_size)
 		return NULL;
 
 	agimpl->this.telephony = telephony;
-	agimpl->id = find_free_object_id(&impl->ag_list, struct agimpl, link);
+	agimpl->this.id = find_free_object_id(&impl->ag_list, struct agimpl, link);
 	spa_list_init(&agimpl->this.call_list);
 	spa_hook_list_init(&agimpl->listener_list);
 
@@ -803,7 +801,7 @@ int telephony_ag_register(struct spa_bt_telephony_ag *ag)
 		.message_function = ag_handler,
 	};
 
-	path = spa_aprintf (PW_TELEPHONY_OBJECT_PATH "/ag%d", agimpl->id);
+	path = spa_aprintf (PW_TELEPHONY_OBJECT_PATH "/ag%d", agimpl->this.id);
 
 	/* register object */
 	if (!dbus_connection_register_object_path(impl->conn, path, &vtable, agimpl)) {
@@ -933,7 +931,7 @@ telephony_call_new(struct spa_bt_telephony_ag *ag, size_t user_data_size)
 		return NULL;
 
 	callimpl->this.ag = ag;
-	callimpl->id = find_free_object_id(&ag->call_list, struct callimpl, this.link);
+	callimpl->this.id = find_free_object_id(&ag->call_list, struct callimpl, this.link);
 	spa_hook_list_init(&callimpl->listener_list);
 
 	spa_list_append(&ag->call_list, &callimpl->this.link);
@@ -1262,7 +1260,7 @@ int telephony_call_register(struct spa_bt_telephony_call *call)
 		.message_function = call_handler,
 	};
 
-	path = spa_aprintf ("%s/call%d", agimpl->path, callimpl->id);
+	path = spa_aprintf ("%s/call%d", agimpl->path, callimpl->this.id);
 
 	/* register object */
 	if (!dbus_connection_register_object_path(impl->conn, path, &vtable, callimpl)) {

@@ -183,6 +183,7 @@ struct rfcomm {
 	unsigned int extended_error_reporting:1;
 	unsigned int clip_notify:1;
 	unsigned int hfp_hf_3way:1;
+	unsigned int hfp_hf_clcc:1;
 	unsigned int chld_supported:1;
 	enum hfp_hf_state hf_state;
 	enum hsp_hs_state hs_state;
@@ -1774,6 +1775,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 				(rfcomm->msbc_supported_by_hfp || rfcomm->lc3_supported_by_hfp))
 			rfcomm->codec_negotiation_supported = true;
 		rfcomm->hfp_hf_3way = (features & SPA_BT_HFP_AG_FEATURE_3WAY) != 0;
+		rfcomm->hfp_hf_clcc = (features & SPA_BT_HFP_AG_FEATURE_ENHANCED_CALL_STATUS) != 0;
 	} else if (sscanf(token, "+BCS:%u", &selected_codec) == 1 && rfcomm->codec_negotiation_supported) {
 		if (selected_codec != HFP_AUDIO_CODEC_CVSD && selected_codec != HFP_AUDIO_CODEC_MSBC &&
 				selected_codec != HFP_AUDIO_CODEC_LC3_SWB) {
@@ -1920,6 +1922,9 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 						}
 					}
 				}
+
+				if (rfcomm->hfp_hf_clcc)
+					rfcomm_send_cmd(rfcomm, "AT+CLCC");
 			} else if (spa_streq(rfcomm->hf_indicators[indicator], "call")) {
 				if (value == 0) {
 					struct spa_bt_telephony_call *call, *tcall;
@@ -1941,6 +1946,9 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 						}
 					}
 				}
+
+				if (rfcomm->hfp_hf_clcc)
+					rfcomm_send_cmd(rfcomm, "AT+CLCC");
 			} else if (spa_streq(rfcomm->hf_indicators[indicator], "callheld")) {
 				if (value == 0) {	/* Reject waiting call or no held calls */
 					struct spa_bt_telephony_call *call, *tcall;
@@ -1976,6 +1984,9 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 							telephony_call_notify_updated_props(call);
 					}
 				}
+
+				if (rfcomm->hfp_hf_clcc)
+					rfcomm_send_cmd(rfcomm, "AT+CLCC");
 			}
 		}
 	} else if (sscanf(token, "+CLIP: \"%16[^\"]\",%u", number, &type) == 2) {
@@ -1995,6 +2006,66 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 		call = hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, CALL_STATE_WAITING, number);
 		if (call == NULL)
 			spa_log_warn(backend->log, "failed to create waiting call");
+	} else if (spa_strstartswith(token, "+CLCC: ")) {
+		struct spa_bt_telephony_call *call;
+		int idx;
+		unsigned int status, mpty;
+		bool found = false;
+
+		token[strcspn(token, "\r")] = 0;
+		token[strcspn(token, "\n")] = 0;
+		token += strlen("+CLCC: ");
+		token[strcspn(token, ",")] = 0;
+		idx = atoi(token);
+		token += strcspn(token, "\0") + 1;
+		// Skip direction
+		token[strcspn(token, ",")] = 0;
+		token += strcspn(token, "\0") + 1;
+		token[strcspn(token, ",")] = 0;
+		status = atoi(token);
+		token += strcspn(token, "\0") + 1;
+		// Skip mode
+		token[strcspn(token, ",")] = 0;
+		token += strcspn(token, "\0") + 1;
+		token[strcspn(token, ",")] = 0;
+		mpty = atoi(token);
+		token += strcspn(token, "\0") + 1;
+		if (strlen(token) > 0) {
+			if (sscanf(token, "\"%16[^\"]\",%u", number, &type) != 2) {
+				spa_log_warn(backend->log, "Failed to parse number: %s", token);
+				number[0] = '\0';
+			}
+		}
+
+		spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+			if (call->id == idx) {
+				bool changed = false;
+
+				found = true;
+
+				if (call->state != status) {
+					call->state =status;
+					changed = true;
+				}
+				if (call->multiparty != mpty) {
+					call->multiparty = mpty;
+					changed = true;
+				}
+				if (strlen(number) && !spa_streq(number, call->line_identification)) {
+					if (call->line_identification)
+						free(call->line_identification);
+					call->line_identification = strdup(number);
+					changed = true;
+				}
+
+				if (changed)
+					telephony_call_notify_updated_props(call);
+			}
+		}
+
+		if (!found) {
+			spa_log_warn(backend->log, "unknown call index: %u", idx);
+		}
 	} else if (spa_strstartswith(token, "OK")) {
 		switch(rfcomm->hf_state) {
 		case hfp_hf_brsf:
@@ -3036,7 +3107,8 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 				rfcomm->transport->path, handler);
 	} else if (profile == SPA_BT_PROFILE_HFP_AG) {
 		/* Start SLC connection */
-		unsigned int hf_features = SPA_BT_HFP_HF_FEATURE_CLIP | SPA_BT_HFP_HF_FEATURE_3WAY;
+		unsigned int hf_features = SPA_BT_HFP_HF_FEATURE_CLIP | SPA_BT_HFP_HF_FEATURE_3WAY |
+									SPA_BT_HFP_HF_FEATURE_ENHANCED_CALL_STATUS;
 		bool has_msbc = device_supports_codec(backend, rfcomm->device, HFP_AUDIO_CODEC_MSBC);
 		bool has_lc3 = device_supports_codec(backend, rfcomm->device, HFP_AUDIO_CODEC_LC3_SWB);
 

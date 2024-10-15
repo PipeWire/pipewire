@@ -673,7 +673,7 @@ done:
 			spa_log_info(mix->log, "channel %d is FC cutoff:%f", ic, mix->fc_cutoff);
 			lr4_set(&mix->lr4[ic], BQ_LOWPASS, mix->fc_cutoff / mix->freq);
 		} else {
-			mix->lr4[ic].active = false;
+			lr4_set(&mix->lr4[ic], BQ_NONE, mix->fc_cutoff / mix->freq);
 		}
 		ic++;
 	}

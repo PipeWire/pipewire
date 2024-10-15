@@ -20,7 +20,6 @@ struct lr4 {
 	struct biquad bq;
 	float x1, x2;
 	float y1, y2;
-	float z1, z2;
 	bool active;
 };
 

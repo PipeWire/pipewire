@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2018 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include <float.h>
+
 #include "channelmix-ops.h"
 
 static inline void clear_c(float *d, uint32_t n_samples)
@@ -63,6 +65,43 @@ channelmix_copy_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 		vol_c(d[i], s[i], mix->matrix[i][i], n_samples);
 }
 
+static void lr4_process_c(struct lr4 *lr4, float *dst, const float *src, const float vol, int samples)
+{
+	float x1 = lr4->x1;
+	float x2 = lr4->x2;
+	float y1 = lr4->y1;
+	float y2 = lr4->y2;
+	float b0 = lr4->bq.b0;
+	float b1 = lr4->bq.b1;
+	float b2 = lr4->bq.b2;
+	float a1 = lr4->bq.a1;
+	float a2 = lr4->bq.a2;
+	float x, y, z;
+	int i;
+
+	if (vol == 0.0f || !lr4->active) {
+		vol_c(dst, src, vol, samples);
+		return;
+	}
+
+	for (i = 0; i < samples; i++) {
+		x  = src[i];
+		y  = b0 * x          + x1;
+		x1 = b1 * x - a1 * y + x2;
+		x2 = b2 * x - a2 * y;
+		z  = b0 * y          + y1;
+		y1 = b1 * y - a1 * z + y2;
+		y2 = b2 * y - a2 * z;
+		dst[i] = z * vol;
+	}
+#define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
+	lr4->x1 = F(x1);
+	lr4->x2 = F(x2);
+	lr4->y1 = F(y1);
+	lr4->y2 = F(y2);
+#undef F
+}
+
 #define _M(ch)		(1UL << SPA_AUDIO_CHANNEL_ ## ch)
 
 void
@@ -100,10 +139,10 @@ channelmix_f32_n_m_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 			if (n_j == 0) {
 				clear_c(di, n_samples);
 			} else if (n_j == 1) {
-				lr4_process(&mix->lr4[i], di, sj[0], mj[0], n_samples);
+				lr4_process_c(&mix->lr4[i], di, sj[0], mj[0], n_samples);
 			} else {
 				conv_c(di, sj, mj, n_j, n_samples);
-				lr4_process(&mix->lr4[i], di, di, 1.0f, n_samples);
+				lr4_process_c(&mix->lr4[i], di, di, 1.0f, n_samples);
 			}
 		}
 	}
@@ -239,8 +278,8 @@ channelmix_f32_2_3p1_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 				d[2][n] = c * 0.5f;
 			}
 		}
-		lr4_process(&mix->lr4[3], d[3], d[2], v3, n_samples);
-		lr4_process(&mix->lr4[2], d[2], d[2], v2, n_samples);
+		lr4_process_c(&mix->lr4[3], d[3], d[2], v3, n_samples);
+		lr4_process_c(&mix->lr4[2], d[2], d[2], v2, n_samples);
 	}
 }
 

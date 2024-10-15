@@ -25,6 +25,7 @@ struct biquad {
 
 /* The type of the biquad filters */
 enum biquad_type {
+	BQ_NONE,
 	BQ_LOWPASS,
 	BQ_HIGHPASS,
 };

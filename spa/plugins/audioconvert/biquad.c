@@ -101,6 +101,9 @@ void biquad_set(struct biquad *bq, enum biquad_type type, double freq)
 {
 
 	switch (type) {
+	case BQ_NONE:
+		set_coefficient(bq, 1, 0, 0, 1, 0, 0);
+		break;
 	case BQ_LOWPASS:
 		biquad_lowpass(bq, freq);
 		break;

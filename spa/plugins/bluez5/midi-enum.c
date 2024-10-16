@@ -808,6 +808,8 @@ impl_init(const struct spa_handle_factory *factory,
 		goto fail;
 	}
 
+	g_dbus_connection_set_exit_on_close(this->conn, FALSE);
+
 	this->manager = g_dbus_object_manager_server_new(MIDI_OBJECT_PATH);
 	if (!this->manager){
 		spa_log_error(this->log, "Creating GDBus object manager failed");

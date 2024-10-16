@@ -1979,6 +1979,8 @@ impl_init(const struct spa_handle_factory *factory,
 		goto fail;
 	}
 
+	g_dbus_connection_set_exit_on_close(this->conn, FALSE);
+
 	this->node.iface = SPA_INTERFACE_INIT(
 		SPA_TYPE_INTERFACE_Node,
 				SPA_VERSION_NODE,

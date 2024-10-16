@@ -15,6 +15,9 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+/* S = 1 in Q */
+#define BIQUAD_SHELVING_DEFAULT_Q 0.707106781186548
+
 static void set_coefficient(struct biquad *bq, double b0, double b1, double b2,
 			    double a0, double a1, double a2)
 {
@@ -137,7 +140,8 @@ static void biquad_bandpass(struct biquad *bq, double frequency, double Q)
 	set_coefficient(bq, b0, b1, b2, a0, a1, a2);
 }
 
-static void biquad_lowshelf(struct biquad *bq, double frequency, double db_gain)
+static void biquad_lowshelf(struct biquad *bq, double frequency, double Q,
+			    double db_gain)
 {
 	/* Clip frequencies to between 0 and 1, inclusive. */
 	frequency = fmax(0.0, fmin(frequency, 1.0));
@@ -155,9 +159,12 @@ static void biquad_lowshelf(struct biquad *bq, double frequency, double db_gain)
 		return;
 	}
 
+	/* Set Q to an equivalent value to S = 1 if not specified */
+	if (Q <= 0)
+		Q = BIQUAD_SHELVING_DEFAULT_Q;
+
 	double w0 = M_PI * frequency;
-	double S = 1; /* filter slope (1 is max value) */
-	double alpha = 0.5 * sin(w0) * sqrt((A + 1 / A) * (1 / S - 1) + 2);
+	double alpha = sin(w0) / (2 * Q);
 	double k = cos(w0);
 	double k2 = 2 * sqrt(A) * alpha;
 	double a_plus_one = A + 1;
@@ -173,7 +180,7 @@ static void biquad_lowshelf(struct biquad *bq, double frequency, double db_gain)
 	set_coefficient(bq, b0, b1, b2, a0, a1, a2);
 }
 
-static void biquad_highshelf(struct biquad *bq, double frequency,
+static void biquad_highshelf(struct biquad *bq, double frequency, double Q,
 			     double db_gain)
 {
 	/* Clip frequencies to between 0 and 1, inclusive. */
@@ -192,9 +199,12 @@ static void biquad_highshelf(struct biquad *bq, double frequency,
 		return;
 	}
 
+	/* Set Q to an equivalent value to S = 1 if not specified */
+	if (Q <= 0)
+		Q = BIQUAD_SHELVING_DEFAULT_Q;
+
 	double w0 = M_PI * frequency;
-	double S = 1; /* filter slope (1 is max value) */
-	double alpha = 0.5 * sin(w0) * sqrt((A + 1 / A) * (1 / S - 1) + 2);
+	double alpha = sin(w0) / (2 * Q);
 	double k = cos(w0);
 	double k2 = 2 * sqrt(A) * alpha;
 	double a_plus_one = A + 1;
@@ -341,10 +351,10 @@ void biquad_set(struct biquad *bq, enum biquad_type type, double freq, double Q,
 		biquad_bandpass(bq, freq, Q);
 		break;
 	case BQ_LOWSHELF:
-		biquad_lowshelf(bq, freq, gain);
+		biquad_lowshelf(bq, freq, Q, gain);
 		break;
 	case BQ_HIGHSHELF:
-		biquad_highshelf(bq, freq, gain);
+		biquad_highshelf(bq, freq, Q, gain);
 		break;
 	case BQ_PEAKING:
 		biquad_peaking(bq, freq, Q, gain);

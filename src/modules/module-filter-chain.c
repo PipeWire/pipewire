@@ -2419,7 +2419,7 @@ static int graph_instantiate(struct graph *graph)
 	const struct fc_descriptor *d;
 	uint32_t i, j, max_samples = impl->quantum_limit;
 	int res;
-	float *sd = impl->silence_data, *dd = impl->discard_data;
+	float *sd, *dd;
 
 	if (graph->instantiated)
 		return 0;
@@ -2432,8 +2432,13 @@ static int graph_instantiate(struct graph *graph)
 
 		desc = node->desc;
 		d = desc->desc;
-		if (d->flags & FC_DESCRIPTOR_SUPPORTS_NULL_DATA)
+		if (d->flags & FC_DESCRIPTOR_SUPPORTS_NULL_DATA) {
 			sd = dd = NULL;
+		}
+		else {
+			sd = impl->silence_data;
+			dd = impl->discard_data;
+		}
 
 		for (i = 0; i < node->n_hndl; i++) {
 			pw_log_info("instantiate %s %d rate:%lu", d->name, i, impl->rate);

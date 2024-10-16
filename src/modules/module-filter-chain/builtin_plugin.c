@@ -700,7 +700,7 @@ static float *read_samples_from_sf(SNDFILE *f, SF_INFO info, float gain, int del
 }
 #endif
 
-static float *read_closest(char **filenames, float gain, int delay, int offset,
+static float *read_closest(char **filenames, float gain, float delay_sec, int offset,
 		int length, int channel, long unsigned *rate, int *n_samples)
 {
 #ifdef HAVE_SNDFILE
@@ -727,8 +727,9 @@ static float *read_closest(char **filenames, float gain, int delay, int offset,
 	}
 	if (fs[best] != NULL) {
 		pw_log_info("loading best rate:%u %s", infos[best].samplerate, filenames[best]);
-		samples = read_samples_from_sf(fs[best], infos[best], gain, delay,
-			offset, length, channel, rate, n_samples);
+		samples = read_samples_from_sf(fs[best], infos[best], gain,
+				(int) (delay_sec * infos[best].samplerate), offset, length,
+				channel, rate, n_samples);
 	} else {
 		char buf[PATH_MAX];
 		pw_log_error("Can't open any sample file (CWD %s):",
@@ -756,11 +757,12 @@ static float *read_closest(char **filenames, float gain, int delay, int offset,
 #endif
 }
 
-static float *create_hilbert(const char *filename, float gain, int delay, int offset,
+static float *create_hilbert(const char *filename, float gain, int rate, float delay_sec, int offset,
 		int length, int *n_samples)
 {
 	float *samples, v;
 	int i, n, h;
+	int delay = (int) (delay_sec * rate);
 
 	if (length <= 0)
 		length = 1024;
@@ -786,10 +788,11 @@ static float *create_hilbert(const char *filename, float gain, int delay, int of
 	return samples;
 }
 
-static float *create_dirac(const char *filename, float gain, int delay, int offset,
+static float *create_dirac(const char *filename, float gain, int rate, float delay_sec, int offset,
 		int length, int *n_samples)
 {
 	float *samples;
+	int delay = (int) (delay_sec * rate);
 	int n;
 
 	n = delay + 1;
@@ -893,9 +896,8 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	char key[256], v[256];
 	char *filenames[MAX_RATES] = { 0 };
 	int blocksize = 0, tailsize = 0;
-	int delay = 0;
 	int resample_quality = RESAMPLE_DEFAULT_QUALITY;
-	float gain = 1.0f;
+	float gain = 1.0f, delay = 0.0f;
 	unsigned long rate;
 
 	errno = EINVAL;
@@ -929,7 +931,10 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 			}
 		}
 		else if (spa_streq(key, "delay")) {
-			if (spa_json_parse_int(val, len, &delay) <= 0) {
+			int delay_i;
+			if (spa_json_parse_int(val, len, &delay_i) > 0) {
+				delay = delay_i / (float)SampleRate;
+			} else if (spa_json_parse_float(val, len, &delay) <= 0) {
 				pw_log_error("convolver:delay requires a number");
 				return NULL;
 			}
@@ -983,16 +988,16 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 		return NULL;
 	}
 
-	if (delay < 0)
-		delay = 0;
+	if (delay < 0.0f)
+		delay = 0.0f;
 	if (offset < 0)
 		offset = 0;
 
 	if (spa_streq(filenames[0], "/hilbert")) {
-		samples = create_hilbert(filenames[0], gain, delay, offset,
+		samples = create_hilbert(filenames[0], gain, SampleRate, delay, offset,
 				length, &n_samples);
 	} else if (spa_streq(filenames[0], "/dirac")) {
-		samples = create_dirac(filenames[0], gain, delay, offset,
+		samples = create_dirac(filenames[0], gain, SampleRate, delay, offset,
 				length, &n_samples);
 	} else {
 		rate = SampleRate;
@@ -1017,8 +1022,8 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	if (tailsize <= 0)
 		tailsize = SPA_CLAMP(4096, blocksize, 32768);
 
-	pw_log_info("using n_samples:%u %d:%d blocksize", n_samples,
-			blocksize, tailsize);
+	pw_log_info("using n_samples:%u %d:%d blocksize delay:%f", n_samples,
+			blocksize, tailsize, delay);
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)

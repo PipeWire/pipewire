@@ -350,7 +350,9 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *               computed automatically from the number of samples in the file.
  * - `tailsize` specifies the size of the tail blocks to use in the FFT.
  * - `gain`     the overall gain to apply to the IR file.
- * - `delay`    The extra delay (in samples) to add to the IR.
+ * - `delay`    The extra delay to add to the IR. A float number will be interpreted as seconds,
+ *              and integer as samples. Using the delay in seconds is independent of the graph
+ *              and IR rate and is recommended.
  * - `filename` The IR to load or create. Possible values are:
  *     - `/hilbert` creates a [hilbert function](https://en.wikipedia.org/wiki/Hilbert_transform)
  *                that can be used to phase shift the signal by +/-90 degrees. The

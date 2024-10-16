@@ -1891,7 +1891,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 						}
 					}
 
-					if (!found) {
+					if (!found && !rfcomm->hfp_hf_clcc) {
 						spa_log_info(backend->log, "Incoming call");
 						if (hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, CALL_STATE_INCOMING, NULL) == NULL)
 							spa_log_warn(backend->log, "failed to create incoming call");
@@ -1908,7 +1908,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 						}
 					}
 
-					if (!found) {
+					if (!found && !rfcomm->hfp_hf_clcc) {
 						spa_log_info(backend->log, "Dialing call");
 						if (hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, CALL_STATE_DIALING, NULL) == NULL)
 							spa_log_warn(backend->log, "failed to create dialing call");
@@ -2064,7 +2064,12 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 		}
 
 		if (!found) {
-			spa_log_warn(backend->log, "unknown call index: %u", idx);
+			spa_log_info(backend->log, "New call, initial state: %u", status);
+			call = hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, status, strlen(number) ? number : NULL);
+			if (call == NULL)
+				spa_log_warn(backend->log, "failed to create call");
+			else if (call->id != idx)
+				spa_log_warn(backend->log, "wrong call index: %d, expected: %d", call->id, idx);
 		}
 	} else if (spa_strstartswith(token, "OK")) {
 		switch(rfcomm->hf_state) {

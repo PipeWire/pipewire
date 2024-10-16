@@ -1073,11 +1073,13 @@ static void convolver_deactivate(void * Instance)
 static void convolve_run(void * Instance, unsigned long SampleCount)
 {
 	struct convolver_impl *impl = Instance;
-	convolver_run(impl->conv, impl->port[1], impl->port[0], SampleCount);
+	if (impl->port[1] != NULL && impl->port[0] != NULL)
+		convolver_run(impl->conv, impl->port[1], impl->port[0], SampleCount);
 }
 
 static const struct fc_descriptor convolve_desc = {
 	.name = "convolver",
+	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
 	.n_ports = 2,
 	.ports = convolve_ports,

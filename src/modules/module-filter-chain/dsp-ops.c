@@ -36,6 +36,7 @@ static struct dsp_info dsp_table[] =
 		.funcs.fft_cmul = dsp_fft_cmul_c,
 		.funcs.fft_cmuladd = dsp_fft_cmuladd_c,
 		.funcs.biquadn_run = dsp_biquadn_run_sse,
+		.funcs.delay = dsp_delay_sse,
 	},
 #endif
 #if defined (HAVE_SSE)
@@ -53,6 +54,7 @@ static struct dsp_info dsp_table[] =
 		.funcs.fft_cmul = dsp_fft_cmul_c,
 		.funcs.fft_cmuladd = dsp_fft_cmuladd_c,
 		.funcs.biquadn_run = dsp_biquadn_run_sse,
+		.funcs.delay = dsp_delay_sse,
 	},
 #endif
 	{ 0,
@@ -69,6 +71,7 @@ static struct dsp_info dsp_table[] =
 		.funcs.fft_cmul = dsp_fft_cmul_c,
 		.funcs.fft_cmuladd = dsp_fft_cmuladd_c,
 		.funcs.biquadn_run = dsp_biquadn_run_c,
+		.funcs.delay = dsp_delay_c,
 	},
 };
 

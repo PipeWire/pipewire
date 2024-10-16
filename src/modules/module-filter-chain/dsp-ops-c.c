@@ -188,6 +188,27 @@ void dsp_linear_c(struct dsp_ops *ops, float * dst,
 	}
 }
 
+
+void dsp_delay_c(struct dsp_ops *ops, float *buffer, uint32_t *pos, uint32_t n_buffer,
+		uint32_t delay, float *dst, const float *src, uint32_t n_samples)
+{
+	if (delay == 0) {
+		dsp_copy_c(ops, dst, src, n_samples);
+	} else {
+		uint32_t w, o, i;
+
+		w = *pos;
+		o = n_buffer - delay;
+
+		for (i = 0; i < n_samples; i++) {
+			buffer[w] = buffer[w + n_buffer] = src[i];
+			dst[i] = buffer[w + o];
+			w = w + 1 > n_buffer ? 0 : w + 1;
+		}
+		*pos = w;
+	}
+}
+
 void *dsp_fft_new_c(struct dsp_ops *ops, int32_t size, bool real)
 {
 	return pffft_new_setup(size, real ? PFFFT_REAL : PFFFT_COMPLEX);

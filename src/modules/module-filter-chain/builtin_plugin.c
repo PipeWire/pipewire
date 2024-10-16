@@ -1150,10 +1150,10 @@ static void *delay_instantiate(const struct fc_descriptor * Descriptor,
 		return NULL;
 
 	impl->rate = SampleRate;
-	impl->buffer_samples = (uint32_t)(max_delay * impl->rate);
+	impl->buffer_samples = SPA_ROUND_UP_N((uint32_t)(max_delay * impl->rate), 64);
 	pw_log_info("max-delay:%f seconds rate:%lu samples:%d", max_delay, impl->rate, impl->buffer_samples);
 
-	impl->buffer = calloc(impl->buffer_samples, sizeof(float));
+	impl->buffer = calloc(impl->buffer_samples * 2 + 64, sizeof(float));
 	if (impl->buffer == NULL) {
 		delay_cleanup(impl);
 		return NULL;
@@ -1175,27 +1175,13 @@ static void delay_run(void * Instance, unsigned long SampleCount)
 	struct delay_impl *impl = Instance;
 	float *in = impl->port[1], *out = impl->port[0];
 	float delay = impl->port[2][0];
-	unsigned long n;
-	uint32_t r, w;
 
 	if (delay != impl->delay) {
 		impl->delay_samples = SPA_CLAMP((uint32_t)(delay * impl->rate), 0u, impl->buffer_samples-1);
 		impl->delay = delay;
 	}
-	r = impl->ptr;
-	w = impl->ptr + impl->delay_samples;
-	if (w >= impl->buffer_samples)
-		w -= impl->buffer_samples;
-
-	for (n = 0; n < SampleCount; n++) {
-		impl->buffer[w] = in[n];
-		out[n] = impl->buffer[r];
-		if (++r >= impl->buffer_samples)
-			r = 0;
-		if (++w >= impl->buffer_samples)
-			w = 0;
-	}
-	impl->ptr = r;
+	dsp_ops_delay(dsp_ops, impl->buffer, &impl->ptr, impl->buffer_samples,
+			impl->delay_samples, out, in, SampleCount);
 }
 
 static struct fc_port delay_ports[] = {

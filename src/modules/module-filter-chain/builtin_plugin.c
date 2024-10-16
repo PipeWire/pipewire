@@ -287,7 +287,8 @@ static void bq_raw_update(struct builtin *impl, float b0, float b1, float b2,
 	bq->b2 = impl->b2 * a0;
 	bq->a1 = impl->a1 * a0;
 	bq->a2 = impl->a2 * a0;
-	bq->x1 = bq->x2 = bq->y1 = bq->y2 = 0.0;
+	bq->x1 = bq->x2 = 0.0f;
+	bq->type = BQ_RAW;
 }
 
 /*
@@ -1869,8 +1870,9 @@ static void *param_eq_instantiate(const struct fc_descriptor * Descriptor,
 	struct spa_json it[3];
 	const char *val;
 	char key[256], filename[PATH_MAX];
-	int i, len, res;
+	int len, res;
 	struct param_eq_impl *impl;
+	uint32_t i, n_bq = 0;
 
 	if (config == NULL) {
 		pw_log_error("param_eq: requires a config section");
@@ -1888,6 +1890,8 @@ static void *param_eq_instantiate(const struct fc_descriptor * Descriptor,
 		return NULL;
 
 	impl->rate = SampleRate;
+	for (i = 0; i < SPA_N_ELEMENTS(impl->bq); i++)
+		biquad_set(&impl->bq[i], BQ_NONE, 0.0f, 0.0f, 0.0f);
 
 	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
 		int32_t idx = 0;
@@ -1901,12 +1905,13 @@ static void *param_eq_instantiate(const struct fc_descriptor * Descriptor,
 			if (spa_atoi32(key+8, &idx, 0))
 				bq = &impl->bq[(SPA_CLAMP(idx, 1, 8) - 1) * PARAM_EQ_MAX];
 
-			res = load_eq_bands(filename, impl->rate, bq, PARAM_EQ_MAX, &impl->n_bq);
+			res = load_eq_bands(filename, impl->rate, bq, PARAM_EQ_MAX, &n_bq);
 			if (res < 0) {
 				pw_log_error("param_eq: failed to parse configuration from '%s'", filename);
 				goto error;
 			}
-			pw_log_info("loaded %d biquads for channel %d", impl->n_bq, idx);
+			pw_log_info("loaded %d biquads for channel %d", n_bq, idx);
+			impl->n_bq = SPA_MAX(impl->n_bq, n_bq);
 		}
 		else if (spa_strstartswith(key, "filters")) {
 			if (!spa_json_is_array(val, len)) {
@@ -1918,12 +1923,13 @@ static void *param_eq_instantiate(const struct fc_descriptor * Descriptor,
 			if (spa_atoi32(key+7, &idx, 0))
 				bq = &impl->bq[(SPA_CLAMP(idx, 1, 8) - 1) * PARAM_EQ_MAX];
 
-			res = parse_filters(&it[1], impl->rate, bq, PARAM_EQ_MAX, &impl->n_bq);
+			res = parse_filters(&it[1], impl->rate, bq, PARAM_EQ_MAX, &n_bq);
 			if (res < 0) {
 				pw_log_error("param_eq: failed to parse configuration");
 				goto error;
 			}
-			pw_log_info("parsed %d biquads for channel %d", impl->n_bq, idx);
+			pw_log_info("parsed %d biquads for channel %d", n_bq, idx);
+			impl->n_bq = SPA_MAX(impl->n_bq, n_bq);
 		} else {
 			pw_log_warn("param_eq: ignoring config key: '%s'", key);
 		}

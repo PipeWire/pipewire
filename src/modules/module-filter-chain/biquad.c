@@ -326,10 +326,9 @@ void biquad_set(struct biquad *bq, enum biquad_type type, double freq, double Q,
 		double gain)
 {
 	/* Clear history values. */
+	bq->type = type;
 	bq->x1 = 0;
 	bq->x2 = 0;
-	bq->y1 = 0;
-	bq->y2 = 0;
 
 	switch (type) {
 	case BQ_LOWPASS:

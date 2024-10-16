@@ -115,6 +115,11 @@ void dsp_biquad_run_c(struct dsp_ops *ops, struct biquad *bq,
 	float b0, b1, b2, a1, a2;
 	uint32_t i;
 
+	if (bq->type == BQ_NONE) {
+		dsp_copy_c(ops, out, in, n_samples);
+		return;
+	}
+
 	x1 = bq->x1;
 	x2 = bq->x2;
 	b0 = bq->b0;

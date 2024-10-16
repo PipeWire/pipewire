@@ -1929,8 +1929,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 				if (value == 0) {
 					struct spa_bt_telephony_call *call, *tcall;
 					spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
-						if (call->state == CALL_STATE_DIALING || call->state == CALL_STATE_ALERTING ||
-						    call->state == CALL_STATE_INCOMING ||call->state == CALL_STATE_ACTIVE) {
+						if (call->state == CALL_STATE_ACTIVE) {
 							call->state = CALL_STATE_DISCONNECTED;
 							telephony_call_notify_updated_props(call);
 							telephony_call_destroy(call);

@@ -30,11 +30,19 @@ struct spa_bt_telephony {
 
 };
 
+struct spa_bt_telephony_ag_transport {
+	int8_t codec;
+	enum spa_bt_transport_state state;
+};
+
 struct spa_bt_telephony_ag {
 	struct spa_bt_telephony *telephony;
 	struct spa_list call_list;
 
 	int id;
+
+	/* D-Bus properties */
+	struct spa_bt_telephony_ag_transport transport;
 };
 
 struct spa_bt_telephony_call {
@@ -90,6 +98,8 @@ void telephony_ag_add_listener(struct spa_bt_telephony_ag *ag,
 			       struct spa_hook *listener,
 			       const struct spa_bt_telephony_ag_events *events,
 			       void *data);
+
+void telephony_ag_transport_notify_updated_props(struct spa_bt_telephony_ag *ag);
 
 /* register/unregister AudioGateway object on the bus */
 int telephony_ag_register(struct spa_bt_telephony_ag *ag);

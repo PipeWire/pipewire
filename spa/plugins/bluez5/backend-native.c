@@ -212,14 +212,25 @@ static void transport_destroy(void *data)
 	rfcomm->transport = NULL;
 }
 
+static void transport_state_changed (void *data, enum spa_bt_transport_state old,
+			enum spa_bt_transport_state state)
+{
+	struct rfcomm *rfcomm = data;
+	if (rfcomm->telephony_ag) {
+		rfcomm->telephony_ag->transport.state = state;
+		telephony_ag_transport_notify_updated_props(rfcomm->telephony_ag);
+	}
+}
+
 static const struct spa_bt_transport_events transport_events = {
 	SPA_VERSION_BT_TRANSPORT_EVENTS,
 	.destroy = transport_destroy,
+	.state_changed = transport_state_changed,
 };
 
 static const struct spa_bt_transport_implementation sco_transport_impl;
 
-static int rfcomm_new_transport(struct rfcomm *rfcomm)
+static int rfcomm_new_transport(struct rfcomm *rfcomm, int codec)
 {
 	struct impl *backend = rfcomm->backend;
 	struct spa_bt_transport *t = NULL;
@@ -248,7 +259,7 @@ static int rfcomm_new_transport(struct rfcomm *rfcomm)
 	t->backend = &backend->this;
 	t->n_channels = 1;
 	t->channels[0] = SPA_AUDIO_CHANNEL_MONO;
-	t->codec = HFP_AUDIO_CODEC_CVSD;
+	t->codec = codec;
 
 	td = t->user_data;
 	td->rfcomm = rfcomm;
@@ -270,6 +281,12 @@ static int rfcomm_new_transport(struct rfcomm *rfcomm)
 	}
 
 	spa_bt_transport_add_listener(t, &rfcomm->transport_listener, &transport_events, rfcomm);
+
+	if (rfcomm->telephony_ag) {
+		rfcomm->telephony_ag->transport.codec = codec;
+		rfcomm->telephony_ag->transport.state = SPA_BT_TRANSPORT_STATE_IDLE;
+		telephony_ag_transport_notify_updated_props(rfcomm->telephony_ag);
+	}
 
 	rfcomm->transport = t;
 	return 0;
@@ -939,10 +956,9 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 				rfcomm_send_reply(rfcomm, "+BCS: 2");
 			codec_switch_start_timer(rfcomm, HFP_CODEC_SWITCH_INITIAL_TIMEOUT_MSEC);
 		} else {
-			if (rfcomm_new_transport(rfcomm) < 0) {
+			if (rfcomm_new_transport(rfcomm, HFP_AUDIO_CODEC_CVSD) < 0) {
 				// TODO: We should manage the missing transport
 			} else {
-				rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
 				spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 				rfcomm_emit_volume_changed(rfcomm, -1, SPA_BT_VOLUME_INVALID);
 			}
@@ -981,14 +997,13 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		spa_log_debug(backend->log, "RFCOMM selected_codec = %i", selected_codec);
 
 		/* Recreate transport, since previous connection may now be invalid */
-		if (rfcomm_new_transport(rfcomm) < 0) {
+		if (rfcomm_new_transport(rfcomm, selected_codec) < 0) {
 			// TODO: We should manage the missing transport
 			rfcomm_send_error(rfcomm, CMEE_AG_FAILURE);
 			if (was_switching_codec)
 				spa_bt_device_emit_codec_switched(rfcomm->device, -ENOMEM);
 			return true;
 		}
-		rfcomm->transport->codec = selected_codec;
 		spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 		rfcomm_emit_volume_changed(rfcomm, -1, SPA_BT_VOLUME_INVALID);
 
@@ -1745,10 +1760,9 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			rfcomm->hf_state = hfp_hf_bcs;
 
 			if (!rfcomm->transport || (rfcomm->transport->codec != selected_codec) ) {
-				if (rfcomm_new_transport(rfcomm) < 0) {
+				if (rfcomm_new_transport(rfcomm, selected_codec) < 0) {
 					// TODO: We should manage the missing transport
 				} else {
-					rfcomm->transport->codec = selected_codec;
 					spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 				}
 			}
@@ -2116,10 +2130,9 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			rfcomm->slc_configured = true;
 
 			if (!rfcomm->codec_negotiation_supported) {
-				if (rfcomm_new_transport(rfcomm) < 0) {
+				if (rfcomm_new_transport(rfcomm, HFP_AUDIO_CODEC_CVSD) < 0) {
 					// TODO: We should manage the missing transport
 				} else {
-					rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
 					spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 				}
 			}
@@ -2127,6 +2140,10 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			rfcomm->telephony_ag = telephony_ag_new(backend->telephony, sizeof(struct spa_hook));
 			telephony_ag_add_listener(rfcomm->telephony_ag, telephony_ag_get_user_data(rfcomm->telephony_ag),
 						  &telephony_ag_events, rfcomm);
+			if (rfcomm->transport) {
+				rfcomm->telephony_ag->transport.codec = rfcomm->transport->codec;
+				rfcomm->telephony_ag->transport.state = rfcomm->transport->state;
+			}
 			telephony_ag_register(rfcomm->telephony_ag);
 
 			/* Report volume on SLC establishment */
@@ -2909,8 +2926,7 @@ static void codec_switch_timer_event(struct spa_source *source)
 		/* Failure, try falling back to CVSD. */
 		rfcomm->hfp_ag_initial_codec_setup = HFP_AG_INITIAL_CODEC_SETUP_NONE;
 		if (rfcomm->transport == NULL) {
-			if (rfcomm_new_transport(rfcomm) == 0) {
-				rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
+			if (rfcomm_new_transport(rfcomm, HFP_AUDIO_CODEC_CVSD) == 0) {
 				spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 			}
 		}
@@ -3085,10 +3101,9 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	spa_list_append(&backend->rfcomm_list, &rfcomm->link);
 
 	if (profile == SPA_BT_PROFILE_HSP_HS || profile == SPA_BT_PROFILE_HSP_AG) {
-		if (rfcomm_new_transport(rfcomm) < 0)
+		if (rfcomm_new_transport(rfcomm, HFP_AUDIO_CODEC_CVSD) < 0)
 			goto fail_need_memory;
 
-		rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
 		rfcomm->has_volume = rfcomm_volume_enabled(rfcomm);
 
 		if (profile == SPA_BT_PROFILE_HSP_AG) {

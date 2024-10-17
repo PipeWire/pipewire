@@ -1181,6 +1181,9 @@ static void delay_run(void * Instance, unsigned long SampleCount)
 	float *in = impl->port[1], *out = impl->port[0];
 	float delay = impl->port[2][0];
 
+	if (in == NULL || out == NULL)
+		return;
+
 	if (delay != impl->delay) {
 		impl->delay_samples = SPA_CLAMP((uint32_t)(delay * impl->rate), 0u, impl->buffer_samples-1);
 		impl->delay = delay;
@@ -1207,6 +1210,7 @@ static struct fc_port delay_ports[] = {
 
 static const struct fc_descriptor delay_desc = {
 	.name = "delay",
+	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
 	.n_ports = 3,
 	.ports = delay_ports,

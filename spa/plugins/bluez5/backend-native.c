@@ -2114,6 +2114,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 		case hfp_hf_ccwa:
 			rfcomm->hf_state = hfp_hf_slc1;
 			rfcomm->slc_configured = true;
+
 			if (!rfcomm->codec_negotiation_supported) {
 				if (rfcomm_new_transport(rfcomm) < 0) {
 					// TODO: We should manage the missing transport
@@ -2122,15 +2123,14 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 					spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 				}
 			}
-			/* Report volume on SLC establishment */
-			if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
-				rfcomm->hf_state = hfp_hf_vgs;
 
 			rfcomm->telephony_ag = telephony_ag_new(backend->telephony, sizeof(struct spa_hook));
 			telephony_ag_add_listener(rfcomm->telephony_ag, telephony_ag_get_user_data(rfcomm->telephony_ag),
 						  &telephony_ag_events, rfcomm);
 			telephony_ag_register(rfcomm->telephony_ag);
-			break;
+
+			/* Report volume on SLC establishment */
+			SPA_FALLTHROUGH;
 		case hfp_hf_slc2:
 			if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
 				rfcomm->hf_state = hfp_hf_vgs;

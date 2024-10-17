@@ -228,6 +228,7 @@ static void dbus_iter_append_call_properties(DBusMessageIter *i, struct spa_bt_t
 #define PW_TELEPHONY_ERROR_NOT_SUPPORTED "org.freedesktop.PipeWire.Telephony.Error.NotSupported"
 #define PW_TELEPHONY_ERROR_INVALID_FORMAT "org.freedesktop.PipeWire.Telephony.Error.InvalidFormat"
 #define PW_TELEPHONY_ERROR_INVALID_STATE "org.freedesktop.PipeWire.Telephony.Error.InvalidState"
+#define PW_TELEPHONY_ERROR_IN_PROGRESS "org.freedesktop.PipeWire.Telephony.Error.InProgress"
 
 static const char *telephony_error_to_dbus (enum spa_bt_telephony_error err)
 {
@@ -240,6 +241,8 @@ static const char *telephony_error_to_dbus (enum spa_bt_telephony_error err)
 		return PW_TELEPHONY_ERROR_INVALID_FORMAT;
 	case BT_TELEPHONY_ERROR_INVALID_STATE:
 		return PW_TELEPHONY_ERROR_INVALID_STATE;
+	case BT_TELEPHONY_ERROR_IN_PROGRESS:
+		return PW_TELEPHONY_ERROR_IN_PROGRESS;
 	default:
 		return "";
 	}
@@ -256,6 +259,8 @@ static const char *telephony_error_to_description (enum spa_bt_telephony_error e
 		return "Invalid phone number or tones";
 	case BT_TELEPHONY_ERROR_INVALID_STATE:
 		return "The current state does not allow this method call";
+	case BT_TELEPHONY_ERROR_IN_PROGRESS:
+		return "Command already in progress";
 	default:
 		return "";
 	}

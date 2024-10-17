@@ -103,7 +103,6 @@
 	"  <method name='HangupAll'>"						\
 	"  </method>"								\
 	"  <method name='CreateMultiparty'>"					\
-	"   <arg name='calls' direction='out' type='a{o}'/>"			\
 	"  </method>"								\
 	"  <method name='SendTones'>"						\
 	"   <arg name='tones' direction='in' type='s'/>"			\
@@ -639,29 +638,11 @@ static DBusMessage *ag_hangup_all(struct agimpl *agimpl, DBusMessage *m)
 
 static DBusMessage *ag_create_multiparty(struct agimpl *agimpl, DBusMessage *m)
 {
-	struct callimpl *callimpl;
-	spa_autoptr(DBusMessage) r = NULL;
-	DBusMessageIter i, oi;
 	enum spa_bt_telephony_error err = BT_TELEPHONY_ERROR_FAILED;
 
-	if (!ag_emit_create_multiparty(agimpl, &err) || err != BT_TELEPHONY_ERROR_NONE)
-		goto failed;
+	if (ag_emit_create_multiparty(agimpl, &err) && err == BT_TELEPHONY_ERROR_NONE)
+		return dbus_message_new_method_return(m);
 
-	if ((r = dbus_message_new_method_return(m)) == NULL)
-		return NULL;
-
-	dbus_message_iter_init_append(r, &i);
-	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY, "{o}", &oi);
-
-	spa_list_for_each (callimpl, &agimpl->this.call_list, this.link) {
-		if (callimpl->this.multiparty)
-			dbus_message_iter_append_basic(&oi, DBUS_TYPE_OBJECT_PATH,
-				&callimpl->path);
-	}
-	dbus_message_iter_close_container(&i, &oi);
-	return spa_steal_ptr(r);
-
-failed:
 	return dbus_message_new_error(m, telephony_error_to_dbus (err),
 		telephony_error_to_description (err));
 }

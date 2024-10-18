@@ -123,3 +123,93 @@ void dsp_sum_avx(struct dsp_ops *ops, float *r, const float *a, const float *b, 
 		_mm_store_ss(&r[n], in[0]);
 	}
 }
+
+inline static __m256 _mm256_mul_pz(__m256 ab, __m256 cd)
+{
+	__m256 aa, bb, dc, x0, x1;
+	aa = _mm256_moveldup_ps(ab);
+	bb = _mm256_movehdup_ps(ab);
+	x0 = _mm256_mul_ps(aa, cd);
+	dc = _mm256_shuffle_ps(cd, cd, _MM_SHUFFLE(2,3,0,1));
+	x1 = _mm256_mul_ps(bb, dc);
+	return _mm256_addsub_ps(x0, x1);
+}
+
+void dsp_fft_cmul_avx(struct dsp_ops *ops, void *fft,
+	float * SPA_RESTRICT dst, const float * SPA_RESTRICT a,
+	const float * SPA_RESTRICT b, uint32_t len, const float scale)
+{
+#ifdef HAVE_FFTW
+	__m256 s = _mm256_set1_ps(scale);
+	__m256 aa[2], bb[2], dd[2];
+	uint32_t i, unrolled;
+
+	if (SPA_IS_ALIGNED(a, 32) &&
+	    SPA_IS_ALIGNED(b, 32) &&
+	    SPA_IS_ALIGNED(dst, 32))
+		unrolled = len & ~7;
+	else
+		unrolled = 0;
+
+	for (i = 0; i < unrolled; i+=8) {
+		aa[0] = _mm256_load_ps(&a[2*i]);	/* ar0 ai0 ar1 ai1 */
+		aa[1] = _mm256_load_ps(&a[2*i+8]);	/* ar1 ai1 ar2 ai2 */
+		bb[0] = _mm256_load_ps(&b[2*i]);	/* br0 bi0 br1 bi1 */
+		bb[1] = _mm256_load_ps(&b[2*i+8]);	/* br2 bi2 br3 bi3 */
+		dd[0] = _mm256_mul_pz(aa[0], bb[0]);
+		dd[1] = _mm256_mul_pz(aa[1], bb[1]);
+		dd[0] = _mm256_mul_ps(dd[0], s);
+		dd[1] = _mm256_mul_ps(dd[1], s);
+		_mm256_store_ps(&dst[2*i], dd[0]);
+		_mm256_store_ps(&dst[2*i+8], dd[1]);
+	}
+	for (; i < len; i++) {
+		dst[2*i  ] = (a[2*i] * b[2*i  ] - a[2*i+1] * b[2*i+1]) * scale;
+		dst[2*i+1] = (a[2*i] * b[2*i+1] + a[2*i+1] * b[2*i  ]) * scale;
+	}
+#else
+	pffft_zconvolve(fft, a, b, dst, scale);
+#endif
+}
+
+void dsp_fft_cmuladd_avx(struct dsp_ops *ops, void *fft,
+	float * SPA_RESTRICT dst, const float * SPA_RESTRICT src,
+	const float * SPA_RESTRICT a, const float * SPA_RESTRICT b,
+	uint32_t len, const float scale)
+{
+#ifdef HAVE_FFTW
+	__m256 s = _mm256_set1_ps(scale);
+	__m256 aa[2], bb[2], dd[2], t[1];
+	uint32_t i, unrolled;
+
+	if (SPA_IS_ALIGNED(a, 32) &&
+	    SPA_IS_ALIGNED(b, 32) &&
+	    SPA_IS_ALIGNED(dst, 32))
+		unrolled = len & ~7;
+	else
+		unrolled = 0;
+
+	for (i = 0; i < unrolled; i+=8) {
+		aa[0] = _mm256_load_ps(&a[2*i]);	/* ar0 ai0 ar1 ai1 */
+		aa[1] = _mm256_load_ps(&a[2*i+8]);	/* ar1 ai1 ar2 ai2 */
+		bb[0] = _mm256_load_ps(&b[2*i]);	/* br0 bi0 br1 bi1 */
+		bb[1] = _mm256_load_ps(&b[2*i+8]);	/* br2 bi2 br3 bi3 */
+		dd[0] = _mm256_mul_pz(aa[0], bb[0]);
+		dd[1] = _mm256_mul_pz(aa[1], bb[1]);
+		dd[0] = _mm256_mul_ps(dd[0], s);
+		dd[1] = _mm256_mul_ps(dd[1], s);
+		t[0] = _mm256_load_ps(&dst[2*i]);
+		t[1] = _mm256_load_ps(&dst[2*i+8]);
+		t[0] = _mm256_add_ps(t[0], dd[0]);
+		t[1] = _mm256_add_ps(t[1], dd[1]);
+		_mm256_store_ps(&dst[2*i], t[0]);
+		_mm256_store_ps(&dst[2*i+8], t[1]);
+	}
+	for (; i < len; i++) {
+		dst[2*i  ] += (a[2*i] * b[2*i  ] - a[2*i+1] * b[2*i+1]) * scale;
+		dst[2*i+1] += (a[2*i] * b[2*i+1] + a[2*i+1] * b[2*i  ]) * scale;
+	}
+#else
+	pffft_zconvolve_accumulate(fft, a, b, src, dst, scale);
+#endif
+}

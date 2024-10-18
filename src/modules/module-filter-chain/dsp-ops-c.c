@@ -6,10 +6,16 @@
 #include <stdio.h>
 #include <math.h>
 #include <float.h>
+#include <errno.h>
 
 #include <spa/utils/defs.h>
 
+#include "config.h"
+#ifdef HAVE_FFTW
+#include <fftw3.h>
+#else
 #include "pffft.h"
+#endif
 #include "dsp-ops.h"
 
 void dsp_clear_c(struct dsp_ops *ops, void * SPA_RESTRICT dst, uint32_t n_samples)
@@ -209,26 +215,75 @@ void dsp_delay_c(struct dsp_ops *ops, float *buffer, uint32_t *pos, uint32_t n_b
 	}
 }
 
+#ifdef HAVE_FFTW
+struct fft_info {
+	fftwf_plan plan_r2c;
+	fftwf_plan plan_c2r;
+};
+#endif
+
 void *dsp_fft_new_c(struct dsp_ops *ops, int32_t size, bool real)
 {
+#ifdef HAVE_FFTW
+	struct fft_info *info = calloc(1, sizeof(struct fft_info));
+	float *rdata;
+	fftwf_complex *cdata;
+
+	if (info == NULL)
+		return NULL;
+
+	rdata = fftwf_alloc_real (size * 2);
+	cdata = fftwf_alloc_complex (size + 1);
+
+	info->plan_r2c = fftwf_plan_dft_r2c_1d(size, rdata, cdata, FFTW_ESTIMATE);
+	info->plan_c2r = fftwf_plan_dft_c2r_1d(size, cdata, rdata, FFTW_ESTIMATE);
+
+	fftwf_free(rdata);
+	fftwf_free(cdata);
+
+	return info;
+#else
 	return pffft_new_setup(size, real ? PFFFT_REAL : PFFFT_COMPLEX);
+#endif
 }
 
 void dsp_fft_free_c(struct dsp_ops *ops, void *fft)
 {
+#ifdef HAVE_FFTW
+	struct fft_info *info = fft;
+	fftwf_destroy_plan(info->plan_r2c);
+	fftwf_destroy_plan(info->plan_c2r);
+	free(info);
+#else
 	pffft_destroy_setup(fft);
+#endif
 }
 void dsp_fft_run_c(struct dsp_ops *ops, void *fft, int direction,
 	const float * SPA_RESTRICT src, float * SPA_RESTRICT dst)
 {
+#ifdef HAVE_FFTW
+	struct fft_info *info = fft;
+	if (direction > 0)
+		fftwf_execute_dft_r2c (info->plan_r2c, (float*)src, (fftwf_complex*)dst);
+	else
+		fftwf_execute_dft_c2r (info->plan_c2r, (fftwf_complex*)src, dst);
+#else
 	pffft_transform(fft, src, dst, NULL, direction < 0 ? PFFFT_BACKWARD : PFFFT_FORWARD);
+#endif
 }
 
 void dsp_fft_cmul_c(struct dsp_ops *ops, void *fft,
 	float * SPA_RESTRICT dst, const float * SPA_RESTRICT a,
 	const float * SPA_RESTRICT b, uint32_t len, const float scale)
 {
+#ifdef HAVE_FFTW
+	for (uint32_t i = 0; i <= len; i++) {
+		dst[2*i  ] = (a[2*i] * b[2*i  ] - a[2*i+1] * b[2*i+1]) * scale;
+		dst[2*i+1] = (a[2*i] * b[2*i+1] + a[2*i+1] * b[2*i  ]) * scale;
+	}
+#else
 	pffft_zconvolve(fft, a, b, dst, scale);
+#endif
 }
 
 void dsp_fft_cmuladd_c(struct dsp_ops *ops, void *fft,
@@ -236,6 +291,13 @@ void dsp_fft_cmuladd_c(struct dsp_ops *ops, void *fft,
 	const float * SPA_RESTRICT a, const float * SPA_RESTRICT b,
 	uint32_t len, const float scale)
 {
+#ifdef HAVE_FFTW
+	for (uint32_t i = 0; i <= len; i++) {
+		dst[2*i  ] += (a[2*i] * b[2*i  ] - a[2*i+1] * b[2*i+1]) * scale;
+		dst[2*i+1] += (a[2*i] * b[2*i+1] + a[2*i+1] * b[2*i  ]) * scale;
+	}
+#else
 	pffft_zconvolve_accumulate(fft, a, b, src, dst, scale);
+#endif
 }
 

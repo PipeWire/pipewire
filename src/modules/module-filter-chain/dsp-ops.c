@@ -25,7 +25,7 @@ static struct dsp_info dsp_table[] =
 	{ SPA_CPU_FLAG_AVX,
 		.funcs.clear = dsp_clear_c,
 		.funcs.copy = dsp_copy_c,
-		.funcs.mix_gain = dsp_mix_gain_sse,
+		.funcs.mix_gain = dsp_mix_gain_avx,
 		.funcs.biquad_run = dsp_biquad_run_sse,
 		.funcs.sum = dsp_sum_avx,
 		.funcs.linear = dsp_linear_c,

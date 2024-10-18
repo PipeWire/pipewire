@@ -150,6 +150,7 @@ MAKE_BIQUADN_RUN_FUNC(sse);
 MAKE_DELAY_FUNC(sse);
 #endif
 #if defined (HAVE_AVX)
+MAKE_MIX_GAIN_FUNC(avx);
 MAKE_SUM_FUNC(avx);
 #endif
 

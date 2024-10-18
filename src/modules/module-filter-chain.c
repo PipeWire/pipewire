@@ -754,6 +754,7 @@ struct port {
 
 	float control_data[MAX_HNDL];
 	float *audio_data[MAX_HNDL];
+	void *audio_mem;
 };
 
 struct node {
@@ -852,6 +853,7 @@ struct impl {
 
 	uint32_t quantum_limit;
 	struct dsp_ops dsp;
+	uint32_t max_align;
 
 	struct spa_list plugin_list;
 	struct spa_list plugin_func_list;
@@ -2361,24 +2363,27 @@ static int port_ensure_data(struct port *port, uint32_t i, uint32_t max_samples)
 	float *data;
 	struct node *node = port->node;
 	const struct fc_descriptor *d = node->desc->desc;
+	struct impl *impl = node->graph->impl;
 
-	if ((data = port->audio_data[i]) == NULL) {
-		data = calloc(max_samples, sizeof(float));
+	if ((data = port->audio_mem) == NULL) {
+		data = calloc(max_samples, sizeof(float) + impl->max_align);
 		if (data == NULL) {
 			pw_log_error("cannot create port data: %m");
 			return -errno;
 		}
-		port->audio_data[i] = data;
+		port->audio_mem = data;
+		port->audio_data[i] = SPA_PTR_ALIGN(data, impl->max_align, void);
 	}
 	pw_log_info("connect output port %s[%d]:%s %p",
 			node->name, i, d->ports[port->p].name, data);
-	d->connect_port(port->node->hndl[i], port->p, data);
+	d->connect_port(port->node->hndl[i], port->p, port->audio_data[i]);
 	return 0;
 }
 
 static void port_free_data(struct port *port, uint32_t i)
 {
-	free(port->audio_data[i]);
+	free(port->audio_mem);
+	port->audio_mem = NULL;
 	port->audio_data[i] = NULL;
 }
 
@@ -3096,6 +3101,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	cpu_iface = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 	dsp_ops_init(&impl->dsp, cpu_iface ? spa_cpu_get_flags(cpu_iface) : 0);
+	impl->max_align = spa_cpu_get_max_align(cpu_iface);
 
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_GROUP, "filter-chain-%u-%u", pid, id);

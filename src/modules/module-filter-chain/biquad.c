@@ -356,6 +356,7 @@ void biquad_set(struct biquad *bq, enum biquad_type type, double freq, double Q,
 		biquad_allpass(bq, freq, Q);
 		break;
 	case BQ_NONE:
+	case BQ_RAW:
 		/* Default is an identity filter. */
 		set_coefficient(bq, 1, 0, 0, 1, 0, 0);
 		break;

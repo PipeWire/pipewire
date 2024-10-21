@@ -86,13 +86,13 @@ struct queue {
 
 #define QUEUE_FLAG_NONE		(0)
 #define QUEUE_FLAG_ACK_FD	(1<<0)
+#define QUEUE_FLAG_IN_TSS	(1<<1)
 	uint32_t flags;
 	struct queue *overflow;
 
 	int ack_fd;
 	struct spa_ratelimit rate_limit;
 	bool destroyed;
-	bool in_tss;
 
 	struct spa_ringbuffer buffer;
 	uint8_t *buffer_data;
@@ -413,9 +413,7 @@ static void loop_queue_destroy(void *data)
 	struct queue *queue = data;
 	struct impl *impl = queue->impl;
 
-	if (!queue->destroyed) {
-		queue->destroyed = true;
-
+	if (SPA_ATOMIC_CAS(queue->destroyed, false, true)) {
 		pthread_mutex_lock(&impl->queue_lock);
 		spa_list_remove(&queue->link);
 		pthread_mutex_unlock(&impl->queue_lock);
@@ -426,7 +424,7 @@ static void loop_queue_destroy(void *data)
 		if (queue->flags & QUEUE_FLAG_ACK_FD)
 			spa_system_close(impl->system, queue->ack_fd);
 	}
-	if (!queue->in_tss)
+	if (!SPA_FLAG_IS_SET(queue->flags, QUEUE_FLAG_IN_TSS))
 		free(queue);
 }
 
@@ -434,8 +432,8 @@ static void loop_queue_destroy_tss(void *data)
 {
 	struct queue *queue = data;
 	if (queue) {
-		queue->in_tss = false;
 		loop_queue_destroy(queue);
+		free(queue);
 	}
 }
 
@@ -447,10 +445,9 @@ static int loop_invoke(void *object, spa_invoke_func_t func, uint32_t seq,
 
 	local_queue = tss_get(impl->queue_tss_id);
 	if (local_queue == NULL) {
-		local_queue = loop_create_queue(impl, QUEUE_FLAG_ACK_FD);
+		local_queue = loop_create_queue(impl, QUEUE_FLAG_ACK_FD | QUEUE_FLAG_IN_TSS);
 		if (local_queue == NULL)
 			return -errno;
-		local_queue->in_tss = true;
 		tss_set(impl->queue_tss_id, local_queue);
 	}
 	return loop_queue_invoke(local_queue, func, seq, data, size, block, user_data);

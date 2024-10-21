@@ -182,7 +182,7 @@ void dsp_fft_cmuladd_avx(struct dsp_ops *ops, void *fft,
 {
 #ifdef HAVE_FFTW
 	__m256 s = _mm256_set1_ps(scale);
-	__m256 aa[2], bb[2], dd[2], t[1];
+	__m256 aa[2], bb[2], dd[2], t[2];
 	uint32_t i, unrolled;
 
 	if (SPA_IS_ALIGNED(a, 32) &&

@@ -1,3 +1,40 @@
+# PipeWire 1.0.9 (2024-10-22)
+
+This is a bugfix release that is API and ABI compatible with previous
+1.0.x releases.
+
+## Highlights
+  - Fix an fd leak and confusion in the protocol that would cause leaks and
+    wrong memory to be used.
+  - Fix bug where the mixer would not be synced correctly after selecting
+    a port, leaving the audio muted. (#4084)
+  - Backport v4l2 systemd-logind support to avoid races when starting.
+    (#3539 and #3960).
+  - Other small fixed and improvements.
+
+
+## PipeWire
+  - Fix a bug where renegotiation would sometimes fail to deactivate a link.
+  - Fix an fd leaks and confusion in the protocol.
+
+## modules
+  - Fix a use-after-free in the rt module when stopping a thread.
+
+## SPA
+  - Fix bug where the mixer would not be synced correctly after selecting
+    a port, leaving the audio muted. (#4084)
+  - Fix a compilation issue with empty initializers. (#4317)
+  - Backport v4l2 systemd-logind support to avoid races when starting.
+    (#3539 and #3960).
+  - Fix a potential crash when cleaning ALSA nodes.
+
+## JACK
+  - align buffers to the max cpu alignment in order to allow more
+    optimizations.
+
+Older versions:
+
+
 # PipeWire 1.0.8 (2024-09-19)
 
 This is a small bugfix release that is API and ABI compatible with previous
@@ -41,9 +78,6 @@ This is a small bugfix release that is API and ABI compatible with previous
 
 ## ALSA
   - Handle format renegotiation. (#3856)
-
-Older versions:
-
 
 # PipeWire 1.0.7 (2024-05-24)
 

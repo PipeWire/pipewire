@@ -11,6 +11,9 @@
 #include <spa/utils/defs.h>
 
 #include "config.h"
+#ifndef HAVE_FFTW
+#include "pffft.h"
+#endif
 
 #include "dsp-ops.h"
 

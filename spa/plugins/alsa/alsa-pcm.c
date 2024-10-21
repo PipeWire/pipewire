@@ -967,9 +967,27 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 int spa_alsa_clear(struct state *state)
 {
 	int err;
+	struct state *follower;
 
 	spa_list_remove(&state->link);
 	release_card(state->card);
+
+	if (state->driver != NULL) {
+		spa_list_remove(&state->driver_link);
+		state->driver = NULL;
+	}
+	if (state->rt.driver != NULL) {
+		spa_list_remove(&state->rt.driver_link);
+		state->rt.driver = NULL;
+	}
+	spa_list_consume(follower, &state->followers, driver_link) {
+		spa_list_remove(&follower->driver_link);
+		follower->driver = NULL;
+	}
+	spa_list_consume(follower, &state->rt.followers, rt.driver_link) {
+		spa_list_remove(&follower->rt.driver_link);
+		follower->rt.driver = NULL;
+	}
 
 	state->card = NULL;
 	state->card_index = SPA_ID_INVALID;

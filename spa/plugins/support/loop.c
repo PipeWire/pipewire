@@ -72,6 +72,7 @@ struct impl {
 
 	struct spa_source *wakeup;
 
+	int tss_ref;
 	tss_t queue_tss_id;
 	pthread_mutex_t queue_lock;
 	uint32_t count;
@@ -432,6 +433,7 @@ static void loop_queue_destroy_tss(void *data)
 {
 	struct queue *queue = data;
 	if (queue) {
+		SPA_ATOMIC_DEC(queue->impl->tss_ref);
 		loop_queue_destroy(queue);
 		free(queue);
 	}
@@ -448,6 +450,7 @@ static int loop_invoke(void *object, spa_invoke_func_t func, uint32_t seq,
 		local_queue = loop_create_queue(impl, QUEUE_FLAG_ACK_FD | QUEUE_FLAG_IN_TSS);
 		if (local_queue == NULL)
 			return -errno;
+		SPA_ATOMIC_INC(impl->tss_ref);
 		tss_set(impl->queue_tss_id, local_queue);
 	}
 	return loop_queue_invoke(local_queue, func, seq, data, size, block, user_data);
@@ -1101,6 +1104,10 @@ static int impl_clear(struct spa_handle *handle)
 
 	spa_system_close(impl->system, impl->poll_fd);
 	pthread_mutex_destroy(&impl->queue_lock);
+
+	if (SPA_ATOMIC_DEC(impl->tss_ref) != 0)
+		spa_log_warn(impl->log, "%p: loop still has %d queues in TSS",
+				impl, impl->tss_ref);
 	tss_delete(impl->queue_tss_id);
 
 	return 0;
@@ -1197,6 +1204,7 @@ impl_init(const struct spa_handle_factory *factory,
 		spa_log_error(impl->log, "%p: can't create tss: %m", impl);
 		goto error_exit_free_wakeup;
 	}
+	impl->tss_ref = 1;
 
 	spa_log_debug(impl->log, "%p: initialized", impl);
 

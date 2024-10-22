@@ -5,6 +5,8 @@
 #ifndef PIPEWIRE_CONF_H
 #define PIPEWIRE_CONF_H
 
+#include <spa/utils/json-core.h>
+
 #include <pipewire/context.h>
 
 /** \defgroup pw_conf Configuration
@@ -20,6 +22,8 @@ int pw_conf_load_conf_for_context(struct pw_properties *props, struct pw_propert
 int pw_conf_load_conf(const char *prefix, const char *name, struct pw_properties *conf);
 int pw_conf_load_state(const char *prefix, const char *name, struct pw_properties *conf);
 int pw_conf_save_state(const char *prefix, const char *name, const struct pw_properties *conf);
+
+bool pw_conf_find_match(struct spa_json *arr, const struct spa_dict *props, bool condition);
 
 int pw_conf_section_update_props(const struct spa_dict *conf,
 		const char *section, struct pw_properties *props);

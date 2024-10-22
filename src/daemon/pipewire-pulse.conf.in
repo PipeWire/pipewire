@@ -60,11 +60,17 @@ context.exec = [
 #   load-module : loads a module with args and flags
 #      args = "<module-name> <module-args>"
 #      ( flags = [ nofail ] )
+#      ( condition = [ { <key1> = <value1>, ... } ... ] )
+# conditions will check the pulse.properties key/values.
 pulse.cmd = [
-    { cmd = "load-module" args = "module-always-sink" flags = [ ] }
-    { cmd = "load-module" args = "module-device-manager" flags = [ ] }
-    { cmd = "load-module" args = "module-device-restore" flags = [ ] }
-    { cmd = "load-module" args = "module-stream-restore" flags = [ ] }
+    { cmd = "load-module" args = "module-always-sink" flags = [ ]
+        condition = [ { pulse.cmd.always-sink = !false } ] }
+    { cmd = "load-module" args = "module-device-manager" flags = [ ]
+        condition = [ { pulse.cmd.device-manager = !false } ] }
+    { cmd = "load-module" args = "module-device-restore" flags = [ ]
+        condition = [ { pulse.cmd.device-restore = !false } ] }
+    { cmd = "load-module" args = "module-stream-restore" flags = [ ]
+        condition = [ { pulse.cmd.stream-restore = !false } ] }
     #{ cmd = "load-module" args = "module-switch-on-connect" }
     #{ cmd = "load-module" args = "module-gsettings" flags = [ nofail ] }
 ]

@@ -628,7 +628,8 @@ static int load_module(struct pw_context *context, const char *key, const char *
  *  "!null" -> same as !null
  *  !"null" and "!\"null\"" matches anything that is not the string "null"
  */
-static bool find_match(struct spa_json *arr, const struct spa_dict *props, bool condition)
+SPA_EXPORT
+bool pw_conf_find_match(struct spa_json *arr, const struct spa_dict *props, bool condition)
 {
 	struct spa_json it[1];
 	const char *as = arr->cur;
@@ -784,7 +785,7 @@ static int parse_modules(void *user_data, const char *location,
 					break;
 				}
 				spa_json_enter(&it[1], &it[2]);
-				have_match = find_match(&it[2], &context->properties->dict, true);
+				have_match = pw_conf_find_match(&it[2], &context->properties->dict, true);
 			} else {
 				pw_log_warn("unknown module key '%s' in '%.*s'", key,
 						(int)len, str);
@@ -886,7 +887,7 @@ static int parse_objects(void *user_data, const char *location,
 					break;
 				}
 				spa_json_enter(&it[1], &it[2]);
-				have_match = find_match(&it[2], &context->properties->dict, true);
+				have_match = pw_conf_find_match(&it[2], &context->properties->dict, true);
 			} else {
 				pw_log_warn("unknown object key '%s' in '%.*s'", key,
 						(int)len, str);
@@ -1056,7 +1057,7 @@ static int parse_exec(void *user_data, const char *location,
 					goto next;
 				}
 				spa_json_enter(&it[1], &it[2]);
-				have_match = find_match(&it[2], &context->properties->dict, true);
+				have_match = pw_conf_find_match(&it[2], &context->properties->dict, true);
 			} else {
 				pw_log_warn("unknown exec key '%s' in '%.*s'", key,
 						(int)len, str);
@@ -1296,7 +1297,7 @@ int pw_conf_match_rules(const char *str, size_t len, const char *location,
 				}
 
 				spa_json_enter(&it[1], &it[2]);
-				have_match = find_match(&it[2], props, false);
+				have_match = pw_conf_find_match(&it[2], props, false);
 			}
 			else if (spa_streq(key, "actions")) {
 				if (!spa_json_is_object(val, l)) {

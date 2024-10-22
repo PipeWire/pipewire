@@ -68,7 +68,7 @@ static int parse_cmd(void *user_data, const char *location,
 		const char *section, const char *str, size_t len)
 {
 	struct impl *impl = user_data;
-	struct spa_json it[2];
+	struct spa_json it[3];
 	char key[512];
 	int res = 0;
 
@@ -81,24 +81,36 @@ static int parse_cmd(void *user_data, const char *location,
 	while (spa_json_enter_object(&it[0], &it[1]) > 0) {
 		char *cmd = NULL, *args = NULL, *flags = NULL;
 		const char *val;
-		int len;
+		bool have_match = true;
+		int l;
 
-		while ((len = spa_json_object_next(&it[1], key, sizeof(key), &val)) > 0) {
+		while ((l = spa_json_object_next(&it[1], key, sizeof(key), &val)) > 0) {
 			if (spa_streq(key, "cmd")) {
 				cmd = (char*)val;
-				spa_json_parse_stringn(val, len, cmd, len+1);
+				spa_json_parse_stringn(val, l, cmd, l+1);
 			} else if (spa_streq(key, "args")) {
 				args = (char*)val;
-				spa_json_parse_stringn(val, len, args, len+1);
+				spa_json_parse_stringn(val, l, args, l+1);
 			} else if (spa_streq(key, "flags")) {
-				if (spa_json_is_container(val, len))
-					len = spa_json_container_len(&it[1], val, len);
+				if (spa_json_is_container(val, l))
+					l = spa_json_container_len(&it[1], val, l);
 				flags = (char*)val;
-				spa_json_parse_stringn(val, len, flags, len+1);
+				spa_json_parse_stringn(val, l, flags, l+1);
+			} else if (spa_streq(key, "condition")) {
+				if (!spa_json_is_array(val, l)) {
+					pw_log_warn("expected array for condition in '%.*s'",
+							(int)l, str);
+					break;
+				}
+				spa_json_enter(&it[1], &it[2]);
+				have_match = pw_conf_find_match(&it[2], &impl->props->dict, true);
 			} else {
 				pw_log_warn("unknown pulse.cmd key %s", key);
 			}
 		}
+		if (!have_match)
+			continue;
+
 		if (cmd != NULL)
 			res = do_cmd(impl, cmd, args, flags);
 		if (res < 0)

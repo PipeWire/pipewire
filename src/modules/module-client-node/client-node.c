@@ -1505,7 +1505,7 @@ static int port_release_mix(void *data, struct pw_impl_port_mix *mix)
 	if (!pw_map_has_item(&impl->io_map, mix->id))
 		return -EINVAL;
 
-	if (impl->resource && impl->resource->version >= 4)
+	if (impl->resource && impl->resource->version >= 4 && !port->destroyed)
 		pw_client_node_resource_port_set_mix_info(impl->resource,
 					 mix->port.direction, mix->p->port_id,
 					 mix->port.port_id, SPA_ID_INVALID, NULL);

@@ -2132,7 +2132,7 @@ static int client_node_set_param(void *data,
 			const struct spa_pod *param)
 {
 	struct client *c = (struct client *) data;
-	pw_proxy_error((struct pw_proxy*)c->node, -ENOTSUP, "not supported");
+	pw_proxy_error((struct pw_proxy*)c->node, -ENOTSUP, "set_param: not supported");
 	return -ENOTSUP;
 }
 
@@ -2953,7 +2953,7 @@ static int client_node_port_use_buffers(void *data,
 
       done:
 	if (res < 0)
-		pw_proxy_error((struct pw_proxy*)c->node, res, spa_strerror(res));
+		pw_proxy_errorf((struct pw_proxy*)c->node, res, "port_use_buffers: %s", spa_strerror(res));
 	return res;
 }
 
@@ -3018,7 +3018,7 @@ exit_free:
 	pw_memmap_free(old);
 exit:
 	if (res < 0)
-		pw_proxy_error((struct pw_proxy*)c->node, res, spa_strerror(res));
+		pw_proxy_errorf((struct pw_proxy*)c->node, res, "port_set_io: %s", spa_strerror(res));
 	return res;
 }
 
@@ -3151,7 +3151,7 @@ static int client_node_set_activation(void *data,
 
       exit:
 	if (res < 0)
-		pw_proxy_error((struct pw_proxy*)c->node, res, spa_strerror(res));
+		pw_proxy_errorf((struct pw_proxy*)c->node, res, "set_activation: %s", spa_strerror(res));
 	return res;
 }
 
@@ -3192,7 +3192,7 @@ static int client_node_port_set_mix_info(void *data,
 	}
 exit:
 	if (res < 0)
-		pw_proxy_error((struct pw_proxy*)c->node, res, spa_strerror(res));
+		pw_proxy_errorf((struct pw_proxy*)c->node, res, "set_mix_info: %s", spa_strerror(res));
 	return res;
 }
 

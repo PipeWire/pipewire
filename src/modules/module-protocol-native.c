@@ -959,12 +959,6 @@ static int add_socket(struct pw_protocol *protocol, struct server *s, struct soc
 					s, info->name);
 	}
 
-	res = write_socket_address(s);
-	if (res < 0) {
-		pw_log_error("server %p: failed to write socket address: %s", s,
-				spa_strerror(res));
-		goto error_close;
-	}
 	s->activated = activated;
 	s->loop = pw_context_get_main_loop(protocol->context);
 	if (s->loop == NULL) {
@@ -975,6 +969,11 @@ static int add_socket(struct pw_protocol *protocol, struct server *s, struct soc
 	if (s->source == NULL) {
 		res = -errno;
 		goto error_close;
+	}
+	res = write_socket_address(s);
+	if (res < 0) {
+		pw_log_warn("server %p: failed to write socket address: %s", s,
+				spa_strerror(res));
 	}
 	return 0;
 

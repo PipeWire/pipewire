@@ -3455,6 +3455,9 @@ static int transport_update_props(struct spa_bt_transport *transport,
 			if (!check_iter_signature(&it[1], "ao"))
 				goto next;
 
+			spa_list_remove(&transport->bap_transport_linked);
+			spa_list_init(&transport->bap_transport_linked);
+
 			dbus_message_iter_recurse(&it[1], &iter);
 			while (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_INVALID) {
 				const char *transport_path;
@@ -3684,21 +3687,32 @@ static void transport_acquire_reply(DBusPendingCall *pending, void *user_data)
 	transport_sync_volume(transport);
 
 finish:
-	if (ret < 0)
+	if (ret < 0) {
 		spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ERROR);
-	else {
+
+		/* For broadcast, skip handling links. Each link acquire
+		 * is handled separately.
+		 */
+		if ((transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) ||
+			(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE))
+			return;
+	} else {
 		if (transport_create_iso_io(transport) < 0)
 			spa_log_error(monitor->log, "transport %p: transport_create_iso_io failed",
 					transport);
-		/* For broadcast the initiator moves the transport state to SPA_BT_TRANSPORT_STATE_ACTIVE */
+		/* For broadcast, each transport has a different fd, so it needs to be
+		 * acquired independently from others. Each transport moves to
+		 * SPA_BT_TRANSPORT_STATE_ACTIVE after acquire is completed.
+		 */
 		/* TODO: handling multiple BIGs support */
 		if ((transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) ||
 			(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE))	{
 			spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ACTIVE);
-		} else {
-			if (!transport->bap_initiator)
-				spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ACTIVE);
+			return;
 		}
+
+		if (!transport->bap_initiator)
+			spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ACTIVE);
 	}
 
 	/* For LE Audio, multiple transport from the same device may share the same
@@ -3758,6 +3772,13 @@ static int do_transport_acquire(struct spa_bt_transport *transport)
 	spa_autoptr(DBusMessage) m = NULL;
 	struct spa_bt_transport *t_linked;
 
+	if ((transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) ||
+		(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE))
+		/* For Broadcast, all linked transports need to be
+		 * acquired independently, since they have different fds.
+		 */
+		goto acquire;
+
 	spa_list_for_each(t_linked, &transport->bap_transport_linked, bap_transport_linked) {
 		/* If a linked transport has been acquired, it will do all the work */
 		if (t_linked->acquire_call || t_linked->acquired) {
@@ -3768,6 +3789,7 @@ static int do_transport_acquire(struct spa_bt_transport *transport)
 		}
 	}
 
+acquire:
 	if (transport->acquire_call)
 		return -EBUSY;
 
@@ -3862,10 +3884,17 @@ static int do_transport_release(struct spa_bt_transport *transport)
 		transport->iso_io = NULL;
 	}
 
-	/* For LE Audio, multiple transport stream (CIS) can be linked together (CIG).
+	/* For Unicast LE Audio, multiple transport stream (CIS) can be linked together (CIG).
 	 * If they are part of the same device they reuse the same fd, and call to
 	 * release should be done for the last one only.
+	 *
+	 * For Broadcast LE Audio, since linked transports have different fds, they
+	 * should be released independently.
 	 */
+	if ((transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) ||
+		(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE))
+		goto release;
+
 	spa_list_for_each(t_linked, &transport->bap_transport_linked, bap_transport_linked) {
 		if (t_linked->acquire_call || t_linked->acquired) {
 			linked = true;
@@ -3878,6 +3907,7 @@ static int do_transport_release(struct spa_bt_transport *transport)
 		return 0;
 	}
 
+release:
 	if (transport->fd >= 0) {
 		close(transport->fd);
 		transport->fd = -1;

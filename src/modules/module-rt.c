@@ -115,6 +115,17 @@
  * }
  * ]
  *\endcode
+ *
+ * ## Config override
+ *
+ * A `module.rt.args` config section can be added in the override directory
+ * to override the module arguments.
+ *
+ *\code{.unparsed}
+ * module.rt.args = {
+ *      nice.level = 22
+ * }
+ *\endcode
  */
 
 #define NAME "rt"
@@ -1076,6 +1087,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		res = -errno;
 		goto error;
 	}
+	pw_context_conf_update_props(context, "module."NAME".args", props);
 
 	impl->context = context;
 	impl->nice_level = pw_properties_get_int32(props, "nice.level", DEFAULT_NICE_LEVEL);

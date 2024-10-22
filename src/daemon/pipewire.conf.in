@@ -54,14 +54,6 @@ context.properties = {
     #
     #settings.check-quantum      = false
     #settings.check-rate         = false
-
-    # keys checked below to disable module loading
-    module.x11.bell = true
-    # enables autoloading of access module, when disabled an alternative
-    # access module needs to be loaded.
-    module.access = true
-    # enables autoloading of module-jackdbus-detect
-    module.jackdbus-detect = true
 }
 
 context.properties.rules = [
@@ -114,6 +106,7 @@ context.modules = [
     # RTKit if the user doesn't have permission to use regular realtime
     # scheduling. You can also clamp utilisation values to improve scheduling
     # on embedded and heterogeneous systems, e.g. Arm big.LITTLE devices.
+    # use module.rt.args = { ... } to override the arguments.
     { name = libpipewire-module-rt
         args = {
             nice.level    = -11
@@ -124,6 +117,7 @@ context.modules = [
             #uclamp.max = 1024
         }
         flags = [ ifexists nofail ]
+        condition = [ { module.rt = !false } ]
     }
 
     # The native communication protocol.
@@ -137,34 +131,51 @@ context.modules = [
     # The profile module. Allows application to access profiler
     # and performance data. It provides an interface that is used
     # by pw-top and pw-profiler.
-    { name = libpipewire-module-profiler }
+    # use module.profiler.args = { ... } to override the arguments.
+    { name = libpipewire-module-profiler
+        args = {
+            #profile.interval.ms = 0
+        }
+        condition = [ { module.profiler = !false } ]
+    }
 
     # Allows applications to create metadata objects. It creates
     # a factory for Metadata objects.
-    { name = libpipewire-module-metadata }
+    { name = libpipewire-module-metadata
+        condition = [ { module.metadata = !false } ]
+    }
 
     # Creates a factory for making devices that run in the
     # context of the PipeWire server.
-    { name = libpipewire-module-spa-device-factory }
+    { name = libpipewire-module-spa-device-factory
+        condition = [ { module.spa-device-factory = !false } ]
+    }
 
     # Creates a factory for making nodes that run in the
     # context of the PipeWire server.
-    { name = libpipewire-module-spa-node-factory }
+    { name = libpipewire-module-spa-node-factory
+        condition = [ { module.spa-node-factory = !false } ]
+    }
 
     # Allows creating nodes that run in the context of the
     # client. Is used by all clients that want to provide
     # data to PipeWire.
-    { name = libpipewire-module-client-node }
+    { name = libpipewire-module-client-node
+        condition = [ { module.client-node = !false } ]
+    }
 
     # Allows creating devices that run in the context of the
     # client. Is used by the session manager.
-    { name = libpipewire-module-client-device }
+    { name = libpipewire-module-client-device
+        condition = [ { module.client-device = !false } ]
+    }
 
     # The portal module monitors the PID of the portal process
     # and tags connections with the same PID as portal
     # connections.
     { name = libpipewire-module-portal
         flags = [ ifexists nofail ]
+        condition = [ { module.portal = !false } ]
     }
 
     # The access module can perform access checks and block
@@ -178,18 +189,24 @@ context.modules = [
             # for now enabled by default if access.socket is not specified
             #access.legacy = true
         }
-        condition = [ { module.access = true } ]
+        condition = [ { module.access = !false } ]
     }
 
     # Makes a factory for wrapping nodes in an adapter with a
     # converter and resampler.
-    { name = libpipewire-module-adapter }
+    { name = libpipewire-module-adapter
+        condition = [ { module.adapter = !false } ]
+    }
 
     # Makes a factory for creating links between ports.
-    { name = libpipewire-module-link-factory }
+    { name = libpipewire-module-link-factory
+        condition = [ { module.link-factory = !false } ]
+    }
 
     # Provides factories to make session manager objects.
-    { name = libpipewire-module-session-manager }
+    { name = libpipewire-module-session-manager
+        condition = [ { module.session-manager = !false } ]
+    }
 
     # Use libcanberra to play X11 Bell
     { name = libpipewire-module-x11-bell
@@ -200,8 +217,11 @@ context.modules = [
             #x11.xauthority = null
         }
         flags = [ ifexists nofail ]
-        condition = [ { module.x11.bell = true } ]
+        condition = [ { module.x11.bell = !false } ]
     }
+    # The JACK DBus detection module. When jackdbus is started, this
+    # will automatically make PipeWire become a JACK client.
+    # use module.jackdbus-detect.args = { ... } to override the arguments.
     { name = libpipewire-module-jackdbus-detect
         args = {
             #jack.library     = libjack.so.0
@@ -223,7 +243,7 @@ context.modules = [
             }
         }
         flags = [ ifexists nofail ]
-        condition = [ { module.jackdbus-detect = true } ]
+        condition = [ { module.jackdbus-detect = !false } ]
     }
 ]
 
@@ -258,6 +278,7 @@ context.objects = [
             #clock.id       = monotonic # realtime | tai | monotonic-raw | boottime
             #clock.name     = "clock.system.monotonic"
         }
+        condition = [ { factory.dummy-driver = !false } ]
     }
     { factory = spa-node-factory
         args = {
@@ -269,6 +290,7 @@ context.objects = [
             node.freewheel  = true
             #freewheel.wait = 10
         }
+        condition = [ { factory.freewheel-driver = !false } ]
     }
 
     # This creates a new Source node. It will have input ports
@@ -332,7 +354,7 @@ context.exec = [
     # Run the session manager with -h for options.
     #
     @sm_comment@{ path = "@session_manager_path@" args = "@session_manager_args@"
-    @sm_comment@  condition = [ { exec.session-manager = null } { exec.session-manager = true } ] }
+    @sm_comment@  condition = [ { exec.session-manager = !false } ] }
     #
     # You can optionally start the pulseaudio-server here as well
     # but it is better to start it as a systemd service.
@@ -340,5 +362,5 @@ context.exec = [
     # on another address with the -a option (eg. -a tcp:4713).
     #
     @pulse_comment@{ path = "@pipewire_path@" args = [ "-c" "pipewire-pulse.conf" ]
-    @pulse_comment@  condition = [ { exec.pipewire-pulse = null } { exec.pipewire-pulse = true } ] }
+    @pulse_comment@  condition = [ { exec.pipewire-pulse = !false } ] }
 ]

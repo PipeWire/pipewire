@@ -38,7 +38,7 @@
  *
  * - `profile.interval.ms`: Can be used to avoid gathering profiling information
  *			    on every processing cycle. This allows trading off
- *			    CPU usage for profiling accuracy.
+ *			    CPU usage for profiling accuracy. Default 0
  *
  * ## Example configuration
  *
@@ -47,8 +47,23 @@
  *
  *\code{.unparsed}
  * context.modules = [
- * { name = libpipewire-module-profiler }
+ * { name = libpipewire-module-profiler
+ *   args = {
+ *       #profile.interval.ms = 0
+ *   }
+ * }
  * ]
+ *\endcode
+
+ * ## Config override
+ *
+ * A `module.profiler.args` config section can be added in the override directory
+ * to override the module arguments.
+ *
+ *\code{.unparsed}
+ * module.profiler.args = {
+ *     #profile.interval.ms = 10
+ * }
  *\endcode
  *
  * ## See also
@@ -512,6 +527,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->context = context;
 	impl->properties = props;
 	impl->main_loop = pw_context_get_main_loop(impl->context);
+
+	pw_context_conf_update_props(context, "module."NAME".args", props);
 
 	impl->interval = SPA_NSEC_PER_MSEC *
 		pw_properties_get_uint32(props, "profile.interval.ms", DEFAULT_INTERVAL);

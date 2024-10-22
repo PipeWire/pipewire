@@ -61,6 +61,17 @@
  *  }
  * ]
  *\endcode
+
+ * ## Config override
+ *
+ * A `module.jackdbus-detect.args` config section can be added in the override directory
+ * to override the module arguments.
+ *
+ *\code{.unparsed}
+ * module.jackdbus-detect.args = {
+ *     #tunnel.mode    = duplex
+ * }
+ *\endcode
  *
  */
 
@@ -358,6 +369,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->context = context;
 	impl->properties = args ? pw_properties_new_string(args) : NULL;
+
+	if (impl->properties)
+		pw_context_conf_update_props(context, "module."NAME".args", impl->properties);
 
 	impl->conn = spa_dbus_get_connection(dbus, SPA_DBUS_TYPE_SESSION);
 	if (impl->conn == NULL) {

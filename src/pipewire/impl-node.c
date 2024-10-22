@@ -1345,7 +1345,7 @@ static inline void debug_xrun_target(struct pw_impl_node *driver,
 	enum spa_log_level level = SPA_LOG_LEVEL_DEBUG;
 
 	if ((suppressed = spa_ratelimit_test(&driver->rt.rate_limit, nsec)) >= 0)
-		level = SPA_LOG_LEVEL_WARN;
+		level = SPA_LOG_LEVEL_INFO;
 
 	pw_log(level, "(%s-%u) xrun state:%p pending:%d/%d s:%"PRIu64" a:%"PRIu64" f:%"PRIu64
 		" waiting:%"PRIu64" process:%"PRIu64" status:%s (%d suppressed)",
@@ -1366,7 +1366,7 @@ static inline void debug_xrun_graph(struct pw_impl_node *driver, uint64_t nsec, 
 	struct pw_node_target *t;
 
 	if ((suppressed = spa_ratelimit_test(&driver->rt.rate_limit, nsec)) >= 0)
-		level = SPA_LOG_LEVEL_WARN;
+		level = SPA_LOG_LEVEL_INFO;
 
 	pw_log(level, "(%s-%u) graph xrun %s (%d suppressed)",
 			driver->name, driver->info.id, str_status(old_status), suppressed);
@@ -1400,7 +1400,7 @@ static void debug_sync_timeout(struct pw_impl_node *driver, uint64_t nsec)
 	int suppressed;
 
 	if ((suppressed = spa_ratelimit_test(&driver->rt.rate_limit, nsec)) >= 0)
-		level = SPA_LOG_LEVEL_WARN;
+		level = SPA_LOG_LEVEL_INFO;
 
 	pw_log(level, "(%s-%u) sync timeout, going to RUNNING (%d suppressed)",
 				driver->name, driver->info.id, suppressed);

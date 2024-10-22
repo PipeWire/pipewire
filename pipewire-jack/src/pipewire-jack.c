@@ -5651,7 +5651,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 		ptr = p->get_buffer(p, frames);
 	}
 done:
-	pw_log_warn("%p: port:%p buffer:%p frames:%d", c, p, ptr, frames);
+	pw_log_trace_fp("%p: port:%p buffer:%p frames:%d", c, p, ptr, frames);
 	return ptr;
 }
 

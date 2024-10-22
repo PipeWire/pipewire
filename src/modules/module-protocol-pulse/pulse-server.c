@@ -5559,6 +5559,8 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 
 	cmd_run(impl);
 
+	notify_startup();
+
 	return (struct pw_protocol_pulse *) impl;
 
 error_free:

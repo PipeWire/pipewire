@@ -346,6 +346,13 @@
  * Takes an object with the properties to update on the client. Common actions are to
  * tweak the quantum values.
  *
+ * ### startup notification
+ *
+ * A newline will be written into the notification file descriptor when the server has
+ * started if the following environment variable is set:
+ *
+ * - PIPEWIRE_PULSE_NOTIFICATION_FD
+ *
  * ## Example configuration
  *
  *\code{.unparsed}

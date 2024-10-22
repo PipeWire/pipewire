@@ -159,7 +159,8 @@ const char *get_server_name(struct pw_context *context)
 	return name;
 }
 
-int create_pid_file(void) {
+int create_pid_file(void)
+{
 	char pid_file[PATH_MAX];
 	FILE *f;
 	int res;
@@ -184,4 +185,42 @@ int create_pid_file(void) {
 	fclose(f);
 
 	return 0;
+}
+
+int notify_startup(void)
+{
+	long v;
+	int fd, res = 0;
+	char *endptr;
+	const char *env = getenv("PIPEWIRE_PULSE_NOTIFICATION_FD");
+
+	if (env == NULL || env[0] == '\0')
+		return 0;
+
+	errno = 0;
+	v = strtol(env, &endptr, 10);
+	if (endptr[0] != '\0')
+		errno = EINVAL;
+	if (errno != 0) {
+		res = -errno;
+		pw_log_error("can't parse PIPEWIRE_PULSE_NOTIFICATION_FD env: %m");
+		goto error;
+	}
+	fd = (int)v;
+	if (v != fd) {
+		res = -ERANGE;
+		pw_log_error("invalid PIPEWIRE_PULSE_NOTIFICATION_FD %ld: %s", v, spa_strerror(res));
+		goto error;
+	}
+	if (dprintf(fd, "\n") < 0) {
+		res = -errno;
+		pw_log_error("can't signal PIPEWIRE_PULSE_NOTIFICATION_FD: %m");
+		goto error;
+	}
+	close(fd);
+	unsetenv("PIPEWIRE_PULSE_NOTIFICATION_FD");
+	return 0;
+
+error:
+	return res;
 }

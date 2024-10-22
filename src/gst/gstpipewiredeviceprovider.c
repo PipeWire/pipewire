@@ -289,7 +289,7 @@ compare_device_session_priority (const void *a,
 static void do_add_nodes(GstPipeWireDeviceProvider *self)
 {
   struct node_data *nd;
-  GList *new_devices = NULL;
+  g_autoptr (GList) new_devices = NULL;
   GList *l;
 
   spa_list_for_each(nd, &self->nodes, link) {

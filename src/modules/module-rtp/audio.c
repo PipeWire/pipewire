@@ -250,8 +250,7 @@ static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets, uin
 		else
 			header.m = 0;
 		header.sequence_number = htons(impl->seq);
-		header.timestamp = htonl(impl->ts_offset + timestamp);
-		header.timestamp = htonl(impl->ts_offset + set_timestamp ? set_timestamp : timestamp);
+		header.timestamp = htonl(impl->ts_offset + (set_timestamp ? set_timestamp : timestamp));
 
 		set_iovec(&impl->ring,
 			impl->buffer, BUFFER_SIZE,

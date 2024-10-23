@@ -50,10 +50,10 @@ struct spa_latency_info {
 	enum spa_direction direction;
 	float min_quantum;
 	float max_quantum;
-	uint32_t min_rate;
-	uint32_t max_rate;
-	uint64_t min_ns;
-	uint64_t max_ns;
+	int32_t min_rate;
+	int32_t max_rate;
+	int64_t min_ns;
+	int64_t max_ns;
 };
 
 #define SPA_LATENCY_INFO(dir,...) ((struct spa_latency_info) { .direction = (dir), ## __VA_ARGS__ })
@@ -74,8 +74,8 @@ enum spa_param_process_latency {
 /** Helper structure for managing process latency objects */
 struct spa_process_latency_info {
 	float quantum;
-	uint32_t rate;
-	uint64_t ns;
+	int32_t rate;
+	int64_t ns;
 };
 
 #define SPA_PROCESS_LATENCY_INFO_INIT(...)	((struct spa_process_latency_info) { __VA_ARGS__ })

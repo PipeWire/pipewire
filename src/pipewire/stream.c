@@ -2371,7 +2371,8 @@ int pw_stream_get_time_n(struct pw_stream *stream, struct pw_time *time, size_t 
 
 	time->delay += (int64_t)(((impl->latency.min_quantum + impl->latency.max_quantum) / 2.0f) * quantum);
 	time->delay += (impl->latency.min_rate + impl->latency.max_rate) / 2;
-	time->delay += ((impl->latency.min_ns + impl->latency.max_ns) / 2) * time->rate.denom / SPA_NSEC_PER_SEC;
+	time->delay += ((impl->latency.min_ns + impl->latency.max_ns) / 2) *
+		(int64_t)time->rate.denom / (int64_t)SPA_NSEC_PER_SEC;
 
 	avail_buffers = spa_ringbuffer_get_read_index(&impl->dequeued.ring, &index);
 	avail_buffers = SPA_CLAMP(avail_buffers, 0, (int32_t)impl->n_buffers);

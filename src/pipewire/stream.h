@@ -303,6 +303,13 @@ struct pw_stream_control {
  * caused by the hardware. The delay is usually quite stable and should only change when
  * the topology, quantum or samplerate of the graph changes.
  *
+ * The delay requires the application to send the stream early relative to other synchronized
+ * streams in order to arrive at the edge of the graph in time. This is usually done by
+ * delaying the other streams with the given delay.
+ *
+ * Note that the delay can be negative. A negative delay means that this stream should be
+ * delayed with the (positive) delay relative to other streams.
+ *
  * pw_time.queued and pw_time.buffered is expressed in the time domain of the stream,
  * or the format that is used for the buffers of this stream.
  *

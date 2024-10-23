@@ -6583,6 +6583,7 @@ void jack_port_get_latency_range (jack_port_t *port, jack_latency_callback_mode_
 	jack_nframes_t nframes, rate;
 	int direction;
 	struct spa_latency_info *info;
+	int64_t min, max;
 
 	return_if_fail(o != NULL);
 	c = o->client;
@@ -6601,10 +6602,15 @@ void jack_port_get_latency_range (jack_port_t *port, jack_latency_callback_mode_
 	rate = jack_get_sample_rate((jack_client_t*)c);
 	info = &o->port.latency[direction];
 
-	range->min = (jack_nframes_t)((info->min_quantum * nframes) +
-		info->min_rate + (info->min_ns * rate) / SPA_NSEC_PER_SEC);
-	range->max = (jack_nframes_t)((info->max_quantum * nframes) +
-		info->max_rate + (info->max_ns * rate) / SPA_NSEC_PER_SEC);
+	min = (int64_t)(info->min_quantum * nframes) +
+		info->min_rate +
+		(info->min_ns * (int64_t)rate) / (int64_t)SPA_NSEC_PER_SEC;
+	max = (int64_t)(info->max_quantum * nframes) +
+		info->max_rate +
+		(info->max_ns * (int64_t)rate) / (int64_t)SPA_NSEC_PER_SEC;
+
+	range->min = SPA_MAX(min, 0);
+	range->max = SPA_MAX(max, 0);
 
 	pw_log_debug("%p: %s get %d latency range %d %d", c, o->port.name,
 			mode, range->min, range->max);
@@ -6649,13 +6655,13 @@ void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_
 		nframes = 1;
 
 	latency.min_rate = range->min;
-	if (latency.min_rate >= nframes) {
+	if (latency.min_rate >= (int32_t)nframes) {
 		latency.min_quantum = latency.min_rate / nframes;
 		latency.min_rate %= nframes;
 	}
 
 	latency.max_rate = range->max;
-	if (latency.max_rate >= nframes) {
+	if (latency.max_rate >= (int32_t)nframes) {
 		latency.max_quantum = latency.max_rate / nframes;
 		latency.max_rate %= nframes;
 	}

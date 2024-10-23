@@ -38,21 +38,27 @@ spa_latency_info_combine_start(struct spa_latency_info *info, enum spa_direction
 {
 	*info = SPA_LATENCY_INFO(direction,
 			.min_quantum = FLT_MAX,
-			.max_quantum = 0.0f,
-			.min_rate = UINT32_MAX,
-			.max_rate = 0,
-			.min_ns = UINT64_MAX,
-			.max_ns = 0);
+			.max_quantum = FLT_MIN,
+			.min_rate = INT32_MAX,
+			.max_rate = INT32_MIN,
+			.min_ns = INT64_MAX,
+			.max_ns = INT64_MIN);
 }
 static inline void
 spa_latency_info_combine_finish(struct spa_latency_info *info)
 {
 	if (info->min_quantum == FLT_MAX)
 		info->min_quantum = 0;
-	if (info->min_rate == UINT32_MAX)
+	if (info->max_quantum == FLT_MIN)
+		info->max_quantum = 0;
+	if (info->min_rate == INT32_MAX)
 		info->min_rate = 0;
-	if (info->min_ns == UINT64_MAX)
+	if (info->max_rate == INT32_MIN)
+		info->max_rate = 0;
+	if (info->min_ns == INT64_MAX)
 		info->min_ns = 0;
+	if (info->max_ns == INT64_MIN)
+		info->max_ns = 0;
 }
 
 static inline int

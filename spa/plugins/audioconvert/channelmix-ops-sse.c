@@ -287,8 +287,7 @@ static inline void delay_convolve_run_sse(float *buffer, uint32_t *pos,
 	uint32_t n, unrolled;
 
 	if (SPA_IS_ALIGNED(src, 16) &&
-	    SPA_IS_ALIGNED(dst, 16) &&
-	    (w & 3) == 0)
+	    SPA_IS_ALIGNED(dst, 16))
 		unrolled = n_samples & ~3;
 	else
 		unrolled = 0;
@@ -301,7 +300,12 @@ static inline void delay_convolve_run_sse(float *buffer, uint32_t *pos,
 			t[0] = _mm_loadu_ps(&buffer[w+o]);
 			t[0] = _mm_mul_ps(t[0], v);
 			_mm_store_ps(&dst[n], t[0]);
-			w = w + 4 >= n_buffer ? 0 : w + 4;
+			w += 4;
+			if (w >= n_buffer) {
+				w -= n_buffer;
+				t[0] = _mm_loadu_ps(&buffer[n_buffer]);
+				_mm_storeu_ps(&buffer[0], t[0]);
+			}
 		}
 		for(; n < n_samples; n++) {
 			t[0] = _mm_load_ss(&src[n]);
@@ -319,7 +323,12 @@ static inline void delay_convolve_run_sse(float *buffer, uint32_t *pos,
 			_mm_storeu_ps(&buffer[w+n_buffer], t[0]);
 			for(i = 0; i < 4; i++)
 				convolver_run(&buffer[w+o+i], &dst[n+i], taps, n_taps, v);
-			w = w + 4 >= n_buffer ? 0 : w + 4;
+			w += 4;
+			if (w >= n_buffer) {
+				w -= n_buffer;
+				t[0] = _mm_loadu_ps(&buffer[n_buffer]);
+				_mm_storeu_ps(&buffer[0], t[0]);
+			}
 		}
 		for(; n < n_samples; n++) {
 			t[0] = _mm_load_ss(&src[n]);

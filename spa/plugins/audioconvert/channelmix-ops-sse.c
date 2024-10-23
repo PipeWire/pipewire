@@ -287,7 +287,8 @@ static inline void delay_convolve_run_sse(float *buffer, uint32_t *pos,
 	uint32_t n, unrolled;
 
 	if (SPA_IS_ALIGNED(src, 16) &&
-	    SPA_IS_ALIGNED(dst, 16))
+	    SPA_IS_ALIGNED(dst, 16) &&
+	    (w & 3) == 0)
 		unrolled = n_samples & ~3;
 	else
 		unrolled = 0;

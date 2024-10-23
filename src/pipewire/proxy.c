@@ -191,6 +191,9 @@ static inline void remove_from_map(struct pw_proxy *proxy)
 		if (proxy->core)
 			pw_map_remove(&proxy->core->objects, proxy->id);
 		proxy->in_map = false;
+
+		/* Make sure any future method calls fail */
+		proxy->id = SPA_ID_INVALID;
 	}
 }
 

@@ -414,10 +414,8 @@ static inline bool spa_json_is_float(const char *val, int len)
 static inline char *spa_json_format_float(char *str, int size, float val)
 {
 	if (SPA_UNLIKELY(!isnormal(val))) {
-		if (val == INFINITY)
-			val = FLT_MAX;
-		else if (val == -INFINITY)
-			val = FLT_MIN;
+		if (isinf(val))
+			val = signbit(val) ? FLT_MIN : FLT_MAX;
 		else
 			val = 0.0f;
 	}

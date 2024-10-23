@@ -1046,8 +1046,18 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+
 	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
+	if (this->data_loop == NULL) {
+		spa_log_error(this->log, "%p: could not find a data loop", this);
+		return -EINVAL;
+	}
+
 	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
+	if (this->data_system == NULL) {
+		spa_log_error(this->log, "%p: could not find a data system", this);
+		return -EINVAL;
+	}
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;

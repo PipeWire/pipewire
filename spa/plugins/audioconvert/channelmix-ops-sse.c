@@ -266,7 +266,7 @@ static inline void convolver_run(const float *src, float *dst,
 	sum[0] = _mm_setzero_ps();
 	for(i = 0; i < n_taps; i+=4) {
 		t[0] = _mm_loadu_ps(&src[i]);
-		sum[0] = _mm_add_ps(sum[0], _mm_mul_ps(_mm_loadu_ps(&taps[i]), t[0]));
+		sum[0] = _mm_add_ps(sum[0], _mm_mul_ps(_mm_load_ps(&taps[i]), t[0]));
 	}
 	sum[0] = _mm_add_ps(sum[0], _mm_movehl_ps(sum[0], sum[0]));
 	sum[0] = _mm_add_ss(sum[0], _mm_shuffle_ps(sum[0], sum[0], 0x55));
@@ -303,8 +303,8 @@ static inline void delay_convolve_run_sse(float *buffer, uint32_t *pos,
 			w += 4;
 			if (w >= n_buffer) {
 				w -= n_buffer;
-				t[0] = _mm_loadu_ps(&buffer[n_buffer]);
-				_mm_storeu_ps(&buffer[0], t[0]);
+				t[0] = _mm_load_ps(&buffer[n_buffer]);
+				_mm_store_ps(&buffer[0], t[0]);
 			}
 		}
 		for(; n < n_samples; n++) {
@@ -326,8 +326,8 @@ static inline void delay_convolve_run_sse(float *buffer, uint32_t *pos,
 			w += 4;
 			if (w >= n_buffer) {
 				w -= n_buffer;
-				t[0] = _mm_loadu_ps(&buffer[n_buffer]);
-				_mm_storeu_ps(&buffer[0], t[0]);
+				t[0] = _mm_load_ps(&buffer[n_buffer]);
+				_mm_store_ps(&buffer[0], t[0]);
 			}
 		}
 		for(; n < n_samples; n++) {

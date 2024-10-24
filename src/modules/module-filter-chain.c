@@ -2348,19 +2348,12 @@ static int graph_instantiate(struct graph *graph)
 
 	graph->instantiated = true;
 
+	/* first make instances */
 	spa_list_for_each(node, &graph->node_list, link) {
-
 		node_cleanup(node);
 
 		desc = node->desc;
 		d = desc->desc;
-		if (d->flags & FC_DESCRIPTOR_SUPPORTS_NULL_DATA) {
-			sd = dd = NULL;
-		}
-		else {
-			sd = impl->silence_data;
-			dd = impl->discard_data;
-		}
 
 		for (i = 0; i < node->n_hndl; i++) {
 			pw_log_info("instantiate %s %d rate:%lu", d->name, i, impl->rate);
@@ -2370,6 +2363,21 @@ static int graph_instantiate(struct graph *graph)
 				res = -errno;
 				goto error;
 			}
+		}
+	}
+
+	/* then link ports and activate */
+	spa_list_for_each(node, &graph->node_list, link) {
+		desc = node->desc;
+		d = desc->desc;
+		if (d->flags & FC_DESCRIPTOR_SUPPORTS_NULL_DATA) {
+			sd = dd = NULL;
+		}
+		else {
+			sd = impl->silence_data;
+			dd = impl->discard_data;
+		}
+		for (i = 0; i < node->n_hndl; i++) {
 			for (j = 0; j < desc->n_input; j++) {
 				port = &node->input_port[j];
 				d->connect_port(node->hndl[i], port->p, sd);

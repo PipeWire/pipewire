@@ -754,7 +754,7 @@ struct port {
 
 	float control_data[MAX_HNDL];
 	float *audio_data[MAX_HNDL];
-	void *audio_mem;
+	void *audio_mem[MAX_HNDL];
 };
 
 struct node {
@@ -2365,25 +2365,25 @@ static int port_ensure_data(struct port *port, uint32_t i, uint32_t max_samples)
 	const struct fc_descriptor *d = node->desc->desc;
 	struct impl *impl = node->graph->impl;
 
-	if ((data = port->audio_mem) == NULL) {
+	if ((data = port->audio_mem[i]) == NULL) {
 		data = calloc(max_samples, sizeof(float) + impl->max_align);
 		if (data == NULL) {
 			pw_log_error("cannot create port data: %m");
 			return -errno;
 		}
-		port->audio_mem = data;
+		port->audio_mem[i] = data;
 		port->audio_data[i] = SPA_PTR_ALIGN(data, impl->max_align, void);
 	}
 	pw_log_info("connect output port %s[%d]:%s %p",
-			node->name, i, d->ports[port->p].name, data);
+			node->name, i, d->ports[port->p].name, port->audio_data[i]);
 	d->connect_port(port->node->hndl[i], port->p, port->audio_data[i]);
 	return 0;
 }
 
 static void port_free_data(struct port *port, uint32_t i)
 {
-	free(port->audio_mem);
-	port->audio_mem = NULL;
+	free(port->audio_mem[i]);
+	port->audio_mem[i] = NULL;
 	port->audio_data[i] = NULL;
 }
 
@@ -2448,7 +2448,7 @@ static int graph_instantiate(struct graph *graph)
 		}
 
 		for (i = 0; i < node->n_hndl; i++) {
-			pw_log_info("instantiate %s %d rate:%lu", d->name, i, impl->rate);
+			pw_log_info("instantiate %s %s[%d] rate:%lu", d->name, node->name, i, impl->rate);
 			errno = EINVAL;
 			if ((node->hndl[i] = d->instantiate(d, impl->rate, i, node->config)) == NULL) {
 				pw_log_error("cannot create plugin instance %d rate:%lu: %m", i, impl->rate);

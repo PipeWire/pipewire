@@ -2350,7 +2350,7 @@ static void node_cleanup(struct node *node)
 	for (i = 0; i < node->n_hndl; i++) {
 		if (node->hndl[i] == NULL)
 			continue;
-		pw_log_info("cleanup %s %d", d->name, i);
+		pw_log_info("cleanup %s %s[%d]", d->name, node->name, i);
 		if (d->deactivate)
 			d->deactivate(node->hndl[i]);
 		d->cleanup(node->hndl[i]);

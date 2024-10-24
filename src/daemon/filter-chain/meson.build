@@ -9,6 +9,7 @@ conf_files = [
   [ 'sink-eq6.conf', 'sink-eq6.conf' ],
   [ 'sink-matrix-spatialiser.conf', 'sink-matrix-spatialiser.conf' ],
   [ 'source-rnnoise.conf', 'source-rnnoise.conf' ],
+  [ 'sink-upmix-5.1-filter.conf', 'sink-upmix-5.1-filter.conf' ],
 ]
 
 foreach c : conf_files

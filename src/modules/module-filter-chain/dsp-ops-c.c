@@ -277,7 +277,7 @@ void dsp_fft_cmul_c(struct dsp_ops *ops, void *fft,
 	const float * SPA_RESTRICT b, uint32_t len, const float scale)
 {
 #ifdef HAVE_FFTW
-	for (uint32_t i = 0; i <= len; i++) {
+	for (uint32_t i = 0; i < len; i++) {
 		dst[2*i  ] = (a[2*i] * b[2*i  ] - a[2*i+1] * b[2*i+1]) * scale;
 		dst[2*i+1] = (a[2*i] * b[2*i+1] + a[2*i+1] * b[2*i  ]) * scale;
 	}
@@ -292,9 +292,9 @@ void dsp_fft_cmuladd_c(struct dsp_ops *ops, void *fft,
 	uint32_t len, const float scale)
 {
 #ifdef HAVE_FFTW
-	for (uint32_t i = 0; i <= len; i++) {
-		dst[2*i  ] += (a[2*i] * b[2*i  ] - a[2*i+1] * b[2*i+1]) * scale;
-		dst[2*i+1] += (a[2*i] * b[2*i+1] + a[2*i+1] * b[2*i  ]) * scale;
+	for (uint32_t i = 0; i < len; i++) {
+		dst[2*i  ] = src[2*i  ] + (a[2*i] * b[2*i  ] - a[2*i+1] * b[2*i+1]) * scale;
+		dst[2*i+1] = src[2*i+1] + (a[2*i] * b[2*i+1] + a[2*i+1] * b[2*i  ]) * scale;
 	}
 #else
 	pffft_zconvolve_accumulate(fft, a, b, src, dst, scale);

@@ -187,6 +187,7 @@ void dsp_fft_cmuladd_avx(struct dsp_ops *ops, void *fft,
 
 	if (SPA_IS_ALIGNED(a, 32) &&
 	    SPA_IS_ALIGNED(b, 32) &&
+	    SPA_IS_ALIGNED(src, 32) &&
 	    SPA_IS_ALIGNED(dst, 32))
 		unrolled = len & ~7;
 	else
@@ -201,16 +202,16 @@ void dsp_fft_cmuladd_avx(struct dsp_ops *ops, void *fft,
 		dd[1] = _mm256_mul_pz(aa[1], bb[1]);
 		dd[0] = _mm256_mul_ps(dd[0], s);
 		dd[1] = _mm256_mul_ps(dd[1], s);
-		t[0] = _mm256_load_ps(&dst[2*i]);
-		t[1] = _mm256_load_ps(&dst[2*i+8]);
+		t[0] = _mm256_load_ps(&src[2*i]);
+		t[1] = _mm256_load_ps(&src[2*i+8]);
 		t[0] = _mm256_add_ps(t[0], dd[0]);
 		t[1] = _mm256_add_ps(t[1], dd[1]);
 		_mm256_store_ps(&dst[2*i], t[0]);
 		_mm256_store_ps(&dst[2*i+8], t[1]);
 	}
 	for (; i < len; i++) {
-		dst[2*i  ] += (a[2*i] * b[2*i  ] - a[2*i+1] * b[2*i+1]) * scale;
-		dst[2*i+1] += (a[2*i] * b[2*i+1] + a[2*i+1] * b[2*i  ]) * scale;
+		dst[2*i  ] = src[2*i  ] + (a[2*i] * b[2*i  ] - a[2*i+1] * b[2*i+1]) * scale;
+		dst[2*i+1] = src[2*i+1] + (a[2*i] * b[2*i+1] + a[2*i+1] * b[2*i  ]) * scale;
 	}
 #else
 	pffft_zconvolve_accumulate(fft, a, b, src, dst, scale);

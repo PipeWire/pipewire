@@ -52,16 +52,13 @@ DEFINE_RESAMPLER(copy,arch)							\
 {										\
 	struct native_data *data = r->data;					\
 	uint32_t index, n_taps = data->n_taps, n_taps2 = n_taps/2;		\
-	uint32_t c, olen = *out_len, ilen = *in_len;				\
-										\
-	if (r->channels == 0)							\
-		return;								\
+	uint32_t c, olen = *out_len, ilen = *in_len, ch = r->channels;		\
 										\
 	index = ioffs;								\
 	if (ooffs < olen && index + n_taps <= ilen) {				\
 		uint32_t to_copy = SPA_MIN(olen - ooffs,			\
 				ilen - (index + n_taps) + 1);			\
-		for (c = 0; c < r->channels; c++) {				\
+		for (c = 0; c < ch; c++) {					\
 			const float *s = src[c];				\
 			float *d = dst[c];					\
 			spa_memcpy(&d[ooffs], &s[index + n_taps2],		\
@@ -74,12 +71,12 @@ DEFINE_RESAMPLER(copy,arch)							\
 	*out_len = ooffs;							\
 }
 
-#define INC(index,phase,n_phases) \
-	index += inc;						\
-	phase += frac;						\
-	if (phase >= n_phases) {				\
-		phase -= n_phases;				\
-		index += 1;					\
+#define INC(index,phase,n_phases) 						\
+	index += inc;								\
+	phase += frac;								\
+	if (phase >= n_phases) {						\
+		phase -= n_phases;						\
+		index += 1;							\
 	}
 
 #define MAKE_RESAMPLER_FULL(arch)						\
@@ -89,24 +86,19 @@ DEFINE_RESAMPLER(full,arch)							\
 	uint32_t n_taps = data->n_taps, stride = data->filter_stride_os;	\
 	uint32_t index, phase, n_phases = data->out_rate;			\
 	uint32_t c, o, olen = *out_len, ilen = *in_len;				\
-	uint32_t inc = data->inc, frac = data->frac;				\
+	uint32_t inc = data->inc, frac = data->frac, ch = r->channels;		\
 										\
-	if (r->channels == 0)							\
-		return;								\
-										\
-	for (c = 0; c < r->channels; c++) {					\
-		const float *s = src[c];					\
-		float *d = dst[c];						\
-										\
-		index = ioffs;							\
-		phase = (uint32_t)data->phase;					\
-										\
-		for (o = ooffs; o < olen && index + n_taps <= ilen; o++) {	\
+	index = ioffs;								\
+	phase = (uint32_t)data->phase;						\
+	for (o = ooffs; o < olen && index + n_taps <= ilen; o++) {		\
+		float *filter = &data->filter[phase * stride];			\
+		for (c = 0; c < ch; c++) {					\
+			const float *s = src[c];				\
+			float *d = dst[c];					\
 			inner_product_##arch(&d[o], &s[index],			\
-					&data->filter[phase * stride],		\
-					n_taps);				\
-			INC(index, phase, n_phases);				\
+					filter, n_taps);			\
 		}								\
+		INC(index, phase, n_phases);					\
 	}									\
 	*in_len = index;							\
 	*out_len = o;								\
@@ -121,28 +113,24 @@ DEFINE_RESAMPLER(inter,arch)							\
 	uint32_t n_phases = data->n_phases, out_rate = data->out_rate;		\
 	uint32_t n_taps = data->n_taps;						\
 	uint32_t c, o, olen = *out_len, ilen = *in_len;				\
-	uint32_t inc = data->inc, frac = data->frac;				\
+	uint32_t inc = data->inc, frac = data->frac, ch = r->channels;          \
 	float phase;								\
 										\
-	if (r->channels == 0)							\
-		return;								\
-										\
-	for (c = 0; c < r->channels; c++) {					\
-		const float *s = src[c];					\
-		float *d = dst[c];						\
-										\
-		index = ioffs;							\
-		phase = data->phase;						\
-										\
-		for (o = ooffs; o < olen && index + n_taps <= ilen; o++) {	\
-			float ph = phase * n_phases / out_rate;			\
-			uint32_t offset = (uint32_t)floorf(ph);			\
+	index = ioffs;								\
+	phase = data->phase;							\
+	for (o = ooffs; o < olen && index + n_taps <= ilen; o++) {		\
+		float ph = phase * n_phases / out_rate;				\
+		uint32_t offset = (uint32_t)floorf(ph);				\
+		float *filter0 = &data->filter[(offset+0) * stride];		\
+		float *filter1 = &data->filter[(offset+1) * stride];		\
+		float pho = ph - offset;					\
+		for (c = 0; c < ch; c++) {					\
+			const float *s = src[c];				\
+			float *d = dst[c];					\
 			inner_product_ip_##arch(&d[o], &s[index],		\
-					&data->filter[(offset + 0) * stride],	\
-					&data->filter[(offset + 1) * stride],	\
-					ph - offset, n_taps);			\
-			INC(index, phase, out_rate);				\
+					filter0, filter1, pho, n_taps);		\
 		}								\
+		INC(index, phase, out_rate);					\
 	}									\
 	*in_len = index;							\
 	*out_len = o;								\

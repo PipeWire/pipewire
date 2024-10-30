@@ -109,6 +109,30 @@ static int allocBuffers(struct impl *impl, struct port *port, unsigned int count
 		}
 		impl->requestPool.push_back(std::move(request));
 	}
+
+	/* Some devices require data for each output video frame to be
+	 * placed in discontiguous memory buffers. In such cases, one
+	 * video frame has to be addressed using more than one memory.
+	 * address. Therefore, need calculate the number of discontiguous
+	 * memory and allocate the specified amount of memory */
+	Stream *stream = impl->config->at(0).stream();
+	const std::vector<std::unique_ptr<FrameBuffer>> &bufs =
+			impl->allocator->buffers(stream);
+	const std::vector<libcamera::FrameBuffer::Plane> &planes = bufs[0]->planes();
+	int fd = -1;
+	uint32_t buffers_blocks = 0;
+
+	for (const FrameBuffer::Plane &plane : planes) {
+		const int current_fd = plane.fd.get();
+		if (current_fd >= 0 && current_fd != fd) {
+			buffers_blocks += 1;
+			fd = current_fd;
+		}
+	}
+
+	if (buffers_blocks > 0) {
+		port->buffers_blocks = buffers_blocks;
+	}
 	return res;
 }
 

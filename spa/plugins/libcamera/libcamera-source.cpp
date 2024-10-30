@@ -69,6 +69,7 @@ struct port {
 	StreamConfiguration streamConfig;
 
 	uint32_t memtype = 0;
+	uint32_t buffers_blocks = 1;
 
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers = 0;
@@ -553,7 +554,7 @@ next:
 		param = (struct spa_pod*)spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(n_buffers, n_buffers, n_buffers),
-			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->buffers_blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(port->streamConfig.frameSize),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->streamConfig.stride));
 		break;

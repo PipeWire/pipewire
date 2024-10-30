@@ -2538,6 +2538,9 @@ static int register_profile(struct impl *backend, const char *profile, const cha
 
 		/* We announce wideband speech support anyway */
 		features = SPA_BT_HFP_SDP_AG_FEATURE_WIDEBAND_SPEECH;
+#ifdef HAVE_LC3
+		features |= SPA_BT_HFP_SDP_AG_FEATURE_SUPER_WIDEBAND_SPEECH;
+#endif
 		dbus_message_iter_open_container(&it[1], DBUS_TYPE_DICT_ENTRY, NULL, &it[2]);
 		dbus_message_iter_append_basic(&it[2], DBUS_TYPE_STRING, &str);
 		dbus_message_iter_open_container(&it[2], DBUS_TYPE_VARIANT, "q", &it[3]);
@@ -2545,9 +2548,9 @@ static int register_profile(struct impl *backend, const char *profile, const cha
 		dbus_message_iter_close_container(&it[2], &it[3]);
 		dbus_message_iter_close_container(&it[1], &it[2]);
 
-		/* HFP version 1.7 */
+		/* HFP version 1.9 */
 		str = "Version";
-		version = 0x0107;
+		version = 0x0109;
 		dbus_message_iter_open_container(&it[1], DBUS_TYPE_DICT_ENTRY, NULL, &it[2]);
 		dbus_message_iter_append_basic(&it[2], DBUS_TYPE_STRING, &str);
 		dbus_message_iter_open_container(&it[2], DBUS_TYPE_VARIANT, "q", &it[3]);
@@ -2559,6 +2562,9 @@ static int register_profile(struct impl *backend, const char *profile, const cha
 
 		/* We announce wideband speech support anyway */
 		features = SPA_BT_HFP_SDP_HF_FEATURE_WIDEBAND_SPEECH;
+#ifdef HAVE_LC3
+		features |= SPA_BT_HFP_SDP_HF_FEATURE_SUPER_WIDEBAND_SPEECH;
+#endif
 		dbus_message_iter_open_container(&it[1], DBUS_TYPE_DICT_ENTRY, NULL, &it[2]);
 		dbus_message_iter_append_basic(&it[2], DBUS_TYPE_STRING, &str);
 		dbus_message_iter_open_container(&it[2], DBUS_TYPE_VARIANT, "q", &it[3]);
@@ -2566,9 +2572,9 @@ static int register_profile(struct impl *backend, const char *profile, const cha
 		dbus_message_iter_close_container(&it[2], &it[3]);
 		dbus_message_iter_close_container(&it[1], &it[2]);
 
-		/* HFP version 1.7 */
+		/* HFP version 1.9 */
 		str = "Version";
-		version = 0x0107;
+		version = 0x0109;
 		dbus_message_iter_open_container(&it[1], DBUS_TYPE_DICT_ENTRY, NULL, &it[2]);
 		dbus_message_iter_append_basic(&it[2], DBUS_TYPE_STRING, &str);
 		dbus_message_iter_open_container(&it[2], DBUS_TYPE_VARIANT, "q", &it[3]);

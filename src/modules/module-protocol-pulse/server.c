@@ -356,6 +356,7 @@ on_connect(void *data, int fd, uint32_t mask)
 	int client_fd, val;
 	struct client *client = NULL;
 	const char *client_access = NULL;
+	const char *error_reason = NULL;
 	pid_t pid;
 
 	length = sizeof(name);
@@ -374,6 +375,7 @@ on_connect(void *data, int fd, uint32_t mask)
 
 	if (server->n_clients >= server->max_clients) {
 		close(client_fd);
+		error_reason = "too many client application connections";
 		errno = ECONNREFUSED;
 		goto error;
 	}
@@ -487,7 +489,9 @@ on_connect(void *data, int fd, uint32_t mask)
 	return;
 
 error:
-	pw_log_error("server %p: failed to create client: %m", server);
+	pw_log_error("server %p: %s: %m", server,
+			error_reason ? error_reason : "failed to create client");
+
 	if (client)
 		client_free(client);
 }

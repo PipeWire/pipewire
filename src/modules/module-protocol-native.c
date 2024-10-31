@@ -130,6 +130,22 @@ PW_LOG_TOPIC(mod_topic_connection, "conn." NAME);
  * local context. This can be done even when the server is not a daemon. It can
  * be used to treat a local context as if it was a server.
  *
+ * ## Config override
+ *
+ * A `module.protocol-native.args` config section can be added
+ * to override the module arguments.
+ *
+ *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-protocol-native-args.conf
+ *
+ * module.protocol-native.args = {
+ *        sockets = [
+ *            { name = "pipewire-0" }
+ *            { name = "pipewire-0-manager" }
+ *        ]
+ * }
+ *\endcode
+ *
  * ## Example configuration
  *
  *\code{.unparsed}
@@ -1798,7 +1814,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args_str)
 		return -EEXIST;
 	}
 
-	args = args_str ? pw_properties_new_string(args_str) : NULL;
+	args = args_str ? pw_properties_new_string(args_str) : pw_properties_new(NULL, NULL);
+	if (!args)
+		return -errno;
+
+	pw_context_conf_update_props(context, "module."NAME".args", args);
 
 	this = pw_protocol_new(context, PW_TYPE_INFO_PROTOCOL_Native, sizeof(struct protocol_data));
 	if (this == NULL)

@@ -95,6 +95,22 @@
  * - \ref PW_KEY_ACCESS
  * - \ref PW_KEY_CLIENT_ACCESS
  *
+ * ## Config override
+ *
+ * A `module.access.args` config section can be added
+ * to override the module arguments.
+ *
+ *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-access-args.conf
+ *
+ * module.access.args = {
+ *      access.socket = {
+ *          pipewire-0 = "default",
+ *          pipewire-0-manager = "unrestricted",
+ *      }
+ * }
+ *\endcode
+ *
  * ## Example configuration
  *
  *\code{.unparsed}
@@ -294,16 +310,10 @@ static int parse_socket_args(struct impl *impl, const char *str)
 	return 0;
 }
 
-static int parse_args(struct impl *impl, const struct pw_properties *props, const char *args_str)
+static int parse_args(struct impl *impl, const struct pw_properties *props, const struct pw_properties *args)
 {
-	spa_autoptr(pw_properties) args = NULL;
 	const char *str;
 	int res;
-
-	if (args_str)
-		args = pw_properties_new_string(args_str);
-	else
-		args = pw_properties_new(NULL, NULL);
 
 	if ((str = pw_properties_get(args, "access.legacy")) != NULL) {
 		impl->legacy = spa_atob(str);
@@ -347,10 +357,11 @@ static int parse_args(struct impl *impl, const struct pw_properties *props, cons
 }
 
 SPA_EXPORT
-int pipewire__module_init(struct pw_impl_module *module, const char *args)
+int pipewire__module_init(struct pw_impl_module *module, const char *args_str)
 {
 	struct pw_context *context = pw_impl_module_get_context(module);
 	const struct pw_properties *props = pw_context_get_properties(context);
+	spa_autoptr(pw_properties) args = NULL;
 	struct impl *impl;
 	int res;
 
@@ -360,7 +371,19 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (impl == NULL)
 		return -errno;
 
-	pw_log_debug("module %p: new %s", impl, args);
+	pw_log_debug("module %p: new %s", impl, args_str);
+
+	if (args_str)
+		args = pw_properties_new_string(args_str);
+	else
+		args = pw_properties_new(NULL, NULL);
+
+	if (!args) {
+		res = -errno;
+		goto error;
+	}
+
+	pw_context_conf_update_props(context, "module."NAME".args", args);
 
 	impl->socket_access = pw_properties_new(NULL, NULL);
 

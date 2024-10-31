@@ -80,7 +80,7 @@ static const char *uri_table_unmap(LV2_URID_Map_Handle handle, LV2_URID urid)
 	URITable *table = (URITable*)handle;
 
 	if (urid > 0 && urid <= pw_array_get_len(&table->array, char*))
-		return *pw_array_get_unchecked(&table->array, urid, char*);
+		return *pw_array_get_unchecked(&table->array, urid - 1, char*);
 	return NULL;
 }
 

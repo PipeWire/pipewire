@@ -95,6 +95,19 @@
  *
  * The PipeWire server processes are explicitly configured with a valid nice level.
  *
+ * ## Config override
+ *
+ * A `module.rt.args` config section can be added
+ * to override the module arguments.
+ *
+ *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-rt-args.conf
+ *
+ * module.rt.args = {
+ *     #nice.level = 22
+ * }
+ *\endcode
+ *
  * ## Example configuration
  *
  *\code{.unparsed}
@@ -114,17 +127,6 @@
  *     flags = [ ifexists nofail ]
  * }
  * ]
- *\endcode
- *
- * ## Config override
- *
- * A `module.rt.args` config section can be added in the override directory
- * to override the module arguments.
- *
- *\code{.unparsed}
- * module.rt.args = {
- *      nice.level = 22
- * }
  *\endcode
  */
 

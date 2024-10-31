@@ -40,6 +40,19 @@
  *			    on every processing cycle. This allows trading off
  *			    CPU usage for profiling accuracy. Default 0
  *
+ * ## Config override
+ *
+ * A `module.profiler.args` config section can be added
+ * to override the module arguments.
+ *
+ *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-profiler-args.conf
+ *
+ * module.profiler.args = {
+ *     #profile.interval.ms = 10
+ * }
+ *\endcode
+ *
  * ## Example configuration
  *
  * The module has no arguments and is usually added to the config file of
@@ -53,17 +66,6 @@
  *   }
  * }
  * ]
- *\endcode
-
- * ## Config override
- *
- * A `module.profiler.args` config section can be added in the override directory
- * to override the module arguments.
- *
- *\code{.unparsed}
- * module.profiler.args = {
- *     #profile.interval.ms = 10
- * }
  *\endcode
  *
  * ## See also

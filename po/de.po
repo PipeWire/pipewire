@@ -9,15 +9,16 @@
 # Hedda Peters <hpeters@redhat.com>, 2009, 2012.
 # Mario Blättermann <mario.blaettermann@gmail.com>, 2016.
 # Jürgen Benvenuti <gastornis@posteo.org>, 2024.
+# Christian Kirbach <christian.kirbach@gmail.com>, 2024.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire.master-tx.de\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/"
 "issues\n"
-"POT-Creation-Date: 2024-01-28 15:27+0000\n"
-"PO-Revision-Date: 2024-01-28 19:19+0100\n"
-"Last-Translator: Jürgen Benvenuti <gastornis@posteo.org>\n"
+"POT-Creation-Date: 2024-09-27 03:27+0000\n"
+"PO-Revision-Date: 2024-09-27 11:25+0200\n"
+"Last-Translator: Christian Kirbach <christian.kirbach@gmail.com>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/pipewire/"
 "pipewire/de/>\n"
 "Language: de\n"
@@ -25,21 +26,25 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Poedit 3.4.2\n"
+"X-Generator: Poedit 3.4.4\n"
 
-#: src/daemon/pipewire.c:26
+#: src/daemon/pipewire.c:29
 #, c-format
 msgid ""
 "%s [options]\n"
 "  -h, --help                            Show this help\n"
+"  -v, --verbose                         Increase verbosity by one level\n"
 "      --version                         Show version\n"
 "  -c, --config                          Load config (Default %s)\n"
+"  -P  --properties                      Set context properties\n"
 msgstr ""
 "%s [Optionen]\n"
 "  -h, --help                            Diese Hilfe ausgeben\n"
+"  -v, --verbose                         Ausführlichere Ausgaben\n"
 "      --version                         Version anzeigen\n"
 "  -c, --config                          Konfiguration laden (Voreinstellung "
 "%s)\n"
+"  -P  --properties                      Kontext-Eigenschaften festlegen\n"
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
@@ -59,26 +64,26 @@ msgstr "Tunnel zu %s%s%s"
 msgid "Dummy Output"
 msgstr "Schein-Ausgabe"
 
-#: src/modules/module-pulse-tunnel.c:774
+#: src/modules/module-pulse-tunnel.c:777
 #, c-format
 msgid "Tunnel for %s@%s"
 msgstr "Tunnel für %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:315
+#: src/modules/module-zeroconf-discover.c:320
 msgid "Unknown device"
 msgstr "Unbekanntes Gerät"
 
-#: src/modules/module-zeroconf-discover.c:327
+#: src/modules/module-zeroconf-discover.c:332
 #, c-format
 msgid "%s on %s@%s"
 msgstr "%s auf %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:331
+#: src/modules/module-zeroconf-discover.c:336
 #, c-format
 msgid "%s on %s"
 msgstr "%s auf %s"
 
-#: src/tools/pw-cat.c:991
+#: src/tools/pw-cat.c:973
 #, c-format
 msgid ""
 "%s [options] [<file>|-]\n"
@@ -94,7 +99,7 @@ msgstr ""
 "\n"
 "\n"
 
-#: src/tools/pw-cat.c:998
+#: src/tools/pw-cat.c:980
 #, c-format
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
@@ -128,7 +133,7 @@ msgstr ""
 "  -P  --properties                      Knoteneigenschaften festlegen\n"
 "\n"
 
-#: src/tools/pw-cat.c:1016
+#: src/tools/pw-cat.c:998
 #, c-format
 msgid ""
 "      --rate                            Sample rate (req. for rec) (default "
@@ -145,6 +150,7 @@ msgid ""
 "      --volume                          Stream volume 0-1.0 (default %.3f)\n"
 "  -q  --quality                         Resampler quality (0 - 15) (default "
 "%d)\n"
+"  -a, --raw                             RAW mode\n"
 "\n"
 msgstr ""
 "      --rate                            Abtastrate (notw. für Aufzeichn.) "
@@ -162,9 +168,10 @@ msgstr ""
 "%.3f)\n"
 "  -q  --quality                         Qualität der Neu-Abtastung (0 - 15) "
 "(Vorgabe %d)\n"
+"  -a, --raw                             RAW-Modus\n"
 "\n"
 
-#: src/tools/pw-cat.c:1033
+#: src/tools/pw-cat.c:1016
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"
@@ -180,7 +187,7 @@ msgstr ""
 "  -o, --encoded                         Codieren-Modus\n"
 "\n"
 
-#: src/tools/pw-cli.c:2248
+#: src/tools/pw-cli.c:2318
 #, c-format
 msgid ""
 "%s [options] [command]\n"
@@ -203,8 +210,8 @@ msgstr ""
 msgid "Pro Audio"
 msgstr "Pro Audio"
 
-#: spa/plugins/alsa/acp/acp.c:488 spa/plugins/alsa/acp/alsa-mixer.c:4633
-#: spa/plugins/bluez5/bluez5-device.c:1725
+#: spa/plugins/alsa/acp/acp.c:487 spa/plugins/alsa/acp/alsa-mixer.c:4633
+#: spa/plugins/bluez5/bluez5-device.c:1696
 msgid "Off"
 msgstr "Aus"
 
@@ -231,7 +238,7 @@ msgstr "Line-Eingang"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2657
 #: spa/plugins/alsa/acp/alsa-mixer.c:2741
-#: spa/plugins/bluez5/bluez5-device.c:2004
+#: spa/plugins/bluez5/bluez5-device.c:1984
 msgid "Microphone"
 msgstr "Mikrofon"
 
@@ -297,7 +304,7 @@ msgid "No Bass Boost"
 msgstr "Keine Bassverstärkung"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2672
-#: spa/plugins/bluez5/bluez5-device.c:2010
+#: spa/plugins/bluez5/bluez5-device.c:1990
 msgid "Speaker"
 msgstr "Lautsprecher"
 
@@ -316,7 +323,7 @@ msgstr "Mikrofon der Docking-Station"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2746
 msgid "Headset Microphone"
-msgstr "Mikrofon am Kopfhörer"
+msgstr "Mikrofon am Sprechkopfhörer"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2750
 msgid "Analog Output"
@@ -360,11 +367,11 @@ msgstr "Mehrkanal-Eingang"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2761
 msgid "Multichannel Output"
-msgstr "Mehrkanal-Ausgang"
+msgstr "Mehrkanal-Wiedergabe"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2762
 msgid "Game Output"
-msgstr "Spiel-Ausgabe"
+msgstr "Spiel-Ausgang"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2763
 #: spa/plugins/alsa/acp/alsa-mixer.c:2764
@@ -381,7 +388,7 @@ msgstr "Virtuelles 7.1 Surround"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4456
 msgid "Analog Mono"
-msgstr "Analog Mono"
+msgstr "Analoges Mono"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4457
 msgid "Analog Mono (Left)"
@@ -400,7 +407,7 @@ msgstr "Analoges Mono (rechts)"
 #: spa/plugins/alsa/acp/alsa-mixer.c:4467
 #: spa/plugins/alsa/acp/alsa-mixer.c:4468
 msgid "Analog Stereo"
-msgstr "Analog Stereo"
+msgstr "Analoges Stereo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4460
 msgid "Mono"
@@ -412,9 +419,9 @@ msgstr "Stereo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4469
 #: spa/plugins/alsa/acp/alsa-mixer.c:4627
-#: spa/plugins/bluez5/bluez5-device.c:1992
+#: spa/plugins/bluez5/bluez5-device.c:1972
 msgid "Headset"
-msgstr "Headset"
+msgstr "Sprechkopfhörer"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4470
 #: spa/plugins/alsa/acp/alsa-mixer.c:4628
@@ -472,7 +479,7 @@ msgstr "Analog Surround 7.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4484
 msgid "Digital Stereo (IEC958)"
-msgstr "Digital Stereo (IEC958)"
+msgstr "Digitales Stereo (IEC958)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4485
 msgid "Digital Surround 4.0 (IEC958/AC3)"
@@ -488,7 +495,7 @@ msgstr "Digital Surround 5.1 (IEC958/DTS)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4488
 msgid "Digital Stereo (HDMI)"
-msgstr "Digital Stereo (HDMI)"
+msgstr "Digitales Stereo (HDMI)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4489
 msgid "Digital Surround 5.1 (HDMI)"
@@ -504,15 +511,15 @@ msgstr "Spiel"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4625
 msgid "Analog Mono Duplex"
-msgstr "Analog Mono Duplex"
+msgstr "Analoges Mono Duplex"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4626
 msgid "Analog Stereo Duplex"
-msgstr "Analog Stereo Duplex"
+msgstr "Analoges Stereo Duplex"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4629
 msgid "Digital Stereo Duplex (IEC958)"
-msgstr "Digital Stereo Duplex (IEC958)"
+msgstr "Digitales Stereo Duplex (IEC958)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4630
 msgid "Multichannel Duplex"
@@ -536,7 +543,7 @@ msgstr "%s-Ausgabe"
 msgid "%s Input"
 msgstr "%s-Eingang"
 
-#: spa/plugins/alsa/acp/alsa-util.c:1211 spa/plugins/alsa/acp/alsa-util.c:1305
+#: spa/plugins/alsa/acp/alsa-util.c:1231 spa/plugins/alsa/acp/alsa-util.c:1325
 #, c-format
 msgid ""
 "snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu "
@@ -559,7 +566,7 @@ msgstr[1] ""
 "Dies ist wahrscheinlich ein Fehler im ALSA-Treiber »%s«. Bitte melden Sie "
 "dieses Problem den ALSA-Entwicklern."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1277
+#: spa/plugins/alsa/acp/alsa-util.c:1297
 #, c-format
 msgid ""
 "snd_pcm_delay() returned a value that is exceptionally large: %li byte "
@@ -582,7 +589,7 @@ msgstr[1] ""
 "Dies ist wahrscheinlich ein Fehler im ALSA-Treiber »%s«. Bitte melden Sie "
 "dieses Problem den ALSA-Entwicklern."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1324
+#: spa/plugins/alsa/acp/alsa-util.c:1344
 #, c-format
 msgid ""
 "snd_pcm_avail_delay() returned strange values: delay %lu is less than avail "
@@ -595,7 +602,7 @@ msgstr ""
 "Dies ist wahrscheinlich ein Fehler im ALSA-Treiber »%s«. Bitte melden Sie "
 "dieses Problem den ALSA-Entwicklern."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1367
+#: spa/plugins/alsa/acp/alsa-util.c:1387
 #, c-format
 msgid ""
 "snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu byte "
@@ -630,104 +637,103 @@ msgstr "Internes Audio"
 msgid "Modem"
 msgstr "Modem"
 
-#: spa/plugins/bluez5/bluez5-device.c:1736
+#: spa/plugins/bluez5/bluez5-device.c:1707
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr "Audio-Gateway (A2DP-Quelle und HSP/HFP AG)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1784
+#: spa/plugins/bluez5/bluez5-device.c:1755
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr "High Fidelity-Wiedergabe (A2DP-Senke, Codec %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1787
+#: spa/plugins/bluez5/bluez5-device.c:1758
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr "High Fidelity Duplex (A2DP-Quelle/-Senke, Codec %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1795
+#: spa/plugins/bluez5/bluez5-device.c:1766
 msgid "High Fidelity Playback (A2DP Sink)"
 msgstr "High Fidelity-Wiedergabe (A2DP-Senke)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1797
+#: spa/plugins/bluez5/bluez5-device.c:1768
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
 msgstr "High Fidelity Duplex (A2DP-Quelle/-Senke)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1847
+#: spa/plugins/bluez5/bluez5-device.c:1818
 #, c-format
 msgid "High Fidelity Playback (BAP Sink, codec %s)"
 msgstr "High Fidelity-Wiedergabe (BAP-Senke, Codec %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1852
+#: spa/plugins/bluez5/bluez5-device.c:1823
 #, c-format
 msgid "High Fidelity Input (BAP Source, codec %s)"
 msgstr "High Fidelity-Eingang (BAP-Quelle, Codec %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1856
+#: spa/plugins/bluez5/bluez5-device.c:1827
 #, c-format
 msgid "High Fidelity Duplex (BAP Source/Sink, codec %s)"
 msgstr "High Fidelity Duplex (BAP-Quelle/-Senke, Codec %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1865
+#: spa/plugins/bluez5/bluez5-device.c:1836
 msgid "High Fidelity Playback (BAP Sink)"
 msgstr "High Fidelity-Wiedergabe (BAP-Senke)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1869
+#: spa/plugins/bluez5/bluez5-device.c:1840
 msgid "High Fidelity Input (BAP Source)"
 msgstr "High Fidelity-Eingang (BAP-Quelle)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1872
+#: spa/plugins/bluez5/bluez5-device.c:1843
 msgid "High Fidelity Duplex (BAP Source/Sink)"
 msgstr "High Fidelity Duplex (BAP-Quelle/-Senke)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1908
+#: spa/plugins/bluez5/bluez5-device.c:1892
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
-msgstr "Kopfhörer-Garnitur (HSP/HFP, Codec %s)"
+msgstr "Sprechkopfhörer-Einheit (HSP/HFP, Codec %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1913
-msgid "Headset Head Unit (HSP/HFP)"
-msgstr "Kopfhörer-Garnitur (HSP/HFP)"
-
-#: spa/plugins/bluez5/bluez5-device.c:1993
-#: spa/plugins/bluez5/bluez5-device.c:1998
-#: spa/plugins/bluez5/bluez5-device.c:2005
-#: spa/plugins/bluez5/bluez5-device.c:2011
-#: spa/plugins/bluez5/bluez5-device.c:2017
-#: spa/plugins/bluez5/bluez5-device.c:2023
-#: spa/plugins/bluez5/bluez5-device.c:2029
-#: spa/plugins/bluez5/bluez5-device.c:2035
-#: spa/plugins/bluez5/bluez5-device.c:2041
+#: spa/plugins/bluez5/bluez5-device.c:1973
+#: spa/plugins/bluez5/bluez5-device.c:1978
+#: spa/plugins/bluez5/bluez5-device.c:1985
+#: spa/plugins/bluez5/bluez5-device.c:1991
+#: spa/plugins/bluez5/bluez5-device.c:1997
+#: spa/plugins/bluez5/bluez5-device.c:2003
+#: spa/plugins/bluez5/bluez5-device.c:2009
+#: spa/plugins/bluez5/bluez5-device.c:2015
+#: spa/plugins/bluez5/bluez5-device.c:2021
 msgid "Handsfree"
 msgstr "Freisprech"
 
-#: spa/plugins/bluez5/bluez5-device.c:1999
+#: spa/plugins/bluez5/bluez5-device.c:1979
 msgid "Handsfree (HFP)"
 msgstr "Freisprech (HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:2016
+#: spa/plugins/bluez5/bluez5-device.c:1996
 msgid "Headphone"
 msgstr "Kopfhörer"
 
-#: spa/plugins/bluez5/bluez5-device.c:2022
+#: spa/plugins/bluez5/bluez5-device.c:2002
 msgid "Portable"
 msgstr "Tragbar"
 
-#: spa/plugins/bluez5/bluez5-device.c:2028
+#: spa/plugins/bluez5/bluez5-device.c:2008
 msgid "Car"
 msgstr "Auto"
 
-#: spa/plugins/bluez5/bluez5-device.c:2034
+#: spa/plugins/bluez5/bluez5-device.c:2014
 msgid "HiFi"
 msgstr "HiFi"
 
-#: spa/plugins/bluez5/bluez5-device.c:2040
+#: spa/plugins/bluez5/bluez5-device.c:2020
 msgid "Phone"
 msgstr "Telefon"
 
-#: spa/plugins/bluez5/bluez5-device.c:2047
+#: spa/plugins/bluez5/bluez5-device.c:2027
 msgid "Bluetooth"
 msgstr "Bluetooth"
 
-#: spa/plugins/bluez5/bluez5-device.c:2048
+#: spa/plugins/bluez5/bluez5-device.c:2028
 msgid "Bluetooth (HFP)"
 msgstr "Bluetooth (HFP)"
+
+#~ msgid "Headset Head Unit (HSP/HFP)"
+#~ msgstr "Kopfhörer-Garnitur (HSP/HFP)"

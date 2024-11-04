@@ -1113,16 +1113,14 @@ static void check_properties(struct pw_impl_node *node)
 	pw_context_conf_section_match_rules(context, "node.rules",
 			&node->properties->dict, execute_match, &match);
 
-	if ((str = pw_properties_get(node->properties, PW_KEY_PRIORITY_DRIVER))) {
-		value = pw_properties_parse_int(str);
-		if (value != node->priority_driver) {
-			pw_log_debug("%p: priority driver %d -> %d", node, node->priority_driver, value);
-			node->priority_driver = value;
-			if (node->registered && node->driver) {
-				remove_driver(context, node);
-				insert_driver(context, node);
-				recalc_reason = "driver priority changed";
-			}
+	value = pw_properties_get_uint32(node->properties, PW_KEY_PRIORITY_DRIVER, 0);
+	if (value != node->priority_driver) {
+		pw_log_debug("%p: priority driver %d -> %d", node, node->priority_driver, value);
+		node->priority_driver = value;
+		if (node->registered && node->driver) {
+			remove_driver(context, node);
+			insert_driver(context, node);
+			recalc_reason = "driver priority changed";
 		}
 	}
 
@@ -1268,13 +1266,11 @@ static void check_properties(struct pw_impl_node *node)
 	}
 	node->lock_quantum = pw_properties_get_bool(node->properties, PW_KEY_NODE_LOCK_QUANTUM, false);
 
-	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_FORCE_QUANTUM))) {
-		if (spa_atou32(str, &value, 0) &&
-		    node->force_quantum != value) {
-		        node->force_quantum = value;
-			node->stamp = ++context->stamp;
-			recalc_reason = "force quantum changed";
-		}
+	value = pw_properties_get_uint32(node->properties, PW_KEY_NODE_FORCE_QUANTUM, 0);
+	if (node->force_quantum != value) {
+	        node->force_quantum = value;
+		node->stamp = ++context->stamp;
+		recalc_reason = "force quantum changed";
 	}
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_RATE))) {
@@ -1290,18 +1286,17 @@ static void check_properties(struct pw_impl_node *node)
 	}
 	node->lock_rate = pw_properties_get_bool(node->properties, PW_KEY_NODE_LOCK_RATE, false);
 
-	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_FORCE_RATE))) {
-		if (spa_atou32(str, &value, 0)) {
-			if (value == 0)
-				value = node->rate.denom;
-			if (node->force_rate != value) {
-				pw_log_info("(%s-%u) force-rate:%u -> %u", node->name,
-							node->info.id, node->force_rate, value);
-				node->force_rate = value;
-				node->stamp = ++context->stamp;
-				recalc_reason = "force rate changed";
-			}
-		}
+	value = pw_properties_get_uint32(node->properties, PW_KEY_NODE_FORCE_RATE, SPA_ID_INVALID);
+	if (value == 0)
+		value = node->rate.denom;
+	if (value == SPA_ID_INVALID)
+		value = 0;
+	if (node->force_rate != value) {
+		pw_log_info("(%s-%u) force-rate:%u -> %u", node->name,
+					node->info.id, node->force_rate, value);
+		node->force_rate = value;
+		node->stamp = ++context->stamp;
+		recalc_reason = "force rate changed";
 	}
 
 	pw_log_debug("%p: driver:%d recalc:%s active:%d", node, node->driver,

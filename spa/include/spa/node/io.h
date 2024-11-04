@@ -127,6 +127,7 @@ struct spa_io_range {
 struct spa_io_clock {
 #define SPA_IO_CLOCK_FLAG_FREEWHEEL	(1u<<0) /* graph is freewheeling */
 #define SPA_IO_CLOCK_FLAG_XRUN_RECOVER	(1u<<1) /* recovering from xrun */
+#define SPA_IO_CLOCK_FLAG_LAZY		(1u<<2) /* lazy scheduling */
 	uint32_t flags;			/**< Clock flags */
 	uint32_t id;			/**< Unique clock id, set by host application */
 	char name[64];			/**< Clock name prefixed with API, set by node when it receives

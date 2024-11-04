@@ -1122,6 +1122,8 @@ static void check_properties(struct pw_impl_node *node)
 			}
 		}
 	}
+	node->supports_lazy = pw_properties_get_uint32(node->properties, PW_KEY_NODE_SUPPORTS_LAZY, 0);
+	node->supports_request = pw_properties_get_uint32(node->properties, PW_KEY_NODE_SUPPORTS_REQUEST, 0);
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_NAME)) &&
 	    (node->name == NULL || !spa_streq(node->name, str))) {

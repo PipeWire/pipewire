@@ -206,4 +206,143 @@ After they complete (and only when the profiler is active), they will trigger an
 extra eventfd to signal the server that the graph completed. This is used by the
 server to generate the profiler info.
 
+## Lazy scheduling
+
+Normally, a driver will wake up the graph and all the followers need to process
+the data in sync. There are cases where:
+
+ 1. the follower might not be ready to process the data
+ 2. the driver rate is not ideal, the follower rate is better
+ 3. the driver might not know when new data is available in the follower and
+    might wake up the graph too often.
+
+In these cases, the driver and follower roles need to be reversed and a mechanism
+needs to be provided so that the follower can know when it is worth processing the
+graph.
+
+For notifying when the graph is ready to be processed, (non driver) nodes can send
+a RequestProcess event which will arrive as a RequestProcess command in the driver.
+The driver can then decide to run the graph or not.
+
+When the graph is started or partially controlled by RequestProcess events and
+commands we say we have lazy scheduling. The driver is not always scheduling according
+to its own rhythm but also depending on the follower.
+
+We can't just enable lazy scheduling when no follower will emit RequestProcess events
+or when no driver will listen for RequestProcess commands. Two new node properties are
+defined:
+
+  - node.supports-lazy = 0 | 1 | ...
+
+  0 means lazy scheduling as a driver is not supported
+  >1 means lazy scheduling as a driver is supported with increasing preference
+
+  - node.supports-request
+
+  0 means request events as a follower are not supported
+  >1 means request events as a follower are supported with increasing preference
+
+ We can only enable lazy scheduling when both the driver and (at least one) follower
+ has the node.supports-lazy and node.supports-request property respectively.
+
+ Node can end up as a driver (is_driver()) and lazy scheduling can be enabled (is_lazy()),
+ which results in the following cases:
+
+  driver producer
+    -> node.driver = true
+    ->  is_driving() && !is_lazy()
+    ->  calls trigger_process() to start the graph
+
+  lazy producer
+    ->  node.driver = true
+    ->  node.supports-lazy = 1
+    ->  is_driving() && is_lazy()
+    ->  listens for RequestProcess and calls trigger_process() to start the graph
+
+  requesting producer
+    ->  node.supports-request = 1
+    ->  !is_driving() && is_lazy()
+    ->  emits RequestProcess to suggest starting the graph
+
+  follower producer
+    ->  !is_driving() && !is_lazy()
+
+
+  driver consumer
+    -> node.driver = true
+    ->  is_driving() && !is_lazy()
+    ->  calls trigger_process() to start the graph
+
+  lazy consumer
+    ->  node.driver = true
+    ->  node.supports-lazy = 1
+    ->  is_driving() && is_lazy()
+    ->  listens for RequestProcess and calls trigger_process() to start the graph
+
+  requesting consumer
+    ->  node.supports-request = 1
+    ->  !is_driving() && is_lazy()
+    ->  emits RequestProcess to suggest starting the graph
+
+  follower consumer
+    ->  !is_driving() && !is_lazy()
+
+
+Some use cases:
+
+ 1. Screensharing - driver producer, follower consumer
+    - The producer starts the graph when a new frame is available.
+    - The consumer consumes the new frames.
+    -> throttles to the rate of the producer and idles when no frames
+       are available.
+
+    producer
+      - node.driver = true
+
+    consumer
+      - node.driver = false
+
+    -> producer selected as driver, consumer is simple follower.
+       lazy scheduling inactive (no lazy driver or no request follower)
+
+
+ 2. headless server - requesting producer, (semi) lazy driver consumer
+
+   - The producer emits RequestProcess when new frames are available.
+   - The consumer requests new frames from the producer according to its
+     refresh rate when there are RequestProcess commands.
+   -> this throttles the framerate to the consumer but idles when there is
+      no activity on the producer.
+
+    producer
+      - node.driver = true
+      - node.supports-request = 1
+
+    consumer
+      - node.driver = true
+      - node.supports-lazy = 2
+
+    -> consumer is selected as driver (lazy > request)
+       lazy scheduling active (1 lazy driver and at least 1 request follower)
+
+
+ 3. frame encoder - lazy driver producer, requesting follower consumer
+ 
+   - The consumer pulls a frame when it is ready to encode the next one.
+   - The producer produces the next frame on demand.
+   -> throttles the speed to the consumer without idle.
+
+    producer
+      - node.driver = true
+      - node.supports-lazy = 1
+
+    consumer
+      - node.driver = true
+      - node.supports-request = 1
+
+    -> producer is selected as driver (lazy <= request)
+       lazy scheduling active (1 lazy driver and at least 1 request follower)
+
+
+
 */

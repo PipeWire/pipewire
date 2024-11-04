@@ -190,6 +190,15 @@ extern "C" {
 #define PW_KEY_NODE_DRIVER		"node.driver"		/**< node can drive the graph. When the node is
 								  *  selected as the driver, it needs to start
 								  *  the graph periodically. */
+#define PW_KEY_NODE_SUPPORTS_LAZY	"node.supports-lazy"	/**< the node can be a lazy driver. It will listen
+								  *  to RequestProcess commands and take them into
+								  *  account when deciding to start the graph.
+								  *  A value of 0 disables support, a value of > 0
+								  *  enables with increasing preference. */
+#define PW_KEY_NODE_SUPPORTS_REQUEST	"node.supports-request"	/**< The node supports emiting RequestProcess events
+								  *  when it wants the graph to be scheduled.
+								  *  A value of 0 disables support, a value of > 0
+								  *  enables with increasing preference. */
 #define PW_KEY_NODE_DRIVER_ID		"node.driver-id"	/**< the node id of the node assigned as driver
 								  *   for this node */
 #define PW_KEY_NODE_ASYNC		"node.async"		/**< the node wants async scheduling */

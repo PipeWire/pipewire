@@ -822,11 +822,34 @@ mmap_init(struct impl *impl, struct port *port,
 			d[j].type = port->memtype;
 			d[j].flags = SPA_DATA_FLAG_READABLE;
 			d[j].mapoffset = 0;
-			d[j].maxsize = port->streamConfig.frameSize;
-			d[j].chunk->offset = 0;
-			d[j].chunk->size = port->streamConfig.frameSize;
 			d[j].chunk->stride = port->streamConfig.stride;
 			d[j].chunk->flags = 0;
+			/* Update parameters according to the plane information */
+			unsigned int numPlanes = bufs[i]->planes().size();
+			if (buffers[i]->n_datas < numPlanes) {
+				if (j < buffers[i]->n_datas - 1) {
+					d[j].maxsize = bufs[i]->planes()[j].length;
+					d[j].chunk->offset = bufs[i]->planes()[j].offset;
+					d[j].chunk->size = bufs[i]->planes()[j].length;
+				} else {
+					d[j].chunk->offset = bufs[i]->planes()[j].offset;
+					for (uint8_t k = j; k < numPlanes; k++) {
+						d[j].maxsize += bufs[i]->planes()[k].length;
+						d[j].chunk->size += bufs[i]->planes()[k].length;
+					}
+				}
+			} else if (buffers[i]->n_datas == numPlanes) {
+				d[j].maxsize = bufs[i]->planes()[j].length;
+				d[j].chunk->offset = bufs[i]->planes()[j].offset;
+				d[j].chunk->size = bufs[i]->planes()[j].length;
+			} else {
+				spa_log_warn(impl->log, "buffer index: i: %d, data member "
+					"numbers: %d is greater than plane number: %d",
+					i, buffers[i]->n_datas, numPlanes);
+				d[j].maxsize = port->streamConfig.frameSize;
+				d[j].chunk->offset = 0;
+				d[j].chunk->size = port->streamConfig.frameSize;
+			}
 
 			if (port->memtype == SPA_DATA_DmaBuf ||
 			    port->memtype == SPA_DATA_MemFd) {

@@ -782,6 +782,7 @@ struct pw_impl_node {
 	unsigned int sync:1;		/**< the sync-groups are active */
 	unsigned int transport:1;	/**< the transport is active */
 	unsigned int async:1;		/**< async processing, one cycle latency */
+	unsigned int lazy:1;		/**< the graph is lazy scheduling */
 
 	uint32_t port_user_data_size;	/**< extra size for port user data */
 

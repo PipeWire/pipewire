@@ -259,7 +259,11 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
 		enable_timeouts(data, false);
 		break;
 	case PW_STREAM_STATE_STREAMING:
-		enable_timeouts(data, true);
+		printf("driving:%d lazy:%d\n",
+				pw_stream_is_driving(data->stream),
+				pw_stream_is_lazy(data->stream));
+		if (pw_stream_is_driving(data->stream) != pw_stream_is_lazy(data->stream))
+			enable_timeouts(data, true);
 		break;
 	default:
 		break;
@@ -288,8 +292,7 @@ on_trigger_done(void *_data)
 static void on_timeout(void *userdata, uint64_t expirations)
 {
 	struct data *data = userdata;
-	if (!data->have_request_process)
-		pw_stream_trigger_process(data->stream);
+	pw_stream_trigger_process(data->stream);
 }
 
 static void
@@ -298,8 +301,7 @@ on_command(void *_data, const struct spa_command *command)
 	struct data *data = _data;
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_RequestProcess:
-		data->have_request_process = true;
-		enable_timeouts(data, false);
+		pw_log_trace("%p trigger", data);
 		pw_stream_trigger_process(data->stream);
 		break;
 	default:
@@ -507,7 +509,8 @@ int main(int argc, char *argv[])
 	props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Video",
 			PW_KEY_MEDIA_CATEGORY, "Capture",
 			PW_KEY_MEDIA_ROLE, "Camera",
-			PW_KEY_PRIORITY_DRIVER, "10000",
+			PW_KEY_NODE_SUPPORTS_LAZY, "1",
+			PW_KEY_NODE_SUPPORTS_REQUEST, "1",
 			NULL),
 	data.path = argc > 1 ? argv[1] : NULL;
 	if (data.path)

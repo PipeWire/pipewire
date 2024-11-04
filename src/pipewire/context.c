@@ -1630,6 +1630,7 @@ again:
 		uint64_t quantum_stamp = 0, rate_stamp = 0;
 		bool force_rate, force_quantum, restore_rate = false, restore_quantum = false;
 		bool do_reconfigure = false, need_resume, was_target_pending;
+		bool have_request = false;
 		const uint32_t *node_rates;
 		uint32_t node_n_rates, node_def_rate;
 		uint32_t node_max_quantum, node_min_quantum, node_def_quantum, node_rate_quantum;
@@ -1697,6 +1698,9 @@ again:
 			pw_log_debug("%p: follower %p running:%d runnable:%d rate:%u/%u latency %u/%u '%s'",
 				context, s, running, s->runnable, rate.num, rate.denom,
 				latency.num, latency.denom, s->name);
+
+			if (running && s != n && s->supports_request > 0)
+				have_request = true;
 
 			s->moved = false;
 		}
@@ -1853,6 +1857,9 @@ again:
 			n->target_quantum = n->rt.position->clock.target_duration;
 			n->target_rate = n->rt.position->clock.target_rate;
 		}
+
+		SPA_FLAG_UPDATE(n->rt.position->clock.flags,
+				SPA_IO_CLOCK_FLAG_LAZY, have_request && n->supports_lazy > 0);
 
 		pw_log_debug("%p: driver %p running:%d runnable:%d quantum:%u rate:%u (%"PRIu64"/%u)'%s'",
 				context, n, running, n->runnable, target_quantum, target_rate,

@@ -250,6 +250,10 @@ int pw_filter_flush(struct pw_filter *filter, bool drain);
  * available (output) or needed (input). Since 0.3.66 */
 bool pw_filter_is_driving(struct pw_filter *filter);
 
+/** Check if the graph is using lazy scheduling.
+ * Since 1.4.0 */
+bool pw_filter_is_lazy(struct pw_filter *filter);
+
 /** Trigger a push/pull on the filter. One iteration of the graph will
  * be scheduled and process() will be called. Since 0.3.66 */
 int pw_filter_trigger_process(struct pw_filter *filter);

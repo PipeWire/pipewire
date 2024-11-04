@@ -2076,6 +2076,12 @@ bool pw_filter_is_driving(struct pw_filter *filter)
 	return filter->node->driving;
 }
 
+SPA_EXPORT
+bool pw_filter_is_lazy(struct pw_filter *filter)
+{
+	return filter->node->lazy;
+}
+
 static int
 do_trigger_process(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)

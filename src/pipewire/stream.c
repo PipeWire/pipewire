@@ -2535,6 +2535,12 @@ bool pw_stream_is_driving(struct pw_stream *stream)
 	return stream->node->driving;
 }
 
+SPA_EXPORT
+bool pw_stream_is_lazy(struct pw_stream *stream)
+{
+	return stream->node->lazy;
+}
+
 static int
 do_trigger_driver(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)

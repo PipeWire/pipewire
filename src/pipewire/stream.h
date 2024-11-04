@@ -569,22 +569,46 @@ int pw_stream_flush(struct pw_stream *stream, bool drain);
  * available (output) or needed (input). Since 0.3.34 */
 bool pw_stream_is_driving(struct pw_stream *stream);
 
+/** Check if the graph is using lazy scheduling. If the stream is
+ * driving according to \ref pw_stream_is_driving(), then it should
+ * consider taking into account the RequestProcess commands when
+ * driving the graph.
+ *
+ * If the stream is not driving, it should send out RequestProcess
+ * events with \ref pw_stream_emit_event() or indirectly with
+ * \ref pw_stream_trigger_process() to suggest a new graph cycle
+ * to the driver.
+ *
+ * It is not a requirement that all RequestProcess events/commands
+ * need to start a graph cycle.
+ * Since 1.2.7 */
+bool pw_stream_is_lazy(struct pw_stream *stream);
+
 /** Trigger a push/pull on the stream. One iteration of the graph will
- * be scheduled. If it successfully finishes, process() will be called.
- * It is possible for the graph iteration to not finish, so
+ * be scheduled when the stream is driving according to
+ * \ref pw_stream_is_driving(). If it successfully finishes, process()
+ * will be called and the trigger_done event will be emitted. It is
+ * possible for the graph iteration to not finish, so
  * pw_stream_trigger_process() needs to be called again even if process()
- * is not called.
+ * and trigger_done is not called.
  *
  * If there is a deadline after which the stream will have xrun,
  * pw_stream_trigger_process() should be called then, whether or not
- * process() has been called. Sound hardware will xrun if there is
- * any delay in audio processing, so the ALSA plugin triggers the
+ * process()/trigger_done has been called. Sound hardware will xrun if
+ * there is any delay in audio processing, so the ALSA plugin triggers the
  * graph every quantum to ensure audio keeps flowing. Drivers that
  * do not have a deadline, such as the freewheel driver, should
  * use a timeout to ensure that forward progress keeps being made.
  * A reasonable choice of deadline is three times the quantum: if
  * the graph is taking 3x longer than normal, it is likely that it
  * is hung and should be retriggered.
+ *
+ * Streams that are not drivers according to \ref pw_stream_is_driving()
+ * can also call this method. The result is that a RequestProcess event
+ * is sent to the driver. If the graph is lazy scheduling according to
+ * \ref pw_stream_is_lazy(), this might result in a graph cycle by the
+ * driver. If the graph is not lazy scheduling and the stream is not a
+ * driver, this method will have no effect.
  *
  * Since 0.3.34 */
 int pw_stream_trigger_process(struct pw_stream *stream);

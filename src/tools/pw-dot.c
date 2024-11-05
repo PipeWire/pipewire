@@ -376,10 +376,10 @@ static void draw_link(struct global *g)
 	dot_data_add_string(dd, "\\loutput_node_id: ");
 	dot_data_add_uint32(dd, info->output_node_id);
 	dot_data_add_string(dd, "\\linput_node_id: ");
-	dot_data_add_uint32(dd, info->output_node_id);
+	dot_data_add_uint32(dd, info->input_node_id);
 	dot_data_add_string(dd, "\\loutput_port_id: ");
 	dot_data_add_uint32(dd, info->output_port_id);
-	dot_data_add_string(dd, "\\linput_node_id: ");
+	dot_data_add_string(dd, "\\linput_port_id: ");
 	dot_data_add_uint32(dd, info->input_port_id);
 	dot_data_add_string(dd, "\\lstate: ");
 	dot_data_add_string_escaped(dd, pw_link_state_as_string(info->state));

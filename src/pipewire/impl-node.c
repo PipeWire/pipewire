@@ -1523,8 +1523,7 @@ int pw_impl_node_trigger(struct pw_impl_node *node)
 {
 	uint64_t nsec = get_time_ns(node->rt.target.system);
 	struct pw_node_target *t = &node->rt.target;
-	t->trigger(t, nsec);
-	return 0;
+	return t->trigger(t, nsec);
 }
 
 static void node_on_fd_events(struct spa_source *source)

@@ -2111,7 +2111,7 @@ int pw_filter_trigger_process(struct pw_filter *filter)
 	pw_log_trace_fp("%p: driving:%d", impl, filter->node->driving);
 
 	if (impl->trigger) {
-		pw_impl_node_trigger(filter->node);
+		res = pw_impl_node_trigger(filter->node);
 	} else if (filter->node->driving) {
 		res = pw_loop_invoke(impl->data_loop,
 			do_trigger_process, 1, NULL, 0, false, impl);

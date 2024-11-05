@@ -2579,7 +2579,7 @@ int pw_stream_trigger_process(struct pw_stream *stream)
 	impl->using_trigger = true;
 
 	if (impl->trigger) {
-		pw_impl_node_trigger(stream->node);
+		res = pw_impl_node_trigger(stream->node);
 	} else if (stream->node->driving) {
 		res = pw_loop_invoke(impl->data_loop,
 			do_trigger_driver, 1, NULL, 0, false, impl);

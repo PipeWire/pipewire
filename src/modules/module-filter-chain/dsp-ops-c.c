@@ -258,21 +258,22 @@ void dsp_fft_free_c(struct dsp_ops *ops, void *fft)
 	pffft_destroy_setup(fft);
 #endif
 }
+
 void *dsp_fft_memalloc_c(struct dsp_ops *ops, uint32_t size, bool real)
 {
 #ifdef HAVE_FFTW
 	if (real)
 		return fftwf_alloc_real(size);
-	else {
+	else
 		return fftwf_alloc_complex(size);
-	}
 #else
 	if (real)
-		pffft_aligned_malloc(size * sizeof(float));
+		return pffft_aligned_malloc(size * sizeof(float));
 	else
-		pffft_aligned_malloc(size * 2 * sizeof(float));
+		return pffft_aligned_malloc(size * 2 * sizeof(float));
 #endif
 }
+
 void dsp_fft_memfree_c(struct dsp_ops *ops, void *data)
 {
 #ifdef HAVE_FFTW

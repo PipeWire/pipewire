@@ -37,37 +37,6 @@ struct convolver1 {
 	float scale;
 };
 
-static void *fft_alloc(int size)
-{
-	size_t nb_bytes = size * sizeof(float);
-#define ALIGNMENT 64
-	void *p, *p0 = malloc(nb_bytes + ALIGNMENT);
-	if (!p0)
-		return (void *)0;
-	p = (void *)(((size_t)p0 + ALIGNMENT) & (~((size_t)(ALIGNMENT - 1))));
-	*((void **)p - 1) = p0;
-	return p;
-}
-static void fft_free(void *p)
-{
-	if (p)
-		free(*((void **)p - 1));
-}
-
-static inline void fft_cpx_clear(float *v, int size)
-{
-	dsp_ops_clear(dsp, v, size * 2);
-}
-static float *fft_cpx_alloc(int size)
-{
-	return fft_alloc(size * 2);
-}
-
-static void fft_cpx_free(float *cpx)
-{
-	fft_free(cpx);
-}
-
 static int next_power_of_two(int val)
 {
 	int r = 1;
@@ -80,11 +49,11 @@ static void convolver1_reset(struct convolver1 *conv)
 {
 	int i;
 	for (i = 0; i < conv->segCount; i++)
-		fft_cpx_clear(conv->segments[i], conv->fftComplexSize);
-	dsp_ops_clear(dsp, conv->overlap, conv->blockSize);
-	dsp_ops_clear(dsp, conv->inputBuffer, conv->segSize);
-	fft_cpx_clear(conv->pre_mult, conv->fftComplexSize);
-	fft_cpx_clear(conv->conv, conv->fftComplexSize);
+		dsp_ops_fft_memclear(dsp, conv->segments[i], conv->fftComplexSize, false);
+	dsp_ops_fft_memclear(dsp, conv->overlap, conv->blockSize, true);
+	dsp_ops_fft_memclear(dsp, conv->inputBuffer, conv->segSize, true);
+	dsp_ops_fft_memclear(dsp, conv->pre_mult, conv->fftComplexSize, false);
+	dsp_ops_fft_memclear(dsp, conv->conv, conv->fftComplexSize, false);
 	conv->inputBufferFill = 0;
 	conv->current = 0;
 }
@@ -94,22 +63,22 @@ static void convolver1_free(struct convolver1 *conv)
 	int i;
 	for (i = 0; i < conv->segCount; i++) {
 		if (conv->segments)
-			fft_cpx_free(conv->segments[i]);
+			dsp_ops_fft_memfree(dsp, conv->segments[i]);
 		if (conv->segmentsIr)
-			fft_cpx_free(conv->segmentsIr[i]);
+			dsp_ops_fft_memfree(dsp, conv->segmentsIr[i]);
 	}
 	if (conv->fft)
 		dsp_ops_fft_free(dsp, conv->fft);
 	if (conv->ifft)
 		dsp_ops_fft_free(dsp, conv->ifft);
 	if (conv->fft_buffer)
-		fft_free(conv->fft_buffer);
+		dsp_ops_fft_memfree(dsp, conv->fft_buffer);
 	free(conv->segments);
 	free(conv->segmentsIr);
-	fft_cpx_free(conv->pre_mult);
-	fft_cpx_free(conv->conv);
-	fft_free(conv->overlap);
-	fft_free(conv->inputBuffer);
+	dsp_ops_fft_memfree(dsp, conv->pre_mult);
+	dsp_ops_fft_memfree(dsp, conv->conv);
+	dsp_ops_fft_memfree(dsp, conv->overlap);
+	dsp_ops_fft_memfree(dsp, conv->inputBuffer);
 	free(conv);
 }
 
@@ -143,7 +112,7 @@ static struct convolver1 *convolver1_new(int block, const float *ir, int irlen)
 	if (conv->ifft == NULL)
 		goto error;
 
-	conv->fft_buffer = fft_alloc(conv->segSize);
+	conv->fft_buffer = dsp_ops_fft_memalloc(dsp, conv->segSize, true);
 	if (conv->fft_buffer == NULL)
 		goto error;
 
@@ -156,21 +125,21 @@ static struct convolver1 *convolver1_new(int block, const float *ir, int irlen)
 		int left = irlen - (i * conv->blockSize);
 		int copy = SPA_MIN(conv->blockSize, left);
 
-		conv->segments[i] = fft_cpx_alloc(conv->fftComplexSize);
-		conv->segmentsIr[i] = fft_cpx_alloc(conv->fftComplexSize);
+		conv->segments[i] = dsp_ops_fft_memalloc(dsp, conv->fftComplexSize, false);
+		conv->segmentsIr[i] = dsp_ops_fft_memalloc(dsp, conv->fftComplexSize, false);
 		if (conv->segments[i] == NULL || conv->segmentsIr[i] == NULL)
 			goto error;
 
 		dsp_ops_copy(dsp, conv->fft_buffer, &ir[i * conv->blockSize], copy);
 		if (copy < conv->segSize)
-			dsp_ops_clear(dsp, conv->fft_buffer + copy, conv->segSize - copy);
+			dsp_ops_fft_memclear(dsp, conv->fft_buffer + copy, conv->segSize - copy, true);
 
 	        dsp_ops_fft_run(dsp, conv->fft, 1, conv->fft_buffer, conv->segmentsIr[i]);
 	}
-	conv->pre_mult = fft_cpx_alloc(conv->fftComplexSize);
-	conv->conv = fft_cpx_alloc(conv->fftComplexSize);
-	conv->overlap = fft_alloc(conv->blockSize);
-	conv->inputBuffer = fft_alloc(conv->segSize);
+	conv->pre_mult = dsp_ops_fft_memalloc(dsp, conv->fftComplexSize, false);
+	conv->conv = dsp_ops_fft_memalloc(dsp, conv->fftComplexSize, false);
+	conv->overlap = dsp_ops_fft_memalloc(dsp, conv->blockSize, true);
+	conv->inputBuffer = dsp_ops_fft_memalloc(dsp, conv->segSize, true);
 	if (conv->pre_mult == NULL || conv->conv == NULL || conv->overlap == NULL ||
 			conv->inputBuffer == NULL)
 			goto error;
@@ -188,7 +157,7 @@ static int convolver1_run(struct convolver1 *conv, const float *input, float *ou
 	int i, processed = 0;
 
 	if (conv == NULL || conv->segCount == 0) {
-		dsp_ops_clear(dsp, output, len);
+		dsp_ops_fft_memclear(dsp, output, len, true);
 		return len;
 	}
 
@@ -198,7 +167,7 @@ static int convolver1_run(struct convolver1 *conv, const float *input, float *ou
 
 		dsp_ops_copy(dsp, conv->inputBuffer + inputBufferPos, input + processed, processing);
 		if (inputBufferPos == 0 && processing < conv->blockSize)
-			dsp_ops_clear(dsp, conv->inputBuffer + processing, conv->blockSize - processing);
+			dsp_ops_fft_memclear(dsp, conv->inputBuffer + processing, conv->blockSize - processing, true);
 
 		dsp_ops_fft_run(dsp, conv->fft, 1, conv->inputBuffer, conv->segments[conv->current]);
 
@@ -277,13 +246,13 @@ void convolver_reset(struct convolver *conv)
 		convolver1_reset(conv->headConvolver);
 	if (conv->tailConvolver0) {
 		convolver1_reset(conv->tailConvolver0);
-		dsp_ops_clear(dsp, conv->tailOutput0, conv->tailBlockSize);
-		dsp_ops_clear(dsp, conv->tailPrecalculated0, conv->tailBlockSize);
+		dsp_ops_fft_memclear(dsp, conv->tailOutput0, conv->tailBlockSize, true);
+		dsp_ops_fft_memclear(dsp, conv->tailPrecalculated0, conv->tailBlockSize, true);
 	}
 	if (conv->tailConvolver) {
 		convolver1_reset(conv->tailConvolver);
-		dsp_ops_clear(dsp, conv->tailOutput, conv->tailBlockSize);
-		dsp_ops_clear(dsp, conv->tailPrecalculated, conv->tailBlockSize);
+		dsp_ops_fft_memclear(dsp, conv->tailOutput, conv->tailBlockSize, true);
+		dsp_ops_fft_memclear(dsp, conv->tailPrecalculated, conv->tailBlockSize, true);
 	}
 	conv->tailInputFill = 0;
 	conv->precalculatedPos = 0;
@@ -324,8 +293,8 @@ struct convolver *convolver_new(struct dsp_ops *dsp_ops, int head_block, int tai
 	if (irlen > conv->tailBlockSize) {
 		int conv1IrLen = SPA_MIN(irlen - conv->tailBlockSize, conv->tailBlockSize);
 		conv->tailConvolver0 = convolver1_new(conv->headBlockSize, ir + conv->tailBlockSize, conv1IrLen);
-		conv->tailOutput0 = fft_alloc(conv->tailBlockSize);
-		conv->tailPrecalculated0 = fft_alloc(conv->tailBlockSize);
+		conv->tailOutput0 = dsp_ops_fft_memalloc(dsp, conv->tailBlockSize, true);
+		conv->tailPrecalculated0 = dsp_ops_fft_memalloc(dsp, conv->tailBlockSize, true);
 		if (conv->tailConvolver0 == NULL || conv->tailOutput0 == NULL ||
 				conv->tailPrecalculated0 == NULL)
 			goto error;
@@ -334,15 +303,15 @@ struct convolver *convolver_new(struct dsp_ops *dsp_ops, int head_block, int tai
 	if (irlen > 2 * conv->tailBlockSize) {
 		int tailIrLen = irlen - (2 * conv->tailBlockSize);
 		conv->tailConvolver = convolver1_new(conv->tailBlockSize, ir + (2 * conv->tailBlockSize), tailIrLen);
-		conv->tailOutput = fft_alloc(conv->tailBlockSize);
-		conv->tailPrecalculated = fft_alloc(conv->tailBlockSize);
+		conv->tailOutput = dsp_ops_fft_memalloc(dsp, conv->tailBlockSize, true);
+		conv->tailPrecalculated = dsp_ops_fft_memalloc(dsp, conv->tailBlockSize, true);
 		if (conv->tailConvolver == NULL || conv->tailOutput == NULL ||
 				conv->tailPrecalculated == NULL)
 			goto error;
 	}
 
 	if (conv->tailConvolver0 || conv->tailConvolver) {
-		conv->tailInput = fft_alloc(conv->tailBlockSize);
+		conv->tailInput = dsp_ops_fft_memalloc(dsp, conv->tailBlockSize, true);
 		if (conv->tailInput == NULL)
 			goto error;
 	}
@@ -363,11 +332,11 @@ void convolver_free(struct convolver *conv)
 		convolver1_free(conv->tailConvolver0);
 	if (conv->tailConvolver)
 		convolver1_free(conv->tailConvolver);
-	fft_free(conv->tailOutput0);
-	fft_free(conv->tailPrecalculated0);
-	fft_free(conv->tailOutput);
-	fft_free(conv->tailPrecalculated);
-	fft_free(conv->tailInput);
+	dsp_ops_fft_memfree(dsp, conv->tailOutput0);
+	dsp_ops_fft_memfree(dsp, conv->tailPrecalculated0);
+	dsp_ops_fft_memfree(dsp, conv->tailOutput);
+	dsp_ops_fft_memfree(dsp, conv->tailPrecalculated);
+	dsp_ops_fft_memfree(dsp, conv->tailInput);
 	free(conv);
 }
 

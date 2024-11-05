@@ -222,7 +222,7 @@ struct fft_info {
 };
 #endif
 
-void *dsp_fft_new_c(struct dsp_ops *ops, int32_t size, bool real)
+void *dsp_fft_new_c(struct dsp_ops *ops, uint32_t size, bool real)
 {
 #ifdef HAVE_FFTW
 	struct fft_info *info = calloc(1, sizeof(struct fft_info));
@@ -232,8 +232,8 @@ void *dsp_fft_new_c(struct dsp_ops *ops, int32_t size, bool real)
 	if (info == NULL)
 		return NULL;
 
-	rdata = fftwf_alloc_real (size * 2);
-	cdata = fftwf_alloc_complex (size + 1);
+	rdata = fftwf_alloc_real(size * 2);
+	cdata = fftwf_alloc_complex(size + 1);
 
 	info->plan_r2c = fftwf_plan_dft_r2c_1d(size, rdata, cdata, FFTW_ESTIMATE);
 	info->plan_c2r = fftwf_plan_dft_c2r_1d(size, cdata, rdata, FFTW_ESTIMATE);
@@ -258,6 +258,39 @@ void dsp_fft_free_c(struct dsp_ops *ops, void *fft)
 	pffft_destroy_setup(fft);
 #endif
 }
+void *dsp_fft_memalloc_c(struct dsp_ops *ops, uint32_t size, bool real)
+{
+#ifdef HAVE_FFTW
+	if (real)
+		return fftwf_alloc_real(size);
+	else {
+		return fftwf_alloc_complex(size);
+	}
+#else
+	if (real)
+		pffft_aligned_malloc(size * sizeof(float));
+	else
+		pffft_aligned_malloc(size * 2 * sizeof(float));
+#endif
+}
+void dsp_fft_memfree_c(struct dsp_ops *ops, void *data)
+{
+#ifdef HAVE_FFTW
+	fftwf_free(data);
+#else
+	pffft_aligned_free(data);
+#endif
+}
+
+void dsp_fft_memclear_c(struct dsp_ops *ops, void *data, uint32_t size, bool real)
+{
+#ifdef HAVE_FFTW
+	dsp_ops_clear(ops, data, real ? size : size * 2);
+#else
+	dsp_ops_clear(ops, data, real ? size : size * 2);
+#endif
+}
+
 void dsp_fft_run_c(struct dsp_ops *ops, void *fft, int direction,
 	const float * SPA_RESTRICT src, float * SPA_RESTRICT dst)
 {

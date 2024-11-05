@@ -26,8 +26,11 @@ struct dsp_ops_funcs {
 			float * dst, const float * SPA_RESTRICT a,
 			const float * SPA_RESTRICT b, uint32_t n_samples);
 
-	void *(*fft_new) (struct dsp_ops *ops, int32_t size, bool real);
+	void *(*fft_new) (struct dsp_ops *ops, uint32_t size, bool real);
 	void (*fft_free) (struct dsp_ops *ops, void *fft);
+	void *(*fft_memalloc) (struct dsp_ops *ops, uint32_t size, bool real);
+	void (*fft_memfree) (struct dsp_ops *ops, void *mem);
+	void (*fft_memclear) (struct dsp_ops *ops, void *mem, uint32_t size, bool real);
 	void (*fft_run) (struct dsp_ops *ops, void *fft, int direction,
 			const float * SPA_RESTRICT src, float * SPA_RESTRICT dst);
 	void (*fft_cmul) (struct dsp_ops *ops, void *fft,
@@ -77,6 +80,9 @@ int dsp_ops_benchmark(void);
 
 #define dsp_ops_fft_new(ops,...)	(ops)->funcs.fft_new(ops, __VA_ARGS__)
 #define dsp_ops_fft_free(ops,...)	(ops)->funcs.fft_free(ops, __VA_ARGS__)
+#define dsp_ops_fft_memalloc(ops,...)	(ops)->funcs.fft_memalloc(ops, __VA_ARGS__)
+#define dsp_ops_fft_memfree(ops,...)	(ops)->funcs.fft_memfree(ops, __VA_ARGS__)
+#define dsp_ops_fft_memclear(ops,...)	(ops)->funcs.fft_memclear(ops, __VA_ARGS__)
 #define dsp_ops_fft_run(ops,...)	(ops)->funcs.fft_run(ops, __VA_ARGS__)
 #define dsp_ops_fft_cmul(ops,...)	(ops)->funcs.fft_cmul(ops, __VA_ARGS__)
 #define dsp_ops_fft_cmuladd(ops,...)	(ops)->funcs.fft_cmuladd(ops, __VA_ARGS__)
@@ -109,9 +115,15 @@ void dsp_delay_##arch (struct dsp_ops *ops, float *buffer, uint32_t *pos, uint32
 		uint32_t delay, float *dst, const float *src, uint32_t n_samples)
 
 #define MAKE_FFT_NEW_FUNC(arch) \
-void *dsp_fft_new_##arch(struct dsp_ops *ops, int32_t size, bool real)
+void *dsp_fft_new_##arch(struct dsp_ops *ops, uint32_t size, bool real)
 #define MAKE_FFT_FREE_FUNC(arch) \
 void dsp_fft_free_##arch(struct dsp_ops *ops, void *fft)
+#define MAKE_FFT_MEMALLOC_FUNC(arch) \
+void *dsp_fft_memalloc_##arch(struct dsp_ops *ops, uint32_t size, bool real)
+#define MAKE_FFT_MEMFREE_FUNC(arch) \
+void dsp_fft_memfree_##arch(struct dsp_ops *ops, void *mem)
+#define MAKE_FFT_MEMCLEAR_FUNC(arch) \
+void dsp_fft_memclear_##arch(struct dsp_ops *ops, void *mem, uint32_t size, bool real)
 #define MAKE_FFT_RUN_FUNC(arch) \
 void dsp_fft_run_##arch(struct dsp_ops *ops, void *fft, int direction, \
 	const float * SPA_RESTRICT src, float * SPA_RESTRICT dst)
@@ -138,6 +150,9 @@ MAKE_DELAY_FUNC(c);
 
 MAKE_FFT_NEW_FUNC(c);
 MAKE_FFT_FREE_FUNC(c);
+MAKE_FFT_MEMALLOC_FUNC(c);
+MAKE_FFT_MEMFREE_FUNC(c);
+MAKE_FFT_MEMCLEAR_FUNC(c);
 MAKE_FFT_RUN_FUNC(c);
 MAKE_FFT_CMUL_FUNC(c);
 MAKE_FFT_CMULADD_FUNC(c);

@@ -896,7 +896,16 @@ static void capture_destroy(void *d)
 static void capture_process(void *d)
 {
 	struct impl *impl = d;
-	pw_stream_trigger_process(impl->playback);
+	int res;
+	if ((res = pw_stream_trigger_process(impl->playback)) < 0) {
+		pw_log_debug("playback trigger error: %s", spa_strerror(res));
+		while (true) {
+			struct pw_buffer *t;
+			if ((t = pw_stream_dequeue_buffer(impl->capture)) == NULL)
+				break;
+			pw_stream_queue_buffer(impl->capture, t);
+		}
+	}
 }
 
 static void playback_process(void *d)

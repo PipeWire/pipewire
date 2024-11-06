@@ -19,6 +19,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
+#include <spa/utils/ratelimit.h>
 #include <spa/debug/types.h>
 #include <spa/pod/builder.h>
 #include <spa/param/audio/format-utils.h>
@@ -184,6 +185,8 @@ struct impl {
 	struct spa_hook core_proxy_listener;
 	struct spa_hook core_listener;
 
+	struct spa_ratelimit rate_limit;
+
 	struct spa_io_position *position;
 
 	struct stream source;
@@ -192,7 +195,7 @@ struct impl {
 	uint32_t samplerate;
 
 	jack_client_t *client;
-	jack_nframes_t frame_time;
+	jack_nframes_t current_frames;
 
 	uint32_t pw_xrun;
 	uint32_t jack_xrun;
@@ -355,7 +358,7 @@ static void sink_process(void *d, struct spa_io_position *position)
 		else
 			do_volume(dst, src, &s->volume, i, n_samples);
 	}
-	pw_log_trace_fp("done %u %u", impl->frame_time, n_samples);
+	pw_log_trace_fp("done %u %u", impl->current_frames, n_samples);
 	if (impl->mode & MODE_SINK) {
 		impl->done = true;
 		jack.cycle_signal(impl->client, 0);
@@ -369,7 +372,7 @@ static void source_process(void *d, struct spa_io_position *position)
 	uint32_t i, n_samples = position->clock.duration;
 
 	if (impl->mode == MODE_SOURCE && !impl->triggered) {
-		pw_log_trace_fp("done %u", impl->frame_time);
+		pw_log_trace_fp("done %u", impl->current_frames);
 		impl->done = true;
 		jack.cycle_signal(impl->client, 0);
 		return;
@@ -687,34 +690,39 @@ static void *jack_process_thread(void *arg)
 	jack_nframes_t nframes;
 
 	while (true) {
+		jack_nframes_t current_frames;
+		jack_time_t current_usecs;
+		jack_time_t next_usecs;
+		float period_usecs;
+
 		nframes = jack.cycle_wait (impl->client);
+
+		jack.get_cycle_times(impl->client,
+				&current_frames, &current_usecs,
+				&next_usecs, &period_usecs);
+
+		impl->current_frames = current_frames;
 
 		source_running = impl->source.running;
 		sink_running = impl->sink.running;
 
-		impl->frame_time = jack.frame_time(impl->client);
-
 		pw_log_trace_fp("process %d %u %u %p %d", nframes, source_running,
-				sink_running, impl->position, impl->frame_time);
+				sink_running, impl->position, current_frames);
 
 		if (impl->new_xrun) {
-			pw_log_warn("Xrun JACK:%u PipeWire:%u", impl->jack_xrun, impl->pw_xrun);
+			int suppressed;
+			if ((suppressed = spa_ratelimit_test(&impl->rate_limit, current_usecs)) >= 0) {
+				pw_log_warn("Xrun: current_frames:%u JACK:%u PipeWire:%u (%d suppressed)",
+						current_frames, impl->jack_xrun, impl->pw_xrun, suppressed);
+			}
 			impl->new_xrun = false;
 		}
 
 		if (impl->position) {
 			struct spa_io_clock *c = &impl->position->clock;
-			jack_nframes_t current_frames;
-			jack_time_t current_usecs;
-			jack_time_t next_usecs;
-			float period_usecs;
 			jack_position_t pos;
 			uint64_t t1, t2, t3;
 			int64_t d1;
-
-			jack.get_cycle_times(impl->client,
-					&current_frames, &current_usecs,
-					&next_usecs, &period_usecs);
 
 			/* convert from JACK (likely MONOTONIC_RAW) to MONOTONIC */
 			t1 = get_time_nsec(impl) / 1000;
@@ -1080,6 +1088,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->context = context;
 	impl->main_loop = pw_context_get_main_loop(context);
 	impl->system = impl->main_loop->system;
+
+	impl->rate_limit.interval = 2 * SPA_USEC_PER_SEC;
+	impl->rate_limit.burst = 1;
 
 	impl->source.impl = impl;
 	impl->source.direction = PW_DIRECTION_OUTPUT;

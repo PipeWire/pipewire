@@ -2339,6 +2339,7 @@ static int graph_instantiate(struct graph *graph)
 	struct link *link;
 	struct descriptor *desc;
 	const struct fc_descriptor *d;
+	const struct fc_plugin *p;
 	uint32_t i, j, max_samples = impl->quantum_limit;
 	int res;
 	float *sd, *dd;
@@ -2354,11 +2355,12 @@ static int graph_instantiate(struct graph *graph)
 
 		desc = node->desc;
 		d = desc->desc;
+		p = desc->plugin->plugin;
 
 		for (i = 0; i < node->n_hndl; i++) {
 			pw_log_info("instantiate %s %d rate:%lu", d->name, i, impl->rate);
 			errno = EINVAL;
-			if ((node->hndl[i] = d->instantiate(d, impl->rate, i, node->config)) == NULL) {
+			if ((node->hndl[i] = d->instantiate(p, d, impl->rate, i, node->config)) == NULL) {
 				pw_log_error("cannot create plugin instance %d rate:%lu: %m", i, impl->rate);
 				res = -errno;
 				goto error;

@@ -51,7 +51,7 @@ struct fc_descriptor {
 	uint32_t n_ports;
 	struct fc_port *ports;
 
-	void *(*instantiate) (const struct fc_descriptor *desc,
+	void *(*instantiate) (const struct fc_plugin *plugin, const struct fc_descriptor *desc,
 			unsigned long SampleRate, int index, const char *config);
 
 	void (*cleanup) (void *instance);

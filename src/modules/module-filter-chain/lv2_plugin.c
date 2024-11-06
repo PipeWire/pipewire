@@ -278,7 +278,7 @@ work_schedule(LV2_Worker_Schedule_Handle handle, uint32_t size, const void *data
 	return LV2_WORKER_SUCCESS;
 }
 
-static void *lv2_instantiate(const struct fc_descriptor *desc,
+static void *lv2_instantiate(const struct fc_plugin *plugin, const struct fc_descriptor *desc,
                         unsigned long SampleRate, int index, const char *config)
 {
 	struct descriptor *d = (struct descriptor*)desc;

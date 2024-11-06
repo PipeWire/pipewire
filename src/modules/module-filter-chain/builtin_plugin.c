@@ -28,9 +28,13 @@
 
 #define MAX_RATES	32u
 
-static struct dsp_ops *dsp_ops;
+struct plugin {
+	struct fc_plugin plugin;
+	struct dsp_ops *dsp_ops;
+};
 
 struct builtin {
+	struct plugin *plugin;
 	unsigned long rate;
 	float *port[64];
 
@@ -44,7 +48,7 @@ struct builtin {
 	float accum;
 };
 
-static void *builtin_instantiate(const struct fc_descriptor * Descriptor,
+static void *builtin_instantiate(const struct fc_plugin *plugin, const struct fc_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct builtin *impl;
@@ -53,6 +57,7 @@ static void *builtin_instantiate(const struct fc_descriptor * Descriptor,
 	if (impl == NULL)
 		return NULL;
 
+	impl->plugin = (struct plugin *) plugin;
 	impl->rate = SampleRate;
 
 	return impl;
@@ -75,7 +80,7 @@ static void copy_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
 	float *in = impl->port[1], *out = impl->port[0];
-	dsp_ops_copy(dsp_ops, out, in, SampleCount);
+	dsp_ops_copy(impl->plugin->dsp_ops, out, in, SampleCount);
 }
 
 static struct fc_port copy_ports[] = {
@@ -124,7 +129,7 @@ static void mixer_run(void * Instance, unsigned long SampleCount)
 		src[n_src] = in;
 		gains[n_src++] = gain;
 	}
-	dsp_ops_mix_gain(dsp_ops, out, src, gains, n_src, SampleCount);
+	dsp_ops_mix_gain(impl->plugin->dsp_ops, out, src, gains, n_src, SampleCount);
 }
 
 static struct fc_port mixer_ports[] = {
@@ -300,7 +305,7 @@ static void bq_raw_update(struct builtin *impl, float b0, float b1, float b2,
  *     ]
  * }
  */
-static void *bq_instantiate(const struct fc_descriptor * Descriptor,
+static void *bq_instantiate(const struct fc_plugin *plugin, const struct fc_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct builtin *impl;
@@ -314,6 +319,7 @@ static void *bq_instantiate(const struct fc_descriptor * Descriptor,
 	if (impl == NULL)
 		return NULL;
 
+	impl->plugin = (struct plugin *) plugin;
 	impl->rate = SampleRate;
 	impl->b0 = impl->a0 = 1.0f;
 	impl->type = bq_type_from_name(Descriptor->name);
@@ -526,7 +532,7 @@ static void bq_run(void *Instance, unsigned long samples)
 		if (impl->freq != freq || impl->Q != Q || impl->gain != gain)
 			bq_freq_update(impl, impl->type, freq, Q, gain);
 	}
-	dsp_ops_biquad_run(dsp_ops, bq, out, in, samples);
+	dsp_ops_biquad_run(impl->plugin->dsp_ops, bq, out, in, samples);
 }
 
 /** bq_lowpass */
@@ -658,6 +664,7 @@ static const struct fc_descriptor bq_raw_desc = {
 
 /** convolve */
 struct convolver_impl {
+	struct plugin *plugin;
 	unsigned long rate;
 	float *port[2];
 
@@ -807,7 +814,7 @@ static float *create_dirac(const char *filename, float gain, int rate, float del
 	return samples;
 }
 
-static float *resample_buffer(float *samples, int *n_samples,
+static float *resample_buffer(struct dsp_ops *dsp_ops, float *samples, int *n_samples,
 		unsigned long in_rate, unsigned long out_rate, uint32_t quality)
 {
 #ifdef HAVE_SPA_PLUGINS
@@ -884,7 +891,7 @@ error:
 #endif
 }
 
-static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
+static void * convolver_instantiate(const struct fc_plugin *plugin, const struct fc_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct convolver_impl *impl;
@@ -1003,9 +1010,11 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 		rate = SampleRate;
 		samples = read_closest(filenames, gain, delay, offset,
 				length, channel, &rate, &n_samples);
-		if (samples != NULL && rate != SampleRate)
-			samples = resample_buffer(samples, &n_samples,
+		if (samples != NULL && rate != SampleRate) {
+			struct plugin *p = (struct plugin *) plugin;
+			samples = resample_buffer(p->dsp_ops, samples, &n_samples,
 					rate, SampleRate, resample_quality);
+		}
 	}
 
 	for (i = 0; i < MAX_RATES; i++)
@@ -1029,9 +1038,10 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	if (impl == NULL)
 		goto error;
 
+	impl->plugin = (struct plugin *) plugin;
 	impl->rate = SampleRate;
 
-	impl->conv = convolver_new(dsp_ops, blocksize, tailsize, samples, n_samples);
+	impl->conv = convolver_new(impl->plugin->dsp_ops, blocksize, tailsize, samples, n_samples);
 	if (impl->conv == NULL)
 		goto error;
 
@@ -1099,6 +1109,7 @@ static const struct fc_descriptor convolve_desc = {
 
 /** delay */
 struct delay_impl {
+	struct plugin *plugin;
 	unsigned long rate;
 	float *port[4];
 
@@ -1116,7 +1127,7 @@ static void delay_cleanup(void * Instance)
 	free(impl);
 }
 
-static void *delay_instantiate(const struct fc_descriptor * Descriptor,
+static void *delay_instantiate(const struct fc_plugin *plugin, const struct fc_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct delay_impl *impl;
@@ -1154,6 +1165,7 @@ static void *delay_instantiate(const struct fc_descriptor * Descriptor,
 	if (impl == NULL)
 		return NULL;
 
+	impl->plugin = (struct plugin *) plugin;
 	impl->rate = SampleRate;
 	impl->buffer_samples = SPA_ROUND_UP_N((uint32_t)(max_delay * impl->rate), 64);
 	pw_log_info("max-delay:%f seconds rate:%lu samples:%d", max_delay, impl->rate, impl->buffer_samples);
@@ -1188,7 +1200,7 @@ static void delay_run(void * Instance, unsigned long SampleCount)
 		impl->delay_samples = SPA_CLAMP((uint32_t)(delay * impl->rate), 0u, impl->buffer_samples-1);
 		impl->delay = delay;
 	}
-	dsp_ops_delay(dsp_ops, impl->buffer, &impl->ptr, impl->buffer_samples,
+	dsp_ops_delay(impl->plugin->dsp_ops, impl->buffer, &impl->ptr, impl->buffer_samples,
 			impl->delay_samples, out, in, SampleCount);
 }
 
@@ -1322,7 +1334,7 @@ static void linear_run(void * Instance, unsigned long SampleCount)
 	float *ctrl = impl->port[3], *notify = impl->port[2];
 
 	if (in != NULL && out != NULL)
-		dsp_ops_linear(dsp_ops, out, in, mult, add, SampleCount);
+		dsp_ops_linear(impl->plugin->dsp_ops, out, in, mult, add, SampleCount);
 
 	if (ctrl != NULL && notify != NULL)
 		notify[0] = ctrl[0] * mult + add;
@@ -1567,7 +1579,7 @@ static void mult_run(void * Instance, unsigned long SampleCount)
 
 		src[n_src++] = in;
 	}
-	dsp_ops_mult(dsp_ops, out, src, n_src, SampleCount);
+	dsp_ops_mult(impl->plugin->dsp_ops, out, src, n_src, SampleCount);
 }
 
 static struct fc_port mult_ports[] = {
@@ -1693,6 +1705,7 @@ static const struct fc_descriptor sine_desc = {
 
 #define PARAM_EQ_MAX		64
 struct param_eq_impl {
+	struct plugin *plugin;
 	unsigned long rate;
 	float *port[8*2];
 
@@ -1859,7 +1872,7 @@ static int parse_filters(struct spa_json *iter, int rate, struct biquad *bq, uin
  *   filtersX = [ ... ] # to load channel X
  * }
  */
-static void *param_eq_instantiate(const struct fc_descriptor * Descriptor,
+static void *param_eq_instantiate(const struct fc_plugin *plugin, const struct fc_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct spa_json it[3];
@@ -1884,6 +1897,7 @@ static void *param_eq_instantiate(const struct fc_descriptor * Descriptor,
 	if (impl == NULL)
 		return NULL;
 
+	impl->plugin = (struct plugin *) plugin;
 	impl->rate = SampleRate;
 	for (i = 0; i < SPA_N_ELEMENTS(impl->bq); i++)
 		biquad_set(&impl->bq[i], BQ_NONE, 0.0f, 0.0f, 0.0f);
@@ -1950,7 +1964,7 @@ static void param_eq_connect_port(void * Instance, unsigned long Port,
 static void param_eq_run(void * Instance, unsigned long SampleCount)
 {
 	struct param_eq_impl *impl = Instance;
-	dsp_ops_biquadn_run(dsp_ops, impl->bq, impl->n_bq, PARAM_EQ_MAX,
+	dsp_ops_biquadn_run(impl->plugin->dsp_ops, impl->bq, impl->n_bq, PARAM_EQ_MAX,
 			&impl->port[8], (const float**)impl->port, 8, SampleCount);
 }
 
@@ -2099,14 +2113,18 @@ static const struct fc_descriptor *builtin_make_desc(struct fc_plugin *plugin, c
 	return NULL;
 }
 
-static struct fc_plugin builtin_plugin = {
-	.make_desc = builtin_make_desc
-};
+static void builtin_plugin_unload(struct fc_plugin *p)
+{
+	free(p);
+}
 
 struct fc_plugin *load_builtin_plugin(const struct spa_support *support, uint32_t n_support,
 		struct dsp_ops *dsp, const char *plugin, const char *config)
 {
-	dsp_ops = dsp;
+	struct plugin *impl = calloc (1, sizeof (struct plugin));
+	impl->plugin.make_desc = builtin_make_desc;
+	impl->plugin.unload = builtin_plugin_unload;
+	impl->dsp_ops = dsp;
 	pffft_select_cpu(dsp->cpu_flags);
-	return &builtin_plugin;
+	return (struct fc_plugin *) impl;
 }

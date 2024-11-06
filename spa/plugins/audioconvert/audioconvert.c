@@ -3272,7 +3272,7 @@ static int impl_node_process(void *object)
 	}
 
 	dir = &this->dir[SPA_DIRECTION_OUTPUT];
-	if (SPA_LIKELY(n_samples > 0 && (this->out_offset >= max_out || flush_out))) {
+	if (SPA_LIKELY(this->out_offset > 0 && (this->out_offset >= max_out || flush_out))) {
 		/* queue output buffers */
 		for (i = 0; i < dir->n_ports; i++) {
 			port = GET_OUT_PORT(this, i);

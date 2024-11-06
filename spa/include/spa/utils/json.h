@@ -457,10 +457,8 @@ static inline int spa_json_get_float(struct spa_json *iter, float *res)
 static inline char *spa_json_format_float(char *str, int size, float val)
 {
 	if (SPA_UNLIKELY(!isnormal(val))) {
-		if (val == INFINITY)
-			val = FLT_MAX;
-		else if (val == -INFINITY)
-			val = FLT_MIN;
+		if (isinf(val))
+			val = signbit(val) ? FLT_MIN : FLT_MAX;
 		else
 			val = 0.0f;
 	}

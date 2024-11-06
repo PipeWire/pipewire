@@ -1,3 +1,56 @@
+# PipeWire 1.2.7 (2024-11-26)
+
+This is a bugfix release that is API and ABI compatible with the previous
+1.2.x and 1.0.x releases.
+
+## Highlights
+  - Backport support for lazy scheduling.
+  - Handle the case where processing would stop when an ALSA driver is
+    destroyed.
+  - Add support for v4l2loopback in the v4l2 plugin.
+  - Small bug fixes and improvements.
+
+## PipeWire
+  - Invalidate the proxy ID when removed.
+  - Backport support for lazy scheduling.
+  - Fix profiler stats for async nodes.
+  - Fix EARLY_PROCESS again in pw-stream. (#3480)
+
+## Modules
+  - Fix a crasher issue when nodes are created in the wrong order in
+    module-filter-chain.
+  - Fix unmap bug in lv2 uri tables.
+  - Add ratelimit to jack-tunnel xruns.
+  - Remove hardcoded limit in filter-chain sofa plugin.
+  - Handle the MTU size correctly in module-rtp and handle large MTUs.
+    (#4396)
+  - Fix JSON float parsing errors in equalizer module. (#4418)
+
+## SPA
+  - Fix crash in audiotestsrc when using spa-inspect (#4365).
+  - Improve JSON float infinity checks.
+  - Improve resampler performace a little.
+  - Make audioconvert only output when there is something to output.
+  - Fix regression in v4l2 port flags which would disable support for
+    EXPBUF.
+  - Handle the case where an ALSA driver is destroyed and the follower
+    becomes a driver. Processing would stop. (#4401)
+  - Add support for v4l2loopback in the v4l2 plugin.
+
+## Pulse-server
+  - Give a better error message when running out of fds.
+  - Ensure positive latency reporting.
+
+## GStreamer
+  - Fix memory leak in deviceprovider.
+  - Fix locking when emitting an error.
+
+## Tools
+  - Fix pw-dot link labels.
+
+Older versions:
+
+
 # PipeWire 1.2.6 (2024-10-23)
 
 This is a bugfix release that is API and ABI compatible with the previous
@@ -39,9 +92,6 @@ This is a bugfix release that is API and ABI compatible with the previous
 
 ## Docs
   - Backport docs from master.
-
-Older versions:
-
 
 # PipeWire 1.2.5 (2024-09-27)
 

@@ -1409,8 +1409,10 @@ static int mmap_read(struct impl *this)
 
 	/* Drop the first frame in order to work around common firmware
 	 * timestamp issues */
-	if (buf.sequence == 0) {
-		xioctl(dev->fd, VIDIOC_QBUF, &buf);
+	if (port->first_buffer) {
+		port->first_buffer = false;
+		if (xioctl(dev->fd, VIDIOC_QBUF, &buf) < 0)
+			spa_log_warn(this->log, "v4l2 %p: error qbuf: %m", this);
 		return 0;
 	}
 
@@ -1798,6 +1800,8 @@ static int spa_v4l2_stream_on(struct impl *this)
 		return 0;
 
 	spa_log_debug(this->log, "starting");
+
+	port->first_buffer = true;
 
 	type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	if (xioctl(dev->fd, VIDIOC_STREAMON, &type) < 0) {

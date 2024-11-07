@@ -75,6 +75,7 @@ struct port {
 	bool alloc_buffers;
 	bool probed_expbuf;
 	bool have_expbuf;
+	bool first_buffer;
 	uint32_t max_buffers;
 
 	bool next_fmtdesc;

@@ -911,12 +911,13 @@ static int probe_expbuf(struct impl *this)
 	spa_zero(reqbuf);
 	reqbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	reqbuf.memory = V4L2_MEMORY_MMAP;
-	reqbuf.count = 2;
+	reqbuf.count = port->max_buffers = MAX_BUFFERS;
 
 	if (xioctl(dev->fd, VIDIOC_REQBUFS, &reqbuf) < 0) {
 		spa_log_error(this->log, "'%s' VIDIOC_REQBUFS: %m", this->props.device);
 		return -errno;
 	}
+	port->max_buffers = reqbuf.count;
 
 	spa_zero(expbuf);
 	expbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;

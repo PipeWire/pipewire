@@ -58,6 +58,7 @@ struct buffer {
 	struct spa_meta_videotransform *vt;
 	struct v4l2_buffer v4l2_buffer;
 	void *ptr;
+	void *mmap_ptr;
 };
 
 #define MAX_CONTROLS	64

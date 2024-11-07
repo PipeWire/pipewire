@@ -460,7 +460,7 @@ static void lv2_unload(struct fc_plugin *plugin)
 
 SPA_EXPORT
 struct fc_plugin *pipewire__filter_chain_plugin_load(const struct spa_support *support, uint32_t n_support,
-		struct dsp_ops *ops, const char *plugin_uri, const char *config)
+		struct dsp_ops *dsp, const char *plugin_uri, const struct spa_dict *info)
 {
 	struct context *c;
 	const LilvPlugins *plugins;

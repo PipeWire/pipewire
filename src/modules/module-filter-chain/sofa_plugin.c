@@ -14,13 +14,12 @@
 
 #include <mysofa.h>
 
-#define MAX_SAMPLES	8192u
-
 struct plugin {
 	struct fc_plugin plugin;
 	struct dsp_ops *dsp_ops;
 	struct spa_loop *data_loop;
 	struct spa_loop *main_loop;
+	uint32_t quantum_limit;
 };
 
 struct spatializer_impl {
@@ -179,8 +178,8 @@ static void * spatializer_instantiate(const struct fc_plugin *plugin, const stru
 	pw_log_info("using n_samples:%u %d:%d blocksize sofa:%s", impl->n_samples,
 		impl->blocksize, impl->tailsize, filename);
 
-	impl->tmp[0] = calloc(MAX_SAMPLES, sizeof(float));
-	impl->tmp[1] = calloc(MAX_SAMPLES, sizeof(float));
+	impl->tmp[0] = calloc(impl->plugin->quantum_limit, sizeof(float));
+	impl->tmp[1] = calloc(impl->plugin->quantum_limit, sizeof(float));
 	impl->rate = SampleRate;
 	return impl;
 error:
@@ -279,7 +278,7 @@ static void spatializer_run(void * Instance, unsigned long SampleCount)
 	struct spatializer_impl *impl = Instance;
 
 	if (impl->interpolate) {
-		uint32_t len = SPA_MIN(SampleCount, MAX_SAMPLES);
+		uint32_t len = SPA_MIN(SampleCount, impl->plugin->quantum_limit);
 		struct free_data free_data;
 		float *l = impl->tmp[0], *r = impl->tmp[1];
 
@@ -424,12 +423,21 @@ static void sofa_plugin_unload(struct fc_plugin *p)
 
 SPA_EXPORT
 struct fc_plugin *pipewire__filter_chain_plugin_load(const struct spa_support *support, uint32_t n_support,
-		struct dsp_ops *dsp, const char *plugin, const char *config)
+		struct dsp_ops *dsp, const char *plugin, const struct spa_dict *info)
 {
 	struct plugin *impl = calloc(1, sizeof (struct plugin));
+
 	impl->plugin.make_desc = sofa_make_desc;
 	impl->plugin.unload = sofa_plugin_unload;
 
+	impl->quantum_limit = 8192u;
+
+	for (uint32_t i = 0; info && i < info->n_items; i++) {
+		const char *k = info->items[i].key;
+		const char *s = info->items[i].value;
+		if (spa_streq(k, "clock.quantum-limit"))
+			spa_atou32(s, &impl->quantum_limit, 0);
+	}
 	impl->dsp_ops = dsp;
 	pffft_select_cpu(dsp->cpu_flags);
 

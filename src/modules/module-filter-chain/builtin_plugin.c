@@ -2119,7 +2119,7 @@ static void builtin_plugin_unload(struct fc_plugin *p)
 }
 
 struct fc_plugin *load_builtin_plugin(const struct spa_support *support, uint32_t n_support,
-		struct dsp_ops *dsp, const char *plugin, const char *config)
+		struct dsp_ops *dsp, const char *plugin, const struct spa_dict *info)
 {
 	struct plugin *impl = calloc (1, sizeof (struct plugin));
 	impl->plugin.make_desc = builtin_make_desc;

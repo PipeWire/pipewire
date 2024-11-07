@@ -1407,6 +1407,8 @@ static int mmap_read(struct impl *this)
 	if (xioctl(dev->fd, VIDIOC_DQBUF, &buf) < 0)
 		return -errno;
 
+	spa_log_trace(this->log, "v4l2 %p: have output %d/%d", this, buf.index, buf.sequence);
+
 	/* Drop the first frame in order to work around common firmware
 	 * timestamp issues */
 	if (port->first_buffer) {
@@ -1417,7 +1419,6 @@ static int mmap_read(struct impl *this)
 	}
 
 	pts = SPA_TIMEVAL_TO_NSEC(&buf.timestamp);
-	spa_log_trace(this->log, "v4l2 %p: have output %d", this, buf.index);
 
 	if (this->clock) {
 		/* FIXME, we should follow the driver clock and target_ values.
@@ -1466,6 +1467,7 @@ static void v4l2_on_fd_events(struct spa_source *source)
 	struct spa_io_buffers *io;
 	struct port *port = &this->out_ports[0];
 	struct buffer *b;
+	int res;
 
 	if (source->rmask & SPA_IO_ERR) {
 		struct port *port = &this->out_ports[0];
@@ -1480,8 +1482,10 @@ static void v4l2_on_fd_events(struct spa_source *source)
 		return;
 	}
 
-	if (mmap_read(this) < 0)
+	if ((res = mmap_read(this)) < 0) {
+		spa_log_warn(this->log, "v4l2 %p: mmap read error:%s", this, spa_strerror(res));
 		return;
+	}
 
 	if (spa_list_is_empty(&port->queue))
 		return;

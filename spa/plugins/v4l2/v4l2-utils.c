@@ -1048,6 +1048,8 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	size->width = fmt.fmt.pix.width;
 	size->height = fmt.fmt.pix.height;
 
+	probe_expbuf(this);
+
 	port->fmt = fmt;
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS | SPA_PORT_CHANGE_MASK_RATE;
 	port->info.flags = (port->alloc_buffers ? SPA_PORT_FLAG_CAN_ALLOC_BUFFERS : 0) |
@@ -1056,8 +1058,6 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 		SPA_PORT_FLAG_TERMINAL;
 	port->info.rate.num = streamparm.parm.capture.timeperframe.numerator;
 	port->info.rate.denom = streamparm.parm.capture.timeperframe.denominator;
-
-	probe_expbuf(this);
 
 	return match ? 0 : 1;
 }

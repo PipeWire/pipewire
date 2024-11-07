@@ -120,7 +120,6 @@ static int spa_v4l2_buffer_recycle(struct impl *this, uint32_t buffer_id)
 		spa_log_error(this->log, "'%s' VIDIOC_QBUF: %m", this->props.device);
 		return -err;
 	}
-
 	return 0;
 }
 
@@ -147,6 +146,8 @@ static int spa_v4l2_clear_buffers(struct impl *this)
 		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_MAPPED)) {
 			munmap(b->ptr, d[0].maxsize);
 		}
+		if (b->mmap_ptr)
+			munmap(b->mmap_ptr, b->v4l2_buffer.length);
 		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_ALLOCATED)) {
 			spa_log_debug(this->log, "close %d", (int) d[0].fd);
 			close(d[0].fd);
@@ -1451,11 +1452,14 @@ static int mmap_read(struct impl *this)
 
 	d = b->outbuf->datas;
 	d[0].chunk->offset = 0;
-	d[0].chunk->size = buf.bytesused;
+	d[0].chunk->size = SPA_MIN(buf.bytesused, d[0].maxsize);
 	d[0].chunk->stride = port->fmt.fmt.pix.bytesperline;
 	d[0].chunk->flags = 0;
 	if (buf.flags & V4L2_BUF_FLAG_ERROR)
 		d[0].chunk->flags |= SPA_CHUNK_FLAG_CORRUPTED;
+
+	if (b->mmap_ptr && b->ptr)
+		memcpy(b->ptr, b->mmap_ptr, d[0].chunk->size);
 
 	spa_list_append(&port->queue, &b->link);
 	return 0;
@@ -1541,8 +1545,22 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 	reqbuf.count = n_buffers;
 
 	if (xioctl(dev->fd, VIDIOC_REQBUFS, &reqbuf) < 0) {
-		spa_log_error(this->log, "'%s' VIDIOC_REQBUFS %m", this->props.device);
-		return -errno;
+		if (port->memtype != V4L2_MEMORY_USERPTR) {
+			spa_log_error(this->log, "'%s' VIDIOC_REQBUFS %m", this->props.device);
+			return -errno;
+		}
+		/* some drivers (v4l2loopback) don't support USERPTR
+		 * and so we need to try again with MMAP and memcpy */
+		port->memtype = V4L2_MEMORY_MMAP;
+		spa_zero(reqbuf);
+		reqbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		reqbuf.memory = port->memtype;
+		reqbuf.count = n_buffers;
+
+		if (xioctl(dev->fd, VIDIOC_REQBUFS, &reqbuf) < 0) {
+			spa_log_error(this->log, "'%s' VIDIOC_REQBUFS %m", this->props.device);
+			return -errno;
+		}
 	}
 	spa_log_debug(this->log, "got %d buffers", reqbuf.count);
 	if (reqbuf.count < n_buffers) {
@@ -1575,7 +1593,8 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 		b->v4l2_buffer.memory = port->memtype;
 		b->v4l2_buffer.index = i;
 
-		if (port->memtype == V4L2_MEMORY_USERPTR) {
+		if (port->memtype == V4L2_MEMORY_USERPTR ||
+		    port->memtype == V4L2_MEMORY_MMAP) {
 			if (d[0].data == NULL) {
 				void *data;
 
@@ -1593,8 +1612,24 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 			else
 				b->ptr = d[0].data;
 
-			b->v4l2_buffer.m.userptr = (unsigned long) b->ptr;
-			b->v4l2_buffer.length = d[0].maxsize;
+			if (port->memtype == V4L2_MEMORY_USERPTR) {
+				b->v4l2_buffer.m.userptr = (unsigned long) b->ptr;
+				b->v4l2_buffer.length = d[0].maxsize;
+			}
+			else {
+				if (xioctl(dev->fd, VIDIOC_QUERYBUF, &b->v4l2_buffer) < 0) {
+					spa_log_error(this->log, "'%s' VIDIOC_QUERYBUF: %m", this->props.device);
+					return -errno;
+				}
+				b->mmap_ptr = mmap(NULL,
+						b->v4l2_buffer.length,
+						PROT_READ, MAP_PRIVATE,
+						dev->fd, b->v4l2_buffer.m.offset);
+				if (b->mmap_ptr == MAP_FAILED) {
+					spa_log_error(this->log, "'%s' mmap: %m", this->props.device);
+					return -errno;
+				}
+			}
 		}
 		else if (port->memtype == V4L2_MEMORY_DMABUF) {
 			b->v4l2_buffer.m.fd = d[0].fd;
@@ -1806,6 +1841,7 @@ static int spa_v4l2_stream_on(struct impl *this)
 	spa_log_debug(this->log, "starting");
 
 	port->first_buffer = true;
+	mmap_read(this);
 
 	type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	if (xioctl(dev->fd, VIDIOC_STREAMON, &type) < 0) {

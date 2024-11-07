@@ -2146,6 +2146,14 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			}
 			telephony_ag_register(rfcomm->telephony_ag);
 
+			if (rfcomm->hfp_hf_clcc) {
+				rfcomm_send_cmd(rfcomm, "AT+CLCC");
+				rfcomm->hf_state = hfp_hf_slc2;
+				break;
+			} else {
+				// TODO: Create calls if CIND reports one during SLC setup
+			}
+
 			/* Report volume on SLC establishment */
 			SPA_FALLTHROUGH;
 		case hfp_hf_slc2:

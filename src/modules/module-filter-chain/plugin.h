@@ -80,7 +80,7 @@ static inline void fc_descriptor_free(const struct fc_descriptor *desc)
 #define FC_PLUGIN_LOAD_FUNC "pipewire__filter_chain_plugin_load"
 
 typedef struct fc_plugin *(fc_plugin_load_func)(const struct spa_support *support, uint32_t n_support,
-		struct dsp_ops *dsp, const char *path, const char *config);
+		struct dsp_ops *dsp, const char *path, const struct spa_dict *info);
 
 
 #endif /* PLUGIN_H */

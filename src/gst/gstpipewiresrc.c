@@ -1004,7 +1004,9 @@ no_caps:
     GST_ELEMENT_ERROR (basesrc, STREAM, FORMAT,
         ("%s", error_string),
         ("This element did not produce valid caps"));
+    pw_thread_loop_lock (pwsrc->stream->core->loop);
     pw_stream_set_error (pwsrc->stream->pwstream, -EINVAL, "%s", error_string);
+    pw_thread_loop_unlock (pwsrc->stream->core->loop);
     return FALSE;
   }
 no_common_caps:
@@ -1014,7 +1016,9 @@ no_common_caps:
     GST_ELEMENT_ERROR (basesrc, STREAM, FORMAT,
         ("%s", error_string),
         ("This element does not have formats in common with the peer"));
+    pw_thread_loop_lock (pwsrc->stream->core->loop);
     pw_stream_set_error (pwsrc->stream->pwstream, -EPIPE, "%s", error_string);
+    pw_thread_loop_unlock (pwsrc->stream->core->loop);
     return FALSE;
   }
 connect_error:

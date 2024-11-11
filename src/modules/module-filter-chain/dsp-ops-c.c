@@ -16,11 +16,18 @@
 #else
 #include "pffft.h"
 #endif
-#include "dsp-ops.h"
+#include "dsp-ops-impl.h"
 
 void dsp_clear_c(struct dsp_ops *ops, void * SPA_RESTRICT dst, uint32_t n_samples)
 {
 	memset(dst, 0, sizeof(float) * n_samples);
+}
+
+void dsp_copy_c(struct dsp_ops *ops, void * SPA_RESTRICT dst,
+			const void * SPA_RESTRICT src, uint32_t n_samples)
+{
+	if (dst != src)
+		spa_memcpy(dst, src, sizeof(float) * n_samples);
 }
 
 static inline void dsp_add_c(struct dsp_ops *ops, void * SPA_RESTRICT dst,
@@ -67,13 +74,6 @@ static inline void dsp_gain_add_c(struct dsp_ops *ops, void * SPA_RESTRICT dst,
 }
 
 
-void dsp_copy_c(struct dsp_ops *ops, void * SPA_RESTRICT dst,
-			const void * SPA_RESTRICT src, uint32_t n_samples)
-{
-	if (dst != src)
-		spa_memcpy(dst, src, sizeof(float) * n_samples);
-}
-
 void dsp_mix_gain_c(struct dsp_ops *ops,
 		void * SPA_RESTRICT dst,
 		const void * SPA_RESTRICT src[],
@@ -114,7 +114,7 @@ void dsp_mult_c(struct dsp_ops *ops,
 	}
 }
 
-void dsp_biquad_run_c(struct dsp_ops *ops, struct biquad *bq,
+static void biquad_run_c(struct dsp_ops *ops, struct biquad *bq,
 		float *out, const float *in, uint32_t n_samples)
 {
 	float x, y, x1, x2;
@@ -146,7 +146,7 @@ void dsp_biquad_run_c(struct dsp_ops *ops, struct biquad *bq,
 #undef F
 }
 
-void dsp_biquadn_run_c(struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, uint32_t bq_stride,
+void dsp_biquad_run_c(struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, uint32_t bq_stride,
 		float * SPA_RESTRICT out[], const float * SPA_RESTRICT in[],
 		uint32_t n_src, uint32_t n_samples)
 {
@@ -159,9 +159,9 @@ void dsp_biquadn_run_c(struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, ui
 		if (s == NULL || d == NULL)
 			continue;
 		if (n_bq > 0)
-			dsp_biquad_run_c(ops, &bq[0], d, s, n_samples);
+			biquad_run_c(ops, &bq[0], d, s, n_samples);
 		for (j = 1; j < n_bq; j++)
-			dsp_biquad_run_c(ops, &bq[j], d, d, n_samples);
+			biquad_run_c(ops, &bq[j], d, d, n_samples);
 	}
 }
 

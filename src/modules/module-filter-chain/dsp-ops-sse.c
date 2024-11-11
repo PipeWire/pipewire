@@ -15,7 +15,7 @@
 #include "pffft.h"
 #endif
 
-#include "dsp-ops.h"
+#include "dsp-ops-impl.h"
 
 #include <xmmintrin.h>
 
@@ -128,7 +128,7 @@ void dsp_sum_sse(struct dsp_ops *ops, float *r, const float *a, const float *b, 
 	}
 }
 
-void dsp_biquad_run_sse(struct dsp_ops *ops, struct biquad *bq,
+static void dsp_biquad_run1_sse(struct dsp_ops *ops, struct biquad *bq,
 		float *out, const float *in, uint32_t n_samples)
 {
 	__m128 x, y, z;
@@ -432,7 +432,7 @@ static void dsp_biquad2_run4_sse(struct dsp_ops *ops, struct biquad *bq, uint32_
 #undef F
 }
 
-void dsp_biquadn_run_sse(struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, uint32_t bq_stride,
+void dsp_biquad_run_sse(struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, uint32_t bq_stride,
 		float * SPA_RESTRICT out[], const float * SPA_RESTRICT in[],
 		uint32_t n_src, uint32_t n_samples)
 {
@@ -502,7 +502,7 @@ void dsp_biquadn_run_sse(struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, 
 			dsp_biquad2_run_sse(ops, &bq[j], d, s, n_samples);
 		}
 		if (j < n_bq) {
-			dsp_biquad_run_sse(ops, &bq[j], d, s, n_samples);
+			dsp_biquad_run1_sse(ops, &bq[j], d, s, n_samples);
 		}
 	}
 }

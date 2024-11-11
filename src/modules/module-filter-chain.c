@@ -30,6 +30,8 @@
 #include <pipewire/impl.h>
 #include <pipewire/extensions/profiler.h>
 
+#include "module-filter-chain/dsp-ops-impl.h"
+
 #define NAME "filter-chain"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);

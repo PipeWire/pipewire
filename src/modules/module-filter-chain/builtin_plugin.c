@@ -538,7 +538,7 @@ static void bq_run(void *Instance, unsigned long samples)
 		if (impl->freq != freq || impl->Q != Q || impl->gain != gain)
 			bq_freq_update(impl, impl->type, freq, Q, gain);
 	}
-	dsp_ops_biquad_run(impl->dsp, bq, out, in, samples);
+	dsp_ops_biquad_run(impl->dsp, bq, 1, 0, &out, (const float **)&in, 1, samples);
 }
 
 /** bq_lowpass */
@@ -1991,7 +1991,7 @@ static void param_eq_connect_port(void * Instance, unsigned long Port,
 static void param_eq_run(void * Instance, unsigned long SampleCount)
 {
 	struct param_eq_impl *impl = Instance;
-	dsp_ops_biquadn_run(impl->dsp, impl->bq, impl->n_bq, PARAM_EQ_MAX,
+	dsp_ops_biquad_run(impl->dsp, impl->bq, impl->n_bq, PARAM_EQ_MAX,
 			&impl->port[8], (const float**)impl->port, 8, SampleCount);
 }
 

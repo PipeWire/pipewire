@@ -69,6 +69,7 @@ struct impl {
 	uint32_t ts_offset;
 	uint32_t psamples;
 	uint32_t mtu;
+	uint32_t payload_size;
 
 	struct spa_ringbuffer ring;
 	uint8_t buffer[BUFFER_SIZE];
@@ -439,6 +440,11 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 
 	impl->payload = pw_properties_get_uint32(props, "rtp.payload", impl->payload);
 	impl->mtu = pw_properties_get_uint32(props, "net.mtu", DEFAULT_MTU);
+	if (impl->mtu <= PACKET_HEADER_SIZE) {
+		pw_log_error("invalid MTU %d, using %d", impl->mtu, DEFAULT_MTU);
+		impl->mtu = DEFAULT_MTU;
+	}
+	impl->payload_size = impl->mtu - PACKET_HEADER_SIZE;
 
 	impl->seq = pw_rand32();
 
@@ -476,7 +482,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 			pw_log_warn("rtp.ptime doesn't match rtp.framecount. Choosing rtp.ptime");
 		}
 	} else {
-		impl->psamples = impl->mtu / impl->stride;
+		impl->psamples = impl->payload_size / impl->stride;
 		impl->psamples = SPA_CLAMP(impl->psamples, min_samples, max_samples);
 		if (direction == PW_DIRECTION_INPUT) {
 			pw_properties_set(props, "rtp.ptime",

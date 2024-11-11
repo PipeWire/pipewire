@@ -19,6 +19,9 @@ struct rtp_stream;
 #define ERROR_MSEC		2.0f
 #define DEFAULT_SESS_LATENCY	100.0f
 
+/* 28 bytes IP/UDP, 12 bytes RTP header */
+#define PACKET_HEADER_SIZE	(12+28)
+
 #define DEFAULT_MTU		1280
 #define DEFAULT_MIN_PTIME	2.0f
 #define DEFAULT_MAX_PTIME	20.0f

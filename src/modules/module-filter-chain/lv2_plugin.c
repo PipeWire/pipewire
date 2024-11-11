@@ -5,16 +5,13 @@
 #include <dlfcn.h>
 #include <math.h>
 
+#include <lilv/lilv.h>
+
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
 #include <spa/utils/string.h>
 #include <spa/support/loop.h>
-
-#include <pipewire/log.h>
-#include <pipewire/utils.h>
-#include <pipewire/array.h>
-
-#include <lilv/lilv.h>
+#include <spa/support/log.h>
 
 #if defined __has_include
 #	if __has_include (<lv2/atom/atom.h>)
@@ -42,45 +39,48 @@
 static struct context *_context;
 
 typedef struct URITable {
-	struct pw_array array;
+	char **data;
+	size_t alloc;
+	size_t len;
 } URITable;
 
 static void uri_table_init(URITable *table)
 {
-	pw_array_init(&table->array, 1024);
+	table->data = NULL;
+	table->len = table->alloc = 0;
 }
 
 static void uri_table_destroy(URITable *table)
 {
-	char **p;
-	pw_array_for_each(p, &table->array)
-		free(*p);
-	pw_array_clear(&table->array);
+	size_t i;
+	for (i = 0; i < table->len; i++)
+		free(table->data[i]);
+	free(table->data);
+	uri_table_init(table);
 }
 
 static LV2_URID uri_table_map(LV2_URID_Map_Handle handle, const char *uri)
 {
 	URITable *table = (URITable*)handle;
-	char **p;
-	size_t i = 0;
+	size_t i;
 
-	pw_array_for_each(p, &table->array) {
-		i++;
-		if (spa_streq(*p, uri))
-			goto done;
-	}
-	pw_array_add_ptr(&table->array, strdup(uri));
-	i =  pw_array_get_len(&table->array, char*);
-done:
-	return i;
+	for (i = 0; i < table->len; i++)
+		if (spa_streq(table->data[i], uri))
+			return i+1;
+
+	if (table->len == table->alloc) {
+		table->alloc += 64;
+		table->data = realloc(table->data, table->alloc * sizeof(char *));
+ 	}
+	table->data[table->len++] = strdup(uri);
+	return table->len;
 }
 
 static const char *uri_table_unmap(LV2_URID_Map_Handle handle, LV2_URID urid)
 {
 	URITable *table = (URITable*)handle;
-
-	if (urid > 0 && urid <= pw_array_get_len(&table->array, char*))
-		return *pw_array_get_unchecked(&table->array, urid - 1, char*);
+	if (urid > 0 && urid <= table->len)
+		return table->data[urid-1];
 	return NULL;
 }
 
@@ -88,6 +88,7 @@ struct context {
 	int ref;
 	LilvWorld *world;
 
+	struct spa_log *log;
 	struct spa_loop *data_loop;
 	struct spa_loop *main_loop;
 
@@ -185,6 +186,7 @@ static struct context *context_new(const struct spa_support *support, uint32_t n
 	c->atom_Int = context_map(c, LV2_ATOM__Int);
 	c->atom_Float = context_map(c, LV2_ATOM__Float);
 
+	c->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	c->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	c->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 
@@ -475,7 +477,7 @@ struct fc_plugin *pipewire__filter_chain_plugin_load(const struct spa_support *s
 
 	uri = lilv_new_uri(c->world, plugin_uri);
 	if (uri == NULL) {
-		pw_log_warn("invalid URI %s", plugin_uri);
+		spa_log_warn(c->log, "invalid URI %s", plugin_uri);
 		res = -EINVAL;
 		goto error_unref;
 	}
@@ -485,7 +487,7 @@ struct fc_plugin *pipewire__filter_chain_plugin_load(const struct spa_support *s
 	lilv_node_free(uri);
 
 	if (plugin == NULL) {
-		pw_log_warn("can't load plugin %s", plugin_uri);
+		spa_log_warn(c->log, "can't load plugin %s", plugin_uri);
 		res = -EINVAL;
 		goto error_unref;
 	}

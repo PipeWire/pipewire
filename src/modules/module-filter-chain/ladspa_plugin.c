@@ -11,15 +11,16 @@
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
 #include <spa/utils/string.h>
-
-#include <pipewire/log.h>
-#include <pipewire/utils.h>
+#include <spa/support/log.h>
 
 #include "plugin.h"
 #include "ladspa.h"
 
 struct plugin {
 	struct fc_plugin plugin;
+
+	struct spa_log *log;
+
 	void *handle;
 	LADSPA_Descriptor_Function desc_func;
 };
@@ -172,47 +173,70 @@ static void ladspa_unload(struct fc_plugin *plugin)
 	free(p);
 }
 
-static struct fc_plugin *ladspa_handle_load_by_path(const char *path)
+static struct fc_plugin *ladspa_handle_load_by_path(struct spa_log *log, const char *path)
 {
 	struct plugin *p;
 	int res;
+	void *handle = NULL;
+	LADSPA_Descriptor_Function desc_func;
 
-	p = calloc(1, sizeof(*p));
-	if (!p)
-		return NULL;
-
-	p->handle = dlopen(path, RTLD_NOW);
-	if (!p->handle) {
-		pw_log_debug("failed to open '%s': %s", path, dlerror());
+	handle = dlopen(path, RTLD_NOW);
+	if (handle == NULL) {
+		spa_log_debug(log, "failed to open '%s': %s", path, dlerror());
 		res = -ENOENT;
 		goto exit;
 	}
 
-	pw_log_info("successfully opened '%s'", path);
+	spa_log_info(log, "successfully opened '%s'", path);
 
-	p->desc_func = (LADSPA_Descriptor_Function) dlsym(p->handle, "ladspa_descriptor");
-	if (!p->desc_func) {
-		pw_log_warn("cannot find descriptor function in '%s': %s", path, dlerror());
+	desc_func = (LADSPA_Descriptor_Function) dlsym(handle, "ladspa_descriptor");
+	if (desc_func == NULL) {
+		spa_log_warn(log, "cannot find descriptor function in '%s': %s", path, dlerror());
 		res = -ENOSYS;
 		goto exit;
 	}
+
+	p = calloc(1, sizeof(*p));
+	if (!p) {
+		res = -errno;
+		goto exit;
+	}
+	p->log = log;
+	p->handle = handle;
+	p->desc_func = desc_func;
 	p->plugin.make_desc = ladspa_make_desc;
 	p->plugin.unload = ladspa_unload;
 
 	return &p->plugin;
 
 exit:
-	if (p->handle)
-		dlclose(p->handle);
-	free(p);
+	if (handle)
+		dlclose(handle);
 	errno = -res;
 	return NULL;
+}
+
+static inline const char *split_walk(const char *str, const char *delimiter, size_t * len, const char **state)
+{
+	const char *s = *state ? *state : str;
+
+	s += strspn(s, delimiter);
+	if (*s == '\0')
+		return NULL;
+
+	*len = strcspn(s, delimiter);
+	*state = s + *len;
+
+	return s;
 }
 
 struct fc_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t n_support,
 		struct dsp_ops *dsp, const char *plugin, const struct spa_dict *info)
 {
 	struct fc_plugin *pl = NULL;
+	struct spa_log *log;
+
+	log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 
 	if (plugin[0] != '/') {
 		const char *search_dirs, *p, *state = NULL;
@@ -230,7 +254,7 @@ struct fc_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t
 		 */
 		errno = ENAMETOOLONG;
 
-		while ((p = pw_split_walk(search_dirs, ":", &len, &state))) {
+		while ((p = split_walk(search_dirs, ":", &len, &state))) {
 			int pathlen;
 
 			if (len >= sizeof(path))
@@ -240,17 +264,17 @@ struct fc_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t
 			if (pathlen < 0 || (size_t) pathlen >= sizeof(path))
 				continue;
 
-			pl = ladspa_handle_load_by_path(path);
+			pl = ladspa_handle_load_by_path(log, path);
 			if (pl != NULL)
 				break;
 		}
 	}
 	else {
-		pl = ladspa_handle_load_by_path(plugin);
+		pl = ladspa_handle_load_by_path(log, plugin);
 	}
 
 	if (pl == NULL)
-		pw_log_error("failed to load plugin '%s': %s", plugin, strerror(errno));
+		spa_log_error(log, "failed to load plugin '%s': %s", plugin, strerror(errno));
 
 	return pl;
 }

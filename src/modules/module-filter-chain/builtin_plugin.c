@@ -15,9 +15,8 @@
 #include <spa/utils/json.h>
 #include <spa/utils/result.h>
 #include <spa/support/cpu.h>
+#include <spa/support/log.h>
 #include <spa/plugins/audioconvert/resample.h>
-
-#include <pipewire/log.h>
 
 #include "plugin.h"
 
@@ -30,11 +29,16 @@
 
 struct plugin {
 	struct fc_plugin plugin;
-	struct dsp_ops *dsp_ops;
+	struct dsp_ops *dsp;
+	struct spa_log *log;
 };
 
 struct builtin {
 	struct plugin *plugin;
+
+	struct dsp_ops *dsp;
+	struct spa_log *log;
+
 	unsigned long rate;
 	float *port[64];
 
@@ -80,7 +84,7 @@ static void copy_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
 	float *in = impl->port[1], *out = impl->port[0];
-	dsp_ops_copy(impl->plugin->dsp_ops, out, in, SampleCount);
+	dsp_ops_copy(impl->dsp, out, in, SampleCount);
 }
 
 static struct fc_port copy_ports[] = {
@@ -129,7 +133,7 @@ static void mixer_run(void * Instance, unsigned long SampleCount)
 		src[n_src] = in;
 		gains[n_src++] = gain;
 	}
-	dsp_ops_mix_gain(impl->plugin->dsp_ops, out, src, gains, n_src, SampleCount);
+	dsp_ops_mix_gain(impl->dsp, out, src, gains, n_src, SampleCount);
 }
 
 static struct fc_port mixer_ports[] = {
@@ -320,6 +324,8 @@ static void *bq_instantiate(const struct fc_plugin *plugin, const struct fc_desc
 		return NULL;
 
 	impl->plugin = (struct plugin *) plugin;
+	impl->log = impl->plugin->log;
+	impl->dsp = impl->plugin->dsp;
 	impl->rate = SampleRate;
 	impl->b0 = impl->a0 = 1.0f;
 	impl->type = bq_type_from_name(Descriptor->name);
@@ -327,19 +333,19 @@ static void *bq_instantiate(const struct fc_plugin *plugin, const struct fc_desc
 		return impl;
 
 	if (config == NULL) {
-		pw_log_error("biquads:bq_raw requires a config section");
+		spa_log_error(impl->log, "biquads:bq_raw requires a config section");
 		goto error;
 	}
 
 	if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
-		pw_log_error("biquads:config section must be an object");
+		spa_log_error(impl->log, "biquads:config section must be an object");
 		goto error;
 	}
 
 	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
 		if (spa_streq(key, "coefficients")) {
 			if (!spa_json_is_array(val, len)) {
-				pw_log_error("biquads:coefficients require an array");
+				spa_log_error(impl->log, "biquads:coefficients require an array");
 				goto error;
 			}
 			spa_json_enter(&it[0], &it[1]);
@@ -351,48 +357,48 @@ static void *bq_instantiate(const struct fc_plugin *plugin, const struct fc_desc
 				while ((len = spa_json_object_next(&it[2], key, sizeof(key), &val)) > 0) {
 					if (spa_streq(key, "rate")) {
 						if (spa_json_parse_int(val, len, &rate) <= 0) {
-							pw_log_error("biquads:rate requires a number");
+							spa_log_error(impl->log, "biquads:rate requires a number");
 							goto error;
 						}
 					}
 					else if (spa_streq(key, "b0")) {
 						if (spa_json_parse_float(val, len, &b0) <= 0) {
-							pw_log_error("biquads:b0 requires a float");
+							spa_log_error(impl->log, "biquads:b0 requires a float");
 							goto error;
 						}
 					}
 					else if (spa_streq(key, "b1")) {
 						if (spa_json_parse_float(val, len, &b1) <= 0) {
-							pw_log_error("biquads:b1 requires a float");
+							spa_log_error(impl->log, "biquads:b1 requires a float");
 							goto error;
 						}
 					}
 					else if (spa_streq(key, "b2")) {
 						if (spa_json_parse_float(val, len, &b2) <= 0) {
-							pw_log_error("biquads:b2 requires a float");
+							spa_log_error(impl->log, "biquads:b2 requires a float");
 							goto error;
 						}
 					}
 					else if (spa_streq(key, "a0")) {
 						if (spa_json_parse_float(val, len, &a0) <= 0) {
-							pw_log_error("biquads:a0 requires a float");
+							spa_log_error(impl->log, "biquads:a0 requires a float");
 							goto error;
 						}
 					}
 					else if (spa_streq(key, "a1")) {
 						if (spa_json_parse_float(val, len, &a1) <= 0) {
-							pw_log_error("biquads:a1 requires a float");
+							spa_log_error(impl->log, "biquads:a1 requires a float");
 							goto error;
 						}
 					}
 					else if (spa_streq(key, "a2")) {
 						if (spa_json_parse_float(val, len, &a2) <= 0) {
-							pw_log_error("biquads:a0 requires a float");
+							spa_log_error(impl->log, "biquads:a0 requires a float");
 							goto error;
 						}
 					}
 					else {
-						pw_log_warn("biquads: ignoring coefficients key: '%s'", key);
+						spa_log_warn(impl->log, "biquads: ignoring coefficients key: '%s'", key);
 					}
 				}
 				if (labs((long)rate - (long)SampleRate) <
@@ -403,7 +409,7 @@ static void *bq_instantiate(const struct fc_plugin *plugin, const struct fc_desc
 			}
 		}
 		else {
-			pw_log_warn("biquads: ignoring config key: '%s'", key);
+			spa_log_warn(impl->log, "biquads: ignoring config key: '%s'", key);
 		}
 	}
 
@@ -532,7 +538,7 @@ static void bq_run(void *Instance, unsigned long samples)
 		if (impl->freq != freq || impl->Q != Q || impl->gain != gain)
 			bq_freq_update(impl, impl->type, freq, Q, gain);
 	}
-	dsp_ops_biquad_run(impl->plugin->dsp_ops, bq, out, in, samples);
+	dsp_ops_biquad_run(impl->dsp, bq, out, in, samples);
 }
 
 /** bq_lowpass */
@@ -665,6 +671,9 @@ static const struct fc_descriptor bq_raw_desc = {
 /** convolve */
 struct convolver_impl {
 	struct plugin *plugin;
+
+	struct spa_log *log;
+	struct dsp_ops *dsp;
 	unsigned long rate;
 	float *port[2];
 
@@ -707,7 +716,7 @@ static float *read_samples_from_sf(SNDFILE *f, SF_INFO info, float gain, int del
 }
 #endif
 
-static float *read_closest(char **filenames, float gain, float delay_sec, int offset,
+static float *read_closest(struct plugin *pl, char **filenames, float gain, float delay_sec, int offset,
 		int length, int channel, long unsigned *rate, int *n_samples)
 {
 #ifdef HAVE_SNDFILE
@@ -729,24 +738,24 @@ static float *read_closest(char **filenames, float gain, float delay_sec, int of
 		if (labs((long)infos[i].samplerate - (long)*rate) < diff) {
 			best = i;
 			diff = labs((long)infos[i].samplerate - (long)*rate);
-			pw_log_debug("new closest match: %d", infos[i].samplerate);
+			spa_log_debug(pl->log, "new closest match: %d", infos[i].samplerate);
 		}
 	}
 	if (fs[best] != NULL) {
-		pw_log_info("loading best rate:%u %s", infos[best].samplerate, filenames[best]);
+		spa_log_info(pl->log, "loading best rate:%u %s", infos[best].samplerate, filenames[best]);
 		samples = read_samples_from_sf(fs[best], infos[best], gain,
 				(int) (delay_sec * infos[best].samplerate), offset, length,
 				channel, rate, n_samples);
 	} else {
 		char buf[PATH_MAX];
-		pw_log_error("Can't open any sample file (CWD %s):",
+		spa_log_error(pl->log, "Can't open any sample file (CWD %s):",
 				getcwd(buf, sizeof(buf)));
 		for (i = 0; i < MAX_RATES && filenames[i] && filenames[i][0]; i++) {
 			fs[i] = sf_open(filenames[i], SFM_READ, &infos[i]);
 			if (fs[i] == NULL)
-				pw_log_error(" failed file %s: %s", filenames[i], sf_strerror(fs[i]));
+				spa_log_error(pl->log, " failed file %s: %s", filenames[i], sf_strerror(fs[i]));
 			else
-				pw_log_warn(" unexpectedly opened file %s", filenames[i]);
+				spa_log_warn(pl->log, " unexpectedly opened file %s", filenames[i]);
 		}
 	}
 	for (i = 0; i < MAX_RATES; i++)
@@ -755,7 +764,7 @@ static float *read_closest(char **filenames, float gain, float delay_sec, int of
 
 	return samples;
 #else
-	pw_log_error("compiled without sndfile support, can't load samples: "
+	spa_log_error(pl->log, "compiled without sndfile support, can't load samples: "
 			"using dirac impulse");
 	float *samples = calloc(1, sizeof(float));
 	samples[0] = gain;
@@ -764,7 +773,7 @@ static float *read_closest(char **filenames, float gain, float delay_sec, int of
 #endif
 }
 
-static float *create_hilbert(const char *filename, float gain, int rate, float delay_sec, int offset,
+static float *create_hilbert(struct plugin *pl, const char *filename, float gain, int rate, float delay_sec, int offset,
 		int length, int *n_samples)
 {
 	float *samples, v;
@@ -795,7 +804,7 @@ static float *create_hilbert(const char *filename, float gain, int rate, float d
 	return samples;
 }
 
-static float *create_dirac(const char *filename, float gain, int rate, float delay_sec, int offset,
+static float *create_dirac(struct plugin *pl, const char *filename, float gain, int rate, float delay_sec, int offset,
 		int length, int *n_samples)
 {
 	float *samples;
@@ -814,7 +823,7 @@ static float *create_dirac(const char *filename, float gain, int rate, float del
 	return samples;
 }
 
-static float *resample_buffer(struct dsp_ops *dsp_ops, float *samples, int *n_samples,
+static float *resample_buffer(struct plugin *pl, float *samples, int *n_samples,
 		unsigned long in_rate, unsigned long out_rate, uint32_t quality)
 {
 #ifdef HAVE_SPA_PLUGINS
@@ -828,10 +837,10 @@ static float *resample_buffer(struct dsp_ops *dsp_ops, float *samples, int *n_sa
 	r.channels = 1;
 	r.i_rate = in_rate;
 	r.o_rate = out_rate;
-	r.cpu_flags = dsp_ops->cpu_flags;
+	r.cpu_flags = pl->dsp->cpu_flags;
 	r.quality = quality;
 	if ((res = resample_native_init(&r)) < 0) {
-		pw_log_error("resampling failed: %s", spa_strerror(res));
+		spa_log_error(pl->log, "resampling failed: %s", spa_strerror(res));
 		errno = -res;
 		return NULL;
 	}
@@ -846,11 +855,11 @@ static float *resample_buffer(struct dsp_ops *dsp_ops, float *samples, int *n_sa
 	out_len = out_n_samples;
 	out_buf = out_samples;
 
-	pw_log_info("Resampling filter: rate: %lu => %lu, n_samples: %u => %u, q:%u",
+	spa_log_info(pl->log, "Resampling filter: rate: %lu => %lu, n_samples: %u => %u, q:%u",
 		    in_rate, out_rate, in_len, out_len, quality);
 
 	resample_process(&r, (void*)&in_buf, &in_len, (void*)&out_buf, &out_len);
-	pw_log_debug("resampled: %u -> %u samples", in_len, out_len);
+	spa_log_debug(pl->log, "resampled: %u -> %u samples", in_len, out_len);
 	total_out += out_len;
 
 	in_len = resample_delay(&r);
@@ -861,9 +870,9 @@ static float *resample_buffer(struct dsp_ops *dsp_ops, float *samples, int *n_sa
 	out_buf = out_samples + total_out;
 	out_len = out_n_samples - total_out;
 
-	pw_log_debug("flushing resampler: %u in %u out", in_len, out_len);
+	spa_log_debug(pl->log, "flushing resampler: %u in %u out", in_len, out_len);
 	resample_process(&r, (void*)&in_buf, &in_len, (void*)&out_buf, &out_len);
-	pw_log_debug("flushed: %u -> %u samples", in_len, out_len);
+	spa_log_debug(pl->log, "flushed: %u -> %u samples", in_len, out_len);
 	total_out += out_len;
 
 	free(in_buf);
@@ -884,7 +893,7 @@ error:
 	free(out_samples);
 	return NULL;
 #else
-	pw_log_error("compiled without spa-plugins support, can't resample");
+	spa_log_error(impl->log, "compiled without spa-plugins support, can't resample");
 	float *out_samples = calloc(*n_samples, sizeof(float));
 	memcpy(out_samples, samples, *n_samples * sizeof(float));
 	return out_samples;
@@ -895,6 +904,7 @@ static void * convolver_instantiate(const struct fc_plugin *plugin, const struct
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct convolver_impl *impl;
+	struct plugin *pl = (struct plugin*)plugin;
 	float *samples;
 	int offset = 0, length = 0, channel = index, n_samples = 0, len;
 	uint32_t i = 0;
@@ -909,31 +919,31 @@ static void * convolver_instantiate(const struct fc_plugin *plugin, const struct
 
 	errno = EINVAL;
 	if (config == NULL) {
-		pw_log_error("convolver: requires a config section");
+		spa_log_error(pl->log, "convolver: requires a config section");
 		return NULL;
 	}
 
 	if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
-		pw_log_error("convolver:config must be an object");
+		spa_log_error(pl->log, "convolver:config must be an object");
 		return NULL;
 	}
 
 	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
 		if (spa_streq(key, "blocksize")) {
 			if (spa_json_parse_int(val, len, &blocksize) <= 0) {
-				pw_log_error("convolver:blocksize requires a number");
+				spa_log_error(pl->log, "convolver:blocksize requires a number");
 				return NULL;
 			}
 		}
 		else if (spa_streq(key, "tailsize")) {
 			if (spa_json_parse_int(val, len, &tailsize) <= 0) {
-				pw_log_error("convolver:tailsize requires a number");
+				spa_log_error(pl->log, "convolver:tailsize requires a number");
 				return NULL;
 			}
 		}
 		else if (spa_streq(key, "gain")) {
 			if (spa_json_parse_float(val, len, &gain) <= 0) {
-				pw_log_error("convolver:gain requires a number");
+				spa_log_error(pl->log, "convolver:gain requires a number");
 				return NULL;
 			}
 		}
@@ -942,7 +952,7 @@ static void * convolver_instantiate(const struct fc_plugin *plugin, const struct
 			if (spa_json_parse_int(val, len, &delay_i) > 0) {
 				delay = delay_i / (float)SampleRate;
 			} else if (spa_json_parse_float(val, len, &delay) <= 0) {
-				pw_log_error("convolver:delay requires a number");
+				spa_log_error(pl->log, "convolver:delay requires a number");
 				return NULL;
 			}
 		}
@@ -956,7 +966,7 @@ static void * convolver_instantiate(const struct fc_plugin *plugin, const struct
 				}
 			}
 			else if (spa_json_parse_stringn(val, len, v, sizeof(v)) <= 0) {
-				pw_log_error("convolver:filename requires a string or an array");
+				spa_log_error(pl->log, "convolver:filename requires a string or an array");
 				return NULL;
 			} else {
 				filenames[0] = strdup(v);
@@ -964,34 +974,34 @@ static void * convolver_instantiate(const struct fc_plugin *plugin, const struct
 		}
 		else if (spa_streq(key, "offset")) {
 			if (spa_json_parse_int(val, len, &offset) <= 0) {
-				pw_log_error("convolver:offset requires a number");
+				spa_log_error(pl->log, "convolver:offset requires a number");
 				return NULL;
 			}
 		}
 		else if (spa_streq(key, "length")) {
 			if (spa_json_parse_int(val, len, &length) <= 0) {
-				pw_log_error("convolver:length requires a number");
+				spa_log_error(pl->log, "convolver:length requires a number");
 				return NULL;
 			}
 		}
 		else if (spa_streq(key, "channel")) {
 			if (spa_json_parse_int(val, len, &channel) <= 0) {
-				pw_log_error("convolver:channel requires a number");
+				spa_log_error(pl->log, "convolver:channel requires a number");
 				return NULL;
 			}
 		}
 		else if (spa_streq(key, "resample_quality")) {
 			if (spa_json_parse_int(val, len, &resample_quality) <= 0) {
-				pw_log_error("convolver:resample_quality requires a number");
+				spa_log_error(pl->log, "convolver:resample_quality requires a number");
 				return NULL;
 			}
 		}
 		else {
-			pw_log_warn("convolver: ignoring config key: '%s'", key);
+			spa_log_warn(pl->log, "convolver: ignoring config key: '%s'", key);
 		}
 	}
 	if (filenames[0] == NULL) {
-		pw_log_error("convolver:filename was not given");
+		spa_log_error(pl->log, "convolver:filename was not given");
 		return NULL;
 	}
 
@@ -1001,18 +1011,17 @@ static void * convolver_instantiate(const struct fc_plugin *plugin, const struct
 		offset = 0;
 
 	if (spa_streq(filenames[0], "/hilbert")) {
-		samples = create_hilbert(filenames[0], gain, SampleRate, delay, offset,
+		samples = create_hilbert(pl, filenames[0], gain, SampleRate, delay, offset,
 				length, &n_samples);
 	} else if (spa_streq(filenames[0], "/dirac")) {
-		samples = create_dirac(filenames[0], gain, SampleRate, delay, offset,
+		samples = create_dirac(pl, filenames[0], gain, SampleRate, delay, offset,
 				length, &n_samples);
 	} else {
 		rate = SampleRate;
-		samples = read_closest(filenames, gain, delay, offset,
+		samples = read_closest(pl, filenames, gain, delay, offset,
 				length, channel, &rate, &n_samples);
 		if (samples != NULL && rate != SampleRate) {
-			struct plugin *p = (struct plugin *) plugin;
-			samples = resample_buffer(p->dsp_ops, samples, &n_samples,
+			samples = resample_buffer(pl, samples, &n_samples,
 					rate, SampleRate, resample_quality);
 		}
 	}
@@ -1031,17 +1040,19 @@ static void * convolver_instantiate(const struct fc_plugin *plugin, const struct
 	if (tailsize <= 0)
 		tailsize = SPA_CLAMP(4096, blocksize, 32768);
 
-	pw_log_info("using n_samples:%u %d:%d blocksize delay:%f", n_samples,
+	spa_log_info(pl->log, "using n_samples:%u %d:%d blocksize delay:%f", n_samples,
 			blocksize, tailsize, delay);
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)
 		goto error;
 
-	impl->plugin = (struct plugin *) plugin;
+	impl->plugin = pl;
+	impl->log = pl->log;
+	impl->dsp = pl->dsp;
 	impl->rate = SampleRate;
 
-	impl->conv = convolver_new(impl->plugin->dsp_ops, blocksize, tailsize, samples, n_samples);
+	impl->conv = convolver_new(impl->dsp, blocksize, tailsize, samples, n_samples);
 	if (impl->conv == NULL)
 		goto error;
 
@@ -1110,6 +1121,10 @@ static const struct fc_descriptor convolve_desc = {
 /** delay */
 struct delay_impl {
 	struct plugin *plugin;
+
+	struct dsp_ops *dsp;
+	struct spa_log *log;
+
 	unsigned long rate;
 	float *port[4];
 
@@ -1130,6 +1145,7 @@ static void delay_cleanup(void * Instance)
 static void *delay_instantiate(const struct fc_plugin *plugin, const struct fc_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
+	struct plugin *pl = (struct plugin*) plugin;
 	struct delay_impl *impl;
 	struct spa_json it[1];
 	const char *val;
@@ -1138,24 +1154,24 @@ static void *delay_instantiate(const struct fc_plugin *plugin, const struct fc_d
 	int len;
 
 	if (config == NULL) {
-		pw_log_error("delay: requires a config section");
+		spa_log_error(pl->log, "delay: requires a config section");
 		errno = EINVAL;
 		return NULL;
 	}
 
 	if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
-		pw_log_error("delay:config must be an object");
+		spa_log_error(pl->log, "delay:config must be an object");
 		return NULL;
 	}
 
 	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
 		if (spa_streq(key, "max-delay")) {
 			if (spa_json_parse_float(val, len, &max_delay) <= 0) {
-				pw_log_error("delay:max-delay requires a number");
+				spa_log_error(pl->log, "delay:max-delay requires a number");
 				return NULL;
 			}
 		} else {
-			pw_log_warn("delay: ignoring config key: '%s'", key);
+			spa_log_warn(pl->log, "delay: ignoring config key: '%s'", key);
 		}
 	}
 	if (max_delay <= 0.0f)
@@ -1165,10 +1181,12 @@ static void *delay_instantiate(const struct fc_plugin *plugin, const struct fc_d
 	if (impl == NULL)
 		return NULL;
 
-	impl->plugin = (struct plugin *) plugin;
+	impl->plugin = pl;
+	impl->dsp = pl->dsp;
+	impl->log = pl->log;
 	impl->rate = SampleRate;
 	impl->buffer_samples = SPA_ROUND_UP_N((uint32_t)(max_delay * impl->rate), 64);
-	pw_log_info("max-delay:%f seconds rate:%lu samples:%d", max_delay, impl->rate, impl->buffer_samples);
+	spa_log_info(impl->log, "max-delay:%f seconds rate:%lu samples:%d", max_delay, impl->rate, impl->buffer_samples);
 
 	impl->buffer = calloc(impl->buffer_samples * 2 + 64, sizeof(float));
 	if (impl->buffer == NULL) {
@@ -1200,7 +1218,7 @@ static void delay_run(void * Instance, unsigned long SampleCount)
 		impl->delay_samples = SPA_CLAMP((uint32_t)(delay * impl->rate), 0u, impl->buffer_samples-1);
 		impl->delay = delay;
 	}
-	dsp_ops_delay(impl->plugin->dsp_ops, impl->buffer, &impl->ptr, impl->buffer_samples,
+	dsp_ops_delay(impl->dsp, impl->buffer, &impl->ptr, impl->buffer_samples,
 			impl->delay_samples, out, in, SampleCount);
 }
 
@@ -1334,7 +1352,7 @@ static void linear_run(void * Instance, unsigned long SampleCount)
 	float *ctrl = impl->port[3], *notify = impl->port[2];
 
 	if (in != NULL && out != NULL)
-		dsp_ops_linear(impl->plugin->dsp_ops, out, in, mult, add, SampleCount);
+		dsp_ops_linear(impl->dsp, out, in, mult, add, SampleCount);
 
 	if (ctrl != NULL && notify != NULL)
 		notify[0] = ctrl[0] * mult + add;
@@ -1579,7 +1597,7 @@ static void mult_run(void * Instance, unsigned long SampleCount)
 
 		src[n_src++] = in;
 	}
-	dsp_ops_mult(impl->plugin->dsp_ops, out, src, n_src, SampleCount);
+	dsp_ops_mult(impl->dsp, out, src, n_src, SampleCount);
 }
 
 static struct fc_port mult_ports[] = {
@@ -1706,6 +1724,10 @@ static const struct fc_descriptor sine_desc = {
 #define PARAM_EQ_MAX		64
 struct param_eq_impl {
 	struct plugin *plugin;
+
+	struct dsp_ops *dsp;
+	struct spa_log *log;
+
 	unsigned long rate;
 	float *port[8*2];
 
@@ -1713,7 +1735,8 @@ struct param_eq_impl {
 	struct biquad bq[PARAM_EQ_MAX * 8];
 };
 
-static int load_eq_bands(const char *filename, int rate, struct biquad *bq, uint32_t max_bq, uint32_t *n_bq)
+static int load_eq_bands(struct plugin *pl, const char *filename, int rate,
+		struct biquad *bq, uint32_t max_bq, uint32_t *n_bq)
 {
 	FILE *f = NULL;
 	char *line = NULL;
@@ -1728,7 +1751,7 @@ static int load_eq_bands(const char *filename, int rate, struct biquad *bq, uint
 
 	if ((f = fopen(filename, "r")) == NULL) {
 		res = -errno;
-		pw_log_error("failed to open param_eq file '%s': %m", filename);
+		spa_log_error(pl->log, "failed to open param_eq file '%s': %m", filename);
 		goto exit;
 	}
 	/*
@@ -1746,7 +1769,7 @@ static int load_eq_bands(const char *filename, int rate, struct biquad *bq, uint
 	nread = getline(&line, &linelen, f);
 	if (nread != -1 && sscanf(line, "%*s %6s %*s", gain) == 1) {
 		if (spa_json_parse_float(gain, strlen(gain), &vg)) {
-			pw_log_info("%d %s freq:0 q:1.0 gain:%f", n,
+			spa_log_info(pl->log, "%d %s freq:0 q:1.0 gain:%f", n,
 					bq_name_from_type(BQ_HIGHSHELF), vg);
 			biquad_set(&bq[n++], BQ_HIGHSHELF, 0.0f, 1.0f, vg);
 		}
@@ -1784,7 +1807,7 @@ static int load_eq_bands(const char *filename, int rate, struct biquad *bq, uint
 
 				if (spa_json_parse_float(gain, strlen(gain), &vg) &&
 				    spa_json_parse_float(q, strlen(q), &vq)) {
-					pw_log_info("%d %s freq:%d q:%f gain:%f", n,
+					spa_log_info(pl->log, "%d %s freq:%d q:%f gain:%f", n,
 							bq_name_from_type(type), freq, vq, vg);
 					biquad_set(&bq[n++], type, freq * 2.0f / rate, vq, vg);
 				}
@@ -1810,7 +1833,8 @@ exit:
  *   { type=bq_peaking freq=1600 gain=2.3 q=2.700 }
  * ]
  */
-static int parse_filters(struct spa_json *iter, int rate, struct biquad *bq, uint32_t max_bq, uint32_t *n_bq)
+static int parse_filters(struct plugin *pl, struct spa_json *iter, int rate,
+		struct biquad *bq, uint32_t max_bq, uint32_t *n_bq)
 {
 	struct spa_json it[1];
 	const char *val;
@@ -1826,37 +1850,37 @@ static int parse_filters(struct spa_json *iter, int rate, struct biquad *bq, uin
 		while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
 			if (spa_streq(key, "type")) {
 				if (spa_json_parse_stringn(val, len, type_str, sizeof(type_str)) <= 0) {
-					pw_log_error("param_eq:type requires a string");
+					spa_log_error(pl->log, "param_eq:type requires a string");
 					return -EINVAL;
 				}
 				type = bq_type_from_name(type_str);
 			}
 			else if (spa_streq(key, "freq")) {
 				if (spa_json_parse_float(val, len, &freq) <= 0) {
-					pw_log_error("param_eq:rate requires a number");
+					spa_log_error(pl->log, "param_eq:rate requires a number");
 					return -EINVAL;
 				}
 			}
 			else if (spa_streq(key, "q")) {
 				if (spa_json_parse_float(val, len, &q) <= 0) {
-					pw_log_error("param_eq:q requires a float");
+					spa_log_error(pl->log, "param_eq:q requires a float");
 					return -EINVAL;
 				}
 			}
 			else if (spa_streq(key, "gain")) {
 				if (spa_json_parse_float(val, len, &gain) <= 0) {
-					pw_log_error("param_eq:gain requires a float");
+					spa_log_error(pl->log, "param_eq:gain requires a float");
 					return -EINVAL;
 				}
 			}
 			else {
-				pw_log_warn("param_eq: ignoring filter key: '%s'", key);
+				spa_log_warn(pl->log, "param_eq: ignoring filter key: '%s'", key);
 			}
 		}
 		if (n == max_bq)
 			return -ENOSPC;
 
-		pw_log_info("%d %s freq:%f q:%f gain:%f", n,
+		spa_log_info(pl->log, "%d %s freq:%f q:%f gain:%f", n,
 					bq_name_from_type(type), freq, q, gain);
 		biquad_set(&bq[n++], type, freq * 2 / rate, q, gain);
 	}
@@ -1875,6 +1899,7 @@ static int parse_filters(struct spa_json *iter, int rate, struct biquad *bq, uin
 static void *param_eq_instantiate(const struct fc_plugin *plugin, const struct fc_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
+	struct plugin *pl = (struct plugin *) plugin;
 	struct spa_json it[3];
 	const char *val;
 	char key[256], filename[PATH_MAX];
@@ -1883,13 +1908,13 @@ static void *param_eq_instantiate(const struct fc_plugin *plugin, const struct f
 	uint32_t i, n_bq = 0;
 
 	if (config == NULL) {
-		pw_log_error("param_eq: requires a config section");
+		spa_log_error(pl->log, "param_eq: requires a config section");
 		errno = EINVAL;
 		return NULL;
 	}
 
 	if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
-		pw_log_error("param_eq: config must be an object");
+		spa_log_error(pl->log, "param_eq: config must be an object");
 		return NULL;
 	}
 
@@ -1897,7 +1922,9 @@ static void *param_eq_instantiate(const struct fc_plugin *plugin, const struct f
 	if (impl == NULL)
 		return NULL;
 
-	impl->plugin = (struct plugin *) plugin;
+	impl->plugin = pl;
+	impl->dsp = pl->dsp;
+	impl->log = pl->log;
 	impl->rate = SampleRate;
 	for (i = 0; i < SPA_N_ELEMENTS(impl->bq); i++)
 		biquad_set(&impl->bq[i], BQ_NONE, 0.0f, 0.0f, 0.0f);
@@ -1908,23 +1935,23 @@ static void *param_eq_instantiate(const struct fc_plugin *plugin, const struct f
 
 		if (spa_strstartswith(key, "filename")) {
 			if (spa_json_parse_stringn(val, len, filename, sizeof(filename)) <= 0) {
-				pw_log_error("param_eq: filename requires a string");
+				spa_log_error(impl->log, "param_eq: filename requires a string");
 				goto error;
 			}
 			if (spa_atoi32(key+8, &idx, 0))
 				bq = &impl->bq[(SPA_CLAMP(idx, 1, 8) - 1) * PARAM_EQ_MAX];
 
-			res = load_eq_bands(filename, impl->rate, bq, PARAM_EQ_MAX, &n_bq);
+			res = load_eq_bands(pl, filename, impl->rate, bq, PARAM_EQ_MAX, &n_bq);
 			if (res < 0) {
-				pw_log_error("param_eq: failed to parse configuration from '%s'", filename);
+				spa_log_error(impl->log, "param_eq: failed to parse configuration from '%s'", filename);
 				goto error;
 			}
-			pw_log_info("loaded %d biquads for channel %d", n_bq, idx);
+			spa_log_info(impl->log, "loaded %d biquads for channel %d", n_bq, idx);
 			impl->n_bq = SPA_MAX(impl->n_bq, n_bq);
 		}
 		else if (spa_strstartswith(key, "filters")) {
 			if (!spa_json_is_array(val, len)) {
-				pw_log_error("param_eq:filters require an array");
+				spa_log_error(impl->log, "param_eq:filters require an array");
 				goto error;
 			}
 			spa_json_enter(&it[0], &it[1]);
@@ -1932,15 +1959,15 @@ static void *param_eq_instantiate(const struct fc_plugin *plugin, const struct f
 			if (spa_atoi32(key+7, &idx, 0))
 				bq = &impl->bq[(SPA_CLAMP(idx, 1, 8) - 1) * PARAM_EQ_MAX];
 
-			res = parse_filters(&it[1], impl->rate, bq, PARAM_EQ_MAX, &n_bq);
+			res = parse_filters(pl, &it[1], impl->rate, bq, PARAM_EQ_MAX, &n_bq);
 			if (res < 0) {
-				pw_log_error("param_eq: failed to parse configuration");
+				spa_log_error(impl->log, "param_eq: failed to parse configuration");
 				goto error;
 			}
-			pw_log_info("parsed %d biquads for channel %d", n_bq, idx);
+			spa_log_info(impl->log, "parsed %d biquads for channel %d", n_bq, idx);
 			impl->n_bq = SPA_MAX(impl->n_bq, n_bq);
 		} else {
-			pw_log_warn("param_eq: ignoring config key: '%s'", key);
+			spa_log_warn(impl->log, "param_eq: ignoring config key: '%s'", key);
 		}
 		if (idx == 0) {
 			for (i = 1; i < 8; i++)
@@ -1964,7 +1991,7 @@ static void param_eq_connect_port(void * Instance, unsigned long Port,
 static void param_eq_run(void * Instance, unsigned long SampleCount)
 {
 	struct param_eq_impl *impl = Instance;
-	dsp_ops_biquadn_run(impl->plugin->dsp_ops, impl->bq, impl->n_bq, PARAM_EQ_MAX,
+	dsp_ops_biquadn_run(impl->dsp, impl->bq, impl->n_bq, PARAM_EQ_MAX,
 			&impl->port[8], (const float**)impl->port, 8, SampleCount);
 }
 
@@ -2124,7 +2151,8 @@ struct fc_plugin *load_builtin_plugin(const struct spa_support *support, uint32_
 	struct plugin *impl = calloc (1, sizeof (struct plugin));
 	impl->plugin.make_desc = builtin_make_desc;
 	impl->plugin.unload = builtin_plugin_unload;
-	impl->dsp_ops = dsp;
+	impl->dsp = dsp;
 	pffft_select_cpu(dsp->cpu_flags);
+	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	return (struct fc_plugin *) impl;
 }

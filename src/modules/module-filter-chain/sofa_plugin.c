@@ -4,8 +4,7 @@
 
 #include <spa/utils/json.h>
 #include <spa/support/loop.h>
-
-#include <pipewire/log.h>
+#include <spa/support/log.h>
 
 #include "plugin.h"
 #include "convolver.h"
@@ -16,7 +15,9 @@
 
 struct plugin {
 	struct fc_plugin plugin;
-	struct dsp_ops *dsp_ops;
+
+	struct dsp_ops *dsp;
+	struct spa_log *log;
 	struct spa_loop *data_loop;
 	struct spa_loop *main_loop;
 	uint32_t quantum_limit;
@@ -24,6 +25,10 @@ struct plugin {
 
 struct spatializer_impl {
 	struct plugin *plugin;
+
+	struct dsp_ops *dsp;
+	struct spa_log *log;
+
 	unsigned long rate;
 	float *port[6];
 	int n_samples, blocksize, tailsize;
@@ -39,6 +44,7 @@ static void * spatializer_instantiate(const struct fc_plugin *plugin, const stru
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct spatializer_impl *impl;
+	struct plugin *pl = (struct plugin*) plugin;
 	struct spa_json it[1];
 	const char *val;
 	char key[256];
@@ -47,12 +53,12 @@ static void * spatializer_instantiate(const struct fc_plugin *plugin, const stru
 
 	errno = EINVAL;
 	if (config == NULL) {
-		pw_log_error("spatializer: no config was given");
+		spa_log_error(pl->log, "spatializer: no config was given");
 		return NULL;
 	}
 
 	if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
-		pw_log_error("spatializer: expected object in config");
+		spa_log_error(pl->log, "spatializer: expected object in config");
 		return NULL;
 	}
 
@@ -62,33 +68,35 @@ static void * spatializer_instantiate(const struct fc_plugin *plugin, const stru
 		return NULL;
 	}
 
-	impl->plugin = (struct plugin *) plugin;
+	impl->plugin = pl;
+	impl->dsp = pl->dsp;
+	impl->log = pl->log;
 
 	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
 		if (spa_streq(key, "blocksize")) {
 			if (spa_json_parse_int(val, len, &impl->blocksize) <= 0) {
-				pw_log_error("spatializer:blocksize requires a number");
+				spa_log_error(impl->log, "spatializer:blocksize requires a number");
 				errno = EINVAL;
 				goto error;
 			}
 		}
 		else if (spa_streq(key, "tailsize")) {
 			if (spa_json_parse_int(val, len, &impl->tailsize) <= 0) {
-				pw_log_error("spatializer:tailsize requires a number");
+				spa_log_error(impl->log, "spatializer:tailsize requires a number");
 				errno = EINVAL;
 				goto error;
 			}
 		}
 		else if (spa_streq(key, "filename")) {
 			if (spa_json_parse_stringn(val, len, filename, sizeof(filename)) <= 0) {
-				pw_log_error("spatializer:filename requires a string");
+				spa_log_error(impl->log, "spatializer:filename requires a string");
 				errno = EINVAL;
 				goto error;
 			}
 		}
 	}
 	if (!filename[0]) {
-		pw_log_error("spatializer:filename was not given");
+		spa_log_error(impl->log, "spatializer:filename was not given");
 		errno = EINVAL;
 		goto error;
 	}
@@ -166,7 +174,7 @@ static void * spatializer_instantiate(const struct fc_plugin *plugin, const stru
 			reason = "Internal error";
 			break;
 		}
-		pw_log_error("Unable to load HRTF from %s: %s (%d)", filename, reason, ret);
+		spa_log_error(impl->log, "Unable to load HRTF from %s: %s (%d)", filename, reason, ret);
 		goto error;
 	}
 
@@ -175,7 +183,7 @@ static void * spatializer_instantiate(const struct fc_plugin *plugin, const stru
 	if (impl->tailsize <= 0)
 		impl->tailsize = SPA_CLAMP(4096, impl->blocksize, 32768);
 
-	pw_log_info("using n_samples:%u %d:%d blocksize sofa:%s", impl->n_samples,
+	spa_log_info(impl->log, "using n_samples:%u %d:%d blocksize sofa:%s", impl->n_samples,
 		impl->blocksize, impl->tailsize, filename);
 
 	impl->tmp[0] = calloc(impl->plugin->quantum_limit, sizeof(float));
@@ -219,7 +227,7 @@ static void spatializer_reload(void * Instance)
 	for (uint8_t i = 0; i < 3; i++)
 		coords[i] = impl->port[3 + i][0];
 
-	pw_log_info("making spatializer with %f %f %f", coords[0], coords[1], coords[2]);
+	spa_log_info(impl->log, "making spatializer with %f %f %f", coords[0], coords[1], coords[2]);
 
 	mysofa_s2c(coords);
 	mysofa_getfilter_float(
@@ -235,23 +243,23 @@ static void spatializer_reload(void * Instance)
 
 	// TODO: make use of delay
 	if ((left_delay != 0.0f || right_delay != 0.0f) && (!isnan(left_delay) || !isnan(right_delay)))
-		pw_log_warn("delay dropped l: %f, r: %f", left_delay, right_delay);
+		spa_log_warn(impl->log, "delay dropped l: %f, r: %f", left_delay, right_delay);
 
 	if (impl->l_conv[2])
 		convolver_free(impl->l_conv[2]);
 	if (impl->r_conv[2])
 		convolver_free(impl->r_conv[2]);
 
-	impl->l_conv[2] = convolver_new(impl->plugin->dsp_ops, impl->blocksize, impl->tailsize,
+	impl->l_conv[2] = convolver_new(impl->dsp, impl->blocksize, impl->tailsize,
 			left_ir, impl->n_samples);
-	impl->r_conv[2] = convolver_new(impl->plugin->dsp_ops, impl->blocksize, impl->tailsize,
+	impl->r_conv[2] = convolver_new(impl->dsp, impl->blocksize, impl->tailsize,
 			right_ir, impl->n_samples);
 
 	free(left_ir);
 	free(right_ir);
 
 	if (impl->l_conv[2] == NULL || impl->r_conv[2] == NULL) {
-		pw_log_error("reloading left or right convolver failed");
+		spa_log_error(impl->log, "reloading left or right convolver failed");
 		return;
 	}
 	spa_loop_invoke(impl->plugin->data_loop, do_switch, 1, NULL, 0, true, impl);
@@ -438,11 +446,12 @@ struct fc_plugin *pipewire__filter_chain_plugin_load(const struct spa_support *s
 		if (spa_streq(k, "clock.quantum-limit"))
 			spa_atou32(s, &impl->quantum_limit, 0);
 	}
-	impl->dsp_ops = dsp;
+	impl->dsp = dsp;
 	pffft_select_cpu(dsp->cpu_flags);
 
 	impl->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	impl->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
+	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 
 	return (struct fc_plugin *) impl;
 }

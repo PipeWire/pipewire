@@ -55,6 +55,8 @@ uint64_t rtp_stream_get_time(struct rtp_stream *s, uint32_t *rate);
 
 uint16_t rtp_stream_get_seq(struct rtp_stream *s);
 
+size_t rtp_stream_get_mtu(struct rtp_stream *s);
+
 void rtp_stream_set_first(struct rtp_stream *s);
 
 void rtp_stream_set_error(struct rtp_stream *s, int res, const char *error);

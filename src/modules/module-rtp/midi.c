@@ -363,7 +363,7 @@ static void rtp_midi_flush_packets(struct impl *impl,
 	struct rtp_header header;
 	struct rtp_midi_header midi_header;
 	struct iovec iov[3];
-	uint32_t len, prev_offset, base;
+	uint32_t len, prev_offset, base, max_size;
 
 	spa_zero(header);
 	header.v = 2;
@@ -380,6 +380,7 @@ static void rtp_midi_flush_packets(struct impl *impl,
 	iov[2].iov_len = 0;
 
 	prev_offset = len = base = 0;
+	max_size = impl->payload_size - sizeof(midi_header);
 
 	SPA_POD_SEQUENCE_FOREACH(sequence, c) {
 		uint32_t delta, offset;
@@ -396,7 +397,7 @@ static void rtp_midi_flush_packets(struct impl *impl,
 
 		offset = c->offset * impl->rate / rate;
 
-		if (len > 0 && (len + size > impl->mtu ||
+		if (len > 0 && (len + size > max_size ||
 		    offset - base > impl->psamples)) {
 			/* flush packet when we have one and when it's either
 			 * too large or has too much data. */

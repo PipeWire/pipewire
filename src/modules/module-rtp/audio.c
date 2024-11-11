@@ -361,7 +361,8 @@ static void rtp_audio_process_capture(void *data)
 			pw_log_warn("expected %u != timestamp %u", expected_timestamp, timestamp);
 			impl->have_sync = false;
 		} else if (filled + wanted > (int32_t)SPA_MIN(impl->target_buffer * 8, BUFFER_SIZE / stride)) {
-			pw_log_warn("overrun %u + %u > %u", filled, wanted, BUFFER_SIZE / stride);
+			pw_log_warn("overrun %u + %u > %u/%u", filled, wanted,
+					impl->target_buffer * 8, BUFFER_SIZE / stride);
 			impl->have_sync = false;
 			filled = 0;
 		}

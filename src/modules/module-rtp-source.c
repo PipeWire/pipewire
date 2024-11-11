@@ -162,6 +162,9 @@ struct impl {
 	socklen_t src_len;
 	struct spa_source *source;
 
+	uint8_t *buffer;
+	size_t buffer_size;
+
 	unsigned receiving:1;
 	unsigned last_receiving:1;
 };
@@ -171,17 +174,16 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 {
 	struct impl *impl = data;
 	ssize_t len;
-	uint8_t buffer[2048];
 
 	if (mask & SPA_IO_IN) {
-		if ((len = recv(fd, buffer, sizeof(buffer), 0)) < 0)
+		if ((len = recv(fd, impl->buffer, impl->buffer_size, 0)) < 0)
 			goto receive_error;
 
 		if (len < 12)
 			goto short_packet;
 
 		if (SPA_LIKELY(impl->stream)) {
-			if (rtp_stream_receive_packet(impl->stream, buffer, len) < 0)
+			if (rtp_stream_receive_packet(impl->stream, impl->buffer, len) < 0)
 				goto receive_error;
 		}
 
@@ -193,7 +195,7 @@ receive_error:
 	pw_log_warn("recv error: %m");
 	return;
 short_packet:
-	pw_log_warn("short packet received");
+	pw_log_warn("short packet of len %zd received", len);
 	return;
 }
 
@@ -477,6 +479,7 @@ static void impl_destroy(struct impl *impl)
 	pw_properties_free(impl->stream_props);
 	pw_properties_free(impl->props);
 
+	free(impl->buffer);
 	free(impl->ifname);
 	free(impl);
 }
@@ -660,6 +663,14 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (impl->stream == NULL) {
 		res = -errno;
 		pw_log_error("can't create stream: %m");
+		goto out;
+	}
+
+	impl->buffer_size = rtp_stream_get_mtu(impl->stream);
+	impl->buffer = calloc(1, impl->buffer_size);
+	if (impl->buffer == NULL) {
+		res = -errno;
+		pw_log_error("can't create packet buffer of size %zd: %m", impl->buffer_size);
 		goto out;
 	}
 

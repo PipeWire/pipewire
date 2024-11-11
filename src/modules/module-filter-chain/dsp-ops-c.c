@@ -158,10 +158,10 @@ void dsp_biquadn_run_c(struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, ui
 		d = out[i];
 		if (s == NULL || d == NULL)
 			continue;
-		for (j = 0; j < n_bq; j++) {
-			dsp_biquad_run_c(ops, &bq[j], d, s, n_samples);
-			s = d;
-		}
+		if (n_bq > 0)
+			dsp_biquad_run_c(ops, &bq[0], d, s, n_samples);
+		for (j = 1; j < n_bq; j++)
+			dsp_biquad_run_c(ops, &bq[j], d, d, n_samples);
 	}
 }
 

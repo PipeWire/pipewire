@@ -340,6 +340,7 @@ void positions_to_channel_map(const uint32_t *pos, uint32_t channels, struct cha
 	uint32_t i;
 	for (i = 0; i < channels; i++)
 		map->map[i] = pos[i];
+	map->channels = channels;
 }
 
 void channel_map_parse(const char *str, struct channel_map *map)

@@ -5,9 +5,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "dsp-ops.h"
+#include "audio-dsp.h"
 
-struct convolver *convolver_new(struct dsp_ops *dsp, int block, int tail, const float *ir, int irlen);
+struct convolver *convolver_new(struct spa_fga_dsp *dsp, int block, int tail, const float *ir, int irlen);
 void convolver_free(struct convolver *conv);
 
 void convolver_reset(struct convolver *conv);

@@ -12,9 +12,6 @@
 #include <spa/utils/hook.h>
 #include <spa/support/plugin.h>
 
-#include "dsp-ops.h"
-
-
 #define SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin	SPA_TYPE_INFO_INTERFACE_BASE "FilterGraph:AudioPlugin"
 
 #define SPA_VERSION_FGA_PLUGIN	0
@@ -105,8 +102,7 @@ static inline void spa_fga_descriptor_free(const struct spa_fga_descriptor *desc
 #define spa_fga_plugin_free(o,...)	spa_fga_plugin_method(o,free,0,##__VA_ARGS__)
 
 typedef struct spa_fga_plugin *(spa_filter_graph_audio_plugin_load_func_t)(const struct spa_support *support,
-		uint32_t n_support, struct dsp_ops *dsp,
-		const char *path, const struct spa_dict *info);
+		uint32_t n_support, const char *path, const struct spa_dict *info);
 
 #define SPA_FILTER_GRAPH_AUDIO_PLUGIN_LOAD_FUNC_NAME "spa_filter_graph_audio_plugin_load"
 

@@ -15,11 +15,11 @@
 #include "pffft.h"
 #endif
 
-#include "dsp-ops-impl.h"
+#include "audio-dsp-impl.h"
 
 #include <xmmintrin.h>
 
-void dsp_mix_gain_sse(struct dsp_ops *ops,
+void dsp_mix_gain_sse(void *obj,
 		void * SPA_RESTRICT dst,
 		const void * SPA_RESTRICT src[],
 		float gain[], uint32_t n_src, uint32_t n_samples)
@@ -77,7 +77,7 @@ void dsp_mix_gain_sse(struct dsp_ops *ops,
 	}
 }
 
-void dsp_sum_sse(struct dsp_ops *ops, float *r, const float *a, const float *b, uint32_t n_samples)
+void dsp_sum_sse(void *obj, float *r, const float *a, const float *b, uint32_t n_samples)
 {
 	uint32_t n, unrolled;
 	__m128 in[4];
@@ -128,7 +128,7 @@ void dsp_sum_sse(struct dsp_ops *ops, float *r, const float *a, const float *b, 
 	}
 }
 
-static void dsp_biquad_run1_sse(struct dsp_ops *ops, struct biquad *bq,
+static void dsp_biquad_run1_sse(void *obj, struct biquad *bq,
 		float *out, const float *in, uint32_t n_samples)
 {
 	__m128 x, y, z;
@@ -157,7 +157,7 @@ static void dsp_biquad_run1_sse(struct dsp_ops *ops, struct biquad *bq,
 #undef F
 }
 
-static void dsp_biquad2_run_sse(struct dsp_ops *ops, struct biquad *bq,
+static void dsp_biquad2_run_sse(void *obj, struct biquad *bq,
 		float *out, const float *in, uint32_t n_samples)
 {
 	__m128 x, y, z;
@@ -201,7 +201,7 @@ static void dsp_biquad2_run_sse(struct dsp_ops *ops, struct biquad *bq,
 #undef F
 }
 
-static void dsp_biquad_run2_sse(struct dsp_ops *ops, struct biquad *bq, uint32_t bq_stride,
+static void dsp_biquad_run2_sse(void *obj, struct biquad *bq, uint32_t bq_stride,
 		float **out, const float **in, uint32_t n_samples)
 {
 	__m128 x, y, z;
@@ -243,7 +243,7 @@ static void dsp_biquad_run2_sse(struct dsp_ops *ops, struct biquad *bq, uint32_t
 }
 
 
-static void dsp_biquad2_run2_sse(struct dsp_ops *ops, struct biquad *bq, uint32_t bq_stride,
+static void dsp_biquad2_run2_sse(void *obj, struct biquad *bq, uint32_t bq_stride,
 		float **out, const float **in, uint32_t n_samples)
 {
 	__m128 x, y, z;
@@ -309,7 +309,7 @@ static void dsp_biquad2_run2_sse(struct dsp_ops *ops, struct biquad *bq, uint32_
 #undef F
 }
 
-static void dsp_biquad_run4_sse(struct dsp_ops *ops, struct biquad *bq, uint32_t bq_stride,
+static void dsp_biquad_run4_sse(void *obj, struct biquad *bq, uint32_t bq_stride,
 		float **out, const float **in, uint32_t n_samples)
 {
 	__m128 x, y, z;
@@ -356,7 +356,7 @@ static void dsp_biquad_run4_sse(struct dsp_ops *ops, struct biquad *bq, uint32_t
 #undef F
 }
 
-static void dsp_biquad2_run4_sse(struct dsp_ops *ops, struct biquad *bq, uint32_t bq_stride,
+static void dsp_biquad2_run4_sse(void *obj, struct biquad *bq, uint32_t bq_stride,
 		float **out, const float **in, uint32_t n_samples)
 {
 	__m128 x, y, z;
@@ -432,7 +432,7 @@ static void dsp_biquad2_run4_sse(struct dsp_ops *ops, struct biquad *bq, uint32_
 #undef F
 }
 
-void dsp_biquad_run_sse(struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, uint32_t bq_stride,
+void dsp_biquad_run_sse(void *obj, struct biquad *bq, uint32_t n_bq, uint32_t bq_stride,
 		float * SPA_RESTRICT out[], const float * SPA_RESTRICT in[],
 		uint32_t n_src, uint32_t n_samples)
 {
@@ -451,7 +451,7 @@ void dsp_biquad_run_sse(struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, u
 
 		j = 0;
 		if (j < junrolled2) {
-			dsp_biquad2_run4_sse(ops, &bq[j], bq_stride, d, s, n_samples);
+			dsp_biquad2_run4_sse(obj, &bq[j], bq_stride, d, s, n_samples);
 			s[0] = d[0];
 			s[1] = d[1];
 			s[2] = d[2];
@@ -459,10 +459,10 @@ void dsp_biquad_run_sse(struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, u
 			j+=2;
 		}
 		for (; j < junrolled2; j+=2) {
-			dsp_biquad2_run4_sse(ops, &bq[j], bq_stride, d, s, n_samples);
+			dsp_biquad2_run4_sse(obj, &bq[j], bq_stride, d, s, n_samples);
 		}
 		if (j < n_bq) {
-			dsp_biquad_run4_sse(ops, &bq[j], bq_stride, d, s, n_samples);
+			dsp_biquad_run4_sse(obj, &bq[j], bq_stride, d, s, n_samples);
 		}
 	}
 	for (; i < iunrolled2; i+=2, bq+=bqs2) {
@@ -474,16 +474,16 @@ void dsp_biquad_run_sse(struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, u
 
 		j = 0;
 		if (j < junrolled2) {
-			dsp_biquad2_run2_sse(ops, &bq[j], bq_stride, d, s, n_samples);
+			dsp_biquad2_run2_sse(obj, &bq[j], bq_stride, d, s, n_samples);
 			s[0] = d[0];
 			s[1] = d[1];
 			j+=2;
 		}
 		for (; j < junrolled2; j+=2) {
-			dsp_biquad2_run2_sse(ops, &bq[j], bq_stride, d, s, n_samples);
+			dsp_biquad2_run2_sse(obj, &bq[j], bq_stride, d, s, n_samples);
 		}
 		if (j < n_bq) {
-			dsp_biquad_run2_sse(ops, &bq[j], bq_stride, d, s, n_samples);
+			dsp_biquad_run2_sse(obj, &bq[j], bq_stride, d, s, n_samples);
 		}
 	}
 	for (; i < n_src; i++, bq+=bq_stride) {
@@ -494,20 +494,20 @@ void dsp_biquad_run_sse(struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, u
 
 		j = 0;
 		if (j < junrolled2) {
-			dsp_biquad2_run_sse(ops, &bq[j], d, s, n_samples);
+			dsp_biquad2_run_sse(obj, &bq[j], d, s, n_samples);
 			s = d;
 			j+=2;
 		}
 		for (; j < junrolled2; j+=2) {
-			dsp_biquad2_run_sse(ops, &bq[j], d, s, n_samples);
+			dsp_biquad2_run_sse(obj, &bq[j], d, s, n_samples);
 		}
 		if (j < n_bq) {
-			dsp_biquad_run1_sse(ops, &bq[j], d, s, n_samples);
+			dsp_biquad_run1_sse(obj, &bq[j], d, s, n_samples);
 		}
 	}
 }
 
-void dsp_delay_sse(struct dsp_ops *ops, float *buffer, uint32_t *pos, uint32_t n_buffer, uint32_t delay,
+void dsp_delay_sse(void *obj, float *buffer, uint32_t *pos, uint32_t n_buffer, uint32_t delay,
 		float *dst, const float *src, uint32_t n_samples)
 {
 	__m128 t[1];
@@ -560,7 +560,7 @@ inline static void _mm_mul_pz(__m128 *a, __m128 *b, __m128 *d)
     d[1] = _mm_unpackhi_ps(dr, di);
 }
 
-void dsp_fft_cmul_sse(struct dsp_ops *ops, void *fft,
+void dsp_fft_cmul_sse(void *obj, void *fft,
 	float * SPA_RESTRICT dst, const float * SPA_RESTRICT a,
 	const float * SPA_RESTRICT b, uint32_t len, const float scale)
 {
@@ -596,7 +596,7 @@ void dsp_fft_cmul_sse(struct dsp_ops *ops, void *fft,
 #endif
 }
 
-void dsp_fft_cmuladd_sse(struct dsp_ops *ops, void *fft,
+void dsp_fft_cmuladd_sse(void *obj, void *fft,
 	float * SPA_RESTRICT dst, const float * SPA_RESTRICT src,
 	const float * SPA_RESTRICT a, const float * SPA_RESTRICT b,
 	uint32_t len, const float scale)

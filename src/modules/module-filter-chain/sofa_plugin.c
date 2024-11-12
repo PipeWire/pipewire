@@ -8,7 +8,7 @@
 
 #include "audio-plugin.h"
 #include "convolver.h"
-#include "dsp-ops.h"
+#include "audio-dsp.h"
 #include "pffft.h"
 
 #include <mysofa.h>
@@ -16,7 +16,7 @@
 struct plugin {
 	struct spa_fga_plugin plugin;
 
-	struct dsp_ops *dsp;
+	struct spa_fga_dsp *dsp;
 	struct spa_log *log;
 	struct spa_loop *data_loop;
 	struct spa_loop *main_loop;
@@ -26,7 +26,7 @@ struct plugin {
 struct spatializer_impl {
 	struct plugin *plugin;
 
-	struct dsp_ops *dsp;
+	struct spa_fga_dsp *dsp;
 	struct spa_log *log;
 
 	unsigned long rate;
@@ -438,7 +438,7 @@ static struct spa_fga_plugin_methods impl_plugin = {
 
 SPA_EXPORT
 struct spa_fga_plugin *spa_filter_graph_audio_plugin_load(const struct spa_support *support, uint32_t n_support,
-		struct dsp_ops *dsp, const char *plugin, const struct spa_dict *info)
+		const char *plugin, const struct spa_dict *info)
 {
 	struct plugin *impl = calloc(1, sizeof (struct plugin));
 
@@ -455,12 +455,11 @@ struct spa_fga_plugin *spa_filter_graph_audio_plugin_load(const struct spa_suppo
 		if (spa_streq(k, "clock.quantum-limit"))
 			spa_atou32(s, &impl->quantum_limit, 0);
 	}
-	impl->dsp = dsp;
-	pffft_select_cpu(dsp->cpu_flags);
-
 	impl->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	impl->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	impl->dsp = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioDSP);
+	pffft_select_cpu(impl->dsp->cpu_flags);
 
 	return (struct spa_fga_plugin *) impl;
 }

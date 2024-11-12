@@ -11,15 +11,15 @@
 #include <spa/utils/defs.h>
 #include <spa/param/audio/format-utils.h>
 
-#include "dsp-ops-impl.h"
+#include "audio-dsp-impl.h"
 
 struct dsp_info {
 	uint32_t cpu_flags;
 
-	struct dsp_ops_funcs funcs;
+	struct spa_fga_dsp_methods funcs;
 };
 
-static struct dsp_info dsp_table[] =
+static const struct dsp_info dsp_table[] =
 {
 #if defined (HAVE_AVX)
 	{ SPA_CPU_FLAG_AVX,
@@ -92,23 +92,30 @@ static const struct dsp_info *find_dsp_info(uint32_t cpu_flags)
 	return NULL;
 }
 
-static void impl_dsp_ops_free(struct dsp_ops *ops)
+void spa_fga_dsp_free(struct spa_fga_dsp *dsp)
 {
-	spa_zero(*ops);
+	free(dsp);
 }
 
-int dsp_ops_init(struct dsp_ops *ops, uint32_t cpu_flags)
+struct spa_fga_dsp * spa_fga_dsp_new(uint32_t cpu_flags)
 {
 	const struct dsp_info *info;
+	struct spa_fga_dsp *dsp;
 
 	info = find_dsp_info(cpu_flags);
-	if (info == NULL)
-		return -ENOTSUP;
+	if (info == NULL) {
+		errno = ENOTSUP;
+		return NULL;
+	}
+	dsp = calloc(1, sizeof(*dsp));
+	if (dsp == NULL)
+		return NULL;
 
-	ops->cpu_flags = cpu_flags;
-	ops->priv = info;
-	ops->free = impl_dsp_ops_free;
-	ops->funcs = info->funcs;
+	dsp->cpu_flags = cpu_flags;
+	dsp->iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioDSP,
+			SPA_VERSION_FGA_DSP,
+			&info->funcs, dsp);
 
-	return 0;
+	return dsp;
 }

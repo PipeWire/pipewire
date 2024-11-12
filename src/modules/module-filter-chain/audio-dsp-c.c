@@ -16,21 +16,21 @@
 #else
 #include "pffft.h"
 #endif
-#include "dsp-ops-impl.h"
+#include "audio-dsp-impl.h"
 
-void dsp_clear_c(struct dsp_ops *ops, void * SPA_RESTRICT dst, uint32_t n_samples)
+void dsp_clear_c(void *obj, void * SPA_RESTRICT dst, uint32_t n_samples)
 {
 	memset(dst, 0, sizeof(float) * n_samples);
 }
 
-void dsp_copy_c(struct dsp_ops *ops, void * SPA_RESTRICT dst,
+void dsp_copy_c(void *obj, void * SPA_RESTRICT dst,
 			const void * SPA_RESTRICT src, uint32_t n_samples)
 {
 	if (dst != src)
 		spa_memcpy(dst, src, sizeof(float) * n_samples);
 }
 
-static inline void dsp_add_c(struct dsp_ops *ops, void * SPA_RESTRICT dst,
+static inline void dsp_add_c(void *obj, void * SPA_RESTRICT dst,
 			const void * SPA_RESTRICT src, uint32_t n_samples)
 {
 	uint32_t i;
@@ -40,23 +40,23 @@ static inline void dsp_add_c(struct dsp_ops *ops, void * SPA_RESTRICT dst,
 		d[i] += s[i];
 }
 
-static inline void dsp_gain_c(struct dsp_ops *ops, void * SPA_RESTRICT dst,
+static inline void dsp_gain_c(void *obj, void * SPA_RESTRICT dst,
 			const void * SPA_RESTRICT src, float gain, uint32_t n_samples)
 {
 	uint32_t i;
 	const float *s = src;
 	float *d = dst;
 	if (gain == 0.0f)
-		dsp_clear_c(ops, dst, n_samples);
+		dsp_clear_c(obj, dst, n_samples);
 	else if (gain == 1.0f)
-		dsp_copy_c(ops, dst, src, n_samples);
+		dsp_copy_c(obj, dst, src, n_samples);
 	else  {
 		for (i = 0; i < n_samples; i++)
 			d[i] = s[i] * gain;
 	}
 }
 
-static inline void dsp_gain_add_c(struct dsp_ops *ops, void * SPA_RESTRICT dst,
+static inline void dsp_gain_add_c(void *obj, void * SPA_RESTRICT dst,
 			const void * SPA_RESTRICT src, float gain, uint32_t n_samples)
 {
 	uint32_t i;
@@ -66,7 +66,7 @@ static inline void dsp_gain_add_c(struct dsp_ops *ops, void * SPA_RESTRICT dst,
 	if (gain == 0.0f)
 		return;
 	else if (gain == 1.0f)
-		dsp_add_c(ops, dst, src, n_samples);
+		dsp_add_c(obj, dst, src, n_samples);
 	else {
 		for (i = 0; i < n_samples; i++)
 			d[i] += s[i] * gain;
@@ -74,22 +74,22 @@ static inline void dsp_gain_add_c(struct dsp_ops *ops, void * SPA_RESTRICT dst,
 }
 
 
-void dsp_mix_gain_c(struct dsp_ops *ops,
+void dsp_mix_gain_c(void *obj,
 		void * SPA_RESTRICT dst,
 		const void * SPA_RESTRICT src[],
 		float gain[], uint32_t n_src, uint32_t n_samples)
 {
 	uint32_t i;
 	if (n_src == 0) {
-		dsp_clear_c(ops, dst, n_samples);
+		dsp_clear_c(obj, dst, n_samples);
 	} else {
-		dsp_gain_c(ops, dst, src[0], gain[0], n_samples);
+		dsp_gain_c(obj, dst, src[0], gain[0], n_samples);
 		for (i = 1; i < n_src; i++)
-			dsp_gain_add_c(ops, dst, src[i], gain[i], n_samples);
+			dsp_gain_add_c(obj, dst, src[i], gain[i], n_samples);
 	}
 }
 
-static inline void dsp_mult1_c(struct dsp_ops *ops, void * SPA_RESTRICT dst,
+static inline void dsp_mult1_c(void *obj, void * SPA_RESTRICT dst,
 			const void * SPA_RESTRICT src, uint32_t n_samples)
 {
 	uint32_t i;
@@ -99,22 +99,22 @@ static inline void dsp_mult1_c(struct dsp_ops *ops, void * SPA_RESTRICT dst,
 		d[i] *= s[i];
 }
 
-void dsp_mult_c(struct dsp_ops *ops,
+void dsp_mult_c(void *obj,
 		void * SPA_RESTRICT dst,
 		const void * SPA_RESTRICT src[],
 		uint32_t n_src, uint32_t n_samples)
 {
 	uint32_t i;
 	if (n_src == 0) {
-		dsp_clear_c(ops, dst, n_samples);
+		dsp_clear_c(obj, dst, n_samples);
 	} else {
-		dsp_copy_c(ops, dst, src[0], n_samples);
+		dsp_copy_c(obj, dst, src[0], n_samples);
 		for (i = 1; i < n_src; i++)
-			dsp_mult1_c(ops, dst, src[i], n_samples);
+			dsp_mult1_c(obj, dst, src[i], n_samples);
 	}
 }
 
-static void biquad_run_c(struct dsp_ops *ops, struct biquad *bq,
+static void biquad_run_c(void *obj, struct biquad *bq,
 		float *out, const float *in, uint32_t n_samples)
 {
 	float x, y, x1, x2;
@@ -122,7 +122,7 @@ static void biquad_run_c(struct dsp_ops *ops, struct biquad *bq,
 	uint32_t i;
 
 	if (bq->type == BQ_NONE) {
-		dsp_copy_c(ops, out, in, n_samples);
+		dsp_copy_c(obj, out, in, n_samples);
 		return;
 	}
 
@@ -146,7 +146,7 @@ static void biquad_run_c(struct dsp_ops *ops, struct biquad *bq,
 #undef F
 }
 
-void dsp_biquad_run_c(struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, uint32_t bq_stride,
+void dsp_biquad_run_c(void *obj, struct biquad *bq, uint32_t n_bq, uint32_t bq_stride,
 		float * SPA_RESTRICT out[], const float * SPA_RESTRICT in[],
 		uint32_t n_src, uint32_t n_samples)
 {
@@ -159,13 +159,13 @@ void dsp_biquad_run_c(struct dsp_ops *ops, struct biquad *bq, uint32_t n_bq, uin
 		if (s == NULL || d == NULL)
 			continue;
 		if (n_bq > 0)
-			biquad_run_c(ops, &bq[0], d, s, n_samples);
+			biquad_run_c(obj, &bq[0], d, s, n_samples);
 		for (j = 1; j < n_bq; j++)
-			biquad_run_c(ops, &bq[j], d, d, n_samples);
+			biquad_run_c(obj, &bq[j], d, d, n_samples);
 	}
 }
 
-void dsp_sum_c(struct dsp_ops *ops, float * dst,
+void dsp_sum_c(void *obj, float * dst,
 		const float * SPA_RESTRICT a, const float * SPA_RESTRICT b, uint32_t n_samples)
 {
 	uint32_t i;
@@ -173,13 +173,13 @@ void dsp_sum_c(struct dsp_ops *ops, float * dst,
 		dst[i] = a[i] + b[i];
 }
 
-void dsp_linear_c(struct dsp_ops *ops, float * dst,
+void dsp_linear_c(void *obj, float * dst,
 		const float * SPA_RESTRICT src, const float mult,
 		const float add, uint32_t n_samples)
 {
 	uint32_t i;
 	if (add == 0.0f) {
-		dsp_gain_c(ops, dst, src, mult, n_samples);
+		dsp_gain_c(obj, dst, src, mult, n_samples);
 	} else {
 		if (mult == 0.0f) {
 			for (i = 0; i < n_samples; i++)
@@ -195,11 +195,11 @@ void dsp_linear_c(struct dsp_ops *ops, float * dst,
 }
 
 
-void dsp_delay_c(struct dsp_ops *ops, float *buffer, uint32_t *pos, uint32_t n_buffer,
+void dsp_delay_c(void *obj, float *buffer, uint32_t *pos, uint32_t n_buffer,
 		uint32_t delay, float *dst, const float *src, uint32_t n_samples)
 {
 	if (delay == 0) {
-		dsp_copy_c(ops, dst, src, n_samples);
+		dsp_copy_c(obj, dst, src, n_samples);
 	} else {
 		uint32_t w, o, i;
 
@@ -222,7 +222,7 @@ struct fft_info {
 };
 #endif
 
-void *dsp_fft_new_c(struct dsp_ops *ops, uint32_t size, bool real)
+void *dsp_fft_new_c(void *obj, uint32_t size, bool real)
 {
 #ifdef HAVE_FFTW
 	struct fft_info *info = calloc(1, sizeof(struct fft_info));
@@ -247,7 +247,7 @@ void *dsp_fft_new_c(struct dsp_ops *ops, uint32_t size, bool real)
 #endif
 }
 
-void dsp_fft_free_c(struct dsp_ops *ops, void *fft)
+void dsp_fft_free_c(void *obj, void *fft)
 {
 #ifdef HAVE_FFTW
 	struct fft_info *info = fft;
@@ -259,7 +259,7 @@ void dsp_fft_free_c(struct dsp_ops *ops, void *fft)
 #endif
 }
 
-void *dsp_fft_memalloc_c(struct dsp_ops *ops, uint32_t size, bool real)
+void *dsp_fft_memalloc_c(void *obj, uint32_t size, bool real)
 {
 #ifdef HAVE_FFTW
 	if (real)
@@ -274,7 +274,7 @@ void *dsp_fft_memalloc_c(struct dsp_ops *ops, uint32_t size, bool real)
 #endif
 }
 
-void dsp_fft_memfree_c(struct dsp_ops *ops, void *data)
+void dsp_fft_memfree_c(void *obj, void *data)
 {
 #ifdef HAVE_FFTW
 	fftwf_free(data);
@@ -283,16 +283,16 @@ void dsp_fft_memfree_c(struct dsp_ops *ops, void *data)
 #endif
 }
 
-void dsp_fft_memclear_c(struct dsp_ops *ops, void *data, uint32_t size, bool real)
+void dsp_fft_memclear_c(void *obj, void *data, uint32_t size, bool real)
 {
 #ifdef HAVE_FFTW
-	dsp_ops_clear(ops, data, real ? size : size * 2);
+	spa_fga_dsp_clear(obj, data, real ? size : size * 2);
 #else
-	dsp_ops_clear(ops, data, real ? size : size * 2);
+	spa_fga_dsp_clear(obj, data, real ? size : size * 2);
 #endif
 }
 
-void dsp_fft_run_c(struct dsp_ops *ops, void *fft, int direction,
+void dsp_fft_run_c(void *obj, void *fft, int direction,
 	const float * SPA_RESTRICT src, float * SPA_RESTRICT dst)
 {
 #ifdef HAVE_FFTW
@@ -306,7 +306,7 @@ void dsp_fft_run_c(struct dsp_ops *ops, void *fft, int direction,
 #endif
 }
 
-void dsp_fft_cmul_c(struct dsp_ops *ops, void *fft,
+void dsp_fft_cmul_c(void *obj, void *fft,
 	float * SPA_RESTRICT dst, const float * SPA_RESTRICT a,
 	const float * SPA_RESTRICT b, uint32_t len, const float scale)
 {
@@ -320,7 +320,7 @@ void dsp_fft_cmul_c(struct dsp_ops *ops, void *fft,
 #endif
 }
 
-void dsp_fft_cmuladd_c(struct dsp_ops *ops, void *fft,
+void dsp_fft_cmuladd_c(void *obj, void *fft,
 	float * SPA_RESTRICT dst, const float * SPA_RESTRICT src,
 	const float * SPA_RESTRICT a, const float * SPA_RESTRICT b,
 	uint32_t len, const float scale)

@@ -23,20 +23,20 @@
 #include "biquad.h"
 #include "pffft.h"
 #include "convolver.h"
-#include "dsp-ops.h"
+#include "audio-dsp.h"
 
 #define MAX_RATES	32u
 
 struct plugin {
 	struct spa_fga_plugin plugin;
-	struct dsp_ops *dsp;
+	struct spa_fga_dsp *dsp;
 	struct spa_log *log;
 };
 
 struct builtin {
 	struct plugin *plugin;
 
-	struct dsp_ops *dsp;
+	struct spa_fga_dsp *dsp;
 	struct spa_log *log;
 
 	unsigned long rate;
@@ -86,7 +86,7 @@ static void copy_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
 	float *in = impl->port[1], *out = impl->port[0];
-	dsp_ops_copy(impl->dsp, out, in, SampleCount);
+	spa_fga_dsp_copy(impl->dsp, out, in, SampleCount);
 }
 
 static struct spa_fga_port copy_ports[] = {
@@ -135,7 +135,7 @@ static void mixer_run(void * Instance, unsigned long SampleCount)
 		src[n_src] = in;
 		gains[n_src++] = gain;
 	}
-	dsp_ops_mix_gain(impl->dsp, out, src, gains, n_src, SampleCount);
+	spa_fga_dsp_mix_gain(impl->dsp, out, src, gains, n_src, SampleCount);
 }
 
 static struct spa_fga_port mixer_ports[] = {
@@ -540,7 +540,7 @@ static void bq_run(void *Instance, unsigned long samples)
 		if (impl->freq != freq || impl->Q != Q || impl->gain != gain)
 			bq_freq_update(impl, impl->type, freq, Q, gain);
 	}
-	dsp_ops_biquad_run(impl->dsp, bq, 1, 0, &out, (const float **)&in, 1, samples);
+	spa_fga_dsp_biquad_run(impl->dsp, bq, 1, 0, &out, (const float **)&in, 1, samples);
 }
 
 /** bq_lowpass */
@@ -675,7 +675,7 @@ struct convolver_impl {
 	struct plugin *plugin;
 
 	struct spa_log *log;
-	struct dsp_ops *dsp;
+	struct spa_fga_dsp *dsp;
 	unsigned long rate;
 	float *port[2];
 
@@ -1124,7 +1124,7 @@ static const struct spa_fga_descriptor convolve_desc = {
 struct delay_impl {
 	struct plugin *plugin;
 
-	struct dsp_ops *dsp;
+	struct spa_fga_dsp *dsp;
 	struct spa_log *log;
 
 	unsigned long rate;
@@ -1220,7 +1220,7 @@ static void delay_run(void * Instance, unsigned long SampleCount)
 		impl->delay_samples = SPA_CLAMP((uint32_t)(delay * impl->rate), 0u, impl->buffer_samples-1);
 		impl->delay = delay;
 	}
-	dsp_ops_delay(impl->dsp, impl->buffer, &impl->ptr, impl->buffer_samples,
+	spa_fga_dsp_delay(impl->dsp, impl->buffer, &impl->ptr, impl->buffer_samples,
 			impl->delay_samples, out, in, SampleCount);
 }
 
@@ -1354,7 +1354,7 @@ static void linear_run(void * Instance, unsigned long SampleCount)
 	float *ctrl = impl->port[3], *notify = impl->port[2];
 
 	if (in != NULL && out != NULL)
-		dsp_ops_linear(impl->dsp, out, in, mult, add, SampleCount);
+		spa_fga_dsp_linear(impl->dsp, out, in, mult, add, SampleCount);
 
 	if (ctrl != NULL && notify != NULL)
 		notify[0] = ctrl[0] * mult + add;
@@ -1599,7 +1599,7 @@ static void mult_run(void * Instance, unsigned long SampleCount)
 
 		src[n_src++] = in;
 	}
-	dsp_ops_mult(impl->dsp, out, src, n_src, SampleCount);
+	spa_fga_dsp_mult(impl->dsp, out, src, n_src, SampleCount);
 }
 
 static struct spa_fga_port mult_ports[] = {
@@ -1727,7 +1727,7 @@ static const struct spa_fga_descriptor sine_desc = {
 struct param_eq_impl {
 	struct plugin *plugin;
 
-	struct dsp_ops *dsp;
+	struct spa_fga_dsp *dsp;
 	struct spa_log *log;
 
 	unsigned long rate;
@@ -1993,7 +1993,7 @@ static void param_eq_connect_port(void * Instance, unsigned long Port,
 static void param_eq_run(void * Instance, unsigned long SampleCount)
 {
 	struct param_eq_impl *impl = Instance;
-	dsp_ops_biquad_run(impl->dsp, impl->bq, impl->n_bq, PARAM_EQ_MAX,
+	spa_fga_dsp_biquad_run(impl->dsp, impl->bq, impl->n_bq, PARAM_EQ_MAX,
 			&impl->port[8], (const float**)impl->port, 8, SampleCount);
 }
 
@@ -2154,7 +2154,7 @@ static struct spa_fga_plugin_methods impl_plugin = {
 };
 
 struct spa_fga_plugin *load_builtin_plugin(const struct spa_support *support, uint32_t n_support,
-		struct dsp_ops *dsp, const char *plugin, const struct spa_dict *info)
+		const char *plugin, const struct spa_dict *info)
 {
 	struct plugin *impl = calloc (1, sizeof (struct plugin));
 
@@ -2163,8 +2163,8 @@ struct spa_fga_plugin *load_builtin_plugin(const struct spa_support *support, ui
 			SPA_VERSION_FGA_PLUGIN,
 			&impl_plugin, impl);
 
-	impl->dsp = dsp;
-	pffft_select_cpu(dsp->cpu_flags);
+	impl->dsp = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioDSP);
+	pffft_select_cpu(impl->dsp->cpu_flags);
 	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 
 	return (struct spa_fga_plugin *) impl;

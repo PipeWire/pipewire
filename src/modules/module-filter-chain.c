@@ -13,24 +13,14 @@
 
 #include "config.h"
 
-#include "module-filter-chain/filter-graph.h"
-
-#include <spa/utils/result.h>
-#include <spa/utils/string.h>
-#include <spa/utils/json.h>
-#include <spa/support/cpu.h>
 #include <spa/param/latency-utils.h>
 #include <spa/param/tag-utils.h>
 #include <spa/param/audio/raw-json.h>
 #include <spa/pod/dynamic.h>
-#include <spa/debug/types.h>
-#include <spa/debug/log.h>
 
-#include <pipewire/utils.h>
 #include <pipewire/impl.h>
-#include <pipewire/extensions/profiler.h>
 
-#include "module-filter-chain/dsp-ops-impl.h"
+#include "module-filter-chain/filter-graph.h"
 
 #define NAME "filter-chain"
 

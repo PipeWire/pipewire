@@ -32,11 +32,7 @@
 #include <spa/debug/types.h>
 #include <spa/debug/log.h>
 
-#include <pipewire/utils.h>
-#include <pipewire/impl.h>
-#include <pipewire/pipewire.h>
-
-#include "module-filter-chain/dsp-ops-impl.h"
+#include "module-filter-chain/audio-dsp-impl.h"
 
 #define NAME "filter-chain"
 
@@ -57,9 +53,9 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.filter-graph");
 
 
 struct spa_fga_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t n_support,
-		struct dsp_ops *dsp, const char *path, const struct spa_dict *info);
+		const char *path, const struct spa_dict *info);
 struct spa_fga_plugin *load_builtin_plugin(const struct spa_support *support, uint32_t n_support,
-		struct dsp_ops *dsp, const char *path, const struct spa_dict *info);
+		const char *path, const struct spa_dict *info);
 
 struct plugin {
 	struct spa_list link;
@@ -206,11 +202,11 @@ struct impl {
 
 	struct spa_log *log;
 	struct spa_cpu *cpu;
+	struct spa_fga_dsp *dsp;
 
 	struct graph graph;
 
 	uint32_t quantum_limit;
-	struct dsp_ops dsp;
 	uint32_t max_align;
 	long unsigned rate;
 
@@ -858,7 +854,7 @@ static struct plugin *plugin_load(struct impl *impl, const char *type, const cha
 		spa_log_error(impl->log, "can't load plugin type '%s': %m", type);
 		pl = NULL;
 	} else {
-		pl = plugin_func(impl->support, impl->n_support, &impl->dsp, path, NULL);
+		pl = plugin_func(impl->support, impl->n_support, path, NULL);
 	}
 	if (pl == NULL)
 		goto exit;
@@ -2084,13 +2080,15 @@ impl_init(const struct spa_handle_factory *factory,
 	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	spa_log_topic_init(impl->log, &log_topic);
 
-	for (i = 0; i < SPA_MIN(n_support, 16u); i++)
+	for (i = 0; i < SPA_MIN(n_support, 15u); i++)
 		impl->support[i] = support[i];
 	impl->n_support = n_support;
 
 	impl->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
-	dsp_ops_init(&impl->dsp, impl->cpu ? spa_cpu_get_flags(impl->cpu) : 0);
 	impl->max_align = spa_cpu_get_max_align(impl->cpu);
+
+	impl->dsp = spa_fga_dsp_new(impl->cpu ? spa_cpu_get_flags(impl->cpu) : 0);
+	impl->support[impl->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioDSP, impl->dsp);
 
 	spa_list_init(&impl->plugin_list);
 	spa_list_init(&impl->plugin_func_list);

@@ -468,7 +468,7 @@ static struct spa_fga_plugin_methods impl_plugin = {
 
 SPA_EXPORT
 struct spa_fga_plugin *spa_filter_graph_audio_plugin_load(const struct spa_support *support, uint32_t n_support,
-		struct dsp_ops *dsp, const char *plugin_uri, const struct spa_dict *info)
+		const char *plugin_uri, const struct spa_dict *info)
 {
 	struct context *c;
 	const LilvPlugins *plugins;

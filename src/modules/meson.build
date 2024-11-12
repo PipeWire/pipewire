@@ -82,7 +82,7 @@ simd_dependencies = []
 if have_sse
   filter_chain_sse = static_library('filter_chain_sse',
     ['module-filter-chain/pffft.c',
-     'module-filter-chain/dsp-ops-sse.c' ],
+     'module-filter-chain/audio-dsp-sse.c' ],
     include_directories : [configinc],
     c_args : [sse_args, '-O3', '-DHAVE_SSE'],
     dependencies : [ spa_dep ],
@@ -93,7 +93,7 @@ if have_sse
 endif
 if have_avx
   filter_chain_avx = static_library('filter_chain_avx',
-    ['module-filter-chain/dsp-ops-avx.c' ],
+    ['module-filter-chain/audio-dsp-avx.c' ],
     include_directories : [configinc],
     c_args : [avx_args, fma_args,'-O3', '-DHAVE_AVX'],
     dependencies : [ spa_dep ],
@@ -115,8 +115,8 @@ endif
 
 filter_chain_c = static_library('filter_chain_c',
   ['module-filter-chain/pffft.c',
-   'module-filter-chain/dsp-ops.c',
-   'module-filter-chain/dsp-ops-c.c' ],
+   'module-filter-chain/audio-dsp.c',
+   'module-filter-chain/audio-dsp-c.c' ],
   include_directories : [configinc],
   c_args : [simd_cargs, '-O3', '-DPFFFT_SIMD_DISABLE'],
   dependencies : [ spa_dep, fftw_dep],

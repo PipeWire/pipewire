@@ -240,7 +240,7 @@ static inline const char *split_walk(const char *str, const char *delimiter, siz
 }
 
 struct spa_fga_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t n_support,
-		struct dsp_ops *dsp, const char *plugin, const struct spa_dict *info)
+		const char *plugin, const struct spa_dict *info)
 {
 	struct spa_fga_plugin *pl = NULL;
 	struct spa_log *log;

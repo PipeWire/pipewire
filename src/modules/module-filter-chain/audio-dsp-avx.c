@@ -12,11 +12,11 @@
 #ifndef HAVE_FFTW
 #include "pffft.h"
 #endif
-#include "dsp-ops.h"
+#include "audio-dsp-impl.h"
 
 #include <immintrin.h>
 
-void dsp_mix_gain_avx(struct dsp_ops *ops,
+void dsp_mix_gain_avx(void *obj,
 		void * SPA_RESTRICT dst,
 		const void * SPA_RESTRICT src[],
 		float gain[], uint32_t n_src, uint32_t n_samples)
@@ -75,7 +75,7 @@ void dsp_mix_gain_avx(struct dsp_ops *ops,
 	}
 }
 
-void dsp_sum_avx(struct dsp_ops *ops, float *r, const float *a, const float *b, uint32_t n_samples)
+void dsp_sum_avx(void *obj, float *r, const float *a, const float *b, uint32_t n_samples)
 {
 	uint32_t n, unrolled;
 	__m256 in[4];
@@ -138,7 +138,7 @@ inline static __m256 _mm256_mul_pz(__m256 ab, __m256 cd)
 	return _mm256_addsub_ps(x0, x1);
 }
 
-void dsp_fft_cmul_avx(struct dsp_ops *ops, void *fft,
+void dsp_fft_cmul_avx(void *obj, void *fft,
 	float * SPA_RESTRICT dst, const float * SPA_RESTRICT a,
 	const float * SPA_RESTRICT b, uint32_t len, const float scale)
 {
@@ -175,7 +175,7 @@ void dsp_fft_cmul_avx(struct dsp_ops *ops, void *fft,
 #endif
 }
 
-void dsp_fft_cmuladd_avx(struct dsp_ops *ops, void *fft,
+void dsp_fft_cmuladd_avx(void *obj, void *fft,
 	float * SPA_RESTRICT dst, const float * SPA_RESTRICT src,
 	const float * SPA_RESTRICT a, const float * SPA_RESTRICT b,
 	uint32_t len, const float scale)

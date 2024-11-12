@@ -854,7 +854,12 @@ static struct plugin *plugin_load(struct impl *impl, const char *type, const cha
 		spa_log_error(impl->log, "can't load plugin type '%s': %m", type);
 		pl = NULL;
 	} else {
-		pl = plugin_func(impl->support, impl->n_support, path, NULL);
+		char quantum[64];
+		snprintf(quantum, sizeof(quantum), "%d", impl->quantum_limit);
+		pl = plugin_func(impl->support, impl->n_support, path,
+				&SPA_DICT_ITEMS(
+					SPA_DICT_ITEM("clock.quantum-limit", quantum)
+					));
 	}
 	if (pl == NULL)
 		goto exit;

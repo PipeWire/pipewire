@@ -80,7 +80,7 @@ simd_cargs = []
 simd_dependencies = []
 
 if have_sse
-  filter_chain_sse = static_library('filter_chain_sse',
+  filter_graph_sse = static_library('filter_graph_sse',
     ['module-filter-chain/pffft.c',
      'module-filter-chain/audio-dsp-sse.c' ],
     include_directories : [configinc],
@@ -89,10 +89,10 @@ if have_sse
     install : false
     )
   simd_cargs += ['-DHAVE_SSE']
-  simd_dependencies += filter_chain_sse
+  simd_dependencies += filter_graph_sse
 endif
 if have_avx
-  filter_chain_avx = static_library('filter_chain_avx',
+  filter_graph_avx = static_library('filter_graph_avx',
     ['module-filter-chain/audio-dsp-avx.c' ],
     include_directories : [configinc],
     c_args : [avx_args, fma_args,'-O3', '-DHAVE_AVX'],
@@ -100,20 +100,20 @@ if have_avx
     install : false
     )
   simd_cargs += ['-DHAVE_AVX']
-  simd_dependencies += filter_chain_avx
+  simd_dependencies += filter_graph_avx
 endif
 if have_neon
-  filter_chain_neon = static_library('filter_chain_neon',
+  filter_graph_neon = static_library('filter_graph_neon',
     ['module-filter-chain/pffft.c' ],
     c_args : [neon_args, '-O3', '-DHAVE_NEON'],
     dependencies : [ spa_dep ],
     install : false
     )
   simd_cargs += ['-DHAVE_NEON']
-  simd_dependencies += filter_chain_neon
+  simd_dependencies += filter_graph_neon
 endif
 
-filter_chain_c = static_library('filter_chain_c',
+filter_graph_c = static_library('filter_graph_c',
   ['module-filter-chain/pffft.c',
    'module-filter-chain/audio-dsp.c',
    'module-filter-chain/audio-dsp-c.c' ],
@@ -122,51 +122,54 @@ filter_chain_c = static_library('filter_chain_c',
   dependencies : [ spa_dep, fftw_dep],
   install : false
 )
-simd_dependencies += filter_chain_c
+simd_dependencies += filter_graph_c
 
-filter_chain_sources = [
-  'module-filter-chain.c',
-  'module-filter-chain/biquad.c',
-  'module-filter-chain/ladspa_plugin.c',
-  'module-filter-chain/builtin_plugin.c',
-  'module-filter-chain/convolver.c',
-  'module-filter-chain/filter-graph.c'
-]
-filter_chain_dependencies = [
-  mathlib, dl_lib, pipewire_dep, sndfile_dep, plugin_dependencies
+filter_graph = static_library('filter_graph',
+  ['module-filter-chain/biquad.c',
+   'module-filter-chain/ladspa_plugin.c',
+   'module-filter-chain/builtin_plugin.c',
+   'module-filter-chain/convolver.c',
+   'module-filter-chain/filter-graph.c' ],
+  include_directories : [configinc],
+  dependencies : [ spa_dep, sndfile_dep, plugin_dependencies ],
+  install : false
+)
+simd_dependencies += filter_graph
+
+filter_graph_dependencies = [
+  spa_dep, mathlib, dl_lib, sndfile_dep, plugin_dependencies
 ]
 
 pipewire_module_filter_chain = shared_library('pipewire-module-filter-chain',
-  filter_chain_sources,
+  [ 'module-filter-chain.c' ],
   include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
   link_with : simd_dependencies,
-  dependencies : filter_chain_dependencies,
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
 )
 
 if libmysofa_dep.found()
-pipewire_module_filter_chain_sofa = shared_library('pipewire-module-filter-chain-sofa',
-  [ 'module-filter-chain/sofa_plugin.c',
-    'module-filter-chain/convolver.c' ],
+pipewire_module_filter_graph_sofa = shared_library('pipewire-filter-graph-plugin-sofa',
+  [ 'module-filter-chain/sofa_plugin.c' ],
   include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
   link_with : simd_dependencies,
-  dependencies : [ filter_chain_dependencies, libmysofa_dep ]
+  dependencies : [ filter_graph_dependencies, libmysofa_dep ]
 )
 endif
 
 if lilv_lib.found()
-pipewire_module_filter_chain_lv2 = shared_library('pipewire-module-filter-chain-lv2',
+pipewire_module_filter_graph_lv2 = shared_library('pipewire-filter-graph-plugin-lv2',
   [ 'module-filter-chain/lv2_plugin.c' ],
   include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [ filter_chain_dependencies, lilv_lib ]
+  dependencies : [ filter_graph_dependencies, lilv_lib ]
 )
 endif
 
@@ -263,7 +266,7 @@ pipewire_module_parametric_equalizer = shared_library('pipewire-module-parametri
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [filter_chain_dependencies],
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
 )
 
 pipewire_module_profiler = shared_library('pipewire-module-profiler',

@@ -34,8 +34,6 @@
 
 #include "module-filter-chain/audio-dsp-impl.h"
 
-#define NAME "filter-chain"
-
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.filter-graph");
@@ -803,7 +801,7 @@ static spa_filter_graph_audio_plugin_load_func_t *find_plugin_func(struct impl *
 
 	while ((p = split_walk(module_dir, ":", &len, &state))) {
 		if ((res = spa_scnprintf(module, sizeof(module),
-				"%.*s/libpipewire-module-filter-chain-%s.so",
+				"%.*s/libpipewire-filter-graph-plugin-%s.so",
 						(int)len, p, type)) <= 0)
 			continue;
 
@@ -825,7 +823,7 @@ static spa_filter_graph_audio_plugin_load_func_t *find_plugin_func(struct impl *
 			goto error_close;
 	} else {
 		errno = ENOSYS;
-		spa_log_error(impl->log, "%s is not a filter chain plugin: %m", module);
+		spa_log_error(impl->log, "%s is not a filter graph plugin: %m", module);
 		goto error_close;
 	}
 	return func;

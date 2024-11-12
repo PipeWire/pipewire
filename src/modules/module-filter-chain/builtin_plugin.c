@@ -63,6 +63,8 @@ static void *builtin_instantiate(const struct fc_plugin *plugin, const struct fc
 
 	impl->plugin = (struct plugin *) plugin;
 	impl->rate = SampleRate;
+	impl->dsp = impl->plugin->dsp;
+	impl->log = impl->plugin->log;
 
 	return impl;
 }

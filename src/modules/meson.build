@@ -129,7 +129,8 @@ filter_chain_sources = [
   'module-filter-chain/biquad.c',
   'module-filter-chain/ladspa_plugin.c',
   'module-filter-chain/builtin_plugin.c',
-  'module-filter-chain/convolver.c'
+  'module-filter-chain/convolver.c',
+  'module-filter-chain/filter-graph.c'
 ]
 filter_chain_dependencies = [
   mathlib, dl_lib, pipewire_dep, sndfile_dep, plugin_dependencies

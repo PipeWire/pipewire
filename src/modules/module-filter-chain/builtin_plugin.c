@@ -18,7 +18,7 @@
 #include <spa/support/log.h>
 #include <spa/plugins/audioconvert/resample.h>
 
-#include "plugin.h"
+#include "audio-plugin.h"
 
 #include "biquad.h"
 #include "pffft.h"
@@ -28,7 +28,7 @@
 #define MAX_RATES	32u
 
 struct plugin {
-	struct fc_plugin plugin;
+	struct spa_fga_plugin plugin;
 	struct dsp_ops *dsp;
 	struct spa_log *log;
 };
@@ -52,7 +52,7 @@ struct builtin {
 	float accum;
 };
 
-static void *builtin_instantiate(const struct fc_plugin *plugin, const struct fc_descriptor * Descriptor,
+static void *builtin_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct builtin *impl;
@@ -89,20 +89,20 @@ static void copy_run(void * Instance, unsigned long SampleCount)
 	dsp_ops_copy(impl->dsp, out, in, SampleCount);
 }
 
-static struct fc_port copy_ports[] = {
+static struct spa_fga_port copy_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "In",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	}
 };
 
-static const struct fc_descriptor copy_desc = {
+static const struct spa_fga_descriptor copy_desc = {
 	.name = "copy",
-	.flags = FC_DESCRIPTOR_COPY,
+	.flags = SPA_FGA_DESCRIPTOR_COPY,
 
 	.n_ports = 2,
 	.ports = copy_ports,
@@ -138,90 +138,90 @@ static void mixer_run(void * Instance, unsigned long SampleCount)
 	dsp_ops_mix_gain(impl->dsp, out, src, gains, n_src, SampleCount);
 }
 
-static struct fc_port mixer_ports[] = {
+static struct spa_fga_port mixer_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 
 	{ .index = 1,
 	  .name = "In 1",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 2,
 	  .name = "In 2",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 3,
 	  .name = "In 3",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 4,
 	  .name = "In 4",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 5,
 	  .name = "In 5",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 6,
 	  .name = "In 6",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 7,
 	  .name = "In 7",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 8,
 	  .name = "In 8",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 
 	{ .index = 9,
 	  .name = "Gain 1",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 1.0f, .min = 0.0f, .max = 10.0f
 	},
 	{ .index = 10,
 	  .name = "Gain 2",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 1.0f, .min = 0.0f, .max = 10.0f
 	},
 	{ .index = 11,
 	  .name = "Gain 3",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 1.0f, .min = 0.0f, .max = 10.0f
 	},
 	{ .index = 12,
 	  .name = "Gain 4",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 1.0f, .min = 0.0f, .max = 10.0f
 	},
 	{ .index = 13,
 	  .name = "Gain 5",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 1.0f, .min = 0.0f, .max = 10.0f
 	},
 	{ .index = 14,
 	  .name = "Gain 6",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 1.0f, .min = 0.0f, .max = 10.0f
 	},
 	{ .index = 15,
 	  .name = "Gain 7",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 1.0f, .min = 0.0f, .max = 10.0f
 	},
 	{ .index = 16,
 	  .name = "Gain 8",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 1.0f, .min = 0.0f, .max = 10.0f
 	},
 };
 
-static const struct fc_descriptor mixer_desc = {
+static const struct spa_fga_descriptor mixer_desc = {
 	.name = "mixer",
-	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
 	.n_ports = 17,
 	.ports = mixer_ports,
@@ -311,7 +311,7 @@ static void bq_raw_update(struct builtin *impl, float b0, float b1, float b2,
  *     ]
  * }
  */
-static void *bq_instantiate(const struct fc_plugin *plugin, const struct fc_descriptor * Descriptor,
+static void *bq_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct builtin *impl;
@@ -423,59 +423,59 @@ error:
 }
 
 #define BQ_NUM_PORTS		11
-static struct fc_port bq_ports[] = {
+static struct spa_fga_port bq_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "In",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 2,
 	  .name = "Freq",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
-	  .hint = FC_HINT_SAMPLE_RATE,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	  .hint = SPA_FGA_HINT_SAMPLE_RATE,
 	  .def = 0.0f, .min = 0.0f, .max = 1.0f,
 	},
 	{ .index = 3,
 	  .name = "Q",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 0.0f, .min = 0.0f, .max = 10.0f,
 	},
 	{ .index = 4,
 	  .name = "Gain",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 0.0f, .min = -120.0f, .max = 20.0f,
 	},
 	{ .index = 5,
 	  .name = "b0",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 1.0f, .min = -10.0f, .max = 10.0f,
 	},
 	{ .index = 6,
 	  .name = "b1",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 0.0f, .min = -10.0f, .max = 10.0f,
 	},
 	{ .index = 7,
 	  .name = "b2",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 0.0f, .min = -10.0f, .max = 10.0f,
 	},
 	{ .index = 8,
 	  .name = "a0",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 1.0f, .min = -10.0f, .max = 10.0f,
 	},
 	{ .index = 9,
 	  .name = "a1",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 0.0f, .min = -10.0f, .max = 10.0f,
 	},
 	{ .index = 10,
 	  .name = "a2",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 0.0f, .min = -10.0f, .max = 10.0f,
 	},
 
@@ -544,7 +544,7 @@ static void bq_run(void *Instance, unsigned long samples)
 }
 
 /** bq_lowpass */
-static const struct fc_descriptor bq_lowpass_desc = {
+static const struct spa_fga_descriptor bq_lowpass_desc = {
 	.name = "bq_lowpass",
 
 	.n_ports = BQ_NUM_PORTS,
@@ -558,7 +558,7 @@ static const struct fc_descriptor bq_lowpass_desc = {
 };
 
 /** bq_highpass */
-static const struct fc_descriptor bq_highpass_desc = {
+static const struct spa_fga_descriptor bq_highpass_desc = {
 	.name = "bq_highpass",
 
 	.n_ports = BQ_NUM_PORTS,
@@ -572,7 +572,7 @@ static const struct fc_descriptor bq_highpass_desc = {
 };
 
 /** bq_bandpass */
-static const struct fc_descriptor bq_bandpass_desc = {
+static const struct spa_fga_descriptor bq_bandpass_desc = {
 	.name = "bq_bandpass",
 
 	.n_ports = BQ_NUM_PORTS,
@@ -586,7 +586,7 @@ static const struct fc_descriptor bq_bandpass_desc = {
 };
 
 /** bq_lowshelf */
-static const struct fc_descriptor bq_lowshelf_desc = {
+static const struct spa_fga_descriptor bq_lowshelf_desc = {
 	.name = "bq_lowshelf",
 
 	.n_ports = BQ_NUM_PORTS,
@@ -600,7 +600,7 @@ static const struct fc_descriptor bq_lowshelf_desc = {
 };
 
 /** bq_highshelf */
-static const struct fc_descriptor bq_highshelf_desc = {
+static const struct spa_fga_descriptor bq_highshelf_desc = {
 	.name = "bq_highshelf",
 
 	.n_ports = BQ_NUM_PORTS,
@@ -614,7 +614,7 @@ static const struct fc_descriptor bq_highshelf_desc = {
 };
 
 /** bq_peaking */
-static const struct fc_descriptor bq_peaking_desc = {
+static const struct spa_fga_descriptor bq_peaking_desc = {
 	.name = "bq_peaking",
 
 	.n_ports = BQ_NUM_PORTS,
@@ -628,7 +628,7 @@ static const struct fc_descriptor bq_peaking_desc = {
 };
 
 /** bq_notch */
-static const struct fc_descriptor bq_notch_desc = {
+static const struct spa_fga_descriptor bq_notch_desc = {
 	.name = "bq_notch",
 
 	.n_ports = BQ_NUM_PORTS,
@@ -643,7 +643,7 @@ static const struct fc_descriptor bq_notch_desc = {
 
 
 /** bq_allpass */
-static const struct fc_descriptor bq_allpass_desc = {
+static const struct spa_fga_descriptor bq_allpass_desc = {
 	.name = "bq_allpass",
 
 	.n_ports = BQ_NUM_PORTS,
@@ -657,7 +657,7 @@ static const struct fc_descriptor bq_allpass_desc = {
 };
 
 /* bq_raw */
-static const struct fc_descriptor bq_raw_desc = {
+static const struct spa_fga_descriptor bq_raw_desc = {
 	.name = "bq_raw",
 
 	.n_ports = BQ_NUM_PORTS,
@@ -902,7 +902,7 @@ error:
 #endif
 }
 
-static void * convolver_instantiate(const struct fc_plugin *plugin, const struct fc_descriptor * Descriptor,
+static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct convolver_impl *impl;
@@ -1082,14 +1082,14 @@ static void convolver_cleanup(void * Instance)
 	free(impl);
 }
 
-static struct fc_port convolve_ports[] = {
+static struct spa_fga_port convolve_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "In",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 };
 
@@ -1106,9 +1106,9 @@ static void convolve_run(void * Instance, unsigned long SampleCount)
 		convolver_run(impl->conv, impl->port[1], impl->port[0], SampleCount);
 }
 
-static const struct fc_descriptor convolve_desc = {
+static const struct spa_fga_descriptor convolve_desc = {
 	.name = "convolver",
-	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
 	.n_ports = 2,
 	.ports = convolve_ports,
@@ -1144,7 +1144,7 @@ static void delay_cleanup(void * Instance)
 	free(impl);
 }
 
-static void *delay_instantiate(const struct fc_plugin *plugin, const struct fc_descriptor * Descriptor,
+static void *delay_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct plugin *pl = (struct plugin*) plugin;
@@ -1224,25 +1224,25 @@ static void delay_run(void * Instance, unsigned long SampleCount)
 			impl->delay_samples, out, in, SampleCount);
 }
 
-static struct fc_port delay_ports[] = {
+static struct spa_fga_port delay_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "In",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 2,
 	  .name = "Delay (s)",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 0.0f, .min = 0.0f, .max = 100.0f
 	},
 };
 
-static const struct fc_descriptor delay_desc = {
+static const struct spa_fga_descriptor delay_desc = {
 	.name = "delay",
-	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
 	.n_ports = 3,
 	.ports = delay_ports,
@@ -1263,18 +1263,18 @@ static void invert_run(void * Instance, unsigned long SampleCount)
 		out[n] = -in[n];
 }
 
-static struct fc_port invert_ports[] = {
+static struct spa_fga_port invert_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "In",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 };
 
-static const struct fc_descriptor invert_desc = {
+static const struct spa_fga_descriptor invert_desc = {
 	.name = "invert",
 
 	.n_ports = 2,
@@ -1303,38 +1303,38 @@ static void clamp_run(void * Instance, unsigned long SampleCount)
 		notify[0] = SPA_CLAMPF(ctrl[0], min, max);
 }
 
-static struct fc_port clamp_ports[] = {
+static struct spa_fga_port clamp_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "In",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 2,
 	  .name = "Notify",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_CONTROL,
 	},
 	{ .index = 3,
 	  .name = "Control",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	},
 	{ .index = 4,
 	  .name = "Min",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 0.0f, .min = -100.0f, .max = 100.0f
 	},
 	{ .index = 5,
 	  .name = "Max",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 1.0f, .min = -100.0f, .max = 100.0f
 	},
 };
 
-static const struct fc_descriptor clamp_desc = {
+static const struct spa_fga_descriptor clamp_desc = {
 	.name = "clamp",
-	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
 	.n_ports = SPA_N_ELEMENTS(clamp_ports),
 	.ports = clamp_ports,
@@ -1360,38 +1360,38 @@ static void linear_run(void * Instance, unsigned long SampleCount)
 		notify[0] = ctrl[0] * mult + add;
 }
 
-static struct fc_port linear_ports[] = {
+static struct spa_fga_port linear_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "In",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 2,
 	  .name = "Notify",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_CONTROL,
 	},
 	{ .index = 3,
 	  .name = "Control",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	},
 	{ .index = 4,
 	  .name = "Mult",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 1.0f, .min = -10.0f, .max = 10.0f
 	},
 	{ .index = 5,
 	  .name = "Add",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 0.0f, .min = -10.0f, .max = 10.0f
 	},
 };
 
-static const struct fc_descriptor linear_desc = {
+static const struct spa_fga_descriptor linear_desc = {
 	.name = "linear",
-	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
 	.n_ports = SPA_N_ELEMENTS(linear_ports),
 	.ports = linear_ports,
@@ -1427,28 +1427,28 @@ static void recip_run(void * Instance, unsigned long SampleCount)
 	}
 }
 
-static struct fc_port recip_ports[] = {
+static struct spa_fga_port recip_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "In",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 2,
 	  .name = "Notify",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_CONTROL,
 	},
 	{ .index = 3,
 	  .name = "Control",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	},
 };
 
-static const struct fc_descriptor recip_desc = {
+static const struct spa_fga_descriptor recip_desc = {
 	.name = "recip",
-	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
 	.n_ports = SPA_N_ELEMENTS(recip_ports),
 	.ports = recip_ports,
@@ -1476,33 +1476,33 @@ static void exp_run(void * Instance, unsigned long SampleCount)
 		notify[0] = powf(base, ctrl[0]);
 }
 
-static struct fc_port exp_ports[] = {
+static struct spa_fga_port exp_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "In",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 2,
 	  .name = "Notify",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_CONTROL,
 	},
 	{ .index = 3,
 	  .name = "Control",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	},
 	{ .index = 4,
 	  .name = "Base",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = (float)M_E, .min = -10.0f, .max = 10.0f
 	},
 };
 
-static const struct fc_descriptor exp_desc = {
+static const struct spa_fga_descriptor exp_desc = {
 	.name = "exp",
-	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
 	.n_ports = SPA_N_ELEMENTS(exp_ports),
 	.ports = exp_ports,
@@ -1533,43 +1533,43 @@ static void log_run(void * Instance, unsigned long SampleCount)
 		notify[0] = m2 * log2f(fabsf(ctrl[0] * m1)) / lb;
 }
 
-static struct fc_port log_ports[] = {
+static struct spa_fga_port log_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "In",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 2,
 	  .name = "Notify",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_CONTROL,
 	},
 	{ .index = 3,
 	  .name = "Control",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	},
 	{ .index = 4,
 	  .name = "Base",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = (float)M_E, .min = 2.0f, .max = 100.0f
 	},
 	{ .index = 5,
 	  .name = "M1",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 1.0f, .min = -10.0f, .max = 10.0f
 	},
 	{ .index = 6,
 	  .name = "M2",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 1.0f, .min = -10.0f, .max = 10.0f
 	},
 };
 
-static const struct fc_descriptor log_desc = {
+static const struct spa_fga_descriptor log_desc = {
 	.name = "log",
-	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
 	.n_ports = SPA_N_ELEMENTS(log_ports),
 	.ports = log_ports,
@@ -1602,48 +1602,48 @@ static void mult_run(void * Instance, unsigned long SampleCount)
 	dsp_ops_mult(impl->dsp, out, src, n_src, SampleCount);
 }
 
-static struct fc_port mult_ports[] = {
+static struct spa_fga_port mult_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "In 1",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 2,
 	  .name = "In 2",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 3,
 	  .name = "In 3",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 4,
 	  .name = "In 4",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 5,
 	  .name = "In 5",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 6,
 	  .name = "In 6",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 7,
 	  .name = "In 7",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 8,
 	  .name = "In 8",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 };
 
-static const struct fc_descriptor mult_desc = {
+static const struct spa_fga_descriptor mult_desc = {
 	.name = "mult",
-	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
 	.n_ports = SPA_N_ELEMENTS(mult_ports),
 	.ports = mult_ports,
@@ -1679,40 +1679,40 @@ static void sine_run(void * Instance, unsigned long SampleCount)
 	}
 }
 
-static struct fc_port sine_ports[] = {
+static struct spa_fga_port sine_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "Notify",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_CONTROL,
 	},
 	{ .index = 2,
 	  .name = "Freq",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 440.0f, .min = 0.0f, .max = 1000000.0f
 	},
 	{ .index = 3,
 	  .name = "Ampl",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 1.0, .min = 0.0f, .max = 10.0f
 	},
 	{ .index = 4,
 	  .name = "Phase",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 0.0f, .min = (float)-M_PI, .max = (float)M_PI
 	},
 	{ .index = 5,
 	  .name = "Offset",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 0.0f, .min = -10.0f, .max = 10.0f
 	},
 };
 
-static const struct fc_descriptor sine_desc = {
+static const struct spa_fga_descriptor sine_desc = {
 	.name = "sine",
-	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
 	.n_ports = SPA_N_ELEMENTS(sine_ports),
 	.ports = sine_ports,
@@ -1898,7 +1898,7 @@ static int parse_filters(struct plugin *pl, struct spa_json *iter, int rate,
  *   filtersX = [ ... ] # to load channel X
  * }
  */
-static void *param_eq_instantiate(const struct fc_plugin *plugin, const struct fc_descriptor * Descriptor,
+static void *param_eq_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct plugin *pl = (struct plugin *) plugin;
@@ -1997,77 +1997,77 @@ static void param_eq_run(void * Instance, unsigned long SampleCount)
 			&impl->port[8], (const float**)impl->port, 8, SampleCount);
 }
 
-static struct fc_port param_eq_ports[] = {
+static struct spa_fga_port param_eq_ports[] = {
 	{ .index = 0,
 	  .name = "In 1",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "In 2",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 2,
 	  .name = "In 3",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 3,
 	  .name = "In 4",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 4,
 	  .name = "In 5",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 5,
 	  .name = "In 6",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 6,
 	  .name = "In 7",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 7,
 	  .name = "In 8",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 
 	{ .index = 8,
 	  .name = "Out 1",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 9,
 	  .name = "Out 2",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 10,
 	  .name = "Out 3",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 11,
 	  .name = "Out 4",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 12,
 	  .name = "Out 5",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 13,
 	  .name = "Out 6",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 14,
 	  .name = "Out 7",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 15,
 	  .name = "Out 8",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 };
 
-static const struct fc_descriptor param_eq_desc = {
+static const struct spa_fga_descriptor param_eq_desc = {
 	.name = "param_eq",
-	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
 	.n_ports = SPA_N_ELEMENTS(param_eq_ports),
 	.ports = param_eq_ports,
@@ -2078,7 +2078,7 @@ static const struct fc_descriptor param_eq_desc = {
 	.cleanup = free,
 };
 
-static const struct fc_descriptor * builtin_descriptor(unsigned long Index)
+static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 {
 	switch(Index) {
 	case 0:
@@ -2129,11 +2129,11 @@ static const struct fc_descriptor * builtin_descriptor(unsigned long Index)
 	return NULL;
 }
 
-static const struct fc_descriptor *builtin_make_desc(struct fc_plugin *plugin, const char *name)
+static const struct spa_fga_descriptor *builtin_plugin_make_desc(void *plugin, const char *name)
 {
 	unsigned long i;
 	for (i = 0; ;i++) {
-		const struct fc_descriptor *d = builtin_descriptor(i);
+		const struct spa_fga_descriptor *d = builtin_descriptor(i);
 		if (d == NULL)
 			break;
 		if (spa_streq(d->name, name))
@@ -2142,19 +2142,30 @@ static const struct fc_descriptor *builtin_make_desc(struct fc_plugin *plugin, c
 	return NULL;
 }
 
-static void builtin_plugin_unload(struct fc_plugin *p)
+static void builtin_plugin_free(void *p)
 {
 	free(p);
 }
 
-struct fc_plugin *load_builtin_plugin(const struct spa_support *support, uint32_t n_support,
+static struct spa_fga_plugin_methods impl_plugin = {
+	SPA_VERSION_FGA_PLUGIN_METHODS,
+	.make_desc = builtin_plugin_make_desc,
+	.free = builtin_plugin_free
+};
+
+struct spa_fga_plugin *load_builtin_plugin(const struct spa_support *support, uint32_t n_support,
 		struct dsp_ops *dsp, const char *plugin, const struct spa_dict *info)
 {
 	struct plugin *impl = calloc (1, sizeof (struct plugin));
-	impl->plugin.make_desc = builtin_make_desc;
-	impl->plugin.unload = builtin_plugin_unload;
+
+	impl->plugin.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin,
+			SPA_VERSION_FGA_PLUGIN,
+			&impl_plugin, impl);
+
 	impl->dsp = dsp;
 	pffft_select_cpu(dsp->cpu_flags);
 	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	return (struct fc_plugin *) impl;
+
+	return (struct spa_fga_plugin *) impl;
 }

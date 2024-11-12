@@ -6,7 +6,7 @@
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
 
-#include "plugin.h"
+#include "audio-plugin.h"
 #include "convolver.h"
 #include "dsp-ops.h"
 #include "pffft.h"
@@ -14,7 +14,7 @@
 #include <mysofa.h>
 
 struct plugin {
-	struct fc_plugin plugin;
+	struct spa_fga_plugin plugin;
 
 	struct dsp_ops *dsp;
 	struct spa_log *log;
@@ -40,7 +40,7 @@ struct spatializer_impl {
 	struct convolver *r_conv[3];
 };
 
-static void * spatializer_instantiate(const struct fc_plugin *plugin, const struct fc_descriptor * Descriptor,
+static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct spatializer_impl *impl;
@@ -356,38 +356,38 @@ static void spatializer_deactivate(void * Instance)
 	impl->interpolate = false;
 }
 
-static struct fc_port spatializer_ports[] = {
+static struct spa_fga_port spatializer_ports[] = {
 	{ .index = 0,
 	  .name = "Out L",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "Out R",
-	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 2,
 	  .name = "In",
-	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
 
 	{ .index = 3,
 	  .name = "Azimuth",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 0.0f, .min = 0.0f, .max = 360.0f
 	},
 	{ .index = 4,
 	  .name = "Elevation",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 0.0f, .min = -90.0f, .max = 90.0f
 	},
 	{ .index = 5,
 	  .name = "Radius",
-	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 1.0f, .min = 0.0f, .max = 100.0f
 	},
 };
 
-static const struct fc_descriptor spatializer_desc = {
+static const struct spa_fga_descriptor spatializer_desc = {
 	.name = "spatializer",
 
 	.n_ports = 6,
@@ -401,7 +401,7 @@ static const struct fc_descriptor spatializer_desc = {
 	.cleanup = spatializer_cleanup,
 };
 
-static const struct fc_descriptor * sofa_descriptor(unsigned long Index)
+static const struct spa_fga_descriptor * sofa_descriptor(unsigned long Index)
 {
 	switch(Index) {
 	case 0:
@@ -411,11 +411,11 @@ static const struct fc_descriptor * sofa_descriptor(unsigned long Index)
 }
 
 
-static const struct fc_descriptor *sofa_make_desc(struct fc_plugin *plugin, const char *name)
+static const struct spa_fga_descriptor *sofa_plugin_make_desc(void *plugin, const char *name)
 {
 	unsigned long i;
 	for (i = 0; ;i++) {
-		const struct fc_descriptor *d = sofa_descriptor(i);
+		const struct spa_fga_descriptor *d = sofa_descriptor(i);
 		if (d == NULL)
 			break;
 		if (spa_streq(d->name, name))
@@ -424,19 +424,28 @@ static const struct fc_descriptor *sofa_make_desc(struct fc_plugin *plugin, cons
 	return NULL;
 }
 
-static void sofa_plugin_unload(struct fc_plugin *p)
+static void sofa_plugin_free(void *plugin)
 {
-	free(p);
+	struct plugin *impl = plugin;
+	free(impl);
 }
 
+static struct spa_fga_plugin_methods impl_plugin = {
+	SPA_VERSION_FGA_PLUGIN_METHODS,
+	.make_desc = sofa_plugin_make_desc,
+	.free = sofa_plugin_free
+};
+
 SPA_EXPORT
-struct fc_plugin *pipewire__filter_chain_plugin_load(const struct spa_support *support, uint32_t n_support,
+struct spa_fga_plugin *spa_filter_graph_audio_plugin_load(const struct spa_support *support, uint32_t n_support,
 		struct dsp_ops *dsp, const char *plugin, const struct spa_dict *info)
 {
 	struct plugin *impl = calloc(1, sizeof (struct plugin));
 
-	impl->plugin.make_desc = sofa_make_desc;
-	impl->plugin.unload = sofa_plugin_unload;
+	impl->plugin.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin,
+			SPA_VERSION_FGA_PLUGIN,
+			&impl_plugin, impl);
 
 	impl->quantum_limit = 8192u;
 
@@ -453,5 +462,5 @@ struct fc_plugin *pipewire__filter_chain_plugin_load(const struct spa_support *s
 	impl->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 
-	return (struct fc_plugin *) impl;
+	return (struct spa_fga_plugin *) impl;
 }

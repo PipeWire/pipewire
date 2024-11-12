@@ -34,7 +34,7 @@
 
 #endif
 
-#include "plugin.h"
+#include "audio-plugin.h"
 
 static struct context *_context;
 
@@ -216,13 +216,13 @@ static void context_unref(struct context *context)
 }
 
 struct plugin {
-	struct fc_plugin plugin;
+	struct spa_fga_plugin plugin;
 	struct context *c;
 	const LilvPlugin *p;
 };
 
 struct descriptor {
-	struct fc_descriptor desc;
+	struct spa_fga_descriptor desc;
 	struct plugin *p;
 };
 
@@ -280,7 +280,7 @@ work_schedule(LV2_Worker_Schedule_Handle handle, uint32_t size, const void *data
 	return LV2_WORKER_SUCCESS;
 }
 
-static void *lv2_instantiate(const struct fc_plugin *plugin, const struct fc_descriptor *desc,
+static void *lv2_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
                         unsigned long SampleRate, int index, const char *config)
 {
 	struct descriptor *d = (struct descriptor*)desc;
@@ -385,7 +385,7 @@ static void lv2_run(void *instance, unsigned long SampleCount)
 		i->work_iface->end_run(i->instance);
 }
 
-static void lv2_free(const struct fc_descriptor *desc)
+static void lv2_free(const struct spa_fga_descriptor *desc)
 {
 	struct descriptor *d = (struct descriptor*)desc;
 	free((char*)d->desc.name);
@@ -393,7 +393,7 @@ static void lv2_free(const struct fc_descriptor *desc)
 	free(d);
 }
 
-static const struct fc_descriptor *lv2_make_desc(struct fc_plugin *plugin, const char *name)
+static const struct spa_fga_descriptor *lv2_plugin_make_desc(void *plugin, const char *name)
 {
 	struct plugin *p = (struct plugin *)plugin;
 	struct context *c = p->c;
@@ -419,7 +419,7 @@ static const struct fc_descriptor *lv2_make_desc(struct fc_plugin *plugin, const
 	desc->desc.flags = 0;
 
 	desc->desc.n_ports = lilv_plugin_get_num_ports(p->p);
-	desc->desc.ports = calloc(desc->desc.n_ports, sizeof(struct fc_port));
+	desc->desc.ports = calloc(desc->desc.n_ports, sizeof(struct spa_fga_port));
 
 	mins = alloca(desc->desc.n_ports * sizeof(float));
 	maxes = alloca(desc->desc.n_ports * sizeof(float));
@@ -430,20 +430,20 @@ static const struct fc_descriptor *lv2_make_desc(struct fc_plugin *plugin, const
 	for (i = 0; i < desc->desc.n_ports; i++) {
 		const LilvPort *port = lilv_plugin_get_port_by_index(p->p, i);
                 const LilvNode *symbol = lilv_port_get_symbol(p->p, port);
-		struct fc_port *fp = &desc->desc.ports[i];
+		struct spa_fga_port *fp = &desc->desc.ports[i];
 
 		fp->index = i;
 		fp->name = strdup(lilv_node_as_string(symbol));
 
 		fp->flags = 0;
 		if (lilv_port_is_a(p->p, port, c->lv2_InputPort))
-			fp->flags |= FC_PORT_INPUT;
+			fp->flags |= SPA_FGA_PORT_INPUT;
 		if (lilv_port_is_a(p->p, port, c->lv2_OutputPort))
-			fp->flags |= FC_PORT_OUTPUT;
+			fp->flags |= SPA_FGA_PORT_OUTPUT;
 		if (lilv_port_is_a(p->p, port, c->lv2_ControlPort))
-			fp->flags |= FC_PORT_CONTROL;
+			fp->flags |= SPA_FGA_PORT_CONTROL;
 		if (lilv_port_is_a(p->p, port, c->lv2_AudioPort))
-			fp->flags |= FC_PORT_AUDIO;
+			fp->flags |= SPA_FGA_PORT_AUDIO;
 
 		fp->hint = 0;
 		fp->min = mins[i];
@@ -453,15 +453,21 @@ static const struct fc_descriptor *lv2_make_desc(struct fc_plugin *plugin, const
 	return &desc->desc;
 }
 
-static void lv2_unload(struct fc_plugin *plugin)
+static void lv2_plugin_free(void *plugin)
 {
 	struct plugin *p = (struct plugin *)plugin;
 	context_unref(p->c);
 	free(p);
 }
 
+static struct spa_fga_plugin_methods impl_plugin = {
+	SPA_VERSION_FGA_PLUGIN_METHODS,
+	.make_desc = lv2_plugin_make_desc,
+	.free = lv2_plugin_free
+};
+
 SPA_EXPORT
-struct fc_plugin *pipewire__filter_chain_plugin_load(const struct spa_support *support, uint32_t n_support,
+struct spa_fga_plugin *spa_filter_graph_audio_plugin_load(const struct spa_support *support, uint32_t n_support,
 		struct dsp_ops *dsp, const char *plugin_uri, const struct spa_dict *info)
 {
 	struct context *c;
@@ -500,8 +506,10 @@ struct fc_plugin *pipewire__filter_chain_plugin_load(const struct spa_support *s
 	p->p = plugin;
 	p->c = c;
 
-	p->plugin.make_desc = lv2_make_desc;
-	p->plugin.unload = lv2_unload;
+	p->plugin.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin,
+			SPA_VERSION_FGA_PLUGIN,
+			&impl_plugin, p);
 
 	return &p->plugin;
 

@@ -13,11 +13,11 @@
 #include <spa/utils/string.h>
 #include <spa/support/log.h>
 
-#include "plugin.h"
+#include "audio-plugin.h"
 #include "ladspa.h"
 
 struct plugin {
-	struct fc_plugin plugin;
+	struct spa_fga_plugin plugin;
 
 	struct spa_log *log;
 
@@ -26,11 +26,11 @@ struct plugin {
 };
 
 struct descriptor {
-	struct fc_descriptor desc;
+	struct spa_fga_descriptor desc;
 	const LADSPA_Descriptor *d;
 };
 
-static void *ladspa_instantiate(const struct fc_plugin *plugin, const struct fc_descriptor *desc,
+static void *ladspa_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
                         unsigned long SampleRate, int index, const char *config)
 {
 	struct descriptor *d = (struct descriptor *)desc;
@@ -50,7 +50,7 @@ static const LADSPA_Descriptor *find_desc(LADSPA_Descriptor_Function desc_func, 
 	return NULL;
 }
 
-static float get_default(struct fc_port *port, LADSPA_PortRangeHintDescriptor hint,
+static float get_default(struct spa_fga_port *port, LADSPA_PortRangeHintDescriptor hint,
 		LADSPA_Data lower, LADSPA_Data upper)
 {
 	LADSPA_Data def;
@@ -104,7 +104,7 @@ static float get_default(struct fc_port *port, LADSPA_PortRangeHintDescriptor hi
 	return def;
 }
 
-static void ladspa_port_update_ranges(struct descriptor *dd, struct fc_port *port)
+static void ladspa_port_update_ranges(struct descriptor *dd, struct spa_fga_port *port)
 {
 	const LADSPA_Descriptor *d = dd->d;
 	unsigned long p = port->index;
@@ -120,14 +120,14 @@ static void ladspa_port_update_ranges(struct descriptor *dd, struct fc_port *por
 	port->max = upper;
 }
 
-static void ladspa_free(const struct fc_descriptor *desc)
+static void ladspa_free(const struct spa_fga_descriptor *desc)
 {
 	struct descriptor *d = (struct descriptor*)desc;
 	free(d->desc.ports);
 	free(d);
 }
 
-static const struct fc_descriptor *ladspa_make_desc(struct fc_plugin *plugin, const char *name)
+static const struct spa_fga_descriptor *ladspa_plugin_make_desc(void *plugin, const char *name)
 {
 	struct plugin *p = (struct plugin *)plugin;
 	struct descriptor *desc;
@@ -154,7 +154,7 @@ static const struct fc_descriptor *ladspa_make_desc(struct fc_plugin *plugin, co
 	desc->desc.flags = 0;
 
 	desc->desc.n_ports = d->PortCount;
-	desc->desc.ports = calloc(desc->desc.n_ports, sizeof(struct fc_port));
+	desc->desc.ports = calloc(desc->desc.n_ports, sizeof(struct spa_fga_port));
 
 	for (i = 0; i < desc->desc.n_ports; i++) {
 		desc->desc.ports[i].index = i;
@@ -165,7 +165,7 @@ static const struct fc_descriptor *ladspa_make_desc(struct fc_plugin *plugin, co
 	return &desc->desc;
 }
 
-static void ladspa_unload(struct fc_plugin *plugin)
+static void ladspa_plugin_free(void *plugin)
 {
 	struct plugin *p = (struct plugin *)plugin;
 	if (p->handle)
@@ -173,7 +173,13 @@ static void ladspa_unload(struct fc_plugin *plugin)
 	free(p);
 }
 
-static struct fc_plugin *ladspa_handle_load_by_path(struct spa_log *log, const char *path)
+static struct spa_fga_plugin_methods impl_plugin = {
+	SPA_VERSION_FGA_PLUGIN_METHODS,
+	.make_desc = ladspa_plugin_make_desc,
+	.free = ladspa_plugin_free
+};
+
+static struct spa_fga_plugin *ladspa_handle_load_by_path(struct spa_log *log, const char *path)
 {
 	struct plugin *p;
 	int res;
@@ -204,8 +210,11 @@ static struct fc_plugin *ladspa_handle_load_by_path(struct spa_log *log, const c
 	p->log = log;
 	p->handle = handle;
 	p->desc_func = desc_func;
-	p->plugin.make_desc = ladspa_make_desc;
-	p->plugin.unload = ladspa_unload;
+
+	p->plugin.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin,
+			SPA_VERSION_FGA_PLUGIN,
+			&impl_plugin, p);
 
 	return &p->plugin;
 
@@ -230,10 +239,10 @@ static inline const char *split_walk(const char *str, const char *delimiter, siz
 	return s;
 }
 
-struct fc_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t n_support,
+struct spa_fga_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t n_support,
 		struct dsp_ops *dsp, const char *plugin, const struct spa_dict *info)
 {
-	struct fc_plugin *pl = NULL;
+	struct spa_fga_plugin *pl = NULL;
 	struct spa_log *log;
 
 	log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);

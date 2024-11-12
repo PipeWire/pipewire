@@ -15,7 +15,7 @@
 
 #include "config.h"
 
-#include "plugin.h"
+#include "audio-plugin.h"
 #include "filter-graph.h"
 
 #include <spa/utils/result.h>
@@ -56,9 +56,9 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.filter-graph");
 #define spa_filter_graph_emit_props_changed(hooks,...)	spa_filter_graph_emit(hooks,props_changed, 0, __VA_ARGS__)
 
 
-struct fc_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t n_support,
+struct spa_fga_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t n_support,
 		struct dsp_ops *dsp, const char *path, const struct spa_dict *info);
-struct fc_plugin *load_builtin_plugin(const struct spa_support *support, uint32_t n_support,
+struct spa_fga_plugin *load_builtin_plugin(const struct spa_support *support, uint32_t n_support,
 		struct dsp_ops *dsp, const char *path, const struct spa_dict *info);
 
 struct plugin {
@@ -67,14 +67,14 @@ struct plugin {
 	char type[256];
 	char path[PATH_MAX];
 
-	struct fc_plugin *plugin;
+	struct spa_fga_plugin *plugin;
 	struct spa_list descriptor_list;
 };
 
 struct plugin_func {
 	struct spa_list link;
 	char type[256];
-	fc_plugin_load_func *func;
+	spa_filter_graph_audio_plugin_load_func_t *func;
 	void *hndl;
 };
 
@@ -84,7 +84,7 @@ struct descriptor {
 	struct plugin *plugin;
 	char label[256];
 
-	const struct fc_descriptor *desc;
+	const struct spa_fga_descriptor *desc;
 
 	uint32_t n_input;
 	uint32_t n_output;
@@ -147,14 +147,14 @@ struct link {
 };
 
 struct graph_port {
-	const struct fc_descriptor *desc;
+	const struct spa_fga_descriptor *desc;
 	void **hndl;
 	uint32_t port;
 	unsigned next:1;
 };
 
 struct graph_hndl {
-	const struct fc_descriptor *desc;
+	const struct spa_fga_descriptor *desc;
 	void **hndl;
 };
 
@@ -280,7 +280,7 @@ static int impl_process(void *object,
 
 static float get_default(struct impl *impl, struct descriptor *desc, uint32_t p)
 {
-	struct fc_port *port = &desc->desc->ports[p];
+	struct spa_fga_port *port = &desc->desc->ports[p];
 	return port->def;
 }
 
@@ -304,7 +304,7 @@ static struct port *find_port(struct node *node, const char *name, int descripto
 {
 	char *col, *node_name, *port_name, *str;
 	struct port *ports;
-	const struct fc_descriptor *d;
+	const struct spa_fga_descriptor *d;
 	uint32_t i, n_ports, port_id = SPA_ID_INVALID;
 
 	str = strdupa(name);
@@ -334,16 +334,16 @@ static struct port *find_port(struct node *node, const char *name, int descripto
 	if (!spa_atou32(port_name, &port_id, 0))
 		port_id = SPA_ID_INVALID;
 
-	if (FC_IS_PORT_INPUT(descriptor)) {
-		if (FC_IS_PORT_CONTROL(descriptor)) {
+	if (SPA_FGA_IS_PORT_INPUT(descriptor)) {
+		if (SPA_FGA_IS_PORT_CONTROL(descriptor)) {
 			ports = node->control_port;
 			n_ports = node->desc->n_control;
 		} else {
 			ports = node->input_port;
 			n_ports = node->desc->n_input;
 		}
-	} else if (FC_IS_PORT_OUTPUT(descriptor)) {
-		if (FC_IS_PORT_CONTROL(descriptor)) {
+	} else if (SPA_FGA_IS_PORT_OUTPUT(descriptor)) {
+		if (SPA_FGA_IS_PORT_CONTROL(descriptor)) {
 			ports = node->notify_port;
 			n_ports = node->desc->n_notify;
 		} else {
@@ -371,8 +371,8 @@ static int impl_enum_prop_info(void *object, uint32_t idx, struct spa_pod_builde
 	struct port *port;
 	struct node *node;
 	struct descriptor *desc;
-	const struct fc_descriptor *d;
-	struct fc_port *p;
+	const struct spa_fga_descriptor *d;
+	struct spa_fga_port *p;
 	float def, min, max;
 	char name[512];
 	uint32_t rate = impl->rate ? impl->rate : DEFAULT_RATE;
@@ -386,7 +386,7 @@ static int impl_enum_prop_info(void *object, uint32_t idx, struct spa_pod_builde
 	d = desc->desc;
 	p = &d->ports[port->p];
 
-	if (p->hint & FC_HINT_SAMPLE_RATE) {
+	if (p->hint & SPA_FGA_HINT_SAMPLE_RATE) {
 		def = p->def * rate;
 		min = p->min * rate;
 		max = p->max * rate;
@@ -407,7 +407,7 @@ static int impl_enum_prop_info(void *object, uint32_t idx, struct spa_pod_builde
 			SPA_PROP_INFO_name, SPA_POD_String(name),
 			0);
 	spa_pod_builder_prop(b, SPA_PROP_INFO_type, 0);
-	if (p->hint & FC_HINT_BOOLEAN) {
+	if (p->hint & SPA_FGA_HINT_BOOLEAN) {
 		if (min == max) {
 			spa_pod_builder_bool(b, def <= 0.0f ? false : true);
 		} else  {
@@ -417,7 +417,7 @@ static int impl_enum_prop_info(void *object, uint32_t idx, struct spa_pod_builde
 			spa_pod_builder_bool(b, true);
 			spa_pod_builder_pop(b, &f[1]);
 		}
-	} else if (p->hint & FC_HINT_INTEGER) {
+	} else if (p->hint & SPA_FGA_HINT_INTEGER) {
 		if (min == max) {
 			spa_pod_builder_int(b, (int32_t)def);
 		} else {
@@ -464,8 +464,8 @@ static int impl_get_props(void *object, struct spa_pod_builder *b, const struct 
 		struct port *port = graph->control_port[i];
 		struct node *node = port->node;
 		struct descriptor *desc = node->desc;
-		const struct fc_descriptor *d = desc->desc;
-		struct fc_port *p = &d->ports[port->p];
+		const struct spa_fga_descriptor *d = desc->desc;
+		struct spa_fga_port *p = &d->ports[port->p];
 
 		if (node->name[0] != '\0')
 			snprintf(name, sizeof(name), "%s:%s", node->name, p->name);
@@ -473,9 +473,9 @@ static int impl_get_props(void *object, struct spa_pod_builder *b, const struct 
 			snprintf(name, sizeof(name), "%s", p->name);
 
 		spa_pod_builder_string(b, name);
-		if (p->hint & FC_HINT_BOOLEAN) {
+		if (p->hint & SPA_FGA_HINT_BOOLEAN) {
 			spa_pod_builder_bool(b, port->control_data[0] <= 0.0f ? false : true);
-		} else if (p->hint & FC_HINT_INTEGER) {
+		} else if (p->hint & SPA_FGA_HINT_INTEGER) {
 			spa_pod_builder_int(b, (int32_t)port->control_data[0]);
 		} else {
 			spa_pod_builder_float(b, port->control_data[0]);
@@ -514,7 +514,7 @@ static int set_control_value(struct node *node, const char *name, float *value)
 	int count = 0;
 	uint32_t i, n_hndl;
 
-	port = find_port(node, name, FC_PORT_INPUT | FC_PORT_CONTROL);
+	port = find_port(node, name, SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL);
 	if (port == NULL)
 		return -ENOENT;
 
@@ -577,7 +577,7 @@ static int impl_reset(void *object)
 	uint32_t i;
 	for (i = 0; i < graph->n_hndl; i++) {
 		struct graph_hndl *hndl = &graph->hndl[i];
-		const struct fc_descriptor *d = hndl->desc;
+		const struct spa_fga_descriptor *d = hndl->desc;
 		if (hndl->hndl == NULL || *hndl->hndl == NULL)
 			continue;
 		if (d->deactivate)
@@ -590,7 +590,7 @@ static int impl_reset(void *object)
 
 static void node_control_changed(struct node *node)
 {
-	const struct fc_descriptor *d = node->desc->desc;
+	const struct spa_fga_descriptor *d = node->desc->desc;
 	uint32_t i;
 
 	if (!node->control_changed)
@@ -740,7 +740,7 @@ static void plugin_unref(struct plugin *hndl)
 	if (--hndl->ref > 0)
 		return;
 
-	fc_plugin_free(hndl->plugin);
+	spa_fga_plugin_free(hndl->plugin);
 
 	spa_list_remove(&hndl->link);
 	free(hndl);
@@ -748,7 +748,7 @@ static void plugin_unref(struct plugin *hndl)
 
 
 static struct plugin_func *add_plugin_func(struct impl *impl, const char *type,
-		fc_plugin_load_func *func, void *hndl)
+		spa_filter_graph_audio_plugin_load_func_t *func, void *hndl)
 {
 	struct plugin_func *pl;
 
@@ -785,9 +785,9 @@ static inline const char *split_walk(const char *str, const char *delimiter, siz
 	return s;
 }
 
-static fc_plugin_load_func *find_plugin_func(struct impl *impl, const char *type)
+static spa_filter_graph_audio_plugin_load_func_t *find_plugin_func(struct impl *impl, const char *type)
 {
-	fc_plugin_load_func *func = NULL;
+	spa_filter_graph_audio_plugin_load_func_t *func = NULL;
 	void *hndl = NULL;
 	int res;
 	struct plugin_func *pl;
@@ -821,7 +821,7 @@ static fc_plugin_load_func *find_plugin_func(struct impl *impl, const char *type
 		errno = ENOENT;
 		return NULL;
 	}
-	func = dlsym(hndl, FC_PLUGIN_LOAD_FUNC);
+	func = dlsym(hndl, SPA_FILTER_GRAPH_AUDIO_PLUGIN_LOAD_FUNC_NAME);
 	if (func != NULL) {
 		spa_log_info(impl->log, "opened plugin module %s", module);
 		pl = add_plugin_func(impl, type, func, hndl);
@@ -841,9 +841,9 @@ error_close:
 
 static struct plugin *plugin_load(struct impl *impl, const char *type, const char *path)
 {
-	struct fc_plugin *pl = NULL;
+	struct spa_fga_plugin *pl = NULL;
 	struct plugin *hndl;
-	fc_plugin_load_func *plugin_func;
+	spa_filter_graph_audio_plugin_load_func_t *plugin_func;
 
 	spa_list_for_each(hndl, &impl->plugin_list, link) {
 		if (spa_streq(hndl->type, type) &&
@@ -891,7 +891,7 @@ static void descriptor_unref(struct descriptor *desc)
 	spa_list_remove(&desc->link);
 	plugin_unref(desc->plugin);
 	if (desc->desc)
-		fc_descriptor_free(desc->desc);
+		spa_fga_descriptor_free(desc->desc);
 	free(desc->input);
 	free(desc->output);
 	free(desc->control);
@@ -905,7 +905,7 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 {
 	struct plugin *hndl;
 	struct descriptor *desc;
-	const struct fc_descriptor *d;
+	const struct spa_fga_descriptor *d;
 	uint32_t i, n_input, n_output, n_control, n_notify;
 	unsigned long p;
 	int res;
@@ -934,7 +934,7 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 	desc->plugin = hndl;
 	spa_list_init(&desc->link);
 
-	if ((d = hndl->plugin->make_desc(hndl->plugin, label)) == NULL) {
+	if ((d = spa_fga_plugin_make_desc(hndl->plugin, label)) == NULL) {
 		spa_log_error(impl->log, "cannot find label %s", label);
 		res = -ENOENT;
 		goto exit;
@@ -944,16 +944,16 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 
 	n_input = n_output = n_control = n_notify = 0;
 	for (p = 0; p < d->n_ports; p++) {
-		struct fc_port *fp = &d->ports[p];
-		if (FC_IS_PORT_AUDIO(fp->flags)) {
-			if (FC_IS_PORT_INPUT(fp->flags))
+		struct spa_fga_port *fp = &d->ports[p];
+		if (SPA_FGA_IS_PORT_AUDIO(fp->flags)) {
+			if (SPA_FGA_IS_PORT_INPUT(fp->flags))
 				n_input++;
-			else if (FC_IS_PORT_OUTPUT(fp->flags))
+			else if (SPA_FGA_IS_PORT_OUTPUT(fp->flags))
 				n_output++;
-		} else if (FC_IS_PORT_CONTROL(fp->flags)) {
-			if (FC_IS_PORT_INPUT(fp->flags))
+		} else if (SPA_FGA_IS_PORT_CONTROL(fp->flags)) {
+			if (SPA_FGA_IS_PORT_INPUT(fp->flags))
 				n_control++;
-			else if (FC_IS_PORT_OUTPUT(fp->flags))
+			else if (SPA_FGA_IS_PORT_OUTPUT(fp->flags))
 				n_notify++;
 		}
 	}
@@ -964,26 +964,26 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 	desc->notify = calloc(n_notify, sizeof(unsigned long));
 
 	for (p = 0; p < d->n_ports; p++) {
-		struct fc_port *fp = &d->ports[p];
+		struct spa_fga_port *fp = &d->ports[p];
 
-		if (FC_IS_PORT_AUDIO(fp->flags)) {
-			if (FC_IS_PORT_INPUT(fp->flags)) {
+		if (SPA_FGA_IS_PORT_AUDIO(fp->flags)) {
+			if (SPA_FGA_IS_PORT_INPUT(fp->flags)) {
 				spa_log_info(impl->log, "using port %lu ('%s') as input %d", p,
 						fp->name, desc->n_input);
 				desc->input[desc->n_input++] = p;
 			}
-			else if (FC_IS_PORT_OUTPUT(fp->flags)) {
+			else if (SPA_FGA_IS_PORT_OUTPUT(fp->flags)) {
 				spa_log_info(impl->log, "using port %lu ('%s') as output %d", p,
 						fp->name, desc->n_output);
 				desc->output[desc->n_output++] = p;
 			}
-		} else if (FC_IS_PORT_CONTROL(fp->flags)) {
-			if (FC_IS_PORT_INPUT(fp->flags)) {
+		} else if (SPA_FGA_IS_PORT_CONTROL(fp->flags)) {
+			if (SPA_FGA_IS_PORT_INPUT(fp->flags)) {
 				spa_log_info(impl->log, "using port %lu ('%s') as control %d", p,
 						fp->name, desc->n_control);
 				desc->control[desc->n_control++] = p;
 			}
-			else if (FC_IS_PORT_OUTPUT(fp->flags)) {
+			else if (SPA_FGA_IS_PORT_OUTPUT(fp->flags)) {
 				spa_log_info(impl->log, "using port %lu ('%s') as notify %d", p,
 						fp->name, desc->n_notify);
 				desc->notify[desc->n_notify++] = p;
@@ -1119,13 +1119,13 @@ static int parse_link(struct graph *graph, struct spa_json *json)
 	def_out_node = spa_list_first(&graph->node_list, struct node, link);
 	def_in_node = spa_list_last(&graph->node_list, struct node, link);
 
-	out_port = find_port(def_out_node, output, FC_PORT_OUTPUT);
-	in_port = find_port(def_in_node, input, FC_PORT_INPUT);
+	out_port = find_port(def_out_node, output, SPA_FGA_PORT_OUTPUT);
+	in_port = find_port(def_in_node, input, SPA_FGA_PORT_INPUT);
 
 	if (out_port == NULL && out_port == NULL) {
 		/* try control ports */
-		out_port = find_port(def_out_node, output, FC_PORT_OUTPUT | FC_PORT_CONTROL);
-		in_port = find_port(def_in_node, input, FC_PORT_INPUT | FC_PORT_CONTROL);
+		out_port = find_port(def_out_node, output, SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_CONTROL);
+		in_port = find_port(def_in_node, input, SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL);
 	}
 	if (in_port == NULL || out_port == NULL) {
 		if (out_port == NULL)
@@ -1235,7 +1235,7 @@ static int parse_volume(struct graph *graph, struct spa_json *json, bool capture
 	else
 		def_control = spa_list_last(&graph->node_list, struct node, link);
 
-	port = find_port(def_control, control, FC_PORT_INPUT | FC_PORT_CONTROL);
+	port = find_port(def_control, control, SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL);
 	if (port == NULL) {
 		spa_log_error(impl->log, "unknown control port %s", control);
 		return -ENOENT;
@@ -1402,7 +1402,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 
 static void node_cleanup(struct node *node)
 {
-	const struct fc_descriptor *d = node->desc->desc;
+	const struct spa_fga_descriptor *d = node->desc->desc;
 	struct impl *impl = node->graph->impl;
 	uint32_t i;
 
@@ -1421,7 +1421,7 @@ static int port_ensure_data(struct port *port, uint32_t i, uint32_t max_samples)
 {
 	float *data;
 	struct node *node = port->node;
-	const struct fc_descriptor *d = node->desc->desc;
+	const struct spa_fga_descriptor *d = node->desc->desc;
 	struct impl *impl = node->graph->impl;
 
 	if ((data = port->audio_mem[i]) == NULL) {
@@ -1488,8 +1488,8 @@ static int impl_activate(void *object, const struct spa_fraction *rate)
 	struct port *port;
 	struct link *link;
 	struct descriptor *desc;
-	const struct fc_descriptor *d;
-	const struct fc_plugin *p;
+	const struct spa_fga_descriptor *d;
+	const struct spa_fga_plugin *p;
 	uint32_t i, j, max_samples = impl->quantum_limit;
 	int res;
 	float *sd, *dd;
@@ -1524,7 +1524,7 @@ static int impl_activate(void *object, const struct spa_fraction *rate)
 	spa_list_for_each(node, &graph->node_list, link) {
 		desc = node->desc;
 		d = desc->desc;
-		if (d->flags & FC_DESCRIPTOR_SUPPORTS_NULL_DATA) {
+		if (d->flags & SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA) {
 			sd = dd = NULL;
 		}
 		else {
@@ -1625,7 +1625,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 	uint32_t i, j, n_nodes, n_input, n_output, n_control, n_hndl = 0;
 	int res;
 	struct descriptor *desc;
-	const struct fc_descriptor *d;
+	const struct spa_fga_descriptor *d;
 	char v[256];
 	bool allow_unused;
 
@@ -1649,8 +1649,8 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 	/* we allow unconnected ports when not explicitly given and the nodes support
 	 * NULL data */
 	allow_unused = inputs == NULL && outputs == NULL &&
-	    SPA_FLAG_IS_SET(first->desc->desc->flags, FC_DESCRIPTOR_SUPPORTS_NULL_DATA) &&
-	    SPA_FLAG_IS_SET(last->desc->desc->flags, FC_DESCRIPTOR_SUPPORTS_NULL_DATA);
+	    SPA_FLAG_IS_SET(first->desc->desc->flags, SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA) &&
+	    SPA_FLAG_IS_SET(last->desc->desc->flags, SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA);
 
 	if (n_input == 0) {
 		spa_log_error(impl->log, "no inputs");
@@ -1733,7 +1733,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 					gp = &graph->input[graph->n_input++];
 					gp->desc = NULL;
 					spa_log_info(impl->log, "ignore input port %d", graph->n_input);
-				} else if ((port = find_port(first, v, FC_PORT_INPUT)) == NULL) {
+				} else if ((port = find_port(first, v, SPA_FGA_PORT_INPUT)) == NULL) {
 					res = -ENOENT;
 					spa_log_error(impl->log, "input port %s not found", v);
 					goto error;
@@ -1756,7 +1756,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 						goto error;
 					}
 
-					if (d->flags & FC_DESCRIPTOR_COPY) {
+					if (d->flags & SPA_FGA_DESCRIPTOR_COPY) {
 						for (j = 0; j < desc->n_output; j++) {
 							struct port *p = &port->node->output_port[j];
 							struct link *link;
@@ -1812,7 +1812,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 				if (spa_streq(v, "null")) {
 					gp->desc = NULL;
 					spa_log_info(impl->log, "silence output port %d", graph->n_output);
-				} else if ((port = find_port(last, v, FC_PORT_OUTPUT)) == NULL) {
+				} else if ((port = find_port(last, v, SPA_FGA_PORT_OUTPUT)) == NULL) {
 					res = -ENOENT;
 					spa_log_error(impl->log, "output port %s not found", v);
 					goto error;

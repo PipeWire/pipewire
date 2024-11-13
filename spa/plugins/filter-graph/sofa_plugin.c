@@ -528,7 +528,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return 1;
 }
 
-struct spa_handle_factory spa_fga_sofa_plugin_factory = {
+static struct spa_handle_factory spa_fga_sofa_plugin_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	"filter.graph.plugin.sofa",
 	NULL,

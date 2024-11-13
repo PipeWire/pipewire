@@ -55,3 +55,4 @@ if libcamera_dep.found()
 endif
 
 subdir('aec')
+subdir('filter-graph')

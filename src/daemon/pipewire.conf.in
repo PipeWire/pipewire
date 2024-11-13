@@ -84,6 +84,7 @@ context.spa-libs = {
     api.jack.*      = jack/libspa-jack
     support.*       = support/libspa-support
     video.convert.* = videoconvert/libspa-videoconvert
+    #filter.graph    = filter-graph/libspa-filter-graph
     #videotestsrc   = videotestsrc/libspa-videotestsrc
     #audiotestsrc   = audiotestsrc/libspa-audiotestsrc
 }

@@ -17,10 +17,9 @@
 #include <spa/param/tag-utils.h>
 #include <spa/param/audio/raw-json.h>
 #include <spa/pod/dynamic.h>
+#include <spa/filter-graph/filter-graph.h>
 
 #include <pipewire/impl.h>
-
-#include "module-filter-chain/filter-graph.h"
 
 #define NAME "filter-chain"
 
@@ -1168,8 +1167,7 @@ static void impl_destroy(struct impl *impl)
 		pw_core_disconnect(impl->core);
 
 	if (impl->handle)
-		spa_handle_clear(impl->handle);
-	free(impl->handle);
+		pw_unload_spa_handle(impl->handle);
 
 	pw_properties_free(impl->capture_props);
 	pw_properties_free(impl->playback_props);
@@ -1222,8 +1220,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	uint32_t pid = getpid();
 	const char *str;
 	int res;
-	const struct spa_support *support;
-	uint32_t n_support;
 	void *iface = NULL;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -1330,20 +1326,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_properties_setf(props, "filter-graph.n_inputs", "%d", impl->capture_info.channels);
 	pw_properties_setf(props, "filter-graph.n_outputs", "%d", impl->playback_info.channels);
 
-	impl->handle = calloc(1, spa_handle_factory_get_size(&spa_filter_graph_factory, &props->dict));
+	pw_properties_set(props, SPA_KEY_LIBRARY_NAME, "filter-graph/libspa-filter-graph");
+	impl->handle = pw_context_load_spa_handle(impl->context, "filter.graph", &props->dict);
 	if (impl->handle == NULL) {
 		res = -errno;
 		goto error;
 	}
 
-	support = pw_context_get_support(impl->context, &n_support);
-	if ((res = spa_handle_factory_init(&spa_filter_graph_factory,
-					impl->handle, &props->dict,
-					support, n_support)) < 0) {
-		pw_log_debug("can't make factory instance: %d (%s)",
-				res, spa_strerror(res));
-		goto error;
-	}
 	res = spa_handle_get_interface(impl->handle, SPA_TYPE_INTERFACE_FilterGraph, &iface);
 	if (res < 0 || iface == NULL)
 		goto error;

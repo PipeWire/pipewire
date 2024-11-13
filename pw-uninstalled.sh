@@ -37,7 +37,7 @@ fi
 # the config file read by the daemon
 export PIPEWIRE_CONFIG_DIR="${BUILDDIR}/src/daemon"
 # the directory with SPA plugins
-export SPA_PLUGIN_DIR="${BUILDDIR}/spa/plugins:${BUILDDIR}/src/modules"
+export SPA_PLUGIN_DIR="${BUILDDIR}/spa/plugins"
 export SPA_DATA_DIR="${SCRIPT_DIR}/spa/plugins"
 # the directory with pipewire modules
 export PIPEWIRE_MODULE_DIR="${BUILDDIR}/src/modules"

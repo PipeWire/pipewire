@@ -29,9 +29,9 @@
 #include <spa/pod/builder.h>
 #include <spa/debug/types.h>
 #include <spa/debug/log.h>
+#include <spa/filter-graph/filter-graph.h>
 
 #include "audio-plugin.h"
-#include "filter-graph.h"
 #include "audio-dsp-impl.h"
 
 #undef SPA_LOG_TOPIC_DEFAULT
@@ -762,8 +762,7 @@ static struct plugin *plugin_load(struct impl *impl, const char *type, const cha
 	}
 
 	spa_scnprintf(module, sizeof(module),
-			//"filter-graph/libspa-filter-graph-plugin-%s", type);
-			"libspa-filter-graph-plugin-%s", type);
+			"filter-graph/libspa-filter-graph-plugin-%s", type);
 	spa_scnprintf(factory_name, sizeof(factory_name),
 			"filter.graph.plugin.%s", type);
 	spa_scnprintf(dsp_ptr, sizeof(dsp_ptr),
@@ -818,9 +817,9 @@ static void descriptor_unref(struct descriptor *desc)
 		return;
 
 	spa_list_remove(&desc->link);
-	plugin_unref(desc->plugin);
 	if (desc->desc)
 		spa_fga_descriptor_free(desc->desc);
+	plugin_unref(desc->plugin);
 	free(desc->input);
 	free(desc->output);
 	free(desc->control);
@@ -2089,7 +2088,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return 1;
 }
 
-struct spa_handle_factory spa_filter_graph_factory = {
+static struct spa_handle_factory spa_filter_graph_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	"filter.graph",
 	NULL,

@@ -126,9 +126,6 @@ simd_dependencies += filter_graph_c
 
 filter_graph = static_library('filter_graph',
   ['module-filter-chain/biquad.c',
-   'module-filter-chain/ladspa_plugin.c',
-   'module-filter-chain/builtin_plugin.c',
-   'module-filter-chain/convolver.c',
    'module-filter-chain/filter-graph.c' ],
   include_directories : [configinc],
   dependencies : [ spa_dep, sndfile_dep, plugin_dependencies ],
@@ -150,25 +147,41 @@ pipewire_module_filter_chain = shared_library('pipewire-module-filter-chain',
   dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
 )
 
-if libmysofa_dep.found()
-pipewire_module_filter_graph_sofa = shared_library('pipewire-filter-graph-plugin-sofa',
-  [ 'module-filter-chain/sofa_plugin.c' ],
+pipewire_module_filter_graph_builtin = shared_library('spa-filter-graph-plugin-builtin',
+  [ 'module-filter-chain/builtin_plugin.c',
+    'module-filter-chain/convolver.c' ],
   include_directories : [configinc],
   install : true,
-  install_dir : modules_install_dir,
-  install_rpath: modules_install_dir,
-  link_with : simd_dependencies,
+  install_dir : spa_plugindir / 'filter-graph',
+  dependencies : [ filter_graph_dependencies ]
+)
+
+pipewire_module_filter_graph_ladspa = shared_library('spa-filter-graph-plugin-ladspa',
+  [ 'module-filter-chain/ladspa_plugin.c' ],
+  include_directories : [configinc],
+  install : true,
+  install : true,
+  install_dir : spa_plugindir / 'filter-graph',
+  dependencies : [ filter_graph_dependencies ]
+)
+
+if libmysofa_dep.found()
+pipewire_module_filter_graph_sofa = shared_library('spa-filter-graph-plugin-sofa',
+  [ 'module-filter-chain/sofa_plugin.c',
+    'module-filter-chain/convolver.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : spa_plugindir / 'filter-graph',
   dependencies : [ filter_graph_dependencies, libmysofa_dep ]
 )
 endif
 
 if lilv_lib.found()
-pipewire_module_filter_graph_lv2 = shared_library('pipewire-filter-graph-plugin-lv2',
+pipewire_module_filter_graph_lv2 = shared_library('spa-filter-graph-plugin-lv2',
   [ 'module-filter-chain/lv2_plugin.c' ],
   include_directories : [configinc],
   install : true,
-  install_dir : modules_install_dir,
-  install_rpath: modules_install_dir,
+  install_dir : spa_plugindir / 'filter-graph',
   dependencies : [ filter_graph_dependencies, lilv_lib ]
 )
 endif

@@ -22,7 +22,6 @@ struct spa_fga_plugin_methods {
 	uint32_t version;
 
 	const struct spa_fga_descriptor *(*make_desc) (void *plugin, const char *name);
-	void (*free) (void *plugin);
 };
 
 struct spa_fga_port {
@@ -99,7 +98,6 @@ static inline void spa_fga_descriptor_free(const struct spa_fga_descriptor *desc
 
 
 #define spa_fga_plugin_make_desc(o,...)	spa_fga_plugin_method_r(o,make_desc,0,__VA_ARGS__)
-#define spa_fga_plugin_free(o,...)	spa_fga_plugin_method(o,free,0,##__VA_ARGS__)
 
 typedef struct spa_fga_plugin *(spa_filter_graph_audio_plugin_load_func_t)(const struct spa_support *support,
 		uint32_t n_support, const char *path, const struct spa_dict *info);

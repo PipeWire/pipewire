@@ -15,13 +15,11 @@
 
 #include "config.h"
 
-#include "audio-plugin.h"
-#include "filter-graph.h"
-
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/support/cpu.h>
+#include <spa/support/plugin-loader.h>
 #include <spa/param/latency-utils.h>
 #include <spa/param/tag-utils.h>
 #include <spa/param/audio/raw.h>
@@ -32,7 +30,9 @@
 #include <spa/debug/types.h>
 #include <spa/debug/log.h>
 
-#include "module-filter-chain/audio-dsp-impl.h"
+#include "audio-plugin.h"
+#include "filter-graph.h"
+#include "audio-dsp-impl.h"
 
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
@@ -49,27 +49,17 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.filter-graph");
 #define spa_filter_graph_emit_apply_props(hooks,...)	spa_filter_graph_emit(hooks,apply_props, 0, __VA_ARGS__)
 #define spa_filter_graph_emit_props_changed(hooks,...)	spa_filter_graph_emit(hooks,props_changed, 0, __VA_ARGS__)
 
-
-struct spa_fga_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t n_support,
-		const char *path, const struct spa_dict *info);
-struct spa_fga_plugin *load_builtin_plugin(const struct spa_support *support, uint32_t n_support,
-		const char *path, const struct spa_dict *info);
-
 struct plugin {
 	struct spa_list link;
+	struct impl *impl;
+
 	int ref;
 	char type[256];
 	char path[PATH_MAX];
 
+	struct spa_handle *hndl;
 	struct spa_fga_plugin *plugin;
 	struct spa_list descriptor_list;
-};
-
-struct plugin_func {
-	struct spa_list link;
-	char type[256];
-	spa_filter_graph_audio_plugin_load_func_t *func;
-	void *hndl;
 };
 
 struct descriptor {
@@ -195,12 +185,10 @@ struct impl {
 	struct spa_filter_graph filter_graph;
 	struct spa_hook_list hooks;
 
-	struct spa_support support[16];
-	uint32_t n_support;
-
 	struct spa_log *log;
 	struct spa_cpu *cpu;
 	struct spa_fga_dsp *dsp;
+	struct spa_plugin_loader *loader;
 
 	struct graph graph;
 
@@ -212,7 +200,6 @@ struct impl {
 	uint32_t out_ports;
 
 	struct spa_list plugin_list;
-	struct spa_list plugin_func_list;
 
 	float *silence_data;
 	float *discard_data;
@@ -731,38 +718,16 @@ static uint32_t count_array(struct spa_json *json)
 
 static void plugin_unref(struct plugin *hndl)
 {
+	struct impl *impl = hndl->impl;
+
 	if (--hndl->ref > 0)
 		return;
 
-	spa_fga_plugin_free(hndl->plugin);
-
 	spa_list_remove(&hndl->link);
+	spa_handle_clear(hndl->hndl);
+	if (hndl->hndl)
+		spa_plugin_loader_unload(impl->loader, hndl->hndl);
 	free(hndl);
-}
-
-
-static struct plugin_func *add_plugin_func(struct impl *impl, const char *type,
-		spa_filter_graph_audio_plugin_load_func_t *func, void *hndl)
-{
-	struct plugin_func *pl;
-
-	pl = calloc(1, sizeof(*pl));
-	if (pl == NULL)
-		return NULL;
-
-	snprintf(pl->type, sizeof(pl->type), "%s", type);
-	pl->func = func;
-	pl->hndl = hndl;
-	spa_list_append(&impl->plugin_func_list, &pl->link);
-	return pl;
-}
-
-static void free_plugin_func(struct plugin_func *pl)
-{
-	spa_list_remove(&pl->link);
-	if (pl->hndl)
-		dlclose(pl->hndl);
-	free(pl);
 }
 
 static inline const char *split_walk(const char *str, const char *delimiter, size_t * len, const char **state)
@@ -779,106 +744,71 @@ static inline const char *split_walk(const char *str, const char *delimiter, siz
 	return s;
 }
 
-static spa_filter_graph_audio_plugin_load_func_t *find_plugin_func(struct impl *impl, const char *type)
-{
-	spa_filter_graph_audio_plugin_load_func_t *func = NULL;
-	void *hndl = NULL;
-	int res;
-	struct plugin_func *pl;
-	char module[PATH_MAX];
-	const char *module_dir;
-	const char *state = NULL, *p;
-	size_t len;
-
-	spa_list_for_each(pl, &impl->plugin_func_list, link) {
-		if (spa_streq(pl->type, type))
-			return pl->func;
-	}
-	module_dir = getenv("PIPEWIRE_MODULE_DIR");
-	if (module_dir == NULL)
-		module_dir = MODULEDIR;
-	spa_log_debug(impl->log, "moduledir set to: %s", module_dir);
-
-	while ((p = split_walk(module_dir, ":", &len, &state))) {
-		if ((res = spa_scnprintf(module, sizeof(module),
-				"%.*s/libpipewire-filter-graph-plugin-%s.so",
-						(int)len, p, type)) <= 0)
-			continue;
-
-		hndl = dlopen(module, RTLD_NOW | RTLD_LOCAL);
-		if (hndl != NULL)
-			break;
-
-		spa_log_debug(impl->log, "open plugin module %s failed: %s", module, dlerror());
-	}
-	if (hndl == NULL) {
-		errno = ENOENT;
-		return NULL;
-	}
-	func = dlsym(hndl, SPA_FILTER_GRAPH_AUDIO_PLUGIN_LOAD_FUNC_NAME);
-	if (func != NULL) {
-		spa_log_info(impl->log, "opened plugin module %s", module);
-		pl = add_plugin_func(impl, type, func, hndl);
-		if (pl == NULL)
-			goto error_close;
-	} else {
-		errno = ENOSYS;
-		spa_log_error(impl->log, "%s is not a filter graph plugin: %m", module);
-		goto error_close;
-	}
-	return func;
-
-error_close:
-	dlclose(hndl);
-	return NULL;
-}
-
 static struct plugin *plugin_load(struct impl *impl, const char *type, const char *path)
 {
-	struct spa_fga_plugin *pl = NULL;
-	struct plugin *hndl;
-	spa_filter_graph_audio_plugin_load_func_t *plugin_func;
+	struct spa_handle *hndl = NULL;
+	struct plugin *plugin;
+	char module[PATH_MAX];
+	char factory_name[256], dsp_ptr[256];
+	void *iface;
+	int res;
 
-	spa_list_for_each(hndl, &impl->plugin_list, link) {
-		if (spa_streq(hndl->type, type) &&
-		    spa_streq(hndl->path, path)) {
-			hndl->ref++;
-			return hndl;
+	spa_list_for_each(plugin, &impl->plugin_list, link) {
+		if (spa_streq(plugin->type, type) &&
+		    spa_streq(plugin->path, path)) {
+			plugin->ref++;
+			return plugin;
 		}
 	}
 
-	plugin_func = find_plugin_func(impl, type);
-	if (plugin_func == NULL) {
+	spa_scnprintf(module, sizeof(module),
+			//"filter-graph/libspa-filter-graph-plugin-%s", type);
+			"libspa-filter-graph-plugin-%s", type);
+	spa_scnprintf(factory_name, sizeof(factory_name),
+			"filter.graph.plugin.%s", type);
+	spa_scnprintf(dsp_ptr, sizeof(dsp_ptr),
+			"pointer:%p", impl->dsp);
+
+	hndl = spa_plugin_loader_load(impl->loader, factory_name,
+			&SPA_DICT_ITEMS(
+				SPA_DICT_ITEM(SPA_KEY_LIBRARY_NAME, module),
+				SPA_DICT_ITEM("filter.graph.path", path),
+				SPA_DICT_ITEM("filter.graph.audio.dsp", dsp_ptr)));
+
+	if (hndl == NULL) {
+		res = -errno;
 		spa_log_error(impl->log, "can't load plugin type '%s': %m", type);
-		pl = NULL;
-	} else {
-		char quantum[64];
-		snprintf(quantum, sizeof(quantum), "%d", impl->quantum_limit);
-		pl = plugin_func(impl->support, impl->n_support, path,
-				&SPA_DICT_ITEMS(
-					SPA_DICT_ITEM("clock.quantum-limit", quantum)
-					));
-	}
-	if (pl == NULL)
 		goto exit;
+	}
+	if ((res = spa_handle_get_interface(hndl, SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin, &iface)) < 0) {
+		spa_log_error(impl->log, "can't find iface '%s': %s",
+				SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin, spa_strerror(res));
+		goto exit;
+	}
+	plugin = calloc(1, sizeof(*plugin));
+	if (!plugin) {
+		res = -errno;
+		goto exit;
+	}
 
-	hndl = calloc(1, sizeof(*hndl));
-	if (!hndl)
-		return NULL;
-
-	hndl->ref = 1;
-	snprintf(hndl->type, sizeof(hndl->type), "%s", type);
-	snprintf(hndl->path, sizeof(hndl->path), "%s", path);
+	plugin->ref = 1;
+	snprintf(plugin->type, sizeof(plugin->type), "%s", type);
+	snprintf(plugin->path, sizeof(plugin->path), "%s", path);
 
 	spa_log_info(impl->log, "successfully opened '%s':'%s'", type, path);
 
-	hndl->plugin = pl;
+	plugin->impl = impl;
+	plugin->hndl = hndl;
+	plugin->plugin = iface;
 
-	spa_list_init(&hndl->descriptor_list);
-	spa_list_append(&impl->plugin_list, &hndl->link);
+	spa_list_init(&plugin->descriptor_list);
+	spa_list_append(&impl->plugin_list, &plugin->link);
 
-	return hndl;
+	return plugin;
 exit:
+	if (hndl)
+		spa_plugin_loader_unload(impl->loader, hndl);
+	errno = -res;
 	return NULL;
 }
 
@@ -902,17 +832,17 @@ static void descriptor_unref(struct descriptor *desc)
 static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 		const char *plugin, const char *label)
 {
-	struct plugin *hndl;
+	struct plugin *pl;
 	struct descriptor *desc;
 	const struct spa_fga_descriptor *d;
 	uint32_t i, n_input, n_output, n_control, n_notify;
 	unsigned long p;
 	int res;
 
-	if ((hndl = plugin_load(impl, type, plugin)) == NULL)
+	if ((pl = plugin_load(impl, type, plugin)) == NULL)
 		return NULL;
 
-	spa_list_for_each(desc, &hndl->descriptor_list, link) {
+	spa_list_for_each(desc, &pl->descriptor_list, link) {
 		if (spa_streq(desc->label, label)) {
 			desc->ref++;
 
@@ -923,17 +853,17 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 			 * so we need to unref handle here since we're merely reusing
 			 * thedescriptor, not creating a new one
 			 */
-			plugin_unref(hndl);
+			plugin_unref(pl);
 			return desc;
 		}
 	}
 
 	desc = calloc(1, sizeof(*desc));
 	desc->ref = 1;
-	desc->plugin = hndl;
+	desc->plugin = pl;
 	spa_list_init(&desc->link);
 
-	if ((d = spa_fga_plugin_make_desc(hndl->plugin, label)) == NULL) {
+	if ((d = spa_fga_plugin_make_desc(pl->plugin, label)) == NULL) {
 		spa_log_error(impl->log, "cannot find label %s", label);
 		res = -ENOENT;
 		goto exit;
@@ -1000,7 +930,7 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 		spa_log_info(impl->log, "control %d ('%s') default to %f", i,
 				d->ports[p].name, desc->default_control[i]);
 	}
-	spa_list_append(&hndl->descriptor_list, &desc->link);
+	spa_list_append(&pl->descriptor_list, &desc->link);
 
 	return desc;
 
@@ -2045,11 +1975,11 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 static int impl_clear(struct spa_handle *handle)
 {
 	struct impl *impl = (struct impl *) handle;
-	struct plugin_func *pl;
 
 	graph_free(&impl->graph);
-	spa_list_consume(pl, &impl->plugin_func_list, link)
-		free_plugin_func(pl);
+
+	if (impl->dsp)
+		spa_fga_dsp_free(impl->dsp);
 
 	free(impl->silence_data);
 	free(impl->discard_data);
@@ -2083,21 +2013,14 @@ impl_init(const struct spa_handle_factory *factory,
 	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	spa_log_topic_init(impl->log, &log_topic);
 
-	for (i = 0; i < SPA_MIN(n_support, 15u); i++)
-		impl->support[i] = support[i];
-	impl->n_support = n_support;
-
 	impl->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 	impl->max_align = spa_cpu_get_max_align(impl->cpu);
 
 	impl->dsp = spa_fga_dsp_new(impl->cpu ? spa_cpu_get_flags(impl->cpu) : 0);
-	impl->support[impl->n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioDSP, impl->dsp);
+
+	impl->loader = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_PluginLoader);
 
 	spa_list_init(&impl->plugin_list);
-	spa_list_init(&impl->plugin_func_list);
-
-	add_plugin_func(impl, "builtin", load_builtin_plugin, NULL);
-	add_plugin_func(impl, "ladspa", load_ladspa_plugin, NULL);
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
@@ -2174,3 +2097,20 @@ struct spa_handle_factory spa_filter_graph_factory = {
 	impl_init,
 	impl_enum_interface_info,
 };
+
+SPA_EXPORT
+int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
+{
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
+
+	switch (*index) {
+	case 0:
+		*factory = &spa_filter_graph_factory;
+		break;
+	default:
+		return 0;
+	}
+	(*index)++;
+	return 1;
+}

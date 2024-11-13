@@ -11,6 +11,8 @@
 #include <spa/utils/defs.h>
 #include <spa/param/audio/format-utils.h>
 
+#include "pffft.h"
+
 #include "audio-dsp-impl.h"
 
 struct dsp_info {
@@ -111,6 +113,7 @@ struct spa_fga_dsp * spa_fga_dsp_new(uint32_t cpu_flags)
 	if (dsp == NULL)
 		return NULL;
 
+	pffft_select_cpu(cpu_flags);
 	dsp->cpu_flags = cpu_flags;
 	dsp->iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioDSP,

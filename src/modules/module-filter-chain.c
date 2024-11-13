@@ -1167,6 +1167,10 @@ static void impl_destroy(struct impl *impl)
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
 
+	if (impl->handle)
+		spa_handle_clear(impl->handle);
+	free(impl->handle);
+
 	pw_properties_free(impl->capture_props);
 	pw_properties_free(impl->playback_props);
 

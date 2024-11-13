@@ -88,10 +88,6 @@ struct context {
 	int ref;
 	LilvWorld *world;
 
-	struct spa_log *log;
-	struct spa_loop *data_loop;
-	struct spa_loop *main_loop;
-
 	LilvNode *lv2_InputPort;
 	LilvNode *lv2_OutputPort;
 	LilvNode *lv2_AudioPort;
@@ -145,7 +141,7 @@ static const LV2_Feature buf_size_features[3] = {
 	{ LV2_BUF_SIZE__boundedBlockLength,  NULL },
 };
 
-static struct context *context_new(const struct spa_support *support, uint32_t n_support)
+static struct context *context_new(void)
 {
 	struct context *c;
 
@@ -186,20 +182,16 @@ static struct context *context_new(const struct spa_support *support, uint32_t n
 	c->atom_Int = context_map(c, LV2_ATOM__Int);
 	c->atom_Float = context_map(c, LV2_ATOM__Float);
 
-	c->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	c->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
-	c->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
-
 	return c;
 error:
 	context_free(c);
 	return NULL;
 }
 
-static struct context *context_ref(const struct spa_support *support, uint32_t n_support)
+static struct context *context_ref(void)
 {
 	if (_context == NULL) {
-		_context = context_new(support, n_support);
+		_context = context_new();
 		if (_context == NULL)
 			return NULL;
 	}
@@ -216,7 +208,13 @@ static void context_unref(struct context *context)
 }
 
 struct plugin {
+	struct spa_handle handle;
 	struct spa_fga_plugin plugin;
+
+	struct spa_log *log;
+	struct spa_loop *data_loop;
+	struct spa_loop *main_loop;
+
 	struct context *c;
 	const LilvPlugin *p;
 };
@@ -228,6 +226,8 @@ struct descriptor {
 
 struct instance {
 	struct descriptor *desc;
+	struct plugin *p;
+
 	LilvInstance *instance;
 	LV2_Worker_Schedule work_schedule;
 	LV2_Feature work_schedule_feature;
@@ -256,8 +256,7 @@ static LV2_Worker_Status
 work_respond(LV2_Worker_Respond_Handle handle, uint32_t size, const void *data)
 {
 	struct instance *i = (struct instance*)handle;
-	struct context *c = i->desc->p->c;
-	spa_loop_invoke(c->data_loop, do_respond, 1, data, size, false, i);
+	spa_loop_invoke(i->p->data_loop, do_respond, 1, data, size, false, i);
 	return LV2_WORKER_SUCCESS;
 }
 
@@ -275,8 +274,7 @@ static LV2_Worker_Status
 work_schedule(LV2_Worker_Schedule_Handle handle, uint32_t size, const void *data)
 {
 	struct instance *i = (struct instance*)handle;
-	struct context *c = i->desc->p->c;
-	spa_loop_invoke(c->main_loop, do_schedule, 1, data, size, false, i);
+	spa_loop_invoke(i->p->main_loop, do_schedule, 1, data, size, false, i);
 	return LV2_WORKER_SUCCESS;
 }
 
@@ -299,6 +297,7 @@ static void *lv2_instantiate(const struct spa_fga_plugin *plugin, const struct s
 
 	i->block_length = 1024;
 	i->desc = d;
+	i->p = p;
 	i->features[n_features++] = &c->map_feature;
 	i->features[n_features++] = &c->unmap_feature;
 	i->features[n_features++] = &buf_size_features[0];
@@ -453,68 +452,153 @@ static const struct spa_fga_descriptor *lv2_plugin_make_desc(void *plugin, const
 	return &desc->desc;
 }
 
-static void lv2_plugin_free(void *plugin)
-{
-	struct plugin *p = (struct plugin *)plugin;
-	context_unref(p->c);
-	free(p);
-}
-
 static struct spa_fga_plugin_methods impl_plugin = {
 	SPA_VERSION_FGA_PLUGIN_METHODS,
 	.make_desc = lv2_plugin_make_desc,
-	.free = lv2_plugin_free
+};
+
+static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
+{
+	struct plugin *impl;
+
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+	spa_return_val_if_fail(interface != NULL, -EINVAL);
+
+	impl = (struct plugin *) handle;
+
+	if (spa_streq(type, SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin))
+		*interface = &impl->plugin;
+	else
+		return -ENOENT;
+
+	return 0;
+}
+
+static int impl_clear(struct spa_handle *handle)
+{
+	struct plugin *p = (struct plugin *)handle;
+	context_unref(p->c);
+	return 0;
+}
+
+static size_t
+impl_get_size(const struct spa_handle_factory *factory,
+	      const struct spa_dict *params)
+{
+	return sizeof(struct plugin);
+}
+
+static int
+impl_init(const struct spa_handle_factory *factory,
+	  struct spa_handle *handle,
+	  const struct spa_dict *info,
+	  const struct spa_support *support,
+	  uint32_t n_support)
+{
+	struct plugin *impl;
+	uint32_t i;
+	int res;
+	const char *path = NULL;
+	const LilvPlugins *plugins;
+	LilvNode *uri;
+
+	handle->get_interface = impl_get_interface;
+	handle->clear = impl_clear;
+
+	impl = (struct plugin *) handle;
+	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	impl->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
+	impl->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
+
+	for (i = 0; info && i < info->n_items; i++) {
+		const char *k = info->items[i].key;
+		const char *s = info->items[i].value;
+		if (spa_streq(k, "filter.graph.path"))
+			path = s;
+	}
+	if (path == NULL)
+		return -EINVAL;
+
+	impl->c = context_ref();
+	if (impl->c == NULL)
+		return -EINVAL;
+
+	uri = lilv_new_uri(impl->c->world, path);
+	if (uri == NULL) {
+		spa_log_warn(impl->log, "invalid URI %s", path);
+		res = -EINVAL;
+		goto error_cleanup;
+	}
+
+	plugins = lilv_world_get_all_plugins(impl->c->world);
+	impl->p = lilv_plugins_get_by_uri(plugins, uri);
+	lilv_node_free(uri);
+
+	if (impl->p == NULL) {
+		spa_log_warn(impl->log, "can't load plugin %s", path);
+		res = -EINVAL;
+		goto error_cleanup;
+	}
+	impl->plugin.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin,
+			SPA_VERSION_FGA_PLUGIN,
+			&impl_plugin, impl);
+
+	return 0;
+
+error_cleanup:
+	if (impl->c)
+		context_unref(impl->c);
+	return res;
+}
+
+
+static const struct spa_interface_info impl_interfaces[] = {
+	{ SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin },
+};
+
+static int
+impl_enum_interface_info(const struct spa_handle_factory *factory,
+			 const struct spa_interface_info **info,
+			 uint32_t *index)
+{
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(info != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
+
+	switch (*index) {
+	case 0:
+		*info = &impl_interfaces[*index];
+		break;
+	default:
+		return 0;
+	}
+	(*index)++;
+	return 1;
+}
+
+static struct spa_handle_factory spa_fga_plugin_lv2_factory = {
+	SPA_VERSION_HANDLE_FACTORY,
+	"filter.graph.plugin.lv2",
+	NULL,
+	impl_get_size,
+	impl_init,
+	impl_enum_interface_info,
 };
 
 SPA_EXPORT
-struct spa_fga_plugin *spa_filter_graph_audio_plugin_load(const struct spa_support *support, uint32_t n_support,
-		const char *plugin_uri, const struct spa_dict *info)
+int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
 {
-	struct context *c;
-	const LilvPlugins *plugins;
-	const LilvPlugin *plugin;
-	LilvNode *uri;
-	int res;
-	struct plugin *p;
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
 
-	c = context_ref(support, n_support);
-	if (c == NULL)
-		return NULL;
-
-	uri = lilv_new_uri(c->world, plugin_uri);
-	if (uri == NULL) {
-		spa_log_warn(c->log, "invalid URI %s", plugin_uri);
-		res = -EINVAL;
-		goto error_unref;
+	switch (*index) {
+	case 0:
+		*factory = &spa_fga_plugin_lv2_factory;
+		break;
+	default:
+		return 0;
 	}
-
-	plugins = lilv_world_get_all_plugins(c->world);
-	plugin = lilv_plugins_get_by_uri(plugins, uri);
-	lilv_node_free(uri);
-
-	if (plugin == NULL) {
-		spa_log_warn(c->log, "can't load plugin %s", plugin_uri);
-		res = -EINVAL;
-		goto error_unref;
-	}
-
-	p = calloc(1, sizeof(*p));
-	if (!p) {
-		res = -errno;
-		goto error_unref;
-	}
-	p->p = plugin;
-	p->c = c;
-
-	p->plugin.iface = SPA_INTERFACE_INIT(
-			SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin,
-			SPA_VERSION_FGA_PLUGIN,
-			&impl_plugin, p);
-
-	return &p->plugin;
-
-error_unref:
-	context_unref(c);
-	errno = -res;
-	return NULL;
+	(*index)++;
+	return 1;
 }

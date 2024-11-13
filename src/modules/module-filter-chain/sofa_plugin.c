@@ -9,11 +9,11 @@
 #include "audio-plugin.h"
 #include "convolver.h"
 #include "audio-dsp.h"
-#include "pffft.h"
 
 #include <mysofa.h>
 
 struct plugin {
+	struct spa_handle handle;
 	struct spa_fga_plugin plugin;
 
 	struct spa_fga_dsp *dsp;
@@ -43,8 +43,8 @@ struct spatializer_impl {
 static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
+	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct spatializer_impl *impl;
-	struct plugin *pl = (struct plugin*) plugin;
 	struct spa_json it[1];
 	const char *val;
 	char key[256];
@@ -424,23 +424,53 @@ static const struct spa_fga_descriptor *sofa_plugin_make_desc(void *plugin, cons
 	return NULL;
 }
 
-static void sofa_plugin_free(void *plugin)
-{
-	struct plugin *impl = plugin;
-	free(impl);
-}
-
 static struct spa_fga_plugin_methods impl_plugin = {
 	SPA_VERSION_FGA_PLUGIN_METHODS,
 	.make_desc = sofa_plugin_make_desc,
-	.free = sofa_plugin_free
 };
 
-SPA_EXPORT
-struct spa_fga_plugin *spa_filter_graph_audio_plugin_load(const struct spa_support *support, uint32_t n_support,
-		const char *plugin, const struct spa_dict *info)
+static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
-	struct plugin *impl = calloc(1, sizeof (struct plugin));
+	struct plugin *impl;
+
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+	spa_return_val_if_fail(interface != NULL, -EINVAL);
+
+	impl = (struct plugin *) handle;
+
+	if (spa_streq(type, SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin))
+		*interface = &impl->plugin;
+	else
+		return -ENOENT;
+
+	return 0;
+}
+
+static int impl_clear(struct spa_handle *handle)
+{
+	return 0;
+}
+
+static size_t
+impl_get_size(const struct spa_handle_factory *factory,
+	      const struct spa_dict *params)
+{
+	return sizeof(struct plugin);
+}
+
+static int
+impl_init(const struct spa_handle_factory *factory,
+	  struct spa_handle *handle,
+	  const struct spa_dict *info,
+	  const struct spa_support *support,
+	  uint32_t n_support)
+{
+	struct plugin *impl;
+
+	handle->get_interface = impl_get_interface;
+	handle->clear = impl_clear;
+
+	impl = (struct plugin *) handle;
 
 	impl->plugin.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin,
@@ -449,17 +479,77 @@ struct spa_fga_plugin *spa_filter_graph_audio_plugin_load(const struct spa_suppo
 
 	impl->quantum_limit = 8192u;
 
+	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	impl->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
+	impl->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
+	impl->dsp = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioDSP);
+
 	for (uint32_t i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
 		if (spa_streq(k, "clock.quantum-limit"))
 			spa_atou32(s, &impl->quantum_limit, 0);
+		if (spa_streq(k, "filter.graph.audio.dsp"))
+			sscanf(s, "pointer:%p", &impl->dsp);
 	}
-	impl->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
-	impl->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
-	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	impl->dsp = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioDSP);
-	pffft_select_cpu(impl->dsp->cpu_flags);
 
-	return (struct spa_fga_plugin *) impl;
+	if (impl->data_loop == NULL || impl->main_loop == NULL) {
+		spa_log_error(impl->log, "%p: could not find a data/main loop", impl);
+		return -EINVAL;
+	}
+	if (impl->dsp == NULL) {
+		spa_log_error(impl->log, "%p: could not find DSP functions", impl);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static const struct spa_interface_info impl_interfaces[] = {
+	{SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin,},
+};
+
+static int
+impl_enum_interface_info(const struct spa_handle_factory *factory,
+			 const struct spa_interface_info **info,
+			 uint32_t *index)
+{
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(info != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
+
+	switch (*index) {
+	case 0:
+		*info = &impl_interfaces[*index];
+		break;
+	default:
+		return 0;
+	}
+	(*index)++;
+	return 1;
+}
+
+struct spa_handle_factory spa_fga_sofa_plugin_factory = {
+	SPA_VERSION_HANDLE_FACTORY,
+	"filter.graph.plugin.sofa",
+	NULL,
+	impl_get_size,
+	impl_init,
+	impl_enum_interface_info,
+};
+
+SPA_EXPORT
+int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
+{
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
+
+	switch (*index) {
+	case 0:
+		*factory = &spa_fga_sofa_plugin_factory;
+		break;
+	default:
+		return 0;
+	}
+	(*index)++;
+	return 1;
 }

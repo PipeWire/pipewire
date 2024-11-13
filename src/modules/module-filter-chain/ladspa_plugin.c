@@ -8,6 +8,7 @@
 #include <math.h>
 #include <limits.h>
 
+#include <spa/utils/result.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
 #include <spa/utils/string.h>
@@ -17,11 +18,12 @@
 #include "ladspa.h"
 
 struct plugin {
+	struct spa_handle handle;
 	struct spa_fga_plugin plugin;
 
 	struct spa_log *log;
 
-	void *handle;
+	void *hndl;
 	LADSPA_Descriptor_Function desc_func;
 };
 
@@ -165,64 +167,41 @@ static const struct spa_fga_descriptor *ladspa_plugin_make_desc(void *plugin, co
 	return &desc->desc;
 }
 
-static void ladspa_plugin_free(void *plugin)
-{
-	struct plugin *p = (struct plugin *)plugin;
-	if (p->handle)
-		dlclose(p->handle);
-	free(p);
-}
-
 static struct spa_fga_plugin_methods impl_plugin = {
 	SPA_VERSION_FGA_PLUGIN_METHODS,
 	.make_desc = ladspa_plugin_make_desc,
-	.free = ladspa_plugin_free
 };
 
-static struct spa_fga_plugin *ladspa_handle_load_by_path(struct spa_log *log, const char *path)
+static int ladspa_handle_load_by_path(struct plugin *impl, const char *path)
 {
-	struct plugin *p;
 	int res;
 	void *handle = NULL;
 	LADSPA_Descriptor_Function desc_func;
 
 	handle = dlopen(path, RTLD_NOW);
 	if (handle == NULL) {
-		spa_log_debug(log, "failed to open '%s': %s", path, dlerror());
+		spa_log_debug(impl->log, "failed to open '%s': %s", path, dlerror());
 		res = -ENOENT;
 		goto exit;
 	}
 
-	spa_log_info(log, "successfully opened '%s'", path);
+	spa_log_info(impl->log, "successfully opened '%s'", path);
 
 	desc_func = (LADSPA_Descriptor_Function) dlsym(handle, "ladspa_descriptor");
 	if (desc_func == NULL) {
-		spa_log_warn(log, "cannot find descriptor function in '%s': %s", path, dlerror());
+		spa_log_warn(impl->log, "cannot find descriptor function in '%s': %s", path, dlerror());
 		res = -ENOSYS;
 		goto exit;
 	}
 
-	p = calloc(1, sizeof(*p));
-	if (!p) {
-		res = -errno;
-		goto exit;
-	}
-	p->log = log;
-	p->handle = handle;
-	p->desc_func = desc_func;
-
-	p->plugin.iface = SPA_INTERFACE_INIT(
-			SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin,
-			SPA_VERSION_FGA_PLUGIN,
-			&impl_plugin, p);
-
-	return &p->plugin;
+	impl->hndl = handle;
+	impl->desc_func = desc_func;
+	return 0;
 
 exit:
 	if (handle)
 		dlclose(handle);
-	errno = -res;
-	return NULL;
+	return res;
 }
 
 static inline const char *split_walk(const char *str, const char *delimiter, size_t * len, const char **state)
@@ -239,17 +218,13 @@ static inline const char *split_walk(const char *str, const char *delimiter, siz
 	return s;
 }
 
-struct spa_fga_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t n_support,
-		const char *plugin, const struct spa_dict *info)
+static int load_ladspa_plugin(struct plugin *impl, const char *path)
 {
-	struct spa_fga_plugin *pl = NULL;
-	struct spa_log *log;
+	int res = -ENOENT;
 
-	log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-
-	if (plugin[0] != '/') {
+	if (path[0] != '/') {
 		const char *search_dirs, *p, *state = NULL;
-		char path[PATH_MAX];
+		char filename[PATH_MAX];
 		size_t len;
 
 		search_dirs = getenv("LADSPA_PATH");
@@ -261,29 +236,150 @@ struct spa_fga_plugin *load_ladspa_plugin(const struct spa_support *support, uin
 		 * is never called, which can only happen if the supplied
 		 * LADSPA_PATH contains too long paths
 		 */
-		errno = ENAMETOOLONG;
+		res = -ENAMETOOLONG;
 
 		while ((p = split_walk(search_dirs, ":", &len, &state))) {
-			int pathlen;
+			int namelen;
 
-			if (len >= sizeof(path))
+			if (len >= sizeof(filename))
 				continue;
 
-			pathlen = snprintf(path, sizeof(path), "%.*s/%s.so", (int) len, p, plugin);
-			if (pathlen < 0 || (size_t) pathlen >= sizeof(path))
+			namelen = snprintf(filename, sizeof(filename), "%.*s/%s.so", (int) len, p, path);
+			if (namelen < 0 || (size_t) namelen >= sizeof(filename))
 				continue;
 
-			pl = ladspa_handle_load_by_path(log, path);
-			if (pl != NULL)
+			res = ladspa_handle_load_by_path(impl, filename);
+			if (res >= 0)
 				break;
 		}
 	}
 	else {
-		pl = ladspa_handle_load_by_path(log, plugin);
+		res = ladspa_handle_load_by_path(impl, path);
+	}
+	return res;
+}
+
+static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
+{
+	struct plugin *impl;
+
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+	spa_return_val_if_fail(interface != NULL, -EINVAL);
+
+	impl = (struct plugin *) handle;
+
+	if (spa_streq(type, SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin))
+		*interface = &impl->plugin;
+	else
+		return -ENOENT;
+
+	return 0;
+}
+
+static int impl_clear(struct spa_handle *handle)
+{
+	struct plugin *impl = (struct plugin *)handle;
+	if (impl->hndl)
+		dlclose(impl->hndl);
+	impl->hndl = NULL;
+	return 0;
+}
+
+static size_t
+impl_get_size(const struct spa_handle_factory *factory,
+	      const struct spa_dict *params)
+{
+	return sizeof(struct plugin);
+}
+
+static int
+impl_init(const struct spa_handle_factory *factory,
+	  struct spa_handle *handle,
+	  const struct spa_dict *info,
+	  const struct spa_support *support,
+	  uint32_t n_support)
+{
+	struct plugin *impl;
+	uint32_t i;
+	int res;
+	const char *path = NULL;
+
+	handle->get_interface = impl_get_interface;
+	handle->clear = impl_clear;
+
+	impl = (struct plugin *) handle;
+
+	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+
+	for (i = 0; info && i < info->n_items; i++) {
+		const char *k = info->items[i].key;
+		const char *s = info->items[i].value;
+		if (spa_streq(k, "filter.graph.path"))
+			path = s;
+	}
+	if (path == NULL)
+		return -EINVAL;
+
+	if ((res = load_ladspa_plugin(impl, path)) < 0) {
+		spa_log_error(impl->log, "failed to load plugin '%s': %s",
+				path, spa_strerror(res));
+		return res;
 	}
 
-	if (pl == NULL)
-		spa_log_error(log, "failed to load plugin '%s': %s", plugin, strerror(errno));
+	impl->plugin.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin,
+			SPA_VERSION_FGA_PLUGIN,
+			&impl_plugin, impl);
 
-	return pl;
+	return 0;
+}
+
+static const struct spa_interface_info impl_interfaces[] = {
+	{ SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin },
+};
+
+static int
+impl_enum_interface_info(const struct spa_handle_factory *factory,
+			 const struct spa_interface_info **info,
+			 uint32_t *index)
+{
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(info != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
+
+	switch (*index) {
+	case 0:
+		*info = &impl_interfaces[*index];
+		break;
+	default:
+		return 0;
+	}
+	(*index)++;
+	return 1;
+}
+
+struct spa_handle_factory spa_fga_plugin_ladspa_factory = {
+	SPA_VERSION_HANDLE_FACTORY,
+	"filter.graph.plugin.ladspa",
+	NULL,
+	impl_get_size,
+	impl_init,
+	impl_enum_interface_info,
+};
+
+SPA_EXPORT
+int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
+{
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
+
+	switch (*index) {
+	case 0:
+		*factory = &spa_fga_plugin_ladspa_factory;
+		break;
+	default:
+		return 0;
+	}
+	(*index)++;
+	return 1;
 }

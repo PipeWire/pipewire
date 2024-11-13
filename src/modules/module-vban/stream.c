@@ -94,13 +94,13 @@ struct format_info {
 };
 
 static const struct format_info audio_format_info[] = {
-	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_U8, 1, VBAN_DATATYPE_U8, },
+	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_U8, 1, VBAN_DATATYPE_BYTE8, },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S16_LE, 2, VBAN_DATATYPE_INT16, },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S24_LE, 3, VBAN_DATATYPE_INT24, },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S32_LE, 4, VBAN_DATATYPE_INT32, },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_F32_LE, 4, VBAN_DATATYPE_FLOAT32, },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_F64_LE, 8, VBAN_DATATYPE_FLOAT64, },
-	{ SPA_MEDIA_SUBTYPE_control, 0, 1, VBAN_SERIAL_MIDI | VBAN_DATATYPE_U8, },
+	{ SPA_MEDIA_SUBTYPE_control, 0, 1, VBAN_SERIAL_MIDI | VBAN_DATATYPE_BYTE8, },
 };
 
 static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size)
@@ -290,7 +290,7 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 		if (impl->rate == 0)
 			impl->rate = 10000;
 
-		impl->header.format_SR = (0x1 << 5) | 14; /* 115200 */
+		impl->header.format_SR = VBAN_PROTOCOL_SERIAL | vban_BPSList[14]; /* 115200 */
 		impl->header.format_nbs = 0;
 		impl->header.format_nbc = 0;
 		impl->header.format_bit = impl->format_info->format_bit;

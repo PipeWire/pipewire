@@ -92,12 +92,7 @@ static int vban_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 	uint32_t stride = impl->stride;
 	int32_t filled;
 
-	if (len < VBAN_HEADER_SIZE)
-		goto short_packet;
-
 	hdr = (struct vban_header*)buffer;
-	if (strncmp(hdr->vban, "VBAN", 3))
-		goto invalid_version;
 
 	impl->receiving = true;
 
@@ -155,14 +150,6 @@ static int vban_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 		spa_ringbuffer_write_update(&impl->ring, write);
 	}
 	return 0;
-
-short_packet:
-	pw_log_warn("short packet received");
-	return -EINVAL;
-invalid_version:
-	pw_log_warn("invalid VBAN version");
-	spa_debug_log_mem(pw_log_get(), SPA_LOG_LEVEL_INFO, 0, buffer, len);
-	return -EPROTO;
 }
 
 static inline void

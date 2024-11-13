@@ -201,13 +201,7 @@ static int vban_midi_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 	ssize_t hlen;
 	uint32_t n_frames;
 
-	if (len < VBAN_HEADER_SIZE)
-		goto short_packet;
-
 	hdr = (struct vban_header*)buffer;
-	if (strncmp(hdr->vban, "VBAN", 3))
-		goto invalid_version;
-
 	hlen = VBAN_HEADER_SIZE;
 
 	n_frames = hdr->n_frames;
@@ -221,14 +215,6 @@ static int vban_midi_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 	impl->receiving = true;
 
 	return vban_midi_receive_midi(impl, buffer, hlen, len);
-
-short_packet:
-	pw_log_warn("short packet received");
-	return -EINVAL;
-invalid_version:
-	pw_log_warn("invalid RTP version");
-	spa_debug_log_mem(pw_log_get(), SPA_LOG_LEVEL_INFO, 0, buffer, len);
-	return -EPROTO;
 }
 
 static void vban_midi_flush_packets(struct impl *impl,

@@ -450,7 +450,8 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 	case PW_NODE_STATE_SUSPENDED:
 	case PW_NODE_STATE_ERROR:
 		if (state != PW_NODE_STATE_IDLE || node->pause_on_idle)
-			remove_node_from_graph(node);
+			if (old != PW_NODE_STATE_CREATING)
+				remove_node_from_graph(node);
 		break;
 	default:
 		break;

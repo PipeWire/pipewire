@@ -10,6 +10,7 @@
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/dll.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/audio/layout.h>
 #include <spa/param/audio/raw-json.h>
 #include <spa/control/control.h>
 #include <spa/control/ump-utils.h>
@@ -207,6 +208,30 @@ static uint32_t msec_to_samples(struct impl *impl, uint32_t msec)
 	return msec * impl->rate / 1000;
 }
 
+static const struct spa_audio_layout_info layouts[] = {
+	{ SPA_AUDIO_LAYOUT_Mono },
+	{ SPA_AUDIO_LAYOUT_Stereo },
+	{ SPA_AUDIO_LAYOUT_2_1 },
+	{ SPA_AUDIO_LAYOUT_3_1 },
+	{ SPA_AUDIO_LAYOUT_5_0 },
+	{ SPA_AUDIO_LAYOUT_5_1 },
+	{ SPA_AUDIO_LAYOUT_7_0 },
+	{ SPA_AUDIO_LAYOUT_7_1 },
+};
+
+static void default_layout(uint32_t channels, uint32_t *position)
+{
+	SPA_FOR_EACH_ELEMENT_VAR(layouts, l) {
+		if (l->n_channels == channels) {
+			for (uint32_t i = 0; i < l->n_channels; i++)
+				position[i] = l->position[i];
+			return;
+		}
+	}
+	for (uint32_t i = 0; i < channels; i++)
+		position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
+}
+
 struct vban_stream *vban_stream_new(struct pw_core *core,
 		enum pw_direction direction, struct pw_properties *props,
 		const struct vban_stream_events *events, void *data)
@@ -254,6 +279,8 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 	switch (impl->info.media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
 		parse_audio_info(props, &impl->info.info.raw);
+		if (SPA_FLAG_IS_SET(impl->info.info.raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED))
+			default_layout(impl->info.info.raw.channels, impl->info.info.raw.position);
 		impl->stream_info = impl->info;
 		impl->format_info = find_audio_format_info(&impl->info);
 		if (impl->format_info == NULL) {

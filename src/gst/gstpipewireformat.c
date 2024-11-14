@@ -131,6 +131,13 @@ static const uint32_t video_format_map[] = {
   SPA_VIDEO_FORMAT_Y444_12LE,
 };
 
+static const uint32_t interlace_mode_map[] = {
+  SPA_VIDEO_INTERLACE_MODE_PROGRESSIVE,
+  SPA_VIDEO_INTERLACE_MODE_INTERLEAVED,
+  SPA_VIDEO_INTERLACE_MODE_MIXED,
+  SPA_VIDEO_INTERLACE_MODE_FIELDS,
+};
+
 #if __BYTE_ORDER == __BIG_ENDIAN
 #define _FORMAT_LE(fmt)  SPA_AUDIO_FORMAT_ ## fmt ## _OE
 #define _FORMAT_BE(fmt)  SPA_AUDIO_FORMAT_ ## fmt
@@ -825,6 +832,14 @@ static char *video_id_to_dma_drm_fourcc(uint32_t id, uint64_t mod)
 }
 #endif
 
+static const char *interlace_mode_id_to_string(uint32_t id)
+{
+  int idx;
+  if ((idx = find_index(interlace_mode_map, SPA_N_ELEMENTS(interlace_mode_map), id)) == -1)
+    return NULL;
+  return gst_video_interlace_mode_to_string(idx);
+}
+
 static const char *audio_id_to_string(uint32_t id)
 {
   int idx;
@@ -1148,6 +1163,11 @@ gst_caps_from_format (const struct spa_pod *format)
         if ((prop = spa_pod_object_find_prop (obj, prop, SPA_FORMAT_VIDEO_format))) {
           handle_id_prop (prop, "format", video_id_to_string, res);
         }
+      }
+      if ((prop = spa_pod_object_find_prop (obj, prop, SPA_FORMAT_VIDEO_interlaceMode))) {
+        handle_id_prop (prop, "interlace-mode", interlace_mode_id_to_string, res);
+      } else {
+        gst_caps_set_simple(res, "interlace-mode", G_TYPE_STRING, "progressive", NULL);
       }
     }
     else if (media_subtype == SPA_MEDIA_SUBTYPE_mjpg) {

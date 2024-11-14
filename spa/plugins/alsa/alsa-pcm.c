@@ -2481,7 +2481,6 @@ static int do_prepare(struct state *state)
 	reset_buffers(state);
 	state->alsa_sync = true;
 	state->alsa_sync_warning = false;
-	state->alsa_recovering = false;
 	state->alsa_started = false;
 
 	return 0;
@@ -2622,8 +2621,6 @@ static int get_avail(struct state *state, uint64_t current_time, snd_pcm_uframes
 			}
 			avail = state->threshold * 2;
 		}
-	} else {
-		state->alsa_recovering = false;
 	}
 	*delay = avail;
 

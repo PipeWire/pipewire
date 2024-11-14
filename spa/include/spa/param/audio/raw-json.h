@@ -52,8 +52,10 @@ spa_audio_info_raw_update(struct spa_audio_info_raw *info, const char *key, cons
 		if (spa_atou32(val, &v, 0) && (force || info->channels == 0))
 			info->channels = SPA_MIN(v, SPA_AUDIO_MAX_CHANNELS);
 	} else if (spa_streq(key, SPA_KEY_AUDIO_POSITION)) {
-		if (force || info->channels == 0)
-			spa_audio_parse_position(val, strlen(val), info->position, &info->channels);
+		if (force || info->channels == 0) {
+			if (spa_audio_parse_position(val, strlen(val), info->position, &info->channels) > 0)
+				SPA_FLAG_CLEAR(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED);
+		}
 	}
 	return 0;
 }
@@ -64,6 +66,7 @@ spa_audio_info_raw_init_dict_keys(struct spa_audio_info_raw *info,
 		const struct spa_dict *dict, ...)
 {
 	spa_zero(*info);
+	SPA_FLAG_SET(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED);
 	if (dict) {
 		const char *val, *key;
 		va_list args;

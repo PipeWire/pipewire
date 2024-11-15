@@ -326,11 +326,13 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		if (this->n_buffers == 0)
 			return -EIO;
 
+		this->want_started = true;
 		if ((res = spa_alsa_start(this)) < 0)
 			return res;
 		break;
 	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Pause:
+		this->want_started = false;
 		if ((res = spa_alsa_pause(this)) < 0)
 			return res;
 		break;

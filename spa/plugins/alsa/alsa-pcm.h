@@ -133,6 +133,7 @@ struct state {
 	unsigned int opened:1;
 	unsigned int prepared:1;
 	unsigned int started:1;
+	unsigned int want_started:1;
 	snd_pcm_t *hndl;
 
 	bool have_format;

@@ -2162,9 +2162,11 @@ retry_status:
 		} else {
 			all_ready &= ta->pending_sync == false;
 		}
+		ta->prev_signal_time = ta->signal_time;
+		ta->prev_awake_time = ta->awake_time;
+		ta->prev_finish_time = ta->finish_time;
 	}
 
-	a->prev_signal_time = a->signal_time;
 	node->driver_start = nsec;
 
 	a->sync_timeout = SPA_MIN(min_timeout, DEFAULT_SYNC_TIMEOUT);

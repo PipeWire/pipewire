@@ -191,7 +191,7 @@ struct agimpl {
 	struct spa_bt_telephony_ag this;
 	struct spa_list link;
 	char *path;
-	struct spa_hook_list listener_list;
+	struct spa_callbacks callbacks;
 	void *user_data;
 
 	bool dial_in_progress;
@@ -205,7 +205,7 @@ struct agimpl {
 struct callimpl {
 	struct spa_bt_telephony_call this;
 	char *path;
-	struct spa_hook_list listener_list;
+	struct spa_callbacks callbacks;
 	void *user_data;
 
 	/* previous values of properties */
@@ -218,7 +218,7 @@ struct callimpl {
 	} prev;
 };
 
-#define ag_emit(ag,m,v,...) 		spa_hook_list_call_once(&ag->listener_list, struct spa_bt_telephony_ag_events, m, v, ##__VA_ARGS__)
+#define ag_emit(ag,m,v,...) 		spa_callbacks_call(&ag->callbacks, struct spa_bt_telephony_ag_callbacks, m, v, ##__VA_ARGS__)
 #define ag_emit_dial(s,n,e)		ag_emit(s,dial,0,n,e)
 #define ag_emit_swap_calls(s,e)		ag_emit(s,swap_calls,0,e)
 #define ag_emit_release_and_answer(s,e)	ag_emit(s,release_and_answer,0,e)
@@ -228,7 +228,7 @@ struct callimpl {
 #define ag_emit_create_multiparty(s,e)	ag_emit(s,create_multiparty,0,e)
 #define ag_emit_send_tones(s,t,e)	ag_emit(s,send_tones,0,t,e)
 
-#define call_emit(c,m,v,...) 	spa_hook_list_call_once(&c->listener_list, struct spa_bt_telephony_call_events, m, v, ##__VA_ARGS__)
+#define call_emit(c,m,v,...) 	spa_callbacks_call(&c->callbacks, struct spa_bt_telephony_call_callbacks, m, v, ##__VA_ARGS__)
 #define call_emit_answer(s,e)	call_emit(s,answer,0,e)
 #define call_emit_hangup(s,e)	call_emit(s,hangup,0,e)
 
@@ -913,7 +913,6 @@ telephony_ag_new(struct spa_bt_telephony *telephony, size_t user_data_size)
 	agimpl->this.telephony = telephony;
 	agimpl->this.id = find_free_object_id(&impl->ag_list, struct agimpl, link);
 	spa_list_init(&agimpl->this.call_list);
-	spa_hook_list_init(&agimpl->listener_list);
 
 	spa_list_append(&impl->ag_list, &agimpl->link);
 
@@ -934,7 +933,6 @@ void telephony_ag_destroy(struct spa_bt_telephony_ag *ag)
 
 	telephony_ag_unregister(ag);
 	spa_list_remove(&agimpl->link);
-	spa_hook_list_clean(&agimpl->listener_list);
 
 	free(agimpl);
 }
@@ -1088,13 +1086,13 @@ void telephony_ag_transport_notify_updated_props(struct spa_bt_telephony_ag *ag)
 	telephony_ag_transport_commit_properties(ag);
 }
 
-void telephony_ag_add_listener(struct spa_bt_telephony_ag *ag,
-	struct spa_hook *listener,
-	const struct spa_bt_telephony_ag_events *events,
+void telephony_ag_set_callbacks(struct spa_bt_telephony_ag *ag,
+	const struct spa_bt_telephony_ag_callbacks *cbs,
 	void *data)
 {
 	struct agimpl *agimpl = SPA_CONTAINER_OF(ag, struct agimpl, this);
-	spa_hook_list_append(&agimpl->listener_list, listener, events, data);
+	agimpl->callbacks.funcs = cbs;
+	agimpl->callbacks.data = data;
 }
 
 struct spa_bt_telephony_call *
@@ -1111,7 +1109,6 @@ telephony_call_new(struct spa_bt_telephony_ag *ag, size_t user_data_size)
 
 	callimpl->this.ag = ag;
 	callimpl->this.id = find_free_object_id(&ag->call_list, struct callimpl, this.link);
-	spa_hook_list_init(&callimpl->listener_list);
 
 	spa_list_append(&ag->call_list, &callimpl->this.link);
 
@@ -1131,7 +1128,6 @@ void telephony_call_destroy(struct spa_bt_telephony_call *call)
 
 	telephony_call_unregister(call);
 	spa_list_remove(&call->link);
-	spa_hook_list_clean(&callimpl->listener_list);
 
 	free(callimpl->prev.line_identification);
 	free(callimpl->prev.incoming_line);
@@ -1698,11 +1694,11 @@ void telephony_call_notify_updated_props(struct spa_bt_telephony_call *call)
 	telephony_call_commit_properties(call);
 }
 
-void telephony_call_add_listener(struct spa_bt_telephony_call *call,
-	struct spa_hook *listener,
-	const struct spa_bt_telephony_call_events *events,
+void telephony_call_set_callbacks(struct spa_bt_telephony_call *call,
+	const struct spa_bt_telephony_call_callbacks *cbs,
 	void *data)
 {
 	struct callimpl *callimpl = SPA_CONTAINER_OF(call, struct callimpl, this);
-	spa_hook_list_append(&callimpl->listener_list, listener, events, data);
+	callimpl->callbacks.funcs = cbs;
+	callimpl->callbacks.data = data;
 }

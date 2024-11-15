@@ -153,7 +153,6 @@ struct rfcomm_volume {
 struct rfcomm_call_data {
 	struct rfcomm *rfcomm;
 	struct spa_bt_telephony_call *call;
-	struct spa_hook listener;
 };
 
 struct rfcomm {
@@ -1331,7 +1330,7 @@ static bool hfp_hf_wait_for_reply(struct rfcomm *rfcomm, char *buf, size_t len)
 
 static void hfp_hf_answer(void *data, enum spa_bt_telephony_error *err)
 {
-	struct rfcomm_call_data *call_data = telephony_call_get_user_data(data);
+	struct rfcomm_call_data *call_data = data;
 	struct rfcomm *rfcomm = call_data->rfcomm;
 	struct impl *backend = rfcomm->backend;
 	char reply[20];
@@ -1353,7 +1352,7 @@ static void hfp_hf_answer(void *data, enum spa_bt_telephony_error *err)
 
 static void hfp_hf_hangup(void *data, enum spa_bt_telephony_error *err)
 {
-	struct rfcomm_call_data *call_data = telephony_call_get_user_data(data);
+	struct rfcomm_call_data *call_data = data;
 	struct rfcomm *rfcomm = call_data->rfcomm;
 	struct impl *backend = rfcomm->backend;
 	char reply[20];
@@ -1383,8 +1382,8 @@ static void hfp_hf_hangup(void *data, enum spa_bt_telephony_error *err)
 	*err = BT_TELEPHONY_ERROR_NONE;
 }
 
-static const struct spa_bt_telephony_call_events telephony_call_events = {
-	SPA_VERSION_BT_TELEPHONY_AG_EVENTS,
+static const struct spa_bt_telephony_call_callbacks telephony_call_callbacks = {
+	SPA_VERSION_BT_TELEPHONY_AG_CALLBACKS,
 	.answer = hfp_hf_answer,
 	.hangup = hfp_hf_hangup,
 };
@@ -1404,7 +1403,7 @@ static struct spa_bt_telephony_call *hfp_hf_add_call(struct rfcomm *rfcomm, stru
 	data = telephony_call_get_user_data(call);
 	data->rfcomm = rfcomm;
 	data->call = call;
-	telephony_call_add_listener(call, &data->listener, &telephony_call_events, call);
+	telephony_call_set_callbacks(call, &telephony_call_callbacks, data);
 	telephony_call_register(call);
 
 	return call;
@@ -1723,8 +1722,8 @@ static void hfp_hf_send_tones(void *data, const char *tones, enum spa_bt_telepho
 	*err = BT_TELEPHONY_ERROR_NONE;
 }
 
-static const struct spa_bt_telephony_ag_events telephony_ag_events = {
-	SPA_VERSION_BT_TELEPHONY_AG_EVENTS,
+static const struct spa_bt_telephony_ag_callbacks telephony_ag_callbacks = {
+	SPA_VERSION_BT_TELEPHONY_AG_CALLBACKS,
 	.dial = hfp_hf_dial,
 	.swap_calls = hfp_hf_swap_calls,
 	.release_and_answer = hfp_hf_release_and_answer,
@@ -2137,9 +2136,9 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 				}
 			}
 
-			rfcomm->telephony_ag = telephony_ag_new(backend->telephony, sizeof(struct spa_hook));
-			telephony_ag_add_listener(rfcomm->telephony_ag, telephony_ag_get_user_data(rfcomm->telephony_ag),
-						  &telephony_ag_events, rfcomm);
+			rfcomm->telephony_ag = telephony_ag_new(backend->telephony, 0);
+			telephony_ag_set_callbacks(rfcomm->telephony_ag,
+						  &telephony_ag_callbacks, rfcomm);
 			if (rfcomm->transport) {
 				rfcomm->telephony_ag->transport.codec = rfcomm->transport->codec;
 				rfcomm->telephony_ag->transport.state = rfcomm->transport->state;

@@ -59,8 +59,8 @@ struct spa_bt_telephony_call {
 	enum spa_bt_telephony_call_state state;
 };
 
-struct spa_bt_telephony_ag_events {
-#define SPA_VERSION_BT_TELEPHONY_AG_EVENTS	0
+struct spa_bt_telephony_ag_callbacks {
+#define SPA_VERSION_BT_TELEPHONY_AG_CALLBACKS	0
 	uint32_t version;
 
 	void (*dial)(void *data, const char *number, enum spa_bt_telephony_error *err);
@@ -73,8 +73,8 @@ struct spa_bt_telephony_ag_events {
 	void (*send_tones)(void *data, const char *tones, enum spa_bt_telephony_error *err);
 };
 
-struct spa_bt_telephony_call_events {
-#define SPA_VERSION_BT_TELEPHONY_CALL_EVENTS	0
+struct spa_bt_telephony_call_callbacks {
+#define SPA_VERSION_BT_TELEPHONY_CALL_CALLBACKS	0
 	uint32_t version;
 
 	void (*answer)(void *data, enum spa_bt_telephony_error *err);
@@ -94,9 +94,8 @@ void telephony_ag_destroy(struct spa_bt_telephony_ag *ag);
 /* get the user data structure; struct size is set when creating the AG */
 void *telephony_ag_get_user_data(struct spa_bt_telephony_ag *ag);
 
-void telephony_ag_add_listener(struct spa_bt_telephony_ag *ag,
-			       struct spa_hook *listener,
-			       const struct spa_bt_telephony_ag_events *events,
+void telephony_ag_set_callbacks(struct spa_bt_telephony_ag *ag,
+			       const struct spa_bt_telephony_ag_callbacks *cbs,
 			       void *data);
 
 void telephony_ag_transport_notify_updated_props(struct spa_bt_telephony_ag *ag);
@@ -121,9 +120,8 @@ void telephony_call_unregister(struct spa_bt_telephony_call *call);
 /* send message to notify about property changes */
 void telephony_call_notify_updated_props(struct spa_bt_telephony_call *call);
 
-void telephony_call_add_listener(struct spa_bt_telephony_call *call,
-				 struct spa_hook *listener,
-				 const struct spa_bt_telephony_call_events *events,
+void telephony_call_set_callbacks(struct spa_bt_telephony_call *call,
+				 const struct spa_bt_telephony_call_callbacks *cbs,
 				 void *data);
 
 #endif

@@ -2008,68 +2008,90 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 		}
 	} else if (spa_strstartswith(token, "+CLCC: ")) {
 		struct spa_bt_telephony_call *call;
+		size_t pos;
+		char *token_end;
 		int idx;
 		unsigned int status, mpty;
-		bool found = false;
+		bool parsed = false, found = false;
 
 		token[strcspn(token, "\r")] = 0;
 		token[strcspn(token, "\n")] = 0;
+		token_end = token + strlen(token);
 		token += strlen("+CLCC: ");
-		token[strcspn(token, ",")] = 0;
-		idx = atoi(token);
-		token += strcspn(token, "\0") + 1;
-		// Skip direction
-		token[strcspn(token, ",")] = 0;
-		token += strcspn(token, "\0") + 1;
-		token[strcspn(token, ",")] = 0;
-		status = atoi(token);
-		token += strcspn(token, "\0") + 1;
-		// Skip mode
-		token[strcspn(token, ",")] = 0;
-		token += strcspn(token, "\0") + 1;
-		token[strcspn(token, ",")] = 0;
-		mpty = atoi(token);
-		token += strcspn(token, "\0") + 1;
-		if (strlen(token) > 0) {
+
+		if (token < token_end) {
+			pos = strcspn(token, ",");
+			token[pos] = '\0';
+			idx = atoi(token);
+			token += pos + 1;
+		}
+		if (token < token_end) {
+			// Skip direction
+			pos = strcspn(token, ",");
+			token += pos + 1;
+		}
+		if (token < token_end) {
+			pos = strcspn(token, ",");
+			token[pos] = '\0';
+			status = atoi(token);
+			token += pos + 1;
+		}
+		if (token < token_end) {
+			// Skip mode
+			pos = strcspn(token, ",");
+			token += pos + 1;
+		}
+		if (token < token_end) {
+			pos = strcspn(token, ",");
+			token[pos] = '\0';
+			mpty = atoi(token);
+			token += pos + 1;
+		}
+		if (token < token_end) {
 			if (sscanf(token, "\"%16[^\"]\",%u", number, &type) != 2) {
 				spa_log_warn(backend->log, "Failed to parse number: %s", token);
 				number[0] = '\0';
 			}
+			parsed = true;
 		}
 
-		spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
-			if (call->id == idx) {
-				bool changed = false;
+		if (SPA_LIKELY (parsed)) {
+			spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+				if (call->id == idx) {
+					bool changed = false;
 
-				found = true;
+					found = true;
 
-				if (call->state != status) {
-					call->state =status;
-					changed = true;
-				}
-				if (call->multiparty != mpty) {
-					call->multiparty = mpty;
-					changed = true;
-				}
-				if (strlen(number) && !spa_streq(number, call->line_identification)) {
-					if (call->line_identification)
-						free(call->line_identification);
-					call->line_identification = strdup(number);
-					changed = true;
-				}
+					if (call->state != status) {
+						call->state =status;
+						changed = true;
+					}
+					if (call->multiparty != mpty) {
+						call->multiparty = mpty;
+						changed = true;
+					}
+					if (strlen(number) && !spa_streq(number, call->line_identification)) {
+						if (call->line_identification)
+							free(call->line_identification);
+						call->line_identification = strdup(number);
+						changed = true;
+					}
 
-				if (changed)
-					telephony_call_notify_updated_props(call);
+					if (changed)
+						telephony_call_notify_updated_props(call);
+				}
 			}
-		}
 
-		if (!found) {
-			spa_log_info(backend->log, "New call, initial state: %u", status);
-			call = hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, status, strlen(number) ? number : NULL);
-			if (call == NULL)
-				spa_log_warn(backend->log, "failed to create call");
-			else if (call->id != idx)
-				spa_log_warn(backend->log, "wrong call index: %d, expected: %d", call->id, idx);
+			if (!found) {
+				spa_log_info(backend->log, "New call, initial state: %u", status);
+				call = hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, status, strlen(number) ? number : NULL);
+				if (call == NULL)
+					spa_log_warn(backend->log, "failed to create call");
+				else if (call->id != idx)
+					spa_log_warn(backend->log, "wrong call index: %d, expected: %d", call->id, idx);
+			}
+		} else {
+			spa_log_warn(backend->log, "malformed +CLCC command received from AG");
 		}
 
 		rfcomm->hfp_hf_in_progress = false;

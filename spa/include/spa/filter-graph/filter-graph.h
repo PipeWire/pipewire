@@ -32,9 +32,23 @@ extern "C" {
 #define SPA_VERSION_FILTER_GRAPH		0
 struct spa_filter_graph { struct spa_interface iface; };
 
+struct spa_filter_graph_info {
+	uint32_t n_inputs;
+	uint32_t n_outputs;
+
+#define SPA_FILTER_GRAPH_CHANGE_MASK_FLAGS		(1u<<0)
+#define SPA_FILTER_GRAPH_CHANGE_MASK_PROPS		(1u<<1)
+	uint64_t change_mask;
+
+	uint64_t flags;
+	struct spa_dict *props;
+};
+
 struct spa_filter_graph_events {
 #define SPA_VERSION_FILTER_GRAPH_EVENTS	0
 	uint32_t version;
+
+	void (*info) (void *object, const struct spa_filter_graph_info *info);
 
 	void (*apply_props) (void *object, enum spa_direction direction, const struct spa_pod *props);
 

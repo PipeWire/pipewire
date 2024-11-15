@@ -1088,6 +1088,30 @@ done:
 	return res < 0 ? res : 0;
 }
 
+static void copy_position(struct spa_audio_info_raw *dst, const struct spa_audio_info_raw *src)
+{
+	if (SPA_FLAG_IS_SET(dst->flags, SPA_AUDIO_FLAG_UNPOSITIONED) &&
+	    !SPA_FLAG_IS_SET(src->flags, SPA_AUDIO_FLAG_UNPOSITIONED)) {
+		for (uint32_t i = 0; i < src->channels; i++)
+			dst->position[i] = src->position[i];
+		SPA_FLAG_CLEAR(dst->flags, SPA_AUDIO_FLAG_UNPOSITIONED);
+	}
+}
+
+static void graph_info(void *object, const struct spa_filter_graph_info *info)
+{
+	struct impl *impl = object;
+	if (impl->capture_info.channels == 0)
+		impl->capture_info.channels = info->n_inputs;
+	if (impl->playback_info.channels == 0)
+		impl->playback_info.channels = info->n_outputs;
+
+	if (impl->capture_info.channels == impl->playback_info.channels) {
+		copy_position(&impl->capture_info, &impl->playback_info);
+		copy_position(&impl->playback_info, &impl->capture_info);
+	}
+}
+
 static void graph_apply_props(void *object, enum spa_direction direction, const struct spa_pod *props)
 {
 	struct impl *impl = object;
@@ -1113,6 +1137,7 @@ static void graph_props_changed(void *object, enum spa_direction direction)
 
 struct spa_filter_graph_events graph_events = {
 	SPA_VERSION_FILTER_GRAPH_EVENTS,
+	.info = graph_info,
 	.apply_props = graph_apply_props,
 	.props_changed = graph_props_changed,
 };

@@ -46,6 +46,7 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.filter-graph");
 		spa_hook_list_call_simple(hooks, struct spa_filter_graph_events,	\
 				method, version, ##__VA_ARGS__)
 
+#define spa_filter_graph_emit_info(hooks,...)		spa_filter_graph_emit(hooks,info, 0, __VA_ARGS__)
 #define spa_filter_graph_emit_apply_props(hooks,...)	spa_filter_graph_emit(hooks,apply_props, 0, __VA_ARGS__)
 #define spa_filter_graph_emit_props_changed(hooks,...)	spa_filter_graph_emit(hooks,props_changed, 0, __VA_ARGS__)
 
@@ -190,14 +191,14 @@ struct impl {
 	struct spa_fga_dsp *dsp;
 	struct spa_plugin_loader *loader;
 
+	uint64_t info_all;
+	struct spa_filter_graph_info info;
+
 	struct graph graph;
 
 	uint32_t quantum_limit;
 	uint32_t max_align;
 	long unsigned rate;
-
-	uint32_t in_ports;
-	uint32_t out_ports;
 
 	struct spa_list plugin_list;
 
@@ -205,6 +206,17 @@ struct impl {
 	float *discard_data;
 };
 
+static void emit_filter_graph_info(struct impl *impl, bool full)
+{
+	uint64_t old = full ? impl->info.change_mask : 0;
+
+	if (full)
+		impl->info.change_mask = impl->info_all;
+	if (impl->info.change_mask || full) {
+		spa_filter_graph_emit_info(&impl->hooks, &impl->info);
+		impl->info.change_mask = old;
+	}
+}
 static int
 impl_add_listener(void *object,
 		struct spa_hook *listener,
@@ -216,6 +228,9 @@ impl_add_listener(void *object,
 
 	spa_log_trace(impl->log, "%p: add listener %p", impl, listener);
 	spa_hook_list_isolate(&impl->hooks, &save, listener, events, data);
+
+	emit_filter_graph_info(impl, true);
+
 	spa_hook_list_join(&impl->hooks, &save);
 
 	return 0;
@@ -1591,21 +1606,21 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		goto error;
 	}
 
-	if (impl->in_ports == 0)
-		impl->in_ports = n_input;
-	if (impl->out_ports == 0)
-		impl->out_ports = n_output;
+	if (impl->info.n_inputs == 0)
+		impl->info.n_inputs = n_input;
+	if (impl->info.n_outputs == 0)
+		impl->info.n_outputs = n_output;
 
 	/* compare to the requested number of inputs and duplicate the
 	 * graph n_hndl times when needed. */
-	n_hndl = impl->in_ports / n_input;
-	if (n_hndl != impl->out_ports / n_output) {
+	n_hndl = impl->info.n_inputs / n_input;
+	if (n_hndl != impl->info.n_outputs / n_output) {
 		spa_log_error(impl->log, "invalid ports. The input stream has %1$d ports and "
 				"the filter has %2$d inputs. The output stream has %3$d ports "
 				"and the filter has %4$d outputs. input:%1$d / input:%2$d != "
 				"output:%3$d / output:%4$d. Check inputs and outputs objects.",
-				impl->in_ports, n_input,
-				impl->out_ports, n_output);
+				impl->info.n_inputs, n_input,
+				impl->info.n_outputs, n_output);
 		res = -EINVAL;
 		goto error;
 	}
@@ -1621,8 +1636,8 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 				"the filter has %2$d inputs. The output stream has %3$d ports "
 				"and the filter has %4$d outputs. Some filter ports will be "
 				"unconnected..",
-				impl->in_ports, n_input,
-				impl->out_ports, n_output);
+				impl->info.n_inputs, n_input,
+				impl->info.n_outputs, n_output);
 	}
 	spa_log_info(impl->log, "using %d instances %d %d", n_hndl, n_input, n_output);
 
@@ -2027,9 +2042,9 @@ impl_init(const struct spa_handle_factory *factory,
 		if (spa_streq(k, "clock.quantum-limit"))
 			spa_atou32(s, &impl->quantum_limit, 0);
 		if (spa_streq(k, "filter-graph.n_inputs"))
-			spa_atou32(s, &impl->in_ports, 0);
+			spa_atou32(s, &impl->info.n_inputs, 0);
 		if (spa_streq(k, "filter-graph.n_outputs"))
-			spa_atou32(s, &impl->out_ports, 0);
+			spa_atou32(s, &impl->info.n_outputs, 0);
 	}
 	if (impl->quantum_limit == 0)
 		return -EINVAL;

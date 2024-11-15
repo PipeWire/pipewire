@@ -610,7 +610,10 @@ struct pw_node_activation {
 	uint32_t segment_owner[16];			/* id of owners for each segment info struct.
 							 * nodes that want to update segment info need to
 							 * CAS their node id in this array. */
-	uint32_t padding[11];				/* must be 0 */
+	uint64_t prev_awake_time;
+	uint64_t prev_finish_time;
+	uint32_t padding[7];				/* must be 0 */
+
 	uint32_t client_version;			/* verions of client, see above */
 	uint32_t server_version;			/* verions of server, see above */
 

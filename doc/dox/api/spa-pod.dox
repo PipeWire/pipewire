@@ -383,9 +383,9 @@ spa_pod_parser_get_struct(&p,
 To parse properties in an object:
 
 \code{.c}
-uint32_t type, subtype, format, rate, channels;
+uint32_t id, type, subtype, format, rate, channels;
 spa_pod_parser_get_object(&p,
-	SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+	SPA_TYPE_OBJECT_Format, &id,
 	SPA_FORMAT_mediaType,      SPA_POD_Id(&type),
 	SPA_FORMAT_mediaSubtype,   SPA_POD_Id(&subtype),
 	SPA_FORMAT_AUDIO_format,   SPA_POD_Id(&format),
@@ -401,9 +401,9 @@ In the next example, the rate and channels fields are optional
 and when they are not present, the variables will not be changed.
 
 \code{.c}
-uint32_t type, subtype, format, rate = 0, channels = 0;
+uint32_t id, type, subtype, format, rate = 0, channels = 0;
 spa_pod_parser_get_object(&p,
-	SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+	SPA_TYPE_OBJECT_Format, &id,
 	SPA_FORMAT_mediaType,      SPA_POD_Id(&type),
 	SPA_FORMAT_mediaSubtype,   SPA_POD_Id(&subtype),
 	SPA_FORMAT_AUDIO_format,   SPA_POD_Id(&format),
@@ -425,10 +425,10 @@ manually, if needed.
 Here is an example of parsing the format values as a POD:
 
 \code{.c}
-uint32_t type, subtype;
+uint32_t id, type, subtype;
 struct spa_pod *format;
 spa_pod_parser_get_object(&p,
-	SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+	SPA_TYPE_OBJECT_Format, &id,
 	SPA_FORMAT_mediaType,      SPA_POD_Id(&type),
 	SPA_FORMAT_mediaSubtype,   SPA_POD_Id(&subtype),
 	SPA_FORMAT_AUDIO_format,   SPA_POD_Pod(&format));

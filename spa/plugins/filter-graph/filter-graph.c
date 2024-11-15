@@ -1608,12 +1608,14 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 
 	if (impl->info.n_inputs == 0)
 		impl->info.n_inputs = n_input;
-	if (impl->info.n_outputs == 0)
-		impl->info.n_outputs = n_output;
 
 	/* compare to the requested number of inputs and duplicate the
 	 * graph n_hndl times when needed. */
 	n_hndl = impl->info.n_inputs / n_input;
+
+	if (impl->info.n_outputs == 0)
+		impl->info.n_outputs = n_output * n_hndl;
+
 	if (n_hndl != impl->info.n_outputs / n_output) {
 		spa_log_error(impl->log, "invalid ports. The input stream has %1$d ports and "
 				"the filter has %2$d inputs. The output stream has %3$d ports "
@@ -1638,6 +1640,9 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 				"unconnected..",
 				impl->info.n_inputs, n_input,
 				impl->info.n_outputs, n_output);
+
+		if (impl->info.n_outputs == 0)
+			impl->info.n_outputs = n_output * n_hndl;
 	}
 	spa_log_info(impl->log, "using %d instances %d %d", n_hndl, n_input, n_output);
 

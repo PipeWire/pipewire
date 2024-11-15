@@ -2006,7 +2006,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			if (call == NULL)
 				spa_log_warn(backend->log, "failed to create waiting call");
 		}
-	} else if (spa_strstartswith(token, "+CLCC: ")) {
+	} else if (spa_strstartswith(token, "+CLCC:")) {
 		struct spa_bt_telephony_call *call;
 		size_t pos;
 		char *token_end;
@@ -2017,7 +2017,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 		token[strcspn(token, "\r")] = 0;
 		token[strcspn(token, "\n")] = 0;
 		token_end = token + strlen(token);
-		token += strlen("+CLCC: ");
+		token += strlen("+CLCC:");
 
 		if (token < token_end) {
 			pos = strcspn(token, ",");

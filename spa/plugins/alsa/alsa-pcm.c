@@ -3575,9 +3575,8 @@ static int do_state_sync(struct spa_loop *loop, bool async, uint32_t seq,
 			rt->driver = state->driver;
 			spa_log_debug(state->log, "state:%p -> driver:%p", state, state->driver);
 
-			if(state->linked && state->matching) {
+			if(state->linked && state->matching)
 				try_unlink(state);
-			}
 		}
 		if (state->following) {
 			remove_sources(state);
@@ -3749,6 +3748,8 @@ int spa_alsa_reassign_follower(struct state *state)
 	setup_matching(state);
 	if (state->started)
 		spa_loop_invoke(state->data_loop, do_state_sync, 0, NULL, 0, true, state);
+	else if (state->want_started)
+		spa_alsa_start(state);
 
 	freewheel = pos != NULL && SPA_FLAG_IS_SET(pos->clock.flags, SPA_IO_CLOCK_FLAG_FREEWHEEL);
 	if (state->freewheel != freewheel) {

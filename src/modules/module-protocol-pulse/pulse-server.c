@@ -2143,6 +2143,7 @@ static int do_get_playback_latency(struct client *client, uint32_t command, uint
 	uint32_t channel;
 	struct timeval tv, now;
 	struct stream *stream;
+	uint64_t delay;
 	int res;
 
 	if ((res = message_get(m,
@@ -2164,9 +2165,11 @@ static int do_get_playback_latency(struct client *client, uint32_t command, uint
 
 	gettimeofday(&now, NULL);
 
+	delay = SPA_CLAMP(stream->delay, 0, INT64_MAX);
+
 	reply = reply_new(client, tag);
 	message_put(reply,
-		TAG_USEC, stream->delay,	/* sink latency + queued samples */
+		TAG_USEC, delay,	/* sink latency + queued samples */
 		TAG_USEC, 0LL,			/* always 0 */
 		TAG_BOOLEAN, stream->playing_for > 0 &&
 				!stream->corked,	/* playing state */
@@ -2192,6 +2195,7 @@ static int do_get_record_latency(struct client *client, uint32_t command, uint32
 	uint32_t channel;
 	struct timeval tv, now;
 	struct stream *stream;
+	uint64_t delay;
 	int res;
 
 	if ((res = message_get(m,
@@ -2211,10 +2215,13 @@ static int do_get_record_latency(struct client *client, uint32_t command, uint32
 
 
 	gettimeofday(&now, NULL);
+
+	delay = SPA_CLAMP(stream->delay, 0, INT64_MAX);
+
 	reply = reply_new(client, tag);
 	message_put(reply,
 		TAG_USEC, 0LL,			/* monitor latency */
-		TAG_USEC, stream->delay,	/* source latency + queued */
+		TAG_USEC, delay,	/* source latency + queued */
 		TAG_BOOLEAN, !stream->corked,	/* playing state */
 		TAG_TIMEVAL, &tv,
 		TAG_TIMEVAL, &now,

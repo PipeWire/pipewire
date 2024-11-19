@@ -334,22 +334,40 @@ struct pw_core_methods {
 	int (*destroy) (void *object, void *proxy);
 };
 
-#define pw_core_method(o,method,version,...)			\
-({									\
-	int _res = -ENOTSUP;						\
-	spa_interface_call_res((struct spa_interface*)o,		\
-			struct pw_core_methods, _res,		\
-			method, version, ##__VA_ARGS__);		\
-	_res;								\
-})
 
-#define pw_core_add_listener(c,...)	pw_core_method(c,add_listener,0,__VA_ARGS__)
-#define pw_core_hello(c,...)		pw_core_method(c,hello,0,__VA_ARGS__)
-#define pw_core_sync(c,...)		pw_core_method(c,sync,0,__VA_ARGS__)
-#define pw_core_pong(c,...)		pw_core_method(c,pong,0,__VA_ARGS__)
-#define pw_core_error(c,...)		pw_core_method(c,error,0,__VA_ARGS__)
-
-
+static inline int pw_core_add_listener(struct pw_core *object,
+			struct spa_hook *listener,
+			const struct pw_core_events *events,
+			void *data)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			pw_core, (struct spa_interface*)object, add_listener, 0,
+			listener, events, data);
+}
+static inline int pw_core_hello(struct pw_core *object, uint32_t version)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			pw_core, (struct spa_interface*)object, hello, 0,
+			version);
+}
+static inline int pw_core_sync(struct pw_core *object, uint32_t id, int seq)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			pw_core, (struct spa_interface*)object, sync, 0,
+			id, seq);
+}
+static inline int pw_core_pong(struct pw_core *object, uint32_t id, int seq)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			pw_core, (struct spa_interface*)object, pong, 0,
+			id, seq);
+}
+static inline int pw_core_error(struct pw_core *object, uint32_t id, int seq, int res, const char *message)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			pw_core, (struct spa_interface*)object, error, 0,
+			id, seq, res, message);
+}
 static inline
 SPA_PRINTF_FUNC(5, 0) int
 pw_core_errorv(struct pw_core *core, uint32_t id, int seq,
@@ -377,13 +395,10 @@ pw_core_errorf(struct pw_core *core, uint32_t id, int seq,
 static inline struct pw_registry *
 pw_core_get_registry(struct pw_core *core, uint32_t version, size_t user_data_size)
 {
-	struct pw_registry *res = NULL;
-	spa_interface_call_res((struct spa_interface*)core,
-			struct pw_core_methods, res,
-			get_registry, 0, version, user_data_size);
-	return res;
+	return spa_api_method_r(struct pw_registry*, NULL,
+			pw_core, (struct spa_interface*)core, get_registry, 0,
+			version, user_data_size);
 }
-
 static inline void *
 pw_core_create_object(struct pw_core *core,
 			    const char *factory_name,
@@ -392,15 +407,16 @@ pw_core_create_object(struct pw_core *core,
 			    const struct spa_dict *props,
 			    size_t user_data_size)
 {
-	void *res = NULL;
-	spa_interface_call_res((struct spa_interface*)core,
-			struct pw_core_methods, res,
-			create_object, 0, factory_name,
-			type, version, props, user_data_size);
-	return res;
+	return spa_api_method_r(void*, NULL,
+			pw_core, (struct spa_interface*)core, create_object, 0,
+			factory_name, type, version, props, user_data_size);
 }
-
-#define pw_core_destroy(c,...)		pw_core_method(c,destroy,0,__VA_ARGS__)
+static inline void
+pw_core_destroy(struct pw_core *core, void *proxy)
+{
+	spa_api_method_v(pw_core, (struct spa_interface*)core, destroy, 0,
+			proxy);
+}
 
 /**
  * \}
@@ -516,31 +532,31 @@ struct pw_registry_methods {
 	int (*destroy) (void *object, uint32_t id);
 };
 
-#define pw_registry_method(o,method,version,...)			\
-({									\
-	int _res = -ENOTSUP;						\
-	spa_interface_call_res((struct spa_interface*)o,		\
-			struct pw_registry_methods, _res,		\
-			method, version, ##__VA_ARGS__);		\
-	_res;								\
-})
-
 /** Registry */
-#define pw_registry_add_listener(p,...)	pw_registry_method(p,add_listener,0,__VA_ARGS__)
-
+static inline int pw_registry_add_listener(struct pw_registry *registry,
+			struct spa_hook *listener,
+			const struct pw_registry_events *events,
+			void *data)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			pw_registry, (struct spa_interface*)registry, add_listener, 0,
+			listener, events, data);
+}
 static inline void *
 pw_registry_bind(struct pw_registry *registry,
 		       uint32_t id, const char *type, uint32_t version,
 		       size_t user_data_size)
 {
-	void *res = NULL;
-	spa_interface_call_res((struct spa_interface*)registry,
-			struct pw_registry_methods, res,
-			bind, 0, id, type, version, user_data_size);
-	return res;
+	return spa_api_method_r(void*, NULL,
+			pw_registry, (struct spa_interface*)registry, bind, 0,
+			id, type, version, user_data_size);
 }
-
-#define pw_registry_destroy(p,...)	pw_registry_method(p,destroy,0,__VA_ARGS__)
+static inline int
+pw_registry_destroy(struct pw_registry *registry, uint32_t id)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			pw_registry, (struct spa_interface*)registry, destroy, 0, id);
+}
 
 /**
  * \}

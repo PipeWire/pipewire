@@ -83,28 +83,59 @@ struct spa_filter_graph_methods {
 			struct spa_filter_graph_chunk out[], uint32_t n_out);
 };
 
-#define spa_filter_graph_method_r(o,method,version,...)			\
-({									\
-	volatile int _res = -ENOTSUP;					\
-	struct spa_filter_graph *_o = o;				\
-	spa_interface_call_fast_res(&_o->iface,				\
-			struct spa_filter_graph_methods, _res,		\
-			method, version, ##__VA_ARGS__);		\
-	_res;								\
-})
+static inline int spa_filter_graph_add_listener(struct spa_filter_graph *object,
+			struct spa_hook *listener,
+			const struct spa_filter_graph_events *events, void *data)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			spa_filter_graph, &object->iface, add_listener, 0, listener,
+			events, data);
+}
 
-#define spa_filter_graph_add_listener(o,...)	spa_filter_graph_method_r(o,add_listener,0,__VA_ARGS__)
+static inline int spa_filter_graph_enum_prop_info(struct spa_filter_graph *object,
+		uint32_t idx, struct spa_pod_builder *b)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			spa_filter_graph, &object->iface, enum_prop_info, 0, idx, b);
+}
+static inline int spa_filter_graph_get_props(struct spa_filter_graph *object,
+		struct spa_pod_builder *b, const struct spa_pod **props)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			spa_filter_graph, &object->iface, get_props, 0, b, props);
+}
 
-#define spa_filter_graph_enum_prop_info(o,...)	spa_filter_graph_method_r(o,enum_prop_info,0,__VA_ARGS__)
-#define spa_filter_graph_get_props(o,...)	spa_filter_graph_method_r(o,get_props,0,__VA_ARGS__)
-#define spa_filter_graph_set_props(o,...)	spa_filter_graph_method_r(o,set_props,0,__VA_ARGS__)
+static inline int spa_filter_graph_set_props(struct spa_filter_graph *object,
+		enum spa_direction direction, const struct spa_pod *props)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			spa_filter_graph, &object->iface, set_props, 0, direction, props);
+}
 
-#define spa_filter_graph_activate(o,...)	spa_filter_graph_method_r(o,activate,0,__VA_ARGS__)
-#define spa_filter_graph_deactivate(o)		spa_filter_graph_method_r(o,deactivate,0)
+static inline int spa_filter_graph_activate(struct spa_filter_graph *object, const struct spa_fraction *rate)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			spa_filter_graph, &object->iface, activate, 0, rate);
+}
+static inline int spa_filter_graph_deactivate(struct spa_filter_graph *object)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			spa_filter_graph, &object->iface, deactivate, 0);
+}
 
-#define spa_filter_graph_reset(o)		spa_filter_graph_method_r(o,reset,0)
+static inline int spa_filter_graph_reset(struct spa_filter_graph *object)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			spa_filter_graph, &object->iface, reset, 0);
+}
 
-#define spa_filter_graph_process(o,...)		spa_filter_graph_method_r(o,process,0,__VA_ARGS__)
+static inline int spa_filter_graph_process(struct spa_filter_graph *object,
+			const struct spa_filter_graph_chunk in[], uint32_t n_in,
+			struct spa_filter_graph_chunk out[], uint32_t n_out)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			spa_filter_graph, &object->iface, process, 0, in, n_in, out, n_out);
+}
 
 /**
  * \}

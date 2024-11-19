@@ -89,19 +89,30 @@ struct pw_metadata_methods {
 	int (*clear) (void *object);
 };
 
-
-#define pw_metadata_method(o,method,version,...)			\
-({									\
-	int _res = -ENOTSUP;						\
-	spa_interface_call_res((struct spa_interface*)o,		\
-			struct pw_metadata_methods, _res,		\
-			method, version, ##__VA_ARGS__);		\
-	_res;								\
-})
-
-#define pw_metadata_add_listener(c,...)		pw_metadata_method(c,add_listener,0,__VA_ARGS__)
-#define pw_metadata_set_property(c,...)		pw_metadata_method(c,set_property,0,__VA_ARGS__)
-#define pw_metadata_clear(c)			pw_metadata_method(c,clear,0)
+static inline int pw_metadata_add_listener(struct pw_metadata *object,
+			struct spa_hook *listener,
+			const struct pw_metadata_events *events,
+			void *data)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			pw_metadata, (struct spa_interface*)object, add_listener, 0,
+			listener, events, data);
+}
+static inline int pw_metadata_set_property(struct pw_metadata *object,
+			uint32_t subject,
+			const char *key,
+			const char *type,
+			const char *value)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			pw_metadata, (struct spa_interface*)object, set_property, 0,
+			subject, key, type, value);
+}
+static inline int pw_metadata_clear(struct pw_metadata *object)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			pw_metadata, (struct spa_interface*)object, clear, 0);
+}
 
 #define PW_KEY_METADATA_NAME		"metadata.name"
 #define PW_KEY_METADATA_VALUES		"metadata.values"

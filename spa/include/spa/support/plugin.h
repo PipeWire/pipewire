@@ -9,7 +9,10 @@
 extern "C" {
 #endif
 
+#include <errno.h>
+
 #include <spa/utils/defs.h>
+#include <spa/utils/hook.h>
 #include <spa/utils/dict.h>
 
 /**
@@ -51,8 +54,17 @@ struct spa_handle {
 	int (*clear) (struct spa_handle *handle);
 };
 
-#define spa_handle_get_interface(h,...)	(h)->get_interface((h),__VA_ARGS__)
-#define spa_handle_clear(h)		(h)->clear((h))
+static inline int
+spa_handle_get_interface(struct spa_handle *object,
+		const char *type, void **iface)
+{
+	return spa_api_func_r(int, -ENOTSUP, object, get_interface, 0, type, iface);
+}
+static inline int
+spa_handle_clear(struct spa_handle *object)
+{
+	return spa_api_func_r(int, -ENOTSUP, object, clear, 0);
+}
 
 /**
  * This structure lists the information about available interfaces on
@@ -158,9 +170,27 @@ struct spa_handle_factory {
 				    uint32_t *index);
 };
 
-#define spa_handle_factory_get_size(h,...)		(h)->get_size((h),__VA_ARGS__)
-#define spa_handle_factory_init(h,...)			(h)->init((h),__VA_ARGS__)
-#define spa_handle_factory_enum_interface_info(h,...)	(h)->enum_interface_info((h),__VA_ARGS__)
+static inline size_t
+spa_handle_factory_get_size(const struct spa_handle_factory *object,
+		const struct spa_dict *params)
+{
+	return spa_api_func_r(size_t, 0, object, get_size, 1, params);
+}
+static inline int
+spa_handle_factory_init(const struct spa_handle_factory *object,
+		struct spa_handle *handle, const struct spa_dict *info,
+		const struct spa_support *support, uint32_t n_support)
+{
+	return spa_api_func_r(int, -ENOTSUP, object, init, 1, handle, info,
+			support, n_support);
+}
+static inline int
+spa_handle_factory_enum_interface_info(const struct spa_handle_factory *object,
+		const struct spa_interface_info **info, uint32_t *index)
+{
+	return spa_api_func_r(int, -ENOTSUP, object, enum_interface_info, 1,
+			info, index);
+}
 
 /**
  * The function signature of the entry point in a plugin.

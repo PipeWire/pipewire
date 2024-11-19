@@ -51,23 +51,15 @@ struct spa_plugin_loader_methods {
 static inline struct spa_handle *
 spa_plugin_loader_load(struct spa_plugin_loader *loader, const char *factory_name, const struct spa_dict *info)
 {
-	struct spa_handle *res = NULL;
-	if (SPA_LIKELY(loader != NULL))
-		spa_interface_call_res(&loader->iface,
-				struct spa_plugin_loader_methods, res,
-				load, 0, factory_name, info);
-	return res;
+	return spa_api_method_null_r(struct spa_handle *, NULL, spa_plugin_loader, &loader->iface,
+			load, 0, factory_name, info);
 }
 
 static inline int
 spa_plugin_loader_unload(struct spa_plugin_loader *loader, struct spa_handle *handle)
 {
-	int res = -1;
-	if (SPA_LIKELY(loader != NULL))
-		spa_interface_call_res(&loader->iface,
-				struct spa_plugin_loader_methods, res,
-				unload, 0, handle);
-	return res;
+	return spa_api_method_null_r(int, -1, spa_plugin_loader, &loader->iface,
+			unload, 0, handle);
 }
 
 /**

@@ -220,20 +220,34 @@ struct spa_device_methods {
 			  const struct spa_pod *param);
 };
 
-#define spa_device_method(o,method,version,...)				\
-({									\
-	int _res = -ENOTSUP;						\
-	struct spa_device *_o = (o);					\
-	spa_interface_call_res(&_o->iface,				\
-			struct spa_device_methods, _res,		\
-			method, (version), ##__VA_ARGS__);		\
-	_res;								\
-})
+static inline int spa_device_add_listener(struct spa_device *object,
+			struct spa_hook *listener,
+			const struct spa_device_events *events,
+			void *data)
+{
+	return spa_api_method_r(int, -ENOTSUP, spa_device, &object->iface, add_listener, 0,
+			listener, events, data);
 
-#define spa_device_add_listener(d,...)	spa_device_method(d, add_listener, 0, __VA_ARGS__)
-#define spa_device_sync(d,...)		spa_device_method(d, sync, 0, __VA_ARGS__)
-#define spa_device_enum_params(d,...)	spa_device_method(d, enum_params, 0, __VA_ARGS__)
-#define spa_device_set_param(d,...)	spa_device_method(d, set_param, 0, __VA_ARGS__)
+}
+static inline int spa_device_sync(struct spa_device *object, int seq)
+{
+	return spa_api_method_r(int, -ENOTSUP, spa_device, &object->iface, sync, 0,
+			seq);
+}
+static inline int spa_device_enum_params(struct spa_device *object, int seq,
+			    uint32_t id, uint32_t index, uint32_t max,
+			    const struct spa_pod *filter)
+{
+	return spa_api_method_r(int, -ENOTSUP, spa_device, &object->iface, enum_params, 0,
+			seq, id, index, max, filter);
+}
+static inline int spa_device_set_param(struct spa_device *object,
+			  uint32_t id, uint32_t flags,
+			  const struct spa_pod *param)
+{
+	return spa_api_method_r(int, -ENOTSUP, spa_device, &object->iface, set_param, 0,
+			id, flags, param);
+}
 
 #define SPA_KEY_DEVICE_ENUM_API		"device.enum.api"	/**< the api used to discover this
 								  *  device */

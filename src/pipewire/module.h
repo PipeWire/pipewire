@@ -81,16 +81,15 @@ struct pw_module_methods {
 			void *data);
 };
 
-#define pw_module_method(o,method,version,...)				\
-({									\
-	int _res = -ENOTSUP;						\
-	spa_interface_call_res((struct spa_interface*)o,		\
-			struct pw_module_methods, _res,			\
-			method, version, ##__VA_ARGS__);		\
-	_res;								\
-})
-
-#define pw_module_add_listener(c,...)	pw_module_method(c,add_listener,0,__VA_ARGS__)
+static inline int pw_module_add_listener(struct pw_module *object,
+			struct spa_hook *listener,
+			const struct pw_module_events *events,
+			void *data)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			pw_module, (struct spa_interface*)object, add_listener, 0,
+			listener, events, data);
+}
 
 /**
  * \}

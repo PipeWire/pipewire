@@ -61,43 +61,108 @@ struct spa_fga_dsp_methods {
 			float *dst, const float *src, uint32_t n_samples);
 };
 
-#define spa_fga_dsp_method_r(o,type,method,version,...)			\
-({									\
-	type _res = NULL;						\
-	struct spa_fga_dsp *_o = o;					\
-	spa_interface_call_fast_res(&_o->iface,				\
-			struct spa_fga_dsp_methods, _res,		\
-			method, version, ##__VA_ARGS__);		\
-	_res;								\
-})
+static inline void spa_fga_dsp_clear(struct spa_fga_dsp *obj, void * SPA_RESTRICT dst, uint32_t n_samples)
+{
+	spa_api_method_v(spa_fga_dsp, &obj->iface, clear, 0,
+			dst, n_samples);
+}
+static inline void spa_fga_dsp_copy(struct spa_fga_dsp *obj,
+		void * SPA_RESTRICT dst,
+		const void * SPA_RESTRICT src, uint32_t n_samples)
+{
+	spa_api_method_v(spa_fga_dsp, &obj->iface, copy, 0,
+			dst, src, n_samples);
+}
+static inline void spa_fga_dsp_mix_gain(struct spa_fga_dsp *obj,
+		void * SPA_RESTRICT dst,
+		const void * SPA_RESTRICT src[],
+		float gain[], uint32_t n_src, uint32_t n_samples)
+{
+	spa_api_method_v(spa_fga_dsp, &obj->iface, mix_gain, 0,
+			dst, src, gain, n_src, n_samples);
+}
+static inline void spa_fga_dsp_sum(struct spa_fga_dsp *obj,
+		float * dst, const float * SPA_RESTRICT a,
+		const float * SPA_RESTRICT b, uint32_t n_samples)
+{
+	spa_api_method_v(spa_fga_dsp, &obj->iface, sum, 0,
+			dst, a, b, n_samples);
+}
 
-
-#define spa_fga_dsp_method(o,method,version,...)			\
-({									\
-	struct spa_fga_dsp *_o = o;					\
-	spa_interface_call_fast(&_o->iface,				\
-			struct spa_fga_dsp_methods,			\
-			method, version, ##__VA_ARGS__);		\
-})
-
-
-#define spa_fga_dsp_clear(o,...)	spa_fga_dsp_method(o,clear,0,__VA_ARGS__)
-#define spa_fga_dsp_copy(o,...)		spa_fga_dsp_method(o,copy,0,__VA_ARGS__)
-#define spa_fga_dsp_mix_gain(o,...)	spa_fga_dsp_method(o,mix_gain,0,__VA_ARGS__)
-#define spa_fga_dsp_biquad_run(o,...)	spa_fga_dsp_method(o,biquad_run,0,__VA_ARGS__)
-#define spa_fga_dsp_sum(o,...)		spa_fga_dsp_method(o,sum,0,__VA_ARGS__)
-#define spa_fga_dsp_linear(o,...)	spa_fga_dsp_method(o,linear,0,__VA_ARGS__)
-#define spa_fga_dsp_mult(o,...)		spa_fga_dsp_method(o,mult,0,__VA_ARGS__)
-#define spa_fga_dsp_delay(o,...)	spa_fga_dsp_method(o,delay,0,__VA_ARGS__)
-
-#define spa_fga_dsp_fft_new(o,...)	spa_fga_dsp_method_r(o,void*,fft_new,0,__VA_ARGS__)
-#define spa_fga_dsp_fft_free(o,...)	spa_fga_dsp_method(o,fft_free,0,__VA_ARGS__)
-#define spa_fga_dsp_fft_memalloc(o,...)	spa_fga_dsp_method_r(o,void*,fft_memalloc,0,__VA_ARGS__)
-#define spa_fga_dsp_fft_memfree(o,...)	spa_fga_dsp_method(o,fft_memfree,0,__VA_ARGS__)
-#define spa_fga_dsp_fft_memclear(o,...)	spa_fga_dsp_method(o,fft_memclear,0,__VA_ARGS__)
-#define spa_fga_dsp_fft_run(o,...)	spa_fga_dsp_method(o,fft_run,0,__VA_ARGS__)
-#define spa_fga_dsp_fft_cmul(o,...)	spa_fga_dsp_method(o,fft_cmul,0,__VA_ARGS__)
-#define spa_fga_dsp_fft_cmul(o,...)	spa_fga_dsp_method(o,fft_cmul,0,__VA_ARGS__)
-#define spa_fga_dsp_fft_cmuladd(o,...)	spa_fga_dsp_method(o,fft_cmuladd,0,__VA_ARGS__)
+static inline void *spa_fga_dsp_fft_new(struct spa_fga_dsp *obj, uint32_t size, bool real)
+{
+	return spa_api_method_r(void *, NULL, spa_fga_dsp, &obj->iface, fft_new, 0,
+			size, real);
+}
+static inline void spa_fga_dsp_fft_free(struct spa_fga_dsp *obj, void *fft)
+{
+	spa_api_method_v(spa_fga_dsp, &obj->iface, fft_free, 0,
+			fft);
+}
+static inline void *spa_fga_dsp_fft_memalloc(struct spa_fga_dsp *obj, uint32_t size, bool real)
+{
+	return spa_api_method_r(void *, NULL, spa_fga_dsp, &obj->iface, fft_memalloc, 0,
+			size, real);
+}
+static inline void spa_fga_dsp_fft_memfree(struct spa_fga_dsp *obj, void *mem)
+{
+	spa_api_method_v(spa_fga_dsp, &obj->iface, fft_memfree, 0,
+			mem);
+}
+static inline void spa_fga_dsp_fft_memclear(struct spa_fga_dsp *obj, void *mem, uint32_t size, bool real)
+{
+	spa_api_method_v(spa_fga_dsp, &obj->iface, fft_memclear, 0,
+			mem, size, real);
+}
+static inline void spa_fga_dsp_fft_run(struct spa_fga_dsp *obj, void *fft, int direction,
+		const float * SPA_RESTRICT src, float * SPA_RESTRICT dst)
+{
+	spa_api_method_v(spa_fga_dsp, &obj->iface, fft_run, 0,
+			fft, direction, src, dst);
+}
+static inline void spa_fga_dsp_fft_cmul(struct spa_fga_dsp *obj, void *fft,
+		float * SPA_RESTRICT dst, const float * SPA_RESTRICT a,
+		const float * SPA_RESTRICT b, uint32_t len, const float scale)
+{
+	spa_api_method_v(spa_fga_dsp, &obj->iface, fft_cmul, 0,
+			fft, dst, a, b, len, scale);
+}
+static inline void spa_fga_dsp_fft_cmuladd(struct spa_fga_dsp *obj, void *fft,
+		float * dst, const float * src,
+		const float * SPA_RESTRICT a, const float * SPA_RESTRICT b,
+		uint32_t len, const float scale)
+{
+	spa_api_method_v(spa_fga_dsp, &obj->iface, fft_cmuladd, 0,
+			fft, dst, src, a, b, len, scale);
+}
+static inline void spa_fga_dsp_linear(struct spa_fga_dsp *obj,
+		float * dst, const float * SPA_RESTRICT src,
+		const float mult, const float add, uint32_t n_samples)
+{
+	spa_api_method_v(spa_fga_dsp, &obj->iface, linear, 0,
+			dst, src, mult, add, n_samples);
+}
+static inline void spa_fga_dsp_mult(struct spa_fga_dsp *obj,
+		void * SPA_RESTRICT dst,
+		const void * SPA_RESTRICT src[], uint32_t n_src, uint32_t n_samples)
+{
+	spa_api_method_v(spa_fga_dsp, &obj->iface, mult, 0,
+			dst, src, n_src, n_samples);
+}
+static inline void spa_fga_dsp_biquad_run(struct spa_fga_dsp *obj,
+		struct biquad *bq, uint32_t n_bq, uint32_t bq_stride,
+		float * SPA_RESTRICT out[], const float * SPA_RESTRICT in[],
+		uint32_t n_src, uint32_t n_samples)
+{
+	spa_api_method_v(spa_fga_dsp, &obj->iface, biquad_run, 0,
+			bq, n_bq, bq_stride, out, in, n_src, n_samples);
+}
+static inline void spa_fga_dsp_delay(struct spa_fga_dsp *obj,
+		float *buffer, uint32_t *pos, uint32_t n_buffer, uint32_t delay,
+		float *dst, const float *src, uint32_t n_samples)
+{
+	spa_api_method_v(spa_fga_dsp, &obj->iface, delay, 0,
+			buffer, pos, n_buffer, delay, dst, src, n_samples);
+}
 
 #endif /* SPA_FGA_DSP_H */

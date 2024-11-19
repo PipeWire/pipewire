@@ -78,26 +78,12 @@ static inline void spa_fga_descriptor_free(const struct spa_fga_descriptor *desc
 		desc->free(desc);
 }
 
-#define spa_fga_plugin_method_r(o,method,version,...)			\
-({									\
-	const void * _res = NULL;					\
-	struct spa_fga_plugin *_o = o;					\
-	spa_interface_call_fast_res(&_o->iface,				\
-			struct spa_fga_plugin_methods, _res,		\
-			method, version, ##__VA_ARGS__);		\
-	_res;								\
-})
-
-#define spa_fga_plugin_method(o,method,version,...)			\
-({									\
-	struct spa_fga_plugin *_o = o;					\
-	spa_interface_call_fast(&_o->iface,				\
-			struct spa_fga_plugin_methods,			\
-			method, version, ##__VA_ARGS__);		\
-})
-
-
-#define spa_fga_plugin_make_desc(o,...)	spa_fga_plugin_method_r(o,make_desc,0,__VA_ARGS__)
+static inline const struct spa_fga_descriptor *
+spa_fga_plugin_make_desc(struct spa_fga_plugin *plugin, const char *name)
+{
+	return spa_api_method_r(const struct spa_fga_descriptor *, NULL,
+			spa_fga_plugin, &plugin->iface, make_desc, 0, name);
+}
 
 typedef struct spa_fga_plugin *(spa_filter_graph_audio_plugin_load_func_t)(const struct spa_support *support,
 		uint32_t n_support, const char *path, const struct spa_dict *info);

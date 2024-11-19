@@ -8,6 +8,8 @@
 #include <locale.h>
 #include <ncurses.h>
 
+#undef clear
+
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/pod/parser.h>

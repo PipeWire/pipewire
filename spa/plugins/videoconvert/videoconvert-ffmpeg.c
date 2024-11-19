@@ -41,7 +41,7 @@
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.videoconvert.ffmpeg");
 
-#define MAX_ALIGN	64
+#define MAX_ALIGN	64u
 #define MAX_BUFFERS	32
 #define MAX_DATAS	4
 #define MAX_PORTS	(1+1)

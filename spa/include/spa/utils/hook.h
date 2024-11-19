@@ -245,6 +245,69 @@ struct spa_interface {
 #define spa_interface_call_fast_res(iface,method_type,res,method,vers,...)		\
 	spa_callbacks_call_fast_res(&(iface)->cb,method_type,res,method,vers,##__VA_ARGS__)
 
+
+#define spa_api_func_v(o,method,version,...)				\
+({									\
+	if (SPA_LIKELY(SPA_CALLBACK_CHECK(o,method,version)))		\
+		(o)->method(o, ##__VA_ARGS__);				\
+})
+#define spa_api_func_r(rtype,def,o,method,version,...)			\
+({									\
+	rtype _res = def;						\
+	if (SPA_LIKELY(SPA_CALLBACK_CHECK(o,method,version)))		\
+		_res = (o)->method(o, ##__VA_ARGS__);			\
+	_res;								\
+})
+#define spa_api_func_fast(o,method,...)					\
+({									\
+	(o)->method(o, ##__VA_ARGS__);					\
+})
+
+#define spa_api_method_v(type,o,method,version,...)			\
+({									\
+	struct spa_interface *_i = o;			\
+	spa_interface_call(_i, struct type ##_methods,			\
+			method, version, ##__VA_ARGS__);		\
+})
+#define spa_api_method_r(rtype,def,type,o,method,version,...)		\
+({									\
+	rtype _res = def;						\
+	struct spa_interface *_i = o;			\
+	spa_interface_call_res(_i, struct type ##_methods,		\
+			_res, method, version, ##__VA_ARGS__);		\
+	_res;								\
+})
+#define spa_api_method_null_v(type,o,method,version,...)		\
+({									\
+	struct spa_interface *_i = o;			\
+	if (SPA_LIKELY(_i != NULL))					\
+		spa_interface_call(_i, struct type ##_methods,		\
+			method, version, ##__VA_ARGS__);		\
+})
+#define spa_api_method_null_r(rtype,def,type,o,method,version,...)	\
+({									\
+	rtype _res = def;						\
+	struct spa_interface *_i = o;					\
+	if (SPA_LIKELY(_i != NULL))					\
+		spa_interface_call_res(_i, struct type ##_methods,	\
+				_res, method, version, ##__VA_ARGS__);	\
+	_res;								\
+})
+#define spa_api_method_fast_v(type,o,method,version,...)		\
+({									\
+	struct spa_interface *_i = o;					\
+	spa_interface_call_fast(_i, struct type ##_methods,		\
+			method, version, ##__VA_ARGS__);		\
+})
+#define spa_api_method_fast_r(rtype,def,type,o,method,version,...)	\
+({									\
+	rtype _res = def;						\
+	struct spa_interface *_i = o;					\
+	spa_interface_call_fast_res(_i, struct type ##_methods,		\
+			_res, method, version, ##__VA_ARGS__);		\
+	_res;								\
+})
+
 /**
  * \}
  */

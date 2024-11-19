@@ -255,20 +255,22 @@ static inline bool spa_log_level_topic_enabled(const struct spa_log *log,
 })
 
 /* Transparently calls to version 0 logv if v1 is not supported */
-#define spa_log_logtv(l,lev,topic,...)					\
-({									\
-	struct spa_log *_l = l;						\
-	if (SPA_UNLIKELY(spa_log_level_topic_enabled(_l, topic, lev))) { \
-		struct spa_interface *_if = &_l->iface;			\
-		if (!spa_interface_call(_if,				\
-				struct spa_log_methods, logtv, 1,	\
-				lev, topic,				\
-				__VA_ARGS__))				\
-		    spa_interface_call(_if,				\
-				struct spa_log_methods, logv, 0,	\
-				lev, __VA_ARGS__);			\
-	}								\
-})
+SPA_PRINTF_FUNC(7, 0)
+static inline void spa_log_logtv(struct spa_log *l, enum spa_log_level level,
+		const struct spa_log_topic *topic, const char *file, int line,
+		const char *func, const char *fmt, va_list args)
+{
+	if (SPA_UNLIKELY(spa_log_level_topic_enabled(l, topic, level))) {
+		struct spa_interface *i = &l->iface;
+		if (!spa_interface_call(i,
+				struct spa_log_methods, logtv, 1,
+				level, topic,
+				file, line, func, fmt, args))
+		    spa_interface_call(i,
+				struct spa_log_methods, logv, 0,
+				level, file, line, func, fmt, args);
+	}
+}
 
 #define spa_logt_lev(l,lev,t,...)					\
 	spa_log_logt(l,lev,t,__FILE__,__LINE__,__func__,__VA_ARGS__)

@@ -53,16 +53,15 @@ struct pw_profiler_methods {
 			void *data);
 };
 
-#define pw_profiler_method(o,method,version,...)			\
-({									\
-	int _res = -ENOTSUP;						\
-	spa_interface_call_res((struct spa_interface*)o,		\
-			struct pw_profiler_methods, _res,		\
-			method, version, ##__VA_ARGS__);		\
-	_res;								\
-})
-
-#define pw_profiler_add_listener(c,...)		pw_profiler_method(c,add_listener,0,__VA_ARGS__)
+static inline int pw_profiler_add_listener(struct pw_profiler *object,
+			struct spa_hook *listener,
+			const struct pw_profiler_events *events,
+			void *data)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			pw_profiler, (struct spa_interface*)object, add_listener, 0,
+			listener, events, data);
+}
 
 #define PW_KEY_PROFILER_NAME		"profiler.name"
 

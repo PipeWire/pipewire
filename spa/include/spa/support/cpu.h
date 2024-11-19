@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 #include <stdarg.h>
+#include <errno.h>
 
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
@@ -159,21 +160,30 @@ struct spa_cpu_methods {
 	int (*zero_denormals) (void *object, bool enable);
 };
 
-#define spa_cpu_method(o,method,version,...)				\
-({									\
-	int _res = -ENOTSUP;						\
-	struct spa_cpu *_c = o;						\
-	spa_interface_call_res(&_c->iface,				\
-			struct spa_cpu_methods, _res,			\
-			method, version, ##__VA_ARGS__);		\
-	_res;								\
-})
-#define spa_cpu_get_flags(c)		spa_cpu_method(c, get_flags, 0)
-#define spa_cpu_force_flags(c,f)	spa_cpu_method(c, force_flags, 0, f)
-#define spa_cpu_get_count(c)		spa_cpu_method(c, get_count, 0)
-#define spa_cpu_get_max_align(c)	spa_cpu_method(c, get_max_align, 0)
-#define spa_cpu_get_vm_type(c)		spa_cpu_method(c, get_vm_type, 1)
-#define spa_cpu_zero_denormals(c,e)	spa_cpu_method(c, zero_denormals, 2, e)
+static inline uint32_t spa_cpu_get_flags(struct spa_cpu *c)
+{
+	return spa_api_method_r(uint32_t, 0, spa_cpu, &c->iface, get_flags, 0);
+}
+static inline int spa_cpu_force_flags(struct spa_cpu *c, uint32_t flags)
+{
+	return spa_api_method_r(int, -ENOTSUP, spa_cpu, &c->iface, force_flags, 0, flags);
+}
+static inline uint32_t spa_cpu_get_count(struct spa_cpu *c)
+{
+	return spa_api_method_r(uint32_t, 0, spa_cpu, &c->iface, get_count, 0);
+}
+static inline uint32_t spa_cpu_get_max_align(struct spa_cpu *c)
+{
+	return spa_api_method_r(uint32_t, 0, spa_cpu, &c->iface, get_max_align, 0);
+}
+static inline uint32_t spa_cpu_get_vm_type(struct spa_cpu *c)
+{
+	return spa_api_method_r(uint32_t, 0, spa_cpu, &c->iface, get_vm_type, 1);
+}
+static inline int spa_cpu_zero_denormals(struct spa_cpu *c, bool enable)
+{
+	return spa_api_method_r(int, -ENOTSUP, spa_cpu, &c->iface, zero_denormals, 2, enable);
+}
 
 /** keys can be given when initializing the cpu handle */
 #define SPA_KEY_CPU_FORCE		"cpu.force"		/**< force cpu flags */

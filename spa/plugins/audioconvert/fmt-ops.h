@@ -15,7 +15,7 @@
 #define FTOI(type,v,scale,offs,noise,min,max) \
 	(type)f32_round(SPA_CLAMPF((v) * (scale) + (offs) + (noise), min, max))
 
-#define FMT_OPS_MAX_ALIGN	32
+#define FMT_OPS_MAX_ALIGN	32u
 
 #define U8_MIN			0u
 #define U8_MAX			255u

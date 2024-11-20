@@ -42,27 +42,103 @@ pw_loop_destroy(struct pw_loop *loop);
 
 int pw_loop_set_name(struct pw_loop *loop, const char *name);
 
-#define pw_loop_add_source(l,...)	spa_loop_add_source((l)->loop,__VA_ARGS__)
-#define pw_loop_update_source(l,...)	spa_loop_update_source((l)->loop,__VA_ARGS__)
-#define pw_loop_remove_source(l,...)	spa_loop_remove_source((l)->loop,__VA_ARGS__)
-#define pw_loop_invoke(l,...)		spa_loop_invoke((l)->loop,__VA_ARGS__)
+SPA_API_IMPL int pw_loop_add_source(struct pw_loop *object, struct spa_source *source)
+{
+	return spa_loop_add_source(object->loop, source);
+}
+SPA_API_IMPL int pw_loop_update_source(struct pw_loop *object, struct spa_source *source)
+{
+	return spa_loop_update_source(object->loop, source);
+}
+SPA_API_IMPL int pw_loop_remove_source(struct pw_loop *object, struct spa_source *source)
+{
+	return spa_loop_remove_source(object->loop, source);
+}
+SPA_API_IMPL int pw_loop_invoke(struct pw_loop *object,
+                spa_invoke_func_t func, uint32_t seq, const void *data,
+                size_t size, bool block, void *user_data)
+{
+	return spa_loop_invoke(object->loop, func, seq, data, size, block, user_data);
+}
 
-#define pw_loop_get_fd(l)		spa_loop_control_get_fd((l)->control)
-#define pw_loop_add_hook(l,...)		spa_loop_control_add_hook((l)->control,__VA_ARGS__)
-#define pw_loop_enter(l)		spa_loop_control_enter((l)->control)
-#define pw_loop_leave(l)		spa_loop_control_leave((l)->control)
-#define pw_loop_iterate(l,...)		spa_loop_control_iterate_fast((l)->control,__VA_ARGS__)
+SPA_API_IMPL int pw_loop_get_fd(struct pw_loop *object)
+{
+	return spa_loop_control_get_fd(object->control);
+}
+SPA_API_IMPL void pw_loop_add_hook(struct pw_loop *object,
+                struct spa_hook *hook, const struct spa_loop_control_hooks *hooks,
+                void *data)
+{
+	spa_loop_control_add_hook(object->control, hook, hooks, data);
+}
+SPA_API_IMPL void pw_loop_enter(struct pw_loop *object)
+{
+	spa_loop_control_enter(object->control);
+}
+SPA_API_IMPL void pw_loop_leave(struct pw_loop *object)
+{
+	spa_loop_control_leave(object->control);
+}
+SPA_API_IMPL int pw_loop_iterate(struct pw_loop *object,
+                int timeout)
+{
+	return spa_loop_control_iterate_fast(object->control, timeout);
+}
 
-#define pw_loop_add_io(l,...)		spa_loop_utils_add_io((l)->utils,__VA_ARGS__)
-#define pw_loop_update_io(l,...)	spa_loop_utils_update_io((l)->utils,__VA_ARGS__)
-#define pw_loop_add_idle(l,...)		spa_loop_utils_add_idle((l)->utils,__VA_ARGS__)
-#define pw_loop_enable_idle(l,...)	spa_loop_utils_enable_idle((l)->utils,__VA_ARGS__)
-#define pw_loop_add_event(l,...)	spa_loop_utils_add_event((l)->utils,__VA_ARGS__)
-#define pw_loop_signal_event(l,...)	spa_loop_utils_signal_event((l)->utils,__VA_ARGS__)
-#define pw_loop_add_timer(l,...)	spa_loop_utils_add_timer((l)->utils,__VA_ARGS__)
-#define pw_loop_update_timer(l,...)	spa_loop_utils_update_timer((l)->utils,__VA_ARGS__)
-#define pw_loop_add_signal(l,...)	spa_loop_utils_add_signal((l)->utils,__VA_ARGS__)
-#define pw_loop_destroy_source(l,...)	spa_loop_utils_destroy_source((l)->utils,__VA_ARGS__)
+SPA_API_IMPL struct spa_source *
+pw_loop_add_io(struct pw_loop *object, int fd, uint32_t mask,
+                bool close, spa_source_io_func_t func, void *data)
+{
+	return spa_loop_utils_add_io(object->utils, fd, mask, close, func, data);
+}
+SPA_API_IMPL int pw_loop_update_io(struct pw_loop *object,
+                struct spa_source *source, uint32_t mask)
+{
+	return spa_loop_utils_update_io(object->utils, source, mask);
+}
+SPA_API_IMPL struct spa_source *
+pw_loop_add_idle(struct pw_loop *object, bool enabled,
+                spa_source_idle_func_t func, void *data)
+{
+	return spa_loop_utils_add_idle(object->utils, enabled, func, data);
+}
+SPA_API_IMPL int pw_loop_enable_idle(struct pw_loop *object,
+                struct spa_source *source, bool enabled)
+{
+	return spa_loop_utils_enable_idle(object->utils, source, enabled);
+}
+SPA_API_IMPL struct spa_source *
+pw_loop_add_event(struct pw_loop *object, spa_source_event_func_t func, void *data)
+{
+	return spa_loop_utils_add_event(object->utils, func, data);
+}
+SPA_API_IMPL int pw_loop_signal_event(struct pw_loop *object,
+                struct spa_source *source)
+{
+	return spa_loop_utils_signal_event(object->utils, source);
+}
+SPA_API_IMPL struct spa_source *
+pw_loop_add_timer(struct pw_loop *object, spa_source_timer_func_t func, void *data)
+{
+	return spa_loop_utils_add_timer(object->utils, func, data);
+}
+SPA_API_IMPL int pw_loop_update_timer(struct pw_loop *object,
+                struct spa_source *source, struct timespec *value,
+                struct timespec *interval, bool absolute)
+{
+	return spa_loop_utils_update_timer(object->utils, source, value, interval, absolute);
+}
+SPA_API_IMPL struct spa_source *
+pw_loop_add_signal(struct pw_loop *object, int signal_number,
+                spa_source_signal_func_t func, void *data)
+{
+	return spa_loop_utils_add_signal(object->utils, signal_number, func, data);
+}
+SPA_API_IMPL void pw_loop_destroy_source(struct pw_loop *object,
+                struct spa_source *source)
+{
+	return spa_loop_utils_destroy_source(object->utils, source);
+}
 
 /**
  * \}

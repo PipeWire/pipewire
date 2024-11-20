@@ -809,7 +809,7 @@ int pw_manager_set_metadata(struct pw_manager *manager,
 		value = NULL;
 	}
 
-	pw_metadata_set_property(metadata->proxy,
+	pw_metadata_set_property((struct pw_metadata*)metadata->proxy,
 			subject, key, type, value);
 	return 0;
 }

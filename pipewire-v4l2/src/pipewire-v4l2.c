@@ -2326,7 +2326,7 @@ static int vidioc_s_ctrl(struct file *file, struct v4l2_control *arg)
 			}
 
 			param = spa_pod_builder_pop(&b, &f[0]);
-			pw_node_set_param(file->node->proxy, SPA_PARAM_Props, 0, param);
+			pw_node_set_param((struct pw_node*)file->node->proxy, SPA_PARAM_Props, 0, param);
 
 			found = true;
 			pw_log_info("ctrl 0x%08" PRIx32 " set ok", arg->id);

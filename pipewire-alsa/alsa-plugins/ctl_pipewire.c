@@ -555,7 +555,7 @@ static int set_volume_mute(snd_ctl_pipewire_t *ctl, const char *name, struct vol
 		param = spa_pod_builder_pop(&b, &f[0]);
 
 		pw_log_debug("set device %d mute/volume for node %d", dg->id, g->id);
-		pw_device_set_param((struct pw_node*)dg->proxy,
+		pw_device_set_param((struct pw_device*)dg->proxy,
 			SPA_PARAM_Route, 0, param);
 	} else {
 		if (!SPA_FLAG_IS_SET(g->permissions, PW_PERM_W | PW_PERM_X))

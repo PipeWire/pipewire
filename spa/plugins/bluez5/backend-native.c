@@ -2159,6 +2159,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			}
 
 			rfcomm->telephony_ag = telephony_ag_new(backend->telephony, 0);
+			rfcomm->telephony_ag->address = strdup(rfcomm->device->address);
 			telephony_ag_set_callbacks(rfcomm->telephony_ag,
 						  &telephony_ag_callbacks, rfcomm);
 			if (rfcomm->transport) {

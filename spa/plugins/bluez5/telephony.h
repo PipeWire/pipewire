@@ -42,6 +42,7 @@ struct spa_bt_telephony_ag {
 	int id;
 
 	/* D-Bus properties */
+	char *address;
 	struct spa_bt_telephony_ag_transport transport;
 };
 

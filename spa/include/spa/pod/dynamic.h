@@ -37,7 +37,7 @@ static int spa_pod_dynamic_builder_overflow(void *data, uint32_t size)
         return 0;
 }
 
-static inline void spa_pod_dynamic_builder_init(struct spa_pod_dynamic_builder *builder,
+SPA_API_IMPL void spa_pod_dynamic_builder_init(struct spa_pod_dynamic_builder *builder,
 		void *data, uint32_t size, uint32_t extend)
 {
 	static const struct spa_pod_builder_callbacks spa_pod_dynamic_builder_callbacks = {
@@ -50,7 +50,7 @@ static inline void spa_pod_dynamic_builder_init(struct spa_pod_dynamic_builder *
 	builder->data = data;
 }
 
-static inline void spa_pod_dynamic_builder_clean(struct spa_pod_dynamic_builder *builder)
+SPA_API_IMPL void spa_pod_dynamic_builder_clean(struct spa_pod_dynamic_builder *builder)
 {
 	if (builder->data != builder->b.data)
 		free(builder->b.data);

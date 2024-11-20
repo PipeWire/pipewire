@@ -180,7 +180,7 @@ struct pw_node_methods {
 };
 
 
-static inline int pw_node_add_listener(struct pw_node *object,
+SPA_API_IMPL int pw_node_add_listener(struct pw_node *object,
 			struct spa_hook *listener,
 			const struct pw_node_events *events,
 			void *data)
@@ -189,13 +189,13 @@ static inline int pw_node_add_listener(struct pw_node *object,
 			pw_node, (struct spa_interface*)object, add_listener, 0,
 			listener, events, data);
 }
-static inline int pw_node_subscribe_params(struct pw_node *object, uint32_t *ids, uint32_t n_ids)
+SPA_API_IMPL int pw_node_subscribe_params(struct pw_node *object, uint32_t *ids, uint32_t n_ids)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_node, (struct spa_interface*)object, subscribe_params, 0,
 			ids, n_ids);
 }
-static inline int pw_node_enum_params(struct pw_node *object,
+SPA_API_IMPL int pw_node_enum_params(struct pw_node *object,
 		int seq, uint32_t id, uint32_t start, uint32_t num,
 			    const struct spa_pod *filter)
 {
@@ -203,14 +203,14 @@ static inline int pw_node_enum_params(struct pw_node *object,
 			pw_node, (struct spa_interface*)object, enum_params, 0,
 			seq, id, start, num, filter);
 }
-static inline int pw_node_set_param(struct pw_node *object, uint32_t id, uint32_t flags,
+SPA_API_IMPL int pw_node_set_param(struct pw_node *object, uint32_t id, uint32_t flags,
 			  const struct spa_pod *param)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_node, (struct spa_interface*)object, set_param, 0,
 			id, flags, param);
 }
-static inline int pw_node_send_command(struct pw_node *object, const struct spa_command *command)
+SPA_API_IMPL int pw_node_send_command(struct pw_node *object, const struct spa_command *command)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_node, (struct spa_interface*)object, send_command, 0, command);

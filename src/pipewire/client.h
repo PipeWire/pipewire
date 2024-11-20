@@ -150,7 +150,7 @@ struct pw_client_methods {
 			const struct pw_permission *permissions);
 };
 
-static inline int pw_client_add_listener(struct pw_client *object,
+SPA_API_IMPL int pw_client_add_listener(struct pw_client *object,
 			struct spa_hook *listener,
 			const struct pw_client_events *events,
 			void *data)
@@ -158,22 +158,22 @@ static inline int pw_client_add_listener(struct pw_client *object,
 	return spa_api_method_r(int, -ENOTSUP, pw_client, (struct spa_interface*)object, add_listener, 0,
 			listener, events, data);
 }
-static inline int pw_client_error(struct pw_client *object, uint32_t id, int res, const char *message)
+SPA_API_IMPL int pw_client_error(struct pw_client *object, uint32_t id, int res, const char *message)
 {
 	return spa_api_method_r(int, -ENOTSUP, pw_client, (struct spa_interface*)object, error, 0,
 			id, res, message);
 }
-static inline int pw_client_update_properties(struct pw_client *object, const struct spa_dict *props)
+SPA_API_IMPL int pw_client_update_properties(struct pw_client *object, const struct spa_dict *props)
 {
 	return spa_api_method_r(int, -ENOTSUP, pw_client, (struct spa_interface*)object, update_properties, 0,
 			props);
 }
-static inline int pw_client_get_permissions(struct pw_client *object, uint32_t index, uint32_t num)
+SPA_API_IMPL int pw_client_get_permissions(struct pw_client *object, uint32_t index, uint32_t num)
 {
 	return spa_api_method_r(int, -ENOTSUP, pw_client, (struct spa_interface*)object, get_permissions, 0,
 			index, num);
 }
-static inline int pw_client_update_permissions(struct pw_client *object, uint32_t n_permissions,
+SPA_API_IMPL int pw_client_update_permissions(struct pw_client *object, uint32_t n_permissions,
 			const struct pw_permission *permissions)
 {
 	return spa_api_method_r(int, -ENOTSUP, pw_client, (struct spa_interface*)object, update_permissions, 0,

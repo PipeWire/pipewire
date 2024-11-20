@@ -124,12 +124,12 @@ struct spa_type_info {
 	const struct spa_type_info *values;
 };
 
-static inline bool spa_type_is_a(const char *type, const char *parent)
+SPA_API_IMPL bool spa_type_is_a(const char *type, const char *parent)
 {
 	return type != NULL && parent != NULL && strncmp(type, parent, strlen(parent)) == 0;
 }
 
-static inline const char *spa_type_short_name(const char *name)
+SPA_API_IMPL const char *spa_type_short_name(const char *name)
 {
 	const char *h;
 	if ((h = strrchr(name, ':')) != NULL)
@@ -137,7 +137,7 @@ static inline const char *spa_type_short_name(const char *name)
 	return name;
 }
 
-static inline uint32_t spa_type_from_short_name(const char *name,
+SPA_API_IMPL uint32_t spa_type_from_short_name(const char *name,
 		const struct spa_type_info *info, uint32_t unknown)
 {
 	int i;
@@ -147,7 +147,7 @@ static inline uint32_t spa_type_from_short_name(const char *name,
 	}
 	return unknown;
 }
-static inline const char * spa_type_to_name(uint32_t type,
+SPA_API_IMPL const char * spa_type_to_name(uint32_t type,
 		const struct spa_type_info *info, const char *unknown)
 {
 	int i;
@@ -158,7 +158,7 @@ static inline const char * spa_type_to_name(uint32_t type,
 	return unknown;
 }
 
-static inline const char * spa_type_to_short_name(uint32_t type,
+SPA_API_IMPL const char * spa_type_to_short_name(uint32_t type,
 		const struct spa_type_info *info, const char *unknown)
 {
 	const char *n = spa_type_to_name(type, info, unknown);

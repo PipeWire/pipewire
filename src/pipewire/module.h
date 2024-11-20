@@ -81,7 +81,7 @@ struct pw_module_methods {
 			void *data);
 };
 
-static inline int pw_module_add_listener(struct pw_module *object,
+SPA_API_IMPL int pw_module_add_listener(struct pw_module *object,
 			struct spa_hook *listener,
 			const struct pw_module_events *events,
 			void *data)

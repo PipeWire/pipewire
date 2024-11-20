@@ -20,7 +20,7 @@ extern "C" {
 #include <spa/pod/pod.h>
 #include <spa/pod/iter.h>
 
-static inline int
+SPA_API_IMPL int
 spa_debugc_pod_value(struct spa_debug_context *ctx, int indent, const struct spa_type_info *info,
 		uint32_t type, void *body, uint32_t size)
 {
@@ -174,7 +174,7 @@ spa_debugc_pod_value(struct spa_debug_context *ctx, int indent, const struct spa
 	return 0;
 }
 
-static inline int spa_debugc_pod(struct spa_debug_context *ctx, int indent,
+SPA_API_IMPL int spa_debugc_pod(struct spa_debug_context *ctx, int indent,
 		const struct spa_type_info *info, const struct spa_pod *pod)
 {
 	return spa_debugc_pod_value(ctx, indent, info ? info : SPA_TYPE_ROOT,
@@ -183,14 +183,14 @@ static inline int spa_debugc_pod(struct spa_debug_context *ctx, int indent,
 			SPA_POD_BODY_SIZE(pod));
 }
 
-static inline int
+SPA_API_IMPL int
 spa_debug_pod_value(int indent, const struct spa_type_info *info,
 		uint32_t type, void *body, uint32_t size)
 {
 	return spa_debugc_pod_value(NULL, indent, info, type, body, size);
 }
 
-static inline int spa_debug_pod(int indent,
+SPA_API_IMPL int spa_debug_pod(int indent,
 		const struct spa_type_info *info, const struct spa_pod *pod)
 {
 	return spa_debugc_pod(NULL, indent, info, pod);

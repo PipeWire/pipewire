@@ -19,7 +19,7 @@ extern "C" {
 #include <spa/param/audio/raw.h>
 #include <spa/param/audio/raw-types.h>
 
-static inline int
+SPA_API_IMPL int
 spa_audio_parse_position(const char *str, size_t len,
 		uint32_t *position, uint32_t *n_channels)
 {
@@ -38,7 +38,7 @@ spa_audio_parse_position(const char *str, size_t len,
 	return channels;
 }
 
-static inline int
+SPA_API_IMPL int
 spa_audio_info_raw_update(struct spa_audio_info_raw *info, const char *key, const char *val, bool force)
 {
 	uint32_t v;
@@ -60,7 +60,7 @@ spa_audio_info_raw_update(struct spa_audio_info_raw *info, const char *key, cons
 	return 0;
 }
 
-static inline int SPA_SENTINEL
+SPA_API_IMPL int SPA_SENTINEL
 spa_audio_info_raw_init_dict_keys(struct spa_audio_info_raw *info,
 		const struct spa_dict *defaults,
 		const struct spa_dict *dict, ...)

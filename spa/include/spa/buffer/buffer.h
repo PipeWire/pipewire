@@ -91,7 +91,7 @@ struct spa_buffer {
 };
 
 /** Find metadata in a buffer */
-static inline struct spa_meta *spa_buffer_find_meta(const struct spa_buffer *b, uint32_t type)
+SPA_API_IMPL struct spa_meta *spa_buffer_find_meta(const struct spa_buffer *b, uint32_t type)
 {
 	uint32_t i;
 
@@ -102,7 +102,7 @@ static inline struct spa_meta *spa_buffer_find_meta(const struct spa_buffer *b, 
 	return NULL;
 }
 
-static inline void *spa_buffer_find_meta_data(const struct spa_buffer *b, uint32_t type, size_t size)
+SPA_API_IMPL void *spa_buffer_find_meta_data(const struct spa_buffer *b, uint32_t type, size_t size)
 {
 	struct spa_meta *m;
 	if ((m = spa_buffer_find_meta(b, type)) && m->size >= size)

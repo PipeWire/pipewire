@@ -123,7 +123,7 @@ struct pw_memblock * pw_mempool_import(struct pw_mempool *pool,
 void pw_memblock_free(struct pw_memblock *mem);
 
 /** Unref a memblock */
-static inline void pw_memblock_unref(struct pw_memblock *mem)
+SPA_API_IMPL void pw_memblock_unref(struct pw_memblock *mem)
 {
 	if (--mem->ref == 0)
 		pw_memblock_free(mem);
@@ -173,7 +173,7 @@ struct pw_map_range {
 
 /** Calculate parameters to mmap() memory into \a range so that
  * \a size bytes at \a offset can be mapped with mmap().  */
-static inline void pw_map_range_init(struct pw_map_range *range,
+SPA_API_IMPL void pw_map_range_init(struct pw_map_range *range,
 				     uint32_t offset, uint32_t size,
 				     uint32_t page_size)
 {

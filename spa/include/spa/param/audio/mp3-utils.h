@@ -19,7 +19,7 @@ extern "C" {
 #include <spa/param/audio/format.h>
 #include <spa/param/format-utils.h>
 
-static inline int
+SPA_API_IMPL int
 spa_format_audio_mp3_parse(const struct spa_pod *format, struct spa_audio_info_mp3 *info)
 {
 	int res;
@@ -30,7 +30,7 @@ spa_format_audio_mp3_parse(const struct spa_pod *format, struct spa_audio_info_m
 	return res;
 }
 
-static inline struct spa_pod *
+SPA_API_IMPL struct spa_pod *
 spa_format_audio_mp3_build(struct spa_pod_builder *builder, uint32_t id,
 			   const struct spa_audio_info_mp3 *info)
 {

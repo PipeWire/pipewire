@@ -411,18 +411,18 @@ struct spa_hook {
 };
 
 /** Initialize a hook list to the empty list*/
-static inline void spa_hook_list_init(struct spa_hook_list *list)
+SPA_API_IMPL void spa_hook_list_init(struct spa_hook_list *list)
 {
 	spa_list_init(&list->list);
 }
 
-static inline bool spa_hook_list_is_empty(struct spa_hook_list *list)
+SPA_API_IMPL bool spa_hook_list_is_empty(struct spa_hook_list *list)
 {
 	return spa_list_is_empty(&list->list);
 }
 
 /** Append a hook. */
-static inline void spa_hook_list_append(struct spa_hook_list *list,
+SPA_API_IMPL void spa_hook_list_append(struct spa_hook_list *list,
 					struct spa_hook *hook,
 					const void *funcs, void *data)
 {
@@ -432,7 +432,7 @@ static inline void spa_hook_list_append(struct spa_hook_list *list,
 }
 
 /** Prepend a hook */
-static inline void spa_hook_list_prepend(struct spa_hook_list *list,
+SPA_API_IMPL void spa_hook_list_prepend(struct spa_hook_list *list,
 					 struct spa_hook *hook,
 					 const void *funcs, void *data)
 {
@@ -442,7 +442,7 @@ static inline void spa_hook_list_prepend(struct spa_hook_list *list,
 }
 
 /** Remove a hook */
-static inline void spa_hook_remove(struct spa_hook *hook)
+SPA_API_IMPL void spa_hook_remove(struct spa_hook *hook)
 {
 	if (spa_list_is_initialized(&hook->link))
 		spa_list_remove(&hook->link);
@@ -451,14 +451,14 @@ static inline void spa_hook_remove(struct spa_hook *hook)
 }
 
 /** Remove all hooks from the list */
-static inline void spa_hook_list_clean(struct spa_hook_list *list)
+SPA_API_IMPL void spa_hook_list_clean(struct spa_hook_list *list)
 {
 	struct spa_hook *h;
 	spa_list_consume(h, &list->list, link)
 		spa_hook_remove(h);
 }
 
-static inline void
+SPA_API_IMPL void
 spa_hook_list_isolate(struct spa_hook_list *list,
 		struct spa_hook_list *save,
 		struct spa_hook *hook,
@@ -472,7 +472,7 @@ spa_hook_list_isolate(struct spa_hook_list *list,
 	spa_hook_list_append(list, hook, funcs, data);
 }
 
-static inline void
+SPA_API_IMPL void
 spa_hook_list_join(struct spa_hook_list *list,
 		struct spa_hook_list *save)
 {

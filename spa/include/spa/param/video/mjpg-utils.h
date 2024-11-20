@@ -18,7 +18,7 @@ extern "C" {
 #include <spa/pod/builder.h>
 #include <spa/param/video/mjpg.h>
 
-static inline int
+SPA_API_IMPL int
 spa_format_video_mjpg_parse(const struct spa_pod *format,
 			    struct spa_video_info_mjpg *info)
 {
@@ -29,7 +29,7 @@ spa_format_video_mjpg_parse(const struct spa_pod *format,
 			SPA_FORMAT_VIDEO_maxFramerate,	SPA_POD_OPT_Fraction(&info->max_framerate));
 }
 
-static inline struct spa_pod *
+SPA_API_IMPL struct spa_pod *
 spa_format_video_mjpg_build(struct spa_pod_builder *builder, uint32_t id,
 			    const struct spa_video_info_mjpg *info)
 {

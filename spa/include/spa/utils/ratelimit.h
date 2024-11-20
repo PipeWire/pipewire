@@ -12,6 +12,8 @@ extern "C" {
 #include <inttypes.h>
 #include <stddef.h>
 
+#include <spa/utils/defs.h>
+
 struct spa_ratelimit {
 	uint64_t interval;
 	uint64_t begin;
@@ -20,7 +22,7 @@ struct spa_ratelimit {
 	unsigned n_suppressed;
 };
 
-static inline int spa_ratelimit_test(struct spa_ratelimit *r, uint64_t now)
+SPA_API_IMPL int spa_ratelimit_test(struct spa_ratelimit *r, uint64_t now)
 {
 	unsigned suppressed = 0;
 	if (r->begin + r->interval < now) {

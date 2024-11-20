@@ -220,7 +220,7 @@ struct spa_device_methods {
 			  const struct spa_pod *param);
 };
 
-static inline int spa_device_add_listener(struct spa_device *object,
+SPA_API_IMPL int spa_device_add_listener(struct spa_device *object,
 			struct spa_hook *listener,
 			const struct spa_device_events *events,
 			void *data)
@@ -229,19 +229,19 @@ static inline int spa_device_add_listener(struct spa_device *object,
 			listener, events, data);
 
 }
-static inline int spa_device_sync(struct spa_device *object, int seq)
+SPA_API_IMPL int spa_device_sync(struct spa_device *object, int seq)
 {
 	return spa_api_method_r(int, -ENOTSUP, spa_device, &object->iface, sync, 0,
 			seq);
 }
-static inline int spa_device_enum_params(struct spa_device *object, int seq,
+SPA_API_IMPL int spa_device_enum_params(struct spa_device *object, int seq,
 			    uint32_t id, uint32_t index, uint32_t max,
 			    const struct spa_pod *filter)
 {
 	return spa_api_method_r(int, -ENOTSUP, spa_device, &object->iface, enum_params, 0,
 			seq, id, index, max, filter);
 }
-static inline int spa_device_set_param(struct spa_device *object,
+SPA_API_IMPL int spa_device_set_param(struct spa_device *object,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod *param)
 {

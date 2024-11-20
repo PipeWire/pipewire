@@ -83,7 +83,7 @@ struct pw_factory_methods {
 			void *data);
 };
 
-static inline int pw_factory_add_listener(struct pw_factory *object,
+SPA_API_IMPL int pw_factory_add_listener(struct pw_factory *object,
 			struct spa_hook *listener,
 			const struct pw_factory_events *events,
 			void *data)

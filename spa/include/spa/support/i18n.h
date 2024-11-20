@@ -53,14 +53,14 @@ struct spa_i18n_methods {
 };
 
 SPA_FORMAT_ARG_FUNC(2)
-static inline const char *
+SPA_API_IMPL const char *
 spa_i18n_text(struct spa_i18n *i18n, const char *msgid)
 {
 	return spa_api_method_null_r(const char *, msgid, spa_i18n, &i18n->iface,
 			text, 0, msgid);
 }
 
-static inline const char *
+SPA_API_IMPL const char *
 spa_i18n_ntext(struct spa_i18n *i18n, const char *msgid,
 		const char *msgid_plural, unsigned long int n)
 {

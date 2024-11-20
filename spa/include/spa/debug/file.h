@@ -32,7 +32,7 @@ struct spa_debug_file_ctx {
 };
 
 SPA_PRINTF_FUNC(2,3)
-static inline void spa_debug_file_log(struct spa_debug_context *ctx, const char *fmt, ...)
+SPA_API_IMPL void spa_debug_file_log(struct spa_debug_context *ctx, const char *fmt, ...)
 {
 	struct spa_debug_file_ctx *c = SPA_CONTAINER_OF(ctx, struct spa_debug_file_ctx, ctx);
 	va_list args;

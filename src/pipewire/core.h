@@ -335,7 +335,7 @@ struct pw_core_methods {
 };
 
 
-static inline int pw_core_add_listener(struct pw_core *object,
+SPA_API_IMPL int pw_core_add_listener(struct pw_core *object,
 			struct spa_hook *listener,
 			const struct pw_core_events *events,
 			void *data)
@@ -344,31 +344,31 @@ static inline int pw_core_add_listener(struct pw_core *object,
 			pw_core, (struct spa_interface*)object, add_listener, 0,
 			listener, events, data);
 }
-static inline int pw_core_hello(struct pw_core *object, uint32_t version)
+SPA_API_IMPL int pw_core_hello(struct pw_core *object, uint32_t version)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_core, (struct spa_interface*)object, hello, 0,
 			version);
 }
-static inline int pw_core_sync(struct pw_core *object, uint32_t id, int seq)
+SPA_API_IMPL int pw_core_sync(struct pw_core *object, uint32_t id, int seq)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_core, (struct spa_interface*)object, sync, 0,
 			id, seq);
 }
-static inline int pw_core_pong(struct pw_core *object, uint32_t id, int seq)
+SPA_API_IMPL int pw_core_pong(struct pw_core *object, uint32_t id, int seq)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_core, (struct spa_interface*)object, pong, 0,
 			id, seq);
 }
-static inline int pw_core_error(struct pw_core *object, uint32_t id, int seq, int res, const char *message)
+SPA_API_IMPL int pw_core_error(struct pw_core *object, uint32_t id, int seq, int res, const char *message)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_core, (struct spa_interface*)object, error, 0,
 			id, seq, res, message);
 }
-static inline
+SPA_API_IMPL
 SPA_PRINTF_FUNC(5, 0) int
 pw_core_errorv(struct pw_core *core, uint32_t id, int seq,
 		int res, const char *message, va_list args)
@@ -379,7 +379,7 @@ pw_core_errorv(struct pw_core *core, uint32_t id, int seq,
 	return pw_core_error(core, id, seq, res, buffer);
 }
 
-static inline
+SPA_API_IMPL
 SPA_PRINTF_FUNC(5, 6) int
 pw_core_errorf(struct pw_core *core, uint32_t id, int seq,
 		int res, const char *message, ...)
@@ -392,14 +392,14 @@ pw_core_errorf(struct pw_core *core, uint32_t id, int seq,
 	return r;
 }
 
-static inline struct pw_registry *
+SPA_API_IMPL struct pw_registry *
 pw_core_get_registry(struct pw_core *core, uint32_t version, size_t user_data_size)
 {
 	return spa_api_method_r(struct pw_registry*, NULL,
 			pw_core, (struct spa_interface*)core, get_registry, 0,
 			version, user_data_size);
 }
-static inline void *
+SPA_API_IMPL void *
 pw_core_create_object(struct pw_core *core,
 			    const char *factory_name,
 			    const char *type,
@@ -411,7 +411,7 @@ pw_core_create_object(struct pw_core *core,
 			pw_core, (struct spa_interface*)core, create_object, 0,
 			factory_name, type, version, props, user_data_size);
 }
-static inline void
+SPA_API_IMPL void
 pw_core_destroy(struct pw_core *core, void *proxy)
 {
 	spa_api_method_v(pw_core, (struct spa_interface*)core, destroy, 0,
@@ -533,7 +533,7 @@ struct pw_registry_methods {
 };
 
 /** Registry */
-static inline int pw_registry_add_listener(struct pw_registry *registry,
+SPA_API_IMPL int pw_registry_add_listener(struct pw_registry *registry,
 			struct spa_hook *listener,
 			const struct pw_registry_events *events,
 			void *data)
@@ -542,7 +542,7 @@ static inline int pw_registry_add_listener(struct pw_registry *registry,
 			pw_registry, (struct spa_interface*)registry, add_listener, 0,
 			listener, events, data);
 }
-static inline void *
+SPA_API_IMPL void *
 pw_registry_bind(struct pw_registry *registry,
 		       uint32_t id, const char *type, uint32_t version,
 		       size_t user_data_size)
@@ -551,7 +551,7 @@ pw_registry_bind(struct pw_registry *registry,
 			pw_registry, (struct spa_interface*)registry, bind, 0,
 			id, type, version, user_data_size);
 }
-static inline int
+SPA_API_IMPL int
 pw_registry_destroy(struct pw_registry *registry, uint32_t id)
 {
 	return spa_api_method_r(int, -ENOTSUP,

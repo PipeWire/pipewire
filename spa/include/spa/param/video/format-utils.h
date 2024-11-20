@@ -16,7 +16,7 @@ extern "C" {
 #include <spa/param/video/h264-utils.h>
 #include <spa/param/video/mjpg-utils.h>
 
-static inline int
+SPA_API_IMPL int
 spa_format_video_parse(const struct spa_pod *format, struct spa_video_info *info)
 {
 	int res;
@@ -40,7 +40,7 @@ spa_format_video_parse(const struct spa_pod *format, struct spa_video_info *info
 	return -ENOTSUP;
 }
 
-static inline struct spa_pod *
+SPA_API_IMPL struct spa_pod *
 spa_format_video_build(struct spa_pod_builder *builder, uint32_t id,
 		       const struct spa_video_info *info)
 {

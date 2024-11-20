@@ -33,11 +33,11 @@ static const struct spa_type_info spa_type_audio_iec958_codec[] = {
 	{ 0, 0, NULL, NULL },
 };
 
-static inline uint32_t spa_type_audio_iec958_codec_from_short_name(const char *name)
+SPA_API_IMPL uint32_t spa_type_audio_iec958_codec_from_short_name(const char *name)
 {
 	return spa_type_from_short_name(name, spa_type_audio_iec958_codec, SPA_AUDIO_IEC958_CODEC_UNKNOWN);
 }
-static inline const char * spa_type_audio_iec958_codec_to_short_name(uint32_t type)
+SPA_API_IMPL const char * spa_type_audio_iec958_codec_to_short_name(uint32_t type)
 {
 	return spa_type_to_short_name(type, spa_type_audio_iec958_codec, "UNKNOWN");
 }

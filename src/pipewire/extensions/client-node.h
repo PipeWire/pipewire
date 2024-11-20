@@ -303,7 +303,7 @@ struct pw_client_node_methods {
 			  struct spa_buffer **buffers);
 };
 
-static inline int pw_client_node_add_listener(struct pw_client_node *object,
+SPA_API_IMPL int pw_client_node_add_listener(struct pw_client_node *object,
 			struct spa_hook *listener,
 			const struct pw_client_node_events *events,
 			void *data)
@@ -311,13 +311,13 @@ static inline int pw_client_node_add_listener(struct pw_client_node *object,
 	return spa_api_method_r(int, -ENOTSUP, pw_client_node, (struct spa_interface*)object,
 			add_listener, 0, listener, events, data);
 }
-static inline struct pw_node *
+SPA_API_IMPL struct pw_node *
 pw_client_node_get_node(struct pw_client_node *p, uint32_t version, size_t user_data_size)
 {
 	return spa_api_method_r(struct pw_node*, NULL, pw_client_node, (struct spa_interface*)p,
 			get_node, 0, version, user_data_size);
 }
-static inline int pw_client_node_update(struct pw_client_node *object,
+SPA_API_IMPL int pw_client_node_update(struct pw_client_node *object,
 			uint32_t change_mask,
 			uint32_t n_params, const struct spa_pod **params,
 			const struct spa_node_info *info)
@@ -325,7 +325,7 @@ static inline int pw_client_node_update(struct pw_client_node *object,
 	return spa_api_method_r(int, -ENOTSUP, pw_client_node, (struct spa_interface*)object,
 			update, 0, change_mask, n_params, params, info);
 }
-static inline int pw_client_node_port_update(struct pw_client_node *object,
+SPA_API_IMPL int pw_client_node_port_update(struct pw_client_node *object,
 			     enum spa_direction direction, uint32_t port_id,
 			     uint32_t change_mask,
 			     uint32_t n_params, const struct spa_pod **params,
@@ -334,17 +334,17 @@ static inline int pw_client_node_port_update(struct pw_client_node *object,
 	return spa_api_method_r(int, -ENOTSUP, pw_client_node, (struct spa_interface*)object,
 			port_update, 0, direction, port_id, change_mask, n_params, params, info);
 }
-static inline int pw_client_node_set_active(struct pw_client_node *object, bool active)
+SPA_API_IMPL int pw_client_node_set_active(struct pw_client_node *object, bool active)
 {
 	return spa_api_method_r(int, -ENOTSUP, pw_client_node, (struct spa_interface*)object,
 			set_active, 0, active);
 }
-static inline int pw_client_node_event(struct pw_client_node *object, const struct spa_event *event)
+SPA_API_IMPL int pw_client_node_event(struct pw_client_node *object, const struct spa_event *event)
 {
 	return spa_api_method_r(int, -ENOTSUP, pw_client_node, (struct spa_interface*)object,
 			event, 0, event);
 }
-static inline int pw_client_node_port_buffers(struct pw_client_node *object,
+SPA_API_IMPL int pw_client_node_port_buffers(struct pw_client_node *object,
 			  enum spa_direction direction, uint32_t port_id,
 			  uint32_t mix_id, uint32_t n_buffers, struct spa_buffer **buffers)
 {

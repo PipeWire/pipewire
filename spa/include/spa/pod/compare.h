@@ -25,7 +25,7 @@ extern "C" {
  * \{
  */
 
-static inline int spa_pod_compare_value(uint32_t type, const void *r1, const void *r2, uint32_t size)
+SPA_API_IMPL int spa_pod_compare_value(uint32_t type, const void *r1, const void *r2, uint32_t size)
 {
 	switch (type) {
 	case SPA_TYPE_None:
@@ -72,7 +72,7 @@ static inline int spa_pod_compare_value(uint32_t type, const void *r1, const voi
 	return 0;
 }
 
-static inline int spa_pod_compare(const struct spa_pod *pod1,
+SPA_API_IMPL int spa_pod_compare(const struct spa_pod *pod1,
 				  const struct spa_pod *pod2)
 {
 	int res = 0;

@@ -108,7 +108,7 @@ struct pw_link_methods {
 			void *data);
 };
 
-static inline int pw_link_add_listener(struct pw_link *object,
+SPA_API_IMPL int pw_link_add_listener(struct pw_link *object,
 			struct spa_hook *listener,
 			const struct pw_link_events *events,
 			void *data)

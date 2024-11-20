@@ -28,14 +28,14 @@ extern "C" {
  * \{
  */
 
-static inline int spa_json_begin(struct spa_json * iter, const char *data, size_t size, const char **val)
+SPA_API_IMPL int spa_json_begin(struct spa_json * iter, const char *data, size_t size, const char **val)
 {
 	spa_json_init(iter, data, size);
 	return spa_json_next(iter, val);
 }
 
 /* float */
-static inline int spa_json_get_float(struct spa_json *iter, float *res)
+SPA_API_IMPL int spa_json_get_float(struct spa_json *iter, float *res)
 {
 	const char *value;
 	int len;
@@ -45,7 +45,7 @@ static inline int spa_json_get_float(struct spa_json *iter, float *res)
 }
 
 /* int */
-static inline int spa_json_get_int(struct spa_json *iter, int *res)
+SPA_API_IMPL int spa_json_get_int(struct spa_json *iter, int *res)
 {
 	const char *value;
 	int len;
@@ -55,7 +55,7 @@ static inline int spa_json_get_int(struct spa_json *iter, int *res)
 }
 
 /* bool */
-static inline int spa_json_get_bool(struct spa_json *iter, bool *res)
+SPA_API_IMPL int spa_json_get_bool(struct spa_json *iter, bool *res)
 {
 	const char *value;
 	int len;
@@ -65,7 +65,7 @@ static inline int spa_json_get_bool(struct spa_json *iter, bool *res)
 }
 
 /* string */
-static inline int spa_json_get_string(struct spa_json *iter, char *res, int maxlen)
+SPA_API_IMPL int spa_json_get_string(struct spa_json *iter, char *res, int maxlen)
 {
 	const char *value;
 	int len;
@@ -75,7 +75,7 @@ static inline int spa_json_get_string(struct spa_json *iter, char *res, int maxl
 }
 
 
-static inline int spa_json_enter_container(struct spa_json *iter, struct spa_json *sub, char type)
+SPA_API_IMPL int spa_json_enter_container(struct spa_json *iter, struct spa_json *sub, char type)
 {
 	const char *value;
 	int len;
@@ -89,7 +89,7 @@ static inline int spa_json_enter_container(struct spa_json *iter, struct spa_jso
 	return 1;
 }
 
-static inline int spa_json_begin_container(struct spa_json * iter,
+SPA_API_IMPL int spa_json_begin_container(struct spa_json * iter,
 		const char *data, size_t size, char type, bool relax)
 {
 	int res;
@@ -106,7 +106,7 @@ static inline int spa_json_begin_container(struct spa_json * iter,
  *
  * \return Length of container including {} or [], or 0 on error.
  */
-static inline int spa_json_container_len(struct spa_json *iter, const char *value, int len SPA_UNUSED)
+SPA_API_IMPL int spa_json_container_len(struct spa_json *iter, const char *value, int len SPA_UNUSED)
 {
 	const char *val;
 	struct spa_json sub;
@@ -119,20 +119,20 @@ static inline int spa_json_container_len(struct spa_json *iter, const char *valu
 }
 
 /* object */
-static inline int spa_json_enter_object(struct spa_json *iter, struct spa_json *sub)
+SPA_API_IMPL int spa_json_enter_object(struct spa_json *iter, struct spa_json *sub)
 {
 	return spa_json_enter_container(iter, sub, '{');
 }
-static inline int spa_json_begin_object_relax(struct spa_json * iter, const char *data, size_t size)
+SPA_API_IMPL int spa_json_begin_object_relax(struct spa_json * iter, const char *data, size_t size)
 {
 	return spa_json_begin_container(iter, data, size, '{', true);
 }
-static inline int spa_json_begin_object(struct spa_json * iter, const char *data, size_t size)
+SPA_API_IMPL int spa_json_begin_object(struct spa_json * iter, const char *data, size_t size)
 {
 	return spa_json_begin_container(iter, data, size, '{', false);
 }
 
-static inline int spa_json_object_next(struct spa_json *iter, char *key, int maxkeylen, const char **value)
+SPA_API_IMPL int spa_json_object_next(struct spa_json *iter, char *key, int maxkeylen, const char **value)
 {
 	int res1, res2;
 	while (true) {
@@ -145,7 +145,7 @@ static inline int spa_json_object_next(struct spa_json *iter, char *key, int max
 	}
 }
 
-static inline int spa_json_object_find(struct spa_json *iter, const char *key, const char **value)
+SPA_API_IMPL int spa_json_object_find(struct spa_json *iter, const char *key, const char **value)
 {
 	struct spa_json obj = SPA_JSON_SAVE(iter);
 	int res, len = strlen(key) + 3;
@@ -157,7 +157,7 @@ static inline int spa_json_object_find(struct spa_json *iter, const char *key, c
 	return -ENOENT;
 }
 
-static inline int spa_json_str_object_find(const char *obj, size_t obj_len,
+SPA_API_IMPL int spa_json_str_object_find(const char *obj, size_t obj_len,
 		const char *key, char *value, size_t maxlen)
 {
 	struct spa_json iter;
@@ -172,15 +172,15 @@ static inline int spa_json_str_object_find(const char *obj, size_t obj_len,
 }
 
 /* array */
-static inline int spa_json_enter_array(struct spa_json *iter, struct spa_json *sub)
+SPA_API_IMPL int spa_json_enter_array(struct spa_json *iter, struct spa_json *sub)
 {
 	return spa_json_enter_container(iter, sub, '[');
 }
-static inline int spa_json_begin_array_relax(struct spa_json * iter, const char *data, size_t size)
+SPA_API_IMPL int spa_json_begin_array_relax(struct spa_json * iter, const char *data, size_t size)
 {
 	return spa_json_begin_container(iter, data, size, '[', true);
 }
-static inline int spa_json_begin_array(struct spa_json * iter, const char *data, size_t size)
+SPA_API_IMPL int spa_json_begin_array(struct spa_json * iter, const char *data, size_t size)
 {
 	return spa_json_begin_container(iter, data, size, '[', false);
 }
@@ -197,7 +197,7 @@ static inline int spa_json_begin_array(struct spa_json * iter, const char *data,
 	return count;								\
 }
 
-static inline int spa_json_str_array_uint32(const char *arr, size_t arr_len,
+SPA_API_IMPL int spa_json_str_array_uint32(const char *arr, size_t arr_len,
 		uint32_t *values, size_t max)
 {
 	spa_json_make_str_array_unpack(32,uint32_t, atoi);

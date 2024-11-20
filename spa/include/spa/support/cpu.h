@@ -91,7 +91,7 @@ struct spa_cpu { struct spa_interface iface; };
 #define SPA_CPU_VM_ACRN			(1 << 13)
 #define SPA_CPU_VM_POWERVM		(1 << 14)
 
-static inline const char *spa_cpu_vm_type_to_string(uint32_t vm_type)
+SPA_API_IMPL const char *spa_cpu_vm_type_to_string(uint32_t vm_type)
 {
 	switch(vm_type) {
 	case SPA_CPU_VM_NONE:
@@ -160,27 +160,27 @@ struct spa_cpu_methods {
 	int (*zero_denormals) (void *object, bool enable);
 };
 
-static inline uint32_t spa_cpu_get_flags(struct spa_cpu *c)
+SPA_API_IMPL uint32_t spa_cpu_get_flags(struct spa_cpu *c)
 {
 	return spa_api_method_r(uint32_t, 0, spa_cpu, &c->iface, get_flags, 0);
 }
-static inline int spa_cpu_force_flags(struct spa_cpu *c, uint32_t flags)
+SPA_API_IMPL int spa_cpu_force_flags(struct spa_cpu *c, uint32_t flags)
 {
 	return spa_api_method_r(int, -ENOTSUP, spa_cpu, &c->iface, force_flags, 0, flags);
 }
-static inline uint32_t spa_cpu_get_count(struct spa_cpu *c)
+SPA_API_IMPL uint32_t spa_cpu_get_count(struct spa_cpu *c)
 {
 	return spa_api_method_r(uint32_t, 0, spa_cpu, &c->iface, get_count, 0);
 }
-static inline uint32_t spa_cpu_get_max_align(struct spa_cpu *c)
+SPA_API_IMPL uint32_t spa_cpu_get_max_align(struct spa_cpu *c)
 {
 	return spa_api_method_r(uint32_t, 0, spa_cpu, &c->iface, get_max_align, 0);
 }
-static inline uint32_t spa_cpu_get_vm_type(struct spa_cpu *c)
+SPA_API_IMPL uint32_t spa_cpu_get_vm_type(struct spa_cpu *c)
 {
 	return spa_api_method_r(uint32_t, 0, spa_cpu, &c->iface, get_vm_type, 1);
 }
-static inline int spa_cpu_zero_denormals(struct spa_cpu *c, bool enable)
+SPA_API_IMPL int spa_cpu_zero_denormals(struct spa_cpu *c, bool enable)
 {
 	return spa_api_method_r(int, -ENOTSUP, spa_cpu, &c->iface, zero_denormals, 2, enable);
 }

@@ -18,7 +18,7 @@ extern "C" {
  * \{
  */
 
-static inline size_t spa_ump_message_size(uint8_t message_type)
+SPA_API_IMPL size_t spa_ump_message_size(uint8_t message_type)
 {
 	static const uint32_t ump_sizes[] = {
 		[0x0] = 1, /* Utility messages */
@@ -41,7 +41,7 @@ static inline size_t spa_ump_message_size(uint8_t message_type)
 	return ump_sizes[message_type & 0xf];
 }
 
-static inline int spa_ump_to_midi(uint32_t *ump, size_t ump_size,
+SPA_API_IMPL int spa_ump_to_midi(uint32_t *ump, size_t ump_size,
 		uint8_t *midi, size_t midi_maxsize)
 {
 	int size = 0;
@@ -102,7 +102,7 @@ static inline int spa_ump_to_midi(uint32_t *ump, size_t ump_size,
 	return size;
 }
 
-static inline int spa_ump_from_midi(uint8_t **midi, size_t *midi_size,
+SPA_API_IMPL int spa_ump_from_midi(uint8_t **midi, size_t *midi_size,
 		uint32_t *ump, size_t ump_maxsize, uint8_t group, uint64_t *state)
 {
 	int size = 0;

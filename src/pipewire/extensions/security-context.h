@@ -94,7 +94,7 @@ struct pw_security_context_methods {
 			const struct spa_dict *props);
 };
 
-static inline int pw_security_context_add_listener(struct pw_security_context *object,
+SPA_API_IMPL int pw_security_context_add_listener(struct pw_security_context *object,
 			struct spa_hook *listener,
 			const struct pw_security_context_events *events,
 			void *data)
@@ -104,7 +104,7 @@ static inline int pw_security_context_add_listener(struct pw_security_context *o
 			listener, events, data);
 }
 
-static inline int pw_security_context_create(struct pw_security_context *object,
+SPA_API_IMPL int pw_security_context_create(struct pw_security_context *object,
 			int listen_fd, int close_fd, const struct spa_dict *props)
 {
 	return spa_api_method_r(int, -ENOTSUP,

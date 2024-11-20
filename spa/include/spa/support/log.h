@@ -213,7 +213,7 @@ struct spa_log_methods {
 #define SPA_LOG_TOPIC(v, t) \
    (struct spa_log_topic){ .version = (v), .topic = (t)}
 
-static inline void spa_log_topic_init(struct spa_log *log, struct spa_log_topic *topic)
+SPA_API_IMPL void spa_log_topic_init(struct spa_log *log, struct spa_log_topic *topic)
 {
 	if (SPA_UNLIKELY(!log))
 		return;
@@ -221,7 +221,7 @@ static inline void spa_log_topic_init(struct spa_log *log, struct spa_log_topic 
 	spa_interface_call(&log->iface, struct spa_log_methods, topic_init, 1, topic);
 }
 
-static inline bool spa_log_level_topic_enabled(const struct spa_log *log,
+SPA_API_IMPL bool spa_log_level_topic_enabled(const struct spa_log *log,
 					       const struct spa_log_topic *topic,
 					       enum spa_log_level level)
 {
@@ -256,7 +256,7 @@ static inline bool spa_log_level_topic_enabled(const struct spa_log *log,
 
 /* Transparently calls to version 0 logv if v1 is not supported */
 SPA_PRINTF_FUNC(7, 0)
-static inline void spa_log_logtv(struct spa_log *l, enum spa_log_level level,
+SPA_API_IMPL void spa_log_logtv(struct spa_log *l, enum spa_log_level level,
 		const struct spa_log_topic *topic, const char *file, int line,
 		const char *func, const char *fmt, va_list args)
 {

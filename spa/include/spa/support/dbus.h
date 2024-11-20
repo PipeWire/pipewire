@@ -81,19 +81,19 @@ struct spa_dbus_connection {
 
 /** \copydoc spa_dbus_connection.get
  * \sa spa_dbus_connection.get */
-static inline void *spa_dbus_connection_get(struct spa_dbus_connection *conn)
+SPA_API_IMPL void *spa_dbus_connection_get(struct spa_dbus_connection *conn)
 {
 	return spa_api_func_r(void *, NULL, conn, get, 0);
 }
 /** \copydoc spa_dbus_connection.destroy
  * \sa spa_dbus_connection.destroy */
-static inline void spa_dbus_connection_destroy(struct spa_dbus_connection *conn)
+SPA_API_IMPL void spa_dbus_connection_destroy(struct spa_dbus_connection *conn)
 {
 	spa_api_func_v(conn, destroy, 0);
 }
 /** \copydoc spa_dbus_connection.add_listener
  * \sa spa_dbus_connection.add_listener */
-static inline void spa_dbus_connection_add_listener(struct spa_dbus_connection *conn,
+SPA_API_IMPL void spa_dbus_connection_add_listener(struct spa_dbus_connection *conn,
 		struct spa_hook *listener,
 		const struct spa_dbus_connection_events *events,
 		void *data)
@@ -124,7 +124,7 @@ struct spa_dbus_methods {
 /** \copydoc spa_dbus_methods.get_connection
  * \sa spa_dbus_methods.get_connection
  */
-static inline struct spa_dbus_connection *
+SPA_API_IMPL struct spa_dbus_connection *
 spa_dbus_get_connection(struct spa_dbus *dbus, enum spa_dbus_type type)
 {
 	return spa_api_method_r(struct spa_dbus_connection *, NULL,

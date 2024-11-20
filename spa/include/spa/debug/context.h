@@ -32,7 +32,7 @@ struct spa_debug_context {
 
 #define spa_debugc(_c,_fmt,...)	(_c)?((_c)->log((_c),_fmt, ## __VA_ARGS__)):(void)spa_debug(_fmt, ## __VA_ARGS__)
 
-static inline void spa_debugc_error_location(struct spa_debug_context *c,
+SPA_API_IMPL void spa_debugc_error_location(struct spa_debug_context *c,
 		struct spa_error_location *loc)
 {
 	int i, skip = loc->col > 80 ? loc->col - 40 : 0, lc = loc->col-skip-1;

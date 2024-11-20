@@ -89,7 +89,7 @@ struct pw_metadata_methods {
 	int (*clear) (void *object);
 };
 
-static inline int pw_metadata_add_listener(struct pw_metadata *object,
+SPA_API_IMPL int pw_metadata_add_listener(struct pw_metadata *object,
 			struct spa_hook *listener,
 			const struct pw_metadata_events *events,
 			void *data)
@@ -98,7 +98,7 @@ static inline int pw_metadata_add_listener(struct pw_metadata *object,
 			pw_metadata, (struct spa_interface*)object, add_listener, 0,
 			listener, events, data);
 }
-static inline int pw_metadata_set_property(struct pw_metadata *object,
+SPA_API_IMPL int pw_metadata_set_property(struct pw_metadata *object,
 			uint32_t subject,
 			const char *key,
 			const char *type,
@@ -108,7 +108,7 @@ static inline int pw_metadata_set_property(struct pw_metadata *object,
 			pw_metadata, (struct spa_interface*)object, set_property, 0,
 			subject, key, type, value);
 }
-static inline int pw_metadata_clear(struct pw_metadata *object)
+SPA_API_IMPL int pw_metadata_clear(struct pw_metadata *object)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_metadata, (struct spa_interface*)object, clear, 0);

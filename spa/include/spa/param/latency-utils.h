@@ -20,7 +20,7 @@ extern "C" {
 #include <spa/pod/parser.h>
 #include <spa/param/latency.h>
 
-static inline int
+SPA_API_IMPL int
 spa_latency_info_compare(const struct spa_latency_info *a, const struct spa_latency_info *b)
 {
 	if (a->min_quantum == b->min_quantum &&
@@ -33,7 +33,7 @@ spa_latency_info_compare(const struct spa_latency_info *a, const struct spa_late
 	return 1;
 }
 
-static inline void
+SPA_API_IMPL void
 spa_latency_info_combine_start(struct spa_latency_info *info, enum spa_direction direction)
 {
 	*info = SPA_LATENCY_INFO(direction,
@@ -44,7 +44,7 @@ spa_latency_info_combine_start(struct spa_latency_info *info, enum spa_direction
 			.min_ns = INT64_MAX,
 			.max_ns = INT64_MIN);
 }
-static inline void
+SPA_API_IMPL void
 spa_latency_info_combine_finish(struct spa_latency_info *info)
 {
 	if (info->min_quantum == FLT_MAX)
@@ -61,7 +61,7 @@ spa_latency_info_combine_finish(struct spa_latency_info *info)
 		info->max_ns = 0;
 }
 
-static inline int
+SPA_API_IMPL int
 spa_latency_info_combine(struct spa_latency_info *info, const struct spa_latency_info *other)
 {
 	if (info->direction != other->direction)
@@ -81,7 +81,7 @@ spa_latency_info_combine(struct spa_latency_info *info, const struct spa_latency
 	return 0;
 }
 
-static inline int
+SPA_API_IMPL int
 spa_latency_parse(const struct spa_pod *latency, struct spa_latency_info *info)
 {
 	int res;
@@ -100,7 +100,7 @@ spa_latency_parse(const struct spa_pod *latency, struct spa_latency_info *info)
 	return 0;
 }
 
-static inline struct spa_pod *
+SPA_API_IMPL struct spa_pod *
 spa_latency_build(struct spa_pod_builder *builder, uint32_t id, const struct spa_latency_info *info)
 {
 	return (struct spa_pod *)spa_pod_builder_add_object(builder,
@@ -114,7 +114,7 @@ spa_latency_build(struct spa_pod_builder *builder, uint32_t id, const struct spa
 			SPA_PARAM_LATENCY_maxNs, SPA_POD_Long(info->max_ns));
 }
 
-static inline int
+SPA_API_IMPL int
 spa_process_latency_parse(const struct spa_pod *latency, struct spa_process_latency_info *info)
 {
 	int res;
@@ -128,7 +128,7 @@ spa_process_latency_parse(const struct spa_pod *latency, struct spa_process_late
 	return 0;
 }
 
-static inline struct spa_pod *
+SPA_API_IMPL struct spa_pod *
 spa_process_latency_build(struct spa_pod_builder *builder, uint32_t id,
 		const struct spa_process_latency_info *info)
 {
@@ -139,7 +139,7 @@ spa_process_latency_build(struct spa_pod_builder *builder, uint32_t id,
 			SPA_PARAM_PROCESS_LATENCY_ns, SPA_POD_Long(info->ns));
 }
 
-static inline int
+SPA_API_IMPL int
 spa_process_latency_info_add(const struct spa_process_latency_info *process,
 		struct spa_latency_info *info)
 {
@@ -152,7 +152,7 @@ spa_process_latency_info_add(const struct spa_process_latency_info *process,
 	return 0;
 }
 
-static inline int
+SPA_API_IMPL int
 spa_process_latency_info_compare(const struct spa_process_latency_info *a,
 		const struct spa_process_latency_info *b)
 {

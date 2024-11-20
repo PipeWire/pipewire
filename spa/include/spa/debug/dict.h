@@ -17,7 +17,7 @@ extern "C" {
 #include <spa/debug/context.h>
 #include <spa/utils/dict.h>
 
-static inline int spa_debugc_dict(struct spa_debug_context *ctx, int indent, const struct spa_dict *dict)
+SPA_API_IMPL int spa_debugc_dict(struct spa_debug_context *ctx, int indent, const struct spa_dict *dict)
 {
 	const struct spa_dict_item *item;
 	spa_debugc(ctx, "%*sflags:%08x n_items:%d", indent, "", dict->flags, dict->n_items);
@@ -27,7 +27,7 @@ static inline int spa_debugc_dict(struct spa_debug_context *ctx, int indent, con
 	return 0;
 }
 
-static inline int spa_debug_dict(int indent, const struct spa_dict *dict)
+SPA_API_IMPL int spa_debug_dict(int indent, const struct spa_dict *dict)
 {
 	return spa_debugc_dict(NULL, indent, dict);
 }

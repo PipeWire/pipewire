@@ -21,7 +21,7 @@ extern "C" {
 #include <spa/param/type-info.h>
 #include <spa/param/format-utils.h>
 
-static inline int
+SPA_API_IMPL int
 spa_debug_strbuf_format_value(struct spa_strbuf *buffer, const struct spa_type_info *info,
 		uint32_t type, void *body, uint32_t size)
 {
@@ -96,7 +96,7 @@ spa_debug_strbuf_format_value(struct spa_strbuf *buffer, const struct spa_type_i
 	return 0;
 }
 
-static inline int
+SPA_API_IMPL int
 spa_debug_format_value(const struct spa_type_info *info,
 		uint32_t type, void *body, uint32_t size)
 {
@@ -108,7 +108,7 @@ spa_debug_format_value(const struct spa_type_info *info,
 	return 0;
 }
 
-static inline int spa_debugc_format(struct spa_debug_context *ctx, int indent,
+SPA_API_IMPL int spa_debugc_format(struct spa_debug_context *ctx, int indent,
 		const struct spa_type_info *info, const struct spa_pod *format)
 {
 	const char *media_type;
@@ -198,7 +198,7 @@ static inline int spa_debugc_format(struct spa_debug_context *ctx, int indent,
 	return 0;
 }
 
-static inline int spa_debug_format(int indent,
+SPA_API_IMPL int spa_debug_format(int indent,
 		const struct spa_type_info *info, const struct spa_pod *format)
 {
 	return spa_debugc_format(NULL, indent, info, format);

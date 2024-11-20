@@ -53,7 +53,7 @@ struct pw_profiler_methods {
 			void *data);
 };
 
-static inline int pw_profiler_add_listener(struct pw_profiler *object,
+SPA_API_IMPL int pw_profiler_add_listener(struct pw_profiler *object,
 			struct spa_hook *listener,
 			const struct pw_profiler_events *events,
 			void *data)

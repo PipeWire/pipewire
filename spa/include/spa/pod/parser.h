@@ -35,31 +35,31 @@ struct spa_pod_parser {
 
 #define SPA_POD_PARSER_INIT(buffer,size)  ((struct spa_pod_parser){ (buffer), (size), 0, {0,0,NULL}})
 
-static inline void spa_pod_parser_init(struct spa_pod_parser *parser,
+SPA_API_IMPL void spa_pod_parser_init(struct spa_pod_parser *parser,
 				       const void *data, uint32_t size)
 {
 	*parser = SPA_POD_PARSER_INIT(data, size);
 }
 
-static inline void spa_pod_parser_pod(struct spa_pod_parser *parser,
+SPA_API_IMPL void spa_pod_parser_pod(struct spa_pod_parser *parser,
 				      const struct spa_pod *pod)
 {
 	spa_pod_parser_init(parser, pod, SPA_POD_SIZE(pod));
 }
 
-static inline void
+SPA_API_IMPL void
 spa_pod_parser_get_state(struct spa_pod_parser *parser, struct spa_pod_parser_state *state)
 {
 	*state = parser->state;
 }
 
-static inline void
+SPA_API_IMPL void
 spa_pod_parser_reset(struct spa_pod_parser *parser, struct spa_pod_parser_state *state)
 {
 	parser->state = *state;
 }
 
-static inline struct spa_pod *
+SPA_API_IMPL struct spa_pod *
 spa_pod_parser_deref(struct spa_pod_parser *parser, uint32_t offset, uint32_t size)
 {
 	/* Cast to uint64_t to avoid wraparound.  Add 8 for the pod itself. */
@@ -78,12 +78,12 @@ spa_pod_parser_deref(struct spa_pod_parser *parser, uint32_t offset, uint32_t si
 	return NULL;
 }
 
-static inline struct spa_pod *spa_pod_parser_frame(struct spa_pod_parser *parser, struct spa_pod_frame *frame)
+SPA_API_IMPL struct spa_pod *spa_pod_parser_frame(struct spa_pod_parser *parser, struct spa_pod_frame *frame)
 {
 	return SPA_PTROFF(parser->data, frame->offset, struct spa_pod);
 }
 
-static inline void spa_pod_parser_push(struct spa_pod_parser *parser,
+SPA_API_IMPL void spa_pod_parser_push(struct spa_pod_parser *parser,
 		      struct spa_pod_frame *frame, const struct spa_pod *pod, uint32_t offset)
 {
 	frame->pod = *pod;
@@ -93,19 +93,19 @@ static inline void spa_pod_parser_push(struct spa_pod_parser *parser,
 	parser->state.frame = frame;
 }
 
-static inline struct spa_pod *spa_pod_parser_current(struct spa_pod_parser *parser)
+SPA_API_IMPL struct spa_pod *spa_pod_parser_current(struct spa_pod_parser *parser)
 {
 	struct spa_pod_frame *f = parser->state.frame;
 	uint32_t size = f ? f->offset + SPA_POD_SIZE(&f->pod) : parser->size;
 	return spa_pod_parser_deref(parser, parser->state.offset, size);
 }
 
-static inline void spa_pod_parser_advance(struct spa_pod_parser *parser, const struct spa_pod *pod)
+SPA_API_IMPL void spa_pod_parser_advance(struct spa_pod_parser *parser, const struct spa_pod *pod)
 {
 	parser->state.offset += SPA_ROUND_UP_N(SPA_POD_SIZE(pod), 8);
 }
 
-static inline struct spa_pod *spa_pod_parser_next(struct spa_pod_parser *parser)
+SPA_API_IMPL struct spa_pod *spa_pod_parser_next(struct spa_pod_parser *parser)
 {
 	struct spa_pod *pod = spa_pod_parser_current(parser);
 	if (pod)
@@ -113,7 +113,7 @@ static inline struct spa_pod *spa_pod_parser_next(struct spa_pod_parser *parser)
 	return pod;
 }
 
-static inline int spa_pod_parser_pop(struct spa_pod_parser *parser,
+SPA_API_IMPL int spa_pod_parser_pop(struct spa_pod_parser *parser,
 		      struct spa_pod_frame *frame)
 {
 	parser->state.frame = frame->parent;
@@ -121,7 +121,7 @@ static inline int spa_pod_parser_pop(struct spa_pod_parser *parser,
 	return 0;
 }
 
-static inline int spa_pod_parser_get_bool(struct spa_pod_parser *parser, bool *value)
+SPA_API_IMPL int spa_pod_parser_get_bool(struct spa_pod_parser *parser, bool *value)
 {
 	int res = -EPIPE;
 	const struct spa_pod *pod = spa_pod_parser_current(parser);
@@ -130,7 +130,7 @@ static inline int spa_pod_parser_get_bool(struct spa_pod_parser *parser, bool *v
 	return res;
 }
 
-static inline int spa_pod_parser_get_id(struct spa_pod_parser *parser, uint32_t *value)
+SPA_API_IMPL int spa_pod_parser_get_id(struct spa_pod_parser *parser, uint32_t *value)
 {
 	int res = -EPIPE;
 	const struct spa_pod *pod = spa_pod_parser_current(parser);
@@ -139,7 +139,7 @@ static inline int spa_pod_parser_get_id(struct spa_pod_parser *parser, uint32_t 
 	return res;
 }
 
-static inline int spa_pod_parser_get_int(struct spa_pod_parser *parser, int32_t *value)
+SPA_API_IMPL int spa_pod_parser_get_int(struct spa_pod_parser *parser, int32_t *value)
 {
 	int res = -EPIPE;
 	const struct spa_pod *pod = spa_pod_parser_current(parser);
@@ -148,7 +148,7 @@ static inline int spa_pod_parser_get_int(struct spa_pod_parser *parser, int32_t 
 	return res;
 }
 
-static inline int spa_pod_parser_get_long(struct spa_pod_parser *parser, int64_t *value)
+SPA_API_IMPL int spa_pod_parser_get_long(struct spa_pod_parser *parser, int64_t *value)
 {
 	int res = -EPIPE;
 	const struct spa_pod *pod = spa_pod_parser_current(parser);
@@ -157,7 +157,7 @@ static inline int spa_pod_parser_get_long(struct spa_pod_parser *parser, int64_t
 	return res;
 }
 
-static inline int spa_pod_parser_get_float(struct spa_pod_parser *parser, float *value)
+SPA_API_IMPL int spa_pod_parser_get_float(struct spa_pod_parser *parser, float *value)
 {
 	int res = -EPIPE;
 	const struct spa_pod *pod = spa_pod_parser_current(parser);
@@ -166,7 +166,7 @@ static inline int spa_pod_parser_get_float(struct spa_pod_parser *parser, float 
 	return res;
 }
 
-static inline int spa_pod_parser_get_double(struct spa_pod_parser *parser, double *value)
+SPA_API_IMPL int spa_pod_parser_get_double(struct spa_pod_parser *parser, double *value)
 {
 	int res = -EPIPE;
 	const struct spa_pod *pod = spa_pod_parser_current(parser);
@@ -175,7 +175,7 @@ static inline int spa_pod_parser_get_double(struct spa_pod_parser *parser, doubl
 	return res;
 }
 
-static inline int spa_pod_parser_get_string(struct spa_pod_parser *parser, const char **value)
+SPA_API_IMPL int spa_pod_parser_get_string(struct spa_pod_parser *parser, const char **value)
 {
 	int res = -EPIPE;
 	const struct spa_pod *pod = spa_pod_parser_current(parser);
@@ -184,7 +184,7 @@ static inline int spa_pod_parser_get_string(struct spa_pod_parser *parser, const
 	return res;
 }
 
-static inline int spa_pod_parser_get_bytes(struct spa_pod_parser *parser, const void **value, uint32_t *len)
+SPA_API_IMPL int spa_pod_parser_get_bytes(struct spa_pod_parser *parser, const void **value, uint32_t *len)
 {
 	int res = -EPIPE;
 	const struct spa_pod *pod = spa_pod_parser_current(parser);
@@ -193,7 +193,7 @@ static inline int spa_pod_parser_get_bytes(struct spa_pod_parser *parser, const 
 	return res;
 }
 
-static inline int spa_pod_parser_get_pointer(struct spa_pod_parser *parser, uint32_t *type, const void **value)
+SPA_API_IMPL int spa_pod_parser_get_pointer(struct spa_pod_parser *parser, uint32_t *type, const void **value)
 {
 	int res = -EPIPE;
 	const struct spa_pod *pod = spa_pod_parser_current(parser);
@@ -202,7 +202,7 @@ static inline int spa_pod_parser_get_pointer(struct spa_pod_parser *parser, uint
 	return res;
 }
 
-static inline int spa_pod_parser_get_fd(struct spa_pod_parser *parser, int64_t *value)
+SPA_API_IMPL int spa_pod_parser_get_fd(struct spa_pod_parser *parser, int64_t *value)
 {
 	int res = -EPIPE;
 	const struct spa_pod *pod = spa_pod_parser_current(parser);
@@ -211,7 +211,7 @@ static inline int spa_pod_parser_get_fd(struct spa_pod_parser *parser, int64_t *
 	return res;
 }
 
-static inline int spa_pod_parser_get_rectangle(struct spa_pod_parser *parser, struct spa_rectangle *value)
+SPA_API_IMPL int spa_pod_parser_get_rectangle(struct spa_pod_parser *parser, struct spa_rectangle *value)
 {
 	int res = -EPIPE;
 	const struct spa_pod *pod = spa_pod_parser_current(parser);
@@ -220,7 +220,7 @@ static inline int spa_pod_parser_get_rectangle(struct spa_pod_parser *parser, st
 	return res;
 }
 
-static inline int spa_pod_parser_get_fraction(struct spa_pod_parser *parser, struct spa_fraction *value)
+SPA_API_IMPL int spa_pod_parser_get_fraction(struct spa_pod_parser *parser, struct spa_fraction *value)
 {
 	int res = -EPIPE;
 	const struct spa_pod *pod = spa_pod_parser_current(parser);
@@ -229,7 +229,7 @@ static inline int spa_pod_parser_get_fraction(struct spa_pod_parser *parser, str
 	return res;
 }
 
-static inline int spa_pod_parser_get_pod(struct spa_pod_parser *parser, struct spa_pod **value)
+SPA_API_IMPL int spa_pod_parser_get_pod(struct spa_pod_parser *parser, struct spa_pod **value)
 {
 	struct spa_pod *pod = spa_pod_parser_current(parser);
 	if (pod == NULL)
@@ -238,7 +238,7 @@ static inline int spa_pod_parser_get_pod(struct spa_pod_parser *parser, struct s
 	spa_pod_parser_advance(parser, pod);
 	return 0;
 }
-static inline int spa_pod_parser_push_struct(struct spa_pod_parser *parser,
+SPA_API_IMPL int spa_pod_parser_push_struct(struct spa_pod_parser *parser,
 		struct spa_pod_frame *frame)
 {
 	const struct spa_pod *pod = spa_pod_parser_current(parser);
@@ -251,7 +251,7 @@ static inline int spa_pod_parser_push_struct(struct spa_pod_parser *parser,
 	return 0;
 }
 
-static inline int spa_pod_parser_push_object(struct spa_pod_parser *parser,
+SPA_API_IMPL int spa_pod_parser_push_object(struct spa_pod_parser *parser,
 		struct spa_pod_frame *frame, uint32_t type, uint32_t *id)
 {
 	const struct spa_pod *pod = spa_pod_parser_current(parser);
@@ -268,7 +268,7 @@ static inline int spa_pod_parser_push_object(struct spa_pod_parser *parser,
 	return 0;
 }
 
-static inline bool spa_pod_parser_can_collect(const struct spa_pod *pod, char type)
+SPA_API_IMPL bool spa_pod_parser_can_collect(const struct spa_pod *pod, char type)
 {
 	if (pod == NULL)
 		return false;
@@ -443,7 +443,7 @@ do {											\
 	}										\
 } while(false)
 
-static inline int spa_pod_parser_getv(struct spa_pod_parser *parser, va_list args)
+SPA_API_IMPL int spa_pod_parser_getv(struct spa_pod_parser *parser, va_list args)
 {
 	struct spa_pod_frame *f = parser->state.frame;
         uint32_t ftype = f ? f->pod.type : (uint32_t)SPA_TYPE_Struct;
@@ -496,7 +496,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser, va_list arg
 	return count;
 }
 
-static inline int spa_pod_parser_get(struct spa_pod_parser *parser, ...)
+SPA_API_IMPL int spa_pod_parser_get(struct spa_pod_parser *parser, ...)
 {
 	int res;
 	va_list args;

@@ -254,6 +254,11 @@ struct spa_fraction {
 #define SPA_WARN_UNUSED_RESULT
 #endif
 
+#ifndef SPA_API_IMPL
+#define SPA_API_PROTO static inline
+#define SPA_API_IMPL static inline
+#endif
+
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
 #define SPA_RESTRICT restrict
 #elif defined(__GNUC__) && __GNUC__ >= 4
@@ -300,7 +305,7 @@ struct spa_fraction {
 #endif
 #endif
 
-static inline bool spa_ptrinside(const void *p1, size_t s1, const void *p2, size_t s2,
+SPA_API_IMPL bool spa_ptrinside(const void *p1, size_t s1, const void *p2, size_t s2,
                                  size_t *remaining)
 {
 	if (SPA_LIKELY((uintptr_t)p1 <= (uintptr_t)p2 && s2 <= s1 &&
@@ -315,7 +320,7 @@ static inline bool spa_ptrinside(const void *p1, size_t s1, const void *p2, size
 	}
 }
 
-static inline bool spa_ptr_inside_and_aligned(const void *p1, size_t s1,
+SPA_API_IMPL bool spa_ptr_inside_and_aligned(const void *p1, size_t s1,
                                               const void *p2, size_t s2, size_t align,
                                               size_t *remaining)
 {

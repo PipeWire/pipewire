@@ -18,7 +18,7 @@ extern "C" {
 #include <spa/pod/parser.h>
 #include <spa/param/format.h>
 
-static inline int
+SPA_API_IMPL int
 spa_format_parse(const struct spa_pod *format, uint32_t *media_type, uint32_t *media_subtype)
 {
 	return spa_pod_parse_object(format,

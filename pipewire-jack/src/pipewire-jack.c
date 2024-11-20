@@ -4002,7 +4002,7 @@ static void registry_event_global(void *data, uint32_t id,
 			pw_proxy_add_listener(proxy,
 					&c->metadata->proxy_listener,
 					&metadata_proxy_events, c);
-			pw_metadata_add_listener(proxy,
+			pw_metadata_add_listener(c->metadata->proxy,
 					&c->metadata->listener,
 					&metadata_events, c);
 			do_sync = true;

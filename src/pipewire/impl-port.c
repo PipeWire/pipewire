@@ -19,6 +19,7 @@
 #include <spa/pod/dynamic.h>
 #include <spa/debug/pod.h>
 
+#define PW_API_PORT_IMPL	SPA_EXPORT
 #include "pipewire/impl.h"
 #include "pipewire/private.h"
 

@@ -34,6 +34,10 @@ extern "C" {
 #define PW_VERSION_PORT		3
 struct pw_port;
 
+#ifndef PW_API_PORT_IMPL
+#define PW_API_PORT_IMPL static inline
+#endif
+
 /** The direction of a port */
 #define pw_direction spa_direction
 #define PW_DIRECTION_INPUT SPA_DIRECTION_INPUT
@@ -141,7 +145,7 @@ struct pw_port_methods {
 			const struct spa_pod *filter);
 };
 
-SPA_API_IMPL int pw_port_add_listener(struct pw_port *object,
+PW_API_PORT_IMPL int pw_port_add_listener(struct pw_port *object,
 			struct spa_hook *listener,
 			const struct pw_port_events *events,
 			void *data)
@@ -150,13 +154,13 @@ SPA_API_IMPL int pw_port_add_listener(struct pw_port *object,
 			pw_port, (struct spa_interface*)object, add_listener, 0,
 			listener, events, data);
 }
-SPA_API_IMPL int pw_port_subscribe_params(struct pw_port *object, uint32_t *ids, uint32_t n_ids)
+PW_API_PORT_IMPL int pw_port_subscribe_params(struct pw_port *object, uint32_t *ids, uint32_t n_ids)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_port, (struct spa_interface*)object, subscribe_params, 0,
 			ids, n_ids);
 }
-SPA_API_IMPL int pw_port_enum_params(struct pw_port *object,
+PW_API_PORT_IMPL int pw_port_enum_params(struct pw_port *object,
 		int seq, uint32_t id, uint32_t start, uint32_t num,
 			    const struct spa_pod *filter)
 {

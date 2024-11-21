@@ -26,6 +26,10 @@ extern "C" {
 #define PW_VERSION_METADATA			3
 struct pw_metadata;
 
+#ifndef PW_API_METADATA_IMPL
+#define PW_API_METADATA_IMPL static inline
+#endif
+
 #define PW_EXTENSION_MODULE_METADATA		PIPEWIRE_MODULE_PREFIX "module-metadata"
 
 #define PW_METADATA_EVENT_PROPERTY		0
@@ -89,7 +93,7 @@ struct pw_metadata_methods {
 	int (*clear) (void *object);
 };
 
-SPA_API_IMPL int pw_metadata_add_listener(struct pw_metadata *object,
+PW_API_METADATA_IMPL int pw_metadata_add_listener(struct pw_metadata *object,
 			struct spa_hook *listener,
 			const struct pw_metadata_events *events,
 			void *data)
@@ -98,7 +102,7 @@ SPA_API_IMPL int pw_metadata_add_listener(struct pw_metadata *object,
 			pw_metadata, (struct spa_interface*)object, add_listener, 0,
 			listener, events, data);
 }
-SPA_API_IMPL int pw_metadata_set_property(struct pw_metadata *object,
+PW_API_METADATA_IMPL int pw_metadata_set_property(struct pw_metadata *object,
 			uint32_t subject,
 			const char *key,
 			const char *type,
@@ -108,7 +112,7 @@ SPA_API_IMPL int pw_metadata_set_property(struct pw_metadata *object,
 			pw_metadata, (struct spa_interface*)object, set_property, 0,
 			subject, key, type, value);
 }
-SPA_API_IMPL int pw_metadata_clear(struct pw_metadata *object)
+PW_API_METADATA_IMPL int pw_metadata_clear(struct pw_metadata *object)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_metadata, (struct spa_interface*)object, clear, 0);

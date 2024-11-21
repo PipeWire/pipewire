@@ -15,6 +15,7 @@
 #include <spa/utils/list.h>
 #include <spa/utils/json.h>
 
+#define PW_API_THREAD_IMPL SPA_EXPORT
 #include <pipewire/log.h>
 #include <pipewire/private.h>
 #include <pipewire/thread.h>

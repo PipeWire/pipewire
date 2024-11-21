@@ -12,6 +12,9 @@
 #include <spa/pod/parser.h>
 #include <spa/debug/types.h>
 
+#define PW_API_CORE_IMPL	SPA_EXPORT
+#define PW_API_REGISTRY_IMPL	SPA_EXPORT
+
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
 
@@ -474,6 +477,15 @@ SPA_EXPORT
 struct pw_mempool * pw_core_get_mempool(struct pw_core *core)
 {
 	return core->pool;
+}
+
+SPA_EXPORT
+void pw_core_add_proxy_listener(struct pw_core *object,
+			struct spa_hook *listener,
+			const struct pw_proxy_events *events,
+			void *data)
+{
+	pw_proxy_add_listener((struct pw_proxy *)object, listener, events, data);
 }
 
 SPA_EXPORT

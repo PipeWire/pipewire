@@ -29,6 +29,10 @@ extern "C" {
 #define PW_VERSION_MODULE		3
 struct pw_module;
 
+#ifndef PW_API_MODULE_IMPL
+#define PW_API_MODULE_IMPL static inline
+#endif
+
 /** The module information. Extra information can be added in later versions */
 struct pw_module_info {
 	uint32_t id;		/**< id of the global */
@@ -81,7 +85,7 @@ struct pw_module_methods {
 			void *data);
 };
 
-SPA_API_IMPL int pw_module_add_listener(struct pw_module *object,
+PW_API_MODULE_IMPL int pw_module_add_listener(struct pw_module *object,
 			struct spa_hook *listener,
 			const struct pw_module_events *events,
 			void *data)

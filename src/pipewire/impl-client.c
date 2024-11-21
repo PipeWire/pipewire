@@ -6,7 +6,11 @@
 #include <string.h>
 #include <assert.h>
 
+#include <spa/utils/defs.h>
 #include <spa/utils/string.h>
+
+#define PW_API_CLIENT_IMPL	SPA_EXPORT
+#include "pipewire/client.h"
 
 #include "pipewire/impl.h"
 #include "pipewire/private.h"

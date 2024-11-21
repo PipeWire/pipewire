@@ -13,6 +13,7 @@
 #include <spa/param/param.h>
 #include <spa/debug/types.h>
 
+#define PW_API_LINK_IMPL	SPA_EXPORT
 #include "pipewire/impl-link.h"
 #include "pipewire/private.h"
 

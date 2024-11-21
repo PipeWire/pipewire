@@ -22,6 +22,7 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json-pod.h>
 
+#define PW_API_NODE_IMPL	SPA_EXPORT
 #include "pipewire/impl-node.h"
 #include "pipewire/private.h"
 

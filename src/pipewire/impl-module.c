@@ -16,6 +16,7 @@
 #include <spa/utils/cleanup.h>
 #include <spa/utils/string.h>
 
+#define PW_API_MODULE_IMPL	SPA_EXPORT
 #include "pipewire/impl.h"
 #include "pipewire/private.h"
 

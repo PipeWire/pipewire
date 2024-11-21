@@ -12,6 +12,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/json.h>
 
+#define PW_API_METADATA_IMPL	SPA_EXPORT
 #include <pipewire/impl.h>
 #include <pipewire/extensions/metadata.h>
 

@@ -34,6 +34,10 @@ extern "C" {
 #define PW_VERSION_NODE		3
 struct pw_node;
 
+#ifndef PW_API_NODE_IMPL
+#define PW_API_NODE_IMPL static inline
+#endif
+
 /** \enum pw_node_state The different node states */
 enum pw_node_state {
 	PW_NODE_STATE_ERROR = -1,	/**< error state */
@@ -180,7 +184,7 @@ struct pw_node_methods {
 };
 
 
-SPA_API_IMPL int pw_node_add_listener(struct pw_node *object,
+PW_API_NODE_IMPL int pw_node_add_listener(struct pw_node *object,
 			struct spa_hook *listener,
 			const struct pw_node_events *events,
 			void *data)
@@ -189,13 +193,13 @@ SPA_API_IMPL int pw_node_add_listener(struct pw_node *object,
 			pw_node, (struct spa_interface*)object, add_listener, 0,
 			listener, events, data);
 }
-SPA_API_IMPL int pw_node_subscribe_params(struct pw_node *object, uint32_t *ids, uint32_t n_ids)
+PW_API_NODE_IMPL int pw_node_subscribe_params(struct pw_node *object, uint32_t *ids, uint32_t n_ids)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_node, (struct spa_interface*)object, subscribe_params, 0,
 			ids, n_ids);
 }
-SPA_API_IMPL int pw_node_enum_params(struct pw_node *object,
+PW_API_NODE_IMPL int pw_node_enum_params(struct pw_node *object,
 		int seq, uint32_t id, uint32_t start, uint32_t num,
 			    const struct spa_pod *filter)
 {
@@ -203,14 +207,14 @@ SPA_API_IMPL int pw_node_enum_params(struct pw_node *object,
 			pw_node, (struct spa_interface*)object, enum_params, 0,
 			seq, id, start, num, filter);
 }
-SPA_API_IMPL int pw_node_set_param(struct pw_node *object, uint32_t id, uint32_t flags,
+PW_API_NODE_IMPL int pw_node_set_param(struct pw_node *object, uint32_t id, uint32_t flags,
 			  const struct spa_pod *param)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_node, (struct spa_interface*)object, set_param, 0,
 			id, flags, param);
 }
-SPA_API_IMPL int pw_node_send_command(struct pw_node *object, const struct spa_command *command)
+PW_API_NODE_IMPL int pw_node_send_command(struct pw_node *object, const struct spa_command *command)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_node, (struct spa_interface*)object, send_command, 0, command);

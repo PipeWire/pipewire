@@ -12,6 +12,7 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/param/param.h>
 
+#include <pipewire/type.h>
 #include <pipewire/proxy.h>
 #include <pipewire/permission.h>
 
@@ -29,6 +30,10 @@ extern "C" {
 
 #define PW_VERSION_CLIENT		3
 struct pw_client;
+
+#ifndef PW_API_CLIENT_IMPL
+#define PW_API_CLIENT_IMPL static inline
+#endif
 
 /* default ID of the current client after connect */
 #define PW_ID_CLIENT			1
@@ -150,7 +155,9 @@ struct pw_client_methods {
 			const struct pw_permission *permissions);
 };
 
-SPA_API_IMPL int pw_client_add_listener(struct pw_client *object,
+/** \copydoc pw_client_methods.add_listener
+ * \sa pw_client_methods.add_listener */
+PW_API_CLIENT_IMPL int pw_client_add_listener(struct pw_client *object,
 			struct spa_hook *listener,
 			const struct pw_client_events *events,
 			void *data)
@@ -158,26 +165,52 @@ SPA_API_IMPL int pw_client_add_listener(struct pw_client *object,
 	return spa_api_method_r(int, -ENOTSUP, pw_client, (struct spa_interface*)object, add_listener, 0,
 			listener, events, data);
 }
-SPA_API_IMPL int pw_client_error(struct pw_client *object, uint32_t id, int res, const char *message)
+/** \copydoc pw_client_methods.error
+ * \sa pw_client_methods.error */
+PW_API_CLIENT_IMPL int pw_client_error(struct pw_client *object, uint32_t id, int res, const char *message)
 {
 	return spa_api_method_r(int, -ENOTSUP, pw_client, (struct spa_interface*)object, error, 0,
 			id, res, message);
 }
-SPA_API_IMPL int pw_client_update_properties(struct pw_client *object, const struct spa_dict *props)
+/** \copydoc pw_client_methods.update_properties
+ * \sa pw_client_methods.update_properties */
+PW_API_CLIENT_IMPL int pw_client_update_properties(struct pw_client *object, const struct spa_dict *props)
 {
 	return spa_api_method_r(int, -ENOTSUP, pw_client, (struct spa_interface*)object, update_properties, 0,
 			props);
 }
-SPA_API_IMPL int pw_client_get_permissions(struct pw_client *object, uint32_t index, uint32_t num)
+/** \copydoc pw_client_methods.get_permissions
+ * \sa pw_client_methods.get_permissions */
+PW_API_CLIENT_IMPL int pw_client_get_permissions(struct pw_client *object, uint32_t index, uint32_t num)
 {
 	return spa_api_method_r(int, -ENOTSUP, pw_client, (struct spa_interface*)object, get_permissions, 0,
 			index, num);
 }
-SPA_API_IMPL int pw_client_update_permissions(struct pw_client *object, uint32_t n_permissions,
+/** \copydoc pw_client_methods.update_permissions
+ * \sa pw_client_methods.update_permissions */
+PW_API_CLIENT_IMPL int pw_client_update_permissions(struct pw_client *object, uint32_t n_permissions,
 			const struct pw_permission *permissions)
 {
 	return spa_api_method_r(int, -ENOTSUP, pw_client, (struct spa_interface*)object, update_permissions, 0,
 			n_permissions, permissions);
+}
+
+PW_API_CLIENT_IMPL void *pw_client_get_user_data(struct pw_client *object)
+{
+	return pw_proxy_get_user_data((struct pw_proxy *)object);
+}
+PW_API_CLIENT_IMPL void pw_client_add_proxy_listener(struct pw_client *object,
+			struct spa_hook *listener,
+			const struct pw_proxy_events *events,
+			void *data)
+{
+	pw_proxy_add_listener((struct pw_proxy *)object, listener, events, data);
+}
+PW_API_CLIENT_IMPL struct pw_client *pw_registry_bind_client(struct pw_registry *object,
+		uint32_t id, size_t user_data_size)
+{
+	return (struct pw_client*)pw_registry_bind(object, id, PW_TYPE_INTERFACE_Client,
+			PW_VERSION_CLIENT, user_data_size);
 }
 
 /**

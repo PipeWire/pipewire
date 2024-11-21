@@ -14,6 +14,8 @@ extern "C" {
 
 #include <spa/utils/hook.h>
 
+#include <pipewire/type.h>
+
 /** \defgroup pw_core Core
  *
  * \brief The core global object.
@@ -40,6 +42,13 @@ extern "C" {
 struct pw_core;
 #define PW_VERSION_REGISTRY	3
 struct pw_registry;
+
+#ifndef PW_API_CORE_IMPL
+#define PW_API_CORE_IMPL static inline
+#endif
+#ifndef PW_API_REGISTRY_IMPL
+#define PW_API_REGISTRY_IMPL static inline
+#endif
 
 /** The default remote name to connect to */
 #define PW_DEFAULT_REMOTE	"pipewire-0"
@@ -335,7 +344,7 @@ struct pw_core_methods {
 };
 
 
-SPA_API_IMPL int pw_core_add_listener(struct pw_core *object,
+PW_API_CORE_IMPL int pw_core_add_listener(struct pw_core *object,
 			struct spa_hook *listener,
 			const struct pw_core_events *events,
 			void *data)
@@ -344,31 +353,31 @@ SPA_API_IMPL int pw_core_add_listener(struct pw_core *object,
 			pw_core, (struct spa_interface*)object, add_listener, 0,
 			listener, events, data);
 }
-SPA_API_IMPL int pw_core_hello(struct pw_core *object, uint32_t version)
+PW_API_CORE_IMPL int pw_core_hello(struct pw_core *object, uint32_t version)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_core, (struct spa_interface*)object, hello, 0,
 			version);
 }
-SPA_API_IMPL int pw_core_sync(struct pw_core *object, uint32_t id, int seq)
+PW_API_CORE_IMPL int pw_core_sync(struct pw_core *object, uint32_t id, int seq)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_core, (struct spa_interface*)object, sync, 0,
 			id, seq);
 }
-SPA_API_IMPL int pw_core_pong(struct pw_core *object, uint32_t id, int seq)
+PW_API_CORE_IMPL int pw_core_pong(struct pw_core *object, uint32_t id, int seq)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_core, (struct spa_interface*)object, pong, 0,
 			id, seq);
 }
-SPA_API_IMPL int pw_core_error(struct pw_core *object, uint32_t id, int seq, int res, const char *message)
+PW_API_CORE_IMPL int pw_core_error(struct pw_core *object, uint32_t id, int seq, int res, const char *message)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_core, (struct spa_interface*)object, error, 0,
 			id, seq, res, message);
 }
-SPA_API_IMPL
+PW_API_CORE_IMPL
 SPA_PRINTF_FUNC(5, 0) int
 pw_core_errorv(struct pw_core *core, uint32_t id, int seq,
 		int res, const char *message, va_list args)
@@ -379,7 +388,7 @@ pw_core_errorv(struct pw_core *core, uint32_t id, int seq,
 	return pw_core_error(core, id, seq, res, buffer);
 }
 
-SPA_API_IMPL
+PW_API_CORE_IMPL
 SPA_PRINTF_FUNC(5, 6) int
 pw_core_errorf(struct pw_core *core, uint32_t id, int seq,
 		int res, const char *message, ...)
@@ -392,14 +401,14 @@ pw_core_errorf(struct pw_core *core, uint32_t id, int seq,
 	return r;
 }
 
-SPA_API_IMPL struct pw_registry *
+PW_API_CORE_IMPL struct pw_registry *
 pw_core_get_registry(struct pw_core *core, uint32_t version, size_t user_data_size)
 {
 	return spa_api_method_r(struct pw_registry*, NULL,
 			pw_core, (struct spa_interface*)core, get_registry, 0,
 			version, user_data_size);
 }
-SPA_API_IMPL void *
+PW_API_CORE_IMPL void *
 pw_core_create_object(struct pw_core *core,
 			    const char *factory_name,
 			    const char *type,
@@ -411,12 +420,14 @@ pw_core_create_object(struct pw_core *core,
 			pw_core, (struct spa_interface*)core, create_object, 0,
 			factory_name, type, version, props, user_data_size);
 }
-SPA_API_IMPL void
+PW_API_CORE_IMPL void
 pw_core_destroy(struct pw_core *core, void *proxy)
 {
 	spa_api_method_v(pw_core, (struct spa_interface*)core, destroy, 0,
 			proxy);
 }
+
+void *pw_core_get_user_data(struct pw_core *object);
 
 /**
  * \}
@@ -532,8 +543,9 @@ struct pw_registry_methods {
 	int (*destroy) (void *object, uint32_t id);
 };
 
+
 /** Registry */
-SPA_API_IMPL int pw_registry_add_listener(struct pw_registry *registry,
+PW_API_REGISTRY_IMPL int pw_registry_add_listener(struct pw_registry *registry,
 			struct spa_hook *listener,
 			const struct pw_registry_events *events,
 			void *data)
@@ -542,7 +554,7 @@ SPA_API_IMPL int pw_registry_add_listener(struct pw_registry *registry,
 			pw_registry, (struct spa_interface*)registry, add_listener, 0,
 			listener, events, data);
 }
-SPA_API_IMPL void *
+PW_API_REGISTRY_IMPL void *
 pw_registry_bind(struct pw_registry *registry,
 		       uint32_t id, const char *type, uint32_t version,
 		       size_t user_data_size)
@@ -551,11 +563,18 @@ pw_registry_bind(struct pw_registry *registry,
 			pw_registry, (struct spa_interface*)registry, bind, 0,
 			id, type, version, user_data_size);
 }
-SPA_API_IMPL int
+PW_API_REGISTRY_IMPL int
 pw_registry_destroy(struct pw_registry *registry, uint32_t id)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_registry, (struct spa_interface*)registry, destroy, 0, id);
+}
+
+PW_API_REGISTRY_IMPL struct pw_core *pw_registry_bind_core(struct pw_registry *object,
+		uint32_t id, size_t user_data_size)
+{
+	return (struct pw_core*)pw_registry_bind(object, id, PW_TYPE_INTERFACE_Core,
+			PW_VERSION_CORE, user_data_size);
 }
 
 /**

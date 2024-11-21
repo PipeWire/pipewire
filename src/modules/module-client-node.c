@@ -13,6 +13,7 @@
 
 #include <pipewire/impl.h>
 
+#define PW_API_CLIENT_NODE_IMPL	SPA_EXPORT
 #include "module-client-node/v0/client-node.h"
 #include "module-client-node/client-node.h"
 

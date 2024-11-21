@@ -11,6 +11,7 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json-pod.h>
 
+#define PW_API_DEVICE_IMPL SPA_EXPORT
 #include "pipewire/impl.h"
 #include "pipewire/private.h"
 

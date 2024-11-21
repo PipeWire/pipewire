@@ -8,6 +8,7 @@
 #include <spa/utils/names.h>
 #include <spa/utils/result.h>
 
+#define PW_API_LOOP_IMPL	SPA_EXPORT
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>
 #include <pipewire/loop.h>

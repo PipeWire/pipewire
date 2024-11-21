@@ -828,6 +828,7 @@ int open_card_ctl(struct state *state)
 	char card_name[256];
 
 	snprintf(card_name, sizeof(card_name), "hw:%d", state->card_index);
+	spa_log_debug(state->log, "Trying to open ctl device '%s'", card_name);
 
 	err = snd_ctl_open(&state->ctl, card_name, SND_CTL_NONBLOCK);
 	if (err < 0) {
@@ -894,6 +895,8 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 	state->multi_rate = true;
 	state->htimestamp = false;
 	state->htimestamp_max_errors = MAX_HTIMESTAMP_ERROR;
+	state->card_index = SPA_ID_INVALID;
+
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
@@ -930,6 +933,17 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 			alsa_set_param(state, k, s);
 		}
 	}
+
+	if (state->card_index == SPA_ID_INVALID) {
+		/* If we don't have a card index, see if we have a *:<idx> string */
+		sscanf(state->props.device, "%*[^:]:%u", &state->card_index);
+		if (state->card_index == SPA_ID_INVALID) {
+			spa_log_error(state->log, "Could not determine card index, maybe set %s",
+					SPA_KEY_API_ALSA_CARD);
+			return -EINVAL;
+		}
+	}
+
 	if (state->clock_name[0] == '\0')
 		snprintf(state->clock_name, sizeof(state->clock_name),
 				"api.alsa.%s-%u",

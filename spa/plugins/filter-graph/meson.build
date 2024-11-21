@@ -79,7 +79,6 @@ spa_filter_graph_plugin_ladspa = shared_library('spa-filter-graph-plugin-ladspa'
   [ 'ladspa_plugin.c' ],
   include_directories : [configinc],
   install : true,
-  install : true,
   install_dir : spa_plugindir / 'filter-graph',
   dependencies : [ filter_graph_dependencies ]
 )

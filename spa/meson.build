@@ -118,3 +118,4 @@ endif
 subdir('tools')
 subdir('tests')
 subdir('examples')
+subdir('lib')

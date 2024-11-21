@@ -34,7 +34,15 @@ extern "C" {
  * \{
  */
 
-SPA_API_IMPL int
+#ifndef SPA_API_AUDIO_FORMAT_UTILS
+ #ifdef SPA_API_IMPL
+  #define SPA_API_AUDIO_FORMAT_UTILS SPA_API_IMPL
+ #else
+  #define SPA_API_AUDIO_FORMAT_UTILS static inline
+ #endif
+#endif
+
+SPA_API_AUDIO_FORMAT_UTILS int
 spa_format_audio_parse(const struct spa_pod *format, struct spa_audio_info *info)
 {
 	int res;
@@ -76,7 +84,7 @@ spa_format_audio_parse(const struct spa_pod *format, struct spa_audio_info *info
 	return -ENOTSUP;
 }
 
-SPA_API_IMPL struct spa_pod *
+SPA_API_AUDIO_FORMAT_UTILS struct spa_pod *
 spa_format_audio_build(struct spa_pod_builder *builder, uint32_t id,
 		       const struct spa_audio_info *info)
 {

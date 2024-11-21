@@ -18,7 +18,15 @@ extern "C" {
 #include <spa/pod/builder.h>
 #include <spa/param/video/h264.h>
 
-SPA_API_IMPL int
+#ifndef SPA_API_VIDEO_H264_UTILS
+ #ifdef SPA_API_IMPL
+  #define SPA_API_VIDEO_H264_UTILS SPA_API_IMPL
+ #else
+  #define SPA_API_VIDEO_H264_UTILS static inline
+ #endif
+#endif
+
+SPA_API_VIDEO_H264_UTILS int
 spa_format_video_h264_parse(const struct spa_pod *format,
 			    struct spa_video_info_h264 *info)
 {
@@ -31,7 +39,7 @@ spa_format_video_h264_parse(const struct spa_pod *format,
 			SPA_FORMAT_VIDEO_H264_alignment,	SPA_POD_OPT_Id(&info->alignment));
 }
 
-SPA_API_IMPL struct spa_pod *
+SPA_API_VIDEO_H264_UTILS struct spa_pod *
 spa_format_video_h264_build(struct spa_pod_builder *builder, uint32_t id,
 			    const struct spa_video_info_h264 *info)
 {

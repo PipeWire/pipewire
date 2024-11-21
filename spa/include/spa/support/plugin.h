@@ -15,6 +15,14 @@ extern "C" {
 #include <spa/utils/hook.h>
 #include <spa/utils/dict.h>
 
+#ifndef SPA_API_PLUGIN
+ #ifdef SPA_API_IMPL
+  #define SPA_API_PLUGIN SPA_API_IMPL
+ #else
+  #define SPA_API_PLUGIN static inline
+ #endif
+#endif
+
 /**
  * \defgroup spa_handle Plugin Handle
  * SPA plugin handle and factory interfaces
@@ -54,13 +62,13 @@ struct spa_handle {
 	int (*clear) (struct spa_handle *handle);
 };
 
-SPA_API_IMPL int
+SPA_API_PLUGIN int
 spa_handle_get_interface(struct spa_handle *object,
 		const char *type, void **iface)
 {
 	return spa_api_func_r(int, -ENOTSUP, object, get_interface, 0, type, iface);
 }
-SPA_API_IMPL int
+SPA_API_PLUGIN int
 spa_handle_clear(struct spa_handle *object)
 {
 	return spa_api_func_r(int, -ENOTSUP, object, clear, 0);
@@ -85,7 +93,7 @@ struct spa_support {
 };
 
 /** Find a support item of the given type */
-SPA_API_IMPL void *spa_support_find(const struct spa_support *support,
+SPA_API_PLUGIN void *spa_support_find(const struct spa_support *support,
 				     uint32_t n_support,
 				     const char *type)
 {
@@ -170,13 +178,13 @@ struct spa_handle_factory {
 				    uint32_t *index);
 };
 
-SPA_API_IMPL size_t
+SPA_API_PLUGIN size_t
 spa_handle_factory_get_size(const struct spa_handle_factory *object,
 		const struct spa_dict *params)
 {
 	return spa_api_func_r(size_t, 0, object, get_size, 1, params);
 }
-SPA_API_IMPL int
+SPA_API_PLUGIN int
 spa_handle_factory_init(const struct spa_handle_factory *object,
 		struct spa_handle *handle, const struct spa_dict *info,
 		const struct spa_support *support, uint32_t n_support)
@@ -184,7 +192,7 @@ spa_handle_factory_init(const struct spa_handle_factory *object,
 	return spa_api_func_r(int, -ENOTSUP, object, init, 1, handle, info,
 			support, n_support);
 }
-SPA_API_IMPL int
+SPA_API_PLUGIN int
 spa_handle_factory_enum_interface_info(const struct spa_handle_factory *object,
 		const struct spa_interface_info **info, uint32_t *index)
 {

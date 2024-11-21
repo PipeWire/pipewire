@@ -26,6 +26,10 @@ extern "C" {
 #define PW_VERSION_SECURITY_CONTEXT			3
 struct pw_security_context;
 
+#ifndef PW_API_SECURITY_CONTEXT
+#define PW_API_SECURITY_CONTEXT static inline
+#endif
+
 #define PW_EXTENSION_MODULE_SECURITY_CONTEXT		PIPEWIRE_MODULE_PREFIX "module-security-context"
 
 #define PW_SECURITY_CONTEXT_EVENT_NUM			0
@@ -94,7 +98,7 @@ struct pw_security_context_methods {
 			const struct spa_dict *props);
 };
 
-SPA_API_IMPL int pw_security_context_add_listener(struct pw_security_context *object,
+PW_API_SECURITY_CONTEXT int pw_security_context_add_listener(struct pw_security_context *object,
 			struct spa_hook *listener,
 			const struct pw_security_context_events *events,
 			void *data)
@@ -104,7 +108,7 @@ SPA_API_IMPL int pw_security_context_add_listener(struct pw_security_context *ob
 			listener, events, data);
 }
 
-SPA_API_IMPL int pw_security_context_create(struct pw_security_context *object,
+PW_API_SECURITY_CONTEXT int pw_security_context_create(struct pw_security_context *object,
 			int listen_fd, int close_fd, const struct spa_dict *props)
 {
 	return spa_api_method_r(int, -ENOTSUP,

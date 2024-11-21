@@ -18,6 +18,7 @@
 #include <spa/utils/list.h>
 #include <spa/buffer/buffer.h>
 
+#define PW_API_MEM SPA_EXPORT
 #include <pipewire/log.h>
 #include <pipewire/map.h>
 #include <pipewire/mem.h>

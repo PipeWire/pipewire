@@ -20,12 +20,20 @@ extern "C" {
 #include <spa/pod/builder.h>
 #include <spa/pod/compare.h>
 
+#ifndef SPA_API_POD_FILTER
+ #ifdef SPA_API_IMPL
+  #define SPA_API_POD_FILTER SPA_API_IMPL
+ #else
+  #define SPA_API_POD_FILTER static inline
+ #endif
+#endif
+
 /**
  * \addtogroup spa_pod
  * \{
  */
 
-SPA_API_IMPL int spa_pod_choice_fix_default(struct spa_pod_choice *choice)
+SPA_API_POD_FILTER int spa_pod_choice_fix_default(struct spa_pod_choice *choice)
 {
 	void *val, *alt;
 	int i, nvals;
@@ -77,7 +85,7 @@ SPA_API_IMPL int spa_pod_choice_fix_default(struct spa_pod_choice *choice)
 	return 0;
 }
 
-SPA_API_IMPL int spa_pod_filter_flags_value(struct spa_pod_builder *b,
+SPA_API_POD_FILTER int spa_pod_filter_flags_value(struct spa_pod_builder *b,
 		uint32_t type, const void *r1, const void *r2, uint32_t size SPA_UNUSED)
 {
 	switch (type) {
@@ -103,7 +111,7 @@ SPA_API_IMPL int spa_pod_filter_flags_value(struct spa_pod_builder *b,
 	return 1;
 }
 
-SPA_API_IMPL int spa_pod_filter_is_step_of(uint32_t type, const void *r1,
+SPA_API_POD_FILTER int spa_pod_filter_is_step_of(uint32_t type, const void *r1,
 		const void *r2, uint32_t size SPA_UNUSED)
 {
 	switch (type) {
@@ -125,7 +133,7 @@ SPA_API_IMPL int spa_pod_filter_is_step_of(uint32_t type, const void *r1,
 	return 0;
 }
 
-SPA_API_IMPL int
+SPA_API_POD_FILTER int
 spa_pod_filter_prop(struct spa_pod_builder *b,
 	    const struct spa_pod_prop *p1,
 	    const struct spa_pod_prop *p2)
@@ -322,7 +330,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	return 0;
 }
 
-SPA_API_IMPL int spa_pod_filter_part(struct spa_pod_builder *b,
+SPA_API_POD_FILTER int spa_pod_filter_part(struct spa_pod_builder *b,
 	       const struct spa_pod *pod, uint32_t pod_size,
 	       const struct spa_pod *filter, uint32_t filter_size)
 {
@@ -422,7 +430,7 @@ SPA_API_IMPL int spa_pod_filter_part(struct spa_pod_builder *b,
 	return res;
 }
 
-SPA_API_IMPL int
+SPA_API_POD_FILTER int
 spa_pod_filter(struct spa_pod_builder *b,
 	       struct spa_pod **result,
 	       const struct spa_pod *pod,

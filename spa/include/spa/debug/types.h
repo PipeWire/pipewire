@@ -18,7 +18,16 @@ extern "C" {
 
 #include <string.h>
 
-SPA_API_IMPL const struct spa_type_info *spa_debug_type_find(const struct spa_type_info *info, uint32_t type)
+#ifndef SPA_API_DEBUG_TYPES
+ #ifdef SPA_API_IMPL
+  #define SPA_API_DEBUG_TYPES SPA_API_IMPL
+ #else
+  #define SPA_API_DEBUG_TYPES static inline
+ #endif
+#endif
+
+
+SPA_API_DEBUG_TYPES const struct spa_type_info *spa_debug_type_find(const struct spa_type_info *info, uint32_t type)
 {
 	const struct spa_type_info *res;
 
@@ -37,19 +46,19 @@ SPA_API_IMPL const struct spa_type_info *spa_debug_type_find(const struct spa_ty
 	return NULL;
 }
 
-SPA_API_IMPL const char *spa_debug_type_short_name(const char *name)
+SPA_API_DEBUG_TYPES const char *spa_debug_type_short_name(const char *name)
 {
 	return spa_type_short_name(name);
 }
 
-SPA_API_IMPL const char *spa_debug_type_find_name(const struct spa_type_info *info, uint32_t type)
+SPA_API_DEBUG_TYPES const char *spa_debug_type_find_name(const struct spa_type_info *info, uint32_t type)
 {
 	if ((info = spa_debug_type_find(info, type)) == NULL)
 		return NULL;
 	return info->name;
 }
 
-SPA_API_IMPL const char *spa_debug_type_find_short_name(const struct spa_type_info *info, uint32_t type)
+SPA_API_DEBUG_TYPES const char *spa_debug_type_find_short_name(const struct spa_type_info *info, uint32_t type)
 {
 	const char *str;
 	if ((str = spa_debug_type_find_name(info, type)) == NULL)
@@ -57,7 +66,7 @@ SPA_API_IMPL const char *spa_debug_type_find_short_name(const struct spa_type_in
 	return spa_debug_type_short_name(str);
 }
 
-SPA_API_IMPL uint32_t spa_debug_type_find_type(const struct spa_type_info *info, const char *name)
+SPA_API_DEBUG_TYPES uint32_t spa_debug_type_find_type(const struct spa_type_info *info, const char *name)
 {
 	if (info == NULL)
 		info = SPA_TYPE_ROOT;
@@ -73,7 +82,7 @@ SPA_API_IMPL uint32_t spa_debug_type_find_type(const struct spa_type_info *info,
 	return SPA_ID_INVALID;
 }
 
-SPA_API_IMPL const struct spa_type_info *spa_debug_type_find_short(const struct spa_type_info *info, const char *name)
+SPA_API_DEBUG_TYPES const struct spa_type_info *spa_debug_type_find_short(const struct spa_type_info *info, const char *name)
 {
 	while (info && info->name) {
 		if (strcmp(spa_debug_type_short_name(info->name), name) == 0)
@@ -87,7 +96,7 @@ SPA_API_IMPL const struct spa_type_info *spa_debug_type_find_short(const struct 
 	return NULL;
 }
 
-SPA_API_IMPL uint32_t spa_debug_type_find_type_short(const struct spa_type_info *info, const char *name)
+SPA_API_DEBUG_TYPES uint32_t spa_debug_type_find_type_short(const struct spa_type_info *info, const char *name)
 {
 	if ((info = spa_debug_type_find_short(info, name)) == NULL)
 		return SPA_ID_INVALID;

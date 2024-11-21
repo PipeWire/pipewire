@@ -13,6 +13,14 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
+#ifndef SPA_API_DICT
+ #ifdef SPA_API_IMPL
+  #define SPA_API_DICT SPA_API_IMPL
+ #else
+  #define SPA_API_DICT static inline
+ #endif
+#endif
+
 /**
  * \defgroup spa_dict Dictionary
  * Dictionary data structure
@@ -50,14 +58,14 @@ struct spa_dict {
 	     (item) < &(dict)->items[(dict)->n_items];		\
 	     (item)++)
 
-SPA_API_IMPL int spa_dict_item_compare(const void *i1, const void *i2)
+SPA_API_DICT int spa_dict_item_compare(const void *i1, const void *i2)
 {
 	const struct spa_dict_item *it1 = (const struct spa_dict_item *)i1,
 	      *it2 = (const struct spa_dict_item *)i2;
 	return strcmp(it1->key, it2->key);
 }
 
-SPA_API_IMPL void spa_dict_qsort(struct spa_dict *dict)
+SPA_API_DICT void spa_dict_qsort(struct spa_dict *dict)
 {
 	if (dict->n_items > 0)
 		qsort((void*)dict->items, dict->n_items, sizeof(struct spa_dict_item),
@@ -65,7 +73,7 @@ SPA_API_IMPL void spa_dict_qsort(struct spa_dict *dict)
 	SPA_FLAG_SET(dict->flags, SPA_DICT_FLAG_SORTED);
 }
 
-SPA_API_IMPL const struct spa_dict_item *spa_dict_lookup_item(const struct spa_dict *dict,
+SPA_API_DICT const struct spa_dict_item *spa_dict_lookup_item(const struct spa_dict *dict,
 							       const char *key)
 {
 	const struct spa_dict_item *item;
@@ -88,7 +96,7 @@ SPA_API_IMPL const struct spa_dict_item *spa_dict_lookup_item(const struct spa_d
 	return NULL;
 }
 
-SPA_API_IMPL const char *spa_dict_lookup(const struct spa_dict *dict, const char *key)
+SPA_API_DICT const char *spa_dict_lookup(const struct spa_dict *dict, const char *key)
 {
 	const struct spa_dict_item *item = spa_dict_lookup_item(dict, key);
 	return item ? item->value : NULL;

@@ -26,13 +26,22 @@ extern "C" {
 #define spa_debug(_fmt,...)	spa_debugn(_fmt"\n", ## __VA_ARGS__)
 #endif
 
+
+#ifndef SPA_API_DEBUG_CONTEXT
+ #ifdef SPA_API_IMPL
+  #define SPA_API_DEBUG_CONTEXT SPA_API_IMPL
+ #else
+  #define SPA_API_DEBUG_CONTEXT static inline
+ #endif
+#endif
+
 struct spa_debug_context {
 	void (*log) (struct spa_debug_context *ctx, const char *fmt, ...) SPA_PRINTF_FUNC(2, 3);
 };
 
 #define spa_debugc(_c,_fmt,...)	(_c)?((_c)->log((_c),_fmt, ## __VA_ARGS__)):(void)spa_debug(_fmt, ## __VA_ARGS__)
 
-SPA_API_IMPL void spa_debugc_error_location(struct spa_debug_context *c,
+SPA_API_DEBUG_CONTEXT void spa_debugc_error_location(struct spa_debug_context *c,
 		struct spa_error_location *loc)
 {
 	int i, skip = loc->col > 80 ? loc->col - 40 : 0, lc = loc->col-skip-1;

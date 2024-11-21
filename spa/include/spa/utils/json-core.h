@@ -20,6 +20,14 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/string.h>
 
+#ifndef SPA_API_JSON
+ #ifdef SPA_API_IMPL
+  #define SPA_API_JSON SPA_API_IMPL
+ #else
+  #define SPA_API_JSON static inline
+ #endif
+#endif
+
 /** \defgroup spa_json JSON
  * Relaxed JSON variant parsing
  */
@@ -41,13 +49,13 @@ struct spa_json {
 
 #define SPA_JSON_INIT(data,size) ((struct spa_json) { (data), (data)+(size), NULL, 0, 0 })
 
-SPA_API_IMPL void spa_json_init(struct spa_json * iter, const char *data, size_t size)
+SPA_API_JSON void spa_json_init(struct spa_json * iter, const char *data, size_t size)
 {
 	*iter =  SPA_JSON_INIT(data, size);
 }
 #define SPA_JSON_ENTER(iter) ((struct spa_json) { (iter)->cur, (iter)->end, (iter), (iter)->state & 0xff0, 0 })
 
-SPA_API_IMPL void spa_json_enter(struct spa_json * iter, struct spa_json * sub)
+SPA_API_JSON void spa_json_enter(struct spa_json * iter, struct spa_json * sub)
 {
 	*sub = SPA_JSON_ENTER(iter);
 }
@@ -58,7 +66,7 @@ SPA_API_IMPL void spa_json_enter(struct spa_json * iter, struct spa_json * sub)
 
 /** Get the next token. \a value points to the token and the return value
  * is the length. Returns -1 on parse error, 0 on end of input. */
-SPA_API_IMPL int spa_json_next(struct spa_json * iter, const char **value)
+SPA_API_JSON int spa_json_next(struct spa_json * iter, const char **value)
 {
 	int utf8_remain = 0, err = 0;
 	enum {
@@ -312,7 +320,7 @@ error:
  *
  * \since 1.1.0
  */
-SPA_API_IMPL bool spa_json_get_error(struct spa_json *iter, const char *start,
+SPA_API_JSON bool spa_json_get_error(struct spa_json *iter, const char *start,
 		struct spa_error_location *loc)
 {
 	static const char *reasons[] = {
@@ -358,31 +366,31 @@ SPA_API_IMPL bool spa_json_get_error(struct spa_json *iter, const char *start,
 	return true;
 }
 
-SPA_API_IMPL int spa_json_is_container(const char *val, int len)
+SPA_API_JSON int spa_json_is_container(const char *val, int len)
 {
 	return len > 0 && (*val == '{'  || *val == '[');
 }
 
 /* object */
-SPA_API_IMPL int spa_json_is_object(const char *val, int len)
+SPA_API_JSON int spa_json_is_object(const char *val, int len)
 {
 	return len > 0 && *val == '{';
 }
 
 /* array */
-SPA_API_IMPL bool spa_json_is_array(const char *val, int len)
+SPA_API_JSON bool spa_json_is_array(const char *val, int len)
 {
 	return len > 0 && *val == '[';
 }
 
 /* null */
-SPA_API_IMPL bool spa_json_is_null(const char *val, int len)
+SPA_API_JSON bool spa_json_is_null(const char *val, int len)
 {
 	return len == 4 && strncmp(val, "null", 4) == 0;
 }
 
 /* float */
-SPA_API_IMPL int spa_json_parse_float(const char *val, int len, float *result)
+SPA_API_JSON int spa_json_parse_float(const char *val, int len, float *result)
 {
 	char buf[96];
 	char *end;
@@ -405,13 +413,13 @@ SPA_API_IMPL int spa_json_parse_float(const char *val, int len, float *result)
 	return len > 0 && end == buf + len;
 }
 
-SPA_API_IMPL bool spa_json_is_float(const char *val, int len)
+SPA_API_JSON bool spa_json_is_float(const char *val, int len)
 {
 	float dummy;
 	return spa_json_parse_float(val, len, &dummy);
 }
 
-SPA_API_IMPL char *spa_json_format_float(char *str, int size, float val)
+SPA_API_JSON char *spa_json_format_float(char *str, int size, float val)
 {
 	if (SPA_UNLIKELY(!isnormal(val))) {
 		if (isinf(val))
@@ -423,7 +431,7 @@ SPA_API_IMPL char *spa_json_format_float(char *str, int size, float val)
 }
 
 /* int */
-SPA_API_IMPL int spa_json_parse_int(const char *val, int len, int *result)
+SPA_API_JSON int spa_json_parse_int(const char *val, int len, int *result)
 {
 	char buf[64];
 	char *end;
@@ -437,29 +445,29 @@ SPA_API_IMPL int spa_json_parse_int(const char *val, int len, int *result)
 	*result = strtol(buf, &end, 0);
 	return len > 0 && end == buf + len;
 }
-SPA_API_IMPL bool spa_json_is_int(const char *val, int len)
+SPA_API_JSON bool spa_json_is_int(const char *val, int len)
 {
 	int dummy;
 	return spa_json_parse_int(val, len, &dummy);
 }
 
 /* bool */
-SPA_API_IMPL bool spa_json_is_true(const char *val, int len)
+SPA_API_JSON bool spa_json_is_true(const char *val, int len)
 {
 	return len == 4 && strncmp(val, "true", 4) == 0;
 }
 
-SPA_API_IMPL bool spa_json_is_false(const char *val, int len)
+SPA_API_JSON bool spa_json_is_false(const char *val, int len)
 {
 	return len == 5 && strncmp(val, "false", 5) == 0;
 }
 
-SPA_API_IMPL bool spa_json_is_bool(const char *val, int len)
+SPA_API_JSON bool spa_json_is_bool(const char *val, int len)
 {
 	return spa_json_is_true(val, len) || spa_json_is_false(val, len);
 }
 
-SPA_API_IMPL int spa_json_parse_bool(const char *val, int len, bool *result)
+SPA_API_JSON int spa_json_parse_bool(const char *val, int len, bool *result)
 {
 	if ((*result = spa_json_is_true(val, len)))
 		return 1;
@@ -469,12 +477,12 @@ SPA_API_IMPL int spa_json_parse_bool(const char *val, int len, bool *result)
 }
 
 /* string */
-SPA_API_IMPL bool spa_json_is_string(const char *val, int len)
+SPA_API_JSON bool spa_json_is_string(const char *val, int len)
 {
 	return len > 1 && *val == '"';
 }
 
-SPA_API_IMPL int spa_json_parse_hex(const char *p, int num, uint32_t *res)
+SPA_API_JSON int spa_json_parse_hex(const char *p, int num, uint32_t *res)
 {
 	int i;
 	*res = 0;
@@ -493,7 +501,7 @@ SPA_API_IMPL int spa_json_parse_hex(const char *p, int num, uint32_t *res)
 	return 1;
 }
 
-SPA_API_IMPL int spa_json_parse_stringn(const char *val, int len, char *result, int maxlen)
+SPA_API_JSON int spa_json_parse_stringn(const char *val, int len, char *result, int maxlen)
 {
 	const char *p;
 	if (maxlen <= len)
@@ -556,12 +564,12 @@ SPA_API_IMPL int spa_json_parse_stringn(const char *val, int len, char *result, 
 	return 1;
 }
 
-SPA_API_IMPL int spa_json_parse_string(const char *val, int len, char *result)
+SPA_API_JSON int spa_json_parse_string(const char *val, int len, char *result)
 {
 	return spa_json_parse_stringn(val, len, result, len+1);
 }
 
-SPA_API_IMPL int spa_json_encode_string(char *str, int size, const char *val)
+SPA_API_JSON int spa_json_encode_string(char *str, int size, const char *val)
 {
 	int len = 0;
 	static const char hex[] = { "0123456789abcdef" };

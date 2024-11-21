@@ -6,6 +6,8 @@
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
 #include <pipewire/private.h>
+
+#define PW_API_SECURITY_CONTEXT	SPA_EXPORT
 #include <pipewire/extensions/security-context.h>
 
 PW_LOG_TOPIC_EXTERN(mod_topic);

@@ -12,6 +12,14 @@ extern "C" {
 #include <spa/pod/builder.h>
 #include <spa/utils/cleanup.h>
 
+#ifndef SPA_API_POD_DYNAMIC
+ #ifdef SPA_API_IMPL
+  #define SPA_API_POD_DYNAMIC SPA_API_IMPL
+ #else
+  #define SPA_API_POD_DYNAMIC static inline
+ #endif
+#endif
+
 struct spa_pod_dynamic_builder {
 	struct spa_pod_builder b;
 	void *data;
@@ -37,7 +45,7 @@ static int spa_pod_dynamic_builder_overflow(void *data, uint32_t size)
         return 0;
 }
 
-SPA_API_IMPL void spa_pod_dynamic_builder_init(struct spa_pod_dynamic_builder *builder,
+SPA_API_POD_DYNAMIC void spa_pod_dynamic_builder_init(struct spa_pod_dynamic_builder *builder,
 		void *data, uint32_t size, uint32_t extend)
 {
 	static const struct spa_pod_builder_callbacks spa_pod_dynamic_builder_callbacks = {
@@ -50,7 +58,7 @@ SPA_API_IMPL void spa_pod_dynamic_builder_init(struct spa_pod_dynamic_builder *b
 	builder->data = data;
 }
 
-SPA_API_IMPL void spa_pod_dynamic_builder_clean(struct spa_pod_dynamic_builder *builder)
+SPA_API_POD_DYNAMIC void spa_pod_dynamic_builder_clean(struct spa_pod_dynamic_builder *builder)
 {
 	if (builder->data != builder->b.data)
 		free(builder->b.data);

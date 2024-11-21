@@ -12,6 +12,14 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/buffer/meta.h>
 
+#ifndef SPA_API_BUFFER
+ #ifdef SPA_API_IMPL
+  #define SPA_API_BUFFER SPA_API_IMPL
+ #else
+  #define SPA_API_BUFFER static inline
+ #endif
+#endif
+
 /** \defgroup spa_buffer Buffers
  *
  * Buffers describe the data and metadata that is exchanged between
@@ -91,7 +99,7 @@ struct spa_buffer {
 };
 
 /** Find metadata in a buffer */
-SPA_API_IMPL struct spa_meta *spa_buffer_find_meta(const struct spa_buffer *b, uint32_t type)
+SPA_API_BUFFER struct spa_meta *spa_buffer_find_meta(const struct spa_buffer *b, uint32_t type)
 {
 	uint32_t i;
 
@@ -102,7 +110,7 @@ SPA_API_IMPL struct spa_meta *spa_buffer_find_meta(const struct spa_buffer *b, u
 	return NULL;
 }
 
-SPA_API_IMPL void *spa_buffer_find_meta_data(const struct spa_buffer *b, uint32_t type, size_t size)
+SPA_API_BUFFER void *spa_buffer_find_meta_data(const struct spa_buffer *b, uint32_t type, size_t size)
 {
 	struct spa_meta *m;
 	if ((m = spa_buffer_find_meta(b, type)) && m->size >= size)

@@ -20,12 +20,20 @@ extern "C" {
 #include <spa/pod/iter.h>
 #include <spa/pod/builder.h>
 
+#ifndef SPA_API_POD_COMPARE
+ #ifdef SPA_API_IMPL
+  #define SPA_API_POD_COMPARE SPA_API_IMPL
+ #else
+  #define SPA_API_POD_COMPARE static inline
+ #endif
+#endif
+
 /**
  * \addtogroup spa_pod
  * \{
  */
 
-SPA_API_IMPL int spa_pod_compare_value(uint32_t type, const void *r1, const void *r2, uint32_t size)
+SPA_API_POD_COMPARE int spa_pod_compare_value(uint32_t type, const void *r1, const void *r2, uint32_t size)
 {
 	switch (type) {
 	case SPA_TYPE_None:
@@ -72,7 +80,7 @@ SPA_API_IMPL int spa_pod_compare_value(uint32_t type, const void *r1, const void
 	return 0;
 }
 
-SPA_API_IMPL int spa_pod_compare(const struct spa_pod *pod1,
+SPA_API_POD_COMPARE int spa_pod_compare(const struct spa_pod *pod1,
 				  const struct spa_pod *pod2)
 {
 	int res = 0;

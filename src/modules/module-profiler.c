@@ -18,6 +18,7 @@
 #include <spa/utils/ringbuffer.h>
 #include <spa/param/profiler.h>
 
+#define PW_API_PROFILER		SPA_EXPORT
 #include <pipewire/private.h>
 #include <pipewire/impl.h>
 #include <pipewire/extensions/profiler.h>

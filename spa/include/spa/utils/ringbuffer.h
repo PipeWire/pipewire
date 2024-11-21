@@ -25,6 +25,14 @@ struct spa_ringbuffer;
 
 #include <spa/utils/defs.h>
 
+#ifndef SPA_API_RINGBUFFER
+ #ifdef SPA_API_IMPL
+  #define SPA_API_RINGBUFFER SPA_API_IMPL
+ #else
+  #define SPA_API_RINGBUFFER static inline
+ #endif
+#endif
+
 /**
  * A ringbuffer type.
  */
@@ -40,7 +48,7 @@ struct spa_ringbuffer {
  *
  * \param rbuf a spa_ringbuffer
  */
-SPA_API_IMPL void spa_ringbuffer_init(struct spa_ringbuffer *rbuf)
+SPA_API_RINGBUFFER void spa_ringbuffer_init(struct spa_ringbuffer *rbuf)
 {
 	*rbuf = SPA_RINGBUFFER_INIT();
 }
@@ -51,7 +59,7 @@ SPA_API_IMPL void spa_ringbuffer_init(struct spa_ringbuffer *rbuf)
  * \param rbuf a spa_ringbuffer
  * \param size the target size of \a rbuf
  */
-SPA_API_IMPL void spa_ringbuffer_set_avail(struct spa_ringbuffer *rbuf, uint32_t size)
+SPA_API_RINGBUFFER void spa_ringbuffer_set_avail(struct spa_ringbuffer *rbuf, uint32_t size)
 {
 	rbuf->readindex = 0;
 	rbuf->writeindex = size;
@@ -67,7 +75,7 @@ SPA_API_IMPL void spa_ringbuffer_set_avail(struct spa_ringbuffer *rbuf, uint32_t
  *         there was an underrun. values > rbuf->size means there
  *         was an overrun.
  */
-SPA_API_IMPL int32_t spa_ringbuffer_get_read_index(struct spa_ringbuffer *rbuf, uint32_t *index)
+SPA_API_RINGBUFFER int32_t spa_ringbuffer_get_read_index(struct spa_ringbuffer *rbuf, uint32_t *index)
 {
 	*index = __atomic_load_n(&rbuf->readindex, __ATOMIC_RELAXED);
 	return (int32_t) (__atomic_load_n(&rbuf->writeindex, __ATOMIC_ACQUIRE) - *index);
@@ -84,7 +92,7 @@ SPA_API_IMPL int32_t spa_ringbuffer_get_read_index(struct spa_ringbuffer *rbuf, 
  * \param data destination memory
  * \param len number of bytes to read
  */
-SPA_API_IMPL void
+SPA_API_RINGBUFFER void
 spa_ringbuffer_read_data(struct spa_ringbuffer *rbuf SPA_UNUSED,
 			 const void *buffer, uint32_t size,
 			 uint32_t offset, void *data, uint32_t len)
@@ -101,7 +109,7 @@ spa_ringbuffer_read_data(struct spa_ringbuffer *rbuf SPA_UNUSED,
  * \param rbuf a spa_ringbuffer
  * \param index new index
  */
-SPA_API_IMPL void spa_ringbuffer_read_update(struct spa_ringbuffer *rbuf, int32_t index)
+SPA_API_RINGBUFFER void spa_ringbuffer_read_update(struct spa_ringbuffer *rbuf, int32_t index)
 {
 	__atomic_store_n(&rbuf->readindex, index, __ATOMIC_RELEASE);
 }
@@ -117,7 +125,7 @@ SPA_API_IMPL void spa_ringbuffer_read_update(struct spa_ringbuffer *rbuf, int32_
  *         was an overrun. Subtract from the buffer size to get
  *         the number of bytes available for writing.
  */
-SPA_API_IMPL int32_t spa_ringbuffer_get_write_index(struct spa_ringbuffer *rbuf, uint32_t *index)
+SPA_API_RINGBUFFER int32_t spa_ringbuffer_get_write_index(struct spa_ringbuffer *rbuf, uint32_t *index)
 {
 	*index = __atomic_load_n(&rbuf->writeindex, __ATOMIC_RELAXED);
 	return (int32_t) (*index - __atomic_load_n(&rbuf->readindex, __ATOMIC_ACQUIRE));
@@ -134,7 +142,7 @@ SPA_API_IMPL int32_t spa_ringbuffer_get_write_index(struct spa_ringbuffer *rbuf,
  * \param data source memory
  * \param len number of bytes to write
  */
-SPA_API_IMPL void
+SPA_API_RINGBUFFER void
 spa_ringbuffer_write_data(struct spa_ringbuffer *rbuf SPA_UNUSED,
 			  void *buffer, uint32_t size,
 			  uint32_t offset, const void *data, uint32_t len)
@@ -151,7 +159,7 @@ spa_ringbuffer_write_data(struct spa_ringbuffer *rbuf SPA_UNUSED,
  * \param rbuf a spa_ringbuffer
  * \param index new index
  */
-SPA_API_IMPL void spa_ringbuffer_write_update(struct spa_ringbuffer *rbuf, int32_t index)
+SPA_API_RINGBUFFER void spa_ringbuffer_write_update(struct spa_ringbuffer *rbuf, int32_t index)
 {
 	__atomic_store_n(&rbuf->writeindex, index, __ATOMIC_RELEASE);
 }

@@ -14,6 +14,14 @@ extern "C" {
 #include <spa/utils/dict.h>
 #include <spa/pod/event.h>
 
+#ifndef SPA_API_DEVICE
+ #ifdef SPA_API_IMPL
+  #define SPA_API_DEVICE SPA_API_IMPL
+ #else
+  #define SPA_API_DEVICE static inline
+ #endif
+#endif
+
 /**
  * \defgroup spa_device Device
  *
@@ -220,7 +228,7 @@ struct spa_device_methods {
 			  const struct spa_pod *param);
 };
 
-SPA_API_IMPL int spa_device_add_listener(struct spa_device *object,
+SPA_API_DEVICE int spa_device_add_listener(struct spa_device *object,
 			struct spa_hook *listener,
 			const struct spa_device_events *events,
 			void *data)
@@ -229,19 +237,19 @@ SPA_API_IMPL int spa_device_add_listener(struct spa_device *object,
 			listener, events, data);
 
 }
-SPA_API_IMPL int spa_device_sync(struct spa_device *object, int seq)
+SPA_API_DEVICE int spa_device_sync(struct spa_device *object, int seq)
 {
 	return spa_api_method_r(int, -ENOTSUP, spa_device, &object->iface, sync, 0,
 			seq);
 }
-SPA_API_IMPL int spa_device_enum_params(struct spa_device *object, int seq,
+SPA_API_DEVICE int spa_device_enum_params(struct spa_device *object, int seq,
 			    uint32_t id, uint32_t index, uint32_t max,
 			    const struct spa_pod *filter)
 {
 	return spa_api_method_r(int, -ENOTSUP, spa_device, &object->iface, enum_params, 0,
 			seq, id, index, max, filter);
 }
-SPA_API_IMPL int spa_device_set_param(struct spa_device *object,
+SPA_API_DEVICE int spa_device_set_param(struct spa_device *object,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod *param)
 {

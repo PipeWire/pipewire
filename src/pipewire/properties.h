@@ -15,6 +15,10 @@ extern "C" {
 #include <spa/utils/dict.h>
 #include <spa/utils/string.h>
 
+#ifndef PW_API_PROPERTIES
+#define PW_API_PROPERTIES static inline
+#endif
+
 /** \defgroup pw_properties Properties
  *
  * Properties are used to pass around arbitrary key/value pairs.
@@ -101,7 +105,7 @@ pw_properties_fetch_int64(const struct pw_properties *properties, const char *ke
 int
 pw_properties_fetch_bool(const struct pw_properties *properties, const char *key, bool *value);
 
-SPA_API_IMPL uint32_t
+PW_API_PROPERTIES uint32_t
 pw_properties_get_uint32(const struct pw_properties *properties, const char *key, uint32_t deflt)
 {
 	uint32_t val = deflt;
@@ -109,7 +113,7 @@ pw_properties_get_uint32(const struct pw_properties *properties, const char *key
 	return val;
 }
 
-SPA_API_IMPL int32_t
+PW_API_PROPERTIES int32_t
 pw_properties_get_int32(const struct pw_properties *properties, const char *key, int32_t deflt)
 {
 	int32_t val = deflt;
@@ -117,7 +121,7 @@ pw_properties_get_int32(const struct pw_properties *properties, const char *key,
 	return val;
 }
 
-SPA_API_IMPL uint64_t
+PW_API_PROPERTIES uint64_t
 pw_properties_get_uint64(const struct pw_properties *properties, const char *key, uint64_t deflt)
 {
 	uint64_t val = deflt;
@@ -125,7 +129,7 @@ pw_properties_get_uint64(const struct pw_properties *properties, const char *key
 	return val;
 }
 
-SPA_API_IMPL int64_t
+PW_API_PROPERTIES int64_t
 pw_properties_get_int64(const struct pw_properties *properties, const char *key, int64_t deflt)
 {
 	int64_t val = deflt;
@@ -134,7 +138,7 @@ pw_properties_get_int64(const struct pw_properties *properties, const char *key,
 }
 
 
-SPA_API_IMPL bool
+PW_API_PROPERTIES bool
 pw_properties_get_bool(const struct pw_properties *properties, const char *key, bool deflt)
 {
 	bool val = deflt;
@@ -152,31 +156,31 @@ pw_properties_iterate(const struct pw_properties *properties, void **state);
 #define PW_PROPERTIES_FLAG_COLORS	(1<<4)
 int pw_properties_serialize_dict(FILE *f, const struct spa_dict *dict, uint32_t flags);
 
-SPA_API_IMPL bool pw_properties_parse_bool(const char *value) {
+PW_API_PROPERTIES bool pw_properties_parse_bool(const char *value) {
 	return spa_atob(value);
 }
 
-SPA_API_IMPL int pw_properties_parse_int(const char *value) {
+PW_API_PROPERTIES int pw_properties_parse_int(const char *value) {
 	int v;
 	return spa_atoi32(value, &v, 0) ? v: 0;
 }
 
-SPA_API_IMPL int64_t pw_properties_parse_int64(const char *value) {
+PW_API_PROPERTIES int64_t pw_properties_parse_int64(const char *value) {
 	int64_t v;
 	return spa_atoi64(value, &v, 0) ? v : 0;
 }
 
-SPA_API_IMPL uint64_t pw_properties_parse_uint64(const char *value) {
+PW_API_PROPERTIES uint64_t pw_properties_parse_uint64(const char *value) {
 	uint64_t v;
 	return spa_atou64(value, &v, 0) ? v : 0;
 }
 
-SPA_API_IMPL float pw_properties_parse_float(const char *value) {
+PW_API_PROPERTIES float pw_properties_parse_float(const char *value) {
 	float v;
 	return spa_atof(value, &v) ? v : 0.0f;
 }
 
-SPA_API_IMPL double pw_properties_parse_double(const char *value) {
+PW_API_PROPERTIES double pw_properties_parse_double(const char *value) {
 	double v;
 	return spa_atod(value, &v) ? v : 0.0;
 }

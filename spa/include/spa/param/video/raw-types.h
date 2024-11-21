@@ -16,6 +16,14 @@ extern "C" {
 #include <spa/utils/type.h>
 #include <spa/param/video/raw.h>
 
+#ifndef SPA_API_VIDEO_RAW_TYPES
+ #ifdef SPA_API_IMPL
+  #define SPA_API_VIDEO_RAW_TYPES SPA_API_IMPL
+ #else
+  #define SPA_API_VIDEO_RAW_TYPES static inline
+ #endif
+#endif
+
 #define SPA_TYPE_INFO_VideoFormat		SPA_TYPE_INFO_ENUM_BASE "VideoFormat"
 #define SPA_TYPE_INFO_VIDEO_FORMAT_BASE		SPA_TYPE_INFO_VideoFormat ":"
 
@@ -111,11 +119,11 @@ static const struct spa_type_info spa_type_video_format[] = {
 	{ 0, 0, NULL, NULL },
 };
 
-SPA_API_IMPL uint32_t spa_type_video_format_from_short_name(const char *name)
+SPA_API_VIDEO_RAW_TYPES uint32_t spa_type_video_format_from_short_name(const char *name)
 {
 	return spa_type_from_short_name(name, spa_type_video_format, SPA_VIDEO_FORMAT_UNKNOWN);
 }
-SPA_API_IMPL const char * spa_type_video_format_to_short_name(uint32_t type)
+SPA_API_VIDEO_RAW_TYPES const char * spa_type_video_format_to_short_name(uint32_t type)
 {
 	return spa_type_to_short_name(type, spa_type_video_format, "UNKNOWN");
 }

@@ -20,7 +20,15 @@ extern "C" {
 #include <spa/pod/pod.h>
 #include <spa/pod/iter.h>
 
-SPA_API_IMPL int
+#ifndef SPA_API_DEBUG_POD
+ #ifdef SPA_API_IMPL
+  #define SPA_API_DEBUG_POD SPA_API_IMPL
+ #else
+  #define SPA_API_DEBUG_POD static inline
+ #endif
+#endif
+
+SPA_API_DEBUG_POD int
 spa_debugc_pod_value(struct spa_debug_context *ctx, int indent, const struct spa_type_info *info,
 		uint32_t type, void *body, uint32_t size)
 {
@@ -174,7 +182,7 @@ spa_debugc_pod_value(struct spa_debug_context *ctx, int indent, const struct spa
 	return 0;
 }
 
-SPA_API_IMPL int spa_debugc_pod(struct spa_debug_context *ctx, int indent,
+SPA_API_DEBUG_POD int spa_debugc_pod(struct spa_debug_context *ctx, int indent,
 		const struct spa_type_info *info, const struct spa_pod *pod)
 {
 	return spa_debugc_pod_value(ctx, indent, info ? info : SPA_TYPE_ROOT,
@@ -183,14 +191,14 @@ SPA_API_IMPL int spa_debugc_pod(struct spa_debug_context *ctx, int indent,
 			SPA_POD_BODY_SIZE(pod));
 }
 
-SPA_API_IMPL int
+SPA_API_DEBUG_POD int
 spa_debug_pod_value(int indent, const struct spa_type_info *info,
 		uint32_t type, void *body, uint32_t size)
 {
 	return spa_debugc_pod_value(NULL, indent, info, type, body, size);
 }
 
-SPA_API_IMPL int spa_debug_pod(int indent,
+SPA_API_DEBUG_POD int spa_debug_pod(int indent,
 		const struct spa_type_info *info, const struct spa_pod *pod)
 {
 	return spa_debugc_pod(NULL, indent, info, pod);

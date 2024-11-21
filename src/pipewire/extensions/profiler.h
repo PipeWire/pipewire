@@ -24,6 +24,10 @@ extern "C" {
 #define PW_VERSION_PROFILER			3
 struct pw_profiler;
 
+#ifndef PW_API_PROFILER
+#define PW_API_PROFILER static inline
+#endif
+
 #define PW_EXTENSION_MODULE_PROFILER		PIPEWIRE_MODULE_PREFIX "module-profiler"
 
 #define PW_PROFILER_PERM_MASK			PW_PERM_R
@@ -53,7 +57,7 @@ struct pw_profiler_methods {
 			void *data);
 };
 
-SPA_API_IMPL int pw_profiler_add_listener(struct pw_profiler *object,
+PW_API_PROFILER int pw_profiler_add_listener(struct pw_profiler *object,
 			struct spa_hook *listener,
 			const struct pw_profiler_events *events,
 			void *data)

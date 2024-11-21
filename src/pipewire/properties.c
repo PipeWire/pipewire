@@ -12,6 +12,7 @@
 #include <spa/utils/result.h>
 #include <spa/debug/log.h>
 
+#define PW_API_PROPERTIES SPA_EXPORT
 #include "pipewire/array.h"
 #include "pipewire/log.h"
 #include "pipewire/utils.h"

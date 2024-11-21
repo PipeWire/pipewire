@@ -20,6 +20,14 @@ extern "C" {
 #include <spa/debug/mem.h>
 #include <spa/debug/pod.h>
 
+#ifndef SPA_API_DEBUG_LOG
+ #ifdef SPA_API_IMPL
+  #define SPA_API_DEBUG_LOG SPA_API_IMPL
+ #else
+  #define SPA_API_DEBUG_LOG static inline
+ #endif
+#endif
+
 /**
  * \addtogroup spa_debug
  * \{
@@ -36,7 +44,7 @@ struct spa_debug_log_ctx {
 };
 
 SPA_PRINTF_FUNC(2,3)
-SPA_API_IMPL void spa_debug_log_log(struct spa_debug_context *ctx, const char *fmt, ...)
+SPA_API_DEBUG_LOG void spa_debug_log_log(struct spa_debug_context *ctx, const char *fmt, ...)
 {
 	struct spa_debug_log_ctx *c = SPA_CONTAINER_OF(ctx, struct spa_debug_log_ctx, ctx);
 	va_list args;

@@ -12,6 +12,14 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
 
+#ifndef SPA_API_HOOK
+ #ifdef SPA_API_IMPL
+  #define SPA_API_HOOK SPA_API_IMPL
+ #else
+  #define SPA_API_HOOK static inline
+ #endif
+#endif
+
 /** \defgroup spa_interfaces Interfaces
  *
  * \brief Generic implementation of implementation-independent interfaces
@@ -411,18 +419,18 @@ struct spa_hook {
 };
 
 /** Initialize a hook list to the empty list*/
-SPA_API_IMPL void spa_hook_list_init(struct spa_hook_list *list)
+SPA_API_HOOK void spa_hook_list_init(struct spa_hook_list *list)
 {
 	spa_list_init(&list->list);
 }
 
-SPA_API_IMPL bool spa_hook_list_is_empty(struct spa_hook_list *list)
+SPA_API_HOOK bool spa_hook_list_is_empty(struct spa_hook_list *list)
 {
 	return spa_list_is_empty(&list->list);
 }
 
 /** Append a hook. */
-SPA_API_IMPL void spa_hook_list_append(struct spa_hook_list *list,
+SPA_API_HOOK void spa_hook_list_append(struct spa_hook_list *list,
 					struct spa_hook *hook,
 					const void *funcs, void *data)
 {
@@ -432,7 +440,7 @@ SPA_API_IMPL void spa_hook_list_append(struct spa_hook_list *list,
 }
 
 /** Prepend a hook */
-SPA_API_IMPL void spa_hook_list_prepend(struct spa_hook_list *list,
+SPA_API_HOOK void spa_hook_list_prepend(struct spa_hook_list *list,
 					 struct spa_hook *hook,
 					 const void *funcs, void *data)
 {
@@ -442,7 +450,7 @@ SPA_API_IMPL void spa_hook_list_prepend(struct spa_hook_list *list,
 }
 
 /** Remove a hook */
-SPA_API_IMPL void spa_hook_remove(struct spa_hook *hook)
+SPA_API_HOOK void spa_hook_remove(struct spa_hook *hook)
 {
 	if (spa_list_is_initialized(&hook->link))
 		spa_list_remove(&hook->link);
@@ -451,14 +459,14 @@ SPA_API_IMPL void spa_hook_remove(struct spa_hook *hook)
 }
 
 /** Remove all hooks from the list */
-SPA_API_IMPL void spa_hook_list_clean(struct spa_hook_list *list)
+SPA_API_HOOK void spa_hook_list_clean(struct spa_hook_list *list)
 {
 	struct spa_hook *h;
 	spa_list_consume(h, &list->list, link)
 		spa_hook_remove(h);
 }
 
-SPA_API_IMPL void
+SPA_API_HOOK void
 spa_hook_list_isolate(struct spa_hook_list *list,
 		struct spa_hook_list *save,
 		struct spa_hook *hook,
@@ -472,7 +480,7 @@ spa_hook_list_isolate(struct spa_hook_list *list,
 	spa_hook_list_append(list, hook, funcs, data);
 }
 
-SPA_API_IMPL void
+SPA_API_HOOK void
 spa_hook_list_join(struct spa_hook_list *list,
 		struct spa_hook_list *save)
 {

@@ -18,7 +18,15 @@ extern "C" {
 #include <spa/debug/context.h>
 #include <spa/debug/dict.h>
 
-SPA_API_IMPL int spa_debugc_port_info(struct spa_debug_context *ctx, int indent, const struct spa_port_info *info)
+#ifndef SPA_API_DEBUG_NODE
+ #ifdef SPA_API_IMPL
+  #define SPA_API_DEBUG_NODE SPA_API_IMPL
+ #else
+  #define SPA_API_DEBUG_NODE static inline
+ #endif
+#endif
+
+SPA_API_DEBUG_NODE int spa_debugc_port_info(struct spa_debug_context *ctx, int indent, const struct spa_port_info *info)
 {
         spa_debugc(ctx, "%*s" "struct spa_port_info %p:", indent, "", info);
         spa_debugc(ctx, "%*s" " flags: \t%08" PRIx64, indent, "", info->flags);
@@ -31,7 +39,7 @@ SPA_API_IMPL int spa_debugc_port_info(struct spa_debug_context *ctx, int indent,
         return 0;
 }
 
-SPA_API_IMPL int spa_debug_port_info(int indent, const struct spa_port_info *info)
+SPA_API_DEBUG_NODE int spa_debug_port_info(int indent, const struct spa_port_info *info)
 {
 	return spa_debugc_port_info(NULL, indent, info);
 }

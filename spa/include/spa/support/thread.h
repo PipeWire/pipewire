@@ -16,6 +16,14 @@ extern "C" {
 #include <spa/utils/hook.h>
 #include <spa/utils/dict.h>
 
+#ifndef SPA_API_THREAD
+ #ifdef SPA_API_IMPL
+  #define SPA_API_THREAD SPA_API_IMPL
+ #else
+  #define SPA_API_THREAD static inline
+ #endif
+#endif
+
 /** \defgroup spa_thread Thread
  * Threading utility interfaces
  */
@@ -58,7 +66,7 @@ struct spa_thread_utils_methods {
 
 /** \copydoc spa_thread_utils_methods.create
  * \sa spa_thread_utils_methods.create */
-SPA_API_IMPL struct spa_thread *spa_thread_utils_create(struct spa_thread_utils *o,
+SPA_API_THREAD struct spa_thread *spa_thread_utils_create(struct spa_thread_utils *o,
 		const struct spa_dict *props, void *(*start_routine)(void*), void *arg)
 {
 	return spa_api_method_r(struct spa_thread *, NULL,
@@ -68,7 +76,7 @@ SPA_API_IMPL struct spa_thread *spa_thread_utils_create(struct spa_thread_utils 
 
 /** \copydoc spa_thread_utils_methods.join
  * \sa spa_thread_utils_methods.join */
-SPA_API_IMPL int spa_thread_utils_join(struct spa_thread_utils *o,
+SPA_API_THREAD int spa_thread_utils_join(struct spa_thread_utils *o,
 		struct spa_thread *thread, void **retval)
 {
 	return spa_api_method_r(int, -ENOTSUP,
@@ -78,7 +86,7 @@ SPA_API_IMPL int spa_thread_utils_join(struct spa_thread_utils *o,
 
 /** \copydoc spa_thread_utils_methods.get_rt_range
  * \sa spa_thread_utils_methods.get_rt_range */
-SPA_API_IMPL int spa_thread_utils_get_rt_range(struct spa_thread_utils *o,
+SPA_API_THREAD int spa_thread_utils_get_rt_range(struct spa_thread_utils *o,
 		const struct spa_dict *props, int *min, int *max)
 {
 	return spa_api_method_r(int, -ENOTSUP,
@@ -88,7 +96,7 @@ SPA_API_IMPL int spa_thread_utils_get_rt_range(struct spa_thread_utils *o,
 
 /** \copydoc spa_thread_utils_methods.acquire_rt
  * \sa spa_thread_utils_methods.acquire_rt */
-SPA_API_IMPL int spa_thread_utils_acquire_rt(struct spa_thread_utils *o,
+SPA_API_THREAD int spa_thread_utils_acquire_rt(struct spa_thread_utils *o,
 		struct spa_thread *thread, int priority)
 {
 	return spa_api_method_r(int, -ENOTSUP,
@@ -98,7 +106,7 @@ SPA_API_IMPL int spa_thread_utils_acquire_rt(struct spa_thread_utils *o,
 
 /** \copydoc spa_thread_utils_methods.drop_rt
  * \sa spa_thread_utils_methods.drop_rt */
-SPA_API_IMPL int spa_thread_utils_drop_rt(struct spa_thread_utils *o,
+SPA_API_THREAD int spa_thread_utils_drop_rt(struct spa_thread_utils *o,
 		struct spa_thread *thread)
 {
 	return spa_api_method_r(int, -ENOTSUP,

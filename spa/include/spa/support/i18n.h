@@ -12,6 +12,14 @@ extern "C" {
 #include <spa/utils/hook.h>
 #include <spa/utils/defs.h>
 
+#ifndef SPA_API_I18N
+ #ifdef SPA_API_IMPL
+  #define SPA_API_I18N SPA_API_IMPL
+ #else
+  #define SPA_API_I18N static inline
+ #endif
+#endif
+
 /** \defgroup spa_i18n I18N
  * Gettext interface
  */
@@ -53,14 +61,14 @@ struct spa_i18n_methods {
 };
 
 SPA_FORMAT_ARG_FUNC(2)
-SPA_API_IMPL const char *
+SPA_API_I18N const char *
 spa_i18n_text(struct spa_i18n *i18n, const char *msgid)
 {
 	return spa_api_method_null_r(const char *, msgid, spa_i18n, &i18n->iface,
 			text, 0, msgid);
 }
 
-SPA_API_IMPL const char *
+SPA_API_I18N const char *
 spa_i18n_ntext(struct spa_i18n *i18n, const char *msgid,
 		const char *msgid_plural, unsigned long int n)
 {

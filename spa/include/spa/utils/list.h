@@ -11,6 +11,14 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
+#ifndef SPA_API_LIST
+ #ifdef SPA_API_IMPL
+  #define SPA_API_LIST SPA_API_IMPL
+ #else
+  #define SPA_API_LIST static inline
+ #endif
+#endif
+
 /**
  * \defgroup spa_list List
  * Doubly linked list data structure
@@ -28,19 +36,19 @@ struct spa_list {
 
 #define SPA_LIST_INIT(list) ((struct spa_list){ (list), (list) })
 
-SPA_API_IMPL void spa_list_init(struct spa_list *list)
+SPA_API_LIST void spa_list_init(struct spa_list *list)
 {
 	*list = SPA_LIST_INIT(list);
 }
 
-SPA_API_IMPL int spa_list_is_initialized(struct spa_list *list)
+SPA_API_LIST int spa_list_is_initialized(struct spa_list *list)
 {
 	return !!list->prev;
 }
 
 #define spa_list_is_empty(l)  ((l)->next == (l))
 
-SPA_API_IMPL void spa_list_insert(struct spa_list *list, struct spa_list *elem)
+SPA_API_LIST void spa_list_insert(struct spa_list *list, struct spa_list *elem)
 {
 	elem->prev = list;
 	elem->next = list->next;
@@ -48,7 +56,7 @@ SPA_API_IMPL void spa_list_insert(struct spa_list *list, struct spa_list *elem)
 	elem->next->prev = elem;
 }
 
-SPA_API_IMPL void spa_list_insert_list(struct spa_list *list, struct spa_list *other)
+SPA_API_LIST void spa_list_insert_list(struct spa_list *list, struct spa_list *other)
 {
 	if (spa_list_is_empty(other))
 		return;
@@ -58,7 +66,7 @@ SPA_API_IMPL void spa_list_insert_list(struct spa_list *list, struct spa_list *o
 	list->next = other->next;
 }
 
-SPA_API_IMPL void spa_list_remove(struct spa_list *elem)
+SPA_API_LIST void spa_list_remove(struct spa_list *elem)
 {
 	elem->prev->next = elem->next;
 	elem->next->prev = elem->prev;

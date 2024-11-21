@@ -14,6 +14,14 @@
 extern "C" {
 #endif
 
+#ifndef SPA_API_AUDIO_AEC
+ #ifdef SPA_API_IMPL
+  #define SPA_API_AUDIO_AEC SPA_API_IMPL
+ #else
+  #define SPA_API_AUDIO_AEC static inline
+ #endif
+#endif
+
 #define SPA_TYPE_INTERFACE_AUDIO_AEC SPA_TYPE_INFO_INTERFACE_BASE "Audio:AEC"
 
 #define SPA_VERSION_AUDIO_AEC   1
@@ -68,7 +76,7 @@ struct spa_audio_aec_methods {
 			struct spa_audio_info_raw *out_info);
 };
 
-SPA_API_IMPL int spa_audio_aec_add_listener(struct spa_audio_aec *object,
+SPA_API_AUDIO_AEC int spa_audio_aec_add_listener(struct spa_audio_aec *object,
 			struct spa_hook *listener,
 			const struct spa_audio_aec_events *events,
 			void *data)
@@ -77,52 +85,52 @@ SPA_API_IMPL int spa_audio_aec_add_listener(struct spa_audio_aec *object,
 			spa_audio_aec, &object->iface, add_listener, 0, listener, events, data);
 }
 
-SPA_API_IMPL int spa_audio_aec_init(struct spa_audio_aec *object,
+SPA_API_AUDIO_AEC int spa_audio_aec_init(struct spa_audio_aec *object,
 		const struct spa_dict *args, const struct spa_audio_info_raw *info)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			spa_audio_aec, &object->iface, init, 0, args, info);
 }
-SPA_API_IMPL int spa_audio_aec_run(struct spa_audio_aec *object,
+SPA_API_AUDIO_AEC int spa_audio_aec_run(struct spa_audio_aec *object,
 		const float *rec[], const float *play[], float *out[], uint32_t n_samples)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			spa_audio_aec, &object->iface, run, 0, rec, play, out, n_samples);
 }
-SPA_API_IMPL int spa_audio_aec_set_props(struct spa_audio_aec *object, const struct spa_dict *args)
+SPA_API_AUDIO_AEC int spa_audio_aec_set_props(struct spa_audio_aec *object, const struct spa_dict *args)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			spa_audio_aec, &object->iface, set_props, 0, args);
 }
-SPA_API_IMPL int spa_audio_aec_activate(struct spa_audio_aec *object)
+SPA_API_AUDIO_AEC int spa_audio_aec_activate(struct spa_audio_aec *object)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			spa_audio_aec, &object->iface, activate, 1);
 }
-SPA_API_IMPL int spa_audio_aec_deactivate(struct spa_audio_aec *object)
+SPA_API_AUDIO_AEC int spa_audio_aec_deactivate(struct spa_audio_aec *object)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			spa_audio_aec, &object->iface, deactivate, 1);
 }
-SPA_API_IMPL int spa_audio_aec_enum_props(struct spa_audio_aec *object,
+SPA_API_AUDIO_AEC int spa_audio_aec_enum_props(struct spa_audio_aec *object,
 		int index, struct spa_pod_builder* builder)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			spa_audio_aec, &object->iface, enum_props, 2, index, builder);
 }
-SPA_API_IMPL int spa_audio_aec_get_params(struct spa_audio_aec *object,
+SPA_API_AUDIO_AEC int spa_audio_aec_get_params(struct spa_audio_aec *object,
 		struct spa_pod_builder* builder)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			spa_audio_aec, &object->iface, get_params, 2, builder);
 }
-SPA_API_IMPL int spa_audio_aec_set_params(struct spa_audio_aec *object,
+SPA_API_AUDIO_AEC int spa_audio_aec_set_params(struct spa_audio_aec *object,
 		const struct spa_pod *args)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			spa_audio_aec, &object->iface, set_params, 2, args);
 }
-SPA_API_IMPL int spa_audio_aec_init2(struct spa_audio_aec *object,
+SPA_API_AUDIO_AEC int spa_audio_aec_init2(struct spa_audio_aec *object,
 		const struct spa_dict *args,
 		struct spa_audio_info_raw *play_info,
 		struct spa_audio_info_raw *rec_info,

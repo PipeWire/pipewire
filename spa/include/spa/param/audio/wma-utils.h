@@ -19,7 +19,15 @@ extern "C" {
 #include <spa/param/audio/format.h>
 #include <spa/param/format-utils.h>
 
-SPA_API_IMPL int
+#ifndef SPA_API_AUDIO_WMA_UTILS
+ #ifdef SPA_API_IMPL
+  #define SPA_API_AUDIO_WMA_UTILS SPA_API_IMPL
+ #else
+  #define SPA_API_AUDIO_WMA_UTILS static inline
+ #endif
+#endif
+
+SPA_API_AUDIO_WMA_UTILS int
 spa_format_audio_wma_parse(const struct spa_pod *format, struct spa_audio_info_wma *info)
 {
 	int res;
@@ -33,7 +41,7 @@ spa_format_audio_wma_parse(const struct spa_pod *format, struct spa_audio_info_w
 	return res;
 }
 
-SPA_API_IMPL struct spa_pod *
+SPA_API_AUDIO_WMA_UTILS struct spa_pod *
 spa_format_audio_wma_build(struct spa_pod_builder *builder, uint32_t id,
 			   const struct spa_audio_info_wma *info)
 {

@@ -23,7 +23,15 @@ extern "C" {
 #include <spa/debug/types.h>
 #include <spa/buffer/type-info.h>
 
-SPA_API_IMPL int spa_debugc_buffer(struct spa_debug_context *ctx, int indent, const struct spa_buffer *buffer)
+#ifndef SPA_API_DEBUG_BUFFER
+ #ifdef SPA_API_IMPL
+  #define SPA_API_DEBUG_BUFFER SPA_API_IMPL
+ #else
+  #define SPA_API_DEBUG_BUFFER static inline
+ #endif
+#endif
+
+SPA_API_DEBUG_BUFFER int spa_debugc_buffer(struct spa_debug_context *ctx, int indent, const struct spa_buffer *buffer)
 {
 	uint32_t i;
 
@@ -98,7 +106,7 @@ SPA_API_IMPL int spa_debugc_buffer(struct spa_debug_context *ctx, int indent, co
 	return 0;
 }
 
-SPA_API_IMPL int spa_debug_buffer(int indent, const struct spa_buffer *buffer)
+SPA_API_DEBUG_BUFFER int spa_debug_buffer(int indent, const struct spa_buffer *buffer)
 {
 	return spa_debugc_buffer(NULL, indent, buffer);
 }

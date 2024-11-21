@@ -18,7 +18,15 @@ extern "C" {
 #include <spa/pod/builder.h>
 #include <spa/param/video/dsp.h>
 
-SPA_API_IMPL int
+#ifndef SPA_API_VIDEO_DSP_UTILS
+ #ifdef SPA_API_IMPL
+  #define SPA_API_VIDEO_DSP_UTILS SPA_API_IMPL
+ #else
+  #define SPA_API_VIDEO_DSP_UTILS static inline
+ #endif
+#endif
+
+SPA_API_VIDEO_DSP_UTILS int
 spa_format_video_dsp_parse(const struct spa_pod *format,
 			   struct spa_video_info_dsp *info)
 {
@@ -36,7 +44,7 @@ spa_format_video_dsp_parse(const struct spa_pod *format,
 		SPA_FORMAT_VIDEO_modifier,		SPA_POD_OPT_Long(&info->modifier));
 }
 
-SPA_API_IMPL struct spa_pod *
+SPA_API_VIDEO_DSP_UTILS struct spa_pod *
 spa_format_video_dsp_build(struct spa_pod_builder *builder, uint32_t id,
 			   const struct spa_video_info_dsp *info)
 {

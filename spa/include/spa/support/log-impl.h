@@ -19,7 +19,7 @@ extern "C" {
  * \{
  */
 
-SPA_API_IMPL SPA_PRINTF_FUNC(7, 0) void spa_log_impl_logtv(void *object SPA_UNUSED,
+static inline SPA_PRINTF_FUNC(7, 0) void spa_log_impl_logtv(void *object SPA_UNUSED,
 				     enum spa_log_level level,
 				     const struct spa_log_topic *topic,
 				     const char *file,
@@ -49,7 +49,7 @@ SPA_API_IMPL SPA_PRINTF_FUNC(7, 0) void spa_log_impl_logtv(void *object SPA_UNUS
 	fputs(location, stderr);
 }
 
-SPA_API_IMPL SPA_PRINTF_FUNC(7,8) void spa_log_impl_logt(void *object,
+static inline SPA_PRINTF_FUNC(7,8) void spa_log_impl_logt(void *object,
 				    enum spa_log_level level,
 				    const struct spa_log_topic *topic,
 				    const char *file,
@@ -63,7 +63,7 @@ SPA_API_IMPL SPA_PRINTF_FUNC(7,8) void spa_log_impl_logt(void *object,
 	va_end(args);
 }
 
-SPA_API_IMPL SPA_PRINTF_FUNC(6, 0) void spa_log_impl_logv(void *object,
+static inline SPA_PRINTF_FUNC(6, 0) void spa_log_impl_logv(void *object,
 				     enum spa_log_level level,
 				     const char *file,
 				     int line,
@@ -75,7 +75,7 @@ SPA_API_IMPL SPA_PRINTF_FUNC(6, 0) void spa_log_impl_logv(void *object,
 	spa_log_impl_logtv(object, level, NULL, file, line, func, fmt, args);
 }
 
-SPA_API_IMPL SPA_PRINTF_FUNC(6,7) void spa_log_impl_log(void *object,
+static inline SPA_PRINTF_FUNC(6,7) void spa_log_impl_log(void *object,
 				    enum spa_log_level level,
 				    const char *file,
 				    int line,
@@ -88,7 +88,7 @@ SPA_API_IMPL SPA_PRINTF_FUNC(6,7) void spa_log_impl_log(void *object,
 	va_end(args);
 }
 
-SPA_API_IMPL void spa_log_impl_topic_init(void *object SPA_UNUSED, struct spa_log_topic *topic SPA_UNUSED)
+static inline void spa_log_impl_topic_init(void *object SPA_UNUSED, struct spa_log_topic *topic SPA_UNUSED)
 {
 	/* noop */
 }

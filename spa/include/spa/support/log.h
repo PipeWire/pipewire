@@ -15,6 +15,14 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 
+#ifndef SPA_API_LOG
+ #ifdef SPA_API_IMPL
+  #define SPA_API_LOG SPA_API_IMPL
+ #else
+  #define SPA_API_LOG static inline
+ #endif
+#endif
+
 /** \defgroup spa_log Log
  * Logging interface
  */
@@ -213,7 +221,7 @@ struct spa_log_methods {
 #define SPA_LOG_TOPIC(v, t) \
    (struct spa_log_topic){ .version = (v), .topic = (t)}
 
-SPA_API_IMPL void spa_log_topic_init(struct spa_log *log, struct spa_log_topic *topic)
+SPA_API_LOG void spa_log_topic_init(struct spa_log *log, struct spa_log_topic *topic)
 {
 	if (SPA_UNLIKELY(!log))
 		return;
@@ -221,7 +229,7 @@ SPA_API_IMPL void spa_log_topic_init(struct spa_log *log, struct spa_log_topic *
 	spa_interface_call(&log->iface, struct spa_log_methods, topic_init, 1, topic);
 }
 
-SPA_API_IMPL bool spa_log_level_topic_enabled(const struct spa_log *log,
+SPA_API_LOG bool spa_log_level_topic_enabled(const struct spa_log *log,
 					       const struct spa_log_topic *topic,
 					       enum spa_log_level level)
 {
@@ -256,7 +264,7 @@ SPA_API_IMPL bool spa_log_level_topic_enabled(const struct spa_log *log,
 
 /* Transparently calls to version 0 logv if v1 is not supported */
 SPA_PRINTF_FUNC(7, 0)
-SPA_API_IMPL void spa_log_logtv(struct spa_log *l, enum spa_log_level level,
+SPA_API_LOG void spa_log_logtv(struct spa_log *l, enum spa_log_level level,
 		const struct spa_log_topic *topic, const char *file, int line,
 		const char *func, const char *fmt, va_list args)
 {

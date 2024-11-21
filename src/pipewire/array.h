@@ -13,6 +13,11 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
+#ifndef PW_API_ARRAY
+#define PW_API_ARRAY static inline
+#endif
+
+
 /** \defgroup pw_array Array
  *
  * \brief An array object
@@ -71,7 +76,7 @@ struct pw_array {
 
 /** Initialize the array with given extend. Extend needs to be > 0 or else
  * the array will not be able to expand. */
-SPA_API_IMPL void pw_array_init(struct pw_array *arr, size_t extend)
+PW_API_ARRAY void pw_array_init(struct pw_array *arr, size_t extend)
 {
 	arr->data = NULL;
 	arr->size = arr->alloc = 0;
@@ -79,7 +84,7 @@ SPA_API_IMPL void pw_array_init(struct pw_array *arr, size_t extend)
 }
 
 /** Clear the array. This should be called when pw_array_init() was called.  */
-SPA_API_IMPL void pw_array_clear(struct pw_array *arr)
+PW_API_ARRAY void pw_array_clear(struct pw_array *arr)
 {
 	if (arr->extend > 0)
 		free(arr->data);
@@ -87,7 +92,7 @@ SPA_API_IMPL void pw_array_clear(struct pw_array *arr)
 }
 
 /** Initialize a static array. */
-SPA_API_IMPL void pw_array_init_static(struct pw_array *arr, void *data, size_t size)
+PW_API_ARRAY void pw_array_init_static(struct pw_array *arr, void *data, size_t size)
 {
 	arr->data = data;
 	arr->alloc = size;
@@ -95,13 +100,13 @@ SPA_API_IMPL void pw_array_init_static(struct pw_array *arr, void *data, size_t 
 }
 
 /** Reset the array */
-SPA_API_IMPL void pw_array_reset(struct pw_array *arr)
+PW_API_ARRAY void pw_array_reset(struct pw_array *arr)
 {
 	arr->size = 0;
 }
 
 /** Make sure \a size bytes can be added to the array */
-SPA_API_IMPL int pw_array_ensure_size(struct pw_array *arr, size_t size)
+PW_API_ARRAY int pw_array_ensure_size(struct pw_array *arr, size_t size)
 {
 	size_t alloc, need;
 
@@ -124,7 +129,7 @@ SPA_API_IMPL int pw_array_ensure_size(struct pw_array *arr, size_t size)
 /** Add \a ref size bytes to \a arr. A pointer to memory that can
  * hold at least \a size bytes is returned or NULL when an error occurred
  * and errno will be set.*/
-SPA_API_IMPL void *pw_array_add(struct pw_array *arr, size_t size)
+PW_API_ARRAY void *pw_array_add(struct pw_array *arr, size_t size)
 {
 	void *p;
 
@@ -139,7 +144,7 @@ SPA_API_IMPL void *pw_array_add(struct pw_array *arr, size_t size)
 
 /** Add a pointer to array. Returns 0 on success and a negative errno style
  * error on failure. */
-SPA_API_IMPL int pw_array_add_ptr(struct pw_array *arr, void *ptr)
+PW_API_ARRAY int pw_array_add_ptr(struct pw_array *arr, void *ptr)
 {
 	void **p = (void **)pw_array_add(arr, sizeof(void*));
 	if (p == NULL)

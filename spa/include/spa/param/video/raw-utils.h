@@ -18,7 +18,15 @@ extern "C" {
 #include <spa/pod/builder.h>
 #include <spa/param/video/raw.h>
 
-SPA_API_IMPL int
+#ifndef SPA_API_VIDEO_RAW_UTILS
+ #ifdef SPA_API_IMPL
+  #define SPA_API_VIDEO_RAW_UTILS SPA_API_IMPL
+ #else
+  #define SPA_API_VIDEO_RAW_UTILS static inline
+ #endif
+#endif
+
+SPA_API_VIDEO_RAW_UTILS int
 spa_format_video_raw_parse(const struct spa_pod *format,
 			   struct spa_video_info_raw *info)
 {
@@ -49,7 +57,7 @@ spa_format_video_raw_parse(const struct spa_pod *format,
 		SPA_FORMAT_VIDEO_colorPrimaries,	SPA_POD_OPT_Id(&info->color_primaries));
 }
 
-SPA_API_IMPL struct spa_pod *
+SPA_API_VIDEO_RAW_UTILS struct spa_pod *
 spa_format_video_raw_build(struct spa_pod_builder *builder, uint32_t id,
 			   const struct spa_video_info_raw *info)
 {

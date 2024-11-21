@@ -12,6 +12,14 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/pod/pod.h>
 
+#ifndef SPA_API_META
+ #ifdef SPA_API_IMPL
+  #define SPA_API_META SPA_API_IMPL
+ #else
+  #define SPA_API_META static inline
+ #endif
+#endif
+
 /**
  * \addtogroup spa_buffer
  * \{
@@ -46,11 +54,11 @@ struct spa_meta {
 	void *data;		/**< pointer to metadata */
 };
 
-SPA_API_IMPL void *spa_meta_first(const struct spa_meta *m) {
+SPA_API_META void *spa_meta_first(const struct spa_meta *m) {
 	return m->data;
 }
 #define spa_meta_first spa_meta_first
-SPA_API_IMPL void *spa_meta_end(const struct spa_meta *m) {
+SPA_API_META void *spa_meta_end(const struct spa_meta *m) {
 	return SPA_PTROFF(m->data,m->size,void);
 }
 #define spa_meta_end spa_meta_end
@@ -80,7 +88,7 @@ struct spa_meta_region {
 	struct spa_region region;
 };
 
-SPA_API_IMPL bool spa_meta_region_is_valid(const struct spa_meta_region *m) {
+SPA_API_META bool spa_meta_region_is_valid(const struct spa_meta_region *m) {
 	return m->region.size.width != 0 && m->region.size.height != 0;
 }
 #define spa_meta_region_is_valid spa_meta_region_is_valid

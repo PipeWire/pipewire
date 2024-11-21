@@ -11,6 +11,14 @@ extern "C" {
 
 #include <spa/buffer/buffer.h>
 
+#ifndef SPA_API_BUFFER_ALLOC
+ #ifdef SPA_API_IMPL
+  #define SPA_API_BUFFER_ALLOC SPA_API_IMPL
+ #else
+  #define SPA_API_BUFFER_ALLOC static inline
+ #endif
+#endif
+
 /**
  * \addtogroup spa_buffer
  * \{
@@ -58,7 +66,7 @@ struct spa_buffer_alloc_info {
  * \param data_aligns \a n_datas alignments
  * \return 0 on success.
  * */
-SPA_API_IMPL int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info *info,
+SPA_API_BUFFER_ALLOC int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info *info,
 					     uint32_t n_metas, struct spa_meta metas[],
 					     uint32_t n_datas, struct spa_data datas[],
 					     uint32_t data_aligns[])
@@ -179,7 +187,7 @@ SPA_API_IMPL int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info *info,
  * \param data_mem memory to hold the meta, chunk and memory
  * \return a struct \ref spa_buffer in \a skel_mem
  */
-SPA_API_IMPL struct spa_buffer *
+SPA_API_BUFFER_ALLOC struct spa_buffer *
 spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 			void *skel_mem, void *data_mem)
 {
@@ -257,7 +265,7 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
  * \return 0 on success.
  *
  */
-SPA_API_IMPL int
+SPA_API_BUFFER_ALLOC int
 spa_buffer_alloc_layout_array(struct spa_buffer_alloc_info *info,
 			      uint32_t n_buffers, struct spa_buffer *buffers[],
 			      void *skel_mem, void *data_mem)
@@ -292,7 +300,7 @@ spa_buffer_alloc_layout_array(struct spa_buffer_alloc_info *info,
  *     allocation failed.
  *
  */
-SPA_API_IMPL struct spa_buffer **
+SPA_API_BUFFER_ALLOC struct spa_buffer **
 spa_buffer_alloc_array(uint32_t n_buffers, uint32_t flags,
 		       uint32_t n_metas, struct spa_meta metas[],
 		       uint32_t n_datas, struct spa_data datas[],

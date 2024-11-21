@@ -26,13 +26,21 @@ extern "C" {
  * \{
  */
 
+#ifndef SPA_API_DEBUG_FILE
+ #ifdef SPA_API_IMPL
+  #define SPA_API_DEBUG_FILE SPA_API_IMPL
+ #else
+  #define SPA_API_DEBUG_FILE static inline
+ #endif
+#endif
+
 struct spa_debug_file_ctx {
 	struct spa_debug_context ctx;
 	FILE *f;
 };
 
 SPA_PRINTF_FUNC(2,3)
-SPA_API_IMPL void spa_debug_file_log(struct spa_debug_context *ctx, const char *fmt, ...)
+SPA_API_DEBUG_FILE void spa_debug_file_log(struct spa_debug_context *ctx, const char *fmt, ...)
 {
 	struct spa_debug_file_ctx *c = SPA_CONTAINER_OF(ctx, struct spa_debug_file_ctx, ctx);
 	va_list args;

@@ -12,6 +12,14 @@ extern "C" {
 #include <spa/pod/builder.h>
 #include <spa/monitor/device.h>
 
+#ifndef SPA_API_DEVICE_UTILS
+ #ifdef SPA_API_IMPL
+  #define SPA_API_DEVICE_UTILS SPA_API_IMPL
+ #else
+  #define SPA_API_DEVICE_UTILS static inline
+ #endif
+#endif
+
 /**
  * \addtogroup spa_device
  * \{
@@ -22,7 +30,7 @@ struct spa_result_device_params_data {
 	struct spa_result_device_params data;
 };
 
-SPA_API_IMPL void spa_result_func_device_params(void *data, int seq SPA_UNUSED, int res SPA_UNUSED,
+SPA_API_DEVICE_UTILS void spa_result_func_device_params(void *data, int seq SPA_UNUSED, int res SPA_UNUSED,
 		uint32_t type SPA_UNUSED, const void *result)
 {
 	struct spa_result_device_params_data *d =
@@ -36,7 +44,7 @@ SPA_API_IMPL void spa_result_func_device_params(void *data, int seq SPA_UNUSED, 
 	d->data.param = spa_pod_builder_deref(d->builder, offset);
 }
 
-SPA_API_IMPL int spa_device_enum_params_sync(struct spa_device *device,
+SPA_API_DEVICE_UTILS int spa_device_enum_params_sync(struct spa_device *device,
 			uint32_t id, uint32_t *index,
 			const struct spa_pod *filter,
 			struct spa_pod **param,

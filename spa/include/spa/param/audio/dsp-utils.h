@@ -19,7 +19,15 @@ extern "C" {
 #include <spa/param/audio/format.h>
 #include <spa/param/format-utils.h>
 
-SPA_API_IMPL int
+#ifndef SPA_API_AUDIO_DSP_UTILS
+ #ifdef SPA_API_IMPL
+  #define SPA_API_AUDIO_DSP_UTILS SPA_API_IMPL
+ #else
+  #define SPA_API_AUDIO_DSP_UTILS static inline
+ #endif
+#endif
+
+SPA_API_AUDIO_DSP_UTILS int
 spa_format_audio_dsp_parse(const struct spa_pod *format, struct spa_audio_info_dsp *info)
 {
 	int res;
@@ -29,7 +37,7 @@ spa_format_audio_dsp_parse(const struct spa_pod *format, struct spa_audio_info_d
 	return res;
 }
 
-SPA_API_IMPL struct spa_pod *
+SPA_API_AUDIO_DSP_UTILS struct spa_pod *
 spa_format_audio_dsp_build(struct spa_pod_builder *builder, uint32_t id,
 			   const struct spa_audio_info_dsp *info)
 {

@@ -670,7 +670,6 @@ int pw_stream_emit_event(struct pw_stream *stream, const struct spa_event *event
  * Since 1.4.0 */
 int pw_stream_set_rate(struct pw_stream *stream, double rate);
 
-
 /**
  * \}
  */

@@ -301,8 +301,7 @@ static void rtp_audio_process_capture(void *data)
 
 	if (impl->separate_sender) {
 		/* apply the DLL rate */
-		SPA_FLAG_SET(impl->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE);
-		impl->io_rate_match->rate = impl->ptp_corr;
+		pw_stream_set_rate(impl->stream, impl->ptp_corr);
 	}
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {

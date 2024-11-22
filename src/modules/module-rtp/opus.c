@@ -77,7 +77,6 @@ static void rtp_opus_process_playback(void *data)
 					target_buffer, error, corr);
 
 			pw_stream_set_rate(impl->stream, 1.0 / corr);
-
 		}
 		spa_ringbuffer_read_data(&impl->ring,
 				impl->buffer,

@@ -2595,3 +2595,23 @@ int pw_stream_trigger_process(struct pw_stream *stream)
 	}
 	return res;
 }
+
+SPA_EXPORT
+int pw_stream_set_rate(struct pw_stream *stream, double rate)
+{
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	bool enable;
+
+	if (impl->rate_match == NULL)
+		return -ENOTSUP;
+
+	if (rate <= 0.0) {
+		rate = 1.0;
+		enable = false;
+	} else {
+		enable = true;
+	}
+	impl->rate_match->rate = rate;
+	SPA_FLAG_UPDATE(impl->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE, enable);
+	return 0;
+}

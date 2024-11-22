@@ -662,6 +662,15 @@ int pw_stream_trigger_process(struct pw_stream *stream);
  * Since 1.2.6 */
 int pw_stream_emit_event(struct pw_stream *stream, const struct spa_event *event);
 
+/** Adjust the rate of the stream.
+ * When the stream is using an adaptive resampler, adjust the resampler rate.
+ * When there is no resampler, -ENOTSUP is returned. Activating the adaptive
+ * resampler will add a small amount of delay to the samples, you can deactivate
+ * it again by setting a value <= 0.0.
+ * Since 1.4.0 */
+int pw_stream_set_rate(struct pw_stream *stream, double rate);
+
+
 /**
  * \}
  */

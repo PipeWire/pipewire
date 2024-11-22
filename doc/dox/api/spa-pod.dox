@@ -219,11 +219,11 @@ pod = spa_pod_builder_add_object(&b,
 	SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 	SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 	//  audio/raw properties
-	SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(
+	SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(4,  //  4 values follow
 					SPA_AUDIO_FORMAT_S16, //  default
 					SPA_AUDIO_FORMAT_S16, //  alternative1
 					SPA_AUDIO_FORMAT_S32, //  alternative2
-					SPA_AUDIO_FORMAT_f32  //  alternative3
+					SPA_AUDIO_FORMAT_F32  //  alternative3
 				   ),
 	SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
 					44100,		//  default
@@ -483,21 +483,21 @@ pod = spa_pod_builder_add_object(&b,
 	SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 	SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 	SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-	SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(
+	SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(4,  //  4 values follow
 					SPA_AUDIO_FORMAT_S16, //  default
 					SPA_AUDIO_FORMAT_S16, //  alternative1
 					SPA_AUDIO_FORMAT_S32, //  alternative2
-					SPA_AUDIO_FORMAT_f32  //  alternative3
+					SPA_AUDIO_FORMAT_F32  //  alternative3
 				   ));
 
 filter = spa_pod_builder_add_object(&b,
 	SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 	SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 	SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-	SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(
+	SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(3,  //  3 values follow
 					SPA_AUDIO_FORMAT_S16, //  default
 					SPA_AUDIO_FORMAT_S16, //  alternative1
-					SPA_AUDIO_FORMAT_f64  //  alternative2
+					SPA_AUDIO_FORMAT_F64  //  alternative2
 				   ));
 
 struct spa_pod *result;

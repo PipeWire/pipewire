@@ -44,7 +44,7 @@ static void rtp_audio_process_playback(void *data)
 		pw_log(level, "underrun %d/%u < %u",
 					avail, target_buffer, wanted);
 	} else {
-		float error, corr;
+		double error, corr;
 		if (impl->first) {
 			if ((uint32_t)avail > target_buffer) {
 				uint32_t skip = avail - target_buffer;
@@ -63,19 +63,15 @@ static void rtp_audio_process_playback(void *data)
 			/* when not using direct timestamp and clocks are not
 			 * in sync, try to adjust our playback rate to keep the
 			 * requested target_buffer bytes in the ringbuffer */
-			error = (float)target_buffer - (float)avail;
-			error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
+			error = (double)target_buffer - (double)avail;
+			error = SPA_CLAMPD(error, -impl->max_error, impl->max_error);
 
-			corr = (float)spa_dll_update(&impl->dll, error);
+			corr = spa_dll_update(&impl->dll, error);
 
 			pw_log_trace("avail:%u target:%u error:%f corr:%f", avail,
 					target_buffer, error, corr);
 
-			if (impl->io_rate_match) {
-				SPA_FLAG_SET(impl->io_rate_match->flags,
-						SPA_IO_RATE_MATCH_FLAG_ACTIVE);
-				impl->io_rate_match->rate = 1.0f / corr;
-			}
+			pw_stream_set_rate(impl->stream, 1.0 / corr);
 		}
 		spa_ringbuffer_read_data(&impl->ring,
 				impl->buffer,
@@ -481,7 +477,7 @@ static void ptp_sender_process(void *d, struct spa_io_position *position)
 			 * [1] http://kokkinizita.linuxaudio.org/papers/adapt-resamp.pdf
 			 */
 			error = delay - impl->target_buffer;
-			error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
+			error = SPA_CLAMPD(error, -impl->max_error, impl->max_error);
 			impl->ptp_corr = spa_dll_update(&impl->ptp_dll, error);
 
 			pw_log_debug("filled:%u in_flight:%g delay:%g target:%u error:%f corr:%f",

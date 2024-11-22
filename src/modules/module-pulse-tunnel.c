@@ -187,9 +187,8 @@ struct impl {
 	uint32_t target_latency;
 	uint32_t current_latency;
 	uint32_t target_buffer;
-	struct spa_io_rate_match *rate_match;
 	struct spa_dll dll;
-	float max_error;
+	double max_error;
 	unsigned resync:1;
 
 	bool do_disconnect:1;
@@ -332,23 +331,19 @@ static void stream_param_changed(void *d, uint32_t id, const struct spa_pod *par
 
 static void update_rate(struct impl *impl, uint32_t filled)
 {
-	float error, corr;
+	double error, corr;
 	uint32_t current_latency;
 
-	if (impl->rate_match == NULL)
-		return;
-
 	current_latency = impl->current_latency + filled;
-	error = (float)impl->target_latency - (float)(current_latency);
-	error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
+	error = (double)impl->target_latency - (double)(current_latency);
+	error = SPA_CLAMPD(error, -impl->max_error, impl->max_error);
 
-	corr = (float)spa_dll_update(&impl->dll, error);
+	corr = spa_dll_update(&impl->dll, error);
 	pw_log_debug("error:%f corr:%f current:%u target:%u",
 			error, corr,
 			current_latency, impl->target_latency);
 
-	SPA_FLAG_SET(impl->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE);
-	impl->rate_match->rate = 1.0f / corr;
+	pw_stream_set_rate(impl->stream, 1.0 / corr);
 }
 
 static void playback_stream_process(void *d)
@@ -441,21 +436,10 @@ static void capture_stream_process(void *d)
 	pw_stream_queue_buffer(impl->stream, buf);
 }
 
-static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size)
-{
-	struct impl *impl = data;
-	switch (id) {
-	case SPA_IO_RateMatch:
-		impl->rate_match = area;
-		break;
-	}
-}
-
 static const struct pw_stream_events playback_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = stream_destroy,
 	.state_changed = stream_state_changed,
-	.io_changed = stream_io_changed,
 	.param_changed = stream_param_changed,
 	.process = playback_stream_process
 };
@@ -464,7 +448,6 @@ static const struct pw_stream_events capture_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = stream_destroy,
 	.state_changed = stream_state_changed,
-	.io_changed = stream_io_changed,
 	.param_changed = stream_param_changed,
 	.process = capture_stream_process
 };
@@ -1225,7 +1208,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 	spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 128, impl->info.rate);
-	impl->max_error = 256.0f;
+	impl->max_error = 256.0;
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

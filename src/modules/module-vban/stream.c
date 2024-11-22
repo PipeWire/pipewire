@@ -65,12 +65,11 @@ struct impl {
 	struct spa_ringbuffer ring;
 	uint8_t buffer[BUFFER_SIZE];
 
-	struct spa_io_rate_match *io_rate_match;
 	struct spa_io_position *io_position;
 	struct spa_dll dll;
 	double corr;
 	uint32_t target_buffer;
-	float max_error;
+	double max_error;
 
 	float last_timestamp;
 	float last_time;
@@ -108,9 +107,6 @@ static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size
 {
 	struct impl *impl = data;
 	switch (id) {
-	case SPA_IO_RateMatch:
-		impl->io_rate_match = area;
-		break;
 	case SPA_IO_Position:
 		impl->io_position = area;
 		break;

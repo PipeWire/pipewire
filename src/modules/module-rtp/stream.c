@@ -81,7 +81,7 @@ struct impl {
 	struct spa_dll dll;
 	double corr;
 	uint32_t target_buffer;
-	float max_error;
+	double max_error;
 
 	float last_timestamp;
 	float last_time;

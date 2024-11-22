@@ -196,7 +196,6 @@ struct impl {
 	void *buffer;
 	uint32_t target_buffer;
 
-	struct spa_io_rate_match *rate_match;
 	struct spa_io_position *position;
 
 	struct spa_dll dll;
@@ -364,22 +363,17 @@ static void playback_stream_process(void *data)
 
 static void update_rate(struct impl *impl, uint32_t filled)
 {
-	float error;
+	double error;
 
-	if (impl->rate_match == NULL)
-		return;
-
-	error = (float)impl->target_buffer - (float)(filled);
-	error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
+	error = (double)impl->target_buffer - (double)(filled);
+	error = SPA_CLAMPD(error, -impl->max_error, impl->max_error);
 
 	impl->corr = spa_dll_update(&impl->dll, error);
 	pw_log_debug("error:%f corr:%f current:%u target:%u",
 			error, impl->corr, filled, impl->target_buffer);
 
-	if (!impl->driving) {
-		SPA_FLAG_SET(impl->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE);
-		impl->rate_match->rate = 1.0 / impl->corr;
-	}
+	if (!impl->driving)
+		pw_stream_set_rate(impl->stream, 1.0 / impl->corr);
 }
 
 static void capture_stream_process(void *data)
@@ -452,9 +446,6 @@ static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size
 {
 	struct impl *impl = data;
 	switch (id) {
-	case SPA_IO_RateMatch:
-		impl->rate_match = area;
-		break;
 	case SPA_IO_Position:
 		impl->position = area;
 		break;

@@ -1068,6 +1068,8 @@ again:
 		if ((b = get_buffer(stream, io->buffer_id)) != NULL) {
 			pw_log_trace_fp("%p: recycle buffer %d", stream, b->id);
 			queue_push(impl, &impl->dequeued, b);
+			if (impl->early_process)
+				ask_more = true;
 		}
 
 		/* pop new buffer */

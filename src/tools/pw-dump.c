@@ -1392,7 +1392,7 @@ static void registry_event_global_remove(void *data, uint32_t id)
 	if ((o = find_object(d, id)) == NULL)
 		return;
 
-	if (!d->pattern || object_matches(o, d->pattern)) {
+	if (d->monitor && (!d->pattern || object_matches(o, d->pattern))) {
 		d->state = STATE_FIRST;
 		if (d->state == STATE_FIRST)
 			put_begin(d, NULL, "[", 0);

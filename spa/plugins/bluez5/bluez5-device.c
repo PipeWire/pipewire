@@ -121,6 +121,8 @@ struct device_set_member {
 struct device_set {
 	struct impl *impl;
 	char *path;
+	bool sink_enabled;
+	bool source_enabled;
 	bool leader;
 	uint32_t sinks;
 	uint32_t sources;
@@ -650,9 +652,9 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 	spa_log_debug(this->log, "%p: node, transport:%p id:%08x factory:%s", this, t, id, factory_name);
 
 	if (id & SINK_ID_FLAG)
-		in_device_set = this->device_set.path && (this->device_set.sinks > 1);
+		in_device_set = this->device_set.sink_enabled;
 	else
-		in_device_set = this->device_set.path && (this->device_set.sources > 1);
+		in_device_set = this->device_set.source_enabled;
 
 	snprintf(transport, sizeof(transport), "pointer:%p", t);
 	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_TRANSPORT, transport);
@@ -698,7 +700,7 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 
 	spa_device_emit_object_info(&this->hooks, id, &info);
 
-	if (this->device_set.path) {
+	if (in_device_set) {
 		/* Device set member nodes don't have their own routes */
 		this->nodes[id].impl = this;
 		this->nodes[id].active = false;
@@ -1053,6 +1055,9 @@ static void device_set_update(struct impl *this)
 		if (num_devices > 1)
 			break;
 	}
+
+	dset->sink_enabled = dset->path && (dset->sinks > 1);
+	dset->source_enabled = dset->path && (dset->sources > 1);
 }
 
 static int emit_nodes(struct impl *this)
@@ -1143,7 +1148,7 @@ static int emit_nodes(struct impl *this)
 				emit_dynamic_node(this, t, id, SPA_NAME_API_BLUEZ5_MEDIA_SOURCE, false);
 		}
 
-		if (set->path && set->leader && set->sources > 1)
+		if (set->source_enabled && set->leader)
 			emit_device_set_node(this, DEVICE_ID_SOURCE_SET);
 
 		for (i = 0; i < set->sinks; ++i) {
@@ -1162,7 +1167,7 @@ static int emit_nodes(struct impl *this)
 				emit_dynamic_node(this, t, id, SPA_NAME_API_BLUEZ5_MEDIA_SINK, false);
 		}
 
-		if (set->path && set->leader && set->sinks > 1)
+		if (set->sink_enabled && set->leader)
 			emit_device_set_node(this, DEVICE_ID_SINK_SET);
 
 		if (this->bt_dev->connected_profiles & (SPA_BT_PROFILE_BAP_BROADCAST_SINK)) {
@@ -1171,9 +1176,6 @@ static int emit_nodes(struct impl *this)
 				this->props.codec = t->media_codec->id;
 				emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_MEDIA_SINK, false);
 			}
-
-			if (this->device_set.leader && this->device_set.sinks > 0)
-				emit_device_set_node(this, DEVICE_ID_SINK_SET);
 		}
 
 		if (this->bt_dev->connected_profiles & (SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)) {
@@ -1268,7 +1270,7 @@ static int set_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_a
 
 	if (this->profile == profile &&
 	    (this->profile != DEVICE_PROFILE_A2DP || codec == this->props.codec) &&
-	    (this->profile != DEVICE_PROFILE_BAP || codec == this->props.codec || this->device_set.path) &&
+	    (this->profile != DEVICE_PROFILE_BAP || codec == this->props.codec) &&
 	    (this->profile != DEVICE_PROFILE_HSP_HFP || codec == this->props.codec))
 		return 0;
 
@@ -1854,13 +1856,10 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 			priority = 128;
 		}
 
-		if (this->device_set.leader) {
-			n_sink = this->device_set.sinks ? 1 : 0;
-			n_source = this->device_set.sinks ? 1 : 0;
-		} else if (this->device_set.path) {
-			n_sink = 0;
-			n_source = 0;
-		}
+		if (this->device_set.sink_enabled)
+			n_sink = this->device_set.leader ? 1 : 0;
+		if (this->device_set.source_enabled)
+			n_source = this->device_set.leader ? 1 : 0;
 		break;
 	}
 	case DEVICE_PROFILE_HSP_HFP:
@@ -2077,6 +2076,8 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		direction = SPA_DIRECTION_INPUT;
 		snprintf(name, sizeof(name), "%s-input", name_prefix);
 		dev = DEVICE_ID_SOURCE;
+		available = this->device_set.source_enabled ?
+			SPA_PARAM_AVAILABILITY_no : SPA_PARAM_AVAILABILITY_yes;
 
 		if ((this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SINK) &&
 				!(this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE) &&
@@ -2088,26 +2089,31 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		direction = SPA_DIRECTION_OUTPUT;
 		snprintf(name, sizeof(name), "%s-output", name_prefix);
 		dev = DEVICE_ID_SINK;
+		available = this->device_set.sink_enabled ?
+			SPA_PARAM_AVAILABILITY_no : SPA_PARAM_AVAILABILITY_yes;
 		break;
 	case ROUTE_HF_OUTPUT:
 		direction = SPA_DIRECTION_OUTPUT;
 		snprintf(name, sizeof(name), "%s-hf-output", name_prefix);
 		description = hfp_description;
 		dev = DEVICE_ID_SINK;
+		available = SPA_PARAM_AVAILABILITY_yes;
 		break;
 	case ROUTE_SET_INPUT:
-		if (!this->device_set.leader)
+		if (!(this->device_set.source_enabled && this->device_set.leader))
 			return NULL;
 		direction = SPA_DIRECTION_INPUT;
 		snprintf(name, sizeof(name), "%s-set-input", name_prefix);
 		dev = DEVICE_ID_SOURCE_SET;
+		available = SPA_PARAM_AVAILABILITY_yes;
 		break;
 	case ROUTE_SET_OUTPUT:
-		if (!this->device_set.leader)
+		if (!(this->device_set.sink_enabled && this->device_set.leader))
 			return NULL;
 		direction = SPA_DIRECTION_OUTPUT;
 		snprintf(name, sizeof(name), "%s-set-output", name_prefix);
 		dev = DEVICE_ID_SINK_SET;
+		available = SPA_PARAM_AVAILABILITY_yes;
 		break;
 	default:
 		return NULL;
@@ -2115,10 +2121,6 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 
 	if (profile != SPA_ID_INVALID && !profile_has_route(profile, route))
 		return NULL;
-
-	available = SPA_PARAM_AVAILABILITY_yes;
-	if (this->device_set.path && !(route == ROUTE_SET_INPUT || route == ROUTE_SET_OUTPUT))
-		available = SPA_PARAM_AVAILABILITY_no;
 
 	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_ParamRoute, id);
 	spa_pod_builder_add(b,

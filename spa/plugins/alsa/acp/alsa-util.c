@@ -26,6 +26,8 @@
 #include "alsa-util.h"
 #include "alsa-mixer.h"
 
+#include <spa/param/audio/format.h>
+
 #ifdef HAVE_UDEV
 #include <modules/udev-util.h>
 #endif
@@ -1972,7 +1974,7 @@ int pa_alsa_get_hdmi_eld(snd_hctl_elem_t *elem, pa_hdmi_eld *eld) {
     snd_ctl_elem_info_t *info;
     snd_ctl_elem_value_t *value;
     uint8_t *elddata;
-    unsigned int eldsize, mnl;
+    unsigned int eldsize, mnl, sad_count;
     unsigned int device;
 
     pa_assert(eld != NULL);
@@ -2010,5 +2012,54 @@ int pa_alsa_get_hdmi_eld(snd_hctl_elem_t *elem, pa_hdmi_eld *eld) {
     if (mnl)
         pa_log_debug("Monitor name in ELD info is '%s' (for device=%d)", eld->monitor_name, device);
 
+    /* Fetch Short Audio Descriptors */
+    sad_count = (elddata[5] & 0xf0) >> 4;
+    pa_log_debug("SAD count in ELD info is %u (for device=%d)", sad_count, device);
+    if (20 + mnl + 3 * sad_count > eldsize) {
+        pa_log_debug("Invalid SAD count (%u) in ELD info (for device=%d)", sad_count, device);
+        sad_count = 0;
+    }
+
+    eld->iec958_codecs = 0;
+    for (unsigned i = 0; i < sad_count; i++) {
+        uint8_t *sad = &elddata[20 + mnl + 3 * i];
+
+        /* https://en.wikipedia.org/wiki/Extended_Display_Identification_Data#Audio_Data_Blocks */
+        switch ((sad[0] & 0x78) >> 3) {
+            case 1:
+                eld->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_PCM;
+                break;
+            case 2:
+                eld->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_AC3;
+                break;
+            case 3:
+                eld->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_MPEG;
+                break;
+            case 4:
+                eld->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_MPEG;
+                break;
+            case 5:
+                eld->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_MPEG;
+                break;
+            case 6:
+                eld->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_MPEG2_AAC;
+                break;
+            case 7:
+                eld->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_DTS;
+                break;
+            case 10:
+                eld->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_EAC3;
+                break;
+            case 11:
+                eld->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_DTSHD;
+                break;
+            case 12:
+                eld->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_TRUEHD;
+                break;
+            default:
+                eld->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_UNKNOWN;
+                break;
+        }
+    }
     return 0;
 }

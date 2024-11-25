@@ -157,6 +157,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	char device_name[128], path[210], channels[16], ch[12], routes[16];
 	char card_index[16], card_name[64], *p;
 	char positions[SPA_AUDIO_MAX_CHANNELS * 12];
+	char codecs[512];
 	struct spa_device_object_info info;
 	struct acp_card *card = this->card;
 	const char *stream, *card_id;
@@ -174,7 +175,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 
 	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 
-	items = alloca((dev->props.n_items + 9) * sizeof(*items));
+	items = alloca((dev->props.n_items + 10) * sizeof(*items));
 	n_items = 0;
 
 	snprintf(card_index, sizeof(card_index), "%d", card->index);
@@ -201,6 +202,11 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 				acp_channel_str(ch, sizeof(ch), dev->format.map[i]));
 	}
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_POSITION, positions);
+
+	if (dev->n_codecs > 0) {
+		acp_iec958_codecs_to_json(dev->codecs, dev->n_codecs, codecs, sizeof(codecs));
+		items[n_items++] = SPA_DICT_ITEM_INIT("iec958.codecs", codecs);
+	}
 
 	snprintf(routes, sizeof(routes), "%d", dev->n_ports);
 	items[n_items++] = SPA_DICT_ITEM_INIT("device.routes", routes);

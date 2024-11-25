@@ -8,6 +8,7 @@
 
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
+#include <spa/param/audio/iec958-types.h>
 
 int _acp_log_level = 1;
 acp_log_func _acp_log_func;
@@ -951,12 +952,58 @@ static pa_device_port* find_port_with_eld_device(pa_card *impl, int device)
 	return NULL;
 }
 
+static void acp_iec958_codec_mask_to_json(uint64_t codecs, char *buf, size_t maxsize)
+{
+	struct spa_strbuf b;
+	const struct spa_type_info *info;
+
+	spa_strbuf_init(&b, buf, maxsize);
+	for (info = spa_type_audio_iec958_codec; info->name; ++info)
+		if ((codecs & (1ULL << info->type)) && info->type != SPA_AUDIO_IEC958_CODEC_UNKNOWN)
+			spa_strbuf_append(&b, "%s\"%s\"", (b.pos ? "," : "["),
+					spa_type_audio_iec958_codec_to_short_name(info->type));
+	if (b.pos)
+		spa_strbuf_append(&b, "]");
+}
+
+void acp_iec958_codecs_to_json(const uint32_t *codecs, size_t n_codecs, char *buf, size_t maxsize)
+{
+	struct spa_strbuf b;
+
+	spa_strbuf_init(&b, buf, maxsize);
+	spa_strbuf_append(&b, "[");
+	for (size_t i = 0; i < n_codecs; ++i)
+		spa_strbuf_append(&b, "%s\"%s\"", (i ? "," : ""),
+				spa_type_audio_iec958_codec_to_short_name(codecs[i]));
+	spa_strbuf_append(&b, "]");
+}
+
+size_t acp_iec958_codecs_from_json(const char *str, uint32_t *codecs, size_t max_codecs)
+{
+	struct spa_json it;
+	char v[256];
+	size_t n_codecs = 0;
+
+	if (spa_json_begin_array_relax(&it, str, strlen(str)) <= 0)
+		return 0;
+
+	while (spa_json_get_string(&it, v, sizeof(v)) > 0) {
+		uint32_t type = spa_type_audio_iec958_codec_from_short_name(v);
+		if (type != SPA_AUDIO_IEC958_CODEC_UNKNOWN)
+			codecs[n_codecs++] = type;
+		if (n_codecs >= max_codecs)
+			break;
+	}
+
+	return n_codecs;
+}
+
 static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 {
 	pa_card *impl = snd_mixer_elem_get_callback_private(melem);
 	snd_hctl_elem_t **_elem = snd_mixer_elem_get_private(melem), *elem;
 	int device, i;
-	const char *old_monitor_name;
+	const char *old_monitor_name, *old_iec958_codec_list;
 	pa_device_port *p;
 	pa_hdmi_eld eld;
 	bool changed = false;
@@ -994,6 +1041,18 @@ static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 		changed |= (old_monitor_name == NULL) || (!spa_streq(old_monitor_name, eld.monitor_name));
 		pa_proplist_sets(p->proplist, PA_PROP_DEVICE_PRODUCT_NAME, eld.monitor_name);
 	}
+
+	old_iec958_codec_list = pa_proplist_gets(p->proplist, ACP_KEY_IEC958_CODECS_DETECTED);
+	if (eld.iec958_codecs == 0) {
+		changed |= old_iec958_codec_list != NULL;
+		pa_proplist_unset(p->proplist, ACP_KEY_IEC958_CODECS_DETECTED);
+	} else {
+		char codecs[512];
+		acp_iec958_codec_mask_to_json(eld.iec958_codecs, codecs, sizeof(codecs));
+		changed |= (old_iec958_codec_list == NULL) || (!spa_streq(old_iec958_codec_list, codecs));
+		pa_proplist_sets(p->proplist, ACP_KEY_IEC958_CODECS_DETECTED, codecs);
+	}
+
 	pa_proplist_as_dict(p->proplist, &p->port.props);
 
 	if (changed && mask != 0 && impl->events && impl->events->props_changed)
@@ -1452,6 +1511,9 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 {
 	const char *mod_name;
 	uint32_t i, port_index;
+	const char *codecs;
+	pa_device_port *p;
+	void *state = NULL;
 	int res;
 
 	if (impl->use_ucm &&
@@ -1471,7 +1533,7 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 
 	/* Synchronize priority values, as it may have changed when setting the profile */
 	for (i = 0; i < impl->card.n_ports; i++) {
-		pa_device_port *p = (pa_device_port *)impl->card.ports[i];
+		p = (pa_device_port *)impl->card.ports[i];
 		p->port.priority = p->priority;
 	}
 
@@ -1501,6 +1563,15 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 		dev->read_mute(dev);
 	else
 		dev->muted = false;
+
+	while ((p = pa_hashmap_iterate(dev->ports, &state, NULL))) {
+		codecs = pa_proplist_gets(p->proplist, ACP_KEY_IEC958_CODECS_DETECTED);
+		if (codecs) {
+			dev->device.n_codecs = acp_iec958_codecs_from_json(codecs, dev->device.codecs,
+									   ACP_N_ELEMENTS(dev->device.codecs));
+			break;
+		}
+	}
 
 	return 0;
 }
@@ -1757,10 +1828,10 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	if (!impl->auto_profile && profile == NULL)
 		profile = "off";
 
+	init_eld_ctls(impl);
+
 	profile_index = acp_card_find_best_profile_index(&impl->card, profile);
 	acp_card_set_profile(&impl->card, profile_index, 0);
-
-	init_eld_ctls(impl);
 
 	return &impl->card;
 error:

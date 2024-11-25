@@ -148,6 +148,12 @@ const char *acp_available_str(enum acp_available status);
 		 * like an ALSA control name, but applications must not assume any such relationship.
 		 * The group naming scheme can change without a warning.
 		 */
+#define ACP_KEY_IEC958_CODECS_DETECTED "iec958.codecs.detected"
+		/**< A list of IEC958 passthrough formats which have been auto-detected as being
+		 * supported by a given node. This only serves as a hint, as the auto-detected
+		 * values may be incorrect and/or might change, e.g. when external devices such
+		 * as receivers are powered on or off.
+		 */
 
 struct acp_device;
 
@@ -293,6 +299,9 @@ typedef void (*acp_log_func) (void *data,
 
 void acp_set_log_func(acp_log_func, void *data);
 void acp_set_log_level(int level);
+
+void acp_iec958_codecs_to_json(const uint32_t *codecs, size_t n_codecs, char *buf, size_t maxsize);
+size_t acp_iec958_codecs_from_json(const char *str, uint32_t *codecs, size_t max_codecs);
 
 #ifdef __cplusplus
 }

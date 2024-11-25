@@ -923,9 +923,8 @@ static void remove_dynamic_node(struct dynamic_node *this)
 	this->factory_name = NULL;
 }
 
-static void device_set_clear(struct impl *impl)
+static void device_set_clear(struct impl *impl, struct device_set *set)
 {
-	struct device_set *set = &impl->device_set;
 	unsigned int i;
 
 	for (i = 0; i < SPA_N_ELEMENTS(set->sink); ++i)
@@ -959,10 +958,9 @@ static const struct spa_bt_transport_events device_set_transport_events = {
 	.destroy = device_set_transport_destroy,
 };
 
-static void device_set_update(struct impl *this)
+static void device_set_update(struct impl *this, struct device_set *dset)
 {
 	struct spa_bt_device *device = this->bt_dev;
-	struct device_set *dset = &this->device_set;
 	struct spa_bt_set_membership *set;
 	struct spa_bt_set_membership tmp_set = {
 		.device = device,
@@ -987,7 +985,7 @@ static void device_set_update(struct impl *this)
 		struct spa_bt_set_membership *s;
 		int num_devices = 0;
 
-		device_set_clear(this);
+		device_set_clear(this, dset);
 
 		spa_bt_for_each_set_member(s, set) {
 			struct spa_bt_transport *t;
@@ -1060,13 +1058,30 @@ static void device_set_update(struct impl *this)
 	dset->source_enabled = dset->path && (dset->sources > 1);
 }
 
+static bool device_set_equal(struct device_set *a, struct device_set *b)
+{
+	unsigned int i;
+
+	if (!spa_streq(a->path, b->path) || a->sink_enabled != b->sink_enabled ||
+			a->source_enabled != b->source_enabled || a->leader != b->leader ||
+			a->sinks != b->sinks || a->sources != b->sources)
+		return false;
+	for (i = 0; i < a->sinks; ++i)
+		if (a->sink[i].transport != b->sink[i].transport)
+			return false;
+	for (i = 0; i < a->sources; ++i)
+		if (a->source[i].transport != b->source[i].transport)
+			return false;
+	return true;
+}
+
 static int emit_nodes(struct impl *this)
 {
 	struct spa_bt_transport *t;
 
 	this->props.codec = 0;
 
-	device_set_update(this);
+	device_set_update(this, &this->device_set);
 
 	switch (this->profile) {
 	case DEVICE_PROFILE_OFF:
@@ -1426,9 +1441,20 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 static void device_set_changed(void *userdata)
 {
 	struct impl *this = userdata;
+	struct device_set dset = { .impl = this };
+	bool changed;
 
 	if (this->profile != DEVICE_PROFILE_BAP)
 		return;
+
+	device_set_update(this, &dset);
+	changed = !device_set_equal(&dset, &this->device_set);
+	device_set_clear(this, &dset);
+
+	if (!changed) {
+		spa_log_debug(this->log, "%p: device set not changed", this);
+		return;
+	}
 
 	spa_log_debug(this->log, "%p: device set changed", this);
 
@@ -2784,7 +2810,7 @@ static int impl_clear(struct spa_handle *handle)
 			free((void *)it->value);
 	}
 
-	device_set_clear(this);
+	device_set_clear(this, &this->device_set);
 	return 0;
 }
 

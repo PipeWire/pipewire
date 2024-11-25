@@ -2096,7 +2096,7 @@ int spa_bt_device_connect_profile(struct spa_bt_device *device, enum spa_bt_prof
 {
 	uint32_t prev_connected = device->connected_profiles;
 	device->connected_profiles |= profile;
-	if ((prev_connected ^ device->connected_profiles) & SPA_BT_PROFILE_BAP_DUPLEX)
+	if (profile & SPA_BT_PROFILE_BAP_DUPLEX)
 		device_update_set_status(device, true, NULL);
 	spa_bt_device_check_profiles(device, false);
 	if (device->connected_profiles != prev_connected)
@@ -2905,7 +2905,6 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
 	struct spa_bt_device *device = transport->device;
-	uint32_t prev_connected = 0;
 
 	spa_log_debug(monitor->log, "transport %p: free %s", transport, transport->path);
 
@@ -2932,7 +2931,8 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 	cancel_and_unref(&transport->volume_call);
 
 	if (transport->fd >= 0) {
-		spa_bt_player_set_state(transport->device->adapter->dummy_player, SPA_BT_PLAYER_STOPPED);
+		if (device)
+			spa_bt_player_set_state(device->adapter->dummy_player, SPA_BT_PLAYER_STOPPED);
 
 		shutdown(transport->fd, SHUT_RDWR);
 		close(transport->fd);
@@ -2940,16 +2940,21 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 	}
 
 	spa_list_remove(&transport->link);
-	if (transport->device) {
-		prev_connected = transport->device->connected_profiles;
-		transport->device->connected_profiles &= ~transport->profile;
-		spa_list_remove(&transport->device_link);
-	}
+	if (device) {
+		struct spa_bt_transport *t;
+		uint32_t disconnected = transport->profile;
+		uint32_t prev_connected = device->connected_profiles;
 
-	if (device && device->connected_profiles != prev_connected) {
-		if ((prev_connected ^ device->connected_profiles) & SPA_BT_PROFILE_BAP_DUPLEX)
+		spa_list_remove(&transport->device_link);
+
+		spa_list_for_each(t, &device->transport_list, device_link)
+			disconnected &= ~t->profile;
+		device->connected_profiles &= ~disconnected;
+
+		if (transport->profile & SPA_BT_PROFILE_BAP_DUPLEX)
 			device_update_set_status(device, true, NULL);
-		spa_bt_device_emit_profiles_changed(device, device->profiles, prev_connected);
+		if (device->connected_profiles != prev_connected)
+			spa_bt_device_emit_profiles_changed(device, device->profiles, prev_connected);
 	}
 
 	spa_list_remove(&transport->bap_transport_linked);

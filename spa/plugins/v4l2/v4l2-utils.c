@@ -476,17 +476,17 @@ filter_framerate(struct v4l2_frmivalenum *frmival,
 		frmival->stepwise.step.denominator *= step->num;
 		frmival->stepwise.step.numerator *= step->denom;
 
-		if (compare_fraction(&frmival->stepwise.max, min) < 0 ||
-		    compare_fraction(&frmival->stepwise.min, max) > 0)
+		if (compare_fraction(&frmival->stepwise.min, min) < 0 ||
+		    compare_fraction(&frmival->stepwise.max, max) > 0)
 			return false;
 
-		if (compare_fraction(&frmival->stepwise.min, min) < 0) {
-			frmival->stepwise.min.denominator = min->num;
-			frmival->stepwise.min.numerator = min->denom;
+		if (compare_fraction(&frmival->stepwise.max, min) < 0) {
+			frmival->stepwise.max.denominator = min->num;
+			frmival->stepwise.max.numerator = min->denom;
 		}
-		if (compare_fraction(&frmival->stepwise.max, max) > 0) {
-			frmival->stepwise.max.denominator = max->num;
-			frmival->stepwise.max.numerator = max->denom;
+		if (compare_fraction(&frmival->stepwise.min, max) > 0) {
+			frmival->stepwise.min.denominator = max->num;
+			frmival->stepwise.min.numerator = max->denom;
 		}
 	} else
 		return false;
@@ -778,9 +778,9 @@ do_frmsize_filter:
 			if (errno == EINVAL || errno == ENOTTY) {
 				if (port->frmival.index == 0) {
 					port->frmival.type = V4L2_FRMIVAL_TYPE_CONTINUOUS;
-					port->frmival.stepwise.min.denominator = 1;
+					port->frmival.stepwise.min.denominator = 120;
 					port->frmival.stepwise.min.numerator = 1;
-					port->frmival.stepwise.max.denominator = 120;
+					port->frmival.stepwise.max.denominator = 1;
 					port->frmival.stepwise.max.numerator = 1;
 					goto do_frminterval_filter;
 				}
@@ -856,11 +856,11 @@ do_frminterval_filter:
 			if (n_fractions == 0)
 				spa_pod_builder_fraction(&b.b, 25, 1);
 			spa_pod_builder_fraction(&b.b,
-						 port->frmival.stepwise.min.denominator,
-						 port->frmival.stepwise.min.numerator);
-			spa_pod_builder_fraction(&b.b,
 						 port->frmival.stepwise.max.denominator,
 						 port->frmival.stepwise.max.numerator);
+			spa_pod_builder_fraction(&b.b,
+						 port->frmival.stepwise.min.denominator,
+						 port->frmival.stepwise.min.numerator);
 
 			if (port->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
 				choice->body.type = SPA_CHOICE_Range;

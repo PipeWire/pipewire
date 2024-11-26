@@ -1429,7 +1429,21 @@ static int mmap_read(struct impl *this)
 
 	pts = SPA_TIMEVAL_TO_NSEC(&buf.timestamp);
 
+
 	if (this->clock) {
+		double target = (double)port->info.rate.num / port->info.rate.denom;
+		double corr;
+
+		if (this->dll.bw == 0.0) {
+			spa_dll_set_bw(&this->dll, SPA_DLL_BW_MAX, port->info.rate.denom, port->info.rate.denom);
+			this->clock->next_nsec = pts;
+			corr = 1.0;
+		} else {
+			double diff = ((double)this->clock->next_nsec - (double)pts) / SPA_NSEC_PER_SEC;
+			double error = port->info.rate.denom * (diff - target);
+			corr = spa_dll_update(&this->dll, SPA_CLAMPD(error, -128., 128.));
+		}
+
 		/* FIXME, we should follow the driver clock and target_ values.
 		 * for now we ignore and use our own. */
 		this->clock->target_rate = port->info.rate;
@@ -1440,8 +1454,8 @@ static int mmap_read(struct impl *this)
 		this->clock->position = buf.sequence;
 		this->clock->duration = 1;
 		this->clock->delay = 0;
-		this->clock->rate_diff = 1.0;
-		this->clock->next_nsec = pts + port->info.rate.num * SPA_NSEC_PER_SEC / port->info.rate.denom;
+		this->clock->rate_diff = corr;
+		this->clock->next_nsec += (uint64_t) (target * SPA_NSEC_PER_SEC * corr);
 	}
 
 	b = &port->buffers[buf.index];
@@ -1856,6 +1870,7 @@ static int spa_v4l2_stream_on(struct impl *this)
 		spa_log_error(this->log, "'%s' VIDIOC_STREAMON: %m", this->props.device);
 		return -errno;
 	}
+	this->dll.bw = 0.0;
 
 	port->source.func = v4l2_on_fd_events;
 	port->source.data = this;

@@ -16,6 +16,7 @@
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
+#include <spa/utils/dll.h>
 #include <spa/monitor/device.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
@@ -147,6 +148,8 @@ struct impl {
 	struct spa_io_clock *clock;
 
 	struct spa_latency_info latency[2];
+
+	struct spa_dll dll;
 };
 
 #define CHECK_PORT(this,direction,port_id)  ((direction) == SPA_DIRECTION_OUTPUT && (port_id) == 0)

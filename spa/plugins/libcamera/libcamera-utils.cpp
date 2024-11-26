@@ -931,6 +931,18 @@ void impl::requestComplete(libcamera::Request *request)
 	const FrameMetadata &fmd = buffer->metadata();
 
 	if (impl->clock) {
+		double target = (double)port->info.rate.num / port->info.rate.denom;
+		double corr;
+
+		if (impl->dll.bw == 0.0) {
+			spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MAX, port->info.rate.denom, port->info.rate.denom);
+			impl->clock->next_nsec = fmd.timestamp;
+			corr = 1.0;
+		} else {
+			double diff = ((double)impl->clock->next_nsec - (double)fmd.timestamp) / SPA_NSEC_PER_SEC;
+			double error = port->info.rate.denom * (diff - target);
+			corr = spa_dll_update(&impl->dll, SPA_CLAMPD(error, -128., 128.));
+		}
 		/* FIXME, we should follow the driver clock and target_ values.
 		 * for now we ignore and use our own. */
 		impl->clock->target_rate = port->rate;
@@ -941,8 +953,8 @@ void impl::requestComplete(libcamera::Request *request)
 		impl->clock->position = fmd.sequence;
 		impl->clock->duration = 1;
 		impl->clock->delay = 0;
-		impl->clock->rate_diff = 1.0;
-		impl->clock->next_nsec = fmd.timestamp;
+		impl->clock->rate_diff = corr;
+		impl->clock->next_nsec += (uint64_t) (target * SPA_NSEC_PER_SEC * corr);
 	}
 	if (b->h) {
 		b->h->flags = 0;
@@ -986,6 +998,8 @@ static int spa_libcamera_stream_on(struct impl *impl)
 			goto error_stop;
 	}
 	impl->pendingRequests.clear();
+
+	impl->dll.bw = 0.0;
 
 	impl->source.func = libcamera_on_fd_events;
 	impl->source.data = impl;

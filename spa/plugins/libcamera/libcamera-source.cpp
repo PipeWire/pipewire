@@ -19,6 +19,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/ringbuffer.h>
+#include <spa/utils/dll.h>
 #include <spa/monitor/device.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
@@ -167,6 +168,8 @@ struct impl {
 
 	impl(spa_log *log, spa_loop *data_loop, spa_system *system,
 	     std::shared_ptr<CameraManager> manager, std::shared_ptr<Camera> camera, std::string device_id);
+
+	struct spa_dll dll;
 };
 
 }

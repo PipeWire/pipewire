@@ -19,6 +19,7 @@ gst_pipewire_stream_init (GstPipeWireStream * self)
   self->fd = -1;
   self->client_name = g_strdup (pw_get_client_name());
   self->pool = gst_pipewire_pool_new (self);
+  spa_dll_init(&self->dll);
 }
 
 static void

@@ -11,6 +11,7 @@
 #include "gstpipewirecore.h"
 
 #include <gst/gst.h>
+#include <spa/utils/dll.h>
 #include <pipewire/pipewire.h>
 
 G_BEGIN_DECLS
@@ -28,6 +29,13 @@ struct _GstPipeWireStream {
   GstPipeWireCore *core;
   GstPipeWirePool *pool;
   GstClock *clock;
+
+  guint64 position;
+  struct spa_dll dll;
+  double err_avg, err_var, err_wdw;
+  guint64 last_ts;
+  guint64 base_buffer_ts;
+  guint64 base_ts;
 
   /* the actual pw stream */
   struct pw_stream *pwstream;

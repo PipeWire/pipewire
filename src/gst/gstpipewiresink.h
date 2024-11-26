@@ -50,8 +50,12 @@ struct _GstPipeWireSink {
 
   /* video state */
   gboolean negotiated;
+  gboolean rate_match;
+  gint rate;
 
   GstPipeWireSinkMode mode;
+
+  struct spa_io_rate_match *match;
 };
 
 GType gst_pipewire_sink_mode_get_type (void);

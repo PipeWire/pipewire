@@ -90,6 +90,7 @@ struct port {
 	struct v4l2_frmivalenum frmival;
 
 	bool have_format;
+	bool have_modifier;
 	struct spa_video_info current_format;
 
 	struct spa_v4l2_device dev;
@@ -219,6 +220,12 @@ static int port_get_format(struct port *port,
 	case SPA_MEDIA_SUBTYPE_raw:
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_format,    SPA_POD_Id(port->current_format.info.raw.format),
+			0);
+		if (port->have_modifier)
+			spa_pod_builder_add(builder,
+				SPA_FORMAT_VIDEO_modifier,  SPA_POD_Long(0),
+				0);
+		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(&port->current_format.info.raw.size),
 			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&port->current_format.info.raw.framerate),
 			0);
@@ -706,6 +713,7 @@ static int port_set_format(struct impl *this, struct port *port,
 				spa_log_error(this->log, "can't parse video raw");
 				return -EINVAL;
 			}
+			port->have_modifier = info.info.raw.flags & SPA_VIDEO_FLAG_MODIFIER;
 			break;
 		case SPA_MEDIA_SUBTYPE_mjpg:
 			if (spa_format_video_mjpg_parse(format, &info.info.mjpg) < 0)

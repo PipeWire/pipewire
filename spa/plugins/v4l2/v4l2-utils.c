@@ -513,11 +513,12 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 	struct spa_pod_frame f[2];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
+	bool with_modifier;
 
 	if ((res = spa_v4l2_open(dev, this->props.device)) < 0)
 		return res;
 
-	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 8192);
 	spa_pod_builder_get_state(&b.b, &state);
 
 	result.id = SPA_PARAM_EnumFormat;
@@ -537,6 +538,7 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 		if ((res = spa_format_parse(filter, &filter_media_type, &filter_media_subtype)) < 0)
 			return res;
 	}
+	with_modifier = !filter || spa_pod_find_prop(filter, NULL, SPA_FORMAT_VIDEO_modifier);
 
 	if (false) {
 	      next_fmtdesc:
@@ -729,6 +731,10 @@ do_frmsize_filter:
 	if (info->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
 		spa_pod_builder_prop(&b.b, SPA_FORMAT_VIDEO_format, 0);
 		spa_pod_builder_id(&b.b, info->format);
+		if (with_modifier) {
+			spa_pod_builder_prop(&b.b, SPA_FORMAT_VIDEO_modifier, SPA_POD_PROP_FLAG_MANDATORY);
+			spa_pod_builder_long(&b.b, 0L);
+		}
 	}
 
 	spa_pod_builder_prop(&b.b, SPA_FORMAT_VIDEO_size, 0);
@@ -898,6 +904,27 @@ do_frminterval_filter:
 	result.param = spa_pod_builder_pop(&b.b, &f[0]);
 
 	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+
+	if (++count == num)
+		goto enum_end;
+
+	if (with_modifier && info->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
+		struct spa_pod_object *op = (struct spa_pod_object *) result.param;
+		const struct spa_pod_prop *p;
+		bool drop_next = false;
+
+		spa_pod_builder_push_object(&b.b, &f[0], op->body.type, op->body.id);
+
+		SPA_POD_OBJECT_FOREACH(op, p) {
+			if (p->key != SPA_FORMAT_VIDEO_modifier)
+				spa_pod_builder_raw_padded(&b.b, p, SPA_POD_PROP_SIZE(p));
+		}
+
+		result.index = result.next++;
+		result.param = spa_pod_builder_pop(&b.b, &f[0]);
+
+		spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+	}
 
 	if (++count != num)
 		goto next;

@@ -62,7 +62,17 @@ SPA_API_JSON void spa_json_enter(struct spa_json * iter, struct spa_json * sub)
 
 #define SPA_JSON_SAVE(iter) ((struct spa_json) { (iter)->cur, (iter)->end, NULL, (iter)->state, 0 })
 
+SPA_API_JSON void spa_json_save(struct spa_json * iter, struct spa_json * save)
+{
+	*save = SPA_JSON_SAVE(iter);
+}
+
 #define SPA_JSON_START(iter,p) ((struct spa_json) { (p), (iter)->end, NULL, 0, 0 })
+
+SPA_API_JSON void spa_json_start(struct spa_json * iter, struct spa_json * sub, const char *pos)
+{
+	*sub = SPA_JSON_START(iter,pos);
+}
 
 /** Get the next token. \a value points to the token and the return value
  * is the length. Returns -1 on parse error, 0 on end of input. */

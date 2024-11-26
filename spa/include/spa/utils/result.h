@@ -19,8 +19,18 @@ extern "C" {
  * \{
  */
 
+#include <errno.h>
+
 #include <spa/utils/defs.h>
-#include <spa/utils/list.h>
+
+#ifndef SPA_API_RESULT
+ #ifdef SPA_API_IMPL
+  #define SPA_API_RESULT SPA_API_IMPL
+ #else
+  #define SPA_API_RESULT static inline
+ #endif
+#endif
+
 
 #define SPA_ASYNC_BIT			(1 << 30)
 #define SPA_ASYNC_SEQ_MASK		(SPA_ASYNC_BIT - 1)
@@ -33,13 +43,13 @@ extern "C" {
 #define SPA_RESULT_ASYNC_SEQ(res)	((res) & SPA_ASYNC_SEQ_MASK)
 #define SPA_RESULT_RETURN_ASYNC(seq)	(SPA_ASYNC_BIT | SPA_RESULT_ASYNC_SEQ(seq))
 
-#define spa_strerror(err)		\
-({					\
-	int _err = -(err);		\
-	if (SPA_RESULT_IS_ASYNC(err))	\
-		_err = EINPROGRESS;	\
-	strerror(_err);			\
-})
+SPA_API_RESULT const char *spa_strerror(int err)
+{
+	int _err = -(err);
+	if (SPA_RESULT_IS_ASYNC(err))
+		_err = EINPROGRESS;
+	return strerror(_err);
+}
 
 /**
  * \}

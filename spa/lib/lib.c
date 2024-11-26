@@ -28,7 +28,6 @@
 #include <spa/node/event.h>
 #include <spa/node/io.h>
 #include <spa/node/keys.h>
-#include <spa/node/node2.h>
 #include <spa/node/node.h>
 #include <spa/node/type-info.h>
 #include <spa/node/utils.h>
@@ -129,7 +128,6 @@
 #include <spa/support/log.h>
 #include <spa/support/log-impl.h>
 #include <spa/support/loop.h>
-#include <spa/support/loop-invoke.h>
 #include <spa/support/plugin.h>
 #include <spa/support/plugin-loader.h>
 #include <spa/support/system.h>
@@ -146,7 +144,6 @@
 #include <spa/utils/json-core.h>
 #include <spa/utils/json.h>
 #include <spa/utils/json-pod.h>
-#include <spa/utils/json-visitor.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/list.h>
 #include <spa/utils/names.h>

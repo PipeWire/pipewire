@@ -360,6 +360,8 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	switch (id) {
 	case SPA_IO_Clock:
 		impl->clock = (struct spa_io_clock*)data;
+		if (impl->clock)
+			SPA_FLAG_SET(impl->clock->flags, SPA_IO_CLOCK_FLAG_NO_RATE);
 		break;
 	case SPA_IO_Position:
 		impl->position = (struct spa_io_position*)data;

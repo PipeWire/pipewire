@@ -414,6 +414,8 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	switch (id) {
 	case SPA_IO_Clock:
 		this->clock = data;
+		if (this->clock)
+			SPA_FLAG_SET(this->clock->flags, SPA_IO_CLOCK_FLAG_NO_RATE);
 		break;
 	case SPA_IO_Position:
 		this->position = data;

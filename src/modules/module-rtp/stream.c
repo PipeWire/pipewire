@@ -75,6 +75,7 @@ struct impl {
 
 	struct spa_ringbuffer ring;
 	uint8_t buffer[BUFFER_SIZE];
+	uint64_t last_recv_timestamp;
 
 	struct spa_io_rate_match *io_rate_match;
 	struct spa_io_position *io_position;

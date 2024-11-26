@@ -63,7 +63,20 @@ static void rtp_audio_process_playback(void *data)
 			/* when not using direct timestamp and clocks are not
 			 * in sync, try to adjust our playback rate to keep the
 			 * requested target_buffer bytes in the ringbuffer */
-			error = (double)target_buffer - (double)avail;
+			double in_flight = 0;
+			struct spa_io_position *pos = impl->io_position;
+
+			if (SPA_LIKELY(pos && impl->last_recv_timestamp)) {
+				/* Account for samples that might be in flight but not yet received, and possibly
+				 * samples that were received _after_ the process() tick and therefore should not
+				 * yet be accounted for */
+				int64_t in_flight_ns = pos->clock.nsec - impl->last_recv_timestamp;
+				/* Use the best relative rate we know */
+				double relative_rate = impl->io_rate_match ? impl->io_rate_match->rate : pos->clock.rate_diff;
+				in_flight = (double)(in_flight_ns * impl->rate) * relative_rate / SPA_NSEC_PER_SEC;
+			}
+
+			error = (double)target_buffer - (double)avail - in_flight;
 			error = SPA_CLAMPD(error, -impl->max_error, impl->max_error);
 
 			corr = spa_dll_update(&impl->dll, error);
@@ -127,6 +140,7 @@ static int rtp_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 	timestamp = ntohl(hdr->timestamp) - impl->ts_offset;
 
 	impl->receiving = true;
+	impl->last_recv_timestamp = pw_stream_get_nsec(impl->stream);
 
 	plen = len - hlen;
 	samples = plen / stride;

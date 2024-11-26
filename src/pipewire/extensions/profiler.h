@@ -57,6 +57,8 @@ struct pw_profiler_methods {
 			void *data);
 };
 
+/** \copydoc pw_profiler_methods.add_listener
+ * \sa pw_profiler_methods.add_listener */
 PW_API_PROFILER int pw_profiler_add_listener(struct pw_profiler *object,
 			struct spa_hook *listener,
 			const struct pw_profiler_events *events,

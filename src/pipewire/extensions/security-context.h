@@ -98,6 +98,8 @@ struct pw_security_context_methods {
 			const struct spa_dict *props);
 };
 
+/** \copydoc pw_security_context_methods.add_listener
+ * \sa pw_security_context_methods.add_listener */
 PW_API_SECURITY_CONTEXT int pw_security_context_add_listener(struct pw_security_context *object,
 			struct spa_hook *listener,
 			const struct pw_security_context_events *events,
@@ -108,6 +110,8 @@ PW_API_SECURITY_CONTEXT int pw_security_context_add_listener(struct pw_security_
 			listener, events, data);
 }
 
+/** \copydoc pw_security_context_methods.create
+ * \sa pw_security_context_methods.create */
 PW_API_SECURITY_CONTEXT int pw_security_context_create(struct pw_security_context *object,
 			int listen_fd, int close_fd, const struct spa_dict *props)
 {

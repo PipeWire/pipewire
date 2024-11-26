@@ -87,6 +87,8 @@ struct pw_factory_methods {
 			void *data);
 };
 
+/** \copydoc pw_factory_methods.add_listener
+ * \sa pw_factory_methods.add_listener */
 PW_API_FACTORY_IMPL int pw_factory_add_listener(struct pw_factory *object,
 			struct spa_hook *listener,
 			const struct pw_factory_events *events,

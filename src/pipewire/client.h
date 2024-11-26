@@ -195,24 +195,6 @@ PW_API_CLIENT_IMPL int pw_client_update_permissions(struct pw_client *object, ui
 			n_permissions, permissions);
 }
 
-PW_API_CLIENT_IMPL void *pw_client_get_user_data(struct pw_client *object)
-{
-	return pw_proxy_get_user_data((struct pw_proxy *)object);
-}
-PW_API_CLIENT_IMPL void pw_client_add_proxy_listener(struct pw_client *object,
-			struct spa_hook *listener,
-			const struct pw_proxy_events *events,
-			void *data)
-{
-	pw_proxy_add_listener((struct pw_proxy *)object, listener, events, data);
-}
-PW_API_CLIENT_IMPL struct pw_client *pw_registry_bind_client(struct pw_registry *object,
-		uint32_t id, size_t user_data_size)
-{
-	return (struct pw_client*)pw_registry_bind(object, id, PW_TYPE_INTERFACE_Client,
-			PW_VERSION_CLIENT, user_data_size);
-}
-
 /**
  * \}
  */

@@ -145,6 +145,8 @@ struct pw_port_methods {
 			const struct spa_pod *filter);
 };
 
+/** \copydoc pw_port_methods.add_listener
+ * \sa pw_port_methods.add_listener */
 PW_API_PORT_IMPL int pw_port_add_listener(struct pw_port *object,
 			struct spa_hook *listener,
 			const struct pw_port_events *events,
@@ -154,12 +156,16 @@ PW_API_PORT_IMPL int pw_port_add_listener(struct pw_port *object,
 			pw_port, (struct spa_interface*)object, add_listener, 0,
 			listener, events, data);
 }
+/** \copydoc pw_port_methods.subscribe_params
+ * \sa pw_port_methods.subscribe_params */
 PW_API_PORT_IMPL int pw_port_subscribe_params(struct pw_port *object, uint32_t *ids, uint32_t n_ids)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_port, (struct spa_interface*)object, subscribe_params, 0,
 			ids, n_ids);
 }
+/** \copydoc pw_port_methods.enum_params
+ * \sa pw_port_methods.enum_params */
 PW_API_PORT_IMPL int pw_port_enum_params(struct pw_port *object,
 		int seq, uint32_t id, uint32_t start, uint32_t num,
 			    const struct spa_pod *filter)

@@ -85,6 +85,8 @@ struct pw_module_methods {
 			void *data);
 };
 
+/** \copydoc pw_module_methods.add_listener
+ * \sa pw_module_methods.add_listener */
 PW_API_MODULE_IMPL int pw_module_add_listener(struct pw_module *object,
 			struct spa_hook *listener,
 			const struct pw_module_events *events,

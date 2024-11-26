@@ -93,6 +93,8 @@ struct pw_metadata_methods {
 	int (*clear) (void *object);
 };
 
+/** \copydoc pw_metadata_methods.add_listener
+ * \sa pw_metadata_methods.add_listener */
 PW_API_METADATA_IMPL int pw_metadata_add_listener(struct pw_metadata *object,
 			struct spa_hook *listener,
 			const struct pw_metadata_events *events,
@@ -102,6 +104,8 @@ PW_API_METADATA_IMPL int pw_metadata_add_listener(struct pw_metadata *object,
 			pw_metadata, (struct spa_interface*)object, add_listener, 0,
 			listener, events, data);
 }
+/** \copydoc pw_metadata_methods.set_property
+ * \sa pw_metadata_methods.set_property */
 PW_API_METADATA_IMPL int pw_metadata_set_property(struct pw_metadata *object,
 			uint32_t subject,
 			const char *key,
@@ -112,6 +116,8 @@ PW_API_METADATA_IMPL int pw_metadata_set_property(struct pw_metadata *object,
 			pw_metadata, (struct spa_interface*)object, set_property, 0,
 			subject, key, type, value);
 }
+/** \copydoc pw_metadata_methods.clear
+ * \sa pw_metadata_methods.clear */
 PW_API_METADATA_IMPL int pw_metadata_clear(struct pw_metadata *object)
 {
 	return spa_api_method_r(int, -ENOTSUP,

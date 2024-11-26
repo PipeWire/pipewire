@@ -344,6 +344,8 @@ struct pw_core_methods {
 };
 
 
+/** \copydoc pw_core_methods.add_listener
+ * \sa pw_core_methods.add_listener */
 PW_API_CORE_IMPL int pw_core_add_listener(struct pw_core *object,
 			struct spa_hook *listener,
 			const struct pw_core_events *events,
@@ -353,24 +355,32 @@ PW_API_CORE_IMPL int pw_core_add_listener(struct pw_core *object,
 			pw_core, (struct spa_interface*)object, add_listener, 0,
 			listener, events, data);
 }
+/** \copydoc pw_core_methods.hello
+ * \sa pw_core_methods.hello */
 PW_API_CORE_IMPL int pw_core_hello(struct pw_core *object, uint32_t version)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_core, (struct spa_interface*)object, hello, 0,
 			version);
 }
+/** \copydoc pw_core_methods.sync
+ * \sa pw_core_methods.sync */
 PW_API_CORE_IMPL int pw_core_sync(struct pw_core *object, uint32_t id, int seq)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_core, (struct spa_interface*)object, sync, 0,
 			id, seq);
 }
+/** \copydoc pw_core_methods.pong
+ * \sa pw_core_methods.pong */
 PW_API_CORE_IMPL int pw_core_pong(struct pw_core *object, uint32_t id, int seq)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_core, (struct spa_interface*)object, pong, 0,
 			id, seq);
 }
+/** \copydoc pw_core_methods.error
+ * \sa pw_core_methods.error */
 PW_API_CORE_IMPL int pw_core_error(struct pw_core *object, uint32_t id, int seq, int res, const char *message)
 {
 	return spa_api_method_r(int, -ENOTSUP,
@@ -401,6 +411,8 @@ pw_core_errorf(struct pw_core *core, uint32_t id, int seq,
 	return r;
 }
 
+/** \copydoc pw_core_methods.get_registry
+ * \sa pw_core_methods.get_registry */
 PW_API_CORE_IMPL struct pw_registry *
 pw_core_get_registry(struct pw_core *core, uint32_t version, size_t user_data_size)
 {
@@ -408,6 +420,8 @@ pw_core_get_registry(struct pw_core *core, uint32_t version, size_t user_data_si
 			pw_core, (struct spa_interface*)core, get_registry, 0,
 			version, user_data_size);
 }
+/** \copydoc pw_core_methods.create_object
+ * \sa pw_core_methods.create_object */
 PW_API_CORE_IMPL void *
 pw_core_create_object(struct pw_core *core,
 			    const char *factory_name,
@@ -420,6 +434,8 @@ pw_core_create_object(struct pw_core *core,
 			pw_core, (struct spa_interface*)core, create_object, 0,
 			factory_name, type, version, props, user_data_size);
 }
+/** \copydoc pw_core_methods.destroy
+ * \sa pw_core_methods.destroy */
 PW_API_CORE_IMPL void
 pw_core_destroy(struct pw_core *core, void *proxy)
 {
@@ -545,6 +561,8 @@ struct pw_registry_methods {
 
 
 /** Registry */
+/** \copydoc pw_registry_methods.add_listener
+ * \sa pw_registry_methods.add_listener */
 PW_API_REGISTRY_IMPL int pw_registry_add_listener(struct pw_registry *registry,
 			struct spa_hook *listener,
 			const struct pw_registry_events *events,
@@ -554,6 +572,8 @@ PW_API_REGISTRY_IMPL int pw_registry_add_listener(struct pw_registry *registry,
 			pw_registry, (struct spa_interface*)registry, add_listener, 0,
 			listener, events, data);
 }
+/** \copydoc pw_registry_methods.bind
+ * \sa pw_registry_methods.bind */
 PW_API_REGISTRY_IMPL void *
 pw_registry_bind(struct pw_registry *registry,
 		       uint32_t id, const char *type, uint32_t version,
@@ -563,18 +583,13 @@ pw_registry_bind(struct pw_registry *registry,
 			pw_registry, (struct spa_interface*)registry, bind, 0,
 			id, type, version, user_data_size);
 }
+/** \copydoc pw_registry_methods.destroy
+ * \sa pw_registry_methods.destroy */
 PW_API_REGISTRY_IMPL int
 pw_registry_destroy(struct pw_registry *registry, uint32_t id)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_registry, (struct spa_interface*)registry, destroy, 0, id);
-}
-
-PW_API_REGISTRY_IMPL struct pw_core *pw_registry_bind_core(struct pw_registry *object,
-		uint32_t id, size_t user_data_size)
-{
-	return (struct pw_core*)pw_registry_bind(object, id, PW_TYPE_INTERFACE_Core,
-			PW_VERSION_CORE, user_data_size);
 }
 
 /**

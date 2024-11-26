@@ -145,6 +145,8 @@ struct pw_device_methods {
 			  const struct spa_pod *param);
 };
 
+/** \copydoc pw_device_methods.add_listener
+ * \sa pw_device_methods.add_listener */
 PW_API_DEVICE_IMPL int pw_device_add_listener(struct pw_device *object,
 			struct spa_hook *listener,
 			const struct pw_device_events *events,
@@ -154,12 +156,16 @@ PW_API_DEVICE_IMPL int pw_device_add_listener(struct pw_device *object,
 			pw_device, (struct spa_interface*)object, add_listener, 0,
 			listener, events, data);
 }
+/** \copydoc pw_device_methods.subscribe_params
+ * \sa pw_device_methods.subscribe_params */
 PW_API_DEVICE_IMPL int pw_device_subscribe_params(struct pw_device *object, uint32_t *ids, uint32_t n_ids)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_device, (struct spa_interface*)object, subscribe_params, 0,
 			ids, n_ids);
 }
+/** \copydoc pw_device_methods.enum_params
+ * \sa pw_device_methods.enum_params */
 PW_API_DEVICE_IMPL int pw_device_enum_params(struct pw_device *object,
 		int seq, uint32_t id, uint32_t start, uint32_t num,
 			    const struct spa_pod *filter)
@@ -168,30 +174,14 @@ PW_API_DEVICE_IMPL int pw_device_enum_params(struct pw_device *object,
 			pw_device, (struct spa_interface*)object, enum_params, 0,
 			seq, id, start, num, filter);
 }
+/** \copydoc pw_device_methods.set_param
+ * \sa pw_device_methods.set_param */
 PW_API_DEVICE_IMPL int pw_device_set_param(struct pw_device *object, uint32_t id, uint32_t flags,
 			  const struct spa_pod *param)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_device, (struct spa_interface*)object, set_param, 0,
 			id, flags, param);
-}
-
-PW_API_DEVICE_IMPL void *pw_device_get_user_data(struct pw_device *object)
-{
-	return pw_proxy_get_user_data((struct pw_proxy *)object);
-}
-PW_API_DEVICE_IMPL void pw_device_add_proxy_listener(struct pw_device *object,
-			struct spa_hook *listener,
-			const struct pw_proxy_events *events,
-			void *data)
-{
-	pw_proxy_add_listener((struct pw_proxy *)object, listener, events, data);
-}
-PW_API_DEVICE_IMPL struct pw_device *pw_registry_bind_device(struct pw_registry *object,
-		uint32_t id, size_t user_data_size)
-{
-	return (struct pw_device*)pw_registry_bind(object, id, PW_TYPE_INTERFACE_Device,
-			PW_VERSION_DEVICE, user_data_size);
 }
 
 /**

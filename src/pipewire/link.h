@@ -113,6 +113,8 @@ struct pw_link_methods {
 			void *data);
 };
 
+/** \copydoc pw_link_methods.add_listener
+ * \sa pw_link_methods.add_listener */
 PW_API_LINK_IMPL int pw_link_add_listener(struct pw_link *object,
 			struct spa_hook *listener,
 			const struct pw_link_events *events,

@@ -184,6 +184,8 @@ struct pw_node_methods {
 };
 
 
+/** \copydoc pw_node_methods.add_listener
+ * \sa pw_node_methods.add_listener */
 PW_API_NODE_IMPL int pw_node_add_listener(struct pw_node *object,
 			struct spa_hook *listener,
 			const struct pw_node_events *events,
@@ -193,12 +195,16 @@ PW_API_NODE_IMPL int pw_node_add_listener(struct pw_node *object,
 			pw_node, (struct spa_interface*)object, add_listener, 0,
 			listener, events, data);
 }
+/** \copydoc pw_node_methods.subscribe_params
+ * \sa pw_node_methods.subscribe_params */
 PW_API_NODE_IMPL int pw_node_subscribe_params(struct pw_node *object, uint32_t *ids, uint32_t n_ids)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_node, (struct spa_interface*)object, subscribe_params, 0,
 			ids, n_ids);
 }
+/** \copydoc pw_node_methods.enum_params
+ * \sa pw_node_methods.enum_params */
 PW_API_NODE_IMPL int pw_node_enum_params(struct pw_node *object,
 		int seq, uint32_t id, uint32_t start, uint32_t num,
 			    const struct spa_pod *filter)
@@ -207,6 +213,8 @@ PW_API_NODE_IMPL int pw_node_enum_params(struct pw_node *object,
 			pw_node, (struct spa_interface*)object, enum_params, 0,
 			seq, id, start, num, filter);
 }
+/** \copydoc pw_node_methods.set_param
+ * \sa pw_node_methods.set_param */
 PW_API_NODE_IMPL int pw_node_set_param(struct pw_node *object, uint32_t id, uint32_t flags,
 			  const struct spa_pod *param)
 {
@@ -214,6 +222,8 @@ PW_API_NODE_IMPL int pw_node_set_param(struct pw_node *object, uint32_t id, uint
 			pw_node, (struct spa_interface*)object, set_param, 0,
 			id, flags, param);
 }
+/** \copydoc pw_node_methods.send_command
+ * \sa pw_node_methods.send_command */
 PW_API_NODE_IMPL int pw_node_send_command(struct pw_node *object, const struct spa_command *command)
 {
 	return spa_api_method_r(int, -ENOTSUP,

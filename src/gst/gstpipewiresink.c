@@ -26,6 +26,7 @@
 
 #include <spa/pod/builder.h>
 #include <spa/utils/result.h>
+#include <spa/utils/dll.h>
 
 #include <gst/video/video.h>
 
@@ -481,13 +482,12 @@ static void
 do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
 {
   GstPipeWirePoolData *data;
+  GstPipeWireStream *stream = pwsink->stream;
   gboolean res;
   guint i;
   struct spa_buffer *b;
 
   data = gst_pipewire_pool_get_data(buffer);
-
-  GST_LOG_OBJECT (pwsink, "queue buffer %p, pw_buffer %p", buffer, data->b);
 
   b = data->b->buffer;
 
@@ -508,12 +508,15 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
       data->crop->region.size.height = meta->width;
     }
   }
+  data->b->size = 0;
   for (i = 0; i < b->n_datas; i++) {
     struct spa_data *d = &b->datas[i];
     GstMemory *mem = gst_buffer_peek_memory (buffer, i);
     d->chunk->offset = mem->offset;
     d->chunk->size = mem->size;
-    d->chunk->stride = pwsink->stream->pool->video_info.stride[i];
+    d->chunk->stride = stream->pool->video_info.stride[i];
+
+    data->b->size += mem->size / 4;
   }
 
   GstVideoMeta *meta = gst_buffer_get_video_meta (buffer);
@@ -532,8 +535,46 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
     }
   }
 
-  if ((res = pw_stream_queue_buffer (pwsink->stream->pwstream, data->b)) < 0) {
+  if ((res = pw_stream_queue_buffer (stream->pwstream, data->b)) < 0) {
     g_warning ("can't send buffer %s", spa_strerror(res));
+  }
+
+  if (pwsink->rate_match) {
+    double err, corr;
+    struct pw_time ts;
+    guint64 queued, now, elapsed, target;
+
+    pw_stream_get_time_n(stream->pwstream, &ts, sizeof(ts));
+    now = pw_stream_get_nsec(stream->pwstream);
+    if (ts.now != 0)
+	    elapsed = gst_util_uint64_scale_int (now - ts.now, ts.rate.denom, GST_SECOND * ts.rate.num);
+    else
+	    elapsed = 0;
+
+    queued = ts.queued - ts.size;
+    target = elapsed;
+    err = ((gint64)queued - ((gint64)target));
+
+    corr = spa_dll_update(&stream->dll, SPA_CLAMPD(err, -128.0, 128.0));
+
+    stream->err_wdw = (double)ts.rate.denom/ts.size;
+
+    double avg = (stream->err_avg * stream->err_wdw + (err - stream->err_avg)) / (stream->err_wdw + 1.0);
+    stream->err_var = (stream->err_var * stream->err_wdw +
+                      (err - stream->err_avg) * (err - avg)) / (stream->err_wdw + 1.0);
+    stream->err_avg = avg;
+
+    if (stream->last_ts == 0 || stream->last_ts + SPA_NSEC_PER_SEC < now) {
+      stream->last_ts = now;
+      spa_dll_set_bw(&stream->dll, SPA_CLAMPD(fabs(stream->err_avg) / sqrt(fabs(stream->err_var)), 0.001, SPA_DLL_BW_MAX),
+                     ts.size, ts.rate.denom);
+    GST_INFO_OBJECT (pwsink, "queue buffer %p, pw_buffer %p q:%"PRIi64"/%"PRIi64" e:%"PRIu64
+		    " err:%+03f corr:%f %f %f %f",
+                    buffer, data->b, ts.queued, ts.size, elapsed, err, corr,
+		    stream->err_avg, stream->err_var, stream->dll.bw);
+    }
+
+    pw_stream_set_rate (stream->pwstream, corr);
   }
 }
 
@@ -613,9 +654,16 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   pwsink = GST_PIPEWIRE_SINK (bsink);
 
   s = gst_caps_get_structure (caps, 0);
-  rate = 0;
-  if (gst_structure_has_name (s, "audio/x-raw"))
+  if (gst_structure_has_name (s, "audio/x-raw")) {
     gst_structure_get_int (s, "rate", &rate);
+    pwsink->rate = rate;
+    pwsink->rate_match = true;
+  } else {
+    pwsink->rate = rate = 0;
+    pwsink->rate_match = false;
+  }
+
+  spa_dll_set_bw(&pwsink->stream->dll, SPA_DLL_BW_MIN, 4096, rate);
 
   possible = gst_caps_to_format_all (caps);
 

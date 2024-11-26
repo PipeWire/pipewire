@@ -638,7 +638,12 @@ static inline void copy_position(struct stream *impl, int64_t queued)
 			impl->base_pos = p->clock.position - impl->time.ticks;
 			impl->clock_id = p->clock.id;
 		}
-		impl->time.ticks = p->clock.position - impl->base_pos;
+		if (SPA_FLAG_IS_SET(p->clock.flags, SPA_IO_CLOCK_FLAG_NO_RATE))
+			impl->time.ticks = p->clock.nsec * p->clock.rate.denom /
+				(SPA_NSEC_PER_SEC * p->clock.rate.num);
+		else
+			impl->time.ticks = p->clock.position - impl->base_pos;
+
 		impl->time.delay = 0;
 		impl->time.queued = queued;
 		impl->quantum = p->clock.duration;

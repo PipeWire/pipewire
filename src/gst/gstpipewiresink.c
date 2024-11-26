@@ -633,6 +633,7 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     char buf[64];
 
     flags = PW_STREAM_FLAG_ASYNC;
+    flags |= PW_STREAM_FLAG_EARLY_PROCESS;
     if (pwsink->mode != GST_PIPEWIRE_SINK_MODE_PROVIDE)
       flags |= PW_STREAM_FLAG_AUTOCONNECT;
     else

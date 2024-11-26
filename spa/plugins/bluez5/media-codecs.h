@@ -71,6 +71,7 @@ struct media_codec {
 	a2dp_vendor_codec_t vendor;
 
 	bool bap;
+	bool asha;
 
 	const char *name;
 	const char *description;

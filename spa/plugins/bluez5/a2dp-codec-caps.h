@@ -486,4 +486,6 @@ typedef struct {
 	uint8_t data;
 } __attribute__ ((packed)) a2dp_opus_g_t;
 
+#define ASHA_CODEC_G722	0x63
+
 #endif

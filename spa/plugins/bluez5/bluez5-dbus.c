@@ -5672,7 +5672,7 @@ static void interfaces_removed(struct spa_bt_monitor *monitor, DBusMessageIter *
 					struct spa_bt_device *d = transport->device;
 					if (d != NULL){
 						device_free(d);
-					}		
+					}
 				} else if (transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE) {
 					/*
 					 * For each transport that has a broadcast source profile,
@@ -5682,7 +5682,7 @@ static void interfaces_removed(struct spa_bt_monitor *monitor, DBusMessageIter *
 					 * for this case will have the scanned device to the transport
 					 * "/fd0" and create new devices for the other transports from this device
 					 * that appear only in case of multiple BISes per BIG.
-					 * 
+					 *
 					 * Here we delete the created devices.
 					 */
 					char *pos = strstr(transport->path, "/fd0");

@@ -44,6 +44,9 @@ enum spa_bluetooth_audio_codec {
 
 	/* BAP */
 	SPA_BLUETOOTH_AUDIO_CODEC_LC3 = 0x200,
+
+	/* ASHA */
+	SPA_BLUETOOTH_AUDIO_CODEC_G722 = 0x300,
 };
 
 /**

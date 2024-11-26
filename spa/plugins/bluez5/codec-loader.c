@@ -51,6 +51,7 @@ static int codec_order(const struct media_codec *c)
 		SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_DUPLEX,
 		SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_PRO,
 		SPA_BLUETOOTH_AUDIO_CODEC_AAC_ELD,
+		SPA_BLUETOOTH_AUDIO_CODEC_G722,
 	};
 	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(order); ++i)
@@ -172,7 +173,8 @@ const struct media_codec * const *load_media_codecs(struct spa_plugin_loader *lo
 		MEDIA_CODEC_FACTORY_LIB("lc3plus"),
 		MEDIA_CODEC_FACTORY_LIB("opus"),
 		MEDIA_CODEC_FACTORY_LIB("opus-g"),
-		MEDIA_CODEC_FACTORY_LIB("lc3")
+		MEDIA_CODEC_FACTORY_LIB("lc3"),
+		MEDIA_CODEC_FACTORY_LIB("g722")
 #undef MEDIA_CODEC_FACTORY_LIB
 	};
 

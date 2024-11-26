@@ -173,6 +173,16 @@ if get_option('bluez5-codec-lc3').allowed() and lc3_dep.found()
     install_dir : spa_plugindir / 'bluez5')
 endif
 
+if get_option('bluez5-codec-g722').allowed() and ffmpeg.allowed()
+  bluez_codec_g722 = shared_library('spa-codec-bluez5-g722',
+    [ 'asha-codec-g722.c', 'media-codecs.c' ],
+    include_directories : [ configinc ],
+    c_args : codec_args,
+    dependencies : [ spa_dep, avcodec_dep, avformat_dep, avutil_dep ],
+    install : true,
+    install_dir : spa_plugindir / 'bluez5')
+endif
+
 test_apps = [
   'test-midi',
 ]

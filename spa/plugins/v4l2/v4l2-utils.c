@@ -853,8 +853,19 @@ do_frminterval_filter:
 			n_fractions++;
 		} else if (port->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS ||
 			   port->frmival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
-			if (n_fractions == 0)
-				spa_pod_builder_fraction(&b.b, 25, 1);
+			if (n_fractions == 0) {
+				struct spa_fraction f = { 25, 1 };
+				if (compare_fraction(&port->frmival.stepwise.max, &f) > 0) {
+					f.denom = port->frmival.stepwise.max.numerator;
+					f.num = port->frmival.stepwise.max.denominator;
+				}
+				if (compare_fraction(&port->frmival.stepwise.min, &f) < 0) {
+					f.denom = port->frmival.stepwise.min.numerator;
+					f.num = port->frmival.stepwise.min.denominator;
+				}
+
+				spa_pod_builder_fraction(&b.b, f.num, f.denom);
+			}
 			spa_pod_builder_fraction(&b.b,
 						 port->frmival.stepwise.max.denominator,
 						 port->frmival.stepwise.max.numerator);

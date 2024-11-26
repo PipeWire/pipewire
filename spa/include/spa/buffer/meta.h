@@ -57,11 +57,10 @@ struct spa_meta {
 SPA_API_META void *spa_meta_first(const struct spa_meta *m) {
 	return m->data;
 }
-#define spa_meta_first spa_meta_first
+
 SPA_API_META void *spa_meta_end(const struct spa_meta *m) {
 	return SPA_PTROFF(m->data,m->size,void);
 }
-#define spa_meta_end spa_meta_end
 #define spa_meta_check(p,m)	(SPA_PTROFF(p,sizeof(*(p)),void) <= spa_meta_end(m))
 
 /**
@@ -91,15 +90,12 @@ struct spa_meta_region {
 SPA_API_META bool spa_meta_region_is_valid(const struct spa_meta_region *m) {
 	return m->region.size.width != 0 && m->region.size.height != 0;
 }
-#define spa_meta_region_is_valid spa_meta_region_is_valid
 
 /** iterate all the items in a metadata */
 #define spa_meta_for_each(pos,meta)					\
-	for ((pos) = (__typeof(pos))spa_meta_first(meta);			\
+	for ((pos) = (__typeof(pos))spa_meta_first(meta);		\
 	    spa_meta_check(pos, meta);					\
             (pos)++)
-
-#define spa_meta_bitmap_is_valid(m)	((m)->format != 0)
 
 /**
  * Bitmap information
@@ -120,7 +116,9 @@ struct spa_meta_bitmap {
 					  *  info. */
 };
 
-#define spa_meta_cursor_is_valid(m)	((m)->id != 0)
+SPA_API_META bool spa_meta_bitmap_is_valid(const struct spa_meta_bitmap *m) {
+	return m->format != 0;
+}
 
 /**
  * Cursor information
@@ -139,6 +137,10 @@ struct spa_meta_cursor {
 					  *  >= sizeof(struct spa_meta_cursor) there is a
 					  *  struct spa_meta_bitmap at the offset. */
 };
+
+SPA_API_META bool spa_meta_cursor_is_valid(const struct spa_meta_cursor *m) {
+	return m->id != 0;
+}
 
 /** a timed set of events associated with the buffer */
 struct spa_meta_control {

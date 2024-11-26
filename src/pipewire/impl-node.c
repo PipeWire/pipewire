@@ -2105,20 +2105,6 @@ static int node_ready(void *data, int status)
 		}
 	}
 
-	/* This update is done too late, the driver should do this
-	 * before calling the ready callback so that it can use the new target
-	 * duration and rate to schedule the next update. We do this here to
-	 * help drivers that don't support this yet */
-	if (SPA_UNLIKELY(cl->duration != cl->target_duration ||
-	    cl->rate.denom != cl->target_rate.denom)) {
-		pw_log_warn("driver %s did not update duration/rate (%"PRIu64"/%"PRIu64" %u/%u)",
-				node->name,
-				cl->duration, cl->target_duration,
-				cl->rate.denom, cl->target_rate.denom);
-		cl->duration = cl->target_duration;
-		cl->rate = cl->target_rate;
-	}
-
 	sync_type = check_updates(node, &reposition_owner);
 	owner[0] = SPA_ATOMIC_LOAD(a->segment_owner[0]);
 	owner[1] = SPA_ATOMIC_LOAD(a->segment_owner[1]);

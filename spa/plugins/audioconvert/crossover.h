@@ -25,6 +25,4 @@ struct lr4 {
 
 void lr4_set(struct lr4 *lr4, enum biquad_type type, float freq);
 
-void lr4_process(struct lr4 *lr4, float *dst, const float *src, const float vol, int samples);
-
 #endif /* CROSSOVER_H_ */

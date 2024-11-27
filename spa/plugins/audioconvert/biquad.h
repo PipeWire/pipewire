@@ -10,6 +10,20 @@
 extern "C" {
 #endif
 
+/* The type of the biquad filters */
+enum biquad_type {
+	BQ_NONE,
+	BQ_LOWPASS,
+	BQ_HIGHPASS,
+	BQ_BANDPASS,
+	BQ_LOWSHELF,
+	BQ_HIGHSHELF,
+	BQ_PEAKING,
+	BQ_NOTCH,
+	BQ_ALLPASS,
+	BQ_RAW,
+};
+
 /* The biquad filter parameters. The transfer function H(z) is (b0 + b1 * z^(-1)
  * + b2 * z^(-2)) / (1 + a1 * z^(-1) + a2 * z^(-2)).  The previous two inputs
  * are stored in x1 and x2, and the previous two outputs are stored in y1 and
@@ -19,15 +33,10 @@ extern "C" {
  * float is used during the actual filtering for faster computation.
  */
 struct biquad {
+	enum biquad_type type;
 	float b0, b1, b2;
 	float a1, a2;
-};
-
-/* The type of the biquad filters */
-enum biquad_type {
-	BQ_NONE,
-	BQ_LOWPASS,
-	BQ_HIGHPASS,
+	float x1, x2;
 };
 
 /* Initialize a biquad filter parameters from its type and parameters.
@@ -36,8 +45,11 @@ enum biquad_type {
  *    type - The type of the biquad filter.
  *    frequency - The value should be in the range [0, 1]. It is relative to
  *        half of the sampling rate.
+ *    Q - Quality factor. See Web Audio API for details.
+ *    gain - The value is in dB. See Web Audio API for details.
  */
-void biquad_set(struct biquad *bq, enum biquad_type type, double freq);
+void biquad_set(struct biquad *bq, enum biquad_type type, double freq, double Q,
+		double gain);
 
 #ifdef __cplusplus
 } /* extern "C" */

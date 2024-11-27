@@ -443,8 +443,6 @@ pw_core_destroy(struct pw_core *core, void *proxy)
 			proxy);
 }
 
-void *pw_core_get_user_data(struct pw_core *object);
-
 /**
  * \}
  */

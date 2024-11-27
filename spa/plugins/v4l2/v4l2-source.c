@@ -32,16 +32,19 @@
 #include "v4l2.h"
 
 static const char default_device[] = "/dev/video0";
+static const char default_clock_name[] = "api.v4l2.unknown";
 
 struct props {
 	char device[64];
 	char device_name[128];
 	int device_fd;
+	char clock_name[64];
 };
 
 static void reset_props(struct props *props)
 {
-	strncpy(props->device, default_device, 64);
+	strncpy(props->device, default_device, sizeof(props->device));
+	strncpy(props->clock_name, default_clock_name, sizeof(props->clock_name));
 }
 
 #define MAX_BUFFERS     32
@@ -417,8 +420,11 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	switch (id) {
 	case SPA_IO_Clock:
 		this->clock = data;
-		if (this->clock)
+		if (this->clock) {
 			SPA_FLAG_SET(this->clock->flags, SPA_IO_CLOCK_FLAG_NO_RATE);
+			spa_scnprintf(this->clock->name, sizeof(this->clock->name),
+					"%s", this->props.clock_name);
+		}
 		break;
 	case SPA_IO_Position:
 		this->position = data;
@@ -1002,6 +1008,7 @@ impl_init(const struct spa_handle_factory *factory,
 	struct port *port;
 	uint32_t i;
 	int res;
+	bool have_clock = false;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -1073,12 +1080,21 @@ impl_init(const struct spa_handle_factory *factory,
 		const char *s = info->items[i].value;
 		if (spa_streq(k, SPA_KEY_API_V4L2_PATH)) {
 			strncpy(this->props.device, s, 63);
-			if ((res = spa_v4l2_open(&port->dev, this->props.device)) < 0)
-				return res;
-			spa_v4l2_close(&port->dev);
 		} else if (spa_streq(k, "meta.videotransform.transform")) {
 			this->transform = spa_debug_type_find_type_short(spa_type_meta_videotransform_type, s);
+		} else if (spa_streq(k, "clock.name")) {
+			spa_scnprintf(this->props.clock_name,
+					sizeof(this->props.clock_name), "%s", s);
+			have_clock = true;
 		}
+	}
+	if ((res = spa_v4l2_open(&port->dev, this->props.device)) < 0)
+		return res;
+	spa_v4l2_close(&port->dev);
+
+	if (!have_clock) {
+		spa_scnprintf(this->props.clock_name,
+				sizeof(this->props.clock_name), "api.v4l2.%s", port->dev.cap.bus_info);
 	}
 	return 0;
 }

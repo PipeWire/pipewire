@@ -208,6 +208,8 @@ static int alsa_set_param(struct state *state, const char *k, const char *s)
 		state->htimestamp_max_errors = atoi(s);
 	} else if (spa_streq(k, "api.alsa.auto-link")) {
 		state->auto_link = spa_atob(s);
+	} else if (spa_streq(k, "api.alsa.dsd-lsb")) {
+		state->dsd_lsb = spa_atob(s);
 	} else if (spa_streq(k, "latency.internal.rate")) {
 		state->process_latency.rate = atoi(s);
 	} else if (spa_streq(k, "latency.internal.ns")) {
@@ -1918,7 +1920,7 @@ static int enum_dsd_formats(struct state *state, uint32_t index, uint32_t *next,
 			0);
 
 	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_bitorder, 0);
-	spa_pod_builder_id(b, SPA_PARAM_BITORDER_msb);
+	spa_pod_builder_id(b, state->dsd_lsb ? SPA_PARAM_BITORDER_lsb : SPA_PARAM_BITORDER_msb);
 
 	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_interleave, 0);
 	spa_pod_builder_int(b, interleave);

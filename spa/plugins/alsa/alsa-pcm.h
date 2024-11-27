@@ -228,6 +228,7 @@ struct state {
 	unsigned int is_pro:1;
 	unsigned int sources_added:1;
 	unsigned int auto_link:1;
+	unsigned int dsd_lsb:1;
 	unsigned int linked:1;
 	unsigned int is_batch:1;
 	unsigned int force_rate:1;

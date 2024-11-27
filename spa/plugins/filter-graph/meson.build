@@ -52,12 +52,12 @@ filter_graph_c = static_library('filter_graph_c',
 simd_dependencies += filter_graph_c
 
 spa_filter_graph = shared_library('spa-filter-graph',
-  ['biquad.c',
-   'filter-graph.c' ],
+  ['filter-graph.c' ],
   include_directories : [configinc],
   dependencies : [ spa_dep, sndfile_dep, plugin_dependencies, mathlib ],
   install : true,
   install_dir : spa_plugindir / 'filter-graph',
+  objects : audioconvert_c.extract_objects('biquad.c'),
   link_with: simd_dependencies
 )
 
@@ -72,7 +72,8 @@ spa_filter_graph_plugin_builtin = shared_library('spa-filter-graph-plugin-builti
   include_directories : [configinc],
   install : true,
   install_dir : spa_plugindir / 'filter-graph',
-  dependencies : [ filter_graph_dependencies ]
+  dependencies : [ filter_graph_dependencies ],
+  objects : audioconvert_c.extract_objects('biquad.c')
 )
 
 spa_filter_graph_plugin_ladspa = shared_library('spa-filter-graph-plugin-ladspa',

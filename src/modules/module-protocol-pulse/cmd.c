@@ -116,7 +116,7 @@ static int parse_cmd(void *user_data, const char *location,
 		if (res < 0)
 			break;
 	}
-	return res;
+	return res < 0 ? res : 0;
 }
 
 int cmd_run(struct impl *impl)

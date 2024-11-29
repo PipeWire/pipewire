@@ -200,16 +200,28 @@ static void spa_bt_decode_buffer_recover(struct spa_bt_decode_buffer *this)
 	spa_bt_rate_control_init(&this->ctl, level);
 }
 
-static SPA_UNUSED
-void spa_bt_decode_buffer_set_target_latency(struct spa_bt_decode_buffer *this, int32_t samples)
+static inline void spa_bt_decode_buffer_set_target_latency(struct spa_bt_decode_buffer *this, int32_t samples)
 {
 	this->target = samples;
 }
 
-static SPA_UNUSED
-void spa_bt_decode_buffer_set_max_latency(struct spa_bt_decode_buffer *this, int32_t samples)
+static inline void spa_bt_decode_buffer_set_max_latency(struct spa_bt_decode_buffer *this, int32_t samples)
 {
 	this->max_target = samples;
+}
+
+static inline int32_t spa_bt_decode_buffer_get_target(struct spa_bt_decode_buffer *this)
+{
+	const int32_t packet_size = SPA_CLAMP(this->packet_size.max, 0, INT32_MAX/8);
+	const int32_t max_buf = (this->buffer_size - this->buffer_reserve) / this->frame_size;
+	int32_t target;
+
+	if (this->target)
+		target = this->target;
+	else
+		target = BUFFERING_TARGET(this->spike.max, packet_size, max_buf);
+
+	return SPA_MIN(target, this->max_target);
 }
 
 static void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint32_t samples, uint32_t duration)
@@ -245,7 +257,6 @@ static void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint
 
 	if (this->received) {
 		const uint32_t avg_period = (uint64_t)this->rate * BUFFERING_SHORT_MSEC / 1000;
-		const int32_t max_buf = (this->buffer_size - this->buffer_reserve) / this->frame_size;
 		int32_t level, target;
 
 		/* Track buffer level */
@@ -256,12 +267,7 @@ static void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint
 		spa_bt_ptp_update(&this->spike, (int32_t)(this->ctl.avg - level), this->prev_consumed);
 
 		/* Update target level */
-		if (this->target)
-			target = this->target;
-		else
-			target = BUFFERING_TARGET(this->spike.max, packet_size, max_buf);
-
-		target = SPA_MIN(target, this->max_target);
+		target = spa_bt_decode_buffer_get_target(this);
 
 		if (level > SPA_MAX(4 * target, 2*(int32_t)duration) &&
 				avail > data_size) {

@@ -3987,12 +3987,48 @@ static int transport_release(void *data)
 	return do_transport_release(data);
 }
 
+static int transport_set_delay(void *data, int64_t delay_nsec)
+{
+	struct spa_bt_transport *transport = data;
+	struct spa_bt_monitor *monitor = transport->monitor;
+	DBusMessageIter it[2];
+	spa_autoptr(DBusMessage) m = NULL;
+	uint16_t value;
+	const char *property = "Delay", *interface = BLUEZ_MEDIA_TRANSPORT_INTERFACE;
+
+	if (!(transport->profile & SPA_BT_PROFILE_A2DP_DUPLEX))
+		return -ENOTSUP;
+
+	value = SPA_CLAMP(delay_nsec / (100 * SPA_NSEC_PER_USEC), 0, 10 * UINT16_MAX);
+
+	if (transport->delay_us == 100 * value)
+		return 0;
+	transport->delay_us = 100 * value;
+
+	m = dbus_message_new_method_call(BLUEZ_SERVICE, transport->path, DBUS_INTERFACE_PROPERTIES, "Set");
+	if (m == NULL)
+		return -ENOMEM;
+
+	dbus_message_iter_init_append(m, &it[0]);
+	dbus_message_iter_append_basic(&it[0], DBUS_TYPE_STRING, &interface);
+	dbus_message_iter_append_basic(&it[0], DBUS_TYPE_STRING, &property);
+	dbus_message_iter_open_container(&it[0], DBUS_TYPE_VARIANT, DBUS_TYPE_UINT16_AS_STRING, &it[1]);
+	dbus_message_iter_append_basic(&it[1], DBUS_TYPE_UINT16, &value);
+	dbus_message_iter_close_container(&it[0], &it[1]);
+
+	if (!dbus_connection_send(monitor->conn, m, NULL))
+		return -EIO;
+
+	spa_log_debug(monitor->log, "transport %p: set delay %d us", transport, 100 * value);
+	return 0;
+}
 
 static const struct spa_bt_transport_implementation transport_impl = {
 	SPA_VERSION_BT_TRANSPORT_IMPLEMENTATION,
 	.acquire = transport_acquire,
 	.release = transport_release,
 	.set_volume = transport_set_volume,
+	.set_delay = transport_set_delay,
 };
 
 static void media_codec_switch_reply(DBusPendingCall *pending, void *userdata);

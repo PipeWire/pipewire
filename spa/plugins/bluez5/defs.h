@@ -616,6 +616,7 @@ struct spa_bt_transport_implementation {
 	int (*acquire) (void *data, bool optional);
 	int (*release) (void *data);
 	int (*set_volume) (void *data, int id, float volume);
+	int (*set_delay) (void *data, int64_t delay_nsec);
 	int (*destroy) (void *data);
 };
 
@@ -721,6 +722,7 @@ int spa_bt_transport_ensure_sco_io(struct spa_bt_transport *t, struct spa_loop *
 
 #define spa_bt_transport_destroy(t)		spa_bt_transport_impl(t, destroy, 0)
 #define spa_bt_transport_set_volume(t,...)	spa_bt_transport_impl(t, set_volume, 0, __VA_ARGS__)
+#define spa_bt_transport_set_delay(t,...)	spa_bt_transport_impl(t, set_delay, 0, __VA_ARGS__)
 
 static inline enum spa_bt_transport_state spa_bt_transport_state_from_string(const char *value)
 {

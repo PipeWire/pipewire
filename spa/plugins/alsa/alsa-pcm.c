@@ -939,7 +939,7 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 		sscanf(state->props.device, "%*[^:]:%u", &state->card_index);
 		if (state->card_index == SPA_ID_INVALID) {
 			spa_log_error(state->log, "Could not determine card index, maybe set %s",
-					SPA_KEY_API_ALSA_CARD);
+					SPA_KEY_API_ALSA_PCM_CARD);
 			return -EINVAL;
 		}
 	}

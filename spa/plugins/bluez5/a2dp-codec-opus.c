@@ -556,7 +556,7 @@ static int get_mapping(const struct media_codec *codec, const a2dp_opus_05_direc
 }
 
 static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
-		uint8_t caps[A2DP_MAX_CAPS_SIZE])
+		const struct spa_dict *settings, uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
 	a2dp_opus_05_t a2dp_opus_05 = {
 		.info = codec->vendor,

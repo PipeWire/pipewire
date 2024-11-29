@@ -238,20 +238,174 @@ static int write_ltv_uint32(uint8_t *dest, uint8_t type, uint32_t value)
 	return write_ltv(dest, type, &value, sizeof(value));
 }
 
+static uint16_t parse_rates(const char *str)
+{
+	char *s, *p, *save = NULL;
+	uint16_t rate_mask = 0;
+
+	if (!str)
+		return 0;
+
+	s = strdup(str);
+	if (s == NULL)
+		return 0;
+
+	for (p = s; (p = strtok_r(p, "[, ]", &save)) != NULL; p = NULL) {
+		if (*p == '\0')
+			continue;
+
+		switch (atoi(p)) {
+		case LC3_VAL_FREQ_8KHZ:
+			rate_mask |= LC3_FREQ_8KHZ;
+			break;
+		case LC3_VAL_FREQ_16KHZ:
+			rate_mask |= LC3_FREQ_16KHZ;
+			break;
+		case LC3_VAL_FREQ_24KHZ:
+			rate_mask |=  LC3_FREQ_24KHZ;
+			break;
+		case LC3_VAL_FREQ_32KHZ:
+			rate_mask |=  LC3_FREQ_32KHZ;
+			break;
+		case LC3_VAL_FREQ_44KHZ:
+			rate_mask |=  LC3_FREQ_44KHZ;
+			break;
+		case LC3_VAL_FREQ_48KHZ:
+			rate_mask |=  LC3_FREQ_48KHZ;
+			break;
+		default:
+			break;
+		}
+	}
+	free(s);
+
+	return rate_mask;
+}
+
+static uint8_t parse_durations(const char *str)
+{
+	char *s, *p, *save = NULL;
+	uint8_t duration_mask = 0;
+
+	if (!str)
+		return 0;
+
+	s = strdup(str);
+	if (s == NULL)
+		return 0;
+
+	for (p = s; (p = strtok_r(p, "[, ]", &save)) != NULL; p = NULL) {
+		double duration;
+
+		if (*p == '\0')
+			continue;
+
+		duration = atof(p);
+
+		if (duration == LC3_VAL_DUR_7_5)
+			duration_mask |= LC3_DUR_7_5;
+		else if (duration == LC3_VAL_DUR_10)
+			duration_mask |= LC3_DUR_10;
+	}
+	free(s);
+
+	return duration_mask;
+}
+
+static uint8_t parse_channel_counts(const char *str)
+{
+	char *s, *p, *save = NULL;
+	uint8_t channel_counts = 0;
+
+	if (!str)
+		return 0;
+
+	s = strdup(str);
+	if (s == NULL)
+		return 0;
+
+	for (p = s; (p = strtok_r(p, "[, ]", &save)) != NULL; p = NULL) {
+		if (*p == '\0')
+			continue;
+
+		switch (atoi(p)) {
+		case LC3_VAL_CHAN_1:
+			channel_counts |= LC3_CHAN_1;
+			break;
+		case LC3_VAL_CHAN_2:
+			channel_counts |= LC3_CHAN_2;
+			break;
+		case LC3_VAL_CHAN_3:
+			channel_counts |= LC3_CHAN_3;
+			break;
+		case LC3_VAL_CHAN_4:
+			channel_counts |= LC3_CHAN_4;
+			break;
+		case LC3_VAL_CHAN_5:
+			channel_counts |= LC3_CHAN_5;
+			break;
+		case LC3_VAL_CHAN_6:
+			channel_counts |= LC3_CHAN_6;
+			break;
+		case LC3_VAL_CHAN_7:
+			channel_counts |= LC3_CHAN_7;
+			break;
+		case LC3_VAL_CHAN_8:
+			channel_counts |= LC3_CHAN_8;
+			break;
+		default:
+			break;
+		}
+	}
+	free(s);
+
+	return channel_counts;
+}
+
 static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
-		uint8_t caps[A2DP_MAX_CAPS_SIZE])
+		const struct spa_dict *settings, uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
 	uint8_t *data = caps;
-	uint16_t framelen[2] = {htobs(LC3_MIN_FRAME_BYTES), htobs(LC3_MAX_FRAME_BYTES)};
+	const char *str;
+	uint16_t framelen[2];
+	uint16_t rate_mask = LC3_FREQ_48KHZ | LC3_FREQ_32KHZ | \
+				LC3_FREQ_24KHZ | LC3_FREQ_16KHZ | LC3_FREQ_8KHZ;
+	uint8_t duration_mask = LC3_DUR_ANY;
+	uint8_t channel_counts = LC3_CHAN_1 | LC3_CHAN_2;
+	uint16_t framelen_min = LC3_MIN_FRAME_BYTES;
+	uint16_t framelen_max = LC3_MAX_FRAME_BYTES;
+	uint8_t max_frames = 2;
 
-	data += write_ltv_uint16(data, LC3_TYPE_FREQ,
-	                         htobs(LC3_FREQ_48KHZ | LC3_FREQ_32KHZ | \
-					 LC3_FREQ_24KHZ | LC3_FREQ_16KHZ | LC3_FREQ_8KHZ));
-	data += write_ltv_uint8(data, LC3_TYPE_DUR, LC3_DUR_ANY);
-	data += write_ltv_uint8(data, LC3_TYPE_CHAN, LC3_CHAN_1 | LC3_CHAN_2);
+	if (settings && (str = spa_dict_lookup(settings, "bluez5.bap-server-capabilities.rates")))
+		rate_mask = parse_rates(str);
+
+	if (settings && (str = spa_dict_lookup(settings, "bluez5.bap-server-capabilities.durations")))
+		duration_mask = parse_durations(str);
+
+	if (settings && (str = spa_dict_lookup(settings, "bluez5.bap-server-capabilities.channels")))
+		channel_counts = parse_channel_counts(str);
+
+	if (settings && (str = spa_dict_lookup(settings, "bluez5.bap-server-capabilities.framelen_min")))
+		framelen_min = atoi(str);
+
+	if (settings && (str = spa_dict_lookup(settings, "bluez5.bap-server-capabilities.framelen_max")))
+		framelen_max = atoi(str);
+
+	if (settings && (str = spa_dict_lookup(settings, "bluez5.bap-server-capabilities.max_frames")))
+		max_frames = atoi(str);
+
+	framelen[0] = htobs(framelen_min);
+	framelen[1] = htobs(framelen_max);
+
+	data += write_ltv_uint16(data, LC3_TYPE_FREQ, htobs(rate_mask));
+	data += write_ltv_uint8(data, LC3_TYPE_DUR, duration_mask);
+	data += write_ltv_uint8(data, LC3_TYPE_CHAN, channel_counts);
 	data += write_ltv(data, LC3_TYPE_FRAMELEN, framelen, sizeof(framelen));
 	/* XXX: we support only one frame block -> max 2 frames per SDU */
-	data += write_ltv_uint8(data, LC3_TYPE_BLKS, 2);
+	if (max_frames > 2)
+		max_frames = 2;
+
+	data += write_ltv_uint8(data, LC3_TYPE_BLKS, max_frames);
 
 	return data - caps;
 }

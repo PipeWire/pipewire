@@ -71,7 +71,7 @@ done:
 }
 
 static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
-		uint8_t caps[A2DP_MAX_CAPS_SIZE])
+		const struct spa_dict *settings, uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
 	const a2dp_aac_t a2dp_aac = {
 		.object_type =

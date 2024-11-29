@@ -59,7 +59,8 @@ struct impl {
 	int frame_count;
 };
 
-static int codec_fill_caps(const struct media_codec *codec, uint32_t flags, uint8_t caps[A2DP_MAX_CAPS_SIZE])
+static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
+	const struct spa_dict *settings, uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
 	static const a2dp_ldac_t a2dp_ldac = {
 		.info.vendor_id = LDAC_VENDOR_ID,

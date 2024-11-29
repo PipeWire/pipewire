@@ -4791,7 +4791,7 @@ static int bluez_register_endpoint_legacy(struct spa_bt_adapter *adapter,
 	if (ret < 0)
 		return ret;
 
-	ret = caps_size = codec->fill_caps(codec, sink ? MEDIA_CODEC_FLAG_SINK : 0, caps);
+	ret = caps_size = codec->fill_caps(codec, sink ? MEDIA_CODEC_FLAG_SINK : 0, &monitor->global_settings, caps);
 	if (ret < 0)
 		return ret;
 
@@ -4988,7 +4988,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 				continue;
 
 			if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SINK)) {
-				caps_size = codec->fill_caps(codec, MEDIA_CODEC_FLAG_SINK, caps);
+				caps_size = codec->fill_caps(codec, MEDIA_CODEC_FLAG_SINK, &monitor->global_settings, caps);
 				if (caps_size < 0)
 					continue;
 
@@ -5003,7 +5003,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 			}
 
 			if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE)) {
-				caps_size = codec->fill_caps(codec, 0, caps);
+				caps_size = codec->fill_caps(codec, 0, &monitor->global_settings, caps);
 				if (caps_size < 0)
 					continue;
 
@@ -5019,7 +5019,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 
 			if (codec->bap && register_bcast) {
 				if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST)) {
-					caps_size = codec->fill_caps(codec, 0, caps);
+					caps_size = codec->fill_caps(codec, 0, &monitor->global_settings, caps);
 					if (caps_size < 0)
 						continue;
 
@@ -5034,7 +5034,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 				}
 
 				if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SINK_BROADCAST)) {
-					caps_size = codec->fill_caps(codec, MEDIA_CODEC_FLAG_SINK, caps);
+					caps_size = codec->fill_caps(codec, MEDIA_CODEC_FLAG_SINK, &monitor->global_settings, caps);
 					if (caps_size < 0)
 						continue;
 

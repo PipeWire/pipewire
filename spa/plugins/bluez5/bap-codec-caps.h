@@ -25,15 +25,42 @@
                                  LC3_FREQ_44KHZ | \
                                  LC3_FREQ_48KHZ)
 
+#define LC3_VAL_FREQ_8KHZ       8000
+#define LC3_VAL_FREQ_11KHZ      11025
+#define LC3_VAL_FREQ_16KHZ      16000
+#define LC3_VAL_FREQ_22KHZ      22050
+#define LC3_VAL_FREQ_24KHZ      24000
+#define LC3_VAL_FREQ_32KHZ      32000
+#define LC3_VAL_FREQ_44KHZ      44100
+#define LC3_VAL_FREQ_48KHZ      48000
+
 #define LC3_TYPE_DUR            0x02
 #define LC3_DUR_7_5             (1 << 0)
 #define LC3_DUR_10              (1 << 1)
 #define LC3_DUR_ANY             (LC3_DUR_7_5 | \
                                  LC3_DUR_10)
 
+#define LC3_VAL_DUR_7_5         7.5
+#define LC3_VAL_DUR_10          10
+
 #define LC3_TYPE_CHAN           0x03
 #define LC3_CHAN_1              (1 << 0)
 #define LC3_CHAN_2              (1 << 1)
+#define LC3_CHAN_3              (1 << 2)
+#define LC3_CHAN_4              (1 << 3)
+#define LC3_CHAN_5              (1 << 4)
+#define LC3_CHAN_6              (1 << 5)
+#define LC3_CHAN_7              (1 << 6)
+#define LC3_CHAN_8              (1 << 7)
+
+#define LC3_VAL_CHAN_1          1
+#define LC3_VAL_CHAN_2          2
+#define LC3_VAL_CHAN_3          3
+#define LC3_VAL_CHAN_4          4
+#define LC3_VAL_CHAN_5          5
+#define LC3_VAL_CHAN_6          6
+#define LC3_VAL_CHAN_7          7
+#define LC3_VAL_CHAN_8          8
 
 #define LC3_TYPE_FRAMELEN       0x04
 #define LC3_TYPE_BLKS           0x05

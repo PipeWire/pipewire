@@ -165,6 +165,7 @@ struct impl {
 	uint32_t errqueue_count;
 
 	struct delay_info delay;
+	int64_t delay_sink;
 	struct spa_source *update_delay_event;
 };
 
@@ -672,6 +673,7 @@ static void update_transport_delay(struct impl *this)
 	struct delay_info info;
 	float latency;
 	int64_t latency_nsec;
+	int64_t delay_sink;
 
 	if (!this->transport || !port->have_format)
 		return;
@@ -687,6 +689,13 @@ static void update_transport_delay(struct impl *this)
 		+ (int64_t)(latency * SPA_NSEC_PER_SEC / port->current_format.info.raw.rate);
 
 	spa_bt_transport_set_delay(this->transport, latency_nsec);
+
+	delay_sink =
+		port->latency[SPA_DIRECTION_INPUT].min_ns
+		+ (int64_t)((port->latency[SPA_DIRECTION_INPUT].min_rate
+						+ port->latency[SPA_DIRECTION_INPUT].min_quantum * info.duration)
+				* SPA_NSEC_PER_SEC / port->current_format.info.raw.rate);
+	__atomic_store_n(&this->delay_sink, delay_sink, __ATOMIC_RELAXED);
 
 	/* Latency from source */
 	port->latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT,
@@ -1437,7 +1446,8 @@ static uint32_t get_samples(struct impl *this, uint32_t *result_duration)
 static void update_target_latency(struct impl *this)
 {
 	struct port *port = &this->port;
-	uint32_t samples, duration;
+	uint32_t samples, duration, latency;
+	int64_t delay_sink;
 
 	if (this->transport == NULL || !port->have_format)
 		return;
@@ -1463,8 +1473,11 @@ static void update_target_latency(struct impl *this)
 	samples = (uint64_t)this->transport->delay_us *
 		port->current_format.info.raw.rate / SPA_USEC_PER_SEC;
 
-	if (samples > duration)
-		samples -= duration;
+	delay_sink = __atomic_load_n(&this->delay_sink, __ATOMIC_RELAXED);
+	latency = duration + delay_sink * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC;
+
+	if (samples > latency)
+		samples -= latency;
 	else
 		samples = 1;
 

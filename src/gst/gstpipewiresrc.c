@@ -655,6 +655,13 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
 
   for (i = 0; i < b->buffer->n_datas; i++) {
     struct spa_data *d = &b->buffer->datas[i];
+
+    if (d->chunk->size == 0) {
+      // Skip the 0 sized chunk, not adding to the buffer
+      GST_DEBUG_OBJECT(pwsrc, "Chunk size is 0, skipping");
+      continue;
+    }
+
     GstMemory *pmem = gst_buffer_peek_memory (data->buf, i);
     if (pmem) {
       GstMemory *mem;
@@ -664,12 +671,22 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
         mem = gst_memory_copy (pmem, d->chunk->offset, d->chunk->size);
       gst_buffer_insert_memory (buf, i, mem);
     }
-    if (d->chunk->flags & SPA_CHUNK_FLAG_CORRUPTED)
+    if (d->chunk->flags & SPA_CHUNK_FLAG_CORRUPTED) {
+      GST_DEBUG_OBJECT(pwsrc, "Buffer corrupted");
       GST_BUFFER_FLAG_SET (buf, GST_BUFFER_FLAG_CORRUPTED);
+    }
   }
   if (!pwsrc->always_copy)
     gst_buffer_add_parent_buffer_meta (buf, data->buf);
   gst_buffer_unref (data->buf);
+
+  if (gst_buffer_get_size(buf) == 0)
+  {
+    GST_ERROR_OBJECT(pwsrc, "Buffer is empty, dropping this");
+    gst_buffer_unref(buf);
+    buf = NULL;
+  }
+
   return buf;
 }
 

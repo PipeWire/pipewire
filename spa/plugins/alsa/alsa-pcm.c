@@ -40,6 +40,9 @@ static struct card *ensure_card(uint32_t index, bool ucm)
 	const char *alibpref = NULL;
 	int err;
 
+	if (index == SPA_ID_INVALID)
+		return NULL;
+
 	if ((c = find_card(index)) != NULL)
 		return c;
 
@@ -78,6 +81,9 @@ error:
 
 static void release_card(struct card *c)
 {
+	if (!c)
+		return;
+
 	spa_assert(c->ref > 0);
 
 	if (--c->ref > 0)
@@ -717,7 +723,7 @@ static void silence_error_handler(const char *file, int line,
 static void fill_device_name(struct state *state, const char *params, char device_name[], size_t len)
 {
 	spa_scnprintf(device_name, len, "%s%s%s",
-			state->card->ucm_prefix ? state->card->ucm_prefix : "",
+			state->card && state->card->ucm_prefix ? state->card->ucm_prefix : "",
 			state->props.device, params ? params : "");
 }
 
@@ -997,13 +1003,12 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 		/* If we don't have a card index, see if we have a *:<idx> string */
 		sscanf(state->props.device, "%*[^:]:%u", &state->card_index);
 		if (state->card_index == SPA_ID_INVALID) {
-			spa_log_error(state->log, "Could not determine card index, maybe set %s",
-					SPA_KEY_API_ALSA_PCM_CARD);
-			return -EINVAL;
+			spa_log_info(state->log, "Could not determine card index. %s and/or clock.name "
+					"may need to be configured manually", SPA_KEY_API_ALSA_PCM_CARD);
 		}
 	}
 
-	if (state->clock_name[0] == '\0')
+	if (state->clock_name[0] == '\0' && state->card_index != SPA_ID_INVALID)
 		snprintf(state->clock_name, sizeof(state->clock_name),
 				"api.alsa.%s-%u",
 				state->stream == SND_PCM_STREAM_PLAYBACK ? "p" : "c",
@@ -1016,10 +1021,7 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 	}
 
 	state->card = ensure_card(state->card_index, state->open_ucm);
-	if (state->card == NULL) {
-		spa_log_error(state->log, "can't create card %u", state->card_index);
-		return -errno;
-	}
+
 	state->log_file = fopencookie(state, "w", io_funcs);
 	if (state->log_file == NULL) {
 		spa_log_error(state->log, "can't create log file");
@@ -1262,7 +1264,7 @@ int spa_alsa_close(struct state *state)
 	else
 		state->n_fds = 0;
 
-	if (state->have_format)
+	if (state->have_format && state->card)
 		state->card->format_ref--;
 
 	state->have_format = false;
@@ -1482,7 +1484,7 @@ static int add_rate(struct state *state, uint32_t scale, uint32_t interleave, bo
 	if (max < min)
 		return 0;
 
-	if (!state->multi_rate && state->card->format_ref > 0)
+	if (!state->multi_rate && state->card && state->card->format_ref > 0)
 		rate = state->card->rate;
 	else
 		rate = state->default_rate;
@@ -1498,8 +1500,8 @@ static int add_rate(struct state *state, uint32_t scale, uint32_t interleave, bo
 
 	rate = SPA_CLAMP(rate, min, max);
 
-	spa_log_debug(state->log, "rate:%u multi:%d card:%d def:%d",
-			rate, state->multi_rate, state->card->rate, state->default_rate);
+	spa_log_debug(state->log, "rate:%u multi:%d card:%u def:%d",
+			rate, state->multi_rate, state->card ? state->card->rate : 0, state->default_rate);
 
 	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_rate, 0);
 
@@ -2231,6 +2233,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	}
 
 	if (!state->multi_rate &&
+	    state->card &&
 	    state->card->format_ref > 0 &&
 	    state->card->rate != rrate) {
 		spa_log_error(state->log, "%p: card already opened at rate:%i",
@@ -2276,7 +2279,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	state->driver_rate.denom = 0;
 
 	state->have_format = true;
-	if (state->card->format_ref++ == 0)
+	if (state->card && state->card->format_ref++ == 0)
 		state->card->rate = rrate;
 
 	dir = 0;

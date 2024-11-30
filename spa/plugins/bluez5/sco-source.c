@@ -458,7 +458,7 @@ static int lc3_decode_frame(struct impl *this, const void *src, size_t src_size,
 #endif
 }
 
-static uint32_t preprocess_and_decode_codec_data(void *userdata, uint8_t *read_data, int size_read)
+static uint32_t preprocess_and_decode_codec_data(void *userdata, uint8_t *read_data, int size_read, uint64_t now)
 {
 	struct impl *this = userdata;
 	struct port *port = &this->port;
@@ -531,7 +531,7 @@ static uint32_t preprocess_and_decode_codec_data(void *userdata, uint8_t *read_d
 			continue;
 		}
 
-		spa_bt_decode_buffer_write_packet(&port->buffer, written);
+		spa_bt_decode_buffer_write_packet(&port->buffer, written, now);
 		decoded += written;
 	}
 
@@ -566,7 +566,7 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC ||
 			this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB) {
-		decoded = preprocess_and_decode_codec_data(userdata, read_data, size_read);
+		decoded = preprocess_and_decode_codec_data(userdata, read_data, size_read, SPA_TIMESPEC_TO_NSEC(&this->now));
 	} else {
 		uint32_t avail;
 		uint8_t *packet;
@@ -591,7 +591,7 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 		packet = spa_bt_decode_buffer_get_write(&port->buffer, &avail);
 		avail = SPA_MIN(avail, (uint32_t)size_read);
 		spa_memmove(packet, read_data, avail);
-		spa_bt_decode_buffer_write_packet(&port->buffer, avail);
+		spa_bt_decode_buffer_write_packet(&port->buffer, avail, SPA_TIMESPEC_TO_NSEC(&this->now));
 
 		decoded = avail;
 	}
@@ -728,8 +728,8 @@ static int transport_start(struct impl *this)
 			this->quantum_limit, this->quantum_limit)) < 0)
 		return res;
 
-	/* 40 ms max buffer */
-	spa_bt_decode_buffer_set_max_latency(&port->buffer,
+	/* 40 ms max buffer (on top of duration) */
+	spa_bt_decode_buffer_set_max_extra_latency(&port->buffer,
 			port->current_format.info.raw.rate * 40 / 1000);
 
 	/* Init mSBC/LC3 if needed */
@@ -1402,7 +1402,9 @@ static void process_buffering(struct impl *this)
 	void *buf;
 	uint32_t avail;
 
-	spa_bt_decode_buffer_process(&port->buffer, samples, duration);
+	spa_bt_decode_buffer_process(&port->buffer, samples, duration,
+			this->position ? this->position->clock.rate_diff : 1.0,
+			this->position ? this->position->clock.next_nsec : 0);
 
 	setup_matching(this);
 

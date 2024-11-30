@@ -521,6 +521,9 @@ static void media_on_ready_read(struct spa_source *source)
 
 	spa_log_trace(this->log, "socket poll");
 
+	/* update the current pts */
+	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &now);
+
 	/* read */
 	size_read = read_data (this);
 	if (size_read == 0)
@@ -529,9 +532,6 @@ static void media_on_ready_read(struct spa_source *source)
 		spa_log_error(this->log, "failed to read data: %s", spa_strerror(size_read));
 		goto stop;
 	}
-
-	/* update the current pts */
-	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &now);
 
 	if (this->codec_props_changed && this->codec_props
 			&& this->codec->update_props) {
@@ -556,7 +556,7 @@ static void media_on_ready_read(struct spa_source *source)
 	if (!this->started)
 		return;
 
-	spa_bt_decode_buffer_write_packet(&port->buffer, decoded);
+	spa_bt_decode_buffer_write_packet(&port->buffer, decoded, SPA_TIMESPEC_TO_NSEC(&now));
 
 	dt = SPA_TIMESPEC_TO_NSEC(&this->now);
 	this->now = now;
@@ -681,7 +681,7 @@ static void update_transport_delay(struct impl *this)
 	info.v = __atomic_load_n(&this->delay.v, __ATOMIC_RELAXED);
 
 	/* Latency to sink */
-	latency = info.buffer + info.duration
+	latency = info.buffer
 		+ port->latency[SPA_DIRECTION_INPUT].min_rate
 		+ port->latency[SPA_DIRECTION_INPUT].min_quantum * info.duration;
 
@@ -772,8 +772,8 @@ static int transport_start(struct impl *this)
 		return res;
 
 	if (this->is_duplex) {
-		/* 80 ms max buffer */
-		spa_bt_decode_buffer_set_max_latency(&port->buffer,
+		/* 80 ms max extra buffer */
+		spa_bt_decode_buffer_set_max_extra_latency(&port->buffer,
 				port->current_format.info.raw.rate * 80 / 1000);
 	}
 
@@ -1474,7 +1474,7 @@ static void update_target_latency(struct impl *this)
 		port->current_format.info.raw.rate / SPA_USEC_PER_SEC;
 
 	delay_sink = __atomic_load_n(&this->delay_sink, __ATOMIC_RELAXED);
-	latency = duration + delay_sink * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC;
+	latency = delay_sink * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC;
 
 	if (samples > latency)
 		samples -= latency;
@@ -1502,7 +1502,9 @@ static void process_buffering(struct impl *this)
 
 	update_target_latency(this);
 
-	spa_bt_decode_buffer_process(&port->buffer, samples, duration);
+	spa_bt_decode_buffer_process(&port->buffer, samples, duration,
+			this->position ? this->position->clock.rate_diff : 1.0,
+			this->position ? this->position->clock.next_nsec : 0);
 
 	setup_matching(this);
 
@@ -1557,7 +1559,7 @@ static void process_buffering(struct impl *this)
 	}
 
 	if (this->update_delay_event) {
-		int32_t target = spa_bt_decode_buffer_get_target(&port->buffer);
+		int32_t target = spa_bt_decode_buffer_get_target_latency(&port->buffer);
 
 		if (target != this->delay.buffer || duration != this->delay.duration) {
 			struct delay_info info = { .buffer = target, .duration = duration };

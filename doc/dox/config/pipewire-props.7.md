@@ -916,6 +916,30 @@ bluez5.bcast_source.config = [
 ```
 \endparblock
 
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.rates		# Array of integers
+Supported sampling frequencies for the LC3 codec (default: all).
+Possible values:
+`8000`, `16000`, `24000`, `32000`, `44100`, `48000`
+
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.durations	# Array of doubles
+Supported frame durations for the LC3 codec (default: all).
+Possible values:
+`7.5`, `10`
+
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.channels	# Array of integers
+Supported audio channel counts for the LC3 codec (default: [1, 2]).
+Possible values:
+`1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`
+
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.framelen_min		# integer
+Minimum number of octets supported per codec frame for the LC3 codec (default: 20).
+
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.framelen_max		# integer
+Maximum number of octets supported per codec frame for the LC3 codec (default: 400).
+
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.max_frames		# integer
+Maximum number of codec frames supported per SDU for the LC3 codec (default: 2).
+
 ## Device properties
 
 @PAR@ device-prop  bluez5.auto-connect   # boolean

@@ -1083,7 +1083,7 @@ static int query_ext_ctrl_ioctl(struct port *port, struct v4l2_query_ext_ctrl *q
 
 	if (port->have_query_ext_ctrl) {
 		res = xioctl(dev->fd, VIDIOC_QUERY_EXT_CTRL, qctrl);
-		if (errno != ENOTTY)
+		if (res == 0 || errno != ENOTTY)
 			return res;
 		port->have_query_ext_ctrl = false;
 	}

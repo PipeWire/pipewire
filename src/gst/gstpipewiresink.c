@@ -37,6 +37,7 @@ GST_DEBUG_CATEGORY_STATIC (pipewire_sink_debug);
 #define GST_CAT_DEFAULT pipewire_sink_debug
 
 #define DEFAULT_PROP_MODE GST_PIPEWIRE_SINK_MODE_DEFAULT
+#define DEFAULT_PROP_SLAVE_METHOD GST_PIPEWIRE_SINK_SLAVE_METHOD_NONE
 
 #define MIN_BUFFERS     8u
 
@@ -49,7 +50,8 @@ enum
   PROP_CLIENT_PROPERTIES,
   PROP_STREAM_PROPERTIES,
   PROP_MODE,
-  PROP_FD
+  PROP_FD,
+  PROP_SLAVE_METHOD
 };
 
 GType
@@ -71,6 +73,26 @@ gst_pipewire_sink_mode_get_type (void)
 
   return (GType) mode_type;
 }
+
+GType
+gst_pipewire_sink_slave_method_get_type (void)
+{
+  static gsize method_type = 0;
+  static const GEnumValue method[] = {
+    {GST_PIPEWIRE_SINK_SLAVE_METHOD_NONE, "GST_PIPEWIRE_SINK_SLAVE_METHOD_NONE", "none"},
+    {GST_PIPEWIRE_SINK_SLAVE_METHOD_RESAMPLE, "GST_PIPEWIRE_SINK_SLAVE_METHOD_RESAMPLE", "resample"},
+    {0, NULL, NULL},
+  };
+
+  if (g_once_init_enter (&method_type)) {
+    GType tmp =
+        g_enum_register_static ("GstPipeWireSinkSlaveMethod", method);
+    g_once_init_leave (&method_type, tmp);
+  }
+
+  return (GType) method_type;
+}
+
 
 
 static GstStaticPadTemplate gst_pipewire_sink_template =
@@ -224,6 +246,17 @@ gst_pipewire_sink_class_init (GstPipeWireSinkClass * klass)
                                                       -1, G_MAXINT, -1,
                                                       G_PARAM_READWRITE |
                                                       G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_SLAVE_METHOD,
+                                   g_param_spec_enum ("slave-method",
+                                                      "Slave Method",
+                                                      "Algorithm used to match the rate of the masterclock",
+                                                      GST_TYPE_PIPEWIRE_SINK_SLAVE_METHOD,
+                                                      DEFAULT_PROP_SLAVE_METHOD,
+                                                      G_PARAM_READWRITE |
+                                                      G_PARAM_STATIC_STRINGS));
+
 
   gstelement_class->provide_clock = gst_pipewire_sink_provide_clock;
   gstelement_class->change_state = gst_pipewire_sink_change_state;
@@ -408,6 +441,10 @@ gst_pipewire_sink_set_property (GObject * object, guint prop_id,
       pwsink->stream->fd = g_value_get_int (value);
       break;
 
+    case PROP_SLAVE_METHOD:
+      pwsink->slave_method = g_value_get_enum (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -449,10 +486,64 @@ gst_pipewire_sink_get_property (GObject * object, guint prop_id,
       g_value_set_int (value, pwsink->stream->fd);
       break;
 
+    case PROP_SLAVE_METHOD:
+      g_value_set_enum (value, pwsink->slave_method);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
   }
+}
+
+static void rate_match_resample(GstPipeWireSink *pwsink)
+{
+  GstPipeWireStream *stream = pwsink->stream;
+  double err, corr;
+  struct pw_time ts;
+  guint64 queued, now, elapsed, target;
+
+  if (!pwsink->rate_match)
+    return;
+
+  pw_stream_get_time_n(stream->pwstream, &ts, sizeof(ts));
+  now = pw_stream_get_nsec(stream->pwstream);
+  if (ts.now != 0)
+    elapsed = gst_util_uint64_scale_int (now - ts.now, ts.rate.denom, GST_SECOND * ts.rate.num);
+  else
+    elapsed = 0;
+
+  queued = ts.queued - ts.size;
+  target = elapsed;
+  err = ((gint64)queued - ((gint64)target));
+
+  corr = spa_dll_update(&stream->dll, SPA_CLAMPD(err, -128.0, 128.0));
+
+  stream->err_wdw = (double)ts.rate.denom/ts.size;
+
+  double avg = (stream->err_avg * stream->err_wdw + (err - stream->err_avg)) / (stream->err_wdw + 1.0);
+  stream->err_var = (stream->err_var * stream->err_wdw +
+                    (err - stream->err_avg) * (err - avg)) / (stream->err_wdw + 1.0);
+  stream->err_avg = avg;
+
+  if (stream->last_ts == 0 || stream->last_ts + SPA_NSEC_PER_SEC < now) {
+    double bw;
+
+    stream->last_ts = now;
+
+    if (stream->err_var == 0.0)
+      bw = 0.0;
+    else
+      bw = fabs(stream->err_avg) / sqrt(fabs(stream->err_var));
+
+    spa_dll_set_bw(&stream->dll, SPA_CLAMPD(bw, 0.001, SPA_DLL_BW_MAX), ts.size, ts.rate.denom);
+
+    GST_INFO_OBJECT (pwsink, "q:%"PRIi64"/%"PRIi64" e:%"PRIu64" err:%+03f corr:%f %f %f %f",
+                    ts.queued, ts.size, elapsed, err, corr,
+		    stream->err_avg, stream->err_var, stream->dll.bw);
+  }
+
+  pw_stream_set_rate (stream->pwstream, corr);
 }
 
 static void
@@ -539,42 +630,12 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
     g_warning ("can't send buffer %s", spa_strerror(res));
   }
 
-  if (pwsink->rate_match) {
-    double err, corr;
-    struct pw_time ts;
-    guint64 queued, now, elapsed, target;
-
-    pw_stream_get_time_n(stream->pwstream, &ts, sizeof(ts));
-    now = pw_stream_get_nsec(stream->pwstream);
-    if (ts.now != 0)
-	    elapsed = gst_util_uint64_scale_int (now - ts.now, ts.rate.denom, GST_SECOND * ts.rate.num);
-    else
-	    elapsed = 0;
-
-    queued = ts.queued - ts.size;
-    target = elapsed;
-    err = ((gint64)queued - ((gint64)target));
-
-    corr = spa_dll_update(&stream->dll, SPA_CLAMPD(err, -128.0, 128.0));
-
-    stream->err_wdw = (double)ts.rate.denom/ts.size;
-
-    double avg = (stream->err_avg * stream->err_wdw + (err - stream->err_avg)) / (stream->err_wdw + 1.0);
-    stream->err_var = (stream->err_var * stream->err_wdw +
-                      (err - stream->err_avg) * (err - avg)) / (stream->err_wdw + 1.0);
-    stream->err_avg = avg;
-
-    if (stream->last_ts == 0 || stream->last_ts + SPA_NSEC_PER_SEC < now) {
-      stream->last_ts = now;
-      spa_dll_set_bw(&stream->dll, SPA_CLAMPD(fabs(stream->err_avg) / sqrt(fabs(stream->err_var)), 0.001, SPA_DLL_BW_MAX),
-                     ts.size, ts.rate.denom);
-    GST_INFO_OBJECT (pwsink, "queue buffer %p, pw_buffer %p q:%"PRIi64"/%"PRIi64" e:%"PRIu64
-		    " err:%+03f corr:%f %f %f %f",
-                    buffer, data->b, ts.queued, ts.size, elapsed, err, corr,
-		    stream->err_avg, stream->err_var, stream->dll.bw);
-    }
-
-    pw_stream_set_rate (stream->pwstream, corr);
+  switch (pwsink->slave_method) {
+    case GST_PIPEWIRE_SINK_SLAVE_METHOD_NONE:
+      break;
+    case GST_PIPEWIRE_SINK_SLAVE_METHOD_RESAMPLE:
+      rate_match_resample(pwsink);
+      break;
   }
 }
 

@@ -37,6 +37,22 @@ typedef enum
 
 #define GST_TYPE_PIPEWIRE_SINK_MODE (gst_pipewire_sink_mode_get_type ())
 
+
+/**
+ * GstPipeWireSinkSlaveMethod:
+ * @GST_PIPEWIRE_SINK_SLAVE_METHOD_NONE: no clock and timestamp slaving
+ * @GST_PIPEWIRE_SINK_SLAVE_METHOD_RESAMPLE: resample audio
+ *
+ * Different clock slaving methods
+ */
+typedef enum
+{
+  GST_PIPEWIRE_SINK_SLAVE_METHOD_NONE,
+  GST_PIPEWIRE_SINK_SLAVE_METHOD_RESAMPLE,
+} GstPipeWireSinkSlaveMethod;
+
+#define GST_TYPE_PIPEWIRE_SINK_SLAVE_METHOD (gst_pipewire_sink_slave_method_get_type ())
+
 /**
  * GstPipeWireSink:
  *
@@ -54,6 +70,7 @@ struct _GstPipeWireSink {
   gint rate;
 
   GstPipeWireSinkMode mode;
+  GstPipeWireSinkSlaveMethod slave_method;
 };
 
 GType gst_pipewire_sink_mode_get_type (void);

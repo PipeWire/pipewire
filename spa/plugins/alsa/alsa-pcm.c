@@ -2831,16 +2831,20 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 		state->next_time += (uint64_t)(diff / corr * 1e9 / state->rate);
 
 	if (SPA_UNLIKELY((state->next_time - state->base_time) > BW_PERIOD)) {
+		double bw;
+
 		state->base_time = state->next_time;
 
-		spa_log_debug(state->log, "%s: follower:%d match:%d rate:%f "
+		bw = (fabs(state->err_avg) + sqrt(fabs(state->err_var)))/1000.0;
+
+		spa_log_info(state->log, "%s: follower:%d match:%d rate:%f "
 				"bw:%f thr:%u del:%ld target:%ld err:%f max:%f var:%f:%f:%f",
 				state->name, follower, state->matching,
 				corr, state->dll.bw, state->threshold, delay, target,
-				err, state->max_error, state->err_avg, state->err_var, state->err_wdw);
+				err, state->max_error, state->err_avg, state->err_var, bw);
 
 		spa_dll_set_bw(&state->dll,
-				SPA_CLAMPD(sqrt(state->err_var)/1000.0, 0.001, SPA_DLL_BW_MAX),
+				SPA_CLAMPD(bw, 0.001, SPA_DLL_BW_MAX),
 				state->threshold, state->rate);
 	}
 

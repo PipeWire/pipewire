@@ -49,7 +49,7 @@ struct data_loop {
 	struct pw_data_loop *impl;
 	bool autostart;
 	bool started;
-	int ref;
+	uint64_t last_used;
 };
 
 /** \cond */
@@ -672,12 +672,12 @@ static struct pw_data_loop *acquire_data_loop(struct impl *impl, const char *nam
 			}
 		}
 
-		pw_log_debug("%d: name:'%s' class:'%s' score:%d ref:%d", i,
-				ln, l->impl->class, score, l->ref);
+		pw_log_debug("%d: name:'%s' class:'%s' score:%d last_used:%"PRIu64, i,
+				ln, l->impl->class, score, l->last_used);
 
 		if ((best_loop == NULL) ||
 		    (score > best_score) ||
-		    (score == best_score && l->ref < best_loop->ref)) {
+		    (score == best_score && l->last_used < best_loop->last_used)) {
 			best_loop = l;
 			best_score = score;
 		}
@@ -685,15 +685,15 @@ static struct pw_data_loop *acquire_data_loop(struct impl *impl, const char *nam
 	if (best_loop == NULL)
 		return NULL;
 
-	best_loop->ref++;
+	best_loop->last_used = get_time_ns(impl->this.main_loop->system);
 	if ((res = data_loop_start(impl, best_loop)) < 0) {
 		errno = -res;
 		return NULL;
 	}
 
-	pw_log_info("%p: using name:'%s' class:'%s' ref:%d", impl,
+	pw_log_info("%p: using name:'%s' class:'%s' last_used:%"PRIu64, impl,
 			best_loop->impl->loop->name,
-			best_loop->impl->class, best_loop->ref);
+			best_loop->impl->class, best_loop->last_used);
 
 	return best_loop->impl;
 }
@@ -737,9 +737,8 @@ void pw_context_release_loop(struct pw_context *context, struct pw_loop *loop)
 	for (i = 0; i < impl->n_data_loops; i++) {
 		struct data_loop *l = &impl->data_loops[i];
 		if (l->impl->loop == loop) {
-			l->ref--;
-			pw_log_info("release name:'%s' class:'%s' ref:%d", l->impl->loop->name,
-					l->impl->class, l->ref);
+			pw_log_info("release name:'%s' class:'%s' last_used:%"PRIu64,
+					l->impl->loop->name, l->impl->class, l->last_used);
 			return;
 		}
 	}

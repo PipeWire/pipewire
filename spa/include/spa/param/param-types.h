@@ -55,6 +55,11 @@ static const struct spa_type_info spa_type_prop_float_array[] = {
 	{ 0, 0, NULL, NULL },
 };
 
+static const struct spa_type_info spa_type_prop_int_array[] = {
+	{ SPA_PROP_START, SPA_TYPE_Int, SPA_TYPE_INFO_BASE "intArray", NULL, },
+	{ 0, 0, NULL, NULL },
+};
+
 static const struct spa_type_info spa_type_prop_channel_map[] = {
 	{ SPA_PROP_START, SPA_TYPE_Id, SPA_TYPE_INFO_BASE "channelMap", spa_type_audio_channel, },
 	{ 0, 0, NULL, NULL },

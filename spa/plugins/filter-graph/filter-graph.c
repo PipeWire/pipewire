@@ -739,7 +739,6 @@ static void plugin_unref(struct plugin *hndl)
 		return;
 
 	spa_list_remove(&hndl->link);
-	spa_handle_clear(hndl->hndl);
 	if (hndl->hndl)
 		spa_plugin_loader_unload(impl->loader, hndl->hndl);
 	free(hndl);

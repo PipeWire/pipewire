@@ -2837,7 +2837,7 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 
 		bw = (fabs(state->err_avg) + sqrt(fabs(state->err_var)))/1000.0;
 
-		spa_log_info(state->log, "%s: follower:%d match:%d rate:%f "
+		spa_log_debug(state->log, "%s: follower:%d match:%d rate:%f "
 				"bw:%f thr:%u del:%ld target:%ld err:%f max:%f var:%f:%f:%f",
 				state->name, follower, state->matching,
 				corr, state->dll.bw, state->threshold, delay, target,

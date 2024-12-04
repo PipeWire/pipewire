@@ -2084,31 +2084,42 @@ static const struct spa_fga_descriptor param_eq_desc = {
 /** max */
 static void max_run(void * Instance, unsigned long SampleCount)
 {
-       struct builtin *impl = Instance;
-       float *out = impl->port[0], *in1 = impl->port[1], *in2 = impl->port[2];
+	struct builtin *impl = Instance;
+	float *out = impl->port[0], *in1 = impl->port[1], *in2 = impl->port[2];
+	unsigned long n;
 
-       if (out == NULL)
-               return;
+	if (out == NULL)
+		return;
 
-       unsigned long n;
-       for (n = 0; n < SampleCount; n++)
-               out[n] = SPA_MAX(in1[n], in2[n]);
+	if (in1 != NULL && in2 != NULL) {
+		for (n = 0; n < SampleCount; n++) {
+			out[n] = fmaxf(in1[n], in2[n]);
+	} else if (in1 != NULL) {
+		for (n = 0; n < SampleCount; n++) {
+			out[n] = in1[n];
+	} else if (in2 != NULL) {
+		for (n = 0; n < SampleCount; n++) {
+			out[n] = in2[n];
+	} else {
+		for (n = 0; n < SampleCount; n++) {
+			out[n] = 0.0f;
+	}
 }
 
 static struct spa_fga_port max_ports[] = {
-       { .index = 0,
-         .name = "Out",
-         .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
-       },
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
 
-       { .index = 1,
-         .name = "In 1",
-         .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
-       },
-       { .index = 2,
-         .name = "In 2",
-         .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
-       }
+	{ .index = 1,
+	  .name = "In 1",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 2,
+	  .name = "In 2",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	}
 };
 
 static const struct spa_fga_descriptor max_desc = {

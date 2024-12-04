@@ -175,7 +175,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 
 	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 
-	items = alloca((dev->props.n_items + 10) * sizeof(*items));
+	items = alloca((dev->props.n_items + 11) * sizeof(*items));
 	n_items = 0;
 
 	snprintf(card_index, sizeof(card_index), "%d", card->index);
@@ -192,6 +192,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_CARD, card_index);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_STREAM, stream);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_GROUP, stream);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ICON_NAME, "audio-card-analog");
 
 	snprintf(channels, sizeof(channels), "%d", dev->format.channels);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_CHANNELS, channels);

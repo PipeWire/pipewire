@@ -466,6 +466,12 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * "Freq", "Ampl", "Offset" and "Phase" can be used to control the sine wave
  * frequency, amplitude, offset and phase.
  *
+ * ### Max
+ *
+ * Use the `max` plugin if you need to select the max value of two channels.
+ *
+ * It has two input ports "In 1" and "In 2" and one output port "Out".
+ *
  * ## SOFA filter
  *
  * There is an optional builtin SOFA filter available.

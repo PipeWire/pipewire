@@ -2081,6 +2081,49 @@ static const struct spa_fga_descriptor param_eq_desc = {
 	.cleanup = free,
 };
 
+/** max */
+static void max_run(void * Instance, unsigned long SampleCount)
+{
+       struct builtin *impl = Instance;
+       float *out = impl->port[0], *in1 = impl->port[1], *in2 = impl->port[2];
+
+       if (out == NULL)
+               return;
+
+       unsigned long n;
+       for (n = 0; n < SampleCount; n++)
+               out[n] = SPA_MAX(in1[n], in2[n]);
+}
+
+static struct spa_fga_port max_ports[] = {
+       { .index = 0,
+         .name = "Out",
+         .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+       },
+
+       { .index = 1,
+         .name = "In 1",
+         .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+       },
+       { .index = 2,
+         .name = "In 2",
+         .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+       }
+};
+
+static const struct spa_fga_descriptor max_desc = {
+       .name = "max",
+       .flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+       .n_port = SPA_N_ELEMENTS(max_ports),
+       .ports = max_ports,
+
+       .instantiate = builtin_instantiate,
+       .connect_port = builtin_connect_port,
+       .run = max_run,
+       .cleanup = builtin_cleanup,
+};
+
 static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 {
 	switch(Index) {
@@ -2128,6 +2171,8 @@ static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 		return &sine_desc;
 	case 21:
 		return &param_eq_desc;
+	case 22:
+		return &max_desc;
 	}
 	return NULL;
 }

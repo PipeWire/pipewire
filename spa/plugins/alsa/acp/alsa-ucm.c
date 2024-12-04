@@ -1425,22 +1425,20 @@ static pa_idxset *iterate_device_subsets(pa_idxset *devices, void **state) {
 static pa_idxset *iterate_maximal_device_subsets(pa_idxset *devices, void **state) {
     uint32_t idx;
     pa_alsa_ucm_device *dev;
-    pa_idxset *subset;
+    pa_idxset *subset = NULL;
 
     pa_assert(devices);
     pa_assert(state);
 
-    subset = iterate_device_subsets(devices, state);
-    if (!subset)
-        return subset;
-
-    /* Skip this group if it's incomplete, by checking if we can add any
-     * other device. If we can, this iteration is a subset of another
-     * group that we already returned or eventually return. */
-    PA_IDXSET_FOREACH(dev, devices, idx) {
-        if (!pa_idxset_contains(subset, dev) && devset_supports_device(subset, dev)) {
-            pa_idxset_free(subset, NULL);
-            return iterate_maximal_device_subsets(devices, state);
+    while (subset == NULL && (subset = iterate_device_subsets(devices, state))) {
+        /* Skip this group if it's incomplete, by checking if we can add any
+         * other device. If we can, this iteration is a subset of another
+         * group that we already returned or eventually return. */
+        PA_IDXSET_FOREACH(dev, devices, idx) {
+            if (subset && !pa_idxset_contains(subset, dev) && devset_supports_device(subset, dev)) {
+                pa_idxset_free(subset, NULL);
+                subset = NULL;
+            }
         }
     }
 

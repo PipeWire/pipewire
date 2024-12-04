@@ -2115,7 +2115,7 @@ static const struct spa_fga_descriptor max_desc = {
        .name = "max",
        .flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
-       .n_port = SPA_N_ELEMENTS(max_ports),
+       .n_ports = SPA_N_ELEMENTS(max_ports),
        .ports = max_ports,
 
        .instantiate = builtin_instantiate,

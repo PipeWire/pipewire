@@ -2093,7 +2093,7 @@ static void max_run(void * Instance, unsigned long SampleCount)
 
 	if (in1 != NULL && in2 != NULL) {
 		for (n = 0; n < SampleCount; n++)
-			out[n] = fmaxf(in1[n], in2[n]);
+			out[n] = SPA_MAX(in1[n], in2[n]);
 	} else if (in1 != NULL) {
 		for (n = 0; n < SampleCount; n++)
 			out[n] = in1[n];

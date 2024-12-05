@@ -33,6 +33,7 @@ struct spa_bt_telephony {
 struct spa_bt_telephony_ag_transport {
 	int8_t codec;
 	enum spa_bt_transport_state state;
+	dbus_bool_t rejectSCO;
 };
 
 struct spa_bt_telephony_ag {
@@ -72,6 +73,8 @@ struct spa_bt_telephony_ag_callbacks {
 	void (*hangup_all)(void *data, enum spa_bt_telephony_error *err);
 	void (*create_multiparty)(void *data, enum spa_bt_telephony_error *err);
 	void (*send_tones)(void *data, const char *tones, enum spa_bt_telephony_error *err);
+
+	void (*transport_activate)(void *data, enum spa_bt_telephony_error *err);
 };
 
 struct spa_bt_telephony_call_callbacks {

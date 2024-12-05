@@ -121,6 +121,8 @@
 	" <interface name='" PW_TELEPHONY_AG_TRANSPORT_IFACE "'>"		\
 	"  <property name='State' type='s' access='read'/>"			\
 	"  <property name='Codec' type='y' access='read'/>"			\
+	"  <property name='RejectSCO' type='b' access='readwrite'/>"		\
+	"  <method name='Activate'/>"						\
 	" </interface>"								\
 	" <interface name='" OFONO_VOICE_CALL_MANAGER_IFACE "'>"		\
 	PW_TELEPHONY_AG_COMMON_INTROSPECT_XML					\
@@ -188,6 +190,8 @@ struct impl {
 
 	const char *path;
 	struct spa_list ag_list;
+
+	bool default_reject_sco;
 };
 
 struct agimpl {
@@ -230,6 +234,7 @@ struct callimpl {
 #define ag_emit_hangup_all(s,e)		ag_emit(s,hangup_all,0,e)
 #define ag_emit_create_multiparty(s,e)	ag_emit(s,create_multiparty,0,e)
 #define ag_emit_send_tones(s,t,e)	ag_emit(s,send_tones,0,t,e)
+#define ag_emit_transport_activate(s,e) ag_emit(s,transport_activate,0,e)
 
 #define call_emit(c,m,v,...) 	spa_callbacks_call(&c->callbacks, struct spa_bt_telephony_call_callbacks, m, v, ##__VA_ARGS__)
 #define call_emit_answer(s,e)	call_emit(s,answer,0,e)
@@ -420,6 +425,14 @@ telephony_new(struct spa_log *log, struct spa_dbus *dbus, const struct spa_dict 
 		goto fail;
 	}
 
+	impl->default_reject_sco = false;
+	if (info) {
+		const char *str;
+		if ((str = spa_dict_lookup(info, "bluez5.telephony.default-reject-sco")) != NULL) {
+			impl->default_reject_sco = spa_atob(str);
+		}
+	}
+
 	/* XXX: We should handle spa_dbus reconnecting, but we don't, so ref
 	 * XXX: the handle so that we can keep it if spa_dbus unrefs it.
 	 */
@@ -555,6 +568,20 @@ dbus_iter_append_ag_transport_properties(DBusMessageIter *i, struct spa_bt_telep
 		changed = true;
 	}
 
+	if (all || ag->transport.rejectSCO != agimpl->prev.transport.rejectSCO) {
+		dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
+		const char *name = "RejectSCO";
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &name);
+		dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
+						DBUS_TYPE_BOOLEAN_AS_STRING,
+						&variant);
+		dbus_message_iter_append_basic(&variant, DBUS_TYPE_BOOLEAN,
+						&ag->transport.rejectSCO);
+		dbus_message_iter_close_container(&entry, &variant);
+		dbus_message_iter_close_container(&dict, &entry);
+		changed = true;
+	}
+
 	dbus_message_iter_close_container(i, &dict);
 	return changed;
 }
@@ -676,6 +703,17 @@ static DBusMessage *ag_properties_get(struct agimpl *agimpl, DBusMessage *m)
 					transport_state_to_string(agimpl->this.transport.state));
 			dbus_message_iter_close_container(&i, &v);
 			return r;
+		} else if (spa_streq(name, "RejectSCO")) {
+			r = dbus_message_new_method_return(m);
+			if (r == NULL)
+				return NULL;
+			dbus_message_iter_init_append(r, &i);
+			dbus_message_iter_open_container(&i, DBUS_TYPE_VARIANT,
+					DBUS_TYPE_BOOLEAN_AS_STRING, &v);
+			dbus_message_iter_append_basic(&v, DBUS_TYPE_BOOLEAN,
+					&agimpl->this.transport.rejectSCO);
+			dbus_message_iter_close_container(&i, &v);
+			return r;
 		}
 	} else {
 		return dbus_message_new_error(m, DBUS_ERROR_UNKNOWN_INTERFACE,
@@ -719,6 +757,26 @@ static DBusMessage *ag_properties_get_all(struct agimpl *agimpl, DBusMessage *m)
 
 static DBusMessage *ag_properties_set(struct agimpl *agimpl, DBusMessage *m)
 {
+	const char *iface, *name;
+	DBusMessageIter i, variant;
+
+	if (!dbus_message_get_args(m, NULL,
+				DBUS_TYPE_STRING, &iface,
+				DBUS_TYPE_STRING, &name,
+				DBUS_TYPE_INVALID))
+		return NULL;
+
+	if (spa_streq(iface, PW_TELEPHONY_AG_TRANSPORT_IFACE)) {
+		if (spa_streq(name, "RejectSCO")) {
+			dbus_message_iter_init(m, &i);
+			dbus_message_iter_next(&i); /* skip iface */
+			dbus_message_iter_next(&i); /* skip name */
+			dbus_message_iter_recurse(&i, &variant); /* value */
+			dbus_message_iter_get_basic(&variant, &agimpl->this.transport.rejectSCO);
+			return dbus_message_new_method_return(m);
+		}
+	}
+
 	return dbus_message_new_error(m, DBUS_ERROR_PROPERTY_READ_ONLY,
 			"Property not writable");
 }
@@ -887,6 +945,17 @@ failed:
 		telephony_error_to_description (err));
 }
 
+static DBusMessage *ag_transport_activate(struct agimpl *agimpl, DBusMessage *m)
+{
+	enum spa_bt_telephony_error err = BT_TELEPHONY_ERROR_FAILED;
+
+	if (ag_emit_transport_activate(agimpl, &err) && err == BT_TELEPHONY_ERROR_NONE)
+		return dbus_message_new_method_return(m);
+
+	return dbus_message_new_error(m, telephony_error_to_dbus (err),
+		telephony_error_to_description (err));
+}
+
 static DBusHandlerResult ag_handler(DBusConnection *c, DBusMessage *m, void *userdata)
 {
 	struct agimpl *agimpl = userdata;
@@ -937,6 +1006,8 @@ static DBusHandlerResult ag_handler(DBusConnection *c, DBusMessage *m, void *use
 		r = ag_send_tones(agimpl, m);
 	} else if (dbus_message_is_method_call(m, OFONO_VOICE_CALL_MANAGER_IFACE, "GetCalls")) {
 		r = ag_get_managed_objects(agimpl, m, true);
+	} else if (dbus_message_is_method_call(m, PW_TELEPHONY_AG_TRANSPORT_IFACE, "Activate")) {
+		r = ag_transport_activate(agimpl, m);
 	} else {
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
@@ -968,6 +1039,8 @@ telephony_ag_new(struct spa_bt_telephony *telephony, size_t user_data_size)
 
 	if (user_data_size > 0)
 		agimpl->user_data = SPA_PTROFF(agimpl, sizeof(struct agimpl), void);
+
+	agimpl->this.transport.rejectSCO = impl->default_reject_sco;
 
 	return &agimpl->this;
 }

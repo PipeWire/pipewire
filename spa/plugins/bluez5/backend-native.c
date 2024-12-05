@@ -1722,6 +1722,33 @@ static void hfp_hf_send_tones(void *data, const char *tones, enum spa_bt_telepho
 	*err = BT_TELEPHONY_ERROR_NONE;
 }
 
+static void hfp_hf_transport_activate(void *data, enum spa_bt_telephony_error *err)
+{
+	struct rfcomm *rfcomm = data;
+	struct impl *backend = rfcomm->backend;
+	char reply[20];
+
+	if (spa_list_is_empty(&rfcomm->telephony_ag->call_list)) {
+		spa_log_debug(backend->log, "no ongoing call");
+		*err = BT_TELEPHONY_ERROR_INVALID_STATE;
+		return;
+	}
+	if (rfcomm->transport->fd > 0) {
+		spa_log_debug(backend->log, "transport is already active; SCO socket exists");
+		*err = BT_TELEPHONY_ERROR_INVALID_STATE;
+		return;
+	}
+
+	rfcomm_send_cmd(rfcomm, "AT+BCC");
+	if (!hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply)) || !spa_strstartswith(reply, "OK")) {
+		spa_log_info(backend->log, "Failed to send AT+BCC");
+		*err = BT_TELEPHONY_ERROR_FAILED;
+		return;
+	}
+
+	*err = BT_TELEPHONY_ERROR_NONE;
+}
+
 static const struct spa_bt_telephony_ag_callbacks telephony_ag_callbacks = {
 	SPA_VERSION_BT_TELEPHONY_AG_CALLBACKS,
 	.dial = hfp_hf_dial,
@@ -1731,7 +1758,8 @@ static const struct spa_bt_telephony_ag_callbacks telephony_ag_callbacks = {
 	.hold_and_answer = hfp_hf_hold_and_answer,
 	.hangup_all = hfp_hf_hangup_all,
 	.create_multiparty = hfp_hf_create_multiparty,
-	.send_tones = hfp_hf_send_tones
+	.send_tones = hfp_hf_send_tones,
+	.transport_activate = hfp_hf_transport_activate,
 };
 
 static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
@@ -2660,6 +2688,11 @@ static void sco_listen_event(struct spa_source *source)
 	}
 
 	spa_assert(t->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
+
+	if (rfcomm->telephony_ag && rfcomm->telephony_ag->transport.rejectSCO) {
+		spa_log_info(backend->log, "rejecting SCO, AudioGatewayTransport1.RejectSCO=true");
+		return;
+	}
 
 	if (t->fd >= 0) {
 		spa_log_debug(backend->log, "transport %p: Rejecting, audio already connected", t);

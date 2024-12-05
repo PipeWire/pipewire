@@ -1376,20 +1376,29 @@ static void codec_switched(void *userdata, int status)
 	emit_info(this, false);
 }
 
-static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t prev_connected_profiles)
+static bool device_set_needs_update(struct impl *this)
+{
+	struct device_set dset = { .impl = this };
+	bool changed;
+
+	if (this->profile != DEVICE_PROFILE_BAP)
+		return false;
+
+	device_set_update(this, &dset);
+	changed = !device_set_equal(&dset, &this->device_set);
+	device_set_clear(this, &dset);
+	return changed;
+}
+
+static void profiles_changed(void *userdata, uint32_t connected_change)
 {
 	struct impl *this = userdata;
-	uint32_t connected_change;
 	bool nodes_changed = false;
 
-	connected_change = (this->bt_dev->connected_profiles ^ prev_connected_profiles);
-
 	/* Profiles changed. We have to re-emit device information. */
-	spa_log_info(this->log, "profiles changed to  %08x %08x (prev %08x %08x, change %08x)"
-		     " switching_codec:%d",
-		     this->bt_dev->profiles, this->bt_dev->connected_profiles,
-		     prev_profiles, prev_connected_profiles, connected_change,
-		     this->switching_codec);
+	spa_log_info(this->log, "profiles changed to %08x %08x (change %08x) switching_codec:%d",
+			this->bt_dev->profiles, this->bt_dev->connected_profiles,
+			connected_change, this->switching_codec);
 
 	if (this->switching_codec)
 		return;
@@ -1405,15 +1414,21 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 		break;
 	case DEVICE_PROFILE_AG:
 		nodes_changed = (connected_change & (SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY |
-						     SPA_BT_PROFILE_MEDIA_SOURCE));
+						     SPA_BT_PROFILE_A2DP_SOURCE));
 		spa_log_debug(this->log, "profiles changed: AG nodes changed: %d",
 			      nodes_changed);
 		break;
 	case DEVICE_PROFILE_A2DP:
+		nodes_changed = (connected_change & SPA_BT_PROFILE_A2DP_DUPLEX);
+		spa_log_debug(this->log, "profiles changed: A2DP nodes changed: %d",
+			      nodes_changed);
+		break;
 	case DEVICE_PROFILE_BAP:
-		nodes_changed = (connected_change & (SPA_BT_PROFILE_MEDIA_SINK |
-						     SPA_BT_PROFILE_MEDIA_SOURCE));
-		spa_log_debug(this->log, "profiles changed: media nodes changed: %d",
+		nodes_changed = ((connected_change & SPA_BT_PROFILE_BAP_DUPLEX)
+					&& device_set_needs_update(this))
+				|| (connected_change & (SPA_BT_PROFILE_BAP_BROADCAST_SINK |
+							SPA_BT_PROFILE_BAP_BROADCAST_SOURCE));
+		spa_log_debug(this->log, "profiles changed: BAP nodes changed: %d",
 			      nodes_changed);
 		break;
 	case DEVICE_PROFILE_HSP_HFP:
@@ -1441,17 +1456,11 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 static void device_set_changed(void *userdata)
 {
 	struct impl *this = userdata;
-	struct device_set dset = { .impl = this };
-	bool changed;
 
 	if (this->profile != DEVICE_PROFILE_BAP)
 		return;
 
-	device_set_update(this, &dset);
-	changed = !device_set_equal(&dset, &this->device_set);
-	device_set_clear(this, &dset);
-
-	if (!changed) {
+	if (!device_set_needs_update(this)) {
 		spa_log_debug(this->log, "%p: device set not changed", this);
 		return;
 	}

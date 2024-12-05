@@ -2094,13 +2094,11 @@ static void device_update_set_status(struct spa_bt_device *device, bool force, c
 
 int spa_bt_device_connect_profile(struct spa_bt_device *device, enum spa_bt_profile profile)
 {
-	uint32_t prev_connected = device->connected_profiles;
 	device->connected_profiles |= profile;
 	if (profile & SPA_BT_PROFILE_BAP_DUPLEX)
 		device_update_set_status(device, true, NULL);
 	spa_bt_device_check_profiles(device, false);
-	if (device->connected_profiles != prev_connected)
-		spa_bt_device_emit_profiles_changed(device, device->profiles, prev_connected);
+	spa_bt_device_emit_profiles_changed(device, profile);
 	return 0;
 }
 
@@ -2458,8 +2456,7 @@ static int device_update_props(struct spa_bt_device *device,
 			}
 
 			if (device->profiles != prev_profiles)
-				spa_bt_device_emit_profiles_changed(
-					device, prev_profiles, device->connected_profiles);
+				spa_bt_device_emit_profiles_changed(device, 0);
 		}
 		else if (spa_streq(key, "Sets")) {
 			device_update_device_sets_prop(device, &it[1]);
@@ -2943,7 +2940,6 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 	if (device) {
 		struct spa_bt_transport *t;
 		uint32_t disconnected = transport->profile;
-		uint32_t prev_connected = device->connected_profiles;
 
 		spa_list_remove(&transport->device_link);
 
@@ -2953,8 +2949,8 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 
 		if (transport->profile & SPA_BT_PROFILE_BAP_DUPLEX)
 			device_update_set_status(device, true, NULL);
-		if (device->connected_profiles != prev_connected)
-			spa_bt_device_emit_profiles_changed(device, device->profiles, prev_connected);
+
+		spa_bt_device_emit_profiles_changed(device, transport->profile);
 	}
 
 	spa_list_remove(&transport->bap_transport_linked);
@@ -5568,7 +5564,7 @@ static void interface_added(struct spa_bt_monitor *monitor,
 
 		d = ep->device;
 		if (d)
-			spa_bt_device_emit_profiles_changed(d, d->profiles, d->connected_profiles);
+			spa_bt_device_emit_profiles_changed(d, 0);
 
 		if (spa_streq(ep->uuid, SPA_BT_UUID_BAP_BROADCAST_SINK)) {
 			int ret, i;
@@ -5662,7 +5658,7 @@ static void interfaces_removed(struct spa_bt_monitor *monitor, DBusMessageIter *
 				struct spa_bt_device *d = ep->device;
 				remote_endpoint_free(ep);
 				if (d)
-					spa_bt_device_emit_profiles_changed(d, d->profiles, d->connected_profiles);
+					spa_bt_device_emit_profiles_changed(d, 0);
 			}
 		} else if (spa_streq(interface_name, BLUEZ_MEDIA_TRANSPORT_INTERFACE)) {
 			struct spa_bt_transport *transport;
@@ -5930,7 +5926,7 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 
 			d = ep->device;
 			if (d)
-				spa_bt_device_emit_profiles_changed(d, d->profiles, d->connected_profiles);
+				spa_bt_device_emit_profiles_changed(d, 0);
 		}
 		else if (spa_streq(iface, BLUEZ_MEDIA_TRANSPORT_INTERFACE)) {
 			struct spa_bt_transport *transport;

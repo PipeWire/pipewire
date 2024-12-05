@@ -468,7 +468,7 @@ struct spa_bt_device_events {
 	void (*codec_switched) (void *data, int status);
 
 	/** Profile configuration changed */
-	void (*profiles_changed) (void *data, uint32_t prev_profiles, uint32_t prev_connected);
+	void (*profiles_changed) (void *data, uint32_t connected_change);
 
 	/** Device set configuration changed */
 	void (*device_set_changed) (void *data);

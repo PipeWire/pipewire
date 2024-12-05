@@ -1290,28 +1290,30 @@ void pa_alsa_ucm_add_port(
         pa_hashmap_put(ports, port->name, port);
         pa_log_debug("Add port %s: %s", port->name, port->description);
         ucm_add_port_props(port, is_sink);
+    }
 
-        PA_HASHMAP_FOREACH_KV(verb_name, vol, is_sink ? dev->playback_volumes : dev->capture_volumes, state) {
-            pa_alsa_path *path = pa_alsa_path_synthesize(vol->mixer_elem,
-                                                         is_sink ? PA_ALSA_DIRECTION_OUTPUT : PA_ALSA_DIRECTION_INPUT);
-
-            if (!path)
-                pa_log_warn("Failed to set up volume control: %s", vol->mixer_elem);
-            else {
-                if (vol->master_elem) {
-                    pa_alsa_element *e = pa_alsa_element_get(path, vol->master_elem, false);
-                    e->switch_use = PA_ALSA_SWITCH_MUTE;
-                    e->volume_use = PA_ALSA_VOLUME_MERGE;
-                }
-
-                pa_hashmap_put(data->paths, pa_xstrdup(verb_name), path);
-
-                /* Add path also to already created empty path set */
-                if (is_sink)
-                    pa_hashmap_put(dev->playback_mapping->output_path_set->paths, pa_xstrdup(vol->mixer_elem), path);
-                else
-                    pa_hashmap_put(dev->capture_mapping->input_path_set->paths, pa_xstrdup(vol->mixer_elem), path);
+    data = PA_DEVICE_PORT_DATA(port);
+    PA_HASHMAP_FOREACH_KV(verb_name, vol, is_sink ? dev->playback_volumes : dev->capture_volumes, state) {
+        if (pa_hashmap_get(data->paths, verb_name))
+            continue;
+        pa_alsa_path *path = pa_alsa_path_synthesize(vol->mixer_elem,
+                                                     is_sink ? PA_ALSA_DIRECTION_OUTPUT : PA_ALSA_DIRECTION_INPUT);
+        if (!path)
+            pa_log_warn("Failed to set up volume control: %s", vol->mixer_elem);
+        else {
+            if (vol->master_elem) {
+                pa_alsa_element *e = pa_alsa_element_get(path, vol->master_elem, false);
+                e->switch_use = PA_ALSA_SWITCH_MUTE;
+                e->volume_use = PA_ALSA_VOLUME_MERGE;
             }
+
+            pa_hashmap_put(data->paths, pa_xstrdup(verb_name), path);
+
+            /* Add path also to already created empty path set */
+            if (is_sink)
+                pa_hashmap_put(dev->playback_mapping->output_path_set->paths, pa_xstrdup(vol->mixer_elem), path);
+            else
+                pa_hashmap_put(dev->capture_mapping->input_path_set->paths, pa_xstrdup(vol->mixer_elem), path);
         }
     }
 

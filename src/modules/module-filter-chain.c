@@ -433,6 +433,12 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *
  * It has an input port "In" and an output port "Out".
  *
+ * ### Sqrt
+ *
+ * The sqrt plugin can be used to calculate the square root of samples.
+ *
+ * It has an input port "In" and an output port "Out".
+ *
  * ### Exp
  *
  * The exp plugin can be used to calculate the exponential (base^x) of samples

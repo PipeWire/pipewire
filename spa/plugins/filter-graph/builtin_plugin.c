@@ -2405,6 +2405,47 @@ static const struct spa_fga_descriptor abs_desc = {
 	.cleanup = builtin_cleanup,
 };
 
+/* sqrt */
+static void sqrt_run(void * Instance, unsigned long SampleCount)
+{
+	struct builtin *impl = Instance;
+	float *in = impl->port[1], *out = impl->port[0];
+
+	if (in != NULL && out != NULL) {
+		unsigned long n;
+		for (n = 0; n < SampleCount; n++) {
+			if (in[n] <= 0.0f)
+				out[n] = 0.0f;
+			else
+				out[n] = sqrtf(in[n]);
+		}
+	}
+}
+
+static struct spa_fga_port sqrt_ports[] = {
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "In",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+};
+
+static const struct spa_fga_descriptor sqrt_desc = {
+	.name = "sqrt",
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = SPA_N_ELEMENTS(sqrt_ports),
+	.ports = sqrt_ports,
+
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = sqrt_run,
+	.cleanup = builtin_cleanup,
+};
+
 static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 {
 	switch(Index) {
@@ -2460,6 +2501,8 @@ static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 		return &ramp_desc;
 	case 25:
 		return &abs_desc;
+	case 26:
+		return &sqrt_desc;
 	}
 	return NULL;
 }

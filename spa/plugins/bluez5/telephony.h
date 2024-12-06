@@ -14,6 +14,7 @@ enum spa_bt_telephony_error {
 	BT_TELEPHONY_ERROR_INVALID_FORMAT,
 	BT_TELEPHONY_ERROR_INVALID_STATE,
 	BT_TELEPHONY_ERROR_IN_PROGRESS,
+	BT_TELEPHONY_ERROR_CME,
 };
 
 enum spa_bt_telephony_call_state {
@@ -65,24 +66,24 @@ struct spa_bt_telephony_ag_callbacks {
 #define SPA_VERSION_BT_TELEPHONY_AG_CALLBACKS	0
 	uint32_t version;
 
-	void (*dial)(void *data, const char *number, enum spa_bt_telephony_error *err);
-	void (*swap_calls)(void *data, enum spa_bt_telephony_error *err);
-	void (*release_and_answer)(void *data, enum spa_bt_telephony_error *err);
-	void (*release_and_swap)(void *data, enum spa_bt_telephony_error *err);
-	void (*hold_and_answer)(void *data, enum spa_bt_telephony_error *err);
-	void (*hangup_all)(void *data, enum spa_bt_telephony_error *err);
-	void (*create_multiparty)(void *data, enum spa_bt_telephony_error *err);
-	void (*send_tones)(void *data, const char *tones, enum spa_bt_telephony_error *err);
+	void (*dial)(void *data, const char *number, enum spa_bt_telephony_error *err, uint8_t *cme_error);
+	void (*swap_calls)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
+	void (*release_and_answer)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
+	void (*release_and_swap)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
+	void (*hold_and_answer)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
+	void (*hangup_all)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
+	void (*create_multiparty)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
+	void (*send_tones)(void *data, const char *tones, enum spa_bt_telephony_error *err, uint8_t *cme_error);
 
-	void (*transport_activate)(void *data, enum spa_bt_telephony_error *err);
+	void (*transport_activate)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
 };
 
 struct spa_bt_telephony_call_callbacks {
 #define SPA_VERSION_BT_TELEPHONY_CALL_CALLBACKS	0
 	uint32_t version;
 
-	void (*answer)(void *data, enum spa_bt_telephony_error *err);
-	void (*hangup)(void *data, enum spa_bt_telephony_error *err);
+	void (*answer)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
+	void (*hangup)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
 };
 
 struct spa_bt_telephony *telephony_new(struct spa_log *log, struct spa_dbus *dbus,

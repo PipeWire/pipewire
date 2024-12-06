@@ -15,8 +15,8 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-/* S = 1 in Q */
-#define BIQUAD_SHELVING_DEFAULT_Q 0.707106781186548
+/* Q = 1 / sqrt(2), also resulting Q value when S = 1 */
+#define BIQUAD_DEFAULT_Q 0.707106781186548
 
 static void set_coefficient(struct biquad *bq, double b0, double b1, double b2,
 			    double a0, double a1, double a2)
@@ -29,7 +29,7 @@ static void set_coefficient(struct biquad *bq, double b0, double b1, double b2,
 	bq->a2 = (float)(a2 * a0_inv);
 }
 
-static void biquad_lowpass(struct biquad *bq, double cutoff, double resonance)
+static void biquad_lowpass(struct biquad *bq, double cutoff, double Q)
 {
 	/* Limit cutoff to 0 to 1. */
 	cutoff = fmax(0.0, fmin(cutoff, 1.0));
@@ -43,27 +43,27 @@ static void biquad_lowpass(struct biquad *bq, double cutoff, double resonance)
 		return;
 	}
 
+	/* Set Q to a sane default value if not set */
+	if (Q <= 0)
+		Q = BIQUAD_DEFAULT_Q;
+
 	/* Compute biquad coefficients for lowpass filter */
-	resonance = fmax(0.0, resonance); /* can't go negative */
-	double g = pow(10.0, 0.05 * resonance);
-	double d = sqrt((4 - sqrt(16 - 16 / (g * g))) / 2);
+	/* H(s) = 1 / (s^2 + s/Q + 1) */
+	double w0 = M_PI * cutoff;
+	double alpha = sin(w0) / (2 * Q);
+	double k = cos(w0);
 
-	double theta = M_PI * cutoff;
-	double sn = 0.5 * d * sin(theta);
-	double beta = 0.5 * (1 - sn) / (1 + sn);
-	double gamma = (0.5 + beta) * cos(theta);
-	double alpha = 0.25 * (0.5 + beta - gamma);
+	double b0 = (1 - k) / 2;
+	double b1 = 1 - k;
+	double b2 = (1 - k) / 2;
+	double a0 = 1 + alpha;
+	double a1 = -2 * k;
+	double a2 = 1 - alpha;
 
-	double b0 = 2 * alpha;
-	double b1 = 2 * 2 * alpha;
-	double b2 = 2 * alpha;
-	double a1 = 2 * -gamma;
-	double a2 = 2 * beta;
-
-	set_coefficient(bq, b0, b1, b2, 1, a1, a2);
+	set_coefficient(bq, b0, b1, b2, a0, a1, a2);
 }
 
-static void biquad_highpass(struct biquad *bq, double cutoff, double resonance)
+static void biquad_highpass(struct biquad *bq, double cutoff, double Q)
 {
 	/* Limit cutoff to 0 to 1. */
 	cutoff = fmax(0.0, fmin(cutoff, 1.0));
@@ -79,24 +79,24 @@ static void biquad_highpass(struct biquad *bq, double cutoff, double resonance)
 		return;
 	}
 
+	/* Set Q to a sane default value if not set */
+	if (Q <= 0)
+		Q = BIQUAD_DEFAULT_Q;
+
 	/* Compute biquad coefficients for highpass filter */
-	resonance = fmax(0.0, resonance); /* can't go negative */
-	double g = pow(10.0, 0.05 * resonance);
-	double d = sqrt((4 - sqrt(16 - 16 / (g * g))) / 2);
+	/* H(s) = s^2 / (s^2 + s/Q + 1) */
+	double w0 = M_PI * cutoff;
+	double alpha = sin(w0) / (2 * Q);
+	double k = cos(w0);
 
-	double theta = M_PI * cutoff;
-	double sn = 0.5 * d * sin(theta);
-	double beta = 0.5 * (1 - sn) / (1 + sn);
-	double gamma = (0.5 + beta) * cos(theta);
-	double alpha = 0.25 * (0.5 + beta + gamma);
+	double b0 = (1 + k) / 2;
+	double b1 = -(1 + k);
+	double b2 = (1 + k) / 2;
+	double a0 = 1 + alpha;
+	double a1 = -2 * k;
+	double a2 = 1 - alpha;
 
-	double b0 = 2 * alpha;
-	double b1 = 2 * -2 * alpha;
-	double b2 = 2 * alpha;
-	double a1 = 2 * -gamma;
-	double a2 = 2 * beta;
-
-	set_coefficient(bq, b0, b1, b2, 1, a1, a2);
+	set_coefficient(bq, b0, b1, b2, a0, a1, a2);
 }
 
 static void biquad_bandpass(struct biquad *bq, double frequency, double Q)
@@ -161,7 +161,7 @@ static void biquad_lowshelf(struct biquad *bq, double frequency, double Q,
 
 	/* Set Q to an equivalent value to S = 1 if not specified */
 	if (Q <= 0)
-		Q = BIQUAD_SHELVING_DEFAULT_Q;
+		Q = BIQUAD_DEFAULT_Q;
 
 	double w0 = M_PI * frequency;
 	double alpha = sin(w0) / (2 * Q);
@@ -201,7 +201,7 @@ static void biquad_highshelf(struct biquad *bq, double frequency, double Q,
 
 	/* Set Q to an equivalent value to S = 1 if not specified */
 	if (Q <= 0)
-		Q = BIQUAD_SHELVING_DEFAULT_Q;
+		Q = BIQUAD_DEFAULT_Q;
 
 	double w0 = M_PI * frequency;
 	double alpha = sin(w0) / (2 * Q);

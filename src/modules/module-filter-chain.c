@@ -427,6 +427,12 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * It has an input port "In" and an output port "Out". It also has a "Control"
  * and "Notify" port for the control values.
  *
+ * ### Abs
+ *
+ * The abs plugin can be used to calculate the absolute value of samples.
+ *
+ * It has an input port "In" and an output port "Out".
+ *
  * ### Exp
  *
  * The exp plugin can be used to calculate the exponential (base^x) of samples

@@ -2367,6 +2367,44 @@ static const struct spa_fga_descriptor ramp_desc = {
 	.cleanup = builtin_cleanup,
 };
 
+/* abs */
+static void abs_run(void * Instance, unsigned long SampleCount)
+{
+	struct builtin *impl = Instance;
+	float *in = impl->port[1], *out = impl->port[0];
+
+	if (in != NULL && out != NULL) {
+		unsigned long n;
+		for (n = 0; n < SampleCount; n++) {
+			out[n] = SPA_ABS(in[n]);
+		}
+	}
+}
+
+static struct spa_fga_port abs_ports[] = {
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "In",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+};
+
+static const struct spa_fga_descriptor abs_desc = {
+	.name = "abs",
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = SPA_N_ELEMENTS(abs_ports),
+	.ports = abs_ports,
+
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = abs_run,
+	.cleanup = builtin_cleanup,
+};
+
 static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 {
 	switch(Index) {
@@ -2420,6 +2458,8 @@ static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 		return &dcblock_desc;
 	case 24:
 		return &ramp_desc;
+	case 25:
+		return &abs_desc;
 	}
 	return NULL;
 }

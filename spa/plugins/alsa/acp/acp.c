@@ -230,6 +230,28 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 		dev->device.direction = ACP_DIRECTION_CAPTURE;
 		pa_proplist_update(dev->proplist, PA_UPDATE_REPLACE, m->input_proplist);
 	}
+	if (m->split) {
+		char pos[2048];
+		struct spa_strbuf b;
+		int i;
+
+		pa_proplist_sets(dev->proplist, "api.alsa.split.leader", m->split->leader ? "true" : "false");
+		pa_proplist_setf(dev->proplist, "api.alsa.split.hw-channels", "%d", m->split->hw_channels);
+
+		spa_strbuf_init(&b, pos, sizeof(pos));
+		spa_strbuf_append(&b, "[");
+		for (i = 0; i < m->split->channels; ++i)
+			spa_strbuf_append(&b, "%sAUX%d", ((i == 0) ? "" : ","), m->split->idx[i]);
+		spa_strbuf_append(&b, "]");
+		pa_proplist_sets(dev->proplist, "api.alsa.split.position", pos);
+
+		spa_strbuf_init(&b, pos, sizeof(pos));
+		spa_strbuf_append(&b, "[");
+		for (i = 0; i < m->split->hw_channels; ++i)
+			spa_strbuf_append(&b, "%sAUX%d", ((i == 0) ? "" : ","), i);
+		spa_strbuf_append(&b, "]");
+		pa_proplist_sets(dev->proplist, "api.alsa.split.hw-position", pos);
+	}
 	pa_proplist_sets(dev->proplist, PA_PROP_DEVICE_PROFILE_NAME, m->name);
 	pa_proplist_sets(dev->proplist, PA_PROP_DEVICE_PROFILE_DESCRIPTION, m->description);
 	pa_proplist_setf(dev->proplist, "card.profile.device", "%u", index);
@@ -1758,7 +1780,16 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 			impl->rate = atoi(s);
 		if ((s = acp_dict_lookup(props, "api.acp.pro-channels")) != NULL)
 			impl->pro_channels = atoi(s);
+		if ((s = acp_dict_lookup(props, "api.alsa.split-enable")) != NULL)
+			impl->ucm.split_enable = spa_atob(s);
 	}
+
+#if SND_LIB_VERSION < 0x10207
+	if (impl->ucm.split_enable)
+		pa_log_info("alsa-lib too old for PipeWire-side UCM SplitPCM");
+
+	impl->ucm.split_enable = false;		/* API addition in 1.2.7 */
+#endif
 
 	impl->ucm.default_sample_spec.format = PA_SAMPLE_S16NE;
 	impl->ucm.default_sample_spec.rate = impl->rate;

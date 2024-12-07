@@ -45,6 +45,14 @@ extern "C" {
 #define SPA_KEY_API_ALSA_DISABLE_LONGNAME	\
 					"api.alsa.disable-longname"	/**< if card long name should not be passed to MIDI port */
 #define SPA_KEY_API_ALSA_BIND_CTLS	"api.alsa.bind-ctls"		/**< alsa controls to bind as params */
+#define SPA_KEY_API_ALSA_SPLIT_ENABLE	"api.alsa.split-enable"		/**< For UCM devices with split PCMs, don't split to
+									 * multiple PCMs using alsa-lib plugins, but instead
+									 * add api.alsa.split properties to emitted nodes
+									 * with PCM splitting information.
+									 */
+#define SPA_KEY_API_ALSA_SPLIT_PARENT	"api.alsa.split.parent"		/**< PCM is UCM SplitPCM parent PCM,
+									 * to be opened with SplitPCM set.
+									 */
 
 /** info from alsa card_info */
 #define SPA_KEY_API_ALSA_CARD_ID	"api.alsa.card.id"		/**< id from card_info */
@@ -66,6 +74,21 @@ extern "C" {
 #define SPA_KEY_API_ALSA_PCM_SUBDEVICE	"api.alsa.pcm.subdevice"	/**< subdevice from pcm_info */
 #define SPA_KEY_API_ALSA_PCM_SUBCLASS	"api.alsa.pcm.subclass"		/**< subclass from pcm_info as string */
 #define SPA_KEY_API_ALSA_PCM_SYNC_ID	"api.alsa.pcm.sync-id"		/**< sync id */
+
+#define SPA_KEY_API_ALSA_SPLIT_POSITION "api.alsa.split.position"	/**< (SPA JSON list) If present, this is a
+									 * virtual device corresponding to a subset of
+									 * channels in an underlying PCM, listed in this
+									 * property. The \ref SPA_KEY_API_ALSA_PATH
+									 * contains the underlying split PCM. */
+#define SPA_KEY_API_ALSA_SPLIT_LEADER	"api.alsa.split.leader"		/**< (bool) This virtual device is split leader:
+									 * one of the split devices for the same split
+									 * PCM is selected as the leader. */
+#define SPA_KEY_API_ALSA_SPLIT_HW_CHANNELS \
+					"api.alsa.split.hw-channels"	/**< (int) Number of channels in the underlying
+									 * split PCM. */
+#define SPA_KEY_API_ALSA_SPLIT_HW_POSITION \
+					"api.alsa.split.hw-position"	/**< (SPA JSON list) Channel map of the
+									 * underlying split PCM. */
 
 /** keys for v4l2 api */
 #define SPA_KEY_API_V4L2		"api.v4l2"			/**< key for the v4l2 api */

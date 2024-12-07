@@ -33,10 +33,10 @@ static struct card *find_card(uint32_t index)
 	return NULL;
 }
 
-static struct card *ensure_card(uint32_t index, bool ucm)
+static struct card *ensure_card(uint32_t index, bool ucm, bool ucm_split)
 {
 	struct card *c;
-	char card_name[64];
+	char card_name[128];
 	const char *alibpref = NULL;
 	int err;
 
@@ -51,7 +51,9 @@ static struct card *ensure_card(uint32_t index, bool ucm)
 	c->index = index;
 
 	if (ucm) {
-		snprintf(card_name, sizeof(card_name), "hw:%i", index);
+		const char *split_prefix = ucm_split ? "<<<SplitPCM=1>>>" : "";
+
+		snprintf(card_name, sizeof(card_name), "%shw:%i", split_prefix, index);
 		err = snd_use_case_mgr_open(&c->ucm, card_name);
 		if (err < 0) {
 			char *name;
@@ -59,7 +61,7 @@ static struct card *ensure_card(uint32_t index, bool ucm)
 			if (err < 0)
 				goto error;
 
-			snprintf(card_name, sizeof(card_name), "%s", name);
+			snprintf(card_name, sizeof(card_name), "%s%s", split_prefix, name);
 			free(name);
 
 			err = snd_use_case_mgr_open(&c->ucm, card_name);
@@ -211,6 +213,10 @@ static int alsa_set_param(struct state *state, const char *k, const char *s)
 	} else if (spa_strstartswith(k,  "api.alsa.bind-ctl.")) {
 		write_bind_ctl_param(state, k, s);
 		fmt_change++;
+	} else if (spa_streq(k, SPA_KEY_MEDIA_CLASS)) {
+		spa_scnprintf(state->props.media_class, sizeof(state->props.media_class), "%s", s);
+	} else if (spa_streq(k, "api.alsa.split.parent")) {
+		state->is_split_parent = true;
 	} else
 		return 0;
 
@@ -1020,7 +1026,7 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 		state->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_PCM;
 	}
 
-	state->card = ensure_card(state->card_index, state->open_ucm);
+	state->card = ensure_card(state->card_index, state->open_ucm, state->is_split_parent);
 
 	state->log_file = fopencookie(state, "w", io_funcs);
 	if (state->log_file == NULL) {
@@ -3821,8 +3827,7 @@ void spa_alsa_emit_node_info(struct state *state, bool full)
 		char latency[64] = "", period[64] = "", nperiods[64] = "", headroom[64] = "";
 
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API, "alsa");
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS,
-				state->stream == SND_PCM_STREAM_PLAYBACK ? "Audio/Sink" : "Audio/Source");
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, state->props.media_class);
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, "true");
 
 		if (state->have_format)

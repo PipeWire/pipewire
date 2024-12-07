@@ -713,6 +713,11 @@ Normally, the maximum amount of channels will be used but with this setting
 this can be reduced, which can make it possible to use other samplerates on
 some devices.
 
+@PAR@ device-prop  api.alsa.split-enable    # boolean
+\parblock
+\copydoc SPA_KEY_API_ALSA_SPLIT_ENABLE
+\endparblock
+
 ## Node properties
 
 @PAR@ node-prop  audio.channels    # integer
@@ -795,6 +800,36 @@ UNDOCUMENTED
 @PAR@ node-prop  iec958.codecs    # JSON array of string
 Enable only specific IEC958 codecs. This can be used to disable some codecs the hardware supports.
 Available values: PCM, AC3, DTS, MPEG, MPEG2-AAC, EAC3, TRUEHD, DTSHD
+
+@PAR@ device-prop  api.alsa.split.parent    # boolean
+\parblock
+\copydoc SPA_KEY_API_ALSA_SPLIT_PARENT
+\endparblock
+
+@PAR@ node-prop  api.alsa.split.position  # JSON
+\parblock
+\copybrief SPA_KEY_API_ALSA_SPLIT_POSITION
+Informative property.
+\endparblock
+
+@PAR@ node-prop  api.alsa.split.leader    # boolean
+\parblock
+\copybrief SPA_KEY_API_ALSA_SPLIT_LEADER
+Informative property.
+\endparblock
+
+@PAR@ node-prop  api.alsa.split.hw-channels  # int
+\parblock
+\copybrief SPA_KEY_API_ALSA_SPLIT_HW_CHANNELS
+Informative property.
+\endparblock
+
+@PAR@ node-prop  api.alsa.split.hw-position  # JSON
+\parblock
+\copybrief SPA_KEY_API_ALSA_SPLIT_HW_POSITION
+Informative property.
+\endparblock
+
 
 # BLUETOOTH PROPERTIES  @IDX@ props
 

@@ -326,6 +326,90 @@ static const char *get_jack_mixer_device(pa_alsa_ucm_device *dev, bool is_sink) 
     return dev_name;
 }
 
+static PA_PRINTF_FUNC(2,3) const char *ucm_get_string(snd_use_case_mgr_t *uc_mgr, const char *fmt, ...)
+{
+    char *id;
+    const char *value;
+    va_list args;
+    int err;
+
+    va_start(args, fmt);
+    id = pa_vsprintf_malloc(fmt, args);
+    va_end(args);
+    err = snd_use_case_get(uc_mgr, id, &value);
+    if (err >= 0)
+        pa_log_debug("Got %s: %s", id, value);
+    pa_xfree(id);
+    if (err < 0) {
+        errno = -err;
+        return NULL;
+    }
+    return value;
+}
+
+static pa_alsa_ucm_split *ucm_get_split_channels(pa_alsa_ucm_device *device, snd_use_case_mgr_t *uc_mgr, const char *prefix) {
+    pa_alsa_ucm_split *split;
+    const char *value;
+    const char *device_name;
+    int i;
+    uint32_t hw_channels;
+
+    device_name = pa_proplist_gets(device->proplist, PA_ALSA_PROP_UCM_NAME);
+    if (!device_name)
+        return NULL;
+
+    value = ucm_get_string(uc_mgr, "%sChannels/%s", prefix, device_name);
+    if (pa_atou(value, &hw_channels) < 0)
+        return NULL;
+
+    split = pa_xnew0(pa_alsa_ucm_split, 1);
+
+    for (i = 0; i < PA_CHANNELS_MAX; i++) {
+        uint32_t idx;
+        snd_pcm_chmap_t *map;
+
+        value = ucm_get_string(uc_mgr, "%sChannel%d/%s", prefix, i, device_name);
+        if (pa_atou(value, &idx) < 0)
+            break;
+
+        if (idx >= hw_channels)
+            goto fail;
+
+        value = ucm_get_string(uc_mgr, "%sChannelPos%d/%s", prefix, i, device_name);
+        if (!value)
+            goto fail;
+
+        map = snd_pcm_chmap_parse_string(value);
+        if (!map)
+            goto fail;
+
+        if (map->channels == 1) {
+            pa_log_debug("Split %s channel %d -> device %s channel %d: %s (%d)",
+                         prefix, (int)idx, device_name, i, value, map->pos[0]);
+            split->idx[i] = idx;
+            split->pos[i] = map->pos[0];
+            free(map);
+        } else {
+            free(map);
+            goto fail;
+        }
+    }
+
+    if (i == 0) {
+        pa_xfree(split);
+        return NULL;
+    }
+
+    split->channels = i;
+    split->hw_channels = hw_channels;
+    return split;
+
+fail:
+    pa_log_warn("Invalid SplitPCM ALSA UCM rule for device %s", device_name);
+    pa_xfree(split);
+    return NULL;
+}
+
 /* Create a property list for this ucm device */
 static int ucm_get_device_property(
         pa_alsa_ucm_device *device,
@@ -469,6 +553,9 @@ static int ucm_get_device_property(
         if (vol)
           pa_hashmap_put(device->capture_volumes, pa_xstrdup(pa_proplist_gets(verb->proplist, PA_ALSA_PROP_UCM_NAME)), vol);
     }
+
+    device->playback_split = ucm_get_split_channels(device, uc_mgr, "Playback");
+    device->capture_split = ucm_get_split_channels(device, uc_mgr, "Capture");
 
     if (PA_UCM_PLAYBACK_PRIORITY_UNSET(device) || PA_UCM_CAPTURE_PRIORITY_UNSET(device)) {
         /* get priority from static table */
@@ -868,18 +955,27 @@ int pa_alsa_ucm_query_profiles(pa_alsa_ucm_config *ucm, int card_index) {
     char *card_name;
     const char **verb_list, *value;
     int num_verbs, i, err = 0;
+    const char *split_prefix = ucm->split_enable ? "<<<SplitPCM=1>>>" : "";
 
     /* support multiple card instances, address card directly by index */
-    card_name = pa_sprintf_malloc("hw:%i", card_index);
+    card_name = pa_sprintf_malloc("%shw:%i", split_prefix, card_index);
     if (card_name == NULL)
         return -PA_ALSA_ERR_UNSPECIFIED;
     err = snd_use_case_mgr_open(&ucm->ucm_mgr, card_name);
     if (err < 0) {
+        char *ucm_card_name;
+
         /* fallback longname: is UCM available for this card ? */
         pa_xfree(card_name);
-        err = snd_card_get_name(card_index, &card_name);
+        err = snd_card_get_name(card_index, &ucm_card_name);
         if (err < 0) {
             pa_log("Card can't get card_name from card_index %d", card_index);
+            err = -PA_ALSA_ERR_UNSPECIFIED;
+            goto name_fail;
+        }
+        card_name = pa_sprintf_malloc("%s%s", split_prefix, ucm_card_name);
+        free(ucm_card_name);
+        if (card_name == NULL) {
             err = -PA_ALSA_ERR_UNSPECIFIED;
             goto name_fail;
         }
@@ -955,6 +1051,54 @@ name_fail:
     return err;
 }
 
+static void ucm_verb_set_split_leaders(pa_alsa_ucm_verb *verb) {
+    pa_alsa_ucm_device *d, *d2;
+
+    /* Set first virtual device in each split HW PCM as the split leader */
+
+    PA_LLIST_FOREACH(d, verb->devices) {
+        if (d->playback_split)
+            d->playback_split->leader = true;
+        if (d->capture_split)
+            d->capture_split->leader = true;
+    }
+
+    PA_LLIST_FOREACH(d, verb->devices) {
+        const char *sink = pa_proplist_gets(d->proplist, PA_ALSA_PROP_UCM_SINK);
+        const char *source = pa_proplist_gets(d->proplist, PA_ALSA_PROP_UCM_SOURCE);
+
+        if (d->playback_split) {
+            if (!sink)
+                d->playback_split->leader = false;
+
+            if (d->playback_split->leader) {
+                PA_LLIST_FOREACH(d2, verb->devices) {
+                    const char *sink2 = pa_proplist_gets(d2->proplist, PA_ALSA_PROP_UCM_SINK);
+
+                    if (d == d2 || !d2->playback_split || !sink || !sink2 || !pa_streq(sink, sink2))
+                        continue;
+                    d2->playback_split->leader = false;
+                }
+            }
+        }
+
+        if (d->capture_split) {
+            if (!source)
+                d->capture_split->leader = false;
+
+            if (d->capture_split->leader) {
+                PA_LLIST_FOREACH(d2, verb->devices) {
+                    const char *source2 = pa_proplist_gets(d2->proplist, PA_ALSA_PROP_UCM_SOURCE);
+
+                    if (d == d2 || !d2->capture_split || !source || !source2 || !pa_streq(source, source2))
+                        continue;
+                    d2->capture_split->leader = false;
+                }
+            }
+        }
+    }
+}
+
 int pa_alsa_ucm_get_verb(snd_use_case_mgr_t *uc_mgr, const char *verb_name, const char *verb_desc, pa_alsa_ucm_verb **p_verb) {
     pa_alsa_ucm_device *d;
     pa_alsa_ucm_modifier *mod;
@@ -994,6 +1138,9 @@ int pa_alsa_ucm_get_verb(snd_use_case_mgr_t *uc_mgr, const char *verb_name, cons
         /* Devices properties */
         ucm_get_device_property(d, uc_mgr, verb, dev_name);
     }
+
+    ucm_verb_set_split_leaders(verb);
+
     /* make conflicting or supported device mutual */
     PA_LLIST_FOREACH(d, verb->devices)
         append_lost_relationship(d);
@@ -1372,15 +1519,19 @@ static bool devset_supports_device(pa_idxset *devices, pa_alsa_ucm_device *dev) 
             if (!pa_idxset_contains(d->supported_devices, dev))
                 return false;
 
-        /* PlaybackPCM must not be the same as any selected device */
+        /* PlaybackPCM must not be the same as any selected device, except when both split */
         sink2 = pa_proplist_gets(d->proplist, PA_ALSA_PROP_UCM_SINK);
-        if (sink && sink2 && pa_streq(sink, sink2))
-            return false;
+        if (sink && sink2 && pa_streq(sink, sink2)) {
+            if (!(dev->playback_split && d->playback_split))
+                return false;
+        }
 
-        /* CapturePCM must not be the same as any selected device */
+        /* CapturePCM must not be the same as any selected device, except when both split */
         source2 = pa_proplist_gets(d->proplist, PA_ALSA_PROP_UCM_SOURCE);
-        if (source && source2 && pa_streq(source, source2))
-            return false;
+        if (source && source2 && pa_streq(source, source2)) {
+            if (!(dev->capture_split && d->capture_split))
+                return false;
+        }
     }
 
     return true;
@@ -1753,6 +1904,69 @@ static pa_alsa_mapping* ucm_alsa_mapping_get(pa_alsa_ucm_config *ucm, pa_alsa_pr
     return m;
 }
 
+static const struct {
+    enum snd_pcm_chmap_position pos;
+    pa_channel_position_t channel;
+} chmap_info[] = {
+    [SND_CHMAP_MONO] = { SND_CHMAP_MONO, PA_CHANNEL_POSITION_MONO },
+    [SND_CHMAP_FL] = { SND_CHMAP_FL, PA_CHANNEL_POSITION_FRONT_LEFT },
+    [SND_CHMAP_FR] = { SND_CHMAP_FR, PA_CHANNEL_POSITION_FRONT_RIGHT },
+    [SND_CHMAP_RL] = { SND_CHMAP_RL, PA_CHANNEL_POSITION_REAR_LEFT },
+    [SND_CHMAP_RR] = { SND_CHMAP_RR, PA_CHANNEL_POSITION_REAR_RIGHT },
+    [SND_CHMAP_FC] = { SND_CHMAP_FC, PA_CHANNEL_POSITION_FRONT_CENTER },
+    [SND_CHMAP_LFE] = { SND_CHMAP_LFE, PA_CHANNEL_POSITION_LFE },
+    [SND_CHMAP_SL] = { SND_CHMAP_SL, PA_CHANNEL_POSITION_SIDE_LEFT },
+    [SND_CHMAP_SR] = { SND_CHMAP_SR, PA_CHANNEL_POSITION_SIDE_RIGHT },
+    [SND_CHMAP_RC] = { SND_CHMAP_RC, PA_CHANNEL_POSITION_REAR_CENTER },
+    [SND_CHMAP_FLC] = { SND_CHMAP_FLC, PA_CHANNEL_POSITION_FRONT_LEFT_OF_CENTER },
+    [SND_CHMAP_FRC] = { SND_CHMAP_FRC, PA_CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER },
+    /* XXX: missing channel positions, mapped to aux... */
+    /* [SND_CHMAP_RLC] = { SND_CHMAP_RLC, PA_CHANNEL_POSITION_REAR_LEFT_OF_CENTER }, */
+    /* [SND_CHMAP_RRC] = { SND_CHMAP_RRC, PA_CHANNEL_POSITION_REAR_RIGHT_OF_CENTER }, */
+    /* [SND_CHMAP_FLW] = { SND_CHMAP_FLW, PA_CHANNEL_POSITION_FRONT_LEFT_WIDE }, */
+    /* [SND_CHMAP_FRW] = { SND_CHMAP_FRW, PA_CHANNEL_POSITION_FRONT_RIGHT_WIDE }, */
+    /* [SND_CHMAP_FLH] = { SND_CHMAP_FLH, PA_CHANNEL_POSITION_FRONT_LEFT_HIGH }, */
+    /* [SND_CHMAP_FCH] = { SND_CHMAP_FCH, PA_CHANNEL_POSITION_FRONT_CENTER_HIGH }, */
+    /* [SND_CHMAP_FRH] = { SND_CHMAP_FRH, PA_CHANNEL_POSITION_FRONT_RIGHT_HIGH }, */
+    [SND_CHMAP_TC] = { SND_CHMAP_TC, PA_CHANNEL_POSITION_TOP_CENTER },
+    [SND_CHMAP_TFL] = { SND_CHMAP_TFL, PA_CHANNEL_POSITION_TOP_FRONT_LEFT },
+    [SND_CHMAP_TFR] = { SND_CHMAP_TFR, PA_CHANNEL_POSITION_TOP_FRONT_RIGHT },
+    [SND_CHMAP_TFC] = { SND_CHMAP_TFC, PA_CHANNEL_POSITION_TOP_FRONT_CENTER },
+    [SND_CHMAP_TRL] = { SND_CHMAP_TRL, PA_CHANNEL_POSITION_TOP_REAR_LEFT },
+    [SND_CHMAP_TRR] = { SND_CHMAP_TRR, PA_CHANNEL_POSITION_TOP_REAR_RIGHT },
+    [SND_CHMAP_TRC] = { SND_CHMAP_TRC, PA_CHANNEL_POSITION_TOP_REAR_CENTER },
+    /* [SND_CHMAP_TFLC] = { SND_CHMAP_TFLC, PA_CHANNEL_POSITION_TOP_FRONT_LEFT_OF_CENTER }, */
+    /* [SND_CHMAP_TFRC] = { SND_CHMAP_TFRC, PA_CHANNEL_POSITION_TOP_FRONT_RIGHT_OF_CENTER }, */
+    /* [SND_CHMAP_TSL] = { SND_CHMAP_TSL, PA_CHANNEL_POSITION_TOP_SIDE_LEFT }, */
+    /* [SND_CHMAP_TSR] = { SND_CHMAP_TSR, PA_CHANNEL_POSITION_TOP_SIDE_RIGHT }, */
+    /* [SND_CHMAP_LLFE] = { SND_CHMAP_LLFE, PA_CHANNEL_POSITION_LEFT_LFE }, */
+    /* [SND_CHMAP_RLFE] = { SND_CHMAP_RLFE, PA_CHANNEL_POSITION_RIGHT_LFE }, */
+    /* [SND_CHMAP_BC] = { SND_CHMAP_BC, PA_CHANNEL_POSITION_BOTTOM_CENTER }, */
+    /* [SND_CHMAP_BLC] = { SND_CHMAP_BLC, PA_CHANNEL_POSITION_BOTTOM_LEFT_OF_CENTER }, */
+    /* [SND_CHMAP_BRC] = { SND_CHMAP_BRC, PA_CHANNEL_POSITION_BOTTOM_RIGHT_OF_CENTER }, */
+};
+
+static void ucm_split_to_channel_map(pa_channel_map *m, const pa_alsa_ucm_split *s)
+{
+    const int n = sizeof(chmap_info) / sizeof(chmap_info[0]);
+    int i;
+    int aux = 0;
+
+    for (i = 0; i < s->channels; ++i) {
+        int p = s->pos[i];
+
+        if (p >= 0 && p < n && (int)chmap_info[p].pos == p)
+            m->map[i] = chmap_info[p].channel;
+        else
+            m->map[i] = PA_CHANNEL_POSITION_AUX0 + aux++;
+
+        if (aux >= 32)
+            break;
+    }
+
+    m->channels = i;
+}
+
 static int ucm_create_mapping_direction(
         pa_alsa_ucm_config *ucm,
         pa_alsa_profile_set *ps,
@@ -1796,6 +2010,14 @@ static int ucm_create_mapping_direction(
     /* mapping channels is the lowest one of ucm devices */
     if (channels < m->channel_map.channels)
         pa_channel_map_init_extend(&m->channel_map, channels, PA_CHANNEL_MAP_ALSA);
+
+    if (is_sink && device->playback_split) {
+        m->split = pa_xmemdup(device->playback_split, sizeof(*m->split));
+        ucm_split_to_channel_map(&m->channel_map, m->split);
+    } else if (!is_sink && device->capture_split) {
+        m->split = pa_xmemdup(device->capture_split, sizeof(*m->split));
+        ucm_split_to_channel_map(&m->channel_map, m->split);
+    }
 
     alsa_mapping_add_ucm_device(m, device);
 
@@ -2168,11 +2390,22 @@ static snd_pcm_t* mapping_open_pcm(pa_alsa_ucm_config *ucm, pa_alsa_mapping *m, 
     snd_pcm_uframes_t try_period_size, try_buffer_size;
     bool exact_channels = m->channel_map.channels > 0;
 
-    if (exact_channels) {
-        try_map = m->channel_map;
-        try_ss.channels = try_map.channels;
-    } else
-        pa_channel_map_init_extend(&try_map, try_ss.channels, PA_CHANNEL_MAP_ALSA);
+    if (!m->split) {
+        if (exact_channels) {
+            try_map = m->channel_map;
+            try_ss.channels = try_map.channels;
+        } else
+            pa_channel_map_init_extend(&try_map, try_ss.channels, PA_CHANNEL_MAP_ALSA);
+    } else {
+        if (!m->split->leader) {
+            errno = EINVAL;
+            return NULL;
+        }
+
+        exact_channels = true;
+        try_ss.channels = m->split->hw_channels;
+        pa_channel_map_init_extend(&try_map, try_ss.channels, PA_CHANNEL_MAP_AUX);
+    }
 
     try_period_size =
         pa_usec_to_bytes(ucm->default_fragment_size_msec * PA_USEC_PER_MSEC, &try_ss) /
@@ -2191,6 +2424,32 @@ static snd_pcm_t* mapping_open_pcm(pa_alsa_ucm_config *ucm, pa_alsa_mapping *m, 
     return pcm;
 }
 
+static void pa_alsa_init_proplist_split_pcm(pa_idxset *mappings, pa_alsa_mapping *leader, pa_direction_t direction)
+{
+    pa_proplist *props = pa_proplist_new();
+    uint32_t idx;
+    pa_alsa_mapping *m;
+
+    if (direction == PA_DIRECTION_OUTPUT)
+        pa_alsa_init_proplist_pcm(NULL, props, leader->output_pcm);
+    else
+        pa_alsa_init_proplist_pcm(NULL, props, leader->input_pcm);
+
+    PA_IDXSET_FOREACH(m, mappings, idx) {
+        if (!m->split)
+            continue;
+        if (!pa_streq(m->device_strings[0], leader->device_strings[0]))
+            continue;
+
+	if (direction == PA_DIRECTION_OUTPUT)
+	    pa_proplist_update(m->output_proplist, PA_UPDATE_REPLACE, props);
+        else
+            pa_proplist_update(m->input_proplist, PA_UPDATE_REPLACE, props);
+    }
+
+    pa_proplist_free(props);
+}
+
 static void profile_finalize_probing(pa_alsa_profile *p) {
     pa_alsa_mapping *m;
     uint32_t idx;
@@ -2202,7 +2461,11 @@ static void profile_finalize_probing(pa_alsa_profile *p) {
         if (!m->output_pcm)
             continue;
 
-        pa_alsa_init_proplist_pcm(NULL, m->output_proplist, m->output_pcm);
+        if (!m->split)
+            pa_alsa_init_proplist_pcm(NULL, m->output_proplist, m->output_pcm);
+        else
+            pa_alsa_init_proplist_split_pcm(p->output_mappings, m, PA_DIRECTION_OUTPUT);
+
         pa_alsa_close(&m->output_pcm);
     }
 
@@ -2213,7 +2476,11 @@ static void profile_finalize_probing(pa_alsa_profile *p) {
         if (!m->input_pcm)
             continue;
 
-        pa_alsa_init_proplist_pcm(NULL, m->input_proplist, m->input_pcm);
+        if (!m->split)
+            pa_alsa_init_proplist_pcm(NULL, m->input_proplist, m->input_pcm);
+        else
+            pa_alsa_init_proplist_split_pcm(p->input_mappings, m, PA_DIRECTION_INPUT);
+
         pa_alsa_close(&m->input_pcm);
     }
 }
@@ -2266,6 +2533,9 @@ static void ucm_probe_profile_set(pa_alsa_ucm_config *ucm, pa_alsa_profile_set *
                 continue;
             }
 
+            if (m->split && !m->split->leader)
+                continue;
+
             m->output_pcm = mapping_open_pcm(ucm, m, SND_PCM_STREAM_PLAYBACK);
             if (!m->output_pcm) {
                 p->supported = false;
@@ -2280,6 +2550,9 @@ static void ucm_probe_profile_set(pa_alsa_ucm_config *ucm, pa_alsa_profile_set *
                      * only be controlled on the main device/verb PCM. */
                     continue;
                 }
+
+                if (m->split && !m->split->leader)
+                    continue;
 
                 m->input_pcm = mapping_open_pcm(ucm, m, SND_PCM_STREAM_CAPTURE);
                 if (!m->input_pcm) {
@@ -2369,6 +2642,9 @@ static void free_verb(pa_alsa_ucm_verb *verb) {
         pa_idxset_free(di->supported_devices, NULL);
 
         pa_xfree(di->eld_mixer_device_name);
+
+        pa_xfree(di->playback_split);
+        pa_xfree(di->capture_split);
 
         pa_xfree(di);
     }

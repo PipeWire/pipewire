@@ -27,6 +27,7 @@ static void reset_props(struct props *props)
 {
 	strncpy(props->device, default_device, 64);
 	props->use_chmap = DEFAULT_USE_CHMAP;
+	spa_scnprintf(props->media_class, sizeof(props->media_class), "%s", "Audio/Sink");
 }
 
 static int impl_node_enum_params(void *object, int seq,

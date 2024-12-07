@@ -327,6 +327,8 @@ struct pa_alsa_mapping {
     pa_sample_spec sample_spec;
     pa_channel_map channel_map;
 
+    pa_alsa_ucm_split *split;
+
     char **device_strings;
 
     char **input_path_names;

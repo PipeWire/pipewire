@@ -3787,6 +3787,8 @@ void pa_alsa_mapping_free(pa_alsa_mapping *m) {
     pa_proplist_free(m->input_proplist);
     pa_proplist_free(m->output_proplist);
 
+    pa_xfree(m->split);
+
     pa_assert(!m->input_pcm);
     pa_assert(!m->output_pcm);
 

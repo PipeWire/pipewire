@@ -414,6 +414,14 @@ static PA_PRINTF_FUNC(1,2) inline char *pa_sprintf_malloc(const char *fmt, ...)
 	return res;
 }
 
+static PA_PRINTF_FUNC(1,0) inline char *pa_vsprintf_malloc(const char *fmt, va_list args)
+{
+	char *res;
+	if (vasprintf(&res, fmt, args) < 0)
+		res = NULL;
+	return res;
+}
+
 #define pa_fopen_cloexec(f,m)	fopen(f,m"e")
 
 static inline char *pa_path_get_filename(const char *p)

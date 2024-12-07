@@ -145,6 +145,7 @@ typedef struct pa_alsa_ucm_mapping_context pa_alsa_ucm_mapping_context;
 typedef struct pa_alsa_ucm_profile_context pa_alsa_ucm_profile_context;
 typedef struct pa_alsa_ucm_port_data pa_alsa_ucm_port_data;
 typedef struct pa_alsa_ucm_volume pa_alsa_ucm_volume;
+typedef struct pa_alsa_ucm_split pa_alsa_ucm_split;
 
 int pa_alsa_ucm_query_profiles(pa_alsa_ucm_config *ucm, int card_index);
 pa_alsa_profile_set* pa_alsa_ucm_add_profile_set(pa_alsa_ucm_config *ucm, pa_channel_map *default_channel_map);
@@ -176,6 +177,15 @@ void pa_alsa_ucm_roled_stream_begin(pa_alsa_ucm_config *ucm, const char *role, p
 void pa_alsa_ucm_roled_stream_end(pa_alsa_ucm_config *ucm, const char *role, pa_direction_t dir);
 
 /* UCM - Use Case Manager is available on some audio cards */
+
+struct pa_alsa_ucm_split {
+    /* UCM SplitPCM channel remapping */
+    bool leader;
+    int hw_channels;
+    int channels;
+    int idx[PA_CHANNELS_MAX];
+    enum snd_pcm_chmap_position pos[PA_CHANNELS_MAX];
+};
 
 struct pa_alsa_ucm_device {
     PA_LLIST_FIELDS(pa_alsa_ucm_device);
@@ -215,6 +225,9 @@ struct pa_alsa_ucm_device {
 
     char *eld_mixer_device_name;
     int eld_device;
+
+    pa_alsa_ucm_split *playback_split;
+    pa_alsa_ucm_split *capture_split;
 };
 
 void pa_alsa_ucm_device_update_available(pa_alsa_ucm_device *device);
@@ -254,6 +267,7 @@ struct pa_alsa_ucm_config {
     pa_channel_map default_channel_map;
     unsigned default_fragment_size_msec;
     unsigned default_n_fragments;
+    bool split_enable;
 
     snd_use_case_mgr_t *ucm_mgr;
     pa_alsa_ucm_verb *active_verb;

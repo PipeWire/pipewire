@@ -59,14 +59,14 @@ struct spa_plugin_loader_methods {
 SPA_API_PLUGIN_LOADER struct spa_handle *
 spa_plugin_loader_load(struct spa_plugin_loader *loader, const char *factory_name, const struct spa_dict *info)
 {
-	return spa_api_method_null_r(struct spa_handle *, NULL, spa_plugin_loader, &loader->iface,
+	return spa_api_method_null_r(struct spa_handle *, NULL, spa_plugin_loader, loader, &loader->iface,
 			load, 0, factory_name, info);
 }
 
 SPA_API_PLUGIN_LOADER int
 spa_plugin_loader_unload(struct spa_plugin_loader *loader, struct spa_handle *handle)
 {
-	return spa_api_method_null_r(int, -1, spa_plugin_loader, &loader->iface,
+	return spa_api_method_null_r(int, -1, spa_plugin_loader, loader, &loader->iface,
 			unload, 0, handle);
 }
 

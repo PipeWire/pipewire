@@ -285,20 +285,24 @@ struct spa_interface {
 			_res, method, version, ##__VA_ARGS__);		\
 	_res;								\
 })
-#define spa_api_method_null_v(type,o,method,version,...)		\
+#define spa_api_method_null_v(type,co,o,method,version,...)		\
 ({									\
-	struct spa_interface *_i = o;			\
-	if (SPA_LIKELY(_i != NULL))					\
+	struct type *_co = co;						\
+	if (SPA_LIKELY(_co != NULL)) {					\
+		struct spa_interface *_i = o;				\
 		spa_interface_call(_i, struct type ##_methods,		\
 			method, version, ##__VA_ARGS__);		\
+	}								\
 })
-#define spa_api_method_null_r(rtype,def,type,o,method,version,...)	\
+#define spa_api_method_null_r(rtype,def,type,co,o,method,version,...)	\
 ({									\
 	rtype _res = def;						\
-	struct spa_interface *_i = o;					\
-	if (SPA_LIKELY(_i != NULL))					\
+	struct type *_co = co;						\
+	if (SPA_LIKELY(_co != NULL)) {					\
+		struct spa_interface *_i = o;				\
 		spa_interface_call_res(_i, struct type ##_methods,	\
 				_res, method, version, ##__VA_ARGS__);	\
+	}								\
 	_res;								\
 })
 #define spa_api_method_fast_v(type,o,method,version,...)		\

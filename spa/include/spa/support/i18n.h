@@ -64,7 +64,7 @@ SPA_FORMAT_ARG_FUNC(2)
 SPA_API_I18N const char *
 spa_i18n_text(struct spa_i18n *i18n, const char *msgid)
 {
-	return spa_api_method_null_r(const char *, msgid, spa_i18n, &i18n->iface,
+	return spa_api_method_null_r(const char *, msgid, spa_i18n, i18n, &i18n->iface,
 			text, 0, msgid);
 }
 
@@ -73,7 +73,7 @@ spa_i18n_ntext(struct spa_i18n *i18n, const char *msgid,
 		const char *msgid_plural, unsigned long int n)
 {
 	return spa_api_method_null_r(const char *, n == 1 ? msgid : msgid_plural,
-			spa_i18n, &i18n->iface, ntext, 0, msgid, msgid_plural, n);
+			spa_i18n, i18n, &i18n->iface, ntext, 0, msgid, msgid_plural, n);
 }
 
 /**

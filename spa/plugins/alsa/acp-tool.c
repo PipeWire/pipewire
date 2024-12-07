@@ -10,8 +10,11 @@
 #include <time.h>
 #include <stdbool.h>
 #include <getopt.h>
+#include <alloca.h>
 
+#include <spa/debug/context.h>
 #include <spa/utils/string.h>
+#include <spa/utils/json.h>
 
 #include <acp/acp.h>
 
@@ -587,39 +590,33 @@ static int do_probe(struct data *data)
 	uint32_t n_items = 0;
 	struct acp_dict_item items[64];
 	struct acp_dict props;
+	struct spa_json it;
 
 	acp_set_log_func(log_func, data);
 	acp_set_log_level(data->verbose);
 
 	items[n_items++] = ACP_DICT_ITEM_INIT("use-ucm", "true");
 	items[n_items++] = ACP_DICT_ITEM_INIT("verbose", data->verbose ? "true" : "false");
-	if (data->properties != NULL) {
-		char *p = data->properties, *e, f;
 
-		while (*p) {
-			const char *k, *v;
-
-			if ((e = strchr(p, '=')) == NULL)
-				break;
-			*e = '\0';
-			k = p;
-			p = e+1;
-
-			if (*p == '\"') {
-				p++;
-				f = '\"';
-			} else {
-				f = ' ';
-			}
-			if ((e = strchr(p, f)) == NULL &&
-			    (e = strchr(p, '\0')) == NULL)
-				break;
-			*e = '\0';
-			v = p;
-			p = e+1;
+	if (spa_json_begin_object_relax(&it, data->properties, strlen(data->properties)) > 0) {
+		char key[1024];
+		const char *value;
+		int len;
+		struct spa_error_location loc;
+		while ((len = spa_json_object_next(&it, key, sizeof(key), &value)) > 0) {
+			char *k = alloca(strlen(key) + 1);
+			char *v = alloca(len + 1);
+			memcpy(k, key, strlen(key) + 1);
+			spa_json_parse_stringn(value, len, v, len + 1);
 			items[n_items++] = ACP_DICT_ITEM_INIT(k, v);
-			if (n_items == 64)
+			if (n_items >= SPA_N_ELEMENTS(items))
 				break;
+		}
+		if (spa_json_get_error(&it, data->properties, &loc)) {
+			struct spa_debug_context *c = NULL;
+			spa_debugc(c, "invalid --properties: %s", loc.reason);
+			spa_debugc_error_location(c, &loc);
+			return -EINVAL;
 		}
 	}
 	props = ACP_DICT_INIT(items, n_items);
@@ -714,7 +711,7 @@ int main(int argc, char *argv[])
 {
 	int c, res;
 	int longopt_index = 0, ret;
-	struct data data = { 0, };
+	struct data data = { .properties = strdup("") };
 
 	data.verbose = 1;
 
@@ -735,6 +732,7 @@ int main(int argc, char *argv[])
 			data.card_index = ret;
 			break;
 		case 'p':
+			free(data.properties);
 			data.properties = strdup(optarg);
 			break;
                 default:

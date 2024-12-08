@@ -4,7 +4,7 @@ The PipeWire ALSA profile debugging utility
 
 # SYNOPSIS
 
-**spa-acp-tool** \[*COMMAND*\]
+**spa-acp-tool** \[*OPTIONS*\] \[*COMMAND*\]
 
 # DESCRIPTION
 
@@ -13,6 +13,20 @@ running PipeWire.
 
 May be used to debug problems where PipeWire has incorrectly
 functioning ALSA card profiles.
+
+# OPTIONS
+
+\par -h | \--help
+Show help
+
+\par -v | \--verbose
+Increase verbosity by one level
+
+\par -c NUMBER | \--card NUMBER
+Select which card to probe
+
+\par -p | \--properties
+Additional properties to pass to ACP, e.g. `key=value ...`.
 
 # COMMANDS
 

@@ -932,7 +932,7 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 			}
 		}
 	}
-	if (desc->n_input == 0 && desc->n_output == 0) {
+	if (desc->n_input == 0 && desc->n_output == 0 && desc->n_control == 0 && desc->n_notify == 0) {
 		spa_log_error(impl->log, "plugin has no input and no output ports");
 		res = -ENOTSUP;
 		goto exit;

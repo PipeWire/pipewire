@@ -371,3 +371,7 @@ option('doc-sysconfdir-value',
        description : 'Sysconf data directory to show in documentation instead of the actual value.',
        type : 'string',
        value : '')
+option('ebur128',
+       description: 'Enable code that depends on ebur128',
+       type: 'feature',
+       value: 'auto')

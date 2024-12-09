@@ -95,18 +95,18 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * Nodes describe the processing filters in the graph. Use a tool like lv2ls
  * or listplugins to get a list of available plugins, labels and the port names.
  *
- * - `type` is one of `ladspa`, `lv2`, `builtin` or `sofa`.
+ * - `type` is one of `ladspa`, `lv2`, `builtin`, `sofa` or `ebur128`.
  * - `name` is the name for this node, you might need this later to refer to this node
  *    and its ports when setting controls or making links.
  * - `plugin` is the type specific plugin name.
  *    - For LADSPA plugins it will append `.so` to find the shared object with that
  *       name in the LADSPA plugin path.
  *    - For LV2, this is the plugin URI obtained with lv2ls.
- *    - For builtin and sofa this is ignored
+ *    - For builtin, sofa and ebur128 this is ignored
  * - `label` is the type specific filter inside the plugin.
  *    - For LADSPA this is the label
  *    - For LV2 this is unused
- *    - For builtin and sofa this is the name of the filter to use
+ *    - For builtin, sofa and ebur128 this is the name of the filter to use
  *
  * - `config` contains a filter specific configuration section. Some plugins need
  *            this. (convolver, sofa, delay, ...)
@@ -526,6 +526,84 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *               and -90 directly below.
  * - `Radius`    controls how far away the signal is as a value between 0 and 100.
  *               default is 1.0.
+ *
+ * ## EBUR128 filter
+ *
+ * There is an optional EBU R128 filter available.
+ *
+ * ### ebur128
+ *
+ * The ebur128 plugin can be used to measure the loudness of a signal.
+ *
+ * It has 7 input ports "In FL", "In FR", "In FC", "In UNUSED", "In SL", "In SR"
+ * and "In DUAL MONO", corresponding to the different input channels for EBUR128.
+ * Not all ports need to be connected for this filter.
+ *
+ * The input signal is passed unmodified on the "Out FL", "Out FR", "Out FC",
+ * "Out UNUSED", "Out SL", "Out SR" and "Out DUAL MONO" output ports.
+ *
+ * There are 7 output control ports that contain the measured loudness information
+ * and that can be used to control the processing of the audio. Some of these ports
+ * contain values in LUFS, or "Loudness Units relative to Full Scale". These are
+ * negative values, closer to 0 is louder. You can use the lufs2gain plugin to
+ * convert this value to again to adjust a volume (See below).
+ *
+ * "Momentary LUFS" contains the momentary loudness measurement with a 400ms window
+ *                  and 75% overlap. It works mostly like an R.M.S. meter.
+ *
+ * "Shortterm LUFS" contains the shortterm loudness in LUFS over a 3 second window.
+ *
+ * "Global LUFS" contains the global integrated loudness in LUFS over the max-history
+ *               window.
+ * "Window LUFS" contains the global integrated loudness in LUFS over the max-window
+ *               window.
+ *
+ * "Range LU" contains the loudness range (LRA) in LU units.
+ *
+ * "Peak" contains the peak loudness.
+ *
+ * "True Peak" contains the true peak loudness oversampling the signal. This can more
+ *             accurately reflect the peak compared to "Peak".
+ *
+ * The node also has an optional `config` section with extra configuration:
+ *
+ *\code{.unparsed}
+ * filter.graph = {
+ *     nodes = [
+ *         {
+ *             type   = ebur128
+ *             name   = ...
+ *             label  = ebur128
+ *             config = {
+ *                 max-history = ...
+ *                 max-window = ...
+ *                 use-histogram = ...
+ *             }
+ *             ...
+ *         }
+ *     }
+ *     ...
+ * }
+ *\endcode
+ *
+ * - `max-history` the maximum history to keep in (float) seconds. Default to 10.0
+ *
+ * - `max-window` the maximum window to keep in (float) seconds. Default to 0.0
+ *                You will need to set this to some value to get "Window LUFS"
+ *                output control values.
+ *
+ * - `use-histogram` uses the histogram algorithm to calculate loudness. Defaults
+ *                   to false.
+ *
+ * ### lufs2gain
+ *
+ * The lufs2gain plugin can be used to convert LUFS control values to gain. It needs
+ * a target LUFS control input to drive the conversion.
+ *
+ * It has 2 input control ports "LUFS" and "Target LUFS" and will produce 1 output
+ * control value "Gain". This gain can be used as input for the builtin `linear`
+ * node, for example, to adust the gain.
+ *
  *
  * ## General options
  *

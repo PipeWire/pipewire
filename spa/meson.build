@@ -117,6 +117,9 @@ if get_option('spa-plugins').allowed()
   lilv_lib = dependency('lilv-0', required: get_option('lv2'))
   summary({'lilv (for lv2 plugins)': lilv_lib.found()}, bool_yn: true, section: 'filter-graph')
 
+  ebur128_lib = dependency('libebur128', required: get_option('ebur128').enabled())
+  summary({'EBUR128': ebur128_lib.found()}, bool_yn: true, section: 'filter-graph')
+
   cdata.set('HAVE_SPA_PLUGINS', '1')
   subdir('plugins')
 endif

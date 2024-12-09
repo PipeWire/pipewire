@@ -111,6 +111,12 @@ if get_option('spa-plugins').allowed()
   cdata.set('HAVE_LIBUDEV', libudev_dep.found())
   summary({'Udev': libudev_dep.found()}, bool_yn: true, section: 'Backend')
 
+  libmysofa_dep = dependency('libmysofa', required : get_option('libmysofa'))
+  summary({'libmysofa': libmysofa_dep.found()}, bool_yn: true, section: 'filter-graph')
+
+  lilv_lib = dependency('lilv-0', required: get_option('lv2'))
+  summary({'lilv (for lv2 plugins)': lilv_lib.found()}, bool_yn: true, section: 'filter-graph')
+
   cdata.set('HAVE_SPA_PLUGINS', '1')
   subdir('plugins')
 endif

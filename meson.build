@@ -350,8 +350,6 @@ ncurses_dep = dependency('ncursesw', required : false)
 sndfile_dep = dependency('sndfile', version : '>= 1.0.20', required : get_option('sndfile'))
 summary({'sndfile': sndfile_dep.found()}, bool_yn: true, section: 'pw-cat/pw-play/pw-dump/filter-chain')
 cdata.set('HAVE_SNDFILE', sndfile_dep.found())
-libmysofa_dep = dependency('libmysofa', required : get_option('libmysofa'))
-summary({'libmysofa': libmysofa_dep.found()}, bool_yn: true, section: 'filter-chain')
 pulseaudio_dep = dependency('libpulse', required : get_option('libpulse'))
 summary({'libpulse': pulseaudio_dep.found()}, bool_yn: true, section: 'Streaming between daemons')
 avahi_dep = dependency('avahi-client', required : get_option('avahi'))
@@ -480,9 +478,6 @@ else
     openssl_lib = dependency('openssl', required: get_option('raop'))
 endif
 summary({'OpenSSL (for raop-sink)': openssl_lib.found()}, bool_yn: true)
-
-lilv_lib = dependency('lilv-0', required: get_option('lv2'))
-summary({'lilv (for lv2 plugins)': lilv_lib.found()}, bool_yn: true)
 
 libffado_dep = dependency('libffado', required: get_option('libffado'))
 summary({'ffado': libffado_dep.found()}, bool_yn: true)

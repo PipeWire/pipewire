@@ -1462,7 +1462,7 @@ static int impl_activate(void *object, const struct spa_fraction *rate)
 		}
 	}
 
-	/* then link ports and activate */
+	/* then link ports */
 	spa_list_for_each(node, &graph->node_list, link) {
 		desc = node->desc;
 		d = desc->desc;
@@ -1515,12 +1515,22 @@ static int impl_activate(void *object, const struct spa_fraction *rate)
 						&port->control_data[i]);
 				d->connect_port(node->hndl[i], port->p, &port->control_data[i]);
 			}
+		}
+	}
+
+	/* now activate */
+	spa_list_for_each(node, &graph->node_list, link) {
+		desc = node->desc;
+		d = desc->desc;
+
+		for (i = 0; i < node->n_hndl; i++) {
 			if (d->activate)
 				d->activate(node->hndl[i]);
 			if (node->control_changed && d->control_changed)
 				d->control_changed(node->hndl[i]);
 		}
 	}
+
 	spa_filter_graph_emit_props_changed(&impl->hooks, SPA_DIRECTION_INPUT);
 	return 0;
 error:

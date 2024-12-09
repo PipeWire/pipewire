@@ -2123,16 +2123,248 @@ static struct spa_fga_port max_ports[] = {
 };
 
 static const struct spa_fga_descriptor max_desc = {
-       .name = "max",
-       .flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
+	.name = "max",
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
-       .n_ports = SPA_N_ELEMENTS(max_ports),
-       .ports = max_ports,
+	.n_ports = SPA_N_ELEMENTS(max_ports),
+	.ports = max_ports,
 
-       .instantiate = builtin_instantiate,
-       .connect_port = builtin_connect_port,
-       .run = max_run,
-       .cleanup = builtin_cleanup,
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = max_run,
+	.cleanup = builtin_cleanup,
+};
+
+/* DC blocking */
+struct dcblock {
+	float xm1;
+	float ym1;
+};
+
+struct dcblock_impl {
+	struct plugin *plugin;
+
+	struct spa_fga_dsp *dsp;
+	struct spa_log *log;
+
+	unsigned long rate;
+	float *port[17];
+
+	struct dcblock dc[8];
+};
+
+static void *dcblock_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		unsigned long SampleRate, int index, const char *config)
+{
+	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
+	struct dcblock_impl *impl;
+
+	impl = calloc(1, sizeof(*impl));
+	if (impl == NULL)
+		return NULL;
+
+	impl->plugin = pl;
+	impl->dsp = pl->dsp;
+	impl->log = pl->log;
+	impl->rate = SampleRate;
+	return impl;
+}
+
+static void dcblock_run_n(struct dcblock dc[], float *dst[], const float *src[],
+		uint32_t n_src, float R, uint32_t n_samples)
+{
+	float x, y;
+	uint32_t i, n;
+
+	for (i = 0; i < n_src; i++) {
+		const float *in = src[i];
+		float *out = dst[i];
+		float xm1 = dc[i].xm1;
+		float ym1 = dc[i].ym1;
+
+		if (out == NULL || in == NULL)
+			continue;
+
+		for (n = 0; n < n_samples; n++) {
+			x = in[n];
+			y = x - xm1 + R * ym1;
+			xm1 = x;
+			ym1 = y;
+			out[n] = y;
+		}
+		dc[i].xm1 = xm1;
+		dc[i].ym1 = ym1;
+	}
+}
+
+static void dcblock_run(void * Instance, unsigned long SampleCount)
+{
+	struct dcblock_impl *impl = Instance;
+	float R = impl->port[16][0];
+	dcblock_run_n(impl->dc, &impl->port[8], (const float**)&impl->port[0], 8,
+			R, SampleCount);
+}
+
+static void dcblock_connect_port(void * Instance, unsigned long Port,
+                        float * DataLocation)
+{
+	struct dcblock_impl *impl = Instance;
+	impl->port[Port] = DataLocation;
+}
+
+static struct spa_fga_port dcblock_ports[] = {
+	{ .index = 0,
+	  .name = "In 1",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "In 2",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 2,
+	  .name = "In 3",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 3,
+	  .name = "In 4",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 4,
+	  .name = "In 5",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 5,
+	  .name = "In 6",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 6,
+	  .name = "In 7",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 7,
+	  .name = "In 8",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+
+	{ .index = 8,
+	  .name = "Out 1",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 9,
+	  .name = "Out 2",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 10,
+	  .name = "Out 3",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 11,
+	  .name = "Out 4",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 12,
+	  .name = "Out 5",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 13,
+	  .name = "Out 6",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 14,
+	  .name = "Out 7",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 15,
+	  .name = "Out 8",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 16,
+	  .name = "R",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	  .def = 0.995f, .min = 0.0f, .max = 1.0f
+	},
+};
+
+static const struct spa_fga_descriptor dcblock_desc = {
+	.name = "dcblock",
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = SPA_N_ELEMENTS(dcblock_ports),
+	.ports = dcblock_ports,
+
+	.instantiate = dcblock_instantiate,
+	.connect_port = dcblock_connect_port,
+	.run = dcblock_run,
+	.cleanup = free,
+};
+
+/* ramp */
+static struct spa_fga_port ramp_ports[] = {
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "Start",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	},
+	{ .index = 2,
+	  .name = "Stop",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	},
+	{ .index = 3,
+	  .name = "Current",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_CONTROL,
+	},
+	{ .index = 4,
+	  .name = "Duration (s)",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	},
+};
+
+static void ramp_run(void * Instance, unsigned long SampleCount)
+{
+	struct builtin *impl = Instance;
+	float *out = impl->port[0];
+	float start = impl->port[1][0];
+	float stop = impl->port[2][0], last;
+	float *current = impl->port[3];
+	float duration = impl->port[4][0];
+	float inc = (stop - start) / (duration * impl->rate);
+	uint32_t n;
+
+	last = stop;
+	if (inc < 0.f)
+		SPA_SWAP(start, stop);
+
+	if (out != NULL) {
+		if (impl->accum == last) {
+			for (n = 0; n < SampleCount; n++)
+				out[n] = last;
+		} else {
+			for (n = 0; n < SampleCount; n++) {
+				out[n] = impl->accum;
+				impl->accum = SPA_CLAMP(impl->accum + inc, start, stop);
+			}
+		}
+	} else {
+		impl->accum = SPA_CLAMP(impl->accum + SampleCount * inc, start, stop);
+	}
+	if (current)
+		current[0] = impl->accum;
+}
+
+static const struct spa_fga_descriptor ramp_desc = {
+	.name = "ramp",
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = SPA_N_ELEMENTS(ramp_ports),
+	.ports = ramp_ports,
+
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = ramp_run,
+	.cleanup = builtin_cleanup,
 };
 
 static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
@@ -2184,6 +2416,10 @@ static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 		return &param_eq_desc;
 	case 22:
 		return &max_desc;
+	case 23:
+		return &dcblock_desc;
+	case 24:
+		return &ramp_desc;
 	}
 	return NULL;
 }

@@ -472,6 +472,28 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *
  * It has two input ports "In 1" and "In 2" and one output port "Out".
  *
+ * ### dcblock
+ *
+ * Use the `dcblock` plugin implements a [DC blocker](https://www.dsprelated.com/freebooks/filters/DC_Blocker.html).
+ *
+ * It has 8 input ports "In 1" to "In 8" and corresponding output ports "Out 1"
+ * to "Out 8". Not all ports need to be connected.
+ *
+ * It also has 1 control input port "R" that controls the DC block R factor.
+ *
+ * ### Ramp
+ *
+ * Use the `ramp` plugin creates a linear ramp from `Start` to `Stop`.
+ *
+ * It has 3 input control ports "Start", "Stop" and "Duration (s)". It also has one
+ * output port "Out". A linear ramp will be created from "Start" to "Stop" for a duration
+ * given by the "Duration (s)" control in (fractional) seconds. The current value will
+ * be stored in the output notify port "Current".
+ *
+ * The ramp output can, for example, be used as input for the `mult` plugin to create
+ * a volume ramp up or down. For more a more coarse volume ramp, the "Current" value
+ * can be used in the `linear` plugin.
+ *
  * ## SOFA filter
  *
  * There is an optional builtin SOFA filter available.

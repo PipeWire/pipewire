@@ -81,7 +81,7 @@ spa_filter_graph_plugin_ladspa = shared_library('spa-filter-graph-plugin-ladspa'
   include_directories : [configinc],
   install : true,
   install_dir : spa_plugindir / 'filter-graph',
-  dependencies : [ filter_graph_dependencies ]
+  dependencies : [ filter_graph_dependencies, dl_lib ]
 )
 
 if libmysofa_dep.found()

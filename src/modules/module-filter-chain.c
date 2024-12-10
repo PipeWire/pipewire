@@ -1153,7 +1153,7 @@ static int setup_streams(struct impl *impl)
 	for (i = 0;; i++) {
 		if ((offs = pw_array_add(&offsets, sizeof(uint32_t))) != NULL)
 			*offs = b.b.state.offset;
-		if (spa_filter_graph_enum_prop_info(graph, i, &b.b) != 1)
+		if (spa_filter_graph_enum_prop_info(graph, i, &b.b, NULL) != 1)
 			break;
 	}
 
@@ -1251,7 +1251,7 @@ static void graph_props_changed(void *object, enum spa_direction direction)
 	const struct spa_pod *params[1];
 
 	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
-	spa_filter_graph_get_props(graph, &b.b, &params[0]);
+	spa_filter_graph_get_props(graph, &b.b, (struct spa_pod **)&params[0]);
 
 	pw_stream_update_params(impl->capture, params, 1);
 	spa_pod_dynamic_builder_clean(&b);

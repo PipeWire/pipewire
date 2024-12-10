@@ -359,10 +359,12 @@ static struct port *find_port(struct node *node, const char *name, int descripto
 	return NULL;
 }
 
-static int impl_enum_prop_info(void *object, uint32_t idx, struct spa_pod_builder *b)
+static int impl_enum_prop_info(void *object, uint32_t idx, struct spa_pod_builder *b,
+		struct spa_pod **param)
 {
 	struct impl *impl = object;
 	struct graph *graph = &impl->graph;
+	struct spa_pod *pod;
 	struct spa_pod_frame f[2];
 	struct port *port;
 	struct node *node;
@@ -436,13 +438,16 @@ static int impl_enum_prop_info(void *object, uint32_t idx, struct spa_pod_builde
 	}
 	spa_pod_builder_prop(b, SPA_PROP_INFO_params, 0);
 	spa_pod_builder_bool(b, true);
-	if (spa_pod_builder_pop(b, &f[0]) == NULL)
+	pod = spa_pod_builder_pop(b, &f[0]);
+	if (pod == NULL)
 		return -ENOSPC;
+	if (param)
+		*param = pod;
 
 	return 1;
 }
 
-static int impl_get_props(void *object, struct spa_pod_builder *b, const struct spa_pod **props)
+static int impl_get_props(void *object, struct spa_pod_builder *b, struct spa_pod **props)
 {
 	struct impl *impl = object;
 	struct graph *graph = &impl->graph;
@@ -705,8 +710,10 @@ static int impl_set_props(void *object, enum spa_direction direction, const stru
 
 		sync_volume(graph, vol);
 
-		spa_filter_graph_emit_apply_props(&impl->hooks, direction, props);
+	} else {
+		props = spa_pod_builder_pop(&b.b, &f[0]);
 	}
+	spa_filter_graph_emit_apply_props(&impl->hooks, direction, props);
 
 	spa_pod_dynamic_builder_clean(&b);
 

@@ -77,8 +77,9 @@ struct spa_filter_graph_methods {
 			const struct spa_filter_graph_events *events,
 			void *data);
 
-	int (*enum_prop_info) (void *object, uint32_t idx, struct spa_pod_builder *b);
-	int (*get_props) (void *object, struct spa_pod_builder *b, const struct spa_pod **props);
+	int (*enum_prop_info) (void *object, uint32_t idx, struct spa_pod_builder *b,
+			struct spa_pod **param);
+	int (*get_props) (void *object, struct spa_pod_builder *b, struct spa_pod **props);
 	int (*set_props) (void *object, enum spa_direction direction, const struct spa_pod *props);
 
 	int (*activate) (void *object, const struct spa_dict *props);
@@ -101,13 +102,13 @@ SPA_API_FILTER_GRAPH int spa_filter_graph_add_listener(struct spa_filter_graph *
 }
 
 SPA_API_FILTER_GRAPH int spa_filter_graph_enum_prop_info(struct spa_filter_graph *object,
-		uint32_t idx, struct spa_pod_builder *b)
+		uint32_t idx, struct spa_pod_builder *b, struct spa_pod **param)
 {
 	return spa_api_method_r(int, -ENOTSUP,
-			spa_filter_graph, &object->iface, enum_prop_info, 0, idx, b);
+			spa_filter_graph, &object->iface, enum_prop_info, 0, idx, b, param);
 }
 SPA_API_FILTER_GRAPH int spa_filter_graph_get_props(struct spa_filter_graph *object,
-		struct spa_pod_builder *b, const struct spa_pod **props)
+		struct spa_pod_builder *b, struct spa_pod **props)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			spa_filter_graph, &object->iface, get_props, 0, b, props);

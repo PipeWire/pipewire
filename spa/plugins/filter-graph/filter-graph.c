@@ -1434,7 +1434,7 @@ static int impl_activate(void *object, const struct spa_dict *props)
 	const struct spa_fga_plugin *p;
 	uint32_t i, j, max_samples = impl->quantum_limit;
 	int res;
-	float *sd, *dd;
+	float *sd, *dd, *data;
 	const char *rate;
 
 	if (graph->activated)
@@ -1478,17 +1478,17 @@ static int impl_activate(void *object, const struct spa_dict *props)
 		for (i = 0; i < node->n_hndl; i++) {
 			for (j = 0; j < desc->n_input; j++) {
 				port = &node->input_port[j];
-				d->connect_port(node->hndl[i], port->p, sd);
-
-				spa_list_for_each(link, &port->link_list, input_link) {
-					struct port *peer = link->output;
-					if ((res = port_ensure_data(peer, i, max_samples)) < 0)
+				if (!spa_list_is_empty(&port->link_list)) {
+					link = spa_list_first(&port->link_list, struct link, input_link);
+					if ((res = port_ensure_data(link->output, i, max_samples)) < 0)
 						goto error;
-					spa_log_info(impl->log, "connect input port %s[%d]:%s %p",
-							node->name, i, d->ports[port->p].name,
-							peer->audio_data[i]);
-					d->connect_port(node->hndl[i], port->p, peer->audio_data[i]);
+					data = link->output->audio_data[i];
+				} else {
+					data = sd;
 				}
+				spa_log_info(impl->log, "connect input port %s[%d]:%s %p",
+						node->name, i, d->ports[port->p].name, data);
+				d->connect_port(node->hndl[i], port->p, data);
 			}
 			for (j = 0; j < desc->n_output; j++) {
 				port = &node->output_port[j];
@@ -1500,15 +1500,16 @@ static int impl_activate(void *object, const struct spa_dict *props)
 			}
 			for (j = 0; j < desc->n_control; j++) {
 				port = &node->control_port[j];
-				d->connect_port(node->hndl[i], port->p, &port->control_data[i]);
 
-				spa_list_for_each(link, &port->link_list, input_link) {
-					struct port *peer = link->output;
-					spa_log_info(impl->log, "connect control port %s[%d]:%s %p",
-							node->name, i, d->ports[port->p].name,
-							&peer->control_data[i]);
-					d->connect_port(node->hndl[i], port->p, &peer->control_data[i]);
+				if (!spa_list_is_empty(&port->link_list)) {
+					link = spa_list_first(&port->link_list, struct link, input_link);
+					data = &link->output->control_data[i];
+				} else {
+					data = &port->control_data[i];
 				}
+				spa_log_info(impl->log, "connect control port %s[%d]:%s %p",
+						node->name, i, d->ports[port->p].name, data);
+				d->connect_port(node->hndl[i], port->p, data);
 			}
 			for (j = 0; j < desc->n_notify; j++) {
 				port = &node->notify_port[j];

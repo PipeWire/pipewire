@@ -1001,9 +1001,13 @@ static void state_changed(void *data, enum pw_stream_state old,
 			goto error;
 		}
 		if (impl->rate != target) {
+			char rate[64];
 			impl->rate = target;
+			snprintf(rate, sizeof(rate), "%lu", impl->rate);
 			spa_filter_graph_deactivate(graph);
-			if ((res = spa_filter_graph_activate(graph, &SPA_FRACTION(1, impl->rate))) < 0)
+			if ((res = spa_filter_graph_activate(graph,
+					&SPA_DICT_ITEMS(
+						SPA_DICT_ITEM(SPA_KEY_AUDIO_RATE, rate)))) < 0)
 				goto error;
 		}
 		break;

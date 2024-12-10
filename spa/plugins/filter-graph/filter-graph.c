@@ -1422,7 +1422,7 @@ static int impl_deactivate(void *object)
 	return 0;
 }
 
-static int impl_activate(void *object, const struct spa_fraction *rate)
+static int impl_activate(void *object, const struct spa_dict *props)
 {
 	struct impl *impl = object;
 	struct graph *graph = &impl->graph;
@@ -1435,13 +1435,15 @@ static int impl_activate(void *object, const struct spa_fraction *rate)
 	uint32_t i, j, max_samples = impl->quantum_limit;
 	int res;
 	float *sd, *dd;
+	const char *rate;
 
 	if (graph->activated)
 		return 0;
 
 	graph->activated = true;
 
-	impl->rate = rate->denom;
+	rate = spa_dict_lookup(props, SPA_KEY_AUDIO_RATE);
+	impl->rate = rate ? atoi(rate) : DEFAULT_RATE;
 
 	/* first make instances */
 	spa_list_for_each(node, &graph->node_list, link) {

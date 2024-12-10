@@ -1880,7 +1880,21 @@ static int load_graph(struct graph *graph, const struct spa_dict *props)
 	}
 
 	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
-		if (spa_streq("nodes", key)) {
+		if (spa_streq("n_inputs", key)) {
+			if (spa_json_parse_int(val, len, &res) <= 0) {
+				spa_log_error(impl->log, "n_inputs expects an integer");
+				return -EINVAL;
+			}
+			impl->info.n_inputs = res;
+		}
+		else if (spa_streq("n_outputs", key)) {
+			if (spa_json_parse_int(val, len, &res) <= 0) {
+				spa_log_error(impl->log, "n_outputs expects an integer");
+				return -EINVAL;
+			}
+			impl->info.n_outputs = res;
+		}
+		else if (spa_streq("nodes", key)) {
 			if (!spa_json_is_array(val, len)) {
 				spa_log_error(impl->log, "nodes expects an array");
 				return -EINVAL;

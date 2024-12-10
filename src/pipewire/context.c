@@ -982,7 +982,15 @@ int pw_context_find_format(struct pw_context *context,
 			if (res == -ENOENT || res == 0) {
 				pw_log_debug("%p: no input format filter, using output format: %s",
 						context, spa_strerror(res));
-				*format = filter;
+
+				uint32_t offset = builder->state.offset;
+				res = spa_pod_builder_raw_padded(builder, filter, SPA_POD_SIZE(filter));
+				if (res < 0) {
+					*error = spa_aprintf("failed to add pod");
+					goto error;
+				}
+
+				*format = spa_pod_builder_deref(builder, offset);
 			} else {
 				*error = spa_aprintf("error input enum formats: %s", spa_strerror(res));
 				goto error;
@@ -1011,7 +1019,15 @@ int pw_context_find_format(struct pw_context *context,
 			if (res == -ENOENT || res == 0) {
 				pw_log_debug("%p: no output format filter, using input format: %s",
 						context, spa_strerror(res));
-				*format = filter;
+
+				uint32_t offset = builder->state.offset;
+				res = spa_pod_builder_raw_padded(builder, filter, SPA_POD_SIZE(filter));
+				if (res < 0) {
+					*error = spa_aprintf("failed to add pod");
+					goto error;
+				}
+
+				*format = spa_pod_builder_deref(builder, offset);
 			} else {
 				*error = spa_aprintf("error output enum formats: %s", spa_strerror(res));
 				goto error;

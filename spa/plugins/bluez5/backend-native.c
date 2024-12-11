@@ -159,6 +159,11 @@ struct rfcomm_call_data {
 	struct spa_bt_telephony_call *call;
 };
 
+struct rfcomm_cmd {
+	struct spa_list link;
+	char* cmd;
+};
+
 struct rfcomm {
 	struct spa_list link;
 	struct spa_source source;
@@ -189,6 +194,7 @@ struct rfcomm {
 	unsigned int hfp_hf_nrec:1;
 	unsigned int hfp_hf_clcc:1;
 	unsigned int hfp_hf_cme:1;
+	unsigned int hfp_hf_cmd_in_progress:1;
 	unsigned int hfp_hf_in_progress:1;
 	unsigned int chld_supported:1;
 	enum hfp_hf_state hf_state;
@@ -197,6 +203,7 @@ struct rfcomm {
 	uint32_t cind_enabled_indicators;
 	char *hf_indicators[MAX_HF_INDICATORS];
 	struct spa_bt_telephony_ag *telephony_ag;
+	struct spa_list hfp_hf_commands;
 #endif
 };
 
@@ -345,7 +352,7 @@ static void rfcomm_free(struct rfcomm *rfcomm)
 
 /* from HF/HS to AG */
 SPA_PRINTF_FUNC(2, 3)
-static ssize_t rfcomm_send_cmd(const struct rfcomm *rfcomm, const char *format, ...)
+static ssize_t rfcomm_send_cmd(struct rfcomm *rfcomm, const char *format, ...)
 {
 	struct impl *backend = rfcomm->backend;
 	char message[RFCOMM_MESSAGE_MAX_LENGTH + 1];
@@ -361,6 +368,14 @@ static ssize_t rfcomm_send_cmd(const struct rfcomm *rfcomm, const char *format, 
 
 	if (len > RFCOMM_MESSAGE_MAX_LENGTH)
 		return -E2BIG;
+
+	if (rfcomm->hfp_hf_cmd_in_progress) {
+		spa_log_debug(backend->log, "Command in progress, postponing: %s", message);
+		struct rfcomm_cmd *cmd = calloc(1, sizeof(struct rfcomm_cmd));
+		cmd->cmd = strndup(message, len);
+		spa_list_append(&rfcomm->hfp_hf_commands, &cmd->link);
+		return 0;
+	}
 
 	spa_log_debug(backend->log, "RFCOMM >> %s", message);
 
@@ -381,6 +396,8 @@ static ssize_t rfcomm_send_cmd(const struct rfcomm *rfcomm, const char *format, 
 		len = -errno;
 		spa_log_error(backend->log, "RFCOMM write error: %s", strerror(errno));
 	}
+
+	rfcomm->hfp_hf_cmd_in_progress = true;
 
 	return len;
 }
@@ -1283,23 +1300,23 @@ static bool hfp_hf_wait_for_reply(struct rfcomm *rfcomm, char *buf, size_t len)
 		ret = poll(fds, 1, 2000);
 		if (ret < 0) {
 			spa_log_error(backend->log, "RFCOMM poll error: %s", strerror(errno));
-			return false;
+			goto done;
 		} else if (ret == 0) {
 			spa_log_error(backend->log, "RFCOMM poll timeout");
-			return false;
+			goto done;
 		}
 
 		if (fds[0].revents & (POLLHUP | POLLERR)) {
 			spa_log_info(backend->log, "lost RFCOMM connection.");
 			rfcomm_free(rfcomm);
-			return false;
+			goto done;
 		}
 
 		if (fds[0].revents & POLLIN) {
 			tmp_len = read(rfcomm->source.fd, tmp_buf, sizeof(tmp_buf) - 1);
 			if (tmp_len < 0) {
 				spa_log_error(backend->log, "RFCOMM read error: %s", strerror(errno));
-				return false;
+				goto done;
 			}
 			tmp_buf[tmp_len] = '\0';
 
@@ -1330,6 +1347,18 @@ static bool hfp_hf_wait_for_reply(struct rfcomm *rfcomm, char *buf, size_t len)
 				}
 			}
 		}
+	}
+
+done:
+	rfcomm->hfp_hf_cmd_in_progress = false;
+	if (!spa_list_is_empty(&rfcomm->hfp_hf_commands)) {
+		struct rfcomm_cmd *cmd;
+		cmd = spa_list_first(&rfcomm->hfp_hf_commands, struct rfcomm_cmd, link);
+		spa_list_remove(&cmd->link);
+		spa_log_debug(backend->log, "Sending postponed command: %s", cmd->cmd);
+		rfcomm_send_cmd(rfcomm, "%s", cmd->cmd);
+		free(cmd->cmd);
+		free(cmd);
 	}
 
 	return reply_found;
@@ -2201,114 +2230,128 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 		}
 
 		rfcomm->hfp_hf_in_progress = false;
-	} else if (spa_strstartswith(token, "OK")) {
-		switch(rfcomm->hf_state) {
-		case hfp_hf_brsf:
-			if (rfcomm->codec_negotiation_supported) {
-				char buf[64];
-				struct spa_strbuf str;
+	} else if (spa_strstartswith(token, "OK") || spa_strstartswith(token, "ERROR") ||
+				spa_strstartswith(token, "+CME ERROR:")) {
+		rfcomm->hfp_hf_cmd_in_progress = false;
+		if (!spa_list_is_empty(&rfcomm->hfp_hf_commands)) {
+			struct rfcomm_cmd *cmd;
+			cmd = spa_list_first(&rfcomm->hfp_hf_commands, struct rfcomm_cmd, link);
+			spa_list_remove(&cmd->link);
+			spa_log_debug(backend->log, "Sending postponed command: %s", cmd->cmd);
+			rfcomm_send_cmd(rfcomm, "%s", cmd->cmd);
+			free(cmd->cmd);
+			free(cmd);
+		}
 
-				spa_strbuf_init(&str, buf, sizeof(buf));
-				spa_strbuf_append(&str, "1");
-				if (rfcomm->msbc_supported_by_hfp)
-					spa_strbuf_append(&str, ",2");
-				if (rfcomm->lc3_supported_by_hfp)
-					spa_strbuf_append(&str, ",3");
+		if (spa_strstartswith(token, "OK")) {
+			switch(rfcomm->hf_state) {
+			case hfp_hf_brsf:
+				if (rfcomm->codec_negotiation_supported) {
+					char buf[64];
+					struct spa_strbuf str;
 
-				rfcomm_send_cmd(rfcomm, "AT+BAC=%s", buf);
-				rfcomm->hf_state = hfp_hf_bac;
-			} else {
+					spa_strbuf_init(&str, buf, sizeof(buf));
+					spa_strbuf_append(&str, "1");
+					if (rfcomm->msbc_supported_by_hfp)
+						spa_strbuf_append(&str, ",2");
+					if (rfcomm->lc3_supported_by_hfp)
+						spa_strbuf_append(&str, ",3");
+
+					rfcomm_send_cmd(rfcomm, "AT+BAC=%s", buf);
+					rfcomm->hf_state = hfp_hf_bac;
+				} else {
+					rfcomm_send_cmd(rfcomm, "AT+CIND=?");
+					rfcomm->hf_state = hfp_hf_cind1;
+				}
+				break;
+			case hfp_hf_bac:
 				rfcomm_send_cmd(rfcomm, "AT+CIND=?");
 				rfcomm->hf_state = hfp_hf_cind1;
-			}
-			break;
-		case hfp_hf_bac:
-			rfcomm_send_cmd(rfcomm, "AT+CIND=?");
-			rfcomm->hf_state = hfp_hf_cind1;
-			break;
-		case hfp_hf_cind1:
-			rfcomm_send_cmd(rfcomm, "AT+CIND?");
-			rfcomm->hf_state = hfp_hf_cind2;
-			break;
-		case hfp_hf_cind2:
-			rfcomm_send_cmd(rfcomm, "AT+CMER=3,0,0,1");
-			rfcomm->hf_state = hfp_hf_cmer;
-			break;
-		case hfp_hf_cmer:
-			if (rfcomm->hfp_hf_3way) {
-				rfcomm_send_cmd(rfcomm, "AT+CHLD=?");
-				rfcomm->hf_state = hfp_hf_chld;
 				break;
-			}
-			SPA_FALLTHROUGH;
-		case hfp_hf_chld:
-			rfcomm_send_cmd(rfcomm, "AT+CLIP=1");
-			rfcomm->hf_state = hfp_hf_clip;
-			break;
-		case hfp_hf_clip:
-			if (rfcomm->chld_supported) {
-				rfcomm_send_cmd(rfcomm, "AT+CCWA=1");
-				rfcomm->hf_state = hfp_hf_ccwa;
+			case hfp_hf_cind1:
+				rfcomm_send_cmd(rfcomm, "AT+CIND?");
+				rfcomm->hf_state = hfp_hf_cind2;
 				break;
-			}
-			SPA_FALLTHROUGH;
-		case hfp_hf_ccwa:
-			if (rfcomm->hfp_hf_cme) {
-				rfcomm_send_cmd(rfcomm, "AT+CMEE=1");
-				rfcomm->hf_state = hfp_hf_cmee;
+			case hfp_hf_cind2:
+				rfcomm_send_cmd(rfcomm, "AT+CMER=3,0,0,1");
+				rfcomm->hf_state = hfp_hf_cmer;
 				break;
-			}
-			SPA_FALLTHROUGH;
-		case hfp_hf_cmee:
-			if (backend->hfp_disable_nrec && rfcomm->hfp_hf_nrec) {
-				rfcomm_send_cmd(rfcomm, "AT+NREC=0");
-				rfcomm->hf_state = hfp_hf_nrec;
-				break;
-			}
-			SPA_FALLTHROUGH;
-		case hfp_hf_nrec:
-			rfcomm->hf_state = hfp_hf_slc1;
-			rfcomm->slc_configured = true;
-
-			if (!rfcomm->codec_negotiation_supported) {
-				if (rfcomm_new_transport(rfcomm, HFP_AUDIO_CODEC_CVSD) < 0) {
-					// TODO: We should manage the missing transport
-				} else {
-					spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
+			case hfp_hf_cmer:
+				if (rfcomm->hfp_hf_3way) {
+					rfcomm_send_cmd(rfcomm, "AT+CHLD=?");
+					rfcomm->hf_state = hfp_hf_chld;
+					break;
 				}
-			}
-
-			rfcomm->telephony_ag = telephony_ag_new(backend->telephony, 0);
-			rfcomm->telephony_ag->address = strdup(rfcomm->device->address);
-			telephony_ag_set_callbacks(rfcomm->telephony_ag,
-						  &telephony_ag_callbacks, rfcomm);
-			if (rfcomm->transport) {
-				rfcomm->telephony_ag->transport.codec = rfcomm->transport->codec;
-				rfcomm->telephony_ag->transport.state = rfcomm->transport->state;
-			}
-			telephony_ag_register(rfcomm->telephony_ag);
-
-			if (rfcomm->hfp_hf_clcc) {
-				rfcomm_send_cmd(rfcomm, "AT+CLCC");
-				rfcomm->hf_state = hfp_hf_slc2;
+				SPA_FALLTHROUGH;
+			case hfp_hf_chld:
+				rfcomm_send_cmd(rfcomm, "AT+CLIP=1");
+				rfcomm->hf_state = hfp_hf_clip;
 				break;
-			} else {
-				// TODO: Create calls if CIND reports one during SLC setup
-			}
+			case hfp_hf_clip:
+				if (rfcomm->chld_supported) {
+					rfcomm_send_cmd(rfcomm, "AT+CCWA=1");
+					rfcomm->hf_state = hfp_hf_ccwa;
+					break;
+				}
+				SPA_FALLTHROUGH;
+			case hfp_hf_ccwa:
+				if (rfcomm->hfp_hf_cme) {
+					rfcomm_send_cmd(rfcomm, "AT+CMEE=1");
+					rfcomm->hf_state = hfp_hf_cmee;
+					break;
+				}
+				SPA_FALLTHROUGH;
+			case hfp_hf_cmee:
+				if (backend->hfp_disable_nrec && rfcomm->hfp_hf_nrec) {
+					rfcomm_send_cmd(rfcomm, "AT+NREC=0");
+					rfcomm->hf_state = hfp_hf_nrec;
+					break;
+				}
+				SPA_FALLTHROUGH;
+			case hfp_hf_nrec:
+				rfcomm->hf_state = hfp_hf_slc1;
+				rfcomm->slc_configured = true;
 
-			/* Report volume on SLC establishment */
-			SPA_FALLTHROUGH;
-		case hfp_hf_slc2:
-			if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
-				rfcomm->hf_state = hfp_hf_vgs;
-			break;
-		case hfp_hf_vgs:
-			rfcomm->hf_state = hfp_hf_slc1;
-			if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_TX))
-				rfcomm->hf_state = hfp_hf_vgm;
-			break;
-		default:
-			break;
+				if (!rfcomm->codec_negotiation_supported) {
+					if (rfcomm_new_transport(rfcomm, HFP_AUDIO_CODEC_CVSD) < 0) {
+						// TODO: We should manage the missing transport
+					} else {
+						spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
+					}
+				}
+
+				rfcomm->telephony_ag = telephony_ag_new(backend->telephony, 0);
+				rfcomm->telephony_ag->address = strdup(rfcomm->device->address);
+				telephony_ag_set_callbacks(rfcomm->telephony_ag,
+							&telephony_ag_callbacks, rfcomm);
+				if (rfcomm->transport) {
+					rfcomm->telephony_ag->transport.codec = rfcomm->transport->codec;
+					rfcomm->telephony_ag->transport.state = rfcomm->transport->state;
+				}
+				telephony_ag_register(rfcomm->telephony_ag);
+
+				if (rfcomm->hfp_hf_clcc) {
+					rfcomm_send_cmd(rfcomm, "AT+CLCC");
+					rfcomm->hf_state = hfp_hf_slc2;
+					break;
+				} else {
+					// TODO: Create calls if CIND reports one during SLC setup
+				}
+
+				/* Report volume on SLC establishment */
+				SPA_FALLTHROUGH;
+			case hfp_hf_slc2:
+				if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
+					rfcomm->hf_state = hfp_hf_vgs;
+				break;
+			case hfp_hf_vgs:
+				rfcomm->hf_state = hfp_hf_slc1;
+				if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_TX))
+					rfcomm->hf_state = hfp_hf_vgm;
+				break;
+			default:
+				break;
+			}
 		}
 	}
 
@@ -3241,6 +3284,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	rfcomm->source.fd = spa_steal_fd(fd);
 	rfcomm->source.mask = SPA_IO_IN;
 	rfcomm->source.rmask = 0;
+	spa_list_init(&rfcomm->hfp_hf_commands);
 	/* By default all indicators are enabled */
 	rfcomm->cind_enabled_indicators = 0xFFFFFFFF;
 	memset(rfcomm->hf_indicators, 0, sizeof rfcomm->hf_indicators);

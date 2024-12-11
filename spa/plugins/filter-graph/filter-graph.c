@@ -175,8 +175,7 @@ struct graph {
 	uint32_t n_control;
 	struct port **control_port;
 
-	struct volume capture_volume;
-	struct volume playback_volume;
+	struct volume volume[2];
 
 	unsigned activated:1;
 };
@@ -640,8 +639,7 @@ static int impl_set_props(void *object, enum spa_direction direction, const stru
 	int changed = 0;
 	char buf[1024];
 	struct spa_pod_dynamic_builder b;
-	struct volume *vol = direction == SPA_DIRECTION_INPUT ? &graph->capture_volume :
-		&graph->playback_volume;
+	struct volume *vol = &graph->volume[direction];
 	bool do_volume = false;
 
 	spa_pod_dynamic_builder_init(&b, buf, sizeof(buf), 1024);
@@ -1132,7 +1130,7 @@ static void link_free(struct link *link)
  *   scale = <string, default "linear", options "linear","cubic">
  * }
  */
-static int parse_volume(struct graph *graph, struct spa_json *json, bool capture)
+static int parse_volume(struct graph *graph, struct spa_json *json, enum spa_direction direction)
 {
 	struct impl *impl = graph->impl;
 	char key[256];
@@ -1142,8 +1140,7 @@ static int parse_volume(struct graph *graph, struct spa_json *json, bool capture
 	const char *val;
 	struct node *def_control;
 	struct port *port;
-	struct volume *vol = capture ? &graph->capture_volume :
-		&graph->playback_volume;
+	struct volume *vol = &graph->volume[direction];
 	int len;
 
 	if (spa_list_is_empty(&graph->node_list)) {
@@ -1179,7 +1176,7 @@ static int parse_volume(struct graph *graph, struct spa_json *json, bool capture
 			spa_log_error(impl->log, "unexpected volume key '%s'", key);
 		}
 	}
-	if (capture)
+	if (direction == SPA_DIRECTION_INPUT)
 		def_control = spa_list_first(&graph->node_list, struct node, link);
 	else
 		def_control = spa_list_last(&graph->node_list, struct node, link);
@@ -1860,6 +1857,12 @@ error:
  *     ]
  *     inputs = [ ]
  *     outputs = [ ]
+ *     input.volumes = [
+ *         ...
+ *     ]
+ *     output.volumes = [
+ *         ...
+ *     ]
  * }
  */
 static int load_graph(struct graph *graph, const struct spa_dict *props)
@@ -1867,7 +1870,7 @@ static int load_graph(struct graph *graph, const struct spa_dict *props)
 	struct impl *impl = graph->impl;
 	struct spa_json it[2];
 	struct spa_json inputs, outputs, *pinputs = NULL, *poutputs = NULL;
-	struct spa_json cvolumes, pvolumes, *pcvolumes = NULL, *ppvolumes = NULL;
+	struct spa_json ivolumes, ovolumes, *pivolumes = NULL, *povolumes = NULL;
 	struct spa_json nodes, *pnodes = NULL, links, *plinks = NULL;
 	const char *json, *val;
 	char key[256];
@@ -1889,21 +1892,21 @@ static int load_graph(struct graph *graph, const struct spa_dict *props)
 	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
 		if (spa_streq("n_inputs", key)) {
 			if (spa_json_parse_int(val, len, &res) <= 0) {
-				spa_log_error(impl->log, "n_inputs expects an integer");
+				spa_log_error(impl->log, "%s expects an integer", key);
 				return -EINVAL;
 			}
 			impl->info.n_inputs = res;
 		}
 		else if (spa_streq("n_outputs", key)) {
 			if (spa_json_parse_int(val, len, &res) <= 0) {
-				spa_log_error(impl->log, "n_outputs expects an integer");
+				spa_log_error(impl->log, "%s expects an integer", key);
 				return -EINVAL;
 			}
 			impl->info.n_outputs = res;
 		}
 		else if (spa_streq("nodes", key)) {
 			if (!spa_json_is_array(val, len)) {
-				spa_log_error(impl->log, "nodes expects an array");
+				spa_log_error(impl->log, "%s expects an array", key);
 				return -EINVAL;
 			}
 			spa_json_enter(&it[0], &nodes);
@@ -1911,7 +1914,7 @@ static int load_graph(struct graph *graph, const struct spa_dict *props)
 		}
 		else if (spa_streq("links", key)) {
 			if (!spa_json_is_array(val, len)) {
-				spa_log_error(impl->log, "links expects an array");
+				spa_log_error(impl->log, "%s expects an array", key);
 				return -EINVAL;
 			}
 			spa_json_enter(&it[0], &links);
@@ -1919,7 +1922,7 @@ static int load_graph(struct graph *graph, const struct spa_dict *props)
 		}
 		else if (spa_streq("inputs", key)) {
 			if (!spa_json_is_array(val, len)) {
-				spa_log_error(impl->log, "inputs expects an array");
+				spa_log_error(impl->log, "%s expects an array", key);
 				return -EINVAL;
 			}
 			spa_json_enter(&it[0], &inputs);
@@ -1927,27 +1930,29 @@ static int load_graph(struct graph *graph, const struct spa_dict *props)
 		}
 		else if (spa_streq("outputs", key)) {
 			if (!spa_json_is_array(val, len)) {
-				spa_log_error(impl->log, "outputs expects an array");
+				spa_log_error(impl->log, "%s expects an array", key);
 				return -EINVAL;
 			}
 			spa_json_enter(&it[0], &outputs);
 			poutputs = &outputs;
 		}
-		else if (spa_streq("capture.volumes", key)) {
+		else if (spa_streq("capture.volumes", key) ||
+		    spa_streq("input.volumes", key)) {
 			if (!spa_json_is_array(val, len)) {
-				spa_log_error(impl->log, "capture.volumes expects an array");
+				spa_log_error(impl->log, "%s expects an array", key);
 				return -EINVAL;
 			}
-			spa_json_enter(&it[0], &cvolumes);
-			pcvolumes = &cvolumes;
+			spa_json_enter(&it[0], &ivolumes);
+			pivolumes = &ivolumes;
 		}
-		else if (spa_streq("playback.volumes", key)) {
+		else if (spa_streq("playback.volumes", key) ||
+		    spa_streq("output.volumes", key)) {
 			if (!spa_json_is_array(val, len)) {
-				spa_log_error(impl->log, "playback.volumes expects an array");
+				spa_log_error(impl->log, "%s expects an array", key);
 				return -EINVAL;
 			}
-			spa_json_enter(&it[0], &pvolumes);
-			ppvolumes = &pvolumes;
+			spa_json_enter(&it[0], &ovolumes);
+			povolumes = &ovolumes;
 		} else {
 			spa_log_warn(impl->log, "unexpected graph key '%s'", key);
 		}
@@ -1966,15 +1971,15 @@ static int load_graph(struct graph *graph, const struct spa_dict *props)
 				return res;
 		}
 	}
-	if (pcvolumes != NULL) {
-		while (spa_json_enter_object(pcvolumes, &it[1]) > 0) {
-			if ((res = parse_volume(graph, &it[1], true)) < 0)
+	if (pivolumes != NULL) {
+		while (spa_json_enter_object(pivolumes, &it[1]) > 0) {
+			if ((res = parse_volume(graph, &it[1], SPA_DIRECTION_INPUT)) < 0)
 				return res;
 		}
 	}
-	if (ppvolumes != NULL) {
-		while (spa_json_enter_object(ppvolumes, &it[1]) > 0) {
-			if ((res = parse_volume(graph, &it[1], false)) < 0)
+	if (povolumes != NULL) {
+		while (spa_json_enter_object(povolumes, &it[1]) > 0) {
+			if ((res = parse_volume(graph, &it[1], SPA_DIRECTION_OUTPUT)) < 0)
 				return res;
 		}
 	}

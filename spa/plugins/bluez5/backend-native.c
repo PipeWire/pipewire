@@ -47,6 +47,7 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.native");
 
 #define PROP_KEY_ROLES "bluez5.roles"
 #define PROP_KEY_HEADSET_ROLES "bluez5.headset-roles"
+#define PROP_KEY_HFP_DISABLE_NREC "bluez5.hfp-hf.disable-nrec"
 
 #define HFP_CODEC_SWITCH_INITIAL_TIMEOUT_MSEC 5000
 #define HFP_CODEC_SWITCH_TIMEOUT_MSEC 20000
@@ -98,6 +99,7 @@ struct impl {
 
 #define DEFAULT_ENABLED_PROFILES (SPA_BT_PROFILE_HFP_HF | SPA_BT_PROFILE_HFP_AG)
 	enum spa_bt_profile enabled_profiles;
+	bool hfp_disable_nrec;
 
 	struct spa_source sco;
 
@@ -132,6 +134,7 @@ enum hfp_hf_state {
 	hfp_hf_clip,
 	hfp_hf_ccwa,
 	hfp_hf_cmee,
+	hfp_hf_nrec,
 	hfp_hf_slc1,
 	hfp_hf_slc2,
 	hfp_hf_vgs,
@@ -183,6 +186,7 @@ struct rfcomm {
 	unsigned int extended_error_reporting:1;
 	unsigned int clip_notify:1;
 	unsigned int hfp_hf_3way:1;
+	unsigned int hfp_hf_nrec:1;
 	unsigned int hfp_hf_clcc:1;
 	unsigned int hfp_hf_cme:1;
 	unsigned int hfp_hf_in_progress:1;
@@ -1845,6 +1849,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 				(rfcomm->msbc_supported_by_hfp || rfcomm->lc3_supported_by_hfp))
 			rfcomm->codec_negotiation_supported = true;
 		rfcomm->hfp_hf_3way = (features & SPA_BT_HFP_AG_FEATURE_3WAY) != 0;
+		rfcomm->hfp_hf_nrec = (features & SPA_BT_HFP_AG_FEATURE_ECNR) != 0;
 		rfcomm->hfp_hf_clcc = (features & SPA_BT_HFP_AG_FEATURE_ENHANCED_CALL_STATUS) != 0;
 		rfcomm->hfp_hf_cme = (features & SPA_BT_HFP_AG_FEATURE_EXTENDED_RES_CODE) != 0;
 	} else if (sscanf(token, "+BCS:%u", &selected_codec) == 1 && rfcomm->codec_negotiation_supported) {
@@ -2255,6 +2260,13 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			}
 			SPA_FALLTHROUGH;
 		case hfp_hf_cmee:
+			if (backend->hfp_disable_nrec && rfcomm->hfp_hf_nrec) {
+				rfcomm_send_cmd(rfcomm, "AT+NREC=0");
+				rfcomm->hf_state = hfp_hf_nrec;
+				break;
+			}
+			SPA_FALLTHROUGH;
+		case hfp_hf_nrec:
 			rfcomm->hf_state = hfp_hf_slc1;
 			rfcomm->slc_configured = true;
 
@@ -3830,6 +3842,16 @@ fallback:
 	return 0;
 }
 
+static void parse_hfp_disable_nrec(struct impl *backend, const struct spa_dict *info)
+{
+	const char *str;
+
+	if ((str = spa_dict_lookup(info, PROP_KEY_HFP_DISABLE_NREC)) != NULL)
+		backend->hfp_disable_nrec = spa_atob(str);
+	else
+		backend->hfp_disable_nrec = false;
+}
+
 static const struct spa_bt_backend_implementation backend_impl = {
 	SPA_VERSION_BT_BACKEND_IMPLEMENTATION,
 	.free = backend_native_free,
@@ -3886,6 +3908,8 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 
 	if (parse_headset_roles(backend, info) < 0)
 		goto fail;
+
+	parse_hfp_disable_nrec(backend, info);
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 	if (!dbus_connection_register_object_path(backend->conn,

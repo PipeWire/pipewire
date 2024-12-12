@@ -1064,7 +1064,7 @@ handle_format_change (GstPipeWireSrc *pwsrc,
   }
 
   pw_peer_caps = gst_caps_from_format (param);
-  if (pw_peer_caps) {
+  if (pw_peer_caps && pwsrc->possible_caps) {
     pwsrc->caps = gst_caps_intersect_full (pw_peer_caps,
                                            pwsrc->possible_caps,
                                            GST_CAPS_INTERSECT_FIRST);

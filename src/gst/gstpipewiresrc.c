@@ -955,6 +955,9 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   GST_DEBUG_OBJECT (basesrc, "connect capture with path %s, target-object %s",
                     pwsrc->stream->path, pwsrc->stream->target_object);
 
+  pwsrc->possible_caps = possible_caps;
+  pwsrc->negotiated = FALSE;
+
   enum pw_stream_flags flags;
   flags = PW_STREAM_FLAG_DONT_RECONNECT |
 	  PW_STREAM_FLAG_ASYNC;
@@ -969,9 +972,6 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
 
   pw_thread_loop_get_time (pwsrc->stream->core->loop, &abstime,
                   GST_PIPEWIRE_DEFAULT_TIMEOUT * SPA_NSEC_PER_SEC);
-
-  pwsrc->possible_caps = possible_caps;
-  pwsrc->negotiated = FALSE;
 
   while (TRUE) {
     enum pw_stream_state state = pw_stream_get_state (pwsrc->stream->pwstream, &error);

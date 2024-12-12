@@ -127,6 +127,7 @@ extern "C" {
 #define SPA_BT_UUID_BAP_SOURCE  "00002bcb-0000-1000-8000-00805f9b34fb"
 #define SPA_BT_UUID_BAP_BROADCAST_SOURCE  "00001852-0000-1000-8000-00805f9b34fb"
 #define SPA_BT_UUID_BAP_BROADCAST_SINK    "00001851-0000-1000-8000-00805f9b34fb"
+#define SPA_BT_UUID_ASHA_SINK   "0000FDF0-0000-1000-8000-00805f9b34fb"
 
 #define PROFILE_HSP_AG	"/Profile/HSPAG"
 #define PROFILE_HSP_HS	"/Profile/HSPHS"
@@ -181,12 +182,13 @@ enum spa_bt_profile {
 	SPA_BT_PROFILE_BAP_SOURCE =	(1 << 1),
 	SPA_BT_PROFILE_A2DP_SINK =	(1 << 2),
 	SPA_BT_PROFILE_A2DP_SOURCE =	(1 << 3),
-	SPA_BT_PROFILE_HSP_HS =		(1 << 4),
-	SPA_BT_PROFILE_HSP_AG =		(1 << 5),
-	SPA_BT_PROFILE_HFP_HF =		(1 << 6),
-	SPA_BT_PROFILE_HFP_AG =		(1 << 7),
-	SPA_BT_PROFILE_BAP_BROADCAST_SOURCE =	(1 << 8),
-	SPA_BT_PROFILE_BAP_BROADCAST_SINK   =	(1 << 9),
+	SPA_BT_PROFILE_ASHA_SINK =      (1 << 4),
+	SPA_BT_PROFILE_HSP_HS =		(1 << 5),
+	SPA_BT_PROFILE_HSP_AG =		(1 << 6),
+	SPA_BT_PROFILE_HFP_HF =		(1 << 7),
+	SPA_BT_PROFILE_HFP_AG =		(1 << 8),
+	SPA_BT_PROFILE_BAP_BROADCAST_SOURCE =	(1 << 9),
+	SPA_BT_PROFILE_BAP_BROADCAST_SINK   =	(1 << 10),
 
 	SPA_BT_PROFILE_A2DP_DUPLEX =	(SPA_BT_PROFILE_A2DP_SINK | SPA_BT_PROFILE_A2DP_SOURCE),
 	SPA_BT_PROFILE_BAP_DUPLEX =     (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE),
@@ -226,6 +228,8 @@ static inline enum spa_bt_profile spa_bt_profile_from_uuid(const char *uuid)
 		return SPA_BT_PROFILE_BAP_BROADCAST_SOURCE;
 	else if (strcasecmp(uuid, SPA_BT_UUID_BAP_BROADCAST_SINK) == 0)
 		return SPA_BT_PROFILE_BAP_BROADCAST_SINK;
+	else if (strcasecmp(uuid, SPA_BT_UUID_ASHA_SINK) == 0)
+		return SPA_BT_PROFILE_ASHA_SINK;
 	else
 		return 0;
 }
@@ -316,6 +320,8 @@ enum spa_bt_hfp_sdp_hf_features {
 
 static inline const char *spa_bt_profile_name (enum spa_bt_profile profile) {
       switch (profile) {
+      case SPA_BT_PROFILE_ASHA_SINK:
+        return "asha-sink";
       case SPA_BT_PROFILE_A2DP_SOURCE:
         return "a2dp-source";
       case SPA_BT_PROFILE_A2DP_SINK:

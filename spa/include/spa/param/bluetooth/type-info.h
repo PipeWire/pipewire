@@ -47,6 +47,8 @@ static const struct spa_type_info spa_type_bluetooth_audio_codec[] = {
 
 	{ SPA_BLUETOOTH_AUDIO_CODEC_LC3, SPA_TYPE_Int, SPA_TYPE_INFO_BLUETOOTH_AUDIO_CODEC_BASE "lc3", NULL },
 
+	{ SPA_BLUETOOTH_AUDIO_CODEC_G722, SPA_TYPE_Int, SPA_TYPE_INFO_BLUETOOTH_AUDIO_CODEC_BASE "g722", NULL },
+
 	{ 0, 0, NULL, NULL },
 };
 

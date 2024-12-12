@@ -556,6 +556,8 @@ static enum spa_bt_profile get_codec_profile(const struct media_codec *codec,
 	case SPA_BT_MEDIA_SOURCE:
 		return codec->bap ? SPA_BT_PROFILE_BAP_SOURCE : SPA_BT_PROFILE_A2DP_SOURCE;
 	case SPA_BT_MEDIA_SINK:
+		if (codec->asha)
+			return SPA_BT_PROFILE_ASHA_SINK;
 		return codec->bap ? SPA_BT_PROFILE_BAP_SINK : SPA_BT_PROFILE_A2DP_SINK;
 	case SPA_BT_MEDIA_SOURCE_BROADCAST:
 		return SPA_BT_PROFILE_BAP_BROADCAST_SOURCE;
@@ -2020,10 +2022,11 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 	uint32_t connected_profiles = device->connected_profiles;
 	uint32_t connectable_profiles =
 		device->adapter ? adapter_connectable_profiles(device->adapter) : 0;
-	uint32_t direction_masks[3] = {
+	uint32_t direction_masks[4] = {
 		SPA_BT_PROFILE_MEDIA_SINK | SPA_BT_PROFILE_HEADSET_HEAD_UNIT,
 		SPA_BT_PROFILE_MEDIA_SOURCE,
 		SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY,
+		SPA_BT_PROFILE_ASHA_SINK,
 	};
 	bool direction_connected = false;
 	bool set_connected = true;
@@ -2034,6 +2037,7 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 		connected_profiles |= SPA_BT_PROFILE_HEADSET_HEAD_UNIT;
 	if (connected_profiles & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY)
 		connected_profiles |= SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY;
+	connected_profiles |= SPA_BT_PROFILE_ASHA_SINK;
 
 	for (i = 0; i < SPA_N_ELEMENTS(direction_masks); ++i) {
 		uint32_t mask = direction_masks[i] & device->profiles & connectable_profiles;
@@ -2645,6 +2649,8 @@ static struct spa_bt_device *create_bcast_device(struct spa_bt_monitor *monitor,
 	return d;
 }
 
+static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, struct spa_bt_monitor *monitor, const char *transport_path);
+
 static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_endpoint,
 				DBusMessageIter *props_iter,
 				DBusMessageIter *invalidated_iter)
@@ -2698,6 +2704,15 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 						spa_list_append(&device->remote_endpoint_list, &remote_endpoint->device_link);
 				}
 			}
+			/* For ASHA */
+			else if (spa_streq(key, "Transport")) {
+				if (setup_asha_transport(remote_endpoint, monitor, value)) {
+					spa_log_error(monitor->log, "Failed to create transport for remote_endpoint %p: %s=%s", remote_endpoint, key, value);
+					goto next;
+				}
+
+				spa_log_info(monitor->log, "Created ASHA transport for %s", value);
+			}
 		}
 		else if (type == DBUS_TYPE_BOOLEAN) {
 			int value;
@@ -2719,6 +2734,16 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 
 			if (spa_streq(key, "Codec")) {
 				remote_endpoint->codec = value;
+			}
+		}
+		/* Codecs property is present for ASHA */
+		else if (type == DBUS_TYPE_UINT16) {
+			uint16_t value;
+
+			dbus_message_iter_get_basic(&it[1], &value);
+
+			if (spa_streq(key, "Codecs")) {
+				spa_log_debug(monitor->log, "remote_endpoint %p: %s=%02x", remote_endpoint, key, value);
 			}
 		}
 		else if (spa_streq(key, "Capabilities")) {
@@ -2744,6 +2769,23 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 				remote_endpoint->capabilities_len = len;
 			}
 		}
+		/* HiSyncId property is present for ASHA */
+		else if (spa_streq(key, "HiSyncId")) {
+			/*
+			 * TODO: Required for Stereo support in ASHA, for now just log.
+			 */
+			DBusMessageIter iter;
+			uint8_t *value;
+			int len;
+
+			if (!check_iter_signature(&it[1], "ay"))
+				goto next;
+
+			dbus_message_iter_recurse(&it[1], &iter);
+			dbus_message_iter_get_fixed_array(&iter, &value, &len);
+
+			spa_log_debug(monitor->log, "remote_endpoint %p: %s=%d", remote_endpoint, key, len);
+		}
 		else
 			spa_log_debug(monitor->log, "remote_endpoint %p: unhandled key %s", remote_endpoint, key);
 
@@ -2761,6 +2803,10 @@ next:
 		profile = spa_bt_profile_from_uuid(remote_endpoint->uuid);
 		if (profile & SPA_BT_PROFILE_BAP_AUDIO)
 			spa_bt_device_add_profile(remote_endpoint->device, profile);
+		if (profile & SPA_BT_PROFILE_ASHA_SINK) {
+			spa_log_debug(monitor->log, "Adding profile for remote_endpoint %p: device -> %p", remote_endpoint, remote_endpoint->device);
+			spa_bt_device_add_profile(remote_endpoint->device, SPA_BT_PROFILE_ASHA_SINK);
+		}
 	}
 
 	return 0;
@@ -3168,6 +3214,8 @@ static void spa_bt_transport_volume_changed(struct spa_bt_transport *transport)
 		volume_id = SPA_BT_VOLUME_ID_TX;
 	else if (transport->profile & SPA_BT_PROFILE_A2DP_SOURCE)
 		volume_id = SPA_BT_VOLUME_ID_RX;
+	else if (transport->profile & SPA_BT_PROFILE_ASHA_SINK)
+		volume_id = SPA_BT_VOLUME_ID_TX;
 	else
 		return;
 
@@ -3409,6 +3457,8 @@ static int transport_update_props(struct spa_bt_transport *transport,
 				t_volume = &transport->volumes[SPA_BT_VOLUME_ID_TX];
 			else if (transport->profile & SPA_BT_PROFILE_A2DP_SOURCE)
 				t_volume = &transport->volumes[SPA_BT_VOLUME_ID_RX];
+			else if (transport->profile & SPA_BT_PROFILE_ASHA_SINK)
+				t_volume = &transport->volumes[SPA_BT_VOLUME_ID_TX];
 			else
 				goto next;
 
@@ -4027,6 +4077,61 @@ static const struct spa_bt_transport_implementation transport_impl = {
 	.set_volume = transport_set_volume,
 	.set_delay = transport_set_delay,
 };
+
+static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, struct spa_bt_monitor *monitor, const char *transport_path)
+{
+	const struct media_codec * const * const media_codecs = monitor->media_codecs;
+	const struct media_codec *codec = NULL;
+	struct spa_bt_transport *transport;
+
+	transport = spa_bt_transport_find(monitor, transport_path);
+	if (transport == NULL) {
+		char *tpath = strdup(transport_path);
+
+		transport = spa_bt_transport_create(monitor, tpath, 0);
+		if (transport == NULL) {
+			spa_log_error(monitor->log, "Failed to create transport for %s", transport_path);
+			free(tpath);
+			return -EINVAL;
+		}
+
+		spa_bt_transport_set_implementation(transport, &transport_impl, transport);
+
+		spa_log_debug(monitor->log, "Created ASHA transport for %s", transport_path);
+	}
+
+	for (int i = 0; media_codecs[i]; i++) {
+		const struct media_codec *mcodec = media_codecs[i];
+		if (!spa_streq(mcodec->name, "g722"))
+			continue;
+		codec = mcodec;
+		spa_log_debug(monitor->log, "Setting ASHA codec: %s", mcodec->name);
+	}
+
+	free(transport->endpoint_path);
+	transport->endpoint_path = strdup(transport_path);
+	transport->profile = SPA_BT_PROFILE_ASHA_SINK;
+	transport->media_codec = codec;
+	transport->device = remote_endpoint->device;
+
+	spa_list_append(&remote_endpoint->device->transport_list, &transport->device_link);
+
+	spa_bt_device_update_last_bluez_action_time(transport->device);
+
+	transport->volumes[SPA_BT_VOLUME_ID_TX].active = true;
+	transport->volumes[SPA_BT_VOLUME_ID_TX].volume = DEFAULT_TX_VOLUME;
+	transport->n_channels = 1;
+	transport->channels[0] = SPA_AUDIO_CHANNEL_MONO;
+
+	spa_bt_device_add_profile(transport->device, transport->profile);
+	spa_bt_device_connect_profile(transport->device, transport->profile);
+
+	transport_sync_volume(transport);
+
+	spa_log_debug(monitor->log, "ASHA transport setup complete");
+
+	return 0;
+}
 
 static void media_codec_switch_reply(DBusPendingCall *pending, void *userdata);
 
@@ -5534,6 +5639,8 @@ static void interface_added(struct spa_bt_monitor *monitor,
 						object_path);
 				return;
 			}
+			spa_log_info(monitor->log, "Created Bluetooth device %s",
+					object_path);
 		}
 
 		device_update_props(d, props_iter, NULL);
@@ -5546,7 +5653,14 @@ static void interface_added(struct spa_bt_monitor *monitor,
 
 		/* Trigger bluez device creation before bluez profile negotiation started so that
 		 * profile connection handlers can receive per-device settings during profile negotiation. */
-		spa_bt_device_add_profile(d, SPA_BT_PROFILE_NULL);
+		if (d->profiles & SPA_BT_PROFILE_ASHA_SINK) {
+			spa_log_info(monitor->log, "Add profile %s: %m",
+					object_path);
+			spa_bt_device_add_profile(d, SPA_BT_PROFILE_ASHA_SINK);
+			spa_bt_device_connect_profile(d, SPA_BT_PROFILE_ASHA_SINK);
+		}
+		else
+			spa_bt_device_add_profile(d, SPA_BT_PROFILE_NULL);
 	}
 	else if (spa_streq(interface_name, BLUEZ_DEVICE_SET_INTERFACE)) {
 		device_set_update_props(monitor, object_path, props_iter, NULL);
@@ -6185,7 +6299,7 @@ static int parse_roles(struct spa_bt_monitor *monitor, const struct spa_dict *in
 {
 	const char *str;
 	int res = 0;
-	int profiles = SPA_BT_PROFILE_MEDIA_SINK | SPA_BT_PROFILE_MEDIA_SOURCE;
+	int profiles = SPA_BT_PROFILE_MEDIA_SINK | SPA_BT_PROFILE_MEDIA_SOURCE | SPA_BT_PROFILE_ASHA_SINK;
 
 	/* HSP/HFP backends parse this property separately */
 	if (info && (str = spa_dict_lookup(info, "bluez5.roles"))) {

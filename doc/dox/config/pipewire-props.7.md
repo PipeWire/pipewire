@@ -901,6 +901,7 @@ bluez5.bcast_source.config = [
   {
     "broadcast_code": "Børne House",
     "encryption: false,
+    "sync_factor": 2,
     "bis": [
       { # BIS configuration
         "qos_preset": "16_2_1", # QOS preset name from table Table 6.4 from BAP_v1.0.1.

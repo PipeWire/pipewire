@@ -180,6 +180,7 @@ struct spa_bt_big {
 	int presentation_delay;
 	struct spa_list bis_list;
 	int big_id;
+	int sync_factor;
 };
 
 /*
@@ -5378,8 +5379,6 @@ static void configure_bis(struct spa_bt_monitor *monitor,
 	int options = 0;
 	int skip = 0;
 	int sync_cte_type = 0;
-	/* sync_factor should be >=2 to avoid invalid extended advertising interval value */
-	int sync_factor = 2;
 	int sync_timeout = 2000;
 	int timeout = 2000;
 
@@ -5432,7 +5431,12 @@ static void configure_bis(struct spa_bt_monitor *monitor,
 
 	append_basic_variant_dict_entry(&qos_dict, "BIG", DBUS_TYPE_BYTE, "y", &big->big_id);
 	append_basic_variant_dict_entry(&qos_dict, "BIS", DBUS_TYPE_BYTE, "y", &bis_id);
-	append_basic_variant_dict_entry(&qos_dict, "SyncFactor", DBUS_TYPE_BYTE, "y", &sync_factor);
+
+	/* sync_factor should be >=2 to avoid invalid extended advertising interval value */
+	if (big->sync_factor < 2)
+		big->sync_factor = 2;
+
+	append_basic_variant_dict_entry(&qos_dict, "SyncFactor", DBUS_TYPE_BYTE, "y", &big->sync_factor);
 	append_basic_variant_dict_entry(&qos_dict, "Options", DBUS_TYPE_BYTE, "y", &options);
 	append_basic_variant_dict_entry(&qos_dict, "Skip", DBUS_TYPE_UINT16, "q", &skip);
 	append_basic_variant_dict_entry(&qos_dict, "SyncTimeout", DBUS_TYPE_UINT16, "q", &sync_timeout);
@@ -6247,6 +6251,10 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 				if (spa_json_get_bool(&it[0], &big_entry->encryption) <= 0)
 					goto parse_failed;
 				spa_log_debug(monitor->log, "big_entry->encryption %d", big_entry->encryption);
+			} else if (spa_streq(key, "sync_factor")) {
+				if (spa_json_get_int(&it[0], &big_entry->sync_factor) <= 0)
+					goto parse_failed;
+				spa_log_debug(monitor->log, "big_entry->sync_factor %d", big_entry->sync_factor);
 			} else if (spa_streq(key, "bis")) {
 				if (spa_json_enter_array(&it[0], &it_array[1]) <= 0)
 					goto parse_failed;

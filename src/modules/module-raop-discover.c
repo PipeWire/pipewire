@@ -45,7 +45,7 @@
  *
  * Options specific to the behavior of this module
  *
- * - `roap.discover-local` = allow discovery of local services as well.
+ * - `raop.discover-local` = allow discovery of local services as well.
  *    false by default.
  * - `raop.latency.ms` = latency for all streams in microseconds. This
  *    can be overwritten in the stream rules.
@@ -60,7 +60,7 @@
  * context.modules = [
  * {   name = libpipewire-module-raop-discover
  *     args = {
- *         #roap.discover-local = false;
+ *         #raop.discover-local = false;
  *         #raop.latency.ms = 1000
  *         stream.rules = [
  *             {   matches = [

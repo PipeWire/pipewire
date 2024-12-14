@@ -154,6 +154,10 @@ systemd.
 @PAR@ pipewire-env PIPEWIRE_LOG_LINE
 Enables the logging of line numbers. Default true.
 
+@PAR@ pipewire-env PIPEWIRE_LOG_TIMESTAMP
+Logging timestamp type: "local", "monotonic", "realtime", "none".
+Default "local".
+
 @PAR@ pipewire-env PIPEWIRE_LOG
 Specifies a log file to use instead of the default logger.
 

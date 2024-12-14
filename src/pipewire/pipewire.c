@@ -533,7 +533,10 @@ void pw_init(int *argc, char **argv[])
 				str = "true";
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_COLORS, str);
 		}
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_TIMESTAMP, "true");
+		if ((str = getenv("PIPEWIRE_LOG_TIMESTAMP")) != NULL)
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_TIMESTAMP, str);
+		else
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_TIMESTAMP, "local");
 		if ((str = getenv("PIPEWIRE_LOG_LINE")) == NULL || spa_atob(str))
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LINE, "true");
 		snprintf(level, sizeof(level), "%d", pw_log_level);

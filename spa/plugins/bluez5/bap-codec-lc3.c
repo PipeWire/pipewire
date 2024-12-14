@@ -14,6 +14,7 @@
 #include <spa/param/audio/format.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/utils/string.h>
+#include <spa/utils/json.h>
 #include <spa/debug/log.h>
 
 #include <lc3.h>
@@ -240,21 +241,15 @@ static int write_ltv_uint32(uint8_t *dest, uint8_t type, uint32_t value)
 
 static uint16_t parse_rates(const char *str)
 {
-	char *s, *p, *save = NULL;
+	struct spa_json it;
 	uint16_t rate_mask = 0;
+	int value;
 
-	if (!str)
-		return 0;
+	if (spa_json_begin_array_relax(&it, str, strlen(str)) <= 0)
+		return rate_mask;
 
-	s = strdup(str);
-	if (s == NULL)
-		return 0;
-
-	for (p = s; (p = strtok_r(p, "[, ]", &save)) != NULL; p = NULL) {
-		if (*p == '\0')
-			continue;
-
-		switch (atoi(p)) {
+	while (spa_json_get_int(&it, &value) > 0) {
+		switch (value) {
 		case LC3_VAL_FREQ_8KHZ:
 			rate_mask |= LC3_FREQ_8KHZ;
 			break;
@@ -277,58 +272,40 @@ static uint16_t parse_rates(const char *str)
 			break;
 		}
 	}
-	free(s);
 
 	return rate_mask;
 }
 
 static uint8_t parse_durations(const char *str)
 {
-	char *s, *p, *save = NULL;
+	struct spa_json it;
 	uint8_t duration_mask = 0;
+	float value;
 
-	if (!str)
-		return 0;
+	if (spa_json_begin_array_relax(&it, str, strlen(str)) <= 0)
+		return duration_mask;
 
-	s = strdup(str);
-	if (s == NULL)
-		return 0;
-
-	for (p = s; (p = strtok_r(p, "[, ]", &save)) != NULL; p = NULL) {
-		double duration;
-
-		if (*p == '\0')
-			continue;
-
-		duration = atof(p);
-
-		if (duration == LC3_VAL_DUR_7_5)
+	while (spa_json_get_float(&it, &value) > 0) {
+		if (value == (float)LC3_VAL_DUR_7_5)
 			duration_mask |= LC3_DUR_7_5;
-		else if (duration == LC3_VAL_DUR_10)
+		else if (value == (float)LC3_VAL_DUR_10)
 			duration_mask |= LC3_DUR_10;
 	}
-	free(s);
 
 	return duration_mask;
 }
 
 static uint8_t parse_channel_counts(const char *str)
 {
-	char *s, *p, *save = NULL;
+	struct spa_json it;
 	uint8_t channel_counts = 0;
+	int value;
 
-	if (!str)
-		return 0;
+	if (spa_json_begin_array_relax(&it, str, strlen(str)) <= 0)
+		return channel_counts;
 
-	s = strdup(str);
-	if (s == NULL)
-		return 0;
-
-	for (p = s; (p = strtok_r(p, "[, ]", &save)) != NULL; p = NULL) {
-		if (*p == '\0')
-			continue;
-
-		switch (atoi(p)) {
+	while (spa_json_get_int(&it, &value) > 0) {
+		switch (value) {
 		case LC3_VAL_CHAN_1:
 			channel_counts |= LC3_CHAN_1;
 			break;
@@ -357,7 +334,6 @@ static uint8_t parse_channel_counts(const char *str)
 			break;
 		}
 	}
-	free(s);
 
 	return channel_counts;
 }
@@ -375,6 +351,7 @@ static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 	uint16_t framelen_min = LC3_MIN_FRAME_BYTES;
 	uint16_t framelen_max = LC3_MAX_FRAME_BYTES;
 	uint8_t max_frames = 2;
+	uint32_t value;
 
 	if (settings && (str = spa_dict_lookup(settings, "bluez5.bap-server-capabilities.rates")))
 		rate_mask = parse_rates(str);
@@ -386,13 +363,16 @@ static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 		channel_counts = parse_channel_counts(str);
 
 	if (settings && (str = spa_dict_lookup(settings, "bluez5.bap-server-capabilities.framelen_min")))
-		framelen_min = atoi(str);
+		if (spa_atou32(str, &value, 0))
+			framelen_min = value;
 
 	if (settings && (str = spa_dict_lookup(settings, "bluez5.bap-server-capabilities.framelen_max")))
-		framelen_max = atoi(str);
+		if (spa_atou32(str, &value, 0))
+			framelen_max = value;
 
 	if (settings && (str = spa_dict_lookup(settings, "bluez5.bap-server-capabilities.max_frames")))
-		max_frames = atoi(str);
+		if (spa_atou32(str, &value, 0))
+			max_frames = value;
 
 	framelen[0] = htobs(framelen_min);
 	framelen[1] = htobs(framelen_max);

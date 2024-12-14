@@ -313,7 +313,7 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 		if (impl->rate == 0)
 			impl->rate = 10000;
 
-		impl->header.format_SR = VBAN_PROTOCOL_SERIAL | vban_BPSList[14]; /* 115200 */
+		impl->header.format_SR = VBAN_PROTOCOL_SERIAL | VBAN_BPS_115200;
 		impl->header.format_nbs = 0;
 		impl->header.format_nbc = 0;
 		impl->header.format_bit = impl->format_info->format_bit;

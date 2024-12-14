@@ -101,6 +101,7 @@ common_flags = [
   '-Wunused-result',
   '-Werror=return-type',
   '-Werror=float-conversion',
+  '-Werror=constant-conversion',
 ]
 
 cc_flags = common_flags + [

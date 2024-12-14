@@ -25,6 +25,7 @@
 
 #include <linux/dma-buf.h>
 #include <linux/version.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/utsname.h>
 #include <xf86drm.h>
@@ -51,29 +52,9 @@ bool dmabuf_check_sync_file_import_export(struct spa_log *log) {
 		return false;
 	}
 
-	// Trim release suffix if any, e.g. "-arch1-1"
-	for (size_t i = 0; utsname.release[i] != '\0'; i++) {
-		char ch = utsname.release[i];
-		if ((ch < '0' || ch > '9') && ch != '.') {
-			utsname.release[i] = '\0';
-			break;
-		}
-	}
-
-	char *rel = strtok(utsname.release, ".");
-	int major = atoi(rel);
-
-	int minor = 0;
-	rel = strtok(NULL, ".");
-	if (rel != NULL) {
-		minor = atoi(rel);
-	}
-
-	int patch = 0;
-	rel = strtok(NULL, ".");
-	if (rel != NULL) {
-		patch = atoi(rel);
-	}
+	unsigned int major, minor, patch;
+	if (sscanf(utsname.release, "%u.%u.%u", &major, &minor, &patch) != 3)
+		return false;
 
 	return KERNEL_VERSION(major, minor, patch) >= KERNEL_VERSION(5, 20, 0);
 }

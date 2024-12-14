@@ -48,9 +48,12 @@ struct impl {
 	struct spa_ringbuffer trace_rb;
 	uint8_t trace_data[TRACE_BUFFER];
 
+	clockid_t clock_id;
+
 	unsigned int have_source:1;
 	unsigned int colors:1;
 	unsigned int timestamp:1;
+	unsigned int local_timestamp:1;
 	unsigned int line:1;
 };
 
@@ -67,7 +70,7 @@ impl_log_logtv(void *object,
 #define RESERVED_LENGTH 24
 
 	struct impl *impl = object;
-	char timestamp[15] = {0};
+	char timestamp[18] = {0};
 	char topicstr[32] = {0};
 	char filename[64] = {0};
 	char location[1000 + RESERVED_LENGTH], *p, *s;
@@ -93,9 +96,19 @@ impl_log_logtv(void *object,
 	p = location;
 	len = sizeof(location) - RESERVED_LENGTH;
 
-	if (impl->timestamp) {
+	if (impl->local_timestamp) {
+		char buf[64];
 		struct timespec now;
-		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+		struct tm now_tm;
+
+		clock_gettime(impl->clock_id, &now);
+		localtime_r(&now.tv_sec, &now_tm);
+		strftime(buf, sizeof(buf), "%H:%M:%S", &now_tm);
+		spa_scnprintf(timestamp, sizeof(timestamp), "[%s.%06d]", buf,
+				(int)(now.tv_nsec / SPA_NSEC_PER_USEC));
+	} else if (impl->timestamp) {
+		struct timespec now;
+		clock_gettime(impl->clock_id, &now);
 		spa_scnprintf(timestamp, sizeof(timestamp), "[%05jd.%06jd]",
 			(intmax_t) (now.tv_sec & 0x1FFFFFFF) % 100000, (intmax_t) now.tv_nsec / 1000);
 	}
@@ -319,8 +332,20 @@ impl_init(const struct spa_handle_factory *factory,
 		}
 	}
 	if (info) {
-		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_TIMESTAMP)) != NULL)
-			this->timestamp = spa_atob(str);
+		str = spa_dict_lookup(info, SPA_KEY_LOG_TIMESTAMP);
+		if (spa_atob(str) || spa_streq(str, "local")) {
+			this->clock_id = CLOCK_REALTIME;
+			this->local_timestamp = true;
+		} else if (spa_streq(str, "monotonic")) {
+			this->clock_id = CLOCK_MONOTONIC;
+			this->timestamp = true;
+		} else if (spa_streq(str, "monotonic-raw")) {
+			this->clock_id = CLOCK_MONOTONIC_RAW;
+			this->timestamp = true;
+		} else if (spa_streq(str, "realtime")) {
+			this->clock_id = CLOCK_REALTIME;
+			this->timestamp = true;
+		}
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_LINE)) != NULL)
 			this->line = spa_atob(str);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_COLORS)) != NULL) {

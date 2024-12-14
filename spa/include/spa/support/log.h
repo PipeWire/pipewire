@@ -379,7 +379,8 @@ SPA_API_LOG void spa_log_logtv(struct spa_log *l, enum spa_log_level level,
 								  *  colors even when not logging to a terminal */
 #define SPA_KEY_LOG_FILE		"log.file"		/**< log to the specified file instead of
 								  *  stderr. */
-#define SPA_KEY_LOG_TIMESTAMP		"log.timestamp"		/**< log timestamps */
+#define SPA_KEY_LOG_TIMESTAMP		"log.timestamp"		/**< log timestamp type (local, realtime, monotonic, monotonic-raw).
+								 *   boolean true means local. */
 #define SPA_KEY_LOG_LINE		"log.line"		/**< log file and line numbers */
 #define SPA_KEY_LOG_PATTERNS		"log.patterns"		/**< Spa:String:JSON array of [ {"pattern" : level}, ... ] */
 

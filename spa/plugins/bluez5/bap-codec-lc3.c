@@ -23,7 +23,7 @@
 
 #define MAX_PACS	64
 
-static struct spa_log *log;
+static struct spa_log *log_;
 
 struct impl {
 	lc3_encoder_t enc[LC3_MAX_CHANNELS];
@@ -787,7 +787,7 @@ static int pac_cmp(const void *p1, const void *p2)
 {
 	const struct pac_data *pac1 = p1;
 	const struct pac_data *pac2 = p2;
-	struct spa_debug_log_ctx debug_ctx = SPA_LOG_DEBUG_INIT(log, SPA_LOG_LEVEL_TRACE);
+	struct spa_debug_log_ctx debug_ctx = SPA_LOG_DEBUG_INIT(log_, SPA_LOG_LEVEL_TRACE);
 	bap_lc3_t conf1, conf2;
 	int res1, res2;
 
@@ -809,7 +809,7 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	uint32_t locations = 0;
 	uint32_t channel_allocation = 0;
 	bool sink = false, duplex = false;
-	struct spa_debug_log_ctx debug_ctx = SPA_LOG_DEBUG_INIT(log, SPA_LOG_LEVEL_TRACE);
+	struct spa_debug_log_ctx debug_ctx = SPA_LOG_DEBUG_INIT(log_, SPA_LOG_LEVEL_TRACE);
 	int i;
 
 	if (caps == NULL)
@@ -824,7 +824,7 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 		}
 
 		if (spa_atob(spa_dict_lookup(settings, "bluez5.bap.debug")))
-			debug_ctx = SPA_LOG_DEBUG_INIT(log, SPA_LOG_LEVEL_DEBUG);
+			debug_ctx = SPA_LOG_DEBUG_INIT(log_, SPA_LOG_LEVEL_DEBUG);
 
 		/* Is remote endpoint sink or source */
 		sink = spa_atob(spa_dict_lookup(settings, "bluez5.bap.sink"));
@@ -1051,7 +1051,7 @@ static int codec_get_qos(const struct media_codec *codec,
 			conf.framelen, conf.framelen);
 	if (!bap_qos) {
 		/* shouldn't happen: select_config should pick existing one */
-		spa_log_error(log, "no QoS settings found");
+		spa_log_error(log_, "no QoS settings found");
 		return -EINVAL;
 	}
 
@@ -1109,7 +1109,7 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		goto error;
 
 	if (!parse_conf(&conf, config, config_len)) {
-		spa_log_error(log, "invalid LC3 config");
+		spa_log_error(log_, "invalid LC3 config");
 		res = -ENOTSUP;
 		goto error;
 	}
@@ -1130,12 +1130,12 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		goto error;
 	}
 
-	spa_log_info(log, "LC3 rate:%d frame_duration:%d channels:%d framelen:%d nblks:%d",
+	spa_log_info(log_, "LC3 rate:%d frame_duration:%d channels:%d framelen:%d nblks:%d",
 			this->samplerate, this->frame_dus, this->channels, this->framelen, conf.n_blks);
 
 	res = lc3_frame_samples(this->frame_dus, this->samplerate);
 	if (res < 0) {
-		spa_log_error(log, "invalid LC3 frame samples");
+		spa_log_error(log_, "invalid LC3 frame samples");
 		res = -EINVAL;
 		goto error;
 	}
@@ -1300,8 +1300,8 @@ static int codec_increase_bitpool(void *data)
 
 static void codec_set_log(struct spa_log *global_log)
 {
-	log = global_log;
-	spa_log_topic_init(log, &codec_plugin_log_topic);
+	log_ = global_log;
+	spa_log_topic_init(log_, &codec_plugin_log_topic);
 }
 
 static int codec_get_bis_config(const struct media_codec *codec, uint8_t *caps,

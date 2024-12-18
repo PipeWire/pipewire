@@ -842,6 +842,8 @@ struct impl {
 	struct spa_handle *handle;
 	struct spa_filter_graph *graph;
 	struct spa_hook graph_listener;
+	uint32_t n_inputs;
+	uint32_t n_outputs;
 };
 
 static void capture_destroy(void *d)
@@ -907,6 +909,8 @@ static void playback_process(void *d)
 		data_size = i == 0 ? size : SPA_MIN(data_size, size);
 		stride = SPA_MAX(stride, bd->chunk->stride);
 	}
+	for (; i < impl->n_inputs; i++)
+		cin[i] = NULL;
 
 	for (i = 0; i < out->buffer->n_datas; i++) {
 		bd = &out->buffer->datas[i];
@@ -919,6 +923,8 @@ static void playback_process(void *d)
 		bd->chunk->size = data_size;
 		bd->chunk->stride = stride;
 	}
+	for (; i < impl->n_outputs; i++)
+		cout[i] = NULL;
 
 	pw_log_trace_fp("%p: stride:%d size:%d requested:%"PRIu64" (%"PRIu64")", impl,
 			stride, data_size, out->requested, out->requested * stride);
@@ -1223,6 +1229,9 @@ static void graph_info(void *object, const struct spa_filter_graph_info *info)
 		impl->capture_info.channels = info->n_inputs;
 	if (impl->playback_info.channels == 0)
 		impl->playback_info.channels = info->n_outputs;
+
+	impl->n_inputs = info->n_inputs;
+	impl->n_outputs = info->n_outputs;
 
 	if (impl->capture_info.channels == impl->playback_info.channels) {
 		copy_position(&impl->capture_info, &impl->playback_info);

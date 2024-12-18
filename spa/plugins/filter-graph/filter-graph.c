@@ -246,17 +246,20 @@ static int impl_process(void *object,
 	for (i = 0, j = 0; i < impl->info.n_inputs; i++) {
 		while (j < graph->n_input) {
 			port = &graph->input[j++];
-			if (port->desc)
+			if (port->desc && in[i])
 				port->desc->connect_port(*port->hndl, port->port, (float*)in[i]);
 			if (!port->next)
 				break;
 		}
 	}
 	for (i = 0; i < impl->info.n_outputs; i++) {
+		if (out[i] == NULL)
+			continue;
+
 		port = i < graph->n_output ? &graph->output[i] : NULL;
 
 		if (port && port->desc)
-			port->desc->connect_port(*port->hndl, port->port, (float*)out[i]);
+			port->desc->connect_port(*port->hndl, port->port, out[i]);
 		else
 			memset(out[i], 0, n_samples * sizeof(float));
 	}

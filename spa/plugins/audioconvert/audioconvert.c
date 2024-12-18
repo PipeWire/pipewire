@@ -48,6 +48,7 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.audioconvert");
 #define MAX_BUFFERS	32
 #define MAX_DATAS	SPA_AUDIO_MAX_CHANNELS
 #define MAX_PORTS	(SPA_AUDIO_MAX_CHANNELS+1)
+#define MAX_STAGES	64
 
 #define DEFAULT_MUTE		false
 #define DEFAULT_VOLUME		VOLUME_NORM
@@ -189,6 +190,35 @@ struct dir {
 	unsigned int control:1;
 };
 
+struct stage_context {
+#define CTX_DATA_SRC		0
+#define CTX_DATA_DST		1
+#define CTX_DATA_REMAP_DST	2
+#define CTX_DATA_REMAP_SRC	3
+#define CTX_DATA_TMP_0		4
+#define CTX_DATA_TMP_1		5
+#define CTX_DATA_MAX		6
+	void **datas[CTX_DATA_MAX];
+	uint32_t n_samples;
+	uint32_t n_out;
+	uint32_t src_idx;
+	uint32_t dst_idx;
+	uint32_t final_idx;
+	uint32_t n_datas;
+	struct port *ctrlport;
+};
+
+struct stage {
+	struct impl *impl;
+	bool passthrough;
+	uint32_t in_idx;
+	uint32_t out_idx;
+	uint32_t n_in;
+	uint32_t n_out;
+	void *data;
+	void (*run) (struct stage *stage, struct stage_context *c);
+};
+
 struct impl {
 	struct spa_handle handle;
 	struct spa_node node;
@@ -196,6 +226,9 @@ struct impl {
 	struct spa_log *log;
 	struct spa_cpu *cpu;
 	struct spa_loop *data_loop;
+
+	struct stage stages[MAX_STAGES];
+	uint32_t n_stages;
 
 	uint32_t cpu_flags;
 	uint32_t max_align;
@@ -242,6 +275,9 @@ struct impl {
 	unsigned int rate_adjust:1;
 	unsigned int port_ignore_latency:1;
 	unsigned int monitor_passthrough:1;
+	unsigned int resample_passthrough:1;
+
+	bool recalc;
 
 	char group_name[128];
 
@@ -1255,6 +1291,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 
 		this->vol_ramp_sequence = (struct spa_pod_sequence *) sequence;
 		this->vol_ramp_offset = 0;
+		this->recalc = true;
 	}
 	return changed;
 }
@@ -1961,6 +1998,7 @@ static int setup_convert(struct impl *this)
 	resample_update_rate_match(this, resample_is_passthrough(this), duration, 0);
 
 	this->setup = true;
+	this->recalc = true;
 
 	emit_node_info(this, false);
 
@@ -2864,25 +2902,341 @@ static uint64_t get_time_ns(struct impl *impl)
 	return SPA_TIMESPEC_TO_NSEC(&now);
 }
 
+static void run_wav_stage(struct stage *stage, struct stage_context *c)
+{
+	struct impl *impl = stage->impl;
+	handle_wav(impl, (const void **)c->datas[stage->in_idx], c->n_samples);
+}
+
+static void add_wav_stage(struct impl *impl, struct stage_context *ctx, uint32_t idx)
+{
+	struct stage *s = &impl->stages[impl->n_stages];
+	s->impl = impl;
+	s->passthrough = false;
+	s->in_idx = idx;
+	s->out_idx = idx;
+	s->n_in = ctx->n_datas;
+	s->n_out = ctx->n_datas;
+	s->data = NULL;
+	s->run = run_wav_stage;
+	impl->n_stages++;
+}
+
+static void run_dst_remap_stage(struct stage *s, struct stage_context *c)
+{
+	struct impl *impl = s->impl;
+	struct dir *dir = &impl->dir[SPA_DIRECTION_OUTPUT];
+	uint32_t i;
+	for (i = 0; i < s->n_in; i++) {
+		c->datas[s->out_idx][i] = c->datas[s->in_idx][dir->remap[i]];
+		spa_log_trace_fp(impl->log, "%p: output remap %d -> %d", impl, i, dir->remap[i]);
+	}
+}
+static void add_dst_remap_stage(struct impl *impl, struct stage_context *ctx)
+{
+	struct stage *s = &impl->stages[impl->n_stages];
+	s->impl = impl;
+	s->passthrough = false;
+	s->in_idx = ctx->dst_idx;
+	s->out_idx = CTX_DATA_REMAP_DST;
+	s->n_in = ctx->n_datas;
+	s->n_out = ctx->n_datas;
+	s->data = NULL;
+	s->run = run_dst_remap_stage;
+	impl->n_stages++;
+	ctx->dst_idx = CTX_DATA_REMAP_DST;
+	ctx->final_idx = CTX_DATA_REMAP_DST;
+}
+
+static void run_src_remap_stage(struct stage *s, struct stage_context *c)
+{
+	struct impl *impl = s->impl;
+	struct dir *dir = &impl->dir[SPA_DIRECTION_INPUT];
+	uint32_t i;
+	for (i = 0; i < dir->conv.n_channels; i++) {
+		c->datas[s->out_idx][i] = c->datas[s->in_idx][dir->remap[i]];
+		spa_log_trace_fp(impl->log, "%p: input remap %d -> %d", impl, dir->remap[i], i);
+	}
+}
+static void add_src_remap_stage(struct impl *impl, struct stage_context *ctx)
+{
+	struct stage *s = &impl->stages[impl->n_stages];
+	s->impl = impl;
+	s->passthrough = false;
+	s->in_idx = ctx->dst_idx;
+	s->out_idx = CTX_DATA_REMAP_SRC;
+	s->n_in = ctx->n_datas;
+	s->n_out = ctx->n_datas;
+	s->data = NULL;
+	s->run = run_src_remap_stage;
+	impl->n_stages++;
+	ctx->dst_idx = CTX_DATA_REMAP_SRC;
+}
+
+static void run_src_remap2_stage(struct stage *s, struct stage_context *c)
+{
+	struct impl *impl = s->impl;
+	struct dir *dir = &impl->dir[SPA_DIRECTION_INPUT];
+	uint32_t i;
+	for (i = 0; i < dir->conv.n_channels; i++) {
+		c->datas[s->out_idx][dir->remap[i]] = c->datas[s->in_idx][i];
+		spa_log_trace_fp(impl->log, "%p: input remap %d -> %d", impl, dir->remap[i], i);
+	}
+}
+static void add_src_remap2_stage(struct impl *impl, struct stage_context *ctx)
+{
+	struct stage *s = &impl->stages[impl->n_stages];
+	s->impl = impl;
+	s->passthrough = false;
+	s->in_idx = ctx->src_idx;
+	s->out_idx = CTX_DATA_REMAP_SRC;
+	s->n_in = ctx->n_datas;
+	s->n_out = ctx->n_datas;
+	s->data = NULL;
+	s->run = run_src_remap2_stage;
+	impl->n_stages++;
+	ctx->src_idx = CTX_DATA_REMAP_SRC;
+}
+
+static void run_src_convert_stage(struct stage *s, struct stage_context *c)
+{
+	struct impl *impl = s->impl;
+	struct dir *dir = &impl->dir[SPA_DIRECTION_INPUT];
+	spa_log_trace_fp(impl->log, "%p: input convert %d", impl, c->n_samples);
+	convert_process(&dir->conv, c->datas[s->out_idx], (const void**)c->datas[s->in_idx], c->n_samples);
+}
+static void add_src_convert_stage(struct impl *impl, struct stage_context *ctx)
+{
+	struct stage *s = &impl->stages[impl->n_stages];
+	s->impl = impl;
+	s->passthrough = false;
+	s->in_idx = ctx->src_idx;
+	s->out_idx = ctx->dst_idx;
+	s->n_in = ctx->n_datas;
+	s->n_out = ctx->n_datas;
+	s->data = NULL;
+	s->run = run_src_convert_stage;
+	impl->n_stages++;
+	ctx->src_idx = ctx->dst_idx;
+}
+
+static void run_resample_stage(struct stage *s, struct stage_context *c)
+{
+	struct impl *impl = s->impl;
+	uint32_t in_len = c->n_samples;
+	uint32_t out_len = c->n_out;
+
+	resample_process(&impl->resample, (const void**)c->datas[s->in_idx], &in_len,
+			c->datas[s->out_idx], &out_len);
+
+	spa_log_trace_fp(impl->log, "%p: resample %d/%d -> %d/%d", impl,
+				c->n_samples, in_len, c->n_out, out_len);
+	c->n_samples = out_len;
+}
+static void add_resample_stage(struct impl *impl, struct stage_context *ctx)
+{
+	struct stage *s = &impl->stages[impl->n_stages];
+	s->impl = impl;
+	s->passthrough = false;
+	s->in_idx = ctx->src_idx;
+	s->out_idx = ctx->dst_idx;
+	s->n_in = ctx->n_datas;
+	s->n_out = ctx->n_datas;
+	s->data = NULL;
+	s->run = run_resample_stage;
+	impl->n_stages++;
+	ctx->src_idx = ctx->dst_idx;
+}
+
+static void run_channelmix_stage(struct stage *s, struct stage_context *c)
+{
+	struct impl *impl = s->impl;
+	void **out_datas = c->datas[s->out_idx];
+	const void **in_datas = (const void**)c->datas[s->in_idx];
+	struct port *ctrlport = c->ctrlport;
+
+	spa_log_trace_fp(impl->log, "%p: channelmix %d", impl, c->n_samples);
+	if (ctrlport != NULL && ctrlport->ctrl != NULL) {
+		if (channelmix_process_apply_sequence(impl, ctrlport->ctrl,
+					&ctrlport->ctrl_offset, out_datas, in_datas, c->n_samples) == 1) {
+			ctrlport->io->status = SPA_STATUS_OK;
+			ctrlport->ctrl = NULL;
+		}
+	} else if (impl->vol_ramp_sequence) {
+		if (channelmix_process_apply_sequence(impl, impl->vol_ramp_sequence,
+				&impl->vol_ramp_offset, out_datas, in_datas, c->n_samples) == 1) {
+			free(impl->vol_ramp_sequence);
+			impl->vol_ramp_sequence = NULL;
+		}
+	} else {
+		channelmix_process(&impl->mix, out_datas, in_datas, c->n_samples);
+	}
+}
+static void add_channelmix_stage(struct impl *impl, struct stage_context *ctx)
+{
+	struct stage *s = &impl->stages[impl->n_stages];
+	s->impl = impl;
+	s->passthrough = false;
+	s->in_idx = ctx->src_idx;
+	s->out_idx = ctx->dst_idx;
+	s->n_in = ctx->n_datas;
+	s->n_out = ctx->n_datas;
+	s->data = NULL;
+	s->run = run_channelmix_stage;
+	impl->n_stages++;
+	ctx->src_idx = ctx->dst_idx;
+}
+
+static void run_dst_remap2_stage(struct stage *s, struct stage_context *c)
+{
+	struct impl *impl = s->impl;
+	struct dir *dir = &impl->dir[SPA_DIRECTION_OUTPUT];
+	uint32_t i;
+	for (i = 0; i < dir->conv.n_channels; i++) {
+		c->datas[s->out_idx][dir->remap[i]] = c->datas[s->in_idx][i];
+		spa_log_trace_fp(impl->log, "%p: output remap %d -> %d", impl, i, dir->remap[i]);
+	}
+}
+static void add_dst_remap2_stage(struct impl *impl, struct stage_context *ctx)
+{
+	struct stage *s = &impl->stages[impl->n_stages];
+	s->impl = impl;
+	s->passthrough = false;
+	s->in_idx = ctx->src_idx;
+	s->out_idx = CTX_DATA_REMAP_DST;
+	s->n_in = ctx->n_datas;
+	s->n_out = ctx->n_datas;
+	s->data = NULL;
+	s->run = run_dst_remap2_stage;
+	impl->n_stages++;
+	ctx->src_idx = CTX_DATA_REMAP_DST;
+}
+
+static void run_dst_convert_stage(struct stage *s, struct stage_context *c)
+{
+	struct impl *impl = s->impl;
+	struct dir *dir = &impl->dir[SPA_DIRECTION_OUTPUT];
+	spa_log_trace_fp(impl->log, "%p: output convert %d", impl, c->n_samples);
+	convert_process(&dir->conv, c->datas[s->out_idx], (const void **)c->datas[s->in_idx], c->n_samples);
+}
+static void add_dst_convert_stage(struct impl *impl, struct stage_context *ctx)
+{
+	struct stage *s = &impl->stages[impl->n_stages];
+	s->impl = impl;
+	s->passthrough = false;
+	s->in_idx = ctx->src_idx;
+	s->out_idx = ctx->final_idx;
+	s->n_in = ctx->n_datas;
+	s->n_out = ctx->n_datas;
+	s->data = NULL;
+	s->run = run_dst_convert_stage;
+	impl->n_stages++;
+	ctx->src_idx = s->out_idx;
+}
+
+static void recalc_stages(struct impl *this, struct stage_context *ctx)
+{
+	struct dir *dir;
+	bool in_passthrough, mix_passthrough, resample_passthrough, out_passthrough;
+	int tmp = 0;
+	struct port *ctrlport = ctx->ctrlport;
+
+	this->recalc = false;
+	this->n_stages = 0;
+
+	dir = &this->dir[SPA_DIRECTION_INPUT];
+	in_passthrough = dir->conv.is_passthrough;
+
+	resample_passthrough = resample_is_passthrough(this);
+	this->resample_passthrough = resample_passthrough;
+	mix_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY) &&
+		(ctrlport == NULL || ctrlport->ctrl == NULL) && (this->vol_ramp_sequence == NULL);
+
+	dir = &this->dir[SPA_DIRECTION_OUTPUT];
+	out_passthrough = dir->conv.is_passthrough;
+	if (in_passthrough && mix_passthrough && resample_passthrough)
+		out_passthrough = false;
+
+	if (out_passthrough && dir->need_remap)
+		add_dst_remap_stage(this, ctx);
+
+	if (this->direction == SPA_DIRECTION_INPUT)
+		add_wav_stage(this, ctx, ctx->src_idx);
+
+	dir = &this->dir[SPA_DIRECTION_INPUT];
+	if (!in_passthrough) {
+		if (mix_passthrough && resample_passthrough && out_passthrough)
+			ctx->dst_idx = ctx->final_idx;
+		else
+			ctx->dst_idx = CTX_DATA_TMP_0 + ((tmp++) & 1);
+
+		if (dir->need_remap)
+			add_src_remap_stage(this, ctx);
+
+		add_src_convert_stage(this, ctx);
+	} else {
+		if (dir->need_remap)
+			add_src_remap2_stage(this, ctx);
+	}
+
+	if (this->direction == SPA_DIRECTION_INPUT) {
+		if (!resample_passthrough) {
+			if (mix_passthrough && out_passthrough)
+				ctx->dst_idx = ctx->final_idx;
+			else
+				ctx->dst_idx = CTX_DATA_TMP_0 + ((tmp++) & 1);
+
+			add_resample_stage(this, ctx);
+			resample_passthrough = true;
+		}
+	}
+	if (!mix_passthrough) {
+		if (resample_passthrough && out_passthrough)
+			ctx->dst_idx = ctx->final_idx;
+		else
+			ctx->dst_idx = CTX_DATA_TMP_0 + ((tmp++) & 1);
+
+		add_channelmix_stage(this, ctx);
+	}
+	if (this->direction == SPA_DIRECTION_OUTPUT) {
+		if (!resample_passthrough) {
+			if (out_passthrough)
+				ctx->dst_idx = ctx->final_idx;
+			else
+				ctx->dst_idx = CTX_DATA_TMP_0 + ((tmp++) & 1);
+
+			add_resample_stage(this, ctx);
+		}
+	}
+	if (!out_passthrough) {
+		dir = &this->dir[SPA_DIRECTION_OUTPUT];
+		if (dir->need_remap) {
+			add_dst_remap2_stage(this, ctx);
+		}
+		add_dst_convert_stage(this, ctx);
+	}
+	if (this->direction == SPA_DIRECTION_OUTPUT)
+		add_wav_stage(this, ctx, ctx->dst_idx);
+}
+
 static int impl_node_process(void *object)
 {
 	struct impl *this = object;
-	const void *src_datas[MAX_PORTS], **in_datas;
+	const void *src_datas[MAX_PORTS];
 	void *dst_datas[MAX_PORTS], *remap_src_datas[MAX_PORTS], *remap_dst_datas[MAX_PORTS];
-	void **out_datas, **dst_remap;
 	uint32_t i, j, n_src_datas = 0, n_dst_datas = 0, n_mon_datas = 0, remap;
 	uint32_t n_samples, max_in, n_out, max_out, quant_samples;
 	struct port *port, *ctrlport = NULL;
 	struct buffer *buf, *out_bufs[MAX_PORTS];
 	struct spa_data *bd;
 	struct dir *dir;
-	int tmp = 0, res = 0, suppressed;
-	bool in_passthrough, mix_passthrough, resample_passthrough, out_passthrough;
+	int res = 0, suppressed;
 	bool in_avail = false, flush_in = false, flush_out = false;
 	bool draining = false, in_empty = this->out_offset == 0;
-	struct spa_io_buffers *io, *ctrlio = NULL;
+	struct spa_io_buffers *io;
 	const struct spa_pod_sequence *ctrl = NULL;
 	uint64_t current_time;
+	struct stage_context ctx;
 
 	/* calculate quantum scale, this is how many samples we need to produce or
 	 * consume. Also update the rate scale, this is sent to the resampler to adjust
@@ -2918,7 +3272,6 @@ static int impl_node_process(void *object)
 	}
 
 	dir = &this->dir[SPA_DIRECTION_INPUT];
-	in_passthrough = dir->conv.is_passthrough;
 	max_in = UINT32_MAX;
 
 	/* collect input port data */
@@ -2982,7 +3335,6 @@ static int impl_node_process(void *object)
 					spa_log_trace_fp(this->log, "%p: control %d", this,
 							i * port->blocks + j);
 					ctrlport = port;
-					ctrlio = io;
 					ctrl = spa_pod_from_data(bd->data, bd->maxsize,
 							bd->chunk->offset, bd->chunk->size);
 					if (ctrl && !spa_pod_is_sequence(&ctrl->pod))
@@ -2990,6 +3342,7 @@ static int impl_node_process(void *object)
 					if (ctrl != ctrlport->ctrl) {
 						ctrlport->ctrl = ctrl;
 						ctrlport->ctrl_offset = 0;
+						this->recalc = true;
 					}
 				} else  {
 					max_in = SPA_MIN(max_in, size / port->stride);
@@ -3005,8 +3358,9 @@ static int impl_node_process(void *object)
 			}
 		}
 	}
-
-	resample_passthrough = resample_is_passthrough(this);
+	bool resample_passthrough = resample_is_passthrough(this);
+	if (this->resample_passthrough != resample_passthrough)
+		this->recalc = true;
 
 	/* calculate how many samples we are going to produce. */
 	if (this->direction == SPA_DIRECTION_INPUT) {
@@ -3141,146 +3495,29 @@ static int impl_node_process(void *object)
 		flush_in = true;
 	}
 
-	mix_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY) &&
-		(ctrlport == NULL || ctrlport->ctrl == NULL) && (this->vol_ramp_sequence == NULL);
+	ctx.datas[CTX_DATA_SRC] = (void **)src_datas;
+	ctx.datas[CTX_DATA_DST] = dst_datas;
+	ctx.datas[CTX_DATA_REMAP_DST] = remap_dst_datas;
+	ctx.datas[CTX_DATA_REMAP_SRC] = remap_src_datas;
+	ctx.datas[CTX_DATA_TMP_0] = (void**)this->tmp_datas[0];
+	ctx.datas[CTX_DATA_TMP_1] = (void**)this->tmp_datas[1];
+	ctx.n_samples = n_samples;
+	ctx.n_out = n_out;
+	ctx.src_idx = CTX_DATA_SRC;
+	ctx.dst_idx = CTX_DATA_DST;
+	ctx.final_idx = CTX_DATA_DST;
+	ctx.n_datas = dir->conv.n_channels;
+	ctx.ctrlport = ctrlport;
 
-	out_passthrough = dir->conv.is_passthrough;
-	if (in_passthrough && mix_passthrough && resample_passthrough)
-		out_passthrough = false;
+	if (this->recalc)
+		recalc_stages(this, &ctx);
 
-	if (out_passthrough && dir->need_remap) {
-		for (i = 0; i < dir->conv.n_channels; i++) {
-			remap_dst_datas[i] = dst_datas[dir->remap[i]];
-			spa_log_trace_fp(this->log, "%p: output remap %d -> %d", this, i, dir->remap[i]);
-		}
-		dst_remap = (void **)remap_dst_datas;
-	} else {
-		dst_remap = (void **)dst_datas;
+	this->in_offset += ctx.n_samples;
+	for (i = 0; i < this->n_stages; i++) {
+		struct stage *s = &this->stages[i];
+		s->run(s, &ctx);
 	}
-
-	if (this->direction == SPA_DIRECTION_INPUT)
-		handle_wav(this, src_datas, n_samples);
-
-	dir = &this->dir[SPA_DIRECTION_INPUT];
-	if (!in_passthrough) {
-		if (mix_passthrough && resample_passthrough && out_passthrough)
-			out_datas = (void **)dst_remap;
-		else
-			out_datas = (void **)this->tmp_datas[(tmp++) & 1];
-
-		if (dir->need_remap) {
-			for (i = 0; i < dir->conv.n_channels; i++) {
-				remap_src_datas[i] = out_datas[dir->remap[i]];
-				spa_log_trace_fp(this->log, "%p: input remap %d -> %d", this, dir->remap[i], i);
-			}
-		} else {
-			for (i = 0; i < dir->conv.n_channels; i++)
-				remap_src_datas[i] = out_datas[i];
-		}
-
-		spa_log_trace_fp(this->log, "%p: input convert %d", this, n_samples);
-		convert_process(&dir->conv, remap_src_datas, src_datas, n_samples);
-	} else {
-		if (dir->need_remap) {
-			for (i = 0; i < dir->conv.n_channels; i++) {
-				remap_src_datas[dir->remap[i]] = (void *)src_datas[i];
-				spa_log_trace_fp(this->log, "%p: input remap %d -> %d", this, dir->remap[i], i);
-			}
-			out_datas = (void **)remap_src_datas;
-		} else {
-			out_datas = (void **)src_datas;
-		}
-	}
-	if (this->direction == SPA_DIRECTION_INPUT) {
-		if (!resample_passthrough) {
-			uint32_t in_len, out_len;
-
-			in_datas = (const void**)out_datas;
-			if (mix_passthrough && out_passthrough)
-				out_datas = (void **)dst_remap;
-			else
-				out_datas = (void **)this->tmp_datas[(tmp++) & 1];
-
-			in_len = n_samples;
-			out_len = n_out;
-			resample_process(&this->resample, in_datas, &in_len, out_datas, &out_len);
-			spa_log_trace_fp(this->log, "%p: resample %d/%d -> %d/%d %d", this,
-					n_samples, in_len, n_out, out_len, out_passthrough);
-			this->in_offset += in_len;
-			n_samples = out_len;
-			resample_passthrough = true;
-		} else {
-			n_samples = SPA_MIN(n_samples, n_out);
-			this->in_offset += n_samples;
-		}
-	}
-	if (!mix_passthrough) {
-		in_datas = (const void**)out_datas;
-		if (resample_passthrough && out_passthrough) {
-			out_datas = (void **)dst_remap;
-			n_samples = SPA_MIN(n_samples, n_out);
-		} else {
-			out_datas = (void **)this->tmp_datas[(tmp++) & 1];
-		}
-		spa_log_trace_fp(this->log, "%p: channelmix %d %d %d", this, n_samples,
-				resample_passthrough, out_passthrough);
-		if (ctrlport != NULL && ctrlport->ctrl != NULL) {
-			if (channelmix_process_apply_sequence(this, ctrlport->ctrl,
-						&ctrlport->ctrl_offset, out_datas, in_datas, n_samples) == 1) {
-				ctrlio->status = SPA_STATUS_OK;
-				ctrlport->ctrl = NULL;
-			}
-		} else if (this->vol_ramp_sequence) {
-			if (channelmix_process_apply_sequence(this, this->vol_ramp_sequence,
-					&this->vol_ramp_offset, out_datas, in_datas, n_samples) == 1) {
-				free(this->vol_ramp_sequence);
-				this->vol_ramp_sequence = NULL;
-			}
-		}
-		else {
-			channelmix_process(&this->mix, out_datas, in_datas, n_samples);
-		}
-	}
-	if (this->direction == SPA_DIRECTION_OUTPUT) {
-		if (!resample_passthrough) {
-			uint32_t in_len, out_len;
-
-			in_datas = (const void**)out_datas;
-			if (out_passthrough)
-				out_datas = (void **)dst_remap;
-			else
-				out_datas = (void **)this->tmp_datas[(tmp++) & 1];
-
-			in_len = n_samples;
-			out_len = n_out;
-			resample_process(&this->resample, in_datas, &in_len, out_datas, &out_len);
-			spa_log_trace_fp(this->log, "%p: resample %d/%d -> %d/%d %d", this,
-					n_samples, in_len, n_out, out_len, out_passthrough);
-			this->in_offset += in_len;
-			n_samples = out_len;
-		} else {
-			n_samples = SPA_MIN(n_samples, n_out);
-			this->in_offset += n_samples;
-		}
-	}
-	this->out_offset += n_samples;
-
-	if (!out_passthrough) {
-		dir = &this->dir[SPA_DIRECTION_OUTPUT];
-		if (dir->need_remap) {
-			for (i = 0; i < dir->conv.n_channels; i++) {
-				remap_dst_datas[dir->remap[i]] = out_datas[i];
-				spa_log_trace_fp(this->log, "%p: output remap %d -> %d", this, i, dir->remap[i]);
-			}
-			in_datas = (const void**)remap_dst_datas;
-		} else {
-			in_datas = (const void**)out_datas;
-		}
-		spa_log_trace_fp(this->log, "%p: output convert %d", this, n_samples);
-		convert_process(&dir->conv, dst_datas, in_datas, n_samples);
-	}
-	if (this->direction == SPA_DIRECTION_OUTPUT)
-		handle_wav(this, (const void**)dst_datas, n_samples);
+	this->out_offset += ctx.n_samples;
 
 	spa_log_trace_fp(this->log, "%d/%d  %d/%d %d->%d", this->in_offset, max_in,
 			this->out_offset, max_out, n_samples, n_out);

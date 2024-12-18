@@ -3191,7 +3191,29 @@ static int impl_node_process(void *object)
 			out_datas = (void **)src_datas;
 		}
 	}
+	if (this->direction == SPA_DIRECTION_INPUT) {
+		if (!resample_passthrough) {
+			uint32_t in_len, out_len;
 
+			in_datas = (const void**)out_datas;
+			if (mix_passthrough && out_passthrough)
+				out_datas = (void **)dst_remap;
+			else
+				out_datas = (void **)this->tmp_datas[(tmp++) & 1];
+
+			in_len = n_samples;
+			out_len = n_out;
+			resample_process(&this->resample, in_datas, &in_len, out_datas, &out_len);
+			spa_log_trace_fp(this->log, "%p: resample %d/%d -> %d/%d %d", this,
+					n_samples, in_len, n_out, out_len, out_passthrough);
+			this->in_offset += in_len;
+			n_samples = out_len;
+			resample_passthrough = true;
+		} else {
+			n_samples = SPA_MIN(n_samples, n_out);
+			this->in_offset += n_samples;
+		}
+	}
 	if (!mix_passthrough) {
 		in_datas = (const void**)out_datas;
 		if (resample_passthrough && out_passthrough) {
@@ -3219,25 +3241,27 @@ static int impl_node_process(void *object)
 			channelmix_process(&this->mix, out_datas, in_datas, n_samples);
 		}
 	}
-	if (!resample_passthrough) {
-		uint32_t in_len, out_len;
+	if (this->direction == SPA_DIRECTION_OUTPUT) {
+		if (!resample_passthrough) {
+			uint32_t in_len, out_len;
 
-		in_datas = (const void**)out_datas;
-		if (out_passthrough)
-			out_datas = (void **)dst_remap;
-		else
-			out_datas = (void **)this->tmp_datas[(tmp++) & 1];
+			in_datas = (const void**)out_datas;
+			if (out_passthrough)
+				out_datas = (void **)dst_remap;
+			else
+				out_datas = (void **)this->tmp_datas[(tmp++) & 1];
 
-		in_len = n_samples;
-		out_len = n_out;
-		resample_process(&this->resample, in_datas, &in_len, out_datas, &out_len);
-		spa_log_trace_fp(this->log, "%p: resample %d/%d -> %d/%d %d", this,
-				n_samples, in_len, n_out, out_len, out_passthrough);
-		this->in_offset += in_len;
-		n_samples = out_len;
-	} else {
-		n_samples = SPA_MIN(n_samples, n_out);
-		this->in_offset += n_samples;
+			in_len = n_samples;
+			out_len = n_out;
+			resample_process(&this->resample, in_datas, &in_len, out_datas, &out_len);
+			spa_log_trace_fp(this->log, "%p: resample %d/%d -> %d/%d %d", this,
+					n_samples, in_len, n_out, out_len, out_passthrough);
+			this->in_offset += in_len;
+			n_samples = out_len;
+		} else {
+			n_samples = SPA_MIN(n_samples, n_out);
+			this->in_offset += n_samples;
+		}
 	}
 	this->out_offset += n_samples;
 

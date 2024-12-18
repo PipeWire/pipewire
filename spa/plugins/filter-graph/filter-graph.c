@@ -236,39 +236,33 @@ impl_add_listener(void *object,
 }
 
 static int impl_process(void *object,
-		const struct spa_filter_graph_chunk in[], uint32_t n_in,
-		struct spa_filter_graph_chunk out[], uint32_t n_out)
+		const void *in[], void *out[], uint32_t n_samples)
 {
 	struct impl *impl = object;
 	struct graph *graph = &impl->graph;
-	uint32_t i, j, insize = 0, outsize = 0, n_hndl = graph->n_hndl;
+	uint32_t i, j, n_hndl = graph->n_hndl;
 	struct graph_port *port;
 
-	for (i = 0, j = 0; i < n_in; i++) {
+	for (i = 0, j = 0; i < impl->info.n_inputs; i++) {
 		while (j < graph->n_input) {
 			port = &graph->input[j++];
 			if (port->desc)
-				port->desc->connect_port(*port->hndl, port->port, in[i].data);
+				port->desc->connect_port(*port->hndl, port->port, (float*)in[i]);
 			if (!port->next)
 				break;
 		}
-		insize = i == 0 ? in[i].size : SPA_MIN(insize, in[i].size);
 	}
-	outsize = insize;
-
-	for (i = 0; i < n_out; i++) {
-		outsize = SPA_MIN(outsize, out[i].size);
-
+	for (i = 0; i < impl->info.n_outputs; i++) {
 		port = i < graph->n_output ? &graph->output[i] : NULL;
 
 		if (port && port->desc)
-			port->desc->connect_port(*port->hndl, port->port, out[i].data);
+			port->desc->connect_port(*port->hndl, port->port, (float*)out[i]);
 		else
-			memset(out[i].data, 0, outsize);
+			memset(out[i], 0, n_samples * sizeof(float));
 	}
 	for (i = 0; i < n_hndl; i++) {
 		struct graph_hndl *hndl = &graph->hndl[i];
-		hndl->desc->run(*hndl->hndl, outsize / sizeof(float));
+		hndl->desc->run(*hndl->hndl, n_samples);
 	}
 	return 0;
 }

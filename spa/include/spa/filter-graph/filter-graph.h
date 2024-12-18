@@ -63,11 +63,6 @@ struct spa_filter_graph_events {
 	void (*props_changed) (void *object, enum spa_direction direction);
 };
 
-struct spa_filter_graph_chunk {
-	void *data;
-	size_t size;
-};
-
 struct spa_filter_graph_methods {
 #define SPA_VERSION_FILTER_GRAPH_METHODS	0
 	uint32_t version;
@@ -87,9 +82,7 @@ struct spa_filter_graph_methods {
 
 	int (*reset) (void *object);
 
-	int (*process) (void *object,
-			const struct spa_filter_graph_chunk in[], uint32_t n_in,
-			struct spa_filter_graph_chunk out[], uint32_t n_out);
+	int (*process) (void *object, const void *in[], void *out[], uint32_t n_samples);
 };
 
 SPA_API_FILTER_GRAPH int spa_filter_graph_add_listener(struct spa_filter_graph *object,
@@ -139,11 +132,10 @@ SPA_API_FILTER_GRAPH int spa_filter_graph_reset(struct spa_filter_graph *object)
 }
 
 SPA_API_FILTER_GRAPH int spa_filter_graph_process(struct spa_filter_graph *object,
-			const struct spa_filter_graph_chunk in[], uint32_t n_in,
-			struct spa_filter_graph_chunk out[], uint32_t n_out)
+			const void *in[], void *out[], uint32_t n_samples)
 {
 	return spa_api_method_r(int, -ENOTSUP,
-			spa_filter_graph, &object->iface, process, 0, in, n_in, out, n_out);
+			spa_filter_graph, &object->iface, process, 0, in, out, n_samples);
 }
 
 /**

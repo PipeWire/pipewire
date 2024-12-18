@@ -870,10 +870,11 @@ static void playback_process(void *d)
 {
 	struct impl *impl = d;
 	struct pw_buffer *in, *out;
-	uint32_t i, insize = 0, outsize = 0;
+	uint32_t i, data_size = 0;
 	int32_t stride = 0;
 	struct spa_data *bd;
-	struct spa_filter_graph_chunk cin[128], cout[128];
+	const void *cin[128];
+	void *cout[128];
 
 	in = NULL;
 	while (true) {
@@ -901,33 +902,28 @@ static void playback_process(void *d)
 		offs = SPA_MIN(bd->chunk->offset, bd->maxsize);
 		size = SPA_MIN(bd->chunk->size, bd->maxsize - offs);
 
-		cin[i].data = SPA_PTROFF(bd->data, offs, void);
-		cin[i].size = size;
+		cin[i] = SPA_PTROFF(bd->data, offs, void);
 
-		insize = i == 0 ? size : SPA_MIN(insize, size);
+		data_size = i == 0 ? size : SPA_MIN(data_size, size);
 		stride = SPA_MAX(stride, bd->chunk->stride);
 	}
-	outsize = insize;
 
 	for (i = 0; i < out->buffer->n_datas; i++) {
 		bd = &out->buffer->datas[i];
 
-		outsize = SPA_MIN(outsize, bd->maxsize);
+		data_size = SPA_MIN(data_size, bd->maxsize);
 
-		cout[i].data = bd->data;
-		cout[i].size = outsize;
+		cout[i] = bd->data;
 
 		bd->chunk->offset = 0;
-		bd->chunk->size = outsize;
+		bd->chunk->size = data_size;
 		bd->chunk->stride = stride;
 	}
 
-	pw_log_trace_fp("%p: stride:%d in:%d out:%d requested:%"PRIu64" (%"PRIu64")", impl,
-			stride, insize, outsize, out->requested, out->requested * stride);
+	pw_log_trace_fp("%p: stride:%d size:%d requested:%"PRIu64" (%"PRIu64")", impl,
+			stride, data_size, out->requested, out->requested * stride);
 
-	spa_filter_graph_process(impl->graph,
-			cin, in->buffer->n_datas,
-			cout, out->buffer->n_datas);
+	spa_filter_graph_process(impl->graph, cin, cout, data_size / sizeof(float));
 
 done:
 	if (in != NULL)

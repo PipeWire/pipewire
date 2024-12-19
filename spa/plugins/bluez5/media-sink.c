@@ -719,8 +719,8 @@ static int encode_fragment(struct impl *this)
 
 static int flush_buffer(struct impl *this)
 {
-	spa_log_trace(this->log, "%p: used:%d block_size:%d", this,
-			this->buffer_used, this->block_size);
+	spa_log_trace(this->log, "%p: used:%d block_size:%d need_flush:%d", this,
+			this->buffer_used, this->block_size, this->need_flush);
 
 	if (this->need_flush)
 		return send_buffer(this);

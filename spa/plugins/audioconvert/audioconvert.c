@@ -2908,13 +2908,13 @@ static void run_wav_stage(struct stage *stage, struct stage_context *c)
 	handle_wav(impl, (const void **)c->datas[stage->in_idx], c->n_samples);
 }
 
-static void add_wav_stage(struct impl *impl, struct stage_context *ctx, uint32_t idx)
+static void add_wav_stage(struct impl *impl, struct stage_context *ctx)
 {
 	struct stage *s = &impl->stages[impl->n_stages];
 	s->impl = impl;
 	s->passthrough = false;
-	s->in_idx = idx;
-	s->out_idx = idx;
+	s->in_idx = ctx->src_idx;
+	s->out_idx = ctx->src_idx;
 	s->n_in = ctx->n_datas;
 	s->n_out = ctx->n_datas;
 	s->data = NULL;
@@ -2954,36 +2954,11 @@ static void run_src_remap_stage(struct stage *s, struct stage_context *c)
 	struct dir *dir = &impl->dir[SPA_DIRECTION_INPUT];
 	uint32_t i;
 	for (i = 0; i < dir->conv.n_channels; i++) {
-		c->datas[s->out_idx][i] = c->datas[s->in_idx][dir->remap[i]];
-		spa_log_trace_fp(impl->log, "%p: input remap %d -> %d", impl, dir->remap[i], i);
-	}
-}
-static void add_src_remap_stage(struct impl *impl, struct stage_context *ctx)
-{
-	struct stage *s = &impl->stages[impl->n_stages];
-	s->impl = impl;
-	s->passthrough = false;
-	s->in_idx = ctx->dst_idx;
-	s->out_idx = CTX_DATA_REMAP_SRC;
-	s->n_in = ctx->n_datas;
-	s->n_out = ctx->n_datas;
-	s->data = NULL;
-	s->run = run_src_remap_stage;
-	impl->n_stages++;
-	ctx->dst_idx = CTX_DATA_REMAP_SRC;
-}
-
-static void run_src_remap2_stage(struct stage *s, struct stage_context *c)
-{
-	struct impl *impl = s->impl;
-	struct dir *dir = &impl->dir[SPA_DIRECTION_INPUT];
-	uint32_t i;
-	for (i = 0; i < dir->conv.n_channels; i++) {
 		c->datas[s->out_idx][dir->remap[i]] = c->datas[s->in_idx][i];
 		spa_log_trace_fp(impl->log, "%p: input remap %d -> %d", impl, dir->remap[i], i);
 	}
 }
-static void add_src_remap2_stage(struct impl *impl, struct stage_context *ctx)
+static void add_src_remap_stage(struct impl *impl, struct stage_context *ctx)
 {
 	struct stage *s = &impl->stages[impl->n_stages];
 	s->impl = impl;
@@ -2993,7 +2968,7 @@ static void add_src_remap2_stage(struct impl *impl, struct stage_context *ctx)
 	s->n_in = ctx->n_datas;
 	s->n_out = ctx->n_datas;
 	s->data = NULL;
-	s->run = run_src_remap2_stage;
+	s->run = run_src_remap_stage;
 	impl->n_stages++;
 	ctx->src_idx = CTX_DATA_REMAP_SRC;
 }
@@ -3002,8 +2977,20 @@ static void run_src_convert_stage(struct stage *s, struct stage_context *c)
 {
 	struct impl *impl = s->impl;
 	struct dir *dir = &impl->dir[SPA_DIRECTION_INPUT];
+	void *remap_src_datas[MAX_PORTS], **dst;
+
 	spa_log_trace_fp(impl->log, "%p: input convert %d", impl, c->n_samples);
-	convert_process(&dir->conv, c->datas[s->out_idx], (const void**)c->datas[s->in_idx], c->n_samples);
+	if (dir->need_remap) {
+		uint32_t i;
+		for (i = 0; i < dir->conv.n_channels; i++) {
+			remap_src_datas[i] = c->datas[s->out_idx][dir->remap[i]];
+			spa_log_trace_fp(impl->log, "%p: input remap %d -> %d", impl, dir->remap[i], i);
+		}
+		dst = remap_src_datas;
+	} else {
+		dst = c->datas[s->out_idx];
+	}
+	convert_process(&dir->conv, dst, (const void**)c->datas[s->in_idx], c->n_samples);
 }
 static void add_src_convert_stage(struct impl *impl, struct stage_context *ctx)
 {
@@ -3087,37 +3074,24 @@ static void add_channelmix_stage(struct impl *impl, struct stage_context *ctx)
 	ctx->src_idx = ctx->dst_idx;
 }
 
-static void run_dst_remap2_stage(struct stage *s, struct stage_context *c)
-{
-	struct impl *impl = s->impl;
-	struct dir *dir = &impl->dir[SPA_DIRECTION_OUTPUT];
-	uint32_t i;
-	for (i = 0; i < dir->conv.n_channels; i++) {
-		c->datas[s->out_idx][dir->remap[i]] = c->datas[s->in_idx][i];
-		spa_log_trace_fp(impl->log, "%p: output remap %d -> %d", impl, i, dir->remap[i]);
-	}
-}
-static void add_dst_remap2_stage(struct impl *impl, struct stage_context *ctx)
-{
-	struct stage *s = &impl->stages[impl->n_stages];
-	s->impl = impl;
-	s->passthrough = false;
-	s->in_idx = ctx->src_idx;
-	s->out_idx = CTX_DATA_REMAP_DST;
-	s->n_in = ctx->n_datas;
-	s->n_out = ctx->n_datas;
-	s->data = NULL;
-	s->run = run_dst_remap2_stage;
-	impl->n_stages++;
-	ctx->src_idx = CTX_DATA_REMAP_DST;
-}
-
 static void run_dst_convert_stage(struct stage *s, struct stage_context *c)
 {
 	struct impl *impl = s->impl;
 	struct dir *dir = &impl->dir[SPA_DIRECTION_OUTPUT];
+	void *remap_datas[MAX_PORTS], **src;
+
 	spa_log_trace_fp(impl->log, "%p: output convert %d", impl, c->n_samples);
-	convert_process(&dir->conv, c->datas[s->out_idx], (const void **)c->datas[s->in_idx], c->n_samples);
+	if (dir->need_remap) {
+		uint32_t i;
+		for (i = 0; i < dir->conv.n_channels; i++) {
+			remap_datas[dir->remap[i]] = c->datas[s->in_idx][i];
+			spa_log_trace_fp(impl->log, "%p: output remap %d -> %d", impl, i, dir->remap[i]);
+		}
+		src = remap_datas;
+	} else {
+		src = c->datas[s->in_idx];
+	}
+	convert_process(&dir->conv, c->datas[s->out_idx], (const void **)src, c->n_samples);
 }
 static void add_dst_convert_stage(struct impl *impl, struct stage_context *ctx)
 {
@@ -3140,43 +3114,43 @@ static void recalc_stages(struct impl *this, struct stage_context *ctx)
 	bool in_passthrough, mix_passthrough, resample_passthrough, out_passthrough;
 	int tmp = 0;
 	struct port *ctrlport = ctx->ctrlport;
+	bool in_need_remap, out_need_remap;
 
 	this->recalc = false;
 	this->n_stages = 0;
 
 	dir = &this->dir[SPA_DIRECTION_INPUT];
 	in_passthrough = dir->conv.is_passthrough;
+	in_need_remap = dir->need_remap;
+
+	dir = &this->dir[SPA_DIRECTION_OUTPUT];
+	out_passthrough = dir->conv.is_passthrough;
+	out_need_remap = dir->need_remap;
 
 	resample_passthrough = resample_is_passthrough(this);
 	this->resample_passthrough = resample_passthrough;
 	mix_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY) &&
 		(ctrlport == NULL || ctrlport->ctrl == NULL) && (this->vol_ramp_sequence == NULL);
 
-	dir = &this->dir[SPA_DIRECTION_OUTPUT];
-	out_passthrough = dir->conv.is_passthrough;
 	if (in_passthrough && mix_passthrough && resample_passthrough)
 		out_passthrough = false;
 
-	if (out_passthrough && dir->need_remap)
+	if (out_passthrough && out_need_remap)
 		add_dst_remap_stage(this, ctx);
 
 	if (this->direction == SPA_DIRECTION_INPUT)
-		add_wav_stage(this, ctx, ctx->src_idx);
+		add_wav_stage(this, ctx);
 
-	dir = &this->dir[SPA_DIRECTION_INPUT];
 	if (!in_passthrough) {
 		if (mix_passthrough && resample_passthrough && out_passthrough)
 			ctx->dst_idx = ctx->final_idx;
 		else
 			ctx->dst_idx = CTX_DATA_TMP_0 + ((tmp++) & 1);
 
-		if (dir->need_remap)
-			add_src_remap_stage(this, ctx);
-
 		add_src_convert_stage(this, ctx);
 	} else {
-		if (dir->need_remap)
-			add_src_remap2_stage(this, ctx);
+		if (in_need_remap)
+			add_src_remap_stage(this, ctx);
 	}
 
 	if (this->direction == SPA_DIRECTION_INPUT) {
@@ -3209,14 +3183,10 @@ static void recalc_stages(struct impl *this, struct stage_context *ctx)
 		}
 	}
 	if (!out_passthrough) {
-		dir = &this->dir[SPA_DIRECTION_OUTPUT];
-		if (dir->need_remap) {
-			add_dst_remap2_stage(this, ctx);
-		}
 		add_dst_convert_stage(this, ctx);
 	}
 	if (this->direction == SPA_DIRECTION_OUTPUT)
-		add_wav_stage(this, ctx, ctx->dst_idx);
+		add_wav_stage(this, ctx);
 }
 
 static int impl_node_process(void *object)

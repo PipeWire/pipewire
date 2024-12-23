@@ -812,18 +812,6 @@ Available values: PCM, AC3, DTS, MPEG, MPEG2-AAC, EAC3, TRUEHD, DTSHD
 Informative property.
 \endparblock
 
-@PAR@ node-prop  api.alsa.split.leader    # boolean
-\parblock
-\copybrief SPA_KEY_API_ALSA_SPLIT_LEADER
-Informative property.
-\endparblock
-
-@PAR@ node-prop  api.alsa.split.hw-channels  # int
-\parblock
-\copybrief SPA_KEY_API_ALSA_SPLIT_HW_CHANNELS
-Informative property.
-\endparblock
-
 @PAR@ node-prop  api.alsa.split.hw-position  # JSON
 \parblock
 \copybrief SPA_KEY_API_ALSA_SPLIT_HW_POSITION

@@ -235,9 +235,6 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 		struct spa_strbuf b;
 		int i;
 
-		pa_proplist_sets(dev->proplist, "api.alsa.split.leader", m->split->leader ? "true" : "false");
-		pa_proplist_setf(dev->proplist, "api.alsa.split.hw-channels", "%d", m->split->hw_channels);
-
 		spa_strbuf_init(&b, pos, sizeof(pos));
 		spa_strbuf_append(&b, "[");
 		for (i = 0; i < m->split->channels; ++i)

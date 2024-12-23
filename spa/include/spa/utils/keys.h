@@ -80,12 +80,6 @@ extern "C" {
 									 * channels in an underlying PCM, listed in this
 									 * property. The \ref SPA_KEY_API_ALSA_PATH
 									 * contains the underlying split PCM. */
-#define SPA_KEY_API_ALSA_SPLIT_LEADER	"api.alsa.split.leader"		/**< (bool) This virtual device is split leader:
-									 * one of the split devices for the same split
-									 * PCM is selected as the leader. */
-#define SPA_KEY_API_ALSA_SPLIT_HW_CHANNELS \
-					"api.alsa.split.hw-channels"	/**< (int) Number of channels in the underlying
-									 * split PCM. */
 #define SPA_KEY_API_ALSA_SPLIT_HW_POSITION \
 					"api.alsa.split.hw-position"	/**< (SPA JSON list) Channel map of the
 									 * underlying split PCM. */

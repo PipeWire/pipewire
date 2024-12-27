@@ -120,6 +120,8 @@ static GstCaps *gst_pipewire_sink_sink_fixate (GstBaseSink * bsink,
 static GstFlowReturn gst_pipewire_sink_render (GstBaseSink * psink,
     GstBuffer * buffer);
 
+static  gboolean gst_pipewire_sink_event (GstBaseSink *sink, GstEvent *event);
+
 static GstClock *
 gst_pipewire_sink_provide_clock (GstElement * elem)
 {
@@ -272,6 +274,7 @@ gst_pipewire_sink_class_init (GstPipeWireSinkClass * klass)
   gstbasesink_class->fixate = gst_pipewire_sink_sink_fixate;
   gstbasesink_class->propose_allocation = gst_pipewire_sink_propose_allocation;
   gstbasesink_class->render = gst_pipewire_sink_render;
+  gstbasesink_class->event = gst_pipewire_sink_event;
 
   GST_DEBUG_CATEGORY_INIT (pipewire_sink_debug, "pipewiresink", 0,
       "PipeWire Sink");
@@ -627,7 +630,10 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
   }
 
   if ((res = pw_stream_queue_buffer (stream->pwstream, data->b)) < 0) {
-    g_warning ("can't send buffer %s", spa_strerror(res));
+    GST_WARNING_OBJECT (pwsink, "can't send buffer %s", spa_strerror(res));
+  } else {
+    data->queued = TRUE;
+    GST_LOG_OBJECT(pwsink, "queued pwbuffer: %p; gstbuffer %p ",data->b, buffer);
   }
 
   switch (pwsink->slave_method) {
@@ -985,4 +991,32 @@ open_failed:
   {
     return GST_STATE_CHANGE_FAILURE;
   }
+}
+
+static  gboolean gst_pipewire_sink_event (GstBaseSink *sink, GstEvent *event) {
+  GstPipeWireSink *pw_sink = GST_PIPEWIRE_SINK(sink);
+
+  switch (GST_EVENT_TYPE (event)) {
+    case GST_EVENT_FLUSH_START:
+    {
+      GST_DEBUG_OBJECT (pw_sink, "flush-start");
+      pw_thread_loop_lock (pw_sink->stream->core->loop);
+      pw_stream_set_active(pw_sink->stream->pwstream, false);
+      pw_stream_flush(pw_sink->stream->pwstream, false);
+      pw_thread_loop_unlock (pw_sink->stream->core->loop);
+      break;
+    }
+    case GST_EVENT_FLUSH_STOP:
+    {
+      GST_DEBUG_OBJECT (pw_sink, "flush-stop");
+      pw_thread_loop_lock (pw_sink->stream->core->loop);
+      pw_stream_set_active(pw_sink->stream->pwstream, true);
+      pw_thread_loop_unlock (pw_sink->stream->core->loop);
+      break;
+    }
+    default:
+      break;
+  }
+
+  return GST_BASE_SINK_CLASS (parent_class)->event (sink, event);
 }

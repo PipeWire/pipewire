@@ -28,7 +28,11 @@ struct impl_data {
 	struct spa_audio_aec aec;
 
 	struct spa_log *log;
+#if defined(HAVE_WEBRTC) || defined(HAVE_WEBRTC1)
 	std::unique_ptr<webrtc::AudioProcessing> apm;
+#elif defined(HAVE_WEBRTC2)
+	rtc::scoped_refptr<webrtc::AudioProcessing> apm;
+#endif
 	spa_audio_info_raw rec_info;
 	spa_audio_info_raw out_info;
 	spa_audio_info_raw play_info;
@@ -103,16 +107,17 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 
 	bool high_pass_filter = webrtc_get_spa_bool(args, "webrtc.high_pass_filter", true);
 	bool noise_suppression = webrtc_get_spa_bool(args, "webrtc.noise_suppression", true);
-	bool voice_detection = webrtc_get_spa_bool(args, "webrtc.voice_detection", true);
-#ifdef HAVE_WEBRTC
+#if defined(HAVE_WEBRTC)
 	bool extended_filter = webrtc_get_spa_bool(args, "webrtc.extended_filter", true);
 	bool delay_agnostic = webrtc_get_spa_bool(args, "webrtc.delay_agnostic", true);
 	// Disable experimental flags by default
 	bool experimental_agc = webrtc_get_spa_bool(args, "webrtc.experimental_agc", false);
 	bool experimental_ns = webrtc_get_spa_bool(args, "webrtc.experimental_ns", false);
 
+	bool voice_detection = webrtc_get_spa_bool(args, "webrtc.voice_detection", true);
 	bool beamforming = webrtc_get_spa_bool(args, "webrtc.beamforming", false);
-#else
+#elif defined(HAVE_WEBRTC1)
+	bool voice_detection = webrtc_get_spa_bool(args, "webrtc.voice_detection", true);
 	bool transient_suppression = webrtc_get_spa_bool(args, "webrtc.transient_suppression", true);
 #endif
 	// Note: AGC seems to mess up with Agnostic Delay Detection, especially with speech,
@@ -123,7 +128,7 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 	// This filter will modify playback buffer (when calling ProcessReverseStream), but now
 	// playback buffer modifications are discarded.
 
-#ifdef HAVE_WEBRTC
+#if defined(HAVE_WEBRTC)
 	webrtc::Config config;
 	config.Set<webrtc::ExtendedFilter>(new webrtc::ExtendedFilter(extended_filter));
 	config.Set<webrtc::DelayAgnostic>(new webrtc::DelayAgnostic(delay_agnostic));
@@ -167,7 +172,7 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 			config.Set<webrtc::Beamforming>(new webrtc::Beamforming(true, geometry));
 		}
 	}
-#else
+#elif defined(HAVE_WEBRTC1)
 	webrtc::AudioProcessing::Config config;
 	config.echo_canceller.enabled = true;
 	config.pipeline.multi_channel_capture = rec_info->channels > 1;
@@ -184,20 +189,43 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 	// FIXME: expose pre/postamp gain
 	config.transient_suppression.enabled = transient_suppression;
 	config.voice_detection.enabled = voice_detection;
+#elif defined(HAVE_WEBRTC2)
+	webrtc::AudioProcessing::Config config;
+	config.pipeline.multi_channel_capture = rec_info->channels > 1;
+	config.pipeline.multi_channel_render = play_info->channels > 1;
+	// FIXME: Example code enables both gain controllers, but that seems sus
+	config.gain_controller1.enabled = gain_control;
+	config.gain_controller1.mode = webrtc::AudioProcessing::Config::GainController1::Mode::kAdaptiveDigital;
+	config.gain_controller2.enabled = gain_control;
+	config.high_pass_filter.enabled = high_pass_filter;
+	config.noise_suppression.enabled = noise_suppression;
+	config.noise_suppression.level = webrtc::AudioProcessing::Config::NoiseSuppression::kHigh;
+	// FIXME: expose pre/postamp gain
 #endif
 
+#if defined(HAVE_WEBRTC) || defined(HAVE_WEBRTC1)
 	webrtc::ProcessingConfig pconfig = {{
 		webrtc::StreamConfig(rec_info->rate, rec_info->channels, false), /* input stream */
 		webrtc::StreamConfig(out_info->rate, out_info->channels, false), /* output stream */
 		webrtc::StreamConfig(play_info->rate, play_info->channels, false), /* reverse input stream */
 		webrtc::StreamConfig(play_info->rate, play_info->channels, false), /* reverse output stream */
 	}};
+#elif defined(HAVE_WEBRTC2)
+	webrtc::ProcessingConfig pconfig = {{
+		webrtc::StreamConfig(rec_info->rate, rec_info->channels), /* input stream */
+		webrtc::StreamConfig(out_info->rate, out_info->channels), /* output stream */
+		webrtc::StreamConfig(play_info->rate, play_info->channels), /* reverse input stream */
+		webrtc::StreamConfig(play_info->rate, play_info->channels), /* reverse output stream */
+	}};
+#endif
 
-#ifdef HAVE_WEBRTC
+#if defined(HAVE_WEBRTC)
 	auto apm = std::unique_ptr<webrtc::AudioProcessing>(webrtc::AudioProcessing::Create(config));
-#else
+#elif defined(HAVE_WEBRTC1)
 	auto apm = std::unique_ptr<webrtc::AudioProcessing>(webrtc::AudioProcessingBuilder().Create());
-
+	apm->ApplyConfig(config);
+#elif defined(HAVE_WEBRTC2)
+	auto apm = webrtc::AudioProcessingBuilder().Create();
 	apm->ApplyConfig(config);
 #endif
 
@@ -250,12 +278,21 @@ static int webrtc_run(void *object, const float *rec[], const float *play[], flo
 	auto impl = static_cast<struct impl_data*>(object);
 	int res;
 
+#if defined(HAVE_WEBRTC) || defined(HAVE_WEBRTC1)
 	webrtc::StreamConfig play_config =
 		webrtc::StreamConfig(impl->play_info.rate, impl->play_info.channels, false);
 	webrtc::StreamConfig rec_config =
 		webrtc::StreamConfig(impl->rec_info.rate, impl->rec_info.channels, false);
 	webrtc::StreamConfig out_config =
 		webrtc::StreamConfig(impl->out_info.rate, impl->out_info.channels, false);
+#elif defined(HAVE_WEBRTC2)
+	webrtc::StreamConfig play_config =
+		webrtc::StreamConfig(impl->play_info.rate, impl->play_info.channels);
+	webrtc::StreamConfig rec_config =
+		webrtc::StreamConfig(impl->rec_info.rate, impl->rec_info.channels);
+	webrtc::StreamConfig out_config =
+		webrtc::StreamConfig(impl->out_info.rate, impl->out_info.channels);
+#endif
 	unsigned int num_blocks = n_samples * 1000 / impl->play_info.rate / 10;
 
 	if (n_samples * 1000 / impl->play_info.rate % 10 != 0) {

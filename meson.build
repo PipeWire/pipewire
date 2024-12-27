@@ -431,20 +431,28 @@ cdata.set('HAVE_GSTREAMER_DMA_DRM', gst_dma_drm_found)
 
 if get_option('echo-cancel-webrtc').disabled()
   webrtc_dep = dependency('', required: false)
-  summary({'WebRTC Echo Canceling >= 1.2': webrtc_dep.found()}, bool_yn: true, section: 'Misc dependencies')
+  summary({'WebRTC Echo Canceling': webrtc_dep.found()}, bool_yn: false, section: 'Misc dependencies')
 else
-  webrtc_dep = dependency('webrtc-audio-processing-1',
-    version : ['>= 1.2' ],
+  webrtc_dep = dependency('webrtc-audio-processing-2',
+    version : ['>= 2.0' ],
     required : false)
-  cdata.set('HAVE_WEBRTC1', webrtc_dep.found())
+  cdata.set('HAVE_WEBRTC2', webrtc_dep.found())
   if webrtc_dep.found()
-    summary({'WebRTC Echo Canceling >= 1.2': webrtc_dep.found()}, bool_yn: true, section: 'Misc dependencies')
+    summary({'WebRTC Echo Canceling >= 2.0': webrtc_dep.found()}, bool_yn: true, section: 'Misc dependencies')
   else
-    webrtc_dep = dependency('webrtc-audio-processing',
-      version : ['>= 0.2', '< 1.0'],
-      required : get_option('echo-cancel-webrtc'))
-    cdata.set('HAVE_WEBRTC', webrtc_dep.found())
-    summary({'WebRTC Echo Canceling < 1.0': webrtc_dep.found()}, bool_yn: true, section: 'Misc dependencies')
+    webrtc_dep = dependency('webrtc-audio-processing-1',
+      version : ['>= 1.2' ],
+      required : false)
+    cdata.set('HAVE_WEBRTC1', webrtc_dep.found())
+    if webrtc_dep.found()
+      summary({'WebRTC Echo Canceling >= 1.2': webrtc_dep.found()}, bool_yn: true, section: 'Misc dependencies')
+    else
+      webrtc_dep = dependency('webrtc-audio-processing',
+        version : ['>= 0.2', '< 1.0'],
+        required : get_option('echo-cancel-webrtc'))
+      cdata.set('HAVE_WEBRTC', webrtc_dep.found())
+      summary({'WebRTC Echo Canceling < 1.0': webrtc_dep.found()}, bool_yn: true, section: 'Misc dependencies')
+    endif
   endif
 endif
 

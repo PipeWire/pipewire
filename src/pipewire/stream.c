@@ -2479,6 +2479,41 @@ int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 	return res;
 }
 
+static inline int queue_push_front(struct stream *stream, struct queue *queue, struct buffer *buffer)
+{
+	int ret = 0;
+	uint32_t index;
+
+	if ((ret = spa_ringbuffer_get_read_index(&queue->ring, &index)) < 0)
+		return ret;
+
+	/* undo the pop operation and place the buffer in front of the queue */
+	index -= 1;
+	queue->ids[index & MASK_BUFFERS] = buffer->id;
+	queue->outcount -= buffer->this.size;
+	SPA_FLAG_SET(buffer->flags, BUFFER_FLAG_QUEUED);
+	spa_ringbuffer_read_update(&queue->ring, index);
+
+	return ret;
+}
+
+SPA_EXPORT
+int pw_stream_return_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
+{
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	struct buffer *b = SPA_CONTAINER_OF(buffer, struct buffer, this);
+
+	pw_log_trace_fp("%p: %p id: %d", impl, buffer, b->id);
+
+	/* dequeue increments the busy count, so undo that */
+	if (b->busy) {
+		SPA_ATOMIC_DEC(b->busy->count);
+		pw_log_trace_fp("%p: %p: %p busy count %u", impl, b, b->busy, SPA_ATOMIC_LOAD(b->busy->count));
+	}
+
+	return queue_push_front(impl, &impl->dequeued, b);
+}
+
 static int
 do_flush(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)

@@ -597,6 +597,10 @@ struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream);
 /** Submit a buffer for playback or recycle a buffer for capture. */
 int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer);
 
+/** Return a buffer to the queue without using it. This makes the buffer
+ * immediately available to dequeue again. */
+int pw_stream_return_buffer(struct pw_stream *stream, struct pw_buffer *buffer);
+
 /** Activate or deactivate the stream */
 int pw_stream_set_active(struct pw_stream *stream, bool active);
 

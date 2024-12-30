@@ -926,13 +926,6 @@ gst_pipewire_sink_change_state (GstElement * element, GstStateChange transition)
       pw_stream_set_active(this->stream->pwstream, false);
       pw_thread_loop_unlock (this->stream->core->loop);
       break;
-    case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
-      /* uncork and start play */
-      pw_thread_loop_lock (this->stream->core->loop);
-      pw_stream_set_active(this->stream->pwstream, true);
-      pw_thread_loop_unlock (this->stream->core->loop);
-      gst_buffer_pool_set_flushing(GST_BUFFER_POOL_CAST(this->stream->pool), FALSE);
-      break;
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
       /* stop play ASAP by corking */
       pw_thread_loop_lock (this->stream->core->loop);
@@ -947,6 +940,16 @@ gst_pipewire_sink_change_state (GstElement * element, GstStateChange transition)
   ret = GST_ELEMENT_CLASS (parent_class)->change_state (element, transition);
 
   switch (transition) {
+    case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
+      /* For some cases, the param_changed event is earlier than the state switch
+       * from paused state to playing state which will wait until buffer pool is ready.
+       * Guarantee to finish preoll if needed to active buffer pool before uncorking and
+       * starting play */
+      pw_thread_loop_lock (this->stream->core->loop);
+      pw_stream_set_active(this->stream->pwstream, true);
+      pw_thread_loop_unlock (this->stream->core->loop);
+      gst_buffer_pool_set_flushing(GST_BUFFER_POOL_CAST(this->stream->pool), FALSE);
+      break;
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
       break;
     case GST_STATE_CHANGE_PAUSED_TO_READY:

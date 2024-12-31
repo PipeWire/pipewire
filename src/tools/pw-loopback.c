@@ -77,9 +77,9 @@ static void show_help(struct data *data, const char *name, bool error)
 		"  -l, --latency                         Desired latency in ms\n"
 		"  -d, --delay                           Desired delay in float s\n"
 		"  -C  --capture                         Capture source to connect to (name or serial)\n"
-		"      --capture-props                   Capture stream properties\n"
+		"  -i  --capture-props                   Capture stream properties\n"
 		"  -P  --playback                        Playback sink to connect to (name or serial)\n"
-		"      --playback-props                  Playback stream properties\n",
+		"  -o  --playback-props                  Playback stream properties\n",
 		name,
 		data->opt_node_name,
 		data->opt_group_name,

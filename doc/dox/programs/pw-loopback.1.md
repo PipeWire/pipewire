@@ -45,10 +45,10 @@ Target device to capture from
 \par -P | \--playback=TARGET
 Target device to play to
 
-\par \--capture-props=PROPS
+\par -i | \--capture-props=PROPS
 Wanted properties of capture node (in JSON)
 
-\par \--playback-props=PROPS
+\par -o | \--playback-props=PROPS
 Wanted properties of capture node (in JSON)
 
 # AUTHORS

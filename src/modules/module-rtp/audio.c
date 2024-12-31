@@ -452,9 +452,9 @@ static void ptp_sender_process(void *d, struct spa_io_position *position)
 
 	/* If send is lagging by more than 2 or more quanta, reset */
 	if (!impl->refilling && impl->rtp_last_ts &&
-			SPA_ABS((int32_t)rtp_timestamp - (int32_t)impl->rtp_last_ts) >= (int32_t)(2 * quantum)) {
+			SPA_ABS((int32_t)ptp_timestamp - (int32_t)impl->rtp_last_ts) >= (int32_t)(2 * quantum)) {
 		pw_log_warn("expected %u - timestamp %u = %d >= 2 * %"PRIu64" quantum", rtp_timestamp, impl->rtp_last_ts,
-				(int)rtp_timestamp - (int)impl->rtp_last_ts, quantum);
+				(int)ptp_timestamp - (int)impl->rtp_last_ts, quantum);
 		goto resync;
 	}
 

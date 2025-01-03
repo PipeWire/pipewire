@@ -822,7 +822,6 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   GstPipeWireSink *pwsink;
   GstFlowReturn res = GST_FLOW_OK;
   const char *error = NULL;
-  gboolean unref_buffer = FALSE;
 
   pwsink = GST_PIPEWIRE_SINK (bsink);
 
@@ -855,34 +854,51 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
     goto done_unlock;
 
   if (buffer->pool != GST_BUFFER_POOL_CAST (pwsink->stream->pool)) {
-    GstBuffer *b = NULL;
-    GstMapInfo info = { 0, };
-    GstBufferPoolAcquireParams params = { 0, };
+    gsize offset = 0;
+    gsize buf_size = 0;
+    gst_buffer_get_sizes (buffer, NULL, &buf_size);
 
-    pw_thread_loop_unlock (pwsink->stream->core->loop);
+    /* For some streams, the buffer size is changed and may exceed the acquired
+     * buffer size which is acquired from the pool of pipewiresink. Need split
+     * the buffer and send them in turn for this case */
+    while (buf_size) {
+      GstBuffer *b = NULL;
+      GstMapInfo info = { 0, };
+      GstBufferPoolAcquireParams params = { 0, };
 
-    if ((res = gst_buffer_pool_acquire_buffer (GST_BUFFER_POOL_CAST (pwsink->stream->pool), &b, &params)) != GST_FLOW_OK)
-      goto done;
+      pw_thread_loop_unlock (pwsink->stream->core->loop);
 
-    gst_buffer_map (b, &info, GST_MAP_WRITE);
-    gst_buffer_extract (buffer, 0, info.data, info.maxsize);
-    gst_buffer_unmap (b, &info);
-    gst_buffer_resize (b, 0, gst_buffer_get_size (buffer));
-    gst_buffer_copy_into(b, buffer, GST_BUFFER_COPY_METADATA, 0, -1);
-    buffer = b;
-    unref_buffer = TRUE;
+      if ((res = gst_buffer_pool_acquire_buffer (GST_BUFFER_POOL_CAST (pwsink->stream->pool),
+          &b, &params)) != GST_FLOW_OK)
+        goto done;
 
-    pw_thread_loop_lock (pwsink->stream->core->loop);
-    if (pw_stream_get_state (pwsink->stream->pwstream, &error) != PW_STREAM_STATE_STREAMING)
-      goto done_unlock;
+      gst_buffer_map (b, &info, GST_MAP_WRITE);
+      gsize extract_size = (buf_size <= info.maxsize) ? buf_size: info.maxsize;
+      gst_buffer_extract (buffer, offset, info.data, info.maxsize);
+      gst_buffer_unmap (b, &info);
+      gst_buffer_resize (b, 0, extract_size);
+      gst_buffer_copy_into(b, buffer, GST_BUFFER_COPY_METADATA, 0, -1);
+      buf_size -= extract_size;
+      offset += extract_size;
+
+      pw_thread_loop_lock (pwsink->stream->core->loop);
+      if (pw_stream_get_state (pwsink->stream->pwstream, &error) != PW_STREAM_STATE_STREAMING) {
+        gst_buffer_unref (b);
+        goto done_unlock;
+      }
+
+      do_send_buffer (pwsink, b);
+      gst_buffer_unref (b);
+
+      if (pw_stream_is_driving (pwsink->stream->pwstream))
+        pw_stream_trigger_process (pwsink->stream->pwstream);
+    }
+  } else {
+    do_send_buffer (pwsink, buffer);
+
+    if (pw_stream_is_driving (pwsink->stream->pwstream))
+      pw_stream_trigger_process (pwsink->stream->pwstream);
   }
-
-  do_send_buffer (pwsink, buffer);
-  if (unref_buffer)
-    gst_buffer_unref (buffer);
-
-  if (pw_stream_is_driving (pwsink->stream->pwstream))
-    pw_stream_trigger_process (pwsink->stream->pwstream);
 
 done_unlock:
   pw_thread_loop_unlock (pwsink->stream->core->loop);

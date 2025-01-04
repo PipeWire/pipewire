@@ -60,13 +60,13 @@ spa_debugc_pod_value(struct spa_debug_context *ctx, int indent, const struct spa
 	case SPA_TYPE_Rectangle:
 	{
 		struct spa_rectangle *r = (struct spa_rectangle *)body;
-		spa_debugc(ctx, "%*s" "Rectangle %dx%d", indent, "", r->width, r->height);
+		spa_debugc(ctx, "%*s" "Rectangle %" PRIu32 "x%" PRIu32 "", indent, "", r->width, r->height);
 		break;
 	}
 	case SPA_TYPE_Fraction:
 	{
 		struct spa_fraction *f = (struct spa_fraction *)body;
-		spa_debugc(ctx, "%*s" "Fraction %d/%d", indent, "", f->num, f->denom);
+		spa_debugc(ctx, "%*s" "Fraction %" PRIu32 "/%" PRIu32 "", indent, "", f->num, f->denom);
 		break;
 	}
 	case SPA_TYPE_Bitmap:

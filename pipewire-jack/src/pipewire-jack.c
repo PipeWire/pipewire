@@ -3348,7 +3348,7 @@ static struct spa_thread *impl_create(void *object,
 	if (globals.creator != NULL) {
 		uint32_t i, n_items = props ? props->n_items : 0;
 
-		items = alloca((n_items) + 1 * sizeof(*items));
+		items = alloca((n_items + 1) * sizeof(*items));
 
 		for (i = 0; i < n_items; i++)
 			items[i] = props->items[i];

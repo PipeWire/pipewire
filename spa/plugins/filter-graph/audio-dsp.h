@@ -22,14 +22,14 @@ struct spa_fga_dsp_methods {
 #define SPA_VERSION_FGA_DSP_METHODS		0
 	uint32_t version;
 
-	void (*clear) (void *obj, void * SPA_RESTRICT dst, uint32_t n_samples);
+	void (*clear) (void *obj, float * SPA_RESTRICT dst, uint32_t n_samples);
 	void (*copy) (void *obj,
-			void * SPA_RESTRICT dst,
-			const void * SPA_RESTRICT src, uint32_t n_samples);
+			float * SPA_RESTRICT dst,
+			const float * SPA_RESTRICT src, uint32_t n_samples);
 	void (*mix_gain) (void *obj,
-			void * SPA_RESTRICT dst,
-			const void * SPA_RESTRICT src[],
-			float gain[], uint32_t n_src, uint32_t n_samples);
+			float * SPA_RESTRICT dst,
+			const float * SPA_RESTRICT src[], uint32_t n_src,
+			float gain[], uint32_t n_gain, uint32_t n_samples);
 	void (*sum) (void *obj,
 			float * dst, const float * SPA_RESTRICT a,
 			const float * SPA_RESTRICT b, uint32_t n_samples);
@@ -52,8 +52,8 @@ struct spa_fga_dsp_methods {
 			float * dst, const float * SPA_RESTRICT src,
 			const float mult, const float add, uint32_t n_samples);
 	void (*mult) (void *obj,
-			void * SPA_RESTRICT dst,
-			const void * SPA_RESTRICT src[], uint32_t n_src, uint32_t n_samples);
+			float * SPA_RESTRICT dst,
+			const float * SPA_RESTRICT src[], uint32_t n_src, uint32_t n_samples);
 	void (*biquad_run) (void *obj, struct biquad *bq, uint32_t n_bq, uint32_t bq_stride,
 			float * SPA_RESTRICT out[], const float * SPA_RESTRICT in[],
 			uint32_t n_src, uint32_t n_samples);
@@ -61,25 +61,25 @@ struct spa_fga_dsp_methods {
 			float *dst, const float *src, uint32_t n_samples);
 };
 
-static inline void spa_fga_dsp_clear(struct spa_fga_dsp *obj, void * SPA_RESTRICT dst, uint32_t n_samples)
+static inline void spa_fga_dsp_clear(struct spa_fga_dsp *obj, float * SPA_RESTRICT dst, uint32_t n_samples)
 {
 	spa_api_method_v(spa_fga_dsp, &obj->iface, clear, 0,
 			dst, n_samples);
 }
 static inline void spa_fga_dsp_copy(struct spa_fga_dsp *obj,
-		void * SPA_RESTRICT dst,
-		const void * SPA_RESTRICT src, uint32_t n_samples)
+		float * SPA_RESTRICT dst,
+		const float * SPA_RESTRICT src, uint32_t n_samples)
 {
 	spa_api_method_v(spa_fga_dsp, &obj->iface, copy, 0,
 			dst, src, n_samples);
 }
 static inline void spa_fga_dsp_mix_gain(struct spa_fga_dsp *obj,
-		void * SPA_RESTRICT dst,
-		const void * SPA_RESTRICT src[],
-		float gain[], uint32_t n_src, uint32_t n_samples)
+		float * SPA_RESTRICT dst,
+		const float * SPA_RESTRICT src[], uint32_t n_src,
+		float gain[], uint32_t n_gain, uint32_t n_samples)
 {
 	spa_api_method_v(spa_fga_dsp, &obj->iface, mix_gain, 0,
-			dst, src, gain, n_src, n_samples);
+			dst, src, n_src, gain, n_gain, n_samples);
 }
 static inline void spa_fga_dsp_sum(struct spa_fga_dsp *obj,
 		float * dst, const float * SPA_RESTRICT a,
@@ -143,8 +143,8 @@ static inline void spa_fga_dsp_linear(struct spa_fga_dsp *obj,
 			dst, src, mult, add, n_samples);
 }
 static inline void spa_fga_dsp_mult(struct spa_fga_dsp *obj,
-		void * SPA_RESTRICT dst,
-		const void * SPA_RESTRICT src[], uint32_t n_src, uint32_t n_samples)
+		float * SPA_RESTRICT dst,
+		const float * SPA_RESTRICT src[], uint32_t n_src, uint32_t n_samples)
 {
 	spa_api_method_v(spa_fga_dsp, &obj->iface, mult, 0,
 			dst, src, n_src, n_samples);

@@ -18,20 +18,20 @@
 #endif
 #include "audio-dsp-impl.h"
 
-void dsp_clear_c(void *obj, void * SPA_RESTRICT dst, uint32_t n_samples)
+void dsp_clear_c(void *obj, float * SPA_RESTRICT dst, uint32_t n_samples)
 {
 	memset(dst, 0, sizeof(float) * n_samples);
 }
 
-void dsp_copy_c(void *obj, void * SPA_RESTRICT dst,
-			const void * SPA_RESTRICT src, uint32_t n_samples)
+void dsp_copy_c(void *obj, float * SPA_RESTRICT dst,
+			const float * SPA_RESTRICT src, uint32_t n_samples)
 {
 	if (dst != src)
 		spa_memcpy(dst, src, sizeof(float) * n_samples);
 }
 
-static inline void dsp_add_c(void *obj, void * SPA_RESTRICT dst,
-			const void * SPA_RESTRICT src, uint32_t n_samples)
+static inline void dsp_add_c(void *obj, float * SPA_RESTRICT dst,
+			const float * SPA_RESTRICT src, uint32_t n_samples)
 {
 	uint32_t i;
 	const float *s = src;
@@ -40,8 +40,8 @@ static inline void dsp_add_c(void *obj, void * SPA_RESTRICT dst,
 		d[i] += s[i];
 }
 
-static inline void dsp_gain_c(void *obj, void * SPA_RESTRICT dst,
-			const void * SPA_RESTRICT src, float gain, uint32_t n_samples)
+static inline void dsp_gain_c(void *obj, float * dst,
+			const float * src, float gain, uint32_t n_samples)
 {
 	uint32_t i;
 	const float *s = src;
@@ -56,8 +56,8 @@ static inline void dsp_gain_c(void *obj, void * SPA_RESTRICT dst,
 	}
 }
 
-static inline void dsp_gain_add_c(void *obj, void * SPA_RESTRICT dst,
-			const void * SPA_RESTRICT src, float gain, uint32_t n_samples)
+static inline void dsp_gain_add_c(void *obj, float * SPA_RESTRICT dst,
+			const float * SPA_RESTRICT src, float gain, uint32_t n_samples)
 {
 	uint32_t i;
 	const float *s = src;
@@ -75,22 +75,30 @@ static inline void dsp_gain_add_c(void *obj, void * SPA_RESTRICT dst,
 
 
 void dsp_mix_gain_c(void *obj,
-		void * SPA_RESTRICT dst,
-		const void * SPA_RESTRICT src[],
-		float gain[], uint32_t n_src, uint32_t n_samples)
+		float * SPA_RESTRICT dst,
+		const float * SPA_RESTRICT src[], uint32_t n_src,
+		float gain[], uint32_t n_gain, uint32_t n_samples)
 {
 	uint32_t i;
 	if (n_src == 0) {
 		dsp_clear_c(obj, dst, n_samples);
 	} else {
-		dsp_gain_c(obj, dst, src[0], gain[0], n_samples);
-		for (i = 1; i < n_src; i++)
-			dsp_gain_add_c(obj, dst, src[i], gain[i], n_samples);
+		if (n_gain < n_src) {
+			dsp_copy_c(obj, dst, src[0], n_samples);
+			for (i = 1; i < n_src; i++)
+				dsp_add_c(obj, dst, src[i], n_samples);
+			if (n_gain > 0)
+				dsp_gain_c(obj, dst, dst, gain[0], n_samples);
+		} else {
+			dsp_gain_c(obj, dst, src[0], gain[0], n_samples);
+			for (i = 1; i < n_src; i++)
+				dsp_gain_add_c(obj, dst, src[i], gain[i], n_samples);
+		}
 	}
 }
 
-static inline void dsp_mult1_c(void *obj, void * SPA_RESTRICT dst,
-			const void * SPA_RESTRICT src, uint32_t n_samples)
+static inline void dsp_mult1_c(void *obj, float * SPA_RESTRICT dst,
+			const float * SPA_RESTRICT src, uint32_t n_samples)
 {
 	uint32_t i;
 	const float *s = src;
@@ -100,8 +108,8 @@ static inline void dsp_mult1_c(void *obj, void * SPA_RESTRICT dst,
 }
 
 void dsp_mult_c(void *obj,
-		void * SPA_RESTRICT dst,
-		const void * SPA_RESTRICT src[],
+		float * SPA_RESTRICT dst,
+		const float * SPA_RESTRICT src[],
 		uint32_t n_src, uint32_t n_samples)
 {
 	uint32_t i;

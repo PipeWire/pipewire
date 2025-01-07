@@ -121,8 +121,9 @@ static void mixer_run(void * Instance, unsigned long SampleCount)
 	struct builtin *impl = Instance;
 	int i, n_src = 0;
 	float *out = impl->port[0];
-	const void *src[8];
+	const float *src[8];
 	float gains[8];
+	bool eq_gain = true;
 
 	if (out == NULL)
 		return;
@@ -136,8 +137,13 @@ static void mixer_run(void * Instance, unsigned long SampleCount)
 
 		src[n_src] = in;
 		gains[n_src++] = gain;
+		if (gain != gains[0])
+			eq_gain = false;
 	}
-	spa_fga_dsp_mix_gain(impl->dsp, out, src, gains, n_src, SampleCount);
+	if (eq_gain)
+		spa_fga_dsp_mix_gain(impl->dsp, out, src, n_src, gains, 1, SampleCount);
+	else
+		spa_fga_dsp_mix_gain(impl->dsp, out, src, n_src, gains, n_src, SampleCount);
 }
 
 static struct spa_fga_port mixer_ports[] = {
@@ -1589,7 +1595,7 @@ static void mult_run(void * Instance, unsigned long SampleCount)
 	struct builtin *impl = Instance;
 	int i, n_src = 0;
 	float *out = impl->port[0];
-	const void *src[8];
+	const float *src[8];
 
 	if (out == NULL)
 		return;

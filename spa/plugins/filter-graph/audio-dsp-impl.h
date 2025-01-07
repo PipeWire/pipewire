@@ -11,13 +11,13 @@ struct spa_fga_dsp * spa_fga_dsp_new(uint32_t cpu_flags);
 void spa_fga_dsp_free(struct spa_fga_dsp *dsp);
 
 #define MAKE_CLEAR_FUNC(arch) \
-void dsp_clear_##arch(void *obj, void * SPA_RESTRICT dst, uint32_t n_samples)
+void dsp_clear_##arch(void *obj, float * SPA_RESTRICT dst, uint32_t n_samples)
 #define MAKE_COPY_FUNC(arch) \
-void dsp_copy_##arch(void *obj, void * SPA_RESTRICT dst, \
-	const void * SPA_RESTRICT src, uint32_t n_samples)
+void dsp_copy_##arch(void *obj, float * SPA_RESTRICT dst, \
+	const float * SPA_RESTRICT src, uint32_t n_samples)
 #define MAKE_MIX_GAIN_FUNC(arch) \
-void dsp_mix_gain_##arch(void *obj, void * SPA_RESTRICT dst,	\
-	const void * SPA_RESTRICT src[], float gain[], uint32_t n_src, uint32_t n_samples)
+void dsp_mix_gain_##arch(void *obj, float * SPA_RESTRICT dst,	\
+	const float * SPA_RESTRICT src[], uint32_t n_src, float gain[], uint32_t n_gain, uint32_t n_samples)
 #define MAKE_SUM_FUNC(arch) \
 void dsp_sum_##arch (void *obj, float * SPA_RESTRICT dst, \
 	const float * SPA_RESTRICT a, const float * SPA_RESTRICT b, uint32_t n_samples)
@@ -25,8 +25,8 @@ void dsp_sum_##arch (void *obj, float * SPA_RESTRICT dst, \
 void dsp_linear_##arch (void *obj, float * SPA_RESTRICT dst, \
 	const float * SPA_RESTRICT src, const float mult, const float add, uint32_t n_samples)
 #define MAKE_MULT_FUNC(arch) \
-void dsp_mult_##arch(void *obj, void * SPA_RESTRICT dst,	\
-	const void * SPA_RESTRICT src[], uint32_t n_src, uint32_t n_samples)
+void dsp_mult_##arch(void *obj, float * SPA_RESTRICT dst,	\
+	const float * SPA_RESTRICT src[], uint32_t n_src, uint32_t n_samples)
 #define MAKE_BIQUAD_RUN_FUNC(arch) \
 void dsp_biquad_run_##arch (void *obj, struct biquad *bq, uint32_t n_bq, uint32_t bq_stride, \
 	float * SPA_RESTRICT out[], const float * SPA_RESTRICT in[], uint32_t n_src, uint32_t n_samples)

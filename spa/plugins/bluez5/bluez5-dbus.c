@@ -2037,7 +2037,6 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 		connected_profiles |= SPA_BT_PROFILE_HEADSET_HEAD_UNIT;
 	if (connected_profiles & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY)
 		connected_profiles |= SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY;
-	connected_profiles |= SPA_BT_PROFILE_ASHA_SINK;
 
 	for (i = 0; i < SPA_N_ELEMENTS(direction_masks); ++i) {
 		uint32_t mask = direction_masks[i] & device->profiles & connectable_profiles;
@@ -2706,12 +2705,8 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 			}
 			/* For ASHA */
 			else if (spa_streq(key, "Transport")) {
-				if (setup_asha_transport(remote_endpoint, monitor, value)) {
-					spa_log_error(monitor->log, "Failed to create transport for remote_endpoint %p: %s=%s", remote_endpoint, key, value);
-					goto next;
-				}
-
-				spa_log_info(monitor->log, "Created ASHA transport for %s", value);
+				free(remote_endpoint->path);
+				remote_endpoint->path = strdup(value);
 			}
 		}
 		else if (type == DBUS_TYPE_BOOLEAN) {
@@ -2803,9 +2798,16 @@ next:
 		profile = spa_bt_profile_from_uuid(remote_endpoint->uuid);
 		if (profile & SPA_BT_PROFILE_BAP_AUDIO)
 			spa_bt_device_add_profile(remote_endpoint->device, profile);
-		if (profile & SPA_BT_PROFILE_ASHA_SINK) {
-			spa_log_debug(monitor->log, "Adding profile for remote_endpoint %p: device -> %p", remote_endpoint, remote_endpoint->device);
-			spa_bt_device_add_profile(remote_endpoint->device, SPA_BT_PROFILE_ASHA_SINK);
+
+		if (spa_streq(remote_endpoint->uuid, SPA_BT_UUID_ASHA_SINK)) {
+			if (profile & SPA_BT_PROFILE_ASHA_SINK) {
+				if (setup_asha_transport(remote_endpoint, monitor, remote_endpoint->path)) {
+					spa_log_error(monitor->log, "Failed to create transport for remote_endpoint %p", remote_endpoint);
+				} else {
+					spa_log_debug(monitor->log, "Adding profile for remote_endpoint %p: device -> %p", remote_endpoint, remote_endpoint->device);
+					spa_bt_device_add_profile(remote_endpoint->device, SPA_BT_PROFILE_ASHA_SINK);
+				}
+			}
 		}
 	}
 
@@ -4083,22 +4085,31 @@ static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, 
 	const struct media_codec * const * const media_codecs = monitor->media_codecs;
 	const struct media_codec *codec = NULL;
 	struct spa_bt_transport *transport;
+	char *tpath;
 
 	transport = spa_bt_transport_find(monitor, transport_path);
-	if (transport == NULL) {
-		char *tpath = strdup(transport_path);
+	if (transport != NULL) {
+		struct spa_bt_device *d = transport->device;
+		if (d != NULL)
+			device_free(d);
 
-		transport = spa_bt_transport_create(monitor, tpath, 0);
-		if (transport == NULL) {
-			spa_log_error(monitor->log, "Failed to create transport for %s", transport_path);
-			free(tpath);
-			return -EINVAL;
-		}
+		spa_log_debug(monitor->log, "transport %p: free %s",
+			transport, transport->path);
 
-		spa_bt_transport_set_implementation(transport, &transport_impl, transport);
-
-		spa_log_debug(monitor->log, "Created ASHA transport for %s", transport_path);
+		spa_bt_transport_free(transport);
 	}
+
+	tpath = strdup(transport_path);
+	transport = spa_bt_transport_create(monitor, tpath, 0);
+	if (transport == NULL) {
+		spa_log_error(monitor->log, "Failed to create transport for %s", transport_path);
+		free(tpath);
+		return -EINVAL;
+	}
+
+	spa_bt_transport_set_implementation(transport, &transport_impl, transport);
+
+	spa_log_debug(monitor->log, "Created ASHA transport for %s", transport_path);
 
 	for (int i = 0; media_codecs[i]; i++) {
 		const struct media_codec *mcodec = media_codecs[i];
@@ -6289,6 +6300,8 @@ int spa_bt_profiles_from_json_array(const char *str)
 			profiles |= SPA_BT_PROFILE_BAP_BROADCAST_SOURCE;
 		} else if (spa_streq(role_name, "bap_bcast_sink")) {
 			profiles |= SPA_BT_PROFILE_BAP_BROADCAST_SINK;
+		} else if (spa_streq(role_name, "asha_sink")) {
+			profiles |= SPA_BT_PROFILE_ASHA_SINK;
 		}
 	}
 

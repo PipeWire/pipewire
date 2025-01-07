@@ -1114,7 +1114,7 @@ static int emit_nodes(struct impl *this)
 			t = find_transport(this, SPA_BT_PROFILE_ASHA_SINK);
 			if (t) {
 				this->props.codec = t->media_codec->id;
-				emit_node(this, t, DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_MEDIA_SINK, false);
+				emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_MEDIA_SINK, false);
 			} else {
 				spa_log_warn(this->log, "Unable to find transport for ASHA");
 			}

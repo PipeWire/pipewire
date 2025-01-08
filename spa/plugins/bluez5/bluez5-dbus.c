@@ -2496,12 +2496,13 @@ bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const stru
 		{ SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL_DUPLEX, SPA_BT_FEATURE_A2DP_DUPLEX },
 		{ SPA_BLUETOOTH_AUDIO_CODEC_FASTSTREAM_DUPLEX, SPA_BT_FEATURE_A2DP_DUPLEX },
 	};
+	bool is_a2dp = !codec->bap && !codec->asha;
 	size_t i;
 
 	if (!is_media_codec_enabled(device->monitor, codec))
 		return false;
 
-	if (!device->adapter->a2dp_application_registered && !codec->bap) {
+	if (!device->adapter->a2dp_application_registered && is_a2dp) {
 		/* Codec switching not supported: only plain SBC allowed */
 		return (codec->codec_id == A2DP_CODEC_SBC && spa_streq(codec->name, "sbc") &&
 				device->adapter->legacy_endpoints_registered);
@@ -4113,6 +4114,8 @@ static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, 
 
 	for (int i = 0; media_codecs[i]; i++) {
 		const struct media_codec *mcodec = media_codecs[i];
+		if (!mcodec->asha)
+			continue;
 		if (!spa_streq(mcodec->name, "g722"))
 			continue;
 		codec = mcodec;
@@ -5098,6 +5101,8 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 			uint16_t codec_id = codec->codec_id;
 
 			if (codec->bap != is_bap)
+				continue;
+			if (codec->asha)
 				continue;
 
 			if (!is_media_codec_enabled(monitor, codec))

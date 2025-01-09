@@ -449,9 +449,18 @@ else
     else
       webrtc_dep = dependency('webrtc-audio-processing',
         version : ['>= 0.2', '< 1.0'],
-        required : get_option('echo-cancel-webrtc'))
+        required : false)
       cdata.set('HAVE_WEBRTC', webrtc_dep.found())
-      summary({'WebRTC Echo Canceling < 1.0': webrtc_dep.found()}, bool_yn: true, section: 'Misc dependencies')
+      if webrtc_dep.found()
+        summary({'WebRTC Echo Canceling < 1.0': webrtc_dep.found()}, bool_yn: true, section: 'Misc dependencies')
+      else
+        # If deps are not found on the system but it's enabled, try to fallback to the subproject
+        webrtc_dep = dependency('webrtc-audio-processing-2',
+          version : ['>= 2.0' ],
+          required : get_option('echo-cancel-webrtc'))
+        cdata.set('HAVE_WEBRTC2', webrtc_dep.found())
+        summary({'WebRTC Echo Canceling > 2.0': webrtc_dep.found()}, bool_yn: true, section: 'Misc dependencies')
+      endif
     endif
   endif
 endif

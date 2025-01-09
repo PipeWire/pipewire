@@ -138,6 +138,7 @@ struct spa_bt_remote_endpoint {
 	struct spa_list device_link;
 	struct spa_bt_monitor *monitor;
 	char *path;
+	char *transport_path;
 
 	char *uuid;
 	unsigned int codec;
@@ -2649,7 +2650,7 @@ static struct spa_bt_device *create_bcast_device(struct spa_bt_monitor *monitor,
 	return d;
 }
 
-static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, struct spa_bt_monitor *monitor, const char *transport_path);
+static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, struct spa_bt_monitor *monitor);
 
 static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_endpoint,
 				DBusMessageIter *props_iter,
@@ -2706,8 +2707,8 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 			}
 			/* For ASHA */
 			else if (spa_streq(key, "Transport")) {
-				free(remote_endpoint->path);
-				remote_endpoint->path = strdup(value);
+				free(remote_endpoint->transport_path);
+				remote_endpoint->transport_path = strdup(value);
 			}
 		}
 		else if (type == DBUS_TYPE_BOOLEAN) {
@@ -2802,7 +2803,7 @@ next:
 
 		if (spa_streq(remote_endpoint->uuid, SPA_BT_UUID_ASHA_SINK)) {
 			if (profile & SPA_BT_PROFILE_ASHA_SINK) {
-				if (setup_asha_transport(remote_endpoint, monitor, remote_endpoint->path)) {
+				if (setup_asha_transport(remote_endpoint, monitor)) {
 					spa_log_error(monitor->log, "Failed to create transport for remote_endpoint %p", remote_endpoint);
 				} else {
 					spa_log_debug(monitor->log, "Adding profile for remote_endpoint %p: device -> %p", remote_endpoint, remote_endpoint->device);
@@ -2843,6 +2844,7 @@ static void remote_endpoint_free(struct spa_bt_remote_endpoint *remote_endpoint)
 
 	spa_list_remove(&remote_endpoint->link);
 	free(remote_endpoint->path);
+	free(remote_endpoint->transport_path);
 	free(remote_endpoint->uuid);
 	free(remote_endpoint->capabilities);
 	free(remote_endpoint);
@@ -4081,36 +4083,35 @@ static const struct spa_bt_transport_implementation transport_impl = {
 	.set_delay = transport_set_delay,
 };
 
-static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, struct spa_bt_monitor *monitor, const char *transport_path)
+static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, struct spa_bt_monitor *monitor)
 {
 	const struct media_codec * const * const media_codecs = monitor->media_codecs;
 	const struct media_codec *codec = NULL;
 	struct spa_bt_transport *transport;
 	char *tpath;
 
-	transport = spa_bt_transport_find(monitor, transport_path);
-	if (transport != NULL) {
-		struct spa_bt_device *d = transport->device;
-		if (d != NULL)
-			device_free(d);
+	if (!remote_endpoint->transport_path)
+		return -EINVAL;
 
+	transport = spa_bt_transport_find(monitor, remote_endpoint->transport_path);
+	if (transport != NULL) {
 		spa_log_debug(monitor->log, "transport %p: free %s",
 			transport, transport->path);
-
 		spa_bt_transport_free(transport);
 	}
 
-	tpath = strdup(transport_path);
+	tpath = strdup(remote_endpoint->transport_path);
 	transport = spa_bt_transport_create(monitor, tpath, 0);
 	if (transport == NULL) {
-		spa_log_error(monitor->log, "Failed to create transport for %s", transport_path);
+		spa_log_error(monitor->log, "Failed to create transport for %s",
+				remote_endpoint->transport_path);
 		free(tpath);
 		return -EINVAL;
 	}
 
 	spa_bt_transport_set_implementation(transport, &transport_impl, transport);
 
-	spa_log_debug(monitor->log, "Created ASHA transport for %s", transport_path);
+	spa_log_debug(monitor->log, "Created ASHA transport for %s", remote_endpoint->transport_path);
 
 	for (int i = 0; media_codecs[i]; i++) {
 		const struct media_codec *mcodec = media_codecs[i];
@@ -4123,7 +4124,7 @@ static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, 
 	}
 
 	free(transport->endpoint_path);
-	transport->endpoint_path = strdup(transport_path);
+	transport->endpoint_path = strdup(remote_endpoint->path);
 	transport->profile = SPA_BT_PROFILE_ASHA_SINK;
 	transport->media_codec = codec;
 	transport->device = remote_endpoint->device;

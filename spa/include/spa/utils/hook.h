@@ -166,14 +166,14 @@ struct spa_interface {
 	const type *_f = (const type *) (callbacks)->funcs;			\
 	bool _res = SPA_CALLBACK_CHECK(_f,method,vers);				\
 	if (SPA_LIKELY(_res))							\
-		_f->method((callbacks)->data, ## __VA_ARGS__);			\
+		(_f->method)((callbacks)->data, ## __VA_ARGS__);		\
 	_res;									\
 })
 
 #define spa_callbacks_call_fast(callbacks,type,method,vers,...)			\
 ({										\
 	const type *_f = (const type *) (callbacks)->funcs;			\
-	_f->method((callbacks)->data, ## __VA_ARGS__);				\
+	(_f->method)((callbacks)->data, ## __VA_ARGS__);			\
 	true;									\
 })
 
@@ -207,13 +207,13 @@ struct spa_interface {
 ({										\
 	const type *_f = (const type *) (callbacks)->funcs;			\
 	if (SPA_LIKELY(SPA_CALLBACK_CHECK(_f,method,vers)))			\
-		res = _f->method((callbacks)->data, ## __VA_ARGS__);		\
+		res = (_f->method)((callbacks)->data, ## __VA_ARGS__);		\
 	res;									\
 })
 #define spa_callbacks_call_fast_res(callbacks,type,res,method,vers,...)		\
 ({										\
 	const type *_f = (const type *) (callbacks)->funcs;			\
-	res = _f->method((callbacks)->data, ## __VA_ARGS__);			\
+	res = (_f->method)((callbacks)->data, ## __VA_ARGS__);			\
 })
 
 /**
@@ -257,18 +257,18 @@ struct spa_interface {
 #define spa_api_func_v(o,method,version,...)				\
 ({									\
 	if (SPA_LIKELY(SPA_CALLBACK_CHECK(o,method,version)))		\
-		(o)->method(o, ##__VA_ARGS__);				\
+		((o)->method)(o, ##__VA_ARGS__);			\
 })
 #define spa_api_func_r(rtype,def,o,method,version,...)			\
 ({									\
 	rtype _res = def;						\
 	if (SPA_LIKELY(SPA_CALLBACK_CHECK(o,method,version)))		\
-		_res = (o)->method(o, ##__VA_ARGS__);			\
+		_res = ((o)->method)(o, ##__VA_ARGS__);			\
 	_res;								\
 })
 #define spa_api_func_fast(o,method,...)					\
 ({									\
-	(o)->method(o, ##__VA_ARGS__);					\
+	((o)->method)(o, ##__VA_ARGS__);				\
 })
 
 #define spa_api_method_v(type,o,method,version,...)			\

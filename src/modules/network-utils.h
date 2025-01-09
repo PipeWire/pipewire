@@ -82,31 +82,33 @@ static inline int pw_net_parse_address_port(const char *address,
 
 static inline int pw_net_get_ip(const struct sockaddr_storage *sa, char *ip, size_t len, bool *ip4, uint16_t *port)
 {
+	if (ip4)
+		*ip4 = sa->ss_family == AF_INET;
+
 	if (sa->ss_family == AF_INET) {
 		struct sockaddr_in *in = (struct sockaddr_in*)sa;
-		inet_ntop(sa->ss_family, &in->sin_addr, ip, len);
+		if (inet_ntop(sa->ss_family, &in->sin_addr, ip, len) == NULL)
+			return -errno;
 		if (port)
 			*port = ntohs(in->sin_port);
 	} else if (sa->ss_family == AF_INET6) {
 		struct sockaddr_in6 *in = (struct sockaddr_in6*)sa;
-		inet_ntop(sa->ss_family, &in->sin6_addr, ip, len);
+		if (inet_ntop(sa->ss_family, &in->sin6_addr, ip, len) == NULL)
+			return -errno;
 		if (port)
 			*port = ntohs(in->sin6_port);
-		if (in->sin6_scope_id == 0 || len <= 1)
-			goto finish;
 
-		size_t curlen = strlen(ip);
-		if (len-(curlen+1) >= IFNAMSIZ) {
-			ip += curlen+1;
-			ip[-1] = '%';
-			if (if_indextoname(in->sin6_scope_id, ip) == NULL)
-				ip[-1] = 0;
+		if (in->sin6_scope_id != 0 && len > 1) {
+			size_t curlen = strlen(ip);
+			if (len-(curlen+1) >= IFNAMSIZ) {
+				ip += curlen+1;
+				ip[-1] = '%';
+				if (if_indextoname(in->sin6_scope_id, ip) == NULL)
+					ip[-1] = 0;
+			}
 		}
 	} else
 		return -EINVAL;
-finish:
-	if (ip4)
-		*ip4 = sa->ss_family == AF_INET;
 	return 0;
 }
 

@@ -1,3 +1,380 @@
+# PipeWire 1.2.7 (2024-11-26)
+
+This is a bugfix release that is API and ABI compatible with the previous
+1.2.x and 1.0.x releases.
+
+## Highlights
+  - Backport support for lazy scheduling.
+  - Handle the case where processing would stop when an ALSA driver is
+    destroyed.
+  - Add support for v4l2loopback in the v4l2 plugin.
+  - Small bug fixes and improvements.
+
+## PipeWire
+  - Invalidate the proxy ID when removed.
+  - Backport support for lazy scheduling.
+  - Fix profiler stats for async nodes.
+  - Fix EARLY_PROCESS again in pw-stream. (#3480)
+
+## Modules
+  - Fix a crasher issue when nodes are created in the wrong order in
+    module-filter-chain.
+  - Fix unmap bug in lv2 uri tables.
+  - Add ratelimit to jack-tunnel xruns.
+  - Remove hardcoded limit in filter-chain sofa plugin.
+  - Handle the MTU size correctly in module-rtp and handle large MTUs.
+    (#4396)
+  - Fix JSON float parsing errors in equalizer module. (#4418)
+
+## SPA
+  - Fix crash in audiotestsrc when using spa-inspect (#4365).
+  - Improve JSON float infinity checks.
+  - Improve resampler performace a little.
+  - Make audioconvert only output when there is something to output.
+  - Fix regression in v4l2 port flags which would disable support for
+    EXPBUF.
+  - Handle the case where an ALSA driver is destroyed and the follower
+    becomes a driver. Processing would stop. (#4401)
+  - Add support for v4l2loopback in the v4l2 plugin.
+
+## Pulse-server
+  - Give a better error message when running out of fds.
+  - Ensure positive latency reporting.
+
+## GStreamer
+  - Fix memory leak in deviceprovider.
+  - Fix locking when emitting an error.
+
+## Tools
+  - Fix pw-dot link labels.
+
+Older versions:
+
+
+# PipeWire 1.2.6 (2024-10-23)
+
+This is a bugfix release that is API and ABI compatible with the previous
+1.2.x and 1.0.x releases.
+
+## Highlights
+  - The filter-chain param changes were not aggregated correctly, causing some
+    param changes to be ignored. (#4331)
+  - Clear the JACK io ports correctly when stopping to avoid crashes. (#4337)
+  - Some more small fixes and improvements.
+
+
+## PipeWire
+  - Stream states are now updated based on the underlying node state.
+  - Exported nodes now have their state change done synchronously so that the
+    server can immediately start the driver and avoid some initial xruns.
+  - Improve stream flush handling and improve the docs.
+  - Don't send mix_info to destroyed ports to avoid some errors in the
+    JACK clients.
+
+## Modules
+  - The filter-chain param changes were not aggregated correctly, causing some
+    param changes to be ignored. (#4331)
+  - The filter-chain now correctly optimizes unlinked nodes in all cases.
+
+## SPA
+  - ALSA PCM node properties are now no longer overwritten with card properties.
+    (#4135)
+  - Increase the adapter retry count to avoid xruns in some cases. (#4334)
+  - Fix potential crash in cleanup of ALSA nodes.
+
+## Bluetooth
+  - Fix a crash with broadcast sinks.
+  - Improve compatibility with Phonak hearing aids.
+  - Don't exit when DBus goes down.
+
+## JACK
+  - Clear the io ports correctly when stopping to avoid crashes. (#4337)
+
+## Docs
+  - Backport docs from master.
+
+# PipeWire 1.0.9 (2024-10-22)
+
+This is a bugfix release that is API and ABI compatible with previous
+1.0.x releases.
+
+## Highlights
+  - Fix an fd leak and confusion in the protocol that would cause leaks and
+    wrong memory to be used.
+  - Fix bug where the mixer would not be synced correctly after selecting
+    a port, leaving the audio muted. (#4084)
+  - Backport v4l2 systemd-logind support to avoid races when starting.
+    (#3539 and #3960).
+  - Other small fixed and improvements.
+
+
+## PipeWire
+  - Fix a bug where renegotiation would sometimes fail to deactivate a link.
+  - Fix an fd leaks and confusion in the protocol.
+
+## modules
+  - Fix a use-after-free in the rt module when stopping a thread.
+
+## SPA
+  - Fix bug where the mixer would not be synced correctly after selecting
+    a port, leaving the audio muted. (#4084)
+  - Fix a compilation issue with empty initializers. (#4317)
+  - Backport v4l2 systemd-logind support to avoid races when starting.
+    (#3539 and #3960).
+  - Fix a potential crash when cleaning ALSA nodes.
+
+## JACK
+  - align buffers to the max cpu alignment in order to allow more
+    optimizations.
+
+# PipeWire 1.2.5 (2024-09-27)
+
+This is an important bugfix release that is API and ABI compatible with the
+previous 1.2.x and 1.0.x releases.
+
+## Highlights
+  - Fix an fd mismatch in the protocol in some cases that could lead to
+    fd leaks and crashes.
+  - Fix a bug where the mixer was not updated after setting the port, which would
+    cause muted audio at boot or resume from suspend.
+  - Fix a potential use-after-free in module-rt when stopping a thread.
+  - Cached objects are now freed in the JACK API to avoid memory leaks.
+  - Some more fixes and improvements.
+
+
+## PipeWire
+  - RequestProcess commands are now only sent after the node completes
+    the state change to RUNNING.
+  - More FreeBSD fixes.
+  - Handle ACTIVE links going to < PAUSED as well. This improves
+    renegotiation in some cases.
+  - Fix an fd mismatch in the protocol in some cases that could lead to
+    fd leaks and crashes.
+
+## Modules
+  - Many of the network modules can now also accept hostnames instead of
+    IP addresses.
+  - Fix a potential use-after-free in module-rt when stopping the thread.
+
+## SPA
+  - Support for elogind was added.
+  - Some more errors are checked when converting JSON to POD. (#4313)
+  - Fix a bug where the mixer was not updated after setting the port, which would
+    cause muted audio at boot or resume from suspend. (#4084)
+
+## JACK
+  - The BBT transport handling was improved. Some fields were added to be able
+    to handle the JACK semantics correctly. (#4314)
+  - Buffers are now aligned according to the maximum CPU alignment instead of
+    the hardcoded 16 bytes alignment.
+  - Cached objects are now freed correctly.
+
+## Doc
+  - Some small doc updates. (#4272)
+
+# PipeWire 1.2.4 (2024-09-19)
+
+This is a bugfix release that is API and ABI compatible with the
+previous 1.2.x and 1.0.x releases.
+
+## Highlights
+  - Avoid a crash in cleanup of globals. (#4250)
+  - Use systemd-logind to scan for new devices in v4l2.
+  - Some more bugfixes and improvements.
+
+
+## PipeWire
+  - Avoid a crash in cleanup of globals. (#4250)
+  - Improve RequestProcess dispatch.
+
+## Tools
+  - Improve float parsing. (#4234)
+
+## SPA
+  - Clear the ringbuffer when stopping in libcamera.
+  - Use systemd-logind to scan for new devices in v4l2. (#3539, #3960)
+  - Queue dropped first buffer in v4l2.
+  - Unlink pcm devices when moving drivers to avoid broken pipe.
+
+## JACK
+  - Emit buffer_size callback in jack_activate() to improve
+    compatibility with GStreamer. (#4260)
+
+# PipeWire 1.0.8 (2024-09-19)
+
+This is a small bugfix release that is API and ABI compatible with previous
+1.0.x releases.
+
+## Highlights
+  - Backport support for explicit sync.
+  - FFADO backport fixes.
+  - Fix some races in JACK.
+  - More small fixes and improvements.
+
+
+## PipeWire
+  - Add support for mandatory metadata and explicit sync metadata.
+  - Fix RequestProcess again.
+  - Include config.h to use malloc_trim() when cleaning nodes.
+  - Avoid crash when destroying a global. (#4250)
+
+## Modules
+  - FFADO fixes: improve timing reporting, avoid some xruns, improve
+    samplerate and period size handling, implement freewheeling.
+  - Decrease memory usage of the profiler.
+
+## Tools
+  - Fix pw-dump metadata changes fix. (#4053)
+  - Support large params in pw-cli. (#4166)
+
+## SPA
+  - Improve libcamera devices reporting to properly filter out duplicates in
+    all cases.
+  - Improve property reporting in v4l2.
+  - Fix lost buffer in v4l2.
+
+## Bluetooth
+  - Improve compatibility with some devices.
+
+## JACK
+  - Fix some races when shutting down.
+  - Fix rt-priority on the main thread when using custom thread create
+    function. (#4099)
+
+## ALSA
+  - Handle format renegotiation. (#3856)
+
+# PipeWire 1.2.3 (2024-08-22)
+
+This is a bugfix release that is API and ABI compatible with the
+previous 1.2.x and 1.0.x releases.
+
+## Highlights
+  - Implement freewheeling support in the FFADO driver. Also improve
+    buffersize and samplerate handling.
+  - Improve some locking on spa_loop. Remove a possible deadlock when
+    the queue was full.
+  - Allocate more space for the libcamera devices string to properly
+    deduplicate libcamera and v4l2 devices.
+  - Some more bugfixes and improvements.
+
+
+## PipeWire
+  - Improve activation state changes and xrun detection some more.
+    (#4182)
+  - Avoid a memory leak when a link in error is destroyed.
+
+## Modules
+  - Improve samplerate and buffersize handling in FFADO driver so that
+    it is possible to force a rate and buffer size.
+  - Implement freewheeling support in the ffado driver.
+  - Always set the server side clock.quantum-limit on nodes. This fixes
+    a buffer size problem in Midi-bridge. (#4005)
+
+## SPA
+  - Improve some locking on spa_loop. Remove a possible deadlock when
+    the queue was full. (#4114)
+  - Allocate more space for the libcamera devices string to properly
+    deduplicate libcamera and v4l2 devices.
+  - Fix a potential race when enumerating v4l2 udev devices. (#3960)
+
+## Bluetooth
+  - Improve compatibility with some devices (Soundcore Motion 300).
+
+## Tools
+  - pw-cli can now handle arbitrarily large input and params. (#4166)
+  - Avoid some compiler warnings in pw-top.
+
+# PipeWire 1.2.2 (2024-07-31)
+
+This is a bugfix release that is API and ABI compatible with the
+previous 1.2.x and 1.0.x releases.
+
+## Highlights
+  - Fix some more fallout of the async nodes rewrite. Fixes some
+    crackling, xruns and possibly also some crashes in some cases.
+  - Fix freewheeling timeouts in case of xruns. This fixes ardour export.
+  - Fix event mixdown in JACK. Fixes qsynth and possibly other apps.
+  - Some more small fixes and improvements.
+
+
+## PipeWire
+  - Add a new SPA_IO_CLOCK_FLAG_XRUN_RECOVER flag when the process function
+    is called because of xrun recovery.
+  - Properly stop nodes in all cases, this avoids spurious xruns and
+    scheduling errors. (#4122)
+  - Make sure async nodes receive an async link in all cases. Do the
+    processing of source output ports slightly differently to make sure we
+    don't cause latency for sources. (#4138) (#4133)
+  - Fix some races when negotiating and starting nodes. (#4094)
+  - Actually include the config.h header to use malloc_trim() to reduce
+    memory usage in pulse-server.
+
+## Modules
+  - Avoid unloading some modules on stream errors because it is possible to
+    recover from the error. (#4121)
+  - Fix a (harmless) warning in module-rtp because of comparing samples and
+    time. (#4095)
+
+## SPA
+  - Let the freewheel driver detect xrun recovery and handle the timeouts
+    correctly. This fixes an issue with ardour export.
+  - Remove the HDMI/AC3 profiles. they turn out to fail on some hardware
+    with no way to detect this.
+  - Signal the eventfd when the loop is full to make sure the other thread
+    is woken up to process the queue.
+
+## JACK
+  - Don't check timestamps when mixing down events. The timestamps are only
+    checked when writing new events with the public API. This fixes an
+    issue where qsynth would not receive midi events anymore.
+  - Fix the jack_get_time() function, it was returning nano instead of micro
+    seconds.
+
+# PipeWire 1.2.1 (2024-07-12)
+
+This is a bugfix release that is API and ABI compatible with previous
+the previous 1.2.0 release and the 1.0.x releases.
+
+## Highlights
+  - Fix a regression in the node activation counters that would break audio
+    when using KODI.
+  - Fix a regression in ardour export because of mishandling of sync groups.
+  - Fix a regression in KDE screen preview because of the new async
+    scheduling.
+  - Fix a regression in context.exec argument parsing that would break some
+    existing scripts.
+  - More small bug fixes and improvements.
+
+
+## PipeWire
+  - Fix a regression in the node activation counters that would break audio
+    when using KODI. (#4087)
+  - Fix a regression in ardour export because of mishandling of sync groups.
+    (#4083)
+  - Fix a regression in KDE screen preview because of the new async
+    scheduling. Disable async for driver nodes. (#4092)
+  - Slightly improve node shutdown to cause less xruns.
+  - Fix a regression in context.exec argument parsing that would break some
+    existing scripts.
+  - Support custom thread create functions.
+
+## Modules
+  - Improve snapcast address parsing. (#4093)
+
+## SPA
+  - Fix multiple %f parsing in ACP for the new plug+a52 profiles.
+  - Improve v4l2 param generation. Improve recovery when framesize or rates
+    are unknown, support vivid. (#4063)
+
+## JACK
+  - Use the custom thread create function to correctly let module-rt kit
+    manage threads so that we don't end up with priorities on the wrong
+    threads. (#4099)
+
+## GStreamer
+  - Fix a crash when destroying a stream.
+
 # PipeWire 1.2.0 (2024-06-27)
 
 This is the 1.2 release that is API and ABI compatible with previous

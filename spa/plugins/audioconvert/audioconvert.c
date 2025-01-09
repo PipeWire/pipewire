@@ -2527,29 +2527,30 @@ impl_node_port_enum_params(void *object, int seq,
 		if (result.index > 0)
 			return 0;
 
-		if (PORT_IS_DSP(this, direction, port_id)) {
-			/* DSP ports always use the quantum_limit as the buffer
-			 * size. */
-			size = this->quantum_limit;
-		} else {
+		size = this->quantum_limit;
+
+		if (!PORT_IS_DSP(this, direction, port_id)) {
 			uint32_t irate, orate;
 			struct dir *dir = &this->dir[direction];
 
 			/* Convert ports are scaled so that they can always
-			 * provide one quantum of data */
+			 * provide one quantum of data. irate is the rate of the
+			 * data before it goes into the resampler. */
 			irate = dir->format.info.raw.rate;
+			/* scale the size for adaptive resampling */
+			size += size/2;
 
-			/* collect the other port rate */
+			/* collect the other port rate. This is the output of the resampler
+			 * and is usually one quantum. */
 			dir = &this->dir[SPA_DIRECTION_REVERSE(direction)];
 			if (dir->mode == SPA_PARAM_PORT_CONFIG_MODE_dsp)
-				orate = this->io_position ?  this->io_position->clock.target_rate.denom : DEFAULT_RATE;
+				orate = this->io_position ? this->io_position->clock.target_rate.denom : DEFAULT_RATE;
 			else
 				orate = dir->format.info.raw.rate;
 
-			/* always keep some extra room for adaptive resampling */
-			size = this->quantum_limit * 2;
-			/*  scale the buffer size when we can. */
-			if (irate != 0 && orate != 0)
+			/* scale the buffer size when we can. Only do this when we downsample because
+			 * then we need to ask more input data for one quantum. */
+			if (irate != 0 && orate != 0 && irate > orate)
 				size = SPA_SCALE32_UP(size, irate, orate);
 		}
 

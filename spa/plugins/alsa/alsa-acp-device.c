@@ -761,6 +761,32 @@ static uint32_t find_route_by_name(struct acp_card *card, const char *name)
 	return SPA_ID_INVALID;
 }
 
+static bool check_active_profile_port(struct impl *this, uint32_t device, uint32_t port_index)
+{
+	struct acp_port *p;
+	uint32_t i;
+
+	if (port_index >= this->card->n_ports)
+		return false;
+	p = this->card->ports[port_index];
+
+	/* Port must be in active profile */
+	for (i = 0; i < p->n_profiles; i++)
+		if (p->profiles[i]->index == this->card->active_profile_index)
+			break;
+	if (i == p->n_profiles)
+		return false;
+
+	/* Port must correspond to the device */
+	for (i = 0; i< p->n_devices; i++)
+		if (p->devices[i]->index == device)
+			break;
+	if (i == p->n_devices)
+		return false;
+
+	return true;
+}
+
 static int impl_set_param(void *object,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod *param)
@@ -837,6 +863,8 @@ static int impl_set_param(void *object,
 		if (idx == SPA_ID_INVALID)
 			idx = find_route_by_name(this->card, name);
 		if (idx == SPA_ID_INVALID)
+			return -EINVAL;
+		if (!check_active_profile_port(this, device, idx))
 			return -EINVAL;
 
 		acp_device_set_port(dev, idx, save ? ACP_PORT_SAVE : 0);

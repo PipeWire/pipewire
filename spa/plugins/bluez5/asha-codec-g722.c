@@ -206,15 +206,15 @@ static int codec_encode(void *data,
 	int ret;
 
 	if (src_size < this->codesize) {
-		spa_log_trace(spalog, "Insufficient bytes for encoding, %lu", src_size);
+		spa_log_trace(spalog, "Insufficient bytes for encoding, %zd", src_size);
 		return 0;
 	}
 	if (dst_size < (ASHA_HEADER_SZ + ASHA_ENCODED_PKT_SZ)) {
-		spa_log_trace(spalog, "No space for encoded output, %lu", dst_size);
+		spa_log_trace(spalog, "No space for encoded output, %zd", dst_size);
 		return 0;
 	}
 
-	spa_log_trace(spalog, "%lu bytes to encode", src_size);
+	spa_log_trace(spalog, "%zd bytes to encode", src_size);
 
 	ret = av_frame_make_writable(this->frame);
 	if (ret < 0) {
@@ -226,7 +226,7 @@ static int codec_encode(void *data,
 	frame->data[0] = (uint8_t *)src;
 	frame->linesize[0] = src_sz;
 
-	spa_log_trace(spalog, "Encoding %lu bytes", src_sz);
+	spa_log_trace(spalog, "Encoding %zd bytes", src_sz);
 
 	ret = avcodec_send_frame(this->ctx, frame);
 	if (ret < 0) {

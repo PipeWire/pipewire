@@ -1533,6 +1533,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			p->have_soft_volume = false;
 
 		set_volume(this);
+		this->recalc = true;
 	}
 
 	if (!p->lock_volumes && vol_ramp_params_changed) {

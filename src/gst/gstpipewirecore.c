@@ -106,7 +106,7 @@ mainloop_failed:
   }
 connection_failed:
   {
-    GST_ERROR ("error connect: %s", spa_strerror (errno));
+    GST_ERROR ("error connect: %s", strerror (errno));
     pw_thread_loop_unlock (core->loop);
     pw_context_destroy (core->context);
     pw_thread_loop_destroy (core->loop);

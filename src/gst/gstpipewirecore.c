@@ -3,6 +3,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include "config.h"
+#include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -105,7 +106,7 @@ mainloop_failed:
   }
 connection_failed:
   {
-    GST_ERROR ("error connect: %m");
+    GST_ERROR ("error connect: %s", spa_strerror (errno));
     pw_thread_loop_unlock (core->loop);
     pw_context_destroy (core->context);
     pw_thread_loop_destroy (core->loop);

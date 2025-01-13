@@ -148,7 +148,7 @@ static void biquad_run_c(void *obj, struct biquad *bq,
 		x2 = b2 * x - a2 * y;
 		out[i] = y;
 	}
-#define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
+#define F(x) (isnormal(x) ? (x) : 0.0f)
 	bq->x1 = F(x1);
 	bq->x2 = F(x2);
 #undef F

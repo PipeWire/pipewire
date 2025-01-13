@@ -256,7 +256,7 @@ static void dsp_biquad_run1_sse(void *obj, struct biquad *bq,
 		y = _mm_sub_ps(z, y);	 		/*  y        x1       x2       0 */
 		x12 = _mm_shuffle_ps(y, y, _MM_SHUFFLE(3,3,2,1));    /*  x1  x2  0  0*/
 	}
-#define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
+#define F(x) (isnormal(x) ? (x) : 0.0f)
 	bq->x1 = F(x12[0]);
 	bq->x2 = F(x12[1]);
 #undef F
@@ -298,7 +298,7 @@ static void dsp_biquad2_run_sse(void *obj, struct biquad *bq,
 
 		_mm_store_ss(&out[i], x);			/*  out[i] = b0*x+x1 */
 	}
-#define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
+#define F(x) (isnormal(x) ? (x) : 0.0f)
 	bq[0].x1 = F(x0[0]);
 	bq[0].x2 = F(x0[1]);
 	bq[1].x1 = F(x1[0]);
@@ -339,7 +339,7 @@ static void dsp_biquad_run2_sse(void *obj, struct biquad *bq, uint32_t bq_stride
 		out[0][i] = y[0];
 		out[1][i] = y[1];
 	}
-#define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
+#define F(x) (isnormal(x) ? (x) : 0.0f)
 	bq[0*bq_stride].x1 = F(x1[0]);
 	bq[0*bq_stride].x2 = F(x2[0]);
 	bq[1*bq_stride].x1 = F(x1[1]);
@@ -401,7 +401,7 @@ static void dsp_biquad2_run2_sse(void *obj, struct biquad *bq, uint32_t bq_strid
 		out[0][i] = y[0];
 		out[1][i] = y[1];
 	}
-#define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
+#define F(x) (isnormal(x) ? (x) : 0.0f)
 	bq[0*bq_stride+0].x1 = F(x01[0]);
 	bq[0*bq_stride+0].x2 = F(x02[0]);
 	bq[1*bq_stride+0].x1 = F(x01[1]);
@@ -449,7 +449,7 @@ static void dsp_biquad_run4_sse(void *obj, struct biquad *bq, uint32_t bq_stride
 		out[2][i] = y[2];
 		out[3][i] = y[3];
 	}
-#define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
+#define F(x) (isnormal(x) ? (x) : 0.0f)
 	bq[0*bq_stride].x1 = F(x1[0]);
 	bq[0*bq_stride].x2 = F(x2[0]);
 	bq[1*bq_stride].x1 = F(x1[1]);
@@ -516,7 +516,7 @@ static void dsp_biquad2_run4_sse(void *obj, struct biquad *bq, uint32_t bq_strid
 		out[2][i] = y[2];
 		out[3][i] = y[3];
 	}
-#define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
+#define F(x) (isnormal(x) ? (x) : 0.0f)
 	bq[0*bq_stride+0].x1 = F(x01[0]);
 	bq[0*bq_stride+0].x2 = F(x02[0]);
 	bq[1*bq_stride+0].x1 = F(x01[1]);

@@ -3,6 +3,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <float.h>
+#include <math.h>
 
 #include "channelmix-ops.h"
 
@@ -94,7 +95,7 @@ static void lr4_process_c(struct lr4 *lr4, float *dst, const float *src, const f
 		y2 = b2 * y - a2 * z;
 		dst[i] = z * vol;
 	}
-#define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
+#define F(x) (isnormal(x) ? (x) : 0.0f)
 	lr4->x1 = F(x1);
 	lr4->x2 = F(x2);
 	lr4->y1 = F(y1);

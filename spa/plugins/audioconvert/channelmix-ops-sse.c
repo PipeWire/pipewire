@@ -6,6 +6,7 @@
 
 #include <xmmintrin.h>
 #include <float.h>
+#include <math.h>
 
 static inline void clear_sse(float *d, uint32_t n_samples)
 {
@@ -189,7 +190,7 @@ static void lr4_process_sse(struct lr4 *lr4, float *dst, const float *src, const
 		x = _mm_mul_ps(x, v);
 		_mm_store_ss(&dst[i], x);
 	}
-#define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
+#define F(x) (isnormal(x) ? (x) : 0.0f)
 	lr4->x1 = F(x12[0]);
 	lr4->x2 = F(x12[1]);
 	lr4->y1 = F(y12[0]);
@@ -245,7 +246,7 @@ static void lr4_process_2_sse(struct lr4 *lr40, struct lr4 *lr41, float *dst0, f
 		dst0[i] = x[0];
 		dst1[i] = x[1];
 	}
-#define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
+#define F(x) (isnormal(x) ? (x) : 0.0f)
 	lr40->x1 = F(x1[0]);
 	lr40->x2 = F(x2[0]);
 	lr40->y1 = F(y1[0]);

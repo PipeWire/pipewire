@@ -206,13 +206,22 @@ static struct node_data *find_node_data(struct spa_list *nodes, uint32_t id)
 static GstDevice *
 new_node (GstPipeWireDeviceProvider *self, struct node_data *data)
 {
-  GstStructure *props;
+  GstStructure *props, *st;
   const gchar *klass = NULL, *name = NULL;
   GstPipeWireDeviceType type;
   const struct pw_node_info *info = data->info;
   const gchar *element = NULL;
   GstPipeWireDevice *gstdev;
   int priority = 0;
+
+  if (data->caps && gst_caps_get_size(data->caps) > 0) {
+    st = gst_caps_get_structure (data->caps, 0);
+    if (st && g_str_has_prefix (gst_structure_get_name (st), "audio/")) {
+      /* skip audio devices from adding to the pipewiredeviceprovider */
+      GST_DEBUG_OBJECT(self, "skipping audio device serial: %lu", data->serial);
+      return NULL;
+    }
+  }
 
   if (info->max_input_ports > 0 && info->max_output_ports == 0) {
     type = GST_PIPEWIRE_DEVICE_TYPE_SINK;
@@ -518,12 +527,10 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
     if (props != NULL) {
       str = spa_dict_lookup(props, PW_KEY_OBJECT_PATH);
       if (str != NULL) {
-	if (g_str_has_prefix(str, "alsa:"))
-          gst_device_provider_hide_provider (provider, "pulsedeviceprovider");
-	else if (g_str_has_prefix(str, "v4l2:"))
-          gst_device_provider_hide_provider (provider, "v4l2deviceprovider");
-	else if (g_str_has_prefix(str, "libcamera:"))
-          gst_device_provider_hide_provider (provider, "libcameraprovider");
+        if (g_str_has_prefix(str, "v4l2:"))
+                gst_device_provider_hide_provider (provider, "v4l2deviceprovider");
+        else if (g_str_has_prefix(str, "libcamera:"))
+                gst_device_provider_hide_provider (provider, "libcameraprovider");
       }
     }
 

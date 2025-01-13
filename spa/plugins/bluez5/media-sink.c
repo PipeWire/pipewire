@@ -544,7 +544,6 @@ static uint64_t get_reference_time(struct impl *this, uint64_t *duration_ns_ret)
 	if (port->rate_match && this->position && resampling) {
 		t -= (uint64_t)port->rate_match->delay * SPA_NSEC_PER_SEC
 			/ this->position->clock.rate.denom;
-		t += SPA_NSEC_PER_SEC / port->current_format.info.raw.rate;
 	}
 
 	return t;

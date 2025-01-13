@@ -3080,30 +3080,6 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 	return 0;
 }
 
-static void handle_wav(struct impl *this, const void **src, uint32_t n_samples)
-{
-	if (SPA_UNLIKELY(this->props.wav_path[0])) {
-		if (this->wav_file == NULL) {
-			struct wav_file_info info;
-
-			info.info = this->dir[this->direction].format;
-
-			this->wav_file = wav_file_open(this->props.wav_path,
-					"w", &info);
-			if (this->wav_file == NULL)
-				spa_log_warn(this->log, "can't open wav path: %m");
-		}
-		if (this->wav_file) {
-			wav_file_write(this->wav_file, src, n_samples);
-		} else {
-			spa_zero(this->props.wav_path);
-		}
-	} else if (this->wav_file != NULL) {
-		wav_file_close(this->wav_file);
-		this->wav_file = NULL;
-	}
-}
-
 static int channelmix_process_apply_sequence(struct impl *this,
 			const struct spa_pod_sequence *sequence, uint32_t *processed_offset,
 			void *SPA_RESTRICT dst[], const void *SPA_RESTRICT src[],
@@ -3198,7 +3174,29 @@ static uint64_t get_time_ns(struct impl *impl)
 static void run_wav_stage(struct stage *stage, struct stage_context *c)
 {
 	struct impl *impl = stage->impl;
-	handle_wav(impl, (const void **)c->datas[stage->in_idx], c->n_samples);
+	const void **src = (const void **)c->datas[stage->in_idx];
+
+	if (SPA_UNLIKELY(impl->props.wav_path[0])) {
+		if (impl->wav_file == NULL) {
+			struct wav_file_info info;
+
+			info.info = impl->dir[impl->direction].format;
+
+			impl->wav_file = wav_file_open(impl->props.wav_path,
+					"w", &info);
+			if (impl->wav_file == NULL)
+				spa_log_warn(impl->log, "can't open wav path: %m");
+		}
+		if (impl->wav_file) {
+			wav_file_write(impl->wav_file, src, c->n_samples);
+		} else {
+			spa_zero(impl->props.wav_path);
+		}
+	} else if (impl->wav_file != NULL) {
+		wav_file_close(impl->wav_file);
+		impl->wav_file = NULL;
+		impl->recalc = true;
+	}
 }
 
 static void add_wav_stage(struct impl *impl, struct stage_context *ctx)
@@ -3212,6 +3210,7 @@ static void add_wav_stage(struct impl *impl, struct stage_context *ctx)
 	s->n_out = ctx->n_datas;
 	s->data = NULL;
 	s->run = run_wav_stage;
+	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
 	impl->n_stages++;
 }
 
@@ -3236,6 +3235,7 @@ static void add_dst_remap_stage(struct impl *impl, struct stage_context *ctx)
 	s->n_out = ctx->n_datas;
 	s->data = NULL;
 	s->run = run_dst_remap_stage;
+	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
 	impl->n_stages++;
 	ctx->dst_idx = CTX_DATA_REMAP_DST;
 	ctx->final_idx = CTX_DATA_REMAP_DST;
@@ -3262,6 +3262,7 @@ static void add_src_remap_stage(struct impl *impl, struct stage_context *ctx)
 	s->n_out = ctx->n_datas;
 	s->data = NULL;
 	s->run = run_src_remap_stage;
+	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
 	impl->n_stages++;
 	ctx->src_idx = CTX_DATA_REMAP_SRC;
 }
@@ -3296,6 +3297,7 @@ static void add_src_convert_stage(struct impl *impl, struct stage_context *ctx)
 	s->n_out = ctx->n_datas;
 	s->data = NULL;
 	s->run = run_src_convert_stage;
+	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
 	impl->n_stages++;
 	ctx->src_idx = ctx->dst_idx;
 }
@@ -3324,6 +3326,7 @@ static void add_resample_stage(struct impl *impl, struct stage_context *ctx)
 	s->n_out = ctx->n_datas;
 	s->data = NULL;
 	s->run = run_resample_stage;
+	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
 	impl->n_stages++;
 	ctx->src_idx = ctx->dst_idx;
 }
@@ -3372,6 +3375,7 @@ static void add_filter_stage(struct impl *impl, uint32_t i, struct filter_graph 
 	s->n_out = ctx->n_datas;
 	s->data = fg;
 	s->run = run_filter_stage;
+	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
 	impl->n_stages++;
 	ctx->src_idx = ctx->dst_idx;
 }
@@ -3387,6 +3391,7 @@ static void add_channelmix_stage(struct impl *impl, struct stage_context *ctx)
 	s->n_out = ctx->n_datas;
 	s->data = NULL;
 	s->run = run_channelmix_stage;
+	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
 	impl->n_stages++;
 	ctx->src_idx = ctx->dst_idx;
 }
@@ -3421,6 +3426,7 @@ static void add_dst_convert_stage(struct impl *impl, struct stage_context *ctx)
 	s->n_out = ctx->n_datas;
 	s->data = NULL;
 	s->run = run_dst_convert_stage;
+	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
 	impl->n_stages++;
 	ctx->src_idx = s->out_idx;
 }
@@ -3457,7 +3463,8 @@ static void recalc_stages(struct impl *this, struct stage_context *ctx)
 	if (out_passthrough && out_need_remap)
 		add_dst_remap_stage(this, ctx);
 
-	if (this->direction == SPA_DIRECTION_INPUT)
+	if (this->direction == SPA_DIRECTION_INPUT &&
+	    (this->props.wav_path[0] || this->wav_file != NULL))
 		add_wav_stage(this, ctx);
 
 	if (!in_passthrough) {
@@ -3517,8 +3524,11 @@ static void recalc_stages(struct impl *this, struct stage_context *ctx)
 	if (!out_passthrough) {
 		add_dst_convert_stage(this, ctx);
 	}
-	if (this->direction == SPA_DIRECTION_OUTPUT)
+	if (this->direction == SPA_DIRECTION_OUTPUT &&
+	    (this->props.wav_path[0] || this->wav_file != NULL))
 		add_wav_stage(this, ctx);
+
+	spa_log_trace(this->log, "got %u processing stages", this->n_stages);
 }
 
 static int impl_node_process(void *object)

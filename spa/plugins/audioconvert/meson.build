@@ -185,6 +185,7 @@ test_apps = [
   'test-fmt-ops',
   'test-peaks',
   'test-resample',
+  'test-resample-delay',
   ]
 
 foreach a : test_apps

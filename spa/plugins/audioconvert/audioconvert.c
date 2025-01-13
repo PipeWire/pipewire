@@ -1062,7 +1062,7 @@ static int load_filter_graph(struct impl *impl, const char *graph, int order)
 	void *iface;
 	struct spa_handle *new_handle = NULL;
 	uint32_t i, idx, n_graph;
-	struct filter_graph *pending;
+	struct filter_graph *pending, *old_active = NULL;
 
 	if (impl->props.filter_graph_disabled)
 		return -EPERM;
@@ -1078,7 +1078,7 @@ static int load_filter_graph(struct impl *impl, const char *graph, int order)
 		/* deactivate an existing filter of the same order */
 		if (pending->active) {
 			if (pending->order == order)
-				pending->active = false;
+				old_active = pending;
 			else
 				n_graph++;
 		}
@@ -1119,6 +1119,8 @@ static int load_filter_graph(struct impl *impl, const char *graph, int order)
 		spa_log_info(impl->log, "removing filter-graph order:%d active:%d",
 				order, n_graph);
 	}
+	if (old_active)
+		old_active->active = false;
 
 	/* we call this here on the pending_graph so that the n_input/n_output is updated
 	 * before we switch */

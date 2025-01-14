@@ -2162,23 +2162,30 @@ static int ensure_tmp(struct impl *this, uint32_t maxsize, uint32_t maxports)
 static uint32_t resample_update_rate_match(struct impl *this, bool passthrough, uint32_t size, uint32_t queued)
 {
 	uint32_t delay, match_size;
+	int32_t delay_frac;
 
 	if (passthrough) {
 		delay = 0;
+		delay_frac = 0;
 		match_size = size;
 	} else {
 		double rate = this->rate_scale / this->props.rate;
+		double fdelay;
+
 		if (this->io_rate_match &&
 		    SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE))
 			rate *= this->io_rate_match->rate;
 		resample_update_rate(&this->resample, rate);
-		delay = resample_delay(&this->resample);
+		fdelay = resample_delay(&this->resample) + resample_phase(&this->resample);
 		if (this->direction == SPA_DIRECTION_INPUT) {
 			match_size = resample_in_len(&this->resample, size);
 		} else {
+			fdelay *= rate * this->resample.o_rate / this->resample.i_rate;
 			match_size = resample_out_len(&this->resample, size);
-			delay = resample_out_len(&this->resample, delay);
 		}
+
+		delay = (uint32_t)round(fdelay);
+		delay_frac = (int32_t)((fdelay - delay) * 1e9);
 	}
 	match_size -= SPA_MIN(match_size, queued);
 
@@ -2186,6 +2193,7 @@ static uint32_t resample_update_rate_match(struct impl *this, bool passthrough, 
 
 	if (this->io_rate_match) {
 		this->io_rate_match->delay = delay + queued;
+		this->io_rate_match->delay_frac = delay_frac;
 		this->io_rate_match->size = match_size;
 	}
 	return match_size;

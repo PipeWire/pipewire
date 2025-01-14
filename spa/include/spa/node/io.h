@@ -305,14 +305,50 @@ struct spa_io_position {
 	struct spa_io_segment segments[SPA_IO_POSITION_MAX_SEGMENTS];	/**< segments */
 };
 
-/** rate matching */
+/**
+ * Rate matching.
+ *
+ * It is usually set on the nodes that process resampled data, by
+ * the component (audioadapter) that handles resampling between graph
+ * and node rates. The \a flags and \a rate fields may be modified by the node.
+ *
+ * The node can request a correction to the resampling rate in its process(), by setting
+ * \ref SPA_IO_RATE_MATCH_ACTIVE on \a flags, and setting \a rate to the desired rate
+ * correction.  Usually the rate is obtained from DLL or other adaptive mechanism that
+ * e.g. drives the node buffer fill level toward a specific value.
+ *
+ * When resampling to (graph->node) direction, the number of samples produced
+ * by the resampler varies on each cycle, as the rates are not commensurate.
+ *
+ * When resampling to (node->graph) direction, the number of samples consumed by the
+ * resampler varies. Node output ports in process() should produce \a size number of
+ * samples to match what the resampler needs to produce one graph quantum of output
+ * samples.
+ *
+ * Resampling filters introduce processing delay, given by \a delay and \a delay_frac, in
+ * samples at node rate. The delay varies on each cycle e.g. when resampling between
+ * noncommensurate rates.
+ *
+ * The first sample output (graph->node) or consumed (node->graph) by the resampler is
+ * offset by \a delay + \a delay_frac / 1e9 node samples relative to the nominal graph
+ * cycle start position:
+ *
+ * \code{.unparsed}
+ * first_resampled_sample_nsec =
+ *	first_original_sample_nsec
+ *	- (rate_match->delay * SPA_NSEC_PER_SEC + rate_match->delay_frac) / node_rate
+ * \endcode
+ */
 struct spa_io_rate_match {
-	uint32_t delay;			/**< extra delay in samples for resampler */
+	uint32_t delay;			/**< resampling delay, in samples at
+					 * node rate */
 	uint32_t size;			/**< requested input size for resampler */
-	double rate;			/**< rate for resampler */
+	double rate;			/**< rate for resampler (set by node) */
 #define SPA_IO_RATE_MATCH_FLAG_ACTIVE	(1 << 0)
-	uint32_t flags;			/**< extra flags */
-	uint32_t padding[7];
+	uint32_t flags;			/**< extra flags (set by node) */
+	int32_t delay_frac;		/**< resampling delay fractional part,
+					 * in units of nanosamples (1/10^9 sample) at node rate */
+	uint32_t padding[6];
 };
 
 /** async buffers */

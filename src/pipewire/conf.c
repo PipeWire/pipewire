@@ -1200,6 +1200,10 @@ int pw_conf_load_conf_for_context(struct pw_properties *props, struct pw_propert
 	conf_name = getenv("PIPEWIRE_CONFIG_NAME");
 	if ((res = try_load_conf(conf_prefix, conf_name, conf)) < 0) {
 		conf_name = pw_properties_get(props, PW_KEY_CONFIG_NAME);
+		if (spa_streq(conf_name, "client-rt.conf")) {
+			pw_log_warn("setting config.name to client-rt.conf is deprecated, using client.conf");
+			conf_name = NULL;
+		}
 		if (conf_name == NULL)
 			conf_name = "client.conf";
 		else if (!valid_conf_name(conf_name)) {

@@ -53,10 +53,7 @@ int main(int argc, char *argv[])
 	pw_loop_add_signal(pw_main_loop_get_loop(data.loop), SIGINT, do_quit, &data);
 	pw_loop_add_signal(pw_main_loop_get_loop(data.loop), SIGTERM, do_quit, &data);
 
-	data.context = pw_context_new(pw_main_loop_get_loop(data.loop),
-			pw_properties_new(
-				PW_KEY_CONFIG_NAME, "client-rt.conf",
-				NULL), 0);
+	data.context = pw_context_new(pw_main_loop_get_loop(data.loop), NULL, 0);
 
 	pw_context_load_module(data.context, "libpipewire-module-spa-node-factory", NULL, NULL);
 	pw_context_load_module(data.context, "libpipewire-module-link-factory", NULL, NULL);

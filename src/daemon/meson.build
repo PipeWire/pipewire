@@ -66,7 +66,6 @@ endif
 conf_files = [
  'pipewire.conf',
  'client.conf',
- 'client-rt.conf',
  'filter-chain.conf',
  'jack.conf',
  'minimal.conf',
@@ -95,7 +94,6 @@ test('validate-json-pipewire-uninstalled.conf', spa_json_dump_exe, args : res)
 conf_avail_folders = [
   'pipewire.conf.avail',
   'client.conf.avail',
-  'client-rt.conf.avail',
   'pipewire-pulse.conf.avail',
 ]
 

@@ -1288,7 +1288,6 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
 	pw->system = loop->system;
 	if ((pw->context = pw_context_new(loop,
 					pw_properties_new(
-						PW_KEY_CONFIG_NAME, "client-rt.conf",
 						PW_KEY_CLIENT_API, "alsa",
 						NULL),
 					0)) == NULL) {

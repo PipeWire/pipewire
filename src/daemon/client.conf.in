@@ -41,6 +41,16 @@ context.modules = [
     # If ifexists is given, the module is ignored when it is not found.
     # If nofail is given, module initialization failures are ignored.
     #
+    # Uses realtime scheduling to boost the audio thread priorities
+    { name = libpipewire-module-rt
+        args = {
+            #rt.prio      = @rtprio_client@
+            #rt.time.soft = -1
+            #rt.time.hard = -1
+        }
+        flags = [ ifexists nofail ]
+        condition = [ { module.rt = !false } ]
+    }
 
     # The native communication protocol.
     { name = libpipewire-module-protocol-native }
@@ -48,22 +58,32 @@ context.modules = [
     # Allows creating nodes that run in the context of the
     # client. Is used by all clients that want to provide
     # data to PipeWire.
-    { name = libpipewire-module-client-node }
+    { name = libpipewire-module-client-node
+        condition = [ { module.client-node = !false } ]
+    }
 
     # Allows creating devices that run in the context of the
     # client. Is used by the session manager.
-    { name = libpipewire-module-client-device }
+    { name = libpipewire-module-client-device
+        condition = [ { module.client-device = !false } ]
+    }
 
     # Makes a factory for wrapping nodes in an adapter with a
     # converter and resampler.
-    { name = libpipewire-module-adapter }
+    { name = libpipewire-module-adapter
+        condition = [ { module.adapter = !false } ]
+    }
 
     # Allows applications to create metadata objects. It creates
     # a factory for Metadata objects.
-    { name = libpipewire-module-metadata }
+    { name = libpipewire-module-metadata
+        condition = [ { module.metadata = !false } ]
+    }
 
     # Provides factories to make session manager objects.
-    { name = libpipewire-module-session-manager }
+    { name = libpipewire-module-session-manager
+        condition = [ { module.session-manager = !false } ]
+    }
 ]
 
 filter.properties = {
@@ -85,3 +105,44 @@ stream.properties = {
     #channelmix.hilbert-taps = 0
     #dither.noise = 0
 }
+
+stream.rules = [
+    {   matches = [
+            {
+                # all keys must match the value. ! negates. ~ starts regex.
+                #application.name       = "pw-cat"
+                #node.name 		= "~Google Chrome$"
+            }
+        ]
+        actions = {
+            update-props = {
+                #node.latency = 512/48000
+            }
+        }
+    }
+]
+
+alsa.properties = {
+    #alsa.deny = false
+    # ALSA params take a single value, an array [] of values
+    # or a range { min=.. max=... }
+    #alsa.access = [ MMAP_INTERLEAVED MMAP_NONINTERLEAVED RW_INTERLEAVED RW_NONINTERLEAVED ]
+    #alsa.format = [ FLOAT S32 S24 S24_3 S16 U8 ]
+    #alsa.rate = { min=1 max=384000 }		# or [ 44100 48000 .. ]
+    #alsa.channels = { min=1 max=64 }		# or [ 2 4 6 .. ]
+    #alsa.period-bytes = { min=128 max=2097152 } # or [ 128 256 1024 .. ]
+    #alsa.buffer-bytes = { min=256 max=4194304 } # or [ 256 512 4096 .. ]
+
+    #alsa.volume-method = cubic			# linear, cubic
+}
+
+# client specific properties
+alsa.rules = [
+    {   matches = [ { application.process.binary = "resolve" } ]
+        actions = {
+            update-props = {
+		alsa.buffer-bytes = 131072
+            }
+        }
+    }
+]

@@ -1344,7 +1344,6 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 	ctl->context = pw_context_new(loop,
 					pw_properties_new(
 						PW_KEY_CLIENT_API, "alsa",
-						PW_KEY_CONFIG_NAME, "client-rt.conf",
 						NULL),
 					0);
 	if (ctl->context == NULL) {

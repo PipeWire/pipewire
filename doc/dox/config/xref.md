@@ -8,7 +8,7 @@
 
 @SECREF@ pipewire-pulse.conf
 
-\ref page_man_pipewire-client_conf_5 "client.conf, client-rt.conf"
+\ref page_man_pipewire-client_conf_5 "client.conf"
 
 @SECREF@ client.conf
 

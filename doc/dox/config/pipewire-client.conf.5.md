@@ -18,18 +18,6 @@ The PipeWire client configuration file.
 
 *$XDG_CONFIG_HOME/pipewire/client.conf.d/*
 
-*$XDG_CONFIG_HOME/pipewire/client-rt.conf*
-
-*$(PIPEWIRE_CONFIG_DIR)/client-rt.conf*
-
-*$(PIPEWIRE_CONFDATADIR)/client-rt.conf*
-
-*$(PIPEWIRE_CONFDATADIR)/client-rt.conf.d/*
-
-*$(PIPEWIRE_CONFIG_DIR)/client-rt.conf.d/*
-
-*$XDG_CONFIG_HOME/pipewire/client-rt.conf.d/*
-
 # DESCRIPTION
 
 Configuration for PipeWire native clients, and for PipeWire's ALSA
@@ -37,9 +25,6 @@ plugin.
 
 A PipeWire native client program selects the default config to load,
 and if nothing is specified, it usually loads `client.conf`.
-
-The ALSA plugin uses the `client-rt.conf` file, as do some PipeWire
-native clients such as \ref page_man_pw-cat_1 "pw-cat(1)".
 
 The configuration file format and lookup logic is the same as for \ref page_man_pipewire_conf_5 "pipewire.conf(5)".
 
@@ -148,7 +133,7 @@ An `alsa.properties` section can be added to configure client applications
 that connect via the PipeWire ALSA plugin.
 
 ```css
-# ~/.config/pipewire/client-rt.conf.d/custom.conf
+# ~/.config/pipewire/client.conf.d/custom.conf
 
 alsa.properties = {
     #alsa.deny = false
@@ -193,7 +178,7 @@ set any of the above ALSA properties or any of the `stream.properties`.
 ### Example
 
 ```css
-# ~/.config/pipewire/client-rt.conf.d/custom.conf
+# ~/.config/pipewire/client.conf.d/custom.conf
 
 alsa.rules = [
     {   matches = [ { application.process.binary = "resolve" } ]

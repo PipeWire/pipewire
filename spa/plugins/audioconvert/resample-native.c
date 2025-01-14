@@ -315,6 +315,27 @@ static uint32_t impl_native_delay (struct resample *r)
 	return d->n_taps / 2 - 1;
 }
 
+static int32_t impl_native_phase_ns(struct resample *r)
+{
+	struct native_data *d = r->data;
+
+	if (d->func == d->info->process_full) {
+		float pho = -(float)((int32_t)d->phase) / d->out_rate;
+
+		if (pho != 0.0f)
+			pho += 1.0f;
+		return (int32_t)(pho * SPA_NSEC_PER_SEC / r->i_rate);
+	} else if (d->func == d->info->process_inter) {
+		float pho = -d->phase / d->out_rate;
+
+		if (pho != 0.0f)
+			pho += 1.0f;
+		return (int32_t)(pho * SPA_NSEC_PER_SEC / r->i_rate);
+	}
+
+	return 0;
+}
+
 int resample_native_init(struct resample *r)
 {
 	struct native_data *d;
@@ -331,6 +352,7 @@ int resample_native_init(struct resample *r)
 	r->process = impl_native_process;
 	r->reset = impl_native_reset;
 	r->delay = impl_native_delay;
+	r->phase_ns = impl_native_phase_ns;
 
 	q = &window_qualities[r->quality];
 

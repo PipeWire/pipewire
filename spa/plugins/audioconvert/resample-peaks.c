@@ -100,6 +100,11 @@ static void impl_peaks_reset (struct resample *r)
 	d->i_count = d->o_count = 0;
 }
 
+static int32_t impl_peaks_phase_ns (struct resample *r)
+{
+	return 0;
+}
+
 int resample_peaks_init(struct resample *r)
 {
 	struct peaks_data *d;
@@ -125,6 +130,7 @@ int resample_peaks_init(struct resample *r)
 	r->delay = impl_peaks_delay;
 	r->in_len = impl_peaks_in_len;
 	r->out_len = impl_peaks_out_len;
+	r->phase_ns = impl_peaks_phase_ns;
 
 	spa_log_debug(r->log, "peaks %p: in:%d out:%d features:%08x:%08x", r,
 			r->i_rate, r->o_rate, r->cpu_flags, d->peaks.cpu_flags);

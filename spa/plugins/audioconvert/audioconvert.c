@@ -2173,10 +2173,10 @@ static uint32_t resample_update_rate_match(struct impl *this, bool passthrough, 
 		resample_update_rate(&this->resample, rate);
 		delay = resample_delay(&this->resample);
 		if (this->direction == SPA_DIRECTION_INPUT) {
-			delay = resample_in_len(&this->resample, delay);
 			match_size = resample_in_len(&this->resample, size);
 		} else {
 			match_size = resample_out_len(&this->resample, size);
+			delay = resample_out_len(&this->resample, delay);
 		}
 	}
 	match_size -= SPA_MIN(match_size, queued);

@@ -182,6 +182,7 @@ const char *format_encoding2name(enum encoding enc);
 uint32_t format_encoding2id(enum encoding enc);
 
 uint32_t sample_spec_frame_size(const struct sample_spec *ss);
+void sample_spec_silence(const struct sample_spec *ss, void *data, size_t size);
 bool sample_spec_valid(const struct sample_spec *ss);
 
 void sample_spec_fix(struct sample_spec *ss, struct channel_map *map,

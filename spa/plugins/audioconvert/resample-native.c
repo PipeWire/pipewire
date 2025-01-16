@@ -305,7 +305,7 @@ static void impl_native_reset (struct resample *r)
 	if (r->options & RESAMPLE_OPTION_PREFILL)
 		d->hist = d->n_taps - 1;
 	else
-		d->hist = (d->n_taps / 2) - 1;
+		d->hist = d->n_taps / 2;
 	d->phase = 0;
 }
 
@@ -322,14 +322,18 @@ static int32_t impl_native_phase_ns(struct resample *r)
 	if (d->func == d->info->process_full) {
 		float pho = -(float)((int32_t)d->phase) / d->out_rate;
 
-		if (pho != 0.0f)
+		/* XXX: this is how it seems to behave, but not clear why */
+		if (d->hist >= d->n_taps - 1)
 			pho += 1.0f;
+
 		return (int32_t)(pho * SPA_NSEC_PER_SEC / r->i_rate);
 	} else if (d->func == d->info->process_inter) {
 		float pho = -d->phase / d->out_rate;
 
-		if (pho != 0.0f)
+		/* XXX: this is how it seems to behave, but not clear why */
+		if (d->hist >= d->n_taps - 1)
 			pho += 1.0f;
+
 		return (int32_t)(pho * SPA_NSEC_PER_SEC / r->i_rate);
 	}
 

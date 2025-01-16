@@ -1424,20 +1424,7 @@ static void stream_process(void *data)
 		if (avail < (int32_t)minreq || stream->corked) {
 			/* underrun, produce a silence buffer */
 			size = SPA_MIN(d->maxsize, minreq);
-			switch (stream->ss.format) {
-			case SPA_AUDIO_FORMAT_U8:
-				memset(p, 0x80, size);
-				break;
-			case SPA_AUDIO_FORMAT_ALAW:
-				memset(p, 0x80 ^ 0x55, size);
-				break;
-			case SPA_AUDIO_FORMAT_ULAW:
-				memset(p, 0x00 ^ 0xff, size);
-				break;
-			default:
-				memset(p, 0, size);
-				break;
-			}
+			sample_spec_silence(&stream->ss, p, size);
 
 			if (stream->draining && !stream->corked) {
 				stream->draining = false;

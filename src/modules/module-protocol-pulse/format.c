@@ -230,6 +230,24 @@ uint32_t sample_spec_frame_size(const struct sample_spec *ss)
 	}
 }
 
+void sample_spec_silence(const struct sample_spec *ss, void *data, size_t size)
+{
+	switch (ss->format) {
+	case SPA_AUDIO_FORMAT_U8:
+		memset(data, 0x80, size);
+		break;
+	case SPA_AUDIO_FORMAT_ALAW:
+		memset(data, 0x80 ^ 0x55, size);
+		break;
+	case SPA_AUDIO_FORMAT_ULAW:
+		memset(data, 0x00 ^ 0xff, size);
+		break;
+	default:
+		memset(data, 0, size);
+		break;
+	}
+}
+
 bool sample_spec_valid(const struct sample_spec *ss)
 {
 	return (sample_spec_frame_size(ss) > 0 &&

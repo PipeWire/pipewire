@@ -155,6 +155,9 @@ struct spa_bt_remote_endpoint {
 	int capabilities_len;
 	bool delay_reporting;
 	bool acceptor;
+
+	bool asha_right_side;
+	uint64_t hisyncid;
 };
 
 #define METADATA_MAX_LEN	255
@@ -2720,6 +2723,12 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 				free(remote_endpoint->transport_path);
 				remote_endpoint->transport_path = strdup(value);
 			}
+			else if (spa_streq(key, "Side")) {
+				if (spa_streq(value, "right"))
+					remote_endpoint->asha_right_side = true;
+				else
+					remote_endpoint->asha_right_side = false;
+			}
 		}
 		else if (type == DBUS_TYPE_BOOLEAN) {
 			int value;
@@ -2776,11 +2785,11 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 				remote_endpoint->capabilities_len = len;
 			}
 		}
-		/* HiSyncId property is present for ASHA */
+		/*
+		 * HiSyncId property is present for ASHA. An ASHA "left" and
+		 * "right" device pair will always have the same "HiSyncId".
+		 */
 		else if (spa_streq(key, "HiSyncId")) {
-			/*
-			 * TODO: Required for Stereo support in ASHA, for now just log.
-			 */
 			DBusMessageIter iter;
 			uint8_t *value;
 			int len;
@@ -2791,7 +2800,12 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 			dbus_message_iter_recurse(&it[1], &iter);
 			dbus_message_iter_get_fixed_array(&iter, &value, &len);
 
-			spa_log_debug(monitor->log, "remote_endpoint %p: %s=%d", remote_endpoint, key, len);
+			if (len != 8 /* HiSyncId will always be 8 bytes */)
+				goto next;
+
+			remote_endpoint->hisyncid = *(uint64_t *)value;
+
+			spa_log_debug(monitor->log, "remote_endpoint %p: %s=%zd", remote_endpoint, key, remote_endpoint->hisyncid);
 		}
 		else
 			spa_log_debug(monitor->log, "remote_endpoint %p: unhandled key %s", remote_endpoint, key);
@@ -4142,6 +4156,8 @@ static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, 
 	transport->profile = SPA_BT_PROFILE_ASHA_SINK;
 	transport->media_codec = codec;
 	transport->device = remote_endpoint->device;
+	transport->hisyncid = remote_endpoint->hisyncid;
+	transport->asha_right_side = remote_endpoint->asha_right_side;
 
 	spa_list_append(&remote_endpoint->device->transport_list, &transport->device_link);
 
@@ -4157,7 +4173,8 @@ static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, 
 
 	transport_sync_volume(transport);
 
-	spa_log_debug(monitor->log, "ASHA transport setup complete");
+	const char *side = transport->asha_right_side ? "right" : "left";
+	spa_log_debug(monitor->log, "ASHA transport setup complete for %s side", side);
 
 	return 0;
 }

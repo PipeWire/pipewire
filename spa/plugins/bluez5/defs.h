@@ -687,6 +687,10 @@ struct spa_bt_transport {
 	struct spa_hook_list listener_list;
 	struct spa_callbacks impl;
 
+	/* For ASHA */
+	bool asha_right_side;
+	uint64_t hisyncid;
+
 	/* user_data must be the last item in the struct */
 	void *user_data;
 };

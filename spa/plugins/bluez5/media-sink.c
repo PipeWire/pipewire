@@ -1256,8 +1256,9 @@ static int transport_start(struct impl *this)
 	if (this->codec->get_delay)
 		this->codec->get_delay(this->codec_data, &this->encoder_delay, NULL);
 
+	const char *codec_profile = this->codec->asha ? "ASHA" : (this->codec->bap ? "BAP" : "A2DP");
 	spa_log_info(this->log, "%p: using %s codec %s, delay:%.2f ms, codec-delay:%.2f ms", this,
-			this->codec->bap ? "BAP" : "A2DP", this->codec->description,
+			codec_profile, this->codec->description,
 			(double)spa_bt_transport_get_delay_nsec(this->transport) / SPA_NSEC_PER_MSEC,
 			(double)this->encoder_delay * SPA_MSEC_PER_SEC / port->current_format.info.raw.rate);
 
@@ -1497,12 +1498,13 @@ static void emit_node_info(struct impl *this, bool full)
 		node_group = node_group_buf;
 	}
 
+	const char *codec_profile = this->codec->asha ? "ASHA" : (this->codec->bap ? "BAP" : "A2DP");
 	struct spa_dict_item node_info_items[] = {
 		{ SPA_KEY_DEVICE_API, "bluez5" },
 		{ SPA_KEY_MEDIA_CLASS, this->is_internal ? "Audio/Sink/Internal" :
 		  this->is_output ? "Audio/Sink" : "Stream/Input/Audio" },
 		{ "media.name", ((this->transport && this->transport->device->name) ?
-					this->transport->device->name : this->codec->bap ? "BAP" : "A2DP" ) },
+					this->transport->device->name : codec_profile ) },
 		{ SPA_KEY_NODE_DRIVER, this->is_output ? "true" : "false" },
 		{ "node.group", node_group },
 	};

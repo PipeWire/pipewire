@@ -103,6 +103,15 @@ finish:
 	return 0;
 }
 
+static void stream_clear_data(struct stream *stream,
+		uint32_t offset, uint32_t len)
+{
+	uint32_t l0 = SPA_MIN(len, MAXLENGTH - offset), l1 = len - l0;
+	sample_spec_silence(&stream->ss, SPA_PTROFF(stream->buffer, offset, void), l0);
+	if (SPA_UNLIKELY(l1 > 0))
+		sample_spec_silence(&stream->ss, stream->buffer, l1);
+}
+
 static int handle_memblock(struct client *client, struct message *msg)
 {
 	struct stream *stream;
@@ -147,6 +156,15 @@ static int handle_memblock(struct client *client, struct message *msg)
 			    client, client->name, (uint32_t)(flags & FLAG_SEEKMASK));
 		res = -EPROTO;
 		goto finish;
+	}
+
+	if (diff > 0) {
+		pw_log_debug("clear gap of %"PRIu64, diff);
+		/* if we jump forwards, clear the data we skipped because we might otherwise
+		 * play back old data. FIXME, if the write pointer goes backwards and
+		 * forwards, this might clear valid data. We should probably keep track of
+		 * the highest write pointer and only clear when we go past that one. */
+		stream_clear_data(stream, index % MAXLENGTH, SPA_MIN(diff, MAXLENGTH));
 	}
 
 	index += diff;

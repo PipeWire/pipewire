@@ -204,6 +204,7 @@ struct stage_context {
 #define CTX_DATA_TMP_1		5
 #define CTX_DATA_MAX		6
 	void **datas[CTX_DATA_MAX];
+	uint32_t in_samples;
 	uint32_t n_samples;
 	uint32_t n_out;
 	uint32_t src_idx;
@@ -3317,6 +3318,7 @@ static void run_resample_stage(struct stage *s, struct stage_context *c)
 
 	spa_log_trace_fp(impl->log, "%p: resample %d/%d -> %d/%d", impl,
 				c->n_samples, in_len, c->n_out, out_len);
+	c->in_samples = in_len;
 	c->n_samples = out_len;
 }
 static void add_resample_stage(struct impl *impl, struct stage_context *ctx)
@@ -3817,6 +3819,7 @@ static int impl_node_process(void *object)
 	ctx.datas[CTX_DATA_REMAP_SRC] = remap_src_datas;
 	ctx.datas[CTX_DATA_TMP_0] = (void**)this->tmp_datas[0];
 	ctx.datas[CTX_DATA_TMP_1] = (void**)this->tmp_datas[1];
+	ctx.in_samples = n_samples;
 	ctx.n_samples = n_samples;
 	ctx.n_out = n_out;
 	ctx.src_idx = CTX_DATA_SRC;
@@ -3828,11 +3831,11 @@ static int impl_node_process(void *object)
 	if (this->recalc)
 		recalc_stages(this, &ctx);
 
-	this->in_offset += ctx.n_samples;
 	for (i = 0; i < this->n_stages; i++) {
 		struct stage *s = &this->stages[i];
 		s->run(s, &ctx);
 	}
+	this->in_offset += ctx.in_samples;
 	this->out_offset += ctx.n_samples;
 
 	spa_log_trace_fp(this->log, "%d/%d  %d/%d %d->%d", this->in_offset, max_in,

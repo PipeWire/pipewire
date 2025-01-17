@@ -873,8 +873,15 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
       pw_thread_loop_unlock (pwsink->stream->core->loop);
 
-      if ((res = gst_buffer_pool_acquire_buffer (GST_BUFFER_POOL_CAST (pwsink->stream->pool),
-          &b, &params)) != GST_FLOW_OK)
+      res = gst_buffer_pool_acquire_buffer (GST_BUFFER_POOL_CAST (pwsink->stream->pool),
+          &b, &params);
+      if (res == GST_FLOW_CUSTOM_ERROR_1) {
+	res = gst_base_sink_wait_preroll (bsink);
+	if (res != GST_FLOW_OK)
+          goto done;
+        continue;
+      }
+      if (res != GST_FLOW_OK)
         goto done;
 
       gst_buffer_map (b, &info, GST_MAP_WRITE);
@@ -946,9 +953,11 @@ gst_pipewire_sink_change_state (GstElement * element, GstStateChange transition)
       pw_thread_loop_lock (this->stream->core->loop);
       pw_stream_set_active(this->stream->pwstream, false);
       pw_thread_loop_unlock (this->stream->core->loop);
+      gst_pipewire_pool_set_paused(this->stream->pool, TRUE);
       break;
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
       /* stop play ASAP by corking */
+      gst_pipewire_pool_set_paused(this->stream->pool, TRUE);
       pw_thread_loop_lock (this->stream->core->loop);
       pw_stream_set_active(this->stream->pwstream, false);
       pw_thread_loop_unlock (this->stream->core->loop);
@@ -965,6 +974,7 @@ gst_pipewire_sink_change_state (GstElement * element, GstStateChange transition)
        * from paused state to playing state which will wait until buffer pool is ready.
        * Guarantee to finish preoll if needed to active buffer pool before uncorking and
        * starting play */
+      gst_pipewire_pool_set_paused(this->stream->pool, FALSE);
       pw_thread_loop_lock (this->stream->core->loop);
       pw_stream_set_active(this->stream->pwstream, true);
       pw_thread_loop_unlock (this->stream->core->loop);

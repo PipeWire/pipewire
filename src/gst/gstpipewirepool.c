@@ -171,6 +171,9 @@ acquire_buffer (GstBufferPool * pool, GstBuffer ** buffer,
     if (params && (params->flags & GST_BUFFER_POOL_ACQUIRE_FLAG_DONTWAIT))
       goto no_more_buffers;
 
+    if (p->paused)
+      goto paused;
+
     GST_WARNING_OBJECT (pool, "failed to dequeue buffer: %s", strerror(errno));
     g_cond_wait (&p->cond, GST_OBJECT_GET_LOCK (pool));
   }
@@ -189,6 +192,11 @@ flushing:
   {
     GST_OBJECT_UNLOCK (pool);
     return GST_FLOW_FLUSHING;
+  }
+paused:
+  {
+    GST_OBJECT_UNLOCK (pool);
+    return GST_FLOW_CUSTOM_ERROR_1;
   }
 no_more_buffers:
   {
@@ -242,6 +250,16 @@ set_config (GstBufferPool * pool, GstStructure * config)
   gst_buffer_pool_config_set_params (config, caps, size, min_buffers, max_buffers);
 
   return GST_BUFFER_POOL_CLASS (gst_pipewire_pool_parent_class)->set_config (pool, config);
+}
+
+
+void gst_pipewire_pool_set_paused (GstPipeWirePool *pool, gboolean paused)
+{
+  GST_DEBUG ("flush start");
+  GST_OBJECT_LOCK (pool);
+  pool->paused = paused;
+  g_cond_signal (&pool->cond);
+  GST_OBJECT_UNLOCK (pool);
 }
 
 static void

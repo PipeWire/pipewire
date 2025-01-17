@@ -44,6 +44,7 @@ struct _GstPipeWirePool {
   GstAllocator *dmabuf_allocator;
 
   GCond cond;
+  gboolean paused;
 };
 
 GstPipeWirePool *  gst_pipewire_pool_new (GstPipeWireStream *stream);
@@ -58,6 +59,8 @@ gst_pipewire_pool_has_buffers (GstPipeWirePool *pool)
 }
 
 GstPipeWirePoolData *gst_pipewire_pool_get_data (GstBuffer *buffer);
+
+void gst_pipewire_pool_set_paused (GstPipeWirePool *pool, gboolean paused);
 
 G_END_DECLS
 

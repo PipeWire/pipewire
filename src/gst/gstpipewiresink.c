@@ -861,8 +861,7 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
   if (buffer->pool != GST_BUFFER_POOL_CAST (pwsink->stream->pool)) {
     gsize offset = 0;
-    gsize buf_size = 0;
-    gst_buffer_get_sizes (buffer, NULL, &buf_size);
+    gsize buf_size = gst_buffer_get_size (buffer);
 
     /* For some streams, the buffer size is changed and may exceed the acquired
      * buffer size which is acquired from the pool of pipewiresink. Need split

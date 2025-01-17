@@ -168,11 +168,14 @@ acquire_buffer (GstBufferPool * pool, GstBuffer ** buffer,
       break;
     }
 
-    if (params && (params->flags & GST_BUFFER_POOL_ACQUIRE_FLAG_DONTWAIT))
-      goto no_more_buffers;
+    if (params) {
+      if (params->flags & GST_BUFFER_POOL_ACQUIRE_FLAG_DONTWAIT)
+        goto no_more_buffers;
 
-    if (p->paused)
-      goto paused;
+      if ((params->flags & GST_BUFFER_POOL_ACQUIRE_FLAG_LAST) &&
+	      p->paused)
+        goto paused;
+    }
 
     GST_WARNING_OBJECT (pool, "failed to dequeue buffer: %s", strerror(errno));
     g_cond_wait (&p->cond, GST_OBJECT_GET_LOCK (pool));

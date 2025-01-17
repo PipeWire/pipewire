@@ -873,6 +873,7 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
 
       pw_thread_loop_unlock (pwsink->stream->core->loop);
 
+      params.flags = GST_BUFFER_POOL_ACQUIRE_FLAG_LAST;
       res = gst_buffer_pool_acquire_buffer (GST_BUFFER_POOL_CAST (pwsink->stream->pool),
           &b, &params);
       if (res == GST_FLOW_CUSTOM_ERROR_1) {

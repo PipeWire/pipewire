@@ -953,7 +953,6 @@ gst_pipewire_sink_change_state (GstElement * element, GstStateChange transition)
       pw_thread_loop_lock (this->stream->core->loop);
       pw_stream_set_active(this->stream->pwstream, false);
       pw_thread_loop_unlock (this->stream->core->loop);
-      gst_buffer_pool_set_flushing(GST_BUFFER_POOL_CAST(this->stream->pool), TRUE);
       break;
     default:
       break;
@@ -970,7 +969,6 @@ gst_pipewire_sink_change_state (GstElement * element, GstStateChange transition)
       pw_thread_loop_lock (this->stream->core->loop);
       pw_stream_set_active(this->stream->pwstream, true);
       pw_thread_loop_unlock (this->stream->core->loop);
-      gst_buffer_pool_set_flushing(GST_BUFFER_POOL_CAST(this->stream->pool), FALSE);
       break;
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
       break;
@@ -995,13 +993,19 @@ open_failed:
 
 static  gboolean gst_pipewire_sink_event (GstBaseSink *sink, GstEvent *event) {
   GstPipeWireSink *pw_sink = GST_PIPEWIRE_SINK(sink);
+  GstState current_state = GST_ELEMENT(sink)->current_state;
 
   switch (GST_EVENT_TYPE (event)) {
     case GST_EVENT_FLUSH_START:
     {
       GST_DEBUG_OBJECT (pw_sink, "flush-start");
       pw_thread_loop_lock (pw_sink->stream->core->loop);
-      pw_stream_set_active(pw_sink->stream->pwstream, false);
+
+      /* The stream would be already inactive if the sink is not PLAYING */
+      if (current_state == GST_STATE_PLAYING)
+        pw_stream_set_active(pw_sink->stream->pwstream, false);
+
+      gst_buffer_pool_set_flushing(GST_BUFFER_POOL_CAST(pw_sink->stream->pool), TRUE);
       pw_stream_flush(pw_sink->stream->pwstream, false);
       pw_thread_loop_unlock (pw_sink->stream->core->loop);
       break;
@@ -1010,7 +1014,12 @@ static  gboolean gst_pipewire_sink_event (GstBaseSink *sink, GstEvent *event) {
     {
       GST_DEBUG_OBJECT (pw_sink, "flush-stop");
       pw_thread_loop_lock (pw_sink->stream->core->loop);
-      pw_stream_set_active(pw_sink->stream->pwstream, true);
+
+      /* The stream needs to remain inactive if the sink is not PLAYING */
+      if (current_state == GST_STATE_PLAYING)
+        pw_stream_set_active(pw_sink->stream->pwstream, true);
+
+      gst_buffer_pool_set_flushing(GST_BUFFER_POOL_CAST(pw_sink->stream->pool), FALSE);
       pw_thread_loop_unlock (pw_sink->stream->core->loop);
       break;
     }

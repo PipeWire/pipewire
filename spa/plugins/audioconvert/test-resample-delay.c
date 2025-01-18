@@ -222,7 +222,7 @@ static void check_delay(double rate, uint32_t out_rate, uint32_t options)
 	feed_sine(&r, 512, &in, &in_phase, false);
 
 	/* Test delay */
-	expect = resample_delay(&r) + (double)resample_phase_ns(&r) * 48000 / SPA_NSEC_PER_SEC;
+	expect = resample_delay(&r) + (double)resample_phase(&r);
 	out = feed_sine(&r, 256, &in, &in_phase, true);
 	got = find_delay(samp_in, in, samp_out, out, out_rate / 48000.0, 100, tol);
 
@@ -295,7 +295,7 @@ static void check_delay_vary_rate(double rate, double end_rate, uint32_t out_rat
 	feed_sine(&r, 255, &in, &in_phase, false);
 
 	/* Test delay */
-	expect = (double)resample_delay(&r) + (double)resample_phase_ns(&r) * 48000 / SPA_NSEC_PER_SEC;
+	expect = (double)resample_delay(&r) + (double)resample_phase(&r);
 	out = feed_sine(&r, 256, &in, &in_phase, true);
 	got = find_delay(samp_in, in, samp_out, out, out_rate/48000.0, 100, tol);
 
@@ -360,7 +360,7 @@ static void run(uint32_t in_rate, uint32_t out_rate, double end_rate, double mid
 	feed_sine(&r, 255, &in, &in_phase, true);
 
 	/* Test delay */
-	expect = (double)resample_delay(&r) + (double)resample_phase_ns(&r) * (double)in_rate / SPA_NSEC_PER_SEC;
+	expect = (double)resample_delay(&r) + (double)resample_phase(&r);
 	out = feed_sine(&r, 256, &in, &in_phase, true);
 	got = find_delay(samp_in, in, samp_out, out, ((double)out_rate)/in_rate, 100, tol);
 

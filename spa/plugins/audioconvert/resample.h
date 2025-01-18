@@ -32,7 +32,10 @@ struct resample {
 				 void * SPA_RESTRICT dst[], uint32_t *out_len);
 	void (*reset)		(struct resample *r);
 	uint32_t (*delay)	(struct resample *r);
-	int32_t (*phase_ns)	(struct resample *r);
+
+	/** Fractional part of delay (in input samples) */
+	float (*phase)		(struct resample *r);
+
 	void *data;
 };
 
@@ -43,7 +46,7 @@ struct resample {
 #define resample_process(r,...)		(r)->process(r,__VA_ARGS__)
 #define resample_reset(r)		(r)->reset(r)
 #define resample_delay(r)		(r)->delay(r)
-#define resample_phase_ns(r)		(r)->phase_ns(r)
+#define resample_phase(r)		(r)->phase(r)
 
 int resample_native_init(struct resample *r);
 int resample_peaks_init(struct resample *r);

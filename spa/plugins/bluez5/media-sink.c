@@ -542,8 +542,8 @@ static uint64_t get_reference_time(struct impl *this, uint64_t *duration_ns_ret)
 	/* Account for resampling delay */
 	resampling = (port->current_format.info.raw.rate != this->process_rate) || this->following;
 	if (port->rate_match && this->position && resampling) {
-		t -= (uint64_t)port->rate_match->delay * SPA_NSEC_PER_SEC
-			/ this->position->clock.rate.denom;
+		t -= (port->rate_match->delay * SPA_NSEC_PER_SEC + port->rate_match->delay_frac)
+			/ port->current_format.info.raw.rate;
 	}
 
 	return t;
@@ -1071,7 +1071,7 @@ static void media_iso_pull(struct spa_bt_iso_io *iso_io)
 	} else {
 		spa_bt_rate_control_update(&port->ratectl, err, 0,
 				iso_io->duration, period, RATE_CTL_DIFF_MAX);
-		spa_log_trace(this->log, "%p: ISO sync err:%+.3f value:%.3f target:%.3f (ms) corr:%g",
+		spa_log_trace(this->log, "%p: ISO sync err:%+.3g value:%.6f target:%.6f (ms) corr:%g",
 				this,
 				port->ratectl.avg / SPA_NSEC_PER_MSEC,
 				value / SPA_NSEC_PER_MSEC,

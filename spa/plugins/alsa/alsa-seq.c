@@ -37,8 +37,12 @@ static int seq_open(struct seq_state *state, struct seq_conn *conn, bool with_qu
 			   0)) < 0)
 		return res;
 
-	if ((res = snd_seq_set_client_midi_version(conn->hndl, SND_SEQ_CLIENT_UMP_MIDI_2_0)) < 0)
+	if ((res = snd_seq_set_client_midi_version(conn->hndl, SND_SEQ_CLIENT_UMP_MIDI_2_0)) < 0) {
+		snd_seq_close(conn->hndl);
+		spa_log_info(state->log, "%p: ALSA failed to enable UMP MIDI: %s",
+				state, snd_strerror(res));
 		return res;
+	}
 
 	return 0;
 }

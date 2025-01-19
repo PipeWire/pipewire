@@ -34,10 +34,12 @@ static int seq_open(struct seq_state *state, struct seq_conn *conn, bool with_qu
 	if ((res = snd_seq_open(&conn->hndl,
 			   props->device,
 			   SND_SEQ_OPEN_DUPLEX,
-			   0)) < 0) {
+			   0)) < 0)
 		return res;
-	}
-	snd_seq_set_client_midi_version(conn->hndl, SND_SEQ_CLIENT_UMP_MIDI_2_0);
+
+	if ((res = snd_seq_set_client_midi_version(conn->hndl, SND_SEQ_CLIENT_UMP_MIDI_2_0)) < 0)
+		return res;
+
 	return 0;
 }
 

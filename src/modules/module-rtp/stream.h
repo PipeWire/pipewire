@@ -59,6 +59,7 @@ size_t rtp_stream_get_mtu(struct rtp_stream *s);
 
 void rtp_stream_set_first(struct rtp_stream *s);
 
+int rtp_stream_set_active(struct rtp_stream *s, bool active);
 void rtp_stream_set_error(struct rtp_stream *s, int res, const char *error);
 enum pw_stream_state rtp_stream_get_state(struct rtp_stream *s, const char **error);
 

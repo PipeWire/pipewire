@@ -694,6 +694,12 @@ enum pw_stream_state rtp_stream_get_state(struct rtp_stream *s, const char **err
 
 	return pw_stream_get_state(impl->stream, error);
 }
+int rtp_stream_set_active(struct rtp_stream *s, bool active)
+{
+	struct impl *impl = (struct impl*)s;
+
+	return pw_stream_set_active(impl->stream, active);
+}
 
 int rtp_stream_set_param(struct rtp_stream *s, uint32_t id, const struct spa_pod *param)
 {

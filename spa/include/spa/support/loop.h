@@ -189,6 +189,26 @@ SPA_API_LOOP void spa_loop_control_hook_after(struct spa_hook_list *l)
 
 /**
  * Control an event loop
+ *
+ * The event loop control function provide API to run the event loop.
+ *
+ * The below (pseudo)code is a minimal example outlining the use of the loop
+ * control:
+ * \code{.c}
+ * spa_loop_control_enter(loop);
+ * while (running) {
+ *   spa_loop_control_iterate(loop, -1);
+ * }
+ * spa_loop_control_leave(loop);
+ * \endcode
+ *
+ * It is also possible to add the loop to an existing event loop by using the
+ * spa_loop_control_get_fd() call. This fd will become readable when activity
+ * has been detected on the sources in the loop. spa_loop_control_iterate() with
+ * a 0 timeout should be called to process the pending sources.
+ *
+ * spa_loop_control_enter() and spa_loop_control_leave() should be called once
+ * from the thread that will run the iterate() function.
  */
 struct spa_loop_control_methods {
 	/* the version of this structure. This can be used to expand this
@@ -196,10 +216,19 @@ struct spa_loop_control_methods {
 #define SPA_VERSION_LOOP_CONTROL_METHODS	1
 	uint32_t version;
 
+	/** get the loop fd
+	 * \param object the control to query
+	 *
+	 * Get the fd of this loop control. This fd will be readable when a
+	 * source in the loop has activity. The user should call iterate()
+	 * with a 0 timeout to schedule one iteration of the loop and dispatch
+	 * the sources.
+	 * \return the fd of the loop
+	 */
 	int (*get_fd) (void *object);
 
 	/** Add a hook
-	 * \param ctrl the control to change
+	 * \param object the control to change
 	 * \param hooks the hooks to add
 	 *
 	 * Adds hooks to the loop controlled by \a ctrl.
@@ -210,18 +239,19 @@ struct spa_loop_control_methods {
 			  void *data);
 
 	/** Enter a loop
-	 * \param ctrl the control
+	 * \param object the control
 	 *
-	 * Start an iteration of the loop. This function should be called
-	 * before calling iterate and is typically used to capture the thread
-	 * that this loop will run in.
+	 * This function should be called before calling iterate and is
+	 * typically used to capture the thread that this loop will run in.
+	 * It should ideally be called once from the thread that will run
+	 * the loop.
 	 */
 	void (*enter) (void *object);
 	/** Leave a loop
-	 * \param ctrl the control
+	 * \param object the control
 	 *
-	 * Ends the iteration of a loop. This should be called after calling
-	 * iterate.
+	 * It should ideally be called once after calling iterate when the loop
+	 * will no longer be iterated from the thread that called enter().
 	 */
 	void (*leave) (void *object);
 

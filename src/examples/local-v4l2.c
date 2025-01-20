@@ -33,7 +33,8 @@ struct data {
 	SDL_Window *window;
 	SDL_Texture *texture;
 
-	struct pw_main_loop *loop;
+	struct pw_main_loop *main_loop;
+	struct pw_loop *loop;
 
 	struct pw_context *context;
 	struct pw_core *core;
@@ -61,7 +62,7 @@ static void handle_events(struct data *data)
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
 		case SDL_QUIT:
-			pw_main_loop_quit(data->loop);
+			pw_main_loop_quit(data->main_loop);
 			break;
 		}
 	}
@@ -309,7 +310,7 @@ static int impl_node_process(void *object)
 	struct data *d = object;
 	int res;
 
-	if ((res = pw_loop_invoke(pw_main_loop_get_loop(d->loop), do_render,
+	if ((res = pw_loop_invoke(d->loop, do_render,
 				  SPA_ID_INVALID, NULL, 0, true, d)) < 0)
 		return res;
 
@@ -372,14 +373,16 @@ static int make_nodes(struct data *data)
 			&props->dict, 0);
 
 
+	pw_loop_enter(data->loop);
 	while (true) {
 
 		if (pw_proxy_get_bound_id(data->out) != SPA_ID_INVALID &&
 		    pw_proxy_get_bound_id(data->in) != SPA_ID_INVALID)
 			break;
 
-		pw_loop_iterate(pw_main_loop_get_loop(data->loop), -1);
+		pw_loop_iterate(data->loop, -1);
 	}
+	pw_loop_leave(data->loop);
 
 	pw_properties_clear(props);
 
@@ -405,9 +408,10 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
-	data.loop = pw_main_loop_new(NULL);
+	data.main_loop = pw_main_loop_new(NULL);
+	data.loop = pw_main_loop_get_loop(data.main_loop);
 	data.context = pw_context_new(
-			pw_main_loop_get_loop(data.loop),
+			data.loop,
 			pw_properties_new(
 				PW_KEY_CORE_DAEMON, "false",
 				NULL), 0);
@@ -436,13 +440,13 @@ int main(int argc, char *argv[])
 
 	make_nodes(&data);
 
-	pw_main_loop_run(data.loop);
+	pw_main_loop_run(data.main_loop);
 
 	pw_proxy_destroy(data.link);
 	pw_proxy_destroy(data.in);
 	pw_proxy_destroy(data.out);
 	pw_context_destroy(data.context);
-	pw_main_loop_destroy(data.loop);
+	pw_main_loop_destroy(data.main_loop);
 	pw_deinit();
 
 	return 0;

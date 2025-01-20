@@ -182,7 +182,9 @@ PWTEST(daemon_test)
         core = pw_context_connect(ctx, NULL, 0);
 	pwtest_ptr_notnull(core);
 
+	pw_loop_enter(loop);
 	pw_loop_iterate(loop, -1);
+	pw_loop_leave(loop);
 	pw_core_disconnect(core);
         pw_context_destroy(ctx);
 	pw_loop_destroy(loop);
@@ -205,7 +207,9 @@ PWTEST(daemon_test_without_daemon)
 
 	pwtest_ptr_notnull(core); /* Expect this to fail because we don't have a daemon */
 
+	pw_loop_enter(loop);
 	pw_loop_iterate(loop, -1);
+	pw_loop_leave(loop);
 	pw_core_disconnect(core);
         pw_context_destroy(ctx);
 	pw_loop_destroy(loop);

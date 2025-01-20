@@ -3027,10 +3027,14 @@ again:
 
 	if (state->use_mmap && written > 0) {
 		if (SPA_UNLIKELY((commitres = snd_pcm_mmap_commit(hndl, offset, written)) < 0)) {
-			spa_log_error(state->log, "%s: snd_pcm_mmap_commit error: %s",
-					state->name, snd_strerror(commitres));
-			if (commitres != -EPIPE && commitres != -ESTRPIPE)
+			if (commitres == -EPIPE || commitres == -ESTRPIPE) {
+				spa_log_warn(state->log, "%s: snd_pcm_mmap_commit error: %s",
+						state->name, snd_strerror(commitres));
+			} else {
+				spa_log_error(state->log, "%s: snd_pcm_mmap_commit error: %s",
+						state->name, snd_strerror(commitres));
 				return res;
+			}
 		}
 		if (commitres > 0 && written != (snd_pcm_uframes_t) commitres) {
 			spa_log_warn(state->log, "%s: mmap_commit wrote %ld instead of %ld",

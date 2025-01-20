@@ -165,8 +165,8 @@ struct impl {
 	uint8_t *buffer;
 	size_t buffer_size;
 
-	unsigned receiving:1;
-	unsigned last_receiving:1;
+	bool receiving;
+	bool last_receiving;
 };
 
 static void

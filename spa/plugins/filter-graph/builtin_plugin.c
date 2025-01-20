@@ -1753,11 +1753,11 @@ static int load_eq_bands(struct plugin *pl, const char *filename, int rate,
 	char *line = NULL;
 	ssize_t nread;
 	size_t linelen;
-	uint32_t freq, n = 0;
+	uint32_t n = 0;
 	char filter_type[4];
 	char filter[4];
-	char q[7], gain[7];
-	float vg, vq;
+	char freq[9], q[7], gain[7];
+	float vf, vg, vq;
 	int res = 0;
 
 	if ((f = fopen(filename, "r")) == NULL) {
@@ -1802,8 +1802,8 @@ static int load_eq_bands(struct plugin *pl, const char *filename, int rate,
 		 * Use a field width of 6 for gain and Q to account for any
 		 * possible zeros.
 		 */
-		if (sscanf(line, "%*s %*d: %3s %3s %*s %5d %*s %*s %6s %*s %*c %6s",
-					filter, filter_type, &freq, gain, q) == 5) {
+		if (sscanf(line, "%*s %*d: %3s %3s %*s %8s %*s %*s %6s %*s %*c %6s",
+					filter, filter_type, freq, gain, q) == 5) {
 			if (strcmp(filter, "ON") == 0) {
 				int type;
 
@@ -1816,11 +1816,12 @@ static int load_eq_bands(struct plugin *pl, const char *filename, int rate,
 				else
 					continue;
 
-				if (spa_json_parse_float(gain, strlen(gain), &vg) &&
+				if (spa_json_parse_float(freq, strlen(freq), &vf) &&
+				    spa_json_parse_float(gain, strlen(gain), &vg) &&
 				    spa_json_parse_float(q, strlen(q), &vq)) {
-					spa_log_info(pl->log, "%d %s freq:%d q:%f gain:%f", n,
-							bq_name_from_type(type), freq, vq, vg);
-					biquad_set(&bq[n++], type, freq * 2.0f / rate, vq, vg);
+					spa_log_info(pl->log, "%d %s freq:%f q:%f gain:%f", n,
+							bq_name_from_type(type), vf, vq, vg);
+					biquad_set(&bq[n++], type, vf * 2.0f / rate, vq, vg);
 				}
 			}
 		}
@@ -1957,7 +1958,7 @@ static void *param_eq_instantiate(const struct spa_fga_plugin *plugin, const str
 				spa_log_error(impl->log, "param_eq: failed to parse configuration from '%s'", filename);
 				goto error;
 			}
-			spa_log_info(impl->log, "loaded %d biquads for channel %d", n_bq, idx);
+			spa_log_info(impl->log, "loaded %d biquads for channel %d from %s", n_bq, idx, filename);
 			impl->n_bq = SPA_MAX(impl->n_bq, n_bq);
 		}
 		else if (spa_strstartswith(key, "filters")) {

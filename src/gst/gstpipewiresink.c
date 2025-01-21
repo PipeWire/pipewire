@@ -877,8 +877,8 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
       res = gst_buffer_pool_acquire_buffer (GST_BUFFER_POOL_CAST (pwsink->stream->pool),
           &b, &params);
       if (res == GST_FLOW_CUSTOM_ERROR_1) {
-	res = gst_base_sink_wait_preroll (bsink);
-	if (res != GST_FLOW_OK)
+        res = gst_base_sink_wait_preroll (bsink);
+        if (res != GST_FLOW_OK)
           goto done;
         continue;
       }

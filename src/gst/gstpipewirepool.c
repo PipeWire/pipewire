@@ -258,7 +258,7 @@ set_config (GstBufferPool * pool, GstStructure * config)
 
 void gst_pipewire_pool_set_paused (GstPipeWirePool *pool, gboolean paused)
 {
-  GST_DEBUG ("flush start");
+  GST_DEBUG_OBJECT (pool, "pause: %u", paused);
   GST_OBJECT_LOCK (pool);
   pool->paused = paused;
   g_cond_signal (&pool->cond);
@@ -270,7 +270,7 @@ flush_start (GstBufferPool * pool)
 {
   GstPipeWirePool *p = GST_PIPEWIRE_POOL (pool);
 
-  GST_DEBUG ("flush start");
+  GST_DEBUG_OBJECT (pool, "flush start");
   GST_OBJECT_LOCK (pool);
   g_cond_signal (&p->cond);
   GST_OBJECT_UNLOCK (pool);

@@ -651,7 +651,7 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 {
 	struct spa_bt_device *device = this->bt_dev;
 	struct spa_device_object_info info;
-	struct spa_dict_item items[11];
+	struct spa_dict_item items[13];
 	uint32_t n_items = 0;
 	char transport[32], str_id[32], object_path[512];
 	bool is_dyn_node = SPA_FLAG_IS_SET(id, DYNAMIC_NODE_ID_FLAG);
@@ -694,6 +694,14 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 		spa_scnprintf(object_path, sizeof(object_path), "%s/%s-%d",
 				this->device_set.path, device->address, id);
 		items[n_items] = SPA_DICT_ITEM_INIT("object.path", object_path);
+		n_items++;
+	}
+	if (t->media_codec->asha) {
+		char hisyncid[32] = { 0 };
+		spa_scnprintf(hisyncid, sizeof(hisyncid), "%zd", t->hisyncid);
+		items[n_items] = SPA_DICT_ITEM_INIT("api.bluez5.asha.hisyncid", hisyncid);
+		n_items++;
+		items[n_items] = SPA_DICT_ITEM_INIT("api.bluez5.asha.side", t->asha_right_side ? "right" : "left");
 		n_items++;
 	}
 

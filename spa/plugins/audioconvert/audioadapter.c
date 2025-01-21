@@ -1232,7 +1232,7 @@ static void follower_info(void *data, const struct spa_node_info *info)
 
 	if (info->max_input_ports > 0)
 		this->direction = SPA_DIRECTION_INPUT;
-        else
+	else
 		this->direction = SPA_DIRECTION_OUTPUT;
 
 	if (this->direction == SPA_DIRECTION_INPUT) {

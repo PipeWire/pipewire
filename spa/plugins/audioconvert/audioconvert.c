@@ -2164,7 +2164,10 @@ static uint32_t resample_update_rate_match(struct impl *this, bool passthrough, 
 		delay_frac = 0;
 		match_size = size;
 	} else {
-		double rate = this->rate_scale / this->props.rate;
+		/* Only apply rate_scale if we're working in DSP mode (i.e. in driver rate) */
+		double scale = this->dir[SPA_DIRECTION_OUTPUT].mode == SPA_PARAM_PORT_CONFIG_MODE_dsp ?
+			this->rate_scale : 1.0;
+		double rate = scale / this->props.rate;
 		double fdelay;
 
 		if (this->io_rate_match &&

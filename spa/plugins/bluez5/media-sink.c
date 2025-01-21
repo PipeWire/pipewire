@@ -1496,6 +1496,10 @@ static void emit_node_info(struct impl *this, bool full)
 				this->transport->device->adapter->address,
 				this->transport->bap_big);
 		node_group = node_group_buf;
+	} else if (this->transport && (this->transport->profile & SPA_BT_PROFILE_ASHA_SINK)) {
+		spa_scnprintf(node_group_buf, sizeof(node_group_buf), "[\"bluez-asha-%zd\"]",
+				this->transport->hisyncid);
+		node_group = node_group_buf;
 	}
 
 	const char *codec_profile = this->codec->asha ? "ASHA" : (this->codec->bap ? "BAP" : "A2DP");

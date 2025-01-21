@@ -1413,6 +1413,20 @@ static const struct spa_node_events follower_node_events = {
 	.event = follower_event,
 };
 
+static void follower_probe_info(void *data, const struct spa_node_info *info)
+{
+	struct impl *this = data;
+	if (info->max_input_ports > 0)
+		this->direction = SPA_DIRECTION_INPUT;
+        else
+		this->direction = SPA_DIRECTION_OUTPUT;
+}
+
+static const struct spa_node_events follower_probe_events = {
+	SPA_VERSION_NODE_EVENTS,
+	.info = follower_probe_info,
+};
+
 static int follower_ready(void *data, int status)
 {
 	struct impl *this = data;
@@ -1775,23 +1789,36 @@ static int load_converter(struct impl *this, const struct spa_dict *info,
 	struct spa_handle *hnd_convert = NULL;
 	void *iface_conv = NULL;
 	bool unload_handle = false;
+	struct spa_dict_item *items;
+	struct spa_dict cinfo;
+	char direction[16];
+	uint32_t i;
 
-	if (info)
-		factory_name = spa_dict_lookup(info, "audio.adapt.converter");
+	items = alloca((info->n_items + 1) * sizeof(struct spa_dict_item));
+	cinfo = SPA_DICT(items, 0);
+	for (i = 0; i < info->n_items; i++)
+		items[cinfo.n_items++] = info->items[i];
+
+	snprintf(direction, sizeof(direction), "%s",
+			SPA_DIRECTION_REVERSE(this->direction) == SPA_DIRECTION_INPUT ?
+			"input" : "output");
+	items[cinfo.n_items++] = SPA_DICT_ITEM("convert.direction", direction);
+
+	factory_name = spa_dict_lookup(&cinfo, "audio.adapt.converter");
 	if (factory_name == NULL)
 		factory_name = SPA_NAME_AUDIO_CONVERT;
 
 	if (spa_streq(factory_name, SPA_NAME_AUDIO_CONVERT)) {
-		size_t size = spa_handle_factory_get_size(&spa_audioconvert_factory, info);
+		size_t size = spa_handle_factory_get_size(&spa_audioconvert_factory, &cinfo);
 
 		hnd_convert = calloc(1, size);
 		if (hnd_convert == NULL)
 			return -errno;
 
 		spa_handle_factory_init(&spa_audioconvert_factory,
-				hnd_convert, info, support, n_support);
+				hnd_convert, &cinfo, support, n_support);
 	} else if (this->ploader) {
-		hnd_convert = spa_plugin_loader_load(this->ploader, factory_name, info);
+		hnd_convert = spa_plugin_loader_load(this->ploader, factory_name, &cinfo);
 		if (!hnd_convert)
 			return -EINVAL;
 		unload_handle = true;
@@ -1973,6 +2000,7 @@ impl_init(const struct spa_handle_factory *factory,
 	struct impl *this;
 	const char *str;
 	int ret;
+	struct spa_hook probe_listener;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -2006,6 +2034,11 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
 			&impl_node, this);
+
+	/* just probe the ports to get the direction */
+	spa_zero(probe_listener);
+	spa_node_add_listener(this->follower, &probe_listener, &follower_probe_events, this);
+	spa_hook_remove(&probe_listener);
 
 	ret = load_converter(this, info, support, n_support);
 	spa_log_info(this->log, "%p: loaded converter %s, hnd %p, convert %p", this,

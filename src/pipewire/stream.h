@@ -147,6 +147,11 @@ extern "C" {
  *
  * The process event is emitted when a new buffer should be queued.
  *
+ * When the PW_STREAM_FLAG_RT_PROCESS flag was given, this function will be
+ * called from a realtime thread and it is not safe to call non-reatime
+ * functions such as doing file operations, blocking operations or any of
+ * the PipeWire functions that are not explicitly marked as being RT safe.
+ *
  * \ref pw_stream_dequeue_buffer() gives an empty buffer that can be filled.
  *
  * The buffer is owned by the stream and stays alive until the
@@ -574,11 +579,11 @@ const struct pw_stream_control *pw_stream_get_control(struct pw_stream *stream, 
 /** Set control values */
 int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_values, float *values, ...);
 
-/** Query the time on the stream */
+/** Query the time on the stream, RT safe */
 int pw_stream_get_time_n(struct pw_stream *stream, struct pw_time *time, size_t size);
 
 /** Get the current time in nanoseconds. This value can be compared with
- * the \ref pw_time.now value. Since 1.1.0 */
+ * the \ref pw_time.now value. RT safe. Since 1.1.0 */
 uint64_t pw_stream_get_nsec(struct pw_stream *stream);
 
 /** Get the data loop that is doing the processing of this stream. This loop
@@ -586,19 +591,19 @@ uint64_t pw_stream_get_nsec(struct pw_stream *stream);
 struct pw_loop *pw_stream_get_data_loop(struct pw_stream *stream);
 
 /** Query the time on the stream, deprecated since 0.3.50,
- * use pw_stream_get_time_n() to get the fields added since 0.3.50. */
+ * use pw_stream_get_time_n() to get the fields added since 0.3.50. RT safe. */
 SPA_DEPRECATED
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time);
 
 /** Get a buffer that can be filled for playback streams or consumed
- * for capture streams. */
+ * for capture streams. RT safe. */
 struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream);
 
-/** Submit a buffer for playback or recycle a buffer for capture. */
+/** Submit a buffer for playback or recycle a buffer for capture. RT safe. */
 int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer);
 
 /** Return a buffer to the queue without using it. This makes the buffer
- * immediately available to dequeue again. */
+ * immediately available to dequeue again. RT safe. */
 int pw_stream_return_buffer(struct pw_stream *stream, struct pw_buffer *buffer);
 
 /** Activate or deactivate the stream */
@@ -609,7 +614,7 @@ int pw_stream_set_active(struct pw_stream *stream, bool active);
  * after the drain by setting it active again with
  * \ref pw_stream_set_active(). A flush without a drain is mostly useful afer
  * a state change to PAUSED, to flush any remaining data from the queues and
- * the converters. */
+ * the converters. RT safe. */
 int pw_stream_flush(struct pw_stream *stream, bool drain);
 
 /** Check if the stream is driving. The stream needs to have the
@@ -659,10 +664,12 @@ bool pw_stream_is_lazy(struct pw_stream *stream);
  * driver. If the graph is not lazy scheduling and the stream is not a
  * driver, this method will have no effect.
  *
+ * RT safe.
+ *
  * Since 0.3.34 */
 int pw_stream_trigger_process(struct pw_stream *stream);
 
-/** Emit an event from this stream.
+/** Emit an event from this stream. RT safe.
  * Since 1.2.6 */
 int pw_stream_emit_event(struct pw_stream *stream, const struct spa_event *event);
 
@@ -670,7 +677,7 @@ int pw_stream_emit_event(struct pw_stream *stream, const struct spa_event *event
  * When the stream is using an adaptive resampler, adjust the resampler rate.
  * When there is no resampler, -ENOTSUP is returned. Activating the adaptive
  * resampler will add a small amount of delay to the samples, you can deactivate
- * it again by setting a value <= 0.0.
+ * it again by setting a value <= 0.0. RT safe.
  * Since 1.4.0 */
 int pw_stream_set_rate(struct pw_stream *stream, double rate);
 

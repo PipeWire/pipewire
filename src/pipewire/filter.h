@@ -80,7 +80,9 @@ struct pw_filter_events {
 
         /** do processing. This is normally called from the
 	 *  mainloop but can also be called directly from the realtime data
-	 *  thread if the user is prepared to deal with this. */
+	 *  thread if the user is prepared to deal with this with the
+	 *  PW_FILTER_FLAG_RT_PROCESS. Only call methods marked with RT safe
+	 *  from this event when called from the realtime thread. */
         void (*process) (void *data, struct spa_io_position *position);
 
 	/** The filter is drained */
@@ -101,7 +103,8 @@ enum pw_filter_flags {
 							  *  called explicitly */
 	PW_FILTER_FLAG_DRIVER		= (1 << 1),	/**< be a driver */
 	PW_FILTER_FLAG_RT_PROCESS	= (1 << 2),	/**< call process from the realtime
-							  *  thread */
+							  *  thread. Only call methods marked as
+							  *  RT safe. */
 	PW_FILTER_FLAG_CUSTOM_LATENCY	= (1 << 3),	/**< don't call the default latency algorithm
 							  *  but emit the param_changed event for the
 							  *  ports when Latency params are received. */
@@ -212,26 +215,26 @@ pw_filter_update_params(struct pw_filter *filter,	/**< a \ref pw_filter */
 
 
 /** Query the time on the filter, deprecated, use the spa_io_position in the
- * process() method for timing information. */
+ * process() method for timing information. RT safe. */
 SPA_DEPRECATED
 int pw_filter_get_time(struct pw_filter *filter, struct pw_time *time);
 
 /** Get the current time in nanoseconds. This value can be compared with
- * the nsec value in the spa_io_position. Since 1.1.0 */
+ * the nsec value in the spa_io_position. RT safe. Since 1.1.0 */
 uint64_t pw_filter_get_nsec(struct pw_filter *filter);
 
 /** Get the data loop that is doing the processing of this filter. This loop
- * is assigned after pw_filter_connect().  * Since 1.1.0 */
+ * is assigned after pw_filter_connect(). Since 1.1.0 */
 struct pw_loop *pw_filter_get_data_loop(struct pw_filter *filter);
 
 /** Get a buffer that can be filled for output ports or consumed
- * for input ports.  */
+ * for input ports. RT safe. */
 struct pw_buffer *pw_filter_dequeue_buffer(void *port_data);
 
-/** Submit a buffer for playback or recycle a buffer for capture. */
+/** Submit a buffer for playback or recycle a buffer for capture. RT safe. */
 int pw_filter_queue_buffer(void *port_data, struct pw_buffer *buffer);
 
-/** Get a data pointer to the buffer data */
+/** Get a data pointer to the buffer data. RT safe. */
 void *pw_filter_get_dsp_buffer(void *port_data, uint32_t n_samples);
 
 /** Activate or deactivate the filter  */
@@ -241,7 +244,8 @@ int pw_filter_set_active(struct pw_filter *filter, bool active);
  * be called when all data is played or recorded. The filter can be resumed
  * after the drain by setting it active again with
  * \ref pw_filter_set_active(). A flush without a drain is mostly useful afer
- * a state change to PAUSED, to flush any remaining data from the queues. */
+ * a state change to PAUSED, to flush any remaining data from the queues.
+ * RT safe. */
 int pw_filter_flush(struct pw_filter *filter, bool drain);
 
 /** Check if the filter is driving. The filter needs to have the
@@ -255,10 +259,10 @@ bool pw_filter_is_driving(struct pw_filter *filter);
 bool pw_filter_is_lazy(struct pw_filter *filter);
 
 /** Trigger a push/pull on the filter. One iteration of the graph will
- * be scheduled and process() will be called. Since 0.3.66 */
+ * be scheduled and process() will be called. RT safe. Since 0.3.66 */
 int pw_filter_trigger_process(struct pw_filter *filter);
 
-/** Emit an event from this filter.
+/** Emit an event from this filter. RT safe.
  * Since 1.2.6 */
 int pw_filter_emit_event(struct pw_filter *filter, const struct spa_event *event);
 

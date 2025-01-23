@@ -110,3 +110,11 @@ if sdl_dep.found()
     link_with: pipewire_jack,
   )
 endif
+executable('ump-source',
+  '../examples/ump-source.c',
+  include_directories : [jack_inc],
+  install : installed_tests_enabled,
+  install_dir : installed_tests_execdir / 'examples' / 'jack',
+  dependencies : [mathlib],
+  link_with: pipewire_jack,
+)

@@ -200,7 +200,11 @@ context.modules = [
     }
 
     # Makes a factory for creating links between ports.
+    # use module.link-factory.args = { ... } to override the arguments.
     { name = libpipewire-module-link-factory
+        args = {
+            #allow.link.passive = false
+	}
         condition = [ { module.link-factory = !false } ]
     }
 

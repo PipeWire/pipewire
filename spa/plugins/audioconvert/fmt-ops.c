@@ -75,6 +75,14 @@ static struct conv_info conv_table[] =
 	MAKE(S16, F32P, 0, conv_s16_to_f32d_c),
 	MAKE(S16P, F32, 0, conv_s16d_to_f32_c),
 
+#if defined (HAVE_AVX2)
+	MAKE(S16_OE, F32P, 2, conv_s16s_to_f32d_2_avx2, SPA_CPU_FLAG_AVX2),
+	MAKE(S16_OE, F32P, 0, conv_s16s_to_f32d_avx2, SPA_CPU_FLAG_AVX2),
+#endif
+#if defined (HAVE_SSE2)
+	MAKE(S16_OE, F32P, 2, conv_s16s_to_f32d_2_sse2, SPA_CPU_FLAG_SSE2),
+	MAKE(S16_OE, F32P, 0, conv_s16s_to_f32d_sse2, SPA_CPU_FLAG_SSE2),
+#endif
 	MAKE(S16_OE, F32P, 0, conv_s16s_to_f32d_c),
 
 	MAKE(F32, F32, 0, conv_copy32_c),
@@ -223,6 +231,10 @@ static struct conv_info conv_table[] =
 
 	MAKE(F32P, S16_OE, 0, conv_f32d_to_s16s_shaped_c, 0, CONV_SHAPE),
 	MAKE(F32P, S16_OE, 0, conv_f32d_to_s16s_noise_c, 0, CONV_NOISE),
+#if defined (HAVE_SSE2)
+	MAKE(F32P, S16_OE, 2, conv_f32d_to_s16s_2_sse2, SPA_CPU_FLAG_SSE2),
+	MAKE(F32P, S16_OE, 0, conv_f32d_to_s16s_sse2, SPA_CPU_FLAG_SSE2),
+#endif
 	MAKE(F32P, S16_OE, 0, conv_f32d_to_s16s_c),
 
 	MAKE(F32, U32, 0, conv_f32_to_u32_c),

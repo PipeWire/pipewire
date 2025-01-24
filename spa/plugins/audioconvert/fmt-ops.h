@@ -451,6 +451,8 @@ DEFINE_FUNCTION(s32_to_f32d, rvv);
 #if defined(HAVE_SSE2)
 DEFINE_FUNCTION(s16_to_f32d_2, sse2);
 DEFINE_FUNCTION(s16_to_f32d, sse2);
+DEFINE_FUNCTION(s16s_to_f32d, sse2);
+DEFINE_FUNCTION(s16s_to_f32d_2, sse2);
 DEFINE_FUNCTION(s24_to_f32d, sse2);
 DEFINE_FUNCTION(s32_to_f32d, sse2);
 DEFINE_FUNCTION(f32d_to_s32, sse2);
@@ -458,6 +460,8 @@ DEFINE_FUNCTION(f32d_to_s32_noise, sse2);
 DEFINE_FUNCTION(f32_to_s16, sse2);
 DEFINE_FUNCTION(f32d_to_s16_2, sse2);
 DEFINE_FUNCTION(f32d_to_s16, sse2);
+DEFINE_FUNCTION(f32d_to_s16s_2, sse2);
+DEFINE_FUNCTION(f32d_to_s16s, sse2);
 DEFINE_FUNCTION(f32d_to_s16_noise, sse2);
 DEFINE_FUNCTION(f32d_to_s16d, sse2);
 DEFINE_FUNCTION(f32d_to_s16d_noise, sse2);
@@ -475,6 +479,8 @@ DEFINE_FUNCTION(s24_to_f32d, sse41);
 #if defined(HAVE_AVX2)
 DEFINE_FUNCTION(s16_to_f32d_2, avx2);
 DEFINE_FUNCTION(s16_to_f32d, avx2);
+DEFINE_FUNCTION(s16s_to_f32d, avx2);
+DEFINE_FUNCTION(s16s_to_f32d_2, avx2);
 DEFINE_FUNCTION(s24_to_f32d, avx2);
 DEFINE_FUNCTION(s32_to_f32d, avx2);
 DEFINE_FUNCTION(f32d_to_s32, avx2);

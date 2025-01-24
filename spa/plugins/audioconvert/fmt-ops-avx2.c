@@ -23,6 +23,13 @@
 #define _MM_CLAMP_SS(r,min,max)				\
 	_mm_min_ss(_mm_max_ss(r, min), max)
 
+#define _MM256_BSWAP_EPI16(x)						\
+({									\
+	_mm256_or_si256(						\
+		_mm256_slli_epi16(x, 8),				\
+		_mm256_srli_epi16(x, 8));				\
+})
+
 static void
 conv_s16_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
 		uint32_t n_channels, uint32_t n_samples)
@@ -72,6 +79,59 @@ conv_s16_to_f32d_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 
 	for(; i < n_channels; i++)
 		conv_s16_to_f32d_1s_avx2(conv, &dst[i], &s[i], n_channels, n_samples);
+}
+
+
+static void
+conv_s16s_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+		uint32_t n_channels, uint32_t n_samples)
+{
+	const uint16_t *s = src;
+	float *d0 = dst[0];
+	uint32_t n, unrolled;
+	__m256i in = _mm256_setzero_si256();
+	__m256 out, factor = _mm256_set1_ps(1.0f / S16_SCALE);
+
+	if (SPA_LIKELY(SPA_IS_ALIGNED(d0, 32)))
+		unrolled = n_samples & ~7;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 8) {
+		in = _mm256_insert_epi16(in, s[0*n_channels],  1);
+		in = _mm256_insert_epi16(in, s[1*n_channels],  3);
+		in = _mm256_insert_epi16(in, s[2*n_channels],  5);
+		in = _mm256_insert_epi16(in, s[3*n_channels],  7);
+		in = _mm256_insert_epi16(in, s[4*n_channels],  9);
+		in = _mm256_insert_epi16(in, s[5*n_channels], 11);
+		in = _mm256_insert_epi16(in, s[6*n_channels], 13);
+		in = _mm256_insert_epi16(in, s[7*n_channels], 15);
+		in = _MM256_BSWAP_EPI16(in);
+
+		in = _mm256_srai_epi32(in, 16);
+		out = _mm256_cvtepi32_ps(in);
+		out = _mm256_mul_ps(out, factor);
+		_mm256_store_ps(&d0[n], out);
+		s += 8*n_channels;
+	}
+	for(; n < n_samples; n++) {
+		__m128 out, factor = _mm_set1_ps(1.0f / S16_SCALE);
+		out = _mm_cvtsi32_ss(factor, (int16_t)bswap_16(s[0]));
+		out = _mm_mul_ss(out, factor);
+		_mm_store_ss(&d0[n], out);
+		s += n_channels;
+	}
+}
+
+void
+conv_s16s_to_f32d_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	const uint16_t *s = src[0];
+	uint32_t i = 0, n_channels = conv->n_channels;
+
+	for(; i < n_channels; i++)
+		conv_s16s_to_f32d_1s_avx2(conv, &dst[i], &s[i], n_channels, n_samples);
 }
 
 void
@@ -125,6 +185,66 @@ conv_s16_to_f32d_2_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const v
 		out[0] = _mm_cvtsi32_ss(factor, s[0]);
 		out[0] = _mm_mul_ss(out[0], factor);
 		out[1] = _mm_cvtsi32_ss(factor, s[1]);
+		out[1] = _mm_mul_ss(out[1], factor);
+		_mm_store_ss(&d0[n], out[0]);
+		_mm_store_ss(&d1[n], out[1]);
+		s += 2;
+	}
+}
+
+void
+conv_s16s_to_f32d_2_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	const uint16_t *s = src[0];
+	float *d0 = dst[0], *d1 = dst[1];
+	uint32_t n, unrolled;
+	__m256i in[2], t[4];
+	__m256 out[4], factor = _mm256_set1_ps(1.0f / S16_SCALE);
+
+	if (SPA_IS_ALIGNED(s, 32) &&
+	    SPA_IS_ALIGNED(d0, 32) &&
+	    SPA_IS_ALIGNED(d1, 32))
+		unrolled = n_samples & ~15;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 16) {
+		in[0] = _mm256_load_si256((__m256i*)(s + 0));
+		in[1] = _mm256_load_si256((__m256i*)(s + 16));
+		in[0] = _MM256_BSWAP_EPI16(in[0]);
+		in[1] = _MM256_BSWAP_EPI16(in[1]);
+
+		t[0] = _mm256_slli_epi32(in[0], 16);
+		t[0] = _mm256_srai_epi32(t[0], 16);
+		out[0] = _mm256_cvtepi32_ps(t[0]);
+		out[0] = _mm256_mul_ps(out[0], factor);
+
+		t[1] = _mm256_srai_epi32(in[0], 16);
+		out[1] = _mm256_cvtepi32_ps(t[1]);
+		out[1] = _mm256_mul_ps(out[1], factor);
+
+		t[2] = _mm256_slli_epi32(in[1], 16);
+		t[2] = _mm256_srai_epi32(t[2], 16);
+		out[2] = _mm256_cvtepi32_ps(t[2]);
+		out[2] = _mm256_mul_ps(out[2], factor);
+
+		t[3] = _mm256_srai_epi32(in[1], 16);
+		out[3] = _mm256_cvtepi32_ps(t[3]);
+		out[3] = _mm256_mul_ps(out[3], factor);
+
+		_mm256_store_ps(&d0[n + 0], out[0]);
+		_mm256_store_ps(&d1[n + 0], out[1]);
+		_mm256_store_ps(&d0[n + 8], out[2]);
+		_mm256_store_ps(&d1[n + 8], out[3]);
+
+		s += 32;
+	}
+	for(; n < n_samples; n++) {
+		__m128 out[4], factor = _mm_set1_ps(1.0f / S16_SCALE);
+		out[0] = _mm_cvtsi32_ss(factor, (int16_t)bswap_16(s[0]));
+		out[0] = _mm_mul_ss(out[0], factor);
+		out[1] = _mm_cvtsi32_ss(factor, (int16_t)bswap_16(s[1]));
 		out[1] = _mm_mul_ss(out[1], factor);
 		_mm_store_ss(&d0[n], out[0]);
 		_mm_store_ss(&d1[n], out[1]);
@@ -1003,6 +1123,65 @@ conv_f32d_to_s16_2_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const v
 		in[1] = _MM_CLAMP_SS(in[1], int_min, int_max);
 		d[0] = _mm_cvtss_si32(in[0]);
 		d[1] = _mm_cvtss_si32(in[1]);
+		d += 2;
+	}
+}
+
+void
+conv_f32d_to_s16s_2_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	const float *s0 = src[0], *s1 = src[1];
+	uint16_t *d = dst[0];
+	uint32_t n, unrolled;
+	__m256 in[4];
+	__m256i out[4], t[4];
+	__m256 int_scale = _mm256_set1_ps(S16_SCALE);
+
+	if (SPA_IS_ALIGNED(s0, 32) &&
+	    SPA_IS_ALIGNED(s1, 32))
+		unrolled = n_samples & ~15;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 16) {
+		in[0] = _mm256_mul_ps(_mm256_load_ps(&s0[n+0]), int_scale);
+		in[1] = _mm256_mul_ps(_mm256_load_ps(&s1[n+0]), int_scale);
+		in[2] = _mm256_mul_ps(_mm256_load_ps(&s0[n+8]), int_scale);
+		in[3] = _mm256_mul_ps(_mm256_load_ps(&s1[n+8]), int_scale);
+
+		out[0] = _mm256_cvtps_epi32(in[0]); /* a0 a1 a2 a3 a4 a5 a6 a7 */
+		out[1] = _mm256_cvtps_epi32(in[1]); /* b0 b1 b2 b3 b4 b5 b6 b7 */
+		out[2] = _mm256_cvtps_epi32(in[2]); /* a0 a1 a2 a3 a4 a5 a6 a7 */
+		out[3] = _mm256_cvtps_epi32(in[3]); /* b0 b1 b2 b3 b4 b5 b6 b7 */
+
+		t[0] = _mm256_unpacklo_epi32(out[0], out[1]); /* a0 b0 a1 b1 a4 b4 a5 b5 */
+		t[1] = _mm256_unpackhi_epi32(out[0], out[1]); /* a2 b2 a3 b3 a6 b6 a7 b7 */
+		t[2] = _mm256_unpacklo_epi32(out[2], out[3]); /* a0 b0 a1 b1 a4 b4 a5 b5 */
+		t[3] = _mm256_unpackhi_epi32(out[2], out[3]); /* a2 b2 a3 b3 a6 b6 a7 b7 */
+
+		out[0] = _mm256_packs_epi32(t[0], t[1]); /* a0 b0 a1 b1 a2 b2 a3 b3 a4 b4 a5 b5 a6 b6 a7 b7 */
+		out[1] = _mm256_packs_epi32(t[2], t[3]); /* a0 b0 a1 b1 a2 b2 a3 b3 a4 b4 a5 b5 a6 b6 a7 b7 */
+		out[0] = _MM256_BSWAP_EPI16(out[0]);
+		out[1] = _MM256_BSWAP_EPI16(out[1]);
+
+		_mm256_store_si256((__m256i*)(d+0), out[0]);
+		_mm256_store_si256((__m256i*)(d+16), out[1]);
+
+		d += 32;
+	}
+	for(; n < n_samples; n++) {
+		__m128 in[4];
+		__m128 int_scale = _mm_set1_ps(S16_SCALE);
+		__m128 int_max = _mm_set1_ps(S16_MAX);
+		__m128 int_min = _mm_set1_ps(S16_MIN);
+
+		in[0] = _mm_mul_ss(_mm_load_ss(&s0[n]), int_scale);
+		in[1] = _mm_mul_ss(_mm_load_ss(&s1[n]), int_scale);
+		in[0] = _MM_CLAMP_SS(in[0], int_min, int_max);
+		in[1] = _MM_CLAMP_SS(in[1], int_min, int_max);
+		d[0] = bswap_16((uint16_t)_mm_cvtss_si32(in[0]));
+		d[1] = bswap_16((uint16_t)_mm_cvtss_si32(in[1]));
 		d += 2;
 	}
 }

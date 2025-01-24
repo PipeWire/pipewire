@@ -71,6 +71,7 @@ struct impl {
 	uint32_t ts_offset;
 	uint32_t psamples;
 	uint32_t mtu;
+	uint32_t header_size;
 	uint32_t payload_size;
 
 	struct spa_ringbuffer ring;
@@ -442,11 +443,14 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 
 	impl->payload = pw_properties_get_uint32(props, "rtp.payload", impl->payload);
 	impl->mtu = pw_properties_get_uint32(props, "net.mtu", DEFAULT_MTU);
-	if (impl->mtu <= PACKET_HEADER_SIZE) {
+	impl->header_size = pw_properties_get_uint32(props, "net.header", IP4_HEADER_SIZE + UDP_HEADER_SIZE);
+	impl->header_size += RTP_HEADER_SIZE;
+
+	if (impl->mtu <= impl->header_size) {
 		pw_log_error("invalid MTU %d, using %d", impl->mtu, DEFAULT_MTU);
 		impl->mtu = DEFAULT_MTU;
 	}
-	impl->payload_size = impl->mtu - PACKET_HEADER_SIZE;
+	impl->payload_size = impl->mtu - impl->header_size;
 
 	impl->seq = pw_rand32();
 

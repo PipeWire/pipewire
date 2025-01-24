@@ -487,6 +487,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	const char *str, *sess_name;
 	int64_t ts_offset;
 	int res = 0;
+	uint32_t header_size;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -584,6 +585,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		ts_offset = pw_rand32();
 	pw_properties_setf(stream_props, "rtp.sender-ts-offset", "%u", (uint32_t)ts_offset);
 
+	header_size = impl->dst_addr.ss_family == AF_INET ?
+                        IP4_HEADER_SIZE : IP6_HEADER_SIZE;
+	header_size += UDP_HEADER_SIZE;
+	pw_properties_setf(stream_props, "net.header", "%u", header_size);
 	pw_net_get_ip(&impl->src_addr, addr, sizeof(addr), NULL, NULL);
 	pw_properties_set(stream_props, "rtp.source.ip", addr);
 	pw_net_get_ip(&impl->dst_addr, addr, sizeof(addr), NULL, NULL);

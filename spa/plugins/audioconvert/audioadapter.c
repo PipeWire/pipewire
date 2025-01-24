@@ -98,7 +98,7 @@ struct impl {
 	unsigned int started:1;
 	unsigned int ready:1;
 	unsigned int async:1;
-	unsigned int passthrough:1;
+	enum spa_param_port_config_mode mode;
 	unsigned int follower_removing:1;
 	unsigned int in_recalc;
 
@@ -216,7 +216,7 @@ next:
 	case SPA_PARAM_EnumPortConfig:
 		return convert_enum_port_config(this, seq, id, start, num, filter, &b.b);
 	case SPA_PARAM_PortConfig:
-		if (this->passthrough) {
+		if (this->mode == SPA_PARAM_PORT_CONFIG_MODE_passthrough) {
 			switch (result.index) {
 			case 0:
 				result.param = spa_pod_builder_add_object(&b.b,
@@ -709,7 +709,7 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	if (!passthrough && this->convert == NULL)
 		return -ENOTSUP;
 
-	if (this->passthrough != passthrough) {
+	if (this->mode != mode) {
 		if (passthrough) {
 			/* remove converter split/merge ports */
 			configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_none);
@@ -729,8 +729,8 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	if ((res = configure_format(this, SPA_NODE_PARAM_FLAG_NEAREST, format)) < 0)
 		return res;
 
-	if (this->passthrough != passthrough) {
-		this->passthrough = passthrough;
+	if (this->mode != mode) {
+		this->mode = mode;
 		if (passthrough) {
 			/* add follower ports */
 			spa_zero(l);
@@ -2074,10 +2074,11 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (this->convert == NULL) {
 		this->target = this->follower;
-		this->passthrough = true;
+		this->mode = SPA_PARAM_PORT_CONFIG_MODE_passthrough;
 	} else {
 		this->target = this->convert;
-		this->passthrough = false;
+		/* the actual mode is selected below */
+		this->mode = SPA_PARAM_PORT_CONFIG_MODE_none;
 	}
 
 	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS |

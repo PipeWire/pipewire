@@ -1799,15 +1799,15 @@ again:
 
 		if (node_rate_quantum != 0 && current_rate != node_rate_quantum) {
 			/* the quantum values are scaled with the current rate */
-			node_def_quantum = node_def_quantum * current_rate / node_rate_quantum;
-			node_min_quantum = node_min_quantum * current_rate / node_rate_quantum;
-			node_max_quantum = node_max_quantum * current_rate / node_rate_quantum;
+			node_def_quantum = SPA_SCALE32(node_def_quantum, current_rate, node_rate_quantum);
+			node_min_quantum = SPA_SCALE32(node_min_quantum, current_rate, node_rate_quantum);
+			node_max_quantum = SPA_SCALE32(node_max_quantum, current_rate, node_rate_quantum);
 		}
 
 		/* calculate desired quantum. Don't limit to the max_latency when we are
 		 * going to force a quantum or rate and reconfigure the nodes. */
 		if (max_latency.denom != 0 && !force_quantum && !force_rate) {
-			uint32_t tmp = ((uint64_t)max_latency.num * current_rate / max_latency.denom);
+			uint32_t tmp = SPA_SCALE32(max_latency.num, current_rate, max_latency.denom);
 			if (tmp < node_max_quantum)
 				node_max_quantum = tmp;
 		}
@@ -1824,7 +1824,7 @@ again:
 		else {
 			target_quantum = node_def_quantum;
 			if (latency.denom != 0)
-				target_quantum = (latency.num * current_rate / latency.denom);
+				target_quantum = SPA_SCALE32(latency.num, current_rate, latency.denom);
 			target_quantum = SPA_CLAMP(target_quantum, node_min_quantum, node_max_quantum);
 			target_quantum = SPA_CLAMP(target_quantum, floor_quantum, ceil_quantum);
 

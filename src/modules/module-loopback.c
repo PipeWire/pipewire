@@ -78,6 +78,36 @@
  * to and from this common channel layout. This can be used to implement up or
  * downmixing loopback sinks/sources.
  *
+ * ## Example configuration of source to sink link
+ *
+ * This loopback links a source node to a sink node. You can change the target.object
+ * properties to match your source/sink node.name.
+ *
+ *\code{.unparsed}
+ * # ~/.config/pipewire/pipewire.conf.d/my-loopback-0.conf
+ *
+ * context.modules = [
+ * {   name = libpipewire-module-loopback
+ *     args = {
+ *         capture.props = {
+ *             #  if you want to capture sink monitor ports,
+ *             #  uncomment the next line and set the target.object
+ *             #  to the sink name.
+ *             #stream.capture.sink = true
+ *             target.object = "alsa_input.usb-C-Media_Electronics_Inc._TONOR_TC-777_Audio_Device-00.mono-fallback"
+ *             node.passive = true
+ *             node.dont-reconnect = true
+ *         }
+ *         playback.props = {
+ *             target.object = "alsa_output.usb-0d8c_USB_Sound_Device-00.analog-surround-71"
+ *             node.dont-reconnect = true
+ *             node.passive = true
+ *         }
+ *     }
+ * }
+ * ]
+ *\endcode
+ *
  * ## Example configuration of a virtual sink
  *
  * This Virtual sink routes stereo input to the rear channels of a 7.1 sink.

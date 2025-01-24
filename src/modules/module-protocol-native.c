@@ -70,7 +70,7 @@ PW_LOG_TOPIC(mod_topic_connection, "conn." NAME);
  * a client and a server using unix local sockets.
  *
  * Normally this module is loaded in both client and server config files
- * so that they cam communicate.
+ * so that they can communicate.
  *
  * ## Module Name
  *

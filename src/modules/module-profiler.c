@@ -56,8 +56,7 @@
  *
  * ## Example configuration
  *
- * The module has no arguments and is usually added to the config file of
- * the main pipewire daemon.
+ * The module is usually added to the config file of the main pipewire daemon.
  *
  *\code{.unparsed}
  * context.modules = [

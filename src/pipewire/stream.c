@@ -644,8 +644,8 @@ static inline void copy_position(struct stream *impl, int64_t queued)
 				impl->time.rate.num = 1;
 				impl->time.rate.denom = SPA_NSEC_PER_SEC;
 			} else {
-				impl->time.ticks = p->clock.nsec * (p->clock.rate.denom /
-					(SPA_NSEC_PER_SEC * p->clock.rate.num));
+				impl->time.ticks = (p->clock.nsec * p->clock.rate.denom) /
+					(SPA_NSEC_PER_SEC * p->clock.rate.num);
 			}
 		} else {
 			impl->time.ticks = p->clock.position - impl->base_pos;

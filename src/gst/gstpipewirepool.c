@@ -283,25 +283,26 @@ release_buffer (GstBufferPool * pool, GstBuffer *buffer)
 
   GstPipeWirePoolData *data = gst_pipewire_pool_get_data(buffer);
 
+  GST_OBJECT_LOCK (pool);
+
   if (!data->queued && data->b != NULL)
   {
     GstPipeWirePool *p = GST_PIPEWIRE_POOL (pool);
-    GST_OBJECT_LOCK (pool);
-
     g_autoptr (GstPipeWireStream) s = g_weak_ref_get (&p->stream);
     int res;
 
     pw_thread_loop_lock (s->core->loop);
+
     if ((res = pw_stream_return_buffer (s->pwstream, data->b)) < 0) {
       GST_ERROR_OBJECT (pool,"can't return buffer %p; gstbuffer : %p, %s",data->b, buffer, spa_strerror(res));
     } else {
       data->queued = TRUE;
       GST_DEBUG_OBJECT (pool, "returned buffer %p; gstbuffer:%p", data->b, buffer);
     }
-    pw_thread_loop_unlock (s->core->loop);
-    GST_OBJECT_UNLOCK (pool);
 
+    pw_thread_loop_unlock (s->core->loop);
   }
+  GST_OBJECT_UNLOCK (pool);
 }
 
 static gboolean

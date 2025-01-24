@@ -63,6 +63,7 @@ struct _GstPipeWireSink {
 
   /*< private >*/
   GstPipeWireStream *stream;
+  gboolean use_bufferpool;
 
   /* video state */
   gboolean negotiated;

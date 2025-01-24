@@ -36,7 +36,7 @@ struct _GstPipeWireSrc {
   GstPipeWireStream *stream;
 
   /*< private >*/
-  gboolean always_copy;
+  gint use_bufferpool;
   gint min_buffers;
   gint max_buffers;
   gboolean resend_last;

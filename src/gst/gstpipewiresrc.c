@@ -46,6 +46,7 @@ GST_DEBUG_CATEGORY_STATIC (pipewire_src_debug);
 #define DEFAULT_RESEND_LAST     false
 #define DEFAULT_KEEPALIVE_TIME  0
 #define DEFAULT_AUTOCONNECT     true
+#define DEFAULT_USE_BUFFERPOOL USE_BUFFERPOOL_AUTO
 
 enum
 {
@@ -62,6 +63,7 @@ enum
   PROP_RESEND_LAST,
   PROP_KEEPALIVE_TIME,
   PROP_AUTOCONNECT,
+  PROP_USE_BUFFERPOOL,
 };
 
 
@@ -130,7 +132,11 @@ gst_pipewire_src_set_property (GObject * object, guint prop_id,
       break;
 
     case PROP_ALWAYS_COPY:
-      pwsrc->always_copy = g_value_get_boolean (value);
+      /* don't provide buffer if always copy*/
+      if (g_value_get_boolean (value))
+        pwsrc->use_bufferpool = USE_BUFFERPOOL_NO;
+      else
+        pwsrc->use_bufferpool = USE_BUFFERPOOL_YES;
       break;
 
     case PROP_MIN_BUFFERS:
@@ -155,6 +161,13 @@ gst_pipewire_src_set_property (GObject * object, guint prop_id,
 
     case PROP_AUTOCONNECT:
       pwsrc->autoconnect = g_value_get_boolean (value);
+      break;
+
+    case PROP_USE_BUFFERPOOL:
+      if(g_value_get_boolean (value))
+        pwsrc->use_bufferpool = USE_BUFFERPOOL_YES;
+      else
+        pwsrc->use_bufferpool = USE_BUFFERPOOL_NO;
       break;
 
     default:
@@ -191,7 +204,7 @@ gst_pipewire_src_get_property (GObject * object, guint prop_id,
       break;
 
     case PROP_ALWAYS_COPY:
-      g_value_set_boolean (value, pwsrc->always_copy);
+      g_value_set_boolean (value, !pwsrc->use_bufferpool);
       break;
 
     case PROP_MIN_BUFFERS:
@@ -216,6 +229,10 @@ gst_pipewire_src_get_property (GObject * object, guint prop_id,
 
     case PROP_AUTOCONNECT:
       g_value_set_boolean (value, pwsrc->autoconnect);
+      break;
+
+    case PROP_USE_BUFFERPOOL:
+      g_value_set_boolean (value, !!pwsrc->use_bufferpool);
       break;
 
     default:
@@ -331,7 +348,8 @@ gst_pipewire_src_class_init (GstPipeWireSrcClass * klass)
                                                          "Always copy the buffer and data",
                                                          DEFAULT_ALWAYS_COPY,
                                                          G_PARAM_READWRITE |
-                                                         G_PARAM_STATIC_STRINGS));
+                                                         G_PARAM_STATIC_STRINGS |
+                                                         G_PARAM_DEPRECATED));
 
   g_object_class_install_property (gobject_class,
                                    PROP_MIN_BUFFERS,
@@ -387,6 +405,15 @@ gst_pipewire_src_class_init (GstPipeWireSrcClass * klass)
                                                          G_PARAM_READWRITE |
                                                          G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (gobject_class,
+                                   PROP_USE_BUFFERPOOL,
+                                   g_param_spec_boolean ("use-bufferpool",
+                                                         "Use bufferpool",
+                                                         "Use bufferpool (default: true for video, false for audio)",
+                                                         DEFAULT_USE_BUFFERPOOL,
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_STATIC_STRINGS));
+
   gstelement_class->provide_clock = gst_pipewire_src_provide_clock;
   gstelement_class->change_state = gst_pipewire_src_change_state;
   gstelement_class->send_event = gst_pipewire_src_send_event;
@@ -427,7 +454,7 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
 
   src->stream = gst_pipewire_stream_new (GST_ELEMENT (src));
 
-  src->always_copy = DEFAULT_ALWAYS_COPY;
+  src->use_bufferpool = DEFAULT_USE_BUFFERPOOL;
   src->min_buffers = DEFAULT_MIN_BUFFERS;
   src->max_buffers = DEFAULT_MAX_BUFFERS;
   src->resend_last = DEFAULT_RESEND_LAST;
@@ -665,7 +692,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
     GstMemory *pmem = gst_buffer_peek_memory (data->buf, i);
     if (pmem) {
       GstMemory *mem;
-      if (!pwsrc->always_copy)
+      if (pwsrc->use_bufferpool != USE_BUFFERPOOL_NO)
         mem = gst_memory_share (pmem, d->chunk->offset, d->chunk->size);
       else
         mem = gst_memory_copy (pmem, d->chunk->offset, d->chunk->size);
@@ -676,7 +703,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
       GST_BUFFER_FLAG_SET (buf, GST_BUFFER_FLAG_CORRUPTED);
     }
   }
-  if (!pwsrc->always_copy)
+  if (pwsrc->use_bufferpool != USE_BUFFERPOOL_NO)
     gst_buffer_add_parent_buffer_meta (buf, data->buf);
   gst_buffer_unref (data->buf);
 
@@ -1104,6 +1131,10 @@ handle_format_change (GstPipeWireSrc *pwsrc,
   } else {
     pwsrc->negotiated = FALSE;
     pwsrc->is_video = FALSE;
+
+    /* Don't provide bufferpool for audio if not requested by the application/user */
+    if (pwsrc->use_bufferpool != USE_BUFFERPOOL_YES)
+      pwsrc->use_bufferpool = USE_BUFFERPOOL_NO;
   }
 
   if (pwsrc->caps) {

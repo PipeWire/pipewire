@@ -47,6 +47,12 @@ struct _GstPipeWirePool {
   gboolean paused;
 };
 
+enum GstPipeWirePoolMode {
+    USE_BUFFERPOOL_NO = 0,
+    USE_BUFFERPOOL_AUTO,
+    USE_BUFFERPOOL_YES
+};
+
 GstPipeWirePool *  gst_pipewire_pool_new (GstPipeWireStream *stream);
 
 void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *buffer);

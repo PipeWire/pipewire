@@ -38,6 +38,7 @@ GST_DEBUG_CATEGORY_STATIC (pipewire_sink_debug);
 
 #define DEFAULT_PROP_MODE GST_PIPEWIRE_SINK_MODE_DEFAULT
 #define DEFAULT_PROP_SLAVE_METHOD GST_PIPEWIRE_SINK_SLAVE_METHOD_NONE
+#define DEFAULT_PROP_USE_BUFFERPOOL USE_BUFFERPOOL_AUTO
 
 #define MIN_BUFFERS     8u
 
@@ -51,7 +52,8 @@ enum
   PROP_STREAM_PROPERTIES,
   PROP_MODE,
   PROP_FD,
-  PROP_SLAVE_METHOD
+  PROP_SLAVE_METHOD,
+  PROP_USE_BUFFERPOOL,
 };
 
 GType
@@ -164,7 +166,9 @@ gst_pipewire_sink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
 {
   GstPipeWireSink *pwsink = GST_PIPEWIRE_SINK (bsink);
 
-  gst_query_add_allocation_pool (query, GST_BUFFER_POOL_CAST (pwsink->stream->pool), 0, 0, 0);
+  if (pwsink->use_bufferpool != USE_BUFFERPOOL_NO)
+    gst_query_add_allocation_pool (query, GST_BUFFER_POOL_CAST (pwsink->stream->pool), 0, 0, 0);
+
   gst_query_add_allocation_meta (query, GST_VIDEO_META_API_TYPE, NULL);
   return TRUE;
 }
@@ -259,6 +263,14 @@ gst_pipewire_sink_class_init (GstPipeWireSinkClass * klass)
                                                       G_PARAM_READWRITE |
                                                       G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (gobject_class,
+                                   PROP_USE_BUFFERPOOL,
+                                   g_param_spec_boolean ("use-bufferpool",
+                                                      "Use bufferpool",
+                                                      "Use bufferpool (default: true for video, false for audio)",
+                                                      DEFAULT_PROP_USE_BUFFERPOOL,
+                                                      G_PARAM_READWRITE |
+                                                      G_PARAM_STATIC_STRINGS));
 
   gstelement_class->provide_clock = gst_pipewire_sink_provide_clock;
   gstelement_class->change_state = gst_pipewire_sink_change_state;
@@ -343,6 +355,7 @@ gst_pipewire_sink_init (GstPipeWireSink * sink)
   sink->stream =  gst_pipewire_stream_new (GST_ELEMENT (sink));
 
   sink->mode = DEFAULT_PROP_MODE;
+  sink->use_bufferpool = DEFAULT_PROP_USE_BUFFERPOOL;
 
   GST_OBJECT_FLAG_SET (sink, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
 
@@ -448,6 +461,13 @@ gst_pipewire_sink_set_property (GObject * object, guint prop_id,
       pwsink->slave_method = g_value_get_enum (value);
       break;
 
+    case PROP_USE_BUFFERPOOL:
+      if(g_value_get_boolean (value))
+        pwsink->use_bufferpool = USE_BUFFERPOOL_YES;
+      else
+        pwsink->use_bufferpool = USE_BUFFERPOOL_NO;
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -491,6 +511,10 @@ gst_pipewire_sink_get_property (GObject * object, guint prop_id,
 
     case PROP_SLAVE_METHOD:
       g_value_set_enum (value, pwsink->slave_method);
+      break;
+
+    case PROP_USE_BUFFERPOOL:
+      g_value_set_boolean (value, !!pwsink->use_bufferpool);
       break;
 
     default:
@@ -724,6 +748,10 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     gst_structure_get_int (s, "rate", &rate);
     pwsink->rate = rate;
     pwsink->rate_match = true;
+
+    /* Don't provide bufferpool for audio if not requested by the application/user */
+    if (pwsink->use_bufferpool != USE_BUFFERPOOL_YES)
+      pwsink->use_bufferpool = USE_BUFFERPOOL_NO;
   } else {
     pwsink->rate = rate = 0;
     pwsink->rate_match = false;

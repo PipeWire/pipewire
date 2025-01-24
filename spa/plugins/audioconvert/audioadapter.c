@@ -1601,6 +1601,55 @@ impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_
 }
 
 static int
+port_enum_formats_for_convert(struct impl *this, int seq, enum spa_direction direction,
+		uint32_t port_id, uint32_t id, uint32_t start, uint32_t num,
+		const struct spa_pod *filter)
+{
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = { 0 };
+	int res;
+	uint32_t count = 0;
+	struct spa_result_node_params result;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+	result.id = id;
+	result.next = start;
+next:
+	result.index = result.next;
+
+	if (result.next < 0x100000) {
+		/* Enumerate follower formats first, until we have enough or we run out */
+		if ((res = node_port_enum_params_sync(this, this->follower, direction, port_id, id,
+						&result.next, filter, &result.param, &b)) != 1) {
+			if (res == 0 || res == -ENOENT) {
+				result.next = 0x100000;
+				goto next;
+			} else {
+				spa_log_error(this->log, "could not enum follower format: %s", spa_strerror(res));
+				return res;
+			}
+		}
+	} else if (result.next < 0x200000) {
+		/* Then enumerate converter formats */
+		result.next &= 0xfffff;
+		if ((res = node_port_enum_params_sync(this, this->convert, direction, port_id, id,
+						&result.next, filter, &result.param, &b)) != 1) {
+			return res;
+		} else {
+			result.next |= 0x100000;
+		}
+	}
+
+	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+
+	if (++count < num)
+		goto next;
+
+	return 0;
+}
+
+static int
 impl_node_port_enum_params(void *object, int seq,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t id, uint32_t start, uint32_t num,
@@ -1614,10 +1663,15 @@ impl_node_port_enum_params(void *object, int seq,
 	if (direction != this->direction)
 		port_id++;
 
-	spa_log_debug(this->log, "%p: %d %u", this, seq, id);
+	spa_log_debug(this->log, "%p: %d %u %u %u", this, seq, id, start, num);
 
-	return spa_node_port_enum_params(this->target, seq, direction, port_id, id,
-			start, num, filter);
+	/* We only need special handling for EnumFormat in convert mode */
+	if (id == SPA_PARAM_EnumFormat && this->mode == SPA_PARAM_PORT_CONFIG_MODE_convert)
+		return port_enum_formats_for_convert(this, seq, direction, port_id, id,
+				start, num, filter);
+	else
+		return spa_node_port_enum_params(this->target, seq, direction, port_id, id,
+				start, num, filter);
 }
 
 static int

@@ -596,6 +596,7 @@ int spa_bt_sco_io_write(struct spa_bt_sco_io *io, uint8_t *data, int size);
 #define SPA_BT_VOLUME_INVALID	-1
 #define SPA_BT_VOLUME_HS_MAX	15
 #define SPA_BT_VOLUME_A2DP_MAX	127
+#define SPA_BT_VOLUME_BAP_MAX	255
 
 enum spa_bt_transport_state {
         SPA_BT_TRANSPORT_STATE_ERROR = -1,

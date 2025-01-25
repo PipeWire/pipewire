@@ -220,7 +220,8 @@ struct spa_bt_media_codec_switch {
 
 #define DEFAULT_RECONNECT_PROFILES SPA_BT_PROFILE_NULL
 #define DEFAULT_HW_VOLUME_PROFILES (SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY | SPA_BT_PROFILE_HEADSET_HEAD_UNIT | \
-					SPA_BT_PROFILE_A2DP_SOURCE | SPA_BT_PROFILE_A2DP_SINK)
+					SPA_BT_PROFILE_A2DP_SOURCE | SPA_BT_PROFILE_A2DP_SINK | \
+					SPA_BT_PROFILE_BAP_AUDIO)
 
 #define BT_DEVICE_DISCONNECTED	0
 #define BT_DEVICE_CONNECTED	1
@@ -3464,6 +3465,10 @@ static int transport_update_props(struct spa_bt_transport *transport,
 				t_volume = &transport->volumes[SPA_BT_VOLUME_ID_RX];
 			else if (transport->profile & SPA_BT_PROFILE_ASHA_SINK)
 				t_volume = &transport->volumes[SPA_BT_VOLUME_ID_TX];
+			else if (transport->profile & SPA_BT_PROFILE_BAP_SINK)
+				t_volume = &transport->volumes[SPA_BT_VOLUME_ID_TX];
+			else if (transport->profile & SPA_BT_PROFILE_BAP_SOURCE)
+				t_volume = &transport->volumes[SPA_BT_VOLUME_ID_RX];
 			else
 				goto next;
 
@@ -3615,7 +3620,7 @@ static int transport_set_volume(void *data, int id, float volume)
 	if (!t_volume->active || !spa_bt_transport_volume_enabled(transport))
 		return -ENOTSUP;
 
-	value = spa_bt_volume_linear_to_hw(volume, 127);
+	value = spa_bt_volume_linear_to_hw(volume, t_volume->hw_volume_max);
 	t_volume->volume = volume;
 
 	/* AVRCP volume would not applied on remote sink device
@@ -4695,7 +4700,10 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 
 	for (int i = 0; i < SPA_BT_VOLUME_ID_TERM; ++i) {
 		transport->volumes[i].hw_volume = SPA_BT_VOLUME_INVALID;
-		transport->volumes[i].hw_volume_max = SPA_BT_VOLUME_A2DP_MAX;
+		if (profile & SPA_BT_PROFILE_BAP_AUDIO)
+			transport->volumes[i].hw_volume_max = SPA_BT_VOLUME_BAP_MAX;
+		else
+			transport->volumes[i].hw_volume_max = SPA_BT_VOLUME_A2DP_MAX;
 	}
 
 	free(transport->endpoint_path);

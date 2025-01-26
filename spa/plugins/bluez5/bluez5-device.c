@@ -528,7 +528,7 @@ static void emit_device_set_node(struct impl *this, uint32_t id)
 	struct spa_bt_device *device = this->bt_dev;
 	struct node *node = &this->nodes[id];
 	struct spa_device_object_info info;
-	struct spa_dict_item items[7];
+	struct spa_dict_item items[8];
 	char str_id[32], members_json[8192], channels_json[512];
 	struct device_set_member *members;
 	uint32_t n_members;
@@ -541,6 +541,7 @@ static void emit_device_set_node(struct impl *this, uint32_t id)
 	items[n_items++] = SPA_DICT_ITEM_INIT("api.bluez5.set.leader", "true");
 	snprintf(str_id, sizeof(str_id), "%d", id);
 	items[n_items++] = SPA_DICT_ITEM_INIT("card.profile.device", str_id);
+	items[n_items++] = SPA_DICT_ITEM_INIT("device.routes", "1");
 
 	if (id == DEVICE_ID_SOURCE_SET) {
 		items[n_items++] = SPA_DICT_ITEM_INIT("media.class", "Audio/Source");

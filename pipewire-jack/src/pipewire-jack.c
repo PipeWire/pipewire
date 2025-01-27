@@ -3438,8 +3438,8 @@ static const char* type_to_format_dsp(jack_port_type_id_t type_id)
 	case TYPE_ID_OSC:
 		return JACK_DEFAULT_OSC_TYPE;
 	case TYPE_ID_MIDI:
+		return JACK_DEFAULT_MIDI_TYPE;
 	case TYPE_ID_UMP:
-		/* all exposed to PipeWire as UMP */
 		return JACK_DEFAULT_UMP_TYPE;
 	default:
 		return NULL;
@@ -3817,6 +3817,9 @@ static void registry_event_global(void *data, uint32_t id,
 
 		if ((str = spa_dict_lookup(props, PW_KEY_PORT_NAME)) == NULL)
 			goto exit;
+
+		if (type_id == TYPE_ID_UMP)
+			flags |= JackPortIsMIDI2;
 
 		spa_dict_for_each(item, props) {
 			if (spa_streq(item->key, PW_KEY_PORT_DIRECTION)) {
@@ -5437,6 +5440,9 @@ jack_port_t * jack_port_register (jack_client_t *client,
 		pw_log_warn("unknown port type %s", port_type);
 		return NULL;
 	}
+	if (type_id == TYPE_ID_MIDI && (flags & JackPortIsMIDI2))
+		type_id = TYPE_ID_UMP;
+
 	len = snprintf(name, sizeof(name), "%s:%s", c->name, port_name);
 	if (len < 0 || (size_t)len >= sizeof(name)) {
 		pw_log_warn("%p: name \"%s:%s\" too long", c,

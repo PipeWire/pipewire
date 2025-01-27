@@ -91,8 +91,8 @@ int main(int argc, char *argv[])
 	/* the UMP port type allows both sending and receiving of UMP
 	 * messages, which can contain MIDI 1.0 and MIDI 2.0 messages. */
 	data.out_port = jack_port_register (data.client, "output",
-                                          JACK_DEFAULT_UMP_TYPE,
-                                          JackPortIsOutput, 0);
+                                          JACK_DEFAULT_MIDI_TYPE,
+                                          JackPortIsOutput | JackPortIsMIDI2, 0);
 
        if (data.out_port == NULL) {
                 fprintf(stderr, "no more JACK ports available\n");

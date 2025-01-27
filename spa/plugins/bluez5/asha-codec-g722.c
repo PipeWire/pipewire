@@ -26,7 +26,6 @@ struct impl {
 	AVFrame *frame;
 	AVPacket *pkt;
 
-	uint8_t seqnum;
 	unsigned int codesize;
 };
 
@@ -54,7 +53,10 @@ static int codec_get_block_size(void *data)
 static int codec_start_encode (void *data,
 		void *dst, size_t dst_size, uint16_t seqnum, uint32_t timestamp)
 {
-	return 0;
+	/* Payload for ASHA must be preceded by 1-byte sequence number */
+	*(uint8_t *)dst = seqnum % 256;
+
+	return 1;
 }
 
 static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
@@ -173,7 +175,6 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	 * payload, we need 640 bytes for generating an encoded frame.
 	 */
 	this->codesize = ASHA_ENCODED_PKT_SZ * 4;
-	this->seqnum = 0;
 
 	this->avcodec = avcodec;
 	this->ctx = c;
@@ -199,7 +200,6 @@ static int codec_encode(void *data,
 		size_t *dst_out, int *need_flush)
 {
 	struct impl *this = data;
-	uint8_t *dest = (uint8_t *)dst;
 	AVFrame *frame = this->frame;
 	AVPacket *pkt = this->pkt;
 	size_t src_sz;
@@ -245,17 +245,10 @@ static int codec_encode(void *data,
 		return -EIO;
 	}
 
-	spa_log_trace(spalog, "%d encoded bytes with sequence: %d", pkt->size, this->seqnum);
+	memcpy(dst, pkt->data, pkt->size);
 
-	/* Payload for ASHA must be preceded by 1-byte sequence number */
-	*dest = this->seqnum;
-	dest++;
-	memcpy((void *)dest, pkt->data, pkt->size);
-
-	*dst_out = pkt->size + ASHA_HEADER_SZ;
+	*dst_out = pkt->size;
 	*need_flush = NEED_FLUSH_ALL;
-
-	this->seqnum++;
 
 	return src_sz;
 }

@@ -20,7 +20,8 @@
  *
  * This module creates a new factory. Clients that can see the factory
  * can use the factory name (`link-factory`) to create new link
- * objects with \ref pw_core_create_object().
+ * objects with \ref pw_core_create_object(). It is also possible to create
+ * objects in the config file.
  *
  * Object of the \ref PW_TYPE_INTERFACE_Link will be created and a proxy
  * to it will be returned.
@@ -89,6 +90,26 @@
  *     #allow.link.passive = false
  * }
  *\endcode
+ *
+ * ## Config objects
+ *
+ * To create an object from the factory, one can use the \ref pw_core_create_object()
+ * method or make an object in the `context.objects` section like:
+ *
+ *\code{.unparsed}
+ * context.objects = [
+ * { factory = link-factory
+ *     args = {
+ *         link.output.node = system
+ *         link.output.port = capture_2
+ *         link.input.node  = my-mic
+ *         link.input.port  = input_FR
+ *     }
+ * }
+ *\endcode
+ *
+ * Note that this only works when the ports that need to be linked are available
+ * at the time the config file is parsed.
  *
  * ## See also
  *

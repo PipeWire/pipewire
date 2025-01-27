@@ -2803,14 +2803,8 @@ next:
 			spa_bt_device_add_profile(remote_endpoint->device, profile);
 
 		if (spa_streq(remote_endpoint->uuid, SPA_BT_UUID_ASHA_SINK)) {
-			if (profile & SPA_BT_PROFILE_ASHA_SINK) {
-				if (setup_asha_transport(remote_endpoint, monitor)) {
-					spa_log_error(monitor->log, "Failed to create transport for remote_endpoint %p", remote_endpoint);
-				} else {
-					spa_log_debug(monitor->log, "Adding profile for remote_endpoint %p: device -> %p", remote_endpoint, remote_endpoint->device);
-					spa_bt_device_add_profile(remote_endpoint->device, SPA_BT_PROFILE_ASHA_SINK);
-				}
-			}
+			if (profile & SPA_BT_PROFILE_ASHA_SINK)
+				setup_asha_transport(remote_endpoint, monitor);
 		}
 	}
 
@@ -4095,8 +4089,10 @@ static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, 
 	struct spa_bt_transport *transport;
 	char *tpath;
 
-	if (!remote_endpoint->transport_path)
+	if (!remote_endpoint->transport_path) {
+		spa_log_error(monitor->log, "Missing ASHA transport path");
 		return -EINVAL;
+	}
 
 	transport = spa_bt_transport_find(monitor, remote_endpoint->transport_path);
 	if (transport != NULL) {
@@ -5678,14 +5674,7 @@ static void interface_added(struct spa_bt_monitor *monitor,
 
 		/* Trigger bluez device creation before bluez profile negotiation started so that
 		 * profile connection handlers can receive per-device settings during profile negotiation. */
-		if (d->profiles & SPA_BT_PROFILE_ASHA_SINK) {
-			spa_log_info(monitor->log, "Add profile %s: %m",
-					object_path);
-			spa_bt_device_add_profile(d, SPA_BT_PROFILE_ASHA_SINK);
-			spa_bt_device_connect_profile(d, SPA_BT_PROFILE_ASHA_SINK);
-		}
-		else
-			spa_bt_device_add_profile(d, SPA_BT_PROFILE_NULL);
+		spa_bt_device_add_profile(d, SPA_BT_PROFILE_NULL);
 	}
 	else if (spa_streq(interface_name, BLUEZ_DEVICE_SET_INTERFACE)) {
 		device_set_update_props(monitor, object_path, props_iter, NULL);

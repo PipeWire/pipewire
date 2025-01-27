@@ -703,13 +703,14 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	int res = 0;
 	struct spa_hook l;
 	bool passthrough = mode == SPA_PARAM_PORT_CONFIG_MODE_passthrough;
+	bool old_passthrough = this->mode == SPA_PARAM_PORT_CONFIG_MODE_passthrough;
 
 	spa_log_debug(this->log, "%p: passthrough mode %d", this, passthrough);
 
 	if (!passthrough && this->convert == NULL)
 		return -ENOTSUP;
 
-	if (this->mode != mode) {
+	if (old_passthrough != passthrough) {
 		if (passthrough) {
 			/* remove converter split/merge ports */
 			configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_none);
@@ -729,8 +730,9 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	if ((res = configure_format(this, SPA_NODE_PARAM_FLAG_NEAREST, format)) < 0)
 		return res;
 
-	if (this->mode != mode) {
-		this->mode = mode;
+	this->mode = mode;
+
+	if (old_passthrough != passthrough) {
 		if (passthrough) {
 			/* add follower ports */
 			spa_zero(l);

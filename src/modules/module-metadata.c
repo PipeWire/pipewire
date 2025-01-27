@@ -18,9 +18,80 @@
 
 /** \page page_module_metadata Metadata
  *
+ * Allows clients to create a metadata store.
+ *
+ * This module creates a new factory. Clients that can see the factory
+ * can use the factory name (`metadata`) to create a new metadata
+ * objects with \ref pw_core_create_object(). It is also possible to create
+ * objects in the config file.
+ *
+ * Objects of the \ref PW_TYPE_INTERFACE_Metadata will be created and a proxy
+ * to it will be returned.
+ *
+ * As an argument to the create_object call, a set of properties will
+ * control the name of the metadata and some initial values.
+ *
  * ## Module Name
  *
  * `libpipewire-module-metadata`
+ *
+ * ## Module Options
+ *
+ * This module has no options.
+ *
+ * ## Properties for the create_object call
+ *
+ * - `metadata.name`: The name of the new metadata object. If not given, the metadata
+ *                    object name will be `default`.
+ * - `metadata.values`: A JSON array of objects with initial values for the metadata object.
+ *
+ *   the `metadata.values` key has the following layout:
+ *
+ *  \code{.unparsed}
+ *   metadata.values = [
+ *      { id = <int>  key = <key>  type = <type> value = <object> }
+ *      ....
+ *   ]
+ *  \endcode
+ *
+ *     - `id`: an optional object id for the metadata, default 0
+ *     - `key`: a string, the metadata key
+ *     - `type`: an optional metadata value type
+ *     - `value`: a JSON item, the metadata value.
+ *
+ * ## Example configuration
+ *
+ * The module is usually added to the config file of the main pipewire daemon.
+ *
+ *\code{.unparsed}
+ * context.modules = [
+ * { name = libpipewire-metadata }
+ * ]
+ *\endcode
+
+ * ## Config objects
+ *
+ * To create an object from the factory, one can use the \ref pw_core_create_object()
+ * method or make an object in the `context.objects` section like:
+ *
+ *\code{.unparsed}
+ * context.objects = [
+ * { factory = metadata
+ *     args = {
+ *         metadata.name = default
+ *         metadata.values = [
+ *            { key = default.audio.sink   value = { name = somesink } }
+ *            { key = default.audio.source value = { name = somesource } }
+ *         ]
+ *     }
+ * }
+ *\endcode
+ *
+ * This creates a new default metadata store with 2 key/values.
+ *
+ * ## See also
+ *
+ * - `pw-metadata`: a tool to manage metadata
  */
 
 #define NAME "metadata"

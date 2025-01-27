@@ -20,13 +20,19 @@
  *
  * Allows clients to create a metadata store.
  *
- * This module creates a new factory. Clients that can see the factory
- * can use the factory name (`metadata`) to create a new metadata
- * objects with \ref pw_core_create_object(). It is also possible to create
- * objects in the config file.
+ * Both the client and the server need to load this module for the metadata to be
+ * useful.
  *
- * Objects of the \ref PW_TYPE_INTERFACE_Metadata will be created and a proxy
- * to it will be returned.
+ * This module creates a new factory and a new export type for the
+ * \ref PW_TYPE_INTERFACE_Metadata interface.
+ *
+ * A client will first create an implementation of the PW_TYPE_INTERFACE_Metadata
+ * interface with \ref pw_context_create_metadata(), for example. With the
+ * \ref pw_core_export(), this module will create a server size resource to expose
+ * the metadata implementation to other clients. Modifications done by the client
+ * on the local metadata interface will be visible to all PipeWire clients.
+ *
+ * It is also possible to create metadata in the config file.
  *
  * As an argument to the create_object call, a set of properties will
  * control the name of the metadata and some initial values.
@@ -61,7 +67,8 @@
  *
  * ## Example configuration
  *
- * The module is usually added to the config file of the main pipewire daemon.
+ * The module is usually added to the config file of the main PipeWire daemon and the
+ * clients.
  *
  *\code{.unparsed}
  * context.modules = [
@@ -72,7 +79,8 @@
  * ## Config objects
  *
  * To create an object from the factory, one can use the \ref pw_core_create_object()
- * method or make an object in the `context.objects` section like:
+ * method or make an object in the `context.objects` section like in the main PipeWire
+ * daemon config file:
  *
  *\code{.unparsed}
  * context.objects = [

@@ -21,21 +21,21 @@
  *
  * Allow clients to export processing nodes to the PipeWire daemon.
  *
- * This module creates 2 export types, one for the PW_TYPE_INTERFACE_Node and
- * another for the SPA_TYPE_INTERFACE_Node interfaces.
+ * This module creates 2 export types, one for the \ref PW_TYPE_INTERFACE_Node and
+ * another for the \ref SPA_TYPE_INTERFACE_Node interfaces.
  *
  * With \ref pw_core_export(), objects of these types can be exported to the
  * PipeWire server. All actions performed on the node locally will be visible
  * to connecteced clients and scheduling of the Node will be performed.
  *
- * Objects of the PW_TYPE_INTERFACE_Node interface can be made with
+ * Objects of the \ref PW_TYPE_INTERFACE_Node interface can be made with
  * \ref pw_context_create_node(), for example. You would manually need to create
- * and add an object of the SPA_TYPE_INTERFACE_Node interface. Exporting a
- * SPA_TYPE_INTERFACE_Node directly will first wrap it in a PW_TYPE_INTERFACE_Node
- * interface.
+ * and add an object of the \ref SPA_TYPE_INTERFACE_Node interface. Exporting a
+ * \ref SPA_TYPE_INTERFACE_Node directly will first wrap it in a
+ * \ref PW_TYPE_INTERFACE_Node interface.
  *
  * Usually this module is not used directly but through the \ref pw_stream and
- * \ref pw_filter APIs, which provides API to implement the SPA_TYPE_INTERFACE_Node
+ * \ref pw_filter APIs, which provides API to implement the \ref SPA_TYPE_INTERFACE_Node
  * interface.
  *
  * In some cases, it is possible to use this factory directly (the PipeWire JACK

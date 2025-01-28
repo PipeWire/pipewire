@@ -842,8 +842,14 @@ static void clear_buffers(struct pw_stream *stream)
 			if (b->busy)
 				SPA_ATOMIC_DEC(b->busy->count);
 		}
-	} else
+	} else {
 		clear_queue(impl, &impl->dequeued);
+		struct spa_io_buffers *io = impl->io;
+		if (io && io->status == SPA_STATUS_HAVE_DATA) {
+			io->status = SPA_ID_INVALID;
+			io->buffer_id = SPA_STATUS_OK;
+		}
+	}
 	clear_queue(impl, &impl->queued);
 }
 

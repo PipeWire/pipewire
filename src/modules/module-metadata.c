@@ -18,21 +18,22 @@
 
 /** \page page_module_metadata Metadata
  *
- * Allows clients to create a metadata store.
+ * Allows clients to export a metadata store to the PipeWire server.
  *
- * Both the client and the server need to load this module for the metadata to be
- * useful.
+ * Both the client and the server need to load this module for the metadata
+ * to be exported.
  *
  * This module creates a new factory and a new export type for the
  * \ref PW_TYPE_INTERFACE_Metadata interface.
  *
  * A client will first create an implementation of the PW_TYPE_INTERFACE_Metadata
  * interface with \ref pw_context_create_metadata(), for example. With the
- * \ref pw_core_export(), this module will create a server size resource to expose
+ * \ref pw_core_export(), this module will create a server side resource to expose
  * the metadata implementation to other clients. Modifications done by the client
  * on the local metadata interface will be visible to all PipeWire clients.
  *
- * It is also possible to create metadata in the config file.
+ * It is also possible to use the factory to create metadata in the current
+ * processes using a config file fragment.
  *
  * As an argument to the create_object call, a set of properties will
  * control the name of the metadata and some initial values.
@@ -72,7 +73,7 @@
  *
  *\code{.unparsed}
  * context.modules = [
- * { name = libpipewire-metadata }
+ * { name = libpipewire-module-metadata }
  * ]
  *\endcode
 

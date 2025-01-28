@@ -15,6 +15,10 @@
 
 #include "spa-device.h"
 
+/** \page page_module_spa_device_factory SPA Device factory
+ *
+ * Provide a factory to create SPA devices.
+ */
 #define NAME "spa-device-factory"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);

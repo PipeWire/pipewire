@@ -14,6 +14,10 @@
 
 #include "spa-node.h"
 
+/** \page page_module_spa_node SPA Node
+ *
+ * Load and manage an SPA node.
+ */
 #define NAME "spa-node"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);

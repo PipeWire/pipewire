@@ -12,6 +12,10 @@
 
 #include "spa-device.h"
 
+/** \page page_module_spa_device SPA Device
+ *
+ * Load and manage an SPA device.
+ */
 #define NAME "spa-device"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);

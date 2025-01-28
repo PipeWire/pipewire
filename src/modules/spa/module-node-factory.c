@@ -15,6 +15,10 @@
 
 #include "spa-node.h"
 
+/** \page page_module_spa_node_factory SPA Node factory
+ *
+ * Provide a factory to create SPA nodes.
+ */
 #define NAME "spa-node-factory"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);

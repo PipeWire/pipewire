@@ -154,6 +154,7 @@ struct stream {
 	unsigned int trigger_done_rt:1;
 	int in_set_param;
 	int in_emit_param_changed;
+	int pending_drain;
 };
 
 static int get_param_index(uint32_t id)
@@ -455,14 +456,19 @@ do_call_drained(struct spa_loop *loop,
 	struct pw_stream *stream = &impl->this;
 	pw_log_trace_fp("%p: drained", stream);
 	pw_stream_emit_drained(stream);
+	SPA_ATOMIC_DEC(impl->pending_drain);
 	return 0;
 }
 
 static void call_drained(struct stream *impl)
 {
 	pw_log_info("%p: drained", impl);
-	pw_loop_invoke(impl->main_loop,
-		do_call_drained, 1, NULL, 0, false, impl);
+	if (SPA_ATOMIC_INC(impl->pending_drain) == 1) {
+		pw_loop_invoke(impl->main_loop,
+			do_call_drained, 1, NULL, 0, false, impl);
+	} else {
+		SPA_ATOMIC_DEC(impl->pending_drain);
+	}
 }
 
 static int

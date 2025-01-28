@@ -13,7 +13,7 @@
 
 #include "pipewire/impl.h"
 
-#include "spa-device.h"
+#include "spa/spa-device.h"
 
 /** \page page_module_spa_device_factory SPA Device factory
  *

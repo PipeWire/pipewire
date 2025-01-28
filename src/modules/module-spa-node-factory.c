@@ -13,7 +13,7 @@
 
 #include "pipewire/impl.h"
 
-#include "spa-node.h"
+#include "spa/spa-node.h"
 
 /** \page page_module_spa_node_factory SPA Node factory
  *

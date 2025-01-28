@@ -1,5 +1,4 @@
 subdir('module-rt')
-subdir('spa')
 
 # The list of "main" source files for modules, the ones that have the
 # doxygen documentation
@@ -39,6 +38,10 @@ module_sources = [
   'module-rtp-session.c',
   'module-rtp-source.c',
   'module-rtp-sink.c',
+  'module-spa-node.c',
+  'module-spa-node-factory.c',
+  'module-spa-device.c',
+  'module-spa-device-factory.c',
   'module-snapcast-discover.c',
   'module-vban-recv.c',
   'module-vban-send.c',
@@ -47,10 +50,6 @@ module_sources = [
   'module-roc-source.c',
   'module-roc-sink.c',
   'module-x11-bell.c',
-  'spa/module-node.c',
-  'spa/module-device.c',
-  'spa/module-node-factory.c',
-  'spa/module-device-factory.c',
 ]
 
 pipewire_module_access_deps = [spa_dep, mathlib, dl_lib, pipewire_dep]
@@ -208,6 +207,39 @@ if build_module_rtkit
   )
 endif
 summary({'rt': '@0@ RTKit'.format(build_module_rtkit ? 'with' : 'without')}, section: 'Optional Modules')
+
+pipewire_module_spa_node = shared_library('pipewire-module-spa-node',
+  [ 'module-spa-node.c', 'spa/spa-node.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
+)
+pipewire_module_spa_node_factory = shared_library('pipewire-module-spa-node-factory',
+  [ 'module-spa-node-factory.c', 'spa/spa-node.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
+)
+pipewire_module_spa_device = shared_library('pipewire-module-spa-device',
+  [ 'module-spa-device.c', 'spa/spa-device.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
+)
+pipewire_module_spa_device_factory = shared_library('pipewire-module-spa-device-factory',
+  [ 'module-spa-device-factory.c', 'spa/spa-device.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
+)
 
 build_module_portal = dbus_dep.found()
 if build_module_portal

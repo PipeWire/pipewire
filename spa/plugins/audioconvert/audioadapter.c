@@ -214,7 +214,6 @@ next:
 
 	switch (id) {
 	case SPA_PARAM_EnumPortConfig:
-		return convert_enum_port_config(this, seq, id, start, num, filter, &b.b);
 	case SPA_PARAM_PortConfig:
 		if (this->mode == SPA_PARAM_PORT_CONFIG_MODE_passthrough) {
 			switch (result.index) {

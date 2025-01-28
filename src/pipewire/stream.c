@@ -823,8 +823,8 @@ static void clear_buffers(struct pw_stream *stream)
 		clear_queue(impl, &impl->dequeued);
 		struct spa_io_buffers *io = impl->io;
 		if (io && io->status == SPA_STATUS_HAVE_DATA) {
-			io->status = SPA_ID_INVALID;
-			io->buffer_id = SPA_STATUS_OK;
+			io->buffer_id = SPA_ID_INVALID;
+			io->status = SPA_STATUS_OK;
 		}
 	}
 	clear_queue(impl, &impl->queued);

@@ -661,7 +661,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			"stream.may-pause", false);
 	impl->standby = false;
 	impl->waiting = true;
-	pw_properties_set(stream_props, "rtp.receiving", "false");
+	/* Because we don't know the stream receiving state at the start, we try to fake it
+	 * till we make it (or get timed out) */
+	pw_properties_set(stream_props, "rtp.receiving", "true");
 
 	impl->cleanup_interval = pw_properties_get_uint32(props,
 			"cleanup.sec", DEFAULT_CLEANUP_SEC);

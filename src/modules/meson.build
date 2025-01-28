@@ -47,6 +47,10 @@ module_sources = [
   'module-roc-source.c',
   'module-roc-sink.c',
   'module-x11-bell.c',
+  'spa/module-node.c',
+  'spa/module-device.c',
+  'spa/module-node-factory.c',
+  'spa/module-device-factory.c',
 ]
 
 pipewire_module_access_deps = [spa_dep, mathlib, dl_lib, pipewire_dep]

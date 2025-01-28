@@ -146,9 +146,6 @@ endforeach
 foreach h : module_sources
   inputs += meson.project_source_root() / 'src' / 'modules' / h
 endforeach
-foreach h : module_spa_sources
-  inputs += meson.project_source_root() / 'src' / 'modules' / 'spa' / h
-endforeach
 foreach h : pipewire_module_protocol_pulse_sources
   inputs += meson.project_source_root() / 'src' / 'modules' / h
 endforeach
@@ -208,12 +205,6 @@ input_dirs += [ 'doc/examples.dox' ]
 
 module_manpage_list = []
 foreach m : module_sources
-   name = fs.stem(m)
-   pagepart = name.replace('-', '_')
-   module_manpage_list += f'\\ref page_@pagepart@ "libpipewire-@name@(7)"'
-   manpages += [[f'libpipewire-@name@.7', f'page_@pagepart@']]
-endforeach
-foreach m : module_spa_sources
    name = fs.stem(m)
    pagepart = name.replace('-', '_')
    module_manpage_list += f'\\ref page_@pagepart@ "libpipewire-@name@(7)"'

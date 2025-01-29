@@ -122,13 +122,20 @@ error:
 }
 
 static int try_connect_name(struct pw_protocol_client *client,
-		const char *name,
+		const char *name, bool manager,
 		void (*done_callback) (void *data, int res),
 		void *data)
 {
 	const char *runtime_dir;
+	char path[PATH_MAX];
 	int res;
 
+	if (manager && !spa_strendswith(name, "-manager")) {
+		snprintf(path, sizeof(path), "%s-manager", name);
+		res = try_connect_name(client, path, false, done_callback, data);
+		if (res >= 0)
+			return res;
+	}
 	if (name[0] == '/') {
 		return try_connect(client, NULL, name, done_callback, data);
 	} else {
@@ -155,16 +162,19 @@ int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
 	struct spa_json it[1];
 	char path[PATH_MAX];
 	int res = -EINVAL;
+	bool manager;
+
+	manager = props && spa_streq(spa_dict_lookup(props, PW_KEY_REMOTE_INTENTION), "manager");
 
 	name = get_remote(props);
 	if (name == NULL)
 		return -EINVAL;
 
 	if (spa_json_begin_array(&it[0], name, strlen(name)) <= 0)
-		return try_connect_name(client, name, done_callback, data);
+		return try_connect_name(client, name, manager, done_callback, data);
 
 	while (spa_json_get_string(&it[0], path, sizeof(path)) > 0) {
-		res = try_connect_name(client, path, done_callback, data);
+		res = try_connect_name(client, path, manager, done_callback, data);
 		if (res < 0)
 			continue;
 		break;

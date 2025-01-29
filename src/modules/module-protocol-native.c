@@ -1326,9 +1326,8 @@ impl_new_client(struct pw_protocol *protocol,
 
 	if (props) {
 		str = spa_dict_lookup(props, PW_KEY_REMOTE_INTENTION);
-		if (str == NULL &&
-		   (str = spa_dict_lookup(props, PW_KEY_REMOTE_NAME)) != NULL &&
-		    spa_streq(str, "internal"))
+		if ((str == NULL || spa_streq(str, "generic")) &&
+		   spa_streq(spa_dict_lookup(props, PW_KEY_REMOTE_NAME), "internal"))
 			str = "internal";
 	}
 	if (str == NULL)

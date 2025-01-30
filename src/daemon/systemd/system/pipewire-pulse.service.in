@@ -1,0 +1,24 @@
+[Unit]
+Description=PipeWire PulseAudio Service
+Requires=pipewire-pulse.socket
+Wants=pipewire.service pipewire-session-manager.service
+After=pipewire.service pipewire-session-manager.service
+
+[Service]
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+Type=simple
+AmbientCapabilities=CAP_SYS_NICE
+ExecStart=@PW_PULSE_BINARY@
+Restart=on-failure
+User=pipewire
+Environment=PIPEWIRE_RUNTIME_DIR=%t/pipewire
+Environment=PULSE_RUNTIME_PATH=%t/pulse
+
+[Install]
+Also=pipewire-pulse.socket
+WantedBy=pipewire.service
+

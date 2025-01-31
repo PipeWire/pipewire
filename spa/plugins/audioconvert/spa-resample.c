@@ -119,6 +119,8 @@ sf_str_to_fmt(const char *str)
 
 static int open_files(struct data *d)
 {
+        int i, count = 0, format = -1;
+
 	d->ifile = sf_open(d->iname, SFM_READ, &d->iinfo);
         if (d->ifile == NULL) {
 		fprintf(stderr, "error: failed to open input file \"%s\": %s\n",
@@ -128,8 +130,32 @@ static int open_files(struct data *d)
 
 	d->oinfo.channels = d->iinfo.channels;
 	d->oinfo.samplerate = d->rate > 0 ? d->rate : d->iinfo.samplerate;
-	d->oinfo.format = d->format > 0 ? d->format : d->iinfo.format;
-	d->oinfo.format |= SF_FORMAT_WAV;
+	d->oinfo.format = d->format > 0 ? d->format : (d->iinfo.format & SF_FORMAT_SUBMASK);
+
+	/* try to guess the format from the extension */
+	if (sf_command(NULL, SFC_GET_FORMAT_MAJOR_COUNT, &count, sizeof(int)) != 0)
+		count = 0;
+
+	for (i = 0; i < count; i++) {
+		SF_FORMAT_INFO fi;
+
+		spa_zero(fi);
+		fi.format = i;
+		if (sf_command(NULL, SFC_GET_FORMAT_MAJOR, &fi, sizeof(fi)) != 0)
+			continue;
+
+		if (spa_strendswith(d->oname, fi.extension)) {
+			format = fi.format;
+			break;
+		}
+	}
+	if (format == -1)
+		/* use the same format as the input file otherwise */
+		format = d->iinfo.format & ~SF_FORMAT_SUBMASK;
+	if (format == SF_FORMAT_WAV && d->oinfo.channels > 2)
+		format = SF_FORMAT_WAVEX;
+
+	d->oinfo.format |= format;
 
 	d->ofile = sf_open(d->oname, SFM_WRITE, &d->oinfo);
         if (d->ofile == NULL) {

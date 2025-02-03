@@ -167,6 +167,12 @@ extern "C" {
  * Buffers that are queued after the process event completes will be delayed
  * to the next processing cycle.
  *
+ * \section sec_stream_timing Obtaining timing information
+ *
+ * With \ref pw_stream_get_time_n() and pw_stream_get_nsec() on can get accurate
+ * timing information of the data and the graph in the \ref pw_time. See
+ * the documentation of these functions.
+ *
  * \section sec_stream_driving Driving the graph
  *
  * Starting in 0.3.34, it is possible for a stream to drive the graph.

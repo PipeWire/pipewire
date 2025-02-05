@@ -1128,7 +1128,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (!check_realtime_privileges(impl)) {
 		if (!can_use_rtkit) {
 			res = -ENOTSUP;
-			pw_log_warn("regular realtime scheduling not available"
+			pw_log_info("regular realtime scheduling not available"
 					" (Portal/RTKit fallback disabled)");
 			goto error;
 		}

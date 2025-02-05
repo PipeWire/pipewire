@@ -1,3 +1,55 @@
+# PipeWire 1.3.82 (2025-02-06)
+
+This is the second 1.4 release candidate that is API and ABI
+compatible with previous 1.2.x and 1.0.x releases.
+
+## Highlights
+  - Various pw-stream improvements: timing information fixes,
+    avoid locking buffers in some cases and an improved drain
+    event.
+  - A new Telephony D-BUS API compatible with ofono.
+  - Documentation fixes and updates.
+  - More small fixes and improvements.
+
+
+## PipeWire
+  - Improve timing information when rate is unknown.
+  - Avoid locked buffers in pw_stream in some cases.
+  - Improve pw_stream drain event emission.
+  - Improve manager socket handling. Applications can avoid hardcoding
+    the sockets so that they will respect the config settings.
+
+## modules
+  - Fix header size calculation when using ipv6. (#4524)
+
+## SPA
+  - Optimize byteswapped s16 conversions.
+  - Improve event handling for internal events.
+  - Optimize negiotiation when in convert mode, prefer the format
+    of the follower in adapter.
+  - Fix EnumPortConfig for videoadapter without converter.
+  - Fix libcamera property buffer size.
+
+## Pulse-server
+  - Add systemwide systemd files.
+
+## JACK
+  - Add a UMP example.
+  - Use the new JackPortMIDI2 flag to mark UMP ports to JACK.
+
+## Bluetooth
+  - Support BAP hardware volume.
+  - Add a Telephony DBUS API.
+
+## GStreamer
+  - Disable buffer pools for audio by default.
+
+## Docs
+  - Improve the module documentation.
+
+
+Older versions:
+
 # PipeWire 1.3.81 (2025-01-23)
 
 This is the first 1.4 release candidate that is API and ABI
@@ -139,9 +191,6 @@ also contains some new features:
   - Many updates to the man pages.
   - More documentation about thread safety of functions in stream
     and filters. (#4521)
-
-
-Older versions:
 
 # PipeWire 1.2.7 (2024-11-26)
 

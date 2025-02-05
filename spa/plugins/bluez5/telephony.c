@@ -13,13 +13,13 @@
 #include <spa/utils/list.h>
 #include <spa/utils/string.h>
 
-#define PW_TELEPHONY_SERVICE "org.freedesktop.PipeWire.Telephony"
+#define PW_TELEPHONY_SERVICE "org.pipewire.Telephony"
 
-#define PW_TELEPHONY_OBJECT_PATH "/org/freedesktop/PipeWire/Telephony"
+#define PW_TELEPHONY_OBJECT_PATH "/org/pipewire/Telephony"
 
-#define PW_TELEPHONY_AG_IFACE "org.freedesktop.PipeWire.Telephony.AudioGateway1"
-#define PW_TELEPHONY_AG_TRANSPORT_IFACE "org.freedesktop.PipeWire.Telephony.AudioGatewayTransport1"
-#define PW_TELEPHONY_CALL_IFACE "org.freedesktop.PipeWire.Telephony.Call1"
+#define PW_TELEPHONY_AG_IFACE "org.pipewire.Telephony.AudioGateway1"
+#define PW_TELEPHONY_AG_TRANSPORT_IFACE "org.pipewire.Telephony.AudioGatewayTransport1"
+#define PW_TELEPHONY_CALL_IFACE "org.pipewire.Telephony.Call1"
 
 #define OFONO_MANAGER_IFACE "org.ofono.Manager"
 #define OFONO_VOICE_CALL_MANAGER_IFACE "org.ofono.VoiceCallManager"
@@ -243,11 +243,11 @@ struct callimpl {
 static void dbus_iter_append_ag_interfaces(DBusMessageIter *i, struct spa_bt_telephony_ag *ag);
 static void dbus_iter_append_call_properties(DBusMessageIter *i, struct spa_bt_telephony_call *call, bool all);
 
-#define PW_TELEPHONY_ERROR_FAILED "org.freedesktop.PipeWire.Telephony.Error.Failed"
-#define PW_TELEPHONY_ERROR_NOT_SUPPORTED "org.freedesktop.PipeWire.Telephony.Error.NotSupported"
-#define PW_TELEPHONY_ERROR_INVALID_FORMAT "org.freedesktop.PipeWire.Telephony.Error.InvalidFormat"
-#define PW_TELEPHONY_ERROR_INVALID_STATE "org.freedesktop.PipeWire.Telephony.Error.InvalidState"
-#define PW_TELEPHONY_ERROR_IN_PROGRESS "org.freedesktop.PipeWire.Telephony.Error.InProgress"
+#define PW_TELEPHONY_ERROR_FAILED "org.pipewire.Telephony.Error.Failed"
+#define PW_TELEPHONY_ERROR_NOT_SUPPORTED "org.pipewire.Telephony.Error.NotSupported"
+#define PW_TELEPHONY_ERROR_INVALID_FORMAT "org.pipewire.Telephony.Error.InvalidFormat"
+#define PW_TELEPHONY_ERROR_INVALID_STATE "org.pipewire.Telephony.Error.InvalidState"
+#define PW_TELEPHONY_ERROR_IN_PROGRESS "org.pipewire.Telephony.Error.InProgress"
 
 static const char *telephony_error_to_dbus (enum spa_bt_telephony_error err)
 {

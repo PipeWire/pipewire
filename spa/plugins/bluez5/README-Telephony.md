@@ -26,9 +26,9 @@ but only for the Bluetooth-based voice calls.
 ## Manager Object
 
 ```
-Service         org.freedesktop.PipeWire.Telephony
+Service         org.pipewire.Telephony
             or  org.ofono
-Object path     /org/freedesktop/PipeWire/Telephony
+Object path     /org/pipewire/Telephony
             or  /
 Implements      org.ofono.Manager
                 org.freedesktop.DBus.Introspectable
@@ -40,7 +40,7 @@ the connected audio gateways.
 
 The object path is set to `/` when ofono service compatibility is enabled,
 in which case the service name `org.ofono` is also registered instead of
-`org.freedesktop.PipeWire.Telephony`.
+`org.pipewire.Telephony`.
 
 The methods and signals below are made available on the `org.ofono.Manager`
 interface, for compatibility. AudioGateway objects are normally announced via
@@ -68,10 +68,10 @@ no longer accessible after this signal and only emitted for reference.
 ## AudioGateway Object
 
 ```
-Service         org.freedesktop.PipeWire.Telephony
+Service         org.pipewire.Telephony
             or  org.ofono
-Object path     /org/freedesktop/PipeWire/Telephony/{ag0,ag1,...}
-Implements      org.freedesktop.PipeWire.Telephony.AudioGateway1
+Object path     /org/pipewire/Telephony/{ag0,ag1,...}
+Implements      org.pipewire.Telephony.AudioGateway1
                 org.ofono.VoiceCallManager
                 org.freedesktop.DBus.Introspectable
                 org.freedesktop.DBus.ObjectManager
@@ -81,7 +81,7 @@ Audio gateway objects represent the currently connected AG devices (typically
 mobile phones).
 
 The methods, signals and properties listed below are made available on both
-`org.freedesktop.PipeWire.Telephony.AudioGateway1` and
+`org.pipewire.Telephony.AudioGateway1` and
 `org.ofono.VoiceCallManager` interfaces, unless explicitly documented otherwise.
 
 Call objects are announced via both the standard DBus ObjectManager interface
@@ -118,7 +118,7 @@ NOTE: If an active call (single or multiparty) exists, then it is automatically
 put on hold if the dial procedure is successful.
 
 Possible Errors:
- * org.freedesktop.PipeWire.Telephony.Error.InvalidState
+ * org.pipewire.Telephony.Error.InvalidState
  * org.freedesktop.DBus.Error.InvalidArgs
  * org.freedesktop.DBus.Error.Failed
 
@@ -134,7 +134,7 @@ manufacturer specific whether this method will succeed in the case of Held,
 Active and Waiting calls.
 
 Possible Errors:
- * org.freedesktop.PipeWire.Telephony.Error.InvalidState
+ * org.pipewire.Telephony.Error.InvalidState
  * org.freedesktop.DBus.Error.Failed
 
 `void ReleaseAndAnswer()`
@@ -144,7 +144,7 @@ call. Please note that if the current call is a multiparty call, then all
 parties in the multi-party call will be released.
 
 Possible Errors:
- * org.freedesktop.PipeWire.Telephony.Error.InvalidState
+ * org.pipewire.Telephony.Error.InvalidState
  * org.freedesktop.DBus.Error.Failed
 
 `void ReleaseAndSwap()`
@@ -154,7 +154,7 @@ calls. Please note that if the current call is a multiparty call, then all
 parties in the multi-party call will be released.
 
 Possible Errors:
- * org.freedesktop.PipeWire.Telephony.Error.InvalidState
+ * org.pipewire.Telephony.Error.InvalidState
  * org.freedesktop.DBus.Error.Failed
 
 `void HoldAndAnswer()`
@@ -165,7 +165,7 @@ Active and Held calls is invalid, since in GSM a user can have only a single
 Held call at a time.
 
 Possible Errors:
- * org.freedesktop.PipeWire.Telephony.Error.InvalidState
+ * org.pipewire.Telephony.Error.InvalidState
  * org.freedesktop.DBus.Error.Failed
 
 `void HangupAll()`
@@ -173,7 +173,7 @@ Possible Errors:
 Releases all calls except waiting calls. This includes multiparty calls.
 
 Possible Errors:
- * org.freedesktop.PipeWire.Telephony.Error.InvalidState
+ * org.pipewire.Telephony.Error.InvalidState
  * org.freedesktop.DBus.Error.Failed
 
 `array{object} CreateMultiparty()`
@@ -187,7 +187,7 @@ There can only be one subscriber controlled multi-party call according to the
 GSM specification.
 
 Possible Errors:
- * org.freedesktop.PipeWire.Telephony.Error.InvalidState
+ * org.pipewire.Telephony.Error.InvalidState
  * org.freedesktop.DBus.Error.Failed
 
 `void SendTones(string tones)`
@@ -197,7 +197,7 @@ can be one of: '0' - '9', '*', '#', 'A', 'B', 'C', 'D'. The last four are
 typically not used in normal circumstances.
 
 Possible Errors:
- * org.freedesktop.PipeWire.Telephony.Error.InvalidState
+ * org.pipewire.Telephony.Error.InvalidState
  * org.freedesktop.DBus.Error.InvalidArgs
  * org.freedesktop.DBus.Error.Failed
 
@@ -224,10 +224,10 @@ the standard `org.freedesktop.DBus.ObjectManager` interface.
 ## Call Object
 
 ```
-Service         org.freedesktop.PipeWire.Telephony
+Service         org.pipewire.Telephony
             or  org.ofono
-Object path     /org/freedesktop/PipeWire/Telephony/{ag0,ag1,...}/{call0,call1,...}
-Implements      org.freedesktop.PipeWire.Telephony.Call1
+Object path     /org/pipewire/Telephony/{ag0,ag1,...}/{call0,call1,...}
+Implements      org.pipewire.Telephony.Call1
                 org.ofono.VoiceCall
                 org.freedesktop.DBus.Introspectable
                 org.freedesktop.DBus.Properties
@@ -236,7 +236,7 @@ Implements      org.freedesktop.PipeWire.Telephony.Call1
 Call objects represent active calls and allow managing them.
 
 The methods, signals and properties listed below are made available on both
-`org.freedesktop.PipeWire.Telephony.Call1` and `org.ofono.VoiceCall`
+`org.pipewire.Telephony.Call1` and `org.ofono.VoiceCall`
 interfaces, unless explicitly documented otherwise.
 
 ### Methods
@@ -255,7 +255,7 @@ for compatibility. Properties are normally made available via the standard
 Answers an incoming call. Only valid if the state of the call is "incoming".
 
 Possible Errors:
- * org.freedesktop.PipeWire.Telephony.Error.InvalidState
+ * org.pipewire.Telephony.Error.InvalidState
  * org.freedesktop.DBus.Error.Failed
 
 `void Hangup()`
@@ -286,7 +286,7 @@ single active call and a waiting call are present, releasing the active call
 will result in the waiting call transitioning to the 'incoming' state.
 
 Possible Errors:
- * org.freedesktop.PipeWire.Telephony.Error.InvalidState
+ * org.pipewire.Telephony.Error.InvalidState
  * org.freedesktop.DBus.Error.Failed
 
 ### Signals

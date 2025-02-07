@@ -1309,7 +1309,7 @@ static bool hfp_hf_wait_for_reply(struct rfcomm *rfcomm, char *buf, size_t len)
 		if (fds[0].revents & (POLLHUP | POLLERR)) {
 			spa_log_info(backend->log, "lost RFCOMM connection.");
 			rfcomm_free(rfcomm);
-			goto done;
+			return false;
 		}
 
 		if (fds[0].revents & POLLIN) {

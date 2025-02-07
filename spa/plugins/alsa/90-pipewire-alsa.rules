@@ -19,8 +19,8 @@ SUBSYSTEM!="sound", GOTO="pipewire_end"
 ACTION!="change", GOTO="pipewire_end"
 KERNEL!="card*", GOTO="pipewire_end"
 SUBSYSTEMS=="usb", GOTO="pipewire_check_usb"
-SUBSYSTEMS=="pci", GOTO="pipewire_check_pci"
 SUBSYSTEMS=="firewire", GOTO="pipewire_firewire_quirk"
+SUBSYSTEMS=="pci", GOTO="pipewire_check_pci"
 
 SUBSYSTEMS=="platform", DRIVERS=="thinkpad_acpi", ENV{ACP_IGNORE}="1"
 

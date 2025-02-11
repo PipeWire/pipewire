@@ -2690,7 +2690,7 @@ static int port_set_format(struct client *c, struct port *p,
 		p->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
 	}
 
-	pw_log_info("port %s: update", p->object->port.name);
+	pw_log_debug("port %s: update", p->object->port.name);
 
 	p->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 
@@ -2730,7 +2730,7 @@ static void port_update_latency(struct port *p)
 	param_latency(c, p, &params[5], &b);
 	param_latency_other(c, p, &params[6], &b);
 
-	pw_log_info("port %s: update", p->object->port.name);
+	pw_log_debug("port %s: update", p->object->port.name);
 
 	p->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	p->params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;

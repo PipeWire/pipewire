@@ -1519,8 +1519,8 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 	struct pw_impl_node *n, *s, *target, *fallback;
 	const uint32_t *rates;
 	uint32_t max_quantum, min_quantum, def_quantum, rate_quantum, floor_quantum, ceil_quantum;
-	uint32_t n_rates, def_rate;
-	bool freewheel, global_force_rate, global_force_quantum, transport_start;
+	uint32_t n_rates, def_rate, transport;
+	bool freewheel, global_force_rate, global_force_quantum;
 	struct spa_list collect;
 
 	pw_log_info("%p: busy:%d reason:%s", context, impl->recalc, reason);
@@ -1533,7 +1533,6 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 again:
 	impl->recalc = true;
 	freewheel = false;
-	transport_start = false;
 
 	/* clean up the flags first */
 	spa_list_for_each(n, &context->node_list, link) {
@@ -1766,10 +1765,16 @@ again:
 			/* Here we are allowed to change the rate of the driver.
 			 * Start with the default rate. If the desired rate is
 			 * allowed, switch to it */
-			target_rate = node_def_rate;
 			if (rate.denom != 0 && rate.num == 1)
-				target_rate = find_best_rate(node_rates, node_n_rates,
-						rate.denom, target_rate);
+				target_rate = rate.denom;
+			else
+				target_rate = node_def_rate;
+
+			target_rate = find_best_rate(node_rates, node_n_rates,
+						target_rate, node_def_rate);
+
+			pw_log_debug("%p: def_rate:%d target_rate:%d rate:%d/%d", context,
+					node_def_rate, target_rate, rate.num, rate.denom);
 		}
 
 		was_target_pending = n->target_pending;
@@ -1881,10 +1886,14 @@ again:
 				n->rt.position->clock.target_duration,
 				n->rt.position->clock.target_rate.denom, n->name);
 
+		transport = PW_NODE_ACTIVATION_COMMAND_NONE;
+
 		/* first change the node states of the followers to the new target */
 		spa_list_for_each(s, &n->follower_list, follower_link) {
-			if (s->transport)
-				transport_start = true;
+			if (s->transport != PW_NODE_ACTIVATION_COMMAND_NONE) {
+				transport = s->transport;
+				s->transport = PW_NODE_ACTIVATION_COMMAND_NONE;
+			}
 			if (s == n)
 				continue;
 			pw_log_debug("%p: follower %p: active:%d '%s'",
@@ -1892,10 +1901,10 @@ again:
 			ensure_state(s, running);
 		}
 
-		SPA_ATOMIC_STORE(n->rt.target.activation->command,
-				transport_start ?
-					PW_NODE_ACTIVATION_COMMAND_START :
-					PW_NODE_ACTIVATION_COMMAND_STOP);
+		if (transport != PW_NODE_ACTIVATION_COMMAND_NONE) {
+			pw_log_info("%s: transport %d", n->name, transport);
+			SPA_ATOMIC_STORE(n->rt.target.activation->command, transport);
+		}
 
 		/* now that all the followers are ready, start the driver */
 		ensure_state(n, running);

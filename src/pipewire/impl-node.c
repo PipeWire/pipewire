@@ -1119,7 +1119,7 @@ static void check_properties(struct pw_impl_node *node)
 	const char *str, *recalc_reason = NULL;
 	struct spa_fraction frac;
 	uint32_t value;
-	bool driver, trigger, transport, sync, async;
+	bool driver, trigger, sync, async;
 	struct match match;
 
 	match = MATCH_INIT(node);
@@ -1222,10 +1222,13 @@ static void check_properties(struct pw_impl_node *node)
 		recalc_reason = "sync changed";
 	}
 
-	transport = pw_properties_get_bool(node->properties, PW_KEY_NODE_TRANSPORT, false);
-	if (transport != node->transport) {
-		pw_log_info("%p: transport %d -> %d", node, node->transport, transport);
-		node->transport = transport;
+	str = pw_properties_get(node->properties, PW_KEY_NODE_TRANSPORT);
+	if (str != NULL) {
+		node->transport = spa_atob(str) ?
+			PW_NODE_ACTIVATION_COMMAND_START :
+			PW_NODE_ACTIVATION_COMMAND_STOP;
+		pw_log_info("%p: transport %d", node, node->transport);
+		pw_properties_set(node->properties, PW_KEY_NODE_TRANSPORT, NULL);
 		recalc_reason = "transport changed";
 	}
 	async = pw_properties_get_bool(node->properties, PW_KEY_NODE_ASYNC, false);

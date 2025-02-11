@@ -7297,6 +7297,8 @@ static int transport_update(struct client* c, int active)
                                     PW_CLIENT_NODE_UPDATE_INFO,
 				    0, NULL, &c->info);
 	c->info.change_mask = 0;
+
+	pw_properties_set(c->props, PW_KEY_NODE_TRANSPORT, NULL);
 	pw_thread_loop_unlock(c->context.loop);
 
 	return 0;

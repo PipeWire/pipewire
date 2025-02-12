@@ -298,7 +298,8 @@
  * ## Application settings (Rules)
  *
  * The pulse protocol module supports generic config rules. It supports a pulse.rules
- * section with a `quirks` and an `update-props` action.
+ * section with a `quirks` and an `update-props` action. These rules operate on the client
+ * properties (not the stream properties, see above).
  *
  *\code{.unparsed}
  * # ~/.config/pipewire/pipewire-pulse.conf.d/custom.conf
@@ -346,7 +347,7 @@
  * ### update-props
  *
  * Takes an object with the properties to update on the client. Common actions are to
- * tweak the quantum values.
+ * tweak the quantum values. You can use the stream specific keys in pulse.properties.
  *
  * ### startup notification
  *

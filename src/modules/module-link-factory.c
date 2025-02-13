@@ -41,20 +41,20 @@
  *
  * ## Properties for the create_object call
  *
- * - `link.output.node`: The output node to use. This can be the node id, node.name,
+ * - `link.output.node`: The output node to use. This can be the node object.id, node.name,
  *                     node.nick, node.description or object.path of a node. When the
  *                     property is not given or NULL, the output port should be
  *                     specified.
- * - `link.output.port`: The output port to link. This can be a port id, port.name,
+ * - `link.output.port`: The output port to link. This can be a port object.id, port.name,
  *                     port.alias or object.path. If an output node is specified, the
  *                     port must belong to the node. If no output port is given, an
  *                     output node must be specified and a random (unlinked) port will
  *                     be used from the node.
- * - `link.input.node`: The input node to use. This can be the node id, node.name,
+ * - `link.input.node`: The input node to use. This can be the node object.id, node.name,
  *                     node.nick, node.description or object.path of a node. When the
  *                     property is not given or NULL, the input port should be
  *                     specified.
- * - `link.input.port`: The input port to link. This can be a port id, port.name,
+ * - `link.input.port`: The input port to link. This can be a port object.id, port.name,
  *                     port.alias or object.path. If an input node is specified, the
  *                     port must belong to the node. If no input port is given, an
  *                     input node must be specified and a random (unlinked) port will

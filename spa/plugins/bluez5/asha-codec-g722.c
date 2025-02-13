@@ -6,14 +6,9 @@
 #include <spa/utils/dict.h>
 #include <spa/debug/log.h>
 
-#include <libavcodec/avcodec.h>
-#include <libavutil/channel_layout.h>
-#include <libavutil/common.h>
-#include <libavutil/frame.h>
-#include <libavutil/samplefmt.h>
-
 #include "rtp.h"
 #include "media-codecs.h"
+#include "g722/g722_enc_dec.h"
 
 #define ASHA_HEADER_SZ       1 /* 1 byte sequence number */
 #define ASHA_ENCODED_PKT_SZ  160
@@ -21,11 +16,7 @@
 static struct spa_log *spalog;
 
 struct impl {
-	const AVCodec *avcodec;
-	AVCodecContext *ctx;
-	AVFrame *frame;
-	AVPacket *pkt;
-
+	g722_encode_state_t encode;
 	unsigned int codesize;
 };
 
@@ -96,14 +87,7 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 
 static void codec_deinit(void *data)
 {
-	struct impl *this = data;
-
-	if (this->frame)
-		av_frame_free(&this->frame);
-	if (this->pkt)
-		av_packet_free(&this->pkt);
-	if (this->ctx)
-		avcodec_free_context(&this->ctx);
+	return;
 }
 
 static void *codec_init(const struct media_codec *codec, uint32_t flags,
@@ -111,64 +95,11 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		void *props, size_t mtu)
 {
 	struct impl *this;
-	const AVCodec *avcodec;
-	AVCodecContext *c = NULL;
-	AVFrame *frame = NULL;
-	AVPacket *pkt = NULL;
 
 	if ((this = calloc(1, sizeof(struct impl))) == NULL)
-		goto error;
+		return NULL;
 
-	avcodec = avcodec_find_encoder(AV_CODEC_ID_ADPCM_G722);
-	if (!avcodec) {
-		spa_log_error(spalog, "Codec not found");
-		goto error;
-	}
-
-	c = avcodec_alloc_context3(avcodec);
-	if (!c) {
-		spa_log_error(spalog, "Codec context allocation failed");
-		goto error;
-	}
-
-	/* https://source.android.com/docs/core/connect/bluetooth/asha#audio-packet-format-and-timing */
-	c->bit_rate = 64000;
-	c->sample_rate = 16000;
-	c->sample_fmt = AV_SAMPLE_FMT_S16;
-	av_channel_layout_copy(&c->ch_layout, &(AVChannelLayout)AV_CHANNEL_LAYOUT_MONO);
-
-	spa_log_info(spalog, "Opening codec, format: %d, rate: %d, layout: %d", c->sample_fmt, c->sample_rate, c->ch_layout.nb_channels);
-
-	if (avcodec_open2(c, avcodec, NULL) < 0) {
-		spa_log_error(spalog, "Could not open codec");
-		goto error;
-	}
-
-	frame = av_frame_alloc();
-	if (!frame) {
-		spa_log_error(spalog, "Could not allocate frame");
-		goto error;
-	}
-
-	frame->nb_samples = c->frame_size;
-	frame->format = c->sample_fmt;
-	if (av_channel_layout_copy (&frame->ch_layout, &c->ch_layout)) {
-		spa_log_error(spalog, "Failed to copy channel layout");
-		goto error;
-	}
-
-	spa_log_info(spalog, "Frame info, samples: %d, format: %d, layout: %d", frame->nb_samples, frame->format, frame->ch_layout.nb_channels);
-
-	if (av_frame_get_buffer(frame, 0)) {
-		spa_log_error(spalog, "Failed to allocate buffer for frame");
-		goto error;
-	}
-
-	pkt = av_packet_alloc();
-	if (!pkt) {
-		spa_log_error(spalog, "Could not allocate packet");
-		goto error;
-	}
+	g722_encode_init(&this->encode, 64000, G722_PACKED);
 
 	/*
 	 * G722 has a compression ratio of 4. Considering 160 bytes of encoded
@@ -176,22 +107,9 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	 */
 	this->codesize = ASHA_ENCODED_PKT_SZ * 4;
 
-	this->avcodec = avcodec;
-	this->ctx = c;
-	this->frame = frame;
-	this->pkt = pkt;
-
 	spa_log_debug(spalog, "Codec initialized");
 
 	return this;
-
-error:
-	if (frame)
-		av_frame_free(&frame);
-	if (c)
-		avcodec_free_context(&c);
-
-	return NULL;
 }
 
 static int codec_encode(void *data,
@@ -200,8 +118,6 @@ static int codec_encode(void *data,
 		size_t *dst_out, int *need_flush)
 {
 	struct impl *this = data;
-	AVFrame *frame = this->frame;
-	AVPacket *pkt = this->pkt;
 	size_t src_sz;
 	int ret;
 
@@ -209,45 +125,21 @@ static int codec_encode(void *data,
 		spa_log_trace(spalog, "Insufficient bytes for encoding, %zd", src_size);
 		return 0;
 	}
+
 	if (dst_size < (ASHA_HEADER_SZ + ASHA_ENCODED_PKT_SZ)) {
 		spa_log_trace(spalog, "No space for encoded output, %zd", dst_size);
 		return 0;
 	}
 
-	spa_log_trace(spalog, "%zd bytes to encode", src_size);
-
-	ret = av_frame_make_writable(this->frame);
-	if (ret < 0) {
-		spa_log_error(spalog, "Failed to make frame writable");
-		return -EIO;
-	}
-
 	src_sz = (src_size > this->codesize) ? this->codesize : src_size;
-	frame->data[0] = (uint8_t *)src;
-	frame->linesize[0] = src_sz;
 
-	spa_log_trace(spalog, "Encoding %zd bytes", src_sz);
-
-	ret = avcodec_send_frame(this->ctx, frame);
+	ret = g722_encode(&this->encode, dst, src, src_sz / 2 /* S16LE */);
 	if (ret < 0) {
-		spa_log_error(spalog, "Failed to send frame: %d", ret);
-		return ret;
-	}
-
-	ret = avcodec_receive_packet(this->ctx, pkt);
-	if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-		spa_log_warn(spalog, "Receive packet EOF/EAGAIN: %d", ret);
-		return 0;
-	}
-
-	if (ret < 0) {
-		spa_log_error(spalog, "Receive packet error: %d", ret);
+		spa_log_error(spalog, "encode error: %d", ret);
 		return -EIO;
 	}
 
-	memcpy(dst, pkt->data, pkt->size);
-
-	*dst_out = pkt->size;
+	*dst_out = ret;
 	*need_flush = NEED_FLUSH_ALL;
 
 	return src_sz;

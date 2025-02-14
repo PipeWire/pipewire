@@ -47,7 +47,9 @@
  *                     specified.
  * - `link.output.port`: The output port to link. This can be a port object.id, port.name,
  *                     port.alias or object.path. If an output node is specified, the
- *                     port must belong to the node. If no output port is given, an
+ *                     port must belong to the node and if no port was found using the
+ *                     object.id, port.name, port.alias or object.path, the port.id is
+ *                     used to find the port in the node. If no output port is given, an
  *                     output node must be specified and a random (unlinked) port will
  *                     be used from the node.
  * - `link.input.node`: The input node to use. This can be the node object.id, node.name,
@@ -56,7 +58,9 @@
  *                     specified.
  * - `link.input.port`: The input port to link. This can be a port object.id, port.name,
  *                     port.alias or object.path. If an input node is specified, the
- *                     port must belong to the node. If no input port is given, an
+ *                     port must belong to the node and if no port was found using the
+ *                     object.id, port.name, port.alias or object.path, the port.id is
+ *                     used to find the port in the node. If no input port is given, an
  *                     input node must be specified and a random (unlinked) port will
  *                     be used from the node.
  * - `object.linger`: Keep the link around even when the client that created it is gone.
@@ -368,8 +372,12 @@ static struct pw_impl_port *find_port(struct pw_context *context,
 	if (find.id != SPA_ID_INVALID) {
 		struct pw_global *global = pw_context_find_global(context, find.id);
 		/* find port by global id */
-		if (global != NULL && pw_global_is_type(global, PW_TYPE_INTERFACE_Port))
-			return pw_global_get_object(global);
+		if (global != NULL && pw_global_is_type(global, PW_TYPE_INTERFACE_Port)) {
+			find.port = pw_global_get_object(global);
+			if (find.port != NULL &&
+			    (node == NULL || pw_impl_port_get_node(find.port) == node))
+				return find.port;
+		}
 	}
 	if (node != NULL) {
 		/* find port by local id */

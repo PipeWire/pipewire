@@ -47,9 +47,9 @@
  *                     specified.
  * - `link.output.port`: The output port to link. This can be a port object.id, port.name,
  *                     port.alias or object.path. If an output node is specified, the
- *                     port must belong to the node and if no port was found using the
- *                     object.id, port.name, port.alias or object.path, the port.id is
- *                     used to find the port in the node. If no output port is given, an
+ *                     port must belong to the node. Finding a port in a node using the
+ *                     port.id is deprecated and may lead to unexpected results when the
+ *                     port.id also matches an object.id. If no output port is given, an
  *                     output node must be specified and a random (unlinked) port will
  *                     be used from the node.
  * - `link.input.node`: The input node to use. This can be the node object.id, node.name,
@@ -58,9 +58,9 @@
  *                     specified.
  * - `link.input.port`: The input port to link. This can be a port object.id, port.name,
  *                     port.alias or object.path. If an input node is specified, the
- *                     port must belong to the node and if no port was found using the
- *                     object.id, port.name, port.alias or object.path, the port.id is
- *                     used to find the port in the node. If no input port is given, an
+ *                     port must belong to the node. Finding a port in a node using the
+ *                     port.id is deprecated and may lead to unexpected results when the
+ *                     port.id also matches an object.id. If no input port is given, an
  *                     input node must be specified and a random (unlinked) port will
  *                     be used from the node.
  * - `object.linger`: Keep the link around even when the client that created it is gone.
@@ -380,7 +380,7 @@ static struct pw_impl_port *find_port(struct pw_context *context,
 		}
 	}
 	if (node != NULL) {
-		/* find port by local id */
+		/* find port by local id (deprecated) */
 		if (find.id != SPA_ID_INVALID) {
 			find.port = pw_impl_node_find_port(node, find.direction, find.id);
 			if (find.port != NULL)

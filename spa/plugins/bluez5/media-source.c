@@ -970,7 +970,9 @@ static void emit_node_info(struct impl *this, bool full)
 {
 	uint64_t old = full ? this->info.change_mask : 0;
 	char latency[64];
+	char rate[64];
 	char media_name[256];
+	struct port *port = &this->port;
 
 	spa_scnprintf(
 		media_name,
@@ -987,10 +989,12 @@ static void emit_node_info(struct impl *this, bool full)
 		  this->is_input ? "Audio/Source" : "Stream/Output/Audio" },
 		{ SPA_KEY_NODE_LATENCY, this->is_input ? "" : latency },
 		{ "media.name", media_name },
+		{ "node.rate", this->is_input ? "" : rate },
 		{ SPA_KEY_NODE_DRIVER, this->is_input ? "true" : "false" },
 	};
 
 	spa_scnprintf(latency, sizeof(latency), "%d/48000", this->node_latency);
+	spa_scnprintf(rate, sizeof(rate), "1/%d", port->current_format.info.raw.rate);
 
 	if (full)
 		this->info.change_mask = this->info_all;
@@ -1272,6 +1276,9 @@ static int port_set_format(struct impl *this, struct port *port,
 		port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	}
 	emit_port_info(this, port, false);
+
+	this->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
+	emit_node_info(this, false);
 
 	return 0;
 }

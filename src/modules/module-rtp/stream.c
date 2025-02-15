@@ -547,6 +547,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	pw_properties_setf(props, "rtp.media", "%s", impl->format_info->media_type);
 	pw_properties_setf(props, "rtp.mime", "%s", impl->format_info->mime);
 	pw_properties_setf(props, "rtp.payload", "%u", impl->payload);
+	pw_properties_setf(props, "rtp.ssrc", "%u", impl->ssrc);
 	pw_properties_setf(props, "rtp.rate", "%u", impl->rate);
 	if (impl->info.info.raw.channels > 0)
 		pw_properties_setf(props, "rtp.channels", "%u", impl->info.info.raw.channels);

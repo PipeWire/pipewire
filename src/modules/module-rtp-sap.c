@@ -207,6 +207,7 @@ struct sdp_info {
 	float ptime;
 	uint32_t framecount;
 
+	uint32_t ssrc;
 	uint32_t ts_offset;
 	char *ts_refclk;
 };
@@ -732,6 +733,9 @@ static int make_sdp(struct impl *impl, struct session *sess, char *buffer, size_
 			"a=source-filter: incl IN %s %s %s\n", dst_ip4 ? "IP4" : "IP6",
 				dst_addr, src_addr);
 
+	if (sdp->ssrc > 0)
+		spa_strbuf_append(&buf, "a=ssrc:%u\n", sdp->ssrc);
+
 	if (sdp->ptime > 0)
 		spa_strbuf_append(&buf,
 			"a=ptime:%.6g\n", sdp->ptime);
@@ -991,6 +995,10 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 		sdp->rate = atoi(str);
 	if ((str = pw_properties_get(props, "rtp.channels")) != NULL)
 		sdp->channels = atoi(str);
+	if ((str = pw_properties_get(props, "rtp.ssrc")) != NULL)
+		sdp->ssrc = atoi(str);
+	else
+		sdp->ssrc = 0;
 	if ((str = pw_properties_get(props, "rtp.ts-offset")) != NULL)
 		sdp->ts_offset = atoi(str);
 	str = pw_properties_get(props, "rtp.ts-refclk");

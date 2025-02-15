@@ -196,6 +196,13 @@ static void do_flush_event(void *data, uint64_t count)
 		pw_profiler_resource_profile(resource, &p->pod);
 }
 
+static void update_denom(struct spa_fraction *frac, uint32_t denom)
+{
+	if (frac->denom != 0)
+		frac->num = frac->num * denom / frac->denom;
+	frac->denom = denom;
+}
+
 static void context_do_profile(void *data)
 {
 	struct node *n = data;
@@ -273,9 +280,9 @@ static void context_do_profile(void *data)
 			if (n->force_quantum != 0)
 				latency.num = n->force_quantum;
 			if (n->force_rate != 0)
-				latency.denom = n->force_rate;
+				update_denom(&latency, n->force_rate);
 			else if (n->rate.denom != 0)
-				latency.denom = n->rate.denom;
+				update_denom(&latency, n->rate.denom);
 		} else {
 			spa_zero(latency);
 		}

@@ -1141,6 +1141,8 @@ static int session_load_source(struct session *session, struct pw_properties *pr
 			if ((str = pw_properties_get(props, "rtp.channels")) != NULL)
 				pw_properties_set(props, "audio.channels", str);
 		}
+		if ((str = pw_properties_get(props, "rtp.ssrc")) != NULL)
+			fprintf(f, "\"rtp.receiver-ssrc\" = \"%s\", ", str);
 	} else {
 		pw_log_error("Unhandled media %s", media);
 		res = -EINVAL;
@@ -1266,6 +1268,9 @@ static struct session *session_new(struct impl *impl, struct sdp_info *info)
 
 	pw_properties_setf(props, "rtp.ts-offset", "%u", info->ts_offset);
 	pw_properties_set(props, "rtp.ts-refclk", info->ts_refclk);
+
+	if (info->ssrc > 0)
+		pw_properties_setf(props, "rtp.ssrc", "%u", info->ssrc);
 
 	if (info->channelmap[0])
 		pw_properties_set(props, PW_KEY_NODE_CHANNELNAMES, info->channelmap);
@@ -1416,6 +1421,16 @@ static int parse_sdp_a_rtpmap(struct impl *impl, char *c, struct sdp_info *info)
 	return 0;
 }
 
+static int parse_sdp_a_ssrc(struct impl *impl, char *c, struct sdp_info *info)
+{
+	if (!spa_strstartswith(c, "a=ssrc:"))
+		return 0;
+
+	c += strlen("a=ssrc:");
+	spa_atou32(c, &info->ssrc, 10);
+	return 0;
+}
+
 static int parse_sdp_a_ptime(struct impl *impl, char *c, struct sdp_info *info)
 {
 	if (!spa_strstartswith(c, "a=ptime:"))
@@ -1481,6 +1496,8 @@ static int parse_sdp(struct impl *impl, char *sdp, struct sdp_info *info)
 			res = parse_sdp_m(impl, s, info);
 		else if (spa_strstartswith(s, "a=rtpmap:"))
 			res = parse_sdp_a_rtpmap(impl, s, info);
+		else if (spa_strstartswith(s, "a=ssrc:"))
+			res = parse_sdp_a_ssrc(impl, s, info);
 		else if (spa_strstartswith(s, "a=ptime:"))
 			res = parse_sdp_a_ptime(impl, s, info);
 		else if (spa_strstartswith(s, "a=mediaclk:"))

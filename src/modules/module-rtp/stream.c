@@ -64,6 +64,7 @@ struct impl {
 	uint8_t payload;
 	uint32_t ssrc;
 	uint16_t seq;
+	unsigned fixed_ssrc:1;
 	unsigned have_ssrc:1;
 	unsigned ignore_ssrc:1;
 	unsigned have_seq:1;
@@ -436,7 +437,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		impl->ssrc = pw_properties_get_uint32(props, "rtp.sender-ssrc", pw_rand32());
 		impl->ts_offset = pw_properties_get_uint32(props, "rtp.sender-ts-offset", pw_rand32());
 	} else {
-		impl->have_ssrc = pw_properties_fetch_uint32(props, "rtp.receiver-ssrc", &impl->ssrc);
+		impl->have_ssrc = impl->fixed_ssrc = pw_properties_fetch_uint32(props, "rtp.receiver-ssrc", &impl->ssrc);
 		if (pw_properties_fetch_uint32(props, "rtp.receiver-ts-offset", &impl->ts_offset) < 0)
 			impl->direct_timestamp = false;
 	}

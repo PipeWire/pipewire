@@ -827,6 +827,18 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 		impl->sap_fd = fd;
 	}
 
+        /* For the first session, we might not yet have an SDP because the
+         * socket needs to be open for us to get the interface address (which
+         * happens above. So let's create the SDP now, if needed. */
+        if (!sess->has_sdp) {
+		res = make_sdp(impl, sess, sess->sdp, sizeof(sess->sdp));
+		if (res != 0) {
+			pw_log_error("Failed to create SDP: %s", spa_strerror(res));
+			return res;
+		}
+		sess->has_sdp = true;
+	}
+
 	spa_zero(header);
 	header.v = 1;
 	header.t = bye;
@@ -998,10 +1010,13 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 				spa_strbuf_append(&buf, "%s%s", count++ > 0 ? ", " : "", v);
 		}
 	}
-	make_sdp(impl, sess, buffer, sizeof(buffer));
+
+	/* see if we can make an SDP, will fail for the first session because we
+	 * haven't got the SAP socket open yet */
+	res = make_sdp(impl, sess, buffer, sizeof(buffer));
 
 	/* we had no sdp or something changed */
-	if (!sess->has_sdp || strcmp(buffer, sess->sdp) != 0) {
+	if (res == 0 && (!sess->has_sdp || strcmp(buffer, sess->sdp) != 0)) {
 		/*  send bye on the old session */
 		send_sap(impl, sess, 1);
 
@@ -1027,10 +1042,15 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 			sdp->session_version = sdp->t_ntp;
 		}
 
-		/* make an updated SDP for sending */
-		make_sdp(impl, sess, sess->sdp, sizeof(sess->sdp));
-		sess->has_sdp = true;
+		/* make an updated SDP for sending, this should not actually fail */
+		res = make_sdp(impl, sess, sess->sdp, sizeof(sess->sdp));
+
+		if (res == 0)
+			sess->has_sdp = true;
+		else
+			pw_log_error("Failed to create SDP: %s", spa_strerror(res));
 	}
+
 	send_sap(impl, sess, 0);
 
 	return sess;

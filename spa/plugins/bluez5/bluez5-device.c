@@ -53,13 +53,15 @@ static struct spa_i18n *_i18n;
 #define _(_str)	 spa_i18n_text(_i18n,(_str))
 #define N_(_str) (_str)
 
-enum {
+enum device_profile {
 	DEVICE_PROFILE_OFF = 0,
-	DEVICE_PROFILE_AG = 1,
-	DEVICE_PROFILE_A2DP = 2,
-	DEVICE_PROFILE_HSP_HFP = 3,
-	DEVICE_PROFILE_BAP = 4,
-	DEVICE_PROFILE_ASHA = 5,
+	DEVICE_PROFILE_AG,
+	DEVICE_PROFILE_A2DP,
+	DEVICE_PROFILE_HSP_HFP,
+	DEVICE_PROFILE_BAP,
+	DEVICE_PROFILE_BAP_SINK,
+	DEVICE_PROFILE_BAP_SOURCE,
+	DEVICE_PROFILE_ASHA,
 	DEVICE_PROFILE_LAST,
 };
 
@@ -185,6 +187,19 @@ static void init_node(struct impl *this, struct node *node, uint32_t id)
 	}
 }
 
+static bool profile_is_bap(enum device_profile profile)
+{
+	switch (profile) {
+	case DEVICE_PROFILE_BAP:
+	case DEVICE_PROFILE_BAP_SINK:
+	case DEVICE_PROFILE_BAP_SOURCE:
+		return true;
+	default:
+		break;
+	}
+	return false;
+}
+
 static void get_media_codecs(struct impl *this, enum spa_bluetooth_audio_codec id, const struct media_codec **codecs, size_t size)
 {
 	const struct media_codec * const *c;
@@ -248,20 +263,6 @@ static bool is_bap_client(struct impl *this)
 	}
 
 	return false;
-}
-
-static bool can_bap_codec_switch(struct impl *this)
-{
-	if (!is_bap_client(this))
-		return false;
-
-	/* XXX: codec switching for source/duplex is not currently
-	 * XXX: implemented properly. TODO: fix this
-	 */
-	if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_BAP_SOURCE)
-		return false;
-
-	return true;
 }
 
 static const char *get_codec_name(struct spa_bt_transport *t, bool a2dp_duplex)
@@ -376,6 +377,8 @@ static bool node_update_volume_from_transport(struct node *node, bool reset)
 	/* PW is the controller for remote device. */
 	if (impl->profile != DEVICE_PROFILE_A2DP
 	    && impl->profile != DEVICE_PROFILE_BAP
+	    && impl->profile != DEVICE_PROFILE_BAP_SINK
+	    && impl->profile != DEVICE_PROFILE_BAP_SOURCE
 	    && impl->profile !=  DEVICE_PROFILE_HSP_HFP)
 		return false;
 
@@ -1095,7 +1098,7 @@ static void device_set_update_bap(struct impl *this, struct device_set *dset)
 
 static void device_set_update(struct impl *this, struct device_set *dset, int profile)
 {
-	if (profile == DEVICE_PROFILE_BAP)
+	if (profile_is_bap(this->profile))
 		device_set_update_bap(this, dset);
 	else if (profile == DEVICE_PROFILE_ASHA)
 		device_set_update_asha(this, dset);
@@ -1236,7 +1239,10 @@ static int emit_nodes(struct impl *this)
 		if (!this->props.codec)
 			this->props.codec = SPA_BLUETOOTH_AUDIO_CODEC_SBC;
 		break;
-	case DEVICE_PROFILE_BAP: {
+	case DEVICE_PROFILE_BAP:
+	case DEVICE_PROFILE_BAP_SINK:
+	case DEVICE_PROFILE_BAP_SOURCE:
+	{
 		struct device_set *set = &this->device_set;
 		unsigned int i;
 
@@ -1379,7 +1385,7 @@ static int set_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_a
 	if (this->profile == profile &&
 	    (this->profile != DEVICE_PROFILE_ASHA || codec == this->props.codec) &&
 	    (this->profile != DEVICE_PROFILE_A2DP || codec == this->props.codec) &&
-	    (this->profile != DEVICE_PROFILE_BAP || codec == this->props.codec) &&
+	    (!profile_is_bap(this->profile) || codec == this->props.codec) &&
 	    (this->profile != DEVICE_PROFILE_HSP_HFP || codec == this->props.codec))
 		return 0;
 
@@ -1401,16 +1407,35 @@ static int set_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_a
 	 * XXX: source-only case, as it will only switch the sink, and we only
 	 * XXX: list the sink codecs here. TODO: fix this
 	 */
-	if ((profile == DEVICE_PROFILE_A2DP || (profile == DEVICE_PROFILE_BAP && can_bap_codec_switch(this)))
+	if ((profile == DEVICE_PROFILE_A2DP || (profile_is_bap(profile) && is_bap_client(this)))
 			&& !(this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE)) {
 		int ret;
 		const struct media_codec *codecs[64];
+		uint32_t profiles;
 
 		get_media_codecs(this, codec, codecs, SPA_N_ELEMENTS(codecs));
 
 		this->switching_codec = true;
 
-		ret = spa_bt_device_ensure_media_codec(this->bt_dev, codecs, 0);
+		switch (profile) {
+		case DEVICE_PROFILE_BAP_SINK:
+			profiles = SPA_BT_PROFILE_BAP_SINK;
+			break;
+		case DEVICE_PROFILE_BAP_SOURCE:
+			profiles = SPA_BT_PROFILE_BAP_SOURCE;
+			break;
+		case DEVICE_PROFILE_BAP:
+			profiles = this->bt_dev->profiles & SPA_BT_PROFILE_BAP_DUPLEX;
+			break;
+		case DEVICE_PROFILE_A2DP:
+			profiles = this->bt_dev->profiles & SPA_BT_PROFILE_A2DP_DUPLEX;
+			break;
+		default:
+			profiles = 0;
+			break;
+		}
+
+		ret = spa_bt_device_ensure_media_codec(this->bt_dev, codecs, profiles);
 		if (ret < 0) {
 			if (ret != -ENOTSUP)
 				spa_log_error(this->log, "failed to switch codec (%d), setting basic profile", ret);
@@ -1462,8 +1487,13 @@ static void codec_switched(void *userdata, int status)
 	emit_nodes(this);
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-	if (this->prev_bt_connected_profiles != this->bt_dev->connected_profiles)
+	if ((this->prev_bt_connected_profiles ^ this->bt_dev->connected_profiles)
+			& ~SPA_BT_PROFILE_BAP_DUPLEX) {
+		spa_log_debug(this->log, "profiles changed %x -> %x",
+				this->prev_bt_connected_profiles,
+				this->bt_dev->connected_profiles);
 		this->params[IDX_EnumProfile].flags ^= SPA_PARAM_INFO_SERIAL;
+	}
 	this->params[IDX_Profile].flags ^= SPA_PARAM_INFO_SERIAL;
 	this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
 	this->params[IDX_EnumRoute].flags ^= SPA_PARAM_INFO_SERIAL;
@@ -1477,7 +1507,7 @@ static bool device_set_needs_update(struct impl *this)
 	struct device_set dset = { .impl = this };
 	bool changed;
 
-	if (this->profile != DEVICE_PROFILE_BAP &&
+	if (!profile_is_bap(this->profile) &&
 			this->profile != DEVICE_PROFILE_ASHA)
 		return false;
 
@@ -1526,6 +1556,8 @@ static void profiles_changed(void *userdata, uint32_t connected_change)
 			      nodes_changed);
 		break;
 	case DEVICE_PROFILE_BAP:
+	case DEVICE_PROFILE_BAP_SINK:
+	case DEVICE_PROFILE_BAP_SOURCE:
 		nodes_changed = ((connected_change & SPA_BT_PROFILE_BAP_DUPLEX)
 					&& device_set_needs_update(this))
 				|| (connected_change & (SPA_BT_PROFILE_BAP_BROADCAST_SINK |
@@ -1559,7 +1591,7 @@ static void device_set_changed(void *userdata)
 {
 	struct impl *this = userdata;
 
-	if (this->profile != DEVICE_PROFILE_BAP &&
+	if (!profile_is_bap(this->profile) &&
 			this->profile != DEVICE_PROFILE_ASHA)
 		return;
 
@@ -1683,10 +1715,16 @@ static uint32_t profile_direction_mask(struct impl *this, uint32_t index, enum s
 			have_input = true;
 		break;
 	case DEVICE_PROFILE_BAP:
-		if (device->connected_profiles & SPA_BT_PROFILE_BAP_SINK)
+		if (device->profiles & SPA_BT_PROFILE_BAP_SINK)
 			have_output = true;
-		if (device->connected_profiles & SPA_BT_PROFILE_BAP_SOURCE)
+		if (device->profiles & SPA_BT_PROFILE_BAP_SOURCE)
 			have_input = true;
+		break;
+	case DEVICE_PROFILE_BAP_SINK:
+		have_output = true;
+		break;
+	case DEVICE_PROFILE_BAP_SOURCE:
+		have_input = true;
 		break;
 	case DEVICE_PROFILE_HSP_HFP:
 		if (device->connected_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT)
@@ -1726,6 +1764,8 @@ static uint32_t get_profile_from_index(struct impl *this, uint32_t index, uint32
 	case DEVICE_PROFILE_A2DP:
 	case DEVICE_PROFILE_HSP_HFP:
 	case DEVICE_PROFILE_BAP:
+	case DEVICE_PROFILE_BAP_SINK:
+	case DEVICE_PROFILE_BAP_SOURCE:
 		*codec = (index & 0xffff);
 		*next = (profile + 1) << 16;
 
@@ -1755,6 +1795,8 @@ static uint32_t get_index_from_profile(struct impl *this, uint32_t profile, enum
 
 	case DEVICE_PROFILE_A2DP:
 	case DEVICE_PROFILE_BAP:
+	case DEVICE_PROFILE_BAP_SINK:
+	case DEVICE_PROFILE_BAP_SOURCE:
 	case DEVICE_PROFILE_HSP_HFP:
 		if (!codec)
 			return SPA_ID_INVALID;
@@ -1982,19 +2024,40 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		}
 		break;
 	}
+	case DEVICE_PROFILE_BAP_SINK:
+	case DEVICE_PROFILE_BAP_SOURCE:
+		/* These are client-only */
+		if (!is_bap_client(this))
+			return NULL;
+		SPA_FALLTHROUGH;
 	case DEVICE_PROFILE_BAP:
 	{
-		uint32_t profile = device->connected_profiles &
-		      (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE
-				| SPA_BT_PROFILE_BAP_BROADCAST_SOURCE
-				| SPA_BT_PROFILE_BAP_BROADCAST_SINK);
-		int idx;
+		uint32_t profile;
 		const struct media_codec *media_codec;
 		int n_set_sink, n_set_source;
 
 		/* BAP will only enlist codec profiles */
 		if (codec == 0)
 			return NULL;
+
+		switch (profile_index) {
+		case DEVICE_PROFILE_BAP:
+			profile = device->profiles &
+				(SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE
+						| SPA_BT_PROFILE_BAP_BROADCAST_SOURCE
+						| SPA_BT_PROFILE_BAP_BROADCAST_SINK);
+			break;
+		case DEVICE_PROFILE_BAP_SINK:
+			if (!(device->profiles & SPA_BT_PROFILE_BAP_SOURCE))
+				return NULL;
+			profile = device->profiles & SPA_BT_PROFILE_BAP_SINK;
+			break;
+		case DEVICE_PROFILE_BAP_SOURCE:
+			if (!(device->profiles & SPA_BT_PROFILE_BAP_SINK))
+				return NULL;
+			profile = device->profiles & SPA_BT_PROFILE_BAP_SOURCE;
+			break;
+		}
 
 		if (profile == 0)
 			return NULL;
@@ -2009,6 +2072,8 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		name = spa_bt_profile_name(profile);
 
 		if (codec) {
+			int idx;
+
 			media_codec = get_supported_media_codec(this, codec, &idx, profile);
 			if (media_codec == NULL) {
 				errno = EINVAL;
@@ -2179,6 +2244,20 @@ static bool profile_has_route(uint32_t profile, uint32_t route)
 		case ROUTE_OUTPUT:
 		case ROUTE_SET_INPUT:
 		case ROUTE_SET_OUTPUT:
+			return true;
+		}
+		break;
+	case DEVICE_PROFILE_BAP_SINK:
+		switch (route) {
+		case ROUTE_OUTPUT:
+		case ROUTE_SET_OUTPUT:
+			return true;
+		}
+		break;
+	case DEVICE_PROFILE_BAP_SOURCE:
+		switch (route) {
+		case ROUTE_INPUT:
+		case ROUTE_SET_INPUT:
 			return true;
 		}
 		break;
@@ -2444,7 +2523,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		spa_pod_builder_array(b, sizeof(uint32_t), SPA_TYPE_Id,
 				node->n_channels, node->channels);
 
-		if ((this->profile == DEVICE_PROFILE_A2DP || this->profile == DEVICE_PROFILE_BAP) &&
+		if ((this->profile == DEVICE_PROFILE_A2DP || profile_is_bap(this->profile)) &&
 				(dev & SINK_ID_FLAG)) {
 			spa_pod_builder_prop(b, SPA_PROP_latencyOffsetNsec, 0);
 			spa_pod_builder_long(b, node->latency_offset);
@@ -2481,7 +2560,7 @@ next:
 	c = this->supported_codecs[*j];
 
 	if (!(this->profile == DEVICE_PROFILE_A2DP && c->kind == MEDIA_CODEC_A2DP) &&
-			!(this->profile == DEVICE_PROFILE_BAP && c->kind == MEDIA_CODEC_BAP) &&
+			!(profile_is_bap(this->profile) && c->kind == MEDIA_CODEC_BAP) &&
 			!(this->profile == DEVICE_PROFILE_HSP_HFP && c->kind == MEDIA_CODEC_HFP) &&
 			!(this->profile == DEVICE_PROFILE_ASHA && c->kind == MEDIA_CODEC_ASHA))
 		goto next;
@@ -2983,7 +3062,7 @@ static int impl_set_param(void *object,
 		if (codec_id == SPA_ID_INVALID)
 			return 0;
 
-		if (this->profile == DEVICE_PROFILE_A2DP || this->profile == DEVICE_PROFILE_BAP ||
+		if (this->profile == DEVICE_PROFILE_A2DP || profile_is_bap(this->profile) ||
 				this->profile == DEVICE_PROFILE_ASHA || this->profile == DEVICE_PROFILE_HSP_HFP) {
 			size_t j;
 			for (j = 0; j < this->supported_codec_count; ++j) {

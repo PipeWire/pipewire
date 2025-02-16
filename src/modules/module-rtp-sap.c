@@ -1427,7 +1427,8 @@ static int parse_sdp_a_ssrc(struct impl *impl, char *c, struct sdp_info *info)
 		return 0;
 
 	c += strlen("a=ssrc:");
-	spa_atou32(c, &info->ssrc, 10);
+	if (!spa_atou32(c, &info->ssrc, 10))
+		return -EINVAL;
 	return 0;
 }
 
@@ -1437,7 +1438,8 @@ static int parse_sdp_a_ptime(struct impl *impl, char *c, struct sdp_info *info)
 		return 0;
 
 	c += strlen("a=ptime:");
-	spa_atof(c, &info->ptime);
+	if (!spa_atof(c, &info->ptime))
+		return -EINVAL;
 	return 0;
 }
 

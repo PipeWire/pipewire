@@ -195,7 +195,9 @@ enum spa_bt_profile {
 
 static inline enum spa_bt_profile spa_bt_profile_from_uuid(const char *uuid)
 {
-	if (strcasecmp(uuid, SPA_BT_UUID_A2DP_SOURCE) == 0)
+	if (!uuid)
+		return 0;
+	else if (strcasecmp(uuid, SPA_BT_UUID_A2DP_SOURCE) == 0)
 		return SPA_BT_PROFILE_A2DP_SOURCE;
 	else if (strcasecmp(uuid, SPA_BT_UUID_A2DP_SINK) == 0)
 		return SPA_BT_PROFILE_A2DP_SINK;
@@ -565,6 +567,7 @@ struct spa_bt_device {
 	DBusPendingCall *battery_pending_call;
 
 	const struct media_codec *preferred_codec;
+	uint32_t preferred_profiles;
 };
 
 struct spa_bt_device *spa_bt_device_find(struct spa_bt_monitor *monitor, const char *path);
@@ -572,7 +575,7 @@ struct spa_bt_device *spa_bt_device_find_by_address(struct spa_bt_monitor *monit
 int spa_bt_device_add_profile(struct spa_bt_device *device, enum spa_bt_profile profile);
 int spa_bt_device_connect_profile(struct spa_bt_device *device, enum spa_bt_profile profile);
 int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force);
-int spa_bt_device_ensure_media_codec(struct spa_bt_device *device, const struct media_codec * const *codecs);
+int spa_bt_device_ensure_media_codec(struct spa_bt_device *device, const struct media_codec * const *codecs, uint32_t profiles);
 int spa_bt_device_ensure_hfp_codec(struct spa_bt_device *device, const struct media_codec *codec);
 bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const struct media_codec *codec, enum spa_bt_profile profile);
 const struct media_codec **spa_bt_device_get_supported_media_codecs(struct spa_bt_device *device, size_t *count);
@@ -666,6 +669,7 @@ struct spa_bt_transport {
 	void *configuration;
 	int configuration_len;
 	char *endpoint_path;
+	char *remote_endpoint_path;
 	bool bap_initiator;
 	struct spa_list bap_transport_linked;
 

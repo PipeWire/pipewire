@@ -1410,7 +1410,7 @@ static int set_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_a
 
 		this->switching_codec = true;
 
-		ret = spa_bt_device_ensure_media_codec(this->bt_dev, codecs);
+		ret = spa_bt_device_ensure_media_codec(this->bt_dev, codecs, 0);
 		if (ret < 0) {
 			if (ret != -ENOTSUP)
 				spa_log_error(this->log, "failed to switch codec (%d), setting basic profile", ret);
@@ -1561,6 +1561,9 @@ static void device_set_changed(void *userdata)
 
 	if (this->profile != DEVICE_PROFILE_BAP &&
 			this->profile != DEVICE_PROFILE_ASHA)
+		return;
+
+	if (this->switching_codec)
 		return;
 
 	if (!device_set_needs_update(this)) {

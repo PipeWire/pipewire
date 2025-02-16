@@ -208,12 +208,19 @@ struct spa_bt_big {
 #define SPA_TYPE_BT_WORK_CODEC_SWITCH  SPA_TYPE_INFO_BT_WORK_BASE "CodecSwitch"
 #define SPA_TYPE_BT_WORK_RATE_LIMIT    SPA_TYPE_INFO_BT_WORK_BASE "RateLimit"
 
+struct spa_bt_codec_switch_path {
+	char *path;
+	bool clear;
+};
+
 struct spa_bt_codec_switch {
 	struct spa_list link;
 
 	bool canceled;
 	bool failed;
 	bool waiting;
+
+	uint32_t profiles;
 
 	struct spa_bt_device *device;
 
@@ -225,8 +232,8 @@ struct spa_bt_codec_switch {
 	 * invalidated in the meantime).
 	 */
 	const struct media_codec *codec;
-	char **paths;
-	char **path_iter;
+	struct spa_bt_codec_switch_path *paths;
+	unsigned int path_idx;
 };
 
 static struct spa_bt_codec_switch *codec_switch_cmp_sw;  /* global for qsort */
@@ -1060,7 +1067,10 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	if (ep->qos.channel_allocation)
 		spa_scnprintf(channel_allocation, sizeof(channel_allocation), "%"PRIu32, ep->qos.channel_allocation);
 
-	duplex = SPA_FLAG_IS_SET(ep->device->profiles, SPA_BT_PROFILE_BAP_DUPLEX);
+	if (!ep->device->preferred_profiles)
+		ep->device->preferred_profiles = ep->device->profiles;
+
+	duplex = SPA_FLAG_IS_SET(ep->device->preferred_profiles, SPA_BT_PROFILE_BAP_DUPLEX);
 
 	i = 0;
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.locations", locations);
@@ -1647,6 +1657,7 @@ static void device_clear_sub(struct spa_bt_device *device)
 	battery_remove(device);
 	spa_bt_device_release_transports(device);
 	device->preferred_codec = NULL;
+	device->preferred_profiles = 0;
 }
 
 static void device_free(struct spa_bt_device *device)
@@ -2163,7 +2174,9 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 			device, device->profiles, connected_profiles, connectable_profiles,
 			device->added, all_connected, direction_connected, set_connected);
 
-	if (connected_profiles == 0 && !has_codec_switch(device)) {
+	if (has_codec_switch(device)) {
+		/* noop */
+	} else if (connected_profiles == 0) {
 		device_stop_timer(device);
 		device_connected(monitor, device, BT_DEVICE_DISCONNECTED);
 	} else if (force || ((direction_connected || all_connected) && set_connected && connected_profiles)) {
@@ -3146,6 +3159,7 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 
 	free(transport->configuration);
 	free(transport->endpoint_path);
+	free(transport->remote_endpoint_path);
 	free(transport->path);
 	free(transport);
 }
@@ -3543,6 +3557,10 @@ static int transport_update_props(struct spa_bt_transport *transport,
 			}
 			else if (spa_streq(key, "Endpoint")) {
 				struct spa_bt_remote_endpoint *ep = remote_endpoint_find(monitor, value);
+
+				free(transport->remote_endpoint_path);
+				transport->remote_endpoint_path = strdup(value);
+
 				if (!ep) {
 					spa_log_warn(monitor->log, "Unable to find remote endpoint for %s", value);
 					goto next;
@@ -4261,7 +4279,9 @@ static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, 
 		spa_log_debug(monitor->log, "Setting ASHA codec: %s", mcodec->name);
 	}
 
+	free(transport->remote_endpoint_path);
 	free(transport->endpoint_path);
+	transport->remote_endpoint_path = strdup(remote_endpoint->path);
 	transport->endpoint_path = strdup(remote_endpoint->path);
 	transport->profile = SPA_BT_PROFILE_ASHA_SINK;
 	transport->media_codec = codec;
@@ -4404,7 +4424,7 @@ static void codec_switch_reply(DBusPendingCall *pending, void *user_data)
 	codec_switch_resume(sw);
 }
 
-static bool codec_switch_configure(struct spa_bt_codec_switch *sw)
+static bool codec_switch_configure_a2dp(struct spa_bt_codec_switch *sw, const char *path)
 {
 	struct spa_bt_device *device = sw->device;
 	struct spa_bt_monitor *monitor = device->monitor;
@@ -4419,26 +4439,24 @@ static bool codec_switch_configure(struct spa_bt_codec_switch *sw)
 	bool sink;
 
 	codec = sw->codec;
-	ep = device_remote_endpoint_find(device, *sw->path_iter);
+	ep = device_remote_endpoint_find(device, path);
 
 	if (!codec_switch_check_endpoint(ep, codec, &sink, &local_endpoint)) {
 		spa_log_error(monitor->log, "media codec switch %p: endpoint %s not valid",
-				sw, *sw->path_iter);
+				sw, path);
 		return false;
 	}
 
-	if (!codec->bap) {
-		/* Each A2DP endpoint can be used by only one device at a time (on each adapter) */
-		spa_list_for_each(t, &monitor->transport_list, link) {
-			if (t->device == device)
-				continue;
-			if (t->device->adapter != device->adapter)
-				continue;
-			if (spa_streq(t->endpoint_path, local_endpoint)) {
-				spa_log_error(monitor->log, "media codec switch %p: endpoint %s in use",
-						sw, local_endpoint);
-				return false;
-			}
+	/* Each A2DP endpoint can be used by only one device at a time (on each adapter) */
+	spa_list_for_each(t, &monitor->transport_list, link) {
+		if (t->device == device)
+			continue;
+		if (t->device->adapter != device->adapter)
+			continue;
+		if (spa_streq(t->endpoint_path, local_endpoint)) {
+			spa_log_error(monitor->log, "media codec switch %p: endpoint %s in use",
+					sw, local_endpoint);
+			return false;
 		}
 	}
 
@@ -4485,6 +4503,85 @@ static bool codec_switch_configure(struct spa_bt_codec_switch *sw)
 	return true;
 }
 
+static bool codec_switch_configure_bap(struct spa_bt_codec_switch *sw, const char *path, bool last)
+{
+	struct spa_bt_device *device = sw->device;
+	struct spa_bt_monitor *monitor = device->monitor;
+	struct spa_bt_remote_endpoint *ep;
+	spa_autoptr(DBusMessage) m = NULL;
+	DBusMessageIter iter, d;
+	dbus_bool_t defer = !last;
+
+	ep = device_remote_endpoint_find(device, path);
+	if (!ep) {
+		spa_log_error(monitor->log, "media codec switch %p: no endpoint %s", sw, path);
+		return false;
+	}
+
+	device->preferred_codec = sw->codec;
+	device->preferred_profiles = sw->profiles;
+
+	m = dbus_message_new_method_call(BLUEZ_SERVICE, ep->path, BLUEZ_MEDIA_ENDPOINT_INTERFACE, "Reconfigure");
+	if (m == NULL) {
+		spa_log_error(monitor->log, "media codec switch %p: dbus allocation failure", sw);
+		return false;
+	}
+
+	spa_bt_device_update_last_bluez_action_time(device);
+
+	spa_log_info(monitor->log, "media codec switch %p: reconfigure endpoint %s, defer:%d",
+			sw, ep->path, (int)defer);
+
+	dbus_message_iter_init_append(m, &iter);
+	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sv}", &d);
+	append_basic_variant_dict_entry(&d, "Defer", DBUS_TYPE_BOOLEAN, "b", &defer);
+	dbus_message_iter_close_container(&iter, &d);
+
+	spa_assert(sw->pending == NULL);
+	sw->pending = send_with_reply(monitor->conn, m, codec_switch_reply, sw);
+	if (!sw->pending) {
+		spa_log_error(monitor->log, "media codec switch %p: dbus call failure", sw);
+		return false;
+	}
+
+	return true;
+}
+
+static bool codec_switch_clear_bap(struct spa_bt_codec_switch *sw, const char *path)
+{
+	struct spa_bt_device *device = sw->device;
+	struct spa_bt_monitor *monitor = device->monitor;
+	struct spa_bt_remote_endpoint *ep;
+	spa_autoptr(DBusMessage) m = NULL;
+	DBusMessageIter iter;
+
+	ep = device_remote_endpoint_find(device, path);
+	if (!ep)
+		return true;
+
+	m = dbus_message_new_method_call(BLUEZ_SERVICE, ep->path, BLUEZ_MEDIA_ENDPOINT_INTERFACE, "ClearConfiguration");
+	if (m == NULL) {
+		spa_log_error(monitor->log, "media codec switch %p: dbus allocation failure", sw);
+		return false;
+	}
+
+	spa_bt_device_update_last_bluez_action_time(device);
+
+	spa_log_info(monitor->log, "media codec switch %p: clear endpoint %s", sw, ep->path);
+
+	dbus_message_iter_init_append(m, &iter);
+	dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &path);
+
+	spa_assert(sw->pending == NULL);
+	sw->pending = send_with_reply(monitor->conn, m, codec_switch_reply, sw);
+	if (!sw->pending) {
+		spa_log_error(monitor->log, "media codec switch %p: dbus call failure", sw);
+		return false;
+	}
+
+	return true;
+}
+
 static bool codec_switch_process(struct spa_bt_codec_switch *sw)
 {
 	if (sw->waiting)
@@ -4494,7 +4591,7 @@ static bool codec_switch_process(struct spa_bt_codec_switch *sw)
 	if (sw->failed)
 		goto fail;
 
-	if (*sw->path_iter == NULL) {
+	if (sw->paths[sw->path_idx].path == NULL) {
 		/* Success */
 		spa_log_info(sw->device->monitor->log, "media codec switch %p: success", sw);
 		spa_bt_device_emit_codec_switched(sw->device, 0);
@@ -4502,15 +4599,42 @@ static bool codec_switch_process(struct spa_bt_codec_switch *sw)
 		return true;
 	}
 
-	/* Rate limit BlueZ calls */
-	if (codec_switch_rate_limit(sw))
-		return false;
+	if (sw->profiles & SPA_BT_PROFILE_A2DP_DUPLEX) {
+		/* Rate limit BlueZ calls */
+		if (codec_switch_rate_limit(sw))
+			return false;
 
-	if (!codec_switch_configure(sw))
-		goto fail;
+		if (!codec_switch_configure_a2dp(sw, sw->paths[sw->path_idx].path))
+			goto fail;
+	} else {
+		if (sw->path_idx == 0 && codec_switch_rate_limit(sw))
+			return false;
+
+		if (sw->path_idx == 0) {
+			struct spa_bt_transport *t, *t2;
+
+			/* Force CIG inactive */
+			spa_list_for_each(t, &sw->device->transport_list, link) {
+				spa_bt_transport_release_now(t);
+				spa_list_for_each(t2, &sw->device->monitor->transport_list, link)
+					if (t2->device != sw->device && transport_in_same_cig(t, t2))
+						spa_bt_transport_release_now(t2);
+			}
+		}
+
+		if (sw->paths[sw->path_idx].clear) {
+			if (!codec_switch_clear_bap(sw, sw->paths[sw->path_idx].path))
+				goto fail;
+		} else {
+			bool last = (sw->paths[sw->path_idx + 1].path == NULL);
+
+			if (!codec_switch_configure_bap(sw, sw->paths[sw->path_idx].path, last))
+				goto fail;
+		}
+	}
 
 	/* Configure another endpoint next */
-	++sw->path_iter;
+	sw->path_idx++;
 
 	/* Wait for dbus reply */
 	return false;
@@ -4533,15 +4657,15 @@ static void codec_switch_cancel(struct spa_bt_codec_switch *sw)
 
 static void codec_switch_destroy(struct spa_bt_codec_switch *sw)
 {
-	char **p;
+	unsigned int i;
 
 	spa_list_remove(&sw->link);
 
 	cancel_and_unref(&sw->pending);
 
 	if (sw->paths != NULL)
-		for (p = sw->paths; *p != NULL; ++p)
-			free(*p);
+		for (i = 0; sw->paths[i].path; ++i)
+			free(sw->paths[i].path);
 
 	if (sw->timer)
 		spa_loop_utils_destroy_source(sw->device->monitor->loop_utils, sw->timer);
@@ -4569,12 +4693,13 @@ static int codec_switch_cmp(const void *a, const void *b)
 	struct spa_bt_codec_switch *sw = codec_switch_cmp_sw;
 	const struct media_codec *codec = sw->codec;
 	struct spa_bt_monitor *monitor = sw->device->monitor;
-	const char *path1 = *(char **)a, *path2 = *(char **)b;
+	const struct spa_bt_codec_switch_path *path1 = a;
+	const struct spa_bt_codec_switch_path *path2 = b;
 	struct spa_bt_remote_endpoint *ep1, *ep2;
 	uint32_t flags;
 
-	ep1 = device_remote_endpoint_find(sw->device, path1);
-	ep2 = device_remote_endpoint_find(sw->device, path2);
+	ep1 = device_remote_endpoint_find(sw->device, path1->path);
+	ep2 = device_remote_endpoint_find(sw->device, path2->path);
 
 	if (ep1 != NULL && (ep1->uuid == NULL || ep1->codec != codec->codec_id))
 		ep1 = NULL;
@@ -4603,7 +4728,8 @@ static int codec_switch_cmp(const void *a, const void *b)
 }
 
 /* Ensure there's a transport for at least one of the listed codecs */
-int spa_bt_device_ensure_media_codec(struct spa_bt_device *device, const struct media_codec * const *codecs)
+int spa_bt_device_ensure_media_codec(struct spa_bt_device *device, const struct media_codec * const *codecs,
+		uint32_t profiles)
 {
 	struct spa_bt_monitor *monitor = device->monitor;
 	struct spa_bt_codec_switch *sw, *sw2;
@@ -4611,7 +4737,7 @@ int spa_bt_device_ensure_media_codec(struct spa_bt_device *device, const struct 
 	struct spa_bt_transport *t;
 	const struct media_codec *codec = NULL;
 	size_t i, j, num_eps, res;
-	uint32_t profiles = 0;
+	uint32_t remaining = 0;
 
 	if (!device->adapter->a2dp_application_registered &&
 			!device->adapter->bap_application_registered) {
@@ -4626,21 +4752,28 @@ int spa_bt_device_ensure_media_codec(struct spa_bt_device *device, const struct 
 		}
 	}
 
+	if (!profiles)
+		profiles = device->connected_profiles & (SPA_BT_PROFILE_MEDIA_SOURCE |
+				SPA_BT_PROFILE_MEDIA_SINK);
+
 	if (!codec)
 		return -EINVAL;
 
-	/* Check if we already have an enabled transport for the codec.
+	/* Check if we already have an enabled transports for the profiles.
 	 * However, if there already was a codec switch running, these transports may
 	 * disappear soon. In that case, we have to do the full thing.
 	 */
 	if (!has_codec_switch(device)) {
+		uint32_t found_profiles = 0;
+
 		spa_list_for_each(t, &device->transport_list, device_link) {
 			if (t->media_codec != codec)
 				continue;
 
-			if ((device->connected_profiles & t->profile) != t->profile)
-				continue;
+			found_profiles |= t->profile;
+		}
 
+		if (found_profiles == profiles) {
 			spa_bt_device_emit_codec_switched(device, 0);
 			return 0;
 		}
@@ -4653,6 +4786,7 @@ int spa_bt_device_ensure_media_codec(struct spa_bt_device *device, const struct 
 
 	sw->codec = codec;
 	sw->device = device;
+	sw->profiles = profiles;
 
 	spa_list_append(&device->codec_switch_list, &sw->link);
 
@@ -4661,57 +4795,83 @@ int spa_bt_device_ensure_media_codec(struct spa_bt_device *device, const struct 
 	spa_list_for_each(ep, &device->remote_endpoint_list, device_link)
 		++num_eps;
 
-	sw->paths = calloc(num_eps + 1, sizeof(char *));
+	sw->paths = calloc(num_eps + 1, sizeof(*sw->paths));
 	if (!sw->paths)
 		goto error_errno;
 
-	sw->path_iter = sw->paths;
+	sw->path_idx = 0;
 
 	i = 0;
 	spa_list_for_each(ep, &device->remote_endpoint_list, device_link) {
-		sw->paths[i] = strdup(ep->path);
-		if (sw->paths[i] == NULL)
+		sw->paths[i].path = strdup(ep->path);
+		if (sw->paths[i].path == NULL)
 			goto error_errno;
 		++i;
 	}
 
 	/* Sort in codec preference order */
 	codec_switch_cmp_sw = sw;
-	qsort(sw->paths, num_eps, sizeof(char *), codec_switch_cmp);
+	qsort(sw->paths, num_eps, sizeof(*sw->paths), codec_switch_cmp);
 
 	/* Pick at most one source and one sink endpoint, if corresponding profiles are
 	 * set */
-	profiles = device->connected_profiles;
+	remaining = profiles;
 	for (i = 0, j = 0; i < num_eps; ++i) {
 		struct spa_bt_remote_endpoint *ep;
 		bool sink;
 		uint32_t mask;
 
-		ep = remote_endpoint_find(monitor, sw->paths[i]);
+		ep = remote_endpoint_find(monitor, sw->paths[i].path);
 		if (!codec_switch_check_endpoint(ep, codec, &sink, NULL))
 			continue;
 
 		mask = sink ? SPA_BT_PROFILE_MEDIA_SOURCE : SPA_BT_PROFILE_MEDIA_SINK;
-		if (!(profiles & mask))
+		if (!(remaining & mask))
 			continue;
-		SPA_FLAG_CLEAR(profiles, mask);
+		SPA_FLAG_CLEAR(remaining, mask);
 
 		spa_log_debug(monitor->log,
 				"media codec switch %p: select endpoint %s for codec %s",
-				sw, sw->paths[i], codec->name);
+				sw, sw->paths[i].path, codec->name);
 
 		SPA_SWAP(sw->paths[j], sw->paths[i]);
 		++j;
 	}
+	if (profiles & SPA_BT_PROFILE_BAP_AUDIO) {
+		/* Active unselected endpoints must be cleared */
+		for (i = j; i < num_eps; ++i) {
+			bool active_ep = false;
+
+			spa_list_for_each(t, &device->transport_list, device_link) {
+				if (spa_streq(t->remote_endpoint_path, sw->paths[i].path)) {
+					active_ep = true;
+					break;
+				}
+			}
+			if (!active_ep)
+				continue;
+
+			spa_log_debug(monitor->log,
+					"media codec switch %p: select endpoint %s to be cleared",
+					sw, sw->paths[i].path);
+			SPA_SWAP(sw->paths[j], sw->paths[i]);
+			sw->paths[j].clear = true;
+			++j;
+		}
+
+		/* Reverse order so that clears come first */
+		for (i = 0; i < j/2; ++i)
+			SPA_SWAP(sw->paths[i], sw->paths[j - 1 - i]);
+	}
 	for (; j < num_eps; ++j) {
-		free(sw->paths[j]);
-		sw->paths[j] = NULL;
+		free(sw->paths[j].path);
+		spa_zero(sw->paths[j]);
 	}
 
-	if (!sw->paths[0]) {
-		spa_log_debug(monitor->log,
-				"media codec switch %p: no valid endpoints for codec %s",
-				sw, codec->name);
+	if (!sw->paths[0].path || remaining) {
+		spa_log_error(monitor->log,
+				"media codec switch %p: no valid profile 0x%x endpoints for codec %s",
+				sw, profiles, codec->name);
 		errno = EINVAL;
 		goto error_errno;
 	}

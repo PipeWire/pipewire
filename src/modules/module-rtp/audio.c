@@ -198,10 +198,10 @@ invalid_len:
 	return -EINVAL;
 unexpected_ssrc:
 	if (!impl->fixed_ssrc) {
-          /* We didn't have a configured SSRC, and there's more than one SSRC on
-           * this address/port pair */
-          pw_log_warn("unexpected SSRC (expected %u != %u)", impl->ssrc,
-                      hdr->ssrc);
+		/* We didn't have a configured SSRC, and there's more than one SSRC on
+		 * this address/port pair */
+		pw_log_warn("unexpected SSRC (expected %u != %u)", impl->ssrc,
+			hdr->ssrc);
 	}
 	return -EINVAL;
 }

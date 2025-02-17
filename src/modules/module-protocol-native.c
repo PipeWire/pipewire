@@ -746,7 +746,7 @@ static int init_socket_name(struct server *s, const char *name)
 	const char *runtime_dir;
 	bool path_is_absolute;
 
-	path_is_absolute = name[0] == '/';
+	path_is_absolute = name[0] == '/' || name[0] == '@';
 
 	runtime_dir = get_runtime_dir();
 
@@ -783,6 +783,9 @@ static int init_socket_name(struct server *s, const char *name)
 static int lock_socket(struct server *s)
 {
 	int res;
+
+	if (s->addr.sun_path[0] == '\0')
+		return 0;
 
 	snprintf(s->lock_addr, sizeof(s->lock_addr), "%s%s", s->addr.sun_path, LOCK_SUFFIX);
 
@@ -939,18 +942,24 @@ static int add_socket(struct pw_protocol *protocol, struct server *s, struct soc
 			res = -errno;
 			goto error;
 		}
-		if (stat(s->addr.sun_path, &socket_stat) < 0) {
-			if (errno != ENOENT) {
-				res = -errno;
-				pw_log_error("server %p: stat %s failed with error: %m",
-						s, s->addr.sun_path);
-				goto error_close;
+		if (s->addr.sun_path[0] == '@') {
+			s->addr.sun_path[0] = 0;
+			size = (socklen_t) (strlen(&s->addr.sun_path[1]) + 1);
+		} else {
+			if (stat(s->addr.sun_path, &socket_stat) < 0) {
+				if (errno != ENOENT) {
+					res = -errno;
+					pw_log_error("server %p: stat %s failed with error: %m",
+							s, s->addr.sun_path);
+					goto error_close;
+				}
+			} else if (socket_stat.st_mode & S_IWUSR || socket_stat.st_mode & S_IWGRP) {
+				unlink(s->addr.sun_path);
 			}
-		} else if (socket_stat.st_mode & S_IWUSR || socket_stat.st_mode & S_IWGRP) {
-			unlink(s->addr.sun_path);
+			size = (socklen_t) (strlen(s->addr.sun_path) + 1);
 		}
 
-		size = offsetof(struct sockaddr_un, sun_path) + strlen(s->addr.sun_path);
+		size += offsetof(struct sockaddr_un, sun_path);
 		if (bind(fd, (struct sockaddr *) &s->addr, size) < 0) {
 			res = -errno;
 			pw_log_error("server %p: bind() failed with error: %m", s);

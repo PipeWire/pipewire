@@ -83,6 +83,11 @@ static int try_connect(struct pw_protocol_client *client,
 	else
 		name_size = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s", runtime_dir, name) + 1;
 
+	if (addr.sun_path[0] == '@') {
+		addr.sun_path[0] = '\0';
+		name_size--;
+	}
+
 	if (name_size > (int) sizeof addr.sun_path) {
 		if (runtime_dir == NULL)
 			pw_log_error("client %p: socket path \"%s\" plus null terminator exceeds %i bytes",
@@ -136,7 +141,7 @@ static int try_connect_name(struct pw_protocol_client *client,
 		if (res >= 0)
 			return res;
 	}
-	if (name[0] == '/') {
+	if (name[0] == '/' || name[0] == '@') {
 		return try_connect(client, NULL, name, done_callback, data);
 	} else {
 		runtime_dir = get_runtime_dir();

@@ -324,8 +324,10 @@ static void set_latency(struct impl *this, bool emit_latency)
 {
 	if (this->codec->bap && !this->is_input && this->transport &&
 			this->transport->delay_us != SPA_BT_UNKNOWN_DELAY) {
+		struct port *port = &this->port;
 		unsigned int node_latency = 2048;
-		unsigned int target = this->transport->delay_us*48000ll/SPA_USEC_PER_SEC * 1/2;
+		uint64_t rate = port->current_format.info.raw.rate;
+		unsigned int target = this->transport->delay_us*rate/SPA_USEC_PER_SEC * 1/2;
 
 		/* Adjust requested node latency to be somewhat (~1/2) smaller
 		 * than presentation delay. The difference functions as room
@@ -340,8 +342,9 @@ static void set_latency(struct impl *this, bool emit_latency)
 				emit_node_info(this, false);
 		}
 
-		spa_log_info(this->log, "BAP presentation delay %d us, node latency %u/48000",
-				(int)this->transport->delay_us, node_latency);
+		spa_log_info(this->log, "BAP presentation delay %d us, node latency %u/%u",
+				(int)this->transport->delay_us, node_latency,
+				(unsigned int)rate);
 	}
 }
 
@@ -993,8 +996,8 @@ static void emit_node_info(struct impl *this, bool full)
 		{ SPA_KEY_NODE_DRIVER, this->is_input ? "true" : "false" },
 	};
 
-	spa_scnprintf(latency, sizeof(latency), "%d/48000", this->node_latency);
-	spa_scnprintf(rate, sizeof(rate), "1/%d", port->current_format.info.raw.rate);
+	spa_scnprintf(latency, sizeof(latency), "%u/%u", this->node_latency, port->current_format.info.raw.rate);
+	spa_scnprintf(rate, sizeof(rate), "1/%u", port->current_format.info.raw.rate);
 
 	if (full)
 		this->info.change_mask = this->info_all;
@@ -1262,6 +1265,8 @@ static int port_set_format(struct impl *this, struct port *port,
 
 		port->current_format = info;
 		port->have_format = true;
+
+		set_latency(this, false);
 	}
 
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;

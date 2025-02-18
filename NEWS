@@ -1,3 +1,51 @@
+# PipeWire 1.3.83 (2025-02-20)
+
+This is the third and hopefully last 1.4 release candidate that
+is (almost) API and (entirely) ABI compatible with previous 1.2.x
+and 1.0.x releases.
+
+We note that in the 1.3.x series, the API is slighty not backwards
+compatible because some methods previously used to accept void* as
+a parameter while they now require the correct type. We think this
+is however a good kind of API breakage and expect projects to patch
+their code to get things compiled with newer version (which will also
+compile for older versions). Note also that this is not an ABI break.
+
+
+## Highlights
+  - Handle JACK transport updates in a better way.
+  - Fix a SAP regression when starting.
+  - Fix regression in rate scaling.
+  - Improve bluetooth source rate handling.
+  - More small bugfixes and improvements.
+
+
+## PipeWire
+  - Handle JACK transport updates in a better way. (#4543)
+
+## Modules
+  - Check that the link factory port and nodes match. Deprecate the
+    port.id when making links.
+  - Improve profiler output by scaling the quantum with the node
+    rate so that we don't end up with confusing information. (#4555)
+  - Fix sending of the SAP SDP. Handle some SDP parsing errors.
+  - Add some more options to the ROC source module. (#4516)
+
+## SPA
+  - Fix firewire quirks in udev rules. (#4528)
+  - Fix a bug in the rate scaling in some cases that would make things
+    run with the wrong samplerate.
+  - Improve introspection of control types.
+
+## Bluetooth
+  - Use the G722 codec from Android instead of FFmpeg for ASHA.
+  - Use the A2DP source rate as the graph rate. (#4555)
+  - Specify the bluetooth source latency property in the rate of the
+    stream to avoid conversions and rounding errors.
+
+
+Older versions:
+
 # PipeWire 1.3.82 (2025-02-06)
 
 This is the second 1.4 release candidate that is API and ABI
@@ -46,9 +94,6 @@ compatible with previous 1.2.x and 1.0.x releases.
 
 ## Docs
   - Improve the module documentation.
-
-
-Older versions:
 
 # PipeWire 1.3.81 (2025-01-23)
 

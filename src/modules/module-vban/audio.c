@@ -30,7 +30,7 @@ static void vban_audio_process_playback(void *data)
 		memset(d[0].data, 0, wanted * stride);
 		if (impl->have_sync) {
 			impl->have_sync = false;
-			level = SPA_LOG_LEVEL_WARN;
+			level = SPA_LOG_LEVEL_INFO;
 		} else {
 			level = SPA_LOG_LEVEL_DEBUG;
 		}

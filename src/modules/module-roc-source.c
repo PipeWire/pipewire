@@ -45,9 +45,16 @@
  * - `local.repair.port = <str>`: local receiver TCP/UDP port for receiver packets
  * - `local.control.port = <str>`: local receiver TCP/UDP port for control packets
  * - `sess.latency.msec = <str>`: target network latency in milliseconds
- * - `resampler.profile = <str>`: Possible values: `disable`, `high`,
- *   `medium`, `low`.
- * - `fec.code = <str>`: Possible values: `disable`, `rs8m`, `ldpc`
+ * - `roc.resampler.backend = <str>`: Possible values: `default`, `builtin`,
+ *       `speex`, `speexdec`.
+ * - `roc.resampler.profile = <str>`: Possible values: `default`, `high`,
+ *       `medium`, `low`.
+ * - `roc.latency-tuner.backend = <str>`: Possible values: `default`, `niq`
+ * - `roc.latency-tuner.profile = <str>`: Possible values: `default`, `intact`,
+ *       `responsive`, `gradual`
+ * - `fec.code = <str>`: Possible values: `default`, `disable`, `rs8m`, `ldpc`
+ *
+ * - `resampler.profile = <str>`: Deprecated, use roc.resampler.profile
  *
  * ## General options
  *
@@ -65,7 +72,10 @@
  *  {   name = libpipewire-module-roc-source
  *      args = {
  *          local.ip = 0.0.0.0
- *          resampler.profile = medium
+ *          #roc.resampler.backend = default
+ *          roc.resampler.profile = medium
+ *          #roc.latency-tuner.backend = default
+ *          #roc.latency-tuner.profile = default
  *          fec.code = disable
  *          sess.latency.msec = 5000
  *          local.source.port = 10001
@@ -109,6 +119,9 @@ struct module_roc_source_data {
 	roc_receiver *receiver;
 
 	roc_resampler_profile resampler_profile;
+	roc_resampler_backend resampler_backend;
+	roc_latency_tuner_backend latency_tuner_backend;
+	roc_latency_tuner_profile latency_tuner_profile;
 	roc_fec_encoding fec_code;
 	uint32_t rate;
 	char *local_ip;
@@ -275,6 +288,9 @@ static int roc_source_setup(struct module_roc_source_data *data)
 	receiver_config.frame_encoding.channels = ROC_CHANNEL_LAYOUT_STEREO;
 	receiver_config.frame_encoding.format = ROC_FORMAT_PCM_FLOAT32;
 	receiver_config.resampler_profile = data->resampler_profile;
+	receiver_config.resampler_backend = data->resampler_backend;
+	receiver_config.latency_tuner_backend = data->latency_tuner_backend;
+	receiver_config.latency_tuner_profile = data->latency_tuner_profile;
 
 	info.rate = data->rate;
 
@@ -377,7 +393,10 @@ static const struct spa_dict_item module_roc_source_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "roc source" },
 	{ PW_KEY_MODULE_USAGE,	"( source.name=<name for the source> ) "
-				"( resampler.profile=<empty>|disable|high|medium|low ) "
+				"( roc.resampler.backend=<empty>|default|builtin|speex|speexdec ) "
+				"( roc.resampler.profile=<empty>|default|high|medium|low ) "
+				"( roc.latency-tuner.backend=<empty>|default|niq ) "
+				"( roc.latency-tuner.profile=<empty>|default|intact|responsive|gradual ) "
 				"( fec.code=<empty>|disable|rs8m|ldpc ) "
 				"( sess.latency.msec=<target network latency in milliseconds> ) "
 				"( local.ip=<local receiver ip> ) "
@@ -473,14 +492,38 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	} else {
 		data->sess_latency_msec = PW_ROC_DEFAULT_SESS_LATENCY;
 	}
-
-	if ((str = pw_properties_get(props, "resampler.profile")) != NULL) {
+	if ((str = pw_properties_get(props, "roc.resampler.backend")) != NULL) {
+		if (pw_roc_parse_resampler_backend(&data->resampler_backend, str)) {
+			pw_log_warn("Invalid resampler backend %s, using default", str);
+			data->resampler_backend = ROC_RESAMPLER_BACKEND_DEFAULT;
+		}
+	} else {
+		data->resampler_backend = ROC_RESAMPLER_BACKEND_DEFAULT;
+	}
+	if ((str = pw_properties_get(props, "roc.resampler.profile")) != NULL ||
+	    (str = pw_properties_get(props, "resampler.profile")) != NULL) {
 		if (pw_roc_parse_resampler_profile(&data->resampler_profile, str)) {
 			pw_log_warn("Invalid resampler profile %s, using default", str);
 			data->resampler_profile = ROC_RESAMPLER_PROFILE_DEFAULT;
 		}
 	} else {
 		data->resampler_profile = ROC_RESAMPLER_PROFILE_DEFAULT;
+	}
+	if ((str = pw_properties_get(props, "roc.latency-tuner.backend")) != NULL) {
+		if (pw_roc_parse_latency_tuner_backend(&data->latency_tuner_backend, str)) {
+			pw_log_warn("Invalid latency-tuner backend %s, using default", str);
+			data->latency_tuner_backend = ROC_LATENCY_TUNER_BACKEND_DEFAULT;
+		}
+	} else {
+		data->latency_tuner_backend = ROC_LATENCY_TUNER_BACKEND_DEFAULT;
+	}
+	if ((str = pw_properties_get(props, "roc.latency-tuner.profile")) != NULL) {
+		if (pw_roc_parse_latency_tuner_profile(&data->latency_tuner_profile, str)) {
+			pw_log_warn("Invalid latency-tuner profile %s, using default", str);
+			data->latency_tuner_profile = ROC_LATENCY_TUNER_PROFILE_DEFAULT;
+		}
+	} else {
+		data->latency_tuner_profile = ROC_LATENCY_TUNER_PROFILE_DEFAULT;
 	}
 	if ((str = pw_properties_get(props, "fec.code")) != NULL) {
 		if (pw_roc_parse_fec_encoding(&data->fec_code, str)) {

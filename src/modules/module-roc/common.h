@@ -16,7 +16,7 @@
 
 static inline int pw_roc_parse_fec_encoding(roc_fec_encoding *out, const char *str)
 {
-	if (!str || !*str)
+	if (!str || !*str || spa_streq(str, "default"))
 		*out = ROC_FEC_ENCODING_DEFAULT;
 	else if (spa_streq(str, "disable"))
 		*out = ROC_FEC_ENCODING_DISABLE;
@@ -31,7 +31,7 @@ static inline int pw_roc_parse_fec_encoding(roc_fec_encoding *out, const char *s
 
 static inline int pw_roc_parse_resampler_profile(roc_resampler_profile *out, const char *str)
 {
-	if (!str || !*str)
+	if (!str || !*str || spa_streq(str, "default"))
 		*out = ROC_RESAMPLER_PROFILE_DEFAULT;
 	else if (spa_streq(str, "high"))
 		*out = ROC_RESAMPLER_PROFILE_HIGH;
@@ -39,6 +39,47 @@ static inline int pw_roc_parse_resampler_profile(roc_resampler_profile *out, con
 		*out = ROC_RESAMPLER_PROFILE_MEDIUM;
 	else if (spa_streq(str, "low"))
 		*out = ROC_RESAMPLER_PROFILE_LOW;
+	else
+		return -EINVAL;
+	return 0;
+}
+
+static inline int pw_roc_parse_resampler_backend(roc_resampler_backend *out, const char *str)
+{
+	if (!str || !*str || spa_streq(str, "default"))
+		*out = ROC_RESAMPLER_BACKEND_DEFAULT;
+	else if (spa_streq(str, "builtin"))
+		*out = ROC_RESAMPLER_BACKEND_BUILTIN;
+	else if (spa_streq(str, "speex"))
+		*out = ROC_RESAMPLER_BACKEND_SPEEX;
+	else if (spa_streq(str, "speexdec"))
+		*out = ROC_RESAMPLER_BACKEND_SPEEXDEC;
+	else
+		return -EINVAL;
+	return 0;
+}
+
+static inline int pw_roc_parse_latency_tuner_backend(roc_latency_tuner_backend *out, const char *str)
+{
+	if (!str || !*str || spa_streq(str, "default"))
+		*out = ROC_LATENCY_TUNER_BACKEND_DEFAULT;
+	else if (spa_streq(str, "niq"))
+		*out = ROC_LATENCY_TUNER_BACKEND_NIQ;
+	else
+		return -EINVAL;
+	return 0;
+}
+
+static inline int pw_roc_parse_latency_tuner_profile(roc_latency_tuner_profile *out, const char *str)
+{
+	if (!str || !*str || spa_streq(str, "default"))
+		*out = ROC_LATENCY_TUNER_PROFILE_DEFAULT;
+	else if (spa_streq(str, "intact"))
+		*out = ROC_LATENCY_TUNER_PROFILE_INTACT;
+	else if (spa_streq(str, "responsive"))
+		*out = ROC_LATENCY_TUNER_PROFILE_RESPONSIVE;
+	else if (spa_streq(str, "gradual"))
+		*out = ROC_LATENCY_TUNER_PROFILE_GRADUAL;
 	else
 		return -EINVAL;
 	return 0;

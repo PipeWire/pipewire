@@ -19,6 +19,7 @@ extern "C" {
 
 #include <spa/param/audio/type-info.h>
 #include <spa/param/video/type-info.h>
+#include <spa/control/type-info.h>
 
 #define SPA_TYPE_INFO_Format			SPA_TYPE_INFO_PARAM_BASE "Format"
 #define SPA_TYPE_INFO_FORMAT_BASE		SPA_TYPE_INFO_Format ":"
@@ -103,6 +104,9 @@ static const struct spa_type_info spa_type_media_subtype[] = {
 #define SPA_TYPE_INFO_FORMAT_VIDEO_H264		SPA_TYPE_INFO_FORMAT_VIDEO_BASE "H264"
 #define SPA_TYPE_INFO_FORMAT_VIDEO_H264_BASE	SPA_TYPE_INFO_FORMAT_VIDEO_H264 ":"
 
+#define SPA_TYPE_INFO_FormatControl		SPA_TYPE_INFO_FORMAT_BASE "Control"
+#define SPA_TYPE_INFO_FORMAT_CONTROL_BASE	SPA_TYPE_INFO_FormatControl ":"
+
 static const struct spa_type_info spa_type_format[] = {
 	{ SPA_FORMAT_START, SPA_TYPE_Id, SPA_TYPE_INFO_FORMAT_BASE, spa_type_param, },
 
@@ -158,6 +162,8 @@ static const struct spa_type_info spa_type_format[] = {
 
 	{ SPA_FORMAT_VIDEO_H264_streamFormat, SPA_TYPE_Id, SPA_TYPE_INFO_FORMAT_VIDEO_H264_BASE "streamFormat", NULL },
 	{ SPA_FORMAT_VIDEO_H264_alignment, SPA_TYPE_Id, SPA_TYPE_INFO_FORMAT_VIDEO_H264_BASE "alignment", NULL },
+
+	{ SPA_FORMAT_CONTROL_types, SPA_TYPE_Id, SPA_TYPE_INFO_FORMAT_CONTROL_BASE "types", spa_type_control },
 	{ 0, 0, NULL, NULL },
 };
 

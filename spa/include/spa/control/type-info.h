@@ -15,7 +15,7 @@ extern "C" {
  */
 
 #include <spa/utils/defs.h>
-#include <spa/utils/type-info.h>
+#include <spa/utils/type.h>
 #include <spa/control/control.h>
 
 /* base for parameter object enumerations */

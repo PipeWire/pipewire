@@ -147,6 +147,22 @@ static const struct pw_impl_node_events node_events = {
 	.initialized = node_initialized,
 };
 
+struct match {
+	struct pw_properties *props;
+	int count;
+};
+#define MATCH_INIT(p) ((struct match){ .props = (p) })
+
+static int execute_match(void *data, const char *location, const char *action,
+		const char *val, size_t len)
+{
+	struct match *match = data;
+	if (spa_streq(action, "update-props")) {
+		match->count += pw_properties_update_string(match->props, val, len);
+	}
+	return 1;
+}
+
 static void *create_object(void *_data,
 			   struct pw_resource *resource,
 			   const char *type,
@@ -197,13 +213,19 @@ static void *create_object(void *_data,
 		if (sscanf(str, "pointer:%p", &spa_follower) != 1)
 			goto error_properties;
 	}
+
 	if (spa_follower == NULL) {
 		void *iface;
 		const char *factory_name;
+		struct match match;
 
 		factory_name = pw_properties_get(properties, SPA_KEY_FACTORY_NAME);
 		if (factory_name == NULL)
 			goto error_properties;
+
+		match = MATCH_INIT(properties);
+		pw_context_conf_section_match_rules(d->context, "node.rules",
+				&properties->dict, execute_match, &match);
 
 		handle = pw_context_load_spa_handle(d->context,
 				factory_name,

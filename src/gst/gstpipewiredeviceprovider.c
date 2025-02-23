@@ -204,6 +204,28 @@ static struct node_data *find_node_data(struct spa_list *nodes, uint32_t id)
   return NULL;
 }
 
+static GstPipeWireDevice *
+gst_pipewire_device_new (int fd, uint32_t id, uint64_t serial,
+    GstPipeWireDeviceType type, const gchar * element, int priority,
+    const gchar * klass, const gchar * display_name, const GstCaps * caps,
+    const GstStructure * props)
+{
+  GstPipeWireDevice *gstdev;
+
+  gstdev =
+      g_object_new (GST_TYPE_PIPEWIRE_DEVICE, "display-name", display_name,
+      "caps", caps, "device-class", klass, "id", id, "serial", serial, "fd", fd,
+      "properties", props, NULL);
+
+  gstdev->id = id;
+  gstdev->serial = serial;
+  gstdev->type = type;
+  gstdev->element = element;
+  gstdev->priority = priority;
+
+  return gstdev;
+}
+
 static GstDevice *
 new_node (GstPipeWireDeviceProvider *self, struct node_data *data)
 {
@@ -255,16 +277,8 @@ new_node (GstPipeWireDeviceProvider *self, struct node_data *data)
   if (name == NULL)
     name = "unknown";
 
-  gstdev = g_object_new (GST_TYPE_PIPEWIRE_DEVICE,
-      "display-name", name, "caps", data->caps, "device-class", klass,
-      "id", data->id, "serial", data->serial, "fd", self->fd,
-      "properties", props, NULL);
-
-  gstdev->id = data->id;
-  gstdev->serial = data->serial;
-  gstdev->type = type;
-  gstdev->element = element;
-  gstdev->priority = priority;
+  gstdev = gst_pipewire_device_new (self->fd, data->id, data->serial, type,
+      element, priority, klass, name, data->caps, props);
   if (props)
     gst_structure_free (props);
 
@@ -510,6 +524,87 @@ static const struct pw_proxy_events proxy_port_events = {
   .destroy = destroy_port,
 };
 
+static gboolean
+is_default_device_name (GstPipeWireDeviceProvider * self,
+    const gchar * name, const gchar * klass, GstPipeWireDeviceType type)
+{
+  gboolean ret = FALSE;
+
+  GST_OBJECT_LOCK (self);
+  switch (type) {
+    case GST_PIPEWIRE_DEVICE_TYPE_SINK:
+      if (g_str_has_prefix (klass, "Audio"))
+        ret = !g_strcmp0 (name, self->default_audio_sink_name);
+      break;
+    case GST_PIPEWIRE_DEVICE_TYPE_SOURCE:
+      if (g_str_has_prefix (klass, "Audio"))
+        ret = !g_strcmp0 (name, self->default_audio_source_name);
+      else if (g_str_has_prefix (klass, "Video"))
+        ret = !g_strcmp0 (name, self->default_video_source_name);
+      break;
+    default:
+      GST_ERROR_OBJECT (self, "Unknown pipewire device type!");
+      break;
+  }
+  GST_OBJECT_UNLOCK (self);
+
+  return ret;
+}
+
+static void
+sync_default_devices (GstPipeWireDeviceProvider * self)
+{
+  GList *tmp, *devices = NULL;
+
+  for (tmp = GST_DEVICE_PROVIDER_CAST (self)->devices; tmp; tmp = tmp->next)
+    devices = g_list_prepend (devices, gst_object_ref (tmp->data));
+
+  for (tmp = devices; tmp; tmp = tmp->next) {
+    GstPipeWireDevice *dev = tmp->data;
+    GstStructure *props = gst_device_get_properties (GST_DEVICE_CAST (dev));
+    gboolean was_default = FALSE, is_default = FALSE;
+    const gchar *name;
+    gchar *klass = gst_device_get_device_class (GST_DEVICE_CAST (dev));
+
+    g_assert (props);
+    gst_structure_get_boolean (props, "is-default", &was_default);
+    name = gst_structure_get_string (props, "node.name");
+
+    switch (dev->type) {
+      case GST_PIPEWIRE_DEVICE_TYPE_SINK:
+        is_default =
+            is_default_device_name (self, name, klass, dev->type);
+        break;
+      case GST_PIPEWIRE_DEVICE_TYPE_SOURCE:
+        is_default =
+            is_default_device_name (self, name, klass, dev->type);
+        break;
+      case GST_PIPEWIRE_DEVICE_TYPE_UNKNOWN:
+        break;
+    }
+
+    if (was_default != is_default) {
+      GstPipeWireDevice *updated_device;
+      gchar *display_name = gst_device_get_display_name (GST_DEVICE_CAST (dev));
+      GstCaps *caps = gst_device_get_caps (GST_DEVICE_CAST (dev));
+
+      gst_structure_set (props, "is-default", G_TYPE_BOOLEAN, is_default, NULL);
+      updated_device =
+          gst_pipewire_device_new (self->fd, dev->id, dev->serial, dev->type,
+          dev->element, dev->priority, klass, display_name, caps, props);
+
+      gst_device_provider_device_changed (GST_DEVICE_PROVIDER_CAST (self),
+          GST_DEVICE_CAST (updated_device), GST_DEVICE_CAST (dev));
+
+      g_free (display_name);
+      gst_caps_unref (caps);
+    }
+    gst_structure_free (props);
+    g_free (klass);
+  }
+  g_list_free_full (devices, gst_object_unref);
+}
+
 static int metadata_property(void *data, uint32_t id, const char *key,
                              const char *type, const char *value) {
   GstPipeWireDeviceProvider *self = data;
@@ -525,7 +620,7 @@ static int metadata_property(void *data, uint32_t id, const char *key,
     g_free(self->default_audio_source_name);
     if (spa_json_str_object_find(value, strlen(value), "name", name, sizeof(name)) >= 0)
       self->default_audio_source_name = g_strdup(name);
-    return 0;
+    goto sync_devices;
   }
   if (spa_streq(key, "default.audio.sink")) {
     if (!spa_streq(type, "Spa:String:JSON"))
@@ -534,7 +629,7 @@ static int metadata_property(void *data, uint32_t id, const char *key,
     g_free(self->default_audio_sink_name);
     if (spa_json_str_object_find(value, strlen(value), "name", name, sizeof(name)) >= 0)
       self->default_audio_sink_name = g_strdup(name);
-    return 0;
+    goto sync_devices;
   }
   if (spa_streq(key, "default.video.source")) {
     if (!spa_streq(type, "Spa:String:JSON"))
@@ -543,9 +638,13 @@ static int metadata_property(void *data, uint32_t id, const char *key,
     g_free(self->default_video_source_name);
     if (spa_json_str_object_find(value, strlen(value), "name", name, sizeof(name)) >= 0)
       self->default_video_source_name = g_strdup(name);
-    return 0;
+    goto sync_devices;
   }
 
+  return 0;
+
+ sync_devices:
+  sync_default_devices (self);
   return 0;
 }
 

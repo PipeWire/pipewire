@@ -644,13 +644,17 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 	 * Frame length is not limited by ISO MTU, as kernel will fragment
 	 * and reassemble SDUs as needed.
 	 */
-	if (pac->settings->sink && pac->settings->duplex) {
+	if (pac->settings->duplex) {
 		/* 16KHz input is mandatory in BAP v1.0.1 Table 3.5, so prefer
-		 * it for now for input rate in duplex configuration.
+		 * it or 32kHz for now for input rate in duplex configuration.
+		 *
+		 * It appears few devices support 48kHz out + input, so in duplex mode
+		 * try 32 kHz or 16 kHz also for output direction.
 		 *
 		 * Devices may list other values but not certain they will work properly.
 		 */
-		found = select_bap_qos(&bap_qos, pac->settings, rate_mask & LC3_FREQ_16KHZ, duration_mask, framelen_min, framelen_max);
+		found = select_bap_qos(&bap_qos, pac->settings, rate_mask & (LC3_FREQ_16KHZ | LC3_FREQ_32KHZ),
+				duration_mask, framelen_min, framelen_max);
 	}
 	if (!found)
 		found = select_bap_qos(&bap_qos, pac->settings, rate_mask, duration_mask, framelen_min, framelen_max);
@@ -751,8 +755,8 @@ static int conf_cmp(const bap_lc3_t *conf1, int res1, const bap_lc3_t *conf2, in
 	PREFER_BOOL(conf->channels & LC3_CHAN_2);
 	PREFER_BOOL(conf->channels & LC3_CHAN_1);
 
-	if (conf->sink && conf->duplex)
-		PREFER_BOOL(conf->rate & LC3_CONFIG_FREQ_16KHZ);
+	if (conf->duplex)
+		PREFER_BOOL(conf->rate & (LC3_CONFIG_FREQ_16KHZ | LC3_CONFIG_FREQ_32KHZ));
 
 	PREFER_EXPR(conf->priority);
 

@@ -10,6 +10,9 @@ extern "C" {
 #endif
 
 #include <spa/utils/defs.h>
+#include <spa/utils/hook.h>
+
+#include <errno.h>
 
 /** \defgroup pw_metadata Metadata
  * Metadata interface

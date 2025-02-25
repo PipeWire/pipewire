@@ -128,16 +128,25 @@ SPA_API_POD_BUILDER int spa_pod_builder_raw(struct spa_pod_builder *builder, con
 	int res = 0;
 	struct spa_pod_frame *f;
 	uint32_t offset = builder->state.offset;
+	size_t data_offset = -1;
 
 	if (offset + size > builder->size) {
+		/* data could be inside the data we will realloc */
+		if (spa_ptrinside(builder->data, builder->size, data, size, NULL))
+			data_offset = SPA_PTRDIFF(data, builder->data);
+
 		res = -ENOSPC;
 		if (offset <= builder->size)
 			spa_callbacks_call_res(&builder->callbacks,
 					struct spa_pod_builder_callbacks, res,
 					overflow, 0, offset + size);
 	}
-	if (res == 0 && data)
+	if (res == 0 && data) {
+		if (data_offset != (size_t) -1)
+			data = SPA_PTROFF(builder->data, data_offset, const void);
+
 		memcpy(SPA_PTROFF(builder->data, offset, void), data, size);
+	}
 
 	builder->state.offset += size;
 

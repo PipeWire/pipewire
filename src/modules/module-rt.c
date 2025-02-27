@@ -136,11 +136,10 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
 #define REALTIME_POLICY         SCHED_FIFO
-#ifdef SCHED_RESET_ON_FORK
-#define PW_SCHED_RESET_ON_FORK  SCHED_RESET_ON_FORK
-#else
+
 /* FreeBSD compat */
-#define PW_SCHED_RESET_ON_FORK  0
+#ifndef SCHED_RESET_ON_FORK
+#define SCHED_RESET_ON_FORK 0
 #endif
 
 #define MIN_NICE_LEVEL		-20
@@ -567,8 +566,8 @@ static bool check_realtime_privileges(struct impl *impl)
 		spa_zero(new_sched_params);
 		new_sched_params.sched_priority = SPA_CLAMP((int)priority, min, max);
 		new_policy = REALTIME_POLICY;
-		if ((old_policy & PW_SCHED_RESET_ON_FORK) != 0)
-			new_policy |= PW_SCHED_RESET_ON_FORK;
+		if ((old_policy & SCHED_RESET_ON_FORK) != 0)
+			new_policy |= SCHED_RESET_ON_FORK;
 
 		/* Disable RLIMIT_RTTIME in a thread safe way and hope that the application
 		 * doesn't also set RLIMIT_RTTIME while trying new_policy. */
@@ -673,7 +672,7 @@ static int acquire_rt_sched(struct spa_thread *thread, int priority)
 
 	spa_zero(sp);
 	sp.sched_priority = priority;
-	if ((err = pthread_setschedparam(pt, REALTIME_POLICY | PW_SCHED_RESET_ON_FORK, &sp)) != 0) {
+	if ((err = pthread_setschedparam(pt, REALTIME_POLICY | SCHED_RESET_ON_FORK, &sp)) != 0) {
 		pw_log_warn("could not make thread %p realtime: %s", thread, strerror(err));
 		return -err;
 	}
@@ -689,7 +688,7 @@ static int impl_drop_rt_generic(void *object, struct spa_thread *thread)
 	int err;
 
 	spa_zero(sp);
-	if ((err = pthread_setschedparam(pt, SCHED_OTHER | PW_SCHED_RESET_ON_FORK, &sp)) != 0) {
+	if ((err = pthread_setschedparam(pt, SCHED_OTHER | SCHED_RESET_ON_FORK, &sp)) != 0) {
 		pw_log_debug("thread %p: SCHED_OTHER|SCHED_RESET_ON_FORK failed: %s",
 				thread, strerror(err));
 		return -err;
@@ -848,7 +847,7 @@ static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority
 		struct thread *thr;
 
 		spa_zero(sp);
-		if (pthread_setschedparam(pt, SCHED_OTHER | PW_SCHED_RESET_ON_FORK, &sp) == 0) {
+		if (pthread_setschedparam(pt, SCHED_OTHER | SCHED_RESET_ON_FORK, &sp) == 0) {
 			pw_log_debug("SCHED_OTHER|SCHED_RESET_ON_FORK worked.");
 		}
 

@@ -1023,7 +1023,8 @@ static int do_rtkit_setup(struct spa_loop *loop, bool async, uint32_t seq,
 }
 #endif /* HAVE_DBUS */
 
-static int set_uclamp(int uclamp_min, int uclamp_max, pid_t pid) {
+static int set_uclamp(int uclamp_min, int uclamp_max, pid_t pid)
+{
 #ifdef __linux__
 	int ret;
 	struct sched_attr {

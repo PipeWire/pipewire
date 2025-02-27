@@ -1040,7 +1040,7 @@ static int set_uclamp(int uclamp_min, int uclamp_max, pid_t pid) {
 		uint32_t sched_util_max;
 	} attr;
 
-	ret = syscall(SYS_sched_getattr, pid, &attr, sizeof(struct sched_attr), 0);
+	ret = syscall(SYS_sched_getattr, pid, &attr, sizeof(attr), 0);
 	if (ret) {
 		pw_log_warn("Could not retrieve scheduler attributes: %d", -errno);
 		return -errno;

@@ -594,14 +594,6 @@ static bool check_realtime_privileges(struct impl *impl)
 	return ret;
 }
 
-static int sched_set_nice(pid_t pid, int nice_level)
-{
-	if (setpriority(PRIO_PROCESS, pid, nice_level) == 0)
-		return 0;
-	else
-		return -errno;
-}
-
 static int set_nice(struct impl *impl, int nice_level, bool warn)
 {
 	int res = 0;
@@ -617,8 +609,10 @@ static int set_nice(struct impl *impl, int nice_level, bool warn)
 	}
 	else
 #endif
-	if (impl->rlimits_enabled)
-		res = sched_set_nice(impl->main_tid, nice_level);
+	if (impl->rlimits_enabled) {
+		if (setpriority(PRIO_PROCESS, impl->main_tid, nice_level) < 0)
+			res = -errno;
+	}
 	else
 		res = -ENOTSUP;
 

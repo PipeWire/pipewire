@@ -482,6 +482,9 @@ static void module_destroy(void *data)
 		pw_thread_loop_destroy(impl->thread_loop);
 	if (impl->rtkit_bus)
 		pw_rtkit_bus_free(impl->rtkit_bus);
+
+	pthread_cond_destroy(&impl->cond);
+	pthread_mutex_destroy(&impl->lock);
 #endif
 
 	free(impl);

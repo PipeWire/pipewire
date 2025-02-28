@@ -626,9 +626,6 @@ static int set_nice(struct impl *impl, int nice_level, bool warn)
 		if (warn)
 			pw_log_warn("could not set nice-level to %d: %s",
 					nice_level, spa_strerror(res));
-	} else if (res > 0) {
-		pw_log_info("main thread setting nice level to %d: %s",
-				nice_level, spa_strerror(-res));
 	} else {
 		pw_log_info("main thread nice level set to %d",
 				nice_level);

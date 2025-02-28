@@ -142,6 +142,10 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define SCHED_RESET_ON_FORK 0
 #endif
 
+#ifndef RLIMIT_RTTIME
+#define RLIMIT_RTTIME 15
+#endif
+
 #define MIN_NICE_LEVEL		-20
 #define MAX_NICE_LEVEL		19
 #define IS_VALID_NICE_LEVEL(l)	((l)>=MIN_NICE_LEVEL && (l)<=MAX_NICE_LEVEL)
@@ -238,10 +242,6 @@ struct impl {
 	struct spa_list threads_list;
 #endif
 };
-
-#ifndef RLIMIT_RTTIME
-#define RLIMIT_RTTIME 15
-#endif
 
 static pthread_mutex_t rlimit_lock = PTHREAD_MUTEX_INITIALIZER;
 

@@ -858,15 +858,6 @@ static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority
 	}
 }
 
-static const struct spa_thread_utils_methods impl_thread_utils = {
-	SPA_VERSION_THREAD_UTILS_METHODS,
-	.create = impl_create,
-	.join = impl_join,
-	.get_rt_range = impl_get_rt_range,
-	.acquire_rt = impl_acquire_rt,
-	.drop_rt = impl_drop_rt_generic,
-};
-
 #else /* HAVE_DBUS */
 
 static struct spa_thread *impl_create(void *object, const struct spa_dict *props,
@@ -897,6 +888,8 @@ static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority
 	return acquire_rt_sched(thread, priority);
 }
 
+#endif /* HAVE_DBUS */
+
 static const struct spa_thread_utils_methods impl_thread_utils = {
 	SPA_VERSION_THREAD_UTILS_METHODS,
 	.create = impl_create,
@@ -905,8 +898,6 @@ static const struct spa_thread_utils_methods impl_thread_utils = {
 	.acquire_rt = impl_acquire_rt,
 	.drop_rt = impl_drop_rt_generic,
 };
-#endif /* HAVE_DBUS */
-
 
 #ifdef HAVE_DBUS
 static bool check_rtkit(struct pw_context *context)

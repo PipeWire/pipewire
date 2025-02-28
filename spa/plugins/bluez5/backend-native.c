@@ -2149,6 +2149,8 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 		unsigned int status, mpty;
 		bool parsed = false, found = false;
 
+		number[0] = '\0';
+
 		token[strcspn(token, "\r")] = 0;
 		token[strcspn(token, "\n")] = 0;
 		token_end = token + strlen(token);
@@ -2181,13 +2183,13 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			token[pos] = '\0';
 			mpty = atoi(token);
 			token += pos + 1;
+			parsed = true;
 		}
 		if (token < token_end) {
 			if (sscanf(token, "\"%16[^\"]\",%u", number, &type) != 2) {
 				spa_log_warn(backend->log, "Failed to parse number: %s", token);
 				number[0] = '\0';
 			}
-			parsed = true;
 		}
 
 		if (SPA_LIKELY (parsed)) {

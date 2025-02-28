@@ -2844,10 +2844,10 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 		bw = (fabs(state->err_avg) + sqrt(fabs(state->err_var)))/1000.0;
 
 		spa_log_debug(state->log, "%s: follower:%d match:%d rate:%f "
-				"bw:%f thr:%u del:%ld target:%ld err:%f max:%f var:%f:%f:%f",
+				"bw:%f thr:%u del:%ld target:%ld err:%f max_err:%f max_resync: %f var:%f:%f:%f",
 				state->name, follower, state->matching,
 				corr, state->dll.bw, state->threshold, delay, target,
-				err, state->max_error, state->err_avg, state->err_var, bw);
+				err, state->max_error, state->max_resync, state->err_avg, state->err_var, bw);
 
 		spa_dll_set_bw(&state->dll,
 				SPA_CLAMPD(bw, 0.001, SPA_DLL_BW_MAX),
@@ -2954,8 +2954,8 @@ static inline int check_position_config(struct state *state, bool starting)
 		state->driver_duration = target_duration;
 		state->driver_rate = target_rate;
 		state->threshold = SPA_SCALE32_UP(state->driver_duration, state->rate, state->driver_rate.denom);
-		state->max_error = SPA_MAX(256.0f, state->threshold / 2.0f);
-		state->max_resync = SPA_MIN(state->threshold, state->max_error);
+		state->max_error = SPA_MAX(256.0f, (state->threshold + state->headroom) / 2.0f);
+		state->max_resync = SPA_MIN(state->threshold + state->headroom, state->max_error);
 		state->err_wdw = (double)state->driver_rate.denom/state->driver_duration;
 		state->resample = !state->pitch_elem &&
 			(((uint32_t)state->rate != state->driver_rate.denom) || state->matching);

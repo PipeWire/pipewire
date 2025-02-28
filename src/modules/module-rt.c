@@ -920,19 +920,17 @@ static const struct spa_thread_utils_methods impl_thread_utils = {
 
 
 #ifdef HAVE_DBUS
-static int check_rtkit(struct impl *impl, struct pw_context *context, bool *can_use_rtkit)
+static bool check_rtkit(struct pw_context *context)
 {
 	const struct pw_properties *context_props;
 	const char *str;
 
-	*can_use_rtkit = true;
-
 	if ((context_props = pw_context_get_properties(context)) != NULL &&
 	    (str = pw_properties_get(context_props, "support.dbus")) != NULL &&
 	    !pw_properties_parse_bool(str))
-		*can_use_rtkit = false;
+		return false;
 
-	return 0;
+	return true;
 }
 
 static int rtkit_get_bus(struct impl *impl)
@@ -1118,9 +1116,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pthread_mutex_init(&impl->lock, NULL);
 	pthread_cond_init(&impl->cond, NULL);
 
-	if ((res = check_rtkit(impl, context, &can_use_rtkit)) < 0)
-		goto error;
-
+	can_use_rtkit = check_rtkit(context);
 #endif
 	/* If the user has permissions to use regular realtime scheduling, as well as
 	 * the nice level we want, then we'll use that instead of RTKit */

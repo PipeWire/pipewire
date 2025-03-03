@@ -111,7 +111,7 @@ static const struct {
 			 .framelen = (framelen_), .retransmission = (rtn_), .latency = (latency_),	\
 			 .delay = (delay_), .priority = (priority_) })
 
-static const struct bap_qos bap_qos_configs[] = {
+static struct bap_qos bap_qos_configs[] = {
 	/* Priority: low-latency > high-reliability, 7.5ms > 10ms,
 	 * bigger frequency and sdu better */
 
@@ -789,8 +789,10 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	uint32_t locations = 0;
 	uint32_t channel_allocation = 0;
 	bool sink = false, duplex = false;
+	uint32_t value = 0;
 	struct spa_debug_log_ctx debug_ctx = SPA_LOG_DEBUG_INIT(log_, SPA_LOG_LEVEL_TRACE);
 	int i;
+	const char *str;
 
 	if (caps == NULL)
 		return -EINVAL;
@@ -811,7 +813,40 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 
 		/* Is remote endpoint duplex */
 		duplex = spa_atob(spa_dict_lookup(settings, "bluez5.bap.duplex"));
+
+
+		if ((str = spa_dict_lookup(settings, "bluez5.bap.set_name"))) {
+
+			SPA_FOR_EACH_ELEMENT_VAR(bap_qos_configs, qos_sets) {
+
+				if (spa_streq(str, qos_sets->name)) {
+
+					spa_log_debug(log_, "Found Forced QoS For Set: %s\n", qos_sets->name);
+
+					if (settings && (str = spa_dict_lookup(settings, "bluez5.bap.rtn")))
+						if (spa_atou32(str, &value, 0))
+							qos_sets->retransmission = value;
+
+					if (settings && (str = spa_dict_lookup(settings, "bluez5.bap.latency")))
+						if (spa_atou32(str, &value, 0))
+							qos_sets->latency = value;
+
+					if (settings && (str = spa_dict_lookup(settings, "bluez5.bap.delay")))
+						if (spa_atou32(str, &value, 0))
+							qos_sets->delay = value;
+
+					if (settings && (str = spa_dict_lookup(settings, "bluez5.framing")))
+						qos_sets->framing = spa_atob(str);
+
+					/* We set highest priority for the forced configuration. This allows the
+					 * config to be used when LC3 QoS is selected at the time of CIS creation*/
+					qos_sets->priority = 0xFF;
+					break;
+				}
+			}
+		}
 	}
+
 
 	/* Select best conf from those possible */
 	npacs = parse_bluez_pacs(caps, caps_size, pacs, &debug_ctx.ctx);

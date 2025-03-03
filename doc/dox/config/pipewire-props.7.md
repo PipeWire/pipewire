@@ -917,6 +917,22 @@ PipeWire Opus Pro audio profile duplex max bitrate.
 PipeWire Opus Pro audio profile duplex frame duration (1/10 ms).
 
 @PAR@ monitor-prop  bluez5.bcast_source.config = []  # JSON
+
+@PAR@ monitor-prop  bluez5.bap.set_name = "48_2_1"  # string
+BAP QoS set name that can be configured to select specific BAP QoS combination
+
+@PAR@ monitor-prop  bluez5.bap.rtn = 5 # integer
+BAP QoS retransmission number that needs to be configured for the set_name
+
+@PAR@ monitor-prop  bluez5.bap.latency = 20 # integer
+BAP QoS latency that needs to be configured for the set_name
+
+@PAR@ monitor-prop  bluez5.bap.delay = 40000 # integer
+BAP QoS delay that needs to be configured for the set_name
+
+@PAR@ monitor-prop  bluez5.framing = false # boolean
+BAP framing mode that needs to be configured for the set_name
+
 \parblock
 Example:
 ```

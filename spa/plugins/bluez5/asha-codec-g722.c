@@ -18,6 +18,7 @@ static struct spa_log *spalog;
 struct impl {
 	g722_encode_state_t encode;
 	unsigned int codesize;
+	uint8_t seqnum;
 };
 
 static int codec_reduce_bitpool(void *data)
@@ -44,10 +45,12 @@ static int codec_get_block_size(void *data)
 static int codec_start_encode (void *data,
 		void *dst, size_t dst_size, uint16_t seqnum, uint32_t timestamp)
 {
-	/* Payload for ASHA must be preceded by 1-byte sequence number */
-	*(uint8_t *)dst = seqnum % 256;
+	struct impl *this = data;
 
-	return 1;
+	/* Payload for ASHA must be preceded by 1-byte sequence number */
+	this->seqnum = seqnum % 256;
+
+	return 0;
 }
 
 static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
@@ -118,6 +121,7 @@ static int codec_encode(void *data,
 		size_t *dst_out, int *need_flush)
 {
 	struct impl *this = data;
+	uint8_t *dest = (uint8_t *)dst;
 	size_t src_sz;
 	int ret;
 
@@ -133,13 +137,16 @@ static int codec_encode(void *data,
 
 	src_sz = (src_size > this->codesize) ? this->codesize : src_size;
 
-	ret = g722_encode(&this->encode, dst, src, src_sz / 2 /* S16LE */);
+	*dest = this->seqnum;
+	dest++;
+
+	ret = g722_encode(&this->encode, dest, src, src_sz / 2 /* S16LE */);
 	if (ret < 0) {
 		spa_log_error(spalog, "encode error: %d", ret);
 		return -EIO;
 	}
 
-	*dst_out = ret;
+	*dst_out = ret + ASHA_HEADER_SZ;
 	*need_flush = NEED_FLUSH_ALL;
 
 	return src_sz;

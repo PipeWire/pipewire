@@ -356,6 +356,7 @@ gst_pipewire_sink_init (GstPipeWireSink * sink)
 
   sink->mode = DEFAULT_PROP_MODE;
   sink->use_bufferpool = DEFAULT_PROP_USE_BUFFERPOOL;
+  sink->is_video = false;
 
   GST_OBJECT_FLAG_SET (sink, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
 
@@ -366,12 +367,14 @@ static GstCaps *
 gst_pipewire_sink_sink_fixate (GstBaseSink * bsink, GstCaps * caps)
 {
   GstStructure *structure;
+  GstPipeWireSink *pwsink = GST_PIPEWIRE_SINK(bsink);
 
   caps = gst_caps_make_writable (caps);
 
   structure = gst_caps_get_structure (caps, 0);
 
   if (gst_structure_has_name (structure, "video/x-raw")) {
+    pwsink->is_video = true;
     gst_structure_fixate_field_nearest_int (structure, "width", 320);
     gst_structure_fixate_field_nearest_int (structure, "height", 240);
     gst_structure_fixate_field_nearest_fraction (structure, "framerate", 30, 1);
@@ -755,6 +758,7 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   } else {
     pwsink->rate = rate = 0;
     pwsink->rate_match = false;
+    pwsink->is_video = true;
   }
 
   spa_dll_set_bw(&pwsink->stream->dll, SPA_DLL_BW_MIN, 4096, rate);
@@ -834,6 +838,8 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   config = gst_buffer_pool_get_config (GST_BUFFER_POOL_CAST (pwsink->stream->pool));
   gst_buffer_pool_config_get_params (config, NULL, &size, &min_buffers, &max_buffers);
   gst_buffer_pool_config_set_params (config, caps, size, min_buffers, max_buffers);
+  if(pwsink->is_video)
+    gst_buffer_pool_config_add_option(config, GST_BUFFER_POOL_OPTION_VIDEO_META);
   gst_buffer_pool_set_config (GST_BUFFER_POOL_CAST (pwsink->stream->pool), config);
 
   pw_thread_loop_unlock (pwsink->stream->core->loop);
@@ -891,6 +897,8 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
     gsize offset = 0;
     gsize buf_size = gst_buffer_get_size (buffer);
 
+    GST_TRACE_OBJECT(pwsink, "Buffer is not from pipewirepool, copying into our pool");
+
     /* For some streams, the buffer size is changed and may exceed the acquired
      * buffer size which is acquired from the pool of pipewiresink. Need split
      * the buffer and send them in turn for this case */
@@ -913,14 +921,51 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
       if (res != GST_FLOW_OK)
         goto done;
 
-      gst_buffer_map (b, &info, GST_MAP_WRITE);
-      gsize extract_size = (buf_size <= info.maxsize) ? buf_size: info.maxsize;
-      gst_buffer_extract (buffer, offset, info.data, info.maxsize);
-      gst_buffer_unmap (b, &info);
-      gst_buffer_resize (b, 0, extract_size);
-      gst_buffer_copy_into(b, buffer, GST_BUFFER_COPY_METADATA, 0, -1);
-      buf_size -= extract_size;
-      offset += extract_size;
+      if (pwsink->is_video) {
+        GstVideoFrame src, dst;
+        gboolean copied = FALSE;
+        buf_size = 0; // to break from the loop
+
+        /*
+          splitting of buffers in the case of video might break the frame layout
+          and that seems to be causing issues while retrieving the buffers on the receiver
+          side. Hence use the video_frame_map to copy the buffer of bigger size into the
+          pipewirepool's buffer
+        */
+
+        if (!gst_video_frame_map (&dst, &pwsink->stream->pool->video_info, b,
+          GST_MAP_WRITE)) {
+          GST_ERROR_OBJECT(pwsink, "Failed to map dest buffer");
+          return GST_FLOW_ERROR;
+        }
+
+        if (!gst_video_frame_map (&src, &pwsink->stream->pool->video_info, buffer, GST_MAP_READ)) {
+          gst_video_frame_unmap (&dst);
+          GST_ERROR_OBJECT(pwsink, "Failed to map src buffer");
+          return GST_FLOW_ERROR;
+        }
+
+        copied = gst_video_frame_copy (&dst, &src);
+
+        gst_video_frame_unmap (&src);
+        gst_video_frame_unmap (&dst);
+
+        if (!copied) {
+          GST_ERROR_OBJECT(pwsink, "Failed to copy the frame");
+          return GST_FLOW_ERROR;
+        }
+
+        gst_buffer_copy_into(b, buffer, GST_BUFFER_COPY_METADATA, 0, -1);
+      } else {
+        gst_buffer_map (b, &info, GST_MAP_WRITE);
+        gsize extract_size = (buf_size <= info.maxsize) ? buf_size: info.maxsize;
+        gst_buffer_extract (buffer, offset, info.data, info.maxsize);
+        gst_buffer_unmap (b, &info);
+        gst_buffer_resize (b, 0, extract_size);
+        gst_buffer_copy_into(b, buffer, GST_BUFFER_COPY_METADATA, 0, -1);
+        buf_size -= extract_size;
+        offset += extract_size;
+      }
 
       pw_thread_loop_lock (pwsink->stream->core->loop);
       if (pw_stream_get_state (pwsink->stream->pwstream, &error) != PW_STREAM_STATE_STREAMING) {
@@ -935,6 +980,8 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
         pw_stream_trigger_process (pwsink->stream->pwstream);
     }
   } else {
+    GST_TRACE_OBJECT(pwsink, "Buffer is from pipewirepool");
+
     do_send_buffer (pwsink, buffer);
 
     if (pw_stream_is_driving (pwsink->stream->pwstream))

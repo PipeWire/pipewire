@@ -472,6 +472,7 @@ struct client {
 	unsigned int fill_aliases:1;
 	unsigned int writable_input:1;
 	unsigned int async:1;
+	unsigned int flag_midi2:1;
 
 	uint32_t max_frames;
 	uint32_t max_align;
@@ -3818,7 +3819,7 @@ static void registry_event_global(void *data, uint32_t id,
 		if ((str = spa_dict_lookup(props, PW_KEY_PORT_NAME)) == NULL)
 			goto exit;
 
-		if (type_id == TYPE_ID_UMP)
+		if (type_id == TYPE_ID_UMP && c->flag_midi2)
 			flags |= JackPortIsMIDI2;
 
 		spa_dict_for_each(item, props) {
@@ -4400,6 +4401,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->fill_aliases = pw_properties_get_bool(client->props, "jack.fill-aliases", false);
 	client->writable_input = pw_properties_get_bool(client->props, "jack.writable-input", true);
 	client->async = pw_properties_get_bool(client->props, PW_KEY_NODE_ASYNC, false);
+	client->flag_midi2 = pw_properties_get_bool(client->props, "jack.flag-midi2", false);
 
 	client->self_connect_mode = SELF_CONNECT_ALLOW;
 	if ((str = pw_properties_get(client->props, "jack.self-connect-mode")) != NULL) {

@@ -70,7 +70,7 @@ jack.properties = {
     #jack.max-client-ports   = 768
     #jack.fill-aliases       = false
     #jack.writable-input     = false
-
+    #jack.flag-midi2         = false
 }
 ```
 
@@ -196,6 +196,14 @@ input buffer. This however can cause corruption in other clients when they are a
 from the buffer.
 
 Set this to true to avoid buffer corruption if you are only dealing with non-buggy clients.
+\endparblock
+
+@PAR@ jack.conf  jack.flag-midi2
+\parblock
+Use the new JACK MIDI2 port flag on MIDI2 (UMP) ports. This is disabled by default because most
+JACK apps don't know about this flag yet and refuse to show the port.
+
+Set this to true for applications that know how to handle MIDI2 ports.
 \endparblock
 
 # MATCH RULES  @IDX@ jack.conf

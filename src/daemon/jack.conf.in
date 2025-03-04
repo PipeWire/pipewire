@@ -95,6 +95,7 @@ jack.properties = {
      #jack.max-client-ports   = 768
      #jack.fill-aliases       = false
      #jack.writable-input     = true
+     #jack.flag-midi2         = false
 }
 
 # client specific properties

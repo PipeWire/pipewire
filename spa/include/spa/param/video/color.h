@@ -59,6 +59,16 @@ enum spa_video_transfer_function {
 					 *   range. Used for BT.2020 with 12 bits per
 					 *   component */
 	SPA_VIDEO_TRANSFER_ADOBERGB,	/**< Gamma 2.19921875 */
+	SPA_VIDEO_TRANSFER_BT2020_10,	/**< Rec. ITU-R BT.2020-2 with 10 bits per component.
+					 *   (functionally the same as the values
+					 * SPA_VIDEO_TRANSFER_BT709 and SPA_VIDEO_TRANSFER_BT601) */
+	SPA_VIDEO_TRANSFER_SMPTE2084,	/**< SMPTE ST 2084 for 10, 12, 14, and 16-bit systems.
+					 * Known as perceptual quantization (PQ) */
+	SPA_VIDEO_TRANSFER_ARIB_STD_B67,/**< Association of Radio Industries and Businesses (ARIB)
+					 * STD-B67 and Rec. ITU-R BT.2100-1 hybrid loggamma (HLG) system */
+	SPA_VIDEO_TRANSFER_BT601,	/**< also known as SMPTE170M / ITU-R BT1358 525 or 625 / ITU-R BT1700 NTSC
+					 * Functionally the same as the values
+					 * SPA_VIDEO_TRANSFER_BT709, and SPA_VIDEO_TRANSFER_BT2020_10 */
 };
 
 /**
@@ -75,6 +85,10 @@ enum spa_video_color_primaries {
 	SPA_VIDEO_COLOR_PRIMARIES_FILM,		/**< Generic film */
 	SPA_VIDEO_COLOR_PRIMARIES_BT2020,	/**< BT2020 primaries */
 	SPA_VIDEO_COLOR_PRIMARIES_ADOBERGB,	/**< Adobe RGB primaries */
+	SPA_VIDEO_COLOR_PRIMARIES_SMPTEST428,	/**< SMPTE ST 428 primaries (CIE 1931 XYZ) */
+	SPA_VIDEO_COLOR_PRIMARIES_SMPTERP431,	/**< SMPTE RP 431 primaries (ST 431-2 (2011) / DCI P3) */
+	SPA_VIDEO_COLOR_PRIMARIES_SMPTEEG432,	/**< SMPTE EG 432 primaries (ST 432-1 (2010) / P3 D65) */
+	SPA_VIDEO_COLOR_PRIMARIES_EBU3213,	/**< EBU 3213 primaries (JEDEC P22 phosphors) */
 };
 
 /**

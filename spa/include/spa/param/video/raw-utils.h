@@ -117,6 +117,56 @@ spa_format_video_raw_build(struct spa_pod_builder *builder, uint32_t id,
 	return (struct spa_pod*)spa_pod_builder_pop(builder, &f);
 }
 
+static inline bool
+spa_format_video_is_rgb(enum spa_video_format format)
+{
+	switch (format) {
+	case SPA_VIDEO_FORMAT_RGBx:
+	case SPA_VIDEO_FORMAT_BGRx:
+	case SPA_VIDEO_FORMAT_xRGB:
+	case SPA_VIDEO_FORMAT_xBGR:
+	case SPA_VIDEO_FORMAT_RGBA:
+	case SPA_VIDEO_FORMAT_BGRA:
+	case SPA_VIDEO_FORMAT_ARGB:
+	case SPA_VIDEO_FORMAT_ABGR:
+	case SPA_VIDEO_FORMAT_RGB:
+	case SPA_VIDEO_FORMAT_BGR:
+	case SPA_VIDEO_FORMAT_GRAY8:
+	case SPA_VIDEO_FORMAT_GRAY16_BE:
+	case SPA_VIDEO_FORMAT_GRAY16_LE:
+	case SPA_VIDEO_FORMAT_RGB16:
+	case SPA_VIDEO_FORMAT_BGR16:
+	case SPA_VIDEO_FORMAT_RGB15:
+	case SPA_VIDEO_FORMAT_BGR15:
+	case SPA_VIDEO_FORMAT_RGB8P:
+	case SPA_VIDEO_FORMAT_ARGB64:
+	case SPA_VIDEO_FORMAT_r210:
+	case SPA_VIDEO_FORMAT_GBR:
+	case SPA_VIDEO_FORMAT_GBR_10BE:
+	case SPA_VIDEO_FORMAT_GBR_10LE:
+	case SPA_VIDEO_FORMAT_GBRA:
+	case SPA_VIDEO_FORMAT_GBRA_10BE:
+	case SPA_VIDEO_FORMAT_GBRA_10LE:
+	case SPA_VIDEO_FORMAT_GBR_12BE:
+	case SPA_VIDEO_FORMAT_GBR_12LE:
+	case SPA_VIDEO_FORMAT_GBRA_12BE:
+	case SPA_VIDEO_FORMAT_GBRA_12LE:
+	case SPA_VIDEO_FORMAT_RGBA_F16:
+	case SPA_VIDEO_FORMAT_RGBA_F32:
+	case SPA_VIDEO_FORMAT_xRGB_210LE:
+	case SPA_VIDEO_FORMAT_xBGR_210LE:
+	case SPA_VIDEO_FORMAT_RGBx_102LE:
+	case SPA_VIDEO_FORMAT_BGRx_102LE:
+	case SPA_VIDEO_FORMAT_ARGB_210LE:
+	case SPA_VIDEO_FORMAT_ABGR_210LE:
+	case SPA_VIDEO_FORMAT_RGBA_102LE:
+	case SPA_VIDEO_FORMAT_BGRA_102LE:
+		return true;
+	default:
+		return false;
+	}
+}
+
 /**
  * \}
  */

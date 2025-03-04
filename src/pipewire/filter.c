@@ -407,8 +407,10 @@ static bool filter_set_state(struct pw_filter *filter, enum pw_filter_state stat
 			     pw_filter_state_as_string(old),
 			     pw_filter_state_as_string(state), res, error);
 
-		if (state == PW_FILTER_STATE_ERROR)
+		if (state == PW_FILTER_STATE_ERROR) {
 			pw_log_error("%p: error (%d) %s", filter, res, error);
+			errno = -res;
+		}
 
 		filter->state = state;
 		pw_filter_emit_state_changed(filter, old, state, error);
@@ -1126,11 +1128,14 @@ static void proxy_destroy(void *_data)
 static void proxy_error(void *_data, int seq, int res, const char *message)
 {
 	struct pw_filter *filter = _data;
+	int old_errno = errno;
 	/* we just emit the state change here to inform the application.
 	 * If this is supposed to be a permanent error, the app should
 	 * do a pw_filter_set_error() */
+	errno = -res;
 	pw_filter_emit_state_changed(filter, filter->state,
 			PW_FILTER_STATE_ERROR, message);
+	errno = old_errno;
 }
 
 static void proxy_bound_props(void *_data, uint32_t global_id, const struct spa_dict *props)
@@ -1474,6 +1479,8 @@ enum pw_filter_state pw_filter_get_state(struct pw_filter *filter, const char **
 {
 	if (error)
 		*error = filter->error;
+	if (filter->state == PW_FILTER_STATE_ERROR)
+		errno = -filter->error_res;
 	return filter->state;
 }
 

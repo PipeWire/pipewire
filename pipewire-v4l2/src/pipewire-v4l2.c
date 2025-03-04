@@ -1696,7 +1696,7 @@ static int connect_stream(struct file *file)
 			break;
 
 		if (state == PW_STREAM_STATE_ERROR) {
-			res = -EIO;
+			res = -errno;
 			goto exit;
 		}
 		if (file->error < 0) {

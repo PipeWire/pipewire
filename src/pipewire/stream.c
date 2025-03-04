@@ -400,8 +400,10 @@ static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state stat
 			     pw_stream_state_as_string(old),
 			     pw_stream_state_as_string(state), res, stream->error);
 
-		if (state == PW_STREAM_STATE_ERROR)
+		if (state == PW_STREAM_STATE_ERROR) {
 			pw_log_error("%p: error (%d) %s", stream, res, error);
+			errno = -res;
+		}
 
 		stream->state = state;
 		pw_stream_emit_state_changed(stream, old, state, error);
@@ -1169,11 +1171,14 @@ static void proxy_destroy(void *_data)
 static void proxy_error(void *_data, int seq, int res, const char *message)
 {
 	struct pw_stream *stream = _data;
+	int old_errno = errno;
 	/* we just emit the state change here to inform the application.
 	 * If this is supposed to be a permanent error, the app should
 	 * do a pw_stream_set_error() */
+	errno = -res;
 	pw_stream_emit_state_changed(stream, stream->state,
 			PW_STREAM_STATE_ERROR, message);
+	errno = old_errno;
 }
 
 static void proxy_bound_props(void *data, uint32_t global_id, const struct spa_dict *props)
@@ -1772,6 +1777,8 @@ enum pw_stream_state pw_stream_get_state(struct pw_stream *stream, const char **
 {
 	if (error)
 		*error = stream->error;
+	if (stream->state == PW_STREAM_STATE_ERROR)
+		errno = -stream->error_res;
 	return stream->state;
 }
 

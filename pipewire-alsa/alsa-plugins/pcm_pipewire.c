@@ -391,7 +391,7 @@ static void on_stream_state_changed(void *data, enum pw_stream_state old, enum p
 
 	if (state == PW_STREAM_STATE_ERROR) {
 		pw_log_warn("%s", error);
-		pw->error = -EIO;
+		pw->error = -errno;
 		update_active(&pw->io);
 	}
 }

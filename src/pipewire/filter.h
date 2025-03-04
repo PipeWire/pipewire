@@ -62,7 +62,8 @@ struct pw_filter_events {
 	uint32_t version;
 
 	void (*destroy) (void *data);
-	/** when the filter state changes */
+	/** when the filter state changes. Since 1.4 this also sets errno when the
+	 * new state is PW_FILTER_STATE_ERROR */
 	void (*state_changed) (void *data, enum pw_filter_state old,
 				enum pw_filter_state state, const char *error);
 
@@ -153,6 +154,8 @@ void pw_filter_add_listener(struct pw_filter *filter,
 			    const struct pw_filter_events *events,
 			    void *data);
 
+/** Get the current filter state. Since 1.4 this also sets errno when the
+ * state is PW_FILTER_STATE_ERROR */
 enum pw_filter_state pw_filter_get_state(struct pw_filter *filter, const char **error);
 
 const char *pw_filter_get_name(struct pw_filter *filter);

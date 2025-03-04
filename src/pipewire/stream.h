@@ -412,7 +412,8 @@ struct pw_stream_events {
 	uint32_t version;
 
 	void (*destroy) (void *data);
-	/** when the stream state changes */
+	/** when the stream state changes. Since 1.4 this also sets errno when the
+	 * new state is PW_STREAM_STATE_ERROR */
 	void (*state_changed) (void *data, enum pw_stream_state old,
 				enum pw_stream_state state, const char *error);
 
@@ -517,6 +518,8 @@ void pw_stream_add_listener(struct pw_stream *stream,
 			    const struct pw_stream_events *events,
 			    void *data);
 
+/** Get the current stream state. Since 1.4 this also sets errno when the
+ * state is PW_STREAM_STATE_ERROR */
 enum pw_stream_state pw_stream_get_state(struct pw_stream *stream, const char **error);
 
 const char *pw_stream_get_name(struct pw_stream *stream);

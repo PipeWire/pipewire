@@ -1109,7 +1109,7 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 
 	switch (state) {
 	case PW_STREAM_STATE_ERROR:
-		reply_error(client, -1, stream->create_tag, -EIO);
+		reply_error(client, -1, stream->create_tag, -errno);
 		destroy_stream = true;
 		break;
 	case PW_STREAM_STATE_UNCONNECTED:

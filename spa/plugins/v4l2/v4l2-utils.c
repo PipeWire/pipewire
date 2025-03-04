@@ -2,6 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2018 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include <linux/videodev2.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -494,6 +495,162 @@ filter_framerate(struct v4l2_frmivalenum *frmival,
 	return true;
 }
 
+struct spa_video_colorimetry v4l2_colorimetry_map[] = {
+	{ /* V4L2_COLORSPACE_DEFAULT */
+		.range = SPA_VIDEO_COLOR_RANGE_UNKNOWN,
+	},
+	{ /* V4L2_COLORSPACE_SMPTE170M */
+		.range = SPA_VIDEO_COLOR_RANGE_16_235,
+		.matrix = SPA_VIDEO_COLOR_MATRIX_BT601,
+		.transfer = SPA_VIDEO_TRANSFER_BT601,
+		.primaries = SPA_VIDEO_COLOR_PRIMARIES_SMPTE170M,
+	},
+	{ /* V4L2_COLORSPACE_SMPTE240M */
+		.range = SPA_VIDEO_COLOR_RANGE_16_235,
+		.matrix = SPA_VIDEO_COLOR_MATRIX_SMPTE240M,
+		.transfer = SPA_VIDEO_TRANSFER_SMPTE240M,
+		.primaries = SPA_VIDEO_COLOR_PRIMARIES_SMPTE240M,
+	},
+	{ /* V4L2_COLORSPACE_REC709 */
+		.range = SPA_VIDEO_COLOR_RANGE_16_235,
+		.matrix = SPA_VIDEO_COLOR_MATRIX_BT709,
+		.transfer = SPA_VIDEO_TRANSFER_BT709,
+		.primaries = SPA_VIDEO_COLOR_PRIMARIES_BT709,
+	},
+	{ /* V4L2_COLORSPACE_BT878 (deprecated) */
+		.range = SPA_VIDEO_COLOR_RANGE_UNKNOWN,
+	},
+	{ /* V4L2_COLORSPACE_470_SYSTEM_M */
+		.range = SPA_VIDEO_COLOR_RANGE_16_235,
+		.matrix = SPA_VIDEO_COLOR_MATRIX_BT601,
+		.transfer = SPA_VIDEO_TRANSFER_BT709,
+		.primaries = SPA_VIDEO_COLOR_PRIMARIES_BT470M,
+	},
+	{ /* V4L2_COLORSPACE_470_SYSTEM_BG */
+		.range = SPA_VIDEO_COLOR_RANGE_16_235,
+		.matrix = SPA_VIDEO_COLOR_MATRIX_BT601,
+		.transfer = SPA_VIDEO_TRANSFER_BT709,
+		.primaries = SPA_VIDEO_COLOR_PRIMARIES_BT470BG,
+	},
+	{ /* V4L2_COLORSPACE_JPEG */
+		.range = SPA_VIDEO_COLOR_RANGE_0_255,
+		.matrix = SPA_VIDEO_COLOR_MATRIX_BT601,
+		.transfer = SPA_VIDEO_TRANSFER_SRGB,
+		.primaries = SPA_VIDEO_COLOR_PRIMARIES_BT709,
+	},
+	{ /* V4L2_COLORSPACE_SRGB */
+		.range = SPA_VIDEO_COLOR_RANGE_16_235,
+		.matrix = SPA_VIDEO_COLOR_MATRIX_BT601,
+		.transfer = SPA_VIDEO_TRANSFER_SRGB,
+		.primaries = SPA_VIDEO_COLOR_PRIMARIES_BT709,
+	},
+	{ /* V4L2_COLORSPACE_OPRGB */
+		.range = SPA_VIDEO_COLOR_RANGE_16_235,
+		.matrix = SPA_VIDEO_COLOR_MATRIX_BT601,
+		.transfer = SPA_VIDEO_TRANSFER_ADOBERGB,
+		.primaries = SPA_VIDEO_COLOR_PRIMARIES_ADOBERGB,
+	},
+	{ /* V4L2_COLORSPACE_BT2020 */
+		.range = SPA_VIDEO_COLOR_RANGE_16_235,
+		.matrix = SPA_VIDEO_COLOR_MATRIX_BT2020,
+		.transfer = SPA_VIDEO_TRANSFER_BT2020_12,
+		.primaries = SPA_VIDEO_COLOR_PRIMARIES_BT2020,
+	},
+	{ /* V4L2_COLORSPACE_RAW */
+		.range = SPA_VIDEO_COLOR_RANGE_UNKNOWN,
+	}
+};
+
+enum spa_video_color_range v4l2_color_range_map[] = {
+	SPA_VIDEO_COLOR_RANGE_UNKNOWN,
+	SPA_VIDEO_COLOR_RANGE_0_255,
+	SPA_VIDEO_COLOR_RANGE_16_235
+};
+
+enum spa_video_color_matrix v4l2_color_matrix_map[] = {
+	/* V4L2_YCBCR_ENC_DEFAULT */
+	SPA_VIDEO_COLOR_MATRIX_UNKNOWN,
+	/* V4L2_YCBCR_ENC_601 */
+	SPA_VIDEO_COLOR_MATRIX_BT601,
+	/* V4L2_YCBCR_ENC_709 */
+	SPA_VIDEO_COLOR_MATRIX_BT709,
+	/* V4L2_YCBCR_ENC_XV601 */
+	SPA_VIDEO_COLOR_MATRIX_BT601,
+	/* V4L2_YCBCR_ENC_XV709 */
+	SPA_VIDEO_COLOR_MATRIX_BT709,
+	/* V4L2_YCBCR_ENC_SYCC */
+	SPA_VIDEO_COLOR_MATRIX_BT601,
+	/* V4L2_YCBCR_ENC_BT2020 */
+	SPA_VIDEO_COLOR_MATRIX_BT2020,
+	/* V4L2_YCBCR_ENC_BT2020_CONST_LUM */
+	SPA_VIDEO_COLOR_MATRIX_BT2020,
+	/* V4L2_YCBCR_ENC_SMPTE240M */
+	SPA_VIDEO_COLOR_MATRIX_SMPTE240M
+};
+
+enum spa_video_transfer_function v4l2_transfer_function_map[] = {
+	/* V4L2_XFER_FUNC_DEFAULT */
+	SPA_VIDEO_TRANSFER_UNKNOWN,
+	/* V4L2_XFER_FUNC_709 */
+	SPA_VIDEO_TRANSFER_BT709,
+	/* V4L2_XFER_FUNC_SRGB */
+	SPA_VIDEO_TRANSFER_SRGB,
+	/* V4L2_XFER_FUNC_OPRGB */
+	SPA_VIDEO_TRANSFER_ADOBERGB,
+	/* V4L2_XFER_FUNC_SMPTE240M */
+	SPA_VIDEO_TRANSFER_SMPTE240M,
+	/* V4L2_XFER_FUNC_NONE */
+	SPA_VIDEO_TRANSFER_GAMMA10,
+	/* V4L2_XFER_FUNC_DCI_P3 */
+	SPA_VIDEO_TRANSFER_UNKNOWN,
+	/* V4L2_XFER_FUNC_SMPTE2084 */
+	SPA_VIDEO_TRANSFER_SMPTE2084
+};
+
+static bool
+parse_colorimetry(struct impl *this, const struct v4l2_pix_format *pix, bool is_rgb,
+		  struct spa_video_colorimetry *colorimetry)
+{
+	struct spa_video_colorimetry c = { 0 };
+
+	if (pix->colorspace < V4L2_COLORSPACE_RAW)
+		c = v4l2_colorimetry_map[pix->colorspace];
+
+	if (c.range == SPA_VIDEO_COLOR_RANGE_UNKNOWN)
+		return false;
+
+	switch (pix->quantization) {
+	case V4L2_QUANTIZATION_FULL_RANGE:
+	case V4L2_QUANTIZATION_LIM_RANGE:
+		c.range = v4l2_color_range_map[pix->quantization];
+		break;
+	case V4L2_QUANTIZATION_DEFAULT:
+		if (is_rgb)
+			c.range = SPA_VIDEO_COLOR_RANGE_0_255;
+		break;
+	default:
+		spa_log_warn(this->log, "Unknown enum v4l2_quantization value %d",
+				pix->quantization);
+		c.range = SPA_VIDEO_COLOR_RANGE_UNKNOWN;
+		break;
+	}
+
+	if (pix->ycbcr_enc >= V4L2_YCBCR_ENC_SMPTE240M)
+		spa_log_warn(this->log, "Unknown enum v4l2_ycbcr_encoding value %d",
+				pix->ycbcr_enc);
+	else if (pix->ycbcr_enc > 0)
+		c.matrix = v4l2_color_matrix_map[pix->ycbcr_enc];
+
+	if (pix->xfer_func >= V4L2_XFER_FUNC_SMPTE2084)
+		spa_log_warn(this->log, "Unknown enum v4l2_xfer_func value %d",
+				pix->xfer_func);
+	else if (pix->xfer_func > 0)
+		c.transfer = v4l2_transfer_function_map[pix->xfer_func];
+
+	*colorimetry = c;
+	return true;
+}
+
 #define FOURCC_ARGS(f) (f)&0x7f,((f)>>8)&0x7f,((f)>>16)&0x7f,((f)>>24)&0x7f
 
 static int
@@ -512,7 +669,8 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 	struct spa_pod_builder_state state;
 	struct spa_pod_frame f[2];
 	struct spa_result_node_params result;
-	uint32_t count = 0;
+	struct v4l2_format fmt;
+	uint32_t count = 0, try_width = 0, try_height = 0;
 	bool with_modifier;
 
 	if ((res = spa_v4l2_open(dev, this->props.device)) < 0)
@@ -742,6 +900,8 @@ do_frmsize_filter:
 		spa_pod_builder_rectangle(&b.b,
 				port->frmsize.discrete.width,
 				port->frmsize.discrete.height);
+		try_width = port->frmsize.discrete.width;
+		try_height = port->frmsize.discrete.height;
 	} else if (port->frmsize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS ||
 		   port->frmsize.type == V4L2_FRMSIZE_TYPE_STEPWISE) {
 		spa_pod_builder_push_choice(&b.b, &f[1], SPA_CHOICE_None, 0);
@@ -766,6 +926,35 @@ do_frmsize_filter:
 					port->frmsize.stepwise.max_height);
 		}
 		spa_pod_builder_pop(&b.b, &f[1]);
+		try_width = port->frmsize.stepwise.min_width;
+		try_height = port->frmsize.stepwise.min_height;
+	}
+
+	spa_zero(fmt);
+	fmt.type = port->fmtdesc.type;
+	fmt.fmt.pix.pixelformat = info->fourcc;
+	fmt.fmt.pix.field = V4L2_FIELD_ANY;
+	fmt.fmt.pix.width = try_width;
+	fmt.fmt.pix.height = try_height;
+
+	if ((res = xioctl(dev->fd, VIDIOC_TRY_FMT, &fmt)) < 0) {
+		spa_log_debug(this->log, "'%s' VIDIOC_TRY_FMT %08x: %m",
+				this->props.device, info->fourcc);
+	} else {
+		struct spa_video_colorimetry colorimetry;
+		bool is_rgb = spa_format_video_is_rgb(info->format);
+
+		if (parse_colorimetry(this, &fmt.fmt.pix, is_rgb, &colorimetry)) {
+			spa_pod_builder_add(&b.b,
+				SPA_FORMAT_VIDEO_colorRange,
+				SPA_POD_Id(colorimetry.range),
+				SPA_FORMAT_VIDEO_colorMatrix,
+				SPA_POD_Id(colorimetry.matrix),
+				SPA_FORMAT_VIDEO_transferFunction,
+				SPA_POD_Id(colorimetry.transfer),
+				SPA_FORMAT_VIDEO_colorPrimaries,
+				SPA_POD_Id(colorimetry.primaries), 0);
+		}
 	}
 
 	spa_pod_builder_prop(&b.b, SPA_FORMAT_VIDEO_framerate, 0);

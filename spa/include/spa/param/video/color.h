@@ -36,7 +36,7 @@ enum spa_video_color_matrix {
 	SPA_VIDEO_COLOR_MATRIX_BT709,		/**< ITU BT.709 color matrix */
 	SPA_VIDEO_COLOR_MATRIX_BT601,		/**< ITU BT.601 color matrix */
 	SPA_VIDEO_COLOR_MATRIX_SMPTE240M,	/**< SMTPE  240M color matrix */
-	SPA_VIDEO_COLOR_MATRIX_BT2020,		/**<  ITU-R BT.2020 color matrix. since 1.6. */
+	SPA_VIDEO_COLOR_MATRIX_BT2020,		/**<  ITU-R BT.2020 color matrix */
 };
 
 /**
@@ -57,8 +57,8 @@ enum spa_video_transfer_function {
 	SPA_VIDEO_TRANSFER_LOG316,	/**< Logarithmic transfer characteristic 316.22777:1 range */
 	SPA_VIDEO_TRANSFER_BT2020_12,	/**< Gamma 2.2 curve with a linear segment in the lower
 					 *   range. Used for BT.2020 with 12 bits per
-					 *   component. \since 1.6. */
-	SPA_VIDEO_TRANSFER_ADOBERGB,	/**< Gamma 2.19921875. \since 1.8 */
+					 *   component */
+	SPA_VIDEO_TRANSFER_ADOBERGB,	/**< Gamma 2.19921875 */
 };
 
 /**
@@ -73,8 +73,8 @@ enum spa_video_color_primaries {
 	SPA_VIDEO_COLOR_PRIMARIES_SMPTE170M,	/**< SMPTE170M primaries */
 	SPA_VIDEO_COLOR_PRIMARIES_SMPTE240M,	/**< SMPTE240M primaries */
 	SPA_VIDEO_COLOR_PRIMARIES_FILM,		/**< Generic film */
-	SPA_VIDEO_COLOR_PRIMARIES_BT2020,	/**< BT2020 primaries. \since 1.6. */
-	SPA_VIDEO_COLOR_PRIMARIES_ADOBERGB,	/**< Adobe RGB primaries. \since 1.8 */
+	SPA_VIDEO_COLOR_PRIMARIES_BT2020,	/**< BT2020 primaries */
+	SPA_VIDEO_COLOR_PRIMARIES_ADOBERGB,	/**< Adobe RGB primaries */
 };
 
 /**

@@ -1406,18 +1406,44 @@ static void hfp_hf_hangup(void *data, enum spa_bt_telephony_error *err, uint8_t 
 	struct rfcomm_call_data *call_data = data;
 	struct rfcomm *rfcomm = call_data->rfcomm;
 	struct impl *backend = rfcomm->backend;
+	struct spa_bt_telephony_call *call, *tcall;
+	bool found_held = false;
+	bool hfp_hf_in_progress = false;
 	char reply[20];
 	bool res;
+
+	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+		if (call->state == CALL_STATE_HELD)
+			found_held = true;
+	}
 
 	switch (call_data->call->state) {
 	case CALL_STATE_ACTIVE:
 	case CALL_STATE_DIALING:
 	case CALL_STATE_ALERTING:
 	case CALL_STATE_INCOMING:
-		rfcomm_send_cmd(rfcomm, "AT+CHUP");
+		if (found_held) {
+			if (!rfcomm->chld_supported) {
+				*err = BT_TELEPHONY_ERROR_NOT_SUPPORTED;
+				return;
+			} else if (rfcomm->hfp_hf_in_progress) {
+				*err = BT_TELEPHONY_ERROR_IN_PROGRESS;
+				return;
+			}
+
+			rfcomm_send_cmd(rfcomm, "AT+CHLD=1");
+			hfp_hf_in_progress = true;
+		} else {
+			rfcomm_send_cmd(rfcomm, "AT+CHUP");
+		}
 		break;
 	case CALL_STATE_WAITING:
+		if (rfcomm->hfp_hf_in_progress) {
+			*err = BT_TELEPHONY_ERROR_IN_PROGRESS;
+			return;
+		}
 		rfcomm_send_cmd(rfcomm, "AT+CHLD=0");
+		hfp_hf_in_progress = true;
 		break;
 	default:
 		spa_log_info(backend->log, "Call not incoming, waiting or active: skip hangup");
@@ -1435,6 +1461,24 @@ static void hfp_hf_hangup(void *data, enum spa_bt_telephony_error *err, uint8_t 
 		return;
 	}
 
+	if (hfp_hf_in_progress) {
+		if (call_data->call->state != CALL_STATE_WAITING) {
+			spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
+				if (call->state == CALL_STATE_ACTIVE) {
+					call->state = CALL_STATE_DISCONNECTED;
+					telephony_call_notify_updated_props(call);
+					telephony_call_destroy(call);
+				}
+			}
+			spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
+				if (call->state == CALL_STATE_HELD) {
+					call->state = CALL_STATE_ACTIVE;
+					telephony_call_notify_updated_props(call);
+				}
+			}
+		}
+		rfcomm->hfp_hf_in_progress = true;
+	}
 	*err = BT_TELEPHONY_ERROR_NONE;
 }
 

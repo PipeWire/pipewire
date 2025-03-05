@@ -1,3 +1,107 @@
+# PipeWire 1.4.0 (2025-03-06)
+
+This is the 1.4 release that is API and ABI compatible with previous
+1.2.x and 1.0.x releases.
+
+This release contains some of the bigger changes that happened since
+the 1.2 release last year, including:
+
+  * client-rt.conf was removed, all clients now use client.conf and
+    are given RT priority in the data threads.
+  * UMP (aka MIDI2) support was added and is now the default format
+    to carry MIDI1 and MIDI2 around in PipeWire. There are helper
+    functions to convert between legacy MIDI and UMP.
+  * The resampler can now precompute (at compile time) some common
+    conversion filters. Delay reporting in the resampler was fixed and
+    improved.
+  * Bluetooth support for BAP broadcast links and support for hearing aids
+    using ASHA was added. A new G722 codec was also added.
+    Delay reporting and configuration in Bluetooth was improved.
+  * The ALSA plugin now supports DSD playback when explicitly allowed
+    with the alsa.formats property.
+  * A PipeWire JACK control API was added.
+  * A system service was added for pipewire-pulse.
+  * Many documentation and translation updates.
+  * Many of the SPA macros are converted to inline functions.  All SPA
+    inline functions are now also compiled into a libspa.so library to
+    make it easier to access them from bindings.
+  * The module-filter-chain graph code was moved to a separate
+    filter-graph SPA plugin so that it becomes usable in more places.
+    EBUR128, param_eq and dcblock plugins were added to filter-graph.
+    The filter graph can now also use fftw for doing convolutions.
+    The audioconvert plugin was optimized and support was added to
+    audioconvert to insert extra filter-graphs in the processing pipeline.
+  * New helper functions were added to parse JSON format descriptions.
+  * The profiler now also includes the clock of the followers.
+  * RISCV CPU support and assembler optimisations were added.
+  * The clock used for logging timestamps can be configured now.
+  * The JSON parser was split into core functions and helper.
+  * Support for UCM split PCMs was added. Instead of alsa-lib splitting
+    up PCMs, PipeWire can mark the PCMs with the correct metadata so that
+    the session manager can use native PipeWire features to do this.
+  * Support for webrtc2 was added to echo-cancel.
+  * IEC958 codecs are now detected from the HDMI ELD data.
+  * Conversion between floating point and 32 bits now preserve 25 bits of
+    precision instead of 24 bits.
+  * A new Telephony D-BUS API compatible with ofono was added.
+  * The invoke queues are now more efficient and can be called from multiple
+    threads concurrently.
+  * Clock information in v4l2 was improved.
+  * An ffmpeg based videoconvert plugin was added that can be used with the
+    videoadapter.
+  * The GStreamer elements have improved buffer pool handling and rate
+    matching.
+  * The combine-stream module can now also mix streams.
+  * link-factory now checks that the port and node belong together.
+  * The netjack-manager module has support for autoconnecting streams.
+  * The native-protocol has support for abstract sockets.
+  * The pulse server has support for blocking playback and capture in
+    pulse.rules.
+  * The corked state of stream is now reported correctly in pulse-server.
+  * Fix backwards jumps in pulse-server.
+  * Latency configuration support was added in loopback and raop-sink.
+  * The ROC module has more configuration options.
+  * The SAP module now only send updated SDP when something changed.
+  * RTP source now has a standby mode where it idles when there is no
+    data received.
+  * Support for PTP clocking was added the RTP streams.
+  * The VBAN receiver can now dynamically create streams when they are
+    detected.
+  * Error reporting when making links was improved.
+  * Support for returning (canceling) a dequeued buffer in pw-stream.
+  * Support for emiting events in pw-stream was added.
+  * pw-cat now support stdin and stdout.
+
+
+## Highlights (since the previous 1.3.83 release)
+  - Small fixes and improvements.
+
+## PipeWire
+  - Fix some missing includes in metadata.h
+  - Pass the current error in errno when a stream is in error (#4574)
+
+
+## modules
+  - Evaluate node rules before loading adapter follower to ensure
+    properties are set correctly. (#4562)
+
+## SPA
+  - Avoid a use after free when building PODs. (#4445)
+  - Take headroom into account when calculating resync.
+
+## Bluetooth
+  - Fix +CLCC parsing.
+
+## GStreamer
+  - Notify about default device changes in deviceprovider.
+  - Copy frames between pools and avoid splitting video buffers.
+
+## JACK
+  - Add an option to disable the MIDI2 port flags. (#4584)
+
+
+Older versions:
+
 # PipeWire 1.3.83 (2025-02-20)
 
 This is the third and hopefully last 1.4 release candidate that
@@ -42,9 +146,6 @@ compile for older versions). Note also that this is not an ABI break.
   - Use the A2DP source rate as the graph rate. (#4555)
   - Specify the bluetooth source latency property in the rate of the
     stream to avoid conversions and rounding errors.
-
-
-Older versions:
 
 # PipeWire 1.3.82 (2025-02-06)
 

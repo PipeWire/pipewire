@@ -2286,6 +2286,26 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 				}
 				SPA_FALLTHROUGH;
 			case hfp_hf_chld:
+				rfcomm->slc_configured = true;
+
+				if (!rfcomm->codec_negotiation_supported) {
+					if (rfcomm_new_transport(rfcomm, HFP_AUDIO_CODEC_CVSD) < 0) {
+						// TODO: We should manage the missing transport
+					} else {
+						spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
+					}
+				}
+
+				rfcomm->telephony_ag = telephony_ag_new(backend->telephony, 0);
+				rfcomm->telephony_ag->address = strdup(rfcomm->device->address);
+				telephony_ag_set_callbacks(rfcomm->telephony_ag,
+							&telephony_ag_callbacks, rfcomm);
+				if (rfcomm->transport) {
+					rfcomm->telephony_ag->transport.codec = rfcomm->transport->codec;
+					rfcomm->telephony_ag->transport.state = rfcomm->transport->state;
+				}
+				telephony_ag_register(rfcomm->telephony_ag);
+
 				rfcomm_send_cmd(rfcomm, "AT+CLIP=1");
 				rfcomm->hf_state = hfp_hf_clip;
 				break;
@@ -2312,25 +2332,6 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 				SPA_FALLTHROUGH;
 			case hfp_hf_nrec:
 				rfcomm->hf_state = hfp_hf_slc1;
-				rfcomm->slc_configured = true;
-
-				if (!rfcomm->codec_negotiation_supported) {
-					if (rfcomm_new_transport(rfcomm, HFP_AUDIO_CODEC_CVSD) < 0) {
-						// TODO: We should manage the missing transport
-					} else {
-						spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
-					}
-				}
-
-				rfcomm->telephony_ag = telephony_ag_new(backend->telephony, 0);
-				rfcomm->telephony_ag->address = strdup(rfcomm->device->address);
-				telephony_ag_set_callbacks(rfcomm->telephony_ag,
-							&telephony_ag_callbacks, rfcomm);
-				if (rfcomm->transport) {
-					rfcomm->telephony_ag->transport.codec = rfcomm->transport->codec;
-					rfcomm->telephony_ag->transport.state = rfcomm->transport->state;
-				}
-				telephony_ag_register(rfcomm->telephony_ag);
 
 				if (rfcomm->hfp_hf_clcc) {
 					rfcomm_send_cmd(rfcomm, "AT+CLCC");

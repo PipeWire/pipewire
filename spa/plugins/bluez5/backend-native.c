@@ -3318,6 +3318,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	} else if (profile == SPA_BT_PROFILE_HFP_AG) {
 		/* Start SLC connection */
 		unsigned int hf_features = SPA_BT_HFP_HF_FEATURE_CLIP | SPA_BT_HFP_HF_FEATURE_3WAY |
+									SPA_BT_HFP_HF_FEATURE_ECNR |
 									SPA_BT_HFP_HF_FEATURE_ENHANCED_CALL_STATUS |
 									SPA_BT_HFP_HF_FEATURE_ESCO_S4;
 		bool has_msbc = device_supports_codec(backend, rfcomm->device, HFP_AUDIO_CODEC_MSBC);

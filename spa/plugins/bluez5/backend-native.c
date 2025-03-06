@@ -48,6 +48,8 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.native");
 #define PROP_KEY_ROLES "bluez5.roles"
 #define PROP_KEY_HEADSET_ROLES "bluez5.headset-roles"
 #define PROP_KEY_HFP_DISABLE_NREC "bluez5.hfp-hf.disable-nrec"
+#define PROP_KEY_HFP_DEFAULT_MIC_VOL "bluez5.hfp-hf.default-mic-volume"
+#define PROP_KEY_HFP_DEFAULT_SPEAKER_VOL "bluez5.hfp-hf.default-speaker-volume"
 
 #define HFP_CODEC_SWITCH_INITIAL_TIMEOUT_MSEC 5000
 #define HFP_CODEC_SWITCH_TIMEOUT_MSEC 20000
@@ -100,6 +102,8 @@ struct impl {
 #define DEFAULT_ENABLED_PROFILES (SPA_BT_PROFILE_HFP_HF | SPA_BT_PROFILE_HFP_AG)
 	enum spa_bt_profile enabled_profiles;
 	bool hfp_disable_nrec;
+	int hfp_default_mic_volume;
+	int hfp_default_speaker_volume;
 
 	struct spa_source sco;
 
@@ -460,7 +464,7 @@ static void rfcomm_send_error(const struct rfcomm *rfcomm, enum cmee_error error
 		rfcomm_send_reply(rfcomm, "ERROR");
 }
 
-static bool rfcomm_volume_enabled(struct rfcomm *rfcomm)
+static bool rfcomm_hw_volume_enabled(struct rfcomm *rfcomm)
 {
 	return rfcomm->device != NULL
 		&& (rfcomm->device->hw_volume_profiles & rfcomm->profile);
@@ -470,9 +474,6 @@ static void rfcomm_emit_volume_changed(struct rfcomm *rfcomm, int id, int hw_vol
 {
 	struct spa_bt_transport_volume *t_volume;
 
-	if (!rfcomm_volume_enabled(rfcomm))
-		return;
-
 	if ((id == SPA_BT_VOLUME_ID_RX || id == SPA_BT_VOLUME_ID_TX) && hw_volume >= 0) {
 		rfcomm->volumes[id].active = true;
 		rfcomm->volumes[id].hw_volume = hw_volume;
@@ -480,17 +481,24 @@ static void rfcomm_emit_volume_changed(struct rfcomm *rfcomm, int id, int hw_vol
 
 	spa_log_debug(rfcomm->backend->log, "volume changed %d", hw_volume);
 
-	if (rfcomm->transport == NULL || !rfcomm->has_volume)
-		return;
+	if (rfcomm_hw_volume_enabled(rfcomm)) {
+		if (rfcomm->transport == NULL || !rfcomm->has_volume)
+			return;
 
-	for (int i = 0; i < SPA_BT_VOLUME_ID_TERM ; ++i) {
-		t_volume = &rfcomm->transport->volumes[i];
-		t_volume->active = rfcomm->volumes[i].active;
-		t_volume->volume = (float)
-			spa_bt_volume_hw_to_linear(rfcomm->volumes[i].hw_volume, t_volume->hw_volume_max);
+		for (int i = 0; i < SPA_BT_VOLUME_ID_TERM ; ++i) {
+			t_volume = &rfcomm->transport->volumes[i];
+			t_volume->active = rfcomm->volumes[i].active;
+			t_volume->volume = (float)
+				spa_bt_volume_hw_to_linear(rfcomm->volumes[i].hw_volume, t_volume->hw_volume_max);
+		}
+
+		spa_bt_transport_emit_volume_changed(rfcomm->transport);
 	}
 
-	spa_bt_transport_emit_volume_changed(rfcomm->transport);
+	if (rfcomm->telephony_ag) {
+		rfcomm->telephony_ag->volume[id] = hw_volume;
+		telephony_ag_notify_updated_props(rfcomm->telephony_ag);
+	}
 }
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
@@ -534,18 +542,21 @@ static bool rfcomm_send_volume_cmd(struct rfcomm *rfcomm, int id)
 {
 	struct spa_bt_transport_volume *t_volume;
 	const char *format;
-	int hw_volume;
+	int hw_volume = rfcomm->volumes[id].hw_volume;
 
-	if (!rfcomm_volume_enabled(rfcomm))
-		return false;
+	if (rfcomm_hw_volume_enabled(rfcomm)) {
+		t_volume = rfcomm->transport ? &rfcomm->transport->volumes[id] : NULL;
 
-	t_volume = rfcomm->transport ? &rfcomm->transport->volumes[id] : NULL;
+		if (t_volume && t_volume->active) {
+			hw_volume = spa_bt_volume_linear_to_hw(t_volume->volume, t_volume->hw_volume_max);
+			rfcomm->volumes[id].hw_volume = hw_volume;
+		}
+	}
 
-	if (!(t_volume && t_volume->active))
-		return false;
-
-	hw_volume = spa_bt_volume_linear_to_hw(t_volume->volume, t_volume->hw_volume_max);
-	rfcomm->volumes[id].hw_volume = hw_volume;
+	if (rfcomm->telephony_ag) {
+		rfcomm->telephony_ag->volume[id] = hw_volume;
+		telephony_ag_notify_updated_props(rfcomm->telephony_ag);
+	}
 
 	if (id == SPA_BT_VOLUME_ID_TX)
 		format = "AT+VGM";
@@ -1898,6 +1909,70 @@ static void hfp_hf_transport_activate(void *data, enum spa_bt_telephony_error *e
 	*err = BT_TELEPHONY_ERROR_NONE;
 }
 
+static void hfp_hf_set_speaker_volume(void *data, uint8_t volume, enum spa_bt_telephony_error *err, uint8_t *cme_error)
+{
+	struct rfcomm *rfcomm = data;
+	struct impl *backend = rfcomm->backend;
+	struct spa_bt_transport_volume *t_volume;
+	char reply[20];
+	bool res;
+
+	rfcomm->volumes[SPA_BT_VOLUME_ID_RX].hw_volume = volume;
+	if (rfcomm_hw_volume_enabled(rfcomm)) {
+		t_volume = rfcomm->transport ? &rfcomm->transport->volumes[SPA_BT_VOLUME_ID_RX] : NULL;
+
+		if (t_volume && t_volume->active) {
+			t_volume->volume = (float) spa_bt_volume_hw_to_linear(volume, t_volume->hw_volume_max);
+			spa_bt_transport_emit_volume_changed(rfcomm->transport);
+		}
+	}
+
+	rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX);
+	res = hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply));
+	if (!res || !spa_strstartswith(reply, "OK")) {
+		spa_log_info(backend->log, "Failed to send AT+VGS");
+		if (res)
+			hfp_hf_get_error_from_reply(reply, err, cme_error);
+		else
+			*err = BT_TELEPHONY_ERROR_FAILED;
+		return;
+	}
+
+	*err = BT_TELEPHONY_ERROR_NONE;
+}
+
+static void hfp_hf_set_microphone_volume(void *data, uint8_t volume, enum spa_bt_telephony_error *err, uint8_t *cme_error)
+{
+	struct rfcomm *rfcomm = data;
+	struct impl *backend = rfcomm->backend;
+	struct spa_bt_transport_volume *t_volume;
+	char reply[20];
+	bool res;
+
+	rfcomm->volumes[SPA_BT_VOLUME_ID_TX].hw_volume = volume;
+	if (rfcomm_hw_volume_enabled(rfcomm)) {
+		t_volume = rfcomm->transport ? &rfcomm->transport->volumes[SPA_BT_VOLUME_ID_TX] : NULL;
+
+		if (t_volume && t_volume->active) {
+			t_volume->volume = (float) spa_bt_volume_hw_to_linear(volume, t_volume->hw_volume_max);
+			spa_bt_transport_emit_volume_changed(rfcomm->transport);
+		}
+	}
+
+	rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_TX);
+	res = hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply));
+	if (!res || !spa_strstartswith(reply, "OK")) {
+		spa_log_info(backend->log, "Failed to send AT+VGM");
+		if (res)
+			hfp_hf_get_error_from_reply(reply, err, cme_error);
+		else
+			*err = BT_TELEPHONY_ERROR_FAILED;
+		return;
+	}
+
+	*err = BT_TELEPHONY_ERROR_NONE;
+}
+
 static const struct spa_bt_telephony_ag_callbacks telephony_ag_callbacks = {
 	SPA_VERSION_BT_TELEPHONY_AG_CALLBACKS,
 	.dial = hfp_hf_dial,
@@ -1909,6 +1984,8 @@ static const struct spa_bt_telephony_ag_callbacks telephony_ag_callbacks = {
 	.create_multiparty = hfp_hf_create_multiparty,
 	.send_tones = hfp_hf_send_tones,
 	.transport_activate = hfp_hf_transport_activate,
+	.set_speaker_volume = hfp_hf_set_speaker_volume,
+	.set_microphone_volume = hfp_hf_set_microphone_volume,
 };
 
 static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
@@ -2342,6 +2419,8 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 
 				rfcomm->telephony_ag = telephony_ag_new(backend->telephony, 0);
 				rfcomm->telephony_ag->address = strdup(rfcomm->device->address);
+				rfcomm->telephony_ag->volume[SPA_BT_VOLUME_ID_RX] = rfcomm->volumes[SPA_BT_VOLUME_ID_RX].hw_volume = backend->hfp_default_speaker_volume;
+				rfcomm->telephony_ag->volume[SPA_BT_VOLUME_ID_TX] = rfcomm->volumes[SPA_BT_VOLUME_ID_TX].hw_volume = backend->hfp_default_mic_volume;
 				telephony_ag_set_callbacks(rfcomm->telephony_ag,
 							&telephony_ag_callbacks, rfcomm);
 				if (rfcomm->transport) {
@@ -2979,7 +3058,7 @@ static int rfcomm_ag_set_volume(struct spa_bt_transport *t, int id)
 	const char *format;
 	int value;
 
-	if (!rfcomm_volume_enabled(rfcomm)
+	if (!rfcomm_hw_volume_enabled(rfcomm)
 	    || !(rfcomm->profile & SPA_BT_PROFILE_HEADSET_HEAD_UNIT)
 	    || !(rfcomm->has_volume && rfcomm->volumes[id].active))
 		return -ENOTSUP;
@@ -3013,7 +3092,7 @@ static int sco_set_volume_cb(void *data, int id, float volume)
 	struct rfcomm *rfcomm = td->rfcomm;
 	int value;
 
-	if (!rfcomm_volume_enabled(rfcomm)
+	if (!rfcomm_hw_volume_enabled(rfcomm)
 	    || !(rfcomm->profile & SPA_BT_PROFILE_HEADSET_HEAD_UNIT)
 	    || !(rfcomm->has_volume && rfcomm->volumes[id].active))
 		return -ENOTSUP;
@@ -3350,7 +3429,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 		if (rfcomm_new_transport(rfcomm, HFP_AUDIO_CODEC_CVSD) < 0)
 			goto fail_need_memory;
 
-		rfcomm->has_volume = rfcomm_volume_enabled(rfcomm);
+		rfcomm->has_volume = rfcomm_hw_volume_enabled(rfcomm);
 
 		if (profile == SPA_BT_PROFILE_HSP_AG) {
 			rfcomm->hs_state = hsp_hs_init1;
@@ -3383,10 +3462,8 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 			rfcomm->codec_negotiation_supported = false;
 		}
 
-		if (rfcomm_volume_enabled(rfcomm)) {
-			rfcomm->has_volume = true;
-			hf_features |= SPA_BT_HFP_HF_FEATURE_REMOTE_VOLUME_CONTROL;
-		}
+		rfcomm->has_volume = true;
+		hf_features |= SPA_BT_HFP_HF_FEATURE_REMOTE_VOLUME_CONTROL;
 
 		/* send command to AG with the features supported by Hands-Free */
 		rfcomm_send_cmd(rfcomm, "AT+BRSF=%u", hf_features);
@@ -3394,7 +3471,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 		rfcomm->hf_state = hfp_hf_brsf;
 	}
 
-	if (rfcomm_volume_enabled(rfcomm) && (profile == SPA_BT_PROFILE_HFP_HF || profile == SPA_BT_PROFILE_HSP_HS)) {
+	if (rfcomm_hw_volume_enabled(rfcomm) && (profile == SPA_BT_PROFILE_HFP_HF || profile == SPA_BT_PROFILE_HSP_HS)) {
 		uint32_t device_features;
 		if (spa_bt_quirks_get_features(backend->quirks, d->adapter, d, &device_features) == 0) {
 			rfcomm->broken_mic_hw_volume = !(device_features & SPA_BT_FEATURE_HW_VOLUME_MIC);
@@ -3944,6 +4021,29 @@ static void parse_hfp_disable_nrec(struct impl *backend, const struct spa_dict *
 		backend->hfp_disable_nrec = false;
 }
 
+static void parse_hfp_default_volumes(struct impl *backend, const struct spa_dict *info)
+{
+	const char *str;
+	int vol = -1;
+
+	if ((str = spa_dict_lookup(info, PROP_KEY_HFP_DEFAULT_MIC_VOL)) != NULL)
+		spa_atoi32(str, &vol, 10);
+
+	if (vol >= 0 && vol <= 15)
+		backend->hfp_default_mic_volume = vol;
+	else
+		backend->hfp_default_mic_volume = SPA_BT_VOLUME_HS_MAX;
+
+	vol = -1;
+	if ((str = spa_dict_lookup(info, PROP_KEY_HFP_DEFAULT_SPEAKER_VOL)) != NULL)
+		spa_atoi32(str, &vol, 10);
+
+	if (vol >= 0 && vol <= 15)
+		backend->hfp_default_speaker_volume = vol;
+	else
+		backend->hfp_default_speaker_volume = SPA_BT_VOLUME_HS_MAX;
+}
+
 static const struct spa_bt_backend_implementation backend_impl = {
 	SPA_VERSION_BT_BACKEND_IMPLEMENTATION,
 	.free = backend_native_free,
@@ -4002,6 +4102,7 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 		goto fail;
 
 	parse_hfp_disable_nrec(backend, info);
+	parse_hfp_default_volumes(backend, info);
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 	if (!dbus_connection_register_object_path(backend->conn,

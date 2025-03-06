@@ -117,6 +117,8 @@
 	"  <property name='Address' type='s' access='read'>"			\
 	"    <annotation name='org.freedesktop.DBus.Property.EmitsChangedSignal' value='const'/>" \
 	"  </property>"								\
+	"  <property name='SpeakerVolume' type='y' access='readwrite'/>"	\
+	"  <property name='MicrophoneVolume' type='y' access='readwrite'/>"	\
 	" </interface>"								\
 	" <interface name='" PW_TELEPHONY_AG_TRANSPORT_IFACE "'>"		\
 	"  <property name='State' type='s' access='read'/>"			\
@@ -205,6 +207,7 @@ struct agimpl {
 	struct callimpl *dial_return;
 
 	struct {
+		int volume[SPA_BT_VOLUME_ID_TERM];
 		struct spa_bt_telephony_ag_transport transport;
 	} prev;
 };
@@ -235,6 +238,8 @@ struct callimpl {
 #define ag_emit_create_multiparty(s,e,cme)	ag_emit(s,create_multiparty,0,e,cme)
 #define ag_emit_send_tones(s,t,e,cme)		ag_emit(s,send_tones,0,t,e,cme)
 #define ag_emit_transport_activate(s,e,cme) ag_emit(s,transport_activate,0,e,cme)
+#define ag_emit_set_speaker_volume(s,v,e,cme) 	ag_emit(s,set_speaker_volume,0,v,e,cme)
+#define ag_emit_set_microphone_volume(s,v,e,cme) 	ag_emit(s,set_microphone_volume,0,v,e,cme)
 
 #define call_emit(c,m,v,...) 	spa_callbacks_call(&c->callbacks, struct spa_bt_telephony_call_callbacks, m, v, ##__VA_ARGS__)
 #define call_emit_answer(s,e,cme)	call_emit(s,answer,0,e,cme)
@@ -516,6 +521,14 @@ void telephony_free(struct spa_bt_telephony *telephony)
 	free(impl);
 }
 
+static void telephony_ag_commit_properties(struct spa_bt_telephony_ag *ag)
+{
+	struct agimpl *agimpl = SPA_CONTAINER_OF(ag, struct agimpl, this);
+	for (int i = 0; i < SPA_BT_VOLUME_ID_TERM; ++i) {
+		agimpl->prev.volume[i] = ag->volume[i];
+	}
+}
+
 static void telephony_ag_transport_commit_properties(struct spa_bt_telephony_ag *ag)
 {
 	struct agimpl *agimpl = SPA_CONTAINER_OF(ag, struct agimpl, this);
@@ -538,6 +551,7 @@ static const char * const * transport_state_to_string(int state)
 static bool
 dbus_iter_append_ag_properties(DBusMessageIter *i, struct spa_bt_telephony_ag *ag, bool all)
 {
+	struct agimpl *agimpl = SPA_CONTAINER_OF(ag, struct agimpl, this);
 	DBusMessageIter dict, entry, variant;
 	bool changed = false;
 
@@ -553,6 +567,32 @@ dbus_iter_append_ag_properties(DBusMessageIter *i, struct spa_bt_telephony_ag *a
 						DBUS_TYPE_STRING_AS_STRING,
 						&variant);
 		dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &ag->address);
+		dbus_message_iter_close_container(&entry, &variant);
+		dbus_message_iter_close_container(&dict, &entry);
+		changed = true;
+	}
+
+	if (all || ag->volume[SPA_BT_VOLUME_ID_RX] != agimpl->prev.volume[SPA_BT_VOLUME_ID_RX]) {
+		dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
+		const char *name = "SpeakerVolume";
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &name);
+		dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
+						DBUS_TYPE_BYTE_AS_STRING,
+						&variant);
+		dbus_message_iter_append_basic(&variant, DBUS_TYPE_BYTE, &ag->volume[SPA_BT_VOLUME_ID_RX]);
+		dbus_message_iter_close_container(&entry, &variant);
+		dbus_message_iter_close_container(&dict, &entry);
+		changed = true;
+	}
+
+	if (all || ag->volume[SPA_BT_VOLUME_ID_TX] != agimpl->prev.volume[SPA_BT_VOLUME_ID_TX]) {
+		dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
+		const char *name = "MicrophoneVolume";
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &name);
+		dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
+						DBUS_TYPE_BYTE_AS_STRING,
+						&variant);
+		dbus_message_iter_append_basic(&variant, DBUS_TYPE_BYTE, &ag->volume[SPA_BT_VOLUME_ID_TX]);
 		dbus_message_iter_close_container(&entry, &variant);
 		dbus_message_iter_close_container(&dict, &entry);
 		changed = true;
@@ -709,6 +749,28 @@ static DBusMessage *ag_properties_get(struct agimpl *agimpl, DBusMessage *m)
 					&agimpl->this.address);
 			dbus_message_iter_close_container(&i, &v);
 			return r;
+		} else if (spa_streq(name, "SpeakerVolume")) {
+			r = dbus_message_new_method_return(m);
+			if (r == NULL)
+				return NULL;
+			dbus_message_iter_init_append(r, &i);
+			dbus_message_iter_open_container(&i, DBUS_TYPE_VARIANT,
+					DBUS_TYPE_BYTE_AS_STRING, &v);
+			dbus_message_iter_append_basic(&v, DBUS_TYPE_BYTE,
+					&agimpl->this.volume[SPA_BT_VOLUME_ID_RX]);
+			dbus_message_iter_close_container(&i, &v);
+			return r;
+		} else if (spa_streq(name, "MicrophoneVolume")) {
+			r = dbus_message_new_method_return(m);
+			if (r == NULL)
+				return NULL;
+			dbus_message_iter_init_append(r, &i);
+			dbus_message_iter_open_container(&i, DBUS_TYPE_VARIANT,
+					DBUS_TYPE_BYTE_AS_STRING, &v);
+			dbus_message_iter_append_basic(&v, DBUS_TYPE_BYTE,
+					&agimpl->this.volume[SPA_BT_VOLUME_ID_TX]);
+			dbus_message_iter_close_container(&i, &v);
+			return r;
 		}
 	} else if (spa_streq(iface, PW_TELEPHONY_AG_TRANSPORT_IFACE)) {
 		if (spa_streq(name, "Codec")) {
@@ -796,7 +858,38 @@ static DBusMessage *ag_properties_set(struct agimpl *agimpl, DBusMessage *m)
 				DBUS_TYPE_INVALID))
 		return NULL;
 
-	if (spa_streq(iface, PW_TELEPHONY_AG_TRANSPORT_IFACE)) {
+	if (spa_streq(iface, PW_TELEPHONY_AG_IFACE)) {
+		enum spa_bt_telephony_error err = BT_TELEPHONY_ERROR_FAILED;
+		uint8_t cme_error;
+
+		if (spa_streq(name, "SpeakerVolume")) {
+			dbus_message_iter_init(m, &i);
+			dbus_message_iter_next(&i); /* skip iface */
+			dbus_message_iter_next(&i); /* skip name */
+			dbus_message_iter_recurse(&i, &variant); /* value */
+			dbus_message_iter_get_basic(&variant, &agimpl->this.volume[SPA_BT_VOLUME_ID_RX]);
+
+			if (ag_emit_set_speaker_volume(agimpl, agimpl->this.volume[SPA_BT_VOLUME_ID_RX], &err, &cme_error) &&
+					err == BT_TELEPHONY_ERROR_NONE)
+				return dbus_message_new_method_return(m);
+
+			return dbus_message_new_error(m, telephony_error_to_dbus (err),
+				telephony_error_to_description (err, cme_error));
+		} else if (spa_streq(name, "MicrophoneVolume")) {
+			dbus_message_iter_init(m, &i);
+			dbus_message_iter_next(&i); /* skip iface */
+			dbus_message_iter_next(&i); /* skip name */
+			dbus_message_iter_recurse(&i, &variant); /* value */
+			dbus_message_iter_get_basic(&variant, &agimpl->this.volume[SPA_BT_VOLUME_ID_TX]);
+
+			if (ag_emit_set_microphone_volume(agimpl, agimpl->this.volume[SPA_BT_VOLUME_ID_TX], &err, &cme_error) &&
+					err == BT_TELEPHONY_ERROR_NONE)
+				return dbus_message_new_method_return(m);
+
+			return dbus_message_new_error(m, telephony_error_to_dbus (err),
+				telephony_error_to_description (err, cme_error));
+		}
+	} else if (spa_streq(iface, PW_TELEPHONY_AG_TRANSPORT_IFACE)) {
 		if (spa_streq(name, "RejectSCO")) {
 			dbus_message_iter_init(m, &i);
 			dbus_message_iter_next(&i); /* skip iface */
@@ -1219,7 +1312,38 @@ void telephony_ag_unregister(struct spa_bt_telephony_ag *ag)
 	agimpl->path = NULL;
 }
 
-/* send message to notify about property changes */
+/* send message to notify about volume property changes */
+void telephony_ag_notify_updated_props(struct spa_bt_telephony_ag *ag)
+{
+	struct agimpl *agimpl = SPA_CONTAINER_OF(ag, struct agimpl, this);
+	struct impl *impl = SPA_CONTAINER_OF(agimpl->this.telephony, struct impl, this);
+
+	spa_autoptr(DBusMessage) msg = NULL;
+	const char *interface = PW_TELEPHONY_AG_IFACE;
+	DBusMessageIter i, a;
+
+	msg = dbus_message_new_signal(agimpl->path,
+				DBUS_INTERFACE_PROPERTIES,
+				"PropertiesChanged");
+
+	dbus_message_iter_init_append(msg, &i);
+	dbus_message_iter_append_basic(&i, DBUS_TYPE_STRING, &interface);
+
+	if (!dbus_iter_append_ag_properties(&i, ag, false))
+		return;
+
+	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY,
+			DBUS_TYPE_STRING_AS_STRING, &a);
+	dbus_message_iter_close_container(&i, &a);
+
+	if (!dbus_connection_send(impl->conn, msg, NULL)){
+		spa_log_warn(impl->log, "sending PropertiesChanged failed");
+	}
+
+	telephony_ag_commit_properties(ag);
+}
+
+/* send message to notify about transport property changes */
 void telephony_ag_transport_notify_updated_props(struct spa_bt_telephony_ag *ag)
 {
 	struct agimpl *agimpl = SPA_CONTAINER_OF(ag, struct agimpl, this);

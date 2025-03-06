@@ -45,6 +45,7 @@ struct spa_bt_telephony_ag {
 
 	/* D-Bus properties */
 	char *address;
+	int volume[SPA_BT_VOLUME_ID_TERM];
 	struct spa_bt_telephony_ag_transport transport;
 };
 
@@ -76,6 +77,9 @@ struct spa_bt_telephony_ag_callbacks {
 	void (*send_tones)(void *data, const char *tones, enum spa_bt_telephony_error *err, uint8_t *cme_error);
 
 	void (*transport_activate)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
+
+	void (*set_speaker_volume)(void *data, uint8_t volume, enum spa_bt_telephony_error *err, uint8_t *cme_error);
+	void (*set_microphone_volume)(void *data, uint8_t volume, enum spa_bt_telephony_error *err, uint8_t *cme_error);
 };
 
 struct spa_bt_telephony_call_callbacks {
@@ -103,6 +107,7 @@ void telephony_ag_set_callbacks(struct spa_bt_telephony_ag *ag,
 			       const struct spa_bt_telephony_ag_callbacks *cbs,
 			       void *data);
 
+void telephony_ag_notify_updated_props(struct spa_bt_telephony_ag *ag);
 void telephony_ag_transport_notify_updated_props(struct spa_bt_telephony_ag *ag);
 
 /* register/unregister AudioGateway object on the bus */

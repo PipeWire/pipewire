@@ -620,7 +620,7 @@ if build_module_raop
 endif
 summary({'raop-sink (requires OpenSSL)': build_module_raop}, bool_yn: true, section: 'Optional Modules')
 
-roc_dep = dependency('roc', version: '>= 0.3.0', required: get_option('roc'))
+roc_dep = dependency('roc', version: '>= 0.4.0', required: get_option('roc'))
 summary({'ROC': roc_dep.found()}, bool_yn: true, section: 'Streaming between daemons')
 
 pipewire_module_rtp_source = shared_library('pipewire-module-rtp-source',

@@ -1091,6 +1091,77 @@ It creates a server Node that can be controlled from a client. Processing will h
 in the client. It is used by pw-stream and pw-filter to implement the PipeWire media
 processing nodes.
 
+To create a client-node, one must first connect to the server and then make a
+ClientNode proxy and do Core::CreateObject with the client-node factory.
+This will create a server side ClientNode resource that can be controlled with the
+proxy.
+
+After the proxy is set up, the conversation between client and server goes as
+follows:
+
+```
+   client                                    server
+     |                                         |
+     |---------------------------------------->|
+     |        ClientNode::Update               | send initial node configuration
+     |                                         |
+     |<----------------------------------------|
+     |       Core::AddMem                      | memory for node activation
+     |<----------------------------------------|
+     |       ClientNode::SetActivation         | the node activation
+     |<----------------------------------------|
+     |       ClientNode::Transport             | the node transport
+     |<----------------------------------------|
+     |       ClientNode::SetIO                 | clock IO
+     |                                         |
+     |---------------------------------------->|
+     |       ClientNode::SetActive(true)       | set the node active
+     |                                         |
+     |<----------------------------------------|
+     |       ClientNode::SetParam              | optional volume restore/settings
+     |<----------------------------------------|
+     |       ClientNode::SetParam              | optional PortConfig if needed
+     |---------------------------------------->|
+     |       ClientNode::Update                | Upload changed params
+     |                                         |
+     |---------------------------------------->|
+     |       ClientNode::PortUpdate            | config for each port
+     .                                         .
+     |<----------------------------------------|
+     |       ClientNode::PortSetMixInfo        | mixer inputs for each linked port
+     |<----------------------------------------|
+     |       ClientNode::PortSetParam          | Latency of the ports
+     |<----------------------------------------|
+     |       ClientNode::SetActivation         | activation of port peers
+     |---------------------------------------->|
+     |       ClientNode::PortUpdate            | Ack port updates
+     .                                         .
+     |<----------------------------------------|
+     |       ClientNode::PortSetParam          | formats of the ports
+     |---------------------------------------->|
+     |       ClientNode::PortUpdate            | Ack port format update
+     .                                         .
+     |<----------------------------------------|
+     |       Core::AddMem                      | memory for the port buffers
+     |<----------------------------------------|
+     |       ClientNode::PortUseBuffers        | buffers for a port
+     .                                         .
+     |<----------------------------------------|
+     |       Core::AddMem                      | memory for driver activation
+     |<----------------------------------------|
+     |       ClientNode::SetActivation         | the driver activation
+     |<----------------------------------------|
+     |       ClientNode::SetIO                 | driver Position IO
+     |<----------------------------------------|
+     |       Core::AddMem                      | memory for port IO
+     |<----------------------------------------|
+     |       ClientNode::PortSetIO             | buffers/async-buffers port IO
+     .                                         .
+     |<----------------------------------------|
+     |       ClientNode::Command               | Start command
+     .                                         .
+```
+
 ## ClientNode methods
 
 ### ClientNode::GetNode (Opcode 1)

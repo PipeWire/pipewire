@@ -493,7 +493,13 @@ static void set_latency(struct impl *this, bool emit_latency)
 
 	port->latency.min_ns = port->latency.max_ns = delay;
 	port->latency.min_rate = port->latency.max_rate = 0;
-	port->latency.min_quantum = port->latency.max_quantum = 0.0f;
+
+	if (this->transport->iso_io) {
+		/* ISO has different delay */
+		port->latency.min_quantum = port->latency.max_quantum = 1.0f;
+	} else {
+		port->latency.min_quantum = port->latency.max_quantum = 0.0f;
+	}
 
 	spa_log_info(this->log, "%p: total latency:%d ms", this, (int)(delay / SPA_NSEC_PER_MSEC));
 
@@ -971,6 +977,7 @@ again:
 
 		if (this->need_flush) {
 			size_t avail = SPA_MIN(this->buffer_used, sizeof(iso_io->buf));
+			uint64_t delay = 0;
 
 			spa_log_trace(this->log, "%p: ISO put fd:%d size:%u sn:%u ts:%u now:%"PRIu64,
 					this, this->transport->fd, (unsigned)avail,
@@ -984,7 +991,15 @@ again:
 
 			reset_buffer(this);
 
-			update_packet_delay(this, iso_io->duration * 3/2);
+			if (this->process_rate) {
+				/* Match target delay in media_iso_pull() */
+				delay = this->process_duration * SPA_NSEC_PER_SEC / this->process_rate;
+				if (delay < iso_io->duration*3/2)
+					delay = iso_io->duration*3/2 - delay;
+				else
+					delay = 0;
+			}
+			update_packet_delay(this, delay);
 		}
 		return 0;
 	}
@@ -1179,12 +1194,11 @@ static void media_iso_pull(struct spa_bt_iso_io *iso_io)
 	}
 
 	/*
-	 * Rate match sample position so that the graph is 3/2 ISO interval
+	 * Rate match sample position so that the graph is max(ISO interval*3/2, quantum)
 	 * ahead of the time instant we have to send data.
 	 *
-	 * Being 1 ISO interval ahead is unavoidable otherwise we underrun,
-	 * and the 1/2 is safety margin for the graph to deliver data
-	 * in time.
+	 * Being 1 ISO interval ahead is unavoidable otherwise we underrun, and the
+	 * rest is safety margin for the graph to deliver data in time.
 	 *
 	 * This is then the part of the TX latency on PipeWire side. There is
 	 * another part of TX latency on kernel/controller side before the
@@ -1192,7 +1206,11 @@ static void media_iso_pull(struct spa_bt_iso_io *iso_io)
 	 */
 
 	value = (int64_t)iso_io->now - (int64_t)get_reference_time(this, &duration_ns);
-	target = iso_io->duration * 3/2;
+	if (this->process_rate)
+		target = this->process_duration * SPA_NSEC_PER_SEC / this->process_rate;
+	else
+		target = 0;
+	target = SPA_MAX(target, iso_io->duration*3/2);
 	err = value - target;
 	max_err = iso_io->duration;
 

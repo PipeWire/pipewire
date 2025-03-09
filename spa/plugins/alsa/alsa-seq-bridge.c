@@ -931,6 +931,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->quantum_limit = 8192;
 	this->min_pool_size = 500;
 	this->max_pool_size = 2000;
+	this->ump = true;
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
@@ -949,6 +950,8 @@ impl_init(const struct spa_handle_factory *factory,
 			spa_atou32(s, &this->min_pool_size, 0);
 		} else if (spa_streq(k, "api.alsa.seq.max-pool")) {
 			spa_atou32(s, &this->max_pool_size, 0);
+		} else if (spa_streq(k, "api.alsa.seq.ump")) {
+			this->ump = spa_atob(s);
 		}
 	}
 
@@ -992,6 +995,7 @@ static const struct spa_dict_item info_items[] = {
 		"["SPA_KEY_API_ALSA_DISABLE_LONGNAME"=<bool, default false>] "
 		"[ api.alsa.seq.min-pool=<min-pool, default 500>] "
 		"[ api.alsa.seq.max-pool=<max-pool, default 2000>]"
+		"[ api.alsa.seq.ump = <boolean> ]"
 	},
 };
 

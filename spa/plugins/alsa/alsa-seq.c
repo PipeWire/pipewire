@@ -37,12 +37,14 @@ static int seq_open(struct seq_state *state, struct seq_conn *conn, bool with_qu
 			   0)) < 0)
 		return res;
 
+#ifdef ALSA_UMP
 	if ((res = snd_seq_set_client_midi_version(conn->hndl, SND_SEQ_CLIENT_UMP_MIDI_2_0)) < 0) {
 		snd_seq_close(conn->hndl);
 		spa_log_info(state->log, "%p: ALSA failed to enable UMP MIDI: %s",
 				state, snd_strerror(res));
 		return res;
 	}
+#endif
 
 	return 0;
 }
@@ -172,7 +174,11 @@ static void init_ports(struct seq_state *state)
 	}
 }
 
+#ifdef ALSA_UMP
 static void debug_event(struct seq_state *state, snd_seq_ump_event_t *ev)
+#else
+static void debug_event(struct seq_state *state, snd_seq_event_t *ev)
+#endif
 {
 	if (SPA_LIKELY(!spa_log_level_topic_enabled(state->log, SPA_LOG_TOPIC_DEFAULT, SPA_LOG_LEVEL_TRACE)))
 		return;
@@ -199,10 +205,18 @@ static void debug_event(struct seq_state *state, snd_seq_ump_event_t *ev)
 static void alsa_seq_on_sys(struct spa_source *source)
 {
 	struct seq_state *state = source->data;
+#ifdef ALSA_UMP
 	snd_seq_ump_event_t *ev;
+#else
+	snd_seq_event_t *ev;
+#endif
 	int res;
 
+#ifdef ALSA_UMP
 	while (snd_seq_ump_event_input(state->sys.hndl, &ev) > 0) {
+#else
+	while (snd_seq_event_input(state->sys.hndl, &ev) > 0) {
+#endif
 		const snd_seq_addr_t *addr = &ev->data.addr;
 
 		if (addr->client == state->event.addr.client)
@@ -529,15 +543,27 @@ static int process_recycle(struct seq_state *state)
 
 static int process_read(struct seq_state *state)
 {
+#ifdef ALSA_UMP
 	snd_seq_ump_event_t *ev;
+#else
+	snd_seq_event_t *ev;
+#endif
 	struct seq_stream *stream = &state->streams[SPA_DIRECTION_OUTPUT];
 	uint32_t i;
+#ifdef ALSA_UMP
 	uint32_t *data;
+#else
+	uint8_t data[MAX_EVENT_SIZE];
+#endif
 	long size;
-	int res;
+	int res = -1;
 
 	/* copy all new midi events into their port buffers */
+#ifdef ALSA_UMP
 	while ((res = snd_seq_ump_event_input(state->event.hndl, &ev)) > 0) {
+#else
+	while (snd_seq_event_input(state->event.hndl, &ev) > 0) {
+#endif
 		const snd_seq_addr_t *addr = &ev->source;
 		struct seq_port *port;
 		uint64_t ev_time, diff;
@@ -559,8 +585,16 @@ static int process_read(struct seq_state *state)
 			continue;
 		}
 
+#ifdef ALSA_UMP
 		data = (uint32_t*)&ev->ump[0];
 		size = spa_ump_message_size(snd_ump_msg_hdr_type(ev->ump[0])) * 4;
+#else
+		snd_midi_event_reset_decode(stream->codec);
+		if ((size = snd_midi_event_decode(stream->codec, data, MAX_EVENT_SIZE, ev)) < 0) {
+			spa_log_warn(state->log, "decode failed: %s", snd_strerror(size));
+			continue;
+		}
+#endif
 
 		/* queue_time is the estimated current time of the queue as calculated by
 		 * the DLL. Calculate the age of the event. */
@@ -661,7 +695,11 @@ static int process_write(struct seq_state *state)
 		struct spa_pod_sequence *pod;
 		struct spa_data *d;
 		struct spa_pod_control *c;
+#ifdef ALSA_UMP
 		snd_seq_ump_event_t ev;
+#else
+		snd_seq_event_t ev;
+#endif
 		uint64_t out_time;
 		snd_seq_real_time_t out_rt;
 
@@ -688,6 +726,7 @@ static int process_write(struct seq_state *state)
 
 		SPA_POD_SEQUENCE_FOREACH(pod, c) {
 			size_t body_size;
+#ifdef ALSA_UMP
 			uint8_t *body;
 
 			if (c->type != SPA_CONTROL_UMP)
@@ -698,6 +737,21 @@ static int process_write(struct seq_state *state)
 			spa_zero(ev);
 
 			memcpy(ev.ump, body, SPA_MIN(sizeof(ev.ump), (size_t)body_size));
+#else
+			if (c->type != SPA_CONTROL_Midi)
+				continue;
+
+			snd_seq_ev_clear(&ev);
+
+			snd_midi_event_reset_encode(stream->codec);
+			if ((body_size = snd_midi_event_encode(stream->codec,
+						SPA_POD_BODY(&c->value),
+						SPA_POD_BODY_SIZE(&c->value), &ev)) <= 0) {
+				spa_log_warn(state->log, "failed to encode event: %s",
+						snd_strerror(body_size));
+						continue;
+			}
+#endif
 
 			snd_seq_ev_set_source(&ev, state->event.addr.port);
 			snd_seq_ev_set_dest(&ev, port->addr.client, port->addr.port);
@@ -711,10 +765,17 @@ static int process_write(struct seq_state *state)
 			spa_log_trace_fp(state->log, "event %d time:%"PRIu64" offset:%d size:%zd port:%d.%d",
 				ev.type, out_time, c->offset, body_size, port->addr.client, port->addr.port);
 
+#ifdef ALSA_UMP
 			if ((err = snd_seq_ump_event_output(state->event.hndl, &ev)) < 0) {
 				spa_log_warn(state->log, "failed to output event: %s",
 						snd_strerror(err));
 			}
+#else
+			if ((err = snd_seq_event_output(state->event.hndl, &ev)) < 0) {
+				spa_log_warn(state->log, "failed to output event: %s",
+						snd_strerror(err));
+			}
+#endif
 		}
 	}
 	snd_seq_drain_output(state->event.hndl);

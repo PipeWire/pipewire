@@ -46,6 +46,10 @@ if get_option('spa-plugins').allowed()
   alsa_dep = dependency('alsa', version : '>=1.2.6', required: get_option('alsa'))
   summary({'ALSA': alsa_dep.found()}, bool_yn: true, section: 'Backend')
 
+  if alsa_dep.version().version_compare('>=1.2.10')
+    cdata.set('HAVE_ALSA_UMP', true)
+  endif
+
   bluez_dep = dependency('bluez', version : '>= 4.101', required: get_option('bluez5'))
   bluez_gio_dep = dependency('gio-2.0', required : get_option('bluez5'))
   bluez_gio_unix_dep = dependency('gio-unix-2.0', required : get_option('bluez5'))

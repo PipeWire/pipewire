@@ -12,8 +12,10 @@ extern "C" {
 #include <stddef.h>
 #include <math.h>
 
+#include "config.h"
+
 #include <alsa/asoundlib.h>
-#ifdef ALSA_UMP
+#ifdef HAVE_ALSA_UMP
 #include <alsa/ump_msg.h>
 #endif
 

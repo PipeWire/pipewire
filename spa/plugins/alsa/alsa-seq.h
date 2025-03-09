@@ -13,7 +13,9 @@ extern "C" {
 #include <math.h>
 
 #include <alsa/asoundlib.h>
+#ifdef ALSA_UMP
 #include <alsa/ump_msg.h>
+#endif
 
 #include <spa/support/plugin.h>
 #include <spa/support/loop.h>

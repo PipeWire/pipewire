@@ -43,7 +43,7 @@ if get_option('spa-plugins').allowed()
   endif
 
   # plugin-specific dependencies
-  alsa_dep = dependency('alsa', version : '>=1.2.10', required: get_option('alsa'))
+  alsa_dep = dependency('alsa', version : '>=1.2.6', required: get_option('alsa'))
   summary({'ALSA': alsa_dep.found()}, bool_yn: true, section: 'Backend')
 
   bluez_dep = dependency('bluez', version : '>= 4.101', required: get_option('bluez5'))

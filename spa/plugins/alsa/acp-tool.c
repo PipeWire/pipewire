@@ -132,6 +132,18 @@ static ACP_PRINTF_FUNC(6,0) void log_func(void *data,
 		int level, const char *file, int line, const char *func,
 		const char *fmt, va_list arg)
 {
+	static const char * const levels[] = { "E", "W", "N", "I", "D", "T" };
+	const char *level_str = levels[SPA_CLAMP(level, 0, (int)SPA_N_ELEMENTS(levels) - 1)];
+
+	if (file) {
+		const char *p = strrchr(file, '/');
+		if (p)
+			file = p + 1;
+	}
+
+	fprintf(stderr, "%s %16s:%-5d ", level_str, file ? file : "", line);
+	while (level-- > 1)
+		fprintf(stderr, "  ");
 	vfprintf(stderr, fmt, arg);
 	fprintf(stderr, "\n");
 }

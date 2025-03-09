@@ -2548,7 +2548,7 @@ static void ucm_probe_profile_set(pa_alsa_ucm_config *ucm, pa_alsa_profile_set *
         pa_log_info("Set ucm verb to %s", verb_name);
 
         if ((snd_use_case_set(ucm->ucm_mgr, "_verb", verb_name)) < 0) {
-            pa_log("Failed to set verb %s", verb_name);
+            pa_log("Profile '%s': failed to set verb %s", p->name, verb_name);
             p->supported = false;
             continue;
         }
@@ -2565,6 +2565,8 @@ static void ucm_probe_profile_set(pa_alsa_ucm_config *ucm, pa_alsa_profile_set *
 
             m->output_pcm = mapping_open_pcm(ucm, m, SND_PCM_STREAM_PLAYBACK, false);
             if (!m->output_pcm) {
+                pa_log_info("Profile '%s' mapping '%s': output PCM open failed",
+                            p->name, m->name);
                 p->supported = false;
                 break;
             }
@@ -2583,6 +2585,8 @@ static void ucm_probe_profile_set(pa_alsa_ucm_config *ucm, pa_alsa_profile_set *
 
                 m->input_pcm = mapping_open_pcm(ucm, m, SND_PCM_STREAM_CAPTURE, false);
                 if (!m->input_pcm) {
+                    pa_log_info("Profile '%s' mapping '%s': input PCM open failed",
+                                p->name, m->name);
                     p->supported = false;
                     break;
                 }
@@ -2591,6 +2595,7 @@ static void ucm_probe_profile_set(pa_alsa_ucm_config *ucm, pa_alsa_profile_set *
 
         if (!p->supported) {
             profile_finalize_probing(p);
+            pa_log_info("Profile %s not supported", p->name);
             continue;
         }
 

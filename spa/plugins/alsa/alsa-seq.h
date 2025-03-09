@@ -155,6 +155,7 @@ struct seq_state {
 	unsigned int opened:1;
 	unsigned int started:1;
 	unsigned int following:1;
+	unsigned int ump:1;
 
 	struct seq_stream streams[2];
 

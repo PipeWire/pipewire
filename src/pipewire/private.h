@@ -343,18 +343,6 @@ pw_core_resource_errorf(struct pw_resource *resource, uint32_t id, int seq,
 	va_end(args);
 }
 
-struct pw_loop_callbacks {
-#define PW_VERSION_LOOP_CALLBACKS	0
-	uint32_t version;
-
-	int (*check) (void *data, struct pw_loop *loop);
-};
-
-void
-pw_loop_set_callbacks(struct pw_loop *loop, const struct pw_loop_callbacks *cb, void *data);
-
-int pw_loop_check(struct pw_loop *loop);
-
 #define ensure_loop(loop,...) ({							\
 	int res = pw_loop_check(loop);							\
 	if (res != 1) {									\

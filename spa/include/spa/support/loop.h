@@ -306,15 +306,27 @@ struct spa_loop_control_methods {
 	 * \param[in] abstime the maximum time to wait for the signal or NULL
 	 * \return 0 on success or a negative return value on error.
 	 */
-	int (*wait) (void *object, struct timespec *abstime);
+	int (*wait) (void *object, const struct timespec *abstime);
 
 	/** Signal waiters
-	 * Wake up all thread blocked in wait. Since version 2:2
+	 * Wake up all threads blocked in wait. Since version 2:2
+	 * When wait_for_accept is set, this functions blocks until all
+	 * threads performed accept.
+	 *
+	 * \param[in] object the control
+	 * \param[in] wait_for_accept block for accept
+	 * \return 0 on success or a negative return value on error.
+	 */
+	int (*signal) (void *object, bool wait_for_accept);
+
+
+	/** Accept signalers
+	 * Resume the thread that signaled with wait_for accept.
 	 *
 	 * \param[in] object the control
 	 * \return 0 on success or a negative return value on error.
 	 */
-	int (*signal) (void *object);
+	int (*accept) (void *object);
 };
 
 SPA_API_LOOP int spa_loop_control_get_fd(struct spa_loop_control *object)
@@ -371,15 +383,20 @@ SPA_API_LOOP int spa_loop_control_get_time(struct spa_loop_control *object,
 			spa_loop_control, &object->iface, get_time, 2, abstime, timeout);
 }
 SPA_API_LOOP int spa_loop_control_wait(struct spa_loop_control *object,
-		struct timespec *abstime)
+		const struct timespec *abstime)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			spa_loop_control, &object->iface, wait, 2, abstime);
 }
-SPA_API_LOOP int spa_loop_control_signal(struct spa_loop_control *object)
+SPA_API_LOOP int spa_loop_control_signal(struct spa_loop_control *object, bool wait_for_accept)
 {
 	return spa_api_method_r(int, -ENOTSUP,
-			spa_loop_control, &object->iface, signal, 2);
+			spa_loop_control, &object->iface, signal, 2, wait_for_accept);
+}
+SPA_API_LOOP int spa_loop_control_accept(struct spa_loop_control *object)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			spa_loop_control, &object->iface, accept, 2);
 }
 
 typedef void (*spa_source_io_func_t) (void *data, int fd, uint32_t mask);

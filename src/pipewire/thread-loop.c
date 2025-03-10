@@ -27,91 +27,17 @@ struct pw_thread_loop {
 
 	struct spa_hook_list listener_list;
 
-	pthread_mutex_t lock;
-	pthread_cond_t cond;
-	pthread_cond_t accept_cond;
-
 	pthread_t thread;
-	int recurse;
 
 	struct spa_hook hook;
 
 	struct spa_source *event;
 
-	int n_waiting;
-	int n_waiting_for_accept;
 	unsigned int created:1;
 	unsigned int running:1;
 	unsigned int start_signal:1;
 };
 /** \endcond */
-
-static int do_lock(struct pw_thread_loop *this)
-{
-	int res;
-	if ((res = pthread_mutex_lock(&this->lock)) != 0)
-		pw_log_error("%p: thread:%p: %s", this, (void *) pthread_self(), strerror(res));
-	else
-		this->recurse++;
-	return -res;
-}
-
-static int do_unlock(struct pw_thread_loop *this)
-{
-	int res;
-	spa_return_val_if_fail(this->recurse > 0, -EIO);
-	this->recurse--;
-	if ((res = pthread_mutex_unlock(&this->lock)) != 0) {
-		pw_log_error("%p: thread:%p: %s", this, (void *) pthread_self(), strerror(res));
-		this->recurse++;
-	}
-	return -res;
-}
-
-static void impl_before(void *data)
-{
-	struct pw_thread_loop *this = data;
-	do_unlock(this);
-}
-
-static void impl_after(void *data)
-{
-	struct pw_thread_loop *this = data;
-	do_lock(this);
-}
-
-static const struct spa_loop_control_hooks impl_hooks = {
-	SPA_VERSION_LOOP_CONTROL_HOOKS,
-	.before = impl_before,
-	.after = impl_after,
-};
-
-static int impl_check(void *data, struct pw_loop *loop)
-{
-	struct pw_thread_loop *this = data;
-	int res;
-
-	/* we are in the thread running the loop */
-	if (spa_loop_control_check(this->loop->control) == 1)
-		return 1;
-
-	/* if lock taken by something else, error */
-	if ((res = pthread_mutex_trylock(&this->lock)) != 0) {
-		pw_log_debug("%p: thread:%p: %s", this, (void *) pthread_self(), strerror(res));
-		return -res;
-	}
-	/* we could take the lock, check if we actually locked it somewhere */
-	res = this->recurse > 0 ? 1 : -EPERM;
-	if (res < 0)
-		pw_log_debug("%p: thread:%p: recurse:%d", this, (void *) pthread_self(), this->recurse);
-	pthread_mutex_unlock(&this->lock);
-	return res;
-}
-
-static const struct pw_loop_callbacks impl_callbacks = {
-	PW_VERSION_LOOP_CALLBACKS,
-	.check = impl_check,
-};
 
 static void do_stop(void *data, uint64_t count)
 {
@@ -134,8 +60,6 @@ static struct pw_thread_loop *loop_new(struct pw_loop *loop,
 					  const struct spa_dict *props)
 {
 	struct pw_thread_loop *this;
-	pthread_mutexattr_t attr;
-	pthread_condattr_t cattr;
 	int res;
 
 	this = calloc(1, sizeof(struct pw_thread_loop));
@@ -162,32 +86,13 @@ static struct pw_thread_loop *loop_new(struct pw_loop *loop,
 
 	spa_hook_list_init(&this->listener_list);
 
-	CHECK(pthread_mutexattr_init(&attr), clean_this);
-	CHECK(pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE), clean_this);
-	CHECK(pthread_mutex_init(&this->lock, &attr), clean_this);
-
-	CHECK(pthread_condattr_init(&cattr), clean_lock);
-	CHECK(pthread_condattr_setclock(&cattr, CLOCK_REALTIME), clean_lock);
-
-	CHECK(pthread_cond_init(&this->cond, &cattr), clean_lock);
-	CHECK(pthread_cond_init(&this->accept_cond, &cattr), clean_cond);
-
 	if ((this->event = pw_loop_add_event(this->loop, do_stop, this)) == NULL) {
 		res = -errno;
-		goto clean_acceptcond;
+		goto clean_this;
 	}
-
-	pw_loop_set_callbacks(loop, &impl_callbacks, this);
-	pw_loop_add_hook(loop, &this->hook, &impl_hooks, this);
 
 	return this;
 
-clean_acceptcond:
-	pthread_cond_destroy(&this->accept_cond);
-clean_cond:
-	pthread_cond_destroy(&this->cond);
-clean_lock:
-	pthread_mutex_destroy(&this->lock);
 clean_this:
 	if (this->created && this->loop)
 		pw_loop_destroy(this->loop);
@@ -245,7 +150,6 @@ void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 
 	pw_thread_loop_stop(loop);
 
-	pw_loop_set_callbacks(loop->loop, NULL, NULL);
 	spa_hook_remove(&loop->hook);
 
 	spa_hook_list_clean(&loop->listener_list);
@@ -254,10 +158,6 @@ void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 
 	if (loop->created)
 		pw_loop_destroy(loop->loop);
-
-	pthread_cond_destroy(&loop->accept_cond);
-	pthread_cond_destroy(&loop->cond);
-	pthread_mutex_destroy(&loop->lock);
 
 	free(loop);
 }
@@ -283,7 +183,6 @@ static void *do_loop(void *user_data)
 	struct pw_thread_loop *this = user_data;
 	int res;
 
-	do_lock(this);
 	pw_log_debug("%p: enter thread", this);
 	pw_loop_enter(this->loop);
 
@@ -300,7 +199,6 @@ static void *do_loop(void *user_data)
 	}
 	pw_log_debug("%p: leave thread", this);
 	pw_loop_leave(this->loop);
-	do_unlock(this);
 
 	return NULL;
 }
@@ -367,7 +265,7 @@ void pw_thread_loop_stop(struct pw_thread_loop *loop)
 SPA_EXPORT
 void pw_thread_loop_lock(struct pw_thread_loop *loop)
 {
-	do_lock(loop);
+	pw_loop_lock(loop->loop);
 	pw_log_trace("%p", loop);
 }
 
@@ -380,7 +278,7 @@ SPA_EXPORT
 void pw_thread_loop_unlock(struct pw_thread_loop *loop)
 {
 	pw_log_trace("%p", loop);
-	do_unlock(loop);
+	pw_loop_unlock(loop->loop);
 }
 
 /** Signal the thread
@@ -395,20 +293,8 @@ void pw_thread_loop_unlock(struct pw_thread_loop *loop)
 SPA_EXPORT
 void pw_thread_loop_signal(struct pw_thread_loop *loop, bool wait_for_accept)
 {
-	pw_log_trace("%p, waiting:%d accept:%d",
-			loop, loop->n_waiting, wait_for_accept);
-	if (loop->n_waiting > 0)
-		pthread_cond_broadcast(&loop->cond);
-
-	if (wait_for_accept) {
-		loop->n_waiting_for_accept++;
-
-		while (loop->n_waiting_for_accept > 0) {
-			int res;
-			if ((res = pthread_cond_wait(&loop->accept_cond, &loop->lock)) != 0)
-				pw_log_error("%p: thread:%p: %s", loop, (void *) pthread_self(), strerror(res));
-		}
-	}
+	pw_log_trace("%p,accept:%d", loop, wait_for_accept);
+	pw_loop_signal(loop->loop, wait_for_accept);
 }
 
 /** Wait for the loop thread to call \ref pw_thread_loop_signal()
@@ -419,17 +305,7 @@ void pw_thread_loop_signal(struct pw_thread_loop *loop, bool wait_for_accept)
 SPA_EXPORT
 void pw_thread_loop_wait(struct pw_thread_loop *loop)
 {
-	int res;
-
-	pw_log_trace("%p, waiting:%d recurse:%d", loop, loop->n_waiting, loop->recurse);
-	spa_return_if_fail(loop->recurse > 0);
-	loop->n_waiting++;
-	loop->recurse--;
-	if ((res = pthread_cond_wait(&loop->cond, &loop->lock)) != 0)
-		pw_log_error("%p: thread:%p: %s", loop, (void *) pthread_self(), strerror(res));
-	loop->recurse++;
-	loop->n_waiting--;
-	pw_log_trace("%p, waiting done %d", loop, loop->n_waiting);
+	pw_loop_wait(loop->loop, NULL);
 }
 
 /** Wait for the loop thread to call \ref pw_thread_loop_signal()
@@ -464,16 +340,7 @@ int pw_thread_loop_timed_wait(struct pw_thread_loop *loop, int wait_max_sec)
 SPA_EXPORT
 int pw_thread_loop_get_time(struct pw_thread_loop *loop, struct timespec *abstime, int64_t timeout)
 {
-	if (clock_gettime(CLOCK_REALTIME, abstime) < 0)
-		return -errno;
-
-	abstime->tv_sec += timeout / SPA_NSEC_PER_SEC;
-	abstime->tv_nsec += timeout % SPA_NSEC_PER_SEC;
-	if (abstime->tv_nsec >= SPA_NSEC_PER_SEC) {
-		abstime->tv_sec++;
-		abstime->tv_nsec -= SPA_NSEC_PER_SEC;
-	}
-	return 0;
+	return pw_loop_get_time(loop->loop, abstime, timeout);
 }
 
 /** Wait for the loop thread to call \ref pw_thread_loop_signal()
@@ -487,14 +354,7 @@ int pw_thread_loop_get_time(struct pw_thread_loop *loop, struct timespec *abstim
 SPA_EXPORT
 int pw_thread_loop_timed_wait_full(struct pw_thread_loop *loop, const struct timespec *abstime)
 {
-	int ret;
-	spa_return_val_if_fail(loop->recurse > 0, -EIO);
-	loop->n_waiting++;
-	loop->recurse--;
-	ret = pthread_cond_timedwait(&loop->cond, &loop->lock, abstime);
-	loop->recurse++;
-	loop->n_waiting--;
-	return -ret;
+	return pw_loop_wait(loop->loop, abstime);
 }
 
 /** Signal the loop thread waiting for accept with \ref pw_thread_loop_signal()
@@ -505,8 +365,7 @@ int pw_thread_loop_timed_wait_full(struct pw_thread_loop *loop, const struct tim
 SPA_EXPORT
 void pw_thread_loop_accept(struct pw_thread_loop *loop)
 {
-	loop->n_waiting_for_accept--;
-	pthread_cond_signal(&loop->accept_cond);
+	pw_loop_accept(loop->loop);
 }
 
 /** Check if we are inside the thread of the loop

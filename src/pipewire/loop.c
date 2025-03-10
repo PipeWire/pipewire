@@ -178,15 +178,3 @@ int pw_loop_set_name(struct pw_loop *loop, const char *name)
 	snprintf(impl->name, sizeof(impl->name), "%s", name);
 	return 0;
 }
-
-SPA_EXPORT
-int pw_loop_check(struct pw_loop *loop)
-{
-	struct impl *impl = SPA_CONTAINER_OF(loop, struct impl, this);
-	int res;
-	if (impl->cb && impl->cb->check)
-		res = impl->cb->check(impl->user_data, loop);
-	else
-		res = spa_loop_control_check(loop->control);
-	return res;
-}

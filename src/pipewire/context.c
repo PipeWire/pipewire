@@ -229,6 +229,7 @@ static int setup_data_loops(struct impl *impl)
 			pw_properties_clear(pr);
 			pw_properties_update(pr, &this->properties->dict);
 			pw_properties_set(pr, PW_KEY_LIBRARY_NAME_SYSTEM, lib_name);
+			pw_properties_set(pr, "loop.prio-inherit",  "true");
 
 			while ((l = spa_json_object_next(&it[1], key, sizeof(key), &val)) > 0) {
 				if (spa_json_is_container(val, l))
@@ -261,6 +262,7 @@ static int setup_data_loops(struct impl *impl)
 		}
 		for (i = 0; i < impl->n_data_loops; i++) {
 			pw_properties_setf(pr, SPA_KEY_THREAD_NAME,  "data-loop.%d", i);
+			pw_properties_set(pr, "loop.prio-inherit",  "true");
 			impl->data_loops[i].impl = pw_data_loop_new(&pr->dict);
 			if (impl->data_loops[i].impl == NULL)  {
 				res = -errno;

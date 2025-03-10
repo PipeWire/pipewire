@@ -90,7 +90,8 @@ struct impl {
 
 	uint32_t n_queues;
 	struct queue *queues[QUEUES_MAX];
-	pthread_mutex_t queue_lock;
+	pthread_mutex_t lock;
+	pthread_cond_t cond;
 
 	int poll_fd;
 	pthread_t thread;
@@ -458,12 +459,12 @@ again:
 		 * this invoking thread but we need to serialize the flushing here with
 		 * a mutex */
 		if (loop_thread == 0)
-			pthread_mutex_lock(&impl->queue_lock);
+			pthread_mutex_lock(&impl->lock);
 
 		flush_all_queues(impl);
 
 		if (loop_thread == 0)
-			pthread_mutex_unlock(&impl->queue_lock);
+			pthread_mutex_unlock(&impl->lock);
 
 		res = item->res;
 	} else {
@@ -596,7 +597,9 @@ static void loop_leave(void *object)
 
 	if (--impl->enter_count == 0) {
 		impl->thread = 0;
+		pthread_mutex_lock(&impl->lock);
 		flush_all_queues(impl);
+		pthread_mutex_unlock(&impl->lock);
 		impl->polling = false;
 	}
 }
@@ -606,6 +609,42 @@ static int loop_check(void *object)
 	struct impl *impl = object;
 	pthread_t thread_id = pthread_self();
 	return (impl->thread == 0 || pthread_equal(impl->thread, thread_id)) ? 1 : 0;
+}
+static int loop_lock(void *object)
+{
+	struct impl *impl = object;
+	return -pthread_mutex_lock(&impl->lock);
+}
+static int loop_unlock(void *object)
+{
+	struct impl *impl = object;
+	return -pthread_mutex_unlock(&impl->lock);
+}
+static int loop_get_time(void *object, struct timespec *abstime, int64_t timeout)
+{
+	if (clock_gettime(CLOCK_REALTIME, abstime) < 0)
+		return -errno;
+
+	abstime->tv_sec += timeout / SPA_NSEC_PER_SEC;
+	abstime->tv_nsec += timeout % SPA_NSEC_PER_SEC;
+	if (abstime->tv_nsec >= SPA_NSEC_PER_SEC) {
+		abstime->tv_sec++;
+		abstime->tv_nsec -= SPA_NSEC_PER_SEC;
+	}
+	return 0;
+}
+static int loop_wait(void *object, struct timespec *abstime)
+{
+	struct impl *impl = object;
+	if (abstime)
+		return pthread_cond_timedwait(&impl->cond, &impl->lock, abstime);
+	else
+		return pthread_cond_wait(&impl->cond, &impl->lock);
+}
+static int loop_signal(void *object)
+{
+	struct impl *impl = object;
+	return pthread_cond_signal(&impl->cond);
 }
 
 static inline void free_source(struct source_impl *s)
@@ -678,11 +717,13 @@ static int loop_iterate_cancel(void *object, int timeout)
 	if (SPA_UNLIKELY(!spa_list_is_empty(&impl->destroy_list)))
 		process_destroy(impl);
 
+	pthread_mutex_lock(&impl->lock);
 	for (i = 0; i < nfds; i++) {
 		struct spa_source *s = ep[i].data;
 		if (SPA_LIKELY(s && s->rmask))
 			s->func(s);
 	}
+	pthread_mutex_unlock(&impl->lock);
 
 	pthread_cleanup_pop(true);
 
@@ -720,11 +761,14 @@ static int loop_iterate(void *object, int timeout)
 	if (SPA_UNLIKELY(!spa_list_is_empty(&impl->destroy_list)))
 		process_destroy(impl);
 
+	pthread_mutex_lock(&impl->lock);
 	for (i = 0; i < nfds; i++) {
 		struct spa_source *s = ep[i].data;
 		if (SPA_LIKELY(s && s->rmask))
 			s->func(s);
 	}
+	pthread_mutex_unlock(&impl->lock);
+
 	for (i = 0; i < nfds; i++) {
 		struct spa_source *s = ep[i].data;
 		if (SPA_LIKELY(s)) {
@@ -1126,6 +1170,11 @@ static const struct spa_loop_control_methods impl_loop_control_cancel = {
 	.leave = loop_leave,
 	.iterate = loop_iterate_cancel,
 	.check = loop_check,
+	.lock = loop_lock,
+	.unlock = loop_unlock,
+	.get_time = loop_get_time,
+	.wait = loop_wait,
+	.signal = loop_signal,
 };
 
 static const struct spa_loop_control_methods impl_loop_control = {
@@ -1136,6 +1185,11 @@ static const struct spa_loop_control_methods impl_loop_control = {
 	.leave = loop_leave,
 	.iterate = loop_iterate,
 	.check = loop_check,
+	.lock = loop_lock,
+	.unlock = loop_unlock,
+	.get_time = loop_get_time,
+	.wait = loop_wait,
+	.signal = loop_signal,
 };
 
 static const struct spa_loop_utils_methods impl_loop_utils = {
@@ -1196,7 +1250,8 @@ static int impl_clear(struct spa_handle *handle)
 
 	spa_system_close(impl->system, impl->poll_fd);
 
-	pthread_mutex_destroy(&impl->queue_lock);
+	pthread_cond_destroy(&impl->cond);
+	pthread_mutex_destroy(&impl->lock);
 
 	return 0;
 }
@@ -1227,6 +1282,7 @@ impl_init(const struct spa_handle_factory *factory,
 	struct impl *impl;
 	const char *str;
 	pthread_mutexattr_t attr;
+	pthread_condattr_t cattr;
 	int res;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
@@ -1249,6 +1305,9 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_VERSION_LOOP_UTILS,
 			&impl_loop_utils, impl);
 
+	CHECK(pthread_mutexattr_init(&attr), error_exit);
+	CHECK(pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE), error_exit_free_attr);
+
 	impl->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
 	impl->rate_limit.burst = 1;
 	impl->retry_timeout = DEFAULT_RETRY;
@@ -1258,11 +1317,21 @@ impl_init(const struct spa_handle_factory *factory,
 			impl->control.iface.cb.funcs = &impl_loop_control_cancel;
 		if ((str = spa_dict_lookup(info, "loop.retry-timeout")) != NULL)
 			impl->retry_timeout = atoi(str);
+		if ((str = spa_dict_lookup(info, "loop.prio-inherit")) != NULL &&
+		    spa_atob(str)) {
+			CHECK(pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT),
+					error_exit_free_attr)
+		}
 	}
 
-	CHECK(pthread_mutexattr_init(&attr), error_exit);
-	CHECK(pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE), error_exit);
-	CHECK(pthread_mutex_init(&impl->queue_lock, &attr), error_exit);
+	CHECK(pthread_mutex_init(&impl->lock, &attr), error_exit_free_attr);
+	pthread_mutexattr_destroy(&attr);
+
+	CHECK(pthread_condattr_init(&cattr), error_exit_free_mutex);
+	CHECK(pthread_condattr_setclock(&cattr, CLOCK_REALTIME), error_exit_free_mutex);
+
+	CHECK(pthread_cond_init(&impl->cond, &cattr), error_exit_free_mutex);
+	pthread_condattr_destroy(&cattr);
 
 	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	spa_log_topic_init(impl->log, &log_topic);
@@ -1271,12 +1340,12 @@ impl_init(const struct spa_handle_factory *factory,
 	if (impl->system == NULL) {
 		spa_log_error(impl->log, "%p: a System is needed", impl);
 		res = -EINVAL;
-		goto error_exit_free_mutex;
+		goto error_exit_free_cond;
 	}
 	if ((res = spa_system_pollfd_create(impl->system, SPA_FD_CLOEXEC)) < 0) {
 		spa_log_error(impl->log, "%p: can't create pollfd: %s",
 				impl, spa_strerror(res));
-		goto error_exit_free_mutex;
+		goto error_exit_free_cond;
 	}
 	impl->poll_fd = res;
 
@@ -1299,8 +1368,12 @@ impl_init(const struct spa_handle_factory *factory,
 
 error_exit_free_poll:
 	spa_system_close(impl->system, impl->poll_fd);
+error_exit_free_cond:
+	pthread_cond_destroy(&impl->cond);
 error_exit_free_mutex:
-	pthread_mutex_destroy(&impl->queue_lock);
+	pthread_mutex_destroy(&impl->lock);
+error_exit_free_attr:
+	pthread_mutexattr_destroy(&attr);
 error_exit:
 	return res;
 }

@@ -38,7 +38,7 @@ extern "C" {
 struct spa_loop { struct spa_interface iface; };
 
 #define SPA_TYPE_INTERFACE_LoopControl	SPA_TYPE_INFO_INTERFACE_BASE "LoopControl"
-#define SPA_VERSION_LOOP_CONTROL	1
+#define SPA_VERSION_LOOP_CONTROL	2
 struct spa_loop_control { struct spa_interface iface; };
 
 #define SPA_TYPE_INTERFACE_LoopUtils	SPA_TYPE_INFO_INTERFACE_BASE "LoopUtils"
@@ -213,7 +213,7 @@ SPA_API_LOOP void spa_loop_control_hook_after(struct spa_hook_list *l)
 struct spa_loop_control_methods {
 	/* the version of this structure. This can be used to expand this
 	 * structure in the future */
-#define SPA_VERSION_LOOP_CONTROL_METHODS	1
+#define SPA_VERSION_LOOP_CONTROL_METHODS	2
 	uint32_t version;
 
 	/** get the loop fd
@@ -275,6 +275,46 @@ struct spa_loop_control_methods {
 	 * returns 1 on success, 0 or negative errno value on error.
 	 */
 	int (*check) (void *object);
+
+	/** Lock the loop.
+	 * This will ensure the loop is not in the process of dispatching
+	 * callbacks. Since version 2:2
+	 *
+	 * \param[in] object the control
+	 * \return 0 on success or a negative return value on error.
+	 */
+	int (*lock) (void *object);
+
+	/** Unlock the loop.
+	 * Unlocks the loop again so that callbacks can be dispatched
+	 * again. Since version 2:2
+	 *
+	 * \param[in] object the control
+	 * \return 0 on success or a negative return value on error.
+	 */
+	int (*unlock) (void *object);
+
+	/** get the absolute time
+	 * Get the current time with \ref timeout that can be used in wait.
+	 * Since version 2:2
+	 */
+	int (*get_time) (void *object, struct timespec *abstime, int64_t timeout);
+	/** Wait for a signal
+	 * Wait until a thread performs signal. Since version 2:2
+	 *
+	 * \param[in] object the control
+	 * \param[in] abstime the maximum time to wait for the signal or NULL
+	 * \return 0 on success or a negative return value on error.
+	 */
+	int (*wait) (void *object, struct timespec *abstime);
+
+	/** Signal waiters
+	 * Wake up all thread blocked in wait. Since version 2:2
+	 *
+	 * \param[in] object the control
+	 * \return 0 on success or a negative return value on error.
+	 */
+	int (*signal) (void *object);
 };
 
 SPA_API_LOOP int spa_loop_control_get_fd(struct spa_loop_control *object)
@@ -313,6 +353,33 @@ SPA_API_LOOP int spa_loop_control_check(struct spa_loop_control *object)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			spa_loop_control, &object->iface, check, 1);
+}
+SPA_API_LOOP int spa_loop_control_lock(struct spa_loop_control *object)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			spa_loop_control, &object->iface, lock, 2);
+}
+SPA_API_LOOP int spa_loop_control_unlock(struct spa_loop_control *object)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			spa_loop_control, &object->iface, unlock, 2);
+}
+SPA_API_LOOP int spa_loop_control_get_time(struct spa_loop_control *object,
+		struct timespec *abstime, int64_t timeout)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			spa_loop_control, &object->iface, get_time, 2, abstime, timeout);
+}
+SPA_API_LOOP int spa_loop_control_wait(struct spa_loop_control *object,
+		struct timespec *abstime)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			spa_loop_control, &object->iface, wait, 2, abstime);
+}
+SPA_API_LOOP int spa_loop_control_signal(struct spa_loop_control *object)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			spa_loop_control, &object->iface, signal, 2);
 }
 
 typedef void (*spa_source_io_func_t) (void *data, int fd, uint32_t mask);

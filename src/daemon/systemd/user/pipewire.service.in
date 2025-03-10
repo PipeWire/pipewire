@@ -14,6 +14,7 @@ Description=PipeWire Multimedia Service
 # After=pipewire.socket is not needed, as it is already implicit in the
 # socket-service relationship, see systemd.socket(5).
 Requires=pipewire.socket
+ConditionUser=!root
 
 [Service]
 LockPersonality=yes

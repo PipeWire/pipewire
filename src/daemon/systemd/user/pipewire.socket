@@ -1,5 +1,6 @@
 [Unit]
 Description=PipeWire Multimedia System Sockets
+ConditionUser=!root
 
 [Socket]
 Priority=6

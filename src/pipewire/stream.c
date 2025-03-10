@@ -446,7 +446,7 @@ static inline void call_process(struct stream *impl)
 	if (impl->n_buffers == 0 ||
 	    (impl->direction == SPA_DIRECTION_OUTPUT && update_requested(impl) <= 0))
 		return;
-	if (impl->rt_callbacks.funcs)
+	if (impl->rt_callbacks.funcs && !impl->disconnecting)
 		spa_callbacks_call_fast(&impl->rt_callbacks, struct pw_stream_events, process, 0);
 }
 

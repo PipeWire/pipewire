@@ -195,7 +195,6 @@ static int remove_from_poll(struct impl *impl, struct spa_source *source)
 static int loop_remove_source(void *object, struct spa_source *source)
 {
 	struct impl *impl = object;
-	spa_assert(!impl->polling);
 
 	int res = remove_from_poll(impl, source);
 	detach_source(source);
@@ -551,6 +550,16 @@ static int loop_invoke(void *object, spa_invoke_func_t func, uint32_t seq,
 			break;
 		}
 	}
+	return res;
+}
+static int loop_locked(void *object, spa_invoke_func_t func, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct impl *impl = object;
+	int res;
+	pthread_mutex_lock(&impl->lock);
+	res = func(&impl->loop, false, seq, data, size, user_data);
+	pthread_mutex_unlock(&impl->lock);
 	return res;
 }
 
@@ -1214,6 +1223,7 @@ static const struct spa_loop_methods impl_loop = {
 	.update_source = loop_update_source,
 	.remove_source = loop_remove_source,
 	.invoke = loop_invoke,
+	.locked = loop_locked,
 };
 
 static const struct spa_loop_control_methods impl_loop_control_cancel = {

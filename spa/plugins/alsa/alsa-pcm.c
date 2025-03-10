@@ -3739,7 +3739,7 @@ int spa_alsa_start(struct state *state)
 	}
 
 	state->started = true;
-	spa_loop_invoke(state->data_loop, do_state_sync, 0, NULL, 0, true, state);
+	spa_loop_locked(state->data_loop, do_state_sync, 0, NULL, 0, state);
 
 	return 0;
 }
@@ -3783,7 +3783,7 @@ int spa_alsa_reassign_follower(struct state *state)
 	}
 	setup_matching(state);
 	if (state->started)
-		spa_loop_invoke(state->data_loop, do_state_sync, 0, NULL, 0, true, state);
+		spa_loop_locked(state->data_loop, do_state_sync, 0, NULL, 0, state);
 	else if (state->want_started)
 		spa_alsa_start(state);
 
@@ -3812,7 +3812,7 @@ int spa_alsa_pause(struct state *state)
 	spa_log_debug(state->log, "%p: pause", state);
 
 	state->started = false;
-	spa_loop_invoke(state->data_loop, do_state_sync, 0, NULL, 0, true, state);
+	spa_loop_locked(state->data_loop, do_state_sync, 0, NULL, 0, state);
 
 	spa_list_for_each(follower, &state->followers, driver_link)
 		spa_alsa_pause(follower);

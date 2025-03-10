@@ -684,7 +684,7 @@ static void stop_driver_timer(struct impl *this)
 
 	/* Perform the actual stop within
 	 * the dataloop to avoid data races. */
-	spa_loop_invoke(this->data_loop, do_remove_driver_timer_source, 0, NULL, 0, true, this);
+	spa_loop_locked(this->data_loop, do_remove_driver_timer_source, 0, NULL, 0, this);
 }
 
 static void on_driver_timeout(struct spa_source *source)
@@ -795,7 +795,7 @@ static void reevaluate_following_state(struct impl *this)
 	if (following != this->following) {
 		spa_log_debug(this->log, "%p: following state changed: %d->%d", this, this->following, following);
 		this->following = following;
-		spa_loop_invoke(this->data_loop, do_reevaluate_following_state, 0, NULL, 0, true, this);
+		spa_loop_locked(this->data_loop, do_reevaluate_following_state, 0, NULL, 0, this);
 	}
 }
 

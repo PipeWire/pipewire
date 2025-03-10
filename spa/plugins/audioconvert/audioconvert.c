@@ -1386,7 +1386,7 @@ static int load_filter_graph(struct impl *impl, const char *graph, int order)
 	}
 	res = setup_filter_graphs(impl);
 
-	spa_loop_invoke(impl->data_loop, do_sync_filter_graph, 0, NULL, 0, true, impl);
+	spa_loop_locked(impl->data_loop, do_sync_filter_graph, 0, NULL, 0, impl);
 
 	if (impl->in_filter_props == 0)
 		clean_filter_handles(impl, false);
@@ -3283,7 +3283,7 @@ impl_node_port_set_io(void *object,
 	case SPA_IO_Buffers:
 		if (this->data_loop) {
 			struct io_data d = { .port = port, .data = data, .size = size };
-			spa_loop_invoke(this->data_loop, do_set_port_io, 0, NULL, 0, true, &d);
+			spa_loop_locked(this->data_loop, do_set_port_io, 0, NULL, 0, &d);
 		}
 		else
 			port->io = data;

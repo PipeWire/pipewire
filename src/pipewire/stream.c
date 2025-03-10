@@ -1748,7 +1748,7 @@ static void hook_removed(struct spa_hook *hook)
 {
 	struct stream *impl = hook->priv;
 	if (impl->data_loop)
-		pw_loop_invoke(impl->data_loop, do_remove_callbacks, 1, NULL, 0, true, impl);
+		pw_loop_locked(impl->data_loop, do_remove_callbacks, 1, NULL, 0, impl);
 	else
 		spa_zero(impl->rt_callbacks);
 	hook->priv = NULL;
@@ -2590,8 +2590,8 @@ int pw_stream_flush(struct pw_stream *stream, bool drain)
 	if (stream->node == NULL)
 		return -EIO;
 
-	pw_loop_invoke(impl->data_loop,
-			drain ? do_drain : do_flush, 1, NULL, 0, true, impl);
+	pw_loop_locked(impl->data_loop,
+			drain ? do_drain : do_flush, 1, NULL, 0, impl);
 
 	if (!drain)
 		spa_node_send_command(stream->node->node,

@@ -209,7 +209,7 @@ do_node_prepare(struct spa_loop *loop, bool async, uint32_t seq,
 
 static void add_node_to_graph(struct pw_impl_node *node)
 {
-	pw_loop_invoke(node->data_loop, do_node_prepare, 1, NULL, 0, true, node);
+	pw_loop_locked(node->data_loop, do_node_prepare, 1, NULL, 0, node);
 }
 
 /* called from the node data loop and undoes the changes done in do_node_prepare.  */
@@ -248,7 +248,7 @@ do_node_unprepare(struct spa_loop *loop, bool async, uint32_t seq,
 
 static void remove_node_from_graph(struct pw_impl_node *node)
 {
-	pw_loop_invoke(node->data_loop, do_node_unprepare, 1, NULL, 0, true, node);
+	pw_loop_locked(node->data_loop, do_node_unprepare, 1, NULL, 0, node);
 }
 
 static void node_deactivate(struct pw_impl_node *this)
@@ -810,8 +810,8 @@ int pw_impl_node_set_io(struct pw_impl_node *this, uint32_t id, void *data, size
 		if (data != NULL && size < sizeof(struct spa_io_position))
 			return -EINVAL;
 		pw_log_debug("%p: set position %p", this, data);
-		pw_loop_invoke(this->data_loop,
-				do_update_position, SPA_ID_INVALID, &data, sizeof(void*), true, this);
+		pw_loop_locked(this->data_loop,
+				do_update_position, SPA_ID_INVALID, &data, sizeof(void*), this);
 		break;
 	case SPA_IO_Clock:
 		if (data != NULL && size < sizeof(struct spa_io_clock))
@@ -869,8 +869,8 @@ do_add_target(struct spa_loop *loop,
 SPA_EXPORT
 int pw_impl_node_add_target(struct pw_impl_node *node, struct pw_node_target *t)
 {
-	pw_loop_invoke(node->data_loop,
-			do_add_target, SPA_ID_INVALID, &node, sizeof(void *), true, t);
+	pw_loop_locked(node->data_loop,
+			do_add_target, SPA_ID_INVALID, &node, sizeof(void *), t);
 	if (t->node)
 		pw_impl_node_emit_peer_added(node, t->node);
 
@@ -905,8 +905,8 @@ int pw_impl_node_remove_target(struct pw_impl_node *node, struct pw_node_target 
 {
 	/* we also update the target list for remote nodes so that the profiler
 	 * can inspect the nodes as well */
-	pw_loop_invoke(node->data_loop,
-			do_remove_target, SPA_ID_INVALID, &node, sizeof(void *), true, t);
+	pw_loop_locked(node->data_loop,
+			do_remove_target, SPA_ID_INVALID, &node, sizeof(void *), t);
 	if (t->node)
 		pw_impl_node_emit_peer_removed(node, t->node);
 
@@ -2359,8 +2359,8 @@ void pw_impl_node_add_rt_listener(struct pw_impl_node *node,
 			   void *data)
 {
 	struct listener_data d = { .listener = listener, .events = events, .data = data };
-	pw_loop_invoke(node->data_loop,
-                       do_add_rt_listener, SPA_ID_INVALID, &d, sizeof(d), false, node);
+	pw_loop_locked(node->data_loop,
+                       do_add_rt_listener, SPA_ID_INVALID, &d, sizeof(d), node);
 }
 
 static int do_remove_listener(struct spa_loop *loop,
@@ -2375,8 +2375,8 @@ SPA_EXPORT
 void pw_impl_node_remove_rt_listener(struct pw_impl_node *node,
 			  struct spa_hook *listener)
 {
-	pw_loop_invoke(node->data_loop,
-                       do_remove_listener, SPA_ID_INVALID, NULL, 0, true, listener);
+	pw_loop_locked(node->data_loop,
+                       do_remove_listener, SPA_ID_INVALID, NULL, 0, listener);
 }
 
 /** Destroy a node

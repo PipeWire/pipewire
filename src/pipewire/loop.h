@@ -64,6 +64,12 @@ PW_API_LOOP_IMPL int pw_loop_invoke(struct pw_loop *object,
 {
 	return spa_loop_invoke(object->loop, func, seq, data, size, block, user_data);
 }
+PW_API_LOOP_IMPL int pw_loop_locked(struct pw_loop *object,
+                spa_invoke_func_t func, uint32_t seq, const void *data,
+                size_t size, void *user_data)
+{
+	return spa_loop_locked(object->loop, func, seq, data, size, user_data);
+}
 
 PW_API_LOOP_IMPL int pw_loop_get_fd(struct pw_loop *object)
 {

@@ -133,6 +133,24 @@ struct spa_loop_methods {
 		       size_t size,
 		       bool block,
 		       void *user_data);
+
+	/** Call a function with the loop lock acquired
+	 * May be called from any thread and multiple threads at the same time.
+	 *
+	 * \param[in] object The callbacks data.
+	 * \param func The function to be called.
+	 * \param seq An opaque sequence number. This will be made
+	 *            available to func.
+	 * \param[in] data Data that will be passed to func.
+	 * \param size The size of data.
+	 * \param user_data An opaque pointer passed to func.
+	 * \return the return value of func. */
+	int (*locked) (void *object,
+		       spa_invoke_func_t func,
+		       uint32_t seq,
+		       const void *data,
+		       size_t size,
+		       void *user_data);
 };
 
 SPA_API_LOOP int spa_loop_add_source(struct spa_loop *object, struct spa_source *source)
@@ -158,6 +176,15 @@ SPA_API_LOOP int spa_loop_invoke(struct spa_loop *object,
 			spa_loop, &object->iface, invoke, 0, func, seq, data,
 			size, block, user_data);
 }
+SPA_API_LOOP int spa_loop_locked(struct spa_loop *object,
+		spa_invoke_func_t func, uint32_t seq, const void *data,
+		size_t size, void *user_data)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			spa_loop, &object->iface, locked, 0, func, seq, data,
+			size, user_data);
+}
+
 
 /** Control hooks. These hooks can't be removed from their
  *  callbacks and must be removed from a safe place (when the loop

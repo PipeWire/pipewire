@@ -1176,7 +1176,7 @@ int spa_alsa_seq_reassign_follower(struct seq_state *state)
 	if (following != state->following) {
 		spa_log_debug(state->log, "alsa %p: reassign follower %d->%d", state, state->following, following);
 		state->following = following;
-		spa_loop_invoke(state->data_loop, do_reassign_follower, 0, NULL, 0, true, state);
+		spa_loop_locked(state->data_loop, do_reassign_follower, 0, NULL, 0, state);
 	}
 	return 0;
 }
@@ -1205,7 +1205,7 @@ int spa_alsa_seq_pause(struct seq_state *state)
 
 	spa_log_debug(state->log, "alsa %p: pause", state);
 
-	spa_loop_invoke(state->data_loop, do_remove_source, 0, NULL, 0, true, state);
+	spa_loop_locked(state->data_loop, do_remove_source, 0, NULL, 0, state);
 
 	if ((res = snd_seq_stop_queue(state->event.hndl, state->event.queue_id, NULL)) < 0) {
 		spa_log_warn(state->log, "failed to stop queue: %s", snd_strerror(res));

@@ -626,8 +626,8 @@ do_mix_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 static inline void mix_set_io(struct mix *mix, void *data, size_t size)
 {
 	struct io_info info = { .mix = mix, .data = data, .size = size };
-	pw_data_loop_invoke(mix->port->client->loop,
-		do_mix_set_io, SPA_ID_INVALID, &info, sizeof(info), false, NULL);
+	pw_loop_locked(mix->port->client->loop->loop,
+		do_mix_set_io, SPA_ID_INVALID, &info, sizeof(info), NULL);
 }
 
 static void init_mix(struct mix *mix, uint32_t mix_id, struct port *port, uint32_t peer_id)
@@ -2496,16 +2496,16 @@ static int client_node_command(void *data, const struct spa_command *command)
 	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Pause:
 		if (c->started) {
-			pw_data_loop_invoke(c->loop,
-				do_unprepare_client, SPA_ID_INVALID, NULL, 0, false, c);
+			pw_loop_locked(c->loop->loop,
+				do_unprepare_client, SPA_ID_INVALID, NULL, 0, c);
 			c->started = false;
 		}
 		break;
 
 	case SPA_NODE_COMMAND_Start:
 		if (!c->started) {
-			pw_data_loop_invoke(c->loop,
-				do_prepare_client, SPA_ID_INVALID, NULL, 0, false, c);
+			pw_loop_locked(c->loop->loop,
+				do_prepare_client, SPA_ID_INVALID, NULL, 0, c);
 			c->started = true;
 		}
 		break;
@@ -3279,8 +3279,8 @@ static int client_node_set_activation(void *data,
 		link->trigger = link->activation->server_version < 1 ? trigger_link_v0 : trigger_link_v1;
 		spa_list_append(&c->links, &link->link);
 
-		pw_data_loop_invoke(c->loop,
-                       do_add_link, SPA_ID_INVALID, NULL, 0, false, link);
+		pw_loop_locked(c->loop->loop,
+                       do_add_link, SPA_ID_INVALID, NULL, 0, link);
 	}
 	else {
 		link = find_activation(&c->links, node_id);
@@ -3290,8 +3290,8 @@ static int client_node_set_activation(void *data,
 		}
 		spa_list_remove(&link->link);
 
-		pw_data_loop_invoke(c->loop,
-                       do_remove_link, SPA_ID_INVALID, NULL, 0, false, link);
+		pw_loop_locked(c->loop->loop,
+                       do_remove_link, SPA_ID_INVALID, NULL, 0, link);
 		queue_free_link(c, link);
 	}
 

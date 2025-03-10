@@ -241,8 +241,8 @@ static int port_set_io(void *object,
 	case SPA_IO_Buffers:
 	case SPA_IO_AsyncBuffers:
 		if (data == NULL || size == 0) {
-			pw_loop_invoke(this->node->data_loop,
-			       do_remove_mix, SPA_ID_INVALID, NULL, 0, true, mix);
+			pw_loop_locked(this->node->data_loop,
+			       do_remove_mix, SPA_ID_INVALID, NULL, 0, mix);
 			mix->io_data = mix->io[0] = mix->io[1] = NULL;
 		} else if (data != NULL && size >= sizeof(struct spa_io_buffers)) {
 			if (size >= sizeof(struct spa_io_async_buffers)) {
@@ -253,8 +253,8 @@ static int port_set_io(void *object,
 			} else {
 				mix->io_data = mix->io[0] = mix->io[1] = data;
 			}
-			pw_loop_invoke(this->node->data_loop,
-			       do_add_mix, SPA_ID_INVALID, NULL, 0, false, mix);
+			pw_loop_locked(this->node->data_loop,
+			       do_add_mix, SPA_ID_INVALID, NULL, 0, mix);
 		}
 	}
 	return 0;
@@ -1388,7 +1388,7 @@ static void pw_impl_port_remove(struct pw_impl_port *port)
 
 	pw_log_debug("%p: remove", port);
 
-	pw_loop_invoke(node->data_loop, do_remove_port, SPA_ID_INVALID, NULL, 0, true, port);
+	pw_loop_locked(node->data_loop, do_remove_port, SPA_ID_INVALID, NULL, 0, port);
 
 	if (SPA_FLAG_IS_SET(port->flags, PW_IMPL_PORT_FLAG_TO_REMOVE)) {
 		if ((res = spa_node_remove_port(node->node, port->direction, port->port_id)) < 0)
@@ -1817,7 +1817,7 @@ int pw_impl_port_set_param(struct pw_impl_port *port, uint32_t id, uint32_t flag
 	pw_log_debug("%p: %d set param %d %p", port, port->state, id, param);
 
 	if (id == SPA_PARAM_Format) {
-		pw_loop_invoke(node->data_loop, do_remove_port, SPA_ID_INVALID, NULL, 0, true, port);
+		pw_loop_locked(node->data_loop, do_remove_port, SPA_ID_INVALID, NULL, 0, port);
 		spa_node_port_set_io(node->node,
 				     port->direction, port->port_id,
 				     SPA_IO_Buffers, NULL, 0);
@@ -1903,7 +1903,7 @@ static int negotiate_mixer_buffers(struct pw_impl_port *port, uint32_t flags,
 				     port->direction, port->port_id,
 				     SPA_IO_Buffers, NULL, 0);
 
-		pw_loop_invoke(node->data_loop, do_remove_port, SPA_ID_INVALID, NULL, 0, true, port);
+		pw_loop_locked(node->data_loop, do_remove_port, SPA_ID_INVALID, NULL, 0, port);
 
 		pw_buffers_clear(&port->mix_buffers);
 
@@ -1943,7 +1943,7 @@ static int negotiate_mixer_buffers(struct pw_impl_port *port, uint32_t flags,
 			     pw_direction_reverse(port->direction), 0,
 			     SPA_IO_Buffers,
 			     &port->rt.io, sizeof(port->rt.io));
-		pw_loop_invoke(node->data_loop, do_add_port, SPA_ID_INVALID, NULL, 0, false, port);
+		pw_loop_locked(node->data_loop, do_add_port, SPA_ID_INVALID, NULL, 0, port);
 	}
 	return res;
 }

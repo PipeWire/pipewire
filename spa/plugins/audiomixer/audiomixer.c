@@ -744,8 +744,8 @@ impl_node_port_set_io(void *object,
 	switch (id) {
 	case SPA_IO_Buffers:
 	case SPA_IO_AsyncBuffers:
-		spa_loop_invoke(this->data_loop,
-                               do_port_set_io, SPA_ID_INVALID, NULL, 0, true, &info);
+		spa_loop_locked(this->data_loop,
+                               do_port_set_io, SPA_ID_INVALID, NULL, 0, &info);
 		break;
 	default:
 		return -ENOENT;

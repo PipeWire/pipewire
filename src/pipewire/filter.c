@@ -1449,7 +1449,7 @@ static void hook_removed(struct spa_hook *hook)
 {
 	struct filter *impl = hook->priv;
 	if (impl->data_loop)
-		pw_loop_invoke(impl->data_loop, do_remove_callbacks, 1, NULL, 0, true, impl);
+		pw_loop_locked(impl->data_loop, do_remove_callbacks, 1, NULL, 0, impl);
 	else
 		spa_zero(impl->rt_callbacks);
 	hook->priv = NULL;
@@ -2081,8 +2081,8 @@ SPA_EXPORT
 int pw_filter_flush(struct pw_filter *filter, bool drain)
 {
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
-	pw_loop_invoke(impl->data_loop,
-			drain ? do_drain : do_flush, 1, NULL, 0, true, impl);
+	pw_loop_locked(impl->data_loop,
+			drain ? do_drain : do_flush, 1, NULL, 0, impl);
 	return 0;
 }
 

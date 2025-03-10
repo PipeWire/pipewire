@@ -1131,7 +1131,7 @@ int spa_avb_reassign_follower(struct state *state)
 	if (following != state->following) {
 		spa_log_debug(state->log, "%p: reassign follower %d->%d", state, state->following, following);
 		state->following = following;
-		spa_loop_invoke(state->data_loop, do_reassign_follower, 0, NULL, 0, true, state);
+		spa_loop_locked(state->data_loop, do_reassign_follower, 0, NULL, 0, state);
 	}
 
 	freewheel = state->position &&
@@ -1208,7 +1208,7 @@ int spa_avb_pause(struct state *state)
 
 	spa_log_debug(state->log, "%p: pause", state);
 
-	spa_loop_invoke(state->data_loop, do_remove_source, 0, NULL, 0, true, state);
+	spa_loop_locked(state->data_loop, do_remove_source, 0, NULL, 0, state);
 
 	state->started = false;
 

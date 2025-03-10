@@ -85,6 +85,7 @@ struct impl {
 
 	struct spa_ratelimit rate_limit;
 	int retry_timeout;
+	bool prio_inherit;
 
 	union tag head;
 
@@ -1371,9 +1372,6 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_VERSION_LOOP_UTILS,
 			&impl_loop_utils, impl);
 
-	CHECK(pthread_mutexattr_init(&attr), error_exit);
-	CHECK(pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE), error_exit_free_attr);
-
 	impl->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
 	impl->rate_limit.burst = 1;
 	impl->retry_timeout = DEFAULT_RETRY;
@@ -1383,13 +1381,15 @@ impl_init(const struct spa_handle_factory *factory,
 			impl->control.iface.cb.funcs = &impl_loop_control_cancel;
 		if ((str = spa_dict_lookup(info, "loop.retry-timeout")) != NULL)
 			impl->retry_timeout = atoi(str);
-		if ((str = spa_dict_lookup(info, "loop.prio-inherit")) != NULL &&
-		    spa_atob(str)) {
-			CHECK(pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT),
-					error_exit_free_attr)
-		}
+		if ((str = spa_dict_lookup(info, "loop.prio-inherit")) != NULL)
+			impl->prio_inherit = spa_atob(str);
 	}
 
+	CHECK(pthread_mutexattr_init(&attr), error_exit);
+	CHECK(pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE), error_exit_free_attr);
+	if (impl->prio_inherit)
+		CHECK(pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT),
+					error_exit_free_attr)
 	CHECK(pthread_mutex_init(&impl->lock, &attr), error_exit_free_attr);
 	pthread_mutexattr_destroy(&attr);
 

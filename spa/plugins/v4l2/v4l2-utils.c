@@ -1928,7 +1928,7 @@ static int spa_v4l2_stream_off(struct impl *this)
 
 	spa_log_debug(this->log, "stopping");
 
-	spa_loop_invoke(this->data_loop, do_remove_source, 0, NULL, 0, true, port);
+	spa_loop_locked(this->data_loop, do_remove_source, 0, NULL, 0, port);
 
 	type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	if (xioctl(dev->fd, VIDIOC_STREAMOFF, &type) < 0) {

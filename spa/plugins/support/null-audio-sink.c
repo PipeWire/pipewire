@@ -230,7 +230,7 @@ static int reassign_follower(struct impl *this)
 	if (following != this->following) {
 		spa_log_debug(this->log, "%p: reassign follower %d->%d", this, this->following, following);
 		this->following = following;
-		spa_loop_invoke(this->data_loop, do_set_timers, 0, NULL, 0, true, this);
+		spa_loop_locked(this->data_loop, do_set_timers, 0, NULL, 0, this);
 	}
 	return 0;
 }
@@ -314,7 +314,7 @@ static int do_start(struct impl *this)
 
 	this->following = is_following(this);
 	this->started = true;
-	spa_loop_invoke(this->data_loop, do_set_timers, 0, NULL, 0, true, this);
+	spa_loop_locked(this->data_loop, do_set_timers, 0, NULL, 0, this);
 	return 0;
 }
 
@@ -323,7 +323,7 @@ static int do_stop(struct impl *this)
 	if (!this->started)
 		return 0;
 	this->started = false;
-	spa_loop_invoke(this->data_loop, do_set_timers, 0, NULL, 0, true, this);
+	spa_loop_locked(this->data_loop, do_set_timers, 0, NULL, 0, this);
 	return 0;
 }
 
@@ -847,7 +847,7 @@ static int impl_clear(struct spa_handle *handle)
 
 	this = (struct impl *) handle;
 
-	spa_loop_invoke(this->data_loop, do_remove_timer, 0, NULL, 0, true, this);
+	spa_loop_locked(this->data_loop, do_remove_timer, 0, NULL, 0, this);
 	spa_system_close(this->data_system, this->timer_source.fd);
 
 	return 0;

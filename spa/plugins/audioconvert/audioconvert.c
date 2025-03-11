@@ -1971,13 +1971,19 @@ static int setup_resample(struct impl *this)
 	struct dir *in = &this->dir[SPA_DIRECTION_INPUT];
 	struct dir *out = &this->dir[SPA_DIRECTION_OUTPUT];
 	int res;
+	uint32_t channels;
+
+	if (this->direction == SPA_DIRECTION_INPUT)
+		channels = in->format.info.raw.channels;
+	else
+		channels = out->format.info.raw.channels;
 
 	spa_log_info(this->log, "%p: %s/%d@%d->%s/%d@%d", this,
 			spa_debug_type_find_name(spa_type_audio_format, SPA_AUDIO_FORMAT_DSP_F32),
-			out->format.info.raw.channels,
+			channels,
 			in->format.info.raw.rate,
 			spa_debug_type_find_name(spa_type_audio_format, SPA_AUDIO_FORMAT_DSP_F32),
-			out->format.info.raw.channels,
+			channels,
 			out->format.info.raw.rate);
 
 	if (this->props.resample_disabled && !this->resample_peaks &&
@@ -1987,7 +1993,7 @@ static int setup_resample(struct impl *this)
 	if (this->resample.free)
 		resample_free(&this->resample);
 
-	this->resample.channels = out->format.info.raw.channels;
+	this->resample.channels = channels;
 	this->resample.i_rate = in->format.info.raw.rate;
 	this->resample.o_rate = out->format.info.raw.rate;
 	this->resample.log = this->log;

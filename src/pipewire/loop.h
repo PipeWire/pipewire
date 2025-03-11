@@ -141,7 +141,7 @@ pw_loop_add_signal(struct pw_loop *object, int signal_number,
 PW_API_LOOP_IMPL void pw_loop_destroy_source(struct pw_loop *object,
                 struct spa_source *source)
 {
-	return spa_loop_utils_destroy_source(object->utils, source);
+	spa_loop_utils_destroy_source(object->utils, source);
 }
 
 /**

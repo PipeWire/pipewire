@@ -616,7 +616,7 @@ static int process_read(struct seq_state *state)
 		uint32_t offset;
 		void *event;
 		uint8_t *midi1_ptr;
-		size_t midi1_size;
+		size_t midi1_size = 0;
 		uint64_t ump_state = 0;
 		snd_seq_event_type_t SPA_UNUSED type;
 

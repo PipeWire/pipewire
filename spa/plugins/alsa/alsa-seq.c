@@ -845,9 +845,8 @@ static int process_write(struct seq_state *state)
 #ifdef HAVE_ALSA_UMP
 				snd_seq_ump_event_t ev;
 
-				spa_zero(ev);
-				memcpy(ev.ump, body, SPA_MIN(sizeof(ev.ump), (size_t)body_size));
-
+				snd_seq_ump_ev_clear(&ev);
+				snd_seq_ev_set_ump_data(&ev, body, SPA_MIN(sizeof(ev.ump), (size_t)body_size));
 				snd_seq_ev_set_source(&ev, state->event.addr.port);
 				snd_seq_ev_set_dest(&ev, port->addr.client, port->addr.port);
 				snd_seq_ev_schedule_real(&ev, state->event.queue_id, 0, &out_rt);

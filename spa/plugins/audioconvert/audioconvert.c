@@ -210,7 +210,6 @@ struct stage_context {
 	uint32_t src_idx;
 	uint32_t dst_idx;
 	uint32_t final_idx;
-	uint32_t n_datas;
 	struct port *ctrlport;
 };
 
@@ -219,8 +218,6 @@ struct stage {
 	bool passthrough;
 	uint32_t in_idx;
 	uint32_t out_idx;
-	uint32_t n_in;
-	uint32_t n_out;
 	void *data;
 	void (*run) (struct stage *stage, struct stage_context *c);
 };
@@ -3223,8 +3220,6 @@ static void add_wav_stage(struct impl *impl, struct stage_context *ctx)
 	s->passthrough = false;
 	s->in_idx = ctx->src_idx;
 	s->out_idx = ctx->src_idx;
-	s->n_in = ctx->n_datas;
-	s->n_out = ctx->n_datas;
 	s->data = NULL;
 	s->run = run_wav_stage;
 	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
@@ -3236,7 +3231,7 @@ static void run_dst_remap_stage(struct stage *s, struct stage_context *c)
 	struct impl *impl = s->impl;
 	struct dir *dir = &impl->dir[SPA_DIRECTION_OUTPUT];
 	uint32_t i;
-	for (i = 0; i < s->n_in; i++) {
+	for (i = 0; i < dir->conv.n_channels; i++) {
 		c->datas[s->out_idx][i] = c->datas[s->in_idx][dir->remap[i]];
 		spa_log_trace_fp(impl->log, "%p: output remap %d -> %d", impl, i, dir->remap[i]);
 	}
@@ -3248,8 +3243,6 @@ static void add_dst_remap_stage(struct impl *impl, struct stage_context *ctx)
 	s->passthrough = false;
 	s->in_idx = ctx->dst_idx;
 	s->out_idx = CTX_DATA_REMAP_DST;
-	s->n_in = ctx->n_datas;
-	s->n_out = ctx->n_datas;
 	s->data = NULL;
 	s->run = run_dst_remap_stage;
 	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
@@ -3275,8 +3268,6 @@ static void add_src_remap_stage(struct impl *impl, struct stage_context *ctx)
 	s->passthrough = false;
 	s->in_idx = ctx->src_idx;
 	s->out_idx = CTX_DATA_REMAP_SRC;
-	s->n_in = ctx->n_datas;
-	s->n_out = ctx->n_datas;
 	s->data = NULL;
 	s->run = run_src_remap_stage;
 	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
@@ -3310,8 +3301,6 @@ static void add_src_convert_stage(struct impl *impl, struct stage_context *ctx)
 	s->passthrough = false;
 	s->in_idx = ctx->src_idx;
 	s->out_idx = ctx->dst_idx;
-	s->n_in = ctx->n_datas;
-	s->n_out = ctx->n_datas;
 	s->data = NULL;
 	s->run = run_src_convert_stage;
 	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
@@ -3340,8 +3329,6 @@ static void add_resample_stage(struct impl *impl, struct stage_context *ctx)
 	s->passthrough = false;
 	s->in_idx = ctx->src_idx;
 	s->out_idx = ctx->dst_idx;
-	s->n_in = ctx->n_datas;
-	s->n_out = ctx->n_datas;
 	s->data = NULL;
 	s->run = run_resample_stage;
 	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
@@ -3389,8 +3376,6 @@ static void add_filter_stage(struct impl *impl, uint32_t i, struct filter_graph 
 	s->passthrough = false;
 	s->in_idx = ctx->src_idx;
 	s->out_idx = ctx->dst_idx;
-	s->n_in = ctx->n_datas;
-	s->n_out = ctx->n_datas;
 	s->data = fg;
 	s->run = run_filter_stage;
 	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
@@ -3405,8 +3390,6 @@ static void add_channelmix_stage(struct impl *impl, struct stage_context *ctx)
 	s->passthrough = false;
 	s->in_idx = ctx->src_idx;
 	s->out_idx = ctx->dst_idx;
-	s->n_in = ctx->n_datas;
-	s->n_out = ctx->n_datas;
 	s->data = NULL;
 	s->run = run_channelmix_stage;
 	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
@@ -3440,8 +3423,6 @@ static void add_dst_convert_stage(struct impl *impl, struct stage_context *ctx)
 	s->passthrough = false;
 	s->in_idx = ctx->src_idx;
 	s->out_idx = ctx->final_idx;
-	s->n_in = ctx->n_datas;
-	s->n_out = ctx->n_datas;
 	s->data = NULL;
 	s->run = run_dst_convert_stage;
 	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
@@ -3834,14 +3815,14 @@ static int impl_node_process(void *object)
 	ctx.in_samples = n_samples;
 	ctx.n_samples = n_samples;
 	ctx.n_out = n_out;
-	ctx.src_idx = CTX_DATA_SRC;
-	ctx.dst_idx = CTX_DATA_DST;
-	ctx.final_idx = CTX_DATA_DST;
-	ctx.n_datas = dir->conv.n_channels;
 	ctx.ctrlport = ctrlport;
 
-	if (this->recalc)
+	if (SPA_UNLIKELY(this->recalc)) {
+		ctx.src_idx = CTX_DATA_SRC;
+		ctx.dst_idx = CTX_DATA_DST;
+		ctx.final_idx = CTX_DATA_DST;
 		recalc_stages(this, &ctx);
+	}
 
 	for (i = 0; i < this->n_stages; i++) {
 		struct stage *s = &this->stages[i];

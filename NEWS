@@ -1,3 +1,43 @@
+# PipeWire 1.4.1 (2025-03-14)
+
+This is a quick bugfix release that is API and ABI compatible with
+previous 1.x releases.
+
+## Highlights
+  - Handle SplitPCM wrong channels specifications. This fixes some
+    problems with disappearing devices.
+  - Add backwards compatibility support for when the kernel does not
+    support UMP. Also fix UMP output. This restores MIDI support for
+    older kernels/ALSA.
+  - Fix a crash in audioconvert because the resampler was not using the
+    right number of channels.
+  - Some compilation fixes and small improvements.
+
+
+## PipeWire
+  - Don't emit events when disconnecting a stream. (#3314)
+  - Fix some compilation problems. (#4603)
+
+## Modules
+  - Bump the ROC requirement to version 0.4.0
+
+## SPA
+  - Handle SplitPCM too few or too many channels. Add an error string
+    to the device names when the UCM config has an error.
+  - Add backwards compatibility support for when the kernel does not
+    support UMP.
+  - Configure the channels in the resampler correctly in all
+    cases. (#4595)
+  - Fix UMP output.
+  - Use the right samplerate of the filter-graph in audioconvert in
+    all cases.
+
+## Bluetooth
+  - Fix a crash with an incomming call.
+
+
+Older versions:
+
 # PipeWire 1.4.0 (2025-03-06)
 
 This is the 1.4 release that is API and ABI compatible with previous
@@ -98,9 +138,6 @@ the 1.2 release last year, including:
 
 ## JACK
   - Add an option to disable the MIDI2 port flags. (#4584)
-
-
-Older versions:
 
 # PipeWire 1.3.83 (2025-02-20)
 

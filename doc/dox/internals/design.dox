@@ -44,6 +44,8 @@ The native protocol and object model is similar to
 serialization/deserialization of messages. This is because the data structures
 in the messages are more complicated and not easily expressible in XML.
 See \ref page_module_protocol_native for details.
+See also \ref page_native_protocol for the documentation of the protocol
+messages.
 
 
 # Extensibility

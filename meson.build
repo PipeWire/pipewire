@@ -127,21 +127,30 @@ if have_cpp
   add_project_arguments(cxx.get_supported_arguments(cxx_flags), language: 'cpp')
 endif
 
-sse_args = '-msse'
-sse2_args = '-msse2'
-ssse3_args = '-mssse3'
-sse41_args = '-msse4.1'
-fma_args = '-mfma'
-avx_args = '-mavx'
-avx2_args = '-mavx2'
+have_sse = false
+have_sse2 = false
+have_ssse3 = false
+have_sse41 = false
+have_fma = false
+have_avx = false
+have_avx2 = false
+if host_machine.cpu_family() in ['x86', 'x86_64']
+  sse_args = '-msse'
+  sse2_args = '-msse2'
+  ssse3_args = '-mssse3'
+  sse41_args = '-msse4.1'
+  fma_args = '-mfma'
+  avx_args = '-mavx'
+  avx2_args = '-mavx2'
 
-have_sse = cc.has_argument(sse_args)
-have_sse2 = cc.has_argument(sse2_args)
-have_ssse3 = cc.has_argument(ssse3_args)
-have_sse41 = cc.has_argument(sse41_args)
-have_fma = cc.has_argument(fma_args)
-have_avx = cc.has_argument(avx_args)
-have_avx2 = cc.has_argument(avx2_args)
+  have_sse = cc.has_argument(sse_args)
+  have_sse2 = cc.has_argument(sse2_args)
+  have_ssse3 = cc.has_argument(ssse3_args)
+  have_sse41 = cc.has_argument(sse41_args)
+  have_fma = cc.has_argument(fma_args)
+  have_avx = cc.has_argument(avx_args)
+  have_avx2 = cc.has_argument(avx2_args)
+endif
 
 have_neon = false
 if host_machine.cpu_family() == 'aarch64'

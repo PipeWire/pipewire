@@ -314,6 +314,10 @@ gst_pipewire_sink_update_params (GstPipeWireSink *sink)
   spa_pod_builder_add (&b,
       SPA_PARAM_BUFFERS_size, SPA_POD_CHOICE_RANGE_Int(size, size, INT32_MAX),
       0);
+  /* MUST have n_datas == n_planes */
+  spa_pod_builder_add (&b,
+      SPA_PARAM_BUFFERS_blocks,
+      SPA_POD_Int(GST_VIDEO_INFO_N_PLANES (&pool->video_info)));
 
   spa_pod_builder_add (&b,
       SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
@@ -630,6 +634,9 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
     }
   }
   data->b->size = 0;
+
+  spa_assert(b->n_datas == gst_buffer_n_memory(buffer));
+
   for (i = 0; i < b->n_datas; i++) {
     struct spa_data *d = &b->datas[i];
     GstMemory *mem = gst_buffer_peek_memory (buffer, i);
@@ -643,16 +650,24 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
   GstVideoMeta *meta = gst_buffer_get_video_meta (buffer);
   if (meta) {
     if (meta->n_planes == b->n_datas) {
+      uint32_t n_planes = GST_VIDEO_INFO_N_PLANES (&data->pool->video_info);
+      gboolean is_planar = n_planes > 1;
       gsize video_size = 0;
-      for (i = 0; i < meta->n_planes; i++) {
+
+      for (i = 0; i < n_planes; i++) {
         struct spa_data *d = &b->datas[i];
-        d->chunk->offset += meta->offset[i] - video_size;
+
         d->chunk->stride = meta->stride[i];
+        if (is_planar)
+          d->chunk->offset = meta->offset[i];
+        else
+          d->chunk->offset += meta->offset[i] - video_size;
 
         video_size += d->chunk->size;
       }
     } else {
-      GST_ERROR_OBJECT (pwsink, "plane num not matching, meta:%u buffer:%u", meta->n_planes, b->n_datas);
+      GST_ERROR_OBJECT (pwsink, "plane num not matching, meta:%u buffer:%u",
+          meta->n_planes, b->n_datas);
     }
   }
 

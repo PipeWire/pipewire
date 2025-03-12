@@ -94,13 +94,21 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
   }
 
   if (pool->add_metavideo) {
-    gst_buffer_add_video_meta_full (buf, GST_VIDEO_FRAME_FLAG_NONE,
+    GstVideoMeta *meta = gst_buffer_add_video_meta_full (buf,
+        GST_VIDEO_FRAME_FLAG_NONE,
         GST_VIDEO_INFO_FORMAT (&pool->video_info),
         GST_VIDEO_INFO_WIDTH (&pool->video_info),
         GST_VIDEO_INFO_HEIGHT (&pool->video_info),
         GST_VIDEO_INFO_N_PLANES (&pool->video_info),
         pool->video_info.offset,
         pool->video_info.stride);
+
+    /*
+     * We need to set the video meta as pooled, else gst_buffer_pool_release_buffer
+     * will call reset_buffer and the default_reset_buffer implementation for
+     * GstBufferPool removes all metadata without the POOLED flag.
+     */
+    GST_META_FLAG_SET (meta, GST_META_FLAG_POOLED);
   }
 
   data->pool = gst_object_ref (pool);

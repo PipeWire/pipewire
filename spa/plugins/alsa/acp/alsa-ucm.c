@@ -353,6 +353,15 @@ static pa_alsa_ucm_split *ucm_get_split_channels(pa_alsa_ucm_device *device, snd
     const char *device_name;
     int i;
     uint32_t hw_channels;
+    const char *pcm_name;
+    const char *rule_name;
+
+    if (spa_streq(prefix, "Playback"))
+        pcm_name = pa_proplist_gets(device->proplist, PA_ALSA_PROP_UCM_SINK);
+    else
+        pcm_name = pa_proplist_gets(device->proplist, PA_ALSA_PROP_UCM_SOURCE);
+    if (!pcm_name)
+        pcm_name = "";
 
     device_name = pa_proplist_gets(device->proplist, PA_ALSA_PROP_UCM_NAME);
     if (!device_name)
@@ -373,15 +382,20 @@ static pa_alsa_ucm_split *ucm_get_split_channels(pa_alsa_ucm_device *device, snd
             break;
 
         if (idx >= hw_channels)
-            goto fail;
+            pa_log_notice("Error in ALSA UCM profile for %s (%s): %sChannel%d=%d >= %sChannels=%d",
+                          pcm_name, device_name, prefix, i, idx, prefix, hw_channels);
 
         value = ucm_get_string(uc_mgr, "%sChannelPos%d/%s", prefix, i, device_name);
-        if (!value)
+        if (!value) {
+            rule_name = "ChannelPos";
             goto fail;
+        }
 
         map = snd_pcm_chmap_parse_string(value);
-        if (!map)
+        if (!map) {
+            rule_name = "ChannelPos value";
             goto fail;
+        }
 
         if (map->channels == 1) {
             pa_log_debug("Split %s channel %d -> device %s channel %d: %s (%d)",
@@ -391,6 +405,7 @@ static pa_alsa_ucm_split *ucm_get_split_channels(pa_alsa_ucm_device *device, snd
             free(map);
         } else {
             free(map);
+            rule_name = "channel map parsing";
             goto fail;
         }
     }
@@ -405,7 +420,7 @@ static pa_alsa_ucm_split *ucm_get_split_channels(pa_alsa_ucm_device *device, snd
     return split;
 
 fail:
-    pa_log_warn("Invalid SplitPCM ALSA UCM rule for device %s", device_name);
+    pa_log_warn("Invalid SplitPCM ALSA UCM %s for device %s (%s)", rule_name, pcm_name, device_name);
     pa_xfree(split);
     return NULL;
 }
@@ -2422,21 +2437,25 @@ static snd_pcm_t* mapping_open_pcm(pa_alsa_ucm_config *ucm, pa_alsa_mapping *m, 
 
     if (pcm) {
         if (m->split) {
-            if (try_map.channels < m->split->hw_channels) {
-                pa_alsa_close(&pcm);
+            const char *mode_name = mode == SND_PCM_STREAM_PLAYBACK ? "Playback" : "Capture";
 
-                pa_logl((max_channels ? PA_LOG_WARN : PA_LOG_DEBUG),
-                       "Too few channels in %s for ALSA UCM SplitPCM: avail %d < required %d",
-                       m->device_strings[0], try_map.channels, m->split->hw_channels);
+            if (try_map.channels < m->split->hw_channels) {
+                pa_logl((max_channels ? PA_LOG_NOTICE : PA_LOG_DEBUG),
+                        "Error in ALSA UCM profile for %s (%s): %sChannels=%d > avail %d",
+                        m->device_strings[0], m->name, mode_name, m->split->hw_channels, try_map.channels);
 
                 /* Retry with max channel count, in case ALSA rounded down */
-                if (!max_channels)
+                if (!max_channels) {
+                    pa_alsa_close(&pcm);
                     return mapping_open_pcm(ucm, m, mode, true);
+                }
 
-                return NULL;
+                /* Just accept whatever we got... Some of the routings won't get connected
+                 * anywhere */
+                m->split->hw_channels = try_map.channels;
             } else if (try_map.channels > m->split->hw_channels) {
-                pa_log_debug("Update split PCM channel count for %s: %d -> %d",
-                             m->device_strings[0], m->split->hw_channels, try_map.channels);
+                pa_log_notice("Error in ALSA UCM profile for %s (%s): %sChannels=%d < avail %d",
+                            m->device_strings[0], m->name, mode_name, m->split->hw_channels, try_map.channels);
                 m->split->hw_channels = try_map.channels;
             }
         } else if (!exact_channels) {

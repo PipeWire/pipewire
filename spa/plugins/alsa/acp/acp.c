@@ -498,6 +498,7 @@ static void add_profiles(pa_card *impl)
 	int n_profiles, n_ports, n_devices;
 	uint32_t idx;
 	const char *arr;
+	bool broken_ucm = false;
 
 	n_devices = 0;
 	pa_dynarray_init(&impl->out.devices, device_free);
@@ -541,6 +542,9 @@ static void add_profiles(pa_card *impl)
 							dev->ports, NULL);
 
 				pa_dynarray_append(&ap->out.devices, dev);
+
+				if (m->split && m->split->broken)
+					broken_ucm = true;
 			}
 		}
 
@@ -564,11 +568,30 @@ static void add_profiles(pa_card *impl)
 							dev->ports, NULL);
 
 				pa_dynarray_append(&ap->out.devices, dev);
+
+				if (m->split && m->split->broken)
+					broken_ucm = true;
 			}
 		}
 		cp->n_devices = pa_dynarray_size(&ap->out.devices);
 		cp->devices = ap->out.devices.array.data;
 		pa_hashmap_put(impl->profiles, ap->name, cp);
+	}
+
+
+	/* Add a conspicuous notice if there are errors in the UCM profile */
+	if (broken_ucm) {
+		const char *desc;
+		char *new_desc = NULL;
+
+		desc = pa_proplist_gets(impl->proplist, PA_PROP_DEVICE_DESCRIPTION);
+		if (!desc)
+			desc = "";
+		new_desc = spa_aprintf(_("%s [ALSA UCM error]"), desc);
+		pa_log_notice("Errors in ALSA UCM profile for card %s", desc);
+		if (new_desc)
+			pa_proplist_sets(impl->proplist, PA_PROP_DEVICE_DESCRIPTION, new_desc);
+		free(new_desc);
 	}
 
 	pa_dynarray_init(&impl->out.ports, NULL);

@@ -1869,6 +1869,8 @@ static void hfp_hf_send_tones(void *data, const char *tones, enum spa_bt_telepho
 	*err = BT_TELEPHONY_ERROR_NONE;
 }
 
+static int sco_do_connect(struct spa_bt_transport *t);
+
 static void hfp_hf_transport_activate(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error)
 {
 	struct rfcomm *rfcomm = data;
@@ -1876,26 +1878,30 @@ static void hfp_hf_transport_activate(void *data, enum spa_bt_telephony_error *e
 	char reply[20];
 	bool res;
 
-	if (spa_list_is_empty(&rfcomm->telephony_ag->call_list)) {
-		spa_log_debug(backend->log, "no ongoing call");
-		*err = BT_TELEPHONY_ERROR_INVALID_STATE;
-		return;
-	}
-	if (rfcomm->transport->fd > 0) {
+	if (rfcomm->transport && rfcomm->transport->fd > 0) {
 		spa_log_debug(backend->log, "transport is already active; SCO socket exists");
 		*err = BT_TELEPHONY_ERROR_INVALID_STATE;
 		return;
 	}
 
-	rfcomm_send_cmd(rfcomm, "AT+BCC");
-	res = hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply));
-	if (!res || !spa_strstartswith(reply, "OK")) {
-		spa_log_info(backend->log, "Failed to send AT+BCC");
-		if (res)
-			hfp_hf_get_error_from_reply(reply, err, cme_error);
-		else
-			*err = BT_TELEPHONY_ERROR_FAILED;
-		return;
+	if (rfcomm->codec_negotiation_supported) {
+		rfcomm_send_cmd(rfcomm, "AT+BCC");
+		res = hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply));
+		if (!res || !spa_strstartswith(reply, "OK")) {
+			spa_log_info(backend->log, "Failed to send AT+BCC");
+			if (res)
+				hfp_hf_get_error_from_reply(reply, err, cme_error);
+			else
+				*err = BT_TELEPHONY_ERROR_FAILED;
+			return;
+		}
+	} else {
+		if (!rfcomm->transport || rfcomm->transport->codec != HFP_AUDIO_CODEC_CVSD) {
+			*err = BT_TELEPHONY_ERROR_NOT_SUPPORTED;
+			return;
+		}
+
+		sco_do_connect(rfcomm->transport);
 	}
 
 	*err = BT_TELEPHONY_ERROR_NONE;

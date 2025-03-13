@@ -185,6 +185,7 @@ struct pa_alsa_ucm_split {
     int channels;
     int idx[PA_CHANNELS_MAX];
     enum snd_pcm_chmap_position pos[PA_CHANNELS_MAX];
+    bool broken;
 };
 
 struct pa_alsa_ucm_device {

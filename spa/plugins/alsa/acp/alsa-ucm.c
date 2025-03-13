@@ -381,9 +381,11 @@ static pa_alsa_ucm_split *ucm_get_split_channels(pa_alsa_ucm_device *device, snd
         if (pa_atou(value, &idx) < 0)
             break;
 
-        if (idx >= hw_channels)
+        if (idx >= hw_channels) {
             pa_log_notice("Error in ALSA UCM profile for %s (%s): %sChannel%d=%d >= %sChannels=%d",
                           pcm_name, device_name, prefix, i, idx, prefix, hw_channels);
+            split->broken = true;
+	}
 
         value = ucm_get_string(uc_mgr, "%sChannelPos%d/%s", prefix, i, device_name);
         if (!value) {
@@ -2453,10 +2455,12 @@ static snd_pcm_t* mapping_open_pcm(pa_alsa_ucm_config *ucm, pa_alsa_mapping *m, 
                 /* Just accept whatever we got... Some of the routings won't get connected
                  * anywhere */
                 m->split->hw_channels = try_map.channels;
+                m->split->broken = true;
             } else if (try_map.channels > m->split->hw_channels) {
                 pa_log_notice("Error in ALSA UCM profile for %s (%s): %sChannels=%d < avail %d",
                             m->device_strings[0], m->name, mode_name, m->split->hw_channels, try_map.channels);
                 m->split->hw_channels = try_map.channels;
+                m->split->broken = true;
             }
         } else if (!exact_channels) {
             m->channel_map = try_map;

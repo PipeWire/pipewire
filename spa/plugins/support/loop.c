@@ -81,6 +81,7 @@ struct impl {
 
 	struct spa_list source_list;
 	struct spa_list destroy_list;
+	struct spa_list free_list;
 	struct spa_hook_list hooks_list;
 
 	struct spa_ratelimit rate_limit;
@@ -711,20 +712,14 @@ static int loop_accept(void *object)
 	return -pthread_cond_signal(&impl->accept_cond);
 }
 
-static inline void free_source(struct source_impl *s)
-{
-	detach_source(&s->source);
-	free(s);
-}
-
 static inline void process_destroy(struct impl *impl)
 {
-	struct source_impl *source, *tmp;
-
-	spa_list_for_each_safe(source, tmp, &impl->destroy_list, link)
-		free_source(source);
-
-	spa_list_init(&impl->destroy_list);
+	struct source_impl *s;
+	spa_list_consume(s, &impl->destroy_list, link) {
+		spa_list_remove(&s->link);
+		detach_source(&s->source);
+		spa_list_append(&s->impl->free_list, &s->link);
+	}
 }
 
 struct cancellation_handler_data {
@@ -843,6 +838,24 @@ static int loop_iterate(void *object, int timeout)
 	return nfds;
 }
 
+static struct source_impl *get_source(struct impl *impl)
+{
+	struct source_impl *source;
+
+	if (!spa_list_is_empty(&impl->free_list)) {
+		source = spa_list_first(&impl->free_list, struct source_impl, link);
+		spa_list_remove(&source->link);
+		spa_zero(*source);
+	} else {
+		source = calloc(1, sizeof(struct source_impl));
+	}
+	if (source != NULL) {
+		source->impl = impl;
+		spa_list_insert(&impl->source_list, &source->link);
+	}
+	return source;
+}
+
 static void source_io_func(struct spa_source *source)
 {
 	struct source_impl *s = SPA_CONTAINER_OF(source, struct source_impl, source);
@@ -859,7 +872,7 @@ static struct spa_source *loop_add_io(void *object,
 	struct source_impl *source;
 	int res;
 
-	source = calloc(1, sizeof(struct source_impl));
+	source = get_source(impl);
 	if (source == NULL)
 		goto error_exit;
 
@@ -867,7 +880,6 @@ static struct spa_source *loop_add_io(void *object,
 	source->source.data = data;
 	source->source.fd = fd;
 	source->source.mask = mask;
-	source->impl = impl;
 	source->close = close;
 	source->func.io = func;
 
@@ -885,9 +897,6 @@ static struct spa_source *loop_add_io(void *object,
 		spa_log_trace(impl->log, "%p: adding fallback %p", impl,
 				source->fallback);
 	}
-
-	spa_list_insert(&impl->source_list, &source->link);
-
 	return &source->source;
 
 error_exit_free:
@@ -952,7 +961,7 @@ static struct spa_source *loop_add_idle(void *object,
 	struct source_impl *source;
 	int res;
 
-	source = calloc(1, sizeof(struct source_impl));
+	source = get_source(impl);
 	if (source == NULL)
 		goto error_exit;
 
@@ -962,15 +971,12 @@ static struct spa_source *loop_add_idle(void *object,
 	source->source.func = source_idle_func;
 	source->source.data = data;
 	source->source.fd = res;
-	source->impl = impl;
 	source->close = true;
 	source->source.mask = SPA_IO_IN;
 	source->func.idle = func;
 
 	if ((res = loop_add_source(impl, &source->source)) < 0)
 		goto error_exit_close;
-
-	spa_list_insert(&impl->source_list, &source->link);
 
 	if (enabled)
 		loop_enable_idle(impl, &source->source, true);
@@ -1008,7 +1014,7 @@ static struct spa_source *loop_add_event(void *object,
 	struct source_impl *source;
 	int res;
 
-	source = calloc(1, sizeof(struct source_impl));
+	source = get_source(impl);
 	if (source == NULL)
 		goto error_exit;
 
@@ -1019,14 +1025,11 @@ static struct spa_source *loop_add_event(void *object,
 	source->source.data = data;
 	source->source.fd = res;
 	source->source.mask = SPA_IO_IN;
-	source->impl = impl;
 	source->close = true;
 	source->func.event = func;
 
 	if ((res = loop_add_source(impl, &source->source)) < 0)
 		goto error_exit_close;
-
-	spa_list_insert(&impl->source_list, &source->link);
 
 	return &source->source;
 
@@ -1076,7 +1079,7 @@ static struct spa_source *loop_add_timer(void *object,
 	struct source_impl *source;
 	int res;
 
-	source = calloc(1, sizeof(struct source_impl));
+	source = get_source(impl);
 	if (source == NULL)
 		goto error_exit;
 
@@ -1088,14 +1091,11 @@ static struct spa_source *loop_add_timer(void *object,
 	source->source.data = data;
 	source->source.fd = res;
 	source->source.mask = SPA_IO_IN;
-	source->impl = impl;
 	source->close = true;
 	source->func.timer = func;
 
 	if ((res = loop_add_source(impl, &source->source)) < 0)
 		goto error_exit_close;
-
-	spa_list_insert(&impl->source_list, &source->link);
 
 	return &source->source;
 
@@ -1160,7 +1160,7 @@ static struct spa_source *loop_add_signal(void *object,
 	struct source_impl *source;
 	int res;
 
-	source = calloc(1, sizeof(struct source_impl));
+	source = get_source(impl);
 	if (source == NULL)
 		goto error_exit;
 
@@ -1172,14 +1172,11 @@ static struct spa_source *loop_add_signal(void *object,
 	source->source.data = data;
 	source->source.fd = res;
 	source->source.mask = SPA_IO_IN;
-	source->impl = impl;
 	source->close = true;
 	source->func.signal = func;
 
 	if ((res = loop_add_source(impl, &source->source)) < 0)
 		goto error_exit_close;
-
-	spa_list_insert(&impl->source_list, &source->link);
 
 	return &source->source;
 
@@ -1200,8 +1197,6 @@ static void loop_destroy_source(void *object, struct spa_source *source)
 
 	spa_log_trace(s->impl->log, "%p ", s);
 
-	spa_list_remove(&s->link);
-
 	if (s->fallback)
 		loop_destroy_source(s->impl, s->fallback);
 	else
@@ -1212,9 +1207,11 @@ static void loop_destroy_source(void *object, struct spa_source *source)
 		source->fd = -1;
 	}
 
-	if (!s->impl->polling)
-		free_source(s);
-	else
+	spa_list_remove(&s->link);
+	if (!s->impl->polling) {
+		detach_source(source);
+		spa_list_insert(&s->impl->free_list, &s->link);
+	} else
 		spa_list_insert(&s->impl->destroy_list, &s->link);
 }
 
@@ -1312,6 +1309,11 @@ static int impl_clear(struct spa_handle *handle)
 
 	spa_list_consume(source, &impl->source_list, link)
 		loop_destroy_source(impl, &source->source);
+
+	spa_list_consume(source, &impl->free_list, link) {
+		spa_list_remove(&source->link);
+		free(source);
+	}
 	for (i = 0; i < impl->n_queues; i++)
 		loop_queue_destroy(impl->queues[i]);
 
@@ -1418,6 +1420,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_list_init(&impl->source_list);
 	spa_list_init(&impl->destroy_list);
+	spa_list_init(&impl->free_list);
 	spa_hook_list_init(&impl->hooks_list);
 
 	impl->wakeup = loop_add_event(impl, wakeup_func, impl);

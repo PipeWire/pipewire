@@ -1698,9 +1698,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 				return -EINVAL;
 
-			if (info.info.raw.format == 0 ||
-			    info.info.raw.rate == 0 ||
-			    info.info.raw.channels == 0 ||
+			if (info.info.raw.channels == 0 ||
 			    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
 				return -EINVAL;
 

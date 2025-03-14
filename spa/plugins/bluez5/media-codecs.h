@@ -103,7 +103,7 @@ struct media_codec {
 	int (*get_qos)(const struct media_codec *codec,
 			const void *config, size_t config_size,
 			const struct bap_endpoint_qos *endpoint_qos,
-			struct bap_codec_qos *qos);
+			struct bap_codec_qos *qos, const struct spa_dict *settings);
 
 	/** qsort comparison sorting caps in order of preference for the codec.
 	 * Used in codec switching to select best remote endpoints.

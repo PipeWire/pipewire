@@ -1025,7 +1025,7 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 
 		spa_zero(qos);
 
-		res = codec->get_qos(codec, config, conf_size, &endpoint_qos, &qos);
+		res = codec->get_qos(codec, config, conf_size, &endpoint_qos, &qos, &settings);
 		if (res < 0) {
 			spa_log_error(monitor->log, "can't select QOS config: %d (%s)",
 					res, spa_strerror(res));

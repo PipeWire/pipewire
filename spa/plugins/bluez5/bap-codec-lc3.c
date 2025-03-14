@@ -111,7 +111,7 @@ static const struct {
 			 .framelen = (framelen_), .retransmission = (rtn_), .latency = (latency_),	\
 			 .delay = (delay_), .priority = (priority_) })
 
-static struct bap_qos bap_qos_configs[] = {
+static const struct bap_qos bap_qos_configs[] = {
 	/* Priority: low-latency > high-reliability, 7.5ms > 10ms,
 	 * bigger frequency and sdu better */
 
@@ -470,28 +470,110 @@ static bool supports_channel_count(uint8_t mask, uint8_t count)
 	return mask & (1u << (count - 1));
 }
 
-static const struct bap_qos *select_bap_qos(unsigned int rate_mask, unsigned int duration_mask, uint16_t framelen_min, uint16_t framelen_max)
+static bool parse_qos_settings(struct bap_qos *qos_conf,
+		const struct spa_dict *settings, unsigned int rate_mask,
+		unsigned int duration_mask, uint16_t framelen_min,
+		uint16_t framelen_max)
+ {
+	bool found = false;
+	const char *str;
+	uint32_t value = 0;
+
+	if ((str = spa_dict_lookup(settings, "bluez5.bap.set_name"))) {
+		spa_log_info(log_, "Parsing for vendor defined Configuration\n\n");
+
+		SPA_FOR_EACH_ELEMENT_VAR(bap_qos_configs, c)
+		{
+			if (spa_streq(c->name, str)) {
+				/* We set the user defined preset configuration for vendor as
+				 * default. This helps to avoid using invalid params in scenario
+				 * were user has not configured or has missed to add any items. In
+				 * case if user has added the config it will be overwritten if found */
+				memcpy(qos_conf, c, sizeof(struct bap_qos));
+
+				if (settings && (str = spa_dict_lookup(settings, "bluez5.bap.rtn")))
+					if (spa_atou32(str, &value, 0))
+						qos_conf->retransmission = value;
+
+				if (settings && (str = spa_dict_lookup(settings, "bluez5.bap.latency")))
+					if (spa_atou32(str, &value, 0))
+						qos_conf->latency = value;
+
+				if (settings && (str = spa_dict_lookup(settings, "bluez5.bap.delay")))
+					if (spa_atou32(str, &value, 0))
+						qos_conf->delay = value;
+
+				if (settings && (str = spa_dict_lookup(settings, "bluez5.framing")))
+					qos_conf->framing = spa_atob(str);
+
+				/*We check if the vendor defined config is compatible with the
+				 * remote device. If not, we fallback to use default preset config*/
+				if (!(get_rate_mask(c->rate) & rate_mask))
+					break;
+				if (!(get_duration_mask(c->frame_duration) & duration_mask))
+					break;
+				if (c->framing)
+					break; /* XXX: framing not supported */
+				if (c->framelen < framelen_min || c->framelen > framelen_max)
+					break;
+
+				/* At this point, the vendor configured settings is
+				 * compatible with the remote device and hence we can
+				 * use this configuration to establish transport*/
+				found = true;
+				break;
+			}
+		}
+	}
+
+	return found;
+}
+
+static bool select_bap_qos(struct bap_qos *qos_conf,
+		const struct spa_dict *settings, unsigned int rate_mask,
+		unsigned int duration_mask, uint16_t framelen_min,
+		uint16_t framelen_max)
 {
 	const struct bap_qos *best = NULL;
 	unsigned int best_priority = 0;
+	bool found = false;
 
-	SPA_FOR_EACH_ELEMENT_VAR(bap_qos_configs, c) {
-		if (c->priority < best_priority)
-			continue;
-		if (!(get_rate_mask(c->rate) & rate_mask))
-			continue;
-		if (!(get_duration_mask(c->frame_duration) & duration_mask))
-			continue;
-		if (c->framing)
-			continue;  /* XXX: framing not supported */
-		if (c->framelen < framelen_min || c->framelen > framelen_max)
-			continue;
-
-		best = c;
-		best_priority = c->priority;
+	if(!qos_conf){
+		spa_log_error(log_, "Invalid qos config\n");
+		return found;
+	}
+	/* We will check if vendor defined QoS settings are configured. If so, we check if the
+	 * configured settings are compatible with unicast server*/
+	if (settings) {
+		found = parse_qos_settings(qos_conf, settings, rate_mask,
+				duration_mask, framelen_min, framelen_max);
 	}
 
-	return best;
+	if (!found) {
+		SPA_FOR_EACH_ELEMENT_VAR(bap_qos_configs, c)
+		{
+			if (c->priority < best_priority)
+				continue;
+			if (!(get_rate_mask(c->rate) & rate_mask))
+				continue;
+			if (!(get_duration_mask(c->frame_duration) & duration_mask))
+				continue;
+			if (c->framing)
+				continue; /* XXX: framing not supported */
+			if (c->framelen < framelen_min || c->framelen > framelen_max)
+				continue;
+
+			best = c;
+			best_priority = c->priority;
+		}
+
+		if (best) {
+			memcpy(qos_conf, best, sizeof(struct bap_qos));
+			found = true;
+		}
+	}
+
+	return found;
 }
 
 static int select_channels(uint8_t channel_counts, uint32_t locations, uint32_t channel_allocation,
@@ -550,7 +632,7 @@ static int select_channels(uint8_t channel_counts, uint32_t locations, uint32_t 
 	return 0;
 }
 
-static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct spa_debug_context *debug_ctx)
+static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct spa_debug_context *debug_ctx, const struct spa_dict *settings)
 {
 	const uint8_t *data = pac->data;
 	size_t data_size = pac->size;
@@ -560,8 +642,9 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 	uint8_t max_channels = 0;
 	uint8_t duration_mask = 0;
 	uint16_t rate_mask = 0;
-	const struct bap_qos *bap_qos = NULL;
+	struct bap_qos bap_qos;
 	unsigned int i;
+	bool found = false;
 
 	if (!data_size)
 		return false;
@@ -653,21 +736,21 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 		 *
 		 * Devices may list other values but not certain they will work properly.
 		 */
-		bap_qos = select_bap_qos(rate_mask & LC3_FREQ_16KHZ, duration_mask, framelen_min, framelen_max);
+		found = select_bap_qos(&bap_qos, settings, rate_mask & LC3_FREQ_16KHZ, duration_mask, framelen_min, framelen_max);
 	}
-	if (!bap_qos)
-		bap_qos = select_bap_qos(rate_mask, duration_mask, framelen_min, framelen_max);
+	if (!found)
+		found = select_bap_qos(&bap_qos, settings, rate_mask, duration_mask, framelen_min, framelen_max);
 
-	if (!bap_qos) {
+	if (!found) {
 		spa_debugc(debug_ctx, "no compatible configuration found, rate:0x%08x, duration:0x%08x frame:%u-%u",
 				rate_mask, duration_mask, framelen_min, framelen_max);
 		return false;
 	}
 
-	conf->rate = bap_qos->rate;
-	conf->frame_duration = bap_qos->frame_duration;
-	conf->framelen = bap_qos->framelen;
-	conf->priority = bap_qos->priority;
+	conf->rate = bap_qos.rate;
+	conf->frame_duration = bap_qos.frame_duration;
+	conf->framelen = bap_qos.framelen;
+	conf->priority = bap_qos.priority;
 
 	return true;
 }
@@ -771,8 +854,8 @@ static int pac_cmp(const void *p1, const void *p2)
 	bap_lc3_t conf1, conf2;
 	int res1, res2;
 
-	res1 = select_config(&conf1, pac1, &debug_ctx.ctx) ? (int)sizeof(bap_lc3_t) : -EINVAL;
-	res2 = select_config(&conf2, pac2, &debug_ctx.ctx) ? (int)sizeof(bap_lc3_t) : -EINVAL;
+	res1 = select_config(&conf1, pac1, &debug_ctx.ctx, NULL) ? (int)sizeof(bap_lc3_t) : -EINVAL;
+	res2 = select_config(&conf2, pac2, &debug_ctx.ctx, NULL) ? (int)sizeof(bap_lc3_t) : -EINVAL;
 
 	return conf_cmp(&conf1, res1, &conf2, res2);
 }
@@ -789,10 +872,8 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	uint32_t locations = 0;
 	uint32_t channel_allocation = 0;
 	bool sink = false, duplex = false;
-	uint32_t value = 0;
 	struct spa_debug_log_ctx debug_ctx = SPA_LOG_DEBUG_INIT(log_, SPA_LOG_LEVEL_TRACE);
 	int i;
-	const char *str;
 
 	if (caps == NULL)
 		return -EINVAL;
@@ -813,38 +894,6 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 
 		/* Is remote endpoint duplex */
 		duplex = spa_atob(spa_dict_lookup(settings, "bluez5.bap.duplex"));
-
-
-		if ((str = spa_dict_lookup(settings, "bluez5.bap.set_name"))) {
-
-			SPA_FOR_EACH_ELEMENT_VAR(bap_qos_configs, qos_sets) {
-
-				if (spa_streq(str, qos_sets->name)) {
-
-					spa_log_debug(log_, "Found Forced QoS For Set: %s\n", qos_sets->name);
-
-					if (settings && (str = spa_dict_lookup(settings, "bluez5.bap.rtn")))
-						if (spa_atou32(str, &value, 0))
-							qos_sets->retransmission = value;
-
-					if (settings && (str = spa_dict_lookup(settings, "bluez5.bap.latency")))
-						if (spa_atou32(str, &value, 0))
-							qos_sets->latency = value;
-
-					if (settings && (str = spa_dict_lookup(settings, "bluez5.bap.delay")))
-						if (spa_atou32(str, &value, 0))
-							qos_sets->delay = value;
-
-					if (settings && (str = spa_dict_lookup(settings, "bluez5.framing")))
-						qos_sets->framing = spa_atob(str);
-
-					/* We set highest priority for the forced configuration. This allows the
-					 * config to be used when LC3 QoS is selected at the time of CIS creation*/
-					qos_sets->priority = 0xFF;
-					break;
-				}
-			}
-		}
 	}
 
 
@@ -869,7 +918,7 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 
 	spa_debugc(&debug_ctx.ctx, "selected PAC %d", pacs[0].index);
 
-	if (!select_config(&conf, &pacs[0], &debug_ctx.ctx))
+	if (!select_config(&conf, &pacs[0], &debug_ctx.ctx, settings))
 		return -ENOTSUP;
 
 	data += write_ltv_uint8(data, LC3_TYPE_FREQ, conf.rate);
@@ -1052,19 +1101,20 @@ static int codec_validate_config(const struct media_codec *codec, uint32_t flags
 static int codec_get_qos(const struct media_codec *codec,
 		const void *config, size_t config_size,
 		const struct bap_endpoint_qos *endpoint_qos,
-		struct bap_codec_qos *qos)
+		struct bap_codec_qos *qos, const struct spa_dict *settings)
 {
-	const struct bap_qos *bap_qos;
+	struct bap_qos bap_qos;
 	bap_lc3_t conf;
+	bool found = false;
 
 	spa_zero(*qos);
 
 	if (!parse_conf(&conf, config, config_size))
 		return -EINVAL;
 
-	bap_qos = select_bap_qos(get_rate_mask(conf.rate), get_duration_mask(conf.frame_duration),
+	found = select_bap_qos(&bap_qos, settings, get_rate_mask(conf.rate), get_duration_mask(conf.frame_duration),
 			conf.framelen, conf.framelen);
-	if (!bap_qos) {
+	if (!found) {
 		/* shouldn't happen: select_config should pick existing one */
 		spa_log_error(log_, "no QoS settings found");
 		return -EINVAL;
@@ -1082,9 +1132,9 @@ static int codec_get_qos(const struct media_codec *codec,
 	qos->interval = (conf.frame_duration == LC3_CONFIG_DURATION_7_5 ? 7500 : 10000);
 	qos->target_latency = BT_ISO_QOS_TARGET_LATENCY_BALANCED;
 
-	qos->delay = bap_qos->delay;
-	qos->latency = bap_qos->latency;
-	qos->retransmission = bap_qos->retransmission;
+	qos->delay = bap_qos.delay;
+	qos->latency = bap_qos.latency;
+	qos->retransmission = bap_qos.retransmission;
 
 	/* Clamp to ASE values (if known) */
 	if (endpoint_qos->delay_min)

@@ -1000,13 +1000,13 @@ static int setup_filter_graph(struct impl *this, struct spa_filter_graph *graph)
 {
 	int res;
 	char rate_str[64];
-	struct dir *in;
+	struct dir *dir;
 
 	if (graph == NULL)
 		return 0;
 
-	in = &this->dir[SPA_DIRECTION_INPUT];
-	snprintf(rate_str, sizeof(rate_str), "%d", in->format.info.raw.rate);
+	dir = &this->dir[SPA_DIRECTION_REVERSE(this->direction)];
+	snprintf(rate_str, sizeof(rate_str), "%d", dir->format.info.raw.rate);
 
 	spa_filter_graph_deactivate(graph);
 	res = spa_filter_graph_activate(graph,

@@ -2014,9 +2014,8 @@ static int do_auto_port_config(struct impl *this, const char *str)
 		SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(monitor),
 		SPA_PARAM_PORT_CONFIG_control,   SPA_POD_Bool(control),
 		SPA_PARAM_PORT_CONFIG_format,    SPA_POD_Pod(param));
-	impl_node_set_param(this, SPA_PARAM_PortConfig, 0, param);
 
-	return 0;
+	return impl_node_set_param(this, SPA_PARAM_PortConfig, 0, param);
 }
 
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)

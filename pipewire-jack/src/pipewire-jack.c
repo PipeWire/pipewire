@@ -3747,6 +3747,8 @@ static void registry_event_global(void *data, uint32_t id,
 		if (str == NULL)
 			str = node_name;
 		if (str == NULL)
+			str = spa_dict_lookup(props, PW_KEY_OBJECT_PATH);
+		if (str == NULL)
 			str = "node";
 
 		if (app && !spa_streq(app, str))

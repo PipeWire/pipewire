@@ -175,9 +175,16 @@ struct graph {
 	uint32_t n_control;
 	struct port **control_port;
 
+	uint32_t n_input_names;
+	char **input_names;
+
+	uint32_t n_output_names;
+	char **output_names;
+
 	struct volume volume[2];
 
 	unsigned activated:1;
+	unsigned setup:1;
 };
 
 struct impl {
@@ -1422,6 +1429,8 @@ static int impl_deactivate(void *object)
 	return 0;
 }
 
+static int setup_graph(struct graph *graph);
+
 static int impl_activate(void *object, const struct spa_dict *props)
 {
 	struct impl *impl = object;
@@ -1432,10 +1441,10 @@ static int impl_activate(void *object, const struct spa_dict *props)
 	struct descriptor *desc;
 	const struct spa_fga_descriptor *d;
 	const struct spa_fga_plugin *p;
-	uint32_t i, j, max_samples = impl->quantum_limit;
+	uint32_t i, j, max_samples = impl->quantum_limit, n_ports;
 	int res;
 	float *sd, *dd, *data;
-	const char *rate;
+	const char *rate, *str;
 
 	if (graph->activated)
 		return 0;
@@ -1444,6 +1453,31 @@ static int impl_activate(void *object, const struct spa_dict *props)
 
 	rate = spa_dict_lookup(props, SPA_KEY_AUDIO_RATE);
 	impl->rate = rate ? atoi(rate) : DEFAULT_RATE;
+
+	if ((str = spa_dict_lookup(props, "filter-graph.n_inputs")) != NULL) {
+		if (spa_atou32(str, &n_ports, 0) &&
+		    n_ports != impl->info.n_inputs) {
+			impl->info.n_inputs = n_ports;
+			impl->info.n_outputs = 0;
+			impl->info.change_mask |= SPA_FILTER_GRAPH_CHANGE_MASK_PORTS;
+			graph->setup = false;
+		}
+	}
+	if ((str = spa_dict_lookup(props, "filter-graph.n_outputs")) != NULL) {
+		if (spa_atou32(str, &n_ports, 0) &&
+		    n_ports != impl->info.n_outputs) {
+			impl->info.n_outputs = n_ports;
+			impl->info.n_inputs = 0;
+			impl->info.change_mask |= SPA_FILTER_GRAPH_CHANGE_MASK_PORTS;
+			graph->setup = false;
+		}
+	}
+	if (!graph->setup) {
+		if ((res = setup_graph(graph)) < 0)
+			return res;
+		graph->setup = true;
+		spa_filter_graph_emit_info(&impl->hooks, &impl->info);
+	}
 
 	/* first make instances */
 	spa_list_for_each(node, &graph->node_list, link) {
@@ -1569,7 +1603,19 @@ static struct node *find_next_node(struct graph *graph)
 	return NULL;
 }
 
-static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_json *outputs)
+static void unsetup_graph(struct graph *graph)
+{
+	free(graph->input);
+	graph->input = NULL;
+	free(graph->output);
+	graph->output = NULL;
+	free(graph->hndl);
+	graph->hndl = NULL;
+	free(graph->control_port);
+	graph->control_port = NULL;
+
+}
+static int setup_graph(struct graph *graph)
 {
 	struct impl *impl = graph->impl;
 	struct node *node, *first, *last;
@@ -1577,33 +1623,35 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 	struct link *link;
 	struct graph_port *gp;
 	struct graph_hndl *gh;
-	uint32_t i, j, n_nodes, n_input, n_output, n_control, n_hndl = 0;
+	uint32_t i, j, n, n_nodes, n_input, n_output, n_control, n_hndl = 0;
 	int res;
 	struct descriptor *desc;
 	const struct spa_fga_descriptor *d;
-	char v[256];
+	char *pname;
 	bool allow_unused;
+
+	unsetup_graph(graph);
 
 	first = spa_list_first(&graph->node_list, struct node, link);
 	last = spa_list_last(&graph->node_list, struct node, link);
 
 	/* calculate the number of inputs and outputs into the graph.
-	 * If we have a list of inputs/outputs, just count them. Otherwise
+	 * If we have a list of inputs/outputs, just use them. Otherwise
 	 * we count all input ports of the first node and all output
 	 * ports of the last node */
-	if (inputs != NULL)
-		n_input = count_array(inputs);
+	if (graph->n_input_names != 0)
+		n_input = graph->n_input_names;
 	else
 		n_input = first->desc->n_input;
 
-	if (outputs != NULL)
-		n_output = count_array(outputs);
+	if (graph->n_output_names != 0)
+		n_output = graph->n_output_names;
 	else
 		n_output = last->desc->n_output;
 
 	/* we allow unconnected ports when not explicitly given and the nodes support
 	 * NULL data */
-	allow_unused = inputs == NULL && outputs == NULL &&
+	allow_unused = graph->n_input_names == 0 && graph->n_output_names == 0 &&
 	    SPA_FLAG_IS_SET(first->desc->desc->flags, SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA) &&
 	    SPA_FLAG_IS_SET(last->desc->desc->flags, SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA);
 
@@ -1675,7 +1723,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 
 	/* now collect all input and output ports for all the handles. */
 	for (i = 0; i < n_hndl; i++) {
-		if (inputs == NULL) {
+		if (graph->n_input_names == 0) {
 			desc = first->desc;
 			d = desc->desc;
 			for (j = 0; j < desc->n_input; j++) {
@@ -1687,15 +1735,15 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 				gp->port = desc->input[j];
 			}
 		} else {
-			struct spa_json it = *inputs;
-			while (spa_json_get_string(&it, v, sizeof(v)) > 0) {
-				if (spa_streq(v, "null")) {
+			for (n = 0; n < graph->n_input_names; n++) {
+				pname = graph->input_names[n];
+				if (spa_streq(pname, "null")) {
 					gp = &graph->input[graph->n_input++];
 					gp->desc = NULL;
 					spa_log_info(impl->log, "ignore input port %d", graph->n_input);
-				} else if ((port = find_port(first, v, SPA_FGA_PORT_INPUT)) == NULL) {
+				} else if ((port = find_port(first, pname, SPA_FGA_PORT_INPUT)) == NULL) {
 					res = -ENOENT;
-					spa_log_error(impl->log, "input port %s not found", v);
+					spa_log_error(impl->log, "input port %s not found", pname);
 					goto error;
 				} else {
 					bool disabled = false;
@@ -1754,7 +1802,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 				}
 			}
 		}
-		if (outputs == NULL) {
+		if (graph->n_output_names == 0) {
 			desc = last->desc;
 			d = desc->desc;
 			for (j = 0; j < desc->n_output; j++) {
@@ -1766,15 +1814,15 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 				gp->port = desc->output[j];
 			}
 		} else {
-			struct spa_json it = *outputs;
-			while (spa_json_get_string(&it, v, sizeof(v)) > 0) {
+			for (n = 0; n < graph->n_output_names; n++) {
+				pname = graph->output_names[n];
 				gp = &graph->output[graph->n_output];
-				if (spa_streq(v, "null")) {
+				if (spa_streq(pname, "null")) {
 					gp->desc = NULL;
 					spa_log_info(impl->log, "silence output port %d", graph->n_output);
-				} else if ((port = find_port(last, v, SPA_FGA_PORT_OUTPUT)) == NULL) {
+				} else if ((port = find_port(last, pname, SPA_FGA_PORT_OUTPUT)) == NULL) {
 					res = -ENOENT;
-					spa_log_error(impl->log, "output port %s not found", v);
+					spa_log_error(impl->log, "output port %s not found", pname);
 					goto error;
 				} else {
 					desc = port->node->desc;
@@ -1979,21 +2027,41 @@ static int load_graph(struct graph *graph, const struct spa_dict *props)
 				return res;
 		}
 	}
-	return setup_graph(graph, pinputs, poutputs);
+	if (pinputs != NULL) {
+		graph->n_input_names = count_array(pinputs);
+		graph->input_names = calloc(graph->n_input_names, sizeof(char *));
+		graph->n_input_names = 0;
+		while (spa_json_get_string(pinputs, key, sizeof(key)) > 0)
+			graph->input_names[graph->n_input_names++] = strdup(key);
+	}
+	if (poutputs != NULL) {
+		graph->n_output_names = count_array(poutputs);
+		graph->output_names = calloc(graph->n_output_names, sizeof(char *));
+		graph->n_output_names = 0;
+		while (spa_json_get_string(poutputs, key, sizeof(key)) > 0)
+			graph->output_names[graph->n_output_names++] = strdup(key);
+	}
+	return 0;
 }
 
 static void graph_free(struct graph *graph)
 {
 	struct link *link;
 	struct node *node;
+	uint32_t i;
+
+	unsetup_graph(graph);
+
 	spa_list_consume(link, &graph->link_list, link)
 		link_free(link);
 	spa_list_consume(node, &graph->node_list, link)
 		node_free(node);
-	free(graph->input);
-	free(graph->output);
-	free(graph->hndl);
-	free(graph->control_port);
+	for (i = 0; i < graph->n_input_names; i++)
+		free(graph->input_names[i]);
+	free(graph->input_names);
+	for (i = 0; i < graph->n_output_names; i++)
+		free(graph->output_names[i]);
+	free(graph->output_names);
 }
 
 static const struct spa_filter_graph_methods impl_filter_graph = {

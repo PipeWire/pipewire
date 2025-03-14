@@ -314,10 +314,12 @@ gst_pipewire_sink_update_params (GstPipeWireSink *sink)
   spa_pod_builder_add (&b,
       SPA_PARAM_BUFFERS_size, SPA_POD_CHOICE_RANGE_Int(size, size, INT32_MAX),
       0);
-  /* MUST have n_datas == n_planes */
-  spa_pod_builder_add (&b,
-      SPA_PARAM_BUFFERS_blocks,
-      SPA_POD_Int(GST_VIDEO_INFO_N_PLANES (&pool->video_info)));
+  if (sink->is_video) {
+    /* MUST have n_datas == n_planes */
+    spa_pod_builder_add (&b,
+        SPA_PARAM_BUFFERS_blocks,
+        SPA_POD_Int(GST_VIDEO_INFO_N_PLANES (&pool->video_info)), 0);
+  }
 
   spa_pod_builder_add (&b,
       SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),

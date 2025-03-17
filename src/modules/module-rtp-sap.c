@@ -636,7 +636,7 @@ static void update_ts_refclk(struct impl *impl)
 
 static int send_sap(struct impl *impl, struct session *sess, bool bye)
 {
-	char buffer[2048], src_addr[64], dst_addr[64], dst_ttl[8];
+	char buffer[2048], src_addr[64], dst_addr[64], dst_ttl[8], ptime[32];
 	const char *user_name;
 	struct sockaddr *sa = (struct sockaddr*)&impl->src_addr;
 	struct sap_header header;
@@ -734,7 +734,7 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 
 	if (sdp->ptime > 0)
 		spa_strbuf_append(&buf,
-			"a=ptime:%.6g\n", sdp->ptime);
+			"a=ptime:%s\n", spa_dtoa(ptime, sizeof(ptime), sdp->ptime));
 
 	if (sdp->framecount > 0)
 		spa_strbuf_append(&buf,

@@ -11,6 +11,12 @@ systemd_config = configuration_data()
 systemd_config.set('PW_BINARY', pipewire_bindir / 'pipewire')
 systemd_config.set('PW_PULSE_BINARY', pipewire_bindir / 'pipewire-pulse')
 
+pw_service_reqs = ''
+if get_option('dbus').enabled()
+  pw_service_reqs += 'dbus.service '
+endif
+systemd_config.set('PW_SERVICE_REQS', pw_service_reqs)
+
 configure_file(input : 'pipewire.service.in',
                output : 'pipewire.service',
                configuration : systemd_config,

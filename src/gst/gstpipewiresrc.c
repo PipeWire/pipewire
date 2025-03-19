@@ -1099,14 +1099,34 @@ handle_format_change (GstPipeWireSrc *pwsrc,
   }
 
   pw_peer_caps = gst_caps_from_format (param);
+
   if (pw_peer_caps && pwsrc->possible_caps) {
+    GST_DEBUG_OBJECT (pwsrc, "peer caps %" GST_PTR_FORMAT, pw_peer_caps);
+    GST_DEBUG_OBJECT (pwsrc, "possible caps %" GST_PTR_FORMAT, pwsrc->possible_caps);
+
     pwsrc->caps = gst_caps_intersect_full (pw_peer_caps,
                                            pwsrc->possible_caps,
                                            GST_CAPS_INTERSECT_FIRST);
+
+  /*
+   * We expect pw_peer_caps to be fixed caps as we receive that from
+   * PipeWire. See pw_context_find_format() and SPA_PARAM_Format.
+   * possible_caps can be non-fixated caps based on what is downstream
+   * in the pipeline.
+   *
+   * The intersection result above might give us non-fixated caps. A
+   * possible scenario for this is the below pipeline.
+   * pipewiresrc ! audioconvert ! audio/x-raw,rate=44100,channels=2 ! ..
+   *
+   * So we fixate the caps explicitly here.
+   */
+    pwsrc->caps = gst_caps_fixate (pwsrc->caps);
     gst_caps_maybe_fixate_dma_format (pwsrc->caps);
   }
 
-  if (pwsrc->caps && gst_caps_is_fixed (pwsrc->caps)) {
+  if (pwsrc->caps) {
+    g_return_if_fail (gst_caps_is_fixed (pwsrc->caps));
+
     pwsrc->negotiated = TRUE;
 
     structure = gst_caps_get_structure (pwsrc->caps, 0);

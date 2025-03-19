@@ -293,7 +293,7 @@ static void midi_to_netjack2(struct netjack2_peer *peer,
 				ptr = ev->buffer;
 			} else {
 				buf->write_pos += size;
-				ev->offset = buf->buffer_size - 1 - buf->write_pos;
+				ev->offset = buf->buffer_size - buf->write_pos;
 				free_size -= size;
 				ptr = SPA_PTROFF(buf, ev->offset, void);
 			}

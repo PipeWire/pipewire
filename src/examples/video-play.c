@@ -348,7 +348,11 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 					  SDL_TEXTUREACCESS_STREAMING,
 					  data->size.width,
 					  data->size.height);
-	SDL_LockTexture(data->texture, NULL, &d, &data->stride);
+	if (SDL_LockTexture(data->texture, NULL, &d, &data->stride) < 0) {
+		fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
+		pw_stream_set_error(stream, -EINVAL, "invalid format");
+		return;
+	}
 	SDL_UnlockTexture(data->texture);
 
 	switch(sdl_format) {

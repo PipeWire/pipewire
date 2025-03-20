@@ -304,7 +304,8 @@ static int port_set_format(void *object,
 						  SDL_TEXTUREACCESS_STREAMING,
 						  d->format.size.width,
 						  d->format.size.height);
-		SDL_LockTexture(d->texture, NULL, &dest, &d->stride);
+		if (SDL_LockTexture(d->texture, NULL, &dest, &d->stride) < 0)
+			return -EINVAL;
 		SDL_UnlockTexture(d->texture);
 
 	}

@@ -60,7 +60,6 @@ static int seq_open(struct seq_state *state, struct seq_conn *conn, bool with_qu
 		spa_log_debug(state->log, "%p: ALSA UMP MIDI enabled", state);
 		state->ump = true;
 	}
-	state->ump = false;
 
 	return 0;
 }

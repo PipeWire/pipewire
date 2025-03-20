@@ -44,9 +44,27 @@ static int seq_open(struct seq_state *state, struct seq_conn *conn, bool with_qu
 
 #ifdef HAVE_ALSA_UMP
 	res = snd_seq_set_client_midi_version(conn->hndl, SND_SEQ_CLIENT_UMP_MIDI_2_0);
+	if (!res) {
+		snd_seq_client_info_t *info = NULL;
+
+		/* Double check client version */
+		res = snd_seq_client_info_malloc(&info);
+		if (!res)
+			res = snd_seq_get_client_info(conn->hndl, info);
+		if (!res) {
+			res = snd_seq_client_info_get_midi_version(info);
+			if (res == SND_SEQ_CLIENT_UMP_MIDI_2_0)
+				res = 0;
+			else
+				res = -EIO;
+		}
+		if (info)
+			snd_seq_client_info_free(info);
+	}
 #else
 	res = -EOPNOTSUPP;
 #endif
+
 	if (res < 0) {
 		spa_log_lev(state->log, (probe_ump ? SPA_LOG_LEVEL_INFO : SPA_LOG_LEVEL_ERROR),
 				"%p: ALSA failed to enable UMP MIDI: %s", state, snd_strerror(res));

@@ -1065,8 +1065,19 @@ handle_rect_prop (const struct spa_pod_prop *prop, const char *width, const char
     {
       if (n_items < 3)
         return;
-      gst_caps_set_simple (res, width, GST_TYPE_INT_RANGE, rect[1].width, rect[2].width,
-                                height, GST_TYPE_INT_RANGE, rect[1].height, rect[2].height, NULL);
+
+      if (rect[1].width == rect[2].width &&
+          rect[1].height == rect[2].height) {
+        gst_caps_set_simple (res,
+            width, G_TYPE_INT, rect[1].width,
+            height, G_TYPE_INT, rect[1].height,
+            NULL);
+      } else {
+        gst_caps_set_simple (res,
+            width, GST_TYPE_INT_RANGE, rect[1].width, rect[2].width,
+            height, GST_TYPE_INT_RANGE, rect[1].height, rect[2].height,
+            NULL);
+      }
       break;
     }
     case SPA_CHOICE_Enum:
@@ -1117,8 +1128,17 @@ handle_fraction_prop (const struct spa_pod_prop *prop, const char *key, GstCaps 
     {
       if (n_items < 3)
         return;
-      gst_caps_set_simple (res, key, GST_TYPE_FRACTION_RANGE, fract[1].num, fract[1].denom,
-                                                              fract[2].num, fract[2].denom, NULL);
+
+      if (fract[1].num == fract[2].num &&
+          fract[1].denom == fract[2].denom) {
+        gst_caps_set_simple (res, key, GST_TYPE_FRACTION,
+            fract[1].num, fract[1].denom, NULL);
+      } else {
+        gst_caps_set_simple (res, key, GST_TYPE_FRACTION_RANGE,
+            fract[1].num, fract[1].denom,
+            fract[2].num, fract[2].denom,
+            NULL);
+      }
       break;
     }
     case SPA_CHOICE_Enum:

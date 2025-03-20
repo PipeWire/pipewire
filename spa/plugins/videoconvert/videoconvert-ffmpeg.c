@@ -12,6 +12,7 @@
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
 #include <libavutil/pixfmt.h>
+#include <libavutil/imgutils.h>
 
 #include <spa/support/plugin.h>
 #include <spa/support/cpu.h>
@@ -1516,6 +1517,8 @@ static int port_set_format(void *object,
 		else {
 			struct dir *dir = &this->dir[direction];
 			struct dir *odir = &this->dir[SPA_DIRECTION_REVERSE(direction)];
+			enum AVPixelFormat pix_fmt;
+			int linesizes[4];
 
 			if (info.media_type != SPA_MEDIA_TYPE_video) {
 				spa_log_error(this->log, "unexpected types %d/%d",
@@ -1526,8 +1529,9 @@ static int port_set_format(void *object,
 				spa_log_error(this->log, "can't parse format %s", spa_strerror(res));
 				return res;
 			}
-			port->stride = 2;
-			port->stride *= info.info.raw.size.width;
+			pix_fmt = format_to_pix_fmt(info.info.raw.format);
+			av_image_fill_linesizes(linesizes, pix_fmt, info.info.raw.size.width);
+			port->stride = linesizes[0];
 			port->blocks = 1;
 			dir->format = info;
 			dir->have_format = true;

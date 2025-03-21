@@ -410,6 +410,7 @@ gst_deps_def = {
 
 gst_dep = []
 gst_dma_drm_found = false
+gst_shm_allocator_found = false
 foreach depname, kwargs: gst_deps_def
   dep = dependency(depname, required: gst_option, kwargs: kwargs)
   summary({depname: dep.found()}, bool_yn: true, section: 'GStreamer modules')
@@ -425,8 +426,12 @@ foreach depname, kwargs: gst_deps_def
 
   if depname == 'gstreamer-allocators-1.0' and dep.version().version_compare('>= 1.23.1')
     gst_dma_drm_found = true
+    gst_shm_allocator_found = true
   endif
 endforeach
+
+summary({'gstreamer SHM allocator': gst_shm_allocator_found}, bool_yn: true, section: 'Backend')
+cdata.set('HAVE_GSTREAMER_SHM_ALLOCATOR', gst_shm_allocator_found)
 
 # This code relies on the array being empty if any dependency was not found
 gst_dp_found = gst_dep.length() > 0

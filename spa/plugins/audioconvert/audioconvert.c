@@ -315,7 +315,7 @@ struct impl {
 	uint32_t scratch_ports;
 	float *empty;
 	float *scratch;
-	float *tmp[2];
+	float *tmp[2][MAX_PORTS];
 	float *tmp_datas[2][MAX_PORTS];
 
 	struct wav_file *wav_file;
@@ -1056,6 +1056,83 @@ static int setup_filter_graph(struct impl *this, struct filter_graph *g,
 
 static int setup_channelmix(struct impl *this, uint32_t channels, uint32_t *position);
 
+static void free_tmp(struct impl *this)
+{
+	uint32_t i;
+
+	spa_log_debug(this->log, "free tmp %d", this->scratch_size);
+
+	free(this->empty);
+	this->empty = NULL;
+	this->scratch_size = 0;
+	this->scratch_ports = 0;
+	free(this->scratch);
+	this->scratch = NULL;
+	for (i = 0; i < MAX_PORTS; i++) {
+		free(this->tmp[0][i]);
+		this->tmp[0][i] = NULL;
+		free(this->tmp[1][i]);
+		this->tmp[1][i] = NULL;
+		this->tmp_datas[0][i] = NULL;
+		this->tmp_datas[1][i] = NULL;
+	}
+}
+
+
+static int ensure_tmp(struct impl *this)
+{
+	uint32_t maxsize = this->maxsize, maxports = this->maxports;
+	uint32_t i;
+	float *empty, *scratch, *tmp[2];
+
+	if (maxsize > this->scratch_size) {
+		spa_log_info(this->log, "resize tmp %d -> %d", this->scratch_size, maxsize);
+
+		if ((empty = realloc(this->empty, maxsize + MAX_ALIGN)) != NULL)
+			this->empty = empty;
+		if ((scratch = realloc(this->scratch, maxsize + MAX_ALIGN)) != NULL)
+			this->scratch = scratch;
+		if (empty == NULL || scratch == NULL) {
+			free_tmp(this);
+			return -ENOMEM;
+		}
+		memset(this->empty, 0, maxsize + MAX_ALIGN);
+
+		for (i = 0; i < this->scratch_ports; i++) {
+			if ((tmp[0] = realloc(this->tmp[0][i], maxsize + MAX_ALIGN)) != NULL)
+				this->tmp[0][i] = tmp[0];
+			if ((tmp[1] = realloc(this->tmp[1][i], maxsize + MAX_ALIGN)) != NULL)
+				this->tmp[1][i] = tmp[1];
+			if (tmp[0] == NULL || tmp[1] == NULL) {
+				free_tmp(this);
+				return -ENOMEM;
+			}
+			this->tmp_datas[0][i] = SPA_PTR_ALIGN(this->tmp[0][i], MAX_ALIGN, void);
+			this->tmp_datas[1][i] = SPA_PTR_ALIGN(this->tmp[1][i], MAX_ALIGN, void);
+		}
+		this->scratch_size = maxsize;
+	}
+	if (maxports > this->scratch_ports) {
+		spa_log_info(this->log, "resize ports %d -> %d", this->scratch_ports, maxports);
+
+		for (i = this->scratch_ports; i < maxports; i++) {
+			if ((tmp[0] = malloc(maxsize + MAX_ALIGN)) != NULL)
+				this->tmp[0][i] = tmp[0];
+			if ((tmp[1] = malloc(maxsize + MAX_ALIGN)) != NULL)
+				this->tmp[1][i] = tmp[1];
+			if (tmp[0] == NULL || tmp[1] == NULL) {
+				free_tmp(this);
+				return -ENOMEM;
+			}
+			this->tmp_datas[0][i] = SPA_PTR_ALIGN(this->tmp[0][i], MAX_ALIGN, void);
+			this->tmp_datas[0][i] = SPA_PTR_ALIGN(this->tmp[0][i], MAX_ALIGN, void);
+		}
+		this->scratch_ports = maxports;
+	}
+	return 0;
+}
+
+
 static int setup_filter_graphs(struct impl *impl)
 {
 	int res;
@@ -1083,6 +1160,8 @@ static int setup_filter_graphs(struct impl *impl)
 			impl->maxports = SPA_MAX(impl->maxports, channels);
 		}
 	}
+	if ((res = ensure_tmp(impl)) < 0)
+		return res;
 	if ((res = setup_channelmix(impl, channels, position)) < 0)
 		return res;
 
@@ -2161,64 +2240,6 @@ static int setup_out_convert(struct impl *this)
 			this->cpu_flags, out->conv.cpu_flags, out->conv.method,
 			out->conv.noise_bits, out->conv.is_passthrough, remap, out->conv.func_name);
 
-	return 0;
-}
-
-static void free_tmp(struct impl *this)
-{
-	uint32_t i;
-
-	spa_log_debug(this->log, "free tmp %d", this->scratch_size);
-
-	free(this->empty);
-	this->empty = NULL;
-	this->scratch_size = 0;
-	this->scratch_ports = 0;
-	free(this->scratch);
-	this->scratch = NULL;
-	free(this->tmp[0]);
-	this->tmp[0] = NULL;
-	free(this->tmp[1]);
-	this->tmp[1] = NULL;
-	for (i = 0; i < MAX_PORTS; i++) {
-		this->tmp_datas[0][i] = NULL;
-		this->tmp_datas[1][i] = NULL;
-	}
-}
-
-static int ensure_tmp(struct impl *this)
-{
-	uint32_t maxsize = this->maxsize, maxports = this->maxports;
-	if (maxsize > this->scratch_size || maxports > this->scratch_ports) {
-		float *empty, *scratch, *tmp[2];
-		uint32_t i;
-
-		spa_log_debug(this->log, "resize tmp %d -> %d", this->scratch_size, maxsize);
-
-		if ((empty = realloc(this->empty, maxsize + MAX_ALIGN)) != NULL)
-			this->empty = empty;
-		if ((scratch = realloc(this->scratch, maxsize + MAX_ALIGN)) != NULL)
-			this->scratch = scratch;
-		if ((tmp[0] = realloc(this->tmp[0], (maxsize + MAX_ALIGN) * maxports)) != NULL)
-			this->tmp[0] = tmp[0];
-		if ((tmp[1] = realloc(this->tmp[1], (maxsize + MAX_ALIGN) * maxports)) != NULL)
-			this->tmp[1] = tmp[1];
-
-		if (empty == NULL || scratch == NULL || tmp[0] == NULL || tmp[1] == NULL) {
-			free_tmp(this);
-			return -ENOMEM;
-		}
-		memset(this->empty, 0, maxsize + MAX_ALIGN);
-		this->scratch_size = maxsize;
-		this->scratch_ports = maxports;
-
-		for (i = 0; i < maxports; i++) {
-			this->tmp_datas[0][i] = SPA_PTROFF(tmp[0], maxsize * i, void);
-			this->tmp_datas[0][i] = SPA_PTR_ALIGN(this->tmp_datas[0][i], MAX_ALIGN, void);
-			this->tmp_datas[1][i] = SPA_PTROFF(tmp[1], maxsize * i, void);
-			this->tmp_datas[1][i] = SPA_PTR_ALIGN(this->tmp_datas[1][i], MAX_ALIGN, void);
-		}
-	}
 	return 0;
 }
 

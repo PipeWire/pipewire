@@ -9,6 +9,7 @@
 
 #include <gst/gst.h>
 
+#include <gst/audio/audio.h>
 #include <gst/video/video.h>
 
 #include <pipewire/pipewire.h>
@@ -40,14 +41,19 @@ struct _GstPipeWirePool {
   GWeakRef stream;
   guint n_buffers;
 
+  gboolean has_video;
   gboolean add_metavideo;
+  GstAudioInfo audio_info;
   GstVideoInfo video_info;
+  GstVideoAlignment video_align;
 
   GstAllocator *fd_allocator;
   GstAllocator *dmabuf_allocator;
+  GstAllocator *shm_allocator;
 
   GCond cond;
   gboolean paused;
+  gboolean allocate_memory;
 };
 
 enum GstPipeWirePoolMode {

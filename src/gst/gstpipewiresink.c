@@ -334,9 +334,7 @@ gst_pipewire_sink_update_params (GstPipeWireSink *sink)
        * the default, since we can't grow the pool once this is set */
       SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(
               max_buffers, min_buffers, max_buffers),
-      SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(
-                                                (1<<SPA_DATA_MemFd) |
-                                                (1<<SPA_DATA_MemPtr)),
+      SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(1<<SPA_DATA_MemFd),
       0);
   port_params[n_params++] = spa_pod_builder_pop (&b, &f);
 
@@ -603,14 +601,17 @@ static void
 on_remove_buffer (void *_data, struct pw_buffer *b)
 {
   GstPipeWireSink *pwsink = _data;
+
   GST_DEBUG_OBJECT (pwsink, "remove pw_buffer %p", b);
   gst_pipewire_pool_remove_buffer (pwsink->stream->pool, b);
 
   if (!gst_pipewire_pool_has_buffers (pwsink->stream->pool) &&
       !GST_BUFFER_POOL_IS_FLUSHING (GST_BUFFER_POOL_CAST (pwsink->stream->pool))) {
-    GST_ELEMENT_ERROR (pwsink, RESOURCE, NOT_FOUND,
-        ("all buffers have been removed"),
-        ("PipeWire link to remote node was destroyed"));
+      if (pwsink->mode != GST_PIPEWIRE_SINK_MODE_PROVIDE) {
+        GST_ELEMENT_ERROR (pwsink, RESOURCE, NOT_FOUND,
+          ("all buffers have been removed"),
+          ("PipeWire link to remote node was destroyed"));
+      }
   }
 }
 
@@ -807,6 +808,11 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     else
       flags |= PW_STREAM_FLAG_DRIVER;
 
+#ifdef HAVE_GSTREAMER_SHM_ALLOCATOR
+    flags |= PW_STREAM_FLAG_ALLOC_BUFFERS;
+    pwsink->stream->pool->allocate_memory = true;
+#endif
+
     target_id = pwsink->stream->path ? (uint32_t)atoi(pwsink->stream->path) : PW_ID_ANY;
 
     if (pwsink->stream->target_object) {
@@ -860,8 +866,12 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   config = gst_buffer_pool_get_config (GST_BUFFER_POOL_CAST (pwsink->stream->pool));
   gst_buffer_pool_config_get_params (config, NULL, &size, &min_buffers, &max_buffers);
   gst_buffer_pool_config_set_params (config, caps, size, min_buffers, max_buffers);
-  if(pwsink->is_video)
-    gst_buffer_pool_config_add_option(config, GST_BUFFER_POOL_OPTION_VIDEO_META);
+  if (pwsink->is_video) {
+    gst_buffer_pool_config_add_option (config, GST_BUFFER_POOL_OPTION_VIDEO_META);
+#ifdef HAVE_GSTREAMER_SHM_ALLOCATOR
+    gst_buffer_pool_config_add_option (config, GST_BUFFER_POOL_OPTION_VIDEO_ALIGNMENT);
+#endif
+  }
   gst_buffer_pool_set_config (GST_BUFFER_POOL_CAST (pwsink->stream->pool), config);
 
   pw_thread_loop_unlock (pwsink->stream->core->loop);

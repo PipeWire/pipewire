@@ -327,6 +327,7 @@ static void do_add_nodes(GstPipeWireDeviceProvider *self)
                                             gst_object_ref_sink (device),
                                             compare_device_session_priority);
     } else {
+      gst_object_ref (device);
       gst_device_provider_device_add (GST_DEVICE_PROVIDER (self), device);
     }
   }
@@ -484,7 +485,8 @@ destroy_node (void *data)
   }
 
   if (nd->dev != NULL) {
-    gst_device_provider_device_remove (provider, GST_DEVICE (nd->dev));
+    gst_device_provider_device_remove (provider, nd->dev);
+    gst_clear_object (&nd->dev);
   }
   if (nd->caps)
     gst_caps_unref(nd->caps);

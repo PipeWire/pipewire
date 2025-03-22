@@ -823,7 +823,7 @@ static int transport_start(struct impl *this)
 			(int64_t)(spa_bt_transport_get_delay_nsec(this->transport) / SPA_NSEC_PER_MSEC));
 
 	/* start socket i/o */
-	if ((res = spa_bt_transport_ensure_sco_io(this->transport, this->data_loop)) < 0)
+	if ((res = spa_bt_transport_ensure_sco_io(this->transport, this->data_loop, this->data_system)) < 0)
 		goto fail;
 
 	this->flush_timer_source.data = this;

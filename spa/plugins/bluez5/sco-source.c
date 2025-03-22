@@ -153,7 +153,7 @@ struct impl {
 	void *lc3;
 #endif
 
-	struct timespec now;
+	uint64_t now;
 };
 
 #define CHECK_PORT(this,d,p)	((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
@@ -538,7 +538,7 @@ static uint32_t preprocess_and_decode_codec_data(void *userdata, uint8_t *read_d
 	return decoded;
 }
 
-static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
+static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read, uint64_t rx_time)
 {
 	struct impl *this = userdata;
 	struct port *port = &this->port;
@@ -555,9 +555,8 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 	}
 
 	/* update the current pts */
-	dt = SPA_TIMESPEC_TO_NSEC(&this->now);
-	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &this->now);
-	dt = SPA_TIMESPEC_TO_NSEC(&this->now) - dt;
+	dt = rx_time - this->now;
+	this->now = rx_time;
 
 	/* handle data read from socket */
 #if 0
@@ -566,7 +565,7 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC ||
 			this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB) {
-		decoded = preprocess_and_decode_codec_data(userdata, read_data, size_read, SPA_TIMESPEC_TO_NSEC(&this->now));
+		decoded = preprocess_and_decode_codec_data(userdata, read_data, size_read, this->now);
 	} else {
 		uint32_t avail;
 		uint8_t *packet;
@@ -591,7 +590,7 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 		packet = spa_bt_decode_buffer_get_write(&port->buffer, &avail);
 		avail = SPA_MIN(avail, (uint32_t)size_read);
 		spa_memmove(packet, read_data, avail);
-		spa_bt_decode_buffer_write_packet(&port->buffer, avail, SPA_TIMESPEC_TO_NSEC(&this->now));
+		spa_bt_decode_buffer_write_packet(&port->buffer, avail, this->now);
 
 		decoded = avail;
 	}
@@ -763,7 +762,7 @@ static int transport_start(struct impl *this)
 	this->io_error = false;
 
 	/* Start socket i/o */
-	if ((res = spa_bt_transport_ensure_sco_io(this->transport, this->data_loop)) < 0)
+	if ((res = spa_bt_transport_ensure_sco_io(this->transport, this->data_loop, this->data_system)) < 0)
 		goto fail;
 	spa_loop_invoke(this->data_loop, do_add_source, 0, NULL, 0, true, this);
 

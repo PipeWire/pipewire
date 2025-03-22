@@ -3269,10 +3269,10 @@ static int spa_bt_transport_stop_volume_timer(struct spa_bt_transport *transport
 }
 
 
-int spa_bt_transport_ensure_sco_io(struct spa_bt_transport *t, struct spa_loop *data_loop)
+int spa_bt_transport_ensure_sco_io(struct spa_bt_transport *t, struct spa_loop *data_loop, struct spa_system *data_system)
 {
 	if (t->sco_io == NULL) {
-		t->sco_io = spa_bt_sco_io_create(t, data_loop, t->monitor->log);
+		t->sco_io = spa_bt_sco_io_create(t, data_loop, data_system, t->monitor->log);
 		if (t->sco_io == NULL)
 			return -ENOMEM;
 	}

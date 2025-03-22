@@ -5,6 +5,7 @@
 #ifndef SPA_BLUEZ5_BT_LATENCY_H
 #define SPA_BLUEZ5_BT_LATENCY_H
 
+#include <time.h>
 #include <sys/socket.h>
 #include <linux/net_tstamp.h>
 #include <linux/errqueue.h>

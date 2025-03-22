@@ -31,6 +31,11 @@
 #define SPA_BLUEZ5_DECODE_BUFFER_H
 
 #include <stdlib.h>
+#include <time.h>
+#include <sys/socket.h>
+#include <linux/net_tstamp.h>
+#include <linux/errqueue.h>
+
 #include <spa/utils/defs.h>
 #include <spa/support/log.h>
 
@@ -306,6 +311,123 @@ static inline void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *thi
 		this->buffering = true;
 		spa_bt_ptp_update(&this->spike, (int32_t)this->ctl.avg - this->level, duration);
 	}
+}
+
+struct spa_bt_recvmsg_data {
+	struct spa_log *log;
+	struct spa_system *data_system;
+	int fd;
+	int64_t offset;
+	int64_t err;
+};
+
+static inline void spa_bt_recvmsg_update_clock(struct spa_bt_recvmsg_data *data, uint64_t *now)
+{
+	const int64_t max_resync = (50 * SPA_NSEC_PER_USEC);
+	const int64_t n_avg = 10;
+	struct timespec ts1, ts2, ts3;
+	int64_t t1, t2, t3, offset, err;
+
+	spa_system_clock_gettime(data->data_system, CLOCK_MONOTONIC, &ts1);
+	spa_system_clock_gettime(data->data_system, CLOCK_REALTIME, &ts2);
+	spa_system_clock_gettime(data->data_system, CLOCK_MONOTONIC, &ts3);
+
+	t1 = SPA_TIMESPEC_TO_NSEC(&ts1);
+	t2 = SPA_TIMESPEC_TO_NSEC(&ts2);
+	t3 = SPA_TIMESPEC_TO_NSEC(&ts3);
+
+	if (now)
+		*now = t1;
+
+	offset = t1 + (t3 - t1) / 2 - t2;
+
+	/* Moving average smoothing, discarding outliers */
+	err = offset - data->offset;
+
+	if (SPA_ABS(err) > max_resync) {
+		/* Clock jump */
+		spa_log_debug(data->log, "%p: nsec err %"PRIi64" > max_resync %"PRIi64", resetting",
+				data, err, max_resync);
+		data->offset = offset;
+		data->err = 0;
+		err = 0;
+	} else if (SPA_ABS(err) / 2 <= data->err) {
+		data->offset += err / n_avg;
+	}
+
+	data->err += (SPA_ABS(err) - data->err) / n_avg;
+}
+
+static inline ssize_t spa_bt_recvmsg(struct spa_bt_recvmsg_data *r, void *buf, size_t max_size, uint64_t *rx_time)
+{
+	char control[1024];
+	struct iovec data = {
+		.iov_base = buf,
+		.iov_len = max_size
+	};
+	struct msghdr msg = {
+		.msg_iov = &data,
+		.msg_iovlen = 1,
+		.msg_control = &control,
+		.msg_controllen = sizeof(control),
+	};
+	struct cmsghdr *cmsg;
+	uint64_t t = 0, now;
+	ssize_t res;
+
+	res = recvmsg(r->fd, &msg, MSG_DONTWAIT);
+	if (res < 0 || !rx_time)
+		return res;
+
+	spa_bt_recvmsg_update_clock(r, &now);
+
+	for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+		struct scm_timestamping *tss;
+
+		if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_TIMESTAMPING)
+			continue;
+
+		tss = (struct scm_timestamping *)CMSG_DATA(cmsg);
+		t = SPA_TIMESPEC_TO_NSEC(&tss->ts[0]);
+		break;
+	}
+
+	if (!t) {
+		*rx_time = now;
+		return res;
+	}
+
+	*rx_time = t + r->offset;
+
+	/* CLOCK_REALTIME may jump, so sanity check */
+	if (*rx_time > now || *rx_time + 20 * SPA_NSEC_PER_MSEC < now)
+		*rx_time = now;
+
+	spa_log_trace(r->log, "%p: rx:%" PRIu64 " now:%" PRIu64 " d:%"PRIu64" off:%"PRIi64,
+			r, *rx_time, now, now - *rx_time, r->offset);
+
+	return res;
+}
+
+
+static inline void spa_bt_recvmsg_init(struct spa_bt_recvmsg_data *data, int fd,
+		struct spa_system *data_system, struct spa_log *log)
+{
+	int flags = 0;
+	socklen_t len = sizeof(flags);
+
+	data->log = log;
+	data->data_system = data_system;
+	data->fd = fd;
+	data->offset = 0;
+	data->err = 0;
+
+	if (getsockopt(fd, SOL_SOCKET, SO_TIMESTAMPING, &flags, &len) < 0)
+		spa_log_info(log, "failed to get SO_TIMESTAMPING");
+
+	flags |= SOF_TIMESTAMPING_SOFTWARE | SOF_TIMESTAMPING_RX_SOFTWARE;
+	if (setsockopt(fd, SOL_SOCKET, SO_TIMESTAMPING, &flags, sizeof(flags)) < 0)
+		spa_log_info(log, "failed to set SO_TIMESTAMPING");
 }
 
 #endif

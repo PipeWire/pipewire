@@ -159,7 +159,7 @@ struct impl {
 	struct spa_audio_info codec_format;
 
 	uint8_t buffer_read[4096];
-	struct timespec now;
+	uint64_t now;
 	uint64_t sample_count;
 
 	uint32_t errqueue_count;
@@ -167,6 +167,8 @@ struct impl {
 	struct delay_info delay;
 	int64_t delay_sink;
 	struct spa_source *update_delay_event;
+
+	struct spa_bt_recvmsg_data recv;
 };
 
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
@@ -420,13 +422,14 @@ static void recycle_buffer(struct impl *this, struct port *port, uint32_t buffer
 	}
 }
 
-static int32_t read_data(struct impl *this) {
+static int32_t read_data(struct impl *this, uint64_t *rx_time)
+{
 	const ssize_t b_size = sizeof(this->buffer_read);
 	int32_t size_read = 0;
 
 again:
 	/* read data from socket */
-	size_read = recv(this->fd, this->buffer_read, b_size, MSG_DONTWAIT);
+	size_read = spa_bt_recvmsg(&this->recv, this->buffer_read, b_size, rx_time);
 
 	if (size_read == 0)
 		return 0;
@@ -499,11 +502,11 @@ static void media_on_ready_read(struct spa_source *source)
 {
 	struct impl *this = source->data;
 	struct port *port = &this->port;
-	struct timespec now;
 	void *buf;
 	int32_t size_read, decoded;
 	uint32_t avail;
 	uint64_t dt;
+	uint64_t now;
 
 	/* make sure the source is an input */
 	if ((source->rmask & SPA_IO_IN) == 0) {
@@ -524,11 +527,8 @@ static void media_on_ready_read(struct spa_source *source)
 
 	spa_log_trace(this->log, "socket poll");
 
-	/* update the current pts */
-	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &now);
-
 	/* read */
-	size_read = read_data (this);
+	size_read = read_data (this, &now);
 	if (size_read == 0)
 		return;
 	if (size_read < 0) {
@@ -559,11 +559,10 @@ static void media_on_ready_read(struct spa_source *source)
 	if (!this->started)
 		return;
 
-	spa_bt_decode_buffer_write_packet(&port->buffer, decoded, SPA_TIMESPEC_TO_NSEC(&now));
+	spa_bt_decode_buffer_write_packet(&port->buffer, decoded, now);
 
-	dt = SPA_TIMESPEC_TO_NSEC(&this->now);
+	dt = now - this->now;
 	this->now = now;
-	dt = SPA_TIMESPEC_TO_NSEC(&this->now) - dt;
 
 	spa_log_trace(this->log, "decoded socket data size:%d frames:%d dt:%d dms",
 			(int)decoded, (int)decoded/port->frame_size,
@@ -765,6 +764,8 @@ static int transport_start(struct impl *this)
 	val = 6;
 	if (setsockopt(this->fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
 		spa_log_warn(this->log, "SO_PRIORITY failed: %m");
+
+	spa_bt_recvmsg_init(&this->recv, this->fd, this->data_system, this->log);
 
 	reset_buffers(port);
 
@@ -1549,7 +1550,7 @@ static void process_buffering(struct impl *this)
 
 		if (buffer->h) {
 			buffer->h->seq = this->sample_count;
-			buffer->h->pts = SPA_TIMESPEC_TO_NSEC(&this->now);
+			buffer->h->pts = this->now;
 			buffer->h->dts_offset = 0;
 		}
 

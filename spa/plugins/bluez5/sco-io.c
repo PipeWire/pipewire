@@ -34,6 +34,8 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.sco-io");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 
+#include "decode-buffer.h"
+
 
 /* We'll use the read rx data size to find the correct packet size for writing,
  * since kernel might not report it as the socket MTU, see
@@ -60,9 +62,12 @@ struct spa_bt_sco_io {
 
 	struct spa_log *log;
 	struct spa_loop *data_loop;
+	struct spa_system *data_system;
 	struct spa_source source;
 
-	int (*source_cb)(void *userdata, uint8_t *data, int size);
+	struct spa_bt_recvmsg_data recv;
+
+	int (*source_cb)(void *userdata, uint8_t *data, int size, uint64_t rx_time);
 	void *source_userdata;
 
 	int (*sink_cb)(void *userdata);
@@ -92,9 +97,10 @@ static void sco_io_on_ready(struct spa_source *source)
 
 	if (SPA_FLAG_IS_SET(source->rmask, SPA_IO_IN)) {
 		int res;
+		uint64_t rx_time;
 
 	read_again:
-		res = recv(io->fd, io->read_buffer, SPA_MIN(io->read_mtu, MAX_MTU), MSG_DONTWAIT);
+		res = spa_bt_recvmsg(&io->recv, io->read_buffer, SPA_MIN(io->read_mtu, MAX_MTU), &rx_time);
 		if (res <= 0) {
 			if (errno == EINTR) {
 				/* retry if interrupted */
@@ -115,7 +121,7 @@ static void sco_io_on_ready(struct spa_source *source)
 
 		if (io->source_cb) {
 			int res;
-			res = io->source_cb(io->source_userdata, io->read_buffer, io->read_size);
+			res = io->source_cb(io->source_userdata, io->read_buffer, io->read_size, rx_time);
 			if (res) {
 				io->source_cb = NULL;
 			}
@@ -193,7 +199,8 @@ int spa_bt_sco_io_write(struct spa_bt_sco_io *io, uint8_t *buf, int size)
 }
 
 
-struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_bt_transport *transport, struct spa_loop *data_loop, struct spa_log *log)
+struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_bt_transport *transport, struct spa_loop *data_loop,
+		struct spa_system *data_system, struct spa_log *log)
 {
 	struct spa_bt_sco_io *io;
 
@@ -207,6 +214,7 @@ struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_bt_transport *transport, s
 	io->read_mtu = transport->read_mtu;
 	io->write_mtu = transport->write_mtu;
 	io->data_loop = data_loop;
+	io->data_system = data_system;
 	io->log = log;
 
 	if (transport->device->adapter->bus_type == BUS_TYPE_USB) {
@@ -229,6 +237,8 @@ struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_bt_transport *transport, s
 	}
 
 	spa_log_debug(io->log, "%p: initial packet size:%d", io, io->read_size);
+
+	spa_bt_recvmsg_init(&io->recv, io->fd, io->data_system, io->log);
 
 	/* Add the ready callback */
 	io->source.data = io;
@@ -271,7 +281,7 @@ void spa_bt_sco_io_destroy(struct spa_bt_sco_io *io)
  * This function should only be called from the data thread.
  * Callback is called (in data loop) with data just read from the socket.
  */
-void spa_bt_sco_io_set_source_cb(struct spa_bt_sco_io *io, int (*source_cb)(void *, uint8_t *, int), void *userdata)
+void spa_bt_sco_io_set_source_cb(struct spa_bt_sco_io *io, int (*source_cb)(void *, uint8_t *, int, uint64_t), void *userdata)
 {
 	io->source_cb = source_cb;
 	io->source_userdata = userdata;

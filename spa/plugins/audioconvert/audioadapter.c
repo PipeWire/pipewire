@@ -924,6 +924,7 @@ static int negotiate_format(struct impl *this)
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = { 0 };
 	int res, fres;
+	struct spa_node *src, *dst;
 
 	spa_log_debug(this->log, "%p: have_format:%d recheck:%d", this, this->have_format,
 			this->recheck_format);
@@ -940,6 +941,15 @@ static int negotiate_format(struct impl *this)
 
 	spa_node_send_command(this->follower,
 			&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_ParamBegin));
+
+	if (this->direction == SPA_DIRECTION_INPUT) {
+		src = this->target;
+		dst = this->follower;
+	} else {
+		src = this->follower;
+		dst = this->target;
+	}
+
 
 	/* first try the ideal converter format, which is likely passthrough */
 	tstate = 0;
@@ -960,8 +970,8 @@ static int negotiate_format(struct impl *this)
 	/* then try something the follower can accept */
 	for (fstate = 0;;) {
 		format = NULL;
-		res = node_port_enum_params_sync(this, this->follower,
-					this->direction, 0,
+		res = node_port_enum_params_sync(this, src,
+					SPA_DIRECTION_OUTPUT, 0,
 					SPA_PARAM_EnumFormat, &fstate,
 					NULL, &format, &b);
 
@@ -971,8 +981,8 @@ static int negotiate_format(struct impl *this)
 			break;
 
 		tstate = 0;
-		fres = node_port_enum_params_sync(this, this->target,
-					SPA_DIRECTION_REVERSE(this->direction), 0,
+		fres = node_port_enum_params_sync(this, dst,
+					SPA_DIRECTION_INPUT, 0,
 					SPA_PARAM_EnumFormat, &tstate,
 					format, &format, &b);
 		if (fres == 0 && res == 1)

@@ -1436,6 +1436,21 @@ static int setup_encodedfile(struct data *data)
 }
 #endif
 
+static const char *endianness_to_name(int format)
+{
+	switch (format & SF_FORMAT_ENDMASK) {
+	case SF_ENDIAN_FILE:
+		return "Default Endian";
+	case SF_ENDIAN_LITTLE:
+		return "Little Endian";
+	case SF_ENDIAN_BIG:
+		return "Big Endian";
+	case SF_ENDIAN_CPU:
+		return "CPU Endian";
+	}
+	return "unknown";
+}
+
 static int setup_sndfile(struct data *data)
 {
 	const struct format_info *fi = NULL;
@@ -1473,9 +1488,21 @@ static int setup_sndfile(struct data *data)
 		return -EIO;
 	}
 
-	if (data->verbose)
-		fprintf(stderr, "sndfile: opened file \"%s\" format %08x channels:%d rate:%d\n",
-				data->filename, info.format, info.channels, info.samplerate);
+	if (data->verbose) {
+		SF_FORMAT_INFO ti, sti;
+		spa_zero(ti);
+		ti.format = info.format & SF_FORMAT_TYPEMASK;
+		if (sf_command(NULL, SFC_GET_FORMAT_INFO, &ti, sizeof(ti)) != 0)
+			ti.name = "unknown";
+		spa_zero(sti);
+		sti.format = info.format & SF_FORMAT_SUBMASK;
+		if (sf_command(NULL, SFC_GET_FORMAT_INFO, &sti, sizeof(sti)) != 0)
+			sti.name = "unknown";
+
+		fprintf(stderr, "sndfile: opened file \"%s\" format \"%s %s %s\" channels:%d rate:%d\n",
+				data->filename, endianness_to_name(info.format),
+				ti.name, sti.name, info.channels, info.samplerate);
+	}
 	if (data->channels > 0 && info.channels != (int)data->channels) {
 		fprintf(stderr, "sndfile: given channels (%u) don't match file channels (%d)\n",
 				data->channels, info.channels);
@@ -1511,7 +1538,6 @@ static int setup_sndfile(struct data *data)
 		/* try native format first, else decode to float */
 		if ((fi = format_info_by_sf_format(info.format)) == NULL)
 			fi = format_info_by_sf_format(SF_FORMAT_FLOAT);
-
 	}
 	if (fi == NULL)
 		return -EIO;

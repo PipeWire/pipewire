@@ -1343,7 +1343,7 @@ static void format_from_filename(SF_INFO *info, const char *filename)
 		}
 	}
 	if (format == -1)
-		format = SF_FORMAT_WAV;
+		format = spa_streq(filename, "-") ? SF_FORMAT_AU : SF_FORMAT_WAV;
 	if (format == SF_FORMAT_WAV && info->channels > 2)
 		format = SF_FORMAT_WAVEX;
 

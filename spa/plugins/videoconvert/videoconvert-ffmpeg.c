@@ -1479,7 +1479,6 @@ static int port_set_format(void *object,
 		clear_buffers(this, port);
 	} else {
 		struct spa_video_info info = { 0 };
-		spa_debug_format(2, NULL, format);
 
 		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0) {
 			spa_log_error(this->log, "can't parse format %s", spa_strerror(res));

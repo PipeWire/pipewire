@@ -15,6 +15,7 @@
 #include <spa/utils/names.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
+#include <spa/utils/json.h>
 #include <spa/buffer/alloc.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/filter.h>
@@ -97,15 +98,41 @@ struct impl {
 	unsigned int started:1;
 	unsigned int ready:1;
 	unsigned int async:1;
-	unsigned int passthrough:1;
+	enum spa_param_port_config_mode mode;
 	unsigned int follower_removing:1;
 	unsigned int in_recalc;
 
 	unsigned int warned:1;
 	unsigned int driver:1;
+
+	int in_enum_sync;
 };
 
 /** \endcond */
+
+static int node_enum_params_sync(struct impl *impl, struct spa_node *node,
+		uint32_t id, uint32_t *index, const struct spa_pod *filter,
+		struct spa_pod **param, struct spa_pod_builder *builder)
+{
+	int res;
+	impl->in_enum_sync++;
+	res = spa_node_enum_params_sync(node, id, index, filter, param, builder);
+	impl->in_enum_sync--;
+	return res;
+}
+
+static int node_port_enum_params_sync(struct impl *impl, struct spa_node *node,
+		enum spa_direction direction, uint32_t port_id,
+		uint32_t id, uint32_t *index, const struct spa_pod *filter,
+		struct spa_pod **param, struct spa_pod_builder *builder)
+{
+	int res;
+	impl->in_enum_sync++;
+	res = spa_node_port_enum_params_sync(node, direction, port_id, id, index,
+			filter, param, builder);
+	impl->in_enum_sync--;
+	return res;
+}
 
 static int follower_enum_params(struct impl *this,
 				 uint32_t id,
@@ -117,14 +144,14 @@ static int follower_enum_params(struct impl *this,
 	int res;
 	if (result->next < 0x100000 &&
 	    this->follower != this->target) {
-		if ((res = spa_node_enum_params_sync(this->target,
+		if ((res = node_enum_params_sync(this, this->target,
 				id, &result->next, filter, &result->param, builder)) == 1)
 			return res;
 		result->next = 0x100000;
 	}
 	if (result->next < 0x200000 && this->follower_params_flags[idx] & SPA_PARAM_INFO_READ) {
 		result->next &= 0xfffff;
-		if ((res = spa_node_enum_params_sync(this->follower,
+		if ((res = node_enum_params_sync(this, this->follower,
 				id, &result->next, filter, &result->param, builder)) == 1) {
 			result->next |= 0x100000;
 			return res;
@@ -188,7 +215,7 @@ next:
 	switch (id) {
 	case SPA_PARAM_EnumPortConfig:
 	case SPA_PARAM_PortConfig:
-		if (this->passthrough) {
+		if (this->mode == SPA_PARAM_PORT_CONFIG_MODE_passthrough) {
 			switch (result.index) {
 			case 0:
 				result.param = spa_pod_builder_add_object(&b.b,
@@ -222,7 +249,7 @@ next:
 	case SPA_PARAM_Format:
 	case SPA_PARAM_Latency:
 	case SPA_PARAM_Tag:
-		res = spa_node_port_enum_params_sync(this->follower,
+		res = node_port_enum_params_sync(this, this->follower,
 				this->direction, 0,
 				id, &result.next, filter, &result.param, &b.b);
 		break;
@@ -373,7 +400,7 @@ static int debug_params(struct impl *this, struct spa_node *node,
 	state = 0;
 	while (true) {
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		res = spa_node_port_enum_params_sync(node,
+		res = node_port_enum_params_sync(this, node,
 					direction, port_id,
 					id, &state,
 					NULL, &param, &b);
@@ -415,7 +442,7 @@ static int negotiate_buffers(struct impl *this)
 
 	state = 0;
 	param = NULL;
-	if ((res = spa_node_port_enum_params_sync(this->follower,
+	if ((res = node_port_enum_params_sync(this, this->follower,
 				this->direction, 0,
 				SPA_PARAM_Buffers, &state,
 				param, &param, &b)) < 0) {
@@ -429,7 +456,7 @@ static int negotiate_buffers(struct impl *this)
 	}
 
 	state = 0;
-	if ((res = spa_node_port_enum_params_sync(this->target,
+	if ((res = node_port_enum_params_sync(this, this->target,
 				SPA_DIRECTION_REVERSE(this->direction), 0,
 				SPA_PARAM_Buffers, &state,
 				param, &param, &b)) != 1) {
@@ -544,7 +571,7 @@ static int configure_format(struct impl *this, uint32_t flags, const struct spa_
 
 		/* format was changed to nearest compatible format */
 
-		if ((res = spa_node_port_enum_params_sync(this->follower,
+		if ((res = node_port_enum_params_sync(this, this->follower,
 					this->direction, 0,
 					SPA_PARAM_Format, &state,
 					NULL, &fmt, &b)) != 1)
@@ -610,7 +637,7 @@ static int recalc_latency(struct impl *this, struct spa_node *src, enum spa_dire
 
 	while (true) {
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if ((res = spa_node_port_enum_params_sync(src,
+		if ((res = node_port_enum_params_sync(this, src,
 						direction, port_id, SPA_PARAM_Latency,
 						&index, NULL, &param, &b)) != 1) {
 			param = NULL;
@@ -651,7 +678,7 @@ static int recalc_tag(struct impl *this, struct spa_node *src, enum spa_directio
 	while (true) {
 		void *tag_state = NULL;
 		spa_pod_builder_reset(&b.b, &state);
-		if ((res = spa_node_port_enum_params_sync(src,
+		if ((res = node_port_enum_params_sync(this, src,
 						direction, port_id, SPA_PARAM_Tag,
 						&index, NULL, &param, &b.b)) != 1) {
 			param = NULL;
@@ -673,13 +700,14 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	int res = 0;
 	struct spa_hook l;
 	bool passthrough = mode == SPA_PARAM_PORT_CONFIG_MODE_passthrough;
+	bool old_passthrough = this->mode == SPA_PARAM_PORT_CONFIG_MODE_passthrough;
 
 	spa_log_debug(this->log, "%p: passthrough mode %d", this, passthrough);
 
 	if (!passthrough && this->convert == NULL)
 		return -ENOTSUP;
 
-	if (this->passthrough != passthrough) {
+	if (old_passthrough != passthrough) {
 		if (passthrough) {
 			/* remove converter split/merge ports */
 			configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_none);
@@ -699,8 +727,9 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	if ((res = configure_format(this, SPA_NODE_PARAM_FLAG_NEAREST, format)) < 0)
 		return res;
 
-	if (this->passthrough != passthrough) {
-		this->passthrough = passthrough;
+	this->mode = mode;
+
+	if (old_passthrough != passthrough) {
 		if (passthrough) {
 			/* add follower ports */
 			spa_zero(l);
@@ -888,6 +917,7 @@ static int negotiate_format(struct impl *this)
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = { 0 };
 	int res, fres;
+	struct spa_node *src, *dst;
 
 	spa_log_debug(this->log, "%p: have_format:%d recheck:%d", this, this->have_format,
 			this->recheck_format);
@@ -905,15 +935,24 @@ static int negotiate_format(struct impl *this)
 	spa_node_send_command(this->follower,
 			&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_ParamBegin));
 
+	if (this->direction == SPA_DIRECTION_INPUT) {
+		src = this->target;
+		dst = this->follower;
+	} else {
+		src = this->follower;
+		dst = this->target;
+	}
+
+
 	/* first try the ideal converter format, which is likely passthrough */
 	tstate = 0;
-	fres = spa_node_port_enum_params_sync(this->target,
+	fres = node_port_enum_params_sync(this, this->target,
 				SPA_DIRECTION_REVERSE(this->direction), 0,
 				SPA_PARAM_EnumFormat, &tstate,
 				NULL, &format, &b);
 	if (fres == 1) {
 		fstate = 0;
-		res = spa_node_port_enum_params_sync(this->follower,
+		res = node_port_enum_params_sync(this, this->follower,
 					this->direction, 0,
 					SPA_PARAM_EnumFormat, &fstate,
 					format, &format, &b);
@@ -924,8 +963,8 @@ static int negotiate_format(struct impl *this)
 	/* then try something the follower can accept */
 	for (fstate = 0;;) {
 		format = NULL;
-		res = spa_node_port_enum_params_sync(this->follower,
-					this->direction, 0,
+		res = node_port_enum_params_sync(this, src,
+					SPA_DIRECTION_OUTPUT, 0,
 					SPA_PARAM_EnumFormat, &fstate,
 					NULL, &format, &b);
 
@@ -935,8 +974,8 @@ static int negotiate_format(struct impl *this)
 			break;
 
 		tstate = 0;
-		fres = spa_node_port_enum_params_sync(this->target,
-					SPA_DIRECTION_REVERSE(this->direction), 0,
+		fres = node_port_enum_params_sync(this, dst,
+					SPA_DIRECTION_INPUT, 0,
 					SPA_PARAM_EnumFormat, &tstate,
 					format, &format, &b);
 		if (fres == 0 && res == 1)
@@ -1194,7 +1233,7 @@ static void convert_result(void *data, int seq, int res, uint32_t type, const vo
 {
 	struct impl *this = data;
 
-	if (this->target == this->follower)
+	if (this->target == this->follower || this->in_enum_sync)
 		return;
 
 	spa_log_trace(this->log, "%p: result %d %d", this, seq, res);
@@ -1223,7 +1262,7 @@ static void follower_info(void *data, const struct spa_node_info *info)
 
 	if (info->max_input_ports > 0)
 		this->direction = SPA_DIRECTION_INPUT;
-        else
+	else
 		this->direction = SPA_DIRECTION_OUTPUT;
 
 	if (this->direction == SPA_DIRECTION_INPUT) {
@@ -1371,7 +1410,7 @@ static void follower_result(void *data, int seq, int res, uint32_t type, const v
 {
 	struct impl *this = data;
 
-	if (this->target != this->follower)
+	if (this->target != this->follower || this->in_enum_sync)
 		return;
 
 	spa_log_trace(this->log, "%p: result %d %d", this, seq, res);
@@ -1402,6 +1441,20 @@ static const struct spa_node_events follower_node_events = {
 	.port_info = follower_port_info,
 	.result = follower_result,
 	.event = follower_event,
+};
+
+static void follower_probe_info(void *data, const struct spa_node_info *info)
+{
+	struct impl *this = data;
+	if (info->max_input_ports > 0)
+		this->direction = SPA_DIRECTION_INPUT;
+        else
+		this->direction = SPA_DIRECTION_OUTPUT;
+}
+
+static const struct spa_node_events follower_probe_events = {
+	SPA_VERSION_NODE_EVENTS,
+	.info = follower_probe_info,
 };
 
 static int follower_ready(void *data, int status)
@@ -1551,30 +1604,52 @@ impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_
 	return spa_node_remove_port(this->target, direction, port_id);
 }
 
-static int follower_port_enum_params(struct impl *this,
-				enum spa_direction direction, uint32_t port_id,
-				uint32_t id, uint32_t idx,
-				struct spa_result_node_params *result,
-				const struct spa_pod *filter,
-				struct spa_pod_builder *builder)
+static int
+port_enum_formats_for_convert(struct impl *this, int seq, enum spa_direction direction,
+		uint32_t port_id, uint32_t id, uint32_t start, uint32_t num,
+		const struct spa_pod *filter)
 {
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = { 0 };
 	int res;
-	if (result->next < 0x100000 && this->follower_params_flags[idx] & SPA_PARAM_INFO_READ) {
-		if ((res = spa_node_port_enum_params_sync(this->follower, direction, port_id,
-				id, &result->next, filter, &result->param, builder)) == 1)
-			return res;
-		result->next = 0x100000;
-	}
-	if (result->next < 0x200000 &&
-	    this->follower != this->target) {
-		result->next &= 0xfffff;
-		if ((res = spa_node_port_enum_params_sync(this->target, direction, port_id,
-				id, &result->next, filter, &result->param, builder)) == 1) {
-			result->next |= 0x100000;
-			return res;
+	uint32_t count = 0;
+	struct spa_result_node_params result;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+	result.id = id;
+	result.next = start;
+next:
+	result.index = result.next;
+
+	if (result.next < 0x100000) {
+		/* Enumerate follower formats first, until we have enough or we run out */
+		if ((res = node_port_enum_params_sync(this, this->follower, direction, port_id, id,
+						&result.next, filter, &result.param, &b)) != 1) {
+			if (res == 0 || res == -ENOENT) {
+				result.next = 0x100000;
+				goto next;
+			} else {
+				spa_log_error(this->log, "could not enum follower format: %s", spa_strerror(res));
+				return res;
+			}
 		}
-		result->next = 0x200000;
+	} else if (result.next < 0x200000) {
+		/* Then enumerate converter formats */
+		result.next &= 0xfffff;
+		if ((res = node_port_enum_params_sync(this, this->convert, direction, port_id, id,
+						&result.next, filter, &result.param, &b)) != 1) {
+			return res;
+		} else {
+			result.next |= 0x100000;
+		}
 	}
+
+	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+
+	if (++count < num)
+		goto next;
+
 	return 0;
 }
 
@@ -1585,12 +1660,6 @@ impl_node_port_enum_params(void *object, int seq,
 			   const struct spa_pod *filter)
 {
 	struct impl *this = object;
-	uint8_t buffer[4096];
-	spa_auto(spa_pod_dynamic_builder) b = { 0 };
-	struct spa_pod_builder_state state;
-	struct spa_result_node_params result;
-	uint32_t count = 0;
-	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
@@ -1598,37 +1667,15 @@ impl_node_port_enum_params(void *object, int seq,
 	if (direction != this->direction)
 		port_id++;
 
-	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
-	spa_pod_builder_get_state(&b.b, &state);
+	spa_log_debug(this->log, "%p: %d %u %u %u", this, seq, id, start, num);
 
-	result.id = id;
-	result.next = start;
-next:
-	result.index = result.next;
-
-	spa_log_debug(this->log, "%p: %d id:%u", this, seq, id);
-
-	spa_pod_builder_reset(&b.b, &state);
-
-	switch (id) {
-	case SPA_PARAM_EnumFormat:
-		res = follower_port_enum_params(this, direction, port_id,
-				id, IDX_EnumFormat, &result, filter, &b.b);
-		break;
-	default:
+	/* We only need special handling for EnumFormat in convert mode */
+	if (id == SPA_PARAM_EnumFormat && this->mode == SPA_PARAM_PORT_CONFIG_MODE_convert)
+		return port_enum_formats_for_convert(this, seq, direction, port_id, id,
+				start, num, filter);
+	else
 		return spa_node_port_enum_params(this->target, seq, direction, port_id, id,
-			start, num, filter);
-	}
-	if (res != 1)
-		return res;
-
-	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
-	count++;
-
-	if (count != num)
-		goto next;
-
-	return 0;
+				start, num, filter);
 }
 
 static int
@@ -1819,14 +1866,38 @@ static const struct spa_node_methods impl_node = {
 	.process = impl_node_process,
 };
 
-static int load_plugin_from(struct impl *this, const struct spa_dict *info,
-		const char *convertname, struct spa_handle **handle, struct spa_node **iface)
+static int load_converter(struct impl *this, const struct spa_dict *info,
+		const struct spa_support *support, uint32_t n_support)
 {
+	const char* factory_name = NULL;
 	struct spa_handle *hnd_convert = NULL;
 	void *iface_conv = NULL;
-	hnd_convert = spa_plugin_loader_load(this->ploader, convertname, info);
-	if (!hnd_convert)
-		return -EINVAL;
+	struct spa_dict_item *items;
+	struct spa_dict cinfo;
+	char direction[16];
+	uint32_t i;
+
+	items = alloca((info->n_items + 1) * sizeof(struct spa_dict_item));
+	cinfo = SPA_DICT(items, 0);
+	for (i = 0; i < info->n_items; i++)
+		items[cinfo.n_items++] = info->items[i];
+
+	snprintf(direction, sizeof(direction), "%s",
+			SPA_DIRECTION_REVERSE(this->direction) == SPA_DIRECTION_INPUT ?
+			"input" : "output");
+	items[cinfo.n_items++] = SPA_DICT_ITEM("convert.direction", direction);
+
+	factory_name = spa_dict_lookup(&cinfo, "video.adapt.converter");
+	if (factory_name == NULL)
+		factory_name = SPA_NAME_VIDEO_CONVERT".ffmpeg";
+
+	if (this->ploader) {
+		hnd_convert = spa_plugin_loader_load(this->ploader, factory_name, &cinfo);
+		if (!hnd_convert)
+			return -EINVAL;
+	} else {
+		return -ENOTSUP;
+	}
 
 	spa_handle_get_interface(hnd_convert, SPA_TYPE_INTERFACE_Node, &iface_conv);
 	if (iface_conv == NULL) {
@@ -1834,27 +1905,10 @@ static int load_plugin_from(struct impl *this, const struct spa_dict *info,
 		return -EINVAL;
 	}
 
-	*handle = hnd_convert;
-	*iface = iface_conv;
+	this->hnd_convert = hnd_convert;
+	this->convert = iface_conv;
+	this->convertname = strdup(factory_name);
 
-	return 0;
-}
-
-static int load_converter(struct impl *this, const struct spa_dict *info)
-{
-	int ret;
-	if (!this->ploader || !info)
-		return -EINVAL;
-
-	const char* factory_name = spa_dict_lookup(info, "video.adapt.converter");
-
-	if (factory_name) {
-		ret = load_plugin_from(this, info, factory_name, &this->hnd_convert, &this->convert);
-		if (ret >= 0) {
-			this->convertname = strdup(factory_name);
-			return ret;
-		}
-	}
 	return 0;
 }
 
@@ -1915,6 +1969,7 @@ impl_init(const struct spa_handle_factory *factory,
 	struct impl *this;
 	const char *str;
 	int ret;
+	struct spa_hook probe_listener;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -1949,7 +2004,12 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_VERSION_NODE,
 			&impl_node, this);
 
-	ret = load_converter(this, info);
+	/* just probe the ports to get the direction */
+	spa_zero(probe_listener);
+	spa_node_add_listener(this->follower, &probe_listener, &follower_probe_events, this);
+	spa_hook_remove(&probe_listener);
+
+	ret = load_converter(this, info, support, n_support);
 	spa_log_info(this->log, "%p: loaded converter %s, hnd %p, convert %p", this,
 			this->convertname, this->hnd_convert, this->convert);
 	if (ret < 0)
@@ -1957,10 +2017,11 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (this->convert == NULL) {
 		this->target = this->follower;
-		this->passthrough = true;
+		this->mode = SPA_PARAM_PORT_CONFIG_MODE_passthrough;
 	} else {
 		this->target = this->convert;
-		this->passthrough = false;
+		/* the actual mode is selected below */
+		this->mode = SPA_PARAM_PORT_CONFIG_MODE_none;
 	}
 
 	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS |

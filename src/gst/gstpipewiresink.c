@@ -242,7 +242,8 @@ gst_pipewire_sink_class_init (GstPipeWireSinkClass * klass)
                                                         GST_TYPE_PIPEWIRE_SINK_MODE,
                                                         DEFAULT_PROP_MODE,
                                                         G_PARAM_READWRITE |
-                                                        G_PARAM_STATIC_STRINGS));
+                                                        G_PARAM_STATIC_STRINGS |
+                                                        GST_PARAM_MUTABLE_READY));
 
    g_object_class_install_property (gobject_class,
                                     PROP_FD,
@@ -1037,6 +1038,12 @@ gst_pipewire_sink_change_state (GstElement * element, GstStateChange transition)
         goto open_failed;
       break;
     case GST_STATE_CHANGE_READY_TO_PAUSED:
+      /* If we are a driver, we shouldn't try to also provide the clock, as we
+       * _are_ the clock for the graph. For that case, we rely on the pipeline
+       * clock to drive the pipeline (and thus the graph). */
+      if (this->mode == GST_PIPEWIRE_SINK_MODE_PROVIDE)
+        GST_OBJECT_FLAG_UNSET (this, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
+
       /* the initial stream state is active, which is needed for linking and
        * negotiation to happen and the bufferpool to be set up. We don't know
        * if we'll go to plaing, so we deactivate the stream until that

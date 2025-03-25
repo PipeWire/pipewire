@@ -43,7 +43,7 @@
 SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.videoconvert.ffmpeg");
 
 #define MAX_ALIGN	64u
-#define MAX_BUFFERS	32
+#define MAX_BUFFERS	32u
 #define MAX_DATAS	4
 #define MAX_PORTS	(1+1)
 
@@ -1218,7 +1218,7 @@ impl_node_port_enum_params(void *object, int seq,
 		break;
 	case SPA_PARAM_Buffers:
 	{
-		uint32_t size, min, max;
+		uint32_t size, min, max, def;
 
 		if (!port->have_format)
 			return -EIO;
@@ -1233,15 +1233,16 @@ impl_node_port_enum_params(void *object, int seq,
 
 		other = GET_PORT(this, SPA_DIRECTION_REVERSE(direction), port_id);
 		if (other->n_buffers > 0) {
-			min = max = other->n_buffers;
+			min = other->n_buffers;
 		} else {
 			min = 2;
-			max = MAX_BUFFERS;
 		}
+		max = MAX_BUFFERS;
+		def = SPA_CLAMP(8u, min, MAX_BUFFERS);
 
 		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
-			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, min, max),
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(def, min, max),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
 								size * port->stride,

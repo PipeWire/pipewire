@@ -1127,14 +1127,15 @@ handle_format_change (GstPipeWireSrc *pwsrc,
 #ifdef HAVE_GSTREAMER_DMA_DRM
       }
 #endif
+    } else {
+      /* Don't provide bufferpool for audio if not requested by the
+       * application/user */
+      if (pwsrc->use_bufferpool != USE_BUFFERPOOL_YES)
+        pwsrc->use_bufferpool = USE_BUFFERPOOL_NO;
     }
   } else {
     pwsrc->negotiated = FALSE;
     pwsrc->is_video = FALSE;
-
-    /* Don't provide bufferpool for audio if not requested by the application/user */
-    if (pwsrc->use_bufferpool != USE_BUFFERPOOL_YES)
-      pwsrc->use_bufferpool = USE_BUFFERPOOL_NO;
   }
 
   if (pwsrc->caps) {

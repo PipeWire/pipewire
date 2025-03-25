@@ -204,15 +204,19 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	    (p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_Step) ||
 	    (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_Step)) {
 		int n_copied = 0;
+		void *min = alt2;
+		void *max = SPA_PTROFF(min,size,void);
+		void *step = SPA_PTROFF(max,size,void);
+
 		/* copy all values inside the range */
-		for (j = 0, a1 = alt1, a2 = alt2; j < nalt1; j++, a1 = SPA_PTROFF(a1,size,void)) {
-			if (spa_pod_compare_value(type, a1, a2, size) < 0)
+		for (j = 0, a1 = alt1; j < nalt1; j++, a1 = SPA_PTROFF(a1,size,void)) {
+			if (spa_pod_compare_value(type, a1, min, size) < 0)
 				continue;
-			if (spa_pod_compare_value(type, a1, SPA_PTROFF(a2,size,void), size) > 0)
+			if (spa_pod_compare_value(type, a1, max, size) > 0)
 				continue;
 
 			if (p2c == SPA_CHOICE_Step) {
-				int res = spa_pod_filter_is_step_of(type, a1, SPA_PTROFF(a2,size*2,void), size);
+				int res = spa_pod_filter_is_step_of(type, a1, step, size);
 				if (res == 0)
 					continue;
 				if (res == -ENOTSUP)
@@ -232,14 +236,18 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	    (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_None) ||
 	    (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Enum)) {
 		int n_copied = 0;
+		void *min = alt1;
+		void *max = SPA_PTROFF(min,size,void);
+		void *step = SPA_PTROFF(max,size,void);
+
 		/* copy all values inside the range */
-		for (j = 0, a1 = alt1, a2 = alt2; j < nalt2; j++, a2 = SPA_PTROFF(a2,size,void)) {
-			if (spa_pod_compare_value(type, a2, a1, size) < 0)
+		for (j = 0, a2 = alt2; j < nalt2; j++, a2 = SPA_PTROFF(a2,size,void)) {
+			if (spa_pod_compare_value(type, a2, min, size) < 0)
 				continue;
-			if (spa_pod_compare_value(type, a2, SPA_PTROFF(a1,size,void), size) > 0)
+			if (spa_pod_compare_value(type, a2, max, size) > 0)
 				continue;
 			if (p1c == SPA_CHOICE_Step) {
-				int res = spa_pod_filter_is_step_of(type, a2, SPA_PTROFF(a1,size*2,void), size);
+				int res = spa_pod_filter_is_step_of(type, a2, step, size);
 				if (res == 0)
 					continue;
 				if (res == -ENOTSUP)
@@ -257,18 +265,20 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	    (p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Step) ||
 	    (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Range) ||
 	    (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Step)) {
-		if (spa_pod_compare_value(type, alt1, alt2, size) < 0)
-			spa_pod_builder_raw(b, alt2, size);
-		else
-			spa_pod_builder_raw(b, alt1, size);
+		void *min1 = alt1;
+		void *max1 = SPA_PTROFF(min1,size,void);
+		void *min2 = alt2;
+		void *max2 = SPA_PTROFF(min2,size,void);
 
-		alt1 = SPA_PTROFF(alt1,size,void);
-		alt2 = SPA_PTROFF(alt2,size,void);
+		/* max of min */
+		if (spa_pod_compare_value(type, min1, min2, size) < 0)
+			min1 = min2;
+		/* min of max */
+		if (spa_pod_compare_value(type, max2, max1, size) < 0)
+			max1 = max2;
 
-		if (spa_pod_compare_value(type, alt1, alt2, size) < 0)
-			spa_pod_builder_raw(b, alt1, size);
-		else
-			spa_pod_builder_raw(b, alt2, size);
+		spa_pod_builder_raw(b, min1, size);
+		spa_pod_builder_raw(b, max1, size);
 
 		nc->body.type = SPA_CHOICE_Range;
 	}

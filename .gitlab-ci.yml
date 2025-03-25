@@ -18,8 +18,8 @@ stages:
 variables:
   FDO_UPSTREAM_REPO: 'pipewire/pipewire'
 
-# ci-templates as of Jan 27th 2022
-.templates_sha: &templates_sha 0c312d9c7255f46e741d43bcd1930f09cd12efe7
+# ci-templates as of Mar 25th 2024
+.templates_sha: &templates_sha ef5e4669b7500834a17ffe9277e15fbb6d977fff
 
 include:
   - project: 'freedesktop/ci-templates'
@@ -35,7 +35,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2024-12-10.0'
+    FDO_DISTRIBUTION_TAG: '2025-03-25.0'
     FDO_DISTRIBUTION_VERSION: '40'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
@@ -101,7 +101,7 @@ include:
 .ubuntu:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2024-01-12.0'
+    FDO_DISTRIBUTION_TAG: '2025-03-25.0'
     FDO_DISTRIBUTION_VERSION: '22.04'
     FDO_DISTRIBUTION_PACKAGES: >-
       debhelper-compat
@@ -141,7 +141,7 @@ include:
 .alpine:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2024-09-20.0'
+    FDO_DISTRIBUTION_TAG: '2025-03-25.0'
     FDO_DISTRIBUTION_VERSION: '3.20'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-dev

@@ -273,6 +273,10 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 		if (spa_pod_compare_value(type, max2, max1, size) < 0)
 			max1 = max2;
 
+		/* reject impossible range */
+		if (spa_pod_compare_value(type, max1, min1, size) < 0)
+			return -EINVAL;
+
 		spa_pod_builder_raw(b, min1, size);
 		spa_pod_builder_raw(b, max1, size);
 

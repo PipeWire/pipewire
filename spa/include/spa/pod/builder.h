@@ -156,6 +156,14 @@ SPA_API_POD_BUILDER int spa_pod_builder_raw(struct spa_pod_builder *builder, con
 	return res;
 }
 
+SPA_API_POD_BUILDER void spa_pod_builder_remove(struct spa_pod_builder *builder, uint32_t size)
+{
+	struct spa_pod_frame *f;
+	builder->state.offset -= size;
+	for (f = builder->state.frame; f ; f = f->parent)
+		f->pod.size -= size;
+}
+
 SPA_API_POD_BUILDER int spa_pod_builder_pad(struct spa_pod_builder *builder, uint32_t size)
 {
 	uint64_t zeroes = 0;

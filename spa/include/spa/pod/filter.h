@@ -155,7 +155,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	void *alt1, *alt2, *a1, *a2;
 	uint32_t type, size, p1c, p2c;
 	struct spa_pod_frame f;
-	int res;
+	int res, n_copied = 0;
 
 	v1 = spa_pod_get_values(&p1->value, &nalt1, &p1c);
 	alt1 = SPA_POD_BODY(v1);
@@ -183,7 +183,6 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	    (p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_Enum) ||
 	    (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_None) ||
 	    (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_Enum)) {
-		int n_copied = 0;
 		/* copy all equal values. Start with alt2 so that they are prefered.  */
 		for (j = 0, a2 = alt2; j < nalt2; j++, a2 = SPA_PTROFF(a2, size, void)) {
 			for (k = 0, a1 = alt1; k < nalt1; k++, a1 = SPA_PTROFF(a1,size,void)) {
@@ -194,16 +193,11 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 				}
 			}
 		}
-		if (n_copied == 0)
-			return -EINVAL;
-		nc->body.type = n_copied == 1 ? SPA_CHOICE_None : SPA_CHOICE_Enum;
 	}
-
-	if ((p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_Range) ||
+	else if ((p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_Range) ||
 	    (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_Range) ||
 	    (p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_Step) ||
 	    (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_Step)) {
-		int n_copied = 0;
 		void *min = SPA_PTROFF(alt2,size,void);
 		void *max = SPA_PTROFF(min,size,void);
 		void *step = p2c == SPA_CHOICE_Step ? SPA_PTROFF(max,size,void) : NULL;
@@ -230,16 +224,11 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 				spa_pod_builder_raw(b, a1, size);
 			spa_pod_builder_raw(b, a1, size);
 		}
-		if (n_copied == 0)
-			return -EINVAL;
-		nc->body.type = n_copied == 1 ? SPA_CHOICE_None : SPA_CHOICE_Enum;
 	}
-
-	if ((p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_None) ||
+	else if ((p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_None) ||
 	    (p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Enum) ||
 	    (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_None) ||
 	    (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Enum)) {
-		int n_copied = 0;
 		void *min = SPA_PTROFF(alt1,size,void);
 		void *max = SPA_PTROFF(min,size,void);
 		void *step = p1c == SPA_CHOICE_Step ? SPA_PTROFF(max,size,void) : NULL;
@@ -255,12 +244,8 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 				spa_pod_builder_raw(b, a2, size);
 			spa_pod_builder_raw(b, a2, size);
 		}
-		if (n_copied == 0)
-			return -EINVAL;
-		nc->body.type = n_copied == 1 ? SPA_CHOICE_None : SPA_CHOICE_Enum;
 	}
-
-	if ((p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Range) ||
+	else if ((p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Range) ||
 	    (p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Step) ||
 	    (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Range) ||
 	    (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Step)) {
@@ -299,28 +284,37 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 		spa_pod_builder_raw(b, max1, size);
 		nc->body.type = SPA_CHOICE_Range;
 	}
-
-	if ((p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_Flags) ||
+	else if ((p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_Flags) ||
 	    (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_None) ||
 	    (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_Flags)) {
 		if (spa_pod_filter_flags_value(b, type, alt1, alt2, size) != 1)
 			return -EINVAL;
 		nc->body.type = SPA_CHOICE_Flags;
 	}
+	else if (p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Flags)
+		return -ENOTSUP;
+	else if (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_Flags)
+		return -ENOTSUP;
+	else if (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Flags)
+		return -ENOTSUP;
+	else if (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_Range)
+		return -ENOTSUP;
+	else if (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_Step)
+		return -ENOTSUP;
+	else if (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_Enum)
+		return -ENOTSUP;
 
-	if (p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Flags)
-		return -ENOTSUP;
-	if (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_Flags)
-		return -ENOTSUP;
-	if (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Flags)
-		return -ENOTSUP;
-	if (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_Range)
-		return -ENOTSUP;
-	if (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_Step)
-		return -ENOTSUP;
-	if (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_Enum)
-		return -ENOTSUP;
-
+	if (nc->body.type == SPA_CHOICE_None) {
+		if (n_copied == 0) {
+			return -EINVAL;
+		} else if (n_copied == 1) {
+			/* we always copy the default value twice, so remove it
+			 * again when it was the only one added */
+			spa_pod_builder_remove(b, size);
+		} else if (n_copied > 1) {
+			nc->body.type = SPA_CHOICE_Enum;
+		}
+	}
 	spa_pod_builder_pop(b, &f);
 
 	return 0;

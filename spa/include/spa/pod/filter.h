@@ -169,46 +169,34 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	if (type != v2->type || size != v2->size || p1->key != p2->key)
 		return -EINVAL;
 
-	if (p1c == SPA_CHOICE_None || p1c == SPA_CHOICE_Flags) {
-		nalt1 = 1;
-	} else {
-		alt1 = SPA_PTROFF(alt1, size, void);
-		nalt1--;
-	}
-
-	if (p2c == SPA_CHOICE_None || p2c == SPA_CHOICE_Flags) {
-		nalt2 = 1;
-	} else {
-		alt2 = SPA_PTROFF(alt2, size, void);
-		nalt2--;
-	}
-
 	/* start with copying the property */
 	spa_pod_builder_prop(b, p1->key, p1->flags & p2->flags);
 	spa_pod_builder_push_choice(b, &f, 0, 0);
 	nc = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f);
 
-	/* default value */
-	spa_pod_builder_primitive(b, v2);
+	/* we should prefer alt2 values but only if they are within the
+	 * range, start with an empty child and we will select a good default
+	 * below */
+	spa_pod_builder_child(b, size, type);
 
 	if ((p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_None) ||
 	    (p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_Enum) ||
 	    (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_None) ||
 	    (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_Enum)) {
 		int n_copied = 0;
-		/* copy all equal values but don't copy the default value again */
+		/* copy all equal values. Start with alt2 so that they are prefered.  */
 		for (j = 0, a2 = alt2; j < nalt2; j++, a2 = SPA_PTROFF(a2, size, void)) {
 			for (k = 0, a1 = alt1; k < nalt1; k++, a1 = SPA_PTROFF(a1,size,void)) {
 				if (spa_pod_compare_value(type, a1, a2, size) == 0) {
-					if (p2c == SPA_CHOICE_Enum || j > 0)
+					if (n_copied++ == 0)
 						spa_pod_builder_raw(b, a1, size);
-					n_copied++;
+					spa_pod_builder_raw(b, a1, size);
 				}
 			}
 		}
 		if (n_copied == 0)
 			return -EINVAL;
-		nc->body.type = SPA_CHOICE_Enum;
+		nc->body.type = n_copied == 1 ? SPA_CHOICE_None : SPA_CHOICE_Enum;
 	}
 
 	if ((p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_Range) ||
@@ -216,22 +204,35 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	    (p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_Step) ||
 	    (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_Step)) {
 		int n_copied = 0;
-		void *min = alt2;
+		void *min = SPA_PTROFF(alt2,size,void);
 		void *max = SPA_PTROFF(min,size,void);
 		void *step = p2c == SPA_CHOICE_Step ? SPA_PTROFF(max,size,void) : NULL;
 
+		/* we should prefer the alt2 range default value but only if valid */
+		for (j = 0, a1 = alt1; j < nalt1; j++, a1 = SPA_PTROFF(a1,size,void)) {
+			if (spa_pod_compare_value(type, alt2, min, size) < 0 ||
+			    spa_pod_compare_value(type, alt2, max, size) > 0)
+				break;
+			if (spa_pod_compare_value(type, a1, alt2, size) == 0) {
+				/* it is in the enum, use as default then */
+				spa_pod_builder_raw(b, a1, size);
+				n_copied++;
+				break;
+			}
+		}
 		/* copy all values inside the range */
 		for (j = 0, a1 = alt1; j < nalt1; j++, a1 = SPA_PTROFF(a1,size,void)) {
 			if ((res = spa_pod_filter_is_in_range(type, a1, min, max, step, size)) < 0)
 				return res;
 			if (res == 0)
 				continue;
+			if (n_copied++ == 0)
+				spa_pod_builder_raw(b, a1, size);
 			spa_pod_builder_raw(b, a1, size);
-			n_copied++;
 		}
 		if (n_copied == 0)
 			return -EINVAL;
-		nc->body.type = SPA_CHOICE_Enum;
+		nc->body.type = n_copied == 1 ? SPA_CHOICE_None : SPA_CHOICE_Enum;
 	}
 
 	if ((p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_None) ||
@@ -239,31 +240,33 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	    (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_None) ||
 	    (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Enum)) {
 		int n_copied = 0;
-		void *min = alt1;
+		void *min = SPA_PTROFF(alt1,size,void);
 		void *max = SPA_PTROFF(min,size,void);
 		void *step = p1c == SPA_CHOICE_Step ? SPA_PTROFF(max,size,void) : NULL;
 
-		/* copy all values inside the range */
+		/* copy all values inside the range, this will automatically prefer
+		 * a valid alt2 value */
 		for (j = 0, a2 = alt2; j < nalt2; j++, a2 = SPA_PTROFF(a2,size,void)) {
 			if ((res = spa_pod_filter_is_in_range(type, a2, min, max, step, size)) < 0)
 				return res;
 			if (res == 0)
 				continue;
+			if (n_copied++ == 0)
+				spa_pod_builder_raw(b, a2, size);
 			spa_pod_builder_raw(b, a2, size);
-			n_copied++;
 		}
 		if (n_copied == 0)
 			return -EINVAL;
-		nc->body.type = SPA_CHOICE_Enum;
+		nc->body.type = n_copied == 1 ? SPA_CHOICE_None : SPA_CHOICE_Enum;
 	}
 
 	if ((p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Range) ||
 	    (p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Step) ||
 	    (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Range) ||
 	    (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Step)) {
-		void *min1 = alt1;
+		void *min1 = SPA_PTROFF(alt1,size,void);
 		void *max1 = SPA_PTROFF(min1,size,void);
-		void *min2 = alt2;
+		void *min2 = SPA_PTROFF(alt2,size,void);
 		void *max2 = SPA_PTROFF(min2,size,void);
 
 		/* max of min */
@@ -277,9 +280,23 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 		if (spa_pod_compare_value(type, max1, min1, size) < 0)
 			return -EINVAL;
 
+		/* prefer alt2 if in new range */
+		a1 = alt2;
+		if ((res = spa_pod_filter_is_in_range(type, a1, min1, max1, NULL, size)) < 0)
+			return res;
+		if (res == 0) {
+			/* try alt1 otherwise */
+			a1 = alt1;
+			if ((res = spa_pod_filter_is_in_range(type, a1, min1, max1, NULL, size)) < 0)
+				return res;
+			/* fall back to new min value then */
+			if (res == 0)
+				a1 = min1;
+		}
+
+		spa_pod_builder_raw(b, a1, size);
 		spa_pod_builder_raw(b, min1, size);
 		spa_pod_builder_raw(b, max1, size);
-
 		nc->body.type = SPA_CHOICE_Range;
 	}
 
@@ -293,13 +310,10 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 
 	if (p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Flags)
 		return -ENOTSUP;
-
 	if (p1c == SPA_CHOICE_Enum && p2c == SPA_CHOICE_Flags)
 		return -ENOTSUP;
-
 	if (p1c == SPA_CHOICE_Step && p2c == SPA_CHOICE_Flags)
 		return -ENOTSUP;
-
 	if (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_Range)
 		return -ENOTSUP;
 	if (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_Step)
@@ -308,7 +322,6 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 		return -ENOTSUP;
 
 	spa_pod_builder_pop(b, &f);
-	spa_pod_choice_fix_default(nc);
 
 	return 0;
 }

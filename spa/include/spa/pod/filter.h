@@ -133,6 +133,17 @@ SPA_API_POD_FILTER int spa_pod_filter_is_step_of(uint32_t type, const void *r1,
 	return 0;
 }
 
+SPA_API_POD_FILTER int spa_pod_filter_is_in_range(uint32_t type, const void *v,
+		const void *min, const void *max, const void *step, uint32_t size SPA_UNUSED)
+{
+	if (spa_pod_compare_value(type, v, min, size) < 0 ||
+	    spa_pod_compare_value(type, v, max, size) > 0)
+		return 0;
+	if (step != NULL)
+		return spa_pod_filter_is_step_of(type, v, step, size);
+	return 1;
+}
+
 SPA_API_POD_FILTER int
 spa_pod_filter_prop(struct spa_pod_builder *b,
 	    const struct spa_pod_prop *p1,
@@ -144,6 +155,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	void *alt1, *alt2, *a1, *a2;
 	uint32_t type, size, p1c, p2c;
 	struct spa_pod_frame f;
+	int res;
 
 	v1 = spa_pod_get_values(&p1->value, &nalt1, &p1c);
 	alt1 = SPA_POD_BODY(v1);
@@ -206,23 +218,14 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 		int n_copied = 0;
 		void *min = alt2;
 		void *max = SPA_PTROFF(min,size,void);
-		void *step = SPA_PTROFF(max,size,void);
+		void *step = p2c == SPA_CHOICE_Step ? SPA_PTROFF(max,size,void) : NULL;
 
 		/* copy all values inside the range */
 		for (j = 0, a1 = alt1; j < nalt1; j++, a1 = SPA_PTROFF(a1,size,void)) {
-			if (spa_pod_compare_value(type, a1, min, size) < 0)
+			if ((res = spa_pod_filter_is_in_range(type, a1, min, max, step, size)) < 0)
+				return res;
+			if (res == 0)
 				continue;
-			if (spa_pod_compare_value(type, a1, max, size) > 0)
-				continue;
-
-			if (p2c == SPA_CHOICE_Step) {
-				int res = spa_pod_filter_is_step_of(type, a1, step, size);
-				if (res == 0)
-					continue;
-				if (res == -ENOTSUP)
-					return -EINVAL;
-			}
-
 			spa_pod_builder_raw(b, a1, size);
 			n_copied++;
 		}
@@ -238,21 +241,14 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 		int n_copied = 0;
 		void *min = alt1;
 		void *max = SPA_PTROFF(min,size,void);
-		void *step = SPA_PTROFF(max,size,void);
+		void *step = p1c == SPA_CHOICE_Step ? SPA_PTROFF(max,size,void) : NULL;
 
 		/* copy all values inside the range */
 		for (j = 0, a2 = alt2; j < nalt2; j++, a2 = SPA_PTROFF(a2,size,void)) {
-			if (spa_pod_compare_value(type, a2, min, size) < 0)
+			if ((res = spa_pod_filter_is_in_range(type, a2, min, max, step, size)) < 0)
+				return res;
+			if (res == 0)
 				continue;
-			if (spa_pod_compare_value(type, a2, max, size) > 0)
-				continue;
-			if (p1c == SPA_CHOICE_Step) {
-				int res = spa_pod_filter_is_step_of(type, a2, step, size);
-				if (res == 0)
-					continue;
-				if (res == -ENOTSUP)
-					return -EINVAL;
-			}
 			spa_pod_builder_raw(b, a2, size);
 			n_copied++;
 		}

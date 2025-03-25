@@ -990,7 +990,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   GST_DEBUG_OBJECT (basesrc, "connect capture with path %s, target-object %s",
                     pwsrc->stream->path, pwsrc->stream->target_object);
 
-  pwsrc->possible_caps = possible_caps;
+  pwsrc->possible_caps = gst_caps_ref (possible_caps);
   pwsrc->negotiated = FALSE;
 
   enum pw_stream_flags flags;
@@ -1027,7 +1027,6 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   }
 
   negotiated_caps = g_steal_pointer (&pwsrc->caps);
-  pwsrc->possible_caps = NULL;
   pw_thread_loop_unlock (pwsrc->stream->core->loop);
 
   if (negotiated_caps == NULL)
@@ -1472,6 +1471,7 @@ gst_pipewire_src_stop (GstBaseSrc * basesrc)
   pwsrc->eos = false;
   gst_buffer_replace (&pwsrc->last_buffer, NULL);
   gst_caps_replace(&pwsrc->caps, NULL);
+  gst_caps_replace(&pwsrc->possible_caps, NULL);
   pwsrc->transform_value = UINT32_MAX;
   pw_thread_loop_unlock (pwsrc->stream->core->loop);
 

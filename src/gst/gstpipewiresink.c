@@ -654,17 +654,13 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
   if (meta) {
     if (meta->n_planes == b->n_datas) {
       uint32_t n_planes = GST_VIDEO_INFO_N_PLANES (&data->pool->video_info);
-      gboolean is_planar = n_planes > 1;
       gsize video_size = 0;
 
       for (i = 0; i < n_planes; i++) {
         struct spa_data *d = &b->datas[i];
 
         d->chunk->stride = meta->stride[i];
-        if (is_planar)
-          d->chunk->offset = meta->offset[i];
-        else
-          d->chunk->offset += meta->offset[i] - video_size;
+        d->chunk->offset = meta->offset[i] - video_size;
 
         video_size += d->chunk->size;
       }
@@ -969,8 +965,6 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
           GST_ERROR_OBJECT(pwsink, "Failed to copy the frame");
           return GST_FLOW_ERROR;
         }
-
-        gst_buffer_copy_into(b, buffer, GST_BUFFER_COPY_METADATA, 0, -1);
       } else {
         gst_buffer_map (b, &info, GST_MAP_WRITE);
         gsize extract_size = (buf_size <= info.maxsize) ? buf_size: info.maxsize;

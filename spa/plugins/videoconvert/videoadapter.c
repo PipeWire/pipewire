@@ -428,7 +428,7 @@ static int negotiate_buffers(struct impl *this)
 	int res;
 	bool follower_alloc, conv_alloc;
 	uint32_t i, size, buffers, blocks, align, flags, stride = 0;
-	uint32_t *aligns;
+	uint32_t *aligns, data_flags;
 	struct spa_data *datas;
 	uint64_t follower_flags, conv_flags;
 
@@ -505,9 +505,15 @@ static int negotiate_buffers(struct impl *this)
 	datas = alloca(sizeof(struct spa_data) * blocks);
 	memset(datas, 0, sizeof(struct spa_data) * blocks);
 	aligns = alloca(sizeof(uint32_t) * blocks);
+
+	data_flags = SPA_DATA_FLAG_READWRITE;
+	if (SPA_FLAG_IS_SET(follower_flags, SPA_PORT_FLAG_DYNAMIC_DATA) &&
+	    SPA_FLAG_IS_SET(conv_flags, SPA_PORT_FLAG_DYNAMIC_DATA))
+		data_flags |= SPA_DATA_FLAG_DYNAMIC;
+
 	for (i = 0; i < blocks; i++) {
 		datas[i].type = SPA_DATA_MemPtr;
-		datas[i].flags = SPA_DATA_FLAG_READWRITE | SPA_DATA_FLAG_DYNAMIC;
+		datas[i].flags = data_flags;
 		datas[i].maxsize = size;
 		aligns[i] = align;
 	}

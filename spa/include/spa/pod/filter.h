@@ -201,6 +201,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 		void *min = SPA_PTROFF(alt2,size,void);
 		void *max = SPA_PTROFF(min,size,void);
 		void *step = p2c == SPA_CHOICE_Step ? SPA_PTROFF(max,size,void) : NULL;
+		bool found_def = false;
 
 		/* we should prefer the alt2 range default value but only if valid */
 		for (j = 0, a1 = alt1; j < nalt1; j++, a1 = SPA_PTROFF(a1,size,void)) {
@@ -210,7 +211,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 			if (spa_pod_compare_value(type, a1, alt2, size) == 0) {
 				/* it is in the enum, use as default then */
 				spa_pod_builder_raw(b, a1, size);
-				n_copied++;
+				found_def = true;
 				break;
 			}
 		}
@@ -220,7 +221,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 				return res;
 			if (res == 0)
 				continue;
-			if (n_copied++ == 0)
+			if (n_copied++ == 0 && !found_def)
 				spa_pod_builder_raw(b, a1, size);
 			spa_pod_builder_raw(b, a1, size);
 		}

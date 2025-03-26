@@ -1179,7 +1179,7 @@ handle_format_change (GstPipeWireSrc *pwsrc,
                                                             pwsrc->min_buffers,
                                                             pwsrc->max_buffers),
         SPA_PARAM_BUFFERS_blocks,  SPA_POD_CHOICE_RANGE_Int(0, 1, INT32_MAX),
-        SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
+        SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(0, 1, INT32_MAX),
         SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
         SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(buffertypes));
 

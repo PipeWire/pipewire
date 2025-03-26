@@ -676,7 +676,9 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
 
     for (i = 0; i < MIN (n_datas, n_planes); i++) {
       struct spa_data *d = &b->buffer->datas[i];
-      meta->offset[i] = d->chunk->offset + video_size;
+      /* don't add the chunk offset here, this is done below when we
+       * share/copy the memory in the target buffer below */
+      meta->offset[i] = video_size;
       meta->stride[i] = d->chunk->stride;
 
       video_size += d->chunk->size;

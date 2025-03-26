@@ -98,6 +98,7 @@ struct port {
 
 	uint32_t blocks;
 	uint32_t stride;
+	uint32_t size;
 	uint32_t maxsize;
 
 	struct spa_list queue;
@@ -1228,7 +1229,7 @@ impl_node_port_enum_params(void *object, int seq,
 		if (PORT_IS_DSP(this, direction, port_id)) {
 			size = 1024 * 1024 * 16;
 		} else {
-			size = 1024 * 1024 * 4;
+			size = port->size;
 		}
 
 		other = GET_PORT(this, SPA_DIRECTION_REVERSE(direction), port_id);
@@ -1245,10 +1246,9 @@ impl_node_port_enum_params(void *object, int seq,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(def, min, max),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
-								size * port->stride,
-								16 * port->stride,
-								INT32_MAX),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride));
+								size, 16, INT32_MAX),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(
+								port->stride, 0, INT32_MAX));
 		break;
 	}
 	case SPA_PARAM_Meta:
@@ -1529,9 +1529,21 @@ static int port_set_format(void *object,
 				spa_log_error(this->log, "can't parse format %s", spa_strerror(res));
 				return res;
 			}
-			pix_fmt = format_to_pix_fmt(info.info.raw.format);
-			av_image_fill_linesizes(linesizes, pix_fmt, info.info.raw.size.width);
-			port->stride = linesizes[0];
+			switch (info.media_subtype) {
+			case SPA_MEDIA_SUBTYPE_raw:
+				pix_fmt = format_to_pix_fmt(info.info.raw.format);
+				av_image_fill_linesizes(linesizes, pix_fmt, info.info.raw.size.width);
+				port->stride = linesizes[0];
+				port->size = port->stride * info.info.raw.size.height;
+				break;
+			case SPA_MEDIA_SUBTYPE_mjpg:
+				port->stride = 0;
+				port->size = info.info.mjpg.size.width * info.info.mjpg.size.height;
+				break;
+			default:
+				spa_log_error(this->log, "unsupported subtype %d", info.media_subtype);
+				return -ENOTSUP;
+			}
 			port->blocks = 1;
 			dir->format = info;
 			dir->have_format = true;
@@ -1678,8 +1690,12 @@ impl_node_port_use_buffers(void *object,
 
 			if (other->n_buffers <= 0)
 				return -EIO;
+
+			for (j = 0; j < n_datas; j++) {
+				b->datas[j] = other->buffers[i % other->n_buffers].datas[j];
+				maxsize = SPA_MAX(maxsize, d[j].maxsize);
+			}
 			*b->buf = *other->buffers[i % other->n_buffers].buf;
-			b->datas[0] = other->buffers[i % other->n_buffers].datas[0];
 		} else {
 			for (j = 0; j < n_datas; j++) {
 				void *data = d[j].data;
@@ -1882,7 +1898,6 @@ static int impl_node_process(void *object)
 		datas[0] = this->encoder.packet->data;
 		sizes[0] = this->encoder.packet->size;
 		strides[0] = 1;
-
 	} else {
 		datas[0] = f->data[0];
 		strides[0] = f->linesize[0];

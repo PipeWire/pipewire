@@ -1775,6 +1775,7 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 		break;
 	}
 	case SPA_PARAM_PORT_CONFIG_MODE_none:
+		dir->n_ports = 0;
 		break;
 	default:
 		return -ENOTSUP;

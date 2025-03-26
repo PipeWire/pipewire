@@ -2149,6 +2149,7 @@ impl_init(const struct spa_handle_factory *factory,
 		this->target = this->convert;
 		/* the actual mode is selected below */
 		this->mode = SPA_PARAM_PORT_CONFIG_MODE_none;
+		configure_convert(this, this->mode);
 	}
 
 	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS |
@@ -2179,7 +2180,7 @@ impl_init(const struct spa_handle_factory *factory,
 		if (info && (str = spa_dict_lookup(info, "adapter.auto-port-config")) != NULL)
 			do_auto_port_config(this, str);
 		else {
-			reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_dsp, this->direction, NULL);
+			reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_none, this->direction, NULL);
 		}
 	} else {
 		reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_passthrough, this->direction, NULL);

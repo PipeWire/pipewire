@@ -63,6 +63,7 @@ struct buffer {
 	struct spa_list link;
 	struct spa_buffer *buf;
 	void *datas[MAX_DATAS];
+	struct spa_meta_header *h;
 };
 
 struct port {
@@ -1480,6 +1481,7 @@ static int port_set_format(void *object,
 
 	if (format == NULL) {
 		port->have_format = false;
+		this->fmt_passthrough = false;
 		clear_buffers(this, port);
 	} else {
 		struct spa_video_info info = { 0 };
@@ -1566,8 +1568,8 @@ static int port_set_format(void *object,
 			dir->format = info;
 			dir->have_format = true;
 			if (odir->have_format) {
-				if (memcmp(&odir->format, &dir->format, sizeof(dir->format)) == 0)
-					this->fmt_passthrough = true;
+				this->fmt_passthrough =
+					(memcmp(&odir->format, &dir->format, sizeof(dir->format)) == 0);
 			}
 			this->setup = false;
 		}
@@ -1676,8 +1678,8 @@ impl_node_port_use_buffers(void *object,
 
 	port = GET_PORT(this, direction, port_id);
 
-	spa_log_debug(this->log, "%p: use buffers %d on port %d:%d",
-			this, n_buffers, direction, port_id);
+	spa_log_debug(this->log, "%p: use buffers %d on port %d:%d flags %08x",
+			this, n_buffers, direction, port_id, flags);
 
 	clear_buffers(this, port);
 
@@ -1697,6 +1699,8 @@ impl_node_port_use_buffers(void *object,
 		b->id = i;
 		b->flags = 0;
 		b->buf = buffers[i];
+		b->h = spa_buffer_find_meta_data(b->buf,
+				SPA_META_Header, sizeof(struct spa_meta_header));
 
 		if (n_datas != port->blocks) {
 			spa_log_error(this->log, "%p: invalid blocks %d on buffer %d",
@@ -1712,8 +1716,11 @@ impl_node_port_use_buffers(void *object,
 			for (j = 0; j < n_datas; j++) {
 				b->datas[j] = other->buffers[i % other->n_buffers].datas[j];
 				maxsize = SPA_MAX(maxsize, d[j].maxsize);
+				spa_log_debug(this->log, "buffer %d: mem:%d passthrough:%p maxsize:%d",
+						i, j, b->datas[j], d[j].maxsize);
+				b->buf->datas[j].data = b->datas[j];
 			}
-			*b->buf = *other->buffers[i % other->n_buffers].buf;
+
 		} else {
 			for (j = 0; j < n_datas; j++) {
 				void *data = d[j].data;
@@ -1732,6 +1739,8 @@ impl_node_port_use_buffers(void *object,
 							this, j, i);
 				}
 				b->datas[j] = data;
+				spa_log_debug(this->log, "buffer %d: mem:%d mapped:%p maxsize:%d",
+						i, j, data, d[j].maxsize);
 				maxsize = SPA_MAX(maxsize, d[j].maxsize);
 			}
 		}
@@ -1851,11 +1860,12 @@ static int impl_node_process(void *object)
 
 	sbuf = &in_port->buffers[input->buffer_id];
 
-	if ((dbuf = peek_buffer(this, out_port)) == NULL) {
-                spa_log_error(this->log, "%p: out of buffers", this);
+	if (this->fmt_passthrough) {
+		dbuf = &out_port->buffers[input->buffer_id];
+	} else if ((dbuf = peek_buffer(this, out_port)) == NULL) {
+		spa_log_error(this->log, "%p: out of buffers", this);
 		return -EPIPE;
 	}
-	dbuf = &out_port->buffers[input->buffer_id];
 
 	spa_log_trace(this->log, "%d %p:%p %d %d %d", input->buffer_id, sbuf->buf->datas[0].chunk,
 			dbuf->buf->datas[0].chunk, sbuf->buf->datas[0].chunk->size,
@@ -1865,6 +1875,9 @@ static int impl_node_process(void *object)
 	if (this->decoder.codec) {
 		this->decoder.packet->data = sbuf->datas[0];
 		this->decoder.packet->size = sbuf->buf->datas[0].chunk->size;
+
+		spa_log_trace(this->log, "decode %p:%d", this->decoder.packet->data,
+				this->decoder.packet->size);
 
 		if ((res = avcodec_send_packet(this->decoder.context, this->decoder.packet)) < 0) {
 			spa_log_error(this->log, "failed to send frame to codec: %d %p:%d",
@@ -1887,8 +1900,11 @@ static int impl_node_process(void *object)
 		f->width = in->width;
 		f->height = in->height;
 		for (uint_fast32_t i = 0; i < sbuf->buf->n_datas; ++i) {
-			f->data[i] = sbuf->datas[i];
-			f->linesize[i] = sbuf->buf->datas[i].chunk->stride;
+			spa_log_trace(this->log, "in %d %ld %p %d", sbuf->id, i,
+					sbuf->datas[i], sbuf->buf->datas[i].chunk->size);
+			datas[i] = f->data[i] = sbuf->datas[i];
+			strides[i] = f->linesize[i] = sbuf->buf->datas[i].chunk->stride;
+			sizes[i] = sbuf->buf->datas[i].chunk->size;
 		}
 	}
 
@@ -1902,8 +1918,14 @@ static int impl_node_process(void *object)
 					out->width, out->height, out->pix_fmt,
 					0, NULL, NULL, NULL);
 		}
+		spa_log_trace(this->log, "convert");
 		sws_scale_frame(this->convert.context, this->convert.frame, f);
 		f = this->convert.frame;
+		for (uint_fast32_t i = 0; i < dbuf->buf->n_datas; ++i) {
+			datas[i] = f->data[i];
+			strides[i] = f->linesize[i];
+			sizes[i] = out->size[i];
+		}
 	}
 	/* do encoding */
 	if (this->encoder.codec) {
@@ -1918,12 +1940,7 @@ static int impl_node_process(void *object)
 		datas[0] = this->encoder.packet->data;
 		sizes[0] = this->encoder.packet->size;
 		strides[0] = 1;
-	} else {
-		for (uint_fast32_t i = 0; i < dbuf->buf->n_datas; ++i) {
-			datas[i] = f->data[i];
-			strides[i] = f->linesize[i];
-			sizes[i] = out->size[i];
-		}
+		spa_log_trace(this->log, "encode %p %d", datas[0], sizes[0]);
 	}
 
 	/* write to output */
@@ -1937,9 +1954,15 @@ static int impl_node_process(void *object)
 			dbuf->buf->datas[i].chunk->stride = strides[i];
 			dbuf->buf->datas[i].chunk->size = sizes[i];
 		}
+		spa_log_trace(this->log, "out %d %ld %p %d", dbuf->id, i,
+				dbuf->buf->datas[i].data,
+				dbuf->buf->datas[i].chunk->size);
 	}
-
 	dequeue_buffer(this, out_port, dbuf);
+
+	if (sbuf->h && dbuf->h)
+		*dbuf->h = *sbuf->h;
+
 	output->buffer_id = dbuf->id;
 	output->status = SPA_STATUS_HAVE_DATA;
 

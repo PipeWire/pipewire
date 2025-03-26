@@ -119,6 +119,9 @@ struct dir {
 	int width;
 	int height;
 
+	ptrdiff_t linesizes[4];
+	size_t size[4];
+
 	unsigned int control:1;
 };
 
@@ -1518,7 +1521,6 @@ static int port_set_format(void *object,
 			struct dir *dir = &this->dir[direction];
 			struct dir *odir = &this->dir[SPA_DIRECTION_REVERSE(direction)];
 			enum AVPixelFormat pix_fmt;
-			int linesizes[4];
 
 			if (info.media_type != SPA_MEDIA_TYPE_video) {
 				spa_log_error(this->log, "unexpected types %d/%d",
@@ -1531,20 +1533,36 @@ static int port_set_format(void *object,
 			}
 			switch (info.media_subtype) {
 			case SPA_MEDIA_SUBTYPE_raw:
+			{
+				int linesizes[4];
+
 				pix_fmt = format_to_pix_fmt(info.info.raw.format);
 				av_image_fill_linesizes(linesizes, pix_fmt, info.info.raw.size.width);
 				port->stride = linesizes[0];
-				port->size = port->stride * info.info.raw.size.height;
+				port->blocks = 0;
+				for (int i = 0; i < 4; i++) {
+					dir->linesizes[i] = linesizes[i];
+					if (linesizes[i])
+						port->blocks++;
+				}
+				av_image_fill_plane_sizes(dir->size,
+						pix_fmt, info.info.raw.size.height,
+						dir->linesizes);
+				port->size = av_image_get_buffer_size(pix_fmt,
+						info.info.raw.size.width,
+						info.info.raw.size.height, this->max_align);
+
 				break;
+			}
 			case SPA_MEDIA_SUBTYPE_mjpg:
 				port->stride = 0;
 				port->size = info.info.mjpg.size.width * info.info.mjpg.size.height;
+				port->blocks = 1;
 				break;
 			default:
 				spa_log_error(this->log, "unsupported subtype %d", info.media_subtype);
 				return -ENOTSUP;
 			}
-			port->blocks = 1;
 			dir->format = info;
 			dir->have_format = true;
 			if (odir->have_format) {
@@ -1868,8 +1886,10 @@ static int impl_node_process(void *object)
 		f->format = in->pix_fmt;
 		f->width = in->width;
 		f->height = in->height;
-		f->data[0] = sbuf->datas[0];
-		f->linesize[0] = sbuf->buf->datas[0].chunk->stride;
+		for (uint_fast32_t i = 0; i < sbuf->buf->n_datas; ++i) {
+			f->data[i] = sbuf->datas[i];
+			f->linesize[i] = sbuf->buf->datas[i].chunk->stride;
+		}
 	}
 
 	/* do conversion */
@@ -1899,9 +1919,11 @@ static int impl_node_process(void *object)
 		sizes[0] = this->encoder.packet->size;
 		strides[0] = 1;
 	} else {
-		datas[0] = f->data[0];
-		strides[0] = f->linesize[0];
-		sizes[0] = strides[0] * out->height;
+		for (uint_fast32_t i = 0; i < dbuf->buf->n_datas; ++i) {
+			datas[i] = f->data[i];
+			strides[i] = f->linesize[i];
+			sizes[i] = out->size[i];
+		}
 	}
 
 	/* write to output */

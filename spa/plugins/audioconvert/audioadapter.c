@@ -2172,8 +2172,9 @@ impl_init(const struct spa_handle_factory *factory,
 				&this->convert_listener, &convert_node_events, this);
 		if (info && (str = spa_dict_lookup(info, "adapter.auto-port-config")) != NULL)
 			do_auto_port_config(this, str);
-		else
-			configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_dsp);
+		else {
+			reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_dsp, this->direction, NULL);
+		}
 	} else {
 		reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_passthrough, this->direction, NULL);
 	}

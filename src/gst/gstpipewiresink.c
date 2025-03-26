@@ -40,8 +40,6 @@ GST_DEBUG_CATEGORY_STATIC (pipewire_sink_debug);
 #define DEFAULT_PROP_SLAVE_METHOD GST_PIPEWIRE_SINK_SLAVE_METHOD_NONE
 #define DEFAULT_PROP_USE_BUFFERPOOL USE_BUFFERPOOL_AUTO
 
-#define MIN_BUFFERS     8u
-
 enum
 {
   PROP_0,
@@ -167,7 +165,8 @@ gst_pipewire_sink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
   GstPipeWireSink *pwsink = GST_PIPEWIRE_SINK (bsink);
 
   if (pwsink->use_bufferpool != USE_BUFFERPOOL_NO)
-    gst_query_add_allocation_pool (query, GST_BUFFER_POOL_CAST (pwsink->stream->pool), 0, 0, 0);
+    gst_query_add_allocation_pool (query, GST_BUFFER_POOL_CAST (pwsink->stream->pool), 0,
+        PIPEWIRE_POOL_MIN_BUFFERS, PIPEWIRE_POOL_MAX_BUFFERS);
 
   gst_query_add_allocation_meta (query, GST_VIDEO_META_API_TYPE, NULL);
   return TRUE;
@@ -310,6 +309,12 @@ gst_pipewire_sink_update_params (GstPipeWireSink *sink)
   config = gst_buffer_pool_get_config (GST_BUFFER_POOL (pool));
   gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
 
+  /* We cannot dynamically grow the pool */
+  if (max_buffers == 0) {
+    GST_WARNING_OBJECT (sink, "cannot support unlimited buffers in pool");
+    max_buffers = PIPEWIRE_POOL_MAX_BUFFERS;
+  }
+
   spa_pod_builder_init (&b, buffer, sizeof (buffer));
   spa_pod_builder_push_object (&b, &f, SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers);
   spa_pod_builder_add (&b,
@@ -324,10 +329,10 @@ gst_pipewire_sink_update_params (GstPipeWireSink *sink)
 
   spa_pod_builder_add (&b,
       SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
+      /* At this stage, we will request as many buffers as we _might_ need as
+       * the default, since we can't grow the pool once this is set */
       SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(
-              SPA_MAX(MIN_BUFFERS, min_buffers),
-              SPA_MAX(MIN_BUFFERS, min_buffers),
-              max_buffers ? max_buffers : INT32_MAX),
+              max_buffers, min_buffers, max_buffers),
       SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(
                                                 (1<<SPA_DATA_MemFd) |
                                                 (1<<SPA_DATA_MemPtr)),

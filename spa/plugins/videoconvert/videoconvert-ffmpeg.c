@@ -863,6 +863,7 @@ static int setup_convert(struct impl *this)
 {
 	struct dir *in, *out;
 	uint32_t format;
+	int decoder_id = 0, encoder_id = 0;
 
 	in = &this->dir[SPA_DIRECTION_INPUT];
 	out = &this->dir[SPA_DIRECTION_OUTPUT];
@@ -876,6 +877,9 @@ static int setup_convert(struct impl *this)
 	if (!in->have_format || !out->have_format)
 		return -EIO;
 
+	get_format(in, &in->width, &in->height, &format);
+	get_format(out, &out->width, &out->height, &format);
+
 	switch (in->format.media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
 		in->pix_fmt = format_to_pix_fmt(in->format.info.raw.format);
@@ -884,20 +888,14 @@ static int setup_convert(struct impl *this)
 			out->pix_fmt = format_to_pix_fmt(out->format.info.raw.format);
 			break;
 		case SPA_MEDIA_SUBTYPE_mjpg:
-			if ((this->encoder.codec = avcodec_find_encoder(AV_CODEC_ID_MJPEG)) == NULL) {
-				spa_log_error(this->log, "failed to find MJPEG encoder");
-				return -ENOTSUP;
-			}
+			encoder_id = AV_CODEC_ID_MJPEG;
 			out->format.media_subtype = SPA_MEDIA_SUBTYPE_raw;
 			out->format.info.raw.format = SPA_VIDEO_FORMAT_I420;
 			out->format.info.raw.size = in->format.info.raw.size;
 			out->pix_fmt = AV_PIX_FMT_YUVJ420P;
 			break;
 		case SPA_MEDIA_SUBTYPE_h264:
-			if ((this->encoder.codec = avcodec_find_encoder(AV_CODEC_ID_H264)) == NULL) {
-				spa_log_error(this->log, "failed to find H264 encoder");
-				return -ENOTSUP;
-			}
+			encoder_id = AV_CODEC_ID_H264;
 			break;
 		default:
 			return -ENOTSUP;
@@ -906,14 +904,16 @@ static int setup_convert(struct impl *this)
 	case SPA_MEDIA_SUBTYPE_mjpg:
 		switch (out->format.media_subtype) {
 		case SPA_MEDIA_SUBTYPE_mjpg:
-			/* passthrough */
+			/* passthrough if same dimensions or else reencode */
+			if (in->width != out->width ||
+			    in->height != out->height) {
+				encoder_id = decoder_id = AV_CODEC_ID_MJPEG;
+				out->pix_fmt = AV_PIX_FMT_YUVJ420P;
+			}
 			break;
 		case SPA_MEDIA_SUBTYPE_raw:
 			out->pix_fmt = format_to_pix_fmt(out->format.info.raw.format);
-			if ((this->decoder.codec = avcodec_find_decoder(AV_CODEC_ID_MJPEG)) == NULL) {
-				spa_log_error(this->log, "failed to find MJPEG decoder");
-				return -ENOTSUP;
-			}
+			decoder_id = AV_CODEC_ID_MJPEG;
 			break;
 		default:
 			return -ENOTSUP;
@@ -922,14 +922,14 @@ static int setup_convert(struct impl *this)
 	case SPA_MEDIA_SUBTYPE_h264:
 		switch (out->format.media_subtype) {
 		case SPA_MEDIA_SUBTYPE_h264:
-			/* passthrough */
+			/* passthrough if same dimensions or else reencode */
+			if (in->width != out->width ||
+			    in->height != out->height)
+				encoder_id = decoder_id = AV_CODEC_ID_H264;
 			break;
 		case SPA_MEDIA_SUBTYPE_raw:
 			out->pix_fmt = format_to_pix_fmt(out->format.info.raw.format);
-			if ((this->decoder.codec = avcodec_find_decoder(AV_CODEC_ID_H264)) == NULL) {
-				spa_log_error(this->log, "failed to find H264 decoder");
-				return -ENOTSUP;
-			}
+			decoder_id = AV_CODEC_ID_H264;
 			break;
 		default:
 			return -ENOTSUP;
@@ -939,10 +939,11 @@ static int setup_convert(struct impl *this)
 		return -ENOTSUP;
 	}
 
-	get_format(in, &in->width, &in->height, &format);
-	get_format(out, &out->width, &out->height, &format);
-
-	if (this->decoder.codec) {
+	if (decoder_id) {
+		if ((this->decoder.codec = avcodec_find_decoder(decoder_id)) == NULL) {
+			spa_log_error(this->log, "failed to find %d decoder", decoder_id);
+			return -ENOTSUP;
+		}
 		if ((this->decoder.context = avcodec_alloc_context3(this->decoder.codec)) == NULL)
 			return -EIO;
 
@@ -958,7 +959,12 @@ static int setup_convert(struct impl *this)
 	}
 	if ((this->decoder.frame = av_frame_alloc()) == NULL)
 		return -EIO;
-	if (this->encoder.codec) {
+
+	if (encoder_id) {
+		if ((this->encoder.codec = avcodec_find_encoder(encoder_id)) == NULL) {
+			spa_log_error(this->log, "failed to find %d encoder", encoder_id);
+			return -ENOTSUP;
+		}
 		if ((this->encoder.context = avcodec_alloc_context3(this->encoder.codec)) == NULL)
 			return -EIO;
 
@@ -980,7 +986,6 @@ static int setup_convert(struct impl *this)
 	}
 	if ((this->convert.frame = av_frame_alloc()) == NULL)
 		return -EIO;
-
 
 	this->setup = true;
 

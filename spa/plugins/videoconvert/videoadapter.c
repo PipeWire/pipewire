@@ -430,6 +430,7 @@ static int negotiate_buffers(struct impl *this)
 	uint32_t i, size, buffers, blocks, align, flags, stride = 0;
 	uint32_t *aligns, data_flags;
 	struct spa_data *datas;
+	struct spa_meta metas[1];
 	uint64_t follower_flags, conv_flags;
 
 	spa_log_debug(this->log, "%p: n_buffers:%d", this, this->n_buffers);
@@ -517,9 +518,11 @@ static int negotiate_buffers(struct impl *this)
 		datas[i].maxsize = size;
 		aligns[i] = align;
 	}
+	metas[0].type = SPA_META_Header;
+	metas[0].size = sizeof(struct spa_meta_header);
 
 	free(this->buffers);
-	this->buffers = spa_buffer_alloc_array(buffers, flags, 0, NULL, blocks, datas, aligns);
+	this->buffers = spa_buffer_alloc_array(buffers, flags, 1, metas, blocks, datas, aligns);
 	if (this->buffers == NULL)
 		return -errno;
 	this->n_buffers = buffers;

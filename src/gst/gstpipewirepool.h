@@ -18,6 +18,9 @@ G_BEGIN_DECLS
 #define GST_TYPE_PIPEWIRE_POOL (gst_pipewire_pool_get_type())
 G_DECLARE_FINAL_TYPE (GstPipeWirePool, gst_pipewire_pool, GST, PIPEWIRE_POOL, GstBufferPool)
 
+#define PIPEWIRE_POOL_MIN_BUFFERS 2u
+#define PIPEWIRE_POOL_MAX_BUFFERS 16u
+
 typedef struct _GstPipeWirePoolData GstPipeWirePoolData;
 struct _GstPipeWirePoolData {
   GstPipeWirePool *pool;

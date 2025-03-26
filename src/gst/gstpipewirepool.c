@@ -255,6 +255,16 @@ set_config (GstBufferPool * pool, GstStructure * config)
     return FALSE;
   }
 
+  /* We don't support unlimited buffers */
+  if (max_buffers == 0)
+    max_buffers = PIPEWIRE_POOL_MAX_BUFFERS;
+  /* Pick a sensible min to avoid starvation */
+  if (min_buffers == 0)
+    min_buffers = PIPEWIRE_POOL_MIN_BUFFERS;
+
+  if (min_buffers < PIPEWIRE_POOL_MIN_BUFFERS || max_buffers > PIPEWIRE_POOL_MAX_BUFFERS)
+    return FALSE;
+
   structure = gst_caps_get_structure (caps, 0);
   if (g_str_has_prefix (gst_structure_get_name (structure), "video/") ||
       g_str_has_prefix (gst_structure_get_name (structure), "image/")) {

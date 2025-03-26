@@ -944,15 +944,12 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
         gboolean copied = FALSE;
         buf_size = 0; // to break from the loop
 
-        /*
-          splitting of buffers in the case of video might break the frame layout
-          and that seems to be causing issues while retrieving the buffers on the receiver
-          side. Hence use the video_frame_map to copy the buffer of bigger size into the
-          pipewirepool's buffer
-        */
+        /* splitting of buffers in the case of video might break the frame layout
+         * and that seems to be causing issues while retrieving the buffers on the receiver
+         * side. Hence use the video_frame_map to copy the buffer of bigger size into the
+         * pipewirepool's buffer */
 
-        if (!gst_video_frame_map (&dst, &pwsink->stream->pool->video_info, b,
-          GST_MAP_WRITE)) {
+        if (!gst_video_frame_map (&dst, &pwsink->stream->pool->video_info, b, GST_MAP_WRITE)) {
           GST_ERROR_OBJECT(pwsink, "Failed to map dest buffer");
           return GST_FLOW_ERROR;
         }

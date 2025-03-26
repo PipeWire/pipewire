@@ -102,6 +102,18 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
         GST_VIDEO_INFO_N_PLANES (&pool->video_info),
         pool->video_info.offset,
         pool->video_info.stride);
+    gsize plane_sizes[GST_VIDEO_MAX_PLANES];
+
+    if (!gst_video_meta_get_plane_size (meta, plane_sizes)) {
+      GST_ERROR_OBJECT (pool, "could not compute plane sizes");
+    } else {
+      /* Set memory sizes to expected plane sizes, so we know the valid size,
+       * and the offsets in the meta make sense */
+      for (i = 0; i < gst_buffer_n_memory (buf); i++) {
+        GstMemory *mem = gst_buffer_peek_memory (buf, i);
+        gst_memory_resize (mem, 0, plane_sizes[i]);
+      }
+    }
 
     /*
      * We need to set the video meta as pooled, else gst_buffer_pool_release_buffer

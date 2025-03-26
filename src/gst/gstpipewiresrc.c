@@ -664,7 +664,6 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
     GstVideoInfo *info = &pwsrc->video_info;
     uint32_t n_datas = b->buffer->n_datas;
     uint32_t n_planes = GST_VIDEO_INFO_N_PLANES (info);
-    gboolean is_planar = n_planes > 1;
     gsize video_size = 0;
 
     GstVideoMeta *meta = gst_buffer_add_video_meta_full (buf, GST_VIDEO_FRAME_FLAG_NONE,
@@ -677,7 +676,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
 
     for (i = 0; i < MIN (n_datas, n_planes); i++) {
       struct spa_data *d = &b->buffer->datas[i];
-      meta->offset[i] = is_planar ? d->chunk->offset : video_size;
+      meta->offset[i] = video_size;
       meta->stride[i] = d->chunk->stride;
 
       video_size += d->chunk->size;

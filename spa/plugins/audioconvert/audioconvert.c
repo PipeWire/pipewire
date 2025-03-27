@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <limits.h>
+#include <sys/mman.h>
 
 #include <spa/support/plugin.h>
 #include <spa/support/cpu.h>
@@ -127,6 +128,7 @@ static void props_reset(struct props *props)
 struct buffer {
 	uint32_t id;
 #define BUFFER_FLAG_QUEUED	(1<<0)
+#define BUFFER_FLAG_MAPPED	(1<<1)
 	uint32_t flags;
 	struct spa_list link;
 	struct spa_buffer *buf;
@@ -2724,11 +2726,25 @@ impl_node_port_enum_params(void *object, int seq,
 
 static int clear_buffers(struct impl *this, struct port *port)
 {
-	if (port->n_buffers > 0) {
-		spa_log_debug(this->log, "%p: clear buffers %p", this, port);
-		port->n_buffers = 0;
-		spa_list_init(&port->queue);
+	uint32_t i, j;
+
+	spa_log_debug(this->log, "%p: clear buffers %p %d", this, port, port->n_buffers);
+	for (i = 0; i < port->n_buffers; i++) {
+		struct buffer *b = &port->buffers[i];
+		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_MAPPED)) {
+			for (j = 0; j < b->buf->n_datas; j++) {
+				if (b->datas[j]) {
+					spa_log_debug(this->log, "%p: unmap buffer %d data %d %p",
+							this, i, j, b->datas[j]);
+					munmap(b->datas[j], b->buf->datas[j].maxsize);
+					b->datas[j] = NULL;
+				}
+			}
+			SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_MAPPED);
+		}
 	}
+	port->n_buffers = 0;
+	spa_list_init(&port->queue);
 	return 0;
 }
 
@@ -3080,12 +3096,25 @@ impl_node_port_use_buffers(void *object,
 		}
 
 		for (j = 0; j < n_datas; j++) {
-			if (d[j].data == NULL) {
-				spa_log_error(this->log, "%p: invalid memory %d on buffer %d %d %p",
-						this, j, i, d[j].type, d[j].data);
-				return -EINVAL;
+			void *data = d[j].data;
+			if (data == NULL && SPA_FLAG_IS_SET(d[j].flags, SPA_DATA_FLAG_MAPPABLE)) {
+				data = mmap(NULL, d[j].maxsize,
+					PROT_READ, MAP_SHARED, d[j].fd,
+					d[j].mapoffset);
+				if (data == MAP_FAILED) {
+					spa_log_error(this->log, "%p: mmap failed %d on buffer %d %d %p: %m",
+							this, j, i, d[j].type, data);
+					return -EINVAL;
+				}
+				SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
+				spa_log_debug(this->log, "%p: mmap %d on buffer %d %d %p %p",
+							this, j, i, d[j].type, data, b);
 			}
-			if (!SPA_IS_ALIGNED(d[j].data, this->max_align)) {
+			if (data == NULL) {
+				spa_log_error(this->log, "%p: invalid memory %d on buffer %d %d %p",
+						this, j, i, d[j].type, data);
+				return -EINVAL;
+			} else if (!SPA_IS_ALIGNED(data, this->max_align)) {
 				spa_log_warn(this->log, "%p: memory %d on buffer %d not aligned",
 						this, j, i);
 			}
@@ -3093,7 +3122,7 @@ impl_node_port_use_buffers(void *object,
 			    !SPA_FLAG_IS_SET(d[j].flags, SPA_DATA_FLAG_DYNAMIC))
 				this->is_passthrough = false;
 
-			b->datas[j] = d[j].data;
+			b->datas[j] = data;
 
 			maxsize = SPA_MAX(maxsize, d[j].maxsize);
 		}
@@ -3721,7 +3750,7 @@ static int impl_node_process(void *object)
 					spa_log_trace_fp(this->log, "%p: control %d", this,
 							i * port->blocks + j);
 					ctrlport = port;
-					ctrl = spa_pod_from_data(bd->data, bd->maxsize,
+					ctrl = spa_pod_from_data(buf->datas[j], bd->maxsize,
 							bd->chunk->offset, bd->chunk->size);
 					if (ctrl && !spa_pod_is_sequence(&ctrl->pod))
 						ctrl = NULL;
@@ -3735,7 +3764,7 @@ static int impl_node_process(void *object)
 
 					remap = n_src_datas++;
 					offs += this->in_offset * port->stride;
-					src_datas[remap] = SPA_PTROFF(bd->data, offs, void);
+					src_datas[remap] = SPA_PTROFF(buf->datas[j], offs, void);
 
 					spa_log_trace_fp(this->log, "%p: input %d:%d:%d %d %d %d->%d", this,
 							offs, size, port->stride, this->in_offset, max_in,
@@ -3829,7 +3858,7 @@ static int impl_node_process(void *object)
 
 					mon_max = SPA_MIN(bd->maxsize / port->stride, max_in);
 
-					volume_process(&this->volume, bd->data, src_datas[remap],
+					volume_process(&this->volume, buf->datas[j], src_datas[remap],
 							volume, mon_max);
 
 					bd->chunk->size = mon_max * port->stride;
@@ -3846,7 +3875,7 @@ static int impl_node_process(void *object)
 					spa_log_trace_fp(this->log, "%p: control %d", this, j);
 				} else {
 					remap = n_dst_datas++;
-					dst_datas[remap] = SPA_PTROFF(bd->data,
+					dst_datas[remap] = SPA_PTROFF(buf->datas[j],
 							this->out_offset * port->stride, void);
 					max_out = SPA_MIN(max_out, bd->maxsize / port->stride);
 

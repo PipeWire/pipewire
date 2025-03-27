@@ -1335,7 +1335,6 @@ static int clear_buffers(struct impl *this, struct port *port)
 	spa_log_debug(this->log, "%p: clear buffers %p %d", this, port, port->n_buffers);
 	for (i = 0; i < port->n_buffers; i++) {
 		struct buffer *b = &port->buffers[i];
-		spa_log_debug(this->log, "%p: %d %p %d", this, i, b, b->flags);
 		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_MAPPED)) {
 			for (j = 0; j < b->buf->n_datas; j++) {
 				if (b->datas[j]) {

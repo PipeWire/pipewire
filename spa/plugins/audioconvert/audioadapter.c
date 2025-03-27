@@ -431,6 +431,9 @@ static int negotiate_buffers(struct impl *this)
 	uint32_t *aligns, data_flags;
 	struct spa_data *datas;
 	uint64_t follower_flags, conv_flags;
+	struct spa_node *alloc_node;
+	enum spa_direction alloc_direction;
+	uint32_t alloc_flags;
 
 	spa_log_debug(this->log, "%p: n_buffers:%d", this, this->n_buffers);
 
@@ -476,11 +479,10 @@ static int negotiate_buffers(struct impl *this)
 	follower_alloc = SPA_FLAG_IS_SET(follower_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
 	conv_alloc = SPA_FLAG_IS_SET(conv_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS);
 
-	flags = 0;
+	flags = alloc_flags = 0;
 	if (conv_alloc || follower_alloc) {
 		flags |= SPA_BUFFER_ALLOC_FLAG_NO_DATA;
-		if (conv_alloc)
-			follower_alloc = false;
+		alloc_flags = SPA_NODE_BUFFERS_FLAG_ALLOC;
 	}
 
 	align = DEFAULT_ALIGN;
@@ -524,15 +526,26 @@ static int negotiate_buffers(struct impl *this)
 		return -errno;
 	this->n_buffers = buffers;
 
-	if ((res = spa_node_port_use_buffers(this->target,
-		       SPA_DIRECTION_REVERSE(this->direction), 0,
-		       conv_alloc ? SPA_NODE_BUFFERS_FLAG_ALLOC : 0,
+	/* prefer to let the follower alloc */
+	if (follower_alloc) {
+		alloc_node = this->follower;
+		alloc_direction = this->direction;
+	} else {
+		alloc_node = this->target;
+		alloc_direction = SPA_DIRECTION_REVERSE(this->direction);
+	}
+
+	if ((res = spa_node_port_use_buffers(alloc_node,
+		       alloc_direction, 0, alloc_flags,
 		       this->buffers, this->n_buffers)) < 0)
 		return res;
 
-	if ((res = spa_node_port_use_buffers(this->follower,
-		       this->direction, 0,
-		       follower_alloc ? SPA_NODE_BUFFERS_FLAG_ALLOC : 0,
+	alloc_node = alloc_node == this->follower ? this->target : this->follower;
+	alloc_direction = SPA_DIRECTION_REVERSE(alloc_direction);
+	alloc_flags = 0;
+
+	if ((res = spa_node_port_use_buffers(alloc_node,
+		       alloc_direction, 0, alloc_flags,
 		       this->buffers, this->n_buffers)) < 0)
 		return res;
 

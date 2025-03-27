@@ -59,6 +59,7 @@ static void props_reset(struct props *props)
 struct buffer {
 	uint32_t id;
 #define BUFFER_FLAG_QUEUED	(1<<0)
+#define BUFFER_FLAG_MAPPED	(1<<1)
 	uint32_t flags;
 	struct spa_list link;
 	struct spa_buffer *buf;
@@ -1329,11 +1330,26 @@ impl_node_port_enum_params(void *object, int seq,
 
 static int clear_buffers(struct impl *this, struct port *port)
 {
-	if (port->n_buffers > 0) {
-		spa_log_debug(this->log, "%p: clear buffers %p", this, port);
-		port->n_buffers = 0;
-		spa_list_init(&port->queue);
+	uint32_t i, j;
+
+	spa_log_debug(this->log, "%p: clear buffers %p %d", this, port, port->n_buffers);
+	for (i = 0; i < port->n_buffers; i++) {
+		struct buffer *b = &port->buffers[i];
+		spa_log_debug(this->log, "%p: %d %p %d", this, i, b, b->flags);
+		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_MAPPED)) {
+			for (j = 0; j < b->buf->n_datas; j++) {
+				if (b->datas[j]) {
+					spa_log_debug(this->log, "%p: unmap buffer %d data %d %p",
+							this, i, j, b->datas[j]);
+					munmap(b->datas[j], b->buf->datas[j].maxsize);
+					b->datas[j] = NULL;
+				}
+			}
+			SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_MAPPED);
+		}
 	}
+	port->n_buffers = 0;
+	spa_list_init(&port->queue);
 	return 0;
 }
 
@@ -1738,13 +1754,16 @@ impl_node_port_use_buffers(void *object,
 								this, j, i, d[j].type, data);
 						return -EINVAL;
 					}
+					SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
+					spa_log_debug(this->log, "%p: mmap %d on buffer %d %d %p %p",
+								this, j, i, d[j].type, data, b);
 				}
 				if (data != NULL && !SPA_IS_ALIGNED(data, this->max_align)) {
 					spa_log_warn(this->log, "%p: memory %d on buffer %d not aligned",
 							this, j, i);
 				}
 				b->datas[j] = data;
-				spa_log_debug(this->log, "buffer %d: mem:%d mapped:%p maxsize:%d",
+				spa_log_debug(this->log, "buffer %d: mem:%d data:%p maxsize:%d",
 						i, j, data, d[j].maxsize);
 				maxsize = SPA_MAX(maxsize, d[j].maxsize);
 			}

@@ -3638,7 +3638,7 @@ static int impl_node_process(void *object)
 {
 	struct impl *this = object;
 	const void *src_datas[MAX_PORTS];
-	void *dst_datas[MAX_PORTS], *remap_src_datas[MAX_PORTS], *remap_dst_datas[MAX_PORTS];
+	void *dst_datas[MAX_PORTS], *remap_src_datas[MAX_PORTS], *remap_dst_datas[MAX_PORTS], *data;
 	uint32_t i, j, n_src_datas = 0, n_dst_datas = 0, n_mon_datas = 0, remap;
 	uint32_t n_samples, max_in, n_out, max_out, quant_samples;
 	struct port *port, *ctrlport = NULL;
@@ -3740,6 +3740,7 @@ static int impl_node_process(void *object)
 				uint32_t offs, size;
 
 				bd = &buf->buf->datas[j];
+				data = bd->data ? bd->data : buf->datas[j];
 
 				offs = SPA_MIN(bd->chunk->offset, bd->maxsize);
 				size = SPA_MIN(bd->maxsize - offs, bd->chunk->size);
@@ -3750,7 +3751,7 @@ static int impl_node_process(void *object)
 					spa_log_trace_fp(this->log, "%p: control %d", this,
 							i * port->blocks + j);
 					ctrlport = port;
-					ctrl = spa_pod_from_data(buf->datas[j], bd->maxsize,
+					ctrl = spa_pod_from_data(data, bd->maxsize,
 							bd->chunk->offset, bd->chunk->size);
 					if (ctrl && !spa_pod_is_sequence(&ctrl->pod))
 						ctrl = NULL;
@@ -3764,7 +3765,7 @@ static int impl_node_process(void *object)
 
 					remap = n_src_datas++;
 					offs += this->in_offset * port->stride;
-					src_datas[remap] = SPA_PTROFF(buf->datas[j], offs, void);
+					src_datas[remap] = SPA_PTROFF(data, offs, void);
 
 					spa_log_trace_fp(this->log, "%p: input %d:%d:%d %d %d %d->%d", this,
 							offs, size, port->stride, this->in_offset, max_in,
@@ -3839,6 +3840,7 @@ static int impl_node_process(void *object)
 		} else {
 			for (j = 0; j < port->blocks; j++) {
 				bd = &buf->buf->datas[j];
+				data = bd->data ? bd->data : buf->datas[j];
 
 				bd->chunk->offset = 0;
 				bd->chunk->size = 0;
@@ -3858,7 +3860,7 @@ static int impl_node_process(void *object)
 
 					mon_max = SPA_MIN(bd->maxsize / port->stride, max_in);
 
-					volume_process(&this->volume, buf->datas[j], src_datas[remap],
+					volume_process(&this->volume, data, src_datas[remap],
 							volume, mon_max);
 
 					bd->chunk->size = mon_max * port->stride;
@@ -3875,7 +3877,7 @@ static int impl_node_process(void *object)
 					spa_log_trace_fp(this->log, "%p: control %d", this, j);
 				} else {
 					remap = n_dst_datas++;
-					dst_datas[remap] = SPA_PTROFF(buf->datas[j],
+					dst_datas[remap] = SPA_PTROFF(data,
 							this->out_offset * port->stride, void);
 					max_out = SPA_MIN(max_out, bd->maxsize / port->stride);
 

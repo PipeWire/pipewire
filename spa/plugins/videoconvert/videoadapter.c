@@ -427,7 +427,7 @@ static int negotiate_buffers(struct impl *this)
 	struct spa_pod *param;
 	int res;
 	bool follower_alloc, conv_alloc;
-	uint32_t i, size, buffers, blocks, align, flags, stride = 0;
+	uint32_t i, size, buffers, blocks, align, flags, stride = 0, types;
 	uint32_t *aligns, data_flags;
 	struct spa_data *datas;
 	struct spa_meta metas[1];
@@ -487,14 +487,16 @@ static int negotiate_buffers(struct impl *this)
 	}
 
 	align = DEFAULT_ALIGN;
+	types = SPA_ID_INVALID;
 
 	if ((res = spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_ParamBuffers, NULL,
-			SPA_PARAM_BUFFERS_buffers, SPA_POD_Int(&buffers),
-			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(&blocks),
-			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(&size),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(&stride),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_OPT_Int(&align))) < 0)
+			SPA_PARAM_BUFFERS_buffers,  SPA_POD_Int(&buffers),
+			SPA_PARAM_BUFFERS_blocks,   SPA_POD_Int(&blocks),
+			SPA_PARAM_BUFFERS_size,     SPA_POD_Int(&size),
+			SPA_PARAM_BUFFERS_stride,   SPA_POD_Int(&stride),
+			SPA_PARAM_BUFFERS_align,    SPA_POD_OPT_Int(&align),
+			SPA_PARAM_BUFFERS_dataType, SPA_POD_OPT_Int(&types))) < 0)
 		return res;
 
 	if (this->async)
@@ -514,8 +516,12 @@ static int negotiate_buffers(struct impl *this)
 	    SPA_FLAG_IS_SET(conv_flags, SPA_PORT_FLAG_DYNAMIC_DATA))
 		data_flags |= SPA_DATA_FLAG_DYNAMIC;
 
+	/* if we allocate, we allocate MemPtr memory */
+	if (!SPA_FLAG_IS_SET(alloc_flags, SPA_NODE_BUFFERS_FLAG_ALLOC))
+		types = SPA_DATA_MemPtr;
+
 	for (i = 0; i < blocks; i++) {
-		datas[i].type = SPA_DATA_MemPtr;
+		datas[i].type = types;
 		datas[i].flags = data_flags;
 		datas[i].maxsize = size;
 		aligns[i] = align;

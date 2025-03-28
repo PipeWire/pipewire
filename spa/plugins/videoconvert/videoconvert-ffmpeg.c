@@ -1725,8 +1725,8 @@ impl_node_port_use_buffers(void *object,
 				SPA_META_Header, sizeof(struct spa_meta_header));
 
 		if (n_datas != port->blocks) {
-			spa_log_error(this->log, "%p: invalid blocks %d on buffer %d",
-					this, n_datas, i);
+			spa_log_error(this->log, "%p: invalid blocks %d on buffer %d, expected %d",
+					this, n_datas, i, port->blocks);
 			return -EINVAL;
 		}
 		if (SPA_FLAG_IS_SET(flags, SPA_NODE_BUFFERS_FLAG_ALLOC)) {

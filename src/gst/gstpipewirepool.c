@@ -62,7 +62,7 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
   uint32_t i;
   GstPipeWirePoolData *data;
 
-  GST_DEBUG_OBJECT (pool, "wrap buffer");
+  GST_DEBUG_OBJECT (pool, "wrap buffer, datas:%d", b->buffer->n_datas);
 
   data = g_slice_new (GstPipeWirePoolData);
 
@@ -88,6 +88,10 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
     else if (d->type == SPA_DATA_MemPtr) {
       gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, 0,
                                      d->maxsize, NULL, NULL);
+    }
+    else {
+      GST_WARNING_OBJECT (pool, "unknown data type (%s %d)",
+        spa_debug_type_find_short_name(spa_type_data_type, d->type), d->type);
     }
     if (gmem)
       gst_buffer_insert_memory (buf, i, gmem);

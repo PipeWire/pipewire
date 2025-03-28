@@ -686,7 +686,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
   }
 
   if (b->buffer->n_datas != gst_buffer_n_memory(data->buf)) {
-      GST_ERROR_OBJECT(pwsrc, "n_datas != n_memory");
+      GST_ERROR_OBJECT(pwsrc, "n_datas != n_memory, (%d != %d)", b->buffer->n_datas, gst_buffer_n_memory(data->buf));
   }
 
   for (i = 0; i < b->buffer->n_datas; i++) {

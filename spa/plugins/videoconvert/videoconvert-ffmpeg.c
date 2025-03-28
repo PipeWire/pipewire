@@ -1559,6 +1559,8 @@ static int port_set_format(void *object,
 				int linesizes[4];
 
 				pix_fmt = format_to_pix_fmt(info.info.raw.format);
+				if (pix_fmt == AV_PIX_FMT_NONE)
+					return -EINVAL;
 				av_image_fill_linesizes(linesizes, pix_fmt, info.info.raw.size.width);
 				port->stride = linesizes[0];
 				port->blocks = 0;

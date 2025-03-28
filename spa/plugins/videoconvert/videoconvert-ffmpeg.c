@@ -850,11 +850,13 @@ static int get_format(struct dir *dir, int *width, int *height, uint32_t *format
 			*height = dir->format.info.h264.size.height;
 			break;
 		default:
-			*width = *height = 0;
+			*width = 640;
+			*height = 480;
 			break;
 		}
 	} else {
-		*width = *height = 0;
+		*width = 640;
+		*height = 480;
 	}
 	return 0;
 }
@@ -1127,22 +1129,18 @@ static int port_enum_formats(void *object,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_video),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 			SPA_FORMAT_VIDEO_format,   SPA_POD_CHOICE_ENUM_Id(7,
-						format,
+						format ? format : SPA_VIDEO_FORMAT_YUY2,
 						SPA_VIDEO_FORMAT_YUY2,
 						SPA_VIDEO_FORMAT_I420,
 						SPA_VIDEO_FORMAT_UYVY,
 						SPA_VIDEO_FORMAT_YVYU,
 						SPA_VIDEO_FORMAT_RGBA,
 						SPA_VIDEO_FORMAT_BGRx),
+			SPA_FORMAT_VIDEO_size,     SPA_POD_CHOICE_RANGE_Rectangle(
+				&SPA_RECTANGLE(width, height),
+				&SPA_RECTANGLE(1, 1),
+				&SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
 			0);
-		if (width != 0 && height != 0) {
-			spa_pod_builder_add(builder,
-				SPA_FORMAT_VIDEO_size,     SPA_POD_CHOICE_RANGE_Rectangle(
-					&SPA_RECTANGLE(width, height),
-					&SPA_RECTANGLE(1, 1),
-					&SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
-				0);
-		}
 		*param = spa_pod_builder_pop(builder, &f[0]);
 		break;
 	case 2:
@@ -1155,15 +1153,11 @@ static int port_enum_formats(void *object,
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_video),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_mjpg),
+			SPA_FORMAT_VIDEO_size,     SPA_POD_CHOICE_RANGE_Rectangle(
+				&SPA_RECTANGLE(width, height),
+				&SPA_RECTANGLE(1, 1),
+				&SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
 			0);
-		if (width != 0 && height != 0) {
-			spa_pod_builder_add(builder,
-				SPA_FORMAT_VIDEO_size,     SPA_POD_CHOICE_RANGE_Rectangle(
-					&SPA_RECTANGLE(width, height),
-					&SPA_RECTANGLE(1, 1),
-					&SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
-				0);
-		}
 		*param = spa_pod_builder_pop(builder, &f[0]);
 		break;
 	default:

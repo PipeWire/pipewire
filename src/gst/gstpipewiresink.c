@@ -305,6 +305,7 @@ gst_pipewire_sink_update_params (GstPipeWireSink *sink)
   struct spa_pod_builder b = { NULL };
   uint8_t buffer[1024];
   struct spa_pod_frame f;
+  guint n_params = 0;
 
   config = gst_buffer_pool_get_config (GST_BUFFER_POOL (pool));
   gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers, &max_buffers);
@@ -325,20 +326,22 @@ gst_pipewire_sink_update_params (GstPipeWireSink *sink)
                                                 (1<<SPA_DATA_MemFd) |
                                                 (1<<SPA_DATA_MemPtr)),
       0);
-  port_params[0] = spa_pod_builder_pop (&b, &f);
+  port_params[n_params++] = spa_pod_builder_pop (&b, &f);
 
-  port_params[1] = spa_pod_builder_add_object (&b,
+  port_params[n_params++] = spa_pod_builder_add_object (&b,
       SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
       SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
       SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_header)));
 
-  port_params[2] = spa_pod_builder_add_object (&b,
-      SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
-      SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoCrop),
-      SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_region)));
+  if (sink->is_video) {
+    port_params[n_params++] = spa_pod_builder_add_object (&b,
+        SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
+        SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoCrop),
+        SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_region)));
+  }
 
   pw_thread_loop_lock (sink->stream->core->loop);
-  pw_stream_update_params (sink->stream->pwstream, port_params, 3);
+  pw_stream_update_params (sink->stream->pwstream, port_params, n_params);
   pw_thread_loop_unlock (sink->stream->core->loop);
 }
 

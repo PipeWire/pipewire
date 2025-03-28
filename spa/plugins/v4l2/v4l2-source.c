@@ -675,7 +675,7 @@ static int port_set_format(struct impl *this, struct port *port,
 			   const struct spa_pod *format)
 {
 	struct spa_video_info info;
-	int res;
+	int res = 0;
 
 	spa_zero(info);
 
@@ -755,7 +755,7 @@ static int port_set_format(struct impl *this, struct port *port,
 	emit_port_info(this, port, false);
 	emit_node_info(this, false);
 
-	return 0;
+	return res;
 }
 
 static int impl_node_port_set_param(void *object,

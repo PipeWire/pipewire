@@ -225,6 +225,7 @@ struct pa_alsa_path {
     bool has_mute:1;
     bool has_volume:1;
     bool has_dB:1;
+    bool has_volume_mute:1;
     bool mute_during_activation:1;
     /* These two are used during probing only */
     bool has_req_any:1;

@@ -1266,8 +1266,15 @@ static int read_volume(pa_alsa_device *dev)
 	if (!dev->mixer_handle)
 		return 0;
 
-	if ((res = pa_alsa_path_get_volume(dev->mixer_path, dev->mixer_handle, &dev->mapping->channel_map, &r)) < 0)
-		return res;
+	if (dev->mixer_path->has_volume_mute && dev->muted) {
+		/* Shift up by the base volume */
+		pa_sw_cvolume_divide_scalar(&r, &dev->hardware_volume, dev->base_volume);
+		pa_log_debug("Reading cached volume only.");
+	} else {
+		if ((res = pa_alsa_path_get_volume(dev->mixer_path, dev->mixer_handle,
+						   &dev->mapping->channel_map, &r)) < 0)
+			return res;
+	}
 
 	/* Shift down by the base volume, so that 0dB becomes maximum volume */
 	pa_sw_cvolume_multiply_scalar(&r, &r, dev->base_volume);
@@ -1294,6 +1301,7 @@ static int read_volume(pa_alsa_device *dev)
 static void set_volume(pa_alsa_device *dev, const pa_cvolume *v)
 {
 	pa_cvolume r;
+	bool write_to_hw;
 
 	if (v != &dev->real_volume)
 		dev->real_volume = *v;
@@ -1312,8 +1320,10 @@ static void set_volume(pa_alsa_device *dev, const pa_cvolume *v)
 	/* Shift up by the base volume */
 	pa_sw_cvolume_divide_scalar(&r, &dev->real_volume, dev->base_volume);
 
+	write_to_hw = !(dev->mixer_path->has_volume_mute && dev->muted);
+
 	if (pa_alsa_path_set_volume(dev->mixer_path, dev->mixer_handle, &dev->mapping->channel_map,
-			&r, false, true) < 0)
+		&r, false, write_to_hw) < 0)
 		return;
 
 	/* Shift down by the base volume, so that 0dB becomes maximum volume */
@@ -1370,8 +1380,18 @@ static int read_mute(pa_alsa_device *dev)
 	if (!dev->mixer_handle)
 		return 0;
 
-	if ((res = pa_alsa_path_get_mute(dev->mixer_path, dev->mixer_handle, &mute)) < 0)
-		return res;
+	if (dev->mixer_path->has_volume_mute) {
+		pa_cvolume mute_vol;
+		pa_cvolume r;
+
+		pa_cvolume_mute(&mute_vol, dev->mapping->channel_map.channels);
+		if ((res = pa_alsa_path_get_volume(dev->mixer_path, dev->mixer_handle, &dev->mapping->channel_map, &r)) < 0)
+			return res;
+		mute = pa_cvolume_equal(&mute_vol, &r);
+	} else {
+		if ((res = pa_alsa_path_get_mute(dev->mixer_path, dev->mixer_handle, &mute)) < 0)
+			return res;
+	}
 
 	if (mute == dev->muted)
 		return 0;
@@ -1400,7 +1420,25 @@ static void set_mute(pa_alsa_device *dev, bool mute)
 	if (!dev->mixer_handle)
 		return;
 
-	pa_alsa_path_set_mute(dev->mixer_path, dev->mixer_handle, mute);
+	if (dev->mixer_path->has_volume_mute) {
+		pa_cvolume r;
+
+		if (mute) {
+			pa_cvolume_mute(&r, dev->mapping->channel_map.channels);
+			pa_alsa_path_set_volume(dev->mixer_path, dev->mixer_handle, &dev->mapping->channel_map,
+				&r, false, true);
+		} else {
+			/* Shift up by the base volume */
+			pa_sw_cvolume_divide_scalar(&r, &dev->real_volume, dev->base_volume);
+			pa_log_debug("Restoring volume: %d", pa_cvolume_max(&dev->real_volume));
+			if (pa_alsa_path_set_volume(dev->mixer_path, dev->mixer_handle, &dev->mapping->channel_map,
+				&r, false, true) < 0)
+				pa_log_error("Unable to restore volume %d during unmute",
+					     pa_cvolume_max(&dev->real_volume));
+		}
+	} else {
+		pa_alsa_path_set_mute(dev->mixer_path, dev->mixer_handle, mute);
+	}
 }
 
 static void mixer_volume_init(pa_card *impl, pa_alsa_device *dev)
@@ -1436,6 +1474,11 @@ static void mixer_volume_init(pa_card *impl, pa_alsa_device *dev)
 			dev->base_volume = pa_sw_volume_from_dB(-dev->mixer_path->max_dB);
 			dev->n_volume_steps = PA_VOLUME_NORM+1;
 
+			/* If minimum volume is set to -99999 dB, then volume control supports
+			 * mute */
+			if (dev->mixer_path->min_dB == -99999.99 && !dev->mixer_path->has_mute)
+				dev->mixer_path->has_volume_mute = true;
+
 			pa_log_info("Fixing base volume to %0.2f dB", pa_sw_volume_to_dB(dev->base_volume));
 		} else {
 			dev->decibel_volume = false;
@@ -1450,7 +1493,8 @@ static void mixer_volume_init(pa_card *impl, pa_alsa_device *dev)
 	dev->device.base_volume = (float)pa_sw_volume_to_linear(dev->base_volume);
 	dev->device.volume_step = 1.0f / dev->n_volume_steps;
 
-	if (impl->soft_mixer || !dev->mixer_path || !dev->mixer_path->has_mute) {
+	if (impl->soft_mixer || !dev->mixer_path ||
+	    (!dev->mixer_path->has_mute && !dev->mixer_path->has_volume_mute)) {
 		dev->read_mute = NULL;
 		dev->set_mute = NULL;
 		pa_log_info("Driver does not support hardware mute control, falling back to software mute control.");
@@ -1458,7 +1502,8 @@ static void mixer_volume_init(pa_card *impl, pa_alsa_device *dev)
 	} else {
 		dev->read_mute = read_mute;
 		dev->set_mute = set_mute;
-		pa_log_info("Using hardware mute control.");
+		pa_log_info("Using hardware %smute control.",
+			    dev->mixer_path->has_volume_mute ? "volume-" : "");
 		dev->device.flags |= ACP_DEVICE_HW_MUTE;
 	}
 }

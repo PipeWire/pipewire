@@ -1730,11 +1730,11 @@ impl_node_port_use_buffers(void *object,
 				return -EIO;
 
 			for (j = 0; j < n_datas; j++) {
+				b->buf->datas[j] = other->buffers[i % other->n_buffers].buf->datas[j];
 				b->datas[j] = other->buffers[i % other->n_buffers].datas[j];
 				maxsize = SPA_MAX(maxsize, d[j].maxsize);
 				spa_log_debug(this->log, "buffer %d: mem:%d passthrough:%p maxsize:%d",
 						i, j, b->datas[j], d[j].maxsize);
-				b->buf->datas[j].data = b->datas[j];
 			}
 
 		} else {

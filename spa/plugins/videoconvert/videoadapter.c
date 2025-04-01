@@ -757,18 +757,16 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 
 	this->mode = mode;
 
-	if (old_passthrough != passthrough) {
-		if (passthrough) {
-			/* add follower ports */
-			spa_zero(l);
-			spa_node_add_listener(this->follower, &l, &follower_node_events, this);
-			spa_hook_remove(&l);
-		} else {
-			/* add converter ports */
-			configure_convert(this, mode);
-		}
-		link_io(this);
+	if (old_passthrough != passthrough && passthrough) {
+		/* add follower ports */
+		spa_zero(l);
+		spa_node_add_listener(this->follower, &l, &follower_node_events, this);
+		spa_hook_remove(&l);
+	} else {
+		configure_convert(this, mode);
 	}
+	link_io(this);
+
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS | SPA_NODE_CHANGE_MASK_PARAMS;
 	SPA_FLAG_CLEAR(this->info.flags, SPA_NODE_FLAG_NEED_CONFIGURE);
 	SPA_FLAG_UPDATE(this->info.flags, SPA_NODE_FLAG_ASYNC,

@@ -1641,12 +1641,12 @@ port_enum_formats_for_convert(struct impl *this, int seq, enum spa_direction dir
 	uint32_t count = 0;
 	struct spa_result_node_params result;
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-
 	result.id = id;
 	result.next = start;
 next:
 	result.index = result.next;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	if (result.next < 0x100000) {
 		/* Enumerate follower formats first, until we have enough or we run out */

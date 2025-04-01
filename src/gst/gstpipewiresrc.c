@@ -739,13 +739,29 @@ on_state_changed (void *data,
                   enum pw_stream_state state, const char *error)
 {
   GstPipeWireSrc *pwsrc = data;
+  GstState current_state = GST_ELEMENT_CAST (pwsrc)->current_state;
 
   GST_DEBUG ("got stream state %s", pw_stream_state_as_string (state));
 
   switch (state) {
     case PW_STREAM_STATE_UNCONNECTED:
     case PW_STREAM_STATE_CONNECTING:
+      break;
     case PW_STREAM_STATE_PAUSED:
+      /*
+       * We may see a driver/quantum/clock rate change on switching audio
+       * sources. The same is not applicable for video.
+       *
+       * We post the clock lost message here to take care of a possible
+       * jump or shift in base_time/clock for the pipeline. Application
+       * must handle the clock lost message in it's bus handler by pausing
+       * the pipeline and then setting it back to playing.
+       */
+      if (current_state == GST_STATE_PLAYING && !pwsrc->is_video)
+        gst_element_post_message (GST_ELEMENT_CAST (pwsrc),
+            gst_message_new_clock_lost (GST_OBJECT_CAST (pwsrc),
+                GST_CLOCK_CAST (pwsrc->stream->clock)));
+      break;
     case PW_STREAM_STATE_STREAMING:
       break;
     case PW_STREAM_STATE_ERROR:

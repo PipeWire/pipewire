@@ -388,11 +388,10 @@ static int do_negotiate(struct pw_impl_link *this)
 		}
 	}
 
-	pw_log_pod(SPA_LOG_LEVEL_DEBUG, format);
-
 	SPA_POD_OBJECT_ID(format) = SPA_PARAM_Format;
 	pw_log_debug("%p: doing set format %p fixated:%d", this,
 			format, spa_pod_is_fixated(format));
+	pw_log_pod(SPA_LOG_LEVEL_INFO, format);
 
 	if (out_state == PW_IMPL_PORT_STATE_CONFIGURE) {
 		pw_log_debug("%p: doing set format on output", this);
@@ -405,7 +404,7 @@ static int do_negotiate(struct pw_impl_link *this)
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res)) {
-			pw_log_info("output set format %d", res);
+			pw_log_debug("output set format %d", res);
 			busy_id = pw_work_queue_add(impl->work, &this->output_link,
 					spa_node_sync(output->node->node, res),
 					complete_ready, this);
@@ -425,7 +424,7 @@ static int do_negotiate(struct pw_impl_link *this)
 			goto error;
 		}
 		if (SPA_RESULT_IS_ASYNC(res2)) {
-			pw_log_info("input set format %d", res2);
+			pw_log_debug("input set format %d", res2);
 			busy_id = pw_work_queue_add(impl->work, &this->input_link,
 					spa_node_sync(input->node->node, res2),
 					complete_ready, this);

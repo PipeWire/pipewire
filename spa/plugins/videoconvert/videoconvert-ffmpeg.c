@@ -563,14 +563,10 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	switch (mode) {
 	case SPA_PARAM_PORT_CONFIG_MODE_dsp:
 	{
-		if (info) {
-			dir->n_ports = 1;
-			dir->format = *info;
-			dir->format.info.dsp.format = SPA_VIDEO_FORMAT_DSP_F32;
-			dir->have_format = true;
-		} else {
-			dir->n_ports = 0;
-		}
+		dir->n_ports = 1;
+		dir->format.info.dsp = SPA_VIDEO_INFO_DSP_INIT(
+				.format = SPA_VIDEO_FORMAT_DSP_F32);
+		dir->have_format = true;
 
 		if (this->monitor && direction == SPA_DIRECTION_INPUT)
 			this->dir[SPA_DIRECTION_OUTPUT].n_ports = dir->n_ports + 1;
@@ -836,6 +832,11 @@ static int get_format(struct dir *dir, int *width, int *height, uint32_t *format
 {
 	if (dir->have_format) {
 		switch (dir->format.media_subtype) {
+		case SPA_MEDIA_SUBTYPE_dsp:
+			*format = dir->format.info.dsp.format;
+			*width = 640;
+			*height = 480;
+			break;
 		case SPA_MEDIA_SUBTYPE_raw:
 			*width = dir->format.info.raw.size.width;
 			*height = dir->format.info.raw.size.height;
@@ -865,7 +866,7 @@ static int get_format(struct dir *dir, int *width, int *height, uint32_t *format
 static int setup_convert(struct impl *this)
 {
 	struct dir *in, *out;
-	uint32_t format;
+	uint32_t in_format = 0, out_format = 0;
 	int decoder_id = 0, encoder_id = 0;
 
 	in = &this->dir[SPA_DIRECTION_INPUT];
@@ -880,27 +881,31 @@ static int setup_convert(struct impl *this)
 	if (!in->have_format || !out->have_format)
 		return -EIO;
 
-	get_format(in, &in->width, &in->height, &format);
-	get_format(out, &out->width, &out->height, &format);
+	get_format(in, &in->width, &in->height, &in_format);
+	get_format(out, &out->width, &out->height, &out_format);
 
 	switch (in->format.media_subtype) {
+	case SPA_MEDIA_SUBTYPE_dsp:
 	case SPA_MEDIA_SUBTYPE_raw:
-		in->pix_fmt = format_to_pix_fmt(in->format.info.raw.format);
+		in->pix_fmt = format_to_pix_fmt(in_format);
 		switch (out->format.media_subtype) {
 		case SPA_MEDIA_SUBTYPE_raw:
-			out->pix_fmt = format_to_pix_fmt(out->format.info.raw.format);
+		case SPA_MEDIA_SUBTYPE_dsp:
+			out->pix_fmt = format_to_pix_fmt(out_format);
 			break;
 		case SPA_MEDIA_SUBTYPE_mjpg:
 			encoder_id = AV_CODEC_ID_MJPEG;
 			out->format.media_subtype = SPA_MEDIA_SUBTYPE_raw;
 			out->format.info.raw.format = SPA_VIDEO_FORMAT_I420;
-			out->format.info.raw.size = in->format.info.raw.size;
+			out->format.info.raw.size = SPA_RECTANGLE(in->width, in->height);
 			out->pix_fmt = AV_PIX_FMT_YUVJ420P;
 			break;
 		case SPA_MEDIA_SUBTYPE_h264:
 			encoder_id = AV_CODEC_ID_H264;
 			break;
 		default:
+			spa_log_warn(this->log, "%p: in_subtype:%d out_subtype:%d", this,
+					in->format.media_subtype, out->format.media_subtype);
 			return -ENOTSUP;
 		}
 		break;
@@ -915,10 +920,13 @@ static int setup_convert(struct impl *this)
 			}
 			break;
 		case SPA_MEDIA_SUBTYPE_raw:
-			out->pix_fmt = format_to_pix_fmt(out->format.info.raw.format);
+		case SPA_MEDIA_SUBTYPE_dsp:
+			out->pix_fmt = format_to_pix_fmt(out_format);
 			decoder_id = AV_CODEC_ID_MJPEG;
 			break;
 		default:
+			spa_log_warn(this->log, "%p: in_subtype:%d out_subtype:%d", this,
+					in->format.media_subtype, out->format.media_subtype);
 			return -ENOTSUP;
 		}
 		break;
@@ -931,14 +939,19 @@ static int setup_convert(struct impl *this)
 				encoder_id = decoder_id = AV_CODEC_ID_H264;
 			break;
 		case SPA_MEDIA_SUBTYPE_raw:
-			out->pix_fmt = format_to_pix_fmt(out->format.info.raw.format);
+		case SPA_MEDIA_SUBTYPE_dsp:
+			out->pix_fmt = format_to_pix_fmt(out_format);
 			decoder_id = AV_CODEC_ID_H264;
 			break;
 		default:
+			spa_log_warn(this->log, "%p: in_subtype:%d out_subtype:%d", this,
+					in->format.media_subtype, out->format.media_subtype);
 			return -ENOTSUP;
 		}
 		break;
 	default:
+		spa_log_warn(this->log, "%p: in_subtype:%d out_subtype:%d", this,
+				in->format.media_subtype, out->format.media_subtype);
 		return -ENOTSUP;
 	}
 
@@ -1099,8 +1112,8 @@ static int port_enum_formats(void *object,
 	switch (index) {
 	case 0:
 		if (PORT_IS_DSP(this, direction, port_id)) {
-			struct spa_video_info_dsp info;
-			info.format = SPA_VIDEO_FORMAT_DSP_F32;
+			struct spa_video_info_dsp info = SPA_VIDEO_INFO_DSP_INIT(
+					.format = SPA_VIDEO_FORMAT_DSP_F32);
 			*param = spa_format_video_dsp_build(builder,
 				SPA_PARAM_EnumFormat, &info);
 		} else if (PORT_IS_CONTROL(this, direction, port_id)) {
@@ -1495,9 +1508,12 @@ static int port_set_format(void *object,
 
 	if (format == NULL) {
 		port->have_format = false;
+		this->setup = false;
 		this->fmt_passthrough = false;
 		clear_buffers(this, port);
 	} else {
+		struct dir *dir = &this->dir[direction];
+		struct dir *odir = &this->dir[SPA_DIRECTION_REVERSE(direction)];
 		struct spa_video_info info = { 0 };
 
 		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0) {
@@ -1522,6 +1538,7 @@ static int port_set_format(void *object,
 			}
 			port->blocks = 1;
 			port->stride = 16;
+			dir->have_format = true;
 		}
 		else if (PORT_IS_CONTROL(this, direction, port_id)) {
 			if (info.media_type != SPA_MEDIA_TYPE_application ||
@@ -1532,10 +1549,9 @@ static int port_set_format(void *object,
 			}
 			port->blocks = 1;
 			port->stride = 1;
+			dir->have_format = true;
 		}
 		else {
-			struct dir *dir = &this->dir[direction];
-			struct dir *odir = &this->dir[SPA_DIRECTION_REVERSE(direction)];
 			enum AVPixelFormat pix_fmt;
 
 			if (info.media_type != SPA_MEDIA_TYPE_video) {
@@ -1587,13 +1603,17 @@ static int port_set_format(void *object,
 				this->fmt_passthrough =
 					(memcmp(&odir->format, &dir->format, sizeof(dir->format)) == 0);
 			}
-			this->setup = false;
 		}
 		port->format = info;
 		port->have_format = true;
+		this->setup = false;
 
 		spa_log_debug(this->log, "%p: %d %d %d", this,
 				port_id, port->stride, port->blocks);
+
+		if (dir->have_format && odir->have_format)
+			if ((res = setup_convert(this)) < 0)
+				return res;
 	}
 
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;

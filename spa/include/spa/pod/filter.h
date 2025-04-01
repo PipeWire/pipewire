@@ -139,7 +139,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	    const struct spa_pod_prop *p2)
 {
 	const struct spa_pod *v1, *v2;
-	struct spa_pod_choice *nc;
+	struct spa_pod_choice *nc, dummy;
 	uint32_t j, k, nalt1, nalt2;
 	void *alt1, *alt2, *a1, *a2;
 	uint32_t type, size, p1c, p2c;
@@ -175,6 +175,10 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	spa_pod_builder_prop(b, p1->key, p1->flags & p2->flags);
 	spa_pod_builder_push_choice(b, &f, 0, 0);
 	nc = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f);
+	/* write to dummy value when builder overflows. We don't want to error
+	 * because overflowing is a way to determine the required buffer size. */
+	if (nc == NULL)
+		nc = &dummy;
 
 	/* default value */
 	spa_pod_builder_primitive(b, v1);

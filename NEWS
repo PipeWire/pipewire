@@ -1,3 +1,37 @@
+# PipeWire 1.4.2 (2025-04-14)
+
+This is a bugfix release that is API and ABI compatible with
+previous 1.x releases.
+
+## Highlights
+  - Do extra checks for MIDI to avoid 100% CPU usage on older kernels.
+  - Fix some potential crashes in POD builder.
+  - pw-cat streaming improvements on stdout/stdin.
+  - Small fixes and improvements.
+
+
+## PipeWire
+  - Make the service files depend on DBus to avoid startup races.
+
+## SPA
+  - Do extra checks for MIDI to avoid 100% CPU usage on older kernels.
+  - Use Header metadata by default in videoadapter.
+  - Handle set_format result from v4l2 better.
+  - Handle crash when POD builder overflows in the filter.
+  - Work around a libebur128 bug. (#4646)
+
+## Tools
+  - pw-cat prefers AU format when streaming on stdout/stdin. (#4629)
+  - Improve pw-cat verbose sndfile format debug.
+  - Add the missing --channel-map long option to pw-loopback.
+
+## GStreamer
+  - Fix a leak in the deviceprovider. (#4616)
+  - Fix negotiation and make renegotiation better.
+
+
+Older versions:
+
 # PipeWire 1.4.1 (2025-03-14)
 
 This is a quick bugfix release that is API and ABI compatible with
@@ -34,9 +68,6 @@ previous 1.x releases.
 
 ## Bluetooth
   - Fix a crash with an incomming call.
-
-
-Older versions:
 
 # PipeWire 1.4.0 (2025-03-06)
 

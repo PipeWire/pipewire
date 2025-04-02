@@ -157,8 +157,8 @@ struct avb_aem_audio_mapping_format {
 } __attribute__ ((__packed__));
 
 struct avb_aem_desc_audio_map {
-	uint32_t mapping_offset;
-	uint32_t number_of_mappings;
+	uint16_t mapping_offset;
+	uint16_t number_of_mappings;
 	struct avb_aem_audio_mapping_format mappings[0];
 } __attribute__ ((__packed__));
 

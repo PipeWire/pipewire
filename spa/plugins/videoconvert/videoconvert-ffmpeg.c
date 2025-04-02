@@ -1938,8 +1938,8 @@ static int impl_node_process(void *object)
 		f->format = in->pix_fmt;
 		f->width = in->width;
 		f->height = in->height;
-		for (uint_fast32_t i = 0; i < sbuf->buf->n_datas; ++i) {
-			spa_log_trace(this->log, "in %d %ld %p %d", sbuf->id, i,
+		for (uint32_t i = 0; i < sbuf->buf->n_datas; ++i) {
+			spa_log_trace(this->log, "in %u %u %p %d", sbuf->id, i,
 					sbuf->datas[i], sbuf->buf->datas[i].chunk->size);
 			datas[i] = f->data[i] = sbuf->datas[i];
 			strides[i] = f->linesize[i] = sbuf->buf->datas[i].chunk->stride;
@@ -1960,7 +1960,7 @@ static int impl_node_process(void *object)
 		spa_log_trace(this->log, "convert");
 		sws_scale_frame(this->convert.context, this->convert.frame, f);
 		f = this->convert.frame;
-		for (uint_fast32_t i = 0; i < dbuf->buf->n_datas; ++i) {
+		for (uint32_t i = 0; i < dbuf->buf->n_datas; ++i) {
 			datas[i] = f->data[i];
 			strides[i] = f->linesize[i];
 			sizes[i] = out->size[i];
@@ -1983,7 +1983,7 @@ static int impl_node_process(void *object)
 	}
 
 	/* write to output */
-	for (uint_fast32_t i = 0; i < dbuf->buf->n_datas; ++i) {
+	for (uint32_t i = 0; i < dbuf->buf->n_datas; ++i) {
 		if (SPA_FLAG_IS_SET(dbuf->buf->datas[i].flags, SPA_DATA_FLAG_DYNAMIC))
 			dbuf->buf->datas[i].data = datas[i];
 		else if (datas[i] && dbuf->datas[i] && dbuf->datas[i] != datas[i])
@@ -1993,7 +1993,7 @@ static int impl_node_process(void *object)
 			dbuf->buf->datas[i].chunk->stride = strides[i];
 			dbuf->buf->datas[i].chunk->size = sizes[i];
 		}
-		spa_log_trace(this->log, "out %d %ld %p %d", dbuf->id, i,
+		spa_log_trace(this->log, "out %u %u %p %d", dbuf->id, i,
 				dbuf->buf->datas[i].data,
 				dbuf->buf->datas[i].chunk->size);
 	}

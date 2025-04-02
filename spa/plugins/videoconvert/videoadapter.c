@@ -964,6 +964,8 @@ found:
 	format = merge_objects(this, &b, SPA_PARAM_Format,
 			(struct spa_pod_object*)format,
 			(struct spa_pod_object*)def);
+	if (format == NULL)
+		return -ENOSPC;
 
 	spa_pod_fixate(format);
 

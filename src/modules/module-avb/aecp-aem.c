@@ -32,9 +32,11 @@ static int reply_success(struct aecp *aecp, const void *m, int len)
 /* ACQUIRE_ENTITY */
 static int handle_acquire_entity(struct aecp *aecp, const void *m, int len)
 {
-	struct server *server = aecp->server;
 	const struct avb_packet_aecp_aem *p = m;
+#ifndef USE_MILAN
 	const struct avb_packet_aecp_aem_acquire *ae;
+	struct server *server = aecp->server;
+
 	const struct descriptor *desc;
 	uint16_t desc_type, desc_id;
 
@@ -47,10 +49,17 @@ static int handle_acquire_entity(struct aecp *aecp, const void *m, int len)
 	if (desc == NULL)
 		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
 
+#endif
+
+#ifdef USE_MILAN
+	return reply_status(aecp, AVB_AECP_AEM_STATUS_NOT_SUPPORTED, p, len);
+
+#else // USE_MILAN
 	if (desc_type != AVB_AEM_DESC_ENTITY || desc_id != 0)
 		return reply_not_implemented(aecp, m, len);
 
 	return reply_success(aecp, m, len);
+#endif // USE_MILAN
 }
 
 /* LOCK_ENTITY */
@@ -74,6 +83,14 @@ static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
 	if (desc_type != AVB_AEM_DESC_ENTITY || desc_id != 0)
 		return reply_not_implemented(aecp, m, len);
 
+	return reply_success(aecp, m, len);
+}
+
+/* ENTITY AVAILABLE according to the locking state */
+static int handle_entity_available(struct aecp *aecp, const void *m, int len)
+{
+	// TODO
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_success(aecp, m, len);
 }
 
@@ -117,6 +134,135 @@ static int handle_read_descriptor(struct aecp *aecp, const void *m, int len)
 	AVB_PACKET_SET_LENGTH(&reply->aecp.hdr, psize + 12);
 
 	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, size);
+}
+
+static int handle_set_configuration(struct aecp *aecp, const void *m, int len)
+{
+	// TODO
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_get_configuration(struct aecp *aecp, const void *m, int len)
+{
+	// TODO
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_set_stream_format(struct aecp *aecp, const void *m, int len)
+{
+	// TODO
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_get_stream_format(struct aecp *aecp, const void *m, int len)
+{
+	// TODO
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_set_stream_info(struct aecp *aecp, const void *m, int len)
+{
+	// TODO
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_get_stream_info(struct aecp *aecp, const void *m, int len)
+{
+	// TODO difference with the stream input or the stream output
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_set_name(struct aecp *aecp, const void *m, int len)
+{
+	//TODO
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_get_name(struct aecp *aecp, const void *m, int len)
+{
+	//TODO
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_set_sampling_rate(struct aecp *aecp, const void *m, int len)
+{
+	//TODO
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_get_sampling_rate(struct aecp *aecp, const void *m, int len)
+{
+	//TODO
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_get_clock_source(struct aecp *aecp, const void *m, int len)
+{
+	//TODO
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_set_clock_source(struct aecp *aecp, const void *m, int len)
+{
+	//TODO
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_set_control(struct aecp *aecp, const void *m, int len)
+{
+	//TODO
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_get_control(struct aecp *aecp, const void *m, int len)
+{
+	//TODO
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+
+}
+
+static int handle_start_streaming(struct aecp *aecp, const void *m, int len)
+{
+	//TODO
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+
+}
+
+static int handle_stop_streaming(struct aecp *aecp, const void *m, int len)
+{
+	//TODO
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+
+static int handle_register_unsol_notifications(struct aecp *aecp, const void *m, int len)
+{
+	// TODO action to provide update every seconds see state machines
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+ 
+static int handle_deregister_unsol_notifications(struct aecp *aecp, const void *m, int len)
+{
+	// TODO action to provide update every seconds see state machines
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
 }
 
 /* GET_AVB_INFO */
@@ -168,6 +314,42 @@ static int handle_get_avb_info(struct aecp *aecp, const void *m, int len)
 	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, size);
 }
 
+static int handle_get_as_path(struct aecp *aecp, const void *m, int len)
+{
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_get_counters(struct aecp *aecp, const void *m, int len)
+{
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_get_audio_map(struct aecp *aecp, const void *m, int len)
+{
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_add_audio_mappings(struct aecp *aecp, const void *m, int len)
+{
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_remove_audio_mappings(struct aecp *aecp, const void *m, int len)
+{
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
+static int handle_get_dynamic_info(struct aecp *aecp, const void *m, int len)
+{
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+}
+
 /* AEM_COMMAND */
 struct cmd_info {
 	uint16_t type;
@@ -178,30 +360,30 @@ struct cmd_info {
 static const struct cmd_info cmd_info[] = {
 	{ AVB_AECP_AEM_CMD_ACQUIRE_ENTITY, "acquire-entity", handle_acquire_entity, },
 	{ AVB_AECP_AEM_CMD_LOCK_ENTITY, "lock-entity", handle_lock_entity, },
-	{ AVB_AECP_AEM_CMD_ENTITY_AVAILABLE, "entity-available", NULL, },
+	{ AVB_AECP_AEM_CMD_ENTITY_AVAILABLE, "entity-available", handle_entity_available, },
 	{ AVB_AECP_AEM_CMD_CONTROLLER_AVAILABLE, "controller-available", NULL, },
 	{ AVB_AECP_AEM_CMD_READ_DESCRIPTOR, "read-descriptor", handle_read_descriptor, },
 	{ AVB_AECP_AEM_CMD_WRITE_DESCRIPTOR, "write-descriptor", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_CONFIGURATION, "set-configuration", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_CONFIGURATION, "get-configuration", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_STREAM_FORMAT, "set-stream-format", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_STREAM_FORMAT, "get-stream-format", NULL, },
+	{ AVB_AECP_AEM_CMD_SET_CONFIGURATION, "set-configuration", handle_set_configuration, },
+	{ AVB_AECP_AEM_CMD_GET_CONFIGURATION, "get-configuration", handle_get_configuration, },
+	{ AVB_AECP_AEM_CMD_SET_STREAM_FORMAT, "set-stream-format", handle_set_stream_format, },
+	{ AVB_AECP_AEM_CMD_GET_STREAM_FORMAT, "get-stream-format", handle_get_stream_format, },
 	{ AVB_AECP_AEM_CMD_SET_VIDEO_FORMAT, "set-video-format", NULL, },
 	{ AVB_AECP_AEM_CMD_GET_VIDEO_FORMAT, "get-video-format", NULL, },
 	{ AVB_AECP_AEM_CMD_SET_SENSOR_FORMAT, "set-sensor-format", NULL, },
 	{ AVB_AECP_AEM_CMD_GET_SENSOR_FORMAT, "get-sensor-format", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_STREAM_INFO, "set-stream-info", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_STREAM_INFO, "get-stream-info", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_NAME, "set-name", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_NAME, "get-name", NULL, },
+	{ AVB_AECP_AEM_CMD_SET_STREAM_INFO, "set-stream-info", handle_set_stream_info, },
+	{ AVB_AECP_AEM_CMD_GET_STREAM_INFO, "get-stream-info", handle_get_stream_info, },
+	{ AVB_AECP_AEM_CMD_SET_NAME, "set-name", handle_set_name, },
+	{ AVB_AECP_AEM_CMD_GET_NAME, "get-name", handle_get_name, },
 	{ AVB_AECP_AEM_CMD_SET_ASSOCIATION_ID, "set-association-id", NULL, },
 	{ AVB_AECP_AEM_CMD_GET_ASSOCIATION_ID, "get-association-id", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_SAMPLING_RATE, "set-sampling-rate", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_SAMPLING_RATE, "get-sampling-rate", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_CLOCK_SOURCE, "set-clock-source", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_CLOCK_SOURCE, "get-clock-source", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_CONTROL, "set-control", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_CONTROL, "get-control", NULL, },
+	{ AVB_AECP_AEM_CMD_SET_SAMPLING_RATE, "set-sampling-rate", handle_set_sampling_rate, },
+	{ AVB_AECP_AEM_CMD_GET_SAMPLING_RATE, "get-sampling-rate", handle_get_sampling_rate, },
+	{ AVB_AECP_AEM_CMD_SET_CLOCK_SOURCE, "set-clock-source", handle_set_clock_source, },
+	{ AVB_AECP_AEM_CMD_GET_CLOCK_SOURCE, "get-clock-source", handle_get_clock_source, },
+	{ AVB_AECP_AEM_CMD_SET_CONTROL, "set-control", handle_set_control, },
+	{ AVB_AECP_AEM_CMD_GET_CONTROL, "get-control", handle_get_control, },
 	{ AVB_AECP_AEM_CMD_INCREMENT_CONTROL, "increment-control", NULL, },
 	{ AVB_AECP_AEM_CMD_DECREMENT_CONTROL, "decrement-control", NULL, },
 	{ AVB_AECP_AEM_CMD_SET_SIGNAL_SELECTOR, "set-signal-selector", NULL, },
@@ -210,22 +392,23 @@ static const struct cmd_info cmd_info[] = {
 	{ AVB_AECP_AEM_CMD_GET_MIXER, "get-mixer", NULL, },
 	{ AVB_AECP_AEM_CMD_SET_MATRIX, "set-matrix", NULL, },
 	{ AVB_AECP_AEM_CMD_GET_MATRIX, "get-matrix", NULL, },
-	{ AVB_AECP_AEM_CMD_START_STREAMING, "start-streaming", NULL, },
-	{ AVB_AECP_AEM_CMD_STOP_STREAMING, "stop-streaming", NULL, },
-	{ AVB_AECP_AEM_CMD_REGISTER_UNSOLICITED_NOTIFICATION, "register-unsolicited-notification", NULL, },
-	{ AVB_AECP_AEM_CMD_DEREGISTER_UNSOLICITED_NOTIFICATION, "deregister-unsolicited-notification", NULL, },
+	{ AVB_AECP_AEM_CMD_START_STREAMING, "start-streaming", handle_start_streaming, },
+	{ AVB_AECP_AEM_CMD_STOP_STREAMING, "stop-streaming", handle_stop_streaming, },
+	{ AVB_AECP_AEM_CMD_REGISTER_UNSOLICITED_NOTIFICATION, "register-unsolicited-notification", handle_register_unsol_notifications, },
+	{ AVB_AECP_AEM_CMD_DEREGISTER_UNSOLICITED_NOTIFICATION, "deregister-unsolicited-notification", handle_deregister_unsol_notifications, },
 	{ AVB_AECP_AEM_CMD_IDENTIFY_NOTIFICATION, "identify-notification", NULL, },
 	{ AVB_AECP_AEM_CMD_GET_AVB_INFO, "get-avb-info", handle_get_avb_info, },
-	{ AVB_AECP_AEM_CMD_GET_AS_PATH, "get-as-path", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_COUNTERS, "get-counters", NULL, },
+	{ AVB_AECP_AEM_CMD_GET_AS_PATH, "get-as-path", handle_get_as_path, },
+	{ AVB_AECP_AEM_CMD_GET_COUNTERS, "get-counters", handle_get_counters, },
 	{ AVB_AECP_AEM_CMD_REBOOT, "reboot", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_AUDIO_MAP, "get-audio-map", NULL, },
-	{ AVB_AECP_AEM_CMD_ADD_AUDIO_MAPPINGS, "add-audio-mappings", NULL, },
-	{ AVB_AECP_AEM_CMD_REMOVE_AUDIO_MAPPINGS, "remove-audio-mappings", NULL, },
+	{ AVB_AECP_AEM_CMD_GET_AUDIO_MAP, "get-audio-map", handle_get_audio_map, },
+	{ AVB_AECP_AEM_CMD_ADD_AUDIO_MAPPINGS, "add-audio-mappings", handle_add_audio_mappings, },
+	{ AVB_AECP_AEM_CMD_REMOVE_AUDIO_MAPPINGS, "remove-audio-mappings", handle_remove_audio_mappings, },
 	{ AVB_AECP_AEM_CMD_GET_VIDEO_MAP, "get-video-map", NULL, },
 	{ AVB_AECP_AEM_CMD_ADD_VIDEO_MAPPINGS, "add-video-mappings", NULL, },
 	{ AVB_AECP_AEM_CMD_REMOVE_VIDEO_MAPPINGS, "remove-video-mappings", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_SENSOR_MAP, "get-sensor-map", NULL, }
+	{ AVB_AECP_AEM_CMD_GET_SENSOR_MAP, "get-sensor-map", NULL, },
+	{ AVB_AECP_AEM_CMD_GET_DYNAMIC_INFO, "get-dynamic-info", handle_get_dynamic_info,},
 };
 
 static inline const struct cmd_info *find_cmd_info(uint16_t type, const char *name)

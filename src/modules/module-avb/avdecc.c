@@ -29,6 +29,7 @@
 #include "msrp.h"
 #include "mvrp.h"
 #include "descriptors.h"
+#include "aecp-state-vars.h"
 #include "utils.h"
 
 #define DEFAULT_INTERVAL	1
@@ -240,6 +241,7 @@ error_no_source:
 struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
 {
 	struct server *server;
+	struct avb_aecp* _aecp;
 	const char *str;
 	int res = 0;
 
@@ -262,11 +264,14 @@ struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
 
 	init_descriptors(server);
 
+
 	server->mrp = avb_mrp_new(server);
 	if (server->mrp == NULL)
 		goto error_free;
 
-	avb_aecp_register(server);
+	_aecp = avb_aecp_register(server);
+	init_aecp_state_vars((struct aecp *) _aecp);
+
 	server->maap = avb_maap_register(server);
 	server->mmrp = avb_mmrp_register(server);
 	server->msrp = avb_msrp_register(server);
@@ -314,4 +319,9 @@ void avdecc_server_free(struct server *server)
 		pw_loop_destroy_source(impl->loop, server->timer);
 	spa_hook_list_clean(&server->listener_list);
 	free(server);
+}
+
+void avdecc_server_access_lock(struct server *server)
+{
+	// TODO a way to have a single point of lock for ease of debugging.
 }

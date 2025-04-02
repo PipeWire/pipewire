@@ -11,6 +11,7 @@
 #include "aecp-aem.h"
 #include "internal.h"
 
+
 static const uint8_t mac[6] = AVB_BROADCAST_MAC;
 
 struct msg_info {
@@ -137,12 +138,15 @@ struct avb_aecp *avb_aecp_register(struct server *server)
 
 	aecp->server = server;
 
-	avdecc_server_add_listener(server, &aecp->server_listener, &server_events, aecp);
+	avdecc_server_add_listener(server, &aecp->server_listener,
+								 &server_events, aecp);
 
 	return (struct avb_aecp*)aecp;
 }
 
 void avb_aecp_unregister(struct avb_aecp *aecp)
 {
-	aecp_destroy(aecp);
+	struct aecp *_aecp = (struct aecp*) aecp;
+
+	aecp_destroy(_aecp);
 }

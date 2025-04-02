@@ -68,6 +68,7 @@ struct server {
 	struct spa_hook_list listener_list;
 
 	struct spa_list descriptors;
+	struct spa_list aecp_aem_states;
 	struct spa_list streams;
 
 	unsigned debug_messages:1;
@@ -135,11 +136,59 @@ int avb_server_make_socket(struct server *server, uint16_t type, const uint8_t m
 int avb_server_send_packet(struct server *server, const uint8_t dest[6],
 		uint16_t type, void *data, size_t size);
 
+struct aecp_aem_state {
+	/** Linked list information */
+	struct spa_list link;
+
+	/** The type of the aem variable state */
+	int type;
+	uint64_t target_entity_id;
+	size_t size;
+	void *ptr;
+};
 struct aecp {
 	struct server *server;
 	struct spa_hook server_listener;
 };
 
+static inline void *avb_aecp_aem_add_state_var(struct server *srv,
+	uint64_t target_entity_id,	uint16_t type, size_t size)
+{
+	struct aecp_aem_state *ae_state;
+
+	if ((ae_state = calloc(1, sizeof(struct descriptor) + size)) == NULL)
+		return NULL;
+
+	ae_state->type = type;
+	ae_state->size = size;
+	ae_state->target_entity_id = target_entity_id;
+	ae_state->ptr = SPA_PTROFF(ae_state, sizeof(struct aecp_aem_state), void);
+
+	spa_list_append(&srv->aecp_aem_states, &ae_state->link);
+	return ae_state->ptr;
+}
+
+static inline void* avb_aecp_aem_find_state_var(struct server *srv,
+	uint64_t target_entity_id, uint16_t type)
+{
+	struct aecp_aem_state *ae_state;
+	spa_list_for_each(ae_state, &srv->aecp_aem_states, link) {
+		if (ae_state->type == type &&
+			ae_state->target_entity_id == target_entity_id) {
+				return ae_state->ptr;
+			}
+	}
+	return NULL;
+}
+
+static inline int avb_aecp_aem_remove(struct server *srv, void *ptr)
+{
+	struct aecp_aem_state *ae_state = SPA_PTROFF(ptr, -sizeof(struct aecp_aem_state),
+						struct aecp_aem_state);
+
+	spa_list_remove(&ae_state->link);
+	return 0;
+}
 
 #ifdef __cplusplus
 }  /* extern "C" */

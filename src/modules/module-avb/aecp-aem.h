@@ -306,13 +306,13 @@ struct avb_packet_aecp_aem_operation_status {
 struct avb_packet_aecp_aem {
 	struct avb_packet_aecp_header aecp;
 #if __BYTE_ORDER == __BIG_ENDIAN
-	unsigned u:1;
-	unsigned cr:1;
-	unsigned cmd1:6;
+	uint8_t u:1;
+	uint8_t cr:1;
+	uint8_t cmd1:6;
 #elif __BYTE_ORDER == __LITTLE_ENDIAN
-	unsigned cmd1:6;
-	unsigned cr:1;
-	unsigned u:1;
+	uint8_t cmd1:6;
+	uint8_t cr:1;
+	uint8_t u:1;
 #endif
 	uint8_t cmd2;
 	uint8_t payload[0];

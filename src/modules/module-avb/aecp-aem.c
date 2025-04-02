@@ -32,8 +32,8 @@ static int reply_success(struct aecp *aecp, const void *m, int len)
 /* ACQUIRE_ENTITY */
 static int handle_acquire_entity(struct aecp *aecp, const void *m, int len)
 {
-	const struct avb_packet_aecp_aem *p = m;
 #ifndef USE_MILAN
+	const struct avb_packet_aecp_aem *p = m;
 	const struct avb_packet_aecp_aem_acquire *ae;
 	struct server *server = aecp->server;
 
@@ -52,7 +52,7 @@ static int handle_acquire_entity(struct aecp *aecp, const void *m, int len)
 #endif
 
 #ifdef USE_MILAN
-	return reply_status(aecp, AVB_AECP_AEM_STATUS_NOT_SUPPORTED, p, len);
+	return reply_not_implemented(aecp, m, len);
 
 #else // USE_MILAN
 	if (desc_type != AVB_AEM_DESC_ENTITY || desc_id != 0)
@@ -352,73 +352,193 @@ static int handle_get_dynamic_info(struct aecp *aecp, const void *m, int len)
 
 /* AEM_COMMAND */
 struct cmd_info {
-	uint16_t type;
 	const char *name;
+	const bool is_readonly;
 	int (*handle) (struct aecp *aecp, const void *p, int len);
 };
+#define AECP_AEM_CMD_RESP(cmd, readonly_desc, name_str, handle_exec) \
+		[cmd] = { .name = name_str, .is_readonly = readonly_desc, 	 \
+										 .handle = handle_exec}
 
 static const struct cmd_info cmd_info[] = {
-	{ AVB_AECP_AEM_CMD_ACQUIRE_ENTITY, "acquire-entity", handle_acquire_entity, },
-	{ AVB_AECP_AEM_CMD_LOCK_ENTITY, "lock-entity", handle_lock_entity, },
-	{ AVB_AECP_AEM_CMD_ENTITY_AVAILABLE, "entity-available", handle_entity_available, },
-	{ AVB_AECP_AEM_CMD_CONTROLLER_AVAILABLE, "controller-available", NULL, },
-	{ AVB_AECP_AEM_CMD_READ_DESCRIPTOR, "read-descriptor", handle_read_descriptor, },
-	{ AVB_AECP_AEM_CMD_WRITE_DESCRIPTOR, "write-descriptor", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_CONFIGURATION, "set-configuration", handle_set_configuration, },
-	{ AVB_AECP_AEM_CMD_GET_CONFIGURATION, "get-configuration", handle_get_configuration, },
-	{ AVB_AECP_AEM_CMD_SET_STREAM_FORMAT, "set-stream-format", handle_set_stream_format, },
-	{ AVB_AECP_AEM_CMD_GET_STREAM_FORMAT, "get-stream-format", handle_get_stream_format, },
-	{ AVB_AECP_AEM_CMD_SET_VIDEO_FORMAT, "set-video-format", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_VIDEO_FORMAT, "get-video-format", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_SENSOR_FORMAT, "set-sensor-format", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_SENSOR_FORMAT, "get-sensor-format", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_STREAM_INFO, "set-stream-info", handle_set_stream_info, },
-	{ AVB_AECP_AEM_CMD_GET_STREAM_INFO, "get-stream-info", handle_get_stream_info, },
-	{ AVB_AECP_AEM_CMD_SET_NAME, "set-name", handle_set_name, },
-	{ AVB_AECP_AEM_CMD_GET_NAME, "get-name", handle_get_name, },
-	{ AVB_AECP_AEM_CMD_SET_ASSOCIATION_ID, "set-association-id", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_ASSOCIATION_ID, "get-association-id", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_SAMPLING_RATE, "set-sampling-rate", handle_set_sampling_rate, },
-	{ AVB_AECP_AEM_CMD_GET_SAMPLING_RATE, "get-sampling-rate", handle_get_sampling_rate, },
-	{ AVB_AECP_AEM_CMD_SET_CLOCK_SOURCE, "set-clock-source", handle_set_clock_source, },
-	{ AVB_AECP_AEM_CMD_GET_CLOCK_SOURCE, "get-clock-source", handle_get_clock_source, },
-	{ AVB_AECP_AEM_CMD_SET_CONTROL, "set-control", handle_set_control, },
-	{ AVB_AECP_AEM_CMD_GET_CONTROL, "get-control", handle_get_control, },
-	{ AVB_AECP_AEM_CMD_INCREMENT_CONTROL, "increment-control", NULL, },
-	{ AVB_AECP_AEM_CMD_DECREMENT_CONTROL, "decrement-control", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_SIGNAL_SELECTOR, "set-signal-selector", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_SIGNAL_SELECTOR, "get-signal-selector", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_MIXER, "set-mixer", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_MIXER, "get-mixer", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_MATRIX, "set-matrix", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_MATRIX, "get-matrix", NULL, },
-	{ AVB_AECP_AEM_CMD_START_STREAMING, "start-streaming", handle_start_streaming, },
-	{ AVB_AECP_AEM_CMD_STOP_STREAMING, "stop-streaming", handle_stop_streaming, },
-	{ AVB_AECP_AEM_CMD_REGISTER_UNSOLICITED_NOTIFICATION, "register-unsolicited-notification", handle_register_unsol_notifications, },
-	{ AVB_AECP_AEM_CMD_DEREGISTER_UNSOLICITED_NOTIFICATION, "deregister-unsolicited-notification", handle_deregister_unsol_notifications, },
-	{ AVB_AECP_AEM_CMD_IDENTIFY_NOTIFICATION, "identify-notification", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_AVB_INFO, "get-avb-info", handle_get_avb_info, },
-	{ AVB_AECP_AEM_CMD_GET_AS_PATH, "get-as-path", handle_get_as_path, },
-	{ AVB_AECP_AEM_CMD_GET_COUNTERS, "get-counters", handle_get_counters, },
-	{ AVB_AECP_AEM_CMD_REBOOT, "reboot", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_AUDIO_MAP, "get-audio-map", handle_get_audio_map, },
-	{ AVB_AECP_AEM_CMD_ADD_AUDIO_MAPPINGS, "add-audio-mappings", handle_add_audio_mappings, },
-	{ AVB_AECP_AEM_CMD_REMOVE_AUDIO_MAPPINGS, "remove-audio-mappings", handle_remove_audio_mappings, },
-	{ AVB_AECP_AEM_CMD_GET_VIDEO_MAP, "get-video-map", NULL, },
-	{ AVB_AECP_AEM_CMD_ADD_VIDEO_MAPPINGS, "add-video-mappings", NULL, },
-	{ AVB_AECP_AEM_CMD_REMOVE_VIDEO_MAPPINGS, "remove-video-mappings", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_SENSOR_MAP, "get-sensor-map", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_DYNAMIC_INFO, "get-dynamic-info", handle_get_dynamic_info,},
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_ACQUIRE_ENTITY, false,
+						"acquire-entity", handle_acquire_entity),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_LOCK_ENTITY, true,
+						"lock-entity", handle_lock_entity),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_ENTITY_AVAILABLE, true,
+						"entity-available", handle_entity_available),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_CONTROLLER_AVAILABLE, true,
+						"controller-available", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_READ_DESCRIPTOR, true,
+						"read-descriptor", handle_read_descriptor),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_WRITE_DESCRIPTOR, false,
+						"write-descriptor", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_CONFIGURATION, false,
+						"set-configuration", handle_set_configuration),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_CONFIGURATION, true,
+						"get-configuration", handle_get_configuration),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_STREAM_FORMAT, false,
+						"set-stream-format", handle_set_stream_format),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_STREAM_FORMAT, true,
+						"get-stream-format", handle_get_stream_format),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_VIDEO_FORMAT, false,
+						"set-video-format", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_VIDEO_FORMAT, true,
+						"get-video-format", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_SENSOR_FORMAT, false,
+						"set-sensor-format", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_SENSOR_FORMAT, true,
+						"get-sensor-format", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_STREAM_INFO, false,
+						"set-stream-info", handle_set_stream_info),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_STREAM_INFO, true,
+						"get-stream-info", handle_get_stream_info),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_NAME, false,
+						"set-name", handle_set_name),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_NAME, true,
+						"get-name", handle_get_name),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_ASSOCIATION_ID, false,
+						"set-association-id", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_ASSOCIATION_ID, true,
+						"get-association-id", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_SAMPLING_RATE, false,
+						"set-sampling-rate", handle_set_sampling_rate),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_SAMPLING_RATE, true,
+						"get-sampling-rate", handle_get_sampling_rate),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_CLOCK_SOURCE, false,
+						"set-clock-source", handle_set_clock_source),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_CLOCK_SOURCE, true,
+						"get-clock-source", handle_get_clock_source),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_CONTROL, false,
+						"set-control", handle_set_control),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_CONTROL, true,
+						"get-control", handle_get_control),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_INCREMENT_CONTROL, false,
+						"increment-control", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_DECREMENT_CONTROL, false,
+						"decrement-control", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_SIGNAL_SELECTOR, false,
+						"set-signal-selector", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_SIGNAL_SELECTOR, true,
+						"get-signal-selector", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_MIXER, false,
+						"set-mixer", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_MIXER, true,
+						"get-mixer", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_MATRIX, false,
+						"set-matrix", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_MATRIX, true,
+						"get-matrix", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_START_STREAMING, false,
+						"start-streaming", handle_start_streaming),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_STOP_STREAMING, false,
+						"stop-streaming", handle_stop_streaming),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_REGISTER_UNSOLICITED_NOTIFICATION,
+						 false, "register-unsolicited-notification",
+						 handle_register_unsol_notifications),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_DEREGISTER_UNSOLICITED_NOTIFICATION,
+						 false, "deregister-unsolicited-notification",
+						 handle_deregister_unsol_notifications),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_IDENTIFY_NOTIFICATION, true,
+						"identify-notification", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_AVB_INFO, true,
+						"get-avb-info", handle_get_avb_info),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_AS_PATH, true,
+						"get-as-path", handle_get_as_path),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_COUNTERS, true,
+						"get-counters", handle_get_counters),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_REBOOT, false,
+						"reboot", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_AUDIO_MAP, true,
+						"get-audio-map", handle_get_audio_map),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_ADD_AUDIO_MAPPINGS, false,
+						"add-audio-mappings", handle_add_audio_mappings),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_REMOVE_AUDIO_MAPPINGS, false,
+						"remove-audio-mappings", handle_remove_audio_mappings),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_VIDEO_MAP, true,
+						"get-video-map", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_ADD_VIDEO_MAPPINGS, false,
+						"add-video-mappings", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_REMOVE_VIDEO_MAPPINGS, false,
+						"remove-video-mappings", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_SENSOR_MAP, true,
+						"get-sensor-map", NULL),
+
+	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_DYNAMIC_INFO, true,
+						"get-dynamic-info", handle_get_dynamic_info),
+
 };
 
 static inline const struct cmd_info *find_cmd_info(uint16_t type, const char *name)
 {
-	SPA_FOR_EACH_ELEMENT_VAR(cmd_info, i) {
-		if ((name == NULL && type == i->type) ||
-		    (name != NULL && spa_streq(name, i->name)))
-			return i;
+	if (type > (sizeof(cmd_info) / sizeof(cmd_info[0]))) {
+		pw_log_error("Invalid Command Type %u\n", type);
+		return NULL;
 	}
-	return NULL;
+
+	return &cmd_info[type];
+}
+
+static inline bool check_locked(struct aecp *aecp)
+{
+	pw_log_info("Accessing %s, current entity is %s\n",
+				 cmd_info->is_readonly? "ro" : "wo", "locked");
+
+	// struct aecp_aem_lock =
+	// 		server_find_aecp_aem_state(struct aecp_aem_server* server, controller_id,
+	// 	entity_id);
+
+
+	return true;
 }
 
 int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len)

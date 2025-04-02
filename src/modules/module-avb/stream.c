@@ -13,6 +13,7 @@
 #include <spa/pod/builder.h>
 #include <spa/param/audio/format-utils.h>
 
+#include "aaf.h"
 #include "iec61883.h"
 #include "stream.h"
 #include "utils.h"
@@ -445,6 +446,28 @@ error_close:
 	return res;
 }
 
+static void handle_aaf_packet(struct stream *stream,
+		struct avb_packet_aaf *p, int len)
+{
+	uint32_t index, n_bytes;
+	int32_t filled;
+
+	filled = spa_ringbuffer_get_write_index(&stream->ring, &index);
+	n_bytes = ntohs(p->data_len) - 8;
+
+	if (filled + n_bytes > stream->buffer_size) {
+		pw_log_debug("capture overrun");
+	} else {
+		spa_ringbuffer_write_data(&stream->ring,
+				stream->buffer_data,
+				stream->buffer_size,
+				index % stream->buffer_size,
+				p->payload, n_bytes);
+		index += n_bytes;
+		spa_ringbuffer_write_update(&stream->ring, index);
+	}
+}
+
 static void handle_iec61883_packet(struct stream *stream,
 		struct avb_packet_iec61883 *p, int len)
 {
@@ -486,12 +509,26 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 		} else {
 			struct avb_frame_header *h = (void*)buffer;
 			struct avb_packet_iec61883 *p = SPA_PTROFF(h, sizeof(*h), void);
-
-			if (memcmp(h->dest, stream->addr, 6) != 0 ||
-			    p->subtype != AVB_SUBTYPE_61883_IIDC)
+			if (memcmp(h->dest, stream->addr, 6) != 0) {
 				return;
+			}
 
-			handle_iec61883_packet(stream, p, len - sizeof(*h));
+			switch (p->subtype)  {
+				case 0: {
+						handle_iec61883_packet(stream, p, len - sizeof(*h));
+					}
+					break;
+				case 2: {
+						struct avb_frame_header *h = (void*)buffer;
+						struct avb_packet_aaf *paa = (struct avb_packet_aaf*)p;
+
+						handle_aaf_packet(stream, paa, len - sizeof(*h));
+					}
+					break;
+				default:
+					pw_log_warn("Unsupported subtype %x\n", p->subtype);
+					break;
+			}
 		}
 	}
 }

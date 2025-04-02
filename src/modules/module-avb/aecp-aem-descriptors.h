@@ -127,6 +127,26 @@ struct avb_aem_desc_audio_unit {
 	struct avb_aem_desc_sampling_rate sampling_rates[0];
 } __attribute__ ((__packed__));
 
+#define AVB_AEM_AUDIO_CLUSTER_TYPE_IEC60958 0
+#define AVB_AEM_AUDIO_CLUSTER_TYPE_MBLA 	0x40
+#define AVB_AEM_AUDIO_CLUSTER_TYPE_MIDI 	0x80
+#define AVB_AEM_AUDIO_CLUSTER_TYPE_SMPTE 	0x88
+
+struct avb_aem_desc_audio_cluster {
+	char object_name[64];
+	uint16_t localized_description;
+
+	uint16_t signal_type;
+	uint16_t signal_index;
+	uint16_t signal_output;
+	uint32_t path_latency;
+	uint32_t block_latency;
+	uint16_t channel_count;
+	uint8_t  format;
+	uint8_t  aes3_data_type_ref;
+	uint16_t aes3_data_type;
+} __attribute__ ((__packed__));
+
 #define AVB_AEM_DESC_STREAM_FLAG_SYNC_SOURCE			(1u<<0)
 #define AVB_AEM_DESC_STREAM_FLAG_CLASS_A			(1u<<1)
 #define AVB_AEM_DESC_STREAM_FLAG_CLASS_B			(1u<<2)

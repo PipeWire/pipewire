@@ -63,4 +63,6 @@ static inline int avb_utils_parse_addr(const char *str, int len, uint8_t addr[6]
 	return 0;
 }
 
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
+
 #endif /* AVB_UTILS_H */

@@ -306,14 +306,36 @@ struct avb_packet_aecp_aem {
 	struct avb_packet_aecp_header aecp;
 #if __BYTE_ORDER == __BIG_ENDIAN
 	unsigned u:1;
-	unsigned cmd1:7;
+	unsigned cr:1;
+	unsigned cmd1:6;
 #elif __BYTE_ORDER == __LITTLE_ENDIAN
-	unsigned cmd1:7;
+	unsigned cmd1:6;
+	unsigned cr:1;
 	unsigned u:1;
 #endif
 	uint8_t cmd2;
 	uint8_t payload[0];
 } __attribute__ ((__packed__));
+
+#ifdef USE_MILAN
+
+#define AECP_AVB_VENDOR_UNIQUE_PROTOCOL_ID_MILAN (0x001BC50AC100ULL)
+
+struct avb_packet_aecp_milan_vendor_unique {
+	struct avb_packet_aecp_header aecp;
+	// TODO thing how to improve
+	uint8_t protocol_id[6];
+#if __BYTE_ORDER == __BIG_ENDIAN
+	unsigned r:1;
+	unsigned command_type:15;
+#elif __BYTE_ORDER == __LITTLE_ENDIAN
+	unsigned command_type:15;
+	unsigned r:1;
+#endif
+	uint8_t payload[0];
+} __attribute__ ((__packed__));
+
+#endif
 
 #define AVB_PACKET_AEM_SET_COMMAND_TYPE(p,v)		((p)->cmd1 = ((v) >> 8),(p)->cmd2 = (v))
 
@@ -321,5 +343,7 @@ struct avb_packet_aecp_aem {
 
 int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len);
 int avb_aecp_aem_handle_response(struct aecp *aecp, const void *m, int len);
+int avb_aecp_vendor_unique_command(struct aecp *aecp, const void *m, int len);
+int avb_aecp_vendor_unique_response(struct aecp *aecp, const void *m, int len);
 
 #endif /* AVB_AEM_H */

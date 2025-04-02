@@ -263,3 +263,33 @@ int avb_aecp_aem_handle_response(struct aecp *aecp, const void *m, int len)
 {
 	return 0;
 }
+
+#ifdef USE_MILAN
+
+static uint64_t avb_general_48_char_to_64bit(const uint8_t *input48)
+{
+	uint64_t output64 = 0;
+	for (uint32_t pos = 0; pos < 6; pos++) {
+		output64 |=  input48[pos] << (pos << 3);
+	}
+
+	return  output64;
+}
+
+int avb_aecp_vendor_unique_command(struct aecp *aecp, const void *m, int len)
+{
+	const struct avb_ethernet_header *h = m;
+	const struct avb_packet_aecp_milan_vendor_unique *p = SPA_PTROFF(h, sizeof(*h), void);
+	uint64_t mvu = avb_general_48_char_to_64bit(p->protocol_id);
+
+	pw_log_warn("Retrieve value of %lu\n", mvu);
+
+	return 0;
+}
+
+int avb_aecp_vendor_unique_response(struct aecp *aecp, const void *m, int len)
+{
+	return 0;
+}
+
+#endif // USE_MILAN

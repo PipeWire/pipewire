@@ -134,7 +134,7 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
         block_size = quantum_limit * pool->audio_info.bpf;
       }
 
-      GST_DEBUG_OBJECT (pool, "setting block size %lu", block_size);
+      GST_DEBUG_OBJECT (pool, "setting block size %zu", block_size);
 
       if (!pool->shm_allocator)
         pool->shm_allocator = gst_shm_allocator_get();

@@ -106,7 +106,7 @@ static inline void init_descriptors(struct server *server)
 			.descriptor_counts_offset = htons(
 				4 + sizeof(struct avb_aem_desc_control)),
 			.number_of_values = htons(1),
-			.signal_type = htons(ffff),
+			.signal_type = htons(0xffff),
 			.signal_index = htons(0),
 			.signal_output = htons(0),
 		},
@@ -126,26 +126,6 @@ static inline void init_descriptors(struct server *server)
 	struct {
 		struct avb_aem_desc_audio_map desc;
 		struct avb_aem_audio_mapping_format maps[8];
-	} __attribute__((__packed__)) maps_output = {
-		.desc = {
-			.mapping_offset = htons(AVB_AEM_AUDIO_MAPPING_FORMAT_OFFSET),
-			.number_of_mappings = htons(8),
-		},
-	};
-
-	for (uint32_t map_idx = 0; map_idx < 8; map_idx++) {
-		maps_output.maps[map_idx].mapping_stream_index    = htons(0);
-		maps_output.maps[map_idx].mapping_cluster_channel = htons(0);
-		maps_output.maps[map_idx].mapping_cluster_offset  = htons(map_idx);
-		maps_output.maps[map_idx].mapping_stream_channel  = htons(map_idx);
-	}
-
-	server_add_descriptor(server, AVB_AEM_DESC_AUDIO_MAP, 0,
-		 sizeof(maps_output), &maps_output);
-
-	struct {
-		struct avb_aem_desc_audio_map desc;
-		struct avb_aem_audio_mapping_format maps[8];
 	} __attribute__((__packed__)) maps_input = {
 		.desc = {
 			.mapping_offset = htons(AVB_AEM_AUDIO_MAPPING_FORMAT_OFFSET),
@@ -156,12 +136,32 @@ static inline void init_descriptors(struct server *server)
 	for (uint32_t map_idx = 0; map_idx < 8; map_idx++) {
 		maps_input.maps[map_idx].mapping_stream_index    = htons(0);
 		maps_input.maps[map_idx].mapping_cluster_channel = htons(0);
-		maps_input.maps[map_idx].mapping_cluster_offset  = htons(8+map_idx);
-		maps_input.maps[map_idx].mapping_stream_channel  = htons(8+map_idx);
+		maps_input.maps[map_idx].mapping_cluster_offset  = htons(map_idx);
+		maps_input.maps[map_idx].mapping_stream_channel  = htons(map_idx);
+	}
+
+	server_add_descriptor(server, AVB_AEM_DESC_AUDIO_MAP, 0,
+		 sizeof(maps_input), &maps_input);
+
+	struct {
+		struct avb_aem_desc_audio_map desc;
+		struct avb_aem_audio_mapping_format maps[8];
+	} __attribute__((__packed__)) maps_output= {
+		.desc = {
+			.mapping_offset = htons(AVB_AEM_AUDIO_MAPPING_FORMAT_OFFSET),
+			.number_of_mappings = htons(8),
+		},
+	};
+
+	for (uint32_t map_idx = 0; map_idx < 8; map_idx++) {
+		maps_output.maps[map_idx].mapping_stream_index    = htons(0);
+		maps_output.maps[map_idx].mapping_cluster_channel = htons(0);
+		maps_output.maps[map_idx].mapping_cluster_offset  = htons(8+map_idx);
+		maps_output.maps[map_idx].mapping_stream_channel  = htons(8+map_idx);
 	}
 
 	server_add_descriptor(server, AVB_AEM_DESC_AUDIO_MAP, 1,
-		 sizeof(maps_input), &maps_input);
+		 sizeof(maps_output), &maps_output);
 
 	struct avb_aem_desc_audio_cluster clusters[16];
 

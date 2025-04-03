@@ -1052,6 +1052,8 @@ gst_pipewire_sink_change_state (GstElement * element, GstStateChange transition)
        * clock to drive the pipeline (and thus the graph). */
       if (this->mode == GST_PIPEWIRE_SINK_MODE_PROVIDE)
         GST_OBJECT_FLAG_UNSET (this, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
+      else
+        GST_OBJECT_FLAG_SET (this, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
 
       /* the initial stream state is active, which is needed for linking and
        * negotiation to happen and the bufferpool to be set up. We don't know

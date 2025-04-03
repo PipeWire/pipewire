@@ -272,7 +272,7 @@ msgstr "Contraròtle automatic del ganh"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2665
 msgid "No Automatic Gain Control"
-msgstr "Pas de contraròtle automatic del ganh"
+msgstr "Cap de contraròtle automatic del ganh"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2666
 msgid "Boost"
@@ -288,7 +288,7 @@ msgstr "Amplificador"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2669
 msgid "No Amplifier"
-msgstr "Pas d'amplificador"
+msgstr "Cap d'amplificador"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2670
 msgid "Bass Boost"
@@ -296,7 +296,7 @@ msgstr "Amplificacion bassas"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2671
 msgid "No Bass Boost"
-msgstr "Pas d'amplificacion de las bassas"
+msgstr "Cap d'amplificacion de las bassas"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2672
 #: spa/plugins/bluez5/bluez5-device.c:1995
@@ -531,12 +531,12 @@ msgstr "Messatjariá mono + Surround 7.1"
 #: spa/plugins/alsa/acp/alsa-mixer.c:4733
 #, c-format
 msgid "%s Output"
-msgstr "%s Sortida"
+msgstr "Sortida %s"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4741
 #, c-format
 msgid "%s Input"
-msgstr "%s Entrada"
+msgstr "Entrada %s"
 
 #: spa/plugins/alsa/acp/alsa-util.c:1220 spa/plugins/alsa/acp/alsa-util.c:1314
 #, c-format

@@ -1328,10 +1328,12 @@ static int rtsp_post_auth_setup_reply(void *data, int status, const struct spa_d
 
 static int rtsp_do_post_auth_setup(struct impl *impl)
 {
-	static const unsigned char content[33] =
-		"\x01"
-		"\x59\x02\xed\xe9\x0d\x4e\xf2\xbd\x4c\xb6\x8a\x63\x30\x03\x82\x07"
-		"\xa9\x4d\xbd\x50\xd8\xaa\x46\x5b\x5d\x8c\x01\x2a\x0c\x7e\x1d\x4e";
+	static const uint8_t content[33] = {
+		0x01,
+		0x59, 0x02, 0xed, 0xe9, 0x0d, 0x4e, 0xf2, 0xbd,
+		0x4c, 0xb6, 0x8a, 0x63, 0x30, 0x03, 0x82, 0x07,
+		0xa9, 0x4d, 0xbd, 0x50, 0xd8, 0xaa, 0x46, 0x5b,
+		0x5d, 0x8c, 0x01, 0x2a, 0x0c, 0x7e, 0x1d, 0x4e };
 
 	return pw_rtsp_client_url_send(impl->rtsp, "/auth-setup", "POST", &impl->headers->dict,
 				       "application/octet-stream", content, sizeof(content),

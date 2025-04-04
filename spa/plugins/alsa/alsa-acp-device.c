@@ -671,8 +671,8 @@ static int apply_device_props(struct impl *this, struct acp_device *dev, struct 
 	struct spa_pod_prop *prop;
 	struct spa_pod_object *obj = (struct spa_pod_object *) props;
 	int changed = 0;
-	float volumes[ACP_MAX_CHANNELS];
-	uint32_t channels[ACP_MAX_CHANNELS];
+	float volumes[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t channels[SPA_AUDIO_MAX_CHANNELS];
 	uint32_t n_volumes = 0;
 
 	if (!spa_pod_is_object_type(props, SPA_TYPE_OBJECT_Props))
@@ -694,13 +694,13 @@ static int apply_device_props(struct impl *this, struct acp_device *dev, struct 
 			break;
 		case SPA_PROP_channelVolumes:
 			if ((n_volumes = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					volumes, ACP_MAX_CHANNELS)) > 0) {
+					volumes, SPA_AUDIO_MAX_CHANNELS)) > 0) {
 				changed++;
 			}
 			break;
 		case SPA_PROP_channelMap:
 			if (spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
-					channels, ACP_MAX_CHANNELS) > 0) {
+					channels, SPA_AUDIO_MAX_CHANNELS) > 0) {
 				changed++;
 			}
 			break;

@@ -16,7 +16,8 @@ void *_acp_log_data;
 
 struct spa_i18n *acp_i18n;
 
-#define DEFAULT_RATE	48000
+#define DEFAULT_CHANNELS	256u
+#define DEFAULT_RATE		48000u
 
 #define VOLUME_ACCURACY (PA_VOLUME_NORM/100)  /* don't require volume adjustments to be perfectly correct. don't necessarily extend granularity in software unless the differences get greater than this level */
 
@@ -183,6 +184,7 @@ static void device_free(void *data)
 	pa_dynarray_clear(&dev->port_array);
 	pa_proplist_free(dev->proplist);
 	pa_hashmap_free(dev->ports);
+	free(dev->device.format.map);
 }
 
 static inline void channelmap_to_acp(pa_channel_map *m, uint32_t *map)
@@ -213,9 +215,10 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 	dev->device.format.format_mask = m->sample_spec.format;
 	dev->device.format.rate_mask = m->sample_spec.rate;
 	dev->device.format.channels = m->channel_map.channels;
+	dev->device.format.map = calloc(m->channel_map.channels, sizeof(uint32_t));
+	channelmap_to_acp(&m->channel_map, dev->device.format.map);
 	pa_cvolume_reset(&dev->real_volume, dev->device.format.channels);
 	pa_cvolume_reset(&dev->soft_volume, dev->device.format.channels);
-	channelmap_to_acp(&m->channel_map, dev->device.format.map);
 	dev->direction = direction;
 	dev->proplist = pa_proplist_new();
 	pa_proplist_update(dev->proplist, PA_UPDATE_REPLACE, m->proplist);
@@ -1777,7 +1780,7 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	impl->auto_port = true;
 	impl->ignore_dB = false;
 	impl->rate = DEFAULT_RATE;
-	impl->pro_channels = ACP_MAX_CHANNELS;
+	impl->pro_channels = DEFAULT_CHANNELS;
 
 	if (props) {
 		if ((s = acp_dict_lookup(props, "api.alsa.use-ucm")) != NULL)

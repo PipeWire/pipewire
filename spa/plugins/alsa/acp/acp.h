@@ -24,7 +24,6 @@ extern "C" {
 #endif
 
 #define ACP_INVALID_INDEX	((uint32_t)-1)
-#define ACP_MAX_CHANNELS	64
 
 struct acp_dict_item {
 	const char *key;
@@ -93,7 +92,7 @@ struct acp_format {
 	uint32_t format_mask;
 	uint32_t rate_mask;
 	uint32_t channels;
-	uint32_t map[ACP_MAX_CHANNELS];
+	uint32_t *map;
 };
 
 #define ACP_DICT_INIT(items,n_items) ((struct acp_dict) { 0, (n_items), (items) })

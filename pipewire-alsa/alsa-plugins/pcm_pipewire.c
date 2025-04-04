@@ -30,7 +30,6 @@ PW_LOG_TOPIC_STATIC(alsa_log_topic, "alsa.pcm");
 #define MIN_BUFFERS	2u
 #define MAX_BUFFERS	64u
 
-#define MAX_CHANNELS	64
 #define MAX_RATE	(48000*8)
 
 #define MIN_PERIOD	64
@@ -1097,7 +1096,7 @@ struct param_info infos[] = {
 	{ "alsa.rate", SND_PCM_IOPLUG_HW_RATE, TYPE_MIN_MAX,
 		{ 1, MAX_RATE }, 2, collect_int },
 	{ "alsa.channels", SND_PCM_IOPLUG_HW_CHANNELS, TYPE_MIN_MAX,
-		{ 1, MAX_CHANNELS }, 2, collect_int },
+		{ 1, SPA_AUDIO_MAX_CHANNELS }, 2, collect_int },
 	{ "alsa.buffer-bytes", SND_PCM_IOPLUG_HW_BUFFER_BYTES, TYPE_MIN_MAX,
 		{ MIN_BUFFER_BYTES, MAX_BUFFER_BYTES }, 2, collect_int },
 	{ "alsa.period-bytes", SND_PCM_IOPLUG_HW_PERIOD_BYTES, TYPE_MIN_MAX,

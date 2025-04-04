@@ -204,7 +204,7 @@ int module_args_to_audioinfo_keys(struct impl *impl, struct pw_properties *props
 	}
 	if (key_channels && (str = pw_properties_get(props, key_channels)) != NULL) {
 		info->channels = pw_properties_parse_int(str);
-		if (info->channels == 0 || info->channels > SPA_AUDIO_MAX_CHANNELS) {
+		if (info->channels == 0 || info->channels > CHANNELS_MAX) {
 			pw_log_error("invalid %s '%s'", key_channels, str);
 			return -EINVAL;
 		}
@@ -214,7 +214,7 @@ int module_args_to_audioinfo_keys(struct impl *impl, struct pw_properties *props
 		struct channel_map map;
 
 		channel_map_parse(str, &map);
-		if (map.channels == 0 || map.channels > SPA_AUDIO_MAX_CHANNELS) {
+		if (map.channels == 0 || map.channels > CHANNELS_MAX) {
 			pw_log_error("invalid %s '%s'", key_channel_map, str);
 			return -EINVAL;
 		}

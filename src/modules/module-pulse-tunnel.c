@@ -298,7 +298,7 @@ static void stream_param_changed(void *d, uint32_t id, const struct spa_pod *par
 
 			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					vols, SPA_AUDIO_MAX_CHANNELS)) > 0) {
-				volume.channels = n;
+				volume.channels = SPA_MIN(PA_CHANNELS_MAX, n);
 				for (n = 0; n < volume.channels; n++)
 					volume.values[n] = pa_sw_volume_from_linear(vols[n]);
 
@@ -834,11 +834,12 @@ do_stream_sync_volumes(struct spa_loop *loop,
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 	struct spa_pod_frame f[1];
 	struct spa_pod *param;
-	uint32_t i;
+	uint32_t i, channels;
 	float vols[SPA_AUDIO_MAX_CHANNELS];
 	float soft_vols[SPA_AUDIO_MAX_CHANNELS];
 
-	for (i = 0; i < impl->volume.channels; i++) {
+	channels = SPA_MIN(impl->volume.channels, SPA_AUDIO_MAX_CHANNELS);
+	for (i = 0; i < channels; i++) {
 		vols[i] = (float)pa_sw_volume_to_linear(impl->volume.values[i]);
 		soft_vols[i] = 1.0f;
 	}
@@ -851,10 +852,10 @@ do_stream_sync_volumes(struct spa_loop *loop,
 
 	spa_pod_builder_prop(&b, SPA_PROP_channelVolumes, 0);
 	spa_pod_builder_array(&b, sizeof(float), SPA_TYPE_Float,
-			impl->volume.channels, vols);
+			channels, vols);
 	spa_pod_builder_prop(&b, SPA_PROP_softVolumes, 0);
 	spa_pod_builder_array(&b, sizeof(float), SPA_TYPE_Float,
-			impl->volume.channels, soft_vols);
+			channels, soft_vols);
 	param = spa_pod_builder_pop(&b, &f[0]);
 
 	pw_stream_set_param(impl->stream, SPA_PARAM_Props, param);

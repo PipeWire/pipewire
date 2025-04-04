@@ -348,14 +348,15 @@ uint32_t channel_paname2id(const char *name, size_t size)
 
 void channel_map_to_positions(const struct channel_map *map, uint32_t *pos)
 {
-	int i;
-	for (i = 0; i < map->channels; i++)
+	uint32_t i, channels = SPA_MIN(map->channels, SPA_AUDIO_MAX_CHANNELS);
+	for (i = 0; i < channels; i++)
 		pos[i] = map->map[i];
 }
 
 void positions_to_channel_map(const uint32_t *pos, uint32_t channels, struct channel_map *map)
 {
 	uint32_t i;
+	channels = SPA_MIN(channels, CHANNELS_MAX);
 	for (i = 0; i < channels; i++)
 		map->map[i] = pos[i];
 	map->channels = channels;
@@ -430,7 +431,7 @@ void channel_map_parse(const char *str, struct channel_map *map)
 		};
 	} else {
 		channels = map->channels = 0;
-		while (*p && channels < SPA_AUDIO_MAX_CHANNELS) {
+		while (*p && channels < CHANNELS_MAX) {
 			uint32_t chname;
 
 			if ((len = strcspn(p, ",")) == 0)
@@ -576,11 +577,11 @@ int format_parse_param(const struct spa_pod *param, bool collect,
 		if (info.info.raw.rate)
 		        ss->rate = info.info.raw.rate;
 		if (info.info.raw.channels)
-		        ss->channels = info.info.raw.channels;
+		        ss->channels = SPA_MIN(info.info.raw.channels, CHANNELS_MAX);
 	}
 	if (map) {
 		if (info.info.raw.channels) {
-			map->channels = info.info.raw.channels;
+			map->channels = SPA_MIN(info.info.raw.channels, CHANNELS_MAX);
 			for (i = 0; i < map->channels; i++)
 				map->map[i] = info.info.raw.position[i];
 		}
@@ -654,13 +655,13 @@ int format_info_from_spec(struct format_info *info, const struct sample_spec *ss
 	pw_properties_setf(info->props, "format.channels", "%d", ss->channels);
 	if (map && map->channels == ss->channels) {
 		char chmap[1024] = "";
-		int i, o, r;
-		uint32_t aux = 0;
+		int r;
+		uint32_t aux = 0, i, o;
 
 		for (i = 0, o = 0; i < map->channels; i++) {
 			r = snprintf(chmap+o, sizeof(chmap)-o, "%s%s", i == 0 ? "" : ",",
 					channel_id2paname(map->map[i], &aux));
-			if (r < 0 || o + r >= (int)sizeof(chmap))
+			if (r < 0 || o + r >= sizeof(chmap))
 				return -ENOSPC;
 			o += r;
 		}

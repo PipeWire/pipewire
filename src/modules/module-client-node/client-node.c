@@ -30,7 +30,7 @@ PW_LOG_TOPIC_EXTERN(mod_topic);
 
 #define MAX_BUFFERS	64
 #define MAX_METAS	16u
-#define MAX_DATAS	64u
+#define MAX_DATAS	256u
 #define AREA_SLOT	(sizeof(struct spa_io_async_buffers))
 #define AREA_SIZE	(4096u / AREA_SLOT)
 #define MAX_AREAS	32

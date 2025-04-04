@@ -16,8 +16,8 @@
 PW_LOG_TOPIC_EXTERN(log_buffers);
 #define PW_LOG_TOPIC_DEFAULT log_buffers
 
-#define MAX_ALIGN	32
-#define MAX_BLOCKS	64u
+#define MAX_ALIGN	32u
+#define MAX_BLOCKS	256u
 
 struct port {
 	struct spa_node *node;

@@ -26,7 +26,7 @@
 PW_LOG_TOPIC_EXTERN(log_filter);
 #define PW_LOG_TOPIC_DEFAULT log_filter
 
-#define MAX_BUFFERS	64
+#define MAX_BUFFERS	64u
 
 #define MASK_BUFFERS	(MAX_BUFFERS-1)
 

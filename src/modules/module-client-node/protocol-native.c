@@ -18,7 +18,7 @@
 #define MAX_PARAM_INFO	128
 #define MAX_BUFFERS	64
 #define MAX_METAS	16u
-#define MAX_DATAS	64u
+#define MAX_DATAS	256u
 
 PW_LOG_TOPIC_EXTERN(mod_topic);
 #define PW_LOG_TOPIC_DEFAULT mod_topic

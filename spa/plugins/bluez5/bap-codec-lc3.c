@@ -903,7 +903,7 @@ static int codec_caps_preference_cmp(const struct media_codec *codec, uint32_t f
 
 static uint8_t channels_to_positions(uint32_t channels, uint32_t *position)
 {
-	uint8_t n_channels = get_channel_count(channels);
+	uint32_t n_channels = get_channel_count(channels);
 	uint8_t n_positions = 0;
 
 	spa_assert(n_channels <= SPA_AUDIO_MAX_CHANNELS);

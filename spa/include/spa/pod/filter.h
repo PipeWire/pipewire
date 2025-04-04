@@ -19,6 +19,7 @@ extern "C" {
 #include <spa/pod/iter.h>
 #include <spa/pod/builder.h>
 #include <spa/pod/compare.h>
+#include <spa/pod/dynamic.h>
 
 #ifndef SPA_API_POD_FILTER
  #ifdef SPA_API_IMPL
@@ -438,14 +439,17 @@ spa_pod_filter(struct spa_pod_builder *b,
         spa_return_val_if_fail(b != NULL, -EINVAL);
 
 	spa_pod_builder_get_state(b, &state);
-	if (filter == NULL)
+	if (filter == NULL) {
 		res = spa_pod_builder_raw_padded(b, pod, SPA_POD_SIZE(pod));
-	else
-		res = spa_pod_filter_part(b, pod, SPA_POD_SIZE(pod), filter, SPA_POD_SIZE(filter));
-
-	if (res < 0) {
-		spa_pod_builder_reset(b, &state);
-	} else if (result) {
+	} else {
+		struct spa_pod_dynamic_builder db;
+		spa_pod_dynamic_builder_continue(&db, b);
+		res = spa_pod_filter_part(&db.b, pod, SPA_POD_SIZE(pod), filter, SPA_POD_SIZE(filter));
+		if (res >= 0)
+			res = spa_pod_builder_raw_padded(b, db.b.data, db.b.state.offset);
+		spa_pod_dynamic_builder_clean(&db);
+	}
+	if (res >= 0 && result) {
 		*result = (struct spa_pod*)spa_pod_builder_deref(b, state.offset);
 		if (*result == NULL)
 			res = -ENOSPC;

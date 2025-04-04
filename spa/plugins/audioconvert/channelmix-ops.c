@@ -129,6 +129,7 @@ static const struct channelmix_info *find_channelmix_info(uint32_t src_chan, uin
 #define STEREO		(_MASK(FL)|_MASK(FR))
 #define REAR		(_MASK(RL)|_MASK(RR))
 #define SIDE		(_MASK(SL)|_MASK(SR))
+#define CHANNEL_BITS	(64u)
 
 static uint32_t mask_to_ch(struct channelmix *mix, uint64_t mask)
 {
@@ -168,7 +169,7 @@ static bool match_mix(struct channelmix *mix,
 {
 	bool matched = false;
 	uint32_t i;
-	for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++) {
+	for (i = 0; i < CHANNEL_BITS; i++) {
 		if ((src_mask & dst_mask & (1ULL << i))) {
 			spa_log_info(mix->log, "matched channel %u (%f)", i, 1.0f);
 			matrix[i][i] = 1.0f;
@@ -627,7 +628,7 @@ done:
 	if (src_paired == 0)
 		src_paired = ~0LU;
 
-	for (jc = 0, ic = 0, i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++) {
+	for (jc = 0, ic = 0, i = 0; i < CHANNEL_BITS; i++) {
 		float sum = 0.0f;
 		char str1[1024], str2[1024];
 		struct spa_strbuf sb1, sb2;
@@ -637,7 +638,7 @@ done:
 
 		if ((dst_paired & (1UL << i)) == 0)
 			continue;
-		for (jc = 0, j = 0; j < SPA_AUDIO_MAX_CHANNELS; j++) {
+		for (jc = 0, j = 0; j < CHANNEL_BITS; j++) {
 			if ((src_paired & (1UL << j)) == 0)
 				continue;
 			if (ic >= dst_chan || jc >= src_chan)

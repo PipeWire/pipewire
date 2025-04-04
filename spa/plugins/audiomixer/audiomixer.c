@@ -31,7 +31,6 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.audiomixer");
 
 #define MAX_BUFFERS     64
 #define MAX_PORTS       512
-#define MAX_CHANNELS    64
 #define MAX_ALIGN	MIX_OPS_MAX_ALIGN
 
 #define PORT_DEFAULT_VOLUME	1.0

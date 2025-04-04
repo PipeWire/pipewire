@@ -17,6 +17,7 @@ extern "C" {
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
 #include <spa/utils/hook.h>
+#include <spa/param/audio/raw.h>
 
 #include <dbus/dbus.h>
 
@@ -655,7 +656,7 @@ struct spa_bt_transport {
 	struct spa_list bap_transport_linked;
 
 	uint32_t n_channels;
-	uint32_t channels[64];
+	uint32_t channels[SPA_AUDIO_MAX_CHANNELS];
 
 	struct spa_bt_transport_volume volumes[SPA_BT_VOLUME_ID_TERM];
 

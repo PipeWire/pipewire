@@ -320,7 +320,7 @@ static void rtp_opus_process_capture(void *data)
 static int rtp_opus_init(struct impl *impl, enum spa_direction direction)
 {
 	int err;
-	unsigned char mapping[64];
+	unsigned char mapping[SPA_AUDIO_MAX_CHANNELS];
 	uint32_t i;
 
 	if (impl->psamples >= 2880)

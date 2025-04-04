@@ -28,7 +28,8 @@
 PW_LOG_TOPIC_EXTERN(log_stream);
 #define PW_LOG_TOPIC_DEFAULT log_stream
 
-#define MAX_BUFFERS	64
+#define MAX_BUFFERS	64u
+#define MAX_VALUES	256u
 
 #define MASK_BUFFERS	(MAX_BUFFERS-1)
 
@@ -72,7 +73,7 @@ struct control {
 	struct pw_stream_control control;
 	struct spa_pod *info;
 	unsigned int emitted:1;
-	float values[64];
+	float values[MAX_VALUES];
 };
 
 struct stream {
@@ -1354,6 +1355,7 @@ static int node_event_param(void *object, int seq,
 				if ((values = spa_pod_get_array(&prop->value, &n_values)) == NULL ||
 				    !spa_pod_is_float(SPA_POD_ARRAY_CHILD(&prop->value)))
 					continue;
+				n_values = SPA_MIN(n_values, MAX_VALUES);
 				break;
 			default:
 				continue;

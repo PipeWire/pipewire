@@ -1777,7 +1777,7 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	impl->auto_port = true;
 	impl->ignore_dB = false;
 	impl->rate = DEFAULT_RATE;
-	impl->pro_channels = 64;
+	impl->pro_channels = ACP_MAX_CHANNELS;
 
 	if (props) {
 		if ((s = acp_dict_lookup(props, "api.alsa.use-ucm")) != NULL)

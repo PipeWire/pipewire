@@ -41,6 +41,11 @@
       <tab type="globals" visible="no" title="" intro=""/>
     </tab>
     <tab type="examples" visible="yes" title="" intro=""/>
+    <tab type="usergroup" title="PipeWire Versions">
+      <tab type="user" url="https://docs.pipewire.org/1.2/" title="1.2.x"/>
+      <tab type="user" url="https://docs.pipewire.org/1.4/" title="1.4.x"/>
+      <tab type="user" url="https://docs.pipewire.org/devel/" title="Development"/>
+    </tab>
   </navindex>
 
   <!-- Layout definition for a class page -->

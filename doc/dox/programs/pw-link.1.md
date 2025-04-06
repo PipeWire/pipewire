@@ -37,7 +37,7 @@ output ports and their links.
 List output ports
 
 \par -i | \--input
-List output ports
+List input ports
 
 \par -l | \--links
 List links

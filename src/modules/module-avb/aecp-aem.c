@@ -110,7 +110,7 @@ static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
 
 	lock = aecp_aem_get_state_var(aecp, htobe64(p->aecp.target_guid), aecp_aem_lock);
 	if (!lock) {
-		pw_log_info("invalid lock \n");
+		pw_log_error("invalid lock \n");
 		spa_assert(0);
 	}
 
@@ -120,14 +120,20 @@ static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
 			return reply_success(aecp, m, len);
 		}
 
-		pw_log_info("un-locking the entity %lx\n", htobe64(p->aecp.controller_guid));
+		pw_log_debug("un-locking the entity %lx\n", htobe64(p->aecp.controller_guid));
 		if (htobe64(p->aecp.controller_guid) == lock->locked_id) {
-			pw_log_info("unlocking\n");
+			pw_log_debug("unlocking\n");
 			lock->is_locked = false;
 			lock->locked_id = 0;
+			return reply_success(aecp, m, len);
 		} else {
-			pw_log_info("but the device is locked by  %lx\n", htobe64(lock->locked_id));
-			return reply_locked(aecp, m, len);
+			if (htobe64(p->aecp.controller_guid) != lock->locked_id) {
+				pw_log_debug("but the device is locked by  %lx\n", htobe64(lock->locked_id));
+				return reply_locked(aecp, m, len);
+			} else {
+				pw_log_error("Invalid state\n");
+				spa_assert(0);
+			}
 		}
 	} else {
 		/* Locking */

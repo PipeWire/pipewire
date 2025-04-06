@@ -103,6 +103,7 @@ int main(int argc, char *argv[])
 		{ "group",		required_argument,	NULL, 'g' },
 		{ "name",		required_argument,	NULL, 'n' },
 		{ "channels",		required_argument,	NULL, 'c' },
+		{ "channel-map",	required_argument,	NULL, 'm' },
 		{ "latency",		required_argument,	NULL, 'l' },
 		{ "delay",		required_argument,	NULL, 'd' },
 		{ "capture",		required_argument,	NULL, 'C' },

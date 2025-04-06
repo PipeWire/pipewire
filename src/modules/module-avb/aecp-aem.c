@@ -2,7 +2,10 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include <time.h>
+
 #include "aecp-aem.h"
+#include "aecp-aem-state.h"
 #include "aecp-aem-descriptors.h"
 
 static int reply_status(struct aecp *aecp, int status, const void *m, int len)
@@ -22,6 +25,16 @@ static int reply_status(struct aecp *aecp, int status, const void *m, int len)
 static int reply_not_implemented(struct aecp *aecp, const void *m, int len)
 {
 	return reply_status(aecp, AVB_AECP_AEM_STATUS_NOT_IMPLEMENTED, m, len);
+}
+
+static int reply_not_supported(struct aecp *aecp, const void *m, int len)
+{
+	return reply_status(aecp, AVB_AECP_AEM_STATUS_NOT_SUPPORTED, m, len);
+}
+
+static int reply_locked(struct aecp *aecp, const void *m, int len)
+{
+	return reply_status(aecp, AVB_AECP_AEM_STATUS_ENTITY_LOCKED, m, len);
 }
 
 static int reply_success(struct aecp *aecp, const void *m, int len)
@@ -52,7 +65,7 @@ static int handle_acquire_entity(struct aecp *aecp, const void *m, int len)
 #endif
 
 #ifdef USE_MILAN
-	return reply_not_implemented(aecp, m, len);
+	return reply_not_supported(aecp, m, len);
 
 #else // USE_MILAN
 	if (desc_type != AVB_AEM_DESC_ENTITY || desc_id != 0)
@@ -63,16 +76,25 @@ static int handle_acquire_entity(struct aecp *aecp, const void *m, int len)
 }
 
 /* LOCK_ENTITY */
+#define AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT (60UL)
+#define AECP_AEM_LOCK_ENTITY_FLAG_LOCK		(1)
 static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
 {
 	struct server *server = aecp->server;
-	const struct avb_packet_aecp_aem *p = m;
-	const struct avb_packet_aecp_aem_acquire *ae;
+	const struct avb_ethernet_header *h = m;
+	struct avb_ethernet_header *h_reply;
+	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
+	struct avb_packet_aecp_aem *p_reply;
+	const struct avb_packet_aecp_aem_lock *ae;
+	struct avb_packet_aecp_aem_lock *ae_reply;
 	const struct descriptor *desc;
+	struct aecp_aem_lock_state *lock;
 	uint16_t desc_type, desc_id;
+	struct timespec ts_now;
 
-	ae = (const struct avb_packet_aecp_aem_acquire*)p->payload;
+	uint8_t buf[1024];
 
+	ae = (const struct avb_packet_aecp_aem_lock*)p->payload;
 	desc_type = ntohs(ae->descriptor_type);
 	desc_id = ntohs(ae->descriptor_id);
 
@@ -83,15 +105,118 @@ static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
 	if (desc_type != AVB_AEM_DESC_ENTITY || desc_id != 0)
 		return reply_not_implemented(aecp, m, len);
 
-	return reply_success(aecp, m, len);
+	lock = aecp_aem_get_state_var(aecp, htobe64(p->aecp.target_guid), aecp_aem_lock);
+
+	if (ae->flags & htonl(AECP_AEM_LOCK_ENTITY_FLAG_LOCK)) {
+		/* Unlocking */
+		pw_log_info("un-locking the entity %lu\n", p->aecp.controller_guid);
+		// if (htobe64(p->aecp.controller_guid) == lock->locked_id) {
+			lock->is_locked = false;
+			lock->locked_id = 0;
+			return reply_success(aecp, m, len);
+		// } else {
+		// 	pw_log_debug("but the device is locked");
+		// 	return reply_locked(aecp, m, len);
+		// }
+	} else {
+		/* Locking */
+		if (clock_gettime(CLOCK_MONOTONIC, &ts_now)) {
+			pw_log_error("while getting CLOCK_MONOTONIC time");
+			spa_assert(0);
+		}
+
+		// Is it really locked?
+		if (!lock->is_locked || lock->expires < SPA_TIMESPEC_TO_NSEC(&ts_now)) {
+			ts_now.tv_sec += AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT;
+			lock->expires = SPA_TIMESPEC_TO_NSEC(&ts_now);
+			lock->is_locked = true;
+			lock->locked_id = htobe64(p->aecp.controller_guid);
+		} else {
+			// If the lock is taken again by device
+			if (htobe64(p->aecp.controller_guid) == lock->locked_id) {
+					lock->expires += AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT;
+					lock->is_locked = true;
+			} else {
+				// Cannot lock because already locked
+				pw_log_debug("The device is locked");
+				return reply_locked(aecp, m, len);
+			}
+		}
+	}
+
+	/* Forge the response for the entity that is locking the device */
+	memcpy(buf, m, len);
+	h_reply = (struct avb_ethernet_header *) buf;
+	p_reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
+	ae_reply = (struct avb_packet_aecp_aem_lock*)p_reply->payload;
+	ae_reply->locked_guid = p->aecp.controller_guid;
+
+	AVB_PACKET_AECP_SET_MESSAGE_TYPE(&p_reply->aecp,
+										AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
+	AVB_PACKET_AECP_SET_STATUS(&p_reply->aecp, AVB_AECP_AEM_STATUS_SUCCESS);
+
+	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, len);
 }
 
 /* ENTITY AVAILABLE according to the locking state */
+#define AECP_AEM_AVAIL_ENTITY_ACQUIRED 		(1<<0)
+#define AECP_AEM_AVAIL_ENTITY_LOCKED		(1<<1)
+#define AECP_AEM_AVAIL_SUBENTITY_ACQUIRED	(1<<2)
+#define AECP_AEM_AVAIL_SUBENTITY_LOCKED 	(1<<3)
+
 static int handle_entity_available(struct aecp *aecp, const void *m, int len)
 {
-	// TODO
-	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
-	return reply_success(aecp, m, len);
+	/* Commnand received specific */
+	struct server *server = aecp->server;
+	const struct avb_ethernet_header *h = m;
+	struct avb_ethernet_header *h_reply;
+	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
+
+	/* Reply specific */
+	struct avb_packet_aecp_aem *p_reply;
+	const struct avb_packet_aecp_aem_available *avail;
+	struct avb_packet_aecp_aem_available *avail_reply;
+
+	/* Entity specific */
+	struct aecp_aem_lock_state *lock;
+	struct timespec ts_now;
+	uint8_t buf[1024];
+
+#ifndef USE_MILAN
+// TODO get the acquire state
+#endif // USE_MILAN
+
+	/* Forge the response for the entity that is locking the device */
+	memcpy(buf, m, len);
+	h_reply = (struct avb_ethernet_header *) buf;
+	p_reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
+	avail_reply = (struct avb_packet_aecp_aem_available*)p_reply->payload;
+
+#ifdef USE_MILAN
+	avail_reply->acquired_controller_guid = 0;
+#else // USE_MILAN
+// TODO
+#endif // USE_MILAN
+
+	lock = aecp_aem_get_state_var(aecp, p->aecp.target_guid, aecp_aem_lock);
+	/* Locking */
+	if (clock_gettime(CLOCK_MONOTONIC, &ts_now)) {
+		pw_log_error("while getting CLOCK_MONOTONIC time");
+		spa_assert(0);
+	}
+
+	if (lock->expires < SPA_TIMESPEC_TO_NSEC(&ts_now) || !lock->is_locked) {
+		avail_reply->lock_controller_guid = 0;
+		avail_reply->flags = 0;
+	} else if (lock->is_locked) {
+		avail_reply->lock_controller_guid = htobe64(lock->locked_id);
+		avail_reply->flags = htonl(AECP_AEM_AVAIL_ENTITY_LOCKED);
+	}
+
+	AVB_PACKET_AECP_SET_MESSAGE_TYPE(&p_reply->aecp,
+										AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
+	AVB_PACKET_AECP_SET_STATUS(&p_reply->aecp, AVB_AECP_AEM_STATUS_SUCCESS);
+	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, len);
 }
 
 /* READ_DESCRIPTOR */
@@ -253,11 +378,10 @@ static int handle_stop_streaming(struct aecp *aecp, const void *m, int len)
 
 static int handle_register_unsol_notifications(struct aecp *aecp, const void *m, int len)
 {
-	// TODO action to provide update every seconds see state machines
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
- 
+
 static int handle_deregister_unsol_notifications(struct aecp *aecp, const void *m, int len)
 {
 	// TODO action to provide update every seconds see state machines
@@ -528,17 +652,43 @@ static inline const struct cmd_info *find_cmd_info(uint16_t type, const char *na
 	return &cmd_info[type];
 }
 
-static inline bool check_locked(struct aecp *aecp)
+static inline bool check_locked(struct aecp *aecp,
+	const struct avb_packet_aecp_aem *p, const struct cmd_info *cmd)
 {
+	struct timespec ts_now;
+	int64_t now;
+
 	pw_log_info("Accessing %s, current entity is %s\n",
-				 cmd_info->is_readonly? "ro" : "wo", "locked");
+		cmd->is_readonly? "ro" : "wo", "locked");
 
-	// struct aecp_aem_lock =
-	// 		server_find_aecp_aem_state(struct aecp_aem_server* server, controller_id,
-	// 	entity_id);
+	struct aecp_aem_lock_state *lock;
+	lock = aecp_aem_get_state_var(aecp, htobe64(p->aecp.target_guid),
+								  aecp_aem_lock);
+	// No lock was found for the entity, that is an error, return issue
+	if (!lock) {
+		pw_log_error("Cannot retrieve the lock\n");
+		return false;
+	}
 
+	/**
+	 * Time is always using the monotonic time
+	 */
+	if (clock_gettime(CLOCK_MONOTONIC, &ts_now)) {
+		pw_log_error("while getting CLOCK_MONOTONIC time\n");
+	}
 
-	return true;
+	/* Check whether the lock has expired */
+	now = SPA_TIMESPEC_TO_NSEC(&ts_now);
+	if (lock->expires < now) {
+		return false;
+	}
+
+	/**
+	 * Return lock if the lock is locked and the controller id is different
+	 * than the controller locking the entity
+	 */
+	return lock->is_locked &&
+			(lock->locked_id != htobe64(p->aecp.controller_guid));
 }
 
 int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len)
@@ -559,7 +709,16 @@ int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len)
 	if (info->handle == NULL)
 		return reply_not_implemented(aecp, m, len);
 
-	return info->handle(aecp, m, len);
+	if (info->is_readonly) {
+		return info->handle(aecp, m, len);
+	} else {
+		/** If not locked then continue below */
+		if (!check_locked(aecp, p, &cmd_info[cmd_type])) {
+			return info->handle(aecp, m, len);
+		}
+	}
+
+	return -1;
 }
 
 int avb_aecp_aem_handle_response(struct aecp *aecp, const void *m, int len)

@@ -7,7 +7,7 @@ struct aecp_aem_state_handlers {
     const struct aem_state_var_info *var_info;
     void* (*getter_h) (struct aecp*, uint64_t target_id);
     int (*setter_h) (struct aecp*, uint64_t target_id, void *state);
-    void *var_data;
+    struct aecp_aem_state *var_data;
 };
 
 #define AECP_AEM_STATE(id, getter, setter) \
@@ -24,7 +24,9 @@ static struct aecp_aem_state_handlers ae_state_handlers[] = {
 
 static void* aecp_aem_lock_get(struct aecp* aecp, uint64_t target_id)
 {
-    struct aecp_aem_lock_state *lock = ae_state_handlers[aecp_aem_lock].var_data;
+    struct aecp_aem_lock_state *lock =
+        (struct aecp_aem_lock_state *) ae_state_handlers[aecp_aem_lock].var_data;
+
     if (!lock) {
         return NULL;
     }
@@ -34,7 +36,8 @@ static void* aecp_aem_lock_get(struct aecp* aecp, uint64_t target_id)
 
 static int aecp_aem_lock_set(struct aecp* aecp, uint64_t target_id, void *state)
 {
-    struct aecp_aem_lock_state *lock = ae_state_handlers[aecp_aem_lock].var_data;
+    struct aecp_aem_lock_state *lock =
+        (struct aecp_aem_lock_state *) ae_state_handlers[aecp_aem_lock].var_data;
 
     if (!lock) {
         return -1;
@@ -62,6 +65,7 @@ void* aecp_aem_create(struct aecp* aecp, uint64_t target_id,
         return NULL;
     }
 
+    /** This is used to keep track of the vars created */
     ptr_created = avb_aecp_aem_add_state_var(aecp->server, target_id, type,
         var->el_sz * var->count);
 
@@ -69,6 +73,9 @@ void* aecp_aem_create(struct aecp* aecp, uint64_t target_id,
         pw_log_error("aem create: failed %u, %lu", type, target_id);
         return NULL;
     }
+
+    /* TODO use a list per var when multiple entity hits */
+    ae_state_handlers[type].var_data = ptr_created;
 
     return ptr_created;
 }
@@ -79,13 +86,13 @@ int aecp_aem_delete(struct aecp* aecp, uint64_t target_id,
     void *ptr_found;
 
     if ((type >= aecp_aem_max) || (type <= aecp_aem_min)) {
-        pw_log_error("aecp state type %u is not supported\n", type);
+        pw_log_error("create: aecp state type %u is not supported\n", type);
         return -1;
     }
 
     ptr_found = avb_aecp_aem_find_state_var(aecp->server, target_id, type);
     if (NULL == ptr_found) {
-        pw_log_warn("Could not add aecp state type %u for target %lu\n",
+        pw_log_warn("Could not find aecp state type %u for target %lu\n",
                     type, target_id);
 
         return -1;
@@ -100,9 +107,9 @@ void* aecp_aem_get_state_var(struct aecp* aecp, uint64_t target_id,
 {
     void *ae_state;
 
-    pw_log_debug("aecm state for %lu type %d getter\n", target_id, type);
+    pw_log_info("aecm state for %lu type %d getter\n", target_id, type);
     if ((type >= aecp_aem_max) || (type <= aecp_aem_min)) {
-        pw_log_error("aecp state type %u is not supported\n", type);
+        pw_log_error("get: aecp state type %u is not supported\n", type);
         return NULL;
     }
 
@@ -116,9 +123,9 @@ int aecp_aem_set_state_var(struct aecp* aecp, uint64_t target_id,
 {
     int rc;
 
-    pw_log_debug("aecm state for %lu type %d getter\n", target_id, type);
+    pw_log_info("aecm state for %lu type %d getter\n", target_id, type);
     if ((type >= aecp_aem_max) || (type <= aecp_aem_min)) {
-        pw_log_error("aecp state type %u is not supported\n", type);
+        pw_log_error("set: aecp state type %u is not supported\n", type);
         return -1;
     }
 
@@ -145,18 +152,28 @@ int aecp_aem_init_var_containers(struct aecp *aecp,
 
     for (size_t vars = 0; vars < array_size; vars++) {
         var_name = varsdesc[vars].var_name;
+
+        if (var_name == NULL) {
+            // Part of the empty table
+            continue;
+        }
+
         el_sz = varsdesc[vars].el_sz;
         count = varsdesc[vars].count;
         pw_log_info("adding var %s to %lu %ld element of size %ld\n",
             var_name, target_id, count, el_sz);
 
-            if (ae_state_handlers[vars].var_info != NULL) {
-                pw_log_error("%s type %ld already set\n",
-                                varsdesc[vars].var_name, vars);
-                return -1;
-            }
+        if (ae_state_handlers[vars].var_info != NULL) {
+            pw_log_error("%s type %ld already set\n",
+                            varsdesc[vars].var_name, vars);
+            return -1;
+        }
 
-            ae_state_handlers[vars].var_info = &varsdesc[vars];
+        ae_state_handlers[vars].var_info = &varsdesc[vars];
+        if (!aecp_aem_create(aecp, target_id, vars, &varsdesc[vars])) {
+            pw_log_error("%s type %ld not created\n",
+                varsdesc[vars].var_name, vars);
+        }
     }
 
     return 0;

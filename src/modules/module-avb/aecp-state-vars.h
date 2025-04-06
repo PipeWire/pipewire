@@ -19,6 +19,7 @@ static const struct aem_state_var_info milan_vars[] = {
 
 static inline int init_aecp_state_vars(struct aecp *aecp)
 {
+    spa_list_init(&aecp->server->aecp_aem_states);
     return aecp_aem_init_var_containers(aecp, milan_vars,
                                             ARRAY_SIZE(milan_vars));
 }

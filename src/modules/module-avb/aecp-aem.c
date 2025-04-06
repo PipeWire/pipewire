@@ -82,11 +82,14 @@ static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
 {
 	struct server *server = aecp->server;
 	const struct avb_ethernet_header *h = m;
-	struct avb_ethernet_header *h_reply;
 	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
-	struct avb_packet_aecp_aem *p_reply;
 	const struct avb_packet_aecp_aem_lock *ae;
+
+
+	struct avb_ethernet_header *h_reply;
+	struct avb_packet_aecp_aem *p_reply;
 	struct avb_packet_aecp_aem_lock *ae_reply;
+
 	const struct descriptor *desc;
 	struct aecp_aem_lock_state *lock;
 	uint16_t desc_type, desc_id;
@@ -106,18 +109,26 @@ static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
 		return reply_not_implemented(aecp, m, len);
 
 	lock = aecp_aem_get_state_var(aecp, htobe64(p->aecp.target_guid), aecp_aem_lock);
+	if (!lock) {
+		pw_log_info("invalid lock \n");
+		spa_assert(0);
+	}
 
 	if (ae->flags & htonl(AECP_AEM_LOCK_ENTITY_FLAG_LOCK)) {
 		/* Unlocking */
-		pw_log_info("un-locking the entity %lu\n", p->aecp.controller_guid);
-		// if (htobe64(p->aecp.controller_guid) == lock->locked_id) {
+		if (!lock->is_locked) {
+			return reply_success(aecp, m, len);
+		}
+
+		pw_log_info("un-locking the entity %lx\n", htobe64(p->aecp.controller_guid));
+		if (htobe64(p->aecp.controller_guid) == lock->locked_id) {
+			pw_log_info("unlocking\n");
 			lock->is_locked = false;
 			lock->locked_id = 0;
-			return reply_success(aecp, m, len);
-		// } else {
-		// 	pw_log_debug("but the device is locked");
-		// 	return reply_locked(aecp, m, len);
-		// }
+		} else {
+			pw_log_info("but the device is locked by  %lx\n", htobe64(lock->locked_id));
+			return reply_locked(aecp, m, len);
+		}
 	} else {
 		/* Locking */
 		if (clock_gettime(CLOCK_MONOTONIC, &ts_now)) {
@@ -149,7 +160,7 @@ static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
 	h_reply = (struct avb_ethernet_header *) buf;
 	p_reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
 	ae_reply = (struct avb_packet_aecp_aem_lock*)p_reply->payload;
-	ae_reply->locked_guid = p->aecp.controller_guid;
+	ae_reply->locked_guid = htobe64(lock->locked_id);
 
 	AVB_PACKET_AECP_SET_MESSAGE_TYPE(&p_reply->aecp,
 										AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);

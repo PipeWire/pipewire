@@ -3608,8 +3608,12 @@ fail:
 static int transport_set_volume(void *data, int id, float volume)
 {
 	struct spa_bt_transport *transport = data;
-	struct spa_bt_transport_volume *t_volume = &transport->volumes[id];
+	struct spa_bt_transport_volume *t_volume;
 	uint16_t value;
+
+	spa_assert(id >= 0 && id < (int)SPA_N_ELEMENTS(transport->volumes));
+
+	t_volume = &transport->volumes[id];
 
 	if (!t_volume->active || !spa_bt_transport_volume_enabled(transport))
 		return -ENOTSUP;

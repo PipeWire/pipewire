@@ -402,9 +402,15 @@ static void node_update_soft_volumes(struct node *node, float hw_volume)
 	}
 }
 
+static int get_volume_id(int node_id)
+{
+	return (node_id & SINK_ID_FLAG) ? SPA_BT_VOLUME_ID_TX : SPA_BT_VOLUME_ID_RX;
+}
+
 static bool node_update_volume_from_transport(struct node *node, bool reset)
 {
 	struct impl *impl = node->impl;
+	int volume_id = get_volume_id(node->id);
 	struct spa_bt_transport_volume *t_volume;
 	float prev_hw_volume;
 
@@ -417,7 +423,7 @@ static bool node_update_volume_from_transport(struct node *node, bool reset)
 	    && impl->profile !=  DEVICE_PROFILE_HSP_HFP)
 		return false;
 
-	t_volume = &node->transport->volumes[node->id];
+	t_volume = &node->transport->volumes[volume_id];
 
 	if (!t_volume->active)
 		return false;
@@ -2562,6 +2568,7 @@ static void device_set_update_volumes(struct node *node)
 	struct device_set *dset = &impl->device_set;
 	float hw_volume = node_get_hw_volume(node);
 	bool sink = (node->id == DEVICE_ID_SINK_SET);
+	int volume_id = get_volume_id(node->id);
 	struct device_set_member *members = sink ? dset->sink : dset->source;
 	uint32_t n_members = sink ? dset->sinks : dset->sources;
 	uint32_t i;
@@ -2572,7 +2579,7 @@ static void device_set_update_volumes(struct node *node)
 
 	for (i = 0; i < n_members; ++i) {
 		struct spa_bt_transport *t = members[i].transport;
-		struct spa_bt_transport_volume *t_volume = t ? &t->volumes[members[i].id] : NULL;
+		struct spa_bt_transport_volume *t_volume = t ? &t->volumes[volume_id] : NULL;
 
 		if (!t_volume || !t_volume->active)
 			goto soft_volume;
@@ -2580,13 +2587,13 @@ static void device_set_update_volumes(struct node *node)
 
 	node_update_soft_volumes(node, hw_volume);
 	for (i = 0; i < n_members; ++i)
-		spa_bt_transport_set_volume(members[i].transport, members[i].id, hw_volume);
+		spa_bt_transport_set_volume(members[i].transport, volume_id, hw_volume);
 	return;
 
 soft_volume:
 	/* Soft volume fallback */
 	for (i = 0; i < n_members; ++i)
-		spa_bt_transport_set_volume(members[i].transport, members[i].id, 1.0f);
+		spa_bt_transport_set_volume(members[i].transport, volume_id, 1.0f);
 	node_update_soft_volumes(node, 1.0f);
 	return;
 }
@@ -2596,6 +2603,7 @@ static int node_set_volume(struct impl *this, struct node *node, float volumes[]
 	uint32_t i;
 	int changed = 0;
 	struct spa_bt_transport_volume *t_volume;
+	int volume_id = get_volume_id(node->id);
 
 	if (n_volumes == 0)
 		return -EINVAL;
@@ -2609,7 +2617,7 @@ static int node_set_volume(struct impl *this, struct node *node, float volumes[]
 		node->volumes[i] = volumes[i % n_volumes];
 	}
 
-	t_volume = node->transport ? &node->transport->volumes[node->id]: NULL;
+	t_volume = node->transport ? &node->transport->volumes[volume_id]: NULL;
 
 	if (t_volume && t_volume->active
 	    && spa_bt_transport_volume_enabled(node->transport)) {
@@ -2617,7 +2625,7 @@ static int node_set_volume(struct impl *this, struct node *node, float volumes[]
 		spa_log_debug(this->log, "node %d hardware volume %f", node->id, hw_volume);
 
 		node_update_soft_volumes(node, hw_volume);
-		spa_bt_transport_set_volume(node->transport, node->id, hw_volume);
+		spa_bt_transport_set_volume(node->transport, volume_id, hw_volume);
 	} else if (node->id == DEVICE_ID_SOURCE_SET || node->id == DEVICE_ID_SINK_SET) {
 		device_set_update_volumes(node);
 	} else {

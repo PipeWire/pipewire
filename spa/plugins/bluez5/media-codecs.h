@@ -26,7 +26,7 @@
 
 #define SPA_TYPE_INTERFACE_Bluez5CodecMedia	SPA_TYPE_INFO_INTERFACE_BASE "Bluez5:Codec:Media:Private"
 
-#define SPA_VERSION_BLUEZ5_CODEC_MEDIA		12
+#define SPA_VERSION_BLUEZ5_CODEC_MEDIA		13
 
 struct spa_bluez5_codec_a2dp {
 	struct spa_interface iface;

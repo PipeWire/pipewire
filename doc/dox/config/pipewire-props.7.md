@@ -997,17 +997,30 @@ PipeWire Opus Pro Audio duplex encoding mode: audio, voip, lowdelay
 @PAR@ device-prop  bluez5.bap.cig = "auto"   # integer, or 'auto'
 Set CIG ID for BAP unicast streams of the device.
 
-@PAR@ device-prop  bluez5.bap.rtn = "48_2_1"  # string
-BAP QoS preset name that needed to be used with vendor config
+@PAR@ device-prop  bluez5.bap.preset = "auto"  # string
+BAP QoS preset name that needed to be used with vendor config.
+This property is experimental.
+Available: "48_2_1", ... as in the BAP specification.
 
-@PAR@ device-prop  bluez5.bap.latency = 20 # integer
+@PAR@ device-prop  bluez5.bap.rtn  # integer
+BAP QoS preset name that needed to be used with vendor config.
+This property is experimental.
+Default: as per QoS preset.
+
+@PAR@ device-prop  bluez5.bap.latency  # integer
 BAP QoS latency that needs to be applied for vendor defined preset
+This property is experimental.
+Default: as QoS preset.
 
 @PAR@ device-prop  bluez5.bap.delay = 40000 # integer
 BAP QoS delay that needs to be applied for vendor defined preset
+This property is experimental.
+Default: as per QoS preset.
 
 @PAR@ device-prop  bluez5.framing = false # boolean
 BAP QoS framing that needs to be applied for vendor defined preset
+This property is experimental.
+Default: as per QoS preset.
 
 ## Node properties
 

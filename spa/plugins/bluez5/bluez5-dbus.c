@@ -926,8 +926,8 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	bool sink, duplex;
 	const char *err_msg = "Unknown error";
 	struct spa_dict settings;
-	struct spa_dict_item setting_items[SPA_N_ELEMENTS(monitor->global_setting_items) + 5];
-	int i;
+	struct spa_dict_item setting_items[128];
+	unsigned int i, j;
 
 	const char *endpoint_path = NULL;
 	uint8_t caps[A2DP_MAX_CAPS_SIZE];
@@ -986,15 +986,16 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	 */
 	ep->acceptor = true;
 
-	for (i = 0; i < (int)monitor->global_settings.n_items; ++i)
-		setting_items[i] = monitor->global_settings.items[i];
+	i = 0;
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.locations", locations);
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.channel-allocation", channel_allocation);
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.sink", sink ? "true" : "false");
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.duplex", duplex ? "true" : "false");
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.debug", "true");
+	if (ep->device->settings)
+		for (j = 0; j < ep->device->settings->n_items && i < SPA_N_ELEMENTS(setting_items); ++i, ++j)
+			setting_items[i] = ep->device->settings->items[j];
 	settings = SPA_DICT_INIT(setting_items, i);
-	spa_assert((size_t)i <= SPA_N_ELEMENTS(setting_items));
 
 	conf_size = codec->select_config(codec, 0, caps, caps_size, &monitor->default_audio_info, &settings, config);
 	if (conf_size < 0) {

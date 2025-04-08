@@ -14,26 +14,37 @@ struct aem_state_var_info {
     /** The name of the var for debug */
     const char *var_name;
     /** persisted */
-    const bool is_perisited;
+    const bool is_persited;
+    /** The descriptor type it belongs to */
+    const uint16_t desc_type;
+    /** Not all var can time out */
+    bool expires;
     /** The counts of the vars per entity */
     size_t      count;
     /** Element size */
     size_t      el_sz;
 };
 
+/**
+ * Basic information about the last time it was updated, or will expired
+ * and the controller that last accessed it
+ */
+struct aecp_aem_base_info {
+    struct aem_state_var_info var_info;
+    /** Originator of the control
+     * This is needed so the unsoolictied notification does not send back SUCCESS
+     * to the originator of of the unsolicited notification */
+    uint64_t controller_entity_id;
+
+    /** Check the need for an update, that is usually updated when setting var. */
+    bool needs_update;
+
+    /** timeout absolute time*/
+    int64_t expire_timeout;
+};
+
 struct aecp_aem_lock_state {
-    /** Timestamp when the lock was set, two approach for handling this,
-     * [x] lazyway:
-     *      the ADP state machine will be in charge of update the value after
-     *     the timestamps are reached.
-     *
-     * [ ] complicated but better than lazy: use a periodic timer for the AECP state
-     * machine. Need more mofidicaiton on the state machines.
-     */
-    int64_t expires;
-
-    // FOCUSE is Milan, but avb would use the Desciptor Id and Type
-
+    struct aecp_aem_base_info base_info;
     /**
      * The entity id that is locking this system
      */
@@ -46,18 +57,7 @@ struct aecp_aem_lock_state {
 };
 
 struct aecp_aem_unsol_notification_state {
-    /** Timestamp when the lock was set, two approach for handling this,
-     * [x] lazyway:
-     *      the ADP state machine will be in charge of update the value after
-     *     the timestamps are reached.
-     *
-     * [ ] complicated but better than lazy: use a periodic timer for the AECP state
-     * machine. Need more mofidicaiton on the state machines.
-     */
-    uint64_t expires;
-
-    // FOCUSE is Milan, but avb would use the Desciptor Id and Type
-
+    struct aecp_aem_base_info base_info;
     /**
      * The controller is that is locking this system
      */
@@ -66,7 +66,7 @@ struct aecp_aem_unsol_notification_state {
     /**
      * mac Address of the controller
      */
-    uint64_t ctrler_mac_addr;
+    uint8_t ctrler_mac_addr[6];
 
     /**
      * Port where the registeration originated from
@@ -87,12 +87,10 @@ struct aecp_aem_unsol_notification_state {
 
 
 enum aecp_aem_lock_types {
-    aecp_aem_min = 0, // Sentinel check
+    aecp_aem_min = -1, // Sentinel check
 
 	aecp_aem_lock,
-
-    aecp_aem_register_unsol_notifications,
-    aecp_aem_degister_unsol_notifications,
+    aecp_aem_unsol_notif,
 
     aecp_aem_max  // Sentinel check
 };
@@ -113,10 +111,24 @@ int aecp_aem_delete(struct aecp* aecp, uint64_t target_id,
 /**
  * @brief Retrieve the variable holding the state of a specific information of
  *          the AECP states.
- * @return NULL if the var does not exists or if the type is not sypported yet.
+ * @return -1 if the var does not exists or if the type is not sypported yet.
  */
-void* aecp_aem_get_state_var(struct aecp* aecp, uint64_t target_id,
-    enum aecp_aem_lock_types type);
+int aecp_aem_get_state_var(struct aecp* aecp, uint64_t target_id,
+    enum aecp_aem_lock_types type, uint16_t id, void *state);
+
+/**
+ * @brief this function will just refresh hte variable, not setting additional
+ *      the metadata such as teh controoler Id that accessed it lastly and the
+ *      needs_udpate value
+ */
+int aecp_aem_refresh_state_var(struct aecp* aecp, uint64_t target_id,
+    enum aecp_aem_lock_types type, uint16_t id, void *state);
+
+/**
+ * @brief retrieves the base information about a variable
+ */
+int aecp_aem_get_base_info(struct aecp* aecp, uint64_t target_id,
+    enum aecp_aem_lock_types type, uint16_t id, struct aecp_aem_base_info **info);
 
 /**
  * @brief Retrieve the variable holding the state of a specific information of
@@ -124,7 +136,7 @@ void* aecp_aem_get_state_var(struct aecp* aecp, uint64_t target_id,
  * @return 0 upon success, -1 if the variable or type are invalid.
  */
 int aecp_aem_set_state_var(struct aecp* aecp, uint64_t target_id,
-    enum aecp_aem_lock_types type, void *state);
+    uint64_t ctrler_id, enum aecp_aem_lock_types type, uint16_t id, void *state);
 
 /**
  * TODO

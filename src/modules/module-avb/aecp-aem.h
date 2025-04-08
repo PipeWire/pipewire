@@ -121,7 +121,6 @@ struct avb_packet_aecp_aem_available {
 	uint64_t lock_controller_guid;
 } __attribute__ ((__packed__));
 
-
 struct avb_packet_aecp_aem_read_descriptor {
 	uint16_t configuration;
 	uint8_t reserved[2];
@@ -147,6 +146,10 @@ struct avb_packet_aecp_aem_setget_video_format {
 	uint16_t aspect_ratio;
 	uint16_t color_space;
 	uint32_t frame_size;
+} __attribute__ ((__packed__));
+
+struct avb_packet_aecp_aem_register_unsol {
+	uint32_t flags;
 } __attribute__ ((__packed__));
 
 struct avb_packet_aecp_aem_setget_sensor_format {
@@ -349,6 +352,7 @@ struct avb_packet_aecp_milan_vendor_unique {
 
 #define AVB_PACKET_AEM_GET_COMMAND_TYPE(p)		((p)->cmd1 << 8 | (p)->cmd2)
 
+int avb_aecp_aem_handle_timeouts(struct aecp *aecp, uint64_t now);
 int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len);
 int avb_aecp_aem_handle_response(struct aecp *aecp, const void *m, int len);
 int avb_aecp_vendor_unique_command(struct aecp *aecp, const void *m, int len);

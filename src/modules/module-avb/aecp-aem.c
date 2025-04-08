@@ -3,10 +3,13 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <time.h>
+#include <limits.h>
 
 #include "aecp-aem.h"
 #include "aecp-aem-state.h"
 #include "aecp-aem-descriptors.h"
+
+#include "utils.h"
 
 static int reply_status(struct aecp *aecp, int status, const void *m, int len)
 {
@@ -37,13 +40,18 @@ static int reply_locked(struct aecp *aecp, const void *m, int len)
 	return reply_status(aecp, AVB_AECP_AEM_STATUS_ENTITY_LOCKED, m, len);
 }
 
+static int reply_no_resources(struct aecp *aecp, const void *m, int len)
+{
+	return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_RESOURCES, m, len);
+}
+
 static int reply_success(struct aecp *aecp, const void *m, int len)
 {
 	return reply_status(aecp, AVB_AECP_AEM_STATUS_SUCCESS, m, len);
 }
 
 /* ACQUIRE_ENTITY */
-static int handle_acquire_entity(struct aecp *aecp, const void *m, int len)
+static int handle_acquire_entity(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 #ifndef USE_MILAN
 	const struct avb_packet_aecp_aem *p = m;
@@ -78,23 +86,24 @@ static int handle_acquire_entity(struct aecp *aecp, const void *m, int len)
 /* LOCK_ENTITY */
 #define AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT (60UL)
 #define AECP_AEM_LOCK_ENTITY_FLAG_LOCK		(1)
-static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
+static int handle_lock_entity(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	struct server *server = aecp->server;
 	const struct avb_ethernet_header *h = m;
 	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
 	const struct avb_packet_aecp_aem_lock *ae;
 
-
 	struct avb_ethernet_header *h_reply;
 	struct avb_packet_aecp_aem *p_reply;
 	struct avb_packet_aecp_aem_lock *ae_reply;
 
 	const struct descriptor *desc;
-	struct aecp_aem_lock_state *lock;
+	struct aecp_aem_lock_state lock = {0};
 	uint16_t desc_type, desc_id;
 	struct timespec ts_now;
 
+	int rc;
+	bool changed = false;
 	uint8_t buf[1024];
 
 	ae = (const struct avb_packet_aecp_aem_lock*)p->payload;
@@ -108,27 +117,28 @@ static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
 	if (desc_type != AVB_AEM_DESC_ENTITY || desc_id != 0)
 		return reply_not_implemented(aecp, m, len);
 
-	lock = aecp_aem_get_state_var(aecp, htobe64(p->aecp.target_guid), aecp_aem_lock);
-	if (!lock) {
+	rc = aecp_aem_get_state_var(aecp, htobe64(p->aecp.target_guid), aecp_aem_lock,
+			desc_id, &lock);
+	if (rc) {
 		pw_log_error("invalid lock \n");
 		spa_assert(0);
 	}
 
 	if (ae->flags & htonl(AECP_AEM_LOCK_ENTITY_FLAG_LOCK)) {
 		/* Unlocking */
-		if (!lock->is_locked) {
+		if (!lock.is_locked) {
 			return reply_success(aecp, m, len);
 		}
 
 		pw_log_debug("un-locking the entity %lx\n", htobe64(p->aecp.controller_guid));
-		if (htobe64(p->aecp.controller_guid) == lock->locked_id) {
+		if (htobe64(p->aecp.controller_guid) == lock.locked_id) {
 			pw_log_debug("unlocking\n");
-			lock->is_locked = false;
-			lock->locked_id = 0;
-			return reply_success(aecp, m, len);
+			lock.is_locked = false;
+			lock.locked_id = 0;
+			changed = true;
 		} else {
-			if (htobe64(p->aecp.controller_guid) != lock->locked_id) {
-				pw_log_debug("but the device is locked by  %lx\n", htobe64(lock->locked_id));
+			if (htobe64(p->aecp.controller_guid) != lock.locked_id) {
+				pw_log_debug("but the device is locked by  %lx\n", htobe64(lock.locked_id));
 				return reply_locked(aecp, m, len);
 			} else {
 				pw_log_error("Invalid state\n");
@@ -143,16 +153,19 @@ static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
 		}
 
 		// Is it really locked?
-		if (!lock->is_locked || lock->expires < SPA_TIMESPEC_TO_NSEC(&ts_now)) {
-			ts_now.tv_sec += AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT;
-			lock->expires = SPA_TIMESPEC_TO_NSEC(&ts_now);
-			lock->is_locked = true;
-			lock->locked_id = htobe64(p->aecp.controller_guid);
+		if (!lock.is_locked ||
+			lock.base_info.expire_timeout < now) {
+
+			lock.base_info.expire_timeout = now +
+						 AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT * SPA_NSEC_PER_SEC;
+			lock.is_locked = true;
+			lock.locked_id = htobe64(p->aecp.controller_guid);
+			changed = true;
 		} else {
 			// If the lock is taken again by device
-			if (htobe64(p->aecp.controller_guid) == lock->locked_id) {
-					lock->expires += AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT;
-					lock->is_locked = true;
+			if (htobe64(p->aecp.controller_guid) == lock.locked_id) {
+					lock.base_info.expire_timeout += AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT;
+					lock.is_locked = true;
 			} else {
 				// Cannot lock because already locked
 				pw_log_debug("The device is locked");
@@ -161,18 +174,137 @@ static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
 		}
 	}
 
+	lock.base_info.controller_entity_id = htobe64(p->aecp.controller_guid);
 	/* Forge the response for the entity that is locking the device */
 	memcpy(buf, m, len);
 	h_reply = (struct avb_ethernet_header *) buf;
 	p_reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
 	ae_reply = (struct avb_packet_aecp_aem_lock*)p_reply->payload;
-	ae_reply->locked_guid = htobe64(lock->locked_id);
+	ae_reply->locked_guid = htobe64(lock.locked_id);
 
 	AVB_PACKET_AECP_SET_MESSAGE_TYPE(&p_reply->aecp,
 										AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
+
 	AVB_PACKET_AECP_SET_STATUS(&p_reply->aecp, AVB_AECP_AEM_STATUS_SUCCESS);
 
+	if (changed) {
+		if (aecp_aem_set_state_var(aecp, htobe64(p->aecp.target_guid),
+				htobe64(p->aecp.controller_guid),aecp_aem_lock, desc_id, &lock)) {
+			spa_assert(0);
+		}
+	}
 	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, len);
+}
+
+
+static int handle_unsol_lock_entity(struct aecp *aecp, int64_t now)
+{
+	struct server *server = aecp->server;
+	struct aecp_aem_unsol_notification_state unsol = {0};
+	struct aecp_aem_lock_state lock = {0};
+	uint8_t buf[2048];
+	bool has_expired;
+	int rc;
+	int ctrl_index;
+	void *m = buf;
+	// struct aecp_aem_regis_unsols
+	struct avb_ethernet_header *h = m;
+	struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
+	struct avb_packet_aecp_aem_lock *ae;
+	size_t len = sizeof (*h) + sizeof(*p) + sizeof(*ae);
+
+	uint64_t target_id = aecp->server->entity_id;
+
+#ifdef USE_MILAN
+	pw_log_info("Handling unsolicited notification for the lock command\n");
+	rc = aecp_aem_get_state_var(aecp, target_id, aecp_aem_lock, 0, &lock);
+	if (rc) {
+		pw_log_error("while getting lock in the unsol lock callback\n");
+		spa_assert(0);
+	}
+
+	has_expired = (now > lock.base_info.expire_timeout);
+	if (!lock.base_info.needs_update && !has_expired) {
+		pw_log_info("No need for update exp %ld now %ld\n",
+				    lock.base_info.expire_timeout, now);
+		return 0;
+	}
+
+	ae = (struct avb_packet_aecp_aem_lock*)p->payload;
+	if (!lock.is_locked || has_expired) {
+		ae->locked_guid = 0;
+		ae->flags = htonl(AECP_AEM_LOCK_ENTITY_FLAG_LOCK);
+		lock.is_locked = false;
+		lock.base_info.expire_timeout = LONG_MAX;
+	} else {
+		ae->locked_guid = htobe64(lock.locked_id);
+		ae->flags = 0;
+	}
+
+	lock.base_info.needs_update = false;
+	rc = aecp_aem_refresh_state_var(aecp, aecp->server->entity_id, aecp_aem_lock,
+		0, &lock);
+	if (rc)  {
+		pw_log_error("while refreshing var lock\n");
+		spa_assert(0);
+	}
+
+	/** Setup the packet for the unsolicited notification*/
+	p->aecp.hdr.subtype = AVB_SUBTYPE_AECP;
+	AVB_PACKET_SET_VERSION(&p->aecp.hdr, 0);
+	AVB_PACKET_AEM_SET_COMMAND_TYPE(p, AVB_AECP_AEM_CMD_LOCK_ENTITY);
+	AVB_PACKET_AECP_SET_STATUS(&p->aecp, AVB_AECP_AEM_STATUS_SUCCESS);
+	AVB_PACKET_SET_LENGTH(&p->aecp.hdr, 28);
+	p->u = 1;
+	p->aecp.target_guid = htobe64(aecp->server->entity_id);
+
+	// Loop through all the unsol entities.
+	// TODO a more generic way of craeteing this.
+	for (ctrl_index = 0; ctrl_index < 16; ctrl_index++) {
+		rc = aecp_aem_get_state_var(aecp, target_id, aecp_aem_unsol_notif,
+			ctrl_index, &unsol);
+
+			pw_log_info("Retrieve value of %u %lx\n", ctrl_index,
+				unsol.ctrler_endity_id );
+
+		if (!unsol.is_registered) {
+			pw_log_info("Not registered\n");
+			continue;
+		}
+
+		if (rc) {
+			pw_log_error("Could not retrieve unsol %d, for target_id 0x%lx\n",
+				ctrl_index, target_id);
+			spa_assert(0);
+		}
+
+		if ((lock.base_info.controller_entity_id == unsol.ctrler_endity_id) && !has_expired) {
+			/* Do not send unsollicited if that the one creating the udpate, and
+				this is not a timeout.*/
+			pw_log_info("Do not send twice of %lx %lx\n", lock.base_info.controller_entity_id,
+				unsol.ctrler_endity_id );
+			continue;
+		}
+
+		p->aecp.controller_guid = htobe64(unsol.ctrler_endity_id);
+		p->aecp.sequence_id = htons(unsol.next_seq_id);
+
+		unsol.next_seq_id++;
+		AVB_PACKET_AECP_SET_MESSAGE_TYPE(&p->aecp,
+			AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
+
+		aecp_aem_refresh_state_var(aecp, aecp->server->entity_id, aecp_aem_unsol_notif,
+			ctrl_index, &unsol);
+
+		rc = avb_server_send_packet(server, unsol.ctrler_mac_addr, AVB_TSN_ETH, buf, len);
+		if (rc) {
+			pw_log_error("while sending packet to %lx\n", unsol.ctrler_endity_id);
+			return -1;
+		}
+	}
+	lock.base_info.needs_update = false;
+#endif;
+	return 0;
 }
 
 /* ENTITY AVAILABLE according to the locking state */
@@ -181,7 +313,7 @@ static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
 #define AECP_AEM_AVAIL_SUBENTITY_ACQUIRED	(1<<2)
 #define AECP_AEM_AVAIL_SUBENTITY_LOCKED 	(1<<3)
 
-static int handle_entity_available(struct aecp *aecp, const void *m, int len)
+static int handle_entity_available(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	/* Commnand received specific */
 	struct server *server = aecp->server;
@@ -191,12 +323,11 @@ static int handle_entity_available(struct aecp *aecp, const void *m, int len)
 
 	/* Reply specific */
 	struct avb_packet_aecp_aem *p_reply;
-	const struct avb_packet_aecp_aem_available *avail;
 	struct avb_packet_aecp_aem_available *avail_reply;
 
 	/* Entity specific */
-	struct aecp_aem_lock_state *lock;
-	struct timespec ts_now;
+	struct aecp_aem_lock_state lock = {0};
+	int rc;
 	uint8_t buf[1024];
 
 #ifndef USE_MILAN
@@ -215,18 +346,17 @@ static int handle_entity_available(struct aecp *aecp, const void *m, int len)
 // TODO
 #endif // USE_MILAN
 
-	lock = aecp_aem_get_state_var(aecp, p->aecp.target_guid, aecp_aem_lock);
-	/* Locking */
-	if (clock_gettime(CLOCK_MONOTONIC, &ts_now)) {
-		pw_log_error("while getting CLOCK_MONOTONIC time");
+	rc = aecp_aem_get_state_var(aecp, p->aecp.target_guid, aecp_aem_lock, 0, &lock);
+	if (rc) {
+		pw_log_error("Isusue while getting lock\n");
 		spa_assert(0);
 	}
 
-	if (lock->expires < SPA_TIMESPEC_TO_NSEC(&ts_now) || !lock->is_locked) {
+	if ((lock.base_info.expire_timeout < now) || !lock.is_locked) {
 		avail_reply->lock_controller_guid = 0;
 		avail_reply->flags = 0;
-	} else if (lock->is_locked) {
-		avail_reply->lock_controller_guid = htobe64(lock->locked_id);
+	} else if (lock.is_locked) {
+		avail_reply->lock_controller_guid = htobe64(lock.locked_id);
 		avail_reply->flags = htonl(AECP_AEM_AVAIL_ENTITY_LOCKED);
 	}
 
@@ -237,7 +367,7 @@ static int handle_entity_available(struct aecp *aecp, const void *m, int len)
 }
 
 /* READ_DESCRIPTOR */
-static int handle_read_descriptor(struct aecp *aecp, const void *m, int len)
+static int handle_read_descriptor(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	struct server *server = aecp->server;
 	const struct avb_ethernet_header *h = m;
@@ -278,106 +408,98 @@ static int handle_read_descriptor(struct aecp *aecp, const void *m, int len)
 	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, size);
 }
 
-static int handle_set_configuration(struct aecp *aecp, const void *m, int len)
+static int handle_set_configuration(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	// TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_get_configuration(struct aecp *aecp, const void *m, int len)
+static int handle_get_configuration(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	// TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_set_stream_format(struct aecp *aecp, const void *m, int len)
+static int handle_set_stream_format(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	// TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_get_stream_format(struct aecp *aecp, const void *m, int len)
+static int handle_get_stream_format(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	// TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_set_stream_info(struct aecp *aecp, const void *m, int len)
+static int handle_set_stream_info(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	// TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_get_stream_info(struct aecp *aecp, const void *m, int len)
+static int handle_get_stream_info(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	// TODO difference with the stream input or the stream output
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_set_name(struct aecp *aecp, const void *m, int len)
+static int handle_set_name(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	//TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_get_name(struct aecp *aecp, const void *m, int len)
+static int handle_get_name(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	//TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_set_sampling_rate(struct aecp *aecp, const void *m, int len)
+static int handle_set_sampling_rate(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	//TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_get_sampling_rate(struct aecp *aecp, const void *m, int len)
+static int handle_get_sampling_rate(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	//TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_get_clock_source(struct aecp *aecp, const void *m, int len)
+static int handle_get_clock_source(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	//TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_set_clock_source(struct aecp *aecp, const void *m, int len)
+static int handle_set_clock_source(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	//TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_set_control(struct aecp *aecp, const void *m, int len)
+static int handle_set_control(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	//TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_get_control(struct aecp *aecp, const void *m, int len)
-{
-	//TODO
-	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
-	return reply_not_implemented(aecp, m, len);
-
-}
-
-static int handle_start_streaming(struct aecp *aecp, const void *m, int len)
+static int handle_get_control(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	//TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
@@ -385,29 +507,158 @@ static int handle_start_streaming(struct aecp *aecp, const void *m, int len)
 
 }
 
-static int handle_stop_streaming(struct aecp *aecp, const void *m, int len)
+static int handle_start_streaming(struct aecp *aecp, int64_t now, const void *m, int len)
+{
+	//TODO
+	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	return reply_not_implemented(aecp, m, len);
+
+}
+
+static int handle_stop_streaming(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	//TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-
-static int handle_register_unsol_notifications(struct aecp *aecp, const void *m, int len)
+/** Registration of unsollicited notifications */
+#define AECP_AEM_UNSOL_NOTIFICATION_REG_CONTROLLER_MAX (16)
+static int handle_register_unsol_notifications(struct aecp *aecp, int64_t now,
+	 const void *m, int len)
 {
-	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
-	return reply_not_implemented(aecp, m, len);
+	const struct avb_ethernet_header *h = m;
+	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
+	struct aecp_aem_unsol_notification_state unsol = {0};
+
+	uint64_t controller_id = htobe64(p->aecp.controller_guid);
+	uint64_t target_id = htobe64(p->aecp.target_guid);
+	uint16_t index;
+	int rc;
+
+#ifdef USE_MILAN
+	for (index = 0; index < AECP_AEM_UNSOL_NOTIFICATION_REG_CONTROLLER_MAX;
+				index++)  {
+
+		rc = aecp_aem_get_state_var(aecp, target_id, aecp_aem_unsol_notif,
+			index, &unsol);
+
+		if (rc) {
+			pw_log_error("could not get the unsolicited notification\n");
+			spa_assert(0);
+		}
+
+		if ((unsol.ctrler_endity_id == controller_id) &&
+				unsol.is_registered) {
+			pw_log_warn("controller 0x%lx, already registered\n", controller_id);
+			return reply_success(aecp, m, len);
+		}
+	}
+
+	for (index = 0; index < AECP_AEM_UNSOL_NOTIFICATION_REG_CONTROLLER_MAX;
+				index++)  {
+
+		rc = aecp_aem_get_state_var(aecp, target_id, aecp_aem_unsol_notif,
+			index, &unsol);
+
+		if (rc) {
+			pw_log_error("could not get the unsolicited notification\n");
+			spa_assert(0);
+		}
+
+		if (!unsol.is_registered) {
+			break;
+		}
+	}
+
+	if (index == AECP_AEM_UNSOL_NOTIFICATION_REG_CONTROLLER_MAX) {
+		return reply_no_resources(aecp, m, len);
+	}
+
+	unsol.ctrler_endity_id = controller_id;
+	memcpy(unsol.ctrler_mac_addr, h->src, sizeof(h->src));
+	unsol.is_registered = true;
+	unsol.port_id = 0;
+	unsol.next_seq_id = 0;
+
+	pw_log_info("Unsolicited notification registration for 0x%lx", controller_id);
+	rc = aecp_aem_set_state_var(aecp, target_id, controller_id, aecp_aem_unsol_notif,
+		index, &unsol);
+
+	if (rc) {
+		pw_log_error("setting the aecp_aecp_unsol_notif\n");
+		spa_assert(0);
+	}
+
+	return reply_success(aecp, m, len);
+#else
+		return reply_not_implemented(aecp, m, len);
+#endif //USE_MILAN
 }
 
-static int handle_deregister_unsol_notifications(struct aecp *aecp, const void *m, int len)
+static int handle_deregister_unsol_notifications(struct aecp *aecp,
+	 int64_t now, const void *m, int len)
 {
-	// TODO action to provide update every seconds see state machines
-	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
-	return reply_not_implemented(aecp, m, len);
+	const struct avb_ethernet_header *h = m;
+	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
+	struct aecp_aem_unsol_notification_state unsol = {0};
+
+	uint64_t controller_id = htobe64(p->aecp.controller_guid);
+	uint64_t target_id = htobe64(p->aecp.target_guid);
+	uint16_t index;
+	int rc;
+
+
+	#ifdef USE_MILAN
+	// Check the list if registered
+	for (index = 0; index < AECP_AEM_UNSOL_NOTIFICATION_REG_CONTROLLER_MAX;
+				index++)  {
+
+		rc = aecp_aem_get_state_var(aecp, target_id, aecp_aem_unsol_notif,
+			index, &unsol);
+
+		if (rc) {
+			pw_log_error("could not get the unsolicited notification\n");
+			spa_assert(0);
+		}
+
+		if ((unsol.ctrler_endity_id == controller_id) &&
+				unsol.is_registered) {
+			break;
+		}
+	}
+
+	// Never made it to the list
+	if (index == AECP_AEM_UNSOL_NOTIFICATION_REG_CONTROLLER_MAX) {
+		pw_log_warn("Controller %lx never made it the registrered list\n",
+					 controller_id);
+		return reply_success(aecp, m, len);
+	}
+
+
+	unsol.ctrler_endity_id = 0;
+	memset(unsol.ctrler_mac_addr, 0, sizeof(unsol.ctrler_mac_addr));
+	unsol.is_registered = false;
+	unsol.port_id = 0;
+	unsol.next_seq_id = 0;
+
+	pw_log_info("unsol de-registration for 0x%lx at idx=%d", controller_id, index);
+	rc = aecp_aem_set_state_var(aecp, target_id, controller_id, aecp_aem_unsol_notif,
+		index, &unsol);
+
+	if (rc) {
+		pw_log_error("setting the aecp_aecp_unsol_notif\n");
+		spa_assert(0);
+	}
+
+	return reply_success(aecp, m, len);
+#else
+		return reply_not_implemented(aecp, m, len);
+#endif //USE_MILAN
 }
 
 /* GET_AVB_INFO */
-static int handle_get_avb_info(struct aecp *aecp, const void *m, int len)
+static int handle_get_avb_info(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	struct server *server = aecp->server;
 	const struct avb_ethernet_header *h = m;
@@ -455,37 +706,37 @@ static int handle_get_avb_info(struct aecp *aecp, const void *m, int len)
 	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, size);
 }
 
-static int handle_get_as_path(struct aecp *aecp, const void *m, int len)
+static int handle_get_as_path(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_get_counters(struct aecp *aecp, const void *m, int len)
+static int handle_get_counters(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_get_audio_map(struct aecp *aecp, const void *m, int len)
+static int handle_get_audio_map(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_add_audio_mappings(struct aecp *aecp, const void *m, int len)
+static int handle_add_audio_mappings(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_remove_audio_mappings(struct aecp *aecp, const void *m, int len)
+static int handle_remove_audio_mappings(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_get_dynamic_info(struct aecp *aecp, const void *m, int len)
+static int handle_get_dynamic_info(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
@@ -495,18 +746,25 @@ static int handle_get_dynamic_info(struct aecp *aecp, const void *m, int len)
 struct cmd_info {
 	const char *name;
 	const bool is_readonly;
-	int (*handle) (struct aecp *aecp, const void *p, int len);
+	int (*handle) (struct aecp *aecp, int64_t now, const void *p, int len);
+	int (*handle_unsol) (struct aecp *aecp, int64_t now);
 };
 #define AECP_AEM_CMD_RESP(cmd, readonly_desc, name_str, handle_exec) \
 		[cmd] = { .name = name_str, .is_readonly = readonly_desc, 	 \
 										 .handle = handle_exec}
 
+#define AECP_AEM_CMD_RESP_AND_UNSOL(cmd, readonly_desc, name_str, handle_exec, \
+	 handle_exec_unsol) \
+	[cmd] = { .name = name_str, .is_readonly = readonly_desc, 	 \
+	.handle = handle_exec, .handle_unsol = handle_exec_unsol }
+
 static const struct cmd_info cmd_info[] = {
 	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_ACQUIRE_ENTITY, false,
 						"acquire-entity", handle_acquire_entity),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_LOCK_ENTITY, true,
-						"lock-entity", handle_lock_entity),
+	AECP_AEM_CMD_RESP_AND_UNSOL( AVB_AECP_AEM_CMD_LOCK_ENTITY, false,
+						"lock-entity", handle_lock_entity,
+						 handle_unsol_lock_entity),
 
 	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_ENTITY_AVAILABLE, true,
 						"entity-available", handle_entity_available),
@@ -611,11 +869,11 @@ static const struct cmd_info cmd_info[] = {
 						"stop-streaming", handle_stop_streaming),
 
 	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_REGISTER_UNSOLICITED_NOTIFICATION,
-						 false, "register-unsolicited-notification",
+						 true, "register-unsolicited-notification",
 						 handle_register_unsol_notifications),
 
 	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_DEREGISTER_UNSOLICITED_NOTIFICATION,
-						 false, "deregister-unsolicited-notification",
+						 true, "deregister-unsolicited-notification",
 						 handle_deregister_unsol_notifications),
 
 	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_IDENTIFY_NOTIFICATION, true,
@@ -669,34 +927,23 @@ static inline const struct cmd_info *find_cmd_info(uint16_t type, const char *na
 	return &cmd_info[type];
 }
 
-static inline bool check_locked(struct aecp *aecp,
+static inline bool check_locked(struct aecp *aecp, int64_t now,
 	const struct avb_packet_aecp_aem *p, const struct cmd_info *cmd)
 {
-	struct timespec ts_now;
-	int64_t now;
-
 	pw_log_info("Accessing %s, current entity is %s\n",
 		cmd->is_readonly? "ro" : "wo", "locked");
 
-	struct aecp_aem_lock_state *lock;
-	lock = aecp_aem_get_state_var(aecp, htobe64(p->aecp.target_guid),
-								  aecp_aem_lock);
-	// No lock was found for the entity, that is an error, return issue
-	if (!lock) {
-		pw_log_error("Cannot retrieve the lock\n");
-		return false;
+	struct aecp_aem_lock_state lock = { 0 };
+	int rc = aecp_aem_get_state_var(aecp, htobe64(p->aecp.target_guid),
+								  aecp_aem_lock, 0, &lock);
+
+								  	// No lock was found for the entity, that is an error, return issue
+	if (rc) {
+		pw_log_error("Issue while retrieving lock\n");
+		spa_assert(0);
 	}
 
-	/**
-	 * Time is always using the monotonic time
-	 */
-	if (clock_gettime(CLOCK_MONOTONIC, &ts_now)) {
-		pw_log_error("while getting CLOCK_MONOTONIC time\n");
-	}
-
-	/* Check whether the lock has expired */
-	now = SPA_TIMESPEC_TO_NSEC(&ts_now);
-	if (lock->expires < now) {
+	if (lock.base_info.expire_timeout < now) {
 		return false;
 	}
 
@@ -704,8 +951,38 @@ static inline bool check_locked(struct aecp *aecp,
 	 * Return lock if the lock is locked and the controller id is different
 	 * than the controller locking the entity
 	 */
-	return lock->is_locked &&
-			(lock->locked_id != htobe64(p->aecp.controller_guid));
+	return lock.is_locked &&
+			(lock.locked_id != htobe64(p->aecp.controller_guid));
+}
+
+// // This if or timed update
+static int avb_aecp_update_unsolicited_notification(struct aecp *aecp,
+	uint16_t descriptor_type, int64_t now)
+{
+	int var_state_idx = aecp_aem_min + 1;
+	int rc = 0;
+	int64_t expire_timeout;
+	struct aecp_aem_base_info *binfo;
+	for (; var_state_idx < aecp_aem_max; var_state_idx++) {
+
+
+		rc = aecp_aem_get_base_info(aecp, aecp->server->entity_id, var_state_idx,
+									var_state_idx, &binfo);
+		if (rc) {
+			pw_log_warn("Could not find var state info var id %d\n", var_state_idx);
+			continue;
+		}
+		expire_timeout = binfo->expire_timeout;
+		if (expire_timeout ==  LONG_MAX) {
+			continue;
+		}
+
+		if (cmd_info->handle_unsol) {
+			cmd_info->handle_unsol(aecp, now);
+		}
+	}
+
+	return rc;
 }
 
 int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len)
@@ -713,29 +990,67 @@ int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len)
 	const struct avb_ethernet_header *h = m;
 	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
 	uint16_t cmd_type;
+	int rc = -1;
 	const struct cmd_info *info;
+	struct timespec ts_now;
+	int64_t now;
 
+	/**
+	 * Time is always using the monotonic time
+	 */
+	if (clock_gettime(CLOCK_TAI, &ts_now)) {
+		pw_log_error("while getting CLOCK_MONOTONIC time\n");
+	}
+
+	now = SPA_TIMESPEC_TO_NSEC(&ts_now);
 	cmd_type = AVB_PACKET_AEM_GET_COMMAND_TYPE(p);
 
 	info = find_cmd_info(cmd_type, NULL);
 	if (info == NULL)
 		return reply_not_implemented(aecp, m, len);
 
-	pw_log_info("aem command %s", info->name);
+	pw_log_info("aem command %s %ld", info->name, now);
 
 	if (info->handle == NULL)
 		return reply_not_implemented(aecp, m, len);
 
 	if (info->is_readonly) {
-		return info->handle(aecp, m, len);
+		return info->handle(aecp, now, m, len);
 	} else {
 		/** If not locked then continue below */
-		if (!check_locked(aecp, p, &cmd_info[cmd_type])) {
-			return info->handle(aecp, m, len);
+		if (!check_locked(aecp, now,p, &cmd_info[cmd_type])) {
+			rc = info->handle(aecp, now, m, len);
+			if (rc) {
+				pw_log_error("handling returned %d\n", rc);
+				return -1;
+			}
+
+			if (info->handle_unsol) {
+				rc = info->handle_unsol(aecp, now);
+			}
+		} else {
+			rc = reply_locked(aecp, m, len);
 		}
 	}
 
-	return -1;
+	return rc;
+}
+
+int avb_aecp_aem_handle_timeouts(struct aecp *aecp, uint64_t now)
+{
+	size_t array_sz = ARRAY_SIZE(cmd_info);
+	for (size_t index = 0; index < array_sz; index++) {
+		if (!cmd_info[index].handle_unsol) {
+			continue;
+		}
+		if ((cmd_info[index].handle_unsol(aecp, now))) {
+			pw_log_error("unexpected failure in perdioc unsols %s\n",
+						  cmd_info[index].name);
+			spa_assert(0);
+		}
+	}
+
+	return 0;
 }
 
 int avb_aecp_aem_handle_response(struct aecp *aecp, const void *m, int len)

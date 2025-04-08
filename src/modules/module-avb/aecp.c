@@ -84,6 +84,7 @@ static int aecp_message(void *data, uint64_t now, const void *message, int len)
 	if (info->handle == NULL)
 		return reply_not_implemented(aecp, message, len);
 
+	// TODO here check if unsollicited change are needed,
 	return info->handle(aecp, message, len);
 }
 
@@ -121,11 +122,20 @@ static int aecp_command(void *data, uint64_t now, const char *command, const cha
 	return res;
 }
 
+static void aecp_periodic (void *data, uint64_t now)
+{
+	struct aecp *aecp = data;
+	if (now > aecp->timeout) {
+		avb_aecp_aem_handle_timeouts(aecp, now);
+	}
+}
+
 static const struct server_events server_events = {
 	AVB_VERSION_SERVER_EVENTS,
 	.destroy = aecp_destroy,
 	.message = aecp_message,
-	.command = aecp_command
+	.command = aecp_command,
+	.periodic = aecp_periodic
 };
 
 struct avb_aecp *avb_aecp_register(struct server *server)

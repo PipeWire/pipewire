@@ -149,6 +149,7 @@ struct aecp_aem_state {
 struct aecp {
 	struct server *server;
 	struct spa_hook server_listener;
+	uint64_t timeout;
 };
 
 static inline void *avb_aecp_aem_add_state_var(struct server *srv,

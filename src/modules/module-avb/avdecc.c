@@ -32,7 +32,8 @@
 #include "aecp-state-vars.h"
 #include "utils.h"
 
-#define DEFAULT_INTERVAL	1
+#define DEFAULT_INTERVAL_S	0
+#define DEFAULT_INTERVAL_NS	500000000
 
 #define server_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct server_events, m, v, ##__VA_ARGS__)
 #define server_emit_destroy(s)		server_emit(s, destroy, 0)
@@ -224,8 +225,8 @@ static int setup_socket(struct server *server)
 	}
 	value.tv_sec = 0;
 	value.tv_nsec = 1;
-	interval.tv_sec = DEFAULT_INTERVAL;
-	interval.tv_nsec = 0;
+	interval.tv_sec = DEFAULT_INTERVAL_S;
+	interval.tv_nsec = DEFAULT_INTERVAL_NS;
 	pw_loop_update_timer(impl->loop, server->timer, &value, &interval, false);
 
 	return 0;

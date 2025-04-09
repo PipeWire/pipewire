@@ -485,6 +485,7 @@ static bool select_bap_qos(struct bap_qos *conf,
 		unsigned int duration_mask, uint16_t framelen_min,
 		uint16_t framelen_max)
 {
+	bool found = false;
 	conf->name = NULL;
 	conf->priority = 0;
 
@@ -518,9 +519,10 @@ static bool select_bap_qos(struct bap_qos *conf,
 			continue;
 
 		*conf = c;
+		found = true;
 	}
 
-	return conf->name;
+	return found;
 }
 
 static int select_channels(uint8_t channel_counts, uint32_t locations, uint32_t channel_allocation,

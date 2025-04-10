@@ -197,6 +197,7 @@ enum {
 	CRYPTO_NONE,
 	CRYPTO_RSA,
 	CRYPTO_AUTH_SETUP,
+	CRYPTO_FP_SAP25,
 };
 enum {
 	CODEC_PCM,
@@ -892,9 +893,9 @@ static int rtsp_record_reply(void *data, int status, const struct spa_dict *head
 	interval.tv_nsec = 0;
 
 	// feedback timer is only needed for auth_setup	encryption
-	if (impl->encryption == CRYPTO_AUTH_SETUP && !impl->feedback_timer) {
-
-		impl->feedback_timer = pw_loop_add_timer(impl->loop, rtsp_do_post_feedback, impl);
+	if (impl->encryption == CRYPTO_FP_SAP25) {
+		if (!impl->feedback_timer)
+			impl->feedback_timer = pw_loop_add_timer(impl->loop, rtsp_do_post_feedback, impl);
 		pw_loop_update_timer(impl->loop, impl->feedback_timer, &timeout, &interval, false);
 	}
 
@@ -1239,6 +1240,7 @@ static int rtsp_do_announce(struct impl *impl)
 
 	switch (impl->encryption) {
 	case CRYPTO_NONE:
+	case CRYPTO_FP_SAP25:
 		sdp = spa_aprintf("v=0\r\n"
 				"o=iTunes %s 0 IN IP%d %s\r\n"
 				"s=iTunes\r\n"
@@ -1252,6 +1254,7 @@ static int rtsp_do_announce(struct impl *impl)
 		if (!sdp)
 			return -errno;
 		break;
+
 	case CRYPTO_AUTH_SETUP:
 		sdp = spa_aprintf("v=0\r\n"
 				"o=iTunes %s 0 IN IP%d %s\r\n"
@@ -1877,6 +1880,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		impl->encryption = CRYPTO_RSA;
 	else if (spa_streq(str, "auth_setup"))
 		impl->encryption = CRYPTO_AUTH_SETUP;
+	else if (spa_streq(str, "fp_sap25"))
+		impl->encryption = CRYPTO_FP_SAP25;
 	else {
 		pw_log_error( "can't handle encryption type %s", str);
 		res = -EINVAL;

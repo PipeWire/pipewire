@@ -71,7 +71,7 @@
  *                          #raop.domain = ""
  *                          #raop.device = ""
  *                          #raop.transport = "udp" | "tcp"
- *                          #raop.encryption.type = "RSA" | "auth_setup" | "none"
+ *                          #raop.encryption.type = "none" | "RSA" | "auth_setup" | "fp_sap25"
  *                          #raop.audio.codec = "PCM" | "ALAC" | "AAC" | "AAC-ELD"
  *                          #audio.channels = 2
  *                          #audio.format = "S16" | "S24" | "S32"
@@ -244,10 +244,12 @@ static void pw_properties_from_avahi_string(const char *key, const char *value,
 		 *  3 = FairPlay,
 		 *  4 = MFiSAP (/auth-setup),
 		 *  5 = FairPlay SAPv2.5 */
-		if (str_in_list(value, ",", "1"))
-			value = "RSA";
+		if (str_in_list(value, ",", "5"))
+			value = "fp_sap25";
 		else if (str_in_list(value, ",", "4"))
 			value = "auth_setup";
+		else if (str_in_list(value, ",", "1"))
+			value = "RSA";
 		else
 			value = "none";
 		pw_properties_set(props, "raop.encryption.type", value);

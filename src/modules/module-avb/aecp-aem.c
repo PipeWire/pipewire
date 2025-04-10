@@ -1,5 +1,7 @@
 /* AVB support */
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans */
+/* SPDX-FileCopyrightText: Copyright © 2025 Kebag-Logic */
+/* SPDX-FileCopyrightText: Copyright © 2025 Alexandre Malki <alexandre.malki@kebag-logic.com> */
 /* SPDX-License-Identifier: MIT */
 
 #include <time.h>
@@ -14,7 +16,11 @@
 #include "aecp-cmd-resp/aecp-aem-helpers.h"
 
 #include "aecp-cmd-resp/aecp-aem-available.h"
+#include "aecp-cmd-resp/aecp-aem-descriptors.h"
+#include "aecp-cmd-resp/aecp-aem-get-avb-info.h"
 #include "aecp-cmd-resp/aecp-aem-lock.h"
+#include "aecp-cmd-resp/aecp-aem-unsol-notifications.h"
+
 
 /* ACQUIRE_ENTITY */
 static int handle_acquire_entity(struct aecp *aecp, int64_t now, const void *m, int len)
@@ -47,49 +53,6 @@ static int handle_acquire_entity(struct aecp *aecp, int64_t now, const void *m, 
 
 	return reply_success(aecp, m, len);
 #endif // USE_MILAN
-}
-
-
-/* READ_DESCRIPTOR */
-static int handle_read_descriptor(struct aecp *aecp, int64_t now, const void *m, int len)
-{
-	struct server *server = aecp->server;
-	const struct avb_ethernet_header *h = m;
-	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
-	struct avb_packet_aecp_aem *reply;
-	const struct avb_packet_aecp_aem_read_descriptor *rd;
-	uint16_t desc_type, desc_id;
-	const struct descriptor *desc;
-	uint8_t buf[2048];
-	size_t size, psize;
-
-	rd = (struct avb_packet_aecp_aem_read_descriptor*)p->payload;
-
-	desc_type = ntohs(rd->descriptor_type);
-	desc_id = ntohs(rd->descriptor_id);
-
-	pw_log_info("descriptor type:%04x index:%d", desc_type, desc_id);
-
-	desc = server_find_descriptor(server, desc_type, desc_id);
-	if (desc == NULL)
-		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
-
-	memcpy(buf, m, len);
-
-	psize = sizeof(*rd);
-	size = sizeof(*h) + sizeof(*reply) + psize;
-
-	memcpy(buf + size, desc->ptr, desc->size);
-	size += desc->size;
-	psize += desc->size;
-
-	h = (void*)buf;
-	reply = SPA_PTROFF(h, sizeof(*h), void);
-	AVB_PACKET_AECP_SET_MESSAGE_TYPE(&reply->aecp, AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
-	AVB_PACKET_AECP_SET_STATUS(&reply->aecp, AVB_AECP_AEM_STATUS_SUCCESS);
-	AVB_PACKET_SET_LENGTH(&reply->aecp.hdr, psize + 12);
-
-	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, size);
 }
 
 static int handle_set_configuration(struct aecp *aecp, int64_t now, const void *m, int len)
@@ -206,190 +169,6 @@ static int handle_stop_streaming(struct aecp *aecp, int64_t now, const void *m, 
 	return reply_not_implemented(aecp, m, len);
 }
 
-/** Registration of unsollicited notifications */
-#define AECP_AEM_UNSOL_NOTIFICATION_REG_CONTROLLER_MAX (16)
-static int handle_register_unsol_notifications(struct aecp *aecp, int64_t now,
-	 const void *m, int len)
-{
-	const struct avb_ethernet_header *h = m;
-	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
-	struct aecp_aem_unsol_notification_state unsol = {0};
-
-	uint64_t controller_id = htobe64(p->aecp.controller_guid);
-	uint64_t target_id = htobe64(p->aecp.target_guid);
-	uint16_t index;
-	int rc;
-
-#ifdef USE_MILAN
-	for (index = 0; index < AECP_AEM_UNSOL_NOTIFICATION_REG_CONTROLLER_MAX;
-				index++)  {
-
-		rc = aecp_aem_get_state_var(aecp, target_id, aecp_aem_unsol_notif,
-			index, &unsol);
-
-		if (rc) {
-			pw_log_error("could not get the unsolicited notification\n");
-			spa_assert(0);
-		}
-
-		if ((unsol.ctrler_endity_id == controller_id) &&
-				unsol.is_registered) {
-			pw_log_warn("controller 0x%lx, already registered\n", controller_id);
-			return reply_success(aecp, m, len);
-		}
-	}
-
-	for (index = 0; index < AECP_AEM_UNSOL_NOTIFICATION_REG_CONTROLLER_MAX;
-				index++)  {
-
-		rc = aecp_aem_get_state_var(aecp, target_id, aecp_aem_unsol_notif,
-			index, &unsol);
-
-		if (rc) {
-			pw_log_error("could not get the unsolicited notification\n");
-			spa_assert(0);
-		}
-
-		if (!unsol.is_registered) {
-			break;
-		}
-	}
-
-	if (index == AECP_AEM_UNSOL_NOTIFICATION_REG_CONTROLLER_MAX) {
-		return reply_no_resources(aecp, m, len);
-	}
-
-	unsol.ctrler_endity_id = controller_id;
-	memcpy(unsol.ctrler_mac_addr, h->src, sizeof(h->src));
-	unsol.is_registered = true;
-	unsol.port_id = 0;
-	unsol.next_seq_id = 0;
-
-	pw_log_info("Unsolicited notification registration for 0x%lx", controller_id);
-	rc = aecp_aem_set_state_var(aecp, target_id, controller_id, aecp_aem_unsol_notif,
-		index, &unsol);
-
-	if (rc) {
-		pw_log_error("setting the aecp_aecp_unsol_notif\n");
-		spa_assert(0);
-	}
-
-	return reply_success(aecp, m, len);
-#else
-		return reply_not_implemented(aecp, m, len);
-#endif //USE_MILAN
-}
-
-static int handle_deregister_unsol_notifications(struct aecp *aecp,
-	 int64_t now, const void *m, int len)
-{
-	const struct avb_ethernet_header *h = m;
-	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
-	struct aecp_aem_unsol_notification_state unsol = {0};
-
-	uint64_t controller_id = htobe64(p->aecp.controller_guid);
-	uint64_t target_id = htobe64(p->aecp.target_guid);
-	uint16_t index;
-	int rc;
-
-
-	#ifdef USE_MILAN
-	// Check the list if registered
-	for (index = 0; index < AECP_AEM_UNSOL_NOTIFICATION_REG_CONTROLLER_MAX;
-				index++)  {
-
-		rc = aecp_aem_get_state_var(aecp, target_id, aecp_aem_unsol_notif,
-			index, &unsol);
-
-		if (rc) {
-			pw_log_error("could not get the unsolicited notification\n");
-			spa_assert(0);
-		}
-
-		if ((unsol.ctrler_endity_id == controller_id) &&
-				unsol.is_registered) {
-			break;
-		}
-	}
-
-	// Never made it to the list
-	if (index == AECP_AEM_UNSOL_NOTIFICATION_REG_CONTROLLER_MAX) {
-		pw_log_warn("Controller %lx never made it the registrered list\n",
-					 controller_id);
-		return reply_success(aecp, m, len);
-	}
-
-
-	unsol.ctrler_endity_id = 0;
-	memset(unsol.ctrler_mac_addr, 0, sizeof(unsol.ctrler_mac_addr));
-	unsol.is_registered = false;
-	unsol.port_id = 0;
-	unsol.next_seq_id = 0;
-
-	pw_log_info("unsol de-registration for 0x%lx at idx=%d", controller_id, index);
-	rc = aecp_aem_set_state_var(aecp, target_id, controller_id, aecp_aem_unsol_notif,
-		index, &unsol);
-
-	if (rc) {
-		pw_log_error("setting the aecp_aecp_unsol_notif\n");
-		spa_assert(0);
-	}
-
-	return reply_success(aecp, m, len);
-#else
-		return reply_not_implemented(aecp, m, len);
-#endif //USE_MILAN
-}
-
-/* GET_AVB_INFO */
-static int handle_get_avb_info(struct aecp *aecp, int64_t now, const void *m, int len)
-{
-	struct server *server = aecp->server;
-	const struct avb_ethernet_header *h = m;
-	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
-	struct avb_packet_aecp_aem *reply;
-	struct avb_packet_aecp_aem_get_avb_info *i;
-	struct avb_aem_desc_avb_interface *avb_interface;
-	uint16_t desc_type, desc_id;
-	const struct descriptor *desc;
-	uint8_t buf[2048];
-	size_t size, psize;
-
-	i = (struct avb_packet_aecp_aem_get_avb_info*)p->payload;
-
-	desc_type = ntohs(i->descriptor_type);
-	desc_id = ntohs(i->descriptor_id);
-
-	desc = server_find_descriptor(server, desc_type, desc_id);
-	if (desc == NULL)
-		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
-
-	if (desc_type != AVB_AEM_DESC_AVB_INTERFACE || desc_id != 0)
-		return reply_not_implemented(aecp, m, len);
-
-	avb_interface = desc->ptr;
-
-	memcpy(buf, m, len);
-
-	psize = sizeof(*i);
-	size = sizeof(*h) + sizeof(*reply) + psize;
-
-	h = (void*)buf;
-	reply = SPA_PTROFF(h, sizeof(*h), void);
-	AVB_PACKET_AECP_SET_MESSAGE_TYPE(&reply->aecp, AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
-	AVB_PACKET_AECP_SET_STATUS(&reply->aecp, AVB_AECP_AEM_STATUS_SUCCESS);
-	AVB_PACKET_SET_LENGTH(&reply->aecp.hdr, psize + 12);
-
-	i = (struct avb_packet_aecp_aem_get_avb_info*)reply->payload;
-	i->gptp_grandmaster_id = avb_interface->clock_identity;
-	i->propagation_delay = htonl(0);
-	i->gptp_domain_number = avb_interface->domain_number;
-	i->flags = 0;
-	i->msrp_mappings_count = htons(0);
-
-	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, size);
-}
-
 static int handle_get_as_path(struct aecp *aecp, int64_t now, const void *m,
 	 int len)
 {
@@ -478,16 +257,13 @@ static const struct cmd_info cmd_info[] = {
 						 handle_unsol_lock_entity),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_ENTITY_AVAILABLE, true,
-						"entity-available", handle_entity_available),
-
-	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_ENTITY_AVAILABLE, true,
-		"controller-available", handle_entity_available),
+						"entity-available", handle_cmd_entity_available),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_CONTROLLER_AVAILABLE, true,
 						"controller-available", NULL),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_READ_DESCRIPTOR, true,
-						"read-descriptor", handle_read_descriptor),
+						"read-descriptor", handle_cmd_read_descriptor),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_WRITE_DESCRIPTOR, false,
 						"write-descriptor", NULL),
@@ -584,17 +360,17 @@ static const struct cmd_info cmd_info[] = {
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_REGISTER_UNSOLICITED_NOTIFICATION,
 						 true, "register-unsolicited-notification",
-						 handle_register_unsol_notifications),
+						 handle_cmd_register_unsol_notifications),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_DEREGISTER_UNSOLICITED_NOTIFICATION,
 						 true, "deregister-unsolicited-notification",
-						 handle_deregister_unsol_notifications),
+						 handle_cmd_deregister_unsol_notifications),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_IDENTIFY_NOTIFICATION, true,
 						"identify-notification", NULL),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_AVB_INFO, true,
-						"get-avb-info", handle_get_avb_info),
+						"get-avb-info", handle_cmd_get_avb_info),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_AS_PATH, true,
 						"get-as-path", handle_get_as_path),
@@ -667,36 +443,6 @@ static inline bool check_locked(struct aecp *aecp, int64_t now,
 	 */
 	return lock.is_locked &&
 			(lock.locked_id != htobe64(p->aecp.controller_guid));
-}
-
-// // This if or timed update
-static int avb_aecp_update_unsolicited_notification(struct aecp *aecp,
-	uint16_t descriptor_type, int64_t now)
-{
-	int var_state_idx = aecp_aem_min + 1;
-	int rc = 0;
-	int64_t expire_timeout;
-	struct aecp_aem_base_info *binfo;
-	for (; var_state_idx < aecp_aem_max; var_state_idx++) {
-
-
-		rc = aecp_aem_get_base_info(aecp, aecp->server->entity_id, var_state_idx,
-									var_state_idx, &binfo);
-		if (rc) {
-			pw_log_warn("Could not find var state info var id %d\n", var_state_idx);
-			continue;
-		}
-		expire_timeout = binfo->expire_timeout;
-		if (expire_timeout ==  LONG_MAX) {
-			continue;
-		}
-
-		if (cmd_info->handle_unsol) {
-			cmd_info->handle_unsol(aecp, now);
-		}
-	}
-
-	return rc;
 }
 
 int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len)

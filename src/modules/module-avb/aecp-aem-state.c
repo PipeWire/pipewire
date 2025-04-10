@@ -1,3 +1,8 @@
+/* AVB support */
+/* SPDX-FileCopyrightText: Copyright © 2025 Kebag-Logic */
+/* SPDX-FileCopyrightText: Copyright © 2025 Alexandre Malki <alexandre.malki@kebag-logic.com> */
+/* SPDX-License-Identifier: MIT */
+
 #include "aecp-aem-state.h"
 #include "aecp-aem.h"
 #include "utils.h"

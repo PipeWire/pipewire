@@ -706,37 +706,43 @@ static int handle_get_avb_info(struct aecp *aecp, int64_t now, const void *m, in
 	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, size);
 }
 
-static int handle_get_as_path(struct aecp *aecp, int64_t now, const void *m, int len)
+static int handle_get_as_path(struct aecp *aecp, int64_t now, const void *m,
+	 int len)
 {
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_get_counters(struct aecp *aecp, int64_t now, const void *m, int len)
+static int handle_get_counters(struct aecp *aecp, int64_t now, const void *m,
+	 int len)
 {
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_get_audio_map(struct aecp *aecp, int64_t now, const void *m, int len)
+static int handle_get_audio_map(struct aecp *aecp, int64_t now,
+	 const void *m, int len)
 {
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_add_audio_mappings(struct aecp *aecp, int64_t now, const void *m, int len)
+static int handle_add_audio_mappings(struct aecp *aecp, int64_t now,
+	 const void *m, int len)
 {
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_remove_audio_mappings(struct aecp *aecp, int64_t now, const void *m, int len)
+static int handle_remove_audio_mappings(struct aecp *aecp, int64_t now,
+	 const void *m, int len)
 {
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_get_dynamic_info(struct aecp *aecp, int64_t now, const void *m, int len)
+static int handle_get_dynamic_info(struct aecp *aecp, int64_t now,
+	 const void *m, int len)
 {
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
@@ -746,12 +752,33 @@ static int handle_get_dynamic_info(struct aecp *aecp, int64_t now, const void *m
 struct cmd_info {
 	const char *name;
 	const bool is_readonly;
-	int (*handle) (struct aecp *aecp, int64_t now, const void *p, int len);
+	int (*handle_command) (struct aecp *aecp, int64_t now, const void *p,
+		 int len);
+	int (*handle_response) (struct aecp *aecp, int64_t now, const void *p,
+		 int len);
 	int (*handle_unsol) (struct aecp *aecp, int64_t now);
 };
-#define AECP_AEM_CMD_RESP(cmd, readonly_desc, name_str, handle_exec) \
-		[cmd] = { .name = name_str, .is_readonly = readonly_desc, 	 \
-										 .handle = handle_exec}
+
+#define AECP_AEM_HANDLE_CMD(cmd, readonly_desc, name_str, handle_exec)			\
+	[cmd] = { .name = name_str, .is_readonly = readonly_desc, 	 				\
+				.handle_command = handle_exec }
+
+#define AECP_AEM_HANDLE_CMD_UNSOL(cmd, readonly_desc, name_str, handle_exec,	\
+	 handle_exec_unsol) 														\
+	[cmd] = { .name = name_str, .is_readonly = readonly_desc,					\
+			  .handle_command = handle_exec, .handle_unsol = handle_exec_unsol }
+
+#define AECP_AEM_HANDLE_RESP(cmd, name_str, handle_cmd,							\
+		handle_exec_unsol)														\
+	[cmd] = { .name = name_str, .is_readonly = false,							\
+			  .handle_response = handle_cmd }
+
+/** Helper to create a handler for response and unsolicited notifications */
+#define AECP_AEM_HANDLE_RESP_UNSOL(cmd, name_str, handle_cmd,					\
+		handle_exec_unsol)														\
+	[cmd] = { .name = name_str, .is_readonly = false,							\
+			  .handle_response = handle_cmd, handle_unsol = handle_exec_unsol }
+
 
 #define AECP_AEM_CMD_RESP_AND_UNSOL(cmd, readonly_desc, name_str, handle_exec, \
 	 handle_exec_unsol) \
@@ -759,160 +786,160 @@ struct cmd_info {
 	.handle = handle_exec, .handle_unsol = handle_exec_unsol }
 
 static const struct cmd_info cmd_info[] = {
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_ACQUIRE_ENTITY, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_ACQUIRE_ENTITY, false,
 						"acquire-entity", handle_acquire_entity),
 
-	AECP_AEM_CMD_RESP_AND_UNSOL( AVB_AECP_AEM_CMD_LOCK_ENTITY, false,
+	AECP_AEM_HANDLE_CMD_UNSOL( AVB_AECP_AEM_CMD_LOCK_ENTITY, false,
 						"lock-entity", handle_lock_entity,
 						 handle_unsol_lock_entity),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_ENTITY_AVAILABLE, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_ENTITY_AVAILABLE, true,
 						"entity-available", handle_entity_available),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_CONTROLLER_AVAILABLE, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_CONTROLLER_AVAILABLE, true,
 						"controller-available", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_READ_DESCRIPTOR, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_READ_DESCRIPTOR, true,
 						"read-descriptor", handle_read_descriptor),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_WRITE_DESCRIPTOR, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_WRITE_DESCRIPTOR, false,
 						"write-descriptor", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_CONFIGURATION, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_CONFIGURATION, false,
 						"set-configuration", handle_set_configuration),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_CONFIGURATION, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_CONFIGURATION, true,
 						"get-configuration", handle_get_configuration),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_STREAM_FORMAT, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_STREAM_FORMAT, false,
 						"set-stream-format", handle_set_stream_format),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_STREAM_FORMAT, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_STREAM_FORMAT, true,
 						"get-stream-format", handle_get_stream_format),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_VIDEO_FORMAT, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_VIDEO_FORMAT, false,
 						"set-video-format", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_VIDEO_FORMAT, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_VIDEO_FORMAT, true,
 						"get-video-format", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_SENSOR_FORMAT, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_SENSOR_FORMAT, false,
 						"set-sensor-format", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_SENSOR_FORMAT, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_SENSOR_FORMAT, true,
 						"get-sensor-format", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_STREAM_INFO, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_STREAM_INFO, false,
 						"set-stream-info", handle_set_stream_info),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_STREAM_INFO, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_STREAM_INFO, true,
 						"get-stream-info", handle_get_stream_info),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_NAME, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_NAME, false,
 						"set-name", handle_set_name),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_NAME, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_NAME, true,
 						"get-name", handle_get_name),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_ASSOCIATION_ID, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_ASSOCIATION_ID, false,
 						"set-association-id", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_ASSOCIATION_ID, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_ASSOCIATION_ID, true,
 						"get-association-id", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_SAMPLING_RATE, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_SAMPLING_RATE, false,
 						"set-sampling-rate", handle_set_sampling_rate),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_SAMPLING_RATE, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_SAMPLING_RATE, true,
 						"get-sampling-rate", handle_get_sampling_rate),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_CLOCK_SOURCE, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_CLOCK_SOURCE, false,
 						"set-clock-source", handle_set_clock_source),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_CLOCK_SOURCE, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_CLOCK_SOURCE, true,
 						"get-clock-source", handle_get_clock_source),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_CONTROL, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_CONTROL, false,
 						"set-control", handle_set_control),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_CONTROL, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_CONTROL, true,
 						"get-control", handle_get_control),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_INCREMENT_CONTROL, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_INCREMENT_CONTROL, false,
 						"increment-control", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_DECREMENT_CONTROL, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_DECREMENT_CONTROL, false,
 						"decrement-control", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_SIGNAL_SELECTOR, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_SIGNAL_SELECTOR, false,
 						"set-signal-selector", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_SIGNAL_SELECTOR, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_SIGNAL_SELECTOR, true,
 						"get-signal-selector", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_MIXER, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_MIXER, false,
 						"set-mixer", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_MIXER, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_MIXER, true,
 						"get-mixer", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_SET_MATRIX, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_MATRIX, false,
 						"set-matrix", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_MATRIX, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_MATRIX, true,
 						"get-matrix", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_START_STREAMING, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_START_STREAMING, false,
 						"start-streaming", handle_start_streaming),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_STOP_STREAMING, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_STOP_STREAMING, false,
 						"stop-streaming", handle_stop_streaming),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_REGISTER_UNSOLICITED_NOTIFICATION,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_REGISTER_UNSOLICITED_NOTIFICATION,
 						 true, "register-unsolicited-notification",
 						 handle_register_unsol_notifications),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_DEREGISTER_UNSOLICITED_NOTIFICATION,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_DEREGISTER_UNSOLICITED_NOTIFICATION,
 						 true, "deregister-unsolicited-notification",
 						 handle_deregister_unsol_notifications),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_IDENTIFY_NOTIFICATION, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_IDENTIFY_NOTIFICATION, true,
 						"identify-notification", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_AVB_INFO, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_AVB_INFO, true,
 						"get-avb-info", handle_get_avb_info),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_AS_PATH, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_AS_PATH, true,
 						"get-as-path", handle_get_as_path),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_COUNTERS, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_COUNTERS, true,
 						"get-counters", handle_get_counters),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_REBOOT, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_REBOOT, false,
 						"reboot", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_AUDIO_MAP, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_AUDIO_MAP, true,
 						"get-audio-map", handle_get_audio_map),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_ADD_AUDIO_MAPPINGS, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_ADD_AUDIO_MAPPINGS, false,
 						"add-audio-mappings", handle_add_audio_mappings),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_REMOVE_AUDIO_MAPPINGS, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_REMOVE_AUDIO_MAPPINGS, false,
 						"remove-audio-mappings", handle_remove_audio_mappings),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_VIDEO_MAP, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_VIDEO_MAP, true,
 						"get-video-map", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_ADD_VIDEO_MAPPINGS, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_ADD_VIDEO_MAPPINGS, false,
 						"add-video-mappings", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_REMOVE_VIDEO_MAPPINGS, false,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_REMOVE_VIDEO_MAPPINGS, false,
 						"remove-video-mappings", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_SENSOR_MAP, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_SENSOR_MAP, true,
 						"get-sensor-map", NULL),
 
-	AECP_AEM_CMD_RESP( AVB_AECP_AEM_CMD_GET_DYNAMIC_INFO, true,
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_DYNAMIC_INFO, true,
 						"get-dynamic-info", handle_get_dynamic_info),
 
 };
@@ -955,36 +982,6 @@ static inline bool check_locked(struct aecp *aecp, int64_t now,
 			(lock.locked_id != htobe64(p->aecp.controller_guid));
 }
 
-// // This if or timed update
-static int avb_aecp_update_unsolicited_notification(struct aecp *aecp,
-	uint16_t descriptor_type, int64_t now)
-{
-	int var_state_idx = aecp_aem_min + 1;
-	int rc = 0;
-	int64_t expire_timeout;
-	struct aecp_aem_base_info *binfo;
-	for (; var_state_idx < aecp_aem_max; var_state_idx++) {
-
-
-		rc = aecp_aem_get_base_info(aecp, aecp->server->entity_id, var_state_idx,
-									var_state_idx, &binfo);
-		if (rc) {
-			pw_log_warn("Could not find var state info var id %d\n", var_state_idx);
-			continue;
-		}
-		expire_timeout = binfo->expire_timeout;
-		if (expire_timeout ==  LONG_MAX) {
-			continue;
-		}
-
-		if (cmd_info->handle_unsol) {
-			cmd_info->handle_unsol(aecp, now);
-		}
-	}
-
-	return rc;
-}
-
 int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len)
 {
 	const struct avb_ethernet_header *h = m;
@@ -1011,15 +1008,15 @@ int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len)
 
 	pw_log_info("aem command %s %ld", info->name, now);
 
-	if (info->handle == NULL)
+	if (info->handle_command == NULL)
 		return reply_not_implemented(aecp, m, len);
 
 	if (info->is_readonly) {
-		return info->handle(aecp, now, m, len);
+		return info->handle_command(aecp, now, m, len);
 	} else {
 		/** If not locked then continue below */
 		if (!check_locked(aecp, now,p, &cmd_info[cmd_type])) {
-			rc = info->handle(aecp, now, m, len);
+			rc = info->handle_command(aecp, now, m, len);
 			if (rc) {
 				pw_log_error("handling returned %d\n", rc);
 				return -1;
@@ -1055,6 +1052,23 @@ int avb_aecp_aem_handle_timeouts(struct aecp *aecp, uint64_t now)
 
 int avb_aecp_aem_handle_response(struct aecp *aecp, const void *m, int len)
 {
+#if 0
+	const struct avb_ethernet_header *h = m;
+	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
+	uint16_t cmd_type;
+	int rc = -1;
+	const struct cmd_info *info;
+	struct timespec ts_now;
+	int64_t now;
+
+	/**
+	 * Time is always using the monotonic time
+	 */
+	if (clock_gettime(CLOCK_TAI, &ts_now)) {
+		pw_log_error("while getting CLOCK_MONOTONIC time\n");
+	}
+	now = SPA_TIMESPEC_TO_NSEC(&ts_now);
+#endif
 	return 0;
 }
 

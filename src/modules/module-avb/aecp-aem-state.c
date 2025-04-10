@@ -269,7 +269,7 @@ int aecp_aem_init_var_containers(struct aecp *aecp,
             var_name, target_id, count, el_sz);
 
         uint8_t *data = ae_state_handlers[vars].var_data;
-        for (int idx = 0; idx < varsdesc[vars].count; idx++) {
+        for (size_t idx = 0; idx < varsdesc[vars].count; idx++) {
             pw_log_info("%s type %ld created\n",
                         varsdesc[vars].var_name, vars);
             // Here copy the data so we can have it in as an inhereited value

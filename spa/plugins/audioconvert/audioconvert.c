@@ -1214,7 +1214,7 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 	while (true) {
 		const char *name;
 		struct spa_pod *pod;
-		char value[512];
+		char value[4096];
 
 		if (spa_pod_parser_get_string(&prs, &name) < 0)
 			break;

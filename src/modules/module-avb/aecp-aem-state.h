@@ -86,6 +86,11 @@ struct aecp_aem_unsol_notification_state {
 
 };
 
+struct aecp_aem_configuration_state {
+    struct aecp_aem_base_info base_info;
+    uint16_t cfg_idx;
+};
+
 /**
  * The aecp_aem_desc_base inherites from the base
  */
@@ -109,6 +114,7 @@ enum aecp_aem_lock_types {
     aecp_aem_min = -1, // Sentinel check
 
 	aecp_aem_lock,
+    aecp_aem_configuration,
     aecp_aem_unsol_notif,
 
     // aecp_aem_desc, This is only used to retrieve the value, dynamic change

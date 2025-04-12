@@ -196,6 +196,8 @@ int handle_unsol_lock_entity(struct aecp *aecp, int64_t now)
 	AVB_PACKET_AEM_SET_COMMAND_TYPE(p, AVB_AECP_AEM_CMD_LOCK_ENTITY);
 	AVB_PACKET_AECP_SET_STATUS(&p->aecp, AVB_AECP_AEM_STATUS_SUCCESS);
 	AVB_PACKET_SET_LENGTH(&p->aecp.hdr, 28);
+	AVB_PACKET_AECP_SET_MESSAGE_TYPE(&p->aecp,
+		AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
 	p->u = 1;
 	p->aecp.target_guid = htobe64(aecp->server->entity_id);
 
@@ -229,11 +231,7 @@ int handle_unsol_lock_entity(struct aecp *aecp, int64_t now)
 
 		p->aecp.controller_guid = htobe64(unsol.ctrler_endity_id);
 		p->aecp.sequence_id = htons(unsol.next_seq_id);
-
 		unsol.next_seq_id++;
-		AVB_PACKET_AECP_SET_MESSAGE_TYPE(&p->aecp,
-			AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
-
 		aecp_aem_refresh_state_var(aecp, aecp->server->entity_id, aecp_aem_unsol_notif,
 			ctrl_index, &unsol);
 

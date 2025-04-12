@@ -128,7 +128,7 @@ int handle_unsol_lock_entity(struct aecp *aecp, int64_t now)
 	struct server *server = aecp->server;
 	struct aecp_aem_unsol_notification_state unsol = {0};
 	struct aecp_aem_lock_state lock = {0};
-	uint8_t buf[2048];
+	uint8_t buf[512];
 	bool has_expired;
 	int rc;
 	int ctrl_index;
@@ -155,6 +155,8 @@ int handle_unsol_lock_entity(struct aecp *aecp, int64_t now)
 				    lock.base_info.expire_timeout, now);
 		return 0;
 	}
+	// Freshen up the buffer
+	memset(buf, 0, sizeof(buf));
 
 	ae = (struct avb_packet_aecp_aem_lock*)p->payload;
 	if (!lock.is_locked || has_expired) {

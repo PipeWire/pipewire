@@ -89,7 +89,7 @@ int handle_unsol_set_configuration(struct aecp *aecp, int64_t now)
 {
 	struct aecp_aem_configuration_state cfg_state = {0};
 	/* Reply */
-	uint8_t buf[2048];
+	uint8_t buf[512];
 	void *m = buf;
 	struct avb_ethernet_header *h = m;
 	struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
@@ -111,6 +111,7 @@ int handle_unsol_set_configuration(struct aecp *aecp, int64_t now)
 		return 0;
 	}
 
+	memset(buf, 0, sizeof(buf));
 	cfg_state.base_info.needs_update = false;
 	aecp_aem_refresh_state_var(aecp, aecp->server->entity_id,
 		aecp_aem_configuration, 0, &cfg_state);

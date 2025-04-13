@@ -11,6 +11,7 @@
 #include "../aecp-aem-descriptors.h"
 #include "aecp-aem-configuration.h"
 
+/* IEEE 1722.1-2021, Sec. 7.4.7*/
 int handle_cmd_set_configuration(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	struct server *server = aecp->server;
@@ -29,7 +30,17 @@ int handle_cmd_set_configuration(struct aecp *aecp, int64_t now, const void *m, 
 	bool has_failed;
 	uint8_t buf[2048];
 
-    // TODO ACMP: IMPORTANT!!!! find the stream connection informationm whether they are running or not.
+    // TODO ACMP: IMPORTANT!!!! find the stream connection information whether they are running or not.
+	
+	/* Milan v1.2, Sec. 5.4.2.5
+	* The PAAD-AE shall not accept a SET_CONFIGURATION command if one of the Stream Input is bound or
+	* one of the Stream Output is streaming. In this case, the STREAM_IS_RUNNING error code shall be 
+	* returned.
+	*
+	* If the PAAD-AE is locked by a controller, it shall not accept a SET_CONFIGURATION command from
+	* a different controller, and it shall also not change its current configuration by non-ATDECC
+	* means (proprietary remote control software, front-panel, ...).
+	*/
 #ifdef USE_MILAN
 	/** WARNING! Milan forces only one entity */
 	desc = server_find_descriptor(server, AVB_AEM_DESC_ENTITY, 0);
@@ -55,6 +66,7 @@ int handle_cmd_set_configuration(struct aecp *aecp, int64_t now, const void *m, 
 	if (entity_desc->entity_id != p->aecp.target_guid) {
 		pw_log_error("invalid entity id\n");
 		has_failed = true;
+	// TODO: req_cfg_id is zero based, cfg_count is not. Should be req_cfg_id >= cfg_count
 	} else if (req_cfg_id > cfg_count) {
 		pw_log_error("requested %u, but has max %u id\n", req_cfg_id, cfg_count);
 		has_failed = true;
@@ -77,8 +89,11 @@ int handle_cmd_set_configuration(struct aecp *aecp, int64_t now, const void *m, 
 			 htobe64(p->aecp.controller_guid), aecp_aem_configuration, 0,
 			  &cfg_state);
 	}
-
-
+	
+	// TODO: The response always contains the current value, that is it 
+	// contains the new value if the command succeeds or the old value 
+	// if it fails.
+	// Is that in the success response?
     return reply_success(aecp, buf, len);
 #else
 	return reply_not_implemented(aecp, m, len);
@@ -128,7 +143,7 @@ int handle_unsol_set_configuration(struct aecp *aecp, int64_t now)
 	p->u = 1;
 	p->aecp.target_guid = htobe64(aecp->server->entity_id);
 
-	// TODO a more generic way of craeteing this.
+	// TODO a more generic way of creating this.
 	for (ctrl_index = 0; ctrl_index < 16; ctrl_index++) {
 		rc = aecp_aem_get_state_var(aecp, target_id, aecp_aem_unsol_notif,
 			ctrl_index, &unsol);
@@ -167,6 +182,7 @@ int handle_unsol_set_configuration(struct aecp *aecp, int64_t now)
     return rc;
 }
 
+/* IEEE 1722.1-2021, Sec. 7.4.8*/
 int handle_cmd_get_configuration(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	// TODO

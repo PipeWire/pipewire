@@ -91,7 +91,7 @@ struct aecp_aem_unsol_notification_state {
  */
 struct aecp_aem_desc_base {
     struct aecp_aem_base_info base_info;
-    uint16_t type;
+    uint16_t config_index;
     void *desc;
 };
 
@@ -103,12 +103,22 @@ struct aecp_aem_desc {
 };
 
 /**
+ * To keep track of which desciptor has chaanged
+ */
+struct aecp_aem_name_state {
+    struct aecp_aem_desc_base base_desc;
+    uint16_t name_index;
+};
+
+
+/**
  * The aecp_aem_desc_base inherites from the base
  */
 enum aecp_aem_lock_types {
     aecp_aem_min = -1, // Sentinel check
 
 	aecp_aem_lock,
+    aecp_aem_name,
     aecp_aem_unsol_notif,
 
     // aecp_aem_desc, This is only used to retrieve the value, dynamic change

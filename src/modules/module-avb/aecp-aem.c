@@ -19,6 +19,7 @@
 #include "aecp-cmd-resp/aecp-aem-descriptors.h"
 #include "aecp-cmd-resp/aecp-aem-get-avb-info.h"
 #include "aecp-cmd-resp/aecp-aem-lock.h"
+#include "aecp-cmd-resp/aecp-aem-cmd-set-name.h"
 #include "aecp-cmd-resp/aecp-aem-unsol-notifications.h"
 
 
@@ -93,13 +94,6 @@ static int handle_set_stream_info(struct aecp *aecp, int64_t now, const void *m,
 static int handle_get_stream_info(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	// TODO difference with the stream input or the stream output
-	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
-	return reply_not_implemented(aecp, m, len);
-}
-
-static int handle_set_name(struct aecp *aecp, int64_t now, const void *m, int len)
-{
-	//TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
 	return reply_not_implemented(aecp, m, len);
 }
@@ -298,8 +292,8 @@ static const struct cmd_info cmd_info[] = {
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_STREAM_INFO, true,
 						"get-stream-info", handle_get_stream_info),
 
-	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_NAME, false,
-						"set-name", handle_set_name),
+	AECP_AEM_HANDLE_CMD_UNSOL(AVB_AECP_AEM_CMD_SET_NAME, false,
+						"set-name", handle_cmd_set_name, handle_unsol_set_name),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_NAME, true,
 						"get-name", handle_get_name),

@@ -138,6 +138,9 @@ struct spa_pod_choice {
 	struct spa_pod_choice_body body;
 };
 
+#define SPA_POD_STRUCT_BODY(pod)		SPA_PTROFF((pod),sizeof(struct spa_pod),struct spa_pod)
+#define SPA_POD_STRUCT_BODY_CONST(pod)		SPA_PTROFF((pod),sizeof(struct spa_pod),const struct spa_pod)
+
 struct spa_pod_struct {
 	struct spa_pod pod;
 	/* one or more spa_pod follow */

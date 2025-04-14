@@ -107,7 +107,7 @@ SPA_API_POD_ITER struct spa_pod_control *spa_pod_control_next(const struct spa_p
 	     (iter) = (__typeof__(iter))spa_pod_next(iter))
 
 #define SPA_POD_STRUCT_FOREACH(obj, iter)							\
-	SPA_POD_FOREACH(SPA_POD_BODY(obj), SPA_POD_BODY_SIZE(obj), iter)
+	SPA_POD_FOREACH(SPA_POD_STRUCT_BODY(obj), SPA_POD_BODY_SIZE(obj), iter)
 
 #define SPA_POD_OBJECT_BODY_FOREACH(body, size, iter)						\
 	for ((iter) = spa_pod_prop_first(body);				\

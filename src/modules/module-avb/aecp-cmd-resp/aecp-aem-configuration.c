@@ -31,10 +31,9 @@ int handle_cmd_set_configuration(struct aecp *aecp, int64_t now, const void *m, 
 	uint8_t buf[2048];
 
     // TODO ACMP: IMPORTANT!!!! find the stream connection information whether they are running or not.
-	
 	/* Milan v1.2, Sec. 5.4.2.5
 	* The PAAD-AE shall not accept a SET_CONFIGURATION command if one of the Stream Input is bound or
-	* one of the Stream Output is streaming. In this case, the STREAM_IS_RUNNING error code shall be 
+	* one of the Stream Output is streaming. In this case, the STREAM_IS_RUNNING error code shall be
 	* returned.
 	*
 	* If the PAAD-AE is locked by a controller, it shall not accept a SET_CONFIGURATION command from
@@ -67,7 +66,7 @@ int handle_cmd_set_configuration(struct aecp *aecp, int64_t now, const void *m, 
 		pw_log_error("invalid entity id\n");
 		has_failed = true;
 	// TODO: req_cfg_id is zero based, cfg_count is not. Should be req_cfg_id >= cfg_count
-	} else if (req_cfg_id > cfg_count) {
+	} else if (req_cfg_id >= cfg_count) {
 		pw_log_error("requested %u, but has max %u id\n", req_cfg_id, cfg_count);
 		has_failed = true;
 	} else if (req_cfg_id == cur_cfg_id) {
@@ -79,6 +78,11 @@ int handle_cmd_set_configuration(struct aecp *aecp, int64_t now, const void *m, 
 		has_failed = false;
 	}
 
+	/*
+	* Always contains the current value,
+	* that is itcontains the new value if the command succeeds or the old
+	* value if it fails.
+	*/
 	if (has_failed) {
 		cfg->configuration_index = entity_desc->current_configuration;
 	} else {
@@ -89,11 +93,6 @@ int handle_cmd_set_configuration(struct aecp *aecp, int64_t now, const void *m, 
 			 htobe64(p->aecp.controller_guid), aecp_aem_configuration, 0,
 			  &cfg_state);
 	}
-	
-	// TODO: The response always contains the current value, that is it 
-	// contains the new value if the command succeeds or the old value 
-	// if it fails.
-	// Is that in the success response?
     return reply_success(aecp, buf, len);
 #else
 	return reply_not_implemented(aecp, m, len);

@@ -1,3 +1,8 @@
+/* AVB support */
+/* SPDX-FileCopyrightText: Copyright © 2025 Kebag-Logic */
+/* SPDX-FileCopyrightText: Copyright © 2025 Alex Malki <alexandre.malki@kebag-logic.com> */
+/* SPDX-License-Identifier: MIT  */
+
 #ifndef __AECP_AEM_UNSOL_HELPER_H__
 #define __AECP_AEM_UNSOL_HELPER_H__
 

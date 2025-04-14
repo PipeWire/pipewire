@@ -235,6 +235,8 @@ static void ebur128_cleanup(void * Instance)
 static void ebur128_activate(void * Instance)
 {
 	struct ebur128_impl *impl = Instance;
+	unsigned long max_window;
+	int major, minor, patch;
 	int mode = 0, i;
 	int modes[] = {
 		EBUR128_MODE_M,
@@ -264,12 +266,17 @@ static void ebur128_activate(void * Instance)
 			mode |= modes[i];
 	}
 
+	ebur128_get_version(&major, &minor, &patch);
+	max_window = impl->max_window;
+	if (major == 1 && minor == 2 && (patch == 5 || patch == 6))
+		max_window = (max_window + 999) / 1000;
+
 	for (i = 0; i < 7; i++) {
 		impl->st[i] = ebur128_init(1, impl->rate, mode);
 		if (impl->st[i]) {
 			ebur128_set_channel(impl->st[i], i, channels[i]);
 			ebur128_set_max_history(impl->st[i], impl->max_history);
-			ebur128_set_max_window(impl->st[i], impl->max_window);
+			ebur128_set_max_window(impl->st[i], max_window);
 		}
 	}
 }

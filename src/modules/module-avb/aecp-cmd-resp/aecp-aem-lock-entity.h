@@ -6,8 +6,8 @@
 #ifndef __AVB_AECP_AEM_LOCK_H__
 #define __AVB_AECP_AEM_LOCK_H__
 
-#define AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT (60UL)
-#define AECP_AEM_LOCK_ENTITY_FLAG_LOCK		(1)
+#define AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT_SECOND (60UL)
+#define AECP_AEM_LOCK_ENTITY_FLAG_UNLOCK		(1)
 
 #include "aecp-aem-cmd-resp-common.h"
 

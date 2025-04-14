@@ -9,10 +9,11 @@
 #include "../descriptors.h"
 
 #include "aecp-aem-types.h"
-#include "aecp-aem-lock.h"
+#include "aecp-aem-lock-entity.h"
 #include "aecp-aem-helpers.h"
 
 /* LOCK_ENTITY */
+/* Milan v1.2, Sec. 5.4.2.2; IEEE1722.1-2021, Sec. 7.4.2*/
 int handle_cmd_lock_entity(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	struct server *server = aecp->server;
@@ -27,7 +28,6 @@ int handle_cmd_lock_entity(struct aecp *aecp, int64_t now, const void *m, int le
 	const struct descriptor *desc;
 	struct aecp_aem_lock_state lock = {0};
 	uint16_t desc_type, desc_id;
-	struct timespec ts_now;
 
 	int rc;
 	bool changed = false;
@@ -42,7 +42,15 @@ int handle_cmd_lock_entity(struct aecp *aecp, int64_t now, const void *m, int le
 		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
 
 	if (desc_type != AVB_AEM_DESC_ENTITY || desc_id != 0)
+	#ifdef USE_MILAN
+		/*
+		* Milan v1.2: The PAAD-AE shall not allow locking another descriptor than the ENTITY descriptor
+		* (NOT_SUPPORTED shall be returned in this case).
+		*/
+		return reply_not_supported(aecp, m, len);
+	#else
 		return reply_not_implemented(aecp, m, len);
+	#endif
 
 	rc = aecp_aem_get_state_var(aecp, htobe64(p->aecp.target_guid), aecp_aem_lock,
 			desc_id, &lock);
@@ -51,12 +59,17 @@ int handle_cmd_lock_entity(struct aecp *aecp, int64_t now, const void *m, int le
 		spa_assert(0);
 	}
 
-	if (ae->flags & htonl(AECP_AEM_LOCK_ENTITY_FLAG_LOCK)) {
-		/* Unlocking */
+	/* Controller wants to unlock a locked entity
+	* Flag is set to 1 to unlock
+	* Flag is set to 0 to lock
+	*/
+	if (ae->flags & htonl(AECP_AEM_LOCK_ENTITY_FLAG_UNLOCK)) {
+		/* Entity is not locked */
 		if (!lock.is_locked) {
 			return reply_success(aecp, m, len);
 		}
 
+		/* Unlocking by the controller which locked */
 		pw_log_debug("un-locking the entity %lx\n", htobe64(p->aecp.controller_guid));
 		if (htobe64(p->aecp.controller_guid) == lock.locked_id) {
 			pw_log_debug("unlocking\n");
@@ -64,38 +77,37 @@ int handle_cmd_lock_entity(struct aecp *aecp, int64_t now, const void *m, int le
 			lock.locked_id = 0;
 			changed = true;
 		} else {
+			/* Unlocking by a controller that did not lock?*/
 			if (htobe64(p->aecp.controller_guid) != lock.locked_id) {
-				pw_log_debug("but the device is locked by  %lx\n", htobe64(lock.locked_id));
+				pw_log_debug("but the device is locked by %lx\n", htobe64(lock.locked_id));
 				return reply_locked(aecp, m, len);
+			// TODO: Can this statement be reached?
 			} else {
 				pw_log_error("Invalid state\n");
 				spa_assert(0);
 			}
 		}
+	/* Controller wants to lock */
 	} else {
-		/* Locking */
-		if (clock_gettime(CLOCK_MONOTONIC, &ts_now)) {
-			pw_log_error("while getting CLOCK_MONOTONIC time");
-			spa_assert(0);
-		}
-
 		// Is it really locked?
 		if (!lock.is_locked ||
 			lock.base_info.expire_timeout < now) {
 
 			lock.base_info.expire_timeout = now +
-						 AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT * SPA_NSEC_PER_SEC;
+					AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT_SECOND * SPA_NSEC_PER_SEC;
 			lock.is_locked = true;
 			lock.locked_id = htobe64(p->aecp.controller_guid);
 			changed = true;
 		} else {
 			// If the lock is taken again by device
 			if (htobe64(p->aecp.controller_guid) == lock.locked_id) {
-					lock.base_info.expire_timeout += AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT;
+					lock.base_info.expire_timeout += AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT_SECOND;
 					lock.is_locked = true;
+					// TODO: Add changed to trigger the response
+					changed = true;
 			} else {
 				// Cannot lock because already locked
-				pw_log_debug("The device is locked");
+				pw_log_debug("but the device is locked by %lx\n", htobe64(lock.locked_id));
 				return reply_locked(aecp, m, len);
 			}
 		}
@@ -161,7 +173,7 @@ int handle_unsol_lock_entity(struct aecp *aecp, int64_t now)
 	ae = (struct avb_packet_aecp_aem_lock*)p->payload;
 	if (!lock.is_locked || has_expired) {
 		ae->locked_guid = 0;
-		ae->flags = htonl(AECP_AEM_LOCK_ENTITY_FLAG_LOCK);
+		ae->flags = htonl(AECP_AEM_LOCK_ENTITY_FLAG_UNLOCK);
 		lock.is_locked = false;
 		lock.base_info.expire_timeout = LONG_MAX;
 	} else {
@@ -187,7 +199,7 @@ int handle_unsol_lock_entity(struct aecp *aecp, int64_t now)
 	p->aecp.target_guid = htobe64(aecp->server->entity_id);
 
 	// Loop through all the unsol entities.
-	// TODO a more generic way of craeteing this.
+	// TODO: a more generic way of creating this.
 	for (ctrl_index = 0; ctrl_index < 16; ctrl_index++) {
 		rc = aecp_aem_get_state_var(aecp, target_id, aecp_aem_unsol_notif,
 			ctrl_index, &unsol);
@@ -207,7 +219,7 @@ int handle_unsol_lock_entity(struct aecp *aecp, int64_t now)
 		}
 
 		if ((lock.base_info.controller_entity_id == unsol.ctrler_endity_id) && !has_expired) {
-			/* Do not send unsollicited if that the one creating the udpate, and
+			/* Do not send unsolicited if that is the one creating the udpate, and
 				this is not a timeout.*/
 			pw_log_info("Do not send twice of %lx %lx\n", lock.base_info.controller_entity_id,
 				unsol.ctrler_endity_id );

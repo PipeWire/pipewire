@@ -18,9 +18,8 @@
 #include "aecp-cmd-resp/aecp-aem-available.h"
 #include "aecp-cmd-resp/aecp-aem-descriptors.h"
 #include "aecp-cmd-resp/aecp-aem-get-avb-info.h"
-#include "aecp-cmd-resp/aecp-aem-lock.h"
+#include "aecp-cmd-resp/aecp-aem-lock-entity.h"
 #include "aecp-cmd-resp/aecp-aem-unsol-notifications.h"
-
 
 /* ACQUIRE_ENTITY */
 static int handle_acquire_entity(struct aecp *aecp, int64_t now, const void *m, int len)

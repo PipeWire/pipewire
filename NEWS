@@ -1,3 +1,52 @@
+# PipeWire 1.2.8 (2025-07-23)
+
+This is a bugfix release that is API and ABI compatible with the previous
+1.2.x and 1.0.x releases.
+
+## Highlights
+  - Clear old buffer data when jumping forwards in pulse-server. (#4464)
+  - Don't leak SyncObj fds. (#4807)
+  - Handle 0 length IR in the convolver. (#4433)
+  - An assortment of other bug fixes and improvements.
+
+
+## PipeWire
+  - Disable PipeWire service for root.
+  - Depend on the dbus.service to avoid some races.
+
+## Modules
+  - Handle 0 length IR in the convolver. (#4433)
+  - Don't confuse time and samples when calculating the target buffer size
+    in RTP. (#4327)
+  - Fix SDP ptime formating. (#4615)
+  - Fix netjack2 midi events
+  - Don't leak SyncObj fds. (#4807)
+
+## SPA
+  - Don't crash when the PCM does not have a card. (#4432)
+  - Fix some type introspection bugs. (#4441)
+  - Fix some compilation problems by initializing fields explicitly. (#4325)
+  - Only allow Routes that are in the current profile.
+  - Avoid macro expansion for method names. (#4491)
+  - Handle buffer overflow in POD filter.
+  - Handle ALSA NULL io. (#4734)
+  - Improve ALSA resampler handling in follower.
+  - Improve Adaptive resampler performance.
+
+## Pulse server
+  - Increase max audio rate to 768000. (#4482)
+  - Clear old buffer data when jumping forwards. (#4464)
+
+## GStreamer
+  - Mark the sink as EARLY_PROCESS.
+  - Add rate control to the sink. (#4374)
+  - Don't hide the pulseaudio device provider, but hide the pipewire one
+    for audio.
+
+
+Older versions:
+
+
 # PipeWire 1.2.7 (2024-11-26)
 
 This is a bugfix release that is API and ABI compatible with the previous
@@ -47,9 +96,6 @@ This is a bugfix release that is API and ABI compatible with the previous
 
 ## Tools
   - Fix pw-dot link labels.
-
-Older versions:
-
 
 # PipeWire 1.2.6 (2024-10-23)
 

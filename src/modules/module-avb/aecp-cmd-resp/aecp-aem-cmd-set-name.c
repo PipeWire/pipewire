@@ -1,6 +1,7 @@
 /* AVB support */
 /* SPDX-FileCopyrightText: Copyright © 2025 Kebag-Logic */
 /* SPDX-FileCopyrightText: Copyright © 2025 Alex Malki <alexandre.malki@kebag-logic.com> */
+/* SPDX-FileCopyrightText: Copyright © 2025 Simon Gapp <simon.gapp@kebag-logic.com> */
 /* SPDX-License-Identifier: MIT  */
 
 #include "../aecp-aem-state.h"
@@ -12,7 +13,6 @@
 
 #define AECP_AEM_NAME_INDEX_ENTITY_ITSELF       (0)
 #define AECP_AEM_NAME_INDEX_ENTITY_GROUP        (1)
-#define AECP_AEM_STRLEN_MAX                     (64)
 
 const bool list_support_descriptors_set_name[AVB_AEM_DESC_MAX_17221] = {
     [AVB_AEM_DESC_ENTITY] = true,
@@ -45,7 +45,7 @@ const bool list_support_descriptors_set_name[AVB_AEM_DESC_MAX_17221] = {
     [AVB_AEM_DESC_PTP_PORT] = true,
 };
 
-static int request_unsollicted_notification(struct aecp *aecp,
+static int request_unsolicited_notification(struct aecp *aecp,
     struct descriptor *desc, uint64_t ctrler_id, uint16_t name_index,
     uint16_t config_index)
 {
@@ -88,7 +88,8 @@ static int handle_set_name_entity(struct descriptor *desc, uint16_t str_idex,
         return -1;
     }
 
-    memcpy(dest, new_name, AECP_AEM_STRLEN_MAX);
+    strncpy(dest, new_name, AECP_AEM_STRLEN_MAX);
+    dest[AECP_AEM_STRLEN_MAX - 1] = '\0';
 
     return 0;
 }
@@ -96,13 +97,16 @@ static int handle_set_name_entity(struct descriptor *desc, uint16_t str_idex,
 static int handle_set_name_generic(struct descriptor *desc, uint16_t str_idex,
     const char *new_name)
 {
-    // This works beause the aem descriptor all starts with the group name
+    // This works beause the aem descriptors all starts with the group name
     char *dest = (char *)desc->ptr;
-    memcpy(dest, new_name, AECP_AEM_STRLEN_MAX);
+    strncpy(dest, new_name, AECP_AEM_STRLEN_MAX);
+    dest[AECP_AEM_STRLEN_MAX - 1] = '\0';
     return 0;
 }
 
 // TODO PERSISTENCE: Handle an overlay.
+// TODO: Handle entity lock
+/** IEEE1722.1-2021, Sec. 7.4.17 */
 int handle_cmd_set_name(struct aecp *aecp, int64_t now, const void *m,
     int len)
 {
@@ -119,6 +123,7 @@ int handle_cmd_set_name(struct aecp *aecp, int64_t now, const void *m,
     uint16_t configuration_index;
     uint64_t ctrler_index;
     char *name;
+    char old_name[AECP_AEM_STRLEN_MAX];
     /*Information about the system */
     struct descriptor *desc;
 
@@ -126,11 +131,11 @@ int handle_cmd_set_name(struct aecp *aecp, int64_t now, const void *m,
 
     desc_type = ntohs(sg_name->descriptor_type);
     desc_index = ntohs(sg_name->descriptor_index);
-    name_index = ntohs(sg_name->descriptor_index);
-    configuration_index = ntohs(sg_name->descriptor_index);
+    name_index = ntohs(sg_name->name_index);
+    configuration_index = ntohs(sg_name->configuration_index);
     name = sg_name->name;
 
-    /** Retrieve the decriptor */
+    /** Retrieve the descriptor */
 	desc = server_find_descriptor(server, desc_type, desc_index);
 	if (desc == NULL)
 		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
@@ -139,6 +144,11 @@ int handle_cmd_set_name(struct aecp *aecp, int64_t now, const void *m,
         return reply_bad_arguments(aecp, m, len);
     }
 
+    // Store the old name before updating
+    strncpy(old_name, (char *)desc->ptr, AECP_AEM_STRLEN_MAX);
+    old_name[AECP_AEM_STRLEN_MAX - 1] = '\0';
+
+    // Handle name setting based on descriptor type
     switch (desc_type) {
         case AVB_AEM_DESC_ENTITY:
             rc = handle_set_name_entity(desc, name_index, name);
@@ -149,20 +159,24 @@ int handle_cmd_set_name(struct aecp *aecp, int64_t now, const void *m,
     }
 
     if (rc) {
-        pw_log_error("Should reach here not be here");
+        pw_log_error("Unexpected failure while setting name for descriptor type %u, index %u", desc->type, desc->index);
         spa_assert(0);
+        // TODO: Which status is the correct one for a failure?
+        return reply_set_name(aecp, m, len, AVB_AECP_AEM_STATUS_SUCCESS, old_name);
     }
 
     ctrler_index = htobe64(p->aecp.controller_guid);
-    rc = request_unsollicted_notification(aecp, desc, ctrler_index, name_index,
+    rc = request_unsolicited_notification(aecp, desc, ctrler_index, name_index,
         configuration_index);
 
     if (rc) {
+        // TODO: Finish error message
         pw_log_error("Could not find the value of the  ");
+        // TODO: Is that correct?
         return reply_bad_arguments(aecp, m, len);
     }
 
-    return reply_success(aecp, m, len);
+    return reply_set_name(aecp, m, len, AVB_AECP_STATUS_SUCCESS, name);
 }
 
 int handle_unsol_set_name(struct aecp *aecp, int64_t now)
@@ -212,7 +226,7 @@ int handle_unsol_set_name(struct aecp *aecp, int64_t now)
 
     len = sizeof(*p) + sizeof(*sg_name) + sizeof(*h);
 	// Loop through all the unsol entities.
-	// TODO a more generic way of craeteing this.
+	// TODO a more generic way of creating this.
 	for (ctrl_index = 0; ctrl_index < 16; ctrl_index++) {
 		rc = aecp_aem_get_state_var(aecp, target_id, aecp_aem_unsol_notif,
 			ctrl_index, &unsol);
@@ -232,7 +246,7 @@ int handle_unsol_set_name(struct aecp *aecp, int64_t now)
 		}
 
 		if ((name_state.base_desc.base_info.controller_entity_id == unsol.ctrler_endity_id)) {
-			/* Do not send unsollicited if that the one creating the udpate, and
+			/* Do not send unsolicited if that is the one creating the udpate, and
 				this is not a timeout.*/
 			pw_log_info("Do not send twice of %lx %lx\n",
                 name_state.base_desc.base_info.controller_entity_id,

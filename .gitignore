@@ -20,6 +20,8 @@ subprojects/libyaml
 subprojects/libcamera
 subprojects/webrtc-audio-processing
 
+build_and_install.sh
+
 # Created by https://www.gitignore.io/api/vim
 
 ### Vim ###

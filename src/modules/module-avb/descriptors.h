@@ -60,7 +60,7 @@ static inline void init_descriptors(struct server *server)
 		.firmware_version = "0.3.48",
 		.group_name = "Kebag Logic",
 		.serial_number = "0xBEBEDEAD",
-		.configurations_count = htons(1),
+		.configurations_count = htons(2),
 		.current_configuration = htons(0)
 	});
 
@@ -90,6 +90,32 @@ static inline void init_descriptors(struct server *server)
 
 	server_add_descriptor(server, AVB_AEM_DESC_CONFIGURATION, 0,
 			sizeof(config), &config);
+
+	struct {
+		struct avb_aem_desc_configuration desc;
+		struct avb_aem_desc_descriptor_count descriptor_counts[8];
+	} __attribute__ ((__packed__)) config1 =
+	{
+		{
+		.object_name = "Non - redundant - 79kHz",
+		.localized_description = htons(1),
+		.descriptor_counts_count = htons(8),
+		.descriptor_counts_offset = htons(
+			4 + sizeof(struct avb_aem_desc_configuration)),
+		},
+		.descriptor_counts = {
+			{ htons(AVB_AEM_DESC_AUDIO_UNIT), htons(1) },
+			{ htons(AVB_AEM_DESC_STREAM_INPUT), htons(2) },
+			{ htons(AVB_AEM_DESC_STREAM_OUTPUT), htons(1) },
+			{ htons(AVB_AEM_DESC_AVB_INTERFACE), htons(1) },
+			{ htons(AVB_AEM_DESC_CLOCK_DOMAIN), htons(1) },
+			{ htons(AVB_AEM_DESC_CLOCK_SOURCE), htons(3) },
+			{ htons(AVB_AEM_DESC_CONTROL), htons(1) },
+			{ htons(AVB_AEM_DESC_LOCALE), htons(1) },
+		}
+	};
+	server_add_descriptor(server, AVB_AEM_DESC_CONFIGURATION, 1,
+			sizeof(config), &config1);
 
 	struct {
 		struct avb_aem_desc_control desc;

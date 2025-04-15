@@ -1,12 +1,16 @@
 /* AVB support */
+/* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans */
 /* SPDX-FileCopyrightText: Copyright © 2025 Kebag-Logic */
 /* SPDX-FileCopyrightText: Copyright © 2025 Alex Malki <alexandre.malki@kebag-logic.com> */
+/* SPDX-FileCopyrightText: Copyright © 2025 Simon Gapp <simon.gapp@kebag-logic.com> */
 /* SPDX-License-Identifier: MIT  */
 
 #ifndef __AVB_AECP_AEM_TYPES_H__
 #define __AVB_AECP_AEM_TYPES_H__
 
-
+/*
+* IEEE1722.1-2021, Table 7-141 - status field
+*/
 #define AVB_AECP_AEM_STATUS_SUCCESS			0
 #define AVB_AECP_AEM_STATUS_NOT_IMPLEMENTED		1
 #define AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR		2

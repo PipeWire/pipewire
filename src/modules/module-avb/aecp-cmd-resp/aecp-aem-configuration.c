@@ -10,6 +10,7 @@
 
 #include "../aecp-aem-descriptors.h"
 #include "aecp-aem-configuration.h"
+#include "aecp-aem-unsol-helper.h"
 
 /* IEEE 1722.1-2021, Sec. 7.4.7*/
 int handle_cmd_set_configuration(struct aecp *aecp, int64_t now, const void *m, int len)
@@ -90,8 +91,8 @@ int handle_cmd_set_configuration(struct aecp *aecp, int64_t now, const void *m, 
 
 		// Unsolicited preparation
 		aecp_aem_set_state_var(aecp, aecp->server->entity_id,
-			 htobe64(p->aecp.controller_guid), aecp_aem_configuration, 0,
-			  &cfg_state);
+				htobe64(p->aecp.controller_guid), aecp_aem_configuration, 0,
+				&cfg_state);
 	}
     return reply_success(aecp, buf, len);
 #else
@@ -109,10 +110,8 @@ int handle_unsol_set_configuration(struct aecp *aecp, int64_t now)
 	struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
 	struct avb_packet_aecp_aem_setget_configuration *cfg;
 	uint64_t target_id = aecp->server->entity_id;
-	struct aecp_aem_unsol_notification_state unsol;
 	size_t len = sizeof (*h) + sizeof(*p) + sizeof(*cfg);
-
-	int ctrl_index, rc;
+	int rc;
 
 	if (aecp_aem_get_state_var(aecp, target_id, aecp_aem_configuration, 0,
 			 &cfg_state)) {
@@ -121,64 +120,28 @@ int handle_unsol_set_configuration(struct aecp *aecp, int64_t now)
 		return -1;
 	}
 
+	//Check if the udat eis necessary
 	if (!cfg_state.base_info.needs_update) {
 		return 0;
 	}
+	// Then make sure that it does not happen again.
+	cfg_state.base_info.needs_update = false;
 
 	memset(buf, 0, sizeof(buf));
-	cfg_state.base_info.needs_update = false;
 	aecp_aem_refresh_state_var(aecp, aecp->server->entity_id,
 		aecp_aem_configuration, 0, &cfg_state);
 
 	cfg = (struct avb_packet_aecp_aem_setget_configuration *) p->payload;
 	cfg->configuration_index = htons(cfg_state.cfg_idx);
-	p->aecp.hdr.subtype = AVB_SUBTYPE_AECP;
-	AVB_PACKET_SET_VERSION(&p->aecp.hdr, 0);
-	AVB_PACKET_AEM_SET_COMMAND_TYPE(p, AVB_AECP_AEM_CMD_SET_CONFIGURATION);
-	AVB_PACKET_AECP_SET_STATUS(&p->aecp, AVB_AECP_AEM_STATUS_SUCCESS);
-	AVB_PACKET_SET_LENGTH(&p->aecp.hdr, 12+4); // From target_endity_id to end
-	AVB_PACKET_AECP_SET_MESSAGE_TYPE(&p->aecp,
-		AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
-	p->u = 1;
 	p->aecp.target_guid = htobe64(aecp->server->entity_id);
 
-	// TODO a more generic way of creating this.
-	for (ctrl_index = 0; ctrl_index < 16; ctrl_index++) {
-		rc = aecp_aem_get_state_var(aecp, target_id, aecp_aem_unsol_notif,
-			ctrl_index, &unsol);
-		if (rc) {
-			pw_log_error("Could not retrieve unsol %d, for target_id 0x%lx\n",
-				ctrl_index, target_id);
-			continue;
-		}
-
-		if (!unsol.is_registered) {
-			pw_log_info("Not registered\n");
-			continue;
-		}
-
-		if ((cfg_state.base_info.controller_entity_id ==
-									 unsol.ctrler_endity_id)) {
-			/* Do not send unsollicited if that the one creating the udpate, and
-				this is not a timeout.*/
-			pw_log_info("Do not send twice of %lx %lx\n",
-				cfg_state.base_info.controller_entity_id, unsol.ctrler_endity_id );
-			continue;
-		}
-
-		p->aecp.controller_guid = htobe64(unsol.ctrler_endity_id);
-		p->aecp.sequence_id = htons(unsol.next_seq_id);
-		unsol.next_seq_id++;
-		aecp_aem_refresh_state_var(aecp, aecp->server->entity_id, aecp_aem_unsol_notif,
-			ctrl_index, &unsol);
-		rc = avb_server_send_packet(aecp->server, unsol.ctrler_mac_addr, AVB_TSN_ETH, buf, len);
-		if (rc) {
-			pw_log_error("while sending packet to %lx\n", unsol.ctrler_endity_id);
-			break;
-		}
+	AVB_PACKET_AEM_SET_COMMAND_TYPE(p, AVB_AECP_AEM_CMD_SET_CONFIGURATION);
+	rc = reply_unsollicited_noitifications(aecp, &cfg_state.base_info, buf, len,
+			false);
+	if (rc) {
+		pw_log_error("Unsollicited notification failed \n");
 	}
-
-    return rc;
+	return rc;
 }
 
 /* IEEE 1722.1-2021, Sec. 7.4.8*/

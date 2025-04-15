@@ -24,7 +24,7 @@ static inline int reply_unsollicited_noitifications(struct aecp *aecp,
 	struct aecp_aem_base_info *b_state, void *packet, size_t len,
 	 bool internal)
 {
-	uint8_t buf[60];
+	uint8_t buf[128];
     struct aecp_aem_unsol_notification_state unsol = {0};
     uint16_t ctrler_index;
     uint64_t target_id = aecp->server->entity_id;
@@ -47,12 +47,13 @@ static inline int reply_unsollicited_noitifications(struct aecp *aecp,
 	p = SPA_PTROFF(h, sizeof(*h), void);
 
     p->aecp.hdr.subtype = AVB_SUBTYPE_AECP;
+	AVB_PACKET_AECP_SET_MESSAGE_TYPE(&p->aecp, AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
 	AVB_PACKET_SET_VERSION(&p->aecp.hdr, 0);
-	AVB_PACKET_AEM_SET_COMMAND_TYPE(p, AVB_AECP_AEM_CMD_LOCK_ENTITY);
 	AVB_PACKET_AECP_SET_STATUS(&p->aecp, AVB_AECP_AEM_STATUS_SUCCESS);
 	AVB_PACKET_SET_LENGTH(&p->aecp.hdr, ctrl_data_length);
 	p->u = 1;
 	p->aecp.target_guid = htobe64(aecp->server->entity_id);
+
 
 	// Loop through all the unsol entities.
 	// TODO a more generic way of craeteing this.
@@ -84,8 +85,6 @@ static inline int reply_unsollicited_noitifications(struct aecp *aecp,
 		p->aecp.sequence_id = htons(unsol.next_seq_id);
 
 		unsol.next_seq_id++;
-		AVB_PACKET_AECP_SET_MESSAGE_TYPE(&p->aecp,
-			AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
 
 		aecp_aem_refresh_state_var(aecp, aecp->server->entity_id, aecp_aem_unsol_notif,
 			ctrler_index, &unsol);

@@ -33,7 +33,7 @@ int handle_cmd_lock_entity(struct aecp *aecp, int64_t now, const void *m, int le
 
 	int rc;
 	bool changed = false;
-	uint8_t buf[1024];
+	uint8_t buf[512];
 
 	ae = (const struct avb_packet_aecp_aem_lock*)p->payload;
 	desc_type = ntohs(ae->descriptor_type);
@@ -186,13 +186,13 @@ int handle_unsol_lock_entity(struct aecp *aecp, int64_t now)
 		spa_assert(0);
 	}
 
+	AVB_PACKET_AEM_SET_COMMAND_TYPE(p, AVB_AECP_AEM_CMD_LOCK_ENTITY);
 	/** Setup the packet for the unsolicited notification*/
 	rc = reply_unsollicited_noitifications(aecp, &lock.base_info, buf, len,
 		 has_expired);
 	if (rc) {
 		pw_log_error("Unsollicited notification failed \n");
 	}
-	lock.base_info.needs_update = false;
 #endif;
 	return rc;
 }

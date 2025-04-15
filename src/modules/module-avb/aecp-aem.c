@@ -254,12 +254,12 @@ static const struct cmd_info cmd_info[] = {
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_WRITE_DESCRIPTOR, false,
 						"write-descriptor", NULL),
 
-	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_CONFIGURATION, false,
-						"set-configuration", handle_cmd_set_configuration),
-
-	AECP_AEM_HANDLE_CMD_UNSOL( AVB_AECP_AEM_CMD_GET_CONFIGURATION, true,
-						"get-configuration", handle_cmd_set_configuration,
+	AECP_AEM_HANDLE_CMD_UNSOL( AVB_AECP_AEM_CMD_SET_CONFIGURATION, false,
+						"set-configuration", handle_cmd_set_configuration,
 						handle_unsol_set_configuration),
+
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_CONFIGURATION, true,
+						"get-configuration", handle_cmd_get_configuration),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_STREAM_FORMAT, false,
 						"set-stream-format", handle_set_stream_format),

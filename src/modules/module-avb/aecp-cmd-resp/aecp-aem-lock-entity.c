@@ -12,6 +12,7 @@
 #include "aecp-aem-types.h"
 #include "aecp-aem-lock-entity.h"
 #include "aecp-aem-helpers.h"
+#include "aecp-aem-unsol-helper.h"
 
 /* LOCK_ENTITY */
 /* Milan v1.2, Sec. 5.4.2.2; IEEE1722.1-2021, Sec. 7.4.2*/
@@ -138,20 +139,16 @@ int handle_cmd_lock_entity(struct aecp *aecp, int64_t now, const void *m, int le
 
 int handle_unsol_lock_entity(struct aecp *aecp, int64_t now)
 {
-	struct server *server = aecp->server;
-	struct aecp_aem_unsol_notification_state unsol = {0};
 	struct aecp_aem_lock_state lock = {0};
 	uint8_t buf[512];
 	bool has_expired;
 	int rc;
-	int ctrl_index;
 	void *m = buf;
 	// struct aecp_aem_regis_unsols
 	struct avb_ethernet_header *h = m;
 	struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
 	struct avb_packet_aecp_aem_lock *ae;
 	size_t len = sizeof (*h) + sizeof(*p) + sizeof(*ae);
-
 	uint64_t target_id = aecp->server->entity_id;
 
 #ifdef USE_MILAN
@@ -170,7 +167,6 @@ int handle_unsol_lock_entity(struct aecp *aecp, int64_t now)
 	}
 	// Freshen up the buffer
 	memset(buf, 0, sizeof(buf));
-
 	ae = (struct avb_packet_aecp_aem_lock*)p->payload;
 	if (!lock.is_locked || has_expired) {
 		ae->locked_guid = 0;
@@ -191,57 +187,12 @@ int handle_unsol_lock_entity(struct aecp *aecp, int64_t now)
 	}
 
 	/** Setup the packet for the unsolicited notification*/
-	p->aecp.hdr.subtype = AVB_SUBTYPE_AECP;
-	AVB_PACKET_SET_VERSION(&p->aecp.hdr, 0);
-	AVB_PACKET_AEM_SET_COMMAND_TYPE(p, AVB_AECP_AEM_CMD_LOCK_ENTITY);
-	AVB_PACKET_AECP_SET_STATUS(&p->aecp, AVB_AECP_AEM_STATUS_SUCCESS);
-	AVB_PACKET_SET_LENGTH(&p->aecp.hdr, 28);
-	AVB_PACKET_AECP_SET_MESSAGE_TYPE(&p->aecp,
-		AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
-	p->u = 1;
-	p->aecp.target_guid = htobe64(aecp->server->entity_id);
-
-	// Loop through all the unsol entities.
-	// TODO: a more generic way of creating this.
-	for (ctrl_index = 0; ctrl_index < 16; ctrl_index++) {
-		rc = aecp_aem_get_state_var(aecp, target_id, aecp_aem_unsol_notif,
-			ctrl_index, &unsol);
-
-			pw_log_info("Retrieve value of %u %lx\n", ctrl_index,
-				unsol.ctrler_endity_id );
-
-		if (!unsol.is_registered) {
-			pw_log_info("Not registered\n");
-			continue;
-		}
-
-		if (rc) {
-			pw_log_error("Could not retrieve unsol %d, for target_id 0x%lx\n",
-				ctrl_index, target_id);
-			spa_assert(0);
-		}
-
-		if ((lock.base_info.controller_entity_id == unsol.ctrler_endity_id) && !has_expired) {
-			/* Do not send unsolicited if that is the one creating the udpate, and
-				this is not a timeout.*/
-			pw_log_info("Do not send twice of %lx %lx\n", lock.base_info.controller_entity_id,
-				unsol.ctrler_endity_id );
-			continue;
-		}
-
-		p->aecp.controller_guid = htobe64(unsol.ctrler_endity_id);
-		p->aecp.sequence_id = htons(unsol.next_seq_id);
-		unsol.next_seq_id++;
-		aecp_aem_refresh_state_var(aecp, aecp->server->entity_id, aecp_aem_unsol_notif,
-			ctrl_index, &unsol);
-
-		rc = avb_server_send_packet(server, unsol.ctrler_mac_addr, AVB_TSN_ETH, buf, len);
-		if (rc) {
-			pw_log_error("while sending packet to %lx\n", unsol.ctrler_endity_id);
-			return -1;
-		}
+	rc = reply_unsollicited_noitifications(aecp, &lock.base_info, buf, len,
+		 has_expired);
+	if (rc) {
+		pw_log_error("Unsollicited notification failed \n");
 	}
 	lock.base_info.needs_update = false;
 #endif;
-	return 0;
+	return rc;
 }

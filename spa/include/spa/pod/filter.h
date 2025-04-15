@@ -94,10 +94,17 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	if (nc == NULL)
 		nc = &dummy;
 
-	/* we should prefer alt2 values but only if they are within the
-	 * range, start with an empty child and we will select a good default
+	/* start with an empty child and we will select a good default
 	 * below */
 	spa_pod_builder_child(b, size, type);
+
+	/* we should prefer alt2 values but only if they are within the
+	 * range. Swap the order otherwise. */
+	if (!spa_pod_compare_is_valid_choice(type, size, alt2, alt2, nalt2, p2c)) {
+		SPA_SWAP(alt2, alt1);
+		SPA_SWAP(nalt2, nalt1);
+		SPA_SWAP(p2c, p1c);
+	}
 
 	if ((p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_None) ||
 	    (p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_Enum) ||

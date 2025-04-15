@@ -209,15 +209,15 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 		bool found_def = false;
 
 		/* we should prefer the alt2 range default value but only if valid */
-		for (j = 0, a1 = alt1; j < nalt1; j++, a1 = SPA_PTROFF(a1,size,void)) {
-			if (spa_pod_compare_value(type, alt2, min, size) < 0 ||
-			    spa_pod_compare_value(type, alt2, max, size) > 0)
-				break;
-			if (spa_pod_compare_value(type, a1, alt2, size) == 0) {
-				/* it is in the enum, use as default then */
-				spa_pod_builder_raw(b, a1, size);
-				found_def = true;
-				break;
+		if (spa_pod_compare_value(type, alt2, min, size) >= 0 &&
+		    spa_pod_compare_value(type, alt2, max, size) <= 0) {
+			for (j = 0, a1 = alt1; j < nalt1; j++, a1 = SPA_PTROFF(a1,size,void)) {
+				if (spa_pod_compare_value(type, a1, alt2, size) == 0) {
+					/* it is in the enum, use as default then */
+					spa_pod_builder_raw(b, a1, size);
+					found_def = true;
+					break;
+				}
 			}
 		}
 		/* copy all values inside the range */

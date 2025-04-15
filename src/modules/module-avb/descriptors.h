@@ -7,6 +7,7 @@
 #include "adp.h"
 #include "aecp-aem.h"
 #include "aecp-aem-descriptors.h"
+#include "aecp-aem-controls.h"
 #include "internal.h"
 
 static inline void init_descriptors(struct server *server)
@@ -128,9 +129,9 @@ static inline void init_descriptors(struct server *server)
 			.block_latency = htons(500),
 			.control_latency = htons(500),
 			.control_domain = htons(0),
-			.control_value_type = htons(AVB_AEM_CONTROL_LINEAR_UINT8),
+			.control_value_type = htons(AECP_AEM_CTRL_LINEAR_UINT8),
 			.control_type = htobe64(0x90e0f00000000001ULL),
-			.reset_time = htonl(3),
+			.reset_time = htonl(3000000),
 			.descriptor_counts_offset = htons(
 				4 + sizeof(struct avb_aem_desc_control)),
 			.number_of_values = htons(1),

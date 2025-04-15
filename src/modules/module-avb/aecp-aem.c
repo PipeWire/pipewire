@@ -20,6 +20,7 @@
 #include "aecp-cmd-resp/aecp-aem-descriptors.h"
 #include "aecp-cmd-resp/aecp-aem-get-avb-info.h"
 #include "aecp-cmd-resp/aecp-aem-lock-entity.h"
+#include "aecp-cmd-resp/aecp-aem-cmd-control.h"
 #include "aecp-cmd-resp/aecp-aem-unsol-notifications.h"
 
 /* ACQUIRE_ENTITY */
@@ -119,13 +120,6 @@ static int handle_get_clock_source(struct aecp *aecp, int64_t now, const void *m
 }
 
 static int handle_set_clock_source(struct aecp *aecp, int64_t now, const void *m, int len)
-{
-	//TODO
-	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
-	return reply_not_implemented(aecp, m, len);
-}
-
-static int handle_set_control(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	//TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
@@ -254,12 +248,12 @@ static const struct cmd_info cmd_info[] = {
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_WRITE_DESCRIPTOR, false,
 						"write-descriptor", NULL),
 
-	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_CONFIGURATION, false,
-						"set-configuration", handle_cmd_set_configuration),
-
-	AECP_AEM_HANDLE_CMD_UNSOL( AVB_AECP_AEM_CMD_GET_CONFIGURATION, true,
-						"get-configuration", handle_cmd_set_configuration,
+	AECP_AEM_HANDLE_CMD_UNSOL( AVB_AECP_AEM_CMD_SET_CONFIGURATION, false,
+						"set-configuration", handle_cmd_set_configuration,
 						handle_unsol_set_configuration),
+
+	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_CONFIGURATION, true,
+						"get-configuration", handle_cmd_get_configuration),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_STREAM_FORMAT, false,
 						"set-stream-format", handle_set_stream_format),
@@ -310,7 +304,7 @@ static const struct cmd_info cmd_info[] = {
 						"get-clock-source", handle_get_clock_source),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_CONTROL, false,
-						"set-control", handle_set_control),
+						"set-control", handle_cmd_set_control),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_CONTROL, true,
 						"get-control", handle_get_control),

@@ -72,6 +72,12 @@ static inline int reply_no_resources(struct aecp *aecp, const void *m, int len)
 	return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_RESOURCES, m, len);
 }
 
+static inline int reply_bad_arguments(struct aecp *aecp, const void *m, int len)
+{
+	return reply_status(aecp, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
+}
+
+
 static inline int reply_success(struct aecp *aecp, const void *m, int len)
 {
 	return reply_status(aecp, AVB_AECP_AEM_STATUS_SUCCESS, m, len);

@@ -105,7 +105,6 @@ static int handle_set_name_generic(struct descriptor *desc, uint16_t str_idex,
 }
 
 // TODO PERSISTENCE: Handle an overlay.
-// TODO: Handle entity lock
 /** IEEE1722.1-2021, Sec. 7.4.17 */
 int handle_cmd_set_name(struct aecp *aecp, int64_t now, const void *m,
     int len)
@@ -124,6 +123,7 @@ int handle_cmd_set_name(struct aecp *aecp, int64_t now, const void *m,
     uint64_t ctrler_index;
     char *name;
     char old_name[AECP_AEM_STRLEN_MAX];
+    struct aecp_aem_lock_state lock = {0};
     /*Information about the system */
     struct descriptor *desc;
 
@@ -142,6 +142,14 @@ int handle_cmd_set_name(struct aecp *aecp, int64_t now, const void *m,
 
     if (!list_support_descriptors_set_name[desc_type]) {
         return reply_bad_arguments(aecp, m, len);
+    }
+
+    // Check if entity is locked
+    // TODO: Define this globally because every setter needs this check
+    int rc = aecp_aem_get_state_var(aecp, aecp->server->entity_id, aecp_aem_lock, 0, &lock);
+    if (rc == 0 && lock.is_locked) {
+        pw_log_info("Entity is locked");
+        return reply_locked(aecp, m, len);
     }
 
     // Store the old name before updating

@@ -12,25 +12,39 @@
 #include "../aecp-aem.h"
 #include "../aecp.h"
 #include "aecp-aem-types.h"
+
+#define AECP_AEM_MIN_PACKET_LENGTH 60
 /**
  * @brief Sends unsolicited notifications. Does not sends information unless to
  *  the controller id unless an internal change has happenned (timeout, action
  *  etc)
+ *
  */
 static inline int reply_unsollicited_noitifications(struct aecp *aecp,
-	struct aecp_aem_base_info *b_state, void *packet, size_t len, bool internal)
+	struct aecp_aem_base_info *b_state, void *packet, size_t len,
+	 bool internal)
 {
+	uint8_t buf[60];
     struct aecp_aem_unsol_notification_state unsol = {0};
     uint16_t ctrler_index;
     uint64_t target_id = aecp->server->entity_id;
+	size_t ctrl_data_length;
+	struct avb_ethernet_header *h;
+	struct avb_packet_aecp_aem *p;
     int rc;
-	// struct aecp_aem_regis_unsols
-	struct avb_ethernet_header *h = (struct avb_ethernet_header*) packet;
-	struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
 
-    /* Here the value of 12 is the delta between the target_entity_id and
-            start of the AECP message specific data */
-    size_t ctrl_data_length = len - (sizeof(*h) + sizeof(*p)) + 12;
+/* Here the value of 12 is the delta between the target_entity_id and
+	start of the AECP message specific data */
+	ctrl_data_length = len - (sizeof(*h) + sizeof(*p)) + 12;
+	if (len < AECP_AEM_MIN_PACKET_LENGTH) {
+		memset(buf, 0, AECP_AEM_MIN_PACKET_LENGTH);
+		memcpy(buf, packet, len);
+		len = AECP_AEM_MIN_PACKET_LENGTH;
+		packet = buf;
+	}
+
+	h = (struct avb_ethernet_header*) packet;
+	p = SPA_PTROFF(h, sizeof(*h), void);
 
     p->aecp.hdr.subtype = AVB_SUBTYPE_AECP;
 	AVB_PACKET_SET_VERSION(&p->aecp.hdr, 0);

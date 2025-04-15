@@ -217,7 +217,27 @@ int handle_unsol_set_name(struct aecp *aecp, int64_t now)
 	p->u = 1;
 	p->aecp.target_guid = htobe64(aecp->server->entity_id);
 
-    memcpy(sg_name->name, (char*) desc->ptr, sizeof(sg_name->name));
+    const char *src_name = NULL;
+
+    // Name update needs to differentiate between Entity Name, Group Name and everything else
+    if (desc->type == AVB_AEM_DESC_ENTITY) {
+        struct avb_aem_desc_entity *entity = (struct avb_aem_desc_entity *) desc->ptr;
+    
+        if (name_state.name_index == AECP_AEM_NAME_INDEX_ENTITY_ITSELF) {
+            src_name = entity->entity_name;
+        } else if (name_state.name_index == AECP_AEM_NAME_INDEX_ENTITY_GROUP) {
+            src_name = entity->group_name;
+        } else {
+            pw_log_error("Invalid name index for entity descriptor in unsolicited notification: %d", name_state.name_index);
+            return -1;
+        }
+    } else {
+        // Default to the start of the struct for all other descriptors
+        src_name = (char*) desc->ptr;
+    }
+
+    memcpy(sg_name->name, src_name, sizeof(sg_name->name));
+
     sg_name->descriptor_index = htons(desc->index);
     sg_name->descriptor_type = htons(desc->type);
     sg_name->configuration_index = htons(name_state.base_desc.config_index);

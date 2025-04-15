@@ -19,7 +19,7 @@
 #include "aecp-cmd-resp/aecp-aem-configuration.h"
 #include "aecp-cmd-resp/aecp-aem-descriptors.h"
 #include "aecp-cmd-resp/aecp-aem-get-avb-info.h"
-#include "aecp-cmd-resp/aecp-aem-lock.h"
+#include "aecp-cmd-resp/aecp-aem-lock-entity.h"
 #include "aecp-cmd-resp/aecp-aem-cmd-set-name.h"
 #include "aecp-cmd-resp/aecp-aem-lock-entity.h"
 #include "aecp-cmd-resp/aecp-aem-unsol-notifications.h"

@@ -290,6 +290,10 @@ option('avb',
        description: 'Enable AVB code',
        type: 'feature',
        value: 'auto')
+option('avb-interface',
+       type: 'string',
+       value: 'enp1s0',
+       description: 'Default AVB network interface for pipewire-avb.conf')
 option('flatpak',
        description: 'Enable Flatpak support',
        type: 'feature',

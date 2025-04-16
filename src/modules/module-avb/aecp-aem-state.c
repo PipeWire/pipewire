@@ -44,6 +44,9 @@ static struct aecp_aem_state_handlers ae_state_handlers[] = {
     AECP_AEM_STATE(aecp_aem_configuration, aecp_aem_generic_get,
         aecp_aem_generic_set, NULL),
 
+    AECP_AEM_STATE(aecp_aem_control, aecp_aem_generic_get,
+        aecp_aem_generic_set, NULL),
+
     AECP_AEM_STATE(aecp_aem_unsol_notif, aecp_aem_generic_get,
         aecp_aem_generic_set, NULL),
 };

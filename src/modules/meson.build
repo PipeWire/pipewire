@@ -755,6 +755,7 @@ if build_module_avb
       'module-avb/aecp-cmd-resp/aecp-aem-descriptors.c',
       'module-avb/aecp-cmd-resp/aecp-aem-get-avb-info.c',
       'module-avb/aecp-cmd-resp/aecp-aem-lock-entity.c',
+      'module-avb/aecp-cmd-resp/aecp-aem-cmd-control.c',
       'module-avb/aecp-cmd-resp/aecp-aem-unsol-notifications.c'
       ],
     include_directories : [configinc],

@@ -107,6 +107,11 @@ struct aecp_aem_desc {
     struct aecp_aem_desc_base base_desc;
 };
 
+/** The control information to keep track of the latest changes */
+struct aecp_aem_control_state {
+    struct aecp_aem_desc_base base_desc;
+};
+
 /**
  * To keep track of which desciptor has chaanged
  */
@@ -125,6 +130,7 @@ enum aecp_aem_lock_types {
 	  aecp_aem_lock,
     aecp_aem_name,
     aecp_aem_configuration,
+    aecp_aem_control,
     aecp_aem_unsol_notif,
 
     // aecp_aem_desc, This is only used to retrieve the value, dynamic change

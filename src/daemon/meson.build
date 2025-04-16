@@ -13,6 +13,7 @@ conf_config.set('sm_comment', '#')
 conf_config.set('pulse_comment', '#')
 conf_config.set('rtprio_server', get_option('rtprio-server'))
 conf_config.set('rtprio_client', get_option('rtprio-client'))
+conf_config.set('avb-interface', get_option('avb-interface'))
 
 conf_config_uninstalled = conf_config
 conf_config_uninstalled.set('pipewire_path',
@@ -20,6 +21,7 @@ conf_config_uninstalled.set('pipewire_path',
 conf_config_uninstalled.set('pipewire_pulse_path',
   meson.project_build_root() / 'src' / 'daemon' / 'pipewire-pulse')
 conf_config_uninstalled.set('pulse_comment', '')
+conf_config_uninstalled.set('avb-interface', get_option('avb-interface'))
 
 build_ms = 'media-session' in get_option('session-managers')
 build_wp = 'wireplumber' in get_option('session-managers')

@@ -151,7 +151,7 @@ static inline struct spa_pod *sdl_build_formats(SDL_RendererInfo *info, struct s
 		if (id == 0)
 			continue;
 		if (c++ == 0)
-			spa_pod_builder_id(b, id);
+			spa_pod_builder_id(b, SPA_VIDEO_FORMAT_UNKNOWN);
 		spa_pod_builder_id(b, id);
 	}
 	/* then all the other ones SDL can convert from/to */

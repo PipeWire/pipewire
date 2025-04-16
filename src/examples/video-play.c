@@ -177,15 +177,21 @@ on_process(void *_data)
 
 	/* copy video image in texture */
 	if (data->is_yuv) {
+		void *datas[4];
 		sstride = data->stride;
-		SDL_UpdateYUVTexture(data->texture,
-				NULL,
-				sdata,
-				sstride,
-				SPA_PTROFF(sdata, sstride * data->size.height, void),
-				sstride / 2,
-				SPA_PTROFF(sdata, 5 * (sstride * data->size.height) / 4, void),
-				sstride / 2);
+		if (buf->n_datas == 1) {
+			datas[0] = sdata;
+			datas[1] = SPA_PTROFF(sdata, sstride * data->size.height, void);
+			datas[2] = SPA_PTROFF(sdata, 5 * (sstride * data->size.height) / 4, void);
+		} else {
+			datas[0] = sdata;
+			datas[1] = buf->datas[1].data;
+			datas[2] = buf->datas[2].data;
+		}
+		SDL_UpdateYUVTexture(data->texture, NULL,
+				datas[0], sstride,
+				datas[1], sstride / 2,
+				datas[2], sstride / 2);
 	}
 	else {
 		if (SDL_LockTexture(data->texture, NULL, &ddata, &dstride) < 0) {
@@ -286,7 +292,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	const struct spa_pod *params[5];
 	Uint32 sdl_format;
 	void *d;
-	int32_t mult, size;
+	int32_t mult, size, blocks;
 
 	if (param != NULL && id == SPA_PARAM_Tag) {
 		spa_debug_pod(0, NULL, param);
@@ -360,9 +366,11 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	case SDL_PIXELFORMAT_IYUV:
 		size = (data->stride * data->size.height) * 3 / 2;
 		data->is_yuv = true;
+		blocks = 3;
 		break;
 	default:
 		size = data->stride * data->size.height;
+		blocks = 1;
 		break;
 	}
 
@@ -376,7 +384,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	params[0] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
-		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(blocks),
 		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(size * mult),
 		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(data->stride * mult),
 		SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int((1<<SPA_DATA_MemPtr)));

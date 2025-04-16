@@ -321,11 +321,18 @@ gst_pipewire_sink_update_params (GstPipeWireSink *sink)
   spa_pod_builder_add (&b,
       SPA_PARAM_BUFFERS_size, SPA_POD_CHOICE_RANGE_Int(size, size, INT32_MAX),
       0);
-  if (sink->is_video) {
+  if (sink->is_rawvideo) {
     /* MUST have n_datas == n_planes */
     spa_pod_builder_add (&b,
         SPA_PARAM_BUFFERS_blocks,
-        SPA_POD_Int(GST_VIDEO_INFO_N_PLANES (&pool->video_info)), 0);
+        SPA_POD_Int(GST_VIDEO_INFO_N_PLANES (&pool->video_info)),
+        0);
+  } else {
+    /* Non-planar data, get a single block */
+    spa_pod_builder_add (&b,
+        SPA_PARAM_BUFFERS_blocks,
+        SPA_POD_Int(1),
+        0);
   }
 
   spa_pod_builder_add (&b,
@@ -343,7 +350,7 @@ gst_pipewire_sink_update_params (GstPipeWireSink *sink)
       SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
       SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_header)));
 
-  if (sink->is_video) {
+  if (sink->is_rawvideo) {
     port_params[n_params++] = spa_pod_builder_add_object (&b,
         SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
         SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoCrop),
@@ -369,7 +376,7 @@ gst_pipewire_sink_init (GstPipeWireSink * sink)
 
   sink->mode = DEFAULT_PROP_MODE;
   sink->use_bufferpool = DEFAULT_PROP_USE_BUFFERPOOL;
-  sink->is_video = false;
+  sink->is_rawvideo = false;
 
   GST_OBJECT_FLAG_SET (sink, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
 
@@ -387,7 +394,7 @@ gst_pipewire_sink_sink_fixate (GstBaseSink * bsink, GstCaps * caps)
   structure = gst_caps_get_structure (caps, 0);
 
   if (gst_structure_has_name (structure, "video/x-raw")) {
-    pwsink->is_video = true;
+    pwsink->is_rawvideo = true;
     gst_structure_fixate_field_nearest_int (structure, "width", 320);
     gst_structure_fixate_field_nearest_int (structure, "height", 240);
     gst_structure_fixate_field_nearest_fraction (structure, "framerate", 30, 1);
@@ -779,9 +786,21 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     if (pwsink->use_bufferpool != USE_BUFFERPOOL_YES)
       pwsink->use_bufferpool = USE_BUFFERPOOL_NO;
   } else {
+    GstVideoInfo video_info;
+
     pwsink->rate = rate = 0;
     pwsink->rate_match = false;
-    pwsink->is_video = true;
+
+    gst_video_info_from_caps (&video_info, caps);
+
+    if (GST_VIDEO_FORMAT_INFO_IS_VALID_RAW (video_info.finfo)
+#ifdef HAVE_GSTREAMER_DMA_DRM
+        && GST_VIDEO_FORMAT_INFO_FORMAT (video_info.finfo) != GST_VIDEO_FORMAT_DMA_DRM
+#endif
+        )
+      pwsink->is_rawvideo = TRUE;
+    else
+      pwsink->is_rawvideo = FALSE;
   }
 
   spa_dll_set_bw(&pwsink->stream->dll, SPA_DLL_BW_MIN, 4096, rate);
@@ -866,7 +885,7 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   config = gst_buffer_pool_get_config (GST_BUFFER_POOL_CAST (pwsink->stream->pool));
   gst_buffer_pool_config_get_params (config, NULL, &size, &min_buffers, &max_buffers);
   gst_buffer_pool_config_set_params (config, caps, size, min_buffers, max_buffers);
-  if (pwsink->is_video) {
+  if (pwsink->is_rawvideo) {
     gst_buffer_pool_config_add_option (config, GST_BUFFER_POOL_OPTION_VIDEO_META);
 #ifdef HAVE_GSTREAMER_SHM_ALLOCATOR
     gst_buffer_pool_config_add_option (config, GST_BUFFER_POOL_OPTION_VIDEO_ALIGNMENT);
@@ -953,7 +972,7 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
       if (res != GST_FLOW_OK)
         goto done;
 
-      if (pwsink->is_video) {
+      if (pwsink->is_rawvideo) {
         GstVideoFrame src, dst;
         gboolean copied = FALSE;
         buf_size = 0; // to break from the loop

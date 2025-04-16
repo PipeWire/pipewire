@@ -3,15 +3,18 @@
 /* SPDX-FileCopyrightText: Copyright © 2025 Alex Malki <alexandre.malki@kebag-logic.com> */
 /* SPDX-License-Identifier: MIT  */
 
-#include "../aecp-aem-state.h"
+#include <limits.h>
+
 #include "../descriptors.h"
+#include "../aecp-aem-state.h"
+#include "../aecp-aem-descriptors.h"
 #include "../aecp-aem-controls.h"
+
 #include "aecp-aem-helpers.h"
 #include "aecp-aem-types.h"
-
 #include "aecp-aem-cmd-resp-common.h"
+#include "aecp-aem-unsol-helper.h"
 
-#include "../aecp-aem-descriptors.h"
 
 /** For future use */
 // const static unsigned int v_size_value[] = {
@@ -27,9 +30,10 @@ int handle_cmd_set_control(struct aecp *aecp, int64_t now, const void *m,
 	const struct avb_ethernet_header *h = m;
 	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
 	/* Internals */
+	struct aecp_aem_control_state ctrl_state = {0};
+
 	struct descriptor *desc;
 	struct avb_aem_desc_control *ctrl_desc;
-	struct aecp_aem_control_state ctrl_state = {0};
 	struct avb_aem_desc_value_format *desc_formats;
 	struct avb_packet_aecp_aem_setget_control *control;
 	uint16_t desc_type, desc_id;
@@ -85,10 +89,6 @@ int handle_cmd_set_control(struct aecp *aecp, int64_t now, const void *m,
 
 	desc_formats->current_value = *value_req;
 
-	/** Expires in the descriptor time which is in microseconds*/
-	ctrl_state.base_desc.base_info.expire_timeout = now +
-								(ctrl_desc->reset_time * SPA_NSEC_PER_USEC);
-
 	/** Doing so will ask for unsollicited notifications */
 	rc = aecp_aem_set_state_var(aecp, htobe64(p->aecp.target_guid), ctrler_id,
 		 	aecp_aem_control, desc_id, &ctrl_state);
@@ -100,8 +100,67 @@ int handle_cmd_set_control(struct aecp *aecp, int64_t now, const void *m,
     return reply_success(aecp, m, len);
 }
 
-int handle_unsol_set_contro(struct aecp *aecp, int64_t now)
+int handle_unsol_set_control(struct aecp *aecp, int64_t now)
 {
+	uint8_t buf[1024];
+	void *m = buf;
+	struct avb_ethernet_header *h = m;
+	struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
+	struct aecp_aem_control_state ctrl_state = {0};
+
+	/* Internal descriptor info */
+	struct descriptor *desc;
+	struct avb_aem_desc_control *ctrl_desc;
+	struct avb_aem_desc_value_format *desc_formats;
+	struct avb_packet_aecp_aem_setget_control *control;
+
+	uint8_t value_desc, *value;
+	uint64_t target_id = aecp->server->entity_id;
+	size_t len = sizeof (*h) + sizeof(*p) + sizeof(*control) + sizeof (value_desc);
 	int rc = 0;
+	bool has_expired = false;
+
+	memset(buf, 0, sizeof(buf));
+	rc = aecp_aem_get_state_var(aecp, target_id,
+			aecp_aem_control, 0, &ctrl_state);
+	//Check if the udat eis necessary
+
+	has_expired = ctrl_state.base_desc.base_info.expire_timeout < now;
+	if (!ctrl_state.base_desc.base_info.needs_update && !has_expired) {
+		return 0;
+	}
+
+	ctrl_state.base_desc.base_info.needs_update = false;
+	if (has_expired) {
+		ctrl_state.base_desc.base_info.expire_timeout = LONG_MAX;
+	}
+
+	if (rc) {
+		spa_assert(0);
+	}
+
+	desc = (struct descriptor *) ctrl_state.base_desc.desc;
+ 	/* Only support Milan so far */
+	control = (struct avb_packet_aecp_aem_setget_control *) p->payload;
+
+	control->descriptor_id = htons(desc->index);
+	control->descriptor_type = htons(desc->type);
+	p->aecp.target_guid = htobe64(target_id);
+	ctrl_desc = (struct avb_aem_desc_control *) desc->ptr;
+	desc_formats = (struct avb_aem_desc_value_format *) ctrl_desc->value_format;
+
+	/** Only support identify so far */
+	value = (uint8_t*)control->payload;
+	value_desc = desc_formats->current_value;
+	*value = value_desc;
+
+	AVB_PACKET_AEM_SET_COMMAND_TYPE(p, AVB_AECP_AEM_CMD_SET_CONTROL);
+	rc = reply_unsollicited_noitifications(aecp, &ctrl_state.base_desc.base_info,
+				buf, len, has_expired);
+	if (rc) {
+		pw_log_error("Unsollicited notification failed \n");
+	}
+	rc = aecp_aem_refresh_state_var(aecp, target_id,
+			aecp_aem_control, 0, &ctrl_state);
 	return rc;
 }

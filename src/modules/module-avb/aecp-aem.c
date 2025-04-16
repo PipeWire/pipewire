@@ -303,8 +303,9 @@ static const struct cmd_info cmd_info[] = {
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_CLOCK_SOURCE, true,
 						"get-clock-source", handle_get_clock_source),
 
-	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_CONTROL, false,
-						"set-control", handle_cmd_set_control),
+	AECP_AEM_HANDLE_CMD_UNSOL( AVB_AECP_AEM_CMD_SET_CONTROL, false,
+						"set-control", handle_cmd_set_control,
+						handle_unsol_set_control),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_CONTROL, true,
 						"get-control", handle_get_control),

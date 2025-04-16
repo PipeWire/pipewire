@@ -11,6 +11,7 @@
 
 static inline void init_descriptors(struct server *server)
 {
+	// TODO PERSISTENCE: retrieve the saved buffers.
 	server_add_descriptor(server, AVB_AEM_DESC_STRINGS, 0,
 			sizeof(struct avb_aem_desc_strings),
 			&(struct avb_aem_desc_strings)
@@ -194,6 +195,8 @@ static inline void init_descriptors(struct server *server)
 	struct avb_aem_desc_audio_cluster clusters[16];
 
 	for (uint32_t cluster_idx = 0; cluster_idx < 16; cluster_idx++) {
+		memset(clusters[cluster_idx].object_name, 0,
+			sizeof(clusters[cluster_idx].object_name));
 		if (cluster_idx < 8) {
 			snprintf(clusters[cluster_idx].object_name, 63,
 						"Input %2u", cluster_idx);
@@ -410,7 +413,7 @@ static inline void init_descriptors(struct server *server)
 		.localized_description = htons(0xffff),
 		.interface_flags = htons(
 				AVB_AEM_DESC_AVB_INTERFACE_FLAG_GPTP_GRANDMASTER_SUPPORTED |
-				AVB_AEM_DESC_AVB_INTERFACE_FLAG_GPTP_SUPPORTED | 
+				AVB_AEM_DESC_AVB_INTERFACE_FLAG_GPTP_SUPPORTED |
 				AVB_AEM_DESC_AVB_INTERFACE_FLAG_SRP_SUPPORTED),
 		.clock_identity = htobe64(0x3cc0c6FFFE000641),
 		.priority1 = 0xF8,
@@ -424,6 +427,8 @@ static inline void init_descriptors(struct server *server)
 		.log_pdelay_interval = 0,
 		.port_number = 0,
 	};
+
+	memset(avb_interface.object_name, 0, sizeof(avb_interface.object_name));
 	strncpy(avb_interface.object_name, "", 63);
 	memcpy(avb_interface.mac_address, server->mac_addr, 6);
 	server_add_descriptor(server, AVB_AEM_DESC_AVB_INTERFACE, 0,

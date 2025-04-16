@@ -69,7 +69,7 @@ struct _GstPipeWireSink {
   gboolean negotiated;
   gboolean rate_match;
   gint rate;
-  gboolean is_video;
+  gboolean is_rawvideo;
 
   GstPipeWireSinkMode mode;
   GstPipeWireSinkSlaveMethod slave_method;

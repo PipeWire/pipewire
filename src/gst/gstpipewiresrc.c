@@ -777,7 +777,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
     pwsrc->transform_value = transform_value;
   }
 
-  if (pwsrc->is_video) {
+  if (pwsrc->is_rawvideo) {
     GstVideoInfo *info = &pwsrc->video_info;
     uint32_t n_datas = b->buffer->n_datas;
     uint32_t n_planes = GST_VIDEO_INFO_N_PLANES (info);
@@ -1285,6 +1285,16 @@ handle_format_change (GstPipeWireSrc *pwsrc,
         gst_video_info_dma_drm_init (&pwsrc->drm_info);
 #endif
         gst_video_info_from_caps (&pwsrc->video_info, pwsrc->caps);
+
+        if (GST_VIDEO_FORMAT_INFO_IS_VALID_RAW (pwsrc->video_info.finfo)
+#ifdef HAVE_GSTREAMER_DMA_DRM
+            && GST_VIDEO_FORMAT_INFO_FORMAT (pwsrc->video_info.finfo) != GST_VIDEO_FORMAT_DMA_DRM
+#endif
+            )
+          pwsrc->is_rawvideo = TRUE;
+        else
+          pwsrc->is_rawvideo = FALSE;
+
 #ifdef HAVE_GSTREAMER_DMA_DRM
       }
 #endif
@@ -1297,6 +1307,7 @@ handle_format_change (GstPipeWireSrc *pwsrc,
   } else {
     pwsrc->negotiated = FALSE;
     pwsrc->is_video = FALSE;
+    pwsrc->is_rawvideo = FALSE;
   }
 
   if (pwsrc->caps) {

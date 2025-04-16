@@ -64,6 +64,7 @@ struct _GstPipeWireSrc {
   GstCaps *possible_caps;
 
   gboolean is_video;
+  gboolean is_rawvideo;
   GstVideoInfo video_info;
 #ifdef HAVE_GSTREAMER_DMA_DRM
   GstVideoInfoDmaDrm drm_info;

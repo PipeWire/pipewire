@@ -66,7 +66,10 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
   uint32_t i;
   GstPipeWirePoolData *data;
   /* Default to a large enough value */
-  gsize plane_sizes[GST_VIDEO_MAX_PLANES] = { pool->video_info.size, };
+  gsize plane_0_size = pool->has_rawvideo ?
+    pool->video_info.size :
+    (gsize) pool->video_info.width * pool->video_info.height;
+  gsize plane_sizes[GST_VIDEO_MAX_PLANES] = { plane_0_size, };
 
   GST_DEBUG_OBJECT (pool, "wrap buffer, datas:%d", b->buffer->n_datas);
 
@@ -333,11 +336,20 @@ set_config (GstBufferPool * pool, GstStructure * config)
   if (g_str_has_prefix (gst_structure_get_name (structure), "video/") ||
       g_str_has_prefix (gst_structure_get_name (structure), "image/")) {
     p->has_video = TRUE;
+
     gst_video_info_from_caps (&p->video_info, caps);
 
+    if (GST_VIDEO_FORMAT_INFO_IS_VALID_RAW (p->video_info.finfo)
+#ifdef HAVE_GSTREAMER_DMA_DRM
+        && GST_VIDEO_FORMAT_INFO_FORMAT (p->video_info.finfo) != GST_VIDEO_FORMAT_DMA_DRM
+#endif
+        )
+      p->has_rawvideo = TRUE;
+    else
+      p->has_rawvideo = FALSE;
+
 #ifdef HAVE_GSTREAMER_SHM_ALLOCATOR
-    if (GST_VIDEO_FORMAT_INFO_IS_VALID_RAW (p->video_info.finfo) &&
-        GST_VIDEO_FORMAT_INFO_FORMAT (p->video_info.finfo) != GST_VIDEO_FORMAT_DMA_DRM) {
+    if (p->has_rawvideo) {
       gst_video_alignment_reset (&p->video_align);
       gst_video_info_align (&p->video_info, &p->video_align);
     }
@@ -349,11 +361,11 @@ set_config (GstBufferPool * pool, GstStructure * config)
     g_assert_not_reached ();
   }
 
-  p->add_metavideo = p->has_video && gst_buffer_pool_config_has_option (config,
+  p->add_metavideo = p->has_rawvideo && gst_buffer_pool_config_has_option (config,
       GST_BUFFER_POOL_OPTION_VIDEO_META);
 
 #ifdef HAVE_GSTREAMER_SHM_ALLOCATOR
-  has_videoalign = p->has_video && gst_buffer_pool_config_has_option (config,
+  has_videoalign = p->has_rawvideo && gst_buffer_pool_config_has_option (config,
       GST_BUFFER_POOL_OPTION_VIDEO_ALIGNMENT);
 
   if (has_videoalign) {

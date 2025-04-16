@@ -136,10 +136,10 @@ int handle_unsol_set_configuration(struct aecp *aecp, int64_t now)
 	p->aecp.target_guid = htobe64(aecp->server->entity_id);
 
 	AVB_PACKET_AEM_SET_COMMAND_TYPE(p, AVB_AECP_AEM_CMD_SET_CONFIGURATION);
-	rc = reply_unsollicited_noitifications(aecp, &cfg_state.base_info, buf, len,
+	rc = reply_unsolicited_notifications(aecp, &cfg_state.base_info, buf, len,
 			false);
 	if (rc) {
-		pw_log_error("Unsollicited notification failed \n");
+		pw_log_error("Unsolicited notification failed \n");
 	}
 	return rc;
 }

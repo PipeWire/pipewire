@@ -20,7 +20,7 @@
  *  etc)
  *
  */
-static inline int reply_unsollicited_noitifications(struct aecp *aecp,
+static inline int reply_unsolicited_notifications(struct aecp *aecp,
 	struct aecp_aem_base_info *b_state, void *packet, size_t len,
 	 bool internal)
 {
@@ -74,7 +74,7 @@ static inline int reply_unsollicited_noitifications(struct aecp *aecp,
 		}
 
 		if ((b_state->controller_entity_id == unsol.ctrler_endity_id) && !internal) {
-			/* Do not send unsollicited if that the one creating the udpate, and
+			/* Do not send unsolicited if that the one creating the udpate, and
 				this is not a timeout.*/
 			pw_log_info("Do not send twice of %lx %lx\n", b_state->controller_entity_id,
 				unsol.ctrler_endity_id );

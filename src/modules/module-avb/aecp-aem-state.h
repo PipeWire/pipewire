@@ -75,7 +75,7 @@ struct aecp_aem_unsol_notification_state {
     uint8_t port_id;
 
     /***
-     * The sequence ID of the next unsollicited notification
+     * The sequence ID of the next unsolicited notification
      */
 
     uint16_t next_seq_id;

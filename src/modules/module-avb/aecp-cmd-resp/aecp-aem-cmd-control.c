@@ -158,10 +158,10 @@ int handle_unsol_set_control(struct aecp *aecp, int64_t now)
 	*value = value_desc;
 
 	AVB_PACKET_AEM_SET_COMMAND_TYPE(p, AVB_AECP_AEM_CMD_SET_CONTROL);
-	rc = reply_unsollicited_noitifications(aecp, &ctrl_state.base_desc.base_info,
+	rc = reply_unsolicited_notifications(aecp, &ctrl_state.base_desc.base_info,
 				buf, len, has_expired);
 	if (rc) {
-		pw_log_error("Unsollicited notification failed \n");
+		pw_log_error("Unsolicited notification failed \n");
 	}
 	rc = aecp_aem_refresh_state_var(aecp, target_id,
 			aecp_aem_control, 0, &ctrl_state);

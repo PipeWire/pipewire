@@ -110,7 +110,7 @@ static int aecp_message(void *data, uint64_t now, const void *message, int len)
 	if (info->handle == NULL)
 		return reply_not_implemented(aecp, message, len);
 
-	// TODO here check if unsollicited change are needed,
+	// TODO here check if unsolicited change are needed,
 	return info->handle(aecp, message, len);
 }
 

@@ -10,7 +10,7 @@
 #include "aecp-aem-unsol-notifications.h"
 #include "aecp-aem-helpers.h"
 
-/** Registration of unsollicited notifications */
+/** Registration of unsolicited notifications */
 
 int handle_cmd_register_unsol_notifications(struct aecp *aecp, int64_t now,
 	 const void *m, int len)

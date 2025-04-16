@@ -940,17 +940,19 @@ static int dump_event_ump(FILE *out, const struct midi_event *ev)
 		dump_mem(out, "Utility", ev->data, ev->size);
 		break;
 	case 0x1:
-		switch (ev->data[2]) {
+	{
+		uint8_t b[3] = { (d[0] >> 16) & 0x7f, (d[0] >> 8) & 0x7f, d[0] & 0x7f };
+		switch (b[0]) {
 		case 0xf1:
 			fprintf(out, "MIDI Time Code Quarter Frame: type %d values %d",
-					ev->data[0] >> 4, ev->data[0] & 0xf);
+					b[1] >> 4, b[1] & 0xf);
 			break;
 		case 0xf2:
 			fprintf(out, "Song Position Pointer: value %d",
-					((int)ev->data[1] << 7 | ev->data[0]));
+					((int)b[2] << 7 | b[1]));
 			break;
 		case 0xf3:
-			fprintf(out, "Song Select: value %d", (ev->data[0] & 0x7f));
+			fprintf(out, "Song Select: value %d", b[1]);
 			break;
 		case 0xf6:
 			fprintf(out, "Tune Request");
@@ -978,20 +980,18 @@ static int dump_event_ump(FILE *out, const struct midi_event *ev)
 			break;
 		}
 		break;
+	}
 	case 0x2:
 	{
 		struct midi_event ev1;
-		uint8_t msg[4];
+		uint8_t b[3] = { d[0] >> 16, d[0] >> 8, d[0] };
 
 		ev1 = *ev;
-		msg[0] = (d[0] >> 16);
-		msg[1] = (d[0] >> 8);
-		msg[2] = (d[0]);
-		if (msg[0] >= 0xc0 && msg[0] <= 0xdf)
+		if (b[0] >= 0xc0 && b[0] <= 0xdf)
 			ev1.size = 2;
                 else
 			ev1.size = 3;
-		ev1.data = msg;
+		ev1.data = b;
 		dump_event_midi1(out, &ev1);
 		break;
 	}

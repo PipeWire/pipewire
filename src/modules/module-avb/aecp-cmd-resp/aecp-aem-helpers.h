@@ -89,7 +89,6 @@ static inline int reply_set_name(struct aecp *aecp, const void *m, int len, int 
     struct avb_packet_aecp_header *reply = SPA_PTROFF(h, sizeof(*h), void);
     struct avb_packet_aecp_aem *p_reply = (void*)reply;
     struct avb_packet_aecp_aem_setget_name *ae_reply;
-    uint64_t target_id;
 
     memcpy(buf, m, len);
 

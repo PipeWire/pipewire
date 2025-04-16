@@ -107,5 +107,33 @@ static inline int reply_set_name(struct aecp *aecp, const void *m, int len, int 
     return avb_server_send_packet(aecp->server, h->src, AVB_TSN_ETH, buf, len);
 }
 
+static inline int reply_set_control(struct aecp *aecp, const void *m, int len, int status, uint8_t current_value)
+{
+	uint8_t buf[512];
+	struct avb_ethernet_header *h = (void *)buf;
+	struct avb_packet_aecp_header *reply = SPA_PTROFF(h, sizeof(*h), void);
+	struct avb_packet_aecp_aem *p_reply = (void *)reply;
+	struct avb_packet_aecp_aem_setget_control *ae_reply;
+	uint64_t target_id;
+
+	// Copy the original packet so we retain all headers
+	memcpy(buf, m, len);
+
+	// Payload begins after AECP AEM header
+	ae_reply = (struct avb_packet_aecp_aem_setget_control *)p_reply->payload;
+	target_id = htobe64(reply->target_guid);
+
+	// Mark as a response and set status code
+	AVB_PACKET_AECP_SET_MESSAGE_TYPE(reply, AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
+	AVB_PACKET_AECP_SET_STATUS(reply, status);
+
+	// Set the current control value (assumed to be 1 byte for now)
+	ae_reply->payload[0] = current_value;
+
+	// Send it out
+	return avb_server_send_packet(aecp->server, h->src, AVB_TSN_ETH, buf, len);
+}
+
+
 
 #endif //__AVB_AECP_AEM_HELPERS_H__

@@ -1,6 +1,7 @@
 /* AVB support */
 /* SPDX-FileCopyrightText: Copyright © 2025 Kebag-Logic */
 /* SPDX-FileCopyrightText: Copyright © 2025 Alex Malki <alexandre.malki@kebag-logic.com> */
+/* SPDX-FileCopyrightText: Copyright © 2025 Simon Gapp <simon.gapp@kebag-logic.com> */
 /* SPDX-License-Identifier: MIT  */
 
 #include <limits.h>
@@ -22,7 +23,7 @@
 // 	[AECP_AEM_CTRL_LINEAR_UINT8] = 1,
 // };
 
-
+/* IEEE 1722.1-2021, Sec. 7.4.25. SET_CONTROL Command*/
 int handle_cmd_set_control(struct aecp *aecp, int64_t now, const void *m,
     int len)
 {
@@ -38,11 +39,11 @@ int handle_cmd_set_control(struct aecp *aecp, int64_t now, const void *m,
 	struct avb_packet_aecp_aem_setget_control *control;
 	uint16_t desc_type, desc_id;
 	uint16_t ctrler_id;
-	// Type of value for now is assumed to be uint8_t only milan identify supported
+	// Type of value for now is assumed to be uint8_t only Milan identify supported
 	uint8_t *value_req;
 	int rc;
 
-	/* Value to caclulate the position  as defined in the 1722.1 7.3 */
+	/* Value to calculate the position as defined in the IEEE 1722.1-2021, Sec. 7.3 */
     control = (struct avb_packet_aecp_aem_setget_control*)p->payload;
 	desc_type = ntohs(control->descriptor_type);
 	desc_id = ntohs(control->descriptor_id);
@@ -63,32 +64,35 @@ int handle_cmd_set_control(struct aecp *aecp, int64_t now, const void *m,
 	ctrl_desc = (struct avb_aem_desc_control *) desc->ptr;
 	desc_formats = ctrl_desc->value_format;
 
+	// Store old control value for success or fail response
+	uint8_t old_control_value = desc_formats->current_value;
+
 	value_req = (uint8_t *)control->payload;
 	// Now only support the Identify for Milan
 
 	/* First case the value did not change */
 	if (*value_req == desc_formats->current_value) {
-		return reply_success(aecp, m, len);
+		return reply_set_control(aecp, m, len, AVB_AECP_AEM_STATUS_SUCCESS, old_control_value);
 	}
 
 	/* Then verify if the step is fine*/
 	if ((*value_req % desc_formats->step)) {
-		return reply_bad_arguments(aecp, m, len);
+		return reply_set_control(aecp, m, len, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, old_control_value);
 	}
 
 	/** Then verify max */
 	if ((*value_req > desc_formats->maximum)) {
-		return reply_bad_arguments(aecp, m, len);
+		return reply_set_control(aecp, m, len, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, old_control_value);
 	}
 
 	/** Then verify min */
 	if ((*value_req < desc_formats->minimum)) {
-		return reply_bad_arguments(aecp, m, len);
+		return reply_set_control(aecp, m, len, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, old_control_value);
 	}
 
 	desc_formats->current_value = *value_req;
 
-	/** Doing so will ask for unsollicited notifications */
+	/** Doing so will ask for unsolicited notifications */
 	rc = aecp_aem_set_state_var(aecp, htobe64(p->aecp.target_guid), ctrler_id,
 		 	aecp_aem_control, desc_id, &ctrl_state);
 
@@ -96,7 +100,7 @@ int handle_cmd_set_control(struct aecp *aecp, int64_t now, const void *m,
 		spa_assert(0);
 	}
 
-    return reply_success(aecp, m, len);
+    return reply_set_control(aecp, m, len, AVB_AECP_AEM_STATUS_SUCCESS, *value_req);
 }
 
 int handle_unsol_set_control(struct aecp *aecp, int64_t now)

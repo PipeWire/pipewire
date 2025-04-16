@@ -94,7 +94,6 @@ static inline int reply_set_name(struct aecp *aecp, const void *m, int len, int 
 
     // Point to payload of AEM command
     ae_reply = (struct avb_packet_aecp_aem_setget_name *)p_reply->payload;
-    target_id = htobe64(reply->target_guid);
 
     // Set message type to response and a valid status
     AVB_PACKET_AECP_SET_MESSAGE_TYPE(reply, AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);

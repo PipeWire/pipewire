@@ -940,7 +940,43 @@ static int dump_event_ump(FILE *out, const struct midi_event *ev)
 		dump_mem(out, "Utility", ev->data, ev->size);
 		break;
 	case 0x1:
-		dump_mem(out, "SysRT", ev->data, ev->size);
+		switch (ev->data[2]) {
+		case 0xf1:
+			fprintf(out, "MIDI Time Code Quarter Frame: type %d values %d",
+					ev->data[0] >> 4, ev->data[0] & 0xf);
+			break;
+		case 0xf2:
+			fprintf(out, "Song Position Pointer: value %d",
+					((int)ev->data[1] << 7 | ev->data[0]));
+			break;
+		case 0xf3:
+			fprintf(out, "Song Select: value %d", (ev->data[0] & 0x7f));
+			break;
+		case 0xf6:
+			fprintf(out, "Tune Request");
+			break;
+		case 0xf8:
+			fprintf(out, "Timing Clock");
+			break;
+		case 0xfa:
+			fprintf(out, "Start Sequence");
+			break;
+		case 0xfb:
+			fprintf(out, "Continue Sequence");
+			break;
+		case 0xfc:
+			fprintf(out, "Stop Sequence");
+			break;
+		case 0xfe:
+			fprintf(out, "Active Sensing");
+			break;
+		case 0xff:
+			fprintf(out, "System Reset");
+			break;
+		default:
+			dump_mem(out, "SysRT", ev->data, ev->size);
+			break;
+		}
 		break;
 	case 0x2:
 	{

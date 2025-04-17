@@ -1073,6 +1073,7 @@ static void combine_state_changed(void *d, enum pw_stream_state old,
 		enum pw_stream_state state, const char *error)
 {
 	struct impl *impl = d;
+	struct stream *s;
 	switch (state) {
 	case PW_STREAM_STATE_ERROR:
 	case PW_STREAM_STATE_UNCONNECTED:
@@ -1080,6 +1081,10 @@ static void combine_state_changed(void *d, enum pw_stream_state old,
 		break;
 	case PW_STREAM_STATE_PAUSED:
 		clear_delaybuf(impl);
+		spa_list_for_each(s, &impl->streams, link) {
+			pw_stream_flush(s->stream, false);
+		}
+		pw_stream_flush(impl->combine, false);
 		impl->combine_id = pw_stream_get_node_id(impl->combine);
 		pw_log_info("got combine id %d", impl->combine_id);
 		break;

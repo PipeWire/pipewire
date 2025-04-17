@@ -20,7 +20,7 @@
  *  etc)
  *
  */
-static inline int reply_unsollicited_noitifications(struct aecp *aecp,
+static inline int reply_unsolicited_notifications(struct aecp *aecp,
 	struct aecp_aem_base_info *b_state, void *packet, size_t len,
 	 bool internal)
 {

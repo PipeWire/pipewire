@@ -23,6 +23,7 @@ run: all
 	PIPEWIRE_CONFIG_DIR=$(BUILD_ROOT)/src/daemon \
 	ACP_PATHS_DIR=$(SOURCE_ROOT)/spa/plugins/alsa/mixer/paths \
 	ACP_PROFILES_DIR=$(SOURCE_ROOT)/spa/plugins/alsa/mixer/profile-sets \
+	PIPEWIRE_LOG_SYSTEMD=false
 	$(DBG) $(BUILD_ROOT)/src/daemon/pipewire-uninstalled
 
 run-pulse: all
@@ -32,6 +33,7 @@ run-pulse: all
 	PIPEWIRE_CONFIG_DIR=$(BUILD_ROOT)/src/daemon \
 	ACP_PATHS_DIR=$(SOURCE_ROOT)/spa/plugins/alsa/mixer/paths \
 	ACP_PROFILES_DIR=$(SOURCE_ROOT)/spa/plugins/alsa/mixer/profile-sets \
+	PIPEWIRE_LOG_SYSTEMD=false
 	$(DBG) $(BUILD_ROOT)/src/daemon/pipewire-pulse
 
 gdb:

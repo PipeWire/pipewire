@@ -626,6 +626,7 @@ devenv.prepend('GST_PLUGIN_PATH', builddir / 'src'/ 'gst')
 devenv.prepend('ALSA_PLUGIN_DIR', builddir / 'pipewire-alsa' / 'alsa-plugins')
 devenv.prepend('LD_LIBRARY_PATH', builddir / 'pipewire-jack' / 'src')
 
+devenv.set('PIPEWIRE_LOG_SYSTEMD', 'false')
 devenv.set('PW_UNINSTALLED', '1')
 
 meson.add_devenv(devenv)

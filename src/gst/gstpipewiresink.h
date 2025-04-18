@@ -70,6 +70,8 @@ struct _GstPipeWireSink {
   gboolean rate_match;
   gint rate;
   gboolean is_rawvideo;
+  gboolean first_buffer;
+  GstClockTime first_buffer_pts;
 
   GstPipeWireSinkMode mode;
   GstPipeWireSinkSlaveMethod slave_method;

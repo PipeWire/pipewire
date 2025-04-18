@@ -39,6 +39,7 @@ int handle_cmd_set_control(struct aecp *aecp, int64_t now, const void *m,
 	struct avb_packet_aecp_aem_setget_control *control;
 	uint16_t desc_type, desc_id;
 	uint16_t ctrler_id;
+	uint8_t old_control_value;
 	// Type of value for now is assumed to be uint8_t only Milan identify supported
 	uint8_t *value_req;
 	int rc;
@@ -65,14 +66,14 @@ int handle_cmd_set_control(struct aecp *aecp, int64_t now, const void *m,
 	desc_formats = ctrl_desc->value_format;
 
 	// Store old control value for success or fail response
-	uint8_t old_control_value = desc_formats->current_value;
+	old_control_value = desc_formats->current_value;
 
 	value_req = (uint8_t *)control->payload;
 	// Now only support the Identify for Milan
 
 	/* First case the value did not change */
 	if (*value_req == desc_formats->current_value) {
-		return reply_set_control(aecp, m, len, AVB_AECP_AEM_STATUS_SUCCESS, old_control_value);
+		return reply_success(aecp, m, len);
 	}
 
 	/* Then verify if the step is fine*/
@@ -100,7 +101,7 @@ int handle_cmd_set_control(struct aecp *aecp, int64_t now, const void *m,
 		spa_assert(0);
 	}
 
-    return reply_set_control(aecp, m, len, AVB_AECP_AEM_STATUS_SUCCESS, *value_req);
+    return reply_success(aecp, m, len);
 }
 
 int handle_unsol_set_control(struct aecp *aecp, int64_t now)
@@ -126,7 +127,7 @@ int handle_unsol_set_control(struct aecp *aecp, int64_t now)
 	memset(buf, 0, sizeof(buf));
 	rc = aecp_aem_get_state_var(aecp, target_id,
 			aecp_aem_control, 0, &ctrl_state);
-	//Check if the udat eis necessary
+	//Check if the update is necessary
 
 	has_expired = ctrl_state.base_desc.base_info.expire_timeout < now;
 	if (!ctrl_state.base_desc.base_info.needs_update && !has_expired) {

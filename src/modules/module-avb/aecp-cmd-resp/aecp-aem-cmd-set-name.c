@@ -105,7 +105,7 @@ static int handle_set_name_generic(struct descriptor *desc, uint16_t str_idex,
 }
 
 // TODO PERSISTENCE: Handle an overlay.
-/** IEEE1722.1-2021, Sec. 7.4.17 */
+/** IEEE 1722.1-2021, Sec. 7.4.17 */
 int handle_cmd_set_name(struct aecp *aecp, int64_t now, const void *m,
     int len)
 {
@@ -161,7 +161,7 @@ int handle_cmd_set_name(struct aecp *aecp, int64_t now, const void *m,
         pw_log_error("Unexpected failure while setting name for descriptor type %u, index %u", desc->type, desc->index);
         spa_assert(0);
         // TODO: Which status is the correct one for a failure?
-        return reply_set_name(aecp, m, len, AVB_AECP_AEM_STATUS_SUCCESS, old_name);
+        return reply_set_name(aecp, m, len, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, old_name);
     }
 
     ctrler_index = htobe64(p->aecp.controller_guid);
@@ -172,10 +172,10 @@ int handle_cmd_set_name(struct aecp *aecp, int64_t now, const void *m,
         // TODO: Finish error message
         pw_log_error("Could not find the value of the  ");
         // TODO: Is that correct?
-        return reply_bad_arguments(aecp, m, len);
+        return reply_set_name(aecp, m, len, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, old_name);
     }
 
-    return reply_set_name(aecp, m, len, AVB_AECP_STATUS_SUCCESS, name);
+    return reply_success(aecp, m, len);
 }
 
 int handle_unsol_set_name(struct aecp *aecp, int64_t now)

@@ -31,6 +31,7 @@ struct _GstPipeWireStream {
   GstClock *clock;
 
   guint64 position;
+  guint64 buf_duration;
   struct spa_dll dll;
   double err_avg, err_var, err_wdw;
   guint64 last_ts;
@@ -40,6 +41,8 @@ struct _GstPipeWireStream {
   /* the actual pw stream */
   struct pw_stream *pwstream;
   struct spa_hook pwstream_listener;
+
+  struct spa_io_position *io_position;
 
   /* common properties */
   int fd;

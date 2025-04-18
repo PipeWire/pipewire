@@ -76,6 +76,7 @@
 
 #define BASE_CTRL_TYPE_MAC            { 0x90, 0xe0, 0xf0, 0x01, 0x00, 0x00 };
 // TODO AVB, for now support limited to Milan
+/*1722.1-2021, Table B.1*/
 #define BASE_CTRL_IDENTIFY_MAC        { 0x90, 0xe0, 0xf0, 0x00, 0x00, 0x01 };
 
 #endif //__AECP_AEM_CONTROLS_H__

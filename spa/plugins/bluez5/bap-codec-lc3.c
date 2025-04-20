@@ -81,41 +81,6 @@ typedef struct {
 	unsigned int priority;
 } bap_lc3_t;
 
-static const struct {
-	uint32_t bit;
-	enum spa_audio_channel channel;
-} channel_bits[] = {
-	{ BAP_CHANNEL_MONO, SPA_AUDIO_CHANNEL_MONO },
-	{ BAP_CHANNEL_FL,   SPA_AUDIO_CHANNEL_FL },
-	{ BAP_CHANNEL_FR,   SPA_AUDIO_CHANNEL_FR },
-	{ BAP_CHANNEL_FC,   SPA_AUDIO_CHANNEL_FC },
-	{ BAP_CHANNEL_LFE,  SPA_AUDIO_CHANNEL_LFE },
-	{ BAP_CHANNEL_BL,   SPA_AUDIO_CHANNEL_RL },
-	{ BAP_CHANNEL_BR,   SPA_AUDIO_CHANNEL_RR },
-	{ BAP_CHANNEL_FLC,  SPA_AUDIO_CHANNEL_FLC },
-	{ BAP_CHANNEL_FRC,  SPA_AUDIO_CHANNEL_FRC },
-	{ BAP_CHANNEL_BC,   SPA_AUDIO_CHANNEL_BC },
-	{ BAP_CHANNEL_LFE2, SPA_AUDIO_CHANNEL_LFE2 },
-	{ BAP_CHANNEL_SL,   SPA_AUDIO_CHANNEL_SL },
-	{ BAP_CHANNEL_SR,   SPA_AUDIO_CHANNEL_SR },
-	{ BAP_CHANNEL_TFL,  SPA_AUDIO_CHANNEL_TFL },
-	{ BAP_CHANNEL_TFR,  SPA_AUDIO_CHANNEL_TFR },
-	{ BAP_CHANNEL_TFC,  SPA_AUDIO_CHANNEL_TFC },
-	{ BAP_CHANNEL_TC,   SPA_AUDIO_CHANNEL_TC },
-	{ BAP_CHANNEL_TBL,  SPA_AUDIO_CHANNEL_TRL },
-	{ BAP_CHANNEL_TBR,  SPA_AUDIO_CHANNEL_TRR },
-	{ BAP_CHANNEL_TSL,  SPA_AUDIO_CHANNEL_TSL },
-	{ BAP_CHANNEL_TSR,  SPA_AUDIO_CHANNEL_TSR },
-	{ BAP_CHANNEL_TBC,  SPA_AUDIO_CHANNEL_TRC },
-	{ BAP_CHANNEL_BFC,  SPA_AUDIO_CHANNEL_BC },
-	{ BAP_CHANNEL_BFL,  SPA_AUDIO_CHANNEL_BLC },
-	{ BAP_CHANNEL_BFR,  SPA_AUDIO_CHANNEL_BRC },
-	{ BAP_CHANNEL_FLW,  SPA_AUDIO_CHANNEL_FLW },
-	{ BAP_CHANNEL_FRW,  SPA_AUDIO_CHANNEL_FRW },
-	{ BAP_CHANNEL_LS,   SPA_AUDIO_CHANNEL_SL }, /* is it the right mapping? */
-	{ BAP_CHANNEL_RS,   SPA_AUDIO_CHANNEL_SR }, /* is it the right mapping? */
-};
-
 #define BAP_QOS(name_, rate_, duration_, framing_, framelen_, rtn_, latency_, delay_, priority_) \
 	((struct bap_qos){ .name = (name_), .rate = (rate_), .frame_duration = (duration_), .framing = (framing_), \
 			 .framelen = (framelen_), .retransmission = (rtn_), .latency = (latency_),	\
@@ -569,9 +534,9 @@ static int select_channels(uint8_t channel_counts, uint32_t locations, uint32_t 
 		return -1;
 
 	*allocation = 0;
-	for (i = 0; i < SPA_N_ELEMENTS(channel_bits); ++i) {
-		if (locations & channel_bits[i].bit) {
-			*allocation |= channel_bits[i].bit;
+	for (i = 0; i < SPA_N_ELEMENTS(bap_channel_bits); ++i) {
+		if (locations & bap_channel_bits[i].bit) {
+			*allocation |= bap_channel_bits[i].bit;
 			--num;
 			if (num == 0)
 				break;
@@ -944,9 +909,9 @@ static uint8_t channels_to_positions(uint32_t channels, uint32_t *position)
 	} else {
 		unsigned int i;
 
-		for (i = 0; i < SPA_N_ELEMENTS(channel_bits); ++i)
-			if (channels & channel_bits[i].bit)
-				position[n_positions++] = channel_bits[i].channel;
+		for (i = 0; i < SPA_N_ELEMENTS(bap_channel_bits); ++i)
+			if (channels & bap_channel_bits[i].bit)
+				position[n_positions++] = bap_channel_bits[i].channel;
 	}
 
 	if (n_positions != n_channels)

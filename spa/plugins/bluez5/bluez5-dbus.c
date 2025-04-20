@@ -33,6 +33,7 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa-private/dbus-helpers.h>
+#include <spa/param/audio/raw-json.h>
 
 #include "config.h"
 #include "codec-loader.h"
@@ -121,6 +122,13 @@ struct spa_bt_monitor {
 	unsigned int dummy_avrcp_player:1;
 
 	struct spa_list bcast_source_config_list;
+
+	uint32_t bap_sink_locations;
+	uint32_t bap_sink_contexts;
+	uint32_t bap_sink_supported_contexts;
+	uint32_t bap_source_locations;
+	uint32_t bap_source_contexts;
+	uint32_t bap_source_supported_contexts;
 
 	struct spa_bt_quirks *quirks;
 
@@ -5006,7 +5014,7 @@ out:
 	return err;
 }
 
-static void append_media_object(DBusMessageIter *iter, const char *endpoint,
+static void append_media_object(struct spa_bt_monitor *monitor, DBusMessageIter *iter, const char *endpoint,
 		const char *uuid, uint8_t codec_id, uint8_t *caps, size_t caps_size)
 {
 	const char *interface_name = BLUEZ_MEDIA_ENDPOINT_INTERFACE;
@@ -5033,19 +5041,24 @@ static void append_media_object(DBusMessageIter *iter, const char *endpoint,
 	}
 	if (spa_bt_profile_from_uuid(uuid) & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE)) {
 		dbus_uint32_t locations;
-		dbus_uint16_t supported_context, context;
+		dbus_uint16_t supported_contexts, contexts;
 
-		locations = BAP_CHANNEL_ALL;
 		if (spa_bt_profile_from_uuid(uuid) & SPA_BT_PROFILE_BAP_SINK) {
-			supported_context = context = BAP_CONTEXT_ALL;
+			locations = monitor->bap_sink_locations;
+			contexts = monitor->bap_sink_contexts;
+			supported_contexts = monitor->bap_sink_supported_contexts;
 		} else {
-			supported_context = context = (BAP_CONTEXT_UNSPECIFIED | BAP_CONTEXT_CONVERSATIONAL |
-					BAP_CONTEXT_MEDIA | BAP_CONTEXT_GAME);
+			locations = monitor->bap_source_locations;
+			contexts = monitor->bap_source_contexts;
+			supported_contexts = monitor->bap_source_supported_contexts;
 		}
 
+		spa_log_debug(monitor->log, "BAP endpoint %s locations:0x%x contexts:0x%x supported-contexs:0x%x",
+				endpoint, locations, contexts, supported_contexts);
+
 		append_basic_variant_dict_entry(&dict, "Locations", DBUS_TYPE_UINT32, "u", &locations);
-		append_basic_variant_dict_entry(&dict, "Context", DBUS_TYPE_UINT16, "q", &context);
-		append_basic_variant_dict_entry(&dict, "SupportedContext", DBUS_TYPE_UINT16, "q", &supported_context);
+		append_basic_variant_dict_entry(&dict, "Context", DBUS_TYPE_UINT16, "q", &contexts);
+		append_basic_variant_dict_entry(&dict, "SupportedContext", DBUS_TYPE_UINT16, "q", &supported_contexts);
 	}
 
 	dbus_message_iter_close_container(&entry, &dict);
@@ -5127,7 +5140,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 				ret = media_codec_to_endpoint(codec, SPA_BT_MEDIA_SINK, &endpoint);
 				if (ret == 0) {
 					spa_log_info(monitor->log, "register media sink codec %s: %s", media_codecs[i]->name, endpoint);
-					append_media_object(&array, endpoint,
+					append_media_object(monitor, &array, endpoint,
 					        codec->bap ? SPA_BT_UUID_BAP_SINK : SPA_BT_UUID_A2DP_SINK,
 							codec_id, caps, caps_size);
 				}
@@ -5142,7 +5155,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 				ret = media_codec_to_endpoint(codec, SPA_BT_MEDIA_SOURCE, &endpoint);
 				if (ret == 0) {
 					spa_log_info(monitor->log, "register media source codec %s: %s", media_codecs[i]->name, endpoint);
-					append_media_object(&array, endpoint,
+					append_media_object(monitor, &array, endpoint,
 					        codec->bap ? SPA_BT_UUID_BAP_SOURCE : SPA_BT_UUID_A2DP_SOURCE,
 							codec_id, caps, caps_size);
 				}
@@ -5158,7 +5171,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 					ret = media_codec_to_endpoint(codec, SPA_BT_MEDIA_SOURCE_BROADCAST, &endpoint);
 						if (ret == 0) {
 							spa_log_info(monitor->log, "register media source codec %s: %s", media_codecs[i]->name, endpoint);
-							append_media_object(&array, endpoint,
+							append_media_object(monitor, &array, endpoint,
 									SPA_BT_UUID_BAP_BROADCAST_SOURCE,
 									codec_id, caps, caps_size);
 						}
@@ -5173,7 +5186,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 					ret = media_codec_to_endpoint(codec, SPA_BT_MEDIA_SINK_BROADCAST, &endpoint);
 					if (ret == 0) {
 						spa_log_info(monitor->log, "register broadcast media sink codec %s: %s", media_codecs[i]->name, endpoint);
-						append_media_object(&array, endpoint,
+						append_media_object(monitor, &array, endpoint,
 								SPA_BT_UUID_BAP_BROADCAST_SINK,
 								codec_id, caps, caps_size);
 					}
@@ -6549,6 +6562,55 @@ fallback:
 	return 0;
 }
 
+static void parse_bap_locations(struct spa_bt_monitor *this, const struct spa_dict *info,
+		const char *key, uint32_t *value)
+{
+	const char *str;
+	uint32_t position[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t n_channels;
+	uint32_t locations;
+	unsigned int i, j;
+
+	if (!info || !(str = spa_dict_lookup(info, key)))
+		return;
+
+	if (spa_atou32(str, value, 0))
+		return;
+
+	if (!spa_audio_parse_position(str, strlen(str), position, &n_channels)) {
+		spa_log_error(this->log, "property %s '%s' is not valid position array", key, str);
+		return;
+	}
+
+	locations = 0;
+	for (i = 0; i < n_channels; ++i)
+		for (j = 0; j < SPA_N_ELEMENTS(bap_channel_bits); ++j)
+			if (bap_channel_bits[j].channel == position[i])
+				locations |= bap_channel_bits[j].bit;
+
+	*value = locations;
+}
+
+static void parse_bap_server(struct spa_bt_monitor *this, const struct spa_dict *info)
+{
+	this->bap_sink_locations = BAP_CHANNEL_ALL;
+	this->bap_source_locations = BAP_CHANNEL_ALL;
+	this->bap_sink_contexts = this->bap_sink_supported_contexts = BAP_CONTEXT_ALL;
+	this->bap_source_contexts = this->bap_source_supported_contexts = (BAP_CONTEXT_UNSPECIFIED | BAP_CONTEXT_CONVERSATIONAL |
+					BAP_CONTEXT_MEDIA | BAP_CONTEXT_GAME);
+
+	if (!info)
+		return;
+
+	parse_bap_locations(this, info, "bluez5.bap-server-capabilities.sink.locations", &this->bap_sink_locations);
+	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.sink.contexts"), &this->bap_sink_contexts, 0);
+	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.sink.supported-contexts"), &this->bap_sink_supported_contexts, 0);
+
+	parse_bap_locations(this, info, "bluez5.bap-server-capabilities.source.locations", &this->bap_source_locations);
+	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.source.contexts"), &this->bap_source_contexts, 0);
+	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.source.supported-contexts"), &this->bap_source_supported_contexts, 0);
+}
+
 static void get_global_settings(struct spa_bt_monitor *this, const struct spa_dict *dict)
 {
 	uint32_t n_items = 0;
@@ -6662,6 +6724,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	parse_roles(this, info);
 	parse_broadcast_source_config(this, info);
+	parse_bap_server(this, info);
 
 	this->default_audio_info.rate = A2DP_CODEC_DEFAULT_RATE;
 	this->default_audio_info.channels = A2DP_CODEC_DEFAULT_CHANNELS;

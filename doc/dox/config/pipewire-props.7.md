@@ -963,6 +963,26 @@ Maximum number of octets supported per codec frame for the LC3 codec (default: 4
 @PAR@ monitor-prop  bluez5.bap-server-capabilities.max_frames		# integer
 Maximum number of codec frames supported per SDU for the LC3 codec (default: 2).
 
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.sink.locations		# JSON or integer
+Sink audio locations of the server, as channel positions or PACS bitmask.
+Example: `FL,FR`
+
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.sink.contexts		# integer
+Available sink contexts PACS bitmask of the the server.
+
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.sink.supported-contexts		# integer
+Supported sink contexts PACS bitmask of the the server.
+
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.source.locations		# JSON or integer
+Source audio locations of the server, as channel positions or PACS bitmask.
+Example: `FL,FR`
+
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.source.contexts		# integer
+Available source contexts PACS bitmask of the the server.
+
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.source.supported-contexts		# integer
+Supported source contexts PACS bitmask of the the server.
+
 ## Device properties
 
 @PAR@ device-prop  bluez5.auto-connect   # boolean

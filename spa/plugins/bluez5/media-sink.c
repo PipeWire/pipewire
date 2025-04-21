@@ -116,6 +116,7 @@ struct spa_bt_asha {
 	uint8_t seqnum_pending;
 
 	uint64_t ref_t0;
+	uint64_t ref_timer;
 	uint64_t prev_time;
 	uint64_t next_time;
 
@@ -354,12 +355,23 @@ static int set_asha_timeout(struct impl *this, uint64_t time)
 			this->asha->timerfd, SPA_FD_TIMER_ABSTIME, &ts, NULL);
 }
 
-static int set_asha_timer(struct impl *this)
+static int set_asha_timer(struct impl *this, bool snap)
 {
 	struct timespec now;
+	uint64_t now_ns, offset = 0;
 
 	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &now);
-	this->asha->prev_time = this->asha->next_time = SPA_TIMESPEC_TO_NSEC(&now);
+	now_ns = SPA_TIMESPEC_TO_NSEC(&now);
+
+	if (snap) {
+		/* If requested, snap our wakeup time to a 20ms interval */
+		offset = (now_ns - this->asha->ref_timer) % ASHA_CONN_INTERVAL;
+	} else {
+		/* Else, remember when we started this timer so the other side can use it */
+		this->asha->ref_timer = now_ns;
+	}
+
+	this->asha->prev_time = this->asha->next_time = now_ns + offset;
 
 	return set_asha_timeout(this, this->asha->next_time);
 }
@@ -2243,25 +2255,26 @@ static int impl_node_process(void *object)
 
 	setup_matching(this);
 
-	spa_log_trace(this->log, "%p: on process time:%"PRIu64, this, this->process_time);
-	if ((res = flush_data(this, this->current_time)) < 0) {
-		io->status = res;
-		return SPA_STATUS_STOPPED;
-	}
-
 	if (this->codec->asha && !this->asha->set_timer) {
 		struct impl *other = find_other_asha(this);
 		if (other && other->asha->ref_t0 != 0) {
 			this->asha->ref_t0 = other->asha->ref_t0;
 			this->seqnum = asha_seqnum(this);
 			reset_buffer(this);
+			set_asha_timer(this, true);
 		} else {
 			this->asha->ref_t0 = get_reference_time(this, NULL);
 			this->seqnum = 0;
+			set_asha_timer(this, false);
 		}
 
 		this->asha->set_timer = true;
-		set_asha_timer(this);
+	}
+
+	spa_log_trace(this->log, "%p: on process time:%"PRIu64, this, this->process_time);
+	if ((res = flush_data(this, this->current_time)) < 0) {
+		io->status = res;
+		return SPA_STATUS_STOPPED;
 	}
 
 	return SPA_STATUS_HAVE_DATA;

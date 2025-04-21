@@ -360,7 +360,10 @@ static inline void spa_bt_recvmsg_update_clock(struct spa_bt_recvmsg_data *data,
 
 static inline ssize_t spa_bt_recvmsg(struct spa_bt_recvmsg_data *r, void *buf, size_t max_size, uint64_t *rx_time)
 {
-	char control[1024];
+	union {
+		char buf[CMSG_SPACE(sizeof(struct scm_timestamping))];
+		struct cmsghdr align;
+	} control;
 	struct iovec data = {
 		.iov_base = buf,
 		.iov_len = max_size
@@ -368,8 +371,8 @@ static inline ssize_t spa_bt_recvmsg(struct spa_bt_recvmsg_data *r, void *buf, s
 	struct msghdr msg = {
 		.msg_iov = &data,
 		.msg_iovlen = 1,
-		.msg_control = &control,
-		.msg_controllen = sizeof(control),
+		.msg_control = control.buf,
+		.msg_controllen = sizeof(control.buf),
 	};
 	struct cmsghdr *cmsg;
 	uint64_t t = 0, now;

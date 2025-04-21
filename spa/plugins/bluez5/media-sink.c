@@ -105,7 +105,7 @@ struct port {
 };
 
 #define ASHA_ENCODED_PKT_SZ     161 /* 160 bytes encoded + 1 byte sequence number */
-#define ASHA_CONN_INTERVAL      20 * SPA_NSEC_PER_MSEC
+#define ASHA_CONN_INTERVAL      (20 * SPA_NSEC_PER_MSEC)
 
 struct spa_bt_asha {
 	struct spa_source flush_source;
@@ -115,10 +115,10 @@ struct spa_bt_asha {
 	uint8_t buf[512];
 	uint8_t seqnum_pending;
 
+	uint64_t ref_t0;
 	uint64_t prev_time;
 	uint64_t next_time;
 
-	unsigned int first_send:1;
 	unsigned int flush_pending:1;
 	unsigned int poll_pending:1;
 	unsigned int set_timer:1;
@@ -1290,6 +1290,21 @@ static void media_on_timeout(struct spa_source *source)
 	set_timeout(this, this->next_time);
 }
 
+static uint64_t asha_seqnum(struct impl *this)
+{
+	uint64_t tn = get_reference_time(this, NULL);
+	double dt = tn - this->asha->ref_t0;
+	double num_packets = dt / ASHA_CONN_INTERVAL;
+
+	spa_log_trace(this->log, "%" PRIu64 " - %" PRIu64 " / 20ms = %g",
+			tn, this->asha->ref_t0, num_packets);
+
+	if (this->asha->ref_t0 > tn)
+		return 0;
+
+	return (uint64_t)round(num_packets) % 256;
+}
+
 static void media_asha_flush_timeout(struct spa_source *source)
 {
 	struct impl *this = source->data;
@@ -1327,29 +1342,6 @@ static void media_asha_flush_timeout(struct spa_source *source)
 	}
 
 	if (asha->flush_pending) {
-		if (!asha->first_send) {
-			/*
-			 * Sync sequence numbers on first send. If the other
-			 * side has already started sending or the current
-			 * side is coming up later, we need to start the
-			 * sequence number based on the other side.
-			 */
-			struct impl *other = find_other_asha(this);
-			if (other && other->asha->first_send) {
-				uint16_t init_seqnum = other->seqnum - 1;
-
-				spa_log_trace(this->log, "%p: ASHA using seqnum %d for %s",
-						this, init_seqnum, address);
-
-				asha->buf[0] = init_seqnum;
-				this->seqnum = init_seqnum;
-
-				reset_buffer(this);
-			}
-
-			asha->first_send = true;
-		}
-
 		seqnum = asha->buf[0];
 		written = send(asha->flush_source.fd, asha->buf,
 				ASHA_ENCODED_PKT_SZ, MSG_DONTWAIT | MSG_NOSIGNAL);
@@ -1377,6 +1369,7 @@ static void media_asha_flush_timeout(struct spa_source *source)
 		}
 	}
 
+	this->seqnum = asha_seqnum(this);
 	flush_data(this, now);
 
 skip_flush:
@@ -1552,7 +1545,6 @@ static int transport_start(struct impl *this)
 	if (is_asha) {
 		struct spa_bt_asha *asha = this->asha;
 
-		asha->first_send = false;
 		asha->flush_pending = false;
 		asha->poll_pending = false;
 		asha->set_timer = false;
@@ -2258,6 +2250,16 @@ static int impl_node_process(void *object)
 	}
 
 	if (this->codec->asha && !this->asha->set_timer) {
+		struct impl *other = find_other_asha(this);
+		if (other && other->asha->ref_t0 != 0) {
+			this->asha->ref_t0 = other->asha->ref_t0;
+			this->seqnum = asha_seqnum(this);
+			reset_buffer(this);
+		} else {
+			this->asha->ref_t0 = get_reference_time(this, NULL);
+			this->seqnum = 0;
+		}
+
 		this->asha->set_timer = true;
 		set_asha_timer(this);
 	}

@@ -117,6 +117,8 @@ struct spa_bt_asha {
 
 	uint64_t ref_t0;
 	uint64_t ref_timer;
+	uint64_t skip_frames;
+
 	uint64_t prev_time;
 	uint64_t next_time;
 
@@ -366,9 +368,12 @@ static int set_asha_timer(struct impl *this, bool snap)
 	if (snap) {
 		/* If requested, snap our wakeup time to a 20ms interval */
 		offset = (now_ns - this->asha->ref_timer) % ASHA_CONN_INTERVAL;
+		this->asha->skip_frames = offset * this->port.current_format.info.raw.rate / SPA_NSEC_PER_SEC;
+		spa_log_debug(this->log, "will skip %"PRIu64 " frames", this->asha->skip_frames);
 	} else {
 		/* Else, remember when we started this timer so the other side can use it */
 		this->asha->ref_timer = now_ns;
+		this->asha->skip_frames = 0;
 	}
 
 	this->asha->prev_time = this->asha->next_time = now_ns + offset;
@@ -885,6 +890,14 @@ again:
 		index = d[0].chunk->offset + port->ready_offset;
 		avail = d[0].chunk->size - port->ready_offset;
 		avail /= port->frame_size;
+
+		if (is_asha && this->asha->skip_frames) {
+			/* Skip initial frames if needed */
+			uint64_t skip = SPA_MIN(this->asha->skip_frames, avail);
+			spa_log_trace(this->log, "skipping %"PRIu64 " frames", skip);
+			avail -= skip;
+			this->asha->skip_frames -= skip;
+		}
 
 		offs = index % d[0].maxsize;
 		n_frames = avail;

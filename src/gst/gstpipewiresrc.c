@@ -1281,6 +1281,7 @@ handle_format_change (GstPipeWireSrc *pwsrc,
           pw_stream_set_error (pwsrc->stream->pwstream, -EINVAL, "internal error");
           return;
         }
+        pwsrc->is_rawvideo = TRUE;
       } else {
         gst_video_info_dma_drm_init (&pwsrc->drm_info);
 #endif

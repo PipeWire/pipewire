@@ -157,7 +157,7 @@ static inline void *avb_aecp_aem_add_state_var(struct server *srv,
 {
 	struct aecp_aem_state *ae_state;
 
-	if ((ae_state = calloc(1, sizeof(struct descriptor) + size)) == NULL)
+	if ((ae_state = calloc(1, sizeof(struct aecp_aem_state) + size)) == NULL)
 		return NULL;
 
 	ae_state->type = type;

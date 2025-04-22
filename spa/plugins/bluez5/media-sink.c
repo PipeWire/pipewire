@@ -116,7 +116,6 @@ struct spa_bt_asha {
 	uint8_t seqnum_pending;
 
 	uint64_t ref_t0;
-	uint64_t ref_timer;
 	uint64_t skip_frames;
 
 	uint64_t prev_time;
@@ -219,6 +218,8 @@ struct impl {
 #define CHECK_PORT(this,d,p)	((d) == SPA_DIRECTION_INPUT && (p) == 0)
 
 static struct spa_list asha_sinks;
+
+static uint64_t get_reference_time(struct impl *this, uint64_t *duration_ns_ret);
 
 static struct impl *find_other_asha(struct impl *this)
 {
@@ -357,26 +358,38 @@ static int set_asha_timeout(struct impl *this, uint64_t time)
 			this->asha->timerfd, SPA_FD_TIMER_ABSTIME, &ts, NULL);
 }
 
-static int set_asha_timer(struct impl *this, bool snap)
+static int set_asha_timer(struct impl *this, struct impl *other)
 {
-	struct timespec now;
-	uint64_t now_ns, offset = 0;
+	uint64_t time;
 
-	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &now);
-	now_ns = SPA_TIMESPEC_TO_NSEC(&now);
+	if (other) {
+		/* Try to line up our timer with the other side, and drop samples so we're sending
+		 * the same sample position on both sides */
+		uint64_t other_samples = (get_reference_time(other, NULL) - other->asha->ref_t0) *
+			this->port.current_format.info.raw.rate / SPA_NSEC_PER_SEC;
 
-	if (snap) {
-		/* If requested, snap our wakeup time to a 20ms interval */
-		offset = (now_ns - this->asha->ref_timer) % ASHA_CONN_INTERVAL;
-		this->asha->skip_frames = offset * this->port.current_format.info.raw.rate / SPA_NSEC_PER_SEC;
-		spa_log_debug(this->log, "will skip %"PRIu64 " frames", this->asha->skip_frames);
+		if (other->asha->next_time < this->process_time) {
+			/* Other side has not yet been scheduled in this graph cycle, we expect
+			 * there might be one packet left from the previous cycle at most */
+			time = other->asha->next_time + ASHA_CONN_INTERVAL;
+			other_samples += ASHA_CONN_INTERVAL *
+				this->port.current_format.info.raw.rate / SPA_NSEC_PER_SEC;
+		} else {
+			/* Other side has set up its next cycle, catch up */
+			time = other->asha->next_time;
+		}
+
+		/* Since the quantum and packet size aren't correlated, drop any samples from this
+		 * cycle that might have been used to send a packet starting in the previous cycle */
+		this->asha->skip_frames = other_samples % this->process_duration;
 	} else {
-		/* Else, remember when we started this timer so the other side can use it */
-		this->asha->ref_timer = now_ns;
+		time = this->process_time;
 		this->asha->skip_frames = 0;
 	}
 
-	this->asha->prev_time = this->asha->next_time = now_ns + offset;
+	spa_log_debug(this->log, "will skip %"PRIu64 " frames", this->asha->skip_frames);
+
+	this->asha->next_time = time;
 
 	return set_asha_timeout(this, this->asha->next_time);
 }
@@ -2274,11 +2287,11 @@ static int impl_node_process(void *object)
 			this->asha->ref_t0 = other->asha->ref_t0;
 			this->seqnum = asha_seqnum(this);
 			reset_buffer(this);
-			set_asha_timer(this, true);
+			set_asha_timer(this, other);
 		} else {
 			this->asha->ref_t0 = get_reference_time(this, NULL);
 			this->seqnum = 0;
-			set_asha_timer(this, false);
+			set_asha_timer(this, NULL);
 		}
 
 		this->asha->set_timer = true;

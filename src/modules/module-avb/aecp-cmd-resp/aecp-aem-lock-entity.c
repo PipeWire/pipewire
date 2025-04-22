@@ -188,7 +188,7 @@ int handle_unsol_lock_entity(struct aecp *aecp, int64_t now)
 
 	AVB_PACKET_AEM_SET_COMMAND_TYPE(p, AVB_AECP_AEM_CMD_LOCK_ENTITY);
 	/** Setup the packet for the unsolicited notification*/
-	rc = reply_unsollicited_noitifications(aecp, &lock.base_info, buf, len,
+	rc = reply_unsolicited_notifications(aecp, &lock.base_info, buf, len,
 		 has_expired);
 	if (rc) {
 		pw_log_error("Unsollicited notification failed \n");

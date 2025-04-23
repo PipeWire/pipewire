@@ -163,6 +163,86 @@ SPA_API_POD_COMPARE int spa_pod_compare(const struct spa_pod *pod1,
 	return res;
 }
 
+SPA_API_POD_COMPARE int spa_pod_compare_is_compatible_flags(uint32_t type, const void *r1,
+		const void *r2, uint32_t size SPA_UNUSED)
+{
+	switch (type) {
+	case SPA_TYPE_Int:
+		return ((*(int32_t *) r1) & (*(int32_t *) r2)) != 0;
+	case SPA_TYPE_Long:
+		return ((*(int64_t *) r1) & (*(int64_t *) r2)) != 0;
+	default:
+		return -ENOTSUP;
+	}
+	return 0;
+}
+
+
+SPA_API_POD_COMPARE int spa_pod_compare_is_step_of(uint32_t type, const void *r1,
+		const void *r2, uint32_t size SPA_UNUSED)
+{
+	switch (type) {
+	case SPA_TYPE_Int:
+		return *(int32_t *) r1 % *(int32_t *) r2 == 0;
+	case SPA_TYPE_Long:
+		return *(int64_t *) r1 % *(int64_t *) r2 == 0;
+	case SPA_TYPE_Rectangle:
+	{
+		const struct spa_rectangle *rec1 = (struct spa_rectangle *) r1,
+		    *rec2 = (struct spa_rectangle *) r2;
+
+		return (rec1->width % rec2->width == 0 &&
+		    rec1->height % rec2->height == 0);
+	}
+	default:
+		return -ENOTSUP;
+	}
+	return 0;
+}
+
+SPA_API_POD_COMPARE int spa_pod_compare_is_in_range(uint32_t type, const void *v,
+		const void *min, const void *max, const void *step, uint32_t size SPA_UNUSED)
+{
+	if (spa_pod_compare_value(type, v, min, size) < 0 ||
+	    spa_pod_compare_value(type, v, max, size) > 0)
+		return 0;
+	if (step != NULL)
+		return spa_pod_compare_is_step_of(type, v, step, size);
+	return 1;
+}
+
+SPA_API_POD_COMPARE int spa_pod_compare_is_valid_choice(uint32_t type, uint32_t size,
+		const void *val, const void *vals, uint32_t n_vals, uint32_t choice)
+{
+	switch (choice) {
+	case SPA_CHOICE_None:
+		if (spa_pod_compare_value(type, val, vals, size) == 0)
+			return 1;
+		return 0;
+	case SPA_CHOICE_Enum:
+	{
+		const void *next = vals;
+		for (uint32_t i = 1; i < n_vals; i++) {
+			next = SPA_PTROFF(next, size, void);
+			if (spa_pod_compare_value(type, val, next, size) == 0)
+				return 1;
+		}
+		return 0;
+	}
+	case SPA_CHOICE_Range:
+	case SPA_CHOICE_Step:
+	{
+		void *min = SPA_PTROFF(vals,size,void);
+		void *max = SPA_PTROFF(min,size,void);
+		void *step = choice == SPA_CHOICE_Step ? SPA_PTROFF(max,size,void) : NULL;
+		return spa_pod_compare_is_in_range(type, val, min, max, step, size);
+	}
+	case SPA_CHOICE_Flags:
+		return 1;
+	}
+	return 0;
+}
+
 /**
  * \}
  */

@@ -112,39 +112,6 @@ SPA_API_POD_FILTER int spa_pod_filter_flags_value(struct spa_pod_builder *b,
 	return 1;
 }
 
-SPA_API_POD_FILTER int spa_pod_filter_is_step_of(uint32_t type, const void *r1,
-		const void *r2, uint32_t size SPA_UNUSED)
-{
-	switch (type) {
-	case SPA_TYPE_Int:
-		return *(int32_t *) r1 % *(int32_t *) r2 == 0;
-	case SPA_TYPE_Long:
-		return *(int64_t *) r1 % *(int64_t *) r2 == 0;
-	case SPA_TYPE_Rectangle:
-	{
-		const struct spa_rectangle *rec1 = (struct spa_rectangle *) r1,
-		    *rec2 = (struct spa_rectangle *) r2;
-
-		return (rec1->width % rec2->width == 0 &&
-		    rec1->height % rec2->height == 0);
-	}
-	default:
-		return -ENOTSUP;
-	}
-	return 0;
-}
-
-SPA_API_POD_FILTER int spa_pod_filter_is_in_range(uint32_t type, const void *v,
-		const void *min, const void *max, const void *step, uint32_t size SPA_UNUSED)
-{
-	if (spa_pod_compare_value(type, v, min, size) < 0 ||
-	    spa_pod_compare_value(type, v, max, size) > 0)
-		return 0;
-	if (step != NULL)
-		return spa_pod_filter_is_step_of(type, v, step, size);
-	return 1;
-}
-
 SPA_API_POD_FILTER int
 spa_pod_filter_prop(struct spa_pod_builder *b,
 	    const struct spa_pod_prop *p1,
@@ -222,7 +189,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 		}
 		/* copy all values inside the range */
 		for (j = 0, a1 = alt1; j < nalt1; j++, a1 = SPA_PTROFF(a1,size,void)) {
-			if ((res = spa_pod_filter_is_in_range(type, a1, min, max, step, size)) < 0)
+			if ((res = spa_pod_compare_is_in_range(type, a1, min, max, step, size)) < 0)
 				return res;
 			if (res == 0)
 				continue;
@@ -242,7 +209,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 		/* copy all values inside the range, this will automatically prefer
 		 * a valid alt2 value */
 		for (j = 0, a2 = alt2; j < nalt2; j++, a2 = SPA_PTROFF(a2,size,void)) {
-			if ((res = spa_pod_filter_is_in_range(type, a2, min, max, step, size)) < 0)
+			if ((res = spa_pod_compare_is_in_range(type, a2, min, max, step, size)) < 0)
 				return res;
 			if (res == 0)
 				continue;
@@ -273,12 +240,12 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 
 		/* prefer alt2 if in new range */
 		a1 = alt2;
-		if ((res = spa_pod_filter_is_in_range(type, a1, min1, max1, NULL, size)) < 0)
+		if ((res = spa_pod_compare_is_in_range(type, a1, min1, max1, NULL, size)) < 0)
 			return res;
 		if (res == 0) {
 			/* try alt1 otherwise */
 			a1 = alt1;
-			if ((res = spa_pod_filter_is_in_range(type, a1, min1, max1, NULL, size)) < 0)
+			if ((res = spa_pod_compare_is_in_range(type, a1, min1, max1, NULL, size)) < 0)
 				return res;
 			/* fall back to new min value then */
 			if (res == 0)

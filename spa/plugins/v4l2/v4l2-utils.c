@@ -1873,7 +1873,10 @@ static int spa_v4l2_stream_on(struct impl *this)
 
 	spa_log_debug(this->log, "starting");
 
-	port->first_buffer = true;
+	if (port->current_format.media_subtype == SPA_MEDIA_SUBTYPE_raw)
+		port->first_buffer = true;
+	else
+		port->first_buffer = false;
 	mmap_read(this);
 
 	type = V4L2_BUF_TYPE_VIDEO_CAPTURE;

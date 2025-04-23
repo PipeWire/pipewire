@@ -34,58 +34,6 @@ extern "C" {
  * \{
  */
 
-SPA_API_POD_FILTER int spa_pod_choice_fix_default(struct spa_pod_choice *choice)
-{
-	void *val, *alt;
-	int i, nvals;
-	uint32_t type, size;
-
-	nvals = SPA_POD_CHOICE_N_VALUES(choice);
-	type = SPA_POD_CHOICE_VALUE_TYPE(choice);
-	size = SPA_POD_CHOICE_VALUE_SIZE(choice);
-	alt = val = SPA_POD_CHOICE_VALUES(choice);
-
-	switch (choice->body.type) {
-	case SPA_CHOICE_None:
-		break;
-	case SPA_CHOICE_Range:
-	case SPA_CHOICE_Step:
-		if (nvals > 1) {
-			alt = SPA_PTROFF(alt, size, void);
-			if (spa_pod_compare_value(type, val, alt, size) < 0)
-				memcpy(val, alt, size);
-		}
-		if (nvals > 2) {
-			alt = SPA_PTROFF(alt, size, void);
-			if (spa_pod_compare_value(type, val, alt, size) > 0)
-				memcpy(val, alt, size);
-		}
-		break;
-	case SPA_CHOICE_Flags:
-	case SPA_CHOICE_Enum:
-	{
-		void *best = NULL;
-
-		for (i = 1; i < nvals; i++) {
-			alt = SPA_PTROFF(alt, size, void);
-			if (spa_pod_compare_value(type, val, alt, size) == 0) {
-				best = alt;
-				break;
-			}
-			if (best == NULL)
-				best = alt;
-		}
-		if (best)
-			memcpy(val, best, size);
-
-		if (nvals <= 1)
-			choice->body.type = SPA_CHOICE_None;
-		break;
-	}
-	}
-	return 0;
-}
-
 SPA_API_POD_FILTER int spa_pod_filter_flags_value(struct spa_pod_builder *b,
 		uint32_t type, const void *r1, const void *r2, uint32_t size SPA_UNUSED)
 {

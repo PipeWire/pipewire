@@ -1898,6 +1898,7 @@ static int impl_node_process(void *object)
 	}
 
 	sbuf = &in_port->buffers[input->buffer_id];
+	input->status = SPA_STATUS_NEED_DATA;
 
 	if (this->fmt_passthrough) {
 		dbuf = &out_port->buffers[input->buffer_id];
@@ -2004,8 +2005,6 @@ static int impl_node_process(void *object)
 
 	output->buffer_id = dbuf->id;
 	output->status = SPA_STATUS_HAVE_DATA;
-
-	input->status = SPA_STATUS_NEED_DATA;
 
 	return SPA_STATUS_HAVE_DATA;
 }

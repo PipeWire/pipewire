@@ -56,7 +56,7 @@
 #define AECP_AEM_CTRL_UNIT_CODE_UNITLESS      (0)
 #define AECP_AEM_CTRL_UNIT_CODE_COUNT         (1)
 #define AECP_AEM_CTRL_UNIT_CODE_PERCENT       (2)
-#define AECP_AEM_CTRL_UNIT_CODE_FSTOP         (3)       
+#define AECP_AEM_CTRL_UNIT_CODE_FSTOP         (3)
 
 
 
@@ -65,7 +65,7 @@
 
 /* Identify
 * IEEE 1722.1, Sec. 7.3.5.2 - Identify Control (IDENTIFY)
-* Milan v1.2, Sec. 5.4.5.4 - Identification notification  
+* Milan v1.2, Sec. 5.4.5.4 - Identification notification
 */
 #define AECP_AEM_CTRL_IDENTIFY_UNIT_MULTIPLY  0
 #define AECP_AEM_CTRL_IDENTIFY_UNIT_CODE      AECP_AEM_CTRL_UNIT_CODE_UNITLESS
@@ -75,8 +75,7 @@
 
 
 #define BASE_CTRL_TYPE_MAC            { 0x90, 0xe0, 0xf0, 0x01, 0x00, 0x00 };
-// TODO AVB, for now support limited to Milan
-/*1722.1-2021, Table B.1*/
+// 1722.1-2021, Annex B Table B.1
 #define BASE_CTRL_IDENTIFY_MAC        { 0x90, 0xe0, 0xf0, 0x00, 0x00, 0x01 };
 
 #endif //__AECP_AEM_CONTROLS_H__

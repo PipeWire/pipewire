@@ -96,9 +96,17 @@ SPA_API_CONTROL_UMP_UTILS int spa_ump_to_midi(uint32_t *ump, size_t ump_size,
 		if (ump_size < 8)
 			return 0;
 		midi[size++] = (ump[0] >> 16) | 0x80;
-		if (midi[0] < 0xc0 || midi[0] > 0xdf)
+		switch (midi[0] & 0xf0) {
+		case 0xc0:
+			midi[size++] = (ump[1] >> 24);
+			break;
+		default:
 			midi[size++] = (ump[0] >> 8) & 0x7f;
-		midi[size++] = (ump[1] >> 25);
+			SPA_FALLTHROUGH;
+		case 0xd0:
+			midi[size++] = (ump[1] >> 25);
+			break;
+		}
 		break;
 
 	case 0x0: /* Utility Messages */

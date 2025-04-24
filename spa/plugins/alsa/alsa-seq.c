@@ -404,7 +404,6 @@ int spa_alsa_seq_open(struct seq_state *state)
 
 	state->sys.source.func = alsa_seq_on_sys;
 	state->sys.source.data = state;
-	spa_loop_add_source(state->main_loop, &state->sys.source);
 
 	/* increase event queue timer resolution */
 	snd_seq_queue_timer_alloca(&timer);
@@ -448,6 +447,8 @@ int spa_alsa_seq_open(struct seq_state *state)
 		goto error_close;
 
 	state->timerfd = res;
+
+	spa_loop_add_source(state->main_loop, &state->sys.source);
 
 	state->opened = true;
 

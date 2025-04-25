@@ -18,14 +18,19 @@
 int handle_cmd_get_name(struct aecp *aecp, int64_t now, const void *m,
     int len)
 {
+    uint8_t buf[256];
     struct aecp_aem_name_state name_state = {0};
     struct server *server = aecp->server;
 	const struct avb_ethernet_header *h = m;
 	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
+    struct avb_ethernet_header *h_reply = (struct avb_ethernet_header*) buf;
+    struct avb_packet_aecp_aem *p_reply = SPA_PTROFF(h_reply, sizeof(*h),
+                                                         void);
+
 	struct avb_packet_aecp_aem_setget_name *sg_name;
 	uint16_t desc_type, desc_id;
+    uint16_t ctrl_data_length;
 	struct descriptor *desc;
-	uint8_t buf[256];
     uint16_t str_idex;
     int rc;
     char *dest;
@@ -35,6 +40,7 @@ int handle_cmd_get_name(struct aecp *aecp, int64_t now, const void *m,
 	desc_type = ntohs(sg_name->descriptor_type);
 	desc_id = ntohs(sg_name->descriptor_index);
     str_idex = ntohs(sg_name->name_index);
+    ctrl_data_length = AVB_PACKET_GET_LENGTH(&p->aecp.hdr);
 
 	desc = server_find_descriptor(server, desc_type, desc_id);
 	if (desc == NULL)
@@ -55,6 +61,8 @@ int handle_cmd_get_name(struct aecp *aecp, int64_t now, const void *m,
     }
 
     memcpy(&buf[len], dest, sizeof(sg_name->name));
+    AVB_PACKET_SET_LENGTH(&p_reply->aecp.hdr, ctrl_data_length
+                            + sizeof(sg_name->name));
 
     return reply_success(aecp, buf, len);
 }

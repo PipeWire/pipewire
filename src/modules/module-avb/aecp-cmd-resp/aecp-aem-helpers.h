@@ -15,7 +15,7 @@
 static inline int reply_status(struct aecp *aecp, int status, const void *m, int len)
 {
 	struct server *server = aecp->server;
-	uint8_t buf[len];
+	uint8_t buf[2048];
 	struct avb_ethernet_header *h = (void*)buf;
 	struct avb_packet_aecp_header *reply = SPA_PTROFF(h, sizeof(*h), void);
 

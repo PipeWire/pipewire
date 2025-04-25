@@ -118,7 +118,6 @@ struct spa_bt_asha {
 	uint64_t ref_t0;
 	uint64_t skip_frames;
 
-	uint64_t prev_time;
 	uint64_t next_time;
 
 	unsigned int flush_pending:1;
@@ -1366,8 +1365,7 @@ static void media_asha_flush_timeout(struct spa_source *source)
 	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &ts);
 	now = SPA_TIMESPEC_TO_NSEC(&ts);
 
-	asha->next_time = (uint64_t)(asha->prev_time + ASHA_CONN_INTERVAL * port->ratectl.corr);
-	asha->prev_time = asha->next_time;
+	asha->next_time += (uint64_t)(ASHA_CONN_INTERVAL * port->ratectl.corr);
 
 	if (asha->poll_pending) {
 		/*

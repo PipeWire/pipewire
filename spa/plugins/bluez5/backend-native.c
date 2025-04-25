@@ -142,8 +142,7 @@ enum hfp_hf_state {
 	hfp_hf_slc1,
 	hfp_hf_slc2,
 	hfp_hf_vgs,
-	hfp_hf_vgm,
-	hfp_hf_bcs
+	hfp_hf_vgm
 };
 
 enum hsp_hs_state {
@@ -2011,8 +2010,6 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 
 			/* send codec selection to AG */
 			rfcomm_send_cmd(rfcomm, "AT+BCS=%u", selected_codec);
-
-			rfcomm->hf_state = hfp_hf_bcs;
 
 			if (!rfcomm->transport || (rfcomm->transport->codec != selected_codec) ) {
 				if (rfcomm_new_transport(rfcomm, selected_codec) < 0) {

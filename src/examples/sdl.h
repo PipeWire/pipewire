@@ -170,7 +170,7 @@ static inline struct spa_pod *sdl_build_formats(SDL_RendererInfo *info, struct s
 							&SPA_RECTANGLE(info->max_texture_width,
 								      info->max_texture_height)),
 		SPA_FORMAT_VIDEO_framerate, SPA_POD_CHOICE_RANGE_Fraction(
-							&SPA_FRACTION(25,1),
+							&SPA_FRACTION(RATE,1),
 							&SPA_FRACTION(0,1),
 							&SPA_FRACTION(30,1)),
 		0);

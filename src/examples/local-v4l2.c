@@ -13,6 +13,7 @@
 
 #define WIDTH   640
 #define HEIGHT  480
+#define RATE	30
 #define BPP    3
 #define MAX_BUFFERS	32
 

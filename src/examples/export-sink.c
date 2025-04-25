@@ -26,6 +26,7 @@
 #define WIDTH   640
 #define HEIGHT  480
 #define BPP    3
+#define RATE	30
 
 #include "sdl.h"
 

@@ -23,6 +23,7 @@
 
 #define WIDTH   640
 #define HEIGHT  480
+#define RATE	30
 
 #define MAX_BUFFERS	64
 #define MAX_MOD		8

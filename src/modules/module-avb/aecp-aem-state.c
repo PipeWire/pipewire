@@ -3,6 +3,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2025 Alexandre Malki <alexandre.malki@kebag-logic.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include <limits.h>
+
 #include "aecp-aem-state.h"
 #include "aecp-aem.h"
 #include "utils.h"
@@ -55,8 +57,9 @@ static int aecp_aem_generic_get(struct aecp* aecp,
 {
     uint8_t *var = info->var_data;
     size_t size;
-    struct aem_state_var_info* inf =
-        (struct aem_state_var_info*) info->var_data;
+    struct aem_state_var_info* inf;
+
+    inf = (struct aem_state_var_info*) info->var_data;
     size = inf->el_sz;
 
     if (id >= inf->count) {
@@ -79,8 +82,9 @@ static int aecp_aem_generic_set(struct aecp* aecp,
 {
     uint8_t *var = info->var_data;
     size_t size;
-    struct aem_state_var_info* inf =
-        (struct aem_state_var_info*) info->var_data;
+    struct aem_state_var_info* inf;
+
+    inf = (struct aem_state_var_info*) info->var_data;
     size = inf->el_sz;
 
     if (id >= inf->count) {
@@ -155,6 +159,7 @@ int aecp_aem_get_state_var(struct aecp* aecp, uint64_t target_id,
     enum aecp_aem_lock_types type, uint16_t id, void *state)
 {
     int rc;
+    struct aem_state_var_info *inf;
 
     pw_log_info("get: aecm state for %lx type %d getter\n", target_id, type);
     if ((type >= aecp_aem_max) || (type <= aecp_aem_min)) {
@@ -162,8 +167,7 @@ int aecp_aem_get_state_var(struct aecp* aecp, uint64_t target_id,
         spa_assert(0);
     }
 
-    struct aem_state_var_info* inf =
-        (struct aem_state_var_info*) ae_state_handlers[type].var_data;
+    inf = (struct aem_state_var_info*) ae_state_handlers[type].var_data;
 
     if (!ae_state_handlers[type].getter_h) {
         pw_log_error("Missing getter for var[%d] %s\n", type, inf->var_name);
@@ -180,14 +184,14 @@ int aecp_aem_refresh_state_var(struct aecp* aecp, uint64_t target_id,
     enum aecp_aem_lock_types type, uint16_t id, void *state)
 {
     int rc;
+    struct aem_state_var_info *inf;
+
     if ((type >= aecp_aem_max) || (type <= aecp_aem_min)) {
         pw_log_error("set: aecp state type %u is not supported\n", type);
         spa_assert(0);
     }
 
-    struct aem_state_var_info* inf =
-        (struct aem_state_var_info*) ae_state_handlers[type].var_data;
-
+    inf = (struct aem_state_var_info*) ae_state_handlers[type].var_data;
     if (!ae_state_handlers[type].setter_h) {
         pw_log_error("Missing setter for var[%d] %s\n", type, inf->var_name);
         spa_assert(0);
@@ -196,7 +200,8 @@ int aecp_aem_refresh_state_var(struct aecp* aecp, uint64_t target_id,
     rc = ae_state_handlers[type].setter_h(aecp, &ae_state_handlers[type],
         type, target_id, id, state);
     if (rc) {
-        return -1;
+        pw_log_error("set: error while access setter for type %u\n", type);
+        spa_assert(0);
     }
 
     return 0;
@@ -251,8 +256,10 @@ int aecp_aem_init_var_containers(struct aecp *aecp,
     size_t el_sz;
     size_t count;
     size_t vars;
-    pw_log_info("Initializing variables\n");
+    struct aecp_aem_base_info *binfo;
     uint64_t target_id = aecp->server->entity_id;
+
+    pw_log_info("Initializing variables\n");
     if ((size_t)ARRAY_SIZE(ae_state_handlers) != array_size) {
         pw_log_error("could not init the container, error in the var init");
         pw_log_error("The count of var handling is different tha the array_size");
@@ -286,6 +293,8 @@ int aecp_aem_init_var_containers(struct aecp *aecp,
             // Here copy the data so we can have it in as an inhereited value
             memcpy(&data[idx * varsdesc[vars].el_sz],
                 &varsdesc[vars], sizeof(struct aem_state_var_info));
+            binfo =  (struct aecp_aem_base_info*) data;
+            binfo->expire_timeout = LONG_MAX;
         }
 
     }

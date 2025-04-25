@@ -139,7 +139,7 @@ int handle_unsol_set_configuration(struct aecp *aecp, int64_t now)
 	rc = reply_unsolicited_notifications(aecp, &cfg_state.base_info, buf, len,
 			false);
 	if (rc) {
-		pw_log_error("Unsollicited notification failed \n");
+		pw_log_error("Unsolicited notification failed \n");
 	}
 	return rc;
 }

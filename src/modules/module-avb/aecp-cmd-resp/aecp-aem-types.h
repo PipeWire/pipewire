@@ -9,7 +9,7 @@
 #define __AVB_AECP_AEM_TYPES_H__
 
 /*
-* IEEE1722.1-2021, Table 7-141 - status field
+* IEEE 1722.1-2021, Table 7-141 - status field
 */
 #define AVB_AECP_AEM_STATUS_SUCCESS			0
 #define AVB_AECP_AEM_STATUS_NOT_IMPLEMENTED		1

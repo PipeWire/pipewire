@@ -11,10 +11,12 @@
 
 #include "aecp.h"
 #include "aecp-aem.h"
+#include "aecp-aem-controls.h"
 #include "internal.h"
 
 
 static const uint8_t mac[6] = AVB_BROADCAST_MAC;
+static const uint8_t mac_identity[6] = BASE_CTRL_IDENTIFY_MAC;
 
 struct msg_info {
 	uint16_t type;
@@ -66,16 +68,38 @@ static int aecp_message(void *data, uint64_t now, const void *message, int len)
 	const struct avb_packet_aecp_header *p = SPA_PTROFF(h, sizeof(*h), void);
 	const struct msg_info *info;
 	int message_type;
+	bool avdecc_identity;
+	bool avdecc_general;
+	bool avdecc_entity;
+	bool is_control_type;
 
 	if (ntohs(h->type) != AVB_TSN_ETH)
 		return 0;
-	if (memcmp(h->dest, mac, 6) != 0 &&
-	    memcmp(h->dest, server->mac_addr, 6) != 0)
+
+	avdecc_general = memcmp(h->dest, mac, 6) == 0;
+	avdecc_identity = memcmp(h->dest, mac_identity, 6) == 0;
+	avdecc_entity = memcmp(h->dest, server->mac_addr, 6) == 0;
+
+	if (!avdecc_general && !avdecc_identity && !avdecc_entity) {
+		pw_log_error("Not a supported address\n");
 		return 0;
+	}
+
 	if (AVB_PACKET_GET_SUBTYPE(&p->hdr) != AVB_SUBTYPE_AECP)
 		return 0;
 
 	message_type = AVB_PACKET_AECP_GET_MESSAGE_TYPE(p);
+
+	/* Here CONTROLS have different addresses so we need to take care of it */
+	is_control_type = (message_type == AVB_AECP_AEM_CMD_SET_CONTROL) ||
+						(message_type == AVB_AECP_AEM_CMD_GET_CONTROL);
+	// TODO check what should be the appropriate return when the control
+	// address is issued and the message_tgype is different than CONTROL
+	// Also now we only support identify XOR here
+	if (avdecc_identity != is_control_type ) {
+		pw_log_error("trying to use identity address without control type\n");
+		return reply_not_implemented(aecp, message, len);
+	}
 
 	info = find_msg_info(message_type, NULL);
 	if (info == NULL)
@@ -86,7 +110,7 @@ static int aecp_message(void *data, uint64_t now, const void *message, int len)
 	if (info->handle == NULL)
 		return reply_not_implemented(aecp, message, len);
 
-	// TODO here check if unsollicited change are needed,
+	// TODO here check if unsolicited change are needed,
 	return info->handle(aecp, message, len);
 }
 

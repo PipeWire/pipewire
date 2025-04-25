@@ -15,7 +15,7 @@
 #include "aecp-aem-unsol-helper.h"
 
 /* LOCK_ENTITY */
-/* Milan v1.2, Sec. 5.4.2.2; IEEE1722.1-2021, Sec. 7.4.2*/
+/* Milan v1.2, Sec. 5.4.2.2; IEEE 1722.1-2021, Sec. 7.4.2*/
 int handle_cmd_lock_entity(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	struct server *server = aecp->server;
@@ -191,7 +191,7 @@ int handle_unsol_lock_entity(struct aecp *aecp, int64_t now)
 	rc = reply_unsolicited_notifications(aecp, &lock.base_info, buf, len,
 		 has_expired);
 	if (rc) {
-		pw_log_error("Unsollicited notification failed \n");
+		pw_log_error("Unsolicited notification failed \n");
 	}
 #endif;
 	return rc;

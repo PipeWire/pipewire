@@ -289,7 +289,6 @@ struct avb_aem_desc_value_format {
 	uint16_t localized_description;
 } __attribute__ ((__packed__));
 
-#define AVB_AEM_CONTROL_LINEAR_UINT8	1
 struct avb_aem_desc_control {
 	char object_name[64];
 	uint16_t localized_description;

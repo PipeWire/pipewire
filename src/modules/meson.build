@@ -751,6 +751,7 @@ if build_module_avb
       'module-avb/stream.c',
       'module-avb/aecp-cmd-resp/aecp-aem-available.c',
       'module-avb/aecp-cmd-resp/aecp-aem-cmd-set-name.c',
+      'module-avb/aecp-cmd-resp/aecp-aem-cmd-set-stream-format.c',
       'module-avb/aecp-cmd-resp/aecp-aem-configuration.c',
       'module-avb/aecp-cmd-resp/aecp-aem-descriptors.c',
       'module-avb/aecp-cmd-resp/aecp-aem-get-avb-info.c',

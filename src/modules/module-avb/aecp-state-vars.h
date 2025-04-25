@@ -31,7 +31,7 @@ static const struct aem_state_var_info milan_vars[] = {
     AECP_AEM_NEEDED_VAR(aecp_aem_configuration,"configuration", true, false, 1,
         sizeof(struct aecp_aem_configuration_state)),
 
-    AECP_AEM_NEEDED_VAR(aecp_aem_control,"control", true, false, 1,
+    AECP_AEM_NEEDED_VAR(aecp_aem_control,"control", true, true, 1,
         sizeof(struct aecp_aem_control_state)),
 
     AECP_AEM_NEEDED_VAR(aecp_aem_unsol_notif, "unsol_notif_recorded",false, true,

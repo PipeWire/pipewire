@@ -2841,11 +2841,20 @@ static int sco_release_cb(void *data)
 static void sco_event(struct spa_source *source)
 {
 	struct spa_bt_transport *t = source->data;
+	struct transport_data *td = t->user_data;
 	struct impl *backend = SPA_CONTAINER_OF(t->backend, struct impl, this);
 
 	if (source->rmask & (SPA_IO_HUP | SPA_IO_ERR)) {
-		spa_log_debug(backend->log, "transport %p: error on SCO socket: %s", t, strerror(errno));
+		/* sco_ready() reads the socket error status in td->err */
 		sco_ready(t);
+
+		if (td->err < 0) {
+			spa_log_info(backend->log, "transport %p: SCO socket error: %s (%d)",
+					t, strerror(-td->err), td->err);
+		} else {
+			spa_log_debug(backend->log, "transport %p: SCO socket hangup", t);
+		}
+
 		if (source->loop)
 			spa_loop_remove_source(source->loop, source);
 		if (t->fd >= 0) {

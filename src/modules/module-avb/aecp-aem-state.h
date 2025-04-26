@@ -138,7 +138,7 @@ struct aecp_aem_sampling_rate_state {
 };
 
 /** Milan Spec V1.2 Table 5.13 5.14 */
-struct aecp_aem_counter_avb_interface {
+struct aecp_aem_counter_avb_interface_state {
     struct aecp_aem_desc_base base_desc;
 
     uint32_t link_up;
@@ -151,7 +151,7 @@ struct aecp_aem_counter_avb_interface {
 };
 
 /** Milan Spec V1.2 Table 5.15 */
-struct aecp_aem_counter_clock_domain {
+struct aecp_aem_counter_clock_domain_state {
     struct aecp_aem_desc_base base_desc;
 
     uint32_t locked;
@@ -159,7 +159,7 @@ struct aecp_aem_counter_clock_domain {
 };
 
 /** Milan Spec V1.2 Table 5.16 */
-struct aecp_aem_counter_stream_input {
+struct aecp_aem_counter_stream_input_state {
     struct aecp_aem_desc_base base_desc;
 
     uint32_t media_locked;
@@ -176,7 +176,7 @@ struct aecp_aem_counter_stream_input {
 
 /** Milan Spec V1.2 Table 5.17 */
 
-struct aecp_aem_counter_stream_output {
+struct aecp_aem_counter_stream_output_state {
     struct aecp_aem_desc_base base_desc;
 
     uint32_t stream_start;

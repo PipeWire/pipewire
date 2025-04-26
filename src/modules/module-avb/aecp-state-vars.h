@@ -44,17 +44,17 @@ static const struct aem_state_var_info milan_vars[] = {
         sizeof(struct aecp_aem_sampling_rate_state)),
 
     AECP_AEM_NEEDED_VAR(aecp_aem_counter_avb_interface, "counter_avb_interface",
-         true, true, 1, sizeof(struct aecp_aem_counter_avb_interface)),
+         true, true, 1, sizeof(struct aecp_aem_counter_avb_interface_state)),
 
     AECP_AEM_NEEDED_VAR(aecp_aem_counter_clock_domain, "counter_clock_domain",
-         true, true, 1, sizeof(struct aecp_aem_counter_clock_domain)),
+         true, true, 1, sizeof(struct aecp_aem_counter_clock_domain_state)),
 
     // There are 2 stream input aaf + crf
     AECP_AEM_NEEDED_VAR(aecp_aem_counter_stream_input, "counter_stream_input",
-         true, true, 2, sizeof(struct aecp_aem_counter_stream_input)),
+         true, true, 2, sizeof(struct aecp_aem_counter_stream_input_state)),
 
     AECP_AEM_NEEDED_VAR(aecp_aem_counter_stream_output, "counter_stream_output",
-         true, true, 1, sizeof(struct aecp_aem_counter_stream_output)),
+         true, true, 1, sizeof(struct aecp_aem_counter_stream_output_state)),
 
     AECP_AEM_NEEDED_VAR(aecp_aem_unsol_notif, "unsol_notif_recorded",false, true,
         16, sizeof(struct aecp_aem_unsol_notification_state)),

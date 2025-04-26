@@ -31,15 +31,25 @@ int handle_cmd_get_name(struct aecp *aecp, int64_t now, const void *m,
 	uint16_t desc_type, desc_id;
     uint16_t ctrl_data_length;
 	struct descriptor *desc;
-    uint16_t str_idex;
+    uint16_t name_idx, cfg_idx;
+    uint64_t target_entity_id;
     int rc;
     char *dest;
+
+    // If we are not spoken to directly, we will not answer
+    target_entity_id = be64toh(p->aecp.target_guid);
+    if (target_entity_id != server->entity_id){
+        return 0;
+    }
 
 	/* Value to calculate the position as defined in the IEEE 1722.1-2021, Sec. 7.3 */
     sg_name = (struct avb_packet_aecp_aem_setget_name*)p->payload;
 	desc_type = ntohs(sg_name->descriptor_type);
 	desc_id = ntohs(sg_name->descriptor_index);
-    str_idex = ntohs(sg_name->name_index);
+    name_idx = ntohs(sg_name->name_index);
+    cfg_idx = ntohs(sg_name->configuration_index);
+    // TODO: Implement check for existing configuration
+
     ctrl_data_length = AVB_PACKET_GET_LENGTH(&p->aecp.hdr);
 
 	desc = server_find_descriptor(server, desc_type, desc_id);
@@ -56,10 +66,10 @@ int handle_cmd_get_name(struct aecp *aecp, int64_t now, const void *m,
     memset(buf, 0, sizeof(buf));
     memcpy(buf, m, len);
 
-    if (aem_aecp_get_name_entity(desc, str_idex, &dest)) {
+    if (aem_aecp_get_name_entity(desc, name_idx, &dest)) {
         spa_assert(0);
     }
-
+    
     memcpy(&buf[len], dest, sizeof(sg_name->name));
     AVB_PACKET_SET_LENGTH(&p_reply->aecp.hdr, ctrl_data_length
                             + sizeof(sg_name->name));

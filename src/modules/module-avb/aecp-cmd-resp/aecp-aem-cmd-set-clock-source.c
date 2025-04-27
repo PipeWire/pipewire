@@ -23,6 +23,7 @@ static int reply_invalid_clock_source(struct aecp *aecp,
     sclk_source = (struct avb_packet_aecp_aem_setget_clock_source *) p->payload;
     sclk_source->clock_source_index = htons(desc->clock_source_index);
 
+    // Reply success with the old value which is the current if it fails.
     return reply_success(aecp,  buf, len);
 }
 

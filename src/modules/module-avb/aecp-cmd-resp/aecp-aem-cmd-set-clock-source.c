@@ -26,12 +26,13 @@ static int reply_invalid_clock_source(struct aecp *aecp,
     return reply_success(aecp,  buf, len);
 }
 
+ /* IEEE 1722.1-2021, 7.4.23. SET_CLOCK_SOURCE Command */
 int handle_cmd_set_clock_source(struct aecp *aecp, int64_t now, const void *m, int len)
 {
     int rc;
-	struct server *server = aecp->server;
-	const struct avb_ethernet_header *h = m;
-	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
+    struct server *server = aecp->server;
+    const struct avb_ethernet_header *h = m;
+    const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
     struct avb_packet_aecp_aem_setget_clock_source *sclk_source;
     struct aecp_aem_clock_domain_state clk_dmn_state = {0};
     /** Information in the packet */
@@ -52,9 +53,9 @@ int handle_cmd_set_clock_source(struct aecp *aecp, int64_t now, const void *m, i
     ctrlr_id = htobe64(p->aecp.controller_guid);
 
     /** Retrieve the descriptor */
-	desc = server_find_descriptor(server, desc_type, desc_index);
-	if (desc == NULL)
-		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
+    desc = server_find_descriptor(server, desc_type, desc_index);
+    if (desc == NULL)
+        return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
 
     rc = aecp_aem_get_state_var(aecp, aecp->server->entity_id, aecp_aem_clock_domain,
         0, &clk_dmn_state);
@@ -84,8 +85,8 @@ int handle_unsol_set_clock_source(struct aecp *aecp, int64_t now)
 {
     uint8_t buf[128];
     struct descriptor *desc;
-	struct avb_ethernet_header *h = (struct avb_ethernet_header *) buf;
-	struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
+    struct avb_ethernet_header *h = (struct avb_ethernet_header *) buf;
+    struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
     struct avb_packet_aecp_aem_setget_clock_source *sclk_source;
     struct aecp_aem_clock_domain_state clk_dmn_state = {0};
     struct avb_aem_desc_clock_domain* dclk_domain;

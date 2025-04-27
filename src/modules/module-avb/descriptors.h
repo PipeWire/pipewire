@@ -477,7 +477,7 @@ static inline void init_descriptors(struct server *server)
 
 	struct {
 		struct avb_aem_desc_clock_domain desc;
-		uint16_t clock_sources_idx[3];
+		uint16_t clock_sources[3];
 	} __attribute__ ((__packed__)) clock_domain = {
 		.desc = {
 			.object_name = "Clock Reference Format",
@@ -487,7 +487,7 @@ static inline void init_descriptors(struct server *server)
 			4 + sizeof(struct avb_aem_desc_clock_domain)),
 			.clock_sources_count = htons(3),
 		},
-		.clock_sources_idx = {
+		.clock_sources = {
 		    htons(0),
 		    htons(1),
 		    htons(2)

@@ -48,9 +48,7 @@ static int handle_set_name_entity(struct descriptor *desc, uint16_t str_idex,
         spa_assert(0);
     }
 
-    strncpy(dest, new_name, AECP_AEM_STRLEN_MAX);
-    dest[AECP_AEM_STRLEN_MAX - 1] = '\0';
-
+    memcpy(dest, new_name, AECP_AEM_STRLEN_MAX);
     return 0;
 }
 
@@ -59,8 +57,7 @@ static int handle_set_name_generic(struct descriptor *desc, uint16_t str_idex,
 {
     // This works beause the aem descriptors all starts with the group name
     char *dest = (char *)desc->ptr;
-    strncpy(dest, new_name, AECP_AEM_STRLEN_MAX);
-    dest[AECP_AEM_STRLEN_MAX - 1] = '\0';
+    memcpy(dest, new_name, AECP_AEM_STRLEN_MAX);
     return 0;
 }
 
@@ -104,8 +101,7 @@ int handle_cmd_set_name(struct aecp *aecp, int64_t now, const void *m,
     }
 
     // Store the old name before updating
-    strncpy(old_name, (char *)desc->ptr, AECP_AEM_STRLEN_MAX);
-    old_name[AECP_AEM_STRLEN_MAX - 1] = '\0';
+    memcpy(old_name, (char *)desc->ptr, AECP_AEM_STRLEN_MAX);
 
     // Handle name setting based on descriptor type
     switch (desc_type) {

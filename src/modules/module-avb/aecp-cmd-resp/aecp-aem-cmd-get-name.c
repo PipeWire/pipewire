@@ -31,7 +31,7 @@ int handle_cmd_get_name(struct aecp *aecp, int64_t now, const void *m,
 	uint16_t desc_type, desc_id;
     uint16_t ctrl_data_length;
 	struct descriptor *desc;
-    uint16_t name_idx, cfg_idx;
+    uint16_t name_idx;
     uint64_t target_entity_id;
     int rc;
     char *dest;
@@ -47,7 +47,6 @@ int handle_cmd_get_name(struct aecp *aecp, int64_t now, const void *m,
 	desc_type = ntohs(sg_name->descriptor_type);
 	desc_id = ntohs(sg_name->descriptor_index);
     name_idx = ntohs(sg_name->name_index);
-    cfg_idx = ntohs(sg_name->configuration_index);
     // TODO: Implement check for existing configuration
 
     ctrl_data_length = AVB_PACKET_GET_LENGTH(&p->aecp.hdr);
@@ -55,6 +54,10 @@ int handle_cmd_get_name(struct aecp *aecp, int64_t now, const void *m,
 	desc = server_find_descriptor(server, desc_type, desc_id);
 	if (desc == NULL)
 		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
+
+    if (!list_support_descriptors_setget_name[desc_type]) {
+            return reply_bad_arguments(aecp, m, len);
+    }
 
 	rc = aecp_aem_get_state_var(aecp, htobe64(p->aecp.target_guid),
 		 	aecp_aem_name, desc_id, &name_state);
@@ -66,10 +69,17 @@ int handle_cmd_get_name(struct aecp *aecp, int64_t now, const void *m,
     memset(buf, 0, sizeof(buf));
     memcpy(buf, m, len);
 
-    if (aem_aecp_get_name_entity(desc, name_idx, &dest)) {
-        spa_assert(0);
+    // TODO handle memory objects
+    /** Check if Entity or not */
+    if (desc_type == AVB_AEM_DESC_ENTITY) {
+        if (aem_aecp_get_name_entity(desc, name_idx, &dest)) {
+            spa_assert(0);
+        }
+    } else {
+        // Not an entity
+        dest = (char *)desc->ptr;
     }
-    
+
     memcpy(&buf[len], dest, sizeof(sg_name->name));
     AVB_PACKET_SET_LENGTH(&p_reply->aecp.hdr, ctrl_data_length
                             + sizeof(sg_name->name));

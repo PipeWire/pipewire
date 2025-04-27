@@ -7,7 +7,7 @@
 #define AECP_AEM_NAME_INDEX_ENTITY_ITSELF       (0)
 #define AECP_AEM_NAME_INDEX_ENTITY_GROUP        (1)
 
-static const bool list_support_descriptors_set_name[AVB_AEM_DESC_MAX_17221] = {
+static const bool list_support_descriptors_setget_name[AVB_AEM_DESC_MAX_17221] = {
     [AVB_AEM_DESC_ENTITY] = true,
     [AVB_AEM_DESC_CONFIGURATION] = true,
     [AVB_AEM_DESC_AUDIO_UNIT] = true,

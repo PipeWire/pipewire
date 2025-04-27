@@ -99,7 +99,7 @@ int handle_cmd_set_name(struct aecp *aecp, int64_t now, const void *m,
 	if (desc == NULL)
 		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
 
-    if (!list_support_descriptors_set_name[desc_type]) {
+    if (!list_support_descriptors_setget_name[desc_type]) {
         return reply_bad_arguments(aecp, m, len);
     }
 

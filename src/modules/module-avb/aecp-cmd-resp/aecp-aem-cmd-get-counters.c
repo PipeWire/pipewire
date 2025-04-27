@@ -202,9 +202,10 @@ int prepare_get_counter_packet(struct aecp *aecp, uint8_t *buf, int *len,
     }
 
     AVB_PACKET_AEM_SET_COMMAND_TYPE(p_reply, AVB_AECP_AEM_CMD_GET_COUNTERS);
+    *len = sizeof(*g_counters_r) + sizeof(*p_reply) + sizeof(*h_reply);
+
     // The unsoolicited helper already fills this fileds
     if (!is_unsolicited) {
-        *len = sizeof(*g_counters_r) + sizeof(*p_reply) + sizeof(*h_reply);
         ctrl_data_length = *len - (sizeof(*h_reply) + sizeof(*p_reply)) + 12;
         p_reply->aecp.hdr.subtype = AVB_SUBTYPE_AECP;
         AVB_PACKET_AECP_SET_MESSAGE_TYPE(&p_reply->aecp, AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);

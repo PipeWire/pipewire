@@ -130,5 +130,24 @@ static inline int reply_set_control(struct aecp *aecp, const void *m, int len, i
 }
 
 
+static inline void aecp_aem_prepare_pointers_const(const void *m,
+		const struct avb_ethernet_header **pkt_hdr,
+		const struct avb_packet_aecp_aem **pkt_aecp_aem,
+		void *payload)
+{
+	*pkt_hdr = m;
+	*pkt_aecp_aem = SPA_PTROFF(*pkt_hdr, sizeof(*(*pkt_hdr)), void);
+    *((uintptr_t *)payload) = (uintptr_t) (*pkt_aecp_aem)->payload;
+}
+
+static inline void aecp_aem_prepare_pointers(void *m,
+	struct avb_ethernet_header **pkt_hdr,
+	struct avb_packet_aecp_aem **pkt_aecp_aem,
+	void *payload)
+{
+	*pkt_hdr = m;
+	*pkt_aecp_aem = SPA_PTROFF(*pkt_hdr, sizeof(*(*pkt_hdr)), void);
+	*((uintptr_t *)payload)  = (uintptr_t) (*pkt_aecp_aem)->payload;
+}
 
 #endif //__AVB_AECP_AEM_HELPERS_H__

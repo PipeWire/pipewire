@@ -13,7 +13,7 @@
 #include "../aecp.h"
 #include "aecp-aem-types.h"
 
-#define AECP_AEM_MIN_PACKET_LENGTH 60
+#define AECP_AEM_MIN_PACKET_LENGTH AVB_PACKET_MIN_SIZE
 /**
  * @brief Sends unsolicited notifications. Does not sends information unless to
  *  the controller id unless an internal change has happenned (timeout, action

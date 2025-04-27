@@ -72,8 +72,7 @@ static int handle_get_stream_format(struct aecp *aecp, int64_t now, const void *
 
 static int handle_set_stream_info(struct aecp *aecp, int64_t now, const void *m, int len)
 {
-	// TODO
-	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
+	/* Milan v1.2 Clause 5.4.2.9 SET_STREAM_INFO */
 	return reply_not_implemented(aecp, m, len);
 }
 

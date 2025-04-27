@@ -137,28 +137,35 @@ struct aecp_aem_sampling_rate_state {
     struct aecp_aem_desc_base base_desc;
 };
 
-/** Milan Spec V1.2 Table 5.13 5.14 */
+/**
+ * Milan v1.2 Table 5.13: GET_COUNTERSmandatory AVB Interface counters
+ * Table 5.14: GET_COUNTERS optional AVB Interface counters
+ */
 struct aecp_aem_counter_avb_interface_state {
     struct aecp_aem_desc_base base_desc;
 
     uint32_t link_up;
     uint32_t link_down;
-    // Below members are optional
     uint32_t gptp_gm_changed;
+    // optional AVB Interface counters
     uint32_t frame_tx;
     uint32_t frame_rx;
     uint32_t error_crc;
 };
 
-/** Milan Spec V1.2 Table 5.15 */
-struct aecp_aem_counter_clock_domain_state {
+/**
+ * Milan v1.2 Table 5.15: GET_COUNTERS mandatory AVB Interface counters
+ */
+ struct aecp_aem_counter_clock_domain_state {
     struct aecp_aem_desc_base base_desc;
 
     uint32_t locked;
     uint32_t unlocked;
 };
 
-/** Milan Spec V1.2 Table 5.16 */
+/**
+ * Milan v1.2 Table 5.16: GET_COUNTERS Stream Input counters
+ */
 struct aecp_aem_counter_stream_input_state {
     struct aecp_aem_desc_base base_desc;
 
@@ -174,8 +181,9 @@ struct aecp_aem_counter_stream_input_state {
     uint32_t frame_rx;
 };
 
-/** Milan Spec V1.2 Table 5.17 */
-
+/**
+ * Milan v1.2 Table 5.17: GET_COUNTERS Stream Output counters
+ */
 struct aecp_aem_counter_stream_output_state {
     struct aecp_aem_desc_base base_desc;
 

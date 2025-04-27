@@ -35,14 +35,14 @@
 #define AECP_AEM_COUNTER_STREAM_OUT_FRAME_TX                4
 
 /**
- * Retieve the mask from thje bit above as described in
- * 1722.1-2021 Clause 7.4.42
+ * Retrieve the mask from the bit above as described in
+ * IEEE 1722.1-2021, Sec. 7.4.42. GET_COUNTERS Command
  */
 #define AECP_AEM_COUNTER_GET_MASK(x)                        (1 << x)
 
 /**
  *  Retrieve the position within the buffer as described in the specification
- *  1722.1-2021 Clause 7.4.42
+ *  IEEE 1722.1-2021, Sec. 7.4.42. GET_COUNTERS Command
  */
 #define AECP_AEM_COUNTER_GET_BUF_POS(x)                     (x << 2)
 

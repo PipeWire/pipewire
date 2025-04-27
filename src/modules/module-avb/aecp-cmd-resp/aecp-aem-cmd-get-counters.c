@@ -30,21 +30,22 @@ static int handle_get_counters_avb_interface(struct aecp *aecp, uint8_t *buf,
         spa_assert(0);
     }
 
-    counters[0] =
+    counters[0] = htonl(
         AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_AVB_IF_LINK_UP) |
         AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_AVB_IF_LINK_DOWN) |
         AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_AVB_IF_GPTP_GM_CH) |
         AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_AVB_IF_FRAME_TX) |
         AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_AVB_IF_FRAME_RX) |
-        AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_AVB_IF_RX_CRC_ERROR);
+        AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_AVB_IF_RX_CRC_ERROR)
+    );
 
     counters++;
-    counters[AECP_AEM_COUNTER_AVB_IF_LINK_UP] = if_state.link_up;
-    counters[AECP_AEM_COUNTER_AVB_IF_LINK_DOWN] = if_state.link_down;
-    counters[AECP_AEM_COUNTER_AVB_IF_GPTP_GM_CH] = if_state.gptp_gm_changed;
-    counters[AECP_AEM_COUNTER_AVB_IF_FRAME_TX] = if_state.frame_tx;
-    counters[AECP_AEM_COUNTER_AVB_IF_FRAME_RX] = if_state.frame_rx;
-    counters[AECP_AEM_COUNTER_AVB_IF_RX_CRC_ERROR] = if_state.error_crc;
+    counters[AECP_AEM_COUNTER_AVB_IF_LINK_UP] = htonl(if_state.link_up);
+    counters[AECP_AEM_COUNTER_AVB_IF_LINK_DOWN] = htonl(if_state.link_down);
+    counters[AECP_AEM_COUNTER_AVB_IF_GPTP_GM_CH] = htonl(if_state.gptp_gm_changed);
+    counters[AECP_AEM_COUNTER_AVB_IF_FRAME_TX] = htonl(if_state.frame_tx);
+    counters[AECP_AEM_COUNTER_AVB_IF_FRAME_RX] = htonl(if_state.frame_rx);
+    counters[AECP_AEM_COUNTER_AVB_IF_RX_CRC_ERROR] = htonl(if_state.error_crc);
 
     return rc;
 }
@@ -63,13 +64,14 @@ static int handle_get_counters_clock_domain(struct aecp *aecp, uint8_t *buf,
         spa_assert(0);
     }
 
-    counters[0] =
+    counters[0] = htonl(
         AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_CLK_DOMAIN_LOCKED) |
-        AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_CLK_DOMAIN_UNLOCKED);
+        AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_CLK_DOMAIN_UNLOCKED)
+    );
 
     counters++;
-    counters[AECP_AEM_COUNTER_CLK_DOMAIN_LOCKED] = cd_state.locked;
-    counters[AECP_AEM_COUNTER_CLK_DOMAIN_UNLOCKED] = cd_state.unlocked;
+    counters[AECP_AEM_COUNTER_CLK_DOMAIN_LOCKED] = htonl(cd_state.locked);
+    counters[AECP_AEM_COUNTER_CLK_DOMAIN_UNLOCKED] = htonl(cd_state.unlocked);
 
     return rc;
 }
@@ -88,7 +90,7 @@ static int handle_get_counters_stream_input(struct aecp *aecp, uint8_t *buf,
         spa_assert(0);
     }
 
-    counters[0] =
+    counters[0] = htonl(
         AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_STREAM_INPUT_MEDIA_LOCKED) |
         AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_STREAM_INPUT_MEDIA_UNLOCKED) |
         AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_STREAM_INPUT_STREAM_INTERRUPTED) |
@@ -97,19 +99,20 @@ static int handle_get_counters_stream_input(struct aecp *aecp, uint8_t *buf,
         AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_STREAM_INPUT_UNSUPPORTED_FORMAT) |
         AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_STREAM_INPUT_LATE_TIMESTAMP) |
         AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_STREAM_INPUT_EARLY_TIMESTAMP) |
-        AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_STREAM_INPUT_FRAME_RX);
+        AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_STREAM_INPUT_FRAME_RX)
+    );
 
     counters++;
-    counters[AECP_AEM_COUNTER_STREAM_INPUT_MEDIA_LOCKED] = si_state.media_locked;
-    counters[AECP_AEM_COUNTER_STREAM_INPUT_MEDIA_UNLOCKED] = si_state.media_unlocked;
-    counters[AECP_AEM_COUNTER_STREAM_INPUT_STREAM_INTERRUPTED] = si_state.stream_interrupted;
-    counters[AECP_AEM_COUNTER_STREAM_INPUT_SEQ_NUM_MISMATCH] = si_state.seq_mistmatch;
-    counters[AECP_AEM_COUNTER_STREAM_INPUT_MEDIA_RESET] = si_state.media_reset;
-    counters[AECP_AEM_COUNTER_STREAM_INPUT_TIMESTAMP_UNCERTAIN] = si_state.tu;
-    counters[AECP_AEM_COUNTER_STREAM_INPUT_UNSUPPORTED_FORMAT] = si_state.unsupported_format;
-    counters[AECP_AEM_COUNTER_STREAM_INPUT_LATE_TIMESTAMP] = si_state.late_timestamp;
-    counters[AECP_AEM_COUNTER_STREAM_INPUT_EARLY_TIMESTAMP] = si_state.early_timestamp;
-    counters[AECP_AEM_COUNTER_STREAM_INPUT_FRAME_RX] = si_state.frame_rx;
+    counters[AECP_AEM_COUNTER_STREAM_INPUT_MEDIA_LOCKED] = htonl(si_state.media_locked);
+    counters[AECP_AEM_COUNTER_STREAM_INPUT_MEDIA_UNLOCKED] = htonl(si_state.media_unlocked);
+    counters[AECP_AEM_COUNTER_STREAM_INPUT_STREAM_INTERRUPTED] = htonl(si_state.stream_interrupted);
+    counters[AECP_AEM_COUNTER_STREAM_INPUT_SEQ_NUM_MISMATCH] = htonl(si_state.seq_mistmatch);
+    counters[AECP_AEM_COUNTER_STREAM_INPUT_MEDIA_RESET] = htonl(si_state.media_reset);
+    counters[AECP_AEM_COUNTER_STREAM_INPUT_TIMESTAMP_UNCERTAIN] = htonl(si_state.tu);
+    counters[AECP_AEM_COUNTER_STREAM_INPUT_UNSUPPORTED_FORMAT] = htonl(si_state.unsupported_format);
+    counters[AECP_AEM_COUNTER_STREAM_INPUT_LATE_TIMESTAMP] = htonl(si_state.late_timestamp);
+    counters[AECP_AEM_COUNTER_STREAM_INPUT_EARLY_TIMESTAMP] = htonl(si_state.early_timestamp);
+    counters[AECP_AEM_COUNTER_STREAM_INPUT_FRAME_RX] = htonl(si_state.frame_rx);
 
     return rc;
 }
@@ -129,19 +132,20 @@ static int handle_get_counters_stream_output(struct aecp *aecp, uint8_t *buf,
     }
 
 
-    counters[0] =
+    counters[0] = htonl(
         AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_STREAM_OUT_STREAM_START) |
         AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_STREAM_OUT_STREAM_STOP) |
         AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_STREAM_OUT_FRAME_TX) |
         AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_STREAM_OUT_TIMESTAMP_UNCERTAIN) |
-        AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_STREAM_OUT_MEDIA_RESET);
+        AECP_AEM_COUNTER_GET_MASK(AECP_AEM_COUNTER_STREAM_OUT_MEDIA_RESET)
+    );
 
     counters++;
-    counters[AECP_AEM_COUNTER_STREAM_OUT_STREAM_START] = so_state.stream_start;
-    counters[AECP_AEM_COUNTER_STREAM_OUT_STREAM_STOP] = so_state.stream_stop;
-    counters[AECP_AEM_COUNTER_STREAM_OUT_FRAME_TX] = so_state.frame_tx;
-    counters[AECP_AEM_COUNTER_STREAM_OUT_TIMESTAMP_UNCERTAIN] = so_state.tu;
-    counters[AECP_AEM_COUNTER_STREAM_OUT_MEDIA_RESET] = so_state.media_reset;
+    counters[AECP_AEM_COUNTER_STREAM_OUT_STREAM_START] = htonl(so_state.stream_start);
+    counters[AECP_AEM_COUNTER_STREAM_OUT_STREAM_STOP] = htonl(so_state.stream_stop);
+    counters[AECP_AEM_COUNTER_STREAM_OUT_FRAME_TX] = htonl(so_state.frame_tx);
+    counters[AECP_AEM_COUNTER_STREAM_OUT_TIMESTAMP_UNCERTAIN] = htonl(so_state.tu);
+    counters[AECP_AEM_COUNTER_STREAM_OUT_MEDIA_RESET] = htonl(so_state.media_reset);
 
     return rc;
 }
@@ -331,6 +335,8 @@ static int do_unsolicited_get_counters(struct aecp *aecp, uint8_t *buf,
 
     return rc;
 }
+
+/* IEEE 1722.1-2021, Sec. 7.4.42. GET_COUNTERS Command */
 int handle_cmd_get_counters(struct aecp *aecp, int64_t now, const void *m,
     int len)
 {

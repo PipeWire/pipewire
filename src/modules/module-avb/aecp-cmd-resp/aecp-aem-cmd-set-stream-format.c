@@ -6,6 +6,7 @@
 
 #include "aecp-aem-cmd-set-stream-format.h"
 
+ /* IEEE 1722.1-2021, Clause 7.4.9. SET_STREAM_FORMAT Command */
 int handle_cmd_set_stream_format(struct aecp *aecp, int64_t now, const void *m, int len)
 {
     struct server *server = aecp->server;

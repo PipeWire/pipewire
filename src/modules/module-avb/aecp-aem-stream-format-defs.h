@@ -3,15 +3,15 @@
 
 #include "utils.h"
 
-// 1722.1-2021 Clause 7.3.2
+// IEEE - 1722.1-2021 Clause 7.3.3 Stream Formats
 #define AECP_AEM_STREAM_FORMAT_VENDOR_FLAG              (1)
 #define AECP_AEM_STREAM_FORMAT_VENDOR_SHIFT(x)          (((uint64_t)x&(0x1))<<63)
 
-// 1722.1-2021 Table 7.65
+// IEEE -  1722.1-2021 Table 7.65
 #define AECP_AEM_STREAM_FORMAT_SUBTYPE_AVTP             (2)
 #define AECP_AEM_STREAM_FORMAT_SUBTYPE_SHIFT(x)         (((uint64_t)x&(0xff))<<56)
 
-// 1722.1-2021 Table 7.66
+// IEEE - 1722.1-2021 Table 7.66
 #define AECP_AEM_STREAM_FORMAT_NOMINAL_SR_UNSPECIFIED   (0)
 #define AECP_AEM_STREAM_FORMAT_NOMINAL_SR_8KHZ          (1)
 #define AECP_AEM_STREAM_FORMAT_NOMINAL_SR_16KHZ         (2)
@@ -25,8 +25,7 @@
 
 #define AECP_AEM_STREAM_FORMAT_NOMINAL_SR_SHIFT(x)      (((uint64_t)x&(0xf))<<48)
 
-// 1722.1-2021 Table 7.67
-
+// IEEE -  1722.1-2021 Table 7.67
 #define AECP_AEM_STREAM_FORMAT_VALUES_UNSPECIFIED              (0)
 #define AECP_AEM_STREAM_FORMAT_VALUES_FLOAT                    (1)
 #define AECP_AEM_STREAM_FORMAT_VALUES_32BIT_INT                (2)
@@ -52,4 +51,4 @@ AECP_AEM_STREAM_FORMAT_BIT_DEPTH(depth)|                                        
 AECP_AEM_STREAM_FORMAT_CPF_SHIFT(cpf) |                                          \
 AECP_AEM_STREAM_FORMAT_SPF_SHIFT(spf)
 
-#endif //__AECP_AEM_STREAM_FORMATS_DEFS_H__
+#endif //__AECP_AEM_STREAM_FORMATS_DEFS_H_

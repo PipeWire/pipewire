@@ -222,7 +222,7 @@ int handle_unsol_set_name(struct aecp *aecp, int64_t now)
     // Name update needs to differentiate between Entity Name, Group Name and everything else
     if (desc->type == AVB_AEM_DESC_ENTITY) {
         struct avb_aem_desc_entity *entity = (struct avb_aem_desc_entity *) desc->ptr;
-    
+
         if (name_state.name_index == AECP_AEM_NAME_INDEX_ENTITY_ITSELF) {
             src_name = entity->entity_name;
         } else if (name_state.name_index == AECP_AEM_NAME_INDEX_ENTITY_GROUP) {

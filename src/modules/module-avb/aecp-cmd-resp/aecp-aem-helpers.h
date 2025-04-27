@@ -129,7 +129,6 @@ static inline int reply_set_control(struct aecp *aecp, const void *m, int len, i
 	return avb_server_send_packet(aecp->server, h->src, AVB_TSN_ETH, buf, len);
 }
 
-
 static inline void aecp_aem_prepare_pointers_const(const void *m,
 		const struct avb_ethernet_header **pkt_hdr,
 		const struct avb_packet_aecp_aem **pkt_aecp_aem,

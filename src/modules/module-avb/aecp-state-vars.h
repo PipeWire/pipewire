@@ -21,14 +21,14 @@
 
 /** Such a structure should be only used for a specific entity only */
 static const struct aem_state_var_info milan_vars[] = {
-    AECP_AEM_NEEDED_VAR(aecp_aem_lock,"lock_ref", false, true, 1,
+    AECP_AEM_NEEDED_VAR(aecp_aem_lock, "lock_ref", false, true, 1,
         sizeof(struct aecp_aem_lock_state)),
 
     /* The set-name var serves only as a way to send unsolicited notifications*/
     AECP_AEM_NEEDED_VAR(aecp_aem_name, "getset-name", true, false, 1,
         sizeof(struct aecp_aem_name_state)),
 
-    AECP_AEM_NEEDED_VAR(aecp_aem_configuration,"configuration", true, false, 1,
+    AECP_AEM_NEEDED_VAR(aecp_aem_configuration, "configuration", true, false, 1,
         sizeof(struct aecp_aem_configuration_state)),
 
     AECP_AEM_NEEDED_VAR(aecp_aem_clock_domain, "clock_domain", true, false, 1,

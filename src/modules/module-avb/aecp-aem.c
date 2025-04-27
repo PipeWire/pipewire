@@ -21,6 +21,7 @@
 #include "aecp-cmd-resp/aecp-aem-configuration.h"
 #include "aecp-cmd-resp/aecp-aem-descriptors.h"
 #include "aecp-cmd-resp/aecp-aem-get-avb-info.h"
+#include "aecp-cmd-resp/aecp-aem-cmd-get-name.h"
 #include "aecp-cmd-resp/aecp-aem-lock-entity.h"
 #include "aecp-cmd-resp/aecp-aem-cmd-set-clock-source.h"
 #include "aecp-cmd-resp/aecp-aem-cmd-set-name.h"
@@ -82,7 +83,7 @@ static int handle_get_stream_info(struct aecp *aecp, int64_t now, const void *m,
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_get_name(struct aecp *aecp, int64_t now, const void *m, int len)
+static int handle_set_sampling_rate(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	//TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
@@ -261,7 +262,7 @@ static const struct cmd_info cmd_info[] = {
 						"set-name", handle_cmd_set_name, handle_unsol_set_name),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_NAME, true,
-						"get-name", handle_get_name),
+						"get-name", handle_cmd_get_name),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_ASSOCIATION_ID, false,
 						"set-association-id", NULL),

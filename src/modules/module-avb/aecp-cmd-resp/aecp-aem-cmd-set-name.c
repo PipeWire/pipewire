@@ -10,40 +10,7 @@
 #include "aecp-aem-types.h"
 
 #include "aecp-aem-cmd-set-name.h"
-
-#define AECP_AEM_NAME_INDEX_ENTITY_ITSELF       (0)
-#define AECP_AEM_NAME_INDEX_ENTITY_GROUP        (1)
-
-const bool list_support_descriptors_set_name[AVB_AEM_DESC_MAX_17221] = {
-    [AVB_AEM_DESC_ENTITY] = true,
-    [AVB_AEM_DESC_CONFIGURATION] = true,
-    [AVB_AEM_DESC_AUDIO_UNIT] = true,
-    [AVB_AEM_DESC_VIDEO_UNIT] = true,
-    [AVB_AEM_DESC_STREAM_INPUT] = true,
-    [AVB_AEM_DESC_STREAM_OUTPUT] = true,
-    [AVB_AEM_DESC_JACK_INPUT] = true,
-    [AVB_AEM_DESC_JACK_OUTPUT] = true,
-    [AVB_AEM_DESC_AVB_INTERFACE] = true,
-    [AVB_AEM_DESC_CLOCK_SOURCE] = true,
-    [AVB_AEM_DESC_MEMORY_OBJECT] = true,
-    [AVB_AEM_DESC_AUDIO_CLUSTER] = true,
-    [AVB_AEM_DESC_VIDEO_CLUSTER] = true,
-    [AVB_AEM_DESC_SENSOR_CLUSTER] = true,
-    [AVB_AEM_DESC_CONTROL] = true,
-    [AVB_AEM_DESC_SIGNAL_SELECTOR] = true,
-    [AVB_AEM_DESC_MIXER] = true,
-    [AVB_AEM_DESC_MATRIX] = true,
-    [AVB_AEM_DESC_SIGNAL_SPLITTER] = true,
-    [AVB_AEM_DESC_SIGNAL_COMBINER] = true,
-    [AVB_AEM_DESC_SIGNAL_DEMULTIPLEXER] = true,
-    [AVB_AEM_DESC_SIGNAL_MULTIPLEXER] = true,
-    [AVB_AEM_DESC_SIGNAL_TRANSCODER] = true,
-    [AVB_AEM_DESC_CLOCK_DOMAIN] = true,
-    [AVB_AEM_DESC_CONTROL_BLOCK] = true,
-    [AVB_AEM_DESC_TIMING] = true,
-    [AVB_AEM_DESC_PTP_INSTANCE] = true,
-    [AVB_AEM_DESC_PTP_PORT] = true,
-};
+#include "aecp-aem-name-common.h"
 
 static int request_unsolicited_notification(struct aecp *aecp,
     struct descriptor *desc, uint64_t ctrler_id, uint16_t name_index,
@@ -75,17 +42,10 @@ static int request_unsolicited_notification(struct aecp *aecp,
 static int handle_set_name_entity(struct descriptor *desc, uint16_t str_idex,
      const char *new_name)
 {
-    struct avb_aem_desc_entity *entity =
-            (struct avb_aem_desc_entity* ) desc->ptr;
-
     char *dest;
-    if (str_idex == AECP_AEM_NAME_INDEX_ENTITY_ITSELF) {
-        dest = entity->entity_name;
-    } else if (str_idex == AECP_AEM_NAME_INDEX_ENTITY_GROUP) {
-        dest = entity->group_name;
-    } else {
-        pw_log_error("Invalid string index for entity, rcved: %d", str_idex);
-        return -1;
+
+    if (aem_aecp_get_name_entity(desc, str_idex, &dest)) {
+        spa_assert(0);
     }
 
     strncpy(dest, new_name, AECP_AEM_STRLEN_MAX);

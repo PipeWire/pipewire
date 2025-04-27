@@ -17,6 +17,7 @@
 
 #include "aecp-cmd-resp/aecp-aem-available.h"
 #include "aecp-cmd-resp/aecp-aem-cmd-set-stream-format.h"
+#include "aecp-cmd-resp/aecp-aem-cmd-set-sampling-rate.h"
 #include "aecp-cmd-resp/aecp-aem-configuration.h"
 #include "aecp-cmd-resp/aecp-aem-descriptors.h"
 #include "aecp-cmd-resp/aecp-aem-get-avb-info.h"
@@ -82,13 +83,6 @@ static int handle_get_stream_info(struct aecp *aecp, int64_t now, const void *m,
 }
 
 static int handle_get_name(struct aecp *aecp, int64_t now, const void *m, int len)
-{
-	//TODO
-	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
-	return reply_not_implemented(aecp, m, len);
-}
-
-static int handle_set_sampling_rate(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	//TODO
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
@@ -275,8 +269,9 @@ static const struct cmd_info cmd_info[] = {
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_ASSOCIATION_ID, true,
 						"get-association-id", NULL),
 
-	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_SAMPLING_RATE, false,
-						"set-sampling-rate", handle_set_sampling_rate),
+	AECP_AEM_HANDLE_CMD_UNSOL( AVB_AECP_AEM_CMD_SET_SAMPLING_RATE, false,
+						"set-sampling-rate", handle_cmd_set_sampling_rate,
+						handle_unsol_sampling_rate),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_SAMPLING_RATE, true,
 						"get-sampling-rate", handle_get_sampling_rate),

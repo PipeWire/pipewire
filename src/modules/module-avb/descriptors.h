@@ -251,7 +251,7 @@ static inline void init_descriptors(struct server *server)
 			sizeof(stream_port_output0), &stream_port_output0);
 	struct {
 		struct avb_aem_desc_audio_unit desc;
-		struct avb_aem_desc_sampling_rate sampling_rates[1];
+		struct avb_aem_desc_sampling_rate sampling_rates[2];
 	} __attribute__ ((__packed__)) audio_unit =
 	{
 		{
@@ -293,11 +293,12 @@ static inline void init_descriptors(struct server *server)
 		.current_sampling_rate = htonl(48000),
 		.sampling_rates_offset = htons(
 			4 + sizeof(struct avb_aem_desc_audio_unit)),
-		.sampling_rates_count = htons(1),
+		.sampling_rates_count = htons(2),
 		},
 		.sampling_rates = {
-			// Set hte list of supported audio unit sample rate
+			// Set the list of supported audio unit sample rate
 			{ .pull_frequency = htonl(48000) },
+			{ .pull_frequency = htonl(96000) },
 		}
 	};
 	server_add_descriptor(server, AVB_AEM_DESC_AUDIO_UNIT, 0,

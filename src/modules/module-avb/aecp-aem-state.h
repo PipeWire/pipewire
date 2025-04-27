@@ -137,19 +137,72 @@ struct aecp_aem_sampling_rate_state {
     struct aecp_aem_desc_base base_desc;
 };
 
+/** Milan Spec V1.2 Table 5.13 5.14 */
+struct aecp_aem_counter_avb_interface {
+    struct aecp_aem_desc_base base_desc;
+
+    uint32_t link_up;
+    uint32_t link_down;
+    // Below members are optional
+    uint32_t gptp_gm_changed;
+    uint32_t frame_tx;
+    uint32_t frame_rx;
+    uint32_t error_crc;
+};
+
+/** Milan Spec V1.2 Table 5.15 */
+struct aecp_aem_counter_clock_domain {
+    struct aecp_aem_desc_base base_desc;
+
+    uint32_t locked;
+    uint32_t unlocked;
+};
+
+/** Milan Spec V1.2 Table 5.16 */
+struct aecp_aem_counter_stream_input {
+    struct aecp_aem_desc_base base_desc;
+
+    uint32_t media_locked;
+    uint32_t media_unlocked;
+    uint32_t stream_interrupted;
+    uint32_t seq_mistmatch;
+    uint32_t media_reset;
+    uint32_t tu;
+    uint32_t unsupported_format;
+    uint32_t late_timestamp;
+    uint32_t early_timestamp;
+    uint32_t frame_rx;
+};
+
+/** Milan Spec V1.2 Table 5.17 */
+
+struct aecp_aem_counter_stream_output {
+    struct aecp_aem_desc_base base_desc;
+
+    uint32_t stream_start;
+    uint32_t stream_stop;
+    uint32_t media_reset;
+    uint32_t tu;
+    uint32_t frame_tx;
+};
+
 /**
  * The aecp_aem_desc_base inherites from the base
  */
 enum aecp_aem_lock_types {
     aecp_aem_min = -1, // Sentinel check
 
-	  aecp_aem_lock,
+	aecp_aem_lock,
     aecp_aem_name,
     aecp_aem_clock_domain,
     aecp_aem_configuration,
     aecp_aem_control,
     aecp_aem_stream_format,
     aecp_aem_sampling_rate,
+    aecp_aem_counter_avb_interface,
+    aecp_aem_counter_clock_domain,
+    aecp_aem_counter_stream_input,
+    aecp_aem_counter_stream_output,
     aecp_aem_unsol_notif,
 
     // aecp_aem_desc, This is only used to retrieve the value, dynamic change

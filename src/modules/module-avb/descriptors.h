@@ -7,6 +7,7 @@
 #include "adp.h"
 #include "aecp-aem.h"
 #include "aecp-aem-descriptors.h"
+#include "aecp-aem-stream-format-defs.h"
 #include "aecp-aem-controls.h"
 #include "internal.h"
 
@@ -314,7 +315,7 @@ static inline void init_descriptors(struct server *server)
 		.stream_flags = htons(
 				AVB_AEM_DESC_STREAM_FLAG_SYNC_SOURCE |
 				AVB_AEM_DESC_STREAM_FLAG_CLASS_A),
-		.current_format = htobe64(0x0205022002006000ULL),
+		.current_format = htobe64(0x0205022000406000ULL),
 		.formats_offset = htons(
 			4 + sizeof(struct avb_aem_desc_stream)),
 		.number_of_formats = htons(5),
@@ -330,11 +331,11 @@ static inline void init_descriptors(struct server *server)
 		.buffer_length = htonl(2126000)
 		},
 		.stream_formats = {
-			htobe64(0x0205022000406000ULL),
-			htobe64(0x0205022000806000ULL),
-			htobe64(0x0205022001006000ULL),
-			htobe64(0x0205022001806000ULL),
-			htobe64(0x0205022002006000ULL),
+			htobe64(AECP_AEM_HELPER_FORMAT_STD_AVTP(48KHZ, 32BIT_INT, 32, 1, 6)),
+			htobe64(AECP_AEM_HELPER_FORMAT_STD_AVTP(48KHZ, 32BIT_INT, 32, 2, 6)),
+			htobe64(AECP_AEM_HELPER_FORMAT_STD_AVTP(48KHZ, 32BIT_INT, 32, 4, 6)),
+			htobe64(AECP_AEM_HELPER_FORMAT_STD_AVTP(48KHZ, 32BIT_INT, 32, 6, 6)),
+			htobe64(AECP_AEM_HELPER_FORMAT_STD_AVTP(48KHZ, 32BIT_INT, 32, 8, 6)),
 		},
 	};
 	server_add_descriptor(server, AVB_AEM_DESC_STREAM_INPUT, 0,

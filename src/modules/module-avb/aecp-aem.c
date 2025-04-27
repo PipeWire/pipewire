@@ -16,6 +16,7 @@
 #include "aecp-cmd-resp/aecp-aem-helpers.h"
 
 #include "aecp-cmd-resp/aecp-aem-available.h"
+#include "aecp-cmd-resp/aecp-aem-cmd-set-stream-format.h"
 #include "aecp-cmd-resp/aecp-aem-configuration.h"
 #include "aecp-cmd-resp/aecp-aem-descriptors.h"
 #include "aecp-cmd-resp/aecp-aem-get-avb-info.h"
@@ -56,13 +57,6 @@ static int handle_acquire_entity(struct aecp *aecp, int64_t now, const void *m, 
 
 	return reply_success(aecp, m, len);
 #endif // USE_MILAN
-}
-
-static int handle_set_stream_format(struct aecp *aecp, int64_t now, const void *m, int len)
-{
-	// TODO
-	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
-	return reply_not_implemented(aecp, m, len);
 }
 
 static int handle_get_stream_format(struct aecp *aecp, int64_t now, const void *m, int len)
@@ -250,8 +244,9 @@ static const struct cmd_info cmd_info[] = {
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_CONFIGURATION, true,
 						"get-configuration", handle_cmd_get_configuration),
 
-	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_SET_STREAM_FORMAT, false,
-						"set-stream-format", handle_set_stream_format),
+	AECP_AEM_HANDLE_CMD_UNSOL( AVB_AECP_AEM_CMD_SET_STREAM_FORMAT, false,
+						"set-stream-format", handle_cmd_set_stream_format,
+						handle_unsol_set_stream_format),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_STREAM_FORMAT, true,
 						"get-stream-format", handle_get_stream_format),

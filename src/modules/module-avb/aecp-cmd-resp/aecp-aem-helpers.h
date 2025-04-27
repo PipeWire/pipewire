@@ -15,7 +15,7 @@
 static inline int reply_status(struct aecp *aecp, int status, const void *m, int len)
 {
 	struct server *server = aecp->server;
-	uint8_t buf[len];
+	uint8_t buf[2048];
 	struct avb_ethernet_header *h = (void*)buf;
 	struct avb_packet_aecp_header *reply = SPA_PTROFF(h, sizeof(*h), void);
 
@@ -80,28 +80,6 @@ static inline int reply_bad_arguments(struct aecp *aecp, const void *m, int len)
 static inline int reply_success(struct aecp *aecp, const void *m, int len)
 {
 	return reply_status(aecp, AVB_AECP_AEM_STATUS_SUCCESS, m, len);
-}
-
-static inline int reply_set_name(struct aecp *aecp, const void *m, int len, int status, const char *name)
-{
-    uint8_t buf[512];
-    struct avb_ethernet_header *h = (void*)buf;
-    struct avb_packet_aecp_header *reply = SPA_PTROFF(h, sizeof(*h), void);
-    struct avb_packet_aecp_aem *p_reply = (void*)reply;
-    struct avb_packet_aecp_aem_setget_name *ae_reply;
-
-    memcpy(buf, m, len);
-    // Point to payload of AEM command
-    ae_reply = (struct avb_packet_aecp_aem_setget_name *)p_reply->payload;
-
-    // Set message type to response and a valid status
-    AVB_PACKET_AECP_SET_MESSAGE_TYPE(reply, AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
-    AVB_PACKET_AECP_SET_STATUS(reply, status);
-
-    // Include the name in the response
-	strncpy(ae_reply->name, name, AECP_AEM_STRLEN_MAX);
-
-    return avb_server_send_packet(aecp->server, h->src, AVB_TSN_ETH, buf, len);
 }
 
 static inline int reply_set_control(struct aecp *aecp, const void *m, int len, int status, uint8_t current_value)

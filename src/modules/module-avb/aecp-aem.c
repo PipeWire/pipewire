@@ -84,13 +84,6 @@ static int handle_get_stream_info(struct aecp *aecp, int64_t now, const void *m,
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_set_sampling_rate(struct aecp *aecp, int64_t now, const void *m, int len)
-{
-	//TODO
-	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
-	return reply_not_implemented(aecp, m, len);
-}
-
 static int handle_get_sampling_rate(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	//TODO

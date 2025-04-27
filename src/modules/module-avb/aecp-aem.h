@@ -9,6 +9,8 @@
 
 #include "aecp.h"
 #include "aecp-cmd-resp/aecp-aem-types.h"
+#include "aecp-aem-counters.h"
+
 struct avb_packet_aecp_aem_acquire {
 	uint32_t flags;
 	uint64_t owner_guid;
@@ -135,6 +137,17 @@ struct avb_packet_aecp_aem_incdec_control {
 	uint16_t reserved;
 } __attribute__ ((__packed__));
 
+struct avb_packet_aecp_aem_get_counters {
+	uint16_t descriptor_type;
+	uint16_t descriptor_id;
+} __attribute__ ((__packed__));
+
+struct avb_packet_aecp_aem_get_counters_resp {
+	struct avb_packet_aecp_aem_get_counters base;
+	uint32_t counter_valid;
+    uint32_t counter_block[AECP_AEM_COUNTER_BLOCK_QUADLET_COUNT];
+} __attribute__ ((__packed__));
+
 struct avb_packet_aecp_aem_setget_signal_selector {
 	uint16_t descriptor_type;
 	uint16_t descriptor_id;
@@ -196,12 +209,7 @@ struct avb_packet_aecp_aem_get_as_path {
 	uint16_t reserved;
 } __attribute__ ((__packed__));
 
-struct avb_packet_aecp_aem_get_counters {
-	uint16_t descriptor_type;
-	uint16_t descriptor_id;
-	uint32_t counters_valid;
-	uint8_t counters_block[0];
-} __attribute__ ((__packed__));
+
 
 struct avb_packet_aecp_aem_reboot {
 	uint16_t descriptor_type;

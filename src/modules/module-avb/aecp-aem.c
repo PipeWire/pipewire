@@ -25,6 +25,7 @@
 #include "aecp-cmd-resp/aecp-aem-lock-entity.h"
 #include "aecp-cmd-resp/aecp-aem-cmd-set-clock-source.h"
 #include "aecp-cmd-resp/aecp-aem-cmd-set-name.h"
+#include "aecp-cmd-resp/aecp-aem-cmd-get-counters.h"
 #include "aecp-cmd-resp/aecp-aem-lock-entity.h"
 #include "aecp-cmd-resp/aecp-aem-cmd-set-control.h"
 #include "aecp-cmd-resp/aecp-aem-unsol-notifications.h"
@@ -128,13 +129,6 @@ static int handle_stop_streaming(struct aecp *aecp, int64_t now, const void *m, 
 }
 
 static int handle_get_as_path(struct aecp *aecp, int64_t now, const void *m,
-	 int len)
-{
-	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
-	return reply_not_implemented(aecp, m, len);
-}
-
-static int handle_get_counters(struct aecp *aecp, int64_t now, const void *m,
 	 int len)
 {
 	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
@@ -339,7 +333,7 @@ static const struct cmd_info cmd_info[] = {
 						"get-as-path", handle_get_as_path),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_COUNTERS, true,
-						"get-counters", handle_get_counters),
+						"get-counters", handle_cmd_get_counters),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_REBOOT, false,
 						"reboot", NULL),

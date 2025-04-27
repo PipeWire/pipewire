@@ -10,8 +10,6 @@
 #include "aecp-aem-unsol-helper.h"
 #include "aecp-aem-cmd-set-sampling-rate.h"
 
-
-
 static int reply_failed_set_sampling_rate(struct aecp *aecp, const void *m,
      int len, struct avb_aem_desc_audio_unit *au)
 {
@@ -28,6 +26,7 @@ static int reply_failed_set_sampling_rate(struct aecp *aecp, const void *m,
     return reply_success(aecp, buf, len);
 }
 
+ /* IEEE 1722.1-2021, Sec. 7.4.21. SET_SAMPLING_RATE Command */
 int handle_cmd_set_sampling_rate(struct aecp *aecp, int64_t now, const void *m, int len)
 {
     struct server *server = aecp->server;

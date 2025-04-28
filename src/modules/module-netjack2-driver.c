@@ -63,11 +63,12 @@
  * - `source.ip =<str>`: IP address to bind to, default "0.0.0.0"
  * - `source.port =<int>`: port to bind to, default 0 (allocate)
  * - `netjack2.client-name`: the name of the NETJACK2 client.
- * - `netjack2.save`: if jack port connections should be save automatically. Can also be
- *                   placed per stream.
  * - `netjack2.latency`: the latency in cycles, default 2
  * - `audio.channels`: the number of audio ports. Can also be added to the stream props.
+ *      Will always be configured to the channel count of the manager. The audio.position
+ *      can however be used to assign an audio position.
  * - `midi.ports`: the number of midi ports. Can also be added to the stream props.
+ *      Will always be configured to the number of midi ports on the manager.
  * - `source.props`: Extra properties for the source filter.
  * - `sink.props`: Extra properties for the sink filter.
  *
@@ -95,7 +96,6 @@
  *     args = {
  *         #driver.mode          = duplex
  *         #netjack2.client-name = PipeWire
- *         #netjack2.save        = false
  *         #netjack2.latency     = 2
  *         #midi.ports           = 0
  *         #audio.channels       = 2
@@ -151,7 +151,6 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"( source.ip=<ip address to bind, default 0.0.0.0> ) "	\
 			"( source.port=<port to bind, default 0> ) "		\
 			"( netjack2.client-name=<name of the NETJACK2 client> ) "	\
-			"( netjack2.save=<bool, save ports> ) "			\
 			"( netjack2.latency=<latency in cycles, default 2> ) "	\
 			"( midi.ports=<number of midi ports> ) "		\
 			"( audio.channels=<number of channels> ) "		\

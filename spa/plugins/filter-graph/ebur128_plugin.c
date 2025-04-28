@@ -356,7 +356,7 @@ static struct spa_fga_port ebur128_ports[] = {
 	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_CONTROL,
 	},
 	{ .index = PORT_OUT_SHORTTERM,
-	  .name = "Shorttem LUFS",
+	  .name = "Shortterm LUFS",
 	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_CONTROL,
 	},
 	{ .index = PORT_OUT_GLOBAL,

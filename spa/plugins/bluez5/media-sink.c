@@ -116,8 +116,6 @@ struct spa_bt_asha {
 	uint8_t seqnum_pending;
 
 	uint64_t ref_t0;
-	uint64_t skip_frames;
-
 	uint64_t next_time;
 
 	unsigned int flush_pending:1;
@@ -216,8 +214,9 @@ struct impl {
 
 #define CHECK_PORT(this,d,p)	((d) == SPA_DIRECTION_INPUT && (p) == 0)
 
-static struct spa_list asha_sinks;
+static struct spa_list asha_sinks = SPA_LIST_INIT(&asha_sinks);
 
+static void drop_frames(struct impl *this, uint32_t req);
 static uint64_t get_reference_time(struct impl *this, uint64_t *duration_ns_ret);
 
 static struct impl *find_other_asha(struct impl *this)
@@ -380,13 +379,10 @@ static int set_asha_timer(struct impl *this, struct impl *other)
 
 		/* Since the quantum and packet size aren't correlated, drop any samples from this
 		 * cycle that might have been used to send a packet starting in the previous cycle */
-		this->asha->skip_frames = other_samples % this->process_duration;
+		drop_frames(this, other_samples % this->process_duration);
 	} else {
 		time = this->process_time;
-		this->asha->skip_frames = 0;
 	}
-
-	spa_log_debug(this->log, "will skip %"PRIu64 " frames", this->asha->skip_frames);
 
 	this->asha->next_time = time;
 
@@ -903,14 +899,6 @@ again:
 		avail = d[0].chunk->size - port->ready_offset;
 		avail /= port->frame_size;
 
-		if (is_asha && this->asha->skip_frames) {
-			/* Skip initial frames if needed */
-			uint64_t skip = SPA_MIN(this->asha->skip_frames, avail);
-			spa_log_trace(this->log, "skipping %"PRIu64 " frames", skip);
-			avail -= skip;
-			this->asha->skip_frames -= skip;
-		}
-
 		offs = index % d[0].maxsize;
 		n_frames = avail;
 		n_bytes = n_frames * port->frame_size;
@@ -1330,16 +1318,16 @@ static void media_on_timeout(struct spa_source *source)
 static uint64_t asha_seqnum(struct impl *this)
 {
 	uint64_t tn = get_reference_time(this, NULL);
-	double dt = tn - this->asha->ref_t0;
-	double num_packets = dt / ASHA_CONN_INTERVAL;
+	uint64_t dt = tn - this->asha->ref_t0;
+	uint64_t num_packets = (dt + ASHA_CONN_INTERVAL / 2) / ASHA_CONN_INTERVAL;
 
-	spa_log_trace(this->log, "%" PRIu64 " - %" PRIu64 " / 20ms = %g",
+	spa_log_trace(this->log, "%" PRIu64 " - %" PRIu64 " / 20ms = %ld",
 			tn, this->asha->ref_t0, num_packets);
 
 	if (this->asha->ref_t0 > tn)
 		return 0;
 
-	return (uint64_t)round(num_packets) % 256;
+	return num_packets % 256;
 }
 
 static void media_asha_flush_timeout(struct spa_source *source)
@@ -1393,6 +1381,10 @@ static void media_asha_flush_timeout(struct spa_source *source)
 			asha->seqnum_pending = seqnum;
 			asha->poll_pending = true;
 			asha->flush_pending = false;
+
+			SPA_FLAG_UPDATE(asha->flush_source.mask, SPA_IO_OUT, 1);
+			spa_loop_update_source(this->data_loop, &asha->flush_source);
+
 			spa_log_warn(this->log, "%p: ASHA failed to flush %d seqnum on timer for %s, written:%d",
 					this, seqnum, address, -errno);
 			goto skip_flush;
@@ -1434,6 +1426,9 @@ static void media_asha_cb(struct spa_source *source)
 		if (this->transport == NULL || !asha->poll_pending) {
 			return;
 		}
+
+		SPA_FLAG_UPDATE(asha->flush_source.mask, SPA_IO_OUT, 0);
+		spa_loop_update_source(this->data_loop, &asha->flush_source);
 
 		seqnum = asha->buf[0];
 		written = send(asha->flush_source.fd, asha->buf,
@@ -1595,7 +1590,7 @@ static int transport_start(struct impl *this)
 		asha->flush_source.data = this;
 		asha->flush_source.fd = this->transport->fd;
 		asha->flush_source.func = media_asha_cb;
-		asha->flush_source.mask = SPA_IO_OUT | SPA_IO_ERR | SPA_IO_HUP;
+		asha->flush_source.mask = SPA_IO_ERR | SPA_IO_HUP;
 		asha->flush_source.rmask = 0;
 		spa_loop_add_source(this->data_loop, &asha->flush_source);
 
@@ -1791,7 +1786,7 @@ static void emit_node_info(struct impl *this, bool full)
 				this->transport->bap_big);
 		node_group = node_group_buf;
 	} else if (this->transport && (this->transport->profile & SPA_BT_PROFILE_ASHA_SINK)) {
-		spa_scnprintf(node_group_buf, sizeof(node_group_buf), "[\"bluez-asha-%zd\"]",
+		spa_scnprintf(node_group_buf, sizeof(node_group_buf), "[\"bluez-asha-%" PRIu64 "d\"]",
 				this->transport->hisyncid);
 		node_group = node_group_buf;
 	}
@@ -2577,11 +2572,6 @@ impl_init(const struct spa_handle_factory *factory,
 		this->asha = calloc(1, sizeof(struct spa_bt_asha));
 		if (this->asha == NULL)
 			return -ENOMEM;
-
-		if (!spa_list_is_initialized(&asha_sinks)) {
-			spa_list_init(&asha_sinks);
-			spa_log_info(this->log, "Initialized ASHA media sink list");
-		}
 
 		this->asha->timerfd = spa_system_timerfd_create(this->data_system,
 				CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);

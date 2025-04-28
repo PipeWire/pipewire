@@ -1082,8 +1082,7 @@ static int create_netjack2_socket(struct impl *impl)
 	impl->dscp = pw_properties_get_uint32(impl->props, "net.dscp", DEFAULT_NET_DSCP);
 	str = pw_properties_get(impl->props, "local.ifname");
 
-	fd = make_announce_socket(&impl->src_addr, impl->src_len,
-			pw_properties_get(impl->props, "local.ifname"));
+	fd = make_announce_socket(&impl->src_addr, impl->src_len, str);
 	if (fd < 0) {
 		res = fd;
 		pw_log_error("can't create socket: %s", spa_strerror(res));

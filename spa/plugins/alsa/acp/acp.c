@@ -16,7 +16,7 @@ void *_acp_log_data;
 
 struct spa_i18n *acp_i18n;
 
-#define DEFAULT_CHANNELS	256u
+#define DEFAULT_CHANNELS	255u
 #define DEFAULT_RATE		48000u
 
 #define VOLUME_ACCURACY (PA_VOLUME_NORM/100)  /* don't require volume adjustments to be perfectly correct. don't necessarily extend granularity in software unless the differences get greater than this level */

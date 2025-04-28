@@ -181,6 +181,8 @@ struct stream {
 	struct pw_filter *filter;
 	struct spa_hook listener;
 
+	struct spa_io_position *position;
+
 	struct spa_audio_info_raw info;
 
 	uint32_t n_midi;
@@ -220,8 +222,6 @@ struct impl {
 	struct pw_core *core;
 	struct spa_hook core_proxy_listener;
 	struct spa_hook core_listener;
-
-	struct spa_io_position *position;
 
 	struct stream source;
 	struct stream sink;
@@ -368,11 +368,10 @@ static void source_process(void *d, struct spa_io_position *position)
 static void stream_io_changed(void *data, void *port_data, uint32_t id, void *area, uint32_t size)
 {
 	struct stream *s = data;
-	struct impl *impl = s->impl;
 	if (port_data == NULL) {
 		switch (id) {
 		case SPA_IO_Position:
-			impl->position = area;
+			s->position = area;
 			break;
 		default:
 			break;
@@ -615,6 +614,24 @@ static inline uint64_t get_time_nsec(struct impl *impl)
 	return nsec;
 }
 
+static void update_clock(struct impl *impl, struct stream *s, uint64_t nsec, uint32_t nframes)
+{
+	if (s->position) {
+		struct spa_io_clock *c = &s->position->clock;
+
+		c->nsec = nsec;
+		c->rate = SPA_FRACTION(1, impl->samplerate);
+		c->position = impl->frame_time;
+		c->duration = nframes;
+		c->delay = 0;
+		c->rate_diff = 1.0;
+		c->next_nsec = nsec;
+
+		c->target_rate = c->rate;
+		c->target_duration = c->duration;
+	}
+}
+
 static void
 on_data_io(void *data, int fd, uint32_t mask)
 {
@@ -654,20 +671,6 @@ on_data_io(void *data, int fd, uint32_t mask)
 			pw_log_warn("Xrun netjack2:%u PipeWire:%u", impl->nj2_xrun, impl->pw_xrun);
 			impl->new_xrun = false;
 		}
-		if (impl->position) {
-			struct spa_io_clock *c = &impl->position->clock;
-
-			c->nsec = nsec;
-			c->rate = SPA_FRACTION(1, impl->samplerate);
-			c->position = impl->frame_time;
-			c->duration = nframes;
-			c->delay = 0;
-			c->rate_diff = 1.0;
-			c->next_nsec = nsec;
-
-			c->target_rate = c->rate;
-			c->target_duration = c->duration;
-		}
 		if (!source_running)
 			netjack2_recv_data(&impl->peer, NULL, 0, NULL, 0);
 
@@ -675,11 +678,13 @@ on_data_io(void *data, int fd, uint32_t mask)
 			impl->done = false;
 			impl->triggered = true;
 			impl->driving = MODE_SOURCE;
+			update_clock(impl, &impl->source, nsec, nframes);
 			pw_filter_trigger_process(impl->source.filter);
 		} else if (impl->mode == MODE_SINK && sink_running) {
 			impl->done = false;
 			impl->triggered = true;
 			impl->driving = MODE_SINK;
+			update_clock(impl, &impl->sink, nsec, nframes);
 			pw_filter_trigger_process(impl->sink.filter);
 		} else {
 			sink_running = false;

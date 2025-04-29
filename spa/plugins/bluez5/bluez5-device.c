@@ -684,7 +684,7 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 		items[n_items] = SPA_DICT_ITEM_INIT("api.bluez5.a2dp-duplex", "true");
 		n_items++;
 	}
-	if (in_device_set) {
+	if (in_device_set || t->media_codec->asha) {
 		items[n_items] = SPA_DICT_ITEM_INIT("api.bluez5.set", this->device_set.path);
 		n_items++;
 		items[n_items] = SPA_DICT_ITEM_INIT("api.bluez5.internal", "true");
@@ -694,14 +694,6 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 		spa_scnprintf(object_path, sizeof(object_path), "%s/%s-%d",
 				this->device_set.path, device->address, id);
 		items[n_items] = SPA_DICT_ITEM_INIT("object.path", object_path);
-		n_items++;
-	}
-	if (t->media_codec->asha) {
-		char hisyncid[32] = { 0 };
-		spa_scnprintf(hisyncid, sizeof(hisyncid), "%zd", t->hisyncid);
-		items[n_items] = SPA_DICT_ITEM_INIT("api.bluez5.asha.hisyncid", hisyncid);
-		n_items++;
-		items[n_items] = SPA_DICT_ITEM_INIT("api.bluez5.asha.side", t->asha_right_side ? "right" : "left");
 		n_items++;
 	}
 
@@ -1000,6 +992,7 @@ static void device_set_update(struct impl *this, struct device_set *dset)
 	spa_list_for_each(set, membership_list, link) {
 		struct spa_bt_set_membership *s;
 		int num_devices = 0;
+		bool is_asha_member = false;
 
 		device_set_clear(this, dset);
 
@@ -1008,44 +1001,71 @@ static void device_set_update(struct impl *this, struct device_set *dset)
 			bool active = false;
 			uint32_t source_id = DEVICE_ID_SOURCE;
 			uint32_t sink_id = DEVICE_ID_SINK;
+			bool bap_duplex = s->device->connected_profiles & SPA_BT_PROFILE_BAP_DUPLEX;
+			bool is_asha = s->device->connected_profiles & SPA_BT_PROFILE_ASHA_SINK;
 
-			if (!(s->device->connected_profiles & SPA_BT_PROFILE_BAP_DUPLEX))
+			if (!bap_duplex && !is_asha)
 				continue;
 
-			spa_list_for_each(t, &s->device->transport_list, device_link) {
-				if (!(s->device->connected_profiles & SPA_BT_PROFILE_BAP_SOURCE))
-					continue;
-				if (!transport_enabled(t, SPA_BT_PROFILE_BAP_SOURCE))
-					continue;
-				if (dset->sources >= SPA_N_ELEMENTS(dset->source))
-					break;
+			if (is_asha) {
+				spa_list_for_each(t, &s->device->transport_list, device_link) {
+					if (!(s->device->connected_profiles & SPA_BT_PROFILE_ASHA_SINK))
+						continue;
+					if (!transport_enabled(t, SPA_BT_PROFILE_ASHA_SINK))
+						continue;
+					if (dset->sinks >= SPA_N_ELEMENTS(dset->sink))
+						break;
 
-				active = true;
-				dset->source[dset->sources].impl = this;
-				dset->source[dset->sources].transport = t;
-				dset->source[dset->sources].id = source_id;
-				source_id += 2;
-				spa_bt_transport_add_listener(t, &dset->source[dset->sources].listener,
-						&device_set_transport_events, &dset->source[dset->sources]);
-				++dset->sources;
+					active = true;
+					is_asha_member = true;
+					dset->leader = set->leader = t->asha_right_side;
+					dset->path = strdup(set->path);
+					dset->sink[dset->sinks].impl = this;
+					dset->sink[dset->sinks].transport = t;
+					dset->sink[dset->sinks].id = sink_id;
+					sink_id += 2;
+					spa_bt_transport_add_listener(t, &dset->sink[dset->sinks].listener,
+							&device_set_transport_events, &dset->sink[dset->sinks]);
+					++dset->sinks;
+				}
 			}
 
-			spa_list_for_each(t, &s->device->transport_list, device_link) {
-				if (!(s->device->connected_profiles & SPA_BT_PROFILE_BAP_SINK))
-					continue;
-				if (!transport_enabled(t, SPA_BT_PROFILE_BAP_SINK))
-					continue;
-				if (dset->sinks >= SPA_N_ELEMENTS(dset->sink))
-					break;
+			if (bap_duplex) {
+				spa_list_for_each(t, &s->device->transport_list, device_link) {
+					if (!(s->device->connected_profiles & SPA_BT_PROFILE_BAP_SOURCE))
+						continue;
+					if (!transport_enabled(t, SPA_BT_PROFILE_BAP_SOURCE))
+						continue;
+					if (dset->sources >= SPA_N_ELEMENTS(dset->source))
+						break;
 
-				active = true;
-				dset->sink[dset->sinks].impl = this;
-				dset->sink[dset->sinks].transport = t;
-				dset->sink[dset->sinks].id = sink_id;
-				sink_id += 2;
-				spa_bt_transport_add_listener(t, &dset->sink[dset->sinks].listener,
-						&device_set_transport_events, &dset->sink[dset->sinks]);
-				++dset->sinks;
+					active = true;
+					dset->source[dset->sources].impl = this;
+					dset->source[dset->sources].transport = t;
+					dset->source[dset->sources].id = source_id;
+					source_id += 2;
+					spa_bt_transport_add_listener(t, &dset->source[dset->sources].listener,
+							&device_set_transport_events, &dset->source[dset->sources]);
+					++dset->sources;
+				}
+
+				spa_list_for_each(t, &s->device->transport_list, device_link) {
+					if (!(s->device->connected_profiles & SPA_BT_PROFILE_BAP_SINK))
+						continue;
+					if (!transport_enabled(t, SPA_BT_PROFILE_BAP_SINK))
+						continue;
+					if (dset->sinks >= SPA_N_ELEMENTS(dset->sink))
+						break;
+
+					active = true;
+					dset->sink[dset->sinks].impl = this;
+					dset->sink[dset->sinks].transport = t;
+					dset->sink[dset->sinks].id = sink_id;
+					sink_id += 2;
+					spa_bt_transport_add_listener(t, &dset->sink[dset->sinks].listener,
+							&device_set_transport_events, &dset->sink[dset->sinks]);
+					++dset->sinks;
+				}
 			}
 
 			if (active)
@@ -1062,8 +1082,10 @@ static void device_set_update(struct impl *this, struct device_set *dset)
 			/* XXX: device set nodes for BAP server not supported,
 			 * XXX: it'll appear as multiple streams
 			 */
-			dset->path = NULL;
-			dset->leader = false;
+			if (!is_asha_member) {
+				dset->path = NULL;
+				dset->leader = false;
+			}
 		}
 
 		if (num_devices > 1)
@@ -1126,10 +1148,13 @@ static int emit_nodes(struct impl *this)
 		break;
 	case DEVICE_PROFILE_ASHA:
 		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_ASHA_SINK) {
+			struct device_set *set = &this->device_set;
 			t = find_transport(this, SPA_BT_PROFILE_ASHA_SINK);
 			if (t) {
 				this->props.codec = t->media_codec->id;
 				emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_MEDIA_SINK, false);
+				if (set->sink_enabled && set->leader)
+					emit_device_set_node(this, DEVICE_ID_SINK_SET);
 			} else {
 				spa_log_warn(this->log, "Unable to find transport for ASHA");
 			}
@@ -1409,7 +1434,8 @@ static bool device_set_needs_update(struct impl *this)
 	struct device_set dset = { .impl = this };
 	bool changed;
 
-	if (this->profile != DEVICE_PROFILE_BAP)
+	if (this->profile != DEVICE_PROFILE_BAP &&
+			this->profile != DEVICE_PROFILE_ASHA)
 		return false;
 
 	device_set_update(this, &dset);
@@ -1490,7 +1516,8 @@ static void device_set_changed(void *userdata)
 {
 	struct impl *this = userdata;
 
-	if (this->profile != DEVICE_PROFILE_BAP)
+	if (this->profile != DEVICE_PROFILE_BAP &&
+			this->profile != DEVICE_PROFILE_ASHA)
 		return;
 
 	if (!device_set_needs_update(this)) {
@@ -1850,6 +1877,9 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 
 		n_sink++;
 		priority = 1;
+
+		if (this->device_set.sink_enabled)
+			n_sink = this->device_set.leader ? 1 : 0;
 
 		break;
 	}

@@ -2113,7 +2113,8 @@ static void device_update_set_status(struct spa_bt_device *device, bool force, c
 int spa_bt_device_connect_profile(struct spa_bt_device *device, enum spa_bt_profile profile)
 {
 	device->connected_profiles |= profile;
-	if (profile & SPA_BT_PROFILE_BAP_DUPLEX)
+	if (profile & SPA_BT_PROFILE_BAP_DUPLEX ||
+			profile & SPA_BT_PROFILE_ASHA_SINK)
 		device_update_set_status(device, true, NULL);
 	spa_bt_device_check_profiles(device, false);
 	spa_bt_device_emit_profiles_changed(device, profile);
@@ -2145,7 +2146,10 @@ static bool device_set_update_leader(struct spa_bt_set_membership *set)
 	 * appear under a specific device.
 	 */
 	spa_bt_for_each_set_member(s, set) {
-		if (!(s->device->connected_profiles & SPA_BT_PROFILE_BAP_DUPLEX))
+		bool bap_duplex = s->device->connected_profiles & SPA_BT_PROFILE_BAP_DUPLEX;
+		bool is_asha = s->device->connected_profiles & SPA_BT_PROFILE_ASHA_SINK;
+
+		if (!bap_duplex && !is_asha)
 			continue;
 
 		if (leader == NULL || s->rank < leader->rank ||
@@ -2972,6 +2976,7 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
 	struct spa_bt_device *device = transport->device;
+	char hisyncid[32] = { 0 };
 
 	spa_log_debug(monitor->log, "transport %p: free %s", transport, transport->path);
 
@@ -3019,6 +3024,12 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 
 		if (transport->profile & SPA_BT_PROFILE_BAP_DUPLEX)
 			device_update_set_status(device, true, NULL);
+
+		if (transport->profile & SPA_BT_PROFILE_ASHA_SINK) {
+			spa_scnprintf(hisyncid, sizeof(hisyncid), "/asha/%" PRIu64, transport->hisyncid);
+			device_update_set_status(device, true, hisyncid);
+			device_remove_device_set(device, hisyncid);
+		}
 
 		spa_bt_device_emit_profiles_changed(device, transport->profile);
 	}
@@ -4114,6 +4125,7 @@ static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, 
 	const struct media_codec * const * const media_codecs = monitor->media_codecs;
 	const struct media_codec *codec = NULL;
 	struct spa_bt_transport *transport;
+	char hisyncid[32] = { 0 };
 	char *tpath;
 
 	if (!remote_endpoint->transport_path) {
@@ -4172,6 +4184,10 @@ static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, 
 	spa_bt_device_connect_profile(transport->device, transport->profile);
 
 	transport_sync_volume(transport);
+
+	spa_scnprintf(hisyncid, sizeof(hisyncid), "/asha/%" PRIu64, transport->hisyncid);
+	device_add_device_set(transport->device, hisyncid, transport->asha_right_side ? 1 : 0);
+	device_update_set_status(transport->device, true, hisyncid);
 
 	const char *side = transport->asha_right_side ? "right" : "left";
 	spa_log_debug(monitor->log, "ASHA transport setup complete for %s side", side);

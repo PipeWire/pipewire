@@ -67,6 +67,7 @@ enum spa_media_subtype {
 	SPA_MEDIA_SUBTYPE_vp8,
 	SPA_MEDIA_SUBTYPE_vp9,
 	SPA_MEDIA_SUBTYPE_bayer,
+	SPA_MEDIA_SUBTYPE_h265,
 
 	SPA_MEDIA_SUBTYPE_START_Image	= 0x30000,
 	SPA_MEDIA_SUBTYPE_jpeg,
@@ -132,6 +133,8 @@ enum spa_format {
 	SPA_FORMAT_VIDEO_level,			/**< (Int) */
 	SPA_FORMAT_VIDEO_H264_streamFormat,	/**< (Id enum spa_h264_stream_format) */
 	SPA_FORMAT_VIDEO_H264_alignment,	/**< (Id enum spa_h264_alignment) */
+	SPA_FORMAT_VIDEO_H265_streamFormat,	/**< (Id enum spa_h265_stream_format) */
+	SPA_FORMAT_VIDEO_H265_alignment,	/**< (Id enum spa_h265_alignment) */
 
 	/* Image Format keys */
 	SPA_FORMAT_START_Image = 0x30000,

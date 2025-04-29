@@ -14,6 +14,7 @@ extern "C" {
 #include <spa/param/video/raw-utils.h>
 #include <spa/param/video/dsp-utils.h>
 #include <spa/param/video/h264-utils.h>
+#include <spa/param/video/h265-utils.h>
 #include <spa/param/video/mjpg-utils.h>
 
 #ifndef SPA_API_VIDEO_FORMAT_UTILS

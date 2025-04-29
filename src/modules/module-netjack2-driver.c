@@ -670,8 +670,8 @@ on_data_io(void *data, int fd, uint32_t mask)
 
 		impl->frame_time += nframes;
 
-		pw_log_trace_fp("process %d %u %u %p %"PRIu64, nframes, source_running,
-				sink_running, impl->position, impl->frame_time);
+		pw_log_trace_fp("process %d %u %u %"PRIu64, nframes, source_running,
+				sink_running, impl->frame_time);
 
 		if (impl->new_xrun) {
 			pw_log_warn("Xrun netjack2:%u PipeWire:%u", impl->nj2_xrun, impl->pw_xrun);

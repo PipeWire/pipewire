@@ -134,7 +134,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_MIDI_PORTS	-1
 #define DEFAULT_AUDIO_PORTS	-1
 
-#define FOLLOWER_INIT_TIMEOUT	10000
+#define FOLLOWER_INIT_TIMEOUT	1
 #define FOLLOWER_INIT_RETRY	-1
 
 #define MODULE_USAGE	"( remote.name=<remote> ) "				\

@@ -43,6 +43,7 @@ static const struct media_type media_type_map[] = {
   { "image/jpeg", SPA_MEDIA_TYPE_video, SPA_MEDIA_SUBTYPE_mjpg },
   { "video/x-jpeg", SPA_MEDIA_TYPE_video, SPA_MEDIA_SUBTYPE_mjpg },
   { "video/x-h264", SPA_MEDIA_TYPE_video, SPA_MEDIA_SUBTYPE_h264 },
+  { "video/x-h265", SPA_MEDIA_TYPE_video, SPA_MEDIA_SUBTYPE_h265 },
   { "audio/x-mulaw", SPA_MEDIA_TYPE_audio, SPA_MEDIA_SUBTYPE_raw },
   { "audio/x-alaw", SPA_MEDIA_TYPE_audio, SPA_MEDIA_SUBTYPE_raw },
   { "audio/mpeg", SPA_MEDIA_TYPE_audio, SPA_MEDIA_SUBTYPE_mp3 },
@@ -1195,6 +1196,12 @@ gst_caps_from_format (const struct spa_pod *format)
     }
     else if (media_subtype == SPA_MEDIA_SUBTYPE_h264) {
       res = gst_caps_new_simple ("video/x-h264",
+          "stream-format", G_TYPE_STRING, "byte-stream",
+          "alignment", G_TYPE_STRING, "au",
+          NULL);
+    }
+    else if (media_subtype == SPA_MEDIA_SUBTYPE_h265) {
+      res = gst_caps_new_simple ("video/x-h265",
           "stream-format", G_TYPE_STRING, "byte-stream",
           "alignment", G_TYPE_STRING, "au",
           NULL);

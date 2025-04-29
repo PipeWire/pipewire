@@ -679,13 +679,15 @@ on_data_io(void *data, int fd, uint32_t mask)
 			impl->triggered = true;
 			impl->driving = MODE_SOURCE;
 			update_clock(impl, &impl->source, nsec, nframes);
-			pw_filter_trigger_process(impl->source.filter);
+			if (pw_filter_trigger_process(impl->source.filter) < 0)
+				pw_log_warn("source not ready");
 		} else if (impl->mode == MODE_SINK && sink_running) {
 			impl->done = false;
 			impl->triggered = true;
 			impl->driving = MODE_SINK;
 			update_clock(impl, &impl->sink, nsec, nframes);
-			pw_filter_trigger_process(impl->sink.filter);
+			if (pw_filter_trigger_process(impl->sink.filter) < 0)
+				pw_log_warn("sink not ready");
 		} else {
 			sink_running = false;
 			impl->done = true;

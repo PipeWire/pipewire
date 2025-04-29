@@ -206,9 +206,12 @@ struct avb_packet_aecp_aem_get_avb_info {
 
 struct avb_packet_aecp_aem_get_as_path {
 	uint16_t descriptor_index;
-	uint16_t reserved;
+	union {
+		uint16_t reserved;
+		uint16_t count;
+	} __attribute__ ((__packed__));
+	uint64_t path_trace[0];
 } __attribute__ ((__packed__));
-
 
 
 struct avb_packet_aecp_aem_reboot {

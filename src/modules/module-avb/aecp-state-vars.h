@@ -56,6 +56,10 @@ static const struct aem_state_var_info milan_vars[] = {
     AECP_AEM_NEEDED_VAR(aecp_aem_counter_stream_output, "counter_stream_output",
          true, true, 1, sizeof(struct aecp_aem_counter_stream_output_state)),
 
+    /** One per AVB interface */
+    AECP_AEM_NEEDED_VAR(aecp_aem_ptp_as_path, "ptp-as-path", true, false, 1,
+        sizeof(struct aecp_aem_ptp_as_path_state)),
+
     AECP_AEM_NEEDED_VAR(aecp_aem_unsol_notif, "unsol_notif_recorded",false, true,
         16, sizeof(struct aecp_aem_unsol_notification_state)),
 };

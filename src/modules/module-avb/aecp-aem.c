@@ -120,13 +120,6 @@ static int handle_stop_streaming(struct aecp *aecp, int64_t now, const void *m, 
 	return reply_not_implemented(aecp, m, len);
 }
 
-static int handle_get_as_path(struct aecp *aecp, int64_t now, const void *m,
-	 int len)
-{
-	pw_log_warn("%s: +%d: has to be implemented\n", __func__, __LINE__);
-	return reply_not_implemented(aecp, m, len);
-}
-
 static int handle_get_audio_map(struct aecp *aecp, int64_t now,
 	 const void *m, int len)
 {
@@ -322,7 +315,7 @@ static const struct cmd_info cmd_info[] = {
 						"get-avb-info", handle_cmd_get_avb_info),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_AS_PATH, true,
-						"get-as-path", handle_get_as_path),
+						"get-as-path", handle_cmd_get_avb_info),
 
 	AECP_AEM_HANDLE_CMD( AVB_AECP_AEM_CMD_GET_COUNTERS, true,
 						"get-counters", handle_cmd_get_counters),

@@ -755,6 +755,7 @@ if build_module_avb
       'module-avb/aecp-cmd-resp/aecp-aem-cmd-set-sampling-rate.c',
       'module-avb/aecp-cmd-resp/aecp-aem-cmd-set-stream-format.c',
       'module-avb/aecp-cmd-resp/aecp-aem-cmd-get-counters.c',
+      'module-avb/aecp-cmd-resp/aecp-aem-cmd-get-as-path.c',
       'module-avb/aecp-cmd-resp/aecp-aem-configuration.c',
       'module-avb/aecp-cmd-resp/aecp-aem-descriptors.c',
       'module-avb/aecp-cmd-resp/aecp-aem-get-avb-info.c',

@@ -11,6 +11,7 @@
 #include <stddef.h>
 #include "internal.h"
 
+#include "gptp/gptp-defs.h"
 struct aem_state_var_info {
     /** The name of the var for debug */
     const char *var_name;
@@ -195,6 +196,15 @@ struct aecp_aem_counter_stream_output_state {
 };
 
 /**
+ * IEEE 1722.1-2021 Clause 7.4.41 GET_AS_PATHS
+ */
+struct aecp_aem_ptp_as_path_state {
+    struct aecp_aem_desc_base base_desc;
+    uint32_t path_count;
+    uint64_t path_trace[GPTP_AVB_HOPS_MAX];
+};
+
+/**
  * The aecp_aem_desc_base inherites from the base
  */
 enum aecp_aem_lock_types {
@@ -211,6 +221,7 @@ enum aecp_aem_lock_types {
     aecp_aem_counter_clock_domain,
     aecp_aem_counter_stream_input,
     aecp_aem_counter_stream_output,
+    aecp_aem_ptp_as_path,
     aecp_aem_unsol_notif,
 
     // aecp_aem_desc, This is only used to retrieve the value, dynamic change

@@ -758,7 +758,7 @@ static inline int32_t netjack2_driver_sync_wait(struct netjack2_peer *peer)
 
 receive_error:
 	pw_log_warn("recv error: %m");
-	return 0;
+	return -errno;
 }
 
 static inline int32_t netjack2_manager_sync_wait(struct netjack2_peer *peer)
@@ -802,7 +802,7 @@ static inline int32_t netjack2_manager_sync_wait(struct netjack2_peer *peer)
 
 receive_error:
 	pw_log_warn("recv error: %m");
-	return 0;
+	return -errno;
 }
 
 static int netjack2_recv_midi(struct netjack2_peer *peer, struct nj2_packet_header *header, uint32_t *count,

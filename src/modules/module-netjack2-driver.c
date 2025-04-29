@@ -53,7 +53,6 @@
  *
  * ## Module Options
  *
- * - `driver.mode`: the driver mode, sink|source|duplex, default duplex
  * - `local.ifname = <str>`: interface name to use
  * - `net.ip =<str>`: multicast IP address, default "225.3.19.154"
  * - `net.port =<int>`: control port, default 19000
@@ -64,11 +63,10 @@
  * - `source.port =<int>`: port to bind to, default 0 (allocate)
  * - `netjack2.client-name`: the name of the NETJACK2 client.
  * - `netjack2.latency`: the latency in cycles, default 2
- * - `audio.channels`: the number of audio ports. Can also be added to the stream props.
- *      Will always be configured to the channel count of the manager. The audio.position
- *      can however be used to assign an audio position.
+ * - `audio.ports`: the number of audio ports. Can also be added to the stream props.
+ *      A value of -1 will configure to the number of audio ports on the manager.
  * - `midi.ports`: the number of midi ports. Can also be added to the stream props.
- *      Will always be configured to the number of midi ports on the manager.
+ *      A value of -1 will configure to the number of midi ports on the manager.
  * - `source.props`: Extra properties for the source filter.
  * - `sink.props`: Extra properties for the sink filter.
  *
@@ -94,10 +92,10 @@
  * context.modules = [
  * {   name = libpipewire-module-netjack2-driver
  *     args = {
- *         #driver.mode          = duplex
  *         #netjack2.client-name = PipeWire
  *         #netjack2.latency     = 2
  *         #midi.ports           = 0
+ *         #audio.ports          = -1
  *         #audio.channels       = 2
  *         #audio.position       = [ FL FR ]
  *         source.props = {
@@ -133,15 +131,13 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define NETWORK_MAX_LATENCY	30
 
 #define DEFAULT_CLIENT_NAME	"PipeWire"
-#define DEFAULT_CHANNELS	2
-#define DEFAULT_POSITION	"[ FL FR ]"
-#define DEFAULT_MIDI_PORTS	1
+#define DEFAULT_MIDI_PORTS	-1
+#define DEFAULT_AUDIO_PORTS	-1
 
-#define FOLLOWER_INIT_TIMEOUT	1
+#define FOLLOWER_INIT_TIMEOUT	10000
 #define FOLLOWER_INIT_RETRY	-1
 
 #define MODULE_USAGE	"( remote.name=<remote> ) "				\
-			"( driver.mode=<sink|source|duplex> ) "			\
 			"( local.ifname=<interface name> ) "			\
 			"( net.ip=<ip address to use, default 225.3.19.154> ) "	\
 			"( net.port=<port to use, default 19000> ) "		\
@@ -152,9 +148,10 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"( source.port=<port to bind, default 0> ) "		\
 			"( netjack2.client-name=<name of the NETJACK2 client> ) "	\
 			"( netjack2.latency=<latency in cycles, default 2> ) "	\
-			"( midi.ports=<number of midi ports> ) "		\
-			"( audio.channels=<number of channels> ) "		\
-			"( audio.position=<channel map> ) "			\
+			"( audio.ports=<number of midi ports, default -1> ) "	\
+			"( midi.ports=<number of midi ports, default -1> ) "	\
+			"( audio.channels=<number of channels, default 0> ) "	\
+			"( audio.position=<channel map, default null> ) "	\
 			"( source.props=<properties> ) "			\
 			"( sink.props=<properties> ) "
 
@@ -181,11 +178,13 @@ struct stream {
 	struct pw_filter *filter;
 	struct spa_hook listener;
 
+	int32_t wanted_n_midi;
+	int32_t wanted_n_audio;
+
 	struct spa_io_position *position;
 
 	struct spa_audio_info_raw info;
 
-	uint32_t n_midi;
 	uint32_t n_ports;
 	struct port *ports[MAX_PORTS];
 
@@ -456,6 +455,7 @@ static void make_stream_ports(struct stream *s)
 
 		s->ports[i] = port;
 	}
+	pw_filter_set_active(s->filter, true);
 }
 
 static struct spa_pod *make_props_param(struct spa_pod_builder *b,
@@ -521,7 +521,6 @@ static void stream_param_changed(void *data, void *port_data, uint32_t id,
 		case SPA_PARAM_PortConfig:
 			pw_log_debug("PortConfig");
 			make_stream_ports(s);
-			pw_filter_set_active(s->filter, true);
 			break;
 		case SPA_PARAM_Props:
 			pw_log_debug("Props");
@@ -556,6 +555,7 @@ static int make_stream(struct stream *s, const char *name)
 	const struct spa_pod *params[4];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
+	int res;
 
 	n_params = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -581,12 +581,18 @@ static int make_stream(struct stream *s, const char *name)
 			SPA_PARAM_Format, &s->info);
 	params[n_params++] = make_props_param(&b, &s->volume);
 
-	return pw_filter_connect(s->filter,
+	if ((res = pw_filter_connect(s->filter,
 			PW_FILTER_FLAG_INACTIVE |
 			PW_FILTER_FLAG_DRIVER |
 			PW_FILTER_FLAG_RT_PROCESS |
 			PW_FILTER_FLAG_CUSTOM_LATENCY,
-			params, n_params);
+			params, n_params)) < 0)
+		return res;
+
+	if (s->info.channels == 0)
+		make_stream_ports(s);
+
+	return res;
 }
 
 static int create_filters(struct impl *impl)
@@ -801,13 +807,12 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 	int res;
 	struct netjack2_peer *peer = &impl->peer;
 	uint32_t i;
+	const char *media;
 
 	pw_log_info("got follower setup");
 	nj2_dump_session_params(params);
 
 	nj2_session_params_ntoh(&peer->params, params);
-	SPA_SWAP(peer->params.send_audio_channels, peer->params.recv_audio_channels);
-	SPA_SWAP(peer->params.send_midi_channels, peer->params.recv_midi_channels);
 
 	if (peer->params.send_audio_channels < 0 ||
 	    peer->params.recv_audio_channels < 0 ||
@@ -822,19 +827,27 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 
 	pw_loop_update_io(impl->main_loop, impl->setup_socket, 0);
 
-	impl->source.n_ports = peer->params.send_audio_channels + peer->params.send_midi_channels;
-	impl->source.info.rate =  peer->params.sample_rate;
-	if ((uint32_t)peer->params.send_audio_channels != impl->source.info.channels) {
-		impl->source.info.channels = peer->params.send_audio_channels;
-		for (i = 0; i < SPA_MIN(impl->source.info.channels, SPA_AUDIO_MAX_CHANNELS); i++)
-			impl->source.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
+	impl->sink.n_ports = peer->params.send_audio_channels + peer->params.send_midi_channels;
+	if (impl->sink.n_ports > MAX_PORTS) {
+		pw_log_warn("Too many follower sink ports %d > %d", impl->sink.n_ports, MAX_PORTS);
+		return -EINVAL;
 	}
-	impl->sink.n_ports = peer->params.recv_audio_channels + peer->params.recv_midi_channels;
 	impl->sink.info.rate =  peer->params.sample_rate;
-	if ((uint32_t)peer->params.recv_audio_channels != impl->sink.info.channels) {
-		impl->sink.info.channels =  peer->params.recv_audio_channels;
-		for (i = 0; i < SPA_MIN(impl->sink.info.channels, SPA_AUDIO_MAX_CHANNELS); i++)
+	if ((uint32_t)peer->params.send_audio_channels != impl->sink.info.channels) {
+		impl->sink.info.channels = SPA_MIN(peer->params.send_audio_channels, (int)SPA_AUDIO_MAX_CHANNELS);
+		for (i = 0; i < impl->sink.info.channels; i++)
 			impl->sink.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
+	}
+	impl->source.n_ports = peer->params.recv_audio_channels + peer->params.recv_midi_channels;
+	if (impl->source.n_ports > MAX_PORTS) {
+		pw_log_warn("Too many follower source ports %d > %d", impl->source.n_ports, MAX_PORTS);
+		return -EINVAL;
+	}
+	impl->source.info.rate =  peer->params.sample_rate;
+	if ((uint32_t)peer->params.recv_audio_channels != impl->source.info.channels) {
+		impl->source.info.channels = SPA_MIN(peer->params.recv_audio_channels, (int)SPA_AUDIO_MAX_CHANNELS);
+		for (i = 0; i < impl->source.info.channels; i++)
+			impl->source.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 	}
 	impl->samplerate = peer->params.sample_rate;
 	impl->period_size = peer->params.period_size;
@@ -854,6 +867,20 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 	pw_properties_set(impl->source.props, PW_KEY_NODE_FORCE_RATE, "0");
 	pw_properties_setf(impl->source.props, PW_KEY_NODE_FORCE_QUANTUM,
 			"%u", impl->period_size);
+
+	media = impl->sink.info.channels > 0 ? "Audio" : "Midi";
+	if (pw_properties_get(impl->sink.props, PW_KEY_MEDIA_CLASS) == NULL)
+		pw_properties_setf(impl->sink.props, PW_KEY_MEDIA_CLASS, "%s/Sink", media);
+
+	media = impl->source.info.channels > 0 ? "Audio" : "Midi";
+	if (pw_properties_get(impl->source.props, PW_KEY_MEDIA_CLASS) == NULL)
+		pw_properties_setf(impl->source.props, PW_KEY_MEDIA_CLASS, "%s/Source", media);
+
+	impl->mode = 0;
+	if (impl->source.n_ports > 0)
+		impl->mode |= MODE_SOURCE;
+	if (impl->sink.n_ports > 0)
+		impl->mode |= MODE_SINK;
 
 	if ((res = create_filters(impl)) < 0)
 		return res;
@@ -954,10 +981,10 @@ static int send_follower_available(struct impl *impl)
 	snprintf(params.follower_name, sizeof(params.follower_name), "%s", pw_get_host_name());
 	params.mtu = htonl(impl->mtu);
 	params.transport_sync = htonl(0);
-	params.send_audio_channels = htonl(-1);
-	params.recv_audio_channels = htonl(-1);
-	params.send_midi_channels = htonl(-1);
-	params.recv_midi_channels = htonl(-1);
+	params.send_audio_channels = htonl(impl->sink.wanted_n_audio);
+	params.recv_audio_channels = htonl(impl->source.wanted_n_audio);
+	params.send_midi_channels = htonl(impl->sink.wanted_n_midi);
+	params.recv_midi_channels = htonl(impl->source.wanted_n_midi);
 	params.sample_encoder = htonl(NJ2_ENCODER_FLOAT);
 	params.follower_sync_mode = htonl(1);
         params.network_latency = htonl(impl->latency);
@@ -1165,8 +1192,7 @@ static void parse_audio_info(const struct pw_properties *props, struct spa_audio
 {
 	spa_audio_info_raw_init_dict_keys(info,
 			&SPA_DICT_ITEMS(
-				 SPA_DICT_ITEM(SPA_KEY_AUDIO_FORMAT, "F32P"),
-				 SPA_DICT_ITEM(SPA_KEY_AUDIO_POSITION, DEFAULT_POSITION)),
+				 SPA_DICT_ITEM(SPA_KEY_AUDIO_FORMAT, "F32P")),
 			&props->dict,
 			SPA_KEY_AUDIO_CHANNELS,
 			SPA_KEY_AUDIO_POSITION, NULL);
@@ -1234,20 +1260,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->sink.impl = impl;
 	impl->sink.direction = PW_DIRECTION_INPUT;
 
-	impl->mode = MODE_DUPLEX;
-	if ((str = pw_properties_get(props, "driver.mode")) != NULL) {
-		if (spa_streq(str, "source")) {
-			impl->mode = MODE_SOURCE;
-		} else if (spa_streq(str, "sink")) {
-			impl->mode = MODE_SINK;
-		} else if (spa_streq(str, "duplex")) {
-			impl->mode = MODE_DUPLEX;
-		} else {
-			pw_log_error("invalid driver.mode '%s'", str);
-			res = -EINVAL;
-			goto error;
-		}
-	}
 	impl->latency = pw_properties_get_uint32(impl->props, "netjack2.latency",
 			DEFAULT_NETWORK_LATENCY);
 
@@ -1259,11 +1271,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(props, PW_KEY_NODE_ALWAYS_PROCESS) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_ALWAYS_PROCESS, "true");
 
-	pw_properties_set(impl->sink.props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 	pw_properties_set(impl->sink.props, PW_KEY_PRIORITY_DRIVER, "40000");
 	pw_properties_set(impl->sink.props, PW_KEY_NODE_NAME, "netjack2_driver_send");
 
-	pw_properties_set(impl->source.props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 	pw_properties_set(impl->source.props, PW_KEY_PRIORITY_DRIVER, "40001");
 	pw_properties_set(impl->source.props, PW_KEY_NODE_NAME, "netjack2_driver_receive");
 
@@ -1278,22 +1288,20 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_ALWAYS_PROCESS);
 	copy_props(impl, props, PW_KEY_NODE_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
+	copy_props(impl, props, "midi.ports");
+	copy_props(impl, props, "audio.ports");
 
 	parse_audio_info(impl->source.props, &impl->source.info);
 	parse_audio_info(impl->sink.props, &impl->sink.info);
 
-	impl->source.n_midi = pw_properties_get_uint32(impl->source.props,
+	impl->source.wanted_n_midi = pw_properties_get_int32(impl->source.props,
 			"midi.ports", DEFAULT_MIDI_PORTS);
-	impl->sink.n_midi = pw_properties_get_uint32(impl->sink.props,
+	impl->sink.wanted_n_midi = pw_properties_get_int32(impl->sink.props,
 			"midi.ports", DEFAULT_MIDI_PORTS);
-
-	impl->source.n_ports = impl->source.n_midi + impl->source.info.channels;
-	impl->sink.n_ports = impl->sink.n_midi + impl->sink.info.channels;
-	if (impl->source.n_ports > MAX_PORTS || impl->sink.n_ports > MAX_PORTS) {
-		pw_log_error("too many ports");
-		res = -EINVAL;
-		goto error;
-	}
+	impl->source.wanted_n_audio = pw_properties_get_int32(impl->source.props,
+			"audio.ports", DEFAULT_AUDIO_PORTS);
+	impl->sink.wanted_n_audio = pw_properties_get_int32(impl->sink.props,
+			"audio.ports", DEFAULT_AUDIO_PORTS);
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

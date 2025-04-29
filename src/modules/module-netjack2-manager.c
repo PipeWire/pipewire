@@ -183,6 +183,8 @@ struct stream {
 	struct pw_filter *filter;
 	struct spa_hook listener;
 
+	struct spa_io_position *position;
+
 	struct spa_audio_info_raw info;
 
 	uint32_t n_midi;
@@ -201,8 +203,6 @@ struct stream {
 struct follower {
 	struct spa_list link;
 	struct impl *impl;
-
-	struct spa_io_position *position;
 
 	struct stream source;
 	struct stream sink;
@@ -354,9 +354,8 @@ static void sink_process(void *d, struct spa_io_position *position)
 		pw_loop_update_io(s->impl->data_loop, follower->socket, SPA_IO_IN);
 }
 
-static void source_process(void *d, struct spa_io_position *position)
+static inline void handle_source_process(struct stream *s, struct spa_io_position *position)
 {
-	struct stream *s = d;
 	struct follower *follower = s->follower;
 	uint32_t nframes = position->clock.duration;
 	struct data_info midi[s->n_ports];
@@ -367,6 +366,12 @@ static void source_process(void *d, struct spa_io_position *position)
 
 	netjack2_manager_sync_wait(&follower->peer);
 	netjack2_recv_data(&follower->peer, midi, n_midi, audio, n_audio);
+}
+
+static void source_process(void *d, struct spa_io_position *position)
+{
+	struct stream *s = d;
+	handle_source_process(s, position);
 }
 
 static void follower_free(struct follower *follower)
@@ -473,18 +478,20 @@ on_data_io(void *data, int fd, uint32_t mask)
 	if (mask & SPA_IO_IN) {
 		pw_loop_update_io(impl->data_loop, follower->socket, 0);
 
-		pw_filter_trigger_process(follower->source.filter);
+		if (pw_filter_trigger_process(follower->source.filter) < 0) {
+			pw_log_warn("source not ready");
+			handle_source_process(&follower->source, follower->source.position);
+		}
 	}
 }
 
 static void stream_io_changed(void *data, void *port_data, uint32_t id, void *area, uint32_t size)
 {
 	struct stream *s = data;
-	struct follower *follower = s->follower;
 	if (port_data == NULL) {
 		switch (id) {
 		case SPA_IO_Position:
-			follower->position = area;
+			s->position = area;
 			break;
 		default:
 			break;

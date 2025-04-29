@@ -139,8 +139,7 @@ enum hfp_hf_state {
 	hfp_hf_ccwa,
 	hfp_hf_cmee,
 	hfp_hf_nrec,
-	hfp_hf_slc1,
-	hfp_hf_slc2,
+	hfp_hf_clcc,
 	hfp_hf_vgs,
 	hfp_hf_vgm
 };
@@ -2445,11 +2444,9 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 				}
 				SPA_FALLTHROUGH;
 			case hfp_hf_nrec:
-				rfcomm->hf_state = hfp_hf_slc1;
-
 				if (rfcomm->hfp_hf_clcc) {
 					rfcomm_send_cmd(rfcomm, "AT+CLCC");
-					rfcomm->hf_state = hfp_hf_slc2;
+					rfcomm->hf_state = hfp_hf_clcc;
 					break;
 				} else {
 					// TODO: Create calls if CIND reports one during SLC setup
@@ -2457,12 +2454,11 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 
 				/* Report volume on SLC establishment */
 				SPA_FALLTHROUGH;
-			case hfp_hf_slc2:
+			case hfp_hf_clcc:
 				rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX);
 				rfcomm->hf_state = hfp_hf_vgs;
 				break;
 			case hfp_hf_vgs:
-				rfcomm->hf_state = hfp_hf_slc1;
 				rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_TX);
 				rfcomm->hf_state = hfp_hf_vgm;
 				break;
@@ -2995,7 +2991,10 @@ static void sco_listen_event(struct spa_source *source)
 	if (t->profile == SPA_BT_PROFILE_HSP_AG) {
 		rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX);
 		rfcomm->hs_state = hsp_hs_vgs;
-	} else if (t->profile == SPA_BT_PROFILE_HFP_AG) {
+	} else if (t->profile == SPA_BT_PROFILE_HFP_AG && rfcomm->hf_state > hfp_hf_vgs) {
+		/* Report volume only if SLC and setup sequence has been completed
+		 * else this could break the sequence.
+		 * The volumes will be reported at the end of the setup sequence. */
 		rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX);
 		rfcomm->hf_state = hfp_hf_vgs;
 	}

@@ -537,7 +537,7 @@ static bool rfcomm_hsp_ag(struct rfcomm *rfcomm, char* buf)
 	return true;
 }
 
-static bool rfcomm_send_volume_cmd(struct rfcomm *rfcomm, int id)
+static void rfcomm_send_volume_cmd(struct rfcomm *rfcomm, int id)
 {
 	struct spa_bt_transport_volume *t_volume;
 	const char *format;
@@ -565,8 +565,6 @@ static bool rfcomm_send_volume_cmd(struct rfcomm *rfcomm, int id)
 	 	spa_assert_not_reached();
 
 	rfcomm_send_cmd(rfcomm, "%s=%d", format, hw_volume);
-
-	return true;
 }
 
 static bool rfcomm_hsp_hs(struct rfcomm *rfcomm, char* buf)
@@ -595,15 +593,11 @@ static bool rfcomm_hsp_hs(struct rfcomm *rfcomm, char* buf)
 		}
 	} else if (spa_streq(buf, "OK")) {
 		if (rfcomm->hs_state == hsp_hs_init2) {
-			if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
-				rfcomm->hs_state = hsp_hs_vgs;
-			else
-				rfcomm->hs_state = hsp_hs_init1;
+			rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX);
+			rfcomm->hs_state = hsp_hs_vgs;
 		} else if (rfcomm->hs_state == hsp_hs_vgs) {
-			if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_TX))
-				rfcomm->hs_state = hsp_hs_vgm;
-			else
-				rfcomm->hs_state = hsp_hs_init1;
+			rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_TX);
+			rfcomm->hs_state = hsp_hs_vgm;
 		}
 	}
 
@@ -2464,13 +2458,13 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 				/* Report volume on SLC establishment */
 				SPA_FALLTHROUGH;
 			case hfp_hf_slc2:
-				if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
-					rfcomm->hf_state = hfp_hf_vgs;
+				rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX);
+				rfcomm->hf_state = hfp_hf_vgs;
 				break;
 			case hfp_hf_vgs:
 				rfcomm->hf_state = hfp_hf_slc1;
-				if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_TX))
-					rfcomm->hf_state = hfp_hf_vgm;
+				rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_TX);
+				rfcomm->hf_state = hfp_hf_vgm;
 				break;
 			default:
 				break;
@@ -2999,15 +2993,11 @@ static void sco_listen_event(struct spa_source *source)
 
 	/* Report initial volume to remote */
 	if (t->profile == SPA_BT_PROFILE_HSP_AG) {
-		if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
-			rfcomm->hs_state = hsp_hs_vgs;
-		else
-			rfcomm->hs_state = hsp_hs_init1;
+		rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX);
+		rfcomm->hs_state = hsp_hs_vgs;
 	} else if (t->profile == SPA_BT_PROFILE_HFP_AG) {
-		if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
-			rfcomm->hf_state = hfp_hf_vgs;
-		else
-			rfcomm->hf_state = hfp_hf_slc1;
+		rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX);
+		rfcomm->hf_state = hfp_hf_vgs;
 	}
 
 	spa_bt_transport_set_state(t, SPA_BT_TRANSPORT_STATE_PENDING);

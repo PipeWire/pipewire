@@ -368,17 +368,27 @@ static void midi_to_netjack2(struct netjack2_peer *peer,
 			buf->write_pos);
 }
 
+static inline void netjack2_clear_midi(float *dst, uint32_t size)
+{
+	struct spa_pod_builder b = { 0, };
+	struct spa_pod_frame f;
+	spa_pod_builder_init(&b, dst, size);
+	spa_pod_builder_push_sequence(&b, &f, 0);
+	spa_pod_builder_pop(&b, &f);
+}
+
 static inline void netjack2_to_midi(float *dst, uint32_t size, struct nj2_midi_buffer *buf)
 {
 	struct spa_pod_builder b = { 0, };
 	uint32_t i;
 	struct spa_pod_frame f;
-	size_t offset = size - buf->write_pos -
-		sizeof(*buf) - (buf->event_count * sizeof(struct nj2_midi_event));
+	size_t offset = size - buf->write_pos - sizeof(*buf) -
+			(buf->event_count * sizeof(struct nj2_midi_event));
 
 	spa_pod_builder_init(&b, dst, size);
 	spa_pod_builder_push_sequence(&b, &f, 0);
-	for (i = 0; buf != NULL && i < buf->event_count; i++) {
+
+	for (i = 0; i < buf->event_count; i++) {
 		struct nj2_midi_event *ev = &buf->event[i];
 		uint8_t *data;
 		size_t s;
@@ -1088,7 +1098,7 @@ static int netjack2_recv_data(struct netjack2_peer *peer,
 	}
 	for (i = 0; i < n_midi; i++) {
 		if (!midi[i].filled && midi[i].data != NULL)
-			netjack2_to_midi(midi[i].data, peer->params.period_size * sizeof(float), NULL);
+			netjack2_clear_midi(midi[i].data, peer->params.period_size * sizeof(float));
 	}
 	peer->sync.cycle = ntohl(header.cycle);
 	return 0;

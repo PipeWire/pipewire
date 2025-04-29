@@ -359,6 +359,15 @@ static void sink_process(void *d, struct spa_io_position *position)
 		pw_loop_update_io(s->impl->data_loop, follower->socket, SPA_IO_IN);
 }
 
+static int stop_follower(struct follower *follower);
+
+static int do_stop_follower(struct spa_loop *loop,
+                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	stop_follower(user_data);
+	return 0;
+}
+
 static inline void handle_source_process(struct stream *s, struct spa_io_position *position)
 {
 	struct follower *follower = s->follower;
@@ -369,7 +378,10 @@ static inline void handle_source_process(struct stream *s, struct spa_io_positio
 
 	set_info(s, nframes, midi, &n_midi, audio, &n_audio);
 
-	netjack2_manager_sync_wait(&follower->peer);
+	if (netjack2_manager_sync_wait(&follower->peer) < 0) {
+		pw_loop_invoke(s->impl->main_loop, do_stop_follower, 0, NULL, 0, false, follower);
+		return;
+	}
 	netjack2_recv_data(&follower->peer, midi, n_midi, audio, n_audio);
 }
 
@@ -481,8 +493,8 @@ on_data_io(void *data, int fd, uint32_t mask)
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_warn("error:%08x", mask);
-		pw_loop_destroy_source(impl->data_loop, follower->socket);
-		follower->socket = NULL;
+		pw_loop_update_io(impl->data_loop, follower->socket, 0);
+		pw_loop_invoke(impl->main_loop, do_stop_follower, 0, NULL, 0, false, follower);
 		return;
 	}
 	if (mask & SPA_IO_IN) {

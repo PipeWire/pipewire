@@ -429,7 +429,7 @@ static int netjack2_send_sync(struct netjack2_peer *peer, uint32_t nframes)
 	is_last = peer->params.send_midi_channels == 0 &&
                         peer->params.send_audio_channels == 0 ? 1 : 0;
 
-	strcpy(header.type, "header");
+	strncpy(header.type, "header", sizeof(header.type));
 	header.data_type = htonl('s');
 	header.data_stream = htonl(peer->our_stream);
 	header.id = htonl(peer->params.id);
@@ -483,7 +483,7 @@ static int netjack2_send_midi(struct netjack2_peer *peer, uint32_t nframes,
 	max_size = peer->params.mtu - sizeof(header);
 	num_packets = (midi_size + max_size-1) / max_size;
 
-	strcpy(header.type, "header");
+	strncpy(header.type, "header", sizeof(header.type));
 	header.data_type = htonl('m');
 	header.data_stream = htonl(peer->our_stream);
 	header.id = htonl(peer->params.id);
@@ -535,7 +535,7 @@ static int netjack2_send_float(struct netjack2_peer *peer, uint32_t nframes,
 	sub_period_bytes = sub_period_size * sizeof(float) + sizeof(int32_t);
 	num_packets = nframes / sub_period_size;
 
-	strcpy(header.type, "header");
+	strncpy(header.type, "header", sizeof(header.type));
 	header.data_type = htonl('a');
 	header.data_stream = htonl(peer->our_stream);
 	header.id = htonl(peer->params.id);
@@ -610,7 +610,7 @@ static int netjack2_send_opus(struct netjack2_peer *peer, uint32_t nframes,
 		}
 	}
 
-	strcpy(header.type, "header");
+	strncpy(header.type, "header", sizeof(header.type));
 	header.data_type = htonl('a');
 	header.data_stream = htonl(peer->our_stream);
 	header.id = htonl(peer->params.id);
@@ -678,7 +678,7 @@ static int netjack2_send_int(struct netjack2_peer *peer, uint32_t nframes,
 			memset(ap, 0, max_encoded);
 	}
 
-	strcpy(header.type, "header");
+	strncpy(header.type, "header", sizeof(header.type));
 	header.data_type = htonl('a');
 	header.data_stream = htonl(peer->our_stream);
 	header.id = htonl(peer->params.id);

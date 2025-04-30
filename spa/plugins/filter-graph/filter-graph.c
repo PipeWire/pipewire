@@ -1643,8 +1643,6 @@ static void unsetup_graph(struct graph *graph)
 	graph->output = NULL;
 	free(graph->hndl);
 	graph->hndl = NULL;
-	free(graph->control_port);
-	graph->control_port = NULL;
 
 }
 static int setup_graph(struct graph *graph)
@@ -2127,6 +2125,8 @@ static void graph_free(struct graph *graph)
 	for (i = 0; i < graph->n_output_names; i++)
 		free(graph->output_names[i]);
 	free(graph->output_names);
+	free(graph->control_port);
+	graph->control_port = NULL;
 }
 
 static const struct spa_filter_graph_methods impl_filter_graph = {

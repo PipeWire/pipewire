@@ -236,6 +236,7 @@ struct follower {
 	unsigned int done:1;
 	unsigned int new_xrun:1;
 	unsigned int started:1;
+	unsigned int freeing:1;
 };
 
 struct impl {
@@ -289,6 +290,7 @@ static void stream_destroy(void *d)
 	struct stream *s = d;
 	uint32_t i;
 
+	s->running = false;
 	spa_hook_remove(&s->listener);
 	for (i = 0; i < s->n_ports; i++)
 		s->ports[i] = NULL;
@@ -400,20 +402,35 @@ static void follower_free(struct follower *follower)
 {
 	struct impl *impl = follower->impl;
 
+	if (follower->freeing)
+		return;
+
+	follower->freeing = true;
+
 	spa_list_remove(&follower->link);
 
-	if (follower->source.filter)
+	if (follower->socket) {
+		pw_loop_destroy_source(impl->data_loop, follower->socket);
+		follower->socket = NULL;
+	}
+	if (follower->setup_socket) {
+		pw_loop_destroy_source(impl->main_loop, follower->setup_socket);
+		follower->setup_socket = NULL;
+	}
+
+	if (follower->source.filter) {
 		pw_filter_destroy(follower->source.filter);
-	if (follower->sink.filter)
+		follower->source.filter = NULL;
+	}
+	if (follower->sink.filter) {
 		pw_filter_destroy(follower->sink.filter);
+		follower->sink.filter = NULL;
+	}
 
 	pw_properties_free(follower->source.props);
+	follower->source.props = NULL;
 	pw_properties_free(follower->sink.props);
-
-	if (follower->socket)
-		pw_loop_destroy_source(impl->data_loop, follower->socket);
-	if (follower->setup_socket)
-		pw_loop_destroy_source(impl->main_loop, follower->setup_socket);
+	follower->sink.props = NULL;
 
 	netjack2_cleanup(&follower->peer);
 	free(follower);
@@ -447,10 +464,13 @@ static void
 on_setup_io(void *data, int fd, uint32_t mask)
 {
 	struct follower *follower = data;
+	struct impl *impl = follower->impl;
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_warn("error:%08x", mask);
-		stop_follower(follower);
+		pw_loop_destroy_source(impl->main_loop, follower->setup_socket);
+		follower->setup_socket = NULL;
+		pw_loop_invoke(impl->main_loop, do_stop_follower, 0, NULL, 0, false, follower);
 		return;
 	}
 	if (mask & SPA_IO_IN) {
@@ -493,7 +513,8 @@ on_data_io(void *data, int fd, uint32_t mask)
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		pw_log_warn("error:%08x", mask);
-		pw_loop_update_io(impl->data_loop, follower->socket, 0);
+		pw_loop_destroy_source(impl->data_loop, follower->socket);
+		follower->socket = NULL;
 		pw_loop_invoke(impl->main_loop, do_stop_follower, 0, NULL, 0, false, follower);
 		return;
 	}

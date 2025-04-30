@@ -177,6 +177,16 @@ Names are prefixed by *+* when they are linked to a driver (entry
 above with no +)
 \endparblock
 
+# COMMANDS
+
+The following keys can be used in the interactive mode:
+
+\par q
+Quit
+
+\par c
+Clear the ERR counters. This does *not* clear the counters globally,
+it will only reset the counters in this instance of *pw-top*.
 
 # OPTIONS
 

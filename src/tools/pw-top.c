@@ -53,7 +53,9 @@ struct node {
 	char name[MAX_NAME+1];
 	enum pw_node_state state;
 	struct measurement measurement;
+	uint32_t measurement_base;
 	struct driver info;
+	uint32_t info_base;
 	struct node *driver;
 	uint32_t generation;
 	char format[MAX_FORMAT+1];
@@ -486,8 +488,9 @@ static const char *state_as_string(enum pw_node_state state, uint32_t transport)
 	return "!";
 }
 
-static void print_node(struct data *d, struct driver *i, struct node *n, int y)
+static void print_node(struct data *d, struct node *dr, struct node *n, int y)
 {
+	struct driver *i = &dr->info;
 	char buf1[64];
 	char buf2[64];
 	char buf3[64];
@@ -534,7 +537,8 @@ static void print_node(struct data *d, struct driver *i, struct node *n, int y)
 			print_perc(buf3, active, 64, waiting, quantum),
 			print_perc(buf4, active, 64, busy, quantum),
 			n->measurement.xrun_count == XRUN_INVALID ?
-					i->xrun_count : n->measurement.xrun_count,
+					i->xrun_count - dr->info_base :
+					n->measurement.xrun_count - n->measurement_base,
 			active ? n->format : "",
 			n->driver == n ? "" : " + ",
 			n->name);
@@ -570,7 +574,7 @@ static void do_refresh(struct data *d, bool force_refresh)
 		if (n->driver != n)
 			continue;
 
-		print_node(d, &n->info, n, y++);
+		print_node(d, n, n, y++);
 		if(!d->batch_mode && y > LINES)
 			break;
 
@@ -581,7 +585,7 @@ static void do_refresh(struct data *d, bool force_refresh)
 			if (f->driver != n || f == n)
 				continue;
 
-			print_node(d, &n->info, f, y++);
+			print_node(d, n, f, y++);
 			if(!d->batch_mode && y > LINES)
 				break;
 
@@ -609,6 +613,16 @@ static void do_timeout(void *data, uint64_t expirations)
 {
 	struct data *d = data;
 	d->generation++;
+	do_refresh(d, true);
+}
+
+static void reset_xruns(struct data *d)
+{
+	struct node *n;
+	spa_list_for_each(n, &d->node_list, link) {
+		n->info_base = n->info.xrun_count;
+		n->measurement_base = n->measurement.xrun_count;
+	}
 	do_refresh(d, true);
 }
 
@@ -787,6 +801,9 @@ static void do_handle_io(void *data, int fd, uint32_t mask)
 		switch(ch) {
 		case 'q':
 			pw_main_loop_quit(d->loop);
+			break;
+		case 'c':
+			reset_xruns(d);
 			break;
 		default:
 			do_refresh(d, !d->batch_mode);

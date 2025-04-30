@@ -160,6 +160,7 @@ struct volume {
 struct graph {
 	struct impl *impl;
 
+	uint32_t n_nodes;
 	struct spa_list node_list;
 	struct spa_list link_list;
 
@@ -1390,6 +1391,8 @@ static int load_node(struct graph *graph, struct spa_json *json)
 		parse_control(node, &control);
 
 	spa_list_append(&graph->node_list, &node->link);
+	graph->n_nodes++;
+	graph->n_control += desc->n_control;
 
 	return 0;
 }
@@ -1620,22 +1623,6 @@ error:
 	return res;
 }
 
-/* any default values for the controls are set in the first instance
- * of the control data. Duplicate this to the other instances now. */
-static void setup_node_controls(struct node *node)
-{
-	uint32_t i, j;
-	uint32_t n_hndl = node->n_hndl;
-	uint32_t n_ports = node->desc->n_control;
-	struct port *ports = node->control_port;
-
-	for (i = 0; i < n_ports; i++) {
-		struct port *port = &ports[i];
-		for (j = 1; j < n_hndl; j++)
-			port->control_data[j] = port->control_data[0];
-	}
-}
-
 static struct node *find_next_node(struct graph *graph)
 {
 	struct node *node;
@@ -1668,7 +1655,7 @@ static int setup_graph(struct graph *graph)
 	struct link *link;
 	struct graph_port *gp;
 	struct graph_hndl *gh;
-	uint32_t i, j, n, n_nodes, n_input, n_output, n_control, n_hndl = 0;
+	uint32_t i, j, n, n_input, n_output, n_hndl = 0;
 	int res;
 	struct descriptor *desc;
 	const struct spa_fga_descriptor *d;
@@ -1755,16 +1742,6 @@ static int setup_graph(struct graph *graph)
 	}
 	spa_log_info(impl->log, "using %d instances %d %d", n_hndl, n_input, n_output);
 
-	/* now go over all nodes and create instances. */
-	n_control = 0;
-	n_nodes = 0;
-	spa_list_for_each(node, &graph->node_list, link) {
-		node->n_hndl = n_hndl;
-		desc = node->desc;
-		n_control += desc->n_control;
-		n_nodes++;
-		setup_node_controls(node);
-	}
 	graph->n_input = 0;
 	graph->input = calloc(n_input * 16 * n_hndl, sizeof(struct graph_port));
 	graph->n_output = 0;
@@ -1903,13 +1880,12 @@ static int setup_graph(struct graph *graph)
 
 	/* order all nodes based on dependencies */
 	graph->n_hndl = 0;
-	graph->hndl = calloc(n_nodes * n_hndl, sizeof(struct graph_hndl));
-	graph->n_control = 0;
-	graph->control_port = calloc(n_control, sizeof(struct port *));
+	graph->hndl = calloc(graph->n_nodes * n_hndl, sizeof(struct graph_hndl));
 	while (true) {
 		if ((node = find_next_node(graph)) == NULL)
 			break;
 
+		node->n_hndl = n_hndl;
 		desc = node->desc;
 		d = desc->desc;
 
@@ -1928,16 +1904,34 @@ static int setup_graph(struct graph *graph)
 			spa_list_for_each(link, &node->notify_port[i].link_list, output_link)
 				link->input->node->n_deps--;
 		}
-
-		/* collect all control ports on the graph */
 		for (i = 0; i < desc->n_control; i++) {
-			graph->control_port[graph->n_control] = &node->control_port[i];
-			graph->n_control++;
+			/* any default values for the controls are set in the first instance
+			 * of the control data. Duplicate this to the other instances now. */
+			struct port *port = &node->control_port[i];
+			for (j = 1; j < n_hndl; j++)
+				port->control_data[j] = port->control_data[0];
 		}
 	}
 	res = 0;
 error:
 	return res;
+}
+
+static int setup_graph_controls(struct graph *graph)
+{
+	struct node *node;
+	uint32_t i, n_control = 0;
+
+	graph->control_port = calloc(graph->n_control, sizeof(struct port *));
+	if (graph->control_port == NULL)
+		return -errno;
+
+	spa_list_for_each(node, &graph->node_list, link) {
+		/* collect all control ports on the graph */
+		for (i = 0; i < node->desc->n_control; i++)
+			graph->control_port[n_control++] = &node->control_port[i];
+	}
+	return 0;
 }
 
 /**
@@ -2110,6 +2104,8 @@ static int load_graph(struct graph *graph, const struct spa_dict *props)
 		while (spa_json_get_string(poutputs, key, sizeof(key)) > 0)
 			graph->output_names[graph->n_output_names++] = strdup(key);
 	}
+	if ((res = setup_graph_controls(graph)) < 0)
+		return res;
 	return 0;
 }
 

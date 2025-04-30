@@ -1153,10 +1153,11 @@ static int setup_streams(struct impl *impl)
 			SPA_PARAM_EnumFormat, &impl->capture_info);
 
 	for (i = 0;; i++) {
-		if ((offs = pw_array_add(&offsets, sizeof(uint32_t))) != NULL)
-			*offs = b.b.state.offset;
+		uint32_t save = b.b.state.offset;
 		if (spa_filter_graph_enum_prop_info(graph, i, &b.b, NULL) != 1)
 			break;
+		if ((offs = pw_array_add(&offsets, sizeof(uint32_t))) != NULL)
+			*offs = save;
 	}
 
 	if ((offs = pw_array_add(&offsets, sizeof(uint32_t))) != NULL)

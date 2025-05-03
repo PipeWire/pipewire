@@ -534,7 +534,7 @@ static void emit_device_set_node(struct impl *this, uint32_t id)
 	struct spa_bt_device *device = this->bt_dev;
 	struct node *node = &this->nodes[id];
 	struct spa_device_object_info info;
-	struct spa_dict_item items[8];
+	struct spa_dict_item items[9];
 	char str_id[32], members_json[8192], channels_json[512];
 	struct device_set_member *members;
 	uint32_t n_members;
@@ -2150,6 +2150,22 @@ static bool profile_has_route(uint32_t profile, uint32_t route)
 	return false;
 }
 
+static bool device_has_route(struct impl *this, uint32_t route)
+{
+	bool found = false;
+
+	if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_DUPLEX)
+		found = found || profile_has_route(DEVICE_PROFILE_A2DP, route);
+	if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_BAP_AUDIO)
+		found = found || profile_has_route(DEVICE_PROFILE_BAP, route);
+	if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT)
+		found = found || profile_has_route(DEVICE_PROFILE_HSP_HFP, route);
+	if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_ASHA_SINK)
+		found = found || profile_has_route(DEVICE_PROFILE_ASHA, route);
+
+	return found;
+}
+
 static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		uint32_t id, uint32_t route, uint32_t profile)
 {
@@ -2157,6 +2173,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 	struct spa_pod_frame f[2];
 	enum spa_direction direction;
 	const char *name_prefix, *description, *hfp_description, *port_type;
+	const char *port_icon_name = NULL;
 	enum spa_bt_form_factor ff;
 	enum spa_bluetooth_audio_codec codec;
 	enum spa_param_availability available;
@@ -2250,6 +2267,20 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		dev = DEVICE_ID_SINK;
 		available = this->device_set.sink_enabled ?
 			SPA_PARAM_AVAILABILITY_no : SPA_PARAM_AVAILABILITY_yes;
+
+		if (device_has_route(this, ROUTE_HF_OUTPUT)) {
+			/* Distinguish A2DP vs. HFP output routes */
+			switch (ff) {
+			case SPA_BT_FORM_FACTOR_HEADSET:
+			case SPA_BT_FORM_FACTOR_HANDSFREE:
+				port_icon_name = spa_bt_form_factor_icon_name(SPA_BT_FORM_FACTOR_HEADPHONE);
+				/* Don't call it "headset", the HF one has the mic */
+				description = _("Headphone");
+				break;
+			default:
+				break;
+			}
+		}
 		break;
 	case ROUTE_HF_OUTPUT:
 		direction = SPA_DIRECTION_OUTPUT;
@@ -2257,6 +2288,8 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		description = hfp_description;
 		dev = DEVICE_ID_SINK;
 		available = SPA_PARAM_AVAILABILITY_yes;
+		if (device_has_route(this, ROUTE_OUTPUT))
+			port_icon_name = spa_bt_form_factor_icon_name(SPA_BT_FORM_FACTOR_HEADSET);
 		break;
 	case ROUTE_SET_INPUT:
 		if (!(this->device_set.source_enabled && this->device_set.leader))
@@ -2292,11 +2325,16 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		0);
 	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_info, 0);
 	spa_pod_builder_push_struct(b, &f[1]);
-	spa_pod_builder_int(b, 1);
+	spa_pod_builder_int(b, port_icon_name ? 2 : 1);
 	spa_pod_builder_add(b,
 			SPA_POD_String("port.type"),
 			SPA_POD_String(port_type),
 			NULL);
+	if (port_icon_name)
+		spa_pod_builder_add(b,
+				SPA_POD_String("device.icon-name"),
+				SPA_POD_String(port_icon_name),
+				NULL);
 	spa_pod_builder_pop(b, &f[1]);
 	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_profiles, 0);
 	spa_pod_builder_push_array(b, &f[1]);

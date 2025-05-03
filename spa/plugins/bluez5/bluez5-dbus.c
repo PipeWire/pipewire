@@ -1721,8 +1721,9 @@ static void emit_device_info(struct spa_bt_monitor *monitor,
 {
 	struct spa_device_object_info info;
 	char dev[32], name[128], class[16], vendor_id[64], product_id[64], product_id_tot[67];
-	struct spa_dict_item items[23];
+	struct spa_dict_item items[24];
 	uint32_t n_items = 0;
+	enum spa_bt_form_factor ff;
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
 	info.type = SPA_TYPE_INTERFACE_Device;
@@ -1730,6 +1731,8 @@ static void emit_device_info(struct spa_bt_monitor *monitor,
 	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_FLAGS |
 		SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 	info.flags = 0;
+
+	ff = spa_bt_form_factor_from_class(device->bluetooth_class);
 
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API, "bluez5");
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_BUS, "bluetooth");
@@ -1745,9 +1748,8 @@ static void emit_device_info(struct spa_bt_monitor *monitor,
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_VENDOR_ID, vendor_id);
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PRODUCT_ID, product_id_tot);
 	}
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_FORM_FACTOR,
-			spa_bt_form_factor_name(
-				spa_bt_form_factor_from_class(device->bluetooth_class)));
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_FORM_FACTOR, spa_bt_form_factor_name(ff));
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ICON_NAME, spa_bt_form_factor_icon_name(ff));
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_STRING, device->address);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ICON, device->icon);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_PATH, device->path);

@@ -427,6 +427,31 @@ static inline const char *spa_bt_form_factor_name(enum spa_bt_form_factor ff)
 	}
 }
 
+static inline const char *spa_bt_form_factor_icon_name(enum spa_bt_form_factor ff)
+{
+	switch (ff) {
+	case SPA_BT_FORM_FACTOR_HEADSET:
+		return "audio-headset-bluetooth";
+	case SPA_BT_FORM_FACTOR_HANDSFREE:
+		return "audio-handsfree-bluetooth";
+	case SPA_BT_FORM_FACTOR_MICROPHONE:
+		return "audio-input-microphone-bluetooth";
+	case SPA_BT_FORM_FACTOR_SPEAKER:
+		return "audio-speakers-bluetooth";
+	case SPA_BT_FORM_FACTOR_HEADPHONE:
+		return "audio-headphones-bluetooth";
+	case SPA_BT_FORM_FACTOR_PORTABLE:
+		return "multimedia-player-bluetooth";
+	case SPA_BT_FORM_FACTOR_PHONE:
+		return "phone-bluetooth";
+	case SPA_BT_FORM_FACTOR_CAR:
+	case SPA_BT_FORM_FACTOR_HIFI:
+	case SPA_BT_FORM_FACTOR_UNKNOWN:
+	default:
+		return "audio-card-bluetooth";
+	}
+}
+
 static inline enum spa_bt_form_factor spa_bt_form_factor_from_class(uint32_t bluetooth_class)
 {
 	uint32_t major, minor;

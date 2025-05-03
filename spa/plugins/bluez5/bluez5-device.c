@@ -2210,7 +2210,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		break;
 	case SPA_BT_FORM_FACTOR_HEADPHONE:
 		name_prefix = "headphone";
-		description = _("Headphone");
+		description = _("Headphones");
 		hfp_description = _("Handsfree");
 		port_type = "headphones";
 		break;
@@ -2275,7 +2275,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 			case SPA_BT_FORM_FACTOR_HANDSFREE:
 				port_icon_name = spa_bt_form_factor_icon_name(SPA_BT_FORM_FACTOR_HEADPHONE);
 				/* Don't call it "headset", the HF one has the mic */
-				description = _("Headphone");
+				description = _("Headphones");
 				break;
 			default:
 				break;

@@ -935,6 +935,7 @@ static struct session *session_find(struct impl *impl, const struct sdp_info *in
 	struct session *sess;
 	spa_list_for_each(sess, &impl->sessions, link) {
 		if (info->hash == sess->info.hash &&
+		    info->dst_port == sess->info.dst_port &&
 		    spa_streq(info->origin, sess->info.origin))
 			return sess;
 	}

@@ -422,6 +422,14 @@ SPA_API_POD_ITER const struct spa_pod_prop *spa_pod_find_prop(const struct spa_p
 	return spa_pod_object_find_prop((const struct spa_pod_object *)pod, start, key);
 }
 
+SPA_API_POD_ITER int spa_pod_object_has_props(const struct spa_pod_object *pod)
+{
+	struct spa_pod_prop *res;
+	SPA_POD_OBJECT_FOREACH(pod, res)
+		return 1;
+	return 0;
+}
+
 SPA_API_POD_ITER int spa_pod_object_fixate(struct spa_pod_object *pod)
 {
 	struct spa_pod_prop *res;
@@ -432,14 +440,6 @@ SPA_API_POD_ITER int spa_pod_object_fixate(struct spa_pod_object *pod)
 	}
 	return 0;
 }
-
-SPA_API_POD_ITER int spa_pod_fixate(struct spa_pod *pod)
-{
-	if (!spa_pod_is_object(pod))
-		return -EINVAL;
-	return spa_pod_object_fixate((struct spa_pod_object *)pod);
-}
-
 SPA_API_POD_ITER int spa_pod_object_is_fixated(const struct spa_pod_object *pod)
 {
 	struct spa_pod_prop *res;
@@ -451,12 +451,11 @@ SPA_API_POD_ITER int spa_pod_object_is_fixated(const struct spa_pod_object *pod)
 	return 1;
 }
 
-SPA_API_POD_ITER int spa_pod_object_has_props(const struct spa_pod_object *pod)
+SPA_API_POD_ITER int spa_pod_fixate(struct spa_pod *pod)
 {
-	struct spa_pod_prop *res;
-	SPA_POD_OBJECT_FOREACH(pod, res)
-		return 1;
-	return 0;
+	if (!spa_pod_is_object(pod))
+		return -EINVAL;
+	return spa_pod_object_fixate((struct spa_pod_object *)pod);
 }
 
 SPA_API_POD_ITER int spa_pod_is_fixated(const struct spa_pod *pod)

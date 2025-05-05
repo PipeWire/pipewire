@@ -9,7 +9,6 @@
 #include <sys/mman.h>
 
 #include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
 #include <libavutil/pixfmt.h>
 #include <libavutil/imgutils.h>
@@ -118,11 +117,11 @@ struct dir {
 	unsigned int have_profile:1;
 	struct spa_pod *tag;
 	enum AVPixelFormat pix_fmt;
-	int width;
-	int height;
+	struct spa_rectangle size;
+	struct spa_fraction framerate;
 
 	ptrdiff_t linesizes[4];
-	size_t size[4];
+	size_t plane_size[4];
 
 	unsigned int control:1;
 };
@@ -172,7 +171,6 @@ struct impl {
 	char group_name[128];
 
 	struct {
-		const AVCodec *codec;
 		AVCodecContext *context;
 		AVPacket *packet;
 		AVFrame *frame;
@@ -182,7 +180,6 @@ struct impl {
 		AVFrame *frame;
 	} convert;
 	struct {
-		const AVCodec *codec;
 		AVCodecContext *context;
 		AVFrame *frame;
 		AVPacket *packet;
@@ -822,46 +819,64 @@ static enum AVPixelFormat format_to_pix_fmt(uint32_t format)
 	return AV_PIX_FMT_NONE;
 }
 
-static int get_format(struct dir *dir, int *width, int *height, uint32_t *format)
+static int get_format(struct dir *dir, uint32_t *format, struct spa_rectangle *size,
+		struct spa_fraction *framerate)
 {
 	if (dir->have_format) {
 		switch (dir->format.media_subtype) {
 		case SPA_MEDIA_SUBTYPE_dsp:
 			*format = dir->format.info.dsp.format;
-			*width = 640;
-			*height = 480;
+			*size = SPA_RECTANGLE(640, 480);
+			*framerate = SPA_FRACTION(30, 1);
 			break;
 		case SPA_MEDIA_SUBTYPE_raw:
-			*width = dir->format.info.raw.size.width;
-			*height = dir->format.info.raw.size.height;
 			*format = dir->format.info.raw.format;
+			*size = dir->format.info.raw.size;
+			*framerate = dir->format.info.raw.framerate;
 			break;
 		case SPA_MEDIA_SUBTYPE_mjpg:
-			*width = dir->format.info.mjpg.size.width;
-			*height = dir->format.info.mjpg.size.height;
+			*format = SPA_VIDEO_FORMAT_I420;
+			*size = dir->format.info.mjpg.size;
+			*framerate = dir->format.info.mjpg.framerate;
 			break;
 		case SPA_MEDIA_SUBTYPE_h264:
-			*width = dir->format.info.h264.size.width;
-			*height = dir->format.info.h264.size.height;
+			*format = SPA_VIDEO_FORMAT_I420;
+			*size = dir->format.info.h264.size;
+			*framerate = dir->format.info.h264.framerate;
 			break;
 		default:
-			*width = 640;
-			*height = 480;
+			*format = SPA_VIDEO_FORMAT_I420;
+			*size = SPA_RECTANGLE(640, 480);
+			*framerate = SPA_FRACTION(30, 1);
 			break;
 		}
 	} else {
-		*width = 640;
-		*height = 480;
+		*format = SPA_VIDEO_FORMAT_I420;
+		*size = SPA_RECTANGLE(640, 480);
+		*framerate = SPA_FRACTION(30, 1);
 	}
 	return 0;
 }
 
+static inline void free_decoder(struct impl *this)
+{
+	avcodec_free_context(&this->decoder.context);
+	av_packet_free(&this->decoder.packet);
+}
+
+static inline void free_encoder(struct impl *this)
+{
+	avcodec_free_context(&this->encoder.context);
+	av_packet_free(&this->encoder.packet);
+	av_frame_free(&this->encoder.frame);
+}
 
 static int setup_convert(struct impl *this)
 {
 	struct dir *in, *out;
 	uint32_t in_format = 0, out_format = 0;
 	int decoder_id = 0, encoder_id = 0;
+	const AVCodec *codec;
 
 	in = &this->dir[SPA_DIRECTION_INPUT];
 	out = &this->dir[SPA_DIRECTION_OUTPUT];
@@ -875,8 +890,8 @@ static int setup_convert(struct impl *this)
 	if (!in->have_format || !out->have_format)
 		return -EIO;
 
-	get_format(in, &in->width, &in->height, &in_format);
-	get_format(out, &out->width, &out->height, &out_format);
+	get_format(in, &in_format, &in->size, &in->framerate);
+	get_format(out, &out_format, &out->size, &out->framerate);
 
 	switch (in->format.media_subtype) {
 	case SPA_MEDIA_SUBTYPE_dsp:
@@ -891,11 +906,17 @@ static int setup_convert(struct impl *this)
 			encoder_id = AV_CODEC_ID_MJPEG;
 			out->format.media_subtype = SPA_MEDIA_SUBTYPE_raw;
 			out->format.info.raw.format = SPA_VIDEO_FORMAT_I420;
-			out->format.info.raw.size = SPA_RECTANGLE(in->width, in->height);
+			out->format.info.raw.size = in->size;
+			out->format.info.raw.framerate = in->framerate;
 			out->pix_fmt = AV_PIX_FMT_YUVJ420P;
 			break;
 		case SPA_MEDIA_SUBTYPE_h264:
 			encoder_id = AV_CODEC_ID_H264;
+			out->format.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+			out->format.info.raw.format = SPA_VIDEO_FORMAT_I420;
+			out->format.info.raw.size = in->size;
+			out->format.info.raw.framerate = in->framerate;
+			out->pix_fmt = AV_PIX_FMT_YUVJ420P;
 			break;
 		default:
 			spa_log_warn(this->log, "%p: in_subtype:%d out_subtype:%d", this,
@@ -907,8 +928,8 @@ static int setup_convert(struct impl *this)
 		switch (out->format.media_subtype) {
 		case SPA_MEDIA_SUBTYPE_mjpg:
 			/* passthrough if same dimensions or else reencode */
-			if (in->width != out->width ||
-			    in->height != out->height) {
+			if (in->size.width != out->size.width ||
+			    in->size.height != out->size.height) {
 				encoder_id = decoder_id = AV_CODEC_ID_MJPEG;
 				out->pix_fmt = AV_PIX_FMT_YUVJ420P;
 			}
@@ -928,8 +949,8 @@ static int setup_convert(struct impl *this)
 		switch (out->format.media_subtype) {
 		case SPA_MEDIA_SUBTYPE_h264:
 			/* passthrough if same dimensions or else reencode */
-			if (in->width != out->width ||
-			    in->height != out->height)
+			if (in->size.width != out->size.width ||
+			    in->size.height != out->size.height)
 				encoder_id = decoder_id = AV_CODEC_ID_H264;
 			break;
 		case SPA_MEDIA_SUBTYPE_raw:
@@ -949,12 +970,16 @@ static int setup_convert(struct impl *this)
 		return -ENOTSUP;
 	}
 
+	if (in->pix_fmt == AV_PIX_FMT_NONE || out->pix_fmt == AV_PIX_FMT_NONE) {
+		spa_log_warn(this->log, "%p: unsupported pixel format", this);
+		return -ENOTSUP;
+	}
 	if (decoder_id) {
-		if ((this->decoder.codec = avcodec_find_decoder(decoder_id)) == NULL) {
+		if ((codec = avcodec_find_decoder(decoder_id)) == NULL) {
 			spa_log_error(this->log, "failed to find %d decoder", decoder_id);
 			return -ENOTSUP;
 		}
-		if ((this->decoder.context = avcodec_alloc_context3(this->decoder.codec)) == NULL)
+		if ((this->decoder.context = avcodec_alloc_context3(codec)) == NULL)
 			return -EIO;
 
 		if ((this->decoder.packet = av_packet_alloc()) == NULL)
@@ -962,20 +987,24 @@ static int setup_convert(struct impl *this)
 
 		this->decoder.context->flags2 |= AV_CODEC_FLAG2_FAST;
 
-		if (avcodec_open2(this->decoder.context, this->decoder.codec, NULL) < 0) {
+		if (avcodec_open2(this->decoder.context, codec, NULL) < 0) {
 			spa_log_error(this->log, "failed to open decoder codec");
 			return -EIO;
 		}
+		spa_log_info(this->log, "%p: using decoder %s", this, codec->name);
+	} else {
+		free_decoder(this);
 	}
+	av_frame_free(&this->decoder.frame);
 	if ((this->decoder.frame = av_frame_alloc()) == NULL)
 		return -EIO;
 
 	if (encoder_id) {
-		if ((this->encoder.codec = avcodec_find_encoder(encoder_id)) == NULL) {
+		if ((codec = avcodec_find_encoder(encoder_id)) == NULL) {
 			spa_log_error(this->log, "failed to find %d encoder", encoder_id);
 			return -ENOTSUP;
 		}
-		if ((this->encoder.context = avcodec_alloc_context3(this->encoder.codec)) == NULL)
+		if ((this->encoder.context = avcodec_alloc_context3(codec)) == NULL)
 			return -EIO;
 
 		if ((this->encoder.packet = av_packet_alloc()) == NULL)
@@ -985,15 +1014,21 @@ static int setup_convert(struct impl *this)
 
 		this->encoder.context->flags2 |= AV_CODEC_FLAG2_FAST;
 		this->encoder.context->time_base.num = 1;
-		this->encoder.context->width = out->width;
-		this->encoder.context->height = out->height;
+		this->encoder.context->width = out->size.width;
+		this->encoder.context->height = out->size.height;
 		this->encoder.context->pix_fmt = out->pix_fmt;
 
-		if (avcodec_open2(this->encoder.context, this->encoder.codec, NULL) < 0) {
+		if (avcodec_open2(this->encoder.context, codec, NULL) < 0) {
 			spa_log_error(this->log, "failed to open encoder codec");
 			return -EIO;
 		}
-	}
+		spa_log_info(this->log, "%p: using encoder %s", this, codec->name);
+	} else {
+		free_encoder(this);
+ 	}
+	sws_freeContext(this->convert.context);
+	this->convert.context = NULL;
+	av_frame_free(&this->convert.frame);
 	if ((this->convert.frame = av_frame_alloc()) == NULL)
 		return -EIO;
 
@@ -1098,10 +1133,11 @@ static int port_enum_formats(void *object,
 	struct impl *this = object;
 	struct dir *other = &this->dir[SPA_DIRECTION_REVERSE(direction)];
 	struct spa_pod_frame f[1];
-	int width, height;
+	struct spa_rectangle size;
+	struct spa_fraction framerate;
 	uint32_t format = 0;
 
-	get_format(other, &width, &height, &format);
+	get_format(other, &format, &size, &framerate);
 
 	switch (index) {
 	case 0:
@@ -1144,7 +1180,7 @@ static int port_enum_formats(void *object,
 						SPA_VIDEO_FORMAT_RGBA,
 						SPA_VIDEO_FORMAT_BGRx),
 			SPA_FORMAT_VIDEO_size,     SPA_POD_CHOICE_RANGE_Rectangle(
-				&SPA_RECTANGLE(width, height),
+				&SPA_RECTANGLE(size.width, size.height),
 				&SPA_RECTANGLE(1, 1),
 				&SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
 			0);
@@ -1161,7 +1197,7 @@ static int port_enum_formats(void *object,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_video),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_mjpg),
 			SPA_FORMAT_VIDEO_size,     SPA_POD_CHOICE_RANGE_Rectangle(
-				&SPA_RECTANGLE(width, height),
+				&SPA_RECTANGLE(size.width, size.height),
 				&SPA_RECTANGLE(1, 1),
 				&SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
 			0);
@@ -1573,7 +1609,7 @@ static int port_set_format(void *object,
 					if (linesizes[i])
 						port->blocks++;
 				}
-				av_image_fill_plane_sizes(dir->size,
+				av_image_fill_plane_sizes(dir->plane_size,
 						pix_fmt, info.info.raw.size.height,
 						dir->linesizes);
 				port->size = av_image_get_buffer_size(pix_fmt,
@@ -1582,6 +1618,11 @@ static int port_set_format(void *object,
 
 				break;
 			}
+			case SPA_MEDIA_SUBTYPE_h264:
+				port->stride = 0;
+				port->size = info.info.h264.size.width * info.info.h264.size.height;
+				port->blocks = 1;
+				break;
 			case SPA_MEDIA_SUBTYPE_mjpg:
 				port->stride = 0;
 				port->size = info.info.mjpg.size.width * info.info.mjpg.size.height;
@@ -1906,7 +1947,7 @@ static int impl_node_process(void *object)
 			sbuf->id, dbuf->id);
 
 	/* do decoding */
-	if (this->decoder.codec) {
+	if (this->decoder.context) {
 		this->decoder.packet->data = sbuf->datas[0];
 		this->decoder.packet->size = sbuf->buf->datas[0].chunk->size;
 
@@ -1926,16 +1967,19 @@ static int impl_node_process(void *object)
 		}
 
 		in->pix_fmt = f->format;
-		in->width = f->width;
-		in->height = f->height;
+		in->size.width = f->width;
+		in->size.height = f->height;
+		for (uint32_t i = 0; i < 4; ++i) {
+			datas[i] = f->data[i];
+			strides[i] = f->linesize[i];
+			sizes[i] = out->plane_size[i];
+		}
 	} else {
 		f = this->decoder.frame;
 		f->format = in->pix_fmt;
-		f->width = in->width;
-		f->height = in->height;
+		f->width = in->size.width;
+		f->height = in->size.height;
 		for (uint32_t i = 0; i < sbuf->buf->n_datas; ++i) {
-			spa_log_trace(this->log, "in %u %u %p %d", sbuf->id, i,
-					sbuf->datas[i], sbuf->buf->datas[i].chunk->size);
 			datas[i] = f->data[i] = sbuf->datas[i];
 			strides[i] = f->linesize[i] = sbuf->buf->datas[i].chunk->stride;
 			sizes[i] = sbuf->buf->datas[i].chunk->size;
@@ -1944,25 +1988,30 @@ static int impl_node_process(void *object)
 
 	/* do conversion */
 	if (f->format != out->pix_fmt ||
-	    f->width != out->width ||
-	    f->height != out->height) {
+	    f->width != (int)out->size.width ||
+	    f->height != (int)out->size.height) {
 		if (this->convert.context == NULL) {
+			const AVPixFmtDescriptor *in_fmt = av_pix_fmt_desc_get(f->format);
+			const AVPixFmtDescriptor *out_fmt = av_pix_fmt_desc_get(out->pix_fmt);
 			this->convert.context = sws_getContext(
 					f->width, f->height, f->format,
-					out->width, out->height, out->pix_fmt,
+					out->size.width, out->size.height, out->pix_fmt,
 					0, NULL, NULL, NULL);
+			spa_log_info(this->log, "%p: using convert %dx%d:%s -> %dx%d:%s",
+					this, f->width, f->height, in_fmt->name,
+					out->size.width, out->size.height, out_fmt->name);
 		}
 		spa_log_trace(this->log, "convert");
 		sws_scale_frame(this->convert.context, this->convert.frame, f);
 		f = this->convert.frame;
-		for (uint32_t i = 0; i < dbuf->buf->n_datas; ++i) {
+		for (uint32_t i = 0; i < 4; ++i) {
 			datas[i] = f->data[i];
 			strides[i] = f->linesize[i];
-			sizes[i] = out->size[i];
+			sizes[i] = out->plane_size[i];
 		}
 	}
 	/* do encoding */
-	if (this->encoder.codec) {
+	if (this->encoder.context) {
 		if ((res = avcodec_send_frame(this->encoder.context, f)) < 0) {
 			spa_log_error(this->log, "failed to send frame to codec: %d", res);
 			return -EIO;
@@ -2053,6 +2102,11 @@ static int impl_clear(struct spa_handle *handle)
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
 	this = (struct impl *) handle;
+
+	free_decoder(this);
+	free_encoder(this);
+	av_frame_free(&this->decoder.frame);
+	av_frame_free(&this->convert.frame);
 
 	free_dir(&this->dir[SPA_DIRECTION_INPUT]);
 	free_dir(&this->dir[SPA_DIRECTION_OUTPUT]);

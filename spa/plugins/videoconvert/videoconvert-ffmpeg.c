@@ -503,6 +503,58 @@ static int deinit_port(struct impl *this, enum spa_direction direction, uint32_t
 	return 0;
 }
 
+static int node_param_enum_port_config(struct impl *this, uint32_t index,
+		struct spa_pod **param, struct spa_pod_builder *b)
+{
+	switch (index) {
+	case 0 ... 1:
+	{
+		struct dir *dir = &this->dir[index];
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_EnumPortConfig,
+			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(dir->direction),
+			SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_CHOICE_ENUM_Id(4,
+				SPA_PARAM_PORT_CONFIG_MODE_none,
+				SPA_PARAM_PORT_CONFIG_MODE_none,
+				SPA_PARAM_PORT_CONFIG_MODE_dsp,
+				SPA_PARAM_PORT_CONFIG_MODE_convert),
+			SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_CHOICE_Bool(false),
+			SPA_PARAM_PORT_CONFIG_control,   SPA_POD_CHOICE_Bool(false));
+		return 1;
+	}
+	}
+	return 0;
+}
+
+static int node_param_port_config(struct impl *this, uint32_t index,
+		struct spa_pod **param, struct spa_pod_builder *b)
+{
+	switch (index) {
+	case 0 ... 1:
+	{
+		struct dir *dir = &this->dir[index];;
+		struct spa_pod_frame f[1];
+		spa_pod_builder_push_object(b, &f[0],
+				SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig);
+		spa_pod_builder_add(b,
+			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(dir->direction),
+			SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(dir->mode),
+			SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(this->monitor),
+			SPA_PARAM_PORT_CONFIG_control,   SPA_POD_Bool(dir->control),
+			0);
+
+		if (dir->have_format) {
+			spa_pod_builder_prop(b, SPA_PARAM_PORT_CONFIG_format, 0);
+			spa_format_video_build(b, SPA_PARAM_PORT_CONFIG_format,
+					&dir->format);
+		}
+		*param = spa_pod_builder_pop(b, &f[0]);
+		return 1;
+	}
+	}
+	return 0;
+}
+
 static int impl_node_enum_params(void *object, int seq,
 				 uint32_t id, uint32_t start, uint32_t num,
 				 const struct spa_pod *filter)
@@ -513,6 +565,7 @@ static int impl_node_enum_params(void *object, int seq,
 	uint8_t buffer[4096];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
+	int res = 0;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
@@ -524,92 +577,27 @@ static int impl_node_enum_params(void *object, int seq,
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
+	param = NULL;
 	switch (id) {
 	case SPA_PARAM_EnumPortConfig:
-	{
-		struct dir *dir;
-		switch (result.index) {
-		case 0:
-			dir = &this->dir[SPA_DIRECTION_INPUT];;
-			break;
-		case 1:
-			dir = &this->dir[SPA_DIRECTION_OUTPUT];;
-			break;
-		default:
-			return 0;
-		}
-		param = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_ParamPortConfig, id,
-			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(dir->direction),
-			SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_CHOICE_ENUM_Id(4,
-				SPA_PARAM_PORT_CONFIG_MODE_none,
-				SPA_PARAM_PORT_CONFIG_MODE_none,
-				SPA_PARAM_PORT_CONFIG_MODE_dsp,
-				SPA_PARAM_PORT_CONFIG_MODE_convert),
-			SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_CHOICE_Bool(false),
-			SPA_PARAM_PORT_CONFIG_control,   SPA_POD_CHOICE_Bool(false));
+		res = node_param_enum_port_config(this, result.index, &param, &b);
 		break;
-	}
 	case SPA_PARAM_PortConfig:
-	{
-		struct dir *dir;
-		struct spa_pod_frame f[1];
-
-		switch (result.index) {
-		case 0:
-			dir = &this->dir[SPA_DIRECTION_INPUT];;
-			break;
-		case 1:
-			dir = &this->dir[SPA_DIRECTION_OUTPUT];;
-			break;
-		default:
-			return 0;
-		}
-		spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_ParamPortConfig, id);
-		spa_pod_builder_add(&b,
-			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(dir->direction),
-			SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(dir->mode),
-			SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(this->monitor),
-			SPA_PARAM_PORT_CONFIG_control,   SPA_POD_Bool(dir->control),
-			0);
-
-		if (dir->have_format) {
-			spa_pod_builder_prop(&b, SPA_PARAM_PORT_CONFIG_format, 0);
-			spa_format_video_build(&b, SPA_PARAM_PORT_CONFIG_format,
-					&dir->format);
-		}
-		param = spa_pod_builder_pop(&b, &f[0]);
+		res = node_param_port_config(this, result.index, &param, &b);
 		break;
-	}
 	case SPA_PARAM_PropInfo:
-	{
-		switch (result.index) {
-		default:
-			return 0;
-		}
+		res = 0;
 		break;
-	}
-
 	case SPA_PARAM_Props:
-	{
-		struct spa_pod_frame f[2];
-
-		switch (result.index) {
-		case 0:
-			spa_pod_builder_push_object(&b, &f[0],
-                                SPA_TYPE_OBJECT_Props, id);
-			param = spa_pod_builder_pop(&b, &f[0]);
-			break;
-		default:
-			return 0;
-		}
+		res = 0;
 		break;
-	}
 	default:
 		return 0;
 	}
+	if (res <= 0)
+		return res;
 
-	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
+	if (param == NULL || spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
 	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
@@ -1086,14 +1074,10 @@ impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_
 	return -ENOTSUP;
 }
 
-static int port_enum_formats(void *object,
-			     enum spa_direction direction, uint32_t port_id,
-			     uint32_t index,
-			     struct spa_pod **param,
-			     struct spa_pod_builder *builder)
+static int port_param_enum_format(struct impl *this, struct port *port, uint32_t index,
+		const struct spa_pod **param, struct spa_pod_builder *builder)
 {
-	struct impl *this = object;
-	struct dir *other = &this->dir[SPA_DIRECTION_REVERSE(direction)];
+	struct dir *other = &this->dir[SPA_DIRECTION_REVERSE(port->direction)];
 	struct spa_pod_frame f[1];
 	struct spa_rectangle size;
 	struct spa_fraction framerate;
@@ -1103,12 +1087,12 @@ static int port_enum_formats(void *object,
 
 	switch (index) {
 	case 0:
-		if (PORT_IS_DSP(this, direction, port_id)) {
+		if (port->is_dsp) {
 			struct spa_video_info_dsp info = SPA_VIDEO_INFO_DSP_INIT(
 					.format = SPA_VIDEO_FORMAT_DSP_F32);
 			*param = spa_format_video_dsp_build(builder,
 				SPA_PARAM_EnumFormat, &info);
-		} else if (PORT_IS_CONTROL(this, direction, port_id)) {
+		} else if (port->is_control) {
 			*param = spa_pod_builder_add_object(builder,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
@@ -1124,8 +1108,7 @@ static int port_enum_formats(void *object,
 		}
 		break;
 	case 1:
-		if (PORT_IS_DSP(this, direction, port_id) ||
-		    PORT_IS_CONTROL(this, direction, port_id))
+		if (port->is_dsp || port->is_control)
 			return 0;
 
 		spa_pod_builder_push_object(builder, &f[0],
@@ -1149,8 +1132,7 @@ static int port_enum_formats(void *object,
 		*param = spa_pod_builder_pop(builder, &f[0]);
 		break;
 	case 2:
-		if (PORT_IS_DSP(this, direction, port_id) ||
-		    PORT_IS_CONTROL(this, direction, port_id))
+		if (port->is_dsp || port->is_control)
 			return 0;
 
 		spa_pod_builder_push_object(builder, &f[0],
@@ -1171,6 +1153,122 @@ static int port_enum_formats(void *object,
 	return 1;
 }
 
+
+static int port_param_format(struct impl *this, struct port *port, uint32_t index,
+		const struct spa_pod **param, struct spa_pod_builder *b)
+{
+	uint32_t id = SPA_PARAM_Format;
+
+	if (!port->have_format)
+		return -EIO;
+	if (index != 0)
+		return 0;
+
+	if (port->is_dsp) {
+		*param = spa_format_video_dsp_build(b, id, &port->format.info.dsp);
+	} else if (port->is_control) {
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_Format,  id,
+			SPA_FORMAT_mediaType,    SPA_POD_Id(SPA_MEDIA_TYPE_application),
+			SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
+			SPA_FORMAT_CONTROL_types,  SPA_POD_Int(
+				(1u<<SPA_CONTROL_UMP) | (1u<<SPA_CONTROL_Properties)));
+	} else {
+		*param = spa_format_video_build(b, id, &port->format);
+	}
+	return 1;
+}
+
+static int port_param_buffers(struct impl *this, struct port *port, uint32_t index,
+		const struct spa_pod **param, struct spa_pod_builder *b)
+{
+	uint32_t id = SPA_PARAM_Buffers;
+	uint32_t size, min, max, def;
+	struct port *other;
+
+	if (!port->have_format)
+		return -EIO;
+	if (index != 0)
+		return 0;
+
+	if (port->is_dsp) {
+		size = 1024 * 1024 * 16;
+	} else {
+		size = port->size;
+	}
+
+	other = GET_PORT(this, SPA_DIRECTION_REVERSE(port->direction), port->id);
+	if (other->n_buffers > 0) {
+		min = other->n_buffers;
+	} else {
+		min = 2;
+	}
+	max = MAX_BUFFERS;
+	def = SPA_CLAMP(8u, min, MAX_BUFFERS);
+
+	*param = spa_pod_builder_add_object(b,
+		SPA_TYPE_OBJECT_ParamBuffers, id,
+		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(def, min, max),
+		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
+		SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
+						size, 16, INT32_MAX),
+		SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(
+						port->stride, 0, INT32_MAX));
+	return 1;
+}
+
+static int port_param_meta(struct impl *this, struct port *port, uint32_t index,
+		const struct spa_pod **param, struct spa_pod_builder *b)
+{
+	switch (index) {
+	case 0:
+		*param = spa_pod_builder_add_object(b,
+				SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
+				SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
+				SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
+		return 1;
+	}
+	return 0;
+}
+
+static int port_param_io(struct impl *this, struct port *port, uint32_t index,
+		const struct spa_pod **param, struct spa_pod_builder *b)
+{
+	switch (index) {
+	case 0:
+		*param = spa_pod_builder_add_object(b,
+				SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
+				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
+				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
+		return 1;
+	}
+	return 0;
+}
+
+static int port_param_latency(struct impl *this, struct port *port, uint32_t index,
+		const struct spa_pod **param, struct spa_pod_builder *b)
+{
+	switch (index) {
+	case 0 ... 1:
+		*param = spa_latency_build(b, SPA_PARAM_Latency, &port->latency[index]);
+		return 1;
+	}
+	return 0;
+}
+
+static int port_param_tag(struct impl *this, struct port *port, uint32_t index,
+		const struct spa_pod **param, struct spa_pod_builder *b)
+{
+	switch (index) {
+	case 0 ... 1:
+		if (port->is_monitor)
+			index = index ^ 1;
+		*param = this->dir[index].tag;
+		return 1;
+	}
+	return 0;
+}
+
 static int
 impl_node_port_enum_params(void *object, int seq,
 			   enum spa_direction direction, uint32_t port_id,
@@ -1178,8 +1276,8 @@ impl_node_port_enum_params(void *object, int seq,
 			   const struct spa_pod *filter)
 {
 	struct impl *this = object;
-	struct port *port, *other;
-	struct spa_pod *param;
+	struct port *port;
+	const struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[4096];
 	struct spa_result_node_params result;
@@ -1203,118 +1301,34 @@ impl_node_port_enum_params(void *object, int seq,
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
+	param = NULL;
 	switch (id) {
 	case SPA_PARAM_EnumFormat:
-		if ((res = port_enum_formats(object, direction, port_id, result.index, &param, &b)) <= 0)
-			return res;
+		res = port_param_enum_format(this, port, result.index, &param, &b);
 		break;
 	case SPA_PARAM_Format:
-		if (!port->have_format)
-			return -EIO;
-		if (result.index > 0)
-			return 0;
-
-		if (PORT_IS_DSP(this, direction, port_id))
-			param = spa_format_video_dsp_build(&b, id, &port->format.info.dsp);
-		else if (PORT_IS_CONTROL(this, direction, port_id))
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_Format,  id,
-				SPA_FORMAT_mediaType,    SPA_POD_Id(SPA_MEDIA_TYPE_application),
-				SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
-				SPA_FORMAT_CONTROL_types,  SPA_POD_Int(
-					(1u<<SPA_CONTROL_UMP) | (1u<<SPA_CONTROL_Properties)));
-		else
-			param = spa_format_video_build(&b, id, &port->format);
+		res = port_param_format(this, port, result.index, &param, &b);
 		break;
 	case SPA_PARAM_Buffers:
-	{
-		uint32_t size, min, max, def;
-
-		if (!port->have_format)
-			return -EIO;
-		if (result.index > 0)
-			return 0;
-
-		if (PORT_IS_DSP(this, direction, port_id)) {
-			size = 1024 * 1024 * 16;
-		} else {
-			size = port->size;
-		}
-
-		other = GET_PORT(this, SPA_DIRECTION_REVERSE(direction), port_id);
-		if (other->n_buffers > 0) {
-			min = other->n_buffers;
-		} else {
-			min = 2;
-		}
-		max = MAX_BUFFERS;
-		def = SPA_CLAMP(8u, min, MAX_BUFFERS);
-
-		param = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_ParamBuffers, id,
-			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(def, min, max),
-			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
-			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
-								size, 16, INT32_MAX),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(
-								port->stride, 0, INT32_MAX));
+		res = port_param_buffers(this, port, result.index, &param, &b);
 		break;
-	}
 	case SPA_PARAM_Meta:
-		switch (result.index) {
-		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamMeta, id,
-				SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
-				SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
-			break;
-		default:
-			return 0;
-		}
+		res = port_param_meta(this, port, result.index, &param, &b);
 		break;
 	case SPA_PARAM_IO:
-		switch (result.index) {
-		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamIO, id,
-				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
-				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
-			break;
-		default:
-			return 0;
-		}
+		res = port_param_io(this, port, result.index, &param, &b);
 		break;
 	case SPA_PARAM_Latency:
-		switch (result.index) {
-		case 0: case 1:
-		{
-			uint32_t idx = result.index;
-			param = spa_latency_build(&b, id, &port->latency[idx]);
-			break;
-		}
-		default:
-			return 0;
-		}
+		res = port_param_latency(this, port, result.index, &param, &b);
 		break;
 	case SPA_PARAM_Tag:
-		switch (result.index) {
-		case 0: case 1:
-		{
-			uint32_t idx = result.index;
-			if (port->is_monitor)
-				idx = idx ^ 1;
-			param = this->dir[idx].tag;
-			if (param == NULL)
-				goto next;
-			break;
-		}
-		default:
-			return 0;
-		}
+		res = port_param_tag(this, port, result.index, &param, &b);
 		break;
 	default:
 		return -ENOENT;
 	}
+	if (res <= 0)
+		return res;
 
 	if (param == NULL || spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;

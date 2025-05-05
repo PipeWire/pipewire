@@ -20,6 +20,7 @@
 #include <spa/pod/parser.h>
 #include <spa/pod/filter.h>
 #include <spa/pod/dynamic.h>
+#include <spa/pod/simplify.h>
 #include <spa/param/param.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/latency-utils.h>
@@ -907,6 +908,54 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	return res;
 }
 
+static int update_param_peer_formats(struct impl *impl)
+{
+	uint8_t buffer[4096];
+	spa_auto(spa_pod_dynamic_builder) b = { 0 };
+	uint32_t state = 0;
+	struct spa_pod *param;
+	struct spa_pod_frame f;
+	int res;
+
+	if (!impl->recheck_format)
+		return 0;
+
+	spa_log_debug(impl->log, "updating peer formats");
+
+	spa_node_send_command(impl->follower,
+			&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_ParamBegin));
+
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+	spa_pod_builder_push_struct(&b.b, &f);
+
+	while (true) {
+		res = node_port_enum_params_sync(impl, impl->follower,
+					impl->direction, 0,
+					SPA_PARAM_EnumFormat, &state,
+					NULL, &param, &b.b);
+		if (res != 1)
+			break;
+	}
+	param = spa_pod_builder_pop(&b.b, &f);
+
+	spa_node_send_command(impl->follower,
+			&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_ParamEnd));
+
+	spa_pod_simplify(&b.b, &param, param);
+	spa_debug_log_pod(impl->log, SPA_LOG_LEVEL_DEBUG, 0, NULL, param);
+
+	res = spa_node_port_set_param(impl->target,
+				   SPA_DIRECTION_REVERSE(impl->direction), 0,
+				   SPA_PARAM_PeerFormats, 0, param);
+
+	impl->recheck_format = false;
+
+	spa_log_debug(impl->log, "done updating peer formats: %d", res);
+
+	return 0;
+}
+
+
 static struct spa_pod *merge_objects(struct impl *this, struct spa_pod_builder *b, uint32_t id,
 			struct spa_pod_object *o1, struct spa_pod_object *o2)
 {
@@ -958,7 +1007,7 @@ static int negotiate_format(struct impl *this)
 	if (this->have_format && !this->recheck_format)
 		return 0;
 
-	this->recheck_format = false;
+	update_param_peer_formats(this);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
@@ -1619,55 +1668,6 @@ impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_
 }
 
 static int
-port_enum_formats_for_convert(struct impl *this, int seq, enum spa_direction direction,
-		uint32_t port_id, uint32_t id, uint32_t start, uint32_t num,
-		const struct spa_pod *filter)
-{
-	uint8_t buffer[4096];
-	struct spa_pod_builder b = { 0 };
-	int res;
-	uint32_t count = 0;
-	struct spa_result_node_params result;
-
-	result.id = id;
-	result.next = start;
-next:
-	result.index = result.next;
-
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-
-	if (result.next < 0x100000) {
-		/* Enumerate follower formats first, until we have enough or we run out */
-		if ((res = node_port_enum_params_sync(this, this->follower, direction, port_id, id,
-						&result.next, filter, &result.param, &b)) != 1) {
-			if (res == 0 || res == -ENOENT) {
-				result.next = 0x100000;
-				goto next;
-			} else {
-				spa_log_error(this->log, "could not enum follower format: %s", spa_strerror(res));
-				return res;
-			}
-		}
-	} else if (result.next < 0x200000) {
-		/* Then enumerate converter formats */
-		result.next &= 0xfffff;
-		if ((res = node_port_enum_params_sync(this, this->convert, direction, port_id, id,
-						&result.next, filter, &result.param, &b)) != 1) {
-			return res;
-		} else {
-			result.next |= 0x100000;
-		}
-	}
-
-	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
-
-	if (++count < num)
-		goto next;
-
-	return 0;
-}
-
-static int
 impl_node_port_enum_params(void *object, int seq,
 			   enum spa_direction direction, uint32_t port_id,
 			   uint32_t id, uint32_t start, uint32_t num,
@@ -1683,12 +1683,7 @@ impl_node_port_enum_params(void *object, int seq,
 
 	spa_log_debug(this->log, "%p: %d %u %u %u", this, seq, id, start, num);
 
-	/* We only need special handling for EnumFormat in convert mode */
-	if (id == SPA_PARAM_EnumFormat && this->mode == SPA_PARAM_PORT_CONFIG_MODE_convert)
-		return port_enum_formats_for_convert(this, seq, direction, port_id, id,
-				start, num, filter);
-	else
-		return spa_node_port_enum_params(this->target, seq, direction, port_id, id,
+	return spa_node_port_enum_params(this->target, seq, direction, port_id, id,
 				start, num, filter);
 }
 
@@ -1903,7 +1898,7 @@ static int load_converter(struct impl *this, const struct spa_dict *info,
 
 	factory_name = spa_dict_lookup(&cinfo, "video.adapt.converter");
 	if (factory_name == NULL)
-		return 0;
+		factory_name = "video.convert.ffmpeg";
 
 	if (this->ploader) {
 		hnd_convert = spa_plugin_loader_load(this->ploader, factory_name, &cinfo);
@@ -2060,6 +2055,9 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_node_add_listener(this->follower,
 			&this->follower_listener, &follower_node_events, this);
 	spa_node_set_callbacks(this->follower, &follower_node_callbacks, this);
+
+	if (this->convert != NULL)
+		update_param_peer_formats(this);
 
 	// TODO: adapt port bootstrap for arbitrary converter (incl. dummy)
 	if (this->convert) {

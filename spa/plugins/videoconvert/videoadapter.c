@@ -142,19 +142,23 @@ static int follower_enum_params(struct impl *this,
 				 struct spa_pod_builder *builder)
 {
 	int res;
-	if (result->next < 0x100000 &&
-	    this->follower != this->target) {
-		if ((res = node_enum_params_sync(this, this->target,
-				id, &result->next, filter, &result->param, builder)) == 1)
-			return res;
+	if (result->next < 0x100000) {
+		if (this->follower != this->target &&
+		    this->convert_params_flags[idx] & SPA_PARAM_INFO_READ) {
+			if ((res = node_enum_params_sync(this, this->target,
+					id, &result->next, filter, &result->param, builder)) == 1)
+				return res;
+		}
 		result->next = 0x100000;
 	}
-	if (result->next < 0x200000 && this->follower_params_flags[idx] & SPA_PARAM_INFO_READ) {
-		result->next &= 0xfffff;
-		if ((res = node_enum_params_sync(this, this->follower,
-				id, &result->next, filter, &result->param, builder)) == 1) {
-			result->next |= 0x100000;
-			return res;
+	if (result->next < 0x200000) {
+		if (this->follower_params_flags[idx] & SPA_PARAM_INFO_READ) {
+			result->next &= 0xfffff;
+			if ((res = node_enum_params_sync(this, this->follower,
+					id, &result->next, filter, &result->param, builder)) == 1) {
+				result->next |= 0x100000;
+				return res;
+			}
 		}
 		result->next = 0x200000;
 	}
@@ -763,6 +767,7 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 		spa_node_add_listener(this->follower, &l, &follower_node_events, this);
 		spa_hook_remove(&l);
 	} else {
+		/* add converter ports */
 		configure_convert(this, mode);
 	}
 	link_io(this);

@@ -1898,7 +1898,7 @@ static int load_converter(struct impl *this, const struct spa_dict *info,
 
 	factory_name = spa_dict_lookup(&cinfo, "video.adapt.converter");
 	if (factory_name == NULL)
-		factory_name = "video.convert.ffmpeg";
+		return 0;
 
 	if (this->ploader) {
 		hnd_convert = spa_plugin_loader_load(this->ploader, factory_name, &cinfo);

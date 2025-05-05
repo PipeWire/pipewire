@@ -393,6 +393,45 @@ static enum AVPixelFormat format_to_pix_fmt(uint32_t format)
 	return AV_PIX_FMT_NONE;
 }
 
+static int get_format(struct dir *dir, uint32_t *format, struct spa_rectangle *size,
+		struct spa_fraction *framerate)
+{
+	if (dir->have_format) {
+		switch (dir->format.media_subtype) {
+		case SPA_MEDIA_SUBTYPE_dsp:
+			*format = dir->format.info.dsp.format;
+			*size = SPA_RECTANGLE(640, 480);
+			*framerate = SPA_FRACTION(30, 1);
+			break;
+		case SPA_MEDIA_SUBTYPE_raw:
+			*format = dir->format.info.raw.format;
+			*size = dir->format.info.raw.size;
+			*framerate = dir->format.info.raw.framerate;
+			break;
+		case SPA_MEDIA_SUBTYPE_mjpg:
+			*format = SPA_VIDEO_FORMAT_I420;
+			*size = dir->format.info.mjpg.size;
+			*framerate = dir->format.info.mjpg.framerate;
+			break;
+		case SPA_MEDIA_SUBTYPE_h264:
+			*format = SPA_VIDEO_FORMAT_I420;
+			*size = dir->format.info.h264.size;
+			*framerate = dir->format.info.h264.framerate;
+			break;
+		default:
+			*format = SPA_VIDEO_FORMAT_I420;
+			*size = SPA_RECTANGLE(640, 480);
+			*framerate = SPA_FRACTION(30, 1);
+			break;
+		}
+	} else {
+		*format = SPA_VIDEO_FORMAT_I420;
+		*size = SPA_RECTANGLE(640, 480);
+		*framerate = SPA_FRACTION(30, 1);
+	}
+	return 0;
+}
+
 static int init_port(struct impl *this, enum spa_direction direction, uint32_t port_id,
 		bool is_dsp, bool is_monitor, bool is_control)
 {
@@ -789,45 +828,6 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		return -ENOENT;
 	}
 	emit_info(this, false);
-	return 0;
-}
-
-static int get_format(struct dir *dir, uint32_t *format, struct spa_rectangle *size,
-		struct spa_fraction *framerate)
-{
-	if (dir->have_format) {
-		switch (dir->format.media_subtype) {
-		case SPA_MEDIA_SUBTYPE_dsp:
-			*format = dir->format.info.dsp.format;
-			*size = SPA_RECTANGLE(640, 480);
-			*framerate = SPA_FRACTION(30, 1);
-			break;
-		case SPA_MEDIA_SUBTYPE_raw:
-			*format = dir->format.info.raw.format;
-			*size = dir->format.info.raw.size;
-			*framerate = dir->format.info.raw.framerate;
-			break;
-		case SPA_MEDIA_SUBTYPE_mjpg:
-			*format = SPA_VIDEO_FORMAT_I420;
-			*size = dir->format.info.mjpg.size;
-			*framerate = dir->format.info.mjpg.framerate;
-			break;
-		case SPA_MEDIA_SUBTYPE_h264:
-			*format = SPA_VIDEO_FORMAT_I420;
-			*size = dir->format.info.h264.size;
-			*framerate = dir->format.info.h264.framerate;
-			break;
-		default:
-			*format = SPA_VIDEO_FORMAT_I420;
-			*size = SPA_RECTANGLE(640, 480);
-			*framerate = SPA_FRACTION(30, 1);
-			break;
-		}
-	} else {
-		*format = SPA_VIDEO_FORMAT_I420;
-		*size = SPA_RECTANGLE(640, 480);
-		*framerate = SPA_FRACTION(30, 1);
-	}
 	return 0;
 }
 

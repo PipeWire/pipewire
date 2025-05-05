@@ -379,6 +379,32 @@ spa_pod_filter(struct spa_pod_builder *b,
 	return res;
 }
 
+SPA_API_POD_FILTER int spa_pod_filter_object_make(struct spa_pod_object *pod)
+{
+	struct spa_pod_prop *res;
+	int count = 0;
+
+	SPA_POD_OBJECT_FOREACH(pod, res) {
+		if (res->value.type == SPA_TYPE_Choice &&
+		    !SPA_FLAG_IS_SET(res->flags, SPA_POD_PROP_FLAG_DONT_FIXATE)) {
+			uint32_t nvals, choice;
+			struct spa_pod *v = spa_pod_get_values(&res->value, &nvals, &choice);
+			const void *vals = SPA_POD_BODY(v);
+			if (spa_pod_compare_is_valid_choice(v->type, v->size,
+						vals, vals, nvals, choice)) {
+				((struct spa_pod_choice*)&res->value)->body.type = SPA_CHOICE_None;
+				count++;
+			}
+		}
+	}
+	return count;
+}
+SPA_API_POD_FILTER int spa_pod_filter_make(struct spa_pod *pod)
+{
+	if (!spa_pod_is_object(pod))
+		return -EINVAL;
+	return spa_pod_filter_object_make((struct spa_pod_object *)pod);
+}
 /**
  * \}
  */

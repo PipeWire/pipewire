@@ -10,6 +10,7 @@
 #include <spa/node/utils.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/compare.h>
+#include <spa/pod/filter.h>
 #include <spa/param/param.h>
 #include <spa/debug/types.h>
 
@@ -336,6 +337,8 @@ static int link_find_format(struct pw_impl_link *this,
 			}
 		}
 	} else if (state[0] == PW_IMPL_PORT_STATE_CONFIGURE && state[1] == PW_IMPL_PORT_STATE_CONFIGURE) {
+		bool do_filter = true;
+		int count = 0;
 	      again:
 		/* both ports need a format, we start with a format from port 0 and use that
 		 * as a filter for port 1. Because the filter has higher priority, its
@@ -353,11 +356,20 @@ static int link_find_format(struct pw_impl_link *this,
 				if (res < 0)
 					*error = spa_aprintf("error %s enum formats: %s", dir[0],
 							spa_strerror(res));
-				else
+				else if (do_filter && count > 0) {
+					do_filter = false;
+					idx[0] = 0;
+					goto again;
+				} else {
 					*error = spa_aprintf("no more %s formats", dir[0]);
+				}
 				goto error;
 			}
 		}
+		if (do_filter && filter)
+			if ((res = spa_pod_filter_make(filter)) > 0)
+				count += res;
+
 		pw_log_debug("%p: enum %s %d with filter: %p", this, dir[1], idx[1], filter);
 		pw_log_pod(SPA_LOG_LEVEL_DEBUG, filter);
 
@@ -1069,6 +1081,7 @@ static void port_param_changed(struct pw_impl_link *this, uint32_t id,
 	if (inport)
 		pw_impl_port_update_state(inport, target, 0, NULL);
 
+	pw_log_info("%p: format changed", this);
 	this->preparing = this->prepared = false;
 	link_update_state(this, PW_LINK_STATE_INIT, 0, NULL);
 	pw_impl_link_prepare(this);

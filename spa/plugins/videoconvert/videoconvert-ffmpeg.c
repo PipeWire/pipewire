@@ -503,7 +503,7 @@ static int deinit_port(struct impl *this, enum spa_direction direction, uint32_t
 	return 0;
 }
 
-static int node_param_enum_port_config(struct impl *this, uint32_t index,
+static int node_param_enum_port_config(struct impl *this, uint32_t id, uint32_t index,
 		struct spa_pod **param, struct spa_pod_builder *b)
 {
 	switch (index) {
@@ -511,7 +511,7 @@ static int node_param_enum_port_config(struct impl *this, uint32_t index,
 	{
 		struct dir *dir = &this->dir[index];
 		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_EnumPortConfig,
+			SPA_TYPE_OBJECT_ParamPortConfig, id,
 			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(dir->direction),
 			SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_CHOICE_ENUM_Id(4,
 				SPA_PARAM_PORT_CONFIG_MODE_none,
@@ -526,7 +526,7 @@ static int node_param_enum_port_config(struct impl *this, uint32_t index,
 	return 0;
 }
 
-static int node_param_port_config(struct impl *this, uint32_t index,
+static int node_param_port_config(struct impl *this, uint32_t id, uint32_t index,
 		struct spa_pod **param, struct spa_pod_builder *b)
 {
 	switch (index) {
@@ -535,7 +535,7 @@ static int node_param_port_config(struct impl *this, uint32_t index,
 		struct dir *dir = &this->dir[index];;
 		struct spa_pod_frame f[1];
 		spa_pod_builder_push_object(b, &f[0],
-				SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig);
+				SPA_TYPE_OBJECT_ParamPortConfig, id);
 		spa_pod_builder_add(b,
 			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(dir->direction),
 			SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(dir->mode),
@@ -580,10 +580,10 @@ static int impl_node_enum_params(void *object, int seq,
 	param = NULL;
 	switch (id) {
 	case SPA_PARAM_EnumPortConfig:
-		res = node_param_enum_port_config(this, result.index, &param, &b);
+		res = node_param_enum_port_config(this, id, result.index, &param, &b);
 		break;
 	case SPA_PARAM_PortConfig:
-		res = node_param_port_config(this, result.index, &param, &b);
+		res = node_param_port_config(this, id, result.index, &param, &b);
 		break;
 	case SPA_PARAM_PropInfo:
 		res = 0;
@@ -1074,8 +1074,8 @@ impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_
 	return -ENOTSUP;
 }
 
-static int port_param_enum_format(struct impl *this, struct port *port, uint32_t index,
-		const struct spa_pod **param, struct spa_pod_builder *builder)
+static int port_param_enum_format(struct impl *this, struct port *port, uint32_t id,
+		uint32_t index, const struct spa_pod **param, struct spa_pod_builder *b)
 {
 	struct dir *other = &this->dir[SPA_DIRECTION_REVERSE(port->direction)];
 	struct spa_pod_frame f[1];
@@ -1090,18 +1090,17 @@ static int port_param_enum_format(struct impl *this, struct port *port, uint32_t
 		if (port->is_dsp) {
 			struct spa_video_info_dsp info = SPA_VIDEO_INFO_DSP_INIT(
 					.format = SPA_VIDEO_FORMAT_DSP_F32);
-			*param = spa_format_video_dsp_build(builder,
-				SPA_PARAM_EnumFormat, &info);
+			*param = spa_format_video_dsp_build(b, id, &info);
 		} else if (port->is_control) {
-			*param = spa_pod_builder_add_object(builder,
-				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+			*param = spa_pod_builder_add_object(b,
+				SPA_TYPE_OBJECT_Format, id,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
 				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
 				SPA_FORMAT_CONTROL_types,  SPA_POD_CHOICE_FLAGS_Int(
 					(1u<<SPA_CONTROL_UMP) | (1u<<SPA_CONTROL_Properties)));
 		} else {
 			if (other->have_format) {
-				*param = spa_format_video_build(builder, SPA_PARAM_EnumFormat, &other->format);
+				*param = spa_format_video_build(b, id, &other->format);
 			} else {
 				*param = NULL;
 			}
@@ -1111,9 +1110,8 @@ static int port_param_enum_format(struct impl *this, struct port *port, uint32_t
 		if (port->is_dsp || port->is_control)
 			return 0;
 
-		spa_pod_builder_push_object(builder, &f[0],
-				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
-		spa_pod_builder_add(builder,
+		spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_Format, id);
+		spa_pod_builder_add(b,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_video),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 			SPA_FORMAT_VIDEO_format,   SPA_POD_CHOICE_ENUM_Id(7,
@@ -1129,15 +1127,14 @@ static int port_param_enum_format(struct impl *this, struct port *port, uint32_t
 				&SPA_RECTANGLE(1, 1),
 				&SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
 			0);
-		*param = spa_pod_builder_pop(builder, &f[0]);
+		*param = spa_pod_builder_pop(b, &f[0]);
 		break;
 	case 2:
 		if (port->is_dsp || port->is_control)
 			return 0;
 
-		spa_pod_builder_push_object(builder, &f[0],
-				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
-		spa_pod_builder_add(builder,
+		spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_Format, id);
+		spa_pod_builder_add(b,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_video),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_mjpg),
 			SPA_FORMAT_VIDEO_size,     SPA_POD_CHOICE_RANGE_Rectangle(
@@ -1145,7 +1142,7 @@ static int port_param_enum_format(struct impl *this, struct port *port, uint32_t
 				&SPA_RECTANGLE(1, 1),
 				&SPA_RECTANGLE(INT32_MAX, INT32_MAX)),
 			0);
-		*param = spa_pod_builder_pop(builder, &f[0]);
+		*param = spa_pod_builder_pop(b, &f[0]);
 		break;
 	default:
 		return 0;
@@ -1154,11 +1151,9 @@ static int port_param_enum_format(struct impl *this, struct port *port, uint32_t
 }
 
 
-static int port_param_format(struct impl *this, struct port *port, uint32_t index,
-		const struct spa_pod **param, struct spa_pod_builder *b)
+static int port_param_format(struct impl *this, struct port *port, uint32_t id,
+		uint32_t index, const struct spa_pod **param, struct spa_pod_builder *b)
 {
-	uint32_t id = SPA_PARAM_Format;
-
 	if (!port->have_format)
 		return -EIO;
 	if (index != 0)
@@ -1179,10 +1174,9 @@ static int port_param_format(struct impl *this, struct port *port, uint32_t inde
 	return 1;
 }
 
-static int port_param_buffers(struct impl *this, struct port *port, uint32_t index,
-		const struct spa_pod **param, struct spa_pod_builder *b)
+static int port_param_buffers(struct impl *this, struct port *port, uint32_t id,
+		uint32_t index, const struct spa_pod **param, struct spa_pod_builder *b)
 {
-	uint32_t id = SPA_PARAM_Buffers;
 	uint32_t size, min, max, def;
 	struct port *other;
 
@@ -1217,13 +1211,13 @@ static int port_param_buffers(struct impl *this, struct port *port, uint32_t ind
 	return 1;
 }
 
-static int port_param_meta(struct impl *this, struct port *port, uint32_t index,
-		const struct spa_pod **param, struct spa_pod_builder *b)
+static int port_param_meta(struct impl *this, struct port *port, uint32_t id,
+		uint32_t index, const struct spa_pod **param, struct spa_pod_builder *b)
 {
 	switch (index) {
 	case 0:
 		*param = spa_pod_builder_add_object(b,
-				SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
+				SPA_TYPE_OBJECT_ParamMeta, id,
 				SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
 				SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
 		return 1;
@@ -1231,13 +1225,13 @@ static int port_param_meta(struct impl *this, struct port *port, uint32_t index,
 	return 0;
 }
 
-static int port_param_io(struct impl *this, struct port *port, uint32_t index,
-		const struct spa_pod **param, struct spa_pod_builder *b)
+static int port_param_io(struct impl *this, struct port *port, uint32_t id,
+		uint32_t index, const struct spa_pod **param, struct spa_pod_builder *b)
 {
 	switch (index) {
 	case 0:
 		*param = spa_pod_builder_add_object(b,
-				SPA_TYPE_OBJECT_ParamIO, SPA_PARAM_IO,
+				SPA_TYPE_OBJECT_ParamIO, id,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
 		return 1;
@@ -1245,19 +1239,19 @@ static int port_param_io(struct impl *this, struct port *port, uint32_t index,
 	return 0;
 }
 
-static int port_param_latency(struct impl *this, struct port *port, uint32_t index,
-		const struct spa_pod **param, struct spa_pod_builder *b)
+static int port_param_latency(struct impl *this, struct port *port, uint32_t id,
+		uint32_t index, const struct spa_pod **param, struct spa_pod_builder *b)
 {
 	switch (index) {
 	case 0 ... 1:
-		*param = spa_latency_build(b, SPA_PARAM_Latency, &port->latency[index]);
+		*param = spa_latency_build(b, id, &port->latency[index]);
 		return 1;
 	}
 	return 0;
 }
 
-static int port_param_tag(struct impl *this, struct port *port, uint32_t index,
-		const struct spa_pod **param, struct spa_pod_builder *b)
+static int port_param_tag(struct impl *this, struct port *port, uint32_t id,
+		uint32_t index, const struct spa_pod **param, struct spa_pod_builder *b)
 {
 	switch (index) {
 	case 0 ... 1:
@@ -1304,25 +1298,25 @@ impl_node_port_enum_params(void *object, int seq,
 	param = NULL;
 	switch (id) {
 	case SPA_PARAM_EnumFormat:
-		res = port_param_enum_format(this, port, result.index, &param, &b);
+		res = port_param_enum_format(this, port, id, result.index, &param, &b);
 		break;
 	case SPA_PARAM_Format:
-		res = port_param_format(this, port, result.index, &param, &b);
+		res = port_param_format(this, port, id, result.index, &param, &b);
 		break;
 	case SPA_PARAM_Buffers:
-		res = port_param_buffers(this, port, result.index, &param, &b);
+		res = port_param_buffers(this, port, id, result.index, &param, &b);
 		break;
 	case SPA_PARAM_Meta:
-		res = port_param_meta(this, port, result.index, &param, &b);
+		res = port_param_meta(this, port, id, result.index, &param, &b);
 		break;
 	case SPA_PARAM_IO:
-		res = port_param_io(this, port, result.index, &param, &b);
+		res = port_param_io(this, port, id, result.index, &param, &b);
 		break;
 	case SPA_PARAM_Latency:
-		res = port_param_latency(this, port, result.index, &param, &b);
+		res = port_param_latency(this, port, id, result.index, &param, &b);
 		break;
 	case SPA_PARAM_Tag:
-		res = port_param_tag(this, port, result.index, &param, &b);
+		res = port_param_tag(this, port, id, result.index, &param, &b);
 		break;
 	default:
 		return -ENOENT;

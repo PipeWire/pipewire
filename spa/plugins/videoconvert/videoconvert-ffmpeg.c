@@ -594,15 +594,9 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 		i = dir->n_ports++;
 		init_port(this, direction, i, false, false, true);
 	}
-	/* when output is convert mode, we are in OUTPUT (merge) mode, we always output all
-	 * the incoming data to output. When output is DSP, we need to output quantum size
-	 * chunks. */
-	this->direction = this->dir[SPA_DIRECTION_OUTPUT].mode == SPA_PARAM_PORT_CONFIG_MODE_convert ?
-		SPA_DIRECTION_OUTPUT : SPA_DIRECTION_INPUT;
 
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS | SPA_NODE_CHANGE_MASK_PARAMS;
 	this->info.flags &= ~SPA_NODE_FLAG_NEED_CONFIGURE;
-	this->params[IDX_Props].user++;
 	this->params[IDX_PortConfig].user++;
 	return 0;
 }
@@ -2115,6 +2109,12 @@ impl_init(const struct spa_handle_factory *factory,
 			spa_scnprintf(this->group_name, sizeof(this->group_name), "%s", s);
 		else if (spa_streq(k, "monitor.passthrough"))
 			this->monitor_passthrough = spa_atob(s);
+		else if (spa_streq(k, "convert.direction")) {
+			if (spa_streq(s, "output"))
+				this->direction = SPA_DIRECTION_OUTPUT;
+			else
+				this->direction = SPA_DIRECTION_INPUT;
+		}
 		else
 			videoconvert_set_param(this, k, s);
 	}

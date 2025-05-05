@@ -213,8 +213,8 @@ static void emit_node_info(struct impl *this, bool full)
 			}
 		}
 		spa_node_emit_info(&this->hooks, &this->info);
-		this->info.change_mask = old;
 	}
+	this->info.change_mask = old;
 }
 
 static void emit_port_info(struct impl *this, struct port *port, bool full)
@@ -250,8 +250,8 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 			}
 		}
 		spa_node_emit_port_info(&this->hooks, port->direction, port->id, &port->info);
-		port->info.change_mask = old;
 	}
+	port->info.change_mask = old;
 }
 
 static int init_port(struct impl *this, enum spa_direction direction, uint32_t port_id,

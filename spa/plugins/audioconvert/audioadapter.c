@@ -946,7 +946,6 @@ static int negotiate_format(struct impl *this)
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = { 0 };
 	int res, fres;
-	struct spa_node *src, *dst;
 
 	spa_log_debug(this->log, "%p: have_format:%d recheck:%d", this, this->have_format,
 			this->recheck_format);
@@ -964,36 +963,13 @@ static int negotiate_format(struct impl *this)
 	spa_node_send_command(this->follower,
 			&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_ParamBegin));
 
-	if (this->direction == SPA_DIRECTION_INPUT) {
-		src = this->target;
-		dst = this->follower;
-	} else {
-		src = this->follower;
-		dst = this->target;
-	}
-
-
-	/* first try the ideal converter format, which is likely passthrough */
-	tstate = 0;
-	fres = node_port_enum_params_sync(this, this->target,
-				SPA_DIRECTION_REVERSE(this->direction), 0,
-				SPA_PARAM_EnumFormat, &tstate,
-				NULL, &format, &b);
-	if (fres == 1) {
-		fstate = 0;
-		res = node_port_enum_params_sync(this, this->follower,
-					this->direction, 0,
-					SPA_PARAM_EnumFormat, &fstate,
-					format, &format, &b);
-		if (res == 1)
-			goto found;
-	}
-
-	/* then try something the follower can accept */
+	/* The target has been negotiated on its other ports and so it can propose
+	 * a passthrough format or an ideal conversion. We use the suggestions of the
+	 * target to find the best follower format */
 	for (fstate = 0;;) {
 		format = NULL;
-		res = node_port_enum_params_sync(this, src,
-					SPA_DIRECTION_OUTPUT, 0,
+		res = node_port_enum_params_sync(this, this->target,
+					SPA_DIRECTION_REVERSE(this->direction), 0,
 					SPA_PARAM_EnumFormat, &fstate,
 					NULL, &format, &b);
 
@@ -1002,18 +978,23 @@ static int negotiate_format(struct impl *this)
 		else if (res <= 0)
 			break;
 
+		if (format != NULL)
+			spa_debug_log_pod(this->log, SPA_LOG_LEVEL_DEBUG, 0, NULL, format);
+
 		tstate = 0;
-		fres = node_port_enum_params_sync(this, dst,
-					SPA_DIRECTION_INPUT, 0,
+		fres = node_port_enum_params_sync(this, this->follower,
+					this->direction, 0,
 					SPA_PARAM_EnumFormat, &tstate,
 					format, &format, &b);
 		if (fres == 0 && res == 1)
 			continue;
 
+		if (format != NULL)
+			spa_debug_log_pod(this->log, SPA_LOG_LEVEL_DEBUG, 0, NULL, format);
+
 		res = fres;
 		break;
 	}
-found:
 	if (format == NULL) {
 		debug_params(this, this->follower, this->direction, 0,
 				SPA_PARAM_EnumFormat, format, "follower format", res);
@@ -1283,8 +1264,8 @@ static void follower_info(void *data, const struct spa_node_info *info)
 	struct impl *this = data;
 	uint32_t i;
 
-	spa_log_debug(this->log, "%p: info change:%08"PRIx64, this,
-			info->change_mask);
+	spa_log_debug(this->log, "%p: info change:%08"PRIx64" %d:%d", this,
+			info->change_mask, info->max_input_ports, info->max_output_ports);
 
 	if (this->follower_removing)
 		return;

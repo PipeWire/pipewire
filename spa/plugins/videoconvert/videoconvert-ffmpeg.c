@@ -251,6 +251,22 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 	port->info.change_mask = old;
 }
 
+static void emit_info(struct impl *this, bool full)
+{
+	struct port *p;
+	uint32_t i;
+
+	emit_node_info(this, full);
+	for (i = 0; i < this->dir[SPA_DIRECTION_INPUT].n_ports; i++) {
+		if ((p = GET_IN_PORT(this, i)) && p->valid)
+			emit_port_info(this, p, full);
+	}
+	for (i = 0; i < this->dir[SPA_DIRECTION_OUTPUT].n_ports; i++) {
+		if ((p = GET_OUT_PORT(this, i)) && p->valid)
+			emit_port_info(this, p, full);
+	}
+}
+
 static int init_port(struct impl *this, enum spa_direction direction, uint32_t port_id,
 		bool is_dsp, bool is_monitor, bool is_control)
 {
@@ -269,7 +285,7 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 	port->latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
 	port->latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 
-	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
+	port->info.change_mask = port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PROPS |
 			SPA_PORT_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
@@ -308,7 +324,6 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 
 	spa_log_debug(this->log, "%p: add port %d:%d %d %d %d",
 			this, direction, port_id, is_dsp, is_monitor, is_control);
-	emit_port_info(this, port, true);
 
 	return 0;
 }
@@ -639,17 +654,15 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 		if ((res = reconfigure_mode(this, mode, direction, monitor, control, infop)) < 0)
 			return res;
-
-		emit_node_info(this, false);
 		break;
 	}
 	case SPA_PARAM_Props:
-		if (apply_props(this, param) > 0)
-			emit_node_info(this, false);
+		apply_props(this, param);
 		break;
 	default:
 		return -ENOENT;
 	}
+	emit_info(this, false);
 	return 0;
 }
 
@@ -1025,7 +1038,7 @@ static int setup_convert(struct impl *this)
 		spa_log_info(this->log, "%p: using encoder %s", this, codec->name);
 	} else {
 		free_encoder(this);
- 	}
+	}
 	sws_freeContext(this->convert.context);
 	this->convert.context = NULL;
 	av_frame_free(&this->convert.frame);
@@ -1033,8 +1046,6 @@ static int setup_convert(struct impl *this)
 		return -EIO;
 
 	this->setup = true;
-
-	emit_node_info(this, false);
 
 	return 0;
 }
@@ -1081,24 +1092,15 @@ impl_node_add_listener(void *object,
 		void *data)
 {
 	struct impl *this = object;
-	uint32_t i;
 	struct spa_hook_list save;
-	struct port *p;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
 	spa_log_trace(this->log, "%p: add listener %p", this, listener);
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
-	emit_node_info(this, true);
-	for (i = 0; i < this->dir[SPA_DIRECTION_INPUT].n_ports; i++) {
-		if ((p = GET_IN_PORT(this, i)) && p->valid)
-			emit_port_info(this, p, true);
-	}
-	for (i = 0; i < this->dir[SPA_DIRECTION_OUTPUT].n_ports; i++) {
-		if ((p = GET_OUT_PORT(this, i)) && p->valid)
-			emit_port_info(this, p, true);
-	}
+	emit_info(this, true);
+
 	spa_hook_list_join(&this->hooks, &save);
 
 	return 0;
@@ -1440,7 +1442,6 @@ static int port_set_latency(void *object,
 			oport->latency[other] = info;
 			oport->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 			oport->params[IDX_Latency].user++;
-			emit_port_info(this, oport, false);
 		}
 	} else {
 		spa_latency_info_combine_start(&info, other);
@@ -1468,14 +1469,12 @@ static int port_set_latency(void *object,
 				oport->latency[other] = info;
 				oport->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 				oport->params[IDX_Latency].user++;
-				emit_port_info(this, oport, false);
 			}
 		}
 	}
 	if (emit) {
 		port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 		port->params[IDX_Latency].user++;
-		emit_port_info(this, port, false);
 	}
 	return 0;
 }
@@ -1513,12 +1512,10 @@ static int port_set_tag(void *object,
 			oport = GET_PORT(this, other, i);
 			oport->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 			oport->params[IDX_Tag].user++;
-			emit_port_info(this, oport, false);
 		}
 	}
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	port->params[IDX_Tag].user++;
-	emit_port_info(this, port, false);
 	return 0;
 }
 
@@ -1662,8 +1659,6 @@ static int port_set_format(void *object,
 		port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 		port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	}
-	emit_port_info(this, port, false);
-
 	return 0;
 }
 
@@ -1675,6 +1670,7 @@ impl_node_port_set_param(void *object,
 			 const struct spa_pod *param)
 {
 	struct impl *this = object;
+	int res = 0;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -1685,14 +1681,19 @@ impl_node_port_set_param(void *object,
 
 	switch (id) {
 	case SPA_PARAM_Latency:
-		return port_set_latency(this, direction, port_id, flags, param);
+		res = port_set_latency(this, direction, port_id, flags, param);
+		break;
 	case SPA_PARAM_Tag:
-		return port_set_tag(this, direction, port_id, flags, param);
+		res = port_set_tag(this, direction, port_id, flags, param);
+		break;
 	case SPA_PARAM_Format:
-		return port_set_format(this, direction, port_id, flags, param);
+		res = port_set_format(this, direction, port_id, flags, param);
+		break;
 	default:
 		return -ENOENT;
 	}
+	emit_info(this, false);
+	return res;
 }
 
 static inline void queue_buffer(struct impl *this, struct port *port, uint32_t id)

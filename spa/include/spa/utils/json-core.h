@@ -268,6 +268,8 @@ SPA_API_JSON int spa_json_next(struct spa_json * iter, const char **value)
 				if (--utf8_remain == 0)
 					iter->state = __STRING | flag;
 				continue;
+			default:
+				break;
 			}
 			_SPA_ERROR(CHARACTERS_NOT_ALLOWED);
 		case __ESC:
@@ -276,12 +278,17 @@ SPA_API_JSON int spa_json_next(struct spa_json * iter, const char **value)
 			case 'n': case 'r': case 't': case 'u':
 				iter->state = __STRING | flag;
 				continue;
+			default:
+				break;
 			}
 			_SPA_ERROR(INVALID_ESCAPE);
 		case __COMMENT:
 			switch (cur) {
 			case '\n': case '\r':
 				iter->state = __STRUCT | flag;
+				break;
+			default:
+				break;
 			}
 			break;
 		default:
@@ -299,6 +306,8 @@ SPA_API_JSON int spa_json_next(struct spa_json * iter, const char **value)
 	case __COMMENT:
 		/* trailing comment */
 		return 0;
+	default:
+		break;
 	}
 
 	if ((iter->state & __SUB_FLAG) && (iter->state & __KEY_FLAG)) {

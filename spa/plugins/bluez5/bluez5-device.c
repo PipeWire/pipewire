@@ -966,7 +966,7 @@ static const struct spa_bt_transport_events device_set_transport_events = {
 	.destroy = device_set_transport_destroy,
 };
 
-static void device_set_update(struct impl *this, struct device_set *dset)
+static void device_set_update_asha(struct impl *this, struct device_set *dset)
 {
 	struct spa_bt_device *device = this->bt_dev;
 	struct spa_bt_set_membership *set;
@@ -992,7 +992,75 @@ static void device_set_update(struct impl *this, struct device_set *dset)
 	spa_list_for_each(set, membership_list, link) {
 		struct spa_bt_set_membership *s;
 		int num_devices = 0;
-		bool is_asha_member = false;
+
+		device_set_clear(this, dset);
+
+		spa_bt_for_each_set_member(s, set) {
+			struct spa_bt_transport *t;
+			bool active = false;
+			uint32_t sink_id = DEVICE_ID_SINK;
+
+			if (!(s->device->connected_profiles & SPA_BT_PROFILE_ASHA_SINK))
+				continue;
+
+			spa_list_for_each(t, &s->device->transport_list, device_link) {
+				if (!transport_enabled(t, SPA_BT_PROFILE_ASHA_SINK))
+					continue;
+				if (dset->sinks >= SPA_N_ELEMENTS(dset->sink))
+					break;
+
+				active = true;
+				dset->leader = set->leader = t->asha_right_side;
+				dset->path = strdup(set->path);
+				dset->sink[dset->sinks].impl = this;
+				dset->sink[dset->sinks].transport = t;
+				dset->sink[dset->sinks].id = sink_id;
+				sink_id += 2;
+				spa_bt_transport_add_listener(t, &dset->sink[dset->sinks].listener,
+						&device_set_transport_events, &dset->sink[dset->sinks]);
+				++dset->sinks;
+			}
+
+			if (active)
+				++num_devices;
+		}
+
+		spa_log_debug(this->log, "%p: %s belongs to ASHA set %s leader:%d", this,
+				device->path, set->path, set->leader);
+
+		if (num_devices > 1)
+			break;
+	}
+
+	dset->sink_enabled = dset->path && (dset->sinks > 1);
+}
+
+static void device_set_update_bap(struct impl *this, struct device_set *dset)
+{
+	struct spa_bt_device *device = this->bt_dev;
+	struct spa_bt_set_membership *set;
+	struct spa_bt_set_membership tmp_set = {
+		.device = device,
+		.rank = 0,
+		.leader = true,
+		.path = device->path,
+		.others = SPA_LIST_INIT(&tmp_set.others),
+	};
+	struct spa_list tmp_set_list = SPA_LIST_INIT(&tmp_set_list);
+	struct spa_list *membership_list = &device->set_membership_list;
+
+	/*
+	 * If no device set, use a dummy one, so that we can handle also those devices
+	 * here (they may have multiple transports regardless).
+	 */
+	if (spa_list_is_empty(membership_list)) {
+		spa_list_append(&tmp_set_list, &tmp_set.link);
+		membership_list = &tmp_set_list;
+	}
+
+	spa_list_for_each(set, membership_list, link) {
+		struct spa_bt_set_membership *s;
+		int num_devices = 0;
 
 		device_set_clear(this, dset);
 
@@ -1001,71 +1069,44 @@ static void device_set_update(struct impl *this, struct device_set *dset)
 			bool active = false;
 			uint32_t source_id = DEVICE_ID_SOURCE;
 			uint32_t sink_id = DEVICE_ID_SINK;
-			bool bap_duplex = s->device->connected_profiles & SPA_BT_PROFILE_BAP_DUPLEX;
-			bool is_asha = s->device->connected_profiles & SPA_BT_PROFILE_ASHA_SINK;
 
-			if (!bap_duplex && !is_asha)
+			if (!(s->device->connected_profiles & SPA_BT_PROFILE_BAP_DUPLEX))
 				continue;
 
-			if (is_asha) {
-				spa_list_for_each(t, &s->device->transport_list, device_link) {
-					if (!(s->device->connected_profiles & SPA_BT_PROFILE_ASHA_SINK))
-						continue;
-					if (!transport_enabled(t, SPA_BT_PROFILE_ASHA_SINK))
-						continue;
-					if (dset->sinks >= SPA_N_ELEMENTS(dset->sink))
-						break;
+			spa_list_for_each(t, &s->device->transport_list, device_link) {
+				if (!(s->device->connected_profiles & SPA_BT_PROFILE_BAP_SOURCE))
+					continue;
+				if (!transport_enabled(t, SPA_BT_PROFILE_BAP_SOURCE))
+					continue;
+				if (dset->sources >= SPA_N_ELEMENTS(dset->source))
+					break;
 
-					active = true;
-					is_asha_member = true;
-					dset->leader = set->leader = t->asha_right_side;
-					dset->path = strdup(set->path);
-					dset->sink[dset->sinks].impl = this;
-					dset->sink[dset->sinks].transport = t;
-					dset->sink[dset->sinks].id = sink_id;
-					sink_id += 2;
-					spa_bt_transport_add_listener(t, &dset->sink[dset->sinks].listener,
-							&device_set_transport_events, &dset->sink[dset->sinks]);
-					++dset->sinks;
-				}
+				active = true;
+				dset->source[dset->sources].impl = this;
+				dset->source[dset->sources].transport = t;
+				dset->source[dset->sources].id = source_id;
+				source_id += 2;
+				spa_bt_transport_add_listener(t, &dset->source[dset->sources].listener,
+						&device_set_transport_events, &dset->source[dset->sources]);
+				++dset->sources;
 			}
 
-			if (bap_duplex) {
-				spa_list_for_each(t, &s->device->transport_list, device_link) {
-					if (!(s->device->connected_profiles & SPA_BT_PROFILE_BAP_SOURCE))
-						continue;
-					if (!transport_enabled(t, SPA_BT_PROFILE_BAP_SOURCE))
-						continue;
-					if (dset->sources >= SPA_N_ELEMENTS(dset->source))
-						break;
+			spa_list_for_each(t, &s->device->transport_list, device_link) {
+				if (!(s->device->connected_profiles & SPA_BT_PROFILE_BAP_SINK))
+					continue;
+				if (!transport_enabled(t, SPA_BT_PROFILE_BAP_SINK))
+					continue;
+				if (dset->sinks >= SPA_N_ELEMENTS(dset->sink))
+					break;
 
-					active = true;
-					dset->source[dset->sources].impl = this;
-					dset->source[dset->sources].transport = t;
-					dset->source[dset->sources].id = source_id;
-					source_id += 2;
-					spa_bt_transport_add_listener(t, &dset->source[dset->sources].listener,
-							&device_set_transport_events, &dset->source[dset->sources]);
-					++dset->sources;
-				}
-
-				spa_list_for_each(t, &s->device->transport_list, device_link) {
-					if (!(s->device->connected_profiles & SPA_BT_PROFILE_BAP_SINK))
-						continue;
-					if (!transport_enabled(t, SPA_BT_PROFILE_BAP_SINK))
-						continue;
-					if (dset->sinks >= SPA_N_ELEMENTS(dset->sink))
-						break;
-
-					active = true;
-					dset->sink[dset->sinks].impl = this;
-					dset->sink[dset->sinks].transport = t;
-					dset->sink[dset->sinks].id = sink_id;
-					sink_id += 2;
-					spa_bt_transport_add_listener(t, &dset->sink[dset->sinks].listener,
-							&device_set_transport_events, &dset->sink[dset->sinks]);
-					++dset->sinks;
-				}
+				active = true;
+				dset->sink[dset->sinks].impl = this;
+				dset->sink[dset->sinks].transport = t;
+				dset->sink[dset->sinks].id = sink_id;
+				sink_id += 2;
+				spa_bt_transport_add_listener(t, &dset->sink[dset->sinks].listener,
+						&device_set_transport_events, &dset->sink[dset->sinks]);
+				++dset->sinks;
 			}
 
 			if (active)
@@ -1082,10 +1123,8 @@ static void device_set_update(struct impl *this, struct device_set *dset)
 			/* XXX: device set nodes for BAP server not supported,
 			 * XXX: it'll appear as multiple streams
 			 */
-			if (!is_asha_member) {
-				dset->path = NULL;
-				dset->leader = false;
-			}
+			dset->path = NULL;
+			dset->leader = false;
 		}
 
 		if (num_devices > 1)
@@ -1094,6 +1133,14 @@ static void device_set_update(struct impl *this, struct device_set *dset)
 
 	dset->sink_enabled = dset->path && (dset->sinks > 1);
 	dset->source_enabled = dset->path && (dset->sources > 1);
+}
+
+static void device_set_update(struct impl *this, struct device_set *dset)
+{
+	if (this->profile == DEVICE_PROFILE_BAP)
+		device_set_update_bap(this, dset);
+	else if (this->profile == DEVICE_PROFILE_ASHA)
+		device_set_update_asha(this, dset);
 }
 
 static bool device_set_equal(struct device_set *a, struct device_set *b)

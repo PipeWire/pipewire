@@ -45,7 +45,26 @@
 /** \page page_module_netjack2_driver Netjack2 driver
  *
  * The netjack2-driver module provides a source or sink that is following a
- * netjack2 manager.
+ * netjack2 manager. It is meant to be used over stable (ethernet) network
+ * connections with minimal latency and jitter.
+ *
+ * The driver normally decides how many ports it will send and receive from the
+ * manager. By default however, these values are set to -1 so that the manager
+ * decides on the number of ports.
+ *
+ * With the global or per stream audio.port and midi.ports properties this
+ * behaviour can be adjusted.
+ *
+ * The driver will send out UDP messages on a (typically) multicast address to
+ * inform the manager of the available driver. This will then instruct the manager
+ * to configure and start the driver.
+ *
+ * On the driver side, a sink and/or source with the specified numner of audio and
+ * midi ports will be created. On the manager side there will be a corresponding
+ * source and/or sink created respectively.
+ *
+ * The driver will be scheduled with exactly the same period as the manager but with
+ * a configurable number of periods of delay (see netjack2.latency, default 2).
  *
  * ## Module Name
  *
@@ -53,6 +72,10 @@
  *
  * ## Module Options
  *
+ * - `driver.mode`: the driver mode, sink|source|duplex, default duplex. This set the
+ *    per stream audio.port and midi.ports default from -1 to 0. sink mode defaults to
+ *    no source ports, source mode to no sink ports and duplex leaves the defaults as
+ *    they are.
  * - `local.ifname = <str>`: interface name to use
  * - `net.ip =<str>`: multicast IP address, default "225.3.19.154"
  * - `net.port =<int>`: control port, default 19000
@@ -99,7 +122,7 @@
  *         #audio.channels       = 2
  *         #audio.position       = [ FL FR ]
  *         source.props = {
- *             # extra sink properties
+ *             # extra source properties
  *         }
  *         sink.props = {
  *             # extra sink properties
@@ -138,6 +161,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define FOLLOWER_INIT_RETRY	-1
 
 #define MODULE_USAGE	"( remote.name=<remote> ) "				\
+			"( driver.mode=<sink|source|duplex> ) "                 \
 			"( local.ifname=<interface name> ) "			\
 			"( net.ip=<ip address to use, default 225.3.19.154> ) "	\
 			"( net.port=<port to use, default 19000> ) "		\
@@ -1259,6 +1283,20 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->source.direction = PW_DIRECTION_OUTPUT;
 	impl->sink.impl = impl;
 	impl->sink.direction = PW_DIRECTION_INPUT;
+
+	if ((str = pw_properties_get(props, "driver.mode")) != NULL) {
+		if (spa_streq(str, "source")) {
+			pw_properties_set(impl->sink.props, "audio.ports", "0");
+			pw_properties_set(impl->sink.props, "midi.ports", "0");
+		} else if (spa_streq(str, "sink")) {
+			pw_properties_set(impl->source.props, "audio.ports", "0");
+			pw_properties_set(impl->source.props, "midi.ports", "0");
+		} else if (!spa_streq(str, "duplex")) {
+			pw_log_error("invalid driver.mode '%s'", str);
+			res = -EINVAL;
+			goto error;
+		}
+	}
 
 	impl->latency = pw_properties_get_uint32(impl->props, "netjack2.latency",
 			DEFAULT_NETWORK_LATENCY);

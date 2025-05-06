@@ -120,7 +120,7 @@ struct nj2_packet_header {
 	uint32_t cycle;			/* process cycle counter */
 	uint32_t sub_cycle;		/* midi/audio subcycle counter */
 	int32_t frames;			/* process cycle size in frames (can be -1 to indicate entire buffer) */
-	uint32_t is_last;		/* is it the last packet of a given cycle ('y' or 'n') */
+	uint32_t is_last;		/* is it the last packet of a given cycle (1=yes or 0=no) */
 } __attribute__ ((packed));
 
 #define UDP_HEADER_SIZE 64		/* 40 bytes for IP header in IPV6, 20 in IPV4, 8 for UDP, so take 64 */

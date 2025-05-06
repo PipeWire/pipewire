@@ -278,35 +278,43 @@ static void emit_info(struct impl *this, bool full)
 struct format_info {
 	enum AVPixelFormat pix_fmt;
 	uint32_t format;
+	uint32_t dsp_format;
 #define FORMAT_DSP	(1<<0)
 #define FORMAT_COMMON	(1<<1)
 	uint32_t flags;
 };
 
+#if defined AV_PIX_FMT_AYUV
+#define VIDEO_FORMAT_DSP_AYUV SPA_VIDEO_FORMAT_AYUV
+#else
+#define VIDEO_FORMAT_DSP_AYUV SPA_VIDEO_FORMAT_Y444
+#endif
+#define VIDEO_FORMAT_DSP_RGBA SPA_VIDEO_FORMAT_RGBA
+
 static struct format_info format_info[] =
 {
 #if defined AV_PIX_FMT_AYUV
-	{ AV_PIX_FMT_AYUV,  SPA_VIDEO_FORMAT_AYUV, FORMAT_DSP | FORMAT_COMMON },
+	{ AV_PIX_FMT_AYUV,  SPA_VIDEO_FORMAT_AYUV, VIDEO_FORMAT_DSP_AYUV, FORMAT_DSP | FORMAT_COMMON },
 #else
-	{ AV_PIX_FMT_YUV444P, SPA_VIDEO_FORMAT_Y444, FORMAT_DSP | FORMAT_COMMON },
+	{ AV_PIX_FMT_YUV444P, SPA_VIDEO_FORMAT_Y444, VIDEO_FORMAT_DSP_AYUV, FORMAT_DSP | FORMAT_COMMON },
 #endif
-	{ AV_PIX_FMT_RGBA,  SPA_VIDEO_FORMAT_RGBA, FORMAT_DSP | FORMAT_COMMON },
+	{ AV_PIX_FMT_RGBA,  SPA_VIDEO_FORMAT_RGBA, VIDEO_FORMAT_DSP_RGBA, FORMAT_DSP | FORMAT_COMMON },
 
-	{ AV_PIX_FMT_YUYV422, SPA_VIDEO_FORMAT_YUY2, FORMAT_COMMON },
-	{ AV_PIX_FMT_UYVY422, SPA_VIDEO_FORMAT_UYVY, FORMAT_COMMON },
-	{ AV_PIX_FMT_YVYU422, SPA_VIDEO_FORMAT_YVYU, FORMAT_COMMON },
-	{ AV_PIX_FMT_YUV420P, SPA_VIDEO_FORMAT_I420, FORMAT_COMMON },
+	{ AV_PIX_FMT_YUYV422, SPA_VIDEO_FORMAT_YUY2, VIDEO_FORMAT_DSP_AYUV, FORMAT_COMMON },
+	{ AV_PIX_FMT_UYVY422, SPA_VIDEO_FORMAT_UYVY, VIDEO_FORMAT_DSP_AYUV, FORMAT_COMMON },
+	{ AV_PIX_FMT_YVYU422, SPA_VIDEO_FORMAT_YVYU, VIDEO_FORMAT_DSP_AYUV, FORMAT_COMMON },
+	{ AV_PIX_FMT_YUV420P, SPA_VIDEO_FORMAT_I420, VIDEO_FORMAT_DSP_AYUV, FORMAT_COMMON },
 
-	//{ AV_PIX_FMT_BGR0,  SPA_VIDEO_FORMAT_BGRx },
-	//{ AV_PIX_FMT_BGRA,  SPA_VIDEO_FORMAT_BGRA },
-	//{ AV_PIX_FMT_ARGB,  SPA_VIDEO_FORMAT_ARGB },
-	//{ AV_PIX_FMT_ABGR,  SPA_VIDEO_FORMAT_ABGR },
+	{ AV_PIX_FMT_BGR0,  SPA_VIDEO_FORMAT_BGRx, VIDEO_FORMAT_DSP_RGBA, FORMAT_COMMON },
+	{ AV_PIX_FMT_BGRA,  SPA_VIDEO_FORMAT_BGRA, VIDEO_FORMAT_DSP_RGBA, FORMAT_COMMON },
+	{ AV_PIX_FMT_ARGB,  SPA_VIDEO_FORMAT_ARGB, VIDEO_FORMAT_DSP_RGBA, FORMAT_COMMON },
+	{ AV_PIX_FMT_ABGR,  SPA_VIDEO_FORMAT_ABGR, VIDEO_FORMAT_DSP_RGBA, FORMAT_COMMON },
 
 	//{ AV_PIX_FMT_NONE,  SPA_VIDEO_FORMAT_YV12 },
 
-	//{ AV_PIX_FMT_RGB0,  SPA_VIDEO_FORMAT_RGBx },
-	//{ AV_PIX_FMT_0RGB,  SPA_VIDEO_FORMAT_xRGB },
-	//{ AV_PIX_FMT_0BGR,  SPA_VIDEO_FORMAT_xBGR },
+	{ AV_PIX_FMT_RGB0,  SPA_VIDEO_FORMAT_RGBx, VIDEO_FORMAT_DSP_RGBA, FORMAT_COMMON },
+	{ AV_PIX_FMT_0RGB,  SPA_VIDEO_FORMAT_xRGB, VIDEO_FORMAT_DSP_RGBA, FORMAT_COMMON },
+	{ AV_PIX_FMT_0BGR,  SPA_VIDEO_FORMAT_xBGR, VIDEO_FORMAT_DSP_RGBA, FORMAT_COMMON },
 
 	//{ AV_PIX_FMT_RGB24,   SPA_VIDEO_FORMAT_RGB },
 	//{ AV_PIX_FMT_BGR24,   SPA_VIDEO_FORMAT_BGR },
@@ -392,13 +400,19 @@ static struct format_info format_info[] =
 	//{ AV_PIX_FMT_NONE, SPA_VIDEO_FORMAT_BGRA_102LE },
 };
 
-static enum AVPixelFormat format_to_pix_fmt(uint32_t format)
+static struct format_info *format_info_for_format(uint32_t format)
 {
 	SPA_FOR_EACH_ELEMENT_VAR(format_info, i) {
 		if (i->format == format)
-			return i->pix_fmt;
+			return i;
 	}
-	return AV_PIX_FMT_NONE;
+	return NULL;
+}
+
+static enum AVPixelFormat format_to_pix_fmt(uint32_t format)
+{
+	struct format_info *i = format_info_for_format(format);
+	return i ? i->pix_fmt : AV_PIX_FMT_NONE;
 }
 
 static int get_format(struct dir *dir, uint32_t *format, struct spa_rectangle *size,
@@ -1088,19 +1102,52 @@ impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_
 	return -ENOTSUP;
 }
 
-static void add_video_formats(struct spa_pod_builder *b, uint32_t def)
+static void add_video_formats(struct spa_pod_builder *b,
+		uint32_t *vals, uint32_t n_vals, bool is_dsp)
 {
-	uint32_t i;
 	struct spa_pod_frame f[1];
+	uint32_t ids[SPA_N_ELEMENTS(format_info) + 1], n_ids = 0, i, j, fmt;
 
 	spa_pod_builder_prop(b, SPA_FORMAT_VIDEO_format, 0);
 	spa_pod_builder_push_choice(b, &f[0], SPA_CHOICE_Enum, 0);
-	if (def == SPA_ID_INVALID)
-		def = format_info[0].format;
-	spa_pod_builder_id(b, def);
-	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++) {
-		if (format_info[i].pix_fmt != AV_PIX_FMT_NONE)
-			spa_pod_builder_id(b, format_info[i].format);
+
+	if (n_vals == 0) {
+		 vals = &format_info[0].format;
+		 n_vals = 1;
+	}
+	/* all supported formats */
+	for (i = 0; i < n_vals; i++) {
+		struct format_info *fi = format_info_for_format(vals[i]);
+		if (fi == NULL)
+			continue;
+
+		fmt = is_dsp ? fi->dsp_format : fi->format;
+
+		for (j = 0; j < n_ids; j++) {
+			if (ids[j] == fmt)
+				break;
+		}
+		if (j == n_ids)
+			ids[n_ids++] = fmt;
+	}
+	/* then add all other supported formats */
+	SPA_FOR_EACH_ELEMENT_VAR(format_info, fi) {
+		if (fi->pix_fmt == AV_PIX_FMT_NONE)
+			continue;
+
+		fmt = is_dsp ? fi->dsp_format : fi->format;
+
+		for (j = 0; j < n_ids; j++) {
+			if (fmt == ids[j])
+				break;
+		}
+		if (j == n_ids)
+			ids[n_ids++] = fmt;
+	}
+	for (i = 0; i < n_ids; i++) {
+		spa_pod_builder_id(b, ids[i]);
+		if (i == 0)
+			spa_pod_builder_id(b, ids[i]);
 	}
 	spa_pod_builder_pop(b, &f[0]);
 }
@@ -1108,7 +1155,7 @@ static void add_video_formats(struct spa_pod_builder *b, uint32_t def)
 static struct spa_pod *transform_format(struct impl *this, struct port *port, const struct spa_pod *format,
 		uint32_t id, struct spa_pod_builder *b)
 {
-	uint32_t media_type, media_subtype;
+	uint32_t media_type, media_subtype, fmt;
 	struct spa_pod_object *obj;
 	const struct spa_pod_prop *prop;
 	struct spa_pod_frame f[2];
@@ -1129,14 +1176,15 @@ static struct spa_pod *transform_format(struct impl *this, struct port *port, co
 		case SPA_FORMAT_mediaSubtype:
 			spa_pod_builder_prop(b, prop->key, prop->flags);
 			spa_pod_builder_id(b, SPA_MEDIA_SUBTYPE_raw);
+			fmt = SPA_VIDEO_FORMAT_I420;
 			switch (media_subtype) {
 			case SPA_MEDIA_SUBTYPE_raw:
 				break;
 			case SPA_MEDIA_SUBTYPE_mjpg:
-				add_video_formats(b, SPA_VIDEO_FORMAT_I420);
+				add_video_formats(b, &fmt, 1, port->is_dsp);
 				break;
 			case SPA_MEDIA_SUBTYPE_h264:
-				add_video_formats(b, SPA_VIDEO_FORMAT_I420);
+				add_video_formats(b, &fmt, 1, port->is_dsp);
 				break;
 			default:
 				return NULL;
@@ -1144,37 +1192,15 @@ static struct spa_pod *transform_format(struct impl *this, struct port *port, co
 			break;
 		case SPA_FORMAT_VIDEO_format:
 		{
-			uint32_t i, j, n_vals, choice, *id_vals;
+			uint32_t n_vals, choice, *id_vals;
 			struct spa_pod *val = spa_pod_get_values(&prop->value, &n_vals, &choice);
 
 			if (!spa_pod_is_id(val))
 				return 0;
 
-			spa_pod_builder_prop(b, SPA_FORMAT_VIDEO_format, 0);
-			spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_Enum, 0);
 			id_vals = SPA_POD_BODY(val);
-			spa_pod_builder_id(b, id_vals[0]);
-			/* first add all supported formats */
-			for (i = 1; i < n_vals; i++) {
-				for (j = 0; j < i; j++) {
-					if (id_vals[j] == id_vals[i])
-						break;
-				}
-				if (j == i && format_to_pix_fmt(id_vals[i]) != AV_PIX_FMT_NONE)
-					spa_pod_builder_id(b, id_vals[i]);
-			}
-			/* then add all other supported formats */
-			for (i = 0; i < SPA_N_ELEMENTS(format_info); i++) {
-				if (format_info[i].pix_fmt == AV_PIX_FMT_NONE)
-					continue;
-				for (j = 1; j < n_vals; j++) {
-					if (format_info[i].format == id_vals[j])
-						break;
-				}
-				if (j == n_vals)
-					spa_pod_builder_id(b, format_info[i].format);
-			}
-			spa_pod_builder_pop(b, &f[1]);
+
+			add_video_formats(b, id_vals, n_vals, port->is_dsp);
 			break;
 		}
 		default:
@@ -1320,7 +1346,7 @@ static int all_formats(struct impl *this, struct port *port, uint32_t id,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_video),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 			0);
-		add_video_formats(b, SPA_ID_INVALID);
+		add_video_formats(b, NULL, 0, port->is_dsp);
 		*param = spa_pod_builder_pop(b, &f[0]);
 		break;
 	case 1:

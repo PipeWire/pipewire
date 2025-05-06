@@ -1361,6 +1361,8 @@ static int port_param_enum_format(struct impl *this, struct port *port, uint32_t
 	struct dir *other = &this->dir[SPA_DIRECTION_REVERSE(port->direction)];
 
 	spa_log_debug(this->log, "%p %d %d %d %d", port, port->valid, this->direction, port->direction, index);
+	if ((port->is_dsp || port->is_control) && index > 0)
+		return 0;
 
 	if (index == 0) {
 		if (port->is_dsp) {

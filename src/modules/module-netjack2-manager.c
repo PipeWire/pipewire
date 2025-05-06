@@ -49,6 +49,19 @@
  * The netjack2 manager module listens for new netjack2 driver messages and will
  * start a communication channel with them.
  *
+ * Messages are received on a (typically) multicast address.
+ *
+ * Normally, the driver will specify the number of send and receive channels it
+ * wants to set up with the manager. If the driver however specifies a don't-care
+ * value of -1, the audio.ports and midi.ports configuration values of the manager
+ * are used.
+ *
+ * The manager will create the corresponding streams to send and receive data
+ * to/from the drivers. These are usually sink and sources but with the
+ * netjack2.connect property, these will be streams that will be autoconnected to
+ * the default source and sink by the session manager.
+ *
+ *
  * ## Module Name
  *
  * `libpipewire-module-netjack2-manager`
@@ -107,7 +120,7 @@
  *         #audio.channels       = 2
  *         #audio.position       = [ FL FR ]
  *         source.props = {
- *             # extra sink properties
+ *             # extra source properties
  *         }
  *         sink.props = {
  *             # extra sink properties

@@ -844,6 +844,9 @@ struct impl {
 	struct spa_hook graph_listener;
 	uint32_t n_inputs;
 	uint32_t n_outputs;
+
+	struct spa_latency_info latency[2];
+	struct spa_process_latency_info process_latency;
 };
 
 static void capture_destroy(void *d)
@@ -938,7 +941,8 @@ done:
 		pw_stream_queue_buffer(impl->playback, out);
 }
 
-static void param_latency_changed(struct impl *impl, const struct spa_pod *param)
+static void param_latency_changed(struct impl *impl, const struct spa_pod *param,
+		enum spa_direction direction)
 {
 	struct spa_latency_info latency;
 	uint8_t buffer[1024];
@@ -948,7 +952,11 @@ static void param_latency_changed(struct impl *impl, const struct spa_pod *param
 	if (param == NULL || spa_latency_parse(param, &latency) < 0)
 		return;
 
+	impl->latency[latency.direction] = latency;
+
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	if (latency.direction != direction)
+		spa_process_latency_info_add(&impl->process_latency, &latency);
 	params[0] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
 
 	if (latency.direction == SPA_DIRECTION_INPUT)
@@ -957,7 +965,38 @@ static void param_latency_changed(struct impl *impl, const struct spa_pod *param
 		pw_stream_update_params(impl->playback, params, 1);
 }
 
-static void param_tag_changed(struct impl *impl, const struct spa_pod *param)
+static void param_process_latency_changed(struct impl *impl, const struct spa_pod *param,
+		enum spa_direction direction)
+{
+	uint8_t buffer[1024];
+	struct spa_pod_builder b;
+	struct spa_process_latency_info process_latency;
+	struct spa_latency_info latency;
+	const struct spa_pod *params[1];
+
+	if (param == NULL)
+		spa_zero(process_latency);
+	else if (spa_process_latency_parse(param, &process_latency) < 0)
+		return;
+
+	impl->process_latency = process_latency;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	latency = impl->latency[SPA_DIRECTION_INPUT];
+	spa_process_latency_info_add(&process_latency, &latency);
+	params[0] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
+
+	pw_stream_update_params(impl->playback, params, 1);
+
+	latency = impl->latency[SPA_DIRECTION_OUTPUT];
+	spa_process_latency_info_add(&process_latency, &latency);
+	params[0] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
+
+	pw_stream_update_params(impl->capture, params, 1);
+}
+
+static void param_tag_changed(struct impl *impl, const struct spa_pod *param,
+		enum spa_direction direction)
 {
 	struct spa_tag_info tag;
 	const struct spa_pod *params[1] = { param };
@@ -1035,10 +1074,9 @@ static void io_changed(void *data, uint32_t id, void *area, uint32_t size)
 	}
 }
 
-static void param_changed(void *data, uint32_t id, const struct spa_pod *param,
-		bool capture)
+static void param_changed(struct impl *impl, uint32_t id, const struct spa_pod *param,
+		enum spa_direction direction, struct pw_stream *stream, struct pw_stream *other)
 {
-	struct impl *impl = data;
 	struct spa_filter_graph *graph = impl->graph;
 	int res;
 
@@ -1059,27 +1097,29 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param,
 	}
 	case SPA_PARAM_Props:
 		if (param != NULL)
-			spa_filter_graph_set_props(impl->graph,
-					capture ? SPA_DIRECTION_INPUT : SPA_DIRECTION_OUTPUT, param);
-
+			spa_filter_graph_set_props(impl->graph, direction, param);
 		break;
 	case SPA_PARAM_Latency:
-		param_latency_changed(impl, param);
+		param_latency_changed(impl, param, direction);
+		break;
+	case SPA_PARAM_ProcessLatency:
+		param_process_latency_changed(impl, param, direction);
 		break;
 	case SPA_PARAM_Tag:
-		param_tag_changed(impl, param);
+		param_tag_changed(impl, param, direction);
 		break;
 	}
 	return;
 
 error:
-	pw_stream_set_error(capture ? impl->capture : impl->playback,
+	pw_stream_set_error(direction == SPA_DIRECTION_INPUT ? impl->capture : impl->playback,
 			res, "can't start graph: %s", spa_strerror(res));
 }
 
 static void capture_param_changed(void *data, uint32_t id, const struct spa_pod *param)
 {
-	param_changed(data, id, param, true);
+	struct impl *impl = data;
+	param_changed(impl, id, param, SPA_DIRECTION_INPUT, impl->capture, impl->playback);
 }
 
 static const struct pw_stream_events in_stream_events = {
@@ -1093,7 +1133,8 @@ static const struct pw_stream_events in_stream_events = {
 
 static void playback_param_changed(void *data, uint32_t id, const struct spa_pod *param)
 {
-	param_changed(data, id, param, false);
+	struct impl *impl = data;
+	param_changed(impl, id, param, SPA_DIRECTION_OUTPUT, impl->playback, impl->capture);
 }
 
 static void playback_destroy(void *d)
@@ -1163,6 +1204,11 @@ static int setup_streams(struct impl *impl)
 	if ((offs = pw_array_add(&offsets, sizeof(uint32_t))) != NULL)
 		*offs = b.b.state.offset;
 	spa_filter_graph_get_props(graph, &b.b, NULL);
+
+	if ((offs = pw_array_add(&offsets, sizeof(uint32_t))) != NULL)
+		*offs = b.b.state.offset;
+	spa_process_latency_build(&b.b,
+			SPA_PARAM_ProcessLatency, &impl->process_latency);
 
 	n_params = pw_array_get_len(&offsets, uint32_t);
 	if (n_params == 0) {

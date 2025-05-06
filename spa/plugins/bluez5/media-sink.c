@@ -113,13 +113,11 @@ struct spa_bt_asha {
 	int timerfd;
 
 	uint8_t buf[512];
-	uint8_t seqnum_pending;
 
 	uint64_t ref_t0;
 	uint64_t next_time;
 
 	unsigned int flush_pending:1;
-	unsigned int poll_pending:1;
 	unsigned int set_timer:1;
 };
 
@@ -1354,16 +1352,6 @@ static void media_asha_flush_timeout(struct spa_source *source)
 
 	asha->next_time += (uint64_t)(ASHA_CONN_INTERVAL * port->ratectl.corr);
 
-	if (asha->poll_pending) {
-		/*
-		 * We have pending data to send but we could not send it
-		 * before the connection interval elapsed.
-		 */
-		asha->poll_pending = false;
-		spa_log_trace(this->log, "%p: ASHA failed to send seqnum %d for %s",
-				this, asha->seqnum_pending, address);
-	}
-
 	if (asha->flush_pending) {
 		asha->buf[0] = this->seqnum;
 		written = send(asha->flush_source.fd, asha->buf,
@@ -1371,19 +1359,9 @@ static void media_asha_flush_timeout(struct spa_source *source)
 		/*
 		 * For ASHA, when we are out of LE credits and cannot write to
 		 * the socket, return value of `send` will be -EAGAIN.
-		 *
-		 *  If we fail to send here, send on the next `poll` which
-		 *  ideally will be a few ms away on receiving LE credits. We
-		 *  cannot delay the flush till the next cycle.
 		 */
 		if (written < 0) {
-			asha->seqnum_pending = seqnum;
-			asha->poll_pending = true;
 			asha->flush_pending = false;
-
-			SPA_FLAG_UPDATE(asha->flush_source.mask, SPA_IO_OUT, 1);
-			spa_loop_update_source(this->data_loop, &asha->flush_source);
-
 			spa_log_warn(this->log, "%p: ASHA failed to flush %d seqnum on timer for %s, written:%d",
 					this, this->seqnum, address, -errno);
 			goto skip_flush;
@@ -1409,8 +1387,6 @@ static void media_asha_cb(struct spa_source *source)
 	struct impl *this = source->data;
 	struct spa_bt_asha *asha = this->asha;
 	const char *address = this->transport->device->address;
-	uint8_t seqnum;
-	int written;
 
 	if (source->rmask & (SPA_IO_HUP | SPA_IO_ERR)) {
 		spa_log_error(this->log, "%p: ASHA source error %d on %s", this, source->rmask, address);
@@ -1419,33 +1395,6 @@ static void media_asha_cb(struct spa_source *source)
 			spa_loop_remove_source(this->data_loop, &asha->flush_source);
 
 		return;
-	}
-
-	if (source->rmask & SPA_IO_OUT) {
-		if (this->transport == NULL || !asha->poll_pending) {
-			return;
-		}
-
-		SPA_FLAG_UPDATE(asha->flush_source.mask, SPA_IO_OUT, 0);
-		spa_loop_update_source(this->data_loop, &asha->flush_source);
-
-		seqnum = asha->buf[0];
-		written = send(asha->flush_source.fd, asha->buf,
-				ASHA_ENCODED_PKT_SZ, MSG_DONTWAIT | MSG_NOSIGNAL);
-		/*
-		 * For ASHA, when we are out of LE credits and cannot write to
-		 * the socket, return value of `send` will be -EAGAIN.
-		 */
-		if (written < 0) {
-			spa_log_warn(this->log, "%p: ASHA failed to flush %d seqnum on poll for %s, written:%d",
-					this, seqnum, address, -errno);
-		}
-
-		if (written > 0) {
-			asha->poll_pending = false;
-			spa_log_trace(this->log, "%p: ASHA flush %d seqnum for %s",
-					this, seqnum, address);
-		}
 	}
 }
 
@@ -1576,7 +1525,6 @@ static int transport_start(struct impl *this)
 		struct spa_bt_asha *asha = this->asha;
 
 		asha->flush_pending = false;
-		asha->poll_pending = false;
 		asha->set_timer = false;
 
 		asha->timer_source.data = this;

@@ -1339,7 +1339,6 @@ static void media_asha_flush_timeout(struct spa_source *source)
 	struct timespec ts;
 	int res, written;
 	uint64_t exp, now;
-	uint8_t seqnum;
 
 	if (this->started) {
 		if ((res = spa_system_timerfd_read(this->data_system, asha->timerfd, &exp)) < 0) {
@@ -1366,7 +1365,7 @@ static void media_asha_flush_timeout(struct spa_source *source)
 	}
 
 	if (asha->flush_pending) {
-		seqnum = asha->buf[0];
+		asha->buf[0] = this->seqnum;
 		written = send(asha->flush_source.fd, asha->buf,
 				ASHA_ENCODED_PKT_SZ, MSG_DONTWAIT | MSG_NOSIGNAL);
 		/*
@@ -1386,14 +1385,14 @@ static void media_asha_flush_timeout(struct spa_source *source)
 			spa_loop_update_source(this->data_loop, &asha->flush_source);
 
 			spa_log_warn(this->log, "%p: ASHA failed to flush %d seqnum on timer for %s, written:%d",
-					this, seqnum, address, -errno);
+					this, this->seqnum, address, -errno);
 			goto skip_flush;
 		}
 
 		if (written > 0) {
 			asha->flush_pending = false;
 			spa_log_trace(this->log, "%p: ASHA flush %d seqnum for %s, ts:%u",
-					this, seqnum, address, this->timestamp);
+					this, this->seqnum, address, this->timestamp);
 		}
 	}
 
@@ -2279,7 +2278,6 @@ static int impl_node_process(void *object)
 		if (other && other->asha->ref_t0 != 0) {
 			this->asha->ref_t0 = other->asha->ref_t0;
 			this->seqnum = asha_seqnum(this);
-			reset_buffer(this);
 			set_asha_timer(this, other);
 		} else {
 			this->asha->ref_t0 = get_reference_time(this, NULL);

@@ -18,7 +18,6 @@ static struct spa_log *spalog;
 struct impl {
 	g722_encode_state_t encode;
 	unsigned int codesize;
-	uint8_t seqnum;
 };
 
 static int codec_reduce_bitpool(void *data)
@@ -45,11 +44,6 @@ static int codec_get_block_size(void *data)
 static int codec_start_encode (void *data,
 		void *dst, size_t dst_size, uint16_t seqnum, uint32_t timestamp)
 {
-	struct impl *this = data;
-
-	/* Payload for ASHA must be preceded by 1-byte sequence number */
-	this->seqnum = seqnum % 256;
-
 	return 0;
 }
 
@@ -137,7 +131,8 @@ static int codec_encode(void *data,
 
 	src_sz = (src_size > this->codesize) ? this->codesize : src_size;
 
-	*dest = this->seqnum;
+	/* Sequence number will be set in media-sink before flushing */
+	*dest = 0;
 	dest++;
 
 	ret = g722_encode(&this->encode, dest, src, src_sz / 2 /* S16LE */);

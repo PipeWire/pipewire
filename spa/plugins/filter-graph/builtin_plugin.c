@@ -688,7 +688,7 @@ struct convolver_impl {
 	struct spa_fga_dsp *dsp;
 	unsigned long rate;
 	float *port[3];
-	unsigned long latency;
+	float latency;
 
 	struct convolver *conv;
 };
@@ -927,7 +927,7 @@ static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const s
 	char *filenames[MAX_RATES] = { 0 };
 	int blocksize = 0, tailsize = 0;
 	int resample_quality = RESAMPLE_DEFAULT_QUALITY;
-	float gain = 1.0f, delay = 0.0f;
+	float gain = 1.0f, delay = 0.0f, latency = -1.0f;
 	unsigned long rate;
 
 	errno = EINVAL;
@@ -1009,6 +1009,12 @@ static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const s
 				return NULL;
 			}
 		}
+		else if (spa_streq(key, "latency")) {
+			if (spa_json_parse_float(val, len, &latency) <= 0) {
+				spa_log_error(pl->log, "convolver:latency requires a number");
+				return NULL;
+			}
+		}
 		else {
 			spa_log_warn(pl->log, "convolver: ignoring config key: '%s'", key);
 		}
@@ -1069,7 +1075,10 @@ static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const s
 	if (impl->conv == NULL)
 		goto error;
 
-	impl->latency = n_samples;
+	if (latency < 0.0f)
+		impl->latency = n_samples;
+	else
+		impl->latency = latency * impl->rate;
 
 	free(samples);
 

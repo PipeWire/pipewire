@@ -330,6 +330,7 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *                 length = ...
  *                 channel = ...
  *                 resample_quality = ...
+ *                 latency = ...
  *             }
  *             ...
  *         }
@@ -361,6 +362,8 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * - `channel` The channel to use from the file as the IR.
  * - `resample_quality` The resample quality in case the IR does not match the graph
  *                      samplerate.
+ * - `latency`  The extra latency in seconds to report. When left unspecified (or < 0.0)
+ *              the convolver latency will be the length of the IR.
  *
  * ### Delay
  *

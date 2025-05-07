@@ -2811,7 +2811,7 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 
 			remote_endpoint->hisyncid = *(uint64_t *)value;
 
-			spa_log_debug(monitor->log, "remote_endpoint %p: %s=%zd", remote_endpoint, key, remote_endpoint->hisyncid);
+			spa_log_debug(monitor->log, "remote_endpoint %p: %s=%"PRIu64, remote_endpoint, key, remote_endpoint->hisyncid);
 		}
 		else
 			spa_log_debug(monitor->log, "remote_endpoint %p: unhandled key %s", remote_endpoint, key);

@@ -687,7 +687,8 @@ struct convolver_impl {
 	struct spa_log *log;
 	struct spa_fga_dsp *dsp;
 	unsigned long rate;
-	float *port[2];
+	float *port[3];
+	unsigned long latency;
 
 	struct convolver *conv;
 };
@@ -1068,6 +1069,8 @@ static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const s
 	if (impl->conv == NULL)
 		goto error;
 
+	impl->latency = n_samples;
+
 	free(samples);
 
 	return impl;
@@ -1101,7 +1104,19 @@ static struct spa_fga_port convolve_ports[] = {
 	  .name = "In",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
 	},
+	{ .index = 2,
+	  .name = "latency",
+	  .hint = SPA_FGA_HINT_LATENCY,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_CONTROL,
+	},
 };
+
+static void convolver_activate(void * Instance)
+{
+	struct convolver_impl *impl = Instance;
+	if (impl->port[2] != NULL)
+		impl->port[2][0] = impl->latency;
+}
 
 static void convolver_deactivate(void * Instance)
 {
@@ -1114,17 +1129,20 @@ static void convolve_run(void * Instance, unsigned long SampleCount)
 	struct convolver_impl *impl = Instance;
 	if (impl->port[1] != NULL && impl->port[0] != NULL)
 		convolver_run(impl->conv, impl->port[1], impl->port[0], SampleCount);
+	if (impl->port[2] != NULL)
+		impl->port[2][0] = impl->latency;
 }
 
 static const struct spa_fga_descriptor convolve_desc = {
 	.name = "convolver",
 	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
-	.n_ports = 2,
+	.n_ports = SPA_N_ELEMENTS(convolve_ports),
 	.ports = convolve_ports,
 
 	.instantiate = convolver_instantiate,
 	.connect_port = convolver_connect_port,
+	.activate = convolver_activate,
 	.deactivate = convolver_deactivate,
 	.run = convolve_run,
 	.cleanup = convolver_cleanup,

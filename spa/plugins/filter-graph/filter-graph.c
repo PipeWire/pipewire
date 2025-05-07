@@ -116,9 +116,12 @@ struct node {
 	void *hndl[MAX_HNDL];
 
 	unsigned int n_deps;
-	unsigned int visited:1;
+
 	unsigned int disabled:1;
 	unsigned int control_changed:1;
+
+	unsigned int n_sort_deps;
+	unsigned int sorted:1;
 };
 
 struct link {
@@ -1627,8 +1630,8 @@ static struct node *find_next_node(struct graph *graph)
 {
 	struct node *node;
 	spa_list_for_each(node, &graph->node_list, link) {
-		if (node->n_deps == 0 && !node->visited) {
-			node->visited = true;
+		if (node->n_sort_deps == 0 && !node->sorted) {
+			node->sorted = true;
 			return node;
 		}
 	}
@@ -1876,9 +1879,13 @@ static int setup_graph(struct graph *graph)
 		}
 	}
 
-	/* order all nodes based on dependencies */
 	graph->n_hndl = 0;
 	graph->hndl = calloc(graph->n_nodes * n_hndl, sizeof(struct graph_hndl));
+	/* order all nodes based on dependencies, first reset fields */
+	spa_list_for_each(node, &graph->node_list, link) {
+		node->sorted = false;
+		node->n_sort_deps = node->n_deps;
+	}
 	while (true) {
 		if ((node = find_next_node(graph)) == NULL)
 			break;
@@ -1896,11 +1903,11 @@ static int setup_graph(struct graph *graph)
 		}
 		for (i = 0; i < desc->n_output; i++) {
 			spa_list_for_each(link, &node->output_port[i].link_list, output_link)
-				link->input->node->n_deps--;
+				link->input->node->n_sort_deps--;
 		}
 		for (i = 0; i < desc->n_notify; i++) {
 			spa_list_for_each(link, &node->notify_port[i].link_list, output_link)
-				link->input->node->n_deps--;
+				link->input->node->n_sort_deps--;
 		}
 		for (i = 0; i < desc->n_control; i++) {
 			/* any default values for the controls are set in the first instance

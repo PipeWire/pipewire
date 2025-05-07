@@ -399,6 +399,8 @@ static const struct spa_fga_descriptor *lv2_plugin_make_desc(void *plugin, const
 	struct descriptor *desc;
 	uint32_t i;
 	float *mins, *maxes, *controls;
+	bool latent;
+	uint32_t latency_index;
 
 	desc = calloc(1, sizeof(*desc));
 	if (desc == NULL)
@@ -424,6 +426,9 @@ static const struct spa_fga_descriptor *lv2_plugin_make_desc(void *plugin, const
 	maxes = alloca(desc->desc.n_ports * sizeof(float));
 	controls = alloca(desc->desc.n_ports * sizeof(float));
 
+	latent = lilv_plugin_has_latency(p->p);
+	latency_index = latent ? lilv_plugin_get_latency_port_index(p->p) : 0;
+
 	lilv_plugin_get_port_ranges_float(p->p, mins, maxes, controls);
 
 	for (i = 0; i < desc->desc.n_ports; i++) {
@@ -445,6 +450,9 @@ static const struct spa_fga_descriptor *lv2_plugin_make_desc(void *plugin, const
 			fp->flags |= SPA_FGA_PORT_AUDIO;
 
 		fp->hint = 0;
+		if (latent && latency_index == i)
+			fp->flags |= SPA_FGA_HINT_LATENCY;
+
 		fp->min = mins[i];
 		fp->max = maxes[i];
 		fp->def = controls[i];

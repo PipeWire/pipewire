@@ -33,9 +33,10 @@ struct spa_fga_port {
 #define SPA_FGA_PORT_AUDIO	(1ULL << 3)
 	uint64_t flags;
 
-#define SPA_FGA_HINT_BOOLEAN		(1ULL << 2)
-#define SPA_FGA_HINT_SAMPLE_RATE	(1ULL << 3)
-#define SPA_FGA_HINT_INTEGER		(1ULL << 5)
+#define SPA_FGA_HINT_BOOLEAN		(1ULL << 0)
+#define SPA_FGA_HINT_SAMPLE_RATE	(1ULL << 1)
+#define SPA_FGA_HINT_INTEGER		(1ULL << 2)
+#define SPA_FGA_HINT_LATENCY		(1ULL << 3)
 	uint64_t hint;
 	float def;
 	float min;

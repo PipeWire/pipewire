@@ -309,9 +309,8 @@ static int impl_process(void *object,
 		if (out[i] == NULL)
 			continue;
 
-		port = i < graph->n_output ? &graph->output[i] : NULL;
-
-		if (port && port->desc)
+		port = &graph->output[i];
+		if (port->desc)
 			port->desc->connect_port(*port->hndl, port->port, out[i]);
 		else
 			memset(out[i], 0, n_samples * sizeof(float));

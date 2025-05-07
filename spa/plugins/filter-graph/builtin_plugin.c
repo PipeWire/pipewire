@@ -17,6 +17,7 @@
 #include <spa/support/cpu.h>
 #include <spa/support/log.h>
 #include <spa/plugins/audioconvert/resample.h>
+#include <spa/debug/log.h>
 
 #include "audio-plugin.h"
 
@@ -2453,6 +2454,58 @@ static const struct spa_fga_descriptor sqrt_desc = {
 	.cleanup = builtin_cleanup,
 };
 
+/* debug */
+static void debug_run(void * Instance, unsigned long SampleCount)
+{
+	struct builtin *impl = Instance;
+	float *in = impl->port[0], *out = impl->port[1];
+	float *control = impl->port[2], *notify = impl->port[3];
+
+	if (in != NULL) {
+		spa_debug_log_mem(impl->log, SPA_LOG_LEVEL_INFO, 0, in, SampleCount * sizeof(float));
+		if (out != NULL)
+			memcpy(out, in, SampleCount * sizeof(float));
+	}
+	if (control != NULL) {
+		spa_log_info(impl->log, "control: %f", control[0]);
+		if (notify != NULL)
+			notify[0] = control[0];
+	}
+}
+
+
+static struct spa_fga_port debug_ports[] = {
+	{ .index = 0,
+	  .name = "In",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "Out",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 2,
+	  .name = "Control",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	},
+	{ .index = 3,
+	  .name = "Notify",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_CONTROL,
+	},
+};
+
+static const struct spa_fga_descriptor debug_desc = {
+	.name = "debug",
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = SPA_N_ELEMENTS(debug_ports),
+	.ports = debug_ports,
+
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = debug_run,
+	.cleanup = builtin_cleanup,
+};
+
 static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 {
 	switch(Index) {
@@ -2510,6 +2563,8 @@ static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 		return &abs_desc;
 	case 26:
 		return &sqrt_desc;
+	case 27:
+		return &debug_desc;
 	}
 	return NULL;
 }

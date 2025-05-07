@@ -580,7 +580,7 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * and that can be used to control the processing of the audio. Some of these ports
  * contain values in LUFS, or "Loudness Units relative to Full Scale". These are
  * negative values, closer to 0 is louder. You can use the lufs2gain plugin to
- * convert this value to again to adjust a volume (See below).
+ * convert this value to a gain to adjust a volume (See below).
  *
  * "Momentary LUFS" contains the momentary loudness measurement with a 400ms window
  *                  and 75% overlap. It works mostly like an R.M.S. meter.
@@ -638,6 +638,16 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * control value "Gain". This gain can be used as input for the builtin `linear`
  * node, for example, to adust the gain.
  *
+ * ### debug
+ *
+ * The debug plugin can be used to debug the audio and control data of other plugins.
+ *
+ * It has an "In" input port and an "Out" output data ports. The data from "In" will
+ * be copied to "Out" and the data will be dumped into the INFO log.
+ *
+ * There is also a "Control" input port and an "Notify" output control ports. The
+ * control from "Control" will be copied to "Notify" and the control value will be
+ * dumped into the INFO log.
  *
  * ## General options
  *

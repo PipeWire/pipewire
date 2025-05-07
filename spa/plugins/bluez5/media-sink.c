@@ -1321,7 +1321,7 @@ static uint64_t asha_seqnum(struct impl *this)
 	uint64_t dt = tn - this->asha->ref_t0;
 	uint64_t num_packets = (dt + ASHA_CONN_INTERVAL / 2) / ASHA_CONN_INTERVAL;
 
-	spa_log_trace(this->log, "%" PRIu64 " - %" PRIu64 " / 20ms = %ld",
+	spa_log_trace(this->log, "%" PRIu64 " - %" PRIu64 " / 20ms = %zu",
 			tn, this->asha->ref_t0, num_packets);
 
 	if (this->asha->ref_t0 > tn)

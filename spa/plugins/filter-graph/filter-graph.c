@@ -117,6 +117,9 @@ struct node {
 
 	unsigned int n_deps;
 
+	uint32_t latency_index;
+	float latency;
+
 	unsigned int disabled:1;
 	unsigned int control_changed:1;
 
@@ -138,6 +141,7 @@ struct graph_port {
 	const struct spa_fga_descriptor *desc;
 	void **hndl;
 	uint32_t port;
+	struct node *node;
 	unsigned next:1;
 };
 
@@ -194,6 +198,8 @@ struct graph {
 	uint32_t outputs_position[SPA_AUDIO_MAX_CHANNELS];
 	uint32_t n_outputs_position;
 
+	float latency;
+
 	unsigned activated:1;
 	unsigned setup:1;
 };
@@ -245,7 +251,7 @@ static void emit_filter_graph_info(struct impl *impl, bool full)
 	if (full)
 		impl->info.change_mask = impl->info_all;
 	if (impl->info.change_mask || full) {
-		char n_inputs[64], n_outputs[64];
+		char n_inputs[64], n_outputs[64], latency[64];
 		struct spa_dict_item items[6];
 		struct spa_dict dict = SPA_DICT(items, 0);
 		char in_pos[SPA_AUDIO_MAX_CHANNELS * 8];
@@ -266,6 +272,8 @@ static void emit_filter_graph_info(struct impl *impl, bool full)
 					graph->n_outputs_position, graph->outputs_position);
 			items[dict.n_items++] = SPA_DICT_ITEM("outputs.audio.position", out_pos);
 		}
+		items[dict.n_items++] = SPA_DICT_ITEM("latency",
+				spa_dtoa(latency, sizeof(latency), graph->latency));
 		impl->info.props = &dict;
 		spa_filter_graph_emit_info(&impl->hooks, &impl->info);
 		impl->info.props = NULL;
@@ -1344,6 +1352,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	node->graph = graph;
 	node->desc = desc;
 	snprintf(node->name, sizeof(node->name), "%s", name);
+	node->latency_index = SPA_IDX_INVALID;
 
 	node->input_port = calloc(desc->n_input, sizeof(struct port));
 	node->output_port = calloc(desc->n_output, sizeof(struct port));
@@ -1385,6 +1394,8 @@ static int load_node(struct graph *graph, struct spa_json *json)
 		port->idx = i;
 		port->external = SPA_ID_INVALID;
 		port->p = desc->notify[i];
+		if (desc->desc->ports[port->p].hint & SPA_FGA_HINT_LATENCY)
+			node->latency_index = i;
 		spa_list_init(&port->link_list);
 	}
 	if (have_config)
@@ -1480,6 +1491,36 @@ static int impl_deactivate(void *object)
 	return 0;
 }
 
+static void sort_reset(struct graph *graph)
+{
+	struct node *node;
+	spa_list_for_each(node, &graph->node_list, link) {
+		node->sorted = false;
+		node->n_sort_deps = node->n_deps;
+	}
+}
+static struct node *sort_next_node(struct graph *graph)
+{
+	struct node *node;
+	spa_list_for_each(node, &graph->node_list, link) {
+		if (node->n_sort_deps == 0 && !node->sorted) {
+			uint32_t i;
+			struct link *link;
+			node->sorted = true;
+			for (i = 0; i < node->desc->n_output; i++) {
+				spa_list_for_each(link, &node->output_port[i].link_list, output_link)
+					link->input->node->n_sort_deps--;
+			}
+			for (i = 0; i < node->desc->n_notify; i++) {
+				spa_list_for_each(link, &node->notify_port[i].link_list, output_link)
+					link->input->node->n_sort_deps--;
+			}
+			return node;
+		}
+	}
+	return NULL;
+}
+
 static int setup_graph(struct graph *graph);
 
 static int impl_activate(void *object, const struct spa_dict *props)
@@ -1494,7 +1535,7 @@ static int impl_activate(void *object, const struct spa_dict *props)
 	const struct spa_fga_plugin *p;
 	uint32_t i, j, max_samples = impl->quantum_limit, n_ports;
 	int res;
-	float *sd, *dd, *data;
+	float *sd, *dd, *data, latency;
 	const char *rate, *str;
 
 	if (graph->activated)
@@ -1527,7 +1568,6 @@ static int impl_activate(void *object, const struct spa_dict *props)
 		if ((res = setup_graph(graph)) < 0)
 			return res;
 		graph->setup = true;
-		emit_filter_graph_info(impl, false);
 	}
 
 	/* first make instances */
@@ -1618,24 +1658,40 @@ static int impl_activate(void *object, const struct spa_dict *props)
 				d->control_changed(node->hndl[i]);
 		}
 	}
+	/* calculate latency */
+	sort_reset(graph);
+	while ((node = sort_next_node(graph)) != NULL) {
+		latency = 0.0f;
 
+		for (i = 0; i < node->desc->n_input; i++) {
+			spa_list_for_each(link, &node->input_port[i].link_list, input_link)
+				latency = fmaxf(latency, link->output->node->latency);
+		}
+		if (node->latency_index != SPA_IDX_INVALID) {
+			port = &node->notify_port[node->latency_index];
+			latency += port->control_data[0];
+
+		}
+		node->latency = latency;
+		spa_log_debug(impl->log, "%s latency:%f", node->name, latency);
+	}
+	latency = 0.0f;
+	for (i = 0; i < graph->n_outputs; i++) {
+		struct graph_port *port = &graph->output[i];
+		latency = fmaxf(latency, port->node->latency);
+	}
+
+	if (graph->latency != latency) {
+		graph->latency = latency;
+		impl->info.change_mask |= SPA_FILTER_GRAPH_CHANGE_MASK_PROPS;
+		spa_log_info(impl->log, "graph latency:%f", latency);
+	}
+	emit_filter_graph_info(impl, false);
 	spa_filter_graph_emit_props_changed(&impl->hooks, SPA_DIRECTION_INPUT);
 	return 0;
 error:
 	impl_deactivate(impl);
 	return res;
-}
-
-static struct node *find_next_node(struct graph *graph)
-{
-	struct node *node;
-	spa_list_for_each(node, &graph->node_list, link) {
-		if (node->n_sort_deps == 0 && !node->sorted) {
-			node->sorted = true;
-			return node;
-		}
-	}
-	return NULL;
 }
 
 static void unsetup_graph(struct graph *graph)
@@ -1653,7 +1709,6 @@ static int setup_graph(struct graph *graph)
 	struct impl *impl = graph->impl;
 	struct node *node, *first, *last;
 	struct port *port;
-	struct link *link;
 	struct graph_port *gp;
 	struct graph_hndl *gh;
 	uint32_t i, j, n, n_input, n_output, n_hndl = 0;
@@ -1758,6 +1813,7 @@ static int setup_graph(struct graph *graph)
 				spa_log_info(impl->log, "input port %s[%d]:%s",
 						first->name, i, d->ports[desc->input[j]].name);
 				gp->desc = d;
+				gp->node = first;
 				gp->hndl = &first->hndl[i];
 				gp->port = desc->input[j];
 			}
@@ -1806,6 +1862,7 @@ static int setup_graph(struct graph *graph)
 								peer->external = graph->n_input;
 								gp = &graph->input[graph->n_input++];
 								gp->desc = peer->node->desc->desc;
+								gp->node = peer->node;
 								gp->hndl = &peer->node->hndl[i];
 								gp->port = peer->p;
 								gp->next = true;
@@ -1822,6 +1879,7 @@ static int setup_graph(struct graph *graph)
 						port->external = graph->n_input;
 						gp = &graph->input[graph->n_input++];
 						gp->desc = d;
+						gp->node = port->node;
 						gp->hndl = &port->node->hndl[i];
 						gp->port = port->p;
 						gp->next = false;
@@ -1837,6 +1895,7 @@ static int setup_graph(struct graph *graph)
 				spa_log_info(impl->log, "output port %s[%d]:%s",
 						last->name, i, d->ports[desc->output[j]].name);
 				gp->desc = d;
+				gp->node = last;
 				gp->hndl = &last->hndl[i];
 				gp->port = desc->output[j];
 			}
@@ -1871,6 +1930,7 @@ static int setup_graph(struct graph *graph)
 							port->node->name, i, d->ports[port->p].name);
 					port->external = graph->n_output;
 					gp->desc = d;
+					gp->node = port->node;
 					gp->hndl = &port->node->hndl[i];
 					gp->port = port->p;
 				}
@@ -1882,14 +1942,8 @@ static int setup_graph(struct graph *graph)
 	graph->n_hndl = 0;
 	graph->hndl = calloc(graph->n_nodes * n_hndl, sizeof(struct graph_hndl));
 	/* order all nodes based on dependencies, first reset fields */
-	spa_list_for_each(node, &graph->node_list, link) {
-		node->sorted = false;
-		node->n_sort_deps = node->n_deps;
-	}
-	while (true) {
-		if ((node = find_next_node(graph)) == NULL)
-			break;
-
+	sort_reset(graph);
+	while ((node = sort_next_node(graph)) != NULL) {
 		node->n_hndl = n_hndl;
 		desc = node->desc;
 		d = desc->desc;
@@ -1900,14 +1954,6 @@ static int setup_graph(struct graph *graph)
 				gh->hndl = &node->hndl[i];
 				gh->desc = d;
 			}
-		}
-		for (i = 0; i < desc->n_output; i++) {
-			spa_list_for_each(link, &node->output_port[i].link_list, output_link)
-				link->input->node->n_sort_deps--;
-		}
-		for (i = 0; i < desc->n_notify; i++) {
-			spa_list_for_each(link, &node->notify_port[i].link_list, output_link)
-				link->input->node->n_sort_deps--;
 		}
 		for (i = 0; i < desc->n_control; i++) {
 			/* any default values for the controls are set in the first instance

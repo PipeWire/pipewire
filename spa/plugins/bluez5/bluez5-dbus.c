@@ -4180,7 +4180,7 @@ static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, 
 	transport->volumes[SPA_BT_VOLUME_ID_TX].active = true;
 	transport->volumes[SPA_BT_VOLUME_ID_TX].volume = DEFAULT_TX_VOLUME;
 	transport->n_channels = 1;
-	transport->channels[0] = SPA_AUDIO_CHANNEL_MONO;
+	transport->channels[0] = transport->asha_right_side ? SPA_AUDIO_CHANNEL_FR : SPA_AUDIO_CHANNEL_FL;
 
 	spa_bt_device_add_profile(transport->device, transport->profile);
 	spa_bt_device_connect_profile(transport->device, transport->profile);

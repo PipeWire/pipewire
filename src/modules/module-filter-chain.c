@@ -379,6 +379,7 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *             label  = delay
  *             config = {
  *                 "max-delay" = ...
+ *                 "latency" = ...
  *             }
  *             control = {
  *                 "Delay (s)" = ...
@@ -392,6 +393,8 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *
  * - `max-delay` the maximum delay in seconds. The "Delay (s)" parameter will
  *              be clamped to this value.
+ * - `latency` the latency in seconds. This is 0 by default but in some cases
+ *             the delay can be used to introduce latency with this option.
  *
  * ### Invert
  *

@@ -1163,6 +1163,7 @@ struct delay_impl {
 	uint32_t buffer_samples;
 	float *buffer;
 	uint32_t ptr;
+	float latency;
 };
 
 static void delay_cleanup(void * Instance)
@@ -1180,7 +1181,7 @@ static void *delay_instantiate(const struct spa_fga_plugin *plugin, const struct
 	struct spa_json it[1];
 	const char *val;
 	char key[256];
-	float max_delay = 1.0f;
+	float max_delay = 1.0f, latency = 0.0f;
 	int len;
 
 	if (config == NULL) {
@@ -1200,12 +1201,19 @@ static void *delay_instantiate(const struct spa_fga_plugin *plugin, const struct
 				spa_log_error(pl->log, "delay:max-delay requires a number");
 				return NULL;
 			}
+		} else if (spa_streq(key, "latency")) {
+			if (spa_json_parse_float(val, len, &latency) <= 0) {
+				spa_log_error(pl->log, "delay:latency requires a number");
+				return NULL;
+			}
 		} else {
 			spa_log_warn(pl->log, "delay: ignoring config key: '%s'", key);
 		}
 	}
 	if (max_delay <= 0.0f)
 		max_delay = 1.0f;
+	if (latency <= 0.0f)
+		latency = 0.0f;
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)
@@ -1216,7 +1224,9 @@ static void *delay_instantiate(const struct spa_fga_plugin *plugin, const struct
 	impl->log = pl->log;
 	impl->rate = SampleRate;
 	impl->buffer_samples = SPA_ROUND_UP_N((uint32_t)(max_delay * impl->rate), 64);
-	spa_log_info(impl->log, "max-delay:%f seconds rate:%lu samples:%d", max_delay, impl->rate, impl->buffer_samples);
+	impl->latency = latency * impl->rate;
+	spa_log_info(impl->log, "max-delay:%f seconds rate:%lu samples:%d latency:%f",
+			max_delay, impl->rate, impl->buffer_samples, impl->latency);
 
 	impl->buffer = calloc(impl->buffer_samples * 2 + 64, sizeof(float));
 	if (impl->buffer == NULL) {
@@ -1230,9 +1240,14 @@ static void delay_connect_port(void * Instance, unsigned long Port,
                         float * DataLocation)
 {
 	struct delay_impl *impl = Instance;
-	if (Port > 2)
-		return;
 	impl->port[Port] = DataLocation;
+}
+
+static void delay_activate(void * Instance)
+{
+	struct delay_impl *impl = Instance;
+	if (impl->port[3] != NULL)
+		impl->port[3][0] = impl->latency;
 }
 
 static void delay_run(void * Instance, unsigned long SampleCount)
@@ -1241,15 +1256,16 @@ static void delay_run(void * Instance, unsigned long SampleCount)
 	float *in = impl->port[1], *out = impl->port[0];
 	float delay = impl->port[2][0];
 
-	if (in == NULL || out == NULL)
-		return;
-
 	if (delay != impl->delay) {
 		impl->delay_samples = SPA_CLAMP((uint32_t)(delay * impl->rate), 0u, impl->buffer_samples-1);
 		impl->delay = delay;
 	}
-	spa_fga_dsp_delay(impl->dsp, impl->buffer, &impl->ptr, impl->buffer_samples,
-			impl->delay_samples, out, in, SampleCount);
+	if (in != NULL && out == NULL) {
+		spa_fga_dsp_delay(impl->dsp, impl->buffer, &impl->ptr, impl->buffer_samples,
+				impl->delay_samples, out, in, SampleCount);
+	}
+	if (impl->port[3] != NULL)
+		impl->port[3][0] = impl->latency;
 }
 
 static struct spa_fga_port delay_ports[] = {
@@ -1266,17 +1282,23 @@ static struct spa_fga_port delay_ports[] = {
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 0.0f, .min = 0.0f, .max = 100.0f
 	},
+	{ .index = 3,
+	  .name = "latency",
+	  .hint = SPA_FGA_HINT_LATENCY,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_CONTROL,
+	},
 };
 
 static const struct spa_fga_descriptor delay_desc = {
 	.name = "delay",
 	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
-	.n_ports = 3,
+	.n_ports = SPA_N_ELEMENTS(delay_ports),
 	.ports = delay_ports,
 
 	.instantiate = delay_instantiate,
 	.connect_port = delay_connect_port,
+	.activate = delay_activate,
 	.run = delay_run,
 	.cleanup = delay_cleanup,
 };

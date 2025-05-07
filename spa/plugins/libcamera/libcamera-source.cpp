@@ -30,6 +30,7 @@
 #include <spa/param/latency-utils.h>
 #include <spa/control/control.h>
 #include <spa/pod/filter.h>
+#include <spa/pod/dynamic.h>
 
 #include <libcamera/camera.h>
 #include <libcamera/stream.h>
@@ -121,6 +122,7 @@ struct impl {
 	struct spa_node node = {};
 
 	struct spa_log *log;
+	struct spa_loop *main_loop;
 	struct spa_loop *data_loop;
 	struct spa_system *system;
 
@@ -163,10 +165,11 @@ struct impl {
 	struct spa_source source = {};
 
 	ControlList ctrls;
+	ControlList requestMetadata;
 	bool active = false;
 	bool acquired = false;
 
-	impl(spa_log *log, spa_loop *data_loop, spa_system *system,
+	impl(spa_log *log, spa_loop *main_loop, spa_loop *data_loop, spa_system *system,
 	     std::shared_ptr<CameraManager> manager, std::shared_ptr<Camera> camera, std::string device_id);
 
 	struct spa_dll dll;
@@ -179,6 +182,7 @@ struct impl {
 #define GET_OUT_PORT(impl,p)         (&impl->out_ports[p])
 #define GET_PORT(impl,d,p)           GET_OUT_PORT(impl,p)
 
+static void emit_node_info(struct impl *impl, bool full);
 #include "libcamera-utils.cpp"
 
 static int port_get_format(struct impl *impl, struct port *port,
@@ -236,7 +240,8 @@ static int impl_node_enum_params(void *object, int seq,
 {
 	struct impl *impl = (struct impl*)object;
 	struct spa_pod *param;
-	struct spa_pod_builder b = { 0 };
+	spa_auto(spa_pod_dynamic_builder) b = { 0 };
+	struct spa_pod_builder_state state;
 	uint8_t buffer[1024];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
@@ -245,26 +250,29 @@ static int impl_node_enum_params(void *object, int seq,
 	spa_return_val_if_fail(impl != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+	spa_pod_builder_get_state(&b.b, &state);
+
 	result.id = id;
 	result.next = start;
 next:
 	result.index = result.next++;
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_reset(&b.b, &state);
 
 	switch (id) {
 	case SPA_PARAM_PropInfo:
 	{
 		switch (result.index) {
 		case 0:
-			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
+			param = (struct spa_pod*)spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_device),
 				SPA_PROP_INFO_description, SPA_POD_String("The libcamera device"),
 				SPA_PROP_INFO_type, SPA_POD_String(impl->device_id.c_str()));
 			break;
 		case 1:
-			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
+			param = (struct spa_pod*)spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_deviceName),
 				SPA_PROP_INFO_description, SPA_POD_String("The libcamera device name"),
@@ -280,12 +288,49 @@ next:
 	case SPA_PARAM_Props:
 	{
 		switch (result.index) {
-		case 0:
-			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_Props, id,
+		case 0: {
+			const auto addProperty = [&b, &impl](unsigned int controlId, const libcamera::ControlValue& value) {
+				const auto id = control_to_prop_id(impl, controlId);
+				if (id >= SPA_PROP_START_CUSTOM) {
+					return;
+				}
+				spa_pod_builder_prop(&b.b, id, 0);
+				switch (value.type()) {
+				case ControlTypeBool:
+					spa_pod_builder_bool(&b.b, value.get<bool>());
+					break;
+				case ControlTypeInteger32:
+					spa_pod_builder_int(&b.b, value.get<int32_t>());
+					break;
+				case ControlTypeInteger64:
+					spa_pod_builder_long(&b.b, value.get<int64_t>());
+					break;
+				case ControlTypeFloat:
+					spa_pod_builder_float(&b.b, value.get<float>());
+					break;
+				default:
+					break;
+				}
+			};
+
+			struct spa_pod_frame f;
+			spa_pod_builder_push_object(&b.b, &f, SPA_TYPE_OBJECT_Props, id);
+			spa_pod_builder_add(&b.b,
 				SPA_PROP_device,     SPA_POD_String(impl->device_id.c_str()),
-				SPA_PROP_deviceName, SPA_POD_String(impl->device_name.c_str()));
-			break;
+				SPA_PROP_deviceName, SPA_POD_String(impl->device_name.c_str()),
+				0);
+			for (const auto& [id, value] : impl->requestMetadata)
+			{
+				addProperty(id, value);
+			}
+			for (const auto& [id, info] : impl->camera->controls()) {
+				if (!impl->requestMetadata.contains(id->id())) {
+					addProperty(id->id(), info.def());
+				}
+			}
+			param = (spa_pod*)spa_pod_builder_pop(&b.b, &f);
+		}
+		break;
 		default:
 			return 0;
 		}
@@ -295,14 +340,14 @@ next:
 		return spa_libcamera_enum_format(impl, GET_OUT_PORT(impl, 0),
 				seq, start, num, filter);
 	case SPA_PARAM_Format:
-		if ((res = port_get_format(impl, GET_OUT_PORT(impl, 0), result.index, filter, &param, &b)) <= 0)
+		if ((res = port_get_format(impl, GET_OUT_PORT(impl, 0), result.index, filter, &param, &b.b)) <= 0)
 			return res;
 		break;
 	default:
 		return -ENOENT;
 	}
 
-	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
+	if (spa_pod_filter(&b.b, &result.param, param, filter) < 0)
 		goto next;
 
 	spa_node_emit_result(&impl->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
@@ -946,10 +991,11 @@ static int impl_clear(struct spa_handle *handle)
 	return 0;
 }
 
-impl::impl(spa_log *log, spa_loop *data_loop, spa_system *system,
+impl::impl(spa_log *log, spa_loop *main_loop, spa_loop *data_loop, spa_system *system,
 	   std::shared_ptr<CameraManager> manager, std::shared_ptr<Camera> camera, std::string device_id)
 	: handle({ SPA_VERSION_HANDLE, impl_get_interface, impl_clear }),
 	  log(log),
+	  main_loop(main_loop),
 	  data_loop(data_loop),
 	  system(system),
 	  device_id(std::move(device_id)),
@@ -1001,8 +1047,14 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
 	auto log = static_cast<spa_log *>(spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log));
+	auto main_loop = static_cast<spa_loop *>(spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop));
 	auto data_loop = static_cast<spa_loop *>(spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop));
 	auto system = static_cast<spa_system *>(spa_support_find(support, n_support, SPA_TYPE_INTERFACE_System));
+
+	if (!main_loop) {
+		spa_log_error(log, "a main is needed");
+		return -EINVAL;
+	}
 
 	if (!data_loop) {
 		spa_log_error(log, "a data_loop is needed");
@@ -1030,7 +1082,7 @@ impl_init(const struct spa_handle_factory *factory,
 		return -ENOENT;
 	}
 
-	new (handle) impl(log, data_loop, system,
+	new (handle) impl(log, main_loop, data_loop, system,
 			  std::move(manager), std::move(camera), std::move(device_id));
 
 	return 0;

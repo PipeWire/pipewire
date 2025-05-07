@@ -631,6 +631,34 @@ static int do_update_ctrls(struct spa_loop *loop,
 	return 0;
 }
 
+static int do_emit_node_info(struct spa_loop *loop,
+			    bool async,
+			    uint32_t seq,
+			    const void *data,
+			    size_t size,
+			    void *user_data)
+{
+	struct impl *impl = (struct impl *)user_data;
+	impl->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+	impl->params[NODE_Props].flags ^= SPA_PARAM_INFO_SERIAL;
+	emit_node_info(impl, true);
+	return 0;
+}
+
+static int do_update_request_metadata(struct spa_loop *loop,
+			    bool async,
+			    uint32_t seq,
+			    const void *data,
+			    size_t size,
+			    void *user_data)
+{
+	struct impl *impl = (struct impl *)user_data;
+	const auto *metadata = (const ControlList *)data;
+
+	impl->requestMetadata = *metadata;
+	return spa_loop_invoke(impl->main_loop, do_emit_node_info, 0, NULL, 0, false, impl);
+}
+
 static int
 spa_libcamera_set_control(struct impl *impl, const struct spa_pod_prop *prop)
 {
@@ -963,6 +991,10 @@ void impl::requestComplete(libcamera::Request *request)
 		b->h->pts = fmd.timestamp;
 		b->h->dts_offset = 0;
 	}
+
+	const auto& metadata = request->metadata();
+	spa_loop_invoke(impl->data_loop, do_update_request_metadata, 0, &metadata, sizeof(metadata), true, impl);
+
 	request->reuse();
 
 	spa_ringbuffer_get_write_index(&port->ring, &index);

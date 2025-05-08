@@ -1568,20 +1568,17 @@ static int add_channels(struct state *state, bool all, uint32_t index, uint32_t 
 	spa_log_debug(state->log, "channels (%d %d) default:%d all:%d",
 			min, max, state->default_channels, all);
 
-	if (min > max) {
-		spa_log_warn(state->log, "driver bug! min > max channels: (%d > %d)",
-				min, max);
-		SPA_SWAP(min, max);
-	}
-
-	if (state->default_channels != 0 && !all) {
-		if (min < state->default_channels)
-			min = state->default_channels;
-		if (max > state->default_channels)
-			max = state->default_channels;
-	}
 	min = SPA_MIN(min, SPA_AUDIO_MAX_CHANNELS);
 	max = SPA_MIN(max, SPA_AUDIO_MAX_CHANNELS);
+
+	if (state->default_channels != 0 && !all) {
+		if (min > state->default_channels ||
+		    max < state->default_channels)
+			spa_log_warn(state->log, "given audio.channels %d out of range:%d-%d",
+					state->default_channels, min, max);
+		else
+			min = max = state->default_channels;
+	}
 
 	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_channels, 0);
 
@@ -1853,10 +1850,12 @@ static int enum_iec958_formats(struct state *state, uint32_t index, uint32_t *ne
 	spa_log_debug(state->log, "rate (%d %d)", rmin, rmax);
 
 	if (state->default_rate != 0) {
-		if (rmin < state->default_rate)
-			rmin = state->default_rate;
-		if (rmax > state->default_rate)
-			rmax = state->default_rate;
+		if (rmin > state->default_rate ||
+		    rmax < state->default_rate)
+			spa_log_warn(state->log, "given audio.rate %d out of range:%d-%d",
+					state->default_rate, rmin, rmax);
+		else
+			rmin = rmax = state->default_rate;
 	}
 
 	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_iec958Codec, 0);

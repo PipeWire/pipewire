@@ -116,9 +116,10 @@ struct node {
 	void *hndl[MAX_HNDL];
 
 	unsigned int n_deps;
-
 	uint32_t latency_index;
-	float latency;
+
+	float min_latency;
+	float max_latency;
 
 	unsigned int disabled:1;
 	unsigned int control_changed:1;
@@ -198,7 +199,8 @@ struct graph {
 	uint32_t outputs_position[SPA_AUDIO_MAX_CHANNELS];
 	uint32_t n_outputs_position;
 
-	float latency;
+	float min_latency;
+	float max_latency;
 
 	unsigned activated:1;
 	unsigned setup:1;
@@ -273,7 +275,8 @@ static void emit_filter_graph_info(struct impl *impl, bool full)
 			items[dict.n_items++] = SPA_DICT_ITEM("outputs.audio.position", out_pos);
 		}
 		items[dict.n_items++] = SPA_DICT_ITEM("latency",
-				spa_dtoa(latency, sizeof(latency), graph->latency));
+				spa_dtoa(latency, sizeof(latency),
+					(graph->min_latency + graph->max_latency) / 2.0f));
 		impl->info.props = &dict;
 		spa_filter_graph_emit_info(&impl->hooks, &impl->info);
 		impl->info.props = NULL;
@@ -1535,7 +1538,7 @@ static int impl_activate(void *object, const struct spa_dict *props)
 	const struct spa_fga_plugin *p;
 	uint32_t i, j, max_samples = impl->quantum_limit, n_ports;
 	int res;
-	float *sd, *dd, *data, latency;
+	float *sd, *dd, *data, min_latency, max_latency;
 	const char *rate, *str;
 
 	if (graph->activated)
@@ -1661,30 +1664,55 @@ static int impl_activate(void *object, const struct spa_dict *props)
 	/* calculate latency */
 	sort_reset(graph);
 	while ((node = sort_next_node(graph)) != NULL) {
-		latency = 0.0f;
+		min_latency = FLT_MAX;
+		max_latency = 0.0f;
 
 		for (i = 0; i < node->desc->n_input; i++) {
-			spa_list_for_each(link, &node->input_port[i].link_list, input_link)
-				latency = fmaxf(latency, link->output->node->latency);
+			spa_list_for_each(link, &node->input_port[i].link_list, input_link) {
+				min_latency = fminf(min_latency, link->output->node->min_latency);
+				max_latency = fmaxf(max_latency, link->output->node->max_latency);
+			}
 		}
+		min_latency = min_latency == FLT_MAX ? 0.0f : min_latency;
+
 		if (node->latency_index != SPA_IDX_INVALID) {
 			port = &node->notify_port[node->latency_index];
-			latency += port->control_data[0];
+			min_latency += port->control_data[0];
+			max_latency += port->control_data[0];
 
 		}
-		node->latency = latency;
-		spa_log_debug(impl->log, "%s latency:%f", node->name, latency);
+		node->min_latency = min_latency;
+		node->max_latency = max_latency;
+		spa_log_info(impl->log, "%s latency:%f-%f", node->name, min_latency, max_latency);
 	}
-	latency = 0.0f;
+	min_latency = FLT_MAX;
+	max_latency = 0.0f;
 	for (i = 0; i < graph->n_outputs; i++) {
 		struct graph_port *port = &graph->output[i];
-		latency = fmaxf(latency, port->node->latency);
+		max_latency = fmaxf(max_latency, port->node->max_latency);
+		min_latency = fminf(min_latency, port->node->min_latency);
 	}
+	min_latency = min_latency == FLT_MAX ? 0.0f : min_latency;
 
-	if (graph->latency != latency) {
-		graph->latency = latency;
+	spa_log_info(impl->log, "graph latency min:%f max:%f", min_latency, max_latency);
+	if (min_latency != max_latency) {
+		spa_log_warn(impl->log, "graph has unaligned latency min:%f max:%f, "
+				"consider adding delays or tweak node latency to "
+				"align the signals", min_latency, max_latency);
+		for (i = 0; i < graph->n_outputs; i++) {
+			struct graph_port *port = &graph->output[i];
+			if (min_latency != port->node->min_latency ||
+			    max_latency != port->node->max_latency)
+				spa_log_warn(impl->log, "output port %d from %s min:%f max:%f",
+						i, port->node->name,
+						port->node->min_latency, port->node->max_latency);
+		}
+
+	}
+	if (graph->min_latency != min_latency || graph->max_latency != max_latency) {
+		graph->min_latency = min_latency;
+		graph->max_latency = max_latency;
 		impl->info.change_mask |= SPA_FILTER_GRAPH_CHANGE_MASK_PROPS;
-		spa_log_info(impl->log, "graph latency:%f", latency);
 	}
 	emit_filter_graph_info(impl, false);
 	spa_filter_graph_emit_props_changed(&impl->hooks, SPA_DIRECTION_INPUT);

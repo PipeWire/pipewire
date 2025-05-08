@@ -1121,7 +1121,7 @@ static int parse_link(struct graph *graph, struct spa_json *json)
 	out_port = find_port(def_out_node, output, SPA_FGA_PORT_OUTPUT);
 	in_port = find_port(def_in_node, input, SPA_FGA_PORT_INPUT);
 
-	if (out_port == NULL && out_port == NULL) {
+	if (out_port == NULL && in_port == NULL) {
 		/* try control ports */
 		out_port = find_port(def_out_node, output, SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_CONTROL);
 		in_port = find_port(def_in_node, input, SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL);

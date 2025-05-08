@@ -1617,23 +1617,18 @@ skip_channels:
 		snd_pcm_free_chmaps(maps);
 	}
 	else {
-		const struct channel_map *map = NULL;
-		struct spa_pod_choice *choice;
-
 		if (index > 0)
 			return 0;
 
-		spa_pod_builder_push_choice(b, &f[0], SPA_CHOICE_None, 0);
-		choice = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f[0]);
-		spa_pod_builder_int(b, max);
 		if (min != max) {
+			spa_pod_builder_push_choice(b, &f[0], SPA_CHOICE_Range, 0);
+			spa_pod_builder_int(b, max);
 			spa_pod_builder_int(b, min);
 			spa_pod_builder_int(b, max);
-			choice->body.type = SPA_CHOICE_Range;
-		}
-		spa_pod_builder_pop(b, &f[0]);
-
-		if (min == max) {
+			spa_pod_builder_pop(b, &f[0]);
+		} else {
+			const struct channel_map *map = NULL;
+			spa_pod_builder_int(b, min);
 			if (state->default_pos.channels == min) {
 				map = &state->default_pos;
 				spa_log_debug(state->log, "%p: using provided default", state);
@@ -1641,15 +1636,15 @@ skip_channels:
 				map = &default_map[min];
 				spa_log_debug(state->log, "%p: using default %d channel map", state, min);
 			}
-		}
-		if (map) {
-			spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_position, 0);
-			spa_pod_builder_push_array(b, &f[0]);
-			for (i = 0; i < map->channels; i++) {
-				spa_log_debug(state->log, "%p: position %zd %d", state, i, map->pos[i]);
-				spa_pod_builder_id(b, map->pos[i]);
+			if (map) {
+				spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_position, 0);
+				spa_pod_builder_push_array(b, &f[0]);
+				for (i = 0; i < map->channels; i++) {
+					spa_log_debug(state->log, "%p: position %zd %d", state, i, map->pos[i]);
+					spa_pod_builder_id(b, map->pos[i]);
+				}
+				spa_pod_builder_pop(b, &f[0]);
 			}
-			spa_pod_builder_pop(b, &f[0]);
 		}
 	}
 	return 1;

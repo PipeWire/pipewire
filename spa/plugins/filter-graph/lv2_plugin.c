@@ -451,7 +451,7 @@ static const struct spa_fga_descriptor *lv2_plugin_make_desc(void *plugin, const
 
 		fp->hint = 0;
 		if (latent && latency_index == i)
-			fp->flags |= SPA_FGA_HINT_LATENCY;
+			fp->hint |= SPA_FGA_HINT_LATENCY;
 
 		fp->min = mins[i];
 		fp->max = maxes[i];

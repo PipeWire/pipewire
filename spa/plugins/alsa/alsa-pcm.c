@@ -1563,6 +1563,12 @@ static int add_channels(struct state *state, bool all, uint32_t index, uint32_t 
 	spa_log_debug(state->log, "channels (%d %d) default:%d all:%d",
 			min, max, state->default_channels, all);
 
+	if (min > max) {
+		spa_log_warn(state->log, "driver bug! min > max channels: (%d > %d)",
+				min, max);
+		SPA_SWAP(min, max);
+	}
+
 	if (state->default_channels != 0 && !all) {
 		if (min < state->default_channels)
 			min = state->default_channels;

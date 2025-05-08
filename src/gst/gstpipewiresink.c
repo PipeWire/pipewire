@@ -40,8 +40,8 @@ GST_DEBUG_CATEGORY_STATIC (pipewire_sink_debug);
 #define DEFAULT_PROP_SLAVE_METHOD GST_PIPEWIRE_SINK_SLAVE_METHOD_NONE
 #define DEFAULT_PROP_USE_BUFFERPOOL USE_BUFFERPOOL_AUTO
 
-#define MAX_ERROR_MS	1
-#define RESYNC_TIMEOUT_MS	10
+#define MAX_ERROR_MS 1
+#define RESYNC_TIMEOUT_MS 10
 
 enum
 {
@@ -694,15 +694,18 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
     GST_WARNING_OBJECT (pwsink, "can't send buffer %s", spa_strerror(res));
   } else {
     data->queued = TRUE;
-    GST_LOG_OBJECT(pwsink, "queued pwbuffer: %p size: %"PRIu64"; gstbuffer %p ",data->b, data->b->size, buffer);
+    GST_LOG_OBJECT(pwsink, "queued pwbuffer: %p size: %"PRIu64"; gstbuffer %p",
+      data->b, data->b->size, buffer);
     if (pwsink->first_buffer) {
       pwsink->first_buffer = false;
       pwsink->first_buffer_pts = GST_BUFFER_PTS(buffer);
     }
-    stream->position = gst_util_uint64_scale_int(GST_BUFFER_PTS(buffer) - pwsink->first_buffer_pts, pwsink->rate, 1 * GST_SECOND);
+    stream->position = gst_util_uint64_scale_int(GST_BUFFER_PTS(buffer) - pwsink->first_buffer_pts,
+      pwsink->rate, 1 * GST_SECOND);
 
     // have the buffer duration value minimum as 1, in case of video where rate is 0 (not applicable)
-    stream->buf_duration =  SPA_MAX((uint64_t)1, gst_util_uint64_scale_int(GST_BUFFER_DURATION(buffer), pwsink->rate, 1 * GST_SECOND));
+    stream->buf_duration =  SPA_MAX((uint64_t)1, gst_util_uint64_scale_int(GST_BUFFER_DURATION(buffer),
+      pwsink->rate, 1 * GST_SECOND));
   }
 
   switch (pwsink->slave_method) {
@@ -725,19 +728,22 @@ static void update_time (GstPipeWireSink *pwsink)
   if (pwsink->first_buffer) {
     // use the target duration before the first buffer
     pwsink->stream->buf_duration = p->clock.target_duration;
-    spa_dll_set_bw(&pwsink->stream->dll, SPA_DLL_BW_MIN, pwsink->stream->buf_duration, pwsink->rate);
+    spa_dll_set_bw(&pwsink->stream->dll, SPA_DLL_BW_MIN, pwsink->stream->buf_duration,
+      pwsink->rate);
   }
 
   now = pw_stream_get_nsec(pwsink->stream->pwstream);
-  err = (double)gst_util_uint64_scale(now, pwsink->rate, 1 *GST_SECOND) -
-          (double)gst_util_uint64_scale(p->clock.next_nsec, pwsink->rate, 1 *GST_SECOND);
+  err = (double)gst_util_uint64_scale(now, pwsink->rate, 1 * GST_SECOND) -
+          (double)gst_util_uint64_scale(p->clock.next_nsec, pwsink->rate, 1 * GST_SECOND);
 
-  GST_LOG_OBJECT(pwsink, "err is %f max err is %f now %lu next is %lu", err, max_err, now, p->clock.next_nsec);
+  GST_LOG_OBJECT(pwsink, "err is %f max err is %f now %"PRIu64" next is %"PRIu64"", err, max_err, now,
+    p->clock.next_nsec);
 
   if (fabs(err) > max_err) {
     if (fabs(err) > resync_timeout) {
       GST_WARNING_OBJECT(pwsink, "err %f exceeds resync timeout, resetting", err);
-      spa_dll_set_bw(&pwsink->stream->dll, SPA_DLL_BW_MIN, pwsink->stream->buf_duration, pwsink->rate);
+      spa_dll_set_bw(&pwsink->stream->dll, SPA_DLL_BW_MIN, pwsink->stream->buf_duration,
+        pwsink->rate);
       err = 0.0;
     } else {
       err = SPA_CLAMPD(err, -max_err, max_err);
@@ -757,8 +763,9 @@ static void update_time (GstPipeWireSink *pwsink)
   p->clock.next_nsec = now + (uint64_t)(p->clock.duration / corr * GST_SECOND / pwsink->rate);
   p->clock.rate_diff = corr;
 
-  GST_DEBUG_OBJECT(pwsink, "now %lu, position %lu, duration %lu, rate :%d, next : %lu, delay is %ld, rate_diff is %f",
-    p->clock.nsec, p->clock.position, p->clock.duration, pwsink->rate, p->clock.next_nsec, p->clock.delay,p->clock.rate_diff);
+  GST_DEBUG_OBJECT(pwsink, "now %"PRIu64", position %"PRIu64", duration %"PRIu64", rate :%d,"
+    "next : %"PRIu64", delay is %"PRIi64", rate_diff is %f", p->clock.nsec, p->clock.position,
+    p->clock.duration, pwsink->rate, p->clock.next_nsec, p->clock.delay,p->clock.rate_diff);
 }
 
 static void
@@ -774,7 +781,6 @@ static int invoke_trigger_process(struct spa_loop *loop,
 {
 
   GstPipeWireSink *pwsink = user_data;
-
 
   /* Note: We cannot use the rate for computation of other clock params
    * in case of video because the rate for video is set as 0 in the _setcaps.
@@ -802,7 +808,8 @@ on_state_changed (void *data, enum pw_stream_state old, enum pw_stream_state sta
       break;
     case PW_STREAM_STATE_STREAMING:
       if (pw_stream_is_driving (pwsink->stream->pwstream))
-        pw_loop_invoke(pw_stream_get_data_loop(pwsink->stream->pwstream), invoke_trigger_process, 1, NULL, 0 , false, pwsink);
+        pw_loop_invoke(pw_stream_get_data_loop(pwsink->stream->pwstream),
+          invoke_trigger_process, 1, NULL, 0 , false, pwsink);
       break;
     case PW_STREAM_STATE_ERROR:
       /* make the error permanent, if it is not already;
@@ -1099,7 +1106,8 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
       gst_buffer_unref (b);
 
       if (pw_stream_is_driving (pwsink->stream->pwstream))
-        pw_loop_invoke(pw_stream_get_data_loop(pwsink->stream->pwstream), invoke_trigger_process, 1, NULL, 0 , false, pwsink);
+        pw_loop_invoke(pw_stream_get_data_loop(pwsink->stream->pwstream),
+          invoke_trigger_process, 1, NULL, 0 , false, pwsink);
     }
   } else {
     GST_TRACE_OBJECT(pwsink, "Buffer is from pipewirepool");
@@ -1107,7 +1115,8 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
     do_send_buffer (pwsink, buffer);
 
     if (pw_stream_is_driving (pwsink->stream->pwstream))
-      pw_loop_invoke(pw_stream_get_data_loop(pwsink->stream->pwstream), invoke_trigger_process, 1, NULL, 0 , false, pwsink);
+      pw_loop_invoke(pw_stream_get_data_loop(pwsink->stream->pwstream),
+        invoke_trigger_process, 1, NULL, 0 , false, pwsink);
   }
 
 done_unlock:
@@ -1128,7 +1137,6 @@ on_io_changed(void *data, uint32_t id, void *area, uint32_t size)
 
 	switch (id) {
 	case SPA_IO_Position:
-  GST_DEBUG_OBJECT(pwsink, "got io position %p", area);
 		pwsink->stream->io_position = area;
 		break;
 	}

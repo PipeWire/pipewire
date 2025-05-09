@@ -392,6 +392,22 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 	}
 }
 
+static void emit_info(struct impl *this, bool full)
+{
+	struct port *p;
+	uint32_t i;
+
+	emit_node_info(this, full);
+	for (i = 0; i < this->dir[SPA_DIRECTION_INPUT].n_ports; i++) {
+		if ((p = GET_IN_PORT(this, i)) && p->valid)
+			emit_port_info(this, p, full);
+	}
+	for (i = 0; i < this->dir[SPA_DIRECTION_OUTPUT].n_ports; i++) {
+		if ((p = GET_OUT_PORT(this, i)) && p->valid)
+			emit_port_info(this, p, full);
+	}
+}
+
 static int init_port(struct impl *this, enum spa_direction direction, uint32_t port_id,
 		uint32_t position, bool is_dsp, bool is_monitor, bool is_control)
 {
@@ -414,10 +430,10 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 	name = spa_debug_type_find_short_name(spa_type_audio_channel, position);
 	snprintf(port->position, sizeof(port->position), "%s", name ? name : "UNK");
 
-	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
+	port->info = SPA_PORT_INFO_INIT();
+	port->info.change_mask = port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PROPS |
 			SPA_PORT_CHANGE_MASK_PARAMS;
-	port->info = SPA_PORT_INFO_INIT();
 	port->info.flags = SPA_PORT_FLAG_NO_REF |
 		SPA_PORT_FLAG_DYNAMIC_DATA;
 	port->params[IDX_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
@@ -454,8 +470,6 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 	spa_log_debug(this->log, "%p: add port %d:%d position:%s %d %d %d",
 			this, direction, port_id, port->position, is_dsp,
 			is_monitor, is_control);
-	emit_port_info(this, port, true);
-
 	return 0;
 }
 
@@ -469,43 +483,15 @@ static int deinit_port(struct impl *this, enum spa_direction direction, uint32_t
 	return 0;
 }
 
-static int impl_node_enum_params(void *object, int seq,
-				 uint32_t id, uint32_t start, uint32_t num,
-				 const struct spa_pod *filter)
+
+static int node_param_enum_port_config(struct impl *this, uint32_t id, uint32_t index,
+		struct spa_pod **param, struct spa_pod_builder *b)
 {
-	struct impl *this = object;
-	struct spa_pod *param;
-	struct spa_pod_builder b = { 0 };
-	uint8_t buffer[4096];
-	struct spa_result_node_params result;
-	uint32_t count = 0;
-	int res;
-
-	spa_return_val_if_fail(this != NULL, -EINVAL);
-	spa_return_val_if_fail(num != 0, -EINVAL);
-
-	result.id = id;
-	result.next = start;
-      next:
-	result.index = result.next++;
-
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-
-	switch (id) {
-	case SPA_PARAM_EnumPortConfig:
+	switch (index) {
+	case 0 ... 1:
 	{
-		struct dir *dir;
-		switch (result.index) {
-		case 0:
-			dir = &this->dir[SPA_DIRECTION_INPUT];;
-			break;
-		case 1:
-			dir = &this->dir[SPA_DIRECTION_OUTPUT];;
-			break;
-		default:
-			return 0;
-		}
-		param = spa_pod_builder_add_object(&b,
+		struct dir *dir = &this->dir[index];
+		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_ParamPortConfig, id,
 			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(dir->direction),
 			SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_CHOICE_ENUM_Id(4,
@@ -517,23 +503,23 @@ static int impl_node_enum_params(void *object, int seq,
 			SPA_PARAM_PORT_CONFIG_control,   SPA_POD_CHOICE_Bool(false));
 		break;
 	}
-	case SPA_PARAM_PortConfig:
+	default:
+		return 0;
+	}
+	return 1;
+}
+
+static int node_param_port_config(struct impl *this, uint32_t id, uint32_t index,
+		struct spa_pod **param, struct spa_pod_builder *b)
+{
+	switch (index) {
+	case 0 ... 1:
 	{
-		struct dir *dir;
+		struct dir *dir = &this->dir[index];
 		struct spa_pod_frame f[1];
 
-		switch (result.index) {
-		case 0:
-			dir = &this->dir[SPA_DIRECTION_INPUT];;
-			break;
-		case 1:
-			dir = &this->dir[SPA_DIRECTION_OUTPUT];;
-			break;
-		default:
-			return 0;
-		}
-		spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_ParamPortConfig, id);
-		spa_pod_builder_add(&b,
+		spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_ParamPortConfig, id);
+		spa_pod_builder_add(b,
 			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(dir->direction),
 			SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(dir->mode),
 			SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(this->monitor),
@@ -541,406 +527,456 @@ static int impl_node_enum_params(void *object, int seq,
 			0);
 
 		if (dir->have_format) {
-			spa_pod_builder_prop(&b, SPA_PARAM_PORT_CONFIG_format, 0);
-			spa_format_audio_raw_build(&b, SPA_PARAM_PORT_CONFIG_format,
+			spa_pod_builder_prop(b, SPA_PARAM_PORT_CONFIG_format, 0);
+			spa_format_audio_raw_build(b, SPA_PARAM_PORT_CONFIG_format,
 					&dir->format.info.raw);
 		}
-		param = spa_pod_builder_pop(&b, &f[0]);
-		break;
-	}
-	case SPA_PARAM_PropInfo:
-	{
-		struct props *p = &this->props;
-		struct spa_pod_frame f[2];
-
-		switch (result.index) {
-		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_volume),
-				SPA_PROP_INFO_description, SPA_POD_String("Volume"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume,
-					DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME));
-			break;
-		case 1:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_mute),
-				SPA_PROP_INFO_description, SPA_POD_String("Mute"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->channel.mute));
-			break;
-		case 2:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_channelVolumes),
-				SPA_PROP_INFO_description, SPA_POD_String("Channel Volumes"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume,
-					DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
-				SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
-			break;
-		case 3:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_channelMap),
-				SPA_PROP_INFO_description, SPA_POD_String("Channel Map"),
-				SPA_PROP_INFO_type, SPA_POD_Id(SPA_AUDIO_CHANNEL_UNKNOWN),
-				SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
-			break;
-		case 4:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_monitorMute),
-				SPA_PROP_INFO_description, SPA_POD_String("Monitor Mute"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->monitor.mute));
-			break;
-		case 5:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_monitorVolumes),
-				SPA_PROP_INFO_description, SPA_POD_String("Monitor Volumes"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume,
-					DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
-				SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
-			break;
-		case 6:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_softMute),
-				SPA_PROP_INFO_description, SPA_POD_String("Soft Mute"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->soft.mute));
-			break;
-		case 7:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_softVolumes),
-				SPA_PROP_INFO_description, SPA_POD_String("Soft Volumes"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume,
-					DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
-				SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
-			break;
-		case 8:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("monitor.channel-volumes"),
-				SPA_PROP_INFO_description, SPA_POD_String("Monitor channel volume"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
-					this->monitor_channel_volumes),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 9:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("channelmix.disable"),
-				SPA_PROP_INFO_description, SPA_POD_String("Disable Channel mixing"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->mix_disabled),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 10:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("channelmix.min-volume"),
-				SPA_PROP_INFO_description, SPA_POD_String("Minimum volume level"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->min_volume,
-					DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 11:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("channelmix.max-volume"),
-				SPA_PROP_INFO_description, SPA_POD_String("Maximum volume level"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->max_volume,
-					DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 12:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("channelmix.normalize"),
-				SPA_PROP_INFO_description, SPA_POD_String("Normalize Volumes"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
-					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_NORMALIZE)),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 13:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("channelmix.mix-lfe"),
-				SPA_PROP_INFO_description, SPA_POD_String("Mix LFE into channels"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
-					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_MIX_LFE)),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 14:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("channelmix.upmix"),
-				SPA_PROP_INFO_description, SPA_POD_String("Enable upmixing"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
-					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_UPMIX)),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 15:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("channelmix.lfe-cutoff"),
-				SPA_PROP_INFO_description, SPA_POD_String("LFE cutoff frequency"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
-					this->mix.lfe_cutoff, 0.0, 1000.0),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 16:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("channelmix.fc-cutoff"),
-				SPA_PROP_INFO_description, SPA_POD_String("FC cutoff frequency (Hz)"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
-					this->mix.fc_cutoff, 0.0, 48000.0),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 17:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("channelmix.rear-delay"),
-				SPA_PROP_INFO_description, SPA_POD_String("Rear channels delay (ms)"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
-					this->mix.rear_delay, 0.0, 1000.0),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 18:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("channelmix.stereo-widen"),
-				SPA_PROP_INFO_description, SPA_POD_String("Stereo widen"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
-					this->mix.widen, 0.0, 1.0),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 19:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("channelmix.hilbert-taps"),
-				SPA_PROP_INFO_description, SPA_POD_String("Taps for phase shift of rear"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(
-					this->mix.hilbert_taps, 0, MAX_TAPS),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 20:
-			spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
-			spa_pod_builder_add(&b,
-				SPA_PROP_INFO_name, SPA_POD_String("channelmix.upmix-method"),
-				SPA_PROP_INFO_description, SPA_POD_String("Upmix method to use"),
-				SPA_PROP_INFO_type, SPA_POD_String(
-					channelmix_upmix_info[this->mix.upmix].label),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true),
-				0);
-
-			spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
-			spa_pod_builder_push_struct(&b, &f[1]);
-			SPA_FOR_EACH_ELEMENT_VAR(channelmix_upmix_info, i) {
-				spa_pod_builder_string(&b, i->label);
-				spa_pod_builder_string(&b, i->description);
-			}
-			spa_pod_builder_pop(&b, &f[1]);
-			param = spa_pod_builder_pop(&b, &f[0]);
-			break;
-		case 21:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_rate),
-				SPA_PROP_INFO_description, SPA_POD_String("Rate scaler"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Double(p->rate, 0.0, 10.0));
-			break;
-		case 22:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_quality),
-				SPA_PROP_INFO_name, SPA_POD_String("resample.quality"),
-				SPA_PROP_INFO_description, SPA_POD_String("Resample Quality"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->resample_quality, 0, 14),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 23:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("resample.disable"),
-				SPA_PROP_INFO_description, SPA_POD_String("Disable Resampling"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->resample_disabled),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 24:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("dither.noise"),
-				SPA_PROP_INFO_description, SPA_POD_String("Add noise bits"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(this->dir[1].conv.noise_bits, 0, 16),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 25:
-			spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
-			spa_pod_builder_add(&b,
-				SPA_PROP_INFO_name, SPA_POD_String("dither.method"),
-				SPA_PROP_INFO_description, SPA_POD_String("The dithering method"),
-				SPA_PROP_INFO_type, SPA_POD_String(
-					dither_method_info[this->dir[1].conv.method].label),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true),
-				0);
-			spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
-			spa_pod_builder_push_struct(&b, &f[1]);
-			SPA_FOR_EACH_ELEMENT_VAR(dither_method_info, i) {
-				spa_pod_builder_string(&b, i->label);
-				spa_pod_builder_string(&b, i->description);
-			}
-			spa_pod_builder_pop(&b, &f[1]);
-			param = spa_pod_builder_pop(&b, &f[0]);
-			break;
-		case 26:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("debug.wav-path"),
-				SPA_PROP_INFO_description, SPA_POD_String("Path to WAV file"),
-				SPA_PROP_INFO_type, SPA_POD_String(p->wav_path),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 27:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("channelmix.lock-volumes"),
-				SPA_PROP_INFO_description, SPA_POD_String("Disable volume updates"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->lock_volumes),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 28:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("audioconvert.filter-graph.disable"),
-				SPA_PROP_INFO_description, SPA_POD_String("Disable Filter graph updates"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->filter_graph_disabled),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 29:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("audioconvert.filter-graph"),
-				SPA_PROP_INFO_description, SPA_POD_String("A filter graph to load"),
-				SPA_PROP_INFO_type, SPA_POD_String(""),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		default:
-			if (this->filter_graph[0] && this->filter_graph[0]->graph) {
-				res = spa_filter_graph_enum_prop_info(this->filter_graph[0]->graph,
-						result.index - 30, &b, &param);
-				if (res <= 0)
-					return res;
-			} else
-				return 0;
-		}
-		break;
-	}
-
-	case SPA_PARAM_Props:
-	{
-		struct props *p = &this->props;
-		struct spa_pod_frame f[2];
-
-		switch (result.index) {
-		case 0:
-			spa_pod_builder_push_object(&b, &f[0],
-                                SPA_TYPE_OBJECT_Props, id);
-			spa_pod_builder_add(&b,
-				SPA_PROP_volume,		SPA_POD_Float(p->volume),
-				SPA_PROP_mute,			SPA_POD_Bool(p->channel.mute),
-				SPA_PROP_channelVolumes,	SPA_POD_Array(sizeof(float),
-									SPA_TYPE_Float,
-									p->channel.n_volumes,
-									p->channel.volumes),
-				SPA_PROP_channelMap,		SPA_POD_Array(sizeof(uint32_t),
-									SPA_TYPE_Id,
-									p->n_channels,
-									p->channel_map),
-				SPA_PROP_softMute,		SPA_POD_Bool(p->soft.mute),
-				SPA_PROP_softVolumes,		SPA_POD_Array(sizeof(float),
-									SPA_TYPE_Float,
-									p->soft.n_volumes,
-									p->soft.volumes),
-				SPA_PROP_monitorMute,		SPA_POD_Bool(p->monitor.mute),
-				SPA_PROP_monitorVolumes,	SPA_POD_Array(sizeof(float),
-									SPA_TYPE_Float,
-									p->monitor.n_volumes,
-									p->monitor.volumes),
-				0);
-			spa_pod_builder_prop(&b, SPA_PROP_params, 0);
-			spa_pod_builder_push_struct(&b, &f[1]);
-			spa_pod_builder_string(&b, "monitor.channel-volumes");
-			spa_pod_builder_bool(&b, this->monitor_channel_volumes);
-			spa_pod_builder_string(&b, "channelmix.disable");
-			spa_pod_builder_bool(&b, this->props.mix_disabled);
-			spa_pod_builder_string(&b, "channelmix.min-volume");
-			spa_pod_builder_float(&b, this->props.min_volume);
-			spa_pod_builder_string(&b, "channelmix.max-volume");
-			spa_pod_builder_float(&b, this->props.max_volume);
-			spa_pod_builder_string(&b, "channelmix.normalize");
-			spa_pod_builder_bool(&b, SPA_FLAG_IS_SET(this->mix.options,
-						CHANNELMIX_OPTION_NORMALIZE));
-			spa_pod_builder_string(&b, "channelmix.mix-lfe");
-			spa_pod_builder_bool(&b, SPA_FLAG_IS_SET(this->mix.options,
-						CHANNELMIX_OPTION_MIX_LFE));
-			spa_pod_builder_string(&b, "channelmix.upmix");
-			spa_pod_builder_bool(&b, SPA_FLAG_IS_SET(this->mix.options,
-						CHANNELMIX_OPTION_UPMIX));
-			spa_pod_builder_string(&b, "channelmix.lfe-cutoff");
-			spa_pod_builder_float(&b, this->mix.lfe_cutoff);
-			spa_pod_builder_string(&b, "channelmix.fc-cutoff");
-			spa_pod_builder_float(&b, this->mix.fc_cutoff);
-			spa_pod_builder_string(&b, "channelmix.rear-delay");
-			spa_pod_builder_float(&b, this->mix.rear_delay);
-			spa_pod_builder_string(&b, "channelmix.stereo-widen");
-			spa_pod_builder_float(&b, this->mix.widen);
-			spa_pod_builder_string(&b, "channelmix.hilbert-taps");
-			spa_pod_builder_int(&b, this->mix.hilbert_taps);
-			spa_pod_builder_string(&b, "channelmix.upmix-method");
-			spa_pod_builder_string(&b, channelmix_upmix_info[this->mix.upmix].label);
-			spa_pod_builder_string(&b, "resample.quality");
-			spa_pod_builder_int(&b, p->resample_quality);
-			spa_pod_builder_string(&b, "resample.disable");
-			spa_pod_builder_bool(&b, p->resample_disabled);
-			spa_pod_builder_string(&b, "dither.noise");
-			spa_pod_builder_int(&b, this->dir[1].conv.noise_bits);
-			spa_pod_builder_string(&b, "dither.method");
-			spa_pod_builder_string(&b, dither_method_info[this->dir[1].conv.method].label);
-			spa_pod_builder_string(&b, "debug.wav-path");
-			spa_pod_builder_string(&b, p->wav_path);
-			spa_pod_builder_string(&b, "channelmix.lock-volumes");
-			spa_pod_builder_bool(&b, p->lock_volumes);
-			spa_pod_builder_string(&b, "audioconvert.filter-graph.disable");
-			spa_pod_builder_bool(&b, p->filter_graph_disabled);
-			spa_pod_builder_string(&b, "audioconvert.filter-graph");
-			spa_pod_builder_string(&b, "");
-			spa_pod_builder_pop(&b, &f[1]);
-			param = spa_pod_builder_pop(&b, &f[0]);
-			break;
-		default:
-			if (result.index-1 >= this->n_graph)
-				return 0;
-
-			if (this->filter_graph[result.index-1]->graph == NULL)
-				goto next;
-
-			res = spa_filter_graph_get_props(this->filter_graph[result.index-1]->graph,
-						&b, &param);
-			if (res < 0)
-				return res;
-			if (res == 0)
-				goto next;
-			break;
-		}
+		*param = spa_pod_builder_pop(b, &f[0]);
 		break;
 	}
 	default:
 		return 0;
 	}
+	return 1;
+}
 
-	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
+static int node_param_prop_info(struct impl *this, uint32_t id, uint32_t index,
+		struct spa_pod **param, struct spa_pod_builder *b)
+{
+	struct props *p = &this->props;
+	struct spa_pod_frame f[2];
+
+	switch (index) {
+	case 0:
+		*param = spa_pod_builder_add_object(b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_volume),
+				SPA_PROP_INFO_description, SPA_POD_String("Volume"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume,
+					DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME));
+		break;
+	case 1:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_mute),
+			SPA_PROP_INFO_description, SPA_POD_String("Mute"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->channel.mute));
+		break;
+	case 2:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_channelVolumes),
+			SPA_PROP_INFO_description, SPA_POD_String("Channel Volumes"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume,
+				DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
+			SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
+		break;
+	case 3:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_channelMap),
+			SPA_PROP_INFO_description, SPA_POD_String("Channel Map"),
+			SPA_PROP_INFO_type, SPA_POD_Id(SPA_AUDIO_CHANNEL_UNKNOWN),
+			SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
+		break;
+	case 4:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_monitorMute),
+			SPA_PROP_INFO_description, SPA_POD_String("Monitor Mute"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->monitor.mute));
+		break;
+	case 5:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_monitorVolumes),
+			SPA_PROP_INFO_description, SPA_POD_String("Monitor Volumes"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume,
+				DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
+			SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
+		break;
+	case 6:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_softMute),
+			SPA_PROP_INFO_description, SPA_POD_String("Soft Mute"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->soft.mute));
+		break;
+	case 7:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_softVolumes),
+			SPA_PROP_INFO_description, SPA_POD_String("Soft Volumes"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume,
+				DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
+			SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
+		break;
+	case 8:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("monitor.channel-volumes"),
+			SPA_PROP_INFO_description, SPA_POD_String("Monitor channel volume"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
+				this->monitor_channel_volumes),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 9:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("channelmix.disable"),
+			SPA_PROP_INFO_description, SPA_POD_String("Disable Channel mixing"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->mix_disabled),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 10:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("channelmix.min-volume"),
+			SPA_PROP_INFO_description, SPA_POD_String("Minimum volume level"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->min_volume,
+				DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 11:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("channelmix.max-volume"),
+			SPA_PROP_INFO_description, SPA_POD_String("Maximum volume level"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->max_volume,
+				DEFAULT_MIN_VOLUME, DEFAULT_MAX_VOLUME),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 12:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("channelmix.normalize"),
+			SPA_PROP_INFO_description, SPA_POD_String("Normalize Volumes"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
+				SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_NORMALIZE)),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 13:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("channelmix.mix-lfe"),
+			SPA_PROP_INFO_description, SPA_POD_String("Mix LFE into channels"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
+				SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_MIX_LFE)),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 14:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("channelmix.upmix"),
+			SPA_PROP_INFO_description, SPA_POD_String("Enable upmixing"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
+				SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_UPMIX)),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 15:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("channelmix.lfe-cutoff"),
+			SPA_PROP_INFO_description, SPA_POD_String("LFE cutoff frequency"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
+				this->mix.lfe_cutoff, 0.0, 1000.0),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 16:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("channelmix.fc-cutoff"),
+			SPA_PROP_INFO_description, SPA_POD_String("FC cutoff frequency (Hz)"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
+				this->mix.fc_cutoff, 0.0, 48000.0),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 17:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("channelmix.rear-delay"),
+			SPA_PROP_INFO_description, SPA_POD_String("Rear channels delay (ms)"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
+				this->mix.rear_delay, 0.0, 1000.0),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 18:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("channelmix.stereo-widen"),
+			SPA_PROP_INFO_description, SPA_POD_String("Stereo widen"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
+				this->mix.widen, 0.0, 1.0),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 19:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("channelmix.hilbert-taps"),
+			SPA_PROP_INFO_description, SPA_POD_String("Taps for phase shift of rear"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(
+				this->mix.hilbert_taps, 0, MAX_TAPS),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 20:
+		spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
+		spa_pod_builder_add(b,
+			SPA_PROP_INFO_name, SPA_POD_String("channelmix.upmix-method"),
+			SPA_PROP_INFO_description, SPA_POD_String("Upmix method to use"),
+			SPA_PROP_INFO_type, SPA_POD_String(
+				channelmix_upmix_info[this->mix.upmix].label),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
+
+		spa_pod_builder_prop(b, SPA_PROP_INFO_labels, 0);
+		spa_pod_builder_push_struct(b, &f[1]);
+		SPA_FOR_EACH_ELEMENT_VAR(channelmix_upmix_info, i) {
+			spa_pod_builder_string(b, i->label);
+			spa_pod_builder_string(b, i->description);
+		}
+		spa_pod_builder_pop(b, &f[1]);
+		*param = spa_pod_builder_pop(b, &f[0]);
+		break;
+	case 21:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_rate),
+			SPA_PROP_INFO_description, SPA_POD_String("Rate scaler"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Double(p->rate, 0.0, 10.0));
+		break;
+	case 22:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_quality),
+			SPA_PROP_INFO_name, SPA_POD_String("resample.quality"),
+			SPA_PROP_INFO_description, SPA_POD_String("Resample Quality"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->resample_quality, 0, 14),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 23:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("resample.disable"),
+			SPA_PROP_INFO_description, SPA_POD_String("Disable Resampling"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->resample_disabled),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 24:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("dither.noise"),
+			SPA_PROP_INFO_description, SPA_POD_String("Add noise bits"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(this->dir[1].conv.noise_bits, 0, 16),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 25:
+		spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
+		spa_pod_builder_add(b,
+			SPA_PROP_INFO_name, SPA_POD_String("dither.method"),
+			SPA_PROP_INFO_description, SPA_POD_String("The dithering method"),
+			SPA_PROP_INFO_type, SPA_POD_String(
+				dither_method_info[this->dir[1].conv.method].label),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true),
+			0);
+		spa_pod_builder_prop(b, SPA_PROP_INFO_labels, 0);
+		spa_pod_builder_push_struct(b, &f[1]);
+		SPA_FOR_EACH_ELEMENT_VAR(dither_method_info, i) {
+			spa_pod_builder_string(b, i->label);
+			spa_pod_builder_string(b, i->description);
+		}
+		spa_pod_builder_pop(b, &f[1]);
+		*param = spa_pod_builder_pop(b, &f[0]);
+		break;
+	case 26:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("debug.wav-path"),
+			SPA_PROP_INFO_description, SPA_POD_String("Path to WAV file"),
+			SPA_PROP_INFO_type, SPA_POD_String(p->wav_path),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 27:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("channelmix.lock-volumes"),
+			SPA_PROP_INFO_description, SPA_POD_String("Disable volume updates"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->lock_volumes),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 28:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("audioconvert.filter-graph.disable"),
+			SPA_PROP_INFO_description, SPA_POD_String("Disable Filter graph updates"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->filter_graph_disabled),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 29:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("audioconvert.filter-graph"),
+			SPA_PROP_INFO_description, SPA_POD_String("A filter graph to load"),
+			SPA_PROP_INFO_type, SPA_POD_String(""),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	default:
+		if (this->filter_graph[0] && this->filter_graph[0]->graph) {
+			return spa_filter_graph_enum_prop_info(this->filter_graph[0]->graph,
+					index - 30, b, param);
+		}
+		return 0;
+	}
+	return 1;
+}
+
+static int node_param_props(struct impl *this, uint32_t id, uint32_t index,
+		struct spa_pod **param, struct spa_pod_builder *b)
+{
+	struct props *p = &this->props;
+	struct spa_pod_frame f[2];
+
+	switch (index) {
+	case 0:
+		spa_pod_builder_push_object(b, &f[0],
+                               SPA_TYPE_OBJECT_Props, id);
+		spa_pod_builder_add(b,
+			SPA_PROP_volume,		SPA_POD_Float(p->volume),
+			SPA_PROP_mute,			SPA_POD_Bool(p->channel.mute),
+			SPA_PROP_channelVolumes,	SPA_POD_Array(sizeof(float),
+								SPA_TYPE_Float,
+								p->channel.n_volumes,
+								p->channel.volumes),
+			SPA_PROP_channelMap,		SPA_POD_Array(sizeof(uint32_t),
+								SPA_TYPE_Id,
+								p->n_channels,
+								p->channel_map),
+			SPA_PROP_softMute,		SPA_POD_Bool(p->soft.mute),
+			SPA_PROP_softVolumes,		SPA_POD_Array(sizeof(float),
+								SPA_TYPE_Float,
+								p->soft.n_volumes,
+								p->soft.volumes),
+			SPA_PROP_monitorMute,		SPA_POD_Bool(p->monitor.mute),
+			SPA_PROP_monitorVolumes,	SPA_POD_Array(sizeof(float),
+								SPA_TYPE_Float,
+								p->monitor.n_volumes,
+								p->monitor.volumes),
+			0);
+		spa_pod_builder_prop(b, SPA_PROP_params, 0);
+		spa_pod_builder_push_struct(b, &f[1]);
+		spa_pod_builder_string(b, "monitor.channel-volumes");
+		spa_pod_builder_bool(b, this->monitor_channel_volumes);
+		spa_pod_builder_string(b, "channelmix.disable");
+		spa_pod_builder_bool(b, this->props.mix_disabled);
+		spa_pod_builder_string(b, "channelmix.min-volume");
+		spa_pod_builder_float(b, this->props.min_volume);
+		spa_pod_builder_string(b, "channelmix.max-volume");
+		spa_pod_builder_float(b, this->props.max_volume);
+		spa_pod_builder_string(b, "channelmix.normalize");
+		spa_pod_builder_bool(b, SPA_FLAG_IS_SET(this->mix.options,
+					CHANNELMIX_OPTION_NORMALIZE));
+		spa_pod_builder_string(b, "channelmix.mix-lfe");
+		spa_pod_builder_bool(b, SPA_FLAG_IS_SET(this->mix.options,
+					CHANNELMIX_OPTION_MIX_LFE));
+		spa_pod_builder_string(b, "channelmix.upmix");
+		spa_pod_builder_bool(b, SPA_FLAG_IS_SET(this->mix.options,
+					CHANNELMIX_OPTION_UPMIX));
+		spa_pod_builder_string(b, "channelmix.lfe-cutoff");
+		spa_pod_builder_float(b, this->mix.lfe_cutoff);
+		spa_pod_builder_string(b, "channelmix.fc-cutoff");
+		spa_pod_builder_float(b, this->mix.fc_cutoff);
+		spa_pod_builder_string(b, "channelmix.rear-delay");
+		spa_pod_builder_float(b, this->mix.rear_delay);
+		spa_pod_builder_string(b, "channelmix.stereo-widen");
+		spa_pod_builder_float(b, this->mix.widen);
+		spa_pod_builder_string(b, "channelmix.hilbert-taps");
+		spa_pod_builder_int(b, this->mix.hilbert_taps);
+		spa_pod_builder_string(b, "channelmix.upmix-method");
+		spa_pod_builder_string(b, channelmix_upmix_info[this->mix.upmix].label);
+		spa_pod_builder_string(b, "resample.quality");
+		spa_pod_builder_int(b, p->resample_quality);
+		spa_pod_builder_string(b, "resample.disable");
+		spa_pod_builder_bool(b, p->resample_disabled);
+		spa_pod_builder_string(b, "dither.noise");
+		spa_pod_builder_int(b, this->dir[1].conv.noise_bits);
+		spa_pod_builder_string(b, "dither.method");
+		spa_pod_builder_string(b, dither_method_info[this->dir[1].conv.method].label);
+		spa_pod_builder_string(b, "debug.wav-path");
+		spa_pod_builder_string(b, p->wav_path);
+		spa_pod_builder_string(b, "channelmix.lock-volumes");
+		spa_pod_builder_bool(b, p->lock_volumes);
+		spa_pod_builder_string(b, "audioconvert.filter-graph.disable");
+		spa_pod_builder_bool(b, p->filter_graph_disabled);
+		spa_pod_builder_string(b, "audioconvert.filter-graph");
+		spa_pod_builder_string(b, "");
+		spa_pod_builder_pop(b, &f[1]);
+		*param = spa_pod_builder_pop(b, &f[0]);
+		break;
+	default:
+	{
+		struct spa_filter_graph *graph;
+		int res;
+
+		if (index-1 >= this->n_graph)
+			return 0;
+
+		graph = this->filter_graph[index-1]->graph;
+		if (graph == NULL)
+			return 1;
+
+		res = spa_filter_graph_get_props(graph, b, param);
+		if (res == 0) {
+			*param = NULL;
+			return 1;
+		}
+		return res;
+	}
+	}
+	return 1;
+}
+
+static int impl_node_enum_params(void *object, int seq,
+				 uint32_t id, uint32_t start, uint32_t num,
+				 const struct spa_pod *filter)
+{
+	struct impl *this = object;
+	struct spa_pod *param;
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[4096];
+	struct spa_result_node_params result;
+	uint32_t count = 0;
+	int res = 0;
+
+	spa_return_val_if_fail(this != NULL, -EINVAL);
+	spa_return_val_if_fail(num != 0, -EINVAL);
+
+	result.id = id;
+	result.next = start;
+      next:
+	result.index = result.next++;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+	param = NULL;
+	switch (id) {
+	case SPA_PARAM_EnumPortConfig:
+		res = node_param_enum_port_config(this, id, result.index, &param, &b);
+		break;
+	case SPA_PARAM_PortConfig:
+		res = node_param_port_config(this, id, result.index, &param, &b);
+		break;
+	case SPA_PARAM_PropInfo:
+		res = node_param_prop_info(this, id, result.index, &param, &b);
+		break;
+	case SPA_PARAM_Props:
+		res = node_param_props(this, id, result.index, &param, &b);
+		break;
+	default:
+		return 0;
+	}
+	if (res <= 0)
+		return res;
+
+	if (param == NULL || spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
 	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
@@ -1004,8 +1040,9 @@ static void graph_apply_props(void *object, enum spa_direction direction, const 
 	struct impl *impl = g->impl;
 	if (g->removing)
 		return;
-	if (apply_props(impl, props) > 0)
-		emit_node_info(impl, false);
+	apply_props(impl, props);
+
+	emit_info(impl, false);
 }
 
 static void graph_props_changed(void *object, enum spa_direction direction)
@@ -1016,6 +1053,7 @@ static void graph_props_changed(void *object, enum spa_direction direction)
 		return;
 	impl->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 	impl->params[IDX_Props].user++;
+	emit_info(impl, false);
 }
 
 struct spa_filter_graph_events graph_events = {
@@ -1694,6 +1732,10 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 		this->vol_ramp_offset = 0;
 		this->recalc = true;
 	}
+	if (changed) {
+		this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+		this->params[IDX_Props].user++;
+	}
 	return changed;
 }
 
@@ -1846,8 +1888,6 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 		if ((res = reconfigure_mode(this, mode, direction, monitor, control, infop)) < 0)
 			return res;
-
-		emit_node_info(this, false);
 		break;
 	}
 	case SPA_PARAM_Props:
@@ -1867,8 +1907,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			this->filter_props_count++;
 			this->in_filter_props--;
 		}
-		if (!have_graph && apply_props(this, param) > 0)
-			emit_node_info(this, false);
+		if (!have_graph)
+			apply_props(this, param);
 
 		clean_filter_handles(this, false);
 		break;
@@ -1876,6 +1916,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	default:
 		return -ENOENT;
 	}
+	emit_info(this, false);
 	return 0;
 }
 
@@ -2376,8 +2417,6 @@ static int setup_convert(struct impl *this)
 	this->setup = true;
 	this->recalc = true;
 
-	emit_node_info(this, false);
-
 	return 0;
 }
 
@@ -2434,24 +2473,15 @@ impl_node_add_listener(void *object,
 		void *data)
 {
 	struct impl *this = object;
-	uint32_t i;
 	struct spa_hook_list save;
-	struct port *p;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
 	spa_log_trace(this->log, "%p: add listener %p", this, listener);
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
-	emit_node_info(this, true);
-	for (i = 0; i < this->dir[SPA_DIRECTION_INPUT].n_ports; i++) {
-		if ((p = GET_IN_PORT(this, i)) && p->valid)
-			emit_port_info(this, p, true);
-	}
-	for (i = 0; i < this->dir[SPA_DIRECTION_OUTPUT].n_ports; i++) {
-		if ((p = GET_OUT_PORT(this, i)) && p->valid)
-			emit_port_info(this, p, true);
-	}
+	emit_info(this, true);
+
 	spa_hook_list_join(&this->hooks, &save);
 
 	return 0;
@@ -2477,36 +2507,30 @@ impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_
 	return -ENOTSUP;
 }
 
-static int port_enum_formats(void *object,
-			     enum spa_direction direction, uint32_t port_id,
-			     uint32_t index,
-			     struct spa_pod **param,
-			     struct spa_pod_builder *builder)
+static int port_param_enum_formats(struct impl *impl, struct port *port, uint32_t id,
+		uint32_t index, struct spa_pod **param, struct spa_pod_builder *b)
 {
-	struct impl *this = object;
-
 	switch (index) {
 	case 0:
-		if (PORT_IS_DSP(this, direction, port_id)) {
+		if (port->is_dsp) {
 			struct spa_audio_info_dsp info;
 			info.format = SPA_AUDIO_FORMAT_DSP_F32;
-			*param = spa_format_audio_dsp_build(builder,
-				SPA_PARAM_EnumFormat, &info);
-		} else if (PORT_IS_CONTROL(this, direction, port_id)) {
-			*param = spa_pod_builder_add_object(builder,
-				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+			*param = spa_format_audio_dsp_build(b, id, &info);
+		} else if (port->is_control) {
+			*param = spa_pod_builder_add_object(b,
+				SPA_TYPE_OBJECT_Format, id,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
 				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
 				SPA_FORMAT_CONTROL_types,  SPA_POD_CHOICE_FLAGS_Int(
 					(1u<<SPA_CONTROL_UMP) | (1u<<SPA_CONTROL_Properties)));
 		} else {
 			struct spa_pod_frame f[1];
-			uint32_t rate = this->io_position ?
-				this->io_position->clock.target_rate.denom : DEFAULT_RATE;
+			uint32_t rate = impl->io_position ?
+				impl->io_position->clock.target_rate.denom : DEFAULT_RATE;
 
-			spa_pod_builder_push_object(builder, &f[0],
-					SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
-			spa_pod_builder_add(builder,
+			spa_pod_builder_push_object(b, &f[0],
+					SPA_TYPE_OBJECT_Format, id);
+			spa_pod_builder_add(b,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 				SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(25,
@@ -2536,18 +2560,150 @@ static int port_enum_formats(void *object,
 							SPA_AUDIO_FORMAT_ULAW,
 							SPA_AUDIO_FORMAT_ALAW),
 				0);
-			if (!this->props.resample_disabled) {
-				spa_pod_builder_add(builder,
+			if (!impl->props.resample_disabled) {
+				spa_pod_builder_add(b,
 					SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
 						rate, 1, INT32_MAX),
 					0);
 			}
-			spa_pod_builder_add(builder,
+			spa_pod_builder_add(b,
 				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(
 					DEFAULT_CHANNELS, 1, SPA_AUDIO_MAX_CHANNELS),
 				0);
-			*param = spa_pod_builder_pop(builder, &f[0]);
+			*param = spa_pod_builder_pop(b, &f[0]);
 		}
+		break;
+	default:
+		return 0;
+	}
+	return 1;
+}
+
+static int port_param_format(struct impl *impl, struct port *port, uint32_t id,
+		uint32_t index, struct spa_pod **param, struct spa_pod_builder *b)
+{
+	if (!port->have_format)
+		return -EIO;
+	if (index > 0)
+		return 0;
+
+	if (port->is_dsp)
+		*param = spa_format_audio_dsp_build(b, id, &port->format.info.dsp);
+	else if (port->is_control)
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_Format,  id,
+			SPA_FORMAT_mediaType,    SPA_POD_Id(SPA_MEDIA_TYPE_application),
+			SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
+			SPA_FORMAT_CONTROL_types,  SPA_POD_Int(
+				(1u<<SPA_CONTROL_UMP) | (1u<<SPA_CONTROL_Properties)));
+	else
+		*param = spa_format_audio_raw_build(b, id, &port->format.info.raw);
+
+	return 1;
+}
+
+static int port_param_buffers(struct impl *impl, struct port *port, uint32_t id,
+		uint32_t index, struct spa_pod **param, struct spa_pod_builder *b)
+{
+	uint32_t size;
+
+	if (!port->have_format)
+		return -EIO;
+	if (index > 0)
+		return 0;
+
+	size = impl->quantum_limit;
+
+	if (!port->is_dsp) {
+		uint32_t irate, orate;
+		struct dir *dir = &impl->dir[port->direction];
+
+		/* Convert ports are scaled so that they can always
+		 * provide one quantum of data. irate is the rate of the
+		 * data before it goes into the resampler. */
+		irate = dir->format.info.raw.rate;
+		/* scale the size for adaptive resampling */
+		size += size/2;
+
+		/* collect the other port rate. This is the output of the resampler
+		 * and is usually one quantum. */
+		dir = &impl->dir[SPA_DIRECTION_REVERSE(port->direction)];
+		if (dir->mode == SPA_PARAM_PORT_CONFIG_MODE_dsp)
+			orate = impl->io_position ? impl->io_position->clock.target_rate.denom : DEFAULT_RATE;
+		else
+			orate = dir->format.info.raw.rate;
+
+		/* scale the buffer size when we can. Only do this when we downsample because
+		 * then we need to ask more input data for one quantum. */
+		if (irate != 0 && orate != 0 && irate > orate)
+			size = SPA_SCALE32_UP(size, irate, orate);
+	}
+
+	*param = spa_pod_builder_add_object(b,
+		SPA_TYPE_OBJECT_ParamBuffers, id,
+		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
+		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
+		SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
+							size * port->stride,
+							16 * port->stride,
+							INT32_MAX),
+		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride));
+
+	return 1;
+}
+
+static int port_param_meta(struct impl *impl, struct port *port, uint32_t id,
+		uint32_t index, struct spa_pod **param, struct spa_pod_builder *b)
+{
+	switch (index) {
+	case 0:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_ParamMeta, id,
+			SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
+			SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
+		break;
+	default:
+		return 0;
+	}
+	return 1;
+}
+static int port_param_io(struct impl *impl, struct port *port, uint32_t id,
+		uint32_t index, struct spa_pod **param, struct spa_pod_builder *b)
+{
+	switch (index) {
+	case 0:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_ParamIO, id,
+			SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
+			SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
+		break;
+	default:
+		return 0;
+	}
+	return 1;
+}
+
+static int port_param_latency(struct impl *impl, struct port *port, uint32_t id,
+		uint32_t index, struct spa_pod **param, struct spa_pod_builder *b)
+{
+	switch (index) {
+	case 0 ... 1:
+		*param = spa_latency_build(b, id, &port->latency[index]);
+		break;
+	default:
+		return 0;
+	}
+	return 1;
+}
+
+static int port_param_tag(struct impl *impl, struct port *port, uint32_t id,
+		uint32_t index, struct spa_pod **param, struct spa_pod_builder *b)
+{
+	switch (index) {
+	case 0 ... 1:
+		if (port->is_monitor)
+			index = index ^ 1;
+		*param = impl->dir[index].tag;
 		break;
 	default:
 		return 0;
@@ -2587,133 +2743,36 @@ impl_node_port_enum_params(void *object, int seq,
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
+	param = NULL;
 	switch (id) {
 	case SPA_PARAM_EnumFormat:
-		if ((res = port_enum_formats(object, direction, port_id, result.index, &param, &b)) <= 0)
-			return res;
+		res = port_param_enum_formats(this, port, id, result.index, &param, &b);
 		break;
 	case SPA_PARAM_Format:
-		if (!port->have_format)
-			return -EIO;
-		if (result.index > 0)
-			return 0;
-
-		if (PORT_IS_DSP(this, direction, port_id))
-			param = spa_format_audio_dsp_build(&b, id, &port->format.info.dsp);
-		else if (PORT_IS_CONTROL(this, direction, port_id))
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_Format,  id,
-				SPA_FORMAT_mediaType,    SPA_POD_Id(SPA_MEDIA_TYPE_application),
-				SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
-				SPA_FORMAT_CONTROL_types,  SPA_POD_Int(
-					(1u<<SPA_CONTROL_UMP) | (1u<<SPA_CONTROL_Properties)));
-		else
-			param = spa_format_audio_raw_build(&b, id, &port->format.info.raw);
+		res = port_param_format(this, port, id, result.index, &param, &b);
 		break;
 	case SPA_PARAM_Buffers:
-	{
-		uint32_t size;
-
-		if (!port->have_format)
-			return -EIO;
-		if (result.index > 0)
-			return 0;
-
-		size = this->quantum_limit;
-
-		if (!PORT_IS_DSP(this, direction, port_id)) {
-			uint32_t irate, orate;
-			struct dir *dir = &this->dir[direction];
-
-			/* Convert ports are scaled so that they can always
-			 * provide one quantum of data. irate is the rate of the
-			 * data before it goes into the resampler. */
-			irate = dir->format.info.raw.rate;
-			/* scale the size for adaptive resampling */
-			size += size/2;
-
-			/* collect the other port rate. This is the output of the resampler
-			 * and is usually one quantum. */
-			dir = &this->dir[SPA_DIRECTION_REVERSE(direction)];
-			if (dir->mode == SPA_PARAM_PORT_CONFIG_MODE_dsp)
-				orate = this->io_position ? this->io_position->clock.target_rate.denom : DEFAULT_RATE;
-			else
-				orate = dir->format.info.raw.rate;
-
-			/* scale the buffer size when we can. Only do this when we downsample because
-			 * then we need to ask more input data for one quantum. */
-			if (irate != 0 && orate != 0 && irate > orate)
-				size = SPA_SCALE32_UP(size, irate, orate);
-		}
-
-		param = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_ParamBuffers, id,
-			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
-			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
-			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
-								size * port->stride,
-								16 * port->stride,
-								INT32_MAX),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride));
+		res = port_param_buffers(this, port, id, result.index, &param, &b);
 		break;
-	}
 	case SPA_PARAM_Meta:
-		switch (result.index) {
-		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamMeta, id,
-				SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
-				SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
-			break;
-		default:
-			return 0;
-		}
+		res = port_param_meta(this, port, id, result.index, &param, &b);
 		break;
 	case SPA_PARAM_IO:
-		switch (result.index) {
-		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamIO, id,
-				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
-				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
-			break;
-		default:
-			return 0;
-		}
+		res = port_param_io(this, port, id, result.index, &param, &b);
 		break;
 	case SPA_PARAM_Latency:
-		switch (result.index) {
-		case 0: case 1:
-		{
-			uint32_t idx = result.index;
-			param = spa_latency_build(&b, id, &port->latency[idx]);
-			break;
-		}
-		default:
-			return 0;
-		}
+		res = port_param_latency(this, port, id, result.index, &param, &b);
 		break;
 	case SPA_PARAM_Tag:
-		switch (result.index) {
-		case 0: case 1:
-		{
-			uint32_t idx = result.index;
-			if (port->is_monitor)
-				idx = idx ^ 1;
-			param = this->dir[idx].tag;
-			if (param == NULL)
-				goto next;
-			break;
-		}
-		default:
-			return 0;
-		}
+		res = port_param_tag(this, port, id, result.index, &param, &b);
 		break;
 	default:
 		return -ENOENT;
 	}
+	if (res <= 0)
+		return res;
 
-	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
+	if (param == NULL || spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
 	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
@@ -2799,7 +2858,6 @@ static int port_set_latency(void *object,
 			oport->latency[other] = info;
 			oport->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 			oport->params[IDX_Latency].user++;
-			emit_port_info(this, oport, false);
 		}
 	} else {
 		spa_latency_info_combine_start(&info, other);
@@ -2827,14 +2885,12 @@ static int port_set_latency(void *object,
 				oport->latency[other] = info;
 				oport->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 				oport->params[IDX_Latency].user++;
-				emit_port_info(this, oport, false);
 			}
 		}
 	}
 	if (emit) {
 		port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 		port->params[IDX_Latency].user++;
-		emit_port_info(this, port, false);
 	}
 	return 0;
 }
@@ -2872,12 +2928,10 @@ static int port_set_tag(void *object,
 			oport = GET_PORT(this, other, i);
 			oport->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 			oport->params[IDX_Tag].user++;
-			emit_port_info(this, oport, false);
 		}
 	}
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	port->params[IDX_Tag].user++;
-	emit_port_info(this, port, false);
 	return 0;
 }
 
@@ -2980,11 +3034,8 @@ static int port_set_format(void *object,
 		port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 		port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	}
-	emit_port_info(this, port, false);
-
 	return 0;
 }
-
 
 static int
 impl_node_port_set_param(void *object,
@@ -2993,6 +3044,7 @@ impl_node_port_set_param(void *object,
 			 const struct spa_pod *param)
 {
 	struct impl *this = object;
+	int res = 0;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -3003,14 +3055,19 @@ impl_node_port_set_param(void *object,
 
 	switch (id) {
 	case SPA_PARAM_Latency:
-		return port_set_latency(this, direction, port_id, flags, param);
+		res = port_set_latency(this, direction, port_id, flags, param);
+		break;
 	case SPA_PARAM_Tag:
-		return port_set_tag(this, direction, port_id, flags, param);
+		res = port_set_tag(this, direction, port_id, flags, param);
+		break;
 	case SPA_PARAM_Format:
-		return port_set_format(this, direction, port_id, flags, param);
+		res = port_set_format(this, direction, port_id, flags, param);
+		break;
 	default:
 		return -ENOENT;
 	}
+	emit_info(this, false);
+	return res;
 }
 
 static inline void queue_buffer(struct impl *this, struct port *port, uint32_t id)

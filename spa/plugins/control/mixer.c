@@ -671,6 +671,14 @@ static inline int event_sort(struct spa_pod_control *a, struct spa_pod_control *
 	}
 }
 
+static inline bool control_needs_conversion(struct port *port, uint32_t type)
+{
+	/* we only converter between midi and UMP and only when the port
+	 * does not support the current type */
+	return (type == SPA_CONTROL_Midi || type == SPA_CONTROL_UMP) &&
+	    port->types && (port->types & (1u << type)) == 0;
+}
+
 static int impl_node_process(void *object)
 {
 	struct impl *this = object;
@@ -782,7 +790,7 @@ static int impl_node_process(void *object)
 		if (next == NULL)
 			break;
 
-		if (outport->types && (outport->types & (1u << next->type)) == 0) {
+		if (control_needs_conversion(outport, next->type)) {
 			uint8_t *data = SPA_POD_BODY(&next->value);
 			size_t size = SPA_POD_BODY_SIZE(&next->value);
 

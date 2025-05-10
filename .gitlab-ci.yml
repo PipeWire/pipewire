@@ -256,6 +256,9 @@ build_on_ubuntu:
     - .fdo.distribution-image@ubuntu
     - .build
   stage: build
+  needs:
+    - job: container_ubuntu
+      artifacts: false
   variables:
     MESON_OPTIONS: "-Dsession-managers=[] -Dsnap=enabled"
 
@@ -266,6 +269,9 @@ build_on_ubuntu:
     - .fdo.distribution-image@fedora
     - .build
   stage: build
+  needs:
+    - job: container_fedora
+      artifacts: false
 
 build_on_fedora:
   extends:
@@ -358,6 +364,9 @@ build_on_alpine:
     - .fdo.distribution-image@alpine
     - .build
   stage: build
+  needs:
+    - job: container_alpine
+      artifacts: false
   variables:
     MESON_OPTIONS: "-Dsession-managers=[] -Dsnap=disabled -Dlogind=enabled -Dlogind-provider=libelogind"
 
@@ -493,6 +502,9 @@ build_with_coverity:
     - .fdo.suffixed-image@fedora
     - .build
   stage: analysis
+  needs:
+    - job: container_coverity
+      artifacts: false
   script:
     - export PATH=/opt/coverity/bin:$PATH
     - meson setup "$BUILD_DIR" --prefix="$PREFIX"
@@ -568,8 +580,9 @@ check_missing_headers:
     - .not_coverity
     - .fdo.distribution-image@fedora
   stage: analysis
-  dependencies:
-    - build_on_fedora
+  needs:
+    - job: build_on_fedora
+      artifacts: true
   script:
     - export PREFIX=`find -name prefix-*`
     - ./.gitlab/ci/check_missing_headers.sh
@@ -578,8 +591,9 @@ pages:
   extends:
     - .not_coverity
   stage: pages
-  dependencies:
-    - build_on_fedora_html_docs
+  needs:
+    - job: build_on_fedora_html_docs
+      artifacts: true
   script:
     - mkdir public public/1.0 public/1.2 public/1.4 public/devel
     - cp -R branch-1.0/builddir/doc/html/* public/1.0/

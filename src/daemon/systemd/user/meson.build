@@ -1,3 +1,8 @@
+systemd = dependency('systemd', required : get_option('systemd-user-service'))
+if not systemd.found()
+  subdir_done()
+endif
+
 systemd_user_services_dir = systemd.get_variable('systemduserunitdir', pkgconfig_define : [ 'prefix', prefix])
 if get_option('systemd-user-unit-dir') != ''
   systemd_user_services_dir = get_option('systemd-user-unit-dir')

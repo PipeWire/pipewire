@@ -496,6 +496,9 @@ PWTEST(logger_journal)
 	pwtest_ptr_notnull(iface);
 
 	rc = sd_journal_open(&journal, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_CURRENT_USER);
+	if (rc == -ENOSYS)
+		return PWTEST_SKIP;
+
 	pwtest_neg_errno_ok(rc);
 
 	sd_journal_seek_head(journal);
@@ -565,6 +568,9 @@ PWTEST(logger_journal_chain)
 	pwtest_ptr_notnull(iface);
 
 	rc = sd_journal_open(&journal, SD_JOURNAL_LOCAL_ONLY);
+	if (rc == -ENOSYS)
+		return PWTEST_SKIP;
+
 	pwtest_neg_errno_ok(rc);
 	sd_journal_seek_head(journal);
 	if (sd_journal_next(journal) == 0) { /* No entries? We don't have a journal */

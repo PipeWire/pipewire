@@ -277,11 +277,9 @@ endforeach
 cdata.set('HAVE_PIDFD_OPEN',
           cc.get_define('SYS_pidfd_open', prefix: '#include <sys/syscall.h>') != '')
 
-systemd = dependency('systemd', required: get_option('systemd'))
-systemd_dep = dependency('libsystemd',required: get_option('systemd'))
-summary({'systemd conf data': systemd.found()}, bool_yn: true)
+systemd_dep = dependency('libsystemd', required: get_option('libsystemd'))
 summary({'libsystemd': systemd_dep.found()}, bool_yn: true)
-cdata.set('HAVE_SYSTEMD', systemd.found() and systemd_dep.found())
+cdata.set('HAVE_SYSTEMD', systemd_dep.found())
 
 logind_dep = dependency(get_option('logind-provider'), required: get_option('logind'))
 summary({'logind': logind_dep.found()}, bool_yn: true)

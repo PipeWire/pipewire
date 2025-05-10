@@ -161,6 +161,4 @@ custom_target('pipewire-uninstalled',
 #endif
 
 subdir('filter-chain')
-if systemd.found()
-  subdir('systemd')
-endif
+subdir('systemd')

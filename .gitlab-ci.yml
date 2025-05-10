@@ -31,6 +31,9 @@ include:
   - project: 'freedesktop/ci-templates'
     ref: *templates_sha
     file: '/templates/alpine.yml'
+  - project: 'freedesktop/ci-templates'
+    ref: *templates_sha
+    file: '/templates/debian.yml'
 
 .fedora:
   variables:
@@ -141,6 +144,30 @@ include:
 #    FDO_DISTRIBUTION_EXEC: >-
 #      pip3 install meson
 
+.debian:
+  variables:
+     # Update this tag when you want to trigger a rebuild
+    BASE_TAG: '2025-08-10.0'
+    FDO_DISTRIBUTION_VERSION: 'trixie'
+    FDO_DISTRIBUTION_PACKAGES: >-
+      build-essential
+      dpkg-dev
+      findutils
+      git
+      meson
+
+.debian-archictectures:
+  parallel:
+    matrix:
+      - ARCH:
+        - amd64
+        - arm64
+        - armhf
+        - i386
+        - ppc64el
+        - riscv64
+        - s390x
+
 .alpine:
   variables:
     # Update this tag when you want to trigger a rebuild
@@ -229,6 +256,18 @@ container_ubuntu:
   variables:
     GIT_STRATEGY: none # no need to pull the whole tree for rebuilding the image
 
+container_debian:
+  extends:
+    - .debian
+    - .debian-archictectures
+    - .fdo.container-build@debian
+  stage: container
+  variables:
+    GIT_STRATEGY: none # no need to pull the whole tree for rebuilding the image
+    FDO_DISTRIBUTION_TAG: "$BASE_TAG-$ARCH"
+    FDO_DISTRIBUTION_EXEC: >-
+      ./.gitlab/ci/setup-debian-cross-container.sh "$ARCH"
+
 container_fedora:
   extends:
     - .fedora
@@ -266,6 +305,44 @@ build_on_ubuntu:
       artifacts: false
   variables:
     MESON_OPTIONS: "-Dsession-managers=[] -Dsnap=enabled"
+
+build_on_debian:
+  extends:
+    - .debian
+    - .debian-archictectures
+    - .not_coverity
+    - .fdo.distribution-image@debian
+    - .build
+  stage: build
+  needs:
+    - job: container_debian
+      artifacts: false
+      # ideally
+      # parallel:
+      #   matrix:
+      #     - ARCH: "$ARCH"
+      # however https://gitlab.com/gitlab-org/gitlab/-/issues/423553
+      #         ("Expand variables in `needs:parallel:matrix`")
+  variables:
+    FDO_DISTRIBUTION_TAG: "$BASE_TAG-$ARCH"
+    # see /.gitlab/ci/setup-debian-cross-container.sh for installed packages
+    MESON_OPTIONS: >-
+      --cross-file /opt/meson-$ARCH.cross
+      -D c_args=['-UFASTPATH']
+      -D cpp_args=['-UFASTPATH']
+      -D auto_features=enabled
+      -D session-managers=[]
+      -D bluez5-backend-native-mm=enabled
+      -D bluez5-codec-lc3plus=disabled
+      -D bluez5-codec-ldac=disabled
+      -D bluez5-codec-ldac-dec=disabled
+      -D libcamera=disabled
+      -D roc=disabled
+      -D snap=disabled
+      -D systemd-user-service=disabled
+      -D systemd-system-service=disabled
+      -D onnxruntime=disabled
+      -D vulkan=enabled
 
 .build_on_fedora:
   extends:

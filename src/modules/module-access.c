@@ -167,12 +167,13 @@ context_check_access(void *data, struct pw_impl_client *client)
 {
 	struct impl *impl = data;
 	struct pw_permission permissions[1];
-	struct spa_dict_item items[3];
+	struct spa_dict_item items[4];
 	const struct pw_properties *props;
 	const char *str;
 	const char *access;
 	const char *socket;
 	spa_autofree char *flatpak_app_id = NULL;
+	spa_autofree char *flatpak_instance_id = NULL;
 	int nitems = 0;
 	bool sandbox_flatpak;
 	int pid, res;
@@ -197,7 +198,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 	} else {
 		pw_log_info("client %p has trusted pid %d", client, pid);
 
-		res = pw_check_flatpak(pid, &flatpak_app_id, NULL);
+		res = pw_check_flatpak(pid, &flatpak_app_id, &flatpak_instance_id, NULL);
 		if (res != 0) {
 			if (res < 0)
 				pw_log_warn("%p: client %p flatpak check failed: %s",
@@ -233,6 +234,8 @@ context_check_access(void *data, struct pw_impl_client *client)
 	if (sandbox_flatpak) {
 		items[nitems++] = SPA_DICT_ITEM_INIT("pipewire.access.portal.app_id",
 				flatpak_app_id);
+		items[nitems++] = SPA_DICT_ITEM_INIT("pipewire.access.portal.instance_id",
+				flatpak_instance_id);
 		items[nitems++] = SPA_DICT_ITEM_INIT("pipewire.sec.flatpak", "true");
 	}
 

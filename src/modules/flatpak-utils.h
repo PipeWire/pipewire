@@ -16,8 +16,6 @@
 #include <sys/vfs.h>
 #endif
 
-#include "config.h"
-
 #ifdef HAVE_GLIB2
 #include <glib.h>
 #endif
@@ -26,7 +24,7 @@
 #include <spa/utils/result.h>
 #include <pipewire/log.h>
 
-static int pw_check_flatpak_parse_metadata(const char *buf, size_t size, char **app_id, char **devices)
+static int pw_check_flatpak_parse_metadata(const char *buf, size_t size, char **app_id, char **instance_id, char **devices)
 {
 #ifdef HAVE_GLIB2
 	/*
@@ -53,13 +51,19 @@ static int pw_check_flatpak_parse_metadata(const char *buf, size_t size, char **
 		g_free(s);
 	}
 
+	if (instance_id) {
+		s = g_key_file_get_value(metadata, "Instance", "instance-id", NULL);
+		*instance_id = s ? strdup(s) : NULL;
+		g_free(s);
+	}
+
 	return 0;
 #else
 	return -ENOTSUP;
 #endif
 }
 
-static int pw_check_flatpak(pid_t pid, char **app_id, char **devices)
+static int pw_check_flatpak(pid_t pid, char **app_id, char **instance_id, char **devices)
 {
 #if defined(__linux__)
 	char root_path[2048];
@@ -68,6 +72,8 @@ static int pw_check_flatpak(pid_t pid, char **app_id, char **devices)
 
 	if (app_id)
 		*app_id = NULL;
+	if (instance_id)
+		*instance_id = NULL;
 	if (devices)
 		*devices = NULL;
 
@@ -107,14 +113,14 @@ static int pw_check_flatpak(pid_t pid, char **app_id, char **devices)
 	if (fstat (info_fd, &stat_buf) != 0 || !S_ISREG (stat_buf.st_mode)) {
 		/* Some weird fd => failure, assume sandboxed */
 		pw_log_error("error fstat .flatpak-info: %m");
-	} else if (app_id || devices) {
+	} else if (app_id || instance_id || devices) {
 		/* Parse the application ID if needed */
 		const size_t size = stat_buf.st_size;
 
 		if (size > 0) {
 			void *buf = mmap(NULL, size, PROT_READ, MAP_PRIVATE, info_fd, 0);
 			if (buf != MAP_FAILED) {
-				res = pw_check_flatpak_parse_metadata(buf, size, app_id, devices);
+				res = pw_check_flatpak_parse_metadata(buf, size, app_id, instance_id, devices);
 				munmap(buf, size);
 			} else {
 				res = -errno;

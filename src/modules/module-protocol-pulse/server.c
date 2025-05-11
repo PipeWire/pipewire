@@ -430,7 +430,7 @@ on_connect(void *data, int fd, uint32_t mask)
 		client_access = server->client_access;
 
 	if (server->addr.ss_family == AF_UNIX) {
-		spa_autofree char *app_id = NULL, *snap_app_id = NULL, *devices = NULL;
+		spa_autofree char *app_id = NULL, *snap_app_id = NULL, *devices = NULL, *instance_id = NULL;
 #ifdef HAVE_SNAP
 		pw_sandbox_access_t snap_access;
 #endif
@@ -441,7 +441,7 @@ on_connect(void *data, int fd, uint32_t mask)
 			pw_log_warn("setsockopt(SO_PRIORITY) failed: %m");
 #endif
 		pid = get_client_pid(client, client_fd);
-		if (pid != 0 && pw_check_flatpak(pid, &app_id, &devices) == 1) {
+		if (pid != 0 && pw_check_flatpak(pid, &app_id, &instance_id, &devices) == 1) {
 			/*
 			 * XXX: we should really use Portal client access here
 			 *
@@ -464,6 +464,8 @@ on_connect(void *data, int fd, uint32_t mask)
 			client_access = "flatpak";
 			pw_properties_set(client->props, "pipewire.access.portal.app_id",
 					app_id);
+			pw_properties_set(client->props, "pipewire.access.portal.instance_id",
+					instance_id);
 
 			if (devices && (spa_streq(devices, "all") ||
 							spa_strstartswith(devices, "all;") ||

@@ -684,7 +684,7 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 		items[n_items] = SPA_DICT_ITEM_INIT("api.bluez5.a2dp-duplex", "true");
 		n_items++;
 	}
-	if (in_device_set || t->media_codec->asha) {
+	if (in_device_set) {
 		items[n_items] = SPA_DICT_ITEM_INIT("api.bluez5.set", this->device_set.path);
 		n_items++;
 		items[n_items] = SPA_DICT_ITEM_INIT("api.bluez5.internal", "true");

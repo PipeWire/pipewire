@@ -222,7 +222,7 @@ static SPA_PRINTF_FUNC(3,4) void put_fmt(struct data *d, const char *key, const 
 		put_key(d, key);
 	fprintf(d->out, "%s%s%*s",
 			d->state & STATE_COMMA ? "," : "",
-			d->state & (STATE_MASK | STATE_KEY) ? " " : (d->state & STATE_FIRST) | raw ? "" : "\n",
+			d->state & (STATE_MASK | STATE_KEY) ? " " : (d->state & STATE_FIRST) || raw ? "" : "\n",
 			d->state & (STATE_MASK | STATE_KEY) ? 0 : d->level, "");
 	va_start(va, fmt);
 	vfprintf(d->out, fmt, va);

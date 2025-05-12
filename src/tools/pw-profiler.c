@@ -307,24 +307,24 @@ static int process_follower_clock(struct data *d, const struct spa_pod *pod, str
 static void dump_point(struct data *d, struct point *point)
 {
 	int i;
-	int64_t d1, d2;
-	int64_t delay, period_usecs;
+	double d1, d2;
+	double delay, period_usecs;
 
-#define CLOCK_AS_USEC(cl,val) (int64_t)(val * (float)SPA_USEC_PER_SEC / (cl)->rate.denom)
-#define CLOCK_AS_SUSEC(cl,val) (int64_t)(val * (float)SPA_USEC_PER_SEC / ((cl)->rate.denom * (cl)->rate_diff))
+#define CLOCK_AS_USEC(cl,val) (double)(val * (double)SPA_USEC_PER_SEC / (cl)->rate.denom)
+#define CLOCK_AS_SUSEC(cl,val) (double)(val * (double)SPA_USEC_PER_SEC / ((cl)->rate.denom * (cl)->rate_diff))
 
 	delay = CLOCK_AS_USEC(&point->clock, point->clock.delay);
 	period_usecs = CLOCK_AS_SUSEC(&point->clock, point->clock.duration);
 
-	d1 = (point->driver.signal - point->driver.prev_signal) / 1000;
-	d2 = (point->driver.finish - point->driver.signal) / 1000;
+	d1 = (point->driver.signal - point->driver.prev_signal) / 1000.0;
+	d2 = (point->driver.finish - point->driver.signal) / 1000.0;
 
 	if (d1 > period_usecs * 1.3 ||
 	    d2 > period_usecs * 1.3)
-		d1 = d2 = (int64_t)(period_usecs * 1.4);
+		d1 = d2 = (double)(period_usecs * 1.4);
 
 	/* 4 columns for the driver */
-	fprintf(d->output, "%"PRIi64"\t%"PRIi64"\t%"PRIi64"\t%"PRIi64"\t",
+	fprintf(d->output, "%.3f\t%.3f\t%.3f\t%.3f\t",
 			d1 > 0 ? d1 : 0, d2 > 0 ? d2 : 0, delay, period_usecs);
 
 	for (i = 0; i < MAX_FOLLOWERS; i++) {
@@ -332,11 +332,11 @@ static void dump_point(struct data *d, struct point *point)
 		if (point->follower[i].status == 0) {
 			fprintf(d->output, " \t \t \t \t \t \t \t \t");
 		} else {
-			int64_t d4 = (point->follower[i].signal - point->driver.signal) / 1000;
-			int64_t d5 = (point->follower[i].awake - point->driver.signal) / 1000;
-			int64_t d6 = (point->follower[i].finish - point->driver.signal) / 1000;
+			double d4 = (point->follower[i].signal - point->driver.signal) / 1000.0;
+			double d5 = (point->follower[i].awake - point->driver.signal) / 1000.0;
+			double d6 = (point->follower[i].finish - point->driver.signal) / 1000.0;
 
-			fprintf(d->output, "%u\t%"PRIi64"\t%"PRIi64"\t%"PRIi64"\t%"PRIi64"\t%"PRIi64"\t%d\t0\t",
+			fprintf(d->output, "%u\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%d\t0\t",
 					d->followers[i].id,
 					d4 > 0 ? d4 : 0,
 					d5 > 0 ? d5 : 0,

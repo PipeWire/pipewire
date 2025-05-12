@@ -31,6 +31,7 @@
 #define INDENT 2
 
 static bool colors = false;
+static bool raw = false;
 
 #define NORMAL	(colors ? SPA_ANSI_RESET : "")
 #define LITERAL	(colors ? SPA_ANSI_BRIGHT_MAGENTA : "")
@@ -221,7 +222,7 @@ static SPA_PRINTF_FUNC(3,4) void put_fmt(struct data *d, const char *key, const 
 		put_key(d, key);
 	fprintf(d->out, "%s%s%*s",
 			d->state & STATE_COMMA ? "," : "",
-			d->state & (STATE_MASK | STATE_KEY) ? " " : d->state & STATE_FIRST ? "" : "\n",
+			d->state & (STATE_MASK | STATE_KEY) ? " " : (d->state & STATE_FIRST) | raw ? "" : "\n",
 			d->state & (STATE_MASK | STATE_KEY) ? 0 : d->level, "");
 	va_start(va, fmt);
 	vfprintf(d->out, fmt, va);
@@ -1512,7 +1513,8 @@ static void show_help(struct data *data, const char *name, bool error)
 		"  -r, --remote                          Remote daemon name\n"
 		"  -m, --monitor                         monitor changes\n"
 		"  -N, --no-colors                       disable color output\n"
-		"  -C, --color[=WHEN]                    whether to enable color support. WHEN is `never`, `always`, or `auto`\n",
+		"  -C, --color[=WHEN]                    whether to enable color support. WHEN is `never`, `always`, or `auto`\n"
+		"  -R, --raw                             force raw output\n",
 		name);
 }
 
@@ -1529,6 +1531,7 @@ int main(int argc, char *argv[])
 		{ "monitor",	no_argument,		NULL, 'm' },
 		{ "no-colors",	no_argument,		NULL, 'N' },
 		{ "color",	optional_argument,	NULL, 'C' },
+		{ "raw",	no_argument,		NULL, 'R' },
 		{ NULL, 0, NULL, 0}
 	};
 	int c;
@@ -1537,11 +1540,13 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	data.out = stdout;
+	if (!isatty(fileno(data.out)))
+		raw = true;
 	if (getenv("NO_COLOR") == NULL && isatty(fileno(data.out)))
 		colors = true;
 	setlinebuf(data.out);
 
-	while ((c = getopt_long(argc, argv, "hVr:mNC", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:mNCR", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h' :
 			show_help(&data, argv[0], false);
@@ -1562,6 +1567,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'N' :
 			colors = false;
+			break;
+		case 'R' :
+			raw = true;
 			break;
 		case 'C' :
 			if (optarg == NULL || !strcmp(optarg, "auto"))

@@ -1828,6 +1828,8 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 		i = dir->n_ports++;
 		init_port(this, direction, i, 0, false, false, true);
 	}
+	/* emit all port changes */
+	emit_info(this, false);
 
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS | SPA_NODE_CHANGE_MASK_PARAMS;
 	this->info.flags &= ~SPA_NODE_FLAG_NEED_CONFIGURE;
@@ -1836,88 +1838,99 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	return 0;
 }
 
-static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
-			       const struct spa_pod *param)
+static int node_set_param_port_config(struct impl *this, uint32_t flags,
+				const struct spa_pod *param)
 {
-	struct impl *this = object;
-
-	spa_return_val_if_fail(this != NULL, -EINVAL);
+	struct spa_audio_info info = { 0, }, *infop = NULL;
+	struct spa_pod *format = NULL;
+	enum spa_direction direction;
+	enum spa_param_port_config_mode mode;
+	bool monitor = false, control = false;
+	int res;
 
 	if (param == NULL)
 		return 0;
 
-	switch (id) {
-	case SPA_PARAM_PortConfig:
-	{
-		struct spa_audio_info info = { 0, }, *infop = NULL;
-		struct spa_pod *format = NULL;
-		enum spa_direction direction;
-		enum spa_param_port_config_mode mode;
-		bool monitor = false, control = false;
-		int res;
+	if (spa_pod_parse_object(param,
+			SPA_TYPE_OBJECT_ParamPortConfig, NULL,
+			SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(&direction),
+			SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(&mode),
+			SPA_PARAM_PORT_CONFIG_monitor,		SPA_POD_OPT_Bool(&monitor),
+			SPA_PARAM_PORT_CONFIG_control,		SPA_POD_OPT_Bool(&control),
+			SPA_PARAM_PORT_CONFIG_format,		SPA_POD_OPT_Pod(&format)) < 0)
+		return -EINVAL;
 
-		if (spa_pod_parse_object(param,
-				SPA_TYPE_OBJECT_ParamPortConfig, NULL,
-				SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(&direction),
-				SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(&mode),
-				SPA_PARAM_PORT_CONFIG_monitor,		SPA_POD_OPT_Bool(&monitor),
-				SPA_PARAM_PORT_CONFIG_control,		SPA_POD_OPT_Bool(&control),
-				SPA_PARAM_PORT_CONFIG_format,		SPA_POD_OPT_Pod(&format)) < 0)
+	if (format) {
+		if (!spa_pod_is_object_type(format, SPA_TYPE_OBJECT_Format))
 			return -EINVAL;
 
-		if (format) {
-			if (!spa_pod_is_object_type(format, SPA_TYPE_OBJECT_Format))
-				return -EINVAL;
-
-			if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
-				return res;
-
-			if (info.media_type != SPA_MEDIA_TYPE_audio ||
-			    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
-				return -EINVAL;
-
-			if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
-				return -EINVAL;
-
-			if (info.info.raw.channels == 0 ||
-			    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
-				return -EINVAL;
-
-			infop = &info;
-		}
-
-		if ((res = reconfigure_mode(this, mode, direction, monitor, control, infop)) < 0)
+		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
 			return res;
-		break;
+
+		if (info.media_type != SPA_MEDIA_TYPE_audio ||
+		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+			return -EINVAL;
+
+		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
+			return -EINVAL;
+
+		if (info.info.raw.channels == 0 ||
+		    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
+			return -EINVAL;
+
+		infop = &info;
 	}
+	return reconfigure_mode(this, mode, direction, monitor, control, infop);
+}
+
+static int node_set_param_props(struct impl *this, uint32_t flags,
+				const struct spa_pod *param)
+{
+	bool have_graph = false;
+	struct filter_graph *g, *t;
+
+	if (param == NULL)
+		return 0;
+
+	this->filter_props_count = 0;
+
+	spa_list_for_each_safe(g, t, &this->active_graphs, link) {
+		if (g->removing)
+			continue;
+
+		have_graph = true;
+		this->in_filter_props++;
+		spa_filter_graph_set_props(g->graph, SPA_DIRECTION_INPUT, param);
+		this->filter_props_count++;
+		this->in_filter_props--;
+	}
+	if (!have_graph)
+		apply_props(this, param);
+
+	clean_filter_handles(this, false);
+	return 0;
+}
+
+static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
+			       const struct spa_pod *param)
+{
+	struct impl *this = object;
+	int res;
+
+	spa_return_val_if_fail(this != NULL, -EINVAL);
+
+	switch (id) {
+	case SPA_PARAM_PortConfig:
+		res = node_set_param_port_config(this, flags, param);
+		break;
 	case SPA_PARAM_Props:
-	{
-		bool have_graph = false;
-		struct filter_graph *g, *t;
-		this->filter_props_count = 0;
-
-		spa_list_for_each_safe(g, t, &this->active_graphs, link) {
-			if (g->removing)
-				continue;
-
-			have_graph = true;
-			this->in_filter_props++;
-			spa_filter_graph_set_props(g->graph,
-					SPA_DIRECTION_INPUT, param);
-			this->filter_props_count++;
-			this->in_filter_props--;
-		}
-		if (!have_graph)
-			apply_props(this, param);
-
-		clean_filter_handles(this, false);
+		res = node_set_param_props(this, flags, param);
 		break;
-	}
 	default:
 		return -ENOENT;
 	}
 	emit_info(this, false);
-	return 0;
+	return res;
 }
 
 static int int32_cmp(const void *v1, const void *v2)

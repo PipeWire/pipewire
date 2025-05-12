@@ -1012,29 +1012,28 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 	peer->params.sample_encoder = impl->encoding;
 	peer->params.kbps = impl->kbps;
 
-	/* params send and recv are from the client point of view and reversed for the
-	 * manager, so when the client sends, we receive in a source etc. We swap the params
-	 * later after we replied to the client. */
+	/* params send and recv are from the manager point of view and reversed for the
+	 * driver. So, for us send = sink and recv = source */
 	if (peer->params.send_audio_channels < 0)
-		peer->params.send_audio_channels = follower->source.n_audio;
+		peer->params.send_audio_channels = follower->sink.n_audio;
 	if (peer->params.recv_audio_channels < 0)
-		peer->params.recv_audio_channels = follower->sink.n_audio;
+		peer->params.recv_audio_channels = follower->source.n_audio;
 	if (peer->params.send_midi_channels < 0)
-		peer->params.send_midi_channels = follower->source.n_midi;
+		peer->params.send_midi_channels = follower->sink.n_midi;
 	if (peer->params.recv_midi_channels < 0)
-		peer->params.recv_midi_channels = follower->sink.n_midi;
+		peer->params.recv_midi_channels = follower->source.n_midi;
 
-	follower->source.n_ports = peer->params.send_audio_channels + peer->params.send_midi_channels;
+	follower->source.n_ports = peer->params.recv_audio_channels + peer->params.recv_midi_channels;
 	follower->source.info.rate = peer->params.sample_rate;
-	if ((uint32_t)peer->params.send_audio_channels != follower->source.info.channels) {
-		follower->source.info.channels = SPA_MIN(peer->params.send_audio_channels, (int)SPA_AUDIO_MAX_CHANNELS);
+	if ((uint32_t)peer->params.recv_audio_channels != follower->source.info.channels) {
+		follower->source.info.channels = SPA_MIN(peer->params.recv_audio_channels, (int)SPA_AUDIO_MAX_CHANNELS);
 		for (i = 0; i < follower->source.info.channels; i++)
 			follower->source.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 	}
-	follower->sink.n_ports = peer->params.recv_audio_channels + peer->params.recv_midi_channels;
+	follower->sink.n_ports = peer->params.send_audio_channels + peer->params.send_midi_channels;
 	follower->sink.info.rate = peer->params.sample_rate;
-	if ((uint32_t)peer->params.recv_audio_channels != follower->sink.info.channels) {
-		follower->sink.info.channels = SPA_MIN(peer->params.recv_audio_channels, (int)SPA_AUDIO_MAX_CHANNELS);
+	if ((uint32_t)peer->params.send_audio_channels != follower->sink.info.channels) {
+		follower->sink.info.channels = SPA_MIN(peer->params.send_audio_channels, (int)SPA_AUDIO_MAX_CHANNELS);
 		for (i = 0; i < follower->sink.info.channels; i++)
 			follower->sink.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 	}
@@ -1124,10 +1123,6 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 			pw_net_get_ip_fmt(addr, buffer, sizeof(buffer)));
 	nj2_dump_session_params(params);
 	send(follower->socket->fd, params, sizeof(*params), 0);
-
-	/* now swap send and recv to make it match our point of view */
-	SPA_SWAP(peer->params.send_audio_channels, peer->params.recv_audio_channels);
-	SPA_SWAP(peer->params.send_midi_channels, peer->params.recv_midi_channels);
 
 	return 0;
 

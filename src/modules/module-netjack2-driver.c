@@ -848,6 +848,10 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 		pw_log_warn("invalid follower setup");
 		return -EINVAL;
 	}
+	/* the params are from the perspective of the manager, so send is our
+	 * receive (source) and recv is our send (sink) */
+	SPA_SWAP(peer->params.send_audio_channels, peer->params.recv_audio_channels);
+	SPA_SWAP(peer->params.send_midi_channels, peer->params.recv_midi_channels);
 
 	pw_loop_update_io(impl->main_loop, impl->setup_socket, 0);
 
@@ -1005,10 +1009,12 @@ static int send_follower_available(struct impl *impl)
 	snprintf(params.follower_name, sizeof(params.follower_name), "%s", pw_get_host_name());
 	params.mtu = htonl(impl->mtu);
 	params.transport_sync = htonl(0);
-	params.send_audio_channels = htonl(impl->sink.wanted_n_audio);
-	params.recv_audio_channels = htonl(impl->source.wanted_n_audio);
-	params.send_midi_channels = htonl(impl->sink.wanted_n_midi);
-	params.recv_midi_channels = htonl(impl->source.wanted_n_midi);
+	/* send/recv is from the perspective of the manager, so what we send (sink)
+	 * is recv on the manager and vice versa. */
+	params.recv_audio_channels = htonl(impl->sink.wanted_n_audio);
+	params.send_audio_channels = htonl(impl->source.wanted_n_audio);
+	params.recv_midi_channels = htonl(impl->sink.wanted_n_midi);
+	params.send_midi_channels = htonl(impl->source.wanted_n_midi);
 	params.sample_encoder = htonl(NJ2_ENCODER_FLOAT);
 	params.follower_sync_mode = htonl(1);
         params.network_latency = htonl(impl->latency);

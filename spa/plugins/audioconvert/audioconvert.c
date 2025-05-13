@@ -235,6 +235,7 @@ struct filter_graph {
 	uint32_t inputs_position[SPA_AUDIO_MAX_CHANNELS];
 	uint32_t n_outputs;
 	uint32_t outputs_position[SPA_AUDIO_MAX_CHANNELS];
+	struct spa_process_latency_info latency;
 	bool removing;
 	bool setup;
 };
@@ -1029,6 +1030,11 @@ static void graph_info(void *object, const struct spa_filter_graph_info *info)
 		else if (spa_streq(k, "outputs.audio.position"))
 			spa_audio_parse_position(s, strlen(s),
 					g->outputs_position, &g->n_outputs);
+		else if (spa_streq(k, "latency")) {
+			double latency;
+			if (spa_atod(s, &latency))
+				g->latency.rate = (uint32_t)latency;
+		}
 	}
 }
 

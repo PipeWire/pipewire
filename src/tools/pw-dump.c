@@ -57,6 +57,7 @@ struct data {
 
 	FILE *out;
 	int level;
+	int indent;
 #define STATE_KEY	(1<<0)
 #define STATE_COMMA	(1<<1)
 #define STATE_FIRST	(1<<2)
@@ -242,13 +243,13 @@ static void put_key(struct data *d, const char *key)
 static void put_begin(struct data *d, const char *key, const char *type, uint32_t flags)
 {
 	put_fmt(d, key, "%s", type);
-	d->level += INDENT;
+	d->level += d->indent;
 	d->state = (d->state & STATE_MASK) + (flags & STATE_SIMPLE);
 }
 
 static void put_end(struct data *d, const char *type, uint32_t flags)
 {
-	d->level -= INDENT;
+	d->level -= d->indent;
 	d->state = d->state & STATE_MASK;
 	put_fmt(d, NULL, "%s", type);
 	d->state = (d->state & STATE_MASK) + STATE_COMMA - (flags & STATE_SIMPLE);
@@ -1590,6 +1591,7 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 	}
+	data.indent = raw ? 0 : INDENT;
 
 	if (optind < argc)
 		data.pattern = argv[optind++];

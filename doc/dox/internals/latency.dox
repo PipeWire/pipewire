@@ -106,6 +106,7 @@ down and upstream.
 
 When we have a source with a ProcessLatency, for example, of 1024 samples:
 
+```
    +----------+     + Latency: [{ "direction": "output", "min-rate": 1024, "max-rate": 1024 } ]
    |          FL ---+ Latency: [{ "direction": "input", "min-rate": 0, "max-rate": 0 } ]
    | source   +
@@ -114,6 +115,7 @@ When we have a source with a ProcessLatency, for example, of 1024 samples:
         ^
         |
  ProcessLatency: [  { "quantum": 0, "rate": 1024, "ns": 0 } ]
+```
 
 Both output ports have an output latency of 1024 samples and no input latency.
 
@@ -121,6 +123,7 @@ Both output ports have an output latency of 1024 samples and no input latency.
 
 When we have a sink with a ProcessLatency, for example, of 512 samples:
 
+```
    Latency: [{ "direction": "output", "min-rate": 0, "max-rate": 0 } ]
    Latency: [{ "direction": "input", "min-rate": 512, "max-rate": 512 } ]
      ^
@@ -132,6 +135,7 @@ When we have a sink with a ProcessLatency, for example, of 512 samples:
      v
    Latency: [{ "direction": "output", "min-rate": 0, "max-rate": 0 } ]
    Latency: [{ "direction": "input", "min-rate": 512, "max-rate": 512 } ]
+```
 
 Both input ports have an input latency of 512 samples and no output latency.
 
@@ -143,6 +147,7 @@ and the output latency of the output port is propagated to the input port of the
 sink:
 
 
+```
       Latency: [{ "direction": "output", "min-rate": 1024, "max-rate": 1024 } ]
       Latency: [{ "direction": "input", "min-rate": 512, "max-rate": 512 } ]
                ^   
@@ -157,6 +162,7 @@ sink:
                    v
       Latency: [{ "direction": "output", "min-rate": 1024, "max-rate": 1024 } ]
       Latency: [{ "direction": "input", "min-rate": 0, "max-rate": 0 } ]
+```
 
 
 ## Insert a latency node
@@ -164,6 +170,7 @@ sink:
 If we place a node with a 256 sample latency in the above source-sink graph:
 
 
+```
    Latency: [{ "direction": "output", "min-rate": 1024, "max-rate": 1024 } ]
    Latency: [{ "direction": "input", "min-rate": 768, "max-rate": 768 } ]
                ^   
@@ -182,6 +189,7 @@ If we place a node with a 256 sample latency in the above source-sink graph:
                                                     v
                              Latency: [{ "direction": "output", "min-rate": 1280, "max-rate": 1280 } ]
                              Latency: [{ "direction": "input", "min-rate": 512, "max-rate": 512 } ]
+```
 
 
 See how the output latency propagates and is incremented going downstream and the
@@ -195,6 +203,7 @@ the node FL output port, it will aggregate the two input latencies by
 taking the min of min and max of max.
 
 
+```
    Latency: [{ "direction": "output", "min-rate": 1024, "max-rate": 1024 } ]
    Latency: [{ "direction": "input", "min-rate": 768, "max-rate": 2304 } ]
                ^   
@@ -222,7 +231,7 @@ taking the min of min and max of max.
                                                     v
                              Latency: [{ "direction": "output", "min-rate": 1280, "max-rate": 1280 } ]
                              Latency: [{ "direction": "input", "min-rate": 2048, "max-rate": 2048 } ]
-
+```
 
 The source node now knows that its output signal will be delayed between 768 amd 2304 samples
 depending on the path in the graph.
@@ -231,3 +240,4 @@ We also see that node.FL has different min/max-rate input latencies. This inform
 used to insert a delay node to align the latencies again. For example, if we delay the signal
 between node.FL and FL.sink with 1536 samples, the latencies will be aligned again.
 
+*/

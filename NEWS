@@ -1,3 +1,46 @@
+# PipeWire 1.4.3 (2025-05-22)
+
+This is a bugfix release that is API and ABI compatible with
+previous 1.x releases.
+
+## Highlights
+  - Many netjack2 improvements. The driver/manager roles were fixed,
+    MIDI is written correctly and errors are handled better.
+  - Improvements to UMP sysex handling.
+  - More small bug fixes and improvements.
+
+
+## PipeWire
+  - Let all commands go to the node. This makes it possible to send
+    custom commands.
+
+## Modules
+  - Many netjack2 improvements. The driver/manager roles were fixed,
+    MIDI is written correctly and errors are handled better.
+  - Improve the filter-graph state management in filter-chain.
+
+## SPA
+  - Use default value of filter. (#4619)
+  - Fix UMP program change conversion to MIDI 1.0. (#4664)
+  - Skip only the first buffer for raw formats in v4l2 to avoid
+    dropping important headers when dealing with encoded formats.
+  - Fix ebur128 port name. (#4667)
+  - Only convert UMP/MIDI, pass other controls. Fixes OSC and other
+    control types in the mixer. (#4692)
+  - Improve UMP sysex handling in alsa seq.
+  - Improve ALSA audio.channels support. Only use this when the value
+    is within the valid range.
+
+## Tools
+  - debug UMP SysRT messages correctly in pw-mididump.
+
+## JACK
+  - Handle sysex in UMP better by appending the converted midi1
+    sysex.
+
+
+Older versions:
+
 # PipeWire 1.4.2 (2025-04-14)
 
 This is a bugfix release that is API and ABI compatible with
@@ -28,9 +71,6 @@ previous 1.x releases.
 ## GStreamer
   - Fix a leak in the deviceprovider. (#4616)
   - Fix negotiation and make renegotiation better.
-
-
-Older versions:
 
 # PipeWire 1.4.1 (2025-03-14)
 

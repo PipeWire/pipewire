@@ -1,0 +1,233 @@
+/** \page page_latency Latency support
+
+This document explains how the latency in the PipeWire graph is implemented.
+
+# Use Cases
+
+## A node port has a latency
+
+Applications need to be able to query the latency of a port.
+
+Linked Nodes need to be informed of the latency of a port.
+
+## dynamically update port latencies
+
+It needs to be possible to dynamically update the latency of a port and this
+should inform all linked ports/nodes of the updated latency.
+
+## Linked nodes add latency to the signal
+
+When two nodes/ports have a latency, the signal is delayed by the sum of
+the nodes latencies.
+
+## Calculate the signal delay upstream and downstream
+
+A node might need to know how much a signal was delayed since it arrived
+in the node.
+
+A node might need to know how much the signal will be delayed before it
+exists the graph.
+
+## Detect latency mismatch
+
+When a signal travels through 2 different parts of the graph with different
+latencies and then eventually join, there is a latency mismatch. It should
+be possible to detect this mismatch.
+
+
+# Concepts
+
+## Port Latency
+
+The fundamental object for implementing latency reporting in PipeWire is the
+Latency object.
+
+It consists of a direction (input/output) and min/max latency values. The latency
+values can express a latency relative to the graph quantum, the samplerate or in
+nanoseconds. There is a mininum and maximum latency value in the Latency object.
+
+The direction of the latency object determines how the latency object propagates.
+
+- SPA_DIRECTION_OUTPUT Latency objects move from output ports downstream and contain
+  the latency from all nodes upstream. An output latency received on an input port
+  should instruct the node to update the output latency on its output ports related
+  to this input port. This corresponds to the JackCaptureLatency.
+
+- SPA_DIRECTION_INPUT Latency objects move from input ports upstream and contain
+  the latency from all nodes downstream. An input latency received on an output port
+  should instruct the node to update the input latency on its input ports related
+  to this output port. This corresponds to the JackPlaybackLatency.
+
+PipeWire will automatically propagate Latency objects from ports to all linked ports
+in the graph. Output Latency objects on output ports are propagated to linked input
+ports and input Latency objects on input ports are propagated to linked output ports.
+
+If a port has links with multiple other ports, the Latency objects are merged by
+taking the min of the min values and the max of the max values of all latency objects
+on the other ports. 
+
+This way, Output Latency always describes the aggragated total upstream latency of
+signal up to the port and Input latency describes the aggregated downstream latency
+of the signal from the port.
+
+
+## Node ProcessLatency
+
+This is a per node property and applies to the latency introduced by the node
+logic itself.
+
+This mostly works if (almost) all data processing ports (input/output) participate in
+the same data processing with the same latency, which is a common use case.
+
+ProcessLatency is mostly used to easily calculate Output and Input Latency on ports.
+We can simply add the ProcessLatency to all latency values in the ports Latency objects
+to obtain the corresponding Latency object for the other ports.
+
+
+# Latency updates
+
+Latency params on the ports can be updated as needed. This can happen because some upstream or
+downstream latency changed or when the ProcessLatency of a node changes.
+
+When the ProcessLatency changes, the procedure to notify of latency changes is:
+
+- Take output latency on input port, add new ProcessLatency, set new latency on output
+  port. This propagates the new latency downstream.
+
+- Take input latency on output port, add new ProcessLatency, set new latency on input
+  port. This propagates the new latency upstream.
+
+PipeWire will automatically aggregate latency from links and propagate the new latencies
+down and upstream.
+
+# Examples
+
+## A source node with a given ProcessLatency
+
+When we have a source with a ProcessLatency, for example, of 1024 samples:
+
+   +----------+     + Latency: [{ "direction": "output", "min-rate": 1024, "max-rate": 1024 } ]
+   |          FL ---+ Latency: [{ "direction": "input", "min-rate": 0, "max-rate": 0 } ]
+   | source   +
+   |          FR ---+ Latency: [{ "direction": "output", "min-rate": 1024, "max-rate": 1024 } ]
+   +----------+     + Latency: [{ "direction": "input", "min-rate": 0, "max-rate": 0 } ]
+        ^
+        |
+ ProcessLatency: [  { "quantum": 0, "rate": 1024, "ns": 0 } ]
+
+Both output ports have an output latency of 1024 samples and no input latency.
+
+## A sink node with a given ProcessLatency
+
+When we have a sink with a ProcessLatency, for example, of 512 samples:
+
+   Latency: [{ "direction": "output", "min-rate": 0, "max-rate": 0 } ]
+   Latency: [{ "direction": "input", "min-rate": 512, "max-rate": 512 } ]
+     ^
+     |      +----------+
+     +---- FL          |
+            | sink     | <- ProcessLatency: [  { "quantum": 0, "rate": 1024, "ns": 0 } ]
+     +---- FR          |
+     |      +----------+
+     v
+   Latency: [{ "direction": "output", "min-rate": 0, "max-rate": 0 } ]
+   Latency: [{ "direction": "input", "min-rate": 512, "max-rate": 512 } ]
+
+Both input ports have an input latency of 512 samples and no output latency.
+
+## A source and sink node linked together
+
+With the source and sink from above, if we link the FL channels, the input latency
+from the input port of the sink is propagated to the output port of the source
+and the output latency of the output port is propagated to the input port of the
+sink:
+
+
+      Latency: [{ "direction": "output", "min-rate": 1024, "max-rate": 1024 } ]
+      Latency: [{ "direction": "input", "min-rate": 512, "max-rate": 512 } ]
+               ^   
+               |         Latency: [{ "direction": "output", "min-rate": 1024, "max-rate": 1024 } ]
+               |         Latency: [{ "direction": "input", "min-rate": 512, "max-rate": 512 } ]
+               |              |
+   +----------+v              v+--------+
+   |          FL ------------ FL        |
+   | source   +                | sink   |
+   |          FR --+          FR        |
+   +----------+    |           +--------+
+                   v
+      Latency: [{ "direction": "output", "min-rate": 1024, "max-rate": 1024 } ]
+      Latency: [{ "direction": "input", "min-rate": 0, "max-rate": 0 } ]
+
+
+## Insert a latency node
+
+If we place a node with a 256 sample latency in the above source-sink graph:
+
+
+   Latency: [{ "direction": "output", "min-rate": 1024, "max-rate": 1024 } ]
+   Latency: [{ "direction": "input", "min-rate": 768, "max-rate": 768 } ]
+               ^   
+               |   Latency: [{ "direction": "output", "min-rate": 1024, "max-rate": 1024 } ]
+               |   Latency: [{ "direction": "input", "min-rate": 768, "max-rate": 768 } ]
+               |              ^
+               |              | Latency: [{ "direction": "output", "min-rate": 1280, "max-rate": 1280 } ]
+               |              | Latency: [{ "direction": "input", "min-rate": 512, "max-rate": 512 } ]
+               |              |          ^           
+               |              |          |           
+   +----------+v              v+--------+v            +-------+
+   |          FL ------------ FL        FL --------- FL       |
+   | source   +                | node   |           ^ | sink  |
+   |          .                |        .           | .       |
+   +----------+                +--------+           | +-------+
+                                                    v
+                             Latency: [{ "direction": "output", "min-rate": 1280, "max-rate": 1280 } ]
+                             Latency: [{ "direction": "input", "min-rate": 512, "max-rate": 512 } ]
+
+
+See how the output latency propagates and is incremented going downstream and the
+input latency is incremented and traveling upstream.
+
+
+## Link a port to two port with different latencies
+
+When we introduce a sink2 with different input latency and link this to
+the node FL output port, it will aggregate the two input latencies by
+taking the min of min and max of max.
+
+
+   Latency: [{ "direction": "output", "min-rate": 1024, "max-rate": 1024 } ]
+   Latency: [{ "direction": "input", "min-rate": 768, "max-rate": 2304 } ]
+               ^   
+               |   Latency: [{ "direction": "output", "min-rate": 1024, "max-rate": 1024 } ]
+               |   Latency: [{ "direction": "input", "min-rate": 768, "max-rate": 2304 } ]
+               |              ^
+               |              | Latency: [{ "direction": "output", "min-rate": 1280, "max-rate": 1280 } ]
+               |              | Latency: [{ "direction": "input", "min-rate": 512, "max-rate": 2048 } ]
+               |              |          ^          
+               |              |          |  Latency: [{ "direction": "output", "min-rate": 1280, "max-rate": 1280 } ]
+               |              |          |  Latency: [{ "direction": "input", "min-rate": 512, "max-rate": 512 } ]
+               |              |          |          ^
+               |              |          |          |
+   +----------+v              v+--------+v          v +-------+
+   |          FL ------------ FL        FL --------- FL       |
+   | source   +                | node   |  \          | sink  |
+   |          .                |        .   \         .       |
+   +----------+                +--------+    \        +-------+
+                                              \
+                                               \      +-------+
+						+--- FL       |
+                                                    ^ | sink2 |
+						    | .       .
+                                                    | +-------+
+                                                    v
+                             Latency: [{ "direction": "output", "min-rate": 1280, "max-rate": 1280 } ]
+                             Latency: [{ "direction": "input", "min-rate": 2048, "max-rate": 2048 } ]
+
+
+The source node now knows that its output signal will be delayed between 768 amd 2304 samples
+depending on the path in the graph.
+
+We also see that node.FL has different min/max-rate input latencies. This information can be
+used to insert a delay node to align the latencies again. For example, if we delay the signal
+between node.FL and FL.sink with 1536 samples, the latencies will be aligned again.
+

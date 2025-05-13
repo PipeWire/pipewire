@@ -58,6 +58,7 @@ extra_docs = [
   'dox/internals/index.dox',
   'dox/internals/design.dox',
   'dox/internals/access.dox',
+  'dox/internals/latency.dox',
   'dox/internals/midi.dox',
   'dox/internals/portal.dox',
   'dox/internals/daemon.dox',

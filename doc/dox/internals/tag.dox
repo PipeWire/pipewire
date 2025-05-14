@@ -66,3 +66,5 @@ of the signal from the port.
 
 Tag params on the ports can be updated as needed. This can happen because some upstream or
 downstream Tag changed or when the metadata of a node/port/stream changes.
+
+*/

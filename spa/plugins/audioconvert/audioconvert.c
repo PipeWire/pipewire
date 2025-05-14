@@ -530,8 +530,7 @@ static int node_param_port_config(struct impl *this, uint32_t id, uint32_t index
 
 		if (dir->have_format) {
 			spa_pod_builder_prop(b, SPA_PARAM_PORT_CONFIG_format, 0);
-			spa_format_audio_raw_build(b, SPA_PARAM_PORT_CONFIG_format,
-					&dir->format.info.raw);
+			spa_format_audio_raw_build(b, id, &dir->format.info.raw);
 		}
 		*param = spa_pod_builder_pop(b, &f[0]);
 		break;

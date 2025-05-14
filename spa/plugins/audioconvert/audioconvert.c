@@ -235,7 +235,7 @@ struct filter_graph {
 	uint32_t inputs_position[SPA_AUDIO_MAX_CHANNELS];
 	uint32_t n_outputs;
 	uint32_t outputs_position[SPA_AUDIO_MAX_CHANNELS];
-	struct spa_process_latency_info latency;
+	uint32_t latency;
 	bool removing;
 	bool setup;
 };
@@ -255,6 +255,7 @@ struct impl {
 	struct spa_list free_graphs;
 	struct spa_list active_graphs;
 	struct filter_graph graphs[MAX_GRAPH];
+	struct spa_process_latency_info latency;
 
 	int in_filter_props;
 	int filter_props_count;
@@ -1006,6 +1007,75 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	return 0;
 }
 
+static void port_update_latency(struct port *port,
+		const struct spa_latency_info *info, bool valid)
+{
+	if (spa_latency_info_compare(info, &port->latency[info->direction]) != 0) {
+		port->latency[info->direction] = *info;
+		port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+		port->params[IDX_Latency].user++;
+	}
+	port->have_latency = valid;
+}
+
+static void recalc_latencies(struct impl *this, enum spa_direction direction)
+{
+	struct spa_latency_info info;
+	enum spa_direction other = SPA_DIRECTION_REVERSE(direction);
+	struct port *port;
+	uint32_t i;
+	bool have_latency = false;
+
+	spa_latency_info_combine_start(&info, other);
+	for (i = 0; i < this->dir[direction].n_ports; i++) {
+		port = GET_PORT(this, direction, i);
+		if ((port->is_monitor) || !port->have_latency)
+			continue;
+		spa_log_debug(this->log, "%p: combine %d", this, i);
+		spa_latency_info_combine(&info, &port->latency[other]);
+		have_latency = true;
+	}
+	spa_latency_info_combine_finish(&info);
+
+	spa_process_latency_info_add(&this->latency, &info);
+
+	spa_log_debug(this->log, "%p: combined %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, this,
+			info.direction == SPA_DIRECTION_INPUT ? "input" : "output",
+			info.min_quantum, info.max_quantum,
+			info.min_rate, info.max_rate,
+			info.min_ns, info.max_ns);
+
+	for (i = 0; i < this->dir[other].n_ports; i++) {
+		port = GET_PORT(this, other, i);
+		if (port->is_monitor)
+			continue;
+		port_update_latency(port, &info, have_latency);
+	}
+}
+
+static void recalc_graph_latency(struct impl *impl)
+{
+	struct filter_graph *g;
+	int32_t latency = 0;
+
+	spa_list_for_each(g, &impl->active_graphs, link)
+		latency += g->latency;
+
+	if (latency != impl->latency.rate) {
+		impl->latency.rate = latency;
+		recalc_latencies(impl, SPA_DIRECTION_INPUT);
+		recalc_latencies(impl, SPA_DIRECTION_OUTPUT);
+	}
+}
+
+static void update_graph_latency(struct filter_graph *g, uint32_t latency)
+{
+	if (g->latency != latency) {
+		g->latency = latency;
+		recalc_graph_latency(g->impl);
+	}
+}
+
 static void graph_info(void *object, const struct spa_filter_graph_info *info)
 {
 	struct filter_graph *g = object;
@@ -1033,9 +1103,10 @@ static void graph_info(void *object, const struct spa_filter_graph_info *info)
 		else if (spa_streq(k, "latency")) {
 			double latency;
 			if (spa_atod(s, &latency))
-				g->latency.rate = (uint32_t)latency;
+				update_graph_latency(g, (uint32_t)latency);
 		}
 	}
+	emit_info(g->impl, false);
 }
 
 static int apply_props(struct impl *impl, const struct spa_pod *props);
@@ -1245,6 +1316,7 @@ static void clean_filter_handles(struct impl *impl, bool force)
 		spa_zero(*g);
 		spa_list_append(&impl->free_graphs, &g->link);
 	}
+	recalc_graph_latency(impl);
 }
 
 static inline void insert_graph(struct spa_list *graphs, struct filter_graph *pending)
@@ -2841,8 +2913,7 @@ static int port_set_latency(void *object,
 	struct port *port, *oport;
 	enum spa_direction other = SPA_DIRECTION_REVERSE(direction);
 	struct spa_latency_info info;
-	bool have_latency, emit = false;;
-	uint32_t i;
+	bool have_latency;;
 
 	spa_log_debug(this->log, "%p: set latency direction:%d id:%d %p",
 			this, direction, port_id, latency);
@@ -2857,11 +2928,8 @@ static int port_set_latency(void *object,
 			return -EINVAL;
 		have_latency = true;
 	}
-	emit = spa_latency_info_compare(&info, &port->latency[other]) != 0 ||
-	    port->have_latency == have_latency;
 
-	port->latency[other] = info;
-	port->have_latency = have_latency;
+	port_update_latency(port, &info, have_latency);
 
 	spa_log_debug(this->log, "%p: set %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, this,
 			info.direction == SPA_DIRECTION_INPUT ? "input" : "output",
@@ -2877,45 +2945,10 @@ static int port_set_latency(void *object,
 		else
 			return 0;
 
-		if (oport != NULL &&
-		    spa_latency_info_compare(&info, &oport->latency[other]) != 0) {
-			oport->latency[other] = info;
-			oport->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-			oport->params[IDX_Latency].user++;
-		}
-	} else {
-		spa_latency_info_combine_start(&info, other);
-		for (i = 0; i < this->dir[direction].n_ports; i++) {
-			oport = GET_PORT(this, direction, i);
-			if ((oport->is_monitor) || !oport->have_latency)
-				continue;
-			spa_log_debug(this->log, "%p: combine %d", this, i);
-			spa_latency_info_combine(&info, &oport->latency[other]);
-		}
-		spa_latency_info_combine_finish(&info);
-
-		spa_log_debug(this->log, "%p: combined %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, this,
-				info.direction == SPA_DIRECTION_INPUT ? "input" : "output",
-				info.min_quantum, info.max_quantum,
-				info.min_rate, info.max_rate,
-				info.min_ns, info.max_ns);
-
-		for (i = 0; i < this->dir[other].n_ports; i++) {
-			oport = GET_PORT(this, other, i);
-			if (oport->is_monitor)
-				continue;
-			spa_log_debug(this->log, "%p: change %d", this, i);
-			if (spa_latency_info_compare(&info, &oport->latency[other]) != 0) {
-				oport->latency[other] = info;
-				oport->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-				oport->params[IDX_Latency].user++;
-			}
-		}
+		if (oport != NULL)
+			port_update_latency(oport, &info, have_latency);
 	}
-	if (emit) {
-		port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-		port->params[IDX_Latency].user++;
-	}
+	recalc_latencies(this, direction);
 	return 0;
 }
 

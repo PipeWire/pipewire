@@ -41,8 +41,9 @@ static int vkresult_to_errno(VkResult result)
 	case VK_EVENT_SET:
 	case VK_EVENT_RESET:
 		return 0;
-	case VK_NOT_READY:
 	case VK_INCOMPLETE:
+		return ENOSPC;
+	case VK_NOT_READY:
 	case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR:
 		return EBUSY;
 	case VK_TIMEOUT:

@@ -12,6 +12,7 @@
 - \subpage page_dma_buf
 - \subpage page_scheduling
 - \subpage page_latency
+- \subpage page_tag
 - \subpage page_native_protocol
 
 

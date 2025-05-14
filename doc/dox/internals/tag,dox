@@ -1,0 +1,68 @@
+/** \page page_tag Tag support
+
+This document explains how stream specific metadata is transported in
+the PipeWire graph.
+
+The metadata is a dictionary of string key/value pairs with information
+such as the author, track, copyright, album information etc.
+
+# Use Cases
+
+## A stream/node/port has some metadata
+
+Applications need to be able to query the Tag of a port/node/stream.
+
+Linked Nodes need to be informed of the upstream and downstream tags.
+
+## dynamically update tags
+
+It needs to be possible to dynamically update the tags of a port/node/stream
+and this should inform all linked ports/nodes of the updated tags.
+
+## Aggregate tags upstream and downstream
+
+A node might need to know all the upstream and downstream tags. Each node can
+add or remove metadata in the Tag param.
+
+A mixer node might need to combine the Tags of the two input streams and
+generate a combined tag.
+
+# Concepts
+
+## Port Tags
+
+The fundamental object for implementing metadata reporting in PipeWire is the
+Tag object.
+
+It consists of a direction (input/output) and one or more generic dictionaries
+with string key/value pairs.
+
+The direction of the tag object determines how the object propagates in the graph.
+
+- SPA_DIRECTION_OUTPUT Tag objects move from output ports downstream and contain
+  the metadata from all nodes upstream. An output tag received on an input port
+  should instruct the node to update the output tag on its output ports related
+  to this input port.
+
+- SPA_DIRECTION_INPUT Tag objects move from input ports upstream and contain
+  the metadata from all nodes downstream. An input tag received on an output port
+  should instruct the node to update the input tag on its input ports related
+  to this output port.
+
+PipeWire will automatically propagate Tag objects from ports to all linked ports
+in the graph. Output Tag objects on output ports are propagated to linked input
+ports and input Tag objects on input ports are propagated to linked output ports.
+
+If a port has links with multiple other ports, the Tag objects are merged by
+appending the dictionaties to the Tag param. Intermediate nodes or sinks are allowed
+to take the multiple dictionaries in a Tag and combine them into one dictionary if
+they would like to do so.
+
+This way, Output Tag always describes the aggragated total upstream metadata of
+signal up to the port and Input tag describes the aggregated downstream metadata
+of the signal from the port.
+
+# Tag updates
+
+Tag params on the ports can be updated as needed. This can happen because some upstream or
+downstream Tag changed or when the metadata of a node/port/stream changes.

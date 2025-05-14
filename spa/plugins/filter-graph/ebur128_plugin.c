@@ -222,8 +222,7 @@ static void ebur128_connect_port(void * Instance, unsigned long Port,
                         float * DataLocation)
 {
 	struct ebur128_impl *impl = Instance;
-	if (Port < PORT_MAX)
-		impl->port[Port] = DataLocation;
+	impl->port[Port] = DataLocation;
 }
 
 static void ebur128_cleanup(void * Instance)
@@ -446,8 +445,7 @@ static void lufs2gain_connect_port(void * Instance, unsigned long Port,
                         float * DataLocation)
 {
 	struct lufs2gain_impl *impl = Instance;
-	if (Port < 3)
-		impl->port[Port] = DataLocation;
+	impl->port[Port] = DataLocation;
 }
 
 static void lufs2gain_run(void * Instance, unsigned long SampleCount)

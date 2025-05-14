@@ -1331,10 +1331,9 @@ error:
 	return -ENOTSUP;
 }
 
-static int audioconvert_set_param(struct impl *this, const char *k, const char *s)
+static int audioconvert_set_param(struct impl *this, const char *k, const char *s, bool *disable_filter)
 {
 	int res;
-
 	if (spa_streq(k, "monitor.channel-volumes"))
 		this->monitor_channel_volumes = spa_atob(s);
 	else if (spa_streq(k, "channelmix.disable"))
@@ -1382,6 +1381,10 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 					order, spa_strerror(res));
 		}
 	}
+	else if (spa_streq(k, "audioconvert.filter-graph.disable")) {
+		if (!*disable_filter)
+			*disable_filter = spa_atob(s);
+	}
 	else
 		return 0;
 	return 1;
@@ -1392,6 +1395,7 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f;
 	int changed = 0;
+	bool filter_graph_disabled = this->props.filter_graph_disabled;
 
 	spa_pod_parser_pod(&prs, params);
 	if (spa_pod_parser_push_struct(&prs, &f) < 0)
@@ -1429,9 +1433,10 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 			continue;
 
 		spa_log_info(this->log, "key:'%s' val:'%s'", name, value);
-		changed += audioconvert_set_param(this, name, value);
+		changed += audioconvert_set_param(this, name, value, &filter_graph_disabled);
 	}
 	if (changed) {
+		this->props.filter_graph_disabled = filter_graph_disabled;
 		channelmix_init(&this->mix);
 	}
 	return changed;
@@ -4180,8 +4185,7 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	uint32_t i;
-	const char *str;
-	bool filter_graph_disabled;
+	bool filter_graph_disabled = false;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -4223,13 +4227,12 @@ impl_init(const struct spa_handle_factory *factory,
 	this->mix.rear_delay = 0.0f;
 	this->mix.widen = 0.0f;
 
-	if (info && (str = spa_dict_lookup(info, "clock.quantum-limit")) != NULL)
-		spa_atou32(str, &this->quantum_limit, 0);
-
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
-		if (spa_streq(k, "resample.peaks"))
+		if (spa_streq(k, "clock.quantum-limit"))
+			spa_atou32(s, &this->quantum_limit, 0);
+		else if (spa_streq(k, "resample.peaks"))
 			this->resample_peaks = spa_atob(s);
 		else if (spa_streq(k, "resample.prefill"))
 			SPA_FLAG_UPDATE(this->resample.options,
@@ -4251,12 +4254,7 @@ impl_init(const struct spa_handle_factory *factory,
 			spa_scnprintf(this->group_name, sizeof(this->group_name), "%s", s);
 		else if (spa_streq(k, "monitor.passthrough"))
 			this->monitor_passthrough = spa_atob(s);
-		else if (spa_streq(k, "audioconvert.filter-graph.disable"))
-			filter_graph_disabled = spa_atob(s);
-		else
-			audioconvert_set_param(this, k, s);
 	}
-	this->props.filter_graph_disabled = filter_graph_disabled;
 	this->props.channel.n_volumes = this->props.n_channels;
 	this->props.soft.n_volumes = this->props.n_channels;
 	this->props.monitor.n_volumes = this->props.n_channels;
@@ -4293,6 +4291,14 @@ impl_init(const struct spa_handle_factory *factory,
 
 	reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_convert, SPA_DIRECTION_INPUT, false, false, NULL);
 	reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_convert, SPA_DIRECTION_OUTPUT, false, false, NULL);
+
+	filter_graph_disabled = this->props.filter_graph_disabled;
+	for (i = 0; info && i < info->n_items; i++) {
+		const char *k = info->items[i].key;
+		const char *s = info->items[i].value;
+		audioconvert_set_param(this, k, s, &filter_graph_disabled);
+	}
+	this->props.filter_graph_disabled = filter_graph_disabled;
 
 	return 0;
 }

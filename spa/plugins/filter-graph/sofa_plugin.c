@@ -318,8 +318,6 @@ static void spatializer_connect_port(void * Instance, unsigned long Port,
                         float * DataLocation)
 {
 	struct spatializer_impl *impl = Instance;
-	if (Port > 5)
-		return;
 	impl->port[Port] = DataLocation;
 }
 

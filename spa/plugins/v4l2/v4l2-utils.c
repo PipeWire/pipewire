@@ -1873,7 +1873,9 @@ static int spa_v4l2_stream_on(struct impl *this)
 
 	spa_log_debug(this->log, "starting");
 
-	if (port->current_format.media_subtype == SPA_MEDIA_SUBTYPE_raw)
+	if (port->current_format.media_subtype == SPA_MEDIA_SUBTYPE_raw ||
+	    port->current_format.media_subtype == SPA_MEDIA_SUBTYPE_mjpg ||
+	    port->current_format.media_subtype == SPA_MEDIA_SUBTYPE_jpeg)
 		port->first_buffer = true;
 	else
 		port->first_buffer = false;

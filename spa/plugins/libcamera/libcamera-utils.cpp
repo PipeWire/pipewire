@@ -495,7 +495,7 @@ static uint32_t prop_id_to_control(struct impl *impl, uint32_t prop_id)
 
 static int
 spa_libcamera_enum_controls(struct impl *impl, struct port *port, int seq,
-		       uint32_t start, uint32_t num,
+		       uint32_t start, uint32_t offset, uint32_t num,
 		       const struct spa_pod *filter)
 {
 	const ControlInfoMap &info = impl->camera->controls();
@@ -513,7 +513,7 @@ spa_libcamera_enum_controls(struct impl *impl, struct port *port, int seq,
 	result.next = start;
 
 	auto it = info.begin();
-	for (skip = result.next; skip; skip--)
+	for (skip = result.next - offset; skip; skip--)
 		it++;
 
 	if (false) {

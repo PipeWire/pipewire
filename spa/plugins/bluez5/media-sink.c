@@ -1541,6 +1541,14 @@ static int transport_start(struct impl *this)
 		spa_loop_add_source(this->data_loop, &this->flush_source);
 	}
 
+	this->resync = RESYNC_CYCLES;
+	this->flush_pending = false;
+	this->iso_pending = false;
+
+	this->transport_started = true;
+
+	if (this->transport->iso_io)
+		spa_loop_invoke(this->data_loop, do_start_iso_io, 0, NULL, 0, true, this);
 	if (is_asha) {
 		struct spa_bt_asha *asha = this->asha;
 
@@ -1564,14 +1572,6 @@ static int transport_start(struct impl *this)
 		spa_list_append(&asha_sinks, &this->asha_link);
 	}
 
-	this->resync = RESYNC_CYCLES;
-	this->flush_pending = false;
-	this->iso_pending = false;
-
-	this->transport_started = true;
-
-	if (this->transport->iso_io)
-		spa_loop_invoke(this->data_loop, do_start_iso_io, 0, NULL, 0, true, this);
 
 	return 0;
 }

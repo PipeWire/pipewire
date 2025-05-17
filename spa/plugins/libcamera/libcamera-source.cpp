@@ -273,7 +273,7 @@ next:
 		default:
 			return spa_libcamera_enum_controls(impl,
 					GET_OUT_PORT(impl, 0),
-					seq, result.index - 2, num, filter);
+					seq, result.index, 2, num, filter);
 		}
 		break;
 	}
@@ -535,7 +535,7 @@ next:
 
 	switch (id) {
 	case SPA_PARAM_PropInfo:
-		return spa_libcamera_enum_controls(impl, port, seq, start, num, filter);
+		return spa_libcamera_enum_controls(impl, port, seq, start, 0, num, filter);
 
 	case SPA_PARAM_EnumFormat:
 		return spa_libcamera_enum_format(impl, port, seq, start, num, filter);

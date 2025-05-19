@@ -1,6 +1,7 @@
 conf_files = [
  '10-rates.conf',
  '20-upmix.conf',
+ '50-raop.conf',
 ]
 
 foreach c : conf_files

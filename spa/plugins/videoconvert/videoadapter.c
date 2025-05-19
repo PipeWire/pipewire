@@ -1109,7 +1109,10 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		break;
 	}
 
-	if ((res = spa_node_send_command(this->target, command)) < 0) {
+	res = spa_node_send_command(this->target, command);
+	if (res == -ENOTSUP)
+		res = 0;
+	if (res < 0) {
 		spa_log_error(this->log, "%p: can't send command %d: %s",
 				this, SPA_NODE_COMMAND_ID(command),
 				spa_strerror(res));

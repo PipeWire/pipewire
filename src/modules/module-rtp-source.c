@@ -163,7 +163,7 @@ struct impl {
 	bool always_process;
 	uint32_t cleanup_interval;
 
-	struct spa_source *timer;
+	struct spa_source *standby_timer;
 
 	struct pw_properties *stream_props;
 	struct rtp_stream *stream;
@@ -463,11 +463,12 @@ static const struct rtp_stream_events stream_events = {
 	.param_changed = stream_param_changed,
 };
 
-static void on_timer_event(void *data, uint64_t expirations)
+static void on_standby_timer_event(void *data, uint64_t expirations)
 {
 	struct impl *impl = data;
 
-	pw_log_debug("timer %d", impl->receiving);
+	pw_log_debug("standby timer event; receiving: %d standby: %d waiting: %d",
+			impl->receiving, impl->standby, impl->waiting);
 
 	if (!impl->receiving) {
 		if (!impl->standby) {
@@ -512,8 +513,8 @@ static void impl_destroy(struct impl *impl)
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
 
-	if (impl->timer)
-		pw_loop_destroy_source(impl->loop, impl->timer);
+	if (impl->standby_timer)
+		pw_loop_destroy_source(impl->loop, impl->standby_timer);
 
 	if (impl->data_loop)
 		pw_context_release_loop(impl->context, impl->data_loop);
@@ -701,8 +702,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			&impl->core_listener,
 			&core_events, impl);
 
-	impl->timer = pw_loop_add_timer(impl->loop, on_timer_event, impl);
-	if (impl->timer == NULL) {
+	impl->standby_timer = pw_loop_add_timer(impl->loop, on_standby_timer_event, impl);
+	if (impl->standby_timer == NULL) {
 		res = -errno;
 		pw_log_error("can't create timer source: %m");
 		goto out;
@@ -711,7 +712,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	value.tv_nsec = 0;
 	interval.tv_sec = impl->cleanup_interval;
 	interval.tv_nsec = 0;
-	pw_loop_update_timer(impl->loop, impl->timer, &value, &interval, false);
+	pw_loop_update_timer(impl->loop, impl->standby_timer, &value, &interval, false);
 
 	impl->stream = rtp_stream_new(impl->core,
 			PW_DIRECTION_OUTPUT, pw_properties_copy(stream_props),

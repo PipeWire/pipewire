@@ -1536,14 +1536,8 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 
 	impl->input.port = input;
 	impl->output.port = output;
-	if (this->feedback) {
-		impl->input.node = output_node;
-		impl->output.node = input_node;
-	}
-	else {
-		impl->output.node = output_node;
-		impl->input.node = input_node;
-	}
+	impl->output.node = output_node;
+	impl->input.node = input_node;
 	impl->input.mix = &this->rt.in_mix;
 	impl->output.mix = &this->rt.out_mix;
 
@@ -1569,8 +1563,12 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 	pw_impl_port_recalc_tag(output);
 	pw_impl_port_recalc_tag(input);
 
-	if (impl->output.node != impl->input.node)
-		this->peer = pw_node_peer_ref(impl->output.node, impl->input.node);
+	if (impl->output.node != impl->input.node) {
+		if (this->feedback)
+			this->peer = pw_node_peer_ref(impl->input.node, impl->output.node);
+		else
+			this->peer = pw_node_peer_ref(impl->output.node, impl->input.node);
+	}
 
 	return this;
 

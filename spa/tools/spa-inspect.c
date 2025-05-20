@@ -277,11 +277,11 @@ int main(int argc, char *argv[])
 	data.n_support = 3;
 
 	if ((handle = dlopen(argv[1], RTLD_NOW)) == NULL) {
-		printf("can't load %s\n", argv[1]);
+		printf("can't load %s: %s\n", argv[1], dlerror());
 		return -1;
 	}
 	if ((enum_func = dlsym(handle, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
-		printf("can't find function\n");
+		printf("can't find \"%s\" function: %s\n", SPA_HANDLE_FACTORY_ENUM_FUNC_NAME, dlerror());
 		return -1;
 	}
 

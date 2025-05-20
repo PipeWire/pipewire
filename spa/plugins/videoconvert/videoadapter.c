@@ -1013,7 +1013,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	}
 
 	res = spa_node_send_command(this->target, command);
-	if (res == -ENOTSUP)
+	if (res == -ENOTSUP && this->target != this->follower)
 		res = 0;
 	if (res < 0) {
 		spa_log_error(this->log, "%p: can't send command %d: %s",

@@ -481,15 +481,16 @@ static int client_node_command(void *_data, const struct spa_command *command)
 			pw_proxy_error(proxy, res, "suspend failed");
 		}
 		break;
-	case SPA_NODE_COMMAND_RequestProcess:
-		res = pw_impl_node_send_command(node, command);
-		break;
 	default:
-		pw_log_warn("unhandled node command %d (%s)", id,
-				spa_debug_type_find_name(spa_type_node_command_id, id));
-		res = -ENOTSUP;
-		pw_proxy_errorf(proxy, res, "command %d (%s) not supported", id,
-				spa_debug_type_find_name(spa_type_node_command_id, id));
+		res = pw_impl_node_send_command(node, command);
+		if (res < 0) {
+			pw_log_warn("node command %d (%s) error: %s (%d)", id,
+					spa_debug_type_find_name(spa_type_node_command_id, id),
+					spa_strerror(res), res);
+			pw_proxy_errorf(proxy, res, "command %d (%s) error: %s (%d)", id,
+					spa_debug_type_find_name(spa_type_node_command_id, id),
+					spa_strerror(res), res);
+		}
 	}
 	return res;
 }

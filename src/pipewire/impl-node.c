@@ -660,19 +660,20 @@ static int node_send_command(void *object, const struct spa_command *command)
 	struct resource_data *data = object;
 	struct pw_impl_node *node = data->node;
 	uint32_t id = SPA_NODE_COMMAND_ID(command);
+	int res;
 
 	pw_log_debug("%p: got command %d (%s)", node, id,
 		    spa_debug_type_find_name(spa_type_node_command_id, id));
 
 	switch (id) {
 	case SPA_NODE_COMMAND_Suspend:
-		suspend_node(node);
+		res = suspend_node(node);
 		break;
 	default:
-		spa_node_send_command(node->node, command);
+		res = spa_node_send_command(node->node, command);
 		break;
 	}
-	return 0;
+	return res;
 }
 
 static const struct pw_node_methods node_methods = {

@@ -56,8 +56,18 @@
  * - `sess.latency.msec = <float>`: target network latency in milliseconds, default 100
  * - `sess.ignore-ssrc = <bool>`: ignore SSRC, default false
  * - `sess.media = <string>`: the media type audio|midi|opus, default audio
+ * - `sess.ts-direct = <bool>`: directly synchronize output against the current
+ *                graph driver time, using the RTP timestamps, default false
  * - `stream.may-pause = <bool>`: pause the stream when no data is reveived, default false
  * - `stream.props = {}`: properties to be passed to the stream
+ *
+ * Set `sess.ts-direct` to true if receivers shall play precisely in sync with the sender even
+ * if the transport delay differs. This can be important for use cases like AES67 sessions.
+ * The graph driver must then produce time that is in sync with the sender's graph driver.
+ * If it is set to false, the RTP timestamps will be used to reproduce the pace of the sender,
+ * but not directly for synchronizing when output starts. Note though that this requires that
+ * the receivers and senders have synchronized clocks. In PTP, the reference clocks must then
+ * be the same. Otherwise, senders and receives will be out of sync.
  *
  * ## General options
  *

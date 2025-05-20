@@ -164,6 +164,9 @@ struct impl {
 	uint32_t cleanup_interval;
 
 	struct spa_source *standby_timer;
+	/* This timer is used when the first stream_start() call fails because
+	 * of an ENODEV error (see the stream_start() code for details) */
+	struct spa_source *stream_start_retry_timer;
 
 	struct pw_properties *stream_props;
 	struct rtp_stream *stream;
@@ -334,6 +337,23 @@ error:
 	return res;
 }
 
+static int stream_start(struct impl *impl);
+
+static void on_stream_start_retry_timer_event(void *data, uint64_t expirations)
+{
+	struct impl *impl = data;
+	pw_log_debug("trying again to start RTP listener after previous attempt failed with ENODEV");
+	stream_start(impl);
+}
+
+static void destroy_stream_start_retry_timer(struct impl *impl)
+{
+	if (impl->stream_start_retry_timer != NULL) {
+		pw_loop_destroy_source(impl->loop, impl->stream_start_retry_timer);
+		impl->stream_start_retry_timer = NULL;
+	}
+}
+
 static int stream_start(struct impl *impl)
 {
 	int fd;
@@ -345,9 +365,52 @@ static int stream_start(struct impl *impl)
 
 	if ((fd = make_socket((const struct sockaddr *)&impl->src_addr,
 					impl->src_len, impl->ifname)) < 0) {
-		pw_log_error("failed to create socket: %m");
-		return -errno;
+		/* If make_socket() tries to create a socket and join to a multicast
+		 * group while the network interfaces are not ready yet to do so
+		 * (usually because a network manager component is still setting up
+		 * those network interfaces), ENODEV will be returned. This is essentially
+		 * a race condition. There is no discernible way to be notified when the
+		 * network interfaces are ready for that operation, so the next best
+		 * approach is to essentially do a form of polling by retrying the
+		 * stream_start() call after some time. The stream_start_retry_timer exists
+		 * precisely for that purpose. This means that ENODEV is not treated as
+		 * an error, but instead, it triggers the creation of that timer. */
+		if (errno == ENODEV) {
+			pw_log_warn("failed to create socket because network device is not ready "
+				"and present yet; will try again");
+
+			if (impl->stream_start_retry_timer == NULL) {
+				struct timespec value, interval;
+
+				impl->stream_start_retry_timer = pw_loop_add_timer(impl->loop,
+						on_stream_start_retry_timer_event, impl);
+				/* Use a 1-second retry interval. The network interfaces
+				 * are likely to be up and running then. */
+				value.tv_sec = 1;
+				value.tv_nsec = 0;
+				interval.tv_sec = 1;
+				interval.tv_nsec = 0;
+				pw_loop_update_timer(impl->loop, impl->stream_start_retry_timer, &value,
+						&interval, false);
+			}
+			/* Do nothing if the timer is already up. */
+
+			/* It is important to return 0 in this case. Otherwise, the nonzero return
+			 * value will later be propagated through the core as an error. */
+			return 0;
+		} else {
+			pw_log_error("failed to create socket: %m");
+			/* If ENODEV was returned earlier, and the stream_start_retry_timer
+			 * was consequently created, but then a non-ENODEV error occurred,
+			 * the timer must be stopped and removed. */
+			destroy_stream_start_retry_timer(impl);
+			return -errno;
+		}
 	}
+
+	/* Cleanup the timer in case ENODEV occurred earlier, and this time,
+	 * the socket creation succeeded. */
+	destroy_stream_start_retry_timer(impl);
 
 	impl->source = pw_loop_add_io(impl->data_loop, fd,
 				SPA_IO_IN, true, on_rtp_io, impl);
@@ -365,6 +428,8 @@ static void stream_stop(struct impl *impl)
 		return;
 
 	pw_log_info("stopping RTP listener");
+
+	destroy_stream_start_retry_timer(impl);
 
 	pw_loop_destroy_source(impl->data_loop, impl->source);
 	impl->source = NULL;
@@ -515,6 +580,8 @@ static void impl_destroy(struct impl *impl)
 
 	if (impl->standby_timer)
 		pw_loop_destroy_source(impl->loop, impl->standby_timer);
+
+	destroy_stream_start_retry_timer(impl);
 
 	if (impl->data_loop)
 		pw_context_release_loop(impl->context, impl->data_loop);

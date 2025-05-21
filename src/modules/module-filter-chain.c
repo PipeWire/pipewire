@@ -110,9 +110,58 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *
  * - `config` contains a filter specific configuration section. Some plugins need
  *            this. (convolver, sofa, delay, ...)
+ *    - For lv2, the config can contain a set of state key/value pairs. If the lv2
+ *      plugin supports the LV2_STATE__interface, these values will be provided for
+ *      the given keys.
  * - `control` contains the initial values for the control ports of the filter.
  *            normally these are given with the port name but it is also possible
  *            to give the control index as the key.
+ *
+ * Some examples ladspa and lv2 plugins:
+ *
+ *\code{.unparsed}
+ * filter.graph = {
+ *     nodes = [
+ *         {
+ *             # an example ladspa plugin
+ *             type = ladspa
+ *             name = pitch
+ *             plugin = "/usr/lib64/ladspa/ladspa-rubberband.so"
+ *             label = "rubberband-r3-pitchshifter-mono"
+ *             control = {
+ *                 # controls are using the ladspa port names as seen in analyseplugin
+ *                 "Semitones" = -3
+ *             }
+ *         }
+ *         {
+ *             # an example lv2 plugin
+ *             type = lv2
+ *             name = pitch
+ *             plugin = "http://breakfastquay.com/rdf/lv2-rubberband#mono"
+ *             control = {
+ *                 # controls are using the lv2 symbol as seen with lv2info
+ *                 "semitones" = -3
+ *             }
+ *         }
+ *         {
+ *             # an example lv2 plugin with a state
+ *             type = lv2
+ *             name = neural
+ *             plugin = "http://aidadsp.cc/plugins/aidadsp-bundle/rt-neural-generic"
+ *             control = {
+ *                 # use the port symbols as seen with lv2info
+ *                 PRESENCE = 1.0
+ *             }
+ *             config = {
+ *                 # the config contains state keys and values
+ *                 "http://aidadsp.cc/plugins/aidadsp-bundle/rt-neural-generic#json" =
+ *                     "/usr/lib64/lv2/rt-neural-generic.lv2/models/deer ink studios/tw40_blues_solo_deerinkstudios.json"
+ *             }
+ *         }
+ *     }
+ *     ...
+ * }
+ *\endcode
  *
  * ### Links
  *

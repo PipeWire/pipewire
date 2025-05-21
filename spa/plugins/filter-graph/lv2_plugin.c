@@ -10,6 +10,7 @@
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
 #include <spa/utils/string.h>
+#include <spa/utils/json.h>
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
 
@@ -19,6 +20,7 @@
 		#include <lv2/atom/atom.h>
 		#include <lv2/buf-size/buf-size.h>
 		#include <lv2/worker/worker.h>
+		#include <lv2/state/state.h>
 		#include <lv2/options/options.h>
 		#include <lv2/parameters/parameters.h>
 
@@ -27,6 +29,7 @@
 		#include <lv2/lv2plug.in/ns/ext/atom/atom.h>
 		#include <lv2/lv2plug.in/ns/ext/buf-size/buf-size.h>
 		#include <lv2/lv2plug.in/ns/ext/worker/worker.h>
+		#include <lv2/lv2plug.in/ns/ext/state/state.h>
 		#include <lv2/lv2plug.in/ns/ext/options/options.h>
 		#include <lv2/lv2plug.in/ns/ext/parameters/parameters.h>
 
@@ -101,6 +104,7 @@ struct context {
 	LilvNode *boundedBlockLength;
 	LilvNode* worker_schedule;
 	LilvNode* worker_iface;
+	LilvNode* state_iface;
 
 	URITable uri_table;
 	LV2_URID_Map map;
@@ -169,6 +173,7 @@ static struct context *context_new(void)
 	c->boundedBlockLength = lilv_new_uri(c->world, LV2_BUF_SIZE__boundedBlockLength);
         c->worker_schedule = lilv_new_uri(c->world, LV2_WORKER__schedule);
 	c->worker_iface = lilv_new_uri(c->world, LV2_WORKER__interface);
+	c->state_iface = lilv_new_uri(c->world, LV2_STATE__interface);
 
 	c->map.handle = &c->uri_table;
 	c->map.map = uri_table_map;
@@ -234,9 +239,10 @@ struct instance {
 	LV2_Options_Option options[6];
 	LV2_Feature options_feature;
 
-	const LV2_Feature *features[7];
+	const LV2_Feature *features[10];
 
 	const LV2_Worker_Interface *work_iface;
+	const LV2_State_Interface *state_iface;
 
 	int32_t block_length;
 	LV2_Atom empty_atom;
@@ -276,6 +282,57 @@ work_schedule(LV2_Worker_Schedule_Handle handle, uint32_t size, const void *data
 	struct instance *i = (struct instance*)handle;
 	spa_loop_invoke(i->p->main_loop, do_schedule, 1, data, size, false, i);
 	return LV2_WORKER_SUCCESS;
+}
+
+struct state_data {
+	struct instance *i;
+	const char *config;
+	char *tmp;
+};
+
+static const void *state_retrieve_function(LV2_State_Handle handle,
+		uint32_t key, size_t *size, uint32_t *type, uint32_t *flags)
+{
+	struct state_data *sd = (struct state_data*)handle;
+	struct plugin *p = sd->i->p;
+	struct context *c = p->c;
+	const char *uri = c->unmap.unmap(c->unmap.handle, key), *val;
+	struct spa_json it[3];
+	char k[strlen(uri)+3];
+	int len;
+
+	if (sd->config == NULL) {
+		spa_log_info(p->log, "lv2: restore %d %s without a config", key, uri);
+		return NULL;
+	}
+
+	if (spa_json_begin_object(&it[0], sd->config, strlen(sd->config)) <= 0) {
+		spa_log_error(p->log, "lv2: config must be an object");
+		return NULL;
+	}
+
+	while ((len = spa_json_object_next(&it[0], k, sizeof(k), &val)) > 0) {
+		if (!spa_streq(k, uri))
+			continue;
+
+		if (spa_json_is_container(val, len))
+			if ((len = spa_json_container_len(&it[0], val, len)) <= 0)
+				return NULL;
+
+		sd->tmp = realloc(sd->tmp, len+1);
+		spa_json_parse_stringn(val, len, sd->tmp, len+1);
+
+		spa_log_info(p->log, "lv2: restore %d %s %s", key, uri, sd->tmp);
+		if (size)
+			*size = strlen(sd->tmp);
+		if (type)
+			*type = 0;
+		if (flags)
+			*flags = LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE;
+		return sd->tmp;
+	}
+	spa_log_info(p->log, "lv2: restore %d %s not found in config", key, uri);
+	return NULL;
 }
 
 static void *lv2_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
@@ -328,9 +385,11 @@ static void *lv2_instantiate(const struct spa_fga_plugin *plugin, const struct s
 		c->atom_Float, &fsample_rate };
 	i->options[5] = (LV2_Options_Option) { LV2_OPTIONS_INSTANCE, 0, 0, 0, 0, NULL };
 
-        i->options_feature.URI = LV2_OPTIONS__options;
-        i->options_feature.data = i->options;
-        i->features[n_features++] = &i->options_feature;
+	i->options_feature.URI = LV2_OPTIONS__options;
+	i->options_feature.data = i->options;
+	i->features[n_features++] = &i->options_feature;
+	i->features[n_features++] = NULL;
+	spa_assert(n_features < SPA_N_ELEMENTS(i->features));
 
 	i->instance = lilv_plugin_instantiate(p->p, SampleRate, i->features);
 	if (i->instance == NULL) {
@@ -341,19 +400,30 @@ static void *lv2_instantiate(const struct spa_fga_plugin *plugin, const struct s
                 i->work_iface = (const LV2_Worker_Interface*)
 			lilv_instance_get_extension_data(i->instance, LV2_WORKER__interface);
         }
+	if (lilv_plugin_has_extension_data(p->p, c->state_iface)) {
+                i->state_iface = (const LV2_State_Interface*)
+			lilv_instance_get_extension_data(i->instance, LV2_STATE__interface);
+        }
 	for (n = 0; n < desc->n_ports; n++) {
 		const LilvPort *port = lilv_plugin_get_port_by_index(p->p, n);
 		if (lilv_port_is_a(p->p, port, c->atom_AtomPort)) {
 			lilv_instance_connect_port(i->instance, n, &i->empty_atom);
 		}
 	}
-
+	if (i->state_iface && i->state_iface->restore) {
+		struct state_data sd = { .i = i, .config = config, .tmp = NULL };
+		i->state_iface->restore(i->instance->lv2_handle, state_retrieve_function,
+				&sd, 0, i->features);
+		free(sd.tmp);
+	}
 	return i;
 }
 
 static void lv2_cleanup(void *instance)
 {
 	struct instance *i = instance;
+	spa_loop_invoke(i->p->data_loop, NULL, 0, NULL, 0, true, NULL);
+	spa_loop_invoke(i->p->main_loop, NULL, 0, NULL, 0, true, NULL);
 	lilv_instance_free(i->instance);
 	free(i);
 }

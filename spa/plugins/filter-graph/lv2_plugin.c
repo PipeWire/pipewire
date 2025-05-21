@@ -234,7 +234,7 @@ struct instance {
 	LV2_Options_Option options[6];
 	LV2_Feature options_feature;
 
-	const LV2_Feature *features[7];
+	const LV2_Feature *features[8];
 
 	const LV2_Worker_Interface *work_iface;
 
@@ -328,9 +328,11 @@ static void *lv2_instantiate(const struct spa_fga_plugin *plugin, const struct s
 		c->atom_Float, &fsample_rate };
 	i->options[5] = (LV2_Options_Option) { LV2_OPTIONS_INSTANCE, 0, 0, 0, 0, NULL };
 
-        i->options_feature.URI = LV2_OPTIONS__options;
-        i->options_feature.data = i->options;
-        i->features[n_features++] = &i->options_feature;
+	i->options_feature.URI = LV2_OPTIONS__options;
+	i->options_feature.data = i->options;
+	i->features[n_features++] = &i->options_feature;
+	i->features[n_features++] = NULL;
+	spa_assert(n_features <= SPA_N_ELEMENTS(i->features));
 
 	i->instance = lilv_plugin_instantiate(p->p, SampleRate, i->features);
 	if (i->instance == NULL) {

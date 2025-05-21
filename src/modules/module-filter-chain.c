@@ -972,7 +972,7 @@ static void param_tag_changed(struct impl *impl, const struct spa_pod *param)
 		pw_stream_update_params(impl->playback, params, 1);
 }
 
-static void state_changed(void *data, enum pw_stream_state old,
+static void capture_state_changed(void *data, enum pw_stream_state old,
 		enum pw_stream_state state, const char *error)
 {
 	struct impl *impl = data;
@@ -1048,7 +1048,9 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param,
 		struct spa_audio_info_raw info;
 		spa_zero(info);
 		if (param == NULL) {
-			spa_filter_graph_deactivate(graph);
+			pw_log_info("module %p: filter deactivate", impl);
+			if (capture)
+				spa_filter_graph_deactivate(graph);
 			impl->rate = 0;
 		} else {
 			if ((res = spa_format_audio_raw_parse(param, &info)) < 0)
@@ -1087,7 +1089,7 @@ static const struct pw_stream_events in_stream_events = {
 	.destroy = capture_destroy,
 	.process = capture_process,
 	.io_changed = io_changed,
-	.state_changed = state_changed,
+	.state_changed = capture_state_changed,
 	.param_changed = capture_param_changed
 };
 
@@ -1108,7 +1110,6 @@ static const struct pw_stream_events out_stream_events = {
 	.destroy = playback_destroy,
 	.process = playback_process,
 	.io_changed = io_changed,
-	.state_changed = state_changed,
 	.param_changed = playback_param_changed,
 };
 

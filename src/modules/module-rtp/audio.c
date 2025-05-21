@@ -7,7 +7,9 @@ static void rtp_audio_process_playback(void *data)
 	struct impl *impl = data;
 	struct pw_buffer *buf;
 	struct spa_data *d;
+	struct pw_time pwt;
 	uint32_t wanted, timestamp, target_buffer, stride, maxsize;
+	uint32_t device_delay;
 	int32_t avail, flags = 0;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
@@ -21,16 +23,36 @@ static void rtp_audio_process_playback(void *data)
 	maxsize = d[0].maxsize / stride;
 	wanted = buf->requested ? SPA_MIN(buf->requested, maxsize) : maxsize;
 
+	pw_stream_get_time_n(impl->stream, &pwt, sizeof(pwt));
+
+	/* Negative delay is used rarely, mostly for the combine stream.
+	 * There, the delay is used as an offset value between streams.
+	 * Here, negative delay values make no sense. It is safe to clamp
+	 * delay values to 0 (see docs), so do that here. */
+	device_delay = SPA_MAX(pwt.delay, 0LL);
+
 	if (impl->io_position && impl->direct_timestamp) {
 		/* in direct mode, read directly from the timestamp index,
 		 * because sender and receiver are in sync, this would keep
 		 * target_buffer of samples available. */
+
+		/* Shift clock position by stream delay to compensate
+		 * for processing and output delay. */
 		spa_ringbuffer_read_update(&impl->ring,
-				impl->io_position->clock.position);
+				impl->io_position->clock.position + device_delay);
 	}
 	avail = spa_ringbuffer_get_read_index(&impl->ring, &timestamp);
 
-	target_buffer = impl->target_buffer;
+	/* Reduce target buffer by the delay amount to start playback sooner.
+	 * This compensates for the delay to the device. */
+	if (SPA_UNLIKELY(impl->target_buffer < device_delay)) {
+		pw_log_error("Delay to device (%" PRIu32 ") is higher than "
+			"the target buffer size (%" PRIu32 ")", device_delay,
+			impl->target_buffer);
+		target_buffer = 0;
+	} else {
+		target_buffer = impl->target_buffer - device_delay;
+	}
 
 	if (avail < (int32_t)wanted) {
 		enum spa_log_level level;

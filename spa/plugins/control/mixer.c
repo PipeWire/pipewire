@@ -298,7 +298,8 @@ static int port_enum_formats(void *object, struct port *port,
 		*param = spa_pod_builder_add_object(builder,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
+			SPA_FORMAT_CONTROL_types,  SPA_POD_CHOICE_FLAGS_Int(SPA_ID_INVALID));
 		break;
 	default:
 		return 0;

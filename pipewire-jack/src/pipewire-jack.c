@@ -2549,11 +2549,28 @@ static int param_enum_format(struct client *c, struct port *p,
 	case TYPE_ID_UMP:
 	case TYPE_ID_OSC:
 	case TYPE_ID_MIDI:
-		*param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+	{
+		struct spa_pod_frame f;
+		int32_t types = 0;
+
+		spa_pod_builder_push_object(b, &f,
+			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+		spa_pod_builder_add(b,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
+			0);
+		if (p->object->port.type_id == TYPE_ID_UMP)
+			types |= 1u<<SPA_CONTROL_UMP;
+		if (p->object->port.type_id == TYPE_ID_OSC)
+			types |= 1u<<SPA_CONTROL_OSC;
+		if (types != 0)
+			spa_pod_builder_add(b,
+				SPA_FORMAT_CONTROL_types,  SPA_POD_CHOICE_FLAGS_Int(types),
+				0);
+
+		*param = spa_pod_builder_pop(b, &f);
 		break;
+	}
 	case TYPE_ID_VIDEO:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,

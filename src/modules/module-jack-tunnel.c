@@ -247,7 +247,6 @@ static void midi_to_jack(struct impl *impl, float *dst, float *src, uint32_t n_s
 	struct spa_pod_sequence *seq;
 	struct spa_pod_control *c;
 	int res;
-	bool in_sysex = false;
 	uint8_t tmp[n_samples * 4];
 	size_t tmp_size = 0;
 
@@ -267,23 +266,23 @@ static void midi_to_jack(struct impl *impl, float *dst, float *src, uint32_t n_s
 
 		if (c->type != SPA_CONTROL_UMP)
 			continue;
+		switch (c->type) {
+		case SPA_CONTROL_UMP:
+			size = spa_ump_to_midi(SPA_POD_BODY(&c->value),
+					SPA_POD_BODY_SIZE(&c->value), &tmp[tmp_size], sizeof(tmp) - tmp_size);
+			if (size <= 0)
+				continue;
+			tmp_size += size;
+			break;
+		case SPA_CONTROL_Midi:
+			tmp_size = SPA_POD_BODY_SIZE(&c->value);
+			memcpy(tmp, SPA_POD_BODY(&c->value), SPA_MIN(sizeof(tmp), tmp_size));
+			break;
+		}
 
-		size = spa_ump_to_midi(SPA_POD_BODY(&c->value),
-				SPA_POD_BODY_SIZE(&c->value), &tmp[tmp_size], sizeof(tmp) - tmp_size);
-		if (size <= 0)
-			continue;
-
-		if (impl->fix_midi)
-			fix_midi_event(&tmp[tmp_size], size);
-
-		if (!in_sysex && tmp[tmp_size] == 0xf0)
-			in_sysex = true;
-
-		tmp_size += size;
-		if (in_sysex && tmp[tmp_size-1] == 0xf7)
-			in_sysex = false;
-
-		if (!in_sysex) {
+		if (tmp[0] != 0xf0 || tmp[tmp_size-1] == 0xf7) {
+			if (impl->fix_midi)
+				fix_midi_event(tmp, tmp_size);
 			if ((res = jack.midi_event_write(dst, c->offset, tmp, tmp_size)) < 0)
 				pw_log_warn("midi %p: can't write event: %s", dst,
 						spa_strerror(res));

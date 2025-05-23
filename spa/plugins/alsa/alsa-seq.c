@@ -586,7 +586,8 @@ static int prepare_buffer(struct seq_state *state, struct seq_port *port)
 	spa_pod_builder_init(&port->builder,
 			port->buffer->buf->datas[0].data,
 			port->buffer->buf->datas[0].maxsize);
-        spa_pod_builder_push_sequence(&port->builder, &port->frame, 0);
+	spa_pod_builder_push_sequence(&port->builder, &port->frame, 0);
+	port->ev_offset = SPA_IDX_INVALID;
 
 	return 0;
 }
@@ -620,10 +621,8 @@ static int process_read(struct seq_state *state)
 	struct seq_stream *stream = &state->streams[SPA_DIRECTION_OUTPUT];
 	const bool ump = state->ump;
 	uint32_t i;
-	uint32_t *data;
 	uint8_t midi1_data[MAX_EVENT_SIZE];
 	uint32_t ump_data[MAX_EVENT_SIZE];
-	long size;
 	int res = -1;
 
 	/* copy all new midi events into their port buffers */
@@ -631,10 +630,11 @@ static int process_read(struct seq_state *state)
 		const snd_seq_addr_t *addr;
 		struct seq_port *port;
 		uint64_t ev_time, diff;
-		uint32_t offset;
+		uint32_t offset, ev_type;
 		void *event;
-		uint8_t *midi1_ptr;
-		size_t midi1_size = 0;
+		uint8_t *data_ptr;
+		size_t data_size = 0;
+		long size;
 		uint64_t ump_state = 0;
 		snd_seq_event_type_t SPA_UNUSED type;
 
@@ -679,7 +679,7 @@ static int process_read(struct seq_state *state)
 			continue;
 
 		if ((res = prepare_buffer(state, port)) < 0) {
-			spa_log_debug(state->log, "can't prepare buffer port:%p %d.%d: %s",
+			spa_log_warn(state->log, "can't prepare buffer port:%p %d.%d: %s",
 					port, addr->client, addr->port, spa_strerror(res));
 			continue;
 		}
@@ -702,8 +702,8 @@ static int process_read(struct seq_state *state)
 #ifdef HAVE_ALSA_UMP
 			snd_seq_ump_event_t *ev = event;
 
-			data = (uint32_t*)&ev->ump[0];
-			size = spa_ump_message_size(snd_ump_msg_hdr_type(ev->ump[0])) * 4;
+			data_ptr = (uint8_t*)&ev->ump[0];
+			data_size = spa_ump_message_size(snd_ump_msg_hdr_type(ev->ump[0])) * 4;
 #else
 			spa_assert_not_reached();
 #endif
@@ -712,40 +712,69 @@ static int process_read(struct seq_state *state)
 
 			snd_midi_event_reset_decode(stream->codec);
 			if ((size = snd_midi_event_decode(stream->codec, midi1_data, sizeof(midi1_data), ev)) < 0) {
-				spa_log_warn(state->log, "decode failed: %s", snd_strerror(size));
+				spa_log_warn(state->log, "decode failed: %s", snd_strerror(data_size));
 				continue;
 			}
-
-			midi1_ptr = midi1_data;
-			midi1_size = size;
+			data_ptr = midi1_data;
+			data_size = size;
 		}
 
-		do {
-			if (!ump) {
-				data = ump_data;
-				size = spa_ump_from_midi(&midi1_ptr, &midi1_size,
+		ev_type = (port->control_types & (1u << SPA_CONTROL_UMP)) ?
+			SPA_CONTROL_UMP : SPA_CONTROL_Midi;
+
+		spa_log_trace_fp(state->log, "event %d time:%"PRIu64" offset:%d size:%ld port:%d.%d",
+				type, ev_time, offset, data_size, addr->client, addr->port);
+
+		if ((ump && ev_type == SPA_CONTROL_UMP) ||
+		    (!ump && ev_type == SPA_CONTROL_Midi)) {
+			/* no conversion needed */
+			spa_pod_builder_control(&port->builder, offset, ev_type);
+			spa_pod_builder_bytes(&port->builder, data_ptr, data_size);
+		}
+		else if (ump) {
+                        bool continued = port->ev_offset != SPA_IDX_INVALID;
+
+			/* UMP -> MIDI */
+			size = spa_ump_to_midi((uint32_t*)data_ptr, data_size,
+					midi1_data, sizeof(midi1_data));
+			if (size < 0)
+				continue;
+
+			if (!continued) {
+				spa_pod_builder_control(&port->builder, offset, ev_type);
+				port->ev_offset = spa_pod_builder_bytes_start(&port->builder);
+				if (midi1_data[0] == 0xf0)
+					continued = true;
+			} else {
+				if (midi1_data[size-1] == 0xf7)
+					continued = false;
+			}
+			spa_pod_builder_bytes_append(&port->builder, port->ev_offset, midi1_data, size);
+
+			if (!continued) {
+				spa_pod_builder_bytes_end(&port->builder, port->ev_offset);
+				port->ev_offset = SPA_IDX_INVALID;
+			}
+		} else {
+			/* MIDI -> UMP */
+			while (data_size > 0) {
+				size = spa_ump_from_midi(&data_ptr, &data_size,
 						ump_data, sizeof(ump_data), 0, &ump_state);
 				if (size <= 0)
 					break;
+
+				spa_pod_builder_control(&port->builder, offset, ev_type);
+				spa_pod_builder_bytes(&port->builder, ump_data, size);
 			}
+		}
 
-			spa_log_trace_fp(state->log, "event %d time:%"PRIu64" offset:%d size:%ld port:%d.%d",
-					type, ev_time, offset, size, addr->client, addr->port);
-
-			spa_pod_builder_control(&port->builder, offset, SPA_CONTROL_UMP);
-			spa_pod_builder_bytes(&port->builder, data, size);
-
-			/* make sure we can fit at least one control event of max size otherwise
-			 * we keep the event in the queue and try to copy it in the next cycle */
-			if (port->builder.state.offset +
-					sizeof(struct spa_pod_control) +
-					MAX_EVENT_SIZE > port->buffer->buf->datas[0].maxsize)
-				goto done;
-
-		} while (!ump);
+		/* make sure we can fit at least one control event of max size otherwise
+		 * we keep the event in the queue and try to copy it in the next cycle */
+		if (port->builder.state.offset +
+				sizeof(struct spa_pod_control) +
+				MAX_EVENT_SIZE > port->buffer->buf->datas[0].maxsize)
+			break;
         }
-
-done:
 	if (res < 0 && res != -EAGAIN)
 		spa_log_warn(state->log, "event read failed: %s", snd_strerror(res));
 
@@ -760,6 +789,8 @@ done:
 			continue;
 
 		if (prepare_buffer(state, port) >= 0) {
+			if (port->ev_offset != SPA_IDX_INVALID)
+				spa_pod_builder_bytes_end(&port->builder, port->ev_offset);
 			spa_pod_builder_pop(&port->builder, &port->frame);
 
 			port->buffer->buf->datas[0].chunk->offset = 0;
@@ -846,9 +877,7 @@ static int process_write(struct seq_state *state)
 		SPA_POD_SEQUENCE_FOREACH(pod, c) {
 			size_t body_size;
 			uint8_t *body;
-
-			if (c->type != SPA_CONTROL_UMP)
-				continue;
+			int size;
 
 			body = SPA_POD_BODY(&c->value);
 			body_size = SPA_POD_BODY_SIZE(&c->value);
@@ -862,33 +891,67 @@ static int process_write(struct seq_state *state)
 
 			if (ump) {
 #ifdef HAVE_ALSA_UMP
+				uint8_t *ump_data;
+				uint32_t data[MAX_EVENT_SIZE];
 				snd_seq_ump_event_t ev;
 
-				snd_seq_ump_ev_clear(&ev);
-				snd_seq_ev_set_ump_data(&ev, body, SPA_MIN(sizeof(ev.ump), (size_t)body_size));
-				snd_seq_ev_set_source(&ev, state->event.addr.port);
-				snd_seq_ev_set_dest(&ev, port->addr.client, port->addr.port);
-				snd_seq_ev_schedule_real(&ev, state->event.queue_id, 0, &out_rt);
+				do {
+					switch (c->type) {
+					case SPA_CONTROL_UMP:
+						ump_data = body;
+						size = body_size;
+						body_size = 0;
+						break;
+					case SPA_CONTROL_Midi:
+						size = spa_ump_from_midi(&body, &body_size,
+								data, sizeof(data), 0, &port->ump_state);
+						ump_data = (uint8_t*)data;
+						break;
+					default:
+						size = 0;
+						body_size = 0;
+						continue;
+					}
+					if (size <= 0)
+						break;
 
-				if ((err = snd_seq_ump_event_output(state->event.hndl, &ev)) < 0) {
-					spa_log_warn(state->log, "failed to output event: %s",
-							snd_strerror(err));
-				}
+					snd_seq_ump_ev_clear(&ev);
+					snd_seq_ev_set_ump_data(&ev, ump_data, SPA_MIN(sizeof(ev.ump), (size_t)size));
+					snd_seq_ev_set_source(&ev, state->event.addr.port);
+					snd_seq_ev_set_dest(&ev, port->addr.client, port->addr.port);
+					snd_seq_ev_schedule_real(&ev, state->event.queue_id, 0, &out_rt);
+
+					if ((err = snd_seq_ump_event_output(state->event.hndl, &ev)) < 0) {
+						spa_log_warn(state->log, "failed to output event: %s",
+								snd_strerror(err));
+					}
+				} while (body_size > 0);
 #else
 				spa_assert_not_reached();
 #endif
 			} else {
 				snd_seq_event_t ev;
 				uint8_t data[MAX_EVENT_SIZE];
-				int size;
+				uint8_t *midi_data;
 
-				if ((size = spa_ump_to_midi((uint32_t *)body, body_size, data, sizeof(data))) <= 0)
+				switch (c->type) {
+				case SPA_CONTROL_UMP:
+					if ((size = spa_ump_to_midi((uint32_t *)body, body_size, data, sizeof(data))) <= 0)
+						continue;
+					midi_data = data;
+					break;
+				case SPA_CONTROL_Midi:
+					midi_data = body;
+					size = body_size;
+					break;
+				default:
 					continue;
+				}
 
 				if (first)
 					snd_seq_ev_clear(&ev);
 
-				if ((size = snd_midi_event_encode(stream->codec, data, size, &ev)) < 0) {
+				if ((size = snd_midi_event_encode(stream->codec, midi_data, size, &ev)) < 0) {
 					spa_log_warn(state->log, "failed to encode event: %s", snd_strerror(size));
 					snd_midi_event_reset_encode(stream->codec);
 					first = true;

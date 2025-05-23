@@ -80,7 +80,10 @@ struct seq_port {
 	struct buffer *buffer;
 	struct spa_pod_builder builder;
 	struct spa_pod_frame frame;
+	uint32_t ev_offset;
+	uint64_t ump_state;
 
+	uint32_t control_types;
 	struct spa_audio_info current_format;
 	unsigned int have_format:1;
 	unsigned int valid:1;

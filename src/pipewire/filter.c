@@ -1855,8 +1855,10 @@ void *pw_filter_add_port(struct pw_filter *filter,
 			add_control_dsp_port_params(impl, p, 1u << SPA_CONTROL_Midi);
 		else if (spa_streq(str, "8 bit raw control"))
 			add_control_dsp_port_params(impl, p, 0);
-		else if (spa_streq(str, "32 bit raw UMP"))
+		else if (spa_streq(str, "32 bit raw UMP")) {
 			add_control_dsp_port_params(impl, p, 1u << SPA_CONTROL_UMP);
+			pw_properties_set(props, PW_KEY_FORMAT_DSP, "8 bit raw midi");
+		}
 	}
 	/* then override with user provided if any */
 	if (update_params(impl, p, SPA_ID_INVALID, params, n_params) < 0)

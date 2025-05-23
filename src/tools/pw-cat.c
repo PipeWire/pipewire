@@ -102,6 +102,7 @@ struct data {
 #define TYPE_DSD	2
 #ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 #define TYPE_ENCODED    3
+#define TYPE_SYSEX	4
 #endif
 	int data_type;
 	bool raw;
@@ -162,6 +163,9 @@ struct data {
 		int64_t accumulated_excess_playtime;
 	} encoded;
 #endif
+	struct {
+		FILE *file;
+	} sysex;
 };
 
 #define STR_FMTS "(ulaw|alaw|u8|s8|s16|s32|f32|f64)"
@@ -942,6 +946,7 @@ static const struct option long_options[] = {
 	{ "midi",		no_argument,	   NULL, 'm' },
 	{ "dsd",		no_argument,	   NULL, 'd' },
 	{ "encoded",		no_argument,	   NULL, 'o' },
+	{ "sysex",		no_argument,	   NULL, 's' },
 
 	{ "remote",		required_argument, NULL, 'R' },
 
@@ -1020,6 +1025,7 @@ static void show_usage(const char *name, bool is_error)
 #ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 		     "  -o, --encoded                         Encoded mode\n"
 #endif
+		     "  -s, --sysex                           SysEx mode\n"
 		     "\n"), fp);
 	}
 }
@@ -1158,6 +1164,47 @@ static int setup_midifile(struct data *data)
 				data->midi.info.division);
 
 	data->fill = data->mode == mode_playback ?  midi_play : midi_record;
+	data->stride = 1;
+
+	return 0;
+}
+
+static int sysex_play(struct data *d, void *dst, unsigned int n_frames, bool *null_frame)
+{
+	struct spa_pod_builder b;
+	struct spa_pod_frame f;
+	size_t size, to_read = n_frames - 64;
+	uint8_t bytes[to_read];
+
+	spa_zero(b);
+	spa_pod_builder_init(&b, dst, n_frames);
+
+	spa_pod_builder_push_sequence(&b, &f, 0);
+	spa_pod_builder_control(&b, 0, SPA_CONTROL_Midi);
+
+	size = fread(bytes, 1, to_read, d->sysex.file);
+
+	spa_pod_builder_bytes(&b, bytes, size);
+	spa_pod_builder_pop(&b, &f);
+
+	return b.state.offset;
+}
+
+static int setup_sysex(struct data *data)
+{
+	if (data->mode == mode_record)
+		return -ENOTSUP;
+
+	data->sysex.file = fopen(data->filename, "r");
+	if (data->sysex.file == NULL) {
+		fprintf(stderr, "sysex: can't read file '%s': %m\n", data->filename);
+		return -errno;
+	}
+
+	if (data->verbose)
+		fprintf(stderr, "sysex: opened file \"%s\"\n", data->filename);
+
+	data->fill = sysex_play;
 	data->stride = 1;
 
 	return 0;
@@ -1672,6 +1719,9 @@ int main(int argc, char *argv[])
 	} else if (spa_streq(prog, "pw-midirecord")) {
 		data.mode = mode_record;
 		data.data_type = TYPE_MIDI;
+	} else if (spa_streq(prog, "pw-sysex")) {
+		data.mode = mode_playback;
+		data.data_type = TYPE_SYSEX;
 	} else if (spa_streq(prog, "pw-dsdplay")) {
 		data.mode = mode_playback;
 		data.data_type = TYPE_DSD;
@@ -1697,9 +1747,9 @@ int main(int argc, char *argv[])
 	}
 
 #ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
-	while ((c = getopt_long(argc, argv, "hvprmdoR:q:P:a", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hvprmdosR:q:P:a", long_options, NULL)) != -1) {
 #else
-	while ((c = getopt_long(argc, argv, "hvprmdR:q:P:a", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hvprmdsR:q:P:a", long_options, NULL)) != -1) {
 #endif
 
 		switch (c) {
@@ -1742,6 +1792,9 @@ int main(int argc, char *argv[])
 			data.data_type = TYPE_ENCODED;
 			break;
 #endif
+		case 's':
+			data.data_type = TYPE_SYSEX;
+			break;
 
 		case 'R':
 			data.remote_name = optarg;
@@ -1831,6 +1884,7 @@ int main(int argc, char *argv[])
 	if (!data.media_type) {
 		switch (data.data_type) {
 		case TYPE_MIDI:
+		case TYPE_SYSEX:
 			data.media_type = DEFAULT_MIDI_MEDIA_TYPE;
 			break;
 		default:
@@ -1918,6 +1972,9 @@ int main(int argc, char *argv[])
 			ret = setup_encodedfile(&data);
 			break;
 #endif
+		case TYPE_SYSEX:
+			ret = setup_sysex(&data);
+			break;
 		default:
 			ret = -ENOTSUP;
 			break;
@@ -1980,6 +2037,7 @@ int main(int argc, char *argv[])
 		break;
 	}
 	case TYPE_MIDI:
+	case TYPE_SYSEX:
 		params[n_params++] = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 				SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_application),

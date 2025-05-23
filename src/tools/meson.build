@@ -59,6 +59,7 @@ if get_option('pw-cat').allowed() and sndfile_dep.found()
     'pw-midirecord',
     'pw-dsdplay',
     'pw-encplay',
+    'pw-sysex',
   ]
 
   pw_cat = executable('pw-cat',

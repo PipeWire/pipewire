@@ -105,11 +105,11 @@ filtering out the \ref SPA_CONTROL_Midi, \ref SPA_CONTROL_OSC and
 converted to control messages in a similar way.
 
 Normally, all MIDI and UMP messages are converted to MIDI1 jack events unless
-the JACK port was created with an explcit "32 bits raw UMP" format or with
+the JACK port was created with an explcit "32 bit raw UMP" format or with
 the JackPortIsMIDI2 flag, in which case the raw UMP is passed to the JACK
 application directly. For output ports,
 the JACK events are assumed to be MIDI1 and converted to UMP unless the port
-has the "32 bit raw UMP" formati or the JackPortIsMIDI2 flag, in which case
+has the "32 bit raw UMP" format or the JackPortIsMIDI2 flag, in which case
 the UMP messages are simply passed on.
 
 There is a 1 to 1 mapping between the JACK events and control

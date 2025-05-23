@@ -2024,13 +2024,13 @@ impl_init(const struct spa_handle_factory *factory,
 	for (i = 0; i < N_PORTS; ++i) {
 		struct port *port = &this->ports[i];
 		static const struct spa_dict_item in_port_items[] = {
-			SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "32 bit raw UMP"),
+			SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "8 bit raw midi"),
 			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_NAME, "in"),
 			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_ALIAS, "in"),
 			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_GROUP, "group.0"),
 		};
 		static const struct spa_dict_item out_port_items[] = {
-			SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "32 bit raw UMP"),
+			SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "8 bit raw midi"),
 			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_NAME, "out"),
 			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_ALIAS, "out"),
 			SPA_DICT_ITEM_INIT(SPA_KEY_PORT_GROUP, "group.0"),

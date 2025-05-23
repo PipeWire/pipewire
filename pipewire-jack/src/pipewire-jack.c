@@ -3466,24 +3466,6 @@ static const char* type_to_string(jack_port_type_id_t type_id)
 	}
 }
 
-static const char* type_to_format_dsp(jack_port_type_id_t type_id)
-{
-	switch(type_id) {
-	case TYPE_ID_AUDIO:
-		return JACK_DEFAULT_AUDIO_TYPE;
-	case TYPE_ID_VIDEO:
-		return JACK_DEFAULT_VIDEO_TYPE;
-	case TYPE_ID_OSC:
-		return JACK_DEFAULT_OSC_TYPE;
-	case TYPE_ID_MIDI:
-		return JACK_DEFAULT_MIDI_TYPE;
-	case TYPE_ID_UMP:
-		return JACK_DEFAULT_UMP_TYPE;
-	default:
-		return NULL;
-	}
-}
-
 static bool type_is_dsp(jack_port_type_id_t type_id)
 {
 	switch(type_id) {
@@ -5546,7 +5528,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 
 	spa_list_init(&p->mix);
 
-	pw_properties_set(p->props, PW_KEY_FORMAT_DSP, type_to_format_dsp(type_id));
+	pw_properties_set(p->props, PW_KEY_FORMAT_DSP, type_to_string(type_id));
 	pw_properties_set(p->props, PW_KEY_PORT_NAME, port_name);
 	if (flags > 0x1f) {
 		pw_properties_setf(p->props, PW_KEY_PORT_EXTRA,

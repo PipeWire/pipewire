@@ -772,7 +772,7 @@ static int make_stream_ports(struct stream *s)
 			break;
 		case ffado_stream_type_midi:
 			props = pw_properties_new(
-					PW_KEY_FORMAT_DSP, "32 bit raw UMP",
+					PW_KEY_FORMAT_DSP, "8 bit raw midi",
 					PW_KEY_PORT_NAME, port->name,
 					PW_KEY_PORT_PHYSICAL, "true",
 					PW_KEY_PORT_TERMINAL, "true",

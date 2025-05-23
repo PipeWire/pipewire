@@ -1985,7 +1985,7 @@ int main(int argc, char *argv[])
 				SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_application),
 				SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 
-		pw_properties_set(data.props, PW_KEY_FORMAT_DSP, "32 bit raw UMP");
+		pw_properties_set(data.props, PW_KEY_FORMAT_DSP, "8 bit raw midi");
 		break;
 	case TYPE_DSD:
 	{

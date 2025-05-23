@@ -307,7 +307,7 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 			res = -EINVAL;
 			goto out;
 		}
-		pw_properties_set(props, PW_KEY_FORMAT_DSP, "32 bit raw UMP");
+		pw_properties_set(props, PW_KEY_FORMAT_DSP, "8 bit raw midi");
 		impl->stride = impl->format_info->size;
 		impl->rate = pw_properties_get_uint32(props, "midi.rate", 10000);
 		if (impl->rate == 0)

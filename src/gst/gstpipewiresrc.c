@@ -41,7 +41,7 @@ GST_DEBUG_CATEGORY_STATIC (pipewire_src_debug);
 #define GST_CAT_DEFAULT pipewire_src_debug
 
 #define DEFAULT_ALWAYS_COPY     false
-#define DEFAULT_MIN_BUFFERS     8
+#define DEFAULT_MIN_BUFFERS     1
 #define DEFAULT_MAX_BUFFERS     INT32_MAX
 #define DEFAULT_RESEND_LAST     false
 #define DEFAULT_KEEPALIVE_TIME  0

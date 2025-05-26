@@ -102,8 +102,8 @@ struct data {
 #define TYPE_DSD	2
 #ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 #define TYPE_ENCODED    3
-#define TYPE_SYSEX	4
 #endif
+#define TYPE_SYSEX	4
 	int data_type;
 	bool raw;
 	const char *remote_name;

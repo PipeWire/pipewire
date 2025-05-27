@@ -5,11 +5,11 @@
 #ifndef PIPEWIRE_IMPL_CLIENT_H
 #define PIPEWIRE_IMPL_CLIENT_H
 
+#include <spa/utils/hook.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/utils/hook.h>
 
 /** \page page_client_impl Client Implementation
  *

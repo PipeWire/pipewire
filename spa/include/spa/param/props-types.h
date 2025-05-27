@@ -5,6 +5,10 @@
 #ifndef SPA_PARAM_PROPS_TYPES_H
 #define SPA_PARAM_PROPS_TYPES_H
 
+#include <spa/param/param-types.h>
+
+#include <spa/param/bluetooth/type-info.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,10 +17,6 @@ extern "C" {
  * \addtogroup spa_param
  * \{
  */
-
-#include <spa/param/param-types.h>
-
-#include <spa/param/bluetooth/type-info.h>
 
 /** Props Param */
 #define SPA_TYPE_INFO_Props			SPA_TYPE_INFO_PARAM_BASE "Props"

@@ -5,15 +5,15 @@
 #ifndef SPA_POD_PARSER_H
 #define SPA_POD_PARSER_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <errno.h>
 #include <stdarg.h>
 
 #include <spa/pod/iter.h>
 #include <spa/pod/vararg.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef SPA_API_POD_PARSER
  #ifdef SPA_API_IMPL

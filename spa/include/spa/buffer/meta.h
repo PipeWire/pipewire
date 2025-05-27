@@ -5,12 +5,12 @@
 #ifndef SPA_META_H
 #define SPA_META_H
 
+#include <spa/utils/defs.h>
+#include <spa/pod/pod.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/utils/defs.h>
-#include <spa/pod/pod.h>
 
 #ifndef SPA_API_META
  #ifdef SPA_API_IMPL

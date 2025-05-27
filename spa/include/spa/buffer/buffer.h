@@ -5,12 +5,12 @@
 #ifndef SPA_BUFFER_H
 #define SPA_BUFFER_H
 
+#include <spa/utils/defs.h>
+#include <spa/buffer/meta.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/utils/defs.h>
-#include <spa/buffer/meta.h>
 
 #ifndef SPA_API_BUFFER
  #ifdef SPA_API_IMPL

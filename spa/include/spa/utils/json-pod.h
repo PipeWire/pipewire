@@ -5,15 +5,15 @@
 #ifndef SPA_UTILS_JSON_POD_H
 #define SPA_UTILS_JSON_POD_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/pod/pod.h>
 #include <spa/pod/builder.h>
 #include <spa/debug/types.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef SPA_API_JSON_POD
  #ifdef SPA_API_IMPL

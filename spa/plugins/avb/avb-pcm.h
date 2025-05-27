@@ -5,10 +5,6 @@
 #ifndef SPA_AVB_PCM_H
 #define SPA_AVB_PCM_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stddef.h>
 #include <math.h>
 #include <linux/if_ether.h>
@@ -36,6 +32,10 @@ extern "C" {
 #include <spa/param/audio/raw-json.h>
 
 #include "avb.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define MAX_RATES	16
 

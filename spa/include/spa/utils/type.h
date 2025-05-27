@@ -5,12 +5,12 @@
 #ifndef SPA_TYPE_H
 #define SPA_TYPE_H
 
+#include <spa/utils/defs.h>
+#include <spa/utils/string.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/utils/defs.h>
-#include <spa/utils/string.h>
 
 #ifndef SPA_API_TYPE
  #ifdef SPA_API_IMPL

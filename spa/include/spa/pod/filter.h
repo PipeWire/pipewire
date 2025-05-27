@@ -5,10 +5,6 @@
 #ifndef SPA_POD_FILTER_H
 #define SPA_POD_FILTER_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <errno.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -20,6 +16,10 @@ extern "C" {
 #include <spa/pod/builder.h>
 #include <spa/pod/compare.h>
 #include <spa/pod/dynamic.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef SPA_API_POD_FILTER
  #ifdef SPA_API_IMPL

@@ -5,12 +5,12 @@
 #ifndef SPA_PLUGIN_LOADER_H
 #define SPA_PLUGIN_LOADER_H
 
+#include <spa/utils/hook.h>
+#include <spa/utils/dict.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/utils/hook.h>
-#include <spa/utils/dict.h>
 
 #ifndef SPA_API_PLUGIN_LOADER
  #ifdef SPA_API_IMPL

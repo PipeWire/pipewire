@@ -5,11 +5,18 @@
 #ifndef SPA_TYPE_INFO_H
 #define SPA_TYPE_INFO_H
 
+#include <spa/utils/defs.h>
+#include <spa/utils/type.h>
+#include <spa/utils/enum-types.h>
+
+#include <spa/monitor/type-info.h>
+#include <spa/node/type-info.h>
+#include <spa/param/type-info.h>
+#include <spa/control/type-info.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/utils/defs.h>
 
 /**
  * \addtogroup spa_types
@@ -19,15 +26,6 @@ extern "C" {
 #ifndef SPA_TYPE_ROOT
 #define SPA_TYPE_ROOT	spa_types
 #endif
-
-
-#include <spa/utils/type.h>
-#include <spa/utils/enum-types.h>
-
-#include <spa/monitor/type-info.h>
-#include <spa/node/type-info.h>
-#include <spa/param/type-info.h>
-#include <spa/control/type-info.h>
 
 static const struct spa_type_info spa_types[] = {
         /* Basic types */

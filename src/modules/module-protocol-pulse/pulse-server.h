@@ -5,12 +5,12 @@
 #ifndef PIPEWIRE_PROTOCOL_PULSE_H
 #define PIPEWIRE_PROTOCOL_PULSE_H
 
+#include <spa/utils/defs.h>
+#include <spa/utils/hook.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/utils/defs.h>
-#include <spa/utils/hook.h>
 
 #define PW_PROTOCOL_PULSE_DEFAULT_PORT 4713
 #define PW_PROTOCOL_PULSE_DEFAULT_SOCKET "native"

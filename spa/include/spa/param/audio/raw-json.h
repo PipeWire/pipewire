@@ -5,6 +5,11 @@
 #ifndef SPA_AUDIO_RAW_JSON_H
 #define SPA_AUDIO_RAW_JSON_H
 
+#include <spa/utils/dict.h>
+#include <spa/utils/json.h>
+#include <spa/param/audio/raw.h>
+#include <spa/param/audio/raw-types.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,11 +18,6 @@ extern "C" {
  * \addtogroup spa_param
  * \{
  */
-
-#include <spa/utils/dict.h>
-#include <spa/utils/json.h>
-#include <spa/param/audio/raw.h>
-#include <spa/param/audio/raw-types.h>
 
 #ifndef SPA_API_AUDIO_RAW_JSON
  #ifdef SPA_API_IMPL

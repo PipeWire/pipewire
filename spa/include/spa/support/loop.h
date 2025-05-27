@@ -5,15 +5,15 @@
 #ifndef SPA_LOOP_H
 #define SPA_LOOP_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <errno.h>
 
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 #include <spa/support/system.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef SPA_API_LOOP
  #ifdef SPA_API_IMPL

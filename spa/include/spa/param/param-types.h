@@ -5,6 +5,10 @@
 #ifndef SPA_PARAM_TYPES_H
 #define SPA_PARAM_TYPES_H
 
+#include <spa/param/props.h>
+#include <spa/param/format.h>
+#include <spa/buffer/type-info.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,10 +17,6 @@ extern "C" {
  * \addtogroup spa_param
  * \{
  */
-
-#include <spa/param/props.h>
-#include <spa/param/format.h>
-#include <spa/buffer/type-info.h>
 
 /* base for parameter object enumerations */
 #define SPA_TYPE_INFO_ParamId		SPA_TYPE_INFO_ENUM_BASE "ParamId"

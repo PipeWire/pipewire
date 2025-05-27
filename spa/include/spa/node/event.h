@@ -5,6 +5,8 @@
 #ifndef SPA_EVENT_NODE_H
 #define SPA_EVENT_NODE_H
 
+#include <spa/pod/event.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,8 +15,6 @@ extern "C" {
  * \addtogroup spa_node
  * \{
  */
-
-#include <spa/pod/event.h>
 
 /* object id of SPA_TYPE_EVENT_Node */
 enum spa_node_event {

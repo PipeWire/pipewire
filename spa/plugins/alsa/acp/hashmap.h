@@ -5,11 +5,11 @@
 #ifndef PA_HASHMAP_H
 #define PA_HASHMAP_H
 
+#include "array.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "array.h"
 
 typedef unsigned (*pa_hash_func_t)(const void *p);
 typedef int (*pa_compare_func_t)(const void *a, const void *b);

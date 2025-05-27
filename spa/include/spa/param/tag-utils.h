@@ -5,6 +5,13 @@
 #ifndef SPA_PARAM_TAG_UTILS_H
 #define SPA_PARAM_TAG_UTILS_H
 
+#include <float.h>
+
+#include <spa/utils/dict.h>
+#include <spa/pod/builder.h>
+#include <spa/pod/parser.h>
+#include <spa/param/tag.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,13 +20,6 @@ extern "C" {
  * \addtogroup spa_param
  * \{
  */
-
-#include <float.h>
-
-#include <spa/utils/dict.h>
-#include <spa/pod/builder.h>
-#include <spa/pod/parser.h>
-#include <spa/param/tag.h>
 
 #ifndef SPA_API_TAG_UTILS
  #ifdef SPA_API_IMPL

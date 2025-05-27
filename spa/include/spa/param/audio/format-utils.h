@@ -5,10 +5,6 @@
 #ifndef SPA_PARAM_AUDIO_FORMAT_UTILS_H
 #define SPA_PARAM_AUDIO_FORMAT_UTILS_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <spa/pod/parser.h>
 #include <spa/pod/builder.h>
 #include <spa/param/audio/format.h>
@@ -33,6 +29,9 @@ extern "C" {
 #include <spa/param/audio/dts-utils.h>
 #include <spa/param/audio/mpegh-utils.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * \addtogroup spa_param

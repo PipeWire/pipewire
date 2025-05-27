@@ -5,6 +5,14 @@
 #ifndef SPA_NODE_H
 #define SPA_NODE_H
 
+#include <errno.h>
+#include <spa/utils/defs.h>
+#include <spa/utils/type.h>
+#include <spa/utils/hook.h>
+#include <spa/buffer/buffer.h>
+#include <spa/node/event.h>
+#include <spa/node/command.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -18,14 +26,6 @@ extern "C" {
  * \addtogroup spa_node
  * \{
  */
-
-#include <errno.h>
-#include <spa/utils/defs.h>
-#include <spa/utils/type.h>
-#include <spa/utils/hook.h>
-#include <spa/buffer/buffer.h>
-#include <spa/node/event.h>
-#include <spa/node/command.h>
 
 #ifndef SPA_API_NODE
  #ifdef SPA_API_IMPL

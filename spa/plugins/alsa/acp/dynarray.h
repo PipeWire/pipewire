@@ -5,11 +5,11 @@
 #ifndef PA_DYNARRAY_H
 #define PA_DYNARRAY_H
 
+#include "compat.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "array.h"
 
 typedef struct pa_dynarray_item {
 	void *ptr;

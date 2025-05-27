@@ -5,10 +5,6 @@
 #ifndef PIPEWIRE_NODE_H
 #define PIPEWIRE_NODE_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdarg.h>
 #include <errno.h>
 
@@ -18,6 +14,10 @@ extern "C" {
 #include <spa/param/param.h>
 
 #include <pipewire/proxy.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** \defgroup pw_node Node
  * Node interface

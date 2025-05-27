@@ -5,6 +5,8 @@
 #ifndef SPA_BLUETOOTH_TYPES_H
 #define SPA_BLUETOOTH_TYPES_H
 
+#include <spa/param/bluetooth/audio.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,8 +15,6 @@ extern "C" {
  * \addtogroup spa_param
  * \{
  */
-
-#include <spa/param/bluetooth/audio.h>
 
 #define SPA_TYPE_INFO_BluetoothAudioCodec		SPA_TYPE_INFO_ENUM_BASE "BluetoothAudioCodec"
 #define SPA_TYPE_INFO_BLUETOOTH_AUDIO_CODEC_BASE	SPA_TYPE_INFO_BluetoothAudioCodec ":"

@@ -5,6 +5,12 @@
 #ifndef SPA_POD_BUILDER_H
 #define SPA_POD_BUILDER_H
 
+#include <stdarg.h>
+
+#include <spa/utils/hook.h>
+#include <spa/pod/iter.h>
+#include <spa/pod/vararg.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -17,12 +23,6 @@ extern "C" {
  * \addtogroup spa_pod
  * \{
  */
-
-#include <stdarg.h>
-
-#include <spa/utils/hook.h>
-#include <spa/pod/iter.h>
-#include <spa/pod/vararg.h>
 
 #ifndef SPA_API_POD_BUILDER
  #ifdef SPA_API_IMPL

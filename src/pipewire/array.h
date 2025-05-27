@@ -5,13 +5,13 @@
 #ifndef PIPEWIRE_ARRAY_H
 #define PIPEWIRE_ARRAY_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <errno.h>
 
 #include <spa/utils/defs.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef PW_API_ARRAY
 #define PW_API_ARRAY static inline

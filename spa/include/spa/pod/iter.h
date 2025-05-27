@@ -5,14 +5,14 @@
 #ifndef SPA_POD_ITER_H
 #define SPA_POD_ITER_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <errno.h>
 #include <sys/types.h>
 
 #include <spa/pod/pod.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef SPA_API_POD_ITER
  #ifdef SPA_API_IMPL

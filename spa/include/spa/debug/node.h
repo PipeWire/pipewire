@@ -5,6 +5,10 @@
 #ifndef SPA_DEBUG_NODE_H
 #define SPA_DEBUG_NODE_H
 
+#include <spa/node/node.h>
+#include <spa/debug/context.h>
+#include <spa/debug/dict.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,10 +17,6 @@ extern "C" {
  * \addtogroup spa_debug
  * \{
  */
-
-#include <spa/node/node.h>
-#include <spa/debug/context.h>
-#include <spa/debug/dict.h>
 
 #ifndef SPA_API_DEBUG_NODE
  #ifdef SPA_API_IMPL

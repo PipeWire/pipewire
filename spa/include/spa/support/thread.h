@@ -5,16 +5,16 @@
 #ifndef SPA_THREAD_H
 #define SPA_THREAD_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <string.h>
 #include <errno.h>
 
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/dict.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef SPA_API_THREAD
  #ifdef SPA_API_IMPL

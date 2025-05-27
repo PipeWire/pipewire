@@ -5,11 +5,11 @@
 #ifndef PIPEWIRE_EXT_PROFILER_H
 #define PIPEWIRE_EXT_PROFILER_H
 
+#include <spa/utils/defs.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/utils/defs.h>
 
 /** \defgroup pw_profiler Profiler
  * Profiler interface

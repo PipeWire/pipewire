@@ -5,12 +5,12 @@
 #ifndef SPA_DEVICE_UTILS_H
 #define SPA_DEVICE_UTILS_H
 
+#include <spa/pod/builder.h>
+#include <spa/monitor/device.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/pod/builder.h>
-#include <spa/monitor/device.h>
 
 #ifndef SPA_API_DEVICE_UTILS
  #ifdef SPA_API_IMPL

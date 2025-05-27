@@ -5,17 +5,17 @@
 #ifndef ACP_H
 #define ACP_H
 
-#ifdef __cplusplus
-extern "C" {
-#else
-#include <stdbool.h>
-#endif
-
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <poll.h>
 #include <string.h>
+
+#ifdef __cplusplus
+extern "C" {
+#else
+#include <stdbool.h>
+#endif
 
 #ifdef __GNUC__
 #define ACP_PRINTF_FUNC(fmt, arg1) __attribute__((format(printf, fmt, arg1)))

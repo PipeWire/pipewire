@@ -5,11 +5,12 @@
 #ifndef PIPEWIRE_KEYS_H
 #define PIPEWIRE_KEYS_H
 
+#include <pipewire/utils.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <pipewire/utils.h>
 /**
  * \defgroup pw_keys Key Names
  *

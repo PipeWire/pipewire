@@ -5,14 +5,14 @@
 #ifndef PIPEWIRE_EXT_PROTOCOL_NATIVE_H
 #define PIPEWIRE_EXT_PROTOCOL_NATIVE_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <spa/utils/defs.h>
 
 #include <pipewire/proxy.h>
 #include <pipewire/resource.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** \defgroup pw_protocol_native Native Protocol
  * PipeWire native protocol interface

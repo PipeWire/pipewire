@@ -5,6 +5,12 @@
 #ifndef SPA_DEBUG_POD_H
 #define SPA_DEBUG_POD_H
 
+#include <spa/debug/context.h>
+#include <spa/debug/mem.h>
+#include <spa/debug/types.h>
+#include <spa/pod/pod.h>
+#include <spa/pod/iter.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,12 +19,6 @@ extern "C" {
  * \addtogroup spa_debug
  * \{
  */
-
-#include <spa/debug/context.h>
-#include <spa/debug/mem.h>
-#include <spa/debug/types.h>
-#include <spa/pod/pod.h>
-#include <spa/pod/iter.h>
 
 #ifndef SPA_API_DEBUG_POD
  #ifdef SPA_API_IMPL

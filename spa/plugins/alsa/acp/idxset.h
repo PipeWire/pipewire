@@ -5,11 +5,11 @@
 #ifndef PA_IDXSET_H
 #define PA_IDXSET_H
 
+#include "array.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "array.h"
 
 #define PA_IDXSET_INVALID ((uint32_t) -1)
 

@@ -22,13 +22,13 @@
 #ifndef PULSE_CARD_H
 #define PULSE_CARD_H
 
+#include "compat.h"
+
 #ifdef __cplusplus
 extern "C" {
 #else
 #include <stdbool.h>
 #endif
-
-#include "compat.h"
 
 typedef struct pa_card pa_card;
 

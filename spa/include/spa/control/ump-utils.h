@@ -6,12 +6,12 @@
 #ifndef SPA_CONTROL_UMP_UTILS_H
 #define SPA_CONTROL_UMP_UTILS_H
 
+#include <errno.h>
+#include <spa/utils/defs.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <errno.h>
-#include <spa/utils/defs.h>
 
 #ifndef SPA_API_CONTROL_UMP_UTILS
  #ifdef SPA_API_IMPL

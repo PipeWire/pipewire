@@ -5,11 +5,11 @@
 #ifndef PIPEWIRE_EXT_SECURITY_CONTEXT_H
 #define PIPEWIRE_EXT_SECURITY_CONTEXT_H
 
+#include <spa/utils/defs.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/utils/defs.h>
 
 /** \defgroup pw_security_context Security Context
  * Security Context interface

@@ -5,17 +5,18 @@
 #ifndef SPA_AUDIO_LAYOUT_H
 #define SPA_AUDIO_LAYOUT_H
 
+#include <spa/utils/endian.h>
+
+#include <spa/param/audio/raw.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/utils/endian.h>
 
 /**
  * \addtogroup spa_param
  * \{
  */
-#include <spa/param/audio/raw.h>
 
 struct spa_audio_layout_info {
 	uint32_t n_channels;

@@ -5,6 +5,9 @@
 #ifndef SPA_IO_H
 #define SPA_IO_H
 
+#include <spa/utils/defs.h>
+#include <spa/pod/pod.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,9 +16,6 @@ extern "C" {
  * \addtogroup spa_node
  * \{
  */
-
-#include <spa/utils/defs.h>
-#include <spa/pod/pod.h>
 
 /** IO areas
  *

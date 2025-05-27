@@ -5,6 +5,8 @@
 #ifndef SPA_RINGBUFFER_H
 #define SPA_RINGBUFFER_H
 
+#include <string.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -20,8 +22,6 @@ extern "C" {
  */
 
 struct spa_ringbuffer;
-
-#include <string.h>
 
 #include <spa/utils/defs.h>
 

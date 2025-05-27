@@ -5,11 +5,6 @@
 #ifndef SPA_UTILS_JSON_UTILS_H
 #define SPA_UTILS_JSON_UTILS_H
 
-#ifdef __cplusplus
-extern "C" {
-#else
-#include <stdbool.h>
-#endif
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -18,6 +13,12 @@ extern "C" {
 #include <float.h>
 
 #include <spa/utils/json-core.h>
+
+#ifdef __cplusplus
+extern "C" {
+#else
+#include <stdbool.h>
+#endif
 
 #ifndef SPA_API_JSON_UTILS
  #ifdef SPA_API_IMPL

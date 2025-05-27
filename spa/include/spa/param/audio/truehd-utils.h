@@ -5,6 +5,11 @@
 #ifndef SPA_AUDIO_TRUEHD_UTILS_H
 #define SPA_AUDIO_TRUEHD_UTILS_H
 
+#include <spa/pod/parser.h>
+#include <spa/pod/builder.h>
+#include <spa/param/audio/format.h>
+#include <spa/param/format-utils.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,11 +18,6 @@ extern "C" {
  * \addtogroup spa_param
  * \{
  */
-
-#include <spa/pod/parser.h>
-#include <spa/pod/builder.h>
-#include <spa/param/audio/format.h>
-#include <spa/param/format-utils.h>
 
 #ifndef SPA_API_AUDIO_TRUEHD_UTILS
  #ifdef SPA_API_IMPL

@@ -5,15 +5,6 @@
 #ifndef SPA_PARAM_AUDIO_FORMAT_H
 #define SPA_PARAM_AUDIO_FORMAT_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/**
- * \addtogroup spa_param
- * \{
- */
-
 #include <spa/param/format.h>
 #include <spa/param/audio/raw.h>
 #include <spa/param/audio/dsp.h>
@@ -34,6 +25,15 @@ extern "C" {
 #include <spa/param/audio/truehd.h>
 #include <spa/param/audio/dts.h>
 #include <spa/param/audio/mpegh.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * \addtogroup spa_param
+ * \{
+ */
 
 struct spa_audio_info {
 	uint32_t media_type;

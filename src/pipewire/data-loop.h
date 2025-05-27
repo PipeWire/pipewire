@@ -5,12 +5,12 @@
 #ifndef PIPEWIRE_DATA_LOOP_H
 #define PIPEWIRE_DATA_LOOP_H
 
+#include <spa/utils/hook.h>
+#include <spa/support/thread.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/utils/hook.h>
-#include <spa/support/thread.h>
 
 /** \defgroup pw_data_loop Data Loop
  *

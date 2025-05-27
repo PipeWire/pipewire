@@ -5,10 +5,6 @@
 #ifndef PIPEWIRE_FACTORY_H
 #define PIPEWIRE_FACTORY_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdarg.h>
 #include <errno.h>
 
@@ -16,6 +12,10 @@ extern "C" {
 #include <spa/utils/hook.h>
 
 #include <pipewire/proxy.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** \defgroup pw_factory Factory
  * Factory interface

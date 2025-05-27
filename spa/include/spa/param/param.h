@@ -5,6 +5,8 @@
 #ifndef SPA_PARAM_H
 #define SPA_PARAM_H
 
+#include <spa/utils/defs.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -17,8 +19,6 @@ extern "C" {
  * \addtogroup spa_param
  * \{
  */
-
-#include <spa/utils/defs.h>
 
 /** different parameter types that can be queried */
 enum spa_param_type {

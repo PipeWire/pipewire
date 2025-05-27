@@ -5,14 +5,14 @@
 #ifndef PA_PROPLIST_H
 #define PA_PROPLIST_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdio.h>
 
 #include "array.h"
 #include "acp.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define PA_PROP_DEVICE_DESCRIPTION             "device.description"
 

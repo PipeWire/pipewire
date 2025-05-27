@@ -5,6 +5,12 @@
 #ifndef SPA_NODE_TYPES_H
 #define SPA_NODE_TYPES_H
 
+#include <spa/utils/type.h>
+
+#include <spa/node/command.h>
+#include <spa/node/event.h>
+#include <spa/node/io.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,12 +19,6 @@ extern "C" {
  * \addtogroup spa_node
  * \{
  */
-
-#include <spa/utils/type.h>
-
-#include <spa/node/command.h>
-#include <spa/node/event.h>
-#include <spa/node/io.h>
 
 #define SPA_TYPE_INFO_IO			SPA_TYPE_INFO_ENUM_BASE "IO"
 #define SPA_TYPE_INFO_IO_BASE		SPA_TYPE_INFO_IO ":"

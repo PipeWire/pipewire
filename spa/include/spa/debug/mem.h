@@ -5,18 +5,18 @@
 #ifndef SPA_DEBUG_MEM_H
 #define SPA_DEBUG_MEM_H
 
+#include <inttypes.h>
+
+#include <spa/debug/context.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <inttypes.h>
 
 /**
  * \addtogroup spa_debug
  * \{
  */
-
-#include <spa/debug/context.h>
 
 #ifndef SPA_API_DEBUG_MEM
  #ifdef SPA_API_IMPL

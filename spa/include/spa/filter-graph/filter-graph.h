@@ -5,15 +5,15 @@
 #ifndef SPA_FILTER_GRAPH_H
 #define SPA_FILTER_GRAPH_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <sys/types.h>
 
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 #include <spa/pod/builder.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef SPA_API_FILTER_GRAPH
  #ifdef SPA_API_IMPL

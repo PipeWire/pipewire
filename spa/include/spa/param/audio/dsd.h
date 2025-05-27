@@ -7,12 +7,12 @@
 
 #include <stdint.h>
 
+#include <spa/param/param.h>
+#include <spa/param/audio/raw.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/param/param.h>
-#include <spa/param/audio/raw.h>
 
 /**
  * \addtogroup spa_param

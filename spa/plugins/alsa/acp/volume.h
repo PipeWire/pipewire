@@ -21,11 +21,11 @@
 #ifndef PA_VOLUME_H
 #define PA_VOLUME_H
 
+#include <math.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <math.h>
 
 typedef uint32_t pa_volume_t;
 

@@ -5,15 +5,15 @@
 #ifndef __PIPEWIRE_CLIENT_NODE0_TRANSPORT_H__
 #define __PIPEWIRE_CLIENT_NODE0_TRANSPORT_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <string.h>
 
 #include <spa/utils/defs.h>
 
 #include <pipewire/mem.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** information about the transport region \memberof pw_client_node */
 struct pw_client_node0_transport_info {

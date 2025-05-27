@@ -5,14 +5,14 @@
 #ifndef SPA_DLL_H
 #define SPA_DLL_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stddef.h>
 #include <math.h>
 
 #include <spa/utils/defs.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef SPA_API_DLL
  #ifdef SPA_API_IMPL

@@ -7,10 +7,6 @@
 #ifndef PWTEST_H
 #define PWTEST_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <limits.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -19,6 +15,10 @@ extern "C" {
 #include <spa/utils/string.h>
 #include <spa/utils/dict.h>
 #include "spa/support/plugin.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * \defgroup pwtest Test Suite

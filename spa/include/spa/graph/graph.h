@@ -5,6 +5,13 @@
 #ifndef SPA_GRAPH_H
 #define SPA_GRAPH_H
 
+#include <spa/utils/atomic.h>
+#include <spa/utils/defs.h>
+#include <spa/utils/list.h>
+#include <spa/utils/hook.h>
+#include <spa/node/node.h>
+#include <spa/node/io.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -17,13 +24,6 @@ extern "C" {
  * \addtogroup spa_graph
  * \{
  */
-
-#include <spa/utils/atomic.h>
-#include <spa/utils/defs.h>
-#include <spa/utils/list.h>
-#include <spa/utils/hook.h>
-#include <spa/node/node.h>
-#include <spa/node/io.h>
 
 #ifndef SPA_API_GRAPH
  #ifdef SPA_API_IMPL

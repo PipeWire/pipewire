@@ -22,12 +22,6 @@
 #ifndef PULSE_COMPAT_H
 #define PULSE_COMPAT_H
 
-#ifdef __cplusplus
-extern "C" {
-#else
-#include <stdbool.h>
-#endif
-
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -38,6 +32,12 @@ extern "C" {
 #include <limits.h>
 
 #include <spa/utils/string.h>
+
+#ifdef __cplusplus
+extern "C" {
+#else
+#include <stdbool.h>
+#endif
 
 typedef struct pa_core pa_core;
 

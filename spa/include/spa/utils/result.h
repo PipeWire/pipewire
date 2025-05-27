@@ -5,6 +5,10 @@
 #ifndef SPA_UTILS_RESULT_H
 #define SPA_UTILS_RESULT_H
 
+#include <errno.h>
+
+#include <spa/utils/defs.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -18,10 +22,6 @@ extern "C" {
  * \addtogroup spa_result
  * \{
  */
-
-#include <errno.h>
-
-#include <spa/utils/defs.h>
 
 #ifndef SPA_API_RESULT
  #ifdef SPA_API_IMPL

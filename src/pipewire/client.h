@@ -5,16 +5,16 @@
 #ifndef PIPEWIRE_CLIENT_H
 #define PIPEWIRE_CLIENT_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <spa/utils/defs.h>
 #include <spa/param/param.h>
 
 #include <pipewire/type.h>
 #include <pipewire/proxy.h>
 #include <pipewire/permission.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** \defgroup pw_client Client
  * Client interface

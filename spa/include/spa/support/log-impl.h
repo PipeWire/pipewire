@@ -5,14 +5,14 @@
 #ifndef SPA_LOG_IMPL_H
 #define SPA_LOG_IMPL_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdio.h>
 
 #include <spa/utils/type.h>
 #include <spa/support/log.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * \addtogroup spa_log

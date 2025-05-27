@@ -5,6 +5,11 @@
 #ifndef SPA_DEBUG_BUFFER_H
 #define SPA_DEBUG_BUFFER_H
 
+#include <spa/debug/context.h>
+#include <spa/debug/mem.h>
+#include <spa/debug/types.h>
+#include <spa/buffer/type-info.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -17,11 +22,6 @@ extern "C" {
  * \addtogroup spa_debug
  * \{
  */
-
-#include <spa/debug/context.h>
-#include <spa/debug/mem.h>
-#include <spa/debug/types.h>
-#include <spa/buffer/type-info.h>
 
 #ifndef SPA_API_DEBUG_BUFFER
  #ifdef SPA_API_IMPL

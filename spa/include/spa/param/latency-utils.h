@@ -5,6 +5,12 @@
 #ifndef SPA_PARAM_LATENCY_UTILS_H
 #define SPA_PARAM_LATENCY_UTILS_H
 
+#include <float.h>
+
+#include <spa/pod/builder.h>
+#include <spa/pod/parser.h>
+#include <spa/param/latency.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,12 +19,6 @@ extern "C" {
  * \addtogroup spa_param
  * \{
  */
-
-#include <float.h>
-
-#include <spa/pod/builder.h>
-#include <spa/pod/parser.h>
-#include <spa/param/latency.h>
 
 #ifndef SPA_API_LATENCY_UTILS
  #ifdef SPA_API_IMPL

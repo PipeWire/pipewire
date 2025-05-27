@@ -5,10 +5,6 @@
 #ifndef SPA_POD_COMPARE_H
 #define SPA_POD_COMPARE_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdarg.h>
 #include <errno.h>
 #include <stdint.h>
@@ -19,6 +15,10 @@ extern "C" {
 #include <spa/param/props.h>
 #include <spa/pod/iter.h>
 #include <spa/pod/builder.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef SPA_API_POD_COMPARE
  #ifdef SPA_API_IMPL

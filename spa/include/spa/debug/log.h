@@ -5,10 +5,6 @@
 #ifndef SPA_DEBUG_LOG_H
 #define SPA_DEBUG_LOG_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -19,6 +15,10 @@ extern "C" {
 #include <spa/debug/format.h>
 #include <spa/debug/mem.h>
 #include <spa/debug/pod.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef SPA_API_DEBUG_LOG
  #ifdef SPA_API_IMPL

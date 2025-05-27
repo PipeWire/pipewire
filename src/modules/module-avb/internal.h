@@ -5,11 +5,11 @@
 #ifndef AVB_INTERNAL_H
 #define AVB_INTERNAL_H
 
+#include <pipewire/pipewire.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <pipewire/pipewire.h>
 
 struct server;
 struct avb_mrp;

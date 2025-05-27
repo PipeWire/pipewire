@@ -5,13 +5,13 @@
 #ifndef SPA_POD_VARARG_H
 #define SPA_POD_VARARG_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdarg.h>
 
 #include <spa/pod/pod.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * \addtogroup spa_pod

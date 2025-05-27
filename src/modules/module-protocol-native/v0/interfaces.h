@@ -5,15 +5,15 @@
 #ifndef PIPEWIRE_INTERFACES_V0_H
 #define PIPEWIRE_INTERFACES_V0_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <spa/utils/defs.h>
 #include <spa/param/param.h>
 #include <spa/node/node.h>
 
 #include <pipewire/pipewire.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** Core */
 

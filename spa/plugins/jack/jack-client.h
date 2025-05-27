@@ -5,15 +5,15 @@
 #ifndef SPA_JACK_CLIENT_H
 #define SPA_JACK_CLIENT_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 #include <spa/support/log.h>
 
 #include <jack/jack.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct spa_jack_client_events {
 #define SPA_VERSION_JACK_CLIENT_EVENTS	0

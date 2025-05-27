@@ -5,10 +5,6 @@
 #ifndef PIPEWIRE_UTILS_H
 #define PIPEWIRE_UTILS_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdlib.h>
 #include <string.h>
 #include <sys/un.h>
@@ -17,13 +13,17 @@ extern "C" {
 #endif
 #include <errno.h>
 
-#ifndef ENODATA
-#define ENODATA 9919
-#endif
-
 #include <spa/utils/cleanup.h>
 #include <spa/utils/defs.h>
 #include <spa/pod/pod.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifndef ENODATA
+#define ENODATA 9919
+#endif
 
 /** \defgroup pw_utils Utilities
  *

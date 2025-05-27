@@ -5,6 +5,13 @@
 #ifndef SPA_PARAM_FORMAT_TYPES_H
 #define SPA_PARAM_FORMAT_TYPES_H
 
+#include <spa/param/format.h>
+#include <spa/param/param-types.h>
+
+#include <spa/param/audio/type-info.h>
+#include <spa/param/video/type-info.h>
+#include <spa/control/type-info.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,13 +20,6 @@ extern "C" {
  * \addtogroup spa_param
  * \{
  */
-
-#include <spa/param/format.h>
-#include <spa/param/param-types.h>
-
-#include <spa/param/audio/type-info.h>
-#include <spa/param/video/type-info.h>
-#include <spa/control/type-info.h>
 
 #define SPA_TYPE_INFO_Format			SPA_TYPE_INFO_PARAM_BASE "Format"
 #define SPA_TYPE_INFO_FORMAT_BASE		SPA_TYPE_INFO_Format ":"

@@ -5,10 +5,6 @@
 #ifndef SPA_BLUEZ5_DEFS_H
 #define SPA_BLUEZ5_DEFS_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <math.h>
 
 #include <spa/support/dbus.h>
@@ -22,6 +18,10 @@ extern "C" {
 #include <dbus/dbus.h>
 
 #include "config.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define BLUEZ_SERVICE "org.bluez"
 #define BLUEZ_PROFILE_MANAGER_INTERFACE BLUEZ_SERVICE ".ProfileManager1"

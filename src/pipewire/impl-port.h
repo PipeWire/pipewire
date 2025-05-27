@@ -5,11 +5,11 @@
 #ifndef PIPEWIRE_IMPL_PORT_H
 #define PIPEWIRE_IMPL_PORT_H
 
+#include <spa/utils/hook.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/utils/hook.h>
 
 /** \defgroup pw_impl_port Port Impl
  *

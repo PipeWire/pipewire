@@ -5,6 +5,10 @@
 #ifndef SPA_VIDEO_RAW_UTILS_H
 #define SPA_VIDEO_RAW_UTILS_H
 
+#include <spa/pod/parser.h>
+#include <spa/pod/builder.h>
+#include <spa/param/video/raw.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,10 +17,6 @@ extern "C" {
  * \addtogroup spa_param
  * \{
  */
-
-#include <spa/pod/parser.h>
-#include <spa/pod/builder.h>
-#include <spa/param/video/raw.h>
 
 #ifndef SPA_API_VIDEO_RAW_UTILS
  #ifdef SPA_API_IMPL

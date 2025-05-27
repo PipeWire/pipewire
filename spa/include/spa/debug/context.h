@@ -5,15 +5,16 @@
 #ifndef SPA_DEBUG_CONTEXT_H
 #define SPA_DEBUG_CONTEXT_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdio.h>
 #include <stdarg.h>
 #include <ctype.h>
 
 #include <spa/utils/defs.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * \addtogroup spa_debug
  * \{

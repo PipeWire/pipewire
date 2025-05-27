@@ -5,6 +5,10 @@
 #ifndef SPA_NODE_UTILS_H
 #define SPA_NODE_UTILS_H
 
+#include <spa/pod/builder.h>
+
+#include <spa/node/node.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,10 +17,6 @@ extern "C" {
  * \addtogroup spa_node
  * \{
  */
-
-#include <spa/pod/builder.h>
-
-#include <spa/node/node.h>
 
 #ifndef SPA_API_NODE_UTILS
  #ifdef SPA_API_IMPL

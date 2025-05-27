@@ -5,6 +5,13 @@
 #ifndef SPA_DEBUG_FORMAT_H
 #define SPA_DEBUG_FORMAT_H
 
+#include <spa/pod/parser.h>
+#include <spa/utils/string.h>
+#include <spa/debug/context.h>
+#include <spa/debug/types.h>
+#include <spa/param/type-info.h>
+#include <spa/param/format-utils.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,13 +20,6 @@ extern "C" {
  * \addtogroup spa_debug
  * \{
  */
-
-#include <spa/pod/parser.h>
-#include <spa/utils/string.h>
-#include <spa/debug/context.h>
-#include <spa/debug/types.h>
-#include <spa/param/type-info.h>
-#include <spa/param/format-utils.h>
 
 #ifndef SPA_API_DEBUG_FORMAT
  #ifdef SPA_API_IMPL

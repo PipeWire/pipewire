@@ -5,13 +5,13 @@
 #ifndef PIPEWIRE_RTSP_CLIENT_H
 #define PIPEWIRE_RTSP_CLIENT_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdarg.h>
 
 #include <pipewire/pipewire.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct pw_rtsp_client;
 

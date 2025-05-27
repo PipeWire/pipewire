@@ -5,12 +5,12 @@
 #ifndef PA_ARRAY_H
 #define PA_ARRAY_H
 
+#include <errno.h>
+#include <string.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <errno.h>
-#include <string.h>
 
 typedef struct pa_array {
 	void *data;		/**< pointer to array data */

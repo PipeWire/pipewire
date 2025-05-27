@@ -5,16 +5,16 @@
 #ifndef PIPEWIRE_MANAGER_H
 #define PIPEWIRE_MANAGER_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdio.h>
 
 #include <spa/utils/defs.h>
 #include <spa/pod/pod.h>
 
 #include <pipewire/pipewire.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct client;
 struct pw_manager_object;

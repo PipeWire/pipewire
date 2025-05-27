@@ -5,14 +5,14 @@
 #ifndef SPA_RATELIMIT_H
 #define SPA_RATELIMIT_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <inttypes.h>
 #include <stddef.h>
 
 #include <spa/utils/defs.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef SPA_API_RATELIMIT
  #ifdef SPA_API_IMPL

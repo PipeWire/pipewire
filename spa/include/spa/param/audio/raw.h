@@ -5,13 +5,13 @@
 #ifndef SPA_AUDIO_RAW_H
 #define SPA_AUDIO_RAW_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdint.h>
 
 #include <spa/utils/endian.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * \addtogroup spa_param

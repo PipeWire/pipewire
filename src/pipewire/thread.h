@@ -5,14 +5,14 @@
 #ifndef PIPEWIRE_THREAD_H
 #define PIPEWIRE_THREAD_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <string.h>
 #include <errno.h>
 
 #include <spa/support/thread.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** \defgroup pw_thread Thread
  *

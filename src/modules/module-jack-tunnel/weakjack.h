@@ -5,10 +5,6 @@
 #ifndef PIPEWIRE_WEAK_JACK_H
 #define PIPEWIRE_WEAK_JACK_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "config.h"
 
 #include <dlfcn.h>
@@ -16,6 +12,10 @@ extern "C" {
 #include <jack/jack.h>
 #include <jack/transport.h>
 #include <jack/midiport.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct weakjack {
 	jack_nframes_t (*cycle_wait) (jack_client_t* client);

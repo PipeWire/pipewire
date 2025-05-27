@@ -5,12 +5,12 @@
 #ifndef PIPEWIRE_CONTEXT_H
 #define PIPEWIRE_CONTEXT_H
 
+#include <spa/utils/defs.h>
+#include <spa/utils/hook.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/utils/defs.h>
-#include <spa/utils/hook.h>
 
 /** \defgroup pw_context Context
  *

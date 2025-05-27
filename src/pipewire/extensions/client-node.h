@@ -5,12 +5,12 @@
 #ifndef PIPEWIRE_EXT_CLIENT_NODE_H
 #define PIPEWIRE_EXT_CLIENT_NODE_H
 
+#include <spa/utils/defs.h>
+#include <spa/param/param.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/utils/defs.h>
-#include <spa/param/param.h>
 
 /** \defgroup pw_client_node Client Node
  * Client node interface

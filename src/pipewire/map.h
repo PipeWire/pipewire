@@ -5,15 +5,15 @@
 #ifndef PIPEWIRE_MAP_H
 #define PIPEWIRE_MAP_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <string.h>
 #include <errno.h>
 
 #include <spa/utils/defs.h>
 #include <pipewire/array.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef PW_API_MAP
 #define PW_API_MAP static inline

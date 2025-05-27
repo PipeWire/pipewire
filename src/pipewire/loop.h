@@ -5,12 +5,12 @@
 #ifndef PIPEWIRE_LOOP_H
 #define PIPEWIRE_LOOP_H
 
+#include <spa/support/loop.h>
+#include <spa/utils/dict.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/support/loop.h>
-#include <spa/utils/dict.h>
 
 /** \defgroup pw_loop Loop
  *

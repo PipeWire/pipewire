@@ -5,14 +5,13 @@
 #ifndef HILBERT_H
 #define HILBERT_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <errno.h>
 #include <stddef.h>
 #include <math.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 static inline void blackman_window(float *taps, int n_taps)
 {

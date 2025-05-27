@@ -5,6 +5,8 @@
 #ifndef SPA_COMMAND_NODE_H
 #define SPA_COMMAND_NODE_H
 
+#include <spa/pod/command.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,8 +15,6 @@ extern "C" {
  * \addtogroup spa_node
  * \{
  */
-
-#include <spa/pod/command.h>
 
 /* object id of SPA_TYPE_COMMAND_Node */
 enum spa_node_command {

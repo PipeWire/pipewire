@@ -5,14 +5,14 @@
 #ifndef PIPEWIRE_EXT_METADATA_H
 #define PIPEWIRE_EXT_METADATA_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 
 #include <errno.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** \defgroup pw_metadata Metadata
  * Metadata interface

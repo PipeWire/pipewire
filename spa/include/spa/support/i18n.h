@@ -5,12 +5,12 @@
 #ifndef SPA_I18N_H
 #define SPA_I18N_H
 
+#include <spa/utils/hook.h>
+#include <spa/utils/defs.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/utils/hook.h>
-#include <spa/utils/defs.h>
 
 #ifndef SPA_API_I18N
  #ifdef SPA_API_IMPL

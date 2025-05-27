@@ -7,13 +7,13 @@
 #ifndef PIPEWIRE_IMPL_MODULE_H
 #define PIPEWIRE_IMPL_MODULE_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <spa/utils/hook.h>
 
 #include <pipewire/context.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define PIPEWIRE_SYMBOL_MODULE_INIT "pipewire__module_init"
 #define PIPEWIRE_MODULE_PREFIX "libpipewire-"

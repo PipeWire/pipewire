@@ -5,15 +5,15 @@
 #ifndef SPA_CPU_H
 #define SPA_CPU_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdarg.h>
 #include <errno.h>
 
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef SPA_API_CPU
  #ifdef SPA_API_IMPL

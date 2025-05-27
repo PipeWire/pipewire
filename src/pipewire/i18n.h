@@ -5,6 +5,8 @@
 #ifndef PIPEWIRE_I18N_H
 #define PIPEWIRE_I18N_H
 
+#include <spa/support/i18n.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -17,7 +19,6 @@ extern "C" {
  * \addtogroup pw_gettext
  * \{
  */
-#include <spa/support/i18n.h>
 
 SPA_FORMAT_ARG_FUNC(1) const char *pw_gettext(const char *msgid);
 SPA_FORMAT_ARG_FUNC(1) const char *pw_ngettext(const char *msgid, const char *msgid_plural, unsigned long int n);

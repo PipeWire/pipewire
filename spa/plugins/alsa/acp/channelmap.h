@@ -21,11 +21,11 @@
 #ifndef PULSE_CHANNELMAP_H
 #define PULSE_CHANNELMAP_H
 
+#include "spa/utils/defs.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "spa/utils/defs.h"
 
 #define PA_CHANNELS_MAX	64
 

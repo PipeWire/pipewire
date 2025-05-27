@@ -5,12 +5,12 @@
 #ifndef SPA_POD_DYNAMIC_H
 #define SPA_POD_DYNAMIC_H
 
+#include <spa/pod/builder.h>
+#include <spa/utils/cleanup.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/pod/builder.h>
-#include <spa/utils/cleanup.h>
 
 #ifndef SPA_API_POD_DYNAMIC
  #ifdef SPA_API_IMPL

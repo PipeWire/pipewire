@@ -5,11 +5,11 @@
 #ifndef SPA_DBUS_H
 #define SPA_DBUS_H
 
+#include <spa/support/loop.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/support/loop.h>
 
 #ifndef SPA_API_DBUS
  #ifdef SPA_API_IMPL

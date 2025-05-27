@@ -5,11 +5,11 @@
 #ifndef PIPEWIRE_RESOURCE_H
 #define PIPEWIRE_RESOURCE_H
 
+#include <spa/utils/hook.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/utils/hook.h>
 
 /** \defgroup pw_resource Resource
  *

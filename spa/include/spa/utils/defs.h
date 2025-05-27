@@ -5,6 +5,13 @@
 #ifndef SPA_UTILS_DEFS_H
 #define SPA_UTILS_DEFS_H
 
+#include <inttypes.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stddef.h>
+#include <stdio.h>
+
 #ifdef __cplusplus
 extern "C" {
 # if __cplusplus >= 201103L
@@ -33,13 +40,6 @@ extern "C" {
 
 #define SPA_CONCAT_NOEXPAND(a, b) a ## b
 #define SPA_CONCAT(a, b) SPA_CONCAT_NOEXPAND(a, b)
-
-#include <inttypes.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stddef.h>
-#include <stdio.h>
 
 /**
  * \defgroup spa_utils_defs Miscellaneous

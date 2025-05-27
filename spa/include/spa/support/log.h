@@ -5,15 +5,15 @@
 #ifndef SPA_LOG_H
 #define SPA_LOG_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdarg.h>
 
 #include <spa/utils/type.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef SPA_API_LOG
  #ifdef SPA_API_IMPL

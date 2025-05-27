@@ -7,10 +7,6 @@
 
 /** \privatesection */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <sys/socket.h>
 #include <sys/types.h> /* for pthread_t */
 
@@ -23,6 +19,10 @@ extern "C" {
 #include <spa/utils/ratelimit.h>
 #include <spa/utils/result.h>
 #include <spa/utils/type-info.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #if defined(__FreeBSD__) || defined(__MidnightBSD__) || defined(__GNU__)
 struct ucred {

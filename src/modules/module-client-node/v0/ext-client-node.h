@@ -5,15 +5,15 @@
 #ifndef __PIPEWIRE_EXT_CLIENT_NODE0_H__
 #define __PIPEWIRE_EXT_CLIENT_NODE0_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <spa/utils/defs.h>
 #include <spa/param/param.h>
 #include <spa/node/node.h>
 
 #include <pipewire/proxy.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define PW_TYPE_INTERFACE_ClientNode            PW_TYPE_INFO_INTERFACE_BASE "ClientNode"
 

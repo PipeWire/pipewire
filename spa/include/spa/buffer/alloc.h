@@ -5,11 +5,11 @@
 #ifndef SPA_BUFFER_ALLOC_H
 #define SPA_BUFFER_ALLOC_H
 
+#include <spa/buffer/buffer.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/buffer/buffer.h>
 
 #ifndef SPA_API_BUFFER_ALLOC
  #ifdef SPA_API_IMPL

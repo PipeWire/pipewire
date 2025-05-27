@@ -5,14 +5,14 @@
 #ifndef PIPEWIRE_MODULE_H
 #define PIPEWIRE_MODULE_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 
 #include <pipewire/proxy.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** \defgroup pw_module Module
  * Module interface

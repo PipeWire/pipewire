@@ -5,10 +5,6 @@
 #ifndef SPA_ALSA_SEQ_H
 #define SPA_ALSA_SEQ_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stddef.h>
 #include <math.h>
 
@@ -33,6 +29,9 @@ extern "C" {
 
 #include "alsa.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct props {
 	char device[64];

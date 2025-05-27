@@ -5,11 +5,11 @@
 #ifndef PIPEWIRE_PERMISSION_H
 #define PIPEWIRE_PERMISSION_H
 
+#include <spa/utils/defs.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <spa/utils/defs.h>
 
 /** \defgroup pw_permission Permission
  *

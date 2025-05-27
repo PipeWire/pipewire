@@ -5,10 +5,6 @@
 #ifndef SPA_ALSA_UTILS_H
 #define SPA_ALSA_UTILS_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stddef.h>
 #include <math.h>
 
@@ -35,6 +31,9 @@ extern "C" {
 
 #include "alsa.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define MAX_RATES	16
 

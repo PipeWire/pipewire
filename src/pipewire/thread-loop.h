@@ -5,11 +5,11 @@
 #ifndef PIPEWIRE_THREAD_LOOP_H
 #define PIPEWIRE_THREAD_LOOP_H
 
+#include <pipewire/loop.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <pipewire/loop.h>
 
 /** \page page_thread_loop Thread Loop
  *

@@ -5,14 +5,14 @@
 #ifndef SPA_DEVICE_H
 #define SPA_DEVICE_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/dict.h>
 #include <spa/pod/event.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef SPA_API_DEVICE
  #ifdef SPA_API_IMPL

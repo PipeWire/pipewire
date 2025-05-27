@@ -449,27 +449,27 @@ static int negotiate_buffers(struct impl *this)
 
 	state = 0;
 	param = NULL;
-	if ((res = node_port_enum_params_sync(this, this->follower,
-				this->direction, 0,
+	if ((res = node_port_enum_params_sync(this, this->target,
+				SPA_DIRECTION_REVERSE(this->direction), 0,
 				SPA_PARAM_Buffers, &state,
 				param, &param, &b)) < 0) {
 		if (res == -ENOENT)
 			param = NULL;
 		else {
-			debug_params(this, this->follower, this->direction, 0,
-				SPA_PARAM_Buffers, param, "follower buffers", res);
+			debug_params(this, this->target,
+				SPA_DIRECTION_REVERSE(this->direction), 0,
+				SPA_PARAM_Buffers, param, "target buffers", res);
 			return res;
 		}
 	}
 
 	state = 0;
-	if ((res = node_port_enum_params_sync(this, this->target,
-				SPA_DIRECTION_REVERSE(this->direction), 0,
+	if ((res = node_port_enum_params_sync(this, this->follower,
+				this->direction, 0,
 				SPA_PARAM_Buffers, &state,
 				param, &param, &b)) != 1) {
-		debug_params(this, this->target,
-				SPA_DIRECTION_REVERSE(this->direction), 0,
-				SPA_PARAM_Buffers, param, "convert buffers", res);
+		debug_params(this, this->follower, this->direction, 0,
+				SPA_PARAM_Buffers, param, "follower buffers", res);
 		return -ENOTSUP;
 	}
 	if (param == NULL)
@@ -503,7 +503,7 @@ static int negotiate_buffers(struct impl *this)
 	if (this->async)
 		buffers = SPA_MAX(2u, buffers);
 
-	spa_log_debug(this->log, "%p: buffers:%d, blocks:%d, size:%d, stride:%d align:%d %d:%d",
+	spa_log_info(this->log, "%p: buffers:%d, blocks:%d, size:%d, stride:%d align:%d %d:%d",
 			this, buffers, blocks, size, stride, align, follower_alloc, conv_alloc);
 
 	align = SPA_MAX(align, this->max_align);
@@ -966,11 +966,11 @@ static int negotiate_format(struct impl *this)
 	/* The target has been negotiated on its other ports and so it can propose
 	 * a passthrough format or an ideal conversion. We use the suggestions of the
 	 * target to find the best follower format */
-	for (fstate = 0;;) {
+	for (tstate = 0;;) {
 		format = NULL;
 		res = node_port_enum_params_sync(this, this->target,
 					SPA_DIRECTION_REVERSE(this->direction), 0,
-					SPA_PARAM_EnumFormat, &fstate,
+					SPA_PARAM_EnumFormat, &tstate,
 					NULL, &format, &b);
 
 		if (res == -ENOENT)
@@ -981,10 +981,10 @@ static int negotiate_format(struct impl *this)
 		if (format != NULL)
 			spa_debug_log_pod(this->log, SPA_LOG_LEVEL_DEBUG, 0, NULL, format);
 
-		tstate = 0;
+		fstate = 0;
 		fres = node_port_enum_params_sync(this, this->follower,
 					this->direction, 0,
-					SPA_PARAM_EnumFormat, &tstate,
+					SPA_PARAM_EnumFormat, &fstate,
 					format, &format, &b);
 		if (fres == 0 && res == 1)
 			continue;

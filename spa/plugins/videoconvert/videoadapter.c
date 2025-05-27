@@ -423,8 +423,9 @@ static int negotiate_buffers(struct impl *this)
 		if (res == -ENOENT)
 			param = NULL;
 		else {
-			debug_params(this, this->follower, this->direction, 0,
-				SPA_PARAM_Buffers, param, "follower buffers", res);
+			debug_params(this, this->target,
+				SPA_DIRECTION_REVERSE(this->direction), 0,
+				SPA_PARAM_Buffers, param, "target buffers", res);
 			return res;
 		}
 	}
@@ -434,10 +435,13 @@ static int negotiate_buffers(struct impl *this)
 				this->direction, 0,
 				SPA_PARAM_Buffers, &state,
 				param, &param, &b)) != 1) {
-		debug_params(this, this->target,
-				SPA_DIRECTION_REVERSE(this->direction), 0,
-				SPA_PARAM_Buffers, param, "convert buffers", res);
-		return -ENOTSUP;
+		if (res == -ENOENT)
+			res = 0;
+		else {
+			debug_params(this, this->follower, this->direction, 0,
+				SPA_PARAM_Buffers, param, "follower buffers", res);
+			return res < 0 ? res : -ENOTSUP;
+		}
 	}
 	if (param == NULL)
 		return -ENOTSUP;

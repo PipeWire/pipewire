@@ -468,9 +468,13 @@ static int negotiate_buffers(struct impl *this)
 				this->direction, 0,
 				SPA_PARAM_Buffers, &state,
 				param, &param, &b)) != 1) {
-		debug_params(this, this->follower, this->direction, 0,
+		if (res == -ENOENT)
+			res = 0;
+		else {
+			debug_params(this, this->follower, this->direction, 0,
 				SPA_PARAM_Buffers, param, "follower buffers", res);
-		return -ENOTSUP;
+			return res < 0 ? res : -ENOTSUP;
+		}
 	}
 	if (param == NULL)
 		return -ENOTSUP;

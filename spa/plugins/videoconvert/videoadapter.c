@@ -778,7 +778,8 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	link_io(this);
 
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS | SPA_NODE_CHANGE_MASK_PARAMS;
-	SPA_FLAG_CLEAR(this->info.flags, SPA_NODE_FLAG_NEED_CONFIGURE);
+	SPA_FLAG_UPDATE(this->info.flags, SPA_NODE_FLAG_NEED_CONFIGURE,
+			this->mode == SPA_PARAM_PORT_CONFIG_MODE_none);
 	SPA_FLAG_UPDATE(this->info.flags, SPA_NODE_FLAG_ASYNC,
 			this->async && this->follower == this->target);
 	this->params[IDX_Props].user++;
@@ -2045,8 +2046,7 @@ impl_init(const struct spa_handle_factory *factory,
 		SPA_NODE_CHANGE_MASK_PARAMS;
 	this->info = SPA_NODE_INFO_INIT();
 	this->info.flags = SPA_NODE_FLAG_RT |
-		0;
-		//SPA_NODE_FLAG_NEED_CONFIGURE;
+		SPA_NODE_FLAG_NEED_CONFIGURE;
 	this->params[IDX_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	this->params[IDX_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
 	this->params[IDX_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);

@@ -770,7 +770,8 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	link_io(this);
 
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS | SPA_NODE_CHANGE_MASK_PARAMS;
-	SPA_FLAG_CLEAR(this->info.flags, SPA_NODE_FLAG_NEED_CONFIGURE);
+	SPA_FLAG_UPDATE(this->info.flags, SPA_NODE_FLAG_NEED_CONFIGURE,
+			this->mode == SPA_PARAM_PORT_CONFIG_MODE_none);
 	SPA_FLAG_UPDATE(this->info.flags, SPA_NODE_FLAG_ASYNC,
 			this->async && this->follower == this->target);
 	this->params[IDX_Props].user++;

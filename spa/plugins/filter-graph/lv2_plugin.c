@@ -23,6 +23,7 @@
 		#include <lv2/state/state.h>
 		#include <lv2/options/options.h>
 		#include <lv2/parameters/parameters.h>
+		#include <lv2/log/log.h>
 
 #	else
 
@@ -32,6 +33,7 @@
 		#include <lv2/lv2plug.in/ns/ext/state/state.h>
 		#include <lv2/lv2plug.in/ns/ext/options/options.h>
 		#include <lv2/lv2plug.in/ns/ext/parameters/parameters.h>
+		#include <lv2/lv2plug.in/ns/ext/log/log.h>
 
 #	endif
 
@@ -236,6 +238,8 @@ struct instance {
 	LilvInstance *instance;
 	LV2_Worker_Schedule work_schedule;
 	LV2_Feature work_schedule_feature;
+	LV2_Log_Log log;
+	LV2_Feature log_feature;
 	LV2_Options_Option options[6];
 	LV2_Feature options_feature;
 
@@ -335,6 +339,25 @@ static const void *state_retrieve_function(LV2_State_Handle handle,
 	return NULL;
 }
 
+SPA_PRINTF_FUNC(3, 0)
+static int log_vprintf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, va_list ap)
+{
+	struct instance *i = (struct instance*)handle;
+	spa_log_logv(i->p->log, SPA_LOG_LEVEL_INFO, __FILE__,__LINE__,__func__, fmt, ap);
+	return 0;
+}
+
+SPA_PRINTF_FUNC(3, 4)
+static int log_printf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, ...)
+{
+	va_list args;
+	int ret;
+	va_start(args, fmt);
+	ret = log_vprintf(handle, type, fmt, args);
+	va_end(args);
+	return ret;
+}
+
 static void *lv2_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
                         unsigned long SampleRate, int index, const char *config)
 {
@@ -355,6 +378,12 @@ static void *lv2_instantiate(const struct spa_fga_plugin *plugin, const struct s
 	i->block_length = 1024;
 	i->desc = d;
 	i->p = p;
+	i->log.handle = i;
+	i->log.printf = log_printf;
+	i->log.vprintf = log_vprintf;
+	i->log_feature.URI = LV2_LOG__log;
+	i->log_feature.data = &i->log;
+	i->features[n_features++] = &i->log_feature;
 	i->features[n_features++] = &c->map_feature;
 	i->features[n_features++] = &c->unmap_feature;
 	i->features[n_features++] = &buf_size_features[0];

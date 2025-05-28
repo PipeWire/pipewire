@@ -97,7 +97,7 @@ static void sco_io_on_ready(struct spa_source *source)
 
 	if (SPA_FLAG_IS_SET(source->rmask, SPA_IO_IN)) {
 		int res;
-		uint64_t rx_time;
+		uint64_t rx_time = 0;
 
 	read_again:
 		res = spa_bt_recvmsg(&io->recv, io->read_buffer, SPA_MIN(io->read_mtu, MAX_MTU), &rx_time);

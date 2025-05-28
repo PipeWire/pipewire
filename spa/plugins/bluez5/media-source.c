@@ -506,7 +506,7 @@ static void media_on_ready_read(struct spa_source *source)
 	int32_t size_read, decoded;
 	uint32_t avail;
 	uint64_t dt;
-	uint64_t now;
+	uint64_t now = 0;
 
 	/* make sure the source is an input */
 	if ((source->rmask & SPA_IO_IN) == 0) {

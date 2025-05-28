@@ -177,11 +177,11 @@ static struct context *context_new(void)
 
 	c->map.handle = &c->uri_table;
 	c->map.map = uri_table_map;
-	c->map_feature.URI = LV2_URID_MAP_URI;
+	c->map_feature.URI = LV2_URID__map;
 	c->map_feature.data = &c->map;
 	c->unmap.handle = &c->uri_table;
 	c->unmap.unmap  = uri_table_unmap;
-	c->unmap_feature.URI = LV2_URID_UNMAP_URI;
+	c->unmap_feature.URI = LV2_URID__unmap;
 	c->unmap_feature.data = &c->unmap;
 
 	c->atom_Int = context_map(c, LV2_ATOM__Int);

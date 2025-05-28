@@ -354,7 +354,7 @@ spa_pod_builder_bytes_append(struct spa_pod_builder *builder, uint32_t offset,
 }
 
 SPA_API_POD_BUILDER int
-spa_pod_builder_bytes_end(struct spa_pod_builder *builder, uint32_t offset)
+spa_pod_builder_bytes_end(struct spa_pod_builder *builder, uint32_t offset SPA_UNUSED)
 {
 	return spa_pod_builder_pad(builder, builder->state.offset);
 }

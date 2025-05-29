@@ -326,8 +326,6 @@ static int encoded_playback_fill(struct data *d, void *dest, unsigned int n_fram
 
 static int av_codec_params_to_audio_info(struct data *data, AVCodecParameters *codec_params, struct spa_audio_info *info)
 {
-	int32_t profile;
-
 	switch (codec_params->codec_id) {
 	case AV_CODEC_ID_VORBIS:
 		info->media_subtype = SPA_MEDIA_SUBTYPE_vorbis;
@@ -352,32 +350,50 @@ static int av_codec_params_to_audio_info(struct data *data, AVCodecParameters *c
 	case AV_CODEC_ID_WMAVOICE:
 	case AV_CODEC_ID_WMALOSSLESS:
 		info->media_subtype = SPA_MEDIA_SUBTYPE_wma;
+		info->info.wma.rate = data->rate;
+		info->info.wma.channels = data->channels;
+		info->info.wma.bitrate = data->bitrate;
+		info->info.wma.block_align = codec_params->block_align;
+		/* The codec tag is not decided by FFmpeg; instead, it is
+		 * directly taken from the container. FFmpeg currently has
+		 * no named constants for the WMA versions, so numeric
+		 * constants have to be used here instead. */
 		switch (codec_params->codec_tag) {
-		/* TODO see if these hex constants can be replaced by named constants from FFmpeg */
+		/* This originates from Microsoft's mmreg.h , where
+		 * 0x160 is specified as meaning WMA v1 (which is commonly
+		 * referred to as WMA 7). */
+		case 0x160:
+			info->info.wma.profile = SPA_AUDIO_WMA_PROFILE_WMA7;
+			break;
+		/* This originates from Microsoft's mmreg.h , where
+		 * 0x161 is specified as meaning WMA v2 (which is commonly
+		 * referred to as WMA 8 or 9). */
 		case 0x161:
-			profile = SPA_AUDIO_WMA_PROFILE_WMA9;
+			info->info.wma.profile = SPA_AUDIO_WMA_PROFILE_WMA9;
 			break;
+		/* This originates from Microsoft's mmreg.h , where
+		 * 0x162 is specified as meaning WMA v3 (which is commonly
+		 * referred to as WMA 9 Pro). */
 		case 0x162:
-			profile = SPA_AUDIO_WMA_PROFILE_WMA9_PRO;
+			info->info.wma.profile = SPA_AUDIO_WMA_PROFILE_WMA9_PRO;
 			break;
+		/* This originates from Microsoft's mmreg.h , where
+		 * 0x163 is specified as meaning WMA 9 lossless. */
 		case 0x163:
-			profile = SPA_AUDIO_WMA_PROFILE_WMA9_LOSSLESS;
+			info->info.wma.profile = SPA_AUDIO_WMA_PROFILE_WMA9_LOSSLESS;
 			break;
+		/* WMA 10 is not mentioned in mmreg.h - these were empirically
+		 * determined instead. */
 		case 0x166:
-			profile = SPA_AUDIO_WMA_PROFILE_WMA10;
+			info->info.wma.profile = SPA_AUDIO_WMA_PROFILE_WMA10;
 			break;
 		case 0x167:
-			profile = SPA_AUDIO_WMA_PROFILE_WMA10_LOSSLESS;
+			info->info.wma.profile = SPA_AUDIO_WMA_PROFILE_WMA10_LOSSLESS;
 			break;
 		default:
 			fprintf(stderr, "error: invalid WMA profile\n");
 			return -EINVAL;
 		}
-		info->info.wma.rate = data->rate;
-		info->info.wma.channels = data->channels;
-		info->info.wma.bitrate = data->bitrate;
-		info->info.wma.block_align = codec_params->block_align;
-		info->info.wma.profile = profile;
 		break;
 	case AV_CODEC_ID_FLAC:
 		info->media_subtype = SPA_MEDIA_SUBTYPE_flac;

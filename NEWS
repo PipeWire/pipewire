@@ -1,3 +1,28 @@
+# PipeWire 1.4.4 (2025-05-29)
+
+This is a quick bugfix release that is API and ABI compatible with
+previous 1.x releases.
+
+## Highlights
+  - Provide better compatibility with 1.2 for MIDI.
+  - Fix mpv buffer negotiation regression.
+  - Improve GStreamer compatibility with libcamera.
+
+
+## SPA
+  - Provide conversions to old style midi in the ALSA sequencer.
+  - Negotiate only to UMP when using a newer library.
+  - Fix negotiation direction for buffers, prefer the converter
+    suggestion instead of the application until we can be sure
+    applications make good suggestions.
+
+## GStreamer
+  - Allow a minimum of 1 buffers again instead of 8. libcamera will
+    allocate only 4 buffers so we need to support this.
+
+
+Older versions:
+
 # PipeWire 1.4.3 (2025-05-22)
 
 This is a bugfix release that is API and ABI compatible with
@@ -37,9 +62,6 @@ previous 1.x releases.
 ## JACK
   - Handle sysex in UMP better by appending the converted midi1
     sysex.
-
-
-Older versions:
 
 # PipeWire 1.4.2 (2025-04-14)
 

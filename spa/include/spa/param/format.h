@@ -110,6 +110,8 @@ enum spa_format {
 
 	SPA_FORMAT_AUDIO_AMR_bandMode,		/**< AMR band mode (Id enum spa_audio_amr_band_mode) */
 
+	SPA_FORMAT_AUDIO_MP3_channelMode,	/**< MP3 channel mode, (Id enum spa_audio_mp3_channel_mode) */
+
 
 	/* Video Format keys */
 	SPA_FORMAT_START_Video = 0x20000,

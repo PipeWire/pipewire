@@ -97,6 +97,8 @@ static const struct spa_type_info spa_type_media_subtype[] = {
 #define SPA_TYPE_INFO_FORMAT_AUDIO_WMA_BASE	SPA_TYPE_INFO_FORMAT_AUDIO_WMA ":"
 #define SPA_TYPE_INFO_FORMAT_AUDIO_AMR		SPA_TYPE_INFO_FORMAT_AUDIO_BASE "AMR"
 #define SPA_TYPE_INFO_FORMAT_AUDIO_AMR_BASE	SPA_TYPE_INFO_FORMAT_AUDIO_AMR ":"
+#define SPA_TYPE_INFO_FORMAT_AUDIO_MP3		SPA_TYPE_INFO_FORMAT_AUDIO_BASE "MP3"
+#define SPA_TYPE_INFO_FORMAT_AUDIO_MP3_BASE	SPA_TYPE_INFO_FORMAT_AUDIO_MP3 ":"
 
 #define SPA_TYPE_INFO_FormatVideo		SPA_TYPE_INFO_FORMAT_BASE "Video"
 #define SPA_TYPE_INFO_FORMAT_VIDEO_BASE		SPA_TYPE_INFO_FormatVideo ":"
@@ -139,6 +141,8 @@ static const struct spa_type_info spa_type_format[] = {
 		spa_type_audio_wma_profile },
 	{ SPA_FORMAT_AUDIO_AMR_bandMode, SPA_TYPE_Id, SPA_TYPE_INFO_FORMAT_AUDIO_AMR_BASE "bandMode",
 		spa_type_audio_amr_band_mode },
+	{ SPA_FORMAT_AUDIO_MP3_channelMode, SPA_TYPE_Id, SPA_TYPE_INFO_FORMAT_AUDIO_MP3_BASE "channelMode",
+		spa_type_audio_mp3_channel_mode },
 
 	{ SPA_FORMAT_VIDEO_format, SPA_TYPE_Id, SPA_TYPE_INFO_FORMAT_VIDEO_BASE "format",
 		spa_type_video_format, },

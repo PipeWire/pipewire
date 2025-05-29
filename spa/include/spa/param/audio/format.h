@@ -29,6 +29,11 @@ extern "C" {
 #include <spa/param/audio/flac.h>
 #include <spa/param/audio/ape.h>
 #include <spa/param/audio/opus.h>
+#include <spa/param/audio/ac3.h>
+#include <spa/param/audio/eac3.h>
+#include <spa/param/audio/truehd.h>
+#include <spa/param/audio/dts.h>
+#include <spa/param/audio/mpegh.h>
 
 struct spa_audio_info {
 	uint32_t media_type;
@@ -48,6 +53,11 @@ struct spa_audio_info {
 		struct spa_audio_info_flac flac;
 		struct spa_audio_info_ape ape;
 		struct spa_audio_info_ape opus;
+		struct spa_audio_info_ac3 ac3;
+		struct spa_audio_info_eac3 eac3;
+		struct spa_audio_info_truehd truehd;
+		struct spa_audio_info_dts dts;
+		struct spa_audio_info_mpegh mpegh;
 	} info;
 };
 

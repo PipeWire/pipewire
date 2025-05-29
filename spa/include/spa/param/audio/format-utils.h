@@ -27,6 +27,11 @@ extern "C" {
 #include <spa/param/audio/alac-utils.h>
 #include <spa/param/audio/flac-utils.h>
 #include <spa/param/audio/ape-utils.h>
+#include <spa/param/audio/ac3-utils.h>
+#include <spa/param/audio/eac3-utils.h>
+#include <spa/param/audio/truehd-utils.h>
+#include <spa/param/audio/dts-utils.h>
+#include <spa/param/audio/mpegh-utils.h>
 
 
 /**
@@ -80,6 +85,16 @@ spa_format_audio_parse(const struct spa_pod *format, struct spa_audio_info *info
 		return spa_format_audio_flac_parse(format, &info->info.flac);
 	case SPA_MEDIA_SUBTYPE_ape:
 		return spa_format_audio_ape_parse(format, &info->info.ape);
+	case SPA_MEDIA_SUBTYPE_ac3:
+		return spa_format_audio_ac3_parse(format, &info->info.ac3);
+	case SPA_MEDIA_SUBTYPE_eac3:
+		return spa_format_audio_eac3_parse(format, &info->info.eac3);
+	case SPA_MEDIA_SUBTYPE_truehd:
+		return spa_format_audio_truehd_parse(format, &info->info.truehd);
+	case SPA_MEDIA_SUBTYPE_dts:
+		return spa_format_audio_dts_parse(format, &info->info.dts);
+	case SPA_MEDIA_SUBTYPE_mpegh:
+		return spa_format_audio_mpegh_parse(format, &info->info.mpegh);
 	}
 	return -ENOTSUP;
 }
@@ -115,6 +130,16 @@ spa_format_audio_build(struct spa_pod_builder *builder, uint32_t id,
 		return spa_format_audio_flac_build(builder, id, &info->info.flac);
 	case SPA_MEDIA_SUBTYPE_ape:
 		return spa_format_audio_ape_build(builder, id, &info->info.ape);
+	case SPA_MEDIA_SUBTYPE_ac3:
+		return spa_format_audio_ac3_build(builder, id, &info->info.ac3);
+	case SPA_MEDIA_SUBTYPE_eac3:
+		return spa_format_audio_eac3_build(builder, id, &info->info.eac3);
+	case SPA_MEDIA_SUBTYPE_truehd:
+		return spa_format_audio_truehd_build(builder, id, &info->info.truehd);
+	case SPA_MEDIA_SUBTYPE_dts:
+		return spa_format_audio_dts_build(builder, id, &info->info.dts);
+	case SPA_MEDIA_SUBTYPE_mpegh:
+		return spa_format_audio_mpegh_build(builder, id, &info->info.mpegh);
 	}
 	errno = ENOTSUP;
 	return NULL;

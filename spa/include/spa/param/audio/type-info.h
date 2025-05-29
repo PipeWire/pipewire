@@ -11,5 +11,6 @@
 #include <spa/param/audio/aac-types.h>
 #include <spa/param/audio/wma-types.h>
 #include <spa/param/audio/amr-types.h>
+#include <spa/param/audio/dts-types.h>
 
 #endif /* SPA_AUDIO_TYPES_H */

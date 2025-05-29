@@ -12,6 +12,7 @@
 #include <spa/param/audio/ape.h>
 #include <spa/param/audio/flac.h>
 #include <spa/param/audio/mp3.h>
+#include <spa/param/audio/opus.h>
 #include <spa/param/audio/ra.h>
 #include <spa/param/audio/vorbis.h>
 #include <spa/param/audio/wma.h>

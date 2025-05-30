@@ -89,6 +89,8 @@ static void push_samples(void *userdata, float *samples, uint32_t n_samples)
 
 			/* no space.. block and wait for free space */
 			spa_system_eventfd_read(data->loop->system, data->eventfd, &count);
+			if (!data->running)
+				return;
 		}
 		if (avail > n_samples)
 			avail = n_samples;

@@ -107,7 +107,7 @@ SPA_EXPORT
 int pw_main_loop_quit(struct pw_main_loop *loop)
 {
 	pw_log_debug("%p: quit", loop);
-	return pw_loop_locked(loop->loop, do_stop, 1, NULL, 0, loop);
+	return pw_loop_invoke(loop->loop, do_stop, 1, NULL, 0, false, loop);
 }
 
 /** Start a main loop

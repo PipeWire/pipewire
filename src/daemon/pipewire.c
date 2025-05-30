@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2018 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <limits.h>
 #include <signal.h>
 #include <getopt.h>
@@ -15,8 +17,6 @@
 #include <pipewire/pipewire.h>
 
 #include <pipewire/i18n.h>
-
-#include "config.h"
 
 static void do_quit(void *data, int signal_number)
 {

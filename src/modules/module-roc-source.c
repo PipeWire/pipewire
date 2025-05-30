@@ -3,11 +3,11 @@
 /* SPDX-FileCopyrightText: Copyright © 2021 Sanchayan Maity <sanchayan@asymptotic.io> */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
-#include "config.h"
 
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>

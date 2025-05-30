@@ -3,6 +3,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2019 Red Hat Inc. */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
@@ -10,8 +12,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-
-#include "config.h"
 
 #include <dbus/dbus.h>
 

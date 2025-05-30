@@ -2,9 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Canonical Ltd. */
 /* SPDX-License-Identifier: MIT */
 
-#ifdef HAVE_CONFIG_H
 #include <config.h>
-#endif
 
 #include <glib.h>
 #include <snapd-glib/snapd-glib.h>

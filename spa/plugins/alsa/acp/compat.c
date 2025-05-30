@@ -18,13 +18,14 @@
   along with PulseAudio; if not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "config.h"
+
 #include <spa/utils/string.h>
 #include <spa/utils/cleanup.h>
 
 #include "compat.h"
 #include "device-port.h"
 #include "alsa-mixer.h"
-#include "config.h"
 
 static const char *port_types[] = {
 	[PA_DEVICE_PORT_TYPE_UNKNOWN] = "unknown",

@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2023 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
@@ -17,8 +19,6 @@
 #include <spa/debug/types.h>
 #include <spa/debug/mem.h>
 #include <spa/debug/log.h>
-
-#include "config.h"
 
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>

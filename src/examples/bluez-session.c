@@ -8,13 +8,13 @@
  [title]
  */
 
+#include "config.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
 #include <math.h>
 #include <time.h>
-
-#include "config.h"
 
 #include <spa/monitor/device.h>
 #include <spa/node/node.h>

@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2018 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -10,8 +12,6 @@
 #include <time.h>
 #include <malloc.h>
 #include <limits.h>
-
-#include "config.h"
 
 #include <spa/support/system.h>
 #include <spa/pod/parser.h>

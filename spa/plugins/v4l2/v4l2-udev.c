@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2018 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <stddef.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -24,7 +26,6 @@
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
 
-#include "config.h"
 #include "v4l2.h"
 
 #ifdef HAVE_LOGIND

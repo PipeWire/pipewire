@@ -5,10 +5,10 @@
 #ifndef SPA_ALSA_SEQ_H
 #define SPA_ALSA_SEQ_H
 
+#include "config.h"
+
 #include <stddef.h>
 #include <math.h>
-
-#include "config.h"
 
 #include <alsa/asoundlib.h>
 #ifdef HAVE_ALSA_UMP

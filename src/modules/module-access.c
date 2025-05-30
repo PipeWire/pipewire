@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2018 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
@@ -10,8 +12,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <limits.h>
-
-#include "config.h"
 
 #ifdef HAVE_SYS_VFS_H
 #include <sys/vfs.h>

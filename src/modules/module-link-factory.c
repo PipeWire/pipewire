@@ -2,12 +2,12 @@
 /* SPDX-FileCopyrightText: Copyright © 2018 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
 #include <dlfcn.h>
-
-#include "config.h"
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>

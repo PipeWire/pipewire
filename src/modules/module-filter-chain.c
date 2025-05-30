@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2021 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
@@ -10,8 +12,6 @@
 #include <fcntl.h>
 #include <dlfcn.h>
 #include <unistd.h>
-
-#include "config.h"
 
 #include <spa/param/latency-utils.h>
 #include <spa/param/tag-utils.h>

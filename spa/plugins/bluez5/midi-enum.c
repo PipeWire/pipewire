@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Pauli Virtanen */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <errno.h>
 #include <stddef.h>
 
@@ -21,7 +23,6 @@
 #include <spa/node/keys.h>
 
 #include "midi.h"
-#include "config.h"
 
 #include "bluez5-interface-gen.h"
 #include "dbus-monitor.h"

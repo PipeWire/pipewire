@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2021 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
@@ -26,8 +28,6 @@
 #include <openssl/aes.h>
 #include <openssl/md5.h>
 #include <openssl/evp.h>
-
-#include "config.h"
 
 #include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>

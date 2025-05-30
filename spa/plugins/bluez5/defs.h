@@ -5,6 +5,8 @@
 #ifndef SPA_BLUEZ5_DEFS_H
 #define SPA_BLUEZ5_DEFS_H
 
+#include "config.h"
+
 #include <math.h>
 
 #include <spa/support/dbus.h>
@@ -16,8 +18,6 @@
 #include <spa/param/audio/raw.h>
 
 #include <dbus/dbus.h>
-
-#include "config.h"
 
 #ifdef __cplusplus
 extern "C" {

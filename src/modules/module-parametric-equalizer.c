@@ -3,10 +3,10 @@
 /* SPDX-FileCopyrightText: Copyright © 2024 Asymptotic Inc. */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <errno.h>
 #include <limits.h>
-
-#include "config.h"
 
 #include <spa/utils/result.h>
 #include <spa/utils/json-core.h>

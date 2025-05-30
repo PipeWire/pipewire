@@ -3,6 +3,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
@@ -15,8 +17,6 @@
 #include <signal.h>
 #include <limits.h>
 #include <math.h>
-
-#include "config.h"
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>

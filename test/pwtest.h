@@ -2,10 +2,10 @@
 /* SPDX-FileCopyrightText: Copyright © 2021 Red Hat, Inc. */
 /* SPDX-License-Identifier: MIT */
 
-#include "config.h"
-
 #ifndef PWTEST_H
 #define PWTEST_H
+
+#include "config.h"
 
 #include <limits.h>
 #include <stddef.h>

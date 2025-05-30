@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2024 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
@@ -16,8 +18,6 @@
 #include <netdb.h>
 #include <net/if.h>
 #include <ifaddrs.h>
-
-#include "config.h"
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>

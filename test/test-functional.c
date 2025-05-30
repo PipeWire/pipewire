@@ -2,9 +2,9 @@
 /* SPDX-FileCopyrightText: Copyright © 2019 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
-#include <sys/wait.h>
-
 #include "config.h"
+
+#include <sys/wait.h>
 
 #include "pwtest.h"
 

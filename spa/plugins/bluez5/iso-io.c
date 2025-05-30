@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2023 Pauli Virtanen. */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <unistd.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -15,7 +17,6 @@
 #include <spa/utils/result.h>
 #include <spa/node/io.h>
 
-#include "config.h"
 #include "iso-io.h"
 
 #include "media-codecs.h"

@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
@@ -10,7 +12,6 @@
 
 #include <spa/utils/defs.h>
 
-#include "config.h"
 #ifndef HAVE_FFTW
 #include "pffft.h"
 #endif

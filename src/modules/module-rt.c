@@ -26,6 +26,8 @@
   SOFTWARE.
 ***/
 
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
@@ -43,8 +45,6 @@
 #include <pthread.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
-
-#include "config.h"
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>

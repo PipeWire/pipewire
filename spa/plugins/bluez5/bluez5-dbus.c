@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2018 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <errno.h>
 #include <stddef.h>
 #include <unistd.h>
@@ -35,7 +37,6 @@
 #include <spa-private/dbus-helpers.h>
 #include <spa/param/audio/raw-json.h>
 
-#include "config.h"
 #include "codec-loader.h"
 #include "player.h"
 #include "iso-io.h"

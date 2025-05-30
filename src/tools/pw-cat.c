@@ -3,6 +3,8 @@
 /*                         @author Pantelis Antoniou <pantelis.antoniou@konsulko.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <errno.h>
 #include <time.h>
@@ -33,8 +35,6 @@
 #include <pipewire/pipewire.h>
 #include <pipewire/i18n.h>
 #include <pipewire/extensions/metadata.h>
-
-#include "config.h"
 
 #ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 #include <libavformat/avformat.h>

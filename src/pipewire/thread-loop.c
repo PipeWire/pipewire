@@ -31,20 +31,11 @@ struct pw_thread_loop {
 
 	struct spa_hook hook;
 
-	struct spa_source *event;
-
 	unsigned int created:1;
 	unsigned int running:1;
 	unsigned int start_signal:1;
 };
 /** \endcond */
-
-static void do_stop(void *data, uint64_t count)
-{
-	struct pw_thread_loop *this = data;
-	pw_log_debug("stopping");
-	this->running = false;
-}
 
 #define CHECK(expression,label)						\
 do {									\
@@ -85,11 +76,6 @@ static struct pw_thread_loop *loop_new(struct pw_loop *loop,
 	pw_loop_set_name(loop, name ? name : "thread-loop");
 
 	spa_hook_list_init(&this->listener_list);
-
-	if ((this->event = pw_loop_add_event(this->loop, do_stop, this)) == NULL) {
-		res = -errno;
-		goto clean_this;
-	}
 
 	return this;
 
@@ -153,8 +139,6 @@ void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 	spa_hook_remove(&loop->hook);
 
 	spa_hook_list_clean(&loop->listener_list);
-
-	pw_loop_destroy_source(loop->loop, loop->event);
 
 	if (loop->created)
 		pw_loop_destroy(loop->loop);
@@ -237,6 +221,15 @@ error:
 	return -err;
 }
 
+static int do_stop(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct pw_thread_loop *this = user_data;
+	pw_log_debug("%p: stopping", this);
+	this->running = false;
+	return 0;
+}
+
 /** Quit the loop and stop its thread
  *
  * \param loop a \ref pw_thread_loop
@@ -248,7 +241,7 @@ void pw_thread_loop_stop(struct pw_thread_loop *loop)
 	pw_log_debug("%p stopping %d", loop, loop->running);
 	if (loop->running) {
 		pw_log_debug("%p signal", loop);
-		pw_loop_signal_event(loop->loop, loop->event);
+		pw_loop_invoke(loop->loop, do_stop, 1, NULL, 0, false, loop);
 		pw_log_debug("%p join", loop);
 		pthread_join(loop->thread, NULL);
 		pw_log_debug("%p joined", loop);

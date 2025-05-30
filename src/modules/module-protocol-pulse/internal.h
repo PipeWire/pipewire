@@ -47,7 +47,7 @@ struct stats {
 };
 
 struct impl {
-	struct pw_loop *loop;
+	struct pw_loop *main_loop;
 	struct pw_context *context;
 	struct spa_hook context_listener;
 

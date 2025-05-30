@@ -271,7 +271,7 @@ static int do_remove_source(struct spa_loop *loop,
 void spa_bt_sco_io_destroy(struct spa_bt_sco_io *io)
 {
 	if (io->started)
-		spa_loop_invoke(io->data_loop, do_remove_source, 0, NULL, 0, true, io);
+		spa_loop_locked(io->data_loop, do_remove_source, 0, NULL, 0, io);
 
 	io->started = false;
 	free(io);

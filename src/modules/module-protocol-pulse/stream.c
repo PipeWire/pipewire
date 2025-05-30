@@ -118,7 +118,7 @@ void stream_free(struct stream *stream)
 
 		/* force processing of all pending messages before we destroy
 		 * the stream */
-		pw_loop_invoke(impl->loop, NULL, 0, NULL, 0, false, client);
+		pw_loop_invoke(impl->main_loop, NULL, 0, NULL, 0, false, client);
 
 		pw_stream_destroy(stream->stream);
 	}

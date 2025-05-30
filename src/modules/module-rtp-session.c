@@ -584,7 +584,7 @@ static void free_session(struct session *sess)
 {
 	struct impl *impl = sess->impl;
 
-	pw_loop_invoke(impl->data_loop, do_unlink_session, 1, NULL, 0, true, sess);
+	pw_loop_locked(impl->data_loop, do_unlink_session, 1, NULL, 0, sess);
 
 	sess->impl->n_sessions--;
 

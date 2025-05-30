@@ -1229,12 +1229,11 @@ static void client_node0_resource_destroy(void *data)
 	spa_hook_remove(&impl->object_listener);
 
 	if (node->data_source.fd != -1) {
-		spa_loop_invoke(node->data_loop,
+		spa_loop_locked(node->data_loop,
 				do_remove_source,
 				SPA_ID_INVALID,
 				NULL,
 				0,
-				true,
 				&node->data_source);
 	}
 	if (this->node)

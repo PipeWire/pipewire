@@ -315,7 +315,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	if (this->started && following != this->following) {
 		spa_log_debug(this->log, "%p: reassign follower %d->%d", this, this->following, following);
 		this->following = following;
-		spa_loop_invoke(this->data_loop, do_reassign_follower, 0, NULL, 0, true, this);
+		spa_loop_locked(this->data_loop, do_reassign_follower, 0, NULL, 0, this);
 	}
 	return 0;
 }
@@ -799,7 +799,7 @@ static int transport_start(struct impl *this)
 				spa_strerror(res));
 
 	if (this->transport->iso_io)
-		spa_loop_invoke(this->data_loop, do_start_iso_io, 0, NULL, 0, true, this);
+		spa_loop_locked(this->data_loop, do_start_iso_io, 0, NULL, 0, this);
 
 	this->transport_started = true;
 
@@ -899,7 +899,7 @@ static void transport_stop(struct impl *this)
 
 	spa_log_debug(this->log, "%p: transport stop", this);
 
-	spa_loop_invoke(this->data_loop, do_remove_transport_source, 0, NULL, 0, true, this);
+	spa_loop_locked(this->data_loop, do_remove_transport_source, 0, NULL, 0, this);
 
 	if (this->fd >= 0) {
 		close(this->fd);
@@ -924,7 +924,7 @@ static int do_stop(struct impl *this)
 
 	this->start_ready = false;
 
-	spa_loop_invoke(this->data_loop, do_remove_source, 0, NULL, 0, true, this);
+	spa_loop_locked(this->data_loop, do_remove_source, 0, NULL, 0, this);
 
 	transport_stop(this);
 
@@ -1736,7 +1736,7 @@ static void transport_destroy(void *data)
 {
 	struct impl *this = data;
 	spa_log_debug(this->log, "transport %p destroy", this->transport);
-	spa_loop_invoke(this->data_loop, do_transport_destroy, 0, NULL, 0, true, this);
+	spa_loop_locked(this->data_loop, do_transport_destroy, 0, NULL, 0, this);
 }
 
 static const struct spa_bt_transport_events transport_events = {

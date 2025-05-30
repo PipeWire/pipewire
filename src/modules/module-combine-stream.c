@@ -553,7 +553,7 @@ static void resize_delay(struct stream *stream, uint32_t size)
 	for (i = 0; i < channels; ++i)
 		ringbuffer_init(&info.delay[i], SPA_PTROFF(info.buf, i*size, void), size);
 
-	pw_loop_invoke(stream->impl->data_loop, do_replace_delay, 0, NULL, 0, true, &info);
+	pw_loop_locked(stream->impl->data_loop, do_replace_delay, 0, NULL, 0, &info);
 
 	free(info.buf);
 }
@@ -616,7 +616,7 @@ static int do_clear_delaybuf(struct spa_loop *loop, bool async, uint32_t seq,
 
 static void clear_delaybuf(struct impl *impl)
 {
-	pw_loop_invoke(impl->data_loop, do_clear_delaybuf, 0, NULL, 0, true, impl);
+	pw_loop_locked(impl->data_loop, do_clear_delaybuf, 0, NULL, 0, impl);
 }
 
 static int do_add_stream(struct spa_loop *loop, bool async, uint32_t seq,
@@ -669,7 +669,7 @@ static void remove_stream(struct stream *s, bool destroy)
 {
 	pw_log_debug("destroy stream %d", s->id);
 
-	pw_loop_invoke(s->impl->data_loop, do_remove_stream, 0, NULL, 0, true, s);
+	pw_loop_locked(s->impl->data_loop, do_remove_stream, 0, NULL, 0, s);
 
 	if (destroy && s->stream) {
 		spa_hook_remove(&s->stream_listener);
@@ -896,7 +896,7 @@ static int create_stream(struct stream_info *info)
 			direction, PW_ID_ANY, flags, params, n_params)) < 0)
 		goto error;
 
-	pw_loop_invoke(impl->data_loop, do_add_stream, 0, NULL, 0, true, s);
+	pw_loop_locked(impl->data_loop, do_add_stream, 0, NULL, 0, s);
 	update_delay(impl);
 	return 0;
 

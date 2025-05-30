@@ -197,7 +197,7 @@ static void handle_module_group(struct module_gsettings_data *d, gchar *name)
 		snprintf(p, sizeof(p), "args%i", i);
 		info.args[i] = g_settings_get_string(settings, p);
 	}
-	pw_loop_invoke(impl->loop, do_handle_info, 0,
+	pw_loop_invoke(impl->main_loop, do_handle_info, 0,
 			&info, sizeof(info), false, d);
 
 	g_object_unref(G_OBJECT(settings));

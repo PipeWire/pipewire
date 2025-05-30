@@ -852,7 +852,7 @@ static int impl_clear(struct spa_handle *handle)
 	this = (struct impl *) handle;
 
 	if (this->data_loop)
-		spa_loop_invoke(this->data_loop, do_remove_timer, 0, NULL, 0, true, this);
+		spa_loop_locked(this->data_loop, do_remove_timer, 0, NULL, 0, this);
 	spa_loop_utils_destroy_source(this->loop_utils, this->timer_source);
 
 	return 0;

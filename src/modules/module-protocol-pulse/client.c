@@ -87,7 +87,7 @@ bool client_detach(struct client *client)
 	if (server->wait_clients > 0 && --server->wait_clients == 0) {
 		int mask = server->source->mask;
 		SPA_FLAG_SET(mask, SPA_IO_IN);
-		pw_loop_update_io(impl->loop, server->source, mask);
+		pw_loop_update_io(impl->main_loop, server->source, mask);
 	}
 
 	client->server = NULL;
@@ -112,7 +112,7 @@ void client_disconnect(struct client *client)
 	pw_map_for_each(&client->streams, client_free_stream, client);
 
 	if (client->source) {
-		pw_loop_destroy_source(impl->loop, client->source);
+		pw_loop_destroy_source(impl->main_loop, client->source);
 		client->source = NULL;
 	}
 
@@ -207,7 +207,7 @@ int client_queue_message(struct client *client, struct message *msg)
 	uint32_t mask = client->source->mask;
 	if (!SPA_FLAG_IS_SET(mask, SPA_IO_OUT)) {
 		SPA_FLAG_SET(mask, SPA_IO_OUT);
-		pw_loop_update_io(impl->loop, client->source, mask);
+		pw_loop_update_io(impl->main_loop, client->source, mask);
 	}
 
 	client->new_msg_since_last_flush = true;
@@ -278,7 +278,7 @@ int client_flush_messages(struct client *client)
 
 		if (SPA_FLAG_IS_SET(mask, SPA_IO_OUT)) {
 			SPA_FLAG_CLEAR(mask, SPA_IO_OUT);
-			pw_loop_update_io(client->impl->loop, client->source, mask);
+			pw_loop_update_io(client->impl->main_loop, client->source, mask);
 		}
 	} else {
 		if (res != -EAGAIN && res != -EWOULDBLOCK)

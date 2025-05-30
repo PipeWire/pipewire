@@ -151,7 +151,7 @@ struct impl {
 	struct pw_properties *props;
 	struct pw_context *context;
 
-	struct pw_loop *loop;
+	struct pw_loop *main_loop;
 	struct pw_loop *data_loop;
 
 	struct pw_core *core;
@@ -226,7 +226,7 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 
 		if (!impl->receiving) {
 			impl->receiving = true;
-			pw_loop_invoke(impl->loop, do_start, 1, NULL, 0, false, impl);
+			pw_loop_invoke(impl->main_loop, do_start, 1, NULL, 0, false, impl);
 		}
 	}
 	return;
@@ -349,7 +349,7 @@ static void on_stream_start_retry_timer_event(void *data, uint64_t expirations)
 static void destroy_stream_start_retry_timer(struct impl *impl)
 {
 	if (impl->stream_start_retry_timer != NULL) {
-		pw_loop_destroy_source(impl->loop, impl->stream_start_retry_timer);
+		pw_loop_destroy_source(impl->main_loop, impl->stream_start_retry_timer);
 		impl->stream_start_retry_timer = NULL;
 	}
 }
@@ -382,7 +382,7 @@ static int stream_start(struct impl *impl)
 			if (impl->stream_start_retry_timer == NULL) {
 				struct timespec value, interval;
 
-				impl->stream_start_retry_timer = pw_loop_add_timer(impl->loop,
+				impl->stream_start_retry_timer = pw_loop_add_timer(impl->main_loop,
 						on_stream_start_retry_timer_event, impl);
 				/* Use a 1-second retry interval. The network interfaces
 				 * are likely to be up and running then. */
@@ -390,7 +390,7 @@ static int stream_start(struct impl *impl)
 				value.tv_nsec = 0;
 				interval.tv_sec = 1;
 				interval.tv_nsec = 0;
-				pw_loop_update_timer(impl->loop, impl->stream_start_retry_timer, &value,
+				pw_loop_update_timer(impl->main_loop, impl->stream_start_retry_timer, &value,
 						&interval, false);
 			}
 			/* Do nothing if the timer is already up. */
@@ -579,7 +579,7 @@ static void impl_destroy(struct impl *impl)
 		pw_core_disconnect(impl->core);
 
 	if (impl->standby_timer)
-		pw_loop_destroy_source(impl->loop, impl->standby_timer);
+		pw_loop_destroy_source(impl->main_loop, impl->standby_timer);
 
 	destroy_stream_start_retry_timer(impl);
 
@@ -663,7 +663,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->module = module;
 	impl->context = context;
-	impl->loop = pw_context_get_main_loop(context);
+	impl->main_loop = pw_context_get_main_loop(context);
 	impl->data_loop = pw_context_acquire_loop(context, &props->dict);
 
 	if ((sess_name = pw_properties_get(props, "sess.name")) == NULL)
@@ -769,7 +769,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			&impl->core_listener,
 			&core_events, impl);
 
-	impl->standby_timer = pw_loop_add_timer(impl->loop, on_standby_timer_event, impl);
+	impl->standby_timer = pw_loop_add_timer(impl->main_loop, on_standby_timer_event, impl);
 	if (impl->standby_timer == NULL) {
 		res = -errno;
 		pw_log_error("can't create timer source: %m");
@@ -779,7 +779,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	value.tv_nsec = 0;
 	interval.tv_sec = impl->cleanup_interval;
 	interval.tv_nsec = 0;
-	pw_loop_update_timer(impl->loop, impl->standby_timer, &value, &interval, false);
+	pw_loop_update_timer(impl->main_loop, impl->standby_timer, &value, &interval, false);
 
 	impl->stream = rtp_stream_new(impl->core,
 			PW_DIRECTION_OUTPUT, pw_properties_copy(stream_props),

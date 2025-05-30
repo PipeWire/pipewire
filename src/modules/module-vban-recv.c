@@ -166,7 +166,7 @@ struct impl {
 	struct pw_properties *props;
 	struct pw_context *context;
 
-	struct pw_loop *loop;
+	struct pw_loop *main_loop;
 	struct pw_loop *data_loop;
 
 	struct pw_core *core;
@@ -457,7 +457,7 @@ static struct stream *make_stream(struct impl *impl, const struct vban_header *h
 	stream->salen = salen;
 	spa_list_append(&impl->streams, &stream->link);
 
-	pw_loop_invoke(impl->loop, do_setup_stream, 1, NULL, 0, false, stream);
+	pw_loop_invoke(impl->main_loop, do_setup_stream, 1, NULL, 0, false, stream);
 
 	return stream;
 }
@@ -603,7 +603,7 @@ static void impl_destroy(struct impl *impl)
 		pw_core_disconnect(impl->core);
 
 	if (impl->timer)
-		pw_loop_destroy_source(impl->loop, impl->timer);
+		pw_loop_destroy_source(impl->main_loop, impl->timer);
 
 	if (impl->data_loop)
 		pw_context_release_loop(impl->context, impl->data_loop);
@@ -681,7 +681,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->module = module;
 	impl->context = context;
-	impl->loop = pw_context_get_main_loop(context);
+	impl->main_loop = pw_context_get_main_loop(context);
 	impl->data_loop = pw_context_acquire_loop(context, &props->dict);
 	spa_list_init(&impl->streams);
 
@@ -747,7 +747,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			&impl->core_listener,
 			&core_events, impl);
 
-	impl->timer = pw_loop_add_timer(impl->loop, on_timer_event, impl);
+	impl->timer = pw_loop_add_timer(impl->main_loop, on_timer_event, impl);
 	if (impl->timer == NULL) {
 		res = -errno;
 		pw_log_error("can't create timer source: %m");
@@ -757,7 +757,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	value.tv_nsec = 0;
 	interval.tv_sec = impl->cleanup_interval;
 	interval.tv_nsec = 0;
-	pw_loop_update_timer(impl->loop, impl->timer, &value, &interval, false);
+	pw_loop_update_timer(impl->main_loop, impl->timer, &value, &interval, false);
 
 	if ((res = listen_start(impl)) < 0) {
 		pw_log_error("failed to start VBAN stream: %s", spa_strerror(res));

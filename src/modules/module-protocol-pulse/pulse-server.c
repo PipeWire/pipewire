@@ -1484,7 +1484,7 @@ static void stream_process(void *data)
 
 	pw_stream_get_time_n(stream->stream, &pd.pwt, sizeof(pd.pwt));
 
-	pw_loop_invoke(impl->loop,
+	pw_loop_invoke(impl->main_loop,
 			do_process_done, 1, &pd, sizeof(pd), false, stream);
 }
 
@@ -5492,7 +5492,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	spa_list_init(&impl->cleanup_clients);
 	spa_list_init(&impl->free_messages);
 
-	impl->loop = pw_context_get_main_loop(context);
+	impl->main_loop = pw_context_get_main_loop(context);
 	impl->work_queue = pw_context_get_work_queue(context);
 
 	if (props == NULL)

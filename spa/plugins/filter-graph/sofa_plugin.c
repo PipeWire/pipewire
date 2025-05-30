@@ -262,7 +262,7 @@ static void spatializer_reload(void * Instance)
 		spa_log_error(impl->log, "reloading left or right convolver failed");
 		return;
 	}
-	spa_loop_invoke(impl->plugin->data_loop, do_switch, 1, NULL, 0, true, impl);
+	spa_loop_locked(impl->plugin->data_loop, do_switch, 1, NULL, 0, impl);
 }
 
 struct free_data {

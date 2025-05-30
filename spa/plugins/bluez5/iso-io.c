@@ -86,7 +86,7 @@ static void stream_link(struct group *group, struct stream *stream)
 	struct modify_info info = { .stream = stream, .streams = &group->streams };
 	int res;
 
-	res = spa_loop_invoke(group->data_loop, do_modify, 0, NULL, 0, true, &info);
+	res = spa_loop_locked(group->data_loop, do_modify, 0, NULL, 0, &info);
 	spa_assert_se(res == 0);
 }
 
@@ -95,7 +95,7 @@ static void stream_unlink(struct stream *stream)
 	struct modify_info info = { .stream = stream, .streams = NULL };
 	int res;
 
-	res = spa_loop_invoke(stream->group->data_loop, do_modify, 0, NULL, 0, true, &info);
+	res = spa_loop_locked(stream->group->data_loop, do_modify, 0, NULL, 0, &info);
 	spa_assert_se(res == 0);
 }
 
@@ -393,7 +393,7 @@ static void group_destroy(struct group *group)
 
 	spa_assert(spa_list_is_empty(&group->streams));
 
-	res = spa_loop_invoke(group->data_loop, do_remove_source, 0, NULL, 0, true, group);
+	res = spa_loop_locked(group->data_loop, do_remove_source, 0, NULL, 0, group);
 	spa_assert_se(res == 0);
 
 	close(group->timerfd);

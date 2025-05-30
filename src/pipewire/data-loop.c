@@ -280,7 +280,7 @@ int pw_data_loop_stop(struct pw_data_loop *loop)
 			pthread_cancel(loop->thread);
 		} else {
 			pw_log_debug("%p signal", loop);
-			pw_loop_invoke(loop->loop, do_stop, 1, NULL, 0, false, loop);
+			pw_loop_locked(loop->loop, do_stop, 1, NULL, 0, loop);
 		}
 		pw_log_debug("%p join", loop);
 		if ((utils = loop->thread_utils) == NULL)

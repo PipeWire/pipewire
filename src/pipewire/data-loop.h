@@ -79,8 +79,9 @@ bool pw_data_loop_in_thread(struct pw_data_loop *loop);
 struct spa_thread *pw_data_loop_get_thread(struct pw_data_loop *loop);
 
 /** invoke func in the context of the thread or in the caller thread when
- * the loop is not running. May be called from the loop's thread, but otherwise
- * can only be called by a single thread at a time.
+ * the loop is not running. May be called from the loop's thread, and
+ * can be called by multiple threads at the same time.
+ *
  * If called from the loop's thread, all callbacks previously queued with
  * pw_data_loop_invoke() will be run synchronously, which might cause
  * unexpected reentrancy problems.

@@ -1059,7 +1059,7 @@ static int spa_libcamera_stream_off(struct impl *impl)
 
 	impl->camera->requestCompleted.disconnect(impl, &impl::requestComplete);
 
-	spa_loop_invoke(impl->data_loop, do_remove_source, 0, NULL, 0, true, impl);
+	spa_loop_locked(impl->data_loop, do_remove_source, 0, NULL, 0, impl);
 	if (impl->source.fd >= 0)  {
 		spa_system_close(impl->system, impl->source.fd);
 		impl->source.fd = -1;

@@ -452,7 +452,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	}
 
 	if (this->started) {
-		spa_loop_invoke(this->data_loop, do_reassign_io, 0, NULL, 0, true, &info);
+		spa_loop_locked(this->data_loop, do_reassign_io, 0, NULL, 0, &info);
 	} else {
 		this->clock = info.clock;
 		this->position = info.position;
@@ -1548,7 +1548,7 @@ static int transport_start(struct impl *this)
 	this->transport_started = true;
 
 	if (this->transport->iso_io)
-		spa_loop_invoke(this->data_loop, do_start_iso_io, 0, NULL, 0, true, this);
+		spa_loop_locked(this->data_loop, do_start_iso_io, 0, NULL, 0, this);
 	if (is_asha) {
 		struct spa_bt_asha *asha = this->asha;
 
@@ -1678,7 +1678,7 @@ static void transport_stop(struct impl *this)
 
 	spa_log_trace(this->log, "%p: stop transport", this);
 
-	spa_loop_invoke(this->data_loop, do_remove_transport_source, 0, NULL, 0, true, this);
+	spa_loop_locked(this->data_loop, do_remove_transport_source, 0, NULL, 0, this);
 
 	if (this->codec_data && this->own_codec_data)
 		this->codec->deinit(this->codec_data);
@@ -1696,7 +1696,7 @@ static int do_stop(struct impl *this)
 
 	this->start_ready = false;
 
-	spa_loop_invoke(this->data_loop, do_remove_source, 0, NULL, 0, true, this);
+	spa_loop_locked(this->data_loop, do_remove_source, 0, NULL, 0, this);
 
 	transport_stop(this);
 
@@ -2310,7 +2310,7 @@ static void transport_destroy(void *data)
 {
 	struct impl *this = data;
 	spa_log_debug(this->log, "transport %p destroy", this->transport);
-	spa_loop_invoke(this->data_loop, do_transport_destroy, 0, NULL, 0, true, this);
+	spa_loop_locked(this->data_loop, do_transport_destroy, 0, NULL, 0, this);
 }
 
 static void transport_state_changed(void *data,

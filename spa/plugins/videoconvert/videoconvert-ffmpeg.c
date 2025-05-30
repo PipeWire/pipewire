@@ -2220,7 +2220,7 @@ impl_node_port_set_io(void *object,
 	case SPA_IO_Buffers:
 		if (this->data_loop) {
 			struct io_data d = { .port = port, .data = data, .size = size };
-			spa_loop_invoke(this->data_loop, do_set_port_io, 0, NULL, 0, true, &d);
+			spa_loop_locked(this->data_loop, do_set_port_io, 0, NULL, 0, &d);
 		}
 		else
 			port->io = data;

@@ -384,7 +384,7 @@ on_connect(void *data, int fd, uint32_t mask)
 			if (server->n_clients > 0) {
 				int m = server->source->mask;
 				SPA_FLAG_CLEAR(m, SPA_IO_IN);
-				pw_loop_update_io(impl->loop, server->source, m);
+				pw_loop_update_io(impl->main_loop, server->source, m);
 				server->wait_clients++;
 			}
 		}
@@ -404,7 +404,7 @@ on_connect(void *data, int fd, uint32_t mask)
 
 	pw_log_debug("server %p: new client %p fd:%d", server, client, client_fd);
 
-	client->source = pw_loop_add_io(impl->loop,
+	client->source = pw_loop_add_io(impl->main_loop,
 					client_fd,
 					SPA_IO_ERR | SPA_IO_HUP | SPA_IO_IN,
 					true, on_client_data, client);
@@ -949,7 +949,7 @@ static int server_start(struct server *server, const struct sockaddr_storage *ad
 	if (fd < 0)
 		return fd;
 
-	server->source = pw_loop_add_io(impl->loop, fd, SPA_IO_IN, true, on_connect, server);
+	server->source = pw_loop_add_io(impl->main_loop, fd, SPA_IO_IN, true, on_connect, server);
 	if (server->source == NULL) {
 		res = -errno;
 		pw_log_error("server %p: can't create server source: %m", impl);
@@ -1100,7 +1100,7 @@ void server_free(struct server *server)
 	spa_hook_list_call(&impl->hooks, struct impl_events, server_stopped, 0, server);
 
 	if (server->source)
-		pw_loop_destroy_source(impl->loop, server->source);
+		pw_loop_destroy_source(impl->main_loop, server->source);
 
 	if (server->addr.ss_family == AF_UNIX && !server->activated)
 		unlink(((const struct sockaddr_un *) &server->addr)->sun_path);

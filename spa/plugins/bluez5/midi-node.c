@@ -1135,7 +1135,7 @@ static int do_stop(struct impl *this)
 
 	spa_log_debug(this->log, "%p: stop", this);
 
-	spa_loop_invoke(this->data_loop, do_remove_source, 0, NULL, 0, true, this);
+	spa_loop_locked(this->data_loop, do_remove_source, 0, NULL, 0, this);
 
 	this->started = false;
 
@@ -1149,7 +1149,7 @@ static int do_release(struct impl *this)
 
 	spa_log_debug(this->log, "%p: release", this);
 
-	spa_loop_invoke(this->data_loop, do_remove_port_source, 0, NULL, 0, true, this);
+	spa_loop_locked(this->data_loop, do_remove_port_source, 0, NULL, 0, this);
 
 	for (i = 0; i < N_PORTS; ++i) {
 		struct port *port = &this->ports[i];
@@ -1260,7 +1260,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	if (this->started && following != this->following) {
 		spa_log_debug(this->log, "%p: reassign follower %d->%d", this, this->following, following);
 		this->following = following;
-		spa_loop_invoke(this->data_loop, do_reassign_follower, 0, NULL, 0, true, this);
+		spa_loop_locked(this->data_loop, do_reassign_follower, 0, NULL, 0, this);
 	}
 
 	return 0;

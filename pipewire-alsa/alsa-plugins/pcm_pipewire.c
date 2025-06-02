@@ -617,6 +617,7 @@ static int snd_pcm_pipewire_stop(snd_pcm_ioplug_t *io)
 	if (pw->activated && pw->stream != NULL) {
 		pw_stream_set_active(pw->stream, false);
 		pw->activated = false;
+		pw_thread_loop_signal(pw->main_loop, false);
 	}
 	pw_thread_loop_unlock(pw->main_loop);
 	return 0;

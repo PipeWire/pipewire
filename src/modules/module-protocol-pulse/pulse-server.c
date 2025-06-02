@@ -1756,6 +1756,9 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 				PW_KEY_TARGET_OBJECT, "%u", sink_index);
 	}
 
+	if (dont_inhibit_auto_suspend)
+		pw_properties_set(props, PW_KEY_NODE_PASSIVE, "true");
+
 	stream->stream = pw_stream_new(client->core, name, props);
 	props = NULL;
 	if (stream->stream == NULL)

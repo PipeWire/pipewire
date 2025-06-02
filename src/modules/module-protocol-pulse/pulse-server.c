@@ -2051,6 +2051,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 			pw_properties_set(props,
 					PW_KEY_STREAM_CAPTURE_SINK, "true");
 	}
+	if (dont_inhibit_auto_suspend)
+		pw_properties_set(props, PW_KEY_NODE_PASSIVE, "true");
 
 	stream->stream = pw_stream_new(client->core, name, props);
 	props = NULL;

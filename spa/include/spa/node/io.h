@@ -147,6 +147,20 @@ struct spa_io_clock {
 #define SPA_IO_CLOCK_FLAG_NO_RATE	(1u<<3) /**< The rate of the clock is only approximately.
 						 *   It is recommended to use the nsec as a clock source.
 						 *   The rate_diff contains the measured inaccuracy. */
+#define SPA_IO_CLOCK_FLAG_DISCONT	(1u<<4) /**< The clock experienced a discontinuity in its
+						 *   timestamps since the last cycle. If this is set,
+						 *   nodes know that timestamps between the last and
+						 *   the current cycle cannot be assumed to be
+						 *   continuous. Nodes that synchronize playback against
+						 *   clock timestamps should resynchronize (for example
+						 *   by flushing buffers to avoid incorrect delays).
+						 *   This differs from an xrun in that it is not necessariy
+						 *   an error and that it is not caused by missed process
+						 *   deadlines. If for example a custom network time
+						 *   based driver starts to follow a different time
+						 *   server, and the offset between that server and its
+						 *   local clock consequently suddenly changes, then that
+						 *   driver should set this flag. */
 	uint32_t flags;			/**< Clock flags */
 	uint32_t id;			/**< Unique clock id, set by host application */
 	char name[64];			/**< Clock name prefixed with API, set by node when it receives

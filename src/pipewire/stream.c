@@ -643,7 +643,8 @@ static inline void copy_position(struct stream *impl, int64_t queued)
 	if (SPA_LIKELY(p != NULL)) {
 		impl->time.now = p->clock.nsec;
 		impl->time.rate = p->clock.rate;
-		if (SPA_UNLIKELY(impl->clock_id != p->clock.id)) {
+		if (SPA_UNLIKELY(impl->clock_id != p->clock.id ||
+		    SPA_FLAG_IS_SET(p->clock.flags, SPA_IO_CLOCK_FLAG_DISCONT))) {
 			impl->base_pos = p->clock.position - impl->time.ticks;
 			impl->clock_id = p->clock.id;
 		}

@@ -123,14 +123,30 @@ struct spa_io_range {
  *
  * A node is a driver when \ref spa_io_clock.id in \ref SPA_IO_Clock and
  * \ref spa_io_position.clock.id in \ref SPA_IO_Position are the same.
+ *
+ * The flags are set by the graph driver at the start of each cycle.
  */
 struct spa_io_clock {
-#define SPA_IO_CLOCK_FLAG_FREEWHEEL	(1u<<0) /* graph is freewheeling */
-#define SPA_IO_CLOCK_FLAG_XRUN_RECOVER	(1u<<1) /* recovering from xrun */
-#define SPA_IO_CLOCK_FLAG_LAZY		(1u<<2) /* lazy scheduling */
-#define SPA_IO_CLOCK_FLAG_NO_RATE	(1u<<3) /* the rate of the clock is only approximately.
-						 * it is recommended to use the nsec as a clock source.
-						 * The rate_diff contains the measured inaccuracy. */
+#define SPA_IO_CLOCK_FLAG_FREEWHEEL	(1u<<0) /**< Graph is freewheeling. It runs at the maximum
+						  *  possible rate, only constrained by the processing
+						  *  power of the machine it runs on. This can be useful
+						  *  for offline processing, where processing in real
+						  *  time is not desired. */
+#define SPA_IO_CLOCK_FLAG_XRUN_RECOVER	(1u<<1) /**< A node's process callback did not complete within
+						  *  the last cycle's deadline, resulting in an xrun.
+						  *  This flag is not set for the entire graph. Instead,
+						  *  it is set at the start of the current cycle before
+						  *  a node that experienced an xrun has its process
+						  *  callback invoked. After said callback finished, the
+						  *  flag is cleared again. That way, the node knows that
+						  *  during the last cycle it experienced an xrun. They
+						  *  can use this information for example to resynchronize
+						  *  or clear custom stale states. */
+#define SPA_IO_CLOCK_FLAG_LAZY		(1u<<2) /**< The driver uses lazy scheduling. For details, see
+						  *  \ref PW_KEY_NODE_SUPPORTS_LAZY . */
+#define SPA_IO_CLOCK_FLAG_NO_RATE	(1u<<3) /**< The rate of the clock is only approximately.
+						 *   It is recommended to use the nsec as a clock source.
+						 *   The rate_diff contains the measured inaccuracy. */
 	uint32_t flags;			/**< Clock flags */
 	uint32_t id;			/**< Unique clock id, set by host application */
 	char name[64];			/**< Clock name prefixed with API, set by node when it receives

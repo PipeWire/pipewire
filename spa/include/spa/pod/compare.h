@@ -52,8 +52,6 @@ SPA_API_POD_COMPARE int spa_pod_compare_value(uint32_t type, const void *r1, con
 		return SPA_CMP(*(double *)r1, *(double *)r2);
 	case SPA_TYPE_String:
 		return strcmp((char *)r1, (char *)r2);
-	case SPA_TYPE_Bytes:
-		return memcmp((char *)r1, (char *)r2, size);
 	case SPA_TYPE_Rectangle:
 	{
 		const struct spa_rectangle *rec1 = (struct spa_rectangle *) r1,
@@ -75,7 +73,7 @@ SPA_API_POD_COMPARE int spa_pod_compare_value(uint32_t type, const void *r1, con
 		return SPA_CMP(n1, n2);
 	}
 	default:
-		break;
+		return memcmp(r1, r2, size);
 	}
 	return 0;
 }

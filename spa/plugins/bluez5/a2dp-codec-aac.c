@@ -370,9 +370,12 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	/* If object type has multiple bits set (invalid per spec, see above),
 	 * assume the device usually means AAC-LC.
 	 */
-	if (conf->object_type & (AAC_OBJECT_TYPE_MPEG2_AAC_LC |
-						AAC_OBJECT_TYPE_MPEG4_AAC_LC)) {
+	if (conf->object_type & AAC_OBJECT_TYPE_MPEG4_AAC_LC) {
 		res = aacEncoder_SetParam(this->aacenc, AACENC_AOT, AOT_AAC_LC);
+		if (res != AACENC_OK)
+			goto error;
+	} else if (conf->object_type & AAC_OBJECT_TYPE_MPEG2_AAC_LC) {
+		res = aacEncoder_SetParam(this->aacenc, AACENC_AOT, AOT_MP2_AAC_LC);
 		if (res != AACENC_OK)
 			goto error;
 	} else if (conf->object_type & AAC_OBJECT_TYPE_MPEG4_AAC_ELD) {

@@ -904,7 +904,7 @@ static struct spa_pod *merge_objects(struct impl *this, struct spa_pod_builder *
 		p2 = spa_pod_object_find_prop(o2, p2, p1->key);
 		if (p2 != NULL) {
 			spa_pod_builder_get_state(b, &state);
-			res = spa_pod_filter_prop(b, p1, p2);
+			res = spa_pod_filter_prop(b, p2, p1);
 			if (res < 0)
 		                spa_pod_builder_reset(b, &state);
 		}

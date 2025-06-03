@@ -1940,8 +1940,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
 		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
-	if (pw_properties_get(props, PW_KEY_MEDIA_FORMAT) == NULL)
-		pw_properties_setf(props, PW_KEY_MEDIA_FORMAT, "%d", SPA_AUDIO_FORMAT_S16_LE);
 	if (pw_properties_get(props, "net.mtu") == NULL)
 		pw_properties_set(props, "net.mtu", "1448");
 	if (pw_properties_get(props, "rtp.sender-ts-offset") == NULL)

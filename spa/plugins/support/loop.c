@@ -657,7 +657,7 @@ static int loop_unlock(void *object)
 		impl->recurse++;
 	return -res;
 }
-static int loop_get_time(void *object, struct timespec *abstime, uint64_t timeout)
+static int loop_get_time(void *object, struct timespec *abstime, int64_t timeout)
 {
 	if (clock_gettime(CLOCK_REALTIME, abstime) < 0)
 		return -errno;

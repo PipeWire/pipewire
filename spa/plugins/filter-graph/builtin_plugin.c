@@ -1269,7 +1269,7 @@ static void delay_run(void * Instance, unsigned long SampleCount)
 		impl->delay_samples = SPA_CLAMP((uint32_t)(delay * impl->rate), 0u, impl->buffer_samples-1);
 		impl->delay = delay;
 	}
-	if (in != NULL && out == NULL) {
+	if (in != NULL && out != NULL) {
 		spa_fga_dsp_delay(impl->dsp, impl->buffer, &impl->ptr, impl->buffer_samples,
 				impl->delay_samples, out, in, SampleCount);
 	}

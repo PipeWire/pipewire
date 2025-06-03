@@ -325,7 +325,7 @@ struct spa_loop_control_methods {
 	 * Get the current time with \ref timeout that can be used in wait.
 	 * Since version 2:2
 	 */
-	int (*get_time) (void *object, struct timespec *abstime, int64_t timeout);
+	int (*get_time) (void *object, struct timespec *abstime, uint64_t timeout);
 	/** Wait for a signal
 	 * Wait until a thread performs signal. Since version 2:2
 	 *
@@ -404,7 +404,7 @@ SPA_API_LOOP int spa_loop_control_unlock(struct spa_loop_control *object)
 			spa_loop_control, &object->iface, unlock, 2);
 }
 SPA_API_LOOP int spa_loop_control_get_time(struct spa_loop_control *object,
-		struct timespec *abstime, int64_t timeout)
+		struct timespec *abstime, uint64_t timeout)
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			spa_loop_control, &object->iface, get_time, 2, abstime, timeout);

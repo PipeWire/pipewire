@@ -1,3 +1,30 @@
+# PipeWire 1.4.5 (2025-06-04)
+
+This is a quick bugfix release that is API and ABI compatible with
+previous 1.x releases.
+
+## Highlights
+  - Fix negotiation errors when using multichannel output. Fixes
+    audio in some games and mpv in some cases.
+  - 1 Small fix and 1 improvement.
+
+
+## SPA
+  - Fix another bug caused by reversing the filter default value
+    preference. (#4722)
+
+# pulse-server
+  - Implement STREAM_DONT_INHIBIT_AUTO_SUSPEND flags. This can
+    reduce power in pavucontrol when monitoring inactive streams.
+    (#4255 #4726)
+
+# ALSA
+  - Fix a potential deadlock when calling _drop and _drain at the
+    same time. (#4728)
+
+
+Older versions:
+
 # PipeWire 1.4.4 (2025-05-29)
 
 This is a quick bugfix release that is API and ABI compatible with
@@ -19,9 +46,6 @@ previous 1.x releases.
 ## GStreamer
   - Allow a minimum of 1 buffers again instead of 8. libcamera will
     allocate only 4 buffers so we need to support this.
-
-
-Older versions:
 
 # PipeWire 1.4.3 (2025-05-22)
 

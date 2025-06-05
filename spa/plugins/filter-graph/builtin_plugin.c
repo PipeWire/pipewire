@@ -794,7 +794,7 @@ static float *create_hilbert(struct plugin *pl, const char *filename, float gain
 	int delay = (int) (delay_sec * rate);
 
 	if (length <= 0)
-		length = 1024;
+		length = 64;
 
 	length -= SPA_MIN(offset, length);
 
@@ -814,6 +814,7 @@ static float *create_hilbert(struct plugin *pl, const char *filename, float gain
 		samples[delay + h - i] =  v;
 	}
 	*n_samples = n;
+	spa_log_info(pl->log, "created hilbert function");
 	return samples;
 }
 
@@ -832,6 +833,7 @@ static float *create_dirac(struct plugin *pl, const char *filename, float gain, 
 
 	samples[delay] = gain;
 
+	spa_log_info(pl->log, "created dirac function");
 	*n_samples = n;
 	return samples;
 }

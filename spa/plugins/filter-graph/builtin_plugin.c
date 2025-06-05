@@ -908,7 +908,7 @@ error:
 #else
 	spa_log_error(impl->log, "compiled without spa-plugins support, can't resample");
 	float *out_samples = calloc(*n_samples, sizeof(float));
-	memcpy(out_samples, samples, *n_samples * sizeof(float));
+	spa_memcpy(out_samples, samples, *n_samples * sizeof(float));
 	return out_samples;
 #endif
 }
@@ -2033,7 +2033,7 @@ static void *param_eq_instantiate(const struct spa_fga_plugin *plugin, const str
 		}
 		if (idx == 0) {
 			for (i = 1; i < 8; i++)
-				memcpy(&impl->bq[i*PARAM_EQ_MAX], impl->bq,
+				spa_memcpy(&impl->bq[i*PARAM_EQ_MAX], impl->bq,
 						sizeof(struct biquad) * PARAM_EQ_MAX);
 		}
 	}
@@ -2513,7 +2513,7 @@ static void debug_run(void * Instance, unsigned long SampleCount)
 	if (in != NULL) {
 		spa_debug_log_mem(impl->log, SPA_LOG_LEVEL_INFO, 0, in, SampleCount * sizeof(float));
 		if (out != NULL)
-			memcpy(out, in, SampleCount * sizeof(float));
+			spa_memcpy(out, in, SampleCount * sizeof(float));
 	}
 	if (control != NULL) {
 		spa_log_info(impl->log, "control: %f", control[0]);

@@ -153,7 +153,7 @@ static void ebur128_run(void * Instance, unsigned long SampleCount)
 			ebur128_add_frames_float(st[i], in, SampleCount);
 
 		if (out != NULL)
-			memcpy(out, in, SampleCount * sizeof(float));
+			spa_memcpy(out, in, SampleCount * sizeof(float));
 	}
 	if (impl->port[PORT_OUT_MOMENTARY] != NULL) {
 		double sum = 0.0;

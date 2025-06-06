@@ -689,7 +689,7 @@ static int loop_wait(void *object, const struct timespec *abstime)
 static int loop_signal(void *object, bool wait_for_accept)
 {
 	struct impl *impl = object;
-	int res;
+	int res = 0;
 	if (impl->n_waiting > 0)
 		if ((res = pthread_cond_broadcast(&impl->cond)) != 0)
 			return -res;

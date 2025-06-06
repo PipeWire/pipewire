@@ -186,8 +186,12 @@ SPA_API_POD_COMPARE int spa_pod_compare_is_compatible_flags(uint32_t type, const
 {
 	switch (type) {
 	case SPA_TYPE_Int:
+		if (size < sizeof(int32_t))
+			return -EINVAL;
 		return ((*(int32_t *) r1) & (*(int32_t *) r2)) != 0;
 	case SPA_TYPE_Long:
+		if (size < sizeof(int64_t))
+			return -EINVAL;
 		return ((*(int64_t *) r1) & (*(int64_t *) r2)) != 0;
 	default:
 		return -ENOTSUP;
@@ -197,18 +201,24 @@ SPA_API_POD_COMPARE int spa_pod_compare_is_compatible_flags(uint32_t type, const
 
 
 SPA_API_POD_COMPARE int spa_pod_compare_is_step_of(uint32_t type, const void *r1,
-		const void *r2, uint32_t size SPA_UNUSED)
+		const void *r2, uint32_t size)
 {
 	switch (type) {
 	case SPA_TYPE_Int:
+		if (size < sizeof(int32_t))
+			return -EINVAL;
 		return *(int32_t *) r1 % *(int32_t *) r2 == 0;
 	case SPA_TYPE_Long:
+		if (size < sizeof(int64_t))
+			return -EINVAL;
 		return *(int64_t *) r1 % *(int64_t *) r2 == 0;
 	case SPA_TYPE_Rectangle:
 	{
 		const struct spa_rectangle *rec1 = (struct spa_rectangle *) r1,
 		    *rec2 = (struct spa_rectangle *) r2;
 
+		if (size < sizeof(struct spa_rectangle))
+			return -EINVAL;
 		return (rec1->width % rec2->width == 0 &&
 		    rec1->height % rec2->height == 0);
 	}

@@ -524,8 +524,11 @@ uint32_t collect_transport_codec_info(struct pw_manager_object *card,
 		if (iid != SPA_PROP_bluetoothAudioCodec)
 			continue;
 
-		if (type->body.type != SPA_CHOICE_Enum ||
-		    type->body.child.type != SPA_TYPE_Int)
+		if (type->pod.size < sizeof(struct spa_pod_choice_body) +
+		                     2 * sizeof(int32_t) ||
+		    type->body.type != SPA_CHOICE_Enum ||
+		    type->body.child.type != SPA_TYPE_Int ||
+		    type->body.child.size != sizeof(int32_t))
 			continue;
 
 		/*

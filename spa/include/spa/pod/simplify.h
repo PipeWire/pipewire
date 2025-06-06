@@ -43,9 +43,8 @@ spa_pod_simplify_merge(struct spa_pod_builder *b, const struct spa_pod *pod1, co
 	struct spa_pod_frame f[2];
 	int res = 0, count = 0;
 
-	if (pod1->type != pod2->type)
-		return -ENOTSUP;
-	if (pod1->type != SPA_TYPE_Object)
+	if (!spa_pod_is_object(pod1) ||
+	    !spa_pod_is_object(pod2))
 		return -ENOTSUP;
 
 	o1 = (const struct spa_pod_object*) pod1;

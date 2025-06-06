@@ -683,7 +683,7 @@ static int add_int(struct format_info *info, const char *k, struct spa_pod *para
 		return -ENOENT;
 
 	val = spa_pod_get_values(&prop->value, &n_values, &choice);
-	if (val->type != SPA_TYPE_Int)
+	if (!spa_pod_is_int(val))
 		return -ENOTSUP;
 
 	if (n_values == 0)

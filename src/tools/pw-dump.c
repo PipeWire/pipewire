@@ -341,12 +341,16 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 		put_key(d, key);
 	switch (type) {
 	case SPA_TYPE_Bool:
+		if (size < sizeof(int32_t))
+			break;
 		put_value(d, NULL, *(int32_t*)body ? "true" : "false");
 		break;
 	case SPA_TYPE_Id:
 	{
 		const char *str;
 		char fallback[32];
+		if (size < sizeof(uint32_t))
+			break;
 		uint32_t id = *(uint32_t*)body;
 		str = spa_debug_type_find_short_name(info, *(uint32_t*)body);
 		if (str == NULL) {
@@ -357,24 +361,38 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 		break;
 	}
 	case SPA_TYPE_Int:
+		if (size < sizeof(int32_t))
+			break;
 		put_int(d, NULL, *(int32_t*)body);
 		break;
 	case SPA_TYPE_Fd:
 	case SPA_TYPE_Long:
+		if (size < sizeof(int64_t))
+			break;
 		put_int(d, NULL, *(int64_t*)body);
 		break;
 	case SPA_TYPE_Float:
+		if (size < sizeof(float))
+			break;
 		put_double(d, NULL, *(float*)body);
 		break;
 	case SPA_TYPE_Double:
+		if (size < sizeof(double))
+			break;
 		put_double(d, NULL, *(double*)body);
 		break;
 	case SPA_TYPE_String:
+		if (size < 1 || ((const char *)body)[size - 1])
+			break;
 		put_string(d, NULL, (const char*)body);
 		break;
 	case SPA_TYPE_Rectangle:
 	{
-		struct spa_rectangle *r = (struct spa_rectangle *)body;
+		struct spa_rectangle *r;
+
+		if (size < sizeof(*r))
+			break;
+		r = (struct spa_rectangle *)body;
 		put_begin(d, NULL, "{", STATE_SIMPLE);
 		put_int(d, "width", r->width);
 		put_int(d, "height", r->height);
@@ -383,7 +401,11 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 	}
 	case SPA_TYPE_Fraction:
 	{
-		struct spa_fraction *f = (struct spa_fraction *)body;
+		struct spa_fraction *f;
+
+		if (size < sizeof(*f))
+			break;
+		f = (struct spa_fraction *)body;
 		put_begin(d, NULL, "{", STATE_SIMPLE);
 		put_int(d, "num", f->num);
 		put_int(d, "denom", f->denom);
@@ -392,8 +414,12 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 	}
 	case SPA_TYPE_Array:
 	{
-		struct spa_pod_array_body *b = (struct spa_pod_array_body *)body;
+		struct spa_pod_array_body *b;
 		void *p;
+
+		if (size < sizeof(*b))
+			break;
+		b = (struct spa_pod_array_body *)body;
 		info = info && info->values ? info->values: info;
 		put_begin(d, NULL, "[", STATE_SIMPLE);
 		SPA_POD_ARRAY_BODY_FOREACH(b, size, p)

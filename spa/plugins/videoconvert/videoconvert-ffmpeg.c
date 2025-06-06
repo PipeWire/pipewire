@@ -1229,29 +1229,50 @@ static int diff_value(struct impl *impl, uint32_t type, uint32_t size, const voi
 {
 	switch (type) {
 	case SPA_TYPE_None:
-		return 0;
+		return INT_MAX;
 	case SPA_TYPE_Bool:
+		if (size < sizeof(int32_t))
+			return INT_MAX;
 		return (!!*(int32_t *)v1) - (!!*(int32_t *)v2);
 	case SPA_TYPE_Id:
+		if (size < sizeof(uint32_t))
+			return INT_MAX;
 		return (*(uint32_t *)v1) != (*(uint32_t *)v2);
 	case SPA_TYPE_Int:
+		if (size < sizeof(int32_t))
+			return INT_MAX;
 		return *(int32_t *)v1 - *(int32_t *)v2;
 	case SPA_TYPE_Long:
+		if (size < sizeof(int64_t))
+			return INT_MAX;
 		return *(int64_t *)v1 - *(int64_t *)v2;
 	case SPA_TYPE_Float:
+		if (size < sizeof(float))
+			return INT_MAX;
 		return (int)(*(float *)v1 - *(float *)v2);
 	case SPA_TYPE_Double:
+		if (size < sizeof(double))
+			return INT_MAX;
 		return (int)(*(double *)v1 - *(double *)v2);
 	case SPA_TYPE_String:
+		if (size < 1 ||
+		    ((const char *)v1)[size - 1] != 0 ||
+		    ((const char *)v2)[size - 1] != 0)
+			return INT_MAX;
 		return strcmp((char *)v1, (char *)v2);
 	case SPA_TYPE_Bytes:
 		return memcmp((char *)v1, (char *)v2, size);
 	case SPA_TYPE_Rectangle:
 	{
-		const struct spa_rectangle *rec1 = (struct spa_rectangle *) v1,
-		    *rec2 = (struct spa_rectangle *) v2;
-		uint64_t n1 = ((uint64_t) rec1->width) * rec1->height;
-		uint64_t n2 = ((uint64_t) rec2->width) * rec2->height;
+		const struct spa_rectangle *rec1, *rec2;
+		uint64_t n1, n2;
+
+		if (size < sizeof(*rec1))
+			return INT_MAX;
+		rec1 = (struct spa_rectangle *) v1;
+		rec2 = (struct spa_rectangle *) v2;
+		n1 = ((uint64_t) rec1->width) * rec1->height;
+		n2 = ((uint64_t) rec2->width) * rec2->height;
 		if (rec1->width == rec2->width && rec1->height == rec2->height)
 			return 0;
 		else if (n1 < n2)
@@ -1259,15 +1280,19 @@ static int diff_value(struct impl *impl, uint32_t type, uint32_t size, const voi
 		else if (n1 > n2)
 			return n1 - n2;
 		else if (rec1->width == rec2->width)
-			return (int)rec1->height - (int)rec2->height;
+			return (int32_t)rec1->height - (int32_t)rec2->height;
 		else
-			return (int)rec1->width - (int)rec2->width;
+			return (int32_t)rec1->width - (int32_t)rec2->width;
 	}
 	case SPA_TYPE_Fraction:
 	{
-		const struct spa_fraction *f1 = (struct spa_fraction *) v1,
-		    *f2 = (struct spa_fraction *) v2;
+		const struct spa_fraction *f1, *f2;
 		uint64_t n1, n2;
+
+		if (size < sizeof(*f1))
+			return INT_MAX;
+		f1 = (struct spa_fraction *) v1;
+		f2 = (struct spa_fraction *) v2;
 		n1 = ((uint64_t) f1->num) * f2->denom;
 		n2 = ((uint64_t) f2->num) * f1->denom;
 		return (int) (n1 - n2);

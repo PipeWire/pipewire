@@ -114,6 +114,7 @@ int stream_send_underflow(struct stream *stream, int64_t offset);
 int stream_send_overflow(struct stream *stream);
 int stream_send_killed(struct stream *stream);
 int stream_send_started(struct stream *stream);
+int stream_send_suspended(struct stream *stream, bool suspended);
 int stream_send_request(struct stream *stream);
 int stream_update_minreq(struct stream *stream, uint32_t minreq);
 int stream_send_moved(struct stream *stream, uint32_t peer_index, const char *peer_name);

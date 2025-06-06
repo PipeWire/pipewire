@@ -1127,6 +1127,15 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 		break;
 	}
 
+	/* Don't emit suspended if we are creating a corked stream, as that will have a quick
+	 * RUNNING/SUSPENDED transition for initial negotiation */
+	if (stream->create_tag == SPA_ID_INVALID || !stream->corked) {
+		if (old == PW_STREAM_STATE_PAUSED && state == PW_STREAM_STATE_STREAMING)
+			stream_send_suspended(stream, false);
+		if (old == PW_STREAM_STATE_STREAMING && state == PW_STREAM_STATE_PAUSED)
+			stream_send_suspended(stream, true);
+	}
+
 	if (destroy_stream) {
 		pw_work_queue_add(impl->work_queue, stream, 0,
 				do_destroy_stream, NULL);

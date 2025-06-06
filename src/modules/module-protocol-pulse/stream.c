@@ -314,6 +314,31 @@ int stream_send_started(struct stream *stream)
 	return client_queue_message(client, reply);
 }
 
+int stream_send_suspended(struct stream *stream, bool suspended)
+{
+	struct client *client = stream->client;
+	struct impl *impl = client->impl;
+	struct message *reply;
+	uint32_t command;
+
+	pw_log_debug("client %p [%s]: stream %p SUSPENDED channel:%u",
+		     client, client->name, stream, stream->channel);
+
+	command = stream->direction == PW_DIRECTION_OUTPUT ?
+		COMMAND_PLAYBACK_STREAM_SUSPENDED :
+		COMMAND_RECORD_STREAM_SUSPENDED;
+
+	reply = message_alloc(impl, -1, 0);
+	message_put(reply,
+		TAG_U32, command,
+		TAG_U32, -1,
+		TAG_U32, stream->channel,
+		TAG_BOOLEAN, suspended,
+		TAG_INVALID);
+
+	return client_queue_message(client, reply);
+}
+
 int stream_send_request(struct stream *stream)
 {
 	struct client *client = stream->client;

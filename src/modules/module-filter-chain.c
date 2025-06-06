@@ -704,6 +704,38 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * control from "Control" will be copied to "Notify" and the control value will be
  * dumped into the INFO log.
  *
+ * ### pipe
+ *
+ * The pipe plugin can be used to filter the audio with another application using pipes
+ * for sending and receiving the raw audio.
+ *
+ * The application needs to consume raw float32 samples from stdin and produce filtered
+ * float32 samples on stdout.
+ *
+ * It has an "In" input port and an "Out" output data ports.
+ *
+ * The node requires a `config` section with extra configuration:
+ *
+ *\code{.unparsed}
+ * filter.graph = {
+ *     nodes = [
+ *         {
+ *             type   = builtin
+ *             name   = ...
+ *             label  = pipe
+ *             config = {
+ *                 command = "ffmpeg -f f32le -ac 1 -ar 48000 -blocksize 1024 -fflags nobuffer -i \"pipe:\"  \"-filter:a\" \"loudnorm=I=-18:TP=-3:LRA=4\" -f f32le -ac 1 -ar 48000 \"pipe:\""
+ *             }
+ *             ...
+ *         }
+ *     }
+ *     ...
+ * }
+ *\endcode
+ *
+ * - `command` the command to execute. It should consume samples from stdin and produce
+ *             samples on stdout.
+ *
  * ## General options
  *
  * Options with well-known behavior. Most options can be added to the global

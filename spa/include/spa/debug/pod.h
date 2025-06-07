@@ -186,9 +186,7 @@ SPA_API_DEBUG_POD int spa_debugc_pod(struct spa_debug_context *ctx, int indent,
 		const struct spa_type_info *info, const struct spa_pod *pod)
 {
 	return spa_debugc_pod_value(ctx, indent, info ? info : SPA_TYPE_ROOT,
-			SPA_POD_TYPE(pod),
-			SPA_POD_BODY(pod),
-			SPA_POD_BODY_SIZE(pod));
+		                    pod->type, SPA_POD_BODY(pod), pod->size);
 }
 
 SPA_API_DEBUG_POD int

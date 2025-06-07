@@ -94,10 +94,10 @@ SPA_API_POD_COMPARE int spa_pod_compare(const struct spa_pod *pod1,
 	if (n_vals1 != n_vals2)
 		return -EINVAL;
 
-	if (SPA_POD_TYPE(pod1) != SPA_POD_TYPE(pod2))
+	if (pod1->type != pod2->type)
 		return -EINVAL;
 
-	switch (SPA_POD_TYPE(pod1)) {
+	switch (pod1->type) {
 	case SPA_TYPE_Struct:
 	{
 		const struct spa_pod *p1, *p2;
@@ -145,17 +145,17 @@ SPA_API_POD_COMPARE int spa_pod_compare(const struct spa_pod *pod1,
 	}
 	case SPA_TYPE_Array:
 	{
-		if (SPA_POD_BODY_SIZE(pod1) != SPA_POD_BODY_SIZE(pod2))
+		if (pod1->size != pod2->size)
 			return -EINVAL;
-		res = memcmp(SPA_POD_BODY(pod1), SPA_POD_BODY(pod2), SPA_POD_BODY_SIZE(pod2));
+		res = memcmp(SPA_POD_BODY(pod1), SPA_POD_BODY(pod2), pod2->size);
 		break;
 	}
 	default:
-		if (SPA_POD_BODY_SIZE(pod1) != SPA_POD_BODY_SIZE(pod2))
+		if (pod1->size != pod2->size)
 			return -EINVAL;
-		res = spa_pod_compare_value(SPA_POD_TYPE(pod1),
+		res = spa_pod_compare_value(pod1->type,
 				SPA_POD_BODY(pod1), SPA_POD_BODY(pod2),
-				SPA_POD_BODY_SIZE(pod1));
+				pod1->size);
 		break;
 	}
 	return res;

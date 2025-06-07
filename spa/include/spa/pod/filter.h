@@ -262,14 +262,14 @@ SPA_API_POD_FILTER int spa_pod_filter_part(struct spa_pod_builder *b,
 		uint32_t filter_offset = 0;
 		struct spa_pod_frame f;
 
-		switch (SPA_POD_TYPE(pp)) {
+		switch (pp->type) {
 		case SPA_TYPE_Object:
 			if (pf != NULL) {
 				struct spa_pod_object *op = (struct spa_pod_object *) pp;
 				struct spa_pod_object *of = (struct spa_pod_object *) pf;
 				const struct spa_pod_prop *p1, *p2;
 
-				if (SPA_POD_TYPE(pf) != SPA_POD_TYPE(pp))
+				if (pf->type != pp->type)
 					return -EINVAL;
 
 				spa_pod_builder_push_object(b, &f, op->body.type, op->body.id);
@@ -307,7 +307,7 @@ SPA_API_POD_FILTER int spa_pod_filter_part(struct spa_pod_builder *b,
 
 		case SPA_TYPE_Struct:
 			if (pf != NULL) {
-				if (SPA_POD_TYPE(pf) != SPA_POD_TYPE(pp))
+				if (pf->type != pp->type)
 					return -EINVAL;
 
 				filter_offset = sizeof(struct spa_pod_struct);
@@ -326,9 +326,9 @@ SPA_API_POD_FILTER int spa_pod_filter_part(struct spa_pod_builder *b,
 
 		default:
 			if (pf != NULL) {
-				if (SPA_POD_SIZE(pp) != SPA_POD_SIZE(pf))
+				if (pp->size != pf->size)
 					return -EINVAL;
-				if (memcmp(pp, pf, SPA_POD_SIZE(pp)) != 0)
+				if (memcmp(pp, pf, pp->size) != 0)
 					return -EINVAL;
 				do_advance = true;
 			}

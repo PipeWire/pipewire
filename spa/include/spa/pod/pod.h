@@ -96,8 +96,8 @@ struct spa_pod_bitmap {
 };
 
 #define SPA_POD_ARRAY_CHILD(arr)	(&((struct spa_pod_array*)(arr))->body.child)
-#define SPA_POD_ARRAY_VALUE_TYPE(arr)	(SPA_POD_TYPE(SPA_POD_ARRAY_CHILD(arr)))
-#define SPA_POD_ARRAY_VALUE_SIZE(arr)	(SPA_POD_BODY_SIZE(SPA_POD_ARRAY_CHILD(arr)))
+#define SPA_POD_ARRAY_VALUE_TYPE(arr)	(SPA_POD_ARRAY_CHILD(arr)->type)
+#define SPA_POD_ARRAY_VALUE_SIZE(arr)	(SPA_POD_ARRAY_CHILD(arr)->size)
 #define SPA_POD_ARRAY_N_VALUES(arr)	(SPA_POD_ARRAY_VALUE_SIZE(arr) ? ((SPA_POD_BODY_SIZE(arr) - sizeof(struct spa_pod_array_body)) / SPA_POD_ARRAY_VALUE_SIZE(arr)) : 0)
 #define SPA_POD_ARRAY_VALUES(arr)	SPA_POD_CONTENTS(struct spa_pod_array, arr)
 
@@ -114,8 +114,8 @@ struct spa_pod_array {
 #define SPA_POD_CHOICE_CHILD(choice)		(&((struct spa_pod_choice*)(choice))->body.child)
 #define SPA_POD_CHOICE_TYPE(choice)		(((struct spa_pod_choice*)(choice))->body.type)
 #define SPA_POD_CHOICE_FLAGS(choice)		(((struct spa_pod_choice*)(choice))->body.flags)
-#define SPA_POD_CHOICE_VALUE_TYPE(choice)	(SPA_POD_TYPE(SPA_POD_CHOICE_CHILD(choice)))
-#define SPA_POD_CHOICE_VALUE_SIZE(choice)	(SPA_POD_BODY_SIZE(SPA_POD_CHOICE_CHILD(choice)))
+#define SPA_POD_CHOICE_VALUE_TYPE(choice)	(SPA_POD_CHOICE_CHILD(choice)->type)
+#define SPA_POD_CHOICE_VALUE_SIZE(choice)	(SPA_POD_CHOICE_CHILD(choice)->size)
 #define SPA_POD_CHOICE_N_VALUES(choice)		(SPA_POD_CHOICE_VALUE_SIZE(choice) ? ((SPA_POD_BODY_SIZE(choice) - sizeof(struct spa_pod_choice_body)) / SPA_POD_CHOICE_VALUE_SIZE(choice)) : 0)
 #define SPA_POD_CHOICE_VALUES(choice)		(SPA_POD_CONTENTS(struct spa_pod_choice, choice))
 

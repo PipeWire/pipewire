@@ -31,13 +31,8 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/pod/filter.h>
 
-#include <sbc/sbc.h>
-
 #include "defs.h"
-
-#ifdef HAVE_LC3
-#include <lc3.h>
-#endif
+#include "media-codecs.h"
 
 SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.source.sco");
 #undef SPA_LOG_TOPIC_DEFAULT
@@ -135,23 +130,8 @@ struct impl {
 	uint64_t current_time;
 	uint64_t next_time;
 
-	/* Codecs */
-	bool h2_seq_initialized;
-	uint8_t h2_seq;
-
-	/* mSBC/LC3 frame parsing */
-	uint8_t recv_buffer[HFP_CODEC_PACKET_SIZE];
-	uint8_t recv_buffer_pos;
-
-	/* mSBC */
-	sbc_t msbc;
-
-	/* LC3 */
-#ifdef HAVE_LC3
-	lc3_decoder_t lc3;
-#else
-	void *lc3;
-#endif
+	const struct media_codec *codec;
+	void *codec_data;
 
 	uint64_t now;
 };
@@ -358,55 +338,6 @@ static void recycle_buffer(struct impl *this, struct port *port, uint32_t buffer
 	}
 }
 
-/* Append data to recv buffer, syncing buffer start to headers */
-static void recv_buffer_append_byte(struct impl *this, uint8_t byte)
-{
-        /* Parse H2 sync header */
-        if (this->recv_buffer_pos == 0) {
-                if (byte != 0x01) {
-                        this->recv_buffer_pos = 0;
-                        return;
-                }
-        } else if (this->recv_buffer_pos == 1) {
-                if (!((byte & 0x0F) == 0x08 &&
-                      ((byte >> 4) & 1) == ((byte >> 5) & 1) &&
-                      ((byte >> 6) & 1) == ((byte >> 7) & 1))) {
-                        this->recv_buffer_pos = 0;
-                        return;
-                }
-        } else if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
-		/* Beginning of MSBC frame: SYNCWORD + 2 nul bytes */
-		if (this->recv_buffer_pos == 2) {
-			if (byte != 0xAD) {
-				this->recv_buffer_pos = 0;
-				return;
-			}
-		}
-		else if (this->recv_buffer_pos == 3) {
-			if (byte != 0x00) {
-				this->recv_buffer_pos = 0;
-				return;
-			}
-		}
-		else if (this->recv_buffer_pos == 4) {
-			if (byte != 0x00) {
-				this->recv_buffer_pos = 0;
-				return;
-			}
-                }
-	}
-
-	if (this->recv_buffer_pos >= HFP_CODEC_PACKET_SIZE) {
-		/* Packet completed. Reset. */
-		this->recv_buffer_pos = 0;
-		recv_buffer_append_byte(this, byte);
-		return;
-	}
-
-        this->recv_buffer[this->recv_buffer_pos] = byte;
-        ++this->recv_buffer_pos;
-}
-
 /* Helper function for debugging */
 static SPA_UNUSED void hexdump_to_log(struct impl *this, uint8_t *data, size_t size)
 {
@@ -425,124 +356,53 @@ static SPA_UNUSED void hexdump_to_log(struct impl *this, uint8_t *data, size_t s
 	spa_log_trace(this->log, "hexdump (%d bytes):%s", (int)size, buf);
 }
 
-/* helper function to detect if a packet consists only of zeros */
-static bool is_zero_packet(uint8_t *data, int size)
+static ssize_t decode_data(struct impl *this, uint8_t *src, size_t src_size, uint64_t now)
 {
-	for (int i = 0; i < size; ++i) {
-		if (data[i] != 0) {
-			return false;
-		}
-	}
-	return true;
-}
-
-static int lc3_decode_frame(struct impl *this, const void *src, size_t src_size, void *dst,
-		size_t dst_size, size_t *dst_out)
-{
-#ifdef HAVE_LC3
+	struct port *port = &this->port;
+	uint16_t seqnum = 0;
+	uint32_t timestamp = 0;
+	size_t total = 0;
+	size_t written;
 	int res;
 
-	if (src_size != LC3_SWB_PAYLOAD_SIZE)
-		return -EINVAL;
-	if (dst_size < LC3_SWB_DECODED_SIZE)
-		return -EINVAL;
+	res = this->codec->start_decode(this->codec_data, src, src_size, &seqnum, &timestamp);
+	if (res < 0)
+		return res;
 
-	res = lc3_decode(this->lc3, src, src_size, LC3_PCM_FORMAT_S24, dst, 1);
-	if (res != 0)
-		return -EINVAL;
+	/* TODO: check seqnum and handle PLC */
 
-	*dst_out = LC3_SWB_DECODED_SIZE;
-	return LC3_SWB_DECODED_SIZE;
-#else
-	return -EOPNOTSUPP;
-#endif
-}
+	spa_assert((size_t)res <= src_size);
+	src = SPA_PTROFF(src, res, void);
+	src_size -= res;
 
-static uint32_t preprocess_and_decode_codec_data(void *userdata, uint8_t *read_data, int size_read, uint64_t now)
-{
-	struct impl *this = userdata;
-	struct port *port = &this->port;
-	uint32_t decoded = 0;
-	int i;
-	uint32_t decoded_size = (this->transport->codec == HFP_AUDIO_CODEC_MSBC) ? MSBC_DECODED_SIZE :
-		LC3_SWB_DECODED_SIZE;
+	do {
+		void *dst;
+		uint32_t dst_size;
 
-	spa_log_trace(this->log, "handling mSBC/LC3 data");
+		dst = spa_bt_decode_buffer_get_write(&port->buffer, &dst_size);
 
-	/*
-	 * Check if the packet contains only zeros - if so ignore the packet.
-	 * This is necessary, because some kernels insert bogus "all-zero" packets
-	 * into the datastream.
-	 * See https://gitlab.freedesktop.org/pipewire/pipewire/-/issues/549
-	 */
-	if (is_zero_packet(read_data, size_read))
-		return 0;
+		written = 0;
+		res = this->codec->decode(this->codec_data, src, src_size, dst, dst_size, &written);
+		if (res < 0)
+			return res;
 
-	for (i = 0; i < size_read; ++i) {
-		void *buf;
-		uint32_t avail;
-		int seq, processed;
-		size_t written;
+		spa_assert((size_t)res <= src_size);
+		src = SPA_PTROFF(src, res, void);
+		src_size -= res;
+		total += written;
 
-		recv_buffer_append_byte(this, read_data[i]);
+		if (written)
+			spa_bt_decode_buffer_write_packet(&port->buffer, written, this->now);
+	} while (src_size && (res || written));
 
-		if (this->recv_buffer_pos != HFP_CODEC_PACKET_SIZE)
-			continue;
-
-		/*
-		 * Handle found mSBC/LC3 packet
-		 */
-
-		buf = spa_bt_decode_buffer_get_write(&port->buffer, &avail);
-
-		/* Check sequence number */
-		seq = ((this->recv_buffer[1] >> 4) & 1) |
-			((this->recv_buffer[1] >> 6) & 2);
-
-		spa_log_trace(this->log, "mSBC/LC3 packet seq=%u", seq);
-		if (!this->h2_seq_initialized) {
-			this->h2_seq_initialized = true;
-			this->h2_seq = seq;
-		} else if (seq != this->h2_seq) {
-			/* TODO: PLC (too late to insert data now) */
-			spa_log_info(this->log,
-					"missing mSBC/LC3 packet: %u != %u", seq, this->h2_seq);
-			this->h2_seq = seq;
-		}
-
-		this->h2_seq = (this->h2_seq + 1) % 4;
-
-		if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
-			if (avail < decoded_size)
-				spa_log_warn(this->log, "Output buffer full, dropping msbc data");
-
-			/* decode frame */
-			processed = sbc_decode(
-				&this->msbc, this->recv_buffer + 2, HFP_CODEC_PACKET_SIZE - 3,
-						buf, avail, &written);
-		} else {
-			processed = lc3_decode_frame(this, this->recv_buffer + 2, HFP_CODEC_PACKET_SIZE - 2,
-					buf, avail, &written);
-		}
-
-		if (processed < 0) {
-			spa_log_warn(this->log, "decode failed: %d", processed);
-			/* TODO: manage errors */
-			continue;
-		}
-
-		spa_bt_decode_buffer_write_packet(&port->buffer, written, now);
-		decoded += written;
-	}
-
-	return decoded;
+	return total;
 }
 
 static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read, uint64_t rx_time)
 {
 	struct impl *this = userdata;
 	struct port *port = &this->port;
-	uint32_t decoded;
+	ssize_t decoded;
 	uint64_t dt;
 
 	/* Drop data when not started */
@@ -563,40 +423,14 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read, uint
 	hexdump_to_log(this, read_data, size_read);
 #endif
 
-	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC ||
-			this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB) {
-		decoded = preprocess_and_decode_codec_data(userdata, read_data, size_read, this->now);
-	} else {
-		uint32_t avail;
-		uint8_t *packet;
-
-		if (size_read != 48 && is_zero_packet(read_data, size_read)) {
-			/* Adapter is returning non-standard CVSD stream. For example
-			 * Intel 8087:0029 at Firmware revision 0.0 build 191 week 21 2021
-			 * on kernel 5.13.19 produces such data.
-			 */
-			return 0;
-		}
-
-		if (size_read % port->frame_size != 0) {
-			/* Unaligned data: reception or adapter problem.
-			 * Consider the whole packet lost and report.
-			 */
-			spa_log_debug(this->log,
-					"received bad Bluetooth SCO CVSD packet");
-			return 0;
-		}
-
-		packet = spa_bt_decode_buffer_get_write(&port->buffer, &avail);
-		avail = SPA_MIN(avail, (uint32_t)size_read);
-		spa_memmove(packet, read_data, avail);
-		spa_bt_decode_buffer_write_packet(&port->buffer, avail, this->now);
-
-		decoded = avail;
+	decoded = decode_data(this, read_data, size_read, this->now);
+	if (decoded < 0) {
+		spa_log_debug(this->log, "failed to decode data: %d", (int)decoded);
+		return 0;
 	}
 
 	spa_log_trace(this->log, "read socket data size:%d decoded frames:%d dt:%d dms",
-			size_read, decoded / port->frame_size,
+			size_read, (int)decoded / port->frame_size,
 			(int)(dt / 100000));
 
 	return 0;
@@ -731,32 +565,12 @@ static int transport_start(struct impl *this)
 	spa_bt_decode_buffer_set_max_extra_latency(&port->buffer,
 			port->current_format.info.raw.rate * 40 / 1000);
 
-	/* Init mSBC/LC3 if needed */
-	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
-		res = sbc_init_msbc(&this->msbc, 0);
-		if (res < 0)
-			return res;
-
-		/* Libsbc expects audio samples by default in host endianness, mSBC requires little endian */
-		this->msbc.endian = SBC_LE;
-		this->h2_seq_initialized = false;
-
-		this->recv_buffer_pos = 0;
-	} else if (this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB) {
-#ifdef HAVE_LC3
-		this->lc3 = lc3_setup_decoder(7500, 32000, 0,
-				calloc(1, lc3_decoder_size(7500, 32000)));
-		if (!this->lc3)
-			return -EINVAL;
-
-		spa_assert(lc3_frame_samples(7500, 32000) * port->frame_size == LC3_SWB_DECODED_SIZE);
-
-		this->h2_seq_initialized = false;
-		this->recv_buffer_pos = 0;
-#else
+	/* init codec */
+	this->codec_data = this->codec->init(this->codec, 0, NULL, 0, NULL, NULL, 0);
+	if (!this->codec_data) {
+		spa_log_error(this->log, "codec init failed");
 		res = -EINVAL;
 		goto fail;
-#endif
 	}
 
 	this->io_error = false;
@@ -772,9 +586,10 @@ static int transport_start(struct impl *this)
 	return 0;
 
 fail:
-	sbc_finish(&this->msbc);
-	free(this->lc3);
-	this->lc3 = NULL;
+	if (this->codec_data) {
+		this->codec->deinit(this->codec_data);
+		this->codec_data = NULL;
+	}
 	return res;
 }
 
@@ -866,9 +681,8 @@ static void transport_stop(struct impl *this)
 
 	spa_bt_decode_buffer_clear(&port->buffer);
 
-	sbc_finish(&this->msbc);
-	free(this->lc3);
-	this->lc3 = NULL;
+	this->codec->deinit(this->codec_data);
+	this->codec_data = NULL;
 }
 
 static int do_stop(struct impl *this)
@@ -1039,6 +853,7 @@ impl_node_port_enum_params(void *object, int seq,
 	uint8_t buffer[1024];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
+	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
@@ -1060,28 +875,10 @@ impl_node_port_enum_params(void *object, int seq,
 		if (this->transport == NULL)
 			return -EIO;
 
-		/* set the info structure */
-		struct spa_audio_info_raw info = { 0, };
-		if (this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB)
-			info.format = SPA_AUDIO_FORMAT_S24_32_LE;
-		else
-			info.format = SPA_AUDIO_FORMAT_S16_LE;
-		info.channels = 1;
-		info.position[0] = SPA_AUDIO_CHANNEL_MONO;
-
-		 /* CVSD format has a rate of 8kHz
-		  * MSBC format has a rate of 16kHz
-		  * LC3-SWB format has a rate of 32kHz
-		  */
-		if (this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB)
-			info.rate = 32000;
-		else if (this->transport->codec == HFP_AUDIO_CODEC_MSBC)
-			info.rate = 16000;
-		else
-			info.rate = 8000;
-
-		/* build the param */
-		param = spa_format_audio_raw_build(&b, id, &info);
+		if ((res = this->codec->enum_config(this->codec,
+					0, NULL, 0,
+					id, result.index, &b, &param)) != 1)
+			return res;
 		break;
 
 	case SPA_PARAM_Format:
@@ -1191,9 +988,6 @@ static int port_set_format(struct impl *this, struct port *port,
 	} else {
 		struct spa_audio_info info = { 0 };
 
-		if (!this->transport)
-			return -EIO;
-
 		if ((err = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
 			return err;
 
@@ -1205,19 +999,24 @@ static int port_set_format(struct impl *this, struct port *port,
 			return -EINVAL;
 
 		if (info.info.raw.rate == 0 ||
-		    info.info.raw.channels != 1)
+		    info.info.raw.channels == 0 ||
+		    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
 			return -EINVAL;
+
+		port->frame_size = info.info.raw.channels;
 
 		switch (info.info.raw.format) {
 		case SPA_AUDIO_FORMAT_S16_LE:
-			if (this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB)
-				return -EINVAL;
-			port->frame_size = info.info.raw.channels * 2;
+		case SPA_AUDIO_FORMAT_S16_BE:
+			port->frame_size *= 2;
 			break;
-		case SPA_AUDIO_FORMAT_S24_32_LE:
-			if (this->transport->codec != HFP_AUDIO_CODEC_LC3_SWB)
-				return -EINVAL;
-			port->frame_size = info.info.raw.channels * 4;
+		case SPA_AUDIO_FORMAT_S24:
+			port->frame_size *= 3;
+			break;
+		case SPA_AUDIO_FORMAT_S24_32:
+		case SPA_AUDIO_FORMAT_S32:
+		case SPA_AUDIO_FORMAT_F32:
+			port->frame_size *= 4;
 			break;
 		default:
 			return -EINVAL;
@@ -1724,10 +1523,14 @@ impl_init(const struct spa_handle_factory *factory,
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_TRANSPORT)))
 		sscanf(str, "pointer:%p", &this->transport);
 
-	if (this->transport == NULL) {
-		spa_log_error(this->log, "a transport is needed");
+	if (this->transport == NULL || this->transport->media_codec == NULL  ||
+			this->transport->media_codec->kind != MEDIA_CODEC_HFP) {
+		spa_log_error(this->log, "a transport with HFP codec is needed");
 		return -EINVAL;
 	}
+
+	this->codec = this->transport->media_codec;
+
 	spa_bt_transport_add_listener(this->transport,
 			&this->transport_listener, &transport_events, this);
 

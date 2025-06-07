@@ -465,9 +465,10 @@ static int32_t decode_data(struct impl *this, uint8_t *src, uint32_t src_size,
 
 	/* decode */
 	avail = dst_size;
-	while (src_size > 0) {
+	do {
+		written = 0;
 		if ((processed = this->codec->decode(this->codec_data,
-				src, src_size, dst, avail, &written)) <= 0)
+				src, src_size, dst, avail, &written)) < 0)
 			return processed;
 
 		/* update source and dest pointers */
@@ -476,7 +477,8 @@ static int32_t decode_data(struct impl *this, uint8_t *src, uint32_t src_size,
 		src += processed;
 		avail -= written;
 		dst += written;
-	}
+	} while (src_size && (processed || written));
+
 	return dst_size - avail;
 }
 

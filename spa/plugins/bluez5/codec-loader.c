@@ -53,6 +53,7 @@ static int codec_order(const struct media_codec *c)
 		SPA_BLUETOOTH_AUDIO_CODEC_AAC_ELD,
 		SPA_BLUETOOTH_AUDIO_CODEC_G722,
 		SPA_BLUETOOTH_AUDIO_CODEC_LC3_SWB,
+		SPA_BLUETOOTH_AUDIO_CODEC_LC3_A127,
 		SPA_BLUETOOTH_AUDIO_CODEC_MSBC,
 		SPA_BLUETOOTH_AUDIO_CODEC_CVSD,
 	};
@@ -192,6 +193,7 @@ const struct media_codec * const *load_media_codecs(struct spa_plugin_loader *lo
 		MEDIA_CODEC_FACTORY_LIB("hfp-cvsd"),
 		MEDIA_CODEC_FACTORY_LIB("hfp-msbc"),
 		MEDIA_CODEC_FACTORY_LIB("hfp-lc3-swb"),
+		MEDIA_CODEC_FACTORY_LIB("hfp-lc3-a127"),
 #undef MEDIA_CODEC_FACTORY_LIB
 	};
 

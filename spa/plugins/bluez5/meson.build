@@ -199,6 +199,14 @@ if get_option('bluez5-codec-lc3').allowed() and lc3_dep.found()
     dependencies : [ spa_dep, lc3_dep, mathlib ],
     install : true,
     install_dir : spa_plugindir / 'bluez5')
+
+  bluez_codec_hfp_lc3_a127 = shared_library('spa-codec-bluez5-hfp-lc3-a127',
+    [ 'hfp-codec-lc3-a127.c', 'media-codecs.c' ],
+    include_directories : [ configinc ],
+    c_args : codec_args,
+    dependencies : [ spa_dep, lc3_dep, mathlib ],
+    install : true,
+    install_dir : spa_plugindir / 'bluez5')
 endif
 
 if get_option('bluez5-codec-g722').allowed()

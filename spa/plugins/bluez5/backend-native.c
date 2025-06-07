@@ -32,6 +32,7 @@
 #include <spa-private/dbus-helpers.h>
 
 #include "defs.h"
+#include "media-codecs.h"
 
 #ifdef HAVE_LIBUSB
 #include <libusb.h>
@@ -244,9 +245,10 @@ static const struct spa_bt_transport_events transport_events = {
 
 static const struct spa_bt_transport_implementation sco_transport_impl;
 
-static int rfcomm_new_transport(struct rfcomm *rfcomm, int codec)
+static int rfcomm_new_transport(struct rfcomm *rfcomm, int codec_id)
 {
 	struct impl *backend = rfcomm->backend;
+	const struct media_codec *codec;
 	struct spa_bt_transport *t = NULL;
 	struct transport_data *td;
 	char* pathfd;
@@ -255,6 +257,12 @@ static int rfcomm_new_transport(struct rfcomm *rfcomm, int codec)
 		spa_hook_remove(&rfcomm->transport_listener);
 		spa_bt_transport_free(rfcomm->transport);
 		rfcomm->transport = NULL;
+	}
+
+	codec = spa_bt_get_hfp_codec(backend->monitor, codec_id);
+	if (!codec) {
+		spa_log_warn(backend->log, "failed to get HFP codec %d", codec_id);
+		goto fail;
 	}
 
 	if ((pathfd = spa_aprintf("%s/fd%d", rfcomm->path, rfcomm->source.fd)) == NULL)
@@ -273,7 +281,8 @@ static int rfcomm_new_transport(struct rfcomm *rfcomm, int codec)
 	t->backend = &backend->this;
 	t->n_channels = 1;
 	t->channels[0] = SPA_AUDIO_CHANNEL_MONO;
-	t->codec = codec;
+	t->codec = codec_id;
+	t->media_codec = codec;
 
 	td = t->user_data;
 	td->rfcomm = rfcomm;
@@ -297,7 +306,7 @@ static int rfcomm_new_transport(struct rfcomm *rfcomm, int codec)
 	spa_bt_transport_add_listener(t, &rfcomm->transport_listener, &transport_events, rfcomm);
 
 	if (rfcomm->telephony_ag) {
-		rfcomm->telephony_ag->transport.codec = codec;
+		rfcomm->telephony_ag->transport.codec = codec_id;
 		rfcomm->telephony_ag->transport.state = SPA_BT_TRANSPORT_STATE_IDLE;
 		telephony_ag_transport_notify_updated_props(rfcomm->telephony_ag);
 	}
@@ -2010,7 +2019,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			/* send codec selection to AG */
 			rfcomm_send_cmd(rfcomm, "AT+BCS=%u", selected_codec);
 
-			if (!rfcomm->transport || (rfcomm->transport->codec != selected_codec) ) {
+			if (!rfcomm->transport || (rfcomm->codec != selected_codec) ) {
 				if (rfcomm_new_transport(rfcomm, selected_codec) < 0) {
 					// TODO: We should manage the missing transport
 				} else {
@@ -2420,7 +2429,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 				telephony_ag_set_callbacks(rfcomm->telephony_ag,
 							&telephony_ag_callbacks, rfcomm);
 				if (rfcomm->transport) {
-					rfcomm->telephony_ag->transport.codec = rfcomm->transport->codec;
+					rfcomm->telephony_ag->transport.codec = rfcomm->transport->media_codec->codec_id;
 					rfcomm->telephony_ag->transport.state = rfcomm->transport->state;
 				}
 				telephony_ag_register(rfcomm->telephony_ag);
@@ -2604,8 +2613,8 @@ static int sco_do_connect(struct spa_bt_transport *t)
 	struct sockaddr_sco addr;
 	int err;
 
-	spa_log_debug(backend->log, "transport %p: enter sco_do_connect, codec=%u",
-			t, t->codec);
+	spa_log_debug(backend->log, "transport %p: enter sco_do_connect, codec=%s",
+			t, t->media_codec->description);
 
 	td->err = -EIO;
 
@@ -2617,8 +2626,8 @@ static int sco_do_connect(struct spa_bt_transport *t)
 	str2ba(d->address, &addr.sco_bdaddr);
 
 	for (int retry = 2;;) {
-		bool transparent = (t->codec == HFP_AUDIO_CODEC_MSBC || t->codec == HFP_AUDIO_CODEC_LC3_SWB);
-		spa_autoclose int sock = sco_create_socket(backend, d->adapter, transparent);
+		bool encoded = t->media_codec->id != SPA_BLUETOOTH_AUDIO_CODEC_CVSD;
+		spa_autoclose int sock = sco_create_socket(backend, d->adapter, encoded);
 		if (sock < 0)
 			return -1;
 
@@ -2631,7 +2640,7 @@ static int sco_do_connect(struct spa_bt_transport *t)
 		} else if (err < 0 && !(errno == EAGAIN || errno == EINPROGRESS)) {
 			spa_log_error(backend->log, "connect(): %s", strerror(errno));
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
-			if (errno == EOPNOTSUPP && t->codec != HFP_AUDIO_CODEC_CVSD &&
+			if (errno == EOPNOTSUPP && encoded &&
 					td->rfcomm->codec_negotiation_supported) {
 				/* Adapter doesn't support msbc/lc3. Renegotiate. */
 				d->adapter->msbc_probed = true;
@@ -2962,14 +2971,14 @@ static void sco_listen_event(struct spa_source *source)
 		return;
 	}
 
-	spa_log_debug(backend->log, "transport %p: codec=%u", t, t->codec);
+	spa_log_debug(backend->log, "transport %p: codec=%s", t, t->media_codec->description);
 	if (backend->defer_setup_enabled) {
 		/* In BT_DEFER_SETUP mode, when a connection is accepted, the listening socket is unblocked but
 		 * the effective connection setup happens only on first receive, allowing to configure the
 		 * accepted socket. */
 		char buff;
 
-		if (t->codec == HFP_AUDIO_CODEC_MSBC || t->codec == HFP_AUDIO_CODEC_LC3_SWB) {
+		if (t->media_codec->id != SPA_BLUETOOTH_AUDIO_CODEC_CVSD) {
 			/* set correct socket options for mSBC/LC3 */
 			struct bt_voice voice_config;
 			memset(&voice_config, 0, sizeof(voice_config));

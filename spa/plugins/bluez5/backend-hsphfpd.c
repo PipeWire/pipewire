@@ -19,6 +19,7 @@
 #include <spa-private/dbus-helpers.h>
 
 #include "defs.h"
+#include "media-codecs.h"
 
 SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.hsphfpd");
 #undef SPA_LOG_TOPIC_DEFAULT
@@ -659,8 +660,11 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 		goto fail;
 	}
 
-	if (transport->codec != codec)
-		spa_log_warn(backend->log, "Expecting codec to be %d, got %d", transport->codec, codec);
+	if (transport->media_codec->codec_id != codec) {
+		spa_log_warn(backend->log, "Expecting codec to be %d, got %d", transport->media_codec->codec_id, codec);
+		r = dbus_message_new_error_printf(m, HSPHFPD_ERROR_REJECTED, "Endpoint %s has wrong codec", endpoint_path);
+		goto fail;
+	}
 
 	if (transport->fd >= 0) {
 		spa_log_error(backend->log, "Endpoint %s has already active transport", endpoint_path);
@@ -879,7 +883,7 @@ static int hsphfpd_audio_acquire(void *data, bool optional)
 	if (backend->acquire_in_progress)
 		return -EINPROGRESS;
 
-	if (transport->codec == HFP_AUDIO_CODEC_MSBC) {
+	if (transport->media_codec->codec_id == HFP_AUDIO_CODEC_MSBC) {
 		air_codec = HSPHFP_AIR_CODEC_MSBC;
 		agent_codec = HSPHFP_AGENT_CODEC_MSBC;
 	}
@@ -953,6 +957,7 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 	DBusMessageIter element_i;
 	struct spa_bt_device *d;
 	struct spa_bt_transport *t;
+	const struct media_codec *codec;
 
 	dbus_message_iter_recurse(i, &element_i);
 	while (dbus_message_iter_get_arg_type(&element_i) == DBUS_TYPE_DICT_ENTRY) {
@@ -1046,7 +1051,8 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 	if ((t = spa_bt_transport_find(backend->monitor, endpoint->path)) != NULL) {
 		/* Release transport on disconnection, or when mSBC is supported if there
 		   is an update of the remote codecs */
-		if (!endpoint->connected || (backend->msbc_supported && (endpoint->air_codecs & HFP_AUDIO_CODEC_MSBC) && t->codec == HFP_AUDIO_CODEC_CVSD)) {
+		if (!endpoint->connected || (backend->msbc_supported && (endpoint->air_codecs & HFP_AUDIO_CODEC_MSBC) &&
+						t->media_codec->codec_id == HFP_AUDIO_CODEC_CVSD)) {
 			spa_bt_transport_free(t);
 			spa_bt_device_check_profiles(d, false);
 			spa_log_debug(backend->log, "Transport released for %s", endpoint->path);
@@ -1058,6 +1064,15 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 
 	if (!endpoint->valid || !endpoint->connected)
 		return DBUS_HANDLER_RESULT_HANDLED;
+
+	if (backend->msbc_supported && (endpoint->air_codecs & HFP_AUDIO_CODEC_MSBC))
+		codec = spa_bt_get_hfp_codec(backend->monitor, HFP_AUDIO_CODEC_MSBC);
+	else
+		codec = spa_bt_get_hfp_codec(backend->monitor, HFP_AUDIO_CODEC_CVSD);
+	if (!codec) {
+		spa_log_error(backend->log, "cannot get codec for %s", endpoint->path);
+		return DBUS_HANDLER_RESULT_HANDLED;
+	}
 
 	char *t_path = strdup(endpoint->path);
 	t = spa_bt_transport_create(backend->monitor, t_path, sizeof(struct hsphfpd_transport_data));
@@ -1083,11 +1098,8 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 		else if (endpoint->role == HSPHFPD_ROLE_GATEWAY)
 			t->profile = SPA_BT_PROFILE_HFP_AG;
 	}
-	if (backend->msbc_supported && (endpoint->air_codecs & HFP_AUDIO_CODEC_MSBC))
-		t->codec = HFP_AUDIO_CODEC_MSBC;
-	else
-		t->codec = HFP_AUDIO_CODEC_CVSD;
 
+	t->media_codec = codec;
 	t->n_channels = 1;
 	t->channels[0] = SPA_AUDIO_CHANNEL_MONO;
 

@@ -29,13 +29,8 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/pod/filter.h>
 
-#include <sbc/sbc.h>
-
 #include "defs.h"
-
-#ifdef HAVE_LC3
-#include <lc3.h>
-#endif
+#include "media-codecs.h"
 
 SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.sink.sco");
 #undef SPA_LOG_TOPIC_DEFAULT
@@ -49,9 +44,6 @@ struct props {
 };
 
 #define MAX_BUFFERS 32
-
-#define ALT1_PACKET_SIZE	24
-#define ALT6_PACKET_SIZE	60
 
 struct buffer {
 	uint32_t id;
@@ -148,27 +140,16 @@ struct impl {
 	uint64_t prev_flush_time;
 	uint64_t next_flush_time;
 
-	/* Codecs */
-	uint8_t *buffer;
-	uint8_t *buffer_head;
-	uint8_t *buffer_next;
-	int buffer_size;
-	int h2_seq;
+	uint8_t buffer[7200];
+	size_t buffer_size;
 
-	/* mSBC */
-	sbc_t msbc;
+	uint16_t seqnum;
 
-	/* LC3 */
-#ifdef HAVE_LC3
-	lc3_encoder_t lc3;
-#else
-	void *lc3;
-#endif
+	const struct media_codec *codec;
+	void *codec_data;
 };
 
 #define CHECK_PORT(this,d,p)	((d) == SPA_DIRECTION_INPUT && (p) == 0)
-
-static const char sntable[4] = { 0x08, 0x38, 0xC8, 0xF8 };
 
 static void reset_props(struct props *props)
 {
@@ -335,9 +316,9 @@ static void set_latency(struct impl *this, bool emit_latency)
 	 * tell us, so not included but hopefully in < 20 ms range.
 	 */
 
-	switch (this->transport->codec) {
-	case HFP_AUDIO_CODEC_MSBC:
-	case HFP_AUDIO_CODEC_LC3_SWB:
+	switch (this->codec->id) {
+	case SPA_BLUETOOTH_AUDIO_CODEC_MSBC:
+	case SPA_BLUETOOTH_AUDIO_CODEC_LC3_SWB:
 		delay = 7500 * SPA_NSEC_PER_USEC;
 		break;
 	default:
@@ -445,32 +426,49 @@ static uint32_t get_queued_frames(struct impl *this)
 	return bytes / port->frame_size;
 }
 
-static int lc3_encode_frame(struct impl *this, const void *src, size_t src_size, void *dst, size_t dst_size,
-		ssize_t *dst_out)
+static int encode_data(struct impl *this)
 {
-#ifdef HAVE_LC3
+	struct port *port = &this->port;
 	int res;
+	int need_flush;
+	size_t written = 0;
+	size_t avail;
 
-	if (src_size < LC3_SWB_DECODED_SIZE)
-		return -EINVAL;
-	if (dst_size < LC3_SWB_PAYLOAD_SIZE)
-		return -EINVAL;
+	avail = sizeof(this->buffer) - this->buffer_size;
+	res = this->codec->start_encode(this->codec_data,
+			this->buffer + this->buffer_size, avail,
+			this->seqnum, 0);
+	if (res < 0) {
+		spa_log_warn(this->log, "encode failed: %d", res);
+		goto fail;
+	}
 
-	res = lc3_encode(this->lc3, LC3_PCM_FORMAT_S24, src, 1, LC3_SWB_PAYLOAD_SIZE, dst);
-	if (res != 0)
-		return -EINVAL;
+	this->seqnum++;
+	this->buffer_size += res;
 
-	*dst_out = LC3_SWB_PAYLOAD_SIZE;
-	return LC3_SWB_DECODED_SIZE;
-#else
-	return -EOPNOTSUPP;
-#endif
+	avail = sizeof(this->buffer) - this->buffer_size;
+	res = this->codec->encode(this->codec_data,
+			port->write_buffer, port->write_buffer_size,
+			this->buffer + this->buffer_size, avail,
+			&written, &need_flush);
+	if (res < 0) {
+		spa_log_warn(this->log, "encode failed: %d", res);
+		goto fail;
+	}
+
+	this->buffer_size += written;
+	port->write_buffer_size = 0;
+
+	return written;
+
+fail:
+	this->buffer_size = 0;
+	return res;
 }
 
 static int flush_data(struct impl *this)
 {
 	struct port *port = &this->port;
-	int processed = 0;
 	int written;
 
 	spa_assert(this->transport_started);
@@ -478,9 +476,7 @@ static int flush_data(struct impl *this)
 	if (this->transport == NULL || this->transport->sco_io == NULL || !this->flush_timer_source.loop)
 		return -EIO;
 
-	const uint32_t min_in_size = (this->transport->codec == HFP_AUDIO_CODEC_MSBC) ? MSBC_DECODED_SIZE :
-		(this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB) ? LC3_SWB_DECODED_SIZE :
-		this->transport->write_mtu;
+	const uint32_t min_in_size = this->codec->get_block_size(this->codec_data);
 	const uint32_t packet_samples = min_in_size / port->frame_size;
 	const uint64_t packet_time = (uint64_t)packet_samples * SPA_NSEC_PER_SEC
 		/ port->current_format.info.raw.rate;
@@ -535,78 +531,23 @@ static int flush_data(struct impl *this)
 		return 0;
 	}
 
-	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC ||
-			this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB) {
-		ssize_t out_encoded;
-		/* Encode */
-		if (this->buffer_next + HFP_CODEC_PACKET_SIZE > this->buffer + this->buffer_size) {
-			/* Buffer overrun; shouldn't usually happen. Drop data and reset. */
-			this->buffer_head = this->buffer_next = this->buffer;
-			spa_log_warn(this->log, "sco-sink: mSBC/LC3 buffer overrun, dropping data");
-		}
+	/* Encode */
+	if (encode_data(this) < 0)
+		goto stop;
 
-		/* H2 sync header */
-		this->buffer_next[0] = 0x01;
-		this->buffer_next[1] = sntable[this->h2_seq % 4];
-		this->buffer_next[59] = 0x00;
-		this->h2_seq = (this->h2_seq + 1) % 4;
+	/* Write */
+	written = spa_bt_sco_io_write(this->transport->sco_io, this->buffer, this->buffer_size);
+	if (written < 0) {
+		spa_log_warn(this->log, "failed to write data: %d (%s)",
+				written, spa_strerror(written));
+		goto stop;
+	}
 
-		if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
-			processed = sbc_encode(&this->msbc, port->write_buffer, port->write_buffer_size,
-					this->buffer_next + 2, HFP_CODEC_PACKET_SIZE - 3, &out_encoded);
-			out_encoded += 1; /* pad */
-		} else {
-			processed = lc3_encode_frame(this, port->write_buffer, port->write_buffer_size,
-					this->buffer_next + 2, HFP_CODEC_PACKET_SIZE - 2, &out_encoded);
-		}
-
-		if (processed < 0) {
-			spa_log_warn(this->log, "encode failed: %d", processed);
-			return -EINVAL;
-		}
-		this->buffer_next += out_encoded + 2;
-		port->write_buffer_size = 0;
-
-		/* Write */
-		written = spa_bt_sco_io_write(this->transport->sco_io, this->buffer_head,
-				this->buffer_next - this->buffer_head);
-		if (written < 0) {
-			spa_log_warn(this->log, "failed to write data: %d (%s)",
-					written, spa_strerror(written));
-			goto stop;
-		}
-
-		this->buffer_head += written;
-
-		if (this->buffer_head == this->buffer_next)
-			this->buffer_head = this->buffer_next = this->buffer;
-		else if (this->buffer_next + HFP_CODEC_PACKET_SIZE > this->buffer + this->buffer_size) {
-			/* Written bytes is not necessarily commensurate
-			 * with HFP_CODEC_PACKET_SIZE. If this occurs, copy data.
-			 */
-			int size = this->buffer_next - this->buffer_head;
-			spa_memmove(this->buffer, this->buffer_head, size);
-			this->buffer_next = this->buffer + size;
-			this->buffer_head = this->buffer;
-		}
+	if ((size_t)written == this->buffer_size) {
+		this->buffer_size = 0;
 	} else {
-		written = spa_bt_sco_io_write(this->transport->sco_io, port->write_buffer,
-				port->write_buffer_size);
-		if (written < 0) {
-			spa_log_warn(this->log, "sco-sink: write failure: %d (%s)",
-					written, spa_strerror(written));
-			goto stop;
-		} else if (written == 0) {
-			/* EAGAIN or similar, just skip ahead */
-			written = SPA_MIN(port->write_buffer_size, (uint32_t)48);
-		}
-
-		processed = written;
-		port->write_buffer_size -= written;
-
-		if (port->write_buffer_size > 0 && written > 0) {
-			spa_memmove(port->write_buffer, port->write_buffer + written, port->write_buffer_size);
-		}
+		spa_memmove(this->buffer, this->buffer + written, this->buffer_size - written);
+		this->buffer_size -= written;
 	}
 
 	if (SPA_UNLIKELY(spa_log_level_topic_enabled(this->log, SPA_LOG_TOPIC_DEFAULT, SPA_LOG_LEVEL_TRACE))) {
@@ -744,20 +685,6 @@ static void sco_on_timeout(struct spa_source *source)
 	set_timeout(this, this->next_time);
 }
 
-/* greater common divider */
-static int gcd(int a, int b) {
-    while(b) {
-	int c = b;
-	b = a % b;
-	a = c;
-    }
-    return a;
-}
-/* least common multiple */
-static int lcm(int a, int b) {
-    return (a*b)/gcd(a,b);
-}
-
 static int transport_start(struct impl *this)
 {
 	int res;
@@ -775,51 +702,11 @@ static int transport_start(struct impl *this)
 
 	spa_log_debug(this->log, "%p: start transport", this);
 
-	/* Init mSBC/LC3 if needed */
-	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
-		res = sbc_init_msbc(&this->msbc, 0);
-		if (res < 0)
-			return res;
-		/* Libsbc expects audio samples by default in host endianness, mSBC requires little endian */
-		this->msbc.endian = SBC_LE;
+	this->codec_data = this->codec->init(this->codec, 0, NULL, 0, NULL, NULL, this->transport->write_mtu);
+	if (!this->codec_data)
+		return -EINVAL;
 
-		/* write_mtu might not be correct at this point, so we'll throw
-		 * in some common ones, at the cost of a potentially larger
-		 * allocation (size <= 120 * write_mtu). If it still fails to be
-		 * commensurate, we may end up doing memmoves, but nothing worse
-		 * is going to happen.
-		 */
-		this->buffer_size = lcm(ALT1_PACKET_SIZE, lcm(ALT6_PACKET_SIZE, lcm(this->transport->write_mtu, 2 * HFP_CODEC_PACKET_SIZE)));
-	} else if (this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB) {
-#ifdef HAVE_LC3
-		this->lc3 = lc3_setup_encoder(7500, 32000, 0,
-				calloc(1, lc3_encoder_size(7500, 32000)));
-		if (!this->lc3)
-			return -EINVAL;
-
-		spa_assert(lc3_frame_samples(7500, 32000) * this->port.frame_size == LC3_SWB_DECODED_SIZE);
-
-		this->buffer_size = lcm(ALT1_PACKET_SIZE, lcm(ALT6_PACKET_SIZE, lcm(this->transport->write_mtu, 2 * HFP_CODEC_PACKET_SIZE)));
-#else
-		res = -EOPNOTSUPP;
-		goto fail;
-#endif
-	} else {
-		this->buffer_size = 0;
-	}
-
-	if (this->buffer_size) {
-		this->buffer = calloc(this->buffer_size, sizeof(uint8_t));
-		this->buffer_head = this->buffer_next = this->buffer;
-		if (this->buffer == NULL) {
-			res = -errno;
-			goto fail;
-		}
-	}
-
-	spa_return_val_if_fail(this->transport->write_mtu <= sizeof(this->port.write_buffer), -EINVAL);
-
-	spa_log_info(this->log, "%p: using codec %d, delay:%"PRIi64" ms", this, this->transport->codec,
+	spa_log_info(this->log, "%p: using codec %s, delay:%"PRIi64" ms", this, this->codec->description,
 			(int64_t)(spa_bt_transport_get_delay_nsec(this->transport) / SPA_NSEC_PER_MSEC));
 
 	/* start socket i/o */
@@ -842,11 +729,10 @@ static int transport_start(struct impl *this)
 	return 0;
 
 fail:
-	free(this->buffer);
-	this->buffer = NULL;
-	sbc_finish(&this->msbc);
-	free(this->lc3);
-	this->lc3 = NULL;
+	if (this->codec_data) {
+		this->codec->deinit(this->codec_data);
+		this->codec_data = NULL;
+	}
 	return res;
 }
 
@@ -956,15 +842,12 @@ static void transport_stop(struct impl *this)
 
 	spa_loop_locked(this->data_loop, do_remove_transport_source, 0, NULL, 0, this);
 
-	if (this->buffer) {
-		free(this->buffer);
-		this->buffer = NULL;
-		this->buffer_head = this->buffer_next = this->buffer;
-	}
+	this->buffer_size = 0;
 
-	sbc_finish(&this->msbc);
-	free(this->lc3);
-	this->lc3 = NULL;
+	if (this->codec_data) {
+		this->codec->deinit(this->codec_data);
+		this->codec_data = NULL;
+	}
 }
 
 static int do_stop(struct impl *this)
@@ -1136,6 +1019,7 @@ impl_node_port_enum_params(void *object, int seq,
 	uint8_t buffer[1024];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
+	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
@@ -1157,30 +1041,10 @@ impl_node_port_enum_params(void *object, int seq,
 		if (this->transport == NULL)
 			return -EIO;
 
-		/* set the info structure */
-		struct spa_audio_info_raw info = { 0, };
-
-		if (this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB)
-			info.format = SPA_AUDIO_FORMAT_S24_32_LE;
-		else
-			info.format = SPA_AUDIO_FORMAT_S16_LE;
-		info.channels = 1;
-		info.position[0] = SPA_AUDIO_CHANNEL_MONO;
-
-		/* CVSD format has a rate of 8kHz
-		 * MSBC format has a rate of 16kHz
-		 * LC3-SWB format has a rate of 32kHz
-		 */
-		if (this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB)
-			info.rate = 32000;
-		else if (this->transport->codec == HFP_AUDIO_CODEC_MSBC)
-			info.rate = 16000;
-		else
-			info.rate = 8000;
-
-		/* build the param */
-		param = spa_format_audio_raw_build(&b, id, &info);
-
+		if ((res = this->codec->enum_config(this->codec,
+					0, NULL, 0,
+					id, result.index, &b, &param)) != 1)
+			return res;
 		break;
 
 	case SPA_PARAM_Format:
@@ -1303,19 +1167,23 @@ static int port_set_format(struct impl *this, struct port *port,
 			return -EINVAL;
 
 		if (info.info.raw.rate == 0 ||
-		    info.info.raw.channels != 1)
+		    info.info.raw.channels == 0 ||
+		    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
 			return -EINVAL;
 
+		port->frame_size = info.info.raw.channels;
 		switch (info.info.raw.format) {
 		case SPA_AUDIO_FORMAT_S16_LE:
-			if (this->transport->codec == HFP_AUDIO_CODEC_LC3_SWB)
-				return -EINVAL;
-			port->frame_size = info.info.raw.channels * 2;
+		case SPA_AUDIO_FORMAT_S16_BE:
+			port->frame_size *= 2;
 			break;
-		case SPA_AUDIO_FORMAT_S24_32_LE:
-			if (this->transport->codec != HFP_AUDIO_CODEC_LC3_SWB)
-				return -EINVAL;
-			port->frame_size = info.info.raw.channels * 4;
+		case SPA_AUDIO_FORMAT_S24:
+			port->frame_size *= 3;
+			break;
+		case SPA_AUDIO_FORMAT_S24_32:
+		case SPA_AUDIO_FORMAT_S32:
+		case SPA_AUDIO_FORMAT_F32:
+			port->frame_size *= 4;
 			break;
 		default:
 			return -EINVAL;
@@ -1703,10 +1571,13 @@ impl_init(const struct spa_handle_factory *factory,
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_TRANSPORT)))
 		sscanf(str, "pointer:%p", &this->transport);
 
-	if (this->transport == NULL) {
-		spa_log_error(this->log, "a transport is needed");
+	if (this->transport == NULL || this->transport->media_codec == NULL  ||
+			this->transport->media_codec->kind != MEDIA_CODEC_HFP) {
+		spa_log_error(this->log, "a transport with HFP codec is needed");
 		return -EINVAL;
 	}
+
+	this->codec = this->transport->media_codec;
 
 	set_latency(this, false);
 

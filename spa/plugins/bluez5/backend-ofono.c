@@ -23,6 +23,7 @@
 #include <spa-private/dbus-helpers.h>
 
 #include "defs.h"
+#include "media-codecs.h"
 
 #define INITIAL_INTERVAL_NSEC	(500 * SPA_NSEC_PER_MSEC)
 #define ACTION_INTERVAL_NSEC	(3000 * SPA_NSEC_PER_MSEC)
@@ -53,6 +54,7 @@ struct impl {
 
 struct transport_data {
 	struct spa_source sco;
+	unsigned int codec_id;
 	unsigned int broken:1;
 	unsigned int activated:1;
 };
@@ -112,17 +114,26 @@ static struct spa_bt_transport *_transport_create(struct impl *backend,
                                                   const char *path,
                                                   struct spa_bt_device *device,
                                                   enum spa_bt_profile profile,
-                                                  int codec,
+                                                  int codec_id,
                                                   struct spa_callbacks *impl)
 {
 	struct spa_bt_transport *t = NULL;
-	char *t_path = strdup(path);
+	const struct media_codec *codec;
+	struct transport_data *td;
+	char *t_path;
 
+	codec = spa_bt_get_hfp_codec(backend->monitor, codec_id);
+	if (!codec) {
+		spa_log_warn(backend->log, "can't create transport: no HFP codec %d", codec_id);
+		return NULL;
+	}
+
+	t_path = strdup(path);
 	t = spa_bt_transport_create(backend->monitor, t_path, sizeof(struct transport_data));
 	if (t == NULL) {
 		spa_log_warn(backend->log, "can't create transport: %m");
 		free(t_path);
-		goto finish;
+		return NULL;
 	}
 	spa_bt_transport_set_implementation(t, impl, t);
 
@@ -130,11 +141,14 @@ static struct spa_bt_transport *_transport_create(struct impl *backend,
 	spa_list_append(&t->device->transport_list, &t->device_link);
 	t->backend = &backend->this;
 	t->profile = profile;
-	t->codec = codec;
+	t->media_codec = codec;
+	t->codec = codec_id;
 	t->n_channels = 1;
 	t->channels[0] = SPA_AUDIO_CHANNEL_MONO;
 
-finish:
+	td = t->user_data;
+	td->codec_id = codec_id;
+
 	return t;
 }
 
@@ -186,7 +200,7 @@ static int ofono_audio_acquire(void *data, bool optional)
 	struct spa_bt_transport *transport = data;
 	struct transport_data *td = transport->user_data;
 	struct impl *backend = SPA_CONTAINER_OF(transport->backend, struct impl, this);
-	uint8_t codec;
+	uint8_t codec_id;
 	int ret = 0;
 
 	if (transport->fd >= 0)
@@ -198,17 +212,17 @@ static int ofono_audio_acquire(void *data, bool optional)
 
 	spa_bt_device_update_last_bluez_action_time(transport->device);
 
-	ret = _audio_acquire(backend, transport->path, &codec);
+	ret = _audio_acquire(backend, transport->path, &codec_id);
 	if (ret < 0)
 		goto finish;
 
 	transport->fd = ret;
 
-	if (transport->codec != codec) {
+	if (transport->media_codec->codec_id != codec_id) {
 		struct timespec ts;
 
 		spa_log_info(backend->log, "transport %p: acquired codec (%d) differs from transport one (%d)",
-				transport, codec, transport->codec);
+				transport, codec_id, transport->media_codec->codec_id);
 
 		/* shutdown to make sure connection is dropped immediately */
 		shutdown(transport->fd, SHUT_RDWR);
@@ -216,7 +230,7 @@ static int ofono_audio_acquire(void *data, bool optional)
 		transport->fd = -1;
 
 		/* schedule immediate profile update, from main loop */
-		transport->codec = codec;
+		td->codec_id = codec_id;
 		td->broken = true;
 		ts.tv_sec = 0;
 		ts.tv_nsec = 1;
@@ -229,8 +243,8 @@ static int ofono_audio_acquire(void *data, bool optional)
 
 	td->broken = false;
 
-	spa_log_debug(backend->log, "transport %p: Acquire %s, fd %d codec %d", transport,
-			transport->path, transport->fd, transport->codec);
+	spa_log_debug(backend->log, "transport %p: Acquire %s, fd %d codec %s", transport,
+			transport->path, transport->fd, transport->media_codec->description);
 
 	ofono_transport_get_mtu(backend, transport);
 	ret = 0;
@@ -332,7 +346,7 @@ static bool activate_transport(struct spa_bt_transport *t, const void *data)
 		struct spa_bt_transport *t_copy;
 
 		t_copy = _transport_create(backend, t->path, t->device,
-				t->profile, t->codec, (struct spa_callbacks *)&ofono_transport_impl);
+				t->profile, td->codec_id, (struct spa_callbacks *)&ofono_transport_impl);
 		spa_bt_transport_free(t);
 
 		if (t_copy)
@@ -364,7 +378,7 @@ static DBusHandlerResult ofono_audio_card_found(struct impl *backend, char *path
 	struct spa_bt_transport *t;
 	struct transport_data *td;
 	enum spa_bt_profile profile = SPA_BT_PROFILE_HFP_AG;
-	uint8_t codec = backend->msbc_supported ?
+	uint8_t codec_id = backend->msbc_supported ?
 		HFP_AUDIO_CODEC_MSBC : HFP_AUDIO_CODEC_CVSD;
 
 	spa_assert(backend);
@@ -417,7 +431,7 @@ static DBusHandlerResult ofono_audio_card_found(struct impl *backend, char *path
 	}
 	spa_bt_device_add_profile(d, profile);
 
-	t = _transport_create(backend, path, d, profile, codec, (struct spa_callbacks *)&ofono_transport_impl);
+	t = _transport_create(backend, path, d, profile, codec_id, (struct spa_callbacks *)&ofono_transport_impl);
 	if (t == NULL) {
 		spa_log_error(backend->log, "failed to create transport: %s", spa_strerror(-errno));
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -444,7 +458,7 @@ static DBusHandlerResult ofono_audio_card_found(struct impl *backend, char *path
 		spa_bt_device_connect_profile(t->device, t->profile);
 	}
 
-	spa_log_debug(backend->log, "Transport %s available, codec %d", t->path, t->codec);
+	spa_log_debug(backend->log, "Transport %s available, codec %s", t->path, t->media_codec->description);
 
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
@@ -513,7 +527,7 @@ static DBusHandlerResult ofono_new_audio_connection(DBusConnection *conn, DBusMe
 	struct impl *backend = userdata;
 	const char *path;
 	int fd;
-	uint8_t codec;
+	uint8_t codec_id;
 	struct spa_bt_transport *t;
 	struct transport_data *td;
 	spa_autoptr(DBusMessage) r = NULL;
@@ -521,7 +535,7 @@ static DBusHandlerResult ofono_new_audio_connection(DBusConnection *conn, DBusMe
 	if (dbus_message_get_args(m, NULL,
 	                          DBUS_TYPE_OBJECT_PATH, &path,
 	                          DBUS_TYPE_UNIX_FD, &fd,
-	                          DBUS_TYPE_BYTE, &codec,
+	                          DBUS_TYPE_BYTE, &codec_id,
 	                          DBUS_TYPE_INVALID) == FALSE) {
 		r = dbus_message_new_error(m, OFONO_ERROR_INVALID_ARGUMENTS, "Invalid arguments in method call");
 		goto fail;
@@ -530,6 +544,15 @@ static DBusHandlerResult ofono_new_audio_connection(DBusConnection *conn, DBusMe
 	t = spa_bt_transport_find(backend->monitor, path);
 	if (t && (t->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY)) {
 		int err;
+		const struct media_codec *codec;
+
+		codec = spa_bt_get_hfp_codec(backend->monitor, codec_id);
+		if (!codec) {
+			spa_log_error(backend->log, "transport %p: Couldn't find HFP codec %d", t, codec_id);
+			shutdown(fd, SHUT_RDWR);
+			close(fd);
+			goto fail;
+		}
 
 		err = enable_sco_socket(fd);
 		if (err) {
@@ -541,10 +564,11 @@ static DBusHandlerResult ofono_new_audio_connection(DBusConnection *conn, DBusMe
 		}
 
 		t->fd = fd;
-		t->codec = codec;
+		t->codec = codec_id;
+		t->media_codec = codec;
 
-		spa_log_debug(backend->log, "transport %p: NewConnection %s, fd %d codec %d",
-						t, t->path, t->fd, t->codec);
+		spa_log_debug(backend->log, "transport %p: NewConnection %s, fd %d codec %s",
+						t, t->path, t->fd, t->media_codec->description);
 
 		td = t->user_data;
 		td->sco.func = sco_event;

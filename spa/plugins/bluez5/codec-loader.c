@@ -52,6 +52,9 @@ static int codec_order(const struct media_codec *c)
 		SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_PRO,
 		SPA_BLUETOOTH_AUDIO_CODEC_AAC_ELD,
 		SPA_BLUETOOTH_AUDIO_CODEC_G722,
+		SPA_BLUETOOTH_AUDIO_CODEC_LC3_SWB,
+		SPA_BLUETOOTH_AUDIO_CODEC_MSBC,
+		SPA_BLUETOOTH_AUDIO_CODEC_CVSD,
 	};
 	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(order); ++i)
@@ -124,6 +127,7 @@ static int load_media_codecs_from(struct impl *impl, const char *factory_name, c
 		case MEDIA_CODEC_A2DP:
 		case MEDIA_CODEC_BAP:
 		case MEDIA_CODEC_ASHA:
+		case MEDIA_CODEC_HFP:
 			break;
 		default:
 			spa_log_warn(impl->log, "codec plugin %s: unknown codec %s kind %d",
@@ -171,7 +175,6 @@ fail:
 const struct media_codec * const *load_media_codecs(struct spa_plugin_loader *loader, struct spa_log *log)
 {
 	struct impl *impl;
-	bool has_sbc;
 	size_t i;
 	const struct { const char *factory; const char *lib; } plugins[] = {
 #define MEDIA_CODEC_FACTORY_LIB(basename) \
@@ -185,7 +188,10 @@ const struct media_codec * const *load_media_codecs(struct spa_plugin_loader *lo
 		MEDIA_CODEC_FACTORY_LIB("opus"),
 		MEDIA_CODEC_FACTORY_LIB("opus-g"),
 		MEDIA_CODEC_FACTORY_LIB("lc3"),
-		MEDIA_CODEC_FACTORY_LIB("g722")
+		MEDIA_CODEC_FACTORY_LIB("g722"),
+		MEDIA_CODEC_FACTORY_LIB("hfp-cvsd"),
+		MEDIA_CODEC_FACTORY_LIB("hfp-msbc"),
+		MEDIA_CODEC_FACTORY_LIB("hfp-lc3-swb"),
 #undef MEDIA_CODEC_FACTORY_LIB
 	};
 
@@ -201,13 +207,17 @@ const struct media_codec * const *load_media_codecs(struct spa_plugin_loader *lo
 	for (i = 0; i < SPA_N_ELEMENTS(plugins); ++i)
 		load_media_codecs_from(impl, plugins[i].factory, plugins[i].lib);
 
-	has_sbc = false;
-	for (i = 0; i < impl->n_codecs; ++i)
-		if (impl->codecs[i]->id == SPA_BLUETOOTH_AUDIO_CODEC_SBC)
-			has_sbc = true;
+	bool has_sbc = false, has_cvsd = false;
+	for (i = 0; i < impl->n_codecs; ++i) {
+		has_sbc |= impl->codecs[i]->id == SPA_BLUETOOTH_AUDIO_CODEC_SBC;
+		has_cvsd |= impl->codecs[i]->id == SPA_BLUETOOTH_AUDIO_CODEC_CVSD;
+	}
 
-	if (!has_sbc) {
-		spa_log_error(impl->log, "failed to load A2DP SBC codec from plugins");
+	if (!has_sbc || !has_cvsd) {
+		if (!has_sbc)
+			spa_log_error(impl->log, "failed to load A2DP SBC codec from plugins");
+		if (!has_cvsd)
+			spa_log_error(impl->log, "failed to load HFP CVSD codec from plugins");
 		free_media_codecs(impl->codecs);
 		errno = ENOENT;
 		return NULL;

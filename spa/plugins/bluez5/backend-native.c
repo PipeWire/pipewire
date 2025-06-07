@@ -33,6 +33,7 @@
 
 #include "defs.h"
 #include "media-codecs.h"
+#include "hfp-codec-caps.h"
 
 #ifdef HAVE_LIBUSB
 #include <libusb.h>
@@ -281,7 +282,6 @@ static int rfcomm_new_transport(struct rfcomm *rfcomm, int codec_id)
 	t->backend = &backend->this;
 	t->n_channels = 1;
 	t->channels[0] = SPA_AUDIO_CHANNEL_MONO;
-	t->codec = codec_id;
 	t->media_codec = codec;
 
 	td = t->user_data;

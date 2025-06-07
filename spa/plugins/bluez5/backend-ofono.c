@@ -24,6 +24,7 @@
 
 #include "defs.h"
 #include "media-codecs.h"
+#include "hfp-codec-caps.h"
 
 #define INITIAL_INTERVAL_NSEC	(500 * SPA_NSEC_PER_MSEC)
 #define ACTION_INTERVAL_NSEC	(3000 * SPA_NSEC_PER_MSEC)
@@ -142,7 +143,6 @@ static struct spa_bt_transport *_transport_create(struct impl *backend,
 	t->backend = &backend->this;
 	t->profile = profile;
 	t->media_codec = codec;
-	t->codec = codec_id;
 	t->n_channels = 1;
 	t->channels[0] = SPA_AUDIO_CHANNEL_MONO;
 
@@ -564,7 +564,6 @@ static DBusHandlerResult ofono_new_audio_connection(DBusConnection *conn, DBusMe
 		}
 
 		t->fd = fd;
-		t->codec = codec_id;
 		t->media_codec = codec;
 
 		spa_log_debug(backend->log, "transport %p: NewConnection %s, fd %d codec %s",

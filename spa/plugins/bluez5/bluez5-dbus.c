@@ -3500,17 +3500,6 @@ static int transport_update_props(struct spa_bt_transport *transport,
 				transport->bap_initiator = ep->acceptor;
 			}
 		}
-		else if (spa_streq(key, "Codec")) {
-			uint8_t value;
-
-			if (type != DBUS_TYPE_BYTE)
-				goto next;
-			dbus_message_iter_get_basic(&it[1], &value);
-
-			spa_log_debug(monitor->log, "transport %p: %s=%02x", transport, key, value);
-
-			transport->codec = value;
-		}
 		else if (spa_streq(key, "Configuration")) {
 			DBusMessageIter iter;
 			uint8_t *value;

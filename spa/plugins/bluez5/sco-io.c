@@ -29,6 +29,8 @@
 #include <sbc/sbc.h>
 
 #include "defs.h"
+#include "media-codecs.h"
+#include "hfp-codec-caps.h"
 
 SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.sco-io");
 #undef SPA_LOG_TOPIC_DEFAULT
@@ -224,14 +226,12 @@ struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_bt_transport *transport, s
 		io->read_size = 0;
 	} else {
 		/* Set some sensible initial packet size */
-		switch (transport->codec) {
-		case HFP_AUDIO_CODEC_CVSD:
+		switch (transport->media_codec->id) {
+		case SPA_BLUETOOTH_AUDIO_CODEC_CVSD:
 			io->read_size = 48;  /* 3ms S16_LE 8000 Hz */
 			break;
-		case HFP_AUDIO_CODEC_MSBC:
-		case HFP_AUDIO_CODEC_LC3_SWB:
 		default:
-			io->read_size = HFP_CODEC_PACKET_SIZE;
+			io->read_size = HFP_H2_PACKET_SIZE;
 			break;
 		}
 	}

@@ -451,6 +451,11 @@ static void register_battery_provider(struct spa_bt_device *device)
 	}
 }
 
+const struct media_codec * const * spa_bt_get_media_codecs(struct spa_bt_monitor *monitor)
+{
+	return monitor->media_codecs;
+}
+
 static int media_codec_to_endpoint(const struct media_codec *codec,
 				   enum spa_bt_media_direction direction,
 				   char** object_path)
@@ -2640,6 +2645,25 @@ const struct media_codec **spa_bt_device_get_supported_media_codecs(struct spa_b
 	*count = j;
 
 	return spa_steal_ptr(supported_codecs);
+}
+
+const struct media_codec *spa_bt_get_hfp_codec(struct spa_bt_monitor *monitor, unsigned int hfp_codec_id)
+{
+	const struct media_codec * const * const media_codecs = monitor->media_codecs;
+	size_t i;
+
+	for (i = 0; media_codecs[i] != NULL; ++i) {
+		const struct media_codec *codec = media_codecs[i];
+
+		if (codec->kind != MEDIA_CODEC_HFP)
+			continue;
+		if (!is_media_codec_enabled(monitor, codec))
+			continue;
+		if (codec->codec_id == hfp_codec_id)
+			return codec;
+	}
+
+	return NULL;
 }
 
 static struct spa_bt_remote_endpoint *device_remote_endpoint_find(struct spa_bt_device *device, const char *path)

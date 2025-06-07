@@ -593,6 +593,8 @@ int spa_bt_device_supports_hfp_codec(struct spa_bt_device *device, unsigned int 
 int spa_bt_device_release_transports(struct spa_bt_device *device);
 int spa_bt_device_report_battery_level(struct spa_bt_device *device, uint8_t percentage);
 void spa_bt_device_update_last_bluez_action_time(struct spa_bt_device *device);
+const struct media_codec * const * spa_bt_get_media_codecs(struct spa_bt_monitor *monitor);
+const struct media_codec *spa_bt_get_hfp_codec(struct spa_bt_monitor *monitor, unsigned int hfp_codec_id);
 
 #define spa_bt_device_emit(d,m,v,...)			spa_hook_list_call(&(d)->listener_list, \
 								struct spa_bt_device_events,	\

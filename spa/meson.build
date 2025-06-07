@@ -109,10 +109,8 @@ if get_option('spa-plugins').allowed()
       mm_dep = dependency('ModemManager', version : '>= 1.10.0', required : get_option('bluez5-backend-native-mm'))
       summary({'ModemManager': mm_dep.found()}, bool_yn: true, section: 'Bluetooth backends')
     endif
-    cdata.set('HAVE_LC3', get_option('bluez5-codec-lc3').allowed() and lc3_dep.found())
     g722_codec_option = get_option('bluez5-codec-g722')
     summary({'G722': g722_codec_option.allowed()}, bool_yn: true, section: 'Bluetooth audio codecs')
-    cdata.set('HAVE_G722', g722_codec_option.allowed())
   endif
 
   have_vulkan = false

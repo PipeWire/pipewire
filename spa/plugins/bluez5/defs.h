@@ -586,10 +586,9 @@ int spa_bt_device_add_profile(struct spa_bt_device *device, enum spa_bt_profile 
 int spa_bt_device_connect_profile(struct spa_bt_device *device, enum spa_bt_profile profile);
 int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force);
 int spa_bt_device_ensure_media_codec(struct spa_bt_device *device, const struct media_codec * const *codecs);
+int spa_bt_device_ensure_hfp_codec(struct spa_bt_device *device, const struct media_codec *codec);
 bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const struct media_codec *codec, enum spa_bt_profile profile);
 const struct media_codec **spa_bt_device_get_supported_media_codecs(struct spa_bt_device *device, size_t *count);
-int spa_bt_device_ensure_hfp_codec(struct spa_bt_device *device, unsigned int codec);
-int spa_bt_device_supports_hfp_codec(struct spa_bt_device *device, unsigned int codec);
 int spa_bt_device_release_transports(struct spa_bt_device *device);
 int spa_bt_device_report_battery_level(struct spa_bt_device *device, uint8_t percentage);
 void spa_bt_device_update_last_bluez_action_time(struct spa_bt_device *device);

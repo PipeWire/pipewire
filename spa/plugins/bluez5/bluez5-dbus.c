@@ -2551,6 +2551,12 @@ bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const stru
 	if (!is_media_codec_enabled(device->monitor, codec))
 		return false;
 
+	if (codec->kind == MEDIA_CODEC_HFP) {
+		if (!(profile & SPA_BT_PROFILE_HEADSET_AUDIO))
+			return false;
+		return spa_bt_backend_supports_codec(monitor->backend, device, codec->codec_id) == 1;
+	}
+
 	if (!device->adapter->a2dp_application_registered && is_a2dp) {
 		/* Codec switching not supported: only plain SBC allowed */
 		return (codec->codec_id == A2DP_CODEC_SBC && spa_streq(codec->name, "sbc") &&
@@ -3370,9 +3376,6 @@ int64_t spa_bt_transport_get_delay_nsec(struct spa_bt_transport *t)
 
 	/* Fallback values when device does not provide information */
 
-	if (t->media_codec == NULL)
-		return 20 * SPA_NSEC_PER_MSEC;
-
 	switch (t->media_codec->id) {
 	case SPA_BLUETOOTH_AUDIO_CODEC_SBC:
 	case SPA_BLUETOOTH_AUDIO_CODEC_SBC_XQ:
@@ -3389,6 +3392,10 @@ int64_t spa_bt_transport_get_delay_nsec(struct spa_bt_transport *t)
 	case SPA_BLUETOOTH_AUDIO_CODEC_FASTSTREAM_DUPLEX:
 	case SPA_BLUETOOTH_AUDIO_CODEC_LC3:
 		return 40 * SPA_NSEC_PER_MSEC;
+	case SPA_BLUETOOTH_AUDIO_CODEC_CVSD:
+	case SPA_BLUETOOTH_AUDIO_CODEC_MSBC:
+	case SPA_BLUETOOTH_AUDIO_CODEC_LC3_SWB:
+		return 20 * SPA_NSEC_PER_MSEC;
 	default:
 		break;
 	};
@@ -4726,16 +4733,14 @@ int spa_bt_device_ensure_media_codec(struct spa_bt_device *device, const struct 
 	return 0;
 }
 
-int spa_bt_device_ensure_hfp_codec(struct spa_bt_device *device, unsigned int codec)
+int spa_bt_device_ensure_hfp_codec(struct spa_bt_device *device, const struct media_codec *codec)
 {
 	struct spa_bt_monitor *monitor = device->monitor;
-	return spa_bt_backend_ensure_codec(monitor->backend, device, codec);
-}
 
-int spa_bt_device_supports_hfp_codec(struct spa_bt_device *device, unsigned int codec)
-{
-	struct spa_bt_monitor *monitor = device->monitor;
-	return spa_bt_backend_supports_codec(monitor->backend, device, codec);
+	if (!codec || codec->kind != MEDIA_CODEC_HFP)
+		return -EINVAL;
+
+	return spa_bt_backend_ensure_codec(monitor->backend, device, codec->codec_id);
 }
 
 static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,

@@ -918,7 +918,7 @@ static struct spa_pod *merge_objects(struct impl *this, struct spa_pod_builder *
 	struct spa_pod_builder_state state;
 	int res = 0;
 
-	if (o2 == NULL || SPA_POD_TYPE(o1) != SPA_POD_TYPE(o2))
+	if (o2 == NULL || o1->pod.type != o2->pod.type)
 		return (struct spa_pod*)o1;
 
 	spa_pod_builder_push_object(b, &f, o1->body.type, o1->body.id);

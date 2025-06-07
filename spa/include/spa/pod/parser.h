@@ -281,7 +281,7 @@ SPA_API_POD_PARSER bool spa_pod_parser_can_collect(const struct spa_pod *pod, ch
 	if (pod == NULL)
 		return false;
 
-	if (SPA_POD_TYPE(pod) == SPA_TYPE_Choice) {
+	if (pod->type == SPA_TYPE_Choice) {
 		if (!spa_pod_is_choice(pod))
 			return false;
 		if (type == 'V')

@@ -1286,7 +1286,7 @@ static int diff_prop(struct impl *impl, struct spa_pod_prop *prop,
 	void *vals, *v, *best = NULL;
 	int res = INT_MAX;
 
-	if (SPA_POD_TYPE(val) != type)
+	if (val->type != type)
 		return -EINVAL;
 
 	size = SPA_POD_BODY_SIZE(val);

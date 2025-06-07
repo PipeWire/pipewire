@@ -270,7 +270,7 @@ SPA_API_POD_ITER int spa_pod_get_bytes(const struct spa_pod *pod, const void **v
 	if (!spa_pod_is_bytes(pod))
 		return -EINVAL;
 	*value = (const void *)SPA_POD_CONTENTS(struct spa_pod_bytes, pod);
-	*len = SPA_POD_BODY_SIZE(pod);
+	*len = pod->size;
 	return 0;
 }
 

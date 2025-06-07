@@ -646,10 +646,11 @@ struct spa_pod * pw_protocol_native0_pod_from_v2(struct pw_impl_client *client, 
 	if (pod == NULL)
 		return NULL;
 
-	if ((res = remap_from_v2(SPA_POD_TYPE(pod),
-					SPA_POD_BODY(pod),
-					SPA_POD_BODY_SIZE(pod),
-					client, &b)) < 0) {
+	if ((res = remap_from_v2(pod->type,
+	                         SPA_POD_BODY(pod),
+	                         pod->size,
+	                         client,
+	                         &b)) < 0) {
 		errno = -res;
 		return NULL;
 	}
@@ -669,9 +670,9 @@ int pw_protocol_native0_pod_to_v2(struct pw_impl_client *client, const struct sp
 	}
 
 	if ((res = remap_to_v2(client, pw_type_info(),
-				SPA_POD_TYPE(pod),
+				pod->type,
 				SPA_POD_BODY(pod),
-				SPA_POD_BODY_SIZE(pod),
+				pod->size,
 				b)) < 0) {
 		return -res;
 	}

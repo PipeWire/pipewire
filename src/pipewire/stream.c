@@ -1278,7 +1278,7 @@ static int node_event_param(void *object, int seq,
 			return -EINVAL;
 		}
 
-		c->type = SPA_POD_TYPE(pod);
+		c->type = pod->type;
 		if (spa_pod_is_float(pod))
 			vals = SPA_POD_BODY(pod);
 		else if (spa_pod_is_double(pod)) {

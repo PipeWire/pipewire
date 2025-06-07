@@ -1585,7 +1585,7 @@ spa_v4l2_set_control(struct impl *this, uint32_t id,
 	if ((res = spa_v4l2_open(dev, this->props.device)) < 0)
 		return res;
 
-	switch (SPA_POD_TYPE(&prop->value)) {
+	switch (prop->value.type) {
 	case SPA_TYPE_Bool:
 	{
 		bool val;

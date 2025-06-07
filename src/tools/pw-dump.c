@@ -511,10 +511,8 @@ static void put_pod(struct data *d, const char *key, const struct spa_pod *pod)
 	if (pod == NULL) {
 		put_value(d, key, NULL);
 	} else {
-		put_pod_value(d, key, SPA_TYPE_ROOT,
-				SPA_POD_TYPE(pod),
-				SPA_POD_BODY(pod),
-				SPA_POD_BODY_SIZE(pod));
+		put_pod_value(d, key, SPA_TYPE_ROOT, pod->type,
+		              SPA_POD_BODY(pod), pod->size);
 	}
 }
 

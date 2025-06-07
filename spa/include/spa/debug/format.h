@@ -128,7 +128,7 @@ SPA_API_DEBUG_FORMAT int spa_debugc_format(struct spa_debug_context *ctx, int in
 	if (info == NULL)
 		info = spa_type_format;
 
-	if (format == NULL || SPA_POD_TYPE(format) != SPA_TYPE_Object)
+	if (format == NULL || format->type != SPA_TYPE_Object)
 		return -EINVAL;
 
 	if (spa_format_parse(format, &mtype, &mstype) < 0)

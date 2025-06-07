@@ -1349,6 +1349,7 @@ static void codec_set_log(struct spa_log *global_log)
 }
 
 #define OPUS_05_COMMON_DEFS					\
+	.kind = MEDIA_CODEC_A2DP,				\
 	.codec_id = A2DP_CODEC_VENDOR,				\
 	.vendor = { .vendor_id = OPUS_05_VENDOR_ID,		\
 			.codec_id = OPUS_05_CODEC_ID },		\

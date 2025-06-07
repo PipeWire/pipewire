@@ -91,7 +91,7 @@ bool media_codec_check_caps(const struct media_codec *codec, unsigned int codec_
 	if (res < 0)
 		return false;
 
-	if (codec->bap)
+	if (codec->kind == MEDIA_CODEC_BAP)
 		return true;
 	else
 		return ((size_t)res == caps_size);

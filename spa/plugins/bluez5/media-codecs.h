@@ -26,7 +26,7 @@
 
 #define SPA_TYPE_INTERFACE_Bluez5CodecMedia	SPA_TYPE_INFO_INTERFACE_BASE "Bluez5:Codec:Media:Private"
 
-#define SPA_VERSION_BLUEZ5_CODEC_MEDIA		13
+#define SPA_VERSION_BLUEZ5_CODEC_MEDIA		14
 
 struct spa_bluez5_codec_a2dp {
 	struct spa_interface iface;
@@ -60,6 +60,13 @@ enum {
 	NEED_FLUSH_FRAGMENT = 2,
 };
 
+enum media_codec_kind {
+        MEDIA_CODEC_A2DP,
+        MEDIA_CODEC_BAP,
+        MEDIA_CODEC_ASHA,
+        MEDIA_CODEC_HFP,
+};
+
 struct media_codec_audio_info {
 	uint32_t rate;
 	uint32_t channels;
@@ -67,11 +74,10 @@ struct media_codec_audio_info {
 
 struct media_codec {
 	enum spa_bluetooth_audio_codec id;
+	enum media_codec_kind kind;
+
 	uint8_t codec_id;
 	a2dp_vendor_codec_t vendor;
-
-	bool bap;
-	bool asha;
 
 	const char *name;
 	const char *description;
@@ -218,6 +224,21 @@ struct media_codec_config {
 	int value;
 	unsigned int priority;
 };
+
+static inline const char *media_codec_kind_str(const struct media_codec *codec)
+{
+	switch (codec->kind) {
+	case MEDIA_CODEC_A2DP:
+		return "A2DP";
+	case MEDIA_CODEC_BAP:
+		return "BAP";
+	case MEDIA_CODEC_ASHA:
+		return "ASHA";
+	case MEDIA_CODEC_HFP:
+		return "HFP";
+	}
+	return "unknown";
+}
 
 int media_codec_select_config(const struct media_codec_config configs[], size_t n,
 	uint32_t cap, int preferred_value);

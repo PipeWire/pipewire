@@ -324,7 +324,7 @@ static void emit_node_info(struct impl *this, bool full);
 
 static void set_latency(struct impl *this, bool emit_latency)
 {
-	if (this->codec->bap && !this->is_input && this->transport &&
+	if (this->codec->kind == MEDIA_CODEC_BAP && !this->is_input && this->transport &&
 			this->transport->delay_us != SPA_BT_UNKNOWN_DELAY) {
 		struct port *port = &this->port;
 		unsigned int node_latency = 2048;
@@ -751,7 +751,7 @@ static int transport_start(struct impl *this)
 		return -EIO;
 
 	spa_log_info(this->log, "%p: using %s codec %s", this,
-	             this->codec->bap ? "BAP" : "A2DP", this->codec->description);
+			media_codec_kind_str(this->codec), this->codec->description);
 
 	/*
 	 * If the link is bidirectional, media-sink may also be polling the same FD,
@@ -983,7 +983,7 @@ static void emit_node_info(struct impl *this, bool full)
 		sizeof(media_name),
 		"%s (codec %s)",
 		((this->transport && this->transport->device->name) ?
-			this->transport->device->name : this->codec->bap ? "BAP" : "A2DP"),
+			this->transport->device->name : media_codec_kind_str(this->codec)),
 		this->codec->description
 	);
 
@@ -1465,7 +1465,7 @@ static void update_target_latency(struct impl *this)
 	if (this->transport == NULL || !port->have_format)
 		return;
 
-	if (!this->codec->bap || this->is_input ||
+	if (this->codec->kind != MEDIA_CODEC_BAP || this->is_input ||
 			this->transport->delay_us == SPA_BT_UNKNOWN_DELAY)
 		return;
 
@@ -1905,7 +1905,7 @@ impl_init(const struct spa_handle_factory *factory,
 		this->is_input = true;
 	}
 
-	if (this->codec->bap)
+	if (this->codec->kind == MEDIA_CODEC_BAP)
 		this->is_input = this->transport->bap_initiator;
 
 	if (this->codec->init_props != NULL)

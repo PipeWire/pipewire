@@ -740,6 +740,7 @@ static int codec_increase_bitpool(void *data)
 
 const struct media_codec a2dp_codec_lc3plus_hr = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_LC3PLUS_HR,
+	.kind = MEDIA_CODEC_A2DP,
 	.name = "lc3plus_hr",
 	.codec_id = A2DP_CODEC_VENDOR,
 	.vendor = { .vendor_id = LC3PLUS_HR_VENDOR_ID,

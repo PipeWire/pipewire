@@ -417,7 +417,7 @@ static struct stream *stream_create(struct spa_bt_transport *t, struct group *gr
 		sink = false;
 	}
 
-	if (!t->media_codec->bap || !t->media_codec->get_interval) {
+	if (t->media_codec->kind != MEDIA_CODEC_BAP || !t->media_codec->get_interval) {
 		res = -EINVAL;
 		goto fail;
 	}

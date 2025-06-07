@@ -649,8 +649,12 @@ static int reset_buffer(struct impl *this)
 	this->need_flush = 0;
 	this->block_count = 0;
 	this->fragment = false;
-	this->timestamp = (this->codec->bap || this->codec->asha) ? (get_reference_time(this, NULL) / SPA_NSEC_PER_USEC)
-		: this->sample_count;
+
+	if (this->codec->kind == MEDIA_CODEC_BAP || this->codec->kind == MEDIA_CODEC_ASHA)
+		this->timestamp = get_reference_time(this, NULL) / SPA_NSEC_PER_USEC;
+	else
+		this->timestamp = this->sample_count;
+
 	this->buffer_used = this->codec->start_encode(this->codec_data,
 			this->buffer, sizeof(this->buffer),
 			++this->seqnum, this->timestamp);
@@ -865,7 +869,7 @@ static void enable_flush_timer(struct impl *this, bool enabled)
 static int flush_data(struct impl *this, uint64_t now_time)
 {
 	struct port *port = &this->port;
-	bool is_asha = this->codec->asha;
+	bool is_asha = this->codec->kind == MEDIA_CODEC_ASHA;
 	uint32_t total_frames;
 	int written;
 	int unsent_buffer;
@@ -1447,7 +1451,7 @@ static int transport_start(struct impl *this)
 
 	conf = this->transport->configuration;
 	size = this->transport->configuration_len;
-	is_asha = this->codec->asha;
+	is_asha = this->codec->kind == MEDIA_CODEC_ASHA;
 
 	spa_log_debug(this->log, "Transport configuration:");
 	spa_debug_log_mem(this->log, SPA_LOG_LEVEL_DEBUG, 2, conf, (size_t)size);
@@ -1478,7 +1482,7 @@ static int transport_start(struct impl *this)
 	if (this->codec->get_delay)
 		this->codec->get_delay(this->codec_data, &this->encoder_delay, NULL);
 
-	const char *codec_profile = this->codec->asha ? "ASHA" : (this->codec->bap ? "BAP" : "A2DP");
+	const char *codec_profile = media_codec_kind_str(this->codec);
 	spa_log_info(this->log, "%p: using %s codec %s, delay:%.2f ms, codec-delay:%.2f ms", this,
 			codec_profile, this->codec->description,
 			(double)spa_bt_transport_get_delay_nsec(this->transport) / SPA_NSEC_PER_MSEC,
@@ -1653,7 +1657,7 @@ static int do_remove_transport_source(struct spa_loop *loop,
 
 	if (this->flush_timer_source.loop)
 		spa_loop_remove_source(this->data_loop, &this->flush_timer_source);
-	if (this->codec->asha) {
+	if (this->codec->kind == MEDIA_CODEC_ASHA) {
 		if (this->asha->timer_source.loop)
 			spa_loop_remove_source(this->data_loop, &this->asha->timer_source);
 		if (this->asha->flush_source.loop)
@@ -1761,7 +1765,7 @@ static void emit_node_info(struct impl *this, bool full)
 		node_group = node_group_buf;
 	}
 
-	const char *codec_profile = this->codec->asha ? "ASHA" : (this->codec->bap ? "BAP" : "A2DP");
+	const char *codec_profile = media_codec_kind_str(this->codec);
 	struct spa_dict_item node_info_items[] = {
 		{ SPA_KEY_DEVICE_API, "bluez5" },
 		{ SPA_KEY_MEDIA_CLASS, this->is_internal ? "Audio/Sink/Internal" :
@@ -1945,7 +1949,7 @@ impl_node_port_enum_params(void *object, int seq,
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
 			break;
 		case 1:
-			if (!this->codec->bap)
+			if (this->codec->kind != MEDIA_CODEC_BAP)
 				return 0;
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
@@ -2158,7 +2162,7 @@ impl_node_port_set_io(void *object,
 		port->io = data;
 		break;
 	case SPA_IO_RateMatch:
-		if (!this->codec->bap)
+		if (this->codec->kind != MEDIA_CODEC_BAP)
 			return -ENOENT;
 		port->rate_match = data;
 		break;
@@ -2244,7 +2248,7 @@ static int impl_node_process(void *object)
 
 	setup_matching(this);
 
-	if (this->codec->asha && !this->asha->set_timer) {
+	if (this->codec->kind == MEDIA_CODEC_ASHA && !this->asha->set_timer) {
 		struct impl *other = find_other_asha(this);
 		if (other && other->asha->ref_t0 != 0) {
 			this->asha->ref_t0 = other->asha->ref_t0;
@@ -2390,7 +2394,7 @@ static int impl_clear(struct spa_handle *handle)
 		spa_hook_remove(&this->transport_listener);
 	spa_system_close(this->data_system, this->timerfd);
 	spa_system_close(this->data_system, this->flush_timerfd);
-	if (this->codec->asha) {
+	if (this->codec->kind == MEDIA_CODEC_ASHA) {
 		spa_system_close(this->data_system, this->asha->timerfd);
 		free(this->asha);
 	}
@@ -2519,7 +2523,7 @@ impl_init(const struct spa_handle_factory *factory,
 					this->is_duplex ? MEDIA_CODEC_FLAG_SINK : 0,
 					this->transport->device->settings);
 
-	if (this->codec->bap)
+	if (this->codec->kind == MEDIA_CODEC_BAP)
 		this->is_output = this->transport->bap_initiator;
 	else
 		this->is_output = true;
@@ -2537,7 +2541,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->flush_timerfd = spa_system_timerfd_create(this->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 
-	if (this->codec->asha) {
+	if (this->codec->kind == MEDIA_CODEC_ASHA) {
 		this->asha = calloc(1, sizeof(struct spa_bt_asha));
 		if (this->asha == NULL)
 			return -ENOMEM;

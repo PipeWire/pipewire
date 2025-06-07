@@ -1401,9 +1401,9 @@ static int codec_get_bis_config(const struct media_codec *codec, uint8_t *caps,
 
 const struct media_codec bap_codec_lc3 = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_LC3,
+	.kind = MEDIA_CODEC_BAP,
 	.name = "lc3",
 	.codec_id = BAP_CODEC_LC3,
-	.bap = true,
 	.description = "LC3",
 	.fill_caps = codec_fill_caps,
 	.select_config = codec_select_config,

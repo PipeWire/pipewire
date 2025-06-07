@@ -683,6 +683,7 @@ static void codec_set_log(struct spa_log *global_log)
 
 const struct media_codec a2dp_codec_aac = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_AAC,
+	.kind = MEDIA_CODEC_A2DP,
 	.codec_id = A2DP_CODEC_MPEG24,
 	.name = "aac",
 	.description = "AAC",
@@ -708,6 +709,7 @@ const struct media_codec a2dp_codec_aac = {
 
 const struct media_codec a2dp_codec_aac_eld = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_AAC_ELD,
+	.kind = MEDIA_CODEC_A2DP,
 	.codec_id = A2DP_CODEC_MPEG24,
 	.name = "aac_eld",
 	.description = "AAC-ELD",

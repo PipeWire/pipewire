@@ -634,6 +634,7 @@ static void codec_get_delay(void *data, uint32_t *encoder, uint32_t *decoder)
 
 const struct media_codec a2dp_codec_sbc = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_SBC,
+	.kind = MEDIA_CODEC_A2DP,
 	.codec_id = A2DP_CODEC_SBC,
 	.name = "sbc",
 	.description = "SBC",
@@ -657,6 +658,7 @@ const struct media_codec a2dp_codec_sbc = {
 
 const struct media_codec a2dp_codec_sbc_xq = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_SBC_XQ,
+	.kind = MEDIA_CODEC_A2DP,
 	.codec_id = A2DP_CODEC_SBC,
 	.name = "sbc_xq",
 	.description = "SBC-XQ",

@@ -458,9 +458,9 @@ static int media_codec_to_endpoint(const struct media_codec *codec,
 	const char * endpoint;
 
 	if (direction == SPA_BT_MEDIA_SOURCE)
-		endpoint = codec->bap ? BAP_SOURCE_ENDPOINT : A2DP_SOURCE_ENDPOINT;
+		endpoint = codec->kind == MEDIA_CODEC_BAP ? BAP_SOURCE_ENDPOINT : A2DP_SOURCE_ENDPOINT;
 	else if (direction == SPA_BT_MEDIA_SINK)
-		endpoint = codec->bap ? BAP_SINK_ENDPOINT : A2DP_SINK_ENDPOINT;
+		endpoint = codec->kind == MEDIA_CODEC_BAP ? BAP_SINK_ENDPOINT : A2DP_SINK_ENDPOINT;
 	else if (direction == SPA_BT_MEDIA_SOURCE_BROADCAST)
 		endpoint = BAP_BROADCAST_SOURCE_ENDPOINT;
 	else if (direction == SPA_BT_MEDIA_SINK_BROADCAST)
@@ -568,11 +568,14 @@ static enum spa_bt_profile get_codec_profile(const struct media_codec *codec,
 {
 	switch (direction) {
 	case SPA_BT_MEDIA_SOURCE:
-		return codec->bap ? SPA_BT_PROFILE_BAP_SOURCE : SPA_BT_PROFILE_A2DP_SOURCE;
+		return codec->kind == MEDIA_CODEC_BAP ? SPA_BT_PROFILE_BAP_SOURCE : SPA_BT_PROFILE_A2DP_SOURCE;
 	case SPA_BT_MEDIA_SINK:
-		if (codec->asha)
+		if (codec->kind == MEDIA_CODEC_ASHA)
 			return SPA_BT_PROFILE_ASHA_SINK;
-		return codec->bap ? SPA_BT_PROFILE_BAP_SINK : SPA_BT_PROFILE_A2DP_SINK;
+		else if (codec->kind == MEDIA_CODEC_BAP)
+			return SPA_BT_PROFILE_BAP_SINK;
+		else
+			return SPA_BT_PROFILE_A2DP_SINK;
 	case SPA_BT_MEDIA_SOURCE_BROADCAST:
 		return SPA_BT_PROFILE_BAP_BROADCAST_SOURCE;
 	case SPA_BT_MEDIA_SINK_BROADCAST:
@@ -971,7 +974,7 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	 */
 	codec = media_endpoint_to_codec(monitor, path, &sink, NULL);
 	spa_log_debug(monitor->log, "%p: %s codec:%s", monitor, path, codec ? codec->name : "<null>");
-	if (!codec || !codec->bap || !codec->get_qos) {
+	if (!codec || codec->kind != MEDIA_CODEC_BAP || !codec->get_qos) {
 		spa_log_error(monitor->log, "Unsupported codec");
 		err_msg = "Unsupported codec";
 		goto error;
@@ -2537,7 +2540,7 @@ bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const stru
 		{ SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL_DUPLEX, SPA_BT_FEATURE_A2DP_DUPLEX },
 		{ SPA_BLUETOOTH_AUDIO_CODEC_FASTSTREAM_DUPLEX, SPA_BT_FEATURE_A2DP_DUPLEX },
 	};
-	bool is_a2dp = !codec->bap && !codec->asha;
+	bool is_a2dp = codec->kind == MEDIA_CODEC_A2DP;
 	size_t i;
 
 	if (!is_media_codec_enabled(device->monitor, codec))
@@ -2548,7 +2551,7 @@ bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const stru
 		return (codec->codec_id == A2DP_CODEC_SBC && spa_streq(codec->name, "sbc") &&
 				device->adapter->legacy_endpoints_registered);
 	}
-	if (!device->adapter->bap_application_registered && codec->bap)
+	if (!device->adapter->bap_application_registered && codec->kind == MEDIA_CODEC_BAP)
 		return false;
 
 	/* Check codec quirks */
@@ -4178,7 +4181,7 @@ static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, 
 
 	for (int i = 0; media_codecs[i]; i++) {
 		const struct media_codec *mcodec = media_codecs[i];
-		if (!mcodec->asha)
+		if (mcodec->kind != MEDIA_CODEC_ASHA)
 			continue;
 		if (!spa_streq(mcodec->name, "g722"))
 			continue;
@@ -4577,7 +4580,7 @@ static int media_codec_switch_cmp(const void *a, const void *b)
 	else if (ep2 == NULL)
 		return -1;
 
-	if (codec->bap)
+	if (codec->kind == MEDIA_CODEC_BAP)
 		flags = spa_streq(ep1->uuid, SPA_BT_UUID_BAP_SOURCE) ? MEDIA_CODEC_FLAG_SINK : 0;
 	else
 		flags = spa_streq(ep1->uuid, SPA_BT_UUID_A2DP_SOURCE) ? MEDIA_CODEC_FLAG_SINK : 0;
@@ -5178,10 +5181,9 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 			uint8_t caps[A2DP_MAX_CAPS_SIZE];
 			int caps_size, ret;
 			uint16_t codec_id = codec->codec_id;
+			enum media_codec_kind kind = is_bap ? MEDIA_CODEC_BAP : MEDIA_CODEC_A2DP;
 
-			if (codec->bap != is_bap)
-				continue;
-			if (codec->asha)
+			if (codec->kind != kind)
 				continue;
 
 			if (!is_media_codec_enabled(monitor, codec))
@@ -5197,7 +5199,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 				if (ret == 0) {
 					spa_log_info(monitor->log, "register media sink codec %s: %s", media_codecs[i]->name, endpoint);
 					append_media_object(monitor, &array, endpoint,
-					        codec->bap ? SPA_BT_UUID_BAP_SINK : SPA_BT_UUID_A2DP_SINK,
+					        is_bap ? SPA_BT_UUID_BAP_SINK : SPA_BT_UUID_A2DP_SINK,
 							codec_id, caps, caps_size);
 				}
 			}
@@ -5212,12 +5214,12 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 				if (ret == 0) {
 					spa_log_info(monitor->log, "register media source codec %s: %s", media_codecs[i]->name, endpoint);
 					append_media_object(monitor, &array, endpoint,
-					        codec->bap ? SPA_BT_UUID_BAP_SOURCE : SPA_BT_UUID_A2DP_SOURCE,
+					        is_bap ? SPA_BT_UUID_BAP_SOURCE : SPA_BT_UUID_A2DP_SOURCE,
 							codec_id, caps, caps_size);
 				}
 			}
 
-			if (codec->bap && register_bcast) {
+			if (is_bap && register_bcast) {
 				if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST)) {
 					caps_size = codec->fill_caps(codec, 0, &monitor->global_settings, caps);
 					if (caps_size < 0)
@@ -5375,7 +5377,7 @@ static int register_media_application(struct spa_bt_monitor * monitor)
 
 		register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SOURCE);
 		register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SINK);
-		if (codec->bap) {
+		if (codec->kind == MEDIA_CODEC_BAP) {
 			register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST);
 			register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SINK_BROADCAST);
 		}
@@ -5411,7 +5413,7 @@ static void unregister_media_application(struct spa_bt_monitor * monitor)
 
 		unregister_media_endpoint(monitor, codec, SPA_BT_MEDIA_SOURCE);
 		unregister_media_endpoint(monitor, codec, SPA_BT_MEDIA_SINK);
-		if (codec->bap) {
+		if (codec->kind == MEDIA_CODEC_BAP) {
 			unregister_media_endpoint(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST);
 			unregister_media_endpoint(monitor, codec, SPA_BT_MEDIA_SINK_BROADCAST);
 		}
@@ -5428,8 +5430,9 @@ static bool have_codec_endpoints(struct spa_bt_monitor *monitor, bool bap)
 
 	for (i = 0; media_codecs[i]; i++) {
 		const struct media_codec *codec = media_codecs[i];
+		enum media_codec_kind kind = bap ? MEDIA_CODEC_BAP : MEDIA_CODEC_A2DP;
 
-		if (codec->bap != bap)
+		if (codec->kind != kind)
 			continue;
 		if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SINK) ||
 				endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE) ||
@@ -5779,7 +5782,7 @@ static void interface_added(struct spa_bt_monitor *monitor,
 			/* get local endpoint */
 
 			for (i = 0; monitor->media_codecs[i]; i++) {
-				if (!monitor->media_codecs[i]->bap)
+				if (monitor->media_codecs[i]->kind != MEDIA_CODEC_BAP)
 					continue;
 				if (!is_media_codec_enabled(monitor, monitor->media_codecs[i]))
 					continue;

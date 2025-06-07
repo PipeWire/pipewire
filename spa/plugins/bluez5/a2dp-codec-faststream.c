@@ -584,6 +584,7 @@ static const struct media_codec duplex_codec = {
 };
 
 #define FASTSTREAM_COMMON_DEFS				\
+	.kind = MEDIA_CODEC_A2DP,			\
 	.codec_id = A2DP_CODEC_VENDOR,			\
 	.vendor = { .vendor_id = FASTSTREAM_VENDOR_ID,	\
 		.codec_id = FASTSTREAM_CODEC_ID },	\

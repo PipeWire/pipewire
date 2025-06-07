@@ -120,6 +120,17 @@ static int load_media_codecs_from(struct impl *impl, const char *factory_name, c
 			break;
 		}
 
+		switch (c->kind) {
+		case MEDIA_CODEC_A2DP:
+		case MEDIA_CODEC_BAP:
+		case MEDIA_CODEC_ASHA:
+			break;
+		default:
+			spa_log_warn(impl->log, "codec plugin %s: unknown codec %s kind %d",
+					factory_name, c->name, c->kind);
+			continue;
+		}
+
 		/* Don't load duplicate endpoints */
 		for (j = 0; j < impl->n_codecs; ++j) {
 			const struct media_codec *c2 = impl->codecs[j];

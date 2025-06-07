@@ -155,9 +155,9 @@ static void codec_set_log(struct spa_log *global_log)
 
 const struct media_codec asha_codec_g722 = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_G722,
+	.kind = MEDIA_CODEC_ASHA,
 	.codec_id = ASHA_CODEC_G722,
 	.name = "g722",
-	.asha = true,
 	.description = "G722",
 	.fill_caps = NULL,
 	.enum_config = codec_enum_config,

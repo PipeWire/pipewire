@@ -222,7 +222,7 @@ struct impl {
 	const char* object_path;
 	const char* interface;
 	struct pw_rtkit_bus *rtkit_bus;
-	struct pw_thread_loop *thread_loop;
+	struct pw_loop *loop;
 	int max_rtprio;
 
 	/* These are only for the RTKit implementation to fill in the `thread`
@@ -469,8 +469,8 @@ static void module_destroy(void *data)
 	spa_hook_remove(&impl->module_listener);
 
 #ifdef HAVE_DBUS
-	if (impl->thread_loop)
-		pw_thread_loop_destroy(impl->thread_loop);
+	pw_loop_invoke(impl->loop, NULL, 0, NULL, 0, true, NULL);
+
 	if (impl->rtkit_bus)
 		pw_rtkit_bus_free(impl->rtkit_bus);
 
@@ -834,8 +834,8 @@ static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority
 			params.priority = priority;
 			params.tid = thr->tid;
 
-			res = pw_loop_invoke(pw_thread_loop_get_loop(impl->thread_loop),
-				do_make_realtime, 0, &params, sizeof(params), false, impl);
+			res = pw_loop_invoke(impl->loop, do_make_realtime, 0,
+						&params, sizeof(params), false, impl);
 		}
 		else {
 			res = -ESRCH;
@@ -948,10 +948,8 @@ static int rtkit_get_bus(struct impl *impl, bool rtportal_enabled, bool rtkit_en
 	return 0;
 }
 
-static int do_rtkit_setup(struct spa_loop *loop, bool async, uint32_t seq,
-		const void *data, size_t size, void *user_data)
+static int rtkit_init(struct impl *impl)
 {
-	struct impl *impl = user_data;
 	long long retval;
 
 	pw_log_debug("enter rtkit setup");
@@ -1136,29 +1134,17 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	handle_uclamp(props, impl->main_tid);
 
 #ifdef HAVE_DBUS
+	impl->loop = pw_context_get_main_loop(context);
+
 	if (use_rtkit) {
-		struct spa_dict_item items[] = {
-			{ "thread-loop.start-signal", "true" }
-		};
 		bool rtportal_enabled = pw_properties_get_bool(props, "rtportal.enabled", true);
 		bool rtkit_enabled = pw_properties_get_bool(props, "rtkit.enabled", true);
 
 		if ((res = rtkit_get_bus(impl, rtportal_enabled, rtkit_enabled)) < 0)
 			goto error;
 
-		impl->thread_loop = pw_thread_loop_new("module-rt",
-			&SPA_DICT_INIT_ARRAY(items));
-		if (impl->thread_loop == NULL) {
-			res = -errno;
+		if ((res = rtkit_init(impl)) < 0)
 			goto error;
-		}
-		pw_thread_loop_lock(impl->thread_loop);
-		pw_thread_loop_start(impl->thread_loop);
-		pw_thread_loop_wait(impl->thread_loop);
-		pw_thread_loop_unlock(impl->thread_loop);
-
-		pw_loop_invoke(pw_thread_loop_get_loop(impl->thread_loop),
-				do_rtkit_setup, 0, NULL, 0, false, impl);
 
 		pw_log_debug("initialized using RTKit");
 	} else
@@ -1184,8 +1170,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 error:
 #ifdef HAVE_DBUS
-	if (impl->thread_loop)
-		pw_thread_loop_destroy(impl->thread_loop);
 	if (impl->rtkit_bus)
 		pw_rtkit_bus_free(impl->rtkit_bus);
 #endif

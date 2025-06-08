@@ -755,7 +755,7 @@ static int impl_join(void *object, struct spa_thread *thread, void **retval)
 	struct thread *thr;
 	int res;
 
-	res = pthread_join(pt, retval);
+	res = pw_thread_utils_join(thread, retval);
 
 	pthread_mutex_lock(&impl->lock);
 	if ((thr = find_thread_by_pt(impl, pt)) != NULL) {

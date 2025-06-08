@@ -774,7 +774,7 @@ static int impl_join(void *object, struct spa_thread *thread, void **retval)
 }
 
 
-static int get_rtkit_priority_range(struct impl *impl, int *min, int *max)
+static void get_rtkit_priority_range(struct impl *impl, int *min, int *max)
 {
 	if (min)
 		*min = 1;
@@ -783,16 +783,15 @@ static int get_rtkit_priority_range(struct impl *impl, int *min, int *max)
 		if (*max < 1)
 			*max = 1;
 	}
-	return 0;
 }
 
 static int impl_get_rt_range(void *object, const struct spa_dict *props,
 		int *min, int *max)
 {
 	struct impl *impl = object;
-	int res;
+	int res = 0;
 	if (impl->use_rtkit)
-		res = get_rtkit_priority_range(impl, min, max);
+		get_rtkit_priority_range(impl, min, max);
 	else
 		res = get_rt_priority_range(min, max);
 	return res;
@@ -813,8 +812,7 @@ static int do_make_realtime(struct spa_loop *loop, bool async, uint32_t seq,
 
 	pw_log_debug("rtkit realtime");
 
-	if ((err = get_rtkit_priority_range(impl, &min, &max)) < 0)
-		return err;
+	get_rtkit_priority_range(impl, &min, &max);
 
 	if (priority < min || priority > max) {
 		pw_log_info("clamping requested priority %d for thread %d "

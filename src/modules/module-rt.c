@@ -1073,7 +1073,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct impl *impl;
-	struct pw_properties *props;
 	int res = 0;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -1084,7 +1083,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	pw_log_debug("module %p: new", impl);
 
-	props = args ? pw_properties_new_string(args) : pw_properties_new(NULL, NULL);
+	spa_autoptr(pw_properties) props = args ? pw_properties_new_string(args) : pw_properties_new(NULL, NULL);
 	if (!props) {
 		res = -errno;
 		goto error;
@@ -1194,7 +1193,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 	pw_impl_module_update_properties(module, &props->dict);
 
-	goto done;
+	return 0;
 
 error:
 #ifdef HAVE_DBUS
@@ -1204,8 +1203,6 @@ error:
 		pw_rtkit_bus_free(impl->rtkit_bus);
 #endif
 	free(impl);
-done:
-	pw_properties_free(props);
 
 	return res;
 }

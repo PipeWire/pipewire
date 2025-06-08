@@ -49,12 +49,13 @@
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
+#include <spa/support/dbus.h>
 
 #include <pipewire/impl.h>
+#include <pipewire/private.h>
 #include <pipewire/thread.h>
 
 #ifdef HAVE_DBUS
-#include <spa/support/dbus.h>
 #include <spa-private/dbus-helpers.h>
 #include <dbus/dbus.h>
 #endif
@@ -186,14 +187,6 @@ static const struct spa_dict_item module_props[] = {
 #define XDG_PORTAL_OBJECT_PATH "/org/freedesktop/portal/desktop"
 #define XDG_PORTAL_INTERFACE "org.freedesktop.portal.Realtime"
 
-#define DBUS_TIMEOUT_MSEC 2000 /* max time to block on any single message */
-
-/** \cond */
-struct pw_rtkit_bus {
-	DBusConnection *bus;
-};
-/** \endcond */
-
 struct thread {
 	struct impl *impl;
 	struct spa_list link;
@@ -217,11 +210,12 @@ struct impl {
 	struct spa_hook module_listener;
 
 #ifdef HAVE_DBUS
+	struct spa_dbus_connection *dbus_conn;
 	/* For D-Bus. These are const static. */
 	const char* service_name;
 	const char* object_path;
 	const char* interface;
-	struct pw_rtkit_bus *rtkit_bus;
+	DBusConnection *rtkit_bus;
 	struct pw_loop *loop;
 	int max_rtprio;
 
@@ -255,66 +249,6 @@ static pid_t _gettid(void)
 }
 
 #ifdef HAVE_DBUS
-static struct pw_rtkit_bus *pw_rtkit_bus_get(DBusBusType bus_type)
-{
-	struct pw_rtkit_bus *bus;
-	DBusError error;
-
-	if (getenv("DISABLE_RTKIT")) {
-		errno = ENOTSUP;
-		return NULL;
-	}
-
-	dbus_error_init(&error);
-
-	bus = calloc(1, sizeof(struct pw_rtkit_bus));
-	if (bus == NULL)
-		return NULL;
-
-	bus->bus = dbus_bus_get_private(bus_type, &error);
-	if (bus->bus == NULL)
-		goto error;
-
-	dbus_connection_set_exit_on_disconnect(bus->bus, false);
-
-	return bus;
-
-error:
-	free(bus);
-	pw_log_error("Failed to connect to %s bus: %s",
-		     bus_type == DBUS_BUS_SYSTEM ? "system" : "session", error.message);
-	dbus_error_free(&error);
-	errno = ECONNREFUSED;
-	return NULL;
-}
-
-static struct pw_rtkit_bus *pw_rtkit_bus_get_system(void)
-{
-	return pw_rtkit_bus_get(DBUS_BUS_SYSTEM);
-}
-
-static struct pw_rtkit_bus *pw_rtkit_bus_get_session(void)
-{
-	return pw_rtkit_bus_get(DBUS_BUS_SESSION);
-}
-
-static bool pw_rtkit_check_xdg_portal(struct pw_rtkit_bus *system_bus)
-{
-	if (!dbus_bus_name_has_owner(system_bus->bus, XDG_PORTAL_SERVICE_NAME, NULL)) {
-		pw_log_info("Can't find %s. Is xdg-desktop-portal running?", XDG_PORTAL_SERVICE_NAME);
-		return false;
-	}
-
-	return true;
-}
-
-static void pw_rtkit_bus_free(struct pw_rtkit_bus *system_bus)
-{
-	dbus_connection_close(system_bus->bus);
-	dbus_connection_unref(system_bus->bus);
-	free(system_bus);
-}
-
 static int translate_error(const char *name)
 {
 	pw_log_warn("RTKit error: %s", name);
@@ -345,7 +279,6 @@ static long long rtkit_get_int_property(struct impl *impl, const char *propname,
 	DBusMessageIter iter, subiter;
 	dbus_int64_t i64;
 	dbus_int32_t i32;
-	struct pw_rtkit_bus *connection = impl->rtkit_bus;
 
 	if (!(m = dbus_message_new_method_call(impl->service_name,
 					       impl->object_path,
@@ -361,7 +294,7 @@ static long long rtkit_get_int_property(struct impl *impl, const char *propname,
 
 	spa_auto(DBusError) error = DBUS_ERROR_INIT;
 
-	if (!(r = dbus_connection_send_with_reply_and_block(connection->bus, m, DBUS_TIMEOUT_MSEC, &error)))
+	if (!(r = dbus_connection_send_with_reply_and_block(impl->rtkit_bus, m, -1, &error)))
 		return translate_error(error.name);
 
 	if (dbus_set_error_from_message(&error, r))
@@ -399,7 +332,6 @@ static int pw_rtkit_make_realtime(struct impl *impl, pid_t thread, int priority)
 	dbus_uint64_t pid;
 	dbus_uint64_t u64;
 	dbus_uint32_t u32;
-	struct pw_rtkit_bus *connection = impl->rtkit_bus;
 
 	if (thread == 0)
 		thread = _gettid();
@@ -421,7 +353,7 @@ static int pw_rtkit_make_realtime(struct impl *impl, pid_t thread, int priority)
 		return -ENOMEM;
 	}
 
-	if (!dbus_connection_send(connection->bus, m, NULL))
+	if (!dbus_connection_send(impl->rtkit_bus, m, NULL))
 		return -EIO;
 
 	return 0;
@@ -433,7 +365,6 @@ static int pw_rtkit_make_high_priority(struct impl *impl, pid_t thread, int nice
 	dbus_uint64_t pid;
 	dbus_uint64_t u64;
 	dbus_int32_t s32;
-	struct pw_rtkit_bus *connection = impl->rtkit_bus;
 
 	if (thread == 0)
 		thread = _gettid();
@@ -455,7 +386,7 @@ static int pw_rtkit_make_high_priority(struct impl *impl, pid_t thread, int nice
 		return -ENOMEM;
 	}
 
-	if (!dbus_connection_send(connection->bus, m, NULL))
+	if (!dbus_connection_send(impl->rtkit_bus, m, NULL))
 		return -EIO;
 
 	return 0;
@@ -471,8 +402,8 @@ static void module_destroy(void *data)
 #ifdef HAVE_DBUS
 	pw_loop_invoke(impl->loop, NULL, 0, NULL, 0, true, NULL);
 
-	if (impl->rtkit_bus)
-		pw_rtkit_bus_free(impl->rtkit_bus);
+	spa_clear_ptr(impl->rtkit_bus, dbus_connection_unref);
+	spa_clear_ptr(impl->dbus_conn, spa_dbus_connection_destroy);
 
 	pthread_cond_destroy(&impl->cond);
 	pthread_mutex_destroy(&impl->lock);
@@ -890,62 +821,65 @@ static const struct spa_thread_utils_methods impl_thread_utils = {
 };
 
 #ifdef HAVE_DBUS
-static bool check_rtkit(struct pw_context *context)
+static int init_dbus_for_name(struct impl *impl, struct spa_dbus *dbus, enum spa_dbus_type type, const char *name)
 {
-	const struct pw_properties *context_props;
-	const char *str;
+	spa_autoptr(spa_dbus_connection) dbus_conn = spa_dbus_get_connection(dbus, type);
+	if (!dbus_conn)
+		return -errno;
 
-	if ((context_props = pw_context_get_properties(context)) != NULL &&
-	    (str = pw_properties_get(context_props, "support.dbus")) != NULL &&
-	    !pw_properties_parse_bool(str))
-		return false;
+	DBusConnection *conn = spa_dbus_connection_get(dbus_conn);
+	if (!conn)
+		return -errno;
 
-	return true;
+	spa_auto(DBusError) error = DBUS_ERROR_INIT;
+	if (!dbus_bus_name_has_owner(conn, name, &error))
+		return translate_error(error.name);
+
+	impl->dbus_conn = spa_steal_ptr(dbus_conn);
+
+	/* XXX: we don't handle dbus reconnection yet, so ref the handle instead */
+	impl->rtkit_bus = dbus_connection_ref(conn);
+
+	return 0;
 }
 
-static int rtkit_get_bus(struct impl *impl, bool rtportal_enabled, bool rtkit_enabled)
+static int rtkit_get_bus(struct impl *impl, struct spa_dbus *dbus, bool rtportal_enabled, bool rtkit_enabled)
 {
-	int res;
+	int res = 0;
 
-	pw_log_debug("enter rtkit get bus");
+	if (rtportal_enabled) {
+		pw_log_debug("trying xdg realtime portal");
 
-	/* Checking xdg-desktop-portal. It works fine in all situations. */
-	if (rtportal_enabled)
-		impl->rtkit_bus = pw_rtkit_bus_get_session();
-	else
-		pw_log_info("Portal Realtime disabled");
-
-	if (impl->rtkit_bus != NULL) {
-		if (pw_rtkit_check_xdg_portal(impl->rtkit_bus)) {
+		res = init_dbus_for_name(impl, dbus, SPA_DBUS_TYPE_SESSION, XDG_PORTAL_SERVICE_NAME);
+		if (res == 0) {
 			impl->service_name = XDG_PORTAL_SERVICE_NAME;
 			impl->object_path = XDG_PORTAL_OBJECT_PATH;
 			impl->interface = XDG_PORTAL_INTERFACE;
-		} else {
-			pw_log_info("found session bus but no portal, trying RTKit fallback");
-			pw_rtkit_bus_free(impl->rtkit_bus);
-			impl->rtkit_bus = NULL;
-		}
-	}
-	/* Failed to get xdg-desktop-portal, try to use rtkit. */
-	if (impl->rtkit_bus == NULL) {
-		if (rtkit_enabled)
-			impl->rtkit_bus = pw_rtkit_bus_get_system();
-		else
-			pw_log_info("RTkit disabled");
 
-		if (impl->rtkit_bus != NULL) {
+			return 0;
+		}
+
+		pw_log_debug("failed to set up using xdg realtime portal: %s", spa_strerror(res));
+	}
+
+	if (rtkit_enabled) {
+		pw_log_debug("trying rtkit");
+
+		res = init_dbus_for_name(impl, dbus, SPA_DBUS_TYPE_SYSTEM, RTKIT_SERVICE_NAME);
+		if (res == 0) {
 			impl->service_name = RTKIT_SERVICE_NAME;
 			impl->object_path = RTKIT_OBJECT_PATH;
 			impl->interface = RTKIT_INTERFACE;
-		} else {
-			res = -errno;
-			pw_log_warn("Realtime scheduling disabled: insufficient realtime privileges, "
-				"Portal not found on session bus, and no system bus for RTKit: %m");
-			return res;
+
+			return 0;
 		}
+
+		pw_log_debug("failed to set up using rtkit: %s", spa_strerror(res));
 	}
 
-	return 0;
+	pw_log_warn("neither xdg realtime portal nor rtkit could be set up");
+
+	return -EIO;
 }
 
 static int rtkit_init(struct impl *impl)
@@ -1087,7 +1021,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->main_tid = _gettid();
 
-	bool can_use_rtkit = false, use_rtkit = false;
+	bool use_rtkit = false;
+	struct spa_dbus *dbus = NULL;
 
 	if (!IS_VALID_NICE_LEVEL(impl->nice_level)) {
 		pw_log_info("invalid nice level %d (not between %d and %d). "
@@ -1100,14 +1035,14 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pthread_mutex_init(&impl->lock, NULL);
 	pthread_cond_init(&impl->cond, NULL);
 
-	can_use_rtkit = check_rtkit(context);
+	dbus = spa_support_find(context->support, context->n_support, SPA_TYPE_INTERFACE_DBus);
 #endif
 	/* If the user has permissions to use regular realtime scheduling, as well as
 	 * the nice level we want, then we'll use that instead of RTKit */
 	bool rlimits_enabled = pw_properties_get_bool(props, "rlimits.enabled", true);
 
 	if (!rlimits_enabled || !check_realtime_privileges(impl)) {
-		if (!can_use_rtkit) {
+		if (!dbus) {
 			res = -ENOTSUP;
 			pw_log_info("regular realtime scheduling not available"
 					" (Portal/RTKit fallback disabled)");
@@ -1126,7 +1061,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 		log_set_nice_level(res, impl->nice_level, !use_rtkit);
 		if (res)
-			use_rtkit = can_use_rtkit;
+			use_rtkit = !!dbus;
 	}
 	if (!use_rtkit)
 		set_rlimit(&impl->rl);
@@ -1140,7 +1075,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		bool rtportal_enabled = pw_properties_get_bool(props, "rtportal.enabled", true);
 		bool rtkit_enabled = pw_properties_get_bool(props, "rtkit.enabled", true);
 
-		if ((res = rtkit_get_bus(impl, rtportal_enabled, rtkit_enabled)) < 0)
+		if ((res = rtkit_get_bus(impl, dbus, rtportal_enabled, rtkit_enabled)) < 0)
 			goto error;
 
 		if ((res = rtkit_init(impl)) < 0)
@@ -1170,8 +1105,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 error:
 #ifdef HAVE_DBUS
-	if (impl->rtkit_bus)
-		pw_rtkit_bus_free(impl->rtkit_bus);
+	spa_clear_ptr(impl->rtkit_bus, dbus_connection_unref);
+	spa_clear_ptr(impl->dbus_conn, spa_dbus_connection_destroy);
 #endif
 	free(impl);
 

@@ -10,6 +10,7 @@
 #include <dbus/dbus.h>
 
 #include <spa/utils/cleanup.h>
+#include <spa/support/dbus.h>
 
 static inline void cancel_and_unref(DBusPendingCall **pp)
 {
@@ -67,6 +68,10 @@ static inline DBusPendingCall *send_with_reply(DBusConnection *conn,
 
 SPA_DEFINE_AUTO_CLEANUP(DBusError, DBusError, {
 	dbus_error_free(thing);
+})
+
+SPA_DEFINE_AUTOPTR_CLEANUP(spa_dbus_connection, struct spa_dbus_connection, {
+	spa_clear_ptr(*thing, spa_dbus_connection_destroy);
 })
 
 #endif /* SPA_PRIVATE_DBUS_HELPERS_H */

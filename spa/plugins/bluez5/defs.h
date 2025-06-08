@@ -609,8 +609,7 @@ struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_bt_transport *transport, s
 		struct spa_system *data_system, struct spa_log *log);
 void spa_bt_sco_io_destroy(struct spa_bt_sco_io *io);
 void spa_bt_sco_io_set_source_cb(struct spa_bt_sco_io *io, int (*source_cb)(void *userdata, uint8_t *data, int size, uint64_t rx_time), void *userdata);
-void spa_bt_sco_io_set_sink_cb(struct spa_bt_sco_io *io, int (*sink_cb)(void *userdata), void *userdata);
-int spa_bt_sco_io_write(struct spa_bt_sco_io *io, uint8_t *data, int size);
+int spa_bt_sco_io_write(struct spa_bt_sco_io *io, const uint8_t *buf, size_t size);
 
 #define SPA_BT_VOLUME_ID_RX	0
 #define SPA_BT_VOLUME_ID_TX	1

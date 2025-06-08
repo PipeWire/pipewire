@@ -685,6 +685,8 @@ static int get_transport_unsent_size(struct impl *this)
 	if (this->tx_latency.enabled) {
 		res = 0;
 		value = this->tx_latency.unsent;
+	} else if (this->codec->kind == MEDIA_CODEC_HFP) {
+		value = 0;
 	} else {
 		res = ioctl(this->flush_source.fd, TIOCOUTQ, &value);
 		if (res < 0) {
@@ -705,14 +707,20 @@ static int send_buffer(struct impl *this)
 	int written, unsent;
 	struct timespec ts_pre;
 
-	unsent = get_transport_unsent_size(this);
-	if (unsent >= 0)
-		this->codec->abr_process(this->codec_data, unsent);
+	if (this->codec->abr_process) {
+		unsent = get_transport_unsent_size(this);
+		if (unsent >= 0)
+			this->codec->abr_process(this->codec_data, unsent);
+	}
 
 	spa_system_clock_gettime(this->data_system, CLOCK_REALTIME, &ts_pre);
 
-	written = spa_bt_send(this->flush_source.fd, this->buffer, this->buffer_used,
-			&this->tx_latency, SPA_TIMESPEC_TO_NSEC(&ts_pre));
+	if (this->codec->kind == MEDIA_CODEC_HFP) {
+		written = spa_bt_sco_io_write(this->transport->sco_io, this->buffer, this->buffer_used);
+	} else {
+		written = spa_bt_send(this->flush_source.fd, this->buffer, this->buffer_used,
+				&this->tx_latency, SPA_TIMESPEC_TO_NSEC(&ts_pre));
+	}
 
 	if (SPA_UNLIKELY(spa_log_level_topic_enabled(this->log, SPA_LOG_TOPIC_DEFAULT, SPA_LOG_LEVEL_TRACE))) {
 		struct timespec ts;
@@ -870,6 +878,7 @@ static int flush_data(struct impl *this, uint64_t now_time)
 {
 	struct port *port = &this->port;
 	bool is_asha = this->codec->kind == MEDIA_CODEC_ASHA;
+	bool is_sco = this->codec->kind == MEDIA_CODEC_HFP;
 	uint32_t total_frames;
 	int written;
 	int unsent_buffer;
@@ -877,9 +886,11 @@ static int flush_data(struct impl *this, uint64_t now_time)
 	spa_assert(this->transport_started);
 
 	/* I/O in error state? */
-	if (this->transport == NULL || (!this->flush_source.loop && !is_asha))
+	if (this->transport == NULL || (!this->flush_source.loop && !is_asha && !is_sco))
 		return -EIO;
 	if (!this->flush_timer_source.loop && !this->transport->iso_io && !is_asha)
+		return -EIO;
+	if (!this->transport->sco_io && is_sco)
 		return -EIO;
 
 	if (this->transport->iso_io && !this->iso_pending)
@@ -1021,7 +1032,10 @@ again:
 	if (written == -EAGAIN) {
 		spa_log_trace(this->log, "%p: fail flush", this);
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC / 2) {
-			int res = this->codec->reduce_bitpool(this->codec_data);
+			int res = 0;
+
+			if (this->codec->reduce_bitpool)
+				res = this->codec->reduce_bitpool(this->codec_data);
 
 			spa_log_debug(this->log, "%p: reduce bitpool: %i", this, res);
 			this->last_error = now_time;
@@ -1092,7 +1106,10 @@ again:
 
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC) {
 			if (unsent_buffer == 0) {
-				int res = this->codec->increase_bitpool(this->codec_data);
+				int res = 0;
+
+				if (this->codec->increase_bitpool)
+					res = this->codec->increase_bitpool(this->codec_data);
 
 				spa_log_debug(this->log, "%p: increase bitpool: %i", this, res);
 			}
@@ -1437,6 +1454,7 @@ static int transport_start(struct impl *this)
 	uint8_t *conf;
 	uint32_t flags;
 	bool is_asha;
+	bool is_sco;
 
 	if (this->transport_started)
 		return 0;
@@ -1452,6 +1470,7 @@ static int transport_start(struct impl *this)
 	conf = this->transport->configuration;
 	size = this->transport->configuration_len;
 	is_asha = this->codec->kind == MEDIA_CODEC_ASHA;
+	is_sco = this->codec->kind == MEDIA_CODEC_HFP;
 
 	spa_log_debug(this->log, "Transport configuration:");
 	spa_debug_log_mem(this->log, SPA_LOG_LEVEL_DEBUG, 2, conf, (size_t)size);
@@ -1494,7 +1513,7 @@ static int transport_start(struct impl *this)
 	if (this->block_size > sizeof(this->tmp_buffer)) {
 		spa_log_error(this->log, "block-size %d > %zu",
 				this->block_size, sizeof(this->tmp_buffer));
-		return -EIO;
+		goto fail;
 	}
 
 	spa_log_debug(this->log, "%p: block_size %d", this, this->block_size);
@@ -1525,6 +1544,14 @@ static int transport_start(struct impl *this)
 
 	this->update_delay_event = spa_loop_utils_add_event(this->loop_utils, update_delay_event, this);
 
+	spa_zero(this->tx_latency);
+
+	if (is_sco) {
+		int res;
+		if ((res = spa_bt_transport_ensure_sco_io(this->transport, this->data_loop, this->data_system)) < 0)
+			goto fail;
+	}
+
 	if (!this->transport->iso_io && !is_asha) {
 		this->flush_timer_source.data = this;
 		this->flush_timer_source.fd = this->flush_timerfd;
@@ -1533,10 +1560,11 @@ static int transport_start(struct impl *this)
 		this->flush_timer_source.rmask = 0;
 		spa_loop_add_source(this->data_loop, &this->flush_timer_source);
 
-		spa_bt_latency_init(&this->tx_latency, this->transport, LATENCY_PERIOD, this->log);
+		if (!is_sco)
+			spa_bt_latency_init(&this->tx_latency, this->transport, LATENCY_PERIOD, this->log);
 	}
 
-	if (!is_asha) {
+	if (!is_asha && !is_sco) {
 		this->flush_source.data = this;
 		this->flush_source.fd = this->transport->fd;
 		this->flush_source.func = media_on_flush_error;
@@ -1578,6 +1606,15 @@ static int transport_start(struct impl *this)
 
 
 	return 0;
+
+fail:
+	if (this->codec_data) {
+		if (this->own_codec_data)
+			this->codec->deinit(this->codec_data);
+		this->own_codec_data = false;
+		this->codec_data = NULL;
+	}
+	return -EIO;
 }
 
 static int do_start(struct impl *this)
@@ -1595,7 +1632,8 @@ static int do_start(struct impl *this)
 
 	this->start_ready = true;
 
-	if ((res = spa_bt_transport_acquire(this->transport, false)) < 0) {
+	bool do_accept = this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY;
+	if ((res = spa_bt_transport_acquire(this->transport, do_accept)) < 0) {
 		this->start_ready = false;
 		return res;
 	}
@@ -1748,6 +1786,8 @@ static void emit_node_info(struct impl *this, bool full)
 {
 	char node_group_buf[256];
 	char *node_group = NULL;
+	const char *media_role = NULL;
+	const char *codec_profile = media_codec_kind_str(this->codec);
 
 	if (this->transport && (this->transport->profile & SPA_BT_PROFILE_BAP_SINK)) {
 		spa_scnprintf(node_group_buf, sizeof(node_group_buf), "[\"bluez-iso-%s-cig-%d\"]",
@@ -1765,7 +1805,10 @@ static void emit_node_info(struct impl *this, bool full)
 		node_group = node_group_buf;
 	}
 
-	const char *codec_profile = media_codec_kind_str(this->codec);
+	if (!this->is_output && this->transport &&
+			(this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY))
+		media_role = "Communication";
+
 	struct spa_dict_item node_info_items[] = {
 		{ SPA_KEY_DEVICE_API, "bluez5" },
 		{ SPA_KEY_MEDIA_CLASS, this->is_internal ? "Audio/Sink/Internal" :
@@ -1774,6 +1817,7 @@ static void emit_node_info(struct impl *this, bool full)
 					this->transport->device->name : codec_profile ) },
 		{ SPA_KEY_NODE_DRIVER, this->is_output ? "true" : "false" },
 		{ "node.group", node_group },
+		{ SPA_KEY_MEDIA_ROLE, media_role },
 	};
 	uint64_t old = full ? this->info.change_mask : 0;
 	if (full)
@@ -2035,7 +2079,8 @@ static int port_set_format(struct impl *this, struct port *port,
 
 		port->frame_size = info.info.raw.channels;
 		switch (info.info.raw.format) {
-		case SPA_AUDIO_FORMAT_S16:
+		case SPA_AUDIO_FORMAT_S16_LE:
+		case SPA_AUDIO_FORMAT_S16_BE:
 			port->frame_size *= 2;
 			break;
 		case SPA_AUDIO_FORMAT_S24:
@@ -2525,6 +2570,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (this->codec->kind == MEDIA_CODEC_BAP)
 		this->is_output = this->transport->bap_initiator;
+	else if (this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY)
+		this->is_output = false;
 	else
 		this->is_output = true;
 
@@ -2597,6 +2644,16 @@ const struct spa_handle_factory spa_media_sink_factory = {
 const struct spa_handle_factory spa_a2dp_sink_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	SPA_NAME_API_BLUEZ5_A2DP_SINK,
+	&info,
+	impl_get_size,
+	impl_init,
+	impl_enum_interface_info,
+};
+
+/* Retained for backward compatibility: */
+const struct spa_handle_factory spa_sco_sink_factory = {
+	SPA_VERSION_HANDLE_FACTORY,
+	SPA_NAME_API_BLUEZ5_SCO_SINK,
 	&info,
 	impl_get_size,
 	impl_init,

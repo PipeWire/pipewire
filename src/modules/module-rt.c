@@ -843,16 +843,17 @@ static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority
 			pw_log_debug("SCHED_OTHER|SCHED_RESET_ON_FORK worked.");
 		}
 
-		params.priority = priority;
-
 		pthread_mutex_lock(&impl->lock);
-		if ((thr = find_thread_by_pt(impl, pt)) != NULL)
+		if ((thr = find_thread_by_pt(impl, pt)) != NULL) {
+			params.priority = priority;
 			params.tid = thr->tid;
-		else
-			params.tid = _gettid();
 
-		res = pw_loop_invoke(pw_thread_loop_get_loop(impl->thread_loop),
+			res = pw_loop_invoke(pw_thread_loop_get_loop(impl->thread_loop),
 				do_make_realtime, 0, &params, sizeof(params), false, impl);
+		}
+		else {
+			res = -ESRCH;
+		}
 		pthread_mutex_unlock(&impl->lock);
 
 		return res;

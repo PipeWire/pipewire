@@ -1173,12 +1173,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				do_rtkit_setup, 0, NULL, 0, false, impl);
 
 		pw_log_debug("initialized using RTKit");
-	} else {
+	} else
+#endif
+	{
 		pw_log_debug("initialized using regular realtime scheduling");
 	}
-#else
-	pw_log_debug("initialized using regular realtime scheduling");
-#endif
 
 	impl->thread_utils.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_ThreadUtils,

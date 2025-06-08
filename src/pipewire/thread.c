@@ -125,7 +125,7 @@ static struct spa_thread *impl_create(void *object,
 static int impl_join(void *object, struct spa_thread *thread, void **retval)
 {
 	pthread_t pt = (pthread_t)thread;
-	return pthread_join(pt, retval);
+	return -pthread_join(pt, retval);
 }
 
 static int impl_get_rt_range(void *object, const struct spa_dict *props,

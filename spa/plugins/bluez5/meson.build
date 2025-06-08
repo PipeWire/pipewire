@@ -16,7 +16,6 @@ bluez5_sources = [
   'media-codecs.c',
   'media-sink.c',
   'media-source.c',
-  'sco-source.c',
   'sco-io.c',
   'iso-io.c',
   'quirks.c',

@@ -133,6 +133,7 @@ struct impl {
 	unsigned int following:1;
 	unsigned int matching:1;
 	unsigned int resampling:1;
+	unsigned int io_error:1;
 
 	unsigned int is_input:1;
 	unsigned int is_duplex:1;
@@ -460,6 +461,8 @@ static int32_t decode_data(struct impl *this, uint8_t *src, uint32_t src_size,
 				src, src_size, NULL, NULL)) < 0)
 		return processed;
 
+	/* TODO: check seqnum and handle PLC */
+
 	src += processed;
 	src_size -= processed;
 
@@ -573,10 +576,63 @@ static void media_on_ready_read(struct spa_source *source)
 	return;
 
 stop:
+	this->io_error = true;
 	if (this->source.loop)
 		spa_loop_remove_source(this->data_loop, &this->source);
 	if (this->transport && this->transport->iso_io)
 		spa_bt_iso_io_set_cb(this->transport->iso_io, NULL, NULL);
+}
+
+static int media_sco_pull(void *userdata, uint8_t *buffer_read, int size_read, uint64_t now)
+{
+	struct impl *this = userdata;
+	struct port *port = &this->port;
+	void *buf;
+	int32_t decoded;
+	uint32_t avail;
+	uint64_t dt;
+
+	if (this->transport == NULL) {
+		spa_log_debug(this->log, "no transport, stop reading");
+		goto stop;
+	}
+
+	if (size_read == 0)
+		return 0;
+
+	/* decode to buffer */
+	buf = spa_bt_decode_buffer_get_write(&port->buffer, &avail);
+	spa_log_trace(this->log, "read socket data size:%d, avail:%d", size_read, avail);
+	decoded = decode_data(this, buffer_read, size_read, buf, avail);
+	if (decoded < 0) {
+		spa_log_debug(this->log, "failed to decode data: %d", decoded);
+		return 0;
+	}
+	if (decoded == 0) {
+		spa_log_trace(this->log, "no decoded socket data");
+		return 0;
+	}
+
+	/* discard when not started */
+	if (!this->started)
+		return 0;
+
+	spa_bt_decode_buffer_write_packet(&port->buffer, decoded, now);
+
+	dt = now - this->now;
+	this->now = now;
+
+	spa_log_trace(this->log, "decoded socket data size:%d frames:%d dt:%d dms",
+			(int)decoded, (int)decoded/port->frame_size,
+			(int)(dt / 100000));
+
+	return 0;
+
+stop:
+	this->io_error = true;
+	if (this->transport && this->transport->sco_io)
+		spa_bt_sco_io_set_source_cb(this->transport->sco_io, NULL, NULL);
+	return 1;
 }
 
 static int setup_matching(struct impl *this)
@@ -715,12 +771,15 @@ static void update_delay_event(void *data, uint64_t count)
 	update_transport_delay(data);
 }
 
-static int do_start_iso_io(struct spa_loop *loop, bool async, uint32_t seq,
+static int do_start_sco_iso_io(struct spa_loop *loop, bool async, uint32_t seq,
 		const void *data, size_t size, void *user_data)
 {
 	struct impl *this = user_data;
 
-	spa_bt_iso_io_set_cb(this->transport->iso_io, media_iso_pull, this);
+	if (this->transport->sco_io)
+		spa_bt_sco_io_set_source_cb(this->transport->sco_io, media_sco_pull, this);
+	if (this->transport->iso_io)
+		spa_bt_iso_io_set_cb(this->transport->iso_io, media_iso_pull, this);
 	return 0;
 }
 
@@ -767,8 +826,6 @@ static int transport_start(struct impl *this)
 	if (setsockopt(this->fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
 		spa_log_warn(this->log, "SO_PRIORITY failed: %m");
 
-	spa_bt_recvmsg_init(&this->recv, this->fd, this->data_system, this->log);
-
 	reset_buffers(port);
 
 	spa_bt_decode_buffer_clear(&port->buffer);
@@ -777,7 +834,11 @@ static int transport_start(struct impl *this)
 			this->quantum_limit, this->quantum_limit)) < 0)
 		return res;
 
-	if (this->is_duplex) {
+	if (this->codec->kind == MEDIA_CODEC_HFP) {
+		/* 40 ms max buffer (on top of duration) */
+		spa_bt_decode_buffer_set_max_extra_latency(&port->buffer,
+				port->current_format.info.raw.rate * 40 / 1000);
+	} else if (this->is_duplex) {
 		/* 80 ms max extra buffer */
 		spa_bt_decode_buffer_set_max_extra_latency(&port->buffer,
 				port->current_format.info.raw.rate * 80 / 1000);
@@ -790,22 +851,39 @@ static int transport_start(struct impl *this)
 	this->sample_count = 0;
 	this->errqueue_count = 0;
 
-	this->source.data = this;
+	this->io_error = false;
 
-	this->source.fd = this->fd;
-	this->source.func = media_on_ready_read;
-	this->source.mask = SPA_IO_IN;
-	this->source.rmask = 0;
-	if ((res = spa_loop_add_source(this->data_loop, &this->source)) < 0)
-		spa_log_error(this->log, "%p: failed to add poll source: %s", this,
-				spa_strerror(res));
+	if (this->codec->kind != MEDIA_CODEC_HFP) {
+		spa_bt_recvmsg_init(&this->recv, this->fd, this->data_system, this->log);
 
-	if (this->transport->iso_io)
-		spa_loop_locked(this->data_loop, do_start_iso_io, 0, NULL, 0, this);
+		this->source.data = this;
+
+		this->source.fd = this->fd;
+		this->source.func = media_on_ready_read;
+		this->source.mask = SPA_IO_IN;
+		this->source.rmask = 0;
+		if ((res = spa_loop_add_source(this->data_loop, &this->source)) < 0)
+			spa_log_error(this->log, "%p: failed to add poll source: %s", this,
+					spa_strerror(res));
+	} else {
+		spa_zero(this->source);
+		if (spa_bt_transport_ensure_sco_io(this->transport, this->data_loop, this->data_system) < 0)
+			goto fail;
+	}
+
+	if (this->transport->iso_io || this->transport->sco_io)
+		spa_loop_locked(this->data_loop, do_start_sco_iso_io, 0, NULL, 0, this);
 
 	this->transport_started = true;
 
 	return 0;
+
+fail:
+	if (this->codec_data) {
+		this->codec->deinit(this->codec_data);
+		this->codec_data = NULL;
+	}
+	return -EIO;
 }
 
 static int do_start(struct impl *this)
@@ -825,7 +903,9 @@ static int do_start(struct impl *this)
 
 	spa_log_debug(this->log, "%p: transport %p acquire", this,
 			this->transport);
-	if ((res = spa_bt_transport_acquire(this->transport, false)) < 0) {
+
+	bool do_accept = (this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
+	if ((res = spa_bt_transport_acquire(this->transport, do_accept)) < 0) {
 		this->start_ready = false;
 		return res;
 	}
@@ -861,6 +941,8 @@ static int do_remove_source(struct spa_loop *loop,
 		spa_loop_remove_source(this->data_loop, &this->timer_source);
 	if (this->transport && this->transport->iso_io)
 		spa_bt_iso_io_set_cb(this->transport->iso_io, NULL, NULL);
+	if (this->transport && this->transport->sco_io)
+		spa_bt_sco_io_set_source_cb(this->transport->sco_io, NULL, NULL);
 	set_timeout(this, 0);
 
 	if (this->update_delay_event) {
@@ -888,6 +970,8 @@ static int do_remove_transport_source(struct spa_loop *loop,
 		spa_loop_remove_source(this->data_loop, &this->source);
 	if (this->transport->iso_io)
 		spa_bt_iso_io_set_cb(this->transport->iso_io, NULL, NULL);
+	if (this->transport->sco_io)
+		spa_bt_sco_io_set_source_cb(this->transport->sco_io, NULL, NULL);
 
 	return 0;
 }
@@ -978,6 +1062,7 @@ static void emit_node_info(struct impl *this, bool full)
 	char latency[64];
 	char rate[64];
 	char media_name[256];
+	const char *media_role = NULL;
 	struct port *port = &this->port;
 
 	spa_scnprintf(
@@ -989,6 +1074,10 @@ static void emit_node_info(struct impl *this, bool full)
 		this->codec->description
 	);
 
+	if (!this->is_input && this->transport &&
+			(this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY))
+		media_role = "Communication";
+
 	struct spa_dict_item node_info_items[] = {
 		{ SPA_KEY_DEVICE_API, "bluez5" },
 		{ SPA_KEY_MEDIA_CLASS, this->is_internal ? "Audio/Source/Internal" :
@@ -997,6 +1086,7 @@ static void emit_node_info(struct impl *this, bool full)
 		{ "media.name", media_name },
 		{ "node.rate", this->is_input ? "" : rate },
 		{ SPA_KEY_NODE_DRIVER, this->is_input ? "true" : "false" },
+		{ SPA_KEY_MEDIA_ROLE, media_role },
 	};
 
 	spa_scnprintf(latency, sizeof(latency), "%u/%u", this->node_latency, port->current_format.info.raw.rate);
@@ -1251,7 +1341,8 @@ static int port_set_format(struct impl *this, struct port *port,
 		port->frame_size = info.info.raw.channels;
 
 		switch (info.info.raw.format) {
-		case SPA_AUDIO_FORMAT_S16:
+		case SPA_AUDIO_FORMAT_S16_LE:
+		case SPA_AUDIO_FORMAT_S16_BE:
 			port->frame_size *= 2;
 			break;
 		case SPA_AUDIO_FORMAT_S24:
@@ -1562,7 +1653,10 @@ static void process_buffering(struct impl *this)
 
 		memcpy(datas[0].data, buf, avail);
 
-		/* pad with silence */
+		/* pad with silence
+		 *
+		 * TODO: should do PLC instead
+		 */
 		if (avail < data_size)
 			memset(SPA_PTROFF(datas[0].data, avail, void), 0, data_size - avail);
 
@@ -1611,7 +1705,7 @@ static int produce_buffer(struct impl *this)
 		io->buffer_id = SPA_ID_INVALID;
 	}
 
-	if (this->transport_started && !this->source.loop) {
+	if (this->io_error) {
 		io->status = -EIO;
 		return SPA_STATUS_STOPPED;
 	}
@@ -1875,19 +1969,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->quantum_limit = 8192;
 
-	if (info != NULL) {
-		if (info && (str = spa_dict_lookup(info, "clock.quantum-limit")))
-			spa_atou32(str, &this->quantum_limit, 0);
-		if ((str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_TRANSPORT)) != NULL)
-			sscanf(str, "pointer:%p", &this->transport);
-		if ((str = spa_dict_lookup(info, "bluez5.media-source-role")) != NULL)
-			this->is_input = spa_streq(str, "input");
-		if ((str = spa_dict_lookup(info, "api.bluez5.a2dp-duplex")) != NULL)
-			this->is_duplex = spa_atob(str);
-		if ((str = spa_dict_lookup(info, "api.bluez5.internal")) != NULL)
-			this->is_internal = spa_atob(str);
-	}
-
+	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_TRANSPORT)) != NULL)
+		sscanf(str, "pointer:%p", &this->transport);
 	if (this->transport == NULL) {
 		spa_log_error(this->log, "a transport is needed");
 		return -EINVAL;
@@ -1897,6 +1980,20 @@ impl_init(const struct spa_handle_factory *factory,
 		return -EINVAL;
 	}
 	this->codec = this->transport->media_codec;
+
+	if (this->transport->profile & SPA_BT_PROFILE_HEADSET_HEAD_UNIT)
+		this->is_input = true;
+
+	if (info) {
+		if ((str = spa_dict_lookup(info, "clock.quantum-limit")))
+			spa_atou32(str, &this->quantum_limit, 0);
+		if ((str = spa_dict_lookup(info, "bluez5.media-source-role")) != NULL)
+			this->is_input = spa_streq(str, "input");
+		if ((str = spa_dict_lookup(info, "api.bluez5.a2dp-duplex")) != NULL)
+			this->is_duplex = spa_atob(str);
+		if ((str = spa_dict_lookup(info, "api.bluez5.internal")) != NULL)
+			this->is_internal = spa_atob(str);
+	}
 
 	if (this->is_duplex) {
 		if (!this->codec->duplex_codec) {
@@ -1974,6 +2071,16 @@ const struct spa_handle_factory spa_media_source_factory = {
 const struct spa_handle_factory spa_a2dp_source_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	SPA_NAME_API_BLUEZ5_A2DP_SOURCE,
+	&info,
+	impl_get_size,
+	impl_init,
+	impl_enum_interface_info,
+};
+
+/* Retained for backward compatibility: */
+const struct spa_handle_factory spa_sco_source_factory = {
+	SPA_VERSION_HANDLE_FACTORY,
+	SPA_NAME_API_BLUEZ5_SCO_SOURCE,
 	&info,
 	impl_get_size,
 	impl_init,

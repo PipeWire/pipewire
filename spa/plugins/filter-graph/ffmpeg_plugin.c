@@ -7,11 +7,13 @@
 #include <dlfcn.h>
 #include <math.h>
 #include <limits.h>
+#include <string.h>
 
 #include <spa/utils/result.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
 #include <spa/utils/string.h>
+#include <spa/utils/json.h>
 #include <spa/support/log.h>
 
 #include <libavutil/opt.h>
@@ -20,6 +22,9 @@
 #include <libavfilter/buffersink.h>
 
 #include "audio-plugin.h"
+
+#define MAX_PORTS	256
+#define MAX_CTX		64
 
 struct plugin {
 	struct spa_handle handle;
@@ -31,6 +36,7 @@ struct plugin {
 struct descriptor {
 	struct spa_fga_descriptor desc;
 	struct plugin *p;
+
 	AVFilterGraph *filter_graph;
 	const AVFilter *format;
 	const AVFilter *buffersrc;
@@ -41,16 +47,17 @@ struct instance {
 	struct descriptor *desc;
 
 	AVFilterGraph *filter_graph;
-	AVFilterInOut *in;
-	AVFilterInOut *out;
 
 	uint32_t rate;
 
-	AVFilterContext *ctx[128];
-	uint32_t n_ctx;
-
-	float *data[128];
 	AVFrame *frame;
+	AVFilterContext *ctx[MAX_CTX];
+	AVChannelLayout layout[MAX_CTX];
+	uint32_t n_ctx;
+	uint32_t n_src;
+	uint32_t n_sink;
+
+	float *data[MAX_PORTS];
 };
 
 static void *ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
@@ -59,10 +66,13 @@ static void *ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struc
 	struct descriptor *d = (struct descriptor *)desc;
 	struct plugin *p = d->p;
 	struct instance *i;
-	AVFilterInOut *fp;
+	AVFilterInOut *fp, *in, *out;
 	AVFilterContext *cnv, *ctx;
 	int res;
+	char channel[512];
 	char options_str[1024];
+	uint32_t n_fp;
+	const char *chan;
 
 	i = calloc(1, sizeof(*i));
 	if (i == NULL)
@@ -77,38 +87,74 @@ static void *ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struc
 		return NULL;
 	}
 
-	res = avfilter_graph_parse2(i->filter_graph, d->desc.name, &i->in, &i->out);
+	res = avfilter_graph_parse2(i->filter_graph, d->desc.name, &in, &out);
 	if (res < 0) {
 		spa_log_error(p->log, "can parse filter graph %s", d->desc.name);
 		errno = EINVAL;
 		return NULL;
 	}
 
-	for (fp = i->in; fp != NULL; fp = fp->next) {
+	for (n_fp = 0, fp = in; fp != NULL; fp = fp->next, n_fp++) {
 		ctx = avfilter_graph_alloc_filter(i->filter_graph, d->buffersrc, "src");
 		if (ctx == NULL) {
 			spa_log_error(p->log, "can't alloc buffersrc");
 			return NULL;
 		}
+		if ((chan = strrchr(fp->name, '_')) != NULL)
+			chan++;
+
+		if (config == NULL ||
+		    spa_json_str_object_find(config, strlen(config),
+					fp->name, channel, sizeof(channel)) < 0)
+			snprintf(channel, sizeof(channel), "%s", chan ? chan : "FC");
+
+		if (av_channel_layout_from_string(&i->layout[n_fp], channel) == AV_CHAN_NONE ||
+		    i->layout[n_fp].nb_channels != 1) {
+			spa_log_warn(p->log, "invalid channels %s, using MONO", channel);
+			av_channel_layout_from_string(&i->layout[n_fp], "FC");
+		}
+
+		av_channel_layout_describe(&i->layout[n_fp], channel, sizeof(channel));
+
 		snprintf(options_str, sizeof(options_str),
-	             "sample_fmt=%s:sample_rate=%ld:channel_layout=mono",
-		             av_get_sample_fmt_name(AV_SAMPLE_FMT_FLTP), SampleRate);
+	             "sample_fmt=%s:sample_rate=%ld:channel_layout=%s",
+		             av_get_sample_fmt_name(AV_SAMPLE_FMT_FLTP), SampleRate, channel);
+
+		spa_log_info(p->log, "%d buffersrc %s", n_fp, options_str);
 		avfilter_init_str(ctx, options_str);
 		avfilter_link(ctx, 0, fp->filter_ctx, fp->pad_idx);
-		i->ctx[i->n_ctx++] = ctx;
-	}
-	for (fp = i->out; fp != NULL; fp = fp->next) {
 
+		i->ctx[n_fp] = ctx;
+	}
+	i->n_src = n_fp;
+	for (fp = out; fp != NULL; fp = fp->next, n_fp++) {
 		cnv = avfilter_graph_alloc_filter(i->filter_graph, d->format, "format");
 		if (cnv == NULL) {
 			spa_log_error(p->log, "can't alloc format");
 			return NULL;
 		}
 
-		snprintf(options_str, sizeof(options_str),
-	             "sample_fmts=%s:sample_rates=%ld:channel_layouts=mono",
-		             av_get_sample_fmt_name(AV_SAMPLE_FMT_FLTP), SampleRate);
+		if ((chan = strrchr(fp->name, '_')) != NULL)
+			chan++;
 
+		if (config == NULL ||
+		    spa_json_str_object_find(config, strlen(config),
+					fp->name, channel, sizeof(channel)) < 0)
+			snprintf(channel, sizeof(channel), "%s", chan ? chan : "FC");
+
+		if (av_channel_layout_from_string(&i->layout[n_fp], channel) == AV_CHAN_NONE ||
+		    i->layout[n_fp].nb_channels != 1) {
+			spa_log_warn(p->log, "invalid channels %s, using MONO", channel);
+			av_channel_layout_from_string(&i->layout[n_fp], "FC");
+		}
+
+		av_channel_layout_describe(&i->layout[n_fp], channel, sizeof(channel));
+
+		snprintf(options_str, sizeof(options_str),
+	             "sample_fmts=%s:sample_rates=%ld:channel_layouts=%s",
+		             av_get_sample_fmt_name(AV_SAMPLE_FMT_FLTP), SampleRate, channel);
+
+		spa_log_info(p->log, "%d format %s", n_fp, options_str);
 		avfilter_init_str(cnv, options_str);
 		avfilter_link(fp->filter_ctx, fp->pad_idx, cnv, 0);
 
@@ -119,15 +165,17 @@ static void *ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struc
 		}
 		avfilter_init_str(ctx, NULL);
 		avfilter_link(cnv, 0, ctx, 0);
-		i->ctx[i->n_ctx++] = ctx;
+		i->ctx[n_fp] = ctx;
 	}
+	i->n_sink = n_fp;
+
 	avfilter_graph_config(i->filter_graph, NULL);
 
 	i->frame = av_frame_alloc();
 
-#if 1
+#if 0
 	char *dump = avfilter_graph_dump(i->filter_graph, NULL);
-	fprintf(stderr, "%s\n", dump);
+	spa_log_debug(p->log, "%s", dump);
 	free(dump);
 #endif
 	return i;
@@ -136,6 +184,8 @@ static void *ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struc
 static void ffmpeg_cleanup(void *instance)
 {
 	struct instance *i = instance;
+	avfilter_graph_free(&i->filter_graph);
+	av_frame_free(&i->frame);
 	free(i);
 }
 
@@ -156,31 +206,43 @@ static void ffmpeg_run(void *instance, unsigned long SampleCount)
 {
 	struct instance *i = instance;
 	char buf[1024];
-	int err;
+	int err, j;
+	uint32_t c, d = 0;
 
-	spa_log_debug(i->desc->p->log, "run %ld", SampleCount);
-	i->frame->nb_samples = SampleCount;
-	i->frame->sample_rate = i->rate;
-	i->frame->format = AV_SAMPLE_FMT_FLTP;
-	av_channel_layout_copy(&i->frame->ch_layout, &(AVChannelLayout)AV_CHANNEL_LAYOUT_MONO);
+	spa_log_trace(i->desc->p->log, "run %ld", SampleCount);
 
-	i->frame->data[0] = (uint8_t*)i->data[0];
+	for (c = 0; c < i->n_src; c++) {
+		i->frame->nb_samples = SampleCount;
+		i->frame->sample_rate = i->rate;
+		i->frame->format = AV_SAMPLE_FMT_FLTP;
+		av_channel_layout_copy(&i->frame->ch_layout, &i->layout[c]);
 
-	if ((err = av_buffersrc_add_frame_flags(i->ctx[0], i->frame,
-			AV_BUFFERSRC_FLAG_NO_CHECK_FORMAT)) < 0) {
-		av_strerror(err, buf, sizeof(buf));
-		spa_log_error(i->desc->p->log, "can't add frame %s", buf);
-		av_frame_unref(i->frame);
-		return;
+		for (j = 0; j < i->layout[c].nb_channels; j++)
+			i->frame->data[j] = (uint8_t*)i->data[d++];
+
+		if ((err = av_buffersrc_add_frame_flags(i->ctx[c], i->frame,
+				AV_BUFFERSRC_FLAG_NO_CHECK_FORMAT)) < 0) {
+			av_strerror(err, buf, sizeof(buf));
+			spa_log_error(i->desc->p->log, "can't add frame: %s", buf);
+			av_frame_unref(i->frame);
+			continue;
+		}
 	}
-	if ((err = av_buffersink_get_samples(i->ctx[1], i->frame, SampleCount)) >= 0) {
+	for (; c < i->n_sink; c++) {
+		if ((err = av_buffersink_get_samples(i->ctx[c], i->frame, SampleCount)) < 0) {
+			av_strerror(err, buf, sizeof(buf));
+			spa_log_error(i->desc->p->log, "can't get frame: %s", buf);
+			continue;
+		}
+
 		spa_log_trace(i->desc->p->log, "got frame %d %d %d %s",
 				i->frame->nb_samples,
 				i->frame->ch_layout.nb_channels,
 				i->frame->sample_rate,
 				av_get_sample_fmt_name(i->frame->format));
 
-		memcpy(i->data[1], i->frame->data[0], SampleCount * sizeof(float));
+		for (j = 0; j < i->layout[c].nb_channels; j++)
+			memcpy(i->data[d++], i->frame->data[j], SampleCount * sizeof(float));
 
 		av_frame_unref(i->frame);
 	}
@@ -190,7 +252,7 @@ static const struct spa_fga_descriptor *ffmpeg_plugin_make_desc(void *plugin, co
 {
 	struct plugin *p = (struct plugin *)plugin;
 	struct descriptor *desc;
-	uint32_t i;
+	uint32_t n_fp;
 	AVFilterInOut *in = NULL, *out = NULL, *fp;
 	int res;
 
@@ -215,15 +277,20 @@ static const struct spa_fga_descriptor *ffmpeg_plugin_make_desc(void *plugin, co
 	}
 
 	desc->desc.n_ports = 0;
-	for (fp = in; fp != NULL; fp = fp->next) {
+	for (n_fp = 0, fp = in; fp != NULL; fp = fp->next, n_fp++) {
 		spa_log_info(p->log, "%p: in %s %p:%d", fp, fp->name, fp->filter_ctx, fp->pad_idx);
 		desc->desc.n_ports++;
 	}
-	for (fp = out; fp != NULL; fp = fp->next) {
+	for (fp = out; fp != NULL; fp = fp->next, n_fp++) {
 		spa_log_info(p->log, "%p: out %s %p:%d", fp, fp->name, fp->filter_ctx, fp->pad_idx);
 		desc->desc.n_ports++;
 	}
-
+	if (desc->desc.n_ports > MAX_CTX) {
+		spa_log_error(p->log, "%p: too many ports %d > %d", desc,
+				desc->desc.n_ports, MAX_CTX);
+		errno = ENOSPC;
+		return NULL;
+	}
 
 	desc->desc.instantiate = ffmpeg_instantiate;
 	desc->desc.cleanup = ffmpeg_cleanup;
@@ -236,15 +303,15 @@ static const struct spa_fga_descriptor *ffmpeg_plugin_make_desc(void *plugin, co
 
 	desc->desc.ports = calloc(desc->desc.n_ports, sizeof(struct spa_fga_port));
 
-	for (i = 0, fp = in; fp != NULL; i++, fp = fp->next) {
-		desc->desc.ports[i].index = i;
-		desc->desc.ports[i].name = fp->name;
-		desc->desc.ports[i].flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO;
+	for (n_fp = 0, fp = in; fp != NULL; fp = fp->next, n_fp++) {
+		desc->desc.ports[n_fp].index = n_fp;
+		desc->desc.ports[n_fp].name = spa_aprintf("%s", fp->name);
+		desc->desc.ports[n_fp].flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO;
 	}
-	for (fp = out; fp != NULL; i++, fp = fp->next) {
-		desc->desc.ports[i].index = i;
-		desc->desc.ports[i].name = fp->name;
-		desc->desc.ports[i].flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO;
+	for (fp = out; fp != NULL; fp = fp->next, n_fp++) {
+		desc->desc.ports[n_fp].index = n_fp;
+		desc->desc.ports[n_fp].name = spa_aprintf("%s", fp->name);
+		desc->desc.ports[n_fp].flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO;
 	}
 	desc->buffersrc = avfilter_get_by_name("abuffer");
 	desc->buffersink = avfilter_get_by_name("abuffersink");
@@ -277,7 +344,6 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 static int impl_clear(struct spa_handle *handle)
 {
-	struct plugin *impl = (struct plugin *)handle;
 	return 0;
 }
 
@@ -297,7 +363,6 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct plugin *impl;
 	uint32_t i;
-	int res;
 	const char *path = NULL;
 
 	handle->get_interface = impl_get_interface;

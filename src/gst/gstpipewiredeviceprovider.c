@@ -324,7 +324,7 @@ static void do_add_nodes(GstPipeWireDeviceProvider *self)
 
     if(self->list_only) {
       self->devices = g_list_insert_sorted (self->devices,
-                                            gst_object_ref_sink (device),
+                                            gst_object_ref (device),
                                             compare_device_session_priority);
     } else {
       gst_object_ref (device);

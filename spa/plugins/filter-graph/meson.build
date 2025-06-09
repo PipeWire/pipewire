@@ -115,3 +115,13 @@ spa_filter_graph_plugin_ebur128 = shared_library('spa-filter-graph-plugin-ebur12
 )
 endif
 
+if avfilter_dep.found()
+spa_filter_graph_plugin_ffmpeg = shared_library('spa-filter-graph-plugin-ffmpeg',
+  [ 'ffmpeg_plugin.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : spa_plugindir / 'filter-graph',
+  dependencies : [ filter_graph_dependencies, avfilter_dep, avutil_dep]
+)
+endif
+

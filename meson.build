@@ -342,10 +342,12 @@ ffmpeg = get_option('ffmpeg')
 if pw_cat_ffmpeg.allowed() or ffmpeg.allowed()
   avcodec_dep = dependency('libavcodec', required: pw_cat_ffmpeg.enabled() or ffmpeg.enabled())
   avformat_dep = dependency('libavformat', required: pw_cat_ffmpeg.enabled())
+  avfilter_dep = dependency('libavfilter', required: ffmpeg.enabled())
   avutil_dep = dependency('libavutil', required: pw_cat_ffmpeg.enabled() or ffmpeg.enabled())
   swscale_dep = dependency('libswscale', required: pw_cat_ffmpeg.enabled() or ffmpeg.enabled())
 else
   avcodec_dep = dependency('', required: false)
+  avfilter = dependency('', required: false)
 endif
 cdata.set('HAVE_PW_CAT_FFMPEG_INTEGRATION', pw_cat_ffmpeg.allowed())
 

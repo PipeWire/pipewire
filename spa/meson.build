@@ -144,6 +144,8 @@ if get_option('spa-plugins').allowed()
   ebur128_lib = dependency('libebur128', required: get_option('ebur128').enabled())
   summary({'EBUR128': ebur128_lib.found()}, bool_yn: true, section: 'filter-graph')
 
+  summary({'ffmpeg': avfilter_dep.found()}, bool_yn: true, section: 'filter-graph')
+
   cdata.set('HAVE_SPA_PLUGINS', true)
   subdir('plugins')
 endif

@@ -1689,6 +1689,9 @@ static int impl_activate(void *object, const struct spa_dict *props)
 	max_latency = 0.0f;
 	for (i = 0; i < graph->n_outputs; i++) {
 		struct graph_port *port = &graph->output[i];
+		/* ports with no descriptor are ignored */
+		if (port->desc == NULL)
+			continue;
 		max_latency = fmaxf(max_latency, port->node->max_latency);
 		min_latency = fminf(min_latency, port->node->min_latency);
 	}
@@ -1701,6 +1704,9 @@ static int impl_activate(void *object, const struct spa_dict *props)
 				"align the signals", min_latency, max_latency);
 		for (i = 0; i < graph->n_outputs; i++) {
 			struct graph_port *port = &graph->output[i];
+			/* port with no descriptor are ignored */
+			if (port->desc == NULL)
+				continue;
 			if (min_latency != port->node->min_latency ||
 			    max_latency != port->node->max_latency)
 				spa_log_warn(impl->log, "output port %d from %s min:%f max:%f",

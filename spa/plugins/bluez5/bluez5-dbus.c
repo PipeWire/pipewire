@@ -551,7 +551,15 @@ static int media_endpoint_to_profile(const char *endpoint)
 
 static bool is_media_codec_enabled(struct spa_bt_monitor *monitor, const struct media_codec *codec)
 {
-	return spa_dict_lookup(&monitor->enabled_codecs, codec->name) != NULL;
+	/* Mandatory codecs are always enabled */
+	switch (codec->id) {
+	case SPA_BLUETOOTH_AUDIO_CODEC_SBC:
+	case SPA_BLUETOOTH_AUDIO_CODEC_CVSD:
+	case SPA_BLUETOOTH_AUDIO_CODEC_LC3:
+		return true;
+	default:
+		return spa_dict_lookup(&monitor->enabled_codecs, codec->name) != NULL;
+	}
 }
 
 static bool codec_has_direction(const struct media_codec *codec, enum spa_bt_media_direction direction)
@@ -6606,8 +6614,6 @@ static int parse_codec_array(struct spa_bt_monitor *this, const struct spa_dict 
 			if (spa_dict_lookup_item(&this->enabled_codecs, codec->name) != NULL)
 				continue;
 
-			spa_log_debug(this->log, "enabling codec %s", codec->name);
-
 			spa_assert(this->enabled_codecs.n_items < num_codecs);
 
 			codecs[this->enabled_codecs.n_items].key = codec->name;
@@ -6622,8 +6628,8 @@ static int parse_codec_array(struct spa_bt_monitor *this, const struct spa_dict 
 
 	for (i = 0; media_codecs[i]; ++i) {
 		const struct media_codec *codec = media_codecs[i];
-		if (!is_media_codec_enabled(this, codec))
-			spa_log_debug(this->log, "disabling codec %s", codec->name);
+		spa_log_debug(this->log, "codec %s: %s", codec->name,
+				is_media_codec_enabled(this, codec) ? "enabled" : "disabled");
 	}
 	return 0;
 

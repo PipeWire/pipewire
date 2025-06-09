@@ -16,6 +16,30 @@
 #include <linux/media.h>
 #include <libcamera/control_ids.h>
 
+static void setup_initial_controls(const ControlInfoMap& ctrl_infos, ControlList& ctrls)
+{
+	/* Libcamera recommends cameras default to manual focus mode, but we don't
+	 * expose any focus controls.  So, specifically enable autofocus on
+	 * cameras which support it. */
+	auto af_it = ctrl_infos.find(libcamera::controls::AF_MODE);
+	if (af_it != ctrl_infos.end()) {
+		const ControlInfo &ctrl_info = af_it->second;
+		auto is_af_continuous = [](const ControlValue &value) {
+			return value.get<int32_t>() == libcamera::controls::AfModeContinuous;
+		};
+		if (std::any_of(ctrl_info.values().begin(),
+		    ctrl_info.values().end(), is_af_continuous)) {
+			ctrls.set(libcamera::controls::AF_MODE,
+					libcamera::controls::AfModeContinuous);
+		}
+	}
+
+	auto ae_it = ctrl_infos.find(libcamera::controls::AE_ENABLE);
+	if (ae_it != ctrl_infos.end()) {
+		ctrls.set(libcamera::controls::AE_ENABLE, true);
+	}
+}
+
 int spa_libcamera_open(struct impl *impl)
 {
 	if (impl->acquired)
@@ -25,6 +49,9 @@ int spa_libcamera_open(struct impl *impl)
 	impl->camera->acquire();
 
 	impl->allocator = new FrameBufferAllocator(impl->camera);
+
+	const ControlInfoMap &controls = impl->camera->controls();
+	setup_initial_controls(controls, impl->initial_controls);
 
 	impl->acquired = true;
 	return 0;
@@ -990,7 +1017,7 @@ static int spa_libcamera_stream_on(struct impl *impl)
 	impl->camera->requestCompleted.connect(impl, &impl::requestComplete);
 
 	spa_log_info(impl->log, "starting camera %s", impl->device_id.c_str());
-	if ((res = impl->camera->start()) < 0)
+	if ((res = impl->camera->start(&impl->initial_controls)) < 0)
 		goto error;
 
 	for (Request *req : impl->pendingRequests) {

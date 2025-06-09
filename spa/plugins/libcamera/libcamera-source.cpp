@@ -163,6 +163,7 @@ struct impl {
 	struct spa_source source = {};
 
 	ControlList ctrls;
+	ControlList initial_controls;
 	bool active = false;
 	bool acquired = false;
 

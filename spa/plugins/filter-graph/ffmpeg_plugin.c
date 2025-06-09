@@ -41,6 +41,9 @@ struct descriptor {
 	const AVFilter *format;
 	const AVFilter *buffersrc;
 	const AVFilter *buffersink;
+
+	AVChannelLayout layout[MAX_CTX];
+	uint32_t latency_idx;
 };
 
 struct instance {
@@ -52,13 +55,26 @@ struct instance {
 
 	AVFrame *frame;
 	AVFilterContext *ctx[MAX_CTX];
-	AVChannelLayout layout[MAX_CTX];
 	uint32_t n_ctx;
 	uint32_t n_src;
 	uint32_t n_sink;
 
+	uint64_t frame_num;
 	float *data[MAX_PORTS];
 };
+
+static void layout_from_name(AVChannelLayout *layout, const char *name)
+{
+	const char *chan;
+
+	if ((chan = strrchr(name, '_')) != NULL)
+		chan++;
+	else
+		chan = "FC";
+
+	if (av_channel_layout_from_string(layout, chan) < 0)
+		av_channel_layout_from_string(layout, "FC");
+}
 
 static void *ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
                         unsigned long SampleRate, int index, const char *config)
@@ -72,7 +88,6 @@ static void *ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struc
 	char channel[512];
 	char options_str[1024];
 	uint32_t n_fp;
-	const char *chan;
 
 	i = calloc(1, sizeof(*i));
 	if (i == NULL)
@@ -100,21 +115,7 @@ static void *ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struc
 			spa_log_error(p->log, "can't alloc buffersrc");
 			return NULL;
 		}
-		if ((chan = strrchr(fp->name, '_')) != NULL)
-			chan++;
-
-		if (config == NULL ||
-		    spa_json_str_object_find(config, strlen(config),
-					fp->name, channel, sizeof(channel)) < 0)
-			snprintf(channel, sizeof(channel), "%s", chan ? chan : "FC");
-
-		if (av_channel_layout_from_string(&i->layout[n_fp], channel) == AV_CHAN_NONE ||
-		    i->layout[n_fp].nb_channels != 1) {
-			spa_log_warn(p->log, "invalid channels %s, using MONO", channel);
-			av_channel_layout_from_string(&i->layout[n_fp], "FC");
-		}
-
-		av_channel_layout_describe(&i->layout[n_fp], channel, sizeof(channel));
+		av_channel_layout_describe(&d->layout[n_fp], channel, sizeof(channel));
 
 		snprintf(options_str, sizeof(options_str),
 	             "sample_fmt=%s:sample_rate=%ld:channel_layout=%s",
@@ -134,21 +135,7 @@ static void *ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struc
 			return NULL;
 		}
 
-		if ((chan = strrchr(fp->name, '_')) != NULL)
-			chan++;
-
-		if (config == NULL ||
-		    spa_json_str_object_find(config, strlen(config),
-					fp->name, channel, sizeof(channel)) < 0)
-			snprintf(channel, sizeof(channel), "%s", chan ? chan : "FC");
-
-		if (av_channel_layout_from_string(&i->layout[n_fp], channel) == AV_CHAN_NONE ||
-		    i->layout[n_fp].nb_channels != 1) {
-			spa_log_warn(p->log, "invalid channels %s, using MONO", channel);
-			av_channel_layout_from_string(&i->layout[n_fp], "FC");
-		}
-
-		av_channel_layout_describe(&i->layout[n_fp], channel, sizeof(channel));
+		av_channel_layout_describe(&d->layout[n_fp], channel, sizeof(channel));
 
 		snprintf(options_str, sizeof(options_str),
 	             "sample_fmts=%s:sample_rates=%ld:channel_layouts=%s",
@@ -205,9 +192,11 @@ static void ffmpeg_connect_port(void *instance, unsigned long port, float *data)
 static void ffmpeg_run(void *instance, unsigned long SampleCount)
 {
 	struct instance *i = instance;
+	struct descriptor *desc = i->desc;
 	char buf[1024];
 	int err, j;
 	uint32_t c, d = 0;
+	float delay;
 
 	spa_log_trace(i->desc->p->log, "run %ld", SampleCount);
 
@@ -215,46 +204,56 @@ static void ffmpeg_run(void *instance, unsigned long SampleCount)
 		i->frame->nb_samples = SampleCount;
 		i->frame->sample_rate = i->rate;
 		i->frame->format = AV_SAMPLE_FMT_FLTP;
-		av_channel_layout_copy(&i->frame->ch_layout, &i->layout[c]);
+		i->frame->pts = i->frame_num;
 
-		for (j = 0; j < i->layout[c].nb_channels; j++)
+		av_channel_layout_copy(&i->frame->ch_layout, &desc->layout[c]);
+
+		for (j = 0; j < desc->layout[c].nb_channels; j++)
 			i->frame->data[j] = (uint8_t*)i->data[d++];
 
 		if ((err = av_buffersrc_add_frame_flags(i->ctx[c], i->frame,
 				AV_BUFFERSRC_FLAG_NO_CHECK_FORMAT)) < 0) {
 			av_strerror(err, buf, sizeof(buf));
-			spa_log_error(i->desc->p->log, "can't add frame: %s", buf);
+			spa_log_warn(i->desc->p->log, "can't add frame: %s", buf);
 			av_frame_unref(i->frame);
 			continue;
 		}
 	}
+	delay = 0.0f;
 	for (; c < i->n_sink; c++) {
 		if ((err = av_buffersink_get_samples(i->ctx[c], i->frame, SampleCount)) < 0) {
 			av_strerror(err, buf, sizeof(buf));
-			spa_log_error(i->desc->p->log, "can't get frame: %s", buf);
+			spa_log_debug(i->desc->p->log, "can't get frame: %s", buf);
+			for (j = 0; j < desc->layout[c].nb_channels; j++)
+				memset(i->data[d++], 0, SampleCount * sizeof(float));
 			continue;
 		}
+		delay = fmaxf(delay, i->frame_num - i->frame->pts);
 
-		spa_log_trace(i->desc->p->log, "got frame %d %d %d %s",
+		spa_log_trace(i->desc->p->log, "got frame %d %d %d %s %f",
 				i->frame->nb_samples,
 				i->frame->ch_layout.nb_channels,
 				i->frame->sample_rate,
-				av_get_sample_fmt_name(i->frame->format));
+				av_get_sample_fmt_name(i->frame->format),
+				delay);
 
-		for (j = 0; j < i->layout[c].nb_channels; j++)
+		for (j = 0; j < desc->layout[c].nb_channels; j++)
 			memcpy(i->data[d++], i->frame->data[j], SampleCount * sizeof(float));
 
 		av_frame_unref(i->frame);
 	}
+	i->frame_num += SampleCount;
+	if (i->data[desc->latency_idx] != NULL)
+		 i->data[desc->latency_idx][0] = delay;
 }
 
 static const struct spa_fga_descriptor *ffmpeg_plugin_make_desc(void *plugin, const char *name)
 {
 	struct plugin *p = (struct plugin *)plugin;
 	struct descriptor *desc;
-	uint32_t n_fp;
+	uint32_t n_fp, n_p;
 	AVFilterInOut *in = NULL, *out = NULL, *fp;
-	int res;
+	int res, j;
 
 	spa_log_info(p->log, "%s", name);
 
@@ -277,17 +276,30 @@ static const struct spa_fga_descriptor *ffmpeg_plugin_make_desc(void *plugin, co
 	}
 
 	desc->desc.n_ports = 0;
-	for (n_fp = 0, fp = in; fp != NULL; fp = fp->next, n_fp++) {
-		spa_log_info(p->log, "%p: in %s %p:%d", fp, fp->name, fp->filter_ctx, fp->pad_idx);
-		desc->desc.n_ports++;
+	for (n_fp = 0, fp = in; fp != NULL && n_fp < MAX_CTX; fp = fp->next, n_fp++) {
+		layout_from_name(&desc->layout[n_fp], fp->name);
+		spa_log_info(p->log, "%p: in %s %p:%d channels:%d", fp, fp->name,
+				fp->filter_ctx, fp->pad_idx, desc->layout[n_fp].nb_channels);
+		desc->desc.n_ports += desc->layout[n_fp].nb_channels;
 	}
-	for (fp = out; fp != NULL; fp = fp->next, n_fp++) {
-		spa_log_info(p->log, "%p: out %s %p:%d", fp, fp->name, fp->filter_ctx, fp->pad_idx);
-		desc->desc.n_ports++;
+	for (fp = out; fp != NULL && n_fp < MAX_CTX; fp = fp->next, n_fp++) {
+		layout_from_name(&desc->layout[n_fp], fp->name);
+		spa_log_info(p->log, "%p: out %s %p:%d channels:%d", fp, fp->name,
+				fp->filter_ctx, fp->pad_idx, desc->layout[n_fp].nb_channels);
+		desc->desc.n_ports += desc->layout[n_fp].nb_channels;
 	}
-	if (desc->desc.n_ports > MAX_CTX) {
+	/* one for the latency */
+	desc->desc.n_ports++;
+
+	if (n_fp >= MAX_CTX) {
+		spa_log_error(p->log, "%p: too many in/out ports %d > %d", desc,
+				n_fp, MAX_CTX);
+		errno = ENOSPC;
+		return NULL;
+	}
+	if (desc->desc.n_ports >= MAX_PORTS) {
 		spa_log_error(p->log, "%p: too many ports %d > %d", desc,
-				desc->desc.n_ports, MAX_CTX);
+				desc->desc.n_ports, MAX_PORTS);
 		errno = ENOSPC;
 		return NULL;
 	}
@@ -303,16 +315,32 @@ static const struct spa_fga_descriptor *ffmpeg_plugin_make_desc(void *plugin, co
 
 	desc->desc.ports = calloc(desc->desc.n_ports, sizeof(struct spa_fga_port));
 
-	for (n_fp = 0, fp = in; fp != NULL; fp = fp->next, n_fp++) {
-		desc->desc.ports[n_fp].index = n_fp;
-		desc->desc.ports[n_fp].name = spa_aprintf("%s", fp->name);
-		desc->desc.ports[n_fp].flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO;
+	for (n_fp = 0, n_p = 0, fp = in; fp != NULL; fp = fp->next, n_fp++) {
+		for (j = 0; j < desc->layout[n_fp].nb_channels; j++, n_p++) {
+			desc->desc.ports[n_p].index = n_p;
+			if (desc->layout[n_fp].nb_channels == 1)
+				desc->desc.ports[n_p].name = spa_aprintf("%s", fp->name);
+			else
+				desc->desc.ports[n_p].name = spa_aprintf("%s_%d", fp->name, j);
+			desc->desc.ports[n_p].flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO;
+		}
 	}
 	for (fp = out; fp != NULL; fp = fp->next, n_fp++) {
-		desc->desc.ports[n_fp].index = n_fp;
-		desc->desc.ports[n_fp].name = spa_aprintf("%s", fp->name);
-		desc->desc.ports[n_fp].flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO;
+		for (j = 0; j < desc->layout[n_fp].nb_channels; j++, n_p++) {
+			desc->desc.ports[n_p].index = n_p;
+			if (desc->layout[n_fp].nb_channels == 1)
+				desc->desc.ports[n_p].name = spa_aprintf("%s", fp->name);
+			else
+				desc->desc.ports[n_p].name = spa_aprintf("%s_%d", fp->name, j);
+			desc->desc.ports[n_p].flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO;
+		}
 	}
+	desc->desc.ports[n_p].index = n_p;
+	desc->desc.ports[n_p].name = strdup("latency");
+	desc->desc.ports[n_p].flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_CONTROL;
+	desc->desc.ports[n_p].hint = SPA_FGA_HINT_LATENCY;
+	desc->latency_idx = n_p++;
+
 	desc->buffersrc = avfilter_get_by_name("abuffer");
 	desc->buffersink = avfilter_get_by_name("abuffersink");
 	desc->format = avfilter_get_by_name("aformat");

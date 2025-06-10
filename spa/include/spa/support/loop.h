@@ -191,15 +191,17 @@ SPA_API_LOOP int spa_loop_locked(struct spa_loop *object,
 
 /** Control hooks. These hooks can't be removed from their
  *  callbacks and must be removed from a safe place (when the loop
- *  is not running or when it is locked). */
+ *  is not running or when it is locked).
+ *
+ *  \deprecated This was used to lock and unlock the loop but because
+ *  this is now standard behaviour, these extra hooks are not very
+ *  useful anymore. */
 struct spa_loop_control_hooks {
 #define SPA_VERSION_LOOP_CONTROL_HOOKS	0
 	uint32_t version;
-	/** Executed right before waiting for events. It is typically used to
-	 * release locks. */
+	/** Executed right before waiting for events. \deprecated */
 	void (*before) (void *data);
-	/** Executed right after waiting for events. It is typically used to
-	 * reacquire locks. */
+	/** Executed right after waiting for events. \deprecated */
 	void (*after) (void *data);
 };
 

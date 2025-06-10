@@ -483,7 +483,6 @@ static void update_latencies(struct impl *impl, bool props, bool process)
 		pw_stream_update_params(impl->capture, capt_params, n_params);
 }
 
-
 static void param_latency_changed(struct impl *impl, const struct spa_pod *param)
 {
 	struct spa_latency_info latency;

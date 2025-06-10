@@ -140,13 +140,14 @@ struct impl {
 	struct pw_stream *capture;
 	struct spa_hook capture_listener;
 	struct spa_audio_info_raw capture_info;
-	struct spa_latency_info capture_latency;
 
 	struct pw_properties *playback_props;
 	struct pw_stream *playback;
 	struct spa_hook playback_listener;
 	struct spa_audio_info_raw playback_info;
-	struct spa_latency_info playback_latency;
+
+	struct spa_latency_info latency[2];
+	struct spa_process_latency_info process_latency;
 
 	unsigned int do_disconnect:1;
 };
@@ -236,22 +237,43 @@ static void playback_process(void *d)
 		pw_stream_queue_buffer(impl->playback, out);
 }
 
-static void param_latency_changed(struct impl *impl, const struct spa_pod *param,
-		struct spa_latency_info *info, struct pw_stream *other)
+static void update_latencies(struct impl *impl)
 {
 	struct spa_latency_info latency;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
-	const struct spa_pod *params[1];
+	const struct spa_pod *play_params[2], *capt_params[2];
+	uint32_t n_params = 0;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+	latency = impl->latency[SPA_DIRECTION_INPUT];
+	play_params[n_params] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
+	spa_process_latency_info_add(&impl->process_latency, &latency);
+	capt_params[n_params++] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
+
+	latency = impl->latency[SPA_DIRECTION_OUTPUT];
+	capt_params[n_params] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
+	spa_process_latency_info_add(&impl->process_latency, &latency);
+	play_params[n_params++] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
+
+	if (impl->playback)
+		pw_stream_update_params(impl->playback, play_params, n_params);
+	if (impl->capture)
+		pw_stream_update_params(impl->capture, capt_params, n_params);
+}
+
+static void param_latency_changed(struct impl *impl, const struct spa_pod *param)
+{
+	struct spa_latency_info latency;
 
 	if (param == NULL || spa_latency_parse(param, &latency) < 0)
 		return;
+	if (spa_latency_info_compare(&impl->latency[latency.direction], &latency) == 0)
+		return;
 
-	*info = latency;
-
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	params[0] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
-	pw_stream_update_params(other, params, 1);
+	impl->latency[latency.direction] = latency;
+	update_latencies(impl);
 }
 
 static void stream_state_changed(void *data, enum pw_stream_state old,
@@ -294,7 +316,7 @@ static void capture_param_changed(void *data, uint32_t id, const struct spa_pod 
 		break;
 	}
 	case SPA_PARAM_Latency:
-		param_latency_changed(impl, param, &impl->capture_latency, impl->playback);
+		param_latency_changed(impl, param);
 		break;
 	}
 }
@@ -320,7 +342,7 @@ static void playback_param_changed(void *data, uint32_t id, const struct spa_pod
 
 	switch (id) {
 	case SPA_PARAM_Latency:
-		param_latency_changed(impl, param, &impl->playback_latency, impl->capture);
+		param_latency_changed(impl, param);
 		break;
 	}
 }

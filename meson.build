@@ -347,7 +347,7 @@ if pw_cat_ffmpeg.allowed() or ffmpeg.allowed()
   swscale_dep = dependency('libswscale', required: pw_cat_ffmpeg.enabled() or ffmpeg.enabled())
 else
   avcodec_dep = dependency('', required: false)
-  avfilter = dependency('', required: false)
+  avfilter_dep = dependency('', required: false)
 endif
 cdata.set('HAVE_PW_CAT_FFMPEG_INTEGRATION', pw_cat_ffmpeg.allowed())
 

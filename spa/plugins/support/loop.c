@@ -478,13 +478,9 @@ again:
 		if (block && queue->ack_fd != -1) {
 			uint64_t count = 1;
 
-			spa_loop_control_hook_before(&impl->hooks_list);
-
 			if ((res = spa_system_eventfd_read(impl->system, queue->ack_fd, &count)) < 0)
 				spa_log_warn(impl->log, "%p: failed to read event fd:%d: %s",
 						queue, queue->ack_fd, spa_strerror(res));
-
-			spa_loop_control_hook_after(&impl->hooks_list);
 
 			res = item->res;
 		}

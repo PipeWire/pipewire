@@ -119,8 +119,11 @@ struct spa_loop_methods {
 	 *             an object that has identity.
 	 * \param size The size of data to copy.
 	 * \param block If \true, do not return until func has been called. Otherwise,
-	 *              returns immediately. Passing \true does not risk a deadlock because
-	 *              the data thread is never allowed to wait on any other thread.
+	 *              returns immediately. Passing \true can cause a deadlock when
+	 *              the calling thread is holding the loop context lock. A blocking
+	 *              invoke should never be done from a realtime thread. Also beware
+	 *              of blocking invokes between 2 threads as you can easily end up
+	 *              in a deadly embrace.
 	 * \param user_data An opaque pointer passed to func.
 	 * \return `-EPIPE` if the internal ring buffer filled up,
 	 *         if block is \false, 0 if seq was SPA_ID_INVALID or

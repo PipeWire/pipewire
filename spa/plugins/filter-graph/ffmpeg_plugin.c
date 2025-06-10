@@ -179,7 +179,12 @@ static void ffmpeg_cleanup(void *instance)
 static void ffmpeg_free(const struct spa_fga_descriptor *desc)
 {
 	struct descriptor *d = (struct descriptor*)desc;
+	uint32_t i;
 	avfilter_graph_free(&d->filter_graph);
+	for (i = 0; i <  d->desc.n_ports; i++)
+		free((void*)d->desc.ports[i].name);
+	free((char*)d->desc.name);
+	free(d->desc.ports);
 	free(d);
 }
 

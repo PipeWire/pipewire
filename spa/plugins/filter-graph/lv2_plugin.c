@@ -486,6 +486,9 @@ static void lv2_run(void *instance, unsigned long SampleCount)
 static void lv2_free(const struct spa_fga_descriptor *desc)
 {
 	struct descriptor *d = (struct descriptor*)desc;
+	uint32_t i;
+	for (i = 0; i <  d->desc.n_ports; i++)
+		free((void*)d->desc.ports[i].name);
 	free((char*)d->desc.name);
 	free(d->desc.ports);
 	free(d);

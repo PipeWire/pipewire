@@ -192,7 +192,7 @@ struct thread {
 	struct impl *impl;
 	struct spa_list link;
 	pthread_t thread;
-	pid_t pid;
+	pid_t tid;
 	void *(*start)(void*);
 	void *arg;
 };
@@ -203,7 +203,7 @@ struct impl {
 
 	struct spa_thread_utils thread_utils;
 
-	pid_t main_pid;
+	pid_t main_tid;
 	struct rlimit rl;
 	int nice_level;
 	int rt_prio;
@@ -614,12 +614,12 @@ static int set_nice(struct impl *impl, int nice_level, bool warn)
 					nice_level, impl->min_nice_level);
 			nice_level = impl->min_nice_level;
 		}
-		res = pw_rtkit_make_high_priority(impl, impl->main_pid, nice_level);
+		res = pw_rtkit_make_high_priority(impl, impl->main_tid, nice_level);
 	}
 	else
 #endif
 	if (impl->rlimits_enabled)
-		res = sched_set_nice(impl->main_pid, nice_level);
+		res = sched_set_nice(impl->main_tid, nice_level);
 	else
 		res = -ENOTSUP;
 
@@ -716,7 +716,7 @@ static void *custom_start(void *data)
 	struct impl *impl = this->impl;
 
 	pthread_mutex_lock(&impl->lock);
-	this->pid = _gettid();
+	this->tid = _gettid();
 	pthread_cond_broadcast(&impl->cond);
 	pthread_mutex_unlock(&impl->lock);
 
@@ -800,7 +800,7 @@ static int impl_get_rt_range(void *object, const struct spa_dict *props,
 }
 
 struct rt_params {
-	pid_t pid;
+	pid_t tid;
 	int priority;
 };
 
@@ -810,7 +810,7 @@ static int do_make_realtime(struct spa_loop *loop, bool async, uint32_t seq,
 	struct impl *impl = user_data;
 	const struct rt_params *params = data;
 	int err, min, max, priority = params->priority;
-	pid_t pid = params->pid;
+	pid_t pid = params->tid;
 
 	pw_log_debug("rtkit realtime");
 
@@ -856,9 +856,9 @@ static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority
 
 		pthread_mutex_lock(&impl->lock);
 		if ((thr = find_thread_by_pt(impl, pt)) != NULL)
-			params.pid = thr->pid;
+			params.tid = thr->tid;
 		else
-			params.pid = _gettid();
+			params.tid = _gettid();
 
 		res = pw_loop_invoke(pw_thread_loop_get_loop(impl->thread_loop),
 				do_make_realtime, 0, &params, sizeof(params), false, impl);
@@ -1104,7 +1104,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->rl.rlim_cur = impl->rt_time_soft;
 	impl->rl.rlim_max = impl->rt_time_hard;
-	impl->main_pid = _gettid();
+	impl->main_tid = _gettid();
 
 	bool can_use_rtkit = false, use_rtkit = false;
 
@@ -1148,7 +1148,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 
 	if (impl->uclamp_min || impl->uclamp_max < 1024)
-		set_uclamp(impl->uclamp_min, impl->uclamp_max, impl->main_pid);
+		set_uclamp(impl->uclamp_min, impl->uclamp_max, impl->main_tid);
 
 #ifdef HAVE_DBUS
 	impl->use_rtkit = use_rtkit;

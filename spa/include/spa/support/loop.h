@@ -105,6 +105,7 @@ struct spa_loop_methods {
 
 	/** Invoke a function in the context of this loop.
 	 * May be called from any thread and multiple threads at the same time.
+	 *
 	 * If called from the loop's thread, all callbacks previously queued with
 	 * invoke() will be run synchronously, which might cause unexpected
 	 * reentrancy problems.
@@ -274,7 +275,7 @@ struct spa_loop_control_methods {
 	 * This function should be called before calling iterate and is
 	 * typically used to capture the thread that this loop will run in.
 	 * It should ideally be called once from the thread that will run
-	 * the loop.
+	 * the loop. This function will lock the loop.
 	 */
 	void (*enter) (void *object);
 	/** Leave a loop
@@ -282,6 +283,8 @@ struct spa_loop_control_methods {
 	 *
 	 * It should ideally be called once after calling iterate when the loop
 	 * will no longer be iterated from the thread that called enter().
+	 *
+	 * This function will unlock the loop.
 	 */
 	void (*leave) (void *object);
 
@@ -290,8 +293,10 @@ struct spa_loop_control_methods {
 	 * \param timeout an optional timeout in milliseconds.
 	 *	0 for no timeout, -1 for infinite timeout.
 	 *
-	 * This function will block
-	 * up to \a timeout milliseconds and then dispatch the fds with activity.
+	 * This function will first unlock the loop and then block
+	 * up to \a timeout milliseconds, lock the loop again and then
+	 * dispatch the fds with activity.
+	 *
 	 * The number of dispatched fds is returned.
 	 */
 	int (*iterate) (void *object, int timeout);
@@ -327,10 +332,16 @@ struct spa_loop_control_methods {
 	/** get the absolute time
 	 * Get the current time with \ref timeout that can be used in wait.
 	 * Since version 2:2
+	 *
+	 * This function can be called from any thread.
 	 */
 	int (*get_time) (void *object, struct timespec *abstime, int64_t timeout);
+
 	/** Wait for a signal
 	 * Wait until a thread performs signal. Since version 2:2
+	 *
+	 * This function must be called with the loop lock. Because this is a
+	 * blocking call, it should not be performed from a realtime thread.
 	 *
 	 * \param[in] object the control
 	 * \param[in] abstime the maximum time to wait for the signal or NULL
@@ -343,15 +354,21 @@ struct spa_loop_control_methods {
 	 * When wait_for_accept is set, this functions blocks until all
 	 * threads performed accept.
 	 *
+	 * This function must be called with the loop lock and is safe to
+	 * call from a realtime thread source dispatch functions when
+	 * wait_for_accept is false.
+	 *
 	 * \param[in] object the control
 	 * \param[in] wait_for_accept block for accept
 	 * \return 0 on success or a negative return value on error.
 	 */
 	int (*signal) (void *object, bool wait_for_accept);
 
-
 	/** Accept signalers
 	 * Resume the thread that signaled with wait_for accept.
+	 *
+	 * This function must be called with the loop lock and is safe to
+	 * call from a realtime thread source dispatch functions.
 	 *
 	 * \param[in] object the control
 	 * \return 0 on success or a negative return value on error.

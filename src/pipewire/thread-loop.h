@@ -126,29 +126,35 @@ void pw_thread_loop_lock(struct pw_thread_loop *loop);
 /** Unlock the loop */
 void pw_thread_loop_unlock(struct pw_thread_loop *loop);
 
-/** Release the lock and wait until some thread calls \ref pw_thread_loop_signal */
+/** Release the lock and wait until some thread calls \ref pw_thread_loop_signal.
+ * This must be called with the loop locked. */
 void pw_thread_loop_wait(struct pw_thread_loop *loop);
 
 /** Release the lock and wait a maximum of 'wait_max_sec' seconds
- *  until some thread calls \ref pw_thread_loop_signal or time out */
+ * until some thread calls \ref pw_thread_loop_signal or time out.
+ * This must be called with the loop locked. */
 int pw_thread_loop_timed_wait(struct pw_thread_loop *loop, int wait_max_sec);
 
 /** Get a struct timespec suitable for \ref pw_thread_loop_timed_wait_full.
+ * This function may be called from any thread.
  * Since: 0.3.7 */
 int pw_thread_loop_get_time(struct pw_thread_loop *loop, struct timespec *abstime, int64_t timeout);
 
 /** Release the lock and wait up to \a abstime until some thread calls
  * \ref pw_thread_loop_signal. Use \ref pw_thread_loop_get_time to make a timeout.
+ * This must be called with the loop locked.
  * Since: 0.3.7 */
 int pw_thread_loop_timed_wait_full(struct pw_thread_loop *loop, const struct timespec *abstime);
 
-/** Signal all threads waiting with \ref pw_thread_loop_wait */
+/** Signal all threads waiting with \ref pw_thread_loop_wait
+ * This must be called with the loop locked. */
 void pw_thread_loop_signal(struct pw_thread_loop *loop, bool wait_for_accept);
 
-/** Signal all threads executing \ref pw_thread_loop_signal with wait_for_accept */
+/** Signal all threads executing \ref pw_thread_loop_signal with wait_for_accept.
+ * This must be called with the loop locked. */
 void pw_thread_loop_accept(struct pw_thread_loop *loop);
 
-/** Check if inside the thread */
+/** Check if inside the thread. This can be called from any thread. */
 bool pw_thread_loop_in_thread(struct pw_thread_loop *loop);
 
 /**

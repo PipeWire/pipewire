@@ -3409,11 +3409,13 @@ static int playback_ready(struct state *state)
 {
 	struct spa_io_buffers *io = state->io;
 
-	spa_log_trace_fp(state->log, "%p: %d", state, io->status);
+	spa_log_trace_fp(state->log, "%p: %d", state, io ? io->status : 0);
 
 	update_sources(state, false);
 
-	io->status = SPA_STATUS_NEED_DATA;
+	if (io != NULL)
+		io->status = SPA_STATUS_NEED_DATA;
+
 	return spa_node_call_ready(&state->callbacks, SPA_STATUS_NEED_DATA);
 }
 

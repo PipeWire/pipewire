@@ -32,8 +32,8 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * \page page_module_filter_chain Filter-Chain
  *
  * The filter-chain allows you to create an arbitrary processing graph
- * from LADSPA, LV2 and builtin filters. This filter can be made into a
- * virtual sink/source or between any 2 nodes in the graph.
+ * from LADSPA, LV2, sofa, ffmpeg and builtin filters. This filter can be
+ * made into a virtual sink/source or between any 2 nodes in the graph.
  *
  * The filter chain is built with 2 streams, a capture stream providing
  * the input to the filter chain and a playback stream sending out the
@@ -95,7 +95,7 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * Nodes describe the processing filters in the graph. Use a tool like lv2ls
  * or listplugins to get a list of available plugins, labels and the port names.
  *
- * - `type` is one of `ladspa`, `lv2`, `builtin`, `sofa` or `ebur128`.
+ * - `type` is one of `ladspa`, `lv2`, `builtin`, `sofa`, `ebur128` of `ffmpeg`.
  * - `name` is the name for this node, you might need this later to refer to this node
  *    and its ports when setting controls or making links.
  * - `plugin` is the type specific plugin name.
@@ -103,10 +103,12 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *       name in the LADSPA plugin path.
  *    - For LV2, this is the plugin URI obtained with lv2ls.
  *    - For builtin, sofa and ebur128 this is ignored
+ *    - For ffmpeg this should be filtergraph
  * - `label` is the type specific filter inside the plugin.
  *    - For LADSPA this is the label
  *    - For LV2 this is unused
  *    - For builtin, sofa and ebur128 this is the name of the filter to use
+ *    - For ffmpeg this is an FFMpeg filtergraph description
  *
  * - `config` contains a filter specific configuration section. Some plugins need
  *            this. (convolver, sofa, delay, ...)
@@ -209,8 +211,8 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *
  * ## Builtin filters
  *
- * There are some useful builtin filters available. You select them with the label
- * of the filter node.
+ * There are some useful builtin filters available. The type should be `builtin` and
+ * you select the specific builtin filter with the `label` of the filter node.
  *
  * ### Mixer
  *
@@ -561,9 +563,52 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * a volume ramp up or down. For more a more coarse volume ramp, the "Current" value
  * can be used in the `linear` plugin.
  *
- * ## SOFA filter
+ * ### Debug
  *
- * There is an optional builtin SOFA filter available.
+ * The `debug` plugin can be used to debug the audio and control data of other plugins.
+ *
+ * It has an "In" input port and an "Out" output data ports. The data from "In" will
+ * be copied to "Out" and the data will be dumped into the INFO log.
+ *
+ * There is also a "Control" input port and an "Notify" output control ports. The
+ * control from "Control" will be copied to "Notify" and the control value will be
+ * dumped into the INFO log.
+ *
+ * ### Pipe
+ *
+ * The `pipe` plugin can be used to filter the audio with another application using pipes
+ * for sending and receiving the raw audio.
+ *
+ * The application needs to consume raw float32 samples from stdin and produce filtered
+ * float32 samples on stdout.
+ *
+ * It has an "In" input port and an "Out" output data ports.
+ *
+ * The node requires a `config` section with extra configuration:
+ *
+ *\code{.unparsed}
+ * filter.graph = {
+ *     nodes = [
+ *         {
+ *             type   = builtin
+ *             name   = ...
+ *             label  = pipe
+ *             config = {
+ *                 command = "ffmpeg -f f32le -ac 1 -ar 48000 -blocksize 1024 -fflags nobuffer -i \"pipe:\"  \"-filter:a\" \"loudnorm=I=-18:TP=-3:LRA=4\" -f f32le -ac 1 -ar 48000 \"pipe:\""
+ *             }
+ *             ...
+ *         }
+ *     }
+ *     ...
+ * }
+ *\endcode
+ *
+ * - `command` the command to execute. It should consume samples from stdin and produce
+ *             samples on stdout.
+ *
+ * ## SOFA filters
+ *
+ * There is an optional `sofa` type available (when compiled with `libmysofa`).
  *
  * ### Spatializer
  *
@@ -616,13 +661,15 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * - `Radius`    controls how far away the signal is as a value between 0 and 100.
  *               default is 1.0.
  *
- * ## EBUR128 filter
+ * ## EBUR128 filters
  *
- * There is an optional EBU R128 filter available.
+ * There is an optional EBU R128 plugin available (when compiled with
+ * `libebur128`) selected with the `ebur128` type. Filters in the plugin
+ * can be selected with the `label` field.
  *
  * ### ebur128
  *
- * The ebur128 plugin can be used to measure the loudness of a signal.
+ * The ebur128 filter can be used to measure the loudness of a signal.
  *
  * It has 7 input ports "In FL", "In FR", "In FC", "In UNUSED", "In SL", "In SR"
  * and "In DUAL MONO", corresponding to the different input channels for EBUR128.
@@ -686,55 +733,108 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *
  * ### lufs2gain
  *
- * The lufs2gain plugin can be used to convert LUFS control values to gain. It needs
+ * The lufs2gain filter can be used to convert LUFS control values to gain. It needs
  * a target LUFS control input to drive the conversion.
  *
  * It has 2 input control ports "LUFS" and "Target LUFS" and will produce 1 output
  * control value "Gain". This gain can be used as input for the builtin `linear`
- * node, for example, to adust the gain.
+ * filter, for example, to adust the gain.
  *
- * ### debug
  *
- * The debug plugin can be used to debug the audio and control data of other plugins.
+ * ## FFmpeg
  *
- * It has an "In" input port and an "Out" output data ports. The data from "In" will
- * be copied to "Out" and the data will be dumped into the INFO log.
+ * There is an optional FFmpeg filter available (when compiled with `libavfilter`)
+ * that can be selected with the `ffmpeg` type. Use the `plugin` field to select
+ * the plugin to use.
  *
- * There is also a "Control" input port and an "Notify" output control ports. The
- * control from "Control" will be copied to "Notify" and the control value will be
- * dumped into the INFO log.
+ * ### Filtergraph
  *
- * ### pipe
+ * The filtergraph FFmpeg plugin is selected with the `filtergraph` plugin
+ * field in the node.
  *
- * The pipe plugin can be used to filter the audio with another application using pipes
- * for sending and receiving the raw audio.
+ * The filtergraph filter allows you to specify an set of audio filters using
+ * the FFmpeg filtergraph syntax (https://ffmpeg.org/ffmpeg-filters.html).
  *
- * The application needs to consume raw float32 samples from stdin and produce filtered
- * float32 samples on stdout.
+ * The `label` field should be used to describe the filtergraph in use.
  *
- * It has an "In" input port and an "Out" output data ports.
+ * FFmpeg filtergraph input and output ports can have multiple channels. The
+ * filter-chain can split those into individual ports to use as input and output
+ * ports. For this, the ports in the filtergraph need to have a specific name
+ * convention, either `<port-name>_<channel-name>` or `<port-name>_<channel-layout>`.
  *
- * The node requires a `config` section with extra configuration:
+ * When a single channel is specified, the port can be referenced in inputs and
+ * outputs sections with `<name>:<port-name>_<channel-name>`. When a channel-layout
+ * is specified, each port name gets a `_<number>` appended, starting from 0 and
+ * counting up for each channel in the layout.
+ *
+ * The `filtergraph` plugin will automatically add format converters when the input
+ * port channel-layout, format or graph sample-rates don't match.
+ *
+ * Note that the FFmpeg filtergraph is not Real-time safe because it might does
+ * allocations from the processing thread. It is advised to run the filter-chain
+ * streams in async mode (`node.async = true`) to avoid interrupting the other
+ * RT threads.
+ *
+ * Some examples:
+ *
+ * The stereo ports are split into their channels with the `_0` and `_1` suffixes.
  *
  *\code{.unparsed}
  * filter.graph = {
  *     nodes = [
  *         {
- *             type   = builtin
- *             name   = ...
- *             label  = pipe
- *             config = {
- *                 command = "ffmpeg -f f32le -ac 1 -ar 48000 -blocksize 1024 -fflags nobuffer -i \"pipe:\"  \"-filter:a\" \"loudnorm=I=-18:TP=-3:LRA=4\" -f f32le -ac 1 -ar 48000 \"pipe:\""
- *             }
- *             ...
+ *             type   = ffmpeg
+ *             plugin = filtergraph
+ *             name   = filter
+ *             label = "[in_stereo]loudnorm=I=-18:TP=-3:LRA=4[out_stereo]"
  *         }
  *     }
+ *     inputs = [ "filter:in_stereo_0" "filter:in_stereo_1" ]
+ *     outputs = [ "filter:out_stereo_0" "filter:out_stereo_1" ]
  *     ...
  * }
  *\endcode
  *
- * - `command` the command to execute. It should consume samples from stdin and produce
- *             samples on stdout.
+ * It is possible to have multiple input and output ports for the filtergraphs.
+ * In the next example, the ports have a single channel name and so don't have
+ * the `_0` suffix to identify them. This can be simplified by removing the `amerge`
+ * and `channelsplit` filters and using the `_stereo` suffix on port names to let
+ * PipeWire do the splitting and merging more efficiently.
+ *
+ *\code{.unparsed}
+ * filter.graph = {
+ *     nodes = [
+ *         {
+ *             type   = ffmpeg
+ *             plugin = filtergraph
+ *             name   = filter
+ *             label = "[in_FL][in_FR]amerge,extrastereo,channelsplit[out_FL][out_FR]"
+ *         }
+ *     }
+ *     inputs = [ "filter:in_FL" "filter:in_FR" ]
+ *     outputs = [ "filter:out_FL" "filter:out_FR" ]
+ *     ...
+ * }
+ *\endcode
+ *
+ * Here is a last example of a surround sound upmixer:
+ *
+ *\code{.unparsed}
+ * filter.graph = {
+ *     nodes = [
+ *         {
+ *             type   = ffmpeg
+ *             plugin = filtergraph
+ *             name   = filter
+ *             label = "[in_stereo]surround[out_5.1]"
+ *         }
+ *     }
+ *     inputs = [ "filter:in_FL" "filter:in_FR" ]
+ *     outputs = [ "filter:out_5.1_0" "filter:out_5.1_1" "filter:out_5.1_2"
+ *                 "filter:out_5.1_3" "filter:out_5.1_4" "filter:out_5.1_5" ]
+ *     ...
+ * }
+ *\endcode
  *
  * ## General options
  *

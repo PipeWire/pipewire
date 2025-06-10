@@ -411,7 +411,7 @@ impl_init(const struct spa_handle_factory *factory,
 		if (spa_streq(k, "filter.graph.path"))
 			path = s;
 	}
-	if (path == NULL)
+	if (!spa_streq(path, "filtergraph"))
 		return -EINVAL;
 
 	impl->plugin.iface = SPA_INTERFACE_INIT(

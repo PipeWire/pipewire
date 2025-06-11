@@ -3002,28 +3002,30 @@ static int alsa_write_sync(struct state *state, uint64_t current_time)
 	if (SPA_UNLIKELY((res = update_time(state, current_time, delay, target, following)) < 0))
 		return res;
 
-	if (following && state->alsa_started && !state->linked) {
+	if (following && state->alsa_started) {
 		if (SPA_UNLIKELY(state->alsa_sync)) {
 			enum spa_log_level lev;
 
-			if (SPA_UNLIKELY(state->alsa_sync_warning))
-				lev = SPA_LOG_LEVEL_WARN;
-			else
-				lev = SPA_LOG_LEVEL_INFO;
+			if (!state->linked) {
+				if (SPA_UNLIKELY(state->alsa_sync_warning))
+					lev = SPA_LOG_LEVEL_WARN;
+				else
+					lev = SPA_LOG_LEVEL_INFO;
 
-			if ((suppressed = spa_ratelimit_test(&state->rate_limit, current_time)) < 0)
-				lev = SPA_LOG_LEVEL_DEBUG;
+				if ((suppressed = spa_ratelimit_test(&state->rate_limit, current_time)) < 0)
+					lev = SPA_LOG_LEVEL_DEBUG;
 
-			spa_log_lev(state->log, lev, "%s: follower avail:%lu delay:%ld "
-					"target:%ld thr:%u, resync (%d suppressed)",
-					state->name, avail, delay,
-					target, state->threshold, suppressed);
+				spa_log_lev(state->log, lev, "%s: follower avail:%lu delay:%ld "
+						"target:%ld thr:%u, resync (%d suppressed)",
+						state->name, avail, delay,
+						target, state->threshold, suppressed);
 
-			if (avail > target)
-				snd_pcm_rewind(state->hndl, avail - target);
-			else if (avail < target)
-				spa_alsa_silence(state, target - avail);
-			avail = target;
+				if (avail > target)
+					snd_pcm_rewind(state->hndl, avail - target);
+				else if (avail < target)
+					spa_alsa_silence(state, target - avail);
+				avail = target;
+			}
 			spa_dll_init(&state->dll);
 			state->alsa_sync = false;
 		} else
@@ -3268,27 +3270,28 @@ static int alsa_read_sync(struct state *state, uint64_t current_time)
 		return res;
 
 	max_read = state->buffer_frames;
-	if (following && !state->linked) {
+	if (following) {
 		if (state->alsa_sync) {
-			enum spa_log_level lev;
+			if (!state->linked) {
+				enum spa_log_level lev;
+				if (SPA_UNLIKELY(state->alsa_sync_warning))
+					lev = SPA_LOG_LEVEL_WARN;
+				else
+					lev = SPA_LOG_LEVEL_INFO;
 
-			if (SPA_UNLIKELY(state->alsa_sync_warning))
-				lev = SPA_LOG_LEVEL_WARN;
-			else
-				lev = SPA_LOG_LEVEL_INFO;
+				if ((suppressed = spa_ratelimit_test(&state->rate_limit, current_time)) < 0)
+					lev = SPA_LOG_LEVEL_DEBUG;
 
-			if ((suppressed = spa_ratelimit_test(&state->rate_limit, current_time)) < 0)
-				lev = SPA_LOG_LEVEL_DEBUG;
+				spa_log_lev(state->log, lev, "%s: follower delay:%ld target:%ld thr:%u "
+						"resample:%d, resync (%d suppressed)", state->name, delay,
+						target, state->threshold, state->resample, suppressed);
 
-			spa_log_lev(state->log, lev, "%s: follower delay:%ld target:%ld thr:%u "
-					"resample:%d, resync (%d suppressed)", state->name, delay,
-					target, state->threshold, state->resample, suppressed);
-
-			if (avail < target)
-				max_read = target - avail;
-			else if (avail > target) {
-				snd_pcm_forward(state->hndl, avail - target);
-				avail = target;
+				if (avail < target)
+					max_read = target - avail;
+				else if (avail > target) {
+					snd_pcm_forward(state->hndl, avail - target);
+					avail = target;
+				}
 			}
 			state->alsa_sync = false;
 			spa_dll_init(&state->dll);

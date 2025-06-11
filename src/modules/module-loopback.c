@@ -489,8 +489,6 @@ static void param_latency_changed(struct impl *impl, const struct spa_pod *param
 
 	if (param == NULL || spa_latency_parse(param, &latency) < 0)
 		return;
-	if (spa_latency_info_compare(&impl->latency[latency.direction], &latency) == 0)
-		return;
 
 	impl->latency[latency.direction] = latency;
 	update_latencies(impl, false, false);

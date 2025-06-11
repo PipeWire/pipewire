@@ -1667,6 +1667,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->module = module;
 	impl->context = context;
+	impl->latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
+	impl->latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_GROUP, "filter-chain-%u-%u", pid, id);

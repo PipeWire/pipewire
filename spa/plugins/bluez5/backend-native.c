@@ -1623,7 +1623,6 @@ static void hfp_hf_swap_calls(void *data, enum spa_bt_telephony_error *err, uint
 	struct rfcomm *rfcomm = data;
 	struct impl *backend = rfcomm->backend;
 	struct spa_bt_telephony_call *call;
-	bool found_active = false;
 	bool found_held = false;
 	char reply[20];
 	bool res;
@@ -1637,18 +1636,14 @@ static void hfp_hf_swap_calls(void *data, enum spa_bt_telephony_error *err, uint
 	}
 
 	spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
-		if (call->state == CALL_STATE_WAITING) {
-			spa_log_debug(backend->log, "call waiting before swapping");
-			*err = BT_TELEPHONY_ERROR_INVALID_STATE;
-			return;
-		} else if (call->state == CALL_STATE_ACTIVE)
-			found_active = true;
-		else if (call->state == CALL_STATE_HELD)
+		if (call->state == CALL_STATE_HELD) {
 			found_held = true;
+			break;
+		}
 	}
 
-	if (!found_active || !found_held) {
-		spa_log_debug(backend->log, "no active and held calls");
+	if (!found_held) {
+		spa_log_debug(backend->log, "no held calls");
 		*err = BT_TELEPHONY_ERROR_INVALID_STATE;
 		return;
 	}

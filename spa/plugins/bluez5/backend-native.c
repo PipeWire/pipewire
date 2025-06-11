@@ -2214,6 +2214,11 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			if (spa_streq(rfcomm->hf_indicators[indicator], "battchg")) {
 				spa_bt_device_report_battery_level(rfcomm->device, value * 100 / 5);
 			} else if (spa_streq(rfcomm->hf_indicators[indicator], "callsetup")) {
+				if (rfcomm->hfp_hf_clcc) {
+					rfcomm_send_cmd(rfcomm, "AT+CLCC");
+					return true;
+				}
+
 				if (value == CIND_CALLSETUP_NONE) {
 					struct spa_bt_telephony_call *call, *tcall;
 					spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
@@ -2268,11 +2273,13 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 					}
 				}
 
-				if (rfcomm->hfp_hf_clcc)
-					rfcomm_send_cmd(rfcomm, "AT+CLCC");
-				else
-					rfcomm->hfp_hf_in_progress = false;
+				rfcomm->hfp_hf_in_progress = false;
 			} else if (spa_streq(rfcomm->hf_indicators[indicator], "call")) {
+				if (rfcomm->hfp_hf_clcc) {
+					rfcomm_send_cmd(rfcomm, "AT+CLCC");
+					return true;
+				}
+
 				if (value == 0) {
 					struct spa_bt_telephony_call *call, *tcall;
 					spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
@@ -2293,11 +2300,13 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 					}
 				}
 
-				if (rfcomm->hfp_hf_clcc)
-					rfcomm_send_cmd(rfcomm, "AT+CLCC");
-				else
-					rfcomm->hfp_hf_in_progress = false;
+				rfcomm->hfp_hf_in_progress = false;
 			} else if (spa_streq(rfcomm->hf_indicators[indicator], "callheld")) {
+				if (rfcomm->hfp_hf_clcc) {
+					rfcomm_send_cmd(rfcomm, "AT+CLCC");
+					return true;
+				}
+
 				if (value == 0) {	/* Reject waiting call or no held calls */
 					struct spa_bt_telephony_call *call, *tcall;
 					bool found_waiting = false;
@@ -2348,10 +2357,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 					}
 				}
 
-				if (rfcomm->hfp_hf_clcc)
-					rfcomm_send_cmd(rfcomm, "AT+CLCC");
-				else
-					rfcomm->hfp_hf_in_progress = false;
+				rfcomm->hfp_hf_in_progress = false;
 			}
 		}
 	} else if (sscanf(token, "+CLIP: \"%16[^\"]\",%u", number, &type) == 2) {

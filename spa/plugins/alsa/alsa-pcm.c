@@ -2574,6 +2574,7 @@ static int do_prepare(struct state *state)
 	state->alsa_sync = true;
 	state->alsa_sync_warning = false;
 	state->alsa_started = false;
+	spa_dll_init(&state->dll);
 
 	return 0;
 }
@@ -2800,6 +2801,12 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 	double err, corr, avg;
 	int32_t diff;
 
+	if (SPA_UNLIKELY(state->dll.bw == 0.0)) {
+		spa_dll_set_bw(&state->dll, SPA_DLL_BW_MAX, state->threshold, state->rate);
+		state->next_time = current_time;
+		state->base_time = current_time;
+	}
+
 	if (state->disable_tsched && !follower) {
 		err = (int64_t)(current_time - state->next_time);
 		err = err / 1e9 * state->rate;
@@ -2810,11 +2817,6 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 			err = target - delay;
 	}
 
-	if (SPA_UNLIKELY(state->dll.bw == 0.0)) {
-		spa_dll_set_bw(&state->dll, SPA_DLL_BW_MAX, state->threshold, state->rate);
-		state->next_time = current_time;
-		state->base_time = current_time;
-	}
 	diff = (int32_t) (state->last_threshold - state->threshold);
 
 	if (SPA_UNLIKELY(diff != 0)) {
@@ -2891,9 +2893,9 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 		state->clock->next_nsec = state->next_time;
 	}
 
-	spa_log_trace_fp(state->log, "%p: follower:%d %"PRIu64" %f %ld %ld %f %f %u",
-			state, follower, current_time, corr, delay, target, err, state->threshold * corr,
-			state->threshold);
+	spa_log_trace_fp(state->log, "%p: follower:%d %"PRIu64" %"PRIu64" %f %ld %ld %f %f %u",
+			state, follower, current_time, state->next_time, corr, delay, target,
+			err, state->threshold * corr, state->threshold);
 
 	return 0;
 }

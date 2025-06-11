@@ -840,10 +840,24 @@ static int backend_ofono_free(void *data)
 	return 0;
 }
 
+static int backend_ofono_supports_codec(void *data, struct spa_bt_device *device, unsigned int codec)
+{
+	struct impl *backend = data;
+
+	switch (codec) {
+	case HFP_AUDIO_CODEC_CVSD:
+		return 1;
+	case HFP_AUDIO_CODEC_MSBC:
+		return backend->msbc_supported;
+	}
+	return 0;
+}
+
 static const struct spa_bt_backend_implementation backend_impl = {
 	SPA_VERSION_BT_BACKEND_IMPLEMENTATION,
 	.free = backend_ofono_free,
 	.register_profiles = backend_ofono_register,
+	.supports_codec = backend_ofono_supports_codec,
 };
 
 static bool is_available(struct impl *backend)
@@ -895,6 +909,9 @@ struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
 	if (info && (str = spa_dict_lookup(info, "bluez5.enable-msbc")))
 		backend->msbc_supported = spa_atob(str);
 	else
+		backend->msbc_supported = false;
+
+	if (!spa_bt_get_hfp_codec(monitor, HFP_AUDIO_CODEC_MSBC))
 		backend->msbc_supported = false;
 
 	spa_log_topic_init(backend->log, &log_topic);

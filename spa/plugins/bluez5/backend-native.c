@@ -145,7 +145,8 @@ enum hfp_hf_state {
 	hfp_hf_nrec,
 	hfp_hf_clcc,
 	hfp_hf_vgs,
-	hfp_hf_vgm
+	hfp_hf_done,
+	hfp_hf_clcc_update
 };
 
 enum hsp_hs_state {
@@ -173,6 +174,11 @@ struct rfcomm_cmd {
 struct codec_item {
 	struct spa_list link;
 	const struct media_codec *codec;
+};
+
+struct updated_call {
+	struct spa_list link;
+	int id;
 };
 
 struct rfcomm {
@@ -215,6 +221,7 @@ struct rfcomm {
 	char *hf_indicators[MAX_HF_INDICATORS];
 	struct spa_bt_telephony_ag *telephony_ag;
 	struct spa_list hfp_hf_commands;
+	struct spa_list updated_call_list;
 #endif
 };
 
@@ -392,6 +399,13 @@ static void volume_sync_stop_timer(struct rfcomm *rfcomm);
 
 static void rfcomm_free(struct rfcomm *rfcomm)
 {
+	struct updated_call *updated_call;
+
+	spa_list_consume(updated_call, &rfcomm->updated_call_list, link) {
+		spa_list_remove(&updated_call->link);
+		free(updated_call);
+	}
+
 	codec_switch_stop_timer(rfcomm);
 	if (rfcomm->telephony_ag) {
 		telephony_ag_destroy(rfcomm->telephony_ag);
@@ -456,6 +470,9 @@ static ssize_t rfcomm_send_cmd(struct rfcomm *rfcomm, const char *format, ...)
 		spa_list_append(&rfcomm->hfp_hf_commands, &cmd->link);
 		return 0;
 	}
+
+	if (rfcomm->hf_state == hfp_hf_done && spa_streq(message, "AT+CLCC"))
+		rfcomm->hf_state = hfp_hf_clcc_update;
 
 	spa_log_debug(backend->log, "RFCOMM >> %s", message);
 
@@ -2064,6 +2081,34 @@ static const struct spa_bt_telephony_ag_callbacks telephony_ag_callbacks = {
 	.set_microphone_volume = hfp_hf_set_microphone_volume,
 };
 
+static void hfp_hf_remove_disconnected_calls(struct rfcomm *rfcomm)
+{
+	struct spa_bt_telephony_call *call, *call_tmp;
+	struct updated_call *updated_call;
+	bool found;
+
+	spa_list_for_each_safe(call, call_tmp, &rfcomm->telephony_ag->call_list, link) {
+		found = false;
+		spa_list_for_each(updated_call, &rfcomm->updated_call_list, link) {
+			if (call->id == updated_call->id) {
+				found = true;
+				break;
+			}
+		}
+
+		if (!found) {
+			call->state = CALL_STATE_DISCONNECTED;
+			telephony_call_notify_updated_props(call);
+			telephony_call_destroy(call);
+		}
+	}
+
+	spa_list_consume(updated_call, &rfcomm->updated_call_list, link) {
+		spa_list_remove(&updated_call->link);
+		free(updated_call);
+	}
+}
+
 static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 {
 	struct impl *backend = rfcomm->backend;
@@ -2389,6 +2434,11 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 		}
 
 		if (SPA_LIKELY (parsed)) {
+			struct updated_call *updated_call;
+			updated_call = calloc(1, sizeof(struct updated_call));
+			updated_call->id = idx;
+			spa_list_append(&rfcomm->updated_call_list, &updated_call->link);
+
 			spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
 				if (call->id == idx) {
 					bool changed = false;
@@ -2430,17 +2480,6 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 		rfcomm->hfp_hf_in_progress = false;
 	} else if (spa_strstartswith(token, "OK") || spa_strstartswith(token, "ERROR") ||
 				spa_strstartswith(token, "+CME ERROR:")) {
-		rfcomm->hfp_hf_cmd_in_progress = false;
-		if (!spa_list_is_empty(&rfcomm->hfp_hf_commands)) {
-			struct rfcomm_cmd *cmd;
-			cmd = spa_list_first(&rfcomm->hfp_hf_commands, struct rfcomm_cmd, link);
-			spa_list_remove(&cmd->link);
-			spa_log_debug(backend->log, "Sending postponed command: %s", cmd->cmd);
-			rfcomm_send_cmd(rfcomm, "%s", cmd->cmd);
-			free(cmd->cmd);
-			free(cmd);
-		}
-
 		if (spa_strstartswith(token, "OK")) {
 			switch(rfcomm->hf_state) {
 			case hfp_hf_brsf:
@@ -2539,16 +2578,34 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 				/* Report volume on SLC establishment */
 				SPA_FALLTHROUGH;
 			case hfp_hf_clcc:
+				if (rfcomm->hf_state == hfp_hf_clcc) {
+					hfp_hf_remove_disconnected_calls(rfcomm);
+				}
 				rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX);
 				rfcomm->hf_state = hfp_hf_vgs;
 				break;
 			case hfp_hf_vgs:
 				rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_TX);
-				rfcomm->hf_state = hfp_hf_vgm;
+				rfcomm->hf_state = hfp_hf_done;
+				break;
+			case hfp_hf_clcc_update:
+				hfp_hf_remove_disconnected_calls(rfcomm);
+				rfcomm->hf_state = hfp_hf_done;
 				break;
 			default:
 				break;
 			}
+		}
+
+		rfcomm->hfp_hf_cmd_in_progress = false;
+		if (!spa_list_is_empty(&rfcomm->hfp_hf_commands)) {
+			struct rfcomm_cmd *cmd;
+			cmd = spa_list_first(&rfcomm->hfp_hf_commands, struct rfcomm_cmd, link);
+			spa_list_remove(&cmd->link);
+			spa_log_debug(backend->log, "Sending postponed command: %s", cmd->cmd);
+			rfcomm_send_cmd(rfcomm, "%s", cmd->cmd);
+			free(cmd->cmd);
+			free(cmd);
 		}
 	}
 
@@ -3492,6 +3549,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	rfcomm->source.mask = SPA_IO_IN;
 	rfcomm->source.rmask = 0;
 	spa_list_init(&rfcomm->hfp_hf_commands);
+	spa_list_init(&rfcomm->updated_call_list);
 	/* By default all indicators are enabled */
 	rfcomm->cind_enabled_indicators = 0xFFFFFFFF;
 	memset(rfcomm->hf_indicators, 0, sizeof rfcomm->hf_indicators);

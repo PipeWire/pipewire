@@ -3310,6 +3310,7 @@ static void codec_switch_timer_event(struct spa_source *source)
 {
 	struct rfcomm *rfcomm = source->data;
 	struct impl *backend = rfcomm->backend;
+	const struct media_codec *best_codec;
 	uint64_t exp;
 
 	if (spa_system_timerfd_read(backend->main_system, source->fd, &exp) < 0)
@@ -3322,10 +3323,14 @@ static void codec_switch_timer_event(struct spa_source *source)
 	switch (rfcomm->hfp_ag_initial_codec_setup) {
 	case HFP_AG_INITIAL_CODEC_SETUP_SEND:
 		/* Retry codec selection */
-		rfcomm->hfp_ag_initial_codec_setup = HFP_AG_INITIAL_CODEC_SETUP_WAIT;
-		rfcomm_send_reply(rfcomm, "+BCS: 2");
-		codec_switch_start_timer(rfcomm, HFP_CODEC_SWITCH_TIMEOUT_MSEC);
-		return;
+		best_codec = codec_list_best(backend, &rfcomm->supported_codec_list);
+		if (best_codec && best_codec->id != SPA_BLUETOOTH_AUDIO_CODEC_CVSD) {
+			rfcomm->hfp_ag_initial_codec_setup = HFP_AG_INITIAL_CODEC_SETUP_WAIT;
+			rfcomm_send_reply(rfcomm, "+BCS: %u", best_codec->codec_id);
+			codec_switch_start_timer(rfcomm, HFP_CODEC_SWITCH_TIMEOUT_MSEC);
+			return;
+		}
+		SPA_FALLTHROUGH;
 	case HFP_AG_INITIAL_CODEC_SETUP_WAIT:
 		/* Failure, try falling back to CVSD. */
 		rfcomm->hfp_ag_initial_codec_setup = HFP_AG_INITIAL_CODEC_SETUP_NONE;

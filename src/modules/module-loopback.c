@@ -441,46 +441,41 @@ static void playback_process(void *d)
 		pw_stream_queue_buffer(impl->playback, out);
 }
 
-static void update_latencies(struct impl *impl, bool props, bool process)
+static void update_latency(struct impl *impl, enum spa_direction direction, bool props, bool process)
 {
 	struct spa_latency_info latency;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
-	const struct spa_pod *play_params[4], *capt_params[4];
+	const struct spa_pod *params[3];
 	uint32_t n_params = 0;
+	struct pw_stream *s = direction == SPA_DIRECTION_OUTPUT ?
+		impl->playback : impl->capture;
+
+	if (s == NULL)
+		return;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-
-	latency = impl->latency[SPA_DIRECTION_INPUT];
-	play_params[n_params] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
+	latency = impl->latency[direction];
 	spa_process_latency_info_add(&impl->process_latency, &latency);
-	capt_params[n_params++] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
-
-	latency = impl->latency[SPA_DIRECTION_OUTPUT];
-	capt_params[n_params] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
-	spa_process_latency_info_add(&impl->process_latency, &latency);
-	play_params[n_params++] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
+	params[n_params++] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
 
 	if (props) {
 		int64_t nsec = impl->process_latency.ns;
-		play_params[n_params] = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
-				SPA_PROP_latencyOffsetNsec, SPA_POD_Long(nsec));
-		capt_params[n_params++] = spa_pod_builder_add_object(&b,
+		params[n_params++] = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
 				SPA_PROP_latencyOffsetNsec, SPA_POD_Long(nsec));
 	}
 	if (process) {
-		play_params[n_params] = spa_process_latency_build(&b,
-				SPA_PARAM_ProcessLatency, &impl->process_latency);
-		capt_params[n_params++] = spa_process_latency_build(&b,
+		params[n_params++] = spa_process_latency_build(&b,
 				SPA_PARAM_ProcessLatency, &impl->process_latency);
 	}
+	pw_stream_update_params(s, params, n_params);
+}
 
-	if (impl->playback)
-		pw_stream_update_params(impl->playback, play_params, n_params);
-	if (impl->capture)
-		pw_stream_update_params(impl->capture, capt_params, n_params);
+static void update_latencies(struct impl *impl, bool props, bool process)
+{
+	update_latency(impl, SPA_DIRECTION_INPUT, props, process);
+	update_latency(impl, SPA_DIRECTION_OUTPUT, props, process);
 }
 
 static void param_latency_changed(struct impl *impl, const struct spa_pod *param)
@@ -491,7 +486,7 @@ static void param_latency_changed(struct impl *impl, const struct spa_pod *param
 		return;
 
 	impl->latency[latency.direction] = latency;
-	update_latencies(impl, false, false);
+	update_latency(impl, latency.direction, false, false);
 }
 
 static void param_process_latency_changed(struct impl *impl, const struct spa_pod *param)

@@ -16,9 +16,34 @@
 #include <spa/utils/json.h>
 #include <spa/debug/file.h>
 
-static void encode_string(FILE *f, const char *val, int len)
+#define REJECT	"\"\\'=:,{}[]()#"
+
+struct data {
+	FILE *file;
+	int indent;
+	bool simple_string;
+	const char *comma;
+	const char *key_sep;
+};
+
+static bool is_simple_string(const char *val, int len)
 {
 	int i;
+	for (i = 0; i < len; i++) {
+		if (val[i] < 0x20 || strchr(REJECT, val[i]) != NULL)
+			return false;
+	}
+	return true;
+}
+
+static void encode_string(struct data *d, const char *val, int len)
+{
+	FILE *f = d->file;
+	int i;
+	if (d->simple_string && is_simple_string(val, len)) {
+		fprintf(f, "%.*s", len, val);
+		return;
+	}
 	fprintf(f, "\"");
 	for (i = 0; i < len; i++) {
 		char v = val[i];
@@ -52,8 +77,9 @@ static void encode_string(FILE *f, const char *val, int len)
 	fprintf(f, "\"");
 }
 
-static int dump(FILE *file, int indent, struct spa_json *it, const char *value, int len)
+static int dump(struct data *d, int indent, struct spa_json *it, const char *value, int len)
 {
+	FILE *file = d->file;
 	struct spa_json sub;
 	bool toplevel = false;
 	int count = 0, res;
@@ -69,9 +95,9 @@ static int dump(FILE *file, int indent, struct spa_json *it, const char *value, 
 		fprintf(file, "[");
 		spa_json_enter(it, &sub);
 		while ((len = spa_json_next(&sub, &value)) > 0) {
-			fprintf(file, "%s\n%*s", count++ > 0 ? "," : "",
-					indent+2, "");
-			if ((res = dump(file, indent+2, &sub, value, len)) < 0)
+			fprintf(file, "%s\n%*s", count++ > 0 ? d->comma : "",
+					indent+d->indent, "");
+			if ((res = dump(d, indent+d->indent, &sub, value, len)) < 0)
 				return res;
 		}
 		fprintf(file, "%s%*s]", count > 0 ? "\n" : "",
@@ -84,11 +110,11 @@ static int dump(FILE *file, int indent, struct spa_json *it, const char *value, 
 			sub = *it;
 		while ((len = spa_json_object_next(&sub, key, sizeof(key), &value)) > 0) {
 			fprintf(file, "%s\n%*s",
-					count++ > 0 ? "," : "",
-					indent+2, "");
-			encode_string(file, key, strlen(key));
-			fprintf(file, ": ");
-			res = dump(file, indent+2, &sub, value, len);
+					count++ > 0 ? d->comma : "",
+					indent+d->indent, "");
+			encode_string(d, key, strlen(key));
+			fprintf(file, "%s ", d->key_sep);
+			res = dump(d, indent+d->indent, &sub, value, len);
 			if (res < 0) {
 				if (toplevel)
 					*it = sub;
@@ -106,7 +132,7 @@ static int dump(FILE *file, int indent, struct spa_json *it, const char *value, 
 	    spa_json_is_float(value, len)) {
 		fprintf(file, "%.*s", len, value);
 	} else {
-		encode_string(file, value, len);
+		encode_string(d, value, len);
 	}
 
 	if (spa_json_get_error(it, NULL, NULL))
@@ -117,10 +143,12 @@ static int dump(FILE *file, int indent, struct spa_json *it, const char *value, 
 
 static int process_json(const char *filename, void *buf, size_t size)
 {
+	struct data d;
 	int len, res;
 	struct spa_json it;
 	const char *value;
 
+	spa_zero(d);
 	if ((len = spa_json_begin(&it, buf, size, &value)) <= 0) {
                 fprintf(stderr, "not a valid file '%s': %s\n", filename, spa_strerror(len));
 		return -EINVAL;
@@ -130,12 +158,25 @@ static int process_json(const char *filename, void *buf, size_t size)
 		value = NULL;
 		len = 0;
 	}
-	res = dump(stdout, 0, &it, value, len);
+	d.file = stdout;
+#if 1
+	d.simple_string = false;
+	d.comma = ",";
+	d.key_sep = ":";
+	d.indent = 2;
+#else
+	d.simple_string = true;
+	d.comma = "";
+	d.key_sep = " =";
+	d.indent = 4;
+#endif
+
+	res = dump(&d, 0, &it, value, len);
 	if (spa_json_next(&it, &value) < 0)
 		res = -EINVAL;
 
-	fprintf(stdout, "\n");
-	fflush(stdout);
+	fprintf(d.file, "\n");
+	fflush(d.file);
 
 	if (res < 0) {
 		struct spa_error_location loc;

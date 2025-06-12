@@ -319,6 +319,7 @@ struct stream {
 
 	int64_t delay_samples;		/* for main loop */
 	int64_t data_delay_samples;	/* for data loop */
+	int64_t compensate_samples;	/* for main loop */
 
 	unsigned int ready:1;
 	unsigned int added:1;
@@ -574,6 +575,7 @@ static void update_delay(struct impl *impl)
 
 		max_delay = SPA_MAX(max_delay, delay);
 		s->delay_samples = delay;
+		s->compensate_samples = 0;
 	}
 
 	spa_list_for_each(s, &impl->streams, link) {
@@ -581,9 +583,9 @@ static void update_delay(struct impl *impl)
 
 		if (s->delay_samples != INT64_MIN) {
 			int64_t delay = max_delay - s->delay_samples;
+			s->compensate_samples = delay;
 			size = delay * sizeof(float);
 		}
-
 		resize_delay(s, size);
 	}
 
@@ -649,6 +651,40 @@ static void param_tag_changed(struct impl *impl, const struct spa_pod *param)
 		if (s->stream == NULL)
 			continue;
 		pw_log_debug("updating stream %d", s->id);
+		pw_stream_update_params(s->stream, params, 1);
+	}
+}
+
+static void param_latency_changed(struct impl *impl, const struct spa_pod *param)
+{
+	if (param == NULL)
+		return;
+
+	pw_log_debug("latency update");
+	struct stream *s;
+	struct spa_latency_info info;
+	const struct spa_pod *params[1];
+
+	if (spa_latency_parse(param, &info) < 0)
+		return;
+
+	spa_list_for_each(s, &impl->streams, link) {
+		uint8_t buffer[1024];
+		struct spa_pod_builder b;
+
+		if (s->stream == NULL)
+			continue;
+
+		pw_log_debug("updating stream %d", s->id);
+		if (impl->latency_compensate) {
+			struct spa_latency_info other = info;
+			other.min_rate += s->compensate_samples;
+			other.max_rate += s->compensate_samples;
+			spa_pod_builder_init(&b, buffer, sizeof(buffer));
+			params[0] = spa_latency_build(&b, SPA_PARAM_Latency, &other);
+		} else {
+			params[0] = param;
+		}
 		pw_stream_update_params(s->stream, params, 1);
 	}
 }
@@ -1299,10 +1335,12 @@ static void combine_param_changed(void *d, uint32_t id, const struct spa_pod *pa
 		update_latency(impl);
 		break;
 	}
-	case SPA_PARAM_Tag: {
+	case SPA_PARAM_Tag:
 		param_tag_changed(impl, param);
 		break;
-	}
+	case SPA_PARAM_Latency:
+		param_latency_changed(impl, param);
+		break;
 	default:
 		break;
 	}

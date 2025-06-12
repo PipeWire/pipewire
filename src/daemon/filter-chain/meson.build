@@ -6,6 +6,7 @@ conf_files = [
   [ 'sink-virtual-surround-5.1-kemar.conf', 'sink-virtual-surround-5.1-kemar.conf' ],
   [ 'sink-virtual-surround-7.1-hesuvi.conf', 'sink-virtual-surround-7.1-hesuvi.conf' ],
   [ 'sink-dolby-surround.conf', 'sink-dolby-surround.conf' ],
+  [ 'sink-dolby-pro-logic-ii.conf', 'sink-dolby-pro-logic-ii.conf' ],
   [ 'sink-eq6.conf', 'sink-eq6.conf' ],
   [ 'sink-matrix-spatialiser.conf', 'sink-matrix-spatialiser.conf' ],
   [ 'source-rnnoise.conf', 'source-rnnoise.conf' ],

@@ -57,6 +57,10 @@ struct spa_latency_info {
 };
 
 #define SPA_LATENCY_INFO(dir,...) ((struct spa_latency_info) { .direction = (dir), ## __VA_ARGS__ })
+#define SPA_LATENCY_INFO_UNSET(dir) SPA_LATENCY_INFO(dir, 	\
+		.min_quantum = FLT_MAX, .max_quantum = FLT_MIN,	\
+		.min_rate = INT32_MAX, .max_rate = INT32_MIN,	\
+		.min_ns = INT64_MAX, .max_ns = INT64_MIN)
 
 /**
  * Properties for SPA_TYPE_OBJECT_ParamProcessLatency

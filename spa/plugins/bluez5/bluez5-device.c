@@ -981,8 +981,9 @@ static void device_set_update_asha(struct impl *this, struct device_set *dset)
 				++num_devices;
 		}
 
-		spa_log_debug(this->log, "%p: %s belongs to ASHA set %s leader:%d", this,
-				device->path, set->path, set->leader);
+		if (dset == &this->device_set)
+			spa_log_debug(this->log, "%p: %s belongs to ASHA set %s leader:%d", this,
+					device->path, set->path, set->leader);
 
 		if (num_devices > 1)
 			break;
@@ -1069,8 +1070,9 @@ static void device_set_update_bap(struct impl *this, struct device_set *dset)
 				++num_devices;
 		}
 
-		spa_log_debug(this->log, "%p: %s belongs to set %s leader:%d", this,
-				device->path, set->path, set->leader);
+		if (dset == &this->device_set)
+			spa_log_debug(this->log, "%p: %s belongs to set %s leader:%d", this,
+					device->path, set->path, set->leader);
 
 		if (is_bap_client(this)) {
 			dset->path = strdup(set->path);

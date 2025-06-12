@@ -489,6 +489,9 @@ struct spa_bt_device_events {
 	/** Codec switching completed */
 	void (*codec_switched) (void *data, int status);
 
+	/** Codec switching initiated or completed by another device */
+	void (*codec_switch_other) (void *data, bool switching);
+
 	/** Profile configuration changed */
 	void (*profiles_changed) (void *data, uint32_t connected_change);
 
@@ -590,6 +593,7 @@ const struct media_codec *spa_bt_get_hfp_codec(struct spa_bt_monitor *monitor, u
 								m, v, ##__VA_ARGS__)
 #define spa_bt_device_emit_connected(d,...)	        spa_bt_device_emit(d, connected, 0, __VA_ARGS__)
 #define spa_bt_device_emit_codec_switched(d,...)	spa_bt_device_emit(d, codec_switched, 0, __VA_ARGS__)
+#define spa_bt_device_emit_codec_switch_other(d,...)	spa_bt_device_emit(d, codec_switch_other, 0, __VA_ARGS__)
 #define spa_bt_device_emit_profiles_changed(d,...)	spa_bt_device_emit(d, profiles_changed, 0, __VA_ARGS__)
 #define spa_bt_device_emit_device_set_changed(d)	spa_bt_device_emit(d, device_set_changed, 0)
 #define spa_bt_device_emit_switch_profile(d)		spa_bt_device_emit(d, switch_profile, 0)

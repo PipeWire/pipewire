@@ -158,6 +158,7 @@ struct impl {
 
 	uint32_t profile;
 	unsigned int switching_codec:1;
+	unsigned int switching_codec_other:1;
 	unsigned int save_profile:1;
 	uint32_t prev_bt_connected_profiles;
 
@@ -1161,6 +1162,15 @@ static int emit_nodes(struct impl *this)
 {
 	struct spa_bt_transport *t;
 
+	switch (this->profile) {
+	case DEVICE_PROFILE_BAP:
+	case DEVICE_PROFILE_BAP_SINK:
+	case DEVICE_PROFILE_BAP_SOURCE:
+		if (this->switching_codec_other)
+			return -EBUSY;
+		break;
+	}
+
 	this->props.codec = 0;
 
 	device_set_update(this, &this->device_set, this->profile);
@@ -1459,6 +1469,7 @@ static int set_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_a
 	}
 
 	this->switching_codec = false;
+
 	emit_nodes(this);
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
@@ -1500,6 +1511,43 @@ static void codec_switched(void *userdata, int status)
 	this->params[IDX_Props].flags ^= SPA_PARAM_INFO_SERIAL;
 	this->params[IDX_PropInfo].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(this, false);
+}
+
+static void codec_switch_other(void *userdata, bool switching)
+{
+	struct impl *this = userdata;
+
+	this->switching_codec_other = switching;
+
+	switch (this->profile) {
+	case DEVICE_PROFILE_BAP:
+	case DEVICE_PROFILE_BAP_SINK:
+	case DEVICE_PROFILE_BAP_SOURCE:
+		break;
+	default:
+		return;
+	}
+
+	spa_log_debug(this->log, "%p: BAP codec switching by another device, switching:%d",
+			this, (int)switching);
+
+	/*
+	 * In unicast BAP, output/input must be halted when another device is
+	 * switching codec, because CIG must be torn down before it can be
+	 * reconfigured.  Easiest way to do this and to suspend output/input is to
+	 * remove the nodes.
+	 */
+	if (!find_device_transport(this->bt_dev, SPA_BT_PROFILE_BAP_SINK) &&
+			!find_device_transport(this->bt_dev, SPA_BT_PROFILE_BAP_SOURCE))
+		return;
+
+	if (switching) {
+		emit_remove_nodes(this);
+		spa_bt_device_release_transports(this->bt_dev);
+	} else {
+		emit_remove_nodes(this);
+		emit_nodes(this);
+	}
 }
 
 static bool device_set_needs_update(struct impl *this)
@@ -1655,6 +1703,7 @@ static const struct spa_bt_device_events bt_dev_events = {
 	SPA_VERSION_BT_DEVICE_EVENTS,
 	.connected = device_connected,
 	.codec_switched = codec_switched,
+	.codec_switch_other = codec_switch_other,
 	.profiles_changed = profiles_changed,
 	.device_set_changed = device_set_changed,
 	.switch_profile = device_switch_profile,

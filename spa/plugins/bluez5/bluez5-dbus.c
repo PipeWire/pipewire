@@ -4582,6 +4582,26 @@ static bool codec_switch_clear_bap(struct spa_bt_codec_switch *sw, const char *p
 	return true;
 }
 
+static void codec_switch_emit_switching(struct spa_bt_monitor *monitor)
+{
+	struct spa_bt_device *d;
+	struct spa_bt_codec_switch *sw;
+	bool found = false;
+
+	spa_list_for_each(d, &monitor->device_list, link) {
+		spa_list_for_each(sw, &d->codec_switch_list, link) {
+			if (sw->profiles & SPA_BT_PROFILE_BAP_AUDIO) {
+				found = true;
+				goto done;
+			}
+		}
+	}
+
+done:
+	spa_list_for_each(d, &monitor->device_list, link)
+		spa_bt_device_emit_codec_switch_other(d, found);
+}
+
 static bool codec_switch_process(struct spa_bt_codec_switch *sw)
 {
 	if (sw->waiting)
@@ -4596,6 +4616,9 @@ static bool codec_switch_process(struct spa_bt_codec_switch *sw)
 		spa_log_info(sw->device->monitor->log, "media codec switch %p: success", sw);
 		spa_bt_device_emit_codec_switched(sw->device, 0);
 		spa_bt_device_check_profiles(sw->device, false);
+
+		sw->profiles = 0;
+		codec_switch_emit_switching(sw->device->monitor);
 		return true;
 	}
 
@@ -4610,17 +4633,8 @@ static bool codec_switch_process(struct spa_bt_codec_switch *sw)
 		if (sw->path_idx == 0 && codec_switch_rate_limit(sw))
 			return false;
 
-		if (sw->path_idx == 0) {
-			struct spa_bt_transport *t, *t2;
-
-			/* Force CIG inactive */
-			spa_list_for_each(t, &sw->device->transport_list, link) {
-				spa_bt_transport_release_now(t);
-				spa_list_for_each(t2, &sw->device->monitor->transport_list, link)
-					if (t2->device != sw->device && transport_in_same_cig(t, t2))
-						spa_bt_transport_release_now(t2);
-			}
-		}
+		if (sw->path_idx == 0)
+			codec_switch_emit_switching(sw->device->monitor);
 
 		if (sw->paths[sw->path_idx].clear) {
 			if (!codec_switch_clear_bap(sw, sw->paths[sw->path_idx].path))
@@ -4644,6 +4658,9 @@ fail:
 	spa_log_info(sw->device->monitor->log, "media codec switch %p: failed", sw);
 	spa_bt_device_emit_codec_switched(sw->device, -ENODEV);
 	spa_bt_device_check_profiles(sw->device, false);
+
+	sw->profiles = 0;
+	codec_switch_emit_switching(sw->device->monitor);
 	return true;
 }
 

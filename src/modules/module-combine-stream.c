@@ -1497,7 +1497,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	spa_list_init(&impl->streams);
 
 	if (args == NULL)
-		args = "";
+		args = "{}";
 
 	props = pw_properties_new_string_checked(args, strlen(args), &loc);
 	if (props == NULL) {

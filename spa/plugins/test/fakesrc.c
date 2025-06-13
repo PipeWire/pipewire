@@ -130,7 +130,7 @@ static int impl_node_enum_params(void *object, int seq,
 		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props, id,
 			SPA_PROP_live,        SPA_POD_Bool(p->live),
-			SPA_PROP_patternType, SPA_POD_CHOICE_ENUM_Id(2, p->pattern, p->pattern));
+			SPA_PROP_patternType, SPA_POD_CHOICE_ENUM_Int(2, p->pattern, p->pattern));
 		break;
 	}
 	default:
@@ -173,7 +173,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_Props, NULL,
 			SPA_PROP_live,        SPA_POD_OPT_Bool(&p->live),
-			SPA_PROP_patternType, SPA_POD_OPT_Id(&p->pattern));
+			SPA_PROP_patternType, SPA_POD_OPT_Int(&p->pattern));
 
 		if (p->live)
 			port->info.flags |= SPA_PORT_FLAG_LIVE;

@@ -168,6 +168,11 @@ static inline void *spa_bt_decode_buffer_get_write(struct spa_bt_decode_buffer *
 	return SPA_PTROFF(this->buffer_decoded, this->write_index, void);
 }
 
+static inline size_t spa_bt_decode_buffer_get_size(struct spa_bt_decode_buffer *this)
+{
+	return this->write_index - this->read_index;
+}
+
 static inline void spa_bt_decode_buffer_write_packet(struct spa_bt_decode_buffer *this, uint32_t size, uint64_t nsec)
 {
 	int32_t remain;

@@ -48,6 +48,7 @@ GST_DEBUG_CATEGORY_STATIC (pipewire_src_debug);
 #define DEFAULT_AUTOCONNECT     true
 #define DEFAULT_USE_BUFFERPOOL  USE_BUFFERPOOL_AUTO
 #define DEFAULT_ON_DISCONNECT   GST_PIPEWIRE_SRC_ON_DISCONNECT_NONE
+#define DEFAULT_PROVIDE_CLOCK   TRUE
 
 enum
 {
@@ -66,6 +67,7 @@ enum
   PROP_AUTOCONNECT,
   PROP_USE_BUFFERPOOL,
   PROP_ON_DISCONNECT,
+  PROP_PROVIDE_CLOCK,
 };
 
 GType
@@ -195,6 +197,16 @@ gst_pipewire_src_set_property (GObject * object, guint prop_id,
       pwsrc->on_disconnect = g_value_get_enum (value);
       break;
 
+    case PROP_PROVIDE_CLOCK:
+      gboolean provide = g_value_get_boolean (value);
+      GST_OBJECT_LOCK (pwsrc);
+      if (provide)
+        GST_OBJECT_FLAG_SET (pwsrc, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
+      else
+        GST_OBJECT_FLAG_UNSET (pwsrc, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
+      GST_OBJECT_UNLOCK (pwsrc);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -262,6 +274,14 @@ gst_pipewire_src_get_property (GObject * object, guint prop_id,
 
     case PROP_ON_DISCONNECT:
       g_value_set_enum (value, pwsrc->on_disconnect);
+      break;
+
+    case PROP_PROVIDE_CLOCK:
+      gboolean result;
+      GST_OBJECT_LOCK (pwsrc);
+      result = GST_OBJECT_FLAG_IS_SET (pwsrc, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
+      GST_OBJECT_UNLOCK (pwsrc);
+      g_value_set_boolean (value, result);
       break;
 
     default:
@@ -452,6 +472,15 @@ gst_pipewire_src_class_init (GstPipeWireSrcClass * klass)
                                                         DEFAULT_ON_DISCONNECT,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_PROVIDE_CLOCK,
+                                   g_param_spec_boolean ("provide-clock",
+                                                         "Provide Clock",
+                                                         "Provide a clock to be used as the global pipeline clock",
+                                                         DEFAULT_PROVIDE_CLOCK,
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_STATIC_STRINGS));
 
   gstelement_class->provide_clock = gst_pipewire_src_provide_clock;
   gstelement_class->change_state = gst_pipewire_src_change_state;

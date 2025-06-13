@@ -62,7 +62,7 @@ static const struct spa_type_info spa_type_props[] = {
 	{ SPA_PROP_volumeRampStepSamples, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "volumeRampStepSamples", NULL },
 	{ SPA_PROP_volumeRampTime, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "volumeRampTime", NULL },
 	{ SPA_PROP_volumeRampStepTime, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "volumeRampStepTime", NULL },
-	{ SPA_PROP_volumeRampScale, SPA_TYPE_Id, SPA_TYPE_INFO_PROPS_BASE "volumeRampScale", NULL },
+	{ SPA_PROP_volumeRampScale, SPA_TYPE_Id, SPA_TYPE_INFO_PROPS_BASE "volumeRampScale", spa_type_audio_volume_ramp_scale },
 
 	{ SPA_PROP_brightness, SPA_TYPE_Float, SPA_TYPE_INFO_PROPS_BASE "brightness", NULL },
 	{ SPA_PROP_contrast, SPA_TYPE_Float, SPA_TYPE_INFO_PROPS_BASE "contrast", NULL },

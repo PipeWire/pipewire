@@ -274,6 +274,15 @@ SPA_API_AUDIO_RAW_TYPES const char * spa_type_audio_channel_to_short_name(uint32
 	return spa_type_to_short_name(type, spa_type_audio_channel, "UNK");
 }
 
+#define SPA_TYPE_INFO_AudioVolumeRampScale		SPA_TYPE_INFO_ENUM_BASE "AudioVolumeRampScale"
+#define SPA_TYPE_INFO_AUDIO_VOLUME_RAMP_SCALE_BASE	SPA_TYPE_INFO_AudioVolumeRampScale ":"
+
+static const struct spa_type_info spa_type_audio_volume_ramp_scale[] = {
+	{ SPA_AUDIO_VOLUME_RAMP_INVALID, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_VOLUME_RAMP_SCALE_BASE "INVALID", NULL },
+	{ SPA_AUDIO_VOLUME_RAMP_LINEAR, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_VOLUME_RAMP_SCALE_BASE "LINEAR", NULL },
+	{ SPA_AUDIO_VOLUME_RAMP_CUBIC, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_VOLUME_RAMP_SCALE_BASE "CUBIC", NULL },
+	{ 0, 0, NULL, NULL },
+};
 
 /**
  * \}

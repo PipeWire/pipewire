@@ -1379,6 +1379,7 @@ static void stream_process(void *data)
 
 	if (stream->direction == PW_DIRECTION_OUTPUT) {
 		int32_t avail = spa_ringbuffer_get_read_index(&stream->ring, &index);
+		bool empty = false;
 
 		minreq = buffer->requested * stream->frame_size;
 		if (minreq == 0)
@@ -1391,6 +1392,7 @@ static void stream_process(void *data)
 			/* underrun, produce a silence buffer */
 			size = SPA_MIN(d->maxsize, minreq);
 			sample_spec_silence(&stream->ss, p, size);
+			empty = true;
 
 			if (stream->draining && !stream->corked) {
 				stream->draining = false;
@@ -1406,6 +1408,7 @@ static void stream_process(void *data)
 						stream->buffer, MAXLENGTH,
 						index % MAXLENGTH,
 						p, avail);
+					empty = false;
 				}
 				index += size;
 				pd.read_inc = size;
@@ -1446,6 +1449,7 @@ static void stream_process(void *data)
 		d->chunk->offset = 0;
 		d->chunk->stride = stream->frame_size;
 		d->chunk->size = size;
+		SPA_FLAG_UPDATE(d->chunk->flags, SPA_CHUNK_FLAG_EMPTY, empty);
 		buffer->size = size / stream->frame_size;
 	} else  {
 		int32_t filled = spa_ringbuffer_get_write_index(&stream->ring, &index);

@@ -3020,10 +3020,10 @@ static int alsa_write_sync(struct state *state, uint64_t current_time)
 						state->name, avail, delay,
 						target, state->threshold, suppressed);
 
-				if (avail > target)
-					snd_pcm_rewind(state->hndl, avail - target);
-				else if (avail < target)
-					spa_alsa_silence(state, target - avail);
+				if (delay > target)
+					snd_pcm_rewind(state->hndl, delay - target);
+				else if (delay < target)
+					spa_alsa_silence(state, target - delay);
 				avail = target;
 			}
 			spa_dll_init(&state->dll);

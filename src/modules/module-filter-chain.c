@@ -1311,7 +1311,7 @@ static void param_changed(struct impl *impl, uint32_t id, const struct spa_pod *
 		spa_zero(info);
 		if (param == NULL) {
 			pw_log_info("module %p: filter deactivate", impl);
-			if (direction == SPA_DIRECTION_INPUT)
+			if (direction == SPA_DIRECTION_OUTPUT)
 				deactivate_graph(impl);
 			impl->rate = 0;
 		} else {

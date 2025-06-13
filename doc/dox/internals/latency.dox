@@ -129,7 +129,7 @@ When we have a sink with a ProcessLatency, for example, of 512 samples:
      ^
      |      +----------+
      +---- FL          |
-            | sink     | <- ProcessLatency: [  { "quantum": 0, "rate": 1024, "ns": 0 } ]
+            | sink     | <- ProcessLatency: [  { "quantum": 0, "rate": 512, "ns": 0 } ]
      +---- FR          |
      |      +----------+
      v
@@ -192,8 +192,8 @@ If we place a node with a 256 sample latency in the above source-sink graph:
 ```
 
 
-See how the output latency propagates and is incremented going downstream and the
-input latency is incremented and traveling upstream.
+See how the output latency propagates and is increased going downstream and the
+input latency is increased and traveling upstream.
 
 
 ## Link a port to two port with different latencies

@@ -1,4 +1,6 @@
 context.modules = [
     # Use mDNS to detect and load module-raop-sink
-    { name = libpipewire-module-raop-discover }
+    { name = libpipewire-module-raop-discover
+        condition = [ { module.raop = !false } ]
+    }
 ]

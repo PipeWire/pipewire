@@ -26,7 +26,7 @@
 
 #define SPA_TYPE_INTERFACE_Bluez5CodecMedia	SPA_TYPE_INFO_INTERFACE_BASE "Bluez5:Codec:Media:Private"
 
-#define SPA_VERSION_BLUEZ5_CODEC_MEDIA		14
+#define SPA_VERSION_BLUEZ5_CODEC_MEDIA		15
 
 struct spa_bluez5_codec_a2dp {
 	struct spa_interface iface;
@@ -87,6 +87,10 @@ struct media_codec {
 	const size_t send_buf_size;
 
 	const struct media_codec *duplex_codec;	/**< Codec for non-standard A2DP duplex channel */
+
+	const bool stream_pkt;	/**< If true, socket data may contain multiple packets.
+				 * After successful decode, start_decode() should be
+				 * called again to parse the remaining data. */
 
 	int (*get_bis_config)(const struct media_codec *codec, uint8_t *caps,
 				uint8_t *caps_size,	struct spa_dict *settings,
@@ -201,6 +205,16 @@ struct media_codec {
 		const void *src, size_t src_size,
 		void *dst, size_t dst_size,
 		size_t *dst_out);
+
+	/**
+	 * Generate audio data corresponding to one lost packet, using codec internal
+	 * packet loss concealment.
+	 *
+	 * NULL if not available.
+	 *
+	 * \return number of bytes produced, or < 0 for error
+	 */
+	int (*produce_plc) (void *data, void *dst, size_t dst_size);
 
 	int (*reduce_bitpool) (void *data);
 	int (*increase_bitpool) (void *data);

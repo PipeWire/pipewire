@@ -1310,6 +1310,24 @@ static SPA_UNUSED int codec_decode(void *data,
 	return consumed;
 }
 
+static int codec_produce_plc(void *data, void *dst, size_t dst_size)
+{
+	struct impl *this = data;
+	int ich, res;
+
+	if (dst_size < this->codesize)
+		return -EINVAL;
+
+	for (ich = 0; ich < this->channels; ich++) {
+		uint8_t *out = (uint8_t *)dst + (ich * 4);
+		res = lc3_decode(this->dec[ich], NULL, 0, LC3_PCM_FORMAT_S24, out, this->channels);
+		if (SPA_UNLIKELY(res < 0))
+			return -EINVAL;
+	}
+
+	return this->codesize;
+}
+
 static int codec_reduce_bitpool(void *data)
 {
 	return -ENOTSUP;
@@ -1424,6 +1442,7 @@ const struct media_codec bap_codec_lc3 = {
 	.encode = codec_encode,
 	.start_decode = codec_start_decode,
 	.decode = codec_decode,
+	.produce_plc = codec_produce_plc,
 	.reduce_bitpool = codec_reduce_bitpool,
 	.increase_bitpool = codec_increase_bitpool,
 	.set_log = codec_set_log,

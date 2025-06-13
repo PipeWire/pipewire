@@ -213,6 +213,21 @@ static int codec_decode(void *data,
 	return H2_PACKET_SIZE - 2;
 }
 
+static int codec_produce_plc(void *data, void *dst, size_t dst_size)
+{
+	struct impl *this = data;
+	int res;
+
+	if (dst_size < LC3_A127_BLOCK_SIZE)
+		return -EINVAL;
+
+	res = lc3_decode(this->dec, NULL, 0, LC3_PCM_FORMAT_FLOAT, dst, 1);
+	if (res != 1)
+		return -EINVAL;
+
+	return LC3_A127_BLOCK_SIZE;
+}
+
 static void codec_set_log(struct spa_log *global_log)
 {
 	log = global_log;
@@ -233,6 +248,7 @@ static const struct media_codec hfp_codec_a127 = {
 	.set_log = codec_set_log,
 	.start_decode = codec_start_decode,
 	.decode = codec_decode,
+	.produce_plc = codec_produce_plc,
 	.name = "lc3_a127",
 	.description = "LC3-24kHz",
 };

@@ -193,8 +193,9 @@ static int codec_decode(void *data,
 	this->data = NULL;
 
 	if (res < 0) {
-		h2_reader_init(&this->h2, true);
-		return res;
+		/* fail decoding silently, so remainder of packet is processed */
+		spa_log_debug(log_, "decoding failed: %d", res);
+		return consumed;
 	}
 
 	return consumed;
@@ -222,6 +223,7 @@ const struct media_codec hfp_codec_msbc = {
 	.decode = codec_decode,
 	.name = "msbc",
 	.description = "MSBC",
+	.stream_pkt = true,
 };
 
 MEDIA_CODEC_EXPORT_DEF(

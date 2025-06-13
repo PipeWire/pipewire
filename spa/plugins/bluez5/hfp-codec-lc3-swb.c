@@ -195,6 +195,8 @@ static int codec_decode(void *data,
 	int res;
 
 	*dst_out = 0;
+	if (dst_size < LC3_SWB_BLOCK_SIZE)
+		return -EINVAL;
 
 	if (!this->data)
 		this->data = h2_reader_read(&this->h2, src, src_size, &consumed, &this->avail);
@@ -205,12 +207,28 @@ static int codec_decode(void *data,
 	this->data = NULL;
 
 	if (res) {
-		h2_reader_init(&this->h2, true);
-		return -EINVAL;
+		/* fail decoding silently, so remainder of packet is processed */
+		spa_log_debug(log, "decoding failed: %d", res);
+		return consumed;
 	}
 
 	*dst_out = LC3_SWB_BLOCK_SIZE;
 	return consumed;
+}
+
+static int codec_produce_plc(void *data, void *dst, size_t dst_size)
+{
+	struct impl *this = data;
+	int res;
+
+	if (dst_size < LC3_SWB_BLOCK_SIZE)
+		return -EINVAL;
+
+	res = lc3_decode(this->dec, NULL, 0, LC3_PCM_FORMAT_FLOAT, dst, 1);
+	if (res != 1)
+		return -EINVAL;
+
+	return LC3_SWB_BLOCK_SIZE;
 }
 
 static void codec_set_log(struct spa_log *global_log)
@@ -233,8 +251,10 @@ const struct media_codec hfp_codec_msbc = {
 	.set_log = codec_set_log,
 	.start_decode = codec_start_decode,
 	.decode = codec_decode,
+	.produce_plc = codec_produce_plc,
 	.name = "lc3_swb",
 	.description = "LC3-SWB",
+	.stream_pkt = true,
 };
 
 MEDIA_CODEC_EXPORT_DEF(

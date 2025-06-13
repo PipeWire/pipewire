@@ -1978,7 +1978,7 @@ static void hfp_hf_transport_activate(void *data, enum spa_bt_telephony_error *e
 			return;
 		}
 	} else {
-		if (!rfcomm->transport || rfcomm->transport->codec != HFP_AUDIO_CODEC_CVSD) {
+		if (!rfcomm->transport || rfcomm->transport->media_codec->id != SPA_BLUETOOTH_AUDIO_CODEC_CVSD) {
 			*err = BT_TELEPHONY_ERROR_NOT_SUPPORTED;
 			return;
 		}

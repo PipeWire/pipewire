@@ -1198,26 +1198,32 @@ static int reset_graph(struct impl *impl)
 	return res;
 }
 
-static void update_latency(struct impl *impl, enum spa_direction direction)
+static void update_latency(struct impl *impl, enum spa_direction direction, bool process)
 {
 	struct spa_latency_info latency;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
-	const struct spa_pod *params[1];
+	const struct spa_pod *params[2];
+	uint32_t n_params = 0;
 	struct pw_stream *s = direction == SPA_DIRECTION_OUTPUT ?
 		impl->playback : impl->capture;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	latency = impl->latency[direction];
 	spa_process_latency_info_add(&impl->process_latency, &latency);
-	params[0] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
-	pw_stream_update_params(s, params, 1);
+	params[n_params++] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
+
+	if (process) {
+		params[n_params++] = spa_process_latency_build(&b,
+				SPA_PARAM_ProcessLatency, &impl->process_latency);
+	}
+	pw_stream_update_params(s, params, n_params);
 }
 
-static void update_latencies(struct impl *impl)
+static void update_latencies(struct impl *impl, bool process)
 {
-	update_latency(impl, SPA_DIRECTION_INPUT);
-	update_latency(impl, SPA_DIRECTION_OUTPUT);
+	update_latency(impl, SPA_DIRECTION_INPUT, process);
+	update_latency(impl, SPA_DIRECTION_OUTPUT, process);
 }
 
 static void param_latency_changed(struct impl *impl, const struct spa_pod *param,
@@ -1229,7 +1235,7 @@ static void param_latency_changed(struct impl *impl, const struct spa_pod *param
 		return;
 
 	impl->latency[latency.direction] = latency;
-	update_latency(impl, latency.direction);
+	update_latency(impl, latency.direction, false);
 }
 
 static void param_process_latency_changed(struct impl *impl, const struct spa_pod *param,
@@ -1245,7 +1251,7 @@ static void param_process_latency_changed(struct impl *impl, const struct spa_po
 		return;
 
 	impl->process_latency = process_latency;
-	update_latencies(impl);
+	update_latencies(impl, true);
 }
 
 static void param_tag_changed(struct impl *impl, const struct spa_pod *param,
@@ -1567,7 +1573,7 @@ static void graph_info(void *object, const struct spa_filter_graph_info *info)
 			if (spa_atod(s, &latency)) {
 				if (impl->process_latency.rate != (int32_t)latency) {
 					impl->process_latency.rate = (int32_t)latency;
-					update_latencies(impl);
+					update_latencies(impl, true);
 				}
 			}
 		}

@@ -501,7 +501,7 @@ static void param_process_latency_changed(struct impl *impl, const struct spa_po
 		return;
 
 	impl->process_latency = info;
-	update_latencies(impl, true, false);
+	update_latencies(impl, true, true);
 }
 
 static void param_props_changed(struct impl *impl, const struct spa_pod *param)
@@ -518,7 +518,7 @@ static void param_props_changed(struct impl *impl, const struct spa_pod *param)
 	if (impl->process_latency.ns == nsec)
 		return;
 	impl->process_latency.ns = nsec;
-	update_latencies(impl, false, true);
+	update_latencies(impl, true, true);
 }
 
 static void param_tag_changed(struct impl *impl, const struct spa_pod *param,

@@ -158,7 +158,7 @@ static int codec_start_decode (void *data,
 		const void *src, size_t src_size, uint16_t *seqnum, uint32_t *timestamp)
 {
 	struct impl *this = data;
-	size_t consumed;
+	size_t consumed = 0;
 
 	if (is_zero_packet(src, src_size))
 		return -EINVAL;

@@ -177,7 +177,6 @@ static gboolean chr_handle_acquire(Bluez5GattCharacteristic1 *object,
 	int res;
 	GUnixFDList *fd_list = NULL;
 	GVariant *fd_handle = NULL;
-	GError *err = NULL;
 
 	if ((write && (impl->cb->acquire_write == NULL)) ||
 			(!write && (impl->cb->acquire_notify == NULL))) {
@@ -230,8 +229,6 @@ fail:
 	if (fds[1] >= 0)
 		close(fds[1]);
 
-	if (err)
-		g_error_free(err);
 	g_clear_pointer(&fd_handle, g_variant_unref);
 	g_clear_object(&fd_list);
 	g_dbus_method_invocation_return_dbus_error(invocation,

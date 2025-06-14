@@ -4204,7 +4204,7 @@ static int transport_set_delay(void *data, int64_t delay_nsec)
 	if (!(transport->profile & SPA_BT_PROFILE_A2DP_DUPLEX))
 		return -ENOTSUP;
 
-	value = SPA_CLAMP(delay_nsec / (100 * SPA_NSEC_PER_USEC), 0, 10 * UINT16_MAX);
+	value = SPA_CLAMP(delay_nsec / (100 * SPA_NSEC_PER_USEC), 0, UINT16_MAX);
 
 	if (transport->delay_us == 100 * value)
 		return 0;
@@ -4362,7 +4362,7 @@ static bool codec_switch_check_endpoint(struct spa_bt_remote_endpoint *ep,
 	spa_autofree char *path = NULL;
 	uint32_t ep_profile;
 
-	if (!ep->uuid || !ep->device)
+	if (!ep || !ep->uuid || !ep->device)
 		return false;
 
 	ep_profile = spa_bt_profile_from_uuid(ep->uuid);

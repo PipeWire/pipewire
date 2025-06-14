@@ -549,8 +549,9 @@ static bool rfcomm_hw_volume_enabled(struct rfcomm *rfcomm)
 static void rfcomm_emit_volume_changed(struct rfcomm *rfcomm, int id, int hw_volume)
 {
 	struct spa_bt_transport_volume *t_volume;
+	bool valid_volume = (id == SPA_BT_VOLUME_ID_RX || id == SPA_BT_VOLUME_ID_TX);
 
-	if ((id == SPA_BT_VOLUME_ID_RX || id == SPA_BT_VOLUME_ID_TX) && hw_volume >= 0) {
+	if (valid_volume && hw_volume >= 0) {
 		rfcomm->volumes[id].active = true;
 		rfcomm->volumes[id].hw_volume = hw_volume;
 	}
@@ -571,7 +572,7 @@ static void rfcomm_emit_volume_changed(struct rfcomm *rfcomm, int id, int hw_vol
 		spa_bt_transport_emit_volume_changed(rfcomm->transport);
 	}
 
-	if (rfcomm->telephony_ag) {
+	if (rfcomm->telephony_ag && valid_volume) {
 		rfcomm->telephony_ag->volume[id] = hw_volume;
 		telephony_ag_notify_updated_props(rfcomm->telephony_ag);
 	}

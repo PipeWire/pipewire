@@ -35,7 +35,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2025-06-28.0'
+    FDO_DISTRIBUTION_TAG: '2025-07-11.0'
     FDO_DISTRIBUTION_VERSION: '41'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
@@ -55,6 +55,7 @@ include:
       gstreamer1-plugins-base-devel
       jack-audio-connection-kit-devel
       libasan
+      liblc3-devel
       libcanberra-devel
       libebur128-devel
       libffado-devel
@@ -75,6 +76,7 @@ include:
       sbc-devel
       ShellCheck
       SDL2-devel
+      spandsp-devel
       systemd-devel
       vulkan-loader-devel
       webrtc-audio-processing-devel
@@ -436,13 +438,12 @@ build_all:
   extends:
     - .build_on_fedora
   variables:
-    # Fedora doesn't have libfreeaptx, lc3plus, lc3, or roc
+    # Fedora doesn't have libfreeaptx, lc3plus, or roc
     # libcamera has no stable API, so let's not chase that target
     MESON_OPTIONS: >-
         -Dauto_features=enabled
         -Dbluez5-codec-aptx=disabled
         -Dbluez5-codec-lc3plus=disabled
-        -Dbluez5-codec-lc3=disabled
         -Dbluez5-codec-ldac-dec=disabled
         -Droc=disabled
         -Dlibcamera=disabled

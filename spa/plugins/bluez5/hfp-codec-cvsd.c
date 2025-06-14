@@ -88,7 +88,7 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	if (!this)
 		return NULL;
 
-	this->block_size = 2 * (mtu/2);
+	this->block_size = SPA_MIN(2 * (mtu/2), 144u);	/* cap to 9 ms */
 	return this;
 }
 

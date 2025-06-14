@@ -327,18 +327,23 @@ static inline size_t pa_snprintf(char *str, size_t size, const char *format, ...
 	return ret;
 }
 
-#define pa_xstrdup(s)		((s) != NULL ? strdup(s) : NULL)
-#define pa_xstrndup(s,n)	((s) != NULL ? strndup(s,n) : NULL)
+#define pa_xnullcheck(p)	({ void *_mem_alloc = (p); spa_assert_se(_mem_alloc); _mem_alloc; })
+#define pa_xstrdup(s)		((s) != NULL ? pa_xnullcheck(strdup(s)) : NULL)
+#define pa_xstrndup(s,n)	((s) != NULL ? pa_xnullcheck(strndup(s,n)) : NULL)
 #define pa_xfree		free
-#define pa_xmalloc		malloc
-#define pa_xnew0(t,n)		calloc(n, sizeof(t))
+#define pa_xmalloc(n)		pa_xnullcheck(malloc(n))
+#define pa_xnew0(t,n)		pa_xnullcheck(calloc((n), sizeof(t)))
 #define pa_xnew(t,n)		pa_xnew0(t,n)
-#define pa_xrealloc		realloc
-#define pa_xrenew(t,p,n)	((t*) realloc(p, (n)*sizeof(t)))
+#define pa_xrenew(t,p,n)	((t*) pa_xnullcheck(realloc(p, (n)*sizeof(t))))
 
 static inline void* pa_xmemdup(const void *p, size_t l) {
-	return memcpy(malloc(l), p, l);
-
+	if (!p) {
+		return NULL;
+	} else {
+		void *dst = pa_xmalloc(l);
+		memcpy(dst, p, l);
+		return dst;
+	}
 }
 #define pa_xnewdup(t,p,n) ((t*) pa_xmemdup((p), (n)*sizeof(t)))
 

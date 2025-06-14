@@ -1741,7 +1741,7 @@ int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, pa_alsa_prof
             ret = -1;
         }
 
-    } else if (ucm->active_verb) {
+    } else if (ucm->active_verb && old_profile) {
         /* Disable modifiers not in new profile. Has to be done before
          * devices, because _dismod fails if a modifier's supported
          * devices are disabled. */

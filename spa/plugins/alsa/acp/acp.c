@@ -8,6 +8,7 @@
 
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
+#include <spa/utils/cleanup.h>
 #include <spa/param/audio/iec958-types.h>
 
 int _acp_log_level = 1;
@@ -372,7 +373,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 
 	dev = -1;
 	while (1) {
-		char desc[128], devstr[128], *name;
+		char desc[128], devstr[128];
 
 		if ((err = snd_ctl_pcm_next_device(ctl_hndl, &dev)) < 0) {
 			pa_log_error("error iterating devices: %s", snd_strerror(err));
@@ -396,8 +397,13 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 				pa_log_error("error pcm info: %s", snd_strerror(err));
 		}
 		if (err >= 0) {
+			spa_autofree char *name = NULL;
 			pa_assert_se(asprintf(&name, "Mapping pro-output-%d", dev) >= 0);
 			m = pa_alsa_mapping_get(ps, name);
+		} else {
+			m = NULL;
+		}
+		if (m) {
 			m->description = pa_xstrdup(desc);
 			m->device_strings = pa_split_spaces_strv(devstr);
 
@@ -419,7 +425,6 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 				n_playback++;
 			}
 			pa_idxset_put(ap->output_mappings, m, NULL);
-			free(name);
 		}
 
 		snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_CAPTURE);
@@ -428,8 +433,13 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 				pa_log_error("error pcm info: %s", snd_strerror(err));
 		}
 		if (err >= 0) {
+			spa_autofree char *name = NULL;
 			pa_assert_se(asprintf(&name, "Mapping pro-input-%d", dev) >= 0);
 			m = pa_alsa_mapping_get(ps, name);
+		} else {
+			m = NULL;
+		}
+		if (m) {
 			m->description = pa_xstrdup(desc);
 			m->device_strings = pa_split_spaces_strv(devstr);
 
@@ -451,7 +461,6 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 				n_capture++;
 			}
 			pa_idxset_put(ap->input_mappings, m, NULL);
-			free(name);
 		}
 	}
 	snd_ctl_close(ctl_hndl);
@@ -1190,7 +1199,7 @@ uint32_t acp_card_find_best_profile_index(struct acp_card *card, const char *nam
 
 static void find_mixer(pa_card *impl, pa_alsa_device *dev, const char *element, bool ignore_dB)
 {
-	const char *mdev;
+	const char *mdev = NULL;
 	pa_alsa_mapping *mapping = dev->mapping;
 
 	if (!mapping && !element)
@@ -1199,7 +1208,8 @@ static void find_mixer(pa_card *impl, pa_alsa_device *dev, const char *element, 
 	if (!element && mapping && pa_alsa_path_set_is_empty(dev->mixer_path_set))
 		return;
 
-	mdev = pa_proplist_gets(mapping->proplist, "alsa.mixer_device");
+	if (mapping)
+		mdev = pa_proplist_gets(mapping->proplist, "alsa.mixer_device");
 	if (mdev) {
 		dev->mixer_handle = pa_alsa_open_mixer_by_name(impl->ucm.mixers, mdev, true);
 	} else {

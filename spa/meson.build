@@ -111,6 +111,9 @@ if get_option('spa-plugins').allowed()
     endif
     g722_codec_option = get_option('bluez5-codec-g722')
     summary({'G722': g722_codec_option.allowed()}, bool_yn: true, section: 'Bluetooth audio codecs')
+
+    spandsp_dep = dependency('spandsp', required : get_option('bluez5-plc-spandsp'))
+    cdata.set('HAVE_SPANDSP', spandsp_dep.found())
   endif
 
   have_vulkan = false

@@ -153,6 +153,10 @@ option('bluez5-codec-g722',
         description: 'Enable G722 open source codec implementation',
         type: 'feature',
         value: 'auto')
+option('bluez5-plc-spandsp',
+        description: 'Enable SpanDSP for packet loss concealment',
+        type: 'feature',
+        value: 'auto')
 option('control',
        description: 'Enable control spa plugin integration',
        type: 'feature',

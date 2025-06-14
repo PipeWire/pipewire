@@ -3,6 +3,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2025 Pauli Virtanen */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <unistd.h>
 #include <string.h>
 #include <stddef.h>
@@ -24,10 +26,12 @@
 
 #include "media-codecs.h"
 #include "hfp-h2.h"
+#include "plc.h"
+
 
 #define MSBC_BLOCK_SIZE		240
 
-static struct spa_log *log;
+static struct spa_log *log_;
 
 struct impl {
 	sbc_t msbc;
@@ -36,6 +40,8 @@ struct impl {
 
 	void *data;
 	size_t avail;
+
+	plc_state_t *plc;
 };
 
 static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
@@ -104,6 +110,10 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 
 	h2_reader_init(&this->h2, true);
 
+	this->plc = plc_init(NULL);
+	if (!this->plc)
+		return NULL;
+
 	return spa_steal_ptr(this);
 }
 
@@ -112,6 +122,7 @@ static void codec_deinit(void *data)
 	struct impl *this = data;
 
 	sbc_finish(&this->msbc);
+	plc_free(this->plc);
 	free(this);
 }
 
@@ -198,13 +209,30 @@ static int codec_decode(void *data,
 		return consumed;
 	}
 
+	plc_rx(this->plc, dst, *dst_out / sizeof(int16_t));
+
 	return consumed;
+}
+
+static int codec_produce_plc(void *data, void *dst, size_t dst_size)
+{
+	struct impl *this = data;
+	int res;
+
+	if (dst_size < MSBC_BLOCK_SIZE)
+		return -EINVAL;
+
+	res = plc_fillin(this->plc, dst, MSBC_BLOCK_SIZE / sizeof(int16_t));
+	if (res < 0)
+		return res;
+
+	return MSBC_BLOCK_SIZE;
 }
 
 static void codec_set_log(struct spa_log *global_log)
 {
-	log = global_log;
-	spa_log_topic_init(log, &codec_plugin_log_topic);
+	log_ = global_log;
+	spa_log_topic_init(log_, &codec_plugin_log_topic);
 }
 
 const struct media_codec hfp_codec_msbc = {
@@ -221,6 +249,7 @@ const struct media_codec hfp_codec_msbc = {
 	.set_log = codec_set_log,
 	.start_decode = codec_start_decode,
 	.decode = codec_decode,
+	.produce_plc = codec_produce_plc,
 	.name = "msbc",
 	.description = "MSBC",
 	.stream_pkt = true,

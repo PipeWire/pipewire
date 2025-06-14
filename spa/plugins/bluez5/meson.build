@@ -110,7 +110,7 @@ bluez_codec_hfp_msbc = shared_library('spa-codec-bluez5-hfp-msbc',
   [ 'hfp-codec-msbc.c', 'media-codecs.c' ],
   include_directories : [ configinc ],
   c_args : codec_args,
-  dependencies : [ spa_dep, sbc_dep ],
+  dependencies : [ spa_dep, sbc_dep, spandsp_dep ],
   install : true,
   install_dir : spa_plugindir / 'bluez5')
 

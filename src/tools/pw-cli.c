@@ -1559,7 +1559,7 @@ static struct global *
 obj_global_port(struct remote_data *rd, struct global *global, const char *port_direction, const char *port_id)
 {
 	struct global *global_port_found = NULL;
-	uint32_t *ports = NULL;
+	spa_autofree uint32_t *ports = NULL;
 	int port_count;
 
 	port_count = children_of(rd, global->id, PW_TYPE_INTERFACE_Port, &ports);
@@ -1582,7 +1582,6 @@ obj_global_port(struct remote_data *rd, struct global *global, const char *port_
 		}
 	}
 
-	free(ports);
 	return global_port_found;
 }
 

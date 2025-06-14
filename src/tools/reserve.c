@@ -395,6 +395,7 @@ rd_device_new(DBusConnection *connection, const char *device_name, const char *a
 error_free:
 	free(d->service_name);
 	free(d->object_path);
+	free(d->application_name);
 	free(d);
 	errno = -res;
 	return NULL;

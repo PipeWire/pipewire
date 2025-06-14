@@ -815,6 +815,8 @@ static int netjack2_recv_midi(struct netjack2_peer *peer, struct nj2_packet_head
 
 	if ((len = recv(peer->fd, buffer, packet_size, 0)) < 0)
 		return -errno;
+	if ((size_t)len < sizeof(*header))
+		return -EINVAL;
 
 	active_ports = peer->params.recv_midi_channels;
 	if (active_ports == 0)

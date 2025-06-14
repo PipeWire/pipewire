@@ -665,8 +665,9 @@ static int make_tcp_socket(struct server *server, const char *name, const char *
 		const char *ifaddress)
 {
 	struct sockaddr_storage addr;
-	int res, fd, on;
+	int res, on;
 	socklen_t len = 0;
+	spa_autoclose int fd = -1;
 
 	if ((res = pw_net_parse_address_port(name, ifaddress, DEFAULT_PORT, &addr, &len)) < 0) {
 		pw_log_error("%p: can't parse address %s: %s", server,
@@ -693,26 +694,24 @@ static int make_tcp_socket(struct server *server, const char *name, const char *
 	if (bind(fd, (struct sockaddr *) &addr, len) < 0) {
 		res = -errno;
 		pw_log_error("%p: bind() failed: %m", server);
-		goto error_close;
+		goto error;
 	}
 	if (listen(fd, 5) < 0) {
 		res = -errno;
 		pw_log_error("%p: listen() failed: %m", server);
-		goto error_close;
+		goto error;
 	}
 	if (getsockname(fd, (struct sockaddr *)&addr, &len) < 0) {
 		res = -errno;
 		pw_log_error("%p: getsockname() failed: %m", server);
-		goto error_close;
+		goto error;
 	}
 
 	server->type = SERVER_TYPE_TCP;
 	server->addr = addr;
 
-	return fd;
+	return spa_steal_fd(fd);
 
-error_close:
-	close(fd);
 error:
 	return res;
 }

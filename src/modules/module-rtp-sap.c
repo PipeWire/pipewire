@@ -1478,6 +1478,8 @@ static int parse_sdp(struct impl *impl, char *sdp, struct sdp_info *info)
 	int count = 0, res = 0;
 	size_t l;
 
+	spa_zero(*info);
+
 	while (*s) {
 		if ((l = strcspn(s, "\r\n")) < 2)
 			goto too_short;
@@ -1523,12 +1525,15 @@ static int parse_sdp(struct impl *impl, char *sdp, struct sdp_info *info)
 	return 0;
 too_short:
 	pw_log_warn("SDP: line starting with `%.6s...' too short", s);
+	clear_sdp_info(info);
 	return -EINVAL;
 invalid_version:
 	pw_log_warn("SDP: invalid first version line `%*s'", (int)l, s);
+	clear_sdp_info(info);
 	return -EINVAL;
 error:
 	pw_log_warn("SDP: error: %s", spa_strerror(res));
+	clear_sdp_info(info);
 	return res;
 }
 
@@ -1570,7 +1575,6 @@ static int parse_sap(struct impl *impl, void *data, size_t len)
 
 	pw_log_debug("got SAP: %s %s", mime, sdp);
 
-	spa_zero(info);
 	if ((res = parse_sdp(impl, sdp, &info)) < 0)
 		return res;
 

@@ -163,10 +163,14 @@ static int codec_decode(void *data,
 		void *dst, size_t dst_size,
 		size_t *dst_out)
 {
-	struct impl *this = data;
-	int dummy;
+	uint32_t avail;
 
-	return codec_encode(this, src, src_size, dst, dst_size, dst_out, &dummy);
+	avail = SPA_MIN(src_size, dst_size);
+	if (avail)
+		spa_memcpy(dst, src, avail);
+
+	*dst_out = avail;
+	return avail;
 }
 
 static void codec_set_log(struct spa_log *global_log)

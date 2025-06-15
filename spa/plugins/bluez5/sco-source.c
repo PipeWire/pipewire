@@ -566,7 +566,8 @@ static int transport_start(struct impl *this)
 			port->current_format.info.raw.rate * 40 / 1000);
 
 	/* init codec */
-	this->codec_data = this->codec->init(this->codec, 0, NULL, 0, NULL, NULL, 0);
+	this->codec_data = this->codec->init(this->codec, 0, NULL, 0, NULL, NULL,
+			this->transport->read_mtu);
 	if (!this->codec_data) {
 		spa_log_error(this->log, "codec init failed");
 		res = -EINVAL;

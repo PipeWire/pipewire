@@ -80,6 +80,9 @@ struct volume_ramp_params {
 	unsigned int volume_ramp_time;
 	unsigned int volume_ramp_step_time;
 	enum spa_audio_volume_ramp_scale scale;
+	float start;
+	float end;
+	uint32_t rate;
 };
 
 struct props {
@@ -92,7 +95,6 @@ struct props {
 	struct volumes channel;
 	struct volumes soft;
 	struct volumes monitor;
-	struct volume_ramp_params vrp;
 	unsigned int have_soft_volume:1;
 	unsigned int mix_disabled:1;
 	unsigned int resample_disabled:1;
@@ -295,6 +297,7 @@ struct impl {
 	struct volume volume;
 	double rate_scale;
 	struct spa_pod_sequence *vol_ramp_sequence;
+	void *vol_ramp_sequence_data;
 	uint32_t vol_ramp_offset;
 
 	uint32_t in_offset;
@@ -1513,125 +1516,123 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 	return changed;
 }
 
-static int get_ramp_samples(struct impl *this)
+static int get_ramp_samples(struct impl *this, struct volume_ramp_params *vrp)
 {
-	struct volume_ramp_params *vrp = &this->props.vrp;
 	int samples = -1;
 
 	if (vrp->volume_ramp_samples)
 		samples = vrp->volume_ramp_samples;
 	else if (vrp->volume_ramp_time) {
-		struct dir *d = &this->dir[SPA_DIRECTION_OUTPUT];
-		unsigned int sample_rate = d->format.info.raw.rate;
-		samples = (vrp->volume_ramp_time * sample_rate) / 1000;
+		samples = (vrp->volume_ramp_time * vrp->rate) / 1000;
 		spa_log_info(this->log, "volume ramp samples calculated from time is %d", samples);
 	}
 	if (!samples)
 		samples = -1;
-
 	return samples;
-
 }
 
-static int get_ramp_step_samples(struct impl *this)
+static int get_ramp_step_samples(struct impl *this, struct volume_ramp_params *vrp)
 {
-	struct volume_ramp_params *vrp = &this->props.vrp;
 	int samples = -1;
 
 	if (vrp->volume_ramp_step_samples)
 		samples = vrp->volume_ramp_step_samples;
 	else if (vrp->volume_ramp_step_time) {
-		struct dir *d = &this->dir[SPA_DIRECTION_OUTPUT];
-		int sample_rate = d->format.info.raw.rate;
 		/* convert the step time which is in nano seconds to seconds */
-		samples = (vrp->volume_ramp_step_time/1000) * (sample_rate/1000);
+		samples = (vrp->volume_ramp_step_time/1000) * (vrp->rate/1000);
 		spa_log_debug(this->log, "volume ramp step samples calculated from time is %d", samples);
 	}
 	if (!samples)
 		samples = -1;
-
 	return samples;
-
 }
 
-static double get_volume_at_scale(struct impl *this, double value)
+static float get_volume_at_scale(struct volume_ramp_params *vrp, float value)
 {
-	struct volume_ramp_params *vrp = &this->props.vrp;
 	if (vrp->scale == SPA_AUDIO_VOLUME_RAMP_LINEAR || vrp->scale == SPA_AUDIO_VOLUME_RAMP_INVALID)
 		return value;
 	else if (vrp->scale == SPA_AUDIO_VOLUME_RAMP_CUBIC)
 		return (value * value * value);
-
 	return 0.0;
 }
 
-static struct spa_pod *generate_ramp_up_seq(struct impl *this)
+static struct spa_pod *generate_ramp_up_seq(struct impl *this, struct volume_ramp_params *vrp,
+		void *buffer, size_t size)
 {
 	struct spa_pod_dynamic_builder b;
 	struct spa_pod_frame f[1];
-	struct props *p = &this->props;
-	double volume_accum = p->prev_volume;
-	int ramp_samples = get_ramp_samples(this);
-	int ramp_step_samples = get_ramp_step_samples(this);
-	double volume_step = ((p->volume - p->prev_volume) / (ramp_samples / ramp_step_samples));
+	float start = vrp->start, end = vrp->end, volume_accum = start;
+	int ramp_samples = get_ramp_samples(this, vrp);
+	int ramp_step_samples = get_ramp_step_samples(this, vrp);
+	float volume_step = ((end - start) / (ramp_samples / ramp_step_samples));
 	uint32_t volume_offs = 0;
 
-	spa_pod_dynamic_builder_init(&b, NULL, 0, 4096);
+	spa_pod_dynamic_builder_init(&b, buffer, size, 4096);
 
 	spa_pod_builder_push_sequence(&b.b, &f[0], 0);
 	spa_log_info(this->log, "generating ramp up sequence from %f to %f with a"
-		" step value %f at scale %d", p->prev_volume, p->volume, volume_step, p->vrp.scale);
+		" step value %f at scale %d", start, end, volume_step, vrp->scale);
 	do {
-		spa_log_trace(this->log, "volume accum %f", get_volume_at_scale(this, volume_accum));
+		float vas = get_volume_at_scale(vrp, volume_accum);
+		spa_log_trace(this->log, "volume accum %f", vas);
 		spa_pod_builder_control(&b.b, volume_offs, SPA_CONTROL_Properties);
 		spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_Props, 0,
-				SPA_PROP_volume,
-				SPA_POD_Float(get_volume_at_scale(this, volume_accum)));
+				SPA_PROP_volume, SPA_POD_Float(vas));
 		volume_accum += volume_step;
 		volume_offs += ramp_step_samples;
-	} while (volume_accum < p->volume);
+	} while (volume_accum < end);
 	return spa_pod_builder_pop(&b.b, &f[0]);
 }
 
-static struct spa_pod *generate_ramp_down_seq(struct impl *this)
+static struct spa_pod *generate_ramp_down_seq(struct impl *this, struct volume_ramp_params *vrp,
+		void *buffer, size_t size)
 {
 	struct spa_pod_dynamic_builder b;
 	struct spa_pod_frame f[1];
-	int ramp_samples = get_ramp_samples(this);
-	int ramp_step_samples = get_ramp_step_samples(this);
-	struct props *p = &this->props;
-	double volume_accum = p->prev_volume;
-	double volume_step = ((p->prev_volume - p->volume) / (ramp_samples / ramp_step_samples));
+	int ramp_samples = get_ramp_samples(this, vrp);
+	int ramp_step_samples = get_ramp_step_samples(this, vrp);
+	float start = vrp->start, end = vrp->end, volume_accum = start;
+	float volume_step = ((start - end) / (ramp_samples / ramp_step_samples));
 	uint32_t volume_offs = 0;
 
-	spa_pod_dynamic_builder_init(&b, NULL, 0, 4096);
+	spa_pod_dynamic_builder_init(&b, buffer, size, 4096);
 
 	spa_pod_builder_push_sequence(&b.b, &f[0], 0);
 	spa_log_info(this->log, "generating ramp down sequence from %f to %f with a"
-		" step value %f at scale %d", p->prev_volume, p->volume, volume_step, p->vrp.scale);
+		" step value %f at scale %d", start, end, volume_step, vrp->scale);
 	do {
-		spa_log_trace(this->log, "volume accum %f", get_volume_at_scale(this, volume_accum));
+		float vas = get_volume_at_scale(vrp, volume_accum);
+		spa_log_trace(this->log, "volume accum %f", vas);
 		spa_pod_builder_control(&b.b, volume_offs, SPA_CONTROL_Properties);
 		spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_Props, 0,
-				SPA_PROP_volume,
-				SPA_POD_Float(get_volume_at_scale(this, volume_accum)));
+				SPA_PROP_volume, SPA_POD_Float(vas));
 
 		volume_accum -= volume_step;
 		volume_offs += ramp_step_samples;
-	} while (volume_accum > p->volume);
+	} while (volume_accum > end);
 	return spa_pod_builder_pop(&b.b, &f[0]);
 }
 
-static struct volume_ramp_params *reset_volume_ramp_params(struct impl *this)
+static void generate_volume_ramp(struct impl *this, struct volume_ramp_params *vrp,
+		void *buffer, size_t size)
 {
-	if (!this->vol_ramp_sequence) {
-		struct volume_ramp_params *vrp = &this->props.vrp;
-		spa_zero(this->props.vrp);
-		return vrp;
-	}
-	return 0;
+	void *sequence = NULL;
+	if (vrp->start == vrp->end)
+		spa_log_error(this->log, "no change in volume, cannot ramp volume");
+	else if (vrp->end > vrp->start)
+		sequence = generate_ramp_up_seq(this, vrp, buffer, size);
+	else
+		sequence = generate_ramp_down_seq(this, vrp, buffer, size);
+
+	if (!sequence)
+		spa_log_error(this->log, "unable to generate sequence");
+
+	this->vol_ramp_sequence = (struct spa_pod_sequence *) sequence;
+	this->vol_ramp_sequence_data = (void*)sequence == buffer ? NULL : sequence;
+	this->vol_ramp_offset = 0;
+	this->recalc = true;
 }
 
 static int apply_props(struct impl *this, const struct spa_pod *param)
@@ -1643,10 +1644,12 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	bool have_soft_volume = false;
 	int changed = 0;
 	int vol_ramp_params_changed = 0;
-	struct volume_ramp_params *vrp = reset_volume_ramp_params(this);
+	struct volume_ramp_params vrp;
 	uint32_t n;
 	int32_t value;
 	uint32_t id;
+
+	spa_zero(vrp);
 
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
@@ -1674,7 +1677,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			}
 
 			if (spa_pod_get_int(&prop->value, &value) == 0 && value) {
-				vrp->volume_ramp_samples = value;
+				vrp.volume_ramp_samples = value;
 				spa_log_info(this->log, "%p volume ramp samples %d", this, value);
 				vol_ramp_params_changed++;
 			}
@@ -1687,7 +1690,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			}
 
 			if (spa_pod_get_int(&prop->value, &value) == 0 && value) {
-				vrp->volume_ramp_step_samples = value;
+				vrp.volume_ramp_step_samples = value;
 				spa_log_info(this->log, "%p volume ramp step samples is %d",
 						this, value);
 			}
@@ -1700,7 +1703,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			}
 
 			if (spa_pod_get_int(&prop->value, &value) == 0 && value) {
-				vrp->volume_ramp_time = value;
+				vrp.volume_ramp_time = value;
 				spa_log_info(this->log, "%p volume ramp time %d", this, value);
 				vol_ramp_params_changed++;
 			}
@@ -1713,7 +1716,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			}
 
 			if (spa_pod_get_int(&prop->value, &value) == 0 && value) {
-				vrp->volume_ramp_step_time = value;
+				vrp.volume_ramp_step_time = value;
 				spa_log_info(this->log, "%p volume ramp time %d", this, value);
 			}
 			break;
@@ -1725,7 +1728,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			}
 
 			if (spa_pod_get_id(&prop->value, &id) == 0 && id) {
-				vrp->scale = id;
+				vrp.scale = id;
 				spa_log_info(this->log, "%p volume ramp scale %d", this, id);
 			}
 			break;
@@ -1799,20 +1802,11 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	}
 
 	if (!p->lock_volumes && vol_ramp_params_changed) {
-		void *sequence = NULL;
-		if (p->volume == p->prev_volume)
-			spa_log_error(this->log, "no change in volume, cannot ramp volume");
-		else if (p->volume > p->prev_volume)
-			sequence = generate_ramp_up_seq(this);
-		else
-			sequence = generate_ramp_down_seq(this);
-
-		if (!sequence)
-			spa_log_error(this->log, "unable to generate sequence");
-
-		this->vol_ramp_sequence = (struct spa_pod_sequence *) sequence;
-		this->vol_ramp_offset = 0;
-		this->recalc = true;
+		struct dir *dir = &this->dir[SPA_DIRECTION_REVERSE(this->direction)];
+		vrp.start = p->prev_volume;
+		vrp.end = p->volume;
+		vrp.rate  = dir->format.info.raw.rate;
+		generate_volume_ramp(this, &vrp, NULL, 0);
 	}
 	if (changed) {
 		this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
@@ -3566,7 +3560,8 @@ static void run_channelmix_stage(struct stage *s, struct stage_context *c)
 	} else if (impl->vol_ramp_sequence) {
 		if (channelmix_process_apply_sequence(impl, impl->vol_ramp_sequence,
 				&impl->vol_ramp_offset, out_datas, in_datas, c->n_samples) == 1) {
-			free(impl->vol_ramp_sequence);
+			free(impl->vol_ramp_sequence_data);
+			impl->vol_ramp_sequence_data = NULL;
 			impl->vol_ramp_sequence = NULL;
 		}
 	} else {
@@ -4193,7 +4188,7 @@ static int impl_clear(struct spa_handle *handle)
 		resample_free(&this->resample);
 	if (this->wav_file != NULL)
 		wav_file_close(this->wav_file);
-	free (this->vol_ramp_sequence);
+	free (this->vol_ramp_sequence_data);
 	return 0;
 }
 

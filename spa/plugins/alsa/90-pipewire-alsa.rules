@@ -139,6 +139,8 @@ ATTRS{idVendor}=="9886", ATTRS{idProduct}=="0038", ENV{ACP_PROFILE_SET}="usb-gam
 ATTRS{idVendor}=="9886", ATTRS{idProduct}=="0045", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 # ID 1532:0520 is for the Razer Kraken Tournament Edition
 ATTRS{idVendor}=="1532", ATTRS{idProduct}=="0520", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
+# ID 2cc2:0033 is for the Lautsprecher Teufel GmbH CAGE PRO
+ATTRS{idVendor}=="2cc2", ATTRS{idProduct}=="0033", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 
 
 # ID 1038:1250 is for the Arctis 5

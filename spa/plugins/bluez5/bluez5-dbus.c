@@ -4763,6 +4763,9 @@ int spa_bt_device_ensure_media_codec(struct spa_bt_device *device, const struct 
 	}
 
 	for (i = 0; codecs[i] != NULL; ++i) {
+		if (codecs[i]->kind != MEDIA_CODEC_BAP && codecs[i]->kind != MEDIA_CODEC_A2DP)
+			continue;
+
 		if (spa_bt_device_supports_media_codec(device, codecs[i], device->connected_profiles)) {
 			codec = codecs[i];
 			break;
@@ -4827,8 +4830,10 @@ int spa_bt_device_ensure_media_codec(struct spa_bt_device *device, const struct 
 	}
 
 	/* Sort in codec preference order */
-	codec_switch_cmp_sw = sw;
-	qsort(sw->paths, num_eps, sizeof(*sw->paths), codec_switch_cmp);
+	if (codec->caps_preference_cmp) {
+		codec_switch_cmp_sw = sw;
+		qsort(sw->paths, num_eps, sizeof(*sw->paths), codec_switch_cmp);
+	}
 
 	/* Pick at most one source and one sink endpoint, if corresponding profiles are
 	 * set */

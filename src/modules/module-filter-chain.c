@@ -606,6 +606,24 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * - `command` the command to execute. It should consume samples from stdin and produce
  *             samples on stdout.
  *
+ * ### Zeroramp
+ *
+ * The `zeroramp` plugin can be used to detect unnatural silence parts in the audio
+ * stream and ramp the volume down or up when entering or leaving the silent area
+ * respectively.
+ * This can be used to avoid loud pops and clicks that occur when the sample values
+ * suddenly drop to zero or jump from zero to a large value caused by a pause,
+ * resume or an error of the stream. It only detect areas where the sample values
+ * are absolute zero values, such as those inserted when pausing a stream.
+ *
+ * It has an "In" input port and an "Out" output data ports.
+ *
+ * There are also "Gap (s)" and an "Duration (s)" input control ports. "Gap (s)"
+ * determines how long the silence gap is in seconds (default 0.000666) and
+ * "Duration (s)" determines how long the fade-in and fade-out should last
+ * (default 0.000666).
+ *
+ *
  * ## SOFA filters
  *
  * There is an optional `sofa` type available (when compiled with `libmysofa`).

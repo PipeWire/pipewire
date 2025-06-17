@@ -56,6 +56,10 @@ struct builtin {
 	float b0, b1, b2;
 	float a0, a1, a2;
 	float accum;
+
+	int mode;
+	uint32_t count;
+	float last;
 };
 
 static void *builtin_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
@@ -2776,6 +2780,98 @@ static const struct spa_fga_descriptor pipe_desc = {
 	.cleanup = pipe_cleanup,
 };
 
+/* zeroramp */
+static struct spa_fga_port zeroramp_ports[] = {
+	{ .index = 0,
+	  .name = "In",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "Out",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 2,
+	  .name = "Gap (s)",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	  .def = 0.000666f, .min = 0.0f, .max = 1.0f
+	},
+	{ .index = 3,
+	  .name = "Duration (s)",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	  .def = 0.000666f, .min = 0.0f, .max = 1.0f
+	},
+};
+
+static void zeroramp_run(void * Instance, unsigned long SampleCount)
+{
+	struct builtin *impl = Instance;
+	float *in = impl->port[0];
+	float *out = impl->port[1];
+	uint32_t n, i, c;
+	uint32_t gap = (uint32_t)(impl->port[2][0] * impl->rate);
+	uint32_t duration = (uint32_t)(impl->port[3][0] * impl->rate);
+
+	if (out == NULL)
+		return;
+
+	if (in != NULL) {
+		for (n = 0; n < SampleCount; n++) {
+			if (impl->mode == 0) {
+				/* normal mode, finding gaps */
+				out[n] = in[n];
+				if (in[n] == 0.0) {
+					if (++impl->count == gap) {
+						/* we found gap zeroes, fade out last
+						 * sample and go into zero mode */
+						for (c = 1, i = n; c < duration && i > 0; i--, c++)
+							out[i-1] = impl->last *
+								(0.5f + 0.5f * cosf(M_PIf + M_PIf * c / duration));
+						impl->mode = 1;
+					}
+				} else {
+					/* keep last sample to fade out when needed */
+					impl->count = 0;
+					impl->last = in[n];
+				}
+			}
+			if (impl->mode == 1) {
+				/* zero mode */
+				if (in[n] != 0.0f) {
+					/* gap ended, move to fade-in mode */
+					impl->mode = 2;
+					impl->count = 0;
+				} else {
+					out[n] = 0.0f;
+				}
+			}
+			if (impl->mode == 2) {
+				/* fade-in mode */
+				out[n] = in[n] * (0.5f + 0.5f * cosf(M_PIf + (M_PIf * ++impl->count / duration)));
+				if (impl->count == duration) {
+					/* fade in complete, back to normal mode */
+					impl->count = 0;
+					impl->mode = 0;
+				}
+			}
+		}
+	} else {
+		memset(out, 0, SampleCount * sizeof(float));
+	}
+}
+
+static const struct spa_fga_descriptor zeroramp_desc = {
+	.name = "zeroramp",
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = SPA_N_ELEMENTS(zeroramp_ports),
+	.ports = zeroramp_ports,
+
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = zeroramp_run,
+	.cleanup = builtin_cleanup,
+};
+
 static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 {
 	switch(Index) {
@@ -2837,6 +2933,8 @@ static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 		return &debug_desc;
 	case 28:
 		return &pipe_desc;
+	case 29:
+		return &zeroramp_desc;
 	}
 	return NULL;
 }

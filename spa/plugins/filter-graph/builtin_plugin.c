@@ -2802,6 +2802,10 @@ static struct spa_fga_port zeroramp_ports[] = {
 	},
 };
 
+#ifndef M_PIf
+# define M_PIf	3.14159265358979323846f /* pi */
+#endif
+
 static void zeroramp_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;

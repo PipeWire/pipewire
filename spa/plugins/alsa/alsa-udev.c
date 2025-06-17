@@ -94,6 +94,7 @@ struct impl {
 	struct spa_source notify;
 	unsigned int use_acp:1;
 	unsigned int expose_busy:1;
+	int use_ucm;
 };
 
 static int impl_udev_open(struct impl *this)
@@ -500,7 +501,7 @@ static int emit_added_object_info(struct impl *this, struct card *card)
 	if (num_pcm_devices > 0) {
 		struct spa_device_object_info info;
 		char *cn = NULL, *cln = NULL;
-		struct spa_dict_item items[25];
+		struct spa_dict_item items[26];
 		unsigned int n_items = 0;
 
 		card->pcm_device_id = calc_pcm_device_id(card);
@@ -521,6 +522,9 @@ static int emit_added_object_info(struct impl *this, struct card *card)
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ENUM_API, "udev");
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API,  "alsa");
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Device");
+		if (this->use_ucm != -1)
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_USE_UCM,
+					this->use_ucm ? "true" : "false");
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH, path);
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD, path+3);
 		if (snd_card_get_name(card->card_nr, &cn) >= 0)
@@ -1105,6 +1109,7 @@ impl_init(const struct spa_handle_factory *factory,
 	alsa_log_topic_init(this->log);
 	this->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 	this->main_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_System);
+	this->use_ucm = -1;
 
 	if (this->main_loop == NULL) {
 		spa_log_error(this->log, "a main-loop is needed");
@@ -1131,6 +1136,8 @@ impl_init(const struct spa_handle_factory *factory,
 			this->use_acp = spa_atob(str);
 		else if ((str = spa_dict_lookup(info, "alsa.udev.expose-busy")) != NULL)
 			this->expose_busy = spa_atob(str);
+		else if ((str = spa_dict_lookup(info, "alsa.use-ucm")) != NULL)
+			this->use_ucm = spa_atob(str) ? 1 : 0;
 	}
 
 	return 0;

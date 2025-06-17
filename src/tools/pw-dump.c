@@ -64,6 +64,9 @@ struct data {
 #define STATE_MASK	0xffff0000
 #define STATE_SIMPLE	(1<<16)
 	uint32_t state;
+	const char *comma_char;
+	const char *keysep_char;
+	bool simple_string;
 
 	unsigned int monitor:1;
 };
@@ -216,13 +219,25 @@ static void object_destroy(struct object *o)
 
 static void put_key(struct data *d, const char *key);
 
+#define REJECT	"\"\\'=:,{}[]()#"
+
+static bool is_simple_string(const char *val)
+{
+	int i;
+	for (i = 0; val[i]; i++) {
+		if (val[i] < 0x20 || strchr(REJECT, val[i]) != NULL)
+			return false;
+	}
+	return true;
+}
+
 static SPA_PRINTF_FUNC(3,4) void put_fmt(struct data *d, const char *key, const char *fmt, ...)
 {
 	va_list va;
 	if (key)
 		put_key(d, key);
 	fprintf(d->out, "%s%s%*s",
-			d->state & STATE_COMMA ? "," : "",
+			d->state & STATE_COMMA ? d->comma_char : "",
 			d->state & (STATE_MASK | STATE_KEY) ? " " : (d->state & STATE_FIRST) || raw ? "" : "\n",
 			d->state & (STATE_MASK | STATE_KEY) ? 0 : d->level, "");
 	va_start(va, fmt);
@@ -234,9 +249,13 @@ static SPA_PRINTF_FUNC(3,4) void put_fmt(struct data *d, const char *key, const 
 static void put_key(struct data *d, const char *key)
 {
 	int size = (strlen(key) + 1) * 4;
-	char *str = alloca(size);
-	spa_json_encode_string(str, size, key);
-	put_fmt(d, NULL, "%s%s%s:", KEY, str, NORMAL);
+	if (d->simple_string && is_simple_string(key)) {
+		put_fmt(d, NULL, "%s%s%s%s", KEY, key, NORMAL, d->keysep_char);
+	} else {
+		char *str = alloca(size);
+		spa_json_encode_string(str, size, key);
+		put_fmt(d, NULL, "%s%s%s%s", KEY, str, NORMAL, d->keysep_char);
+	}
 	d->state = (d->state & STATE_MASK) + STATE_KEY;
 }
 
@@ -262,9 +281,13 @@ static void put_encoded_string(struct data *d, const char *key, const char *val)
 static void put_string(struct data *d, const char *key, const char *val)
 {
 	int size = (strlen(val) + 1) * 4;
-	char *str = alloca(size);
-	spa_json_encode_string(str, size, val);
-	put_encoded_string(d, key, str);
+	if (d->simple_string && is_simple_string(val)) {
+		put_encoded_string(d, key, val);
+	} else {
+		char *str = alloca(size);
+		spa_json_encode_string(str, size, val);
+		put_encoded_string(d, key, str);
+	}
 }
 
 static void put_literal(struct data *d, const char *key, const char *val)
@@ -1515,7 +1538,9 @@ static void show_help(struct data *data, const char *name, bool error)
 		"  -m, --monitor                         monitor changes\n"
 		"  -N, --no-colors                       disable color output\n"
 		"  -C, --color[=WHEN]                    whether to enable color support. WHEN is `never`, `always`, or `auto`\n"
-		"  -R, --raw                             force raw output\n",
+		"  -R, --raw                             force raw output\n"
+		"  -i, --indent                          indentation amount (default 2)\n"
+		"  -s, --spa                             SPA JSON output\n",
 		name);
 }
 
@@ -1533,6 +1558,8 @@ int main(int argc, char *argv[])
 		{ "no-colors",	no_argument,		NULL, 'N' },
 		{ "color",	optional_argument,	NULL, 'C' },
 		{ "raw",	no_argument,		NULL, 'R' },
+		{ "indent",	required_argument,	NULL, 'i' },
+		{ "spa",	no_argument,		NULL, 's' },
 		{ NULL, 0, NULL, 0}
 	};
 	int c;
@@ -1545,7 +1572,11 @@ int main(int argc, char *argv[])
 		colors = true;
 	setlinebuf(data.out);
 
-	while ((c = getopt_long(argc, argv, "hVr:mNCR", long_options, NULL)) != -1) {
+	data.comma_char = ",";
+	data.keysep_char = ":";
+	data.indent = INDENT;
+
+	while ((c = getopt_long(argc, argv, "hVr:mNCRi:s", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h' :
 			show_help(&data, argv[0], false);
@@ -1584,12 +1615,21 @@ int main(int argc, char *argv[])
 				return -1;
 			}
 			break;
+		case 'i' :
+			data.indent = atoi(optarg);
+			break;
+		case 's' :
+			data.comma_char = "";
+			data.keysep_char = " =";
+			data.simple_string = true;
+			break;
 		default:
 			show_help(&data, argv[0], true);
 			return -1;
 		}
 	}
-	data.indent = raw ? 0 : INDENT;
+	if (raw)
+		data.indent = 0;
 
 	if (optind < argc)
 		data.pattern = argv[optind++];

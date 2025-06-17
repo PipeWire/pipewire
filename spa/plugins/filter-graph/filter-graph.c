@@ -351,6 +351,15 @@ static struct node *find_node(struct graph *graph, const char *name)
 	}
 	return NULL;
 }
+#if !defined(strdupa)
+# define strdupa(s)                                                                   \
+        ({                                                                            \
+                const char *__old = (s);                                              \
+                size_t __len = strlen(__old) + 1;                                     \
+                char *__new = (char *) alloca(__len);                                 \
+                (char *) memcpy(__new, __old, __len);                                 \
+        })
+#endif
 
 /* find a port by name. Valid syntax is:
  *  "<node_name>:<port_name>"

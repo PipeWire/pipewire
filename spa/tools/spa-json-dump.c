@@ -294,7 +294,7 @@ int main(int argc, char *argv[])
 	if (spa_streq(d.filename, "-"))
 		return process_stdin(&d);
 
-	 ((fd = open(d.filename,  O_CLOEXEC | O_RDONLY)) < 0)  {
+	if ((fd = open(d.filename,  O_CLOEXEC | O_RDONLY)) < 0) {
 		fprintf(stderr, "error opening file '%s': %m\n", d.filename);
 		goto error;
 	}

@@ -529,8 +529,7 @@ impl_node_port_enum_params(void *object, int seq,
 		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
-			SPA_FORMAT_CONTROL_types,  SPA_POD_CHOICE_FLAGS_Int(1u<<SPA_CONTROL_UMP));
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		break;
 
 	case SPA_PARAM_Format:
@@ -541,8 +540,7 @@ impl_node_port_enum_params(void *object, int seq,
 		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
-			SPA_FORMAT_CONTROL_types,  SPA_POD_Int(1u<<SPA_CONTROL_UMP));
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		break;
 
 	case SPA_PARAM_Buffers:
@@ -635,20 +633,12 @@ static int port_set_format(void *object, struct seq_port *port,
 		port->have_format = false;
 	} else {
 		struct spa_audio_info info = { 0 };
-		uint32_t types;
 
 		if ((err = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
 			return err;
 
 		if (info.media_type != SPA_MEDIA_TYPE_application ||
 		    info.media_subtype != SPA_MEDIA_SUBTYPE_control)
-			return -EINVAL;
-
-		if ((err = spa_pod_parse_object(format,
-				SPA_TYPE_OBJECT_Format, NULL,
-				SPA_FORMAT_CONTROL_types,  SPA_POD_Int(&types))) < 0)
-			return err;
-		if (types != 1u << SPA_CONTROL_UMP)
 			return -EINVAL;
 
 		port->current_format = info;

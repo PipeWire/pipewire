@@ -36,6 +36,7 @@ static const char *const pulse_module_options =
 	"ttl=<ttl value> "
 	"inhibit_auto_suspend=<always|never|only_with_non_monitor_sources> "
 	"stream_name=<name of the stream> "
+	"stream_properties=<properties for the stream> "
 	"enable_opus=<enable OPUS codec>";
 
 #define NAME "rtp-send"
@@ -199,6 +200,8 @@ static int module_rtp_send_prepare(struct module * const module)
 			pw_properties_set(stream_props, PW_KEY_TARGET_OBJECT, str);
 		}
 	}
+	if ((str = pw_properties_get(props, "stream_properties")) != NULL)
+		module_args_add_props(stream_props, str);
 
 	if (module_args_to_audioinfo_keys(module->impl, props,
 			"format", "rate", "channels", "channel_map", &info) < 0) {

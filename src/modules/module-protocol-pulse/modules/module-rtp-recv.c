@@ -26,7 +26,8 @@
 static const char *const pulse_module_options =
 	"sink=<name of the sink> "
 	"sap_address=<multicast address to listen on> "
-	"latency_msec=<latency in ms> ";
+	"latency_msec=<latency in ms> "
+	"stream_properties=<properties for the stream> ";
 
 #define NAME "rtp-recv"
 
@@ -141,6 +142,8 @@ static int module_rtp_recv_prepare(struct module * const module)
 		pw_properties_set(stream_props, PW_KEY_TARGET_OBJECT, str);
 	if ((str = pw_properties_get(props, "latency_msec")) != NULL)
 		pw_properties_set(stream_props, "sess.latency.msec", str);
+	if ((str = pw_properties_get(props, "stream_properties")) != NULL)
+		module_args_add_props(stream_props, str);
 
 	d->module = module;
 	d->stream_props = stream_props;

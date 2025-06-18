@@ -80,6 +80,16 @@ struct global {
 	struct pw_properties *properties;
 };
 
+struct var {
+	int type;
+#define TYPE_UNKNOWN	0
+#define TYPE_REMOTE	1
+#define TYPE_PROXY	2
+#define TYPE_MODULE	3
+	uint32_t id;
+	void *object;
+};
+
 struct remote_data {
 	struct spa_list link;
 	struct data *data;
@@ -107,6 +117,7 @@ struct proxy_data {
 	const struct class *class;
 	struct spa_hook proxy_listener;
 	struct spa_hook object_listener;
+	uint32_t id;
 };
 
 struct command {
@@ -115,6 +126,70 @@ struct command {
 	const char *description;
 	bool (*func) (struct data *data, const char *cmd, char *args, char **error);
 };
+
+
+static uint32_t add_var(struct data *data, void *object, int type)
+{
+	struct var *var;
+	if ((var = calloc(1, sizeof(*var))) == NULL)
+		return SPA_ID_INVALID;
+	var->type = type;
+	var->object = object;
+	var->id = pw_map_insert_new(&data->vars, var);
+	return var->id;
+}
+static void *find_var(struct data *data, uint32_t id, int type)
+{
+	struct var *var;
+	var = pw_map_lookup(&data->vars, id);
+	if (var == NULL || var->type != type)
+		return NULL;
+	return var->object;
+}
+
+static void remove_var(struct data *data, uint32_t id, int type)
+{
+	struct var *var;
+	var = pw_map_lookup(&data->vars, id);
+	if (var == NULL || var->type != type)
+		return;
+	pw_map_remove(&data->vars, var->id);
+	free(var);
+}
+
+static int list_var(void *item_data, void *data)
+{
+	struct var *var = item_data;
+	switch (var->type) {
+	case TYPE_MODULE:
+		printf("%d = @module:%d\n", var->id, pw_global_get_id(pw_impl_module_get_global(var->object)));
+		break;
+	case TYPE_PROXY:
+		printf("%d = @proxy:%d\n", var->id, pw_proxy_get_id(var->object));
+		break;
+	case TYPE_REMOTE:
+	{
+		struct remote_data *rd = var->object;
+		printf("%d = @remote:%p\n", var->id, rd->core);
+		break;
+	}
+	}
+	return 0;
+}
+
+static void print_var(struct data *data, uint32_t id)
+{
+	struct var *var;
+	var = pw_map_lookup(&data->vars, id);
+	if (var == NULL)
+		return;
+	list_var(var, data);
+}
+
+static void list_vars(struct data *data)
+{
+	pw_map_for_each(&data->vars, list_var, data);
+}
 
 static struct spa_dict * global_props(struct global *global);
 static struct global * obj_global(struct remote_data *rd, uint32_t id);
@@ -170,6 +245,7 @@ static bool do_not_implemented(struct data *data, const char *cmd, char *args, c
 #endif
 
 static bool do_help(struct data *data, const char *cmd, char *args, char **error);
+static bool do_list_vars(struct data *data, const char *cmd, char *args, char **error);
 static bool do_load_module(struct data *data, const char *cmd, char *args, char **error);
 static bool do_unload_module(struct data *data, const char *cmd, char *args, char **error);
 static bool do_list_objects(struct data *data, const char *cmd, char *args, char **error);
@@ -194,6 +270,7 @@ static bool do_quit(struct data *data, const char *cmd, char *args, char **error
 
 static const struct command command_list[] = {
 	{ "help", "h", "Show this help", do_help },
+	{ "list-vars", "lv", "List all variables", do_list_vars },
 	{ "load-module", "lm", "Load a module. <module-name> [<module-arguments>]", do_load_module },
 	{ "unload-module", "um", "Unload a module. <module-var>", do_unload_module },
 	{ "connect", "con", "Connect to a remote. [<remote-name>]", do_connect },
@@ -238,6 +315,13 @@ static bool do_help(struct data *data, const char *cmd, char *args, char **error
 	return true;
 }
 
+static bool do_list_vars(struct data *data, const char *cmd, char *args, char **error)
+{
+	printf("Known variables:\n");
+	list_vars(data);
+	return true;
+}
+
 static bool do_load_module(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct pw_impl_module *module;
@@ -257,9 +341,9 @@ static bool do_load_module(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 
-	id = pw_map_insert_new(&data->vars, module);
+	id = add_var(data, module, TYPE_MODULE);
 	if (data->interactive)
-		printf("%d = @module:%d\n", id, pw_global_get_id(pw_impl_module_get_global(module)));
+		print_var(data, id);
 
 	return true;
 }
@@ -277,12 +361,12 @@ static bool do_unload_module(struct data *data, const char *cmd, char *args, cha
 		return false;
 	}
 	idx = atoi(a[0]);
-	module = pw_map_lookup(&data->vars, idx);
+	module = find_var(data, idx, TYPE_MODULE);
 	if (module == NULL) {
 		*error = spa_aprintf("%s: unknown module '%s'", cmd, a[0]);
 		return false;
 	}
-	pw_map_remove(&data->vars, idx);
+	remove_var(data, idx, TYPE_MODULE);
 	pw_impl_module_destroy(module);
 	return true;
 }
@@ -496,7 +580,7 @@ static void on_core_destroy(void *_data)
 	spa_hook_remove(&rd->core_listener);
 	spa_hook_remove(&rd->proxy_core_listener);
 
-	pw_map_remove(&data->vars, rd->id);
+	remove_var(data, rd->id, TYPE_REMOTE);
 	pw_map_for_each(&rd->globals, destroy_global, rd);
 	pw_map_clear(&rd->globals);
 
@@ -539,11 +623,11 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 	rd->core = core;
 	rd->data = data;
 	pw_map_init(&rd->globals, 64, 16);
-	rd->id = pw_map_insert_new(&data->vars, rd);
+	rd->id = add_var(data, rd, TYPE_REMOTE);
 	spa_list_append(&data->remotes, &rd->link);
 
 	if (rd->data->interactive)
-		printf("%d = @remote:%p\n", rd->id, rd->core);
+		print_var(data, rd->id);
 
 	data->current = rd;
 
@@ -572,7 +656,7 @@ static bool do_disconnect(struct data *data, const char *cmd, char *args, char *
 	n = pw_split_ip(args, WHITESPACE, 1, a);
 	if (n >= 1) {
 		idx = atoi(a[0]);
-		rd = pw_map_lookup(&data->vars, idx);
+		rd = find_var(data, idx, TYPE_REMOTE);
 		if (rd == NULL)
 			goto no_remote;
 
@@ -614,7 +698,7 @@ static bool do_switch_remote(struct data *data, const char *cmd, char *args, cha
 	if (n == 1)
 		idx = atoi(a[0]);
 
-	rd = pw_map_lookup(&data->vars, idx);
+	rd = find_var(data, idx, TYPE_REMOTE);
 	if (rd == NULL)
 		goto no_remote;
 
@@ -1454,7 +1538,6 @@ static bool do_create_device(struct data *data, const char *cmd, char *args, cha
 	struct remote_data *rd = data->current;
 	char *a[2];
 	int n;
-	uint32_t id;
 	struct pw_proxy *proxy;
 	struct pw_properties *props = NULL;
 	struct proxy_data *pd;
@@ -1484,9 +1567,9 @@ static bool do_create_device(struct data *data, const char *cmd, char *args, cha
 	pw_proxy_add_object_listener(proxy, &pd->object_listener, &device_events, pd);
 	pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
-	id = pw_map_insert_new(&data->vars, proxy);
+	pd->id = add_var(data, proxy, TYPE_PROXY);
 	if (rd->data->interactive)
-		printf("%d = @proxy:%d\n", id, pw_proxy_get_id(proxy));
+		print_var(data, pd->id);
 
 	return true;
 }
@@ -1496,7 +1579,6 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 	struct remote_data *rd = data->current;
 	char *a[2];
 	int n;
-	uint32_t id;
 	struct pw_proxy *proxy;
 	struct pw_properties *props = NULL;
 	struct proxy_data *pd;
@@ -1526,9 +1608,9 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 	pw_proxy_add_object_listener(proxy, &pd->object_listener, &node_events, pd);
 	pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
-	id = pw_map_insert_new(&data->vars, proxy);
+	pd->id = add_var(data, proxy, TYPE_PROXY);
 	if (rd->data->interactive)
-		printf("%d = @proxy:%d\n", id, pw_proxy_get_id(proxy));
+		printf("%d = @proxy:%d\n", pd->id, pw_proxy_get_id(proxy));
 
 	return true;
 }
@@ -1588,7 +1670,6 @@ obj_global_port(struct remote_data *rd, struct global *global, const char *port_
 static void create_link_with_properties(struct data *data, const struct pw_properties *props)
 {
 	struct remote_data *rd = data->current;
-	uint32_t id;
 	struct pw_proxy *proxy;
 	struct proxy_data *pd;
 
@@ -1606,9 +1687,9 @@ static void create_link_with_properties(struct data *data, const struct pw_prope
 	pw_proxy_add_object_listener(proxy, &pd->object_listener, &link_events, pd);
 	pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
-	id = pw_map_insert_new(&data->vars, proxy);
+	pd->id = add_var(data, proxy, TYPE_PROXY);
 	if (rd->data->interactive)
-		printf("%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
+		printf("%d = @proxy:%d\n", pd->id, pw_proxy_get_id((struct pw_proxy*)proxy));
 }
 
 static bool do_create_link(struct data *data, const char *cmd, char *args, char **error)
@@ -1712,7 +1793,7 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 	}
 	if (n == 2) {
 		idx = atoi(a[1]);
-		rd = pw_map_lookup(&data->vars, idx);
+		rd = find_var(data, idx, TYPE_REMOTE);
 		if (rd == NULL)
 			goto no_remote;
 	}
@@ -1729,7 +1810,7 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 	node = pw_global_get_object(global);
 	proxy = pw_core_export(rd->core, PW_TYPE_INTERFACE_Node, NULL, node, 0);
 
-	id = pw_map_insert_new(&data->vars, proxy);
+	id = add_var(data, proxy, TYPE_PROXY);
 	if (rd->data->interactive)
 		printf("%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
 

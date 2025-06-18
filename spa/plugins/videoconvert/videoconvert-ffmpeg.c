@@ -1414,9 +1414,7 @@ static int port_param_enum_format(struct impl *this, struct port *port, uint32_t
 			*param = spa_pod_builder_add_object(b,
 					SPA_TYPE_OBJECT_Format, id,
 					SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
-					SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
-					SPA_FORMAT_CONTROL_types,  SPA_POD_CHOICE_FLAGS_Int(
-						(1u<<SPA_CONTROL_UMP) | (1u<<SPA_CONTROL_Properties)));
+					SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 			return 1;
 		} else if (other->have_format) {
 			/* peer format */
@@ -1477,9 +1475,7 @@ static int port_param_format(struct impl *this, struct port *port, uint32_t id,
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_Format,  id,
 			SPA_FORMAT_mediaType,    SPA_POD_Id(SPA_MEDIA_TYPE_application),
-			SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
-			SPA_FORMAT_CONTROL_types,  SPA_POD_Int(
-				(1u<<SPA_CONTROL_UMP) | (1u<<SPA_CONTROL_Properties)));
+			SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 	} else {
 		*param = spa_format_video_build(b, id, &port->format);
 	}

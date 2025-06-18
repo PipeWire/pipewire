@@ -33,6 +33,10 @@ for many commands.
 \par quit | q
 Exit from **pw-cli**
 
+\par list-vars
+List all currently known variables and their type. Some commands create
+objects that are identified with a variable.
+
 # MODULE MANAGEMENT
 
 Modules are loaded and unloaded in the local instance, thus the pw-cli
@@ -48,12 +52,12 @@ For most modules it is OK to be loaded more than once.
 This command returns a module variable that can be used to unload the
 module.
 
-The locally module is *not* visible in the remote instance. It is not
+The local module is *not* visible in the remote instance. It is not
 possible in PipeWire to load modules in a remote instance.
 \endparblock
 
 \par unload-module *module-var*
-Unload a module, specified either by its variable.
+Unload a module, specified by its variable.
 
 # OBJECT INTROSPECTION
 

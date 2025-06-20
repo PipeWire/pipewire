@@ -102,6 +102,7 @@ struct notify {
 #define NOTIFY_TYPE_SHUTDOWN		((7<<4)|NOTIFY_ACTIVE_FLAG)
 #define NOTIFY_TYPE_LATENCY		((8<<4)|NOTIFY_ACTIVE_FLAG)
 #define NOTIFY_TYPE_TOTAL_LATENCY	((9<<4)|NOTIFY_ACTIVE_FLAG)
+#define NOTIFY_TYPE_PORT_RENAME		((10<<4)|NOTIFY_ACTIVE_FLAG)
 	int type;
 	struct object *object;
 	int arg1;
@@ -171,6 +172,7 @@ struct object {
 		} port_link;
 		struct {
 			unsigned long flags;
+			char old_name[REAL_JACK_PORT_NAME_SIZE+1];
 			char name[REAL_JACK_PORT_NAME_SIZE+1];
 			char alias1[REAL_JACK_PORT_NAME_SIZE+1];
 			char alias2[REAL_JACK_PORT_NAME_SIZE+1];
@@ -1083,6 +1085,16 @@ static void on_notify_event(void *data, uint64_t count)
 					notify->arg1,
 					c->portregistration_arg);
 			break;
+		case NOTIFY_TYPE_PORT_RENAME:
+			if (o->registered == notify->arg1)
+				break;
+			pw_log_debug("%p: port rename %u %s->%s", c, o->serial,
+					o->port.old_name, o->port.name);
+			do_callback(c, rename_callback, c->active,
+					o->serial,
+					o->port.old_name, o->port.name,
+					c->rename_arg);
+			break;
 		case NOTIFY_TYPE_CONNECT:
 			if (o->registered == notify->arg1)
 				break;
@@ -1182,6 +1194,9 @@ static int queue_notify(struct client *c, int type, struct object *o, int arg1, 
 	case NOTIFY_TYPE_PORTREGISTRATION:
 		emit = c->portregistration_callback != NULL && o != NULL;
 		o->visible = arg1;
+		break;
+	case NOTIFY_TYPE_PORT_RENAME:
+		emit = c->rename_callback != NULL && o != NULL;
 		break;
 	case NOTIFY_TYPE_CONNECT:
 		emit = c->connect_callback != NULL && o != NULL;
@@ -3674,6 +3689,67 @@ static const struct pw_node_events node_events = {
 	.info = node_info,
 };
 
+#define FILTER_NAME	" ()[].:*$"
+#define FILTER_PORT	" ()[].*$"
+
+static void filter_name(char *str, const char *filter, char filter_char)
+{
+	char *p;
+	for (p = str; *p; p++) {
+		if (strchr(filter, *p) != NULL)
+			*p = filter_char;
+	}
+}
+
+static int update_port_name(struct object *o, const char *name)
+{
+	struct object *ot = o->port.node, *op;
+	struct client *c = o->client;
+	char tmp[REAL_JACK_PORT_NAME_SIZE+1];
+	char port_name[REAL_JACK_PORT_NAME_SIZE+1];
+
+	if (o->port.is_monitor && !c->merge_monitor)
+		snprintf(tmp, sizeof(tmp), "%.*s%s:%s",
+			(int)(JACK_CLIENT_NAME_SIZE-(sizeof(MONITOR_EXT)-1)),
+			ot->node.name, MONITOR_EXT, name);
+	else
+		snprintf(tmp, sizeof(tmp), "%s:%s", ot->node.name, name);
+
+	if (c->filter_name)
+		filter_name(tmp, FILTER_PORT, c->filter_char);
+
+	op = find_port_by_name(c, tmp);
+	if (op != NULL && op != o)
+		snprintf(port_name, sizeof(port_name), "%.*s-%u",
+				(int)(sizeof(tmp)-11), tmp, o->serial);
+	else
+		snprintf(port_name, sizeof(port_name), "%s", tmp);
+
+	if (spa_streq(port_name, o->port.name))
+		return 0;
+
+	strcpy(o->port.old_name, o->port.name);
+	strcpy(o->port.name, port_name);
+	return 1;
+}
+
+static void port_info(void *data, const struct pw_port_info *info)
+{
+	struct object *o = data;
+	struct client *c = o->client;
+
+	if (info->change_mask & PW_PORT_CHANGE_MASK_PROPS) {
+		const char *str = spa_dict_lookup(info->props, PW_KEY_PORT_NAME);
+		if (str != NULL) {
+			if (update_port_name(o, str) > 0) {
+				pw_log_info("%p: port rename %u %s->%s", c, o->serial,
+						o->port.old_name, o->port.name);
+				queue_notify(c, NOTIFY_TYPE_PORT_RENAME, o, 1, NULL);
+			}
+		}
+	}
+}
+
 static void port_param(void *data, int seq,
 			uint32_t id, uint32_t index, uint32_t next,
 			const struct spa_pod *param)
@@ -3696,27 +3772,16 @@ static void port_param(void *data, int seq,
 
 static const struct pw_port_events port_events = {
 	PW_VERSION_PORT_EVENTS,
+	.info = port_info,
 	.param = port_param,
 };
-
-#define FILTER_NAME	" ()[].:*$"
-#define FILTER_PORT	" ()[].*$"
-
-static void filter_name(char *str, const char *filter, char filter_char)
-{
-	char *p;
-	for (p = str; *p; p++) {
-		if (strchr(filter, *p) != NULL)
-			*p = filter_char;
-	}
-}
 
 static void registry_event_global(void *data, uint32_t id,
                                   uint32_t permissions, const char *type, uint32_t version,
                                   const struct spa_dict *props)
 {
 	struct client *c = (struct client *) data;
-	struct object *o, *ot, *op;
+	struct object *o, *ot;
 	const char *str;
 	bool do_emit = true, do_sync = false;
 	uint32_t serial;
@@ -3837,6 +3902,7 @@ static void registry_event_global(void *data, uint32_t id,
 		uint32_t node_id;
 		bool is_monitor = false;
 		char tmp[REAL_JACK_PORT_NAME_SIZE+1];
+		const char *name;
 
 		if ((str = spa_dict_lookup(props, PW_KEY_FORMAT_DSP)) == NULL)
 			str = "other";
@@ -3852,7 +3918,7 @@ static void registry_event_global(void *data, uint32_t id,
 		    spa_strstartswith(str, "jack:flags:"))
 			flags = atoi(str+11);
 
-		if ((str = spa_dict_lookup(props, PW_KEY_PORT_NAME)) == NULL)
+		if ((name = spa_dict_lookup(props, PW_KEY_PORT_NAME)) == NULL)
 			goto exit;
 
 		if (type_id == TYPE_ID_UMP && c->flag_midi2)
@@ -3906,6 +3972,7 @@ static void registry_event_global(void *data, uint32_t id,
 			o->port.node = ot;
 			o->port.latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
 			o->port.latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
+			o->port.type_id = type_id;
 
 			do_emit = node_is_active(c, ot);
 
@@ -3927,26 +3994,11 @@ static void registry_event_global(void *data, uint32_t id,
 			pthread_mutex_lock(&c->context.lock);
 			spa_list_append(&c->context.objects, &o->link);
 			pthread_mutex_unlock(&c->context.lock);
-
-			if (is_monitor && !c->merge_monitor)
-				snprintf(tmp, sizeof(tmp), "%.*s%s:%s",
-					(int)(JACK_CLIENT_NAME_SIZE-(sizeof(MONITOR_EXT)-1)),
-					ot->node.name, MONITOR_EXT, str);
-			else
-				snprintf(tmp, sizeof(tmp), "%s:%s", ot->node.name, str);
-
-			if (c->filter_name)
-				filter_name(tmp, FILTER_PORT, c->filter_char);
-
-			op = find_port_by_name(c, tmp);
-			if (op != NULL)
-				snprintf(o->port.name, sizeof(o->port.name), "%.*s-%u",
-						(int)(sizeof(tmp)-11), tmp, serial);
-			else
-				snprintf(o->port.name, sizeof(o->port.name), "%s", tmp);
-
-			o->port.type_id = type_id;
 		}
+
+		o->port.flags = flags;
+		o->port.node_id = node_id;
+		o->port.is_monitor = is_monitor;
 
 		if (c->fill_aliases) {
 			if ((str = spa_dict_lookup(props, PW_KEY_OBJECT_PATH)) != NULL)
@@ -3955,7 +4007,6 @@ static void registry_event_global(void *data, uint32_t id,
 			if ((str = spa_dict_lookup(props, PW_KEY_PORT_ALIAS)) != NULL)
 				snprintf(o->port.alias2, sizeof(o->port.alias2), "%s", str);
 		}
-
 		if ((str = spa_dict_lookup(props, PW_KEY_PORT_ID)) != NULL) {
 			o->port.system_id = atoi(str);
 			snprintf(o->port.system, sizeof(o->port.system), "system:%s_%d",
@@ -3964,9 +4015,7 @@ static void registry_event_global(void *data, uint32_t id,
 					o->port.system_id+1);
 		}
 
-		o->port.flags = flags;
-		o->port.node_id = node_id;
-		o->port.is_monitor = is_monitor;
+		update_port_name(o, name);
 
 		pw_log_debug("%p: %p add port %d name:%s %d", c, o, id,
 				o->port.name, type_id);

@@ -331,7 +331,7 @@ static void alsa_seq_on_sys(struct spa_source *source)
 			state->port_info(state->port_info_data, addr, NULL);
 			break;
 		default:
-			spa_log_info(state->log, "unhandled event %d: %d:%d",
+			spa_log_debug(state->log, "unhandled event %d: %d:%d",
 					type, addr->client, addr->port);
 			break;
 

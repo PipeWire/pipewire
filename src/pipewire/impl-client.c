@@ -27,6 +27,13 @@ struct impl {
 	unsigned int registered:1;
 };
 
+static const char * const global_keys[] = {
+	PW_KEY_ACCESS,
+	PW_KEY_CLIENT_ACCESS,
+	PW_KEY_APP_NAME,
+	NULL
+};
+
 #define pw_client_resource(r,m,v,...)		pw_resource_call(r,struct pw_client_events,m,v,__VA_ARGS__)
 #define pw_client_resource_info(r,...)		pw_client_resource(r,info,0,__VA_ARGS__)
 #define pw_client_resource_permissions(r,...)	pw_client_resource(r,permissions,0,__VA_ARGS__)
@@ -220,9 +227,11 @@ static int update_properties(struct pw_impl_client *client, const struct spa_dic
 
 	pw_impl_client_emit_info_changed(client, &client->info);
 
-	if (client->global)
+	if (client->global) {
+		pw_global_update_keys(client->global, client->info.props, global_keys);
 		spa_list_for_each(resource, &client->global->resource_list, link)
 			pw_client_resource_info(resource, &client->info);
+	}
 
 	client->info.change_mask = 0;
 
@@ -238,13 +247,6 @@ static void update_busy(struct pw_impl_client *client)
 
 static int finish_register(struct pw_impl_client *client)
 {
-	static const char * const keys[] = {
-		PW_KEY_ACCESS,
-		PW_KEY_CLIENT_ACCESS,
-		PW_KEY_APP_NAME,
-		NULL
-	};
-
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 	struct pw_impl_client *current;
 
@@ -260,7 +262,7 @@ static int finish_register(struct pw_impl_client *client)
 
 	update_busy(client);
 
-	pw_global_update_keys(client->global, client->info.props, keys);
+	pw_global_update_keys(client->global, client->info.props, global_keys);
 	pw_global_register(client->global);
 
 #ifdef OLD_MEDIA_SESSION_WORKAROUND

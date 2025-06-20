@@ -42,6 +42,25 @@ struct impl {
 	unsigned int cache_params:1;
 };
 
+static const char * const global_keys[] = {
+	PW_KEY_OBJECT_PATH,
+	PW_KEY_FORMAT_DSP,
+	PW_KEY_NODE_ID,
+	PW_KEY_AUDIO_CHANNEL,
+	PW_KEY_PORT_ID,
+	PW_KEY_PORT_NAME,
+	PW_KEY_PORT_DIRECTION,
+	PW_KEY_PORT_MONITOR,
+	PW_KEY_PORT_PHYSICAL,
+	PW_KEY_PORT_TERMINAL,
+	PW_KEY_PORT_CONTROL,
+	PW_KEY_PORT_ALIAS,
+	PW_KEY_PORT_EXTRA,
+	PW_KEY_PORT_IGNORE_LATENCY,
+	PW_KEY_PORT_GROUP,
+	NULL
+};
+
 #define pw_port_resource(r,m,v,...)	pw_resource_call(r,struct pw_port_events,m,v,__VA_ARGS__)
 #define pw_port_resource_info(r,...)	pw_port_resource(r,info,0,__VA_ARGS__)
 #define pw_port_resource_param(r,...)	pw_port_resource(r,param,0,__VA_ARGS__)
@@ -70,9 +89,12 @@ static void emit_info_changed(struct pw_impl_port *port)
 	if (port->node)
 		pw_impl_node_emit_port_info_changed(port->node, port, &port->info);
 
-	if (port->global)
+	if (port->global) {
+		if (port->info.change_mask & PW_PORT_CHANGE_MASK_PROPS)
+			pw_global_update_keys(port->global, port->info.props, global_keys);
 		spa_list_for_each(resource, &port->global->resource_list, link)
 			pw_port_resource_info(resource, &port->info);
+	}
 
 	port->info.change_mask = 0;
 }
@@ -1115,25 +1137,6 @@ static const struct pw_global_events global_events = {
 int pw_impl_port_register(struct pw_impl_port *port,
 		     struct pw_properties *properties)
 {
-	static const char * const keys[] = {
-		PW_KEY_OBJECT_PATH,
-		PW_KEY_FORMAT_DSP,
-		PW_KEY_NODE_ID,
-		PW_KEY_AUDIO_CHANNEL,
-		PW_KEY_PORT_ID,
-		PW_KEY_PORT_NAME,
-		PW_KEY_PORT_DIRECTION,
-		PW_KEY_PORT_MONITOR,
-		PW_KEY_PORT_PHYSICAL,
-		PW_KEY_PORT_TERMINAL,
-		PW_KEY_PORT_CONTROL,
-		PW_KEY_PORT_ALIAS,
-		PW_KEY_PORT_EXTRA,
-		PW_KEY_PORT_IGNORE_LATENCY,
-		PW_KEY_PORT_GROUP,
-		NULL
-	};
-
 	struct pw_impl_node *node = port->node;
 
 	if (node == NULL || node->global == NULL)
@@ -1158,7 +1161,7 @@ int pw_impl_port_register(struct pw_impl_port *port,
 			pw_global_get_serial(port->global));
 	port->info.props = &port->properties->dict;
 
-	pw_global_update_keys(port->global, &port->properties->dict, keys);
+	pw_global_update_keys(port->global, &port->properties->dict, global_keys);
 
 	pw_impl_port_emit_initialized(port);
 

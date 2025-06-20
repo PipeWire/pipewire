@@ -27,6 +27,19 @@ struct impl {
 	unsigned int cache_params:1;
 };
 
+static const char * const global_keys[] = {
+	PW_KEY_OBJECT_PATH,
+	PW_KEY_MODULE_ID,
+	PW_KEY_FACTORY_ID,
+	PW_KEY_CLIENT_ID,
+	PW_KEY_DEVICE_API,
+	PW_KEY_DEVICE_DESCRIPTION,
+	PW_KEY_DEVICE_NAME,
+	PW_KEY_DEVICE_NICK,
+	PW_KEY_MEDIA_CLASS,
+	NULL
+};
+
 #define pw_device_resource(r,m,v,...)	pw_resource_call(r,struct pw_device_events,m,v,__VA_ARGS__)
 #define pw_device_resource_info(r,...)	pw_device_resource(r,info,0,__VA_ARGS__)
 #define pw_device_resource_param(r,...) pw_device_resource(r,param,0,__VA_ARGS__)
@@ -581,19 +594,6 @@ SPA_EXPORT
 int pw_impl_device_register(struct pw_impl_device *device,
 		       struct pw_properties *properties)
 {
-	static const char * const keys[] = {
-		PW_KEY_OBJECT_PATH,
-		PW_KEY_MODULE_ID,
-		PW_KEY_FACTORY_ID,
-		PW_KEY_CLIENT_ID,
-		PW_KEY_DEVICE_API,
-		PW_KEY_DEVICE_DESCRIPTION,
-		PW_KEY_DEVICE_NAME,
-		PW_KEY_DEVICE_NICK,
-		PW_KEY_MEDIA_CLASS,
-		NULL
-	};
-
 	struct pw_context *context = device->context;
 	struct object_data *od;
 
@@ -619,7 +619,7 @@ int pw_impl_device_register(struct pw_impl_device *device,
 			pw_global_get_serial(device->global));
 	device->info.props = &device->properties->dict;
 
-	pw_global_update_keys(device->global, device->info.props, keys);
+	pw_global_update_keys(device->global, device->info.props, global_keys);
 
 	pw_impl_device_emit_initialized(device);
 
@@ -668,10 +668,12 @@ static void emit_info_changed(struct pw_impl_device *device)
 
 	pw_impl_device_emit_info_changed(device, &device->info);
 
-	if (device->global)
+	if (device->global) {
+		if (device->info.change_mask & PW_DEVICE_CHANGE_MASK_PROPS)
+			pw_global_update_keys(device->global, device->info.props, global_keys);
 		spa_list_for_each(resource, &device->global->resource_list, link)
 			pw_device_resource_info(resource, &device->info);
-
+	}
 	device->info.change_mask = 0;
 }
 

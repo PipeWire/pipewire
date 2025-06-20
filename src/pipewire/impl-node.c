@@ -55,6 +55,27 @@ struct impl {
 	char *sync_group;
 };
 
+static const char * const global_keys[] = {
+	PW_KEY_OBJECT_PATH,
+	PW_KEY_MODULE_ID,
+	PW_KEY_FACTORY_ID,
+	PW_KEY_CLIENT_ID,
+	PW_KEY_CLIENT_API,
+	PW_KEY_DEVICE_ID,
+	PW_KEY_PRIORITY_SESSION,
+	PW_KEY_PRIORITY_DRIVER,
+	PW_KEY_APP_NAME,
+	PW_KEY_NODE_DESCRIPTION,
+	PW_KEY_NODE_NAME,
+	PW_KEY_NODE_NICK,
+	PW_KEY_NODE_SESSION,
+	PW_KEY_MEDIA_CLASS,
+	PW_KEY_MEDIA_TYPE,
+	PW_KEY_MEDIA_CATEGORY,
+	PW_KEY_MEDIA_ROLE,
+	NULL
+};
+
 #define pw_node_resource(r,m,v,...)	pw_resource_call(r,struct pw_node_events,m,v,__VA_ARGS__)
 #define pw_node_resource_info(r,...)	pw_node_resource(r,info,0,__VA_ARGS__)
 #define pw_node_resource_param(r,...)	pw_node_resource(r,param,0,__VA_ARGS__)
@@ -357,6 +378,8 @@ static void emit_info_changed(struct pw_impl_node *node, bool flags_changed)
 
 	if (node->global && node->info.change_mask != 0) {
 		struct pw_resource *resource;
+		if (node->info.change_mask & PW_NODE_CHANGE_MASK_PROPS)
+			pw_global_update_keys(node->global, node->info.props, global_keys);
 		spa_list_for_each(resource, &node->global->resource_list, link)
 			pw_node_resource_info(resource, &node->info);
 	}
@@ -929,27 +952,6 @@ SPA_EXPORT
 int pw_impl_node_register(struct pw_impl_node *this,
 		     struct pw_properties *properties)
 {
-	static const char * const keys[] = {
-		PW_KEY_OBJECT_PATH,
-		PW_KEY_MODULE_ID,
-		PW_KEY_FACTORY_ID,
-		PW_KEY_CLIENT_ID,
-		PW_KEY_CLIENT_API,
-		PW_KEY_DEVICE_ID,
-		PW_KEY_PRIORITY_SESSION,
-		PW_KEY_PRIORITY_DRIVER,
-		PW_KEY_APP_NAME,
-		PW_KEY_NODE_DESCRIPTION,
-		PW_KEY_NODE_NAME,
-		PW_KEY_NODE_NICK,
-		PW_KEY_NODE_SESSION,
-		PW_KEY_MEDIA_CLASS,
-		PW_KEY_MEDIA_TYPE,
-		PW_KEY_MEDIA_CATEGORY,
-		PW_KEY_MEDIA_ROLE,
-		NULL
-	};
-
 	struct pw_context *context = this->context;
 	struct pw_impl_port *port;
 
@@ -985,7 +987,7 @@ int pw_impl_node_register(struct pw_impl_node *this,
 			pw_global_get_serial(this->global));
 	this->info.props = &this->properties->dict;
 
-	pw_global_update_keys(this->global, &this->properties->dict, keys);
+	pw_global_update_keys(this->global, &this->properties->dict, global_keys);
 
 	pw_impl_node_initialized(this);
 

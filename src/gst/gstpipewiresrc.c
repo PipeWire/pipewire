@@ -1512,6 +1512,8 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
   GstBuffer *buf;
   gboolean update_time = FALSE, timeout = FALSE;
   GstCaps *caps = NULL;
+  struct timespec abstime = { 0, };
+  bool have_abstime = false;
 
   pwsrc = GST_PIPEWIRE_SRC (psrc);
 
@@ -1555,13 +1557,11 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
       update_time = TRUE;
       GST_LOG_OBJECT (pwsrc, "EOS, send last buffer");
       break;
-    } else if (timeout) {
-      if (pwsrc->last_buffer != NULL) {
-        update_time = TRUE;
-        buf = gst_buffer_ref(pwsrc->last_buffer);
-        GST_LOG_OBJECT (pwsrc, "timeout, send keepalive buffer");
-        break;
-      }
+    } else if (timeout && pwsrc->last_buffer != NULL) {
+      update_time = TRUE;
+      buf = gst_buffer_ref(pwsrc->last_buffer);
+      GST_LOG_OBJECT (pwsrc, "timeout, send keepalive buffer");
+      break;
     } else {
       buf = dequeue_buffer (pwsrc);
       GST_LOG_OBJECT (pwsrc, "popped buffer %p", buf);
@@ -1573,9 +1573,13 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
     }
     timeout = FALSE;
     if (pwsrc->keepalive_time > 0) {
-      struct timespec abstime;
-      pw_thread_loop_get_time(pwsrc->stream->core->loop, &abstime,
-                      pwsrc->keepalive_time * SPA_NSEC_PER_MSEC);
+      if (!have_abstime) {
+        /* Record the time we want to timeout at once, for this loop -- the loop might get unrelated signal()s,
+        * and we don't want the keepalive time to get reset by that */
+        pw_thread_loop_get_time(pwsrc->stream->core->loop, &abstime,
+            pwsrc->keepalive_time * SPA_NSEC_PER_MSEC);
+        have_abstime = TRUE;
+      }
       if (pw_thread_loop_timed_wait_full (pwsrc->stream->core->loop, &abstime) == -ETIMEDOUT)
         timeout = TRUE;
     } else {

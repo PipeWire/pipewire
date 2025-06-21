@@ -1550,6 +1550,7 @@ static int transport_start(struct impl *this)
 		int res;
 		if ((res = spa_bt_transport_ensure_sco_io(this->transport, this->data_loop, this->data_system)) < 0)
 			goto fail;
+		spa_bt_sco_io_write_start(this->transport->sco_io);
 	}
 
 	if (!this->transport->iso_io && !is_asha) {

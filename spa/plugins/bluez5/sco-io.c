@@ -207,6 +207,11 @@ fail:
 	return res;
 }
 
+void spa_bt_sco_io_write_start(struct spa_bt_sco_io *io)
+{
+	/* drop fragment */
+	io->write_size = 0;
+}
 
 struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_bt_transport *transport, struct spa_loop *data_loop,
 		struct spa_system *data_system, struct spa_log *log)

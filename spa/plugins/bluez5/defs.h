@@ -610,6 +610,7 @@ struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_bt_transport *transport, s
 void spa_bt_sco_io_destroy(struct spa_bt_sco_io *io);
 void spa_bt_sco_io_set_source_cb(struct spa_bt_sco_io *io, int (*source_cb)(void *userdata, uint8_t *data, int size, uint64_t rx_time), void *userdata);
 int spa_bt_sco_io_write(struct spa_bt_sco_io *io, const uint8_t *buf, size_t size);
+void spa_bt_sco_io_write_start(struct spa_bt_sco_io *io);
 
 #define SPA_BT_VOLUME_ID_RX	0
 #define SPA_BT_VOLUME_ID_TX	1

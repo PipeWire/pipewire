@@ -53,8 +53,6 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.sco-io");
 
 
 struct spa_bt_sco_io {
-	bool started;
-
 	uint8_t read_buffer[MAX_MTU];
 	size_t read_size;
 
@@ -125,10 +123,8 @@ read_done:
 	return;
 
 stop:
-	if (io->source.loop) {
+	if (io->source.loop)
 		spa_loop_remove_source(io->data_loop, &io->source);
-		io->started = false;
-	}
 }
 
 static int write_packets(struct spa_bt_sco_io *io, const uint8_t **buf, size_t *size, size_t packet_size)
@@ -260,8 +256,6 @@ struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_bt_transport *transport, s
 	io->source.rmask = 0;
 	spa_loop_add_source(io->data_loop, &io->source);
 
-	io->started = true;
-
 	return io;
 }
 
@@ -282,10 +276,8 @@ static int do_remove_source(struct spa_loop *loop,
 
 void spa_bt_sco_io_destroy(struct spa_bt_sco_io *io)
 {
-	if (io->started)
-		spa_loop_locked(io->data_loop, do_remove_source, 0, NULL, 0, io);
-
-	io->started = false;
+	spa_log_debug(io->log, "%p: destroy", io);
+	spa_loop_locked(io->data_loop, do_remove_source, 0, NULL, 0, io);
 	free(io);
 }
 

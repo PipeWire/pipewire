@@ -296,7 +296,7 @@ struct pw_stream_control {
  * stream.
  *
  * pw_time.ticks gives a monotonic increasing counter of the time in the graph
- * driver. I can be used to generate a timetime to schedule samples as well
+ * driver. I can be used to generate a timeline to schedule samples as well
  * as detect discontinuities in the timeline caused by xruns.
  *
  * pw_time.delay is expressed as pw_time.rate, the time domain of the graph. This

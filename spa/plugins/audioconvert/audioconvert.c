@@ -3805,6 +3805,7 @@ static int impl_node_process(void *object)
 			if (io->status & SPA_STATUS_DRAINED) {
 				spa_log_debug(this->log, "%p: port %d drained", this, port->id);
 				in_avail = flush_in = draining = true;
+				in_empty = false;
 			} else {
 				spa_log_trace_fp(this->log, "%p: empty input port %d %p %d %d %d",
 						this, port->id, io, io->status, io->buffer_id,

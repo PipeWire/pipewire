@@ -2823,7 +2823,7 @@ static void zeroramp_run(void * Instance, unsigned long SampleCount)
 			if (impl->mode == 0) {
 				/* normal mode, finding gaps */
 				out[n] = in[n];
-				if (in[n] == 0.0) {
+				if (in[n] == 0.0f) {
 					if (++impl->count == gap) {
 						/* we found gap zeroes, fade out last
 						 * sample and go into zero mode */

@@ -3201,9 +3201,13 @@ impl_node_port_use_buffers(void *object,
 		for (j = 0; j < n_datas; j++) {
 			void *data = d[j].data;
 			if (data == NULL && SPA_FLAG_IS_SET(d[j].flags, SPA_DATA_FLAG_MAPPABLE)) {
+				int prot = 0;
+				if (SPA_FLAG_IS_SET(d[j].flags, SPA_DATA_FLAG_READABLE))
+					prot |= PROT_READ;
+				if (SPA_FLAG_IS_SET(d[j].flags, SPA_DATA_FLAG_WRITABLE))
+					prot |= PROT_WRITE;
 				data = mmap(NULL, d[j].maxsize,
-					PROT_READ, MAP_SHARED, d[j].fd,
-					d[j].mapoffset);
+					prot, MAP_SHARED, d[j].fd, d[j].mapoffset);
 				if (data == MAP_FAILED) {
 					spa_log_error(this->log, "%p: mmap failed %d on buffer %d %d %p: %m",
 							this, j, i, d[j].type, data);

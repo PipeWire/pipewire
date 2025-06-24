@@ -3939,7 +3939,7 @@ static void registry_event_global(void *data, uint32_t id,
 
 		o = NULL;
 		if (node_id == c->node_id) {
-			snprintf(tmp, sizeof(tmp), "%s:%s", c->name, str);
+			snprintf(tmp, sizeof(tmp), "%s:%s", c->name, name);
 			o = find_port_by_name(c, tmp);
 			if (o != NULL)
 				pw_log_info("%p: %s found our port %p", c, tmp, o);
@@ -4000,7 +4000,8 @@ static void registry_event_global(void *data, uint32_t id,
 					o->port.system_id+1);
 		}
 
-		update_port_name(o, name);
+		if (node_id != c->node_id)
+			update_port_name(o, name);
 
 		pw_log_debug("%p: %p add port %d name:%s %d", c, o, id,
 				o->port.name, type_id);

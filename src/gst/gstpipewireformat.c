@@ -1023,21 +1023,25 @@ handle_dmabuf_prop (const struct spa_pod_prop *prop,
 
   for (i = 0; i < n_fmts; i++) {
     for (j = 0; j < n_mods; j++) {
+      gboolean as_drm = FALSE;
       const char *fmt_str;
-
-      if ((mods[j] == DRM_FORMAT_MOD_LINEAR ||
-           mods[j] == DRM_FORMAT_MOD_INVALID) &&
-          (fmt_str = video_id_to_string(id[i])))
-        g_ptr_array_add(fmt_array, g_strdup_printf ("%s", fmt_str));
 
 #ifdef HAVE_GSTREAMER_DMA_DRM
       if (mods[j] != DRM_FORMAT_MOD_INVALID) {
         char *drm_str;
 
-        if ((drm_str = video_id_to_dma_drm_fourcc(id[i], mods[j])))
+        if ((drm_str = video_id_to_dma_drm_fourcc(id[i], mods[j]))) {
           g_ptr_array_add(drm_fmt_array, drm_str);
+          as_drm = TRUE;
+        }
       }
 #endif
+
+      if (!as_drm &&
+          (mods[j] == DRM_FORMAT_MOD_LINEAR ||
+           mods[j] == DRM_FORMAT_MOD_INVALID) &&
+          (fmt_str = video_id_to_string(id[i])))
+        g_ptr_array_add(fmt_array, g_strdup_printf ("%s", fmt_str));
     }
   }
 

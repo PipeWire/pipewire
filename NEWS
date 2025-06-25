@@ -1,3 +1,37 @@
+# PipeWire 1.4.6 (2025-06-27)
+
+This is a bugfix release that is API and ABI compatible with
+previous 1.x releases.
+
+## Highlights
+  - Fix a crasher bug in filter-chain and one in the ALSA plugin.
+  - Improve latency reporting in module-combine-stream.
+  - Some smaller fixes and cleanups.
+
+
+## modules
+  - Improve latency handling in module-combine-stream. (#4731)
+  - Improve save activation/deactivation of the filter-graph in
+    module-filter-chain to avoid crashes. (#4700, #4750)
+  - Add an option to disable RAOP with a context.property.
+
+## SPA
+  - Handle NULL io in alsa wakeup code. This can happen when there
+    is negotiation happening. (#4734)
+  - Enable interrupts after an ALSA error to keep the dataflow
+    going.
+  - Reset some stats better after an ALSA error.
+  - Support the alsa.use-ucm property for the ALSA udev plugin.
+
+# pulse-server
+  - Mark empty buffers. This improves some code paths in the mixer.
+
+## GStreamer
+  - Fix a refcount issue in the device provider.
+
+
+Older versions:
+
 # PipeWire 1.4.5 (2025-06-04)
 
 This is a quick bugfix release that is API and ABI compatible with
@@ -21,9 +55,6 @@ previous 1.x releases.
 # ALSA
   - Fix a potential deadlock when calling _drop and _drain at the
     same time. (#4728)
-
-
-Older versions:
 
 # PipeWire 1.4.4 (2025-05-29)
 

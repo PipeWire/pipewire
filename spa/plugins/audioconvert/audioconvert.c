@@ -220,7 +220,6 @@ struct stage_context {
 
 struct stage {
 	struct impl *impl;
-	bool passthrough;
 	uint32_t in_idx;
 	uint32_t out_idx;
 	void *data;
@@ -3425,7 +3424,6 @@ static void add_wav_stage(struct impl *impl, struct stage_context *ctx)
 {
 	struct stage *s = &impl->stages[impl->n_stages];
 	s->impl = impl;
-	s->passthrough = false;
 	s->in_idx = ctx->src_idx;
 	s->out_idx = ctx->src_idx;
 	s->data = NULL;
@@ -3448,7 +3446,6 @@ static void add_dst_remap_stage(struct impl *impl, struct stage_context *ctx)
 {
 	struct stage *s = &impl->stages[impl->n_stages];
 	s->impl = impl;
-	s->passthrough = false;
 	s->in_idx = ctx->dst_idx;
 	s->out_idx = CTX_DATA_REMAP_DST;
 	s->data = NULL;
@@ -3473,7 +3470,6 @@ static void add_src_remap_stage(struct impl *impl, struct stage_context *ctx)
 {
 	struct stage *s = &impl->stages[impl->n_stages];
 	s->impl = impl;
-	s->passthrough = false;
 	s->in_idx = ctx->src_idx;
 	s->out_idx = CTX_DATA_REMAP_SRC;
 	s->data = NULL;
@@ -3509,7 +3505,6 @@ static void add_src_convert_stage(struct impl *impl, struct stage_context *ctx)
 {
 	struct stage *s = &impl->stages[impl->n_stages];
 	s->impl = impl;
-	s->passthrough = false;
 	s->in_idx = ctx->src_idx;
 	s->out_idx = ctx->dst_idx;
 	s->data = NULL;
@@ -3537,7 +3532,6 @@ static void add_resample_stage(struct impl *impl, struct stage_context *ctx)
 {
 	struct stage *s = &impl->stages[impl->n_stages];
 	s->impl = impl;
-	s->passthrough = false;
 	s->in_idx = ctx->src_idx;
 	s->out_idx = ctx->dst_idx;
 	s->data = NULL;
@@ -3585,7 +3579,6 @@ static void add_filter_stage(struct impl *impl, uint32_t i, struct filter_graph 
 {
 	struct stage *s = &impl->stages[impl->n_stages];
 	s->impl = impl;
-	s->passthrough = false;
 	s->in_idx = ctx->src_idx;
 	s->out_idx = ctx->dst_idx;
 	s->data = fg;
@@ -3599,7 +3592,6 @@ static void add_channelmix_stage(struct impl *impl, struct stage_context *ctx)
 {
 	struct stage *s = &impl->stages[impl->n_stages];
 	s->impl = impl;
-	s->passthrough = false;
 	s->in_idx = ctx->src_idx;
 	s->out_idx = ctx->dst_idx;
 	s->data = NULL;
@@ -3635,7 +3627,6 @@ static void add_dst_convert_stage(struct impl *impl, struct stage_context *ctx)
 {
 	struct stage *s = &impl->stages[impl->n_stages];
 	s->impl = impl;
-	s->passthrough = false;
 	s->in_idx = ctx->src_idx;
 	s->out_idx = ctx->final_idx;
 	s->data = NULL;

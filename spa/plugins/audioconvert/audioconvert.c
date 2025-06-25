@@ -305,7 +305,6 @@ struct impl {
 	unsigned int started:1;
 	unsigned int setup:1;
 	unsigned int resample_peaks:1;
-	unsigned int is_passthrough:1;
 	unsigned int ramp_volume:1;
 	unsigned int drained:1;
 	unsigned int rate_adjust:1;
@@ -3225,9 +3224,6 @@ impl_node_port_use_buffers(void *object,
 				spa_log_warn(this->log, "%p: memory %d on buffer %d not aligned",
 						this, j, i);
 			}
-			if (direction == SPA_DIRECTION_OUTPUT &&
-			    !SPA_FLAG_IS_SET(d[j].flags, SPA_DATA_FLAG_DYNAMIC))
-				this->is_passthrough = false;
 
 			b->datas[j] = data;
 

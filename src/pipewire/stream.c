@@ -2370,6 +2370,18 @@ const struct pw_stream_control *pw_stream_get_control(struct pw_stream *stream, 
 	return NULL;
 }
 
+static int
+do_stop_drain(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct stream *impl = user_data;
+	pw_log_trace_fp("%p", impl);
+	if (impl->drained && impl->io != NULL)
+		impl->io->status = SPA_STATUS_NEED_DATA;
+	impl->draining = impl->drained = false;
+	return 0;
+}
+
 SPA_EXPORT
 int pw_stream_set_active(struct pw_stream *stream, bool active)
 {
@@ -2383,12 +2395,8 @@ int pw_stream_set_active(struct pw_stream *stream, bool active)
 		return -EIO;
 
 	pw_impl_node_set_active(stream->node, active);
+	pw_loop_locked(impl->data_loop, do_stop_drain, 1, NULL, 0, impl);
 
-	if (!active || impl->drained) {
-		if (impl->drained && impl->io != NULL)
-			impl->io->status = SPA_STATUS_NEED_DATA;
-		impl->drained = impl->draining = false;
-	}
 	return 0;
 }
 

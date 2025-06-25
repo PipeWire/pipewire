@@ -598,7 +598,7 @@ static int run_convert(struct context *ctx, struct data *in_data,
 
 		for (j = 0; j < in_data->planes; j++, k++) {
 			b->datas[j].type = SPA_DATA_MemPtr;
-			b->datas[j].flags = 0;
+			b->datas[j].flags = SPA_DATA_FLAG_READABLE;
 			b->datas[j].fd = -1;
 			b->datas[j].mapoffset = 0;
 			b->datas[j].maxsize = in_data->size;
@@ -629,7 +629,7 @@ static int run_convert(struct context *ctx, struct data *in_data,
 
 		for (j = 0; j < out_data->planes; j++) {
 			b->datas[j].type = SPA_DATA_MemPtr;
-			b->datas[j].flags = 0;
+			b->datas[j].flags = SPA_DATA_FLAG_READWRITE;
 			b->datas[j].fd = -1;
 			b->datas[j].mapoffset = 0;
 			b->datas[j].maxsize = out_data->size;

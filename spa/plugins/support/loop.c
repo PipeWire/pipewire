@@ -477,10 +477,26 @@ again:
 
 		if (block && queue->ack_fd != -1) {
 			uint64_t count = 1;
+			int i, recurse = 0;
+
+			if (pthread_mutex_trylock(&impl->lock) == 0) {
+				/* we are holding the lock, unlock recurse times */
+				recurse = impl->recurse;
+				while (impl->recurse > 0) {
+					impl->recurse--;
+					pthread_mutex_unlock(&impl->lock);
+				}
+				pthread_mutex_unlock(&impl->lock);
+			}
 
 			if ((res = spa_system_eventfd_read(impl->system, queue->ack_fd, &count)) < 0)
 				spa_log_warn(impl->log, "%p: failed to read event fd:%d: %s",
 						queue, queue->ack_fd, spa_strerror(res));
+
+			for (i = 0; i < recurse; i++) {
+				pthread_mutex_lock(&impl->lock);
+				impl->recurse++;
+			}
 
 			res = item->res;
 		}

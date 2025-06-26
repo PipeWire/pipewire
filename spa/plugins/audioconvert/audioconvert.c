@@ -214,6 +214,13 @@ struct stage_context {
 	uint32_t src_idx;
 	uint32_t dst_idx;
 	uint32_t final_idx;
+	uint32_t tmp;
+#define SRC_CONVERT_BIT	(1<<0)
+#define RESAMPLE_BIT	(1<<1)
+#define FILTER_BIT	(1<<2)
+#define MIX_BIT		(1<<3)
+#define DST_CONVERT_BIT	(1<<4)
+	uint32_t bits;
 	struct port *ctrlport;
 	bool empty;
 };
@@ -3392,6 +3399,16 @@ static uint64_t get_time_ns(struct impl *impl)
 	return SPA_TIMESPEC_TO_NSEC(&now);
 }
 
+static uint32_t get_dst_idx(struct stage_context *ctx)
+{
+	uint32_t res;
+	if (ctx->bits == 0)
+		res = ctx->final_idx;
+	else
+		res = CTX_DATA_TMP_0 + ((ctx->tmp++) & 1);
+	return res;
+}
+
 static void run_wav_stage(struct stage *stage, struct stage_context *c)
 {
 	struct impl *impl = stage->impl;
@@ -3504,14 +3521,15 @@ static void run_src_convert_stage(struct stage *s, struct stage_context *c)
 static void add_src_convert_stage(struct impl *impl, struct stage_context *ctx)
 {
 	struct stage *s = &impl->stages[impl->n_stages];
+	SPA_FLAG_CLEAR(ctx->bits, SRC_CONVERT_BIT);
 	s->impl = impl;
 	s->in_idx = ctx->src_idx;
-	s->out_idx = ctx->dst_idx;
+	s->out_idx = get_dst_idx(ctx);
 	s->data = NULL;
 	s->run = run_src_convert_stage;
 	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
 	impl->n_stages++;
-	ctx->src_idx = ctx->dst_idx;
+	ctx->src_idx = s->out_idx;
 }
 
 static void run_resample_stage(struct stage *s, struct stage_context *c)
@@ -3531,14 +3549,36 @@ static void run_resample_stage(struct stage *s, struct stage_context *c)
 static void add_resample_stage(struct impl *impl, struct stage_context *ctx)
 {
 	struct stage *s = &impl->stages[impl->n_stages];
+	SPA_FLAG_CLEAR(ctx->bits, RESAMPLE_BIT);
 	s->impl = impl;
 	s->in_idx = ctx->src_idx;
-	s->out_idx = ctx->dst_idx;
+	s->out_idx = get_dst_idx(ctx);
 	s->data = NULL;
 	s->run = run_resample_stage;
 	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
 	impl->n_stages++;
-	ctx->src_idx = ctx->dst_idx;
+	ctx->src_idx = s->out_idx;
+}
+
+static void run_filter_stage(struct stage *s, struct stage_context *c)
+{
+	struct filter_graph *fg = s->data;
+
+	spa_log_trace_fp(s->impl->log, "%p: filter-graph %d", s->impl, c->n_samples);
+	spa_filter_graph_process(fg->graph, (const void **)c->datas[s->in_idx],
+			c->datas[s->out_idx], c->n_samples);
+}
+static void add_filter_stage(struct impl *impl, uint32_t i, struct filter_graph *fg, struct stage_context *ctx)
+{
+	struct stage *s = &impl->stages[impl->n_stages];
+	s->impl = impl;
+	s->in_idx = ctx->src_idx;
+	s->out_idx = get_dst_idx(ctx);
+	s->data = fg;
+	s->run = run_filter_stage;
+	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
+	impl->n_stages++;
+	ctx->src_idx = s->out_idx;
 }
 
 static void run_channelmix_stage(struct stage *s, struct stage_context *c)
@@ -3567,38 +3607,18 @@ static void run_channelmix_stage(struct stage *s, struct stage_context *c)
 	}
 }
 
-static void run_filter_stage(struct stage *s, struct stage_context *c)
-{
-	struct filter_graph *fg = s->data;
-
-	spa_log_trace_fp(s->impl->log, "%p: filter-graph %d", s->impl, c->n_samples);
-	spa_filter_graph_process(fg->graph, (const void **)c->datas[s->in_idx],
-			c->datas[s->out_idx], c->n_samples);
-}
-static void add_filter_stage(struct impl *impl, uint32_t i, struct filter_graph *fg, struct stage_context *ctx)
-{
-	struct stage *s = &impl->stages[impl->n_stages];
-	s->impl = impl;
-	s->in_idx = ctx->src_idx;
-	s->out_idx = ctx->dst_idx;
-	s->data = fg;
-	s->run = run_filter_stage;
-	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
-	impl->n_stages++;
-	ctx->src_idx = ctx->dst_idx;
-}
-
 static void add_channelmix_stage(struct impl *impl, struct stage_context *ctx)
 {
 	struct stage *s = &impl->stages[impl->n_stages];
+	SPA_FLAG_CLEAR(ctx->bits, MIX_BIT);
 	s->impl = impl;
 	s->in_idx = ctx->src_idx;
-	s->out_idx = ctx->dst_idx;
+	s->out_idx = get_dst_idx(ctx);
 	s->data = NULL;
 	s->run = run_channelmix_stage;
 	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
 	impl->n_stages++;
-	ctx->src_idx = ctx->dst_idx;
+	ctx->src_idx = s->out_idx;
 }
 
 static void run_dst_convert_stage(struct stage *s, struct stage_context *c)
@@ -3639,8 +3659,7 @@ static void add_dst_convert_stage(struct impl *impl, struct stage_context *ctx)
 static void recalc_stages(struct impl *this, struct stage_context *ctx)
 {
 	struct dir *dir;
-	bool filter_passthrough, in_passthrough, mix_passthrough, resample_passthrough, out_passthrough;
-	int tmp = 0;
+	bool test, do_wav;
 	struct port *ctrlport = ctx->ctrlport;
 	bool in_need_remap, out_need_remap;
 	uint32_t i;
@@ -3648,36 +3667,44 @@ static void recalc_stages(struct impl *this, struct stage_context *ctx)
 	this->recalc = false;
 	this->n_stages = 0;
 
+	ctx->tmp = 0;
+	ctx->bits = 0;
+	ctx->src_idx = CTX_DATA_SRC;
+	ctx->dst_idx = CTX_DATA_DST;
+	ctx->final_idx = CTX_DATA_DST;
+
+	/* set bits for things we need to do */
 	dir = &this->dir[SPA_DIRECTION_INPUT];
-	in_passthrough = dir->conv.is_passthrough;
+	SPA_FLAG_UPDATE(ctx->bits, SRC_CONVERT_BIT, !dir->conv.is_passthrough);
 	in_need_remap = dir->need_remap;
 
 	dir = &this->dir[SPA_DIRECTION_OUTPUT];
-	out_passthrough = dir->conv.is_passthrough;
+	SPA_FLAG_UPDATE(ctx->bits, DST_CONVERT_BIT, !dir->conv.is_passthrough);
 	out_need_remap = dir->need_remap;
 
-	resample_passthrough = resample_is_passthrough(this);
-	filter_passthrough = this->n_graph == 0;
-	this->resample_passthrough = resample_passthrough;
-	mix_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY) &&
+	this->resample_passthrough = resample_is_passthrough(this);
+	SPA_FLAG_UPDATE(ctx->bits, RESAMPLE_BIT, !this->resample_passthrough);
+
+	SPA_FLAG_UPDATE(ctx->bits, FILTER_BIT, this->n_graph != 0);
+
+	test = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY) &&
 		(ctrlport == NULL || ctrlport->ctrl == NULL) && (this->vol_ramp_sequence == NULL);
+	SPA_FLAG_UPDATE(ctx->bits, MIX_BIT, !test);
 
-	if (in_passthrough && filter_passthrough && mix_passthrough && resample_passthrough)
-		out_passthrough = false;
+	/* if we have nothing to do, force a conversion to the destination to make sure we
+	 * actually write something to the destination buffer */
+	if (ctx->bits == 0)
+		SPA_FLAG_SET(ctx->bits, DST_CONVERT_BIT);
 
-	if (out_passthrough && out_need_remap)
+	do_wav = this->props.wav_path[0] || this->wav_file != NULL;
+
+	if (!SPA_FLAG_IS_SET(ctx->bits, DST_CONVERT_BIT) && out_need_remap)
 		add_dst_remap_stage(this, ctx);
 
-	if (this->direction == SPA_DIRECTION_INPUT &&
-	    (this->props.wav_path[0] || this->wav_file != NULL))
+	if (this->direction == SPA_DIRECTION_INPUT && do_wav)
 		add_wav_stage(this, ctx);
 
-	if (!in_passthrough) {
-		if (filter_passthrough && mix_passthrough && resample_passthrough && out_passthrough)
-			ctx->dst_idx = ctx->final_idx;
-		else
-			ctx->dst_idx = CTX_DATA_TMP_0 + ((tmp++) & 1);
-
+	if (SPA_FLAG_IS_SET(ctx->bits, SRC_CONVERT_BIT)) {
 		add_src_convert_stage(this, ctx);
 	} else {
 		if (in_need_remap)
@@ -3685,55 +3712,34 @@ static void recalc_stages(struct impl *this, struct stage_context *ctx)
 	}
 
 	if (this->direction == SPA_DIRECTION_INPUT) {
-		if (!resample_passthrough) {
-			if (filter_passthrough && mix_passthrough && out_passthrough)
-				ctx->dst_idx = ctx->final_idx;
-			else
-				ctx->dst_idx = CTX_DATA_TMP_0 + ((tmp++) & 1);
-
+		if (SPA_FLAG_IS_SET(ctx->bits, RESAMPLE_BIT))
 			add_resample_stage(this, ctx);
-			resample_passthrough = true;
-		}
 	}
-	if (!filter_passthrough) {
+	if (SPA_FLAG_IS_SET(ctx->bits, FILTER_BIT)) {
 		for (i = 0; i < this->n_graph; i++) {
 			struct filter_graph *fg = this->filter_graph[i];
 
-			if (mix_passthrough && resample_passthrough && out_passthrough &&
-			    i + 1 == this->n_graph)
-				ctx->dst_idx = ctx->final_idx;
-			else
-				ctx->dst_idx = CTX_DATA_TMP_0 + ((tmp++) & 1);
+			if (i + 1 == this->n_graph)
+				SPA_FLAG_CLEAR(ctx->bits, FILTER_BIT);
 
 			add_filter_stage(this, i, fg, ctx);
 		}
 	}
-	if (!mix_passthrough) {
-		if (resample_passthrough && out_passthrough)
-			ctx->dst_idx = ctx->final_idx;
-		else
-			ctx->dst_idx = CTX_DATA_TMP_0 + ((tmp++) & 1);
-
+	if (SPA_FLAG_IS_SET(ctx->bits, MIX_BIT))
 		add_channelmix_stage(this, ctx);
-	}
-	if (this->direction == SPA_DIRECTION_OUTPUT) {
-		if (!resample_passthrough) {
-			if (out_passthrough)
-				ctx->dst_idx = ctx->final_idx;
-			else
-				ctx->dst_idx = CTX_DATA_TMP_0 + ((tmp++) & 1);
 
+	if (this->direction == SPA_DIRECTION_OUTPUT) {
+		if (SPA_FLAG_IS_SET(ctx->bits, RESAMPLE_BIT))
 			add_resample_stage(this, ctx);
-		}
 	}
-	if (!out_passthrough) {
+
+	if (SPA_FLAG_IS_SET(ctx->bits, DST_CONVERT_BIT))
 		add_dst_convert_stage(this, ctx);
-	}
-	if (this->direction == SPA_DIRECTION_OUTPUT &&
-	    (this->props.wav_path[0] || this->wav_file != NULL))
+
+	if (this->direction == SPA_DIRECTION_OUTPUT && do_wav)
 		add_wav_stage(this, ctx);
 
-	spa_log_trace(this->log, "got %u processing stages", this->n_stages);
+	spa_log_debug(this->log, "got %u processing stages", this->n_stages);
 }
 
 static int impl_node_process(void *object)
@@ -4027,12 +4033,8 @@ static int impl_node_process(void *object)
 	ctx.ctrlport = ctrlport;
 	ctx.empty = in_empty;
 
-	if (SPA_UNLIKELY(this->recalc)) {
-		ctx.src_idx = CTX_DATA_SRC;
-		ctx.dst_idx = CTX_DATA_DST;
-		ctx.final_idx = CTX_DATA_DST;
+	if (SPA_UNLIKELY(this->recalc))
 		recalc_stages(this, &ctx);
-	}
 
 	for (i = 0; i < this->n_stages; i++) {
 		struct stage *s = &this->stages[i];

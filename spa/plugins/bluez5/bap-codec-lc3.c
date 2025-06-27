@@ -37,6 +37,8 @@ struct impl {
 	int framelen;
 	int samples;
 	unsigned int codesize;
+
+	uint16_t seqnum;
 };
 
 struct settings {
@@ -1274,13 +1276,23 @@ static int codec_encode(void *data,
 	return processed;
 }
 
-static SPA_UNUSED int codec_start_decode (void *data,
+static int codec_start_decode (void *data,
 		const void *src, size_t src_size, uint16_t *seqnum, uint32_t *timestamp)
 {
+	struct impl *this = data;
+
+	/* packets come from controller, so also invalid ones bump seqnum */
+	this->seqnum++;
+
+	if (!src_size)
+		return -EINVAL;
+
+	if (*seqnum)
+		*seqnum = this->seqnum;
 	return 0;
 }
 
-static SPA_UNUSED int codec_decode(void *data,
+static int codec_decode(void *data,
 		const void *src, size_t src_size,
 		void *dst, size_t dst_size,
 		size_t *dst_out)

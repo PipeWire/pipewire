@@ -637,7 +637,8 @@ static SPA_UNUSED int codec_start_decode (void *data,
 	const struct rtp_payload *payload = SPA_PTROFF(src, sizeof(struct rtp_header), void);
 	size_t header_size = sizeof(struct rtp_header) + sizeof(struct rtp_payload);
 
-	spa_return_val_if_fail (src_size > header_size, -EINVAL);
+	if (src_size <= header_size)
+		return -EINVAL;
 
 	if (seqnum)
 		*seqnum = ntohs(header->sequence_number);

@@ -637,8 +637,6 @@ static void media_on_ready_read(struct spa_source *source)
 
 	/* read */
 	size_read = read_data (this, &now);
-	if (size_read == 0)
-		return;
 	if (size_read < 0) {
 		spa_log_error(this->log, "failed to read data: %s", spa_strerror(size_read));
 		goto stop;

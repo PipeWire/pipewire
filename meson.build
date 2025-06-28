@@ -321,7 +321,7 @@ cdata.set('HAVE_DBUS', dbus_dep.found())
 sdl_dep = dependency('sdl2', required : get_option('sdl2'))
 summary({'SDL2 (video examples)': sdl_dep.found()}, bool_yn: true, section: 'Misc dependencies')
 drm_dep = dependency('libdrm', required : false)
-fftw_dep = dependency('fftw3f', required : false)
+fftw_dep = dependency('fftw3f', required : get_option('fftw'))
 summary({'fftw3f (filter-chain convolver)': fftw_dep.found()}, bool_yn: true, section: 'Misc dependencies')
 cdata.set('HAVE_FFTW', fftw_dep.found())
 

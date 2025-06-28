@@ -383,3 +383,7 @@ option('ebur128',
        description: 'Enable code that depends on ebur128',
        type: 'feature',
        value: 'auto')
+option('fftw',
+       description: 'Enable code that depends on fftw',
+       type: 'feature',
+       value: 'auto')

@@ -129,7 +129,7 @@ if get_option('spa-plugins').allowed()
   cdata.set('HAVE_ALSA_COMPRESS_OFFLOAD', compress_offload_option.allowed())
 
   # common dependencies
-  libudev_dep = dependency('libudev', required: get_option('udev').enabled())
+  libudev_dep = dependency('libudev', required: get_option('udev'))
   cdata.set('HAVE_LIBUDEV', libudev_dep.found())
   summary({'Udev': libudev_dep.found()}, bool_yn: true, section: 'Backend')
 
@@ -139,7 +139,7 @@ if get_option('spa-plugins').allowed()
   lilv_lib = dependency('lilv-0', required: get_option('lv2'))
   summary({'lilv (for lv2 plugins)': lilv_lib.found()}, bool_yn: true, section: 'filter-graph')
 
-  ebur128_lib = dependency('libebur128', required: get_option('ebur128').enabled())
+  ebur128_lib = dependency('libebur128', required: get_option('ebur128'))
   summary({'EBUR128': ebur128_lib.found()}, bool_yn: true, section: 'filter-graph')
 
   summary({'ffmpeg': avfilter_dep.found()}, bool_yn: true, section: 'filter-graph')

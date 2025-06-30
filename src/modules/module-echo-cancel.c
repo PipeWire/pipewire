@@ -624,9 +624,9 @@ static void input_param_latency_changed(struct impl *impl, const struct spa_pod 
 	params[0] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
 
 	if (latency.direction == SPA_DIRECTION_INPUT)
-		pw_stream_update_params(impl->source, params, 1);
-	else
 		pw_stream_update_params(impl->capture, params, 1);
+	else
+		pw_stream_update_params(impl->source, params, 1);
 }
 
 static struct spa_pod* get_props_param(struct impl* impl, struct spa_pod_builder* b)

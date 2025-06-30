@@ -80,7 +80,6 @@ struct impl {
         struct spa_system *system;
 
 	struct spa_list source_list;
-	struct spa_list destroy_list;
 	struct spa_list free_list;
 	struct spa_hook_list hooks_list;
 
@@ -107,8 +106,7 @@ struct impl {
 
 	uint32_t count;
 	uint32_t flush_count;
-
-	unsigned int polling:1;
+	uint32_t remove_count;
 };
 
 struct queue {
@@ -191,6 +189,7 @@ static int remove_from_poll(struct impl *impl, struct spa_source *source)
 {
 	spa_assert(source->loop == &impl->loop);
 
+	impl->remove_count++;
 	return spa_system_pollfd_del(impl->system, impl->poll_fd, source->fd);
 }
 
@@ -626,7 +625,6 @@ static void loop_leave(void *object)
 	if (--impl->enter_count == 0) {
 		impl->thread = 0;
 		flush_all_queues(impl);
-		impl->polling = false;
 	}
 	pthread_mutex_unlock(&impl->lock);
 }
@@ -724,16 +722,6 @@ static int loop_accept(void *object)
 	return -pthread_cond_signal(&impl->accept_cond);
 }
 
-static inline void process_destroy(struct impl *impl)
-{
-	struct source_impl *s;
-	spa_list_consume(s, &impl->destroy_list, link) {
-		spa_list_remove(&s->link);
-		detach_source(&s->source);
-		spa_list_append(&s->impl->free_list, &s->link);
-	}
-}
-
 struct cancellation_handler_data {
 	struct spa_poll_event *ep;
 	int ep_count;
@@ -757,8 +745,9 @@ static int loop_iterate_cancel(void *object, int timeout)
 	struct impl *impl = object;
 	struct spa_poll_event ep[MAX_EP], *e;
 	int i, nfds;
+	uint32_t remove_count;
 
-	impl->polling = true;
+	remove_count = impl->remove_count;
 	spa_loop_control_hook_before(&impl->hooks_list);
 	pthread_mutex_unlock(&impl->lock);
 
@@ -766,7 +755,8 @@ static int loop_iterate_cancel(void *object, int timeout)
 
 	pthread_mutex_lock(&impl->lock);
 	spa_loop_control_hook_after(&impl->hooks_list);
-	impl->polling = false;
+	if (remove_count != impl->remove_count)
+		nfds = 0;
 
 	struct cancellation_handler_data cdata = { ep, nfds };
 	pthread_cleanup_push(cancellation_handler, &cdata);
@@ -787,9 +777,6 @@ static int loop_iterate_cancel(void *object, int timeout)
 		s->priv = &ep[i];
 	}
 
-	if (SPA_UNLIKELY(!spa_list_is_empty(&impl->destroy_list)))
-		process_destroy(impl);
-
 	for (i = 0; i < nfds; i++) {
 		struct spa_source *s = ep[i].data;
 		if (SPA_LIKELY(s && s->rmask))
@@ -806,8 +793,9 @@ static int loop_iterate(void *object, int timeout)
 	struct impl *impl = object;
 	struct spa_poll_event ep[MAX_EP], *e;
 	int i, nfds;
+	uint32_t remove_count;
 
-	impl->polling = true;
+	remove_count = impl->remove_count;
 	spa_loop_control_hook_before(&impl->hooks_list);
 	pthread_mutex_unlock(&impl->lock);
 
@@ -815,7 +803,8 @@ static int loop_iterate(void *object, int timeout)
 
 	pthread_mutex_lock(&impl->lock);
 	spa_loop_control_hook_after(&impl->hooks_list);
-	impl->polling = false;
+	if (remove_count != impl->remove_count)
+		return 0;
 
 	/* first we set all the rmasks, then call the callbacks. The reason is that
 	 * some callback might also want to look at other sources it manages and
@@ -830,9 +819,6 @@ static int loop_iterate(void *object, int timeout)
 			e->data = NULL;
 		s->priv = &ep[i];
 	}
-
-	if (SPA_UNLIKELY(!spa_list_is_empty(&impl->destroy_list)))
-		process_destroy(impl);
 
 	for (i = 0; i < nfds; i++) {
 		struct spa_source *s = ep[i].data;
@@ -1220,11 +1206,8 @@ static void loop_destroy_source(void *object, struct spa_source *source)
 	}
 
 	spa_list_remove(&s->link);
-	if (!s->impl->polling) {
-		detach_source(source);
-		spa_list_insert(&s->impl->free_list, &s->link);
-	} else
-		spa_list_insert(&s->impl->destroy_list, &s->link);
+	detach_source(source);
+	spa_list_insert(&s->impl->free_list, &s->link);
 }
 
 static const struct spa_loop_methods impl_loop = {
@@ -1315,9 +1298,9 @@ static int impl_clear(struct spa_handle *handle)
 
 	spa_log_debug(impl->log, "%p: clear", impl);
 
-	if (impl->enter_count != 0 || impl->polling)
-		spa_log_warn(impl->log, "%p: loop is entered %d times polling:%d",
-				impl, impl->enter_count, impl->polling);
+	if (impl->enter_count != 0)
+		spa_log_warn(impl->log, "%p: loop is entered %d times",
+				impl, impl->enter_count);
 
 	spa_list_consume(source, &impl->source_list, link)
 		loop_destroy_source(impl, &source->source);
@@ -1431,7 +1414,6 @@ impl_init(const struct spa_handle_factory *factory,
 	impl->poll_fd = res;
 
 	spa_list_init(&impl->source_list);
-	spa_list_init(&impl->destroy_list);
 	spa_list_init(&impl->free_list);
 	spa_hook_list_init(&impl->hooks_list);
 

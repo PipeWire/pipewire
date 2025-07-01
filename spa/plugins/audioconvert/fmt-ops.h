@@ -241,6 +241,7 @@ struct convert {
 	void (*update_noise) (struct convert *conv, float *noise, uint32_t n_samples);
 	void (*process) (struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 			uint32_t n_samples);
+	void (*clear) (struct convert *conv, void * SPA_RESTRICT dst[], uint32_t n_samples);
 	void (*free) (struct convert *conv);
 
 	void *data;
@@ -278,6 +279,7 @@ static inline uint32_t dither_method_from_label(const char *label)
 
 #define convert_update_noise(conv,...)	(conv)->update_noise(conv, __VA_ARGS__)
 #define convert_process(conv,...)	(conv)->process(conv, __VA_ARGS__)
+#define convert_clear(conv,...)		(conv)->clear(conv, __VA_ARGS__)
 #define convert_free(conv)		(conv)->free(conv)
 
 #define DEFINE_NOISE_FUNCTION(name,arch)				\
@@ -490,3 +492,28 @@ DEFINE_FUNCTION(f32d_to_s16, avx2);
 #endif
 
 #undef DEFINE_FUNCTION
+
+#define DEFINE_CLEAR_FUNCTION(name,arch)						\
+void conv_clear_##name##_##arch(struct convert *conv, void * SPA_RESTRICT dst[],	\
+		uint32_t n_samples)
+
+DEFINE_CLEAR_FUNCTION(alaw, c);
+DEFINE_CLEAR_FUNCTION(ulaw, c);
+DEFINE_CLEAR_FUNCTION(8, c);
+DEFINE_CLEAR_FUNCTION(8d, c);
+DEFINE_CLEAR_FUNCTION(16, c);
+DEFINE_CLEAR_FUNCTION(16d, c);
+DEFINE_CLEAR_FUNCTION(24, c);
+DEFINE_CLEAR_FUNCTION(24d, c);
+DEFINE_CLEAR_FUNCTION(32, c);
+DEFINE_CLEAR_FUNCTION(32d, c);
+DEFINE_CLEAR_FUNCTION(64, c);
+DEFINE_CLEAR_FUNCTION(64d, c);
+DEFINE_CLEAR_FUNCTION(u8, c);
+DEFINE_CLEAR_FUNCTION(u8d, c);
+DEFINE_CLEAR_FUNCTION(u16, c);
+DEFINE_CLEAR_FUNCTION(u24, c);
+DEFINE_CLEAR_FUNCTION(u24_32, c);
+DEFINE_CLEAR_FUNCTION(u32, c);
+
+#undef DEFINE_CLEAR_FUNCTION

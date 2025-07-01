@@ -376,6 +376,64 @@ static const struct conv_info *find_conv_info(uint32_t src_fmt, uint32_t dst_fmt
 	return NULL;
 }
 
+
+typedef void (*clear_func_t) (struct convert *conv, void * SPA_RESTRICT dst[],
+		uint32_t n_samples);
+
+struct clear_info {
+	uint32_t fmt;
+
+	clear_func_t clear;
+	const char *name;
+
+	uint32_t cpu_flags;
+};
+
+#define MAKE(fmt,func,...) \
+	{  SPA_AUDIO_FORMAT_ ##fmt, func, #func , __VA_ARGS__ }
+
+static struct clear_info clear_table[] =
+{
+	MAKE(U8, conv_clear_u8_c),
+	MAKE(U8P, conv_clear_u8d_c),
+	MAKE(S8, conv_clear_8_c),
+	MAKE(S8P, conv_clear_8d_c),
+	MAKE(U16, conv_clear_u16_c),
+	MAKE(S16, conv_clear_16_c),
+	MAKE(S16_OE, conv_clear_16_c),
+	MAKE(S16P, conv_clear_16d_c),
+	MAKE(U24, conv_clear_u24_c),
+	MAKE(S24, conv_clear_24_c),
+	MAKE(S24_OE, conv_clear_24_c),
+	MAKE(S24P, conv_clear_24d_c),
+	MAKE(U24_32, conv_clear_u24_32_c),
+	MAKE(S24_32, conv_clear_32_c),
+	MAKE(S24_32_OE, conv_clear_32_c),
+	MAKE(U32, conv_clear_u32_c),
+	MAKE(S32, conv_clear_32_c),
+	MAKE(S32_OE, conv_clear_32_c),
+	MAKE(S32P, conv_clear_32d_c),
+	MAKE(F32, conv_clear_32_c),
+	MAKE(F32_OE, conv_clear_32_c),
+	MAKE(F32P, conv_clear_32d_c),
+	MAKE(F64, conv_clear_64_c),
+	MAKE(F64_OE, conv_clear_64_c),
+	MAKE(F64P, conv_clear_64d_c),
+	MAKE(ALAW, conv_clear_alaw_c),
+	MAKE(ULAW, conv_clear_ulaw_c),
+};
+#undef MAKE
+
+static const struct clear_info *find_clear_info(uint32_t fmt, uint32_t cpu_flags)
+{
+	SPA_FOR_EACH_ELEMENT_VAR(clear_table, c) {
+		if (c->fmt == fmt &&
+		    MATCH_CPU_FLAGS(c->cpu_flags, cpu_flags))
+			return c;
+	}
+	return NULL;
+}
+
 typedef void (*noise_func_t) (struct convert *conv, float * noise, uint32_t n_samples);
 
 struct noise_info {
@@ -492,6 +550,7 @@ int convert_init(struct convert *conv)
 	const struct conv_info *info;
 	const struct dither_info *dinfo;
 	const struct noise_info *ninfo;
+	const struct clear_info *cinfo;
 	uint32_t i, conv_flags, data_size[3];
 
 	/* we generate int32 bits of random values. With this scale
@@ -549,6 +608,8 @@ int convert_init(struct convert *conv)
 	if (ninfo == NULL)
 		return -ENOTSUP;
 
+	cinfo = find_clear_info(conv->dst_fmt, conv->cpu_flags);
+
 	conv->noise_size = NOISE_SIZE;
 
 	data_size[0] = SPA_ROUND_UP(conv->noise_size * sizeof(float), FMT_OPS_MAX_ALIGN);
@@ -571,6 +632,7 @@ int convert_init(struct convert *conv)
 	conv->cpu_flags = info->cpu_flags;
 	conv->update_noise = ninfo->noise;
 	conv->process = info->process;
+	conv->clear = cinfo ? cinfo->clear : NULL;
 	conv->free = impl_convert_free;
 	conv->func_name = info->name;
 

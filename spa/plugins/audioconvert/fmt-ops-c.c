@@ -411,3 +411,53 @@ MAKE_INTERLEAVE(24, 24, uint24_t, (uint24_t));
 MAKE_INTERLEAVE(32, 32, uint32_t, (uint32_t));
 MAKE_INTERLEAVE(32, 32s, uint32_t, bswap_32);
 MAKE_INTERLEAVE(64, 64, uint64_t, (uint64_t));
+
+#define MAKE_CLEAR(size)							\
+void conv_clear_ ##size## d_c(struct convert *conv,				\
+		void * SPA_RESTRICT dst[], uint32_t n_samples)			\
+{										\
+	uint32_t i, n_channels = conv->n_channels;				\
+	for (i = 0; i < n_channels; i++)					\
+		memset(dst[i], 0, n_samples * (size>>3));			\
+}										\
+void conv_clear_ ##size## _c(struct convert *conv,				\
+		void * SPA_RESTRICT dst[], uint32_t n_samples)			\
+{										\
+	memset(dst[0], 0, n_samples * conv->n_channels * (size>>3));		\
+}
+
+MAKE_CLEAR(8);
+MAKE_CLEAR(16);
+MAKE_CLEAR(24);
+MAKE_CLEAR(32);
+MAKE_CLEAR(64);
+
+#define MAKE_CLEAR_VAL(size,dtype,val)						\
+void conv_clear_ ##size## d_c(struct convert *conv,				\
+		void * SPA_RESTRICT dst[], uint32_t n_samples)			\
+{										\
+	uint32_t i, j, n_channels = conv->n_channels;				\
+	for (i = 0; i < n_channels; i++) {					\
+		dtype *d = dst[i];						\
+		for (j = 0; j < n_samples; j++)					\
+			d[j] = val;						\
+	}									\
+}										\
+void conv_clear_ ##size## _c(struct convert *conv,				\
+		void * SPA_RESTRICT dst[], uint32_t n_samples)			\
+{										\
+	uint32_t j;								\
+	dtype *d = dst[0];							\
+	n_samples *= conv->n_channels;						\
+	for (j = 0; j < n_samples; j++)						\
+		d[j] = val;							\
+}
+
+MAKE_CLEAR_VAL(alaw, uint8_t, 0x55);
+MAKE_CLEAR_VAL(ulaw, uint8_t, 0xff);
+MAKE_CLEAR_VAL(u8, uint8_t, 0x80);
+MAKE_CLEAR_VAL(u16, uint16_t, 0x8000);
+MAKE_CLEAR_VAL(u24, uint24_t, U32_TO_U24(0x800000));
+MAKE_CLEAR_VAL(u24_32, uint32_t, 0x800000);
+MAKE_CLEAR_VAL(u32, uint32_t, 0x80000000);
+

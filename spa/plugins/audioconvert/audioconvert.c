@@ -215,6 +215,7 @@ struct stage_context {
 	uint32_t dst_idx;
 	uint32_t final_idx;
 	struct port *ctrlport;
+	bool empty;
 };
 
 struct stage {
@@ -3499,7 +3500,10 @@ static void run_src_convert_stage(struct stage *s, struct stage_context *c)
 	} else {
 		dst = c->datas[s->out_idx];
 	}
-	convert_process(&dir->conv, dst, (const void**)c->datas[s->in_idx], c->n_samples);
+	if (c->empty && dir->conv.clear)
+		convert_clear(&dir->conv, dst, c->n_samples);
+	else
+		convert_process(&dir->conv, dst, (const void**)c->datas[s->in_idx], c->n_samples);
 }
 static void add_src_convert_stage(struct impl *impl, struct stage_context *ctx)
 {
@@ -3622,7 +3626,10 @@ static void run_dst_convert_stage(struct stage *s, struct stage_context *c)
 	} else {
 		src = c->datas[s->in_idx];
 	}
-	convert_process(&dir->conv, c->datas[s->out_idx], (const void **)src, c->n_samples);
+	if (c->empty && dir->conv.clear)
+		convert_clear(&dir->conv, c->datas[s->out_idx], c->n_samples);
+	else
+		convert_process(&dir->conv, c->datas[s->out_idx], (const void **)src, c->n_samples);
 }
 static void add_dst_convert_stage(struct impl *impl, struct stage_context *ctx)
 {
@@ -3751,7 +3758,7 @@ static int impl_node_process(void *object)
 	struct dir *dir;
 	int res = 0, suppressed;
 	bool in_avail = false, flush_in = false, flush_out = false;
-	bool draining = false, in_empty = this->out_offset == 0;
+	bool draining = false, in_empty = this->out_offset == 0, out_empty;
 	struct spa_io_buffers *io;
 	const struct spa_pod_sequence *ctrl = NULL;
 	uint64_t current_time;
@@ -4027,6 +4034,7 @@ static int impl_node_process(void *object)
 	ctx.n_samples = n_samples;
 	ctx.n_out = n_out;
 	ctx.ctrlport = ctrlport;
+	ctx.empty = in_empty;
 
 	if (SPA_UNLIKELY(this->recalc)) {
 		ctx.src_idx = CTX_DATA_SRC;
@@ -4041,6 +4049,7 @@ static int impl_node_process(void *object)
 	}
 	this->in_offset += ctx.in_samples;
 	this->out_offset += ctx.n_samples;
+	out_empty = ctx.empty;
 
 	spa_log_trace_fp(this->log, "%d/%d  %d/%d %d->%d", this->in_offset, max_in,
 			this->out_offset, max_out, n_samples, n_out);
@@ -4082,7 +4091,7 @@ static int impl_node_process(void *object)
 				bd = &buf->buf->datas[j];
 				bd->chunk->size = this->out_offset * port->stride;
 				bd->chunk->stride = port->stride;
-				SPA_FLAG_UPDATE(bd->chunk->flags, SPA_CHUNK_FLAG_EMPTY, in_empty);
+				SPA_FLAG_UPDATE(bd->chunk->flags, SPA_CHUNK_FLAG_EMPTY, out_empty);
 				spa_log_trace_fp(this->log, "out: offs:%d stride:%d size:%d",
 						this->out_offset, port->stride, bd->chunk->size);
 			}

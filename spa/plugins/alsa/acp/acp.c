@@ -522,7 +522,8 @@ static void add_profiles(pa_card *impl)
 	ap->profile.flags = ACP_PROFILE_OFF;
 	pa_hashmap_put(impl->profiles, ap->name, ap);
 
-	add_pro_profile(impl, impl->card.index);
+	if (!impl->disable_pro_audio)
+		add_pro_profile(impl, impl->card.index);
 
 	PA_HASHMAP_FOREACH(ap, impl->profile_set->profiles, state) {
 		pa_alsa_mapping *m;
@@ -1860,6 +1861,8 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 			impl->pro_channels = atoi(s);
 		if ((s = acp_dict_lookup(props, "api.alsa.split-enable")) != NULL)
 			impl->ucm.split_enable = spa_atob(s);
+		if ((s = acp_dict_lookup(props, "api.acp.disable-pro-audio")) != NULL)
+			impl->disable_pro_audio = spa_atob(s);
 	}
 
 #if SND_LIB_VERSION < 0x10207

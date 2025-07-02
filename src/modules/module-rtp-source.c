@@ -21,6 +21,7 @@
 #include <spa/utils/defs.h>
 #include <spa/utils/dll.h>
 #include <spa/utils/json.h>
+#include <spa/utils/ratelimit.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/control/control.h>
 #include <spa/debug/types.h>
@@ -159,6 +160,8 @@ struct impl {
 	struct spa_hook core_proxy_listener;
 	unsigned int do_disconnect:1;
 
+	struct spa_ratelimit rate_limit;
+
 	char *ifname;
 	bool always_process;
 	uint32_t cleanup_interval;
@@ -184,6 +187,13 @@ struct impl {
 	bool standby;
 	bool waiting;
 };
+
+static inline uint64_t get_time_ns(void)
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return SPA_TIMESPEC_TO_NSEC(&ts);
+}
 
 static int do_start(struct spa_loop *loop, bool async, uint32_t seq, const void *data,
 		size_t size, void *user_data)
@@ -211,6 +221,7 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 {
 	struct impl *impl = data;
 	ssize_t len;
+	int suppressed;
 
 	if (mask & SPA_IO_IN) {
 		if ((len = recv(fd, impl->buffer, impl->buffer_size, 0)) < 0)
@@ -232,10 +243,13 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 	return;
 
 receive_error:
-	pw_log_warn("recv error: %m");
+	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, get_time_ns())) >= 0)
+		pw_log_warn("(%d suppressed) recv() error: %m", suppressed);
 	return;
 short_packet:
-	pw_log_warn("short packet of len %zd received", len);
+	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, get_time_ns())) >= 0)
+		pw_log_warn("(%d suppressed) short packet of len %zd received",
+				suppressed, len);
 	return;
 }
 
@@ -665,6 +679,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->context = context;
 	impl->main_loop = pw_context_get_main_loop(context);
 	impl->data_loop = pw_context_acquire_loop(context, &props->dict);
+
+	impl->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
+	impl->rate_limit.burst = 1;
 
 	if ((sess_name = pw_properties_get(props, "sess.name")) == NULL)
 		sess_name = pw_get_host_name();

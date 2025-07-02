@@ -19,6 +19,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/json.h>
+#include <spa/utils/ratelimit.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/debug/types.h>
 
@@ -175,6 +176,8 @@ struct impl {
 	struct pw_properties *stream_props;
 	struct rtp_stream *stream;
 
+	struct spa_ratelimit rate_limit;
+
 	unsigned int do_disconnect:1;
 
 	char *ifname;
@@ -279,6 +282,13 @@ static void stream_destroy(void *d)
 	impl->stream = NULL;
 }
 
+static inline uint64_t get_time_ns(void)
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return SPA_TIMESPEC_TO_NSEC(&ts);
+}
+
 static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 {
 	struct impl *impl = data;
@@ -293,8 +303,11 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 	msg.msg_flags = 0;
 
 	n = sendmsg(impl->rtp_fd, &msg, MSG_NOSIGNAL);
-	if (n < 0)
-		pw_log_warn("sendmsg() failed: %m");
+	if (n < 0) {
+		int suppressed;
+		if ((suppressed = spa_ratelimit_test(&impl->rate_limit, get_time_ns())) >= 0)
+			pw_log_warn("(%d suppressed) sendmsg() failed: %m", suppressed);
+	}
 }
 
 static void stream_state_changed(void *data, bool started, const char *error)
@@ -515,6 +528,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto out;
 	}
 	impl->stream_props = stream_props;
+
+	impl->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
+	impl->rate_limit.burst = 1;
 
 	impl->module = module;
 	impl->context = context;

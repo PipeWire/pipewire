@@ -83,9 +83,10 @@ complete:
 		pw_log_warn("overflow buffer %u %u", b.state.offset, maxsize);
 		b.state.offset = 0;
 	}
+	d[0].chunk->offset = 0;
 	d[0].chunk->size = b.state.offset;
 	d[0].chunk->stride = 1;
-	d[0].chunk->offset = 0;
+	d[0].chunk->flags = 0;
 done:
 	pw_stream_queue_buffer(impl->stream, buf);
 }

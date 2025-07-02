@@ -87,9 +87,10 @@ static void rtp_opus_process_playback(void *data)
 		timestamp += wanted;
 		spa_ringbuffer_read_update(&impl->ring, timestamp);
 	}
+	d[0].chunk->offset = 0;
 	d[0].chunk->size = wanted * stride;
 	d[0].chunk->stride = stride;
-	d[0].chunk->offset = 0;
+	d[0].chunk->flags = 0;
 	buf->size = wanted;
 
 	pw_stream_queue_buffer(impl->stream, buf);

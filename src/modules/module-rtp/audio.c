@@ -8,7 +8,7 @@ static void rtp_audio_process_playback(void *data)
 	struct pw_buffer *buf;
 	struct spa_data *d;
 	uint32_t wanted, timestamp, target_buffer, stride, maxsize;
-	int32_t avail;
+	int32_t avail, flags = 0;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
 		pw_log_info("Out of stream buffers: %m");
@@ -35,6 +35,8 @@ static void rtp_audio_process_playback(void *data)
 	if (avail < (int32_t)wanted) {
 		enum spa_log_level level;
 		memset(d[0].data, 0, wanted * stride);
+		flags |= SPA_CHUNK_FLAG_EMPTY;
+
 		if (impl->have_sync) {
 			impl->have_sync = false;
 			level = SPA_LOG_LEVEL_INFO;
@@ -95,9 +97,10 @@ static void rtp_audio_process_playback(void *data)
 		timestamp += wanted;
 		spa_ringbuffer_read_update(&impl->ring, timestamp);
 	}
+	d[0].chunk->offset = 0;
 	d[0].chunk->size = wanted * stride;
 	d[0].chunk->stride = stride;
-	d[0].chunk->offset = 0;
+	d[0].chunk->flags = flags;
 	buf->size = wanted;
 
 	pw_stream_queue_buffer(impl->stream, buf);

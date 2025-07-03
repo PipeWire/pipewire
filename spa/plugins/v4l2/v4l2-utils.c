@@ -1100,7 +1100,6 @@ do_frminterval_filter:
 	if (with_modifier && info->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
 		struct spa_pod_object *op = (struct spa_pod_object *) result.param;
 		const struct spa_pod_prop *p;
-		bool drop_next = false;
 
 		spa_pod_builder_push_object(&b.b, &f[0], op->body.type, op->body.id);
 

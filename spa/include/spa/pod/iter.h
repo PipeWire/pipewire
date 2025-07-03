@@ -357,10 +357,11 @@ SPA_API_POD_ITER int spa_pod_is_choice(const struct spa_pod *pod)
 
 SPA_API_POD_ITER struct spa_pod *spa_pod_get_values(const struct spa_pod *pod, uint32_t *n_vals, uint32_t *choice)
 {
-	if (pod->type == SPA_TYPE_Choice) {
+	if (spa_pod_is_choice(pod)) {
 		*n_vals = SPA_POD_CHOICE_N_VALUES(pod);
-		if ((*choice = SPA_POD_CHOICE_TYPE(pod)) == SPA_CHOICE_None)
-			*n_vals = SPA_MIN(1u, SPA_POD_CHOICE_N_VALUES(pod));
+		*choice = SPA_POD_CHOICE_TYPE(pod);
+		if (*choice == SPA_CHOICE_None)
+			*n_vals = SPA_MIN(1u, *n_vals);
 		return (struct spa_pod*)SPA_POD_CHOICE_CHILD(pod);
 	} else {
 		*n_vals = 1;
@@ -371,13 +372,12 @@ SPA_API_POD_ITER struct spa_pod *spa_pod_get_values(const struct spa_pod *pod, u
 
 SPA_API_POD_ITER int spa_pod_is_struct(const struct spa_pod *pod)
 {
-	return (SPA_POD_TYPE(pod) == SPA_TYPE_Struct);
+	return SPA_POD_CHECK_0(pod, SPA_TYPE_Struct);
 }
 
 SPA_API_POD_ITER int spa_pod_is_object(const struct spa_pod *pod)
 {
-	return (SPA_POD_TYPE(pod) == SPA_TYPE_Object &&
-			SPA_POD_BODY_SIZE(pod) >= sizeof(struct spa_pod_object_body));
+	return SPA_POD_CHECK(pod, SPA_TYPE_Object, sizeof(struct spa_pod_object_body));
 }
 
 SPA_API_POD_ITER bool spa_pod_is_object_type(const struct spa_pod *pod, uint32_t type)
@@ -392,8 +392,7 @@ SPA_API_POD_ITER bool spa_pod_is_object_id(const struct spa_pod *pod, uint32_t i
 
 SPA_API_POD_ITER int spa_pod_is_sequence(const struct spa_pod *pod)
 {
-	return (SPA_POD_TYPE(pod) == SPA_TYPE_Sequence &&
-			SPA_POD_BODY_SIZE(pod) >= sizeof(struct spa_pod_sequence_body));
+	return SPA_POD_CHECK(pod, SPA_TYPE_Sequence, sizeof(struct spa_pod_sequence_body));
 }
 
 SPA_API_POD_ITER const struct spa_pod_prop *spa_pod_object_find_prop(const struct spa_pod_object *pod,

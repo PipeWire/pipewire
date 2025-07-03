@@ -65,6 +65,11 @@ spa_pod_builder_get_state(struct spa_pod_builder *builder, struct spa_pod_builde
 	*state = builder->state;
 }
 
+SPA_API_POD_BUILDER bool spa_pod_builder_corrupted(const struct spa_pod_builder *builder)
+{
+	return builder->state.offset > builder->size;
+}
+
 SPA_API_POD_BUILDER void
 spa_pod_builder_set_callbacks(struct spa_pod_builder *builder,
 		const struct spa_pod_builder_callbacks *callbacks, void *data)
@@ -79,7 +84,7 @@ spa_pod_builder_reset(struct spa_pod_builder *builder, struct spa_pod_builder_st
 	uint32_t size = builder->state.offset - state->offset;
 	builder->state = *state;
 	for (f = builder->state.frame; f ; f = f->parent)
-		f->pod.size -= size;
+		f->pod.size -= SPA_MIN(size, f->pod.size);
 }
 
 SPA_API_POD_BUILDER void spa_pod_builder_init(struct spa_pod_builder *builder, void *data, uint32_t size)
@@ -91,9 +96,10 @@ SPA_API_POD_BUILDER struct spa_pod *
 spa_pod_builder_deref(struct spa_pod_builder *builder, uint32_t offset)
 {
 	uint32_t size = builder->size;
-	if (offset + 8 <= size) {
+	if (offset + UINT64_C(8) <= size) {
 		struct spa_pod *pod = SPA_PTROFF(builder->data, offset, struct spa_pod);
-		if (offset + SPA_POD_SIZE(pod) <= size)
+		if (offset + (uint64_t)SPA_POD_SIZE(pod) <= size &&
+		    SPA_POD_IS_VALID(pod))
 			return pod;
 	}
 	return NULL;
@@ -159,9 +165,9 @@ SPA_API_POD_BUILDER int spa_pod_builder_raw(struct spa_pod_builder *builder, con
 SPA_API_POD_BUILDER void spa_pod_builder_remove(struct spa_pod_builder *builder, uint32_t size)
 {
 	struct spa_pod_frame *f;
-	builder->state.offset -= size;
+	builder->state.offset -= SPA_MIN(size, builder->state.offset);
 	for (f = builder->state.frame; f ; f = f->parent)
-		f->pod.size -= size;
+		f->pod.size -= SPA_MIN(size, f->pod.size);
 }
 
 SPA_API_POD_BUILDER int spa_pod_builder_pad(struct spa_pod_builder *builder, uint32_t size)

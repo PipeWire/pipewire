@@ -18,6 +18,7 @@ extern "C" {
  */
 
 #define SPA_POD_ALIGN				8
+#define SPA_POD_MAX_SIZE			(1u<<20)
 
 #define SPA_POD_BODY_SIZE(pod)			(((struct spa_pod*)(pod))->size)
 #define SPA_POD_TYPE(pod)			(((struct spa_pod*)(pod))->type)

@@ -129,10 +129,14 @@ SPA_API_POD_ITER struct spa_pod_control *spa_pod_control_next(const struct spa_p
 SPA_API_POD_ITER void *spa_pod_from_data(void *data, size_t maxsize, off_t offset, size_t size)
 {
 	void *pod;
-	if (size < sizeof(struct spa_pod) || offset + size > maxsize)
+	if (offset < 0 || offset > (int64_t)UINT32_MAX)
+		return NULL;
+	if (size < sizeof(struct spa_pod) ||
+	    size > maxsize ||
+	    maxsize - size < (uint32_t)offset)
 		return NULL;
 	pod = SPA_PTROFF(data, offset, void);
-	if (SPA_POD_SIZE(pod) > size)
+	if (SPA_POD_BODY_SIZE(pod) > size - sizeof(struct spa_pod))
 		return NULL;
 	return pod;
 }

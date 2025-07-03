@@ -309,11 +309,6 @@ static void process(struct impl *impl)
 	uint32_t i, size;
 	uint32_t rindex, pindex, oindex, pdindex, avail;
 
-	if (impl->playback != NULL && (pout = pw_stream_dequeue_buffer(impl->playback)) == NULL) {
-		pw_log_debug("out of playback buffers: %m");
-		goto done;
-	}
-
 	size = impl->aec_blocksize;
 
 	/* First read a block from the playback and capture ring buffers */
@@ -337,6 +332,16 @@ static void process(struct impl *impl)
 
 	spa_ringbuffer_get_read_index(&impl->play_ring, &pindex);
 	spa_ringbuffer_get_read_index(&impl->play_delayed_ring, &pdindex);
+
+	if (impl->playback != NULL && (pout = pw_stream_dequeue_buffer(impl->playback)) == NULL) {
+		pw_log_debug("out of playback buffers: %m");
+
+		/* playback stream may not yet be in streaming state, drop play
+		 * data to avoid introducing additional playback latency */
+		spa_ringbuffer_read_update(&impl->play_ring, pindex + size);
+		spa_ringbuffer_read_update(&impl->play_delayed_ring, pdindex + size);
+		goto done;
+	}
 
 	for (i = 0; i < impl->play_info.channels; i++) {
 		/* echo from sink */

@@ -623,6 +623,19 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * "Duration (s)" determines how long the fade-in and fade-out should last
  * (default 0.000666).
  *
+ * ### Noisegate
+ *
+ * The `noisegate` plugin can be used to remove low volume noise.
+ *
+ * It has an "In" input port and an "Out" output data ports. Normally the input
+ * data is passed directly to the output.
+ *
+ * If the volume drops below "Close threshold", the noisegate will ramp down the
+ * volume to zero for a duration of "Release (s)" seconds. When the volume is above
+ * "Open threshold", the noisegate will ramp up the volume to 1 for a duration
+ * of "Attack (s)" seconds. The noise gate stays open for at least "Hold (s)"
+ * seconds before it can close again.
+ *
  *
  * ## SOFA filters
  *

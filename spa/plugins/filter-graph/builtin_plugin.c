@@ -60,6 +60,9 @@ struct builtin {
 	int mode;
 	uint32_t count;
 	float last;
+
+	float gate;
+	float hold;
 };
 
 static void *builtin_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
@@ -2876,6 +2879,136 @@ static const struct spa_fga_descriptor zeroramp_desc = {
 	.cleanup = builtin_cleanup,
 };
 
+
+/* noisegate */
+static struct spa_fga_port noisegate_ports[] = {
+	{ .index = 0,
+	  .name = "In",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "Out",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 2,
+	  .name = "Open Threshold",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	  .def = 0.004f, .min = 0.0f, .max = 1.0f
+	},
+	{ .index = 3,
+	  .name = "Close Threshold",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	  .def = 0.003f, .min = 0.0f, .max = 1.0f
+	},
+	{ .index = 4,
+	  .name = "Attack (s)",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	  .def = 0.005f, .min = 0.0f, .max = 1.0f
+	},
+	{ .index = 5,
+	  .name = "Hold (s)",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	  .def = 0.050f, .min = 0.0f, .max = 1.0f
+	},
+	{ .index = 6,
+	  .name = "Release (s)",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	  .def = 0.010f, .min = 0.0f, .max = 1.0f
+	},
+};
+
+static void noisegate_run(void * Instance, unsigned long SampleCount)
+{
+	struct builtin *impl = Instance;
+	float *in = impl->port[0];
+	float *out = impl->port[1];
+	unsigned long n;
+	float o_thres = impl->port[2][0];
+	float c_thres = impl->port[3][0];
+	float gate, hold, o_rate, c_rate, level;
+	int mode;
+
+	if (out == NULL)
+		return;
+
+	if (in == NULL) {
+		memset(out, 0, SampleCount * sizeof(float));
+		return;
+	}
+
+	o_rate = 1.0f / (impl->port[4][0] * impl->rate);
+	c_rate = 1.0f / (impl->port[6][0] * impl->rate);
+	gate = impl->gate;
+	hold = impl->hold;
+	mode = impl->mode;
+	level = impl->last;
+
+	for (n = 0; n < SampleCount; n++) {
+		float lev = fabsf(in[n]);
+
+		if (lev > level)
+			level = lev;
+		else
+			level = lev * 0.05f + level * 0.95f;
+
+		switch (mode) {
+		case 0:
+			/* closed */
+			if (level >= o_thres)
+				mode = 1;
+			break;
+		case 1:
+			/* opening */
+			gate += o_rate;
+			if (gate >= 1.0f) {
+				gate = 1.0f;
+				mode = 2;
+				hold = impl->port[5][0] * impl->rate;
+			}
+			break;
+		case 2:
+			/* hold */
+			hold -= 1.0f;
+			if (hold <= 0.0f)
+				mode = 3;
+			break;
+		case 3:
+			/* open */
+			if (level < c_thres)
+				mode = 4;
+			break;
+		case 4:
+			/* closing */
+			gate -= c_rate;
+			if (level >= o_thres)
+				mode = 1;
+			else if (gate <= 0.0f) {
+				gate = 0.0f;
+				mode = 0;
+			}
+			break;
+		}
+		out[n] = in[n] * gate;
+	}
+	impl->gate = gate;
+	impl->hold = hold;
+	impl->mode = mode;
+	impl->last = level;
+}
+
+static const struct spa_fga_descriptor noisegate_desc = {
+	.name = "noisegate",
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = SPA_N_ELEMENTS(noisegate_ports),
+	.ports = noisegate_ports,
+
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = noisegate_run,
+	.cleanup = builtin_cleanup,
+};
+
 static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 {
 	switch(Index) {
@@ -2939,6 +3072,8 @@ static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 		return &pipe_desc;
 	case 29:
 		return &zeroramp_desc;
+	case 30:
+		return &noisegate_desc;
 	}
 	return NULL;
 }

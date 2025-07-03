@@ -79,8 +79,8 @@ spa_pod_parser_deref(struct spa_pod_parser *parser, uint32_t offset, uint32_t si
 		 * Check that the pointer is aligned and that the size (rounded
 		 * to the next multiple of 8) is in bounds.
 		 */
-		if (SPA_IS_ALIGNED(pod, __alignof__(struct spa_pod)) &&
-		    long_offset + SPA_ROUND_UP_N((uint64_t)SPA_POD_BODY_SIZE(pod), 8) <= size)
+		if (SPA_IS_ALIGNED(pod, SPA_POD_ALIGN) &&
+		    long_offset + SPA_ROUND_UP_N((uint64_t)SPA_POD_BODY_SIZE(pod), SPA_POD_ALIGN) <= size)
 			return (struct spa_pod *)pod;
 	}
 	return NULL;
@@ -110,7 +110,7 @@ SPA_API_POD_PARSER struct spa_pod *spa_pod_parser_current(struct spa_pod_parser 
 
 SPA_API_POD_PARSER void spa_pod_parser_advance(struct spa_pod_parser *parser, const struct spa_pod *pod)
 {
-	parser->state.offset += SPA_ROUND_UP_N(SPA_POD_SIZE(pod), 8);
+	parser->state.offset += SPA_ROUND_UP_N(SPA_POD_SIZE(pod), SPA_POD_ALIGN);
 }
 
 SPA_API_POD_PARSER struct spa_pod *spa_pod_parser_next(struct spa_pod_parser *parser)
@@ -125,7 +125,7 @@ SPA_API_POD_PARSER int spa_pod_parser_pop(struct spa_pod_parser *parser,
 		      struct spa_pod_frame *frame)
 {
 	parser->state.frame = frame->parent;
-	parser->state.offset = frame->offset + SPA_ROUND_UP_N(SPA_POD_SIZE(&frame->pod), 8);
+	parser->state.offset = frame->offset + SPA_ROUND_UP_N(SPA_POD_SIZE(&frame->pod), SPA_POD_ALIGN);
 	return 0;
 }
 

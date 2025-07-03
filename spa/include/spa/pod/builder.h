@@ -167,7 +167,7 @@ SPA_API_POD_BUILDER void spa_pod_builder_remove(struct spa_pod_builder *builder,
 SPA_API_POD_BUILDER int spa_pod_builder_pad(struct spa_pod_builder *builder, uint32_t size)
 {
 	uint64_t zeroes = 0;
-	size = SPA_ROUND_UP_N(size, 8) - size;
+	size = SPA_ROUND_UP_N(size, SPA_POD_ALIGN) - size;
 	return size ? spa_pod_builder_raw(builder, &zeroes, size) : 0;
 }
 

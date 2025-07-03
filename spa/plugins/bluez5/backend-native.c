@@ -222,6 +222,7 @@ struct rfcomm {
 	struct spa_bt_telephony_ag *telephony_ag;
 	struct spa_list hfp_hf_commands;
 	struct spa_list updated_call_list;
+	char *dialing_number;
 #endif
 };
 
@@ -1623,9 +1624,10 @@ static void hfp_hf_dial(void *data, const char *number, enum spa_bt_telephony_er
 	rfcomm_send_cmd(rfcomm, "ATD%s;", number);
 	res = hfp_hf_wait_for_reply(rfcomm, reply, sizeof(reply));
 	if (res && spa_strstartswith(reply, "OK")) {
-		struct spa_bt_telephony_call *call;
-		call = hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, CALL_STATE_DIALING, number);
-		*err = call ? BT_TELEPHONY_ERROR_NONE : BT_TELEPHONY_ERROR_FAILED;
+		if (rfcomm->dialing_number)
+			free(rfcomm->dialing_number);
+		rfcomm->dialing_number = strdup(number);
+		*err = BT_TELEPHONY_ERROR_NONE;
 	} else {
 		spa_log_info(backend->log, "Failed to dial: \"%s\"", number);
 		if (res)
@@ -2260,8 +2262,12 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 
 					if (!found && !rfcomm->hfp_hf_clcc) {
 						spa_log_info(backend->log, "Dialing call");
-						if (hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, CALL_STATE_DIALING, NULL) == NULL)
+						if (hfp_hf_add_call(rfcomm, rfcomm->telephony_ag, CALL_STATE_DIALING, rfcomm->dialing_number) == NULL)
 							spa_log_warn(backend->log, "failed to create dialing call");
+						if (rfcomm->dialing_number) {
+							free(rfcomm->dialing_number);
+							rfcomm->dialing_number = NULL;
+						}
 					}
 				} else if (value == CIND_CALLSETUP_ALERTING) {
 					struct spa_bt_telephony_call *call;
@@ -2478,6 +2484,11 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 					spa_log_warn(backend->log, "failed to create call");
 				else if (call->id != idx)
 					spa_log_warn(backend->log, "wrong call index: %d, expected: %d", call->id, idx);
+
+				if (spa_streq(number, rfcomm->dialing_number)) {
+					free(rfcomm->dialing_number);
+					rfcomm->dialing_number = NULL;
+				}
 			}
 		} else {
 			spa_log_warn(backend->log, "malformed +CLCC command received from AG");

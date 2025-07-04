@@ -244,6 +244,7 @@ struct state {
 	uint64_t underrun;
 
 	struct spa_dll dll;
+	double dll_bw_max;
 	double max_error;
 	double max_resync;
 	double err_avg, err_var, err_wdw;

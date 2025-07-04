@@ -20,6 +20,7 @@
 
 static struct spa_list cards = SPA_LIST_INIT(&cards);
 static struct spa_list states = SPA_LIST_INIT(&states);
+#define SPA_ALSA_DLL_BW_MIN 0.001
 
 static struct card *find_card(uint32_t index)
 {
@@ -198,6 +199,9 @@ static int alsa_set_param(struct state *state, const char *k, const char *s)
 		state->disable_batch = spa_atob(s);
 	} else if (spa_streq(k, "api.alsa.disable-tsched")) {
 		state->disable_tsched = spa_atob(s);
+	} else if (spa_streq(k, "api.alsa.dll-bandwidth-max")) {
+		state->dll_bw_max = SPA_CLAMPD(spa_strtod(s, NULL),
+					       SPA_ALSA_DLL_BW_MIN, SPA_DLL_BW_MAX);
 	} else if (spa_streq(k, "api.alsa.use-chmap")) {
 		state->props.use_chmap = spa_atob(s);
 	} else if (spa_streq(k, "api.alsa.multi-rate")) {
@@ -2799,7 +2803,7 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 	int32_t diff;
 
 	if (SPA_UNLIKELY(state->dll.bw == 0.0)) {
-		spa_dll_set_bw(&state->dll, SPA_DLL_BW_MAX, state->threshold, state->rate);
+		spa_dll_set_bw(&state->dll, state->dll_bw_max, state->threshold, state->rate);
 		state->next_time = current_time;
 		state->base_time = current_time;
 	}
@@ -2862,7 +2866,7 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 				err, state->max_error, state->max_resync, state->err_avg, state->err_var, bw);
 
 		spa_dll_set_bw(&state->dll,
-				SPA_CLAMPD(bw, 0.001, SPA_DLL_BW_MAX),
+				SPA_CLAMPD(bw, SPA_ALSA_DLL_BW_MIN, state->dll_bw_max),
 				state->threshold, state->rate);
 	}
 

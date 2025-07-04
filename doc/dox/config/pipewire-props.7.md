@@ -778,6 +778,12 @@ Setting this to 0 makes htimestamp never get disabled.
 Disable timer-based scheduling, and use IRQ for scheduling instead.
 The "Pro Audio" profile will usually enable this setting, if it is expected it works on the hardware.
 
+@PAR@ node-prop  api.alsa.dll-bandwidth-max    # double
+Sets the maximum bandwidth of the DLL (delay-locked loop) filter used to smooth out rate adjustments.
+The default value may be too responsive in some scenarios.
+For example, with UAC2 pitch control, the host reacts more slowly compared to local resampling,
+so using a lower bandwidth helps avoid oscillations or instability.
+
 @PAR@ node-prop  api.alsa.auto-link = false    # boolean
 Link follower PCM devices to the driver PCM device when using IRQ-based scheduling.
 The "Pro Audio" profile will usually enable this setting, if it is expected it works on the hardware.

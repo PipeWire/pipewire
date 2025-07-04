@@ -90,6 +90,8 @@ spa_tag_info_parse(const struct spa_tag_info *info, struct spa_dict *dict, struc
 				SPA_POD_String(&value),
 				NULL) < 0)
 			break;
+		if (key == NULL || value == NULL)
+			return -EINVAL;
 		items[n].key = key;
 		items[n].value = value;
 	}

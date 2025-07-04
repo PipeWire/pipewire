@@ -33,6 +33,8 @@ static inline int parse_item(struct spa_pod_parser *prs, struct spa_dict_item *i
 		       SPA_POD_String(&item->value),
 		       NULL)) < 0)
 		return res;
+	if (item->key == NULL || item->value == NULL)
+		return -EINVAL;
 	if (spa_strstartswith(item->value, "pointer:"))
 		item->value = "";
 	return 0;

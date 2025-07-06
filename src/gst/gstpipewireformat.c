@@ -828,6 +828,8 @@ static char *video_id_to_dma_drm_fourcc(uint32_t id, uint64_t mod)
   if ((idx = find_index(video_format_map, SPA_N_ELEMENTS(video_format_map), id)) == -1)
     return NULL;
   fourcc = gst_video_dma_drm_fourcc_from_format(idx);
+  if (fourcc == DRM_FORMAT_INVALID)
+    return NULL;
   return gst_video_dma_drm_fourcc_to_string(fourcc, mod);
 }
 #endif

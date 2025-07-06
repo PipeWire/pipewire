@@ -259,7 +259,7 @@ static inline void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *thi
 
 		spa_log_trace(this->log, "%p buffering size:%d", this, (int)size);
 
-		if (size >= SPA_MAX((int)duration, target))
+		if (size >= SPA_MAX((int)samples, target))
 			this->buffering = false;
 		else
 			return;
@@ -275,7 +275,7 @@ static inline void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *thi
 
 	spa_bt_ptp_update(&this->spike, (int32_t)this->ctl.avg - this->level, duration);
 
-	if (this->level > SPA_MAX(4 * target, 3*(int32_t)duration) &&
+	if (this->level > SPA_MAX(4 * target, 3*(int32_t)samples) &&
 			avail > data_size) {
 		/* Lagging too much: drop data */
 		uint32_t size = SPA_MIN(avail - data_size,
@@ -307,7 +307,7 @@ static inline void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *thi
 			this->level, target, duration, avg_period,
 			BUFFERING_RATE_DIFF_MAX);
 
-	this->level -= duration;
+	this->level -= samples;
 
 	spa_bt_decode_buffer_get_read(this, &avail);
 	if (avail < data_size) {

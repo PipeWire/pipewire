@@ -33,7 +33,7 @@ extern "C" {
 struct spa_pod {
 	uint32_t size;		/* size of the body */
 	uint32_t type;		/* a basic id of enum spa_type */
-} SPA_ALIGNED(SPA_POD_ALIGN);
+};
 
 #define SPA_POD_VALUE(type,pod)			(((type*)(pod))->value)
 

@@ -35,12 +35,15 @@ extern "C" {
  */
 
 SPA_API_POD_FILTER int spa_pod_filter_flags_value(struct spa_pod_builder *b,
-		uint32_t type, const void *r1, const void *r2, uint32_t size SPA_UNUSED)
+		uint32_t type, const void *r1, const void *r2, uint32_t size)
 {
 	switch (type) {
 	case SPA_TYPE_Int:
 	{
-		int32_t val = (*(int32_t *) r1) & (*(int32_t *) r2);
+		int32_t val;
+		if (size < sizeof(int32_t))
+			return -EINVAL;
+		val = (*(int32_t *) r1) & (*(int32_t *) r2);
 		if (val == 0)
 			return 0;
 		spa_pod_builder_int(b, val);
@@ -48,7 +51,10 @@ SPA_API_POD_FILTER int spa_pod_filter_flags_value(struct spa_pod_builder *b,
 	}
 	case SPA_TYPE_Long:
 	{
-		int64_t val = (*(int64_t *) r1) & (*(int64_t *) r2);
+		int64_t val;
+		if (size < sizeof(int64_t))
+			return -EINVAL;
+		val = (*(int64_t *) r1) & (*(int64_t *) r2);
 		if (val == 0)
 			return 0;
 		spa_pod_builder_long(b, val);

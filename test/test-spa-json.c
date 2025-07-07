@@ -882,8 +882,15 @@ static int validate_strict_json(struct spa_json *it, int depth, FILE *f)
 			fprintf(f, "%d", v);
 	} else if (spa_json_is_float(value, len)) {
 		float v;
-		if (spa_json_parse_float(value, len, &v) > 0)
-			fprintf(f, "%G", v);
+		char float_str[64];
+		if (spa_json_parse_float(value, len, &v) > 0) {
+			int i, l;
+			l = spa_scnprintf(float_str, sizeof(float_str), "%G", v);
+			for (i = 0; i < l; i++)
+				if (float_str[i] == ',')
+					float_str[i] = '.';
+			fprintf(f, "%s", float_str);
+		}
 	} else {
 		/* bare value: error here, as we want to test
 		 * int/float/etc parsing */

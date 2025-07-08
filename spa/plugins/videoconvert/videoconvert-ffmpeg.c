@@ -1209,6 +1209,9 @@ static struct spa_pod *transform_format(struct impl *this, struct port *port, co
 			uint32_t n_vals, choice, *id_vals;
 			struct spa_pod *val = spa_pod_get_values(&prop->value, &n_vals, &choice);
 
+			if (n_vals < 1)
+				return 0;
+
 			if (!spa_pod_is_id(val))
 				return 0;
 
@@ -1311,7 +1314,7 @@ static int diff_prop(struct impl *impl, struct spa_pod_prop *prop,
 	void *vals, *v, *best = NULL;
 	int res = INT_MAX;
 
-	if (val->type != type)
+	if (n_vals < 1 || val->type != type)
 		return -EINVAL;
 
 	size = SPA_POD_BODY_SIZE(val);

@@ -161,6 +161,7 @@ static void test_parse(void)
 			uint32_t n_vals, choice;
 			struct spa_pod *pod = spa_pod_get_values(&prop->value, &n_vals, &choice);
 
+			spa_assert_se(n_vals > 0);
 			switch(prop->key) {
 			case SPA_FORMAT_mediaType:
 				spa_pod_get_id(pod, &vals.media_type);

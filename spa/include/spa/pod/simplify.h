@@ -72,7 +72,7 @@ spa_pod_simplify_merge(struct spa_pod_builder *b, const struct spa_pod *pod1, co
 			vals1 = spa_pod_get_values(&p1->value, &n_vals1, &choice1);
 			vals2 = spa_pod_get_values(&p2->value, &n_vals2, &choice2);
 
-			if (vals1->type != vals2->type)
+			if (vals1->type != vals2->type || n_vals1 < 1 || n_vals2 < 1)
 				goto error_einval;
 
 			size = vals1->size;

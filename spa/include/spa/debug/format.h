@@ -185,7 +185,7 @@ SPA_API_DEBUG_FORMAT int spa_debugc_format(struct spa_debug_context *ctx, int in
 		size = val->size;
 		vals = SPA_POD_BODY(val);
 
-		if (type < SPA_TYPE_None || type >= _SPA_TYPE_LAST)
+		if (type < SPA_TYPE_None || type >= _SPA_TYPE_LAST || n_vals < 1)
 			continue;
 
 		ti = spa_debug_type_find(info, prop->key);

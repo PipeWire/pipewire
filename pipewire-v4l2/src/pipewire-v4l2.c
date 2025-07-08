@@ -2311,6 +2311,8 @@ static int vidioc_s_ctrl(struct file *file, struct v4l2_control *arg)
 			struct spa_pod_frame f[1];
 			struct spa_pod *param;
 			pod = spa_pod_get_values(type, &n_vals, &choice);
+			if (n_vals < 1)
+				break;
 
 			spa_pod_builder_push_object(&b, &f[0],
 					SPA_TYPE_OBJECT_Props,  SPA_PARAM_Props);

@@ -336,24 +336,35 @@ SPA_API_POD_ITER int spa_pod_is_array(const struct spa_pod *pod)
 	return SPA_POD_CHECK(pod, SPA_TYPE_Array, sizeof(struct spa_pod_array_body));
 }
 
-SPA_API_POD_ITER void *spa_pod_get_array(const struct spa_pod *pod, uint32_t *n_values)
+SPA_API_POD_ITER void *spa_pod_get_array_full(const struct spa_pod *pod, uint32_t *n_values,
+		uint32_t *val_size, uint32_t *val_type)
 {
 	spa_return_val_if_fail(spa_pod_is_array(pod), NULL);
 	*n_values = SPA_POD_ARRAY_N_VALUES(pod);
+	*val_size = SPA_POD_ARRAY_VALUE_SIZE(pod);
+	*val_type = SPA_POD_ARRAY_VALUE_TYPE(pod);
 	return SPA_POD_ARRAY_VALUES(pod);
 }
-
-SPA_API_POD_ITER uint32_t spa_pod_copy_array(const struct spa_pod *pod, uint32_t type,
-		void *values, uint32_t max_values)
+SPA_API_POD_ITER void *spa_pod_get_array(const struct spa_pod *pod, uint32_t *n_values)
 {
-	uint32_t n_values;
-	void *v = spa_pod_get_array(pod, &n_values);
-	if (v == NULL || max_values == 0 || SPA_POD_ARRAY_VALUE_TYPE(pod) != type)
+	uint32_t size, type;
+	return spa_pod_get_array_full(pod, n_values, &size, &type);
+}
+
+SPA_API_POD_ITER uint32_t spa_pod_copy_array_full(const struct spa_pod *pod, uint32_t type,
+		uint32_t size, void *values, uint32_t max_values)
+{
+	uint32_t n_values, val_size, val_type;
+	void *v = spa_pod_get_array_full(pod, &n_values, &val_size, &val_type);
+	if (v == NULL || max_values == 0 || val_type != type || val_size != size)
 		return 0;
 	n_values = SPA_MIN(n_values, max_values);
-	memcpy(values, v, SPA_POD_ARRAY_VALUE_SIZE(pod) * n_values);
+	memcpy(values, v, val_size * n_values);
 	return n_values;
 }
+
+#define spa_pod_copy_array(pod,type,values,max_values)	\
+	spa_pod_copy_array_full(pod,type,sizeof(values[0]),values,max_values)
 
 SPA_API_POD_ITER int spa_pod_is_choice(const struct spa_pod *pod)
 {

@@ -67,7 +67,7 @@ filter_graph_dependencies = [
 ]
 
 spa_filter_graph_plugin_builtin = shared_library('spa-filter-graph-plugin-builtin',
-  [ 'builtin_plugin.c',
+  [ 'plugin_builtin.c',
     'convolver.c' ],
   include_directories : [configinc],
   install : true,
@@ -77,7 +77,7 @@ spa_filter_graph_plugin_builtin = shared_library('spa-filter-graph-plugin-builti
 )
 
 spa_filter_graph_plugin_ladspa = shared_library('spa-filter-graph-plugin-ladspa',
-  [ 'ladspa_plugin.c' ],
+  [ 'plugin_ladspa.c' ],
   include_directories : [configinc],
   install : true,
   install_dir : spa_plugindir / 'filter-graph',
@@ -86,7 +86,7 @@ spa_filter_graph_plugin_ladspa = shared_library('spa-filter-graph-plugin-ladspa'
 
 if libmysofa_dep.found()
 spa_filter_graph_plugin_sofa = shared_library('spa-filter-graph-plugin-sofa',
-  [ 'sofa_plugin.c',
+  [ 'plugin_sofa.c',
     'convolver.c' ],
   include_directories : [configinc],
   install : true,
@@ -97,7 +97,7 @@ endif
 
 if lilv_lib.found()
 spa_filter_graph_plugin_lv2 = shared_library('spa-filter-graph-plugin-lv2',
-  [ 'lv2_plugin.c' ],
+  [ 'plugin_lv2.c' ],
   include_directories : [configinc],
   install : true,
   install_dir : spa_plugindir / 'filter-graph',
@@ -107,7 +107,7 @@ endif
 
 if ebur128_lib.found()
 spa_filter_graph_plugin_ebur128 = shared_library('spa-filter-graph-plugin-ebur128',
-  [ 'ebur128_plugin.c' ],
+  [ 'plugin_ebur128.c' ],
   include_directories : [configinc],
   install : true,
   install_dir : spa_plugindir / 'filter-graph',
@@ -117,7 +117,7 @@ endif
 
 if avfilter_dep.found()
 spa_filter_graph_plugin_ffmpeg = shared_library('spa-filter-graph-plugin-ffmpeg',
-  [ 'ffmpeg_plugin.c' ],
+  [ 'plugin_ffmpeg.c' ],
   include_directories : [configinc],
   install : true,
   install_dir : spa_plugindir / 'filter-graph',

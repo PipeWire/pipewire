@@ -767,9 +767,7 @@ static int format_info_iec958_from_param(struct format_info *info, struct spa_po
 	if ((info->props = pw_properties_new(NULL, NULL)) == NULL)
 		return -errno;
 
-	add_int(info, "format.rate", param, SPA_FORMAT_AUDIO_rate);
-
-	return 0;
+	return add_int(info, "format.rate", param, SPA_FORMAT_AUDIO_rate);
 }
 
 int format_info_from_param(struct format_info *info, struct spa_pod *param, uint32_t index)

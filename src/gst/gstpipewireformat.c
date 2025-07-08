@@ -1305,7 +1305,7 @@ gst_caps_from_format (const struct spa_pod *format)
           "alignment", G_TYPE_STRING, "au",
           NULL);
     } else {
-	    return NULL;
+      return NULL;
     }
     if ((prop = spa_pod_object_find_prop (obj, prop, SPA_FORMAT_VIDEO_size))) {
       handle_rect_prop (prop, "width", "height", res);

@@ -363,6 +363,8 @@ gst_pipewire_sink_update_params (GstPipeWireSink *sink)
   pw_thread_loop_lock (sink->stream->core->loop);
   pw_stream_update_params (sink->stream->pwstream, port_params, n_params);
   pw_thread_loop_unlock (sink->stream->core->loop);
+
+  gst_structure_free (config);
 }
 
 static void

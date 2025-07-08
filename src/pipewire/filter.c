@@ -206,7 +206,7 @@ static void fix_datatype(struct spa_pod *param)
 	if (spa_pod_get_int(&vals[0], (int32_t*)&dataType) < 0)
 		return;
 
-	pw_log_debug("dataType: %u", dataType);
+	pw_log_debug("dataType: %" PRIu32, dataType);
 	if (dataType & (1u << SPA_DATA_MemPtr)) {
 		SPA_POD_VALUE(struct spa_pod_int, &vals[0]) =
 			dataType | (1<<SPA_DATA_MemFd);

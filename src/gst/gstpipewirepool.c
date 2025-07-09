@@ -194,6 +194,7 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
 	  gst_buffer_add_video_crop_meta(buf);
   data->videotransform =
     spa_buffer_find_meta_data (b->buffer, SPA_META_VideoTransform, sizeof(*data->videotransform));
+  data->cursor = spa_buffer_find_meta_data (b->buffer, SPA_META_Cursor, sizeof(*data->cursor));
 
   gst_mini_object_set_qdata (GST_MINI_OBJECT_CAST (buf),
                              pool_data_quark,

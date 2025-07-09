@@ -714,6 +714,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
   struct spa_meta_header *h;
   struct spa_meta_region *crop;
   enum spa_meta_videotransform_value transform_value;
+  struct spa_meta_cursor *cursor;
   struct pw_time time;
   guint i;
 
@@ -804,6 +805,13 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
     gst_pad_push_event (GST_BASE_SRC_PAD (pwsrc), tag_event);
 
     pwsrc->transform_value = transform_value;
+  }
+
+  cursor = data->cursor;
+  if (cursor && cursor->id != 0) {
+    /* TODO: at some point, maybe we can figure out width and height from the bitmap,
+     * and even add that to the meta itself */
+    gst_buffer_add_video_region_of_interest_meta (buf, "cursor", cursor->position.x, cursor->position.y, 0, 0);
   }
 
   if (pwsrc->is_rawvideo) {
@@ -1341,11 +1349,11 @@ handle_format_change (GstPipeWireSrc *pwsrc,
   }
 
   if (pwsrc->caps) {
-    const struct spa_pod *params[4];
+    const struct spa_pod *params[10];
     struct spa_pod_builder b = { NULL };
-    uint8_t buffer[512];
+    uint8_t buffer[16384];
     uint32_t buffers = CLAMP (16, pwsrc->min_buffers, pwsrc->max_buffers);
-    int buffertypes;
+    int buffertypes, n_params = 0;
 
     buffertypes = (1<<SPA_DATA_DmaBuf);
     if (!spa_pod_find_prop (param, NULL, SPA_FORMAT_VIDEO_modifier)) {
@@ -1355,7 +1363,7 @@ handle_format_change (GstPipeWireSrc *pwsrc,
     GST_DEBUG_OBJECT (pwsrc, "we got format %" GST_PTR_FORMAT, pwsrc->caps);
 
     spa_pod_builder_init (&b, buffer, sizeof (buffer));
-    params[0] = spa_pod_builder_add_object (&b,
+    params[n_params++] = spa_pod_builder_add_object (&b,
         SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
         SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(buffers,
                                                             pwsrc->min_buffers,
@@ -1365,21 +1373,31 @@ handle_format_change (GstPipeWireSrc *pwsrc,
         SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
         SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(buffertypes));
 
-    params[1] = spa_pod_builder_add_object (&b,
+    params[n_params++] = spa_pod_builder_add_object (&b,
         SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
         SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
         SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_header)));
-    params[2] = spa_pod_builder_add_object (&b,
+    params[n_params++] = spa_pod_builder_add_object (&b,
         SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
         SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoCrop),
         SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_region)));
-    params[3] = spa_pod_builder_add_object (&b,
+    params[n_params++] = spa_pod_builder_add_object (&b,
         SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
         SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoTransform),
         SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_videotransform)));
+#define CURSOR_META_SIZE(width, height) \
+        (sizeof (struct spa_meta_cursor) + \
+         sizeof (struct spa_meta_bitmap) + width * height * 4)
+    params[n_params++] = spa_pod_builder_add_object (&b,
+        SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
+        SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Cursor),
+        SPA_PARAM_META_size,
+        SPA_POD_CHOICE_RANGE_Int (CURSOR_META_SIZE(384, 384),
+          sizeof (struct spa_meta_cursor),
+          CURSOR_META_SIZE(384, 384)));
 
     GST_DEBUG_OBJECT (pwsrc, "doing finish format");
-    pw_stream_update_params (pwsrc->stream->pwstream, params, SPA_N_ELEMENTS(params));
+    pw_stream_update_params (pwsrc->stream->pwstream, params, n_params);
   } else {
     GST_WARNING_OBJECT (pwsrc, "finish format with error");
     pw_stream_set_error (pwsrc->stream->pwstream, -EINVAL, "unhandled format");

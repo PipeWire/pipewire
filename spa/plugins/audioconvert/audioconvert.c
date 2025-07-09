@@ -818,7 +818,7 @@ static int node_param_prop_info(struct impl *this, uint32_t id, uint32_t index,
 	case 29:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, id,
-			SPA_PROP_INFO_name, SPA_POD_String("audioconvert.filter-graph"),
+			SPA_PROP_INFO_name, SPA_POD_String("audioconvert.filter-graph.N"),
 			SPA_PROP_INFO_description, SPA_POD_String("A filter graph to load"),
 			SPA_PROP_INFO_type, SPA_POD_String(""),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
@@ -1448,8 +1448,8 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 	}
 	else if (spa_streq(k, "channelmix.lock-volumes"))
 		this->props.lock_volumes = spa_atob(s);
-	else if (spa_strstartswith(k, "audioconvert.filter-graph")) {
-		int order = atoi(k+ strlen("audioconvert.filter-graph."));
+	else if (spa_strstartswith(k, "audioconvert.filter-graph.")) {
+		int order = atoi(k + strlen("audioconvert.filter-graph."));
 		if ((res = load_filter_graph(this, s, order)) < 0) {
 			spa_log_warn(this->log, "Can't load filter-graph %d: %s",
 					order, spa_strerror(res));

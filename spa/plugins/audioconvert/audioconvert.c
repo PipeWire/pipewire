@@ -1188,8 +1188,8 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 	}
 	else if (spa_streq(k, "channelmix.lock-volumes"))
 		this->props.lock_volumes = spa_atob(s);
-	else if (spa_strstartswith(k, "audioconvert.filter-graph")) {
-		int order = atoi(k+ strlen("audioconvert.filter-graph."));
+	else if (spa_strstartswith(k, "audioconvert.filter-graph.")) {
+		int order = atoi(k + strlen("audioconvert.filter-graph."));
 		if ((res = load_filter_graph(this, s, order)) < 0) {
 			spa_log_warn(this->log, "Can't load filter-graph %d: %s",
 					order, spa_strerror(res));

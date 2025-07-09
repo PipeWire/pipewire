@@ -124,10 +124,6 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 	// result in very poor performance, disable by default
 	bool gain_control = webrtc_get_spa_bool(args, "webrtc.gain_control", false);
 
-	// FIXME: Intelligibility enhancer is not currently supported
-	// This filter will modify playback buffer (when calling ProcessReverseStream), but now
-	// playback buffer modifications are discarded.
-
 #if defined(HAVE_WEBRTC)
 	webrtc::Config config;
 	config.Set<webrtc::ExtendedFilter>(new webrtc::ExtendedFilter(extended_filter));
@@ -309,9 +305,6 @@ static int webrtc_run(void *object, const float *rec[], const float *play[], flo
 		for (size_t j = 0; j < impl->out_info.channels; j++)
 			impl->out_buffer[j] = out[j] + out_config.num_frames() * i;
 
-		/* FIXME: ProcessReverseStream may change the playback buffer, in which
-		* case we should use that, if we ever expose the intelligibility
-		* enhancer */
 		if ((res = impl->apm->ProcessReverseStream(impl->play_buffer.get(),
 					play_config, play_config, impl->play_buffer.get())) !=
 				webrtc::AudioProcessing::kNoError) {

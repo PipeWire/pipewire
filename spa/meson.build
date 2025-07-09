@@ -147,6 +147,9 @@ if get_option('spa-plugins').allowed()
 
   summary({'ffmpeg': avfilter_dep.found()}, bool_yn: true, section: 'filter-graph')
 
+  onnxruntime_dep = dependency('onnxruntime', required: get_option('onnxruntime'))
+  summary({'onnxruntime': onnxruntime_dep.found()}, bool_yn: true, section: 'filter-graph')
+
   cdata.set('HAVE_SPA_PLUGINS', true)
   subdir('plugins')
 endif

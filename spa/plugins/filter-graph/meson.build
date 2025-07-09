@@ -125,3 +125,14 @@ spa_filter_graph_plugin_ffmpeg = shared_library('spa-filter-graph-plugin-ffmpeg'
 )
 endif
 
+if onnxruntime_dep.found()
+spa_filter_graph_plugin_onnx = shared_library('spa-filter-graph-plugin-onnx',
+  [ 'plugin_onnx.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : spa_plugindir / 'filter-graph',
+  dependencies : [ filter_graph_dependencies, onnxruntime_dep, avutil_dep]
+)
+endif
+
+

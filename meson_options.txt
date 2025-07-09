@@ -391,3 +391,7 @@ option('fftw',
        description: 'Enable code that depends on fftw',
        type: 'feature',
        value: 'auto')
+option('onnxruntime',
+       description: 'Enable code that depends on onnxruntime',
+       type: 'feature',
+       value: 'auto')

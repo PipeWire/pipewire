@@ -870,6 +870,119 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *     ...
  * }
  *\endcode
+
+ * ## ONNX filters
+ *
+ * There is an optional ONNX filter available (when compiled with `libonnxruntime`)
+ * that can be selected with the `onnx` type. Use the `label` field to select
+ * the model to use and how to map the tensors to ports.
+ *
+ *\code{.unparsed}
+ * filter.graph = {
+ *     nodes = [
+ *         {
+ *             type   = onnx
+ *             name   = onnx
+ *             label = {
+ *                 filename = "..."
+ *                 blocksize = 512
+ *                 input-tensors = {
+ *                     "<name>" = {
+ *                         dimensions = [ ... ]
+ *                         #retain = 64
+ *                         data = "port:..."|"tensor:..."|"param:..."|"control:..."
+ *                     }
+ *                     ...
+ *                 }
+ *                 output-tensors = {
+ *                     "<name>" = {
+ *                         dimensions = [ ... ]
+ *                         #retain = 64
+ *                         data = "port:..."|"tensor:..."|"param:..."|"control:..."
+ *                     }
+ *                     ...
+ *                 }
+ *             }
+ *         }
+ *     }
+ *     ...
+ * }
+ *\endcode
+ *
+ * The label must contain an object with the configuration of the plugin.
+ *
+ * - `filename` the ONNX model to load. It must point to an existing onnx file.
+ * - `blocksize` the number of samples to give to the model. This depends on the model
+ *               and the input/output tensor sizes.
+ * - `input-tensors` an object of input tensors of the model and how they should be
+ *                   used. Unlisted tensors will not be used.
+ * - `output-tensors` an object of output tensors of the model and how they should be
+ *                   used. Unlisted tensors will not be used.
+ *
+ * The `input-tensors` and `output-tensors` configuration must contain an object with
+ * keys named after the tensors in the model and the value must be an object with the
+ * the following keys:
+ *
+ * - `dimensions` and array of dimensions of the tensors.
+ * - `retain` an optional key for input tensors. This will prepend the last `retain` samples
+ *            from the previous block to the input tensor. The size of the tensor should
+ *            therefore at least be blocksize + retain samples large.
+ * - `data` where the data for the tensor is comming from. There are different options
+ *          based on the value of this file, selected with a prefix:
+ *      - `port:<portname>` a new input/output port is created on the plugin with the
+ *                          name <portname> and the data for the tensor will be obtained
+ *                          or copied from/to the port data.
+ *      - `tensor:<tensorname>` the data of this tensor is copied from the given
+ *                              <tensorname>. You can use this to copy output state
+ *                              info to the input state, for example.
+ *      - `param:<paramname>` the data of this tensor is obtained from a parameter with
+ *                            <paramname>. Currently only `rate` is a valid paramname,
+ *                            which has the value of the filter samplerate.
+ *      - `control:<portname>` a new input/output control port is created and the tensor
+ *                             data will be obtained/copied from/to the control data.
+ *
+ * Here is an example of the silero VAD model:
+ *
+ *\code{.unparsed}
+ * filter.graph = {
+ *     nodes = [
+ *         {
+ *             type   = onnx
+ *             name = onnx
+ *             label = {
+ *                 filename = "/home/wim/src/silero-vad/src/silero_vad/data/silero_vad.onnx"
+ *                 blocksize = 512
+ *                 input-tensors = {
+ *                     "input" = {
+ *                         dimensions = [ 1, 576 ]
+ *                         retain = 64
+ *                         data = "port:input"
+ *                     }
+ *                     "state" = {
+ *                         dimensions = [ 2, 1, 128 ]
+ *                         data = "tensor:stateN"
+ *                     }
+ *                     "sr" = {
+ *                         dimensions = [ 1 ]
+ *                         data = "param:rate"
+ *                     }
+ *                 }
+ *                 output-tensors = {
+ *                     "output" = {
+ *                         dimensions = [ 1, 1 ]
+ *                         data = "control:speech"
+ *                     }
+ *                     "stateN" = {
+ *                         dimensions = [ 2, 1, 128 ]
+ *                     }
+ *                 }
+ *             }
+ *         }
+ *         ...
+ *    ]
+ *    ....
+ * }
+ *\endcode
  *
  * ## General options
  *

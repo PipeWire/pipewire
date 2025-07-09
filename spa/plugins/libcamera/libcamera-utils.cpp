@@ -279,6 +279,62 @@ static int score_size(Size &a, Size &b)
 	return x * x + y * y;
 }
 
+static void
+parse_colorimetry(const ColorSpace& colorspace,
+		struct spa_video_colorimetry *colorimetry)
+{
+	switch (colorspace.range) {
+	case ColorSpace::Range::Full:
+		colorimetry->range = SPA_VIDEO_COLOR_RANGE_0_255;
+		break;
+	case ColorSpace::Range::Limited:
+		colorimetry->range = SPA_VIDEO_COLOR_RANGE_16_235;
+		break;
+	}
+
+	switch (colorspace.ycbcrEncoding) {
+	case ColorSpace::YcbcrEncoding::None:
+		colorimetry->matrix = SPA_VIDEO_COLOR_MATRIX_RGB;
+		break;
+	case ColorSpace::YcbcrEncoding::Rec601:
+		colorimetry->matrix = SPA_VIDEO_COLOR_MATRIX_BT601;
+		break;
+	case ColorSpace::YcbcrEncoding::Rec709:
+		colorimetry->matrix = SPA_VIDEO_COLOR_MATRIX_BT709;
+		break;
+	case ColorSpace::YcbcrEncoding::Rec2020:
+		colorimetry->matrix = SPA_VIDEO_COLOR_MATRIX_BT2020;
+		break;
+	}
+
+	switch (colorspace.transferFunction) {
+	case ColorSpace::TransferFunction::Linear:
+		colorimetry->transfer = SPA_VIDEO_TRANSFER_UNKNOWN;
+		break;
+	case ColorSpace::TransferFunction::Srgb:
+		colorimetry->transfer = SPA_VIDEO_TRANSFER_SRGB;
+		break;
+	case ColorSpace::TransferFunction::Rec709:
+		colorimetry->transfer = SPA_VIDEO_TRANSFER_BT709;
+		break;
+	}
+
+	switch (colorspace.primaries) {
+	case ColorSpace::Primaries::Raw:
+		colorimetry->primaries = SPA_VIDEO_COLOR_PRIMARIES_UNKNOWN;
+		break;
+	case ColorSpace::Primaries::Smpte170m:
+		colorimetry->primaries = SPA_VIDEO_COLOR_PRIMARIES_SMPTE170M;
+		break;
+	case ColorSpace::Primaries::Rec709:
+		colorimetry->primaries = SPA_VIDEO_COLOR_PRIMARIES_BT709;
+		break;
+	case ColorSpace::Primaries::Rec2020:
+		colorimetry->primaries = SPA_VIDEO_COLOR_PRIMARIES_BT2020;
+		break;
+	}
+}
+
 static int
 spa_libcamera_enum_format(struct impl *impl, struct port *port, int seq,
 		     uint32_t start, uint32_t num, const struct spa_pod *filter)
@@ -289,6 +345,7 @@ spa_libcamera_enum_format(struct impl *impl, struct port *port, int seq,
 	struct spa_pod_builder b = { 0 };
 	struct spa_pod_frame f[2];
 	struct spa_result_node_params result;
+	struct spa_video_colorimetry colorimetry = {};
 	struct spa_pod *fmt;
 	uint32_t i, count = 0, num_sizes;
 	PixelFormat format;
@@ -299,6 +356,9 @@ spa_libcamera_enum_format(struct impl *impl, struct port *port, int seq,
 
 	const StreamConfiguration& streamConfig = impl->config->at(0);
 	const StreamFormats &formats = streamConfig.formats();
+
+	if (streamConfig.colorSpace)
+		parse_colorimetry(*streamConfig.colorSpace, &colorimetry);
 
 	result.id = SPA_PARAM_EnumFormat;
 	result.next = start;
@@ -392,6 +452,18 @@ next_fmt:
 
 	} else {
 		spa_pod_builder_rectangle(&b, frameSize.width, frameSize.height);
+	}
+
+	if (streamConfig.colorSpace) {
+		spa_pod_builder_add(&b,
+				SPA_FORMAT_VIDEO_colorRange,
+				SPA_POD_Id(colorimetry.range),
+				SPA_FORMAT_VIDEO_colorMatrix,
+				SPA_POD_Id(colorimetry.matrix),
+				SPA_FORMAT_VIDEO_transferFunction,
+				SPA_POD_Id(colorimetry.transfer),
+				SPA_FORMAT_VIDEO_colorPrimaries,
+				SPA_POD_Id(colorimetry.primaries), 0);
 	}
 
 	fmt = (struct spa_pod*) spa_pod_builder_pop(&b, &f[0]);

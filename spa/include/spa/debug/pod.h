@@ -5,6 +5,8 @@
 #ifndef SPA_DEBUG_POD_H
 #define SPA_DEBUG_POD_H
 
+#include <inttypes.h>
+
 #include <spa/debug/context.h>
 #include <spa/debug/mem.h>
 #include <spa/debug/types.h>
@@ -37,11 +39,11 @@ spa_debugc_pod_value(struct spa_debug_context *ctx, int indent, const struct spa
 		spa_debugc(ctx, "%*s" "Bool %s", indent, "", (*(int32_t *) body) ? "true" : "false");
 		break;
 	case SPA_TYPE_Id:
-		spa_debugc(ctx, "%*s" "Id %-8d (%s)", indent, "", *(int32_t *) body,
+		spa_debugc(ctx, "%*s" "Id %-8" PRId32 " (%s)", indent, "", *(int32_t *) body,
 		       spa_debug_type_find_name(info, *(int32_t *) body));
 		break;
 	case SPA_TYPE_Int:
-		spa_debugc(ctx, "%*s" "Int %d", indent, "", *(int32_t *) body);
+		spa_debugc(ctx, "%*s" "Int %" PRId32, indent, "", *(int32_t *) body);
 		break;
 	case SPA_TYPE_Long:
 		spa_debugc(ctx, "%*s" "Long %" PRIi64 "", indent, "", *(int64_t *) body);
@@ -86,7 +88,7 @@ spa_debugc_pod_value(struct spa_debug_context *ctx, int indent, const struct spa
 		void *p;
 		const struct spa_type_info *ti = spa_debug_type_find(SPA_TYPE_ROOT, b->child.type);
 
-		spa_debugc(ctx, "%*s" "Array: child.size %d, child.type %s", indent, "",
+		spa_debugc(ctx, "%*s" "Array: child.size %" PRIu32 ", child.type %s", indent, "",
 		       b->child.size, ti ? ti->name : "unknown");
 
 		info = info && info->values ? info->values : info;
@@ -100,7 +102,7 @@ spa_debugc_pod_value(struct spa_debug_context *ctx, int indent, const struct spa
 		void *p;
 		const struct spa_type_info *ti = spa_debug_type_find(spa_type_choice, b->type);
 
-		spa_debugc(ctx, "%*s" "Choice: type %s, flags %08x %d %d", indent, "",
+		spa_debugc(ctx, "%*s" "Choice: type %s, flags %08" PRIx32 " %" PRIu32 " %" PRIu32, indent, "",
 		       ti ? ti->name : "unknown", b->flags, size, b->child.size);
 
 		SPA_POD_CHOICE_BODY_FOREACH(b, size, p)
@@ -110,7 +112,7 @@ spa_debugc_pod_value(struct spa_debug_context *ctx, int indent, const struct spa
 	case SPA_TYPE_Struct:
 	{
 		struct spa_pod *b = (struct spa_pod *)body, *p;
-		spa_debugc(ctx, "%*s" "Struct: size %d", indent, "", size);
+		spa_debugc(ctx, "%*s" "Struct: size %" PRIu32, indent, "", size);
 		SPA_POD_FOREACH(b, size, p)
 			spa_debugc_pod_value(ctx, indent + 2, info, p->type, SPA_POD_BODY(p), p->size);
 		break;
@@ -125,16 +127,16 @@ spa_debugc_pod_value(struct spa_debug_context *ctx, int indent, const struct spa
 		ii = ti ? spa_debug_type_find(ti->values, 0) : NULL;
 		ii = ii ? spa_debug_type_find(ii->values, b->id) : NULL;
 
-		spa_debugc(ctx, "%*s" "Object: size %d, type %s (%d), id %s (%d)", indent, "", size,
-		       ti ? ti->name : "unknown", b->type, ii ? ii->name : "unknown", b->id);
+		spa_debugc(ctx, "%*s" "Object: size %" PRIu32 ", type %s (%" PRIu32 "), id %s (%" PRIu32 ")",
+			indent, "", size, ti ? ti->name : "unknown", b->type, ii ? ii->name : "unknown", b->id);
 
 		info = ti ? ti->values : info;
 
 		SPA_POD_OBJECT_BODY_FOREACH(b, size, p) {
 			ii = spa_debug_type_find(info, p->key);
 
-			spa_debugc(ctx, "%*s" "Prop: key %s (%d), flags %08x", indent+2, "",
-					ii ? ii->name : "unknown", p->key, p->flags);
+			spa_debugc(ctx, "%*s" "Prop: key %s (%" PRIu32 "), flags %08" PRIx32,
+				indent+2, "", ii ? ii->name : "unknown", p->key, p->flags);
 
 			spa_debugc_pod_value(ctx, indent + 4, ii ? ii->values : NULL,
 					p->value.type,
@@ -151,13 +153,13 @@ spa_debugc_pod_value(struct spa_debug_context *ctx, int indent, const struct spa
 
 		ti = spa_debug_type_find(info, b->unit);
 
-		spa_debugc(ctx, "%*s" "Sequence: size %d, unit %s", indent, "", size,
+		spa_debugc(ctx, "%*s" "Sequence: size %" PRIu32 ", unit %s", indent, "", size,
 		       ti ? ti->name : "unknown");
 
 		SPA_POD_SEQUENCE_BODY_FOREACH(b, size, c) {
 			ii = spa_debug_type_find(spa_type_control, c->type);
 
-			spa_debugc(ctx, "%*s" "Control: offset %d, type %s", indent+2, "",
+			spa_debugc(ctx, "%*s" "Control: offset %" PRIu32 ", type %s", indent+2, "",
 					c->offset, ii ? ii->name : "unknown");
 
 			spa_debugc_pod_value(ctx, indent + 4, ii ? ii->values : NULL,
@@ -176,7 +178,7 @@ spa_debugc_pod_value(struct spa_debug_context *ctx, int indent, const struct spa
 		spa_debugc_mem(ctx, indent + 2, body, size);
 		break;
 	default:
-		spa_debugc(ctx, "%*s" "unhandled POD type %d", indent, "", type);
+		spa_debugc(ctx, "%*s" "unhandled POD type %" PRIu32, indent, "", type);
 		break;
 	}
 	return 0;

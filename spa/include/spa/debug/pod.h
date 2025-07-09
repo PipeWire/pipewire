@@ -133,10 +133,21 @@ spa_debugc_pod_value(struct spa_debug_context *ctx, int indent, const struct spa
 		info = ti ? ti->values : info;
 
 		SPA_POD_OBJECT_BODY_FOREACH(b, size, p) {
+			static const char custom_prefix[] = SPA_TYPE_INFO_PROPS_BASE "Custom:";
+			char custom_name[sizeof(custom_prefix) + 16];
+			const char *name = "unknown";
+
 			ii = spa_debug_type_find(info, p->key);
+			if (ii) {
+				name = ii->name;
+			} else if (p->key >= SPA_PROP_START_CUSTOM) {
+				snprintf(custom_name, sizeof(custom_name),
+					 "%s%" PRIu32, custom_prefix, p->key - SPA_PROP_START_CUSTOM);
+				name = custom_name;
+			}
 
 			spa_debugc(ctx, "%*s" "Prop: key %s (%" PRIu32 "), flags %08" PRIx32,
-				indent+2, "", ii ? ii->name : "unknown", p->key, p->flags);
+				indent+2, "", name, p->key, p->flags);
 
 			spa_debugc_pod_value(ctx, indent + 4, ii ? ii->values : NULL,
 					p->value.type,

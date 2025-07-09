@@ -801,7 +801,7 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * The `filtergraph` plugin will automatically add format converters when the input
  * port channel-layout, format or graph sample-rates don't match.
  *
- * Note that the FFmpeg filtergraph is not Real-time safe because it might does
+ * Note that the FFmpeg filtergraph is not Real-time safe because it might do
  * allocations from the processing thread. It is advised to run the filter-chain
  * streams in async mode (`node.async = true`) to avoid interrupting the other
  * RT threads.

@@ -173,6 +173,8 @@ static int core_demarshal_client_update(void *object, const struct pw_protocol_n
 		    "i", &props.n_items, NULL) < 0)
 		return -EINVAL;
 
+	if (props.n_items > MAX_DICT)
+		return -ENOSPC;
 	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
 	for (i = 0; i < props.n_items; i++) {
 		if (spa_pod_parser_get(&prs,
@@ -219,6 +221,8 @@ static int core_demarshal_permissions(void *object, const struct pw_protocol_nat
 	    spa_pod_parser_get(&prs, "i", &props.n_items, NULL) < 0)
 		return -EINVAL;
 
+	if (props.n_items > MAX_DICT)
+		return -ENOSPC;
 	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
 
 	n_permissions = 0;
@@ -698,6 +702,8 @@ static int core_demarshal_create_object(void *object, const struct pw_protocol_n
 			"i", &props.n_items, NULL) < 0)
 		return -EINVAL;
 
+	if (props.n_items > MAX_DICT)
+		return -ENOSPC;
 	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
 	for (i = 0; i < props.n_items; i++) {
 		if (spa_pod_parser_get(&prs,
@@ -764,6 +770,8 @@ static int core_demarshal_update_types_server(void *object, const struct pw_prot
 	if (first_id == 0)
 		compat_v2->send_types = true;
 
+	if (n_types > MAX_DICT)
+		return -ENOSPC;
 	types = alloca(n_types * sizeof(char *));
 	for (i = 0; i < n_types; i++) {
 		if (spa_pod_parser_get(&prs, "s", &types[i], NULL) < 0)

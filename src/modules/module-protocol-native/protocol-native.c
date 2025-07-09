@@ -15,10 +15,6 @@
 
 #include "connection.h"
 
-#define MAX_DICT	1024
-#define MAX_PARAM_INFO	128
-#define MAX_PERMISSIONS	4096
-
 PW_LOG_TOPIC_EXTERN(mod_topic);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 

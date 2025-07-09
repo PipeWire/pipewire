@@ -10,6 +10,10 @@
 
 #include <pipewire/extensions/protocol-native.h>
 
+#define MAX_DICT	1024
+#define MAX_PARAM_INFO	128
+#define MAX_PERMISSIONS	4096
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -116,8 +116,10 @@
 #define AAC_SAMPLING_FREQ_88200		0x0002
 #define AAC_SAMPLING_FREQ_96000		0x0001
 
-#define AAC_CHANNELS_1			0x02
-#define AAC_CHANNELS_2			0x01
+#define AAC_CHANNELS_1			0x08
+#define AAC_CHANNELS_2			0x04
+#define AAC_CHANNELS_5_1		0x02
+#define AAC_CHANNELS_7_1		0x01
 
 #define AAC_GET_BITRATE(a) ((a).bitrate1 << 16 | \
 					(a).bitrate2 << 8 | (a).bitrate3)
@@ -341,8 +343,7 @@ typedef struct {
 typedef struct {
 	uint8_t object_type;
 	uint8_t frequency1;
-	uint8_t rfa:2;
-	uint8_t channels:2;
+	uint8_t channels:4;
 	uint8_t frequency2:4;
 	uint8_t bitrate1:7;
 	uint8_t vbr:1;
@@ -403,8 +404,7 @@ typedef struct {
 	uint8_t object_type;
 	uint8_t frequency1;
 	uint8_t frequency2:4;
-	uint8_t channels:2;
-	uint8_t rfa:2;
+	uint8_t channels:4;
 	uint8_t vbr:1;
 	uint8_t bitrate1:7;
 	uint8_t bitrate2;

@@ -399,7 +399,7 @@ enum_filter_format(uint32_t media_type, int32_t media_subtype,
 				if (index == 0)
 					video_format = values[0];
 			} else {
-				if (index + 1 < n_values)
+				if (index < n_values - 1)
 					video_format = values[index + 1];
 			}
 		} else {

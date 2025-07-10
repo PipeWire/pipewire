@@ -35,8 +35,7 @@ struct spa_pod_frame {
 };
 
 #define SPA_POD_IS_VALID(pod)				\
-	(SPA_POD_BODY_SIZE(pod) < SPA_POD_MAX_SIZE &&	\
-	 SPA_IS_ALIGNED(pod, SPA_POD_ALIGN))
+	(SPA_POD_BODY_SIZE(pod) < SPA_POD_MAX_SIZE)
 
 #define SPA_POD_CHECK_TYPE(pod,_type)			\
 	(SPA_POD_IS_VALID(pod) &&			\
@@ -50,7 +49,7 @@ SPA_API_POD_ITER bool spa_pod_is_inside(const void *pod, uint32_t size, const vo
 	size_t remaining;
 
 	return spa_ptr_type_inside(pod, size, iter, struct spa_pod, &remaining) &&
-		SPA_IS_ALIGNED(iter, SPA_POD_ALIGN) && remaining >= SPA_POD_BODY_SIZE(iter);
+		remaining >= SPA_POD_BODY_SIZE(iter);
 }
 
 SPA_API_POD_ITER void *spa_pod_next(const void *iter)

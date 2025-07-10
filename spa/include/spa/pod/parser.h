@@ -76,11 +76,9 @@ spa_pod_parser_deref(struct spa_pod_parser *parser, uint32_t offset, uint32_t si
 		/* Use void* because creating a misaligned pointer is undefined. */
 		void *pod = SPA_PTROFF(parser->data, offset, void);
 		/*
-		 * Check that the pointer is aligned and that the size (rounded
-		 * to the next multiple of 8) is in bounds.
+		 * Check that the size (rounded to the next multiple of 8) is in bounds.
 		 */
-		if (SPA_IS_ALIGNED(pod, SPA_POD_ALIGN) &&
-		    long_offset + SPA_ROUND_UP_N((uint64_t)SPA_POD_BODY_SIZE(pod), SPA_POD_ALIGN) <= size)
+		if (long_offset + SPA_ROUND_UP_N((uint64_t)SPA_POD_BODY_SIZE(pod), SPA_POD_ALIGN) <= size)
 			return (struct spa_pod *)pod;
 	}
 	return NULL;

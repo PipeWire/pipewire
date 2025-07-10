@@ -269,9 +269,6 @@ struct pw_impl_client {
 	unsigned int destroyed:1;
 
 	int refcount;
-
-	/* v2 compatibility data */
-	void *compat_v2;
 };
 
 #define pw_global_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_global_events, m, v, ##__VA_ARGS__)

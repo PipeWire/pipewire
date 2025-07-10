@@ -14,7 +14,6 @@
 #include <pipewire/impl.h>
 
 #define PW_API_CLIENT_NODE_IMPL	SPA_EXPORT
-#include "module-client-node/v0/client-node.h"
 #include "module-client-node/client-node.h"
 
 /** \page page_module_client_node Client Node
@@ -108,7 +107,6 @@ struct pw_proxy *pw_core_spa_node_export(struct pw_core *core,
 		const char *type, const struct spa_dict *props, void *object, size_t user_data_size);
 
 struct pw_protocol *pw_protocol_native_ext_client_node_init(struct pw_context *context);
-struct pw_protocol *pw_protocol_native_ext_client_node0_init(struct pw_context *context);
 
 struct factory_data {
 	struct pw_impl_factory *factory;
@@ -146,7 +144,8 @@ static void *create_object(void *_data,
 	}
 
 	if (version == 0) {
-		result = pw_impl_client_node0_new(node_resource, properties);
+		result = NULL;
+		errno = ENOTSUP;
 	} else {
 		result = pw_impl_client_node_new(node_resource, properties, true);
 	}
@@ -265,7 +264,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error_remove;
 
 	pw_protocol_native_ext_client_node_init(context);
-	pw_protocol_native_ext_client_node0_init(context);
 
 	pw_impl_factory_add_listener(factory, &data->factory_listener, &factory_events, data);
 	pw_impl_module_add_listener(module, &data->module_listener, &module_events, data);

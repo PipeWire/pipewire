@@ -190,7 +190,6 @@ static const struct spa_dict_item module_props[] = {
 #define LOCK_SUFFIXLEN  5
 
 void pw_protocol_native_init(struct pw_protocol *protocol);
-void pw_protocol_native0_init(struct pw_protocol *protocol);
 void *protocol_native_security_context_init(struct pw_impl_module *module, struct pw_protocol *protocol);
 void protocol_native_security_context_free(void *data);
 
@@ -271,8 +270,6 @@ struct client_data {
 
 	unsigned int busy:1;
 	unsigned int need_flush:1;
-
-	struct protocol_compat_v2 compat_v2;
 };
 
 static void debug_msg(const char *prefix, const struct pw_protocol_native_message *msg, bool hex)
@@ -536,8 +533,6 @@ static void client_free(void *data)
 		pw_loop_destroy_source(client->context->main_loop, this->source);
 	if (this->connection)
 		pw_protocol_native_connection_destroy(this->connection);
-
-	pw_map_clear(&this->compat_v2.types);
 }
 
 static const struct pw_impl_client_events client_events = {
@@ -566,9 +561,6 @@ static void on_start(void *data, uint32_t version)
 	if (pw_global_bind(pw_impl_core_get_global(client->core), client,
 			PW_PERM_ALL, version, 0) < 0)
 		return;
-
-	if (version == 0)
-		client->compat_v2 = &this->compat_v2;
 
 	return;
 }
@@ -687,7 +679,6 @@ static struct client_data *client_new(struct server *s, int fd)
 
 	this->server = s;
 	this->client = client;
-	pw_map_init(&this->compat_v2.types, 0, 32);
 
 	pw_impl_client_add_listener(client, &this->client_listener, &client_events, this);
 
@@ -1836,7 +1827,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args_str)
 	this->extension = &protocol_ext_impl;
 
 	pw_protocol_native_init(this);
-	pw_protocol_native0_init(this);
 
 	pw_log_debug("%p: new", this);
 

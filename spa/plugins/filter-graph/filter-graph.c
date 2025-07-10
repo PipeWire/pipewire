@@ -1355,7 +1355,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 
 	spa_log_info(impl->log, "loading type:%s plugin:%s label:%s", type, plugin, label);
 
-	if ((desc = descriptor_load(graph->impl, type, plugin, label)) == NULL)
+	if ((desc = descriptor_load(graph->impl, type, plugin, label ? label : "")) == NULL)
 		return -errno;
 
 	node = calloc(1, sizeof(*node));

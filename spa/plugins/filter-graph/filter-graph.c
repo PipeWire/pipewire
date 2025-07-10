@@ -67,7 +67,7 @@ struct descriptor {
 	struct spa_list link;
 	int ref;
 	struct plugin *plugin;
-	char label[256];
+	char *label;
 
 	const struct spa_fga_descriptor *desc;
 
@@ -911,6 +911,7 @@ static void descriptor_unref(struct descriptor *desc)
 	if (desc->desc)
 		spa_fga_descriptor_free(desc->desc);
 	plugin_unref(desc->plugin);
+	free(desc->label);
 	free(desc->input);
 	free(desc->output);
 	free(desc->control);
@@ -954,12 +955,12 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 	spa_list_init(&desc->link);
 
 	if ((d = spa_fga_plugin_make_desc(pl->plugin, label)) == NULL) {
-		spa_log_error(impl->log, "cannot find label %s", label);
+		spa_log_error(impl->log, "cannot create label %s", label);
 		res = -ENOENT;
 		goto exit;
 	}
 	desc->desc = d;
-	snprintf(desc->label, sizeof(desc->label), "%s", label);
+	desc->label = strdup(label);
 
 	n_input = n_output = n_control = n_notify = 0;
 	for (p = 0; p < d->n_ports; p++) {
@@ -1035,38 +1036,36 @@ exit:
  *   ...
  * }
  */
-static int parse_config(struct node *node, struct spa_json *config)
+static char *copy_value(struct impl *impl, struct spa_json *value)
 {
-	const char *val, *s = config->cur;
-	struct impl *impl = node->graph->impl;
-	int res = 0, len;
+	const char *val, *s = value->cur;
+	int len;
 	struct spa_error_location loc;
+	char *result = NULL;
 
-	if ((len = spa_json_next(config, &val)) <= 0) {
-		res = -EINVAL;
+	if ((len = spa_json_next(value, &val)) <= 0) {
+		errno = EINVAL;
 		goto done;
 	}
 	if (spa_json_is_null(val, len))
 		goto done;
 
 	if (spa_json_is_container(val, len)) {
-		len = spa_json_container_len(config, val, len);
+		len = spa_json_container_len(value, val, len);
 		if (len == 0) {
-			res = -EINVAL;
+			errno = EINVAL;
 			goto done;
 		}
 	}
-	if ((node->config = malloc(len+1)) == NULL) {
-		res = -errno;
+	if ((result = malloc(len+1)) == NULL)
 		goto done;
-	}
 
-	spa_json_parse_stringn(val, len, node->config, len+1);
+	spa_json_parse_stringn(val, len, result, len+1);
 done:
-	if (spa_json_get_error(config, s, &loc))
+	if (spa_json_get_error(value, s, &loc))
 		spa_debug_log_error_location(impl->log, SPA_LOG_LEVEL_WARN,
 				&loc, "error: %s", loc.reason);
-	return res;
+	return result;
 }
 
 /**
@@ -1296,7 +1295,7 @@ static int parse_volume(struct graph *graph, struct spa_json *json, enum spa_dir
 static int load_node(struct graph *graph, struct spa_json *json)
 {
 	struct impl *impl = graph->impl;
-	struct spa_json control, config;
+	struct spa_json control, it;
 	struct descriptor *desc;
 	struct node *node;
 	const char *val;
@@ -1304,11 +1303,11 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	char type[256] = "";
 	char name[256] = "";
 	char plugin[256] = "";
-	char label[256] = "";
+	spa_autofree char *label = NULL;
+	spa_autofree char *config = NULL;
 	bool have_control = false;
-	bool have_config = false;
 	uint32_t i;
-	int res, len;
+	int len;
 
 	while ((len = spa_json_object_next(json, key, sizeof(key), &val)) > 0) {
 		if (spa_streq("type", key)) {
@@ -1327,8 +1326,9 @@ static int load_node(struct graph *graph, struct spa_json *json)
 				return -EINVAL;
 			}
 		} else if (spa_streq("label", key)) {
-			if (spa_json_parse_stringn(val, len, label, sizeof(label)) <= 0) {
-				spa_log_error(impl->log, "label expects a string");
+			it = SPA_JSON_START(json, val);
+			if ((label = copy_value(impl, &it)) == NULL) {
+				spa_log_warn(impl->log, "error parsing label: %s", spa_strerror(-errno));
 				return -EINVAL;
 			}
 		} else if (spa_streq("control", key)) {
@@ -1339,8 +1339,9 @@ static int load_node(struct graph *graph, struct spa_json *json)
 			spa_json_enter(json, &control);
 			have_control = true;
 		} else if (spa_streq("config", key)) {
-			config = SPA_JSON_START(json, val);
-			have_config = true;
+			it = SPA_JSON_START(json, val);
+			if ((config = copy_value(impl, &it)) == NULL)
+				spa_log_warn(impl->log, "error parsing config: %s", spa_strerror(-errno));
 		} else {
 			spa_log_warn(impl->log, "unexpected node key '%s'", key);
 		}
@@ -1365,6 +1366,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	node->desc = desc;
 	snprintf(node->name, sizeof(node->name), "%s", name);
 	node->latency_index = SPA_IDX_INVALID;
+	node->config = spa_steal_ptr(config);
 
 	node->input_port = calloc(desc->n_input, sizeof(struct port));
 	node->output_port = calloc(desc->n_output, sizeof(struct port));
@@ -1410,9 +1412,6 @@ static int load_node(struct graph *graph, struct spa_json *json)
 			node->latency_index = i;
 		spa_list_init(&port->link_list);
 	}
-	if (have_config)
-		if ((res = parse_config(node, &config)) < 0)
-			spa_log_warn(impl->log, "error parsing config: %s", spa_strerror(res));
 	if (have_control)
 		parse_control(node, &control);
 

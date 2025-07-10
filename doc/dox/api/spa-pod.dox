@@ -33,7 +33,7 @@ POD's can contain a number of basic SPA types:
 - `SPA_TYPE_Bytes`: A byte array.
 - `SPA_TYPE_Rectangle`: A rectangle with width and height.
 - `SPA_TYPE_Fraction`: A fraction with numerator and denominator.
-- `SPA_TYPE_Bitmap`: An array of bits.
+- `SPA_TYPE_Bitmap`: An array of bits. Deprecated and unused.
 
 POD's can be grouped together in these container types:
 

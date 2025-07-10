@@ -1718,6 +1718,7 @@ static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_
 			&SPA_DICT_ITEMS(
 				 SPA_DICT_ITEM(SPA_KEY_AUDIO_FORMAT, "F32P")),
 			&props->dict,
+			SPA_KEY_AUDIO_RATE,
 			SPA_KEY_AUDIO_CHANNELS,
 			SPA_KEY_AUDIO_POSITION, NULL);
 }

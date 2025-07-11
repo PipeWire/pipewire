@@ -495,7 +495,7 @@ static void set_latency(struct impl *this, bool emit_latency)
 	port->latency.min_ns = port->latency.max_ns = delay;
 	port->latency.min_rate = port->latency.max_rate = 0;
 
-	if (this->transport->iso_io) {
+	if (this->codec->kind == MEDIA_CODEC_BAP) {
 		/* ISO has different delay */
 		port->latency.min_quantum = port->latency.max_quantum = 1.0f;
 	} else {
@@ -1649,6 +1649,7 @@ static int transport_start(struct impl *this)
 		spa_list_append(&asha_sinks, &this->asha_link);
 	}
 
+	set_latency(this, true);
 
 	return 0;
 

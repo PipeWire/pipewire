@@ -58,7 +58,7 @@ struct props {
 #define MIN_BUFFERS 3
 #define MAX_BUFFERS 32
 #define BUFFER_SIZE	(8192*8)
-#define RATE_CTL_DIFF_MAX 0.005
+#define RATE_CTL_DIFF_MAX 0.01
 #define LATENCY_PERIOD		(200 * SPA_NSEC_PER_MSEC)
 
 /* Wait for two cycles before trying to sync ISO. On start/driver reassign,
@@ -1198,7 +1198,7 @@ static void media_iso_rate_match(struct impl *this)
 {
 	struct spa_bt_iso_io *iso_io = this->transport ? this->transport->iso_io : NULL;
 	struct port *port = &this->port;
-	const double period = 0.1 * SPA_NSEC_PER_SEC;
+	const double period = 0.05 * SPA_NSEC_PER_SEC;
 	uint64_t ref_time;
 	uint64_t duration_ns;
 	double value, target, err, max_err;

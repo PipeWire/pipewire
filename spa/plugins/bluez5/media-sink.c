@@ -175,6 +175,7 @@ struct impl {
 	uint64_t process_time;
 	uint64_t process_duration;
 	uint64_t process_rate;
+	double process_rate_diff;
 
 	uint64_t prev_flush_time;
 	uint64_t next_flush_time;
@@ -613,16 +614,19 @@ static uint32_t get_queued_frames(struct impl *this)
 static uint64_t get_reference_time(struct impl *this, uint64_t *duration_ns_ret)
 {
 	struct port *port = &this->port;
-	uint64_t t, duration_ns;
+	uint64_t duration_ns;
+	int64_t t;
 	bool resampling;
 
 	if (!this->process_rate || !this->process_duration) {
 		if (this->position) {
 			this->process_duration = this->position->clock.duration;
 			this->process_rate = this->position->clock.rate.denom;
+			this->process_rate_diff = this->position->clock.rate_diff;
 		} else {
 			this->process_duration = 1024;
 			this->process_rate = 48000;
+			this->process_rate_diff = 1.0;
 		}
 	}
 
@@ -631,7 +635,7 @@ static uint64_t get_reference_time(struct impl *this, uint64_t *duration_ns_ret)
 		*duration_ns_ret = duration_ns;
 
 	/* Time at the first sample in the current packet. */
-	t = this->process_time + duration_ns;
+	t = duration_ns;
 	t -= ((uint64_t)get_queued_frames(this) * SPA_NSEC_PER_SEC
 			/ port->current_format.info.raw.rate);
 
@@ -642,7 +646,10 @@ static uint64_t get_reference_time(struct impl *this, uint64_t *duration_ns_ret)
 			/ port->current_format.info.raw.rate;
 	}
 
-	return t;
+	if (this->process_rate_diff)
+		t = (int64_t)(t / this->process_rate_diff);
+
+	return this->process_time + t;
 }
 
 static int reset_buffer(struct impl *this)
@@ -2305,12 +2312,17 @@ static int impl_node_process(void *object)
 		}
 	}
 
+	/* Make copies of current position values, so that they can be used later at any
+	 * time without shared memory races
+	 */
 	if (this->position) {
 		this->process_duration = this->position->clock.duration;
 		this->process_rate = this->position->clock.rate.denom;
+		this->process_rate_diff = this->position->clock.rate_diff;
 	} else {
 		this->process_duration = 1024;
 		this->process_rate = 48000;
+		this->process_rate_diff = 1.0;
 	}
 
 	this->process_time = this->current_time;

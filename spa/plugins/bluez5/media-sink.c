@@ -1194,17 +1194,21 @@ static void drop_frames(struct impl *this, uint32_t req)
 	}
 }
 
-static void media_iso_pull(struct spa_bt_iso_io *iso_io)
+static void media_iso_rate_match(struct impl *this)
 {
-	struct impl *this = iso_io->user_data;
+	struct spa_bt_iso_io *iso_io = this->transport ? this->transport->iso_io : NULL;
 	struct port *port = &this->port;
 	const double period = 0.1 * SPA_NSEC_PER_SEC;
+	uint64_t ref_time;
 	uint64_t duration_ns;
 	double value, target, err, max_err;
 
+	if (!iso_io || !this->transport_started)
+		return;
+
 	if (this->resync || !this->position) {
 		spa_bt_rate_control_init(&port->ratectl, 0);
-		goto done;
+		return;
 	}
 
 	/*
@@ -1219,14 +1223,18 @@ static void media_iso_pull(struct spa_bt_iso_io *iso_io)
 	 * controller starts processing the packet.
 	 */
 
-	value = (int64_t)iso_io->now - (int64_t)get_reference_time(this, &duration_ns);
+	ref_time = get_reference_time(this, &duration_ns);
+	if (iso_io->size)
+		ref_time -= iso_io->duration;
+
+	value = (int64_t)iso_io->now - (int64_t)ref_time;
 	if (this->process_rate)
 		target = this->process_duration * SPA_NSEC_PER_SEC / this->process_rate;
 	else
 		target = 0;
 	target = SPA_MAX(target, iso_io->duration*3/2);
 	err = value - target;
-	max_err = iso_io->duration;
+	max_err = SPA_MAX(40 * SPA_NSEC_PER_MSEC, target);
 
 	if (iso_io->resync && err >= 0) {
 		unsigned int req = (unsigned int)(err * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC);
@@ -1252,7 +1260,7 @@ static void media_iso_pull(struct spa_bt_iso_io *iso_io)
 				this, err / SPA_NSEC_PER_MSEC);
 	} else {
 		spa_bt_rate_control_update(&port->ratectl, err, 0,
-				iso_io->duration, period, RATE_CTL_DIFF_MAX);
+				duration_ns, period, RATE_CTL_DIFF_MAX);
 		spa_log_trace(this->log, "%p: ISO sync err:%+.3g value:%.6f target:%.6f (ms) corr:%g",
 				this,
 				port->ratectl.avg / SPA_NSEC_PER_MSEC,
@@ -1262,8 +1270,12 @@ static void media_iso_pull(struct spa_bt_iso_io *iso_io)
 	}
 
 	iso_io->resync = false;
+}
 
-done:
+static void media_iso_pull(struct spa_bt_iso_io *iso_io)
+{
+	struct impl *this = iso_io->user_data;
+
 	this->iso_pending = true;
 	flush_data(this, this->current_time);
 }
@@ -1469,12 +1481,14 @@ static void media_asha_cb(struct spa_source *source)
 	}
 }
 
-static int do_start_iso_io(struct spa_loop *loop, bool async, uint32_t seq,
+static int do_start_transport(struct spa_loop *loop, bool async, uint32_t seq,
 		const void *data, size_t size, void *user_data)
 {
 	struct impl *this = user_data;
 
-	spa_bt_iso_io_set_cb(this->transport->iso_io, media_iso_pull, this);
+	this->transport_started = true;
+	if (this->transport->iso_io)
+		spa_bt_iso_io_set_cb(this->transport->iso_io, media_iso_pull, this);
 	return 0;
 }
 
@@ -1610,10 +1624,8 @@ static int transport_start(struct impl *this)
 	this->flush_pending = false;
 	this->iso_pending = false;
 
-	this->transport_started = true;
+	spa_loop_locked(this->data_loop, do_start_transport, 0, NULL, 0, this);
 
-	if (this->transport->iso_io)
-		spa_loop_locked(this->data_loop, do_start_iso_io, 0, NULL, 0, this);
 	if (is_asha) {
 		struct spa_bt_asha *asha = this->asha;
 
@@ -2330,6 +2342,8 @@ static int impl_node_process(void *object)
 		--this->resync;
 
 	setup_matching(this);
+
+	media_iso_rate_match(this);
 
 	if (this->codec->kind == MEDIA_CODEC_ASHA && !this->asha->set_timer) {
 		struct impl *other = find_other_asha(this);

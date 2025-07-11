@@ -1541,6 +1541,7 @@ static void hfp_hf_hangup(void *data, enum spa_bt_telephony_error *err, uint8_t 
 			rfcomm_send_cmd(rfcomm, "AT+CHUP");
 		}
 		break;
+	case CALL_STATE_HELD:
 	case CALL_STATE_WAITING:
 		if (rfcomm->hfp_hf_in_progress) {
 			*err = BT_TELEPHONY_ERROR_IN_PROGRESS;
@@ -1550,7 +1551,7 @@ static void hfp_hf_hangup(void *data, enum spa_bt_telephony_error *err, uint8_t 
 		hfp_hf_in_progress = true;
 		break;
 	default:
-		spa_log_info(backend->log, "Call not incoming, waiting or active: skip hangup");
+		spa_log_info(backend->log, "Call invalid state: skip hangup");
 		*err = BT_TELEPHONY_ERROR_INVALID_STATE;
 		return;
 	}
@@ -1566,7 +1567,8 @@ static void hfp_hf_hangup(void *data, enum spa_bt_telephony_error *err, uint8_t 
 	}
 
 	if (hfp_hf_in_progress) {
-		if (call_data->call->state != CALL_STATE_WAITING) {
+		if (!rfcomm->hfp_hf_clcc && call_data->call->state != CALL_STATE_HELD &&
+				call_data->call->state != CALL_STATE_WAITING) {
 			spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
 				if (call->state == CALL_STATE_ACTIVE) {
 					call->state = CALL_STATE_DISCONNECTED;

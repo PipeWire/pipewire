@@ -678,6 +678,13 @@ static int setup_matching(struct impl *this)
 	if (port->rate_match) {
 		port->rate_match->rate = 1 / port->ratectl.corr;
 
+		/* We rate match in the system clock domain. If driver ticks at a
+		 * different rate, we as follower must compensate.
+		 */
+		if (this->following && SPA_LIKELY(this->position &&
+						this->position->clock.rate_diff))
+			port->rate_match->rate /= this->position->clock.rate_diff;
+
 		SPA_FLAG_UPDATE(port->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE, this->following);
 	}
 

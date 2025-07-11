@@ -713,6 +713,10 @@ static int setup_matching(struct impl *this)
 		this->matching = this->following;
 		this->resampling = this->matching ||
 			(port->current_format.info.raw.rate != this->position->clock.target_rate.denom);
+
+		/* Rate match in system clock domain also when follower */
+		if (this->matching && this->position->clock.rate_diff > 0)
+			port->rate_match->rate *= this->position->clock.rate_diff;
 	} else {
 		this->matching = false;
 		this->resampling = false;
@@ -1720,11 +1724,11 @@ static void process_buffering(struct impl *this)
 			break;
 	}
 
+	setup_matching(this);
+
 	spa_bt_decode_buffer_process(&port->buffer, samples, duration,
 			this->position ? this->position->clock.rate_diff : 1.0,
 			this->position ? this->position->clock.next_nsec : 0);
-
-	setup_matching(this);
 
 	/* copy data to buffers */
 	if (!spa_list_is_empty(&port->free)) {

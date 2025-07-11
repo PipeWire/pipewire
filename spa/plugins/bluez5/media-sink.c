@@ -646,7 +646,7 @@ static uint64_t get_reference_time(struct impl *this, uint64_t *duration_ns_ret)
 			/ port->current_format.info.raw.rate;
 	}
 
-	if (this->process_rate_diff)
+	if (this->process_rate_diff > 0)
 		t = (int64_t)(t / this->process_rate_diff);
 
 	return this->process_time + t;
@@ -689,7 +689,7 @@ static int setup_matching(struct impl *this)
 		 * different rate, we as follower must compensate.
 		 */
 		if (this->following && SPA_LIKELY(this->position &&
-						this->position->clock.rate_diff))
+						this->position->clock.rate_diff > 0))
 			port->rate_match->rate /= this->position->clock.rate_diff;
 
 		SPA_FLAG_UPDATE(port->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE, this->following);

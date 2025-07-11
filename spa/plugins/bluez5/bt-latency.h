@@ -106,9 +106,9 @@ static inline ssize_t spa_bt_send(int fd, const void *buf, size_t size,
 
 static inline int spa_bt_latency_recv_errqueue(struct spa_bt_latency *lat, int fd, struct spa_log *log)
 {
-	struct {
-		struct cmsghdr cm;
-		char control[512];
+	union {
+		char buf[CMSG_SPACE(32 * sizeof(struct scm_timestamping))];
+		struct cmsghdr align;
 	} control;
 
 	if (!lat->enabled)
@@ -122,8 +122,8 @@ static inline int spa_bt_latency_recv_errqueue(struct spa_bt_latency *lat, int f
 		struct msghdr msg = {
 			.msg_iov = &data,
 			.msg_iovlen = 1,
-			.msg_control = &control,
-			.msg_controllen = sizeof(control),
+			.msg_control = control.buf,
+			.msg_controllen = sizeof(control.buf),
 		};
 		struct cmsghdr *cmsg;
 		struct scm_timestamping *tss = NULL;

@@ -72,27 +72,7 @@ struct impl {
 	}
 };
 
-}
-
-std::shared_ptr<CameraManager> libcamera_manager_acquire(int& res)
-{
-	static std::weak_ptr<CameraManager> global_manager;
-	static std::mutex lock;
-
-	std::lock_guard guard(lock);
-
-	if (auto manager = global_manager.lock())
-		return manager;
-
-	auto manager = std::make_shared<CameraManager>();
-	if ((res = manager->start()) < 0)
-		return {};
-
-	global_manager = manager;
-
-	return manager;
-}
-static uint32_t get_free_id(struct impl *impl)
+uint32_t get_free_id(struct impl *impl)
 {
 	for (std::size_t i = 0; i < MAX_DEVICES; i++)
 		if (impl->devices[i].camera == nullptr)
@@ -100,7 +80,7 @@ static uint32_t get_free_id(struct impl *impl)
 	return 0;
 }
 
-static struct device *add_device(struct impl *impl, std::shared_ptr<Camera> camera)
+struct device *add_device(struct impl *impl, std::shared_ptr<Camera> camera)
 {
 	struct device *device;
 	uint32_t id;
@@ -115,7 +95,7 @@ static struct device *add_device(struct impl *impl, std::shared_ptr<Camera> came
 	return device;
 }
 
-static struct device *find_device(struct impl *impl, const Camera *camera)
+struct device *find_device(struct impl *impl, const Camera *camera)
 {
 	uint32_t i;
 	for (i = 0; i < impl->n_devices; i++) {
@@ -125,7 +105,7 @@ static struct device *find_device(struct impl *impl, const Camera *camera)
 	return NULL;
 }
 
-static void remove_device(struct impl *impl, struct device *device)
+void remove_device(struct impl *impl, struct device *device)
 {
 	uint32_t old = --impl->n_devices;
 	device->camera.reset();
@@ -133,13 +113,13 @@ static void remove_device(struct impl *impl, struct device *device)
 	impl->devices[old].camera = nullptr;
 }
 
-static void clear_devices(struct impl *impl)
+void clear_devices(struct impl *impl)
 {
 	while (impl->n_devices > 0)
 		impl->devices[--impl->n_devices].camera.reset();
 }
 
-static int emit_object_info(struct impl *impl, struct device *device)
+int emit_object_info(struct impl *impl, struct device *device)
 {
 	struct spa_device_object_info info;
 	uint32_t id = device->id;
@@ -169,7 +149,7 @@ static int emit_object_info(struct impl *impl, struct device *device)
 	return 1;
 }
 
-static void try_add_camera(struct impl *impl, std::shared_ptr<Camera> camera)
+void try_add_camera(struct impl *impl, std::shared_ptr<Camera> camera)
 {
 	struct device *device;
 
@@ -184,7 +164,7 @@ static void try_add_camera(struct impl *impl, std::shared_ptr<Camera> camera)
 	emit_object_info(impl, device);
 }
 
-static void try_remove_camera(struct impl *impl, const Camera *camera)
+void try_remove_camera(struct impl *impl, const Camera *camera)
 {
 	struct device *device;
 
@@ -197,7 +177,7 @@ static void try_remove_camera(struct impl *impl, const Camera *camera)
 	remove_device(impl, device);
 }
 
-static void consume_hotplug_event(struct impl *impl, impl::hotplug_event& event)
+void consume_hotplug_event(struct impl *impl, impl::hotplug_event& event)
 {
 	auto& [ type, camera ] = event;
 
@@ -213,7 +193,7 @@ static void consume_hotplug_event(struct impl *impl, impl::hotplug_event& event)
 	}
 }
 
-static void on_hotplug_event(void *data, std::uint64_t)
+void on_hotplug_event(void *data, std::uint64_t)
 {
 	auto impl = static_cast<struct impl *>(data);
 
@@ -256,13 +236,13 @@ void impl::removeCamera(std::shared_ptr<Camera> camera)
 	spa_loop_utils_signal_event(loop_utils, hotplug_event_source);
 }
 
-static void start_monitor(struct impl *impl)
+void start_monitor(struct impl *impl)
 {
 	impl->manager->cameraAdded.connect(impl, &impl::addCamera);
 	impl->manager->cameraRemoved.connect(impl, &impl::removeCamera);
 }
 
-static int stop_monitor(struct impl *impl)
+int stop_monitor(struct impl *impl)
 {
 	if (impl->manager) {
 		impl->manager->cameraAdded.disconnect(impl, &impl::addCamera);
@@ -272,7 +252,7 @@ static int stop_monitor(struct impl *impl)
 	return 0;
 }
 
-static void collect_existing_devices(struct impl *impl)
+void collect_existing_devices(struct impl *impl)
 {
 	auto cameras = impl->manager->cameras();
 
@@ -280,12 +260,12 @@ static void collect_existing_devices(struct impl *impl)
 		try_add_camera(impl, std::move(camera));
 }
 
-static const struct spa_dict_item device_info_items[] = {
+const struct spa_dict_item device_info_items[] = {
 	{ SPA_KEY_DEVICE_API, "libcamera" },
 	{ SPA_KEY_DEVICE_NICK, "libcamera-manager" },
 };
 
-static void emit_device_info(struct impl *impl, bool full)
+void emit_device_info(struct impl *impl, bool full)
 {
 	uint64_t old = full ? impl->info.change_mask : 0;
 	if (full)
@@ -299,7 +279,7 @@ static void emit_device_info(struct impl *impl, bool full)
 	}
 }
 
-static void impl_hook_removed(struct spa_hook *hook)
+void impl_hook_removed(struct spa_hook *hook)
 {
 	struct impl *impl = (struct impl*)hook->priv;
 	if (spa_hook_list_is_empty(&impl->hooks)) {
@@ -308,7 +288,7 @@ static void impl_hook_removed(struct spa_hook *hook)
 	}
 }
 
-static int
+int
 impl_device_add_listener(void *object, struct spa_hook *listener,
 		const struct spa_device_events *events, void *data)
 {
@@ -344,12 +324,12 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 	return 0;
 }
 
-static const struct spa_device_methods impl_device = {
+const struct spa_device_methods impl_device = {
 	.version = SPA_VERSION_DEVICE_METHODS,
 	.add_listener = impl_device_add_listener,
 };
 
-static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
+int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
 	struct impl *impl;
 
@@ -366,7 +346,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 	return 0;
 }
 
-static int impl_clear(struct spa_handle *handle)
+int impl_clear(struct spa_handle *handle)
 {
 	auto impl = reinterpret_cast<struct impl *>(handle);
 
@@ -392,14 +372,14 @@ impl::impl(spa_log *log, spa_loop_utils *loop_utils, spa_source *hotplug_event_s
 			&impl_device, this);
 }
 
-static size_t
+size_t
 impl_get_size(const struct spa_handle_factory *factory,
 	      const struct spa_dict *params)
 {
 	return sizeof(struct impl);
 }
 
-static int
+int
 impl_init(const struct spa_handle_factory *factory,
 	  struct spa_handle *handle,
 	  const struct spa_dict *info,
@@ -429,11 +409,11 @@ impl_init(const struct spa_handle_factory *factory,
 	return 0;
 }
 
-static const struct spa_interface_info impl_interfaces[] = {
+const struct spa_interface_info impl_interfaces[] = {
 	{SPA_TYPE_INTERFACE_Device,},
 };
 
-static int
+int
 impl_enum_interface_info(const struct spa_handle_factory *factory,
 			 const struct spa_interface_info **info,
 			 uint32_t *index)
@@ -449,6 +429,8 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return 1;
 }
 
+}
+
 extern "C" {
 const struct spa_handle_factory spa_libcamera_manager_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
@@ -458,4 +440,23 @@ const struct spa_handle_factory spa_libcamera_manager_factory = {
 	impl_init,
 	impl_enum_interface_info,
 };
+}
+
+std::shared_ptr<CameraManager> libcamera_manager_acquire(int& res)
+{
+	static std::weak_ptr<CameraManager> global_manager;
+	static std::mutex lock;
+
+	std::lock_guard guard(lock);
+
+	if (auto manager = global_manager.lock())
+		return manager;
+
+	auto manager = std::make_shared<CameraManager>();
+	if ((res = manager->start()) < 0)
+		return {};
+
+	global_manager = manager;
+
+	return manager;
 }

@@ -175,14 +175,12 @@ struct impl {
 	struct spa_dll dll;
 };
 
-}
-
 #define CHECK_PORT(impl,direction,port_id)  ((direction) == SPA_DIRECTION_OUTPUT && (port_id) == 0)
 
 #define GET_OUT_PORT(impl,p)         (&impl->out_ports[p])
 #define GET_PORT(impl,d,p)           GET_OUT_PORT(impl,p)
 
-static void setup_initial_controls(const ControlInfoMap& ctrl_infos, ControlList& ctrls)
+void setup_initial_controls(const ControlInfoMap& ctrl_infos, ControlList& ctrls)
 {
 	/* Libcamera recommends cameras default to manual focus mode, but we don't
 	 * expose any focus controls.  So, specifically enable autofocus on
@@ -243,7 +241,7 @@ int spa_libcamera_close(struct impl *impl)
 	return 0;
 }
 
-static void spa_libcamera_get_config(struct impl *impl)
+void spa_libcamera_get_config(struct impl *impl)
 {
 	if (impl->config)
 		return;
@@ -251,7 +249,7 @@ static void spa_libcamera_get_config(struct impl *impl)
 	impl->config = impl->camera->generateConfiguration({ StreamRole::VideoRecording });
 }
 
-static int spa_libcamera_buffer_recycle(struct impl *impl, struct port *port, uint32_t buffer_id)
+int spa_libcamera_buffer_recycle(struct impl *impl, struct port *port, uint32_t buffer_id)
 {
 	struct buffer *b = &port->buffers[buffer_id];
 	int res;
@@ -289,7 +287,7 @@ static int spa_libcamera_buffer_recycle(struct impl *impl, struct port *port, ui
 	return 0;
 }
 
-static int allocBuffers(struct impl *impl, struct port *port, unsigned int count)
+int allocBuffers(struct impl *impl, struct port *port, unsigned int count)
 {
 	int res;
 
@@ -331,14 +329,14 @@ static int allocBuffers(struct impl *impl, struct port *port, unsigned int count
 	return res;
 }
 
-static void freeBuffers(struct impl *impl, struct port *port)
+void freeBuffers(struct impl *impl, struct port *port)
 {
 	impl->pendingRequests.clear();
 	impl->requestPool.clear();
 	impl->allocator->free(port->streamConfig.stream());
 }
 
-static int spa_libcamera_clear_buffers(struct impl *impl, struct port *port)
+int spa_libcamera_clear_buffers(struct impl *impl, struct port *port)
 {
 	uint32_t i;
 
@@ -381,7 +379,7 @@ struct format_info {
 };
 
 #define MAKE_FMT(pix,fmt,mt,mst) { pix, SPA_VIDEO_FORMAT_ ##fmt, SPA_MEDIA_TYPE_ ##mt, SPA_MEDIA_SUBTYPE_ ##mst }
-static const struct format_info format_info[] = {
+const struct format_info format_info[] = {
 	/* RGB formats */
 	MAKE_FMT(formats::RGB565, RGB16, video, raw),
 	MAKE_FMT(formats::RGB565_BE, RGB16, video, raw),
@@ -415,7 +413,7 @@ static const struct format_info format_info[] = {
 #undef MAKE_FMT
 };
 
-static const struct format_info *video_format_to_info(const PixelFormat &pix)
+const struct format_info *video_format_to_info(const PixelFormat &pix)
 {
 	for (const auto& f : format_info) {
 		if (f.pix == pix)
@@ -425,7 +423,7 @@ static const struct format_info *video_format_to_info(const PixelFormat &pix)
 	return nullptr;
 }
 
-static const struct format_info *find_format_info_by_media_type(
+const struct format_info *find_format_info_by_media_type(
 	uint32_t type, uint32_t subtype, uint32_t format)
 {
 	for (const auto& f : format_info) {
@@ -437,7 +435,7 @@ static const struct format_info *find_format_info_by_media_type(
 	return nullptr;
 }
 
-static int score_size(const Size &a, const Size &b)
+int score_size(const Size &a, const Size &b)
 {
 	int x, y;
 	x = (int)a.width - (int)b.width;
@@ -445,7 +443,7 @@ static int score_size(const Size &a, const Size &b)
 	return x * x + y * y;
 }
 
-static void
+void
 parse_colorimetry(const ColorSpace& colorspace,
 		struct spa_video_colorimetry *colorimetry)
 {
@@ -501,7 +499,7 @@ parse_colorimetry(const ColorSpace& colorspace,
 	}
 }
 
-static int
+int
 spa_libcamera_enum_format(struct impl *impl, struct port *port, int seq,
 		     uint32_t start, uint32_t num, const struct spa_pod *filter)
 {
@@ -641,7 +639,7 @@ next_fmt:
 	return 0;
 }
 
-static int spa_libcamera_set_format(struct impl *impl, struct port *port,
+int spa_libcamera_set_format(struct impl *impl, struct port *port,
 		struct spa_video_info *format, bool try_only)
 {
 	const struct format_info *info = NULL;
@@ -720,7 +718,7 @@ error:
 
 }
 
-static const struct {
+const struct {
 	uint32_t id;
 	uint32_t spa_id;
 } control_map[] = {
@@ -732,7 +730,7 @@ static const struct {
 	{ libcamera::controls::SHARPNESS, SPA_PROP_sharpness },
 };
 
-static uint32_t control_to_prop_id(uint32_t control_id)
+uint32_t control_to_prop_id(uint32_t control_id)
 {
 	for (const auto& c : control_map) {
 		if (c.id == control_id)
@@ -742,7 +740,7 @@ static uint32_t control_to_prop_id(uint32_t control_id)
 	return SPA_PROP_START_CUSTOM + control_id;
 }
 
-static uint32_t prop_id_to_control(uint32_t prop_id)
+uint32_t prop_id_to_control(uint32_t prop_id)
 {
 	for (const auto& c : control_map) {
 		if (c.spa_id == prop_id)
@@ -755,7 +753,7 @@ static uint32_t prop_id_to_control(uint32_t prop_id)
 	return SPA_ID_INVALID;
 }
 
-static int
+int
 spa_libcamera_enum_controls(struct impl *impl, struct port *port, int seq,
 		       uint32_t start, uint32_t offset, uint32_t num,
 		       const struct spa_pod *filter)
@@ -870,12 +868,12 @@ struct val {
 	};
 };
 
-static int do_update_ctrls(struct spa_loop *loop,
-			    bool async,
-			    uint32_t seq,
-			    const void *data,
-			    size_t size,
-			    void *user_data)
+int do_update_ctrls(struct spa_loop *loop,
+		    bool async,
+		    uint32_t seq,
+		    const void *data,
+		    size_t size,
+		    void *user_data)
 {
 	struct impl *impl = (struct impl *)user_data;
 	const struct val *d = (const struct val *)data;
@@ -895,7 +893,7 @@ static int do_update_ctrls(struct spa_loop *loop,
 	return 0;
 }
 
-static int
+int
 spa_libcamera_set_control(struct impl *impl, const struct spa_pod_prop *prop)
 {
 	const ControlInfoMap &info = impl->camera->controls();
@@ -941,7 +939,7 @@ done:
 }
 
 
-static void libcamera_on_fd_events(struct spa_source *source)
+void libcamera_on_fd_events(struct spa_source *source)
 {
 	struct impl *impl = (struct impl*) source->data;
 	struct spa_io_buffers *io;
@@ -998,13 +996,13 @@ static void libcamera_on_fd_events(struct spa_source *source)
 	spa_node_call_ready(&impl->callbacks, SPA_STATUS_HAVE_DATA);
 }
 
-static int spa_libcamera_use_buffers(struct impl *impl, struct port *port,
+int spa_libcamera_use_buffers(struct impl *impl, struct port *port,
 		struct spa_buffer **buffers, uint32_t n_buffers)
 {
 	return -ENOTSUP;
 }
 
-static const struct {
+const struct {
 	Orientation libcamera_orientation; /* clockwise rotation then horizontal mirroring */
 	uint32_t spa_transform_value; /* horizontal mirroring then counter-clockwise rotation */
 } orientation_map[] = {
@@ -1018,7 +1016,7 @@ static const struct {
 	{ Orientation::Rotate270Mirror, SPA_META_TRANSFORMATION_Flipped270 },
 };
 
-static uint32_t libcamera_orientation_to_spa_transform_value(Orientation orientation)
+uint32_t libcamera_orientation_to_spa_transform_value(Orientation orientation)
 {
 	for (const auto& t : orientation_map) {
 		if (t.libcamera_orientation == orientation)
@@ -1027,7 +1025,7 @@ static uint32_t libcamera_orientation_to_spa_transform_value(Orientation orienta
 	return SPA_META_TRANSFORMATION_None;
 }
 
-static int
+int
 spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
 		       struct spa_buffer **buffers,
 		       uint32_t n_buffers)
@@ -1226,7 +1224,7 @@ void impl::requestComplete(libcamera::Request *request)
 
 }
 
-static int spa_libcamera_stream_on(struct impl *impl)
+int spa_libcamera_stream_on(struct impl *impl)
 {
 	struct port *port = &impl->out_ports[0];
 	int res;
@@ -1276,12 +1274,12 @@ error:
 	return res == -EACCES ? -EBUSY : res;
 }
 
-static int do_remove_source(struct spa_loop *loop,
-			    bool async,
-			    uint32_t seq,
-			    const void *data,
-			    size_t size,
-			    void *user_data)
+int do_remove_source(struct spa_loop *loop,
+		     bool async,
+		     uint32_t seq,
+		     const void *data,
+		     size_t size,
+		     void *user_data)
 {
 	struct impl *impl = (struct impl *)user_data;
 	if (impl->source.loop)
@@ -1289,7 +1287,7 @@ static int do_remove_source(struct spa_loop *loop,
 	return 0;
 }
 
-static int spa_libcamera_stream_off(struct impl *impl)
+int spa_libcamera_stream_off(struct impl *impl)
 {
 	struct port *port = &impl->out_ports[0];
 	int res;
@@ -1322,11 +1320,11 @@ static int spa_libcamera_stream_off(struct impl *impl)
 	return 0;
 }
 
-static int port_get_format(struct impl *impl, struct port *port,
-			   uint32_t index,
-			   const struct spa_pod *filter,
-			   struct spa_pod **param,
-			   struct spa_pod_builder *builder)
+int port_get_format(struct impl *impl, struct port *port,
+		    uint32_t index,
+		    const struct spa_pod *filter,
+		    struct spa_pod **param,
+		    struct spa_pod_builder *builder)
 {
 	struct spa_pod_frame f;
 
@@ -1371,9 +1369,9 @@ static int port_get_format(struct impl *impl, struct port *port,
 	return 1;
 }
 
-static int impl_node_enum_params(void *object, int seq,
-				 uint32_t id, uint32_t start, uint32_t num,
-				 const struct spa_pod *filter)
+int impl_node_enum_params(void *object, int seq,
+			  uint32_t id, uint32_t start, uint32_t num,
+			  const struct spa_pod *filter)
 {
 	struct impl *impl = (struct impl*)object;
 	struct spa_pod *param;
@@ -1454,9 +1452,9 @@ next:
 	return 0;
 }
 
-static int impl_node_set_param(void *object,
-			       uint32_t id, uint32_t flags,
-			       const struct spa_pod *param)
+int impl_node_set_param(void *object,
+			uint32_t id, uint32_t flags,
+			const struct spa_pod *param)
 {
 	struct impl *impl = (struct impl*)object;
 
@@ -1495,7 +1493,7 @@ static int impl_node_set_param(void *object,
 	return 0;
 }
 
-static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
+int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
 	struct impl *impl = (struct impl*)object;
 
@@ -1516,7 +1514,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	return 0;
 }
 
-static int impl_node_send_command(void *object, const struct spa_command *command)
+int impl_node_send_command(void *object, const struct spa_command *command)
 {
 	struct impl *impl = (struct impl*)object;
 	int res;
@@ -1550,7 +1548,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	return 0;
 }
 
-static void emit_node_info(struct impl *impl, bool full)
+void emit_node_info(struct impl *impl, bool full)
 {
 	static const struct spa_dict_item info_items[] = {
 		{ SPA_KEY_DEVICE_API, "libcamera" },
@@ -1569,7 +1567,7 @@ static void emit_node_info(struct impl *impl, bool full)
 	}
 }
 
-static void emit_port_info(struct impl *impl, struct port *port, bool full)
+void emit_port_info(struct impl *impl, struct port *port, bool full)
 {
 	static const struct spa_dict_item info_items[] = {
 		{ SPA_KEY_PORT_GROUP, "stream.0" },
@@ -1586,7 +1584,7 @@ static void emit_port_info(struct impl *impl, struct port *port, bool full)
 	}
 }
 
-static int
+int
 impl_node_add_listener(void *object,
 		struct spa_hook *listener,
 		const struct spa_node_events *events,
@@ -1607,9 +1605,9 @@ impl_node_add_listener(void *object,
 	return 0;
 }
 
-static int impl_node_set_callbacks(void *object,
-				   const struct spa_node_callbacks *callbacks,
-				   void *data)
+int impl_node_set_callbacks(void *object,
+			    const struct spa_node_callbacks *callbacks,
+			    void *data)
 {
 	struct impl *impl = (struct impl*)object;
 
@@ -1620,7 +1618,7 @@ static int impl_node_set_callbacks(void *object,
 	return 0;
 }
 
-static int impl_node_sync(void *object, int seq)
+int impl_node_sync(void *object, int seq)
 {
 	struct impl *impl = (struct impl*)object;
 
@@ -1631,25 +1629,25 @@ static int impl_node_sync(void *object, int seq)
 	return 0;
 }
 
-static int impl_node_add_port(void *object,
-			      enum spa_direction direction,
-			      uint32_t port_id, const struct spa_dict *props)
+int impl_node_add_port(void *object,
+		       enum spa_direction direction,
+		       uint32_t port_id, const struct spa_dict *props)
 {
 	return -ENOTSUP;
 }
 
-static int impl_node_remove_port(void *object,
-		                 enum spa_direction direction,
-				 uint32_t port_id)
+int impl_node_remove_port(void *object,
+		          enum spa_direction direction,
+			  uint32_t port_id)
 {
 	return -ENOTSUP;
 }
 
-static int impl_node_port_enum_params(void *object, int seq,
-				      enum spa_direction direction,
-				      uint32_t port_id,
-				      uint32_t id, uint32_t start, uint32_t num,
-				      const struct spa_pod *filter)
+int impl_node_port_enum_params(void *object, int seq,
+			       enum spa_direction direction,
+			       uint32_t port_id,
+			       uint32_t id, uint32_t start, uint32_t num,
+			       const struct spa_pod *filter)
 {
 
 	struct impl *impl = (struct impl*)object;
@@ -1771,8 +1769,8 @@ next:
 	return 0;
 }
 
-static int port_set_format(struct impl *impl, struct port *port,
-			   uint32_t flags, const struct spa_pod *format)
+int port_set_format(struct impl *impl, struct port *port,
+		    uint32_t flags, const struct spa_pod *format)
 {
 	struct spa_video_info info;
 	int res;
@@ -1869,10 +1867,10 @@ static int port_set_format(struct impl *impl, struct port *port,
 	return 0;
 }
 
-static int impl_node_port_set_param(void *object,
-				    enum spa_direction direction, uint32_t port_id,
-				    uint32_t id, uint32_t flags,
-				    const struct spa_pod *param)
+int impl_node_port_set_param(void *object,
+			     enum spa_direction direction, uint32_t port_id,
+			     uint32_t id, uint32_t flags,
+			     const struct spa_pod *param)
 {
 	struct impl *impl = (struct impl*)object;
 	struct port *port;
@@ -1893,12 +1891,12 @@ static int impl_node_port_set_param(void *object,
 	return res;
 }
 
-static int impl_node_port_use_buffers(void *object,
-				      enum spa_direction direction,
-				      uint32_t port_id,
-				      uint32_t flags,
-				      struct spa_buffer **buffers,
-				      uint32_t n_buffers)
+int impl_node_port_use_buffers(void *object,
+			       enum spa_direction direction,
+			       uint32_t port_id,
+			       uint32_t flags,
+			       struct spa_buffer **buffers,
+			       uint32_t n_buffers)
 {
 	struct impl *impl = (struct impl*)object;
 	struct port *port;
@@ -1929,11 +1927,11 @@ static int impl_node_port_use_buffers(void *object,
 	return res;
 }
 
-static int impl_node_port_set_io(void *object,
-				 enum spa_direction direction,
-				 uint32_t port_id,
-				 uint32_t id,
-				 void *data, size_t size)
+int impl_node_port_set_io(void *object,
+			  enum spa_direction direction,
+			  uint32_t port_id,
+			  uint32_t id,
+			  void *data, size_t size)
 {
 	struct impl *impl = (struct impl*)object;
 	struct port *port;
@@ -1956,9 +1954,9 @@ static int impl_node_port_set_io(void *object,
 	return 0;
 }
 
-static int impl_node_port_reuse_buffer(void *object,
-				       uint32_t port_id,
-				       uint32_t buffer_id)
+int impl_node_port_reuse_buffer(void *object,
+				uint32_t port_id,
+				uint32_t buffer_id)
 {
 	struct impl *impl = (struct impl*)object;
 	struct port *port;
@@ -1976,7 +1974,7 @@ static int impl_node_port_reuse_buffer(void *object,
 	return res;
 }
 
-static int process_control(struct impl *impl, struct spa_pod_sequence *control)
+int process_control(struct impl *impl, struct spa_pod_sequence *control)
 {
 	struct spa_pod_control *c;
 
@@ -1999,7 +1997,7 @@ static int process_control(struct impl *impl, struct spa_pod_sequence *control)
 	return 0;
 }
 
-static int impl_node_process(void *object)
+int impl_node_process(void *object)
 {
 	struct impl *impl = (struct impl*)object;
 	int res;
@@ -2045,7 +2043,7 @@ static int impl_node_process(void *object)
 	return SPA_STATUS_HAVE_DATA;
 }
 
-static const struct spa_node_methods impl_node = {
+const struct spa_node_methods impl_node = {
 	.version = SPA_VERSION_NODE_METHODS,
 	.add_listener = impl_node_add_listener,
 	.set_callbacks = impl_node_set_callbacks,
@@ -2064,7 +2062,7 @@ static const struct spa_node_methods impl_node = {
 	.process = impl_node_process,
 };
 
-static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
+int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
 	struct impl *impl;
 
@@ -2081,7 +2079,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 	return 0;
 }
 
-static int impl_clear(struct spa_handle *handle)
+int impl_clear(struct spa_handle *handle)
 {
 	std::destroy_at(reinterpret_cast<impl *>(handle));
 	return 0;
@@ -2121,14 +2119,14 @@ impl::impl(spa_log *log, spa_loop *data_loop, spa_system *system,
 	latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 }
 
-static size_t
+size_t
 impl_get_size(const struct spa_handle_factory *factory,
 	      const struct spa_dict *params)
 {
 	return sizeof(struct impl);
 }
 
-static int
+int
 impl_init(const struct spa_handle_factory *factory,
 	  struct spa_handle *handle,
 	  const struct spa_dict *info,
@@ -2177,13 +2175,13 @@ impl_init(const struct spa_handle_factory *factory,
 	return 0;
 }
 
-static const struct spa_interface_info impl_interfaces[] = {
+const struct spa_interface_info impl_interfaces[] = {
 	{SPA_TYPE_INTERFACE_Node,},
 };
 
-static int impl_enum_interface_info(const struct spa_handle_factory *factory,
-				    const struct spa_interface_info **info,
-				    uint32_t *index)
+int impl_enum_interface_info(const struct spa_handle_factory *factory,
+			     const struct spa_interface_info **info,
+			     uint32_t *index)
 {
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(info != NULL, -EINVAL);
@@ -2194,6 +2192,8 @@ static int impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 	*info = &impl_interfaces[(*index)++];
 	return 1;
+}
+
 }
 
 extern "C" {

@@ -142,7 +142,6 @@ static int emit_info(struct impl *impl, bool full)
 	if (!device_numbers.empty()) {
 		std::ostringstream s;
 
-
 		/* encode device numbers into a json array */
 		s << "[ ";
 		for (const auto& devid : device_numbers)

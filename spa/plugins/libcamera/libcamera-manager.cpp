@@ -82,10 +82,13 @@ struct impl {
 
 }
 
-static std::weak_ptr<CameraManager> global_manager;
-
 std::shared_ptr<CameraManager> libcamera_manager_acquire(int& res)
 {
+	static std::weak_ptr<CameraManager> global_manager;
+	static std::mutex lock;
+
+	std::lock_guard guard(lock);
+
 	if (auto manager = global_manager.lock())
 		return manager;
 

@@ -212,7 +212,9 @@ int spa_libcamera_open(struct impl *impl)
 		return 0;
 
 	spa_log_info(impl->log, "open camera %s", impl->device_id.c_str());
-	impl->camera->acquire();
+
+	if (int res = impl->camera->acquire(); res < 0)
+		return res;
 
 	impl->allocator = new FrameBufferAllocator(impl->camera);
 

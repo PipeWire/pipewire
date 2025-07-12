@@ -1222,6 +1222,8 @@ void impl::requestComplete(libcamera::Request *request)
 	}
 	if (b->h) {
 		b->h->flags = 0;
+		if (fmd.status != FrameMetadata::Status::FrameSuccess)
+			b->h->flags |= SPA_META_HEADER_FLAG_CORRUPTED;
 		b->h->offset = 0;
 		b->h->seq = fmd.sequence;
 		b->h->pts = fmd.timestamp;

@@ -861,11 +861,13 @@ enum_end:
 }
 
 struct val {
-	uint32_t type;
-	float f_val;
-	int32_t i_val;
-	bool b_val;
+	ControlType type;
 	uint32_t id;
+	union {
+		bool b_val;
+		int32_t i_val;
+		float f_val;
+	};
 };
 
 static int do_update_ctrls(struct spa_loop *loop,
@@ -885,7 +887,7 @@ static int do_update_ctrls(struct spa_loop *loop,
 		impl->ctrls.set(d->id, d->f_val);
 		break;
 	case ControlTypeInteger32:
-		impl->ctrls.set(d->id, (int32_t)d->i_val);
+		impl->ctrls.set(d->id, d->i_val);
 		break;
 	default:
 		break;

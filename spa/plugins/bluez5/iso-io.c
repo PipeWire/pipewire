@@ -21,6 +21,7 @@
 
 #include "media-codecs.h"
 #include "defs.h"
+#include "decode-buffer.h"
 
 SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.iso");
 #undef SPA_LOG_TOPIC_DEFAULT
@@ -62,6 +63,8 @@ struct stream {
 	uint32_t block_size;
 
 	struct spa_bt_latency tx_latency;
+
+	struct spa_bt_decode_buffer *source_buf;
 };
 
 struct modify_info
@@ -592,4 +595,28 @@ int spa_bt_iso_io_recv_errqueue(struct spa_bt_iso_io *this)
 	struct group *group = stream->group;
 
 	return spa_bt_latency_recv_errqueue(&stream->tx_latency, stream->fd, group->log);
+}
+
+/** Must be called from data thread */
+void spa_bt_iso_io_set_source_buffer(struct spa_bt_iso_io *this, struct spa_bt_decode_buffer *buffer)
+{
+	struct stream *stream = SPA_CONTAINER_OF(this, struct stream, this);
+
+	stream->source_buf = buffer;
+}
+
+/** Must be called from data thread */
+void spa_bt_iso_io_update_source_latency(struct spa_bt_iso_io *this)
+{
+	struct stream *stream = SPA_CONTAINER_OF(this, struct stream, this);
+	struct group *group = stream->group;
+	struct stream *s;
+	int32_t latency = 0;
+
+	spa_list_for_each(s, &group->streams, link)
+		if (s->source_buf)
+			latency = SPA_MAX(latency, spa_bt_decode_buffer_get_auto_latency(s->source_buf));
+
+	if (stream->source_buf)
+		spa_bt_decode_buffer_set_target_latency(stream->source_buf, latency);
 }

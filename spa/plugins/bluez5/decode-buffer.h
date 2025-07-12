@@ -221,7 +221,7 @@ static inline void spa_bt_decode_buffer_set_max_extra_latency(struct spa_bt_deco
 	this->max_extra = samples;
 }
 
-static inline int32_t spa_bt_decode_buffer_get_target_latency(struct spa_bt_decode_buffer *this)
+static inline int32_t spa_bt_decode_buffer_get_auto_latency(struct spa_bt_decode_buffer *this)
 {
 	const int32_t duration = this->duration;
 	const int32_t packet_size = SPA_CLAMP(this->packet_size.max, 0, INT32_MAX/8);
@@ -229,14 +229,18 @@ static inline int32_t spa_bt_decode_buffer_get_target_latency(struct spa_bt_deco
 	const int32_t spike = SPA_CLAMP(this->spike.max, 0, max_buf);
 	int32_t target;
 
-	if (this->target)
-		target = this->target;
-	else
-		target = SPA_CLAMP(SPA_ROUND_UP(SPA_MAX(spike * 3/2, duration), 
-						SPA_CLAMP((int)this->rate / 50, 1, INT32_MAX)),
-				duration, max_buf - 2*packet_size);
+	target = SPA_CLAMP(SPA_ROUND_UP(SPA_MAX(spike * 3/2, duration),
+					SPA_CLAMP((int)this->rate / 50, 1, INT32_MAX)),
+			duration, max_buf - 2*packet_size);
 
 	return SPA_MIN(target, duration + SPA_CLAMP(this->max_extra, 0, INT32_MAX - duration));
+}
+
+static inline int32_t spa_bt_decode_buffer_get_target_latency(struct spa_bt_decode_buffer *this)
+{
+	if (this->target)
+		return this->target;
+	return spa_bt_decode_buffer_get_auto_latency(this);
 }
 
 static inline void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint32_t samples, uint32_t duration,

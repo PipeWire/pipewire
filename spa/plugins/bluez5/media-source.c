@@ -843,8 +843,10 @@ static int do_start_sco_iso_io(struct spa_loop *loop, bool async, uint32_t seq,
 
 	if (this->transport->sco_io)
 		spa_bt_sco_io_set_source_cb(this->transport->sco_io, media_sco_pull, this);
-	if (this->transport->iso_io)
+	if (this->transport->iso_io) {
 		spa_bt_iso_io_set_cb(this->transport->iso_io, media_iso_pull, this);
+		spa_bt_iso_io_set_source_buffer(this->transport->iso_io, &this->port.buffer);
+	}
 	return 0;
 }
 
@@ -1008,8 +1010,10 @@ static int do_remove_source(struct spa_loop *loop,
 
 	if (this->timer_source.loop)
 		spa_loop_remove_source(this->data_loop, &this->timer_source);
-	if (this->transport && this->transport->iso_io)
+	if (this->transport && this->transport->iso_io) {
 		spa_bt_iso_io_set_cb(this->transport->iso_io, NULL, NULL);
+		spa_bt_iso_io_set_source_buffer(this->transport->iso_io, NULL);
+	}
 	if (this->transport && this->transport->sco_io)
 		spa_bt_sco_io_set_source_cb(this->transport->sco_io, NULL, NULL);
 	set_timeout(this, 0);
@@ -1646,9 +1650,19 @@ static void update_target_latency(struct impl *this)
 
 	if (this->transport == NULL || !port->have_format)
 		return;
+	if (this->codec->kind != MEDIA_CODEC_BAP)
+		return;
 
-	if (this->codec->kind != MEDIA_CODEC_BAP || this->is_input ||
-			this->transport->delay_us == SPA_BT_UNKNOWN_DELAY)
+	if (this->is_input) {
+		/* BAP Client. Should use same buffer size for all streams in the same
+		 * group, so that capture is in sync.
+		 */
+		if (this->transport->iso_io)
+			spa_bt_iso_io_update_source_latency(this->transport->iso_io);
+		return;
+	}
+
+	if (this->transport->delay_us == SPA_BT_UNKNOWN_DELAY)
 		return;
 
 	get_samples(this, &duration);

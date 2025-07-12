@@ -11,6 +11,7 @@
 #include <spa/node/io.h>
 #include <spa/param/audio/format.h>
 
+struct spa_bt_decode_buffer;
 struct spa_bt_transport;
 
 /**
@@ -45,5 +46,8 @@ struct spa_bt_iso_io *spa_bt_iso_io_attach(struct spa_bt_iso_io *io, struct spa_
 void spa_bt_iso_io_destroy(struct spa_bt_iso_io *io);
 void spa_bt_iso_io_set_cb(struct spa_bt_iso_io *io, spa_bt_iso_io_pull_t pull, void *user_data);
 int spa_bt_iso_io_recv_errqueue(struct spa_bt_iso_io *io);
+
+void spa_bt_iso_io_set_source_buffer(struct spa_bt_iso_io *io, struct spa_bt_decode_buffer *buffer);
+void spa_bt_iso_io_update_source_latency(struct spa_bt_iso_io *io);
 
 #endif

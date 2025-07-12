@@ -2,13 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2021 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
-#include <stddef.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <limits.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
+#include <cstddef>
 #include <utility>
 #include <mutex>
 #include <optional>
@@ -16,8 +10,6 @@
 
 #include <libcamera/camera.h>
 #include <libcamera/camera_manager.h>
-
-#include <linux/videodev2.h>
 
 using namespace libcamera;
 

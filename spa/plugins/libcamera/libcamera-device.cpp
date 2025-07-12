@@ -4,10 +4,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2021 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
-#include "config.h"
-
-#include <stddef.h>
-
+#include <cstddef>
 #include <sstream>
 
 #include <spa/support/plugin.h>

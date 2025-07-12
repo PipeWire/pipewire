@@ -86,7 +86,7 @@ struct device *add_device(struct impl *impl, std::shared_ptr<Camera> camera)
 	uint32_t id;
 
 	if (impl->n_devices >= MAX_DEVICES)
-		return NULL;
+		return nullptr;
 	id = get_free_id(impl);
 	device = &impl->devices[id];
 	device->id = id;
@@ -102,7 +102,7 @@ struct device *find_device(struct impl *impl, const Camera *camera)
 		if (impl->devices[i].camera.get() == camera)
 			return &impl->devices[i];
 	}
-	return NULL;
+	return nullptr;
 }
 
 void remove_device(struct impl *impl, struct device *device)
@@ -153,10 +153,10 @@ void try_add_camera(struct impl *impl, std::shared_ptr<Camera> camera)
 {
 	struct device *device;
 
-	if ((device = find_device(impl, camera.get())) != NULL)
+	if ((device = find_device(impl, camera.get())) != nullptr)
 		return;
 
-	if ((device = add_device(impl, std::move(camera))) == NULL)
+	if ((device = add_device(impl, std::move(camera))) == nullptr)
 		return;
 
 	spa_log_info(impl->log, "camera added: id:%d %s", device->id,
@@ -168,12 +168,12 @@ void try_remove_camera(struct impl *impl, const Camera *camera)
 {
 	struct device *device;
 
-	if ((device = find_device(impl, camera)) == NULL)
+	if ((device = find_device(impl, camera)) == nullptr)
 		return;
 
 	spa_log_info(impl->log, "camera removed: id:%d %s", device->id,
 			device->camera->id().c_str());
-	spa_device_emit_object_info(&impl->hooks, device->id, NULL);
+	spa_device_emit_object_info(&impl->hooks, device->id, nullptr);
 	remove_device(impl, device);
 }
 
@@ -297,8 +297,8 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 	struct spa_hook_list save;
 	bool had_manager = !!impl->manager;
 
-	spa_return_val_if_fail(impl != NULL, -EINVAL);
-	spa_return_val_if_fail(events != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != nullptr, -EINVAL);
+	spa_return_val_if_fail(events != nullptr, -EINVAL);
 
 	if (!impl->manager && !(impl->manager = libcamera_manager_acquire(res)))
 		return res;
@@ -333,8 +333,8 @@ int impl_get_interface(struct spa_handle *handle, const char *type, void **inter
 {
 	auto *impl = reinterpret_cast<struct impl *>(handle);
 
-	spa_return_val_if_fail(handle != NULL, -EINVAL);
-	spa_return_val_if_fail(interface != NULL, -EINVAL);
+	spa_return_val_if_fail(handle != nullptr, -EINVAL);
+	spa_return_val_if_fail(interface != nullptr, -EINVAL);
 
 	if (spa_streq(type, SPA_TYPE_INTERFACE_Device))
 		*interface = &impl->device;
@@ -384,8 +384,8 @@ impl_init(const struct spa_handle_factory *factory,
 	  const struct spa_support *support,
 	  uint32_t n_support)
 {
-	spa_return_val_if_fail(factory != NULL, -EINVAL);
-	spa_return_val_if_fail(handle != NULL, -EINVAL);
+	spa_return_val_if_fail(factory != nullptr, -EINVAL);
+	spa_return_val_if_fail(handle != nullptr, -EINVAL);
 
 	auto log = static_cast<spa_log *>(spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log));
 
@@ -416,9 +416,9 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 			 const struct spa_interface_info **info,
 			 uint32_t *index)
 {
-	spa_return_val_if_fail(factory != NULL, -EINVAL);
-	spa_return_val_if_fail(info != NULL, -EINVAL);
-	spa_return_val_if_fail(index != NULL, -EINVAL);
+	spa_return_val_if_fail(factory != nullptr, -EINVAL);
+	spa_return_val_if_fail(info != nullptr, -EINVAL);
+	spa_return_val_if_fail(index != nullptr, -EINVAL);
 
 	if (*index >= SPA_N_ELEMENTS(impl_interfaces))
 		return 0;
@@ -433,7 +433,7 @@ extern "C" {
 const struct spa_handle_factory spa_libcamera_manager_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	SPA_NAME_API_LIBCAMERA_ENUM_MANAGER,
-	NULL,
+	nullptr,
 	impl_get_size,
 	impl_init,
 	impl_enum_interface_info,

@@ -537,7 +537,7 @@ next_fmt:
 	spa_log_debug(impl->log, "format: %s", format.toString().c_str());
 
 	const auto *info = video_format_to_info(format);
-	if (info == NULL) {
+	if (info == nullptr) {
 		spa_log_debug(impl->log, "unknown format");
 		port->fmt_index++;
 		goto next_fmt;
@@ -642,10 +642,10 @@ next_fmt:
 int spa_libcamera_set_format(struct impl *impl, struct port *port,
 		struct spa_video_info *format, bool try_only)
 {
-	const struct format_info *info = NULL;
+	const struct format_info *info = nullptr;
 	uint32_t video_format;
-	struct spa_rectangle *size = NULL;
-	struct spa_fraction *framerate = NULL;
+	struct spa_rectangle *size = nullptr;
+	struct spa_fraction *framerate = nullptr;
 	CameraConfiguration::Status validation;
 	int res;
 
@@ -673,7 +673,7 @@ int spa_libcamera_set_format(struct impl *impl, struct port *port,
 
 	info = find_format_info_by_media_type(format->media_type,
 					      format->media_subtype, video_format);
-	if (info == NULL || size == NULL || framerate == NULL) {
+	if (info == nullptr || size == nullptr || framerate == nullptr) {
 		spa_log_error(impl->log, "unknown media type %d %d %d", format->media_type,
 			      format->media_subtype, video_format);
 		return -EINVAL;
@@ -977,7 +977,7 @@ void libcamera_on_fd_events(struct spa_source *source)
 	spa_list_append(&port->queue, &b->link);
 
 	io = port->io;
-	if (io == NULL) {
+	if (io == nullptr) {
 		b = spa_list_first(&port->queue, struct buffer, link);
 		spa_list_remove(&b->link);
 		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
@@ -1119,12 +1119,12 @@ spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
 				d[j].flags |= SPA_DATA_FLAG_MAPPABLE;
 				d[j].fd = bufs[i]->planes()[j].fd.get();
 				spa_log_debug(impl->log, "Got fd = %" PRId64 " for buffer: #%d", d[j].fd, i);
-				d[j].data = NULL;
+				d[j].data = nullptr;
 				SPA_FLAG_SET(b->flags, BUFFER_FLAG_ALLOCATED);
 			}
 			else if (port->memtype == SPA_DATA_MemPtr) {
 				d[j].fd = -1;
-				d[j].data = mmap(NULL,
+				d[j].data = mmap(nullptr,
 						d[j].maxsize + d[j].mapoffset,
 						PROT_READ, MAP_SHARED,
 						bufs[i]->planes()[j].fd.get(),
@@ -1310,7 +1310,7 @@ int spa_libcamera_stream_off(struct impl *impl)
 
 	impl->camera->requestCompleted.disconnect(impl, &impl::requestComplete);
 
-	spa_loop_invoke(impl->data_loop, do_remove_source, 0, NULL, 0, true, impl);
+	spa_loop_invoke(impl->data_loop, do_remove_source, 0, nullptr, 0, true, impl);
 	if (impl->source.fd >= 0)  {
 		spa_system_close(impl->system, impl->source.fd);
 		impl->source.fd = -1;
@@ -1382,7 +1382,7 @@ int impl_node_enum_params(void *object, int seq,
 	uint32_t count = 0;
 	int res;
 
-	spa_return_val_if_fail(impl != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != nullptr, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
 	result.id = id;
@@ -1459,7 +1459,7 @@ int impl_node_set_param(void *object,
 {
 	auto *impl = static_cast<struct impl *>(object);
 
-	spa_return_val_if_fail(impl != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != nullptr, -EINVAL);
 
 	switch (id) {
 	case SPA_PARAM_Props:
@@ -1467,7 +1467,7 @@ int impl_node_set_param(void *object,
 		const auto *obj = reinterpret_cast<const spa_pod_object *>(param);
 		const struct spa_pod_prop *prop;
 
-		if (param == NULL) {
+		if (param == nullptr) {
 			impl->device_id.clear();
 			impl->device_name.clear();
 			return 0;
@@ -1499,7 +1499,7 @@ int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
 	struct impl *impl = (struct impl*)object;
 
-	spa_return_val_if_fail(impl != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != nullptr, -EINVAL);
 
 	switch (id) {
 	case SPA_IO_Clock:
@@ -1521,8 +1521,8 @@ int impl_node_send_command(void *object, const struct spa_command *command)
 	struct impl *impl = (struct impl*)object;
 	int res;
 
-	spa_return_val_if_fail(impl != NULL, -EINVAL);
-	spa_return_val_if_fail(command != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != nullptr, -EINVAL);
+	spa_return_val_if_fail(command != nullptr, -EINVAL);
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
@@ -1595,7 +1595,7 @@ impl_node_add_listener(void *object,
 	struct impl *impl = (struct impl*)object;
 	struct spa_hook_list save;
 
-	spa_return_val_if_fail(impl != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != nullptr, -EINVAL);
 
 	spa_hook_list_isolate(&impl->hooks, &save, listener, events, data);
 
@@ -1613,7 +1613,7 @@ int impl_node_set_callbacks(void *object,
 {
 	struct impl *impl = (struct impl*)object;
 
-	spa_return_val_if_fail(impl != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != nullptr, -EINVAL);
 
 	impl->callbacks = SPA_CALLBACKS_INIT(callbacks, data);
 
@@ -1624,9 +1624,9 @@ int impl_node_sync(void *object, int seq)
 {
 	struct impl *impl = (struct impl*)object;
 
-	spa_return_val_if_fail(impl != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != nullptr, -EINVAL);
 
-	spa_node_emit_result(&impl->hooks, seq, 0, 0, NULL);
+	spa_node_emit_result(&impl->hooks, seq, 0, 0, nullptr);
 
 	return 0;
 }
@@ -1661,7 +1661,7 @@ int impl_node_port_enum_params(void *object, int seq,
 	uint32_t count = 0;
 	int res;
 
-	spa_return_val_if_fail(impl != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != nullptr, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
 	spa_return_val_if_fail(CHECK_PORT(impl, direction, port_id), -EINVAL);
 
@@ -1777,7 +1777,7 @@ int port_set_format(struct impl *impl, struct port *port,
 	struct spa_video_info info;
 	int res;
 
-	if (format == NULL) {
+	if (format == nullptr) {
 		if (!port->current_format)
 			return 0;
 
@@ -1840,7 +1840,7 @@ int port_set_format(struct impl *impl, struct port *port,
 	}
 
 	if (port->current_format && !(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
-		spa_libcamera_use_buffers(impl, port, NULL, 0);
+		spa_libcamera_use_buffers(impl, port, nullptr, 0);
 		port->current_format.reset();
 	}
 
@@ -1878,7 +1878,7 @@ int impl_node_port_set_param(void *object,
 	struct port *port;
 	int res;
 
-	spa_return_val_if_fail(object != NULL, -EINVAL);
+	spa_return_val_if_fail(object != nullptr, -EINVAL);
 	spa_return_val_if_fail(CHECK_PORT(impl, direction, port_id), -EINVAL);
 
 	port = GET_PORT(impl, direction, port_id);
@@ -1904,7 +1904,7 @@ int impl_node_port_use_buffers(void *object,
 	struct port *port;
 	int res;
 
-	spa_return_val_if_fail(impl != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != nullptr, -EINVAL);
 	spa_return_val_if_fail(CHECK_PORT(impl, direction, port_id), -EINVAL);
 
 	port = GET_PORT(impl, direction, port_id);
@@ -1918,7 +1918,7 @@ int impl_node_port_use_buffers(void *object,
 		return -EIO;
 	if (n_buffers > MAX_BUFFERS)
 		return -ENOSPC;
-	if (buffers == NULL)
+	if (buffers == nullptr)
 		return 0;
 
 	if (flags & SPA_NODE_BUFFERS_FLAG_ALLOC) {
@@ -1938,7 +1938,7 @@ int impl_node_port_set_io(void *object,
 	struct impl *impl = (struct impl*)object;
 	struct port *port;
 
-	spa_return_val_if_fail(impl != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != nullptr, -EINVAL);
 	spa_return_val_if_fail(CHECK_PORT(impl, direction, port_id), -EINVAL);
 
 	port = GET_PORT(impl, direction, port_id);
@@ -1964,7 +1964,7 @@ int impl_node_port_reuse_buffer(void *object,
 	struct port *port;
 	int res;
 
-	spa_return_val_if_fail(impl != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != nullptr, -EINVAL);
 	spa_return_val_if_fail(port_id == 0, -EINVAL);
 
 	port = GET_OUT_PORT(impl, port_id);
@@ -2007,10 +2007,10 @@ int impl_node_process(void *object)
 	struct port *port;
 	struct buffer *b;
 
-	spa_return_val_if_fail(impl != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != nullptr, -EINVAL);
 
 	port = GET_OUT_PORT(impl, 0);
-	if ((io = port->io) == NULL)
+	if ((io = port->io) == nullptr)
 		return -EIO;
 
 	if (port->control)
@@ -2068,8 +2068,8 @@ int impl_get_interface(struct spa_handle *handle, const char *type, void **inter
 {
 	auto *impl = reinterpret_cast<struct impl *>(handle);
 
-	spa_return_val_if_fail(handle != NULL, -EINVAL);
-	spa_return_val_if_fail(interface != NULL, -EINVAL);
+	spa_return_val_if_fail(handle != nullptr, -EINVAL);
+	spa_return_val_if_fail(interface != nullptr, -EINVAL);
 
 	if (spa_streq(type, SPA_TYPE_INTERFACE_Node))
 		*interface = &impl->node;
@@ -2136,8 +2136,8 @@ impl_init(const struct spa_handle_factory *factory,
 	const char *str;
 	int res;
 
-	spa_return_val_if_fail(factory != NULL, -EINVAL);
-	spa_return_val_if_fail(handle != NULL, -EINVAL);
+	spa_return_val_if_fail(factory != nullptr, -EINVAL);
+	spa_return_val_if_fail(handle != nullptr, -EINVAL);
 
 	auto log = static_cast<spa_log *>(spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log));
 	auto data_loop = static_cast<spa_loop *>(spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop));
@@ -2183,9 +2183,9 @@ int impl_enum_interface_info(const struct spa_handle_factory *factory,
 			     const struct spa_interface_info **info,
 			     uint32_t *index)
 {
-	spa_return_val_if_fail(factory != NULL, -EINVAL);
-	spa_return_val_if_fail(info != NULL, -EINVAL);
-	spa_return_val_if_fail(index != NULL, -EINVAL);
+	spa_return_val_if_fail(factory != nullptr, -EINVAL);
+	spa_return_val_if_fail(info != nullptr, -EINVAL);
+	spa_return_val_if_fail(index != nullptr, -EINVAL);
 
 	if (*index >= SPA_N_ELEMENTS(impl_interfaces))
 		return 0;
@@ -2200,7 +2200,7 @@ extern "C" {
 const struct spa_handle_factory spa_libcamera_source_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	SPA_NAME_API_LIBCAMERA_SOURCE,
-	NULL,
+	nullptr,
 	impl_get_size,
 	impl_init,
 	impl_enum_interface_info,

@@ -186,8 +186,8 @@ int impl_add_listener(void *object,
 	struct spa_hook_list save;
 	int res = 0;
 
-	spa_return_val_if_fail(impl != NULL, -EINVAL);
-	spa_return_val_if_fail(events != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != nullptr, -EINVAL);
+	spa_return_val_if_fail(events != nullptr, -EINVAL);
 
 	spa_hook_list_isolate(&impl->hooks, &save, listener, events, data);
 
@@ -203,9 +203,9 @@ int impl_sync(void *object, int seq)
 {
 	struct impl *impl = (struct impl*) object;
 
-	spa_return_val_if_fail(impl != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != nullptr, -EINVAL);
 
-	spa_device_emit_result(&impl->hooks, seq, 0, 0, NULL);
+	spa_device_emit_result(&impl->hooks, seq, 0, 0, nullptr);
 
 	return 0;
 }
@@ -236,8 +236,8 @@ int impl_get_interface(struct spa_handle *handle, const char *type, void **inter
 {
 	auto *impl = reinterpret_cast<struct impl *>(handle);
 
-	spa_return_val_if_fail(handle != NULL, -EINVAL);
-	spa_return_val_if_fail(interface != NULL, -EINVAL);
+	spa_return_val_if_fail(handle != nullptr, -EINVAL);
+	spa_return_val_if_fail(interface != nullptr, -EINVAL);
 
 	if (spa_streq(type, SPA_TYPE_INTERFACE_Device))
 		*interface = &impl->device;
@@ -290,8 +290,8 @@ impl_init(const struct spa_handle_factory *factory,
 	const char *str;
 	int res;
 
-	spa_return_val_if_fail(factory != NULL, -EINVAL);
-	spa_return_val_if_fail(handle != NULL, -EINVAL);
+	spa_return_val_if_fail(factory != nullptr, -EINVAL);
+	spa_return_val_if_fail(handle != nullptr, -EINVAL);
 
 	auto log = static_cast<spa_log *>(spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log));
 
@@ -324,9 +324,9 @@ int impl_enum_interface_info(const struct spa_handle_factory *factory,
 			     const struct spa_interface_info **info,
 			     uint32_t *index)
 {
-	spa_return_val_if_fail(factory != NULL, -EINVAL);
-	spa_return_val_if_fail(info != NULL, -EINVAL);
-	spa_return_val_if_fail(index != NULL, -EINVAL);
+	spa_return_val_if_fail(factory != nullptr, -EINVAL);
+	spa_return_val_if_fail(info != nullptr, -EINVAL);
+	spa_return_val_if_fail(index != nullptr, -EINVAL);
 
 	if (*index >= SPA_N_ELEMENTS(impl_interfaces))
 		return 0;
@@ -341,7 +341,7 @@ extern "C" {
 const struct spa_handle_factory spa_libcamera_device_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	SPA_NAME_API_LIBCAMERA_DEVICE,
-	NULL,
+	nullptr,
 	impl_get_size,
 	impl_init,
 	impl_enum_interface_info,

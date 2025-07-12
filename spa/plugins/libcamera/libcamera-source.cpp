@@ -720,7 +720,7 @@ error:
 
 }
 
-static struct {
+static const struct {
 	uint32_t id;
 	uint32_t spa_id;
 } control_map[] = {
@@ -732,23 +732,26 @@ static struct {
 	{ libcamera::controls::SHARPNESS, SPA_PROP_sharpness },
 };
 
-static uint32_t control_to_prop_id(struct impl *impl, uint32_t control_id)
+static uint32_t control_to_prop_id(uint32_t control_id)
 {
-	SPA_FOR_EACH_ELEMENT_VAR(control_map, c) {
-		if (c->id == control_id)
-			return c->spa_id;
+	for (const auto& c : control_map) {
+		if (c.id == control_id)
+			return c.spa_id;
 	}
+
 	return SPA_PROP_START_CUSTOM + control_id;
 }
 
-static uint32_t prop_id_to_control(struct impl *impl, uint32_t prop_id)
+static uint32_t prop_id_to_control(uint32_t prop_id)
 {
-	SPA_FOR_EACH_ELEMENT_VAR(control_map, c) {
-		if (c->spa_id == prop_id)
-			return c->id;
+	for (const auto& c : control_map) {
+		if (c.spa_id == prop_id)
+			return c.id;
 	}
+
 	if (prop_id >= SPA_PROP_START_CUSTOM)
 		return prop_id - SPA_PROP_START_CUSTOM;
+
 	return SPA_ID_INVALID;
 }
 
@@ -786,7 +789,7 @@ next:
 	ctrl_id = it->first;
 	ctrl_info = it->second;
 
-	id = control_to_prop_id(impl, ctrl_id->id());
+	id = control_to_prop_id(ctrl_id->id());
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
@@ -899,7 +902,7 @@ spa_libcamera_set_control(struct impl *impl, const struct spa_pod_prop *prop)
 	struct val d;
 	uint32_t control_id;
 
-	control_id = prop_id_to_control(impl, prop->key);
+	control_id = prop_id_to_control(prop->key);
 	if (control_id == SPA_ID_INVALID)
 		return -ENOENT;
 

@@ -39,8 +39,8 @@ spa_debugc_pod_value(struct spa_debug_context *ctx, int indent, const struct spa
 		spa_debugc(ctx, "%*s" "Bool %s", indent, "", (*(int32_t *) body) ? "true" : "false");
 		break;
 	case SPA_TYPE_Id:
-		spa_debugc(ctx, "%*s" "Id %-8" PRId32 " (%s)", indent, "", *(int32_t *) body,
-		       spa_debug_type_find_name(info, *(int32_t *) body));
+		spa_debugc(ctx, "%*s" "Id %-8" PRIu32 " (%s)", indent, "", *(uint32_t *) body,
+		       spa_debug_type_find_name(info, *(uint32_t *) body));
 		break;
 	case SPA_TYPE_Int:
 		spa_debugc(ctx, "%*s" "Int %" PRId32, indent, "", *(int32_t *) body);

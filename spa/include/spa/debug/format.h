@@ -5,6 +5,8 @@
 #ifndef SPA_DEBUG_FORMAT_H
 #define SPA_DEBUG_FORMAT_H
 
+#include <inttypes.h>
+
 #include <spa/pod/parser.h>
 #include <spa/utils/string.h>
 #include <spa/debug/context.h>
@@ -41,10 +43,11 @@ spa_debug_strbuf_format_value(struct spa_strbuf *buffer, const struct spa_type_i
 		break;
 	case SPA_TYPE_Id:
 	{
-		const char *str = spa_debug_type_find_short_name(info, *(int32_t *) body);
+		uint32_t value = *(uint32_t *) body;
+		const char *str = spa_debug_type_find_short_name(info, value);
 		char tmp[64];
 		if (str == NULL) {
-			snprintf(tmp, sizeof(tmp), "%d", *(int32_t*)body);
+			snprintf(tmp, sizeof(tmp), "%" PRIu32, value);
 			str = tmp;
 		}
 		spa_strbuf_append(buffer, "%s", str);

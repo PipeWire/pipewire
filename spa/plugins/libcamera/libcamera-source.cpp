@@ -1028,11 +1028,13 @@ static uint32_t libcamera_orientation_to_spa_transform_value(Orientation orienta
 }
 
 static int
-mmap_init(struct impl *impl, struct port *port,
-		struct spa_buffer **buffers, uint32_t n_buffers)
+spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
+		       struct spa_buffer **buffers,
+		       uint32_t n_buffers)
 {
-	unsigned int i, j;
-	struct spa_data *d;
+	if (port->n_buffers > 0)
+		return -EIO;
+
 	Stream *stream = impl->config->at(0).stream();
 	const std::vector<std::unique_ptr<FrameBuffer>> &bufs =
 			impl->allocator->buffers(stream);
@@ -1041,13 +1043,11 @@ mmap_init(struct impl *impl, struct port *port,
 		if (bufs.size() != n_buffers)
 			return -EINVAL;
 
-		d = buffers[0]->datas;
+		spa_data *d = buffers[0]->datas;
 
-		if (d[0].type != SPA_ID_INVALID &&
-		    d[0].type & (1u << SPA_DATA_DmaBuf)) {
+		if (d[0].type != SPA_ID_INVALID && d[0].type & (1u << SPA_DATA_DmaBuf)) {
 			port->memtype = SPA_DATA_DmaBuf;
-		} else if (d[0].type != SPA_ID_INVALID &&
-		    d[0].type & (1u << SPA_DATA_MemFd)) {
+		} else if (d[0].type != SPA_ID_INVALID && d[0].type & (1u << SPA_DATA_MemFd)) {
 			port->memtype = SPA_DATA_MemFd;
 		} else if (d[0].type & (1u << SPA_DATA_MemPtr)) {
 			port->memtype = SPA_DATA_MemPtr;
@@ -1057,7 +1057,7 @@ mmap_init(struct impl *impl, struct port *port,
 		}
 	}
 
-	for (i = 0; i < n_buffers; i++) {
+	for (uint32_t i = 0; i < n_buffers; i++) {
 		struct buffer *b;
 
 		if (buffers[i]->n_datas < 1) {
@@ -1081,8 +1081,8 @@ mmap_init(struct impl *impl, struct port *port,
 
 		}
 
-		d = buffers[i]->datas;
-		for(j = 0; j < buffers[i]->n_datas; ++j) {
+		spa_data *d = buffers[i]->datas;
+		for(uint32_t j = 0; j < buffers[i]->n_datas; ++j) {
 			d[j].type = port->memtype;
 			d[j].flags = SPA_DATA_FLAG_READABLE;
 			d[j].mapoffset = 0;
@@ -1123,7 +1123,7 @@ mmap_init(struct impl *impl, struct port *port,
 				d[j].data = NULL;
 				SPA_FLAG_SET(b->flags, BUFFER_FLAG_ALLOCATED);
 			}
-			else if(port->memtype == SPA_DATA_MemPtr) {
+			else if (port->memtype == SPA_DATA_MemPtr) {
 				d[j].fd = -1;
 				d[j].data = mmap(NULL,
 						d[j].maxsize + d[j].mapoffset,
@@ -1142,26 +1142,12 @@ mmap_init(struct impl *impl, struct port *port,
 				return -EIO;
 			}
 		}
+
 		spa_libcamera_buffer_recycle(impl, port, i);
 	}
+
 	port->n_buffers = n_buffers;
 	spa_log_debug(impl->log, "we have %d buffers", n_buffers);
-
-	return 0;
-}
-
-static int
-spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
-		       struct spa_buffer **buffers,
-		       uint32_t n_buffers)
-{
-	int res;
-
-	if (port->n_buffers > 0)
-		return -EIO;
-
-	if ((res = mmap_init(impl, port, buffers, n_buffers)) < 0)
-		return res;
 
 	return 0;
 }

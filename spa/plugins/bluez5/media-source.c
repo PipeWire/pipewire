@@ -903,7 +903,7 @@ static int transport_start(struct impl *this)
 
 	spa_bt_decode_buffer_set_target_latency(&port->buffer, (int32_t) this->decode_buffer_target);
 
-	if (this->codec->kind == MEDIA_CODEC_HFP) {
+	if (this->codec->kind == MEDIA_CODEC_HFP || this->codec->kind == MEDIA_CODEC_BAP) {
 		/* 40 ms max buffer (on top of duration) */
 		spa_bt_decode_buffer_set_max_extra_latency(&port->buffer,
 				port->current_format.info.raw.rate * 40 / 1000);

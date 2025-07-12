@@ -71,7 +71,7 @@ struct port {
 	struct spa_fraction rate = {};
 	StreamConfiguration streamConfig;
 
-	uint32_t memtype = 0;
+	spa_data_type memtype = SPA_DATA_Invalid;
 	uint32_t buffers_blocks = 1;
 
 	struct buffer buffers[MAX_BUFFERS];
@@ -375,9 +375,9 @@ static int spa_libcamera_clear_buffers(struct impl *impl, struct port *port)
 
 struct format_info {
 	PixelFormat pix;
-	uint32_t format;
-	uint32_t media_type;
-	uint32_t media_subtype;
+	spa_video_format format;
+	spa_media_type media_type;
+	spa_media_subtype media_subtype;
 };
 
 #define MAKE_FMT(pix,fmt,mt,mst) { pix, SPA_VIDEO_FORMAT_ ##fmt, SPA_MEDIA_TYPE_ ##mt, SPA_MEDIA_SUBTYPE_ ##mst }
@@ -433,7 +433,7 @@ static const struct format_info *find_format_info_by_media_type(uint32_t type,
 	for (i = startidx; i < SPA_N_ELEMENTS(format_info); i++) {
 		if ((format_info[i].media_type == type) &&
 		    (format_info[i].media_subtype == subtype) &&
-		    (format == 0 || format_info[i].format == format))
+		    (format == SPA_VIDEO_FORMAT_UNKNOWN || format_info[i].format == format))
 			return &format_info[i];
 	}
 	return NULL;

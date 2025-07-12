@@ -331,12 +331,10 @@ const struct spa_device_methods impl_device = {
 
 int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
-	struct impl *impl;
+	auto *impl = reinterpret_cast<struct impl *>(handle);
 
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 	spa_return_val_if_fail(interface != NULL, -EINVAL);
-
-	impl = (struct impl *) handle;
 
 	if (spa_streq(type, SPA_TYPE_INTERFACE_Device))
 		*interface = &impl->device;

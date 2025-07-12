@@ -4,9 +4,9 @@
 /* SPDX-FileCopyrightText: Copyright © 2021 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
-#include <climits>
-#include <stddef.h>
+#include <cstddef>
 #include <deque>
+#include <limits>
 #include <optional>
 
 #include <sys/mman.h>
@@ -95,9 +95,9 @@ struct port {
 #define N_PORT_PARAMS	7
 	struct spa_param_info params[N_PORT_PARAMS];
 
-	uint32_t fmt_index = 0;
+	std::size_t fmt_index = 0;
 	PixelFormat enum_fmt;
-	uint32_t size_index = 0;
+	std::size_t size_index = 0;
 
 	port(struct impl *impl)
 		: impl(impl)
@@ -437,7 +437,7 @@ static const struct format_info *find_format_info_by_media_type(
 	return nullptr;
 }
 
-static int score_size(Size &a, Size &b)
+static int score_size(const Size &a, const Size &b)
 {
 	int x, y;
 	x = (int)a.width - (int)b.width;
@@ -505,23 +505,18 @@ static int
 spa_libcamera_enum_format(struct impl *impl, struct port *port, int seq,
 		     uint32_t start, uint32_t num, const struct spa_pod *filter)
 {
-	int res;
-	const struct format_info *info;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { 0 };
 	struct spa_pod_frame f[2];
 	struct spa_result_node_params result;
 	struct spa_video_colorimetry colorimetry = {};
-	struct spa_pod *fmt;
-	uint32_t i, count = 0, num_sizes;
-	PixelFormat format;
-	Size frameSize;
-	SizeRange sizeRange = SizeRange();
+	uint32_t count = 0;
 
 	spa_libcamera_get_config(impl);
 
 	const StreamConfiguration& streamConfig = impl->config->at(0);
 	const StreamFormats &formats = streamConfig.formats();
+	const auto &pixel_formats = formats.pixelformats();
 
 	if (streamConfig.colorSpace)
 		parse_colorimetry(*streamConfig.colorSpace, &colorimetry);
@@ -537,28 +532,30 @@ next:
 	result.index = result.next++;
 
 next_fmt:
-	if (port->fmt_index >= formats.pixelformats().size())
-		goto enum_end;
+	if (port->fmt_index >= pixel_formats.size())
+		return 0;
 
-	format = formats.pixelformats()[port->fmt_index];
-
+	auto format = pixel_formats[port->fmt_index];
 	spa_log_debug(impl->log, "format: %s", format.toString().c_str());
 
-	info = video_format_to_info(format);
+	const auto *info = video_format_to_info(format);
 	if (info == NULL) {
 		spa_log_debug(impl->log, "unknown format");
 		port->fmt_index++;
 		goto next_fmt;
 	}
 
-	num_sizes = formats.sizes(format).size();
-	if (num_sizes > 0 && port->size_index <= num_sizes) {
+	const auto& sizes = formats.sizes(format);
+	SizeRange sizeRange;
+	Size frameSize;
+
+	if (!sizes.empty() && port->size_index <= sizes.size()) {
 		if (port->size_index == 0) {
-			Size wanted = Size(640, 480), test;
-			int score, best = INT_MAX;
-			for (i = 0; i < num_sizes; i++) {
-				test = formats.sizes(format)[i];
-				score = score_size(wanted, test);
+			Size wanted = Size(640, 480);
+			int best = std::numeric_limits<int>::max();
+
+			for (const auto& test : sizes) {
+				int score = score_size(wanted, test);
 				if (score < best) {
 					best = score;
 					frameSize = test;
@@ -566,7 +563,7 @@ next_fmt:
 			}
 		}
 		else {
-			frameSize = formats.sizes(format)[port->size_index - 1];
+			frameSize = sizes[port->size_index - 1];
 		}
 	} else if (port->size_index < 1) {
 		sizeRange = formats.range(format);
@@ -632,8 +629,7 @@ next_fmt:
 				SPA_POD_Id(colorimetry.primaries), 0);
 	}
 
-	fmt = (struct spa_pod*) spa_pod_builder_pop(&b, &f[0]);
-
+	const auto *fmt = reinterpret_cast<spa_pod *>(spa_pod_builder_pop(&b, &f[0]));
 	if (spa_pod_filter(&b, &result.param, fmt, filter) < 0)
 		goto next;
 
@@ -642,9 +638,7 @@ next_fmt:
 	if (++count != num)
 		goto next;
 
-      enum_end:
-	res = 0;
-	return res;
+	return 0;
 }
 
 static int spa_libcamera_set_format(struct impl *impl, struct port *port,

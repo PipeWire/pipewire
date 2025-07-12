@@ -3,6 +3,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <cstddef>
+#include <cinttypes>
 #include <utility>
 #include <mutex>
 #include <optional>
@@ -27,16 +28,15 @@ using namespace libcamera;
 #include "libcamera.h"
 #include "libcamera-manager.hpp"
 
-#define MAX_DEVICES	64
-
 namespace {
 
 struct device {
-	uint32_t id;
 	std::shared_ptr<Camera> camera;
 };
 
 struct impl {
+	static constexpr std::size_t max_devices = 64;
+
 	struct spa_handle handle;
 	struct spa_device device = {};
 
@@ -52,8 +52,7 @@ struct impl {
 	void addCamera(std::shared_ptr<libcamera::Camera> camera);
 	void removeCamera(std::shared_ptr<libcamera::Camera> camera);
 
-	struct device devices[MAX_DEVICES];
-	uint32_t n_devices = 0;
+	struct device devices[max_devices];
 
 	struct hotplug_event {
 		enum class type { add, remove } type;
@@ -70,59 +69,50 @@ struct impl {
 	{
 		spa_loop_utils_destroy_source(loop_utils, hotplug_event_source);
 	}
-};
 
-uint32_t get_free_id(struct impl *impl)
-{
-	for (std::size_t i = 0; i < MAX_DEVICES; i++)
-		if (impl->devices[i].camera == nullptr)
-			return i;
-	return 0;
-}
+	std::uint32_t id_of(const struct device& d) const
+	{
+		spa_assert(std::begin(devices) <= &d && &d < std::end(devices));
+		return &d - std::begin(devices);
+	}
+};
 
 struct device *add_device(struct impl *impl, std::shared_ptr<Camera> camera)
 {
-	struct device *device;
-	uint32_t id;
+	for (auto& d : impl->devices) {
+		if (!d.camera) {
+			d.camera = std::move(camera);
+			return &d;
+		}
+	}
 
-	if (impl->n_devices >= MAX_DEVICES)
-		return nullptr;
-	id = get_free_id(impl);
-	device = &impl->devices[id];
-	device->id = id;
-	device->camera = std::move(camera);
-	impl->n_devices++;
-	return device;
+	return nullptr;
 }
 
 struct device *find_device(struct impl *impl, const Camera *camera)
 {
-	uint32_t i;
-	for (i = 0; i < impl->n_devices; i++) {
-		if (impl->devices[i].camera.get() == camera)
-			return &impl->devices[i];
+	for (auto& d : impl->devices) {
+		if (d.camera.get() == camera)
+			return &d;
 	}
+
 	return nullptr;
 }
 
 void remove_device(struct impl *impl, struct device *device)
 {
-	uint32_t old = --impl->n_devices;
-	device->camera.reset();
-	*device = std::move(impl->devices[old]);
-	impl->devices[old].camera = nullptr;
+	*device = {};
 }
 
 void clear_devices(struct impl *impl)
 {
-	while (impl->n_devices > 0)
-		impl->devices[--impl->n_devices].camera.reset();
+	for (auto& d : impl->devices)
+		d = {};
 }
 
-int emit_object_info(struct impl *impl, struct device *device)
+int emit_object_info(struct impl *impl, const struct device *device)
 {
 	struct spa_device_object_info info;
-	uint32_t id = device->id;
 	struct spa_dict_item items[20];
 	struct spa_dict dict;
 	uint32_t n_items = 0;
@@ -144,7 +134,7 @@ int emit_object_info(struct impl *impl, struct device *device)
 
 	dict = SPA_DICT_INIT(items, n_items);
 	info.props = &dict;
-	spa_device_emit_object_info(&impl->hooks, id, &info);
+	spa_device_emit_object_info(&impl->hooks, impl->id_of(*device), &info);
 
 	return 1;
 }
@@ -159,8 +149,8 @@ void try_add_camera(struct impl *impl, std::shared_ptr<Camera> camera)
 	if ((device = add_device(impl, std::move(camera))) == nullptr)
 		return;
 
-	spa_log_info(impl->log, "camera added: id:%d %s", device->id,
-			device->camera->id().c_str());
+	spa_log_info(impl->log, "camera added: id:%" PRIu32 " %s",
+		     impl->id_of(*device), device->camera->id().c_str());
 	emit_object_info(impl, device);
 }
 
@@ -171,9 +161,11 @@ void try_remove_camera(struct impl *impl, const Camera *camera)
 	if ((device = find_device(impl, camera)) == nullptr)
 		return;
 
-	spa_log_info(impl->log, "camera removed: id:%d %s", device->id,
-			device->camera->id().c_str());
-	spa_device_emit_object_info(&impl->hooks, device->id, nullptr);
+	auto id = impl->id_of(*device);
+
+	spa_log_info(impl->log, "camera removed: id:%" PRIu32 " %s",
+		     id, device->camera->id().c_str());
+	spa_device_emit_object_info(&impl->hooks, id, nullptr);
 	remove_device(impl, device);
 }
 
@@ -308,8 +300,10 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 	emit_device_info(impl, true);
 
 	if (had_manager) {
-		for (std::size_t i = 0; i < impl->n_devices; i++)
-			emit_object_info(impl, &impl->devices[i]);
+		for (const auto& d : impl->devices) {
+			if (d.camera)
+				emit_object_info(impl, &d);
+		}
 	}
 	else {
 		collect_existing_devices(impl);

@@ -415,28 +415,26 @@ static const struct format_info format_info[] = {
 #undef MAKE_FMT
 };
 
-static const struct format_info *video_format_to_info(const PixelFormat &pix) {
-	size_t i;
-
-	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++) {
-		if (format_info[i].pix == pix)
-			return &format_info[i];
+static const struct format_info *video_format_to_info(const PixelFormat &pix)
+{
+	for (const auto& f : format_info) {
+		if (f.pix == pix)
+			return &f;
 	}
-	return NULL;
+
+	return nullptr;
 }
 
-static const struct format_info *find_format_info_by_media_type(uint32_t type,
-		uint32_t subtype, uint32_t format, int startidx)
+static const struct format_info *find_format_info_by_media_type(
+	uint32_t type, uint32_t subtype, uint32_t format)
 {
-	size_t i;
-
-	for (i = startidx; i < SPA_N_ELEMENTS(format_info); i++) {
-		if ((format_info[i].media_type == type) &&
-		    (format_info[i].media_subtype == subtype) &&
-		    (format == SPA_VIDEO_FORMAT_UNKNOWN || format_info[i].format == format))
-			return &format_info[i];
+	for (const auto& f : format_info) {
+		if (f.media_type == type && f.media_subtype == subtype
+		    && (f.format == SPA_VIDEO_FORMAT_UNKNOWN || f.format == format))
+			return &f;
 	}
-	return NULL;
+
+	return nullptr;
 }
 
 static int score_size(Size &a, Size &b)
@@ -682,7 +680,7 @@ static int spa_libcamera_set_format(struct impl *impl, struct port *port,
 	}
 
 	info = find_format_info_by_media_type(format->media_type,
-					      format->media_subtype, video_format, 0);
+					      format->media_subtype, video_format);
 	if (info == NULL || size == NULL || framerate == NULL) {
 		spa_log_error(impl->log, "unknown media type %d %d %d", format->media_type,
 			      format->media_subtype, video_format);

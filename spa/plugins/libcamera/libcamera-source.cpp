@@ -875,8 +875,9 @@ int do_update_ctrls(struct spa_loop *loop,
 		    size_t size,
 		    void *user_data)
 {
-	struct impl *impl = (struct impl *)user_data;
-	const struct val *d = (const struct val *)data;
+	auto *impl = static_cast<struct impl *>(user_data);
+	const auto *d = static_cast<const val *>(data);
+
 	switch (d->type) {
 	case ControlTypeBool:
 		impl->ctrls.set(d->id, d->b_val);
@@ -1281,7 +1282,7 @@ int do_remove_source(struct spa_loop *loop,
 		     size_t size,
 		     void *user_data)
 {
-	struct impl *impl = (struct impl *)user_data;
+	auto *impl = static_cast<struct impl *>(user_data);
 	if (impl->source.loop)
 		spa_loop_remove_source(loop, &impl->source);
 	return 0;
@@ -1456,15 +1457,15 @@ int impl_node_set_param(void *object,
 			uint32_t id, uint32_t flags,
 			const struct spa_pod *param)
 {
-	struct impl *impl = (struct impl*)object;
+	auto *impl = static_cast<struct impl *>(object);
 
 	spa_return_val_if_fail(impl != NULL, -EINVAL);
 
 	switch (id) {
 	case SPA_PARAM_Props:
 	{
-		struct spa_pod_object *obj = (struct spa_pod_object *) param;
-		struct spa_pod_prop *prop;
+		const auto *obj = reinterpret_cast<const spa_pod_object *>(param);
+		const struct spa_pod_prop *prop;
 
 		if (param == NULL) {
 			impl->device_id.clear();
@@ -1476,8 +1477,9 @@ int impl_node_set_param(void *object,
 
 			switch (prop->key) {
 			case SPA_PROP_device:
-				strncpy(device, (char *)SPA_POD_CONTENTS(struct spa_pod_string, &prop->value),
-						sizeof(device)-1);
+				strncpy(device,
+					static_cast<const char *>(SPA_POD_CONTENTS(struct spa_pod_string, &prop->value)),
+					sizeof(device) - 1);
 				impl->device_id = device;
 				break;
 			default:
@@ -1982,8 +1984,8 @@ int process_control(struct impl *impl, struct spa_pod_sequence *control)
 		switch (c->type) {
 		case SPA_CONTROL_Properties:
 		{
-			struct spa_pod_prop *prop;
-			struct spa_pod_object *obj = (struct spa_pod_object *) &c->value;
+			const auto *obj = reinterpret_cast<spa_pod_object *>(&c->value);
+			const struct spa_pod_prop *prop;
 
 			SPA_POD_OBJECT_FOREACH(obj, prop) {
 				spa_libcamera_set_control(impl, prop);
@@ -2064,12 +2066,10 @@ const struct spa_node_methods impl_node = {
 
 int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
-	struct impl *impl;
+	auto *impl = reinterpret_cast<struct impl *>(handle);
 
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 	spa_return_val_if_fail(interface != NULL, -EINVAL);
-
-	impl = (struct impl *) handle;
 
 	if (spa_streq(type, SPA_TYPE_INTERFACE_Node))
 		*interface = &impl->node;

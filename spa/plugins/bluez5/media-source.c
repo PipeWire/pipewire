@@ -428,14 +428,14 @@ static void recycle_buffer(struct impl *this, struct port *port, uint32_t buffer
 	}
 }
 
-static int32_t read_data(struct impl *this, uint64_t *rx_time)
+static int32_t read_data(struct impl *this, uint64_t *rx_time, int *seqnum)
 {
 	const ssize_t b_size = sizeof(this->buffer_read);
 	int32_t size_read = 0;
 
 again:
 	/* read data from socket */
-	size_read = spa_bt_recvmsg(&this->recv, this->buffer_read, b_size, rx_time);
+	size_read = spa_bt_recvmsg(&this->recv, this->buffer_read, b_size, rx_time, seqnum);
 
 	if (size_read == 0)
 		return 0;
@@ -481,7 +481,7 @@ static int produce_plc_data(struct impl *this)
 }
 
 static int32_t decode_data(struct impl *this, uint8_t *src, uint32_t src_size,
-		uint8_t *dst, uint32_t dst_size, uint32_t *dst_out)
+		uint8_t *dst, uint32_t dst_size, uint32_t *dst_out, int pkt_seqnum)
 {
 	ssize_t processed;
 	size_t written, avail;
@@ -493,6 +493,9 @@ static int32_t decode_data(struct impl *this, uint8_t *src, uint32_t src_size,
 	if ((processed = this->codec->start_decode(this->codec_data,
 				src, src_avail, &seqnum, NULL)) < 0)
 		return processed;
+
+	if (pkt_seqnum >= 0)
+		seqnum = pkt_seqnum;
 
 	src += processed;
 	src_avail -= processed;
@@ -552,12 +555,12 @@ static int32_t decode_data(struct impl *this, uint8_t *src, uint32_t src_size,
 	return src_size - src_avail;
 }
 
-static void add_data(struct impl *this, uint8_t *src, uint32_t src_size, uint64_t now)
+static void add_data(struct impl *this, uint8_t *src, uint32_t src_size, uint64_t now, int pkt_seqnum)
 {
 	struct port *port = &this->port;
 	uint32_t decoded;
 
-	spa_log_trace(this->log, "read socket data size:%d", src_size);
+	spa_log_trace(this->log, "%p: read socket data size:%d", this, src_size);
 
 	do {
 		int32_t consumed;
@@ -567,7 +570,7 @@ static void add_data(struct impl *this, uint8_t *src, uint32_t src_size, uint64_
 
 		buf = spa_bt_decode_buffer_get_write(&port->buffer, &avail);
 
-		consumed = decode_data(this, src, src_size, buf, avail, &decoded);
+		consumed = decode_data(this, src, src_size, buf, avail, &decoded, pkt_seqnum);
 		if (consumed < 0) {
 			spa_log_debug(this->log, "%p: failed to decode data: %d", this, consumed);
 			return;
@@ -583,7 +586,8 @@ static void add_data(struct impl *this, uint8_t *src, uint32_t src_size, uint64_
 		if (decoded) {
 			dt = now - this->now;
 			this->now = now;
-			spa_log_trace(this->log, "decoded socket data seq:%u size:%d frames:%d dt:%d dms",
+			spa_log_trace(this->log, "%p: decoded socket data seq:%u size:%d frames:%d dt:%d dms",
+					this,
 					(unsigned int)this->seqnum, (int)decoded, (int)decoded/port->frame_size,
 					(int)(dt / 100000));
 		} else {
@@ -615,6 +619,7 @@ static void media_on_ready_read(struct spa_source *source)
 	struct impl *this = source->data;
 	int32_t size_read;
 	uint64_t now = 0;
+	int pkt_seqnum = -1;
 
 	/* make sure the source is an input */
 	if ((source->rmask & SPA_IO_IN) == 0) {
@@ -636,7 +641,7 @@ static void media_on_ready_read(struct spa_source *source)
 	spa_log_trace(this->log, "socket poll");
 
 	/* read */
-	size_read = read_data (this, &now);
+	size_read = read_data (this, &now, &pkt_seqnum);
 	if (size_read < 0) {
 		spa_log_error(this->log, "failed to read data: %s", spa_strerror(size_read));
 		goto stop;
@@ -648,7 +653,7 @@ static void media_on_ready_read(struct spa_source *source)
 		this->codec_props_changed = false;
 	}
 
-	add_data(this, this->buffer_read, size_read, now);
+	add_data(this, this->buffer_read, size_read, now, pkt_seqnum);
 	return;
 
 stop:
@@ -671,7 +676,7 @@ static int media_sco_pull(void *userdata, uint8_t *buffer_read, int size_read, u
 	if (size_read == 0)
 		return 0;
 
-	add_data(this, buffer_read, size_read, now);
+	add_data(this, buffer_read, size_read, now, -1);
 	return 0;
 
 stop:

@@ -35,6 +35,7 @@
 #include <sys/socket.h>
 #include <linux/net_tstamp.h>
 #include <linux/errqueue.h>
+#include <bluetooth/bluetooth.h>
 
 #include <spa/utils/defs.h>
 #include <spa/support/log.h>
@@ -45,6 +46,12 @@
 #define BUFFERING_SHORT_MSEC		1000
 #define BUFFERING_RATE_DIFF_MAX		0.005
 
+#ifndef BT_PKT_SEQNUM
+#define BT_PKT_SEQNUM			22
+#endif
+#ifndef BT_SCM_PKT_SEQNUM
+#define BT_SCM_PKT_SEQNUM		0x05
+#endif
 
 struct spa_bt_decode_buffer
 {
@@ -363,10 +370,11 @@ static inline void spa_bt_recvmsg_update_clock(struct spa_bt_recvmsg_data *data,
 	data->err += (SPA_ABS(err) - data->err) / n_avg;
 }
 
-static inline ssize_t spa_bt_recvmsg(struct spa_bt_recvmsg_data *r, void *buf, size_t max_size, uint64_t *rx_time)
+static inline ssize_t spa_bt_recvmsg(struct spa_bt_recvmsg_data *r, void *buf, size_t max_size, uint64_t *rx_time,
+		int *seqnum)
 {
 	union {
-		char buf[CMSG_SPACE(sizeof(struct scm_timestamping))];
+		char buf[CMSG_SPACE(sizeof(struct scm_timestamping)) + CMSG_SPACE(sizeof(uint16_t))];
 		struct cmsghdr align;
 	} control;
 	struct iovec data = {
@@ -383,6 +391,8 @@ static inline ssize_t spa_bt_recvmsg(struct spa_bt_recvmsg_data *r, void *buf, s
 	uint64_t t = 0, now;
 	ssize_t res;
 
+	*seqnum = -1;
+
 	res = recvmsg(r->fd, &msg, MSG_DONTWAIT);
 	if (res < 0 || !rx_time)
 		return res;
@@ -392,12 +402,12 @@ static inline ssize_t spa_bt_recvmsg(struct spa_bt_recvmsg_data *r, void *buf, s
 	for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
 		struct scm_timestamping *tss;
 
-		if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_TIMESTAMPING)
-			continue;
-
-		tss = (struct scm_timestamping *)CMSG_DATA(cmsg);
-		t = SPA_TIMESPEC_TO_NSEC(&tss->ts[0]);
-		break;
+		if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_TIMESTAMPING) {
+			tss = (struct scm_timestamping *)CMSG_DATA(cmsg);
+			t = SPA_TIMESPEC_TO_NSEC(&tss->ts[0]);
+		} else if (cmsg->cmsg_level == SOL_BLUETOOTH && cmsg->cmsg_type == BT_SCM_PKT_SEQNUM) {
+			*seqnum = *((uint16_t *)CMSG_DATA(cmsg));
+		}
 	}
 
 	if (!t) {
@@ -411,8 +421,8 @@ static inline ssize_t spa_bt_recvmsg(struct spa_bt_recvmsg_data *r, void *buf, s
 	if (*rx_time > now || *rx_time + 20 * SPA_NSEC_PER_MSEC < now)
 		*rx_time = now;
 
-	spa_log_trace(r->log, "%p: rx:%" PRIu64 " now:%" PRIu64 " d:%"PRIu64" off:%"PRIi64,
-			r, *rx_time, now, now - *rx_time, r->offset);
+	spa_log_trace(r->log, "%p: rx:%" PRIu64 " now:%" PRIu64 " d:%"PRIu64" off:%"PRIi64" sn:%d",
+			r, *rx_time, now, now - *rx_time, r->offset, *seqnum);
 
 	return res;
 }
@@ -423,6 +433,7 @@ static inline void spa_bt_recvmsg_init(struct spa_bt_recvmsg_data *data, int fd,
 {
 	int flags = 0;
 	socklen_t len = sizeof(flags);
+	uint32_t opt;
 
 	data->log = log;
 	data->data_system = data_system;
@@ -436,6 +447,10 @@ static inline void spa_bt_recvmsg_init(struct spa_bt_recvmsg_data *data, int fd,
 	flags |= SOF_TIMESTAMPING_SOFTWARE | SOF_TIMESTAMPING_RX_SOFTWARE;
 	if (setsockopt(fd, SOL_SOCKET, SO_TIMESTAMPING, &flags, sizeof(flags)) < 0)
 		spa_log_info(log, "failed to set SO_TIMESTAMPING");
+
+	opt = 1;
+	if (setsockopt(fd, SOL_BLUETOOTH, BT_PKT_SEQNUM, &opt, sizeof(opt)) < 0)
+		spa_log_info(log, "failed to set BT_PKT_SEQNUM");
 }
 
 #endif

@@ -114,15 +114,16 @@ struct spa_io_range {
  * Driver nodes are supposed to update the contents of \ref SPA_IO_Clock before
  * signaling the start of a graph cycle.  These updated clock values become
  * visible to other nodes in \ref SPA_IO_Position. Non-driver nodes do
- * not need to update the contents of their \ref SPA_IO_Clock.
+ * not need to update the contents of their \ref SPA_IO_Clock. Also
+ * see \ref page_driver for further details.
  *
  * The host generally gives each node a separate \ref spa_io_clock in \ref
  * SPA_IO_Clock, so that updates made by the driver are not visible in the
  * contents of \ref SPA_IO_Clock of other nodes. Instead, \ref SPA_IO_Position
  * is used to look up the current graph time.
  *
- * A node is a driver when \ref spa_io_clock.id in \ref SPA_IO_Clock and
- * \ref spa_io_position.clock.id in \ref SPA_IO_Position are the same.
+ * A node is a driver when \ref spa_io_clock::id and the ID in
+ * \ref spa_io_position.clock in \ref SPA_IO_Position are the same.
  *
  * The flags are set by the graph driver at the start of each cycle.
  */
@@ -168,13 +169,16 @@ struct spa_io_clock {
 					  *  can be used to check if nodes share the same clock. */
 	uint64_t nsec;			/**< Time in nanoseconds against monotonic clock
 					  * (CLOCK_MONOTONIC). This fields reflects a real time instant
-					  * in the past. The value may have jitter. */
+					  * in the past, when the current cycle started. The value may
+					  * have jitter. */
 	struct spa_fraction rate;	/**< Rate for position/duration/delay/xrun */
 	uint64_t position;		/**< Current position, in samples @ \ref rate */
 	uint64_t duration;		/**< Duration of current cycle, in samples @ \ref rate */
 	int64_t delay;			/**< Delay between position and hardware, in samples @ \ref rate */
 	double rate_diff;		/**< Rate difference between clock and monotonic time, as a ratio of
-					  *  clock speeds. */
+					  *  clock speeds. A value higher than 1.0 means that the driver's
+					  *  internal clock is faster than the monotonic clock (by that
+					  *  factor), and vice versa. */
 	uint64_t next_nsec;		/**< Estimated next wakeup time in nanoseconds.
 					  *  This time is a logical start time of the next cycle, and
 					  *  is not necessarily in the future.
@@ -308,8 +312,8 @@ enum spa_io_position_state {
  *
  * It is set on all nodes in \ref SPA_IO_Position, and the contents of \ref
  * spa_io_position.clock contain the clock updates made by the driving node in
- * the graph in its \ref SPA_IO_Clock.  Also, \ref spa_io_position.clock.id
- * will contain the clock id of the driving node in the graph.
+ * the graph in its \ref SPA_IO_Clock.  Also, the ID in \ref spa_io_position.clock
+ * will be the clock id of the driving node in the graph.
  *
  * The position clock indicates the logical start time of the current graph
  * cycle.

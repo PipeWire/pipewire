@@ -68,6 +68,7 @@ extra_docs = [
   'dox/internals/objects.dox',
   'dox/internals/audio.dox',
   'dox/internals/scheduling.dox',
+  'dox/internals/driver.dox',
   'dox/internals/protocol.dox',
   'dox/internals/pulseaudio.dox',
   'dox/internals/dma-buf.dox',

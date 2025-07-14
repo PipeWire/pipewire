@@ -1,0 +1,111 @@
+/** \page page_driver Driver architecture and workflow
+
+This document explains how drivers are structured and how they operate.
+This is useful to know both for debugging and for writing new drivers.
+
+(For details about how the graph does scheduling, which is tied to the driver,
+see \ref page_scheduling ).
+
+# Clocks
+
+A driver is a node that starts graph cycles. Typically, this is accomplished
+by using a timer that periodically invokes a callback, or by an interrupt.
+
+Drivers use the monotonic system clock as the reference for timestamping. Note
+that "monotonic system clock" does not refer to the \c MONOTONIC_RAW clock in
+Linux, but rather, to the regular monotonic clock.
+
+Drivers may actually be run by a custom internal clock instead of the monotonic
+system clock. One example would be a sound card DAC's clock. Another would be
+a network adapter with a built in PHC. Or, the driver may be using a system
+clock other than the monotonic system clock. The driver then needs to perform
+some sort of timestamp translation and drift compensation from that internal
+clock to the monotonic clock, since it still needs to generate monotonic clock
+timestamps for the beginning cycle. (More on that below.)
+
+# Updates and graph cycle start
+
+Every time a driver starts a graph cycle, it must update the contents of the
+\ref spa_io_clock instance that is assigned to them through the
+\ref spa_node_methods::set_io callback. The fields of the struct must be
+updated as follows:
+
+- \ref spa_io_clock::nsec : Must be set to the time (according to the monotonic
+  system clock) when the cycle that the driver is about to trigger started. To
+  minimize jitter, it is usually a good idea to increment this by a fixed amount
+  except for when the driver starts and when discontinuities occur in its clock.
+- \ref spa_io_clock::rate : Set to a value that can translate samples to nanoseconds.
+- \ref spa_io_clock::position : Current cycle position, in samples. This is the
+  ideal position of the graph cycle (this is explained in greater detail further below).
+  It is incremented by the dduration (in samples) at the beginning of each cycle. If
+  a discontinuity is experienced by the driver that results in a discontinuity in the
+  position of the old and the current cycle, consider setting the
+  \ref SPA_IO_CLOCK_FLAG_DISCONT flag to inform other nodes about this.
+- \ref spa_io_clock::duration : Duration of this new cycle, in samples.
+- \ref spa_io_clock::rate_diff : A decimal value that is set to whatever correction
+  factor the driver applied to for a drift between an internal driver clock and the
+  monotonic system clock. A value above 1.0 means that the internal driver clock
+  is faster than the monotonic system clock, and vice versa. Always set this to
+  1.0 if the driver is directly using the monotonic clock.
+- \ref spa_io_clock::next_nsec : Must be set to the time (according to the monotonic
+  system clock) when the cycle that comes after the current one is to be started. In
+  some cases, this may actually be in the past relative to nsec, for example, when
+  some internal driver clock experienced a discontinuity. Consider setting the
+  \ref SPA_IO_CLOCK_FLAG_DISCONT flag in such a case. Just like with nsec, to
+  minimize jitter, it is usually a good idea to increment this by a fixed amount
+  except for when the driver starts and when discontinuities occur in its clock.
+
+The driver node signals the start of the graph cycle by calling \ref spa_node_call_ready
+with the \ref SPA_STATUS_HAVE_DATA and \ref SPA_STATUS_NEED_DATA flags passed
+to that function call. That call must happen inside the thread that runs the
+data loop assigned to the driver node.
+
+As mentioned above, the \ref spa_io_clock::position field is the _ideal_ position
+of the graph cycle, in samples. This contrasts with \ref spa_io_clock::nsec, which
+is the moment in monotonic clock time when the cycle _actually_ happens. This is
+an important distinction when driver is run by a clock that is different to the monotonic
+cloc. In that case, the \ref spa_io_clock::nsec timestamps are adjusted to match the pace
+of that different clock (explained in the section below). In such a case,
+\ref spa_io_clock::position still is incremented by the duration in samples.
+
+# Using clocks other than the monotonic clock
+
+As mentioned earlier, the driver may be run by an internal clock that is different
+to the monotonic clock. If that other clock can be directly used for scheduling
+graph cycle initiations, then it is sufficient to compute the offset between that
+clock and the monotonic clock (that is, offset = other_clock_time - monotonic_clock_time)
+at each cycle and use that offset to translate that other clock's time to the monotonic
+clock time. This is accomplished by adding that offset to the \ref spa_io_clock::nsec
+and \ref spa_io_clock::next_nsec fields. For example, when the driver uses the realtime
+system clock instead of the monotonic system clock, then that realtime clock can still
+be used with \c timerfd to schedule callback invocations within the data loop. Then, computing
+the (realtime_clock_time - monotonic_clock_time) offset is sufficient, as mentioned,
+to fulfill the requirements of the \ref spa_io_clock::nsec and \ref spa_io_clock::next_nsec
+fields that their timestamps must be given in monotonic clock time.
+
+If however that other clock cannot be used for scheduling graph cycle initiations directly
+(for example, because the API of that clock has no functionality to trigger callbacks),
+then, in addition to the aforementioned offset, the driver has to use the monotonic clock
+for triggering callbacks (usually via \c timerfd) and adjust the time when callbacks are
+invoked such that they match the pace of that other clock.
+
+As an example (clock speed difference exaggerated for sake of clarity), suppose the other
+clock is twice as fast as the monotonic clock. Then the monotonic clock timestamps have
+to be calculated in a manner that halves the durations between said timestamps, and the
+\ref spa_io_clock::rate_diff field is set to 2.0.
+
+The dummy node driver uses a DLL for this purpose. It is fed the difference between the
+expected position (in samples) and the actual position (derived from the current time
+of the driver's internal clock), passes the delta between these two quantities into the
+DLL, and the DLL computes a correction factor (2.0 in the above example) which is used
+for scaling durations between \c timerfd timeouts. This forms a control loop, since the
+correction factor causes the durations between the timeouts to be adjusted such that the
+difference between the expected position and the actual position reaches zero. Keep in
+mind the notes above about \ref spa_io_clock::position being the ideal position of the
+graph cycle, meaning that even in this case, the duration it is incremented by is
+_not_ scaled by the correction factor; the duration in samples remains unchanged.
+
+(Other popular control loop mechanisms that are suitable alternatives to the DLL are
+PID controllers and Kalman filters.)
+
+*/

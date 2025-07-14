@@ -794,15 +794,29 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 	switch (id) {
 	case SPA_PARAM_Format:
-		if (this->started)
+		if (this->started) {
+			spa_log_error(this->log, "%p: cannot set Format param: "
+					"node already started", this);
 			return -EIO;
-		if (param == NULL)
+		}
+		if (param == NULL) {
+			spa_log_error(this->log, "%p: attempted to set NULL Format POD", this);
 			return -EINVAL;
+		}
 
-		if (spa_format_audio_parse(param, &info) < 0)
+		if (spa_format_audio_parse(param, &info) < 0) {
+			spa_log_error(this->log, "%p: cannot set Format param: "
+					"parsing the POD failed", this);
 			return -EINVAL;
-		if (info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+		}
+		if (info.media_subtype != SPA_MEDIA_SUBTYPE_raw) {
+			const char *subtype_name = spa_type_to_short_name(info.media_subtype,
+									spa_type_media_subtype,
+									"<unknown>");
+			spa_log_error(this->log, "%p: cannot set Format param: "
+					"expected raw subtype, got subtype \"%s\"", this, subtype_name);
 			return -EINVAL;
+		}
 
 		this->follower_current_format = info;
 		break;
@@ -814,7 +828,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		struct spa_pod *format = NULL;
 
 		if (this->started) {
-			spa_log_error(this->log, "was started");
+			spa_log_error(this->log, "%p: cannot set PortConfig param: "
+					"node already started", this);
 			return -EIO;
 		}
 
@@ -822,8 +837,11 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 				SPA_TYPE_OBJECT_ParamPortConfig, NULL,
 				SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(&dir),
 				SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(&mode),
-				SPA_PARAM_PORT_CONFIG_format,		SPA_POD_OPT_Pod(&format)) < 0)
+				SPA_PARAM_PORT_CONFIG_format,		SPA_POD_OPT_Pod(&format)) < 0) {
+			spa_log_error(this->log, "%p: cannot set PortConfig param: "
+					"parsing the POD failed", this);
 			return -EINVAL;
+		}
 
 		if (format) {
 			struct spa_audio_info info;
@@ -832,16 +850,24 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			if ((res = spa_format_audio_parse(format, &info)) < 0)
 				return res;
 
-			if (info.media_subtype == SPA_MEDIA_SUBTYPE_raw)
+			if (info.media_subtype == SPA_MEDIA_SUBTYPE_raw) {
 				info.info.raw.rate = 0;
-			else
+			} else {
+				const char *subtype_name = spa_type_to_short_name(info.media_subtype,
+										spa_type_media_subtype,
+										"<unknown>");
+				spa_log_error(this->log, "%p: cannot set PortConfig param: "
+						"subtype \"%s\" is not supported", this, subtype_name);
 				return -ENOTSUP;
+			}
 
 			this->default_format = info;
 		}
 
 		switch (mode) {
 		case SPA_PARAM_PORT_CONFIG_MODE_none:
+			spa_log_error(this->log, "%p: cannot set PortConfig param: "
+					"\"none\" config mode is not supported", this);
 			return -ENOTSUP;
 		case SPA_PARAM_PORT_CONFIG_MODE_passthrough:
 			if ((res = reconfigure_mode(this, mode, dir, format)) < 0)
@@ -853,6 +879,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 				return res;
 			break;
 		default:
+			spa_log_error(this->log, "%p: invalid config mode when setting PortConfig param",
+					this);
 			return -EINVAL;
 		}
 

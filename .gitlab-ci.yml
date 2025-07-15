@@ -102,36 +102,6 @@ include:
 #    FDO_DISTRIBUTION_EXEC: >-
 #      pip3 install meson
 
-# This is a pruned down container with enough dependencies for a basic i686
-# build to make sure we've not broken anything. This can be extended if we want
-# to cover more of the code.
-.fedora_x86:
-  variables:
-    # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2025-05-29.1'
-    FDO_DISTRIBUTION_VERSION: '42'
-    FDO_DISTRIBUTION_PACKAGES: >-
-      git
-      gcc
-      gcc-c++
-      meson
-      glibc-devel.i686
-      systemd-devel.i686
-      dbus-devel.i686
-      alsa-lib-devel.i686
-      bluez-libs-devel.i686
-      libffi-devel.i686
-      pcre2-devel.i686
-      sysprof-devel.i686
-      zlib-ng-compat-devel.i686
-      libblkid-devel.i686
-      libmount-devel.i686
-      libselinux-devel.i686
-      glib2-devel.i686
-      alsa-lib-devel
-      avahi-devel
-      bluez-libs-devel
-
 .ubuntu:
   variables:
     # Update this tag when you want to trigger a rebuild
@@ -243,14 +213,8 @@ include:
     - echo "Building with meson options $MESON_OPTIONS"
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
     - meson compile -C "$BUILD_DIR" $COMPILE_ARGS
-    - |
-      if [ -z "$MESON_SKIP_TEST" ]; then
-        meson test -C "$BUILD_DIR" --no-rebuild
-      fi
-    - |
-      if [ -z "$MESON_SKIP_INSTALL" ]; then
-        meson install -C "$BUILD_DIR" --no-rebuild
-      fi
+    - meson test -C "$BUILD_DIR" --no-rebuild
+    - meson install -C "$BUILD_DIR" --no-rebuild
   artifacts:
     name: pipewire-$CI_COMMIT_SHA
     when: always
@@ -268,14 +232,6 @@ container_ubuntu:
 container_fedora:
   extends:
     - .fedora
-    - .fdo.container-build@fedora
-  stage: container
-  variables:
-    GIT_STRATEGY: none # no need to pull the whole tree for rebuilding the image
-
-container_fedora_x86:
-  extends:
-    - .fedora_x86
     - .fdo.container-build@fedora
   stage: container
   variables:
@@ -405,21 +361,6 @@ build_on_fedora_html_docs:
       - branch-*/builddir/doc/html
   rules:
     - !reference [pages, rules]
-
-build_on_fedora_x86:
-  extends:
-    - .fedora_x86
-    - .not_coverity
-    - .fdo.distribution-image@fedora
-    - .build
-  stage: build
-  needs:
-    - job: container_fedora_x86
-      artifacts: false
-  variables:
-    MESON_OPTIONS: "--cross-file=cross-x86.txt"
-    MESON_SKIP_TEST: "true"
-    MESON_SKIP_INSTALL: "true"
 
 build_on_alpine:
   extends:

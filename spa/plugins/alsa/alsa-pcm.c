@@ -2607,7 +2607,7 @@ static inline int do_start(struct state *state)
 	return 0;
 }
 
-static inline int check_position_config(struct state *state, bool starting, bool check_driver_only);
+static inline int check_position_config(struct state *state, bool starting);
 static void update_sources(struct state *state, bool active);
 
 static int alsa_recover(struct state *state)
@@ -2675,7 +2675,7 @@ recover:
 	spa_list_for_each(follower, &driver->rt.followers, rt.driver_link) {
 		if (follower != driver && follower->linked) {
 			do_drop(follower);
-			check_position_config(follower, false, false);
+			check_position_config(follower, false);
 		}
 	}
 	do_prepare(driver);
@@ -2911,8 +2911,6 @@ static int setup_matching(struct state *state)
 	spa_log_debug(state->log, "driver clock:'%s' our clock:'%s'",
 			state->position->clock.name, state->clock_name);
 
-	check_position_config(state, false, true);
-
 	if (spa_streq(state->position->clock.name, state->clock_name))
 		state->matching = false;
 
@@ -2937,7 +2935,7 @@ static void update_sources(struct state *state, bool active)
 	}
 }
 
-static inline int check_position_config(struct state *state, bool starting, bool check_driver_only)
+static inline int check_position_config(struct state *state, bool starting)
 {
 	uint64_t target_duration;
 	struct spa_fraction target_rate;
@@ -2971,16 +2969,13 @@ static inline int check_position_config(struct state *state, bool starting, bool
 
 		state->driver_duration = target_duration;
 		state->driver_rate = target_rate;
-
-		if (!check_driver_only) {
-			state->threshold = SPA_SCALE32_UP(state->driver_duration, state->rate, state->driver_rate.denom);
-			state->max_error = SPA_MAX(256.0f, (state->threshold + state->headroom) / 2.0f);
-			state->max_resync = SPA_MIN(state->threshold + state->headroom, state->max_error);
-			state->err_wdw = (double)state->driver_rate.denom/state->driver_duration;
-			state->resample = !state->pitch_elem &&
-				(((uint32_t)state->rate != state->driver_rate.denom) || state->matching);
-			state->alsa_sync = true;
-		}
+		state->threshold = SPA_SCALE32_UP(state->driver_duration, state->rate, state->driver_rate.denom);
+		state->max_error = SPA_MAX(256.0f, (state->threshold + state->headroom) / 2.0f);
+		state->max_resync = SPA_MIN(state->threshold + state->headroom, state->max_error);
+		state->err_wdw = (double)state->driver_rate.denom/state->driver_duration;
+		state->resample = !state->pitch_elem &&
+			(((uint32_t)state->rate != state->driver_rate.denom) || state->matching);
+		state->alsa_sync = true;
 	}
 	return 0;
 }
@@ -2991,7 +2986,7 @@ static int alsa_write_sync(struct state *state, uint64_t current_time)
 	snd_pcm_uframes_t avail, delay, target;
 	bool following = state->following;
 
-	if (SPA_UNLIKELY((res = check_position_config(state, false, false)) < 0))
+	if (SPA_UNLIKELY((res = check_position_config(state, false)) < 0))
 		return res;
 
 	if (SPA_UNLIKELY((res = get_status(state, current_time, &avail, &delay, &target)) < 0)) {
@@ -3258,7 +3253,7 @@ static int alsa_read_sync(struct state *state, uint64_t current_time)
 	if (SPA_UNLIKELY(!state->alsa_started))
 		return 0;
 
-	if (SPA_UNLIKELY((res = check_position_config(state, false, false)) < 0))
+	if (SPA_UNLIKELY((res = check_position_config(state, false)) < 0))
 		return res;
 
 	if (SPA_UNLIKELY((res = get_status(state, current_time, &avail, &delay, &target)) < 0)) {
@@ -3668,7 +3663,7 @@ int spa_alsa_prepare(struct state *state)
 	if (state->prepared)
 		return 0;
 
-	if (check_position_config(state, true, false) < 0) {
+	if (check_position_config(state, true) < 0) {
 		spa_log_error(state->log, "%s: invalid position config", state->name);
 		return -EIO;
 	}

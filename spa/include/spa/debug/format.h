@@ -125,6 +125,7 @@ spa_debug_strbuf_format_value(struct spa_strbuf *buffer, const struct spa_type_i
 		spa_strbuf_append(buffer, "INVALID type %d", type);
 		break;
 	}
+	return 0;
 bad_body:
 	spa_strbuf_append(buffer, "INVALID BODY type %d", type);
 	return 0;

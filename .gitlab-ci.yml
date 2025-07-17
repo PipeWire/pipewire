@@ -90,6 +90,7 @@ include:
       pandoc
       fftw-libs-single
       fftw-devel
+      onnxruntime-devel
 # Uncommenting the following two lines and disabling the meson entry above
 # will re-enable use of Meson via pip but please consider using a newer distro
 # image first or making the build system compatible instead! This is because

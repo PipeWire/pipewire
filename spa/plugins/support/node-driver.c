@@ -154,11 +154,25 @@ static const char *clock_id_to_name(clockid_t id)
 
 static void set_timeout(struct impl *this, uint64_t next_time)
 {
+	/* The realtime system clock may be modified by the user. In such a case,
+	 * a scheduled timer must be canceled, since its timeout is no longer
+	 * correctly corresponding to the duration of a graph cycle. Worse, if
+	 * for example the user resets the realtime clock way back to the past,
+	 * then the timeout may now be far in the future, meaning that the next
+	 * graph cycle never takes place. The SPA_FD_TIMER_CANCEL_ON_SET flag is
+	 * used here to automatically cancel the timer if the user sets the realtime
+	 * clock so that the driver can reschedule the cycle. (Timer cancelation
+	 * will trigger an on_timeout() invocation with spa_system_timerfd_read()
+	 * returning -ECANCELED.)
+	 * If timerfd is used with a non-realtime clock, the flag is ignored.
+	 * (Note that the flag only works in combination with SPA_FD_TIMER_ABSTIME.) */
+
 	spa_log_trace(this->log, "set timeout %"PRIu64, next_time);
 	this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
 	this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
 	spa_system_timerfd_settime(this->data_system,
-			this->timer_source.fd, SPA_FD_TIMER_ABSTIME, &this->timerspec, NULL);
+			this->timer_source.fd, SPA_FD_TIMER_ABSTIME |
+			SPA_FD_TIMER_CANCEL_ON_SET, &this->timerspec, NULL);
 }
 
 static inline uint64_t gettime_nsec(struct impl *this, clockid_t clock_id)
@@ -329,14 +343,25 @@ static void on_timeout(struct spa_source *source)
 	uint32_t rate;
 	double corr = 1.0, err = 0.0;
 	int res;
+	bool timer_was_canceled = false;
+
+	/* See set_timeout() for an explanation about timer cancelation. */
 
 	if ((res = spa_system_timerfd_read(this->data_system,
 				this->timer_source.fd, &expirations)) < 0) {
-		if (res != -EAGAIN)
+		if (res == -EAGAIN) {
+			return;
+		} else if (res == -ECANCELED) {
+			spa_log_debug(this->log, "%p: timer was canceled; "
+					"rescheduling graph cycle", this);
+			timer_was_canceled = true;
+		} else {
 			spa_log_error(this->log, "%p: timerfd error: %s",
 					this, spa_strerror(res));
-		return;
+			return;
+		}
 	}
+
 	if (SPA_LIKELY(this->position)) {
 		duration = this->position->clock.target_duration;
 		rate = this->position->clock.target_rate.denom;
@@ -344,24 +369,62 @@ static void on_timeout(struct spa_source *source)
 		duration = 1024;
 		rate = 48000;
 	}
-	if (this->props.freewheel)
+
+	/* In freewheel mode, graph cycles are run as fast as possible,
+	 * especially if the "freewheel.wait" period is 0. In such a case,
+	 * as soon as the mainloop encounters the scheduled timer timeout,
+	 * it will execute it immediately. Since it is not possible to
+	 * measure how long it takes the mainloop to do that, it is not
+	 * possible to rely on this->next_time as the nsec value in
+	 * freewheel mode (this->next_time does not factor in the mainloop
+	 * invocation time mentioned earlier). Instead, sample the current
+	 * monotonic time when freewheel mode is active, to account for
+	 * that invocation time.
+	 *
+	 * Also, if the timer was canceled, the graph cycle needs to be
+	 * rescheduled, and it cannot be assumed that the this->next_time
+	 * and this->clock->position values are correct anymore. (Timer
+	 * cancellations happen when the realtime clock is being used by
+	 * this driver and the user modified the realtime clock for example.)
+	 */
+	if (this->props.freewheel || SPA_UNLIKELY(timer_was_canceled))
 		nsec = gettime_nsec(this, this->timer_clockid);
 	else
 		nsec = this->next_time;
 
+	/* "tracking" means that the driver is following a clock that is not
+	 * usable by timerfd. It is an entirely separate clock, for example,
+	 * a network interface PHC. If tracking is true, timer_clockid is
+	 * always the monotonic clock, and this->props.clock_id is that entirely
+	 * separate clock. If tracking is false, then this->props.clock_id
+	 * equals timer_clockid, so "nsec" can directly be used as the current
+	 * driver clock time in that case. */
 	if (this->tracking)
-		/* we are actually following another clock */
 		current_time = gettime_nsec(this, this->props.clock_id);
 	else
 		current_time = nsec;
 
 	current_position = scale_u64(current_time, rate, SPA_NSEC_PER_SEC);
 
-	if (this->last_time == 0) {
+	if ((this->last_time == 0) || SPA_UNLIKELY(timer_was_canceled)) {
 		spa_dll_set_bw(&this->dll, SPA_DLL_BW_MIN, duration, rate);
 		this->max_error = rate * MAX_ERROR_MS / 1000;
 		this->max_resync = rate * this->props.resync_ms / 1000;
 		position = current_position;
+
+		/* If the timer was canceled, then it is assumed that a
+		 * discontinuity occurred. Accumulated nsec_offset values
+		 * cannot be relied upon anymore, and need to be reset.
+		 * Also, base_time is set back to 0 to make sure the log line
+		 * further below (which prints current stats) continues to
+		 * be printed. (If for example the clock was set to an
+		 * earlier time, then the base_time might contain a future
+		 * timestamp that the clock won't reach for a long while.) */
+		if (timer_was_canceled) {
+			this->base_time = 0;
+			this->nsec_offset.offset = get_nsec_offset(this, NULL);
+			this->nsec_offset.err = 0;
+		}
 	} else if (SPA_LIKELY(this->clock)) {
 		position = this->clock->position + this->clock->duration;
 	} else {
@@ -415,6 +478,11 @@ static void on_timeout(struct spa_source *source)
 		this->clock->delay = 0;
 		this->clock->rate_diff = corr;
 		this->clock->next_nsec = this->next_time + nsec_offset;
+
+		if (SPA_UNLIKELY(timer_was_canceled)) {
+			SPA_FLAG_UPDATE(this->clock->flags,
+					SPA_IO_CLOCK_FLAG_DISCONT, true);
+		}
 	}
 
 	spa_node_call_ready(&this->callbacks,

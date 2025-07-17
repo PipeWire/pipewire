@@ -479,10 +479,8 @@ static void on_timeout(struct spa_source *source)
 		this->clock->rate_diff = corr;
 		this->clock->next_nsec = this->next_time + nsec_offset;
 
-		if (SPA_UNLIKELY(timer_was_canceled)) {
-			SPA_FLAG_UPDATE(this->clock->flags,
-					SPA_IO_CLOCK_FLAG_DISCONT, true);
-		}
+		SPA_FLAG_UPDATE(this->clock->flags, SPA_IO_CLOCK_FLAG_DISCONT,
+			timer_was_canceled);
 	}
 
 	spa_node_call_ready(&this->callbacks,

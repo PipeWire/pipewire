@@ -1,3 +1,35 @@
+# PipeWire 1.4.7 (2025-07-23)
+
+This is a bugfix release that is API and ABI compatible with
+previous 1.x releases.
+
+## Highlights
+  - Improve latency handling in echo-cancel.
+  - Don't leak SyncObj fds in client-node.
+  - Improve the adaptive resampler performance.
+  - Some more fixes and improvements.
+
+
+## modules
+  - Set module-echo-cancel latency correctly.
+  - Avoid extra latency in echo-cancel by dropping samples when
+    one end is paused.
+  - Don't leak SyncObj fds in client-node. (#4807)
+
+## SPA
+  - Actually enable echo cancellation when using webrtc 2.0
+  - Improve ALSA driver resampling setup and follower adaptive
+    resampling.
+  - Fix an off-by-one in the delay filter.
+  - Improve the adaptive resampler performance.
+
+## bluetooth
+  - Improve compatibility with some JBL flip and change models.
+
+## GStreamer
+  - Add some format validations.
+
+
 # PipeWire 1.4.6 (2025-06-27)
 
 This is a bugfix release that is API and ABI compatible with

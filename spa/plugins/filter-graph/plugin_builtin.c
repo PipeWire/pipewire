@@ -2892,26 +2892,31 @@ static struct spa_fga_port noisegate_ports[] = {
 	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
 	},
 	{ .index = 2,
-	  .name = "Open Threshold",
+	  .name = "Level",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 0.004f, .min = 0.0f, .max = 1.0f
+	  .def = NAN
 	},
 	{ .index = 3,
-	  .name = "Close Threshold",
+	  .name = "Open Threshold",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 0.003f, .min = 0.0f, .max = 1.0f
+	  .def = 0.04f, .min = 0.0f, .max = 1.0f
 	},
 	{ .index = 4,
+	  .name = "Close Threshold",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	  .def = 0.03f, .min = 0.0f, .max = 1.0f
+	},
+	{ .index = 5,
 	  .name = "Attack (s)",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 0.005f, .min = 0.0f, .max = 1.0f
 	},
-	{ .index = 5,
+	{ .index = 6,
 	  .name = "Hold (s)",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 0.050f, .min = 0.0f, .max = 1.0f
 	},
-	{ .index = 6,
+	{ .index = 7,
 	  .name = "Release (s)",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
 	  .def = 0.010f, .min = 0.0f, .max = 1.0f
@@ -2923,9 +2928,10 @@ static void noisegate_run(void * Instance, unsigned long SampleCount)
 	struct builtin *impl = Instance;
 	float *in = impl->port[0];
 	float *out = impl->port[1];
+	float in_lev = impl->port[2][0];
 	unsigned long n;
-	float o_thres = impl->port[2][0];
-	float c_thres = impl->port[3][0];
+	float o_thres = impl->port[3][0];
+	float c_thres = impl->port[4][0];
 	float gate, hold, o_rate, c_rate, level;
 	int mode;
 
@@ -2937,20 +2943,25 @@ static void noisegate_run(void * Instance, unsigned long SampleCount)
 		return;
 	}
 
-	o_rate = 1.0f / (impl->port[4][0] * impl->rate);
-	c_rate = 1.0f / (impl->port[6][0] * impl->rate);
+	o_rate = 1.0f / (impl->port[5][0] * impl->rate);
+	c_rate = 1.0f / (impl->port[7][0] * impl->rate);
 	gate = impl->gate;
 	hold = impl->hold;
 	mode = impl->mode;
 	level = impl->last;
 
-	for (n = 0; n < SampleCount; n++) {
-		float lev = fabsf(in[n]);
+	spa_log_trace_fp(impl->log, "%f %d %f", level, mode, gate);
 
-		if (lev > level)
-			level = lev;
-		else
-			level = lev * 0.05f + level * 0.95f;
+	for (n = 0; n < SampleCount; n++) {
+		if (isnan(in_lev)) {
+			float lev = fabsf(in[n]);
+			if (lev > level)
+				level = lev;
+			else
+				level = lev * 0.05f + level * 0.95f;
+		} else {
+			level = in_lev;
+		}
 
 		switch (mode) {
 		case 0:
@@ -2964,7 +2975,7 @@ static void noisegate_run(void * Instance, unsigned long SampleCount)
 			if (gate >= 1.0f) {
 				gate = 1.0f;
 				mode = 2;
-				hold = impl->port[5][0] * impl->rate;
+				hold = impl->port[6][0] * impl->rate;
 			}
 			break;
 		case 2:

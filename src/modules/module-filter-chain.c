@@ -630,6 +630,10 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * It has an "In" input port and an "Out" output data ports. Normally the input
  * data is passed directly to the output.
  *
+ * The "Level" control port can be used to control the measured volume of the "In"
+ * port. When not connected, a simple volume algorithm on the "In" port will be
+ * used.
+ *
  * If the volume drops below "Close threshold", the noisegate will ramp down the
  * volume to zero for a duration of "Release (s)" seconds. When the volume is above
  * "Open threshold", the noisegate will ramp up the volume to 1 for a duration

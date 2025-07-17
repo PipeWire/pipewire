@@ -131,7 +131,7 @@ spa_filter_graph_plugin_onnx = shared_library('spa-filter-graph-plugin-onnx',
   include_directories : [configinc],
   install : true,
   install_dir : spa_plugindir / 'filter-graph',
-  dependencies : [ filter_graph_dependencies, onnxruntime_dep, avutil_dep]
+  dependencies : [ filter_graph_dependencies, onnxruntime_dep]
 )
 endif
 

@@ -2821,48 +2821,49 @@ static void zeroramp_run(void * Instance, unsigned long SampleCount)
 	if (out == NULL)
 		return;
 
-	if (in != NULL) {
-		for (n = 0; n < SampleCount; n++) {
-			if (impl->mode == 0) {
-				/* normal mode, finding gaps */
-				out[n] = in[n];
-				if (in[n] == 0.0f) {
-					if (++impl->count == gap) {
-						/* we found gap zeroes, fade out last
-						 * sample and go into zero mode */
-						for (c = 1, i = n; c < duration && i > 0; i--, c++)
-							out[i-1] = impl->last *
-								(0.5f + 0.5f * cosf(M_PIf + M_PIf * c / duration));
-						impl->mode = 1;
-					}
-				} else {
-					/* keep last sample to fade out when needed */
-					impl->count = 0;
-					impl->last = in[n];
+	if (in == NULL) {
+		memset(out, 0, SampleCount * sizeof(float));
+		return;
+	}
+
+	for (n = 0; n < SampleCount; n++) {
+		if (impl->mode == 0) {
+			/* normal mode, finding gaps */
+			out[n] = in[n];
+			if (in[n] == 0.0f) {
+				if (++impl->count == gap) {
+					/* we found gap zeroes, fade out last
+					 * sample and go into zero mode */
+					for (c = 1, i = n; c < duration && i > 0; i--, c++)
+						out[i-1] = impl->last *
+							(0.5f + 0.5f * cosf(M_PIf + M_PIf * c / duration));
+					impl->mode = 1;
 				}
-			}
-			if (impl->mode == 1) {
-				/* zero mode */
-				if (in[n] != 0.0f) {
-					/* gap ended, move to fade-in mode */
-					impl->mode = 2;
-					impl->count = 0;
-				} else {
-					out[n] = 0.0f;
-				}
-			}
-			if (impl->mode == 2) {
-				/* fade-in mode */
-				out[n] = in[n] * (0.5f + 0.5f * cosf(M_PIf + (M_PIf * ++impl->count / duration)));
-				if (impl->count == duration) {
-					/* fade in complete, back to normal mode */
-					impl->count = 0;
-					impl->mode = 0;
-				}
+			} else {
+				/* keep last sample to fade out when needed */
+				impl->count = 0;
+				impl->last = in[n];
 			}
 		}
-	} else {
-		memset(out, 0, SampleCount * sizeof(float));
+		if (impl->mode == 1) {
+			/* zero mode */
+			if (in[n] != 0.0f) {
+				/* gap ended, move to fade-in mode */
+				impl->mode = 2;
+				impl->count = 0;
+			} else {
+				out[n] = 0.0f;
+			}
+		}
+		if (impl->mode == 2) {
+			/* fade-in mode */
+			out[n] = in[n] * (0.5f + 0.5f * cosf(M_PIf + (M_PIf * ++impl->count / duration)));
+			if (impl->count == duration) {
+				/* fade in complete, back to normal mode */
+				impl->count = 0;
+				impl->mode = 0;
+			}
+		}
 	}
 }
 

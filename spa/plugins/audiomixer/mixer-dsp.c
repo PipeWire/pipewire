@@ -762,7 +762,7 @@ static int impl_node_process(void *object)
 		    inio->status != SPA_STATUS_HAVE_DATA) {
 			spa_log_trace_fp(this->log, "%p: skip input idx:%d "
 					"io:%p status:%d buf_id:%d n_buffers:%d", this,
-				i, inio, inio->status, inio->buffer_id, inport->n_buffers);
+				inport->id, inio, inio->status, inio->buffer_id, inport->n_buffers);
 			continue;
 		}
 
@@ -774,7 +774,7 @@ static int impl_node_process(void *object)
 		maxsize = SPA_MIN(maxsize, size);
 
 		spa_log_trace_fp(this->log, "%p: mix input %d %p->%p %d %d/%d %d:%d/%d %u", this,
-				i, inio, outio, inio->status, inio->buffer_id, inport->n_buffers,
+				inport->id, inio, outio, inio->status, inio->buffer_id, inport->n_buffers,
 				offs, size, (int)sizeof(float),
 				bd->chunk->flags);
 

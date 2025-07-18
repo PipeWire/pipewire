@@ -979,6 +979,7 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 	state->htimestamp = false;
 	state->htimestamp_max_errors = MAX_HTIMESTAMP_ERROR;
 	state->card_index = SPA_ID_INVALID;
+	state->dll_bw_max = SPA_DLL_BW_MAX;
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
@@ -2894,9 +2895,9 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 		state->clock->next_nsec = state->next_time;
 	}
 
-	spa_log_trace_fp(state->log, "%p: follower:%d %"PRIu64" %"PRIu64" %f %ld %ld %f %f %u",
+	spa_log_trace_fp(state->log, "%p: follower:%d %"PRIu64" %"PRIu64" %f %ld %ld %f %f %u %d",
 			state, follower, current_time, state->next_time, corr, delay, target,
-			err, state->threshold * corr, state->threshold);
+			err, state->threshold * corr, state->threshold, state->matching);
 
 	return 0;
 }
@@ -3628,7 +3629,7 @@ static int do_state_sync(struct spa_loop *loop, bool async, uint32_t seq,
 			rt->driver = state->driver;
 			spa_log_debug(state->log, "state:%p -> driver:%p", state, state->driver);
 
-			if(state->linked && state->matching)
+			if (state->linked && state->matching)
 				try_unlink(state);
 		}
 		if (state->following) {

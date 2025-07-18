@@ -2900,6 +2900,13 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 	return 0;
 }
 
+static bool need_resample(struct state *state)
+{
+	return !state->pitch_elem &&
+		((state->rate != 0 && state->driver_rate.denom != 0 &&
+		 (uint32_t)state->rate != state->driver_rate.denom) || state->matching);
+}
+
 static int setup_matching(struct state *state)
 {
 	state->matching = state->following;
@@ -2912,6 +2919,8 @@ static int setup_matching(struct state *state)
 
 	if (spa_streq(state->position->clock.name, state->clock_name))
 		state->matching = false;
+
+	state->resample = need_resample(state);
 
 	check_position_config(state, false);
 
@@ -2972,9 +2981,7 @@ static inline int check_position_config(struct state *state, bool starting)
 		state->max_error = SPA_MAX(256.0f, (state->threshold + state->headroom) / 2.0f);
 		state->max_resync = SPA_MIN(state->threshold + state->headroom, state->max_error);
 		state->err_wdw = (double)state->driver_rate.denom/state->driver_duration;
-		state->resample = !state->pitch_elem &&
-			((state->rate != 0 && state->driver_rate.denom != 0 &&
-			 (uint32_t)state->rate != state->driver_rate.denom) || state->matching);
+		state->resample = need_resample(state);
 		state->alsa_sync = true;
 	}
 	return 0;

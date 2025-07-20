@@ -1347,7 +1347,7 @@ static int node_event_param(void *object, int seq,
 		double value_d;
 		bool value_b;
 		float *values;
-		uint32_t i, n_values;
+		uint32_t i, n_values, val_size, val_type;
 
 		SPA_POD_OBJECT_FOREACH(obj, prop) {
 			struct control *c;
@@ -1378,8 +1378,9 @@ static int node_event_param(void *object, int seq,
 				values = &value_f;
 				break;
 			case SPA_TYPE_Array:
-				if ((values = spa_pod_get_array(&prop->value, &n_values)) == NULL ||
-				    !spa_pod_is_float(SPA_POD_ARRAY_CHILD(&prop->value)))
+				if ((values = spa_pod_get_array_full(&prop->value, &n_values, &val_size, &val_type)) == NULL ||
+				    val_type != SPA_TYPE_Float ||
+				    val_size != sizeof(float))
 					continue;
 				n_values = SPA_MIN(n_values, MAX_VALUES);
 				break;

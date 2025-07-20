@@ -1284,7 +1284,7 @@ static int endpoint_link_proxy_demarshal_subscribe_params(void *object,
 				SPA_POD_Array(&csize, &ctype, &n_ids, &ids)) < 0)
 		return -EINVAL;
 
-	if (ctype != SPA_TYPE_Id)
+	if (ctype != SPA_TYPE_Id || csize != sizeof(uint32_t))
 		return -EINVAL;
 
 	return pw_proxy_notify(proxy, struct pw_endpoint_link_methods,
@@ -1304,7 +1304,7 @@ static int endpoint_link_resource_demarshal_subscribe_params(void *object,
 				SPA_POD_Array(&csize, &ctype, &n_ids, &ids)) < 0)
 		return -EINVAL;
 
-	if (ctype != SPA_TYPE_Id)
+	if (ctype != SPA_TYPE_Id || csize != sizeof(uint32_t))
 		return -EINVAL;
 
 	return pw_resource_notify(resource, struct pw_endpoint_link_methods,
@@ -1806,7 +1806,7 @@ static int endpoint_stream_proxy_demarshal_subscribe_params(void *object,
 				SPA_POD_Array(&csize, &ctype, &n_ids, &ids)) < 0)
 		return -EINVAL;
 
-	if (ctype != SPA_TYPE_Id)
+	if (ctype != SPA_TYPE_Id || csize != sizeof(uint32_t))
 		return -EINVAL;
 
 	return pw_proxy_notify(proxy, struct pw_endpoint_stream_methods,
@@ -1826,7 +1826,7 @@ static int endpoint_stream_resource_demarshal_subscribe_params(void *object,
 				SPA_POD_Array(&csize, &ctype, &n_ids, &ids)) < 0)
 		return -EINVAL;
 
-	if (ctype != SPA_TYPE_Id)
+	if (ctype != SPA_TYPE_Id || csize != sizeof(uint32_t))
 		return -EINVAL;
 
 	return pw_resource_notify(resource, struct pw_endpoint_stream_methods,
@@ -2320,7 +2320,7 @@ static int endpoint_proxy_demarshal_subscribe_params(void *object,
 				SPA_POD_Array(&csize, &ctype, &n_ids, &ids)) < 0)
 		return -EINVAL;
 
-	if (ctype != SPA_TYPE_Id)
+	if (ctype != SPA_TYPE_Id || csize != sizeof(uint32_t))
 		return -EINVAL;
 
 	return pw_proxy_notify(proxy, struct pw_endpoint_methods,
@@ -2340,7 +2340,7 @@ static int endpoint_resource_demarshal_subscribe_params(void *object,
 				SPA_POD_Array(&csize, &ctype, &n_ids, &ids)) < 0)
 		return -EINVAL;
 
-	if (ctype != SPA_TYPE_Id)
+	if (ctype != SPA_TYPE_Id || csize != sizeof(uint32_t))
 		return -EINVAL;
 
 	return pw_resource_notify(resource, struct pw_endpoint_methods,
@@ -2842,7 +2842,7 @@ static int session_proxy_demarshal_subscribe_params(void *object,
 				SPA_POD_Array(&csize, &ctype, &n_ids, &ids)) < 0)
 		return -EINVAL;
 
-	if (ctype != SPA_TYPE_Id)
+	if (ctype != SPA_TYPE_Id || csize != sizeof(uint32_t))
 		return -EINVAL;
 
 	return pw_proxy_notify(proxy, struct pw_session_methods,
@@ -2862,7 +2862,7 @@ static int session_resource_demarshal_subscribe_params(void *object,
 				SPA_POD_Array(&csize, &ctype, &n_ids, &ids)) < 0)
 		return -EINVAL;
 
-	if (ctype != SPA_TYPE_Id)
+	if (ctype != SPA_TYPE_Id || csize != sizeof(uint32_t))
 		return -EINVAL;
 
 	return pw_resource_notify(resource, struct pw_session_methods,

@@ -977,7 +977,7 @@ static int device_demarshal_subscribe_params(void *object, const struct pw_proto
 				SPA_POD_Array(&csize, &ctype, &n_ids, &ids)) < 0)
 		return -EINVAL;
 
-	if (ctype != SPA_TYPE_Id)
+	if (ctype != SPA_TYPE_Id || csize != sizeof(uint32_t))
 		return -EINVAL;
 
 	return pw_resource_notify(resource, struct pw_device_methods, subscribe_params, 0,
@@ -1238,7 +1238,7 @@ static int node_demarshal_subscribe_params(void *object, const struct pw_protoco
 				SPA_POD_Array(&csize, &ctype, &n_ids, &ids)) < 0)
 		return -EINVAL;
 
-	if (ctype != SPA_TYPE_Id)
+	if (ctype != SPA_TYPE_Id || csize != sizeof(uint32_t))
 		return -EINVAL;
 
 	return pw_resource_notify(resource, struct pw_node_methods, subscribe_params, 0,
@@ -1462,7 +1462,7 @@ static int port_demarshal_subscribe_params(void *object, const struct pw_protoco
 				SPA_POD_Array(&csize, &ctype, &n_ids, &ids)) < 0)
 		return -EINVAL;
 
-	if (ctype != SPA_TYPE_Id)
+	if (ctype != SPA_TYPE_Id || csize != sizeof(uint32_t))
 		return -EINVAL;
 
 	return pw_resource_notify(resource, struct pw_port_methods, subscribe_params, 0,

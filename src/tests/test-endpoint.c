@@ -199,10 +199,12 @@ endpoint_init(struct endpoint * self)
 	spa_hook_list_init (&self->hooks);
 
 	self->info.version = PW_VERSION_ENDPOINT_INFO;
+	self->info.id = SPA_ID_INVALID;
 	self->info.change_mask = PW_ENDPOINT_CHANGE_MASK_ALL;
 	self->info.name = "test-endpoint";
 	self->info.media_class = "Audio/Sink";
 	self->info.direction = PW_DIRECTION_OUTPUT;
+	self->info.flags = 0;
 	self->info.n_streams = 0;
 	self->info.session_id = SPA_ID_INVALID;
 
@@ -434,12 +436,6 @@ static void test_endpoint(void)
 
 int main(int argc, char *argv[])
 {
-	/* FIXME: This test has a leak and a use of uninitialized buffer
-	 * that needs to be debugged and fixed (or excluded). Meanwhile -
-	 * skip it from valgrind so we can at least use the others. */
-	if (RUNNING_ON_VALGRIND)
-		return 77;
-
 	pw_init(&argc, &argv);
 
 	alarm(5); /* watchdog; terminate after 5 seconds */

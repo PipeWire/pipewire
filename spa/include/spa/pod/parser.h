@@ -286,6 +286,8 @@ SPA_API_POD_PARSER bool spa_pod_parser_can_collect(const struct spa_pod *pod, ch
 			return true;
 		if (SPA_POD_CHOICE_TYPE(pod) != SPA_CHOICE_None)
 			return false;
+		if (SPA_POD_CHOICE_N_VALUES(pod) < 1)
+			return false;
 		pod = SPA_POD_CHOICE_CHILD(pod);
 	}
 

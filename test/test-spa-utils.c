@@ -853,9 +853,6 @@ PWTEST(utils_snprintf_abort_neg_size)
 	size_t size = pwtest_get_iteration(current_test);
 	char dest[8];
 
-	if (RUNNING_ON_VALGRIND)
-		return PWTEST_SKIP;
-
 	spa_scnprintf(dest, size, "1234"); /* expected to abort() */
 
 	return PWTEST_FAIL;

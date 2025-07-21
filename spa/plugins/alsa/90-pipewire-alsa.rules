@@ -118,6 +118,7 @@ ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="402e", ENV{ACP_PROFILE_SET}="dell-do
 ATTRS{idVendor}=="08bb", ATTRS{idProduct}=="2902", ENV{ACP_PROFILE_SET}="texas-instruments-pcm2902.conf"
 ATTRS{idVendor}=="03f0", ATTRS{idProduct}=="0269", ENV{ACP_PROFILE_SET}="hp-tbt-dock-120w-g2.conf"
 ATTRS{idVendor}=="03f0", ATTRS{idProduct}=="0567", ENV{ACP_PROFILE_SET}="hp-tbt-dock-audio-module.conf"
+ATTRS{idVendor}=="046d", ATTRS{idProduct}=="0a4c", ENV{ACP_PROFILE_SET}="logi407.conf"
 
 # ID 1038:12ad is for the 2018 refresh of the Arctis 7.
 # ID 1038:1294 is for Arctis Pro Wireless (which works with the Arctis 7 configuration).

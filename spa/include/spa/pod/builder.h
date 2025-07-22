@@ -93,7 +93,7 @@ SPA_API_POD_BUILDER void spa_pod_builder_init(struct spa_pod_builder *builder, v
 }
 
 SPA_API_POD_BUILDER struct spa_pod *
-spa_pod_builder_deref(struct spa_pod_builder *builder, uint32_t offset)
+spa_pod_builder_deref_fallback(struct spa_pod_builder *builder, uint32_t offset, struct spa_pod *fallback)
 {
 	uint32_t size = builder->size;
 	if (offset + UINT64_C(8) <= size) {
@@ -102,7 +102,13 @@ spa_pod_builder_deref(struct spa_pod_builder *builder, uint32_t offset)
 		    SPA_POD_IS_VALID(pod))
 			return pod;
 	}
-	return NULL;
+	return fallback;
+}
+
+SPA_API_POD_BUILDER struct spa_pod *
+spa_pod_builder_deref(struct spa_pod_builder *builder, uint32_t offset)
+{
+	return (struct spa_pod*)spa_pod_builder_deref_fallback(builder, offset, NULL);
 }
 
 SPA_API_POD_BUILDER struct spa_pod *

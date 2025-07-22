@@ -73,7 +73,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 {
 	const struct spa_pod *v1, *v2;
 	struct spa_pod_choice *nc, dummy;
-	uint32_t j, k, nalt1, nalt2;
+	uint32_t j, k, nalt1, nalt2, nc_offs;
 	void *alt1, *alt2, *a1, *a2;
 	uint32_t type, size, p1c, p2c;
 	struct spa_pod_frame f;
@@ -98,12 +98,10 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 
 	/* start with copying the property */
 	spa_pod_builder_prop(b, p1->key, p1->flags & p2->flags);
-	spa_pod_builder_push_choice(b, &f, 0, 0);
-	nc = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f);
-	/* write to dummy value when builder overflows. We don't want to error
-	 * because overflowing is a way to determine the required buffer size. */
-	if (nc == NULL)
-		nc = &dummy;
+	spa_pod_builder_push_choice(b, &f, SPA_CHOICE_None, 0);
+	spa_zero(dummy);
+
+	nc_offs = f.offset;
 
 	/* start with an empty child and we will select a good default
 	 * below */
@@ -221,6 +219,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 		spa_pod_builder_raw(b, a1, size);
 		spa_pod_builder_raw(b, min1, size);
 		spa_pod_builder_raw(b, max1, size);
+		nc = (struct spa_pod_choice*)spa_pod_builder_deref_fallback(b, nc_offs, &dummy.pod);
 		nc->body.type = SPA_CHOICE_Range;
 	}
 	else if ((p1c == SPA_CHOICE_None && p2c == SPA_CHOICE_Flags) ||
@@ -228,6 +227,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	    (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_Flags)) {
 		if (spa_pod_filter_flags_value(b, type, alt1, alt2, size) != 1)
 			return -EINVAL;
+		nc = (struct spa_pod_choice*)spa_pod_builder_deref_fallback(b, nc_offs, &dummy.pod);
 		nc->body.type = SPA_CHOICE_Flags;
 	}
 	else if (p1c == SPA_CHOICE_Range && p2c == SPA_CHOICE_Flags)
@@ -243,6 +243,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	else if (p1c == SPA_CHOICE_Flags && p2c == SPA_CHOICE_Enum)
 		return -ENOTSUP;
 
+	nc = (struct spa_pod_choice*)spa_pod_builder_deref_fallback(b, nc_offs, &dummy.pod);
 	if (nc->body.type == SPA_CHOICE_None) {
 		if (n_copied == 0) {
 			return -EINVAL;

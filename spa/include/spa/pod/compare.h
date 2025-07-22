@@ -39,41 +39,23 @@ SPA_API_POD_COMPARE int spa_pod_compare_value(uint32_t type, const void *r1, con
 	case SPA_TYPE_None:
 		return 0;
 	case SPA_TYPE_Bool:
-		if (size < sizeof(int32_t))
-			return -EINVAL;
 		return SPA_CMP(!!*(int32_t *)r1, !!*(int32_t *)r2);
 	case SPA_TYPE_Id:
-		if (size < sizeof(uint32_t))
-			return -EINVAL;
 		return SPA_CMP(*(uint32_t *)r1, *(uint32_t *)r2);
 	case SPA_TYPE_Int:
-		if (size < sizeof(int32_t))
-			return -EINVAL;
 		return SPA_CMP(*(int32_t *)r1, *(int32_t *)r2);
 	case SPA_TYPE_Long:
-		if (size < sizeof(int64_t))
-			return -EINVAL;
 		return SPA_CMP(*(int64_t *)r1, *(int64_t *)r2);
 	case SPA_TYPE_Float:
-		if (size < sizeof(float))
-			return -EINVAL;
 		return SPA_CMP(*(float *)r1, *(float *)r2);
 	case SPA_TYPE_Double:
-		if (size < sizeof(double))
-			return -EINVAL;
 		return SPA_CMP(*(double *)r1, *(double *)r2);
 	case SPA_TYPE_String:
-		if (size < sizeof(char) ||
-		    ((char *)r1)[size - 1] ||
-		    ((char *)r2)[size - 1])
-			return -EINVAL;
-		return strcmp((char *)r1, (char *)r2);
+		return strncmp((char *)r1, (char *)r2, size);
 	case SPA_TYPE_Rectangle:
 	{
 		const struct spa_rectangle *rec1 = (struct spa_rectangle *) r1,
 		    *rec2 = (struct spa_rectangle *) r2;
-		if (size < sizeof(struct spa_rectangle))
-			return -EINVAL;
 		if (rec1->width == rec2->width && rec1->height == rec2->height)
 			return 0;
 		else if (rec1->width < rec2->width || rec1->height < rec2->height)
@@ -86,8 +68,6 @@ SPA_API_POD_COMPARE int spa_pod_compare_value(uint32_t type, const void *r1, con
 		const struct spa_fraction *f1 = (struct spa_fraction *) r1,
 		    *f2 = (struct spa_fraction *) r2;
 		uint64_t n1, n2;
-		if (size < sizeof(struct spa_fraction))
-			return -EINVAL;
 		n1 = ((uint64_t) f1->num) * f2->denom;
 		n2 = ((uint64_t) f2->num) * f1->denom;
 		return SPA_CMP(n1, n2);
@@ -175,6 +155,8 @@ SPA_API_POD_COMPARE int spa_pod_compare(const struct spa_pod *pod1,
 	}
 	default:
 		if (pod1->size != pod2->size)
+			return -EINVAL;
+		if (pod1->size < spa_pod_type_size(pod1->type))
 			return -EINVAL;
 		res = spa_pod_compare_value(pod1->type,
 				SPA_POD_BODY(pod1), SPA_POD_BODY(pod2),

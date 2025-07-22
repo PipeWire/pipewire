@@ -95,6 +95,8 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	/* incompatible property types */
 	if (type != v2->type || size != v2->size || p1->key != p2->key)
 		return -EINVAL;
+	if (size < spa_pod_type_size(type))
+		return -EINVAL;
 
 	/* start with copying the property */
 	spa_pod_builder_prop(b, p1->key, p1->flags & p2->flags);
@@ -402,6 +404,10 @@ SPA_API_POD_FILTER int spa_pod_filter_object_make(struct spa_pod_object *pod)
 			uint32_t nvals, choice;
 			struct spa_pod *v = spa_pod_get_values(&res->value, &nvals, &choice);
 			const void *vals = SPA_POD_BODY(v);
+
+			if (v->size < spa_pod_type_size(v->type))
+				continue;
+
 			if (spa_pod_compare_is_valid_choice(v->type, v->size,
 						vals, vals, nvals, choice)) {
 				((struct spa_pod_choice*)&res->value)->body.type = SPA_CHOICE_None;

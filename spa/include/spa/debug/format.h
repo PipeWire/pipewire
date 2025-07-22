@@ -39,14 +39,10 @@ spa_debug_strbuf_format_value(struct spa_strbuf *buffer, const struct spa_type_i
 
 	switch (type) {
 	case SPA_TYPE_Bool:
-		if (size < sizeof(int32_t))
-			goto bad_body;
 		spa_strbuf_append(buffer, "%s", *(int32_t *) body ? "true" : "false");
 		break;
 	case SPA_TYPE_Id:
 	{
-		if (size < sizeof(uint32_t))
-			goto bad_body;
 		uint32_t value = *(uint32_t *) body;
 		const char *str = spa_debug_type_find_short_name(info, value);
 		char tmp[64];
@@ -58,42 +54,28 @@ spa_debug_strbuf_format_value(struct spa_strbuf *buffer, const struct spa_type_i
 		break;
 	}
 	case SPA_TYPE_Int:
-		if (size < sizeof(int32_t))
-			goto bad_body;
 		spa_strbuf_append(buffer, "%d", *(int32_t *) body);
 		break;
 	case SPA_TYPE_Long:
-		if (size < sizeof(int64_t))
-			goto bad_body;
 		spa_strbuf_append(buffer, "%" PRIi64, *(int64_t *) body);
 		break;
 	case SPA_TYPE_Float:
-		if (size < sizeof(float))
-			goto bad_body;
 		spa_strbuf_append(buffer, "%f", *(float *) body);
 		break;
 	case SPA_TYPE_Double:
-		if (size < sizeof(double))
-			goto bad_body;
 		spa_strbuf_append(buffer, "%f", *(double *) body);
 		break;
 	case SPA_TYPE_String:
-		if (size < 1 || ((const char *)body)[size - 1] != '\0')
-			goto bad_body;
-		spa_strbuf_append(buffer, "%s", (char *) body);
+		spa_strbuf_append(buffer, "%-*s", size, (char *) body);
 		break;
 	case SPA_TYPE_Rectangle:
 	{
-		if (size < sizeof(struct spa_rectangle))
-			goto bad_body;
 		struct spa_rectangle *r = (struct spa_rectangle *)body;
 		spa_strbuf_append(buffer, "%" PRIu32 "x%" PRIu32, r->width, r->height);
 		break;
 	}
 	case SPA_TYPE_Fraction:
 	{
-		if (size < sizeof(struct spa_fraction))
-			goto bad_body;
 		struct spa_fraction *f = (struct spa_fraction *)body;
 		spa_strbuf_append(buffer, "%" PRIu32 "/%" PRIu32, f->num, f->denom);
 		break;
@@ -109,14 +91,14 @@ spa_debug_strbuf_format_value(struct spa_strbuf *buffer, const struct spa_type_i
 		void *p;
 		struct spa_pod_array_body *b = (struct spa_pod_array_body *)body;
 		int i = 0;
-		if (size < sizeof(*b))
-			goto bad_body;
 		info = info && info->values ? info->values : info;
 		spa_strbuf_append(buffer, "< ");
-		SPA_POD_ARRAY_BODY_FOREACH(b, size, p) {
-			if (i++ > 0)
-				spa_strbuf_append(buffer, ", ");
-			spa_debug_strbuf_format_value(buffer, info, b->child.type, p, b->child.size);
+		if (b->child.size >= spa_pod_type_size(b->child.type)) {
+			SPA_POD_ARRAY_BODY_FOREACH(b, size, p) {
+				if (i++ > 0)
+					spa_strbuf_append(buffer, ", ");
+				spa_debug_strbuf_format_value(buffer, info, b->child.type, p, b->child.size);
+			}
 		}
 		spa_strbuf_append(buffer, " >");
 		break;
@@ -125,9 +107,6 @@ spa_debug_strbuf_format_value(struct spa_strbuf *buffer, const struct spa_type_i
 		spa_strbuf_append(buffer, "INVALID type %d", type);
 		break;
 	}
-	return 0;
-bad_body:
-	spa_strbuf_append(buffer, "INVALID BODY type %d", type);
 	return 0;
 }
 
@@ -184,11 +163,12 @@ SPA_API_DEBUG_FORMAT int spa_debugc_format(struct spa_debug_context *ctx, int in
 
 		type = val->type;
 		size = val->size;
-		vals = SPA_POD_BODY(val);
 
-		if (type < SPA_TYPE_None || type >= _SPA_TYPE_LAST || n_vals < 1)
+		if (type < SPA_TYPE_None || type >= _SPA_TYPE_LAST || n_vals < 1 ||
+		    size < spa_pod_type_size(type))
 			continue;
 
+		vals = SPA_POD_BODY(val);
 		ti = spa_debug_type_find(info, prop->key);
 		key = ti ? ti->name : NULL;
 

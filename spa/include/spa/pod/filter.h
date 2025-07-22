@@ -397,7 +397,7 @@ SPA_API_POD_FILTER int spa_pod_filter_object_make(struct spa_pod_object *pod)
 	int count = 0;
 
 	SPA_POD_OBJECT_FOREACH(pod, res) {
-		if (spa_pod_is_choice(res->value) &&
+		if (spa_pod_is_choice(&res->value) &&
 		    !SPA_FLAG_IS_SET(res->flags, SPA_POD_PROP_FLAG_DONT_FIXATE)) {
 			uint32_t nvals, choice;
 			struct spa_pod *v = spa_pod_get_values(&res->value, &nvals, &choice);

@@ -3384,6 +3384,10 @@ int spa_alsa_read(struct state *state)
 		uint64_t current_time = state->position->clock.nsec;
 		alsa_read_sync(state, current_time);
 	}
+	else if (state->resample && state->rate_match) {
+		state->read_size = state->rate_match->size;
+		state->max_read = SPA_MIN(state->buffer_frames, state->read_size);
+	}
 	return alsa_read_frames(state);
 }
 

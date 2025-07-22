@@ -217,7 +217,7 @@ void dsp_delay_c(void *obj, float *buffer, uint32_t *pos, uint32_t n_buffer,
 		for (i = 0; i < n_samples; i++) {
 			buffer[w] = buffer[w + n_buffer] = src[i];
 			dst[i] = buffer[w + o];
-			w = w + 1 > n_buffer ? 0 : w + 1;
+			w = w + 1 >= n_buffer ? 0 : w + 1;
 		}
 		*pos = w;
 	}

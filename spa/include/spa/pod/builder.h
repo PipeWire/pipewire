@@ -108,7 +108,7 @@ spa_pod_builder_deref(struct spa_pod_builder *builder, uint32_t offset)
 SPA_API_POD_BUILDER struct spa_pod *
 spa_pod_builder_frame(struct spa_pod_builder *builder, struct spa_pod_frame *frame)
 {
-	if (frame->offset + SPA_POD_SIZE(&frame->pod) <= builder->size)
+	if (frame->offset + (uint64_t)SPA_POD_SIZE(&frame->pod) <= builder->size)
 		return SPA_PTROFF(builder->data, frame->offset, struct spa_pod);
 	return NULL;
 }

@@ -451,7 +451,7 @@ SPA_API_POD_ITER int spa_pod_object_fixate(struct spa_pod_object *pod)
 {
 	struct spa_pod_prop *res;
 	SPA_POD_OBJECT_FOREACH(pod, res) {
-		if (res->value.type == SPA_TYPE_Choice &&
+		if (spa_pod_is_choice(&res->value) &&
 		    !SPA_FLAG_IS_SET(res->flags, SPA_POD_PROP_FLAG_DONT_FIXATE))
 			((struct spa_pod_choice*)&res->value)->body.type = SPA_CHOICE_None;
 	}
@@ -461,7 +461,7 @@ SPA_API_POD_ITER int spa_pod_object_is_fixated(const struct spa_pod_object *pod)
 {
 	struct spa_pod_prop *res;
 	SPA_POD_OBJECT_FOREACH(pod, res) {
-		if (res->value.type == SPA_TYPE_Choice &&
+		if (spa_pod_is_choice(&res->value) &&
 		   ((struct spa_pod_choice*)&res->value)->body.type != SPA_CHOICE_None)
 			return 0;
 	}

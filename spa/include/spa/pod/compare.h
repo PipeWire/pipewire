@@ -56,12 +56,14 @@ SPA_API_POD_COMPARE int spa_pod_compare_value(uint32_t type, const void *r1, con
 	{
 		const struct spa_rectangle *rec1 = (struct spa_rectangle *) r1,
 		    *rec2 = (struct spa_rectangle *) r2;
-		if (rec1->width == rec2->width && rec1->height == rec2->height)
-			return 0;
-		else if (rec1->width < rec2->width || rec1->height < rec2->height)
+		uint64_t a1, a2;
+		a1 = ((uint64_t) rec1->width) * rec1->height;
+		a2 = ((uint64_t) rec2->width) * rec2->height;
+		if (a1 < a2)
 			return -1;
-		else
+		if (a1 > a2)
 			return 1;
+		return SPA_CMP(rec1->width, rec2->width);
 	}
 	case SPA_TYPE_Fraction:
 	{

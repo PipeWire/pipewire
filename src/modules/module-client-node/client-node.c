@@ -242,7 +242,11 @@ fail:
 
 static void clear_data(struct impl *impl, struct spa_data *d)
 {
-	switch (d->type) {
+	switch ((enum spa_data_type)d->type) {
+	case SPA_DATA_Invalid:
+	case SPA_DATA_MemPtr:
+	case _SPA_DATA_LAST:
+		break;
 	case SPA_DATA_MemId:
 	{
 		uint32_t id;
@@ -258,10 +262,9 @@ static void clear_data(struct impl *impl, struct spa_data *d)
 	}
 	case SPA_DATA_MemFd:
 	case SPA_DATA_DmaBuf:
+	case SPA_DATA_SyncObj:
 		pw_log_debug("%p: close fd:%d", impl, (int)d->fd);
 		close(d->fd);
-		break;
-	default:
 		break;
 	}
 }

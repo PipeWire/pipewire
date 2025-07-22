@@ -44,6 +44,49 @@ struct spa_pod_frame {
 #define SPA_POD_CHECK(pod,_type,_size) \
 	(SPA_POD_CHECK_TYPE(pod,_type) && (pod)->size >= (_size))
 
+SPA_API_POD_ITER uint32_t spa_pod_type_size(uint32_t type)
+{
+	switch (type) {
+	case SPA_TYPE_None:
+	case SPA_TYPE_Bytes:
+	case SPA_TYPE_Struct:
+	case SPA_TYPE_Pod:
+		return 0;
+	case SPA_TYPE_String:
+		return 1;
+	case SPA_TYPE_Bool:
+	case SPA_TYPE_Int:
+		return sizeof(int32_t);
+	case SPA_TYPE_Id:
+		return sizeof(uint32_t);
+	case SPA_TYPE_Long:
+		return sizeof(int64_t);
+	case SPA_TYPE_Float:
+		return sizeof(float);
+	case SPA_TYPE_Double:
+		return sizeof(double);
+	case SPA_TYPE_Rectangle:
+		return sizeof(struct spa_rectangle);
+	case SPA_TYPE_Fraction:
+		return sizeof(struct spa_fraction);
+	case SPA_TYPE_Bitmap:
+		return sizeof(uint8_t);
+	case SPA_TYPE_Array:
+		return sizeof(struct spa_pod_array_body);
+	case SPA_TYPE_Object:
+		return sizeof(struct spa_pod_object_body);
+	case SPA_TYPE_Sequence:
+		return sizeof(struct spa_pod_sequence_body);
+	case SPA_TYPE_Pointer:
+		return sizeof(struct spa_pod_pointer_body);
+	case SPA_TYPE_Fd:
+		return sizeof(int64_t);
+	case SPA_TYPE_Choice:
+		return sizeof(struct spa_pod_choice_body);
+	}
+	return 0;
+}
+
 SPA_API_POD_ITER bool spa_pod_is_inside(const void *pod, uint32_t size, const void *iter)
 {
 	size_t remaining;

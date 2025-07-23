@@ -388,6 +388,7 @@ int resample_native_init(struct resample *r)
 	d->in_rate = in_rate;
 	d->out_rate = out_rate;
 	d->gcd = gcd;
+	d->pm = (float)n_phases / r->o_rate;
 	d->filter = SPA_PTROFF_ALIGN(d, sizeof(struct native_data), 64, float);
 	d->hist_mem = SPA_PTROFF_ALIGN(d->filter, filter_size, 64, float);
 	d->history = SPA_PTROFF(d->hist_mem, history_size, float*);

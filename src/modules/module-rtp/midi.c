@@ -5,6 +5,8 @@
 #include <inttypes.h>
 #include <limits.h>
 
+/* TODO: Direct timestamp mode here may require a rework. See audio.c for a reference. */
+
 static void rtp_midi_process_playback(void *data)
 {
 	struct impl *impl = data;

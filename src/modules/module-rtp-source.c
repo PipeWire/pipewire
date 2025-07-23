@@ -35,11 +35,12 @@
 
 /** \page page_module_rtp_source RTP source
  *
- * The `rtp-source` module creates a PipeWire source that receives audio
- * and midi RTP packets.
+ * The `rtp-source` module creates a PipeWire source that receives audio RTP packets.
+ * These RTP packets may contain raw PCM data, Opus encoded audio, or midi audio.
  *
  * This module is usually loaded from the \ref page_module_rtp_sap so that the
- * source.ip and source.port and format parameters matches that of the sender.
+ * source.ip and source.port and format parameters matches that of the sender that
+ * is announced via SAP.
  *
  * ## Module Name
  *
@@ -57,18 +58,10 @@
  * - `sess.latency.msec = <float>`: target network latency in milliseconds, default 100
  * - `sess.ignore-ssrc = <bool>`: ignore SSRC, default false
  * - `sess.media = <string>`: the media type audio|midi|opus, default audio
- * - `sess.ts-direct = <bool>`: directly synchronize output against the current
- *                graph driver time, using the RTP timestamps, default false
+ * - `sess.ts-direct = <bool>`: use direct timestamp mode, default false
+ *                (see the Buffer Modes section below)
  * - `stream.may-pause = <bool>`: pause the stream when no data is reveived, default false
  * - `stream.props = {}`: properties to be passed to the stream
- *
- * Set `sess.ts-direct` to true if receivers shall play precisely in sync with the sender even
- * if the transport delay differs. This can be important for use cases like AES67 sessions.
- * The graph driver must then produce time that is in sync with the sender's graph driver.
- * If it is set to false, the RTP timestamps will be used to reproduce the pace of the sender,
- * but not directly for synchronizing when output starts. Note though that this requires that
- * the receivers and senders have synchronized clocks. In PTP, the reference clocks must then
- * be the same. Otherwise, senders and receives will be out of sync.
  *
  * ## General options
  *
@@ -113,6 +106,47 @@
  * }
  * ]
  *\endcode
+ *
+ * ## Buffer modes
+ *
+ * RTP source nodes created by this module use an internal ring buffer. Received RTP audio
+ * data is written into this ring buffer. When the node's process callback is run, it reads
+ * from that ring buffer and provides audio data from it to the graph.
+ *
+ * The `sess.ts-direct` option controls the _buffer mode_, which defines how this ring buffer
+ * is used. The RTP source nodes created by this module can operate in one of two of these
+ * buffer modes. In both modes, the RTP source node uses the timestamps of incoming RTP
+ * packets to write into the ring buffer (more specifically, at the position
+ * `timestamp + latency from the sess.latency.msec option`). The modes are:
+ *
+ * -# *Constant latency mode*: This is the default mode. It is used when `sess.ts-direct`
+ *    is set to false. `sess.latency.msec` then defines the ideal fill level of the ring
+ *    buffer. If the fill level is above or below this, then a DLL is used to adjust the
+ *    consumption of the buffer contents. If the fill level is below a critical value
+ *    (that's the amount of data that is needed in a cycle), or if the fill level equals
+ *    the total buffer size (meaning that no more data can be fed into the buffer), the
+ *    buffer contents are resynchronized, meaning that the existing contents are thrown
+ *    away, and the ring buffer is reset. This buffer mode is useful for when a constant
+ *    latency is desired, and the actual moment playback starts is unimportant (meaning
+ *    that playback is not necessarily in sync with other devices). This mode requires
+ *    no special graph driver.
+ * -# *Direct timestamp mode*: This is an alternate mode, used when `sess.ts-direct` is
+ *    set to true. In this mode, ring buffer over- and underrun and fill level are not
+ *    directly tracked; instead, they are handled implicitly. There is no constant latency
+ *    maintained. The current time (more specifically, the \ref spa_io_clock::position field
+ *    of \ref spa_io_position::clock) is directly used during playback to retrieve audio
+ *    data. This assumes that a graph driver is used whose time is somehow synchronized
+ *    to the sender's. Since the current time is directly used as an offset within the
+ *    ring buffer, the correct data is always pulled from the ring buffer, that is, the
+ *    data that shall be played now, in sync with the sender (and with other receivers).
+ *    This buffer mode is useful for when receivers shall play in sync with each other,
+ *    and shall use one common synchronized time, provided through the \ref spa_io_clock .
+ *    `sess.latency.msec` functions as a configurable assumed maximum transport delay
+ *    instead of a constant latency quantity in this mode. The DLL is not used in this
+ *    mode, since the graph driver is assumed to be synchronized to the sender, as said,
+ *    so any output sinks in the graph will already adjust their consumption pace to
+ *    match the pace of the graph driver.
+ *    AES67 sessions use this mode, for example.
  *
  * \since 0.3.60
  */

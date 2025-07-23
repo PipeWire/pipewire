@@ -744,6 +744,9 @@ uint32_t prop_id_to_control(uint32_t prop_id)
 spa_pod *control_details_to_pod(spa_pod_builder& b,
 				const libcamera::ControlId& cid, const libcamera::ControlInfo& cinfo)
 {
+	if (cid.isArray())
+		return nullptr;
+
 	auto id = control_to_prop_id(cid.id());
 	spa_pod_frame f;
 
@@ -900,6 +903,9 @@ spa_libcamera_set_control(struct impl *impl, const struct spa_pod_prop *prop, co
 		return -ENOENT;
 
 	ctrl_id = v->second;
+
+	if (ctrl_id->isArray())
+		return -EINVAL;
 
 	d.type = ctrl_id->type();
 	d.id = ctrl_id->id();

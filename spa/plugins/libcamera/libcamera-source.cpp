@@ -740,6 +740,69 @@ uint32_t prop_id_to_control(uint32_t prop_id)
 	return SPA_ID_INVALID;
 }
 
+[[nodiscard]]
+spa_pod *control_details_to_pod(spa_pod_builder& b,
+				const libcamera::ControlId& cid, const libcamera::ControlInfo& cinfo)
+{
+	auto id = control_to_prop_id(cid.id());
+	spa_pod_frame f;
+
+	spa_pod_builder_push_object(&b, &f, SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
+	spa_pod_builder_add(&b,
+			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_PROP_INFO_description, SPA_POD_String(cid.name().c_str()),
+			0);
+
+	switch (cid.type()) {
+	case ControlTypeBool: {
+		bool def;
+		if (cinfo.def().isNone())
+			def = cinfo.min().get<bool>();
+		else
+			def = cinfo.def().get<bool>();
+
+		spa_pod_builder_add(&b,
+					SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
+							def),
+					0);
+	} break;
+	case ControlTypeFloat: {
+		float min = cinfo.min().get<float>();
+		float max = cinfo.max().get<float>();
+		float def;
+
+		if (cinfo.def().isNone())
+			def = (min + max) / 2;
+		else
+			def = cinfo.def().get<float>();
+
+		spa_pod_builder_add(&b,
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
+						def, min, max),
+				0);
+	} break;
+	case ControlTypeInteger32: {
+		int32_t min = cinfo.min().get<int32_t>();
+		int32_t max = cinfo.max().get<int32_t>();
+		int32_t def;
+
+		if (cinfo.def().isNone())
+			def = (min + max) / 2;
+		else
+			def = cinfo.def().get<int32_t>();
+
+		spa_pod_builder_add(&b,
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(
+						def, min, max),
+				0);
+	} break;
+	default:
+		return nullptr;
+	}
+
+	return reinterpret_cast<spa_pod *>(spa_pod_builder_pop(&b, &f));
+}
+
 int
 spa_libcamera_enum_controls(struct impl *impl, struct port *port, int seq,
 		       uint32_t start, uint32_t offset, uint32_t num,
@@ -748,13 +811,10 @@ spa_libcamera_enum_controls(struct impl *impl, struct port *port, int seq,
 	const ControlInfoMap &info = impl->camera->controls();
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { 0 };
-	struct spa_pod_frame f[2];
 	struct spa_result_node_params result;
 	struct spa_pod *ctrl;
-	uint32_t count = 0, skip, id;
+	uint32_t count = 0, skip;
 	int res;
-	const ControlId *ctrl_id;
-	ControlInfo ctrl_info;
 
 	result.id = SPA_PARAM_PropInfo;
 	result.next = start;
@@ -767,70 +827,16 @@ spa_libcamera_enum_controls(struct impl *impl, struct port *port, int seq,
 next:
 		it++;
 	}
+
 	result.index = result.next++;
 	if (it == info.end())
 		goto enum_end;
 
-	ctrl_id = it->first;
-	ctrl_info = it->second;
-
-	id = control_to_prop_id(ctrl_id->id());
-
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
-	spa_pod_builder_add(&b,
-			SPA_PROP_INFO_id,   SPA_POD_Id(id),
-			SPA_PROP_INFO_description, SPA_POD_String(ctrl_id->name().c_str()),
-			0);
 
-	switch (ctrl_id->type()) {
-	case ControlTypeBool: {
-		bool def;
-		if (ctrl_info.def().isNone())
-			def = ctrl_info.min().get<bool>();
-		else
-			def = ctrl_info.def().get<bool>();
-
-		spa_pod_builder_add(&b,
-					SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
-							def),
-					0);
-	} break;
-	case ControlTypeFloat: {
-		float min = ctrl_info.min().get<float>();
-		float max = ctrl_info.max().get<float>();
-		float def;
-
-		if (ctrl_info.def().isNone())
-			def = (min + max) / 2;
-		else
-			def = ctrl_info.def().get<float>();
-
-		spa_pod_builder_add(&b,
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
-						def, min, max),
-				0);
-	} break;
-	case ControlTypeInteger32: {
-		int32_t min = ctrl_info.min().get<int32_t>();
-		int32_t max = ctrl_info.max().get<int32_t>();
-		int32_t def;
-
-		if (ctrl_info.def().isNone())
-			def = (min + max) / 2;
-		else
-			def = ctrl_info.def().get<int32_t>();
-
-		spa_pod_builder_add(&b,
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(
-						def, min, max),
-				0);
-	} break;
-	default:
+	ctrl = control_details_to_pod(b, *it->first, it->second);
+	if (!ctrl)
 		goto next;
-	}
-
-	ctrl = (struct spa_pod*) spa_pod_builder_pop(&b, &f[0]);
 
 	if (spa_pod_filter(&b, &result.param, ctrl, filter) < 0)
 		goto next;

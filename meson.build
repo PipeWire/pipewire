@@ -81,6 +81,7 @@ pkgconfig = import('pkgconfig')
 common_flags = [
   '-fvisibility=hidden',
   '-fno-strict-aliasing',
+  '-fno-strict-overflow',
   '-Werror=suggest-attribute=format',
   '-Wsign-compare',
   '-Wpointer-arith',

@@ -37,7 +37,7 @@ updated as follows:
 - \ref spa_io_clock::rate : Set to a value that can translate samples to nanoseconds.
 - \ref spa_io_clock::position : Current cycle position, in samples. This is the
   ideal position of the graph cycle (this is explained in greater detail further below).
-  It is incremented by the dduration (in samples) at the beginning of each cycle. If
+  It is incremented by the duration (in samples) at the beginning of each cycle. If
   a discontinuity is experienced by the driver that results in a discontinuity in the
   position of the old and the current cycle, consider setting the
   \ref SPA_IO_CLOCK_FLAG_DISCONT flag to inform other nodes about this.
@@ -66,7 +66,11 @@ is the moment in monotonic clock time when the cycle _actually_ happens. This is
 an important distinction when driver is run by a clock that is different to the monotonic
 cloc. In that case, the \ref spa_io_clock::nsec timestamps are adjusted to match the pace
 of that different clock (explained in the section below). In such a case,
-\ref spa_io_clock::position still is incremented by the duration in samples.
+\ref spa_io_clock::position still is incremented by the duration in samples. This
+is important, since nodes and modules may use this field as an offset within their own
+internal ring buffers or similar structures, using the position field as an offset within
+said data structures. This requires the position field to advance in a continuous way.
+By incrementing by the duration, this requirement is met.
 
 # Using clocks other than the monotonic clock
 

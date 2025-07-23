@@ -754,16 +754,20 @@ spa_pod *control_details_to_pod(spa_pod_builder& b,
 
 	switch (cid.type()) {
 	case ControlTypeBool: {
-		bool def;
-		if (cinfo.def().isNone())
-			def = cinfo.min().get<bool>();
-		else
-			def = cinfo.def().get<bool>();
+		auto min = cinfo.min().get<bool>();
+		auto max = cinfo.max().get<bool>();
+		auto def = !cinfo.def().isNone()
+			? cinfo.def().get<bool>()
+			: min;
+		spa_pod_frame f;
 
-		spa_pod_builder_add(&b,
-					SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
-							def),
-					0);
+		spa_pod_builder_prop(&b, SPA_PROP_INFO_type, 0);
+		spa_pod_builder_push_choice(&b, &f, SPA_CHOICE_Enum, 0);
+		spa_pod_builder_bool(&b, def);
+		spa_pod_builder_bool(&b, min);
+		if (max != min)
+			spa_pod_builder_bool(&b, max);
+		spa_pod_builder_pop(&b, &f);
 	} break;
 	case ControlTypeFloat: {
 		float min = cinfo.min().get<float>();

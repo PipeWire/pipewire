@@ -34,6 +34,7 @@ struct native_data {
 	uint32_t frac;
 	uint32_t filter_stride;
 	uint32_t filter_stride_os;
+	uint32_t gcd;
 	uint32_t hist;
 	float **history;
 	resample_func_t func;

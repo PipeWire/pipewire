@@ -381,9 +381,6 @@ libusb_dep = dependency('libusb-1.0', required : get_option('libusb'))
 summary({'libusb (Bluetooth quirks)': libusb_dep.found()}, bool_yn: true, section: 'Backend')
 cdata.set('HAVE_LIBUSB', libusb_dep.found())
 
-cap_lib = dependency('libcap', required : false)
-cdata.set('HAVE_LIBCAP', cap_lib.found())
-
 glib2_dep = dependency('glib-2.0', required : get_option('flatpak'))
 summary({'GLib-2.0 (Flatpak support)': glib2_dep.found()}, bool_yn: true, section: 'Misc dependencies')
 flatpak_support = glib2_dep.found()

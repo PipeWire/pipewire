@@ -9,7 +9,6 @@ pwtest_deps = [
   pipewire_dep,
   mathlib,
   dl_lib,
-  cap_lib,
   epoll_shim_dep
 ]
 

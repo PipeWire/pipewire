@@ -773,7 +773,7 @@ spa_libcamera_enum_controls(struct impl *impl, struct port *port, int seq,
 	result.next = start;
 
 	auto it = info.begin();
-	for (skip = result.next - offset; skip; skip--)
+	for (skip = result.next - offset; skip && it != info.end(); skip--)
 		it++;
 
 	if (false) {

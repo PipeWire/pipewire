@@ -273,7 +273,7 @@ struct pw_buffer {
 	uint64_t time;			/**< For capture streams, this field contains the
 					  *  cycle time in nanoseconds when this buffer was
 					  *  queued in the stream. It can be compared against
-					  *  the pw_time values or pw_stream_get_nsec()
+					  *  the \ref pw_time values or pw_stream_get_nsec()
 					  *  Since 1.0.5 */
 };
 
@@ -311,15 +311,20 @@ struct pw_stream_control {
  *
  * pw_time.delay contains the total delay that a signal will travel through the
  * graph. This includes the delay caused by filters in the graph as well as delays
- * caused by the hardware. The delay is usually quite stable and should only change when
- * the topology, quantum or samplerate of the graph changes.
+ * caused by the hardware and extra delay offsets added to this. The delay is usually
+ * quite stable and should only change when the topology, quantum or samplerate of
+ * the graph changes.
  *
- * The delay requires the application to send the stream early relative to other synchronized
- * streams in order to arrive at the edge of the graph in time. This is usually done by
- * delaying the other streams with the given delay.
+ * The (positive) delay requires the application to send the stream early relative to other
+ * synchronized streams in order to arrive at the edge of the graph in time. This is usually
+ * done by delaying the other streams with the given delay.
  *
- * Note that the delay can be negative. A negative delay means that this stream should be
- * delayed with the (positive) delay relative to other streams.
+ * A delay offset is sometimes added (by the user) to improve synchronization of the streams
+ * when the reported latency is incorrect in some way. This means that with a large enough
+ * negative offset, the delay can become negative as well. A negative delay in this context
+ * means that the user would like this stream to be delayed with the (positive) delay amount
+ * in order to synchronize it with other streams. Streams are in general not expected to be
+ * able to delay themselves and it is acceptable to clamp negative delays to 0.
  *
  * pw_time.queued and pw_time.buffered is expressed in the time domain of the stream,
  * or the format that is used for the buffers of this stream.
@@ -385,10 +390,11 @@ struct pw_time {
 					  *  the playback device or the time a sample traveled
 					  *  from the capture device. This delay includes the
 					  *  delay introduced by all filters on the path between
-					  *  the stream and the device. The delay is normally
-					  *  constant in a graph and can change when the topology
-					  *  of the graph or the quantum changes. This delay does
-					  *  not include the delay caused by queued buffers. */
+					  *  the stream and the device and extra delay offsets. The
+					  *  delay is normally constant in a graph and can change when
+					  *  the topology of the graph or the quantum changes. This delay
+					  *  does not include the delay caused by queued buffers.
+					  *  The delay can be negative, see \ref pw_time . */
 	uint64_t queued;		/**< data queued in the stream, this is the sum
 					  *  of the size fields in the pw_buffer that are
 					  *  currently queued */

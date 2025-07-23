@@ -857,6 +857,21 @@ spa_pod *control_details_to_pod(spa_pod_builder& b,
 		}
 
 		spa_pod_builder_pop(&b, &f);
+
+		if (cid.type() == libcamera::ControlTypeInteger32) {
+			spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
+
+			spa_pod_builder_push_struct(&b, &f);
+			for (const auto& cv : cinfo.values()) {
+				auto it = cid.enumerators().find(cv.get<int32_t>());
+				if (it == cid.enumerators().end())
+					continue;
+
+				spa_pod_builder_int(&b, it->first);
+				spa_pod_builder_string_len(&b, it->second.data(), it->second.size());
+			}
+			spa_pod_builder_pop(&b, &f);
+		}
 	}
 
 	return reinterpret_cast<spa_pod *>(spa_pod_builder_pop(&b, &f));

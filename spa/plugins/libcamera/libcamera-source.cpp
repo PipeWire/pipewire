@@ -810,44 +810,35 @@ spa_libcamera_enum_controls(struct impl *impl, struct port *port, int seq,
 	const ControlInfoMap &info = impl->camera->controls();
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { 0 };
-	struct spa_result_node_params result;
-	struct spa_pod *ctrl;
-	uint32_t count = 0, skip;
-	int res;
-
-	result.id = SPA_PARAM_PropInfo;
-	result.next = start;
+	spa_result_node_params result = {
+		.id = SPA_PARAM_PropInfo,
+	};
 
 	auto it = info.begin();
-	for (skip = result.next - offset; skip && it != info.end(); skip--)
+	for (auto skip = start - offset; skip && it != info.end(); skip--)
 		it++;
 
-	if (false) {
-next:
-		it++;
+	for (result.index = start; num > 0 && it != info.end(); ++it, result.index++) {
+		spa_log_debug(impl->log, "%p: controls[%" PRIu32 "]: %s::%s",
+				impl, result.index, it->first->vendor().c_str(),
+				it->first->name().c_str());
+
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+		const auto *ctrl = control_details_to_pod(b, *it->first, it->second);
+		if (!ctrl)
+			continue;
+
+		if (spa_pod_filter(&b, &result.param, ctrl, filter) < 0)
+			continue;
+
+		result.next = result.index + 1;
+
+		spa_node_emit_result(&impl->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+		num -= 1;
 	}
 
-	result.index = result.next++;
-	if (it == info.end())
-		goto enum_end;
-
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-
-	ctrl = control_details_to_pod(b, *it->first, it->second);
-	if (!ctrl)
-		goto next;
-
-	if (spa_pod_filter(&b, &result.param, ctrl, filter) < 0)
-		goto next;
-
-	spa_node_emit_result(&impl->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
-
-	if (++count != num)
-		goto next;
-
-enum_end:
-	res = 0;
-	return res;
+	return 0;
 }
 
 struct val {

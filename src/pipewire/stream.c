@@ -242,6 +242,7 @@ static int add_param(struct stream *impl,
 
 	switch (id) {
 	case SPA_PARAM_Latency:
+	{
 		struct spa_latency_info info;
 		if ((res = spa_latency_parse(param, &info)) < 0)
 			return res;
@@ -253,6 +254,7 @@ static int add_param(struct stream *impl,
 				pw_direction_as_string(impl->direction));
 			return 0;
 		}
+	}
 	}
 
 	p = malloc(sizeof(struct param) + SPA_POD_SIZE(param));

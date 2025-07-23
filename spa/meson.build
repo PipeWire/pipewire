@@ -18,6 +18,13 @@ spa_dep = declare_dependency(
   },
 )
 
+spa_inc_dep = declare_dependency(
+  include_directories : [
+    include_directories('include'),
+    include_directories('include-private'),
+  ],
+)
+
 meson.override_dependency('lib@0@'.format(spa_name), spa_dep)
 
 pkgconfig.generate(filebase : 'lib@0@'.format(spa_name),

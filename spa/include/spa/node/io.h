@@ -347,7 +347,7 @@ struct spa_io_position {
  * and node rates. The \a flags and \a rate fields may be modified by the node.
  *
  * The node can request a correction to the resampling rate in its process(), by setting
- * \ref SPA_IO_RATE_MATCH_ACTIVE on \a flags, and setting \a rate to the desired rate
+ * \ref SPA_IO_RATE_MATCH_FLAG_ACTIVE on \a flags, and setting \a rate to the desired rate
  * correction.  Usually the rate is obtained from DLL or other adaptive mechanism that
  * e.g. drives the node buffer fill level toward a specific value.
  *

@@ -167,8 +167,8 @@ static void impl_native_update_rate(struct resample *r, double rate)
 	data->inc = data->in_rate / data->out_rate;
 	data->frac = data->in_rate % data->out_rate;
 
-	spa_log_trace_fp(r->log, "native %p: rate:%f in:%d out:%d gcd:%d phase:%f inc:%d frac:%d", r,
-			rate, r->i_rate, r->o_rate, gcd, data->phase, data->inc, data->frac);
+	spa_log_trace_fp(r->log, "native %p: rate:%f in:%d out:%d phase:%f inc:%d frac:%d", r,
+			rate, r->i_rate, r->o_rate, data->phase, data->inc, data->frac);
 
 }
 

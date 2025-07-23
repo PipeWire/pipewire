@@ -30,6 +30,7 @@ struct native_data {
 	uint32_t in_rate;
 	uint32_t out_rate;
 	float phase;
+	float pm;
 	uint32_t inc;
 	uint32_t frac;
 	uint32_t filter_stride;
@@ -85,7 +86,7 @@ DEFINE_RESAMPLER(full,arch)							\
 {										\
 	struct native_data *data = r->data;					\
 	uint32_t n_taps = data->n_taps, stride = data->filter_stride_os;	\
-	uint32_t index, phase, n_phases = data->out_rate;			\
+	uint32_t index, phase, out_rate = data->out_rate;			\
 	uint32_t c, o, olen = *out_len, ilen = *in_len;				\
 	uint32_t inc = data->inc, frac = data->frac, ch = r->channels;		\
 										\
@@ -99,7 +100,7 @@ DEFINE_RESAMPLER(full,arch)							\
 			inner_product_##arch(&d[o], &s[index],			\
 					filter, n_taps);			\
 		}								\
-		INC(index, phase, n_phases);					\
+		INC(index, phase, out_rate);					\
 	}									\
 	*in_len = index;							\
 	*out_len = o;								\
@@ -111,16 +112,15 @@ DEFINE_RESAMPLER(inter,arch)							\
 {										\
 	struct native_data *data = r->data;					\
 	uint32_t index, stride = data->filter_stride;				\
-	uint32_t n_phases = data->n_phases, out_rate = data->out_rate;		\
-	uint32_t n_taps = data->n_taps;						\
+	uint32_t n_taps = data->n_taps, out_rate = data->out_rate;		\
 	uint32_t c, o, olen = *out_len, ilen = *in_len;				\
 	uint32_t inc = data->inc, frac = data->frac, ch = r->channels;          \
-	float phase;								\
+	float phase, pm = data->pm;						\
 										\
 	index = ioffs;								\
 	phase = data->phase;							\
 	for (o = ooffs; o < olen && index + n_taps <= ilen; o++) {		\
-		float ph = phase * n_phases / out_rate;				\
+		float ph = phase * pm;						\
 		uint32_t offset = (uint32_t)floorf(ph);				\
 		float *filter0 = &data->filter[(offset+0) * stride];		\
 		float *filter1 = &data->filter[(offset+1) * stride];		\

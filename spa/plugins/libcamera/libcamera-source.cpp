@@ -741,6 +741,32 @@ uint32_t prop_id_to_control(uint32_t prop_id)
 	return SPA_ID_INVALID;
 }
 
+[[nodiscard]]
+bool control_value_to_pod(spa_pod_builder& b, const libcamera::ControlValue& cv)
+{
+	if (cv.isArray())
+		return false;
+
+	switch (cv.type()) {
+	case libcamera::ControlTypeBool: {
+		spa_pod_builder_bool(&b, cv.get<bool>());
+		break;
+	}
+	case libcamera::ControlTypeInteger32: {
+		spa_pod_builder_int(&b, cv.get<int32_t>());
+		break;
+	}
+	case libcamera::ControlTypeFloat: {
+		spa_pod_builder_float(&b, cv.get<float>());
+		break;
+	}
+	default:
+		return false;
+	}
+
+	return true;
+}
+
 template<typename T>
 [[nodiscard]]
 std::array<T, 3> control_info_to_range(const libcamera::ControlInfo& cinfo)
@@ -774,41 +800,62 @@ spa_pod *control_details_to_pod(spa_pod_builder& b,
 			SPA_PROP_INFO_description, SPA_POD_String(cid.name().c_str()),
 			0);
 
-	switch (cid.type()) {
-	case ControlTypeBool: {
-		auto min = cinfo.min().get<bool>();
-		auto max = cinfo.max().get<bool>();
-		auto def = !cinfo.def().isNone()
-			? cinfo.def().get<bool>()
-			: min;
+	if (cinfo.values().empty()) {
+		switch (cid.type()) {
+		case ControlTypeBool: {
+			auto min = cinfo.min().get<bool>();
+			auto max = cinfo.max().get<bool>();
+			auto def = !cinfo.def().isNone()
+				? cinfo.def().get<bool>()
+				: min;
+			spa_pod_frame f;
+
+			spa_pod_builder_prop(&b, SPA_PROP_INFO_type, 0);
+			spa_pod_builder_push_choice(&b, &f, SPA_CHOICE_Enum, 0);
+			spa_pod_builder_bool(&b, def);
+			spa_pod_builder_bool(&b, min);
+			if (max != min)
+				spa_pod_builder_bool(&b, max);
+			spa_pod_builder_pop(&b, &f);
+			break;
+		}
+		case ControlTypeFloat: {
+			auto [ min, max, def ] = control_info_to_range<float>(cinfo);
+
+			spa_pod_builder_add(&b,
+					SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
+							def, min, max),
+					0);
+			break;
+		}
+		case ControlTypeInteger32: {
+			auto [ min, max, def ] = control_info_to_range<int32_t>(cinfo);
+
+			spa_pod_builder_add(&b,
+					SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(
+							def, min, max),
+					0);
+			break;
+		}
+		default:
+			return nullptr;
+		}
+	}
+	else {
 		spa_pod_frame f;
 
 		spa_pod_builder_prop(&b, SPA_PROP_INFO_type, 0);
 		spa_pod_builder_push_choice(&b, &f, SPA_CHOICE_Enum, 0);
-		spa_pod_builder_bool(&b, def);
-		spa_pod_builder_bool(&b, min);
-		if (max != min)
-			spa_pod_builder_bool(&b, max);
+
+		if (!control_value_to_pod(b, cinfo.def()))
+			return nullptr;
+
+		for (const auto& cv : cinfo.values()) {
+			if (!control_value_to_pod(b, cv))
+				return nullptr;
+		}
+
 		spa_pod_builder_pop(&b, &f);
-	} break;
-	case ControlTypeFloat: {
-		auto [ min, max, def ] = control_info_to_range<float>(cinfo);
-
-		spa_pod_builder_add(&b,
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
-						def, min, max),
-				0);
-	} break;
-	case ControlTypeInteger32: {
-		auto [ min, max, def ] = control_info_to_range<int32_t>(cinfo);
-
-		spa_pod_builder_add(&b,
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(
-						def, min, max),
-				0);
-	} break;
-	default:
-		return nullptr;
 	}
 
 	return reinterpret_cast<spa_pod *>(spa_pod_builder_pop(&b, &f));

@@ -744,13 +744,13 @@ uint32_t control_to_prop_id(uint32_t control_id)
 
 uint32_t prop_id_to_control(uint32_t prop_id)
 {
+	if (prop_id >= SPA_PROP_START_CUSTOM)
+		return prop_id - SPA_PROP_START_CUSTOM;
+
 	for (const auto& c : control_map) {
 		if (c.spa_id == prop_id)
 			return c.id;
 	}
-
-	if (prop_id >= SPA_PROP_START_CUSTOM)
-		return prop_id - SPA_PROP_START_CUSTOM;
 
 	return SPA_ID_INVALID;
 }

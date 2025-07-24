@@ -50,8 +50,7 @@ namespace {
 #define MASK_BUFFERS	31
 
 #define BUFFER_FLAG_OUTSTANDING	(1<<0)
-#define BUFFER_FLAG_ALLOCATED	(1<<1)
-#define BUFFER_FLAG_MAPPED	(1<<2)
+#define BUFFER_FLAG_MAPPED	(1<<1)
 
 struct buffer {
 	uint32_t id;
@@ -357,9 +356,7 @@ int spa_libcamera_clear_buffers(struct impl *impl, struct port *port)
 			munmap(SPA_PTROFF(b->ptr, -d[0].mapoffset, void),
 					d[0].maxsize - d[0].mapoffset);
 		}
-		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_ALLOCATED)) {
-			close(d[0].fd);
-		}
+
 		d[0].type = SPA_ID_INVALID;
 	}
 
@@ -1121,7 +1118,6 @@ spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
 				d[j].fd = bufs[i]->planes()[j].fd.get();
 				spa_log_debug(impl->log, "Got fd = %" PRId64 " for buffer: #%d", d[j].fd, i);
 				d[j].data = nullptr;
-				SPA_FLAG_SET(b->flags, BUFFER_FLAG_ALLOCATED);
 			}
 			else if (port->memtype == SPA_DATA_MemPtr) {
 				d[j].fd = -1;

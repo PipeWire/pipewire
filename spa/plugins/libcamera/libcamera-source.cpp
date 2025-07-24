@@ -475,7 +475,7 @@ color_space_to_colorimetry(const libcamera::ColorSpace& colorspace)
 
 	switch (colorspace.transferFunction) {
 	case ColorSpace::TransferFunction::Linear:
-		res.transfer = SPA_VIDEO_TRANSFER_UNKNOWN;
+		res.transfer = SPA_VIDEO_TRANSFER_GAMMA10;
 		break;
 	case ColorSpace::TransferFunction::Srgb:
 		res.transfer = SPA_VIDEO_TRANSFER_SRGB;

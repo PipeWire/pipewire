@@ -320,6 +320,16 @@ static void rtp_opus_process_capture(void *data)
 	rtp_opus_flush_packets(impl);
 }
 
+static void rtp_opus_deinit(struct impl *impl, enum spa_direction direction)
+{
+	if (impl->stream_data) {
+		if (direction == SPA_DIRECTION_INPUT)
+			opus_multistream_encoder_destroy(impl->stream_data);
+		else
+			opus_multistream_decoder_destroy(impl->stream_data);
+	}
+}
+
 static int rtp_opus_init(struct impl *impl, enum spa_direction direction)
 {
 	int err;
@@ -342,6 +352,7 @@ static int rtp_opus_init(struct impl *impl, enum spa_direction direction)
 	for (i = 0; i < impl->info.info.opus.channels; i++)
 		mapping[i] = i;
 
+	impl->deinit = rtp_opus_deinit;
 	impl->receive_rtp = rtp_opus_receive;
 	if (direction == SPA_DIRECTION_INPUT) {
 		impl->stream_events.process = rtp_opus_process_capture;

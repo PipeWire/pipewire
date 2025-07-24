@@ -57,6 +57,7 @@ struct impl {
 
 	const struct format_info *format_info;
 
+	enum spa_direction direction;
 	void *stream_data;
 
 	uint32_t rate;
@@ -103,6 +104,7 @@ struct impl {
 
 	int (*receive_rtp)(struct impl *impl, uint8_t *buffer, ssize_t len);
 	void (*flush_timeout)(struct impl *impl, uint64_t expirations);
+	void (*deinit)(struct impl *impl, enum spa_direction direction);
 
 	/*
 	 * pw_filter where the filter would be driven at the PTP clock
@@ -304,7 +306,7 @@ static void on_flush_timeout(void *d, uint64_t expirations)
 }
 
 struct rtp_stream *rtp_stream_new(struct pw_core *core,
-		enum pw_direction direction, struct pw_properties *props,
+		enum spa_direction direction, struct pw_properties *props,
 		const struct rtp_stream_events *events, void *data)
 {
 	struct impl *impl;
@@ -326,6 +328,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	}
 	impl->first = true;
 	spa_hook_list_init(&impl->listener_list);
+	impl->direction = direction;
 	impl->stream_events = stream_events;
 	impl->context = pw_core_get_context(core);
 	impl->main_loop = pw_context_get_main_loop(impl->context);
@@ -630,6 +633,12 @@ void rtp_stream_destroy(struct rtp_stream *s)
 	struct impl *impl = (struct impl*)s;
 
 	rtp_stream_emit_destroy(impl);
+
+	if (impl->deinit)
+		impl->deinit(impl, impl->direction);
+
+	if (impl->ptp_sender)
+		pw_filter_destroy(impl->ptp_sender);
 
 	if (impl->stream)
 		pw_stream_destroy(impl->stream);

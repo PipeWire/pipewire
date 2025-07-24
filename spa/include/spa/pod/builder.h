@@ -350,31 +350,6 @@ spa_pod_builder_reserve_bytes(struct spa_pod_builder *builder, uint32_t len)
 	return SPA_POD_BODY(spa_pod_builder_deref(builder, offset));
 }
 
-SPA_API_POD_BUILDER uint32_t
-spa_pod_builder_bytes_start(struct spa_pod_builder *builder)
-{
-	uint32_t offset = builder->state.offset;
-	const struct spa_pod_bytes p = SPA_POD_INIT_Bytes(0);
-	spa_pod_builder_raw(builder, &p, sizeof(p));
-	return offset;
-}
-SPA_API_POD_BUILDER int
-spa_pod_builder_bytes_append(struct spa_pod_builder *builder, uint32_t offset,
-		const void *data, uint32_t size)
-{
-	int res = spa_pod_builder_raw(builder, data, size);
-	struct spa_pod *pod = spa_pod_builder_deref(builder, offset);
-	if (pod)
-		pod->size += size;
-	return res;
-}
-
-SPA_API_POD_BUILDER int
-spa_pod_builder_bytes_end(struct spa_pod_builder *builder, uint32_t offset SPA_UNUSED)
-{
-	return spa_pod_builder_pad(builder, builder->state.offset);
-}
-
 #define SPA_POD_INIT_Pointer(type,value) ((struct spa_pod_pointer){ { sizeof(struct spa_pod_pointer_body), SPA_TYPE_Pointer }, { (type), 0, (value) } })
 
 SPA_API_POD_BUILDER int

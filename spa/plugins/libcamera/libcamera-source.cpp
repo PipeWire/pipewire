@@ -371,6 +371,7 @@ struct format_info {
 #define MAKE_FMT(pix,fmt,mt,mst) { pix, SPA_VIDEO_FORMAT_ ##fmt, SPA_MEDIA_TYPE_ ##mt, SPA_MEDIA_SUBTYPE_ ##mst }
 const struct format_info format_info[] = {
 	/* RGB formats */
+	MAKE_FMT(formats::R8, GRAY8, video, raw),
 	MAKE_FMT(formats::RGB565, RGB16, video, raw),
 	MAKE_FMT(formats::RGB565_BE, RGB16, video, raw),
 	MAKE_FMT(formats::RGB888, BGR, video, raw),

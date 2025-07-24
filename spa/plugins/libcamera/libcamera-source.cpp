@@ -96,7 +96,6 @@ struct port {
 	struct spa_param_info params[N_PORT_PARAMS];
 
 	std::size_t fmt_index = 0;
-	PixelFormat enum_fmt;
 	std::size_t size_index = 0;
 
 	port(struct impl *impl)

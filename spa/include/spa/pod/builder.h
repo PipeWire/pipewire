@@ -347,7 +347,7 @@ spa_pod_builder_reserve_bytes(struct spa_pod_builder *builder, uint32_t len)
 	uint32_t offset = builder->state.offset;
 	if (spa_pod_builder_bytes(builder, NULL, len) < 0)
 		return NULL;
-	return SPA_POD_BODY(spa_pod_builder_deref(builder, offset));
+	return SPA_PTROFF(builder->data, offset + sizeof(struct spa_pod), void);
 }
 
 #define SPA_POD_INIT_Pointer(type,value) ((struct spa_pod_pointer){ { sizeof(struct spa_pod_pointer_body), SPA_TYPE_Pointer }, { (type), 0, (value) } })

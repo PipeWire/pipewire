@@ -216,20 +216,29 @@ SPA_API_POD_BUILDER void *spa_pod_builder_pop(struct spa_pod_builder *builder, s
 }
 
 SPA_API_POD_BUILDER int
+spa_pod_builder_primitive_body(struct spa_pod_builder *builder, const struct spa_pod *p,
+		const void *body, uint32_t body_size, const char *suffix, uint32_t suffix_size)
+{
+	int res = 0, r;
+	uint32_t size = SPA_POD_SIZE(p) - body_size - suffix_size;
+	if (builder->state.flags != SPA_POD_BUILDER_FLAG_BODY) {
+		SPA_FLAG_CLEAR(builder->state.flags, SPA_POD_BUILDER_FLAG_FIRST);
+		res = spa_pod_builder_raw(builder, p, size);
+	}
+	if (body_size > 0 && (r = spa_pod_builder_raw(builder, body, body_size)) < 0)
+		res = r;
+	if (suffix_size > 0 && (r = spa_pod_builder_raw(builder, suffix, suffix_size)) < 0)
+		res = r;
+	if ((r = spa_pod_builder_pad(builder, builder->state.offset)) < 0)
+		res = r;
+	return res;
+}
+
+SPA_API_POD_BUILDER int
 spa_pod_builder_primitive(struct spa_pod_builder *builder, const struct spa_pod *p)
 {
-	const void *data;
-	uint32_t size;
-
-	if (builder->state.flags == SPA_POD_BUILDER_FLAG_BODY) {
-		data = SPA_POD_BODY_CONST(p);
-		size = SPA_POD_BODY_SIZE(p);
-	} else {
-		data = p;
-		size = SPA_POD_SIZE(p);
-		SPA_FLAG_CLEAR(builder->state.flags, SPA_POD_BUILDER_FLAG_FIRST);
-	}
-	return spa_pod_builder_raw_padded(builder, data, size);
+	return spa_pod_builder_primitive_body(builder, p,
+			SPA_POD_BODY_CONST(p), p->size, NULL, 0);
 }
 
 #define SPA_POD_INIT(size,type) ((struct spa_pod) { (size), (type) })
@@ -315,10 +324,7 @@ SPA_API_POD_BUILDER int
 spa_pod_builder_string_len(struct spa_pod_builder *builder, const char *str, uint32_t len)
 {
 	const struct spa_pod_string p = SPA_POD_INIT_String(len+1);
-	int r, res = spa_pod_builder_raw(builder, &p, sizeof(p));
-	if ((r = spa_pod_builder_write_string(builder, str, len)) < 0)
-		res = r;
-	return res;
+	return spa_pod_builder_primitive_body(builder, &p.pod, str, len, "", 1);
 }
 
 SPA_API_POD_BUILDER int spa_pod_builder_string(struct spa_pod_builder *builder, const char *str)
@@ -333,10 +339,7 @@ SPA_API_POD_BUILDER int
 spa_pod_builder_bytes(struct spa_pod_builder *builder, const void *bytes, uint32_t len)
 {
 	const struct spa_pod_bytes p = SPA_POD_INIT_Bytes(len);
-	int r, res = spa_pod_builder_raw(builder, &p, sizeof(p));
-	if ((r = spa_pod_builder_raw_padded(builder, bytes, len)) < 0)
-		res = r;
-	return res;
+	return spa_pod_builder_primitive_body(builder, &p.pod, bytes, len, NULL, 0);
 }
 SPA_API_POD_BUILDER void *
 spa_pod_builder_reserve_bytes(struct spa_pod_builder *builder, uint32_t len)
@@ -427,10 +430,7 @@ spa_pod_builder_array(struct spa_pod_builder *builder,
 		{(uint32_t)(sizeof(struct spa_pod_array_body) + n_elems * child_size), SPA_TYPE_Array},
 		{{child_size, child_type}}
 	};
-	int r, res = spa_pod_builder_raw(builder, &p, sizeof(p));
-	if ((r = spa_pod_builder_raw_padded(builder, elems, child_size * n_elems)) < 0)
-		res = r;
-	return res;
+	return spa_pod_builder_primitive_body(builder, &p.pod, elems, n_elems * child_size, NULL, 0);
 }
 
 #define SPA_POD_INIT_CHOICE_BODY(type, flags, child_size, child_type)				\

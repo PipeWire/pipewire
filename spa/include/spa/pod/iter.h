@@ -279,24 +279,28 @@ SPA_API_POD_ITER int spa_pod_get_double(const struct spa_pod *pod, double *value
 
 SPA_API_POD_ITER int spa_pod_is_string(const struct spa_pod *pod)
 {
-	const char *s = (const char *)SPA_POD_CONTENTS(struct spa_pod_string, pod);
-	return SPA_POD_CHECK(pod, SPA_TYPE_String, 1) &&
-			s[pod->size-1] == '\0';
+	return SPA_POD_CHECK(pod, SPA_TYPE_String, 1);
 }
 
 SPA_API_POD_ITER int spa_pod_get_string(const struct spa_pod *pod, const char **value)
 {
+	const char *s;
 	if (!spa_pod_is_string(pod))
 		return -EINVAL;
-	*value = (const char *)SPA_POD_CONTENTS(struct spa_pod_string, pod);
+	s = (const char *)SPA_POD_CONTENTS(struct spa_pod_string, pod);
+	if (s[pod->size-1] != '\0')
+		return -EINVAL;
+	*value = s;
 	return 0;
 }
 
 SPA_API_POD_ITER int spa_pod_copy_string(const struct spa_pod *pod, size_t maxlen, char *dest)
 {
-	const char *s = (const char *)SPA_POD_CONTENTS(struct spa_pod_string, pod);
+	const char *s;
 	if (!spa_pod_is_string(pod) || maxlen < 1)
 		return -EINVAL;
+	maxlen = SPA_MIN(maxlen, pod->size);
+	s = (const char *)SPA_POD_CONTENTS(struct spa_pod_string, pod);
 	strncpy(dest, s, maxlen-1);
 	dest[maxlen-1]= '\0';
 	return 0;

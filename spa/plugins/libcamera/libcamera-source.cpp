@@ -148,14 +148,13 @@ struct impl {
 
 	std::shared_ptr<CameraManager> manager;
 	std::shared_ptr<Camera> camera;
+	const std::unique_ptr<CameraConfiguration> config;
 
 	FrameBufferAllocator *allocator = nullptr;
 	std::vector<std::unique_ptr<libcamera::Request>> requestPool;
 	std::deque<libcamera::Request *> pendingRequests;
 
 	void requestComplete(libcamera::Request *request);
-
-	std::unique_ptr<CameraConfiguration> config;
 
 	struct spa_source source = {};
 
@@ -165,7 +164,8 @@ struct impl {
 	bool acquired = false;
 
 	impl(spa_log *log, spa_loop *data_loop, spa_system *system,
-	     std::shared_ptr<CameraManager> manager, std::shared_ptr<Camera> camera);
+	     std::shared_ptr<CameraManager> manager, std::shared_ptr<Camera> camera,
+	     std::unique_ptr<CameraConfiguration> config);
 
 	struct spa_dll dll;
 };
@@ -234,14 +234,6 @@ int spa_libcamera_close(struct impl *impl)
 
 	impl->acquired = false;
 	return 0;
-}
-
-void spa_libcamera_get_config(struct impl *impl)
-{
-	if (impl->config)
-		return;
-
-	impl->config = impl->camera->generateConfiguration({ StreamRole::VideoRecording });
 }
 
 int spa_libcamera_buffer_recycle(struct impl *impl, struct port *port, uint32_t buffer_id)
@@ -505,8 +497,6 @@ spa_libcamera_enum_format(struct impl *impl, struct port *port, int seq,
 	struct spa_pod_frame f[2];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
-
-	spa_libcamera_get_config(impl);
 
 	const StreamConfiguration& streamConfig = impl->config->at(0);
 	const StreamFormats &formats = streamConfig.formats();
@@ -2050,14 +2040,16 @@ int impl_clear(struct spa_handle *handle)
 }
 
 impl::impl(spa_log *log, spa_loop *data_loop, spa_system *system,
-	   std::shared_ptr<CameraManager> manager, std::shared_ptr<Camera> camera)
+	   std::shared_ptr<CameraManager> manager, std::shared_ptr<Camera> camera,
+	   std::unique_ptr<CameraConfiguration> config)
 	: handle({ SPA_VERSION_HANDLE, impl_get_interface, impl_clear }),
 	  log(log),
 	  data_loop(data_loop),
 	  system(system),
 	  out_ports{{this}},
 	  manager(std::move(manager)),
-	  camera(std::move(camera))
+	  camera(std::move(camera)),
+	  config(std::move(config))
 {
 	libcamera_log_topic_init(log);
 
@@ -2131,8 +2123,15 @@ impl_init(const struct spa_handle_factory *factory,
 		return -ENOENT;
 	}
 
+	auto config = camera->generateConfiguration({ libcamera::StreamRole::VideoRecording });
+	if (!config) {
+		spa_log_error(log, "cannot generate configuration for camera");
+		return -EINVAL;
+	}
+
 	new (handle) impl(log, data_loop, system,
-			  std::move(manager), std::move(camera));
+			  std::move(manager), std::move(camera),
+			  std::move(config));
 
 	return 0;
 }

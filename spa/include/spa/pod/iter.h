@@ -297,10 +297,8 @@ SPA_API_POD_ITER int spa_pod_get_string(const struct spa_pod *pod, const char **
 SPA_API_POD_ITER int spa_pod_copy_string(const struct spa_pod *pod, size_t maxlen, char *dest)
 {
 	const char *s;
-	if (!spa_pod_is_string(pod) || maxlen < 1)
+	if (spa_pod_get_string(pod, &s) < 0 || maxlen < 1)
 		return -EINVAL;
-	maxlen = SPA_MIN(maxlen, pod->size);
-	s = (const char *)SPA_POD_CONTENTS(struct spa_pod_string, pod);
 	strncpy(dest, s, maxlen-1);
 	dest[maxlen-1]= '\0';
 	return 0;

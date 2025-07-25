@@ -286,7 +286,7 @@ PWTEST(pod_init)
 		spa_assert_se(SPA_POD_SIZE(&pod) == 14);
 		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_String);
 		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 6);
-		spa_assert_se(!spa_pod_is_string(&pod.pod.pod));
+		spa_assert_se(spa_pod_is_string(&pod.pod.pod));
 		spa_assert_se(spa_pod_copy_string(&pod.pod.pod, sizeof(val), val) < 0);
 	}
 	{

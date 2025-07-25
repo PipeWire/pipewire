@@ -24,6 +24,7 @@
 #include <SDL2/SDL.h>
 
 #include <spa/support/plugin.h>
+#include <spa/utils/keys.h>
 #include <spa/utils/names.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
@@ -83,7 +84,8 @@ struct data {
 	unsigned int n_buffers;
 };
 
-static int load_handle(struct data *data, struct spa_handle **handle, const char *lib, const char *name)
+static int load_handle(struct data *data, struct spa_handle **handle, const char *lib, const char *name,
+		       const struct spa_dict *params)
 {
 	int res;
 	void *hnd;
@@ -117,9 +119,9 @@ static int load_handle(struct data *data, struct spa_handle **handle, const char
 		if (!spa_streq(factory->name, name))
 			continue;
 
-		*handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
+		*handle = calloc(1, spa_handle_factory_get_size(factory, params));
 		if ((res = spa_handle_factory_init(factory, *handle,
-						NULL, data->support,
+						params, data->support,
 						data->n_support)) < 0) {
 			printf("can't make factory instance: %d\n", res);
 			return res;
@@ -129,13 +131,14 @@ static int load_handle(struct data *data, struct spa_handle **handle, const char
 	return -EBADF;
 }
 
-static int make_node(struct data *data, struct spa_node **node, const char *lib, const char *name)
+static int make_node(struct data *data, struct spa_node **node, const char *lib, const char *name,
+		     const struct spa_dict *params)
 {
 	struct spa_handle *handle = NULL;
 	void *iface;
 	int res;
 
-	if ((res = load_handle(data, &handle, lib, name)) < 0)
+	if ((res = load_handle(data, &handle, lib, name, params)) < 0)
 		return res;
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Node, &iface)) < 0) {
@@ -237,10 +240,13 @@ static int make_nodes(struct data *data, const char *device)
 	uint8_t buffer[256];
 	uint32_t index;
 
-	if ((res =
-	     make_node(data, &data->source,
-		     "libcamera/libspa-libcamera.so",
-		     SPA_NAME_API_LIBCAMERA_SOURCE)) < 0) {
+	const struct spa_dict_item items[] = {
+		{ SPA_KEY_API_LIBCAMERA_PATH, device },
+	};
+
+	if ((res = make_node(data, &data->source,
+			     "libcamera/libspa-libcamera.so", SPA_NAME_API_LIBCAMERA_SOURCE,
+			     &SPA_DICT_INIT_ARRAY(items))) < 0) {
 		printf("can't create libcamera-source: %d\n", res);
 		return res;
 	}
@@ -434,13 +440,18 @@ int main(int argc, char *argv[])
 	struct spa_handle *handle = NULL;
 	void *iface;
 
+	if (argc < 2) {
+		printf("usage: %s <camera-id>\n", argv[0]);
+		return EXIT_FAILURE;
+	}
+
 	if ((str = getenv("SPA_PLUGIN_DIR")) == NULL)
 		str = PLUGINDIR;
 	data.plugin_dir = str;
 
 	if ((res = load_handle(&data, &handle,
 					"support/libspa-support.so",
-					SPA_NAME_SUPPORT_SYSTEM)) < 0)
+					SPA_NAME_SUPPORT_SYSTEM, NULL)) < 0)
 		return res;
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_System, &iface)) < 0) {
@@ -452,7 +463,7 @@ int main(int argc, char *argv[])
 
 	if ((res = load_handle(&data, &handle,
 					"support/libspa-support.so",
-					SPA_NAME_SUPPORT_LOOP)) < 0)
+					SPA_NAME_SUPPORT_LOOP, NULL)) < 0)
 		return res;
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Loop, &iface)) < 0) {

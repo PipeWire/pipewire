@@ -254,14 +254,6 @@ static int make_nodes(struct data *data, const char *device)
 		spa_debug_pod(0, NULL, props);
 	}
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	props = spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_Props, 0,
-		SPA_PROP_device, SPA_POD_String(device ? device : "/dev/media0"));
-
-	if ((res = spa_node_set_param(data->source, SPA_PARAM_Props, 0, props)) < 0)
-		printf("got set_props error %d\n", res);
-
 	return res;
 }
 

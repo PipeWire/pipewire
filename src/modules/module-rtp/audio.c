@@ -2,6 +2,26 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
+static inline void
+set_iovec(struct spa_ringbuffer *rbuf, void *buffer, uint32_t size,
+		uint32_t offset, struct iovec *iov, uint32_t len)
+{
+	iov[0].iov_len = SPA_MIN(len, size - offset);
+	iov[0].iov_base = SPA_PTROFF(buffer, offset, void);
+	iov[1].iov_len = len - iov[0].iov_len;
+	iov[1].iov_base = buffer;
+}
+
+static void ringbuffer_clear(struct spa_ringbuffer *rbuf SPA_UNUSED,
+			 void *buffer, uint32_t size,
+			 uint32_t offset, uint32_t len)
+{
+	struct iovec iov[2];
+	set_iovec(rbuf, buffer, size, offset, iov, len);
+	memset(iov[0].iov_base, 0, iov[0].iov_len);
+	memset(iov[1].iov_base, 0, iov[1].iov_len);
+}
+
 static void rtp_audio_process_playback(void *data)
 {
 	struct impl *impl = data;
@@ -97,6 +117,18 @@ static void rtp_audio_process_playback(void *data)
 				BUFFER_SIZE,
 				(timestamp * stride) & BUFFER_MASK,
 				d[0].data, wanted * stride);
+
+		/* Clear the bytes that were just retrieved. Since the fill level
+		 * is not tracked in this buffer mode, it is possible that as soon
+		 * as actual playback ends, the RTP source node re-reads old data.
+		 * Make sure it reads silence when no actual new data is present
+		 * and the RTP source node still runs. Do this by filling the
+		 * region of the retrieved data with null bytes. */
+		ringbuffer_clear(&impl->ring,
+				impl->buffer,
+				BUFFER_SIZE,
+				(timestamp * stride) & BUFFER_MASK,
+				wanted * stride);
 
 		if (!impl->io_position) {
 			/* In the unlikely case that no spa_io_position pointer
@@ -345,16 +377,6 @@ static void set_timer(struct impl *impl, uint64_t time, uint64_t itime)
 	spa_system_timerfd_settime(impl->data_loop->system,
 			impl->timer->fd, SPA_FD_TIMER_ABSTIME, &ts, NULL);
 	impl->timer_running = time != 0 && itime != 0;
-}
-
-static inline void
-set_iovec(struct spa_ringbuffer *rbuf, void *buffer, uint32_t size,
-		uint32_t offset, struct iovec *iov, uint32_t len)
-{
-	iov[0].iov_len = SPA_MIN(len, size - offset);
-	iov[0].iov_base = SPA_PTROFF(buffer, offset, void);
-	iov[1].iov_len = len - iov[0].iov_len;
-	iov[1].iov_base = buffer;
 }
 
 static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets, uint64_t set_timestamp)

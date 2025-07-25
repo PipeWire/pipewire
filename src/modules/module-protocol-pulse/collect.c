@@ -399,12 +399,12 @@ uint32_t collect_port_info(struct pw_manager_object *card, struct card_info *car
 			pi->description = pi->name;
 		if (devices && devices_size == sizeof(pi->devices[0]) &&
 		    devices_type == SPA_TYPE_Int) {
-			pi->devices = devices;
+			pi->devices = (uint32_t*)devices;
 			pi->n_devices = n_devices;
 		}
 		if (profiles && profiles_size == sizeof(pi->profiles[0]) &&
 		    profiles_type == SPA_TYPE_Int) {
-			pi->profiles = profiles;
+			pi->profiles = (uint32_t*)profiles;
 			pi->n_profiles = n_profiles;
 		}
 

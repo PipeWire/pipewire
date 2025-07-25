@@ -1010,14 +1010,44 @@ done:
 	return res;
 }
 
+void handle_completed_request(struct impl *impl, libcamera::Request *request)
+{
+	const auto request_id = request->cookie();
+	struct port *port = &impl->out_ports[0];
+	buffer *b = &port->buffers[request_id];
+
+	spa_log_trace(impl->log, "%p: request %p[%" PRIu64 "] process status:%u seq:%" PRIu32,
+			impl, request, request_id, static_cast<unsigned int>(request->status()),
+			request->sequence());
+
+	spa_list_append(&port->queue, &b->link);
+
+	spa_io_buffers *io = port->io;
+	if (io == nullptr) {
+		b = spa_list_first(&port->queue, struct buffer, link);
+		spa_list_remove(&b->link);
+		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
+		spa_libcamera_buffer_recycle(impl, port, b->id);
+	} else if (io->status != SPA_STATUS_HAVE_DATA) {
+		if (io->buffer_id < port->n_buffers)
+			spa_libcamera_buffer_recycle(impl, port, io->buffer_id);
+
+		b = spa_list_first(&port->queue, struct buffer, link);
+		spa_list_remove(&b->link);
+		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
+
+		io->buffer_id = b->id;
+		io->status = SPA_STATUS_HAVE_DATA;
+		spa_log_trace(impl->log, "%p: now queued %" PRIu32, impl, b->id);
+	}
+
+	spa_node_call_ready(&impl->callbacks, SPA_STATUS_HAVE_DATA);
+}
 
 void libcamera_on_fd_events(struct spa_source *source)
 {
 	struct impl *impl = (struct impl*) source->data;
-	struct spa_io_buffers *io;
-	struct port *port = &impl->out_ports[0];
-	uint32_t index, buffer_id;
-	struct buffer *b;
+	uint32_t index;
 	uint64_t cnt;
 
 	if (source->rmask & SPA_IO_ERR) {
@@ -1037,37 +1067,13 @@ void libcamera_on_fd_events(struct spa_source *source)
 		return;
 	}
 
-	if (spa_ringbuffer_get_read_index(&impl->completed_requests_rb, &index) < 1) {
-		spa_log_error(impl->log, "nothing is queued");
-		return;
+	auto avail = spa_ringbuffer_get_read_index(&impl->completed_requests_rb, &index);
+	for (; avail > 0; avail--, index++) {
+		auto *request = impl->completed_requests[index & MASK_BUFFERS];
+
+		spa_ringbuffer_read_update(&impl->completed_requests_rb, index + 1);
+		handle_completed_request(impl, request);
 	}
-
-	auto *request = impl->completed_requests[index & MASK_BUFFERS];
-	spa_ringbuffer_read_update(&impl->completed_requests_rb, index + 1);
-
-	buffer_id = request->cookie();
-	b = &port->buffers[buffer_id];
-	spa_list_append(&port->queue, &b->link);
-
-	io = port->io;
-	if (io == nullptr) {
-		b = spa_list_first(&port->queue, struct buffer, link);
-		spa_list_remove(&b->link);
-		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
-		spa_libcamera_buffer_recycle(impl, port, b->id);
-	} else if (io->status != SPA_STATUS_HAVE_DATA) {
-		if (io->buffer_id < port->n_buffers)
-			spa_libcamera_buffer_recycle(impl, port, io->buffer_id);
-
-		b = spa_list_first(&port->queue, struct buffer, link);
-		spa_list_remove(&b->link);
-		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
-
-		io->buffer_id = b->id;
-		io->status = SPA_STATUS_HAVE_DATA;
-		spa_log_trace(impl->log, "libcamera %p: now queued %d", impl, b->id);
-	}
-	spa_node_call_ready(&impl->callbacks, SPA_STATUS_HAVE_DATA);
 }
 
 int spa_libcamera_use_buffers(struct impl *impl, struct port *port,

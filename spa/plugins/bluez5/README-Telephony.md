@@ -102,10 +102,10 @@ NOTE: This method is implemented only on the `org.ofono.VoiceCallManager`
 interface, for compatibility. Call announcements are normally made available via
 the standard `org.freedesktop.DBus.ObjectManager` interface.
 
-`object Dial(string number)`
+`void Dial(string number)`
 
-Initiates a new outgoing call. Returns the object path to the newly created
-call.
+Initiates a new outgoing call. If this succeeds, the new call is announced via
+the signals.
 
 The number must be a string containing the following characters:
 `[0-9+*#,ABCD]{1,80}` In other words, it must be a non-empty string consisting
@@ -176,12 +176,12 @@ Possible Errors:
  * org.pipewire.Telephony.Error.InvalidState
  * org.freedesktop.DBus.Error.Failed
 
-`array{object} CreateMultiparty()`
+`void CreateMultiparty()`
 
 Joins active and held calls together into a multi-party call. If one of the
 calls is already a multi-party call, then the other call is added to the
-multiparty conversation. Returns the new list of calls participating in the
-multiparty call.
+multiparty conversation. Changes to the call objects are announced via the
+signals.
 
 There can only be one subscriber controlled multi-party call according to the
 GSM specification.

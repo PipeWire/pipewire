@@ -67,32 +67,37 @@ struct spa_bt_telephony_ag_callbacks {
 #define SPA_VERSION_BT_TELEPHONY_AG_CALLBACKS	0
 	uint32_t version;
 
-	void (*dial)(void *data, const char *number, enum spa_bt_telephony_error *err, uint8_t *cme_error);
-	void (*swap_calls)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
-	void (*release_and_answer)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
-	void (*release_and_swap)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
-	void (*hold_and_answer)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
-	void (*hangup_all)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
-	void (*create_multiparty)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
-	void (*send_tones)(void *data, const char *tones, enum spa_bt_telephony_error *err, uint8_t *cme_error);
+	void (*dial)(void *data, const char *number, DBusMessage *m);
+	void (*swap_calls)(void *data, DBusMessage *m);
+	void (*release_and_answer)(void *data, DBusMessage *m);
+	void (*release_and_swap)(void *data, DBusMessage *m);
+	void (*hold_and_answer)(void *data, DBusMessage *m);
+	void (*hangup_all)(void *data, DBusMessage *m);
+	void (*create_multiparty)(void *data, DBusMessage *m);
+	void (*send_tones)(void *data, const char *tones, DBusMessage *m);
 
-	void (*transport_activate)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
+	void (*transport_activate)(void *data, DBusMessage *m);
 
-	void (*set_speaker_volume)(void *data, uint8_t volume, enum spa_bt_telephony_error *err, uint8_t *cme_error);
-	void (*set_microphone_volume)(void *data, uint8_t volume, enum spa_bt_telephony_error *err, uint8_t *cme_error);
+	void (*set_speaker_volume)(void *data, uint8_t volume, DBusMessage *m);
+	void (*set_microphone_volume)(void *data, uint8_t volume, DBusMessage *m);
 };
 
 struct spa_bt_telephony_call_callbacks {
 #define SPA_VERSION_BT_TELEPHONY_CALL_CALLBACKS	0
 	uint32_t version;
 
-	void (*answer)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
-	void (*hangup)(void *data, enum spa_bt_telephony_error *err, uint8_t *cme_error);
+	void (*answer)(void *data, DBusMessage *m);
+	void (*hangup)(void *data, DBusMessage *m);
 };
 
 struct spa_bt_telephony *telephony_new(struct spa_log *log, struct spa_dbus *dbus,
 					const struct spa_dict *info);
 void telephony_free(struct spa_bt_telephony *telephony);
+
+/* send a reply to any of the methods (they all return void);
+   this is must be called from the callbacks either in sync or async */
+void telephony_send_dbus_method_reply(struct spa_bt_telephony *telephony,
+		DBusMessage *m, enum spa_bt_telephony_error err, uint8_t cme_error);
 
 
 /* create/destroy the ag object */

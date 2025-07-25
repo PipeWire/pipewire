@@ -79,8 +79,6 @@ struct port {
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers = 0;
 	struct spa_list queue;
-	struct spa_ringbuffer ring = SPA_RINGBUFFER_INIT();
-	libcamera::Request *ring_ids[MAX_BUFFERS];
 
 	static constexpr uint64_t info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 		SPA_PORT_CHANGE_MASK_PROPS | SPA_PORT_CHANGE_MASK_PARAMS;
@@ -156,6 +154,8 @@ struct impl {
 
 	FrameBufferAllocator *allocator = nullptr;
 	std::vector<std::unique_ptr<libcamera::Request>> requestPool;
+	spa_ringbuffer completed_requests_rb = SPA_RINGBUFFER_INIT();
+	std::array<libcamera::Request *, MAX_BUFFERS> completed_requests;
 
 	void requestComplete(libcamera::Request *request);
 
@@ -363,7 +363,7 @@ int spa_libcamera_clear_buffers(struct impl *impl, struct port *port)
 	}
 
 	port->n_buffers = 0;
-	port->ring = SPA_RINGBUFFER_INIT();
+	impl->completed_requests_rb = SPA_RINGBUFFER_INIT();
 
 	return 0;
 }
@@ -1040,13 +1040,13 @@ void libcamera_on_fd_events(struct spa_source *source)
 		return;
 	}
 
-	if (spa_ringbuffer_get_read_index(&port->ring, &index) < 1) {
+	if (spa_ringbuffer_get_read_index(&impl->completed_requests_rb, &index) < 1) {
 		spa_log_error(impl->log, "nothing is queued");
 		return;
 	}
 
-	auto *request = port->ring_ids[index & MASK_BUFFERS];
-	spa_ringbuffer_read_update(&port->ring, index + 1);
+	auto *request = impl->completed_requests[index & MASK_BUFFERS];
+	spa_ringbuffer_read_update(&impl->completed_requests_rb, index + 1);
 
 	buffer_id = request->cookie();
 	b = &port->buffers[buffer_id];
@@ -1289,9 +1289,9 @@ void impl::requestComplete(libcamera::Request *request)
 	}
 	request->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
 
-	spa_ringbuffer_get_write_index(&port->ring, &index);
-	port->ring_ids[index & MASK_BUFFERS] = request;
-	spa_ringbuffer_write_update(&port->ring, index + 1);
+	spa_ringbuffer_get_write_index(&impl->completed_requests_rb, &index);
+	impl->completed_requests[index & MASK_BUFFERS] = request;
+	spa_ringbuffer_write_update(&impl->completed_requests_rb, index + 1);
 
 	if (spa_system_eventfd_write(impl->system, impl->source.fd, 1) < 0)
 		spa_log_error(impl->log, "Failed to write on event fd");

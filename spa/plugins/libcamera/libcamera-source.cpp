@@ -136,9 +136,6 @@ struct impl {
 #define N_NODE_PARAMS	4
 	struct spa_param_info params[N_NODE_PARAMS];
 
-	std::string device_id;
-	std::string device_name;
-
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks = {};
 
@@ -168,7 +165,7 @@ struct impl {
 	bool acquired = false;
 
 	impl(spa_log *log, spa_loop *data_loop, spa_system *system,
-	     std::shared_ptr<CameraManager> manager, std::shared_ptr<Camera> camera, std::string device_id);
+	     std::shared_ptr<CameraManager> manager, std::shared_ptr<Camera> camera);
 
 	struct spa_dll dll;
 };
@@ -207,7 +204,7 @@ int spa_libcamera_open(struct impl *impl)
 	if (impl->acquired)
 		return 0;
 
-	spa_log_info(impl->log, "open camera %s", impl->device_id.c_str());
+	spa_log_info(impl->log, "open camera %s", impl->camera->id().c_str());
 
 	if (int res = impl->camera->acquire(); res < 0)
 		return res;
@@ -229,7 +226,7 @@ int spa_libcamera_close(struct impl *impl)
 	if (impl->active || port->current_format)
 		return 0;
 
-	spa_log_info(impl->log, "close camera %s", impl->device_id.c_str());
+	spa_log_info(impl->log, "close camera %s", impl->camera->id().c_str());
 	delete impl->allocator;
 	impl->allocator = nullptr;
 
@@ -1237,7 +1234,7 @@ int spa_libcamera_stream_on(struct impl *impl)
 
 	impl->camera->requestCompleted.connect(impl, &impl::requestComplete);
 
-	spa_log_info(impl->log, "starting camera %s", impl->device_id.c_str());
+	spa_log_info(impl->log, "starting camera %s", impl->camera->id().c_str());
 	if ((res = impl->camera->start(&impl->initial_controls)) < 0)
 		goto error;
 
@@ -1297,12 +1294,12 @@ int spa_libcamera_stream_off(struct impl *impl)
 	}
 
 	impl->active = false;
-	spa_log_info(impl->log, "stopping camera %s", impl->device_id.c_str());
+	spa_log_info(impl->log, "stopping camera %s", impl->camera->id().c_str());
 	impl->pendingRequests.clear();
 
 	if ((res = impl->camera->stop()) < 0) {
 		spa_log_warn(impl->log, "error stopping camera %s: %s",
-				impl->device_id.c_str(), spa_strerror(res));
+				impl->camera->id().c_str(), spa_strerror(res));
 	}
 
 	impl->camera->requestCompleted.disconnect(impl, &impl::requestComplete);
@@ -1393,36 +1390,16 @@ next:
 	case SPA_PARAM_PropInfo:
 	{
 		switch (result.index) {
-		case 0:
-			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_device),
-				SPA_PROP_INFO_description, SPA_POD_String("The libcamera device"),
-				SPA_PROP_INFO_type, SPA_POD_String(impl->device_id.c_str()));
-			break;
-		case 1:
-			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_deviceName),
-				SPA_PROP_INFO_description, SPA_POD_String("The libcamera device name"),
-				SPA_PROP_INFO_type, SPA_POD_String(impl->device_name.c_str()));
-			break;
 		default:
 			return spa_libcamera_enum_controls(impl,
 					GET_OUT_PORT(impl, 0),
-					seq, result.index, 2, num, filter);
+					seq, result.index, 0, num, filter);
 		}
 		break;
 	}
 	case SPA_PARAM_Props:
 	{
 		switch (result.index) {
-		case 0:
-			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_Props, id,
-				SPA_PROP_device,     SPA_POD_String(impl->device_id.c_str()),
-				SPA_PROP_deviceName, SPA_POD_String(impl->device_name.c_str()));
-			break;
 		default:
 			return 0;
 		}
@@ -1464,21 +1441,11 @@ int impl_node_set_param(void *object,
 		const auto *obj = reinterpret_cast<const spa_pod_object *>(param);
 		const struct spa_pod_prop *prop;
 
-		if (param == nullptr) {
-			impl->device_id.clear();
-			impl->device_name.clear();
+		if (param == nullptr)
 			return 0;
-		}
-		SPA_POD_OBJECT_FOREACH(obj, prop) {
-			char device[128];
 
+		SPA_POD_OBJECT_FOREACH(obj, prop) {
 			switch (prop->key) {
-			case SPA_PROP_device:
-				strncpy(device,
-					static_cast<const char *>(SPA_POD_CONTENTS(struct spa_pod_string, &prop->value)),
-					sizeof(device) - 1);
-				impl->device_id = device;
-				break;
 			default:
 				spa_libcamera_set_control(impl, prop);
 				break;
@@ -2083,12 +2050,11 @@ int impl_clear(struct spa_handle *handle)
 }
 
 impl::impl(spa_log *log, spa_loop *data_loop, spa_system *system,
-	   std::shared_ptr<CameraManager> manager, std::shared_ptr<Camera> camera, std::string device_id)
+	   std::shared_ptr<CameraManager> manager, std::shared_ptr<Camera> camera)
 	: handle({ SPA_VERSION_HANDLE, impl_get_interface, impl_clear }),
 	  log(log),
 	  data_loop(data_loop),
 	  system(system),
-	  device_id(std::move(device_id)),
 	  out_ports{{this}},
 	  manager(std::move(manager)),
 	  camera(std::move(camera))
@@ -2130,7 +2096,6 @@ impl_init(const struct spa_handle_factory *factory,
 	  const struct spa_support *support,
 	  uint32_t n_support)
 {
-	const char *str;
 	int res;
 
 	spa_return_val_if_fail(factory != nullptr, -EINVAL);
@@ -2156,18 +2121,18 @@ impl_init(const struct spa_handle_factory *factory,
 		return res;
 	}
 
-	std::string device_id;
-	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_LIBCAMERA_PATH)))
-		device_id = str;
+	const char *device_id = info
+		? spa_dict_lookup(info, SPA_KEY_API_LIBCAMERA_PATH)
+		: nullptr;
 
-	auto camera = manager->get(device_id);
+	auto camera = device_id ? manager->get(device_id) : nullptr;
 	if (!camera) {
-		spa_log_error(log, "unknown camera id %s", device_id.c_str());
+		spa_log_error(log, "unknown camera id: %s", device_id);
 		return -ENOENT;
 	}
 
 	new (handle) impl(log, data_loop, system,
-			  std::move(manager), std::move(camera), std::move(device_id));
+			  std::move(manager), std::move(camera));
 
 	return 0;
 }

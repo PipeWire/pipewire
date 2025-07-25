@@ -80,7 +80,7 @@ struct port {
 	uint32_t n_buffers = 0;
 	struct spa_list queue;
 	struct spa_ringbuffer ring = SPA_RINGBUFFER_INIT();
-	uint32_t ring_ids[MAX_BUFFERS];
+	libcamera::Request *ring_ids[MAX_BUFFERS];
 
 	static constexpr uint64_t info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 		SPA_PORT_CHANGE_MASK_PROPS | SPA_PORT_CHANGE_MASK_PARAMS;
@@ -1044,9 +1044,11 @@ void libcamera_on_fd_events(struct spa_source *source)
 		spa_log_error(impl->log, "nothing is queued");
 		return;
 	}
-	buffer_id = port->ring_ids[index & MASK_BUFFERS];
+
+	auto *request = port->ring_ids[index & MASK_BUFFERS];
 	spa_ringbuffer_read_update(&port->ring, index + 1);
 
+	buffer_id = request->cookie();
 	b = &port->buffers[buffer_id];
 	spa_list_append(&port->queue, &b->link);
 
@@ -1288,7 +1290,7 @@ void impl::requestComplete(libcamera::Request *request)
 	request->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
 
 	spa_ringbuffer_get_write_index(&port->ring, &index);
-	port->ring_ids[index & MASK_BUFFERS] = buffer_id;
+	port->ring_ids[index & MASK_BUFFERS] = request;
 	spa_ringbuffer_write_update(&port->ring, index + 1);
 
 	if (spa_system_eventfd_write(impl->system, impl->source.fd, 1) < 0)

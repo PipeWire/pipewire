@@ -39,7 +39,7 @@ struct native_data {
 	double rate;
 	uint32_t n_taps;
 	uint32_t n_phases;
-	uint32_t in_rate;
+	struct fixp in_rate;
 	uint32_t out_rate;
 	struct fixp phase;
 	float pm;

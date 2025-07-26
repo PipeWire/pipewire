@@ -137,24 +137,25 @@ static inline uint32_t calc_gcd(uint32_t a, uint32_t b)
 static void impl_native_update_rate(struct resample *r, double rate)
 {
 	struct native_data *data = r->data;
-	uint32_t in_rate, out_rate;
+	struct fixp in_rate;
+	uint32_t out_rate;
 
 	if (SPA_LIKELY(data->rate == rate))
 		return;
 
 	data->rate = rate;
-	in_rate = r->i_rate;
+	in_rate = UINT32_TO_FIXP(r->i_rate);
 	out_rate = r->o_rate;
 
 	if (rate != 1.0) {
-		in_rate = (uint32_t)(in_rate / rate);
+		in_rate.value = (uint64_t)round(in_rate.value / rate);
 		data->func = data->info->process_inter;
 	}
-	else if (in_rate == out_rate) {
+	else if (in_rate.value == UINT32_TO_FIXP(out_rate).value) {
 		data->func = data->info->process_copy;
 	}
 	else {
-		in_rate /= data->gcd;
+		in_rate.value /= data->gcd;
 		out_rate /= data->gcd;
 		data->func = data->info->process_full;
 	}
@@ -169,8 +170,8 @@ static void impl_native_update_rate(struct resample *r, double rate)
 	data->in_rate = in_rate;
 	data->out_rate = out_rate;
 
-	data->inc = in_rate / out_rate;
-	data->frac = UINT32_TO_FIXP(in_rate % out_rate);
+	data->inc = in_rate.value / UINT32_TO_FIXP(out_rate).value;
+	data->frac.value = in_rate.value % UINT32_TO_FIXP(out_rate).value;
 
 	spa_log_trace_fp(r->log, "native %p: rate:%f in:%d out:%d phase:%f inc:%d frac:%f", r,
 			rate, r->i_rate, r->o_rate, FIXP_TO_FLOAT(data->phase),
@@ -206,7 +207,7 @@ static uint32_t impl_native_out_len(struct resample *r, uint32_t in_len)
 
 	in_len = in_len - SPA_MIN(in_len, data->n_taps - data->hist);
 	out_len = in_len * data->out_rate - FIXP_TO_UINT32(data->phase);
-	out_len = (out_len + data->in_rate - 1) / data->in_rate;
+	out_len = (UINT32_TO_FIXP(out_len).value + data->in_rate.value - 1) / data->in_rate.value;
 
 	spa_log_trace_fp(r->log, "native %p: hist:%d %d->%d", r, data->hist, in_len, out_len);
 
@@ -399,7 +400,7 @@ int resample_native_init(struct resample *r)
 	r->data = d;
 	d->n_taps = n_taps;
 	d->n_phases = n_phases;
-	d->in_rate = in_rate;
+	d->in_rate = UINT32_TO_FIXP(in_rate);
 	d->out_rate = out_rate;
 	d->gcd = gcd;
 	d->pm = (float)n_phases / r->o_rate / FIXP_SCALE;

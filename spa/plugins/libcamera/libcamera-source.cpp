@@ -744,6 +744,63 @@ uint32_t prop_id_to_control(uint32_t prop_id)
 }
 
 [[nodiscard]]
+ControlValue control_value_from_pod(const libcamera::ControlId& cid, const spa_pod *value, const void *body)
+{
+	if (cid.isArray())
+		return {};
+
+	switch (cid.type()) {
+	case libcamera::ControlTypeBool: {
+		bool v;
+		if (spa_pod_body_get_bool(value, body, &v) < 0)
+			return {};
+
+		return v;
+	}
+	case libcamera::ControlTypeInteger32: {
+		int32_t v;
+		if (spa_pod_body_get_int(value, body, &v) < 0)
+			return {};
+
+		return v;
+	}
+	case libcamera::ControlTypeFloat: {
+		float v;
+		if (spa_pod_body_get_float(value, body, &v) < 0)
+			return {};
+
+		return v;
+	}
+	default:
+		return {};
+	}
+
+	return {};
+}
+
+int control_list_update_from_prop(libcamera::ControlList& list, const spa_pod_prop *prop, const void *body)
+{
+	auto id = prop_id_to_control(prop->key);
+	if (id == SPA_ID_INVALID)
+		return -ENOENT;
+
+	auto it = list.idMap()->find(id);
+	if (it == list.idMap()->end())
+		return -ENOENT;
+
+	if (!list.infoMap()->count(it->second))
+		return -ENOENT;
+
+	auto val = control_value_from_pod(*it->second, &prop->value, body);
+	if (val.isNone())
+		return -EINVAL;
+
+	list.set(id, std::move(val));
+
+	return 0;
+}
+
+[[nodiscard]]
 bool control_value_to_pod(spa_pod_builder& b, const libcamera::ControlValue& cv)
 {
 	if (cv.isArray())
@@ -921,91 +978,31 @@ spa_libcamera_enum_controls(struct impl *impl, struct port *port, int seq,
 	return 0;
 }
 
-struct val {
-	ControlType type;
-	uint32_t id;
-	union {
-		bool b_val;
-		int32_t i_val;
-		float f_val;
+int spa_libcamera_apply_controls(struct impl *impl, libcamera::ControlList&& controls)
+{
+	if (controls.empty())
+		return 0;
+
+	struct invoke_data {
+		ControlList *controls;
+	} d = {
+		.controls = &controls,
 	};
-};
 
-int do_update_ctrls(struct spa_loop *loop,
-		    bool async,
-		    uint32_t seq,
-		    const void *data,
-		    size_t size,
-		    void *user_data)
-{
-	auto *impl = static_cast<struct impl *>(user_data);
-	const auto *d = static_cast<const val *>(data);
+	return spa_loop_locked(
+		impl->data_loop,
+		[](spa_loop *, bool, uint32_t, const void *data, size_t, void *user_data)
+		{
+			const auto *d = static_cast<const invoke_data *>(data);
+			auto *impl = static_cast<struct impl *>(user_data);
 
-	switch (d->type) {
-	case ControlTypeBool:
-		impl->ctrls.set(d->id, d->b_val);
-		break;
-	case ControlTypeFloat:
-		impl->ctrls.set(d->id, d->f_val);
-		break;
-	case ControlTypeInteger32:
-		impl->ctrls.set(d->id, d->i_val);
-		break;
-	default:
-		break;
-	}
-	return 0;
-}
+			impl->ctrls.merge(std::move(*d->controls),
+					  libcamera::ControlList::MergePolicy::OverwriteExisting);
 
-int
-spa_libcamera_set_control(struct impl *impl, const struct spa_pod_prop *prop, const void *body)
-{
-	const ControlInfoMap &info = impl->camera->controls();
-	const ControlId *ctrl_id;
-	int res;
-	struct val d;
-	uint32_t control_id;
-
-	control_id = prop_id_to_control(prop->key);
-	if (control_id == SPA_ID_INVALID)
-		return -ENOENT;
-
-	auto v = info.idmap().find(control_id);
-	if (v == info.idmap().end())
-		return -ENOENT;
-
-	ctrl_id = v->second;
-
-	if (ctrl_id->isArray())
-		return -EINVAL;
-
-	d.type = ctrl_id->type();
-	d.id = ctrl_id->id();
-
-	switch (d.type) {
-	case ControlTypeBool:
-		if (!spa_pod_is_bool(&prop->value))
-			return -EINVAL;
-		spa_pod_body_get_bool(&prop->value, body, &d.b_val);
-		break;
-	case ControlTypeFloat:
-		if (!spa_pod_is_float(&prop->value))
-			return -EINVAL;
-		spa_pod_body_get_float(&prop->value, body, &d.f_val);
-		break;
-	case ControlTypeInteger32:
-		if (!spa_pod_is_int(&prop->value))
-			return -EINVAL;
-		spa_pod_body_get_int(&prop->value, body, &d.i_val);
-		break;
-	default:
-		res = -EINVAL;
-		goto done;
-	}
-	spa_loop_invoke(impl->data_loop, do_update_ctrls, 0, &d, sizeof(d), true, impl);
-	res = 0;
-done:
-	return res;
+			return 0;
+		},
+		0, &d, sizeof(d), impl
+	);
 }
 
 
@@ -1522,13 +1519,24 @@ int impl_node_set_param(void *object,
 		if (param == nullptr)
 			return 0;
 
+		libcamera::ControlList controls(impl->camera->controls());
+		int res;
+
 		SPA_POD_OBJECT_FOREACH(obj, prop) {
 			switch (prop->key) {
 			default:
-				spa_libcamera_set_control(impl, prop, SPA_POD_BODY_CONST(&prop->value));
+				res = control_list_update_from_prop(controls, prop, SPA_POD_BODY_CONST(&prop->value));
+				if (res < 0)
+					return res;
+
 				break;
 			}
 		}
+
+		res = spa_libcamera_apply_controls(impl, std::move(controls));
+		if (res < 0)
+			return res;
+
 		break;
 	}
 	default:
@@ -2021,11 +2029,13 @@ int impl_node_port_reuse_buffer(void *object,
 
 int process_control(struct impl *impl, struct spa_pod_sequence *control, uint32_t size)
 {
+	libcamera::ControlList controls(impl->camera->controls());
 	struct spa_pod_parser parser[2];
 	struct spa_pod_frame frame[2];
 	struct spa_pod_sequence seq;
 	const void *seq_body, *c_body;
 	struct spa_pod_control c;
+	int res;
 
 	spa_pod_parser_init_from_data(&parser[0], control, size, 0, size);
 	if (spa_pod_parser_push_sequence_body(&parser[0], &frame[0], &seq, &seq_body) < 0)
@@ -2033,8 +2043,7 @@ int process_control(struct impl *impl, struct spa_pod_sequence *control, uint32_
 
 	while (spa_pod_parser_get_control_body(&parser[0], &c, &c_body) >= 0) {
 		switch (c.type) {
-		case SPA_CONTROL_Properties:
-		{
+		case SPA_CONTROL_Properties: {
 			struct spa_pod_object obj;
 			struct spa_pod_prop prop;
 			const void *obj_body, *prop_body;
@@ -2042,14 +2051,23 @@ int process_control(struct impl *impl, struct spa_pod_sequence *control, uint32_
 			if (spa_pod_parser_init_object_body(&parser[1], &frame[1],
 					&c.value, c_body, &obj, &obj_body) < 0)
 				continue;
-			while (spa_pod_parser_get_prop_body(&parser[1], &prop, &prop_body) >= 0)
-				spa_libcamera_set_control(impl, &prop, prop_body);
+			while (spa_pod_parser_get_prop_body(&parser[1], &prop, &prop_body) >= 0) {
+				res = control_list_update_from_prop(controls, &prop, prop_body);
+				if (res < 0)
+					return res;
+			}
+
 			break;
 		}
 		default:
 			break;
 		}
 	}
+
+	res = spa_libcamera_apply_controls(impl, std::move(controls));
+	if (res < 0)
+		return res;
+
 	return 0;
 }
 

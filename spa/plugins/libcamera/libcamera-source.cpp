@@ -1022,6 +1022,63 @@ void handle_completed_request(struct impl *impl, libcamera::Request *request)
 			impl, request, request_id, static_cast<unsigned int>(request->status()),
 			request->sequence());
 
+	if (request->status() == libcamera::Request::Status::RequestCancelled) {
+		spa_log_trace(impl->log, "%p: request %p[%" PRIu64 "] cancelled",
+				impl, request, request_id);
+		request->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
+		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
+		spa_libcamera_buffer_recycle(impl, port, b->id);
+		return;
+	}
+
+	const FrameBuffer *buffer = request->findBuffer(port->streamConfig.stream());
+	if (buffer == nullptr) {
+		spa_log_warn(impl->log, "%p: request %p[%" PRIu64 "] has no buffer for stream %p",
+				impl, request, request_id, port->streamConfig.stream());
+		return;
+	}
+
+	const FrameMetadata &fmd = buffer->metadata();
+
+	if (impl->clock) {
+		double target = (double)port->info.rate.num / port->info.rate.denom;
+		double corr;
+
+		if (impl->dll.bw == 0.0) {
+			spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MAX, port->info.rate.denom, port->info.rate.denom);
+			impl->clock->next_nsec = fmd.timestamp;
+			corr = 1.0;
+		} else {
+			double diff = ((double)impl->clock->next_nsec - (double)fmd.timestamp) / SPA_NSEC_PER_SEC;
+			double error = port->info.rate.denom * (diff - target);
+			corr = spa_dll_update(&impl->dll, SPA_CLAMPD(error, -128., 128.));
+		}
+		/* FIXME, we should follow the driver clock and target_ values.
+		 * for now we ignore and use our own. */
+		impl->clock->target_rate = port->rate;
+		impl->clock->target_duration = 1;
+
+		impl->clock->nsec = fmd.timestamp;
+		impl->clock->rate = port->rate;
+		impl->clock->position = fmd.sequence;
+		impl->clock->duration = 1;
+		impl->clock->delay = 0;
+		impl->clock->rate_diff = corr;
+		impl->clock->next_nsec += (uint64_t) (target * SPA_NSEC_PER_SEC * corr);
+	}
+
+	if (b->h) {
+		b->h->flags = 0;
+		if (fmd.status != libcamera::FrameMetadata::Status::FrameSuccess)
+			b->h->flags |= SPA_META_HEADER_FLAG_CORRUPTED;
+		b->h->offset = 0;
+		b->h->seq = fmd.sequence;
+		b->h->pts = fmd.timestamp;
+		b->h->dts_offset = 0;
+	}
+
+	request->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
+
 	spa_list_append(&port->queue, &b->link);
 
 	spa_io_buffers *io = port->io;
@@ -1233,66 +1290,12 @@ spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
 void impl::requestComplete(libcamera::Request *request)
 {
 	struct impl *impl = this;
-	struct port *port = &impl->out_ports[0];
-	Stream *stream = port->streamConfig.stream();
-	uint32_t index, buffer_id;
-	struct buffer *b;
+	uint32_t index;
 
-	spa_log_debug(impl->log, "request complete");
-
-	buffer_id = request->cookie();
-	b = &port->buffers[buffer_id];
-
-	if ((request->status() == Request::RequestCancelled)) {
-		spa_log_debug(impl->log, "Request was cancelled");
-		request->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
-		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
-		spa_libcamera_buffer_recycle(impl, port, b->id);
-		return;
-	}
-	FrameBuffer *buffer = request->findBuffer(stream);
-	if (buffer == nullptr) {
-		spa_log_warn(impl->log, "unknown buffer");
-		return;
-	}
-	const FrameMetadata &fmd = buffer->metadata();
-
-	if (impl->clock) {
-		double target = (double)port->info.rate.num / port->info.rate.denom;
-		double corr;
-
-		if (impl->dll.bw == 0.0) {
-			spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MAX, port->info.rate.denom, port->info.rate.denom);
-			impl->clock->next_nsec = fmd.timestamp;
-			corr = 1.0;
-		} else {
-			double diff = ((double)impl->clock->next_nsec - (double)fmd.timestamp) / SPA_NSEC_PER_SEC;
-			double error = port->info.rate.denom * (diff - target);
-			corr = spa_dll_update(&impl->dll, SPA_CLAMPD(error, -128., 128.));
-		}
-		/* FIXME, we should follow the driver clock and target_ values.
-		 * for now we ignore and use our own. */
-		impl->clock->target_rate = port->rate;
-		impl->clock->target_duration = 1;
-
-		impl->clock->nsec = fmd.timestamp;
-		impl->clock->rate = port->rate;
-		impl->clock->position = fmd.sequence;
-		impl->clock->duration = 1;
-		impl->clock->delay = 0;
-		impl->clock->rate_diff = corr;
-		impl->clock->next_nsec += (uint64_t) (target * SPA_NSEC_PER_SEC * corr);
-	}
-	if (b->h) {
-		b->h->flags = 0;
-		if (fmd.status != FrameMetadata::Status::FrameSuccess)
-			b->h->flags |= SPA_META_HEADER_FLAG_CORRUPTED;
-		b->h->offset = 0;
-		b->h->seq = fmd.sequence;
-		b->h->pts = fmd.timestamp;
-		b->h->dts_offset = 0;
-	}
-	request->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
+	spa_log_trace(impl->log, "%p: request %p[%" PRIu64 "] completed status:%u seq:%" PRIu32,
+			impl, request, request->cookie(),
+			static_cast<unsigned int>(request->status()),
+			request->sequence());
 
 	spa_ringbuffer_get_write_index(&impl->completed_requests_rb, &index);
 	impl->completed_requests[index & MASK_BUFFERS] = request;

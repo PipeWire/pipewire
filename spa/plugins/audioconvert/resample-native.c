@@ -159,17 +159,31 @@ static void impl_native_update_rate(struct resample *r, double rate)
 		data->func = data->info->process_full;
 	}
 
-	data->in_rate = in_rate;
 	if (data->out_rate != out_rate) {
-		data->phase = data->phase * out_rate / (float)data->out_rate;
-		data->out_rate = out_rate;
+		/* Cast to double to avoid overflows */
+		data->phase.value = (uint64_t)(data->phase.value * (double)out_rate / data->out_rate);
+		if (data->phase.value >= UINT32_TO_FIXP(out_rate).value)
+			data->phase.value = UINT32_TO_FIXP(out_rate).value - 1;
 	}
-	data->inc = data->in_rate / data->out_rate;
-	data->frac = data->in_rate % data->out_rate;
 
-	spa_log_trace_fp(r->log, "native %p: rate:%f in:%d out:%d phase:%f inc:%d frac:%d", r,
-			rate, r->i_rate, r->o_rate, data->phase, data->inc, data->frac);
+	data->in_rate = in_rate;
+	data->out_rate = out_rate;
 
+	data->inc = in_rate / out_rate;
+	data->frac = UINT32_TO_FIXP(in_rate % out_rate);
+
+	spa_log_trace_fp(r->log, "native %p: rate:%f in:%d out:%d phase:%f inc:%d frac:%f", r,
+			rate, r->i_rate, r->o_rate, FIXP_TO_FLOAT(data->phase),
+			data->inc, FIXP_TO_FLOAT(data->frac));
+}
+
+static uint64_t fixp_floor_a_plus_bc(struct fixp a, uint32_t b, struct fixp c)
+{
+	/* (a + b*c) >> FIXP_SHIFT, with bigger overflow threshold */
+	uint64_t hi, lo;
+	hi = (a.value >> FIXP_SHIFT) + b * (c.value >> FIXP_SHIFT);
+	lo = (a.value & FIXP_MASK) + b * (c.value & FIXP_MASK);
+	return hi + (lo >> FIXP_SHIFT);
 }
 
 static uint32_t impl_native_in_len(struct resample *r, uint32_t out_len)
@@ -177,7 +191,7 @@ static uint32_t impl_native_in_len(struct resample *r, uint32_t out_len)
 	struct native_data *data = r->data;
 	uint32_t in_len;
 
-	in_len = (uint32_t)((data->phase + out_len * data->frac) / data->out_rate);
+	in_len = fixp_floor_a_plus_bc(data->phase, out_len, data->frac) / data->out_rate;
 	in_len += out_len * data->inc +	(data->n_taps - data->hist);
 
 	spa_log_trace_fp(r->log, "native %p: hist:%d %d->%d", r, data->hist, out_len, in_len);
@@ -191,7 +205,7 @@ static uint32_t impl_native_out_len(struct resample *r, uint32_t in_len)
 	uint32_t out_len;
 
 	in_len = in_len - SPA_MIN(in_len, data->n_taps - data->hist);
-	out_len = (uint32_t)(in_len * data->out_rate - data->phase);
+	out_len = in_len * data->out_rate - FIXP_TO_UINT32(data->phase);
 	out_len = (out_len + data->in_rate - 1) / data->in_rate;
 
 	spa_log_trace_fp(r->log, "native %p: hist:%d %d->%d", r, data->hist, in_len, out_len);
@@ -300,7 +314,7 @@ static void impl_native_reset (struct resample *r)
 		d->hist = d->n_taps - 1;
 	else
 		d->hist = d->n_taps / 2;
-	d->phase = 0;
+	d->phase.value = 0;
 }
 
 static uint32_t impl_native_delay (struct resample *r)
@@ -315,13 +329,13 @@ static float impl_native_phase (struct resample *r)
 	float pho = 0;
 
 	if (d->func == d->info->process_full) {
-		pho = -(float)((int32_t)d->phase) / d->out_rate;
+		pho = -(float)FIXP_TO_UINT32(d->phase) / d->out_rate;
 
 		/* XXX: this is how it seems to behave, but not clear why */
 		if (d->hist >= d->n_taps - 1)
 			pho += 1.0f;
 	} else if (d->func == d->info->process_inter) {
-		pho = -d->phase / d->out_rate;
+		pho = -FIXP_TO_FLOAT(d->phase) / d->out_rate;
 
 		/* XXX: this is how it seems to behave, but not clear why */
 		if (d->hist >= d->n_taps - 1)
@@ -388,7 +402,7 @@ int resample_native_init(struct resample *r)
 	d->in_rate = in_rate;
 	d->out_rate = out_rate;
 	d->gcd = gcd;
-	d->pm = (float)n_phases / r->o_rate;
+	d->pm = (float)n_phases / r->o_rate / FIXP_SCALE;
 	d->filter = SPA_PTROFF_ALIGN(d, sizeof(struct native_data), 64, float);
 	d->hist_mem = SPA_PTROFF_ALIGN(d->filter, filter_size, 64, float);
 	d->history = SPA_PTROFF(d->hist_mem, history_size, float*);

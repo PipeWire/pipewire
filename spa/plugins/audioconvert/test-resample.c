@@ -126,20 +126,20 @@ static void pull_blocks_out(struct resample *r, uint32_t first, uint32_t size, u
 	}
 }
 
-static void check_inout_len(struct resample *r, uint32_t first, uint32_t size, double rate, double phase)
+static void check_inout_len(struct resample *r, uint32_t first, uint32_t size, double rate, float phase)
 {
 	struct native_data *data = r->data;
 
 	resample_reset(r);
 	resample_update_rate(r, rate);
 	if (phase != 0.0)
-		data->phase = (float)phase;
+		data->phase = FLOAT_TO_FIXP(phase);
 	pull_blocks(r, first, size, 500);
 
 	resample_reset(r);
 	resample_update_rate(r, rate);
 	if (phase != 0.0)
-		data->phase = (float)phase;
+		data->phase = FLOAT_TO_FIXP(phase);
 	pull_blocks_out(r, first, size, 500);
 }
 
@@ -237,7 +237,7 @@ static void test_inout_len(void)
 	r.options = RESAMPLE_OPTION_PREFILL;
 	resample_native_init(&r);
 
-	check_inout_len(&r, 64, 64, 1.0 + 1e-10, 7999.99);
+	check_inout_len(&r, 64, 64, 1.0 + 1e-10, 7999.99f);
 	resample_free(&r);
 
 	/* Test value of phase that overflows filter buffer due to floating point rounding

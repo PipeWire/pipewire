@@ -747,24 +747,24 @@ static int impl_node_process(void *object)
 		    inio->status != SPA_STATUS_HAVE_DATA) {
 			spa_log_trace_fp(this->log, "%p: skip input idx:%d "
 					"io:%p status:%d buf_id:%d n_buffers:%d", this,
-				i, inio, inio->status, inio->buffer_id, inport->n_buffers);
+				inport->id, inio, inio->status, inio->buffer_id, inport->n_buffers);
 			continue;
 		}
 
 		spa_log_trace_fp(this->log, "%p: mix input %d %p->%p %d %d", this,
-				i, inio, outio, inio->status, inio->buffer_id);
+				inport->id, inio, outio, inio->status, inio->buffer_id);
 
 		d = inport->buffers[inio->buffer_id].buffer->datas;
 
 		if ((pod = spa_pod_from_data(d->data, d->maxsize,
 				d->chunk->offset, d->chunk->size)) == NULL) {
 			spa_log_trace_fp(this->log, "%p: skip input idx:%d max:%u "
-					"offset:%u size:%u", this, i,
+					"offset:%u size:%u", this, inport->id,
 					d->maxsize, d->chunk->offset, d->chunk->size);
 			continue;
 		}
 		if (!spa_pod_is_sequence(pod)) {
-			spa_log_trace_fp(this->log, "%p: skip input idx:%d", this, i);
+			spa_log_trace_fp(this->log, "%p: skip input idx:%d", this, inport->id);
 			continue;
 		}
 

@@ -15,6 +15,7 @@
 SPA_LOG_IMPL(logger);
 
 #include "resample.h"
+#include "resample-native-impl.h"
 
 #define N_SAMPLES	253
 #define N_CHANNELS	11
@@ -125,14 +126,20 @@ static void pull_blocks_out(struct resample *r, uint32_t first, uint32_t size, u
 	}
 }
 
-static void check_inout_len(struct resample *r, uint32_t first, uint32_t size, double rate)
+static void check_inout_len(struct resample *r, uint32_t first, uint32_t size, double rate, double phase)
 {
+	struct native_data *data = r->data;
+
 	resample_reset(r);
 	resample_update_rate(r, rate);
+	if (phase != 0.0)
+		data->phase = (float)phase;
 	pull_blocks(r, first, size, 500);
 
 	resample_reset(r);
 	resample_update_rate(r, rate);
+	if (phase != 0.0)
+		data->phase = (float)phase;
 	pull_blocks_out(r, first, size, 500);
 }
 
@@ -148,7 +155,7 @@ static void test_inout_len(void)
 	r.quality = RESAMPLE_DEFAULT_QUALITY;
 	resample_native_init(&r);
 
-	check_inout_len(&r, 1024, 1024, 1.0);
+	check_inout_len(&r, 1024, 1024, 1.0, 0);
 	resample_free(&r);
 
 	spa_zero(r);
@@ -159,7 +166,7 @@ static void test_inout_len(void)
 	r.quality = RESAMPLE_DEFAULT_QUALITY;
 	resample_native_init(&r);
 
-	check_inout_len(&r, 1024, 1024, 1.0);
+	check_inout_len(&r, 1024, 1024, 1.0, 0);
 	resample_free(&r);
 
 	spa_zero(r);
@@ -170,7 +177,7 @@ static void test_inout_len(void)
 	r.quality = RESAMPLE_DEFAULT_QUALITY;
 	resample_native_init(&r);
 
-	check_inout_len(&r, 1024, 1024, 1.0);
+	check_inout_len(&r, 1024, 1024, 1.0, 0);
 	resample_free(&r);
 
 	spa_zero(r);
@@ -181,7 +188,7 @@ static void test_inout_len(void)
 	r.quality = RESAMPLE_DEFAULT_QUALITY;
 	resample_native_init(&r);
 
-	check_inout_len(&r, 513, 64, 1.0);
+	check_inout_len(&r, 513, 64, 1.0, 0);
 	resample_free(&r);
 
 	spa_zero(r);
@@ -192,7 +199,7 @@ static void test_inout_len(void)
 	r.quality = RESAMPLE_DEFAULT_QUALITY;
 	resample_native_init(&r);
 
-	check_inout_len(&r, 513, 64, 1.02);
+	check_inout_len(&r, 513, 64, 1.02, 0);
 	resample_free(&r);
 
 	spa_zero(r);
@@ -203,7 +210,7 @@ static void test_inout_len(void)
 	r.quality = RESAMPLE_DEFAULT_QUALITY;
 	resample_native_init(&r);
 
-	check_inout_len(&r, 513, 64, 1.0002);
+	check_inout_len(&r, 513, 64, 1.0002, 0);
 	resample_free(&r);
 
 	spa_zero(r);
@@ -215,7 +222,37 @@ static void test_inout_len(void)
 	r.options = RESAMPLE_OPTION_PREFILL;
 	resample_native_init(&r);
 
-	check_inout_len(&r, 513, 64, 1.0002);
+	check_inout_len(&r, 513, 64, 1.0002, 0);
+	resample_free(&r);
+
+	/* Test value of phase that in floating-point arithmetic produces
+	 * inconsistent in_len
+	 */
+	spa_zero(r);
+	r.log = &logger.log;
+	r.channels = 1;
+	r.i_rate = 8000;
+	r.o_rate = 8000;
+	r.quality = RESAMPLE_DEFAULT_QUALITY;
+	r.options = RESAMPLE_OPTION_PREFILL;
+	resample_native_init(&r);
+
+	check_inout_len(&r, 64, 64, 1.0 + 1e-10, 7999.99);
+	resample_free(&r);
+
+	/* Test value of phase that overflows filter buffer due to floating point rounding
+	 * up to nearest
+	 */
+	spa_zero(r);
+	r.log = &logger.log;
+	r.channels = 1;
+	r.i_rate = 8000;
+	r.o_rate = 8000;
+	r.quality = RESAMPLE_DEFAULT_QUALITY;
+	r.options = RESAMPLE_OPTION_PREFILL;
+	resample_native_init(&r);
+
+	check_inout_len(&r, 64, 64, 1.0 + 1e-10, nextafterf(8000, 0));
 	resample_free(&r);
 }
 

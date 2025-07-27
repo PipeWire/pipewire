@@ -190,7 +190,7 @@ static uint32_t impl_native_out_len(struct resample *r, uint32_t in_len)
 	struct native_data *data = r->data;
 	uint32_t out_len;
 
-	in_len = in_len - SPA_MIN(in_len, (data->n_taps - data->hist) + 1);
+	in_len = in_len - SPA_MIN(in_len, data->n_taps - data->hist);
 	out_len = (uint32_t)(in_len * data->out_rate - data->phase);
 	out_len = (out_len + data->in_rate - 1) / data->in_rate;
 

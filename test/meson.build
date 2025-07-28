@@ -135,10 +135,15 @@ endif
 summary({'pactl': pactl.found()}, bool_yn: true, section: 'Functional test programs')
 
 if default_sm == 'media-session' or default_sm == 'wireplumber'
+  test_functional_c_args = []
+  if get_option('b_sanitize').contains('address')
+    test_functional_c_args += ['-DHAVE_ASAN']
+  endif
   test('test-functional',
     executable('test-functional',
                'test-functional.c',
                include_directories: pwtest_inc,
+               c_args: [test_functional_c_args],
                dependencies: [ spa_dep ],
                link_with: pwtest_lib)
   )

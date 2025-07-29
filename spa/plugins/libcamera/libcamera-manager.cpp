@@ -75,6 +75,17 @@ struct impl {
 		spa_assert(std::begin(devices) <= &d && &d < std::end(devices));
 		return &d - std::begin(devices);
 	}
+
+private:
+	void queue_hotplug_event(enum hotplug_event::type type, std::shared_ptr<libcamera::Camera>&& camera)
+	{
+		{
+			std::lock_guard guard(hotplug_events_lock);
+			hotplug_events.push({ type, std::move(camera) });
+		}
+
+		spa_loop_utils_signal_event(loop_utils, hotplug_event_source);
+	}
 };
 
 struct device *add_device(struct impl *impl, std::shared_ptr<Camera> camera)
@@ -210,22 +221,12 @@ void on_hotplug_event(void *data, std::uint64_t)
 
 void impl::addCamera(std::shared_ptr<Camera> camera)
 {
-	{
-		std::unique_lock guard(hotplug_events_lock);
-		hotplug_events.push({ hotplug_event::type::add, std::move(camera) });
-	}
-
-	spa_loop_utils_signal_event(loop_utils, hotplug_event_source);
+	queue_hotplug_event(hotplug_event::type::add, std::move(camera));
 }
 
 void impl::removeCamera(std::shared_ptr<Camera> camera)
 {
-	{
-		std::unique_lock guard(hotplug_events_lock);
-		hotplug_events.push({ hotplug_event::type::remove, std::move(camera) });
-	}
-
-	spa_loop_utils_signal_event(loop_utils, hotplug_event_source);
+	queue_hotplug_event(hotplug_event::type::remove, std::move(camera));
 }
 
 void start_monitor(struct impl *impl)

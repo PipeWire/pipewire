@@ -562,7 +562,7 @@ static void do_refresh(struct data *d, bool force_refresh)
 		return;
 
 	if (!d->batch_mode) {
-		wclear(d->win);
+		werase(d->win);
 		wattron(d->win, A_REVERSE);
 		wprintw(d->win, "%-*.*s", COLS, COLS, HEADER);
 		wattroff(d->win, A_REVERSE);

@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 #include <spa/param/video/format.h>
+#include <spa/pod/iter.h>
 #include <spa/pod/builder.h>
 #include <spa/utils/result.h>
 

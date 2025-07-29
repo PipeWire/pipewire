@@ -129,6 +129,7 @@
 #include <spa/pod/dynamic.h>
 #include <spa/pod/event.h>
 #include <spa/pod/filter.h>
+#include <spa/pod/body.h>
 #include <spa/pod/iter.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/pod.h>

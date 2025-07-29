@@ -5,6 +5,7 @@
 #ifndef SPA_VIDEO_RAW_UTILS_H
 #define SPA_VIDEO_RAW_UTILS_H
 
+#include <spa/pod/iter.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/builder.h>
 #include <spa/param/video/raw.h>

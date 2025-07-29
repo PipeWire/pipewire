@@ -3,7 +3,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <spa/node/utils.h>
-#include <spa/pod/parser.h>
+#include <spa/pod/iter.h>
 #include <spa/param/param.h>
 #include <spa/buffer/alloc.h>
 #include <spa/debug/types.h>

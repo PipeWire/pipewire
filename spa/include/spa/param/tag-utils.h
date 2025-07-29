@@ -9,6 +9,7 @@
 
 #include <spa/utils/dict.h>
 #include <spa/pod/builder.h>
+#include <spa/pod/iter.h>
 #include <spa/pod/parser.h>
 #include <spa/param/tag.h>
 

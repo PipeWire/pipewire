@@ -30,6 +30,15 @@ extern "C" {
 #define SPA_POD_BODY(pod)			SPA_PTROFF((pod),sizeof(struct spa_pod),void)
 #define SPA_POD_BODY_CONST(pod)			SPA_PTROFF((pod),sizeof(struct spa_pod),const void)
 
+#define SPA_POD_IS_VALID(pod)				\
+	(SPA_POD_BODY_SIZE(pod) < SPA_POD_MAX_SIZE)
+#define SPA_POD_CHECK_TYPE(pod,_type)			\
+	(SPA_POD_IS_VALID(pod) &&			\
+	(pod)->type == (_type))
+#define SPA_POD_CHECK(pod,_type,_size) \
+	(SPA_POD_CHECK_TYPE(pod,_type) && (pod)->size >= (_size))
+
+
 struct spa_pod {
 	uint32_t size;		/* size of the body */
 	uint32_t type;		/* a basic id of enum spa_type */

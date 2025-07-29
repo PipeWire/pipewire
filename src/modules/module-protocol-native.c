@@ -26,7 +26,6 @@
 #include <sys/ucred.h>
 #endif
 
-#include <spa/pod/iter.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/builder.h>
 #include <spa/utils/cleanup.h>

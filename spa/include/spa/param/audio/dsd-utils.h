@@ -5,6 +5,7 @@
 #ifndef SPA_AUDIO_DSD_UTILS_H
 #define SPA_AUDIO_DSD_UTILS_H
 
+#include <spa/pod/iter.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/builder.h>
 #include <spa/param/format-utils.h>

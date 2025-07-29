@@ -8,7 +8,7 @@
 #include <stdarg.h>
 
 #include <spa/utils/hook.h>
-#include <spa/pod/iter.h>
+#include <spa/pod/body.h>
 #include <spa/pod/vararg.h>
 
 #ifdef __cplusplus

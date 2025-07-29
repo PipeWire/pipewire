@@ -10,6 +10,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
+#include <spa/pod/iter.h>
 #include <spa/pod/parser.h>
 #include <spa/debug/types.h>
 

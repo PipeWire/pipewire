@@ -227,12 +227,6 @@ SPA_API_POD_ITER struct spa_pod *spa_pod_get_values(const struct spa_pod *pod,
 		uint32_t type, size;
 		spa_pod_choice_body_get_values(p, SPA_POD_BODY_CONST(p), n_vals, choice, &size, &type);
 		return (struct spa_pod*)&p->body.child;
-	} else if (spa_pod_is_array(pod)) {
-		const struct spa_pod_array *p = (const struct spa_pod_array*)pod;
-		uint32_t type, size;
-		spa_pod_array_body_get_values(p, SPA_POD_BODY_CONST(p), n_vals, &size, &type);
-		*choice = SPA_CHOICE_None;
-		return (struct spa_pod*)&p->body.child;
 	} else {
 		*n_vals = 1;
 		*choice = SPA_CHOICE_None;

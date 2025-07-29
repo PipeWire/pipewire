@@ -1270,7 +1270,7 @@ PWTEST(pod_parser)
 	spa_assert_se(spa_pod_parser_push_object(&p, &f, SPA_TYPE_OBJECT_Format, NULL) == -EPROTO);
 	spa_assert_se(p.state.offset == 0);
 	spa_assert_se(spa_pod_parser_push_object(&p, &f, SPA_TYPE_OBJECT_Props, NULL) == 0);
-	spa_assert_se(p.state.offset == 392);
+	spa_assert_se(p.state.offset == sizeof(struct spa_pod_object));
 	spa_assert_se(spa_pod_parser_frame(&p, &f) == val.P);
 
 	spa_zero(val);

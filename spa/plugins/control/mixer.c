@@ -61,6 +61,10 @@ struct port {
 
 	struct spa_list mix_link;
 	bool active;
+	struct spa_pod_parser parser;
+	struct spa_pod_frame frame;
+	struct spa_pod_control control;
+	const void *control_body;
 };
 
 struct impl {
@@ -86,15 +90,13 @@ struct impl {
 	struct spa_list port_list;
 	struct spa_list free_list;
 
-	struct spa_pod_control *mix_ctrl[MAX_PORTS];
-	struct spa_pod_sequence *mix_seq[MAX_PORTS];
-
 	int n_formats;
 
 	unsigned int have_format:1;
 	unsigned int started:1;
 
 	struct spa_list mix_list;
+	struct port *mix_ports[MAX_PORTS];
 };
 
 #define CHECK_ANY_IN(this,d,p)       ((d) == SPA_DIRECTION_INPUT && (p) == SPA_ID_INVALID)
@@ -655,7 +657,8 @@ static inline int event_compare(uint8_t s1, uint8_t s2)
 	return priotab[(s2>>4) & 7] - priotab[(s1>>4) & 7];
 }
 
-static inline int event_sort(struct spa_pod_control *a, struct spa_pod_control *b)
+static inline int event_sort(struct spa_pod_control *a, const void *abody,
+		struct spa_pod_control *b, const void *bbody)
 {
 	if (a->offset < b->offset)
 		return -1;
@@ -666,14 +669,14 @@ static inline int event_sort(struct spa_pod_control *a, struct spa_pod_control *
 	switch(a->type) {
 	case SPA_CONTROL_Midi:
 	{
-		uint8_t *da = SPA_POD_BODY(&a->value), *db = SPA_POD_BODY(&b->value);
+		const uint8_t *da = abody, *db = bbody;
 		if (SPA_POD_BODY_SIZE(&a->value) < 1 || SPA_POD_BODY_SIZE(&b->value) < 1)
 			return 0;
 		return event_compare(da[0], db[0]);
 	}
 	case SPA_CONTROL_UMP:
 	{
-		uint32_t *da = SPA_POD_BODY(&a->value), *db = SPA_POD_BODY(&b->value);
+		const uint32_t *da = abody, *db = bbody;
 		if (SPA_POD_BODY_SIZE(&a->value) < 4 || SPA_POD_BODY_SIZE(&b->value) < 4)
 			return 0;
 		if ((da[0] >> 28) != 2 || (da[0] >> 28) != 4 ||
@@ -699,10 +702,9 @@ static int impl_node_process(void *object)
 	struct impl *this = object;
 	struct port *outport, *inport;
 	struct spa_io_buffers *outio;
-	uint32_t n_seq;
-	struct spa_pod_sequence **seq;
-	struct spa_pod_control **ctrl;
 	struct spa_pod_builder builder;
+	uint32_t n_mix_ports;
+	struct port **mix_ports;
 	struct spa_pod_frame f;
 	struct buffer *outb;
 	struct spa_data *d;
@@ -734,14 +736,14 @@ static int impl_node_process(void *object)
                 return -EPIPE;
         }
 
-	ctrl = this->mix_ctrl;
-	seq = this->mix_seq;
-	n_seq = 0;
+	mix_ports = this->mix_ports;
+	n_mix_ports = 0;
 
 	/* collect all sequence pod on input ports */
 	spa_list_for_each(inport, &this->mix_list, mix_link) {
 		struct spa_io_buffers *inio = inport->io[cycle];
-		void *pod;
+		struct spa_pod_sequence seq;
+		const void *seq_body;
 
 		if (inio->buffer_id >= inport->n_buffers ||
 		    inio->status != SPA_STATUS_HAVE_DATA) {
@@ -756,22 +758,25 @@ static int impl_node_process(void *object)
 
 		d = inport->buffers[inio->buffer_id].buffer->datas;
 
-		if ((pod = spa_pod_from_data(d->data, d->maxsize,
-				d->chunk->offset, d->chunk->size)) == NULL) {
+		spa_pod_parser_init_from_data(&inport->parser, d->data, d->maxsize,
+				d->chunk->offset, d->chunk->size);
+
+		if (spa_pod_parser_push_sequence_body(&inport->parser,
+					&inport->frame, &seq, &seq_body) < 0) {
 			spa_log_trace_fp(this->log, "%p: skip input idx:%d max:%u "
 					"offset:%u size:%u", this, inport->id,
 					d->maxsize, d->chunk->offset, d->chunk->size);
 			continue;
 		}
-		if (!spa_pod_is_sequence(pod)) {
-			spa_log_trace_fp(this->log, "%p: skip input idx:%d", this, inport->id);
+		if (spa_pod_parser_get_control_body(&inport->parser,
+					&inport->control, &inport->control_body) < 0) {
+			spa_log_trace_fp(this->log, "%p: skip input idx:%d %u", this, inport->id, 
+					inport->parser.state.offset);
 			continue;
 		}
 
-		seq[n_seq] = pod;
-		ctrl[n_seq] = spa_pod_control_first(&seq[n_seq]->body);
+		mix_ports[n_mix_ports++] = inport;
 		inio->status = SPA_STATUS_NEED_DATA;
-		n_seq++;
 	}
 
 	d = outb->buffer->datas;
@@ -782,36 +787,38 @@ static int impl_node_process(void *object)
 
 	/* merge sort all sequences into output buffer */
 	while (true) {
-		struct spa_pod_control *next = NULL;
 		uint32_t i, next_index = 0;
+		size_t size;
+		uint8_t *body;
+		struct port *next = NULL;
+		struct spa_pod_control *control;
 
-		for (i = 0; i < n_seq; i++) {
-			if (!spa_pod_control_is_inside(&seq[i]->body,
-					SPA_POD_BODY_SIZE(seq[i]), ctrl[i]))
-				continue;
-
-			if (next == NULL || event_sort(ctrl[i], next) <= 0) {
-				next = ctrl[i];
+		for (i = 0; i < n_mix_ports; i++) {
+			struct port *p = mix_ports[i];
+			if (next == NULL || event_sort(&p->control, p->control_body,
+						&next->control, next->control_body) <= 0) {
+				next = p;
 				next_index = i;
 			}
 		}
 		if (next == NULL)
 			break;
 
-		if (control_needs_conversion(outport, next->type)) {
-			uint8_t *data = SPA_POD_BODY(&next->value);
-			size_t size = SPA_POD_BODY_SIZE(&next->value);
+		control = &next->control;
+		body = (uint8_t*)next->control_body;
+		size = SPA_POD_BODY_SIZE(&control->value);
 
-			switch (next->type) {
+		if (control_needs_conversion(outport, control->type)) {
+			switch (control->type) {
 			case SPA_CONTROL_Midi:
 			{
 				uint32_t ump[4];
 				uint64_t state = 0;
 				while (size > 0) {
-					int ump_size = spa_ump_from_midi(&data, &size, ump, sizeof(ump), 0, &state);
+					int ump_size = spa_ump_from_midi(&body, &size, ump, sizeof(ump), 0, &state);
 					if (ump_size <= 0)
 						break;
-					spa_pod_builder_control(&builder, next->offset, SPA_CONTROL_UMP);
+					spa_pod_builder_control(&builder, control->offset, SPA_CONTROL_UMP);
 					spa_pod_builder_bytes(&builder, ump, ump_size);
 				}
 				break;
@@ -819,20 +826,24 @@ static int impl_node_process(void *object)
 			case SPA_CONTROL_UMP:
 			{
 				uint8_t ev[8];
-				int ev_size = spa_ump_to_midi((uint32_t*)data, size, ev, sizeof(ev));
+				int ev_size = spa_ump_to_midi((uint32_t*)body, size, ev, sizeof(ev));
 				if (ev_size <= 0)
 					break;
-				spa_pod_builder_control(&builder, next->offset, SPA_CONTROL_Midi);
+				spa_pod_builder_control(&builder, control->offset, SPA_CONTROL_Midi);
 				spa_pod_builder_bytes(&builder, ev, ev_size);
 				break;
 			}
 			}
 		} else {
-			spa_pod_builder_control(&builder, next->offset, next->type);
-			spa_pod_builder_primitive(&builder, &next->value);
+			spa_pod_builder_control(&builder, control->offset, control->type);
+			spa_pod_builder_primitive_body(&builder, &control->value, body, size, NULL, 0);
 		}
 
-		ctrl[next_index] = spa_pod_control_next(ctrl[next_index]);
+		if (spa_pod_parser_get_control_body(&next->parser,
+					&next->control, &next->control_body) < 0) {
+			spa_pod_parser_pop(&next->parser, &next->frame);
+			mix_ports[next_index] = mix_ports[--n_mix_ports];
+		}
 	}
 	spa_pod_builder_pop(&builder, &f);
 

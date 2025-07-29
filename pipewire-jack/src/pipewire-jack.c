@@ -233,6 +233,13 @@ struct buffer {
 	uint32_t n_mem;
 };
 
+struct mix_info {
+	struct spa_pod_parser parser;
+	struct spa_pod_frame frame;
+	struct spa_pod_control control;
+	const void *control_body;
+};
+
 struct mix {
 	struct spa_list link;
 	struct spa_list port_link;
@@ -246,6 +253,8 @@ struct mix {
 	struct spa_list queue;
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
+
+	struct mix_info mix_info;
 
 	unsigned int to_free:1;
 };
@@ -1492,7 +1501,8 @@ static inline int event_compare(uint8_t s1, uint8_t s2)
 	return priotab[(s2>>4) & 7] - priotab[(s1>>4) & 7];
 }
 
-static inline int event_sort(struct spa_pod_control *a, struct spa_pod_control *b)
+static inline int event_sort(struct spa_pod_control *a, const void *abody,
+		struct spa_pod_control *b, const void *bbody)
 {
 	if (a->offset < b->offset)
 		return -1;
@@ -1503,14 +1513,14 @@ static inline int event_sort(struct spa_pod_control *a, struct spa_pod_control *
 	switch(a->type) {
 	case SPA_CONTROL_Midi:
 	{
-		uint8_t *sa = SPA_POD_BODY(&a->value), *sb = SPA_POD_BODY(&b->value);
+		const uint8_t *sa = abody, *sb = bbody;
 		if (SPA_POD_BODY_SIZE(&a->value) < 1 || SPA_POD_BODY_SIZE(&b->value) < 1)
 			return 0;
 		return event_compare(sa[0], sb[0]);
 	}
 	case SPA_CONTROL_UMP:
 	{
-		uint32_t *sa = SPA_POD_BODY(&a->value), *sb = SPA_POD_BODY(&b->value);
+		const uint32_t *sa = abody, *sb = bbody;
 		if (SPA_POD_BODY_SIZE(&a->value) < 4 || SPA_POD_BODY_SIZE(&b->value) < 4)
 			return 0;
 		if ((sa[0] >> 28) != 2 || (sa[0] >> 28) != 4 ||
@@ -1598,56 +1608,54 @@ static inline int midi_event_write(void *port_buffer,
 	return 0;
 }
 
-static void convert_to_event(struct spa_pod_sequence **seq, uint32_t n_seq, void *midi, bool fix, uint32_t type)
+static void convert_to_event(struct mix_info **mix, uint32_t n_mix, void *midi, bool fix, uint32_t type)
 {
-	struct spa_pod_control *c[n_seq];
 	uint64_t state = 0;
 	uint32_t i;
 	int res = 0;
 	bool in_sysex = false;
 
-	for (i = 0; i < n_seq; i++)
-		c[i] = spa_pod_control_first(&seq[i]->body);
-
 	while (true) {
-		struct spa_pod_control *next = NULL;
+		struct mix_info *next = NULL;
 		uint32_t next_index = 0;
+		struct spa_pod_control *control;
+		size_t size;
+		uint8_t *data;
 
-		for (i = 0; i < n_seq; i++) {
-			if (!spa_pod_control_is_inside(&seq[i]->body,
-						SPA_POD_BODY_SIZE(seq[i]), c[i]))
-				continue;
-
-			if (next == NULL || event_sort(c[i], next) <= 0) {
-				next = c[i];
+		for (i = 0; i < n_mix; i++) {
+			struct mix_info *m = mix[i];
+			if (next == NULL || event_sort(&m->control, m->control_body,
+						&next->control, next->control_body) <= 0) {
+				next = m;
 				next_index = i;
 			}
 		}
 		if (SPA_UNLIKELY(next == NULL))
 			break;
 
-		switch(next->type) {
+		control = &next->control;
+		data = (uint8_t*)next->control_body;
+		size = SPA_POD_BODY_SIZE(&control->value);
+
+		switch(control->type) {
 		case SPA_CONTROL_OSC:
 			if (!TYPE_ID_CAN_OSC(type))
 				break;
 			SPA_FALLTHROUGH;
 		case SPA_CONTROL_Midi:
 		{
-			uint8_t *data = SPA_POD_BODY(&next->value);
-			size_t size = SPA_POD_BODY_SIZE(&next->value);
-
 			if (type == TYPE_ID_UMP) {
 				while (size > 0) {
 					uint32_t ump[4];
 					int ump_size = spa_ump_from_midi(&data, &size, ump, sizeof(ump), 0, &state);
 					if (ump_size <= 0)
 						break;
-					if ((res = midi_event_write(midi, next->offset,
+					if ((res = midi_event_write(midi, control->offset,
 								(uint8_t*)ump, ump_size, false)) < 0)
 						break;
 				}
 			} else {
-				res = midi_event_write(midi, next->offset, data, size, fix);
+				res = midi_event_write(midi, control->offset, data, size, fix);
 			}
 			if (res < 0)
 				pw_log_warn("midi %p: can't write event: %s", midi,
@@ -1656,13 +1664,12 @@ static void convert_to_event(struct spa_pod_sequence **seq, uint32_t n_seq, void
 		}
 		case SPA_CONTROL_UMP:
 		{
-			void *data = SPA_POD_BODY(&next->value);
-			size_t size = SPA_POD_BODY_SIZE(&next->value);
 			uint8_t ev[32];
 			bool was_sysex = in_sysex;
 
 			if (type == TYPE_ID_MIDI) {
-				int ev_size = spa_ump_to_midi(data, size, ev, sizeof(ev));
+				uint32_t *d = (uint32_t*)data;
+				int ev_size = spa_ump_to_midi(d, size, ev, sizeof(ev));
 				if (ev_size <= 0)
 					break;
 
@@ -1680,14 +1687,18 @@ static void convert_to_event(struct spa_pod_sequence **seq, uint32_t n_seq, void
 			if (was_sysex)
 				res = midi_event_append(midi, data, size);
 			else
-				res = midi_event_write(midi, next->offset, data, size, fix);
+				res = midi_event_write(midi, control->offset, data, size, fix);
 
 			if (res < 0)
 				pw_log_warn("midi %p: can't write event: %s", midi,
 						spa_strerror(res));
 		}
 		}
-		c[next_index] = spa_pod_control_next(c[next_index]);
+		if (spa_pod_parser_get_control_body(&next->parser,
+					&next->control, &next->control_body) < 0) {
+			spa_pod_parser_pop(&next->parser, &next->frame);
+			mix[next_index] = mix[--n_mix];
+		}
 	}
 }
 
@@ -5790,13 +5801,15 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 	struct mix *mix;
 	void *ptr = p->emptyptr;
 	struct midi_buffer *mb = (struct midi_buffer*)midi_scratch;
-	struct spa_pod_sequence *seq[MAX_MIX];
-	uint32_t n_seq = 0;
+	struct mix_info *mix_info[MAX_MIX];
+	uint32_t n_mix_info = 0;
 
 	spa_list_for_each(mix, &p->mix, port_link) {
 		struct spa_data *d;
 		struct buffer *b;
-		void *pod;
+		struct mix_info *mi = &mix->mix_info;
+		struct spa_pod_sequence seq;
+		const void *seq_body;
 
 		if (mix->id == SPA_ID_INVALID)
 			continue;
@@ -5808,21 +5821,24 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 			continue;
 
 		d = &b->datas[0];
+		spa_pod_parser_init_from_data(&mi->parser, d->data, d->maxsize,
+				d->chunk->offset, d->chunk->size);
+		if (spa_pod_parser_push_sequence_body(&mi->parser,
+					&mi->frame, &seq, &seq_body) < 0)
+                        continue;
+                if (spa_pod_parser_get_control_body(&mi->parser,
+                                        &mi->control, &mi->control_body) < 0)
+                        continue;
 
-		if ((pod = spa_pod_from_data(d->data, d->maxsize, d->chunk->offset, d->chunk->size)) == NULL)
-			continue;
-		if (!spa_pod_is_sequence(pod))
-			continue;
-
-		seq[n_seq++] = pod;
-		if (n_seq == MAX_MIX)
+		mix_info[n_mix_info++] = mi;
+		if (n_mix_info == MAX_MIX)
 			break;
 	}
 	midi_init_buffer(mb, MIDI_SCRATCH_FRAMES, frames);
 	/* first convert to a thread local scratch buffer, then memcpy into
 	 * the per port buffer. This makes it possible to call this function concurrently
 	 * but also have different pointers per port */
-	convert_to_event(seq, n_seq, mb, p->client->fix_midi_events, p->object->port.type_id);
+	convert_to_event(mix_info, n_mix_info, mb, p->client->fix_midi_events, p->object->port.type_id);
 	memcpy(ptr, mb, sizeof(struct midi_buffer) + (mb->event_count
                               * sizeof(struct midi_event)));
 	if (mb->write_pos > 0) {
@@ -5889,21 +5905,26 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 			goto done;
 
 		if (TYPE_ID_IS_EVENT(o->port.type_id)) {
-			struct spa_pod_sequence *seq[1];
+			struct mix_info *mix_info[1], mi;
 			struct spa_data *d;
-			void *pod;
+			struct spa_pod_sequence seq;
+			const void *seq_body;
 
 			ptr = midi_scratch;
 			midi_init_buffer(ptr, MIDI_SCRATCH_FRAMES, frames);
 
 			d = &b->datas[0];
-			if ((pod = spa_pod_from_data(d->data, d->maxsize,
-							d->chunk->offset, d->chunk->size)) == NULL)
+			spa_pod_parser_init_from_data(&mi.parser, d->data, d->maxsize,
+					d->chunk->offset, d->chunk->size);
+			if (spa_pod_parser_push_sequence_body(&mi.parser,
+						&mi.frame, &seq, &seq_body) < 0)
 				goto done;
-			if (!spa_pod_is_sequence(pod))
+	                if (spa_pod_parser_get_control_body(&mi.parser,
+	                                        &mi.control, &mi.control_body) < 0)
 				goto done;
-			seq[0] = pod;
-			convert_to_event(seq, 1, ptr, c->fix_midi_events, o->port.type_id);
+
+			mix_info[0] = &mi;
+			convert_to_event(mix_info, 1, ptr, c->fix_midi_events, o->port.type_id);
 		} else {
 			ptr = get_buffer_data(b, frames);
 		}

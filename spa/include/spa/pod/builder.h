@@ -595,6 +595,17 @@ do {										\
 			spa_pod_builder_primitive(builder, pod);		\
 		break;								\
 	}									\
+	case 'Q':								\
+	case 'N':								\
+	case 'U':								\
+	case 'W':								\
+	{									\
+		struct spa_pod *pod = va_arg(args, struct spa_pod *);		\
+		const void *body = va_arg(args, const void *);			\
+		spa_pod_builder_primitive_body(builder, pod,			\
+					body, pod->size, NULL, 0);		\
+		break;								\
+	}									\
 	}									\
 } while(false)
 

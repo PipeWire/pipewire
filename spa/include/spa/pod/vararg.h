@@ -82,6 +82,12 @@ extern "C" {
 #define SPA_POD_PodStruct(val)				"T", val
 #define SPA_POD_PodChoice(val)				"V", val
 
+#define SPA_POD_PodBody(val,body)			"Q", val, body
+#define SPA_POD_PodBodyObject(val,body)			"N", val, body
+#define SPA_POD_PodBodyStruct(val,body)			"U", val, body
+#define SPA_POD_PodBodyChoice(val,body)			"W", val, body
+
+
 /**
  * \}
  */

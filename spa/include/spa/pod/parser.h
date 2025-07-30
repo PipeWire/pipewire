@@ -540,6 +540,7 @@ SPA_API_POD_PARSER bool spa_pod_parser_body_can_collect(const struct spa_pod *po
 
 	switch (type) {
 	case 'P':
+	case 'Q':
 		return true;
 	case 'b':
 		return spa_pod_is_bool(pod);
@@ -572,10 +573,13 @@ SPA_API_POD_PARSER bool spa_pod_parser_body_can_collect(const struct spa_pod *po
 	case 'h':
 		return spa_pod_is_fd(pod);
 	case 'T':
+	case 'U':
 		return spa_pod_is_struct(pod) || spa_pod_is_none(pod);
+	case 'N':
 	case 'O':
 		return spa_pod_is_object(pod) || spa_pod_is_none(pod);
 	case 'V':
+	case 'W':
 	default:
 		return false;
 	}
@@ -671,6 +675,17 @@ do {											\
 		if (d)									\
 			*d = ((pod)->type == SPA_TYPE_None) ?				\
 			NULL : SPA_PTROFF((body), -sizeof(struct spa_pod), const struct spa_pod);	\
+		break;									\
+	}										\
+	case 'Q':									\
+	case 'U':									\
+	case 'N':									\
+	case 'W':									\
+	{										\
+		struct spa_pod *p = va_arg(args, struct spa_pod*);			\
+		const void **v = va_arg(args, const void **);				\
+		*p = *pod;								\
+		*v = body;								\
 		break;									\
 	}										\
 	default:									\
@@ -807,6 +822,10 @@ SPA_API_POD_PARSER int spa_pod_parser_get(struct spa_pod_parser *parser, ...)
 #define SPA_POD_OPT_PodObject(val)			"?" SPA_POD_PodObject(val)
 #define SPA_POD_OPT_PodStruct(val)			"?" SPA_POD_PodStruct(val)
 #define SPA_POD_OPT_PodChoice(val)			"?" SPA_POD_PodChoice(val)
+#define SPA_POD_OPT_PodBody(val,body)			"?" SPA_POD_PodBody(val,body)
+#define SPA_POD_OPT_PodBodyObject(val,body)		"?" SPA_POD_PodBodyObject(val,body)
+#define SPA_POD_OPT_PodBodyStruct(val,body)		"?" SPA_POD_PodBodyStruct(val,body)
+#define SPA_POD_OPT_PodBodyChoice(val,body)		"?" SPA_POD_PodBodyChoice(val,body)
 
 #define spa_pod_parser_get_object(p,type,id,...)				\
 ({										\

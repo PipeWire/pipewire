@@ -1902,6 +1902,7 @@ static const struct spa_bt_telephony_ag_callbacks telephony_ag_callbacks = {
 
 static void hfp_hf_remove_disconnected_calls(struct rfcomm *rfcomm)
 {
+	struct impl *backend = rfcomm->backend;
 	struct spa_bt_telephony_call *call, *call_tmp;
 	struct updated_call *updated_call;
 	bool found;
@@ -1914,6 +1915,8 @@ static void hfp_hf_remove_disconnected_calls(struct rfcomm *rfcomm)
 				break;
 			}
 		}
+
+		spa_log_debug(backend->log, "call %d -> %s", call->id, found ? "updated" : "disconnected");
 
 		if (!found) {
 			call->state = CALL_STATE_DISCONNECTED;

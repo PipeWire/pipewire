@@ -813,9 +813,13 @@ static int process_write(struct seq_state *state)
 	spa_list_for_each(port, &stream->mix_list, mix_link) {
 		struct spa_io_buffers *io = port->io;
 		struct buffer *buffer;
-		struct spa_pod_sequence *pod;
+		struct spa_pod_parser parser;
+		struct spa_pod_frame frame;
+		struct spa_pod_sequence seq;
+		const void *seq_body;
 		struct spa_data *d;
-		struct spa_pod_control *c;
+		struct spa_pod_control c;
+		const void *c_body;
 		uint64_t out_time;
 		snd_seq_real_time_t out_rt;
 		bool first = true;
@@ -831,24 +835,25 @@ static int process_write(struct seq_state *state)
 		spa_node_call_reuse_buffer(&state->callbacks, port->id, io->buffer_id);
 		res |= SPA_STATUS_NEED_DATA;
 
-		pod = spa_pod_from_data(d->data, d->maxsize, d->chunk->offset, d->chunk->size);
-		if (pod == NULL) {
+		spa_pod_parser_init_from_data(&parser, d->data, d->maxsize,
+			d->chunk->offset, d->chunk->size);
+
+		if (spa_pod_parser_push_sequence_body(&parser, &frame, &seq, &seq_body) < 0) {
 			spa_log_warn(state->log, "invalid sequence in buffer max:%u offset:%u size:%u",
 					d->maxsize, d->chunk->offset, d->chunk->size);
 			continue;
 		}
-
-		SPA_POD_SEQUENCE_FOREACH(pod, c) {
+		while (spa_pod_parser_get_control_body(&parser, &c, &c_body) >= 0) {
 			size_t body_size;
 			uint8_t *body;
 
-			if (c->type != SPA_CONTROL_UMP)
+			if (c.type != SPA_CONTROL_UMP)
 				continue;
 
-			body = SPA_POD_BODY(&c->value);
-			body_size = SPA_POD_BODY_SIZE(&c->value);
+			body = (uint8_t*)c_body;
+			body_size = c.value.size;
 
-			out_time = state->queue_time + NSEC_FROM_CLOCK(&state->rate, c->offset);
+			out_time = state->queue_time + NSEC_FROM_CLOCK(&state->rate, c.offset);
 			out_rt.tv_nsec = out_time % SPA_NSEC_PER_SEC;
 			out_rt.tv_sec = out_time / SPA_NSEC_PER_SEC;
 

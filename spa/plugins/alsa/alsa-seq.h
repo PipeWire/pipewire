@@ -53,6 +53,8 @@ struct buffer {
 };
 
 struct seq_port {
+	struct spa_list link;
+
 	uint32_t id;
 	enum spa_direction direction;
 	snd_seq_addr_t addr;
@@ -82,18 +84,21 @@ struct seq_port {
 
 	struct spa_audio_info current_format;
 	unsigned int have_format:1;
-	unsigned int valid:1;
 	unsigned int active:1;
 
 	struct spa_latency_info latency[2];
+
+	unsigned int mixing:1;
+	struct spa_list mix_link;
 };
 
 struct seq_stream {
 	enum spa_direction direction;
 	unsigned int caps;
 	snd_midi_event_t *codec;
-	struct seq_port ports[MAX_PORTS];
-	uint32_t last_port;
+	struct seq_port *ports[MAX_PORTS];
+	struct spa_list port_list;
+	struct spa_list mix_list;
 };
 
 struct seq_conn {
@@ -159,17 +164,18 @@ struct seq_state {
 	unsigned int ump:1;
 
 	struct seq_stream streams[2];
+	struct spa_list free_list;
 
 	struct spa_dll dll;
 };
 
 #define VALID_DIRECTION(this,d)		((d) == SPA_DIRECTION_INPUT || (d) == SPA_DIRECTION_OUTPUT)
-#define VALID_PORT(this,d,p)		((p) < MAX_PORTS && this->streams[d].ports[p].id == (p))
+#define VALID_PORT(this,d,p)		((p) < MAX_PORTS && this->streams[d].ports[p] != NULL)
 #define CHECK_IN_PORT(this,d,p)		((d) == SPA_DIRECTION_INPUT && VALID_PORT(this,d,p))
 #define CHECK_OUT_PORT(this,d,p)	((d) == SPA_DIRECTION_OUTPUT && VALID_PORT(this,d,p))
 #define CHECK_PORT(this,d,p)		(VALID_DIRECTION(this,d) && VALID_PORT(this,d,p))
 
-#define GET_PORT(this,d,p)		(&this->streams[d].ports[p])
+#define GET_PORT(this,d,p)		(this->streams[d].ports[p])
 
 int spa_alsa_seq_open(struct seq_state *state);
 int spa_alsa_seq_close(struct seq_state *state);

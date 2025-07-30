@@ -167,13 +167,17 @@ static int init_stream(struct seq_state *state, enum spa_direction direction)
 		return res;
 	}
 	snd_midi_event_no_status(stream->codec, 1);
-	memset(stream->ports, 0, sizeof(stream->ports));
+
+	spa_list_init(&stream->port_list);
+	spa_list_init(&stream->mix_list);
 	return 0;
 }
 
 static int uninit_stream(struct seq_state *state, enum spa_direction direction)
 {
 	struct seq_stream *stream = &state->streams[direction];
+	spa_list_insert_list(&state->free_list, &stream->port_list);
+	spa_list_insert_list(&state->free_list, &stream->mix_list);
 	if (stream->codec)
 		snd_midi_event_free(stream->codec);
 	stream->codec = NULL;
@@ -352,6 +356,7 @@ int spa_alsa_seq_open(struct seq_state *state)
 	if (state->opened)
 		return 0;
 
+	spa_list_init(&state->free_list);
 	init_stream(state, SPA_DIRECTION_INPUT);
 	init_stream(state, SPA_DIRECTION_OUTPUT);
 
@@ -463,6 +468,7 @@ error_close:
 int spa_alsa_seq_close(struct seq_state *state)
 {
 	int res = 0;
+	struct seq_port *port;
 
 	if (!state->opened)
 		return 0;
@@ -475,6 +481,10 @@ int spa_alsa_seq_close(struct seq_state *state)
 	uninit_stream(state, SPA_DIRECTION_INPUT);
 	uninit_stream(state, SPA_DIRECTION_OUTPUT);
 
+	spa_list_consume(port, &state->free_list, link) {
+		spa_list_remove(&port->link);
+		free(port);
+	}
 	spa_system_close(state->data_system, state->timerfd);
 	state->opened = false;
 
@@ -497,11 +507,9 @@ static int set_timeout(struct seq_state *state, uint64_t time)
 static struct seq_port *find_port(struct seq_state *state,
 		struct seq_stream *stream, const snd_seq_addr_t *addr)
 {
-	uint32_t i;
-	for (i = 0; i < stream->last_port; i++) {
-		struct seq_port *port = &stream->ports[i];
-		if (port->valid &&
-		    port->addr.client == addr->client &&
+	struct seq_port *port;
+	spa_list_for_each(port, &stream->mix_list, mix_link) {
+		if (port->addr.client == addr->client &&
 		    port->addr.port == addr->port)
 			return port;
 	}
@@ -595,15 +603,10 @@ static int prepare_buffer(struct seq_state *state, struct seq_port *port)
 static int process_recycle(struct seq_state *state)
 {
 	struct seq_stream *stream = &state->streams[SPA_DIRECTION_OUTPUT];
-	uint32_t i;
+	struct seq_port *port;
 
-	for (i = 0; i < stream->last_port; i++) {
-		struct seq_port *port = &stream->ports[i];
+	spa_list_for_each(port, &stream->mix_list, mix_link) {
 		struct spa_io_buffers *io = port->io;
-
-		if (!port->valid || io == NULL)
-			continue;
-
 		if (io->status != SPA_STATUS_HAVE_DATA &&
 		    io->buffer_id < port->n_buffers) {
 			spa_alsa_seq_recycle_buffer(state, port, io->buffer_id);
@@ -620,17 +623,16 @@ static int process_read(struct seq_state *state)
 {
 	struct seq_stream *stream = &state->streams[SPA_DIRECTION_OUTPUT];
 	const bool ump = state->ump;
-	uint32_t i;
 	uint32_t *data;
 	uint8_t midi1_data[MAX_EVENT_SIZE];
 	uint32_t ump_data[MAX_EVENT_SIZE];
 	long size;
 	int res = -1;
+	struct seq_port *port;
 
 	/* copy all new midi events into their port buffers */
 	while (1) {
 		const snd_seq_addr_t *addr;
-		struct seq_port *port;
 		uint64_t ev_time, diff;
 		uint32_t offset;
 		void *event;
@@ -753,12 +755,8 @@ done:
 	/* prepare a buffer on each port, some ports might have their
 	 * buffer filled above */
 	res = 0;
-	for (i = 0; i < stream->last_port; i++) {
-		struct seq_port *port = &stream->ports[i];
+	spa_list_for_each(port, &stream->mix_list, mix_link) {
 		struct spa_io_buffers *io = port->io;
-
-		if (!port->valid || io == NULL)
-			continue;
 
 		if (prepare_buffer(state, port) >= 0) {
 			spa_pod_builder_pop(&port->builder, &port->frame);
@@ -809,11 +807,10 @@ static int process_write(struct seq_state *state)
 {
 	struct seq_stream *stream = &state->streams[SPA_DIRECTION_INPUT];
 	const bool ump = state->ump;
-	uint32_t i;
 	int err, res = 0;
+	struct seq_port *port;
 
-	for (i = 0; i < stream->last_port; i++) {
-		struct seq_port *port = &stream->ports[i];
+	spa_list_for_each(port, &stream->mix_list, mix_link) {
 		struct spa_io_buffers *io = port->io;
 		struct buffer *buffer;
 		struct spa_pod_sequence *pod;
@@ -823,9 +820,6 @@ static int process_write(struct seq_state *state)
 		snd_seq_real_time_t out_rt;
 		bool first = true;
 
-		if (!port->valid || io == NULL)
-			continue;
-
 		if (io->status != SPA_STATUS_HAVE_DATA ||
 		    io->buffer_id >= port->n_buffers)
 			continue;
@@ -834,7 +828,7 @@ static int process_write(struct seq_state *state)
 		d = &buffer->buf->datas[0];
 
 		io->status = SPA_STATUS_NEED_DATA;
-		spa_node_call_reuse_buffer(&state->callbacks, i, io->buffer_id);
+		spa_node_call_reuse_buffer(&state->callbacks, port->id, io->buffer_id);
 		res |= SPA_STATUS_NEED_DATA;
 
 		pod = spa_pod_from_data(d->data, d->maxsize, d->chunk->offset, d->chunk->size);
@@ -1078,13 +1072,10 @@ static void reset_buffers(struct seq_state *this, struct seq_port *port)
 }
 static void reset_stream(struct seq_state *this, struct seq_stream *stream, bool active)
 {
-	uint32_t i;
-	for (i = 0; i < stream->last_port; i++) {
-		struct seq_port *port = &stream->ports[i];
-		if (port->valid) {
-			reset_buffers(this, port);
-			spa_alsa_seq_activate_port(this, port, active);
-		}
+	struct seq_port *port;
+	spa_list_for_each(port, &stream->port_list, link) {
+		reset_buffers(this, port);
+		spa_alsa_seq_activate_port(this, port, active);
 	}
 }
 

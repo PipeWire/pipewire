@@ -2307,8 +2307,6 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 		} else {
 			spa_log_warn(backend->log, "malformed +CLCC command received from AG");
 		}
-
-		rfcomm->hfp_hf_in_progress = false;
 	} else if (spa_strstartswith(token, "OK") || spa_strstartswith(token, "ERROR") ||
 				spa_strstartswith(token, "+CME ERROR:")) {
 
@@ -2411,6 +2409,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 				break;
 			case hfp_hf_clcc_update:
 				hfp_hf_remove_disconnected_calls(rfcomm);
+				rfcomm->hfp_hf_in_progress = false;
 				break;
 			case hfp_hf_chld1_hangup:
 				/* For HFP/HF/TWC/BV-03-C - see 0e92ab9307e05758b3f70b4c0648e29c1d1e50be */

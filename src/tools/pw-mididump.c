@@ -62,11 +62,14 @@ static void on_process(void *_data, struct spa_io_position *position)
 	struct pw_buffer *b;
 	struct spa_buffer *buf;
 	struct spa_data *d;
-	struct spa_pod *pod;
-	struct spa_pod_control *c;
-	uint64_t frame;
+	struct spa_pod_parser parser;
+	struct spa_pod_frame frame;
+	struct spa_pod_sequence seq;
+	const void *seq_body, *c_body;
+	struct spa_pod_control c;
+	uint64_t offset;
 
-	frame = data->clock_time;
+	offset = data->clock_time;
 	data->clock_time += position->clock.duration;
 
 	b = pw_filter_dequeue_buffer(data->in_port);
@@ -79,24 +82,24 @@ static void on_process(void *_data, struct spa_io_position *position)
 	if (d->data == NULL)
 		goto done;
 
-	if ((pod = spa_pod_from_data(d->data, d->maxsize, d->chunk->offset, d->chunk->size)) == NULL)
-		goto done;
-	if (!spa_pod_is_sequence(pod))
+	spa_pod_parser_init_from_data(&parser, d->data, d->maxsize, d->chunk->offset, d->chunk->size);
+
+	if (spa_pod_parser_push_sequence_body(&parser, &frame, &seq, &seq_body) < 0)
 		goto done;
 
-	SPA_POD_SEQUENCE_FOREACH((struct spa_pod_sequence*)pod, c) {
+	while (spa_pod_parser_get_control_body(&parser, &c, &c_body) >= 0) {
 		struct midi_event ev;
 
-		if (c->type != SPA_CONTROL_UMP)
+		if (c.type != SPA_CONTROL_UMP)
 			continue;
 
 		ev.track = 0;
-		ev.sec = (frame + c->offset) / (float) position->clock.rate.denom;
-		ev.data = SPA_POD_BODY(&c->value),
-		ev.size = SPA_POD_BODY_SIZE(&c->value);
+		ev.sec = (offset + c.offset) / (float) position->clock.rate.denom;
+		ev.data = (uint8_t*)c_body;
+		ev.size = c.value.size;
 		ev.type = MIDI_EVENT_TYPE_UMP;
 
-		fprintf(stdout, "%4d: ", c->offset);
+		fprintf(stdout, "%4d: ", c.offset);
 		midi_file_dump_event(stdout, &ev);
 	}
 

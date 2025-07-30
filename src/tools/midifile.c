@@ -665,7 +665,7 @@ static const char *controller_name(uint8_t ctrl)
 	return controller_names[ctrl];
 }
 
-static void dump_mem(FILE *out, const char *label, uint8_t *data, uint32_t size)
+static void dump_mem(FILE *out, const char *label, const uint8_t *data, uint32_t size)
 {
 	fprintf(out, "%s: ", label);
 	while (size--)

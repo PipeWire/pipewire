@@ -1174,28 +1174,31 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames, bool *nul
 
 static int midi_record(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
 {
-	struct spa_pod *pod;
-	struct spa_pod_control *c;
-	uint32_t frame;
+	struct spa_pod_parser parser;
+	struct spa_pod_frame frame;
+	struct spa_pod_sequence seq;
+	const void *seq_body, *c_body;
+	struct spa_pod_control c;
+	uint32_t offset;
 
-	frame = d->clock_time;
+	offset = d->clock_time;
 	d->clock_time += d->position->clock.duration;
 
-	if ((pod = spa_pod_from_data(src, n_frames, 0, n_frames)) == NULL)
-		return 0;
-	if (!spa_pod_is_sequence(pod))
+	spa_pod_parser_init_from_data(&parser, src, n_frames, 0, n_frames);
+
+	if (spa_pod_parser_push_sequence_body(&parser, &frame, &seq, &seq_body) < 0)
 		return 0;
 
-	SPA_POD_SEQUENCE_FOREACH((struct spa_pod_sequence*)pod, c) {
+	while (spa_pod_parser_get_control_body(&parser, &c, &c_body) >= 0) {
 		struct midi_event ev;
 
-		if (c->type != SPA_CONTROL_UMP)
+		if (c.type != SPA_CONTROL_UMP)
 			continue;
 
 		ev.track = 0;
-		ev.sec = (frame + c->offset) / (float) d->position->clock.rate.denom;
-		ev.data = SPA_POD_BODY(&c->value),
-		ev.size = SPA_POD_BODY_SIZE(&c->value);
+		ev.sec = (offset + c.offset) / (float) d->position->clock.rate.denom;
+		ev.data = (uint8_t*)c_body;
+		ev.size = c.value.size;
 		ev.type = MIDI_EVENT_TYPE_UMP;
 
 		if (d->verbose)

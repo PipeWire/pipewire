@@ -858,7 +858,7 @@ static int process_write(struct seq_state *state)
 			out_rt.tv_sec = out_time / SPA_NSEC_PER_SEC;
 
 			spa_log_trace_fp(state->log, "event time:%"PRIu64" offset:%d size:%zd port:%d.%d",
-					out_time, c->offset, body_size, port->addr.client, port->addr.port);
+					out_time, c.offset, body_size, port->addr.client, port->addr.port);
 
 			if (ump) {
 #ifdef HAVE_ALSA_UMP

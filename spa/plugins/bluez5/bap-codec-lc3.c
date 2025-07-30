@@ -480,8 +480,6 @@ static bool select_bap_qos(struct bap_qos *conf,
 			continue;
 		if (!(get_duration_mask(c.frame_duration) & duration_mask))
 			continue;
-		if (c.framing)
-			continue;  /* XXX: framing not supported */
 		if (c.framelen < framelen_min || c.framelen > framelen_max)
 			continue;
 
@@ -1079,7 +1077,11 @@ static int codec_get_qos(const struct media_codec *codec,
 		return -EINVAL;
 	}
 
-	qos->framing = false;
+	if (endpoint_qos->framing == 0x01)
+		qos->framing = true;
+	else
+		qos->framing = bap_qos.framing;
+
 	if (endpoint_qos->phy & 0x2)
 		qos->phy = 0x2;
 	else if (endpoint_qos->phy & 0x1)

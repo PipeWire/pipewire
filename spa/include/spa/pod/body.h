@@ -327,8 +327,6 @@ SPA_API_POD_BODY int spa_pod_body_get_choice(const struct spa_pod *pod, const vo
 		return -EINVAL;
 	choice->pod = *pod;
 	memcpy(&choice->body, body, sizeof(struct spa_pod_choice_body));
-	if (choice->pod.size - sizeof(struct spa_pod_choice_body) < choice->body.child.size)
-		return -EINVAL;
 	*choice_body = SPA_PTROFF(body, sizeof(struct spa_pod_choice_body), void);
 	return 0;
 }

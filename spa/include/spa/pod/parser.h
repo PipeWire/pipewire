@@ -201,8 +201,10 @@ SPA_API_POD_PARSER int spa_pod_parser_get_bool(struct spa_pod_parser *parser, bo
 	const void *body;
 	if ((res = spa_pod_parser_current_body(parser, &pod, &body)) < 0)
 		return res;
-	if ((res = spa_pod_body_get_bool(&pod, body, value)) >= 0)
-		spa_pod_parser_advance(parser, &pod);
+	if (!spa_pod_is_bool(&pod))
+		return -EINVAL;
+	spa_pod_body_get_bool(&pod, body, value);
+	spa_pod_parser_advance(parser, &pod);
 	return res;
 }
 
@@ -213,8 +215,10 @@ SPA_API_POD_PARSER int spa_pod_parser_get_id(struct spa_pod_parser *parser, uint
 	const void *body;
 	if ((res = spa_pod_parser_current_body(parser, &pod, &body)) < 0)
 		return res;
-	if ((res = spa_pod_body_get_id(&pod, body, value)) >= 0)
-		spa_pod_parser_advance(parser, &pod);
+	if (!spa_pod_is_id(&pod))
+		return -EINVAL;
+	spa_pod_body_get_id(&pod, body, value);
+	spa_pod_parser_advance(parser, &pod);
 	return res;
 }
 
@@ -225,8 +229,10 @@ SPA_API_POD_PARSER int spa_pod_parser_get_int(struct spa_pod_parser *parser, int
 	const void *body;
 	if ((res = spa_pod_parser_current_body(parser, &pod, &body)) < 0)
 		return res;
-	if ((res = spa_pod_body_get_int(&pod, body, value)) >= 0)
-		spa_pod_parser_advance(parser, &pod);
+	if (!spa_pod_is_int(&pod))
+		return -EINVAL;
+	spa_pod_body_get_int(&pod, body, value);
+	spa_pod_parser_advance(parser, &pod);
 	return res;
 }
 
@@ -237,8 +243,10 @@ SPA_API_POD_PARSER int spa_pod_parser_get_long(struct spa_pod_parser *parser, in
 	const void *body;
 	if ((res = spa_pod_parser_current_body(parser, &pod, &body)) < 0)
 		return res;
-	if ((res = spa_pod_body_get_long(&pod, body, value)) >= 0)
-		spa_pod_parser_advance(parser, &pod);
+	if (!spa_pod_is_long(&pod))
+		return -EINVAL;
+	spa_pod_body_get_long(&pod, body, value);
+	spa_pod_parser_advance(parser, &pod);
 	return res;
 }
 
@@ -249,8 +257,10 @@ SPA_API_POD_PARSER int spa_pod_parser_get_float(struct spa_pod_parser *parser, f
 	const void *body;
 	if ((res = spa_pod_parser_current_body(parser, &pod, &body)) < 0)
 		return res;
-	if ((res = spa_pod_body_get_float(&pod, body, value)) >= 0)
-		spa_pod_parser_advance(parser, &pod);
+	if (!spa_pod_is_float(&pod))
+		return -EINVAL;
+	spa_pod_body_get_float(&pod, body, value);
+	spa_pod_parser_advance(parser, &pod);
 	return res;
 }
 
@@ -261,8 +271,10 @@ SPA_API_POD_PARSER int spa_pod_parser_get_double(struct spa_pod_parser *parser, 
 	const void *body;
 	if ((res = spa_pod_parser_current_body(parser, &pod, &body)) < 0)
 		return res;
-	if ((res = spa_pod_body_get_double(&pod, body, value)) >= 0)
-		spa_pod_parser_advance(parser, &pod);
+	if (!spa_pod_is_double(&pod))
+		return -EINVAL;
+	spa_pod_body_get_double(&pod, body, value);
+	spa_pod_parser_advance(parser, &pod);
 	return res;
 }
 
@@ -273,8 +285,10 @@ SPA_API_POD_PARSER int spa_pod_parser_get_string(struct spa_pod_parser *parser, 
 	const void *body;
 	if ((res = spa_pod_parser_current_body(parser, &pod, &body)) < 0)
 		return res;
-	if ((res = spa_pod_body_get_string(&pod, body, value)) >= 0)
-		spa_pod_parser_advance(parser, &pod);
+	if (!spa_pod_is_string(&pod))
+		return -EINVAL;
+	spa_pod_body_get_string(&pod, body, value);
+	spa_pod_parser_advance(parser, &pod);
 	return res;
 }
 
@@ -285,8 +299,10 @@ SPA_API_POD_PARSER int spa_pod_parser_get_bytes(struct spa_pod_parser *parser, c
 	const void *body;
 	if ((res = spa_pod_parser_current_body(parser, &pod, &body)) < 0)
 		return res;
-	if ((res = spa_pod_body_get_bytes(&pod, body, value, len)) >= 0)
-		spa_pod_parser_advance(parser, &pod);
+	if (!spa_pod_is_bytes(&pod))
+		return -EINVAL;
+	spa_pod_body_get_bytes(&pod, body, value, len);
+	spa_pod_parser_advance(parser, &pod);
 	return res;
 }
 
@@ -297,8 +313,10 @@ SPA_API_POD_PARSER int spa_pod_parser_get_pointer(struct spa_pod_parser *parser,
 	const void *body;
 	if ((res = spa_pod_parser_current_body(parser, &pod, &body)) < 0)
 		return res;
-	if ((res = spa_pod_body_get_pointer(&pod, body, type, value)) >= 0)
-		spa_pod_parser_advance(parser, &pod);
+	if (!spa_pod_is_pointer(&pod))
+		return -EINVAL;
+	spa_pod_body_get_pointer(&pod, body, type, value);
+	spa_pod_parser_advance(parser, &pod);
 	return res;
 }
 
@@ -309,8 +327,10 @@ SPA_API_POD_PARSER int spa_pod_parser_get_fd(struct spa_pod_parser *parser, int6
 	const void *body;
 	if ((res = spa_pod_parser_current_body(parser, &pod, &body)) < 0)
 		return res;
-	if ((res = spa_pod_body_get_fd(&pod, body, value)) >= 0)
-		spa_pod_parser_advance(parser, &pod);
+	if (!spa_pod_is_fd(&pod))
+		return -EINVAL;
+	spa_pod_body_get_fd(&pod, body, value);
+	spa_pod_parser_advance(parser, &pod);
 	return res;
 }
 
@@ -321,8 +341,10 @@ SPA_API_POD_PARSER int spa_pod_parser_get_rectangle(struct spa_pod_parser *parse
 	const void *body;
 	if ((res = spa_pod_parser_current_body(parser, &pod, &body)) < 0)
 		return res;
-	if ((res = spa_pod_body_get_rectangle(&pod, body, value)) >= 0)
-		spa_pod_parser_advance(parser, &pod);
+	if (!spa_pod_is_rectangle(&pod))
+		return -EINVAL;
+	spa_pod_body_get_rectangle(&pod, body, value);
+	spa_pod_parser_advance(parser, &pod);
 	return res;
 }
 
@@ -333,8 +355,10 @@ SPA_API_POD_PARSER int spa_pod_parser_get_fraction(struct spa_pod_parser *parser
 	const void *body;
 	if ((res = spa_pod_parser_current_body(parser, &pod, &body)) < 0)
 		return res;
-	if ((res = spa_pod_body_get_fraction(&pod, body, value)) >= 0)
-		spa_pod_parser_advance(parser, &pod);
+	if (!spa_pod_is_fraction(&pod))
+		return -EINVAL;
+	spa_pod_body_get_fraction(&pod, body, value);
+	spa_pod_parser_advance(parser, &pod);
 	return res;
 }
 
@@ -394,12 +418,10 @@ SPA_API_POD_PARSER int spa_pod_parser_init_object_body(struct spa_pod_parser *pa
 		struct spa_pod_frame *frame, const struct spa_pod *pod, const void *body,
 		struct spa_pod_object *object, const void **object_body)
 {
-	int res;
 	if (!spa_pod_is_object(pod))
 		return -EINVAL;
 	spa_pod_parser_init_pod_body(parser, pod, body);
-	if ((res = spa_pod_body_get_object(pod, body, object, object_body)) < 0)
-		return res;
+	spa_pod_body_get_object(pod, body, object, object_body);
 	spa_pod_parser_push(parser, frame, pod, parser->state.offset);
 	parser->state.offset += sizeof(struct spa_pod_object);
 	return 0;
@@ -413,8 +435,9 @@ SPA_API_POD_PARSER int spa_pod_parser_push_object_body(struct spa_pod_parser *pa
 	const void *body;
 	if ((res = spa_pod_parser_current_body(parser, &pod, &body)) < 0)
 		return res;
-	if ((res = spa_pod_body_get_object(&pod, body, object, object_body)) < 0)
-		return res;
+	if (!spa_pod_is_object(&pod))
+		return -EINVAL;
+	spa_pod_body_get_object(&pod, body, object, object_body);
 	spa_pod_parser_push(parser, frame, &pod, parser->state.offset);
 	parser->state.offset += sizeof(struct spa_pod_object);
 	return 0;
@@ -454,8 +477,9 @@ SPA_API_POD_PARSER int spa_pod_parser_push_sequence_body(struct spa_pod_parser *
 	const void *body;
 	if ((res = spa_pod_parser_current_body(parser, &pod, &body)) < 0)
 		return res;
-	if ((res = spa_pod_body_get_sequence(&pod, body, seq, seq_body)) < 0)
-		return res;
+	if (!spa_pod_is_sequence(&pod))
+		return -EINVAL;
+	spa_pod_body_get_sequence(&pod, body, seq, seq_body);
 	spa_pod_parser_push(parser, frame, &pod, parser->state.offset);
 	parser->state.offset += sizeof(struct spa_pod_sequence);
 	return 0;
@@ -508,8 +532,7 @@ SPA_API_POD_PARSER bool spa_pod_parser_body_can_collect(const struct spa_pod *po
 			return false;
 		if (type == 'V')
 			return true;
-		if (spa_pod_body_get_choice(pod, body, &choice, &body) < 0)
-			return false;
+		spa_pod_body_get_choice(pod, body, &choice, &body);
 		if (choice.body.type != SPA_CHOICE_None)
 			return false;
 		pod = &choice.body.child;
@@ -566,72 +589,78 @@ SPA_API_POD_PARSER bool spa_pod_parser_can_collect(const struct spa_pod *pod, ch
 do {											\
 	switch (_type) {								\
 	case 'b':									\
-		*va_arg(args, bool*) = !!*((int32_t*)(body));				\
+		spa_pod_body_get_bool(pod, body, va_arg(args, bool*));			\
 		break;									\
 	case 'I':									\
+		spa_pod_body_get_id(pod, body, va_arg(args, uint32_t*));		\
+		break;									\
 	case 'i':									\
-		*va_arg(args, int32_t*) = *((int32_t*)(body));				\
+		spa_pod_body_get_int(pod, body, va_arg(args, int32_t*));		\
 		break;									\
 	case 'l':									\
-		*va_arg(args, int64_t*) = *((int64_t*)(body));				\
+		spa_pod_body_get_long(pod, body, va_arg(args, int64_t*));		\
 		break;									\
 	case 'f':									\
-		*va_arg(args, float*) = *((float*)(body));				\
+		spa_pod_body_get_float(pod, body, va_arg(args, float*));		\
 		break;									\
 	case 'd':									\
-		*va_arg(args, double*) = *((double*)(body));				\
+		spa_pod_body_get_double(pod, body, va_arg(args, double*));		\
 		break;									\
 	case 's':									\
-		*va_arg(args, char**) = ((pod)->type == SPA_TYPE_None) ?		\
-				NULL : (char *)(body);					\
+	{										\
+		const char **dest = va_arg(args, const char**);				\
+		if ((pod)->type == SPA_TYPE_None)					\
+			*dest = NULL;							\
+		else									\
+			spa_pod_body_get_string(pod, body, dest);			\
 		break;									\
+	}										\
 	case 'S':									\
 	{										\
 		char *dest = va_arg(args, char*);					\
 		uint32_t maxlen = va_arg(args, uint32_t);				\
-		maxlen = SPA_MIN(maxlen, (pod)->size);					\
-		strncpy(dest, (char *)(body), maxlen-1);					\
-		dest[maxlen-1] = '\0';							\
+		spa_pod_body_copy_string(pod, body, dest, maxlen);			\
 		break;									\
 	}										\
 	case 'y':									\
-		*(va_arg(args, void **)) = (void*)(body);					\
-		*(va_arg(args, uint32_t *)) = (pod)->size;				\
+	{										\
+		const void **value = va_arg(args, const void**);			\
+		uint32_t *len = va_arg(args, uint32_t*);				\
+		spa_pod_body_get_bytes(pod, body, value, len);				\
 		break;									\
+	}										\
 	case 'R':									\
-		*va_arg(args, struct spa_rectangle*) =					\
-				*((struct spa_rectangle*)(body));				\
+		spa_pod_body_get_rectangle(pod, body,					\
+				va_arg(args, struct spa_rectangle*));			\
 		break;									\
 	case 'F':									\
-		*va_arg(args, struct spa_fraction*) =					\
-				*((struct spa_fraction*)(body));				\
+		spa_pod_body_get_fraction(pod, body,					\
+				va_arg(args, struct spa_fraction*));			\
 		break;									\
 	case 'B':									\
-		*va_arg(args, uint32_t **) = (uint32_t*)(body);				\
+		spa_pod_body_get_bitmap(pod, body, va_arg(args, const uint8_t**));	\
 		break;									\
 	case 'a':									\
 	{										\
-		struct spa_pod_array_body *b =						\
-				(struct spa_pod_array_body*)(body);			\
-		uint32_t child_size = b->child.size;					\
-		*va_arg(args, uint32_t*) = child_size;					\
-		*va_arg(args, uint32_t*) = b->child.type;				\
-		*va_arg(args, uint32_t*) = child_size ? 				\
-			((pod)->size - sizeof(struct spa_pod_array_body))/child_size : 0;	\
-		*va_arg(args, void**) = SPA_PTROFF(b,					\
-				sizeof(struct spa_pod_array_body), void);		\
+		struct spa_pod_array arr; 						\
+		uint32_t *val_size = va_arg(args, uint32_t*);				\
+		uint32_t *val_type = va_arg(args, uint32_t*);				\
+		uint32_t *n_values = va_arg(args, uint32_t*);				\
+		const void **arr_body = va_arg(args, const void**);			\
+		spa_pod_body_get_array(pod, body, &arr, arr_body);			\
+		spa_pod_array_body_get_values(&arr, *arr_body,				\
+				n_values, val_size, val_type);				\
 		break;									\
 	}										\
 	case 'p':									\
 	{										\
-		struct spa_pod_pointer_body *b =					\
-				(struct spa_pod_pointer_body *)(body);			\
-		*(va_arg(args, uint32_t *)) = b->type;					\
-		*(va_arg(args, const void **)) = b->value;				\
+		uint32_t *type = va_arg(args, uint32_t*);				\
+		const void **value = va_arg(args, const void**);			\
+		spa_pod_body_get_pointer(pod, body, type, value);			\
 		break;									\
 	}										\
 	case 'h':									\
-		*va_arg(args, int64_t*) = *((int64_t*)(body));				\
+		spa_pod_body_get_fd(pod, body, va_arg(args, int64_t*));			\
 		break;									\
 	case 'P':									\
 	case 'T':									\
@@ -736,8 +765,7 @@ SPA_API_POD_PARSER int spa_pod_parser_getv(struct spa_pod_parser *parser, va_lis
 			struct spa_pod_choice choice;
 
 			if (pod.type == SPA_TYPE_Choice && *format != 'V') {
-				if (spa_pod_body_get_choice(&pod, body, &choice, &body) < 0)
-					return -EINVAL;
+				spa_pod_body_get_choice(&pod, body, &choice, &body);
 				pod = choice.body.child;
 			}
 

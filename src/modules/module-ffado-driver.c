@@ -317,21 +317,21 @@ static inline void fix_midi_event(uint8_t *data, size_t size)
 
 static void midi_to_ffado(struct port *p, float *src, uint32_t n_samples)
 {
-	struct spa_pod *pod;
-	struct spa_pod_sequence *seq;
-	struct spa_pod_control *c;
+	struct spa_pod_parser parser;
+	struct spa_pod_frame frame;
+	struct spa_pod_sequence seq;
+	struct spa_pod_control c;
+	const void *seq_body, *c_body;
 	uint32_t i, index = 0, unhandled = 0;
 	uint32_t *dst = p->buffer;
 
 	if (src == NULL)
 		return;
 
-	if ((pod = spa_pod_from_data(src, n_samples * sizeof(float), 0, n_samples * sizeof(float))) == NULL)
+	spa_pod_parser_init_from_data(&parser, src, n_samples * sizeof(float),
+			0, n_samples * sizeof(float));
+	if (spa_pod_parser_push_sequence_body(&parser, &frame, &seq, &seq_body) < 0)
 		return;
-	if (!spa_pod_is_sequence(pod))
-		return;
-
-	seq = (struct spa_pod_sequence*)pod;
 
 	clear_port_buffer(p, n_samples);
 
@@ -342,20 +342,19 @@ static void midi_to_ffado(struct port *p, float *src, uint32_t n_samples)
 	}
 	p->event_pos = 0;
 
-	SPA_POD_SEQUENCE_FOREACH(seq, c) {
+	while (spa_pod_parser_get_control_body(&parser, &c, &c_body) >= 0) {
 		uint8_t data[16];
 		int j, size;
 
-		if (c->type != SPA_CONTROL_UMP)
+		if (c.type != SPA_CONTROL_UMP)
 			continue;
 
-		size = spa_ump_to_midi(SPA_POD_BODY(&c->value),
-				SPA_POD_BODY_SIZE(&c->value), data, sizeof(data));
+		size = spa_ump_to_midi(c_body, c.value.size, data, sizeof(data));
 		if (size <= 0)
 			continue;
 
-		if (index < c->offset)
-			index = SPA_ROUND_UP_N(c->offset, 8);
+		if (index < c.offset)
+			index = SPA_ROUND_UP_N(c.offset, 8);
 		for (j = 0; j < size; j++) {
 			if (index >= n_samples) {
 				/* keep events that don't fit for the next cycle */

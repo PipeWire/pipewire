@@ -252,9 +252,11 @@ static inline void fix_midi_event(uint8_t *data, size_t size)
 
 static void midi_to_jack(struct impl *impl, float *dst, float *src, uint32_t n_samples)
 {
-	struct spa_pod *pod;
-	struct spa_pod_sequence *seq;
-	struct spa_pod_control *c;
+	struct spa_pod_parser parser;
+	struct spa_pod_frame frame;
+	struct spa_pod_sequence seq;
+	struct spa_pod_control c;
+	const void *seq_body, *c_body;
 	int res;
 	bool in_sysex = false;
 	uint8_t tmp[n_samples * 4];
@@ -264,21 +266,18 @@ static void midi_to_jack(struct impl *impl, float *dst, float *src, uint32_t n_s
 	if (src == NULL)
 		return;
 
-	if ((pod = spa_pod_from_data(src, n_samples * sizeof(float), 0, n_samples * sizeof(float))) == NULL)
-		return;
-	if (!spa_pod_is_sequence(pod))
+	spa_pod_parser_init_from_data(&parser, src, n_samples * sizeof(float),
+			0, n_samples * sizeof(float));
+	if (spa_pod_parser_push_sequence_body(&parser, &frame, &seq, &seq_body) < 0)
 		return;
 
-	seq = (struct spa_pod_sequence*)pod;
-
-	SPA_POD_SEQUENCE_FOREACH(seq, c) {
+	while (spa_pod_parser_get_control_body(&parser, &c, &c_body) >= 0) {
 		int size;
 
-		if (c->type != SPA_CONTROL_UMP)
+		if (c.type != SPA_CONTROL_UMP)
 			continue;
 
-		size = spa_ump_to_midi(SPA_POD_BODY(&c->value),
-				SPA_POD_BODY_SIZE(&c->value), &tmp[tmp_size], sizeof(tmp) - tmp_size);
+		size = spa_ump_to_midi(c_body, c.value.size, &tmp[tmp_size], sizeof(tmp) - tmp_size);
 		if (size <= 0)
 			continue;
 
@@ -293,7 +292,7 @@ static void midi_to_jack(struct impl *impl, float *dst, float *src, uint32_t n_s
 			in_sysex = false;
 
 		if (!in_sysex) {
-			if ((res = jack.midi_event_write(dst, c->offset, tmp, tmp_size)) < 0)
+			if ((res = jack.midi_event_write(dst, c.offset, tmp, tmp_size)) < 0)
 				pw_log_warn("midi %p: can't write event: %s", dst,
 						spa_strerror(res));
 			tmp_size = 0;

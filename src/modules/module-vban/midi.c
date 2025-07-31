@@ -48,7 +48,8 @@ static void vban_midi_process_playback(void *data)
 			goto done;
 
 		/* the ringbuffer contains series of sequences, one for each
-		 * received packet */
+		 * received packet. This is not share mem so we can use the
+		 * iterator. */
 		SPA_POD_SEQUENCE_FOREACH((struct spa_pod_sequence*)pod, c) {
 #if 0
 			/* try to render with given delay */
@@ -218,9 +219,10 @@ static int vban_midi_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 }
 
 static void vban_midi_flush_packets(struct impl *impl,
-		struct spa_pod_sequence *sequence, uint32_t timestamp, uint32_t rate)
+		struct spa_pod_parser *parser, uint32_t timestamp, uint32_t rate)
 {
-	struct spa_pod_control *c;
+	struct spa_pod_control c;
+	const void *c_body;
 	struct vban_header header;
 	struct iovec iov[2];
 	uint32_t len;
@@ -234,15 +236,14 @@ static void vban_midi_flush_packets(struct impl *impl,
 
 	len = 0;
 
-	SPA_POD_SEQUENCE_FOREACH(sequence, c) {
+	while (spa_pod_parser_get_control_body(parser, &c, &c_body) >= 0) {
 		int size;
 		uint8_t event[16];
 
-		if (c->type != SPA_CONTROL_UMP)
+		if (c.type != SPA_CONTROL_UMP)
 			continue;
 
-		size = spa_ump_to_midi(SPA_POD_BODY(&c->value),
-				SPA_POD_BODY_SIZE(&c->value), event, sizeof(event));
+		size = spa_ump_to_midi(c_body, c.value.size, event, sizeof(event));
 		if (size <= 0)
 			continue;
 
@@ -275,18 +276,17 @@ static void vban_midi_process_capture(void *data)
 	struct impl *impl = data;
 	struct pw_buffer *buf;
 	struct spa_data *d;
-	uint32_t offs, size, timestamp, rate;
-	struct spa_pod *pod;
-	void *ptr;
+	uint32_t timestamp, rate;
+	struct spa_pod_parser parser;
+	struct spa_pod_frame frame;
+	struct spa_pod_sequence seq;
+	const void *seq_body;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
 		pw_log_debug("Out of stream buffers: %m");
 		return;
 	}
 	d = buf->buffer->datas;
-
-	offs = SPA_MIN(d[0].chunk->offset, d[0].maxsize);
-	size = SPA_MIN(d[0].chunk->size, d[0].maxsize - offs);
 
 	if (SPA_LIKELY(impl->io_position)) {
 		rate = impl->io_position->clock.rate.denom;
@@ -296,11 +296,9 @@ static void vban_midi_process_capture(void *data)
 		timestamp = 0;
 	}
 
-	ptr = SPA_PTROFF(d[0].data, offs, void);
-
-	if ((pod = spa_pod_from_data(ptr, size, 0, size)) == NULL)
-		goto done;
-	if (!spa_pod_is_sequence(pod))
+	spa_pod_parser_init_from_data(&parser, d[0].data, d[0].maxsize,
+			d[0].chunk->offset, d[0].chunk->size);
+	if (spa_pod_parser_push_sequence_body(&parser, &frame, &seq, &seq_body) < 0)
 		goto done;
 
 	if (!impl->have_sync) {
@@ -309,7 +307,7 @@ static void vban_midi_process_capture(void *data)
 		impl->have_sync = true;
 	}
 
-	vban_midi_flush_packets(impl, (struct spa_pod_sequence*)pod, timestamp, rate);
+	vban_midi_flush_packets(impl, &parser, timestamp, rate);
 
 done:
 	pw_stream_queue_buffer(impl->stream, buf);

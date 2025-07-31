@@ -32,6 +32,7 @@ struct impl {
 	lc3_decoder_t dec[LC3_MAX_CHANNELS];
 
 	int samplerate;
+	int codec_samplerate;
 	int channels;
 	int frame_dus;
 	int framelen;
@@ -321,7 +322,7 @@ static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 	uint8_t *data = caps;
 	const char *str;
 	uint16_t framelen[2];
-	uint16_t rate_mask = LC3_FREQ_48KHZ | LC3_FREQ_32KHZ | \
+	uint16_t rate_mask = LC3_FREQ_48KHZ | LC3_FREQ_44KHZ | LC3_FREQ_32KHZ | \
 				LC3_FREQ_24KHZ | LC3_FREQ_16KHZ | LC3_FREQ_8KHZ;
 	uint8_t duration_mask = LC3_DUR_ANY;
 	uint8_t channel_counts = LC3_CHAN_1 | LC3_CHAN_2;
@@ -957,6 +958,11 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 			spa_pod_builder_int(b, 48000);
 		spa_pod_builder_int(b, 48000);
 	}
+	if (conf.rate == LC3_CONFIG_FREQ_44KHZ) {
+		if (i++ == 0)
+			spa_pod_builder_int(b, 44100);
+		spa_pod_builder_int(b, 44100);
+	}
 	if (conf.rate == LC3_CONFIG_FREQ_32KHZ) {
 		if (i++ == 0)
 			spa_pod_builder_int(b, 32000);
@@ -1018,6 +1024,9 @@ static int codec_validate_config(const struct media_codec *codec, uint32_t flags
 	switch (conf.rate) {
 	case LC3_CONFIG_FREQ_48KHZ:
 		info->info.raw.rate = 48000U;
+		break;
+	case LC3_CONFIG_FREQ_44KHZ:
+		info->info.raw.rate = 44100U;
 		break;
 	case LC3_CONFIG_FREQ_32KHZ:
 		info->info.raw.rate = 32000U;
@@ -1144,6 +1153,10 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	this->channels = config_info.info.raw.channels;
 	this->framelen = conf.framelen;
 
+	/* Google liblc3 doesn't have direct support for encoding to 44.1kHz; instead
+	 * lc3.h suggests using a nearby samplerate, so we do just that */
+	this->codec_samplerate = (this->samplerate == 44100) ? 48000 : this->samplerate;
+
 	switch (conf.frame_duration) {
 	case LC3_CONFIG_DURATION_10:
 		this->frame_dus = 10000;
@@ -1159,7 +1172,7 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	spa_log_info(log_, "LC3 rate:%d frame_duration:%d channels:%d framelen:%d nblks:%d",
 			this->samplerate, this->frame_dus, this->channels, this->framelen, conf.n_blks);
 
-	res = lc3_frame_samples(this->frame_dus, this->samplerate);
+	res = lc3_frame_samples(this->frame_dus, this->codec_samplerate);
 	if (res < 0) {
 		spa_log_error(log_, "invalid LC3 frame samples");
 		res = -EINVAL;
@@ -1170,7 +1183,8 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 
 	if (!(flags & MEDIA_CODEC_FLAG_SINK)) {
 		for (ich = 0; ich < this->channels; ich++) {
-			this->enc[ich] = lc3_setup_encoder(this->frame_dus, this->samplerate, 0, calloc(1, lc3_encoder_size(this->frame_dus, this->samplerate)));
+			this->enc[ich] = lc3_setup_encoder(this->frame_dus, this->codec_samplerate, 0,
+					calloc(1, lc3_encoder_size(this->frame_dus, this->codec_samplerate)));
 			if (this->enc[ich] == NULL) {
 				res = -EINVAL;
 				goto error;
@@ -1178,7 +1192,8 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		}
 	} else {
 		for (ich = 0; ich < this->channels; ich++) {
-			this->dec[ich] = lc3_setup_decoder(this->frame_dus, this->samplerate, 0, calloc(1, lc3_decoder_size(this->frame_dus, this->samplerate)));
+			this->dec[ich] = lc3_setup_decoder(this->frame_dus, this->codec_samplerate, 0,
+					calloc(1, lc3_decoder_size(this->frame_dus, this->codec_samplerate)));
 			if (this->dec[ich] == NULL) {
 				res = -EINVAL;
 				goto error;
@@ -1230,7 +1245,7 @@ static uint64_t codec_get_interval(void *data)
 {
 	struct impl *this = data;
 
-	return (uint64_t)this->frame_dus * 1000;
+	return (uint64_t)this->samples * SPA_NSEC_PER_SEC / this->samplerate;
 }
 
 static int codec_abr_process (void *data, size_t unsent)
@@ -1396,6 +1411,9 @@ static int codec_get_bis_config(const struct media_codec *codec, uint8_t *caps,
 	switch (bap_bcast_qos_configs[index].rate) {
 	case LC3_CONFIG_FREQ_48KHZ:
 		data += write_ltv_uint8(data, LC3_TYPE_FREQ, LC3_CONFIG_FREQ_48KHZ);
+		break;
+	case LC3_CONFIG_FREQ_44KHZ:
+		data += write_ltv_uint8(data, LC3_TYPE_FREQ, LC3_CONFIG_FREQ_44KHZ);
 		break;
 	case LC3_CONFIG_FREQ_32KHZ:
 		data += write_ltv_uint8(data, LC3_TYPE_FREQ, LC3_CONFIG_FREQ_32KHZ);

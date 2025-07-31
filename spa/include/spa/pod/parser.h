@@ -535,7 +535,7 @@ SPA_API_POD_PARSER bool spa_pod_parser_body_can_collect(const struct spa_pod *po
 	if (pod->type == SPA_TYPE_Choice) {
 		if (!spa_pod_is_choice(pod))
 			return false;
-		if (type == 'V')
+		if (type == 'V' || type == 'W')
 			return true;
 		spa_pod_body_get_choice(pod, body, &choice, &body);
 		if (choice.body.type != SPA_CHOICE_None)
@@ -731,6 +731,10 @@ do {											\
 	case 'P':									\
 	case 'T':									\
 	case 'O':									\
+	case 'W':									\
+	case 'Q':									\
+	case 'U':									\
+	case 'N':									\
 		va_arg(args, void*);							\
 		break;									\
 	}										\

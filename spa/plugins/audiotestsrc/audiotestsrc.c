@@ -83,6 +83,7 @@ struct port {
 
 	struct spa_io_buffers *io;
 	struct spa_io_sequence *io_control;
+	uint32_t io_control_size;
 
 	bool have_format;
 	struct spa_audio_info current_format;
@@ -872,6 +873,7 @@ impl_node_port_set_io(void *object,
 		break;
 	case SPA_IO_Control:
 		port->io_control = data;
+		port->io_control_size = size;
 		break;
 	default:
 		return -ENOENT;
@@ -909,16 +911,24 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 	return 0;
 }
 
-static int process_control(struct impl *this, struct spa_pod_sequence *sequence)
+static int process_control(struct impl *this, struct spa_pod_sequence *sequence, uint32_t size)
 {
-	struct spa_pod_control *c;
+	struct spa_pod_parser parser;
+	struct spa_pod_frame frame;
+	struct spa_pod_sequence seq;
+	const void *seq_body, *c_body;
+	struct spa_pod_control c;
 
-	SPA_POD_SEQUENCE_FOREACH(sequence, c) {
-		switch (c->type) {
+	spa_pod_parser_init_from_data(&parser, sequence, size, 0, size);
+	if (spa_pod_parser_push_sequence_body(&parser, &frame, &seq, &seq_body) < 0)
+		return 0;
+
+	while (spa_pod_parser_get_control_body(&parser, &c, &c_body) >= 0) {
+		switch (c.type) {
 		case SPA_CONTROL_Properties:
 		{
 			struct props *p = &this->props;
-			spa_pod_parse_object(&c->value,
+			spa_pod_body_parse_object(&c.value, c_body,
 				SPA_TYPE_OBJECT_Props, NULL,
 				SPA_PROP_frequency, SPA_POD_OPT_Float(&p->freq),
 				SPA_PROP_volume,    SPA_POD_OPT_Float(&p->volume));
@@ -946,7 +956,7 @@ static int impl_node_process(void *object)
 		return -EIO;
 
 	if (port->io_control)
-		process_control(this, &port->io_control->sequence);
+		process_control(this, &port->io_control->sequence, port->io_control_size);
 
 	if (io->status == SPA_STATUS_HAVE_DATA)
 		return SPA_STATUS_HAVE_DATA;

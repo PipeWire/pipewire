@@ -85,6 +85,7 @@ struct port {
 	struct spa_port_info info = SPA_PORT_INFO_INIT();
 	struct spa_io_buffers *io = nullptr;
 	struct spa_io_sequence *control = nullptr;
+	uint32_t control_size;
 #define PORT_PropInfo	0
 #define PORT_EnumFormat	1
 #define PORT_Meta	2
@@ -895,7 +896,7 @@ int do_update_ctrls(struct spa_loop *loop,
 }
 
 int
-spa_libcamera_set_control(struct impl *impl, const struct spa_pod_prop *prop)
+spa_libcamera_set_control(struct impl *impl, const struct spa_pod_prop *prop, const void *body)
 {
 	const ControlInfoMap &info = impl->camera->controls();
 	const ControlId *ctrl_id;
@@ -918,16 +919,19 @@ spa_libcamera_set_control(struct impl *impl, const struct spa_pod_prop *prop)
 
 	switch (d.type) {
 	case ControlTypeBool:
-		if ((res = spa_pod_get_bool(&prop->value, &d.b_val)) < 0)
-			goto done;
+		if (!spa_pod_is_bool(&prop->value))
+			return -EINVAL;
+		spa_pod_body_get_bool(&prop->value, body, &d.b_val);
 		break;
 	case ControlTypeFloat:
-		if ((res = spa_pod_get_float(&prop->value, &d.f_val)) < 0)
-			goto done;
+		if (!spa_pod_is_float(&prop->value))
+			return -EINVAL;
+		spa_pod_body_get_float(&prop->value, body, &d.f_val);
 		break;
 	case ControlTypeInteger32:
-		if ((res = spa_pod_get_int(&prop->value, &d.i_val)) < 0)
-			goto done;
+		if (!spa_pod_is_int(&prop->value))
+			return -EINVAL;
+		spa_pod_body_get_int(&prop->value, body, &d.i_val);
 		break;
 	default:
 		res = -EINVAL;
@@ -1483,7 +1487,7 @@ int impl_node_set_param(void *object,
 				impl->device_id = device;
 				break;
 			default:
-				spa_libcamera_set_control(impl, prop);
+				spa_libcamera_set_control(impl, prop, SPA_POD_BODY_CONST(&prop->value));
 				break;
 			}
 		}
@@ -1949,6 +1953,7 @@ int impl_node_port_set_io(void *object,
 		break;
 	case SPA_IO_Control:
 		port->control = (struct spa_io_sequence*)data;
+		port->control_size = size;
 		break;
 	default:
 		return -ENOENT;
@@ -1976,20 +1981,31 @@ int impl_node_port_reuse_buffer(void *object,
 	return res;
 }
 
-int process_control(struct impl *impl, struct spa_pod_sequence *control)
+int process_control(struct impl *impl, struct spa_pod_sequence *control, uint32_t size)
 {
-	struct spa_pod_control *c;
+	struct spa_pod_parser parser[2];
+	struct spa_pod_frame frame[2];
+	struct spa_pod_sequence seq;
+	const void *seq_body, *c_body;
+	struct spa_pod_control c;
 
-	SPA_POD_SEQUENCE_FOREACH(control, c) {
-		switch (c->type) {
+	spa_pod_parser_init_from_data(&parser[0], control, size, 0, size);
+	if (spa_pod_parser_push_sequence_body(&parser[0], &frame[0], &seq, &seq_body) < 0)
+		return 0;
+
+	while (spa_pod_parser_get_control_body(&parser[0], &c, &c_body) >= 0) {
+		switch (c.type) {
 		case SPA_CONTROL_Properties:
 		{
-			const auto *obj = reinterpret_cast<spa_pod_object *>(&c->value);
-			const struct spa_pod_prop *prop;
+			struct spa_pod_object obj;
+			struct spa_pod_prop prop;
+			const void *obj_body, *prop_body;
 
-			SPA_POD_OBJECT_FOREACH(obj, prop) {
-				spa_libcamera_set_control(impl, prop);
-			}
+			if (spa_pod_parser_init_object_body(&parser[1], &frame[1],
+					&c.value, c_body, &obj, &obj_body) < 0)
+				continue;
+			while (spa_pod_parser_get_prop_body(&parser[1], &prop, &prop_body) >= 0)
+				spa_libcamera_set_control(impl, &prop, prop_body);
 			break;
 		}
 		default:
@@ -2014,7 +2030,7 @@ int impl_node_process(void *object)
 		return -EIO;
 
 	if (port->control)
-		process_control(impl, &port->control->sequence);
+		process_control(impl, &port->control->sequence, port->control_size);
 
 	spa_log_trace(impl->log, "%p; status %d", impl, io->status);
 

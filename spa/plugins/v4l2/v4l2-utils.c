@@ -1569,8 +1569,7 @@ done:
 }
 
 static int
-spa_v4l2_set_control(struct impl *this, uint32_t id,
-		       const struct spa_pod_prop *prop)
+spa_v4l2_set_control(struct impl *this, const struct spa_pod_prop *prop, const void *body)
 {
 	struct port *port = &this->out_ports[0];
 	struct spa_v4l2_device *dev = &port->dev;

@@ -113,6 +113,7 @@ struct port {
 	struct spa_port_info info;
 	struct spa_io_buffers *io;
 	struct spa_io_sequence *control;
+	uint32_t control_size;
 #define PORT_PropInfo	0
 #define PORT_EnumFormat	1
 #define PORT_Meta	2
@@ -403,7 +404,7 @@ static int impl_node_set_param(void *object,
 						sizeof(p->device)-1);
 				break;
 			default:
-				spa_v4l2_set_control(this, prop->key, prop);
+				spa_v4l2_set_control(this, prop, SPA_POD_BODY_CONST(&prop->value));
 				break;
 			}
 		}
@@ -863,6 +864,7 @@ static int impl_node_port_set_io(void *object,
 		break;
 	case SPA_IO_Control:
 		port->control = data;
+		port->control_size = size;
 		break;
 	default:
 		return -ENOENT;
@@ -890,20 +892,31 @@ static int impl_node_port_reuse_buffer(void *object,
 	return res;
 }
 
-static int process_control(struct impl *this, struct spa_pod_sequence *control)
+static int process_control(struct impl *this, struct spa_pod_sequence *control, uint32_t size)
 {
-	struct spa_pod_control *c;
+	struct spa_pod_parser parser[2];
+	struct spa_pod_frame frame[2];
+	struct spa_pod_sequence seq;
+	const void *seq_body, *c_body;
+	struct spa_pod_control c;
 
-	SPA_POD_SEQUENCE_FOREACH(control, c) {
-		switch (c->type) {
+	spa_pod_parser_init_from_data(&parser[0], control, size, 0, size);
+	if (spa_pod_parser_push_sequence_body(&parser[0], &frame[0], &seq, &seq_body) < 0)
+		return 0;
+
+	while (spa_pod_parser_get_control_body(&parser[0], &c, &c_body) >= 0) {
+		switch (c.type) {
 		case SPA_CONTROL_Properties:
 		{
-			struct spa_pod_prop *prop;
-			struct spa_pod_object *obj = (struct spa_pod_object *) &c->value;
+			struct spa_pod_object obj;
+			struct spa_pod_prop prop;
+			const void *obj_body, *prop_body;
 
-			SPA_POD_OBJECT_FOREACH(obj, prop) {
-				spa_v4l2_set_control(this, prop->key, prop);
-			}
+			if (spa_pod_parser_init_object_body(&parser[1], &frame[1],
+					&c.value, c_body, &obj, &obj_body) < 0)
+				continue;
+			while (spa_pod_parser_get_prop_body(&parser[1], &prop, &prop_body) >= 0)
+				spa_v4l2_set_control(this, &prop, prop_body);
 			break;
 		}
 		default:
@@ -928,7 +941,7 @@ static int impl_node_process(void *object)
 		return -EIO;
 
 	if (port->control)
-		process_control(this, &port->control->sequence);
+		process_control(this, &port->control->sequence, port->control_size);
 
 	spa_log_trace(this->log, "%p; status %d", this, io->status);
 

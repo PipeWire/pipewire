@@ -854,20 +854,25 @@ SPA_API_POD_PARSER int spa_pod_parser_get(struct spa_pod_parser *parser, ...)
 	_res;							\
 })
 
-#define spa_pod_parse_object(pod,type,id,...)			\
+#define spa_pod_body_parse_object(pod,body,type,id,...)		\
 ({								\
 	struct spa_pod_parser _p;				\
-	spa_pod_parser_pod(&_p, pod);				\
+	spa_pod_parser_init_pod_body(&_p, pod, body);		\
 	spa_pod_parser_get_object(&_p,type,id,##__VA_ARGS__);	\
 })
 
-#define spa_pod_parse_struct(pod,...)				\
+#define spa_pod_parse_object(pod,type,id,...)		\
+	spa_pod_body_parse_object(pod,SPA_POD_BODY_CONST(pod),type,id,##__VA_ARGS__)
+
+#define spa_pod_body_parse_struct(pod,body,...)			\
 ({								\
 	struct spa_pod_parser _p;				\
-	spa_pod_parser_pod(&_p, pod);				\
+	spa_pod_parser_init_pod_body(&_p, pod, body);		\
 	spa_pod_parser_get_struct(&_p,##__VA_ARGS__);		\
 })
 
+#define spa_pod_parse_struct(pod,...)		\
+	spa_pod_body_parse_struct(pod,SPA_POD_BODY_CONST(pod),##__VA_ARGS__)
 /**
  * \}
  */

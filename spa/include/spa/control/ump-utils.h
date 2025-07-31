@@ -48,7 +48,7 @@ SPA_API_CONTROL_UMP_UTILS size_t spa_ump_message_size(uint8_t message_type)
 	return ump_sizes[message_type & 0xf];
 }
 
-SPA_API_CONTROL_UMP_UTILS int spa_ump_to_midi(uint32_t *ump, size_t ump_size,
+SPA_API_CONTROL_UMP_UTILS int spa_ump_to_midi(const uint32_t *ump, size_t ump_size,
 		uint8_t *midi, size_t midi_maxsize)
 {
 	int size = 0;

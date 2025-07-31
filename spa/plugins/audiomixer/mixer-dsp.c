@@ -863,10 +863,7 @@ static int impl_clear(struct spa_handle *handle)
 
 	this = (struct impl *) handle;
 
-	spa_list_consume(port, &this->port_list, link) {
-		spa_list_remove(&port->link);
-		free(port);
-	}
+	spa_list_insert_list(&this->free_list, &this->port_list);
 	spa_list_consume(port, &this->free_list, link) {
 		spa_list_remove(&port->link);
 		free(port);

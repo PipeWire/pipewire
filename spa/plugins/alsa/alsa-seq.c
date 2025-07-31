@@ -177,7 +177,6 @@ static int uninit_stream(struct seq_state *state, enum spa_direction direction)
 {
 	struct seq_stream *stream = &state->streams[direction];
 	spa_list_insert_list(&state->free_list, &stream->port_list);
-	spa_list_insert_list(&state->free_list, &stream->mix_list);
 	if (stream->codec)
 		snd_midi_event_free(stream->codec);
 	stream->codec = NULL;

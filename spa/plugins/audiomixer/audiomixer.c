@@ -926,11 +926,11 @@ static int impl_clear(struct spa_handle *handle)
 	this = (struct impl *) handle;
 
 	spa_list_insert_list(&this->free_list, &this->port_list);
-	spa_list_insert_list(&this->free_list, &this->mix_list);
 	spa_list_consume(port, &this->free_list, link) {
 		spa_list_remove(&port->link);
 		free(port);
 	}
+	spa_list_init(&this->mix_list);
 	mix_ops_free(&this->ops);
 	return 0;
 }

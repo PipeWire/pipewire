@@ -766,32 +766,35 @@ static int flush_packet(struct impl *this)
 static int write_data(struct impl *this, struct spa_data *d)
 {
 	struct port *port = &this->ports[PORT_IN];
-	struct spa_pod_sequence *pod;
-	struct spa_pod_control *c;
+	struct spa_pod_parser parser;
+	struct spa_pod_frame frame;
+	struct spa_pod_sequence seq;
+	const void *seq_body, *c_body;
+	struct spa_pod_control c;
 	uint64_t time;
 	int res;
 
-	pod = spa_pod_from_data(d->data, d->maxsize, d->chunk->offset, d->chunk->size);
-	if (pod == NULL) {
+	spa_pod_parser_init_from_data(&parser, d->data, d->maxsize, d->chunk->offset, d->chunk->size);
+	if (spa_pod_parser_push_sequence_body(&parser, &frame, &seq, &seq_body) < 0) {
 		spa_log_warn(this->log, "%p: invalid sequence in buffer max:%u offset:%u size:%u",
 				this, d->maxsize, d->chunk->offset, d->chunk->size);
 		return -EINVAL;
 	}
 
+
 	spa_bt_midi_writer_init(&this->writer, port->mtu);
 	time = 0;
 
-	SPA_POD_SEQUENCE_FOREACH(pod, c) {
+	while (spa_pod_parser_get_control_body(&parser, &c, &c_body) >= 0) {
 		int size;
 		uint8_t event[32];
 
-		if (c->type != SPA_CONTROL_UMP)
+		if (c.type != SPA_CONTROL_UMP)
 			continue;
 
-		time = SPA_MAX(time, this->current_time + c->offset * SPA_NSEC_PER_SEC / this->rate);
+		time = SPA_MAX(time, this->current_time + c.offset * SPA_NSEC_PER_SEC / this->rate);
 
-		size = spa_ump_to_midi(SPA_POD_BODY(&c->value),
-				SPA_POD_BODY_SIZE(&c->value), event, sizeof(event));
+		size = spa_ump_to_midi(c_body, c.value.size, event, sizeof(event));
 		if (size <= 0)
 			continue;
 

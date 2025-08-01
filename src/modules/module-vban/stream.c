@@ -298,7 +298,7 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 		impl->header.format_bit = impl->format_info->format_bit;
 		if ((str = pw_properties_get(props, "sess.name")) == NULL)
 			str = "Stream1";
-		strcpy(impl->header.stream_name, str);
+		snprintf(impl->header.stream_name, sizeof(impl->header.stream_name), "%s", str);
 		break;
 	case SPA_MEDIA_SUBTYPE_control:
 		impl->stream_info = impl->info;
@@ -319,7 +319,7 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 		impl->header.format_bit = impl->format_info->format_bit;
 		if ((str = pw_properties_get(props, "sess.name")) == NULL)
 			str = "Midi1";
-		strcpy(impl->header.stream_name, str);
+		snprintf(impl->header.stream_name, sizeof(impl->header.stream_name), "%s", str);
 		break;
 	default:
 		spa_assert_not_reached();
